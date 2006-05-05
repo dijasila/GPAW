@@ -146,7 +146,7 @@ class WaveFunctions:
             nucleus.D_sp = D_sp # XXXXXXXXXXX
 
         for kpt in self.kpt_u:
-            kpt.create_atomic_orbitals(nao, nuclei)
+            kpt.create_atomic_orbitals(nao, nuclei, self.nbands)
 
     def calculate_occupation_numbers(self):
         """Calculate occupation numbers."""
@@ -207,6 +207,28 @@ class WaveFunctions:
         """Do RMM-DIIS update of wave functions."""
         for kpt in self.kpt_u:
             kpt.rmm_diis(pt_nuclei, self.preconditioner, self.kin, vt_sG)
+
+    def rmm_diis2(self, pt_nuclei, vt_sG):
+        """Do RMM-DIIS update of wave functions."""
+        for kpt in self.kpt_u:
+            kpt.rmm_diis2(pt_nuclei, self.preconditioner, self.kin, vt_sG)
+
+    def conjugate_gradient(self, pt_nuclei, vt_sG):
+        """Do conjugate gradients update of wave functions."""
+        for kpt in self.kpt_u:
+            kpt.cg(pt_nuclei, self.preconditioner, self.kin, vt_sG)
+
+    def davidson(self, pt_nuclei, vt_sG):
+        """Do Davidson update of wave functions."""
+        run_threaded([kpt.davidson_block(pt_nuclei, self.preconditioner, self.kin, vt_sG)
+                      for kpt in self.kpt_u])
+#        for kpt in self.kpt_u:
+#            kpt.davidson(pt_nuclei, self.preconditioner, self.kin, vt_sG)            
+
+    def davidson_simple(self, pt_nuclei, vt_sG):
+        """Do Davidson update of wave functions."""
+        run_threaded([kpt.davidson(pt_nuclei, self.preconditioner, self.kin, vt_sG)
+                      for kpt in self.kpt_u])
     
     def calculate_force_contribution(self, pt_nuclei, my_nuclei):
         """Calculate force-contribution from k-points."""

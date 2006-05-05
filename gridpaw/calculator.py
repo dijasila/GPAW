@@ -60,6 +60,7 @@ class Calculator:
                   'softgauss': True,
                   'order': 5,
                   'convergeall' : False,
+                  'eigensolver' : 'rmm_diis'
                   }
 
     def __init__(self, **kwargs):
@@ -117,6 +118,8 @@ class Calculator:
         print >> out, 'units:', lengthunit, 'and', energyunit
         self.a0 = Convert(1, 'Bohr', lengthunit)
         self.Ha = Convert(1, 'Hartree', energyunit)
+
+        print >> out, 'Eigensolver:', self.eigensolver
 
         self.reset()
 
@@ -238,6 +241,7 @@ class Calculator:
                 self.tolerance,
                 self.maxiter,
                 self.convergeall,
+                self.eigensolver,
                 self.parsize,
                 self.restart_file,
                 ]

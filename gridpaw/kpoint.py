@@ -3,7 +3,7 @@
 
 """This module defines a ``KPoint`` class."""
 
-from math import pi
+from math import pi, sqrt, atan2, cos, sin
 from cmath import exp
 
 import Numeric as num
@@ -16,6 +16,9 @@ from gridpaw.utilities import unpack
 from gridpaw.utilities.timing import Timer
 from gridpaw.operators import Gradient
 
+from RandomArray import random
+
+import sys
 
 class KPoint:
     """Class for a singel **k**-point.
@@ -308,7 +311,244 @@ class KPoint:
             self.psit_nG[n] += preconditioner(R_G, self.phase_cd,
                                               self.psit_nG[n], self.k_c)
 
-    def create_atomic_orbitals(self, nao, nuclei):
+    def rmm_diis2(self, pt_nuclei, preconditioner, kin, vt_sG):
+        """Improve the wave functions.
+
+        Take two steps along the preconditioned residuals.  Step
+        lengths are optimized for the first step and reused for the
+        seconf."""
+
+        Htpsi_G = self.gd.new_array(typecode=self.typecode)
+        Spsi_G = self.gd.new_array(typecode=self.typecode)
+
+        vt_G = vt_sG[self.s]
+        for n in range(self.nbands):
+            self.apply_h(pt_nuclei, kin, vt_sG, self.psit_nG[n], Htpsi_G)
+            e = real(num.vdot(self.psit_nG[n], Htpsi_G)) * self.gd.dv
+            print "eigs", e, self.eps_n[n]
+            self.apply_s(pt_nuclei, self.psit_nG[n], Spsi_G)
+#            nor = real(num.vdot(self.psit_nG[n], Spsi_G)) * self.gd.dv
+#            print "Norm", nor
+            R_G = Htpsi_G - self.eps_n[n] * Spsi_G
+#            R_G = Htpsi_G - self.eps_n[n] * self.psit_nG[n]
+#            R_G = num.zeros(Rfo_G.shape, self.typecode)
+#            for nucleus in pt_nuclei:
+#                nucleus.adjust_residual3(self.psit_nG[n], R_G, -self.eps_n[n],
+#                                         self.s, self.k)
+                
+            dR_G = num.zeros(R_G.shape, self.typecode)
+
+            pR_G = preconditioner(R_G, self.phase_cd, self.psit_nG[n],
+                                  self.k_c)
+            
+            kin.apply(pR_G, dR_G, self.phase_cd)
+
+            dR_G += vt_G * pR_G
+
+            dR_G -= self.eps_n[n] * pR_G
+
+            for nucleus in pt_nuclei:
+                nucleus.adjust_residual2(pR_G, dR_G, self.eps_n[n],
+                                         self.s, self.k)
+            
+            RdR = self.comm.sum(real(num.vdot(R_G, dR_G)))
+            dRdR = self.comm.sum(real(num.vdot(dR_G, dR_G)))
+            lam = -RdR / dRdR
+
+            R_G *= 2.0 * lam
+            axpy(lam**2, dR_G, R_G)
+##            R_G += lam**2 * dR_G
+            self.psit_nG[n] += preconditioner(R_G, self.phase_cd,
+                                              self.psit_nG[n], self.k_c)
+
+    def cg(self, pt_nuclei, preconditioner, kin, vt_sG):
+        """Conjugate gradient optimization of wave functions"""
+
+        niter = 2
+        phi_G = self.gd.new_array(typecode=self.typecode) #Update vector
+        phi_old_G = self.gd.new_array(typecode=self.typecode) #Old update vector
+        Htpsi_G = self.gd.new_array(typecode=self.typecode)
+        Spsi_G = self.gd.new_array(typecode=self.typecode)
+
+        for n in range(self.nbands):
+            gamma_old = 1.0
+            phi_old_G[:] = 0.0
+
+            for nit in range(niter):
+                self.apply_h(pt_nuclei, kin, vt_sG, self.psit_nG[n], Htpsi_G)
+                self.apply_s(pt_nuclei, self.psit_nG[n], Spsi_G)
+                R_G = Htpsi_G - self.eps_n[n] * Spsi_G
+#                pR_G = R_G[:]
+                pR_G = preconditioner(R_G, self.phase_cd, self.psit_nG[n],
+                                  self.k_c)
+                #orthonorm ???
+                self.apply_s(pt_nuclei, pR_G, Spsi_G)
+                for nn in range(n):
+                    ov = self.comm.sum(num.vdot(self.psit_nG[nn],Spsi_G)*self.gd.dv)
+                    pR_G -= self.psit_nG[n] * ov
+                    
+                gamma = self.comm.sum(real(num.vdot(pR_G, R_G)))
+                phi_G = -pR_G + gamma/gamma_old * phi_old_G
+                gamma_old = gamma
+                phi_old_G = phi_G[:]
+
+                #orthonorm. phi to current band:
+                self.apply_s(pt_nuclei, phi_G, Spsi_G)
+                ov = self.comm.sum(num.vdot(self.psit_nG[n],Spsi_G)*self.gd.dv)
+#                ov = self.comm.sum(num.vdot(phi_G,Spsi_G)*self.gd.dv)
+                phi_G = phi_G - self.psit_nG[n] * ov
+# why is phi -= different from phi = phi - ??
+                norm2 = self.comm.sum(real(num.vdot(phi_G,phi_G))*self.gd.dv)
+                phi_G /= sqrt(norm2)
+
+                #find optimum lin. comb of psi and f
+                a = self.eps_n[n]
+                b = self.comm.sum(real(num.vdot(phi_G,Htpsi_G)))*self.gd.dv
+                self.apply_h(pt_nuclei, kin, vt_sG, phi_G, Htpsi_G)
+                c = self.comm.sum(real(num.vdot(phi_G,Htpsi_G)))*self.gd.dv
+                theta = 0.5*atan2(2*b, a-c)
+                #theta can correspond either to maximum or minimum of e:
+                enew = a*cos(theta)**2 + c*sin(theta)**2 + b*sin(2.0*theta) 
+                if ( enew - self.eps_n[n] ) > 0.00: #we were at maximum                    
+                    theta += pi/2.0
+                    enew = a*cos(theta)**2 + c*sin(theta)**2+b*sin(2.0*theta)
+#                print "eigs", enew
+                self.eps_n[n] = enew
+                self.psit_nG[n] = cos(theta) * self.psit_nG[n] + sin(theta) * phi_G
+                
+    def davidson_block(self, pt_nuclei, preconditioner, kin, vt_sG):
+        """Block davidson optimization of wave functions
+           The algorithm is similar to the one in Dacapo, in each iteration
+           the eigenvalues are optimized in nbands + nblock subspace consisting
+           of current wave functions and nblock preconditioned residuals """
+
+        niter = 2
+        nblock = min(self.nbands, 4)
+        nsub_max = self.nbands + niter * nblock
+        psitemp = self.gd.new_array(nsub_max , self.typecode)
+        hpsitemp = self.gd.new_array(nsub_max, self.typecode)
+        spsitemp = self.gd.new_array(nsub_max, self.typecode)
+        Hf_nn = num.zeros((nsub_max, nsub_max), self.typecode)
+        Sf_nn = num.zeros((nsub_max, nsub_max), self.typecode) 
+        eps_n = num.zeros(nsub_max, num.Float)
+
+        #initial hpsi and spsi
+        psitemp[:self.nbands] = self.psit_nG[:]
+        for n in range(self.nbands):
+            self.apply_h(pt_nuclei, kin, vt_sG, self.psit_nG[n], hpsitemp[n])
+            self.apply_s(pt_nuclei, self.psit_nG[n], spsitemp[n])
+
+        ndone = 0
+        while ndone < self.nbands:
+            nstart = ndone
+            nend = min(nstart + nblock, self.nbands)
+            block_size = nend - nstart
+
+            psitemp[self.nbands:]= 0.0
+            hpsitemp[self.nbands:] = 0.0
+            spsitemp[self.nbands:] = 0.0
+            for nit in range(niter):
+                for nbl in range(block_size):
+                    R_G = hpsitemp[nstart + nbl] - self.eps_n[nstart + nbl] * spsitemp[nstart + nbl]
+                    pR_G = preconditioner(R_G, self.phase_cd, self.psit_nG[nstart + nbl],
+                                          self.k_c)
+                    norm2 = self.comm.sum(real(num.vdot(pR_G,pR_G))*self.gd.dv)
+                    pR_G /= sqrt(norm2)
+                    psitemp[self.nbands + nit * block_size + nbl] = pR_G
+                    self.apply_h(pt_nuclei, kin, vt_sG,pR_G, hpsitemp[self.nbands + nit * block_size + nbl])
+                    self.apply_s(pt_nuclei, pR_G, spsitemp[self.nbands + nit * block_size + nbl])
+
+                nsub = self.nbands + (nit + 1) * block_size
+#                H_nn = Hf_nn[:nsub,:nsub]
+#                S_nn = Sf_nn[:nsub,:nsub]
+                H_nn = num.zeros((nsub, nsub), self.typecode)
+                S_nn = num.zeros((nsub, nsub), self.typecode) 
+                r2k(0.5 * self.gd.dv, psitemp[:nsub], hpsitemp[:nsub], 0.0, H_nn)
+                r2k(0.5 * self.gd.dv, psitemp[:nsub], spsitemp[:nsub], 0.0, S_nn)
+
+                self.comm.sum(H_nn, self.root)
+                self.comm.sum(S_nn, self.root)
+
+                yield None
+        
+                if self.comm.rank == self.root:
+                    info = diagonalize(H_nn, eps_n, S_nn)
+                    if info != 0:
+                        print "Diagonlize returned", info
+                        raise RuntimeError, 'Very Bad!!'
+        
+                yield None
+        
+                self.comm.broadcast(H_nn, self.root)
+                self.comm.broadcast(eps_n, self.root)
+
+                self.eps_n[:] = eps_n[:self.nbands]
+#                print "eigs", self.eps_n
+                temp = num.array(psitemp)
+                gemm(1.0, temp, H_nn, 0.0, psitemp)
+                self.psit_nG[:] = psitemp[:self.nbands]
+
+                temp[:] = hpsitemp
+                gemm(1.0, temp, H_nn, 0.0, hpsitemp)
+                temp[:] = spsitemp
+                gemm(1.0, temp, H_nn, 0.0, spsitemp)
+
+            ndone += block_size
+
+            yield None
+
+
+    def davidson(self, pt_nuclei, preconditioner, kin, vt_sG):
+        """Simple davidson optimization of wave functions"""
+
+        psitemp = self.gd.new_array(2 * self.nbands, self.typecode)
+        hpsitemp = self.gd.new_array(2 * self.nbands, self.typecode)
+        spsitemp = self.gd.new_array(2 * self.nbands, self.typecode)
+        H_nn = num.zeros((2 * self.nbands, 2 * self.nbands), self.typecode)
+        S_nn = num.zeros((2 * self.nbands, 2 * self.nbands), self.typecode) 
+        eps_n = num.zeros(2 * self.nbands, num.Float)
+
+        psitemp[:self.nbands] = self.psit_nG[:]
+
+        dR_G = num.zeros(self.Htpsit_nG.shape, self.typecode)
+
+        for n in range(self.nbands):
+            R_G = self.Htpsit_nG[n]
+            pR_G = preconditioner(R_G, self.phase_cd, self.psit_nG[n],
+                                  self.k_c)
+            psitemp[n + self.nbands] = pR_G[:]
+            self.apply_h(pt_nuclei, kin, vt_sG, self.psit_nG[n], hpsitemp[n])
+            self.apply_s(pt_nuclei, self.psit_nG[n], spsitemp[n])
+            self.apply_h(pt_nuclei, kin, vt_sG, pR_G, hpsitemp[n + self.nbands])
+            self.apply_s(pt_nuclei, pR_G, spsitemp[n + self.nbands])
+
+        r2k(0.5 * self.gd.dv, psitemp, hpsitemp, 0.0, H_nn)
+        r2k(0.5 * self.gd.dv, psitemp, spsitemp, 0.0, S_nn)
+
+        self.comm.sum(H_nn, self.root)
+        self.comm.sum(S_nn, self.root)
+
+        yield None
+        
+        if self.comm.rank == self.root:
+            info = diagonalize(H_nn, eps_n, S_nn)
+            if info != 0:
+                raise RuntimeError, 'Very Bad!!'
+        
+        yield None
+        
+        self.comm.broadcast(H_nn, self.root)
+        self.comm.broadcast(eps_n, self.root)
+        
+#        print "eigs", self.eps_n, eps_n[:self.nbands]
+        self.eps_n[:] = eps_n[:self.nbands]
+        temp = num.array(psitemp)
+        gemm(1.0, temp, H_nn, 0.0, psitemp)
+        self.psit_nG[:] = psitemp[:self.nbands]
+
+        yield None
+
+    def create_atomic_orbitals(self, nao, nuclei, nbands):
         """Initialize the wave functions from atomic orbitals.
 
         Create ``nao`` atomic orbitals."""
@@ -318,11 +558,40 @@ class KPoint:
         self.allocate(nao)
         self.psit_nG = self.gd.new_array(nao, self.typecode)
         self.Htpsit_nG = self.gd.new_array(nao, self.typecode)
+
+        if False:
+            self.psit_nG[:] = random(self.psit_nG.shape)
+        else:
+            # fill in the atomic orbitals:
+            nao0 = 0
+            for nucleus in nuclei:
+                nao1 = nao0 + nucleus.get_number_of_atomic_orbitals()
+                nucleus.create_atomic_orbitals(self.psit_nG[nao0:nao1], self.k)
+                nao0 = nao1
+            assert nao0 == nao
+            # Fill remaining bands with random numbers...
+            # if nao < nbands:
+            #    extra = nbands - nao
+            #    shape = (extra,) + self.psit_nG[0].shape
+            #    print 'Making random wfs', shape
+            #    self.psit_nG[nao:] = random(shape)
+
+
+    def apply_h(self, pt_nuclei, kin, vt_sG, psit, Htpsi):
+        """Applies the Hamiltonian to the wave function psi"""
+
+        Htpsi[:] = 0.0
+        kin.apply(psit, Htpsi, self.phase_cd)
+        Htpsi += psit * vt_sG[self.s]
         
-        # fill in the atomic orbitals:
-        nao0 = 0
-        for nucleus in nuclei:
-            nao1 = nao0 + nucleus.get_number_of_atomic_orbitals()
-            nucleus.create_atomic_orbitals(self.psit_nG[nao0:nao1], self.k)
-            nao0 = nao1
-        assert nao0 == nao
+        for nucleus in pt_nuclei:
+            #apply the non-local part
+            nucleus.apply_hamiltonian(psit, Htpsi, self.s, self.k)
+
+    def apply_s(self, pt_nuclei, psit, Spsi):
+        """Applies the overlap operator to the wave function psi"""
+
+        Spsi[:] = psit[:]
+        for nucleus in pt_nuclei:
+            #apply the non-local part
+            nucleus.apply_overlap(psit, Spsi, self.k)

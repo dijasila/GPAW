@@ -359,6 +359,51 @@ class Nucleus:
         else:
             self.pt_i.add(dR_G, None, k, communicate=True)
 
+    def adjust_residual3(self, pR_G, dR_G, eps, s, k):
+        if self.in_this_domain:
+            ni = self.get_number_of_partial_waves()
+            dP_i = num.zeros(ni, self.typecode)
+            self.pt_i.integrate(pR_G, dP_i, k)
+        else:
+            self.pt_i.integrate(pR_G, None, k)
+
+        if self.in_this_domain:
+            coefs_i = (num.dot(dP_i * eps, self.setup.O_ii))
+            self.pt_i.add(dR_G, coefs_i, k, communicate=True)
+        else:
+            self.pt_i.add(dR_G, None, k, communicate=True)
+
+
+    def apply_hamiltonian(self, psit_G, Htpsi_G, s, k):
+        if self.in_this_domain:
+            ni = self.get_number_of_partial_waves()
+            P_i = num.zeros(ni, self.typecode)
+            self.pt_i.integrate(psit_G, P_i, k)
+        else:
+            self.pt_i.integrate(psit_G, None, k)
+
+        if self.in_this_domain:
+            H_ii = unpack(self.H_sp[s])
+            coefs_i = (num.dot(P_i, H_ii))
+            self.pt_i.add(Htpsi_G, coefs_i, k, communicate=True)
+        else:
+            self.pt_i.add(Htpsi_G, None, k, communicate=True)
+
+    def apply_overlap(self, psit_G, Spsi_G, k):
+        if self.in_this_domain:
+            ni = self.get_number_of_partial_waves()
+            P_i = num.zeros(ni, self.typecode)
+            self.pt_i.integrate(psit_G, P_i, k)
+        else:
+            self.pt_i.integrate(psit_G, None, k)
+
+        if self.in_this_domain:
+            coefs_i = (num.dot(P_i, self.setup.O_ii))
+            self.pt_i.add(Spsi_G, coefs_i, k, communicate=True)
+        else:
+            self.pt_i.add(Spsi_G, None, k, communicate=True)
+        
+
     def symmetrize(self, D_aii, map_sa, s):
         D_ii = self.setup.symmetrize(self.a, D_aii, map_sa)
         self.D_sp[s] = pack(D_ii)

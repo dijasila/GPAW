@@ -123,7 +123,7 @@ class Paw:
                  nvalence, nbands, nspins, kT,
                  typecode, bzk_kc, ibzk_kc, weights_k,
                  order, usesymm, mix, old, fixdensity, maxiter, idiotproof,
-                 convergeall,
+                 convergeall, eigensolver,
                  # Parallel stuff:
                  myspins,
                  myibzk_kc,
@@ -182,6 +182,8 @@ class Paw:
                                 typecode, kT / Ha,
                                 bzk_kc, ibzk_kc, weights_k,
                                 myspins, myibzk_kc, myweights_k, kpt_comm)
+
+        self.set_eigensolver(eigensolver)
 
         self.locfuncbcaster = LocFuncBroadcaster(kpt_comm)
         
@@ -330,6 +332,19 @@ class Paw:
                 out = DownTheDrain()
         self.out = out
 
+    def set_eigensolver(self, eigensolver):
+        """Set the iterative solver for the eigenproblem"""
+        if eigensolver == "rmm_diis":
+            self.eigensolver = self.wf.rmm_diis
+        elif eigensolver == "cg":
+            self.eigensolver = self.wf.conjugate_gradient
+        elif eigensolver == "dav":
+            self.eigensolver = self.wf.davidson
+        elif eigensolver == "dav2":
+            self.eigensolver = self.wf.davidson_simple            
+        else:
+            raise RuntimeError('Unknown eigensolver!')
+
     def get_total_energy(self, force_consistent):
         """Return total energy.
 
@@ -477,7 +492,10 @@ class Paw:
             self.niter < self.maxiter
             and not sigusr1[0]):
             self.timer.start('SD')
-            wf.rmm_diis(self.pt_nuclei, self.vt_sG)
+            self.eigensolver(self.pt_nuclei, self.vt_sG)
+#            wf.rmm_diis(self.pt_nuclei, self.vt_sG)
+#            wf.rmm_diis2(self.pt_nuclei, self.vt_sG)
+#            wf.conjugate_gradient(self.pt_nuclei, self.vt_sG)
             self.timer.stop('SD')
         else:
             self.converged = True
