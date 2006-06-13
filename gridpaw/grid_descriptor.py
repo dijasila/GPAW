@@ -103,15 +103,21 @@ class GridDescriptor:
         self.h_c = domain.cell_c / N_c
         self.dv = self.h_c[0] * self.h_c[1] * self.h_c[2]
 
-    def new_array(self, n=None, typecode=num.Float, zero=True):
+    def new_array(self, n=None, typecode=num.Float, zero=True,
+                  global_array=False):
         """Return new 3D array for this domain.
 
         The array will be zeroed unless ``zero=False`` is used.  The
         type can be set with the ``typecode`` keyword (default:
-        ``Float``).  An extra dimension can be added with
-        ``n=dim``."""
+        ``float``).  An extra dimension can be added with ``n=dim``.
+        A global array spanning all domains can be allocated with
+        ``global_array=True``."""
 
-        shape = self.n_c
+        if global_array:
+            shape = self.N_c
+        else:
+            shape = self.n_c
+            
         if n is not None:
             shape = (n,) + tuple(shape)
             
@@ -375,7 +381,7 @@ class GridDescriptor:
                         r += 1
             return B_g
 
-    def distribute(self,B_g,b_g):
+    def distribute(self, B_g, b_g):
         """ distribute full array B_g to subdomains, result in
         b_g. b_g must be allocated."""
 
@@ -441,10 +447,11 @@ class GridDescriptor:
         ref1: Thygesen et al, PRB 2005)
 
         """
+
         nbands = len(psit_nG)
         Z_nn = num.zeros((nbands, nbands), num.Complex)
         shape = (nbands, -1)
-        
+
         for g in range(self.n_c[c]):
 
             if c == 0:
@@ -474,7 +481,6 @@ class GridDescriptor:
             Z_nn += e * num.dot(cc(A_nG), num.transpose(B_nG))
             
         self.comm.sum(Z_nn, MASTER)
-
  
         #                __        __      __
         #        ~      \         2||  a  \     a  a    a  *

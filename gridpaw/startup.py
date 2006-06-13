@@ -16,6 +16,7 @@ def create_paw_object(out, a0, Ha,
                       pos_ac, Z_a, magmom_a, cell_c, bc_c, angle,
                       h, N_c, xcname,
                       nbands, spinpol, kT,
+                      charge,
                       bzk_kc,
                       softgauss, order, usesymm, mix, old, fixdensity,
                       idiotproof, hund, lmax, tolerance,maxiter,
@@ -84,6 +85,7 @@ def create_paw_object(out, a0, Ha,
         symmetry = None
         weights_k = [1.0]
         ibzk_kc = num.zeros((1, 3), num.Float)
+        nkpts = 1
         print >> out, 'Gamma-point calculation'
     else:
         typecode = num.Complex
@@ -95,11 +97,11 @@ def create_paw_object(out, a0, Ha,
         if symmetry is not None:
             symmetry.print_symmetries(out)
 
-        n = len(ibzk_kc)
+        nkpts = len(ibzk_kc)
         print >> out
         print >> out, (('%d k-point%s in the irreducible part of the ' +
                        'Brillouin zone (total: %d)') %
-                       (n, ' s'[1:n], len(bzk_kc)))
+                       (nkpts, ' s'[1:nkpts], len(bzk_kc)))
         print >> out
 
     if usesymm and symmetry is not None:
@@ -117,6 +119,7 @@ def create_paw_object(out, a0, Ha,
     nvalence = 0
     for nucleus in nuclei:
         nvalence += nucleus.setup.get_number_of_valence_electrons()
+    nvalence -= int(charge-.9999999)
 
     if nbands is None:
         # Default value for number of bands:
@@ -126,22 +129,18 @@ def create_paw_object(out, a0, Ha,
 
     # Get the local number of spins and k-points, and return a
     # domain_comm and kpt_comm for this processor:
-    myspins, myibzk_kc, myweights_k, domain_comm, kpt_comm = \
-             distribute_kpoints_and_spins(nspins, ibzk_kc, weights_k)
+    domain_comm, kpt_comm = distribute_kpoints_and_spins(nspins, nkpts)
 
     domain.set_decomposition(domain_comm, parsize_c, N_c)
 
     # We now have all the parameters needed to construct a PAW object:
     paw = Paw(a0, Ha,
               setups, nuclei, domain, N_c, symmetry, xcfunc,
-              nvalence, nbands, nspins, kT,
+              nvalence, charge, nbands, nspins, kT,
               typecode, bzk_kc, ibzk_kc, weights_k,
               order, usesymm, mix, old, fixdensity, maxiter, idiotproof,
               convergeall=convergeall, eigensolver=eigensolver,
               # Parallel stuff:
-              myspins=myspins,
-              myibzk_kc=myibzk_kc,
-              myweights_k=myweights_k,
               kpt_comm=kpt_comm,
               out=out)
 
@@ -149,7 +148,7 @@ def create_paw_object(out, a0, Ha,
     if restart_file is None:
         paw.initialize_density_and_wave_functions(hund, magmom_a)
     else:
-        paw.initialize_from_netcdf(restart_file)
+        paw.initialize_from_file(restart_file)
         
     paw.set_convergence_criteria(tolerance)
     return paw

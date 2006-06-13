@@ -15,15 +15,15 @@ from gridpaw.sphere import Y_nL, points, weights
    __  2    \       L  2  \    \        L  2
   (\/n) = (  ) Y  --- )  + ) (  )  n  --- )
             /__ L dr      /__  /__  L dr
-                                        i
-             L            i=1    L 
+                                        c
+             L            c=1    L 
 
 
         dY
           L
   A   = --- r
-   Li   dr
-          i
+   Lc   dr
+          c
 
 """
 

@@ -12,85 +12,9 @@ from gridpaw.read_setup import PAWXMLParser
 from gridpaw.gaunt import gaunt as G_L1L2L
 from gridpaw.spline import Spline
 from gridpaw.grid_descriptor import RadialGridDescriptor
-from gridpaw.utilities import unpack, erf, fac
+from gridpaw.utilities import unpack, erf, fac, hartree
 from gridpaw.xc_atom import XCAtom
 from gridpaw.xc_functional import XCOperator
-
-
-#                       l
-#             __  __   r
-#     1      \   4||    <   * ^    ^
-#   ------ =  )  ---- ---- Y (r)Y (r),
-#    _ _     /__ 2l+1  l+1  lm   lm
-#   |r-r'|    lm      r
-#                      >
-# where
-#
-#   r = min(r, r')
-#    <
-#
-# and
-#
-#   r = max(r, r')
-#    >
-
-
-class Hartree:
-    #
-    #     2
-    # 1  d        l(l + 1)         __
-    # - ---(vr) - -------- v = - 4 || n
-    # r   2           2
-    #   dr           r
-    #
-    #   2        2
-    #  d        d g  dr 2 d        l(l + 1)  dr 2          __      dr 2 
-    # ---(vr) + --- (--)  --(vr) - -------- (--)  vr = - 4 || n r (--)
-    #   2         2  dg   dg           2     dg                    dg
-    # dg        dr                    r
-    #
-    def __init__(self, a1_g, a2_lg, a3_g, r_g, dr_g):
-        self.a1_g = a1_g
-        self.a2_lg = a2_lg
-        self.a3_g = a3_g
-        self.r_g = r_g
-        self.dr_g = dr_g
-
-    def solve(self, n_g, l):
-        # for N = 6:
-        #
-        # vr_5 = 0
-        #
-        # | a1_0 a2_0 a3_0   0    0  |   | vr_0 |   | c_1 |
-        # |   0  a1_1 a2_1 a3_1   0  |   | vr_1 |   | c_2 |
-        # |   0    0  a1_2 a2_2 a3_2 | * | vr_2 | = | c_3 |
-        # |   0    0    0  a1_3 a2_3 |   | vr_3 |   | c_4 |
-        # |   0    0    0    0  a1_4 |   | vr_4 |   | c_5 |
-        #               __
-        #             4 || Q   1
-        # v  <--  v + ------- ----
-        #             2 l + 1  l+1
-        #                     r
-        #
-        gcut = len(n_g)
-        Q = num.dot(self.r_g**(2 + l) * self.dr_g, n_g)
-##        print 'Q:', Q
-        c_g = -4 * pi * self.r_g * self.dr_g**2 * n_g
-        vr_g = num.zeros(gcut, num.Float)
-        g = gcut - 2
-        vr_g[g] = (c_g[g + 1] - self.a2_lg[l, g] * vr_g[g + 1]) / self.a1_g[g]
-        while g > 0:
-            g -= 1
-            vr_g[g] = (c_g[g + 1]
-                      - self.a2_lg[l, g] * vr_g[g + 1]
-                      - self.a3_g[g] * vr_g[g + 2]) / self.a1_g[g]
-
-        if l == 0:
-            vr_g += 4 * pi * Q
-        else:
-            vr_g[1:] += 4 * pi * Q / (2 * l + 1) * self.r_g[1:]**-l
-        return vr_g * self.r_g * self.dr_g
-
 
 class Setup:
     def __init__(self, symbol, xcfunc, lmax=0, nspins=1, softgauss=True):
@@ -104,8 +28,8 @@ class Setup:
          e_kinetic_core,
          n_j, l_j, f_j, eps_j, rcut_j, id_j,
          ng, beta,
-         nc_g, nct_g, vbar0, gamma,
-         phi_jg, phit_jg, G_jn,
+         nc_g, nct_g, vbar_g, gamma,
+         phi_jg, phit_jg, pt_jg,
          e_kin_jj, X_p, ExxC,
          self.fingerprint,
          filename) = PAWXMLParser().parse(symbol, xcname)
@@ -132,13 +56,6 @@ class Setup:
         r_g = beta * g / (ng - g)
         dr_g = beta * ng / (ng - g)**2
         d2gdr2 = -2 * ng * beta / (beta + r_g)**3
-
-        pt_jg = num.zeros((nj, ng), num.Float)
-        for j in range(nj):
-            x = r_g / rcut_j[j]
-            for n, c in enumerate(G_jn[j]):
-                pt_jg[j, :gcut2] += (c * r_g[:gcut2]**(l_j[j] + 2 * n) *
-                                         num.exp(-gamma * x[:gcut2]**2))
 
         if 0:
             for j in range(nj):
@@ -194,12 +111,9 @@ class Setup:
         Lmax = (lmax + 1)**2
         
         # Construct splines:
-        self.nct = Spline(0, rcore, f_g=nct_g, r_g=r_g, beta=beta)
-        vbar_g = num.zeros(ng, num.Float)
-        x = r_g / rcut
-        vbar_g[:gcut2] = vbar0 * num.exp(-gamma * x[:gcut2]**2)
-        self.vbar = Spline(0, rcut2, coefs=[vbar0], alpha=gamma / rcut**2)
-        
+        self.nct = Spline(0, rcore, nct_g, r_g=r_g, beta=beta)
+        self.vbar = Spline(0, rcut2, vbar_g, r_g=r_g, beta=beta)
+
         def grr(phi_g, l, r_g):
             w_g = phi_g.copy()
             if l > 0:
@@ -210,14 +124,10 @@ class Setup:
             return w_g
         
         self.pt_j = []
-        for j, G_n in enumerate(G_jn):
+        for j in range(nj):
             l = l_j[j]
-            if 0:
-                self.pt_j.append(Spline(l, rcut2, f_g=grr(pt_g, l, r_g),
-                                        r_g=r_g, beta=beta))
-            else:
-                self.pt_j.append(Spline(l, rcut2, coefs=G_n,
-                                        alpha=gamma / rcut**2))
+            self.pt_j.append(Spline(l, rcut2, grr(pt_jg[j], l, r_g),
+                                    r_g=r_g, beta=beta))
      
         cutoff = 8.0 # ????????
         self.wtLCAO_j = []
@@ -225,15 +135,8 @@ class Setup:
             if f_j[j] > 0:
                 l = l_j[j]
                 self.wtLCAO_j.append(Spline(l, cutoff,
-                                            f_g=grr(phit_g, l, r_g),
+                                            grr(phit_g, l, r_g),
                                             r_g=r_g, beta=beta))
-
-        a1_g = 1.0 - 0.5 * (d2gdr2 * dr_g**2)[1:gcut2 + 1]
-        a2_lg = -2.0 * num.ones((lmax + 1, gcut2), num.Float)
-        x_g = (dr_g[1:gcut2 + 1] / r_g[1:gcut2 + 1])**2
-        for l in range(1, lmax + 1):
-            a2_lg[l] -= l * (l + 1) * x_g
-        a3_g = 1.0 + 0.5 * (d2gdr2 * dr_g**2)[1:gcut2 + 1]
 
         r_g = r_g[:gcut2].copy()
         dr_g = dr_g[:gcut2].copy()
@@ -288,11 +191,16 @@ class Setup:
         Delta = num.dot(nc_g - nct_g, r_g**2 * dr_g) - Z / sqrt(4 * pi)
         self.Delta0 = Delta
 
-        H = Hartree(a1_g, a2_lg, a3_g, r_g, dr_g).solve
+        def H(n_g, l):
+            yrrdr_g = num.zeros(gcut2, num.Float)
+            nrdr_g = n_g * r_g * dr_g
+            hartree(l, nrdr_g, beta, ng, yrrdr_g)
+            yrrdr_g *= r_g * dr_g
+            return yrrdr_g
         
         wnc_g = H(nc_g, l=0)
         wnct_g = H(nct_g, l=0)
-
+        
         wg_lg = [H(g_lg[l], l) for l in range(lmax + 1)]
 
         wn_lqg = [num.array([H(n_qg[q], l) for q in range(nq)])
@@ -324,26 +232,26 @@ class Setup:
         AB_q = -num.dot(nt_qg, dv_g * vbar_g)
         self.MB_p = num.dot(AB_q, T_Lqp[0])
 
-        A_lq1q2 = []
+        A_lqq = []
         for l in range(lmax + 1):
-            A_q1q2 = 0.5 * num.dot(n_qg, num.transpose(wn_lqg[l]))
-            A_q1q2 -= 0.5 * num.dot(nt_qg, num.transpose(wnt_lqg[l]))
-            A_q1q2 -= 0.5 * num.outerproduct(Delta_lq[l],
+            A_qq = 0.5 * num.dot(n_qg, num.transpose(wn_lqg[l]))
+            A_qq -= 0.5 * num.dot(nt_qg, num.transpose(wnt_lqg[l]))
+            A_qq -= 0.5 * num.outerproduct(Delta_lq[l],
                                             num.dot(wnt_lqg[l], g_lg[l]))
-            A_q1q2 -= 0.5 * num.outerproduct(num.dot(nt_qg, wg_lg[l]),
+            A_qq -= 0.5 * num.outerproduct(num.dot(nt_qg, wg_lg[l]),
                                             Delta_lq[l])
-            A_q1q2 -= 0.5 * num.dot(g_lg[l], wg_lg[l]) * \
+            A_qq -= 0.5 * num.dot(g_lg[l], wg_lg[l]) * \
                       num.outerproduct(Delta_lq[l], Delta_lq[l])
-            A_lq1q2.append(A_q1q2)
-
+            A_lqq.append(A_qq)
+        
         self.M_pp = num.zeros((np, np), num.Float)
         L = 0
         for l in range(lmax + 1):
             for m in range(2 * l + 1):
                 self.M_pp += num.dot(num.transpose(T_Lqp[L]),
-                                    num.dot(A_lq1q2[l], T_Lqp[L]))
+                                    num.dot(A_lqq[l], T_Lqp[L]))
                 L += 1
-
+        
         # Make a radial grid descriptor:
         rgd = RadialGridDescriptor(r_g, dr_g)
 
@@ -362,7 +270,7 @@ class Setup:
 
         # Dont forget to change the onsite interaction energy for soft = 0 XXX
         if softgauss:
-            rcutsoft = rcut2 + 1.4
+            rcutsoft = rcut2####### + 1.4
         else:
             rcutsoft = rcut2
 
@@ -389,11 +297,13 @@ class Setup:
         self.lmax = lmax
 
         r = 0.02 * rcutsoft * num.arange(51, typecode=num.Float)
+##        r = 0.04 * rcutsoft * num.arange(26, typecode=num.Float)
         alpha = rcgauss**-2
         self.alpha = alpha
         if softgauss:
             assert lmax <= 2
             alpha2 = 22.0 / rcutsoft**2
+            alpha2 = 15.0 / rcutsoft**2
 
             vt0 = 4 * pi * (num.array([erf(x) for x in sqrt(alpha) * r]) -
                             num.array([erf(x) for x in sqrt(alpha2) * r]))
@@ -423,11 +333,11 @@ class Setup:
             for l in range(lmax + 1):
                 vtl = vt_l[l]
                 vtl[-1] = 0.0
-                self.Deltav_l.append(Spline(l, rcutsoft, f_g=vtl))
+                self.Deltav_l.append(Spline(l, rcutsoft, vtl))
 
         else:
             alpha2 = alpha
-            self.Deltav_l = [Spline(l, rcutsoft, f_g=0 * r)
+            self.Deltav_l = [Spline(l, rcutsoft, 0 * r)
                              for l in range(lmax + 1)]
 
         self.alpha2 = alpha2
@@ -436,7 +346,7 @@ class Setup:
                for l in range(3)]
         g = alpha2**1.5 * num.exp(-alpha2 * r**2)
         g[-1] = 0.0
-        self.gt_l = [Spline(l, rcutsoft, f_g=d_l[l] * alpha2**l * g)
+        self.gt_l = [Spline(l, rcutsoft, d_l[l] * alpha2**l * g)
                      for l in range(lmax + 1)]
 
         # Construct atomic density matrix for the ground state (to be
@@ -492,9 +402,6 @@ class Setup:
 
     def get_number_of_partial_waves(self):
         return self.ni
-    
-    def get_number_of_derivatives(self):
-        return self.nk
     
     def get_recommended_grid_spacing(self):
         return 0.4 # self.h ???  XXXXXXXXXXXX

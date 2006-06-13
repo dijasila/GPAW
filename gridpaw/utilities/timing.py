@@ -93,6 +93,7 @@ class Timer:
             else:
                 bar = '|%s|' % ('=' * (i - 1))
             print >> out, '%-*s%9.3f %5.1f%% %s' % (n, name + ':', t, p, bar)
+        print >> out, '%-*s%9.3f' % (n, 'PAW tot' + ':', tot)
 
     def add(self, timer):
         for name, t in timer.timers.items():

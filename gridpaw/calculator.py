@@ -15,11 +15,8 @@ import weakref
 
 import Numeric as num
 from ASE.Units import units, Convert
-try:
-    from ASE.Trajectories.NetCDFTrajectory import NetCDFTrajectory
-except ImportError:
-    print "No Netcdf installed"
 from ASE.Utilities.MonkhorstPack import MonkhorstPack
+import ASE
 
 from gridpaw.utilities import DownTheDrain, check_unit_cell
 from gridpaw.mpi_paw import MPIPaw
@@ -27,6 +24,7 @@ from gridpaw.startup import create_paw_object
 from gridpaw.version import version
 import gridpaw.utilities.timing as timing
 import gridpaw
+import gridpaw.io
 
 
 class Calculator:
@@ -95,7 +93,7 @@ class Calculator:
         # Set default parameters and adjust with user parameters:
         self.Set(**Calculator.parameters)
         self.Set(**kwargs)
-
+        
         out = self.out
         print >> out
         print >> out, '  ___ ___ ___ _ _ _  '
@@ -111,6 +109,7 @@ class Calculator:
         print >> out, 'Arch:', uname[4]
         print >> out, 'Pid: ', os.getpid()
         print >> out, 'Dir: ', os.path.dirname(gridpaw.__file__)
+        print >> out, 'ASE: ', os.path.dirname(ASE.__file__)
         print >> out
 
         lengthunit = units.GetLengthUnit()
@@ -228,6 +227,7 @@ class Calculator:
                 pos_ac, Z_a, magmoms, cell_c, periodic_c, angle,
                 self.h, self.gpts, self.xc,
                 self.nbands, self.spinpol, self.width,
+                self.charge,
                 self.bzk_kc,
                 self.softgauss,
                 self.order,
@@ -396,22 +396,13 @@ class Calculator:
         self.update()
         return self.paw.get_xc_difference(xcname)
 
-    def Write(self, filename):
-        """Write current state to a netCDF file."""
-        traj = NetCDFTrajectory(filename, self.atoms())
-
-        # Write the atoms:
-        traj.Update()
-
-        # Dig out the netCDF file:
-        nc = traj.nc
-
-        nc.history = 'gridpaw restart file'
-        nc.version = version
-
-        traj.Close()
-        self.paw.write_netcdf(filename)
-
+    def Write(self, filename, mode='all'):
+        """Write current state to file."""
+        pos_ac = self.atoms().GetCartesianPositions()
+        magmom_a = self.atoms().GetMagneticMoments()
+        tag_a = self.atoms().GetTags()
+        self.paw.write_state_to_file(filename, pos_ac, magmom_a, tag_a, mode)
+        
     def GetNumberOfIterations(self):
         """Return the number of SCF iterations."""
         return self.paw.niter
@@ -465,11 +456,9 @@ class Calculator:
     # Alternative name:
     GetKPoints = GetIBZKPoints
  
-    def GetExactExchange(self, decompose=False, wannier=False,
-                         ewald=True, method='recip', calc=None):
+    def GetExactExchange(self, decompose=False, method=None):
         """Return non-selfconsistent value of exact exchange"""
-        return self.Ha * self.paw.get_exact_exchange(decompose, wannier,
-                                                     ewald, method, calc)
+        return self.Ha * self.paw.get_exact_exchange(decompose, method)
     
     def GetXCEnergy(self):
         return self.paw.Exc * self.Ha
@@ -487,7 +476,8 @@ class Calculator:
 
     def GetWaveFunctionArray(self, band=0, kpt=0, spin=0):
         """Return pseudo-wave-function array."""
-        return self.paw.get_wave_function_array(band, kpt, spin)
+        c =  1.0 / self.a0**1.5
+        return self.paw.get_wave_function_array(band, kpt, spin) * c
 
     def GetWannierLocalizationMatrix(self, G_I,kpoint,nextkpoint,spin,
                                      dirG, **args):
@@ -512,44 +502,67 @@ class Calculator:
     
     # @staticmethod  # (Python 2.4 style)
     def ReadAtoms(filename, **overruling_kwargs):
-        """Read state from a netCDF file."""
-        traj = NetCDFTrajectory(filename)
-        atoms = traj.GetListOfAtoms()
-        nc = traj.nc
-        vars = nc.variables
-        dims = nc.dimensions
+        """Read state from file."""
 
-        kwargs = {'nbands':      dims['nbands'],
-                  'xc':          nc.XCFunctional,
-                  'kpts':        num.array(vars['BZKPoints']),
-                  'spinpol':     (dims['nspins'] == 2),
-                  'gpts':        (dims['ngptsx'],
-                                  dims['ngptsy'],
-                                  dims['ngptsz']),
-                  'usesymm':     nc.UseSymmetry[0],
-                  'width':       nc.FermiWidth[0],
-                  'mix':         nc.Mix[0],
-                  'old':         nc.Old[0],
-                  'lmax':        nc.MaximumAngularMomentum[0],
-                  'softgauss':   nc.SoftGauss[0],
-                  'fixdensity':  nc.FixDensity[0],
-                  'idiotproof':  nc.IdiotProof[0],
-                  'tolerance':   nc.Tolerance[0]}
+        a0 = Convert(1, 'Bohr', units.GetLengthUnit())
+        Ha = Convert(1, 'Hartree', units.GetEnergyUnit())
+
+        r = gridpaw.io.open(filename, 'r')
+        
+        kwargs = {'nbands':      r.dimension('nbands'),
+                  'xc':          r['XCFunctional'],
+                  'kpts':        r.get('BZKPoints'),
+                  'spinpol':     (r.dimension('nspins') == 2),
+                  'gpts':        (r.dimension('ngptsx'),
+                                  r.dimension('ngptsy'),
+                                  r.dimension('ngptsz')),
+                  'usesymm':     bool(r['UseSymmetry']),  # numpy!
+                  'width':       r['FermiWidth'] * Ha,
+                  'mix':         r['Mix'],
+                  'old':         r['Old'],
+                  'lmax':        r['MaximumAngularMomentum'],
+                  'softgauss':   bool(r['SoftGauss']),  # numpy!
+                  'fixdensity':  bool(r['FixDensity']),  # numpy!
+                  'idiotproof':  bool(r['IdiotProof']),  # numpy!
+                  'tolerance':   r['Tolerance']}
         
         kwargs.update(overruling_kwargs)
         calc = Calculator(**kwargs)
 
-        # Get the forces from the old calculation:
-        F_ac = atoms.GetCartesianForces()
-        
+        Z_a = r.get('AtomicNumbers')
+        pos_ac = r.get('CartesianPositions') * a0
+        periodic_c = r.get('BoundaryConditions')
+        cell_cc = r.get('UnitCell') * a0
+        atoms = ASE.ListOfAtoms([ASE.Atom(Z=Z,
+                                          position=pos,
+                                          magmom=magmom,
+                                          tag=tag)
+                                 for Z, pos, magmom, tag in
+                                 zip(Z_a,
+                                     pos_ac,
+                                     r.get('MagneticMoments'),
+                                     r.get('Tags'))],
+                                periodic=periodic_c,
+                                cell=cell_cc)
+
         atoms.SetCalculator(calc)
 
         # Wave functions and other stuff will be read from 'filename'
         # later, when requiered:
         calc.restart_file = filename
         calc.initialize_paw_object()
-        calc.paw.set_forces(F_ac)
+
+        # Get the forces from the old calculation:
+        calc.paw.set_forces(r.get('CartesianForces'))
+
+        r.close()
+
         calc.lastcount = atoms.GetCount()
+        calc.Z_a = Z_a
+        calc.pos_ac = pos_ac
+        calc.periodic_c = periodic_c
+        calc.cell_c = cell_cc
+        
         return atoms
 
     # Make ReadAtoms a static method:

@@ -4,7 +4,7 @@ import Numeric as num
 
 from gridpaw.kpoint import KPoint
 from gridpaw.utilities.complex import cc, real
-from gridpaw.utilities import run_threaded, pack, unpack2
+from gridpaw.utilities import pack, unpack2
 from gridpaw.operators import Laplace
 import gridpaw.occupations as occupations
 from gridpaw.preconditioner import Preconditioner
@@ -56,7 +56,7 @@ class WaveFunctions:
     def __init__(self, gd, nvalence, nbands, nspins,
                  typecode, kT,
                  bzk_kc, ibzk_kc, weights_k,
-                 myspins, myibzk_kc, myweights_k, kpt_comm):
+                 kpt_comm):
         """Construct wave-function object.
 
         Parameters:
@@ -89,21 +89,23 @@ class WaveFunctions:
         self.typecode = typecode
         self.bzk_kc = bzk_kc
         self.ibzk_kc = ibzk_kc
-        self.myibzk_kc = myibzk_kc
-        self.myspins = myspins
         self.weights_k = weights_k
         self.kpt_comm = kpt_comm
-        
+
         self.nkpts = len(ibzk_kc)
-        self.nmykpts = len(myibzk_kc)
+
+        # Total number of k-point/spin combinations:
+        nu = self.nkpts * nspins
+        
+        # Number of k-point/spin combinations on this cpu:
+        self.nmyu = nu / kpt_comm.size
 
         self.kpt_u = []
-        u = 0
-        for s in myspins: 
-            for k, k_c in enumerate(myibzk_kc):
-                weight = myweights_k[k] * 2 / nspins
-                self.kpt_u.append(KPoint(gd, weight, s, k, u, k_c, typecode))
-                u += 1
+        for u in range(self.nmyu):
+            s, k = divmod(kpt_comm.rank * self.nmyu + u, self.nkpts)
+            weight = weights_k[k] * 2 / nspins
+            k_c = ibzk_kc[k]
+            self.kpt_u.append(KPoint(gd, weight, s, k, u, k_c, typecode))
         
         # Kinetic energy operator:
         self.kin = Laplace(gd, -0.5, 2, typecode)
@@ -142,7 +144,7 @@ class WaveFunctions:
         for nucleus in my_nuclei:
             # XXX already allocated once, but with wrong size!!!
             D_sp = nucleus.D_sp # XXXXXXXXXXX
-            nucleus.allocate(self.nspins, self.nmykpts, nao)
+            nucleus.allocate(self.nspins, self.nmyu, nao)
             nucleus.D_sp = D_sp # XXXXXXXXXXX
 
         for kpt in self.kpt_u:
@@ -180,14 +182,13 @@ class WaveFunctions:
             for nucleus in pt_nuclei:
                 nucleus.calculate_projections(kpt)
 
-        run_threaded([kpt.orthonormalize(my_nuclei) for kpt in self.kpt_u])
+        for kpt in self.kpt_u:
+            kpt.orthonormalize(my_nuclei)
 
-    def diagonalize(self, vt_sG, my_nuclei):
+    def diagonalize(self, vt_sG, my_nuclei, exx):
         """Apply Hamiltonian and do subspace diagonalization."""
-##        for kpt in self.kpt_u:
-##            kpt.diagonalize(self.kin, vt_sG, my_nuclei, self.nbands)
-        run_threaded([kpt.diagonalize(self.kin, vt_sG, my_nuclei, self.nbands)
-                      for kpt in self.kpt_u])
+        for kpt in self.kpt_u:
+            kpt.diagonalize(self.kin, vt_sG, my_nuclei, self.nbands, exx)
 
     def sum_eigenvalues(self):
         """Sum up all eigenvalues weighted with occupation numbers."""
@@ -220,15 +221,13 @@ class WaveFunctions:
 
     def davidson(self, pt_nuclei, vt_sG):
         """Do Davidson update of wave functions."""
-        run_threaded([kpt.davidson_block(pt_nuclei, self.preconditioner, self.kin, vt_sG)
-                      for kpt in self.kpt_u])
-#        for kpt in self.kpt_u:
-#            kpt.davidson(pt_nuclei, self.preconditioner, self.kin, vt_sG)            
+        for kpt in self.kpt_u:
+            kpt.davidson_block(pt_nuclei, self.preconditioner, self.kin, vt_sG)
 
     def davidson_simple(self, pt_nuclei, vt_sG):
         """Do Davidson update of wave functions."""
-        run_threaded([kpt.davidson(pt_nuclei, self.preconditioner, self.kin, vt_sG)
-                      for kpt in self.kpt_u])
+        for kpt in self.kpt_u:
+            kpt.davidson(pt_nuclei, self.preconditioner, self.kin, vt_sG)
     
     def calculate_force_contribution(self, pt_nuclei, my_nuclei):
         """Calculate force-contribution from k-points."""
@@ -273,8 +272,7 @@ class WaveFunctions:
 
     def print_eigenvalues(self, out, Ha):
         """Print eigenvalues and occupation numbers."""
-        if (self.kpt_comm.size > 1 or
-            self.kpt_comm.size * self.nmykpts / self.nspins > 1):
+        if self.nkpts > 1 or self.kpt_comm.size > 1:
             # not implemented yet:
             return
         

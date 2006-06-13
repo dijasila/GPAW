@@ -1,4 +1,4 @@
-import pickle
+import cPickle as pickle
 import socket
 import StringIO
 
@@ -14,8 +14,7 @@ from gridpaw.utilities import DownTheDrain
 MASTER = 0
 
 
-"""Start a PAW calculation and listen for commands send through a
-socket."""
+"""Start a PAW calculation and listen for commands sent through a socket."""
 
 
 class SocketStringIO(StringIO.StringIO):
@@ -24,7 +23,7 @@ class SocketStringIO(StringIO.StringIO):
         self.sckt = sckt
 
     def flush(self):
-        send(self.sckt, pickle.dumps(('output', self.getvalue())))
+        send(self.sckt, pickle.dumps(('output', self.getvalue()), -1))
         self.truncate(0)
 
 
@@ -62,7 +61,7 @@ def run(host,port):
             if mpi.rank == MASTER:
                 obj = getattr(paw, attr)
                 assert type(obj) in [float, int, bool, num.ArrayType]
-                send(sckt, pickle.dumps(obj))
+                send(sckt, pickle.dumps(obj, -1))
             continue
 
         # We need to call a method:
@@ -71,7 +70,7 @@ def run(host,port):
         method = getattr(paw, attr)
         result = method(*args, **kwargs)
         if mpi.rank == MASTER:
-            string = pickle.dumps(('result', result))
+            string = pickle.dumps(('result', result), -1)
             send(sckt, string)
 
     # Done!
@@ -88,6 +87,6 @@ def run(host,port):
     cputime = mpi.world.sum(clock(), MASTER)
 
     if mpi.rank == MASTER:
-        send(sckt, pickle.dumps(cputime))
+        send(sckt, pickle.dumps(cputime, -1))
 
         sckt.close()

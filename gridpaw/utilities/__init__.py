@@ -38,12 +38,54 @@ def is_contiguous(array, typecode=None):
 
 
 # Radial-grid Hartree solver:
+#
+#                       l
+#             __  __   r
+#     1      \   4||    <   * ^    ^
+#   ------ =  )  ---- ---- Y (r)Y (r'),
+#    _ _     /__ 2l+1  l+1  lm   lm
+#   |r-r'|    lm      r
+#                      >
+# where
+#
+#   r = min(r, r')
+#    <
+#
+# and
+#
+#   r = max(r, r')
+#    >
+#
 if debug:
-    def hartree(l, nrdr, a, vr):
+    def hartree(l, nrdr, beta, N, vr):
+        """Calculates radial Coulomb integral.
+
+        The following integral is calculated::
+        
+                                      ^
+                             n (r')Y (r')
+                  ^    / _    l     lm
+          v (r)Y (r) = |dr --------------,
+           l    lm     /       _   _
+                              |r - r'|
+
+        where input and output arrays `nrdr` and `vr`::
+
+                  dr
+          n (r) r --  and  v (r) r,
+           l      dg        l
+
+        are defined on radial grids as::
+
+              beta g
+          r = ------,  g = 0, 1, ..., N - 1.
+              N - g
+
+        """
         assert is_contiguous(nrdr, num.Float)
         assert is_contiguous(vr, num.Float)
         assert nrdr.shape == vr.shape and len(vr.shape) == 1
-        return _gridpaw.hartree(l, nrdr, a, vr)
+        return _gridpaw.hartree(l, nrdr, beta, N, vr)
 else:
     hartree = _gridpaw.hartree
 
@@ -111,22 +153,6 @@ class OutputFilter:
 
 """
 
-def run_threaded(tasks):
-    """Run list of tasks in small steps.
-
-    Given a list of ``tasks`` (generators), take one step in each and
-    repeat that until each generator is one.  This function is used
-    for parallelization by running different tasks in separate
-    threads."""
-
-    try:
-        while True:
-            for task in tasks:
-                task.next()
-    except StopIteration:
-        pass
-
-
 def warning(msg):
     r"""Put string in a box.
 
@@ -160,4 +186,3 @@ def center(atoms):
 # Function used by test-suite:
 def equal(a, b, e=0):
     assert abs(a - b) <= e, '%f != %f (error: %f > %f)' % (a, b, abs(a - b), e)
-

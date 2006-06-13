@@ -21,12 +21,16 @@ from gridpaw.wf import WaveFunctions
 from gridpaw.xc_functional import XCOperator, XCFunctional
 from gridpaw.localized_functions import LocFuncBroadcaster
 import gridpaw.utilities.mpi as mpi
-from gridpaw import netcdf
 from gridpaw import output
-from parallel import get_parallel_info_s_k
+from gridpaw.exx import get_exx
+import gridpaw.io
 
 
 MASTER = 0
+
+
+class ConvergenceError(Exception):
+    pass
 
 
 class Paw:
@@ -120,14 +124,11 @@ class Paw:
     
     def __init__(self, a0, Ha,
                  setups, nuclei, domain, N_c, symmetry, xcfunc,
-                 nvalence, nbands, nspins, kT,
+                 nvalence, charge, nbands, nspins, kT,
                  typecode, bzk_kc, ibzk_kc, weights_k,
                  order, usesymm, mix, old, fixdensity, maxiter, idiotproof,
                  convergeall, eigensolver,
                  # Parallel stuff:
-                 myspins,
-                 myibzk_kc,
-                 myweights_k,
                  kpt_comm,
                  out):
         """
@@ -140,8 +141,10 @@ class Paw:
 
         self.timer = Timer()
 
+        self.timer.start('init')
         self.a0 = a0  # Bohr and ...
         self.Ha = Ha  # Hartree units are used internally
+        self.charge = charge
         self.setups = setups
         self.nuclei = nuclei
         self.domain = domain
@@ -181,7 +184,7 @@ class Paw:
         self.wf = WaveFunctions(self.gd, nvalence, nbands, nspins,
                                 typecode, kT / Ha,
                                 bzk_kc, ibzk_kc, weights_k,
-                                myspins, myibzk_kc, myweights_k, kpt_comm)
+                                kpt_comm)
 
         self.set_eigensolver(eigensolver)
 
@@ -192,10 +195,11 @@ class Paw:
 
         # Interpolation function for the density:
         self.interpolate = Interpolator(self.gd, order, num.Float).apply
+        
         # Restrictor function for the potential:
         self.restrict = Restrictor(self.finegd, order, num.Float).apply
 
-        # Solver for the posisson equation:
+        # Solver for the poisson equation:
         self.poisson = PoissonSolver(self.finegd, out)
    
         # Density mixer:
@@ -218,6 +222,13 @@ class Paw:
         self.tolerance = 100000000000.0
         
         output.print_info(self)
+        self.timer.stop('init')
+
+        # exact-exchange functional object:
+        self.exx = get_exx(self.xcfunc.xcname, self.nuclei[0].setup.softgauss,
+                           typecode, self.gd, self.finegd, self.poisson,
+                           self.interpolate, self.restrict,
+                           self.my_nuclei, self.ghat_nuclei)
 
     def set_positions(self, pos_ac):
         """Update the positions of the atoms.
@@ -226,16 +237,17 @@ class Paw:
         have to be computed again.  Neighbor list is updated and the
         array holding all the pseudo core densities is updated."""
         
+        self.timer.start('init')
         movement = False
         for nucleus, pos_c in zip(self.nuclei, pos_ac):
             spos_c = self.domain.scale_position(pos_c)
             if num.sometrue(spos_c != nucleus.spos_c):
                 movement = True
                 nucleus.move(spos_c, self.gd, self.finegd,
-                             self.wf.myibzk_kc, self.locfuncbcaster,
+                             self.wf.ibzk_kc, self.locfuncbcaster,
                              self.domain,
                              self.my_nuclei, self.pt_nuclei, self.ghat_nuclei,
-                             self.wf.nspins, self.wf.nmykpts, self.wf.nbands)
+                             self.wf.nspins, self.wf.nmyu, self.wf.nbands)
         
         if movement:
             self.converged = False
@@ -269,6 +281,7 @@ class Paw:
                 symbol = self.nuclei[a].setup.symbol
                 print >> self.out, '%3d %2s %8.4f%8.4f%8.4f' % \
                       ((a, symbol) + tuple(self.a0 * pos_c))
+        self.timer.stop('init')
 
     def initialize_density_and_wave_functions(self, hund, magmom_a,
                                               density=True,
@@ -281,10 +294,11 @@ class Paw:
         be constructed with the specified magnetic moments and
         obeying Hund's rules if ``hund`` is true."""
         
+        self.timer.start('init')
         output.plot_atoms(self)
         
         for nucleus in self.nuclei:
-            nucleus.initialize_atomic_orbitals(self.gd, self.wf.myibzk_kc,
+            nucleus.initialize_atomic_orbitals(self.gd, self.wf.ibzk_kc,
                                                self.locfuncbcaster)
         self.locfuncbcaster.broadcast()
 
@@ -312,6 +326,7 @@ class Paw:
             self.wf.occupation = FixMom(self.wf.occupation.ne, self.nspins, M)
 
         self.converged = False
+        self.timer.stop('init')
         
     def set_convergence_criteria(self, tol):
         """Set convergence criteria.
@@ -393,7 +408,7 @@ class Paw:
             out.flush()
             self.niter += 1
             if self.niter > 120:
-                raise RuntimeError('Did not converge!')
+                raise ConvergenceError('Did not converge!')
 
         output.print_converged(self)
 
@@ -402,29 +417,17 @@ class Paw:
 
         wf = self.wf
 
-        from netcdf import NetCDFWaveFunction
-        if isinstance(wf.kpt_u[0].psit_nG, NetCDFWaveFunction):
-            assert self.niter == 0
-            # Calculation started from a NetCDF restart file.
-            # Allocate array for wavefunctions and copy data from the
-            # NetCDFWaveFunction class
-            u = 0
-            for s in range(len(wf.myspins)):
-                for k in range(wf.nmykpts):
-                    kpt = wf.kpt_u[u]
-                    tmp_nG = kpt.psit_nG
-                    kpt.psit_nG = kpt.gd.new_array(wf.nbands, wf.typecode)
-                    kpt.Htpsit_nG = kpt.gd.new_array(wf.nbands, wf.typecode)
 
-                    # distribute band by band to save memory
-                    for n in range(wf.nbands):
-                        kpt.gd.distribute(tmp_nG[n], kpt.psit_nG[n])
+        if type(wf.kpt_u[0].psit_nG) is not num.arraytype:
+            assert self.niter == 0 and not mpi.parallel
 
-                    u += 1
+            # Calculation started from a restart file.  Allocate array
+            # for wavefunctions and copy data from the file:
+            for kpt in wf.kpt_u:
+                kpt.psit_nG = kpt.psit_nG[:]
+                kpt.Htpsit_nG = kpt.gd.new_array(wf.nbands, wf.typecode)
                     
             self.calculate_multipole_moments()
-
-                    
                     
         elif self.niter == 0:
             # We don't have any occupation numbers.  The initial
@@ -432,21 +435,24 @@ class Paw:
             # or from a restart file.  We scale the density to match
             # the compensation charges.
 
+            self.timer.start('init')
             self.calculate_multipole_moments()
             Q = 0.0
             for nuclei in self.my_nuclei:
                 Q += nuclei.Q_L[0]
             Q = sqrt(4 * pi) * self.domain.comm.sum(Q)
-
             Nt = self.gd.integrate(self.nt_sG)
             # Nt + Q must be zero:
             x = -Q / Nt
             assert 0.83 < x < 1.17, 'x=%f' % x
             self.nt_sG *= x
-        
+            self.timer.stop('init')        
+
+        self.timer.start('orthogonalize')
         wf.calculate_projections_and_orthogonalize(self.pt_nuclei,
                                                    self.my_nuclei)
-
+        self.timer.stop('orthogonalize')
+        self.timer.start('calc. density')
         if self.niter > 0:
             if not self.fixdensity:
                 wf.calculate_electron_density(self.nt_sG, self.nct_G,
@@ -462,12 +468,14 @@ class Paw:
         # Transfer the density to the fine grid:
         for s in range(self.nspins):
             self.interpolate(self.nt_sG[s], self.nt_sg[s])
-
+        self.timer.stop('calc. density')
         self.calculate_potential()
 
         self.calculate_atomic_hamiltonians()
-
-        wf.diagonalize(self.vt_sG, self.my_nuclei)
+                
+        self.timer.start('subspace diag.')
+        wf.diagonalize(self.vt_sG, self.my_nuclei, self.exx)
+        self.timer.stop('subspace diag.')
 
         if self.niter == 0:
             for nucleus in self.my_nuclei:
@@ -485,8 +493,14 @@ class Paw:
         self.Exc = dsum(self.Exc)
         self.Etot = self.Ekin + self.Epot + self.Ebar + self.Exc - self.S
 
+        self.timer.start('calc. residuals')
         self.error = dsum(wf.calculate_residuals(self.pt_nuclei,
                                                  self.convergeall))
+        self.timer.stop('calc. residuals')
+
+        if self.niter == -10:
+            for nn in range(5):
+                wf.conjugate_gradient(self.pt_nuclei, self.vt_sG)
 
         if (self.error > self.tolerance and
             self.niter < self.maxiter
@@ -505,7 +519,7 @@ class Paw:
 
     def calculate_atomic_hamiltonians(self):
         """Calculate atomic hamiltonians."""
-        self.timer.start('atham')
+        self.timer.start('atomic hamilt.')
         nt_sg = self.nt_sg
         if self.nspins == 2:
             nt_g = nt_sg[0] + nt_sg[1]
@@ -518,7 +532,7 @@ class Paw:
             self.Epot += p
             self.Ebar += b
             self.Exc += x
-        self.timer.stop('atham')
+        self.timer.stop('atomic hamilt.')
 
     def calculate_multipole_moments(self):
         """Calculate multipole moments."""
@@ -564,7 +578,14 @@ class Paw:
         for nucleus in self.ghat_nuclei:
             nucleus.add_compensation_charge(self.rhot_g)
         
-        assert abs(self.finegd.integrate(self.rhot_g)) < 0.2
+        if self.niter==0:
+            # The initial density is calculated in
+            # Nucleus.add_atomic_density() and that density
+            # will be a neutral density
+            # XXXX - should be initialised to right charge eventually
+            assert abs(self.finegd.integrate(self.rhot_g)) < 0.2
+        else:
+            assert abs(self.finegd.integrate(self.rhot_g)+self.charge) < 0.2
 
         self.timer.start('poisson')
         # npoisson is the number of iterations:
@@ -578,6 +599,12 @@ class Paw:
             self.restrict(vt_g, vt_G)
             self.Ekin -= num.vdot(vt_G, nt_G - self.nct_G) * self.gd.dv
 
+        # Exact-exchange correction
+        if self.exx is not None:
+            Exx = self.wf.kpt_comm.sum(self.exx.Exx)
+            Exc += Exx
+            Ekin -= 2 * Exx
+            
     def get_cartesian_forces(self):
         """Return the atomic forces."""
         c = self.Ha / self.a0
@@ -591,9 +618,8 @@ class Paw:
                 vt_G = self.vt_sG[0]
 
 
-            for nucleus in self.pt_nuclei:
-                if nucleus.in_this_domain:
-                    nucleus.F_c[:] = 0.0
+            for nucleus in self.my_nuclei:
+                nucleus.F_c[:] = 0.0
 
             self.wf.calculate_force_contribution(self.pt_nuclei,
                                                  self.my_nuclei)
@@ -601,8 +627,7 @@ class Paw:
             for nucleus in self.nuclei:
                 nucleus.calculate_force(self.vHt_g, nt_g, vt_G)
 
-            # Master collects forces from nuclei into
-            # self.F_ac:
+            # Global master collects forces from nuclei into self.F_ac:
             if mpi.rank == MASTER:
                 for a, nucleus in enumerate(self.nuclei):
                     if nucleus.in_this_domain:
@@ -642,13 +667,14 @@ class Paw:
             # Forces for all atoms:
             self.F_ac = F_ac
             
-    def write_netcdf(self, filename):
-        """Write current state to a netCDF file."""
-        netcdf.write_netcdf(self, filename)
+    def write_state_to_file(self, filename, pos_ac, magmom_a, tag_a, mode):
+        """Write current state to a file."""
+        gridpaw.io.write(self, filename, pos_ac / self.a0, magmom_a, tag_a,
+                         mode)
         
-    def initialize_from_netcdf(self, filename):
-        """Read state from a netCDF file."""
-        netcdf.read_netcdf(self, filename)
+    def initialize_from_file(self, filename):
+        """Read state from a file."""
+        gridpaw.io.read(self, filename)
         output.plot_atoms(self)
 
     def warn(self, message):
@@ -689,41 +715,37 @@ class Paw:
         domain a full array on the domain master and send this to the
         global master.""" 
         
-        c = 1.0 / self.a0**1.5
-
-        kpt_rank,u=get_parallel_info_s_k(self.wf,s,k)
+        wf = self.wf
+        
+        kpt_rank, u = divmod(k + wf.nkpts * s, wf.nmyu)
 
         if not mpi.parallel:
-            psit_G = self.wf.kpt_u[u].psit_nG[n]
-            return psit_G*c
+            return wf.kpt_u[u].psit_nG[n]
 
-        if self.wf.kpt_comm.rank == kpt_rank:
-            psit_G =  self.wf.kpt_u[u].psit_nG[n]
-            a_G = self.gd.collect(psit_G)
+        if wf.kpt_comm.rank == kpt_rank:
+            psit_G = self.gd.collect(wf.kpt_u[u].psit_nG[n])
 
-            # domain master send this to the global master
-            if self.domain.comm.rank == 0:
-                self.wf.kpt_comm.send(a_G, MASTER, 13)
+            if kpt_rank == MASTER:
+                if mpi.rank == MASTER:
+                    return psit_G
 
-        if mpi.rank == MASTER and self.wf.kpt_comm.size > 1:
-            # allocate full wavefunction and receive 
-            psit_G =  self.wf.kpt_u[0].psit_nG[0]
-            a_G = num.zeros(psit_G.shape[:-3] + tuple(self.gd.N_c), psit_G.typecode()) # XXX ????
-            self.wf.kpt_comm.receive(a_G, kpt_rank, 13)
-        
+            # Domain master send this to the global master
+            if self.domain.comm.rank == MASTER:
+                wf.kpt_comm.send(psit_G, MASTER, 1398)
+
         if mpi.rank == MASTER:
-            return a_G * c
-        else: 
-            return
+            # allocate full wavefunction and receive 
+            psit_G = self.gd.new_array(typecode=wf.typecode, global_array=True)
+            wf.kpt_comm.receive(psit_G, kpt_rank, 1398)
+            return psit_G
 
-
-    def get_wannier_integrals(self, i,s,k,k1,G_I):
+    def get_wannier_integrals(self, i, s, k, k1, G_I):
         """Calculate integrals for maximally localized Wannier functions."""
 
         assert self.wf.nspins>=s
 
-        kpt_rank,u = get_parallel_info_s_k(self.wf,s,k)
-        kpt_rank1,u1 = get_parallel_info_s_k(self.wf,s,k1)
+        kpt_rank, u = divmod(k + self.wf.nkpts * s, self.wf.nmyu)
+        kpt_rank1, u1 = divmod(k1 + self.wf.nkpts * s, self.wf.nmyu)
 
         # XXX not for the kpoint/spin parallel case
         assert self.wf.kpt_comm.size==1
@@ -737,6 +759,10 @@ class Paw:
     def get_xc_difference(self, xcname):
         """Calculate non-seflconsistent XC-energy difference."""
         assert self.xcfunc.gga, 'Must be a GGA calculation' # XXX
+
+        if xcname == 'EXX':
+            return self.Ha * (self.get_exact_exchange() - self.Exc)
+        
         if type(xcname) is str:
             newxc = XCFunctional(xcname)
         else:
@@ -745,9 +771,6 @@ class Paw:
         oldxc = self.xcfunc.xc
         self.xcfunc.xc = newxc
 
-        if xcname == 'EXX':
-            return self.Ha * (self.get_exact_exchange() - self.Exc)
-        
         v_g = self.finegd.new_array()  # not used for anything!
         if self.nspins == 2:
             Exc = self.xc.get_energy_and_potential(self.nt_sg[0], v_g, 
@@ -772,15 +795,6 @@ class Paw:
     def get_grid_spacings(self):
         return self.a0 * self.gd.h_c
     
-    def get_exact_exchange(self, decompose, wannier, ewald, method, calc):
-##         if not hasattr(self, 'paw_exx'):
-##             from gridpaw.exx import PawExx
-##             self.paw_exx = PawExx(self)
-##         exx = self.paw_exx.get_exact_exchange(decompose, wannier,
-##                                               ewald, method, calc)
-
-        from gridpaw.exx import PawExx
-        exx = PawExx(self).get_exact_exchange(decompose, wannier,
-                                              ewald, method, calc)
-
-        return exx
+    def get_exact_exchange(self, decompose=False, method=None):
+        from gridpaw.exx import PerturbativeExx
+        return PerturbativeExx(self).get_exact_exchange(decompose, method)

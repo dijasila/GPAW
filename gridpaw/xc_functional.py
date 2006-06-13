@@ -6,8 +6,8 @@ import Numeric as num
 from gridpaw.grid_descriptor import RadialGridDescriptor
 from gridpaw.operators import Gradient
 from gridpaw.utilities import is_contiguous
+from gridpaw.exx import XXFunctional
 import _gridpaw
-
 
 class XCFunctional:
     def __init__(self, xcname, scalarrel=True, parameters=None):
@@ -32,6 +32,8 @@ class XCFunctional:
                 code = 4
             elif xcname == 'PADE':
                 code = 5
+            elif xcname == 'EXX':
+                code = 6
             else:
                 raise TypeError('Unknown exchange-correlation functional')
 
@@ -42,6 +44,8 @@ class XCFunctional:
         if code == 5:
             self.xc = _gridpaw.XCFunctional(code, self.gga, scalarrel,
                                             0.0, 0, num.array(parameters))
+        if code == 3:
+            self.xc = XXFunctional()
         else:
             self.xc = _gridpaw.XCFunctional(code, self.gga, scalarrel)
 
@@ -234,3 +238,78 @@ class XCOperator:
             return num.dot(self.e_g, self.dv_g)
         else:
             return num.sum(self.e_g.flat) * self.dv
+
+    def get_second_derivatives(self, na_g, nb_g=None,scale=.001):
+        """Second derivatives of Exc using a simple two point formula"""
+        
+        def invert(arr):
+            """Invert the Numeric array with 1/0=0"""
+            res=arr.copy()
+            for i in range(res.shape[0]):
+                for j in range(res.shape[1]):
+                    for k in range(res.shape[2]):
+                        if res[i,j,k]==0: pass
+                        else            : res[i,j,k]=1./res[i,j,k]
+            return res
+
+        # unpolarised
+        if nb_g is None:
+            if self.xc.gga: # need derivatives at the actual density
+                if self.radial:
+                    self.rgd.derivative(na_g, self.dndr_g)
+                    self.a2_g[:] = self.dndr_g**2
+                else:
+                    for c in range(3):
+                        self.ddr[c](na_g, self.dndr_cg[c])
+                    self.a2_g[:] = num.sum(self.dndr_cg**2)
+            # small density difference
+            dn_g=scale*na_g
+            dinv_g=invert(dn_g)
+            # upper and lower densities
+            np1_g=na_g+dn_g
+            vp1_g=na_g.copy()
+            nm1_g=na_g-dn_g
+            vm1_g=na_g.copy()
+            if self.xc.gga:
+                self.xc.calculate_spinpaired(self.e_g,
+                                             np1_g, vp1_g,
+                                             self.a2_g,
+                                             self.deda2_g)
+                if self.radial:
+                    tmp_g = self.dndr_g
+                    self.rgd.derivative2(self.dv_g * self.deda2_g *
+                                         self.dndr_g, tmp_g)
+                    tmp_g[1:] /= self.dv_g[1:]
+                    tmp_g[0] = tmp_g[1]
+                    vp1_g -= 2.0 * tmp_g
+                else:
+                    tmp_g = self.dndr_cg[0]
+                    for c in range(3):
+                        self.ddr[c](self.deda2_g * self.dndr_cg[c], tmp_g)
+                        vp1_g -= 2.0 * tmp_g
+                self.xc.calculate_spinpaired(self.e_g,
+                                             nm1_g, vm1_g,
+                                             self.a2_g,
+                                             self.deda2_g)
+                if self.radial:
+                    tmp_g = self.dndr_g
+                    self.rgd.derivative2(self.dv_g * self.deda2_g *
+                                         self.dndr_g, tmp_g)
+                    tmp_g[1:] /= self.dv_g[1:]
+                    tmp_g[0] = tmp_g[1]
+                    vm1_g -= 2.0 * tmp_g
+                else:
+                    tmp_g = self.dndr_cg[0]
+                    for c in range(3):
+                        self.ddr[c](self.deda2_g * self.dndr_cg[c], tmp_g)
+                        vm1_g -= 2.0 * tmp_g
+            else:
+                self.get_energy_and_potential(np1_g,vp1_g)
+                self.get_energy_and_potential(nm1_g,vm1_g)
+            d2Edn2_g=[range(1)]
+            d2Edn2_g[0]=.5*(vp1_g-vm1_g)*dinv_g
+        # polarized
+        else:
+            pass
+        return d2Edn2_g
+
