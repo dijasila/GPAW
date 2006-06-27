@@ -137,21 +137,57 @@ class AllElectron:
         niter = 0
         qOK = log(1e-10)
         while True:
+
+	    if 1:#JUSSI ###DEBUGG
+#      	    #KIRJOITETAAN grid TIEDOSTOON ###DEBUGG
+                file = open('./RADIALgrid', 'w') ###DEBUGG
+                file.write(str(self.r)) ###DEBUGG
+                file.close() ###DEBUGG
+
             # calculate hartree potential
             hartree(0, n * r * dr, self.beta, self.N, vHr)
 
             # add potential from nuclear point charge (v = -Z / r)
             vHr -= Z
 
+            if 1:#JUSSI ###DEBUGG
+#           #KIRJOITETAAN HARTREE-POTENTIAALI TIEDOSTOON ###DEBUGG
+                file = open('./HARTREEpotential', 'w') ###DEBUGG
+                file.write(str(vHr)) ###DEBUGG
+                file.close() ###DEBUGG
+
             # calculated exchange correlation potential and energy
             vXC[:] = 0.0
             Exc = self.xc.get_energy_and_potential(n, vXC)
 
+            if 1:#JUSSI ###DEBUGG
+#           #KIRJOITETAAN XC-POTENTIAALI TIEDOSTOON ###DEBUGG
+                file = open('./XCpotential', 'w') ###DEBUGG
+                file.write(str(vXC)) ###DEBUGG
+                file.close() ###DEBUGG
+
+	    vXC_KLI = calculate_1D_KLI_potential(self)#JUSSI
+            if 1:#JUSSI ###DEBUGG
+#           #KIRJOITETAAN KLI-POTENTIAALI TIEDOSTOON ###DEBUGG
+                file = open('./KLIpotential', 'w') ###DEBUGG
+                file.write(str(vXC_KLI)) ###DEBUGG
+                file.close() ###DEBUGG
+
+            if 0:#JUSSI ###DEBUGG
+#           #KIRJOITETAAN tutkailtava TIEDOSTOON ###DEBUGG
+                file = open('./tutkailtavaDEBUGG', 'w') ###DEBUGG
+                file.write(str(vHr+vXC_KLI)) ###DEBUGG
+#                file.write(str(vHr/vXC_KLI)) ###DEBUGG
+                file.close() ###DEBUGG
+
             # calculate new total Kohn-Sham effective potential and
             # admix with old version
-            vr[:] = vHr + vXC * r
+            vr[:] = vHr + vXC * r           #non-self-consistent KLI #(JUSSI)
+#            vr[:] = vHr + 1 * vXC_KLI * r   #self-consistent KLI #JUSSI
             if niter > 0:
-                vr[:] = 0.4 * vr + 0.6 * vrold
+		feedback = 0.4 #JUSSI
+                vr[:] = feedback * vr + (1-feedback) * vrold #JUSSI
+#                vr[:] = 0.4 * vr + 0.6 * vrold
             vrold = vr.copy()
 
             # solve Kohn-Sham equation and determine the density change
@@ -495,3 +531,349 @@ guess for the density).
 if __name__ == '__main__':
     a = AllElectron('Cu', scalarrel=True)
     a.run()
+
+
+
+
+
+
+
+
+
+
+def calculate_1D_KLI_potential(self): #JUSSI
+
+	pii=3.141592654
+        sopivan_pieni_luku = 1e-30 # avoidZeroDivision
+
+        print '---------- ---------- ---------- ---------- ---------- vvvvvvvvvv'
+        #Grid
+
+        r = self.r
+
+        #Occupied state radial distributions : ru_j.
+        ru_j = self.u_j
+
+        #Occupied state wf:s : u_j.
+#        u_j = ru_j / (r+sopivan_pieni_luku) #first try, most incorrect at zero
+        u_j = num.zeros((ru_j.shape[0], ru_j.shape[1]), num.Float)
+	for j in range(ru_j.shape[0]):
+            u_j[j,1:] = ru_j[j,1:] / r[1:]
+	    #linear extrapolation to zero
+	    k = (u_j[j,2]-u_j[j,1]) / (r[2]-r[1])
+	    u_j[j,0] = u_j[j,1] + k * (r[0]-r[1])
+
+
+
+	#Occupations : f_j
+        f_j = self.f_j /2 #one spin olnly
+	print 'f_j = ', f_j # DEBUGG
+
+
+
+        #Square occupied state wf:s : |u_j|^2.
+        u_j_abs2 = num.conjugate(u_j) * u_j
+
+        #Number of occupied orbitals.
+        HOMO = u_j.shape[0]
+        print 'HOMO=', HOMO ###DEBUGG
+
+
+
+        #Calculate matrix elements A_ji. (riveittain)
+        #
+        #                     (Dimensions must not include 
+        #      i=0,1..HOMO-2   each degenerate state separately!!!)
+        #      _____________   
+        #     |             |    0
+        #     |             |    1
+        # A = |             | j= .
+        #     |             |    .
+        #     |_____________|    HOMO-2
+        #
+        A = num.zeros((HOMO-1,HOMO-1),num.Float)
+
+        #Check for and avoid zeros in the denominator.
+        avoidZeroDevision_n = num.zeros(self.N,num.Float)
+        for i in range(self.N):
+                if self.n[i] == 0.0:
+                        #Replace a zero in the denominator by a small number
+                        #(of which sign? does it matter?).
+                        avoidZeroDevision_n[i] = sopivan_pieni_luku
+                        #MIKA ON SOPIVA 'pieni' LUKU??? eps@python? ###DEBUGG
+                else:
+                        avoidZeroDevision_n[i] = self.n[i]
+
+        #Do the actual matrix element calculating.
+        for j in range(HOMO-1):
+                for i in range(HOMO-1):
+                        if i == j:
+                                A[j,i] = 1.0 - \
+                                integroi_pallokoordinaatistossa( f_j[j]*u_j_abs2[j,:]/(4*pii)*\
+								 f_j[i]*u_j_abs2[i,:]/(4*pii) \
+								 / avoidZeroDevision_n/2, r)
+                        else:
+                                A[j,i] = 0.0 - \
+                                integroi_pallokoordinaatistossa( f_j[j]*u_j_abs2[j,:]/(4*pii)*\
+								 f_j[i]*u_j_abs2[i,:]/(4*pii) \
+								 / avoidZeroDevision_n/2, r)
+        print 'A = ' ###DEBUGG
+        print A ###DEBUGG
+
+
+
+        #ALA VAPAUTA MUUTTUJALLE avoidZeroDevision_n VARATTUA MUISTIA! ###DEBUGG
+        #SITA TARVITAAN VIELA! ###DEBUGG
+
+
+
+
+
+        #Use Poisson solver to calculate 
+        #int(dr')[{ num.conjugate(u_j[i,:,:,:]) * u_j[k,:,:,:] } / { |r-r'| }] 
+        #for each pair (i,k).
+        #Allocate memory to store the results.
+        poisson_ik = num.zeros((HOMO,HOMO,
+                                self.N), 
+                               num.Float)
+#       #POISSON-RATKAISIJAA KAYTETAAN NAIN! ###DEBUGG
+        #vHr = self.calculate_hartree_potential(n) - Z	(GPAW4, reference? vHr(infty)=0)
+        #vHr = self.calculate_hartree_potential(n)	(GPAW3, reference? vHr(0)=0)
+        #hartree(0, n * r * dr, self.beta, self.N, vHr)	(GPAW5, 1/2)
+        #vHr -= Z					(GPAW5, 2/2)
+
+        #SHOULD BE IMPROVED !!!!!
+        #       by calculating only poisson_ik[i,k,:] and
+        #       conjugating to get poisson_ik[k,i,:]=num.conjugate(poisson_ik[i,k,:])
+
+	Z=self.Z
+        print 'Z = ', Z ###DEBUGG
+
+        for i in range(HOMO):
+                for k in range(HOMO):
+			peitto=integroi_pallokoordinaatistossa(num.conjugate(u_j[i,:])*u_j[k,:]\
+							       /(4*pii), r)
+#			print 'peitto = ', peitto # DEBUGG
+			POISSONINPUT = 	sqrt(f_j[i]) * sqrt(f_j[k]) *\
+					num.conjugate(u_j[i,:]) * u_j[k,:]\
+					/(4*pii)
+
+#                        poisson_ik[i,k,:] = \
+#                           (\
+#                           self.calculate_hartree_potential(POISSONINPUT) \
+#                                - sqrt(f_j[i])*sqrt(f_j[k])*peitto \
+#                           )#/(-4*pii) # -1/4pii HATUSTA!!!???
+
+			hartree(0, POISSONINPUT * self.r * self.dr, self.beta, self.N, poisson_ik[i,k,:])
+			poisson_ik[i,k,:] -= sqrt(f_j[i])*sqrt(f_j[k])*peitto
+
+
+        #Calculate u_xi(r) for occupied orbitals i.
+        #Allocate memory to store the u_xi(r).
+        u_xi = num.zeros((HOMO,
+                          self.N), 
+                         num.Float)
+        poissonsum = num.zeros(self.N, 
+                               num.Float)
+
+        #But first, again, check for and avoid zeros in the denominator.
+        avoidZeroDevision_u_j = num.zeros((u_j.shape[0],
+                                           self.N),
+                                          num.Float)
+        for l in range(u_j.shape[0]):
+                for i in range(self.N):
+                        if u_j[l,i] == 0.0:
+                                #Replace a zero in the denominator by a small number
+                                #(of which sign? does it matter?).
+                                avoidZeroDevision_u_j[l,i] = sopivan_pieni_luku 
+                                #MIKA ON SOPIVA 'pieni' LUKU??? eps@python? ###DEBUGG
+                        else:
+                                avoidZeroDevision_u_j[l,i] = u_j[l,i]
+
+        #Then, do the actual calculating of u_xi.
+        for i in range(HOMO):
+                for k in range(HOMO):
+                        poissonsum += sqrt(f_j[k])*u_j[k,:] * poisson_ik[i,k,:]
+                u_xi[i,:] = - poissonsum / \
+			    ( num.conjugate(sqrt(f_j[i])*avoidZeroDevision_u_j[i,:]) )
+
+        #PITAISI VAPAUTTAA MUUTTUJALLE avoidZeroDevision_u_j VARATTU MUISTI! ###DEBUGG
+
+        #Calculate ubar_xi(r) for occupied orbitals i.
+        #Allocate memory to store the ubar_xi.
+        ubar_xi = num.zeros((HOMO),num.Float)
+        for i in range(HOMO):
+                ubar_xi[i] = integroi_pallokoordinaatistossa(f_j[i]*u_j_abs2[i,:]/(4*pii) * \
+							     u_xi[i,:], r)
+
+
+
+        #Calculate vector elements b for orbitals i=0,1,....,HOMO-2.
+        #Allocate memory to store b.
+        b = num.zeros((HOMO-1),num.Float)
+
+        for j in range(HOMO-1):
+                tmpsum = num.zeros(self.N,num.Float)
+                for k in range(HOMO):
+                        tmp = f_j[k]*u_j_abs2[k,:] * \
+                              (1./2) * ( u_xi[k,:] + num.conjugate(u_xi[k,:]) )
+                        tmpsum += tmp
+#                       print 'tmpsum+ = ', tmp ###DEBUGG
+#               print 'tmpsum = ', tmpsum ###DEBUGG
+
+                b[j] = \
+		       integroi_pallokoordinaatistossa(f_j[j]*u_j_abs2[j,:]/(4*pii) * tmpsum \
+						       / avoidZeroDevision_n/2, r)
+
+
+
+#               print 'b[', j, '] = ', b[j] ###DEBUGG
+	print 'b = ', b ###DEBUGG
+        print '---------- ---------- ---------- ---------- ---------- ^^^^^^^^^^'
+
+
+
+        #Solve A * x = b for x.
+        Ainv = linalg.inverse(A)
+        x = num.zeros((HOMO-1),num.Float)
+        #Calculate x = Ainv * b.
+        for k in range(HOMO-1):
+                x[k] = num.vdot(Ainv[k,:],b)
+
+
+
+        #Solve Vbar_xi for orbitals i=0,1,...,HOMO-2 and 
+        #calculate vXC_KLI.
+        Vbar_xi = num.zeros((HOMO),num.Float)
+        for i in range(HOMO-1):
+                Vbar_xi[i] = x[i] + (1./2) * ( ubar_xi[i] + num.conjugate(ubar_xi[i]) )
+	Vbar_xi[HOMO-1] = ubar_xi[HOMO-1]#In order to guarantee correct long range behaviour
+					 #KLI:PRA,45,101,Eq.(47)
+
+
+
+        #Allocate memory for vXC_KLI.
+        vXC_KLI = num.zeros(self.N,
+                            num.Float)
+        tmpsum = num.zeros(self.N,
+                           num.Float)
+        for i in range(HOMO):
+                tmpsum += f_j[i]*u_j_abs2[i,:] * \
+                          ( u_xi[i,:] + ( Vbar_xi[i] - ubar_xi[i] ) + \
+                            num.conjugate( u_xi[i,:] + ( Vbar_xi[i] - ubar_xi[i] ) ) )
+
+        vXC_KLI = tmpsum / ( 2 * avoidZeroDevision_n/2 ) /(-4*pii) # -1/4pii HATUSTA!!!
+
+
+
+	if 0:
+		#Testataan poisson-ratkaisijaa.
+		print 'TESTING POISSON starts!!!'
+		syote = num.zeros((self.N), num.Float)
+		r_cut = 0.02 * r[len(r)-1]
+		r_cut_index = 0
+		for i in range(syote.shape[0]):
+		    if r[i]<r_cut:
+		        syote[i] = 0.01
+			r_cut_index += 1
+		    else:
+			syote[i] = 0
+
+		print 'r_cut (viimeinen   ~= 0) = ', r[r_cut_index-1]
+		print 'r_cut (ensimmainen == 0) = ', r[r_cut_index]
+		nollakohtaARVAUS = integroi_pallokoordinaatistossa(syote, r)
+		print 'nollakohtaARVAUS = ', nollakohtaARVAUS
+
+		kertyma = num.zeros((len(r)), num.Float)
+		for i in range(len(r)):
+			kertyma[i] = integroi_pallokoordinaatistossa(syote[0:i+1], r[0:i+1])
+		kertymaPERr2 = num.zeros((len(r)), num.Float)
+		for i in range(len(r)-1):
+			kertymaPERr2[i+1] = kertyma[i+1]/r[i+1]/r[i+1]
+		#linear extrapolation to zero
+		k = (kertymaPERr2[2]-kertymaPERr2[1]) / (r[2]-r[1])
+		kertymaPERr2[0] = kertymaPERr2[1] + k * (r[0]-r[1])
+		nollakohta = integroi_radiaalisesti(kertymaPERr2,r)
+		print 'nollakohta = ', nollakohta
+		
+		poisson_test = num.zeros((self.N), num.Float)
+		poisson_test[:] = self.calculate_hartree_potential(syote) - nollakohtaARVAUS
+
+		print 'vakiotiheys = ', syote[0]
+		print 'pallon sade = ', r[r_cut_index-1], '...', r[r_cut_index]
+		print 'kokonaissyote = ', \
+			4*pii*r[r_cut_index-1]*r[r_cut_index-1]*r[r_cut_index-1]/3*syote[0], \
+		      '...', \
+			4*pii*r[r_cut_index]*r[r_cut_index]*r[r_cut_index]/3*syote[0]
+		print 'kokonaissyote (INT) = ', integroi_pallokoordinaatistossa(syote,r)
+		print 'nollakohdan siirto = ', poisson_test[len(poisson_test)-1]-poisson_test[0]
+		print 'ehdotus siirroksi = ', 2*pii*syote[0]*r[r_cut_index-1]*r[r_cut_index-1], \
+		      '...', 2*pii*syote[0]*r[r_cut_index]*r[r_cut_index]
+		print 'TESTING POISSON ends!!!!!'
+
+        if 1:#JUSSI ###DEBUGG
+	    nro=0
+#       #KIRJOITETAAN tutkailtava TIEDOSTOON ###DEBUGG
+            file = open('./tutkailtavaDEBUGG', 'w') ###DEBUGG
+#            file.write(str(ru_j[nro,:])) ###DEBUGG
+#            file.write(str(u_j[nro,:])) ###DEBUGG
+#            file.write(str(u_j_abs2[nro,:])) ###DEBUGG
+            file.write(str(self.n[:])) ###DEBUGG
+#            file.write(str(poisson_ik[0,0,:])) ###DEBUGG
+#            file.write(str(u_xi[nro,:])) ###DEBUGG
+#            file.write(str(u_j_abs2[nro,:]*u_xi[nro,:])) ###DEBUGG
+#            file.write(str(u_j_abs2[nro,:]*(u_xi[nro,:]+(Vbar_xi[nro]-ubar_xi[nro])))) ###DEBUGG
+#            file.write(str(syote[:])) ###DEBUGG
+#            file.write(str(kertyma[:])) ###DEBUGG
+#            file.write(str(kertymaPERr2[:])) ###DEBUGG
+#            file.write(str(poisson_test[:])) ###DEBUGG
+            file.close() ###DEBUGG
+
+	print 'A = ', A
+	print 'ubar_xi = ', ubar_xi
+	print 'b = ', b
+	print 'x = ', x
+	print 'Vbar_xi = ', Vbar_xi
+	print 'Vbar_xi-ubar_xi = ', Vbar_xi-ubar_xi
+	print 'N = integroi_pallokoordinaatistossa(self.n,r) = ', integroi_pallokoordinaatistossa(self.n,r)
+
+        return vXC_KLI
+
+
+
+
+
+def integroi_pallokoordinaatistossa(integrandi,radiaalinen_gridi): #JUSSI
+
+	pii=3.141592654
+
+	delta_r = num.zeros(len(radiaalinen_gridi), num.Float) #allocate
+
+        delta_r[0:len(delta_r)-1] = \
+		radiaalinen_gridi[1:len(radiaalinen_gridi)] \
+		- radiaalinen_gridi[0:len(radiaalinen_gridi)-1] #Mika on 
+								#viimeinen alkio?
+        delta_r[len(delta_r)-1]=delta_r[len(delta_r)-2] #Olkoon se viimeinen alkio 
+							#paremman puutteessa 
+                                                        #sama kuin 2. viimeinen.
+	integraali = 4 * pii * \
+                     num.vdot(radiaalinen_gridi*radiaalinen_gridi, integrandi * delta_r)
+	return integraali
+
+
+
+
+
+def integroi_radiaalisesti(integrandi,radiaalinen_gridi): #JUSSI
+
+	delta_r = num.zeros(len(radiaalinen_gridi), num.Float) #allocate
+
+        delta_r[0:len(delta_r)-1] = \
+		radiaalinen_gridi[1:len(radiaalinen_gridi)] \
+		- radiaalinen_gridi[0:len(radiaalinen_gridi)-1] #Mika on 
+								#viimeinen alkio?
+        delta_r[len(delta_r)-1]=delta_r[len(delta_r)-2] #Olkoon se viimeinen alkio 
+							#paremman puutteessa 
+                                                        #sama kuin 2. viimeinen.
+	integraali = num.vdot(integrandi, delta_r)
+	return integraali
