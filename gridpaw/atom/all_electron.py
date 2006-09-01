@@ -182,8 +182,10 @@ class AllElectron:
 
             # calculate new total Kohn-Sham effective potential and
             # admix with old version
-            vr[:] = vHr + vXC * r           #non-self-consistent KLI #(JUSSI)
-#            vr[:] = vHr + 1 * vXC_KLI * r   #self-consistent KLI #JUSSI
+#---------- ---------- ---------- ---------- ---------- 
+#            vr[:] = vHr + vXC * r           #non-self-consistent KLI #(JUSSI)
+            vr[:] = vHr + 1 * vXC_KLI * r   #self-consistent KLI #JUSSI
+#---------- ---------- ---------- ---------- ---------- 
             if niter > 0:
 		feedback = 0.4 #JUSSI
                 vr[:] = feedback * vr + (1-feedback) * vrold #JUSSI
@@ -544,7 +546,7 @@ if __name__ == '__main__':
 def calculate_1D_KLI_potential(self): #JUSSI
 
 	pii=3.141592654
-        sopivan_pieni_luku = 1e-30 # avoidZeroDivision
+        sopivan_pieni_luku = 1e-20 # avoidZeroDivision
 
         print '---------- ---------- ---------- ---------- ---------- vvvvvvvvvv'
         #Grid
@@ -691,6 +693,7 @@ def calculate_1D_KLI_potential(self): #JUSSI
                                 avoidZeroDevision_u_j[l,i] = u_j[l,i]
 
         #Then, do the actual calculating of u_xi.
+        poissonsum[:] = 0 # clear old data
         for i in range(HOMO):
                 for k in range(HOMO):
                         poissonsum += sqrt(f_j[k])*u_j[k,:] * poisson_ik[i,k,:]
