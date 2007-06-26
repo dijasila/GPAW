@@ -67,8 +67,9 @@ class Timer:
         self.timers[name] = self.timers.get(name, 0.0) - time.time()
         self.running.append(name)
         
-    def stop(self):
-        name = self.running.pop()
+    def stop(self, name):
+        if name != self.running.pop():
+            raise RuntimeError
         self.timers[name] += time.time()
             
     def gettime(self, name):
@@ -81,7 +82,7 @@ class Timer:
             return
         print >> out
         print >> out, 'Timing:'
-        print >> out, '------------------------------------------------------------'
+        print >> out, '-' * 60
         t0 = time.time()
         tot = t0 - self.t0
         n = max([len(name) for name in self.timers]) + 1
@@ -98,7 +99,7 @@ class Timer:
             else:
                 bar = '|%s|' % ('=' * (i - 1))
             print >> out, '%-*s%9.3f %5.1f%% %s' % (n, name + ':', t, p, bar)
-        print >> out, '------------------------------------------------------------'
+        print >> out, '-' * 60
         print >> out, '%-*s%9.3f' % (n, 'Total' + ':', tot)
         print >> out
                 
