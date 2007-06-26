@@ -3,6 +3,8 @@
 
 import os
 import sys
+from os.path import dirname, isfile, join
+from distutils.util import get_platform
 import cPickle as pickle
 import socket
 
@@ -34,12 +36,26 @@ class MPIPaw:
 
         s.listen(1)
 
-        # The environment variable GPAW_PYTHON can be set to a
-        # special Python interpreter with MPI built in.  The deafault
-        # is to use the standard Python interpreter and load in the
-        # MPI library dynamically at run time.
-        python = os.environ.get('GPAW_PYTHON', sys.executable)
+        # Check if we are running in source directory and
+        # have custom interpreter in the build directory:
+        dir = dirname(__file__)
+        gpaw_python = join(dir, '../..', 'build',
+                           'bin.%s-%s/gpaw-python' % (get_platform(), sys.version[0:3]))
+        if not isfile(gpaw_python):
+            gpaw_python = None
+            # Look in the PATH
+            paths = os.environ.get('PATH')
+            paths = paths.split(os.pathsep)
+            for path in paths:
+                if isfile(join(path, 'gpaw-python')):
+                    gpaw_python = join(path, 'gpaw-python')
+                    break
 
+        # If the environment variable GPAW_PYTHON is set, use that:
+        gpaw_python = os.environ.get('GPAW_PYTHON', gpaw_python)
+        if gpaw_python is None:
+            raise RuntimeError('Custom interpreter is not found')
+        
         # This is the Python command that all processors wil run:
         # line = 'from gpaw.mpi.run import run; run("%s", %d)' % (host, port)
         f=open('par_run.py','w')
@@ -48,7 +64,7 @@ class MPIPaw:
         f.close()
         
         #job = python + " -c '" + line + "' --gpaw-parallel"
-        job = python + ' par_run.py' + ' --gpaw-parallel'
+        job = gpaw_python + ' par_run.py'
 
         if debug:
             job += ' --gpaw-debug'

@@ -1,3 +1,4 @@
+# This test takes approximately 10.6 seconds
 from gpaw import Calculator
 from gpaw.utilities import equal
 from ASE import ListOfAtoms, Atom, Crystal
@@ -16,4 +17,4 @@ bulk.SetCalculator(calc)
 e0 = bulk.GetPotentialEnergy()
 calc.Set(eigensolver="cg")
 e1 = bulk.GetPotentialEnergy()
-equal(e0, e1, 1.7e-5)
+equal(e0, e1, 3.6e-5)

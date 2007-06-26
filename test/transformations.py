@@ -1,3 +1,4 @@
+# This test takes approximately 0.0 seconds
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
@@ -28,4 +29,4 @@ for k in [2, 4, 6]:
     restr = Transformer(gd, gd2, k // 2).apply
     restr(a, b)
     print k, num.sum(a.flat) - num.sum(b.flat) * 8
-    assert abs(num.sum(a.flat) - num.sum(b.flat) * 8) < 5e-12
+    assert abs(num.sum(a.flat) - num.sum(b.flat) * 8) < 5.1e-12

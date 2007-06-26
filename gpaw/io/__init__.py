@@ -25,7 +25,7 @@ def open(filename, mode='r'):
 
 
 def write(paw, filename, pos_ac, magmom_a, tag_a, mode, setup_types):
-    paw.get_cartesian_forces()
+    paw.get_cartesian_forces(silent=True)
     
     if mpi.rank == MASTER:
         w = open(filename, 'w')
@@ -100,6 +100,7 @@ def write(paw, filename, pos_ac, magmom_a, tag_a, mode, setup_types):
         w['Ekin0'] = paw.Ekin0
         w['Epot'] = paw.Epot
         w['Ebar'] = paw.Ebar
+        w['Eext'] = paw.Eext        
         w['Exc'] = paw.Exc
         w['S'] = paw.S
         epsF = paw.occupation.get_fermi_level()
@@ -109,7 +110,10 @@ def write(paw, filename, pos_ac, magmom_a, tag_a, mode, setup_types):
 
         # Write fingerprint (md5-digest) for all setups:
         for setup in paw.setups:
-            w[names[setup.Z] + 'Fingerprint'] = setup.fingerprint
+            key = names[setup.Z] + 'Fingerprint'
+            if setup.type != 'paw':
+                key += '(%s)' % setup.type
+            w[key] = setup.fingerprint
 
         if isinstance(setup_types, str):
             setup_types = {None: setup_types}
@@ -236,12 +240,14 @@ def read(paw, filename):
     
     for setup in paw.setups:
         try:
-            fp = r[names[setup.Z] + 'Fingerprint']
-        except AttributeError, KeyError:
+            key = names[setup.Z] + 'Fingerprint'
+            if setup.type != 'paw':
+                key += '(%s)' % setup.type
+            fp = r[key]
+        except (AttributeError, KeyError):
             break
         if setup.fingerprint != fp:
-            paw.warn(('Setup for %s (%s) not compatible ' +
-                      'with restart file.') %
+            paw.warn('Setup for %s (%s) not compatible with restart file.' %
                      (setup.symbol, setup.filename))
             
     # Read pseudoelectron density on the coarse grid and
@@ -266,10 +272,14 @@ def read(paw, filename):
     paw.Ekin = r['Ekin']
     try:
         paw.Ekin0 = r['Ekin0']
-    except AttributeError, KeyError:
+    except (AttributeError, KeyError):
         paw.Ekin0 = 0.0
     paw.Epot = r['Epot']
     paw.Ebar = r['Ebar']
+    try:
+        paw.Eext = r['Eext']
+    except (AttributeError, KeyError):
+        paw.Eext = 0.0        
     paw.Exc = r['Exc']
     paw.S = r['S']
     paw.Etot = r.get('PotentialEnergy') - 0.5 * paw.S
@@ -312,13 +322,13 @@ def read(paw, filename):
                     kpt.psit_nG = r.get_reference('PseudoWaveFunctions',
                                                   kpt.s, kpt.k)
     
-            for u, kpt in enumerate(paw.kpt_u):
-                P_ni = r.get('Projections', kpt.s, kpt.k)
-                i1 = 0
-                for nucleus in paw.nuclei:
-                    i2 = i1 + nucleus.get_number_of_partial_waves()
-                    if nucleus.in_this_domain:
-                        nucleus.P_uni[u,:nbands,:] = P_ni[:, i1:i2]
-                    i1 = i2
+        for u, kpt in enumerate(paw.kpt_u):
+            P_ni = r.get('Projections', kpt.s, kpt.k)
+            i1 = 0
+            for nucleus in paw.nuclei:
+                i2 = i1 + nucleus.get_number_of_partial_waves()
+                if nucleus.in_this_domain:
+                    nucleus.P_uni[u, :nbands] = P_ni[:, i1:i2]
+                i1 = i2
 
     return wf

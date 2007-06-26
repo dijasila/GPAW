@@ -5,9 +5,12 @@ from math import pi, sqrt
 
 import Numeric as num
 from multiarray import matrixproduct as dot3  # Avoid dotblas bug!
+from multiarray import innerproduct as inner # avoid the dotblas version!
 
 from gpaw.gaunt import gaunt
 from gpaw.spherical_harmonics import YL
+
+# load points and weights for the angular integration
 from gpaw.sphere import Y_nL, points, weights
 
 """
@@ -50,7 +53,16 @@ for R in points:
 
 
 class XCCorrection:
-    def __init__(self, xc, w_j, wt_j, nc, nct, rgd, jl, lmax, Exc0):
+    def __init__(self,
+                 xc,    # radial exchange-correlation object
+                 w_j,   #
+                 wt_j,  #
+                 nc,    # core density 
+                 nct,   # smooth core density
+                 rgd,   # radial grid edscriptor
+                 jl,    # ?
+                 lmax,  # maximal angular momentum to consider
+                 Exc0): # ?
         self.nc_g = nc
         self.nct_g = nct
         self.xc = xc
@@ -98,7 +110,7 @@ class XCCorrection:
                 q += 1
         self.rgd = rgd
        
-    def calculate_energy_and_derivatives(self, D_sp, H_sp):
+    def calculate_energy_and_derivatives(self, D_sp, H_sp, a=None):
         if self.xc.get_functional().gga:
             return self.GGA(D_sp, H_sp)
         E = 0.0
@@ -465,3 +477,67 @@ class XCCorrection:
                 y += 1
 
         return E - self.Exc0
+
+    def two_phi_integrals(self,
+                          D_sp # density matrix in packed(pack) form
+                          ):
+        """Evaluate the integral in the augmentation sphere.
+
+        ::
+        
+                      /
+          I_{i1 i2} = | d r [ phi_i1(r) phi_i2(r) v_xc[n](r) -
+                      /       tphi_i1(r) tphi_i2(r) v_xc[tn](r) ]
+                      a
+
+        The result is given in packed(pack2) form.
+        """
+        I_sp = num.zeros(D_sp.shape, num.Float)
+        self.calculate_energy_and_derivatives(D_sp, I_sp)
+        return I_sp
+
+    def four_phi_integrals(self, D_sp, fxc):
+        """Calculate four-phi integrals.
+
+        The density is given by the density matrix ``D_sp`` in packed(pack)
+        form, and the resulting rank-four tensor is also returned in
+        packed format. ``fxc`` is a radial object???
+        """
+        
+        ns, np = D_sp.shape
+
+        assert ns == 1 and not self.xc.get_functional().gga
+
+        dot = num.dot
+
+        D_p = D_sp[0]
+        D_Lq = dot3(self.B_Lqp, D_p)
+
+        # Expand all-electron density in spherical harmonics:
+        n_qg = self.n_qg 
+        n_Lg = dot(D_Lq, n_qg)
+        n_Lg[0] += self.nc_g * sqrt(4 * pi)
+
+        # Expand pseudo electron density in spherical harmonics:
+        nt_qg = self.nt_qg
+        nt_Lg = dot(D_Lq, nt_qg)
+        nt_Lg[0] += self.nct_g * sqrt(4 * pi)
+
+        # Allocate array for result:
+        J_pp = num.zeros((np, np), num.Float)
+
+        # Loop over 50 points on the sphere surface:
+        for w, Y_L in zip(self.weights, self.Y_yL):
+            B_pq = dot3(self.B_pqL, Y_L)
+            
+            fxcdv = fxc(dot(Y_L, n_Lg)) * self.dv_g
+            dn2_qq = inner(n_qg * fxcdv, n_qg)
+
+            fxctdv = fxc(dot(Y_L, nt_Lg)) * self.dv_g
+            dn2_qq -= inner(nt_qg * fxctdv, nt_qg)
+                         
+            J_pp += w * dot3(B_pq, inner(dn2_qq, B_pq))
+
+        return J_pp
+
+    

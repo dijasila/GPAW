@@ -23,9 +23,15 @@ def print_info(paw):
 
 def print_converged(paw):
     out = paw.out
+    print >> out, "------------------------------------"
     print >> out, 'Converged after %d iterations.' % paw.niter
 
     print >> out
+    print_all_information(paw)
+
+def print_all_information(paw):
+    
+    out = paw.out    
     if len(paw.nuclei) == 1:
         print >> out, 'energy contributions relative to reference atom:',
     else:
@@ -75,59 +81,86 @@ def print_converged(paw):
             print >> out, nucleus.a, nucleus.mom
         print >> out
 
+
 def iteration(paw):
     # Output from each iteration:
     out = paw.out
-    
-    if paw.niter == 0:
-        print >> out, """\
-                       log10     total     iterations:
-              time     error     energy    fermi  poisson  magmom"""
-    
-    t = time.localtime()
-    
-    out.write('iter: %4d %3d:%02d:%02d %6.1f %13.7f %4d %7d' %
-              (paw.niter,
-               t[3], t[4], t[5],
-               log(paw.error) / log(10),
-               paw.Ha * (paw.Etot + 0.5 * paw.S),
-               paw.nfermi,
-               paw.hamiltonian.npoisson))
 
-    if paw.nspins == 2:
-        print >> out, '%11.4f' % paw.magmom
-    else:
-        print >> out, '       --'
+    if paw.verbosity != 0:
+        t = time.localtime()
+        print >> out
+        print >> out, "------------------------------------"
+        print >> out, "iter: %d %d:%02d:%02d" % (paw.niter, t[3], t[4], t[5])
+        print >> out
+        print >> out, "Poisson solver converged in %d iterations" % paw.hamiltonian.npoisson
+        print >> out, "Fermi level found  in %d iterations" % paw.nfermi
+        print >> out, "Log10 error in wave functions: %4.1f" % (log(paw.error) / log(10))
+        print >> out
+        print_all_information(paw)
+
+    else:        
+        if paw.niter == 0:
+            print >> out, """\
+                      log10     total     iterations:
+             time     error     energy    fermi  poisson  magmom"""
+    
+        t = time.localtime()
+    
+        out.write('iter: %4d %3d:%02d:%02d %6.1f %13.7f %4d %7d' %
+                  (paw.niter,
+                   t[3], t[4], t[5],
+                   log(paw.error) / log(10),
+                   paw.Ha * (paw.Etot + 0.5 * paw.S),
+                   paw.nfermi,
+                   paw.hamiltonian.npoisson))
+
+        if paw.nspins == 2:
+            print >> out, '%11.4f' % paw.magmom
+        else:
+            print >> out, '       --'
 
     out.flush()
 
 def print_eigenvalues(paw):
     """Print eigenvalues and occupation numbers."""
     out = paw.out
+    print >> out, eigenvalue_string(paw)
+
+def eigenvalue_string(paw,comment=None):
+    """
+    Write eigenvalues and occupation numbers into a string.
+    The parameter comment can be used to comment out non-numers,
+    for example to escape it for gnuplot.
+    """
+
+    if not comment: comment=''
+
     Ha = paw.Ha
 
     if paw.nkpts > 1 or paw.kpt_comm.size > 1:
         # not implemented yet:
-        return
+        return ''
 
+    s = ''
     if paw.nspins == 1:
-        print >> out, ' band     eps        occ'
+        s += comment + ' band     eps        occ\n'
         kpt = paw.kpt_u[0]
         for n in range(paw.nbands):
-            print >> out, ('%4d %10.5f %10.5f' %
-                           (n, Ha * kpt.eps_n[n], kpt.f_n[n]))
+            s += ('%4d %10.5f %10.5f\n' %
+                  (n, Ha * kpt.eps_n[n], kpt.f_n[n]))
     else:
-        print >> out, '                up                   down'
-        print >> out, ' band     eps        occ        eps        occ'
+        s += comment + '                up                   down\n'
+        s += comment + ' band     eps        occ        eps        occ\n'
         epsa_n = paw.kpt_u[0].eps_n
         epsb_n = paw.kpt_u[1].eps_n
         fa_n = paw.kpt_u[0].f_n
         fb_n = paw.kpt_u[1].f_n
         for n in range(paw.nbands):
-            print >> out, ('%4d %10.5f %10.5f %10.5f %10.5f' %
-                           (n,
-                            Ha * epsa_n[n], fa_n[n],
-                            Ha * epsb_n[n], fb_n[n]))
+            s += ('%4d %10.5f %10.5f %10.5f %10.5f\n' %
+                  (n,
+                   Ha * epsa_n[n], fa_n[n],
+                   Ha * epsb_n[n], fb_n[n]))
+    return s
 
 def plot_atoms(paw):
     domain = paw.domain

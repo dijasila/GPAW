@@ -34,7 +34,7 @@ class Density:
      ``nt_sG``  Electron density on the coarse grid.
      ``nt_sg``  Electron density on the fine grid.
      ``nt_g``   Electron density on the fine grid.
-     ``rhot_g`` Charge density on the coarse grid.
+     ``rhot_g`` Charge density on the fine grid.
      ``nct_G``  Core electron-density on the coarse grid.
      ========== =========================================
     """
@@ -44,9 +44,8 @@ class Density:
                  my_nuclei, ghat_nuclei, nuclei, nvalence):
         """Create the Density object."""
 
-        self. hund = hund
+        self.hund = hund
         self.magmom_a = magmom_a
-        self.charge = charge
         self.nspins = nspins
         self.gd = gd
         self.finegd = finegd
@@ -58,6 +57,13 @@ class Density:
         self.kpt_comm = kpt_comm
 
         self.comm = gd.comm
+
+        self.nvalence = nvalence
+        self.nvalence0 = nvalence + charge
+
+        for nucleus in nuclei:
+            charge += (nucleus.setup.Z - nucleus.setup.Nv - nucleus.setup.Nc)
+        self.charge = charge
         
         # Allocate arrays for potentials and densities on coarse and
         # fine grids:
@@ -83,15 +89,13 @@ class Density:
         else:
             self.mixer = Mixer(mix, self.gd, nspins)
 
-        self.nvalence = nvalence
-
     def initialize(self):
         """Initialize density.
 
         The density is initialized from atomic orbitals, and will
         be constructed with the specified magnetic moments and
         obeying Hund's rules if ``hund`` is true."""
-        
+
         self.timer.start('Init dens.')
 
         self.nt_sG[:] = self.nct_G
@@ -100,11 +104,85 @@ class Density:
 
         # The nucleus.add_atomic_density() method should be improved
         # so that we don't have to do this scaling: XXX
-        if self.charge != 0.0:
-            x = float(self.nvalence) / (self.nvalence + self.charge)
+        if self.nvalence != self.nvalence0:
+            x = float(self.nvalence) / self.nvalence0
             for nucleus in self.my_nuclei:
                 nucleus.D_sp *= x
             self.nt_sG *= x
+                
+        # We don't have any occupation numbers.  The initial
+        # electron density comes from overlapping atomic densities
+        # or from a restart file.  We scale the density to match
+        # the compensation charges:
+
+        for nucleus in self.nuclei:
+            nucleus.calculate_multipole_moments()
+            
+        if self.nspins == 1:
+            Q = 0.0
+            Q0 = 0.0
+            for nucleus in self.my_nuclei:
+                Q += nucleus.Q_L[0]
+                Q0 += nucleus.setup.Delta0
+            Q = sqrt(4 * pi) * self.comm.sum(Q)
+            Q0 = sqrt(4 * pi) * self.comm.sum(Q0)
+            Nt = self.gd.integrate(self.nt_sG)
+            # Nt + Q must be equal to minus the total charge:
+            if Q0 - Q != 0:
+                x = (Nt + Q0 + self.charge) / (Q0 - Q)
+                for nucleus in self.my_nuclei:
+                    nucleus.D_sp *= x
+
+                for nucleus in self.nuclei:
+                    nucleus.calculate_multipole_moments()
+            else:
+                x = -(self.charge + Q) / Nt
+                self.nt_sG *= x
+
+        else:
+            Q_s = array([0.0, 0.0])
+            for nucleus in self.my_nuclei:
+                s = nucleus.setup
+                Q_s += 0.5 * s.Delta0 + dot(nucleus.D_sp, s.Delta_pL[:, 0])
+            Q_s *= sqrt(4 * pi)
+            self.comm.sum(Q_s)
+            Nt_s = [self.gd.integrate(nt_G) for nt_G in self.nt_sG]
+
+            M = sum(self.magmom_a)
+            x = 1.0
+            y = 1.0
+            if Nt_s[0] == 0:
+                if Nt_s[1] != 0:
+                    y = -(self.charge + Q_s[0] + Q_s[1]) / Nt_s[1]
+            else:
+                if Nt_s[1] == 0:
+                    x = -(self.charge + Q_s[0] + Q_s[1]) / Nt_s[0]
+                else:
+                    x, y = solve(array([[Nt_s[0],  Nt_s[1]],
+                                        [Nt_s[0], -Nt_s[1]]]),
+                                 array([-Q_s[0] - Q_s[1] - self.charge,
+                                        -Q_s[0] + Q_s[1] + M]))
+
+            if self.charge == 0:
+                assert 0.83 < x < 1.17, 'x=%f' % x
+                assert 0.83 < y < 1.17, 'x=%f' % y
+
+            self.nt_sG[0] *= x
+            self.nt_sG[1] *= y
+
+        self.mixer.mix(self.nt_sG, self.comm)
+
+        self.interpolate_pseudo_density()
+
+        self.timer.stop()
+
+    def initialize2(self):
+        """Initialize density.
+
+        The density is initialized from atomic orbitals, and will
+        be constructed with the specified magnetic moments and
+        obeying Hund's rules if ``hund`` is true."""
+        
                 
         # We don't have any occupation numbers.  The initial
         # electron density comes from overlapping atomic densities
@@ -148,11 +226,12 @@ class Density:
             M = sum(self.magmom_a)
             x = 1.0
             y = 1.0
-            if Nt_s[0] == 0:
-                if Nt_s[1] != 0:
+            print Nt_s
+            if abs(Nt_s[0]) < 1e-9:
+                if abs(Nt_s[1]) > 1e-9:
                     y = -(self.charge + Q_s[0] + Q_s[1]) / Nt_s[1]
             else:
-                if Nt_s[1] == 0:
+                if abs(Nt_s[1]) < 1e-9:
                     x = -(self.charge + Q_s[0] + Q_s[1]) / Nt_s[0]
                 else:
                     x, y = solve(array([[Nt_s[0],  Nt_s[1]],
@@ -160,9 +239,10 @@ class Density:
                                  array([-Q_s[0] - Q_s[1] - self.charge,
                                         -Q_s[0] + Q_s[1] + M]))
 
+            print x,y
             if self.charge == 0:
                 assert 0.83 < x < 1.17, 'x=%f' % x
-                assert 0.83 < y < 1.17, 'x=%f' % y
+                #assert 0.83 < y < 1.17, 'x=%f' % y
 
             self.nt_sG[0] *= x
             self.nt_sG[1] *= y
@@ -170,8 +250,6 @@ class Density:
         self.mixer.mix(self.nt_sG, self.comm)
 
         self.interpolate_pseudo_density()
-
-        self.timer.stop()
 
     def interpolate_pseudo_density(self):
         """Transfer the density from the coarse to the fine grid."""
@@ -204,13 +282,13 @@ class Density:
             
         charge = self.finegd.integrate(self.rhot_g) + self.charge
         if abs(charge) > 1e-7:
-            raise RuntimeError('Charge not conserved: excess=%f' % charge ) 
+            raise RuntimeError('Charge not conserved: excess=%.7f' % charge ) 
 
     def update(self, kpt_u, symmetry):
         """Calculate pseudo electron-density.
 
         The pseudo electron-density ``nt_sG`` is calculated from the
-        wave functions, the occupation numbers, and the smoot core
+        wave functions, the occupation numbers, and the smooth core
         density ``nct_G``, and finally symmetrized and mixed."""
 
         if self.fixdensity:

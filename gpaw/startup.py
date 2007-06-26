@@ -20,7 +20,7 @@ from gpaw.setup import create_setup
 
 from gpaw import dry_run
 
-def create_paw_object(out, a0, Ha,
+def create_paw_object(out, verbosity, write, a0, Ha,
                       pos_ac, Z_a, magmom_a, cell_c, bc_c,
                       h, N_c, xcname,
                       nbands, spinpol, kT,
@@ -104,7 +104,7 @@ def create_paw_object(out, a0, Ha,
     for a, type in setup_types.items():
         if isinstance(a, int):
             type_a[a] = type
-    
+
     # Construct necessary PAW-setup objects:
     setups = {}
     for a, (Z, type) in enumerate(zip(Z_a, type_a)):
@@ -162,9 +162,6 @@ def create_paw_object(out, a0, Ha,
         nao += nucleus.setup.niAO
     nvalence -= charge
 
-    for nucleus in nuclei:
-        charge += (nucleus.setup.Z - nucleus.setup.Nv - nucleus.setup.Nc)
-
     if nvalence < 0:
         raise ValueError(
             'Charge %f is not possible - not enough valence electrons' %
@@ -179,15 +176,6 @@ def create_paw_object(out, a0, Ha,
         
     if nvalence > 2 * nbands:
         raise ValueError('Too few bands!')
-
-
-
-    if (dry_run):
-        # Estimate the amount of memory needed
-        estimate_memory(N_c, nbands, nkpts, nspins, typecode, nuclei, h_c, out)
-        out.flush()
-        timer.stop()
-        sys.exit()
 
     # Get the local number of spins and k-points, and return a
     # domain_comm and kpt_comm for this processor:
@@ -205,7 +193,13 @@ def create_paw_object(out, a0, Ha,
               stencils, usesymm, mix, fixdensity, maxiter,
               convergeall, eigensolver, relax, pos_ac / a0, timer, kT / Ha,
               tolerance, kpt_comm, restart_file, hund, fixmom, magmom_a,
-              out, vext_g)
+              out, verbosity, write, vext_g)
+
+    if dry_run:
+        # Estimate the amount of memory needed
+        estimate_memory(N_c, nbands, nkpts, nspins, typecode, nuclei, h_c, out)
+        out.flush()
+        sys.exit()
 
     return paw
 

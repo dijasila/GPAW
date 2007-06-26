@@ -1,3 +1,4 @@
+# This test takes approximately 4.3 seconds
 from ASE import Crystal, Atom
 from gpaw import Calculator
 from gpaw.utilities import equal
@@ -14,4 +15,4 @@ hydrogen[0].SetMagneticMoment(1.0)
 e2 = hydrogen.GetPotentialEnergy()
 de = e1 - e2
 print de
-equal(de, 0.794809, 1e-4)
+equal(de, 0.7929, 1e-3)

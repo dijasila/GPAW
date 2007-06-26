@@ -15,9 +15,11 @@ from gpaw.grid_descriptor import RadialGridDescriptor
 from gpaw.utilities import unpack, erf, fac, hartree
 from gpaw.xc_correction import XCCorrection
 from gpaw.xc_functional import XCRadialGrid
+from gpaw.kli import XCKLICorrection, XCGLLBCorrection
 
 
-def create_setup(symbol, xcfunc, lmax=0, nspins=1, softgauss=True, type='paw'):
+def create_setup(symbol, xcfunc, lmax=0, nspins=1, softgauss=False,
+                 type='paw'):
     if type == 'ae':
         from gpaw.ae import AllElectronSetup
         return AllElectronSetup(symbol, xcfunc, nspins)
@@ -32,25 +34,48 @@ def create_setup(symbol, xcfunc, lmax=0, nspins=1, softgauss=True, type='paw'):
     
     if type == 'hch':
         from gpaw.corehole import CoreHoleSetup
-        return CoreHoleSetup(symbol, xcfunc, nspins, fhole=0.5, lmax=lmax)
+        return CoreHoleSetup(symbol, xcfunc, nspins, fcorehole=0.5, lmax=lmax)
     
     if type == 'fch':
         from gpaw.corehole import CoreHoleSetup
-        return CoreHoleSetup(symbol, xcfunc, nspins, fhole=1, lmax=lmax)
+        return CoreHoleSetup(symbol, xcfunc, nspins, fcorehole=1, lmax=lmax)
+
+    if type == '1s0.5':
+        from gpaw.corehole import CoreHoleSetup
+        return CoreHoleSetup(symbol, xcfunc, nspins, fcorehole=0.5, lmax=lmax,type='1s0.5')
+
+    if type == '1s1.0':
+        from gpaw.corehole import CoreHoleSetup
+        return CoreHoleSetup(symbol, xcfunc, nspins, fcorehole=1.0, lmax=lmax,type='1s1.0')
     
     return Setup(symbol, xcfunc, lmax, nspins, softgauss, type)
 
 
 class Setup:
-    def __init__(self, symbol, xcfunc, lmax=0, nspins=1, softgauss=True,
+    def __init__(self, symbol, xcfunc, lmax=0, nspins=1, softgauss=False,
                  type='paw'):
         xcname = xcfunc.get_name()
         self.xcname = xcname
         self.softgauss = softgauss
 
+        assert not softgauss
+        
+        self.type = type
         if type != 'paw':
             symbol += '.' + type
         self.symbol = symbol
+
+#        (Z, Nc, Nv,
+#         e_total, e_kinetic, e_electrostatic, e_xc,
+#         e_kinetic_core,
+#         n_j, l_j, f_j, eps_j, rcut_j, id_j,
+#         ng, beta,
+#         nc_g, nct_g, vbar_g, rcgauss,
+#         phi_jg, phit_jg, pt_jg,
+#         e_kin_jj, X_p, ExxC,
+#         tauc_g, tauct_g,
+#         self.fingerprint,
+#         filename) = PAWXMLParser().parse(symbol, xcname)
 
         (Z, Nc, Nv,
          e_total, e_kinetic, e_electrostatic, e_xc,
@@ -62,7 +87,11 @@ class Setup:
          e_kin_jj, X_p, ExxC,
          tauc_g, tauct_g,
          self.fingerprint,
-         filename) = PAWXMLParser().parse(symbol, xcname)
+         filename,
+         core_hole_state,
+         core_hole_e,
+         core_hole_e_kin,
+         core_response) = PAWXMLParser().parse(symbol, xcname)
 
         self.filename = filename
 
@@ -81,26 +110,33 @@ class Setup:
         self.f_j = f_j
         self.eps_j = eps_j
 
-        rcut = max(rcut_j)
-        rcut2 = 2 * rcut
-        gcut = 1 + int(rcut * ng / (rcut + beta))
-        gcut2 = 1 + int(rcut2 * ng / (rcut2 + beta))
-
         g = num.arange(ng, typecode=num.Float)
         r_g = beta * g / (ng - g)
         dr_g = beta * ng / (ng - g)**2
         d2gdr2 = -2 * ng * beta / (beta + r_g)**3
 
+        # Find Fourier-filter cutoff radius:
+        g = ng - 1
+        while pt_jg[0][g] == 0.0:
+            g -= 1
+        gcutfilter = g + 1
+        self.rcutfilter = rcutfilter = r_g[gcutfilter]
+
+        rcutmax = max(rcut_j)
+        rcut2 = 2 * rcutmax
+        gcutmax = 1 + int(rcutmax * ng / (rcutmax + beta))
+        gcut2 = 1 + int(rcut2 * ng / (rcut2 + beta))
+
         # Find cutoff for core density:
         if Nc == 0:
-            rcore = 0.5
+            self.rcore = rcore = 0.5
         else:
             N = 0.0
             g = ng - 1
             while N < 1e-7:
                 N += sqrt(4 * pi) * nc_g[g] * r_g[g]**2 * dr_g[g]
                 g -= 1
-            rcore = r_g[g]
+            self.rcore = rcore = r_g[g]
 
         ni = 0
         niAO = 0
@@ -127,23 +163,23 @@ class Setup:
 
         # Construct splines:
         self.nct = Spline(0, rcore, nct_g, r_g=r_g, beta=beta)
-        self.vbar = Spline(0, rcut2, vbar_g, r_g=r_g, beta=beta)
+        self.vbar = Spline(0, rcutfilter, vbar_g, r_g=r_g, beta=beta)
 
         # Construct splines for core kinetic energy density:
         if tauct_g == None:
-##            print 'Warning: No kinetic energy density information in setup file'
-            tauct_g = num.zeros(nct_g.shape,num.Float)
+##          print 'Warning: No kinetic energy density information in setup'
+            tauct_g = num.zeros(ng, num.Float)
         self.tauct = Spline(0, rcore, tauct_g, r_g=r_g, beta=beta)
 
         # Step function:
-        stepf = sqrt(4 * pi) * num.ones(vbar_g.shape)
-        stepf[gcut:] = 0.0
-        self.stepf = Spline(0, rcut2, stepf, r_g=r_g, beta=beta)
+        stepf = sqrt(4 * pi) * num.ones(ng)
+        stepf[gcutmax:] = 0.0
+        self.stepf = Spline(0, rcutfilter, stepf, r_g=r_g, beta=beta)
 
         self.pt_j = []
         for j in range(nj):
             l = l_j[j]
-            self.pt_j.append(Spline(l, rcut2, grr(pt_jg[j], l, r_g),
+            self.pt_j.append(Spline(l, rcutfilter, grr(pt_jg[j], l, r_g),
                                     r_g=r_g, beta=beta))
 
         # Cutoff for atomic orbitals used for initial guess:
@@ -190,6 +226,9 @@ class Setup:
         nc_g = nc_g[:gcut2].copy()
         nct_g = nct_g[:gcut2].copy()
         vbar_g = vbar_g[:gcut2].copy()
+
+        if xcname == 'GLLB':
+            core_response = core_response[:gcut2].copy()
 
         Lcut = (2 * lcut + 1)**2
         T_Lqp = num.zeros((Lcut, nq, np), num.Float)
@@ -302,17 +341,49 @@ class Setup:
         # Make a radial grid descriptor:
         rgd = RadialGridDescriptor(r_g, dr_g)
 
-        xc = XCRadialGrid(xcfunc, rgd, nspins)
+        if xcfunc.xcname == 'KLI':
+            # For debugging purposes, pass a LDA XCCorrection
+            # to XCKLICorrection class
+            from gpaw.xc_functional import XCFunctional
+            xc = XCRadialGrid(XCFunctional('LDAx'), rgd, nspins)
+            xc_lda_correction = XCCorrection(
+                xc,
+                [grr(phi_g, l_j[j], r_g) for j, phi_g in enumerate(phi_jg)],
+                [grr(phit_g, l_j[j], r_g) for j, phit_g in enumerate(phit_jg)],
+                nc_g / sqrt(4 * pi), nct_g / sqrt(4 * pi),
+                rgd, [(j, l_j[j]) for j in range(nj)],
+                2 * lcut, e_xc)
 
-        self.xc_correction = XCCorrection(
-            xc,
-            [grr(phi_g, l_j[j], r_g) for j, phi_g in enumerate(phi_jg)],
-            [grr(phit_g, l_j[j], r_g) for j, phit_g in enumerate(phit_jg)],
-            nc_g / sqrt(4 * pi), nct_g / sqrt(4 * pi),
-            rgd, [(j, l_j[j]) for j in range(nj)],
-            2 * lcut, e_xc)
+            # Create XCKLICorrection with necessary parameters
+            self.xc_correction = XCKLICorrection(xcfunc.xc, rgd.r_g, rgd.dr_g,
+                                                 beta, ng, nspins,
+                                                 self.M_pp, self.X_p,
+                                                 self.ExxC,
+                                                 [grr(phi_g, l_j[j], r_g) for j, phi_g in enumerate(phi_jg)],
+                                                 [grr(phit_g, l_j[j], r_g) for j, phit_g in enumerate(phit_jg)],
+                                                 [(j, l_j[j]) for j in range(nj)],
+                                                 xc_lda_correction)
 
-        self.rcut = rcut
+        elif xcfunc.xcname == "GLLB":
+            self.xc_correction = XCGLLBCorrection(
+                xcfunc.xc,
+                [grr(phi_g, l_j[j], r_g) for j, phi_g in enumerate(phi_jg)],
+                [grr(phit_g, l_j[j], r_g) for j, phit_g in enumerate(phit_jg)],
+                nc_g / sqrt(4 * pi), nct_g / sqrt(4 * pi),
+                rgd, [(j, l_j[j]) for j in range(nj)],
+                2 * lcut, e_xc, core_response)
+        else:
+            xc = XCRadialGrid(xcfunc, rgd, nspins)
+
+            self.xc_correction = XCCorrection(
+                xc,
+                [grr(phi_g, l_j[j], r_g) for j, phi_g in enumerate(phi_jg)],
+                [grr(phit_g, l_j[j], r_g) for j, phit_g in enumerate(phit_jg)],
+                nc_g / sqrt(4 * pi), nct_g / sqrt(4 * pi),
+                rgd, [(j, l_j[j]) for j in range(nj)],
+                2 * lcut, e_xc)
+
+        #self.rcut = rcut
 
         if softgauss:
             rcutsoft = rcut2####### + 1.4
@@ -382,8 +453,9 @@ class Setup:
 
         else:
             alpha2 = alpha
-            self.vhat_l = [Spline(l, rcutsoft, 0 * r)
-                             for l in range(lmax + 1)]
+            self.vhat_l = None
+            #self.vhat_l = [Spline(l, rcutsoft, 0 * r)
+            #                 for l in range(lmax + 1)]
 
         self.alpha2 = alpha2
 
@@ -394,32 +466,29 @@ class Setup:
         self.ghat_l = [Spline(l, rcutsoft, d_l[l] * alpha2**l * g)
                      for l in range(lmax + 1)]
 
-        # Construct atomic density matrix for the ground state (to be
-        # used for testing):
-        self.D_sp = num.zeros((1, np), num.Float)
-        p = 0
-        i1 = 0
-        for j1, l1, L1 in jlL_i:
-            occ = f_j[j1] / (2.0 * l1 + 1)
-            for j2, l2, L2 in jlL_i[i1:]:
-                if j1 == j2 and L1 == L2:
-                    self.D_sp[0, p] = occ
-                p += 1
-            i1 += 1
-
+        self.rcutcomp = sqrt(10) * rcgauss
+        self.rcut_j = rcut_j
+        
     def print_info(self, out):
         print >> out, self.symbol + '-setup:'
         print >> out, '  name   :', names[self.Z]
         print >> out, '  Z      :', self.Z
         print >> out, '  file   :', self.filename
-        print >> out, '  cutoffs: %4.2f Bohr, lmax=%d' % (self.rcut, self.lmax)
+        print >> out, ('  cutoffs: %4.2f(comp), %4.2f(filt), %4.2f(core) Bohr,'
+                       ' lmax=%d' % (self.rcutcomp, self.rcutfilter,
+                                     self.rcore, self.lmax))
         print >> out, '  valence states:'
+        j = 0
         for n, l, f, eps in zip(self.n_j, self.l_j, self.f_j, self.eps_j):
             if n > 0:
                 f = '(%d)' % f
-                print >> out, '    %d%s%-4s %7.3f Ha' % (n, 'spdf'[l], f, eps)
+                print >> out, '    %d%s%-4s %7.3f Ha   %4.2f Bohr' % (
+                    n, 'spdf'[l], f, eps, self.rcut_j[j])
             else:
-                print >> out, '    *%s     %7.3f Ha' % ('spdf'[l], eps)
+                print >> out, '    *%s     %7.3f Ha   %4.2f Bohr' % (
+                    'spdf'[l], eps, self.rcut_j[j])
+            j += 1
+            
         print >> out
 
     def calculate_rotations(self, R_slmm):
@@ -451,8 +520,12 @@ class Setup:
          phi_jg, phit_jg, pt_jg,
          e_kin_jj, X_p, ExxC,
          tauc_g, tauct_g,
-         self.fingerprint,
-         filename) = PAWXMLParser().parse(self.symbol, self.xcname)
+         fingerprint,
+         filename,
+         core_hole_state,
+         core_hole_e,
+         core_hole_e_kin,
+         core_response) = PAWXMLParser().parse(self.symbol, self.xcname)
 
         # cutoffs
         nj = len(l_j)
@@ -492,3 +565,13 @@ def grr(phi_g, l, r_g):
         r0, r1, r2 = r_g[0:3]
         w_g[0] = w2 + (w1 - w2) * (r0 - r2) / (r1 - r2) 
     return w_g
+
+
+if __name__ == '__main__':
+    print """\
+You are using the wrong setup.py script!  This setup.py defines a
+Setup class used to hold the atomic data needed for a specific atom.
+For building the GPAW code you must use the setup.py distutils script
+at the root of the code tree.  Just do "cd .." and you will be at the
+right place."""
+    

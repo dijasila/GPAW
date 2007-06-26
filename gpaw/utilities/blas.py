@@ -13,20 +13,30 @@ from gpaw import debug
 import _gpaw
 
 
-def gemm(alpha, a, b, beta, c):
+def gemm(alpha, a, b, beta, c, transa='n'):
     """General Matrix Multiply.
 
     Performs the operation::
     
       c <- alpha * b.a + beta * c
 
-    where ``b.a`` denotes the matrix multiplication defined by::
+    If transa is "n", ``b.a`` denotes the matrix multiplication defined by::
     
                       _
                      \  
       (b.a)        =  ) b  * a
            ijkl...   /_  ip   pjkl...
                       p
+    
+    If transa is "t" or "c", ``b.a`` denotes the matrix multiplication defined by::
+    
+                      _
+                     \  
+      (b.a)        =  ) b    *    a
+           ij        /_  iklm...   jklm...
+                     klm... 
+
+     where in case of "c" also complex conjugate of a is taken.
     """
     assert ((is_contiguous(a, num.Float) and
              is_contiguous(b, num.Float) and
@@ -35,10 +45,14 @@ def gemm(alpha, a, b, beta, c):
             (is_contiguous(a, num.Complex) and
              is_contiguous(b, num.Complex) and
              is_contiguous(c, num.Complex)))
-    assert num.rank(b) == 2
-    assert a.shape[0] == b.shape[1]
-    assert c.shape == b.shape[0:1] + a.shape[1:]
-    _gpaw.gemm(alpha, a, b, beta, c)
+    if transa == "n":   
+        assert num.rank(b) == 2
+        assert a.shape[0] == b.shape[1]
+        assert c.shape == b.shape[0:1] + a.shape[1:]
+    else:
+        assert a.shape[1:] == b.shape[1:]
+        assert c.shape == b.shape[0:1] + a.shape[0:1]
+    _gpaw.gemm(alpha, a, b, beta, c, transa)
 
     
 def axpy(alpha, x, y):
@@ -120,13 +134,30 @@ def r2k(alpha, a, b, beta, c):
     assert c.shape == (a.shape[0], a.shape[0])
     _gpaw.r2k(alpha, a, b, beta, c)
 
+def dotc(a, b):
+    """Dot product, conjugating the first vector with complex arguments.
 
+    Returns the value of the operation::
+
+        _
+       \   cc   
+        ) a       * b
+       /_  ijk...    ijk...       
+       ijk...
+
+    ``cc`` denotes complex conjugation.
+    """
+    assert ((is_contiguous(a, num.Float) and is_contiguous(b, num.Float)) or
+            (is_contiguous(a, num.Complex) and is_contiguous(b,num.Complex)))
+    assert a.shape == b.shape
+    return _gpaw.dotc(a, b)
+    
 if not debug:
     gemm = _gpaw.gemm
     axpy = _gpaw.axpy
     rk = _gpaw.rk
     r2k = _gpaw.r2k
-
+    dotc = _gpaw.dotc;
 
 if __name__ == '__main__':
     a = num.array(((1.0, 3.0, 0.0),

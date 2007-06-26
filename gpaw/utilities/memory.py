@@ -5,6 +5,7 @@
 # http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/286222
 
 import os
+import resource
 import Numeric as num
 
 _proc_status = '/proc/%d/status' % os.getpid()
@@ -22,7 +23,7 @@ def _VmB(VmKey):
         v = t.read()
         t.close()
         # get VmKey line e.g. 'VmRSS:  9999  kB\n ...'
-        i = v.index(VmKey)	
+        i = v.index(VmKey)
     except:
         return 0.0  # non-Linux?
 
@@ -43,12 +44,25 @@ def resident(since=0.0):
     '''
     return _VmB('VmRSS:') - since
 
-
 def stacksize(since=0.0):
     '''Return stack size in bytes.
     '''
     return _VmB('VmStk:') - since
 
+def maxrss():
+    '''Return maximal resident memory size in bytes.
+    '''
+    # try to get it from rusage
+    mm = resource.getrusage(resource.RUSAGE_SELF)[2]*resource.getpagesize()
+    if mm > 0: return mm
+
+    # try to get it from /proc/id/status
+    mm = _VmB('VmPeak:')
+    if mm > 0: return mm
+
+    # no more idea
+    return 0.0
+ 
 def estimate_memory(N_c, nbands, nkpts, nspins, typecode, nuclei, h_c, out):
     float_size = num.array([1], num.Float).itemsize()
     type_size = num.array([1],typecode).itemsize()
@@ -116,12 +130,12 @@ def estimate_memory(N_c, nbands, nkpts, nspins, typecode, nuclei, h_c, out):
         nl = 0
         for ghat in nucleus.setup.ghat_l:
             l = ghat.get_angular_momentum_number()
-            nl += 2 * l +1
-        mem_nuclei += 2 * 4 * nl * box[0] * box[1] * box[2] * float_size
-        mem_nuclei += 2 * box[0] * box[1] * box[2] * float_size
+            nl += 2 * l + 1
+        mem_nuclei += 4 * nl * box[0] * box[1] * box[2] * float_size
+        mem_nuclei += box[0] * box[1] * box[2] * float_size
         # nct
         box = 2 * nucleus.setup.nct.get_cutoff() / h_c
-        mem_nuclei += box[0] * box[1] * box[2] * float_size
+        mem_nuclei += 5 * box[0] * box[1] * box[2] * float_size
 
     print >> out, "Localized functions: %.3f" % (mem_nuclei/scale)
     mem += mem_nuclei

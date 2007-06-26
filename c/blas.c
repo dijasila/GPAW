@@ -33,6 +33,11 @@ int zgemm_(char *transa, char *transb, int *m, int * n,
 	   void *b, int *ldb, void *beta,
 	   void *c, int *ldc);
 
+double ddot_(int *n, void *dx, int *incx, void *dy, int *incy);
+
+void* zdotc_(void* result, int *n, void *zx, int *incx, void *zy, int *incy);
+
+
 PyObject* gemm(PyObject *self, PyObject *args)
 {
   Py_complex alpha;
@@ -40,29 +45,46 @@ PyObject* gemm(PyObject *self, PyObject *args)
   PyArrayObject* b;
   Py_complex beta;
   PyArrayObject* c;
-  if (!PyArg_ParseTuple(args, "DOODO", &alpha, &a, &b, &beta, &c)) 
+  char transa = 'n';
+  if (!PyArg_ParseTuple(args, "DOODO|c", &alpha, &a, &b, &beta, &c, &transa)) 
     return NULL;
-  int m = a->dimensions[1];
-  for (int i = 2; i < a->nd; i++)
-    m *= a->dimensions[i];
-  int k = a->dimensions[0];
-  int n = b->dimensions[0];
+  int m, n, k, lda, ldb;
+  if (transa == 'n')
+    {
+      m = a->dimensions[1];
+      for (int i = 2; i < a->nd; i++)
+	m *= a->dimensions[i];
+      k = a->dimensions[0];
+      lda = m;
+      ldb = k;
+    } 
+  else
+    {
+      k = a->dimensions[1];
+      for (int i = 2; i < a->nd; i++)
+	k *= a->dimensions[i];
+      m = a->dimensions[0];
+      lda = k;
+      ldb = k;
+    } 
+  n = b->dimensions[0];
   if (a->descr->type_num == PyArray_DOUBLE)
-    dgemm_("n", "n", &m, &n, &k, 
+    dgemm_(&transa, "n", &m, &n, &k, 
            &(alpha.real),
-           DOUBLEP(a), &m, 
-           DOUBLEP(b), &k,
+           DOUBLEP(a), &lda, 
+           DOUBLEP(b), &ldb,
            &(beta.real), 
            DOUBLEP(c), &m);
   else
-    zgemm_("n", "n", &m, &n, &k, 
+    zgemm_(&transa, "n", &m, &n, &k, 
            &alpha,
-           (void*)COMPLEXP(a), &m, 
-           (void*)COMPLEXP(b), &k,
+           (void*)COMPLEXP(a), &lda, 
+           (void*)COMPLEXP(b), &ldb,
            &beta, 
            (void*)COMPLEXP(c), &m);
   Py_RETURN_NONE;
 }
+
 
 PyObject* axpy(PyObject *self, PyObject *args)
 {
@@ -142,4 +164,33 @@ PyObject* r2k(PyObject *self, PyObject *args)
             (void*)COMPLEXP(b), &k, &beta,
             (void*)COMPLEXP(c), &n);
   Py_RETURN_NONE;
+}
+
+PyObject* dotc(PyObject *self, PyObject *args)
+{
+  PyArrayObject* a;
+  PyArrayObject* b;
+  if (!PyArg_ParseTuple(args, "OO", &a, &b)) 
+    return NULL;
+  int n = a->dimensions[0];
+  for (int i = 1; i < a->nd; i++)
+    n *= a->dimensions[i];
+  int incx = 1;
+  int incy = 1;
+  if (a->descr->type_num == PyArray_DOUBLE)
+    {
+      double result;
+      result = ddot_(&n, (void*)DOUBLEP(a), 
+	     &incx, (void*)DOUBLEP(b), &incy);
+      return PyFloat_FromDouble(result);
+    }
+  else
+    {
+      double result[2];
+      // Fortran returns complex variables in the first argument
+      zdotc_((void*)result, &n, (void*)COMPLEXP(a), 
+	     &incx, (void*)COMPLEXP(b), &incy);
+
+      return PyComplex_FromDoubles(result[0], result[1]);
+    }
 }

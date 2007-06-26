@@ -3,6 +3,7 @@
 from struct import calcsize,pack,unpack
 import Numeric as num
 from gpaw.utilities import check_unit_cell
+from gpaw.grid_descriptor import GridDescriptor
 
 def read_plt(filename):
     """Read plt files
@@ -41,19 +42,29 @@ def read_plt(filename):
 
     return cell, num.transpose(num.resize(arr,(nz,ny,nx))), (x0,y0,z0)
 
-def write_plt(cell, grid, filename,
+def write_plt(cell,
+              grid,
+              filename,
               origin=(0.0,0.0,0.0), # ASE uses (0,0,0) as origin
-              type=4):
+              typ=4):
     """Input:
-    cell = unit cell object as given from ListOfAtoms.GetUnitCell()
+    cell = unit cell object as given from ListOfAtoms.GetUnitCell() or
+    grid decriptor
+
     grid = the grid to write
-    type = Type of surface (integer)
+
+    typ  = type of surface (integer)
     
     cell is assumed to be in Angstroms and the grid in atomc units (Bohr)"""
-    
-    # Check that the cell is orthorhombic
-    check_unit_cell(cell)
-    xe, ye, ze = num.diagonal(cell)
+
+    if hasattr(cell,'new_array'): # this is a GridDescriptor
+        xe, ye, ze = cell.h_c*cell.N_c * 0.52918 # get Angstroms
+    elif len(cell.shape) == 2:
+        # Check that the cell is orthorhombic
+        check_unit_cell(cell)
+        xe, ye, ze = num.diagonal(cell)
+    else:
+        xe, ye, ze = cell * 0.52918 # get Angstroms
 
     # Check, that the grid is 3D
     if len(grid.shape) != 3:
@@ -62,7 +73,7 @@ def write_plt(cell, grid, filename,
     dx, dy, dz = [ xe/nx, ye/ny, ze/nz ]
 
     f = open(filename, 'w')
-    f.write(pack('ii', 3, type))
+    f.write(pack('ii', 3, typ))
     f.write(pack('iii', nz, ny, nx))
 
     x0, y0, z0 = origin
@@ -84,3 +95,24 @@ def write_plt(cell, grid, filename,
 
     f.close()
 
+def wf2plt(paw,i,spin=0,fname=None):
+    """Write a specific wavefunction as plt file"""
+    kpt = paw.kpt_u[spin]
+    wf = kpt.psit_nG[i]
+    gd = kpt.gd
+
+    if fname is None:
+        fname = 'wf'+str(i)+'_'+str(spin)+'.plt'
+    write_plt(gd, wf, fname)
+    
+def pot2plt(paw,spin=0,fname=None):
+    """Write the potential as plt file"""
+    kpt = paw.kpt_u[spin]
+    gd = kpt.gd
+    vt = paw.hamiltonian.vt_sG[spin]
+
+    if fname is None:
+        fname = 'vt_'+str(spin)+'.plt'
+    write_plt(gd, vt, fname)
+
+  

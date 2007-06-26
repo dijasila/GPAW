@@ -175,25 +175,32 @@ class LocFuncs:
 
     def add_density2(self, n_G, D_p):
         """Add atomic electron density to extended density array.
+        
         Special method for adding the atomic electron density
-        calculated from atomic orbitals and density matrix
-        ``D_p``. Returns integral of correction."""
+        calculated from all cross products of atomic orbitals
+        weighted using the density matrix ``D_p``.
+
+        The method returns the integral of the atomic electron density
+        """
         I = 0.0
         for box in self.box_b:
             I += box.add_density2(n_G, D_p)
         return I
 
     def normalize(self, I0):
-        """Normalize localized function.
-        The integral of the first function is normalized to the value
-        ``I0``."""
+        """Normalize localized functions.
+        
+        The integral of the first function (shperically symmetric, l =
+        0) is normalized to the value ``I0`` and the following
+        functions (l > 0) are adjusted so that they integrate to
+        zero."""
 
-        I = 0.0
+        I_i = num.zeros(self.ni, num.Float)
         for box in self.box_b:
-            I += box.norm()
-        I = self.comm.sum(I)
+            box.norm(I_i)
+        self.comm.sum(I_i)
         for box in self.box_b:
-            box.scale(I0 / I)
+            box.normalize(I0, I_i)
         
 class LocalizedFunctionsWrapper:
     """Python wrapper class for C-extension: ``LocalizedFunctions``.
@@ -302,9 +309,13 @@ class LocalizedFunctionsWrapper:
 
     def add_density2(self, n_G, D_p):
         """Add atomic electron density to extended density array.
+        
         Special method for adding the atomic electron density
-        calculated from atomic orbitals and density matrix
-        ``D_p``."""
+        calculated from all cross products of atomic orbitals
+        weighted using the density matrix ``D_p``.
+
+        The method returns the integral of the atomic electron density
+        """
         
         assert is_contiguous(n_G, num.Float)
         assert is_contiguous(D_p, num.Float)
@@ -312,13 +323,17 @@ class LocalizedFunctionsWrapper:
         assert D_p.shape == (self.ni * (self.ni + 1) / 2,)
         return self.lfs.add_density2(n_G, D_p)
 
-    def norm(self):
-        """Integral of the first function."""
-        return self.lfs.norm()
+    def norm(self, I_i):
+        """Integrate functions."""
+        assert is_contiguous(I_i, num.Float)
+        assert I_i.shape == (self.ni,)
+        return self.lfs.norm(I_i)
 
-    def scale(self, s):
-        """Scale the first function."""
-        self.lfs.scale(s)
+    def normalize(self, I0, I_i):
+        """Normalize functions."""
+        assert is_contiguous(I_i, num.Float)
+        assert I_i.shape == (self.ni,)
+        return self.lfs.normalize(I0, I_i)
 
 if debug:
     # Add type and sanity checks:
@@ -359,5 +374,3 @@ class LocFuncBroadcaster:
             for root, lf in enumerate(self.lfs):
                 lf.broadcast(self.comm, root % self.size)
         self.reset()
-
-

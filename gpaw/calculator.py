@@ -19,12 +19,17 @@ from ASE.Utilities.MonkhorstPack import MonkhorstPack
 import ASE
 
 from gpaw.utilities import DownTheDrain, check_unit_cell
+from gpaw.utilities.memory import maxrss
 from gpaw.mpi.paw import MPIPaw
 from gpaw.startup import create_paw_object
 from gpaw.version import version
 import gpaw.utilities.timing as timing
 import gpaw
 import gpaw.io
+import gpaw.mpi as mpi
+from gpaw import parallel
+
+MASTER = 0
 
 
 class Calculator:
@@ -48,11 +53,13 @@ class Calculator:
                   'mix': (0.25, 3, 1.0),
                   'hund': False,
                   'fixmom': False,
-                  'lmax': 0,
+                  'lmax': 2,
                   'fixdensity': False,
                   'tolerance': 1.0e-9,
                   'maxiter': 100000000,
                   'out': '-',
+                  'verbosity': 0,
+                  'write' : ('gpaw-restart.gpw', 0),
                   'hosts': None,
                   'parsize': None,
                   'softgauss': False,
@@ -150,7 +157,7 @@ class Calculator:
           open a new file.
         """
         
-        if out is None:
+        if out is None or mpi.rank != MASTER:
             out = DownTheDrain()
         elif out == '-':
             out = sys.stdout
@@ -214,7 +221,7 @@ class Calculator:
         Z_a = atoms.GetAtomicNumbers()
         cell_cc = num.array(atoms.GetUnitCell())
         periodic_c = atoms.GetBoundaryConditions()
-	
+        
         # Check that the cell is orthorhombic:
         check_unit_cell(cell_cc)
         # Get the diagonal:
@@ -234,6 +241,8 @@ class Calculator:
         if self.external is not None:
             self.external /= self.Ha
         args = [self.out,
+                self.verbosity,
+                self.write,
                 self.a0, self.Ha,
                 pos_ac, Z_a, magmoms, cell_c, periodic_c,
                 self.h, self.gpts, self.xc,
@@ -271,16 +280,19 @@ class Calculator:
                 # the hosts from the PBS_NODEFILE environment variable:
                 self.hosts = os.environ['PBS_NODEFILE']
                 
-                if len(open(self.hosts).readlines()) == 1:
-                    # Only one node - don't do a parallel calculation:
-                    self.hosts = None
+                try:
+                    nodes = len(open(self.hosts).readlines())
+                    if nodes == 1:
+                        self.hosts = None
+                except:
+                    pass
             elif os.environ.has_key('NSLOTS'):
                 # This job was submitted to the Grid Engine queing system:
                 self.hosts = int(os.environ['NSLOTS'])
             elif os.environ.has_key('LOADL_PROCESSOR_LIST'):
                 self.hosts = 'dummy file-name'
-            elif os.environ.has_key('GPAW_MPI_COMMAND'):
-                self.hosts = 'dummy file-name'
+            #elif os.environ.has_key('GPAW_MPI_COMMAND'):
+            #    self.hosts = 'dummy file-name'
 
         if isinstance(self.hosts, int):
             if self.hosts == 1:
@@ -298,13 +310,16 @@ class Calculator:
             self.hosts = self.tempfile
             # (self.tempfile is removed in Calculator.__del__)
 
-        # What kind of calculation should we do?
-        if self.hosts is None:
-            # Serial:
-            self.paw = create_paw_object(*args)
+        if self.hosts is not None and mpi.size == 1:
+            parallel_with_sockets = True
         else:
-            # Parallel:
+            parallel_with_sockets = False
+
+        # What kind of calculation should we do?
+        if parallel_with_sockets:
             self.paw = MPIPaw(self.hosts, *args)
+        else:
+            self.paw = create_paw_object(*args)
             
     def find_ground_state(self):
         """Tell PAW-object to start iterating ..."""
@@ -313,7 +328,7 @@ class Calculator:
         Z_a = atoms.GetAtomicNumbers()
         cell_cc = atoms.GetUnitCell()
         periodic_c = atoms.GetBoundaryConditions()
-	
+        
         # Check that the cell is orthorhombic:
         check_unit_cell(cell_cc)
 
@@ -352,6 +367,10 @@ class Calculator:
             print >> self.out, 'cputime : %f' % c
 
         print >> self.out, 'walltime: %f' % (time.time() - self.t0)
+        mr = maxrss()
+        if mr > 0:
+            def round(x): return int(100*x/1024.**2+.5)/100.
+            print >> self.out, 'memory  : '+str(round(maxrss()))+' MB'
         print >> self.out, 'date    :', time.asctime()
 
     #####################
@@ -525,6 +544,10 @@ class Calculator:
         """Return the Fermi-level."""
         return self.paw.get_fermi_level()
 
+    def GetElectronicTemperature(self):
+        """Return the electronic temperature in energy units."""
+        return self.paw.occupation.kT * self.Ha
+        
     def GetElectronicStates(self):
         """Return electronic-state object."""
         from ASE.Utilities.ElectronicStates import ElectronicStates

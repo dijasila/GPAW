@@ -17,16 +17,16 @@ from gpaw.atom.configurations import configurations
 from gpaw.grid_descriptor import RadialGridDescriptor
 from gpaw.xc_functional import XCRadialGrid, XCFunctional
 from gpaw.utilities import hartree
+from gpaw.exx import atomic_exact_exchange
 
-# KLI functional is handled separately at least for now
-from gpaw.kli import KLIFunctional
 # fine-structure constant
 alpha = 1 / 137.036
 
 class AllElectron:
     """Object for doing an atomic DFT calculation."""
 
-    def __init__(self, symbol, xcname='LDA', scalarrel=False, corehole=None):
+    def __init__(self, symbol, xcname='LDA', scalarrel=False,
+                 corehole=None, configuration=None):
         """Do an atomic DFT calculation.
         
         Example:
@@ -38,7 +38,8 @@ class AllElectron:
         self.symbol = symbol
         self.xcname = xcname
         self.scalarrel = scalarrel
-
+        #self.corehole = corehole
+        
         # Get reference state:
         self.Z, nlfe_j = configurations[symbol]
 
@@ -50,6 +51,27 @@ class AllElectron:
         self.f_j = [f for n, l, f, e in nlfe_j]
         self.e_j = [e for n, l, f, e in nlfe_j]
 
+        if configuration is not None:
+            j = 0
+            for conf in configuration.split(','):
+                if conf[0].isdigit():
+                    n = int(conf[0])
+                    l = 'spdf'.find(conf[1])
+                    if len(conf) == 2:
+                        f = 1.0
+                    else:
+                        f = float(conf[2:])
+                    assert n == self.n_j[j]
+                    assert l == self.l_j[j]
+                    self.f_j[j] = f
+                    j += 1
+                else:
+                    j += {'He': 1,
+                          'Ne': 3,
+                          'Ar': 5,
+                          'Kr': 8,
+                          'Xe': 11}[conf]
+
         print
         if scalarrel:
             print 'Scalar-relativistic atomic',
@@ -59,22 +81,28 @@ class AllElectron:
             xcname, symbol, names[self.Z], self.Z)
 
         if corehole is not None:
-            ncorehole, lcorehole, self.fcorehole = corehole
+            self.ncorehole, self.lcorehole, self.fcorehole = corehole
+            self.coreholename = '%d%s%.1f' % (self.ncorehole, 'spd'[self.lcorehole],
+                                self.fcorehole)
             
             # Find j for core hole and adjust occupation:
             for j in range(len(self.f_j)):
-                if self.n_j[j] == ncorehole and self.l_j[j] == lcorehole:
-                    assert self.f_j[j] == 2 * (2 * lhole + 1)
-                    self.f_j[j] -= self.fhole
+                if self.n_j[j] == self.ncorehole and self.l_j[j] == self.lcorehole:
+                    assert self.f_j[j] == 2 * (2 * self.lcorehole + 1)
+                    self.f_j[j] -= self.fcorehole
                     self.jcorehole = j
                     break
 
+            coreholestate='%d%s' % (self.ncorehole, 'spd'[self.lcorehole])
             print 'Core hole in %s state (%s occupation: %.1f)' % (
                 coreholestate, coreholestate, self.f_j[self.jcorehole])
         else:
             self.jcorehole = None
-            self.fhole = 0
-
+            self.fcorehole = 0
+            self.coreholename = ""
+            
+        #self.f_j[2]=4
+    
         self.nofiles = False
 
     def intialize_wave_functions(self):
@@ -128,12 +156,7 @@ class AllElectron:
         # Electron density:
         self.n = num.zeros(N, num.Float)
 
-        do_kli = (self.xcname == 'KLI')
-
-        if not do_kli:
-            self.xc = XCRadialGrid(XCFunctional(self.xcname), self.rgd)
-        else:
-            self.xc = KLIFunctional()
+        self.xc = XCRadialGrid(XCFunctional(self.xcname), self.rgd)
 
         n_j = self.n_j
         l_j = self.l_j
@@ -147,7 +170,7 @@ class AllElectron:
         vr = self.vr  # effective potential multiplied by r
 
         vHr = num.zeros(self.N, num.Float)
-        vXC = num.zeros(self.N, num.Float)
+        self.vXC = num.zeros(self.N, num.Float)
 
         try:
             f = open(self.symbol + '.restart', 'r')
@@ -155,12 +178,13 @@ class AllElectron:
             self.intialize_wave_functions()
             n[:] = self.calculate_density()
         else:
-            if not do_kli:
+            if not self.xc.is_non_local():
                 print 'Using old density for initial guess.'
                 n[:] = pickle.load(f)
                 n *= Z / (num.dot(n * r**2, dr) * 4 * pi)
             else:
-                # Do not start from initial guess when doing KLI!
+                # Do not start from initial guess when doing
+                # non local XC!
                 # This is because we need wavefunctions as well
                 # on the first iteration.
                 self.intialize_wave_functions()
@@ -178,20 +202,19 @@ class AllElectron:
             vHr -= Z
 
             # calculated exchange correlation potential and energy
-            vXC[:] = 0.0
+            self.vXC[:] = 0.0
 
-            if not do_kli:
+            if self.xc.is_non_local():
+                Exc = self.xc.get_non_local_energy_and_potential(self.u_j, self.f_j, self.e_j, self.l_j, self.vXC)
+            else:
                 tau = None
                 if self.xc.xcfunc.mgga:
                     tau = self.calculate_kinetic_energy_density()
-                Exc = self.xc.get_energy_and_potential(n, vXC, taua_g=tau )
-            else:
-                Exc = self.xc.calculate_1d_kli_potential(r, dr, self.beta, self.N,
-                                                   self.u_j, self.f_j, self.l_j, vXC)
+                Exc = self.xc.get_energy_and_potential(n, self.vXC, taua_g=tau )
 
             # calculate new total Kohn-Sham effective potential and
             # admix with old version
-            vr[:] = vHr + vXC * r
+            vr[:] = vHr + self.vXC * r
             if niter > 0:
                 vr[:] = 0.4 * vr + 0.6 * vrold
             vrold = vr.copy()
@@ -234,15 +257,21 @@ class AllElectron:
 ##         self.write(tau-tau2,'tau12')
 ##         print "Ekin(tau2)=",num.dot(tau2 *r**2 , dr) * 4*pi
 
+        # When iterations are over calculate the correct exchange energy
+        if self.xc.is_non_local():
+            Exc = atomic_exact_exchange(self)
+
         print
         print 'Converged in %d iteration%s.' % (niter, 's'[:niter != 1])
-        
-        pickle.dump(n, open(self.symbol + '.restart', 'w'))
+
+        if not self.nofiles:
+            pickle.dump(n, open(self.symbol + '.restart', 'w'))
 
         Epot = 2 * pi * num.dot(n * r * (vHr - Z), dr)
         Ekin = -4 * pi * num.dot(n * vr * r, dr)
         for f, e in zip(f_j, e_j):
             Ekin += f * e
+
 
         print
         print 'Energy contributions:'
@@ -284,13 +313,18 @@ class AllElectron:
         self.write(n, 'n')
         self.write(vr, 'vr')
         self.write(vHr, 'vHr')
-        self.write(vXC, 'vXC')
+        self.write(self.vXC, 'vXC')
         self.write(tau, 'tau')
         
         self.Ekin = Ekin
         self.Epot = Epot
         self.Exc = Exc
+    
+#mathiasl
+       # for x in range(num.size(self.r)):
+       #     print self.r[x] , self.u_j[self.jcorehole,x]
 
+                
     def write(self, array, name=None, n=None, l=None):
         if self.nofiles:
             return
