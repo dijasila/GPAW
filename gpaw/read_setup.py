@@ -33,11 +33,12 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
         self.pt_jg = []
         self.X_p = []
         self.ExxC = None
-        self.core_hole_state = []
+        self.core_hole_state = None
+        self.fcorehole = 0.0
         self.core_hole_e = None
         self.core_hole_e_kin = None
         self.core_response = []
-        
+
     def parse(self, symbol, xcname):
         exx = False
         if xcname == 'EXX': # XXX EXX hack
@@ -67,7 +68,7 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
 You need to set the GPAW_SETUP_PATH environment variable to point to
 the directory where the setup files are stored.  See
 http://wiki.fysik.dtu.dk/gpaw/Setups for details."""
-            
+
             raise RuntimeError('Could not find %s-setup for "%s".' %
                                (xcname, symbol))
 
@@ -77,7 +78,7 @@ http://wiki.fysik.dtu.dk/gpaw/Setups for details."""
         # We don't want to look at the dtd now.  Remove it:
         source = re.compile(r'<!DOCTYPE .*?>', re.DOTALL).sub('', source, 1)
         xml.sax.parse(StringIO(source), self) # XXX There is a special parse
-                                              # function that takes a string 
+                                              # function that takes a string
 
         if exx:
             self.e_total = 0.0
@@ -87,7 +88,7 @@ http://wiki.fysik.dtu.dk/gpaw/Setups for details."""
 
         if not hasattr(self, 'tauc_g'):
             self.tauc_g = self.tauct_g = None
-   
+
         return (self.Z, self.Nc, self.Nv,
                 self.e_total,
                 self.e_kinetic,
@@ -106,7 +107,7 @@ http://wiki.fysik.dtu.dk/gpaw/Setups for details."""
                 self.nct_g,
                 self.vbar_g,
                 self.rcgauss,
-                self.phi_jg,  
+                self.phi_jg,
                 self.phit_jg,
                 self.pt_jg,
                 self.e_kin_j1j2,
@@ -117,10 +118,11 @@ http://wiki.fysik.dtu.dk/gpaw/Setups for details."""
                 fingerprint,
                 filename,
                 self.core_hole_state,
+                self.fcorehole,
                 self.core_hole_e,
                 self.core_hole_e_kin,
                 self.core_response)
-    
+
     def startElement(self, name, attrs):
         if name == 'paw_setup':
             self.version = attrs['version']
@@ -179,12 +181,13 @@ http://wiki.fysik.dtu.dk/gpaw/Setups for details."""
         elif name == 'exact_exchange':
             self.ExxC = float(attrs['core-core'])
         elif name == 'core_hole_state':
-            self.core_hole_e = attrs['eig']
-            self.core_hole_e_kin = attrs['ekin']
+            self.fcorehole = float(attrs['removed'])
+            self.core_hole_e = float(attrs['eig'])
+            self.core_hole_e_kin = float(attrs['ekin'])
             self.data = []
         else:
             self.data = None
-            
+
     def characters(self, data):
         if self.data is not None:
             self.data.append(data)
@@ -224,5 +227,3 @@ http://wiki.fysik.dtu.dk/gpaw/Setups for details."""
             self.X_p = x_g
         elif name == 'core_hole_state':
             self.core_hole_state = x_g
-
-        

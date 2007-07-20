@@ -1,4 +1,3 @@
-# This test takes approximately 0.0 seconds
 import Numeric as num
 import RandomArray as ra
 from gpaw.setup import Setup
@@ -7,7 +6,8 @@ from gpaw.xc_functional import XCFunctional
 
 x = 0.000001
 ra.seed(1, 2)
-xcfunc = XCFunctional('LDA')
+nspins = 1
+xcfunc = XCFunctional('LDA', nspins)
 s = Setup('H', xcfunc)
 ni = s.ni
 np = ni * (ni + 1) / 2

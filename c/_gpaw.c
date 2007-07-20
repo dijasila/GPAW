@@ -1,6 +1,13 @@
 #include <Python.h>
 #include <Numeric/arrayobject.h>
 
+inline void* gpaw_malloc(int n)
+{
+  void* p = malloc(n);
+  assert(p != NULL);
+  return p;
+}
+
 PyObject* gemm(PyObject *self, PyObject *args);
 PyObject* axpy(PyObject *self, PyObject *args);
 PyObject* d2Excdnsdnt(PyObject *self, PyObject *args);
@@ -23,6 +30,7 @@ PyObject* hartree(PyObject *self, PyObject *args);
 PyObject* localize(PyObject *self, PyObject *args);
 PyObject* NewXCFunctionalObject(PyObject *self, PyObject *args);
 PyObject* NewMGGAFunctionalObject(PyObject *self, PyObject *args);
+PyObject* NewlxcXCFunctionalObject(PyObject *self, PyObject *args);
 PyObject* elf(PyObject *self, PyObject *args);
 
 static PyMethodDef functions[] = {
@@ -48,6 +56,7 @@ static PyMethodDef functions[] = {
   {"localize",       localize,        METH_VARARGS, 0},
   {"XCFunctional",    NewXCFunctionalObject,    METH_VARARGS, 0},
   {"MGGAFunctional",    NewMGGAFunctionalObject,    METH_VARARGS, 0},
+  {"lxcXCFunctional",    NewlxcXCFunctionalObject,    METH_VARARGS, 0},
   {"elf",    elf,    METH_VARARGS, 0},
  {0, 0, 0, 0}
 };
@@ -64,16 +73,16 @@ PyMODINIT_FUNC init_gpaw(void)
     return;
 #endif
 
-  PyObject* m = Py_InitModule3("_gpaw", functions, 
+  PyObject* m = Py_InitModule3("_gpaw", functions,
 			       "C-extension for gpaw\n\n...\n");
   if (m == NULL)
     return;
-  
+
 #ifdef PARALLEL
   Py_INCREF(&MPIType);
   PyModule_AddObject(m, "Communicator", (PyObject *)&MPIType);
 #endif
-  
+
   import_array();
 }
 #endif
@@ -117,11 +126,11 @@ main(int argc, char **argv)
   if (PyType_Ready(&MPIType) < 0)
     return -1;
 
-  PyObject* m = Py_InitModule3("_gpaw", functions, 
+  PyObject* m = Py_InitModule3("_gpaw", functions,
 			       "C-extension for gpaw\n\n...\n");
   if (m == NULL)
     return -1;
-  
+
   Py_INCREF(&MPIType);
   PyModule_AddObject(m, "Communicator", (PyObject *)&MPIType);
   import_array();

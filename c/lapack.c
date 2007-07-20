@@ -5,8 +5,9 @@
 
 #ifdef GPAW_AIX
 #  define dsyev_ dsyev
-#  define zhegv_ zhegv
 #  define zheev_ zheev
+#  define dsygv_ dsygv
+#  define zhegv_ zhegv
 #endif
 
 int dsyev_(char *jobz, char *uplo, int *n, double *
@@ -47,7 +48,7 @@ PyObject* diagonalize(PyObject *self, PyObject *args)
   if (a->descr->type_num == PyArray_DOUBLE)
     {
       int lwork = 3 * n + 1;
-      double* work = (double*)malloc(lwork * sizeof(double));
+      double* work = GPAW_MALLOC(double, lwork);
       if (b == 0)
         dsyev_("V", "U", &n, DOUBLEP(a), &lda,
                DOUBLEP(w), work, &lwork, &info);
@@ -61,8 +62,8 @@ PyObject* diagonalize(PyObject *self, PyObject *args)
     {
       int lwork = 2 * n + 1;
       int lrwork = 3 * n + 1;
-      void* work = malloc(lwork * 2 * sizeof(double));
-      double* rwork = (double*)malloc(lrwork * sizeof(double));
+      void* work = (void*)GPAW_MALLOC(double_complex, lwork);
+      double* rwork = GPAW_MALLOC(double, lrwork);
       if (b == 0)
         zheev_("V", "U", &n, (void*)COMPLEXP(a), &lda,
                DOUBLEP(w), 

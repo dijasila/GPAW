@@ -1,4 +1,3 @@
-# This test takes approximately 3.8 seconds
 import Numeric as num
 import RandomArray as ra
 from gpaw.utilities import equal
@@ -12,8 +11,9 @@ from gpaw.utilities import pack
 
 
 ra.seed(1, 2)
+nspins=1
 for name in ['LDA', 'PBE']:
-    xcfunc = XCFunctional(name)
+    xcfunc = XCFunctional(name, nspins)
     s = Setup('N', xcfunc)
     ni = s.ni
     niAO = s.niAO

@@ -20,7 +20,6 @@ from os.path import join
 class ConvergenceError(Exception):
     pass
 
-
 # Check for special command line arguments:
 debug = False
 trace = False
@@ -67,6 +66,9 @@ if debug:
 sys.path.insert(0, join(__path__[0], '..', 'build',
                         'lib.%s-%s' % (get_platform(), sys.version[0:3])))
 
+import Numeric
+from gpaw.utilities.blas import dotc
+Numeric.vdot = dotc
 
 
 

@@ -1,4 +1,3 @@
-# This test takes approximately 0.0 seconds
 import glob
 
 import Numeric as num
@@ -9,9 +8,10 @@ from gpaw.setup import Setup
 from gpaw.xc_functional import XCFunctional
 
 
+nspins = 1
 ##for xcname in ['LDA', 'PBE', 'revPBE']:
 for xcname in ['LDA']:
-    xcfunc = XCFunctional(xcname)
+    xcfunc = XCFunctional(xcname, nspins)
     for symbol in []:#'H']:#symbols:
         try:
             s = Setup(symbol, xcfunc, lmax=2)

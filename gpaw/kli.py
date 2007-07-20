@@ -90,7 +90,7 @@ class GLLBFunctional:
 
         if self.slater_part == None:
             from gpaw.xc_functional import XCFunctional, XCRadialGrid
-            self.slater_part = XCRadialGrid(XCFunctional(SLATER_FUNCTIONAL), gd)
+            self.slater_part = XCRadialGrid(XCFunctional(SLATER_FUNCTIONAL, 1), gd)
         
         N = len(gd.r_g)
         
@@ -151,7 +151,7 @@ class GLLBFunctional:
         # Create the revPBEx functional for Slater part (only once per calculation)
         if self.slater_part == None:
             from gpaw.xc_functional import XCFunctional, XC3DGrid
-            self.slater_part = XC3DGrid(XCFunctional(SLATER_FUNCTIONAL), self.finegd, self.nspins)
+            self.slater_part = XC3DGrid(XCFunctional(SLATER_FUNCTIONAL, self.nspins), self.finegd, self.nspins)
 
         # Calculate the approximative Slater-potential
         self.slater_part.get_energy_and_potential_spinpaired(n_g, self.tempvxc_g, e_g=self.tempe_g)
@@ -250,7 +250,7 @@ class XCGLLBCorrection:
         self.nct_g = nct
 
         from xc_functional import XCRadialGrid, XCFunctional
-        self.slater_part = XCFunctional(SLATER_FUNCTIONAL)
+        self.slater_part = XCFunctional(SLATER_FUNCTIONAL, 1)
 
         self.motherxc = xcfunc
 
@@ -797,7 +797,7 @@ class KLIFunctional:
         #print "n_g", n_g
         #print "vXC_G/n_g", vXC_G/n_g
         #Return the exchange energy
-        return (num.vdot(u_bar[0:occupied],f_j[0:occupied])/2, vXC_G/n_g)
+        return (num.dot(u_bar[0:occupied],f_j[0:occupied])/2, vXC_G/n_g)
 
     def get_non_local_energy_and_potential1D(self, gd, u_j, f_j, e_j, l_j, vXC):
 
