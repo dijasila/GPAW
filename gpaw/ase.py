@@ -9,25 +9,41 @@ from ASE.Units import units, Convert
 import ASE
 
 from gpaw.paw import PAW
+from gpaw.mpi import parallel
+from gpaw.mpi.paw import MPIPAW, get_parallel_environment
 
 
-class ASEInterface(GPAW):
+def gpaw(filename=None, **kwargs):
+    if parallel or get_parallel_environment() is None:
+        return ASEPAW(filename=filename, **kwargs)
+    else:
+        return MPIPAW(get_parallel_environment(), filename, **kwargs)
+
+        
+class ASEPAW(PAW):
     """This is the ASE-calculator frontend for doing a PAW calculation.
     """
 
     def __init__(self, **kwargs):
-        GPAW.__init__(self, **kwargs)
-
-        print >> self.out, 'ASE: ', os.path.dirname(ASE.__file__)
-        print >> self.out
-
         # Set units to ASE units:
         lengthunit = units.GetLengthUnit()
         energyunit = units.GetEnergyUnit()
-        print >> self.out, 'units:', lengthunit, 'and', energyunit
         self.a0 = Convert(1, 'Bohr', lengthunit)
         self.Ha = Convert(1, 'Hartree', energyunit)
+
+        # Convert from ASE units:
+        if 'h' in kwargs:
+            kwargs['h'] /= self.a0
+        if 'width' in kwargs:
+            kwargs['width'] /= self.Ha
+        if 'external' in kwargs:
+            kwargs['external'] = kwargs['external'] / self.Ha
         
+        PAW.__init__(self, **kwargs)
+
+        self.text('ASE: ', os.path.dirname(ASE.__file__))
+        self.text('units:', lengthunit, 'and', energyunit)
+
     def GetPotentialEnergy(self, force_consistent=False):
         """Return total energy.
 

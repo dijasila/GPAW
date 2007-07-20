@@ -76,11 +76,7 @@ paths = os.environ.get('GPAW_SETUP_PATH', '')
 if paths != '':
     setup_paths += paths.split(':')
 
-from gpaw.calculator import Calculator
-from gpaw.mpi import parallel
-if not parallel and 'GPAW_MPI_COMMAND' in os.environ:
-    from gpaw.mpi.calculator import Calculator
-
+from gpaw.ase import gpaw
 
 if trace:
     indent = '    '

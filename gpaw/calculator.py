@@ -633,46 +633,6 @@ def distribute_kpoints_and_spins(nspins, nkpts, parsize_c):
                 self.external,
                 ]
 
-        if gpaw.hosts is not None:
-            # The hosts have been set by one of the command line arguments
-            # --gpaw-hosts or --gpaw-hostfile (see __init__.py):
-            self.hosts = gpaw.hosts
-
-        if self.hosts is None:
-            if os.environ.has_key('PBS_NODEFILE'):
-                # This job was submitted to the PBS queing system.  Get
-                # the hosts from the PBS_NODEFILE environment variable:
-                self.hosts = os.environ['PBS_NODEFILE']
-                
-                try:
-                    nodes = len(open(self.hosts).readlines())
-                    if nodes == 1:
-                        self.hosts = None
-                except:
-                    pass
-            elif os.environ.has_key('NSLOTS'):
-                # This job was submitted to the Grid Engine queing system:
-                self.hosts = int(os.environ['NSLOTS'])
-            elif os.environ.has_key('LOADL_PROCESSOR_LIST'):
-                self.hosts = 'dummy file-name'
-            #elif os.environ.has_key('GPAW_MPI_COMMAND'):
-            #    self.hosts = 'dummy file-name'
-
-        if isinstance(self.hosts, int):
-            if self.hosts == 1:
-                # Only one node - don't do a parallel calculation:
-                self.hosts = None
-            else:
-                self.hosts = [os.uname()[1]] * self.hosts
-            
-        if isinstance(self.hosts, list):
-            # We need the hosts in a file:
-            fd, self.tempfile = tempfile.mkstemp('.hosts')
-            for host in self.hosts:
-                os.write(fd, host + '\n')
-            os.close(fd)
-            self.hosts = self.tempfile
-            # (self.tempfile is removed in Calculator.__del__)
 
         if self.hosts is not None and mpi.size == 1:
             parallel_with_sockets = True

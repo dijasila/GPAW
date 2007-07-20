@@ -152,3 +152,50 @@ class MPIPaw:
                 return stuff
             else:
                 raise RuntimeError('Unknown tag: ' + tag)
+
+def get_parallel_environment():
+    """Get the hosts for a parallel run from the parallel environment.
+
+    Return value will be one of these:
+
+    * The number of hosts.
+    * A filename containing the hostnames.
+    * A list of hostnames.
+    * ``None``, if there is no parallel environment.
+    """
+    
+    global env
+    try:
+        return env
+    except NameError:
+        env = _get_parallel_environment()
+        return env
+    
+def _get_parallel_environment():
+    from gpaw import hosts
+    if hosts is not None:
+        # The hosts have been set by the command line argument
+        # --hosts (see __init__.py):
+        return hosts
+    
+    if os.environ.has_key('PBS_NODEFILE'):
+        # This job was submitted to the PBS queing system.  Get
+        # the hosts from the PBS_NODEFILE environment variable:
+        hosts = os.environ['PBS_NODEFILE']
+        if len(open(hosts).readlines()) == 1:
+            return None
+        else:
+            return hosts
+
+    if os.environ.has_key('NSLOTS'):
+        # This job was submitted to the Grid Engine queing system:
+        nhosts = int(os.environ['NSLOTS'])
+        if nhosts == 1:
+            return None
+        else:
+            return nhosts
+
+    if os.environ.has_key('LOADL_PROCESSOR_LIST'):
+        return 'dummy-hostfile-name'
+
+    return None

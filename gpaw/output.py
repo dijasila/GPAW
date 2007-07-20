@@ -4,184 +4,225 @@ from math import log
 import Numeric as num
 from ASE.ChemicalElements.symbol import symbols
 
+from gpaw.utilities import devnull
 
-def print_info(paw):
-    out = paw.out
-    print >> out, 'Reference energy:', paw.Eref * paw.Ha
+class Output:
+    def __init__(self):
+        """Set the stream for text output.
 
-    if paw.kpt_comm.size > 1:
-        if paw.nspins == 2:
-            print >> out, ('Parallelization over k-points and spin with %d processors' % paw.kpt_comm.size)
-        else:
-            print >> out, ('Parallelization over k-points with %d processors'
-                           % paw.kpt_comm.size)
+        If `txt` is not a stream-object, then it must be one of:
 
-    domain = paw.domain
-    if domain.comm.size > 1:
-        print >> out, ('Using domain decomposition: %d x %d x %d' %
-                       tuple(domain.parsize_c))
+        ``None``:
+          Throw output away.
+        ``'-'``:
+          Use standard-output (``sys.stdout``).
+        A filename:
+          open a new file.
+        """
 
-def print_converged(paw):
-    out = paw.out
-    print >> out, "------------------------------------"
-    print >> out, 'Converged after %d iterations.' % paw.niter
+        txt = self.txt
+        if txt is None or rank != MASTER:
+            txt = devnull
+        elif txt == '-':
+            txt = sys.stdout
+        elif isinstance(txt, str):
+            txt = open(txt, 'w')
+        self.txt = txt
 
-    print >> out
-    print_all_information(paw)
-
-def print_all_information(paw):
-    
-    out = paw.out    
-    if len(paw.nuclei) == 1:
-        print >> out, 'energy contributions relative to reference atom:',
-    else:
-        print >> out, 'energy contributions relative to reference atoms:',
-    print >> out, '(reference = %.5f)' % (paw.Eref * paw.Ha)
-
-    print >> out, '-------------------------'
-
-    energies = [('kinetic:', paw.Ekin),
-                ('potential:', paw.Epot),
-                ('external:', paw.Eext),
-                ('XC:', paw.Exc),
-                ('entropy (-ST):', -paw.S),
-                ('local:', paw.Ebar)]
-
-    for name, e in energies:
-        print >> out, '%-14s %+10.5f' % (name, paw.Ha * e)
-
-    print >> out, '-------------------------'
-    print >> out, 'free energy:   %+10.5f' % (paw.Ha * paw.Etot)
-    print >> out, 'zero Kelvin:   %+10.5f' % \
-          (paw.Ha * (paw.Etot + 0.5 * paw.S))
-    print >> out
-    epsF = paw.occupation.get_fermi_level()
-    if epsF is not None:
-        print >> out, 'Fermi level:', paw.Ha * epsF
-
-    print_eigenvalues(paw)
-
-    print >> out
-    charge = paw.finegd.integrate(paw.density.rhot_g)
-    print >> out, 'total charge: %f electrons' % charge
-
-    dipole = paw.finegd.calculate_dipole_moment(paw.density.rhot_g)
-    if paw.density.charge == 0:
-        print >> out, 'dipole moment: %s' % (dipole * paw.a0)
-    else:
-        print >> out, 'center of charge: %s' % (dipole * paw.a0)
-
-    if paw.nspins == 2:
-        paw.density.calculate_local_magnetic_moments()
-
+    def text(self, *args, sep=' ', end='\n'):
+        self.txt.write(sep.join(args) + end)
+        
         print >> out
-        print >> out, 'total magnetic moment: %f' % paw.magmom
-        print >> out, 'local magnetic moments:'
-        for nucleus in paw.nuclei:
-            print >> out, nucleus.a, nucleus.mom
+        print >> out, '  ___ ___ ___ _ _ _  '
+        print >> out, ' |   |   |_  | | | | '
+        print >> out, ' | | | | | . | | | | '
+        print >> out, ' |__ |  _|___|_____| ', version
+        print >> out, ' |___|_|             '
         print >> out
 
+        uname = os.uname()
+        print >> out, 'User:', os.getenv('USER') + '@' + uname[1]
+        print >> out, 'Date:', time.asctime()
+        print >> out, 'Arch:', uname[4]
+        print >> out, 'Pid: ', os.getpid()
+        print >> out, 'Dir: ', os.path.dirname(gpaw.__file__)
+    def print_info(paw):
+        out = paw.out
+        print >> out, 'Reference energy:', paw.Eref * paw.Ha
 
-def iteration(paw):
-    # Output from each iteration:
-    out = paw.out
+        if paw.kpt_comm.size > 1:
+            if paw.nspins == 2:
+                print >> out, ('Parallelization over k-points and spin with %d processors' % paw.kpt_comm.size)
+            else:
+                print >> out, ('Parallelization over k-points with %d processors'
+                               % paw.kpt_comm.size)
 
-    if paw.verbosity != 0:
-        t = time.localtime()
-        print >> out
+        domain = paw.domain
+        if domain.comm.size > 1:
+            print >> out, ('Using domain decomposition: %d x %d x %d' %
+                           tuple(domain.parsize_c))
+
+    def print_converged(paw):
+        out = paw.out
         print >> out, "------------------------------------"
-        print >> out, "iter: %d %d:%02d:%02d" % (paw.niter, t[3], t[4], t[5])
-        print >> out
-        print >> out, "Poisson solver converged in %d iterations" % paw.hamiltonian.npoisson
-        print >> out, "Fermi level found  in %d iterations" % paw.nfermi
-        print >> out, "Log10 error in wave functions: %4.1f" % (log(paw.error) / log(10))
+        print >> out, 'Converged after %d iterations.' % paw.niter
+
         print >> out
         print_all_information(paw)
 
-    else:        
-        if paw.niter == 0:
-            print >> out, """\
-                      log10     total     iterations:
-             time     error     energy    fermi  poisson  magmom"""
-    
-        t = time.localtime()
-    
-        out.write('iter: %4d %3d:%02d:%02d %6.1f %13.7f %4d %7d' %
-                  (paw.niter,
-                   t[3], t[4], t[5],
-                   log(paw.error) / log(10),
-                   paw.Ha * (paw.Etot + 0.5 * paw.S),
-                   paw.nfermi,
-                   paw.hamiltonian.npoisson))
+    def print_all_information(paw):
+
+        out = paw.out    
+        if len(paw.nuclei) == 1:
+            print >> out, 'energy contributions relative to reference atom:',
+        else:
+            print >> out, 'energy contributions relative to reference atoms:',
+        print >> out, '(reference = %.5f)' % (paw.Eref * paw.Ha)
+
+        print >> out, '-------------------------'
+
+        energies = [('kinetic:', paw.Ekin),
+                    ('potential:', paw.Epot),
+                    ('external:', paw.Eext),
+                    ('XC:', paw.Exc),
+                    ('entropy (-ST):', -paw.S),
+                    ('local:', paw.Ebar)]
+
+        for name, e in energies:
+            print >> out, '%-14s %+10.5f' % (name, paw.Ha * e)
+
+        print >> out, '-------------------------'
+        print >> out, 'free energy:   %+10.5f' % (paw.Ha * paw.Etot)
+        print >> out, 'zero Kelvin:   %+10.5f' % \
+              (paw.Ha * (paw.Etot + 0.5 * paw.S))
+        print >> out
+        epsF = paw.occupation.get_fermi_level()
+        if epsF is not None:
+            print >> out, 'Fermi level:', paw.Ha * epsF
+
+        print_eigenvalues(paw)
+
+        print >> out
+        charge = paw.finegd.integrate(paw.density.rhot_g)
+        print >> out, 'total charge: %f electrons' % charge
+
+        dipole = paw.finegd.calculate_dipole_moment(paw.density.rhot_g)
+        if paw.density.charge == 0:
+            print >> out, 'dipole moment: %s' % (dipole * paw.a0)
+        else:
+            print >> out, 'center of charge: %s' % (dipole * paw.a0)
 
         if paw.nspins == 2:
-            print >> out, '%11.4f' % paw.magmom
+            paw.density.calculate_local_magnetic_moments()
+
+            print >> out
+            print >> out, 'total magnetic moment: %f' % paw.magmom
+            print >> out, 'local magnetic moments:'
+            for nucleus in paw.nuclei:
+                print >> out, nucleus.a, nucleus.mom
+            print >> out
+
+
+    def iteration(paw):
+        # Output from each iteration:
+        out = paw.out
+
+        if paw.verbosity != 0:
+            t = time.localtime()
+            print >> out
+            print >> out, "------------------------------------"
+            print >> out, "iter: %d %d:%02d:%02d" % (paw.niter, t[3], t[4], t[5])
+            print >> out
+            print >> out, "Poisson solver converged in %d iterations" % paw.hamiltonian.npoisson
+            print >> out, "Fermi level found  in %d iterations" % paw.nfermi
+            print >> out, "Log10 error in wave functions: %4.1f" % (log(paw.error) / log(10))
+            print >> out
+            print_all_information(paw)
+
+        else:        
+            if paw.niter == 0:
+                print >> out, """\
+                          log10     total     iterations:
+                 time     error     energy    fermi  poisson  magmom"""
+
+            t = time.localtime()
+
+            out.write('iter: %4d %3d:%02d:%02d %6.1f %13.7f %4d %7d' %
+                      (paw.niter,
+                       t[3], t[4], t[5],
+                       log(paw.error) / log(10),
+                       paw.Ha * (paw.Etot + 0.5 * paw.S),
+                       paw.nfermi,
+                       paw.hamiltonian.npoisson))
+
+            if paw.nspins == 2:
+                print >> out, '%11.4f' % paw.magmom
+            else:
+                print >> out, '       --'
+
+        out.flush()
+
+    def print_eigenvalues(paw):
+        """Print eigenvalues and occupation numbers."""
+        out = paw.out
+        print >> out, eigenvalue_string(paw)
+
+    def eigenvalue_string(paw,comment=None):
+        """
+        Write eigenvalues and occupation numbers into a string.
+        The parameter comment can be used to comment out non-numers,
+        for example to escape it for gnuplot.
+        """
+
+        if not comment: comment=''
+
+        Ha = paw.Ha
+
+        if paw.nkpts > 1 or paw.kpt_comm.size > 1:
+            # not implemented yet:
+            return ''
+
+        s = ''
+        if paw.nspins == 1:
+            s += comment + ' band     eps        occ\n'
+            kpt = paw.kpt_u[0]
+            for n in range(paw.nbands):
+                s += ('%4d %10.5f %10.5f\n' %
+                      (n, Ha * kpt.eps_n[n], kpt.f_n[n]))
         else:
-            print >> out, '       --'
+            s += comment + '                up                   down\n'
+            s += comment + ' band     eps        occ        eps        occ\n'
+            epsa_n = paw.kpt_u[0].eps_n
+            epsb_n = paw.kpt_u[1].eps_n
+            fa_n = paw.kpt_u[0].f_n
+            fb_n = paw.kpt_u[1].f_n
+            for n in range(paw.nbands):
+                s += ('%4d %10.5f %10.5f %10.5f %10.5f\n' %
+                      (n,
+                       Ha * epsa_n[n], fa_n[n],
+                       Ha * epsb_n[n], fb_n[n]))
+        return s
 
-    out.flush()
-
-def print_eigenvalues(paw):
-    """Print eigenvalues and occupation numbers."""
-    out = paw.out
-    print >> out, eigenvalue_string(paw)
-
-def eigenvalue_string(paw,comment=None):
-    """
-    Write eigenvalues and occupation numbers into a string.
-    The parameter comment can be used to comment out non-numers,
-    for example to escape it for gnuplot.
-    """
-
-    if not comment: comment=''
-
-    Ha = paw.Ha
-
-    if paw.nkpts > 1 or paw.kpt_comm.size > 1:
-        # not implemented yet:
-        return ''
-
-    s = ''
-    if paw.nspins == 1:
-        s += comment + ' band     eps        occ\n'
-        kpt = paw.kpt_u[0]
-        for n in range(paw.nbands):
-            s += ('%4d %10.5f %10.5f\n' %
-                  (n, Ha * kpt.eps_n[n], kpt.f_n[n]))
-    else:
-        s += comment + '                up                   down\n'
-        s += comment + ' band     eps        occ        eps        occ\n'
-        epsa_n = paw.kpt_u[0].eps_n
-        epsb_n = paw.kpt_u[1].eps_n
-        fa_n = paw.kpt_u[0].f_n
-        fb_n = paw.kpt_u[1].f_n
-        for n in range(paw.nbands):
-            s += ('%4d %10.5f %10.5f %10.5f %10.5f\n' %
-                  (n,
-                   Ha * epsa_n[n], fa_n[n],
-                   Ha * epsb_n[n], fb_n[n]))
-    return s
-
-def plot_atoms(paw):
-    domain = paw.domain
-    nuclei = paw.nuclei
-    out = paw.out
-    cell_c = domain.cell_c
-    pos_ac = cell_c * [nucleus.spos_c for nucleus in nuclei]
-    Z_a = [nucleus.setup.Z for nucleus in nuclei]
-    print >> out, plot(pos_ac, Z_a, cell_c)
-    print >> out
-    print >> out, 'unitcell:'
-    print >> out, '         periodic  length  points   spacing'
-    print >> out, '  -----------------------------------------'
-    for c in range(3):
-        print >> out, '  %s-axis   %s   %8.4f   %3d    %8.4f' % \
-              ('xyz'[c],
-               ['no ', 'yes'][domain.periodic_c[c]],
-               paw.a0 * domain.cell_c[c],
-               paw.gd.N_c[c],
-               paw.a0 * paw.gd.h_c[c])
-    print >> out
+    def plot_atoms(paw):
+        domain = paw.domain
+        nuclei = paw.nuclei
+        out = paw.out
+        cell_c = domain.cell_c
+        pos_ac = cell_c * [nucleus.spos_c for nucleus in nuclei]
+        Z_a = [nucleus.setup.Z for nucleus in nuclei]
+        print >> out, plot(pos_ac, Z_a, cell_c)
+        print >> out
+        print >> out, 'unitcell:'
+        print >> out, '         periodic  length  points   spacing'
+        print >> out, '  -----------------------------------------'
+        for c in range(3):
+            print >> out, '  %s-axis   %s   %8.4f   %3d    %8.4f' % \
+                  ('xyz'[c],
+                   ['no ', 'yes'][domain.periodic_c[c]],
+                   paw.a0 * domain.cell_c[c],
+                   paw.gd.N_c[c],
+                   paw.a0 * paw.gd.h_c[c])
+        print >> out
 
 def plot(positions, numbers, cell):
     """Ascii-art plot of the atoms.
