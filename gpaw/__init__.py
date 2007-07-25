@@ -11,7 +11,6 @@ Use like this::
 
 import os
 import sys
-import signal
 from distutils.util import get_platform
 from glob import glob
 from os.path import join

@@ -11,7 +11,7 @@ import time
 from Numeric import array, Float, dot, NewAxis, zeros, transpose
 from LinearAlgebra import solve_linear_equations as solve
 
-from gpaw.density_mixer import Mixer, MixerSum
+from gpaw.mixer import Mixer, MixerSum
 from gpaw.transformers import Transformer
 from gpaw.utilities import pack, unpack2
 from gpaw.utilities.complex import cc, real
@@ -305,16 +305,16 @@ class Density:
             gd = self.finegd
             n_sg = self.nt_sg.copy()
         elif gridrefinement == 4:
-            # Interpolation function for the density:
-            interpolate = Interpolator(self.finegd, 3, Float).apply????????Transformer
-
             # Extra fine grid
             gd = self.finegd.refine()
             
+            # Interpolation function for the density:
+            interpolator = Transformer(self.finegd, gd, 3)
+
             # Transfer the pseudo-density to the fine grid:
             n_sg = gd.empty(self.nspins)
             for s in range(self.nspins):
-                interpolate(self.nt_sg[s], n_sg[s])
+                interpolator.apply(self.nt_sg[s], n_sg[s])
         else:
             raise NotImplementedError
 

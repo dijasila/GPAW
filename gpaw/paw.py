@@ -14,15 +14,14 @@ import gpaw.io
 import gpaw.mpi as mpi
 import gpaw.occupations as occupations
 from gpaw import output
-from gpaw import debug, sigusr1
+from gpaw import debug
 from gpaw import ConvergenceError
 from gpaw.density import Density
-from gpaw.eigensolvers import Eigensolver
+from gpaw.eigensolvers import eigensolver
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.hamiltonian import Hamiltonian
 from gpaw.kpoint import KPoint
 from gpaw.localized_functions import LocFuncBroadcaster
-from gpaw.utilities import DownTheDrain, warning
 from gpaw.utilities.timing import Timer
 from gpaw.xc_functional import XCFunctional
 from gpaw.mpi import run
@@ -47,34 +46,23 @@ import weakref
 import Numeric as num
 from ASE.Units import units, Convert
 from ASE.Utilities.MonkhorstPack import MonkhorstPack
+from ASE.ChemicalElements.symbol import symbols
+from ASE.ChemicalElements import numbers
 import ASE
 
-from gpaw.utilities import DownTheDrain, check_unit_cell
+from gpaw.utilities import check_unit_cell
 from gpaw.utilities.memory import maxrss
-from gpaw.mpi.paw import MPIPaw
-from gpaw.startup import create_paw_object
 from gpaw.version import version
 import gpaw.utilities.timing as timing
 import gpaw
 import gpaw.io
 import gpaw.mpi as mpi
-from gpaw import parallel
-
-import Numeric as num
-from ASE.ChemicalElements.symbol import symbols
-from ASE.ChemicalElements import numbers
-from ASE.Units import Convert
-
-import sys
-
 from gpaw.nucleus import Nucleus
 from gpaw.rotation import rotation
 from gpaw.domain import Domain
 from gpaw.symmetry import Symmetry
-from gpaw.paw import Paw
 from gpaw.xc_functional import XCFunctional
 from gpaw.utilities import gcd
-import gpaw.mpi as mpi
 from gpaw.utilities.timing import Timer
 from gpaw.utilities.memory import estimate_memory
 from gpaw.setup import create_setup
@@ -193,44 +181,30 @@ class PAW(PAWExtra, Output):
 
     .. _Manual: https://wiki.fysik.dtu.dk/gridcode/Manual
     .. _ASE units: https://wiki.fysik.dtu.dk/ase/Units
+
+    Parameters:
+    =============== ===================================================
+    ``nvalence``    Number of valence electrons.
+    ``nbands``      Number of bands.
+    ``nspins``      Number of spins.
+    ``random``      Initialize wave functions with random numbers
+    ``typecode``    Data type of wave functions (``Float`` or
+                    ``Complex``).
+    ``kT``          Temperature for Fermi-distribution.
+    ``bzk_kc``      Scaled **k**-points used for sampling the whole
+                    Brillouin zone - values scaled to [-0.5, 0.5).
+    ``ibzk_kc``     Scaled **k**-points in the irreducible part of the
+                    Brillouin zone.
+    ``myspins``     List of spin-indices for this CPU.
+    ``weights_k``   Weights of the **k**-points in the irreducible part
+                    of the Brillouin zone (summing up to 1).
+    ``myibzk_kc``   Scaled **k**-points in the irreducible part of the
+                    Brillouin zone for this CPU.
+    ``myweights_k`` Weights of the **k**-points on this CPU.
+    ``kpt_comm``    MPI-communicator for parallelization over
+                    **k**-points.
+    =============== ===================================================
     """
-
-        """Create the PAW-object.
-
-        Instantiating such an object by hand is *not* recommended!
-        Use the ``create_paw_object()`` helper-function instead (it
-        will supply many default values).  The helper-function is used
-        by the ``Calculator`` object."""
-        """Construct wave-function object.
-
-        Parameters:
-        =============== ===================================================
-        ``nvalence``    Number of valence electrons.
-        ``nbands``      Number of bands.
-        ``nspins``      Number of spins.
-        ``random``      Initialize wave functions with random numbers
-        ``typecode``    Data type of wave functions (``Float`` or
-                        ``Complex``).
-        ``kT``          Temperature for Fermi-distribution.
-        ``bzk_kc``      Scaled **k**-points used for sampling the whole
-                        Brillouin zone - values scaled to [-0.5, 0.5).
-        ``ibzk_kc``     Scaled **k**-points in the irreducible part of the
-                        Brillouin zone.
-        ``myspins``     List of spin-indices for this CPU.
-        ``weights_k``   Weights of the **k**-points in the irreducible part
-                        of the Brillouin zone (summing up to 1).
-        ``myibzk_kc``   Scaled **k**-points in the irreducible part of the
-                        Brillouin zone for this CPU.
-        ``myweights_k`` Weights of the **k**-points on this CPU.
-        ``kpt_comm``    MPI-communicator for parallelization over
-                        **k**-points.
-        =============== ===================================================
-        """
-    """This is the ASE-calculator frontend for doing a PAW calculation.
-
-    The calculator object controls a paw object that does the actual
-    work.  The paw object can run in serial or in parallel, the
-    calculator interface will allways be the same."""
 
     def __init__(self, filename=None, **kwargs):
         """ASE-calculator interface.
@@ -270,7 +244,7 @@ class PAW(PAWExtra, Output):
             'width':         None,
             'spinpol':       None,
             'usesymm':       True,
-            'stencils':      (2, 3),
+            'stencils':      (2, 'M', 3),
             'tolerance':     1.0e-9,
             'fixdensity':    False,
             'convergeall':   False,
@@ -483,7 +457,6 @@ class PAW(PAWExtra, Output):
         self.ghat_nuclei = []
 
         self.density = Density(self)
-
         self.hamiltonian = Hamiltonian(self)
 
         # Create object for occupation numbers:
@@ -506,13 +479,7 @@ class PAW(PAWExtra, Output):
 
         output.print_info(self)
 
-        self.eigensolver = eigensolver(p['eigensolver'],
-                                       self.timer, self.kpt_comm,
-                                       self.gd, self.hamiltonian.kin,
-                                       self.typecode, self.nbands)
-
-        self.eigensolver.set_convergence_criteria(convergeall, tolerance,
-                                                  nvalence)
+        self.eigensolver = eigensolver(p['eigensolver'], paw)
 
         self.initialized = True
         
@@ -551,9 +518,12 @@ class PAW(PAWExtra, Output):
             pass
         
     def get_atoms(self):
+        assert not hasattr(self, 'atoms')
         pos_ac, Z_a, cell_c, pbc_c = self.last_atomic_configuration
-        atoms = ListOfAtoms([Atom(Z, pos_c)
-                             for Z, pos_c in zip(Z_a, pos_ac)],
+        magmom_a, tag_a = self.extra_list_of_atoms_stuff
+        atoms = ListOfAtoms([Atom(Z, pos_c, tag=tag, magmom=magmom)
+                             for Z, pos_c, tag, magmom in
+                             zip(Z_a, pos_ac, tag_a, magmom_a)],
                             cell=cell_c, perisodic=pbc_c)
         self.atoms = weakref.ref(atoms)
         atoms.calculator = self
@@ -572,31 +542,33 @@ class PAW(PAWExtra, Output):
 
         # Self-consistency loop:
         while not self.converged:
-            self.step()
-            self.add_up_energies()
-            self.call(self.niter)
-            self.print_iteration()
-            self.niter += 1
             if self.niter > 120:
                 raise ConvergenceError('Did not converge!')
+            self.step()
+            self.add_up_energies()
+            self.check_convergence()
+            self.call()
+            self.print_iteration()
+            self.niter += 1
 
-        self.call(self.niter, final=True)
+        self.call(final=True)
         output.print_converged(self)
 
         # Save the state of the atoms:
-        count = atoms.GetCount()
+        atoms = self.atoms()
+        self.count = atoms.GetCount()
         self.last_atomic_configuration = (
-            self.pos_ac = pos_ac
-        self.cell_cc = cell_cc
-        self.periodic_c = periodic_c
-        self.Z_a = Z_a)
+            atoms.GetCartesianPositions() / self.a0,
+            atoms.GetAtomicNumbers(),
+            atoms.GetUnitCell() / self.a0,
+            atoms.GetBoundaryConditions())
 
     def step(self):
         if self.niter > 2:
             self.density.update()
             self.hamiltonian.update()
 
-        self.converged = self.eigensolver.iterate(self.hamiltonian, self.kpt_u)
+        self.eigensolver.iterate(self.hamiltonian, self.kpt_u)
 
         # Make corrections due to non-local xc:
         xcfunc = self.hamiltonian.xc.xcfunc
@@ -911,14 +883,17 @@ class PAW(PAWExtra, Output):
                      (r.dimension('ngptsz') + 1) // 2 * 2)
         p['lmax'] = r['MaximumAngularMomentum']
         p['setups'] = eval(r['SetupTypes'])
-        p['stencils'] = ...
-        p['charge'] = ...
-        p['fixmom'] = ...
+        p['stencils'] = (r['KohnShamStencil'],
+                         r['PoissonStencil'],
+                         r['InterpolationStencil'])
+        p['charge'] = r['Charge']
+        p['fixmom'] = r['FixedMagneticMoment']
         p['fixdensity'] = bool(r['FixDensity'])  # numpy!
         p['tolerance'] = r['Tolerance']
         p['convergeall'] = bool(r['ConvergeEmptyStates'])
         p['width'] = r['FermiWidth'] 
-        p['converged'] = bool(r['Converged'])
+
+        self.converged = bool(r['Converged'])
 
         return r
     
@@ -948,22 +923,14 @@ class PAW(PAWExtra, Output):
         Stop iterating when the size of the residuals are below
         ``tol``."""
 
-        if tol < self.eigensolver.tolerance:
-            self.converged = False
-        self.eigensolver.tolerance = tol
-        self.maxiter ...
+        self.tolerance = tol
+        #???self.maxiter ...
 
-
-    def set_output(self, out):
-        """Set the output stream for text output."""
-        if mpi.rank != MASTER:
-            if debug:
-                out = sys.stderr
-            else:
-                out = DownTheDrain()
-        self.out = out
-
-
+    def check_convergence(self):
+        self.converged = (self.eigensolver.error < self.tolerance or
+                          self.niter >= self.maxiter)
+        return self.converged
+    
     def __del__(self):
         """Destructor:  Write timing output before closing."""
         self.timer.write(self.out)

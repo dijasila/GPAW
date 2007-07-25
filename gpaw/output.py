@@ -20,7 +20,7 @@ class Output:
           open a new file.
         """
 
-        txt = self.txt
+        txt = self.input_parameters['txt']
         if txt is None or rank != MASTER:
             txt = devnull
         elif txt == '-':
@@ -29,7 +29,7 @@ class Output:
             txt = open(txt, 'w')
         self.txt = txt
 
-    def text(self, *args, sep=' ', end='\n'):
+    def text(self, sep=' ', end='\n', *args):
         self.txt.write(sep.join(args) + end)
         
     def print_logo(self):
@@ -42,66 +42,64 @@ class Output:
         self.text()
 
         uname = os.uname()
-        self.text('User:', os.getenv('USER') + '@' + uname[1]
-        self.text('Date:', time.asctime()
-        self.text('Arch:', uname[4]
-        self.text('Pid: ', os.getpid()
-        self.text('Dir: ', os.path.dirname(gpaw.__file__)
+        self.text('User:', os.getenv('USER') + '@' + uname[1])
+        self.text('Date:', time.asctime())
+        self.text('Arch:', uname[4])
+        self.text('Pid: ', os.getpid())
+        self.text('Dir: ', os.path.dirname(gpaw.__file__))
                   
     def print_init(self):
         t = self.text
         if self.gamma:
-            self.text('Gamma-point calculation')
-        self.text('Reference energy:', self.Eref * self.Ha)
+            t('Gamma-point calculation')
+        t('Reference energy:', self.Eref * self.Ha)
 
         if self.kpt_comm.size > 1:
             if self.nspins == 2:
-                self.text(
-            'Parallelization over k-points and spin with %d processors' %
+                t(
+                    'Parallelization over k-points and spin with %d processors' %
             self.kpt_comm.size)
             else:
-                self.text('Parallelization over k-points with %d processors'
-                           % self.kpt_comm.size)
+                t('Parallelization over k-points with %d processors'
+                  % self.kpt_comm.size)
 
         domain = self.domain
         if domain.comm.size > 1:
-            self.text(('Using domain decomposition: %d x %d x %d' %
+            t(('Using domain decomposition: %d x %d x %d' %
                            tuple(domain.parsize_c)))
 
         if symmetry is not None:
-                          symmetry.print_symmetries(out)
+            symmetry.print_symmetries(out)
         
-            nkpts = len(ibzk_kc)
-            self.text((('%d k-point%s in the irreducible part of the ' +
-                           'Brillouin zone (total: %d)') %
-                           (nkpts, ' s'[1:nkpts], len(bzk_kc)))
-
-            print >> self.out, 'Positions:'
-            for a, pos_c in enumerate(pos_ac):
-                symbol = self.nuclei[a].setup.symbol
-                print >> self.out, '%3d %2s %8.4f%8.4f%8.4f' % \
-                    ((a, symbol) + tuple(self.a0 * pos_c))
-
-        self.timer.stop()
+        nkpts = len(ibzk_kc)
+        t((('%d k-point%s in the irreducible part of the ' +
+            'Brillouin zone (total: %d)') %
+           (nkpts, ' s'[1:nkpts], len(bzk_kc))))
+        
+        print >> self.out, 'Positions:'
+        for a, pos_c in enumerate(pos_ac):
+            symbol = self.nuclei[a].setup.symbol
+            print >> self.out, '%3d %2s %8.4f%8.4f%8.4f' % \
+                  ((a, symbol) + tuple(self.a0 * pos_c))
 
     def print_converged(self):
-        out = self.out
-        self.text('------------------------------------'
-        self.text('Converged after %d iterations.' % self.niter
+        t = self.text
+        t('------------------------------------')
+        t('Converged after %d iterations.' % self.niter)
 
-        self.text()
+        t()
         print_all_information(self)
 
     def print_all_information(self):
 
-        out = self.out    
+        t = self.text    
         if len(self.nuclei) == 1:
-            self.text('energy contributions relative to reference atom:',
+            t('energy contributions relative to reference atom:', end='')
         else:
-            self.text('energy contributions relative to reference atoms:',
-        self.text('(reference = %.5f)' % (self.Eref * self.Ha)
+            t('energy contributions relative to reference atoms:', end='')
+        t('(reference = %.5f)' % (self.Eref * self.Ha))
 
-        self.text('-------------------------'
+        t('-------------------------')
 
         energies = [('kinetic:', self.Ekin),
                     ('potential:', self.Epot),
@@ -111,38 +109,37 @@ class Output:
                     ('local:', self.Ebar)]
 
         for name, e in energies:
-            self.text('%-14s %+10.5f' % (name, self.Ha * e)
+            t('%-14s %+10.5f' % (name, self.Ha * e))
 
-        self.text('-------------------------'
-        self.text('free energy:   %+10.5f' % (self.Ha * self.Etot)
-        self.text('zero Kelvin:   %+10.5f' % \
-              (self.Ha * (self.Etot + 0.5 * self.S))
-        self.text()
+        t('-------------------------')
+        t('free energy:   %+10.5f' % (self.Ha * self.Etot))
+        t('zero Kelvin:   %+10.5f' % (self.Ha * (self.Etot + 0.5 * self.S)))
+        t()
         epsF = self.occupation.get_fermi_level()
         if epsF is not None:
-            self.text('Fermi level:', self.Ha * epsF
+            t('Fermi level:', self.Ha * epsF)
 
         print_eigenvalues(self)
 
-        self.text()
+        t()
         charge = self.finegd.integrate(self.density.rhot_g)
-        self.text('total charge: %f electrons' % charge
+        t('total charge: %f electrons' % charge)
 
         dipole = self.finegd.calculate_dipole_moment(self.density.rhot_g)
         if self.density.charge == 0:
-            self.text('dipole moment: %s' % (dipole * self.a0)
+            t('dipole moment: %s' % (dipole * self.a0))
         else:
-            self.text('center of charge: %s' % (dipole * self.a0)
+            t('center of charge: %s' % (dipole * self.a0))
 
         if self.nspins == 2:
             self.density.calculate_local_magnetic_moments()
 
-            self.text()
-            self.text('total magnetic moment: %f' % self.magmom
-            self.text('local magnetic moments:'
+            t()
+            t('total magnetic moment: %f' % self.magmom)
+            t('local magnetic moments:')
             for nucleus in self.nuclei:
-                self.text(nucleus.a, nucleus.mom
-            self.text()
+                t(nucleus.a, nucleus.mom)
+            t()
 
 
     def iteration(self):
@@ -151,40 +148,40 @@ class Output:
 
         if self.verbosity != 0:
             t = time.localtime()
-            self.text()
-            self.text('------------------------------------')
-            self.text('iter: %d %d:%02d:%02d' % (self.niter, t[3], t[4], t[5]))
-            self.text()
-            self.text('Poisson solver converged in %d iterations' %
+            t()
+            t('------------------------------------')
+            t('iter: %d %d:%02d:%02d' % (self.niter, t[3], t[4], t[5]))
+            t()
+            t('Poisson solver converged in %d iterations' %
                       self.hamiltonian.npoisson)
-            self.text('Fermi level found  in %d iterations' % self.nfermi)
-            self.text('Log10 error in wave functions: %4.1f' %
+            t('Fermi level found  in %d iterations' % self.nfermi)
+            t('Log10 error in wave functions: %4.1f' %
                       (log(self.error) / log(10)))
-            self.text()
+            t()
             print_all_information(self)
 
         else:        
             if self.niter == 0:
-                self.text("""\
+                t("""\
                           log10     total     iterations:
-                 time     error     energy    fermi  poisson  magmom"""
+                 time     error     energy    fermi  poisson  magmom""")
 
-            t = time.localtime()
+            T = time.localtime()
 
-            write('iter: %4d %3d:%02d:%02d %6.1f %13.7f %4d %7d' %
-                  (self.niter,
-                   t[3], t[4], t[5],
-                   log(self.error) / log(10),
-                   self.Ha * (self.Etot + 0.5 * self.S),
-                   self.nfermi,
-                   self.hamiltonian.npoisson))
-
+            t('iter: %4d %3d:%02d:%02d %6.1f %13.7f %4d %7d' %
+              (self.niter,
+               T[3], T[4], T[5],
+               log(self.error) / log(10),
+               self.Ha * (self.Etot + 0.5 * self.S),
+               self.nfermi,
+               self.hamiltonian.npoisson), end='')
+            
             if self.nspins == 2:
-                self.text('%11.4f' % self.magmom)
+                t('%11.4f' % self.magmom)
             else:
-                self.text('       --')
+                t('       --')
 
-        out.flush()
+        self.txt.flush()
 
     def print_eigenvalues(self):
         """Print eigenvalues and occupation numbers."""
@@ -219,23 +216,23 @@ class Output:
     def plot_atoms(self):
         domain = self.domain
         nuclei = self.nuclei
-        out = self.out
+        t = self.text
         cell_c = domain.cell_c
         pos_ac = cell_c * [nucleus.spos_c for nucleus in nuclei]
         Z_a = [nucleus.setup.Z for nucleus in nuclei]
-        self.text(plot(pos_ac, Z_a, cell_c))
-        self.text()
-        self.text('unitcell:')
-        self.text('         periodic  length  points   spacing')
-        self.text('  -----------------------------------------')
+        t(plot(pos_ac, Z_a, cell_c))
+        t()
+        t('unitcell:')
+        t('         periodic  length  points   spacing')
+        t('  -----------------------------------------')
         for c in range(3):
-            self.text('  %s-axis   %s   %8.4f   %3d    %8.4f' % 
-                      ('xyz'[c],
-                       ['no ', 'yes'][domain.periodic_c[c]],
-                       self.a0 * domain.cell_c[c],
-                       self.gd.N_c[c],
-                       self.a0 * self.gd.h_c[c]))
-        self.text()
+            t('  %s-axis   %s   %8.4f   %3d    %8.4f' % 
+              ('xyz'[c],
+               ['no ', 'yes'][domain.periodic_c[c]],
+               self.a0 * domain.cell_c[c],
+               self.gd.N_c[c],
+               self.a0 * self.gd.h_c[c]))
+        t()
 
 def plot(positions, numbers, cell):
     """Ascii-art plot of the atoms.

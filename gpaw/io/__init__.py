@@ -331,19 +331,14 @@ def read(paw, reader):
                     nucleus.P_uni[u, :nbands] = P_ni[:, i1:i2]
                 i1 = i2
 
-        self.last_atomic_configuration = (
-            num.asarray(r.get('AtomicNumbers'), num.Int),
-            r.get('CartesianPositions'),
-            r.get('BoundaryConditions'),
-            r.get('UnitCell'))
-                                     r.get('MagneticMoments'),
-                                     r.get('Tags'))],
-        # Get the forces from the old calculation:
-        calc.paw.set_forces(r.get('CartesianForces'))
+    self.last_atomic_configuration = (
+        num.asarray(r.get('AtomicNumbers'), num.Int),
+        r.get('CartesianPositions'),
+        r.get('BoundaryConditions'),
+        r.get('UnitCell'))
+    paw.extra_list_of_atoms_stuff = (r.get('Tags'), r.get('MagneticMoments'))
 
-        calc.lastcount = atoms.GetCount()
-
+    # Get the forces from the old calculation:
+    paw.F_ac = r.get('CartesianForces')
 
     r.close()
-
-    paw.wf = wf

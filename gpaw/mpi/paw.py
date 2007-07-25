@@ -10,7 +10,7 @@ import socket
 
 from gpaw import debug, trace
 from gpaw.utilities.socket import send, recv
-from gpaw.paw import Paw
+from gpaw.paw import PAW
 from gpaw.mpi.config import get_mpi_command
 import gpaw.utilities.timing as timing
 

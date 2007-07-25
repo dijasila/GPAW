@@ -10,7 +10,7 @@ from gpaw.utilities.blas import axpy, rk, r2k, gemm
 from gpaw.utilities.complex import cc, real
 from gpaw.utilities.lapack import diagonalize
 from gpaw.utilities import unpack
-from gpaw.eigensolvers import Eigensolver
+from gpaw.eigensolvers.eigensolver import Eigensolver
 from gpaw.mpi import run
 
 

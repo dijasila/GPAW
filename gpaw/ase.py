@@ -72,7 +72,7 @@ class ASEPAW(PAW):
     def _SetListOfAtoms(self, atoms):
         """Make a weak reference to the ListOfAtoms."""
         self.lastcount = -1
-        self.atoms = weakref.ref(atoms)
+        self.set_atoms(atoms)
         self.plot_atoms()
 
     def GetNumberOfBands(self):

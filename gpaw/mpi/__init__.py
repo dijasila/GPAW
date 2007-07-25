@@ -6,7 +6,7 @@ import sys
 
 import Numeric as num
 
-from gpaw import debug, parallel
+from gpaw import debug
 from gpaw.utilities import is_contiguous
 import _gpaw
 

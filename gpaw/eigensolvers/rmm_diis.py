@@ -7,7 +7,7 @@ import LinearAlgebra as linalg
 from gpaw.utilities.blas import axpy, rk, gemm
 from gpaw.utilities import elementwise_multiply_add, utilities_vdot, utilities_vdot_self
 from gpaw.utilities.complex import cc, real
-from gpaw.eigensolvers import Eigensolver
+from gpaw.eigensolvers.eigensolver import Eigensolver
 from gpaw.mpi import run
 
 
@@ -25,11 +25,11 @@ class RMM_DIIS(Eigensolver):
     * Improvement of wave functions:  psi' = psi + lambda PR + lambda PR'
     * Orthonormalization"""
 
-    def __init__(self, timer, kpt_comm, gd, kin, typecode, nbands):
+    def __init__(self, paw):
 
-        Eigensolver.__init__(self, timer, kpt_comm, gd, kin, typecode, nbands)
+        Eigensolver.__init__(self, paw)
 
-        self.S_nn = num.empty((nbands, nbands), typecode)
+        self.S_nn = num.empty((self.nbands, self.nbands), self.typecode)
         self.S_nn[:] = 0.0  # rk fails the first time without this!
 
     def iterate_one_k_point(self, hamiltonian, kpt):      
