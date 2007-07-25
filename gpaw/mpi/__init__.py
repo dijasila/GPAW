@@ -155,3 +155,13 @@ def run(iterators):
             results = [iter.next() for iter in iterators]
         except StopIteration:
             return results
+
+
+def new_communicator(ranks):
+    if len(ranks) == 1:
+        return mpi.serial_comm
+    elif len(ranks) == mpi.size:
+        return mpi.world
+    else:
+        return mpi.world.new_communicator(num.array(ranks))
+

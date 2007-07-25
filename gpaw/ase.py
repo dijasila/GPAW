@@ -58,7 +58,7 @@ class ASEPAW(PAW):
             return self.Ha * self.Etot
         else:
             # Energy extrapolated to zero Kelvin:
-            return self.Ha * (self.Etot + 0.5 * self.S)
+            return self.Ha * (self.Etot + 0.5 * self.occupation.S)
 
     def GetCartesianForces(self):
         """Return the forces for the current state of the ListOfAtoms."""
@@ -73,6 +73,7 @@ class ASEPAW(PAW):
         """Make a weak reference to the ListOfAtoms."""
         self.lastcount = -1
         self.atoms = weakref.ref(atoms)
+        self.plot_atoms()
 
     def GetNumberOfBands(self):
         """Return the number of bands."""

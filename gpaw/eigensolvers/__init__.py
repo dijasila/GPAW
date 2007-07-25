@@ -11,6 +11,17 @@ from gpaw.utilities.blas import axpy, r2k, gemm
 from gpaw.utilities.complex import cc, real
 from gpaw.utilities.tools import apply_subspace_mask
 from gpaw.utilities import unpack
+from gpaw.eigensolvers.rmm_diis import RMM_DIIS
+from gpaw.eigensolvers.cg import CG
+from gpaw.eigensolvers.davidson import Davidson
+
+
+def eigensolver(name, paw):
+    """Create eigensolver object."""
+    return {'rmm-diis': RMM_DIIS,
+            'cg': CG,
+            'dav': Davidson}[name](paw)
+
 
 class Eigensolver:
     def __init__(self, timer, kpt_comm, gd, kin, typecode, nbands):

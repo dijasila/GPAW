@@ -24,7 +24,7 @@ class Coulomb:
             'use either real, recip_gauss, or recip_ewald'
 
         if method.startswith('recip'):
-            if self.gd.domain.comm.size > 1:
+            if self.gd.comm.size > 1:
                 raise RuntimeError('Cannot do parallel FFT, ' +\
                                    'use method=\'real\'')
             if not hasattr(self, 'k2'):

@@ -202,6 +202,6 @@ class PoissonSolver:
         if level == 0:
             self.operators[level].apply(self.phis[level], residual)
             residual -= self.rhos[level]
-            error = self.gd.domain.comm.sum(num.dot(residual.flat,
-                                                    residual.flat)) * self.dv
+            error = self.gd.comm.sum(num.dot(residual.flat,
+                                             residual.flat)) * self.dv
             return error

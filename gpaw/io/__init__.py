@@ -232,8 +232,8 @@ def write(paw, filename, pos_ac, magmom_a, tag_a, mode, setup_types):
         w.close()
 
 
-def read(paw, filename):
-    r = open(filename, 'r')
+def read(paw, reader):
+    r = reader
 
     version = r['version']
     assert version >= 0.3
@@ -331,4 +331,19 @@ def read(paw, filename):
                     nucleus.P_uni[u, :nbands] = P_ni[:, i1:i2]
                 i1 = i2
 
-    return wf
+        self.last_atomic_configuration = (
+            num.asarray(r.get('AtomicNumbers'), num.Int),
+            r.get('CartesianPositions'),
+            r.get('BoundaryConditions'),
+            r.get('UnitCell'))
+                                     r.get('MagneticMoments'),
+                                     r.get('Tags'))],
+        # Get the forces from the old calculation:
+        calc.paw.set_forces(r.get('CartesianForces'))
+
+        calc.lastcount = atoms.GetCount()
+
+
+    r.close()
+
+    paw.wf = wf
