@@ -13,7 +13,7 @@ from gpaw.utilities.blas import axpy
 
 
 class PoissonSolver:
-    def __init__(self, gd, nn, relax='GS', load_gauss=False):
+    def __init__(self, gd, nn, relax='gs', load_gauss=False):
         self.gd = gd
         scale = -0.25 / pi 
         self.dv = gd.dv
@@ -26,10 +26,10 @@ class PoissonSolver:
             self.B = None
 
         # Relaxation method
-        if relax == 'GS':
+        if relax == 'gs':
             # Gauss-Seidel
             self.relax_method = 1
-        elif relax == 'J':
+        elif relax == 'j':
             # Jacobi
             self.relax_method = 2
         else:

@@ -1,3 +1,5 @@
+import os
+import sys
 import time
 from math import log
 
@@ -5,8 +7,12 @@ import Numeric as num
 from ASE.ChemicalElements.symbol import symbols
 
 from gpaw.utilities import devnull
+from gpaw.mpi import rank, MASTER
 
 class Output:
+    """
+    ``txt``         Output stream for text.
+    """
     def __init__(self):
         """Set the stream for text output.
 
@@ -20,7 +26,8 @@ class Output:
           open a new file.
         """
 
-        txt = self.input_parameters['txt']
+        p = self.input_parameters
+        txt = p['txt']
         if txt is None or rank != MASTER:
             txt = devnull
         elif txt == '-':
@@ -28,9 +35,12 @@ class Output:
         elif isinstance(txt, str):
             txt = open(txt, 'w')
         self.txt = txt
+        self.verbose = p['verbose']
 
-    def text(self, sep=' ', end='\n', *args):
-        self.txt.write(sep.join(args) + end)
+    def text(self, *args, **kwargs):
+        self.txt.write(kwargs.get('sep', ' ').join([str(arg)
+                                                    for arg in args]) +
+                       kwargs.get('end', '\n'))
         
     def print_logo(self):
         self.text()
@@ -48,7 +58,7 @@ class Output:
         self.text('Pid: ', os.getpid())
         self.text('Dir: ', os.path.dirname(gpaw.__file__))
                   
-    def print_init(self):
+    def print_init(self, pos_ac):
         t = self.text
         if self.gamma:
             t('Gamma-point calculation')
@@ -68,19 +78,31 @@ class Output:
             t(('Using domain decomposition: %d x %d x %d' %
                            tuple(domain.parsize_c)))
 
-        if symmetry is not None:
-            symmetry.print_symmetries(out)
+        if self.symmetry is not None:
+            self.symmetry.print_symmetries(t)
         
-        nkpts = len(ibzk_kc)
         t((('%d k-point%s in the irreducible part of the ' +
             'Brillouin zone (total: %d)') %
-           (nkpts, ' s'[1:nkpts], len(bzk_kc))))
+           (self.nkpts, ' s'[1:self.nkpts], len(self.bzk_kc))))
         
-        print >> self.out, 'Positions:'
+        t()
+        t('unitcell:')
+        t('         periodic  length  points   spacing')
+        t('  -----------------------------------------')
+        for c in range(3):
+            t('  %s-axis   %s   %8.4f   %3d    %8.4f' % 
+              ('xyz'[c],
+               ['no ', 'yes'][self.domain.periodic_c[c]],
+               self.a0 * self.domain.cell_c[c],
+               self.gd.N_c[c],
+               self.a0 * self.gd.h_c[c]))
+        t()
+
+        t('Positions:')
         for a, pos_c in enumerate(pos_ac):
             symbol = self.nuclei[a].setup.symbol
-            print >> self.out, '%3d %2s %8.4f%8.4f%8.4f' % \
-                  ((a, symbol) + tuple(self.a0 * pos_c))
+            t('%3d %2s %8.4f%8.4f%8.4f' % 
+              ((a, symbol) + tuple(self.a0 * pos_c)))
 
     def print_converged(self):
         t = self.text
@@ -88,10 +110,9 @@ class Output:
         t('Converged after %d iterations.' % self.niter)
 
         t()
-        print_all_information(self)
+        self.print_all_information()
 
     def print_all_information(self):
-
         t = self.text    
         if len(self.nuclei) == 1:
             t('energy contributions relative to reference atom:', end='')
@@ -119,7 +140,7 @@ class Output:
         if epsF is not None:
             t('Fermi level:', self.Ha * epsF)
 
-        print_eigenvalues(self)
+        self.print_eigenvalues()
 
         t()
         charge = self.finegd.integrate(self.density.rhot_g)
@@ -135,18 +156,18 @@ class Output:
             self.density.calculate_local_magnetic_moments()
 
             t()
-            t('total magnetic moment: %f' % self.magmom)
+            t('total magnetic moment: %f' % self.occupation.magmom)
             t('local magnetic moments:')
             for nucleus in self.nuclei:
                 t(nucleus.a, nucleus.mom)
             t()
 
 
-    def iteration(self):
+    def print_iteration(self):
         # Output from each iteration:
-        write = self.write
+        t = self.text    
 
-        if self.verbosity != 0:
+        if self.verbose != 0:
             t = time.localtime()
             t()
             t('------------------------------------')
@@ -154,7 +175,7 @@ class Output:
             t()
             t('Poisson solver converged in %d iterations' %
                       self.hamiltonian.npoisson)
-            t('Fermi level found  in %d iterations' % self.nfermi)
+            t('Fermi level found  in %d iterations' % self.occupation.niter)
             t('Log10 error in wave functions: %4.1f' %
                       (log(self.error) / log(10)))
             t()
@@ -173,11 +194,11 @@ class Output:
                T[3], T[4], T[5],
                log(self.error) / log(10),
                self.Ha * (self.Etot + 0.5 * self.S),
-               self.nfermi,
+               self.occupation.niter,
                self.hamiltonian.npoisson), end='')
             
             if self.nspins == 2:
-                t('%11.4f' % self.magmom)
+                t('%11.4f' % self.occupation.magmom)
             else:
                 t('       --')
 
@@ -190,49 +211,34 @@ class Output:
 
         if self.nkpts > 1 or self.kpt_comm.size > 1:
             # not implemented yet:
-            return ''
+            return
 
-        s = ''
         if self.nspins == 1:
-            s += comment + ' band     eps        occ\n'
+            self.text(' band     eps        occ')
             kpt = self.kpt_u[0]
             for n in range(self.nbands):
-                s += ('%4d %10.5f %10.5f\n' %
-                      (n, Ha * kpt.eps_n[n], kpt.f_n[n]))
+                self.text('%4d %10.5f %10.5f' %
+                          (n, Ha * kpt.eps_n[n], kpt.f_n[n]))
         else:
-            s += comment + '                up                   down\n'
-            s += comment + ' band     eps        occ        eps        occ\n'
+            self.text('                up                   down')
+            self.text(' band     eps        occ        eps        occ')
             epsa_n = self.kpt_u[0].eps_n
             epsb_n = self.kpt_u[1].eps_n
             fa_n = self.kpt_u[0].f_n
             fb_n = self.kpt_u[1].f_n
             for n in range(self.nbands):
-                s += ('%4d %10.5f %10.5f %10.5f %10.5f\n' %
-                      (n,
-                       Ha * epsa_n[n], fa_n[n],
-                       Ha * epsb_n[n], fb_n[n]))
-        return s
+                self.text('%4d %10.5f %10.5f %10.5f %10.5f\n' %
+                          (n,
+                           Ha * epsa_n[n], fa_n[n],
+                           Ha * epsb_n[n], fb_n[n]))
 
     def plot_atoms(self):
-        domain = self.domain
-        nuclei = self.nuclei
-        t = self.text
-        cell_c = domain.cell_c
-        pos_ac = cell_c * [nucleus.spos_c for nucleus in nuclei]
-        Z_a = [nucleus.setup.Z for nucleus in nuclei]
-        t(plot(pos_ac, Z_a, cell_c))
-        t()
-        t('unitcell:')
-        t('         periodic  length  points   spacing')
-        t('  -----------------------------------------')
-        for c in range(3):
-            t('  %s-axis   %s   %8.4f   %3d    %8.4f' % 
-              ('xyz'[c],
-               ['no ', 'yes'][domain.periodic_c[c]],
-               self.a0 * domain.cell_c[c],
-               self.gd.N_c[c],
-               self.a0 * self.gd.h_c[c]))
-        t()
+        atoms = self.atoms()
+        cell_c = num.diagonal(atoms.GetUnitCell()) / self.a0
+        pos_ac = atoms.GetCartesianPositions() / self.a0
+        Z_a = atoms.GetAtomicNumbers()
+        pbc_c = atoms.GetBoundaryConditions()
+        self.text(plot(pos_ac, Z_a, cell_c))
 
 def plot(positions, numbers, cell):
     """Ascii-art plot of the atoms.

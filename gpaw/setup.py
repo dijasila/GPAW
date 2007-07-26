@@ -18,8 +18,7 @@ from gpaw.xc_functional import XCRadialGrid
 from gpaw.kli import XCKLICorrection, XCGLLBCorrection
 
 
-def create_setup(symbol, xcfunc, lmax=0, nspins=1, softgauss=False,
-                 type='paw'):
+def create_setup(symbol, xcfunc, lmax=0, nspins=1, type='paw'):
     if type == 'ae':
         from gpaw.ae import AllElectronSetup
         return AllElectronSetup(symbol, xcfunc, nspins)
@@ -32,17 +31,14 @@ def create_setup(symbol, xcfunc, lmax=0, nspins=1, softgauss=False,
         from gpaw.hgh import HGHSetup
         return HGHSetup(symbol, xcfunc, nspins, semicore=True)
 
-    return Setup(symbol, xcfunc, lmax, nspins, softgauss, type)
+    return Setup(symbol, xcfunc, lmax, nspins, type)
 
 
 class Setup:
-    def __init__(self, symbol, xcfunc, lmax=0, nspins=1, softgauss=False,
-                 type='paw'):
+    def __init__(self, symbol, xcfunc, lmax=0, nspins=1, type='paw'):
         xcname = xcfunc.get_name()
         self.xcname = xcname
-        self.softgauss = softgauss
-
-        assert not softgauss
+        self.softgauss = False
 
         self.type = type
         if type != 'paw':
@@ -360,7 +356,7 @@ class Setup:
                 rgd, [(j, l_j[j]) for j in range(nj)],
                 2 * lcut, e_xc, self.phicorehole_g, self.fcorehole, nspins)
 
-        if softgauss:
+        if self.softgauss:
             rcutsoft = rcut2####### + 1.4
         else:
             rcutsoft = rcut2
@@ -389,7 +385,7 @@ class Setup:
 ##        r = 0.04 * rcutsoft * num.arange(26, typecode=num.Float)
         alpha = rcgauss**-2
         self.alpha = alpha
-        if softgauss:
+        if self.softgauss:
             assert lmax <= 2
             alpha2 = 22.0 / rcutsoft**2
             alpha2 = 15.0 / rcutsoft**2
@@ -442,37 +438,36 @@ class Setup:
         self.rcutcomp = sqrt(10) * rcgauss
         self.rcut_j = rcut_j
 
-    def print_info(self, out):
+    def print_info(self, text):
         if self.fcorehole == 0.0:
-            print >> out, self.symbol + '-setup:'
+            text(self.symbol + '-setup:')
         else:
-            print >> out, '%s-setup (%.1f core hole):' % (self.symbol,
-                                                          self.fcorehole)
-        print >> out, '  name   :', names[self.Z]
-        print >> out, '  Z      :', self.Z
-        print >> out, '  valence:', self.Nv
+            text('%s-setup (%.1f core hole):' % (self.symbol, self.fcorehole))
+        text('  name   :', names[self.Z])
+        text('  Z      :', self.Z)
+        text('  valence:', self.Nv)
         if self.fcorehole == 0.0:
-            print >> out, '  core   : %d' % self.Nc
+            text('  core   : %d' % self.Nc)
         else:
-            print >> out, '  core   : %.1f' % self.Nc
-        print >> out, '  charge :', self.Z - self.Nv - self.Nc
-        print >> out, '  file   :', self.filename
-        print >> out, ('  cutoffs: %4.2f(comp), %4.2f(filt), %4.2f(core) Bohr,'
-                       ' lmax=%d' % (self.rcutcomp, self.rcutfilter,
-                                     self.rcore, self.lmax))
-        print >> out, '  valence states:'
+            text('  core   : %.1f' % self.Nc)
+        text('  charge :', self.Z - self.Nv - self.Nc)
+        text('  file   :', self.filename)
+        text(('  cutoffs: %4.2f(comp), %4.2f(filt), %4.2f(core) Bohr,'
+              ' lmax=%d' % (self.rcutcomp, self.rcutfilter,
+                            self.rcore, self.lmax)))
+        text('  valence states:')
         j = 0
         for n, l, f, eps in zip(self.n_j, self.l_j, self.f_j, self.eps_j):
             if n > 0:
                 f = '(%d)' % f
-                print >> out, '    %d%s%-4s %7.3f Ha   %4.2f Bohr' % (
-                    n, 'spdf'[l], f, eps, self.rcut_j[j])
+                text('    %d%s%-4s %7.3f Ha   %4.2f Bohr' % (
+                    n, 'spdf'[l], f, eps, self.rcut_j[j]))
             else:
-                print >> out, '    *%s     %7.3f Ha   %4.2f Bohr' % (
-                    'spdf'[l], eps, self.rcut_j[j])
+                text('    *%s     %7.3f Ha   %4.2f Bohr' % (
+                    'spdf'[l], eps, self.rcut_j[j]))
             j += 1
 
-        print >> out
+        text()
 
     def calculate_rotations(self, R_slmm):
         nsym = len(R_slmm)

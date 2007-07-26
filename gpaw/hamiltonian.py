@@ -13,7 +13,7 @@ import Numeric as num
 from gpaw.localized_functions import LocFuncBroadcaster
 from gpaw.operators import Laplace
 from gpaw.pair_potential import PairPotential
-from gpaw.poisson_solver import PoissonSolver
+from gpaw.poisson import PoissonSolver
 from gpaw.transformers import Transformer
 from gpaw.xc_functional import XC3DGrid
 from gpaw.mpi import run
@@ -55,9 +55,9 @@ class Hamiltonian:
 
         # Allocate arrays for potentials and densities on coarse and
         # fine grids:
-        self.vt_sG = self.gd.empty(nspins)
+        self.vt_sG = self.gd.empty(self.nspins)
         self.vHt_g = self.finegd.zeros()
-        self.vt_sg = self.finegd.empty(nspins)
+        self.vt_sg = self.finegd.empty(self.nspins)
 
         # The external potential
         if 0:#???vext_g:
@@ -68,7 +68,7 @@ class Hamiltonian:
             self.vext_g = 0#???vext_g
 
         p = paw.input_parameters
-        stencils = p['stencil']
+        stencils = p['stencils']
         
         # Number of neighbor grid points used for finite difference
         # Laplacian in the Schrödinger equation (1, 2, ...):
@@ -89,7 +89,7 @@ class Hamiltonian:
         self.poisson_stencil = nn = stencils[1]
 
         # Solver for the Poisson equation:
-        self.poisson = PoissonSolver(self.finegd, nn, p['relax'])
+        self.poisson = PoissonSolver(self.finegd, nn, p['poissonsolver'])
 
         # Pair potential for electrostatic interacitons:
         self.pairpot = PairPotential(paw.setups)
@@ -102,7 +102,7 @@ class Hamiltonian:
     def update(self, density):
         """Calculate effective potential.
 
-        The XC-potential and the Hartree potentials are evaluated on
+        The XC-potential and the Hartree potential are evaluated on
         the fine grid, and the sum is then restricted to the coarse
         grid."""
 
@@ -142,7 +142,7 @@ class Hamiltonian:
         # npoisson is the number of iterations:
         self.npoisson = self.poisson.solve(self.vHt_g, density.rhot_g,
                                            charge=-density.charge)
-        self.timer.stop()
+        self.timer.stop('Poisson')
 
         Epot += 0.5 * num.vdot(self.vHt_g, density.rhot_g) * self.finegd.dv
         Ekin = 0.0
@@ -175,14 +175,13 @@ class Hamiltonian:
             Eext += v
             Exc += x
 
-        self.timer.stop()
+        self.timer.stop('Atomic Hamiltonians')
 
         comm = self.gd.comm
-        Ekin = comm.sum(Ekin)
-        Epot = comm.sum(Epot)
-        Ebar = comm.sum(Ebar)
-        Eext = comm.sum(Eext)
-        Exc = comm.sum(Exc)
+        self.Ekin = comm.sum(Ekin)
+        self.Epot = comm.sum(Epot)
+        self.Ebar = comm.sum(Ebar)
+        self.Eext = comm.sum(Eext)
+        self.Exc = comm.sum(Exc)
 
-        self.timer.stop()
-        return Ekin, Epot, Ebar, Eext, Exc
+        self.timer.stop('Hamiltonian')

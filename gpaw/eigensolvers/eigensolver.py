@@ -14,31 +14,31 @@ from gpaw.utilities import unpack
 
 
 class Eigensolver:
-    def __init__(self, paw):
+    def __init__(self, paw, nbands=None):
         self.timer = paw.timer
         self.kpt_comm = paw.kpt_comm
         self.typecode = paw.typecode
         self.gd = paw.gd
         self.comm = paw.gd.comm
-        self.nbands = paw.nbands
+        if nbands is None:
+            self.nbands = paw.nbands
+        else:
+            self.nbands = nbands
+        self.convergeall = paw.input_parameters['convergeall']
 
         # Preconditioner for the electronic gradients:
-        self.preconditioner = Preconditioner(gd, kin, typecode)
+        self.preconditioner = Preconditioner(self.gd, paw.hamiltonian.kin,
+                                             self.typecode)
 
         # Soft part of the Hamiltonian times psit
-        self.Htpsit_nG = self.gd.empty(nbands, typecode)
+        self.Htpsit_nG = self.gd.empty(self.nbands, self.typecode)
 
         # Work array for e.g. subspace rotations
-        self.work = self.gd.empty(nbands, typecode)
+        self.work = self.gd.empty(self.nbands, self.typecode)
 
         # Hamiltonian matrix
-        self.H_nn = num.empty((nbands, nbands), self.typecode)
+        self.H_nn = num.empty((self.nbands, self.nbands), self.typecode)
 
-    def set_convergence_criteria(self, convergeall, tolerance, nvalence):
-        self.convergeall = convergeall
-        self.tolerance = tolerance
-        self.nvalence = nvalence
-        
     def iterate(self, hamiltonian, kpt_u):
         """Solves eigenvalue problem iteratively
 
@@ -47,19 +47,11 @@ class Eigensolver:
         a single kpoint.
         """
 
-        if self.nvalence == 0:
-            return self.tolerance, True
-        
         error = 0.0
         for kpt in kpt_u:
             error += self.iterate_one_k_point(hamiltonian, kpt)
             
-        if self.convergeall:
-            error = self.comm.sum(self.kpt_comm.sum(error)) / kpt_u[0].nbands
-        else:
-            error = self.comm.sum(self.kpt_comm.sum(error)) / self.nvalence
-        
-        return error, error <= self.tolerance
+        self.error = self.comm.sum(self.kpt_comm.sum(error))
 
     def iterate_one_k_point(self, hamiltonian, kpt):
         """Implemented in subclasses."""
@@ -98,11 +90,9 @@ class Eigensolver:
 
         H_nn[:] = 0.0  # r2k fails without this!
         
-        self.timer.stop()
         self.timer.start('Non-local xc')
         hamiltonian.xc.xcfunc.apply_non_local(kpt, Htpsit_nG, H_nn)
-        self.timer.stop()
-        self.timer.start('Subspace diag.')
+        self.timer.stop('Non-local xc')
         
         r2k(0.5 * self.gd.dv, psit_nG, Htpsit_nG, 1.0, H_nn)
         
@@ -122,14 +112,14 @@ class Eigensolver:
             info = diagonalize(H_nn, eps_n)
             if info != 0:
                 raise RuntimeError, 'Very Bad!!'
-        self.timer.stop()
+        self.timer.stop('dsyev/zheev')
 
         self.timer.start('bcast H')
         self.comm.broadcast(H_nn, kpt.root)
-        self.timer.stop()
+        self.timer.stop('bcast H')
         self.timer.start('bcast eps')
         self.comm.broadcast(eps_n, kpt.root)
-        self.timer.stop()
+        self.timer.stop('bcast eps')
 
         # Rotate psit_nG:
         gemm(1.0, psit_nG, H_nn, 0.0, self.work)
@@ -149,4 +139,4 @@ class Eigensolver:
         if hamiltonian.xc.xcfunc.hybrid > 0.0:
             hamiltonian.xc.xcfunc.exx.rotate(kpt.u, H_nn)
 
-        self.timer.stop()
+        self.timer.stop('Subspace diag.')

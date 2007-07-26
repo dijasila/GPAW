@@ -5,6 +5,9 @@
 
 """ASE-calculator interface."""
 
+import os
+import weakref
+
 from ASE.Units import units, Convert
 import ASE
 
@@ -13,11 +16,12 @@ from gpaw.mpi import parallel
 from gpaw.mpi.paw import MPIPAW, get_parallel_environment
 
 
-def gpaw(filename=None, **kwargs):
-    if parallel or get_parallel_environment() is None:
+def Calculator(filename=None, **kwargs):
+    env = get_parallel_environment()
+    if parallel or env is None:
         return ASEPAW(filename=filename, **kwargs)
     else:
-        return MPIPAW(get_parallel_environment(), filename, **kwargs)
+        return MPIPAW(env, filename, **kwargs)
 
         
 class ASEPAW(PAW):
@@ -51,7 +55,7 @@ class ASEPAW(PAW):
         consistent with the forces (the free energy) can be
         returned."""
         
-        self.update()
+        self.calculate()
 
         if force_consistent:
             # Free energy:
@@ -62,7 +66,7 @@ class ASEPAW(PAW):
 
     def GetCartesianForces(self):
         """Return the forces for the current state of the ListOfAtoms."""
-        self.update(forces=True)
+        self.calculate(forces=True)
         return self.F_ac * (self.Ha / self.a0)
       
     def GetStress(self):
@@ -72,7 +76,7 @@ class ASEPAW(PAW):
     def _SetListOfAtoms(self, atoms):
         """Make a weak reference to the ListOfAtoms."""
         self.lastcount = -1
-        self.set_atoms(atoms)
+        self.atoms = weakref.ref(atoms)
         self.plot_atoms()
 
     def GetNumberOfBands(self):

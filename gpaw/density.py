@@ -39,13 +39,13 @@ class Density:
      ========== =========================================
     """
     
-    def __init__(self, paw):
+    def __init__(self, paw, magmom_a):
         """Create the Density object."""
 
         p = paw.input_parameters
         self.hund = p['hund']
         
-        self.magmom_a = paw.magmom_a
+        self.magmom_a = magmom_a
         self.nspins = paw.nspins
         self.gd = paw.gd
         self.finegd = paw.finegd
@@ -53,12 +53,12 @@ class Density:
         self.ghat_nuclei = paw.ghat_nuclei
         self.nuclei = paw.nuclei
         self.timer = paw.timer
-        self.kpt_comm = kpt_comm
+        self.kpt_comm = paw.kpt_comm
         self.nvalence = paw.nvalence
-        self.charge = paw.charge
+        self.charge = p['charge']
         
         self.nvalence0 = self.nvalence + self.charge
-        for nucleus in nuclei:
+        for nucleus in self.nuclei:
             setup = nucleus.setup
             self.charge += (setup.Z - setup.Nv - setup.Nc)
         

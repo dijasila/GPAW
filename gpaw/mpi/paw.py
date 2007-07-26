@@ -15,9 +15,9 @@ from gpaw.mpi.config import get_mpi_command
 import gpaw.utilities.timing as timing
 
 
-class MPIPaw:
+class MPIPAW:
     # List of methods for Paw object:
-    paw_methods = dir(Paw)
+    paw_methods = 0#???dir(Paw)
     
     def __init__(self, hostfile, out, *args):
         self.out = out

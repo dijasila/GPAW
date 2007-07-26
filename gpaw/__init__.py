@@ -75,7 +75,7 @@ paths = os.environ.get('GPAW_SETUP_PATH', '')
 if paths != '':
     setup_paths += paths.split(':')
 
-from gpaw.ase import gpaw
+from gpaw.ase import Calculator
 
 if trace:
     indent = '    '

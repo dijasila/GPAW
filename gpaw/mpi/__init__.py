@@ -159,9 +159,9 @@ def run(iterators):
 
 def new_communicator(ranks):
     if len(ranks) == 1:
-        return mpi.serial_comm
-    elif len(ranks) == mpi.size:
-        return mpi.world
+        return serial_comm
+    elif len(ranks) == size:
+        return world
     else:
-        return mpi.world.new_communicator(num.array(ranks))
+        return world.new_communicator(num.array(ranks))
 

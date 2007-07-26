@@ -13,18 +13,18 @@ import Numeric as num
 import gpaw.io
 import gpaw.mpi as mpi
 import gpaw.occupations as occupations
-from gpaw import output
 from gpaw import debug
 from gpaw import ConvergenceError
 from gpaw.density import Density
 from gpaw.eigensolvers import eigensolver
+from gpaw.eigensolvers.eigensolver import Eigensolver
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.hamiltonian import Hamiltonian
 from gpaw.kpoint import KPoint
 from gpaw.localized_functions import LocFuncBroadcaster
 from gpaw.utilities.timing import Timer
 from gpaw.xc_functional import XCFunctional
-from gpaw.mpi import run
+from gpaw.mpi import run, new_communicator
 import _gpaw
 
 MASTER = 0
@@ -41,7 +41,6 @@ import os
 import sys
 import tempfile
 import time
-import weakref
 
 import Numeric as num
 from ASE.Units import units, Convert
@@ -97,7 +96,6 @@ class PAW(PAWExtra, Output):
     ``symmetry``    Symmetry object.
     ``timer``       Timer object.
     ``nuclei``      List of ``Nucleus`` objects.
-    ``out``         Output stream for text.
     ``gd``          Grid descriptor for coarse grids.
     ``finegd``      Grid descriptor for fine grids.
     ``kpt_u``       List of **k**-point objects.
@@ -252,15 +250,18 @@ class PAW(PAWExtra, Output):
             'txt':           '-',
             'hund':          False,
             'random':        False,
+            'maxiter':       120,
+            'parsize':       None,
             'external':      None,
             'decompose':     None,
-            'verbosity':     0,
-            'eigensolver':   RMM_DIIS,
-            'poissonsolver': GaussSeidel}
+            'verbose':       0,
+            'eigensolver':   'rmm-diis',
+            'poissonsolver': 'gs'}
 
         self.converged = False
         self.initialized = False
         self.wave_functions_initialized = False
+        self.callback_functions = []
         
         if filename is not None:
             reader = self.read_parameters(filename)
@@ -269,7 +270,7 @@ class PAW(PAWExtra, Output):
             raise TypeError("""You can't use both "gpts" and "h"!""")
             
         for name, value in kwargs.items():
-            if name in ['random', 'hund', 'mix', 'txt', 'verbosity',
+            if name in ['random', 'hund', 'mix', 'txt', 'verbose',
                         'decompose', 'eigensolver', 'poissonsolver',
                         'external']:
                 self.input_parameters[name] = value
@@ -288,202 +289,6 @@ class PAW(PAWExtra, Output):
             self.initialize()
             gpaw.io.read(self, reader)
             self.plot_atoms()
-
-    def initialize(self):
-        """Inexpensive initialization."""
-        self.timer = Timer()
-        timer.start('Init')
-
-        self.kpt_u = None
-        
-        atoms = self.atoms()
-        self.natoms = len(atoms)
-        magmom_a = atoms.GetMagneticMoments()
-        pos_ac = atoms.GetCartesianPositions() / self.a0
-        cell_cc = atoms.GetUnitCell() / self.a0
-        pbc_c = atoms.GetPeriodicBoundaryConditions()
-        Z_a = atoms.GetAtomicNumbers()
-        
-        # Check that the cell is orthorhombic:
-        check_unit_cell(cell_cc)
-        # Get the diagonal:
-        cell_c = num.diagonal(cell_cc)
-        
-        p = self.input_parameters
-
-        # Set the scaled k-points:
-        kpts = p['kpts']
-        if kpts is None:
-            self.bzk_kc = num.zeros((1, 3), num.Float)
-        elif isinstance(kpts[0], int):
-            self.bzk_kc = MonkhorstPack(bzk_kc)
-        else:
-            self.bzk_kc = num.array(kpts)
-        
-        magnetic = num.sometrue(magmom_a)
-
-        self.spinpol = p['spinpol']
-        if self.spinpol is None:
-            self.spinpol = magnetic
-        elif magnetic and not self.spinpol:
-            raise ValueError('Non-zero initial magnetic moment for a ' +
-                             'spin-paired calculation!')
-
-        self.nspins = 1 + int(self.spinpol)
-
-        self.fixmom = p['fixmom']
-        if p['hund']:
-            self.fixmom = True
-            assert self.spinpol and self.natoms == 1
-
-        if self.fixmom:
-            assert self.spinpol
-
-        self.xcfunc = XCFunctional(p['xc'])
-        
-        if p['gpts'] is not None and p['h'] is None:
-            N_c = num.array(p['gpts'])
-        else:
-            if p['h'] is None:
-                self.text('Using default value for grid spacing.')
-                h = Convert(0.2, 'Ang', 'Bohr')
-            else:
-                h = p['h']
-            # N_c should be a multiplum of 4:
-            N_c = num.array([max(4, int(L / h / 4 + 0.5) * 4) for L in cell_c])
-        
-        # Create a Domain object:
-        self.domain = Domain(cell_c, pbc_c)
-
-        type_a = self.create_setups(p['setups'], Z_a)
-        
-        # Is this a gamma-point calculation?
-        if len(self.bzk_kc) == 1 and not num.sometrue(self.bzk_kc[0]):
-            self.gamma = True
-            self.typecode = num.Float
-            self.symmetry = None
-            self.weights_k = [1.0]
-            self.ibzk_kc = num.zeros((1, 3), num.Float)
-            self.nkpts = 1
-        else:
-            self.gamma = False
-            self.typecode = num.Complex
-            # Reduce the the k-points to those in the irreducible part of
-            # the Brillouin zone:
-            self.symmetry, self.weights_k, self.ibzk_kc = reduce_kpoints(
-                self.bzk_kc, pos_ac, Z_a, type_a, magmom_a, self.domain,
-                p['usesymm'])
-            self.nkpts = len(self.ibzk_kc)
-        
-            if p['usesymm'] and self.symmetry is not None:
-                # Find rotation matrices for spherical harmonics:
-                R_slmm = [[rotation(l, symm) for l in range(3)]
-                          for symm in self.symmetry.symmetries]
-        
-                for setup in self.setups.values():
-                    setup.calculate_rotations(R_slmm)
-        
-        self.distribute_kpoints_and_spins(p['parsize'], N_c)
-        
-        if dry_run:
-            # Estimate the amount of memory needed
-            estimate_memory(N_c, nbands, nkpts, nspins, typecode, nuclei, h_c, out)
-            out.flush()
-            sys.exit()
-
-        # Build list of nuclei:
-        self.nuclei = [Nucleus(setups[(Z, type)], a, self.typecode)
-                       for a, (Z, type) in enumerate(zip(Z_a, type_a))]
-            
-        # Sum up the number of valence electrons:
-        self.nvalence = 0
-        nao = 0
-        for nucleus in self.nuclei:
-            self.nvalence += nucleus.setup.Nv
-            nao += nucleus.setup.niAO
-        self.nvalence -= p['charge']
-        
-        if self.nvalence < 0:
-            raise ValueError(
-                'Charge %f is not possible - not enough valence electrons' %
-                p['charge'])
-        
-        self.nbands = p['nbands']
-        if self.nbands is None:
-            self.nbands = nao
-        elif self.nbands <= 0:
-            self.nbands = (self.nvalence + 1) // 2 + (-self.nbands)
-            
-        if self.nvalence > 2 * self.nbands:
-            raise ValueError('Too few bands!')
-
-        self.kT = p['width']
-        if self.kT is None:
-            if self.gamma:
-                self.kT = 0
-            else:
-                self.kT = Convert(0.1, 'eV', 'Hartree')
-        
-        self.stencils = p['stencils']
-        self.maxiter = p['maxiter']
-
-        self.random_wf = p['random']
-
-        # Construct grid descriptors for coarse grids (wave functions) and
-        # fine grids (densities and potentials):
-        self.gd = GridDescriptor(self.domain, N_c)
-        self.finegd = GridDescriptor(self.domain, 2 * N_c)
-
-        self.F_ac = None
-
-        # Total number of k-point/spin combinations:
-        nu = self.nkpts * self.nspins
-
-        # Number of k-point/spin combinations on this cpu:
-        self.nmyu = nu // self.kpt_comm.size
-
-        self.kpt_u = []
-        for u in range(self.nmyu):
-            s, k = divmod(self.kpt_comm.rank * self.nmyu + u, self.nkpts)
-            weight = self.weights_k[k] * 2 / self.nspins
-            k_c = self.ibzk_kc[k]
-            self.kpt_u.append(KPoint(self.gd, weight, s, k, u, k_c,
-                                     self.typecode))
-
-        self.locfuncbcaster = LocFuncBroadcaster(self.kpt_comm)
-
-        self.my_nuclei = []
-        self.pt_nuclei = []
-        self.ghat_nuclei = []
-
-        self.density = Density(self)
-        self.hamiltonian = Hamiltonian(self)
-
-        # Create object for occupation numbers:
-        if kT == 0 or 2 * nbands == nvalence:
-            self.occupation = occupations.ZeroKelvin(nvalence, nspins)
-        else:
-            self.occupation = occupations.FermiDirac(nvalence, nspins, kT)
-
-        xcfunc.set_non_local_things(self)
-
-        if fixmom:
-            M = sum(magmom_a)
-            self.occupation.fix_moment(M)
-
-        self.occupation.set_communicator(kpt_comm)
-
-        self.Eref = 0.0
-        for nucleus in self.nuclei:
-            self.Eref += nucleus.setup.E
-
-        output.print_info(self)
-
-        self.eigensolver = eigensolver(p['eigensolver'], paw)
-
-        self.initialized = True
-        
-        self.timer.stop('Init')
 
     def calculate(self):
         """Update PAW calculaton if needed."""
@@ -538,11 +343,11 @@ class PAW(PAWExtra, Output):
         if not self.wave_functions_initialized:
             self.initialize_wave_functions()
 
-        self.hamiltonian.update()
+        self.hamiltonian.update(self.density)
 
         # Self-consistency loop:
         while not self.converged:
-            if self.niter > 120:
+            if self.niter > self.maxiter:
                 raise ConvergenceError('Did not converge!')
             self.step()
             self.add_up_energies()
@@ -552,7 +357,7 @@ class PAW(PAWExtra, Output):
             self.niter += 1
 
         self.call(final=True)
-        output.print_converged(self)
+        self.print_converged()
 
         # Save the state of the atoms:
         atoms = self.atoms()
@@ -565,8 +370,8 @@ class PAW(PAWExtra, Output):
 
     def step(self):
         if self.niter > 2:
-            self.density.update()
-            self.hamiltonian.update()
+            self.density.update(self.kpt_u, self.symmetry)
+            self.hamiltonian.update(self.density)
 
         self.eigensolver.iterate(self.hamiltonian, self.kpt_u)
 
@@ -580,10 +385,13 @@ class PAW(PAWExtra, Output):
 
     def add_up_energies(self):
         H = self.hamiltonian
-        self.Etot = (H.Ekin0 + self.occupation.Eband + self.Enlkin +
-                     H.Epot + H.Ebar + self.Eext +
-                     self.Exc + self.Enlxc -
-                     self.S)
+        self.Ekin = H.Ekin + self.occupation.Eband + self.Enlkin
+        self.Epot = H.Epot
+        self.Eext = H.Eext
+        self.Ebar = H.Ebar
+        self.Exc = H.Exc + self.Enlxc
+        self.S = self.occupation.S
+        self.Etot = self.Ekin + self.Epot + self.Ebar + self.Exc - self.S
 
     def set_positions(self):
         """Update the positions of the atoms.
@@ -651,8 +459,7 @@ class PAW(PAWExtra, Output):
             string += ' %d random orbitals' % nrandom
         string += '.'
 
-        print >> self.out, string
-
+        self.text(string)
 
         xcfunc = self.hamiltonian.xc.xcfunc
 
@@ -670,24 +477,19 @@ class PAW(PAWExtra, Output):
             for setup in self.setups:
                 setup.xc_correction.xc.set_functional(localxcfunc)
 
-        self.Ekin0, self.Epot, self.Ebar, self.Eext, self.Exc = \
-            self.hamiltonian.update(self.density)
+        self.hamiltonian.update(self.density)
 
         if self.random_wf:
+            # Improve the random guess with conjugate gradient
+            eig = eigensolver('cg', self, convergeall=True)
             for kpt in self.kpt_u:
                 kpt.create_random_orbitals(self.nbands)
                 # Calculate projections and orthogonalize wave functions:
                 run([nucleus.calculate_projections(kpt)
                      for nucleus in self.pt_nuclei])
                 kpt.orthonormalize(self.my_nuclei)
-            # Improve the random guess with conjugate gradients
-            eig = CG(self.timer,self.kpt_comm,
-                     self.gd, self.hamiltonian.kin,
-                     self.typecode, self.nbands)
-            eig.set_convergence_criteria(True, 1e-2, self.nvalence)
             for nit in range(2):
                 eig.iterate(self.hamiltonian, self.kpt_u)
-
         else:
             for nucleus in self.my_nuclei:
                 # XXX already allocated once, but with wrong size!!!
@@ -695,9 +497,7 @@ class PAW(PAWExtra, Output):
                 nucleus.P_uni = num.empty((self.nmyu, nao, ni), self.typecode)
 
             # Use the generic eigensolver for subspace diagonalization
-            eig = Eigensolver(self.timer,self.kpt_comm,
-                              self.gd, self.hamiltonian.kin,
-                              self.typecode, nao)
+            eig = Eigensolver(self, nao)
             for kpt in self.kpt_u:
                 kpt.create_atomic_orbitals(nao, self.nuclei)
                 # Calculate projections and orthogonalize wave functions:
@@ -720,10 +520,8 @@ class PAW(PAWExtra, Output):
             for setup in self.setups:
                 setup.xc_correction.xc.set_functional(xcfunc)
 
-
         # Calculate occupation numbers:
-        self.nfermi, self.magmom, self.S, Eband = \
-            self.occupation.calculate(self.kpt_u)
+        self.occupation.calculate(self.kpt_u)
 
         self.wave_functions_initialized = True
 
@@ -818,18 +616,25 @@ class PAW(PAWExtra, Output):
 
         if mpi.rank == MASTER and not silent:
             for a, nucleus in enumerate(self.nuclei):
-                print >> self.out, 'forces ', \
-                    a, nucleus.setup.symbol, self.F_ac[a] * c
+                self.text('forces ', a, nucleus.setup.symbol, self.F_ac[a] * c)
 
-    def attach(self, function, iters, *args, **kwargs):
-        self.callback_functions.append((function, iters, args, kwargs))
+    def attach(self, function, n, *args, **kwargs):
+        """Register callback function.
 
-    def call(self, niter, final=False):
+        Call ``function`` every ``n`` iterations using ``args`` and
+        ``kwargs`` as arguments."""
+        
+        self.callback_functions.append((function, n, args, kwargs))
+
+    def call(self, final=False):
+        """Call all registered callback functions."""
         for function, n, args, kwargs in self.callback_functions:
-            if ((niter % n) == 0) != final:
+            if ((self.niter % n) == 0) != final:
                 function(*args, **kwargs)
 
-    def create_setups(self, setup_types, Z_a):
+    def create_nuclei_and_setups(self, Z_a):
+        p = self.input_parameters
+        setup_types = p['setups']
         if isinstance(setup_types, str):
             setup_types = {None: setup_types}
         
@@ -854,16 +659,21 @@ class PAW(PAWExtra, Output):
             if isinstance(a, int):
                 type_a[a] = type
         
-        # Construct necessary PAW-setup objects:
-        self.setups = {}
+        # Build list of nuclei and construct necessary PAW-setup objects:
+        self.nuclei = []
+        setups = {}
         for a, (Z, type) in enumerate(zip(Z_a, type_a)):
-            if (Z, type) not in self.setups:
+            if (Z, type) in setups:
+                setup = setups[(Z, type)]
+            else:
                 symbol = symbols[Z]
-                setup = create_setup(symbol, xcfunc, lmax, nspins, softgauss,
-                                     type)
-                setup.print_info(out)
-                self.setups[(Z, type)] = setup
-        
+                setup = create_setup(symbol, self.xcfunc, p['lmax'],
+                                     self.nspins, type)
+                setup.print_info(self.text)
+                setups[(Z, type)] = setup
+            self.nuclei.append(Nucleus(setup, a, self.typecode))
+
+        self.setups = setups.values()
         return type_a
 
     def read_parameters(self, filename):
@@ -924,48 +734,20 @@ class PAW(PAWExtra, Output):
         ``tol``."""
 
         self.tolerance = tol
-        #???self.maxiter ...
 
     def check_convergence(self):
-        self.converged = (self.eigensolver.error < self.tolerance or
-                          self.niter >= self.maxiter)
+        self.error = self.eigensolver.error
+        if self.input_parameters['convergeall']:
+            self.error /= 2 * self.nbands
+        else:
+            self.error /= self.nvalence
+        
+        self.converged = (self.error < self.tolerance)
         return self.converged
     
     def __del__(self):
         """Destructor:  Write timing output before closing."""
-        self.timer.write(self.out)
-
-    def totype(self, typecode):
-        """Converts all the typecode dependent quantities of Paw
-        (Laplacian, wavefunctions etc.) to typecode"""
-
-        from gpaw.operators import Laplace
-
-        if typecode not in [num.Float, num.Complex]:
-            raise RuntimeError('PAW can be converted only to Float or Complex')
-
-        self.typecode = typecode
-
-        # Hamiltonian
-        nn = self.stencils[0]
-        self.hamiltonian.kin = Laplace(self.gd, -0.5, nn, typecode)
-
-        # Nuclei
-        for nucleus in self.nuclei:
-            nucleus.typecode = typecode
-            nucleus.reallocate(self.nbands)
-            nucleus.ready = False
-
-        self.set_positions()
-
-        # Wave functions
-        for kpt in self.kpt_u:
-            kpt.typecode = typecode
-            kpt.psit_nG = num.array(kpt.psit_nG[:], typecode)
-
-        # Eigensolver
-        # !!! FIX ME !!!
-        # not implemented yet...
+        self.timer.write(self.txt)
 
     def distribute_kpoints_and_spins(self, parsize_c, N_c):
         """Distribute k-points/spins to processors.
@@ -991,3 +773,204 @@ class PAW(PAWExtra, Output):
         r0 = rank % ndomains
         ranks = range(r0, r0 + size, ndomains)
         self.kpt_comm = new_communicator(ranks)
+
+    def initialize(self):
+        """Inexpensive initialization."""
+        self.timer = Timer()
+        self.timer.start('Init')
+
+        self.kpt_u = None
+        
+        atoms = self.atoms()
+        self.natoms = len(atoms)
+        magmom_a = atoms.GetMagneticMoments()
+        pos_ac = atoms.GetCartesianPositions() / self.a0
+        cell_cc = atoms.GetUnitCell() / self.a0
+        pbc_c = atoms.GetBoundaryConditions()
+        Z_a = atoms.GetAtomicNumbers()
+        
+        # Check that the cell is orthorhombic:
+        check_unit_cell(cell_cc)
+        # Get the diagonal:
+        cell_c = num.diagonal(cell_cc)
+        
+        p = self.input_parameters
+
+        # Set the scaled k-points:
+        kpts = p['kpts']
+        if kpts is None:
+            self.bzk_kc = num.zeros((1, 3), num.Float)
+        elif isinstance(kpts[0], int):
+            self.bzk_kc = MonkhorstPack(bzk_kc)
+        else:
+            self.bzk_kc = num.array(kpts)
+        
+        magnetic = num.sometrue(magmom_a)
+
+        self.spinpol = p['spinpol']
+        if self.spinpol is None:
+            self.spinpol = magnetic
+        elif magnetic and not self.spinpol:
+            raise ValueError('Non-zero initial magnetic moment for a ' +
+                             'spin-paired calculation!')
+
+        self.nspins = 1 + int(self.spinpol)
+
+        self.fixmom = p['fixmom']
+        if p['hund']:
+            self.fixmom = True
+            assert self.spinpol and self.natoms == 1
+
+        if self.fixmom:
+            assert self.spinpol
+
+        self.xcfunc = XCFunctional(p['xc'], self.nspins)
+        
+        if p['gpts'] is not None and p['h'] is None:
+            N_c = num.array(p['gpts'])
+        else:
+            if p['h'] is None:
+                self.text('Using default value for grid spacing.')
+                h = Convert(0.2, 'Ang', 'Bohr')
+            else:
+                h = p['h']
+            # N_c should be a multiplum of 4:
+            N_c = num.array([max(4, int(L / h / 4 + 0.5) * 4) for L in cell_c])
+        
+        # Create a Domain object:
+        self.domain = Domain(cell_c, pbc_c)
+
+        # Is this a gamma-point calculation?
+        self.gamma = (len(self.bzk_kc) == 1 and
+                      not num.sometrue(self.bzk_kc[0]))
+
+        if self.gamma:
+            self.typecode = num.Float
+        else:
+            self.typecode = num.Complex
+            
+        type_a = self.create_nuclei_and_setups(Z_a)
+
+        # Brillouin zone stuff:
+        if self.gamma:
+            self.symmetry = None
+            self.weights_k = [1.0]
+            self.ibzk_kc = num.zeros((1, 3), num.Float)
+            self.nkpts = 1
+        else:
+            # Reduce the the k-points to those in the irreducible part of
+            # the Brillouin zone:
+            self.symmetry, self.weights_k, self.ibzk_kc = reduce_kpoints(
+                self.bzk_kc, pos_ac, Z_a, type_a, magmom_a, self.domain,
+                p['usesymm'])
+            self.nkpts = len(self.ibzk_kc)
+        
+            if p['usesymm'] and self.symmetry is not None:
+                # Find rotation matrices for spherical harmonics:
+                R_slmm = [[rotation(l, symm) for l in range(3)]
+                          for symm in self.symmetry.symmetries]
+        
+                for setup in self.setups:
+                    setup.calculate_rotations(R_slmm)
+        
+        self.distribute_kpoints_and_spins(p['parsize'], N_c)
+        
+        if dry_run:
+            # Estimate the amount of memory needed
+            estimate_memory(N_c, nbands, nkpts, nspins, typecode, nuclei, h_c,
+                            text)
+            self.txt.flush()
+            sys.exit()
+
+        # Sum up the number of valence electrons:
+        self.nvalence = 0
+        nao = 0
+        for nucleus in self.nuclei:
+            self.nvalence += nucleus.setup.Nv
+            nao += nucleus.setup.niAO
+        self.nvalence -= p['charge']
+        
+        if self.nvalence < 0:
+            raise ValueError(
+                'Charge %f is not possible - not enough valence electrons' %
+                p['charge'])
+        
+        self.nbands = p['nbands']
+        if self.nbands is None:
+            self.nbands = nao
+        elif self.nbands <= 0:
+            self.nbands = (self.nvalence + 1) // 2 + (-self.nbands)
+            
+        if self.nvalence > 2 * self.nbands:
+            raise ValueError('Too few bands!')
+
+        self.kT = p['width']
+        if self.kT is None:
+            if self.gamma:
+                self.kT = 0
+            else:
+                self.kT = Convert(0.1, 'eV', 'Hartree')
+        
+        self.stencils = p['stencils']
+        self.maxiter = p['maxiter']
+        self.tolerance = p['tolerance']
+        self.random_wf = p['random']
+
+        # Construct grid descriptors for coarse grids (wave functions) and
+        # fine grids (densities and potentials):
+        self.gd = GridDescriptor(self.domain, N_c)
+        self.finegd = GridDescriptor(self.domain, 2 * N_c)
+
+        self.F_ac = None
+
+        # Total number of k-point/spin combinations:
+        nu = self.nkpts * self.nspins
+
+        # Number of k-point/spin combinations on this cpu:
+        self.nmyu = nu // self.kpt_comm.size
+
+        self.kpt_u = []
+        for u in range(self.nmyu):
+            s, k = divmod(self.kpt_comm.rank * self.nmyu + u, self.nkpts)
+            weight = self.weights_k[k] * 2 / self.nspins
+            k_c = self.ibzk_kc[k]
+            self.kpt_u.append(KPoint(self.gd, weight, s, k, u, k_c,
+                                     self.typecode))
+
+        self.locfuncbcaster = LocFuncBroadcaster(self.kpt_comm)
+
+        self.my_nuclei = []
+        self.pt_nuclei = []
+        self.ghat_nuclei = []
+
+        self.density = Density(self, magmom_a)#???
+        self.hamiltonian = Hamiltonian(self)
+
+        # Create object for occupation numbers:
+        if self.kT == 0 or 2 * self.nbands == self.nvalence:
+            self.occupation = occupations.ZeroKelvin(self.nvalence,
+                                                     self.nspins)
+        else:
+            self.occupation = occupations.FermiDirac(self.nvalence,
+                                                     self.nspins, self.kT)
+
+        if p['fixmom']:
+            M = sum(magmom_a)
+            self.occupation.fix_moment(M)
+
+        self.occupation.set_communicator(self.kpt_comm)
+
+        self.xcfunc.set_non_local_things(self)
+
+        self.Eref = 0.0
+        for nucleus in self.nuclei:
+            self.Eref += nucleus.setup.E
+
+        self.print_init(pos_ac)
+
+        self.eigensolver = eigensolver(p['eigensolver'], self)
+
+        self.initialized = True
+        
+        self.timer.stop('Init')
+

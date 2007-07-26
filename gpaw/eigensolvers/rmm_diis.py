@@ -46,7 +46,7 @@ class RMM_DIIS(Eigensolver):
         run([nucleus.adjust_residual(R_nG, kpt.eps_n, kpt.s, kpt.u, kpt.k)
              for nucleus in hamiltonian.pt_nuclei])
 
-        self.timer.stop()
+        self.timer.stop('Residuals')
 
         self.timer.start('RMM-DIIS')
         vt_G = hamiltonian.vt_sG[kpt.s]
@@ -92,7 +92,7 @@ class RMM_DIIS(Eigensolver):
             kpt.psit_nG[n] += self.preconditioner(R_G, kpt.phase_cd,
                                                  kpt.psit_nG[n], kpt.k_c)
             
-        self.timer.stop()
+        self.timer.stop('RMM-DIIS')
 
         self.timer.start('Orthogonalize')
         run([nucleus.calculate_projections(kpt)
@@ -124,7 +124,7 @@ class RMM_DIIS(Eigensolver):
         for nucleus in hamiltonian.my_nuclei:
             P_ni = nucleus.P_uni[kpt.u]
             gemm(1.0, P_ni.copy(), S_nn, 0.0, P_ni)
-        self.timer.stop()
+        self.timer.stop('Orthogonalize')
 
         return error
     
