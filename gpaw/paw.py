@@ -256,7 +256,7 @@ class PAW(PAWExtra, Output):
             'decompose':     None,
             'verbose':       0,
             'eigensolver':   'rmm-diis',
-            'poissonsolver': 'gs'}
+            'poissonsolver': 'GS'}
 
         self.converged = False
         self.initialized = False
@@ -298,11 +298,11 @@ class PAW(PAWExtra, Output):
             self.find_ground_state()
             return
         
+        atoms = self.atoms()
         if self.lastcount == atoms.GetCount():
             # Nothing to do:
             return
 
-        atoms = self.atoms()
         pos_ac, Z_a, cell_c, pbc_c = self.last_atomic_configuration
 
         if (atoms.GetAtomicNumbers() != Z_a or
@@ -361,7 +361,7 @@ class PAW(PAWExtra, Output):
 
         # Save the state of the atoms:
         atoms = self.atoms()
-        self.count = atoms.GetCount()
+        self.lastcount = atoms.GetCount()
         self.last_atomic_configuration = (
             atoms.GetCartesianPositions() / self.a0,
             atoms.GetAtomicNumbers(),
@@ -369,7 +369,7 @@ class PAW(PAWExtra, Output):
             atoms.GetBoundaryConditions())
 
     def step(self):
-        if self.niter > 2:
+        if self.fixdensity or self.niter > 2:
             self.density.update(self.kpt_u, self.symmetry)
             self.hamiltonian.update(self.density)
 
@@ -682,7 +682,6 @@ class PAW(PAWExtra, Output):
         r = gpaw.io.open(filename, 'r')
         p = self.input_parameters
 
-        p['setups'] = setup_types
         p['xc'] = r['XCFunctional']
         p['nbands'] = r.dimension('nbands')
         p['spinpol'] = (r.dimension('nspins') == 2)
@@ -740,9 +739,12 @@ class PAW(PAWExtra, Output):
         if self.input_parameters['convergeall']:
             self.error /= 2 * self.nbands
         else:
-            self.error /= self.nvalence
+            if self.nvalence == 0:
+                self.error = self.tolerance
+            else:
+                self.error /= self.nvalence
         
-        self.converged = (self.error < self.tolerance)
+        self.converged = (self.error <= self.tolerance)
         return self.converged
     
     def __del__(self):
@@ -914,6 +916,7 @@ class PAW(PAWExtra, Output):
         self.stencils = p['stencils']
         self.maxiter = p['maxiter']
         self.tolerance = p['tolerance']
+        self.fixdensity = p['fixdensity']
         self.random_wf = p['random']
 
         # Construct grid descriptors for coarse grids (wave functions) and
@@ -967,10 +970,7 @@ class PAW(PAWExtra, Output):
             self.Eref += nucleus.setup.E
 
         self.print_init(pos_ac)
-
         self.eigensolver = eigensolver(p['eigensolver'], self)
-
         self.initialized = True
-        
         self.timer.stop('Init')
 

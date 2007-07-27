@@ -77,6 +77,8 @@ class ASEPAW(PAW):
         """Make a weak reference to the ListOfAtoms."""
         self.lastcount = -1
         self.atoms = weakref.ref(atoms)
+        self.extra_list_of_atoms_stuff = (atoms.GetTags(),
+                                          atoms.GetMagneticMoments())
         self.plot_atoms()
 
     def GetNumberOfBands(self):

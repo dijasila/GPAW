@@ -24,9 +24,7 @@ def open(filename, mode='r'):
         raise ValueError("Illegal mode!  Use 'r' or 'w'.")
 
 
-def write(paw, filename, pos_ac, magmom_a, tag_a, mode, setup_types):
-    paw.get_cartesian_forces(silent=True)
-    
+def write(paw, filename, mode):
     if mpi.rank == MASTER:
         w = open(filename, 'w')
 
@@ -34,25 +32,24 @@ def write(paw, filename, pos_ac, magmom_a, tag_a, mode, setup_types):
         w['version'] = '0.3'
         w['lengthunit'] = 'Bohr'
         w['energyunit'] = 'Hartree'
+
+        Z_a, pos_ac, pbc_c, cell_cc = paw.last_atomic_configuration
+        tag_a, magmom_a = paw.extra_list_of_atoms_stuff
         
-        w.dimension('natoms', len(paw.nuclei))
+        w.dimension('natoms', paw.natoms)
         w.dimension('3', 3)
 
-        w.add('AtomicNumbers', ('natoms',),
-              [nucleus.setup.Z for nucleus in paw.nuclei], units=(0, 0))
-        w.add('CartesianPositions', ('natoms', '3'), pos_ac,
-              units=(1, 0))
+        w.add('AtomicNumbers', ('natoms',), Z_a, units=(0, 0))
+        w.add('CartesianPositions', ('natoms', '3'), pos_ac, units=(1, 0))
         w.add('MagneticMoments', ('natoms',), magmom_a, units=(0, 0))
         w.add('Tags', ('natoms',), tag_a, units=(0, 0))
-        w.add('BoundaryConditions', ('3',), paw.domain.periodic_c,
-              units=(0, 0))
-        cell_cc = num.zeros((3, 3), num.Float)
-        cell_cc.flat[::4] = paw.domain.cell_c  # fill in the diagonal
+        w.add('BoundaryConditions', ('3',), pbc_c, units=(0, 0))
         w.add('UnitCell', ('3', '3'), cell_cc, units=(1, 0))
 
         w.add('PotentialEnergy', (), paw.Etot + 0.5 * paw.S,
               units=(0, 1))
-        w.add('CartesianForces', ('natoms', '3'), paw.F_ac, units=(-1, 1))
+        if paw.F_ac is not None:
+            w.add('CartesianForces', ('natoms', '3'), paw.F_ac, units=(-1, 1))
         
         # Write the k-points:
         w.dimension('nbzkpts', len(paw.bzk_kc))
@@ -84,20 +81,16 @@ def write(paw, filename, pos_ac, magmom_a, tag_a, mode, setup_types):
 
         # Write various parameters:
         w['XCFunctional'] = paw.hamiltonian.xc.xcfunc.get_name()
-        w['UseSymmetry'] = paw.usesymm
+        w['UseSymmetry'] = paw.input_parameters['usesymm']
         w['FermiWidth'] = paw.occupation.kT
         w['MixBeta'] = paw.density.mixer.beta
         w['MixOld'] = paw.density.mixer.nmaxold
         w['MixMetric'] = paw.density.mixer.x
         w['MaximumAngularMomentum'] = paw.nuclei[0].setup.lmax
         w['SoftGauss'] = paw.nuclei[0].setup.softgauss
-        w['FixDensity'] = paw.density.fixdensity
-        try:
-            w['Tolerance'] = paw.eigensolver.tolerance
-        except AttributeError:
-            w['Tolerance'] = paw.eigensolver[2]
+        w['FixDensity'] = paw.fixdensity
+        w['Tolerance'] = paw.tolerance
         w['Ekin'] = paw.Ekin
-        w['Ekin0'] = paw.Ekin0
         w['Epot'] = paw.Epot
         w['Ebar'] = paw.Ebar
         w['Eext'] = paw.Eext        
@@ -115,6 +108,7 @@ def write(paw, filename, pos_ac, magmom_a, tag_a, mode, setup_types):
                 key += '(%s)' % setup.type
             w[key] = setup.fingerprint
 
+        setup_types = paw.input_parameters['setups']
         if isinstance(setup_types, str):
             setup_types = {None: setup_types}
         w['SetupTypes'] = repr(setup_types)

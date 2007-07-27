@@ -120,8 +120,8 @@ ts = unittest.TestSuite()
 for test in tests:
     ts.addTest(ScriptTestCase(filename=test))
 
-from gpaw.utilities import DownTheDrain
-sys.stdout = DownTheDrain()
+from gpaw.utilities import devnull
+sys.stdout = devnull
 
 ttr = unittest.TextTestRunner(verbosity=opt.verbosity)
 result = ttr.run(ts)

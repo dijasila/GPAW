@@ -26,6 +26,12 @@ class PAWExtra:
             e = 0.0
         return e * self.Ha
 
+    def write(self, filename, mode=''):
+        gpaw.io.write(self, filename, mode)
+        
+    def get_reference_energy(self):
+        return self.Eref * self.Ha
+    
     def get_ibz_kpoints(self):
         """Return array of k-points in the irreducible part of the BZ."""
         return self.ibzk_kc

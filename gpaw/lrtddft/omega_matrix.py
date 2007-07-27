@@ -7,7 +7,7 @@ MASTER = mpi.MASTER
 
 from gpaw import debug
 import gpaw.mpi as mpi
-from gpaw.poisson_solver import PoissonSolver
+from gpaw.poisson import PoissonSolver
 from gpaw.lrtddft.excitation import Excitation,ExcitationList
 from gpaw.lrtddft.kssingle import KSSingles
 from gpaw.utilities import pack,pack2,packed_index
@@ -77,7 +77,7 @@ class OmegaMatrix:
         if rpa is None:
             self.paw.timer.start('Omega RPA')
             rpa = self.get_rpa()
-            self.paw.timer.stop()
+            self.paw.timer.stop('Omega RPA')
         Om = rpa
 ##        print ">> Om from rpa=\n",Om
 
@@ -181,7 +181,7 @@ class OmegaMatrix:
                                  two_phi_integrals(D_sp)
                     nucleus.I_sp /= 2.*ns
                     
-            timer.stop()
+            timer.stop('init')
             t0 = timer.gettime('init')
             timer.start(ij)
             
@@ -272,7 +272,7 @@ class OmegaMatrix:
                 if ij != kq:
                     Om[kq,ij] = Om[ij,kq]
 
-            timer.stop()
+            timer.stop(ij)
             if ij < (nij-1):
                 t = timer.gettime(ij) # time for nij-ij calculations
                 t = .5*t*(nij-ij)  # estimated time for n*(n+1)/2, n=nij-(ij+1)
@@ -280,7 +280,7 @@ class OmegaMatrix:
                       self.timestring(t0*(nij-ij-1)+t)
 
 ##        print ">> full Om=\n",Om
-        self.paw.timer.stop()
+        self.paw.timer.stop('Omega XC')
         return Om
 
     def get_rpa(self):
@@ -311,7 +311,7 @@ class OmegaMatrix:
             phit_g = num.zeros(rhot_g.shape,rhot_g.typecode())
             poisson.solve(phit_g,rhot_g,charge=None)
 
-            timer.stop()
+            timer.stop('init')
             t0 = timer.gettime('init')
             timer.start(ij)
             
@@ -355,7 +355,7 @@ class OmegaMatrix:
                 else:
                     Om[kq,ij]=Om[ij,kq]
 
-            timer.stop()
+            timer.stop(ij)
             if ij < (nij-1):
                 t = timer.gettime(ij) # time for nij-ij calculations
                 t = .5*t*(nij-ij)  # estimated time for n*(n+1)/2, n=nij-(ij+1)

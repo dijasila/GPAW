@@ -17,6 +17,7 @@ class Writer:
         setattr(self.nc, name, value)
 
     def add(self, name, shape, array=None, typecode=None, units=None):
+        print array
         if array is not None:
             array = num.asarray(array)
             tc = array.typecode()
@@ -37,6 +38,7 @@ class Writer:
             if shape == ():
                 var.assignValue(array)
             else:
+                print tc, num.Int
                 if typecode is complex:
                     var[:, 0] = array.real
                     var[:, 1] = array.imag

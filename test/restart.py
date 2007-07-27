@@ -15,15 +15,15 @@ if 1:
     calc = Calculator(nbands=1, gpts=(16, 16, 16),)# out=None)
     h.SetCalculator(calc)
     e = h.GetPotentialEnergy()
-    calc.Write('tmp.gpw')
+    calc.write('tmp.gpw')
     if netcdf:
-        calc.Write('tmp.nc')
+        calc.write('tmp.nc')
 
-h = Calculator.ReadAtoms('tmp.gpw', out=None)
+h = Calculator('tmp.gpw', txt=None)
 equal(e, h.GetPotentialEnergy(), 3e-5)
 
 if netcdf:
-    h = Calculator.ReadAtoms('tmp.nc', out=None)
+    h = Calculator('tmp.nc', txt=None)
     equal(e, h.GetPotentialEnergy(), 3e-5)
 
 if netcdf:
