@@ -7,8 +7,10 @@
 The central object that glues everything together!"""
 
 import sys
+import weakref
 
 import Numeric as num
+from ASE import Atom, ListOfAtoms
 
 import gpaw.io
 import gpaw.mpi as mpi
@@ -25,6 +27,7 @@ from gpaw.localized_functions import LocFuncBroadcaster
 from gpaw.utilities.timing import Timer
 from gpaw.xc_functional import XCFunctional
 from gpaw.mpi import run, new_communicator
+from gpaw.brillouin import reduce_kpoints
 import _gpaw
 
 MASTER = 0
@@ -59,7 +62,6 @@ import gpaw.mpi as mpi
 from gpaw.nucleus import Nucleus
 from gpaw.rotation import rotation
 from gpaw.domain import Domain
-from gpaw.symmetry import Symmetry
 from gpaw.xc_functional import XCFunctional
 from gpaw.utilities import gcd
 from gpaw.utilities.timing import Timer
@@ -290,6 +292,12 @@ class PAW(PAWExtra, Output):
             gpaw.io.read(self, reader)
             self.plot_atoms()
 
+    def set(self, **kwargs):
+        self.convert_units(kwargs)
+        self.initialized = False
+        self.wave_functions_initialized = False
+        self.input_parameters.update(kwargs)
+                
     def calculate(self):
         """Update PAW calculaton if needed."""
 
@@ -298,12 +306,12 @@ class PAW(PAWExtra, Output):
             self.find_ground_state()
             return
         
-        atoms = self.atoms()
+        atoms = self.atoms
         if self.lastcount == atoms.GetCount():
             # Nothing to do:
             return
 
-        pos_ac, Z_a, cell_c, pbc_c = self.last_atomic_configuration
+        pos_ac, Z_a, cell_cc, pbc_c = self.last_atomic_configuration
 
         if (atoms.GetAtomicNumbers() != Z_a or
             atoms.GetUnitCell() / self.a0 != cell_cc or
@@ -323,17 +331,11 @@ class PAW(PAWExtra, Output):
             pass
         
     def get_atoms(self):
-        assert not hasattr(self, 'atoms')
-        pos_ac, Z_a, cell_c, pbc_c = self.last_atomic_configuration
-        magmom_a, tag_a = self.extra_list_of_atoms_stuff
-        atoms = ListOfAtoms([Atom(Z, pos_c, tag=tag, magmom=magmom)
-                             for Z, pos_c, tag, magmom in
-                             zip(Z_a, pos_ac, tag_a, magmom_a)],
-                            cell=cell_c, perisodic=pbc_c)
-        self.atoms = weakref.ref(atoms)
+        atoms = self.atoms
+        assert isinstance(atoms, ListOfAtoms)
+        self.atoms = weakref.proxy(atoms)
         atoms.calculator = self
         return atoms
-
 
     def find_ground_state(self):
         """Start iterating towards the ground state."""
@@ -360,7 +362,7 @@ class PAW(PAWExtra, Output):
         self.print_converged()
 
         # Save the state of the atoms:
-        atoms = self.atoms()
+        atoms = self.atoms
         self.lastcount = atoms.GetCount()
         self.last_atomic_configuration = (
             atoms.GetCartesianPositions() / self.a0,
@@ -400,7 +402,7 @@ class PAW(PAWExtra, Output):
         have to be computed again.  Neighbor list is updated and the
         array holding all the pseudo core densities is updated."""
 
-        pos_ac = self.atoms().GetCartesianPositions() / self.a0
+        pos_ac = self.atoms.GetCartesianPositions() / self.a0
 
         movement = False
         for nucleus, pos_c in zip(self.nuclei, pos_ac):
@@ -561,12 +563,14 @@ class PAW(PAWExtra, Output):
                                        self.my_nuclei)
 
 
-    def calculate_forces(self,silent=False):
+    def calculate_forces(self):
         """Return the atomic forces."""
 
         if self.F_ac is not None:
-            retutrn
+            return
 
+        self.F_ac = num.empty((self.natoms, 3), num.Float)
+        
         nt_g = self.density.nt_g
         vt_sG = self.hamiltonian.vt_sG
         vHt_g = self.hamiltonian.vHt_g
@@ -606,7 +610,7 @@ class PAW(PAWExtra, Output):
 
         if self.symmetry is not None:
             # Symmetrize forces:
-            F_ac = num.zeros((len(self.nuclei), 3), num.Float)
+            F_ac = num.zeros((self.natoms, 3), num.Float)
             for map_a, symmetry in zip(self.symmetry.maps,
                                        self.symmetry.symmetries):
                 swap, mirror = symmetry
@@ -614,9 +618,7 @@ class PAW(PAWExtra, Output):
                     F_ac[a2] += num.take(self.F_ac[a1] * mirror, swap)
             self.F_ac[:] = F_ac / len(self.symmetry.symmetries)
 
-        if mpi.rank == MASTER and not silent:
-            for a, nucleus in enumerate(self.nuclei):
-                self.text('forces ', a, nucleus.setup.symbol, self.F_ac[a] * c)
+        self.print_forces()
 
     def attach(self, function, n, *args, **kwargs):
         """Register callback function.
@@ -686,23 +688,40 @@ class PAW(PAWExtra, Output):
         p['nbands'] = r.dimension('nbands')
         p['spinpol'] = (r.dimension('nspins') == 2)
         p['kpts'] = r.get('BZKPoints')
-        p['usesymm'] = bool(r['UseSymmetry'])  # numpy!
-        p['gpts'] = ((r.dimension('ngptsx') + 1) // 2 * 2
-                     (r.dimension('ngptsy') + 1) // 2 * 2
+        p['usesymm'] = r['UseSymmetry']
+        p['gpts'] = ((r.dimension('ngptsx') + 1) // 2 * 2,
+                     (r.dimension('ngptsy') + 1) // 2 * 2,
                      (r.dimension('ngptsz') + 1) // 2 * 2)
         p['lmax'] = r['MaximumAngularMomentum']
-        p['setups'] = eval(r['SetupTypes'])
+        p['setups'] = r['SetupTypes']
         p['stencils'] = (r['KohnShamStencil'],
                          r['PoissonStencil'],
                          r['InterpolationStencil'])
         p['charge'] = r['Charge']
-        p['fixmom'] = r['FixedMagneticMoment']
-        p['fixdensity'] = bool(r['FixDensity'])  # numpy!
+        p['fixmom'] = r['FixMagneticMoment']
+        p['fixdensity'] = r['FixDensity']
         p['tolerance'] = r['Tolerance']
-        p['convergeall'] = bool(r['ConvergeEmptyStates'])
+        p['convergeall'] = r['ConvergeEmptyStates']
         p['width'] = r['FermiWidth'] 
 
-        self.converged = bool(r['Converged'])
+        pos_ac = r.get('CartesianPositions')
+        Z_a = num.asarray(r.get('AtomicNumbers'), num.Int)
+        cell_cc = r.get('UnitCell')
+        pbc_c = r.get('BoundaryConditions')
+        tag_a = r.get('Tags')
+        magmom_a = r.get('MagneticMoments')
+
+        self.last_atomic_configuration = (pos_ac, Z_a, cell_cc, pbc_c)
+        self.extra_list_of_atoms_stuff = (magmom_a, tag_a)
+
+        self.atoms = ListOfAtoms([Atom(position=pos_c, Z=Z,
+                                       tag=tag, magmom=magmom)
+                                  for pos_c, Z, tag, magmom in
+                                  zip(pos_ac, Z_a, tag_a, magmom_a)],
+                                 cell=cell_cc, periodic=pbc_c)
+        self.lastcount = self.atoms.GetCount()
+
+        self.converged = r['Converged']
 
         return r
     
@@ -749,7 +768,8 @@ class PAW(PAWExtra, Output):
     
     def __del__(self):
         """Destructor:  Write timing output before closing."""
-        self.timer.write(self.txt)
+        if hasattr(self, 'timer'):
+            self.timer.write(self.txt)
 
     def distribute_kpoints_and_spins(self, parsize_c, N_c):
         """Distribute k-points/spins to processors.
@@ -783,7 +803,7 @@ class PAW(PAWExtra, Output):
 
         self.kpt_u = None
         
-        atoms = self.atoms()
+        atoms = self.atoms
         self.natoms = len(atoms)
         magmom_a = atoms.GetMagneticMoments()
         pos_ac = atoms.GetCartesianPositions() / self.a0
@@ -797,13 +817,13 @@ class PAW(PAWExtra, Output):
         cell_c = num.diagonal(cell_cc)
         
         p = self.input_parameters
-
+        
         # Set the scaled k-points:
         kpts = p['kpts']
         if kpts is None:
             self.bzk_kc = num.zeros((1, 3), num.Float)
         elif isinstance(kpts[0], int):
-            self.bzk_kc = MonkhorstPack(bzk_kc)
+            self.bzk_kc = MonkhorstPack(kpts)
         else:
             self.bzk_kc = num.array(kpts)
         
@@ -878,7 +898,7 @@ class PAW(PAWExtra, Output):
         self.distribute_kpoints_and_spins(p['parsize'], N_c)
         
         if dry_run:
-            # Estimate the amount of memory needed
+            # Estimate the amount of memory needed:
             estimate_memory(N_c, nbands, nkpts, nspins, typecode, nuclei, h_c,
                             text)
             self.txt.flush()

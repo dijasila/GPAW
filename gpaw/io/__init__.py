@@ -33,7 +33,7 @@ def write(paw, filename, mode):
         w['lengthunit'] = 'Bohr'
         w['energyunit'] = 'Hartree'
 
-        Z_a, pos_ac, pbc_c, cell_cc = paw.last_atomic_configuration
+        pos_ac, Z_a, cell_cc, pbc_c = paw.last_atomic_configuration
         tag_a, magmom_a = paw.extra_list_of_atoms_stuff
         
         w.dimension('natoms', paw.natoms)
@@ -79,9 +79,17 @@ def write(paw, filename, mode):
         w.dimension('nproj', nproj)
         w.dimension('nadm', nadm)
 
+        p = paw.input_parameters
         # Write various parameters:
+        (w['KohnShamStencil'],
+         w['PoissonStencil'],
+         w['InterpolationStencil']) = p['stencils']
         w['XCFunctional'] = paw.hamiltonian.xc.xcfunc.get_name()
-        w['UseSymmetry'] = paw.input_parameters['usesymm']
+        w['Charge'] = p['charge']
+        w['FixMagneticMoment'] = paw.fixmom
+        w['UseSymmetry'] = p['usesymm']
+        w['ConvergeEmptyStates'] = p['convergeall']
+        w['Converged'] = paw.converged
         w['FermiWidth'] = paw.occupation.kT
         w['MixBeta'] = paw.density.mixer.beta
         w['MixOld'] = paw.density.mixer.nmaxold
@@ -108,7 +116,7 @@ def write(paw, filename, mode):
                 key += '(%s)' % setup.type
             w[key] = setup.fingerprint
 
-        setup_types = paw.input_parameters['setups']
+        setup_types = p['setups']
         if isinstance(setup_types, str):
             setup_types = {None: setup_types}
         w['SetupTypes'] = repr(setup_types)
@@ -298,6 +306,7 @@ def read(paw, reader):
         if r.has_array('PseudoWaveFunctions'):
             wf = True
             if mpi.parallel:
+                wait
                 # Slice of the global array for this domain:
                 i = [slice(b - 1 + p, e - 1 + p) for b, e, p in
                      zip(paw.gd.beg_c, paw.gd.end_c, paw.gd.domain.periodic_c)]
@@ -325,14 +334,8 @@ def read(paw, reader):
                     nucleus.P_uni[u, :nbands] = P_ni[:, i1:i2]
                 i1 = i2
 
-    self.last_atomic_configuration = (
-        num.asarray(r.get('AtomicNumbers'), num.Int),
-        r.get('CartesianPositions'),
-        r.get('BoundaryConditions'),
-        r.get('UnitCell'))
-    paw.extra_list_of_atoms_stuff = (r.get('Tags'), r.get('MagneticMoments'))
-
     # Get the forces from the old calculation:
-    paw.F_ac = r.get('CartesianForces')
+    if r.has_array('CartesianForces'):
+        paw.F_ac = r.get('CartesianForces')
 
     r.close()

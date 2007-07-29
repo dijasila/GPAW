@@ -1,3 +1,5 @@
+from gpaw.symmetry import Symmetry
+
 def reduce_kpoints(bzk_kc, pos_ac, Z_a, type_a, magmom_a, domain, usesymm):
     """Reduce the number of k-points using symmetry.
 

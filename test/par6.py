@@ -11,11 +11,11 @@ def f(n, magmom, periodic, dd):
                     cell=(a, a, a))
     
     H.SetCalculator(Calculator(nbands=1, gpts=(n, n, n),
-                               out=None, maxiter=1,
+                               txt=None, maxiter=1,
                                parsize=dd, hosts=6))
     e = H.GetPotentialEnergy()
-    H.GetCalculator().Write('H-par.gpw')
-    H = Calculator.ReadAtoms('H-par.gpw', out=None)
+    H.GetCalculator().write('H-par.gpw')
+    H = Calculator('H-par.gpw', txt=None).get_atoms()
     assert e == H.GetPotentialEnergy()
     return e
     

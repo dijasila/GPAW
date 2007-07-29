@@ -24,14 +24,13 @@ calc = Calculator(nbands=10, h=0.2, setups={'O': 'hch1s'})
 H2O.SetCalculator(calc)
 e = H2O.GetPotentialEnergy()
 
-a, b = xas(calc.paw)
+a, b = xas(calc)
 e, w, x, y = plot_xas(a, b)
 
-calc.Write('h2o-xas.gpw', mode='No wave functions, please!')
+calc.write('h2o-xas.gpw', mode='No wave functions, please!')
 
-H2O = Calculator.ReadAtoms('h2o-xas.gpw', out=None)
-calc = H2O.GetCalculator()
-a, b = xas(calc.paw)
+calc = Calculator('h2o-xas.gpw', txt=None)
+a, b = xas(calc)
 e2, w, x, y = plot_xas(a, b)
 
 de = e[1] - e[0]

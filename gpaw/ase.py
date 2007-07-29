@@ -35,19 +35,20 @@ class ASEPAW(PAW):
         self.a0 = Convert(1, 'Bohr', lengthunit)
         self.Ha = Convert(1, 'Hartree', energyunit)
 
-        # Convert from ASE units:
-        if 'h' in kwargs:
-            kwargs['h'] /= self.a0
-        if 'width' in kwargs:
-            kwargs['width'] /= self.Ha
-        if 'external' in kwargs:
-            kwargs['external'] = kwargs['external'] / self.Ha
-        
+        self.convert_units(kwargs)
         PAW.__init__(self, **kwargs)
 
         self.text('ASE: ', os.path.dirname(ASE.__file__))
         self.text('units:', lengthunit, 'and', energyunit)
 
+    def convert_units(self, parameters):
+        if parameters.get('h') is not None:
+            parameters['h'] /= self.a0
+        if parameters.get('width') is not None:
+            parameters['width'] /= self.Ha
+        if parameters.get('external') is not None:
+            parameters['external'] = parameter['external'] / self.Ha
+        
     def GetPotentialEnergy(self, force_consistent=False):
         """Return total energy.
 
@@ -66,7 +67,8 @@ class ASEPAW(PAW):
 
     def GetCartesianForces(self):
         """Return the forces for the current state of the ListOfAtoms."""
-        self.calculate(forces=True)
+        self.calculate()
+        self.calculate_forces()
         return self.F_ac * (self.Ha / self.a0)
       
     def GetStress(self):
@@ -76,7 +78,7 @@ class ASEPAW(PAW):
     def _SetListOfAtoms(self, atoms):
         """Make a weak reference to the ListOfAtoms."""
         self.lastcount = -1
-        self.atoms = weakref.ref(atoms)
+        self.atoms = weakref.proxy(atoms)
         self.extra_list_of_atoms_stuff = (atoms.GetTags(),
                                           atoms.GetMagneticMoments())
         self.plot_atoms()

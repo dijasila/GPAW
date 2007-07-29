@@ -118,7 +118,7 @@ class StepTimer(Timer):
         self.start(self.now)
 
     def write_now(self,mark=''):
-        self.stop()
+        self.stop(self.now)
         print >> self.out, self.name, mark, self.gettime(self.now)
         self.out.flush()
         del self.timers[self.now]

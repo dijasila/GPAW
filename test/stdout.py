@@ -11,7 +11,7 @@ hydrogen = ListOfAtoms([Atom('H', (a / 2, a / 2, a / 2), magmom=1)],
                        cell=(a, a, a))
 
 calc = Calculator(h=h, nbands=1, kpts=(1, 1, 1), width=1e-9, spinpol=True,
-                  out=None)
+                  txt=None)
 hydrogen.SetCalculator(calc)
 f = hydrogen.GetCartesianForces()
 

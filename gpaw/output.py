@@ -204,6 +204,11 @@ class Output:
 
         self.txt.flush()
 
+    def print_forces(self):
+        c = self.Ha / self.a0
+        for a, nucleus in enumerate(self.nuclei):
+            self.text('forces ', a, nucleus.setup.symbol, self.F_ac[a] * c)
+
     def print_eigenvalues(self):
         """Print eigenvalues and occupation numbers."""
 
@@ -233,7 +238,7 @@ class Output:
                            Ha * epsb_n[n], fb_n[n]))
 
     def plot_atoms(self):
-        atoms = self.atoms()
+        atoms = self.atoms
         cell_c = num.diagonal(atoms.GetUnitCell()) / self.a0
         pos_ac = atoms.GetCartesianPositions() / self.a0
         Z_a = atoms.GetAtomicNumbers()

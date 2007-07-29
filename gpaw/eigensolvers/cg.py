@@ -28,13 +28,13 @@ class CG(Eigensolver):
     * Conjugate gradient steps
     """
 
-    def __init__(self, timer, kpt_comm, gd, kin, typecode, nbands):
+    def __init__(self, paw):
 
-        Eigensolver.__init__(self, timer, kpt_comm, gd, kin, typecode, nbands)
+        Eigensolver.__init__(self, paw)
 
         # Allocate arrays
-        self.phi_G = gd.empty(typecode=typecode)
-        self.phi_old_G = gd.empty(typecode=typecode)
+        self.phi_G = self.gd.empty(typecode=self.typecode)
+        self.phi_old_G = self.gd.empty(typecode=self.typecode)
 
         # self.f = open('CG_debug','w')
 
@@ -57,7 +57,7 @@ class CG(Eigensolver):
 
         run([nucleus.adjust_residual(R_nG, kpt.eps_n, kpt.s, kpt.u, kpt.k)
              for nucleus in hamiltonian.pt_nuclei])
-        self.timer.stop()
+        self.timer.stop('Residuals')        
 
         self.timer.start('CG')
         vt_G = hamiltonian.vt_sG[kpt.s]
@@ -113,7 +113,7 @@ class CG(Eigensolver):
                 phi_G /= sqrt(real(norm))
                 for nucleus in hamiltonian.my_nuclei:
                     nucleus.P2_i /= sqrt(real(norm))
-                self.timer.stop()
+                self.timer.stop('CG: orthonormalize')
                     
                 #find optimum linear combination of psit_G and phi_G
                 a = kpt.eps_n[n]
@@ -177,6 +177,6 @@ class CG(Eigensolver):
             # if nit == 3:
             #   print >> self.f, "cg:iters", n, nit+1
                 
-        self.timer.stop()
+        self.timer.stop('CG')
         return total_error
         
