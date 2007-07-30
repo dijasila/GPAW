@@ -103,7 +103,7 @@ class LrTDDFT(ExcitationList):
         if not changed: return
 
         self.calculator = calculator
-        self.out = calculator.out
+        self.out = calculator.txt
         self.nspins = nspins
         self.eps = eps
         self.istart = istart

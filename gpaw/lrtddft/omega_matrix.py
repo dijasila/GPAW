@@ -41,8 +41,8 @@ class OmegaMatrix:
             self.out = out
             return None
 
-        self.paw = calculator.paw
-        if out is None: out = calculator.out
+        self.paw = calculator
+        if out is None: out = calculator.txt
         self.out = out
         self.fullkss = kss
 

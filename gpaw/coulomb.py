@@ -2,7 +2,7 @@ import Numeric as num
 from math import pi
 from FFT import fftnd
 from gpaw.utilities.complex import real
-from gpaw.poisson_solver import PoissonSolver
+from gpaw.poisson import PoissonSolver
 from gpaw.utilities.gauss import Gaussian
 from gpaw.utilities.tools import construct_reciprocal
 

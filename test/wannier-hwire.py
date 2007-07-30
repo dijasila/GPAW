@@ -2,6 +2,7 @@ from gpaw import Calculator
 from ASE import Atom,ListOfAtoms
 from ASE.Utilities.Wannier.Wannier import Wannier
 from ASE.IO.Cube import WriteCube
+from ASE.Utilities.MonkhorstPack import MonkhorstPack
 
 
 if 1:
@@ -20,15 +21,15 @@ if 1:
     atoms = ListOfAtoms(atomslst, cell=(L, 10, 10), periodic=True)
 
 
-    # gpaw calculator
+    # GPAW calculator:
+    kpts = MonkhorstPack((21, 1, 1)) + 2e-5
     calc = Calculator(h=0.18, nbands=bands, xc='PBE', txt='wire.txt',
-                      kpts=(21, 1, 1))
+                      kpts=kpts)
     atoms.SetCalculator(calc)
     # Displace kpoints sligthly, so that the symmetry program 
     # not use inversion symmetry to reduce kpoints.
-    calc.bzk_kc[:,0] += 2e-5
     energy = atoms.GetPotentialEnergy()
-    calc.write('wire.gpw')
+    calc.write('wire.gpw', 'all')
     
 try:
     import Scientific.IO.NetCDF

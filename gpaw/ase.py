@@ -83,6 +83,9 @@ class ASEPAW(PAW):
                                           atoms.GetMagneticMoments())
         self.plot_atoms()
 
+    def GetListOfAtoms(self):
+        return self.atoms
+    
     def GetNumberOfBands(self):
         """Return the number of bands."""
         return self.nbands 
@@ -138,7 +141,7 @@ class ASEPAW(PAW):
 
     def GetMagneticMoment(self):
         """Return the magnetic moment."""
-        return self.magmom
+        return self.occupation.magmom
 
     def GetFermiLevel(self):
         """Return the Fermi-level."""
@@ -147,6 +150,6 @@ class ASEPAW(PAW):
     def GetElectronicStates(self):
         """Return electronic-state object."""
         from ASE.Utilities.ElectronicStates import ElectronicStates
-        self.write('tmp27.nc')
+        self.write('tmp27.nc', 'all')
         return ElectronicStates('tmp27.nc')
     

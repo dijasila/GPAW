@@ -81,7 +81,7 @@ class Density:
         self.interpolate = Transformer(self.gd, self.finegd, nn).apply
         
         # Density mixer:
-        if self.nspins == 2 and (not p['fixmom'] or paw.kT != 0):
+        if self.nspins == 2 and (not paw.fixmom or paw.kT != 0):
             self.mixer = MixerSum(p['mix'])
         else:
             self.mixer = Mixer(p['mix'], self.gd, self.nspins)

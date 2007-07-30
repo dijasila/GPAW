@@ -26,7 +26,7 @@ if 1:
     calc = Calculator(nbands=8, h=0.20, tolerance=0.001)
     ethylene.SetCalculator(calc)
     print ethylene.GetPotentialEnergy()
-    calc.write('ethylene.gpw')
+    calc.write('ethylene.gpw', 'all')
 
 try:
     import Scientific.IO.NetCDF

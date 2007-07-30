@@ -290,7 +290,6 @@ def read(paw, reader):
 
 
     # Wave functions and eigenvalues:
-    wf = False
     nkpts = len(r.get('IBZKPoints'))
     nbands = len(r.get('Eigenvalues', 0, 0))
 
@@ -304,7 +303,6 @@ def read(paw, reader):
             kpt.f_n[:] = r.get('OccupationNumbers', s, k)
         
         if r.has_array('PseudoWaveFunctions'):
-            wf = True
             if mpi.parallel:
                 wait
                 # Slice of the global array for this domain:
@@ -338,4 +336,4 @@ def read(paw, reader):
     if r.has_array('CartesianForces'):
         paw.F_ac = r.get('CartesianForces')
 
-    r.close()
+    #r.close()

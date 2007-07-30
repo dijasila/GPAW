@@ -17,7 +17,6 @@ class Writer:
         setattr(self.nc, name, value)
 
     def add(self, name, shape, array=None, typecode=None, units=None):
-        print array
         if array is not None:
             array = num.asarray(array)
             tc = array.typecode()
@@ -38,7 +37,6 @@ class Writer:
             if shape == ():
                 var.assignValue(array)
             else:
-                print tc, num.Int
                 if typecode is complex:
                     var[:, 0] = array.real
                     var[:, 1] = array.imag
@@ -84,6 +82,10 @@ class Reader:
     def __getitem__(self, name):
         value = getattr(self.nc, name)
         if isinstance(value, str):
+            try:
+                value = eval(value)
+            except (SyntaxError, NameError):
+                pass
             return value
         else:
             return value[0]

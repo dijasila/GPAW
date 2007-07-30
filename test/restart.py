@@ -17,7 +17,7 @@ if 1:
     e = h.GetPotentialEnergy()
     calc.write('tmp.gpw')
     if netcdf:
-        calc.write('tmp.nc')
+        calc.write('tmp.nc', 'all')
 
 h = Calculator('tmp.gpw', txt=None)
 equal(e, h.GetPotentialEnergy(), 3e-5)
@@ -27,7 +27,7 @@ if netcdf:
     equal(e, h.GetPotentialEnergy(), 3e-5)
 
 if netcdf:
-    calc = h.GetCalculator()
+    calc = h
     elec_states = calc.GetElectronicStates()
     equal(len(elec_states),1,0)
 

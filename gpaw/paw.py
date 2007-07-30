@@ -272,7 +272,7 @@ class PAW(PAWExtra, Output):
             raise TypeError("""You can't use both "gpts" and "h"!""")
             
         for name, value in kwargs.items():
-            if name in ['random', 'hund', 'mix', 'txt', 'verbose',
+            if name in ['random', 'hund', 'mix', 'txt', 'maxiter', 'verbose',
                         'decompose', 'eigensolver', 'poissonsolver',
                         'external']:
                 self.input_parameters[name] = value
@@ -354,24 +354,15 @@ class PAW(PAWExtra, Output):
             self.step()
             self.add_up_energies()
             self.check_convergence()
-            self.call()
             self.print_iteration()
             self.niter += 1
+            self.call()
 
         self.call(final=True)
         self.print_converged()
 
-        # Save the state of the atoms:
-        atoms = self.atoms
-        self.lastcount = atoms.GetCount()
-        self.last_atomic_configuration = (
-            atoms.GetCartesianPositions() / self.a0,
-            atoms.GetAtomicNumbers(),
-            atoms.GetUnitCell() / self.a0,
-            atoms.GetBoundaryConditions())
-
     def step(self):
-        if self.fixdensity or self.niter > 2:
+        if not self.fixdensity and self.niter > 2:
             self.density.update(self.kpt_u, self.symmetry)
             self.hamiltonian.update(self.density)
 
@@ -402,7 +393,15 @@ class PAW(PAWExtra, Output):
         have to be computed again.  Neighbor list is updated and the
         array holding all the pseudo core densities is updated."""
 
-        pos_ac = self.atoms.GetCartesianPositions() / self.a0
+        # Save the state of the atoms:
+        atoms = self.atoms
+        pos_ac = atoms.GetCartesianPositions() / self.a0
+        self.lastcount = atoms.GetCount()
+        self.last_atomic_configuration = (
+            pos_ac,
+            atoms.GetAtomicNumbers(),
+            atoms.GetUnitCell() / self.a0,
+            atoms.GetBoundaryConditions())
 
         movement = False
         for nucleus, pos_c in zip(self.nuclei, pos_ac):
@@ -625,14 +624,16 @@ class PAW(PAWExtra, Output):
 
         Call ``function`` every ``n`` iterations using ``args`` and
         ``kwargs`` as arguments."""
-        
-        self.callback_functions.append((function, n, args, kwargs))
+
+        print function
+        self.callback_functions.append((weakref.ref(function), n, args, kwargs))
 
     def call(self, final=False):
         """Call all registered callback functions."""
         for function, n, args, kwargs in self.callback_functions:
+            print function, function()
             if ((self.niter % n) == 0) != final:
-                function(*args, **kwargs)
+                function()(*args, **kwargs)
 
     def create_nuclei_and_setups(self, Z_a):
         p = self.input_parameters
@@ -714,11 +715,11 @@ class PAW(PAWExtra, Output):
         self.last_atomic_configuration = (pos_ac, Z_a, cell_cc, pbc_c)
         self.extra_list_of_atoms_stuff = (magmom_a, tag_a)
 
-        self.atoms = ListOfAtoms([Atom(position=pos_c, Z=Z,
+        self.atoms = ListOfAtoms([Atom(position=pos_c * self.a0, Z=Z,
                                        tag=tag, magmom=magmom)
                                   for pos_c, Z, tag, magmom in
                                   zip(pos_ac, Z_a, tag_a, magmom_a)],
-                                 cell=cell_cc, periodic=pbc_c)
+                                 cell=cell_cc * self.a0, periodic=pbc_c)
         self.lastcount = self.atoms.GetCount()
 
         self.converged = r['Converged']
@@ -827,7 +828,7 @@ class PAW(PAWExtra, Output):
         else:
             self.bzk_kc = num.array(kpts)
         
-        magnetic = num.sometrue(magmom_a)
+        magnetic = bool(num.sometrue(magmom_a))  # numpy!
 
         self.spinpol = p['spinpol']
         if self.spinpol is None:
@@ -989,6 +990,11 @@ class PAW(PAWExtra, Output):
         for nucleus in self.nuclei:
             self.Eref += nucleus.setup.E
 
+        for nucleus, pos_c in zip(self.nuclei, pos_ac):
+            spos_c = self.domain.scale_position(pos_c)
+            nucleus.set_position(spos_c, self.domain, self.my_nuclei,
+                                 self.nspins, self.nmyu, self.nbands)
+            
         self.print_init(pos_ac)
         self.eigensolver = eigensolver(p['eigensolver'], self)
         self.initialized = True

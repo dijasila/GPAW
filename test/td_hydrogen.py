@@ -14,7 +14,7 @@ calc = Calculator(nbands=1, h=0.2, tolerance=1e-14)
 atoms.SetCalculator(calc);
 e = atoms.GetPotentialEnergy()
 
-calc.write('hydrogen.gpw')
+calc.write('hydrogen.gpw', 'all')
 calc = Calculator('hydrogen.gpw')
 
 paw = calc
@@ -29,7 +29,7 @@ for i in range(50):
     time = i * time_step
     c = num.vdot(psi0, paw.kpt_u[0].psit_nG[0]) / abs(num.vdot(psi0, psi0))
     err = abs(c - exp(-1j * eps * time))
-    pp#print time, c, exp(-1j * eps * time), err, abs(c) - 1.0
+    #print time, c, exp(-1j * eps * time), err, abs(c) - 1.0
     print '%8lf  %16.6le  %16.6le' % (time, abs(c) - 1.0, err)
     td_atoms.propagate(time_step)
 

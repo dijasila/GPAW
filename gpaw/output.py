@@ -168,10 +168,10 @@ class Output:
         t = self.text    
 
         if self.verbose != 0:
-            t = time.localtime()
+            T = time.localtime()
             t()
             t('------------------------------------')
-            t('iter: %d %d:%02d:%02d' % (self.niter, t[3], t[4], t[5]))
+            t('iter: %d %d:%02d:%02d' % (self.niter, T[3], T[4], T[5]))
             t()
             t('Poisson solver converged in %d iterations' %
                       self.hamiltonian.npoisson)
@@ -179,7 +179,7 @@ class Output:
             t('Log10 error in wave functions: %4.1f' %
                       (log(self.error) / log(10)))
             t()
-            print_all_information(self)
+            self.print_all_information()
 
         else:        
             if self.niter == 0:
