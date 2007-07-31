@@ -625,15 +625,25 @@ class PAW(PAWExtra, Output):
         Call ``function`` every ``n`` iterations using ``args`` and
         ``kwargs`` as arguments."""
 
-        print function
-        self.callback_functions.append((weakref.ref(function), n, args, kwargs))
+        try:
+            slf = function.im_self
+        except AttributeError:
+            pass
+        else:
+            if slf is self:
+                # function is a bound method of self.  Store the name
+                # of the method and avoid circular reference:
+                function = function.im_func.func_name
+                
+        self.callback_functions.append((function, n, args, kwargs))
 
     def call(self, final=False):
         """Call all registered callback functions."""
         for function, n, args, kwargs in self.callback_functions:
-            print function, function()
             if ((self.niter % n) == 0) != final:
-                function()(*args, **kwargs)
+                if isinstance(function, str):
+                    function = getattr(self, function)
+                function(*args, **kwargs)
 
     def create_nuclei_and_setups(self, Z_a):
         p = self.input_parameters
