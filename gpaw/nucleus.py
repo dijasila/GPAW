@@ -268,8 +268,8 @@ class Nucleus:
             # Nothing to do in this domain:
             return
 
-        coefs = num.identity(len(psit_iG), psit_iG.typecode())
-        self.phit_i.add(psit_iG, coefs, k)
+        coefs_ii = num.identity(len(psit_iG), psit_iG.typecode())
+        self.phit_i.add(psit_iG, coefs_ii, k)
 
     def add_atomic_density(self, nt_sG, magmom, hund):
         if self.phit_i is None:
