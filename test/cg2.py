@@ -1,7 +1,7 @@
 import Numeric as num
 from gpaw.utilities.cg import CG
-def A(x):
-    return num.reshape(num.dot(num.reshape(x, (2, 4)),
+def A(x, b):
+    b[:] = num.reshape(num.dot(num.reshape(x, (2, 4)),
                                num.array([[1.0, 0.1, 0.0, 0.0],
                                           [0.1, 1.1, 0.1, 0.1],
                                           [0.0, 0.1, 0.8, 0.1],
