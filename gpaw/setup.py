@@ -16,7 +16,7 @@ from gpaw.utilities import unpack, erf, fac, hartree
 from gpaw.xc_correction import XCCorrection
 from gpaw.xc_functional import XCRadialGrid
 from gpaw.kli import XCKLICorrection, XCGLLBCorrection
-
+from LinearAlgebra import inverse as inv
 
 def create_setup(symbol, xcfunc, lmax=0, nspins=1, type='paw'):
     if type == 'ae':
@@ -83,6 +83,35 @@ class Setup:
         dr_g = beta * ng / (ng - g)**2
         d2gdr2 = -2 * ng * beta / (beta + r_g)**3
 
+        # compute inverse overlap coefficients B_ii
+        B_jj = num.zeros((len(l_j),len(l_j)), num.Float)
+        print len( r_g), len(dr_g), len(pt_jg[0])
+        for i1 in range(len(l_j)):
+            for i2 in range(len(l_j)):
+                B_jj[i1][i2] = num.dot( r_g**2 * dr_g, pt_jg[i1] * pt_jg[i2] )
+
+        def delta(i,j):
+            #assert type(i) == int
+            #assert type(j) == int
+            if i == j: return 1
+            else: return 0
+
+        size=0
+        for l1 in l_j:
+            for m1 in range(2 * l1 + 1):
+                    size +=1
+        self.B_ii = num.zeros((size,size), num.Float)
+            
+        i1=0
+        for n1, l1 in enumerate(l_j):
+            for m1 in range(2 * l1 + 1):
+                i2=0
+                for n2, l2 in enumerate(l_j):
+                    for m2 in range(2 * l2 + 1):
+                        self.B_ii[i1][i2] = delta(l1,l2)*delta(m1,m2)*B_jj[n1][n2]
+                        i2 +=1
+                i1 +=1
+        
         # Find Fourier-filter cutoff radius:
         g = ng - 1
         while pt_jg[0][g] == 0.0:
@@ -196,6 +225,10 @@ class Setup:
         nc_g = nc_g[:gcut2].copy()
         nct_g = nct_g[:gcut2].copy()
         vbar_g = vbar_g[:gcut2].copy()
+
+
+
+
 
         if xcname == 'GLLB':
             core_response = core_response[:gcut2].copy()
@@ -437,6 +470,10 @@ class Setup:
 
         self.rcutcomp = sqrt(10) * rcgauss
         self.rcut_j = rcut_j
+
+
+        # compute inverse overlap coefficients C_ii
+        self.C_ii = -num.dot(self.O_ii, inv(num.identity(size) + num.dot(self.B_ii, self.O_ii)))
 
     def print_info(self, text):
         if self.fcorehole == 0.0:
