@@ -1,16 +1,14 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 from math import log, pi
-
 import Numeric as num
-
 import gpaw.mpi as mpi
+from gpaw.recursionmethod import RecursionMethod
 
-
-def xas(paw):
+def xas(calc):
     assert not mpi.parallel
     nocc = paw.nvalence / 2 # restricted - for now
-    for nucleus in paw.nuclei:
+    for nucleus in calc.nuclei:
         if nucleus.setup.fcorehole != 0.0:
             P_ni = nucleus.P_uni[0, nocc:] 
             A_ci = nucleus.setup.A_ci
@@ -18,10 +16,80 @@ def xas(paw):
             break
 
     #print 'core hole atom', ach
-    eps_n = paw.kpt_u[0].eps_n[nocc:] * paw.Ha
+    eps_n = calc.kpt_u[0].eps_n[nocc:] * paw.Ha
     w_cn = num.dot(A_ci, num.transpose(P_ni))**2
     return eps_n, w_cn
 
+
+class XAS:
+
+    def __init__(self,calc):
+        self.calc = calc
+
+        # create initial wave function  psitch_cG
+        self.psitch_cG = calc.gd.zeros(3)
+        for nucleus in calc.nuclei:
+            if nucleus.setup.fcorehole != 0.0:
+                A_ci = nucleus.setup.A_ci
+                ach = nucleus.a
+                print "ach", ach
+                if nucleus.pt_i is not None: # not all CPU's will have a contribution
+                    print "added to psitch_cG"
+                    nucleus.pt_i.add(self.psitch_cG, A_ci)
+                    break
+                
+        #for x in self.psitch_cG[0]:
+        #    print x
+        
+        self.rec = RecursionMethod(self.psitch_cG, self.calc)
+        #self.rec_x = RecursionMethod(self.psitch_cG[0:1], self.calc)
+        #self.rec_y = RecursionMethod(self.psitch_cG[1:2], self.calc)
+        #self.rec_z = RecursionMethod(self.psitch_cG[2:3], self.calc)
+    
+    def run(nmax_iter=1000, tol=10e-11):
+        asd
+
+        
+
+
+        
+
+
+
+def xas_recursion(calc, e_start, e_step, n_e, broadening):
+    assert not mpi.parallel
+
+    # create initial wave function  psitch_cG
+    psitch_cG = calc.gd.zeros(3)
+    for nucleus in calc.nuclei:
+        if nucleus.setup.fcorehole != 0.0:
+            #P_ni = nucleus.P_uni[0, nocc:] 
+            A_ci = nucleus.setup.A_ci
+            ach = nucleus.a
+            print "ach", ach
+            #print nucleus.pt_i
+            
+            if nucleus.pt_i is not None: # not all CPU's will have a contribution
+                print "added to psitch_cG"
+                nucleus.pt_i.add(psitch_cG, A_ci)
+            break
+    
+    # call recursion method
+    rec = RecursionMethod(psitch_cG, calc)
+    e_vector =  e_start + range(n_e)*e_step
+    intensity = []
+    for e, ind in e_vector:
+        c_frac = rec.cont_frac( complex(e, broadening), 1)
+        intensity.append( - c_frac.imag / pi)
+
+    return e_vector, intensity
+    
+
+
+#psitch_cG = gd.zeros(3)
+#nucleus = nuclei[a]
+#if nucleus.pt_i is not None: # not all CPU's will have a contribution
+#    nucleus.pt_i.add(psitch_cG, A_ci)
 
 def plot_xas(eps_n, w_cn, fwhm=0.5, linbroad=None, N=1000):
     # returns stick spectrum, e_stick and a_stick
