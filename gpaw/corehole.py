@@ -1,23 +1,39 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 from math import log, pi
+
 import Numeric as num
+from multiarray import innerproduct as inner # avoid the dotblas version!
+
 import gpaw.mpi as mpi
 from gpaw.recursionmethod import RecursionMethod
 
-def xas(calc):
+def xas(paw):
     assert not mpi.parallel
-    nocc = paw.nvalence / 2 # restricted - for now
-    for nucleus in calc.nuclei:
+    assert not paw.spinpol # restricted - for now
+
+    nocc = paw.nvalence / 2
+    for nucleus in paw.nuclei:
         if nucleus.setup.fcorehole != 0.0:
-            P_ni = nucleus.P_uni[0, nocc:] 
-            A_ci = nucleus.setup.A_ci
-            ach = nucleus.a
             break
 
-    #print 'core hole atom', ach
-    eps_n = calc.kpt_u[0].eps_n[nocc:] * paw.Ha
-    w_cn = num.dot(A_ci, num.transpose(P_ni))**2
+    A_ci = nucleus.setup.A_ci
+
+    n = paw.nbands - nocc
+    eps_n = num.empty(paw.nkpts * n, num.Float)
+    w_cn = num.empty((3, paw.nkpts * n), num.Float)
+    n1 = 0
+    for k in range(paw.nkpts):
+        n2 = n1 + paw.nbands
+        eps_n[n1:n2] = paw.kpt_u[k].eps_n[nocc:] * paw.Ha
+        P_ni = nucleus.P_uni[k, nocc:]
+        a_cn = inner(A_ci, P_ni)
+        w_cn[n1:n2] = paw.weight_k[k] * (a_cn * num.conjugate(a_cn)).real
+        n1 = n2
+        
+    if paw.symmetry is not None:
+        raise NotImplementedError
+    
     return eps_n, w_cn
 
 
@@ -106,7 +122,7 @@ def plot_xas(eps_n, w_cn, fwhm=0.5, linbroad=None, N=1000):
     a_stick = num.zeros(len(eps_n_tmp), num.Float)
 
 
-    if linbroad == None:
+    if linbroad is None:
         #constant broadening fwhm
         alpha = 4*log(2) / fwhm**2
         for n, eps in enumerate(eps_n_tmp):

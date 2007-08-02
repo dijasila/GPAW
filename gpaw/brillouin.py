@@ -19,11 +19,11 @@ def reduce_kpoints(bzk_kc, pos_ac, Z_a, type_a, magmom_a, domain, usesymm):
         symmetry.analyze(pos_ac)
 
     # Reduce the set of k-points:
-    ibzk_kc, weights_k = symmetry.reduce(bzk_kc)
+    ibzk_kc, weight_k = symmetry.reduce(bzk_kc)
 
     if usesymm:
         symmetry = symmetry
     else:
         symmetry = None
 
-    return symmetry, weights_k, ibzk_kc
+    return symmetry, weight_k, ibzk_kc

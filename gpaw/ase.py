@@ -18,10 +18,12 @@ from gpaw.mpi.paw import MPIPAW, get_parallel_environment
 
 def Calculator(filename=None, **kwargs):
     env = get_parallel_environment()
-    if parallel or env is None:
-        return ASEPAW(filename=filename, **kwargs)
+    if not parallel and env is not None:
+        # We are running in serial, and we have a parallel
+        # environment.  Start MPI job:
+        return MPIPAW(filename=filename, **kwargs)
     else:
-        return MPIPAW(env, filename, **kwargs)
+        return ASEPAW(filename=filename, **kwargs)
 
         
 class ASEPAW(PAW):
@@ -117,7 +119,7 @@ class ASEPAW(PAW):
         
         The sum of all weights is one."""
         
-        return self.weights_k
+        return self.weight_k
 
     def GetDensityArray(self):
         """Return pseudo-density array."""

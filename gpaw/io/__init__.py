@@ -56,7 +56,7 @@ def write(paw, filename, mode):
         w.dimension('nibzkpts', paw.nkpts)
         w.add('BZKPoints', ('nbzkpts', '3'), paw.bzk_kc)
         w.add('IBZKPoints', ('nibzkpts', '3'), paw.ibzk_kc)
-        w.add('IBZKPointWeights', ('nibzkpts',), paw.weights_k)
+        w.add('IBZKPointWeights', ('nibzkpts',), paw.weight_k)
 
         # Create dimensions for varioius netCDF variables:
         ng = paw.gd.get_size_of_global_array()

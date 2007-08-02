@@ -114,7 +114,7 @@ class PAW(PAWExtra, Output):
                     Brillouin zone - values scaled to [-0.5, 0.5).
     ``ibzk_kc``     Scaled **k**-points in the irreducible part of the
                     Brillouin zone.
-    ``weights_k``   Weights of the **k**-points in the irreducible part
+    ``weight_k``    Weights of the **k**-points in the irreducible part
                     of the Brillouin zone (summing up to 1).
     ``myibzk_kc``   Scaled **k**-points in the irreducible part of the
                     Brillouin zone for this CPU.
@@ -196,11 +196,10 @@ class PAW(PAWExtra, Output):
     ``ibzk_kc``     Scaled **k**-points in the irreducible part of the
                     Brillouin zone.
     ``myspins``     List of spin-indices for this CPU.
-    ``weights_k``   Weights of the **k**-points in the irreducible part
+    ``weight_k``    Weights of the **k**-points in the irreducible part
                     of the Brillouin zone (summing up to 1).
     ``myibzk_kc``   Scaled **k**-points in the irreducible part of the
                     Brillouin zone for this CPU.
-    ``myweights_k`` Weights of the **k**-points on this CPU.
     ``kpt_comm``    MPI-communicator for parallelization over
                     **k**-points.
     =============== ===================================================
@@ -887,13 +886,13 @@ class PAW(PAWExtra, Output):
         # Brillouin zone stuff:
         if self.gamma:
             self.symmetry = None
-            self.weights_k = [1.0]
+            self.weight_k = [1.0]
             self.ibzk_kc = num.zeros((1, 3), num.Float)
             self.nkpts = 1
         else:
             # Reduce the the k-points to those in the irreducible part of
             # the Brillouin zone:
-            self.symmetry, self.weights_k, self.ibzk_kc = reduce_kpoints(
+            self.symmetry, self.weight_k, self.ibzk_kc = reduce_kpoints(
                 self.bzk_kc, pos_ac, Z_a, type_a, magmom_a, self.domain,
                 p['usesymm'])
             self.nkpts = len(self.ibzk_kc)
@@ -966,7 +965,7 @@ class PAW(PAWExtra, Output):
         self.kpt_u = []
         for u in range(self.nmyu):
             s, k = divmod(self.kpt_comm.rank * self.nmyu + u, self.nkpts)
-            weight = self.weights_k[k] * 2 / self.nspins
+            weight = self.weight_k[k] * 2 / self.nspins
             k_c = self.ibzk_kc[k]
             self.kpt_u.append(KPoint(self.gd, weight, s, k, u, k_c,
                                      self.typecode))

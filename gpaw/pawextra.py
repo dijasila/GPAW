@@ -65,7 +65,7 @@ class PAWExtra:
             self.kpt_comm.receive(psit_G, kpt_rank, 1398)
             return psit_G
 
-    def get_eigenvalues(self, k, s):
+    def get_eigenvalues(self, k=0, s=0):
         """Return eigenvalue array.
 
         For the parallel case find the rank in kpt_comm that contains
@@ -161,7 +161,7 @@ class PAWExtra:
         return Exx
 
     def get_weights(self):
-        return self.weights_k
+        return self.weight_k #???
 
     def totype(self, typecode):
         """Converts all the typecode dependent quantities of Paw
