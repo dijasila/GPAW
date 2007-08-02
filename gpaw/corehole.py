@@ -8,6 +8,7 @@ from multiarray import innerproduct as inner # avoid the dotblas version!
 import gpaw.mpi as mpi
 from gpaw.recursionmethod import RecursionMethod
 
+
 def xas(paw):
     assert not mpi.parallel
     assert not paw.spinpol # restricted - for now
@@ -24,15 +25,25 @@ def xas(paw):
     w_cn = num.empty((3, paw.nkpts * n), num.Float)
     n1 = 0
     for k in range(paw.nkpts):
-        n2 = n1 + paw.nbands
+        n2 = n1 + n
         eps_n[n1:n2] = paw.kpt_u[k].eps_n[nocc:] * paw.Ha
         P_ni = nucleus.P_uni[k, nocc:]
         a_cn = inner(A_ci, P_ni)
-        w_cn[n1:n2] = paw.weight_k[k] * (a_cn * num.conjugate(a_cn)).real
+        a_cn *= num.conjugate(a_cn)
+        w_cn[:, n1:n2] = paw.weight_k[k] * a_cn.real
         n1 = n2
         
     if paw.symmetry is not None:
-        raise NotImplementedError
+        w0_cn = w_cn
+        w_cn = num.zeros((3, paw.nkpts * n), num.Float)
+        swaps = {}  # Python 2.4: use a set
+        for swap, mirror in paw.symmetry.symmetries:
+            swaps[swap] = None
+        for swap in swaps:
+            w_cn += num.take(w0_cn, swap)
+        w_cn /= len(swaps)
+        print swaps, paw.symmetry.symmetries
+        print w_cn
     
     return eps_n, w_cn
 
@@ -107,7 +118,7 @@ def xas_recursion(calc, e_start, e_step, n_e, broadening):
 #if nucleus.pt_i is not None: # not all CPU's will have a contribution
 #    nucleus.pt_i.add(psitch_cG, A_ci)
 
-def plot_xas(eps_n, w_cn, fwhm=0.5, linbroad=None, N=1000):
+def plot_xas(eps_n, w_n, fwhm=0.5, linbroad=None, N=1000):
     # returns stick spectrum, e_stick and a_stick
     # and broadened spectrum, e, a
     # linbroad = [0.5, 540, 550]
@@ -128,9 +139,9 @@ def plot_xas(eps_n, w_cn, fwhm=0.5, linbroad=None, N=1000):
         for n, eps in enumerate(eps_n_tmp):
             x = -alpha * (e - eps)**2
             x = num.clip(x, -100.0, 100.0)
-            w = sum(w_cn[:, n])
+            w = w_n[n]
             a += w * (alpha / pi)**0.5 * num.exp(x)
-            a_stick[n] = sum(w_cn[:, n])
+            a_stick[n] = w
     else:
         # constant broadening fwhm until linbroad[1] and a constant broadening
         # over linbroad[2] with fwhm2= linbroad[0]
@@ -148,8 +159,8 @@ def plot_xas(eps_n, w_cn, fwhm=0.5, linbroad=None, N=1000):
 
             x = -alpha * (e - eps)**2
             x = num.clip(x, -100.0, 100.0)
-            w = sum(w_cn[:, n])
+            w = w_n[n]
             a += w * (alpha / pi)**0.5 * num.exp(x)
-            a_stick[n] = sum(w_cn[:, n])
+            a_stick[n] = w
         
     return e_stick, a_stick, e, a

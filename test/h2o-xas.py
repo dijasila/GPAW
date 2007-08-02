@@ -25,13 +25,13 @@ H2O.SetCalculator(calc)
 e = H2O.GetPotentialEnergy()
 
 a, b = xas(calc)
-e, w, x, y = plot_xas(a, b)
+e, w, x, y = plot_xas(a, b[0])
 
 calc.write('h2o-xas.gpw', mode='No wave functions, please!')
 
 calc = Calculator('h2o-xas.gpw', txt=None)
 a, b = xas(calc)
-e2, w, x, y = plot_xas(a, b)
+e2, w, x, y = plot_xas(a, sum(b))
 
 de = e[1] - e[0]
 de2 = e2[1] - e2[0]
