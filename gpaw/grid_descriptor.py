@@ -152,9 +152,14 @@ class GridDescriptor:
         else:
             return num.empty(shape, typecode)
         
-    def integrate(self, a_g):
+    def integrate(self, a_xg):
         """Integrate function in array over domain."""
-        return self.comm.sum(num.sum(a_g.flat)) * self.dv
+        shape = a_xg
+        if len(shape) == 3:
+            return self.comm.sum(num.sum(a_xg.flat)) * self.dv
+        A_x = num.sum(a_xg.reshape(shape[:-3] + (-1,)), -1)
+        self.comm.sum(A_x)
+        return A_x * self.dv
     
     def coarsen(self):
         """Return coarsened `GridDescriptor` object.
