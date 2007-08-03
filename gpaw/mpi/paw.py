@@ -19,8 +19,7 @@ class MPIPAW:
     # List of methods for Paw object:
     paw_methods = 0#???dir(Paw)
     
-    def __init__(self, hostfile, out, *args):
-        self.out = out
+    def __init__(self, **kwargs):
         # Make connection:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -36,40 +35,33 @@ class MPIPAW:
 
         s.listen(1)
 
-        # Check if we are running in source directory and
-        # have custom interpreter in the build directory:
-        dir = dirname(__file__)
-        gpaw_python = join(dir, '../..', 'build',
-                           'bin.%s-%s/gpaw-python' % (get_platform(), sys.version[0:3]))
-        if not isfile(gpaw_python):
+        # If the environment variable GPAW_PYTHON is set, use that:
+        if 'GPAW_PYTHON' in os.environ:
+            gpaw_python = os.environ['GPAW_PYTHON']
+        else:
             gpaw_python = None
-            # Look in the PATH
-            paths = os.environ.get('PATH')
-            paths = paths.split(os.pathsep)
+            # Look in $PATH:
+            paths = os.environ.get('PATH').split(os.pathsep)
+            # Check build directory first:
+            dir = join(dirname(__file__), '../../build',
+                       'bin.%s-%s' % (get_platform(), sys.version[0:3]))
+            paths = [dir] + paths
             for path in paths:
                 if isfile(join(path, 'gpaw-python')):
                     gpaw_python = join(path, 'gpaw-python')
                     break
 
-        # If the environment variable GPAW_PYTHON is set, use that:
-        gpaw_python = os.environ.get('GPAW_PYTHON', gpaw_python)
         if gpaw_python is None:
             raise RuntimeError('Custom interpreter is not found')
         
         # This is the Python command that all processors wil run:
-        # line = 'from gpaw.mpi.run import run; run("%s", %d)' % (host, port)
-        f=open('par_run.py','w')
-        print >> f, 'from gpaw.mpi.run import run'
-        print >> f, 'run("%s",%d)' % (host,port)
-        f.close()
-        
-        #job = python + " -c '" + line + "' --gpaw-parallel"
-        job = gpaw_python + ' par_run.py'
+        line = "from gpaw.mpi.run import run; run('%s', %d)" % (host, port)
 
+        options = ''
         if debug:
-            job += ' --gpaw-debug'
+            options = ' --gpaw-debug'
         if trace:
-            job += ' --gpaw-trace'
+            options += ' --gpaw-trace'
 
         # Get the command to start mpi.  Typically this will be
         # something like:
@@ -187,13 +179,8 @@ class MPIPAW:
 def get_parallel_environment():
     """Get the hosts for a parallel run from the parallel environment.
 
-    Return value will be one of these:
-
-    * The number of hosts.
-    * A filename containing the hostnames.
-    * A list of hostnames.
-    * ``None``, if there is no parallel environment.
-    """
+    Return value will be a tuple like (number of hosts, name of
+    hostfile), or ``None``, if there is no parallel environment.  """
     
     global env
     try:
@@ -207,7 +194,7 @@ def _get_parallel_environment():
     if hosts is not None:
         # The hosts have been set by the command line argument
         # --hosts (see __init__.py):
-        return hosts
+        return (hosts, '')
     
     if os.environ.has_key('PBS_NODEFILE'):
         # This job was submitted to the PBS queing system.  Get
@@ -216,7 +203,7 @@ def _get_parallel_environment():
         if len(open(hosts).readlines()) == 1:
             return None
         else:
-            return hosts
+            return (None, hosts)
 
     if os.environ.has_key('NSLOTS'):
         # This job was submitted to the Grid Engine queing system:
@@ -224,9 +211,9 @@ def _get_parallel_environment():
         if nhosts == 1:
             return None
         else:
-            return nhosts
+            return (nhosts, None)
 
     if os.environ.has_key('LOADL_PROCESSOR_LIST'):
-        return 'dummy-hostfile-name'
+        return (None, None)
 
     return None
