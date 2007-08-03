@@ -57,7 +57,8 @@ class RecursionMethod:
         if 0:
             for i, u_i in enumerate(self.u_init):
                 self.u_lat_l[i] = u_i / math.sqrt(self.gd.integrate(u_i**2))
-                self.u_lat_r[i] = u_i / math.sqrt(self.gd.integrate(u_i**2))  # should be complex conjugate for complex wf
+                self.u_lat_r[i] = u_i / math.sqrt(self.gd.integrate(u_i**2))
+                # should be complex conjugate for complex wf
         else:
             u_tmp = self.gd.zeros(3)
             self.solve(u_tmp, self.u_init)
@@ -74,12 +75,34 @@ class RecursionMethod:
         self.y_lat = calc.gd.zeros(3)
 
 
-
-
         
-       # for i in range(5):
-       #     self.compute_lanczos_vectors2(i)
+    
+        
+        # for i in range(5):
+        #     self.compute_lanczos_vectors2(i)
+        
+    def compute_spectrum(self, e_start, n_e, e_step, broadening, max_iter):
 
+        self.max_iter = max_iter
+        e = num.zeros(n_e, num.Float)
+        e_b = num.zeros(n_e, num.Complex)
+        for  i in range(n_e):
+            e[i] =  e_start + e_step * i
+            e_b[i] =  complex(e[i], broadening)
+
+        print e
+        print e_b
+        c_frac_x = self.cont_frac(e_b,0,1)
+        c_frac_y = self.cont_frac(e_b,1,1)
+        c_frac_z = self.cont_frac(e_b,2,1)
+
+        print c_frac_x
+        print c_frac_y
+        print c_frac_z
+        
+#        c_frac = [c_frac_x, c_frac_y, c_frac_z]
+        return e,  [1/(-c_frac_x.imag/math.pi), 1/(-c_frac_y.imag/math.pi), 1/(-c_frac_z.imag/math.pi)]
+        
         
     def cont_frac(self, shift, xyz, i):
         """  the continued fraction
@@ -87,8 +110,8 @@ class RecursionMethod:
         =========== ===================================
         Parameters:
         =========== ===================================
-        shift       the complex shift, e + i*gamma
-        xyz         1 =x, 2=y, 3=z
+        shift       a num.array with
+        the complex shift, e + i*gamma
         i           current iteration
         =========== ===================================
         """
@@ -96,18 +119,18 @@ class RecursionMethod:
         if i > len(self.a) -1:
             asdasdasd
             #self.compute_lanczos_vectors(i)
-
+            
         # get new a,b from table
-        a =  self.a[i - 1][xyz]
-        b =  self.a[i - 1][xyz]
-        a_new = self.a[i][xyz]
-        b_new = self.b[i][xyz]
-
+        a =  num.array(self.a[i - 1])[xyz]
+        b =  num.array(self.a[i - 1])[xyz]
+        a_new = num.array(self.a[i])[xyz]
+        b_new = num.array(self.b[i])[xyz]
+        
         # check if converged, otherwise continue recursion
         if self.stopping_citerium(a, a_new, b, b_new, i):
-            return terminator(a_new, b_new, shift)
+            return self.terminator(a_new, b_new, shift)
         else:
-            print "going into level", i+1, b_new, b_new - b
+#            print "going into level", i+1, b_new, b_new - b
             return a_new - shift - abs(b_new)**2 / self.cont_frac(shift, xyz, i + 1)
 
     def solve(self, x_out, x_in):
@@ -127,7 +150,7 @@ class RecursionMethod:
         x_tmp =  self.gd.zeros(3)
         self.kpt.apply_inverse_overlap(self.nuclei, x_in, x_tmp)
    
-        CG(self.A, x_out, x_tmp, tolerance=1.0e-15)
+        CG(self.A, x_out, x_tmp, tolerance=1.0e-25)
         
     def A(self, x_in, x_out):
         """Function that is called by CG. It returns S~-1Sx_in in x_out
@@ -152,8 +175,11 @@ class RecursionMethod:
         """ Analytic formula to terminate the continued fraction from
         [R Haydock, V Heine, and M J Kelly, J Phys. C: Solid State Physics, Vol 8, (1975), 2591-2605]
         """
-        return 0.5 * ( shift - a - sqrt( (shift - a)**2 - 4 * abs(b)**2 ) / ( abs(b)**2 ))
-            
+        print (shift.real - a)**2
+        print 0.5 * ( shift.real - a - num.sqrt( (shift.real - a)**2 - 4 * abs(b)**2 ) / ( abs(b)**2 ))
+        return  0.5 * ( shift.real - a - num.sqrt( (shift.real - a)**2 - 4 * abs(b)**2 ) / ( abs(b)**2 ))
+
+
     def stopping_citerium(self, a, a_new, b, b_new, i):
         """ checks if the maximum number of iterations is exceeded
         and if abs(a - a_new) < self.tol, and abs(b - b_new) < self.tol
@@ -161,11 +187,11 @@ class RecursionMethod:
         """
 
         if i > self.max_iter:
-            print "Error, the continued fraction did not converge!"
-            zasda
-        elif abs(a - a_new) < self.tol and abs(b - b_new) < self.tol:    
-            print "Continued fraction converged in", i, "iterations" 
+            #print "Error, the continued fraction did not converge!"
             return True
+        #elif abs(a - a_new) < self.tol and abs(b - b_new) < self.tol:    
+        #    print "Continued fraction converged in", i, "iterations" 
+        #    return True
         else:
             return False
             
