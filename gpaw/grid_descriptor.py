@@ -154,10 +154,10 @@ class GridDescriptor:
         
     def integrate(self, a_xg):
         """Integrate function in array over domain."""
-        shape = a_xg
+        shape = a_xg.shape
         if len(shape) == 3:
             return self.comm.sum(num.sum(a_xg.flat)) * self.dv
-        A_x = num.sum(a_xg.reshape(shape[:-3] + (-1,)), -1)
+        A_x = num.sum(num.reshape(a_xg, shape[:-3] + (-1,)), -1)
         self.comm.sum(A_x)
         return A_x * self.dv
     

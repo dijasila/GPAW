@@ -125,7 +125,7 @@ class Density:
                 Q0 += nucleus.setup.Delta0
             Q = sqrt(4 * pi) * comm.sum(Q)
             Q0 = sqrt(4 * pi) * comm.sum(Q0)
-            Nt = self.gd.integrate(self.nt_sG)
+            Nt = self.gd.integrate(self.nt_sG[0])
             # Nt + Q must be equal to minus the total charge:
             if Q0 - Q != 0:
                 x = (Nt + Q0 + self.charge) / (Q0 - Q)
@@ -145,7 +145,7 @@ class Density:
                 Q_s += 0.5 * s.Delta0 + dot(nucleus.D_sp, s.Delta_pL[:, 0])
             Q_s *= sqrt(4 * pi)
             comm.sum(Q_s)
-            Nt_s = [self.gd.integrate(nt_G) for nt_G in self.nt_sG]
+            Nt_s = self.gd.integrate(nt_sG)
 
             M = sum(self.magmom_a)
             x = 1.0
