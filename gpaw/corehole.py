@@ -76,7 +76,16 @@ class XAS:
     def run(nmax_iter=1000, tol=10e-11):
         asd
 
-        
+    def write(self,file = "xas.pickl"):
+        import pickle
+        a = self.rec.a
+        b = self.rec.b
+        pickle.dump((a,b),open(file,'w'))
+
+    def load(self,file ="xas.pickl" ):
+        import pickle
+        self.rec.a, self.rec.b  = pickle.load(open(file))
+
 
 
         
