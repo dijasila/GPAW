@@ -49,23 +49,30 @@ def run(host,port):
     # Wait for commands and delegate them to Paw objects:
     while True:
         if mpi.rank == MASTER:
-            string = recv(sckt)
-            mpi.broadcast_string(string)
+            attr = recv(sckt)
+            mpi.broadcast_string(attr)
         else:
-            string = mpi.broadcast_string()
+            attr = mpi.broadcast_string()
 
-        attr, args, kwargs = pickle.loads(string)
-        if args is None:
+        if attr == 'Stop':
+            break
+
+        obj = getattr(paw, attr)
+        if isinstance(obj, (float, int, bool, num.ArrayType)):
             # We just need an attribute:
             if mpi.rank == MASTER:
-                obj = getattr(paw, attr)
-                assert isinstance(obj, (float, int, bool, num.ArrayType))
                 send(sckt, pickle.dumps(obj, -1))
             continue
 
         # We need to call a method:
-        if attr == 'Stop':
-            break
+        if mpi.rank == MASTER:
+            send(sckt, 'this is not a simple object')
+            string = recv(sckt)
+            mpi.broadcast_string(string)
+        else:
+            string = mpi.broadcast_string()
+        args, kwargs = pickle.loads(string)
+
         method = getattr(paw, attr)
         result = method(*args, **kwargs)
         if mpi.rank == MASTER:

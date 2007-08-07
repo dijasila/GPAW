@@ -43,10 +43,12 @@ assert de1 == de2
 assert abs(de1 - 2.052) < 0.001
 assert abs(w_n[1] / w_n[0] - 2.19) < 0.01
 
-import pylab as p
-p.plot(x, y[0])
-p.plot(x, sum(y))
-p.show()
+if 0:
+    import pylab as p
+    p.plot(x, y[0])
+    p.plot(x, sum(y))
+    p.show()
+
 os.remove('h2o-xas.gpw')
 os.remove('O.hch1s.LDA')
 del setup_paths[0]

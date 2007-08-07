@@ -85,7 +85,6 @@ class Setup:
 
         # compute inverse overlap coefficients B_ii
         B_jj = num.zeros((len(l_j),len(l_j)), num.Float)
-        print len( r_g), len(dr_g), len(pt_jg[0])
         for i1 in range(len(l_j)):
             for i2 in range(len(l_j)):
                 B_jj[i1][i2] = num.dot( r_g**2 * dr_g, pt_jg[i1] * pt_jg[i2] )

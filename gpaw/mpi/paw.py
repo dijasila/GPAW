@@ -10,7 +10,6 @@ import socket
 
 from gpaw import debug, trace
 from gpaw.utilities.socket import send, recv
-from gpaw.paw import PAW
 from gpaw.mpi.config import get_mpi_command
 import gpaw.utilities.timing as timing
 
@@ -46,7 +45,9 @@ class MPIPAW:
             dir = join(dirname(__file__), '../../build',
                        'bin.%s-%s' % (get_platform(), sys.version[0:3]))
             paths = [dir] + paths
+            print paths
             for path in paths:
+                print path
                 if isfile(join(path, 'gpaw-python')):
                     gpaw_python = join(path, 'gpaw-python')
                     break
@@ -104,22 +105,18 @@ class MPIPAW:
 
     def __del__(self):
         self.sckt.close()
-        try:
-            os.remove('par_run.py')
-        except OSError:
-            pass
 
     def __getattr__(self, attr):
+        if attr.startswith('__'):
+            raise AttributeError
+        print attr;asdfghsdfg
         """Catch calls to methods and attributes."""
-        if attr in self.paw_methods:
-            self.methodname = attr
-            return self.method
-        
-        # OK, attr was not a method - it was an attribute.
-        # Send attribue name:
-        string = pickle.dumps((attr, None, None), -1)
-        send(self.sckt, string)
-        return pickle.loads(recv(self.sckt))
+        send(self.sckt, attr)
+        data = pickle.loads(recv(self.sckt))
+        if data != 'this is not a simple object':
+            return data
+
+        return self.method
 
     def method(self, *args, **kwargs):
         """Communicate with remote calculation.
@@ -129,7 +126,7 @@ class MPIPAW:
         is also picked up and passed on."""
 
         # Send method name and arguments:
-        string = pickle.dumps((self.methodname, args, kwargs), -1)
+        string = pickle.dumps((args, kwargs), -1)
         send(self.sckt, string)
         
         # Wait for result:
@@ -139,41 +136,12 @@ class MPIPAW:
                 # This was not the result - the output was flushed:
                 self.out.write(stuff)
                 self.out.flush()
-                timing.update()
+                timing.update()#????
             elif tag == 'result':
                 return stuff
             else:
                 raise RuntimeError('Unknown tag: ' + tag)
 
-    def stop_paw(self):
-        """Delete PAW-object."""
-        if isinstance(self.paw, MPIPaw):
-            # Stop old MPI calculation and get total CPU time for all CPUs:
-            self.parallel_cputime += self.paw.stop()
-        self.paw = None
-        
-    def __del__(self):
-        """Destructor:  Write timing output before closing."""
-        if self.tempfile is not None:
-            # Delete hosts file:
-            os.remove(self.tempfile)
-
-        self.stop_paw()
-        
-        # Get CPU time:
-        c = self.parallel_cputime + timing.clock()
-                
-        if c > 1.0e99:
-            print >> self.out, 'cputime : unknown!'
-        else:
-            print >> self.out, 'cputime : %f' % c
-
-        print >> self.out, 'walltime: %f' % (time.time() - self.t0)
-        mr = maxrss()
-        if mr > 0:
-            def round(x): return int(100*x/1024.**2+.5)/100.
-            print >> self.out, 'memory  : '+str(round(maxrss()))+' MB'
-        print >> self.out, 'date    :', time.asctime()
 
 
 def get_parallel_environment():
@@ -189,6 +157,7 @@ def get_parallel_environment():
         env = _get_parallel_environment()
         return env
     
+
 def _get_parallel_environment():
     from gpaw import hosts
     if hosts is not None:
@@ -217,3 +186,34 @@ def _get_parallel_environment():
         return (None, None)
 
     return None
+
+
+
+
+if 0:
+    def stop_paw(self):
+        """Delete PAW-object."""
+        if isinstance(self.paw, MPIPaw):
+            # Stop old MPI calculation and get total CPU time for all CPUs:
+            self.parallel_cputime += self.paw.stop()
+        self.paw = None
+        
+    def __del__(self):
+        """Destructor:  Write timing output before closing."""
+
+        self.stop_paw()
+        
+        # Get CPU time:
+        c = self.parallel_cputime + timing.clock()
+                
+        if c > 1.0e99:
+            print >> self.out, 'cputime : unknown!'
+        else:
+            print >> self.out, 'cputime : %f' % c
+
+        print >> self.out, 'walltime: %f' % (time.time() - self.t0)
+        mr = maxrss()
+        if mr > 0:
+            def round(x): return int(100*x/1024.**2+.5)/100.
+            print >> self.out, 'memory  : '+str(round(maxrss()))+' MB'
+        print >> self.out, 'date    :', time.asctime()

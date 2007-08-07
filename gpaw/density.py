@@ -145,7 +145,7 @@ class Density:
                 Q_s += 0.5 * s.Delta0 + dot(nucleus.D_sp, s.Delta_pL[:, 0])
             Q_s *= sqrt(4 * pi)
             comm.sum(Q_s)
-            Nt_s = self.gd.integrate(nt_sG)
+            Nt_s = self.gd.integrate(self.nt_sG)
 
             M = sum(self.magmom_a)
             x = 1.0

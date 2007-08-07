@@ -98,9 +98,9 @@ class RecursionMethod:
             assert not paw.spinpol # restricted - for now
 
             self.paw = paw
-            self.tmp1_cG = paw.gd.zeros(3)
-            self.tmp2_cG = paw.gd.zeros(3)
-            self.z_cG = paw.gd.zeros(3)
+            self.tmp1_cG = paw.gd.zeros(3, paw.typecode)
+            self.tmp2_cG = paw.gd.zeros(3, paw.typecode)
+            self.z_cG = paw.gd.zeros(3, paw.typecode)
             self.nkpts = self.paw.nmyu
             self.swaps = {}  # Python 2.4: use a set
             if paw.symmetry is not None:
@@ -138,7 +138,7 @@ class RecursionMethod:
     def initialize_start_vector(self):
         # Create initial wave function:
         nkpts = self.nkpts
-        self.w_kcG = self.paw.gd.zeros((nkpts, 3))
+        self.w_kcG = self.paw.gd.zeros((nkpts, 3), self.paw.typecode)
         for nucleus in self.paw.nuclei:
             if nucleus.setup.fcorehole != 0.0:
                 break
@@ -147,16 +147,16 @@ class RecursionMethod:
             for k in range(nkpts):
                 nucleus.pt_i.add(self.w_kcG[k], A_ci, k)
 
-        self.wold_kcG = self.paw.gd.zeros((nkpts, 3))
-        self.y_kcG = self.paw.gd.zeros((nkpts, 3))
+        self.wold_kcG = self.paw.gd.zeros((nkpts, 3), self.paw.typecode)
+        self.y_kcG = self.paw.gd.zeros((nkpts, 3), self.paw.typecode)
             
-        self.a_kci = num.zeros((nkpts, 3, 0), num.Float)
-        self.b_kci = num.zeros((nkpts, 3, 0), num.Float)
+        self.a_kci = num.zeros((nkpts, 3, 0), self.paw.typecode)
+        self.b_kci = num.zeros((nkpts, 3, 0), self.paw.typecode)
         
     def run(self, nsteps):
         ni = self.a_kci.shape[2]
-        a_kci = num.empty((self.nkpts, 3, ni + nsteps), num.Float)
-        b_kci = num.empty((self.nkpts, 3, ni + nsteps), num.Float)
+        a_kci = num.empty((self.nkpts, 3, ni + nsteps), self.paw.typecode)
+        b_kci = num.empty((self.nkpts, 3, ni + nsteps), self.paw.typecode)
         a_kci[:, :, :ni]  = self.a_kci
         b_kci[:, :, :ni]  = self.b_kci
         self.a_kci = a_kci
@@ -167,6 +167,7 @@ class RecursionMethod:
                 self.step(k, ni + i)
             
     def step(self, k, i):
+        print k, i
         integrate = self.paw.gd.integrate
         w_cG = self.w_kcG[k]
         y_cG = self.y_kcG[k]
@@ -184,8 +185,9 @@ class RecursionMethod:
         wnew_cG = (y_cG - a_c * w_cG - b_c * wold_cG)
         wold_cG[:] = w_cG
         w_cG[:] = wnew_cG
-        self.a_kci[k, :, i] = a_c[:, 0, 0, 0]
-        self.b_kci[k, :, i] = b_c[:, 0, 0, 0]
+        weight = self.paw.weight_k[k]
+        self.a_kci[k, :, i] = a_c[:, 0, 0, 0] * weight
+        self.b_kci[k, :, i] = b_c[:, 0, 0, 0] * weight
 
     def continued_fraction(self, e, k, c, i, imax):
         a_i = self.a_kci[k, c]
