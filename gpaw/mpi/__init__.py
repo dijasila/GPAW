@@ -138,7 +138,7 @@ def broadcast_string(string=None, root=MASTER, comm=world):
     return string.tostring()
 
 
-def all_gather_array(comm, a):
+def all_gather_array(comm, a): #???
     # Gather array into flat array
     shape = (comm.size,) + num.shape(a)
     all = num.zeros(shape, num.Float)

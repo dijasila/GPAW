@@ -12,21 +12,9 @@ from ASE.Units import units, Convert
 import ASE
 
 from gpaw.paw import PAW
-from gpaw.mpi import parallel
-from gpaw.mpi.paw import MPIPAW, get_parallel_environment
-
-
-def Calculator(filename=None, **kwargs):
-    env = get_parallel_environment()
-    if not parallel and env is not None:
-        # We are running in serial, and we have a parallel
-        # environment.  Start MPI job:
-        return MPIPAW(filename=filename, **kwargs)
-    else:
-        return ASEPAW(filename=filename, **kwargs)
 
         
-class ASEPAW(PAW):
+class Calculator(PAW):
     """This is the ASE-calculator frontend for doing a PAW calculation.
     """
 

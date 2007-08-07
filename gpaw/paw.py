@@ -1009,3 +1009,37 @@ class PAW(PAWExtra, Output):
         self.initialized = True
         self.timer.stop('Init')
 
+
+
+
+
+
+
+
+if 0:
+    def stop_paw(self):
+        """Delete PAW-object."""
+        if isinstance(self.paw, MPIPaw):
+            # Stop old MPI calculation and get total CPU time for all CPUs:
+            self.parallel_cputime += self.paw.stop()
+        self.paw = None
+        
+    def __del__(self):
+        """Destructor:  Write timing output before closing."""
+
+        self.stop_paw()
+        
+        # Get CPU time:
+        c = self.parallel_cputime + timing.clock()
+                
+        if c > 1.0e99:
+            print >> self.out, 'cputime : unknown!'
+        else:
+            print >> self.out, 'cputime : %f' % c
+
+        print >> self.out, 'walltime: %f' % (time.time() - self.t0)
+        mr = maxrss()
+        if mr > 0:
+            def round(x): return int(100*x/1024.**2+.5)/100.
+            print >> self.out, 'memory  : '+str(round(maxrss()))+' MB'
+        print >> self.out, 'date    :', time.asctime()
