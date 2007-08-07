@@ -148,27 +148,34 @@ def write(paw, filename, mode):
         for nucleus in paw.my_nuclei:
             mpi.world.send(nucleus.P_uni, MASTER, 300)
 
-    # Write atomic density matrices:
+    # Write atomic density matrices and non-local part of hamiltonian:
     if mpi.rank == MASTER:
         all_D_sp = num.empty((paw.nspins, nadm), num.Float)
+        all_H_sp = num.empty((paw.nspins, nadm), num.Float)
         q1 = 0
         for nucleus in paw.nuclei:
             ni = nucleus.get_number_of_partial_waves()
             np = ni * (ni + 1) / 2
             if nucleus.in_this_domain:
                 D_sp = nucleus.D_sp
+                H_sp = nucleus.H_sp
             else:
                 D_sp = num.empty((paw.nspins, np), num.Float)
                 paw.domain.comm.receive(D_sp, nucleus.rank, 207)
+                H_sp = num.empty((paw.nspins, np), num.Float)
+                paw.domain.comm.receive(H_sp, nucleus.rank, 2071)
             q2 = q1 + np
             all_D_sp[:, q1:q1+np] = D_sp
+            all_H_sp[:, q1:q1+np] = H_sp
             q1 = q2
         assert q2 == nadm
         w.add('AtomicDensityMatrices', ('nspins', 'nadm'), all_D_sp)
+        w.add('NonLocalPartOfHamiltonian', ('nspins', 'nadm'), all_H_sp)
         
     elif paw.kpt_comm.rank == MASTER:
         for nucleus in paw.my_nuclei:
             paw.domain.comm.send(nucleus.D_sp, MASTER, 207)
+            paw.domain.comm.send(nucleus.H_sp, MASTER, 2071)
 
     # Write the eigenvalues:
     if mpi.rank == MASTER:
@@ -203,16 +210,25 @@ def write(paw, filename, mode):
         for kpt in paw.kpt_u:
             paw.kpt_comm.send(kpt.f_n, MASTER, 4300)
 
-    # Write the pseudodensity on the coarse grid
+    # Write the pseudodensity on the coarse grid:
     if mpi.rank == MASTER:
         w.add('PseudoElectronDensity',
               ('nspins', 'ngptsx', 'ngptsy', 'ngptsz'), typecode=float)
-
     if paw.kpt_comm.rank == MASTER:
         for s in range(paw.nspins):
             nt_sG = paw.gd.collect(paw.density.nt_sG[s])
             if mpi.rank == MASTER:
                 w.fill(nt_sG)
+
+    # Write the pseudpotential on the coarse grid:
+    if mpi.rank == MASTER:
+        w.add('PseudoPotential',
+              ('nspins', 'ngptsx', 'ngptsy', 'ngptsz'), typecode=float)
+    if paw.kpt_comm.rank == MASTER:
+        for s in range(paw.nspins):
+            vt_sG = paw.gd.collect(paw.hamiltonian.vt_sG[s])
+            if mpi.rank == MASTER:
+                w.fill(vt_sG)
 
     if mode == 'all':
         # Write the wave functions:
@@ -252,23 +268,28 @@ def read(paw, reader):
             paw.warn('Setup for %s (%s) not compatible with restart file.' %
                      (setup.symbol, setup.filename))
             
-    # Read pseudoelectron density on the coarse grid and
-    # distribute out to nodes
+    # Read pseudoelectron density pseudo potential on the coarse grid
+    # and distribute out to nodes:
     for s in range(paw.nspins): 
         paw.gd.distribute(r.get('PseudoElectronDensity', s),
                           paw.density.nt_sG[s])
+    for s in range(paw.nspins): 
+        paw.gd.distribute(r.get('PseudoPotential', s),
+                          paw.hamiltonian.vt_sG[s])
 
     # Transfer the density to the fine grid:
     paw.density.interpolate_pseudo_density()
 
-    # Read atomic density matrices:
+    # Read atomic density matrices and non-local part of hamiltonian:
     D_sp = r.get('AtomicDensityMatrices')
+    H_sp = r.get('NonLocalPartOfHamiltonian')
     p1 = 0
     for nucleus in paw.nuclei:
         ni = nucleus.get_number_of_partial_waves()
         p2 = p1 + ni * (ni + 1) / 2
         if nucleus.in_this_domain:
             nucleus.D_sp[:] = D_sp[:, p1:p2]
+            nucleus.H_sp[:] = H_sp[:, p1:p2]
         p1 = p2
 
     paw.Ekin = r['Ekin']

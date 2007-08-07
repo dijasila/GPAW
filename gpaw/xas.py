@@ -1,10 +1,91 @@
 import pickle
+from math import log, pi
 
 import Numeric as num
+from multiarray import innerproduct as inner # avoid the dotblas version!
 from ASE.Units import units, Convert
 
 from gpaw.utilities.cg import CG
 import gpaw.mpi as mpi
+
+
+class XAS:
+    def __init__(self, paw):
+        assert not mpi.parallel
+        assert not paw.spinpol # restricted - for now
+
+        nocc = paw.nvalence / 2
+        for nucleus in paw.nuclei:
+            if nucleus.setup.fcorehole != 0.0:
+                break
+
+        A_ci = nucleus.setup.A_ci
+
+        n = paw.nbands - nocc
+        self.eps_n = num.empty(paw.nkpts * n, num.Float)
+        self.sigma_cn = num.empty((3, paw.nkpts * n), num.Float)
+        n1 = 0
+        for k in range(paw.nkpts):
+            n2 = n1 + n
+            self.eps_n[n1:n2] = paw.kpt_u[k].eps_n[nocc:] * paw.Ha
+            P_ni = nucleus.P_uni[k, nocc:]
+            a_cn = inner(A_ci, P_ni)
+            a_cn *= num.conjugate(a_cn)
+            self.sigma_cn[:, n1:n2] = paw.weight_k[k] * a_cn.real
+            n1 = n2
+
+        if paw.symmetry is not None:
+            sigma0_cn = self.sigma_cn
+            self.sigma_cn = num.zeros((3, paw.nkpts * n), num.Float)
+            swaps = {}  # Python 2.4: use a set
+            for swap, mirror in paw.symmetry.symmetries:
+                swaps[swap] = None
+            for swap in swaps:
+                self.sigma_cn += num.take(sigma0_cn, swap)
+            self.sigma_cn /= len(swaps)
+
+    def get_spectra(self, fwhm=0.5, linbroad=None, N=1000):
+        # returns stick spectrum, e_stick and a_stick
+        # and broadened spectrum, e, a
+        # linbroad = [0.5, 540, 550]
+        eps_n = self.eps_n
+        emin = min(eps_n) - 2 * fwhm
+        emax = max(eps_n) + 2 * fwhm
+
+        e = emin + num.arange(N + 1) * ((emax - emin) / N)
+        a_c = num.zeros((3, N + 1), num.Float)
+
+        if linbroad is None:
+            #constant broadening fwhm
+            alpha = 4 * log(2) / fwhm**2
+            for n, eps in enumerate(eps_n):
+                x = -alpha * (e - eps)**2
+                x = num.clip(x, -100.0, 100.0)
+                a_c += num.outerproduct(self.sigma_cn[:, n],
+                                        (alpha / pi)**0.5 * num.exp(x))
+        else:
+            # constant broadening fwhm until linbroad[1] and a
+            # constant broadening over linbroad[2] with fwhm2=
+            # linbroad[0]
+            fwhm2 = linbroad[0]
+            lin_e1 = linbroad[1]
+            lin_e2 = linbroad[2]
+            for n, eps in enumerate(eps_n):
+                if eps < lin_e1:
+                    alpha = 4*log(2) / fwhm**2
+                elif eps <=  lin_e2:
+                    fwhm_lin = (fwhm + (eps - lin_e1) *
+                                (fwhm2 - fwhm) / (lin_e2 - lin_e1))
+                    alpha = 4*log(2) / fwhm_lin**2
+                elif eps >= lin_e2:
+                    alpha =  4*log(2) / fwhm2**2
+
+                x = -alpha * (e - eps)**2
+                x = num.clip(x, -100.0, 100.0)
+                a_c += num.outerproduct(self.sigma_cn[:, n],
+                                        (alpha / pi)**0.5 * num.exp(x))
+
+        return e, a_c
 
 
 class RecursionMethod:
