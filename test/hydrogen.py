@@ -15,9 +15,9 @@ e1 = hydrogen.GetPotentialEnergy()
 calc.set(kpts=(1, 1, 1))
 e2 = hydrogen.GetPotentialEnergy()
 print e1 - e2
-equal(e1, e2, 3e-14)
+equal(e1, e2, 2e-13)
 
 kT = 0.0001
 calc.set(width=kT)
 e3 = hydrogen.GetPotentialEnergy()
-equal(e1, e3 + log(2) * kT, 1.5e-14)
+equal(e1, e3 + log(2) * kT, 2.0e-14)

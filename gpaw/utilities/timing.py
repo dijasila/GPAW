@@ -102,6 +102,7 @@ class Timer:
         print >> out, '-' * 60
         print >> out, '%-*s%9.3f' % (n, 'Total' + ':', tot)
         print >> out
+        print >> out, 'date:', time.asctime()
                 
     def add(self, timer):
         for name, t in timer.timers.items():

@@ -4,6 +4,7 @@ class Out:
         sys.__stdout__.write(x)
         raise RuntimeError('not silent')
 
+out, err = sys.stdout, sys.stderr
 sys.stdout = sys.stderr = Out()
 
 try:
@@ -20,6 +21,9 @@ try:
     hydrogen.SetCalculator(calc)
     f = hydrogen.GetCartesianForces()
 except RuntimeError:
-    sys.stdout = sys.__stdout__
-    sys.stderr = sys.__stderr__
+    sys.stdout = out
+    sys.stderr = err
     raise
+
+sys.stdout = out
+sys.stderr = err

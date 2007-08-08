@@ -64,7 +64,6 @@ from gpaw.rotation import rotation
 from gpaw.domain import Domain
 from gpaw.xc_functional import XCFunctional
 from gpaw.utilities import gcd
-from gpaw.utilities.timing import Timer
 from gpaw.utilities.memory import estimate_memory
 from gpaw.setup import create_setup
 from gpaw.pawextra import PAWExtra
@@ -782,6 +781,10 @@ class PAW(PAWExtra, Output):
         if hasattr(self, 'timer'):
             self.timer.write(self.txt)
 
+        mr = maxrss()
+        if mr > 0:
+            self.text('memory  : %.2f MB' % mr / 1024**2)
+
     def distribute_kpoints_and_spins(self, parsize_c, N_c):
         """Distribute k-points/spins to processors.
 
@@ -1009,38 +1012,3 @@ class PAW(PAWExtra, Output):
         self.eigensolver = eigensolver(p['eigensolver'], self)
         self.initialized = True
         self.timer.stop('Init')
-
-
-
-
-
-
-
-
-if 0:
-    def stop_paw(self):
-        """Delete PAW-object."""
-        if isinstance(self.paw, MPIPaw):
-            # Stop old MPI calculation and get total CPU time for all CPUs:
-            self.parallel_cputime += self.paw.stop()
-        self.paw = None
-        
-    def __del__(self):
-        """Destructor:  Write timing output before closing."""
-
-        self.stop_paw()
-        
-        # Get CPU time:
-        c = self.parallel_cputime + timing.clock()
-                
-        if c > 1.0e99:
-            print >> self.out, 'cputime : unknown!'
-        else:
-            print >> self.out, 'cputime : %f' % c
-
-        print >> self.out, 'walltime: %f' % (time.time() - self.t0)
-        mr = maxrss()
-        if mr > 0:
-            def round(x): return int(100*x/1024.**2+.5)/100.
-            print >> self.out, 'memory  : '+str(round(maxrss()))+' MB'
-        print >> self.out, 'date    :', time.asctime()
