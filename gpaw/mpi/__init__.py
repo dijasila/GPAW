@@ -119,6 +119,9 @@ if parallel and debug:
         def wait(self, request):
             self.comm.wait(request)
 
+        def barrier(self):
+            self.comm.barrier()
+
     world = _Communicator(world)
 
 

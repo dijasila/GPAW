@@ -53,7 +53,7 @@ class Calculator(PAW):
             return self.Ha * self.Etot
         else:
             # Energy extrapolated to zero Kelvin:
-            return self.Ha * (self.Etot + 0.5 * self.occupation.S)
+            return self.Ha * (self.Etot + 0.5 * self.S)
 
     def GetCartesianForces(self):
         """Return the forces for the current state of the ListOfAtoms."""

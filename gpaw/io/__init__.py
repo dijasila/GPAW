@@ -29,7 +29,7 @@ def write(paw, filename, mode):
         w = open(filename, 'w')
 
         w['history'] = 'GPAW restart file'
-        w['version'] = '0.3'
+        w['version'] = '0.4'
         w['lengthunit'] = 'Bohr'
         w['energyunit'] = 'Hartree'
 
@@ -248,6 +248,10 @@ def write(paw, filename, mode):
         # Close the file here to ensure that the last wave function is
         # written to disk:
         w.close()
+
+    # We don't want the slaves to start reading before the master has
+    # finished writing:
+    mpi.world.barrier()
 
 
 def read(paw, reader):

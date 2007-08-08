@@ -271,7 +271,8 @@ class PAW(PAWExtra, Output):
             raise TypeError("""You can't use both "gpts" and "h"!""")
             
         for name, value in kwargs.items():
-            if name in ['random', 'hund', 'mix', 'txt', 'maxiter', 'verbose',
+            if name in ['parsize',
+                        'random', 'hund', 'mix', 'txt', 'maxiter', 'verbose',
                         'decompose', 'eigensolver', 'poissonsolver',
                         'external']:
                 self.input_parameters[name] = value
