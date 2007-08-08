@@ -18,7 +18,7 @@ class Calculator(PAW):
     """This is the ASE-calculator frontend for doing a PAW calculation.
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, filename=None, **kwargs):
         # Set units to ASE units:
         lengthunit = units.GetLengthUnit()
         energyunit = units.GetEnergyUnit()
@@ -26,7 +26,7 @@ class Calculator(PAW):
         self.Ha = Convert(1, 'Hartree', energyunit)
 
         self.convert_units(kwargs)
-        PAW.__init__(self, **kwargs)
+        PAW.__init__(self, filename, **kwargs)
 
         self.text('ASE: ', os.path.dirname(ASE.__file__))
         self.text('units:', lengthunit, 'and', energyunit)
