@@ -264,8 +264,9 @@ class GridDescriptor:
         m = (-n) % N
         if n != m:
             rank = self.rank + (m - n) * self.domain.stride_c[c]
+            b_yz = b_g[0].copy()
             request = self.comm.receive(b_g[0], rank, 117, NONBLOCKING)
-            self.comm.send(b_g[0].copy(), rank, 117)
+            self.comm.send(b_yz, rank, 117)
             self.comm.wait(request)
         c_g = b_g[-1:0:-1].copy()
         m = N - n - 1
