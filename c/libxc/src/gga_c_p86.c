@@ -4,6 +4,7 @@
 
 #include "util.h"
 
+
 /************************************************************************
  Implements Perdew 86 Generalized Gradient Approximation
  correlation functional.
