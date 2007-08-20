@@ -84,7 +84,7 @@ class Density:
         if self.nspins == 2 and (not paw.fixmom or paw.kT != 0):
             self.mixer = MixerSum(p['mix'])
         else:
-            self.mixer = Mixer(p['mix'], self.gd, self.nspins)
+            self.mixer = Mixer(p['mix'], self.finegd, self.nspins)
 
         self.initialized = False
 
@@ -169,11 +169,13 @@ class Density:
             self.nt_sG[0] *= x
             self.nt_sG[1] *= y
 
-        self.mixer.mix(self.nt_sG, comm)
-
         self.interpolate_pseudo_density()
 
-        self.initialized = False
+        self.update_pseudo_charge()
+        
+        #self.mixer.mix(self.rhot_g[None], comm)
+
+        self.initialized = True
 
     def interpolate_pseudo_density(self):
         """Transfer the density from the coarse to the fine grid."""
@@ -207,6 +209,11 @@ class Density:
         charge = self.finegd.integrate(self.rhot_g) + self.charge
         if abs(charge) > 1e-7:
             raise RuntimeError('Charge not conserved: excess=%.7f' % charge ) 
+
+    def update_pseudo_charge2(self):
+        self.nt_g[:] = self.rhot_g
+        for nucleus in self.ghat_nuclei:
+            nucleus.ghat_L.add(self.nt_g, -nucleus.Q_L)
 
     def update(self, kpt_u, symmetry):
         """Calculate pseudo electron-density.
@@ -260,10 +267,12 @@ class Density:
                 for nucleus in self.my_nuclei:
                     nucleus.symmetrize(D_aii, symmetry.maps, s)
 
-        self.mixer.mix(self.nt_sG, comm)
 
         self.interpolate_pseudo_density()
+        self.update_pseudo_charge()
 
+        self.mixer.mix(self.rhot_g[None], comm)
+        
     def move(self):
         self.mixer.reset(self.my_nuclei)
 

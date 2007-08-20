@@ -110,7 +110,7 @@ class Hamiltonian:
         vt_g = self.vt_sg[0]
         vt_g[:] = 0.0
 
-        density.update_pseudo_charge()
+        density.update_pseudo_charge2()
 
         for nucleus in self.ghat_nuclei:
             nucleus.add_localized_potential(vt_g)
@@ -160,7 +160,7 @@ class Hamiltonian:
             if self.vext_g and nucleus.in_this_domain:
                 R_c = num.around(density.finegd.N_c * nucleus.spos_c
                                  - density.finegd.beg_c).astype(int)
-                R_c -= (R_c == density.finegd.n_c)
+                R_c -= (R_c == density.finegd.n_c)  #XXX ????
                 vext = self.vext_g[R_c]
             else:
                 vext = None

@@ -491,9 +491,10 @@ class PAW(PAWExtra, Output):
                 # Calculate projections and orthogonalize wave functions:
                 run([nucleus.calculate_projections(kpt)
                      for nucleus in self.pt_nuclei])
+
+                # XXX combine next two lines:
                 kpt.orthonormalize(self.my_nuclei)
                 eig.diagonalize(self.hamiltonian, kpt)
-
 
         for nucleus in self.my_nuclei:
             nucleus.reallocate(self.nbands)
@@ -543,11 +544,6 @@ class PAW(PAWExtra, Output):
             # from the file to memory:
             for kpt in self.kpt_u:
                 kpt.psit_nG = kpt.psit_nG[:]
-
-        for kpt in self.kpt_u:
-            kpt.adjust_number_of_bands(self.nbands, self.pt_nuclei,
-                                       self.my_nuclei)
-
 
     def calculate_forces(self):
         """Return the atomic forces."""
