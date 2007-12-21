@@ -36,7 +36,7 @@ class Writer:
             array = npy.asarray(array)
             typecode = {npy.Int: int,
                         npy.Float: float,
-                        npy.Complex: complex}[array.typecode()]
+                        npy.Complex: complex}[array.dtype.char]
         self.xml2 += ['  <array name="%s" type="%s">' %
                       (name, typecode.__name__)]
         self.xml2 += ['    <dimension length="%s" name="%s"/>' %
@@ -51,7 +51,7 @@ class Writer:
             self.fill(array)
 
     def fill(self, array):
-        if array.typecode() == npy.Int and npy.Int != npy.Int32:
+        if array.dtype.char == npy.Int and npy.Int != npy.Int32:
             self.write(array.astype(npy.Int32).tostring())
         else:
             self.write(array.tostring())

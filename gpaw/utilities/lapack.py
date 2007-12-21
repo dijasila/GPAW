@@ -26,14 +26,14 @@ def diagonalize(a, w, b=None):
 
     assert a.iscontiguous()
     assert w.iscontiguous()
-    assert a.typecode() in [npy.Float, npy.Complex]
-    assert w.typecode() == npy.Float
+    assert a.dtype.char in [npy.Float, npy.Complex]
+    assert w.dtype.char == npy.Float
     n = len(a)
     assert a.shape == (n, n)
     assert w.shape == (n,)
     if b:
         assert b.iscontiguous()
-        assert b.typecode() == a.typecode()
+        assert b.dtype.char == a.dtype.char
         assert b.shape == a.shape
         info = _gpaw.diagonalize(a, w, b)
     else:
@@ -48,7 +48,7 @@ def inverse_cholesky(a):
     dtrtri/ztrtri for the inversion"""
 
     assert a.iscontiguous()
-    assert a.typecode() in [npy.Float, npy.Complex]
+    assert a.dtype.char in [npy.Float, npy.Complex]
     n = len(a)
     assert a.shape == (n, n)
     info = _gpaw.inverse_cholesky(a)
@@ -64,9 +64,9 @@ def right_eigenvectors(a, w, v):
     assert a.iscontiguous()
     assert w.iscontiguous()
     assert v.iscontiguous()
-    assert a.typecode() == npy.Float
-    assert w.typecode() == npy.Float
-    assert v.typecode() == npy.Float
+    assert a.dtype.char == npy.Float
+    assert w.dtype.char == npy.Float
+    assert v.dtype.char == npy.Float
     n = len(a)
     assert a.shape == (n, n)
     assert w.shape == (n,)

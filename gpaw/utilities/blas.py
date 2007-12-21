@@ -67,8 +67,8 @@ def axpy(alpha, x, y):
         assert is_contiguous(x, npy.Complex) and is_contiguous(y, npy.Complex)
     else:
         assert isinstance(alpha, float)
-        assert x.typecode() in [npy.Float, npy.Complex]
-        assert x.typecode() == y.typecode()
+        assert x.dtype.char in [npy.Float, npy.Complex]
+        assert x.dtype.char == y.dtype.char
         assert x.iscontiguous() and y.iscontiguous()
     assert x.shape == y.shape
     _gpaw.axpy(alpha, x, y)

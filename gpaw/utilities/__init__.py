@@ -49,7 +49,7 @@ def is_contiguous(array, typecode=None):
     if typecode is None:
         return array.iscontiguous()
     else:
-        return array.iscontiguous() and array.typecode() == typecode
+        return array.iscontiguous() and array.dtype.char == typecode
 
 
 # Radial-grid Hartree solver:
@@ -129,8 +129,8 @@ def unpack(M):
     """Unpack 1D array to 2D, assuming a packing as in ``pack2``."""
     assert is_contiguous(M)
     n = int(sqrt(0.25 + 2.0 * len(M)))
-    M2 = npy.zeros((n, n), M.typecode())
-    if M.typecode() == npy.Complex:
+    M2 = npy.zeros((n, n), M.dtype.char)
+    if M.dtype.char == npy.Complex:
         _gpaw.unpack_complex(M, M2)
     else:
         _gpaw.unpack(M, M2)
@@ -159,7 +159,7 @@ def pack(M2, tolerance=1e-10):
       M = (a00, a01 + a10*, a02 + a20*, a11, a12 + a21*, a22)
     """
     n = len(M2)
-    M = npy.zeros(n * (n + 1) // 2, M2.typecode())
+    M = npy.zeros(n * (n + 1) // 2, M2.dtype.char)
     p = 0
     for r in range(n):
         M[p] = M2[r, r]
@@ -176,7 +176,7 @@ def pack(M2, tolerance=1e-10):
 def pack2(M2, tolerance=1e-10):
     """Pack a 2D array to 1D, averaging offdiagonal terms."""
     n = len(M2)
-    M = npy.zeros(n * (n + 1) // 2, M2.typecode())
+    M = npy.zeros(n * (n + 1) // 2, M2.dtype.char)
     p = 0
     for r in range(n):
         M[p] = M2[r, r]

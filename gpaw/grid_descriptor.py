@@ -329,7 +329,7 @@ class GridDescriptor:
         # Put the subdomains from the slaves into the big array
         # for the whole domain:
         xshape = a_xg.shape[:-3]
-        A_xg = self.empty(xshape, a_xg.typecode(), global_array=True)
+        A_xg = self.empty(xshape, a_xg.dtype.char, global_array=True)
         parsize_c = self.domain.parsize_c
         r = 0
         for n0 in range(parsize_c[0]):
@@ -341,7 +341,7 @@ class GridDescriptor:
                     if r != MASTER:
                         a_xg = npy.empty(xshape + 
                                          ((e0 - b0), (e1 - b1), (e2 - b2)),
-                                         a_xg.typecode())
+                                         a_xg.dtype.char)
                         self.comm.receive(a_xg, r, 301)
                     A_xg[..., b0:e0, b1:e1, b2:e2] = a_xg
                     r += 1

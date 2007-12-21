@@ -80,7 +80,7 @@ def WriteCubeFloat(atoms,grid,filename):
 
 def WriteCube(atoms,grid,filename,real=False):
     import string
-    if grid.typecode()=='D':
+    if grid.dtype.char=='D':
 
         if real:
            print 'Converting complex array into real'

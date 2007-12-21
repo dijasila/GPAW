@@ -21,7 +21,7 @@ class Writer:
     def add(self, name, shape, array=None, typecode=None, units=None):
         if array is not None:
             array = npy.asarray(array)
-            tc = array.typecode()
+            tc = array.dtype.char
         else:
             tc = {int: npy.Int,
                   float: npy.Float,

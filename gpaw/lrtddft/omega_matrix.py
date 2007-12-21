@@ -183,8 +183,8 @@ class OmegaMatrix:
                 # nucleus.I_sp atom based correction matrices (pack2)
                 #              stored on each nucleus
                 timer2.start('init v grids')
-                vp_s=npy.zeros(nt_s.shape,nt_s.typecode())
-                vm_s=npy.zeros(nt_s.shape,nt_s.typecode())
+                vp_s=npy.zeros(nt_s.shape,nt_s.dtype.char)
+                vm_s=npy.zeros(nt_s.shape,nt_s.dtype.char)
                 if kss.npspins==2: # spin polarised
                     nv_s=nt_s.copy()
                     nv_s[kss[ij].pspin] += ns*kss[ij].GetPairDensity(fg)
@@ -358,7 +358,7 @@ class OmegaMatrix:
             
             # integrate with 1/|r_1-r_2|
             timer2.start('poisson')
-            phit_p = npy.zeros(rhot_p.shape, rhot_p.typecode())
+            phit_p = npy.zeros(rhot_p.shape, rhot_p.dtype.char)
             self.poisson.solve(phit_p, rhot_p, charge=None)
             timer2.stop()
 

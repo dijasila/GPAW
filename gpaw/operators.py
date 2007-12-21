@@ -57,7 +57,7 @@ class _Operator:
         assert is_contiguous(in_xg, self.typecode)
         assert is_contiguous(out_xg, self.typecode)
         assert (self.typecode is npy.Float or
-                (phase_cd.typecode() == npy.Complex and
+                (phase_cd.dtype.char == npy.Complex and
                  phase_cd.shape == (3, 2)))
         self.operator.apply(in_xg, out_xg, phase_cd)
 

@@ -142,7 +142,7 @@ def dagger(matrix, copy=True):
     if copy: # Allocate space for new array
         return npy.conjugate(dag)
     else: # The input array is used for output
-        if dag.typecode() == npy.Complex:
+        if dag.dtype.char == npy.Complex:
             npy.multiply(dag.imag, -1, dag.imag)
         return dag
 

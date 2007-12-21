@@ -271,7 +271,7 @@ class Nucleus:
             # Nothing to do in this domain:
             return
 
-        coefs_ii = npy.identity(len(psit_iG), psit_iG.typecode())
+        coefs_ii = npy.identity(len(psit_iG), psit_iG.dtype.char)
         self.phit_i.add(psit_iG, coefs_ii, k)
 
     def add_atomic_density(self, nt_sG, magmom, hund):

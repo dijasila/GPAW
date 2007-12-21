@@ -16,8 +16,8 @@ def CG(A, X, B, maxiter=20, tolerance=1.0e-10, verbose=False):
 
     m = len(X)
     shape = (m, 1, 1, 1)
-    R = empty(X.shape, X.typecode())
-    Q = empty(X.shape, X.typecode())
+    R = empty(X.shape, X.dtype.char)
+    Q = empty(X.shape, X.dtype.char)
     A(X, R)
     R -= B
     P = R.copy()

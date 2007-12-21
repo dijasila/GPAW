@@ -93,7 +93,7 @@ class RMM_DIIS(Eigensolver):
 
             hamiltonian.kin.apply(pR_G, dR_G, kpt.phase_cd)
                 
-            if (dR_G.typecode() == npy.Float):
+            if (dR_G.dtype.char == npy.Float):
                 elementwise_multiply_add(vt_G, pR_G, dR_G)
             else:
                 dR_G += vt_G * pR_G
@@ -107,7 +107,7 @@ class RMM_DIIS(Eigensolver):
             hamiltonian.xc.xcfunc.adjust_non_local_residual(
                 pR_G, dR_G, kpt.eps_n[n], kpt.u, kpt.s, kpt.k, n)
             
-            if (dR_G.typecode() == npy.Float):
+            if (dR_G.dtype.char == npy.Float):
                 RdR = self.comm.sum(utilities_vdot(R_G, dR_G))
                 dRdR = self.comm.sum(utilities_vdot_self(dR_G))
             else:
