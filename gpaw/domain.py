@@ -36,7 +36,7 @@ class Domain:
          =============== ==================================================
         """
         
-        self.cell_c = npy.array(cell, npy.Float)
+        self.cell_c = npy.array(cell, float)
         self.periodic_c = periodic
         
         self.set_decomposition(serial_comm, (1, 1, 1))
@@ -87,7 +87,7 @@ class Domain:
 
     def get_rank_for_position(self, spos_c):
         """Calculate rank of domain containing scaled position."""
-        rnk_c = npy.clip(npy.floor(spos_c * self.parsize_c).astype(npy.Int),
+        rnk_c = npy.clip(npy.floor(spos_c * self.parsize_c).astype(int),
                          0, npy.array(self.parsize_c) - 1)
         for c in range(3):
             assert 0 <= rnk_c[c] < self.parsize_c[c], 'Bad bad!'
@@ -104,8 +104,8 @@ class Domain:
         * ``disp_cd``:  Displacement for neighbor.
         """
         
-        self.neighbor_cd = npy.zeros((3, 2), npy.Int)
-        self.sdisp_cd = npy.zeros((3, 2), npy.Int)
+        self.neighbor_cd = npy.zeros((3, 2), int)
+        self.sdisp_cd = npy.zeros((3, 2), int)
         for c in range(3):
             p = self.parpos_c[c]
             for d in range(2):

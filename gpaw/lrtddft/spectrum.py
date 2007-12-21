@@ -80,7 +80,7 @@ def spectrum(exlist=None,
         emax=emax+.5*de
         e=emin
         while e<emax:
-            val=npy.zeros((4),npy.Float)
+            val=npy.zeros((4))
             for ex in exlist:
                 wght=func.get(ex.get_energy()*Ha-e)
                 osz=npy.array(ex.GetOscillatorStrength())

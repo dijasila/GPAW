@@ -12,7 +12,7 @@ C = []
 a = 0.0
 n = 5
 for n in range(n):
-    c = npy.zeros(n+1, npy.Complex)
+    c = npy.zeros(n+1, complex)
     for s in range(n + 1):
         a = (1.0j)**s * fac[n + s] / (fac[s] * 2**s * fac[n - s])
         a *= (-1.0j)**(n + 1)
@@ -35,7 +35,7 @@ def fbt(l, f, r, k):
 
     dr = r[1]
     m = len(k)
-    g = npy.zeros(m, npy.Float)
+    g = npy.zeros(m)
     for n in range(l + 1):
         g += (dr * 2 * m * k**(l - n) *
               inverse_fft(C[l][n] * f * r**(1 + l - n), 2 * m)[:m].real)
@@ -68,7 +68,7 @@ class TwoCenterIntegrals:
         self.dk = 2 * pi / self.Q / self.dr
         self.k = npy.arange(self.Q // 2) * self.dk
 
-        phit_g = npy.zeros(self.ng, npy.Float) 
+        phit_g = npy.zeros(self.ng) 
         phit_jq = {}
         for setup in setups:
             for j, phit in enumerate(setup.phit_j):
@@ -78,7 +78,7 @@ class TwoCenterIntegrals:
                 phit_q = fbt(l, phit_g, self.r_g, self.k)
                 phit_jq[id] = (l, phit_q)
 
-        pt_g = npy.zeros(self.ng, npy.Float) 
+        pt_g = npy.zeros(self.ng) 
         pt_jq = {}
         for setup in setups:
             for j, pt in enumerate(setup.pt_j):
@@ -107,7 +107,7 @@ class TwoCenterIntegrals:
         self.setups = setups # XXX
 
     def calculate_spline(self, phit1, phit2, l1, l2, kinetic_energy=False):
-        S_g = npy.zeros(2 * self.ng, npy.Float)
+        S_g = npy.zeros(2 * self.ng)
         self.lmax = l1 + l2
         splines = []
         R = npy.arange(self.Q // 2) * self.dr
@@ -184,9 +184,9 @@ class TwoCenterIntegrals:
         gd = GridDescriptor(domain, (2 * n, 2 * n, 2 * n))
         f = create_localized_functions([phit1], gd, (0.25, 0.25, 0.25))
         a = gd.zeros()
-        c1 = npy.zeros(2 * l1 + 1, npy.Float)
+        c1 = npy.zeros(2 * l1 + 1)
         c1[m1] = 1
-        c2 = npy.zeros(2 * l2 + 1, npy.Float)
+        c2 = npy.zeros(2 * l2 + 1)
         c2[m2] = 1
         f.add(a, c1)
         kina = gd.zeros() 
@@ -227,9 +227,9 @@ class TwoCenterIntegrals:
         gd = GridDescriptor(domain, (2 * n, 2 * n, 2 * n))
         f = create_localized_functions([phit1], gd, (0.25, 0.25, 0.25))
         a = gd.zeros()
-        c1 = npy.zeros(2 * l1 + 1, npy.Float)
+        c1 = npy.zeros(2 * l1 + 1)
         c1[m1] = 1
-        c2 = npy.zeros(2 * l2 + 1, npy.Float)
+        c2 = npy.zeros(2 * l2 + 1)
         c2[m2] = 1
         f.add(a, c1)
         kina = gd.zeros() 

@@ -67,7 +67,7 @@ class Filter:
         qcut = qmax / alpha
         icut = 1 + int(qcut / q1)
         beta = 5 * log(10) / (alpha - 1.0)**2
-        self.cut_i = npy.ones(N, npy.Float)
+        self.cut_i = npy.ones(N)
         self.cut_i[icut:] = npy.exp(
             -npy.clip(beta * (q_i[icut:] / qcut - 1.0)**2, 0, 400))
         # self.cut_i[icut:] = npy.exp(
@@ -139,7 +139,7 @@ class Filter:
         else:
             raise NotImplementedError
     
-        a_g = npy.zeros(len(f_g), npy.Float)
+        a_g = npy.zeros(len(f_g))
         a_g[:self.gcut] = fr_g * self.m_g / r_g**(l + 1)
         
         #            n 

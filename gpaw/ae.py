@@ -47,7 +47,7 @@ class AllElectronSetup:
         gcut = 1 + int(rcut * ng / (rcut + beta))
         gcut2 = 1 + int(rcut2 * ng / (rcut2 + beta))
 
-        g = npy.arange(ng, typecode=npy.Float)
+        g = npy.arange(ng, typecode=float)
         r_g = beta * g / (ng - g)
 
         self.ni = 1
@@ -72,16 +72,16 @@ class AllElectronSetup:
         gcut3 = 1 + int(rcut3 * ng / (rcut3 + beta))
         self.phit_j = [Spline(0, rcut3, 2 * npy.exp(-r_g), r_g=r_g, beta=beta)]
 
-        self.Delta_pL = npy.zeros((1, 1), npy.Float)
+        self.Delta_pL = npy.zeros((1, 1))
         self.Delta0 = -1 / sqrt(4 * pi)
         self.MB = 0
-        self.M_p = npy.zeros(1, npy.Float)
-        self.MB_p = npy.zeros(1, npy.Float)
-        self.M_pp = npy.zeros((1, 1), npy.Float)
+        self.M_p = npy.zeros(1)
+        self.MB_p = npy.zeros(1)
+        self.M_pp = npy.zeros((1, 1))
         self.Kc = 0
         self.E = 0
-        self.O_ii = npy.zeros((1, 1), npy.Float)
-        self.K_p = npy.zeros(1, npy.Float)
+        self.O_ii = npy.zeros((1, 1))
+        self.K_p = npy.zeros(1)
         
         self.xc_correction = self
         self.xc = self
@@ -92,7 +92,7 @@ class AllElectronSetup:
         rcutsoft = rcut2
         rcgauss = 0.02
 
-        r = 0.02 * rcutsoft * npy.arange(51, typecode=npy.Float)
+        r = 0.02 * rcutsoft * npy.arange(51, typecode=float)
 
         alpha = rcgauss**-2
         alpha2 = 15.0 / rcutsoft**2

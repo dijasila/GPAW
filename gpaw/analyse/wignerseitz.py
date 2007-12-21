@@ -12,19 +12,19 @@ class WignerSeitz:
         self.gd = gd
 
         n = len(self.nuclei)
-        atom_c = npy.empty((n, 3), npy.Float)
+        atom_c = npy.empty((n, 3))
         for a, nucleus in enumerate(nuclei):
             atom_c[a] = nucleus.spos_c * gd.N_c
 
         # define the atom index for each grid point 
-        atom_index = gd.empty(typecode=npy.Int)
+        atom_index = gd.empty(typecode=int)
         wignerseitz(atom_index, atom_c, gd.beg_c, gd.end_c)
         self.atom_index = atom_index
 
     def expand(self, density):
         """Expand a smooth density in Wigner-Seitz cells around the atoms"""
         n = len(self.nuclei)
-        weights = npy.empty((n,),npy.Float)
+        weights = npy.empty((n,))
         for a in range(n):
             mask = npy.where(self.atom_index == a, density, 0.0)
             # XXX Optimize! No need to integrate in zero-region
@@ -81,7 +81,7 @@ class WignerSeitzLDOS(LDOSbyBand):
         self.ws = WignerSeitz(paw.gd, paw.nuclei)
         
         nu = paw.nkpts * paw.nspins
-        ldos = npy.empty((nu, paw.nbands, len(paw.nuclei)),npy.Float)
+        ldos = npy.empty((nu, paw.nbands, len(paw.nuclei)))
         for u, kpt in enumerate(paw.kpt_u):
             for n, psit_G in enumerate(kpt.psit_nG):
                 ldos[u, n, :] = ws.expand_wave_function(psit_G, u, n)

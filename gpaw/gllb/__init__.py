@@ -35,7 +35,7 @@ def calculate_slater_energy_density(rgd, u_j, f_j, l_j, V_s, exp_j=None, exclude
     """
 
     if exp_j == None:
-        exp_j = npy.zeros(len(f_j), npy.Float)
+        exp_j = npy.zeros(len(f_j))
     else:
         exp_j[:] = 0.0
 
@@ -45,7 +45,7 @@ def calculate_slater_energy_density(rgd, u_j, f_j, l_j, V_s, exp_j=None, exclude
     V_s[:] = 0.0
 
     # The exchange energy density multiplied with r
-    Vr_x = npy.zeros(N, npy.Float)
+    Vr_x = npy.zeros(N)
 
     for i, (u1, f1, l1) in enumerate(zip(u_j, f_j, l_j)):
          for j, (u2, f2, l2) in enumerate(zip(u_j, f_j, l_j)):

@@ -87,7 +87,7 @@ class PAWExtra:
             if self.domain.comm.rank == MASTER:
                 self.kpt_comm.send(self.kpt_u[u].eps_n, MASTER, 1301)
         elif self.master:
-            eps_n = npy.zeros(self.nbands, npy.Float)
+            eps_n = npy.zeros(self.nbands)
             self.kpt_comm.receive(eps_n, kpt_rank, 1301)
             return eps_n
 
@@ -143,7 +143,7 @@ class PAWExtra:
 
         for nucleus in self.my_nuclei:
             D_sp = nucleus.D_sp
-            H_sp = npy.zeros(D_sp.shape, npy.Float) # not used for anything!
+            H_sp = npy.zeros(D_sp.shape) # not used for anything!
             xc_correction = nucleus.setup.xc_correction
             Exc += xc_correction.calculate_energy_and_derivatives(D_sp, H_sp)
 
@@ -191,7 +191,7 @@ class PAWExtra:
 
         from gpaw.operators import Laplace
 
-        if typecode not in [npy.Float, npy.Complex]:
+        if typecode not in [float, complex]:
             raise RuntimeError('PAW can be converted only to Float or Complex')
 
         self.typecode = typecode
@@ -242,7 +242,7 @@ class PAWExtra:
     def wave_function_volumes(self):
         """Return the volume needed by the wave functions"""
         nu = self.nkpts * self.nspins
-        volumes = npy.empty((nu,self.nbands),npy.Float)
+        volumes = npy.empty((nu,self.nbands))
 
         for k in range(nu):
             for n, psit_G in enumerate(self.kpt_u[k].psit_nG):

@@ -96,8 +96,8 @@ def hartree(l, nrdr, beta, N, vr):
           N - g
 
     """
-    assert is_contiguous(nrdr, npy.Float)
-    assert is_contiguous(vr, npy.Float)
+    assert is_contiguous(nrdr, float)
+    assert is_contiguous(vr, float)
     assert nrdr.shape == vr.shape and len(vr.shape) == 1
     return _gpaw.hartree(l, nrdr, beta, N, vr)
 
@@ -110,8 +110,8 @@ def wignerseitz(index_G, atom_ac, beg_c, end_c):
     by the atomic coordinates in atom_ac, is the closest. Return result as
     atomic indices on the grid index_G.
     """
-    assert is_contiguous(index_G, npy.Int)
-    assert is_contiguous(atom_ac, npy.Float)
+    assert is_contiguous(index_G, int)
+    assert is_contiguous(atom_ac, float)
     assert atom_ac.shape[1] == len(beg_c) == len(end_c) == 3
     assert index_G.shape == tuple(end_c - beg_c)
     return _gpaw.wigner_seitz_grid(index_G, atom_ac, beg_c, end_c)
@@ -130,7 +130,7 @@ def unpack(M):
     assert is_contiguous(M)
     n = int(sqrt(0.25 + 2.0 * len(M)))
     M2 = npy.zeros((n, n), M.dtype.char)
-    if M.dtype.char == npy.Complex:
+    if M.dtype.char == complex:
         _gpaw.unpack_complex(M, M2)
     else:
         _gpaw.unpack(M, M2)

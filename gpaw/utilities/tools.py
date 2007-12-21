@@ -142,7 +142,7 @@ def dagger(matrix, copy=True):
     if copy: # Allocate space for new array
         return npy.conjugate(dag)
     else: # The input array is used for output
-        if dag.dtype.char == npy.Complex:
+        if dag.dtype.char == complex:
             npy.multiply(dag.imag, -1, dag.imag)
         return dag
 
@@ -152,7 +152,7 @@ def project(a, b):
 
 def normalize(vec):
     """Normalize NxM matrix vec containing M vectors as its columns."""
-    newvec = npy.zeros(vec.shape, npy.Complex)
+    newvec = npy.zeros(vec.shape, complex)
     M = vec.shape[1]
     for m in range(M):
 	newvec[:, m] = vec[:,m] / npy.sqrt(npy.dot(npy.conjugate(vec[:, m]),
@@ -163,7 +163,7 @@ def gram_schmidt_orthonormalize(vec, order=None):
     """vec is a NxM matrix containing M vectors as its columns.
     These will be orthogonalized by Gram-Schmidt using the order
     specified in the list 'order'"""
-    newvec = npy.zeros(vec.shape, npy.Complex)
+    newvec = npy.zeros(vec.shape, complex)
     N, M = vec.shape[0], vec.shape[1]
     if order is None:
         order = range(M)
@@ -185,7 +185,7 @@ def lowdin_orthonormalize(vec, S=None):
     epsilon, U = npy.linalg.eigh(npy.conjugate(S))
 
     # Now, U contains the eigenvectors as ROWS and epsilon the eigenvalues
-    D = npy.identity(S.shape[0], npy.Complex) / npy.sqrt(epsilon)
+    D = npy.identity(S.shape[0], complex) / npy.sqrt(epsilon)
 
     # T = S^(-1/2)
     T = npy.dot(npy.transpose(U),

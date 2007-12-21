@@ -26,8 +26,8 @@ def diagonalize(a, w, b=None):
 
     assert a.iscontiguous()
     assert w.iscontiguous()
-    assert a.dtype.char in [npy.Float, npy.Complex]
-    assert w.dtype.char == npy.Float
+    assert a.dtype.char in [float, complex]
+    assert w.dtype.char == float
     n = len(a)
     assert a.shape == (n, n)
     assert w.shape == (n,)
@@ -48,7 +48,7 @@ def inverse_cholesky(a):
     dtrtri/ztrtri for the inversion"""
 
     assert a.iscontiguous()
-    assert a.dtype.char in [npy.Float, npy.Complex]
+    assert a.dtype.char in [float, complex]
     n = len(a)
     assert a.shape == (n, n)
     info = _gpaw.inverse_cholesky(a)
@@ -64,9 +64,9 @@ def right_eigenvectors(a, w, v):
     assert a.iscontiguous()
     assert w.iscontiguous()
     assert v.iscontiguous()
-    assert a.dtype.char == npy.Float
-    assert w.dtype.char == npy.Float
-    assert v.dtype.char == npy.Float
+    assert a.dtype.char == float
+    assert w.dtype.char == float
+    assert v.dtype.char == float
     n = len(a)
     assert a.shape == (n, n)
     assert w.shape == (n,)

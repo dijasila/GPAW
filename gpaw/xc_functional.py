@@ -242,7 +242,7 @@ class XCFunctional:
                                paw.nspins, paw.my_nuclei, paw.occupation, paw.kpt_comm)
 
         if self.hybrid > 0.0:
-            if paw.typecode == npy.Complex:
+            if paw.typecode == complex:
                 raise NotImplementedError, 'k-point calculation with EXX'
             if self.parameters and self.parameters.has_key('finegrid'):
                 use_finegrid=self.parameters['finegrid']
@@ -364,9 +364,9 @@ class XCFunctional:
                            sigma0=None, sigma1=None, sigma2=None,
                            taua=None,taub=None):
         # see c/libxc.c for the input and output values
-        d_exc = npy.zeros(5, npy.Float)
-        d_ex = npy.zeros(5, npy.Float)
-        d_ec = npy.zeros(5, npy.Float)
+        d_exc = npy.zeros(5)
+        d_ex = npy.zeros(5)
+        d_ec = npy.zeros(5)
         (exc, ex, ec,
          d_exc[0], d_exc[1],
          d_exc[2], d_exc[3], d_exc[4],
@@ -401,14 +401,14 @@ class XCGrid:
 
     def get_energy_and_potential(self, na_g, va_g, nb_g=None, vb_g=None):
 
-        assert is_contiguous(na_g, npy.Float)
-        assert is_contiguous(va_g, npy.Float)
+        assert is_contiguous(na_g, float)
+        assert is_contiguous(va_g, float)
         assert na_g.shape == va_g.shape == self.shape
         if nb_g is None:
             return self.get_energy_and_potential_spinpaired(na_g, va_g)
         else:
-            assert is_contiguous(nb_g, npy.Float)
-            assert is_contiguous(vb_g, npy.Float)
+            assert is_contiguous(nb_g, float)
+            assert is_contiguous(vb_g, float)
             assert nb_g.shape == vb_g.shape == self.shape
             return self.get_energy_and_potential_spinpolarized(na_g, va_g,
                                                                nb_g, vb_g)
@@ -580,24 +580,24 @@ class XCRadialGrid(XCGrid):
 
         if xcfunc.gga:
             self.rgd = gd
-            self.dndr_g = npy.empty(self.shape, npy.Float)
-            self.a2_g = npy.empty(self.shape, npy.Float)
-            self.deda2_g = npy.empty(self.shape, npy.Float)
+            self.dndr_g = npy.empty(self.shape)
+            self.a2_g = npy.empty(self.shape)
+            self.deda2_g = npy.empty(self.shape)
             if self.nspins == 2:
-                self.dnadr_g = npy.empty(self.shape, npy.Float)
-                self.dnbdr_g = npy.empty(self.shape, npy.Float)
-                self.aa2_g = npy.empty(self.shape, npy.Float)
-                self.ab2_g = npy.empty(self.shape, npy.Float)
-                self.dedaa2_g = npy.empty(self.shape, npy.Float)
-                self.dedab2_g = npy.empty(self.shape, npy.Float)
+                self.dnadr_g = npy.empty(self.shape)
+                self.dnbdr_g = npy.empty(self.shape)
+                self.aa2_g = npy.empty(self.shape)
+                self.ab2_g = npy.empty(self.shape)
+                self.dedaa2_g = npy.empty(self.shape)
+                self.dedab2_g = npy.empty(self.shape)
         if xcfunc.mgga:
-            self.taua_g = npy.empty(self.shape, npy.Float)
+            self.taua_g = npy.empty(self.shape)
             self.taua_g[:] = -1.0
             if self.nspins == 2:
-                self.taub_g = npy.empty(self.shape, npy.Float)
+                self.taub_g = npy.empty(self.shape)
                 self.taub_g[:] = -1.0
 
-        self.e_g = npy.empty(self.shape, npy.Float)
+        self.e_g = npy.empty(self.shape)
 
     # True, if this xc-potential depends on more than just density
     def is_non_local(self):

@@ -7,8 +7,8 @@ import numpy as npy
 
 
 intsize = 4
-floatsize = npy.array([1], npy.Float).itemsize
-complexsize = npy.array([1], npy.Complex).itemsize
+floatsize = npy.array([1], float).itemsize
+complexsize = npy.array([1], complex).itemsize
 itemsizes = {'int': intsize, 'float': floatsize, 'complex': complexsize}
 
     
@@ -34,9 +34,9 @@ class Writer:
     def add(self, name, shape, array=None, typecode=None, units=None):
         if array is not None:
             array = npy.asarray(array)
-            typecode = {npy.Int: int,
-                        npy.Float: float,
-                        npy.Complex: complex}[array.dtype.char]
+            typecode = {int: int,
+                        float: float,
+                        complex: complex}[array.dtype.char]
         self.xml2 += ['  <array name="%s" type="%s">' %
                       (name, typecode.__name__)]
         self.xml2 += ['    <dimension length="%s" name="%s"/>' %
@@ -51,8 +51,8 @@ class Writer:
             self.fill(array)
 
     def fill(self, array):
-        if array.dtype.char == npy.Int and npy.Int != npy.Int32:
-            self.write(array.astype(npy.Int32).tostring())
+        if array.dtype.char == int and int != int32:
+            self.write(array.astype(int32).tostring())
         else:
             self.write(array.tostring())
 
@@ -128,8 +128,8 @@ class Reader(xml.sax.handler.ContentHandler):
         array = npy.fromstring(fileobj.read(size), typecode)
         if self.byteswap:
             array = array.byteswap()
-        if typecode == npy.Int32:
-            array = npy.asarray(array, npy.Int)
+        if typecode == int32:
+            array = npy.asarray(array, int)
         array.shape = shape
         if shape == ():
             return array.item()
@@ -141,9 +141,9 @@ class Reader(xml.sax.handler.ContentHandler):
         return TarFileReference(fileobj, shape, typecode, self.byteswap)
     
     def get_file_object(self, name, indices):
-        typecode = {'int': npy.Int32,
-                    'float': npy.Float,
-                    'complex': npy.Complex}[self.typecodes[name]]
+        typecode = {'int': int32,
+                    'float': float,
+                    'complex': complex}[self.typecodes[name]]
         fileobj = self.tar.extractfile(name)
         n = len(indices)
         shape = self.shapes[name]
@@ -164,9 +164,9 @@ class TarFileReference:
         self.fileobj = fileobj
         self.shape = tuple(shape)
         self.typecode = typecode
-        self.itemsize = itemsizes[{npy.Int32: 'int',
-                                   npy.Float: 'float',
-                                   npy.Complex: 'complex'}[typecode]]
+        self.itemsize = itemsizes[{int32: 'int',
+                                   float: 'float',
+                                   complex: 'complex'}[typecode]]
         self.byteswap = byteswap
         self.offset = fileobj.tell()
 

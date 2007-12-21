@@ -6,17 +6,17 @@ nspins = 2
 for xc in [XCFunctional('PBE', nspins),
            XCFunctional('LDA', nspins),
            XCFunctional('XC-2-1.0', nspins)]:
-    naa = 0.1 * npy.ones(1, npy.Float)
-    nb = 0.12 * npy.ones(1, npy.Float)
-    e = npy.zeros(1, npy.Float)
-    va = npy.zeros(1, npy.Float)
-    vb = npy.zeros(1, npy.Float)
-    a2 = 1.2 * npy.ones(1, npy.Float)
-    aa2 = 0.2 * npy.ones(1, npy.Float)
-    ab2 = 0.4 * npy.ones(1, npy.Float)
-    deda2 = npy.zeros(1, npy.Float)
-    dedaa2 = npy.zeros(1, npy.Float)
-    dedab2 = npy.zeros(1, npy.Float)
+    naa = 0.1 * npy.ones(1)
+    nb = 0.12 * npy.ones(1)
+    e = npy.zeros(1)
+    va = npy.zeros(1)
+    vb = npy.zeros(1)
+    a2 = 1.2 * npy.ones(1)
+    aa2 = 0.2 * npy.ones(1)
+    ab2 = 0.4 * npy.ones(1)
+    deda2 = npy.zeros(1)
+    dedaa2 = npy.zeros(1)
+    dedab2 = npy.zeros(1)
     xc.calculate_spinpolarized(e, naa, va, nb, vb,
                               a2, aa2, ab2,
                               deda2, dedaa2, dedab2)

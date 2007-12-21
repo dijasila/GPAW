@@ -341,7 +341,7 @@ class OmegaMatrix:
         nij = len(kss)
         print >> self.out,'RPA',nij,'transitions'
         
-        Om = npy.zeros((nij,nij),npy.Float)
+        Om = npy.zeros((nij,nij))
         
         for ij in range(nij):
             print >> self.out,'RPA kss['+'%d'%ij+']=', kss[ij]
@@ -475,13 +475,13 @@ class OmegaMatrix:
             nij = len(kss)
             print >> self.out,'# diagonalize: %d transitions now' % nij
 
-            evec = npy.zeros((nij,nij),npy.Float)
+            evec = npy.zeros((nij,nij))
             for ij in range(nij):
                 for kq in range(nij):
                     evec[ij,kq] = self.full[map[ij],map[kq]]
 
         self.eigenvectors = evec        
-        self.eigenvalues = npy.zeros((len(kss)),npy.Float)
+        self.eigenvalues = npy.zeros((len(kss)))
         self.kss = kss
         info = diagonalize(self.eigenvectors, self.eigenvalues)
         if info != 0:
@@ -506,7 +506,7 @@ class OmegaMatrix:
 
             f.readline()
             nij = int(f.readline())
-            full = npy.zeros((nij,nij),npy.Float)
+            full = npy.zeros((nij,nij))
             for ij in range(nij):
                 l = f.readline().split()
                 for kq in range(ij,nij):

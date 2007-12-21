@@ -51,7 +51,7 @@ class Cluster(ListOfAtoms):
 
     def center_of_mass(self):
         """Return the structures center of mass"""
-        cm = npy.zeros((3,),npy.Float)
+        cm = npy.zeros((3,))
         M = 0.
         for atom in self:
             m = atom.GetMass()

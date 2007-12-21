@@ -31,8 +31,8 @@ class LCAOHamiltonian(Hamiltonian):
             pos1 = nucleus1.spos_c
             setup1 = nucleus1.setup
             ni1 = nucleus1.get_number_of_partial_waves()
-            nucleus1.P_kmi = npy.zeros((nkpts, self.nao, ni1), npy.Complex)
-            P_mi = npy.zeros((self.nao, ni1), npy.Float)
+            nucleus1.P_kmi = npy.zeros((nkpts, self.nao, ni1), complex)
+            P_mi = npy.zeros((self.nao, ni1))
             for R in R_dc:
                 i1 = 0 
                 for j1, pt1 in enumerate(setup1.pt_j):
@@ -46,10 +46,10 @@ class LCAOHamiltonian(Hamiltonian):
                                           npy.exp(2j * pi *
                                                   npy.dot(self.ibzk_kc[k], R)))
                     
-        self.T_kmm = npy.zeros((nkpts, self.nao, self.nao), npy.Complex)
-        T_mm = npy.zeros((self.nao, self.nao), npy.Float)
-        self.S_kmm = npy.zeros((nkpts, self.nao, self.nao), npy.Complex)
-        S_mm = npy.zeros((self.nao, self.nao), npy.Float)
+        self.T_kmm = npy.zeros((nkpts, self.nao, self.nao), complex)
+        T_mm = npy.zeros((self.nao, self.nao))
+        self.S_kmm = npy.zeros((nkpts, self.nao, self.nao), complex)
+        S_mm = npy.zeros((self.nao, self.nao))
 
         for R in R_dc:
             i1 = 0
@@ -110,7 +110,7 @@ class LCAOHamiltonian(Hamiltonian):
         n = [0, 0, 0]
         # XXXXX BC's !!!!!
         nd = (1 + 2 * n[0]) * (1 + 2 * n[1]) * (1 + 2 * n[2])
-        R_dc = npy.empty((nd, 3), npy.Float)
+        R_dc = npy.empty((nd, 3))
         d = 0
         for d1 in range(-n[0], n[0] + 1):
             for d2 in range(-n[0], n[0] + 1):
@@ -151,10 +151,10 @@ class LCAOHamiltonian(Hamiltonian):
 
         for nucleus in self.nuclei:
             ni = nucleus.get_number_of_partial_waves()
-            nucleus.P_mi = npy.zeros((self.nao, ni), npy.Float)
+            nucleus.P_mi = npy.zeros((self.nao, ni))
             nucleus.pt_i.integrate(self.phi_mG, nucleus.P_mi)
 
-        self.S_mm = npy.zeros((self.nao, self.nao), npy.Float)
+        self.S_mm = npy.zeros((self.nao, self.nao))
         rk(self.gd.dv, self.phi_mG, 0.0, self.S_mm)
         
         # Filling up the upper triangle:
@@ -165,7 +165,7 @@ class LCAOHamiltonian(Hamiltonian):
             self.S_mm += npy.dot(npy.dot(nucleus.P_mi, nucleus.setup.O_ii),
                             npy.transpose(nucleus.P_mi))
 
-        self.T_mm = npy.zeros((self.nao, self.nao), npy.Float)
+        self.T_mm = npy.zeros((self.nao, self.nao))
         Tphi_mG = self.gd.zeros(self.nao)
         self.kin.apply(self.phi_mG, Tphi_mG)
         r2k(0.5 * self.gd.dv, self.phi_mG, Tphi_mG, 0.0, self.T_mm)

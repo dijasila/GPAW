@@ -112,9 +112,9 @@ class ExplicitCrankNicolson(Propagator):
         self.td_hamiltonian.update(self.td_density.get_density(), time)
         self.td_overlap.update()
         if self.hpsit is None:
-            self.hpsit = self.gd.zeros(typecode=npy.Complex)
+            self.hpsit = self.gd.zeros(typecode=complex)
         if self.spsit is None:
-            self.spsit = self.gd.zeros(typecode=npy.Complex)
+            self.spsit = self.gd.zeros(typecode=complex)
 
         self.timer.stop('Update time-dependent operators')
         
@@ -305,16 +305,16 @@ class SemiImplicitCrankNicolson(Propagator):
             self.twf = []
             for kpt in kpt_u:
                 self.twf.append( self.gd.empty( len(kpt.psit_nG),
-                                                typecode=npy.Complex ) )
+                                                typecode=complex ) )
 
         # copy current wavefunctions to temporary variable
         for u in range(len(kpt_u)):
             self.twf[u][:] = kpt_u[u].psit_nG
         
         if self.hpsit is None:
-            self.hpsit = self.gd.zeros(typecode=npy.Complex)
+            self.hpsit = self.gd.zeros(typecode=complex)
         if self.spsit is None:
-            self.spsit = self.gd.zeros(typecode=npy.Complex)
+            self.spsit = self.gd.zeros(typecode=complex)
         
         self.time_step = time_step
 

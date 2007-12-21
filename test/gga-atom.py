@@ -36,19 +36,19 @@ for name in ['LDA', 'PBE']:
     gd = GridDescriptor(domain, (n, n, n))
     pr = create_localized_functions(wt_j, gd, (0.5, 0.5, 0.5))
 
-    coefs = npy.identity(niAO, npy.Float)
-    psit_ig = npy.zeros((niAO, n, n, n), npy.Float)
+    coefs = npy.identity(niAO, float)
+    psit_ig = npy.zeros((niAO, n, n, n))
     pr.add(psit_ig, coefs)
 
     np = ni * (ni + 1) / 2
     npAO = niAO * (niAO + 1) / 2
-    D_p = npy.zeros(np, npy.Float)
-    H_p = npy.zeros(np, npy.Float)
+    D_p = npy.zeros(np)
+    H_p = npy.zeros(np)
 
 
-    e_g = npy.zeros((n, n, n), npy.Float)
-    n_g = npy.zeros((n, n, n), npy.Float)
-    v_g = npy.zeros((n, n, n), npy.Float)
+    e_g = npy.zeros((n, n, n))
+    n_g = npy.zeros((n, n, n))
+    v_g = npy.zeros((n, n, n))
 
     P_ni = 0.2 * ra.random((20, ni))
     P_ni[:, niAO:] = 0.0
@@ -64,7 +64,7 @@ for name in ['LDA', 'PBE']:
 
 
     p = create_localized_functions([s.nct], gd, (0.5, 0.5, 0.5))
-    p.add(n_g, npy.ones(1, npy.Float))
+    p.add(n_g, npy.ones(1))
     xc = XC3DGrid(xcfunc, gd, nspins=1)
     xc.get_energy_and_potential(n_g, v_g)
 

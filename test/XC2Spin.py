@@ -8,13 +8,13 @@ from gpaw.utilities import equal
 
 for name in ['LDA', 'PBE']:
     r = 0.01 * npy.arange(100)
-    dr = 0.01 * npy.ones(100, npy.Float)
+    dr = 0.01 * npy.ones(100)
     rgd = RadialGridDescriptor(r, dr)
     xc = XCRadialGrid(name, rgd, nspins=2)
     naa = npy.exp(-r**2)
     nb = 0.5 * npy.exp(-0.5 * r**2)
-    va = npy.zeros(100, npy.Float)
-    vb = npy.zeros(100, npy.Float)
+    va = npy.zeros(100)
+    vb = npy.zeros(100)
     E = xc.get_energy_and_potential(naa, va, nb, vb)
 
     n2 = 1.0 * nb
@@ -29,8 +29,8 @@ for name in ['LDA', 'PBE']:
     a = 1.0
     gd = GridDescriptor(Domain((a, a, a)), (N, N, N))
     xc = XC3DGrid(name, gd, nspins=2)
-    naa = 0.02 * npy.ones((N, N, N), npy.Float)
-    nb = 0.03 * npy.ones((N, N, N), npy.Float)
+    naa = 0.02 * npy.ones((N, N, N))
+    nb = 0.03 * npy.ones((N, N, N))
     naa += 0.01 * npy.cos(npy.arange(N) * 2 * pi / N)
     nb += 0.01 * npy.sin(npy.arange(N) * 2 * pi / N)
     va = 0.0 * naa

@@ -65,7 +65,7 @@ class Nucleus:
         self.a = a
         self.typecode = typecode
         lmax = setup.lmax
-        self.Q_L = npy.zeros((lmax + 1)**2, npy.Float)
+        self.Q_L = npy.zeros((lmax + 1)**2)
         self.neighbors = []
         self.spos_c = npy.array([-1.0, -1.0, -1.0])
 
@@ -92,10 +92,10 @@ class Nucleus:
     def allocate(self, nspins, nmyu, nbands):
         ni = self.get_number_of_partial_waves()
         np = ni * (ni + 1) // 2
-        self.D_sp = npy.zeros((nspins, np), npy.Float)
-        self.H_sp = npy.zeros((nspins, np), npy.Float)
+        self.D_sp = npy.zeros((nspins, np))
+        self.H_sp = npy.zeros((nspins, np))
         self.P_uni = npy.zeros((nmyu, nbands, ni), self.typecode)
-        self.F_c = npy.zeros(3, npy.Float)
+        self.F_c = npy.zeros(3)
         if self.setup.xc_correction.xc.xcfunc.hybrid > 0.0:
             self.vxx_uni = npy.empty((nmyu, nbands, ni), self.typecode)
             self.vxx_unii = npy.zeros((nmyu, nbands, ni, ni), self.typecode)
@@ -153,7 +153,7 @@ class Nucleus:
         pt_j = self.setup.pt_j
         pt_i = create(pt_j, gd, spos_c, typecode=self.typecode, lfbc=lfbc)
 
-        if self.typecode == npy.Complex and pt_i is not None:
+        if self.typecode == complex and pt_i is not None:
             pt_i.set_phase_factors(k_ki)
         
         # Update pt_nuclei:
@@ -217,7 +217,7 @@ class Nucleus:
                                2 * (vbar is not None) +
                                4 * (ghat_L is not None)])
 
-            flags_r = npy.zeros((self.comm.size, 1), npy.Int)
+            flags_r = npy.zeros((self.comm.size, 1), int)
             self.comm.all_gather(flags, flags_r)
             for mask, lfs in [(1, [pt_i]),
                               (2, [vbar, stepf]),
@@ -257,7 +257,7 @@ class Nucleus:
         self.phit_i = create_localized_functions(
             phit_j, gd, self.spos_c, typecode=self.typecode,
             cut=True, forces=False, lfbc=lfbc)
-        if self.typecode == npy.Complex and self.phit_i is not None:
+        if self.typecode == complex and self.phit_i is not None:
             self.phit_i.set_phase_factors(k_ki)
 
     def get_number_of_atomic_orbitals(self):
@@ -285,12 +285,12 @@ class Nucleus:
         
         if hasattr(self, 'f_si'):
             # Convert to ndarray:
-            self.f_si = npy.asarray(self.f_si, npy.Float)
+            self.f_si = npy.asarray(self.f_si, float)
         else:
             self.f_si = self.calculate_initial_occupation_numbers(ns, niao,
                                                                   magmom, hund)
         if self.in_this_domain:
-            D_sii = npy.zeros((ns, ni, ni), npy.Float)
+            D_sii = npy.zeros((ns, ni, ni))
             for i in range(min(ni, niao)):
                 D_sii[:, i, i] = self.f_si[:, i]
             for s in range(ns):
@@ -300,7 +300,7 @@ class Nucleus:
             self.phit_i.add_density(nt_sG[s], self.f_si[s])
 
     def calculate_initial_occupation_numbers(self, ns, niao, magmom, hund):
-        f_si = npy.zeros((ns, niao), npy.Float)
+        f_si = npy.zeros((ns, niao))
         i = 0
         nj = len(self.setup.n_j)
         for j, phit in enumerate(self.setup.phit_j):
@@ -384,7 +384,7 @@ class Nucleus:
     def calculate_hamiltonian(self, nt_g, vHt_g, vext=None):
         if self.in_this_domain:
             s = self.setup
-            W_L = npy.zeros((s.lmax + 1)**2, npy.Float)
+            W_L = npy.zeros((s.lmax + 1)**2)
             for neighbor in self.neighbors:
                 W_L += npy.dot(neighbor.v_LL, neighbor.nucleus().Q_L)
             U = 0.5 * npy.dot(self.Q_L, W_L)
@@ -702,7 +702,7 @@ class Nucleus:
         if self.in_this_domain:
             lmax = self.setup.lmax
             # ???? Optimization: do the sum over L before the sum over g and G.
-            F_Lc = npy.zeros(((lmax + 1)**2, 3), npy.Float)
+            F_Lc = npy.zeros(((lmax + 1)**2, 3))
             self.ghat_L.derivative(vHt_g, F_Lc)
             if self.vhat_L is not None:
                 self.vhat_L.derivative(nt_g, F_Lc) 
@@ -718,7 +718,7 @@ class Nucleus:
             # Force from zero potential:
             self.vbar.derivative(nt_g, npy.reshape(F, (1, 3)))
 
-            dF = npy.zeros(((lmax + 1)**2, 3), npy.Float)
+            dF = npy.zeros(((lmax + 1)**2, 3))
             for neighbor in self.neighbors:
                 for c in range(3):
                     dF[:, c] += npy.dot(neighbor.dvdr_LLc[:, :, c],
@@ -731,7 +731,7 @@ class Nucleus:
                     self.vhat_L.derivative(nt_g, None)
                 
             if self.nct is None:
-                self.comm.sum(npy.zeros(3, npy.Float), self.rank)
+                self.comm.sum(npy.zeros(3), self.rank)
             else:
                 self.nct.derivative(vt_G, None)
                 
@@ -783,8 +783,8 @@ class Nucleus:
             Inum += phi_i.add_density2(n_sg[s], self.D_sp[s])
             Inum += phit_i.add_density2(n_sg[s], -self.D_sp[s])
             if Nc != 0:
-                nc.add(n_sg[s], npy.ones(1, npy.Float) / nspins)
-                nct.add(n_sg[s], -npy.ones(1, npy.Float) / nspins)
+                nc.add(n_sg[s], npy.ones(1) / nspins)
+                nct.add(n_sg[s], -npy.ones(1) / nspins)
 
             # Correct density, such that correction is norm-conserving
             g_c = self.get_nearest_grid_point(gd) % gd.N_c

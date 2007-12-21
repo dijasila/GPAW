@@ -26,11 +26,11 @@ class GInteraction2:
         self.lmaxa = setupa.lmax
         self.lmaxb = setupb.lmax
         self.v_LL = npy.zeros(((self.lmaxa + 1)**2, (self.lmaxb + 1)**2),
-                              npy.Float)
+                              float)
         self.dvdr_LLc = npy.zeros(((self.lmaxa + 1)**2,
                                   (self.lmaxb + 1)**2,
                                   3),
-                                  npy.Float)
+                                  float)
 
     def __call__(self, R):
         if not self.softgauss:
@@ -41,8 +41,8 @@ class GInteraction2:
                 for lb in range(self.lmaxb + 1):
                     for mb in range(2 * lb + 1):
                         Lb = lb**2 + mb
-                        f = npy.zeros(4, npy.Float)
-                        f2 = npy.zeros(4, npy.Float)
+                        f = npy.zeros(4)
+                        f2 = npy.zeros(4)
                         for ca, xa in YL[La]:
                             for cb, xb in YL[Lb]:
                                 f += ca * cb * I(R, xa, xb,

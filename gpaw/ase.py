@@ -53,14 +53,14 @@ class Calculator(PAW):
             'energy' in  parameters['convergence']):
             parameters['convergence']['energy'] /= self.Ha
         
-    def GetPotentialEnergy(self, force_consistent=False):
+    def get_potential_energy(self, atoms, force_consistent=False):
         """Return total energy.
 
         Both the energy extrapolated to zero Kelvin and the energy
         consistent with the forces (the free energy) can be
         returned."""
         
-        self.calculate()
+        self.calculate(atoms)
 
         if force_consistent:
             # Free energy:
@@ -82,14 +82,16 @@ class Calculator(PAW):
         """Return the stress for the current state of the ListOfAtoms."""
         raise NotImplementedError
 
+    """
     def _SetListOfAtoms(self, atoms):
-        """Make a weak reference to the ListOfAtoms."""
+        ""Make a weak reference to the ListOfAtoms.""
         self.lastcount = -1
         self.atoms = weakref.proxy(atoms)
         self.extra_list_of_atoms_stuff = (atoms.GetTags(),
                                           atoms.GetMagneticMoments())
         self.plot_atoms()
-
+    """
+    
     def GetListOfAtoms(self):
         return self.atoms
     

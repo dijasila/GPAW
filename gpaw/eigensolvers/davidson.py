@@ -37,7 +37,7 @@ class Davidson(Eigensolver):
                                 self.typecode)
         self.S_2n2n = npy.empty((2 * self.nbands, 2 * self.nbands),
                                 self.typecode)        
-        self.eps_2n = npy.empty(2 * self.nbands, npy.Float)        
+        self.eps_2n = npy.empty(2 * self.nbands)        
 
     def iterate_one_k_point(self, hamiltonian, kpt, niter=2):
         """Do Davidson iterations for the kpoint"""

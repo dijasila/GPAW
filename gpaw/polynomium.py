@@ -6,8 +6,8 @@ import numpy as npy
 
 a_i = npy.array((1.0, 0.0, -3.0, 2.0))
 i_i = npy.arange(4)
-c_l = npy.zeros(3, npy.Float)
-b_lj = npy.zeros((3, 6), npy.Float)
+c_l = npy.zeros(3)
+b_lj = npy.zeros((3, 6))
 for l in range(3):
     c_l[l] = 1.0 / npy.sum(a_i / (3 + 2 * l + i_i))
     b_lj[l, 2:6] = 4 * pi * c_l[l] * a_i / \
@@ -15,7 +15,7 @@ for l in range(3):
     b_lj[l, 0] = 4 * pi / (2 * l + 1) - npy.sum(b_lj[l])
 
 
-I_l = npy.zeros(3, npy.Float)
+I_l = npy.zeros(3)
 for l in range(3):
     for i in range(4):
         for j in range(6):
@@ -25,9 +25,9 @@ for l in range(3):
 if __name__ == '__main__':
     rc = 2.1
     x = npy.arange(150) / 100.0
-    g_lg = npy.zeros((3, 150), npy.Float) 
-    v_lg = npy.zeros((3, 150), npy.Float) 
-    s_g = npy.zeros(150, npy.Float)
+    g_lg = npy.zeros((3, 150)) 
+    v_lg = npy.zeros((3, 150)) 
+    s_g = npy.zeros(150)
     for i in range(4):
         s_g += a_i[i] * x**i
     s_g[100:] = 0.0

@@ -203,7 +203,7 @@ class KSSingle(Excitation,PairDensity):
         me = -gd.calculate_dipole_moment(self.GetPairDensity())
 
         # augmentation contributions
-        ma = npy.zeros(me.shape,npy.Float)
+        ma = npy.zeros(me.shape)
         for nucleus in paw.my_nuclei:
             Ra = nucleus.spos_c*paw.domain.cell_c
             Pi_i = nucleus.P_uni[self.u,self.i]
@@ -211,7 +211,7 @@ class KSSingle(Excitation,PairDensity):
             Delta_pL = nucleus.setup.Delta_pL
             ni=len(Pi_i)
             ma0 = 0
-            ma1 = npy.zeros(me.shape,npy.Float)
+            ma1 = npy.zeros(me.shape)
             for i in range(ni):
                 for j in range(ni):
                     pij = Pi_i[i]*Pj_i[j]

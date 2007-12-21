@@ -6,9 +6,9 @@ from math import pi
 
 if __name__ == '__main__':
     from gpaw.spherical_harmonics import Y
-    weights = npy.zeros(50, npy.Float)
-    Y_nL = npy.zeros((50, 25), npy.Float)
-    points = npy.zeros((50, 3), npy.Float)
+    weights = npy.zeros(50)
+    Y_nL = npy.zeros((50, 25))
+    points = npy.zeros((50, 3))
 
     # We use 50 Lebedev quadrature points which will integrate
     # spherical harmonics correctly for l < 12:

@@ -17,7 +17,7 @@ MASTER = 0
 
 
 def create_localized_functions(functions, gd, spos_c,
-                               typecode=npy.Float, cut=False,
+                               typecode=float, cut=False,
                                forces=True, lfbc=None):
     """Create `LocFuncs` object.
 
@@ -60,7 +60,7 @@ class LocFuncs:
         box_b = gd.get_boxes(spos_c, rcut, cut)
 
         self.box_b = []
-        self.sdisp_bc = npy.zeros((len(box_b), 3), npy.Float)
+        self.sdisp_bc = npy.zeros((len(box_b), 3))
         b = 0
         for beg_c, end_c, sdisp_c in box_b:
             box = LocalizedFunctions(functions, beg_c, end_c,
@@ -205,7 +205,7 @@ class LocFuncs:
     def norm(self):
         """Calculate norm of localized functions."""
 
-        I_i = npy.zeros(self.ni, npy.Float)
+        I_i = npy.zeros(self.ni)
         for box in self.box_b:
             box.norm(I_i)
         self.comm.sum(I_i)
@@ -243,7 +243,7 @@ class LocalizedFunctionsWrapper:
 
         Derivatives are calculated when ``forces=True``."""
 
-        assert typecode in [npy.Float, npy.Complex]
+        assert typecode in [float, complex]
 
         # Who evaluates the function values?
         if locfuncbcaster is None:
@@ -261,7 +261,7 @@ class LocalizedFunctionsWrapper:
         self.lfs = _gpaw.LocalizedFunctions(
             [function.spline for function in functions],
             size_c, gd.n_c, corner_c, gd.h_c, pos_c,
-            typecode == npy.Float, forces, compute)
+            typecode == float, forces, compute)
         
         if locfuncbcaster is not None:
             locfuncbcaster.add(self.lfs)
@@ -323,8 +323,8 @@ class LocalizedFunctionsWrapper:
         calculated from atomic orbitals and occupation numbers
         ``f_i``."""
         
-        assert is_contiguous(n_G, npy.Float)
-        assert is_contiguous(f_i, npy.Float)
+        assert is_contiguous(n_G, float)
+        assert is_contiguous(f_i, float)
         assert n_G.shape == self.shape
         assert f_i.shape == (self.ni,)
         self.lfs.add_density(n_G, f_i)
@@ -339,21 +339,21 @@ class LocalizedFunctionsWrapper:
         The method returns the integral of the atomic electron density
         """
         
-        assert is_contiguous(n_G, npy.Float)
-        assert is_contiguous(D_p, npy.Float)
+        assert is_contiguous(n_G, float)
+        assert is_contiguous(D_p, float)
         assert n_G.shape == self.shape
         assert D_p.shape == (self.ni * (self.ni + 1) / 2,)
         return self.lfs.add_density2(n_G, D_p)
 
     def norm(self, I_i):
         """Integrate functions."""
-        assert is_contiguous(I_i, npy.Float)
+        assert is_contiguous(I_i, float)
         assert I_i.shape == (self.ni,)
         return self.lfs.norm(I_i)
 
     def normalize(self, I0, I_i):
         """Normalize functions."""
-        assert is_contiguous(I_i, npy.Float)
+        assert is_contiguous(I_i, float)
         assert I_i.shape == (self.ni,)
         return self.lfs.normalize(I0, I_i)
 

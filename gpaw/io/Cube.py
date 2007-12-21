@@ -47,7 +47,7 @@ def WriteCubeFloat(atoms,grid,filename):
     natoms = len(atoms)
     unitcell = atoms.GetUnitCell()
     n_c = npy.array(npy.shape(grid))
-    corner = npy.zeros((3,),npy.Float)
+    corner = npy.zeros((3,))
     d = unitcell.copy()
     for c in range(3):
         d[c] /= (n_c[c]+1)*bohr

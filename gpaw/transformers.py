@@ -11,7 +11,7 @@ import _gpaw
 
 
 class _Transformer:
-    def __init__(self, gdin, gdout, nn=1, typecode=npy.Float):
+    def __init__(self, gdin, gdout, nn=1, typecode=float):
         self.typecode = typecode
         neighbor_cd = gdin.domain.neighbor_cd
 
@@ -23,9 +23,9 @@ class _Transformer:
         else:
             comm = None
 
-        pad_cd = npy.empty((3, 2), npy.Int)
-        neighborpad_cd = npy.empty((3, 2), npy.Int)
-        skip_cd = npy.empty((3, 2), npy.Int)
+        pad_cd = npy.empty((3, 2), int)
+        neighborpad_cd = npy.empty((3, 2), int)
+        skip_cd = npy.empty((3, 2), int)
         
         if gdin.N_c == 2 * gdout.N_c:
             # Restriction:
@@ -49,11 +49,11 @@ class _Transformer:
             
         self.transformer = _gpaw.Transformer(
             gdin.n_c, 2 * nn, pad_cd, neighborpad_cd, skip_cd, neighbor_cd,
-            typecode == npy.Float, comm, interpolate)
+            typecode == float, comm, interpolate)
         
         self.ngpin = tuple(gdin.n_c)
         self.ngpout = tuple(gdout.n_c)
-        assert typecode in [npy.Float, npy.Complex]
+        assert typecode in [float, complex]
 
     def apply(self, input, output, phases=None):
         assert is_contiguous(input, self.typecode)
@@ -66,7 +66,7 @@ class _Transformer:
 if debug:
     Transformer = _Transformer
 else:
-    def Transformer(gdin, gdout, nn=1, typecode=npy.Float):
+    def Transformer(gdin, gdout, nn=1, typecode=float):
         return _Transformer(gdin, gdout, nn, typecode).transformer
     
 

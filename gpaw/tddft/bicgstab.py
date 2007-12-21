@@ -75,16 +75,16 @@ class BiCGStab:
             self.timer.start('BiCGStab')
 
         # r_0 = b - A x_0
-        r = self.gd.zeros(typecode=npy.Complex)
+        r = self.gd.zeros(typecode=complex)
         A.dot(-x,r)
         r += b
         
-        q = self.gd.empty(typecode=npy.Complex)
+        q = self.gd.empty(typecode=complex)
         q[:] = r
-        p = self.gd.zeros(typecode=npy.Complex)
-        v = self.gd.zeros(typecode=npy.Complex)
-        t = self.gd.zeros(typecode=npy.Complex)
-        m = self.gd.zeros(typecode=npy.Complex)
+        p = self.gd.zeros(typecode=complex)
+        v = self.gd.zeros(typecode=complex)
+        t = self.gd.zeros(typecode=complex)
+        m = self.gd.zeros(typecode=complex)
         alpha = 0.
         rhop  = 1.
         omega = 1.

@@ -25,7 +25,7 @@ def Y_matrix(l, symmetry):
     mirror)."""
     
     swap, mirror = symmetry
-    Y_mm = npy.zeros((2 * l + 1, 2 * l + 1), npy.Float)
+    Y_mm = npy.zeros((2 * l + 1, 2 * l + 1))
     for m1, point in enumerate(sphere_lm[l]):
         x, y, z = npy.take(point * mirror, swap)
         for m2 in range(2 * l + 1):
@@ -47,7 +47,7 @@ def rotation(l, symmetry):
 
 
 def Y_rotation(l, angle):
-    Y_mm = npy.zeros((2 * l + 1, 2 * l + 1), npy.Float)
+    Y_mm = npy.zeros((2 * l + 1, 2 * l + 1))
     sn = sin(angle)
     cs = cos(angle)
     for m1, point in enumerate(sphere_lm[l]):

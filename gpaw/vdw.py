@@ -108,7 +108,7 @@ class VanDerWaals:
             data = self.read_array1d_from_txt_file(f)
             x[n] = npy.array(data[:])*faktor 
         #h=0.05 for D og delta 
-        phimat = npy.zeros((len(x),len(x[0.0])),npy.Float)
+        phimat = npy.zeros((len(x),len(x[0.0])))
         for n in range(0,phimat.shape[0]):
             for m in range(phimat.shape[1]):
                 phimat[n,m] = x[n*0.05][m]
@@ -126,10 +126,10 @@ class VanDerWaals:
         #D is set to max int phitab, to make the interpolation possible
         D = npy.choose(mask,(D,Dtab[-1]-deltaD/100.0))
         #dette er aendre her phi(D=0, delta=x)=0 per definition
-        n_D = (D/deltaD).astype(npy.Int) #-1 because Dtab starts at h and not 0
+        n_D = (D/deltaD).astype(int) #-1 because Dtab starts at h and not 0
         #delta above the upper limit of delta in phitab is set to just below the upper limit
         delta = npy.choose(npy.greater_equal(delta,deltatab[len(deltatab)-1]),(delta,deltatab[len(deltatab)-1]-deltadelta/100.00))
-        n_delta = (delta/deltadelta).astype(npy.Int)
+        n_delta = (delta/deltadelta).astype(int)
         #
         t = (D-(n_D)*deltaD)/deltaD  
         u = (delta-n_delta*deltadelta)/deltadelta
@@ -182,7 +182,7 @@ class VanDerWaals:
         self.test=denstab =self.coarsen(self.density,n)
         denstab = self.density
         nx, ny, nz = self.density[::n,::n,::n].shape
-        R = npy.zeros((nx, ny, nz, 3), npy.Float)
+        R = npy.zeros((nx, ny, nz, 3))
         for x in range(nx):
             for y in range(ny):
                 for z in range(nz):
@@ -256,7 +256,7 @@ class VanDerWaals:
         print 'denstab.shape', denstab.shape
         nx, ny, nz = denstab.shape
         #self.density[::n,::n,::n].shape
-        R = npy.zeros((nx, ny, nz, 3), npy.Float)
+        R = npy.zeros((nx, ny, nz, 3))
         for x in range(nx):
             for y in range(ny):
                 for z in range(nz):

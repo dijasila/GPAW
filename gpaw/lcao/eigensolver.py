@@ -33,9 +33,9 @@ class LCAO:
 
         nao = hamiltonian.nao
         nbands = kpt.nbands
-        H_mm = npy.zeros((nao, nao), npy.Complex)   #Changed to complex!
+        H_mm = npy.zeros((nao, nao), complex)   #Changed to complex!
         
-        V_mm = npy.zeros((nao, nao), npy.Float)
+        V_mm = npy.zeros((nao, nao))
         hamiltonian.calculate_effective_potential_matrix(V_mm, s)
         H_mm += V_mm
 
@@ -45,7 +45,7 @@ class LCAO:
                             npy.transpose(nucleus.P_kmi[k]))
 
         H_mm += hamiltonian.T_kmm[k]
-        eps_n = npy.zeros(nao, npy.Float)
+        eps_n = npy.zeros(nao)
         diagonalize(H_mm, eps_n, hamiltonian.S_kmm[k].copy())
         kpt.C_nm = H_mm[0:nbands].copy()
         #print kpt.C_nm

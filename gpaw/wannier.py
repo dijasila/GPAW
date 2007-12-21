@@ -48,7 +48,7 @@ class Wannier(ASEWannier):
         if initialwannier is not None:
             self.SetInitialWannierFunctions(initialwannier)
 
-        if calculator.typecode == npy.Float:
+        if calculator.typecode == float:
             self.SetType(float)
         else:
             self.SetType(complex)
@@ -81,7 +81,7 @@ class Wannier(ASEWannier):
             spin = self.GetSpin()
             nuclei = self.GetCalculator().nuclei
 
-            V_knj = npy.zeros((Nk, Nb, len(initialwannier)), npy.Complex)
+            V_knj = npy.zeros((Nk, Nb, len(initialwannier)), complex)
             # The 5 lines below should be changed to something where
             # localized functions are put on the grid at the desired pos
             ##for k in range(Nk):
@@ -105,7 +105,7 @@ class Wannier(ASEWannier):
         # The coordinate vector of wannier functions
         if isinstance(wannierindex, int):
             coords_w = npy.zeros(self.GetNumberOfWannierFunctions(),
-                                 npy.Complex)
+                                 complex)
             coords_w[wannierindex] = 1.0
         else:   
             coords_w = wannierindex
@@ -123,7 +123,7 @@ class Wannier(ASEWannier):
         bzk_kc = self.GetBZKPoints()
         Nkpts = len(bzk_kc)
         kpt_u = self.GetCalculator().kpt_u
-        wanniergrid = npy.zeros(largedim, typecode=npy.Complex)
+        wanniergrid = npy.zeros(largedim, typecode=complex)
         for k, kpt_c in enumerate(bzk_kc):
             u = (k + Nkpts * self.spin) % len(kpt_u)
             U_nw = self.GetListOfLargeRotationMatrices()[k]
@@ -169,7 +169,7 @@ def get_projections(initialwannier,calc):
     for spos_c,ls,a in initialwannier:
         nbf += npy.sum([2 * l + 1 for l in ls])
     
-    f_kni = npy.zeros((len(calc.ibzk_kc),calc.nbands,nbf),npy.Complex)
+    f_kni = npy.zeros((len(calc.ibzk_kc),calc.nbands,nbf),complex)
     
     nbf = 0
     for spos_c,ls,a in initialwannier:
@@ -202,8 +202,8 @@ def get_c_k_and_U_k(V_kni, NML):
         V_ni = normalize(V_ni)
         T = V_ni[M:].copy()
         nbf = T.shape[1] #number of initial functions
-        c = npy.zeros([nbands - M, L], npy.Complex)
-        U = npy.zeros([M + L, M + L], npy.Complex)
+        c = npy.zeros([nbands - M, L], complex)
+        U = npy.zeros([M + L, M + L], complex)
         #Calculate the EDF
         w = abs(npy.sum(T * npy.conjugate(T)))
         for i in xrange(min(L, nbf)):
@@ -242,5 +242,5 @@ def check_ortho(U):
         
 def GetOrthonormalityFactor(U):
     nb = U.shape[1]
-    diff = npy.dot(dagger(U),U) - npy.identity(nb, npy.Float)
+    diff = npy.dot(dagger(U),U) - npy.identity(nb, float)
     return max(npy.absolute(diff).ravel())

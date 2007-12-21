@@ -2,7 +2,7 @@ from math import sqrt, exp, pi
 from gpaw.vdw import VanDerWaals
 import numpy as npy
 n = 48
-d = npy.ones((2 * n, n, n), npy.Float)
+d = npy.ones((2 * n, n, n))
 a = 4.0
 c = a / 2
 h = a / n

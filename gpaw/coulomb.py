@@ -124,8 +124,8 @@ class Coulomb:
         else:
              raise RuntimeError, 'Method %s unknown' % method
          
-        if n1.dtype.char == npy.Float and (n2 == None or
-                                           n2.dtype.char == npy.Float):
+        if n1.dtype.char == float and (n2 == None or
+                                           n2.dtype.char == float):
             return real(self.gd.integrate(I))
         else:
             return self.gd.integrate(I)

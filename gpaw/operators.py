@@ -11,7 +11,7 @@ from gpaw.utilities import contiguous, is_contiguous
 import _gpaw
     
 class _Operator:
-    def __init__(self, coef_p, offset_pc, gd, typecode=npy.Float):
+    def __init__(self, coef_p, offset_pc, gd, typecode=float):
         """Operator(coefs, offsets, gd, typecode) -> Operator object.
         """
 
@@ -31,11 +31,11 @@ class _Operator:
         M_c = n_c + 2 * mp
         stride_c = npy.array([M_c[1] * M_c[2], M_c[2], 1])
         offset_p = npy.dot(offset_pc, stride_c)
-        coef_p = contiguous(coef_p, npy.Float)
+        coef_p = contiguous(coef_p, float)
         neighbor_cd = gd.domain.neighbor_cd
         assert npy.rank(coef_p) == 1
         assert coef_p.shape == offset_p.shape
-        assert typecode in [npy.Float, npy.Complex]
+        assert typecode in [float, complex]
         self.typecode = typecode
         self.shape = tuple(n_c)
         
@@ -48,7 +48,7 @@ class _Operator:
             comm = None
 
         self.operator = _gpaw.Operator(coef_p, offset_p, n_c, mp,
-                                          neighbor_cd, typecode == npy.Float,
+                                          neighbor_cd, typecode == float,
                                           comm, cfd)
 
     def apply(self, in_xg, out_xg, phase_cd=None):
@@ -56,17 +56,17 @@ class _Operator:
         assert in_xg.shape[-3:] == self.shape
         assert is_contiguous(in_xg, self.typecode)
         assert is_contiguous(out_xg, self.typecode)
-        assert (self.typecode is npy.Float or
-                (phase_cd.dtype.char == npy.Complex and
+        assert (self.typecode is float or
+                (phase_cd.dtype.char == complex and
                  phase_cd.shape == (3, 2)))
         self.operator.apply(in_xg, out_xg, phase_cd)
 
     def relax(self, relax_method, f_g, s_g, n, w=None):
         assert f_g.shape == self.shape
         assert s_g.shape == self.shape
-        assert is_contiguous(f_g, npy.Float)
-        assert is_contiguous(s_g, npy.Float)
-        assert self.typecode is npy.Float
+        assert is_contiguous(f_g, float)
+        assert is_contiguous(s_g, float)
+        assert self.typecode is float
         self.operator.relax(relax_method, f_g, s_g, n, w)
         
     def get_diagonal_element(self):
@@ -76,11 +76,11 @@ class _Operator:
 if debug:
     Operator = _Operator
 else:
-    def Operator(coef_p, offset_pc, gd, typecode=npy.Float):
+    def Operator(coef_p, offset_pc, gd, typecode=float):
         return _Operator(coef_p, offset_pc, gd, typecode).operator
 
 
-def Gradient(gd, c, scale=1.0, typecode=npy.Float):
+def Gradient(gd, c, scale=1.0, typecode=float):
     h = gd.h_c[c]
     a = 0.5 / h * scale
     coef_p = [-a, a]
@@ -106,7 +106,7 @@ if debug:
         assert abs(coefs[0] + 2 * sum(coefs[1:])) < 1e-11
 
 
-def Laplace(gd, scale=1.0, n=1, typecode=npy.Float):
+def Laplace(gd, scale=1.0, n=1, typecode=float):
     """Central finite diference Laplacian.
 
     Uses 6*n neighbors."""
@@ -127,7 +127,7 @@ def Laplace(gd, scale=1.0, n=1, typecode=npy.Float):
     return Operator(coefs, offsets, gd, typecode)
 
 
-def LaplaceA(gd, scale, typecode=npy.Float):
+def LaplaceA(gd, scale, typecode=float):
     c = npy.divide(-1/12, gd.h_c**2) * scale  # Why divide? XXX
     c0 = c[1] + c[2]
     c1 = c[0] + c[2]
@@ -150,7 +150,7 @@ def LaplaceA(gd, scale, typecode=npy.Float):
                      (-1, -1, 0), (-1, 1, 0), (1, -1, 0), (1, 1, 0)],
                     gd, typecode)
 
-def LaplaceB(gd, typecode=npy.Float):
+def LaplaceB(gd, typecode=float):
     a = 0.5
     b = 1.0 / 12.0
     return Operator([a,

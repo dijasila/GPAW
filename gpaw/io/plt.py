@@ -34,7 +34,7 @@ def read_plt(filename):
     dz = (ze-z0)/(nz-1)
     dy = (ye-y0)/(ny-1)
     dx = (xe-x0)/(nx-1)
-    cell = npy.zeros((3,3),npy.Float)
+    cell = npy.zeros((3,3))
     cell[0,0] = (nx+1)*dx 
     cell[1,1] = (ny+1)*dy 
     cell[2,2] = (nz+1)*dz 
@@ -42,7 +42,7 @@ def read_plt(filename):
     fmt='f'
     if byteswap: fmt='>f'
     size = nx*ny*nz * calcsize(fmt)
-    arr = npy.fromstring(f.read(size),npy.Float32)
+    arr = npy.fromstring(f.read(size),float32)
     if byteswap: arr = arr.byteswap()
     f.close()
 
@@ -107,7 +107,7 @@ def write_plt(cell,
     else:
         fgrid = npy.array(npy.transpose(grid).tolist(),'f')
         #    npy.asarray does not work here !
-        #    fgrid = npy.asarray(npy.transpose(grid), npy.Float32)
+        #    fgrid = npy.asarray(npy.transpose(grid), float32)
     f.write(fgrid.tostring())
 
     f.close()

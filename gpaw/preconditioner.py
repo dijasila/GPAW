@@ -64,7 +64,7 @@ class Teter:
         q_cq = ((npy.indices(gd.n_c) + dims / 2) % dims - dims / 2) * icell
         self.q2_q = npy.sum(q_cq**2)
 
-        self.r_cG = npy.indices(gd.n_c, npy.Float) / dims
+        self.r_cG = npy.indices(gd.n_c, float) / dims
         self.r_cG.shape = (3, -1)
 
         self.cache = {}
@@ -95,6 +95,6 @@ class Teter:
         K_q /= (K_q + 16.0 * x_q**4)
        
         if kpt_c is None:
-            return inverse_fftnd(K_q * fftnd(R_G)).astype(npy.Float)
+            return inverse_fftnd(K_q * fftnd(R_G)).astype(float)
         else:
             return inverse_fftnd(K_q * fftnd(phase_G * R_G)) / phase_G

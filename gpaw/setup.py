@@ -95,13 +95,13 @@ class Setup:
         self.f_j = f_j
         self.eps_j = eps_j
 
-        g = npy.arange(ng, typecode=npy.Float)
+        g = npy.arange(ng, typecode=float)
         r_g = beta * g / (ng - g)
         dr_g = beta * ng / (ng - g)**2
         d2gdr2 = -2 * ng * beta / (beta + r_g)**3
 
         # compute inverse overlap coefficients B_ii
-        B_jj = npy.zeros((len(l_j),len(l_j)), npy.Float)
+        B_jj = npy.zeros((len(l_j),len(l_j)))
         for i1 in range(len(l_j)):
             for i2 in range(len(l_j)):
                 B_jj[i1][i2] = npy.dot( r_g**2 * dr_g, pt_jg[i1] * pt_jg[i2] )
@@ -116,7 +116,7 @@ class Setup:
         for l1 in l_j:
             for m1 in range(2 * l1 + 1):
                     size +=1
-        self.B_ii = npy.zeros((size,size), npy.Float)
+        self.B_ii = npy.zeros((size,size))
 
         i1=0
         for n1, l1 in enumerate(l_j):
@@ -180,7 +180,7 @@ class Setup:
 
         # Construct splines for core kinetic energy density:
         if tauct_g is None:
-            tauct_g = npy.zeros(ng, npy.Float)
+            tauct_g = npy.zeros(ng)
         self.tauct = Spline(0, rcore, tauct_g, r_g, beta)
 
         # Step function:
@@ -220,7 +220,7 @@ class Setup:
             self.phicorehole_g = self.phicorehole_g[:gcut2].copy()
 
         Lcut = (2 * lcut + 1)**2
-        T_Lqp = npy.zeros((Lcut, nq, np), npy.Float)
+        T_Lqp = npy.zeros((Lcut, nq, np))
         p = 0
         i1 = 0
         for j1, l1, L1 in jlL_i:
@@ -233,7 +233,7 @@ class Setup:
                 p += 1
             i1 += 1
 
-        g_lg = npy.zeros((lmax + 1, gcut2), npy.Float)
+        g_lg = npy.zeros((lmax + 1, gcut2))
         g_lg[0] = 4 / rcgauss**3 / sqrt(pi) * npy.exp(-(r_g / rcgauss)**2)
         for l in range(1, lmax + 1):
             g_lg[l] = 2.0 / (2 * l + 1) / rcgauss**2 * r_g * g_lg[l - 1]
@@ -241,8 +241,8 @@ class Setup:
         for l in range(lmax + 1):
             g_lg[l] /= npy.dot(r_g**(l + 2) * dr_g, g_lg[l])
 
-        n_qg = npy.zeros((nq, gcut2), npy.Float)
-        nt_qg = npy.zeros((nq, gcut2), npy.Float)
+        n_qg = npy.zeros((nq, gcut2))
+        nt_qg = npy.zeros((nq, gcut2))
         q = 0
         for j1 in range(nj):
             for j2 in range(j1, nj):
@@ -250,12 +250,12 @@ class Setup:
                 nt_qg[q] = phit_jg[j1] * phit_jg[j2]
                 q += 1
 
-        Delta_lq = npy.zeros((lmax + 1, nq), npy.Float)
+        Delta_lq = npy.zeros((lmax + 1, nq))
         for l in range(lmax + 1):
             Delta_lq[l] = npy.dot(n_qg - nt_qg, r_g**(2 + l) * dr_g)
 
         Lmax = (lmax + 1)**2
-        self.Delta_pL = npy.zeros((np, Lmax), npy.Float)
+        self.Delta_pL = npy.zeros((np, Lmax))
         for l in range(lmax + 1):
             L = l**2
             for m in range(2 * l + 1):
@@ -266,7 +266,7 @@ class Setup:
         self.Delta0 = Delta
 
         def H(n_g, l):
-            yrrdr_g = npy.zeros(gcut2, npy.Float)
+            yrrdr_g = npy.zeros(gcut2)
             nrdr_g = n_g * r_g * dr_g
             hartree(l, nrdr_g, beta, ng, yrrdr_g)
             yrrdr_g *= r_g * dr_g
@@ -319,7 +319,7 @@ class Setup:
                         npy.outerproduct(Delta_lq[l], Delta_lq[l])
             A_lqq.append(A_qq)
 
-        self.M_pp = npy.zeros((np, np), npy.Float)
+        self.M_pp = npy.zeros((np, np))
         L = 0
         for l in range(2 * lcut + 1):
             for m in range(2 * l + 1):
@@ -377,7 +377,7 @@ class Setup:
 
         self.O_ii = sqrt(4.0 * pi) * unpack(self.Delta_pL[:, 0].copy())
 
-        self.Delta_Lii = npy.zeros((ni, ni, Lmax), npy.Float)
+        self.Delta_Lii = npy.zeros((ni, ni, Lmax))
         for L in range(Lmax):
             self.Delta_Lii[:,:,L] = unpack(self.Delta_pL[:, L].copy())
 
@@ -389,8 +389,8 @@ class Setup:
 
         self.lmax = lmax
 
-        r = 0.02 * rcutsoft * npy.arange(51, typecode=npy.Float)
-##        r = 0.04 * rcutsoft * npy.arange(26, typecode=npy.Float)
+        r = 0.02 * rcutsoft * npy.arange(51, typecode=float)
+##        r = 0.04 * rcutsoft * npy.arange(26, typecode=float)
         alpha = rcgauss**-2
         self.alpha = alpha
         if self.softgauss:
@@ -527,7 +527,7 @@ class Setup:
 
     def calculate_rotations(self, R_slmm):
         nsym = len(R_slmm)
-        self.R_sii = npy.zeros((nsym, self.ni, self.ni), npy.Float)
+        self.R_sii = npy.zeros((nsym, self.ni, self.ni))
         i1 = 0
         for l in self.l_j:
             i2 = i1 + 2 * l + 1
@@ -536,7 +536,7 @@ class Setup:
             i1 = i2
 
     def symmetrize(self, a, D_aii, map_sa):
-        D_ii = npy.zeros((self.ni, self.ni), npy.Float)
+        D_ii = npy.zeros((self.ni, self.ni))
         for s, R_ii in enumerate(self.R_sii):
             D_ii += npy.dot(R_ii, npy.dot(D_aii[map_sa[s][a]],
                                               npy.transpose(R_ii)))
@@ -569,7 +569,7 @@ class Setup:
         gcut2 = 1 + int(rcut2 * ng / (rcut2 + beta))
 
         # radial grid
-        g = npy.arange(ng, typecode=npy.Float)
+        g = npy.arange(ng, typecode=float)
         r_g = beta * g / (ng - g)
 
         # Construct splines:
@@ -577,7 +577,7 @@ class Setup:
         nc = Spline(0, rcut2, nc_g, r_g, beta, points=1000)
         nct = Spline(0, rcut2, nct_g, r_g, beta, points=1000)
         if tauc_g is None:
-            tauc_g = npy.zeros(nct_g.shape,npy.Float)
+            tauc_g = npy.zeros(nct_g.shape)
             tauct_g = tauc_g
         tauc = Spline(0, rcut2, tauc_g, r_g, beta, points=1000)
         tauct = Spline(0, rcut2, tauct_g, r_g, beta, points=1000)
@@ -591,7 +591,7 @@ class Setup:
         return phi_j, phit_j, nc, nct, tauc, tauct
 
     def calculate_oscillator_strengths(self, r_g, dr_g, phi_jg):
-        self.A_ci = npy.zeros((3, self.ni), npy.Float)
+        self.A_ci = npy.zeros((3, self.ni))
         nj = len(phi_jg)
         i = 0
         for j in range(nj):
@@ -645,13 +645,13 @@ class Setup:
          core_response) = PAWXMLParser().parse(self.symbol, self.setupname)
 
         # radial grid
-        g = npy.arange(ng, typecode=npy.Float)
+        g = npy.arange(ng, typecode=float)
         r_g = beta * g / (ng - g)
         dr_g = beta * ng / (ng - g)**2
 
         # compute radial parts
         nj = len(self.l_j)
-        R_llll = npy.zeros((nj,nj,nj,nj), npy.Float)
+        R_llll = npy.zeros((nj,nj,nj,nj))
         for i1 in range(nj):
             for i2 in range(nj):
                 for i3 in range(nj):
@@ -676,8 +676,8 @@ class Setup:
         # https://wiki.fysik.dtu.dk/gpaw/Overview#naming-convention-for-arrays
 
         # calculate the integrals
-        I4_iip = npy.empty((ni,ni,np),npy.Float)
-        I = npy.empty((ni,ni),npy.Float)
+        I4_iip = npy.empty((ni,ni,np))
+        I = npy.empty((ni,ni))
         for i1 in range(ni):
             L1 = L_i[i1]
             j1 = j_i[i1]

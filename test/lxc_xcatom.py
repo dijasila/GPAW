@@ -47,7 +47,7 @@ for xc in libxc_set:
     ni = s.ni
     np = ni * (ni + 1) / 2
     D_p = 0.1 * ra.random(np) + 0.2
-    H_p = npy.zeros(np, npy.Float)
+    H_p = npy.zeros(np)
 
     E1 = s.xc_correction.calculate_energy_and_derivatives([D_p], [H_p])
     dD_p = x * ra.random(np)
@@ -70,7 +70,7 @@ for xc in libxc_set:
         equal(E2, reference_libxc_886[xc], tolerance)
 
     D_sp = 0.1 * ra.random((2, np)) + 0.2
-    H_sp = npy.zeros((2, np), npy.Float)
+    H_sp = npy.zeros((2, np))
 
     E1 = d.xc_correction.calculate_energy_and_derivatives(D_sp, H_sp)
     dD_sp = x * ra.random((2, np))

@@ -58,8 +58,8 @@ class PairPotential:
                 symbol2 = nucleus2.setup.symbol
                 interaction = self.interactions[(symbol1, symbol2)]
                 diff_c = pos_ac[a2] - pos_ac[a1]
-                V_LL = npy.zeros(interaction.v_LL.shape, npy.Float)  #  XXXX!
-                dVdr_LLc = npy.zeros(interaction.dvdr_LLc.shape, npy.Float)
+                V_LL = npy.zeros(interaction.v_LL.shape)  #  XXXX!
+                dVdr_LLc = npy.zeros(interaction.dvdr_LLc.shape)
                 r_c = pos_ac[a2] - cell_c / 2
                 for offset in offsets:
                     d_c = diff_c + offset

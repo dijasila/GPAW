@@ -103,7 +103,7 @@ class ResponseFunctional(NonLocalFunctional):
 
             # For each orbital, add the response part
             for f, e, psit_G, w in zip(info['f_n'], info['eps_n'], info['psit_nG'], w_n):
-                if info['typecode'] is npy.Float:
+                if info['typecode'] is float:
                     axpy(f*w, psit_G**2, self.vt_G)
                 else:
                     self.vt_G += f * w * (psit_G * npy.conjugate(psit_G)).real
@@ -139,14 +139,14 @@ class ResponseFunctional(NonLocalFunctional):
         N = len(xccorr.n_g)
 
         # TODO: Allocate these only once
-        vtemp_g = npy.zeros(N, npy.Float)
-        e_g = npy.zeros(N, npy.Float)
-        deda2_g = npy.zeros(N, npy.Float)
+        vtemp_g = npy.zeros(N)
+        e_g = npy.zeros(N)
+        deda2_g = npy.zeros(N)
         # Calculate the density matrix only at first slice
         # Calculate also the core-response in self.relaxed_core_response is True
         if slice == 0:
             if self.relaxed_core_response:
-                self.core_response = npy.zeros(N, npy.Float)
+                self.core_response = npy.zeros(N)
                 njcore = xccorr.extra_xc_data['njcore']
                 for nc in range(0, njcore):
                     psi2_g = xccorr.extra_xc_data['core_orbital_density_'+str(nc)]
@@ -167,7 +167,7 @@ class ResponseFunctional(NonLocalFunctional):
 
                     # Create the coefficients
                     # TODO: Better conversion from python array to npy.array"
-                    w_i = npy.zeros(kpt.eps_n.shape, npy.Float)
+                    w_i = npy.zeros(kpt.eps_n.shape)
                     for j in range(len(w_i)):
                         w_i[j] = self.w_sn[s][i]
                         i = i + 1

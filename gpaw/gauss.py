@@ -9,7 +9,7 @@ from gpaw.utilities import erf
 
 
 def I(R, a, b, alpha, beta):
-    result = npy.zeros(4, npy.Float)
+    result = npy.zeros(4)
     R = npy.array(R)
     result[0] = I1(R, a, b, alpha, beta)
     a = npy.array(a)

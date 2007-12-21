@@ -27,7 +27,7 @@ def main(molecules, moleculedata, results, Ea):
             result['Ea'] = E0 - result['Em0']
         if len(molecule) == 2:
             d = result['d0'] + dd
-            M = npy.zeros((4, 5), npy.Float)
+            M = npy.zeros((4, 5))
             for n in range(4):
                 M[n] = d**-n
             a = solve(npy.innerproduct(M, M), npy.dot(M, result['Em'] - E0))

@@ -106,8 +106,8 @@ class ControlOccupation(Dummy):
         niter = 0
         while True:
             if self.fixmom:
-                n = npy.zeros(2, npy.Float)
-                dnde = npy.zeros(2, npy.Float)
+                n = npy.zeros(2)
+                dnde = npy.zeros(2)
             else:
                 n = 0.0
                 dnde = 0.0
@@ -366,7 +366,7 @@ class Projections:
         P_auni = []
         data_types = ['D', 'd']
         for nucleus in paw.nuclei:
-            info = npy.array([2, 0], npy.Int)
+            info = npy.array([2, 0], int)
             if nucleus.in_this_domain:
                 if nucleus.P_uni.dtype == complex:
                     info[0] = 0

@@ -19,4 +19,4 @@ e = atoms.GetPotentialEnergy()
 calc.write('Be.nc', 'all')
 
 calc = Calculator('Be.nc')
-calc.totype(npy.Complex)
+calc.totype(complex)

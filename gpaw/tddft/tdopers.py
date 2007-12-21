@@ -51,9 +51,9 @@ class TimeDependentHamiltonian:
 #
 #        self.vext_g = hamiltonian.finegd.zeros()
 
-        self.vt_sG = hamiltonian.gd.zeros(hamiltonian.nspins, npy.Float)
+        self.vt_sG = hamiltonian.gd.zeros(hamiltonian.nspins)
         self.H_asp = [
-            npy.zeros(nucleus.H_sp.shape, npy.Float)
+            npy.zeros(nucleus.H_sp.shape)
             for nucleus in hamiltonian.my_nuclei
             ]
 
@@ -187,7 +187,7 @@ class AbsorptionKickHamiltonian:
         self.pt_nuclei = pt_nuclei
 
         # normalized direction
-        dir = npy.array(direction, npy.Float)
+        dir = npy.array(direction, float)
         p = strength * dir / npy.sqrt(npy.vdot(dir,dir))
         # iterations
         self.iterations = int(round(strength / 1.0e-3))

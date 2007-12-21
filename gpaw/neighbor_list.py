@@ -29,7 +29,7 @@ class NeighborList:
         for symbol1, rcut1 in cutoffs:
             for symbol2, rcut2 in cutoffs[n:]:
                 rcut = rcut1 + rcut2 + 2 * drift
-                ncells = (rcut / self.cell_c + 0.5).astype(npy.Int)
+                ncells = (rcut / self.cell_c + 0.5).astype(int)
                 for i in (0, 1, 2):
                     if not domain.periodic_c[i]:
                         ncells[i] = 0

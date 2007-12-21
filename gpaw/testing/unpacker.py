@@ -78,7 +78,7 @@ class DataUnentangler:
     def get_relaxed_energy(self, formula):
         dists = self.dist_range.get(formula)
         energies = self.molecular_energies.get(formula)
-        M = npy.zeros((4, 5), npy.Float)
+        M = npy.zeros((4, 5))
 
         rel_d = self.dist_range.get(formula)
         if rel_d is None:

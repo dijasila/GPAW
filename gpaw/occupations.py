@@ -65,7 +65,7 @@ class ZeroKelvin(Dummy):
         else:
             nb = len(kpts[0].eps_n)
             if self.kpt_comm.size>1: 
-                all_eps_n = npy.zeros((self.kpt_comm.size, nb), npy.Float)
+                all_eps_n = npy.zeros((self.kpt_comm.size, nb))
                 self.kpt_comm.all_gather(kpts[0].eps_n, all_eps_n)
                 eps_n = all_eps_n
             else:
@@ -81,7 +81,7 @@ class ZeroKelvin(Dummy):
                     mb += 1
 
             if self.kpt_comm.size>1: 
-                f_n = npy.zeros((self.kpt_comm.size, nb), npy.Float)
+                f_n = npy.zeros((self.kpt_comm.size, nb))
             else:
                 f_n = [kpt.f_n for kpt in kpts]
  
@@ -161,8 +161,8 @@ class FermiDirac(Dummy):
         niter = 0
         while True:
             if self.fixmom:
-                n = npy.zeros(2, npy.Float)
-                dnde = npy.zeros(2, npy.Float)
+                n = npy.zeros(2)
+                dnde = npy.zeros(2)
             else:
                 n = 0.0
                 dnde = 0.0

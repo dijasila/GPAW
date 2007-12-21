@@ -187,7 +187,7 @@ class Generator(AllElectron):
 
         # Calculate core density:
         if njcore == 0:
-            nc = npy.zeros(N, npy.Float)
+            nc = npy.zeros(N)
         else:
             uc_j = self.u_j[:njcore]
             uc_j = npy.where(abs(uc_j) < 1e-160, 0, uc_j)  # XXX Numeric!
@@ -197,7 +197,7 @@ class Generator(AllElectron):
 
         # Calculate core kinetic energy density
         if njcore == 0:
-            tauc = npy.zeros(N, npy.Float)
+            tauc = npy.zeros(N)
         else:
             tauc = self.radial_kinetic_energy_density(f_j[:njcore],
                                                       l_j[:njcore],
@@ -281,9 +281,9 @@ class Generator(AllElectron):
         self.q_ln = q_ln = []  # p-tilde * r
         for l in range(lmax + 1):
             nn = len(n_ln[l])
-            u_ln.append(npy.zeros((nn, N), npy.Float))
-            s_ln.append(npy.zeros((nn, N), npy.Float))
-            q_ln.append(npy.zeros((nn, N), npy.Float))
+            u_ln.append(npy.zeros((nn, N)))
+            s_ln.append(npy.zeros((nn, N)))
+            q_ln.append(npy.zeros((nn, N)))
 
         # Fill in all-electron wave functions:
         for l in range(lmax + 1):
@@ -327,7 +327,7 @@ class Generator(AllElectron):
             for u, s in zip(u_n, s_n):
                 s[:] = u
                 if normconserving_l[l]:
-                    A = npy.zeros((5, 5), npy.Float)
+                    A = npy.zeros((5, 5))
                     A[:4, 0] = 1.0
                     A[:4, 1] = r[gc - 2:gc + 2]**2
                     A[:4, 2] = A[:4, 1]**2
@@ -359,7 +359,7 @@ class Generator(AllElectron):
                         x1, f1 = x0, f0
 
                 else:
-                    A = npy.ones((4, 4), npy.Float)
+                    A = npy.ones((4, 4))
                     A[:, 0] = 1.0
                     A[:, 1] = r[gc - 2:gc + 2]**2
                     A[:, 2] = A[:, 1]**2
@@ -388,7 +388,7 @@ class Generator(AllElectron):
         # Calculate pseudo core density:
         gcutnc = 1 + int(rcutmax * N / (rcutmax + beta))
         nct = nc.copy()
-        A = npy.ones((4, 4), npy.Float)
+        A = npy.ones((4, 4))
         A[0] = 1.0
         A[1] = r[gcutnc - 2:gcutnc + 2]**2
         A[2] = A[1]**2
@@ -406,7 +406,7 @@ class Generator(AllElectron):
         tauct[:gcutnc] = a[0] + r2 * (a[1] + r2 * (a[2] + r2 * a[3]))
 
         # ... and the soft valence density:
-        nt = npy.zeros(N, npy.Float)
+        nt = npy.zeros(N)
         for f_n, s_n in zip(f_ln, s_ln):
             nt += npy.dot(f_n, s_n**2) / (4 * pi)
         nt[1:] /= r[1:]**2
@@ -415,7 +415,7 @@ class Generator(AllElectron):
 
         # Calculate the shape function:
         x = r / rcutcomp
-        gaussian = npy.zeros(N, npy.Float)
+        gaussian = npy.zeros(N)
         self.gamma = gamma = 10.0
         gaussian[:gmax] = npy.exp(-gamma * x[:gmax]**2)
         gt = 4 * (gamma / rcutcomp**2)**1.5 / sqrt(pi) * gaussian
@@ -430,12 +430,12 @@ class Generator(AllElectron):
         rhot = nt - (Nt + charge / 4 / pi) * gt
         t('Pseudo-electron charge', 4 * pi * Nt)
 
-        vHt = npy.zeros(N, npy.Float)
+        vHt = npy.zeros(N)
         hartree(0, rhot * r * dr, self.beta, self.N, vHt)
         vHt[1:] /= r[1:]
         vHt[0] = vHt[1]
 
-        vXCt = npy.zeros(N, npy.Float)
+        vXCt = npy.zeros(N)
 
         extra_xc_data = {}
 
@@ -467,13 +467,13 @@ class Generator(AllElectron):
         gc = 1 + int(rcutvbar * N / (rcutvbar + beta))
         if vbar_type == 'f':
             assert lmax == 2
-            uf = npy.zeros(N, npy.Float)
+            uf = npy.zeros(N)
             l = 3
             shoot(uf, l, self.vr, 0.0, self.r2dvdr, r, dr, c10, c2,
                   self.scalarrel, gmax=gmax)
             uf *= 1.0 / uf[gc]
             sf = uf.copy()
-            A = npy.ones((4, 4), npy.Float)
+            A = npy.ones((4, 4))
             A[:, 0] = 1.0
             A[:, 1] = r[gc - 2:gc + 2]**2
             A[:, 2] = A[:, 1]**2
@@ -490,7 +490,7 @@ class Generator(AllElectron):
             vbar[0] = vbar[1]
         else:
             assert vbar_type == 'poly'
-            A = npy.ones((2, 2), npy.Float)
+            A = npy.ones((2, 2))
             A[0] = 1.0
             A[1] = r[gc - 1:gc + 1]**2
             a = vt[gc - 1:gc + 1]
@@ -521,7 +521,7 @@ class Generator(AllElectron):
             A_nn = npy.inner(s_n, q_n * dr)
             # Do a LU decomposition of A:
             nn = len(e_n)
-            L_nn = npy.identity(nn, npy.Float)
+            L_nn = npy.identity(nn, float)
             U_nn = A_nn.copy()
             for i in range(nn):
                 for j in range(i+1,nn):
@@ -531,7 +531,7 @@ class Generator(AllElectron):
             dO_nn = (npy.inner(u_n, u_n * dr) -
                      npy.inner(s_n, s_n * dr))
 
-            e_nn = npy.zeros((nn, nn), npy.Float)
+            e_nn = npy.zeros((nn, nn))
             e_nn.ravel()[::nn + 1] = e_n
             dH_nn = npy.dot(dO_nn, e_nn) - A_nn
 
@@ -583,7 +583,7 @@ class Generator(AllElectron):
             t('(skip with [Ctrl-C])')
 
             try:
-                u = npy.zeros(N, npy.Float)
+                u = npy.zeros(N)
                 for l in range(3):
                     if l <= lmax:
                         dO_nn = dO_lnn[l]
@@ -681,7 +681,7 @@ class Generator(AllElectron):
                     j += 1
         nj = j
 
-        self.dK_jj = npy.zeros((nj, nj), npy.Float)
+        self.dK_jj = npy.zeros((nj, nj))
         for l, j_n in enumerate(j_ln):
             for n1, j1 in enumerate(j_n):
                 for n2, j2 in enumerate(j_n):
@@ -704,7 +704,7 @@ class Generator(AllElectron):
         t()
         t('Diagonalizing with gridspacing h=%.3f' % h)
         R = h * npy.arange(1, ng + 1)
-        G = (self.N * R / (self.beta + R) + 0.5).astype(npy.Int)
+        G = (self.N * R / (self.beta + R) + 0.5).astype(int)
         G = npy.clip(G, 1, self.N - 2)
         R1 = npy.take(self.r, G - 1)
         R2 = npy.take(self.r, G)
@@ -729,13 +729,13 @@ class Generator(AllElectron):
                 S = npy.dot(npy.transpose(q_n),
                            npy.dot(self.dO_lnn[l], q_n)) * h
             else:
-                H = npy.zeros((ng, ng), npy.Float)
-                S = npy.zeros((ng, ng), npy.Float)
+                H = npy.zeros((ng, ng))
+                S = npy.zeros((ng, ng))
             H.ravel()[::ng + 1] += vt + 1.0 / h**2 + l * (l + 1) / 2.0 / R**2
             H.ravel()[1::ng + 1] -= 0.5 / h**2
             H.ravel()[ng::ng + 1] -= 0.5 / h**2
             S.ravel()[::ng + 1] += 1.0
-            e_n = npy.zeros(ng, npy.Float)
+            e_n = npy.zeros(ng)
             error = diagonalize(H, e_n, S)
             if error != 0:
                 raise RuntimeError
@@ -761,7 +761,7 @@ class Generator(AllElectron):
     def integrate(self, l, vt, e, gld, q=None):
         r = self.r[1:]
         dr = self.dr[1:]
-        s = npy.zeros(self.N, npy.Float)
+        s = npy.zeros(self.N)
 
         c0 = 0.5 * l * (l + 1) / r**2
         c1 = -0.5 * self.d2gdr2[1:]
@@ -932,7 +932,7 @@ def construct_smooth_wavefunction(u, l, gc, r, s):
     # Do a linear regression to a wave function
     # s = a + br^2 + cr^4 + dr^6, such that
     # the fitting is as good as possible in region gc-2:gc+2
-    A = npy.ones((4, 4), npy.Float)
+    A = npy.ones((4, 4))
     A[:, 0] = 1.0
     A[:, 1] = r[gc - 2:gc + 2]**2
     A[:, 2] = A[:, 1]**2

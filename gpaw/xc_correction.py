@@ -31,7 +31,7 @@ from gpaw.sphere import Y_nL, points, weights
 """
 
 
-A_Liy = npy.zeros((25, 3, len(points)), npy.Float)
+A_Liy = npy.zeros((25, 3, len(points)))
 
 y = 0
 for R in points:
@@ -87,7 +87,7 @@ class XCCorrection:
         nj = len(jl)
         np = ni * (ni + 1) // 2
         nq = nj * (nj + 1) // 2
-        self.B_Lqp = npy.zeros((self.Lmax, nq, np), npy.Float)
+        self.B_Lqp = npy.zeros((self.Lmax, nq, np))
         p = 0
         i1 = 0
         for j1, l1, L1 in jlL:
@@ -101,8 +101,8 @@ class XCCorrection:
             i1 += 1
         self.B_pqL = npy.transpose(self.B_Lqp).copy()
         self.dv_g = rgd.dv_g
-        self.n_qg = npy.zeros((nq, ng), npy.Float)
-        self.nt_qg = npy.zeros((nq, ng), npy.Float)
+        self.n_qg = npy.zeros((nq, ng))
+        self.nt_qg = npy.zeros((nq, ng))
         q = 0
         for j1, l1 in jl:
             for j2, l2 in jl[j1:]:
@@ -147,11 +147,11 @@ class XCCorrection:
             dEdD_p[:] = 0.0
             for w, Y_L in zip(self.weights, self.Y_yL):
                 n_g = npy.dot(Y_L, n_Lg)
-                vxc_g = npy.zeros(self.ng, npy.Float)
+                vxc_g = npy.zeros(self.ng)
                 E += self.xc.get_energy_and_potential(n_g, vxc_g) * w
                 dEdD_q = npy.dot(self.n_qg, vxc_g * self.dv_g)
                 nt_g = npy.dot(Y_L, nt_Lg)
-                vxct_g = npy.zeros(self.ng, npy.Float)
+                vxct_g = npy.zeros(self.ng)
                 E -= self.xc.get_energy_and_potential(nt_g, vxct_g) * w
                 dEdD_q -= npy.dot(self.nt_qg, vxct_g * self.dv_g)
                 dEdD_p += npy.dot(dot3(self.B_pqL, Y_L),
@@ -175,17 +175,17 @@ class XCCorrection:
             dEdDb_p[:] = 0.0
             for w, Y_L in zip(self.weights, self.Y_yL):
                 na_g = npy.dot(Y_L, na_Lg)
-                vxca_g = npy.zeros(self.ng, npy.Float)
+                vxca_g = npy.zeros(self.ng)
                 nb_g = npy.dot(Y_L, nb_Lg)
-                vxcb_g = npy.zeros(self.ng, npy.Float)
+                vxcb_g = npy.zeros(self.ng)
                 E += self.xc.get_energy_and_potential(na_g, vxca_g,
                                                    nb_g, vxcb_g) * w
                 dEdDa_q = npy.dot(self.n_qg, vxca_g * self.dv_g)
                 dEdDb_q = npy.dot(self.n_qg, vxcb_g * self.dv_g)
                 nta_g = npy.dot(Y_L, nta_Lg)
-                vxcta_g = npy.zeros(self.ng, npy.Float)
+                vxcta_g = npy.zeros(self.ng)
                 ntb_g = npy.dot(Y_L, ntb_Lg)
-                vxctb_g = npy.zeros(self.ng, npy.Float)
+                vxctb_g = npy.zeros(self.ng)
                 E -= self.xc.get_energy_and_potential(nta_g, vxcta_g,
                                                    ntb_g, vxctb_g) * w
                 dEdDa_q -= npy.dot(self.nt_qg, vxcta_g * self.dv_g)
@@ -208,8 +208,8 @@ class XCCorrection:
             n_Lg[0] += self.nc_g * sqrt(4 * pi)
             nt_Lg = npy.dot(D_Lq, self.nt_qg)
             nt_Lg[0] += self.nct_g * sqrt(4 * pi)
-            dndr_Lg = npy.zeros((self.Lmax, self.ng), npy.Float)
-            dntdr_Lg = npy.zeros((self.Lmax, self.ng), npy.Float)
+            dndr_Lg = npy.zeros((self.Lmax, self.ng))
+            dntdr_Lg = npy.zeros((self.Lmax, self.ng))
             for L in range(self.Lmax):
                 self.rgd.derivative(n_Lg[L], dndr_Lg[L])
                 self.rgd.derivative(nt_Lg[L], dntdr_Lg[L])
@@ -227,9 +227,9 @@ class XCCorrection:
                 a2_g[0] = a2_g[1]
                 a1_g = npy.dot(Y_L, dndr_Lg)
                 a2_g += a1_g**2
-                v_g = npy.zeros(self.ng, npy.Float)
-                e_g = npy.zeros(self.ng, npy.Float)
-                deda2_g = npy.zeros(self.ng, npy.Float)
+                v_g = npy.zeros(self.ng)
+                e_g = npy.zeros(self.ng)
+                deda2_g = npy.zeros(self.ng)
                 xcfunc.calculate_spinpaired(e_g, n_g, v_g, a2_g, deda2_g)
                 E += w * npy.dot(e_g, self.dv_g)
                 x_g = -2.0 * deda2_g * self.dv_g * a1_g
@@ -258,9 +258,9 @@ class XCCorrection:
                 a2_g[0] = a2_g[1]
                 a1_g = npy.dot(Y_L, dntdr_Lg)
                 a2_g += a1_g**2
-                v_g = npy.zeros(self.ng, npy.Float)
-                e_g = npy.zeros(self.ng, npy.Float)
-                deda2_g = npy.zeros(self.ng, npy.Float)
+                v_g = npy.zeros(self.ng)
+                e_g = npy.zeros(self.ng)
+                deda2_g = npy.zeros(self.ng)
                 xcfunc.calculate_spinpaired(e_g, n_g, v_g, a2_g, deda2_g)
                 E -= w * npy.dot(e_g, self.dv_g)
                 x_g = -2.0 * deda2_g * self.dv_g * a1_g
@@ -288,8 +288,8 @@ class XCCorrection:
             na_Lg[0] += self.nca_g * sqrt(4 * pi)
             nat_Lg = npy.dot(Da_Lq, self.nt_qg)
             nat_Lg[0] += 0.5 * self.nct_g * sqrt(4 * pi)
-            dnadr_Lg = npy.zeros((self.Lmax, self.ng), npy.Float)
-            dnatdr_Lg = npy.zeros((self.Lmax, self.ng), npy.Float)
+            dnadr_Lg = npy.zeros((self.Lmax, self.ng))
+            dnatdr_Lg = npy.zeros((self.Lmax, self.ng))
             for L in range(self.Lmax):
                 self.rgd.derivative(na_Lg[L], dnadr_Lg[L])
                 self.rgd.derivative(nat_Lg[L], dnatdr_Lg[L])
@@ -302,8 +302,8 @@ class XCCorrection:
             nb_Lg[0] += self.ncb_g * sqrt(4 * pi)
             nbt_Lg = npy.dot(Db_Lq, self.nt_qg)
             nbt_Lg[0] += 0.5 * self.nct_g * sqrt(4 * pi)
-            dnbdr_Lg = npy.zeros((self.Lmax, self.ng), npy.Float)
-            dnbtdr_Lg = npy.zeros((self.Lmax, self.ng), npy.Float)
+            dnbdr_Lg = npy.zeros((self.Lmax, self.ng))
+            dnbtdr_Lg = npy.zeros((self.Lmax, self.ng))
             for L in range(self.Lmax):
                 self.rgd.derivative(nb_Lg[L], dnbdr_Lg[L])
                 self.rgd.derivative(nbt_Lg[L], dnbtdr_Lg[L])
@@ -340,12 +340,12 @@ class XCCorrection:
                 a2_g[0] = a2_g[1]
                 a2_g += (aa1_g + ab1_g)**2
 
-                va_g = npy.zeros(self.ng, npy.Float)
-                vb_g = npy.zeros(self.ng, npy.Float)
-                e_g = npy.zeros(self.ng, npy.Float)
-                deda2_g = npy.zeros(self.ng, npy.Float)
-                dedaa2_g = npy.zeros(self.ng, npy.Float)
-                dedab2_g = npy.zeros(self.ng, npy.Float)
+                va_g = npy.zeros(self.ng)
+                vb_g = npy.zeros(self.ng)
+                e_g = npy.zeros(self.ng)
+                deda2_g = npy.zeros(self.ng)
+                dedaa2_g = npy.zeros(self.ng)
+                dedab2_g = npy.zeros(self.ng)
                 xcfunc.calculate_spinpolarized(e_g, na_g, va_g, nb_g, vb_g,
                                                a2_g, aa2_g, ab2_g,
                                                deda2_g, dedaa2_g, dedab2_g)
@@ -432,12 +432,12 @@ class XCCorrection:
                 a2_g[0] = a2_g[1]
                 a2_g += (aa1_g + ab1_g)**2
 
-                va_g = npy.zeros(self.ng, npy.Float)
-                vb_g = npy.zeros(self.ng, npy.Float)
-                e_g = npy.zeros(self.ng, npy.Float)
-                deda2_g = npy.zeros(self.ng, npy.Float)
-                dedaa2_g = npy.zeros(self.ng, npy.Float)
-                dedab2_g = npy.zeros(self.ng, npy.Float)
+                va_g = npy.zeros(self.ng)
+                vb_g = npy.zeros(self.ng)
+                e_g = npy.zeros(self.ng)
+                deda2_g = npy.zeros(self.ng)
+                dedaa2_g = npy.zeros(self.ng)
+                dedab2_g = npy.zeros(self.ng)
                 xcfunc.calculate_spinpolarized(e_g, na_g, va_g, nb_g, vb_g,
                                                a2_g, aa2_g, ab2_g,
                                                deda2_g, dedaa2_g, dedab2_g)
@@ -511,8 +511,8 @@ class XCCorrection:
             n_Lg[0] += self.nc_g * sqrt(4 * pi)
             nt_Lg = npy.dot(D_Lq, self.nt_qg)
             nt_Lg[0] += self.nct_g * sqrt(4 * pi)
-            dndr_Lg = npy.zeros((self.Lmax, self.ng), npy.Float)
-            dntdr_Lg = npy.zeros((self.Lmax, self.ng), npy.Float)
+            dndr_Lg = npy.zeros((self.Lmax, self.ng))
+            dntdr_Lg = npy.zeros((self.Lmax, self.ng))
             for L in range(self.Lmax):
                 self.rgd.derivative(n_Lg[L], dndr_Lg[L])
                 self.rgd.derivative(nt_Lg[L], dntdr_Lg[L])
@@ -530,9 +530,9 @@ class XCCorrection:
                 a2_g[0] = a2_g[1]
                 a1_g = npy.dot(Y_L, dndr_Lg)
                 a2_g += a1_g**2
-                v_g = npy.zeros(self.ng, npy.Float)
-                e_g = npy.zeros(self.ng, npy.Float)
-                deda2_g = npy.zeros(self.ng, npy.Float)
+                v_g = npy.zeros(self.ng)
+                e_g = npy.zeros(self.ng)
+                deda2_g = npy.zeros(self.ng)
                 xcfunc.calculate_spinpaired(e_g, n_g, v_g, a2_g, deda2_g)
                 E += w * npy.dot(e_g, self.dv_g)
                 x_g = -2.0 * deda2_g * self.dv_g * a1_g
@@ -561,9 +561,9 @@ class XCCorrection:
                 a2_g[0] = a2_g[1]
                 a1_g = npy.dot(Y_L, dntdr_Lg)
                 a2_g += a1_g**2
-                v_g = npy.zeros(self.ng, npy.Float)
-                e_g = npy.zeros(self.ng, npy.Float)
-                deda2_g = npy.zeros(self.ng, npy.Float)
+                v_g = npy.zeros(self.ng)
+                e_g = npy.zeros(self.ng)
+                deda2_g = npy.zeros(self.ng)
                 xcfunc.calculate_spinpaired(e_g, n_g, v_g, a2_g, deda2_g)
                 E -= w * npy.dot(e_g, self.dv_g)
                 x_g = -2.0 * deda2_g * self.dv_g * a1_g
@@ -591,8 +591,8 @@ class XCCorrection:
             na_Lg[0] += self.nca_g * sqrt(4 * pi)
             nat_Lg = npy.dot(Da_Lq, self.nt_qg)
             nat_Lg[0] += 0.5 * self.nct_g * sqrt(4 * pi)
-            dnadr_Lg = npy.zeros((self.Lmax, self.ng), npy.Float)
-            dnatdr_Lg = npy.zeros((self.Lmax, self.ng), npy.Float)
+            dnadr_Lg = npy.zeros((self.Lmax, self.ng))
+            dnatdr_Lg = npy.zeros((self.Lmax, self.ng))
             for L in range(self.Lmax):
                 self.rgd.derivative(na_Lg[L], dnadr_Lg[L])
                 self.rgd.derivative(nat_Lg[L], dnatdr_Lg[L])
@@ -605,8 +605,8 @@ class XCCorrection:
             nb_Lg[0] += self.ncb_g * sqrt(4 * pi)
             nbt_Lg = npy.dot(Db_Lq, self.nt_qg)
             nbt_Lg[0] += 0.5 * self.nct_g * sqrt(4 * pi)
-            dnbdr_Lg = npy.zeros((self.Lmax, self.ng), npy.Float)
-            dnbtdr_Lg = npy.zeros((self.Lmax, self.ng), npy.Float)
+            dnbdr_Lg = npy.zeros((self.Lmax, self.ng))
+            dnbtdr_Lg = npy.zeros((self.Lmax, self.ng))
             for L in range(self.Lmax):
                 self.rgd.derivative(nb_Lg[L], dnbdr_Lg[L])
                 self.rgd.derivative(nbt_Lg[L], dnbtdr_Lg[L])
@@ -643,12 +643,12 @@ class XCCorrection:
                 a2_g[0] = a2_g[1]
                 a2_g += (aa1_g + ab1_g)**2
 
-                va_g = npy.zeros(self.ng, npy.Float)
-                vb_g = npy.zeros(self.ng, npy.Float)
-                e_g = npy.zeros(self.ng, npy.Float)
-                deda2_g = npy.zeros(self.ng, npy.Float)
-                dedaa2_g = npy.zeros(self.ng, npy.Float)
-                dedab2_g = npy.zeros(self.ng, npy.Float)
+                va_g = npy.zeros(self.ng)
+                vb_g = npy.zeros(self.ng)
+                e_g = npy.zeros(self.ng)
+                deda2_g = npy.zeros(self.ng)
+                dedaa2_g = npy.zeros(self.ng)
+                dedab2_g = npy.zeros(self.ng)
                 xcfunc.calculate_spinpolarized(e_g, na_g, va_g, nb_g, vb_g,
                                                a2_g, aa2_g, ab2_g,
                                                deda2_g, dedaa2_g, dedab2_g)
@@ -749,12 +749,12 @@ class XCCorrection:
                 a2_g[0] = a2_g[1]
                 a2_g += (aa1_g + ab1_g)**2
 
-                va_g = npy.zeros(self.ng, npy.Float)
-                vb_g = npy.zeros(self.ng, npy.Float)
-                e_g = npy.zeros(self.ng, npy.Float)
-                deda2_g = npy.zeros(self.ng, npy.Float)
-                dedaa2_g = npy.zeros(self.ng, npy.Float)
-                dedab2_g = npy.zeros(self.ng, npy.Float)
+                va_g = npy.zeros(self.ng)
+                vb_g = npy.zeros(self.ng)
+                e_g = npy.zeros(self.ng)
+                deda2_g = npy.zeros(self.ng)
+                dedaa2_g = npy.zeros(self.ng)
+                dedab2_g = npy.zeros(self.ng)
                 xcfunc.calculate_spinpolarized(e_g, na_g, va_g, nb_g, vb_g,
                                                a2_g, aa2_g, ab2_g,
                                                deda2_g, dedaa2_g, dedab2_g)
@@ -843,8 +843,8 @@ class XCCorrection:
             n_Lg[0] += self.nc_g * sqrt(4 * pi)
             nt_Lg = npy.dot(D_Lq, self.nt_qg)
             nt_Lg[0] += self.nct_g * sqrt(4 * pi)
-            dndr_Lg = npy.zeros((self.Lmax, self.ng), npy.Float)
-            dntdr_Lg = npy.zeros((self.Lmax, self.ng), npy.Float)
+            dndr_Lg = npy.zeros((self.Lmax, self.ng))
+            dntdr_Lg = npy.zeros((self.Lmax, self.ng))
             for L in range(self.Lmax):
                 self.rgd.derivative(n_Lg[L], dndr_Lg[L])
                 self.rgd.derivative(nt_Lg[L], dntdr_Lg[L])
@@ -870,9 +870,9 @@ class XCCorrection:
                 a2_g[0] = a2_g[1]
                 a1_g = npy.dot(Y_L, dndr_Lg)
                 a2_g += a1_g**2
-                v_g = npy.zeros(self.ng, npy.Float)
-                e_g = npy.zeros(self.ng, npy.Float)
-                deda2_g = npy.zeros(self.ng, npy.Float)
+                v_g = npy.zeros(self.ng)
+                e_g = npy.zeros(self.ng)
+                deda2_g = npy.zeros(self.ng)
                 xcfunc.calculate_spinpaired(e_g, n_g, v_g, a2_g, deda2_g,
                                             tau_g)
                 E += w * npy.dot(e_g, self.dv_g)
@@ -902,9 +902,9 @@ class XCCorrection:
                 a2_g[0] = a2_g[1]
                 a1_g = npy.dot(Y_L, dntdr_Lg)
                 a2_g += a1_g**2
-                v_g = npy.zeros(self.ng, npy.Float)
-                e_g = npy.zeros(self.ng, npy.Float)
-                deda2_g = npy.zeros(self.ng, npy.Float)
+                v_g = npy.zeros(self.ng)
+                e_g = npy.zeros(self.ng)
+                deda2_g = npy.zeros(self.ng)
                 xcfunc.calculate_spinpaired(e_g, n_g, v_g, a2_g, deda2_g,
                                             taut_g)
                 E -= w * npy.dot(e_g, self.dv_g)
@@ -933,8 +933,8 @@ class XCCorrection:
             na_Lg[0] += self.nca_g * sqrt(4 * pi)
             nat_Lg = npy.dot(Da_Lq, self.nt_qg)
             nat_Lg[0] += 0.5 * self.nct_g * sqrt(4 * pi)
-            dnadr_Lg = npy.zeros((self.Lmax, self.ng), npy.Float)
-            dnatdr_Lg = npy.zeros((self.Lmax, self.ng), npy.Float)
+            dnadr_Lg = npy.zeros((self.Lmax, self.ng))
+            dnatdr_Lg = npy.zeros((self.Lmax, self.ng))
             for L in range(self.Lmax):
                 self.rgd.derivative(na_Lg[L], dnadr_Lg[L])
                 self.rgd.derivative(nat_Lg[L], dnatdr_Lg[L])
@@ -947,8 +947,8 @@ class XCCorrection:
             nb_Lg[0] += self.ncb_g * sqrt(4 * pi)
             nbt_Lg = npy.dot(Db_Lq, self.nt_qg)
             nbt_Lg[0] += 0.5 * self.nct_g * sqrt(4 * pi)
-            dnbdr_Lg = npy.zeros((self.Lmax, self.ng), npy.Float)
-            dnbtdr_Lg = npy.zeros((self.Lmax, self.ng), npy.Float)
+            dnbdr_Lg = npy.zeros((self.Lmax, self.ng))
+            dnbtdr_Lg = npy.zeros((self.Lmax, self.ng))
             for L in range(self.Lmax):
                 self.rgd.derivative(nb_Lg[L], dnbdr_Lg[L])
                 self.rgd.derivative(nbt_Lg[L], dnbtdr_Lg[L])
@@ -992,12 +992,12 @@ class XCCorrection:
                 a2_g[0] = a2_g[1]
                 a2_g += (aa1_g + ab1_g)**2
 
-                va_g = npy.zeros(self.ng, npy.Float)
-                vb_g = npy.zeros(self.ng, npy.Float)
-                e_g = npy.zeros(self.ng, npy.Float)
-                deda2_g = npy.zeros(self.ng, npy.Float)
-                dedaa2_g = npy.zeros(self.ng, npy.Float)
-                dedab2_g = npy.zeros(self.ng, npy.Float)
+                va_g = npy.zeros(self.ng)
+                vb_g = npy.zeros(self.ng)
+                e_g = npy.zeros(self.ng)
+                deda2_g = npy.zeros(self.ng)
+                dedaa2_g = npy.zeros(self.ng)
+                dedab2_g = npy.zeros(self.ng)
                 xcfunc.calculate_spinpolarized(e_g, na_g, va_g, nb_g, vb_g,
                                                a2_g, aa2_g, ab2_g,
                                                deda2_g, dedaa2_g, dedab2_g,
@@ -1085,12 +1085,12 @@ class XCCorrection:
                 a2_g[0] = a2_g[1]
                 a2_g += (aa1_g + ab1_g)**2
 
-                va_g = npy.zeros(self.ng, npy.Float)
-                vb_g = npy.zeros(self.ng, npy.Float)
-                e_g = npy.zeros(self.ng, npy.Float)
-                deda2_g = npy.zeros(self.ng, npy.Float)
-                dedaa2_g = npy.zeros(self.ng, npy.Float)
-                dedab2_g = npy.zeros(self.ng, npy.Float)
+                va_g = npy.zeros(self.ng)
+                vb_g = npy.zeros(self.ng)
+                e_g = npy.zeros(self.ng)
+                deda2_g = npy.zeros(self.ng)
+                dedaa2_g = npy.zeros(self.ng)
+                dedab2_g = npy.zeros(self.ng)
                 xcfunc.calculate_spinpolarized(e_g, na_g, va_g, nb_g, vb_g,
                                                a2_g, aa2_g, ab2_g,
                                                deda2_g, dedaa2_g, dedab2_g,
@@ -1168,7 +1168,7 @@ class XCCorrection:
 
         The result is given in packed(pack2) form.
         """
-        I_sp = npy.zeros(D_sp.shape, npy.Float)
+        I_sp = npy.zeros(D_sp.shape)
         self.calculate_energy_and_derivatives(D_sp, I_sp)
         return I_sp
 
@@ -1200,7 +1200,7 @@ class XCCorrection:
         nt_Lg[0] += self.nct_g * sqrt(4 * pi)
 
         # Allocate array for result:
-        J_pp = npy.zeros((np, np), npy.Float)
+        J_pp = npy.zeros((np, np))
 
         # Loop over 50 points on the sphere surface:
         for w, Y_L in zip(self.weights, self.Y_yL):
@@ -1220,14 +1220,14 @@ class XCCorrection:
     def create_kinetic(self,jlL,jl,ny,np,w_jg):
         #no core kinetic energy added
         ng = self.ng 
-        dphitdr_jlg = npy.zeros(npy.shape(jl)+(ng,), npy.Float)
+        dphitdr_jlg = npy.zeros(npy.shape(jl)+(ng,))
         for j1,l1 in jl:
             phit_jlg = self.rgd.r_g**l1 * w_jg[j1]                
             self.rgd.derivative(phit_jlg, dphitdr_jlg[j1][l1])
-        tau_ypg = npy.zeros((ny, np, ng), npy.Float)
+        tau_ypg = npy.zeros((ny, np, ng))
 
-        Y_L = npy.zeros((self.Lmax), npy.Float)
-        taut = npy.zeros((ng), npy.Float)
+        Y_L = npy.zeros((self.Lmax))
+        taut = npy.zeros((ng))
         for y in range(ny):
             A_Li = A_Liy[:self.Lmax, :, y]
             A_Lxg = A_Li[:, 0]

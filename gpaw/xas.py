@@ -67,8 +67,8 @@ class XAS:
 
         
             
-        self.eps_n = npy.empty(nkpts * n, npy.Float)
-        self.sigma_cn = npy.empty((3, nkpts * n), npy.Complex)
+        self.eps_n = npy.empty(nkpts * n)
+        self.sigma_cn = npy.empty((3, nkpts * n), complex)
         n1 = 0
         for k in self.list_kpts:
             n2 = n1 + n
@@ -116,9 +116,9 @@ class XAS:
 
         # proj keyword, check normalization of incoming vectors
         if proj is not None:
-            proj_2 = npy.array(proj,npy.Float)
+            proj_2 = npy.array(proj,float)
             if len(proj_2.shape) == 1:
-                proj_2 = npy.array([proj],npy.Float)
+                proj_2 = npy.array([proj],float)
 
             for i,p in enumerate(proj_2):
                 if sum(p ** 2) ** 0.5 != 1.0:
@@ -128,17 +128,17 @@ class XAS:
             # make vector of projections
             if proj_xyz:
                 sigma1_cn = npy.empty( (3 + proj_2.shape[0], self.sigma_cn.shape[1]),
-                                       npy.Complex)
+                                       complex)
                 sigma1_cn[0:3,:] = self.sigma_cn
                 for i,p in enumerate(proj_2):
                     sigma1_cn[3 +i,:] = npy.dot(p,self.sigma_cn) 
             else:
                 sigma1_cn = npy.empty((proj_2.shape[0], self.sigma_cn.shape[1]) ,
-                                       npy.Complex)
+                                       complex)
                 for i,p in enumerate(proj_2):
                     sigma1_cn[i,:] = npy.dot(p, self.sigma_cn)
                                                 
-            sigma2_cn = npy.empty(sigma1_cn.shape, npy.Float)
+            sigma2_cn = npy.empty(sigma1_cn.shape)
             sigma2_cn = (sigma1_cn*npy.conjugate(sigma1_cn)).real
 
         else:
@@ -150,7 +150,7 @@ class XAS:
         if kpoint is not None:
             if self.symmetry is not None:
                 sigma0_cn = sigma2_cn.copy()
-                sigma2_cn = npy.zeros((len(sigma0_cn),len(sigma0_cn[0])),npy.Float)
+                sigma2_cn = npy.zeros((len(sigma0_cn),len(sigma0_cn[0])))
                 swaps = {}  # Python 2.4: use a set
                 for swap, mirror in self.symmetry.symmetries:
                     swaps[swap] = None
@@ -179,7 +179,7 @@ class XAS:
             emin = min(eps_n) - 2 * fwhm
             emax = max(eps_n) + 2 * fwhm
             e = emin + npy.arange(N + 1) * ((emax - emin) / N)
-            a_c = npy.zeros((len(sigma2_cn), N + 1), npy.Float)
+            a_c = npy.zeros((len(sigma2_cn), N + 1))
             
             if linbroad is None:
                 #constant broadening fwhm
@@ -344,9 +344,9 @@ class RecursionMethod:
 
         #check normalization of incoming vectors
         if proj is not None:
-            proj_2 = npy.array(proj,npy.Float)
+            proj_2 = npy.array(proj,float)
             if len(proj_2.shape) == 1:
-                proj_2 = npy.array([proj],npy.Float)
+                proj_2 = npy.array([proj],float)
             
             for i,p in enumerate(proj_2):
                 if sum(p ** 2) ** 0.5 != 1.0:
@@ -356,17 +356,17 @@ class RecursionMethod:
             proj_tmp = []
             for p in proj_2:
                proj_tmp.append(npy.dot(p, A_ci))
-            proj_tmp = npy.array(proj_tmp, npy.Float)   
+            proj_tmp = npy.array(proj_tmp, float)   
 
             # if proj_xyz is True, append projections to A_ci
             if proj_xyz:
-                A_ci_tmp = npy.zeros((3 + proj_2.shape[0], A_ci.shape[1]), npy.Float)
+                A_ci_tmp = npy.zeros((3 + proj_2.shape[0], A_ci.shape[1]))
                 A_ci_tmp[0:3,:] = A_ci 
                 A_ci_tmp[3:,:]= proj_tmp
 
             # otherwise, replace A_ci by projections
             else:
-                A_ci_tmp = npy.zeros((proj_2.shape[0], A_ci.shape[1]), npy.Float)
+                A_ci_tmp = npy.zeros((proj_2.shape[0], A_ci.shape[1]))
                 A_ci_tmp = proj_tmp
             A_ci = A_ci_tmp
 
@@ -458,7 +458,7 @@ class RecursionMethod:
         
         n = len(eps_s)
                 
-        sigma_cn = npy.zeros((self.dim, n), npy.Float)
+        sigma_cn = npy.zeros((self.dim, n))
         if imax is None:
             imax = self.a_uci.shape[2]
         energyunit = units.GetEnergyUnit()
@@ -479,7 +479,7 @@ class RecursionMethod:
 
         if len(self.swaps) > 0:
             sigma0_cn = sigma_cn
-            sigma_cn = npy.zeros((self.dim, n), npy.Float)
+            sigma_cn = npy.zeros((self.dim, n))
             for swap in self.swaps:
                 sigma_cn += npy.take(sigma0_cn, swap)
             sigma_cn /= len(self.swaps)
@@ -487,7 +487,7 @@ class RecursionMethod:
 
         # gaussian broadening 
         if fwhm is not None:
-            sigma_tmp = npy.zeros(sigma_cn.shape, npy.Float)
+            sigma_tmp = npy.zeros(sigma_cn.shape)
 
             #constant broadening fwhm
             if linbroad is None:

@@ -121,7 +121,7 @@ class NonLocalFunctional:
            =========== =================================================
            Key:        Value:
            =========== =================================================
-           typecode    For example npy.Float, if the orbitals are real
+           typecode    For example float, if the orbitals are real
            gd          The grid descriptor object for coarse grid
            finegd      The grid descriptor object for fine grid
            n_g         Numeric array for density, supplied if
@@ -438,7 +438,7 @@ class GLLBFunctional(NonLocalFunctional):
 
         # Allocate new array for core_response
         N = len(ae.rgd.r_g)
-        v_xc = npy.zeros(N, npy.Float)
+        v_xc = npy.zeros(N)
 
         # Calculate the response part using wavefunctions, eigenvalues etc. from AllElectron calculator
         self.get_non_local_energy_and_potential1D(ae.rgd, ae.u_j, ae.f_j, ae.e_j, ae.l_j, v_xc,
@@ -498,7 +498,7 @@ class GLLBFunctional(NonLocalFunctional):
         # For each orbital, add the response part
         for f, e, psit_G in zip(info['f_n'], info['eps_n'], info['psit_nG']):
             w = self.gllb_weight(e, self.fermi_level)
-            if info['typecode'] is npy.Float:
+            if info['typecode'] is float:
                 psit_G2 = psit_G**2
                 axpy(f*w, psit_G2, self.vt_G) 
                 axpy(f, psit_G2, self.nt_G)
@@ -533,7 +533,7 @@ class DummyXC:
     def set_functional(self, xc):
         print "GLLB: DummyXC::set_functional(xc) with ", xc.xcname
         
-A_Liy = npy.zeros((25, 3, len(points)), npy.Float)
+A_Liy = npy.zeros((25, 3, len(points)))
 
 y = 0
 for R in points:
@@ -599,7 +599,7 @@ class XCGLLBCorrection:
         nj = len(jl)
         np = ni * (ni + 1) // 2
         nq = nj * (nj + 1) // 2
-        self.B_Lqp = npy.zeros((self.Lmax, nq, np), npy.Float)
+        self.B_Lqp = npy.zeros((self.Lmax, nq, np))
         p = 0
         i1 = 0
         for j1, l1, L1 in jlL:
@@ -613,8 +613,8 @@ class XCGLLBCorrection:
             i1 += 1
         self.B_pqL = npy.transpose(self.B_Lqp).copy()
         self.dv_g = rgd.dv_g
-        self.n_qg = npy.zeros((nq, ng), npy.Float)
-        self.nt_qg = npy.zeros((nq, ng), npy.Float)
+        self.n_qg = npy.zeros((nq, ng))
+        self.nt_qg = npy.zeros((nq, ng))
         q = 0
         for j1, l1 in jl:
             for j2, l2 in jl[j1:]:
@@ -642,8 +642,8 @@ class XCGLLBCorrection:
         ni = nucleus.get_number_of_partial_waves() # Get the number of partial waves from nucleus
         np = ni * (ni + 1) // 2 # Number of items in packed density matrix
         
-        Dn_ii = npy.zeros((ni, ni), npy.Float) # Allocate space for unpacked atomic density matrix
-        Dn_p = npy.zeros((np, np), npy.Float) # Allocate space for packed atomic density matrix
+        Dn_ii = npy.zeros((ni, ni)) # Allocate space for unpacked atomic density matrix
+        Dn_p = npy.zeros((np, np)) # Allocate space for packed atomic density matrix
  
         r_g = self.rgd.r_g
         xcfunc = self.slater_part #get_functional()
@@ -661,8 +661,8 @@ class XCGLLBCorrection:
         n_Lg[0] += self.nc_g * sqrt(4 * pi)
         nt_Lg = npy.dot(D_Lq, self.nt_qg)
         nt_Lg[0] += self.nct_g * sqrt(4 * pi)
-        dndr_Lg = npy.zeros((self.Lmax, self.ng), npy.Float)
-        dntdr_Lg = npy.zeros((self.Lmax, self.ng), npy.Float)
+        dndr_Lg = npy.zeros((self.Lmax, self.ng))
+        dntdr_Lg = npy.zeros((self.Lmax, self.ng))
         for L in range(self.Lmax):
             self.rgd.derivative(n_Lg[L], dndr_Lg[L])
             self.rgd.derivative(nt_Lg[L], dntdr_Lg[L])
@@ -680,9 +680,9 @@ class XCGLLBCorrection:
             a2_g[0] = a2_g[1]
             a1_g = npy.dot(Y_L, dndr_Lg)
             a2_g += a1_g**2
-            v_g = npy.zeros(self.ng, npy.Float) 
-            e_g = npy.zeros(self.ng, npy.Float) 
-            deda2_g = npy.zeros(self.ng, npy.Float)
+            v_g = npy.zeros(self.ng) 
+            e_g = npy.zeros(self.ng) 
+            deda2_g = npy.zeros(self.ng)
             xcfunc.calculate_spinpaired(e_g, n_g, v_g, a2_g, deda2_g)
 
             E += w * npy.dot(e_g, self.dv_g)
@@ -693,7 +693,7 @@ class XCGLLBCorrection:
                     # Get the projection coefficients
                     P_ni = nucleus.P_uni[kpt.u]
                     # Create the coefficients
-                    w_i = npy.zeros(kpt.eps_n.shape, npy.Float)
+                    w_i = npy.zeros(kpt.eps_n.shape)
                     for i in range(len(w_i)):
                         w_i[i] = self.motherxc.gllb_weight(kpt.eps_n[i], self.motherxc.fermi_level)
 
@@ -728,9 +728,9 @@ class XCGLLBCorrection:
             a2_g[0] = a2_g[1]
             a1_g = npy.dot(Y_L, dntdr_Lg)
             a2_g += a1_g**2
-            v_g = npy.zeros(self.ng, npy.Float) 
-            e_g = npy.zeros(self.ng, npy.Float) 
-            deda2_g = npy.zeros(self.ng, npy.Float)
+            v_g = npy.zeros(self.ng) 
+            e_g = npy.zeros(self.ng) 
+            deda2_g = npy.zeros(self.ng)
             xcfunc.calculate_spinpaired(e_g, n_g, v_g, a2_g, deda2_g)
             Et += w * npy.dot(e_g, self.dv_g)
 
@@ -994,7 +994,7 @@ class KLIFunctional:
 
                    
         # Calculte u_bar and the Slaters single local excange potential
-        u_bar = npy.zeros((occupied), npy.Float)
+        u_bar = npy.zeros((occupied))
 
         for i in range(0, occupied):
             uXC_g = u_ix[i] * u_j[i]
@@ -1008,7 +1008,7 @@ class KLIFunctional:
         if (occupied > 1):
             # Calculate the A matrix [65]. This uses the M-matrix in [62].
             # That is 
-            A = npy.zeros((occupied-1, occupied-1), npy.Float)
+            A = npy.zeros((occupied-1, occupied-1))
 
             for i in range(0,occupied-1):
                 for j in range(i,occupied-1):
@@ -1022,7 +1022,7 @@ class KLIFunctional:
 
             # Calculate the b vector
             # In the rhf of [65] the (V^S_{x\sigma j - \bar u_{j\sigma})
-            b = npy.zeros((occupied-1), npy.Float)
+            b = npy.zeros((occupied-1))
             for i in range(0, occupied-1):
                 b[i] = integrate(u_j[i]*u_j[i] * V_S / n_g) - u_bar[i];
 
@@ -1135,8 +1135,8 @@ class KLIFunctional:
             return 0
 
 
-        self.ubar_n     = npy.zeros( occupied-1, npy.Float)
-        self.c_n        = npy.zeros( occupied-1, npy.Float)
+        self.ubar_n     = npy.zeros( occupied-1)
+        self.c_n        = npy.zeros( occupied-1)
         
         u = kpt.u               # Local spin/kpoint index
         hybrid = 1.
@@ -1145,7 +1145,7 @@ class KLIFunctional:
         self.rho_G[:] = 0.0
 
         if (occupied > 1):
-            A = npy.zeros( (occupied-1, occupied-1), npy.Float)
+            A = npy.zeros( (occupied-1, occupied-1))
 
         # Calculate the density
         for n1 in range(self.nbands):
@@ -1210,7 +1210,7 @@ class KLIFunctional:
                         # Determine the projection within each nucleus
                         for nucleus in self.ghat_nuclei:
                             if nucleus.in_this_domain:
-                                coeff = npy.zeros((nucleus.setup.lmax + 1)**2, npy.Float)
+                                coeff = npy.zeros((nucleus.setup.lmax + 1)**2)
                                 nucleus.ghat_L.integrate(self.vt_g, coeff)
                                 #nucleus.Vx_nnnlm[n1,n2] = coeff
 

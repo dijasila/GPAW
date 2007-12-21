@@ -12,6 +12,6 @@ gd = GridDescriptor(domain, (n, n, n))
 print gd.get_boxes((0, 0, 0), 1.2, 0)
 if 0:
     p = create_localized_functions([s], gd, (0.0, 0.0, 0.0), cut=True)
-    a = npy.zeros((n, n, n), npy.Float)
+    a = npy.zeros((n, n, n))
     p.add(a, npy.array([2.0]))
     print a[1,0]

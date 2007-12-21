@@ -180,7 +180,7 @@ class GLLB1DFunctional:
 
         # Allocate new array for core_response
         N = len(ae.rgd.r_g)
-        v_xc = npy.zeros(N, npy.Float)
+        v_xc = npy.zeros(N)
 
         # Calculate the response part using wavefunctions, eigenvalues etc. from AllElectron calculator
         self.get_non_local_energy_and_potential1D(ae.rgd, ae.u_j, ae.f_j, ae.e_j, ae.l_j, v_xc,
@@ -304,9 +304,9 @@ class GLLBFunctional(ResponseFunctional, GLLB1DFunctional):
         self.ensure_B88()
         N = len(n_g)
         # TODO: Allocate these only once
-        vtemp_g = npy.zeros(N, npy.Float)
-        etemp_g = npy.zeros(N, npy.Float)
-        deda2temp_g = npy.zeros(N, npy.Float)
+        vtemp_g = npy.zeros(N)
+        etemp_g = npy.zeros(N)
+        deda2temp_g = npy.zeros(N)
 
         self.slater_part.calculate_spinpaired(etemp_g, n_g, vtemp_g, a2_g, deda2temp_g)
 

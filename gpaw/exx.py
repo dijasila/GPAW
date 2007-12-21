@@ -132,7 +132,7 @@ class EXX:
                 nucleus.vxx_uni[u] = 0.0
         if force:
             if not hasattr(self, F_ac):
-                self.F_ac = npy.zeros((self.Na, 3), npy.Float)
+                self.F_ac = npy.zeros((self.Na, 3))
             else:
                 self.F_ac[:] = 0.0
 
@@ -177,7 +177,7 @@ class EXX:
                     for nucleus in ghat_nuclei:
                         if nucleus.in_this_domain:
                             lmax = nucleus.setup.lmax
-                            F_Lc = npy.zeros(((lmax + 1)**2, 3), npy.Float)
+                            F_Lc = npy.zeros(((lmax + 1)**2, 3))
                             if self.use_finegrid:
                                 self.ghat_L.derivative(vt, F_Lc)
                             else:
@@ -214,7 +214,7 @@ class EXX:
                     # residuals
                     for nucleus in self.ghat_nuclei:
                         v_L = npy.zeros((nucleus.setup.lmax + 1)**2,
-                                        npy.Float)
+                                        float)
                         if self.use_finegrid:
                             nucleus.ghat_L.integrate(self.vt_g, v_L)
                         else:
@@ -226,7 +226,7 @@ class EXX:
 
                             if force:
                                 ni = self.setup.ni
-                                F_ic = npy.zeros((ni, 3), npy.Float)
+                                F_ic = npy.zeros((ni, 3))
                                 self.pt_i.derivative(psit1_G, F_ic)
                                 F_ic.shape = (ni * 3,)
                                 F_iic = npy.dot(v_ii, npy.outerproduct(
@@ -366,8 +366,8 @@ def atomic_exact_exchange(atom, type = 'all'):
             raise RuntimeError('Unknown type of exchange: ', type)
 
     # Arrays for storing the potential (times radius)
-    vr = npy.zeros(atom.N, npy.Float)
-    vrl = npy.zeros(atom.N, npy.Float)
+    vr = npy.zeros(atom.N)
+    vrl = npy.zeros(atom.N)
     
     # do actual calculation of exchange contribution
     Exx = 0.0
@@ -434,10 +434,10 @@ def constructX(gen):
     r, dr, N, beta = gen.r, gen.dr, gen.N, gen.beta
 
     # potential times radius
-    vr = npy.zeros(N, npy.Float)
+    vr = npy.zeros(N)
         
     # initialize X_ii matrix
-    X_ii = npy.zeros((Nvi, Nvi), npy.Float)
+    X_ii = npy.zeros((Nvi, Nvi))
 
     # make gaunt coeff. list
     lmax = max(gen.l_j[:Njcore] + gen.vl_j)

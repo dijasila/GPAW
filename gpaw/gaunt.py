@@ -15,7 +15,7 @@ def make_gaunt(lmax=2):
     try:
         from gpaw.gaunt import gaunt
     except ImportError:
-        gaunt = npy.zeros((0, 0, 0), npy.Float)
+        gaunt = npy.zeros((0, 0, 0))
         
     # Don't recalculate if already present
     if Lmax <= gaunt.shape[0]:
@@ -25,7 +25,7 @@ def make_gaunt(lmax=2):
     from gpaw.spherical_harmonics import YL, gam
     old = gaunt
     del gaunt
-    gaunt = npy.zeros((Lmax, Lmax, L2max), npy.Float)
+    gaunt = npy.zeros((Lmax, Lmax, L2max))
 
     # Insert old values
     gaunt[:old.shape[0], :old.shape[1], :old.shape[2]] = old

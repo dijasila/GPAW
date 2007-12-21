@@ -144,7 +144,7 @@ class AllElectron:
         N = (maxnodes + 1) * 150
         t(N, 'radial gridpoints.')
         beta = 0.4
-        g = npy.arange(N, typecode=npy.Float)
+        g = npy.arange(N, typecode=float)
         self.r = beta * g / (N - g)
         self.dr = beta * N / (N - g)**2
         self.rgd = RadialGridDescriptor(self.r, self.dr)
@@ -156,13 +156,13 @@ class AllElectron:
         nj = len(self.n_j)
 
         # Radial wave functions multiplied by radius:
-        self.u_j = npy.zeros((nj, self.N), npy.Float)
+        self.u_j = npy.zeros((nj, self.N))
 
         # Effective potential multiplied by radius:
-        self.vr = npy.zeros(N, npy.Float)
+        self.vr = npy.zeros(N)
 
         # Electron density:
-        self.n = npy.zeros(N, npy.Float)
+        self.n = npy.zeros(N)
 
         # Always spinpaired nspins=1
         self.xcfunc = XCFunctional(self.xcname, 1)
@@ -179,8 +179,8 @@ class AllElectron:
         n = self.n    # electron density
         vr = self.vr  # effective potential multiplied by r
 
-        vHr = npy.zeros(self.N, npy.Float)
-        self.vXC = npy.zeros(self.N, npy.Float)
+        vHr = npy.zeros(self.N)
+        self.vXC = npy.zeros(self.N)
 
         try:
             f = open(self.symbol + '.restart', 'r')
@@ -374,8 +374,8 @@ class AllElectron:
         """Kinetic energy density from a restricted set of wf's
         """
         shape = npy.shape(u_j[0])
-        dudr = npy.zeros(shape,npy.Float)
-        tau = npy.zeros(shape,npy.Float)
+        dudr = npy.zeros(shape)
+        tau = npy.zeros(shape)
         for f, l, u in zip(f_j,l_j,u_j):
             self.rgd.derivative(u,dudr)
             # contribution from angular derivatives
@@ -397,9 +397,9 @@ class AllElectron:
         """
 
         shape = self.u_j.shape[1]
-        R = npy.zeros(shape,npy.Float)
-        dRdr = npy.zeros(shape,npy.Float)
-        tau = npy.zeros(shape,npy.Float)
+        R = npy.zeros(shape)
+        dRdr = npy.zeros(shape)
+        tau = npy.zeros(shape)
         for f, l, u in zip(self.f_j,self.l_j,self.u_j):
             R[1:] = u[1:] / self.r[1:]
             if l==0:
@@ -485,7 +485,7 @@ class AllElectron:
         c10 = -self.d2gdr2 * r**2 # first part of c1 vector
 
         if self.scalarrel:
-            self.r2dvdr = npy.zeros(self.N, npy.Float)
+            self.r2dvdr = npy.zeros(self.N)
             self.rgd.derivative(vr, self.r2dvdr)
             self.r2dvdr *= r
             self.r2dvdr -= vr
@@ -542,7 +542,7 @@ class AllElectron:
         fp = c2 + 0.5 * c1
         fm = c2 - 0.5 * c1
         f0 = c0 - 2 * c2
-        kr = npy.zeros(self.N, npy.Float)
+        kr = npy.zeros(self.N)
         kr[1:] = f0 * u[1:] + fm * u[:-1]
         kr[1:-1] += fp[:-1] * u[2:]
         kr[0] = 0.0

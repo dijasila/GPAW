@@ -21,7 +21,7 @@ for xcname in ['LDA']:
         e_kinetic = s.Kc + npy.dot(s.D_sp[0], s.K_p)
         e_electrostatic = s.M + npy.dot(s.D_sp[0], s.M_p) + \
                           npy.dot(s.D_sp[0], npy.dot(s.M_pp, s.D_sp[0]))
-        H_sp = npy.zeros(s.D_sp.shape, npy.Float)
+        H_sp = npy.zeros(s.D_sp.shape)
         e_xc = s.xc.calculate_energy_and_derivatives(s.D_sp, H_sp)
         print e_kinetic, e_electrostatic, e_xc
         equal(e_kinetic, 0.0, 2e-6)

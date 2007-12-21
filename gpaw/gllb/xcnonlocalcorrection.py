@@ -14,7 +14,7 @@ class DummyXC:
         pass
         #print "GLLB: DummyXC::set_functional(xc) with ", xc.xcname
 
-A_Liy = npy.zeros((25, 3, len(points)), npy.Float)
+A_Liy = npy.zeros((25, 3, len(points)))
 
 y = 0
 for R in points:
@@ -85,7 +85,7 @@ class XCNonLocalCorrection:
         np = ni * (ni + 1) // 2
         self.np = np
         nq = nj * (nj + 1) // 2
-        self.B_Lqp = npy.zeros((self.Lmax, nq, np), npy.Float)
+        self.B_Lqp = npy.zeros((self.Lmax, nq, np))
         p = 0
         i1 = 0
         for j1, l1, L1 in jlL:
@@ -99,8 +99,8 @@ class XCNonLocalCorrection:
             i1 += 1
         self.B_pqL = npy.transpose(self.B_Lqp).copy()
         self.dv_g = rgd.dv_g
-        self.n_qg = npy.zeros((nq, ng), npy.Float)
-        self.nt_qg = npy.zeros((nq, ng), npy.Float)
+        self.n_qg = npy.zeros((nq, ng))
+        self.nt_qg = npy.zeros((nq, ng))
         q = 0
         for j1, l1 in jl:
             for j2, l2 in jl[j1:]:
@@ -139,8 +139,8 @@ class XCNonLocalCorrection:
         ni = nucleus.get_number_of_partial_waves() # Get the number of partial waves from nucleus
         np = ni * (ni + 1) // 2 # Number of items in packed density matrix
 
-        Dn_ii = npy.zeros((ni, ni), npy.Float) # Allocate space for unpacked atomic density matrix
-        Dn_p = npy.zeros((np, np), npy.Float) # Allocate space for packed atomic density matrix
+        Dn_ii = npy.zeros((ni, ni)) # Allocate space for unpacked atomic density matrix
+        Dn_p = npy.zeros((np, np)) # Allocate space for packed atomic density matrix
 
         r_g = self.rgd.r_g
         #xcfunc = self.slater_part
@@ -154,13 +154,13 @@ class XCNonLocalCorrection:
 
         nt_Lg = npy.dot(D_Lq, self.nt_qg)
         nt_Lg[0] += self.nct_g * npy.sqrt(4 * npy.pi) / deg
-        dndr_Lg = npy.zeros((self.Lmax, self.ng), npy.Float)
-        dntdr_Lg = npy.zeros((self.Lmax, self.ng), npy.Float)
+        dndr_Lg = npy.zeros((self.Lmax, self.ng))
+        dntdr_Lg = npy.zeros((self.Lmax, self.ng))
 
         # Array for exchange potential
-        v_g = npy.zeros(len(r_g), npy.Float)
+        v_g = npy.zeros(len(r_g))
         # Array for smooth exchange potential
-        vt_g = npy.zeros(len(r_g), npy.Float)
+        vt_g = npy.zeros(len(r_g))
 
         for L in range(self.Lmax):
             self.rgd.derivative(n_Lg[L], dndr_Lg[L])

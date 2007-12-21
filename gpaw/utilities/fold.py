@@ -42,7 +42,7 @@ def fold(arrays,width,xmin=None,xmax=None,folding='Gauss'):
 
     n = int((xma-xmi)/dx)
 
-    res = npy.zeros((a.shape[0]+1,n+1),npy.Float)
+    res = npy.zeros((a.shape[0]+1,n+1))
 
     x = xmi
     for i in range(n+1):

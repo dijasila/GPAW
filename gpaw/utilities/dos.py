@@ -62,8 +62,8 @@ def fold_ldos(energies, weights, npts, width):
     emin = min(energies) - 5 * width
     emax = max(energies) + 5 * width
     step = (emax - emin) / (npts - 1)
-    e = npy.arange(emin, emax + 1e-7, step, typecode=npy.Float)
-    ldos_e = npy.zeros(npts, typecode=npy.Float)
+    e = npy.arange(emin, emax + 1e-7, step, typecode=float)
+    ldos_e = npy.zeros(npts, typecode=float)
     for e0, w in zip(energies, weights):
         ldos_e += w * delta(e, e0, width)
     return e, ldos_e
@@ -78,8 +78,8 @@ def raw_orbital_LDOS(calc, a, spin, angular='spdf'):
     nb = calc.GetNumberOfBands()
     nucleus = calc.nuclei[a]
 
-    energies = npy.empty(nb * nk, npy.Float)
-    weights_xi = npy.empty((nb * nk, nucleus.setup.ni), npy.Float)
+    energies = npy.empty(nb * nk)
+    weights_xi = npy.empty((nb * nk, nucleus.setup.ni))
     x = 0
     for k, w in enumerate(w_k):
         energies[x:x + nb] = calc.GetEigenvalues(kpt=k, spin=spin)
@@ -97,7 +97,7 @@ def raw_orbital_LDOS(calc, a, spin, angular='spdf'):
 
 def raw_wignerseitz_LDOS(calc, a, spin):
     """Return a list of eigenvalues, and their weight on the specified atom"""
-    atom_index = calc.gd.empty(typecode=npy.Int)
+    atom_index = calc.gd.empty(typecode=int)
     atom_c = npy.array([n.spos_c * calc.gd.N_c for n in calc.nuclei])
     wignerseitz(atom_index, atom_c, calc.gd.beg_c, calc.gd.end_c)
 
@@ -106,8 +106,8 @@ def raw_wignerseitz_LDOS(calc, a, spin):
     nb = calc.GetNumberOfBands()
     nucleus = calc.nuclei[a]
 
-    energies = npy.empty(nb * nk, npy.Float)
-    weights = npy.empty(nb * nk, npy.Float)
+    energies = npy.empty(nb * nk)
+    weights = npy.empty(nb * nk)
     x = 0
     for k, w in enumerate(w_k):
         u = spin * nk + k
@@ -137,7 +137,7 @@ class RawLDOS:
 
     def get(self,atom):
         """Return the s,p,d weights for each state"""
-        spd = npy.zeros((self.paw.nspins,self.paw.nbands,3),npy.Float)
+        spd = npy.zeros((self.paw.nspins,self.paw.nbands,3))
 
         if hasattr(atom, '__iter__'):
             # atom is a list of atom indicies 

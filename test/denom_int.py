@@ -12,7 +12,7 @@ N = 150
 # Create the radial grid    
 # Copy-pasted from all_electron.py
 beta = 0.4
-g = npy.arange(N, typecode=npy.Float)
+g = npy.arange(N, typecode=float)
 r = beta * g / (N - g)
 dr = beta * N / (N - g)**2
 

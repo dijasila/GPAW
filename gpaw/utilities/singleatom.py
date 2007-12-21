@@ -77,9 +77,9 @@ class SingleAtom:
         return [self.atom.GetCalculator().get_xc_difference(xc) for xc in xcs]
 
     def eggboxtest(self, N=30, verbose=False):
-        X = npy.zeros(N + 1, npy.Float)
-        e = npy.zeros(N + 1, npy.Float)
-        dedx = npy.zeros(N + 1, npy.Float)
+        X = npy.zeros(N + 1)
+        e = npy.zeros(N + 1)
+        dedx = npy.zeros(N + 1)
         self.atom[0].SetCartesianPosition([0, 0, 0])
         self.energy()
         h = self.atom.GetCalculator().GetGridSpacings()[0]

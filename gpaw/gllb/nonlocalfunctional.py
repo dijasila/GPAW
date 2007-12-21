@@ -158,7 +158,7 @@ class NonLocalFunctional:
         =========== ======================================================
         Key:        Value:
         =========== ======================================================
-        typecode    For example npy.Float, if the orbitals are real
+        typecode    For example float, if the orbitals are real
         gd          The grid descriptor object for coarse grid
         finegd      The grid descriptor object for fine grid
         n_g         Numeric array for density, supplied if needs_density()

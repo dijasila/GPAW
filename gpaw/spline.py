@@ -17,12 +17,12 @@ class Spline:
         assert 0.0 < rmax
 
         if beta is None:
-            f_g = contiguous(f_g, npy.Float)
+            f_g = contiguous(f_g, float)
         else:
             f_g = divrl(f_g, l, r_g)
             r = 1.0 * rmax / points * npy.arange(points + 1)
             ng = len(f_g)
-            g = (ng * r / (beta + r) + 0.5).astype(npy.Int)
+            g = (ng * r / (beta + r) + 0.5).astype(int)
             g = npy.clip(g, 1, ng - 2)
             r1 = npy.take(r_g, g - 1)
             r2 = npy.take(r_g, g)

@@ -72,7 +72,7 @@ class TDDFT:
         paw.initialize_wave_functions()
 
         # Convert PAW-object to complex
-        paw.totype(npy.Complex);
+        paw.totype(complex);
 
         # No density mixing
         paw.density.mixer = DummyMixer()
@@ -108,7 +108,7 @@ class TDDFT:
         # DO NOT USE, BAD PRECONDITIONER!
         #self.preconditioner = KineticEnergyPreconditioner( paw.gd,
         #                                                   paw.hamiltonian.kin,
-        #                                                   npy.Complex )
+        #                                                   complex )
         #self.preconditioner = InverseOverlapPreconditioner( paw.pt_nuclei )
         self.preconditioner = None
 

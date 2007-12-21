@@ -391,12 +391,12 @@ def plot(positions, numbers, cell):
 ## z
 
     s = 1.3
-    nx, ny, nz = n = (s * cell * (1.0, 0.25, 0.5) + 0.5).astype(npy.Int)
+    nx, ny, nz = n = (s * cell * (1.0, 0.25, 0.5) + 0.5).astype(int)
     sx, sy, sz = n / cell
     grid = Grid(nx + ny + 4, nz + ny + 1)
     positions = (positions % cell + cell) % cell
     ij = npy.dot(positions, [(sx, 0), (sy, sy), (0, sz)])
-    ij = npy.around(ij).astype(npy.Int)
+    ij = npy.around(ij).astype(int)
     for a, Z in enumerate(numbers):
         symbol = symbols[Z]
         i, j = ij[a]
@@ -430,9 +430,9 @@ def plot(positions, numbers, cell):
 
 class Grid:
     def __init__(self, i, j):
-        self.grid = npy.zeros((i, j), npy.Int8)
+        self.grid = npy.zeros((i, j), npy.int8)
         self.grid[:] = ord(' ')
-        self.depth = npy.zeros((i, j), npy.Float)
+        self.depth = npy.zeros((i, j))
         self.depth[:] = 1e10
 
     def put(self, c, i, j, depth=1e9):

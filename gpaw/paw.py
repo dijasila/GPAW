@@ -392,21 +392,16 @@ class PAW(PAWExtra, Output):
         self.input_parameters.update(kwargs)
         Output.__init__(self)
                 
-    def calculate(self):
+    def calculate(self, atoms):
         """Update PAW calculaton if needed."""
 
         if not self.initialized:
-            self.initialize()
-            self.find_ground_state()
+            self.initialize(atoms)
+            self.find_ground_state(atoms)
             return
 
         if not self.converged:
-            self.find_ground_state()
-            return
-
-        atoms = self.atoms
-        if self.lastcount == atoms.GetCount():
-            # Nothing to do:
+            self.find_ground_state(atoms)
             return
 
         pos_ac, Z_a, cell_cc, pbc_c = self.last_atomic_configuration
@@ -417,8 +412,8 @@ class PAW(PAWExtra, Output):
             atoms.GetBoundaryConditions() != pbc_c):
             # Drastic changes:
             self.wave_functions_initialized = False
-            self.initialize()
-            self.find_ground_state()
+            self.initialize(atoms)
+            self.find_ground_state(atoms)
             return
 
         # Something else has changed:
@@ -426,7 +421,7 @@ class PAW(PAWExtra, Output):
             # It was the positions:
             # Wave functions are no longer orthonormal!
             self.wave_functions_orthonormalized = False
-            self.find_ground_state()
+            self.find_ground_state(atoms)
         else:
             # It was something that we don't care about - like
             # velocities, masses, ...
@@ -716,7 +711,7 @@ class PAW(PAWExtra, Output):
         if self.F_ac is not None:
             return
 
-        self.F_ac = npy.empty((self.natoms, 3), npy.Float)
+        self.F_ac = npy.empty((self.natoms, 3))
         
         nt_g = self.density.nt_g
         vt_sG = self.hamiltonian.vt_sG
@@ -757,7 +752,7 @@ class PAW(PAWExtra, Output):
 
         if self.symmetry is not None:
             # Symmetrize forces:
-            F_ac = npy.zeros((self.natoms, 3), npy.Float)
+            F_ac = npy.zeros((self.natoms, 3))
             for map_a, symmetry in zip(self.symmetry.maps,
                                        self.symmetry.symmetries):
                 swap, mirror = symmetry
@@ -938,7 +933,7 @@ class PAW(PAWExtra, Output):
         p['width'] = r['FermiWidth'] 
 
         pos_ac = r.get('CartesianPositions')
-        Z_a = npy.asarray(r.get('AtomicNumbers'), npy.Int)
+        Z_a = npy.asarray(r.get('AtomicNumbers'), int)
         cell_cc = r.get('UnitCell')
         pbc_c = r.get('BoundaryConditions')
         tag_a = r.get('Tags')
@@ -1077,7 +1072,7 @@ class PAW(PAWExtra, Output):
         # Set the scaled k-points:
         kpts = p['kpts']
         if kpts is None:
-            self.bzk_kc = npy.zeros((1, 3), npy.Float)
+            self.bzk_kc = npy.zeros((1, 3))
         elif isinstance(kpts[0], int):
             self.bzk_kc = MonkhorstPack(kpts)
         else:
@@ -1124,9 +1119,9 @@ class PAW(PAWExtra, Output):
                       not npy.sometrue(self.bzk_kc[0]))
 
         if self.gamma:
-            self.typecode = npy.Float
+            self.typecode = float
         else:
-            self.typecode = npy.Complex
+            self.typecode = complex
             
         # Is this a "linear combination of atomic orbitals" type of
         # calculation?
@@ -1139,7 +1134,7 @@ class PAW(PAWExtra, Output):
         if self.gamma:
             self.symmetry = None
             self.weight_k = [1.0]
-            self.ibzk_kc = npy.zeros((1, 3), npy.Float)
+            self.ibzk_kc = npy.zeros((1, 3))
             self.nkpts = 1
         else:
             if not self.eigensolver.lcao:

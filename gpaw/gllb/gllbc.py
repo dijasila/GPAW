@@ -64,9 +64,9 @@ class GLLBCFunctional(GLLBFunctional):
 
         N = len(n_g)
         # TODO: Allocate these only once
-        vtemp_g = npy.zeros(N, npy.Float)
-        etemp_g = npy.zeros(N, npy.Float)
-        deda2temp_g = npy.zeros(N, npy.Float)
+        vtemp_g = npy.zeros(N)
+        etemp_g = npy.zeros(N)
+        deda2temp_g = npy.zeros(N)
 
         self.correlation_part.calculate_spinpaired(etemp_g, n_g, vtemp_g, a2_g, deda2temp_g)
 

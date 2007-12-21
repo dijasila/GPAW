@@ -38,13 +38,13 @@ def gemm(alpha, a, b, beta, c, transa='n'):
 
      where in case of "c" also complex conjugate of a is taken.
     """
-    assert ((is_contiguous(a, npy.Float) and
-             is_contiguous(b, npy.Float) and
-             is_contiguous(c, npy.Float) and
+    assert ((is_contiguous(a, float) and
+             is_contiguous(b, float) and
+             is_contiguous(c, float) and
              isinstance(alpha, float) and isinstance(beta, float)) or
-            (is_contiguous(a, npy.Complex) and
-             is_contiguous(b, npy.Complex) and
-             is_contiguous(c, npy.Complex)))
+            (is_contiguous(a, complex) and
+             is_contiguous(b, complex) and
+             is_contiguous(c, complex)))
     if transa == "n":   
         assert npy.rank(b) == 2
         assert a.shape[0] == b.shape[1]
@@ -64,10 +64,10 @@ def axpy(alpha, x, y):
       
     """
     if isinstance(alpha, complex):
-        assert is_contiguous(x, npy.Complex) and is_contiguous(y, npy.Complex)
+        assert is_contiguous(x, complex) and is_contiguous(y, complex)
     else:
         assert isinstance(alpha, float)
-        assert x.dtype.char in [npy.Float, npy.Complex]
+        assert x.dtype.char in [float, complex]
         assert x.dtype.char == y.dtype.char
         assert x.iscontiguous() and y.iscontiguous()
     assert x.shape == y.shape
@@ -95,8 +95,8 @@ def rk(alpha, a, beta, c):
     
     Only the lower triangle of ``c`` will contain sensible numbers.
     """
-    assert (is_contiguous(a, npy.Float) and is_contiguous(c, npy.Float) or
-            is_contiguous(a, npy.Complex) and is_contiguous(c, npy.Complex))
+    assert (is_contiguous(a, float) and is_contiguous(c, float) or
+            is_contiguous(a, complex) and is_contiguous(c, complex))
     assert npy.rank(a) > 1
     assert c.shape == (a.shape[0], a.shape[0])
     _gpaw.rk(alpha, a, beta, c)
@@ -125,10 +125,10 @@ def r2k(alpha, a, b, beta, c):
 
     Only the lower triangle of ``c`` will contain sensible numbers.
     """
-    assert ((is_contiguous(a, npy.Float) and is_contiguous(b, npy.Float) and
-             is_contiguous(c, npy.Float) and isinstance(alpha, float)) or
-            (is_contiguous(a, npy.Complex) and is_contiguous(b,npy.Complex) and
-             is_contiguous(c, npy.Complex)))
+    assert ((is_contiguous(a, float) and is_contiguous(b, float) and
+             is_contiguous(c, float) and isinstance(alpha, float)) or
+            (is_contiguous(a, complex) and is_contiguous(b,complex) and
+             is_contiguous(c, complex)))
     assert npy.rank(a) > 1
     assert a.shape == b.shape
     assert c.shape == (a.shape[0], a.shape[0])
@@ -147,8 +147,8 @@ def dotc(a, b):
 
     ``cc`` denotes complex conjugation.
     """
-    assert ((is_contiguous(a, npy.Float) and is_contiguous(b, npy.Float)) or
-            (is_contiguous(a, npy.Complex) and is_contiguous(b,npy.Complex)))
+    assert ((is_contiguous(a, float) and is_contiguous(b, float)) or
+            (is_contiguous(a, complex) and is_contiguous(b,complex)))
     assert a.shape == b.shape
     return _gpaw.dotc(a, b)
     
@@ -163,24 +163,24 @@ if __name__ == '__main__':
     a = npy.array(((1.0, 3.0, 0.0),
                    (0.0, -0.5, 0.0)))
     b = npy.array(((0, 1),(2.0, 0)))
-    c = npy.zeros((2, 3), npy.Float)
+    c = npy.zeros((2, 3))
     gemm(2.0, a, b, 1.0, c)
     print c
     a = npy.array(((1.0, 3.0 + 2j, 0.0),
                    (0.0, -0.5j, 0.0)))
     b = npy.array(((0, 1),(2.0+1j, 0)))
-    c = npy.zeros((2, 3), npy.Complex)
+    c = npy.zeros((2, 3), complex)
     gemm(2.0, a, b, 1.0, c)
     print c
     a = npy.array(((1.0, 3.0 +2j, 0.0),
                    (0.0, -0.5j, 0.0)))
-    c = npy.ones((2, 2), npy.Complex)
+    c = npy.ones((2, 2), complex)
     rk(2.0, a, 0.0, c)
     print c
     import time, RandomArray
     a = RandomArray.random((30, 23**3))
     b = RandomArray.random((30, 30))
-    c = npy.zeros((30, 23**3), npy.Float)
+    c = npy.zeros((30, 23**3))
     t = time.clock()
     for i in range(100):
         gemm(1.0, a, b, 0.0, c)

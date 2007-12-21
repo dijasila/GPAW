@@ -142,9 +142,9 @@ class Symmetry:
                 self.symmetries.append((swap_c, -mirror_c))
 
         nbzkpts = len(bzk_kc)
-        ibzk0_kc = npy.empty((nbzkpts, 3), npy.Float)
+        ibzk0_kc = npy.empty((nbzkpts, 3))
         ibzk_kc = ibzk0_kc[:0]
-        weight_k = npy.ones(nbzkpts, npy.Float)
+        weight_k = npy.ones(nbzkpts)
         nibzkpts = 0
         for k_c in bzk_kc[::-1]:
             found = False

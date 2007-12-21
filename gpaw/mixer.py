@@ -44,7 +44,7 @@ class BaseMixer:
                                     (-1, 0, 0), (1, 0, 0),
                                     (0, -1, 0), (0, 1, 0),
                                     (0, 0, -1), (0, 0, 1)],
-                                   gd, npy.Float).apply
+                                   gd, float).apply
             self.mR_G = gd.empty()
 
         elif self.metric_type == 'new':
@@ -68,7 +68,7 @@ class BaseMixer:
                                     (-1, 1, 1), (1, -1, -1), (-1, -1, 1),  #d
                                     (-1, 1, -1), (-1, -1, -1)              #d
                                     ],
-                                   gd, npy.Float).apply
+                                   gd, float).apply
             self.mR_G = gd.empty()
 
         else:
@@ -85,7 +85,7 @@ class BaseMixer:
         # History for Pulay mixing of densities:
         self.nt_iG = [] # Pseudo-electron densities
         self.R_iG = []  # Residuals
-        self.A_ii = npy.zeros((0, 0), npy.Float)
+        self.A_ii = npy.zeros((0, 0))
         self.dNt = None
         
         # Collect atomic density matrices:
@@ -123,7 +123,7 @@ class BaseMixer:
                 dD_ip.append(D_p - D_ip[-1])
 
             # Update matrix:
-            A_ii = npy.zeros((iold, iold), npy.Float)
+            A_ii = npy.zeros((iold, iold))
             i1 = 0
             i2 = iold - 1
             
@@ -144,7 +144,7 @@ class BaseMixer:
             try:
                 B_ii = npy.linalg.inv(A_ii)
             except npy.linalg.LinAlgError:
-                alpha_i = npy.zeros(iold, npy.Float)
+                alpha_i = npy.zeros(iold)
                 alpha_i[-1] = 1.0
             else:
                 alpha_i = npy.sum(B_ii, 1)

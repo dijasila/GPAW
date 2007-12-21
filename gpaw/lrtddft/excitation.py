@@ -45,7 +45,7 @@ class ExcitationList(list):
 
     def GetTRK(self):
         """Evaluate the Thonmas Reiche Kuhn sum rule"""
-        trkm = npy.zeros((3),npy.Float)
+        trkm = npy.zeros((3))
         for ex in self:
             trkm += ex.get_energy()*ex.GetDipolME()**2
         return 2.*trkm # scale to get the number of electrons
@@ -53,7 +53,7 @@ class ExcitationList(list):
     def GetPolarizabilities(self,lmax=7):
         """Calculate the Polarisabilities
         see Jamorski et al. J. Chem. Phys. 104 (1996) 5134"""
-        S=npy.zeros((lmax+1),npy.Float)
+        S=npy.zeros((lmax+1))
         for ex in self:
             e = ex.GetEnergy()
             f = ex.GetOscillatorStrength()[0]

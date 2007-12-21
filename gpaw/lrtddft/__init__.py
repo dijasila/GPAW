@@ -279,13 +279,13 @@ def d2Excdnsdnt(dup,ddn):
     res=[[0, 0], [0, 0]]
     for ispin in range(2):
         for jspin in range(2):
-            res[ispin][jspin]=npy.zeros(dup.shape,npy.Float)
+            res[ispin][jspin]=npy.zeros(dup.shape)
             _gpaw.d2Excdnsdnt(dup, ddn, ispin, jspin, res[ispin][jspin])
     return res
 
 def d2Excdn2(den):
     """Second derivative of Exc unpolarised"""
-    res=npy.zeros(den.shape,npy.Float)
+    res=npy.zeros(den.shape)
     _gpaw.d2Excdn2(den, res)
     return res
 

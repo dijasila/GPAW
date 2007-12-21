@@ -69,7 +69,7 @@ if parallel and debug:
             self.rank = comm.rank
 
         def new_communicator(self, ranks):            
-            assert is_contiguous(ranks, npy.Int)
+            assert is_contiguous(ranks, int)
             sranks = npy.sort(ranks)
             # Are all ranks in range?
             assert 0 <= sranks[0] and sranks[-1] < self.size
@@ -89,7 +89,7 @@ if parallel and debug:
                 return self.comm.sum(array, root)
             else:
                 tc = array.dtype.char
-                assert tc == npy.Float or tc == npy.Complex
+                assert tc == float or tc == complex
                 assert is_contiguous(array, tc)
                 assert root == -1 or 0 <= root < self.size
                 self.comm.sum(array, root)
@@ -100,7 +100,7 @@ if parallel and debug:
                 return self.comm.max(array, root)
             else:
                 tc = array.dtype.char
-                assert tc == npy.Float or tc == npy.Complex
+                assert tc == float or tc == complex
                 assert is_contiguous(array, tc)
                 assert root == -1 or 0 <= root < self.size
                 self.comm.max(array, root)
@@ -163,15 +163,15 @@ else:
 def broadcast_string(string=None, root=MASTER, comm=world):
     if rank == root:
         assert isinstance(string, str)
-        n = npy.array(len(string), npy.Int)
+        n = npy.array(len(string), int)
     else:
         assert string is None
-        n = npy.zeros(1, npy.Int)
+        n = npy.zeros(1, int)
     comm.broadcast(n, root)
     if rank == root:
-        string = npy.fromstring(string, npy.Int8)
+        string = npy.fromstring(string, int8)
     else:
-        string = npy.zeros(n, npy.Int8)
+        string = npy.zeros(n, int8)
     comm.broadcast(string, root)
     return string.tostring()
 
@@ -179,7 +179,7 @@ def broadcast_string(string=None, root=MASTER, comm=world):
 def all_gather_array(comm, a): #???
     # Gather array into flat array
     shape = (comm.size,) + npy.shape(a)
-    all = npy.zeros(shape, npy.Float)
+    all = npy.zeros(shape)
     comm.all_gather(a, all)
     return all.ravel()
 

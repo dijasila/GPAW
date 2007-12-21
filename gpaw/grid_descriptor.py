@@ -83,7 +83,7 @@ class GridDescriptor:
         self.comm = domain.comm
         self.rank = self.comm.rank
 
-        self.N_c = npy.array(N_c, npy.Int)
+        self.N_c = npy.array(N_c, int)
 
         #if npy.sometrue(self.N_c % domain.parsize_c):
         #    raise ValueError('Bad number of CPUs!')
@@ -91,13 +91,13 @@ class GridDescriptor:
         parsize_c = domain.parsize_c
         n_c, remainder_c = divmod(N_c, parsize_c)
 
-        self.beg_c = npy.empty(3, npy.Int)
-        self.end_c = npy.empty(3, npy.Int)
+        self.beg_c = npy.empty(3, int)
+        self.end_c = npy.empty(3, int)
 
         self.n_cp = []
         for c in range(3):
             n_p = npy.arange(parsize_c[c] + 1) * float(N_c[c]) / parsize_c[c]
-            n_p = npy.around(n_p + 0.4999).astype(npy.Int)
+            n_p = npy.around(n_p + 0.4999).astype(int)
             
             if not domain.periodic_c[c]:
                 n_p[0] = 1
@@ -125,7 +125,7 @@ class GridDescriptor:
         return [slice(b - 1 + p, e - 1 + p) for b, e, p in
                 zip(self.beg_c, self.end_c, self.domain.periodic_c)]
 
-    def zeros(self, n=(), typecode=npy.Float, global_array=False):
+    def zeros(self, n=(), typecode=float, global_array=False):
         """Return new zeroed 3D array for this domain.
 
         The type can be set with the ``typecode`` keyword (default:
@@ -135,7 +135,7 @@ class GridDescriptor:
 
         return self._new_array(n, typecode, True, global_array)
     
-    def empty(self, n=(), typecode=npy.Float, global_array=False):
+    def empty(self, n=(), typecode=float, global_array=False):
         """Return new uninitialized 3D array for this domain.
 
         The type can be set with the ``typecode`` keyword (default:
@@ -145,7 +145,7 @@ class GridDescriptor:
 
         return self._new_array(n, typecode, False, global_array)
         
-    def _new_array(self, n=(), typecode=npy.Float, zero=True,
+    def _new_array(self, n=(), typecode=float, zero=True,
                   global_array=False):
         if global_array:
             shape = self.get_size_of_global_array()
@@ -192,8 +192,8 @@ class GridDescriptor:
         N_c = self.N_c
         ncut = rcut / self.h_c
         npos_c = spos_c * N_c
-        beg_c = npy.ceil(npos_c - ncut).astype(npy.Int)
-        end_c   = npy.ceil(npos_c + ncut).astype(npy.Int)
+        beg_c = npy.ceil(npos_c - ncut).astype(int)
+        end_c   = npy.ceil(npos_c + ncut).astype(int)
 
         if cut:
             for c in range(3):
@@ -387,9 +387,9 @@ class GridDescriptor:
         rho_xy = npy.sum(rho_xyz, 2)
         rho_xz = npy.sum(rho_xyz, 1)
         rho_cg = [npy.sum(rho_xy, 1), npy.sum(rho_xy, 0), npy.sum(rho_xz, 0)]
-        d_c = npy.zeros(3, npy.Float)
+        d_c = npy.zeros(3)
         for c in range(3):
-            r_g = (npy.arange(self.n_c[c], typecode=npy.Float) +
+            r_g = (npy.arange(self.n_c[c], typecode=float) +
                    self.beg_c[c]) * self.h_c[c]
             d_c[c] = -npy.dot(r_g, rho_cg[c]) * self.dv
         self.comm.sum(d_c)
@@ -415,7 +415,7 @@ class GridDescriptor:
             same_wave = True
 
         nbands = len(psit_nG)
-        Z_nn = npy.zeros((nbands, nbands), npy.Complex)
+        Z_nn = npy.zeros((nbands, nbands), complex)
         psit_nG = psit_nG[:]
         if not same_wave:
             psit_nG1 = psit_nG1[:]

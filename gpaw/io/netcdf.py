@@ -6,7 +6,7 @@ class Writer:
     def __init__(self, filename):
         self.nc = NetCDF.NetCDFFile(filename, 'w')
         self.dimension('unlim', None)
-        var = self.nc.createVariable('FrameNumber', npy.Int, ('unlim',))
+        var = self.nc.createVariable('FrameNumber', int, ('unlim',))
         var.once = 0
         var[0] = 0
 
@@ -23,13 +23,13 @@ class Writer:
             array = npy.asarray(array)
             tc = array.dtype.char
         else:
-            tc = {int: npy.Int,
-                  float: npy.Float,
-                  complex: npy.Complex}[typecode]
+            tc = {int: int,
+                  float: float,
+                  complex: complex}[typecode]
         if typecode is complex:
             if 'two' not in self.nc.dimensions:
                 self.dimension('two', 2)
-            var = self.nc.createVariable(name, npy.Float, shape + ('two',))
+            var = self.nc.createVariable(name, float, shape + ('two',))
         else:
             var = self.nc.createVariable(name, tc, shape)
         if units is not None:
@@ -42,7 +42,7 @@ class Writer:
                 if typecode is complex:
                     var[:, 0] = array.real
                     var[:, 1] = array.imag
-                elif tc is npy.Int:
+                elif tc is int:
                     var[:] = array.astype('i')
                 else:
                     var[:] = array
@@ -102,7 +102,7 @@ class Reader:
         else:
             if var.dimensions[-1] == 'two':
                 x = var[indices]
-                array = npy.empty(x.shape[:-1], npy.Complex)
+                array = npy.empty(x.shape[:-1], complex)
                 array.real = x[..., 0]
                 array.imag = x[..., 1]
                 return array
@@ -135,7 +135,7 @@ class NetCDFReference:
             indices = (indices,)
         if self.cmplx:
             x = self.var[self.indices + indices]
-            array = npy.empty(x.shape[:-1], npy.Complex)
+            array = npy.empty(x.shape[:-1], complex)
             array.real = x[..., 0]
             array.imag = x[..., 1]
             return array
