@@ -98,8 +98,7 @@ class PoissonSolver:
             background = charge / npy.product(self.gd.domain.cell_c)
             return self.solve_neutral(phi, rho - background, eps=eps)
         
-        elif abs(charge) > maxcharge and npy.alltrue(
-            self.gd.domain.periodic_c == npy.zeros(3)):
+        elif abs(charge) > maxcharge and not self.gd.domain.pbc_c.any():
             # The system is charged and in a non-periodic unit cell.
             # Determine the potential by 1) subtract a gaussian from the
             # density, 2) determine potential from the neutralized density

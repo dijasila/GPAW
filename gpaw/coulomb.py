@@ -34,10 +34,10 @@ class Coulomb:
                 # cutoff radius
                 rc = 0.5 * npy.average(self.gd.domain.cell_c)
                 # ewald potential: 1 - cos(k rc)
-                self.ewald = npy.ones(self.gd.n_c) - \
-                             npy.cos(npy.sqrt(self.k2)* rc)
+                self.ewald = (npy.ones(self.gd.n_c) - 
+                              npy.cos(npy.sqrt(self.k2) * rc))
                 # lim k -> 0 ewald / k2 
-                self.ewald[0, 0, 0] = .5 * rc**2
+                self.ewald[0, 0, 0] = 0.5 * rc**2
 
             if method.endswith('gauss') and not hasattr(self, 'ng'):
                 gauss = Gaussian(self.gd)

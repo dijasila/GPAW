@@ -25,12 +25,10 @@ class GInteraction2:
         self.beta2 = setupb.alpha2
         self.lmaxa = setupa.lmax
         self.lmaxb = setupb.lmax
-        self.v_LL = npy.zeros(((self.lmaxa + 1)**2, (self.lmaxb + 1)**2),
-                              float)
+        self.v_LL = npy.zeros(((self.lmaxa + 1)**2, (self.lmaxb + 1)**2))
         self.dvdr_LLc = npy.zeros(((self.lmaxa + 1)**2,
                                   (self.lmaxb + 1)**2,
-                                  3),
-                                  float)
+                                  3))
 
     def __call__(self, R):
         if not self.softgauss:

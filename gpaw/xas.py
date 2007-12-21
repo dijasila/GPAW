@@ -150,7 +150,7 @@ class XAS:
         if kpoint is not None:
             if self.symmetry is not None:
                 sigma0_cn = sigma2_cn.copy()
-                sigma2_cn = npy.zeros((len(sigma0_cn),len(sigma0_cn[0])))
+                sigma2_cn = npy.zeros((len(sigma0_cn), len(sigma0_cn[0])))
                 swaps = {}  # Python 2.4: use a set
                 for swap, mirror in self.symmetry.symmetries:
                     swaps[swap] = None

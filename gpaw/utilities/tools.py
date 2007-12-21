@@ -71,7 +71,9 @@ def get_kpoint_dimensions(kpts):
        The set of k-points must not have been symmetry reduced.
     """
     nkpts = len(kpts)
-    if nkpts == 1: return npy.ones(3)
+    if nkpts == 1:
+        return npy.ones(3, int)
+    
     tol = 1e-5
     Nk_c = npy.zeros(3)
     for c in range(3):

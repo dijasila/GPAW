@@ -10,6 +10,8 @@ a = gd.zeros()
 dadx = gd.zeros()
 a[:, 0, 0] = npy.arange(7)
 gradx = Gradient(gd, c=0)
+print a.itemsize, a.dtype, a.shape
+print dadx.itemsize, dadx.dtype, dadx.shape
 gradx.apply(a, dadx)
 
 #   a = [ 0.  1.  2.  3.  4.  5.  6.]

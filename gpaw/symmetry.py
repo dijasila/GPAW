@@ -84,7 +84,7 @@ class Symmetry:
         symmok = []
         maps = []
         for swap, mirror in self.symmetries:
-            map = npy.zeros(len(pos_ac))
+            map = npy.zeros(len(pos_ac), int)
             for specie in species.values():
                 for a1, spos1_c in specie:
                     spos1_c = npy.take(spos1_c * mirror, swap)

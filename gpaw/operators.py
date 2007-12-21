@@ -21,10 +21,9 @@ class _Operator:
             if sum([offset != 0 for offset in offset_c]) >= 2:
                 cfd = False
 
-        print offset_pc
         maxoffset_c = [max([offset_c[c] for offset_c in offset_pc])
                        for c in range(3)]
-        print maxoffset_c
+
         mp = maxoffset_c[0]
         if maxoffset_c[1] != mp or maxoffset_c[2] != mp:
 ##            print 'Warning: this should be optimized XXXX', maxoffsets, mp
@@ -49,7 +48,6 @@ class _Operator:
         else:
             comm = None
 
-        print coef_p, offset_p, n_c, mp,                                           neighbor_cd, dtype == float,                                          comm, cfd
         self.operator = _gpaw.Operator(coef_p, offset_p, n_c, mp,
                                           neighbor_cd, dtype == float,
                                           comm, cfd)
@@ -87,7 +85,7 @@ def Gradient(gd, c, scale=1.0, dtype=float):
     h = gd.h_c[c]
     a = 0.5 / h * scale
     coef_p = [-a, a]
-    offset_pc = npy.zeros((2, 3))
+    offset_pc = npy.zeros((2, 3), int)
     offset_pc[0, c] = -1
     offset_pc[1, c] = 1
     return Operator(coef_p, offset_pc, gd, dtype)

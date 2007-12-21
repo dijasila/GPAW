@@ -104,8 +104,7 @@ class Wannier(ASEWannier):
 
         # The coordinate vector of wannier functions
         if isinstance(wannierindex, int):
-            coords_w = npy.zeros(self.GetNumberOfWannierFunctions(),
-                                 complex)
+            coords_w = npy.zeros(self.GetNumberOfWannierFunctions(), complex)
             coords_w[wannierindex] = 1.0
         else:   
             coords_w = wannierindex
@@ -123,7 +122,7 @@ class Wannier(ASEWannier):
         bzk_kc = self.GetBZKPoints()
         Nkpts = len(bzk_kc)
         kpt_u = self.GetCalculator().kpt_u
-        wanniergrid = npy.zeros(largedim, dtype=complex)
+        wanniergrid = npy.zeros(largedim, complex)
         for k, kpt_c in enumerate(bzk_kc):
             u = (k + Nkpts * self.spin) % len(kpt_u)
             U_nw = self.GetListOfLargeRotationMatrices()[k]
@@ -169,7 +168,7 @@ def get_projections(initialwannier,calc):
     for spos_c,ls,a in initialwannier:
         nbf += npy.sum([2 * l + 1 for l in ls])
     
-    f_kni = npy.zeros((len(calc.ibzk_kc),calc.nbands,nbf),complex)
+    f_kni = npy.zeros((len(calc.ibzk_kc), calc.nbands, nbf), complex)
     
     nbf = 0
     for spos_c,ls,a in initialwannier:

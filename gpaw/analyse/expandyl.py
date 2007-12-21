@@ -66,10 +66,10 @@ class ExpandYl:
         # self.ball_g will contain the mask of the ball of radius Rmax
         # self.y_Lg will contain the YL values corresponding to
         #     each grid point
-        R_V = npy.zeros((int(Rmax/dR+1),))
+        R_V = npy.zeros((int(Rmax / dR + 1),))
         y_Lg = gd.zeros((nL,))
-        R_g = npy.zeros(y_Lg[0].shape,int)-1
-        ball_g = npy.zeros(y_Lg[0].shape,int)
+        R_g = npy.zeros(y_Lg[0].shape, int) - 1
+        ball_g = npy.zeros(y_Lg[0].shape, int)
         for i in range(gd.beg_c[0],gd.end_c[0]):
             ii = i - gd.beg_c[0]
             for j in range(gd.beg_c[1],gd.end_c[1]):
