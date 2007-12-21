@@ -6,7 +6,7 @@
 This module contains the definition of the ``Domain`` class and some
 helper functins for parallel domain decomposition.  """
 
-import Numeric as num
+import numpy as npy
 
 from gpaw.mpi import serial_comm
 
@@ -36,7 +36,7 @@ class Domain:
          =============== ==================================================
         """
         
-        self.cell_c = num.array(cell, num.Float)
+        self.cell_c = npy.array(cell, npy.Float)
         self.periodic_c = periodic
         
         self.set_decomposition(serial_comm, (1, 1, 1))
@@ -55,21 +55,21 @@ class Domain:
 
         if parsize_c is None:
             parsize_c = decompose_domain(N_c, comm.size)
-        self.parsize_c = num.array(parsize_c)
+        self.parsize_c = npy.array(parsize_c)
 
-        self.stride_c = num.array([parsize_c[1] * parsize_c[2],
+        self.stride_c = npy.array([parsize_c[1] * parsize_c[2],
                                    parsize_c[2],
                                    1])
         
-        if num.product(self.parsize_c) != self.comm.size:
+        if npy.product(self.parsize_c) != self.comm.size:
             raise RuntimeError('Bad domain decomposition!')
 
         rnk = self.comm.rank
-        self.parpos_c = num.array(
+        self.parpos_c = npy.array(
             [rnk // self.stride_c[0],
              (rnk % self.stride_c[0]) // self.stride_c[1],
              rnk % self.stride_c[1]])
-        assert num.dot(self.parpos_c, self.stride_c) == rnk
+        assert npy.dot(self.parpos_c, self.stride_c) == rnk
 
         self.find_neighbor_processors()
 
@@ -87,11 +87,11 @@ class Domain:
 
     def get_rank_for_position(self, spos_c):
         """Calculate rank of domain containing scaled position."""
-        rnk_c = num.clip(num.floor(spos_c * self.parsize_c).astype(num.Int),
-                         0, num.array(self.parsize_c) - 1)
+        rnk_c = npy.clip(npy.floor(spos_c * self.parsize_c).astype(npy.Int),
+                         0, npy.array(self.parsize_c) - 1)
         for c in range(3):
             assert 0 <= rnk_c[c] < self.parsize_c[c], 'Bad bad!'
-        return num.dot(rnk_c, self.stride_c)
+        return npy.dot(rnk_c, self.stride_c)
 
     def find_neighbor_processors(self):
         """Find neighbor processors - surprise!
@@ -104,8 +104,8 @@ class Domain:
         * ``disp_cd``:  Displacement for neighbor.
         """
         
-        self.neighbor_cd = num.zeros((3, 2), num.Int)
-        self.sdisp_cd = num.zeros((3, 2), num.Int)
+        self.neighbor_cd = npy.zeros((3, 2), npy.Int)
+        self.sdisp_cd = npy.zeros((3, 2), npy.Int)
         for c in range(3):
             p = self.parpos_c[c]
             for d in range(2):
@@ -127,7 +127,7 @@ class Domain:
         t = tuple(group)
         if t in self.comms:
             return self.comms[t]
-        comm = self.comm.new_communicator(num.array(group))
+        comm = self.comm.new_communicator(npy.array(group))
         self.comms[t] = comm
         return comm
 

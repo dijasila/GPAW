@@ -1,4 +1,4 @@
-import Numeric as num
+import numpy as npy
 import Scientific.IO.NetCDF as NetCDF
 
 
@@ -6,7 +6,7 @@ class Writer:
     def __init__(self, filename):
         self.nc = NetCDF.NetCDFFile(filename, 'w')
         self.dimension('unlim', None)
-        var = self.nc.createVariable('FrameNumber', num.Int, ('unlim',))
+        var = self.nc.createVariable('FrameNumber', npy.Int, ('unlim',))
         var.once = 0
         var[0] = 0
 
@@ -20,16 +20,16 @@ class Writer:
 
     def add(self, name, shape, array=None, typecode=None, units=None):
         if array is not None:
-            array = num.asarray(array)
+            array = npy.asarray(array)
             tc = array.typecode()
         else:
-            tc = {int: num.Int,
-                  float: num.Float,
-                  complex: num.Complex}[typecode]
+            tc = {int: npy.Int,
+                  float: npy.Float,
+                  complex: npy.Complex}[typecode]
         if typecode is complex:
             if 'two' not in self.nc.dimensions:
                 self.dimension('two', 2)
-            var = self.nc.createVariable(name, num.Float, shape + ('two',))
+            var = self.nc.createVariable(name, npy.Float, shape + ('two',))
         else:
             var = self.nc.createVariable(name, tc, shape)
         if units is not None:
@@ -42,7 +42,7 @@ class Writer:
                 if typecode is complex:
                     var[:, 0] = array.real
                     var[:, 1] = array.imag
-                elif tc is num.Int:
+                elif tc is npy.Int:
                     var[:] = array.astype('i')
                 else:
                     var[:] = array
@@ -102,7 +102,7 @@ class Reader:
         else:
             if var.dimensions[-1] == 'two':
                 x = var[indices]
-                array = num.empty(x.shape[:-1], num.Complex)
+                array = npy.empty(x.shape[:-1], npy.Complex)
                 array.real = x[..., 0]
                 array.imag = x[..., 1]
                 return array
@@ -135,7 +135,7 @@ class NetCDFReference:
             indices = (indices,)
         if self.cmplx:
             x = self.var[self.indices + indices]
-            array = num.empty(x.shape[:-1], num.Complex)
+            array = npy.empty(x.shape[:-1], npy.Complex)
             array.real = x[..., 0]
             array.imag = x[..., 1]
             return array

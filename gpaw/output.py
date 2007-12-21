@@ -3,7 +3,7 @@ import sys
 import time
 from math import log
 
-import Numeric as num
+import numpy as npy
 from ASE.ChemicalElements.symbol import symbols
 
 from gpaw.utilities import devnull
@@ -310,7 +310,7 @@ iter: %3d  %02d:%02d:%02d  %-5s  %-5s    %-12.5f %-5s  %-7s""" %
 
     def plot_atoms(self):
         atoms = self.atoms
-        cell_c = num.diagonal(atoms.GetUnitCell()) / self.a0
+        cell_c = npy.diagonal(atoms.GetUnitCell()) / self.a0
         pos_ac = atoms.GetCartesianPositions() / self.a0
         Z_a = atoms.GetAtomicNumbers()
         pbc_c = atoms.GetBoundaryConditions()
@@ -370,7 +370,7 @@ def plot(positions, numbers, cell):
                           cell=(a, a, a), periodic=True)
       for line in plot(2*atoms.GetCartesianPositions() + (a,a,a),
                        atoms.GetAtomicNumbers(),
-                       2*num.array(atoms.GetUnitCell().flat[::4])):
+                       2*npy.array(atoms.GetUnitCell().flat[::4])):
           print line
 
           .-----------.
@@ -391,12 +391,12 @@ def plot(positions, numbers, cell):
 ## z
 
     s = 1.3
-    nx, ny, nz = n = (s * cell * (1.0, 0.25, 0.5) + 0.5).astype(num.Int)
+    nx, ny, nz = n = (s * cell * (1.0, 0.25, 0.5) + 0.5).astype(npy.Int)
     sx, sy, sz = n / cell
     grid = Grid(nx + ny + 4, nz + ny + 1)
     positions = (positions % cell + cell) % cell
-    ij = num.dot(positions, [(sx, 0), (sy, sy), (0, sz)])
-    ij = num.around(ij).astype(num.Int)
+    ij = npy.dot(positions, [(sx, 0), (sy, sy), (0, sz)])
+    ij = npy.around(ij).astype(npy.Int)
     for a, Z in enumerate(numbers):
         symbol = symbols[Z]
         i, j = ij[a]
@@ -426,13 +426,13 @@ def plot(positions, numbers, cell):
             grid.put('-', i + x + ny, j + ny)
         k = 0
     return '\n'.join([''.join([chr(x) for x in line])
-                      for line in num.transpose(grid.grid)[::-1]])
+                      for line in npy.transpose(grid.grid)[::-1]])
 
 class Grid:
     def __init__(self, i, j):
-        self.grid = num.zeros((i, j), num.Int8)
+        self.grid = npy.zeros((i, j), npy.Int8)
         self.grid[:] = ord(' ')
-        self.depth = num.zeros((i, j), num.Float)
+        self.depth = npy.zeros((i, j), npy.Float)
         self.depth[:] = 1e10
 
     def put(self, c, i, j, depth=1e9):

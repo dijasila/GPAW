@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from ASE import Atom, ListOfAtoms
 from gpaw import Calculator
-import Numeric as num
+import numpy as npy
 import math
 import sys
 import os
@@ -19,4 +19,4 @@ e = atoms.GetPotentialEnergy()
 calc.write('Be.nc', 'all')
 
 calc = Calculator('Be.nc')
-calc.totype(num.Complex)
+calc.totype(npy.Complex)

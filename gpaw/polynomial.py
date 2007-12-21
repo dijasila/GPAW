@@ -1,4 +1,4 @@
-import Numeric as num
+import numpy as npy
 import LinearAlgebra as linalg
 
 class Polynomial:
@@ -15,11 +15,11 @@ class Polynomial:
         
         self.order = order
         if ( order == 0 ):
-            self.c = num.zeros([1])
-            self.c[0] = num.sum(values) / len(values)
+            self.c = npy.zeros([1])
+            self.c[0] = npy.sum(values) / len(values)
         elif ( order == 1 ):
-            A = num.zeros([len(coords), 4], num.Float)
-            b = num.zeros([len(coords)], num.Float)
+            A = npy.zeros([len(coords), 4], npy.Float)
+            b = npy.zeros([len(coords)], npy.Float)
             # c0 + c1 x + c2 y + c3 z = b
             for i in range(len(coords)):
                 A[i][0] = 1
@@ -32,8 +32,8 @@ class Polynomial:
             self.c = [c[0]]
             self.c += [[c[1], c[2], c[3]]]
         elif ( order == 2 ) :
-            A = num.zeros([len(coords), 10], num.Float)
-            b = num.zeros([len(coords)], num.Float)
+            A = npy.zeros([len(coords), 10], npy.Float)
+            b = npy.zeros([len(coords)], npy.Float)
             # c0 + c1 x + c2 y + c3 z 
             #    + c4 x^2 + c5 y^2 + c6 z^2 
             #    + c7 x y + c8 x z + c9 y z = b

@@ -1,7 +1,7 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
-import Numeric as num
+import numpy as npy
 import RandomArray as ra
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.domain import Domain
@@ -19,13 +19,13 @@ b = gd2.zeros()
 for k in [2, 4, 6]:
     inter = Transformer(gd, gd2, k // 2).apply
     inter(a, b)
-    print k, num.sum(a.flat) - num.sum(b.flat) / 8
-    assert abs(num.sum(a.flat) - num.sum(b.flat) / 8) < 3e-11
+    print k, npy.sum(a.flat) - npy.sum(b.flat) / 8
+    assert abs(npy.sum(a.flat) - npy.sum(b.flat) / 8) < 3e-11
 
 gd2 = gd.coarsen()
 b = gd2.zeros()
 for k in [2, 4, 6]:
     restr = Transformer(gd, gd2, k // 2).apply
     restr(a, b)
-    print k, num.sum(a.flat) - num.sum(b.flat) * 8
-    assert abs(num.sum(a.flat) - num.sum(b.flat) * 8) < 5.1e-12
+    print k, npy.sum(a.flat) - npy.sum(b.flat) * 8
+    assert abs(npy.sum(a.flat) - npy.sum(b.flat) * 8) < 5.1e-12

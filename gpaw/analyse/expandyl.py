@@ -1,6 +1,6 @@
 from math import pi
 
-import Numeric as num
+import numpy as npy
 from ASE.Units import units, Convert
 
 import gpaw.mpi as mpi
@@ -47,7 +47,7 @@ class ExpandYl:
             for corner in ([0,0,0],[1,0,0],[0,1,0],[1,1,0],
                            [0,0,1],[1,0,1],[0,1,1],[1,1,1]):
                 Rmax = max(Rmax,
-                           self.center.distance(num.array(corner) * extreme) )
+                           self.center.distance(npy.array(corner) * extreme) )
         else:
             Rmax /= a0
         self.Rmax = Rmax
@@ -66,10 +66,10 @@ class ExpandYl:
         # self.ball_g will contain the mask of the ball of radius Rmax
         # self.y_Lg will contain the YL values corresponding to
         #     each grid point
-        R_V = num.zeros((int(Rmax/dR+1),),num.Float)
-        y_Lg = gd.zeros((nL,),num.Float)
-        R_g = num.zeros(y_Lg[0].shape,num.Int)-1
-        ball_g = num.zeros(y_Lg[0].shape,num.Int)
+        R_V = npy.zeros((int(Rmax/dR+1),),npy.Float)
+        y_Lg = gd.zeros((nL,),npy.Float)
+        R_g = npy.zeros(y_Lg[0].shape,npy.Int)-1
+        ball_g = npy.zeros(y_Lg[0].shape,npy.Int)
         for i in range(gd.beg_c[0],gd.end_c[0]):
             ii = i - gd.beg_c[0]
             for j in range(gd.beg_c[1],gd.end_c[1]):
@@ -98,14 +98,14 @@ class ExpandYl:
     def expand(self,psit_g):
         """Expand a wave function"""
       
-        gamma_l = num.zeros((self.lmax+1),num.Float)
+        gamma_l = npy.zeros((self.lmax+1),npy.Float)
         nL = len(self.L_l)
         L_l = self.L_l
         dR = self.dR
         
         for i,dV in enumerate(self.R_V):
             # get the R shell and it's Volume
-            R_g = num.where(self.R_g == i, 1, 0)
+            R_g = npy.where(self.R_g == i, 1, 0)
             if dV > 0:
                 for L in range(nL):
                     psit_LR = self.gd.integrate(psit_g * R_g * self.y_Lg[L])
@@ -162,7 +162,7 @@ class ExpandYl:
                     norm = self.gd.integrate(psit_G**2)
 
                     gl, weight = self.expand(psit_G)
-                    gsum = num.sum(gl)
+                    gsum = npy.sum(gl)
                     gl = 100 * gl / gsum
 
                     print >> f, '%2d %5d %5d' % (s, k, n),

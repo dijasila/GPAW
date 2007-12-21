@@ -1,4 +1,4 @@
-import Numeric as num
+import numpy as npy
 import RandomArray as ra
 from gpaw.setup import Setup
 from gpaw.xc_functional import XCFunctional
@@ -12,7 +12,7 @@ s = Setup('H', xcfunc)
 ni = s.ni
 np = ni * (ni + 1) / 2
 D_p = 0.1 * ra.random((1, np)) + 0.2
-H_p = num.zeros(np, num.Float)
+H_p = npy.zeros(np, npy.Float)
 
 def f(x):
     return x

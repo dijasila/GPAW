@@ -1,7 +1,7 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
-import Numeric as num
+import numpy as npy
 
 from gpaw import debug
 
@@ -22,7 +22,7 @@ class Symmetry:
         self.scale_position = domain.scale_position  # XXX ref to domain!
         self.tol = tolerance
         # The identity:
-        self.symmetries = [((0, 1, 2), num.array((1, 1, 1)))]
+        self.symmetries = [((0, 1, 2), npy.array((1, 1, 1)))]
 
     def analyze(self, pos_ac):
         """Analyse(atoms)
@@ -55,7 +55,7 @@ class Symmetry:
         for c in range(3):
             if self.periodic_c[c]:
                 mirrors[c].append(-1.0)
-        mirrors = [num.array((m0, m1, m2))
+        mirrors = [npy.array((m0, m1, m2))
                    for m0 in mirrors[0]
                    for m1 in mirrors[1]
                    for m2 in mirrors[2]]
@@ -84,15 +84,15 @@ class Symmetry:
         symmok = []
         maps = []
         for swap, mirror in self.symmetries:
-            map = num.zeros(len(pos_ac))
+            map = npy.zeros(len(pos_ac))
             for specie in species.values():
                 for a1, spos1_c in specie:
-                    spos1_c = num.take(spos1_c * mirror, swap)
+                    spos1_c = npy.take(spos1_c * mirror, swap)
                     ok = False
                     for a2, spos2_c in specie:
                         sdiff = spos1_c - spos2_c
-                        sdiff -= num.floor(sdiff + 0.5)
-                        if num.dot(sdiff, sdiff) < self.tol:
+                        sdiff -= npy.floor(sdiff + 0.5)
+                        if npy.dot(sdiff, sdiff) < self.tol:
                             ok = True
                             map[a1] = a2
                             break
@@ -112,9 +112,9 @@ class Symmetry:
                     assert ZTMB1 == self.ZTMB_a[a2]
                     spos1_c = self.scale_position(pos_ac[a1])
                     spos2_c = self.scale_position(pos_ac[a2])
-                    sdiff = num.take(spos1_c * mirror, swap) - spos2_c
-                    sdiff -= num.floor(sdiff + 0.5)
-                    assert num.dot(sdiff, sdiff) < self.tol
+                    sdiff = npy.take(spos1_c * mirror, swap) - spos2_c
+                    sdiff -= npy.floor(sdiff + 0.5)
+                    assert npy.dot(sdiff, sdiff) < self.tol
 
         self.maps = maps
         self.symmetries = symmok
@@ -133,7 +133,7 @@ class Symmetry:
         # Add inversion symmetry if it's not there:
         have_inversion_symmetry = False
         for swap_c, mirror_c in self.symmetries:
-            if swap_c == (0, 1, 2) and not num.sometrue(mirror_c + 1):
+            if swap_c == (0, 1, 2) and not npy.sometrue(mirror_c + 1):
                 have_inversion_symmetry = True
                 break
         nsym = len(self.symmetries)
@@ -142,17 +142,17 @@ class Symmetry:
                 self.symmetries.append((swap_c, -mirror_c))
 
         nbzkpts = len(bzk_kc)
-        ibzk0_kc = num.empty((nbzkpts, 3), num.Float)
+        ibzk0_kc = npy.empty((nbzkpts, 3), npy.Float)
         ibzk_kc = ibzk0_kc[:0]
-        weight_k = num.ones(nbzkpts, num.Float)
+        weight_k = npy.ones(nbzkpts, npy.Float)
         nibzkpts = 0
         for k_c in bzk_kc[::-1]:
             found = False
             for swap_c, mirror_c in self.symmetries:
-                d_kc = num.take(ibzk_kc * mirror_c, swap_c, 1) - k_c
+                d_kc = npy.take(ibzk_kc * mirror_c, swap_c, 1) - k_c
                 d_kc *= d_kc
-                d_k = num.sum(d_kc, 1) < self.tol
-                if num.sometrue(d_k):
+                d_k = npy.sum(d_kc, 1) < self.tol
+                if npy.sometrue(d_k):
                     found = True
                     weight_k[:nibzkpts] += d_k
                     break

@@ -2,7 +2,7 @@
 from cmath import exp
 from ASE import Atom, ListOfAtoms
 from gpaw import Calculator
-import Numeric as num
+import numpy as npy
 from gpaw.tddft import TDDFT
 import os
 
@@ -23,11 +23,11 @@ td_atoms = TDDFT(paw, tolerance=1e-11)
 print 'eps = ', paw.kpt_u[0].eps_n[0]
 eps = paw.kpt_u[0].eps_n[0]
 time_step = 0.05
-psi0 = num.array(paw.kpt_u[0].psit_nG[0])
+psi0 = npy.array(paw.kpt_u[0].psit_nG[0])
 print '%8s  %16s  %16s' % ('time  ', 'Error of norm', 'Error of phase')
 for i in range(50):
     time = i * time_step
-    c = num.vdot(psi0, paw.kpt_u[0].psit_nG[0]) / abs(num.vdot(psi0, psi0))
+    c = npy.vdot(psi0, paw.kpt_u[0].psit_nG[0]) / abs(npy.vdot(psi0, psi0))
     err = abs(c - exp(-1j * eps * time))
     #print time, c, exp(-1j * eps * time), err, abs(c) - 1.0
     print '%8lf  %16.6le  %16.6le' % (time, abs(c) - 1.0, err)

@@ -6,10 +6,9 @@
 from math import pi, sqrt
 from cmath import exp
 
-import Numeric as num
+import numpy as npy
 import LinearAlgebra as linalg
 from RandomArray import random, seed
-from multiarray import innerproduct as inner # avoid the dotblas version!
 
 from gpaw import mpi
 from gpaw.operators import Gradient
@@ -82,8 +81,8 @@ class KPoint:
         self.typecode = typecode
         self.timer = timer
         
-        self.phase_cd = num.ones((3, 2), num.Complex)
-        if typecode == num.Float:
+        self.phase_cd = npy.ones((3, 2), npy.Complex)
+        if typecode == npy.Float:
             # Gamma-point calculation:
             self.k_c = None
         else:
@@ -108,8 +107,8 @@ class KPoint:
     def allocate(self, nbands):
         """Allocate arrays."""
         self.nbands = nbands
-        self.eps_n = num.empty(nbands, num.Float)
-        self.f_n = num.empty(nbands, num.Float)
+        self.eps_n = npy.empty(nbands, npy.Float)
+        self.f_n = npy.empty(nbands, npy.Float)
         
     def adjust_number_of_bands(self, nbands, pt_nuclei, my_nuclei):
         """Adjust the number of states.
@@ -170,12 +169,12 @@ class KPoint:
 
         shape = tuple(gd2.n_c)
 
-        scale = sqrt(12 / num.product(gd2.domain.cell_c))
+        scale = sqrt(12 / npy.product(gd2.domain.cell_c))
 
         seed(1, 2 + mpi.rank)
 
         for psit_G in psit_nG:
-            if self.typecode == num.Float:
+            if self.typecode == npy.Float:
                 psit_G2[:] = (random(shape) - 0.5) * scale
             else:
                 psit_G2.real = (random(shape) - 0.5) * scale
@@ -187,7 +186,7 @@ class KPoint:
     
     def orthonormalize(self, my_nuclei):
         """Orthonormalize wave functions."""
-        S_nn = num.zeros((self.nbands, self.nbands), self.typecode)
+        S_nn = npy.zeros((self.nbands, self.nbands), self.typecode)
 
         # Fill in the lower triangle:
         rk(self.gd.dv, self.psit_nG, 0.0, S_nn)
@@ -195,7 +194,7 @@ class KPoint:
         for nucleus in my_nuclei:
             P_ni = nucleus.P_uni[self.u]
 
-            S_nn += num.dot(P_ni, cc(inner(nucleus.setup.O_ii, P_ni)))
+            S_nn += npy.dot(P_ni, cc(npy.inner(nucleus.setup.O_ii, P_ni)))
         
         self.comm.sum(S_nn, self.root)
 
@@ -217,12 +216,12 @@ class KPoint:
 
     def add_to_density(self, nt_G):
         """Add contribution to pseudo electron-density."""
-        if self.typecode is num.Float:
+        if self.typecode is npy.Float:
             for psit_G, f in zip(self.psit_nG, self.f_n):
                 axpy(f, psit_G**2, nt_G)  # nt_G += f * psit_G**2
         else:
             for psit_G, f in zip(self.psit_nG, self.f_n):
-                nt_G += f * (psit_G * num.conjugate(psit_G)).real
+                nt_G += f * (psit_G * npy.conjugate(psit_G)).real
                 
     def add_to_kinetic_density(self, taut_G):
         """Add contribution to pseudo kinetic energy density."""
@@ -233,10 +232,10 @@ class KPoint:
             d_G = self.gd.empty()
             for c in range(3):
                 ddr[c](psit_G,d_G)
-                if self.typecode is num.Float:
+                if self.typecode is npy.Float:
                     taut_G += f * d_G[c]**2
                 else:
-                    taut_G += f * (d_G * num.conjugate(d_G)).real
+                    taut_G += f * (d_G * npy.conjugate(d_G)).real
                 
     def create_atomic_orbitals(self, nao, nuclei):
         """Initialize the wave functions from atomic orbitals.
@@ -340,7 +339,7 @@ class KPoint:
                 # factor sqrt(1/3) because (dr,dr,dr)^2 = Delta r
                 rcut = max(nucleus.setup.rcut_j)
                 a = rcut * 3.0 / 8.0
-                b = 2.0 * a / num.sqrt(3.0)
+                b = 2.0 * a / npy.sqrt(3.0)
                 
                 # evaluate function at (0,0,0), 3/8 (r_cut,0,0),
                 # sqrt(3)/4 (r_cut,r_cut,rcut), and at symmetric points 
@@ -363,7 +362,7 @@ class KPoint:
                            [x_c-b, y_c-b, z_c+b], \
                            [x_c-b, y_c-b, z_c-b] ]
                 # values
-                values = num.zeros(len(coords),num.Float)
+                values = npy.zeros(len(coords),npy.Float)
                 for i in range(len(coords)):
                     values[i] = func.value( coords[i][0],
                                             coords[i][1],

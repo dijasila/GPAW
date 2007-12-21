@@ -4,7 +4,7 @@
 from math import pi
 import sys
 
-import Numeric as num
+import numpy as npy
 
 from gpaw.transformers import Transformer
 from gpaw.operators import Laplace, LaplaceA, LaplaceB
@@ -91,15 +91,15 @@ class PoissonSolver:
             # System is charge neutral. Use standard solver
             return self.solve_neutral(phi, rho, eps=eps)
         
-        elif abs(charge) > maxcharge and num.alltrue(
+        elif abs(charge) > maxcharge and npy.alltrue(
             self.gd.domain.periodic_c):
             # System is charged and periodic. Subtract a homogeneous
             # background charge
-            background = charge / num.product(self.gd.domain.cell_c)
+            background = charge / npy.product(self.gd.domain.cell_c)
             return self.solve_neutral(phi, rho - background, eps=eps)
         
-        elif abs(charge) > maxcharge and num.alltrue(
-            self.gd.domain.periodic_c == num.zeros(3)):
+        elif abs(charge) > maxcharge and npy.alltrue(
+            self.gd.domain.periodic_c == npy.zeros(3)):
             # The system is charged and in a non-periodic unit cell.
             # Determine the potential by 1) subtract a gaussian from the
             # density, 2) determine potential from the neutralized density
@@ -113,7 +113,7 @@ class PoissonSolver:
                 self.phi_gauss = gauss.get_gauss_pot(0)
 
             # Remove monopole moment
-            q = charge / num.sqrt(4 * pi) # Monopole moment
+            q = charge / npy.sqrt(4 * pi) # Monopole moment
             rho_neutral = rho - q * self.rho_gauss # neutralized density
 
             # Set initial guess for potential
@@ -145,15 +145,15 @@ class PoissonSolver:
         while self.iterate2(self.step) > eps and niter < 200:
             niter += 1
         if niter == 200:
-            charge = num.sum(rho.flat) * self.dv
+            charge = npy.sum(rho.flat) * self.dv
             print 'CHARGE:', charge
             raise ConvergenceError('Poisson solver did not converge!')
 
         # Set the average potential to zero in periodic systems
-        if num.alltrue(self.gd.domain.periodic_c):
-            phi_ave = self.gd.comm.sum(num.sum(phi.flat))
+        if npy.alltrue(self.gd.domain.periodic_c):
+            phi_ave = self.gd.comm.sum(npy.sum(phi.flat))
             N_c = self.gd.get_size_of_global_array()
-            phi_ave /= num.product(N_c)
+            phi_ave /= npy.product(N_c)
             phi -= phi_ave
 
         return niter
@@ -168,7 +168,7 @@ class PoissonSolver:
             else:
                 self.operators[level].apply(self.phis[level], residual)
                 residual -= self.rhos[level]
-            error = self.gd.comm.sum(num.vdot(residual, residual))
+            error = self.gd.comm.sum(npy.vdot(residual, residual))
             if niter == 1 and level < self.levels:
                 self.restrictors[level].apply(residual, self.rhos[level + 1])
                 self.phis[level + 1][:] = 0.0
@@ -212,7 +212,7 @@ class PoissonSolver:
         if level == 0:
             self.operators[level].apply(self.phis[level], residual)
             residual -= self.rhos[level]
-            error = self.gd.comm.sum(num.dot(residual.flat,
+            error = self.gd.comm.sum(npy.dot(residual.flat,
                                              residual.flat)) * self.dv
             return error
 

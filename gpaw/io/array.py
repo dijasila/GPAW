@@ -1,4 +1,4 @@
-import Numeric as num
+import numpy as npy
 
 def get_handle(file, mode='r'):
     """Return filehandle correspoding to 'file'.
@@ -128,8 +128,8 @@ def load_array(file, comments='#', delimiter=None, converters={},
     default_convert = converters.get('default', float)
 
    # Convert negative indices in skiprows
-    skiprows = num.array(skiprows)
-    if num.sometrue(skiprows < 0):
+    skiprows = npy.array(skiprows)
+    if npy.sometrue(skiprows < 0):
         lines = count_lines(fhandle)
         for i, val in enumerate(skiprows):
             if val < 0:
@@ -169,7 +169,7 @@ def load_array(file, comments='#', delimiter=None, converters={},
         return array
 
     # Convert to Numeric array
-    array = num.array(array, typecode=typecode)
+    array = npy.array(array, typecode=typecode)
 
     # If single column, correct shape of array
     shape = list(array.shape)
@@ -181,7 +181,7 @@ def load_array(file, comments='#', delimiter=None, converters={},
         array.shape = tuple(shape)
     
     if transpose:
-        array = num.transpose(array)
+        array = npy.transpose(array)
     
     return array
 

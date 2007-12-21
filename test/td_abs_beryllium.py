@@ -2,7 +2,7 @@
 from ASE import Atom, ListOfAtoms
 from gpaw import Calculator, PoissonSolver
 import gpaw
-import Numeric as num
+import numpy as npy
 from gpaw.tddft import TDDFT
 import math
 import sys

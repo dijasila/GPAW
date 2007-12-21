@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import Numeric as num
+import numpy as npy
 
 from ASE import Atom, ListOfAtoms
 from gpaw import Calculator
@@ -23,9 +23,9 @@ nt = calc.GetDensityArray()
 gridrefinement = 2 # grid-refinement-factor for all-electron density
 n = calc.density.get_all_electron_density(gridrefinement) / calc.a0**3
 
-dv = num.product(calc.get_grid_spacings())
-Zt = num.sum(nt.flat) * dv
-Z = num.sum(n.flat) * dv / gridrefinement**3
+dv = npy.product(calc.get_grid_spacings())
+Zt = npy.sum(nt.flat) * dv
+Z = npy.sum(n.flat) * dv / gridrefinement**3
 
 print 'Integral of pseudo density:', Zt
 print 'Integral of all-electron density:', Z

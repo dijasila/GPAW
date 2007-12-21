@@ -6,8 +6,7 @@
 
 from math import pi, cos, sin
 
-import Numeric as num
-from multiarray import innerproduct as inner # avoid the dotblas version!
+import numpy as npy
 
 from gpaw import debug
 from gpaw.utilities import is_contiguous
@@ -18,7 +17,7 @@ MASTER = 0
 
 
 def create_localized_functions(functions, gd, spos_c,
-                               typecode=num.Float, cut=False,
+                               typecode=npy.Float, cut=False,
                                forces=True, lfbc=None):
     """Create `LocFuncs` object.
 
@@ -61,7 +60,7 @@ class LocFuncs:
         box_b = gd.get_boxes(spos_c, rcut, cut)
 
         self.box_b = []
-        self.sdisp_bc = num.zeros((len(box_b), 3), num.Float)
+        self.sdisp_bc = npy.zeros((len(box_b), 3), npy.Float)
         b = 0
         for beg_c, end_c, sdisp_c in box_b:
             box = LocalizedFunctions(functions, beg_c, end_c,
@@ -87,7 +86,7 @@ class LocFuncs:
         self.root = root
 
     def set_phase_factors(self, k_kc):
-        self.phase_kb = num.exp(2j * pi * inner(k_kc, self.sdisp_bc))
+        self.phase_kb = npy.exp(2j * pi * npy.inner(k_kc, self.sdisp_bc))
         
     def add(self, a_xg, coef_xi, k=None, communicate=False):
         for i in self.iadd(a_xg, coef_xi, k, communicate):
@@ -104,7 +103,7 @@ class LocFuncs:
         if communicate:
             if coef_xi is None:
                 shape = a_xg.shape[:-3] + (self.ni,)
-                coef_xi = num.zeros(shape, self.typecode)
+                coef_xi = npy.zeros(shape, self.typecode)
             self.comm.broadcast(coef_xi, self.root)
 
         yield None
@@ -133,9 +132,9 @@ class LocFuncs:
         boundary-condtions)."""
 
         shape = a_xg.shape[:-3] + (self.ni,)
-        tmp_xi = num.zeros(shape, self.typecode)
+        tmp_xi = npy.zeros(shape, self.typecode)
         if result_xi is None:
-            result_xi = num.zeros(shape, self.typecode)
+            result_xi = npy.zeros(shape, self.typecode)
             
         if k is None or self.phase_kb is None:
             # No k-points:
@@ -163,9 +162,9 @@ class LocFuncs:
         is not ``None`` (Block boundary-condtions)."""
         
         shape = a_xg.shape[:-3] + (self.ni, 3)
-        tmp_xic = num.zeros(shape, self.typecode)
+        tmp_xic = npy.zeros(shape, self.typecode)
         if result_xic is None:
-            result_xic = num.zeros(shape, self.typecode)
+            result_xic = npy.zeros(shape, self.typecode)
             
         if k is None or self.phase_kb is None:
             # No k-points:
@@ -206,7 +205,7 @@ class LocFuncs:
     def norm(self):
         """Calculate norm of localized functions."""
 
-        I_i = num.zeros(self.ni, num.Float)
+        I_i = npy.zeros(self.ni, npy.Float)
         for box in self.box_b:
             box.norm(I_i)
         self.comm.sum(I_i)
@@ -244,7 +243,7 @@ class LocalizedFunctionsWrapper:
 
         Derivatives are calculated when ``forces=True``."""
 
-        assert typecode in [num.Float, num.Complex]
+        assert typecode in [npy.Float, npy.Complex]
 
         # Who evaluates the function values?
         if locfuncbcaster is None:
@@ -262,7 +261,7 @@ class LocalizedFunctionsWrapper:
         self.lfs = _gpaw.LocalizedFunctions(
             [function.spline for function in functions],
             size_c, gd.n_c, corner_c, gd.h_c, pos_c,
-            typecode == num.Float, forces, compute)
+            typecode == npy.Float, forces, compute)
         
         if locfuncbcaster is not None:
             locfuncbcaster.add(self.lfs)
@@ -324,8 +323,8 @@ class LocalizedFunctionsWrapper:
         calculated from atomic orbitals and occupation numbers
         ``f_i``."""
         
-        assert is_contiguous(n_G, num.Float)
-        assert is_contiguous(f_i, num.Float)
+        assert is_contiguous(n_G, npy.Float)
+        assert is_contiguous(f_i, npy.Float)
         assert n_G.shape == self.shape
         assert f_i.shape == (self.ni,)
         self.lfs.add_density(n_G, f_i)
@@ -340,21 +339,21 @@ class LocalizedFunctionsWrapper:
         The method returns the integral of the atomic electron density
         """
         
-        assert is_contiguous(n_G, num.Float)
-        assert is_contiguous(D_p, num.Float)
+        assert is_contiguous(n_G, npy.Float)
+        assert is_contiguous(D_p, npy.Float)
         assert n_G.shape == self.shape
         assert D_p.shape == (self.ni * (self.ni + 1) / 2,)
         return self.lfs.add_density2(n_G, D_p)
 
     def norm(self, I_i):
         """Integrate functions."""
-        assert is_contiguous(I_i, num.Float)
+        assert is_contiguous(I_i, npy.Float)
         assert I_i.shape == (self.ni,)
         return self.lfs.norm(I_i)
 
     def normalize(self, I0, I_i):
         """Normalize functions."""
-        assert is_contiguous(I_i, num.Float)
+        assert is_contiguous(I_i, npy.Float)
         assert I_i.shape == (self.ni,)
         return self.lfs.normalize(I0, I_i)
 

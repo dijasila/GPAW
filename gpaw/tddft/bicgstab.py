@@ -3,7 +3,7 @@
 """This module defines BiCGStab-class, which implements biconjugate
 gradient stabilized method. Requires Numeric and BLAS."""
 
-import Numeric as num
+import numpy as npy
 
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.blas import dotc
@@ -75,16 +75,16 @@ class BiCGStab:
             self.timer.start('BiCGStab')
 
         # r_0 = b - A x_0
-        r = self.gd.zeros(typecode=num.Complex)
+        r = self.gd.zeros(typecode=npy.Complex)
         A.dot(-x,r)
         r += b
         
-        q = self.gd.empty(typecode=num.Complex)
+        q = self.gd.empty(typecode=npy.Complex)
         q[:] = r
-        p = self.gd.zeros(typecode=num.Complex)
-        v = self.gd.zeros(typecode=num.Complex)
-        t = self.gd.zeros(typecode=num.Complex)
-        m = self.gd.zeros(typecode=num.Complex)
+        p = self.gd.zeros(typecode=npy.Complex)
+        v = self.gd.zeros(typecode=npy.Complex)
+        t = self.gd.zeros(typecode=npy.Complex)
+        m = self.gd.zeros(typecode=npy.Complex)
         alpha = 0.
         rhop  = 1.
         omega = 1.

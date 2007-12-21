@@ -1,4 +1,4 @@
-import Numeric as num
+import numpy as npy
 from Numeric import pi, sqrt
 from gpaw.utilities.tools import coordinates
 from gpaw.utilities.gauss import Gaussian
@@ -9,7 +9,7 @@ from gpaw.mpi import world
 from gpaw.poisson import PoissonSolver
 
 def norm(a):
-    return num.sqrt(num.sum(a.flat**2)) / len(a.flat)
+    return npy.sqrt(npy.sum(a.flat**2)) / len(a.flat)
 
 # Initialize classes
 a = 20 # Size of cell
@@ -24,8 +24,8 @@ solver = PoissonSolver(nn=3)  # Numerical poisson solver
 solver.initialize(gd)
 solve = solver.solve
 xyz, r2 = coordinates(gd)     # Matrix with the square of the radial coordinate
-r  = num.sqrt(r2)             # Matrix with the values of the radial coordinate
-nH = num.exp(-2 * r) / pi     # Density of the hydrogen atom
+r  = npy.sqrt(r2)             # Matrix with the values of the radial coordinate
+nH = npy.exp(-2 * r) / pi     # Density of the hydrogen atom
 gauss = Gaussian(gd)          # An instance of Gaussian
 
 # /------------------------------------------------\
@@ -58,7 +58,7 @@ equal(m, 0., 1e-7)
 # \-------------------------------------------------/
 
 # Array for storing the potential
-pot = gd.zeros(typecode=num.Float, global_array=False)
+pot = gd.zeros(typecode=npy.Float, global_array=False)
 for L in range(7): # Angular index of gaussian
     # Get analytic functions
     ng = gauss.get_gauss(L)

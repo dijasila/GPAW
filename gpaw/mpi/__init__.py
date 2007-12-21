@@ -4,7 +4,7 @@
 import os
 import sys
 
-import Numeric as num
+import numpy as npy
 
 from gpaw import debug
 from gpaw.utilities import is_contiguous
@@ -69,8 +69,8 @@ if parallel and debug:
             self.rank = comm.rank
 
         def new_communicator(self, ranks):            
-            assert is_contiguous(ranks, num.Int)
-            sranks = num.sort(ranks)
+            assert is_contiguous(ranks, npy.Int)
+            sranks = npy.sort(ranks)
             # Are all ranks in range?
             assert 0 <= sranks[0] and sranks[-1] < self.size
             # No duplicates:
@@ -89,7 +89,7 @@ if parallel and debug:
                 return self.comm.sum(array, root)
             else:
                 tc = array.typecode()
-                assert tc == num.Float or tc == num.Complex
+                assert tc == npy.Float or tc == npy.Complex
                 assert is_contiguous(array, tc)
                 assert root == -1 or 0 <= root < self.size
                 self.comm.sum(array, root)
@@ -100,7 +100,7 @@ if parallel and debug:
                 return self.comm.max(array, root)
             else:
                 tc = array.typecode()
-                assert tc == num.Float or tc == num.Complex
+                assert tc == npy.Float or tc == npy.Complex
                 assert is_contiguous(array, tc)
                 assert root == -1 or 0 <= root < self.size
                 self.comm.max(array, root)
@@ -163,23 +163,23 @@ else:
 def broadcast_string(string=None, root=MASTER, comm=world):
     if rank == root:
         assert isinstance(string, str)
-        n = num.array(len(string), num.Int)
+        n = npy.array(len(string), npy.Int)
     else:
         assert string is None
-        n = num.zeros(1, num.Int)
+        n = npy.zeros(1, npy.Int)
     comm.broadcast(n, root)
     if rank == root:
-        string = num.fromstring(string, num.Int8)
+        string = npy.fromstring(string, npy.Int8)
     else:
-        string = num.zeros(n, num.Int8)
+        string = npy.zeros(n, npy.Int8)
     comm.broadcast(string, root)
     return string.tostring()
 
 
 def all_gather_array(comm, a): #???
     # Gather array into flat array
-    shape = (comm.size,) + num.shape(a)
-    all = num.zeros(shape, num.Float)
+    shape = (comm.size,) + npy.shape(a)
+    all = npy.zeros(shape, npy.Float)
     comm.all_gather(a, all)
     return all.flat
 

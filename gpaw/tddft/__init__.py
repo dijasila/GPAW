@@ -5,7 +5,7 @@ functional theory calculations."""
 
 import sys
 
-import Numeric as num
+import numpy as npy
 
 from gpaw.preconditioner import Preconditioner
 
@@ -72,7 +72,7 @@ class TDDFT:
         paw.initialize_wave_functions()
 
         # Convert PAW-object to complex
-        paw.totype(num.Complex);
+        paw.totype(npy.Complex);
 
         # No density mixing
         paw.density.mixer = DummyMixer()
@@ -108,7 +108,7 @@ class TDDFT:
         # DO NOT USE, BAD PRECONDITIONER!
         #self.preconditioner = KineticEnergyPreconditioner( paw.gd,
         #                                                   paw.hamiltonian.kin,
-        #                                                   num.Complex )
+        #                                                   npy.Complex )
         #self.preconditioner = InverseOverlapPreconditioner( paw.pt_nuclei )
         self.preconditioner = None
 

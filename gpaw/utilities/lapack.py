@@ -6,7 +6,7 @@ Python wrapper functions for the ``C`` package:
 Linear Algebra PACKage (LAPACK)
 """
 
-import Numeric as num
+import numpy as npy
 
 from gpaw import debug
 import _gpaw
@@ -26,8 +26,8 @@ def diagonalize(a, w, b=None):
 
     assert a.iscontiguous()
     assert w.iscontiguous()
-    assert a.typecode() in [num.Float, num.Complex]
-    assert w.typecode() == num.Float
+    assert a.typecode() in [npy.Float, npy.Complex]
+    assert w.typecode() == npy.Float
     n = len(a)
     assert a.shape == (n, n)
     assert w.shape == (n,)
@@ -48,7 +48,7 @@ def inverse_cholesky(a):
     dtrtri/ztrtri for the inversion"""
 
     assert a.iscontiguous()
-    assert a.typecode() in [num.Float, num.Complex]
+    assert a.typecode() in [npy.Float, npy.Complex]
     n = len(a)
     assert a.shape == (n, n)
     info = _gpaw.inverse_cholesky(a)
@@ -64,9 +64,9 @@ def right_eigenvectors(a, w, v):
     assert a.iscontiguous()
     assert w.iscontiguous()
     assert v.iscontiguous()
-    assert a.typecode() == num.Float
-    assert w.typecode() == num.Float
-    assert v.typecode() == num.Float
+    assert a.typecode() == npy.Float
+    assert w.typecode() == npy.Float
+    assert v.typecode() == npy.Float
     n = len(a)
     assert a.shape == (n, n)
     assert w.shape == (n,)

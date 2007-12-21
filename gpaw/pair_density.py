@@ -1,5 +1,5 @@
 from math import sqrt, pi
-import Numeric as num
+import numpy as npy
 
 from gpaw.utilities import pack
 from gpaw.localized_functions import create_localized_functions
@@ -77,13 +77,13 @@ class PairDensity:
                 # Generate density matrix
                 Pi_i = nucleus.P_uni[self.u, self.i]
                 Pj_i = nucleus.P_uni[self.u, self.j]
-                D_ii = num.outerproduct(Pi_i, Pj_i)
+                D_ii = npy.outerproduct(Pi_i, Pj_i)
                 # allowed to pack as used in the scalar product with
                 # the symmetric array Delta_pL
                 D_p  = pack(D_ii, tolerance=1e30)
                     
                 # Determine compensation charge coefficients:
-                Q_L = num.dot(D_p, nucleus.setup.Delta_pL)
+                Q_L = npy.dot(D_p, nucleus.setup.Delta_pL)
             else:
                 Q_L = None
 

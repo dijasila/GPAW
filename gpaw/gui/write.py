@@ -1,7 +1,7 @@
 from math import sqrt
 
 import numpy as npy
-import Numeric as num
+import numpy as npy
 from ASE import ListOfAtoms, Atom
 from ASE.ChemicalElements.symbol import symbols
 from ASE.Units import units, Convert

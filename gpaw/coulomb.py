@@ -1,4 +1,4 @@
-import Numeric as num
+import numpy as npy
 from math import pi
 from FFT import fftnd
 from gpaw.utilities.complex import real
@@ -32,17 +32,17 @@ class Coulomb:
                 
             if method.endswith('ewald') and not hasattr(self, 'ewald'):
                 # cutoff radius
-                rc = 0.5 * num.average(self.gd.domain.cell_c)
+                rc = 0.5 * npy.average(self.gd.domain.cell_c)
                 # ewald potential: 1 - cos(k rc)
-                self.ewald = num.ones(self.gd.n_c) - \
-                             num.cos(num.sqrt(self.k2)* rc)
+                self.ewald = npy.ones(self.gd.n_c) - \
+                             npy.cos(npy.sqrt(self.k2)* rc)
                 # lim k -> 0 ewald / k2 
                 self.ewald[0, 0, 0] = .5 * rc**2
 
             if method.endswith('gauss') and not hasattr(self, 'ng'):
                 gauss = Gaussian(self.gd)
-                self.ng = gauss.get_gauss(0) / num.sqrt(4 * pi)
-                self.vg = gauss.get_gauss_pot(0) / num.sqrt(4 * pi)
+                self.ng = gauss.get_gauss(0) / npy.sqrt(4 * pi)
+                self.vg = gauss.get_gauss_pot(0) / npy.sqrt(4 * pi)
         
         else: # method == 'real'
             if not hasattr(self, 'solve'):
@@ -93,12 +93,12 @@ class Coulomb:
             I = self.gd.zeros()
             if n2 == None: n2 = n1; Z2 = Z1
             self.solve(I, n2, charge=Z2, eps=1e-12, zero_initial_phi=True)
-            I *= num.conjugate(n1)           
+            I *= npy.conjugate(n1)           
         elif method == 'recip_ewald':
             n1k = fftnd(n1)
             if n2 == None: n2k = n1k
             else: n2k = fftnd(n2)
-            I = num.conjugate(n1k) * n2k * \
+            I = npy.conjugate(n1k) * n2k * \
                 self.ewald * 4 * pi / (self.k2 * self.N3)
         elif method == 'recip_gauss':
             # Determine total charges
@@ -109,23 +109,23 @@ class Coulomb:
             # (n1 - Z1 ng)* int dr'  (n2 - Z2 ng) / |r - r'|
             nk1 = fftnd(n1 - Z1 * self.ng)
             if n2 == None:
-                I = num.absolute(nk1)**2 * 4 * pi / (self.k2 * self.N3)
+                I = npy.absolute(nk1)**2 * 4 * pi / (self.k2 * self.N3)
             else:
                 nk2 = fftnd(n2 - Z2 * self.ng)
-                I = num.conjugate(nk1) * nk2 * 4 * pi / (self.k2 * self.N3)
+                I = npy.conjugate(nk1) * nk2 * 4 * pi / (self.k2 * self.N3)
 
             # add the corrections to the integrand due to neutralization
             if n2 == None:
-                I += (2 * real(num.conjugate(Z1) * n1) - abs(Z1)**2 * self.ng)\
+                I += (2 * real(npy.conjugate(Z1) * n1) - abs(Z1)**2 * self.ng)\
                      * self.vg
             else:
-                I += (num.conjugate(Z1) * n2 + Z2 * num.conjugate(n1) -
-                      num.conjugate(Z1) * Z2 * self.ng) * self.vg
+                I += (npy.conjugate(Z1) * n2 + Z2 * npy.conjugate(n1) -
+                      npy.conjugate(Z1) * Z2 * self.ng) * self.vg
         else:
              raise RuntimeError, 'Method %s unknown' % method
          
-        if n1.typecode() == num.Float and (n2 == None or
-                                           n2.typecode() == num.Float):
+        if n1.typecode() == npy.Float and (n2 == None or
+                                           n2.typecode() == npy.Float):
             return real(self.gd.integrate(I))
         else:
             return self.gd.integrate(I)

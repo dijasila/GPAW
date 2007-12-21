@@ -1,5 +1,5 @@
 from math import sqrt, pi
-import Numeric as num
+import numpy as npy
 from multiarray import innerproduct as inner # avoid the dotblas version!
 from gpaw.domain import Domain
 from gpaw.setup import Setup
@@ -11,7 +11,7 @@ n = 40 /8 * 10
 a = 10.0
 domain = Domain((a, a, a))
 gd = GridDescriptor(domain, (n, n, n))
-c_LL = num.identity(9, num.Float)
+c_LL = npy.identity(9, npy.Float)
 a_Lg = gd.zeros(9)
 nspins = 2
 xcfunc = XCFunctional('LDA', nspins)
@@ -35,8 +35,8 @@ for soft in [False]:
                 Q1_m[(m + 1) % 3] -= 1.0
             print Q0, Q1_m, m
             assert abs(Q0) < 2e-6
-            assert num.alltrue(abs(Q1_m) < 3e-5)
-    b_Lg = num.reshape(a_Lg, (9, n**3))
+            assert npy.alltrue(abs(Q1_m) < 3e-5)
+    b_Lg = npy.reshape(a_Lg, (9, n**3))
     S_LL = inner(b_Lg, b_Lg)
     S_LL.flat[::10] = 0.0
     print max(abs(S_LL).flat)

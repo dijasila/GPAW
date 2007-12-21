@@ -1,5 +1,5 @@
 from gpaw.transformers import Transformer
-import Numeric as num
+import numpy as npy
 import RandomArray as ra
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.domain import Domain
@@ -15,7 +15,7 @@ gd2 = gd1.refine()
 a2 = gd2.zeros()
 i = Transformer(gd1, gd2).apply
 i(a1, a2)
-assert abs(num.sum(a1.flat) - num.sum(a2.flat) / 8) < 1e-10
+assert abs(npy.sum(a1.flat) - npy.sum(a2.flat) / 8) < 1e-10
 r = Transformer(gd2, gd1).apply
 a2[0] = 0.0
 a2[:, 0] = 0.0
@@ -24,4 +24,4 @@ a2[-1] = 0.0
 a2[:, -1] = 0.0
 a2[:, :, -1] = 0.0
 r(a2, a1)
-assert abs(num.sum(a1.flat) - num.sum(a2.flat) / 8) < 1e-10
+assert abs(npy.sum(a1.flat) - npy.sum(a2.flat) / 8) < 1e-10

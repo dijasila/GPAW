@@ -1,7 +1,7 @@
 """IO routines for gOpenMol binary plt format"""
 
 from struct import calcsize,pack,unpack
-import Numeric as num
+import numpy as npy
 from ASE.Units import Convert
 from gpaw.utilities import check_unit_cell
 
@@ -34,7 +34,7 @@ def read_plt(filename):
     dz = (ze-z0)/(nz-1)
     dy = (ye-y0)/(ny-1)
     dx = (xe-x0)/(nx-1)
-    cell = num.zeros((3,3),num.Float)
+    cell = npy.zeros((3,3),npy.Float)
     cell[0,0] = (nx+1)*dx 
     cell[1,1] = (ny+1)*dy 
     cell[2,2] = (nz+1)*dz 
@@ -42,11 +42,11 @@ def read_plt(filename):
     fmt='f'
     if byteswap: fmt='>f'
     size = nx*ny*nz * calcsize(fmt)
-    arr = num.fromstring(f.read(size),num.Float32)
-    if byteswap: arr = arr.byteswapped()
+    arr = npy.fromstring(f.read(size),npy.Float32)
+    if byteswap: arr = arr.byteswap()
     f.close()
 
-    return cell, num.transpose(num.resize(arr,(nz,ny,nx))), (x0-dx,y0-dy,z0-dz)
+    return cell, npy.transpose(npy.resize(arr,(nz,ny,nx))), (x0-dx,y0-dy,z0-dz)
 
 def write_collected_plt(gd,
                         grid,
@@ -78,7 +78,7 @@ def write_plt(cell,
     elif len(cell.shape) == 2:
         # Check that the cell is orthorhombic
         check_unit_cell(cell)
-        xe, ye, ze = num.diagonal(cell)
+        xe, ye, ze = npy.diagonal(cell)
     else:
         xe, ye, ze = cell * a0_A # get Angstroms
 
@@ -92,7 +92,7 @@ def write_plt(cell,
     f.write(pack('ii', 3, typ))
     f.write(pack('iii', nz, ny, nx))
 
-    x0, y0, z0 = num.array(origin) + num.array([dx,dy,dz])
+    x0, y0, z0 = npy.array(origin) + npy.array([dx,dy,dz])
     xe = x0 +(nx-1)*dx
     ye = y0 +(ny-1)*dy
     ze = z0 +(nz-1)*dz
@@ -103,11 +103,11 @@ def write_plt(cell,
     # we need a float array
     # Future: numpy has no 'typecode'
     if hasattr(grid,'typecode') and grid.typecode() == 'f':
-        fgrid = num.transpose(grid)
+        fgrid = npy.transpose(grid)
     else:
-        fgrid = num.array(num.transpose(grid).tolist(),'f')
-        #    num.asarray does not work here !
-        #    fgrid = num.asarray(num.transpose(grid), num.Float32)
+        fgrid = npy.array(npy.transpose(grid).tolist(),'f')
+        #    npy.asarray does not work here !
+        #    fgrid = npy.asarray(npy.transpose(grid), npy.Float32)
     f.write(fgrid.tostring())
 
     f.close()

@@ -1,4 +1,4 @@
-import Numeric as num
+import numpy as npy
 from Numeric import sqrt, pi, exp
 from gpaw.utilities.tools import coordinates
 from gpaw.utilities.tools import erf3D as erf
@@ -74,7 +74,7 @@ class Gaussian:
         x, y, z  = tuple(self.xyz)
         r2 = self.r2
         if not hasattr(self, 'r'):
-            self.r = num.sqrt(r2)
+            self.r = npy.sqrt(r2)
         r = self.r
         return eval(gausspot_L[L])
 

@@ -5,7 +5,7 @@ from gpaw import Calculator
 from gpaw.utilities import center
 from gpaw.atom.generator import Generator, parameters
 from gpaw import setup_paths
-import Numeric as num
+import numpy as npy
 
 if 1:
     # Generate setup for oxygen with half a core-hole:
@@ -43,7 +43,7 @@ else:
 if 0:
     from pylab import *
 
-    x = -30 + 40 * num.arange(300) / 300.0
+    x = -30 + 40 * npy.arange(300) / 300.0
 
     for n in range(50, 401, 50):
         y = r.get_spectra(x, imax=n)

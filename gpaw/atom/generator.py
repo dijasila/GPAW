@@ -4,8 +4,7 @@
 import sys
 from math import pi, sqrt
 
-import Numeric as num
-from multiarray import innerproduct as inner # avoid the dotblas version!
+import numpy as npy
 from LinearAlgebra import solve_linear_equations, inverse
 from ASE.ChemicalElements.name import names
 
@@ -179,8 +178,8 @@ class Generator(AllElectron):
         Ekincore = 0.0
         j = 0
         for f, e, u in zip(f_j[:njcore], e_j[:njcore], self.u_j[:njcore]):
-            u = num.where(abs(u) < 1e-160, 0, u)  # XXX Numeric!
-            k = e - num.sum((u**2 * self.vr * dr)[1:] / r[1:])
+            u = npy.where(abs(u) < 1e-160, 0, u)  # XXX Numeric!
+            k = e - npy.sum((u**2 * self.vr * dr)[1:] / r[1:])
             Ekincore += f * k
             if j == self.jcorehole:
                 self.Ekincorehole = k
@@ -188,23 +187,23 @@ class Generator(AllElectron):
 
         # Calculate core density:
         if njcore == 0:
-            nc = num.zeros(N, num.Float)
+            nc = npy.zeros(N, npy.Float)
         else:
             uc_j = self.u_j[:njcore]
-            uc_j = num.where(abs(uc_j) < 1e-160, 0, uc_j)  # XXX Numeric!
-            nc = num.dot(f_j[:njcore], uc_j**2) / (4 * pi)
+            uc_j = npy.where(abs(uc_j) < 1e-160, 0, uc_j)  # XXX Numeric!
+            nc = npy.dot(f_j[:njcore], uc_j**2) / (4 * pi)
             nc[1:] /= r[1:]**2
             nc[0] = nc[1]
 
         # Calculate core kinetic energy density
         if njcore == 0:
-            tauc = num.zeros(N, num.Float)
+            tauc = npy.zeros(N, npy.Float)
         else:
             tauc = self.radial_kinetic_energy_density(f_j[:njcore],
                                                       l_j[:njcore],
                                                       self.u_j[:njcore])
             t('Kinetic energy of the core from tauc =',
-              num.dot(tauc * r * r, dr) * 4 * pi)
+              npy.dot(tauc * r * r, dr) * 4 * pi)
 
         lmax = max(l_j[njcore:])
 
@@ -282,9 +281,9 @@ class Generator(AllElectron):
         self.q_ln = q_ln = []  # p-tilde * r
         for l in range(lmax + 1):
             nn = len(n_ln[l])
-            u_ln.append(num.zeros((nn, N), num.Float))
-            s_ln.append(num.zeros((nn, N), num.Float))
-            q_ln.append(num.zeros((nn, N), num.Float))
+            u_ln.append(npy.zeros((nn, N), npy.Float))
+            s_ln.append(npy.zeros((nn, N), npy.Float))
+            q_ln.append(npy.zeros((nn, N), npy.Float))
 
         # Fill in all-electron wave functions:
         for l in range(lmax + 1):
@@ -328,7 +327,7 @@ class Generator(AllElectron):
             for u, s in zip(u_n, s_n):
                 s[:] = u
                 if normconserving_l[l]:
-                    A = num.zeros((5, 5), num.Float)
+                    A = npy.zeros((5, 5), npy.Float)
                     A[:4, 0] = 1.0
                     A[:4, 1] = r[gc - 2:gc + 2]**2
                     A[:4, 2] = A[:4, 1]**2
@@ -336,7 +335,7 @@ class Generator(AllElectron):
                     A[:4, 4] = A[:4, 2]**2
                     A[4, 4] = 1.0
                     a = u[gc - 2:gc + 3] / r[gc - 2:gc + 3]**(l + 1)
-                    a = num.log(a)
+                    a = npy.log(a)
                     def f(x):
                         a[4] = x
                         b = solve_linear_equations(A, a)
@@ -345,9 +344,9 @@ class Generator(AllElectron):
                         rl1 = r1**(l + 1)
                         y = b[0] + r2 * (b[1] + r2 * (b[2] + r2 * (b[3] + r2
                                                                    * b[4])))
-                        y = num.exp(y)
+                        y = npy.exp(y)
                         s[:gc] = rl1 * y
-                        return num.dot(s**2, dr) - 1
+                        return npy.dot(s**2, dr) - 1
                     x1 = 0.0
                     x2 = 0.001
                     f1 = f(x1)
@@ -360,26 +359,26 @@ class Generator(AllElectron):
                         x1, f1 = x0, f0
 
                 else:
-                    A = num.ones((4, 4), num.Float)
+                    A = npy.ones((4, 4), npy.Float)
                     A[:, 0] = 1.0
                     A[:, 1] = r[gc - 2:gc + 2]**2
                     A[:, 2] = A[:, 1]**2
                     A[:, 3] = A[:, 1] * A[:, 2]
                     a = u[gc - 2:gc + 2] / r[gc - 2:gc + 2]**(l + 1)
                     if 0:#l < 2 and nodeless:
-                        a = num.log(a)
+                        a = npy.log(a)
                     a = solve_linear_equations(A, a)
                     r1 = r[:gc]
                     r2 = r1**2
                     rl1 = r1**(l + 1)
                     y = a[0] + r2 * (a[1] + r2 * (a[2] + r2 * (a[3])))
                     if 0:#l < 2 and nodeless:
-                        y = num.exp(y)
+                        y = npy.exp(y)
                     s[:gc] = rl1 * y
 
                 coefs.append(a)
                 if nodeless:
-                    if not num.alltrue(s[1:gc] > 0.0):
+                    if not npy.alltrue(s[1:gc] > 0.0):
                         raise RuntimeError(
                             'Error: The %d%s pseudo wave has a node!' %
                             (n_ln[l][0], 'spdf'[l]))
@@ -389,54 +388,54 @@ class Generator(AllElectron):
         # Calculate pseudo core density:
         gcutnc = 1 + int(rcutmax * N / (rcutmax + beta))
         nct = nc.copy()
-        A = num.ones((4, 4), num.Float)
+        A = npy.ones((4, 4), npy.Float)
         A[0] = 1.0
         A[1] = r[gcutnc - 2:gcutnc + 2]**2
         A[2] = A[1]**2
         A[3] = A[1] * A[2]
         a = nc[gcutnc - 2:gcutnc + 2]
-        a = solve_linear_equations(num.transpose(A), a)
+        a = solve_linear_equations(npy.transpose(A), a)
         r2 = r[:gcutnc]**2
         nct[:gcutnc] = a[0] + r2 * (a[1] + r2 * (a[2] + r2 * a[3]))
-        t('Pseudo-core charge: %.6f' % (4 * pi * num.dot(nct, dv)))
+        t('Pseudo-core charge: %.6f' % (4 * pi * npy.dot(nct, dv)))
 
         # ... and the pseudo core kinetic energy density:
         tauct = tauc.copy()
         a = tauc[gcutnc - 2:gcutnc + 2]
-        a = solve_linear_equations(num.transpose(A), a)
+        a = solve_linear_equations(npy.transpose(A), a)
         tauct[:gcutnc] = a[0] + r2 * (a[1] + r2 * (a[2] + r2 * a[3]))
 
         # ... and the soft valence density:
-        nt = num.zeros(N, num.Float)
+        nt = npy.zeros(N, npy.Float)
         for f_n, s_n in zip(f_ln, s_ln):
-            nt += num.dot(f_n, s_n**2) / (4 * pi)
+            nt += npy.dot(f_n, s_n**2) / (4 * pi)
         nt[1:] /= r[1:]**2
         nt[0] = nt[1]
         nt += nct
 
         # Calculate the shape function:
         x = r / rcutcomp
-        gaussian = num.zeros(N, num.Float)
+        gaussian = npy.zeros(N, npy.Float)
         self.gamma = gamma = 10.0
-        gaussian[:gmax] = num.exp(-gamma * x[:gmax]**2)
+        gaussian[:gmax] = npy.exp(-gamma * x[:gmax]**2)
         gt = 4 * (gamma / rcutcomp**2)**1.5 / sqrt(pi) * gaussian
-        norm = num.dot(gt, dv)
+        norm = npy.dot(gt, dv)
         #print norm, norm-1
         assert abs(norm - 1) < 1e-2
         gt /= norm
 
 
         # Calculate smooth charge density:
-        Nt = num.dot(nt, dv)
+        Nt = npy.dot(nt, dv)
         rhot = nt - (Nt + charge / 4 / pi) * gt
         t('Pseudo-electron charge', 4 * pi * Nt)
 
-        vHt = num.zeros(N, num.Float)
+        vHt = npy.zeros(N, npy.Float)
         hartree(0, rhot * r * dr, self.beta, self.N, vHt)
         vHt[1:] /= r[1:]
         vHt[0] = vHt[1]
 
-        vXCt = num.zeros(N, num.Float)
+        vXCt = npy.zeros(N, npy.Float)
 
         extra_xc_data = {}
 
@@ -468,13 +467,13 @@ class Generator(AllElectron):
         gc = 1 + int(rcutvbar * N / (rcutvbar + beta))
         if vbar_type == 'f':
             assert lmax == 2
-            uf = num.zeros(N, num.Float)
+            uf = npy.zeros(N, npy.Float)
             l = 3
             shoot(uf, l, self.vr, 0.0, self.r2dvdr, r, dr, c10, c2,
                   self.scalarrel, gmax=gmax)
             uf *= 1.0 / uf[gc]
             sf = uf.copy()
-            A = num.ones((4, 4), num.Float)
+            A = npy.ones((4, 4), npy.Float)
             A[:, 0] = 1.0
             A[:, 1] = r[gc - 2:gc + 2]**2
             A[:, 2] = A[:, 1]**2
@@ -491,11 +490,11 @@ class Generator(AllElectron):
             vbar[0] = vbar[1]
         else:
             assert vbar_type == 'poly'
-            A = num.ones((2, 2), num.Float)
+            A = npy.ones((2, 2), npy.Float)
             A[0] = 1.0
             A[1] = r[gc - 1:gc + 1]**2
             a = vt[gc - 1:gc + 1]
-            a = solve_linear_equations(num.transpose(A), a)
+            a = solve_linear_equations(npy.transpose(A), a)
             r2 = r**2
             vbar = a[0] + r2 * a[1] - vt
 
@@ -519,37 +518,37 @@ class Generator(AllElectron):
         for l, (e_n, u_n, s_n, q_n) in enumerate(zip(e_ln, u_ln,
                                                      s_ln, q_ln)):
 
-            A_nn = inner(s_n, q_n * dr)
+            A_nn = npy.inner(s_n, q_n * dr)
             # Do a LU decomposition of A:
             nn = len(e_n)
-            L_nn = num.identity(nn, num.Float)
+            L_nn = npy.identity(nn, npy.Float)
             U_nn = A_nn.copy()
             for i in range(nn):
                 for j in range(i+1,nn):
                     L_nn[j,i] = 1.0 * U_nn[j,i] / U_nn[i,i]
                     U_nn[j,:] -= U_nn[i,:] * L_nn[j,i]
 
-            dO_nn = (inner(u_n, u_n * dr) -
-                     inner(s_n, s_n * dr))
+            dO_nn = (npy.inner(u_n, u_n * dr) -
+                     npy.inner(s_n, s_n * dr))
 
-            e_nn = num.zeros((nn, nn), num.Float)
+            e_nn = npy.zeros((nn, nn), npy.Float)
             e_nn.flat[::nn + 1] = e_n
-            dH_nn = num.dot(dO_nn, e_nn) - A_nn
+            dH_nn = npy.dot(dO_nn, e_nn) - A_nn
 
-            q_n[:] = num.dot(inverse(num.transpose(U_nn)), q_n)
-            s_n[:] = num.dot(inverse(L_nn), s_n)
-            u_n[:] = num.dot(inverse(L_nn), u_n)
+            q_n[:] = npy.dot(inverse(npy.transpose(U_nn)), q_n)
+            s_n[:] = npy.dot(inverse(L_nn), s_n)
+            u_n[:] = npy.dot(inverse(L_nn), u_n)
 
-            dO_nn = num.dot(num.dot(inverse(L_nn), dO_nn),
-                            inverse(num.transpose(L_nn)))
-            dH_nn = num.dot(num.dot(inverse(L_nn), dH_nn),
-                            inverse(num.transpose(L_nn)))
+            dO_nn = npy.dot(npy.dot(inverse(L_nn), dO_nn),
+                            inverse(npy.transpose(L_nn)))
+            dH_nn = npy.dot(npy.dot(inverse(L_nn), dH_nn),
+                            inverse(npy.transpose(L_nn)))
 
             ku_n = [self.kin(l, u, e) for u, e in zip(u_n, e_n)]
             ks_n = [self.kin(l, s) for s in s_n]
-            dK_nn = 0.5 * (inner(u_n, ku_n * dr) -
-                           inner(s_n, ks_n * dr))
-            dK_nn += num.transpose(dK_nn).copy()
+            dK_nn = 0.5 * (npy.inner(u_n, ku_n * dr) -
+                           npy.inner(s_n, ks_n * dr))
+            dK_nn += npy.transpose(dK_nn).copy()
 
             dK_lnn.append(dK_nn)
             dO_lnn.append(dO_nn)
@@ -558,8 +557,8 @@ class Generator(AllElectron):
             for n, q in enumerate(q_n):
                 q[:] = filter(q, l) * r**(l + 1)
 
-            A_nn = inner(s_n, q_n * dr)
-            q_n[:] = num.dot(inverse(num.transpose(A_nn)), q_n)
+            A_nn = npy.inner(s_n, q_n * dr)
+            q_n[:] = npy.dot(inverse(npy.transpose(A_nn)), q_n)
 
         self.vt = vt
 
@@ -571,7 +570,7 @@ class Generator(AllElectron):
                     f = '(%d)' % f_n[n]
                     t('%d%s%-4s: %12.6f %12.6f' % (
                         n_n[n], 'spdf'[l], f, e_n[n],
-                        num.dot(s_ln[l][n]**2, dr)))
+                        npy.dot(s_ln[l][n]**2, dr)))
                 else:
                     t('*%s    : %12.6f' % ('spdf'[l], e_n[n]))
         t('--------------------------------')
@@ -584,7 +583,7 @@ class Generator(AllElectron):
             t('(skip with [Ctrl-C])')
 
             try:
-                u = num.zeros(N, num.Float)
+                u = npy.zeros(N, npy.Float)
                 for l in range(3):
                     if l <= lmax:
                         dO_nn = dO_lnn[l]
@@ -612,14 +611,14 @@ class Generator(AllElectron):
                             A_nn = dH_nn - e * dO_nn
                             s_n = [self.integrate(l, vt, e, gld, q)
                                    for q in q_n]
-                            B_nn = inner(q_n, s_n * dr)
-                            a_n = num.dot(q_n, s * dr)
+                            B_nn = npy.inner(q_n, s_n * dr)
+                            a_n = npy.dot(q_n, s * dr)
 
-                            B_nn = num.dot(A_nn, B_nn)
+                            B_nn = npy.dot(A_nn, B_nn)
                             B_nn.flat[::len(a_n) + 1] += 1.0
                             c_n = solve_linear_equations(B_nn,
-                                                         num.dot(A_nn, a_n))
-                            s -= num.dot(c_n, s_n)
+                                                         npy.dot(A_nn, a_n))
+                            s -= npy.dot(c_n, s_n)
 
                         dsdr = 0.5 * (s[gld + 1] - s[gld - 1]) / dr[gld]
                         print >> fps, e, dsdr / s[gld] - 1.0 / r[gld]
@@ -683,7 +682,7 @@ class Generator(AllElectron):
                     j += 1
         nj = j
 
-        self.dK_jj = num.zeros((nj, nj), num.Float)
+        self.dK_jj = npy.zeros((nj, nj), npy.Float)
         for l, j_n in enumerate(j_ln):
             for n1, j1 in enumerate(j_n):
                 for n2, j2 in enumerate(j_n):
@@ -705,19 +704,19 @@ class Generator(AllElectron):
         t = self.text
         t()
         t('Diagonalizing with gridspacing h=%.3f' % h)
-        R = h * num.arange(1, ng + 1)
-        G = (self.N * R / (self.beta + R) + 0.5).astype(num.Int)
-        G = num.clip(G, 1, self.N - 2)
-        R1 = num.take(self.r, G - 1)
-        R2 = num.take(self.r, G)
-        R3 = num.take(self.r, G + 1)
+        R = h * npy.arange(1, ng + 1)
+        G = (self.N * R / (self.beta + R) + 0.5).astype(npy.Int)
+        G = npy.clip(G, 1, self.N - 2)
+        R1 = npy.take(self.r, G - 1)
+        R2 = npy.take(self.r, G)
+        R3 = npy.take(self.r, G + 1)
         x1 = (R - R2) * (R - R3) / (R1 - R2) / (R1 - R3)
         x2 = (R - R1) * (R - R3) / (R2 - R1) / (R2 - R3)
         x3 = (R - R1) * (R - R2) / (R3 - R1) / (R3 - R2)
         def interpolate(f):
-            f1 = num.take(f, G - 1)
-            f2 = num.take(f, G)
-            f3 = num.take(f, G + 1)
+            f1 = npy.take(f, G - 1)
+            f2 = npy.take(f, G)
+            f3 = npy.take(f, G + 1)
             return f1 * x1 + f2 * x2 + f3 * x3
         vt = interpolate(self.vt)
         t()
@@ -725,19 +724,19 @@ class Generator(AllElectron):
         t('-------------------------------')
         for l in range(3):
             if l <= self.lmax:
-                q_n = num.array([interpolate(q) for q in self.q_ln[l]])
-                H = num.dot(num.transpose(q_n),
-                           num.dot(self.dH_lnn[l], q_n)) * h
-                S = num.dot(num.transpose(q_n),
-                           num.dot(self.dO_lnn[l], q_n)) * h
+                q_n = npy.array([interpolate(q) for q in self.q_ln[l]])
+                H = npy.dot(npy.transpose(q_n),
+                           npy.dot(self.dH_lnn[l], q_n)) * h
+                S = npy.dot(npy.transpose(q_n),
+                           npy.dot(self.dO_lnn[l], q_n)) * h
             else:
-                H = num.zeros((ng, ng), num.Float)
-                S = num.zeros((ng, ng), num.Float)
+                H = npy.zeros((ng, ng), npy.Float)
+                S = npy.zeros((ng, ng), npy.Float)
             H.flat[::ng + 1] += vt + 1.0 / h**2 + l * (l + 1) / 2.0 / R**2
             H.flat[1::ng + 1] -= 0.5 / h**2
             H.flat[ng::ng + 1] -= 0.5 / h**2
             S.flat[::ng + 1] += 1.0
-            e_n = num.zeros(ng, num.Float)
+            e_n = npy.zeros(ng, npy.Float)
             error = diagonalize(H, e_n, S)
             if error != 0:
                 raise RuntimeError
@@ -763,7 +762,7 @@ class Generator(AllElectron):
     def integrate(self, l, vt, e, gld, q=None):
         r = self.r[1:]
         dr = self.dr[1:]
-        s = num.zeros(self.N, num.Float)
+        s = npy.zeros(self.N, npy.Float)
 
         c0 = 0.5 * l * (l + 1) / r**2
         c1 = -0.5 * self.d2gdr2[1:]
@@ -866,7 +865,7 @@ class Generator(AllElectron):
                            (self.ncorehole, 'spd'[self.lcorehole],
                             self.fcorehole,
                             self.e_j[self.jcorehole],self.Ekincorehole))
-            #print 'normalized?', num.dot(self.dr, self.u_j[self.jcorehole]**2)
+            #print 'normalized?', npy.dot(self.dr, self.u_j[self.jcorehole]**2)
             p = self.u_j[self.jcorehole].copy()
             p[1:] /= r[1:]
             if self.l_j[self.jcorehole] == 0:
@@ -934,7 +933,7 @@ def construct_smooth_wavefunction(u, l, gc, r, s):
     # Do a linear regression to a wave function
     # s = a + br^2 + cr^4 + dr^6, such that
     # the fitting is as good as possible in region gc-2:gc+2
-    A = num.ones((4, 4), num.Float)
+    A = npy.ones((4, 4), npy.Float)
     A[:, 0] = 1.0
     A[:, 1] = r[gc - 2:gc + 2]**2
     A[:, 2] = A[:, 1]**2

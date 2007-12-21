@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from ASE import Atom, ListOfAtoms
 from gpaw import Calculator
-import Numeric as num
+import numpy as npy
 from gpaw.utilities import equal
 from gpaw.mpi import rank, world
 import time

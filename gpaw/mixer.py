@@ -5,7 +5,7 @@
 Ref. to Kresse-paper ... XXX
 """
 
-import Numeric as num
+import numpy as npy
 import LinearAlgebra as linalg
 
 from gpaw.utilities.blas import axpy
@@ -45,7 +45,7 @@ class BaseMixer:
                                     (-1, 0, 0), (1, 0, 0),
                                     (0, -1, 0), (0, 1, 0),
                                     (0, 0, -1), (0, 0, 1)],
-                                   gd, num.Float).apply
+                                   gd, npy.Float).apply
             self.mR_G = gd.empty()
 
         elif self.metric_type == 'new':
@@ -69,7 +69,7 @@ class BaseMixer:
                                     (-1, 1, 1), (1, -1, -1), (-1, -1, 1),  #d
                                     (-1, 1, -1), (-1, -1, -1)              #d
                                     ],
-                                   gd, num.Float).apply
+                                   gd, npy.Float).apply
             self.mR_G = gd.empty()
 
         else:
@@ -86,7 +86,7 @@ class BaseMixer:
         # History for Pulay mixing of densities:
         self.nt_iG = [] # Pseudo-electron densities
         self.R_iG = []  # Residuals
-        self.A_ii = num.zeros((0, 0), num.Float)
+        self.A_ii = npy.zeros((0, 0), npy.Float)
         self.dNt = None
         
         # Collect atomic density matrices:
@@ -118,13 +118,13 @@ class BaseMixer:
             # Calculate new residual (difference between input and
             # output density):
             R_G = nt_G - self.nt_iG[-1]
-            self.dNt = self.gd.integrate(num.fabs(R_G))
+            self.dNt = self.gd.integrate(npy.fabs(R_G))
             self.R_iG.append(R_G)
             for D_p, D_ip, dD_ip in self.D_a:
                 dD_ip.append(D_p - D_ip[-1])
 
             # Update matrix:
-            A_ii = num.zeros((iold, iold), num.Float)
+            A_ii = npy.zeros((iold, iold), npy.Float)
             i1 = 0
             i2 = iold - 1
             
@@ -135,7 +135,7 @@ class BaseMixer:
                 self.metric(R_G, mR_G)
                 
             for R_1G in self.R_iG:
-                a = self.gd.comm.sum(num.vdot(R_1G, mR_G))
+                a = self.gd.comm.sum(npy.vdot(R_1G, mR_G))
                 A_ii[i1, i2] = a
                 A_ii[i2, i1] = a
                 i1 += 1
@@ -145,13 +145,13 @@ class BaseMixer:
             try:
                 B_ii = linalg.inverse(A_ii)
             except linalg.LinAlgError:
-                alpha_i = num.zeros(iold, num.Float)
+                alpha_i = npy.zeros(iold, npy.Float)
                 alpha_i[-1] = 1.0
             else:
-                alpha_i = num.sum(B_ii, 1)
+                alpha_i = npy.sum(B_ii, 1)
                 try:
                     # Normalize:
-                    alpha_i /= num.sum(alpha_i)
+                    alpha_i /= npy.sum(alpha_i)
                 except ZeroDivisionError:
                     alpha_i[:] = 0.0
                     alpha_i[-1] = 1.0
@@ -207,7 +207,7 @@ class Mixer(BaseMixer):
 
 class MixerSum(BaseMixer):
     def mix(self, nt_sG):
-        nt_G = num.sum(nt_sG)
+        nt_G = npy.sum(nt_sG)
         BaseMixer.mix(self, nt_G)
         dnt_G = nt_sG[0] - nt_sG[1]
         nt_sG[0] = 0.5 * (nt_G + dnt_G)

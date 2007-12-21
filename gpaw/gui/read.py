@@ -3,7 +3,7 @@ from tarfile import is_tarfile
 from zipfile import is_zipfile, ZipFile
 
 import numpy as npy
-import Numeric as num
+import numpy as npy
 from ASE import ListOfAtoms, Atom
 from ASE.ChemicalElements.symbol import symbols
 from ASE.Units import units, Convert
@@ -241,14 +241,14 @@ class VNL:
         self.data = data
 
 def ac(shape, typecode, data, endian):
-    x = num.fromstring(data, typecode)
+    x = npy.fromstring(data, typecode)
     try:
         x.shape = shape
     except ValueError:
         x = x[::2].copy()
         x.shape = shape
         
-    if num.LittleEndian != endian: 
+    if npy.LittleEndian != endian: 
         return x.byteswapped() 
     else: 
         return x 

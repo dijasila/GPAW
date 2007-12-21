@@ -29,7 +29,7 @@ si = ListOfAtoms([Atom('Si', (0, 0, 0)),
 
 if 1:
     k = 2
-    import Numeric as num
+    import numpy as npy
     calc = Calculator(nbands=None, h=0.25, kpts=(k, k, k),
                       width=0.05,
                       setups={0: 'hch1s'}, usesymm=True

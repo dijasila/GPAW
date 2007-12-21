@@ -2,7 +2,7 @@
 # Please see the accompanying LICENSE file for further information.
 
 import array
-import Numeric as num
+import numpy as npy
 
 from gpaw.grid_descriptor import RadialGridDescriptor
 from gpaw.operators import Gradient
@@ -189,7 +189,7 @@ class XCFunctional:
             self.xc = _gpaw.XCFunctional(code, self.gga, s0, i)
         elif code in [5, 18]:
             self.xc = _gpaw.XCFunctional(code, self.gga,
-                                         0.0, 0, num.array(parameters))
+                                         0.0, 0, npy.array(parameters))
         elif code == 6:
             self.xc = ZeroFunctional()
         elif code == 9:
@@ -242,7 +242,7 @@ class XCFunctional:
                                paw.nspins, paw.my_nuclei, paw.occupation, paw.kpt_comm)
 
         if self.hybrid > 0.0:
-            if paw.typecode == num.Complex:
+            if paw.typecode == npy.Complex:
                 raise NotImplementedError, 'k-point calculation with EXX'
             if self.parameters and self.parameters.has_key('finegrid'):
                 use_finegrid=self.parameters['finegrid']
@@ -364,9 +364,9 @@ class XCFunctional:
                            sigma0=None, sigma1=None, sigma2=None,
                            taua=None,taub=None):
         # see c/libxc.c for the input and output values
-        d_exc = num.zeros(5, num.Float)
-        d_ex = num.zeros(5, num.Float)
-        d_ec = num.zeros(5, num.Float)
+        d_exc = npy.zeros(5, npy.Float)
+        d_ex = npy.zeros(5, npy.Float)
+        d_ec = npy.zeros(5, npy.Float)
         (exc, ex, ec,
          d_exc[0], d_exc[1],
          d_exc[2], d_exc[3], d_exc[4],
@@ -401,14 +401,14 @@ class XCGrid:
 
     def get_energy_and_potential(self, na_g, va_g, nb_g=None, vb_g=None):
 
-        assert is_contiguous(na_g, num.Float)
-        assert is_contiguous(va_g, num.Float)
+        assert is_contiguous(na_g, npy.Float)
+        assert is_contiguous(va_g, npy.Float)
         assert na_g.shape == va_g.shape == self.shape
         if nb_g is None:
             return self.get_energy_and_potential_spinpaired(na_g, va_g)
         else:
-            assert is_contiguous(nb_g, num.Float)
-            assert is_contiguous(vb_g, num.Float)
+            assert is_contiguous(nb_g, npy.Float)
+            assert is_contiguous(vb_g, npy.Float)
             assert nb_g.shape == vb_g.shape == self.shape
             return self.get_energy_and_potential_spinpolarized(na_g, va_g,
                                                                nb_g, vb_g)
@@ -453,7 +453,7 @@ class XC3DGrid(XCGrid):
         if self.xcfunc.mgga:
             for c in range(3):
                 self.ddr[c](n_g, self.dndr_cg[c])
-            self.a2_g[:] = num.sum(self.dndr_cg**2)
+            self.a2_g[:] = npy.sum(self.dndr_cg**2)
 
             self.xcfunc.calculate_spinpaired(e_g, n_g, v_g,
                                              self.a2_g,
@@ -467,7 +467,7 @@ class XC3DGrid(XCGrid):
         elif self.xcfunc.gga:
             for c in range(3):
                 self.ddr[c](n_g, self.dndr_cg[c])
-            self.a2_g[:] = num.sum(self.dndr_cg**2)
+            self.a2_g[:] = npy.sum(self.dndr_cg**2)
 
             self.xcfunc.calculate_spinpaired(e_g,
                                              n_g, v_g,
@@ -480,7 +480,7 @@ class XC3DGrid(XCGrid):
         else:
             self.xcfunc.calculate_spinpaired(e_g, n_g, v_g)
 
-        return num.sum(e_g.flat) * self.dv
+        return npy.sum(e_g.flat) * self.dv
 
     def get_energy_and_potential_spinpolarized(self, na_g, va_g, nb_g, vb_g, e_g=None):
         if e_g == None:
@@ -491,9 +491,9 @@ class XC3DGrid(XCGrid):
                 self.ddr[c](na_g, self.dnadr_cg[c])
                 self.ddr[c](nb_g, self.dnbdr_cg[c])
             self.dndr_cg[:] = self.dnadr_cg + self.dnbdr_cg
-            self.a2_g[:] = num.sum(self.dndr_cg**2)
-            self.aa2_g[:] = num.sum(self.dnadr_cg**2)
-            self.ab2_g[:] = num.sum(self.dnbdr_cg**2)
+            self.a2_g[:] = npy.sum(self.dndr_cg**2)
+            self.aa2_g[:] = npy.sum(self.dnadr_cg**2)
+            self.ab2_g[:] = npy.sum(self.dnbdr_cg**2)
 
             self.xcfunc.calculate_spinpolarized(e_g,
                                                 na_g, va_g,
@@ -521,9 +521,9 @@ class XC3DGrid(XCGrid):
                 self.ddr[c](na_g, self.dnadr_cg[c])
                 self.ddr[c](nb_g, self.dnbdr_cg[c])
             self.dndr_cg[:] = self.dnadr_cg + self.dnbdr_cg
-            self.a2_g[:] = num.sum(self.dndr_cg**2)
-            self.aa2_g[:] = num.sum(self.dnadr_cg**2)
-            self.ab2_g[:] = num.sum(self.dnbdr_cg**2)
+            self.a2_g[:] = npy.sum(self.dndr_cg**2)
+            self.aa2_g[:] = npy.sum(self.dnadr_cg**2)
+            self.ab2_g[:] = npy.sum(self.dnbdr_cg**2)
             self.xcfunc.calculate_spinpolarized(e_g,
                                                 na_g, va_g,
                                                 nb_g, vb_g,
@@ -557,7 +557,7 @@ class XC3DGrid(XCGrid):
             self.xcfunc.calculate_spinpolarized(e_g,
                                                 na_g, va_g,
                                                 nb_g, vb_g)
-        return num.sum(e_g.flat) * self.dv
+        return npy.sum(e_g.flat) * self.dv
 
     def set_kinetic(self,taut_sg):
         self.taua_g[:] = taut_sg[0][:]
@@ -580,24 +580,24 @@ class XCRadialGrid(XCGrid):
 
         if xcfunc.gga:
             self.rgd = gd
-            self.dndr_g = num.empty(self.shape, num.Float)
-            self.a2_g = num.empty(self.shape, num.Float)
-            self.deda2_g = num.empty(self.shape, num.Float)
+            self.dndr_g = npy.empty(self.shape, npy.Float)
+            self.a2_g = npy.empty(self.shape, npy.Float)
+            self.deda2_g = npy.empty(self.shape, npy.Float)
             if self.nspins == 2:
-                self.dnadr_g = num.empty(self.shape, num.Float)
-                self.dnbdr_g = num.empty(self.shape, num.Float)
-                self.aa2_g = num.empty(self.shape, num.Float)
-                self.ab2_g = num.empty(self.shape, num.Float)
-                self.dedaa2_g = num.empty(self.shape, num.Float)
-                self.dedab2_g = num.empty(self.shape, num.Float)
+                self.dnadr_g = npy.empty(self.shape, npy.Float)
+                self.dnbdr_g = npy.empty(self.shape, npy.Float)
+                self.aa2_g = npy.empty(self.shape, npy.Float)
+                self.ab2_g = npy.empty(self.shape, npy.Float)
+                self.dedaa2_g = npy.empty(self.shape, npy.Float)
+                self.dedab2_g = npy.empty(self.shape, npy.Float)
         if xcfunc.mgga:
-            self.taua_g = num.empty(self.shape, num.Float)
+            self.taua_g = npy.empty(self.shape, npy.Float)
             self.taua_g[:] = -1.0
             if self.nspins == 2:
-                self.taub_g = num.empty(self.shape, num.Float)
+                self.taub_g = npy.empty(self.shape, npy.Float)
                 self.taub_g[:] = -1.0
 
-        self.e_g = num.empty(self.shape, num.Float)
+        self.e_g = npy.empty(self.shape, npy.Float)
 
     # True, if this xc-potential depends on more than just density
     def is_non_local(self):
@@ -642,7 +642,7 @@ class XCRadialGrid(XCGrid):
         else:
             self.xcfunc.calculate_spinpaired(e_g, n_g, v_g)
 
-        return num.dot(self.e_g.flat, self.dv_g)
+        return npy.dot(self.e_g.flat, self.dv_g)
 
     def get_energy_and_potential_spinpolarized(self, na_g, va_g, nb_g, vb_g):
         if self.xcfunc.mgga:
@@ -742,7 +742,7 @@ class XCRadialGrid(XCGrid):
                                                 na_g, va_g,
                                                 nb_g, vb_g)
 
-        return num.dot(self.e_g, self.dv_g)
+        return npy.dot(self.e_g, self.dv_g)
 
 class vxcOperator(list):
     """vxc as operator object"""

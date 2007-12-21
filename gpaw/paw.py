@@ -9,7 +9,7 @@ The central object that glues everything together!"""
 import sys
 import weakref
 
-import Numeric as num
+import numpy as npy
 from ASE import Atom, ListOfAtoms
 from ASE.Units import Convert
 
@@ -40,7 +40,7 @@ import sys
 import tempfile
 import time
 
-import Numeric as num
+import numpy as npy
 from ASE.Units import units, Convert
 from ASE.Utilities.MonkhorstPack import MonkhorstPack
 from ASE.ChemicalElements.symbol import symbols
@@ -311,7 +311,7 @@ class PAW(PAWExtra, Output):
                         elif isinstance(world, mpi._Communicator):
                             pass # correct type already
                         else: # world should be a list of ranks
-                            arr = num.asarray(world)
+                            arr = npy.asarray(world)
                             world = mpi.world.new_communicator(arr)
                         self.world = world
                         self.master = (world.rank == 0)
@@ -412,8 +412,8 @@ class PAW(PAWExtra, Output):
         pos_ac, Z_a, cell_cc, pbc_c = self.last_atomic_configuration
 
         if (len(atoms) != self.natoms or
-            num.sometrue(atoms.GetAtomicNumbers() != Z_a) or
-            num.sometrue((atoms.GetUnitCell() / self.a0 != cell_cc).flat) or
+            npy.sometrue(atoms.GetAtomicNumbers() != Z_a) or
+            npy.sometrue((atoms.GetUnitCell() / self.a0 != cell_cc).flat) or
             atoms.GetBoundaryConditions() != pbc_c):
             # Drastic changes:
             self.wave_functions_initialized = False
@@ -515,7 +515,7 @@ class PAW(PAWExtra, Output):
         movement = False
         for nucleus, pos_c in zip(self.nuclei, pos_ac):
             spos_c = self.domain.scale_position(pos_c)
-            if num.sometrue(spos_c != nucleus.spos_c) or not nucleus.ready:
+            if npy.sometrue(spos_c != nucleus.spos_c) or not nucleus.ready:
                 movement = True
                 nucleus.set_position(spos_c, self.domain, self.my_nuclei,
                                      self.nspins, self.nmyu, self.nbands)
@@ -610,7 +610,7 @@ class PAW(PAWExtra, Output):
             for nucleus in self.my_nuclei:
                 # XXX already allocated once, but with wrong size!!!
                 ni = nucleus.get_number_of_partial_waves()
-                nucleus.P_uni = num.empty((self.nmyu, nao, ni), self.typecode)
+                nucleus.P_uni = npy.empty((self.nmyu, nao, ni), self.typecode)
 
             # Use the generic eigensolver for subspace diagonalization
             eig = Eigensolver()
@@ -681,7 +681,7 @@ class PAW(PAWExtra, Output):
                 except AttributeError:
                     pass
 
-        elif not isinstance(self.kpt_u[0].psit_nG, num.ArrayType):
+        elif not isinstance(self.kpt_u[0].psit_nG, npy.ArrayType):
             # Calculation started from a restart file.  Copy data
             # from the file to memory:
             if self.world.size > 1:
@@ -716,7 +716,7 @@ class PAW(PAWExtra, Output):
         if self.F_ac is not None:
             return
 
-        self.F_ac = num.empty((self.natoms, 3), num.Float)
+        self.F_ac = npy.empty((self.natoms, 3), npy.Float)
         
         nt_g = self.density.nt_g
         vt_sG = self.hamiltonian.vt_sG
@@ -757,12 +757,12 @@ class PAW(PAWExtra, Output):
 
         if self.symmetry is not None:
             # Symmetrize forces:
-            F_ac = num.zeros((self.natoms, 3), num.Float)
+            F_ac = npy.zeros((self.natoms, 3), npy.Float)
             for map_a, symmetry in zip(self.symmetry.maps,
                                        self.symmetry.symmetries):
                 swap, mirror = symmetry
                 for a1, a2 in enumerate(map_a):
-                    F_ac[a2] += num.take(self.F_ac[a1] * mirror, swap)
+                    F_ac[a2] += npy.take(self.F_ac[a1] * mirror, swap)
             self.F_ac[:] = F_ac / len(self.symmetry.symmetries)
 
         self.print_forces()
@@ -938,7 +938,7 @@ class PAW(PAWExtra, Output):
         p['width'] = r['FermiWidth'] 
 
         pos_ac = r.get('CartesianPositions')
-        Z_a = num.asarray(r.get('AtomicNumbers'), num.Int)
+        Z_a = npy.asarray(r.get('AtomicNumbers'), npy.Int)
         cell_cc = r.get('UnitCell')
         pbc_c = r.get('BoundaryConditions')
         tag_a = r.get('Tags')
@@ -1045,12 +1045,12 @@ class PAW(PAWExtra, Output):
 
         r0 = (rank // ndomains) * ndomains
         ranks = range(r0, r0 + ndomains)
-        domain_comm = self.world.new_communicator(num.array(ranks))
+        domain_comm = self.world.new_communicator(npy.array(ranks))
         self.domain.set_decomposition(domain_comm, parsize_c, N_c)
 
         r0 = rank % ndomains
         ranks = range(r0, r0 + size, ndomains)
-        self.kpt_comm = self.world.new_communicator(num.array(ranks))
+        self.kpt_comm = self.world.new_communicator(npy.array(ranks))
 
     def initialize(self):
         """Inexpensive initialization."""
@@ -1070,20 +1070,20 @@ class PAW(PAWExtra, Output):
         # Check that the cell is orthorhombic:
         check_unit_cell(cell_cc)
         # Get the diagonal:
-        cell_c = num.diagonal(cell_cc)
+        cell_c = npy.diagonal(cell_cc)
         
         p = self.input_parameters
         
         # Set the scaled k-points:
         kpts = p['kpts']
         if kpts is None:
-            self.bzk_kc = num.zeros((1, 3), num.Float)
+            self.bzk_kc = npy.zeros((1, 3), npy.Float)
         elif isinstance(kpts[0], int):
             self.bzk_kc = MonkhorstPack(kpts)
         else:
-            self.bzk_kc = num.array(kpts)
+            self.bzk_kc = npy.array(kpts)
         
-        magnetic = bool(num.sometrue(magmom_a))  # numpy!
+        magnetic = bool(npy.sometrue(magmom_a))  # numpy!
 
         self.spinpol = p['spinpol']
         if self.spinpol is None:
@@ -1106,7 +1106,7 @@ class PAW(PAWExtra, Output):
         self.xcfunc.set_timer(self.timer)
         
         if p['gpts'] is not None and p['h'] is None:
-            N_c = num.array(p['gpts'])
+            N_c = npy.array(p['gpts'])
         else:
             if p['h'] is None:
                 self.text('Using default value for grid spacing.')
@@ -1114,19 +1114,19 @@ class PAW(PAWExtra, Output):
             else:
                 h = p['h']
             # N_c should be a multiplum of 4:
-            N_c = num.array([max(4, int(L / h / 4 + 0.5) * 4) for L in cell_c])
+            N_c = npy.array([max(4, int(L / h / 4 + 0.5) * 4) for L in cell_c])
         
         # Create a Domain object:
         self.domain = Domain(cell_c, pbc_c)
 
         # Is this a gamma-point calculation?
         self.gamma = (len(self.bzk_kc) == 1 and
-                      not num.sometrue(self.bzk_kc[0]))
+                      not npy.sometrue(self.bzk_kc[0]))
 
         if self.gamma:
-            self.typecode = num.Float
+            self.typecode = npy.Float
         else:
-            self.typecode = num.Complex
+            self.typecode = npy.Complex
             
         # Is this a "linear combination of atomic orbitals" type of
         # calculation?
@@ -1139,7 +1139,7 @@ class PAW(PAWExtra, Output):
         if self.gamma:
             self.symmetry = None
             self.weight_k = [1.0]
-            self.ibzk_kc = num.zeros((1, 3), num.Float)
+            self.ibzk_kc = npy.zeros((1, 3), npy.Float)
             self.nkpts = 1
         else:
             if not self.eigensolver.lcao:

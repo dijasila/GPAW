@@ -1,6 +1,6 @@
 from ASE import Atom, ListOfAtoms
 from gpaw.utilities import equal
-import Numeric as num
+import numpy as npy
 from gpaw import Calculator
 from gpaw.poisson import PoissonSolver
 
@@ -14,7 +14,7 @@ calc = Calculator(gpts=(g, g, g), kpts=(k, k, k), nbands=2,
                   txt=None)
 bulk.SetCalculator(calc)
 bulk.GetPotentialEnergy()
-ave_pot = num.sum(calc.hamiltonian.vHt_g.flat) / (2 * g)**3
+ave_pot = npy.sum(calc.hamiltonian.vHt_g.flat) / (2 * g)**3
 equal(ave_pot, 0.0, 1e-8)
 
 calc = Calculator(gpts=(g, g, g), kpts=(k, k, k), nbands=2,
@@ -22,6 +22,6 @@ calc = Calculator(gpts=(g, g, g), kpts=(k, k, k), nbands=2,
                   txt=None)
 bulk.SetCalculator(calc)
 bulk.GetPotentialEnergy()
-ave_pot = num.sum(calc.hamiltonian.vHt_g.flat) / (2 * g)**3
+ave_pot = npy.sum(calc.hamiltonian.vHt_g.flat) / (2 * g)**3
 equal(ave_pot, 0.0, 1e-8)
 

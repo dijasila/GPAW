@@ -9,7 +9,7 @@ A Paw object has a list of nuclei. Each nucleus is described by a
 from math import pi, sqrt
 from cmath import exp
 
-import Numeric as num
+import numpy as npy
 
 from gpaw.utilities.complex import real, cc
 from gpaw.localized_functions import create_localized_functions
@@ -65,9 +65,9 @@ class Nucleus:
         self.a = a
         self.typecode = typecode
         lmax = setup.lmax
-        self.Q_L = num.zeros((lmax + 1)**2, num.Float)
+        self.Q_L = npy.zeros((lmax + 1)**2, npy.Float)
         self.neighbors = []
-        self.spos_c = num.array([-1.0, -1.0, -1.0])
+        self.spos_c = npy.array([-1.0, -1.0, -1.0])
 
         self.rank = -1
         self.comm = mpi.serial_comm
@@ -80,7 +80,7 @@ class Nucleus:
         self.vhat_L = None
         self.nct = None
         self.tauct = None
-        self.mom = num.array(0.0)
+        self.mom = npy.array(0.0)
 
     def __cmp__(self, other):
         """Ordering of nuclei.
@@ -92,20 +92,20 @@ class Nucleus:
     def allocate(self, nspins, nmyu, nbands):
         ni = self.get_number_of_partial_waves()
         np = ni * (ni + 1) // 2
-        self.D_sp = num.zeros((nspins, np), num.Float)
-        self.H_sp = num.zeros((nspins, np), num.Float)
-        self.P_uni = num.zeros((nmyu, nbands, ni), self.typecode)
-        self.F_c = num.zeros(3, num.Float)
+        self.D_sp = npy.zeros((nspins, np), npy.Float)
+        self.H_sp = npy.zeros((nspins, np), npy.Float)
+        self.P_uni = npy.zeros((nmyu, nbands, ni), self.typecode)
+        self.F_c = npy.zeros(3, npy.Float)
         if self.setup.xc_correction.xc.xcfunc.hybrid > 0.0:
-            self.vxx_uni = num.empty((nmyu, nbands, ni), self.typecode)
-            self.vxx_unii = num.zeros((nmyu, nbands, ni, ni), self.typecode)
+            self.vxx_uni = npy.empty((nmyu, nbands, ni), self.typecode)
+            self.vxx_unii = npy.zeros((nmyu, nbands, ni, ni), self.typecode)
 
     def reallocate(self, nbands):
         nu, nao, ni = self.P_uni.shape
         if nbands < nao:
             self.P_uni = self.P_uni[:, :nbands, :].copy()
         else:
-            P_uni = num.empty((nu, nbands, ni), self.typecode)
+            P_uni = npy.empty((nu, nbands, ni), self.typecode)
             P_uni[:, :nao, :] = self.P_uni
             P_uni[:, nao:, :] = 0.0
             self.P_uni = P_uni
@@ -153,7 +153,7 @@ class Nucleus:
         pt_j = self.setup.pt_j
         pt_i = create(pt_j, gd, spos_c, typecode=self.typecode, lfbc=lfbc)
 
-        if self.typecode == num.Complex and pt_i is not None:
+        if self.typecode == npy.Complex and pt_i is not None:
             pt_i.set_phase_factors(k_ki)
         
         # Update pt_nuclei:
@@ -213,11 +213,11 @@ class Nucleus:
             
         if self.comm.size > 1:
             # Make MPI-group communicators:
-            flags = num.array([1 * (pt_i is not None) +
+            flags = npy.array([1 * (pt_i is not None) +
                                2 * (vbar is not None) +
                                4 * (ghat_L is not None)])
 
-            flags_r = num.zeros((self.comm.size, 1), num.Int)
+            flags_r = npy.zeros((self.comm.size, 1), npy.Int)
             self.comm.all_gather(flags, flags_r)
             for mask, lfs in [(1, [pt_i]),
                               (2, [vbar, stepf]),
@@ -257,7 +257,7 @@ class Nucleus:
         self.phit_i = create_localized_functions(
             phit_j, gd, self.spos_c, typecode=self.typecode,
             cut=True, forces=False, lfbc=lfbc)
-        if self.typecode == num.Complex and self.phit_i is not None:
+        if self.typecode == npy.Complex and self.phit_i is not None:
             self.phit_i.set_phase_factors(k_ki)
 
     def get_number_of_atomic_orbitals(self):
@@ -271,7 +271,7 @@ class Nucleus:
             # Nothing to do in this domain:
             return
 
-        coefs_ii = num.identity(len(psit_iG), psit_iG.typecode())
+        coefs_ii = npy.identity(len(psit_iG), psit_iG.typecode())
         self.phit_i.add(psit_iG, coefs_ii, k)
 
     def add_atomic_density(self, nt_sG, magmom, hund):
@@ -285,12 +285,12 @@ class Nucleus:
         
         if hasattr(self, 'f_si'):
             # Convert to ndarray:
-            self.f_si = num.asarray(self.f_si, num.Float)
+            self.f_si = npy.asarray(self.f_si, npy.Float)
         else:
             self.f_si = self.calculate_initial_occupation_numbers(ns, niao,
                                                                   magmom, hund)
         if self.in_this_domain:
-            D_sii = num.zeros((ns, ni, ni), num.Float)
+            D_sii = npy.zeros((ns, ni, ni), npy.Float)
             for i in range(min(ni, niao)):
                 D_sii[:, i, i] = self.f_si[:, i]
             for s in range(ns):
@@ -300,7 +300,7 @@ class Nucleus:
             self.phit_i.add_density(nt_sG[s], self.f_si[s])
 
     def calculate_initial_occupation_numbers(self, ns, niao, magmom, hund):
-        f_si = num.zeros((ns, niao), num.Float)
+        f_si = npy.zeros((ns, niao), npy.Float)
         i = 0
         nj = len(self.setup.n_j)
         for j, phit in enumerate(self.setup.phit_j):
@@ -341,11 +341,11 @@ class Nucleus:
     
     def add_smooth_core_density(self, nct_G, nspins):
         if self.nct is not None:
-            self.nct.add(nct_G, num.array([1.0 / nspins]))
+            self.nct.add(nct_G, npy.array([1.0 / nspins]))
 
     def add_smooth_core_kinetic_energy_density(self, tauct_G, nspins):
         if self.tauct is not None:
-            self.tauct.add(tauct_G, num.array([1.0 / nspins]))
+            self.tauct.add(tauct_G, npy.array([1.0 / nspins]))
 
     def add_compensation_charge(self, nt2):
         self.ghat_L.add(nt2, self.Q_L)
@@ -356,7 +356,7 @@ class Nucleus:
 
     def add_localized_potential(self, vt2):
         if self.vbar is not None:
-            self.vbar.add(vt2, num.array([1.0]))
+            self.vbar.add(vt2, npy.array([1.0]))
         
     def calculate_projections(self, kpt):
         if self.in_this_domain:
@@ -370,24 +370,24 @@ class Nucleus:
             
     def calculate_multipole_moments(self):
         if self.in_this_domain:
-            self.Q_L[:] = num.dot(num.sum(self.D_sp), self.setup.Delta_pL)
+            self.Q_L[:] = npy.dot(npy.sum(self.D_sp), self.setup.Delta_pL)
             self.Q_L[0] += self.setup.Delta0
         self.comm.broadcast(self.Q_L, self.rank)
 
     def calculate_magnetic_moments(self):
         if self.in_this_domain:
             dif = self.D_sp[0,:] - self.D_sp[1,:]
-            self.mom = num.array(sqrt(4 * pi) *
-                                 num.dot(dif, self.setup.Delta_pL[:,0]))
+            self.mom = npy.array(sqrt(4 * pi) *
+                                 npy.dot(dif, self.setup.Delta_pL[:,0]))
         self.comm.broadcast(self.mom, self.rank)
         
     def calculate_hamiltonian(self, nt_g, vHt_g, vext=None):
         if self.in_this_domain:
             s = self.setup
-            W_L = num.zeros((s.lmax + 1)**2, num.Float)
+            W_L = npy.zeros((s.lmax + 1)**2, npy.Float)
             for neighbor in self.neighbors:
-                W_L += num.dot(neighbor.v_LL, neighbor.nucleus().Q_L)
-            U = 0.5 * num.dot(self.Q_L, W_L)
+                W_L += npy.dot(neighbor.v_LL, neighbor.nucleus().Q_L)
+            U = 0.5 * npy.dot(self.Q_L, W_L)
 
             if self.vhat_L is not None:
                 for x in self.vhat_L.iintegrate(nt_g, W_L):
@@ -395,17 +395,17 @@ class Nucleus:
             for x in self.ghat_L.iintegrate(vHt_g, W_L):
                 yield None
 
-            D_p = num.sum(self.D_sp)
-            dH_p = (s.K_p + s.M_p + s.MB_p + 2.0 * num.dot(s.M_pp, D_p) +
-                    num.dot(s.Delta_pL, W_L))
+            D_p = npy.sum(self.D_sp)
+            dH_p = (s.K_p + s.M_p + s.MB_p + 2.0 * npy.dot(s.M_pp, D_p) +
+                    npy.dot(s.Delta_pL, W_L))
 
             Exc = s.xc_correction.calculate_energy_and_derivatives(
                 self.D_sp, self.H_sp, self.a)
 
-            Ekin = num.dot(s.K_p, D_p) + s.Kc
+            Ekin = npy.dot(s.K_p, D_p) + s.Kc
 
-            Ebar = s.MB + num.dot(s.MB_p, D_p)
-            Epot = U + s.M + num.dot(D_p, (s.M_p + num.dot(s.M_pp, D_p)))
+            Ebar = s.MB + npy.dot(s.MB_p, D_p)
+            Epot = U + s.M + npy.dot(D_p, (s.M_p + npy.dot(s.M_pp, D_p)))
 
             # Note that the external potential is assumed to be
             # constant inside the augmentation spheres.
@@ -418,9 +418,9 @@ class Nucleus:
                 H_p += dH_p
 
             # Move this kinetic energy contribution to Paw.py: ????!!!!
-            Ekin -= num.dot(self.D_sp[0], self.H_sp[0])
+            Ekin -= npy.dot(self.D_sp[0], self.H_sp[0])
             if len(self.D_sp) == 2:
-                Ekin -= num.dot(self.D_sp[1], self.H_sp[1])
+                Ekin -= npy.dot(self.D_sp[1], self.H_sp[1])
 
             yield Ekin, Epot, Ebar, Eext, Exc
         
@@ -436,8 +436,8 @@ class Nucleus:
         if self.in_this_domain:
             H_ii = unpack(self.H_sp[s])
             P_ni = self.P_uni[u]
-            coefs_ni =  (num.dot(P_ni, H_ii) -
-                         num.dot(P_ni * eps_n[:, None], self.setup.O_ii))
+            coefs_ni =  (npy.dot(P_ni, H_ii) -
+                         npy.dot(P_ni * eps_n[:, None], self.setup.O_ii))
 
             if self.setup.xc_correction.xc.xcfunc.hybrid > 0.0:
                 coefs_ni += self.vxx_uni[u]
@@ -451,7 +451,7 @@ class Nucleus:
     def adjust_residual2(self, pR_G, dR_G, eps, u, s, k, n):
         if self.in_this_domain:
             ni = self.get_number_of_partial_waves()
-            dP_i = num.zeros(ni, self.typecode)
+            dP_i = npy.zeros(ni, self.typecode)
             for x in self.pt_i.iintegrate(pR_G, dP_i, k):
                 yield None
         else:
@@ -460,11 +460,11 @@ class Nucleus:
 
         if self.in_this_domain:
             H_ii = unpack(self.H_sp[s])
-            coefs_i = (num.dot(dP_i, H_ii) -
-                       num.dot(dP_i * eps, self.setup.O_ii))
+            coefs_i = (npy.dot(dP_i, H_ii) -
+                       npy.dot(dP_i * eps, self.setup.O_ii))
 
             if self.setup.xc_correction.xc.xcfunc.hybrid > 0.0:
-                coefs_i += num.dot(self.vxx_unii[u, n], dP_i)
+                coefs_i += npy.dot(self.vxx_unii[u, n], dP_i)
                 
             for x in self.pt_i.iadd(dR_G, coefs_i, k, communicate=True):
                 yield None
@@ -481,10 +481,10 @@ class Nucleus:
         if self.in_this_domain:
             n = len(a_nG)
             ni = self.get_number_of_partial_waves()
-            P_ni = num.zeros((n, ni), self.typecode)
+            P_ni = npy.zeros((n, ni), self.typecode)
             self.pt_i.integrate(a_nG, P_ni, k)
             H_ii = unpack(self.H_sp[s])
-            coefs_ni = num.dot(P_ni, H_ii)
+            coefs_ni = npy.dot(P_ni, H_ii)
             self.pt_i.add(b_nG, coefs_ni, k, communicate=True)
         else:
             self.pt_i.integrate(a_nG, None, k)
@@ -499,9 +499,9 @@ class Nucleus:
         if self.in_this_domain:
             n = len(a_nG)
             ni = self.get_number_of_partial_waves()
-            P_ni = num.zeros((n, ni), self.typecode)
+            P_ni = npy.zeros((n, ni), self.typecode)
             self.pt_i.integrate(a_nG, P_ni, k)
-            coefs_ni = num.dot(P_ni, self.setup.O_ii)
+            coefs_ni = npy.dot(P_ni, self.setup.O_ii)
             self.pt_i.add(b_nG, coefs_ni, k, communicate=True)
         else:
             self.pt_i.integrate(a_nG, None, k)
@@ -516,9 +516,9 @@ class Nucleus:
         if self.in_this_domain:
             n = len(a_nG)
             ni = self.get_number_of_partial_waves()
-            P_ni = num.zeros((n, ni), self.typecode)
+            P_ni = npy.zeros((n, ni), self.typecode)
             self.pt_i.integrate(a_nG, P_ni, k)
-            coefs_ni = num.dot(P_ni, self.setup.C_ii)
+            coefs_ni = npy.dot(P_ni, self.setup.C_ii)
             self.pt_i.add(b_nG, coefs_ni, k, communicate=True)
         else:
             self.pt_i.integrate(a_nG, None, k)
@@ -541,7 +541,7 @@ class Nucleus:
             # number of partial waves, pt_nG
             ni = self.get_number_of_partial_waves()
             # allocate memory and calculate coefficients P_ni = <pt_i|psit_nG>
-            P_ni = num.zeros((n, ni), self.typecode)
+            P_ni = npy.zeros((n, ni), self.typecode)
             self.pt_i.integrate(a_nG, P_ni, k)
             
             # indexes of Delta_L,i_1,i_2
@@ -582,14 +582,14 @@ class Nucleus:
             #   y_ij = sqrt(4pi/3) Delta_1ij
             #   z_ij = sqrt(4pi/3) Delta_2ij
             #   x_ij = sqrt(4pi/3) Delta_3ij
-            oneij = num.sqrt(4.*num.pi) \
-                * num.dot(P_ni, Delta_Lii[:,:,0])
-            yij = num.sqrt(4.*num.pi / 3.) \
-                * num.dot(P_ni, Delta_Lii[:,:,1])
-            zij = num.sqrt(4.*num.pi / 3.) \
-                * num.dot(P_ni, Delta_Lii[:,:,2])
-            xij = num.sqrt(4.*num.pi / 3.) \
-                * num.dot(P_ni, Delta_Lii[:,:,3])
+            oneij = npy.sqrt(4.*npy.pi) \
+                * npy.dot(P_ni, Delta_Lii[:,:,0])
+            yij = npy.sqrt(4.*npy.pi / 3.) \
+                * npy.dot(P_ni, Delta_Lii[:,:,1])
+            zij = npy.sqrt(4.*npy.pi / 3.) \
+                * npy.dot(P_ni, Delta_Lii[:,:,2])
+            xij = npy.sqrt(4.*npy.pi / 3.) \
+                * npy.dot(P_ni, Delta_Lii[:,:,3])
 
             # coefficients
             # coefs_ni = sum_j ( <phi_i| f(x,y,z) | phi_j>
@@ -622,7 +622,7 @@ class Nucleus:
             # number of partial waves, pt_nG
             ni = self.get_number_of_partial_waves()
             # allocate memory and calculate coefficients P_ni = <pt_i|psit_nG>
-            P_ni = num.zeros((n, ni), self.typecode)
+            P_ni = npy.zeros((n, ni), self.typecode)
             self.pt_i.integrate(a_nG, P_ni, k)
             
             # indexes of Delta_L,i_1,i_2
@@ -648,10 +648,10 @@ class Nucleus:
 
             #   1_ij = sqrt(4pi) Delta_0ij
             #   x_ij = sqrt(4pi/3) Delta_3ij
-            oneij = num.sqrt(4.*num.pi) \
-                * num.dot(P_ni, Delta_Lii[:,:,0])
-            xij = num.sqrt(4.*num.pi / 3.) \
-                * num.dot(P_ni, Delta_Lii[:,:,3])
+            oneij = npy.sqrt(4.*npy.pi) \
+                * npy.dot(P_ni, Delta_Lii[:,:,0])
+            xij = npy.sqrt(4.*npy.pi / 3.) \
+                * npy.dot(P_ni, Delta_Lii[:,:,3])
 
             # coefficients
             # coefs_ni = sum_j ( <phi_i| f(x,y,z) | phi_j>
@@ -682,14 +682,14 @@ class Nucleus:
             H_ii = unpack(self.H_sp[s])
             O_ii = self.setup.O_ii
             ni = self.setup.ni
-            F_nic = num.zeros((nb, ni, 3), self.typecode)
+            F_nic = npy.zeros((nb, ni, 3), self.typecode)
             # ???? Optimization: Take the real value of F_nk * P_ni early.
             self.pt_i.derivative(psit_nG, F_nic, k)
             F_nic.shape = (nb, ni * 3)
             F_nic *= f_n[:, None]
-            F_iic = num.dot(H_ii, num.dot(num.transpose(P_ni), F_nic))
+            F_iic = npy.dot(H_ii, npy.dot(npy.transpose(P_ni), F_nic))
             F_nic *= eps_n[:, None]
-            F_iic -= num.dot(O_ii, num.dot(num.transpose(P_ni), F_nic))
+            F_iic -= npy.dot(O_ii, npy.dot(npy.transpose(P_ni), F_nic))
             F_iic *= 2.0
             F = self.F_c
             F_iic.shape = (ni, ni, 3)
@@ -702,28 +702,28 @@ class Nucleus:
         if self.in_this_domain:
             lmax = self.setup.lmax
             # ???? Optimization: do the sum over L before the sum over g and G.
-            F_Lc = num.zeros(((lmax + 1)**2, 3), num.Float)
+            F_Lc = npy.zeros(((lmax + 1)**2, 3), npy.Float)
             self.ghat_L.derivative(vHt_g, F_Lc)
             if self.vhat_L is not None:
                 self.vhat_L.derivative(nt_g, F_Lc) 
             
             Q_L = self.Q_L
             F = self.F_c
-            F[:] += num.dot(Q_L, F_Lc)
+            F[:] += npy.dot(Q_L, F_Lc)
 
             # Force from smooth core charge:
-##            self.nct.derivative(vt_G, F[num.NewAxis, :]) 
-            self.nct.derivative(vt_G, num.reshape(F, (1, 3)))  # numpy!
+##            self.nct.derivative(vt_G, F[npy.NewAxis, :]) 
+            self.nct.derivative(vt_G, npy.reshape(F, (1, 3)))  # numpy!
 
             # Force from zero potential:
-            self.vbar.derivative(nt_g, num.reshape(F, (1, 3)))
+            self.vbar.derivative(nt_g, npy.reshape(F, (1, 3)))
 
-            dF = num.zeros(((lmax + 1)**2, 3), num.Float)
+            dF = npy.zeros(((lmax + 1)**2, 3), npy.Float)
             for neighbor in self.neighbors:
                 for c in range(3):
-                    dF[:, c] += num.dot(neighbor.dvdr_LLc[:, :, c],
+                    dF[:, c] += npy.dot(neighbor.dvdr_LLc[:, :, c],
                                         neighbor.nucleus().Q_L)
-            F += num.dot(self.Q_L, dF)
+            F += npy.dot(self.Q_L, dF)
         else:
             if self.ghat_L is not None:
                 self.ghat_L.derivative(vHt_g, None)
@@ -731,7 +731,7 @@ class Nucleus:
                     self.vhat_L.derivative(nt_g, None)
                 
             if self.nct is None:
-                self.comm.sum(num.zeros(3, num.Float), self.rank)
+                self.comm.sum(npy.zeros(3, npy.Float), self.rank)
             else:
                 self.nct.derivative(vt_G, None)
                 
@@ -744,7 +744,7 @@ class Nucleus:
         The nearest grid point can be on a different CPU than the one the
         nucleus belongs to, in which case something clever should be done.
         """
-        return num.around(gd.N_c * self.spos_c).astype(int) - gd.beg_c
+        return npy.around(gd.N_c * self.spos_c).astype(int) - gd.beg_c
 
     def add_density_correction(self, n_sg, nspins, gd, splines={}):
         # Load splines
@@ -776,15 +776,15 @@ class Nucleus:
             # Numeric and analytic integrations of density corrections:
             Inum = (Nc0 - Nct0) / nspins
             Iana = ((Nc - Nct) / nspins +
-                    sqrt(4 * pi) * num.dot(self.D_sp[s],
+                    sqrt(4 * pi) * npy.dot(self.D_sp[s],
                                            self.setup.Delta_pL[:,0]))
 
             # Add density corrections to input array n_G
             Inum += phi_i.add_density2(n_sg[s], self.D_sp[s])
             Inum += phit_i.add_density2(n_sg[s], -self.D_sp[s])
             if Nc != 0:
-                nc.add(n_sg[s], num.ones(1, num.Float) / nspins)
-                nct.add(n_sg[s], -num.ones(1, num.Float) / nspins)
+                nc.add(n_sg[s], npy.ones(1, npy.Float) / nspins)
+                nct.add(n_sg[s], -npy.ones(1, npy.Float) / nspins)
 
             # Correct density, such that correction is norm-conserving
             g_c = self.get_nearest_grid_point(gd) % gd.N_c
@@ -815,6 +815,6 @@ class Nucleus:
         P1_ni = self.P_uni[u1]
         O_ii = self.setup.O_ii
         e = exp(-2.j * pi * G * self.spos_c[c])
-        Z_nn = e * num.dot(num.dot(P_ni, O_ii), cc(num.transpose(P1_ni)))
+        Z_nn = e * npy.dot(npy.dot(P_ni, O_ii), cc(npy.transpose(P1_ni)))
 
         return Z_nn

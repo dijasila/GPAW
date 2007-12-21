@@ -1,7 +1,7 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
-import Numeric as num
+import numpy as npy
 
 
 def cc(x):
@@ -11,10 +11,10 @@ def cc(x):
         return x
     if tp is complex:
         return x.conjugate()
-    if x.typecode() == num.Float:
+    if x.typecode() == npy.Float:
         return x
     else:
-        return num.conjugate(x)
+        return npy.conjugate(x)
 
     
 def real(x):
@@ -24,7 +24,7 @@ def real(x):
         return x
     if tp is complex:
         return x.real
-    if x.typecode() == num.Float:
+    if x.typecode() == npy.Float:
         return x
     else:
         return x.real

@@ -1,7 +1,6 @@
 """Module defining  ``Eigensolver`` classes."""
 
-import Numeric as num
-from multiarray import innerproduct as inner # avoid the dotblas version!
+import numpy as npy
 
 import LinearAlgebra as linalg
 from gpaw.operators import Laplace
@@ -43,7 +42,7 @@ class Eigensolver:
         self.work = self.gd.empty(self.nbands, self.typecode)
 
         # Hamiltonian matrix
-        self.H_nn = num.empty((self.nbands, self.nbands), self.typecode)
+        self.H_nn = npy.empty((self.nbands, self.nbands), self.typecode)
         self.initialized = True
 
     def set_tolerance(self, tolerance):
@@ -110,8 +109,8 @@ class Eigensolver:
         
         for nucleus in hamiltonian.my_nuclei:
             P_ni = nucleus.P_uni[kpt.u]
-            H_nn += num.dot(P_ni, num.dot(unpack(nucleus.H_sp[kpt.s]),
-                                          cc(num.transpose(P_ni))))
+            H_nn += npy.dot(P_ni, npy.dot(unpack(nucleus.H_sp[kpt.s]),
+                                          cc(npy.transpose(P_ni))))
 
         self.comm.sum(H_nn, kpt.root)
 

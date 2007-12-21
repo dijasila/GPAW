@@ -8,7 +8,7 @@ modules."""
 
 import sys
 
-import Numeric as num
+import numpy as npy
 
 import gpaw.io
 import gpaw.mpi as mpi
@@ -87,7 +87,7 @@ class PAWExtra:
             if self.domain.comm.rank == MASTER:
                 self.kpt_comm.send(self.kpt_u[u].eps_n, MASTER, 1301)
         elif self.master:
-            eps_n = num.zeros(self.nbands, num.Float)
+            eps_n = npy.zeros(self.nbands, npy.Float)
             self.kpt_comm.receive(eps_n, kpt_rank, 1301)
             return eps_n
 
@@ -131,7 +131,7 @@ class PAWExtra:
             setup.xc_correction.xc.set_functional(newxcfunc)
 
         if newxcfunc.hybrid > 0.0 and not self.nuclei[0].ready:
-            self.set_positions(num.array([n.spos_c * self.domain.cell_c
+            self.set_positions(npy.array([n.spos_c * self.domain.cell_c
                                           for n in self.nuclei]))
 
         vt_g = self.finegd.empty()  # not used for anything!
@@ -143,7 +143,7 @@ class PAWExtra:
 
         for nucleus in self.my_nuclei:
             D_sp = nucleus.D_sp
-            H_sp = num.zeros(D_sp.shape, num.Float) # not used for anything!
+            H_sp = npy.zeros(D_sp.shape, npy.Float) # not used for anything!
             xc_correction = nucleus.setup.xc_correction
             Exc += xc_correction.calculate_energy_and_derivatives(D_sp, H_sp)
 
@@ -191,7 +191,7 @@ class PAWExtra:
 
         from gpaw.operators import Laplace
 
-        if typecode not in [num.Float, num.Complex]:
+        if typecode not in [npy.Float, npy.Complex]:
             raise RuntimeError('PAW can be converted only to Float or Complex')
 
         self.typecode = typecode
@@ -214,7 +214,7 @@ class PAWExtra:
         # Wave functions
         for kpt in self.kpt_u:
             kpt.typecode = typecode
-            kpt.psit_nG = num.array(kpt.psit_nG[:], typecode)
+            kpt.psit_nG = npy.array(kpt.psit_nG[:], typecode)
 
         # Eigensolver
         # !!! FIX ME !!!
@@ -242,7 +242,7 @@ class PAWExtra:
     def wave_function_volumes(self):
         """Return the volume needed by the wave functions"""
         nu = self.nkpts * self.nspins
-        volumes = num.empty((nu,self.nbands),num.Float)
+        volumes = npy.empty((nu,self.nbands),npy.Float)
 
         for k in range(nu):
             for n, psit_G in enumerate(self.kpt_u[k].psit_nG):
@@ -254,12 +254,12 @@ class PAWExtra:
                     nucleus.setup.four_phi_integrals()
                     P_i = nucleus.P_uni[k, n]
                     ni = len(P_i)
-                    P_ii = num.outerproduct(P_i, P_i)
+                    P_ii = npy.outerproduct(P_i, P_i)
                     P_p = pack(P_ii)
                     I = 0
                     for i1 in range(ni):
                         for i2 in range(ni):
-                            I += P_ii[i1, i2] * num.dot(P_p,
+                            I += P_ii[i1, i2] * npy.dot(P_p,
                                              nucleus.setup.I4_iip[i1, i2])
                 volumes[k,n] += I
                 

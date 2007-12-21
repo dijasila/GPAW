@@ -10,7 +10,7 @@ import weakref
 
 from ASE.Units import units, Convert
 import ASE
-import Numeric as num
+import numpy as npy
 
 from gpaw.paw import PAW
 from gpaw.utilities.dos import raw_orbital_LDOS, raw_wignerseitz_LDOS, fold_ldos
@@ -216,7 +216,7 @@ class Calculator(PAW):
                  self.get_xc_difference('XC-1-1.0') - E0,
                  self.get_xc_difference('XC-2-1.0') - E0)
         self.text('BEE: (%.9f, %.9f, %.9f, %.9f)' % coefs)
-        return num.array(coefs)
+        return npy.array(coefs)
 
     def GetExactExchange(self):
         return self.get_exact_exchange()

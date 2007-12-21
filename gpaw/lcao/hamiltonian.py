@@ -1,5 +1,5 @@
 from math import sqrt, pi
-import Numeric as num
+import numpy as npy
 from gpaw.hamiltonian import Hamiltonian
 from gpaw.utilities.blas import rk, r2k
 from gpaw.utilities import unpack
@@ -31,8 +31,8 @@ class LCAOHamiltonian(Hamiltonian):
             pos1 = nucleus1.spos_c
             setup1 = nucleus1.setup
             ni1 = nucleus1.get_number_of_partial_waves()
-            nucleus1.P_kmi = num.zeros((nkpts, self.nao, ni1), num.Complex)
-            P_mi = num.zeros((self.nao, ni1), num.Float)
+            nucleus1.P_kmi = npy.zeros((nkpts, self.nao, ni1), npy.Complex)
+            P_mi = npy.zeros((self.nao, ni1), npy.Float)
             for R in R_dc:
                 i1 = 0 
                 for j1, pt1 in enumerate(setup1.pt_j):
@@ -43,13 +43,13 @@ class LCAOHamiltonian(Hamiltonian):
                         i1 += 1
                 for k in range(nkpts):
                     nucleus1.P_kmi[k] += (P_mi *
-                                          num.exp(2j * pi *
-                                                  num.dot(self.ibzk_kc[k], R)))
+                                          npy.exp(2j * pi *
+                                                  npy.dot(self.ibzk_kc[k], R)))
                     
-        self.T_kmm = num.zeros((nkpts, self.nao, self.nao), num.Complex)
-        T_mm = num.zeros((self.nao, self.nao), num.Float)
-        self.S_kmm = num.zeros((nkpts, self.nao, self.nao), num.Complex)
-        S_mm = num.zeros((self.nao, self.nao), num.Float)
+        self.T_kmm = npy.zeros((nkpts, self.nao, self.nao), npy.Complex)
+        T_mm = npy.zeros((self.nao, self.nao), npy.Float)
+        self.S_kmm = npy.zeros((nkpts, self.nao, self.nao), npy.Complex)
+        S_mm = npy.zeros((self.nao, self.nao), npy.Float)
 
         for R in R_dc:
             i1 = 0
@@ -64,16 +64,16 @@ class LCAOHamiltonian(Hamiltonian):
                                         l1, m1, S_mm, T_mm, tci)
                         i1 += 1
             for k in range(nkpts):            
-                self.S_kmm[k] +=  S_mm * num.exp(2j * pi *
-                                                 num.dot(self.ibzk_kc[k], R))
-                self.T_kmm[k] +=  T_mm * num.exp(2j * pi *
-                                                 num.dot(self.ibzk_kc[k], R))
+                self.S_kmm[k] +=  S_mm * npy.exp(2j * pi *
+                                                 npy.dot(self.ibzk_kc[k], R))
+                self.T_kmm[k] +=  T_mm * npy.exp(2j * pi *
+                                                 npy.dot(self.ibzk_kc[k], R))
                 
         for nucleus in self.nuclei:
             for k in range(nkpts):
-                self.S_kmm[k] += num.dot(num.dot(nucleus.P_kmi[k],
+                self.S_kmm[k] += npy.dot(npy.dot(nucleus.P_kmi[k],
                                             nucleus.setup.O_ii),
-                                    num.transpose(nucleus.P_kmi[k]))
+                                    npy.transpose(nucleus.P_kmi[k]))
 
     def p_overlap(self, R, i1, pos1, id1, l1, m1, P_mi, tci):
         i2 = 0
@@ -110,7 +110,7 @@ class LCAOHamiltonian(Hamiltonian):
         n = [0, 0, 0]
         # XXXXX BC's !!!!!
         nd = (1 + 2 * n[0]) * (1 + 2 * n[1]) * (1 + 2 * n[2])
-        R_dc = num.empty((nd, 3), num.Float)
+        R_dc = npy.empty((nd, 3), npy.Float)
         d = 0
         for d1 in range(-n[0], n[0] + 1):
             for d2 in range(-n[0], n[0] + 1):
@@ -151,10 +151,10 @@ class LCAOHamiltonian(Hamiltonian):
 
         for nucleus in self.nuclei:
             ni = nucleus.get_number_of_partial_waves()
-            nucleus.P_mi = num.zeros((self.nao, ni), num.Float)
+            nucleus.P_mi = npy.zeros((self.nao, ni), npy.Float)
             nucleus.pt_i.integrate(self.phi_mG, nucleus.P_mi)
 
-        self.S_mm = num.zeros((self.nao, self.nao), num.Float)
+        self.S_mm = npy.zeros((self.nao, self.nao), npy.Float)
         rk(self.gd.dv, self.phi_mG, 0.0, self.S_mm)
         
         # Filling up the upper triangle:
@@ -162,10 +162,10 @@ class LCAOHamiltonian(Hamiltonian):
             self.S_mm[m, m:] = self.S_mm[m:, m]
 
         for nucleus in self.nuclei:
-            self.S_mm += num.dot(num.dot(nucleus.P_mi, nucleus.setup.O_ii),
-                            num.transpose(nucleus.P_mi))
+            self.S_mm += npy.dot(npy.dot(nucleus.P_mi, nucleus.setup.O_ii),
+                            npy.transpose(nucleus.P_mi))
 
-        self.T_mm = num.zeros((self.nao, self.nao), num.Float)
+        self.T_mm = npy.zeros((self.nao, self.nao), npy.Float)
         Tphi_mG = self.gd.zeros(self.nao)
         self.kin.apply(self.phi_mG, Tphi_mG)
         r2k(0.5 * self.gd.dv, self.phi_mG, Tphi_mG, 0.0, self.T_mm)

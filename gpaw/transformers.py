@@ -3,7 +3,7 @@
 
 from __future__ import division
 from math import pi
-import Numeric as num
+import numpy as npy
 
 from gpaw import debug
 from gpaw.utilities import is_contiguous
@@ -11,7 +11,7 @@ import _gpaw
 
 
 class _Transformer:
-    def __init__(self, gdin, gdout, nn=1, typecode=num.Float):
+    def __init__(self, gdin, gdout, nn=1, typecode=npy.Float):
         self.typecode = typecode
         neighbor_cd = gdin.domain.neighbor_cd
 
@@ -23,9 +23,9 @@ class _Transformer:
         else:
             comm = None
 
-        pad_cd = num.empty((3, 2), num.Int)
-        neighborpad_cd = num.empty((3, 2), num.Int)
-        skip_cd = num.empty((3, 2), num.Int)
+        pad_cd = npy.empty((3, 2), npy.Int)
+        neighborpad_cd = npy.empty((3, 2), npy.Int)
+        skip_cd = npy.empty((3, 2), npy.Int)
         
         if gdin.N_c == 2 * gdout.N_c:
             # Restriction:
@@ -45,15 +45,15 @@ class _Transformer:
             skip_cd[:, 1] = gdout.end_c % 2
             interpolate = True
 
-        assert num.alltrue(pad_cd.flat >= 0)
+        assert npy.alltrue(pad_cd.flat >= 0)
             
         self.transformer = _gpaw.Transformer(
             gdin.n_c, 2 * nn, pad_cd, neighborpad_cd, skip_cd, neighbor_cd,
-            typecode == num.Float, comm, interpolate)
+            typecode == npy.Float, comm, interpolate)
         
         self.ngpin = tuple(gdin.n_c)
         self.ngpout = tuple(gdout.n_c)
-        assert typecode in [num.Float, num.Complex]
+        assert typecode in [npy.Float, npy.Complex]
 
     def apply(self, input, output, phases=None):
         assert is_contiguous(input, self.typecode)
@@ -66,7 +66,7 @@ class _Transformer:
 if debug:
     Transformer = _Transformer
 else:
-    def Transformer(gdin, gdout, nn=1, typecode=num.Float):
+    def Transformer(gdin, gdout, nn=1, typecode=npy.Float):
         return _Transformer(gdin, gdout, nn, typecode).transformer
     
 

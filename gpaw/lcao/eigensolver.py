@@ -1,4 +1,4 @@
-import Numeric as num
+import numpy as npy
 from gpaw.utilities.blas import rk, r2k
 from gpaw.utilities import unpack
 from gpaw.utilities.lapack import diagonalize
@@ -33,24 +33,24 @@ class LCAO:
 
         nao = hamiltonian.nao
         nbands = kpt.nbands
-        H_mm = num.zeros((nao, nao), num.Complex)   #Changed to complex!
+        H_mm = npy.zeros((nao, nao), npy.Complex)   #Changed to complex!
         
-        V_mm = num.zeros((nao, nao), num.Float)
+        V_mm = npy.zeros((nao, nao), npy.Float)
         hamiltonian.calculate_effective_potential_matrix(V_mm, s)
         H_mm += V_mm
 
         for nucleus in self.nuclei:
             dH_ii = unpack(nucleus.H_sp[s])
-            H_mm += num.dot(num.dot(nucleus.P_kmi[k], dH_ii),
-                            num.transpose(nucleus.P_kmi[k]))
+            H_mm += npy.dot(npy.dot(nucleus.P_kmi[k], dH_ii),
+                            npy.transpose(nucleus.P_kmi[k]))
 
         H_mm += hamiltonian.T_kmm[k]
-        eps_n = num.zeros(nao, num.Float)
+        eps_n = npy.zeros(nao, npy.Float)
         diagonalize(H_mm, eps_n, hamiltonian.S_kmm[k].copy())
         kpt.C_nm = H_mm[0:nbands].copy()
         #print kpt.C_nm
         kpt.eps_n[:] = eps_n[0:nbands]
         
         for nucleus in self.nuclei:
-            nucleus.P_uni[u] = num.dot(kpt.C_nm, nucleus.P_kmi[k]).real # XXX
+            nucleus.P_uni[u] = npy.dot(kpt.C_nm, nucleus.P_kmi[k]).real # XXX
  

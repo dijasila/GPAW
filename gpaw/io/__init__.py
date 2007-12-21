@@ -2,7 +2,7 @@ import os
 import os.path
 
 from ASE.ChemicalElements.name import names
-import Numeric as num
+import numpy as npy
 
 import gpaw.mpi as mpi
 
@@ -156,12 +156,12 @@ def write(paw, filename, mode):
             setup_types = {None: setup_types}
         w['SetupTypes'] = repr(setup_types)
               
-        typecode = {num.Float: float, num.Complex: complex}[paw.typecode]
+        typecode = {npy.Float: float, npy.Complex: complex}[paw.typecode]
         # write projections
         w.add('Projections', ('nspins', 'nibzkpts', 'nbands', 'nproj'),
               typecode=typecode)
 
-        all_P_uni = num.empty((paw.nmyu, paw.nbands, nproj), paw.typecode)
+        all_P_uni = npy.empty((paw.nmyu, paw.nbands, nproj), paw.typecode)
         for kpt_rank in range(paw.kpt_comm.size):
             i = 0
             for nucleus in paw.nuclei:
@@ -169,7 +169,7 @@ def write(paw, filename, mode):
                 if kpt_rank == MASTER and nucleus.in_this_domain:
                     P_uni = nucleus.P_uni
                 else:
-                    P_uni = num.empty((paw.nmyu, paw.nbands, ni), paw.typecode)
+                    P_uni = npy.empty((paw.nmyu, paw.nbands, ni), paw.typecode)
                     world_rank = nucleus.rank + kpt_rank * paw.domain.comm.size
                     paw.world.receive(P_uni, world_rank, 300)
 
@@ -185,8 +185,8 @@ def write(paw, filename, mode):
 
     # Write atomic density matrices and non-local part of hamiltonian:
     if paw.master:
-        all_D_sp = num.empty((paw.nspins, nadm), num.Float)
-        all_H_sp = num.empty((paw.nspins, nadm), num.Float)
+        all_D_sp = npy.empty((paw.nspins, nadm), npy.Float)
+        all_H_sp = npy.empty((paw.nspins, nadm), npy.Float)
         q1 = 0
         for nucleus in paw.nuclei:
             ni = nucleus.get_number_of_partial_waves()
@@ -195,9 +195,9 @@ def write(paw, filename, mode):
                 D_sp = nucleus.D_sp
                 H_sp = nucleus.H_sp
             else:
-                D_sp = num.empty((paw.nspins, np), num.Float)
+                D_sp = npy.empty((paw.nspins, np), npy.Float)
                 paw.domain.comm.receive(D_sp, nucleus.rank, 207)
-                H_sp = num.empty((paw.nspins, np), num.Float)
+                H_sp = npy.empty((paw.nspins, np), npy.Float)
                 paw.domain.comm.receive(H_sp, nucleus.rank, 2071)
             q2 = q1 + np
             all_D_sp[:, q1:q1+np] = D_sp
@@ -221,7 +221,7 @@ def write(paw, filename, mode):
                 if kpt_rank == MASTER:
                     eps_n = paw.kpt_u[u].eps_n
                 else:
-                    eps_n = num.empty(paw.nbands, num.Float)
+                    eps_n = npy.empty(paw.nbands, npy.Float)
                     paw.kpt_comm.receive(eps_n, kpt_rank, 4300)
                 w.fill(eps_n)
     elif paw.domain.comm.rank == MASTER:
@@ -238,7 +238,7 @@ def write(paw, filename, mode):
                 if kpt_rank == MASTER:
                     f_n = paw.kpt_u[u].f_n
                 else:
-                    f_n = num.empty(paw.nbands, num.Float)
+                    f_n = npy.empty(paw.nbands, npy.Float)
                     paw.kpt_comm.receive(f_n, kpt_rank, 4300)
                 w.fill(f_n)
     elif paw.domain.comm.rank == MASTER:

@@ -1,7 +1,7 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
-import Numeric as num
+import numpy as npy
 import RandomArray as ra
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.domain import Domain
