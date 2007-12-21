@@ -208,7 +208,7 @@ class OmegaMatrix:
                     # create the modified density matrix
                     Pi_i = nucleus.P_uni[kss[ij].spin,kss[ij].i]
                     Pj_i = nucleus.P_uni[kss[ij].spin,kss[ij].j]
-                    P_ii = npy.outerproduct(Pi_i,Pj_i)
+                    P_ii = npy.outer(Pi_i,Pj_i)
                     # we need the symmetric form, hence we can pack
                     P_p = pack(P_ii,tolerance=1e30)
                     D_sp = nucleus.D_sp.copy()
@@ -296,7 +296,7 @@ class OmegaMatrix:
                         # create the modified density matrix
                         Pk_i = nucleus.P_uni[kss[kq].spin,kss[kq].i]
                         Pq_i = nucleus.P_uni[kss[kq].spin,kss[kq].j]
-                        P_ii = npy.outerproduct(Pk_i,Pq_i)
+                        P_ii = npy.outer(Pk_i,Pq_i)
                         # we need the symmetric form, hence we can pack
                         # use pack as I_sp used pack2
                         P_p = pack(P_ii,tolerance=1e30)
@@ -397,11 +397,11 @@ class OmegaMatrix:
                     ni = nucleus.get_number_of_partial_waves()
                     Pi_i = nucleus.P_uni[kss[ij].spin,kss[ij].i]
                     Pj_i = nucleus.P_uni[kss[ij].spin,kss[ij].j]
-                    Dij_ii = npy.outerproduct(Pi_i, Pj_i)
+                    Dij_ii = npy.outer(Pi_i, Pj_i)
                     Dij_p = pack(Dij_ii, tolerance=1e3)
                     Pk_i = nucleus.P_uni[kss[kq].spin,kss[kq].i]
                     Pq_i = nucleus.P_uni[kss[kq].spin,kss[kq].j]
-                    Dkq_ii = npy.outerproduct(Pk_i, Pq_i)
+                    Dkq_ii = npy.outer(Pk_i, Pq_i)
                     Dkq_p = pack(Dkq_ii, tolerance=1e3)
                     C_pp = nucleus.setup.M_pp
                     #   ----

@@ -254,7 +254,7 @@ class PAWExtra:
                     nucleus.setup.four_phi_integrals()
                     P_i = nucleus.P_uni[k, n]
                     ni = len(P_i)
-                    P_ii = npy.outerproduct(P_i, P_i)
+                    P_ii = npy.outer(P_i, P_i)
                     P_p = pack(P_ii)
                     I = 0
                     for i1 in range(ni):

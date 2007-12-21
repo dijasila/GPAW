@@ -311,12 +311,12 @@ class Setup:
             A_qq = 0.5 * npy.dot(n_qg, npy.transpose(wn_lqg[l]))
             A_qq -= 0.5 * npy.dot(nt_qg, npy.transpose(wnt_lqg[l]))
             if l <= lmax:
-                A_qq -= 0.5 * npy.outerproduct(Delta_lq[l],
+                A_qq -= 0.5 * npy.outer(Delta_lq[l],
                                                npy.dot(wnt_lqg[l], g_lg[l]))
-                A_qq -= 0.5 * npy.outerproduct(npy.dot(nt_qg, wg_lg[l]),
+                A_qq -= 0.5 * npy.outer(npy.dot(nt_qg, wg_lg[l]),
                                                Delta_lq[l])
                 A_qq -= 0.5 * npy.dot(g_lg[l], wg_lg[l]) * \
-                        npy.outerproduct(Delta_lq[l], Delta_lq[l])
+                        npy.outer(Delta_lq[l], Delta_lq[l])
             A_lqq.append(A_qq)
 
         self.M_pp = npy.zeros((np, np))

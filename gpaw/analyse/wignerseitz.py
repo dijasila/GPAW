@@ -52,7 +52,7 @@ class WignerSeitz:
         # add augmentation sphere corrections
         for a, nucleus in enumerate(self.nuclei):
             P_i = nucleus.P_uni[u, n]
-            P_p = pack(npy.outerproduct(P_i, P_i))
+            P_p = pack(npy.outer(P_i, P_i))
             Delta_p = sqrt(4 * pi) * nucleus.setup.Delta_pL[:, 0]
             weigths[a] += npy.dot(Delta_p, P_p) 
 

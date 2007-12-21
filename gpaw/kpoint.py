@@ -215,7 +215,7 @@ class KPoint:
 
     def add_to_density(self, nt_G):
         """Add contribution to pseudo electron-density."""
-        if self.dtype is float:
+        if self.dtype == float:
             for psit_G, f in zip(self.psit_nG, self.f_n):
                 axpy(f, psit_G**2, nt_G)  # nt_G += f * psit_G**2
         else:
@@ -231,7 +231,7 @@ class KPoint:
             d_G = self.gd.empty()
             for c in range(3):
                 ddr[c](psit_G,d_G)
-                if self.dtype is float:
+                if self.dtype == float:
                     taut_G += f * d_G[c]**2
                 else:
                     taut_G += f * (d_G * npy.conjugate(d_G)).real

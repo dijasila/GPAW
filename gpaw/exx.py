@@ -229,14 +229,14 @@ class EXX:
                                 F_ic = npy.zeros((ni, 3))
                                 self.pt_i.derivative(psit1_G, F_ic)
                                 F_ic.shape = (ni * 3,)
-                                F_iic = npy.dot(v_ii, npy.outerproduct(
+                                F_iic = npy.dot(v_ii, npy.outer(
                                     nucleus.P_uni[u, n2], F_ic))
 
                                 F_ic[:] = 0.0
                                 F_ic.shape =(ni, 3)
                                 self.pt_i.derivative(psit2_G, F_ic)
                                 F_ic.shape = (ni * 3,)
-                                F_iic += npy.dot(v_ii, npy.outerproduct(
+                                F_iic += npy.dot(v_ii, npy.outer(
                                     nucleus.P_uni[u, n1], F_ic))
 
                                 #F_iic *= 2.0
@@ -479,7 +479,7 @@ def constructX(gen):
                                         lc**2 + mc, l**2 + m]
                             G2c = gaunt[lv2**2:(lv2 + 1)**2,
                                         lc**2 + mc, l**2 + m]
-                            A_mm += nv * npy.outerproduct(G1c, G2c)
+                            A_mm += nv * npy.outer(G1c, G2c)
                 i2 += 2 * lv2 + 1
             i1 += 2 * lv1 + 1
 

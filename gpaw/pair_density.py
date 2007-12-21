@@ -77,7 +77,7 @@ class PairDensity:
                 # Generate density matrix
                 Pi_i = nucleus.P_uni[self.u, self.i]
                 Pj_i = nucleus.P_uni[self.u, self.j]
-                D_ii = npy.outerproduct(Pi_i, Pj_i)
+                D_ii = npy.outer(Pi_i, Pj_i)
                 # allowed to pack as used in the scalar product with
                 # the symmetric array Delta_pL
                 D_p  = pack(D_ii, tolerance=1e30)

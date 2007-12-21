@@ -188,7 +188,7 @@ class XAS:
                 for n, eps in enumerate(eps_n[eps_start:eps_end]):
                     x = -alpha * (e - eps)**2
                     x = npy.clip(x, -100.0, 100.0)
-                    a_c += npy.outerproduct(sigma2_cn[:, n + eps_start],
+                    a_c += npy.outer(sigma2_cn[:, n + eps_start],
                                         (alpha / pi)**0.5 * npy.exp(x))
             else:
 
@@ -210,7 +210,7 @@ class XAS:
                         
                         x = -alpha * (e - eps)**2
                         x = npy.clip(x, -100.0, 100.0)
-                        a_c += npy.outerproduct(sigma2_cn[:, n],
+                        a_c += npy.outer(sigma2_cn[:, n],
                                         (alpha / pi)**0.5 * npy.exp(x))
                 
             return  e, a_c
@@ -495,7 +495,7 @@ class RecursionMethod:
                 for n, eps in enumerate(eps_s):
                     x = -alpha * (eps_s - eps)**2
                     x = npy.clip(x, -100.0, 100.0)
-                    sigma_tmp += npy.outerproduct(sigma_cn[:,n],
+                    sigma_tmp += npy.outer(sigma_cn[:,n],
                                         (alpha / pi)**0.5 * npy.exp(x))
 
             else:
@@ -517,7 +517,7 @@ class RecursionMethod:
 
                     x = -alpha * (eps_s - eps)**2
                     x = npy.clip(x, -100.0, 100.0)
-                    sigma_tmp += npy.outerproduct(sigma_cn[:, n],
+                    sigma_tmp += npy.outer(sigma_cn[:, n],
                                         (alpha / pi)**0.5 * npy.exp(x))
             sigma_cn = sigma_tmp
                     

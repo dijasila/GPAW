@@ -26,7 +26,7 @@ class Writer:
             tc = {int: int,
                   float: float,
                   complex: complex}[dtype]
-        if dtype is complex:
+        if dtype == complex:
             if 'two' not in self.nc.dimensions:
                 self.dimension('two', 2)
             var = self.nc.createVariable(name, float, shape + ('two',))
@@ -39,7 +39,7 @@ class Writer:
             if shape == ():
                 var.assignValue(array)
             else:
-                if dtype is complex:
+                if dtype == complex:
                     var[:, 0] = array.real
                     var[:, 1] = array.imag
                 elif tc is int:
@@ -56,14 +56,14 @@ class Writer:
         indices = ()
         shape = self.var.shape
         n = len(shape) - len(array.shape)
-        if self.dtype is complex:
+        if self.dtype == complex:
             n -= 1
         for m in range(n - 1, 0, -1):
             j = i % shape[m]
             indices = (j,) + indices
             i = (i - j) / shape[m]
         indices = (i,) + indices
-        if self.dtype is complex:
+        if self.dtype == complex:
             self.var[indices + (Ellipsis, 0)] = array.real
             self.var[indices + (Ellipsis, 1)] = array.imag
         else:

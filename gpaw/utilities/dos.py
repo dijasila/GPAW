@@ -114,7 +114,7 @@ def raw_wignerseitz_LDOS(calc, a, spin):
         energies[x:x + nb] = calc.GetEigenvalues(kpt=k, spin=spin)
         for n, psit_G in enumerate(calc.kpt_u[u].psit_nG):
             P_i = nucleus.P_uni[u, n]
-            P_p = pack(npy.outerproduct(P_i, P_i))
+            P_p = pack(npy.outer(P_i, P_i))
             Delta_p = sqrt(4 * pi) * nucleus.setup.Delta_pL[:, 0]
             weights[x + n] = w * (calc.gd.integrate(npy.absolute(
                 npy.where(atom_index == a, psit_G, 0.0))**2)

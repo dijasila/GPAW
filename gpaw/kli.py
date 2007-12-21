@@ -854,7 +854,7 @@ class XCKLICorrection:
                     # Generate density matrix
                     P1_i = nucleus.P_uni[spin, n1]
                     P2_i = nucleus.P_uni[spin, n2]
-                    D_ii = npy.outerproduct(P1_i, P2_i)
+                    D_ii = npy.outer(P1_i, P2_i)
                     D_p  = pack(D_ii, tolerance=1e3)#python func! move to C
 
                     # Determine compensation charge coefficients:
@@ -1186,7 +1186,7 @@ class KLIFunctional:
                                 # Generate density matrix
                                 P1_i = nucleus.P_uni[u, n1]
                                 P2_i = nucleus.P_uni[u, n2]
-                                D_ii = npy.outerproduct(P1_i, P2_i)
+                                D_ii = npy.outer(P1_i, P2_i)
                                 D_p  = pack(D_ii, tolerance=1e3)#python func! move to C
 
                                 # Determine compensation charge coefficients:

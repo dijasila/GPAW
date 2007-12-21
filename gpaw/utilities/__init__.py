@@ -49,7 +49,7 @@ def is_contiguous(array, dtype=None):
     if dtype is None:
         return array.iscontiguous()
     else:
-        return array.iscontiguous() and array.dtype.char == dtype
+        return array.iscontiguous() and array.dtype == dtype
 
 
 # Radial-grid Hartree solver:
