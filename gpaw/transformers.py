@@ -11,8 +11,8 @@ import _gpaw
 
 
 class _Transformer:
-    def __init__(self, gdin, gdout, nn=1, typecode=float):
-        self.typecode = typecode
+    def __init__(self, gdin, gdout, nn=1, dtype=float):
+        self.dtype = dtype
         neighbor_cd = gdin.domain.neighbor_cd
 
         if gdin.comm.size > 1:
@@ -49,15 +49,15 @@ class _Transformer:
             
         self.transformer = _gpaw.Transformer(
             gdin.n_c, 2 * nn, pad_cd, neighborpad_cd, skip_cd, neighbor_cd,
-            typecode == float, comm, interpolate)
+            dtype == float, comm, interpolate)
         
         self.ngpin = tuple(gdin.n_c)
         self.ngpout = tuple(gdout.n_c)
-        assert typecode in [float, complex]
+        assert dtype in [float, complex]
 
     def apply(self, input, output, phases=None):
-        assert is_contiguous(input, self.typecode)
-        assert is_contiguous(output, self.typecode)
+        assert is_contiguous(input, self.dtype)
+        assert is_contiguous(output, self.dtype)
         assert input.shape == self.ngpin
         assert output.shape == self.ngpout
         self.transformer.apply(input, output, phases)
@@ -66,8 +66,8 @@ class _Transformer:
 if debug:
     Transformer = _Transformer
 else:
-    def Transformer(gdin, gdout, nn=1, typecode=float):
-        return _Transformer(gdin, gdout, nn, typecode).transformer
+    def Transformer(gdin, gdout, nn=1, dtype=float):
+        return _Transformer(gdin, gdout, nn, dtype).transformer
     
 
 def coefs(k, p):

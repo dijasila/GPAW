@@ -65,7 +65,7 @@ class PAWExtra:
 
         if self.master:
             # allocate full wavefunction and receive
-            psit_G = self.gd.empty(typecode=self.typecode, global_array=True)
+            psit_G = self.gd.empty(dtype=self.dtype, global_array=True)
             self.kpt_comm.receive(psit_G, kpt_rank, 1398)
             return psit_G
 
@@ -185,24 +185,24 @@ class PAWExtra:
 ##             # no wave-functions: restart from LCAO
 ##             self.initialize_wave_functions()
 
-    def totype(self, typecode):
-        """Converts all the typecode dependent quantities of Paw
-        (Laplacian, wavefunctions etc.) to typecode"""
+    def totype(self, dtype):
+        """Converts all the dtype dependent quantities of Paw
+        (Laplacian, wavefunctions etc.) to dtype"""
 
         from gpaw.operators import Laplace
 
-        if typecode not in [float, complex]:
+        if dtype not in [float, complex]:
             raise RuntimeError('PAW can be converted only to Float or Complex')
 
-        self.typecode = typecode
+        self.dtype = dtype
 
         # Hamiltonian
         nn = self.stencils[0]
-        self.hamiltonian.kin = Laplace(self.gd, -0.5, nn, typecode)
+        self.hamiltonian.kin = Laplace(self.gd, -0.5, nn, dtype)
 
         # Nuclei
         for nucleus in self.nuclei:
-            nucleus.typecode = typecode
+            nucleus.dtype = dtype
             nucleus.ready = False
 
         # reallocate only my_nuclei (as the others are not allocated at all)
@@ -213,8 +213,8 @@ class PAWExtra:
 
         # Wave functions
         for kpt in self.kpt_u:
-            kpt.typecode = typecode
-            kpt.psit_nG = npy.array(kpt.psit_nG[:], typecode)
+            kpt.dtype = dtype
+            kpt.psit_nG = npy.array(kpt.psit_nG[:], dtype)
 
         # Eigensolver
         # !!! FIX ME !!!
@@ -225,7 +225,7 @@ class PAWExtra:
 
         for u in range(self.nmyu):
             kpt = self.kpt_u[u]
-            kpt.psit_nG = self.gd.empty(self.nbands, self.typecode)
+            kpt.psit_nG = self.gd.empty(self.nbands, self.dtype)
             # Read band by band to save memory
             s = kpt.s
             k = kpt.k

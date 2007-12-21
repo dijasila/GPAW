@@ -242,7 +242,7 @@ class XCFunctional:
                                paw.nspins, paw.my_nuclei, paw.occupation, paw.kpt_comm)
 
         if self.hybrid > 0.0:
-            if paw.typecode == complex:
+            if paw.dtype == complex:
                 raise NotImplementedError, 'k-point calculation with EXX'
             if self.parameters and self.parameters.has_key('finegrid'):
                 use_finegrid=self.parameters['finegrid']

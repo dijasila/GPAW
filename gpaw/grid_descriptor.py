@@ -125,27 +125,27 @@ class GridDescriptor:
         return [slice(b - 1 + p, e - 1 + p) for b, e, p in
                 zip(self.beg_c, self.end_c, self.domain.periodic_c)]
 
-    def zeros(self, n=(), typecode=float, global_array=False):
+    def zeros(self, n=(), dtype=float, global_array=False):
         """Return new zeroed 3D array for this domain.
 
-        The type can be set with the ``typecode`` keyword (default:
+        The type can be set with the ``dtype`` keyword (default:
         ``float``).  Extra dimensions can be added with ``n=dim``.  A
         global array spanning all domains can be allocated with
         ``global_array=True``."""
 
-        return self._new_array(n, typecode, True, global_array)
+        return self._new_array(n, dtype, True, global_array)
     
-    def empty(self, n=(), typecode=float, global_array=False):
+    def empty(self, n=(), dtype=float, global_array=False):
         """Return new uninitialized 3D array for this domain.
 
-        The type can be set with the ``typecode`` keyword (default:
+        The type can be set with the ``dtype`` keyword (default:
         ``float``).  Extra dimensions can be added with ``n=dim``.  A
         global array spanning all domains can be allocated with
         ``global_array=True``."""
 
-        return self._new_array(n, typecode, False, global_array)
+        return self._new_array(n, dtype, False, global_array)
         
-    def _new_array(self, n=(), typecode=float, zero=True,
+    def _new_array(self, n=(), dtype=float, zero=True,
                   global_array=False):
         if global_array:
             shape = self.get_size_of_global_array()
@@ -158,9 +158,9 @@ class GridDescriptor:
         shape = n + tuple(shape)
 
         if zero:
-            return npy.zeros(shape, typecode)
+            return npy.zeros(shape, dtype)
         else:
-            return npy.empty(shape, typecode)
+            return npy.empty(shape, dtype)
         
     def integrate(self, a_xg):
         """Integrate function in array over domain."""
@@ -389,7 +389,7 @@ class GridDescriptor:
         rho_cg = [npy.sum(rho_xy, 1), npy.sum(rho_xy, 0), npy.sum(rho_xz, 0)]
         d_c = npy.zeros(3)
         for c in range(3):
-            r_g = (npy.arange(self.n_c[c], typecode=float) +
+            r_g = (npy.arange(self.n_c[c], dtype=float) +
                    self.beg_c[c]) * self.h_c[c]
             d_c[c] = -npy.dot(r_g, rho_cg[c]) * self.dv
         self.comm.sum(d_c)

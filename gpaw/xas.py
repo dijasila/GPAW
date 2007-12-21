@@ -279,8 +279,8 @@ class RecursionMethod:
         if gd.comm.rank == MASTER:
             if kpt_comm.rank == MASTER:
                 ni = self.a_uci.shape[2]
-                a_kci = npy.empty((self.nkpts, self.dim, ni), self.paw.typecode)
-                b_kci = npy.empty((self.nkpts, self.dim, ni), self.paw.typecode)
+                a_kci = npy.empty((self.nkpts, self.dim, ni), self.paw.dtype)
+                b_kci = npy.empty((self.nkpts, self.dim, ni), self.paw.dtype)
                 kpt_comm.gather(self.a_uci, MASTER, a_kci)
                 kpt_comm.gather(self.b_uci, MASTER, b_kci)
                 data = {'ab': (a_kci, b_kci),
@@ -298,11 +298,11 @@ class RecursionMethod:
             y0_ucG = gd.collect(self.y_ucG)
             if gd.comm.rank == MASTER:
                 if kpt_comm.rank == MASTER:
-                    w_kcG = gd.empty((self.nkpts, self.dim), self.paw.typecode,
+                    w_kcG = gd.empty((self.nkpts, self.dim), self.paw.dtype,
                                      global_array=True)
-                    wold_kcG = gd.empty((self.nkpts, self.dim), self.paw.typecode,
+                    wold_kcG = gd.empty((self.nkpts, self.dim), self.paw.dtype,
                                         global_array=True)
-                    y_kcG = gd.empty((self.nkpts, self.dim), self.paw.typecode,
+                    y_kcG = gd.empty((self.nkpts, self.dim), self.paw.dtype,
                                      global_array=True)
                     kpt_comm.gather(w0_ucG, MASTER, w_kcG)
                     kpt_comm.gather(wold0_ucG, MASTER, wold_kcG)
@@ -318,9 +318,9 @@ class RecursionMethod:
 
     def allocate_tmp_arrays(self):
         
-        self.tmp1_cG = self.paw.gd.zeros(self.dim, self.paw.typecode)
-        self.tmp2_cG = self.paw.gd.zeros(self.dim, self.paw.typecode)
-        self.z_cG = self.paw.gd.zeros(self.dim, self.paw.typecode)
+        self.tmp1_cG = self.paw.gd.zeros(self.dim, self.paw.dtype)
+        self.tmp2_cG = self.paw.gd.zeros(self.dim, self.paw.dtype)
+        self.z_cG = self.paw.gd.zeros(self.dim, self.paw.dtype)
         
     def initialize_start_vector(self, proj=None, proj_xyz=True):
         # proj is one list of vectors [[e1_x,e1_y,e1_z],[e2_x,e2_y,e2_z]]
@@ -374,12 +374,12 @@ class RecursionMethod:
 
         self.allocate_tmp_arrays()
 
-        self.w_ucG = self.paw.gd.zeros((nmykpts, self.dim), self.paw.typecode)
-        self.wold_ucG = self.paw.gd.zeros((nmykpts, self.dim), self.paw.typecode)
-        self.y_ucG = self.paw.gd.zeros((nmykpts, self.dim), self.paw.typecode)
+        self.w_ucG = self.paw.gd.zeros((nmykpts, self.dim), self.paw.dtype)
+        self.wold_ucG = self.paw.gd.zeros((nmykpts, self.dim), self.paw.dtype)
+        self.y_ucG = self.paw.gd.zeros((nmykpts, self.dim), self.paw.dtype)
             
-        self.a_uci = npy.zeros((nmykpts, self.dim, 0), self.paw.typecode)
-        self.b_uci = npy.zeros((nmykpts, self.dim, 0), self.paw.typecode)
+        self.a_uci = npy.zeros((nmykpts, self.dim, 0), self.paw.dtype)
+        self.b_uci = npy.zeros((nmykpts, self.dim, 0), self.paw.dtype)
         
             
         if nucleus.pt_i is not None: # not all CPU's will have a contribution
@@ -403,8 +403,8 @@ class RecursionMethod:
             
 
         ni = self.a_uci.shape[2]
-        a_uci = npy.empty((self.nmykpts, self.dim, ni + nsteps), self.paw.typecode)
-        b_uci = npy.empty((self.nmykpts, self.dim, ni + nsteps), self.paw.typecode)
+        a_uci = npy.empty((self.nmykpts, self.dim, ni + nsteps), self.paw.dtype)
+        b_uci = npy.empty((self.nmykpts, self.dim, ni + nsteps), self.paw.dtype)
         a_uci[:, :, :ni]  = self.a_uci
         b_uci[:, :, :ni]  = self.b_uci
         self.a_uci = a_uci

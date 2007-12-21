@@ -95,7 +95,7 @@ class Setup:
         self.f_j = f_j
         self.eps_j = eps_j
 
-        g = npy.arange(ng, typecode=float)
+        g = npy.arange(ng, dtype=float)
         r_g = beta * g / (ng - g)
         dr_g = beta * ng / (ng - g)**2
         d2gdr2 = -2 * ng * beta / (beta + r_g)**3
@@ -389,8 +389,8 @@ class Setup:
 
         self.lmax = lmax
 
-        r = 0.02 * rcutsoft * npy.arange(51, typecode=float)
-##        r = 0.04 * rcutsoft * npy.arange(26, typecode=float)
+        r = 0.02 * rcutsoft * npy.arange(51, dtype=float)
+##        r = 0.04 * rcutsoft * npy.arange(26, dtype=float)
         alpha = rcgauss**-2
         self.alpha = alpha
         if self.softgauss:
@@ -569,7 +569,7 @@ class Setup:
         gcut2 = 1 + int(rcut2 * ng / (rcut2 + beta))
 
         # radial grid
-        g = npy.arange(ng, typecode=float)
+        g = npy.arange(ng, dtype=float)
         r_g = beta * g / (ng - g)
 
         # Construct splines:
@@ -645,7 +645,7 @@ class Setup:
          core_response) = PAWXMLParser().parse(self.symbol, self.setupname)
 
         # radial grid
-        g = npy.arange(ng, typecode=float)
+        g = npy.arange(ng, dtype=float)
         r_g = beta * g / (ng - g)
         dr_g = beta * ng / (ng - g)**2
 

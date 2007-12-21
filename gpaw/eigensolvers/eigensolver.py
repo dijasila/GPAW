@@ -19,7 +19,7 @@ class Eigensolver:
     def initialize(self, paw, nbands=None):
         self.timer = paw.timer
         self.kpt_comm = paw.kpt_comm
-        self.typecode = paw.typecode
+        self.dtype = paw.dtype
         self.gd = paw.gd
         self.comm = paw.gd.comm
         if nbands is None:
@@ -32,16 +32,16 @@ class Eigensolver:
 
         # Preconditioner for the electronic gradients:
         self.preconditioner = Preconditioner(self.gd, paw.hamiltonian.kin,
-                                             self.typecode)
+                                             self.dtype)
 
         # Soft part of the Hamiltonian times psit
-        self.Htpsit_nG = self.gd.empty(self.nbands, self.typecode)
+        self.Htpsit_nG = self.gd.empty(self.nbands, self.dtype)
 
         # Work array for e.g. subspace rotations
-        self.work = self.gd.empty(self.nbands, self.typecode)
+        self.work = self.gd.empty(self.nbands, self.dtype)
 
         # Hamiltonian matrix
-        self.H_nn = npy.empty((self.nbands, self.nbands), self.typecode)
+        self.H_nn = npy.empty((self.nbands, self.nbands), self.dtype)
         self.initialized = True
 
     def set_tolerance(self, tolerance):

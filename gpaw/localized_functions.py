@@ -17,7 +17,7 @@ MASTER = 0
 
 
 def create_localized_functions(functions, gd, spos_c,
-                               typecode=float, cut=False,
+                               dtype=float, cut=False,
                                forces=True, lfbc=None):
     """Create `LocFuncs` object.
 
@@ -28,7 +28,7 @@ def create_localized_functions(functions, gd, spos_c,
     ============= ======================== ===================================
     keyword       type
     ============= ======================== ===================================
-    ``typecode``  ``Float`` or ``Complex`` Type of arrays to operate on.
+    ``dtype``  ``Float`` or ``Complex`` Type of arrays to operate on.
     ``cut``       ``bool``                 Allow functions to cut boundaries
                                            when not periodic.
     ``forces``    ``bool``                 Calculate derivatives.
@@ -37,7 +37,7 @@ def create_localized_functions(functions, gd, spos_c,
     """
 
     lfs = LocFuncs(functions, gd, spos_c,
-                    typecode, cut, forces, lfbc)
+                    dtype, cut, forces, lfbc)
 
     if len(lfs.box_b) > 0:
         return lfs
@@ -49,7 +49,7 @@ def create_localized_functions(functions, gd, spos_c,
 class LocFuncs:
     """Class to handle atomic-centered localized functions."""
     def __init__(self, functions, gd, spos_c,
-                 typecode, cut, forces, lfbc):
+                 dtype, cut, forces, lfbc):
         """Create `LocFuncs` object.
 
         Use `create_localized_functions()` to create this object."""
@@ -65,7 +65,7 @@ class LocFuncs:
         for beg_c, end_c, sdisp_c in box_b:
             box = LocalizedFunctions(functions, beg_c, end_c,
                                      spos_c, sdisp_c, gd,
-                                     typecode, forces, lfbc)
+                                     dtype, forces, lfbc)
             self.box_b.append(box)
             self.sdisp_bc[b] = sdisp_c
             b += 1
@@ -76,7 +76,7 @@ class LocFuncs:
             assert l <= 4, 'C-code only does l <= 4.'
             self.ni += 2 * l + 1
 
-        self.typecode = typecode
+        self.dtype = dtype
         self.set_communicator(gd.comm, MASTER)
         self.phase_kb = None
 
@@ -103,7 +103,7 @@ class LocFuncs:
         if communicate:
             if coef_xi is None:
                 shape = a_xg.shape[:-3] + (self.ni,)
-                coef_xi = npy.zeros(shape, self.typecode)
+                coef_xi = npy.zeros(shape, self.dtype)
             self.comm.broadcast(coef_xi, self.root)
 
         yield None
@@ -132,9 +132,9 @@ class LocFuncs:
         boundary-condtions)."""
 
         shape = a_xg.shape[:-3] + (self.ni,)
-        tmp_xi = npy.zeros(shape, self.typecode)
+        tmp_xi = npy.zeros(shape, self.dtype)
         if result_xi is None:
-            result_xi = npy.zeros(shape, self.typecode)
+            result_xi = npy.zeros(shape, self.dtype)
             
         if k is None or self.phase_kb is None:
             # No k-points:
@@ -162,9 +162,9 @@ class LocFuncs:
         is not ``None`` (Block boundary-condtions)."""
         
         shape = a_xg.shape[:-3] + (self.ni, 3)
-        tmp_xic = npy.zeros(shape, self.typecode)
+        tmp_xic = npy.zeros(shape, self.dtype)
         if result_xic is None:
-            result_xic = npy.zeros(shape, self.typecode)
+            result_xic = npy.zeros(shape, self.dtype)
             
         if k is None or self.phase_kb is None:
             # No k-points:
@@ -231,7 +231,7 @@ class LocalizedFunctionsWrapper:
     type-checking to the C-methods."""
     
     def __init__(self, functions, beg_c, end_c, spos_c, sdisp_c, gd,
-                 typecode, forces, locfuncbcaster):
+                 dtype, forces, locfuncbcaster):
         """Construct a ``LocalizedFunctions`` C-object.
 
         Evaluate function values from a list of splines
@@ -243,7 +243,7 @@ class LocalizedFunctionsWrapper:
 
         Derivatives are calculated when ``forces=True``."""
 
-        assert typecode in [float, complex]
+        assert dtype in [float, complex]
 
         # Who evaluates the function values?
         if locfuncbcaster is None:
@@ -261,7 +261,7 @@ class LocalizedFunctionsWrapper:
         self.lfs = _gpaw.LocalizedFunctions(
             [function.spline for function in functions],
             size_c, gd.n_c, corner_c, gd.h_c, pos_c,
-            typecode == float, forces, compute)
+            dtype == float, forces, compute)
         
         if locfuncbcaster is not None:
             locfuncbcaster.add(self.lfs)
@@ -272,7 +272,7 @@ class LocalizedFunctionsWrapper:
             self.ni += 2 * l + 1; 
 
         self.shape = tuple(gd.n_c)
-        self.typecode = typecode
+        self.dtype = dtype
         self.forces = forces
         
     def integrate(self, a_xg, result_xi):
@@ -281,8 +281,8 @@ class LocalizedFunctionsWrapper:
         Return the integral of extended arrays times localized
         functions in ``result_xi``."""
         
-        assert is_contiguous(a_xg, self.typecode)
-        assert is_contiguous(result_xi, self.typecode)
+        assert is_contiguous(a_xg, self.dtype)
+        assert is_contiguous(result_xi, self.dtype)
         assert a_xg.shape[:-3] == result_xi.shape[:-1]
         assert a_xg.shape[-3:] == self.shape
         assert result_xi.shape[-1] == self.ni
@@ -296,8 +296,8 @@ class LocalizedFunctionsWrapper:
         ``result_xic``."""
 
         assert self.forces
-        assert is_contiguous(a_xg, self.typecode)
-        assert is_contiguous(result_xic, self.typecode)
+        assert is_contiguous(a_xg, self.dtype)
+        assert is_contiguous(result_xic, self.dtype)
         assert a_xg.shape[:-3] == result_xic.shape[:-2]
         assert a_xg.shape[-3:] == self.shape
         assert result_xic.shape[-2:] == (self.ni, 3)
@@ -309,8 +309,8 @@ class LocalizedFunctionsWrapper:
         Add the product of ``coef_xi`` and the localized functions to
         ``a_xg``."""
         
-        assert is_contiguous(a_xg, self.typecode)
-        assert is_contiguous(coef_xi, self.typecode)
+        assert is_contiguous(a_xg, self.dtype)
+        assert is_contiguous(coef_xi, self.dtype)
         assert a_xg.shape[:-3] == coef_xi.shape[:-1]
         assert a_xg.shape[-3:] == self.shape
         assert coef_xi.shape[-1] == self.ni
@@ -363,10 +363,10 @@ if debug:
 else:
     # Just use the bare C-object for efficiency:
     def LocalizedFunctions(functions, beg_c, end_c, spos_c, sdisp_c, gd,
-                           typecode, forces, locfuncbcaster):
+                           dtype, forces, locfuncbcaster):
         return LocalizedFunctionsWrapper(functions, beg_c, end_c, spos_c,
                                          sdisp_c, gd,
-                                         typecode, forces, locfuncbcaster).lfs
+                                         dtype, forces, locfuncbcaster).lfs
 
 
 class LocFuncBroadcaster:

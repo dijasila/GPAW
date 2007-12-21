@@ -32,11 +32,11 @@ class Davidson(Eigensolver):
     def initialize(self, paw):
         Eigensolver.initialize(self, paw)
         # Allocate arrays
-        self.S_nn = npy.zeros((self.nbands, self.nbands), self.typecode)
+        self.S_nn = npy.zeros((self.nbands, self.nbands), self.dtype)
         self.H_2n2n = npy.empty((2 * self.nbands, 2 * self.nbands),
-                                self.typecode)
+                                self.dtype)
         self.S_2n2n = npy.empty((2 * self.nbands, 2 * self.nbands),
-                                self.typecode)        
+                                self.dtype)        
         self.eps_2n = npy.empty(2 * self.nbands)        
 
     def iterate_one_k_point(self, hamiltonian, kpt, niter=2):
@@ -77,7 +77,7 @@ class Davidson(Eigensolver):
             # Calculate projections
             for nucleus in hamiltonian.pt_nuclei:
                 ni = nucleus.get_number_of_partial_waves()
-                nucleus.P2_ni = npy.zeros((nbands, ni), self.typecode)
+                nucleus.P2_ni = npy.zeros((nbands, ni), self.dtype)
                 if nucleus.in_this_domain:
                     nucleus.pt_i.integrate(psit2_nG, nucleus.P2_ni, kpt.k)
                 else:

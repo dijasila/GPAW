@@ -240,8 +240,8 @@ class VNL:
     def __setstate__(self, data):
         self.data = data
 
-def ac(shape, typecode, data, endian):
-    x = npy.fromstring(data, typecode)
+def ac(shape, dtype, data, endian):
+    x = npy.fromstring(data, dtype)
     try:
         x.shape = shape
     except ValueError:

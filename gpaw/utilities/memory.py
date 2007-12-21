@@ -80,7 +80,7 @@ def estimate_memory(paw):
     out = paw.txt
 
     float_size = npy.array([1], float).itemsize
-    type_size = npy.array([1],paw.typecode).itemsize
+    type_size = npy.array([1],paw.dtype).itemsize
 
 
     print >> out

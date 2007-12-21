@@ -33,7 +33,7 @@ class RMM_DIIS(Eigensolver):
     def initialize(self, paw):
         Eigensolver.initialize(self, paw)
 
-        self.S_nn = npy.empty((self.nbands, self.nbands), self.typecode)
+        self.S_nn = npy.empty((self.nbands, self.nbands), self.dtype)
         self.S_nn[:] = 0.0  # rk fails the first time without this!
         
     def iterate_one_k_point(self, hamiltonian, kpt):      

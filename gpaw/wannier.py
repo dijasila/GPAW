@@ -48,7 +48,7 @@ class Wannier(ASEWannier):
         if initialwannier is not None:
             self.SetInitialWannierFunctions(initialwannier)
 
-        if calculator.typecode == float:
+        if calculator.dtype == float:
             self.SetType(float)
         else:
             self.SetType(complex)
@@ -123,7 +123,7 @@ class Wannier(ASEWannier):
         bzk_kc = self.GetBZKPoints()
         Nkpts = len(bzk_kc)
         kpt_u = self.GetCalculator().kpt_u
-        wanniergrid = npy.zeros(largedim, typecode=complex)
+        wanniergrid = npy.zeros(largedim, dtype=complex)
         for k, kpt_c in enumerate(bzk_kc):
             u = (k + Nkpts * self.spin) % len(kpt_u)
             U_nw = self.GetListOfLargeRotationMatrices()[k]
@@ -180,7 +180,7 @@ def get_projections(initialwannier,calc):
         rad_g[-1:] = 0.0
         functions = [Spline(l,cutoff,rad_g) for l in ls]
         lf = create_localized_functions(functions,calc.gd,spos_c,
-                                        typecode=calc.typecode)
+                                        dtype=calc.dtype)
         lf.set_phase_factors(calc.ibzk_kc)
         nlf = npy.sum([2 * l + 1 for l in ls])
         nbands = calc.nbands

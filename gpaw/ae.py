@@ -47,7 +47,7 @@ class AllElectronSetup:
         gcut = 1 + int(rcut * ng / (rcut + beta))
         gcut2 = 1 + int(rcut2 * ng / (rcut2 + beta))
 
-        g = npy.arange(ng, typecode=float)
+        g = npy.arange(ng, dtype=float)
         r_g = beta * g / (ng - g)
 
         self.ni = 1
@@ -92,7 +92,7 @@ class AllElectronSetup:
         rcutsoft = rcut2
         rcgauss = 0.02
 
-        r = 0.02 * rcutsoft * npy.arange(51, typecode=float)
+        r = 0.02 * rcutsoft * npy.arange(51, dtype=float)
 
         alpha = rcgauss**-2
         alpha2 = 15.0 / rcutsoft**2

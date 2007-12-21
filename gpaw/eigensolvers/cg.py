@@ -33,8 +33,8 @@ class CG(Eigensolver):
     def initialize(self, paw):
         Eigensolver.initialize(self, paw)
         # Allocate arrays
-        self.phi_G = self.gd.empty(typecode=self.typecode)
-        self.phi_old_G = self.gd.empty(typecode=self.typecode)
+        self.phi_G = self.gd.empty(dtype=self.dtype)
+        self.phi_old_G = self.gd.empty(dtype=self.dtype)
 
         # self.f = open('CG_debug','w')
 
@@ -86,7 +86,7 @@ class CG(Eigensolver):
                 # Calculate projections
                 for nucleus in hamiltonian.pt_nuclei:
                     ni = nucleus.get_number_of_partial_waves()
-                    nucleus.P2_i = npy.zeros(ni, self.typecode)
+                    nucleus.P2_i = npy.zeros(ni, self.dtype)
                     if nucleus.in_this_domain:
                         nucleus.pt_i.integrate(phi_G, nucleus.P2_i, kpt.k)
                     else:

@@ -103,7 +103,7 @@ class ResponseFunctional(NonLocalFunctional):
 
             # For each orbital, add the response part
             for f, e, psit_G, w in zip(info['f_n'], info['eps_n'], info['psit_nG'], w_n):
-                if info['typecode'] is float:
+                if info['dtype'] is float:
                     axpy(f*w, psit_G**2, self.vt_G)
                 else:
                     self.vt_G += f * w * (psit_G * npy.conjugate(psit_G)).real

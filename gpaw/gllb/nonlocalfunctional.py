@@ -158,7 +158,7 @@ class NonLocalFunctional:
         =========== ======================================================
         Key:        Value:
         =========== ======================================================
-        typecode    For example float, if the orbitals are real
+        dtype    For example float, if the orbitals are real
         gd          The grid descriptor object for coarse grid
         finegd      The grid descriptor object for fine grid
         n_g         Numeric array for density, supplied if needs_density()
@@ -256,7 +256,7 @@ class NonLocalFunctional:
 
                 info['psit_nG'] = psit_nG
                 info['f_n'] = f_n
-                info['typecode'] = self.kpt_u[0].typecode
+                info['dtype'] = self.kpt_u[0].dtype
 
             info_s.append(info);
 

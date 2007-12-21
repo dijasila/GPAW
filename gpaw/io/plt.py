@@ -101,8 +101,8 @@ def write_plt(cell,
     f.write(pack('ff', x0, xe ))
 
     # we need a float array
-    # Future: numpy has no 'typecode'
-    if hasattr(grid,'typecode') and grid.dtype.char == 'f':
+    # Future: numpy has no 'dtype'
+    if hasattr(grid,'dtype') and grid.dtype.char == 'f':
         fgrid = npy.transpose(grid)
     else:
         fgrid = npy.array(npy.transpose(grid).tolist(),'f')

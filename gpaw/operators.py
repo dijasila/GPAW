@@ -11,8 +11,8 @@ from gpaw.utilities import contiguous, is_contiguous
 import _gpaw
     
 class _Operator:
-    def __init__(self, coef_p, offset_pc, gd, typecode=float):
-        """Operator(coefs, offsets, gd, typecode) -> Operator object.
+    def __init__(self, coef_p, offset_pc, gd, dtype=float):
+        """Operator(coefs, offsets, gd, dtype) -> Operator object.
         """
 
         # Is this a central finite-difference type of stencil?
@@ -35,8 +35,8 @@ class _Operator:
         neighbor_cd = gd.domain.neighbor_cd
         assert npy.rank(coef_p) == 1
         assert coef_p.shape == offset_p.shape
-        assert typecode in [float, complex]
-        self.typecode = typecode
+        assert dtype in [float, complex]
+        self.dtype = dtype
         self.shape = tuple(n_c)
         
         if gd.comm.size > 1:
@@ -48,15 +48,15 @@ class _Operator:
             comm = None
 
         self.operator = _gpaw.Operator(coef_p, offset_p, n_c, mp,
-                                          neighbor_cd, typecode == float,
+                                          neighbor_cd, dtype == float,
                                           comm, cfd)
 
     def apply(self, in_xg, out_xg, phase_cd=None):
         assert in_xg.shape == out_xg.shape
         assert in_xg.shape[-3:] == self.shape
-        assert is_contiguous(in_xg, self.typecode)
-        assert is_contiguous(out_xg, self.typecode)
-        assert (self.typecode is float or
+        assert is_contiguous(in_xg, self.dtype)
+        assert is_contiguous(out_xg, self.dtype)
+        assert (self.dtype is float or
                 (phase_cd.dtype.char == complex and
                  phase_cd.shape == (3, 2)))
         self.operator.apply(in_xg, out_xg, phase_cd)
@@ -66,7 +66,7 @@ class _Operator:
         assert s_g.shape == self.shape
         assert is_contiguous(f_g, float)
         assert is_contiguous(s_g, float)
-        assert self.typecode is float
+        assert self.dtype is float
         self.operator.relax(relax_method, f_g, s_g, n, w)
         
     def get_diagonal_element(self):
@@ -76,18 +76,18 @@ class _Operator:
 if debug:
     Operator = _Operator
 else:
-    def Operator(coef_p, offset_pc, gd, typecode=float):
-        return _Operator(coef_p, offset_pc, gd, typecode).operator
+    def Operator(coef_p, offset_pc, gd, dtype=float):
+        return _Operator(coef_p, offset_pc, gd, dtype).operator
 
 
-def Gradient(gd, c, scale=1.0, typecode=float):
+def Gradient(gd, c, scale=1.0, dtype=float):
     h = gd.h_c[c]
     a = 0.5 / h * scale
     coef_p = [-a, a]
     offset_pc = npy.zeros((2, 3))
     offset_pc[0, c] = -1
     offset_pc[1, c] = 1
-    return Operator(coef_p, offset_pc, gd, typecode)
+    return Operator(coef_p, offset_pc, gd, dtype)
 
 
 # Expansion coefficients for finite difference Laplacian.  The numbers are
@@ -106,7 +106,7 @@ if debug:
         assert abs(coefs[0] + 2 * sum(coefs[1:])) < 1e-11
 
 
-def Laplace(gd, scale=1.0, n=1, typecode=float):
+def Laplace(gd, scale=1.0, n=1, dtype=float):
     """Central finite diference Laplacian.
 
     Uses 6*n neighbors."""
@@ -124,10 +124,10 @@ def Laplace(gd, scale=1.0, n=1, typecode=float):
         coefs.extend([c[0], c[0],
                       c[1], c[1],
                       c[2], c[2]])
-    return Operator(coefs, offsets, gd, typecode)
+    return Operator(coefs, offsets, gd, dtype)
 
 
-def LaplaceA(gd, scale, typecode=float):
+def LaplaceA(gd, scale, dtype=float):
     c = npy.divide(-1/12, gd.h_c**2) * scale  # Why divide? XXX
     c0 = c[1] + c[2]
     c1 = c[0] + c[2]
@@ -148,9 +148,9 @@ def LaplaceA(gd, scale, typecode=float):
                      (0, -1, -1), (0, -1, 1), (0, 1, -1), (0, 1, 1),
                      (-1, 0, -1), (-1, 0, 1), (1, 0, -1), (1, 0, 1),
                      (-1, -1, 0), (-1, 1, 0), (1, -1, 0), (1, 1, 0)],
-                    gd, typecode)
+                    gd, dtype)
 
-def LaplaceB(gd, typecode=float):
+def LaplaceB(gd, dtype=float):
     a = 0.5
     b = 1.0 / 12.0
     return Operator([a,
@@ -159,4 +159,4 @@ def LaplaceB(gd, typecode=float):
                      (-1, 0, 0), (1, 0, 0),
                      (0, -1, 0), (0, 1, 0),
                      (0, 0, -1), (0, 0, 1)],
-                    gd, typecode)
+                    gd, dtype)

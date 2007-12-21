@@ -4,8 +4,8 @@ from gpaw.utilities.blas import axpy
 class LCAOKPoint(KPoint):
     """Special KPoint class for LCAO calculation"""
     
-    def __init__(self, nuclei, gd, weight, s, k, u, k_c, typecode):
-        KPoint.__init__(self, gd, weight, s, k, u, k_c, typecode)
+    def __init__(self, nuclei, gd, weight, s, k, u, k_c, dtype):
+        KPoint.__init__(self, gd, weight, s, k, u, k_c, dtype)
         self.nuclei = nuclei
         
     def add_to_density(self, nt_G):

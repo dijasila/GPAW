@@ -25,7 +25,7 @@ class KPoint:
     The ``KPoint`` class takes care of all wave functions for a
     certain **k**-point and a certain spin."""
     
-    def __init__(self, gd, weight, s, k, u, k_c, typecode, timer = None):
+    def __init__(self, gd, weight, s, k, u, k_c, dtype, timer = None):
         """Construct **k**-point object.
 
         Parameters:
@@ -37,7 +37,7 @@ class KPoint:
          ``u``        Combined spin and **k**-point index.
          ``k_c``      scaled **k**-point vector (coordinates scaled to
                       [-0.5:0.5] interval).
-         ``typecode`` Data type of wave functions (``Float`` or ``Complex``).
+         ``dtype`` Data type of wave functions (``Float`` or ``Complex``).
          ``timer``    Timer (optional)
          ============ =======================================================
 
@@ -78,11 +78,11 @@ class KPoint:
 
         self.gd = gd
         self.weight = weight
-        self.typecode = typecode
+        self.dtype = dtype
         self.timer = timer
         
         self.phase_cd = npy.ones((3, 2), complex)
-        if typecode == float:
+        if dtype == float:
             # Gamma-point calculation:
             self.k_c = None
         else:
@@ -130,7 +130,7 @@ class KPoint:
         nmin = min(nao, nbands)
 
         tmp_nG = self.psit_nG
-        self.psit_nG = self.gd.empty(nbands, self.typecode)
+        self.psit_nG = self.gd.empty(nbands, self.dtype)
         self.psit_nG[:nmin] = tmp_nG[:nmin]
 
         tmp_n = self.eps_n
@@ -161,11 +161,11 @@ class KPoint:
         gd1 = self.gd.coarsen()
         gd2 = gd1.coarsen()
 
-        psit_G1 = gd1.empty(typecode=self.typecode)
-        psit_G2 = gd2.empty(typecode=self.typecode)
+        psit_G1 = gd1.empty(dtype=self.dtype)
+        psit_G2 = gd2.empty(dtype=self.dtype)
 
-        interpolate2 = Transformer(gd2, gd1, 1, self.typecode).apply
-        interpolate1 = Transformer(gd1, self.gd, 1, self.typecode).apply
+        interpolate2 = Transformer(gd2, gd1, 1, self.dtype).apply
+        interpolate1 = Transformer(gd1, self.gd, 1, self.dtype).apply
 
         shape = tuple(gd2.n_c)
 
@@ -174,7 +174,7 @@ class KPoint:
         seed(1, 2 + mpi.rank)
 
         for psit_G in psit_nG:
-            if self.typecode == float:
+            if self.dtype == float:
                 psit_G2[:] = (random(shape) - 0.5) * scale
             else:
                 psit_G2.real = (random(shape) - 0.5) * scale
@@ -186,7 +186,7 @@ class KPoint:
     
     def orthonormalize(self, my_nuclei):
         """Orthonormalize wave functions."""
-        S_nn = npy.zeros((self.nbands, self.nbands), self.typecode)
+        S_nn = npy.zeros((self.nbands, self.nbands), self.dtype)
 
         # Fill in the lower triangle:
         rk(self.gd.dv, self.psit_nG, 0.0, S_nn)
@@ -215,7 +215,7 @@ class KPoint:
 
     def add_to_density(self, nt_G):
         """Add contribution to pseudo electron-density."""
-        if self.typecode is float:
+        if self.dtype is float:
             for psit_G, f in zip(self.psit_nG, self.f_n):
                 axpy(f, psit_G**2, nt_G)  # nt_G += f * psit_G**2
         else:
@@ -231,7 +231,7 @@ class KPoint:
             d_G = self.gd.empty()
             for c in range(3):
                 ddr[c](psit_G,d_G)
-                if self.typecode is float:
+                if self.dtype is float:
                     taut_G += f * d_G[c]**2
                 else:
                     taut_G += f * (d_G * npy.conjugate(d_G)).real
@@ -244,7 +244,7 @@ class KPoint:
         # Allocate space for wave functions, occupation numbers,
         # eigenvalues and projections:
         self.allocate(nao)
-        self.psit_nG = self.gd.zeros(nao, self.typecode)
+        self.psit_nG = self.gd.zeros(nao, self.dtype)
         
         # fill in the atomic orbitals:
         nao0 = 0
@@ -258,7 +258,7 @@ class KPoint:
         """Initialize all the wave functions from random numbers"""
 
         self.allocate(nbands)
-        self.psit_nG = self.gd.zeros(nbands, self.typecode)
+        self.psit_nG = self.gd.zeros(nbands, self.dtype)
         self.random_wave_functions(self.psit_nG)
 
     def apply_hamiltonian(self, hamiltonian, a_nG, b_nG):

@@ -89,7 +89,7 @@ paths = os.environ.get('GPAW_SETUP_PATH', '')
 if paths != '':
     setup_paths += paths.split(':')
 
-from gpaw.ase import Calculator
+from gpaw.aseinterface import Calculator
 from gpaw.mixer import Mixer, MixerSum
 from gpaw.poisson import PoissonSolver
 

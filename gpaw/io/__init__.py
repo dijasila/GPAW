@@ -156,12 +156,12 @@ def write(paw, filename, mode):
             setup_types = {None: setup_types}
         w['SetupTypes'] = repr(setup_types)
               
-        typecode = {float: float, complex: complex}[paw.typecode]
+        dtype = {float: float, complex: complex}[paw.dtype]
         # write projections
         w.add('Projections', ('nspins', 'nibzkpts', 'nbands', 'nproj'),
-              typecode=typecode)
+              dtype=dtype)
 
-        all_P_uni = npy.empty((paw.nmyu, paw.nbands, nproj), paw.typecode)
+        all_P_uni = npy.empty((paw.nmyu, paw.nbands, nproj), paw.dtype)
         for kpt_rank in range(paw.kpt_comm.size):
             i = 0
             for nucleus in paw.nuclei:
@@ -169,7 +169,7 @@ def write(paw, filename, mode):
                 if kpt_rank == MASTER and nucleus.in_this_domain:
                     P_uni = nucleus.P_uni
                 else:
-                    P_uni = npy.empty((paw.nmyu, paw.nbands, ni), paw.typecode)
+                    P_uni = npy.empty((paw.nmyu, paw.nbands, ni), paw.dtype)
                     world_rank = nucleus.rank + kpt_rank * paw.domain.comm.size
                     paw.world.receive(P_uni, world_rank, 300)
 
@@ -214,7 +214,7 @@ def write(paw, filename, mode):
 
     # Write the eigenvalues:
     if paw.master:
-        w.add('Eigenvalues', ('nspins', 'nibzkpts', 'nbands'), typecode=float)
+        w.add('Eigenvalues', ('nspins', 'nibzkpts', 'nbands'), dtype=float)
         for kpt_rank in range(paw.kpt_comm.size):
             for u in range(paw.nmyu):
                 s, k = divmod(u + kpt_rank * paw.nmyu, paw.nkpts)
@@ -231,7 +231,7 @@ def write(paw, filename, mode):
     # Write the occupation numbers:
     if paw.master:
         w.add('OccupationNumbers', ('nspins', 'nibzkpts', 'nbands'),
-              typecode=float)
+              dtype=float)
         for kpt_rank in range(paw.kpt_comm.size):
             for u in range(paw.nmyu):
                 s, k = divmod(u + kpt_rank * paw.nmyu, paw.nkpts)
@@ -248,7 +248,7 @@ def write(paw, filename, mode):
     # Write the pseudodensity on the coarse grid:
     if paw.master:
         w.add('PseudoElectronDensity',
-              ('nspins', 'ngptsx', 'ngptsy', 'ngptsz'), typecode=float)
+              ('nspins', 'ngptsx', 'ngptsy', 'ngptsz'), dtype=float)
     if paw.kpt_comm.rank == MASTER:
         for s in range(paw.nspins):
             nt_sG = paw.gd.collect(paw.density.nt_sG[s])
@@ -258,7 +258,7 @@ def write(paw, filename, mode):
     # Write the pseudpotential on the coarse grid:
     if paw.master:
         w.add('PseudoPotential',
-              ('nspins', 'ngptsx', 'ngptsy', 'ngptsz'), typecode=float)
+              ('nspins', 'ngptsx', 'ngptsy', 'ngptsz'), dtype=float)
     if paw.kpt_comm.rank == MASTER:
         for s in range(paw.nspins):
             vt_sG = paw.gd.collect(paw.hamiltonian.vt_sG[s])
@@ -270,7 +270,7 @@ def write(paw, filename, mode):
         if paw.master:
             w.add('PseudoWaveFunctions', ('nspins', 'nibzkpts', 'nbands',
                                           'ngptsx', 'ngptsy', 'ngptsz'),
-                  typecode=typecode)
+                  dtype=dtype)
 
         for s in range(paw.nspins):
             for k in range(paw.nkpts):
@@ -311,7 +311,7 @@ def write(paw, filename, mode):
                         wpsi.dimension('ngptsz', ngd[2])
                         wpsi.add('PseudoWaveFunction',
                                  ('1','ngptsx', 'ngptsy', 'ngptsz'),
-                                 typecode=typecode)
+                                 dtype=dtype)
                         wpsi.fill(psit_G)
                         wpsi.close()
                     

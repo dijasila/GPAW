@@ -77,7 +77,7 @@ class Hamiltonian:
         nn = stencils[0]
 
         # Kinetic energy operator:
-        self.kin = Laplace(self.gd, -0.5, nn, paw.typecode)
+        self.kin = Laplace(self.gd, -0.5, nn, paw.dtype)
 
         # Number of neighbor grid points used for interpolation (1, 2,
         # or 3):

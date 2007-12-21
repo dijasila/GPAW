@@ -10,8 +10,10 @@ import sys
 import weakref
 
 import numpy as npy
-from ASE import Atom, ListOfAtoms
-from ASE.Units import Convert
+from ase.atoms import Atoms
+from ase.data import atomic_numbers, chemical_symbols
+from ase.units import Bohr, Hartree
+from ase.dft import monkhorst_pack
 
 import gpaw.io
 import gpaw.mpi as mpi
@@ -39,13 +41,6 @@ import os
 import sys
 import tempfile
 import time
-
-import numpy as npy
-from ASE.Units import units, Convert
-from ASE.Utilities.MonkhorstPack import MonkhorstPack
-from ASE.ChemicalElements.symbol import symbols
-from ASE.ChemicalElements import numbers
-import ASE
 
 from gpaw.utilities import check_unit_cell
 from gpaw.utilities.memory import maxrss
@@ -96,7 +91,7 @@ class PAW(PAWExtra, Output):
     ``nvalence``    Number of valence electrons.
     ``nbands``      Number of bands.
     ``nspins``      Number of spins.
-    ``typecode``    Data type of wave functions (``Float`` or
+    ``dtype``    Data type of wave functions (``Float`` or
                     ``Complex``).
     ``bzk_kc``      Scaled **k**-points used for sampling the whole
                     Brillouin zone - values scaled to [-0.5, 0.5).
@@ -177,7 +172,7 @@ class PAW(PAWExtra, Output):
     ``nbands``      Number of bands.
     ``nspins``      Number of spins.
     ``random``      Initialize wave functions with random numbers
-    ``typecode``    Data type of wave functions (``Float`` or
+    ``dtype``    Data type of wave functions (``Float`` or
                     ``Complex``).
     ``kT``          Temperature for Fermi-distribution.
     ``bzk_kc``      Scaled **k**-points used for sampling the whole
@@ -407,9 +402,9 @@ class PAW(PAWExtra, Output):
         pos_ac, Z_a, cell_cc, pbc_c = self.last_atomic_configuration
 
         if (len(atoms) != self.natoms or
-            npy.sometrue(atoms.GetAtomicNumbers() != Z_a) or
-            npy.sometrue((atoms.GetUnitCell() / self.a0 != cell_cc).ravel()) or
-            atoms.GetBoundaryConditions() != pbc_c):
+            npy.sometrue(atoms.get_atomic_numbers() != Z_a) or
+            npy.sometrue((atoms.get_cell() / self.a0 != cell_cc).ravel()) or
+            atoms.get_pbc() != pbc_c):
             # Drastic changes:
             self.wave_functions_initialized = False
             self.initialize(atoms)
@@ -417,7 +412,7 @@ class PAW(PAWExtra, Output):
             return
 
         # Something else has changed:
-        if atoms.GetCartesianPositions() / self.a0 != pos_ac:
+        if atoms.get_positions() / self.a0 != pos_ac:
             # It was the positions:
             # Wave functions are no longer orthonormal!
             self.wave_functions_orthonormalized = False
@@ -428,17 +423,16 @@ class PAW(PAWExtra, Output):
             pass
         
     def get_atoms(self):
-        atoms = self.atoms
-        assert isinstance(atoms, ListOfAtoms)
-        self.atoms = weakref.proxy(atoms)
-        atoms.calculator = self
+        atoms = self.atoms_from_file
+        self.atoms_from_file = None
+        atoms.set_calculator(self)
         return atoms
 
-    def find_ground_state(self):
+    def find_ground_state(self, atoms):
         """Start iterating towards the ground state."""
         
         #self.print_parameters()
-        self.set_positions()
+        self.set_positions(atoms)
         self.initialize_kinetic()
         if not self.wave_functions_initialized:
             self.initialize_wave_functions()
@@ -490,7 +484,7 @@ class PAW(PAWExtra, Output):
             self.old_energies.pop(0)
         self.old_energies.append(self.Etot)
         
-    def set_positions(self):
+    def set_positions(self, atoms):
         """Update the positions of the atoms.
 
         Localized functions centered on atoms that have moved will
@@ -498,14 +492,13 @@ class PAW(PAWExtra, Output):
         array holding all the pseudo core densities is updated."""
 
         # Save the state of the atoms:
-        atoms = self.atoms
-        pos_ac = atoms.GetCartesianPositions() / self.a0
-        self.lastcount = atoms.GetCount()
+        pos_ac = atoms.get_positions() / self.a0
+        self.lastcount = atoms.get_count()
         self.last_atomic_configuration = (
             pos_ac,
-            atoms.GetAtomicNumbers(),
-            atoms.GetUnitCell() / self.a0,
-            atoms.GetBoundaryConditions())
+            atoms.get_atomic_numbers(),
+            atoms.get_cell() / self.a0,
+            atoms.get_pbc())
 
         movement = False
         for nucleus, pos_c in zip(self.nuclei, pos_ac):
@@ -605,7 +598,7 @@ class PAW(PAWExtra, Output):
             for nucleus in self.my_nuclei:
                 # XXX already allocated once, but with wrong size!!!
                 ni = nucleus.get_number_of_partial_waves()
-                nucleus.P_uni = npy.empty((self.nmyu, nao, ni), self.typecode)
+                nucleus.P_uni = npy.empty((self.nmyu, nao, ni), self.dtype)
 
             # Use the generic eigensolver for subspace diagonalization
             eig = Eigensolver()
@@ -683,7 +676,7 @@ class PAW(PAWExtra, Output):
                 i = self.gd.get_slice()
                 for kpt in self.kpt_u:
                     refs = kpt.psit_nG
-                    kpt.psit_nG = self.gd.empty(self.nbands, self.typecode)
+                    kpt.psit_nG = self.gd.empty(self.nbands, self.dtype)
                     # Read band by band to save memory
                     for n, psit_G in enumerate(kpt.psit_nG):
                         full = refs[n][:]
@@ -806,7 +799,7 @@ class PAW(PAWExtra, Output):
         # First symbols ...
         for symbol, type in setup_types.items():
             if isinstance(symbol, str):
-                number = numbers[symbol]
+                number = atomic_numbers[symbol]
                 for a, Z in enumerate(Z_a):
                     if Z == number:
                         type_a[a] = type
@@ -831,7 +824,7 @@ class PAW(PAWExtra, Output):
         # First symbols ...
         for symbol, basis in basis_sets.items():
             if isinstance(symbol, str):
-                number = numbers[symbol]
+                number = atomic_numbers[symbol]
                 for a, Z in enumerate(Z_a):
                     if Z == number:
                         basis_a[a] = basis
@@ -848,12 +841,12 @@ class PAW(PAWExtra, Output):
             if (Z, type, basis) in setups:
                 setup = setups[(Z, type, basis)]
             else:
-                symbol = symbols[Z]
+                symbol = chemical_symbols[Z]
                 setup = create_setup(symbol, self.xcfunc, p['lmax'],
                                      self.nspins, type, basis)
                 setup.print_info(self.text)
                 setups[(Z, type, basis)] = setup
-            self.nuclei.append(Nucleus(setup, a, self.typecode))
+            self.nuclei.append(Nucleus(setup, a, self.dtype))
 
         self.setups = setups.values()
         return type_a, basis_a
@@ -942,13 +935,12 @@ class PAW(PAWExtra, Output):
         self.last_atomic_configuration = (pos_ac, Z_a, cell_cc, pbc_c)
         self.extra_list_of_atoms_stuff = (magmom_a, tag_a)
 
-        self.atoms = ListOfAtoms([Atom(position=pos_c * self.a0, Z=Z,
-                                       tag=tag, magmom=magmom)
-                                  for pos_c, Z, tag, magmom in
-                                  zip(pos_ac, Z_a, tag_a, magmom_a)],
-                                 cell=cell_cc * self.a0, periodic=pbc_c)
-        self.lastcount = self.atoms.GetCount()
-
+        self.atoms_from_file = Atoms(positions=pos_ac * self.a0,
+                                     numbers=Z_a,
+                                     tags=tag_a,
+                                     magmoms=magmom_a,
+                                     cell=cell_cc * self.a0,
+                                     pbc=pbc_c)
         return r
     
     #def reset(self, restart_file=None):
@@ -957,7 +949,7 @@ class PAW(PAWExtra, Output):
     #    self.restart_file = restart_file
     #    self.pos_ac = None
     #    self.cell_cc = None
-    #    self.periodic_c = None
+    #    self.pbc_c = None
     #    self.Z_a = None
 
     #def set_h(self, h):
@@ -1047,20 +1039,19 @@ class PAW(PAWExtra, Output):
         ranks = range(r0, r0 + size, ndomains)
         self.kpt_comm = self.world.new_communicator(npy.array(ranks))
 
-    def initialize(self):
+    def initialize(self, atoms):
         """Inexpensive initialization."""
         self.timer = Timer()
         self.timer.start('Init')
 
         #########oooself.kpt_u = None
         
-        atoms = self.atoms
         self.natoms = len(atoms)
-        magmom_a = atoms.GetMagneticMoments()
-        pos_ac = atoms.GetCartesianPositions() / self.a0
-        cell_cc = atoms.GetUnitCell() / self.a0
-        pbc_c = atoms.GetBoundaryConditions()
-        Z_a = atoms.GetAtomicNumbers()
+        magmom_a = atoms.get_magnetic_moments()
+        pos_ac = atoms.get_positions() / self.a0
+        cell_cc = atoms.get_cell() / self.a0
+        pbc_c = atoms.get_pbc()
+        Z_a = atoms.get_atomic_numbers()
         
         # Check that the cell is orthorhombic:
         check_unit_cell(cell_cc)
@@ -1074,7 +1065,7 @@ class PAW(PAWExtra, Output):
         if kpts is None:
             self.bzk_kc = npy.zeros((1, 3))
         elif isinstance(kpts[0], int):
-            self.bzk_kc = MonkhorstPack(kpts)
+            self.bzk_kc = monkhorst_pack(kpts)
         else:
             self.bzk_kc = npy.array(kpts)
         
@@ -1105,7 +1096,7 @@ class PAW(PAWExtra, Output):
         else:
             if p['h'] is None:
                 self.text('Using default value for grid spacing.')
-                h = Convert(0.2, 'Ang', 'Bohr')
+                h = 0.2 / Bohr
             else:
                 h = p['h']
             # N_c should be a multiplum of 4:
@@ -1119,9 +1110,9 @@ class PAW(PAWExtra, Output):
                       not npy.sometrue(self.bzk_kc[0]))
 
         if self.gamma:
-            self.typecode = float
+            self.dtype = float
         else:
-            self.typecode = complex
+            self.dtype = complex
             
         # Is this a "linear combination of atomic orbitals" type of
         # calculation?
@@ -1167,7 +1158,7 @@ class PAW(PAWExtra, Output):
             if self.gamma:
                 self.kT = 0
             else:
-                self.kT = Convert(0.1, 'eV', 'Hartree')
+                self.kT = 0.1 / Hartree
         
         self.initialize_occupation(p['charge'], p['nbands'],
                                    self.kT, p['fixmom'])
@@ -1210,10 +1201,10 @@ class PAW(PAWExtra, Output):
             if self.eigensolver.lcao:
                 self.kpt_u.append(LCAOKPoint(self.nuclei,
                                              self.gd, weight, s, k, u, k_c,
-                                             self.typecode))
+                                             self.dtype))
             else:
                 self.kpt_u.append(KPoint(self.gd, weight, s, k, u, k_c,
-                                         self.typecode,self.timer))
+                                         self.dtype,self.timer))
 
         self.locfuncbcaster = LocFuncBroadcaster(self.kpt_comm)
 
@@ -1272,7 +1263,7 @@ class PAW(PAWExtra, Output):
 
         # check number of bands ?  XXX
         
-        M = sum(self.atoms.GetMagneticMoments())
+        M = sum(self.atoms.get_magnetic_moments())
 
         if self.nbands <= 0:
             self.nbands = int(self.nvalence + M + 0.5) // 2 + (-self.nbands)

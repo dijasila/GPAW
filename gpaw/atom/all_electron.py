@@ -144,7 +144,7 @@ class AllElectron:
         N = (maxnodes + 1) * 150
         t(N, 'radial gridpoints.')
         beta = 0.4
-        g = npy.arange(N, typecode=float)
+        g = npy.arange(N, dtype=float)
         self.r = beta * g / (N - g)
         self.dr = beta * N / (N - g)**2
         self.rgd = RadialGridDescriptor(self.r, self.dr)

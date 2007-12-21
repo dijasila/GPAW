@@ -121,7 +121,7 @@ class NonLocalFunctional:
            =========== =================================================
            Key:        Value:
            =========== =================================================
-           typecode    For example float, if the orbitals are real
+           dtype    For example float, if the orbitals are real
            gd          The grid descriptor object for coarse grid
            finegd      The grid descriptor object for fine grid
            n_g         Numeric array for density, supplied if
@@ -189,7 +189,7 @@ class NonLocalFunctional:
                     
             info['psit_nG'] = psit_nG
             info['f_n'] = f_n
-            info['typecode'] = self.kpt_u[0].typecode
+            info['dtype'] = self.kpt_u[0].dtype
 
         # Calculate the exchange potential to temporary array
         self.calculate_non_local(info, v_g, e_g)
@@ -498,7 +498,7 @@ class GLLBFunctional(NonLocalFunctional):
         # For each orbital, add the response part
         for f, e, psit_G in zip(info['f_n'], info['eps_n'], info['psit_nG']):
             w = self.gllb_weight(e, self.fermi_level)
-            if info['typecode'] is float:
+            if info['dtype'] is float:
                 psit_G2 = psit_G**2
                 axpy(f*w, psit_G2, self.vt_G) 
                 axpy(f, psit_G2, self.nt_G)

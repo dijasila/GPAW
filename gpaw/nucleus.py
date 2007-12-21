@@ -30,7 +30,7 @@ class Nucleus:
      ``setup``     ``Setup`` object.
      ``spos_c``    Scaled position.
      ``a``         Index number for this nucleus.
-     ``typecode``  Data type of wave functions (``Float`` or ``Complex``).
+     ``dtype``  Data type of wave functions (``Float`` or ``Complex``).
      ``neighbors`` List of overlapping neighbor nuclei.
      ============= ========================================================
 
@@ -59,11 +59,11 @@ class Nucleus:
 
     Parallel stuff: ``comm``, ``rank`` and ``in_this_domain``
     """
-    def __init__(self, setup, a, typecode):
+    def __init__(self, setup, a, dtype):
         """Construct a ``Nucleus`` object."""
         self.setup = setup
         self.a = a
-        self.typecode = typecode
+        self.dtype = dtype
         lmax = setup.lmax
         self.Q_L = npy.zeros((lmax + 1)**2)
         self.neighbors = []
@@ -94,18 +94,18 @@ class Nucleus:
         np = ni * (ni + 1) // 2
         self.D_sp = npy.zeros((nspins, np))
         self.H_sp = npy.zeros((nspins, np))
-        self.P_uni = npy.zeros((nmyu, nbands, ni), self.typecode)
+        self.P_uni = npy.zeros((nmyu, nbands, ni), self.dtype)
         self.F_c = npy.zeros(3)
         if self.setup.xc_correction.xc.xcfunc.hybrid > 0.0:
-            self.vxx_uni = npy.empty((nmyu, nbands, ni), self.typecode)
-            self.vxx_unii = npy.zeros((nmyu, nbands, ni, ni), self.typecode)
+            self.vxx_uni = npy.empty((nmyu, nbands, ni), self.dtype)
+            self.vxx_unii = npy.zeros((nmyu, nbands, ni, ni), self.dtype)
 
     def reallocate(self, nbands):
         nu, nao, ni = self.P_uni.shape
         if nbands < nao:
             self.P_uni = self.P_uni[:, :nbands, :].copy()
         else:
-            P_uni = npy.empty((nu, nbands, ni), self.typecode)
+            P_uni = npy.empty((nu, nbands, ni), self.dtype)
             P_uni[:, :nao, :] = self.P_uni
             P_uni[:, nao:, :] = 0.0
             self.P_uni = P_uni
@@ -151,9 +151,9 @@ class Nucleus:
 
         # Projectors:
         pt_j = self.setup.pt_j
-        pt_i = create(pt_j, gd, spos_c, typecode=self.typecode, lfbc=lfbc)
+        pt_i = create(pt_j, gd, spos_c, dtype=self.dtype, lfbc=lfbc)
 
-        if self.typecode == complex and pt_i is not None:
+        if self.dtype == complex and pt_i is not None:
             pt_i.set_phase_factors(k_ki)
         
         # Update pt_nuclei:
@@ -255,9 +255,9 @@ class Nucleus:
     def initialize_atomic_orbitals(self, gd, k_ki, lfbc):
         phit_j = self.setup.phit_j
         self.phit_i = create_localized_functions(
-            phit_j, gd, self.spos_c, typecode=self.typecode,
+            phit_j, gd, self.spos_c, dtype=self.dtype,
             cut=True, forces=False, lfbc=lfbc)
-        if self.typecode == complex and self.phit_i is not None:
+        if self.dtype == complex and self.phit_i is not None:
             self.phit_i.set_phase_factors(k_ki)
 
     def get_number_of_atomic_orbitals(self):
@@ -451,7 +451,7 @@ class Nucleus:
     def adjust_residual2(self, pR_G, dR_G, eps, u, s, k, n):
         if self.in_this_domain:
             ni = self.get_number_of_partial_waves()
-            dP_i = npy.zeros(ni, self.typecode)
+            dP_i = npy.zeros(ni, self.dtype)
             for x in self.pt_i.iintegrate(pR_G, dP_i, k):
                 yield None
         else:
@@ -481,7 +481,7 @@ class Nucleus:
         if self.in_this_domain:
             n = len(a_nG)
             ni = self.get_number_of_partial_waves()
-            P_ni = npy.zeros((n, ni), self.typecode)
+            P_ni = npy.zeros((n, ni), self.dtype)
             self.pt_i.integrate(a_nG, P_ni, k)
             H_ii = unpack(self.H_sp[s])
             coefs_ni = npy.dot(P_ni, H_ii)
@@ -499,7 +499,7 @@ class Nucleus:
         if self.in_this_domain:
             n = len(a_nG)
             ni = self.get_number_of_partial_waves()
-            P_ni = npy.zeros((n, ni), self.typecode)
+            P_ni = npy.zeros((n, ni), self.dtype)
             self.pt_i.integrate(a_nG, P_ni, k)
             coefs_ni = npy.dot(P_ni, self.setup.O_ii)
             self.pt_i.add(b_nG, coefs_ni, k, communicate=True)
@@ -516,7 +516,7 @@ class Nucleus:
         if self.in_this_domain:
             n = len(a_nG)
             ni = self.get_number_of_partial_waves()
-            P_ni = npy.zeros((n, ni), self.typecode)
+            P_ni = npy.zeros((n, ni), self.dtype)
             self.pt_i.integrate(a_nG, P_ni, k)
             coefs_ni = npy.dot(P_ni, self.setup.C_ii)
             self.pt_i.add(b_nG, coefs_ni, k, communicate=True)
@@ -541,7 +541,7 @@ class Nucleus:
             # number of partial waves, pt_nG
             ni = self.get_number_of_partial_waves()
             # allocate memory and calculate coefficients P_ni = <pt_i|psit_nG>
-            P_ni = npy.zeros((n, ni), self.typecode)
+            P_ni = npy.zeros((n, ni), self.dtype)
             self.pt_i.integrate(a_nG, P_ni, k)
             
             # indexes of Delta_L,i_1,i_2
@@ -622,7 +622,7 @@ class Nucleus:
             # number of partial waves, pt_nG
             ni = self.get_number_of_partial_waves()
             # allocate memory and calculate coefficients P_ni = <pt_i|psit_nG>
-            P_ni = npy.zeros((n, ni), self.typecode)
+            P_ni = npy.zeros((n, ni), self.dtype)
             self.pt_i.integrate(a_nG, P_ni, k)
             
             # indexes of Delta_L,i_1,i_2
@@ -682,7 +682,7 @@ class Nucleus:
             H_ii = unpack(self.H_sp[s])
             O_ii = self.setup.O_ii
             ni = self.setup.ni
-            F_nic = npy.zeros((nb, ni, 3), self.typecode)
+            F_nic = npy.zeros((nb, ni, 3), self.dtype)
             # ???? Optimization: Take the real value of F_nk * P_ni early.
             self.pt_i.derivative(psit_nG, F_nic, k)
             F_nic.shape = (nb, ni * 3)

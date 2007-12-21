@@ -27,8 +27,8 @@ class DummyMixer:
 
 # T^-1
 class KineticEnergyPreconditioner:
-    def __init__(self, gd, kin, typecode):
-        self.preconditioner = Preconditioner(gd, kin, typecode)
+    def __init__(self, gd, kin, dtype):
+        self.preconditioner = Preconditioner(gd, kin, dtype)
 
     def solve(self, kpt, psi, psin):
         psin[:] = self.preconditioner(psi, kpt.phase_cd, None, None)

@@ -330,9 +330,9 @@ def get_HS_matrices(atoms, nt_sg, D_asp, psit_unG):
     paw.hamiltonian.update(paw.density) # solve poisson
 
     # Determine Hamiltonian and overlap
-    Htpsit_nG = npy.zeros( (nbands,) + tuple(gpts), paw.typecode) # temp array
-    H_unn = npy.zeros((len(psit_unG), nbands, nbands), paw.typecode)
-    S_unn = npy.zeros((len(psit_unG), nbands, nbands), paw.typecode)
+    Htpsit_nG = npy.zeros( (nbands,) + tuple(gpts), paw.dtype) # temp array
+    H_unn = npy.zeros((len(psit_unG), nbands, nbands), paw.dtype)
+    S_unn = npy.zeros((len(psit_unG), nbands, nbands), paw.dtype)
     for H_nn, S_nn, kpt in zip(H_unn, S_unn, paw.kpt_u):
         Htpsit_nG[:] = 0.0
         psit_nG = kpt.psit_nG

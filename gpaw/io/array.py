@@ -78,7 +78,7 @@ def save_array(array, file, delimiter=' ', converters={}, header=None):
              for i, col in enumerate(row)])
 
 def load_array(file, comments='#', delimiter=None, converters={},
-               skiprows=[], skipcols=[], typecode='O', transpose=False):
+               skiprows=[], skipcols=[], dtype='O', transpose=False):
     """Load array from ascii file.
 
     ============== =========================================================
@@ -111,9 +111,9 @@ def load_array(file, comments='#', delimiter=None, converters={},
     ``skipcols``   A sequence of integer column indices to skip, where 0 is
                    the first column.
     
-    ``typecode``   The typecode of the output array. Use 'list' if you do
+    ``dtype``   The dtype of the output array. Use 'list' if you do
                    not want the data array to be converted to a Numeric array.
-                   The typecode 'O' (for object), should be used if not all
+                   The dtype 'O' (for object), should be used if not all
                    of the elements are numbers.
     
     ``transpose``  If True, will transpose output matrix, so columns can be
@@ -165,13 +165,13 @@ def load_array(file, comments='#', delimiter=None, converters={},
 
         array.append(cols)
 
-    if not square or typecode == 'list':
-        print 'Data matrix not square or typecode == list.'
+    if not square or dtype == 'list':
+        print 'Data matrix not square or dtype == list.'
         print 'Output not converted to Numeric array.'
         return array
 
     # Convert to Numeric array
-    array = npy.array(array, typecode=typecode)
+    array = npy.array(array, dtype=dtype)
 
     # If single column, correct shape of array
     shape = list(array.shape)

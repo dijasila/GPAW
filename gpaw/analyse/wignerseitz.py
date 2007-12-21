@@ -17,7 +17,7 @@ class WignerSeitz:
             atom_c[a] = nucleus.spos_c * gd.N_c
 
         # define the atom index for each grid point 
-        atom_index = gd.empty(typecode=int)
+        atom_index = gd.empty(dtype=int)
         wignerseitz(atom_index, atom_c, gd.beg_c, gd.end_c)
         self.atom_index = atom_index
 
