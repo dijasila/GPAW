@@ -75,7 +75,7 @@ for xc in libxc_set:
     E1 = d.xc_correction.calculate_energy_and_derivatives(D_sp, H_sp)
     dD_sp = x * ra.random((2, np))
     D_sp += dD_sp
-    dE = npy.dot(H_sp.flat, dD_sp.flat) / x
+    dE = npy.dot(H_sp.ravel(), dD_sp.ravel()) / x
     E2 = d.xc_correction.calculate_energy_and_derivatives(D_sp, H_sp)
     equal(dE, (E2 - E1) / x, 0.005)
 

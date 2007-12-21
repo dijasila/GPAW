@@ -413,7 +413,7 @@ class PAW(PAWExtra, Output):
 
         if (len(atoms) != self.natoms or
             npy.sometrue(atoms.GetAtomicNumbers() != Z_a) or
-            npy.sometrue((atoms.GetUnitCell() / self.a0 != cell_cc).flat) or
+            npy.sometrue((atoms.GetUnitCell() / self.a0 != cell_cc).ravel()) or
             atoms.GetBoundaryConditions() != pbc_c):
             # Drastic changes:
             self.wave_functions_initialized = False

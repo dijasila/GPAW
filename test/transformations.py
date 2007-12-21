@@ -19,13 +19,13 @@ b = gd2.zeros()
 for k in [2, 4, 6]:
     inter = Transformer(gd, gd2, k // 2).apply
     inter(a, b)
-    print k, npy.sum(a.flat) - npy.sum(b.flat) / 8
-    assert abs(npy.sum(a.flat) - npy.sum(b.flat) / 8) < 3e-11
+    print k, npy.sum(a.ravel()) - npy.sum(b.ravel()) / 8
+    assert abs(npy.sum(a.ravel()) - npy.sum(b.ravel()) / 8) < 3e-11
 
 gd2 = gd.coarsen()
 b = gd2.zeros()
 for k in [2, 4, 6]:
     restr = Transformer(gd, gd2, k // 2).apply
     restr(a, b)
-    print k, npy.sum(a.flat) - npy.sum(b.flat) * 8
-    assert abs(npy.sum(a.flat) - npy.sum(b.flat) * 8) < 5.1e-12
+    print k, npy.sum(a.ravel()) - npy.sum(b.ravel()) * 8
+    assert abs(npy.sum(a.ravel()) - npy.sum(b.ravel()) * 8) < 5.1e-12

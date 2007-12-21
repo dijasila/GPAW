@@ -370,7 +370,7 @@ def plot(positions, numbers, cell):
                           cell=(a, a, a), periodic=True)
       for line in plot(2*atoms.GetCartesianPositions() + (a,a,a),
                        atoms.GetAtomicNumbers(),
-                       2*npy.array(atoms.GetUnitCell().flat[::4])):
+                       2*npy.array(atoms.GetUnitCell().ravel()[::4])):
           print line
 
           .-----------.

@@ -51,7 +51,7 @@ class GridDescriptor:
     Example:
 
      >>> a = npy.zeros((2, 2, 2))
-     >>> a.flat[:] = range(8)
+     >>> a.ravel()[:] = range(8)
      >>> a
      array([[[0, 1],
              [2, 3]],
@@ -166,7 +166,7 @@ class GridDescriptor:
         """Integrate function in array over domain."""
         shape = a_xg.shape
         if len(shape) == 3:
-            return self.comm.sum(npy.sum(a_xg.flat)) * self.dv
+            return self.comm.sum(npy.sum(a_xg.ravel())) * self.dv
         A_x = npy.sum(npy.reshape(a_xg, shape[:-3] + (-1,)), -1)
         self.comm.sum(A_x)
         return A_x * self.dv

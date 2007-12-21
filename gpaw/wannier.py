@@ -243,4 +243,4 @@ def check_ortho(U):
 def GetOrthonormalityFactor(U):
     nb = U.shape[1]
     diff = npy.dot(dagger(U),U) - npy.identity(nb, npy.Float)
-    return max(npy.absolute(diff).flat)
+    return max(npy.absolute(diff).ravel())

@@ -9,7 +9,7 @@ from gpaw.mpi import world
 from gpaw.poisson import PoissonSolver
 
 def norm(a):
-    return npy.sqrt(npy.sum(a.flat**2)) / len(a.flat)
+    return npy.sqrt(npy.sum(a.ravel()**2)) / len(a.ravel())
 
 # Initialize classes
 a = 20 # Size of cell

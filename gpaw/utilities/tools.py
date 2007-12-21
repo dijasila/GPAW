@@ -215,8 +215,8 @@ def elementwise_apply(array, function, copy=True):
     else: # The input array is used for output
         result = array
     
-    for n in range(len(array.flat)):
-        result.flat[n] = function(array.flat[n])
+    for n in range(len(array.ravel())):
+        result.ravel()[n] = function(array.ravel()[n])
 
     return result
 

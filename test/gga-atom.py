@@ -71,7 +71,7 @@ for name in ['LDA', 'PBE']:
     r2_g = npy.sum((npy.indices((n, n, n)) - n / 2)**2)
     dv_g = gd.dv * npy.less(r2_g, (rcut / a * n)**2)
 
-    E2 = -npy.dot(xc.e_g.flat, dv_g.flat)
+    E2 = -npy.dot(xc.e_g.ravel(), dv_g.ravel())
 
     s.xc_correction.n_qg[:] = 0.0
     s.xc_correction.nc_g[:] = 0.0

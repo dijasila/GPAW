@@ -23,7 +23,7 @@ def CG(A, X, B, maxiter=20, tolerance=1.0e-10, verbose=False):
     P = R.copy()
     c1 = A.sum(reshape([abs(vdot(r, r)) for r in R], shape))
     for i in range(maxiter):
-        error = sum(c1.flat)
+        error = sum(c1.ravel())
         if verbose:
             print 'CG-%d: %e' % (i, error)
         if error < tolerance:

@@ -145,13 +145,13 @@ class PoissonSolver:
         while self.iterate2(self.step) > eps and niter < 200:
             niter += 1
         if niter == 200:
-            charge = npy.sum(rho.flat) * self.dv
+            charge = npy.sum(rho.ravel()) * self.dv
             print 'CHARGE:', charge
             raise ConvergenceError('Poisson solver did not converge!')
 
         # Set the average potential to zero in periodic systems
         if npy.alltrue(self.gd.domain.periodic_c):
-            phi_ave = self.gd.comm.sum(npy.sum(phi.flat))
+            phi_ave = self.gd.comm.sum(npy.sum(phi.ravel()))
             N_c = self.gd.get_size_of_global_array()
             phi_ave /= npy.product(N_c)
             phi -= phi_ave
@@ -212,8 +212,8 @@ class PoissonSolver:
         if level == 0:
             self.operators[level].apply(self.phis[level], residual)
             residual -= self.rhos[level]
-            error = self.gd.comm.sum(npy.dot(residual.flat,
-                                             residual.flat)) * self.dv
+            error = self.gd.comm.sum(npy.dot(residual.ravel(),
+                                             residual.ravel())) * self.dv
             return error
 
 

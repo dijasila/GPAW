@@ -485,7 +485,7 @@ class GLLBFunctional(NonLocalFunctional):
         v_g += 2*self.tempe_g / (info['n_g'] + SMALL_NUMBER)
 
         # Return the xc-energy correctly
-        e_g[:] = self.tempe_g.flat
+        e_g[:] = self.tempe_g.ravel()
 
         # Find the fermi-level
         self.fermi_level = self.find_fermi_level(info['f_n'], info['eps_n'])

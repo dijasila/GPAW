@@ -12,7 +12,7 @@ for x in range(2 * n):
             r = sqrt((x * h - c)**2 + (y * h - c)**2 + (z * h - c)**2)
             d[x, y, z] = exp(-2 * r) / pi
 
-print npy.sum(d.flat) * h**3
+print npy.sum(d.ravel()) * h**3
 uc = npy.array([(2 * a, 0, 0),
                 (0,     a, 0),
                 (0,     0, a)])

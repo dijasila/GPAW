@@ -83,7 +83,7 @@ class Teter:
             
         norm = npy.vdot(phit_q, phit_q)
         h_q = phit_q * npy.conjugate(phit_q) * self.q2_q / norm
-        ekin = npy.sum(h_q.flat)
+        ekin = npy.sum(h_q.ravel())
         x_q = self.q2_q / ekin
         
         K_q = x_q * 8.0

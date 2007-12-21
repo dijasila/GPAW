@@ -84,8 +84,8 @@ def WriteCube(atoms,grid,filename,real=False):
 
         if real:
            print 'Converting complex array into real'
-           s = npy.argsort(abs(grid.flat))
-           maxval = grid.flat[s[-1]]
+           s = npy.argsort(abs(grid.ravel()))
+           maxval = grid.ravel()[s[-1]]
            phase = maxval/abs(maxval)
            grid1 = grid/phase
            WriteCubeFloat(atoms,grid1.real,filename)

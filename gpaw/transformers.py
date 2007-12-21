@@ -45,7 +45,7 @@ class _Transformer:
             skip_cd[:, 1] = gdout.end_c % 2
             interpolate = True
 
-        assert npy.alltrue(pad_cd.flat >= 0)
+        assert npy.alltrue(pad_cd.ravel() >= 0)
             
         self.transformer = _gpaw.Transformer(
             gdin.n_c, 2 * nn, pad_cd, neighborpad_cd, skip_cd, neighbor_cd,

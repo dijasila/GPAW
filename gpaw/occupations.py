@@ -140,7 +140,7 @@ class FermiDirac(Dummy):
         if self.kpt_comm.size > 1:
             eps_n = mpi.all_gather_array(self.kpt_comm, list_eps_n)
         else:
-            eps_n = list_eps_n.flat
+            eps_n = list_eps_n.ravel()
  
         # Sort them:
         eps_n = npy.sort(eps_n)

@@ -38,6 +38,6 @@ for soft in [False]:
             assert npy.alltrue(abs(Q1_m) < 3e-5)
     b_Lg = npy.reshape(a_Lg, (9, n**3))
     S_LL = inner(b_Lg, b_Lg)
-    S_LL.flat[::10] = 0.0
-    print max(abs(S_LL).flat)
-    assert max(abs(S_LL).flat) < 3e-4
+    S_LL.ravel()[::10] = 0.0
+    print max(abs(S_LL).ravel())
+    assert max(abs(S_LL).ravel()) < 3e-4

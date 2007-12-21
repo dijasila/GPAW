@@ -400,7 +400,7 @@ def atomic_exact_exchange(atom, type = 'all'):
                 G2 = gaunt[l1**2:(l1+1)**2, l2**2:(l2+1)**2, l**2:(l+1)**2]**2
 
                 # add to total potential
-                vr += vrl * npy.sum(G2.copy().flat)
+                vr += vrl * npy.sum(G2.copy().ravel())
 
             # add to total exchange the contribution from current two states
             Exx += -.5 * f12 * npy.dot(vr, nrdr)

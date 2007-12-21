@@ -532,7 +532,7 @@ class Generator(AllElectron):
                      npy.inner(s_n, s_n * dr))
 
             e_nn = npy.zeros((nn, nn), npy.Float)
-            e_nn.flat[::nn + 1] = e_n
+            e_nn.ravel()[::nn + 1] = e_n
             dH_nn = npy.dot(dO_nn, e_nn) - A_nn
 
             q_n[:] = npy.dot(inverse(npy.transpose(U_nn)), q_n)
@@ -615,7 +615,7 @@ class Generator(AllElectron):
                             a_n = npy.dot(q_n, s * dr)
 
                             B_nn = npy.dot(A_nn, B_nn)
-                            B_nn.flat[::len(a_n) + 1] += 1.0
+                            B_nn.ravel()[::len(a_n) + 1] += 1.0
                             c_n = solve_linear_equations(B_nn,
                                                          npy.dot(A_nn, a_n))
                             s -= npy.dot(c_n, s_n)
@@ -732,10 +732,10 @@ class Generator(AllElectron):
             else:
                 H = npy.zeros((ng, ng), npy.Float)
                 S = npy.zeros((ng, ng), npy.Float)
-            H.flat[::ng + 1] += vt + 1.0 / h**2 + l * (l + 1) / 2.0 / R**2
-            H.flat[1::ng + 1] -= 0.5 / h**2
-            H.flat[ng::ng + 1] -= 0.5 / h**2
-            S.flat[::ng + 1] += 1.0
+            H.ravel()[::ng + 1] += vt + 1.0 / h**2 + l * (l + 1) / 2.0 / R**2
+            H.ravel()[1::ng + 1] -= 0.5 / h**2
+            H.ravel()[ng::ng + 1] -= 0.5 / h**2
+            S.ravel()[::ng + 1] += 1.0
             e_n = npy.zeros(ng, npy.Float)
             error = diagonalize(H, e_n, S)
             if error != 0:

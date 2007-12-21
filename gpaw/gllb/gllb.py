@@ -336,7 +336,7 @@ class GLLBFunctional(ResponseFunctional, GLLB1DFunctional):
             v_g[:] += 2*self.tempe_g / (deg * (info['n_g']) + SMALL_NUMBER)
 
             # Add the contribution of this spin to energy density
-            e_g[:] += self.tempe_g.flat / deg
+            e_g[:] += self.tempe_g.ravel() / deg
 
     def get_slater_part_and_weights(self, info_s, v_sg, e_g):
 

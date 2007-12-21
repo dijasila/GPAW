@@ -40,9 +40,9 @@ print f1
 print f2
 print f3
 print f4
-assert sum((f1 - f4).flat**2) < 1e-6
-assert sum((f2 - f4).flat**2) < 1e-6
-assert sum((f3 - f4).flat**2) < 1e-6
+assert sum((f1 - f4).ravel()**2) < 1e-6
+assert sum((f2 - f4).ravel()**2) < 1e-6
+assert sum((f3 - f4).ravel()**2) < 1e-6
 
 positions = molecule.GetCartesianPositions()
 #                 x-coordinate      x-coordinate

@@ -24,7 +24,7 @@ class VanDerWaals:
         if gd is None:
             unitcell = npy.array(unitcell)
             check_unit_cell(unitcell)
-            unitcell=unitcell.flat[::4]
+            unitcell=unitcell.ravel()[::4]
             gd = GridDescriptor(Domain(unitcell,periodic=self.periodic), self.density.shape)
         self.gd = gd
         self.h_c = gd.h_c

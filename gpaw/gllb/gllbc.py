@@ -50,7 +50,7 @@ class GLLBCFunctional(GLLBFunctional):
 
             # Add it to the total potential
             v_g[:] += self.tempvxc_g
-            e_g[:] += self.tempe_g.flat
+            e_g[:] += self.tempe_g.ravel()
 
     def get_slater_part_paw_correction(self, rgd, n_g, a2_g, v_g, pseudo = True, ndenom_g=None):
 

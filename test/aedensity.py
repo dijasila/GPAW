@@ -24,8 +24,8 @@ gridrefinement = 2 # grid-refinement-factor for all-electron density
 n = calc.density.get_all_electron_density(gridrefinement) / calc.a0**3
 
 dv = npy.product(calc.get_grid_spacings())
-Zt = npy.sum(nt.flat) * dv
-Z = npy.sum(n.flat) * dv / gridrefinement**3
+Zt = npy.sum(nt.ravel()) * dv
+Z = npy.sum(n.ravel()) * dv / gridrefinement**3
 
 print 'Integral of pseudo density:', Zt
 print 'Integral of all-electron density:', Z

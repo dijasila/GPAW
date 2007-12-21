@@ -295,13 +295,13 @@ class XCFunctional:
         if self.timer is not None:
             self.timer.start('Local xc')
         if self.mgga:
-            self.xc.calculate_spinpaired(e_g.flat, n_g, v_g, a2_g, deda2_g,
+            self.xc.calculate_spinpaired(e_g.ravel(), n_g, v_g, a2_g, deda2_g,
                                          taua_g)
         elif self.gga:
-            # e_g.flat !!!!! XXX
-            self.xc.calculate_spinpaired(e_g.flat, n_g, v_g, a2_g, deda2_g)
+            # e_g.ravel() !!!!! XXX
+            self.xc.calculate_spinpaired(e_g.ravel(), n_g, v_g, a2_g, deda2_g)
         else:
-            self.xc.calculate_spinpaired(e_g.flat, n_g, v_g)
+            self.xc.calculate_spinpaired(e_g.ravel(), n_g, v_g)
         if self.timer is not None:
             self.timer.stop('Local xc')
 
@@ -312,16 +312,16 @@ class XCFunctional:
         if self.timer is not None:
             self.timer.start('Local xc')
         if self.mgga:
-              self.xc.calculate_spinpolarized(e_g.flat, na_g, va_g, nb_g, vb_g,
+              self.xc.calculate_spinpolarized(e_g.ravel(), na_g, va_g, nb_g, vb_g,
                                            a2_g, aa2_g, ab2_g,
                                            deda2_g, dedaa2_g, dedab2_g,
                                               taua_g,taub_g)
         elif self.gga:
-            self.xc.calculate_spinpolarized(e_g.flat, na_g, va_g, nb_g, vb_g,
+            self.xc.calculate_spinpolarized(e_g.ravel(), na_g, va_g, nb_g, vb_g,
                                            a2_g, aa2_g, ab2_g,
                                            deda2_g, dedaa2_g, dedab2_g)
         else:
-            self.xc.calculate_spinpolarized(e_g.flat, na_g, va_g, nb_g, vb_g)
+            self.xc.calculate_spinpolarized(e_g.ravel(), na_g, va_g, nb_g, vb_g)
         if self.timer is not None:
             self.timer.stop('Local xc')
 
@@ -480,7 +480,7 @@ class XC3DGrid(XCGrid):
         else:
             self.xcfunc.calculate_spinpaired(e_g, n_g, v_g)
 
-        return npy.sum(e_g.flat) * self.dv
+        return npy.sum(e_g.ravel()) * self.dv
 
     def get_energy_and_potential_spinpolarized(self, na_g, va_g, nb_g, vb_g, e_g=None):
         if e_g == None:
@@ -557,7 +557,7 @@ class XC3DGrid(XCGrid):
             self.xcfunc.calculate_spinpolarized(e_g,
                                                 na_g, va_g,
                                                 nb_g, vb_g)
-        return npy.sum(e_g.flat) * self.dv
+        return npy.sum(e_g.ravel()) * self.dv
 
     def set_kinetic(self,taut_sg):
         self.taua_g[:] = taut_sg[0][:]
@@ -642,7 +642,7 @@ class XCRadialGrid(XCGrid):
         else:
             self.xcfunc.calculate_spinpaired(e_g, n_g, v_g)
 
-        return npy.dot(self.e_g.flat, self.dv_g)
+        return npy.dot(self.e_g.ravel(), self.dv_g)
 
     def get_energy_and_potential_spinpolarized(self, na_g, va_g, nb_g, vb_g):
         if self.xcfunc.mgga:

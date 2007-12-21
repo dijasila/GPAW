@@ -141,7 +141,7 @@ def unpack2(M):
     """Unpack 1D array to 2D, assuming a packing as in ``pack``."""
     M2 = unpack(M)
     M2 *= 0.5 # divide all by 2
-    M2.flat[0::len(M2) + 1] *= 2 # rescale diagonal to original size
+    M2.ravel()[0::len(M2) + 1] *= 2 # rescale diagonal to original size
     return M2
 
     
@@ -207,8 +207,8 @@ def check_unit_cell(cell):
     """Check that the unit cell (3*3 matrix) is orthorhombic (diagonal)."""
     c = cell.copy()
     # Zero the diagonal:
-    c.flat[::4] = 0.0
-    if npy.sometrue(c.flat):
+    c.ravel()[::4] = 0.0
+    if npy.sometrue(c.ravel()):
         raise RuntimeError('Unit cell not orthorhombic')
     
 

@@ -181,7 +181,7 @@ def all_gather_array(comm, a): #???
     shape = (comm.size,) + npy.shape(a)
     all = npy.zeros(shape, npy.Float)
     comm.all_gather(a, all)
-    return all.flat
+    return all.ravel()
 
 
 def run(iterators):
