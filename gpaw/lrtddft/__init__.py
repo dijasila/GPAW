@@ -78,7 +78,7 @@ class LrTDDFT(ExcitationList):
         else:
             self.read(filename)
 
-    def analyse(self,what=None,out=None,min=.1):
+    def analyse(self, what=None, out=None, min=0.1):
         """Print info about the transitions.
         
         Parameters:
@@ -88,14 +88,14 @@ class LrTDDFT(ExcitationList):
         """
         if what is None:
             what = range(len(self))
-        elif type(what)==type(1):
-            what=[what]
+        elif isinstance(what, int):
+            what = [what]
 
         if out is None:
-            out=sys.stdout
+            out = sys.stdout
             
         for i in what:
-            print >> out, str(i)+':',self[i].analyse(min=min)
+            print >> out, str(i) + ':', self[i].analyse(min=min)
             
     def update(self,
                calculator=None,

@@ -9,7 +9,8 @@ def get_handle(file, mode='r'):
     if hasattr(file, 'read'):
         fhandle = file
     else:
-        assert type(file) == str, 'file must be either filehandle or a string'
+        if not isinstance(file, str):
+            raise RuntimeError('File must be either a filehandle or a string!')
         if file.endswith('.gz'):
             import gzip
             mode += 'b'
@@ -37,6 +38,7 @@ def count_lines(file):
         lines += 1
     return lines
 
+# We should use numpy for this! XXX
 def save_array(array, file, delimiter=' ', converters={}, header=None):
     """Save array to ascii file.
 

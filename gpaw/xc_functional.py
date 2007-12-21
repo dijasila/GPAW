@@ -40,7 +40,7 @@ class ZeroFunctional:
 class XCFunctional:
     def __init__(self, xcname, nspins=1, parameters=None):
 
-        if type(xcname) == type({}):
+        if isinstance(xcname, dict):
             parameters = xcname
             xcname = parameters.pop('name')
 

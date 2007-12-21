@@ -6,28 +6,18 @@ import numpy as npy
 
 def cc(x):
     """Complex conjugate."""
-    tp = type(x)
-    if tp is float:
+    if isinstance(x, float):
         return x
-    if tp is complex:
+    if isinstance(x, complex):
         return x.conjugate()
-    if x.typecode() == npy.Float:
-        return x
-    else:
-        return npy.conjugate(x)
+    return x.conj()
 
     
 def real(x):
     """Real part."""
-    tp = type(x)
-    if tp is float:
+    if isinstance(x, float):
         return x
-    if tp is complex:
-        return x.real
-    if x.typecode() == npy.Float:
-        return x
-    else:
-        return x.real
+    return x.real
 
 
 if __name__ == '__main__':
