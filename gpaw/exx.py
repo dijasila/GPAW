@@ -213,8 +213,7 @@ class EXX:
                     # used to determine the atomic hamiltonian, and the 
                     # residuals
                     for nucleus in self.ghat_nuclei:
-                        v_L = npy.zeros((nucleus.setup.lmax + 1)**2,
-                                        float)
+                        v_L = npy.zeros((nucleus.setup.lmax + 1)**2)
                         if self.use_finegrid:
                             nucleus.ghat_L.integrate(self.vt_g, v_L)
                         else:

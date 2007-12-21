@@ -24,15 +24,15 @@ def diagonalize(a, w, b=None):
     dsygvd/zhegvd is used to solve a generalized eigenvalue
     problem: a*v=b*v*w."""
 
-    assert a.iscontiguous()
-    assert w.iscontiguous()
+    assert a.flags.contiguous
+    assert w.flags.contiguous
     assert a.dtype.char in [float, complex]
     assert w.dtype.char == float
     n = len(a)
     assert a.shape == (n, n)
     assert w.shape == (n,)
     if b:
-        assert b.iscontiguous()
+        assert b.flags.contiguous
         assert b.dtype.char == a.dtype.char
         assert b.shape == a.shape
         info = _gpaw.diagonalize(a, w, b)
@@ -47,7 +47,7 @@ def inverse_cholesky(a):
     Uses dpotrf/zpotrf to calculate the decomposition and then
     dtrtri/ztrtri for the inversion"""
 
-    assert a.iscontiguous()
+    assert a.flags.contiguous
     assert a.dtype.char in [float, complex]
     n = len(a)
     assert a.shape == (n, n)
@@ -61,9 +61,9 @@ def right_eigenvectors(a, w, v):
 
     The right eigenvector corresponding to eigenvalue w[i] is v[i]."""
 
-    assert a.iscontiguous()
-    assert w.iscontiguous()
-    assert v.iscontiguous()
+    assert a.flags.contiguous
+    assert w.flags.contiguous
+    assert v.flags.contiguous
     assert a.dtype.char == float
     assert w.dtype.char == float
     assert v.dtype.char == float

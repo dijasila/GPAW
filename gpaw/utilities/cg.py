@@ -1,4 +1,4 @@
-from Numeric import reshape, vdot, empty
+from numpy import reshape, vdot, empty
 
 def CG(A, X, B, maxiter=20, tolerance=1.0e-10, verbose=False):
     """Solve X*A=B using conjugate gradient method.

@@ -8,7 +8,7 @@ import sys
 from math import pi, sqrt, log
 import time
 
-from Numeric import array, Float, dot, NewAxis, zeros, transpose
+from numpy import array, dot, newaxis, zeros, transpose
 from numpy.linalg import solve
 
 from gpaw.mixer import Mixer, MixerSum
@@ -244,11 +244,11 @@ class Density:
         # Compute atomic density matrices:
         for nucleus in self.my_nuclei:
             ni = nucleus.get_number_of_partial_waves()
-            D_sii = zeros((self.nspins, ni, ni), Float)
+            D_sii = zeros((self.nspins, ni, ni))
             for kpt in kpt_u:
                 P_ni = nucleus.P_uni[kpt.u]
                 D_sii[kpt.s] += real(dot(cc(transpose(P_ni)),
-                                             P_ni * kpt.f_n[:, NewAxis]))
+                                             P_ni * kpt.f_n[:, newaxis]))
             nucleus.D_sp[:] = [pack(D_ii) for D_ii in D_sii]
             self.kpt_comm.sum(nucleus.D_sp)
 
@@ -266,7 +266,7 @@ class Density:
                 else:
                     ni = nucleus.get_number_of_partial_waves()
                     np = ni * (ni + 1) / 2
-                    D_sp = zeros((self.nspins, np), Float)
+                    D_sp = zeros((self.nspins, np))
                     comm.broadcast(D_sp, nucleus.rank)
                 D_asp.append(D_sp)
 

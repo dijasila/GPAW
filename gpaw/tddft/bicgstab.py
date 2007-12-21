@@ -18,7 +18,7 @@ class BiCGStab:
     indefinite. The method requires only access to matrix-vector product 
     A.x = b, which is called A.dot(x). Thus A must provide the member 
     function dot(self,x,b), where x and b are complex arrays 
-    (Numeric.array([],Numeric.Complex), and x is the known vector, and 
+    (numpy.array([], complex), and x is the known vector, and 
     b is the result.
     """ 
     

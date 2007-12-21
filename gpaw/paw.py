@@ -493,7 +493,6 @@ class PAW(PAWExtra, Output):
 
         # Save the state of the atoms:
         pos_ac = atoms.get_positions() / self.a0
-        self.lastcount = atoms.get_count()
         self.last_atomic_configuration = (
             pos_ac,
             atoms.get_atomic_numbers(),
@@ -934,6 +933,7 @@ class PAW(PAWExtra, Output):
 
         self.last_atomic_configuration = (pos_ac, Z_a, cell_cc, pbc_c)
         self.extra_list_of_atoms_stuff = (magmom_a, tag_a)
+        #elf.extra_       _atoms_stuff = (magmom_a, tag_a) XXXX
 
         self.atoms_from_file = Atoms(positions=pos_ac * self.a0,
                                      numbers=Z_a,
@@ -1052,6 +1052,8 @@ class PAW(PAWExtra, Output):
         cell_cc = atoms.get_cell() / self.a0
         pbc_c = atoms.get_pbc()
         Z_a = atoms.get_atomic_numbers()
+        self.extra_list_of_atoms_stuff = (magmom_a, atoms.get_tags())
+
         
         # Check that the cell is orthorhombic:
         check_unit_cell(cell_cc)
@@ -1263,7 +1265,7 @@ class PAW(PAWExtra, Output):
 
         # check number of bands ?  XXX
         
-        M = sum(self.atoms.get_magnetic_moments())
+        M = sum(self.extra_list_of_atoms_stuff[0])
 
         if self.nbands <= 0:
             self.nbands = int(self.nvalence + M + 0.5) // 2 + (-self.nbands)

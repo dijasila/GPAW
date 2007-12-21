@@ -38,7 +38,7 @@ def gcd(a, b):
 def contiguous(array, dtype):
     """Convert a sequence to a contiguous Numeric array."""
     array = npy.asarray(array, dtype)
-    if array.iscontiguous():
+    if array.flags.contiguous:
         return array
     else:
         return npy.array(array)
@@ -47,9 +47,9 @@ def contiguous(array, dtype):
 def is_contiguous(array, dtype=None):
     """Check for contiguity and type."""
     if dtype is None:
-        return array.iscontiguous()
+        return array.flags.contiguous
     else:
-        return array.iscontiguous() and array.dtype == dtype
+        return array.flags.contiguous and array.dtype == dtype
 
 
 # Radial-grid Hartree solver:

@@ -27,7 +27,7 @@ class _Transformer:
         neighborpad_cd = npy.empty((3, 2), int)
         skip_cd = npy.empty((3, 2), int)
         
-        if gdin.N_c == 2 * gdout.N_c:
+        if (gdin.N_c == 2 * gdout.N_c).all():
             # Restriction:
             pad_cd[:, 0] = 2 * nn - 1 - 2 * gdout.beg_c + gdin.beg_c
             pad_cd[:, 1] = 2 * nn - 2 + 2 * gdout.end_c - gdin.end_c
@@ -35,7 +35,7 @@ class _Transformer:
             neighborpad_cd[:, 1] = 2 * nn - 1 - 2 * gdout.end_c + gdin.end_c
             interpolate = False
         else:
-            assert gdout.N_c == 2 * gdin.N_c
+            assert (gdout.N_c == 2 * gdin.N_c).all()
             # Interpolation:
             pad_cd[:, 0] = nn - 1 - gdout.beg_c // 2 + gdin.beg_c
             pad_cd[:, 1] = nn + gdout.end_c // 2 - gdin.end_c

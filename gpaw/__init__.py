@@ -53,16 +53,16 @@ while len(sys.argv) > i:
     del sys.argv[i]
 
 if debug:
-    import Numeric
-    oldempty = Numeric.empty
+    import numpy
+    oldempty = numpy.empty
     def empty(*args, **kwargs):
         a = oldempty(*args, **kwargs)
-        if a.dtype.char == Numeric.Int:
+        if a.dtype == int:
             a[:] = -100000000
         else:
             a[:] = 1e400
         return a
-    Numeric.empty = empty
+    numpy.empty = empty
 
 build_path = join(__path__[0], '..', 'build')
 arch = '%s-%s' % (get_platform(), sys.version[0:3])
@@ -79,9 +79,9 @@ def get_gpaw_python_path():
             return path
     raise RuntimeError('Could not find gpaw-python!')
 
-import Numeric
-from gpaw.utilities.blas import dotc
-Numeric.vdot = dotc
+#import Numeric
+#from gpaw.utilities.blas import dotc
+#Numeric.vdot = dotc
 
 
 
