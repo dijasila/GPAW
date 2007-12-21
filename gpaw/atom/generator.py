@@ -5,7 +5,7 @@ import sys
 from math import pi, sqrt
 
 import numpy as npy
-from LinearAlgebra import solve_linear_equations, inverse
+from numpy.linalg import solve, inv
 from ASE.ChemicalElements.name import names
 
 from gpaw.atom.configurations import configurations
@@ -338,7 +338,7 @@ class Generator(AllElectron):
                     a = npy.log(a)
                     def f(x):
                         a[4] = x
-                        b = solve_linear_equations(A, a)
+                        b = solve(A, a)
                         r1 = r[:gc]
                         r2 = r1**2
                         rl1 = r1**(l + 1)
@@ -367,7 +367,7 @@ class Generator(AllElectron):
                     a = u[gc - 2:gc + 2] / r[gc - 2:gc + 2]**(l + 1)
                     if 0:#l < 2 and nodeless:
                         a = npy.log(a)
-                    a = solve_linear_equations(A, a)
+                    a = solve(A, a)
                     r1 = r[:gc]
                     r2 = r1**2
                     rl1 = r1**(l + 1)
@@ -394,7 +394,7 @@ class Generator(AllElectron):
         A[2] = A[1]**2
         A[3] = A[1] * A[2]
         a = nc[gcutnc - 2:gcutnc + 2]
-        a = solve_linear_equations(npy.transpose(A), a)
+        a = solve(npy.transpose(A), a)
         r2 = r[:gcutnc]**2
         nct[:gcutnc] = a[0] + r2 * (a[1] + r2 * (a[2] + r2 * a[3]))
         t('Pseudo-core charge: %.6f' % (4 * pi * npy.dot(nct, dv)))
@@ -402,7 +402,7 @@ class Generator(AllElectron):
         # ... and the pseudo core kinetic energy density:
         tauct = tauc.copy()
         a = tauc[gcutnc - 2:gcutnc + 2]
-        a = solve_linear_equations(npy.transpose(A), a)
+        a = solve(npy.transpose(A), a)
         tauct[:gcutnc] = a[0] + r2 * (a[1] + r2 * (a[2] + r2 * a[3]))
 
         # ... and the soft valence density:
@@ -479,7 +479,7 @@ class Generator(AllElectron):
             A[:, 2] = A[:, 1]**2
             A[:, 3] = A[:, 1] * A[:, 2]
             a = uf[gc - 2:gc + 2] / r[gc - 2:gc + 2]**(l + 1)
-            a = solve_linear_equations(A, a)
+            a = solve(A, a)
             r1 = r[:gc]
             r2 = r1**2
             rl1 = r1**(l + 1)
@@ -494,7 +494,7 @@ class Generator(AllElectron):
             A[0] = 1.0
             A[1] = r[gc - 1:gc + 1]**2
             a = vt[gc - 1:gc + 1]
-            a = solve_linear_equations(npy.transpose(A), a)
+            a = solve(npy.transpose(A), a)
             r2 = r**2
             vbar = a[0] + r2 * a[1] - vt
 
@@ -535,14 +535,14 @@ class Generator(AllElectron):
             e_nn.ravel()[::nn + 1] = e_n
             dH_nn = npy.dot(dO_nn, e_nn) - A_nn
 
-            q_n[:] = npy.dot(inverse(npy.transpose(U_nn)), q_n)
-            s_n[:] = npy.dot(inverse(L_nn), s_n)
-            u_n[:] = npy.dot(inverse(L_nn), u_n)
+            q_n[:] = npy.dot(inv(npy.transpose(U_nn)), q_n)
+            s_n[:] = npy.dot(inv(L_nn), s_n)
+            u_n[:] = npy.dot(inv(L_nn), u_n)
 
-            dO_nn = npy.dot(npy.dot(inverse(L_nn), dO_nn),
-                            inverse(npy.transpose(L_nn)))
-            dH_nn = npy.dot(npy.dot(inverse(L_nn), dH_nn),
-                            inverse(npy.transpose(L_nn)))
+            dO_nn = npy.dot(npy.dot(inv(L_nn), dO_nn),
+                            inv(npy.transpose(L_nn)))
+            dH_nn = npy.dot(npy.dot(inv(L_nn), dH_nn),
+                            inv(npy.transpose(L_nn)))
 
             ku_n = [self.kin(l, u, e) for u, e in zip(u_n, e_n)]
             ks_n = [self.kin(l, s) for s in s_n]
@@ -558,7 +558,7 @@ class Generator(AllElectron):
                 q[:] = filter(q, l) * r**(l + 1)
 
             A_nn = npy.inner(s_n, q_n * dr)
-            q_n[:] = npy.dot(inverse(npy.transpose(A_nn)), q_n)
+            q_n[:] = npy.dot(inv(npy.transpose(A_nn)), q_n)
 
         self.vt = vt
 
@@ -616,8 +616,7 @@ class Generator(AllElectron):
 
                             B_nn = npy.dot(A_nn, B_nn)
                             B_nn.ravel()[::len(a_n) + 1] += 1.0
-                            c_n = solve_linear_equations(B_nn,
-                                                         npy.dot(A_nn, a_n))
+                            c_n = solve(B_nn, npy.dot(A_nn, a_n))
                             s -= npy.dot(c_n, s_n)
 
                         dsdr = 0.5 * (s[gld + 1] - s[gld - 1]) / dr[gld]
@@ -939,7 +938,7 @@ def construct_smooth_wavefunction(u, l, gc, r, s):
     A[:, 2] = A[:, 1]**2
     A[:, 3] = A[:, 1] * A[:, 2]
     a = u[gc - 2:gc + 2] / r[gc - 2:gc + 2]**(l + 1)
-    a = solve_linear_equations(A, a)
+    a = solve(A, a)
     r1 = r[:gc]
     r2 = r1**2
     rl1 = r1**(l + 1)

@@ -9,7 +9,7 @@ from math import pi, sqrt, log
 import time
 
 from Numeric import array, Float, dot, NewAxis, zeros, transpose
-from LinearAlgebra import solve_linear_equations as solve
+from numpy.linalg import solve
 
 from gpaw.mixer import Mixer, MixerSum
 from gpaw.transformers import Transformer

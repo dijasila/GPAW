@@ -7,8 +7,8 @@ import numpy as npy
 
 
 intsize = 4
-floatsize = npy.array([1], npy.Float).itemsize()
-complexsize = npy.array([1], npy.Complex).itemsize()
+floatsize = npy.array([1], npy.Float).itemsize
+complexsize = npy.array([1], npy.Complex).itemsize
 itemsizes = {'int': intsize, 'float': floatsize, 'complex': complexsize}
 
     

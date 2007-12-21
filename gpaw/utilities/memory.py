@@ -79,8 +79,8 @@ def estimate_memory(paw):
     nuclei = paw.nuclei
     out = paw.txt
 
-    float_size = npy.array([1], npy.Float).itemsize()
-    type_size = npy.array([1],paw.typecode).itemsize()
+    float_size = npy.array([1], npy.Float).itemsize
+    type_size = npy.array([1],paw.typecode).itemsize
 
 
     print >> out

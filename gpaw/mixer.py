@@ -6,7 +6,6 @@ Ref. to Kresse-paper ... XXX
 """
 
 import numpy as npy
-import LinearAlgebra as linalg
 
 from gpaw.utilities.blas import axpy
 from gpaw.operators import Operator
@@ -143,8 +142,8 @@ class BaseMixer:
             self.A_ii = A_ii
 
             try:
-                B_ii = linalg.inverse(A_ii)
-            except linalg.LinAlgError:
+                B_ii = npy.linalg.inv(A_ii)
+            except npy.linalg.LinAlgError:
                 alpha_i = npy.zeros(iold, npy.Float)
                 alpha_i[-1] = 1.0
             else:

@@ -4,12 +4,11 @@ Contains an implementation of the downhill simplex optimization method.
 """
 import optimizer
 import numpy as npy
-import LinearAlgebra as LA
 
 #N_MAX = 100
-reflect = -1.
-halfway = .5
-extrapolate = 2.
+reflect = -1.0
+halfway = 0.5
+extrapolate = 2.0
 
 def standardfunction(x):
     """
@@ -19,7 +18,7 @@ def standardfunction(x):
     """
     y = 42
     for i in range(len(x)):
-        y += (x[i]-(i+1))**2
+        y += (x[i] - (i + 1))**2
     return y
 
 class Logger:
@@ -245,7 +244,7 @@ def center(simplex):
 def volume(simplex):
     vertices = [npy.array(point) for point in simplex]
     differences = [vertices[i]-vertices[i+1] for i in range(len(vertices)-1)]
-    return LA.determinant(npy.array(differences))
+    return npy.linalg.det(npy.array(differences))
 
 def main():
     simplex = optimizer.get_random_simplex([4,2,1,5,2])

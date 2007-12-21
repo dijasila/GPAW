@@ -1,10 +1,12 @@
 import time
 import sys
 import pickle
-import atomization
+
 import numpy as npy
+from numpy.linalg import inv
+
+import atomization # XXXXX
 from gpaw.utilities import devnull
-from LinearAlgebra import inverse
 
 """
 Contains various Test classes to be used by the gpaw setup optimizer
@@ -229,7 +231,7 @@ class DistanceTest(Test):
         y = npy.array(energies)
 
         coeffmatrix = npy.transpose(npy.array([x**0, x**1, x**2]))
-        c = npy.dot(inverse(coeffmatrix), y)
+        c = npy.dot(inv(coeffmatrix), y)
         bond_length = - c[1] / (2.*c[2]) # "-b/(2a)"
 
         self.iterationcounts = tuple(niter)

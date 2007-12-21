@@ -2,7 +2,6 @@
 
 import numpy as npy
 
-import LinearAlgebra as linalg
 from gpaw.operators import Laplace
 from gpaw.preconditioner import Preconditioner
 from gpaw.utilities.lapack import diagonalize

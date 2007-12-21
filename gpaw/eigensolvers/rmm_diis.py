@@ -1,7 +1,6 @@
 """Module defining  ``Eigensolver`` classes."""
 
 import numpy as npy
-import LinearAlgebra as linalg
 
 from gpaw.utilities.blas import axpy, rk, gemm
 from gpaw.utilities.lapack import inverse_cholesky

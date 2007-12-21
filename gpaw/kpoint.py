@@ -202,8 +202,7 @@ class KPoint:
             # inverse returns a non-contigous matrix - grrrr!  That is
             # why there is a copy.  Should be optimized with a
             # different lapack call to invert a triangular matrix XXXXX
-            S_nn[:] = linalg.inverse(
-                linalg.cholesky_decomposition(S_nn)).copy()
+            S_nn[:] = npy.linalg.inv(npy.linalg.cholesky(S_nn)).copy()
 
         self.comm.broadcast(S_nn, self.root)
         

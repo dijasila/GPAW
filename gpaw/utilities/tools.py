@@ -179,11 +179,10 @@ def gram_schmidt_orthonormalize(vec, order=None):
 def lowdin_orthonormalize(vec, S=None):
     """vec is a NxM matrix containing M vectors as its columns.
         These will be orthogonalized by Lowdin procedure"""
-    from LinearAlgebra import Heigenvectors
 
     if S is None:
         S = npy.dot(dagger(vec), vec)
-    epsilon, U = Heigenvectors(npy.conjugate(S))
+    epsilon, U = npy.linalg.eigh(npy.conjugate(S))
 
     # Now, U contains the eigenvectors as ROWS and epsilon the eigenvalues
     D = npy.identity(S.shape[0], npy.Complex) / npy.sqrt(epsilon)

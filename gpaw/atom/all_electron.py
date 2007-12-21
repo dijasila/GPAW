@@ -10,7 +10,6 @@ import pickle
 import sys
 
 import numpy as npy
-import LinearAlgebra as linalg
 from ASE.ChemicalElements.name import names
 
 from gpaw.atom.configurations import configurations
@@ -309,7 +308,7 @@ class AllElectron:
             x = r[g - 1:g + 2]
             y = u[g - 1:g + 2]
             A = npy.transpose(npy.array([x**i for i in range(3)]))
-            c, b, a = linalg.solve_linear_equations(A, y)
+            c, b, a = npy.linalg.solve(A, y)
             assert a < 0.0
             rmax = -0.5 * b / a
 

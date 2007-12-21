@@ -27,7 +27,7 @@ class Polynomial:
                 A[i][2] = coords[i][1]
                 A[i][3] = coords[i][2]
                 b[i] = values[i]
-            c = linalg.linear_least_squares(A,b)
+            c = npy.linalg.lstsq(A, b)
             c = c[0]
             self.c = [c[0]]
             self.c += [[c[1], c[2], c[3]]]
@@ -49,7 +49,7 @@ class Polynomial:
                 A[i][8] = coords[i][0] * coords[i][2]
                 A[i][9] = coords[i][1] * coords[i][2]
                 b[i] = values[i]
-            c = linalg.linear_least_squares(A,b)
+            c = npy.linalg.lstsq(A, b)
             #print c
             c = c[0]
             self.c = [c[0]]

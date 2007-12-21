@@ -6,6 +6,7 @@ from math import log, pi, sqrt
 import sys
 
 import numpy as npy
+from numpy.linalg import inv
 from ASE.ChemicalElements.name import names
 
 from gpaw.read_setup import PAWXMLParser
@@ -17,7 +18,6 @@ from gpaw.utilities import unpack, erf, fac, hartree, pack2, divrl
 from gpaw.xc_correction import XCCorrection
 from gpaw.xc_functional import XCRadialGrid
 from gpaw.gllb.xcnonlocalcorrection import XCNonLocalCorrection
-from LinearAlgebra import inverse as inv
 
 def create_setup(symbol, xcfunc, lmax=0, nspins=1, type='paw', basis=None):
     if type == 'ae':

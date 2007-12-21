@@ -7,7 +7,7 @@ from optparse import OptionParser
 import numpy as npy
 from ASE.Units import Convert
 from ASE import ListOfAtoms, Atom
-from LinearAlgebra import inverse
+from numpy.linalg import inv
 
 from gpaw.testing import g2, data
 from gpaw.utilities.bulk import Bulk
@@ -222,7 +222,7 @@ def interpolate(xvalues, yvalues):
     x = npy.asarray(xvalues)
     y = npy.asarray(yvalues)
     xmatrix = npy.transpose(npy.array([x**0, x**1, x**2]))
-    coeffs = npy.dot(inverse(xmatrix), y)
+    coeffs = npy.dot(inv(xmatrix), y)
     xmin = - coeffs[1] / (2. * coeffs[2]) # "-b/(2a)"
     ymin = coeffs[0] + xmin * (coeffs[1] + xmin * coeffs[2])
     return xmin, ymin, coeffs

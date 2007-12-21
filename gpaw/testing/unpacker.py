@@ -5,7 +5,6 @@ import pickle
 from math import sqrt
 
 import numpy as npy
-from LinearAlgebra import solve_linear_equations as solve
 
 import data
 from data import molecules
@@ -89,8 +88,8 @@ class DataUnentangler:
             M[n] = dists**(-n)
         energies = npy.array(self.molecular_energies[formula])
         atomic_energy = self.atomic_energy_sum[formula]
-        a = solve(npy.innerproduct(M, M),
-                  npy.dot(M, energies - atomic_energy))
+        a = npy.linalg.solve(npy.inner(M, M),
+                             npy.dot(M, energies - atomic_energy))
 
         disc = 4 * a[2]**2 - 12 * a[1] * a[3]
         if disc < 0:

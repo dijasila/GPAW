@@ -3,7 +3,6 @@
 from math import pi, sqrt, sin, cos, atan2
 
 import numpy as npy
-import LinearAlgebra as linalg
 
 from gpaw.utilities.blas import axpy, rk, r2k, gemm
 from gpaw.utilities.complex import cc, real
