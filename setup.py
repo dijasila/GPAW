@@ -116,8 +116,6 @@ if "clean" in sys.argv:
         print 'removing ', gpawbin
         os.remove(gpawbin)
 
-include_dirs += [os.environ['HOME'] + '/include/python']
-
 sources = glob('c/*.c') + ['c/bmgs/bmgs.c']
 # libxc sources
 sources = sources + glob('c/libxc/src/*.c')
