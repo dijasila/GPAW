@@ -91,8 +91,8 @@ class PAW(PAWExtra, Output):
     ``nvalence``    Number of valence electrons.
     ``nbands``      Number of bands.
     ``nspins``      Number of spins.
-    ``dtype``    Data type of wave functions (``Float`` or
-                    ``Complex``).
+    ``dtype``       Data type of wave functions (``float`` or
+                    ``complex``).
     ``bzk_kc``      Scaled **k**-points used for sampling the whole
                     Brillouin zone - values scaled to [-0.5, 0.5).
     ``ibzk_kc``     Scaled **k**-points in the irreducible part of the
@@ -172,8 +172,8 @@ class PAW(PAWExtra, Output):
     ``nbands``      Number of bands.
     ``nspins``      Number of spins.
     ``random``      Initialize wave functions with random numbers
-    ``dtype``    Data type of wave functions (``Float`` or
-                    ``Complex``).
+    ``dtype``       Data type of wave functions (``float`` or
+                    ``complex``).
     ``kT``          Temperature for Fermi-distribution.
     ``bzk_kc``      Scaled **k**-points used for sampling the whole
                     Brillouin zone - values scaled to [-0.5, 0.5).
@@ -277,9 +277,9 @@ class PAW(PAWExtra, Output):
         # 'convergence'
 
         if filename is not None:
-            self.initialize()
+            self.initialize(self.atoms_from_file)
             gpaw.io.read(self, reader)
-            self.plot_atoms()
+            self.plot_atoms(self.atoms_from_file)
 
         self.print_logo()
 
@@ -668,7 +668,7 @@ class PAW(PAWExtra, Output):
                 except AttributeError:
                     pass
 
-        elif not isinstance(self.kpt_u[0].psit_nG, npy.ArrayType):
+        elif not isinstance(self.kpt_u[0].psit_nG, npy.ndarray):
             # Calculation started from a restart file.  Copy data
             # from the file to memory:
             if self.world.size > 1:

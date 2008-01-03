@@ -16,7 +16,7 @@ a = 20 # Size of cell
 N = 48 # Number of grid points
 Nc = (N, N, N)                # Number of grid points along each axis
 d  = Domain((a,a,a),
-            periodic=(0,0,0)) # Domain object
+            pbc=(0,0,0)) # Domain object
 d.set_decomposition(world,
                     N_c=Nc)   # Decompose domain on processors
 gd = GridDescriptor(d, Nc)    # Grid-descriptor object

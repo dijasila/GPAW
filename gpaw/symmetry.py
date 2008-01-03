@@ -130,6 +130,8 @@ class Symmetry:
             raise RuntimeError('Broken symmetry!')
 
     def reduce(self, bzk_kc):
+        bzk_kc = bzk_kc[1:2]
+        print bzk_kc
         # Add inversion symmetry if it's not there:
         have_inversion_symmetry = False
         for swap_c, mirror_c in self.symmetries:
@@ -151,8 +153,8 @@ class Symmetry:
             for swap_c, mirror_c in self.symmetries:
                 d_kc = npy.take(ibzk_kc * mirror_c, swap_c, 1) - k_c
                 d_kc *= d_kc
-                d_k = npy.sum(d_kc, 1) < self.tol
-                if npy.sometrue(d_k):
+                d_k = d_kc.sum(1) < self.tol
+                if d_k.any():
                     found = True
                     weight_k[:nibzkpts] += d_k
                     break

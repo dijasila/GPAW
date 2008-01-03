@@ -2,7 +2,7 @@
 # Please see the accompanying LICENSE file for further information.
 
 import numpy as npy
-import RandomArray as ra
+import numpy.random as ra
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.domain import Domain
 from gpaw.transformers import Transformer

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import numpy as npy
 
-from ASE import Atom, ListOfAtoms
+from ase import *
 from gpaw import Calculator
 from gpaw.utilities import center, equal
 
@@ -9,17 +9,17 @@ h = 0.17 # gridspacing
 a = [6.5, 6.5, 7.7] # unit cell
 d = 2.3608 # experimental bond length
 
-NaCl = ListOfAtoms([Atom('Na', [0, 0, 0]),
+NaCl = Atoms([Atom('Na', [0, 0, 0]),
                     Atom('Cl', [0, 0, d])],
-                   periodic=False, cell=a)
+                   pbc=False, cell=a)
 center(NaCl)
 calc = Calculator(h=h, xc='LDA', nbands=5, lmax=0,
                   convergence={'eigenstates': 1e-6}, spinpol=1)
 
-NaCl.SetCalculator(calc)
-NaCl.GetPotentialEnergy()
+NaCl.set_calculator(calc)
+NaCl.get_potential_energy()
 
-nt = calc.GetDensityArray()
+nt = calc.get_density_array()
 gridrefinement = 2 # grid-refinement-factor for all-electron density
 n = calc.density.get_all_electron_density(gridrefinement) / calc.a0**3
 

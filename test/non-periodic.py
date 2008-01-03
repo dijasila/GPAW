@@ -1,15 +1,15 @@
 from gpaw.transformers import Transformer
 import numpy as npy
-import RandomArray as ra
+import numpy.random as ra
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.domain import Domain
 
 p = 0
-domain = Domain((8.0, 8.0, 8.0), periodic=(p, p, p))
+domain = Domain((8.0, 8.0, 8.0), pbc=(p, p, p))
 n = 20
 gd1 = GridDescriptor(domain, (n, n, n))
 a1 = gd1.zeros()
-ra.seed(1, 2)
+ra.seed(8)
 a1[:] = ra.random(a1.shape)
 gd2 = gd1.refine()
 a2 = gd2.zeros()

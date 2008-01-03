@@ -308,12 +308,11 @@ iter: %3d  %02d:%02d:%02d  %-5s  %-5s    %-12.5f %-5s  %-7s""" %
         """Print eigenvalues and occupation numbers."""
         print >> self.txt, eigenvalue_string(self)
 
-    def plot_atoms(self):
-        atoms = self.atoms
-        cell_c = npy.diagonal(atoms.GetUnitCell()) / self.a0
-        pos_ac = atoms.GetCartesianPositions() / self.a0
-        Z_a = atoms.GetAtomicNumbers()
-        pbc_c = atoms.GetBoundaryConditions()
+    def plot_atoms(self, atoms):
+        cell_c = npy.diagonal(atoms.get_cell()) / self.a0
+        pos_ac = atoms.get_positions() / self.a0
+        Z_a = atoms.get_atomic_numbers()
+        pbc_c = atoms.get_pbc()
         self.text(plot(pos_ac, Z_a, cell_c))
 
 def eigenvalue_string(paw,comment=None):

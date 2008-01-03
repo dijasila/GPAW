@@ -1,6 +1,6 @@
 import os
 from math import pi, cos, sin
-from ASE import Atom, ListOfAtoms
+from ase import *
 from gpaw import Calculator
 from gpaw.utilities import center
 from gpaw.atom.generator import Generator, parameters
@@ -18,14 +18,14 @@ if 1:
     a = 5.0
     d = 0.9575
     t = pi / 180 * 104.51
-    H2O = ListOfAtoms([Atom('O', (0, 0, 0)),
+    H2O = Atoms([Atom('O', (0, 0, 0)),
                        Atom('H', (d, 0, 0)),
                        Atom('H', (d * cos(t), d * sin(t), 0))],
-                      cell=(a, a, a), periodic=False)
+                      cell=(a, a, a), pbc=False)
     center(H2O)
     calc = Calculator(nbands=10, h=0.2, setups={'O': 'hch1s'})
-    H2O.SetCalculator(calc)
-    e = H2O.GetPotentialEnergy()
+    H2O.set_calculator(calc)
+    e = H2O.get_potential_energy()
     calc.write('h2o.gpw')
 else:
     calc = Calculator('h2o.gpw')

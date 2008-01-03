@@ -2,7 +2,7 @@ import glob
 
 import numpy as npy
 from gpaw.utilities import equal
-from ASE.ChemicalElements.symbol import symbols
+from ase import *
 
 from gpaw.setup import Setup
 from gpaw.xc_functional import XCFunctional

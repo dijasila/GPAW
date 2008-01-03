@@ -393,7 +393,7 @@ def read(paw, reader):
     paw.occupation.set_fermi_level(r['FermiLevel'])
 
     try:
-        paw.error = { 'density' : r['DensityError'] }
+        paw.error = {'density': r['DensityError']}
         paw.error['energy'] = r['EnergyError']
         paw.error['eigenstates'] = r['EigenstateError'] 
     except (AttributeError, KeyError):

@@ -230,7 +230,7 @@ class NonLocalFunctional:
                 # Calculate the gradient
                 for c in range(3):
                     self.ddr[c](n_g, self.dndr_cg[c])
-                self.a2_g[s][:] = npy.sum(self.dndr_cg**2)
+                self.a2_g[s][:] = npy.sum(self.dndr_cg**2, axis=0)
 
                 info['a2_g'] = self.a2_g[s]
 

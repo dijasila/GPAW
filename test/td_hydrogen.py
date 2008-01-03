@@ -1,18 +1,18 @@
 #!/usr/bin/env python
 from cmath import exp
-from ASE import Atom, ListOfAtoms
+from ase import *
 from gpaw import Calculator
 import numpy as npy
 from gpaw.tddft import TDDFT
 import os
 
 a = 5.0
-atoms = ListOfAtoms([Atom('H',(a/2, a/2, a/2), magmom=1)],
-                    periodic=False,
+atoms = Atoms([Atom('H',(a/2, a/2, a/2), magmom=1)],
+                    pbc=False,
                     cell=(a, a, a))
 calc = Calculator(nbands=1, h=0.2, convergence={'eigenstates': 1e-14})
-atoms.SetCalculator(calc);
-e = atoms.GetPotentialEnergy()
+atoms.set_calculator(calc);
+e = atoms.get_potential_energy()
 
 calc.write('hydrogen.gpw', 'all')
 calc = Calculator('hydrogen.gpw')

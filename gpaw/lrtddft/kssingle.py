@@ -54,8 +54,8 @@ class KSSingles(ExcitationList):
 
         paw = self.calculator
         self.kpt_u = paw.kpt_u
-        if not self.kpt_u[0].psit_nG:
-            raise RuntimeError('No wave functions in calculator')
+        if self.kpt_u[0].psit_nG is None:
+            raise RuntimeError('No wave functions in calculator!')
 
         # here, we need to take care of the spins also for
         # closed shell systems (Sz=0)

@@ -1,6 +1,6 @@
 import os
 from math import pi, cos, sin
-from ASE import Atom, ListOfAtoms
+from ase import *
 from gpaw import Calculator
 from gpaw.utilities import center
 from gpaw.atom.generator import Generator, parameters
@@ -17,7 +17,7 @@ a = 4.0
 b = a / 2
 c = b / 2
 d = b + c
-si = ListOfAtoms([Atom('Si', (0, 0, 0)),
+si = Atoms([Atom('Si', (0, 0, 0)),
                   Atom('Si', (c, c, c)),
                   Atom('Si', (b, b, 0)),
                   Atom('Si', (d, d, c)),
@@ -25,7 +25,7 @@ si = ListOfAtoms([Atom('Si', (0, 0, 0)),
                   Atom('Si', (d, c, d)),
                   Atom('Si', (0, b, b)),
                   Atom('Si', (c, d, d))],
-                 cell=(a, a, a), periodic=True)
+                 cell=(a, a, a), pbc=True)
 
 if 1:
     k = 2
@@ -34,8 +34,8 @@ if 1:
                       width=0.05,
                       setups={0: 'hch1s'}, usesymm=True
                       )
-    si.SetCalculator(calc)
-    e = si.GetPotentialEnergy()
+    si.set_calculator(calc)
+    e = si.get_potential_energy()
     calc.write('si.gpw')
 else:
     calc = Calculator('si.gpw')

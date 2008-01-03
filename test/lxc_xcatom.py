@@ -1,5 +1,5 @@
 import numpy as npy
-import RandomArray as ra
+import numpy.random as ra
 from gpaw.setup import Setup
 from gpaw.xc_functional import XCFunctional
 from gpaw.utilities import equal
@@ -41,7 +41,7 @@ libxc_set = [
 
 x = 0.000001
 for xc in libxc_set:
-    ra.seed(1, 2)
+    ra.seed(8)
     xcfunc = XCFunctional(xc, 1)
     s = Setup('N', xcfunc)
     ni = s.ni

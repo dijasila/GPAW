@@ -17,11 +17,11 @@ class Domain:
     A ``Domain`` object (in `domain.py`) holds informaion on the unit
     cell and the boundary conditions"""
     
-    def __init__(self, cell, periodic=(True, True, True)):
+    def __init__(self, cell, pbc=(True, True, True)):
         """Create Domain object from a unit cell and boundary conditions.
 
         The arguments are the lengths of the three axes, followed by a
-        tuple of three periodic-boundary flags (``bool``'s).
+        tuple of three periodic-boundary condition flags (``bool``'s).
 
         Parallel stuff:
          =============== ==================================================
@@ -37,7 +37,7 @@ class Domain:
         """
         
         self.cell_c = npy.array(cell, float)
-        self.pbc_c = periodic
+        self.pbc_c = npy.asarray(pbc, bool)
         
         self.set_decomposition(serial_comm, (1, 1, 1))
 

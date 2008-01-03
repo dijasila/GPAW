@@ -1,5 +1,5 @@
 import numpy as npy
-import RandomArray as ra
+import numpy.random as ra
 from gpaw.utilities import equal
 from gpaw.setup import Setup
 from gpaw.domain import Domain
@@ -10,7 +10,7 @@ from gpaw.xc_functional import XCFunctional, XC3DGrid
 from gpaw.utilities import pack
 
 
-ra.seed(1, 2)
+ra.seed(8)
 nspins=1
 for name in ['LDA', 'PBE']:
     xcfunc = XCFunctional(name, nspins)
@@ -68,7 +68,7 @@ for name in ['LDA', 'PBE']:
     xc = XC3DGrid(xcfunc, gd, nspins=1)
     xc.get_energy_and_potential(n_g, v_g)
 
-    r2_g = npy.sum((npy.indices((n, n, n)) - n / 2)**2)
+    r2_g = npy.sum((npy.indices((n, n, n)) - n / 2)**2, axis=0)
     dv_g = gd.dv * npy.less(r2_g, (rcut / a * n)**2)
 
     E2 = -npy.dot(xc.e_g.ravel(), dv_g.ravel())

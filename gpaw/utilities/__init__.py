@@ -262,10 +262,8 @@ def warning(msg):
 
 def center(atoms):
     """Method for centering atoms in input ListOfAtoms"""
-    pos = atoms.GetCartesianPositions()
-    cntr = 0.5 * (npy.minimum.reduce(pos) + npy.maximum.reduce(pos))
-    cell = npy.diagonal(atoms.GetUnitCell())
-    atoms.SetCartesianPositions(pos - cntr + 0.5 * cell)
+    pos = atoms.positions
+    pos += 0.5 * atoms.get_cell().diagonal() - pos.mean(0)
 
 
 def divrl(a_g, l, r_g):

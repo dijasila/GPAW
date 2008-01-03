@@ -6,7 +6,7 @@ from gpaw.utilities import equal
 
 netcdf = True
 try:
-    import Scientific.IO.NetCDF
+    import Scientific.IO.NetCDFXXXX
 except ImportError:
     netcdf = False
 
@@ -19,11 +19,11 @@ if 1:
     if netcdf:
         calc.write('tmp.nc', 'all')
 
-h = Calculator('tmp.gpw', txt=None)
+h = Calculator('tmp.gpw', txt=None).get_atoms()
 equal(e, h.get_potential_energy(), 3e-5)
 
 if netcdf:
-    h = Calculator('tmp.nc', txt=None)
+    h = Calculator('tmp.nc', txt=None).get_atoms()
     equal(e, h.get_potential_energy(), 3e-5)
 
 os.remove('tmp.gpw')

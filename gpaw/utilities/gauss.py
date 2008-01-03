@@ -1,5 +1,5 @@
 import numpy as npy
-from Numeric import sqrt, pi, exp
+from numpy import sqrt, pi, exp
 from gpaw.utilities.tools import coordinates
 from gpaw.utilities.tools import erf3D as erf
 

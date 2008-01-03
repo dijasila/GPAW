@@ -1,12 +1,12 @@
 import numpy as npy
-import RandomArray as ra
+import numpy.random as ra
 from gpaw.setup import Setup
 from gpaw.xc_functional import XCFunctional
 from gpaw.utilities import equal
 
 
 x = 0.000001
-ra.seed(1, 2)
+ra.seed(8)
 nspins_1 = 1
 nspins_2 = 2
 for xc in ['LDA', 'PBE']:

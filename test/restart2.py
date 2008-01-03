@@ -2,13 +2,13 @@
 
 import os
 from gpaw import Calculator
-from ASE import Atom, ListOfAtoms
+from ase import *
 from gpaw.utilities import equal
 from gpaw.cluster import Cluster
 
 endings = ['gpw']
 try:
-    import Scientific.IO.NetCDF
+    import Scientific.IO.NetCDFXXXX
     endings.append('nc')
 except ImportError:
     pass
@@ -18,12 +18,12 @@ for ending in endings:
     result  = 'gpaw-result.' + ending
     # H atom: 
     H = Cluster([Atom('H', (0,0,0))])
-    H.MinimalBox(3.0)
+    H.minimal_box(3.0)
 
     calc = Calculator(nbands=1)
     calc.attach(calc.write, 4, restart)
-    H.SetCalculator(calc)
-    H.GetPotentialEnergy()
+    H.set_calculator(calc)
+    H.get_potential_energy()
     calc.write(result)
 
     # the two files should be equal

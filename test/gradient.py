@@ -23,7 +23,7 @@ gradx.apply(a, dadx)
 if dadx[3, 0, 0] != 1.0 or npy.sum(dadx[:, 0, 0]) != 0.0:
     raise AssertionError
 
-domain = Domain((1.0, 7.0, 1.0), periodic=(1, 0, 1))
+domain = Domain((1.0, 7.0, 1.0), pbc=(1, 0, 1))
 gd = GridDescriptor(domain, (1, 7, 1))
 dady = gd.zeros()
 a = gd.zeros()

@@ -10,7 +10,7 @@ import time
 
 def test_coulomb(N=2**6, a=20):
     d  = Domain((a, a, a),
-            periodic=(0,0,0)) # domain object
+            pbc=(0,0,0)) # domain object
     Nc = (N, N, N)            # Number of grid point
     d.set_decomposition(world, N_c=Nc) # decompose domain on processors
     gd = GridDescriptor(d, Nc)# grid-descriptor object

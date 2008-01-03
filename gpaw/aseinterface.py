@@ -69,12 +69,12 @@ class Calculator(PAW):
             # Energy extrapolated to zero Kelvin:
             return self.Ha * (self.Etot + 0.5 * self.S)
 
-    def GetCartesianForces(self):
+    def get_forces(self, atoms):
         """Return the forces for the current state of the ListOfAtoms."""
         if self.F_ac is None:
             if hasattr(self, 'nuclei') and not self.nuclei[0].ready:
                 self.converged = False
-            self.calculate()
+            self.calculate(atoms)
             self.calculate_forces()
         return self.F_ac * (self.Ha / self.a0)
       
