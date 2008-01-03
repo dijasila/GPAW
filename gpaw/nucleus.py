@@ -370,7 +370,7 @@ class Nucleus:
             
     def calculate_multipole_moments(self):
         if self.in_this_domain:
-            self.Q_L[:] = npy.dot(npy.sum(self.D_sp), self.setup.Delta_pL)
+            self.Q_L[:] = npy.dot(self.D_sp.sum(0), self.setup.Delta_pL)
             self.Q_L[0] += self.setup.Delta0
         self.comm.broadcast(self.Q_L, self.rank)
 
@@ -395,7 +395,7 @@ class Nucleus:
             for x in self.ghat_L.iintegrate(vHt_g, W_L):
                 yield None
 
-            D_p = npy.sum(self.D_sp)
+            D_p = self.D_sp.sum(0)
             dH_p = (s.K_p + s.M_p + s.MB_p + 2.0 * npy.dot(s.M_pp, D_p) +
                     npy.dot(s.Delta_pL, W_L))
 

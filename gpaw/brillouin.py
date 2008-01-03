@@ -11,7 +11,7 @@ def reduce_kpoints(bzk_kc, pos_ac, Z_a, type_a, magmom_a, basis_a,
     part of the BZ."""
 
     for c in range(3):
-        if not domain.periodic_c[c] and npy.sometrue(bzk_kc[:, c]):
+        if not domain.pbc_c[c] and npy.sometrue(bzk_kc[:, c]):
             raise ValueError('K-points can only be used with PBCs!')
 
     # Construct a Symmetry instance containing the identity

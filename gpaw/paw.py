@@ -404,7 +404,7 @@ class PAW(PAWExtra, Output):
         if (len(atoms) != self.natoms or
             npy.sometrue(atoms.get_atomic_numbers() != Z_a) or
             npy.sometrue((atoms.get_cell() / self.a0 != cell_cc).ravel()) or
-            atoms.get_pbc() != pbc_c):
+            (atoms.get_pbc() != pbc_c).any()):
             # Drastic changes:
             self.wave_functions_initialized = False
             self.initialize(atoms)
@@ -412,7 +412,7 @@ class PAW(PAWExtra, Output):
             return
 
         # Something else has changed:
-        if atoms.get_positions() / self.a0 != pos_ac:
+        if (atoms.get_positions() / self.a0 != pos_ac).any():
             # It was the positions:
             # Wave functions are no longer orthonormal!
             self.wave_functions_orthonormalized = False
@@ -1047,12 +1047,18 @@ class PAW(PAWExtra, Output):
         #########oooself.kpt_u = None
         
         self.natoms = len(atoms)
-        magmom_a = atoms.get_magnetic_moments()
         pos_ac = atoms.get_positions() / self.a0
         cell_cc = atoms.get_cell() / self.a0
         pbc_c = atoms.get_pbc()
         Z_a = atoms.get_atomic_numbers()
-        self.extra_list_of_atoms_stuff = (magmom_a, atoms.get_tags())
+        magmom_a = atoms.get_magnetic_moments()
+        if magmom_a is None:
+            magmom_a = npy.zeros(self.natoms)
+        tag_a = atoms.get_tags()
+        if tag_a is None:
+            tag_a = npy.zeros(self.natoms, int)
+
+        self.extra_list_of_atoms_stuff = (magmom_a, tag_a)
 
         
         # Check that the cell is orthorhombic:

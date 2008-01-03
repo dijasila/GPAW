@@ -169,7 +169,7 @@ class Hamiltonian:
             iters.append(nucleus.calculate_hamiltonian(density.nt_g,
                                                        self.vHt_g, vext))
         if len(iters) != 0:
-            k, p, b, v, x = npy.sum(run(iters))
+            k, p, b, v, x = npy.sum(run(iters), axis=0)
             Ekin += k
             Epot += p
             Ebar += b

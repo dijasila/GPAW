@@ -59,7 +59,7 @@ def write(paw, filename, mode):
         w['energyunit'] = 'Hartree'
 
         pos_ac, Z_a, cell_cc, pbc_c = paw.last_atomic_configuration
-        tag_a, magmom_a = paw.extra_list_of_atoms_stuff
+        magmom_a, tag_a = paw.extra_list_of_atoms_stuff
         
         w.dimension('natoms', paw.natoms)
         w.dimension('3', 3)

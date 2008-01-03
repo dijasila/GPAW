@@ -72,7 +72,8 @@ class Vector3d(list):
         return self.l
 
     def norm(self):
-        return npy.sum( self*self )
+        #return npy.sum( self*self )
+        return self*self  #  XXX drop this class and use numpy arrays ...
 
     def rotation_axis(self, other):
         """Return the rotation axis to rotate yourself to the direction

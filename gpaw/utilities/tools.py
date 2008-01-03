@@ -118,7 +118,7 @@ def coordinates(gd):
     r0 = npy.reshape(gd.h_c * gd.beg_c - .5 * gd.domain.cell_c, (3, 1, 1, 1))
     r0 = npy.ones(I.shape) * r0
     xyz = r0 + I * dr
-    r2 = npy.sum(xyz**2)
+    r2 = npy.sum(xyz**2, axis=0)
 
     # Remove singularity at origin and replace with small number
     middle = gd.N_c / 2.

@@ -52,6 +52,15 @@ while len(sys.argv) > i:
     # Delete used command line argument:
     del sys.argv[i]
 
+if 1:
+    import numpy
+    oldsum = numpy.sum
+    def zum(*args, **kwargs):
+        a = oldsum(*args, **kwargs)
+        if numpy.asarray(args[0]).ndim != 1 and 'axis'not in kwargs:
+            raise RuntimeError
+        return a
+    numpy.sum = zum
 if debug:
     import numpy
     oldempty = numpy.empty

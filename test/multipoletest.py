@@ -1,6 +1,5 @@
 from math import sqrt, pi
 import numpy as npy
-from multiarray import innerproduct as inner # avoid the dotblas version!
 from gpaw.domain import Domain
 from gpaw.setup import Setup
 from gpaw.grid_descriptor import GridDescriptor
@@ -37,7 +36,7 @@ for soft in [False]:
             assert abs(Q0) < 2e-6
             assert npy.alltrue(abs(Q1_m) < 3e-5)
     b_Lg = npy.reshape(a_Lg, (9, n**3))
-    S_LL = inner(b_Lg, b_Lg)
+    S_LL = npy.inner(b_Lg, b_Lg)
     S_LL.ravel()[::10] = 0.0
     print max(abs(S_LL).ravel())
     assert max(abs(S_LL).ravel()) < 3e-4

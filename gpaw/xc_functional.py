@@ -453,7 +453,7 @@ class XC3DGrid(XCGrid):
         if self.xcfunc.mgga:
             for c in range(3):
                 self.ddr[c](n_g, self.dndr_cg[c])
-            self.a2_g[:] = npy.sum(self.dndr_cg**2)
+            npy.sum(self.dndr_cg**2, axis=0, out=self.a2_g)
 
             self.xcfunc.calculate_spinpaired(e_g, n_g, v_g,
                                              self.a2_g,
@@ -467,12 +467,14 @@ class XC3DGrid(XCGrid):
         elif self.xcfunc.gga:
             for c in range(3):
                 self.ddr[c](n_g, self.dndr_cg[c])
-            self.a2_g[:] = npy.sum(self.dndr_cg**2)
+            
+            npy.sum(self.dndr_cg**2, axis=0, out=self.a2_g)
 
             self.xcfunc.calculate_spinpaired(e_g,
                                              n_g, v_g,
                                              self.a2_g,
                                              self.deda2_g)
+            print v_g[5,5,5]
             tmp_g = self.dndr_cg[0]
             for c in range(3):
                 self.ddr[c](self.deda2_g * self.dndr_cg[c], tmp_g)
@@ -480,7 +482,7 @@ class XC3DGrid(XCGrid):
         else:
             self.xcfunc.calculate_spinpaired(e_g, n_g, v_g)
 
-        return npy.sum(e_g.ravel()) * self.dv
+        return e_g.sum() * self.dv
 
     def get_energy_and_potential_spinpolarized(self, na_g, va_g, nb_g, vb_g, e_g=None):
         if e_g == None:
@@ -491,9 +493,9 @@ class XC3DGrid(XCGrid):
                 self.ddr[c](na_g, self.dnadr_cg[c])
                 self.ddr[c](nb_g, self.dnbdr_cg[c])
             self.dndr_cg[:] = self.dnadr_cg + self.dnbdr_cg
-            self.a2_g[:] = npy.sum(self.dndr_cg**2)
-            self.aa2_g[:] = npy.sum(self.dnadr_cg**2)
-            self.ab2_g[:] = npy.sum(self.dnbdr_cg**2)
+            npy.sum(self.dndr_cg**2, axis=0, out=self.a2_g)
+            npy.sum(self.dnadr_cg**2, axis=0, out=self.aa2_g)
+            npy.sum(self.dnbdr_cg**2, axis=0, out=self.ab2_g)
 
             self.xcfunc.calculate_spinpolarized(e_g,
                                                 na_g, va_g,
@@ -521,9 +523,9 @@ class XC3DGrid(XCGrid):
                 self.ddr[c](na_g, self.dnadr_cg[c])
                 self.ddr[c](nb_g, self.dnbdr_cg[c])
             self.dndr_cg[:] = self.dnadr_cg + self.dnbdr_cg
-            self.a2_g[:] = npy.sum(self.dndr_cg**2)
-            self.aa2_g[:] = npy.sum(self.dnadr_cg**2)
-            self.ab2_g[:] = npy.sum(self.dnbdr_cg**2)
+            npy.sum(self.dndr_cg**2, axis=0, out=self.a2_g)
+            npy.sum(self.dnadr_cg**2, axis=0, out=self.aa2_g)
+            npy.sum(self.dnbdr_cg**2, axis=0, out=self.ab2_g)
             self.xcfunc.calculate_spinpolarized(e_g,
                                                 na_g, va_g,
                                                 nb_g, vb_g,
@@ -557,7 +559,7 @@ class XC3DGrid(XCGrid):
             self.xcfunc.calculate_spinpolarized(e_g,
                                                 na_g, va_g,
                                                 nb_g, vb_g)
-        return npy.sum(e_g.ravel()) * self.dv
+        return e_g.sum() * self.dv
 
     def set_kinetic(self,taut_sg):
         self.taua_g[:] = taut_sg[0][:]

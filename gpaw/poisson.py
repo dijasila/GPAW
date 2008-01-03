@@ -92,7 +92,7 @@ class PoissonSolver:
             return self.solve_neutral(phi, rho, eps=eps)
         
         elif abs(charge) > maxcharge and npy.alltrue(
-            self.gd.domain.periodic_c):
+            self.gd.domain.pbc_c):
             # System is charged and periodic. Subtract a homogeneous
             # background charge
             background = charge / npy.product(self.gd.domain.cell_c)
@@ -149,7 +149,7 @@ class PoissonSolver:
             raise ConvergenceError('Poisson solver did not converge!')
 
         # Set the average potential to zero in periodic systems
-        if npy.alltrue(self.gd.domain.periodic_c):
+        if npy.alltrue(self.gd.domain.pbc_c):
             phi_ave = self.gd.comm.sum(npy.sum(phi.ravel()))
             N_c = self.gd.get_size_of_global_array()
             phi_ave /= npy.product(N_c)

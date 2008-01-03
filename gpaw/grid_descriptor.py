@@ -99,7 +99,7 @@ class GridDescriptor:
             n_p = npy.arange(parsize_c[c] + 1) * float(N_c[c]) / parsize_c[c]
             n_p = npy.around(n_p + 0.4999).astype(int)
             
-            if not domain.periodic_c[c]:
+            if not domain.pbc_c[c]:
                 n_p[0] = 1
 
             if not npy.alltrue(n_p[1:] - n_p[:-1]):
@@ -119,11 +119,11 @@ class GridDescriptor:
             raise ValueError('Very anisotropic grid spacings: %s' % self.h_c)
 
     def get_size_of_global_array(self):
-        return self.N_c - 1 + self.domain.periodic_c
+        return self.N_c - 1 + self.domain.pbc_c
 
     def get_slice(self):
         return [slice(b - 1 + p, e - 1 + p) for b, e, p in
-                zip(self.beg_c, self.end_c, self.domain.periodic_c)]
+                zip(self.beg_c, self.end_c, self.domain.pbc_c)]
 
     def zeros(self, n=(), dtype=float, global_array=False):
         """Return new zeroed 3D array for this domain.
@@ -166,8 +166,8 @@ class GridDescriptor:
         """Integrate function in array over domain."""
         shape = a_xg.shape
         if len(shape) == 3:
-            return self.comm.sum(npy.sum(a_xg.ravel())) * self.dv
-        A_x = npy.sum(npy.reshape(a_xg, shape[:-3] + (-1,)), -1)
+            return self.comm.sum(a_xg.sum()) * self.dv
+        A_x = npy.sum(npy.reshape(a_xg, shape[:-3] + (-1,)), axis=-1)
         self.comm.sum(A_x)
         return A_x * self.dv
     
@@ -197,14 +197,14 @@ class GridDescriptor:
 
         if cut:
             for c in range(3):
-                if not self.domain.periodic_c[c]:
+                if not self.domain.pbc_c[c]:
                     if beg_c[c] < 0:
                         beg_c[c] = 0
                     if end_c[c] > N_c[c]:
                         end_c[c] = N_c[c]
         else:
             for c in range(3):
-                if (not self.domain.periodic_c[c] and
+                if (not self.domain.pbc_c[c] and
                     (beg_c[c] < 0 or end_c[c] > N_c[c])):
                     raise RuntimeError(('Atom at %.3f %.3f %.3f ' +
                                         'too close to boundary ' +
@@ -384,9 +384,11 @@ class GridDescriptor:
         
     def calculate_dipole_moment(self, rho_xyz):
         """Calculate dipole moment of density."""
-        rho_xy = npy.sum(rho_xyz, 2)
-        rho_xz = npy.sum(rho_xyz, 1)
-        rho_cg = [npy.sum(rho_xy, 1), npy.sum(rho_xy, 0), npy.sum(rho_xz, 0)]
+        rho_xy = npy.sum(rho_xyz, axis=2)
+        rho_xz = npy.sum(rho_xyz, axis=1)
+        rho_cg = [npy.sum(rho_xy, axis=1),
+                  npy.sum(rho_xy, axis=0),
+                  npy.sum(rho_xz, axis=0)]
         d_c = npy.zeros(3)
         for c in range(3):
             r_g = (npy.arange(self.n_c[c], dtype=float) +

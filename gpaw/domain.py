@@ -37,7 +37,7 @@ class Domain:
         """
         
         self.cell_c = npy.array(cell, float)
-        self.periodic_c = periodic
+        self.pbc_c = periodic
         
         self.set_decomposition(serial_comm, (1, 1, 1))
 
@@ -81,7 +81,7 @@ class Domain:
         
         spos_c = pos_c / self.cell_c
         for c in range(3):
-            if self.periodic_c[c]:
+            if self.pbc_c[c]:
                 spos_c[c] %= 1.0
         return spos_c
 
@@ -116,7 +116,7 @@ class Domain:
                                           (pd0 - p) * self.stride_c[c])
                 if pd0 != pd:
                     # Wrap around the box?
-                    if self.periodic_c[c]:
+                    if self.pbc_c[c]:
                         # Yes:
                         self.sdisp_cd[c, d] = -sdisp
                     else:

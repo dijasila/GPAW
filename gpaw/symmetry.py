@@ -18,7 +18,7 @@ class Symmetry:
         
         self.ZTMB_a = zip(Z_a, type_a, magmom_a, basis_a)
         self.cell_c = domain.cell_c
-        self.periodic_c = domain.periodic_c
+        self.pbc_c = domain.pbc_c
         self.scale_position = domain.scale_position  # XXX ref to domain!
         self.tol = tolerance
         # The identity:
@@ -36,7 +36,7 @@ class Symmetry:
                             (2, 0, 1), (2, 1, 0)]
         # Only swap axes of equal length:
         cellsyms = [[abs(self.cell_c[c1] - self.cell_c[c2]) < self.tol and
-                     self.periodic_c[c1] and self.periodic_c[c2]
+                     self.pbc_c[c1] and self.pbc_c[c2]
                      for c1 in range(3)]
                     for c2 in range(3)]
         swaps = []
@@ -53,7 +53,7 @@ class Symmetry:
 
         mirrors = [[1.0], [1.0], [1.0]]
         for c in range(3):
-            if self.periodic_c[c]:
+            if self.pbc_c[c]:
                 mirrors[c].append(-1.0)
         mirrors = [npy.array((m0, m1, m2))
                    for m0 in mirrors[0]

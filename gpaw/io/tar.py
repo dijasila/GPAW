@@ -17,7 +17,7 @@ class Writer:
         self.dims = {}
         self.files = {}
         self.xml1 = ['<gpaw_io version="0.1" endianness="%s">' %
-                     ('big', 'little')[npy.LittleEndian]]
+                     ('big', 'little')[int(npy.little_endian)]]
         self.xml2 = []
         if os.path.isdir(name):
             os.rename(name, name[:-4] + '.old.gpw')
@@ -34,25 +34,33 @@ class Writer:
     def add(self, name, shape, array=None, dtype=None, units=None):
         if array is not None:
             array = npy.asarray(array)
-            dtype = {int: int,
-                        float: float,
-                        complex: complex}[array.dtype.char]
-        self.xml2 += ['  <array name="%s" type="%s">' %
-                      (name, dtype.__name__)]
+        if dtype is None:
+            dtype = array.dtype
+
+        if dtype == int:
+            size, type = 4, 'int'
+        elif dtype == float:
+            size, type = 8, 'float'
+        elif dtype == complex:
+            size, type = 16, 'complex'
+        else:
+            print dtype
+            raise RuntimeError
+
+        self.xml2 += ['  <array name="%s" type="%s">' % (name, type)]
         self.xml2 += ['    <dimension length="%s" name="%s"/>' %
                       (self.dims[dim], dim)
                       for dim in shape]
         self.xml2 += ['  </array>']
         self.shape = [self.dims[dim] for dim in shape]
-        size = itemsizes[dtype.__name__]
         size *= npy.product([self.dims[dim] for dim in shape])
         self.write_header(name, size)
         if array is not None:
             self.fill(array)
 
     def fill(self, array):
-        if array.dtype.char == int and int != int32:
-            self.write(array.astype(int32).tostring())
+        if array.dtype == npy.dtype(npy.int64):
+            self.write(array.astype(npy.int32).tostring())
         else:
             self.write(array.tostring())
 
@@ -96,7 +104,7 @@ class Reader(xml.sax.handler.ContentHandler):
     def startElement(self, tag, attrs):
         if tag == 'gpaw_io':
             self.byteswap = ((attrs['endianness'] == 'little')
-                             != npy.LittleEndian)
+                             != npy.little_endian)
         elif tag == 'array':
             name = attrs['name']
             self.dtypes[name] = attrs['type']
@@ -128,7 +136,7 @@ class Reader(xml.sax.handler.ContentHandler):
         array = npy.fromstring(fileobj.read(size), dtype)
         if self.byteswap:
             array = array.byteswap()
-        if dtype == int32:
+        if dtype == npy.int32:
             array = npy.asarray(array, int)
         array.shape = shape
         if shape == ():
@@ -138,16 +146,17 @@ class Reader(xml.sax.handler.ContentHandler):
     
     def get_reference(self, name, *indices):
         fileobj, shape, size, dtype = self.get_file_object(name, indices)
+        assert dtype != npy.int32
         return TarFileReference(fileobj, shape, dtype, self.byteswap)
     
     def get_file_object(self, name, indices):
-        dtype = {'int': int32,
-                    'float': float,
-                    'complex': complex}[self.dtypes[name]]
+        size, dtype = {'int': (4, npy.int32),
+                       'float': (8, float),
+                       'complex': (16, complex)}[self.dtypes[name]]
         fileobj = self.tar.extractfile(name)
         n = len(indices)
         shape = self.shapes[name]
-        size = npy.product(shape[n:]) * itemsizes[self.dtypes[name]]
+        size *= npy.product(shape[n:])
         offset = 0
         stride = size
         for i in range(n - 1, -1, -1):
@@ -164,9 +173,7 @@ class TarFileReference:
         self.fileobj = fileobj
         self.shape = tuple(shape)
         self.dtype = dtype
-        self.itemsize = itemsizes[{int32: 'int',
-                                   float: 'float',
-                                   complex: 'complex'}[dtype]]
+        self.itemsize = npy.dtype(dtype).itemsize
         self.byteswap = byteswap
         self.offset = fileobj.tell()
 

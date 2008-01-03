@@ -147,10 +147,10 @@ class BaseMixer:
                 alpha_i = npy.zeros(iold)
                 alpha_i[-1] = 1.0
             else:
-                alpha_i = npy.sum(B_ii, 1)
+                alpha_i = B_ii.sum(1)
                 try:
                     # Normalize:
-                    alpha_i /= npy.sum(alpha_i)
+                    alpha_i /= alpha_i.sum()
                 except ZeroDivisionError:
                     alpha_i[:] = 0.0
                     alpha_i[-1] = 1.0
@@ -206,7 +206,7 @@ class Mixer(BaseMixer):
 
 class MixerSum(BaseMixer):
     def mix(self, nt_sG):
-        nt_G = npy.sum(nt_sG)
+        nt_G = nt_sG.sum(0)
         BaseMixer.mix(self, nt_G)
         dnt_G = nt_sG[0] - nt_sG[1]
         nt_sG[0] = 0.5 * (nt_G + dnt_G)

@@ -180,7 +180,7 @@ class Density:
 
         # With periodic boundary conditions, the interpolation will
         # conserve the number of electrons.
-        if False in self.gd.domain.periodic_c:
+        if False in self.gd.domain.pbc_c:
             # With zero-boundary conditions in one or more directions,
             # this is not the case.
             for s in range(self.nspins):
@@ -288,14 +288,15 @@ class Density:
             nucleus.add_smooth_core_density(self.nct_G, self.nspins)
 
     def calculate_local_magnetic_moments(self):
+        # XXX remove this?
         spindensity = self.nt_sg[0] - self.nt_sg[1]
 
         for nucleus in self.nuclei:
             nucleus.calculate_magnetic_moments()
             
-        locmom = 0.0
+        #locmom = 0.0
         for nucleus in self.nuclei:
-            locmom += nucleus.mom[0]
+            #locmom += nucleus.mom[0]
             mom = array([0.0])
             if nucleus.stepf is not None:
                 nucleus.stepf.integrate(spindensity, mom)

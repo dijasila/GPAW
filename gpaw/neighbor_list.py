@@ -31,7 +31,7 @@ class NeighborList:
                 rcut = rcut1 + rcut2 + 2 * drift
                 ncells = (rcut / self.cell_c + 0.5).astype(int)
                 for i in (0, 1, 2):
-                    if not domain.periodic_c[i]:
+                    if not domain.pbc_c[i]:
                         ncells[i] = 0
                 self.stuff[(symbol1, symbol2)] = (rcut, ncells)
                 if symbol1 != symbol2:
