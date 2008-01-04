@@ -171,7 +171,7 @@ class KPoint:
 
         scale = sqrt(12 / npy.product(gd2.domain.cell_c))
 
-        seed(2 + mpi.rank)
+        seed(4 + mpi.rank)
 
         for psit_G in psit_nG:
             if self.dtype == float:

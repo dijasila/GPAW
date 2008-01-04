@@ -58,7 +58,7 @@ class _Operator:
         assert is_contiguous(in_xg, self.dtype)
         assert is_contiguous(out_xg, self.dtype)
         assert (self.dtype == float or
-                (phase_cd.dtype.char == complex and
+                (phase_cd.dtype == complex and
                  phase_cd.shape == (3, 2)))
         self.operator.apply(in_xg, out_xg, phase_cd)
 

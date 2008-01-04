@@ -10,8 +10,8 @@ a = [6.5, 6.5, 7.7] # unit cell
 d = 2.3608 # experimental bond length
 
 NaCl = Atoms([Atom('Na', [0, 0, 0]),
-                    Atom('Cl', [0, 0, d])],
-                   pbc=False, cell=a)
+              Atom('Cl', [0, 0, d])],
+             pbc=False, cell=a)
 NaCl.center()
 calc = Calculator(h=h, xc='LDA', nbands=5, lmax=0,
                   convergence={'eigenstates': 1e-6}, spinpol=1)
@@ -19,7 +19,7 @@ calc = Calculator(h=h, xc='LDA', nbands=5, lmax=0,
 NaCl.set_calculator(calc)
 NaCl.get_potential_energy()
 
-nt = calc.get_density_array()
+nt = calc.get_pseudo_valence_density()
 gridrefinement = 2 # grid-refinement-factor for all-electron density
 n = calc.get_electron_density(gridrefinement)
 

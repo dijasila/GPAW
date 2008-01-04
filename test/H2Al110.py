@@ -26,7 +26,6 @@ e = slab.get_potential_energy()
 assert calc.nkpts == 3
 
 for i in range(1):
-    b += 0.02
-    slab[-2].set_cartesian_position((a/2-b/2, 0, z))
-    slab[-1].set_cartesian_position((a/2+b/2, 0, z))
+    slab.positions[-2, 0] -= 0.01
+    slab.positions[-1, 0] += 0.01
     e = slab.get_potential_energy()

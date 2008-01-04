@@ -1,29 +1,27 @@
 """Bulk Al(fcc) test"""
 
-from gpaw import Calculator
-from ASE import Atom, ListOfAtoms
+from ase import *
+from gpaw import *
 
 filename = 'Al-fcc'
 
 a = 4.05   # fcc lattice paramter
-b = a / 2. 
+b = a / 2 
 
-bulk = ListOfAtoms([Atom('Al', (0, 0, 0)),
-                    Atom('Al', (b, b, 0)),
-                    Atom('Al', (0, b, b)),
-                    Atom('Al', (b, 0, b)),],
-                   cell=(a, a, a),
-                   periodic=(1, 1, 1))
+bulk = Atoms([Atom('Al', (0, 0, 0)),
+              Atom('Al', (b, b, 0)),
+              Atom('Al', (0, b, b)),
+              Atom('Al', (b, 0, b)),],
+             cell=(a, a, a),
+             pbc=(1, 1, 1))
 
-calc = Calculator(nbands=16,                 # Set the number of electronic bands
-                  h=0.2,                     # Set the grid spacing
-                  kpts=(6,6,6),              # Set the k-points
-                  txt=filename+'.txt')       # Set output file
+k = 4
+calc = Calculator(nbands=16,              # number of electronic bands
+                  h=0.2,                  # grid spacing
+                  kpts=(k, k, k),         # k-points
+                  txt=filename + '.txt')  # output file
+bulk.set_calculator(calc)
 
-bulk.SetCalculator(calc)
-
-energy = bulk.GetPotentialEnergy()
-
+energy = bulk.get_potential_energy()
 calc.write(filename+'.gpw')
-
 print energy

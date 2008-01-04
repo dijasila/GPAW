@@ -771,13 +771,13 @@ class Nucleus:
         # Actual normalizations:
         Nc0 = nc.norm()[0]
         Nct0 = nct.norm()[0]
-        
+
         for s in range(nspins):
             # Numeric and analytic integrations of density corrections:
             Inum = (Nc0 - Nct0) / nspins
             Iana = ((Nc - Nct) / nspins +
                     sqrt(4 * pi) * npy.dot(self.D_sp[s],
-                                           self.setup.Delta_pL[:,0]))
+                                           self.setup.Delta_pL[:, 0]))
 
             # Add density corrections to input array n_G
             Inum += phi_i.add_density2(n_sg[s], self.D_sp[s])
@@ -787,7 +787,7 @@ class Nucleus:
                 nct.add(n_sg[s], -npy.ones(1) / nspins)
 
             # Correct density, such that correction is norm-conserving
-            g_c = self.get_nearest_grid_point(gd) % gd.N_c
+            g_c = tuple(self.get_nearest_grid_point(gd) % gd.N_c)
             n_sg[s][g_c] += (Iana - Inum) / gd.dv
         
     def wannier_correction(self, G, c, u, u1):

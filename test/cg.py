@@ -12,14 +12,13 @@ h = 0.25
 calc = Calculator(h=h,
                   nbands=2*8,
                   kpts=(2, 2, 2),
-                  convergence={'energy': 1.8e-5})
+                  convergence={'energy': 1e-5})
 bulk.set_calculator(calc)
 e0 = bulk.get_potential_energy()
 calc = Calculator(h=h,
                   nbands=2*8,
                   kpts=(2, 2, 2),
-                  convergence={'energy': 1.8e-5},
-#                  convergence={'eigenstates': 1e-10},
+                  convergence={'energy': 1e-5},
                   eigensolver='cg')
 bulk.set_calculator(calc)
 e1 = bulk.get_potential_energy()
