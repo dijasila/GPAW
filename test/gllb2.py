@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from ase import *
 from gpaw import Calculator
-from gpaw.utilities import center, equal
+from gpaw.utilities import equal
 from gpaw.atom.all_electron import AllElectron
 from gpaw.atom.generator import Generator, parameters
 from gpaw import setup_paths
@@ -36,10 +36,8 @@ for atom in atoms:
 
        # TODO: Do a 3D calculation and check that the eigenvalues and total energy
        # do not change much. 
-       SS = Atoms([Atom(atom,[ 0, 0, 0 ] ) ],
-                         cell=(8,8,8), pbc=False)
-
-       center(SS)
+       SS = Atoms([Atom(atom)], cell=(8, 8, 8), pbc=False)
+       SS.center()
 
        h = 0.25
        calc = Calculator(h=h, xc='GLLB')

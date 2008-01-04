@@ -4,7 +4,7 @@ import time
 from math import log
 
 import numpy as npy
-from ASE.ChemicalElements.symbol import symbols
+from ase.data import chemical_symbols
 
 from gpaw.utilities import devnull
 from gpaw.mpi import MASTER
@@ -356,17 +356,18 @@ def plot(positions, numbers, cell):
 
     Example::
 
-      from ASE import ListOfAtoms, Atom
+      from ase import *
       a = 4.0
       n = 20
       d = 1.0
       x = d / 3**0.5
-      atoms = ListOfAtoms([Atom('C', (0.0, 0.0, 0.0)),
-                           Atom('H', (x, x, x)),
-                           Atom('H', (-x, -x, x)),
-                           Atom('H', (x, -x, -x)),
-                           Atom('H', (-x, x, -x))],
-                          cell=(a, a, a), periodic=True)
+      atoms = ListOfAtoms(symbols='CH4',
+                          positions=[(0, 0, 0),
+                                     (x, x, x),
+                                     (-x, -x, x),
+                                     (x, -x, -x),
+                                     (-x, x, -x)],
+                          cell=(a, a, a), pbc=True)
       for line in plot(2*atoms.GetCartesianPositions() + (a,a,a),
                        atoms.GetAtomicNumbers(),
                        2*npy.array(atoms.GetUnitCell().ravel()[::4])):
@@ -397,7 +398,7 @@ def plot(positions, numbers, cell):
     ij = npy.dot(positions, [(sx, 0), (sy, sy), (0, sz)])
     ij = npy.around(ij).astype(int)
     for a, Z in enumerate(numbers):
-        symbol = symbols[Z]
+        symbol = chemical_symbols[Z]
         i, j = ij[a]
         depth = positions[a, 1]
         for n, c in enumerate(symbol):

@@ -55,8 +55,8 @@ print 'hydrogen molecule energy: %7.3f eV' % e2
 print 'bondlength              : %7.3f Ang' % d0
 
 # Find the theoretical bond length:
-relax = QuasiNewton(molecule, fmax=0.05)
-relax.run()
+relax = QuasiNewton(molecule)
+relax.run(fmax=0.05)
 
 e2 = molecule.get_potential_energy()
 

@@ -1,5 +1,5 @@
+from math import pi, sqrt
 import numpy as npy
-from Numeric import pi, sqrt
 from gpaw.utilities.tools import coordinates
 from gpaw.utilities.gauss import Gaussian
 from gpaw.domain import Domain

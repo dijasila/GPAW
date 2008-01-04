@@ -1,5 +1,7 @@
 from math import pi, sqrt
+
 import numpy as npy
+
 import _gpaw
 import gpaw.mpi as mpi
 from gpaw import debug
@@ -9,9 +11,7 @@ from gpaw.localized_functions import create_localized_functions
 from gpaw.pair_density import PairDensity
 from gpaw.operators import Gradient
 
-from gpaw.io.plt import write_plt
 
-# ..............................................................
 # KS excitation classes
 
 class KSSingles(ExcitationList):

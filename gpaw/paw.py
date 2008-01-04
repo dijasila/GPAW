@@ -484,20 +484,23 @@ class PAW(PAWExtra, Output):
             self.old_energies.pop(0)
         self.old_energies.append(self.Etot)
         
-    def set_positions(self, atoms):
+    def set_positions(self, atoms=None):
         """Update the positions of the atoms.
 
         Localized functions centered on atoms that have moved will
         have to be computed again.  Neighbor list is updated and the
         array holding all the pseudo core densities is updated."""
 
-        # Save the state of the atoms:
-        pos_ac = atoms.get_positions() / self.a0
-        self.last_atomic_configuration = (
-            pos_ac,
-            atoms.get_atomic_numbers(),
-            atoms.get_cell() / self.a0,
-            atoms.get_pbc())
+        if atoms is None:
+            pos_ac = self.last_atomic_configuration[0]
+        else:
+            # Save the state of the atoms:
+            pos_ac = atoms.get_positions() / self.a0
+            self.last_atomic_configuration = (
+                pos_ac,
+                atoms.get_atomic_numbers(),
+                atoms.get_cell() / self.a0,
+                atoms.get_pbc())
 
         movement = False
         for nucleus, pos_c in zip(self.nuclei, pos_ac):

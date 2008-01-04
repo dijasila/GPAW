@@ -201,7 +201,7 @@ class FermiDirac(Dummy):
                 dn = ne - n
                 if npy.alltrue(abs(dn) < 1.0e-9):
                     if abs(magmom - self.M) > 1.0e-8:
-                        raise RuntimeError, 'Magnetic moment not fixed'
+                        raise RuntimeError('Magnetic moment not fixed')
                     break
                 if npy.sometrue(abs(dnde) <  1.0e-9):
                     self.guess_fermi_level(kpts)
@@ -214,9 +214,11 @@ class FermiDirac(Dummy):
                     self.guess_fermi_level(kpts)
                     continue
             if niter > 1000:
-                raise RuntimeError, 'Could not locate the Fermi level!'
+                raise RuntimeError('Could not locate the Fermi level!')
             de = dn / dnde
-            if abs(de) > self.kT:
+            if self.fixmom:
+                de.clip(-self.kT, self.kT, de)
+            elif abs(de) > self.kT:
                 de *= self.kT / abs(de)
             self.epsF += de
             niter += 1

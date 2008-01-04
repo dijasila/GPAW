@@ -130,8 +130,6 @@ class Symmetry:
             raise RuntimeError('Broken symmetry!')
 
     def reduce(self, bzk_kc):
-        bzk_kc = bzk_kc[1:2]
-        print bzk_kc
         # Add inversion symmetry if it's not there:
         have_inversion_symmetry = False
         for swap_c, mirror_c in self.symmetries:

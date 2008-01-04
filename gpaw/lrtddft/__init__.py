@@ -1,11 +1,12 @@
 from math import sqrt
 import sys
+
 import numpy as npy
+from ase.units import Hartree
+
 import _gpaw
 import gpaw.mpi as mpi
 MASTER = mpi.MASTER
-
-from ASE.Units import Convert
 from gpaw import debug
 from gpaw.poisson import PoissonSolver
 from gpaw.lrtddft.excitation import Excitation,ExcitationList
@@ -156,7 +157,7 @@ class LrTDDFT(ExcitationList):
     def read(self, filename=None, fh=None):
         """Read myself from a file"""
         if mpi.rank == mpi.MASTER:
-            self.Ha = Convert(1., 'Hartree', 'eV')
+            self.Ha = Hartree
             
             if fh is None:
                 if filename.endswith('.gz'):

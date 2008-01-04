@@ -7,7 +7,7 @@ import sys
 
 import numpy as npy
 from numpy.linalg import inv
-from ASE.ChemicalElements.name import names
+from ase.data import atomic_names
 
 from gpaw.read_setup import PAWXMLParser
 from gpaw.read_basis import BasisSetXMLParser
@@ -499,7 +499,7 @@ class Setup:
             text(self.symbol + '-setup:')
         else:
             text('%s-setup (%.1f core hole):' % (self.symbol, self.fcorehole))
-        text('  name   :', names[self.Z])
+        text('  name   :', atomic_names[self.Z])
         text('  Z      :', self.Z)
         text('  valence:', self.Nv)
         if self.phicorehole_g is None:

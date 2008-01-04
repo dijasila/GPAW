@@ -2,7 +2,7 @@ import pickle
 from math import log, pi, sqrt
 
 import numpy as npy
-from ASE.Units import units, Convert
+from ase.units import Hartree
 
 from gpaw.utilities.cg import CG
 import gpaw.mpi as mpi
@@ -461,9 +461,7 @@ class RecursionMethod:
         sigma_cn = npy.zeros((self.dim, n))
         if imax is None:
             imax = self.a_uci.shape[2]
-        energyunit = units.GetEnergyUnit()
-        Ha = Convert(1, 'Hartree', energyunit)
-        eps_n = (eps_s + delta * 1.0j) / Ha
+        eps_n = (eps_s + delta * 1.0j) / Hartree
                 
         # if a certain k-point is chosen
         if kpoint is not None:

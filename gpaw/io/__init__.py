@@ -1,7 +1,7 @@
 import os
 import os.path
 
-from ASE.ChemicalElements.name import names
+from ase.data import atomic_names
 import numpy as npy
 
 import gpaw.mpi as mpi
@@ -146,7 +146,7 @@ def write(paw, filename, mode):
 
         # Write fingerprint (md5-digest) for all setups:
         for setup in paw.setups:
-            key = names[setup.Z] + 'Fingerprint'
+            key = atomic_names[setup.Z] + 'Fingerprint'
             if setup.type != 'paw':
                 key += '(%s)' % setup.type
             w[key] = setup.fingerprint
@@ -332,7 +332,7 @@ def read(paw, reader):
 
     for setup in paw.setups:
         try:
-            key = names[setup.Z] + 'Fingerprint'
+            key = atomic_names[setup.Z] + 'Fingerprint'
             if setup.type != 'paw':
                 key += '(%s)' % setup.type
             fp = r[key]

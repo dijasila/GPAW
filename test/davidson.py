@@ -1,6 +1,6 @@
+from ase import *
 from gpaw import Calculator
 from gpaw.utilities import equal
-from ase import *
 
 a = 4.05
 d = a / 2**0.5

@@ -1,7 +1,7 @@
 import os
 from ase import *
 from gpaw import Calculator
-from gpaw.utilities import equal, center
+from gpaw.utilities import equal
 from gpaw.wannier import Wannier
 import numpy as npy
 
@@ -11,15 +11,14 @@ import numpy as npy
 if not os.path.isfile('ethylene.gpw'):
     a = 6.0  # Size of unit cell (Angstrom)
 
-    ethylene = Atoms([
-                       Atom('H', (-1.235,-0.936 , 0 )),
-                       Atom('H', (-1.235, 0.936 , 0 )),
-                       Atom('C', (-0.660, 0.000 , 0 )),
-                       Atom('C', ( 0.660, 0.000 , 0 )),
-                       Atom('H', ( 1.235,-0.936 , 0 )),
-                       Atom('H', ( 1.235, 0.936 , 0 ))],
-                       cell=(a, a, a), pbc=True)
-    center(ethylene)
+    ethylene = Atoms([Atom('H', (-1.235,-0.936 , 0 )),
+                      Atom('H', (-1.235, 0.936 , 0 )),
+                      Atom('C', (-0.660, 0.000 , 0 )),
+                      Atom('C', ( 0.660, 0.000 , 0 )),
+                      Atom('H', ( 1.235,-0.936 , 0 )),
+                      Atom('H', ( 1.235, 0.936 , 0 ))],
+                     cell=(a, a, a), pbc=True)
+    ethylene.center()
     calc = Calculator(nbands=8, h=0.20, convergence={'eigenstates': 1e-6})
     ethylene.set_calculator(calc)
     ethylene.get_potential_energy()

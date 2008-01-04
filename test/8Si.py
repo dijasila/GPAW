@@ -4,7 +4,7 @@ from ase.calculators import numeric_force
 from gpaw.utilities import equal
 
 a = 5.404
-bulk = Atoms(symbols='8Si',
+bulk = Atoms(symbols='Si8',
              positions=[(0, 0, 0.1 / a),
                         (0, 0.5, 0.5),
                         (0.5, 0, 0.5),
@@ -12,7 +12,8 @@ bulk = Atoms(symbols='8Si',
                         (0.25, 0.25, 0.25),
                         (0.25, 0.75, 0.75),
                         (0.75, 0.25, 0.75),
-                        (0.75, 0.75, 0.25)])
+                        (0.75, 0.75, 0.25)],
+             pbc=True)
 bulk.set_cell((a, a, a))
 n = 20
 calc = Calculator(gpts=(n, n, n),

@@ -1,6 +1,6 @@
+from ase import *
 from gpaw import Calculator
 from gpaw.utilities import equal
-from ase import *
 
 
 a = 5.0

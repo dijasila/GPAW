@@ -6,7 +6,7 @@ from math import pi, sqrt
 
 import numpy as npy
 from numpy.linalg import solve, inv
-from ASE.ChemicalElements.name import names
+from ase.data import atomic_names
 
 from gpaw.atom.configurations import configurations
 from gpaw.version import version
@@ -798,7 +798,7 @@ class Generator(AllElectron):
         print >> xml, '<?xml version="1.0"?>'
         print >> xml, '<paw_setup version="0.6">'
 
-        name = names[self.Z].title()
+        name = atomic_names[self.Z].title()
         comment1 = name + ' setup for the Projector Augmented Wave method.'
         comment2 = 'Units: Hartree and Bohr radii.'
         comment2 += ' ' * (len(comment1) - len(comment2))

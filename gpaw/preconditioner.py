@@ -70,16 +70,16 @@ class Teter:
         self.cache = {}
         
     def __call__(self, R_G, phases, phit_G, kpt_c):
-        from FFT import fftnd, inverse_fftnd
+        from numpy.fft import fftn, ifftn
         if kpt_c is None:
-            phit_q = fftnd(phit_G)
+            phit_q = fftn(phit_G)
         else:
             phase_G = self.cache.get(kpt_c)
             if phase_G is None:
                 phase_G = npy.exp(-2j * pi * npy.dot(kpt_c, self.r_cG))
                 phase_G.shape = phit_G.shape
                 self.cache[kpt_c] = phase_G
-            phit_q = fftnd(phit_G * phase_G)
+            phit_q = fftn(phit_G * phase_G)
             
         norm = npy.vdot(phit_q, phit_q)
         h_q = phit_q * npy.conjugate(phit_q) * self.q2_q / norm
@@ -95,6 +95,6 @@ class Teter:
         K_q /= (K_q + 16.0 * x_q**4)
        
         if kpt_c is None:
-            return inverse_fftnd(K_q * fftnd(R_G)).astype(float)
+            return ifftn(K_q * fftn(R_G)).astype(float)
         else:
-            return inverse_fftnd(K_q * fftnd(phase_G * R_G)) / phase_G
+            return ifftn(K_q * fftn(phase_G * R_G)) / phase_G

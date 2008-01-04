@@ -10,8 +10,8 @@ atoms = Atoms([Atom('H', [1.234, 2.345, 3.456])],
 calc = Calculator(nbands=1, gpts=(n, n, n), txt=None,
                   convergence={'eigenstates': 1e-13})
 atoms.set_calculator(calc)
-f1 = atoms.get_forces()
+f1 = atoms.get_forces()[0]
 for i in range(3):
     f2i = numeric_force(atoms, 0, i)
-    equal(f1[i], f2, 0.0072)
+    equal(f1[i], f2i, 0.0072)
 

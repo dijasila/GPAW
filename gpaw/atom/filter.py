@@ -4,7 +4,6 @@
 from math import pi, log, sqrt
 
 import numpy as npy
-from FFT import real_fft, inverse_real_fft
 
 from gpaw.utilities import fac
 
@@ -36,6 +35,8 @@ potential."""
 #    l            |       l      l
 #                /
 #
+
+# XXX use fast bessel transform !!!
 
 class Filter:
     """Mask-function Fourier filter"""

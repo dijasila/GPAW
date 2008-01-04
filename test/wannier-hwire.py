@@ -15,7 +15,7 @@ atoms = Atoms([Atom('H', (0, 4.0, 4.0))],
 assert natoms < 5
 kpts = [21, 11, 7, 1][natoms - 1]
 occupationenergy = [30., 0., 0., 0.][natoms - 1]
-kpts = MonkhorstPack((kpts, 1, 1)) + 2e-5
+kpts = monkhorst_pack((kpts, 1, 1)) + 2e-5
 
 if 1:
     # GPAW calculator:

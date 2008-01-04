@@ -1,6 +1,8 @@
-import numpy as npy
 from math import pi
-from FFT import fftnd
+
+import numpy as npy
+from numpy.fft import fftn
+
 from gpaw.utilities.complex import real
 from gpaw.poisson import PoissonSolver
 from gpaw.utilities.gauss import Gaussian
@@ -95,9 +97,9 @@ class Coulomb:
             self.solve(I, n2, charge=Z2, eps=1e-12, zero_initial_phi=True)
             I *= npy.conjugate(n1)           
         elif method == 'recip_ewald':
-            n1k = fftnd(n1)
+            n1k = fftn(n1)
             if n2 == None: n2k = n1k
-            else: n2k = fftnd(n2)
+            else: n2k = fftn(n2)
             I = npy.conjugate(n1k) * n2k * \
                 self.ewald * 4 * pi / (self.k2 * self.N3)
         elif method == 'recip_gauss':
@@ -107,11 +109,11 @@ class Coulomb:
 
             # Determine the integrand of the neutral system
             # (n1 - Z1 ng)* int dr'  (n2 - Z2 ng) / |r - r'|
-            nk1 = fftnd(n1 - Z1 * self.ng)
+            nk1 = fftn(n1 - Z1 * self.ng)
             if n2 == None:
                 I = npy.absolute(nk1)**2 * 4 * pi / (self.k2 * self.N3)
             else:
-                nk2 = fftnd(n2 - Z2 * self.ng)
+                nk2 = fftn(n2 - Z2 * self.ng)
                 I = npy.conjugate(nk1) * nk2 * 4 * pi / (self.k2 * self.N3)
 
             # add the corrections to the integrand due to neutralization

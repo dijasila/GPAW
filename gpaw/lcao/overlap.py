@@ -1,6 +1,8 @@
 from math import sqrt, pi
+
 import numpy as npy
-from FFT import inverse_fft
+from numpy.fft import ifft
+
 from gpaw.spline import Spline
 from gpaw.spherical_harmonics import Y
 from gpaw.gaunt import gaunt
@@ -38,7 +40,7 @@ def fbt(l, f, r, k):
     g = npy.zeros(m)
     for n in range(l + 1):
         g += (dr * 2 * m * k**(l - n) *
-              inverse_fft(C[l][n] * f * r**(1 + l - n), 2 * m)[:m].real)
+              ifft(C[l][n] * f * r**(1 + l - n), 2 * m)[:m].real)
     return g
 
 class TwoCenterIntegrals:

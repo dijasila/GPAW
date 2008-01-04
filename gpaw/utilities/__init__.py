@@ -260,12 +260,6 @@ def warning(msg):
     return msg
 
 
-def center(atoms):
-    """Method for centering atoms in input ListOfAtoms"""
-    pos = atoms.positions
-    pos += 0.5 * atoms.get_cell().diagonal() - pos.mean(0)
-
-
 def divrl(a_g, l, r_g):
     """Return array divided by r to the l'th power."""
     b_g = a_g.copy()

@@ -8,7 +8,7 @@ from cmath import exp
 
 import numpy as npy
 import LinearAlgebra as linalg
-from RandomArray import random, seed
+from numpy.random import random, seed
 
 from gpaw import mpi
 from gpaw.operators import Gradient
@@ -171,7 +171,7 @@ class KPoint:
 
         scale = sqrt(12 / npy.product(gd2.domain.cell_c))
 
-        seed(1, 2 + mpi.rank)
+        seed(2 + mpi.rank)
 
         for psit_G in psit_nG:
             if self.dtype == float:

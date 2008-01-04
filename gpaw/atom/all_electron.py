@@ -10,7 +10,7 @@ import pickle
 import sys
 
 import numpy as npy
-from ASE.ChemicalElements.name import names
+from ase.data import atomic_names
 
 from gpaw.atom.configurations import configurations
 from gpaw.grid_descriptor import RadialGridDescriptor
@@ -87,7 +87,7 @@ class AllElectron:
         else:
             t('Atomic ', end='')
         t('%s calculation for %s (%s, Z=%d)' % (xcname, symbol,
-                                                names[self.Z], self.Z))
+                                                atomic_names[self.Z], self.Z))
 
         if corehole is not None:
             self.ncorehole, self.lcorehole, self.fcorehole = corehole

@@ -1,6 +1,14 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
+
+
+# XXX
+# XXX
+# XXX Use random number generator objects
+# XXX
+# XXX
+
 """Main gpaw module.
 
 Use like this::

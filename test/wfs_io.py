@@ -5,7 +5,6 @@ import sys
 from gpaw import Calculator
 from ase import *
 from gpaw.utilities import equal
-from gpaw.cluster import Cluster
 
 endings = ['gpw']
 try:
@@ -18,8 +17,8 @@ for ending in endings:
     restart = 'gpaw-restart.' + ending
     restart_wf = 'gpaw-restart-wf.' + ending
     # H2
-    H = Cluster([Atom('H', (0,0,0)), Atom('H', (0,0,1))])
-    H.minimal_box(2.)
+    H = Atoms([Atom('H', (0, 0, 0)), Atom('H', (0, 0, 1))])
+    H.center(vacuum=2.0)
 
     wfdir = 'wfs_tmp'
     mode = ending+':' + wfdir + '/psit_s%dk%dn%d'
@@ -33,12 +32,13 @@ for ending in endings:
 
     # refine the restart file containing the wfs 
     E1 = Calculator(restart_wf,
-                    convergence={'eigenstates': 1.e-5}).get_potential_energy()
+                    convergence=
+                    {'eigenstates': 1.e-5}).get_atoms().get_potential_energy()
         
     # refine the restart file and seperate wfs 
     calc = Calculator(restart, convergence={'eigenstates': 1.e-5})
     calc.read_wave_functions(mode)
-    E2 = calc.get_potential_energy()
+    E2 = calc.get_atoms().get_potential_energy()
 
     print E1, E2
     equal(E1, E2, 1e-12)

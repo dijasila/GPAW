@@ -158,30 +158,3 @@ if not debug:
     rk = _gpaw.rk
     r2k = _gpaw.r2k
     dotc = _gpaw.dotc;
-
-if __name__ == '__main__':
-    a = npy.array(((1.0, 3.0, 0.0),
-                   (0.0, -0.5, 0.0)))
-    b = npy.array(((0, 1),(2.0, 0)))
-    c = npy.zeros((2, 3))
-    gemm(2.0, a, b, 1.0, c)
-    print c
-    a = npy.array(((1.0, 3.0 + 2j, 0.0),
-                   (0.0, -0.5j, 0.0)))
-    b = npy.array(((0, 1),(2.0+1j, 0)))
-    c = npy.zeros((2, 3), complex)
-    gemm(2.0, a, b, 1.0, c)
-    print c
-    a = npy.array(((1.0, 3.0 +2j, 0.0),
-                   (0.0, -0.5j, 0.0)))
-    c = npy.ones((2, 2), complex)
-    rk(2.0, a, 0.0, c)
-    print c
-    import time, RandomArray
-    a = RandomArray.random((30, 23**3))
-    b = RandomArray.random((30, 30))
-    c = npy.zeros((30, 23**3))
-    t = time.clock()
-    for i in range(100):
-        gemm(1.0, a, b, 0.0, c)
-    print time.clock() - t

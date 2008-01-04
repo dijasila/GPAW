@@ -2,7 +2,6 @@ import os
 from math import pi, cos, sin
 from ase import *
 from gpaw import Calculator
-from gpaw.utilities import center
 from gpaw.atom.generator import Generator, parameters
 from gpaw import setup_paths
 from gpaw.xas import XAS, RecursionMethod
@@ -18,14 +17,14 @@ b = a / 2
 c = b / 2
 d = b + c
 si = Atoms([Atom('Si', (0, 0, 0)),
-                  Atom('Si', (c, c, c)),
-                  Atom('Si', (b, b, 0)),
-                  Atom('Si', (d, d, c)),
-                  Atom('Si', (b, 0, b)),
-                  Atom('Si', (d, c, d)),
-                  Atom('Si', (0, b, b)),
-                  Atom('Si', (c, d, d))],
-                 cell=(a, a, a), pbc=True)
+            Atom('Si', (c, c, c)),
+            Atom('Si', (b, b, 0)),
+            Atom('Si', (d, d, c)),
+            Atom('Si', (b, 0, b)),
+            Atom('Si', (d, c, d)),
+            Atom('Si', (0, b, b)),
+            Atom('Si', (c, d, d))],
+           cell=(a, a, a), pbc=True)
 
 if 1:
     k = 2
@@ -42,7 +41,7 @@ else:
 
 xas = XAS(calc)
 x, y = xas.get_spectra()
-calc.set_positions()
+calc.set_positions(si)
 r = RecursionMethod(calc)
 r.run(40)
 

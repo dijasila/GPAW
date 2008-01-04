@@ -1,7 +1,7 @@
 from math import pi
 
 import numpy as npy
-from ASE.Units import units, Convert
+from ase.units import Bohr
 
 import gpaw.mpi as mpi
 from gpaw.spherical_harmonics import Y
@@ -13,19 +13,19 @@ class ExpandYl:
     relative to a given center.
 
     center:
-      the center for the expansion (units.GetLengthUnit())
+      the center for the expansion (Ang)
     gd:
       grid_descriptor of the grids to expand
     lmax:
       maximal angular momentum in the expansion (lmax<7)
     Rmax:
-      maximal radius of the expansion (units.GetLengthUnit())
+      maximal radius of the expansion (Ang)
     dR:
-      grid spacing in the radius (units.GetLengthUnit())
+      grid spacing in the radius (Ang)
     """
     def __init__(self,center,gd,lmax=6,Rmax=None,dR=None):
 
-        a0 = Convert(1, 'Bohr', units.GetLengthUnit())
+        a0 = Bohr
         center = Vector3d(center) / a0
 
         self.a0 = a0
@@ -142,7 +142,7 @@ class ExpandYl:
             nrange = bands
 
         print >> f, '# Yl expansion','of smooth wave functions'
-        lu = units.GetLengthUnit()
+        lu = 'Angstrom'
         print >> f, '# center =',self.center * self.a0, lu
         print >> f, '# Rmax =', self.Rmax * self.a0, lu
         print >> f, '# dR =', self.dR * self.a0, lu

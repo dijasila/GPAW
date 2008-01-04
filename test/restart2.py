@@ -4,7 +4,6 @@ import os
 from gpaw import Calculator
 from ase import *
 from gpaw.utilities import equal
-from gpaw.cluster import Cluster
 
 endings = ['gpw']
 try:
@@ -17,8 +16,8 @@ for ending in endings:
     restart = 'gpaw-restart.' + ending
     result  = 'gpaw-result.' + ending
     # H atom: 
-    H = Cluster([Atom('H', (0,0,0))])
-    H.minimal_box(3.0)
+    H = Atoms([Atom('H')])
+    H.center(vacuum=3.0)
 
     calc = Calculator(nbands=1)
     calc.attach(calc.write, 4, restart)

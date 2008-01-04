@@ -17,6 +17,7 @@ class Cluster(ListOfAtoms):
     def __init__(self, atoms=None, cell=None,
                  filename=None, filetype=None,
                  timestep=0.0):
+        print 'Please use standard Atoms class from ase package!'
         if atoms is None:
             ListOfAtoms.__init__(self,[],cell=cell)
         else:

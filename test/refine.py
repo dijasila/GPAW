@@ -4,7 +4,6 @@ import os
 from gpaw import Calculator
 from ase import *
 from gpaw.utilities import equal
-from gpaw.cluster import Cluster
 
 ##endings = ['nc']
 endings = ['gpw']
@@ -17,8 +16,8 @@ endings = ['gpw']
 for ending in endings:
     restart_wf = 'gpaw-restart-wf.' + ending
     # H2
-    H = Cluster([Atom('H', (0,0,0)), Atom('H', (0,0,1))])
-    H.minimal_box(2.0)
+    H = Atoms([Atom('H', (0,0,0)), Atom('H', (0,0,1))])
+    H.center(vacuum=2.0)
 
     if 1:
         calc = Calculator(nbands=2,
@@ -34,8 +33,8 @@ for ending in endings:
         Edirect = H.get_potential_energy()
 
     # refine the result after reading from a file
-    calc = Calculator(restart_wf, convergence={'energy': 0.00001})
-    Erestart = calc.get_potential_energy()
+    H = Calculator(restart_wf, convergence={'energy': 0.00001}).get_atoms()
+    Erestart = H.get_potential_energy()
 
     print Edirect, Erestart
     # Note: the different density mixing introduces small differences 

@@ -1,9 +1,9 @@
+import numpy as npy
+
 from gpaw.gllb.nonlocalfunctional import NonLocalFunctional
 from gpaw.gllb import find_nucleus, SMALL_NUMBER
 
-import numpy as npy
 from gpaw.utilities.blas import axpy
-from multiarray import matrixproduct as dot3
 from gpaw.utilities.complex import cc, real
 from gpaw.utilities import pack
 
@@ -171,13 +171,13 @@ class ResponseFunctional(NonLocalFunctional):
                     for j in range(len(w_i)):
                         w_i[j] = self.w_sn[s][i]
                         i = i + 1
-                    w_i = w_i[:, npy.NewAxis] * kpt.f_n[:, npy.NewAxis] * xccorr.deg
+                    w_i = w_i[:, npy.newaxis] * kpt.f_n[:, npy.newaxis] * xccorr.deg
 
                     # Calculate the 'density matrix' for numerator part of potential
                     Dn_ii = real(npy.dot(cc(npy.transpose(P_ni)),
                                          P_ni * w_i))
                     Dn_p = pack(Dn_ii) # Pack the unpacked densitymatrix
-                    Dnn_Lq += dot3(xccorr.B_Lqp, Dn_p)
+                    Dnn_Lq += npy.dot(xccorr.B_Lqp, Dn_p)
 
             # Communicate over K-points
             self.kpt_comm.sum(Dnn_Lq)

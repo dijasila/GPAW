@@ -1,8 +1,7 @@
 import os
-
+from ase import *
 from gpaw import Calculator
 from gpaw.utilities import equal
-from ase import *
 from gpaw.lrtddft import LrTDDFT
 
 io_only=False
