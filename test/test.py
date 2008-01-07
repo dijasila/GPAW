@@ -69,10 +69,11 @@ if len(tests) == 0:
     tests_lxc = [
         'lxc_spinpol_Li.py', 'lxc_xcatom.py'
         ]
-    tests_parallel = ['parallel/restart.py', 'parallel/parmigrate.py',
-                      'parallel/par8.py', 'parallel/par6.py',
-                      'parallel/exx.py']
     tests = tests + tests_lxc
+
+tests_parallel = ['parallel/restart.py', 'parallel/parmigrate.py',
+                  'parallel/par8.py', 'parallel/par6.py',
+                  'parallel/exx.py']
 
 if opt.run_failed_tests_only:
     tests = [line.strip() for line in open('failed-tests.txt')]
