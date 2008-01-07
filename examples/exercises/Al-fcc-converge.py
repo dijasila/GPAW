@@ -1,47 +1,41 @@
-from gpaw import Calculator
-from ASE import Atom, ListOfAtoms
-from ASE.Visualization.VMD import VMD
-from ASE.Visualization.gnuplot import gnuplot
+"""Bulk Al(fcc) test"""
 
-filename = 'Al-fcc-converge'
+from ase import *
+from gpaw import *
 
+name = 'Al-fcc'
 a = 4.05   # fcc lattice paramter
-b = a / 2. 
+b = a / 2 
+bulk = Atoms(symbols='4Al',
+             positions=[(0, 0, 0),
+                        (b, b, 0),
+                        (0, b, b),
+                        (b, 0, b)],
+             cell=(a, a, a),
+             pbc=True)
 
-bulk = ListOfAtoms([Atom('Al', (0, 0, 0)),
-                    Atom('Al', (b, b, 0)),
-                    Atom('Al', (0, b, b)),
-                    Atom('Al', (b, 0, b)),],
-                   cell=(a, a, a),
-                   periodic=(1, 1, 1))
-
-calc = Calculator(nbands=16,              # Set the number of electronic bands
-                  h=0.2,                  # Set the grid spacing
-                  kpts=(1,1,1),           # Set the k-points
-                  txt=filename+'.txt')    # Set output file
-
-bulk.SetCalculator(calc)
-
+k = 4
+calc = Calculator(nbands=16, txt=name + '-k.txt')
+bulk.set_calculator(calc)
 
 # Make a plot of the convergence with respect to k-points
-kpt_energies = []
-for k in [2, 4, 6, 8, 10, 12]: 
+calc.set(h=0.3)
+f = open(name + '-k.dat', 'w')
+#for k in [2, 4, 6, 8, 10, 12]: 
+for k in [2, 4, 6]:
     calc.set(kpts=(k, k, k))
-    energy = bulk.GetPotentialEnergy() 
-    kpt_energies.append((k, energy))
+    energy = bulk.get_potential_energy() 
+    print k, energy
+    print >> f, k, energy
 
-#kpt_plot = gnuplot(kpt_energies) 
-
-# Make a plot of the convergence with respect to  grid spacing
-k = 6
-calc.set(kpts=(k, k, k))
-gs_energies = []
-for gs in [0.4, 0.3, 0.25, 0.2, 0.15]:
-    calc.set(h=gs)
-    energy = bulk.GetPotentialEnergy()
-    gs_energies.append((gs, energy))
-
-#gs_plot = gnuplot(gs_energies)
-
-print kpt_energies
-print gs_energies
+# Make a plot of the convergence with respect to grid spacing
+k = 4
+calc.set(kpts=(k, k, k), txt=name + '-h.txt')
+f = open(name + '-h.dat', 'w')
+#for h in [0.5, 0.3, 0.25, 0.2, 0.15]:
+for g in [12, 16]:
+    h = a / g
+    calc.set(h=h)
+    energy = bulk.get_potential_energy() 
+    print h, energy
+    print >> f, h, energy
