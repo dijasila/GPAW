@@ -83,7 +83,7 @@ class EXX:
         self.Na = Na
         self.use_finegrid = use_finegrid
 
-        paw.set_positions() # this should not be needed here XXXXX
+        #paw.set_positions() # this should not be needed here XXXXX
         self.pair_density = PairDensity(paw)
         
         # Allocate space for matrices
@@ -92,7 +92,6 @@ class EXX:
         if self.use_finegrid:
             self.rhot_g = finegd.empty()# Comp. pseudo density on fine grid
             self.vt_g = finegd.empty()# Pot. of comp. pseudo density on fine grid
-            self.ghat_nuclei = ghat_nuclei
             if usefft:
                 solver = PoissonFFTSolver()
                 solver.initialize(finegd)
@@ -103,7 +102,6 @@ class EXX:
         else:
             self.rhot_g = gd.empty()# Comp. pseudo density on coarse grid
             self.vt_g = self.vt_G   # Pot. of comp. pseudo dens. on coarse grid
-            self.ghat_nuclei = paw.Ghat_nuclei
             if usefft:
                 solver = PoissonFFTSolver()
                 solver.initialize(gd)
@@ -138,6 +136,13 @@ class EXX:
 
         fmin = 1.e-10
 
+        pd = self.pair_density
+
+        if self.use_finegrid:
+            ghat_nuclei = pd.ghat_nuclei
+        else:
+            ghat_nuclei = pd.Ghat_nuclei
+
         # Determine pseudo-exchange
         for n1 in range(self.nbands):
             psit1_G = psit_nG[n1]            
@@ -153,7 +158,6 @@ class EXX:
                 dc = 1 + (n1 != n2) # double count factor
 
                 # Determine current exchange density ...
-                pd = self.pair_density
                 pd.initialize(kpt, n1, n2)
                 self.nt_G[:] = pd.get(finegrid=False)
 
@@ -212,7 +216,7 @@ class EXX:
                     # of the nuclei,
                     # used to determine the atomic hamiltonian, and the 
                     # residuals
-                    for nucleus in self.ghat_nuclei:
+                    for nucleus in ghat_nuclei:
                         v_L = npy.zeros((nucleus.setup.lmax + 1)**2)
                         if self.use_finegrid:
                             nucleus.ghat_L.integrate(self.vt_g, v_L)

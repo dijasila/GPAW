@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 import os
+from ase import *
 from gpaw import Calculator
 from gpaw.utilities import equal
 from gpaw.atom.generator import Generator, parameters
-from ase import *
 from gpaw import setup_paths
 
 loa = Atoms([Atom('Be', (0, 0, 0)), Atom('Be', (2.45, 0, 0))],

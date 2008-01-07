@@ -21,17 +21,17 @@ class Wannier(ASEWannier):
         if numberofbands is not None:
             self.SetNumberOfBands(numberofbands)
         else:
-            self.SetNumberOfBands(calculator.GetNumberOfBands())
+            self.SetNumberOfBands(calculator.get_number_of_bands())
         self.SetSpin(spin)
         self.seed = seed
-        self.SetIBZKPoints(calculator.GetIBZKPoints())
-        self.SetBZKPoints(calculator.GetBZKPoints())
+        self.SetIBZKPoints(calculator.get_ibz_k_points())
+        self.SetBZKPoints(calculator.get_bz_k_points())
         assert len(self.GetBZKPoints()) == len(self.GetIBZKPoints()),\
                'k-points must not be symmetry reduced'
 
         # Set eigenvalues relative to the Fermi level
-        efermi = calculator.GetFermiLevel()
-        self.SetEigenValues([calculator.GetEigenvalues(kpt, spin) - efermi
+        efermi = calculator.get_fermi_level()
+        self.SetEigenValues([calculator.get_eigenvalues(kpt, spin) - efermi
                              for kpt in range(len(self.GetBZKPoints()))])
 
         if numberoffixedstates is not None:
@@ -54,7 +54,7 @@ class Wannier(ASEWannier):
             self.SetType(complex)
     
         # Set unitcell and determine reciprocal weights
-        self.SetUnitCell(calculator.GetListOfAtoms().GetUnitCell())
+        self.SetUnitCell(calculator.domain.cell_c.diag() / Bohr)
         self.CalculateWeightsFromUnitCell()
 
         Nb, M_k, L_k = self.GetMatrixDimensions()

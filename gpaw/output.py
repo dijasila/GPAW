@@ -29,7 +29,9 @@ class Output:
         """
 
         p = self.input_parameters
-        txt = p['txt']
+        self.verbose = p['verbose']
+
+    def set_txt(self, txt):
         if txt is None or (not self.master):
             txt = devnull
         elif txt == '-':
@@ -37,10 +39,9 @@ class Output:
         elif isinstance(txt, str):
             txt = open(txt, 'w')
         self.txt = txt
-        self.verbose = p['verbose']
 
         #self.print_logo()
-
+        
     def text(self, *args, **kwargs):
         self.txt.write(kwargs.get('sep', ' ').join([str(arg)
                                                     for arg in args]) +
@@ -84,7 +85,7 @@ class Output:
     def print_positions(self, pos_ac):
         t = self.text
         t()
-        t('Positions in Ang:')
+        t('Positions:')
         for a, pos_c in enumerate(pos_ac):
             symbol = self.nuclei[a].setup.symbol
             t('%3d %-2s %8.4f%8.4f%8.4f' % 

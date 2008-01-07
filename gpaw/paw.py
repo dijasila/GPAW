@@ -271,6 +271,12 @@ class PAW(PAWExtra, Output):
         if filename is not None:
             reader = self.read_parameters(filename)
 
+        if 0:#'convergence' in kwargs:
+            self.input_parameters['convergence'].update(kwargs['convergence'])
+            del kwargs['convergence']
+
+        #self.input_parameters.update(kwargs)
+        #self.set(**self.input_parameters)
         self.set(**kwargs)
         # One could also do input_parameters.update(kwargs), but that may
         # overwrite some entries in the more complex items such as
@@ -281,6 +287,8 @@ class PAW(PAWExtra, Output):
             gpaw.io.read(self, reader)
             self.plot_atoms(self.atoms_from_file)
 
+        Output.__init__(self)
+
         self.print_logo()
 
     def set(self, **kwargs):
@@ -290,9 +298,13 @@ class PAW(PAWExtra, Output):
             
         self.convert_units(kwargs)  # ASE???
 
-        for name, value in kwargs.items():
+        names = kwargs.keys()
+        names.sort()
+        #for name, value in kwargs.items():
+        for name in names:
+            value = kwargs[name]
             if name in ['gpts', 'h', 'kpts', 'spinpol', 'xc', 'communicator']:
-                if p[name] != kwargs[name]:
+                if p[name] != value:
                     # theses are severe changes, we need new densities and
                     # wave functions
                     self.initialized = False
@@ -315,12 +327,12 @@ class PAW(PAWExtra, Output):
                 self.converged = False
                 self.input_parameters[name] = value
             elif name == 'nbands':
-                if p[name] != kwargs[name]:
+                if p[name] != value:
                     # we should have new wave functions
                     self.wave_functions_initialized = False
                     self.converged = False
             elif name == 'charge':
-                if p[name] != kwargs[name]:
+                if p[name] != value:
                     self.converged = False
                     # we use the old wave functions to initialize
                     # the density and Hamiltonian
@@ -359,8 +371,8 @@ class PAW(PAWExtra, Output):
                     self.density.set_mixer(self, value)
             
             elif name == 'width':
-                if p[name] != kwargs[name]:
-                    self.kT = kwargs[name]
+                if p[name] != value:
+                    self.kT = value
                     if self.initialized:
                         if self.kT == 0 or 2 * self.nbands == self.nvalence:
                             self.occupation = occupations.ZeroKelvin(
@@ -372,8 +384,8 @@ class PAW(PAWExtra, Output):
                                 self.nspins, self.kT)
                     self.converged = False
             elif name == 'eigensolver':
-                if p[name] != kwargs[name]:
-                    eig = kwargs[name]
+                if p[name] != value:
+                    eig = value
                     if isinstance(eig, str):
                         self.eigensolver = get_eigensolver(eig)
                     else:
@@ -381,11 +393,12 @@ class PAW(PAWExtra, Output):
                     if self.wave_functions_initialized:
                         self.eigensolver.initialize(self)
                 self.converged = False
+            elif name == 'txt':
+                self.set_txt(value)
             elif name not in p:
                 raise RuntimeError('Unknown keyword: %s' % name)
 
         self.input_parameters.update(kwargs)
-        Output.__init__(self)
                 
     def calculate(self, atoms):
         """Update PAW calculaton if needed."""

@@ -31,7 +31,7 @@ class Calculator(PAW):
 
         self.text('ase: ', os.path.dirname(ase.__file__))
         self.text('numpy:', os.path.dirname(npy.__file__))
-        self.text('units: Bohr and Hartree')
+        self.text('units: Angstrom and eV')
 
     def convert_units(self, parameters):
         if parameters.get('h') is not None:
