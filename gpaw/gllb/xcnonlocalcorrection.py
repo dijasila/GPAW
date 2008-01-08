@@ -6,7 +6,6 @@ from gpaw.gaunt import gaunt
 from gpaw.sphere import Y_nL, points, weights
 from gpaw.spherical_harmonics import YL
 
-from multiarray import matrixproduct as dot3
 
 
 class DummyXC:
@@ -148,7 +147,7 @@ class XCNonLocalCorrection:
         # The total exchange integral
         E = 0.0
 
-        D_Lq = dot3(self.B_Lqp, D_p)
+        D_Lq = npy.dot(self.B_Lqp, D_p)
         n_Lg = npy.dot(D_Lq, self.n_qg)
         n_Lg[0] += self.nc_g * npy.sqrt(4 * npy.pi) / deg
 
@@ -213,10 +212,10 @@ class XCNonLocalCorrection:
             E += w / deg * self.motherxc.calculate_non_local_paw_correction(a, s, self, slice, v_g, vt_g)
 
             # Integrate the slice with respect to orbitals
-            dEdD_p += w * npy.dot(dot3(self.B_pqL, Y_L),
+            dEdD_p += w * npy.dot(npy.dot(self.B_pqL, Y_L),
                                   npy.dot(self.n_qg, v_g * self.dv_g))
 
-            dEdD_p -= w * npy.dot(dot3(self.B_pqL, Y_L),
+            dEdD_p -= w * npy.dot(npy.dot(self.B_pqL, Y_L),
                                   npy.dot(self.nt_qg, vt_g * self.dv_g))
             y += 1
 
