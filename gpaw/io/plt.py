@@ -2,7 +2,7 @@
 
 from struct import calcsize,pack,unpack
 import numpy as npy
-from ASE.Units import Convert
+from ase.units import Bohr
 from gpaw.utilities import check_unit_cell
 
 import gpaw.mpi as mpi
@@ -72,7 +72,7 @@ def write_plt(cell,
 
     The cell is assumed to be in Angstroms and the grid in atomc units (Bohr)
     """
-    a0_A = Convert(1, 'Bohr', 'Ang') 
+    a0_A = Bohr
     if hasattr(cell, '_new_array'): # this is a GridDescriptor
         xe, ye, ze = cell.h_c * cell.N_c * a0_A # get Angstroms
     elif len(cell.shape) == 2:
