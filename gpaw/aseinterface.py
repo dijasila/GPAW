@@ -10,12 +10,12 @@ import weakref
 
 import numpy as npy
 import ase
-from ase.parallel import register_parallel_cleanup_function
+#from ase.parallel import register_parallel_cleanup_function
 from ase.units import Bohr, Hartree
 
 from gpaw.paw import PAW
 
-register_parallel_cleanup_function()
+#register_parallel_cleanup_function()
 
 
 class Calculator(PAW):
