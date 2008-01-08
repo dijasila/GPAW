@@ -29,7 +29,7 @@ class Calculator(PAW):
 
         PAW.__init__(self, filename, **kwargs)
 
-        self.text('ase: ', os.path.dirname(ase.__file__))
+        self.text('ase:  ', os.path.dirname(ase.__file__))
         self.text('numpy:', os.path.dirname(npy.__file__))
         self.text('units: Angstrom and eV')
 

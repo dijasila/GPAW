@@ -1,10 +1,13 @@
 from math import sqrt, pi
+
 import numpy as npy
+
 from gpaw.hamiltonian import Hamiltonian
 from gpaw.utilities.blas import rk, r2k
 from gpaw.utilities import unpack
 from gpaw.lcao.overlap import TwoCenterIntegrals
 from gpaw import debug
+from _gpaw import overlap
 
 
 class LCAOHamiltonian(Hamiltonian):
@@ -14,7 +17,8 @@ class LCAOHamiltonian(Hamiltonian):
         Hamiltonian.__init__(self, paw)
         self.setups = paw.setups
         self.ibzk_kc = paw.ibzk_kc
-        
+        self.gamma = paw.gamma
+
     def initialize(self, cell_c):
         self.nao = 0
         for nucleus in self.nuclei:
@@ -133,6 +137,36 @@ class LCAOHamiltonian(Hamiltonian):
         t0 = t()
         overlap(box_b, self.vt_sG[s], V_mm)
         t1 = t()
+
+    def calculate_effective_potential_matrix2(self, Vt_kmm, s):
+        nb = 0
+        for nucleus in self.nuclei:
+            nb += len(nucleus.phit_i.box_b)
+
+        m_b = npy.empty(nb, int)
+
+        if self.gamma:
+            phase_kb = npy.empty((0, 0), complex)
+        else:
+            phase_kb = npy.empty((nb, nkpts), complex) # XXX
+
+        m = 0
+        b1 = 0
+        lfs_b = []
+        for nucleus in self.nuclei:
+            if debug:	
+                box_b = [box.lfs for box in nucleus.phit_i.box_b]
+            else:	
+                box_bnucleus.phit_i.box_b
+            b2 = b1 + len(box_b)
+            m_b[b1:b2] = m
+            lfs_b.extend(box_b)
+            if not self.gamma:
+                phase_bk[b1:b2] = nucleus.phit_i.phase_kb.T
+            m += phit_i.ni
+            b1 = b2
+
+        overlap(lfs_b, m_b, phase_bk, self.vt_sG[s], Vt_kmm)
 
     def old_initialize(self):
         self.nao = 0
