@@ -39,5 +39,6 @@ class Wannier:
         scaled = npy.angle(self.Z.diagonal()).T / (2 * pi)
         return (scaled % 1.0) * self.cell
 
-    def rotate_wave_functions(self, calc):
-        calc.rotate(self.U)
+    def get_function(self, calc, n):
+        psit_nG = calc.kpt_u[0].psit_nG[:].reshape((calc.nbands, -1))
+        return npy.dot(self.U[:, n],  psit_nG).reshape(calc.gd.n_c) / Bohr**1.5

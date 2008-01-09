@@ -40,7 +40,7 @@ void cut(const double* a, const int n[3], const int c[3],
     }
 }
 
-
+/*
 PyObject * overlap(PyObject* self, PyObject *args)
 {
   PyObject* boxes;
@@ -138,11 +138,11 @@ PyObject * overlap(PyObject* self, PyObject *args)
     free(a1);
   Py_RETURN_NONE;
 }
+*/
 
-/*
-PyObject * overlap2(PyObject* self, PyObject *args)
+PyObject * overlap(PyObject* self, PyObject *args)
 {
-  PyListObject* lfs_b_obj;
+  PyObject* lfs_b_obj;
   const PyArrayObject* m_b_obj;
   const PyArrayObject* phase_bk_obj;
   const PyArrayObject* vt_G_obj;
@@ -152,6 +152,7 @@ PyObject * overlap2(PyObject* self, PyObject *args)
     return NULL;
 
   int nk = phase_bk_obj->dimensions[1];
+  int nm = Vt_kmm_obj->dimensions[1];
 
   const long *m_b = LONGP(m_b_obj);
   const double_complex *phase_bk = COMPLEXP(phase_bk_obj);
@@ -164,23 +165,23 @@ PyObject * overlap2(PyObject* self, PyObject *args)
   else
     Vt_kmm = COMPLEXP(Vt_kmm_obj);
 
-  int nb = PyList_Size(boxes);
+  int nb = PyList_Size(lfs_b_obj);
 
   int nmem = 0;
   double* a1 = 0;
   for (int b1 = 0; b1 < nb; b1++)
     {
       const LocalizedFunctionsObject* lf1 =
-	(const LocalizedFunctionsObject*)PyList_GetItem(boxes, b1);
+	(const LocalizedFunctionsObject*)PyList_GetItem(lfs_b_obj, b1);
       int m1 = m_b[b1];
       int nao1 = lf1->nf;
       double* f1 = lf1->f;
       double* vt1 = lf1->w;
-      bmgs_cut(vt, lf1->size, lf1->start, vt1, lf1->size0);
+      bmgs_cut(vt_G, lf1->size, lf1->start, vt1, lf1->size0);
       for (int b2 = b1; b2 < nb; b2++)
 	{
 	  const LocalizedFunctionsObject* lf2 =
-	    (const LocalizedFunctionsObject*)PyList_GetItem(boxes, b2);
+	    (const LocalizedFunctionsObject*)PyList_GetItem(lfs_b_obj, b2);
 	  int beg[3];
 	  int end[3];
 	  int size[3];
@@ -243,15 +244,11 @@ PyObject * overlap2(PyObject* self, PyObject *args)
 		     a2, &ng, a1, &ng, &zero, H, &nao2);
 	      for (int i1 = 0; i1 < nao1; i1++)
 		for (int i2 = 0; i2 < nao2; i2++)
-		  Vt[m1 + i1 + (m2 + i2) * nao] = *H++;
+		  Vt_mm[m1 + i1 + (m2 + i2) * nm] = *H++;
 	    }
-	  m2 += nao2;
 	}
-      m1 += nao1;
     }
   if (nmem != 0)
     free(a1);
   Py_RETURN_NONE;
 }
- 
-*/

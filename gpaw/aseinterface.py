@@ -116,11 +116,11 @@ class Calculator(PAW):
         
         return self.weight_k
 
-    def get_pseudo_valence_density(self):
+    def get_pseudo_density(self):
         """Return pseudo-density array."""
         return self.density.get_density_array() / self.a0**3
 
-    def get_electron_density(self, gridrefinement=2):
+    def get_all_electron_density(self, gridrefinement=2):
         """Return reconstructed all-electron density array."""
         return self.density.get_all_electron_density(gridrefinement)\
                / self.a0**3

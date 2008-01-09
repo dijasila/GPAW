@@ -124,7 +124,7 @@ class LCAOHamiltonian(Hamiltonian):
         return R_dc
 
         
-    def calculate_effective_potential_matrix(self, V_mm, s):
+    def calculate_effective_potential_matrix0(self, V_mm, s):
         box_b = []
         for nucleus in self.nuclei:
             if debug:	
@@ -138,7 +138,7 @@ class LCAOHamiltonian(Hamiltonian):
         overlap(box_b, self.vt_sG[s], V_mm)
         t1 = t()
 
-    def calculate_effective_potential_matrix2(self, Vt_kmm, s):
+    def calculate_effective_potential_matrix(self, Vt_kmm, s):
         nb = 0
         for nucleus in self.nuclei:
             nb += len(nucleus.phit_i.box_b)
@@ -146,23 +146,24 @@ class LCAOHamiltonian(Hamiltonian):
         m_b = npy.empty(nb, int)
 
         if self.gamma:
-            phase_kb = npy.empty((0, 0), complex)
+            phase_bk = npy.empty((0, 0), complex)
         else:
-            phase_kb = npy.empty((nb, nkpts), complex) # XXX
+            phase_bk = npy.empty((nb, nkpts), complex) # XXX
 
         m = 0
         b1 = 0
         lfs_b = []
         for nucleus in self.nuclei:
+            phit_i = nucleus.phit_i
             if debug:	
-                box_b = [box.lfs for box in nucleus.phit_i.box_b]
+                box_b = [box.lfs for box in phit_i.box_b]
             else:	
-                box_bnucleus.phit_i.box_b
+                box_b = phit_i.box_b
             b2 = b1 + len(box_b)
             m_b[b1:b2] = m
             lfs_b.extend(box_b)
             if not self.gamma:
-                phase_bk[b1:b2] = nucleus.phit_i.phase_kb.T
+                phase_bk[b1:b2] = phit_i.phase_kb.T
             m += phit_i.ni
             b1 = b2
 
