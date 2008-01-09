@@ -36,7 +36,7 @@ class Wannier:
         return value
 
     def get_centers(self):
-        scaled = npy.angle(self.Z.diagonal()).T / (2 * pi)
+        scaled = -npy.angle(self.Z.diagonal()).T / (2 * pi)
         return (scaled % 1.0) * self.cell
 
     def get_function(self, calc, n):
