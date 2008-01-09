@@ -7,7 +7,6 @@ from math import pi, sqrt
 from cmath import exp
 
 import numpy as npy
-import LinearAlgebra as linalg
 from numpy.random import random, seed
 
 from gpaw import mpi

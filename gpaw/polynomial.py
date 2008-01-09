@@ -1,5 +1,4 @@
 import numpy as npy
-import LinearAlgebra as linalg
 
 class Polynomial:
     """Polynomial p(x,y,z). 

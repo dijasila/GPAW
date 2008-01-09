@@ -1,7 +1,6 @@
 from gaunt import gaunt
 from math import pi, sqrt
 from gpaw.utilities import hartree
-import LinearAlgebra as linalg
 import numpy as npy
 from gpaw.sphere import Y_nL, points, weights
 from gpaw.spherical_harmonics import YL

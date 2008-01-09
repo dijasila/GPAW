@@ -1,5 +1,4 @@
 import numpy as npy
-import LinearAlgebra as linalg
 from gpaw.Function1D import Function1D
 from math import sqrt, pi
 from gpaw.utilities import hartree, packed_index, unpack, unpack2, pack, pack2, fac
@@ -1027,7 +1026,7 @@ class KLIFunctional:
                 b[i] = integrate(u_j[i]*u_j[i] * V_S / n_g) - u_bar[i];
 
             # Solve the linear equation [64] determinating the KLI-potential
-            x = linalg.solve_linear_equations(A,b)
+            x = npy.linalg.solve_linear_equations(A,b)
 
         #print "Ci:s ", x
         # Primed sum of [48]
@@ -1249,7 +1248,7 @@ class KLIFunctional:
         if occupied > 1:
             print A.shape
             print self.ubar_n.shape
-            x = linalg.solve_linear_equations(A,self.ubar_n)
+            x = npy.linalg.solve_linear_equations(A,self.ubar_n)
 
             for n1 in range(0, occupied-1):
                 psit1_G = psit_nG[n1]      
