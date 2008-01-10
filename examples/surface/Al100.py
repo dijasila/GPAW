@@ -1,5 +1,5 @@
 from gpaw import Calculator
-from build import fcc100
+from build_fcc import fcc100
 
 a = 4.05
 def energy(n):
@@ -8,7 +8,9 @@ def energy(n):
                       kpts=(6, 6, 1),
                       h = 0.25)
     fcc.set_calculator(calc)
-    return fcc.get_potential_energy()
+    e = fcc.get_potential_energy()
+    calc.write('slab-%d.gpw' % n)
+    return e
 
 f = file('e6x6.dat', 'w')
 for n in range(3, 7):
