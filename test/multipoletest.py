@@ -6,7 +6,7 @@ from gpaw.grid_descriptor import GridDescriptor
 from gpaw.localized_functions import create_localized_functions
 from gpaw.xc_functional import XCFunctional
 
-n = 40 /8 * 10
+n = 60#40 /8 * 10
 a = 10.0
 domain = Domain((a, a, a))
 gd = GridDescriptor(domain, (n, n, n))

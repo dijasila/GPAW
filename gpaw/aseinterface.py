@@ -101,6 +101,9 @@ class Calculator(PAW):
         """Return the k-points."""
         return self.bzk_kc
  
+    def get_number_of_spins(self):
+        return self.nspins
+
     def get_spin_polarized(self):
         """Is it a spin-polarized calculation?"""
         return self.nspins == 2
@@ -109,14 +112,14 @@ class Calculator(PAW):
         """Return k-points in the irreducible part of the Brillouin zone."""
         return self.ibzk_kc
 
-    def get_ibz_k_point_weights(self):
+    def get_k_point_weights(self):
         """Weights of the k-points. 
         
         The sum of all weights is one."""
         
         return self.weight_k
 
-    def get_pseudo_density(self):
+    def get_pseudo_valence_density(self):
         """Return pseudo-density array."""
         return self.density.get_density_array() / self.a0**3
 

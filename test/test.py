@@ -67,7 +67,8 @@ if len(tests) == 0:
              '8Si.py', 'Cu.py', 'ltt.py', 'generatesetups.py',
              'ae-calculation.py', 'H2Al110.py']
     tests_lxc = [
-        'lxc_spinpol_Li.py', 'lxc_xcatom.py'
+        #'lxc_spinpol_Li.py',
+        'lxc_xcatom.py'
         ]
     tests = tests + tests_lxc
 

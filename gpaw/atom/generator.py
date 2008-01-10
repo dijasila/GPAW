@@ -20,7 +20,7 @@ from gpaw.atom.filter import Filter
 parameters = {
  'H' : {'rcut': 0.9},
  'He': {'rcut': 1.5},
- 'Li': {'core': '[He]',   'rcut': 1.8},
+ 'Li': {'core': '[He]',   'rcut': 2.1},
  'Be': {'core': '[He]',   'rcut': 1.5},
  'B' : {'core': '[He]',   'rcut': 1.2},
  'C' : {'core': '[He]',   'rcut': 1.2},
@@ -28,9 +28,9 @@ parameters = {
  'O' : {'core': '[He]',   'rcut': 1.4, 'filter': (0.5, 1.75)},
  'F' : {'core': '[He]',   'rcut': 1.2},
  'Ne': {'core': '[He]',   'rcut': 1.8},
- 'Na': {'core': '[Ne]',   'rcut': 2.6},
+ 'Na': {'core': '[Ne]',   'rcut': 2.55},
  'Mg': {'core': '[Ne]',   'rcut': 2.0},
- 'Al': {'core': '[Ne]',   'rcut': 2.0},
+ 'Al': {'core': '[Ne]',   'rcut': 2.05},
  'Si': {'core': '[Ne]',   'rcut': 2.0},
  'P' : {'core': '[Ne]',   'rcut': 1.8},
  'S' : {'core': '[Ne]',   'rcut': 1.6},
@@ -38,35 +38,36 @@ parameters = {
  'Ar': {'core': '[Ne]',   'rcut': 1.6},
  'K' : {'core': '[Ar]',   'rcut': 3.3},
  'Ca': {'core': '[Ar]',   'rcut': 2.9},
-# 'Ca': {'core': '[Ne]',   'rcut': 2.3},
  'Ti': {'core': '[Ar]',   'rcut': [2.5, 2.6, 2.3]},
  'V' : {'core': '[Ar]',   'rcut': [2.5, 2.4, 2.2],
         'vbar': ('poly', 2.2), 'rcutcomp': 2.5},
  'Cr': {'core': '[Ar]',   'rcut': [2.4, 2.4, 2.2]},
  'Fe': {'core': '[Ar]',   'rcut': 2.3},
  'Ni': {'core': '[Ar]',   'rcut': 2.3},
- 'Cu': {'core': '[Ar]',   'rcut': [2.3, 2.2, 2.1]},
+ 'Cu': {'core': '[Ar]',   'rcut': [2.2, 2.2, 2.0]},
  'Zn': {'core': '[Ar]',   'rcut': [2.1, 2.2, 2.1]},
  'Ga': {'core': '[Ar]3d', 'rcut': 2.2},
  'As': {'core': '[Ar]',   'rcut': 2.0},
  'Kr': {'core': '[Ar]3d', 'rcut': 2.2},
  'Rb': {'core': '[Kr]',   'rcut': 4.0},
- 'Sr': {'core': '[Kr]',   'rcut': 3.4},
-# 'Sr': {'core': '[Ar]3d',   'rcut': 2.6},
+ 'Sr': {'core': '[Ar]3d', 'rcut': [2.4, 2.4, 2.3], 
+        'extra':{1: [0.0], 2: [0.0]}},
  'Zr': {'core': '[Ar]3d', 'rcut': 2.0},
  'Nb': {'core': '[Kr]',   'rcut': 3.0},
  'Mo': {'core': '[Kr]',   'rcut': [2.8, 2.8, 2.5]},
  'Ru': {'core': '[Kr]',   'rcut': 2.6},
  'Rh': {'core': '[Kr]',   'rcut': 2.5},
  'Pd': {'core': '[Kr]',   'rcut': [2.3, 2.5, 2.2]},
- 'Ag': {'core': '[Kr]',   'rcut': 2.5},
+ 'Ag': {'core': '[Kr]',   'rcut': 2.45},
  'Cd': {'core': '[Kr]',   'rcut': 2.5},
- 'Ba': {'core': '[Kr]4d',   'rcut': 3.0, 'extra': {1: [0.0], 2: [0.0, 1.0]}},
+ 'Ba': {'core': '[Kr]4d', 'rcut': 3.0, 'extra': {1: [0.0], 2: [0.0, 1.0]}},
+ 'La': {'core': '[Kr]4d', 'rcut': 2.85, 'extra': {1: [0.0], 2: [0.0, 1.0]}},
 # 'Ta': {'core': '[Xe]',   'rcut': 2.5},
 # 'W':  {'core': '[Xe]',   'rcut': 2.5},
 # 'Ir': {'core': '[Xe]4f', 'rcut': [2.5, 2.5, 2.3]},
- 'Pt': {'core': '[Xe]4f', 'rcut': 2.5},
- 'Au': {'core': '[Xe]4f', 'rcut': 2.5}
+ 'Pt': {'core': '[Xe]4f', 'rcut': [2.5, 2.7, 2.3]},
+ 'Au': {'core': '[Xe]4f', 'rcut': 2.5},
+ 'Pb': {'core': '[Xe]4f', 'rcut': [2.4,2.6,2.4]}
  }
 
 class Generator(AllElectron):
@@ -952,7 +953,8 @@ if __name__ == '__main__':
     for symbol in 'Pt Au'.split():
         g = Generator(symbol, 'LDA', scalarrel=False, nofiles=False)
         g.run(exx=True, **parameters[symbol])
-    for xcname in ['LDA', 'PBE', 'X-C_PW', 'X_PBE-C_PBE']:
+    #for xcname in ['LDA', 'PBE', 'X-C_PW', 'X_PBE-C_PBE']:
+    for xcname in ['LDA', 'PBE']:
         for symbol, par in parameters.items():
             filename = symbol + '.' + XCFunctional(xcname).get_name()
             if os.path.isfile(filename):

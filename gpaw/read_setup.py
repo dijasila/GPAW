@@ -57,6 +57,7 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
                     else:
                         source = os.popen('gunzip -c ' + filename, 'r').read()
                     break
+
         if source is None:
             print """
 You need to set the GPAW_SETUP_PATH environment variable to point to

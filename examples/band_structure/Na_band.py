@@ -19,13 +19,8 @@ if 1:
 nkpt = 50
 kpts = [(0.5 * k / nkpt, 0, 0) for k in range(nkpt + 1)]
 calc = Calculator('Na_sc.gpw', txt='Na_harris.txt',
-                  kpts=kpts, fixdensity=True, nbands=5,
-                  eigensolver='cg')
+                  kpts=kpts, fixdensity=True, nbands=7,
+                  eigensolver='cg',
+                  convergence={'bands': 'all'})
 calc.get_potential_energy()
-calc.write('Na_sc.gpw')
-
-# Write the results to a file e.g. for plotting with gnuplot
-f = open('Na_bands.dat', 'w')
-for k, kpt_c in enumerate(calc.get_i_b_z_k_points()):
-    for eig in calc.get_eigenvalues(kpt=k):
-        print >> f, kpt_c[0], eig - calc.get_fermi_level()
+calc.write('Na_harris.gpw')
