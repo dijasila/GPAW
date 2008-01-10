@@ -13,6 +13,6 @@ def energy(n):
     return e
 
 f = file('e6x6.dat', 'w')
-for n in range(3, 7):
+for n in range(1, 7):
     e = energy(n)
     print >> f, n, e
