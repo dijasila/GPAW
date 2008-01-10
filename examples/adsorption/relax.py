@@ -21,7 +21,7 @@ fcc.set_calculator(calc)
 traj = PickleTrajectory('ontop.traj', 'w', fcc)
 
 # Only the height (z-coordinate) of the H atom is relaxed:
-fcc.set_constraints(FixAtoms([0, 1]))
+fcc.set_constraint(FixAtoms([0, 1]))
 
 dyn = QuasiNewton(fcc)
 
