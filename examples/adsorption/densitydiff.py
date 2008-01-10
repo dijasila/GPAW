@@ -19,5 +19,5 @@ atoms.get_potential_energy()
 Al_density = calc.get_pseudo_density()
 
 diff = HAl_density - H_density - Al_density
-write('diff.cube', HAl, diff)
-write('diff.plt', HAl, diff)
+write('diff.cube', HAl, data=diff)
+write('diff.plt', HAl, data=diff)

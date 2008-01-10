@@ -18,17 +18,24 @@ fcc.set_calculator(calc)
 traj = PickleTrajectory('ontop.traj', 'w', fcc)
 
 # Only the height (z-coordinate) of the H atom is relaxed:
-fcc.set_constraint(FixAtoms(range(4))
+fcc.set_constraints(FixAtoms(range(4))
 
-# The energy minimum is found using the "Molecular Dynamics
-# Minimization" algorithm.  The stopping criteria is: the force on the
-# H atom should be less than 0.05 eV/Ang
 dyn = QuasiNewton(fcc)
 
 dyn.attach(traj)
+
+# Find optimal height.  The stopping criteria is: the force on the
+# H atom should be less than 0.05 eV/Ang
 dyn.run(fmax=0.05)
 
 calc.write('relax.gpw') # Write gpw output after the minimization
 
 print 'ontop:', fcc.get_potential_energy()
 print 'height:', fcc.position[-1, 2]
+
+pseudo_density = calc.get_pseudo_valence_density()
+ae_density = calc.get_all_electron_density()
+
+for format in ['cube', 'plt']:
+    write('pseudo.' + format, fcc, data=pseudo_density)
+    write('ae.' + format, fcc, data=ae_density)
