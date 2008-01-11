@@ -157,14 +157,14 @@ class Calculator(PAW):
 
         Fold eigenvalues with Gaussians, and put on an energy grid."""
         if width is None:
-            width = self.GetElectronicTemperature()
+            width = self.get_electronic_temperature()
         if width == 0:
             width = 0.1
 
         w_k = self.weight_k
         Nb = self.nbands
-        energies = num.empty(len(w_k) * Nb, num.Float)
-        weights  = num.empty(len(w_k) * Nb, num.Float)
+        energies = npy.empty(len(w_k) * Nb)
+        weights  = npy.empty(len(w_k) * Nb)
         x = 0
         for k, w in enumerate(w_k):
             energies[x:x + Nb] = self.get_eigenvalues(k, spin)
