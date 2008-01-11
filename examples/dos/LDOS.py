@@ -10,7 +10,7 @@ import numpy as num
 filename='Fe_nonmag.gpw'
 calc = Calculator(filename)
 
-energies, ldos = calc.GetOrbitalLDOS(a=1, spin=0, angular=s)
+energies, ldos = calc.GetOrbitalLDOS(a=1, spin=0, angular='s')
 
 # Plot LDOS
 import pylab
