@@ -1925,7 +1925,7 @@ NO2 = Atoms([
     Atom('O', [.000000, -1.118122, -.145370]),
     ])
 
-def get_g2(name, cell):
+def get_g2(name, cell=(1.0, 1.0, 1.0)):
     if name in atoms:
         loa =  Atoms([Atom(name, magmom=atoms[name])], cell=cell, pbc=False)
     elif name in molecules:
