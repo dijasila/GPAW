@@ -15,6 +15,6 @@ if calc.get_number_of_spins() == 1:
     p.plot(dos.get_energies(), dos.get_dos())
 else:
     p.plot(dos.get_energies(), dos.get_dos(0), label='up')
-    p.plot(dos.get_energies(), dos.get_dos(1), label='sown')
+    p.plot(dos.get_energies(), dos.get_dos(1), label='down')
     p.legends()
 p.show()
