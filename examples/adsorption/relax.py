@@ -1,6 +1,6 @@
 from ase import *
 from gpaw import Calculator
-from build import fcc100
+from build_fcc import fcc100
 
 
 a = 4.05
@@ -31,7 +31,7 @@ dyn.attach(traj.write)
 # H atom should be less than 0.05 eV/Ang
 dyn.run(fmax=0.05)
 
-calc.write('relax.gpw') # Write gpw output after the minimization
+calc.write('ontop.gpw') # Write gpw output after the minimization
 
 print 'ontop:', fcc.get_potential_energy()
 print 'height:', fcc.positions[-1, 2]

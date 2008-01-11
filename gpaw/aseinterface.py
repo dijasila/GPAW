@@ -72,7 +72,7 @@ class Calculator(PAW):
         self.calculate_forces()
         return self.F_ac * (self.Ha / self.a0)
       
-    def get_stress(self):
+    def get_stress(self, atoms):
         """Return the stress for the current state of the ListOfAtoms."""
         raise NotImplementedError
 
