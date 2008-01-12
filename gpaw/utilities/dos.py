@@ -81,7 +81,7 @@ def raw_orbital_LDOS(paw, a, spin, angular='spdf'):
     weights_xi = npy.empty((nb * nk, nucleus.setup.ni))
     x = 0
     for k, w in enumerate(w_k):
-        energies[x:x + nb] = paw.get_eigenvalues(k=k, s=spin)
+        energies[x:x + nb] = paw.collect_eigenvalues(k=k, s=spin)
         u = spin * nk + k
         weights_xi[x:x + nb, :] = w * npy.absolute(nucleus.P_uni[u])**2
         x += nb
@@ -111,7 +111,7 @@ def raw_wignerseitz_LDOS(paw, a, spin):
     x = 0
     for k, w in enumerate(w_k):
         u = spin * nk + k
-        energies[x:x + nb] = paw.get_eigenvalues(k=k, s=spin)
+        energies[x:x + nb] = paw.collect_eigenvalues(k=k, s=spin)
         for n, psit_G in enumerate(paw.kpt_u[u].psit_nG):
             P_i = nucleus.P_uni[u, n]
             P_p = pack(npy.outer(P_i, P_i))

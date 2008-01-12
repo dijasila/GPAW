@@ -1,31 +1,31 @@
 """Module for building atomic structures"""
 
 from ase import *
-from math import sqrt
 
-def bcc100(symbol, a, layers, h):
+def bcc100(symbol, a, layers, L):
     """Build a bcc(100) surface
 
     symbol: chemical symbol ('H', 'Li', ...)
     a     : lattice constant
     layers: number of layers
-    h     : height of unit cell"""
+    L     : height of unit cell"""
+
+    a = float(a)
 
     # Distance between layers:
     z = a / 2
 
-    assert h > layers * z, 'unit cell too small for ' + str(layers) + ' layers'
+    assert L > layers * z, 'Unit cell too small!'
     
     # Start with an empty Atoms object with an orthorhombic unit cell:
-    atoms = Atoms(pbc=(True, True, False), cell=(a, a, h))
+    atoms = Atoms(pbc=(True, True, False), cell=(a, a, L))
     
     # Fill in the atoms:
     for n in range(layers):
-        position = [a / 2 * (n % 2),
-                    a / 2 * (n % 2),
-                    h / 2 + (0.5 * (layers - 1) - n) * z]
+        position = [a / 2 * (n % 2), a / 2 * (n % 2), n * z]
         atoms.append(Atom(symbol, position))
-        
+
+    atoms.center(axis=2)
     return atoms
 
 if __name__ == '__main__':

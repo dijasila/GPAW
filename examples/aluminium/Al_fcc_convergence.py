@@ -14,26 +14,22 @@ bulk = Atoms(symbols='4Al',
              cell=(a, a, a),
              pbc=True)
 
-k = 4
-calc = Calculator(nbands=16, txt=name + '-k.txt')
+# Convergence with respect to k-points:
+calc = Calculator(nbands=16, h=0.3, txt=name + '-k.txt')
 bulk.set_calculator(calc)
-
-# Make a plot of the convergence with respect to k-points
-calc.set(h=0.3)
 f = open(name + '-k.dat', 'w')
-#for k in [2, 4, 6, 8, 10, 12]: 
-for k in [2, 4, 6]:
+for k in [2, 4, 6, 8]: 
     calc.set(kpts=(k, k, k))
     energy = bulk.get_potential_energy() 
     print k, energy
     print >> f, k, energy
 
-# Make a plot of the convergence with respect to grid spacing
+# Convergence with respect to grid spacing:
 k = 4
-calc.set(kpts=(k, k, k), txt=name + '-h.txt')
+calc = Calculator(nbands=16, kpts=(k, k, k), txt=name + '-h.txt')
+bulk.set_calculator(calc)
 f = open(name + '-h.dat', 'w')
-#for h in [0.5, 0.3, 0.25, 0.2, 0.15]:
-for g in [12, 16]:
+for g in [12, 16, 20]:
     h = a / g
     calc.set(h=h)
     energy = bulk.get_potential_energy() 

@@ -180,7 +180,7 @@ class Calculator(PAW):
         Project wave functions onto a Wigner-Seitz box at atom ``a``, and
         use this as weight when summing the eigenvalues."""
         if width is None:
-            width = self.GetElectronicTemperature()
+            width = self.get_electronic_temperature()
         if width == 0:
             width = 0.1
 
@@ -197,7 +197,7 @@ class Calculator(PAW):
         The atomic orbital has angular momentum ``angular``, which can be
         's', 'p', 'd', 'f', or any combination (e.g. 'sdf')."""
         if width is None:
-            width = self.GetElectronicTemperature()
+            width = self.get_electronic_temperature()
         if width == 0.0:
             width = 0.1
 
@@ -209,11 +209,9 @@ class Calculator(PAW):
         """Return pseudo-wave-function array."""
         return self.get_wave_function_array(band, kpt, spin) / self.a0**1.5
 
-    def get_eigenvalues(self, kpt=0, spin=0):
+    def get_eigenvalues(self, k=0, s=0):
         """Return eigenvalue array."""
-        result = PAW.get_eigenvalues(self, kpt, spin)
-        if result is not None:
-            return result * self.Ha
+        return self.collect_eigenvalues(k, s) * self.Ha
 
     def GetWannierLocalizationMatrix(self, nbands, dirG, kpoint,
                                      nextkpoint, G_I, spin):

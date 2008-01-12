@@ -69,7 +69,7 @@ class PAWExtra:
             self.kpt_comm.receive(psit_G, kpt_rank, 1398)
             return psit_G
 
-    def get_eigenvalues(self, k=0, s=0):
+    def collect_eigenvalues(self, k=0, s=0):
         """Return eigenvalue array.
 
         For the parallel case find the rank in kpt_comm that contains
