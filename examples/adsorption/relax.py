@@ -14,7 +14,8 @@ fcc.append(Atom('H', (0, 0, z + 1.55)))
 
 calc = Calculator(nbands=2 * 5,
                   kpts=(4, 4, 1),
-                  h = 0.25)
+                  h = 0.25,
+                  txt='ontop.txt')
 fcc.set_calculator(calc)
 
 # Make a trajectory file:
