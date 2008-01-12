@@ -10,7 +10,7 @@ nkpts = len(kpts)
 eigs = npy.empty((nbands, nkpts))
 
 for k in range(nkpts):
-    eigs[:, k] = calc.get_eigenvalues(k=k)
+    eigs[:, k] = calc.get_eigenvalues(kpt=k)
 
 eigs -= calc.get_fermi_level()
 for n in range(nbands):

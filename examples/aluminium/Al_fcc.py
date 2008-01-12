@@ -14,6 +14,8 @@ bulk = Atoms(symbols='4Al',
              cell=(a, a, a),
              pbc=True)
 
+view(bulk)
+
 k = 4
 calc = Calculator(nbands=16,          # number of electronic bands
                   h=0.2,              # grid spacing

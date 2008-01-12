@@ -209,9 +209,9 @@ class Calculator(PAW):
         """Return pseudo-wave-function array."""
         return self.get_wave_function_array(band, kpt, spin) / self.a0**1.5
 
-    def get_eigenvalues(self, k=0, s=0):
+    def get_eigenvalues(self, kpt=0, spin=0):
         """Return eigenvalue array."""
-        return self.collect_eigenvalues(k, s) * self.Ha
+        return self.collect_eigenvalues(kpt, spin) * self.Ha
 
     def GetWannierLocalizationMatrix(self, nbands, dirG, kpoint,
                                      nextkpoint, G_I, spin):
