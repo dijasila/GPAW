@@ -14,6 +14,8 @@ w = Wannier(calc)
 w.localize()
 centers = w.get_centers()
 view(atoms + Atoms(symbols='X15', positions=centers))
+
+# Find the index of the center with the lowest y-coordinate:
 nsigma = centers[:, 1].argmin()
 sigma = w.get_function(calc, nsigma)
 
