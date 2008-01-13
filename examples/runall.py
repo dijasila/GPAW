@@ -16,7 +16,7 @@ for dir, script in [
     ('surface', 'Al100.py'),
     ('surface', 'work_function.py'),
     ('adsorption', 'relax.py'),
-    ('adsorption', 'denistydiff.py'),
+    ('adsorption', 'densitydiff.py'),
     ('vibrations', 'h2o.py'),
     ('vibrations', 'H2O_vib.py'),
     ('iron', 'ferro.py'),
