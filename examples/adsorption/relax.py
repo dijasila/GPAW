@@ -6,11 +6,11 @@ from build_fcc import fcc100
 a = 4.05
 fcc = fcc100('Al', a, 2, 12.0)
 
-# Height of first Al layer:
-z = fcc.positions[0, 2]
+# Position of the first layer Al atom:
+p = fcc.positions[1]
 
 # Add the adsorbate:
-fcc.append(Atom('H', (0, 0, z + 1.55)))
+fcc.append(Atom('H', p + (0, 0, 1.55)))
 
 calc = Calculator(nbands=2 * 5,
                   kpts=(4, 4, 1),
