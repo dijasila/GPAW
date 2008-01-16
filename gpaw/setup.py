@@ -16,7 +16,6 @@ from gpaw.grid_descriptor import RadialGridDescriptor
 from gpaw.utilities import unpack, erf, fac, hartree, pack2, divrl
 from gpaw.xc_correction import XCCorrection
 from gpaw.xc_functional import XCRadialGrid
-from gpaw.gllb.xcnonlocalcorrection import XCNonLocalCorrection
 from LinearAlgebra import inverse as inv
 
 def create_setup(symbol, xcfunc, lmax=0, nspins=1, type='paw', basis=None):
@@ -331,6 +330,7 @@ class Setup:
         rgd = RadialGridDescriptor(r_g, dr_g)
 
         if xcfunc.xcname.startswith("GLLB"):
+            from gpaw.gllb.xcnonlocalcorrection import XCNonLocalCorrection
             self.xc_correction = XCNonLocalCorrection(
                 xcfunc.xc,
                 [divrl(phi_g, l, r_g) for l, phi_g in zip(l_j, phi_jg)],

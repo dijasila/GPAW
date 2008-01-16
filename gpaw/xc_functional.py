@@ -9,7 +9,6 @@ from gpaw.operators import Gradient
 from gpaw.utilities import is_contiguous
 from gpaw.utilities.timing import Timer
 from gpaw.exx import EXX
-from gpaw.gllb.nonlocalfunctionalfactory import NonLocalFunctionalFactory
 from gpaw.libxc import Libxc
 import _gpaw
 
@@ -196,6 +195,7 @@ class XCFunctional:
             self.xc = _gpaw.MGGAFunctional(code,self.mgga)
         elif code == 'gllb':
             # Get the correct functional from NonLocalFunctionalFactory
+            from gpaw.gllb.nonlocalfunctionalfactory import NonLocalFunctionalFactory
             self.xc = NonLocalFunctionalFactory().get_functional_by_name(xcname)
         elif code == 'lxc':
 ###            self.xcname = xcname # MDTMP: to get the lxc name for setup

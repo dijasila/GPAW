@@ -9,7 +9,7 @@
 
 
 #compiler = 'mpcc'
-#libraries = []
+libraries = ['acml','gfortran']
 #libraries += []
 
 #library_dirs = []
