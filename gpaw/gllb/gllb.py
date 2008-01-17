@@ -111,6 +111,7 @@ class GLLBFunctional:
         self.slater_part1D = None
 
         self.initialized = False
+        self.reference_level_s = [ -1000 ]
 
     def gllb_weight(self, epsilon, reference_level):
         """
@@ -239,6 +240,11 @@ class GLLBFunctional:
         return reference_level_s
 
 
+    def update(self):
+        # Locate the reference levels
+        self.reference_level_s = self.find_reference_level()
+        self.initialized = True
+
     def calculate_gllb(self, n_sg, v_sg, e_g):
         # Only spin-paired calculation supported
         assert(self.nspins == 1)
@@ -249,9 +255,6 @@ class GLLBFunctional:
         v_sg[0] += 2 * self.e_g / (n_sg[0] + SMALL_NUMBER)
         e_g [:]= self.e_g.flat
 
-        # Locate the reference levels
-        self.reference_level_s = self.find_reference_level()
-
         # Use the coarse grid for response part
         # Calculate the coarse response multiplied with density and the coarse density
         # and to the division at the end of the loop.
@@ -261,6 +264,8 @@ class GLLBFunctional:
         for kpt in self.kpt_u:
             w_n = self.get_weights_kpoint(kpt)
             for f, psit_G, w in zip(kpt.f_n, kpt.psit_nG, w_n):
+                if w > 0:
+                    print "Adding response part", f, w
                     if kpt.dtype == float:
                         #axpy(f*w, psit_G**2, self.vt_G)
                         self.vt_G += f * w * psit_G **2
@@ -313,8 +318,6 @@ class GLLBFunctional:
         self.e_g = finegd.empty()
         self.vt_G = gd.empty()
         self.vt_g = finegd.empty()
-
-        self.initialized = True
 
     def prepare_exchange(self):
         # Create the exchange functional for Slater part (only once per calculation)
@@ -542,11 +545,13 @@ class GLLBFunctional:
             else:
                 # Take the core response directly from setup
                 core_resp_g[:] = extra_xc_data['core_response']
+                print "Core response", core_resp_g
 
             n_iter = sphere_n.get_iterator(D_p)
             nt_iter = sphere_nt.get_iterator(D_p)
             resp_iter = sphere_n.get_iterator(Dresp_p, core=False, gradient=False)
             respt_iter = sphere_nt.get_iterator(Dresp_p, core=False, gradient=False)
+            print "Response density matrix:", Dresp_p
             Exc = 0
             while n_iter.has_next():
                 # Calculate true density, density gradient and numerator of response
