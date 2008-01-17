@@ -204,6 +204,41 @@ class GLLBFunctional:
             old_v_g[:] = v_g[:]
 
 
+    def set_reference_index(self, index):
+        """Set the reference band index, which is set to HOMO/LUMO"""
+        self.reference_index = index
+
+    def get_reference_index(self):
+        """Get the reference band index pointing to HOMO/LUMO"""
+        return self.reference_index
+
+
+    def find_reference_level(self):
+        if self.lumo_reference:
+            c = -1
+        else:
+            c = 1
+
+        reference_level_s= []
+        # For each spin
+        for s in range(0, self.nspins):
+            level = -c*1000
+            # For each k-point
+            for kpt in self.kpt_u:
+                if s == kpt.s:
+                    eps = kpt.eps_n[self.reference_index[s]]
+                    if c*level < c*eps:
+                        level = eps
+            print c
+            print level
+            print self.kpt_comm
+            level = c*self.kpt_comm.max(c*level)
+            reference_level_s.append(level)
+
+        print "Located reference levels: ", reference_level_s
+        return reference_level_s
+
+
     def calculate_gllb(self, n_sg, v_sg, e_g):
         # Only spin-paired calculation supported
         assert(self.nspins == 1)
@@ -211,8 +246,11 @@ class GLLBFunctional:
         # Calculate the Slater-part of exchange potential
         self.prepare_exchange()
         self.exchange_functional.get_energy_and_potential_spinpaired(n_sg[0], self.v_g, e_g=self.e_g)
-        v_sg[0] += self.v_g
-        e_g += self.e_g.flat
+        v_sg[0] += 2 * self.e_g / (n_sg[0] + SMALL_NUMBER)
+        e_g [:]= self.e_g.flat
+
+        # Locate the reference levels
+        self.reference_level_s = self.find_reference_level()
 
         # Use the coarse grid for response part
         # Calculate the coarse response multiplied with density and the coarse density
@@ -223,9 +261,9 @@ class GLLBFunctional:
         for kpt in self.kpt_u:
             w_n = self.get_weights_kpoint(kpt)
             for f, psit_G, w in zip(kpt.f_n, kpt.psit_nG, w_n):
-                    if kpt.typecode == float:
-                        axpy(f*w, psit_G**2, self.vt_G)
-                        #self.vt_G += f * w * psit_G **2
+                    if kpt.dtype == float:
+                        #axpy(f*w, psit_G**2, self.vt_G)
+                        self.vt_G += f * w * psit_G **2
                     else:
                         self.vt_G += f * w * (psit_G * num.conjugate(psit_G)).real
 
@@ -241,7 +279,7 @@ class GLLBFunctional:
         self.interpolate(self.vt_G, self.vt_g)
 
         # Add the response part to the potential
-        v_sg[0] += self.vt_g / (self.n_sg[0] + SMALL_NUMBER)
+        v_sg[0] += self.vt_g / (n_sg[0] + SMALL_NUMBER)
 
         # Calculate the correlation potential
         if self.correlation:
@@ -275,6 +313,8 @@ class GLLBFunctional:
         self.e_g = finegd.empty()
         self.vt_G = gd.empty()
         self.vt_g = finegd.empty()
+
+        self.initialized = True
 
     def prepare_exchange(self):
         # Create the exchange functional for Slater part (only once per calculation)
@@ -459,14 +499,13 @@ class GLLBFunctional:
             ndenom_g = n_g
 
         # TODO: This method needs more arguments to support arbitary slater part
-        self.prepare_exchange_1D()
+        self.prepare_exchange_1D(rgd)
         N = len(n_g)
         # TODO: Allocate these only once
         vtemp_g = num.zeros(N, float)
         etemp_g = num.zeros(N, float)
         deda2temp_g = num.zeros(N, float)
-
-        self.slater_part1D.calculate_spinpaired(etemp_g, n_g, vtemp_g, a2_g, deda2temp_g)
+        self.slater_part1D.xcfunc.calculate_spinpaired(etemp_g, n_g, vtemp_g, a2_g, deda2temp_g)
 
         # Grr... When n_g = 0, B88 returns -0.03 for e_g!!!!!!!!!!!!!!!!!
         etemp_g[:] = num.where(abs(n_g) < SMALL_NUMBER, 0, etemp_g)
@@ -478,7 +517,7 @@ class GLLBFunctional:
     def calculate_non_local_paw_correction(self, D_sp, H_sp, sphere_nt, sphere_n, nucleus, extra_xc_data, a):
         N = sphere_n.get_slice_length()
 
-        if not self.initialization_ready:
+        if not self.initialized:
             return 0
         
         n_g = num.zeros(N, float) # Density
@@ -499,7 +538,7 @@ class GLLBFunctional:
                 for nc in range(0, njcore):
                     psi2_g = extra_xc_data['core_orbital_density_'+str(nc)]
                     epsilon = extra_xc_data['core_eigenvalue_'+str(nc)]
-                    core_resp_g[:] += psi2_g * gllb_weight(epsilon, self.reference_levels[s])
+                    core_resp_g[:] += psi2_g * self.gllb_weight(epsilon, self.reference_levels[s])
             else:
                 # Take the core response directly from setup
                 core_resp_g[:] = extra_xc_data['core_response']
@@ -548,7 +587,8 @@ class GLLBFunctional:
                 resp_iter.next()
                 respt_iter.next()
 
-        #print "H_sp",H_sp
+        print "H_sp",H_sp
+        print "Exc", Exc
         return Exc
 
 
@@ -556,6 +596,6 @@ class GLLBFunctional:
         w_n = num.zeros(len(kpt.eps_n), float)
         # Return a weight for each of eigenvalues of k-point
         for i, e in enumerate(kpt.eps_n):
-            w_n[i] = gllb_weight(e, self.reference_level_s[kpt.s])
+            w_n[i] = self.gllb_weight(e, self.reference_level_s[kpt.s])
         return w_n
 

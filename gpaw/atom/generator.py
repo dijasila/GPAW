@@ -457,7 +457,7 @@ class Generator(AllElectron):
             # Calculate the response part using smooth orbitals, but
             # the GGA-energy density part using the smooth core density.
             Exct = self.xc.get_non_local_energy_and_potential(
-                self.s_j, self.f_j, self.e_j, self.l_j, vXCt, density = nt)
+                self.s_j, self.f_j, self.e_j, self.l_j, vXCt, 200, density = nt)
 
             # Calculate extra-stuff for non-local functionals
             self.xc.xcfunc.xc.calculate_extra_setup_data(extra_xc_data, self)

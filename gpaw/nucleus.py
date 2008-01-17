@@ -95,6 +95,7 @@ class Nucleus:
         ni = self.get_number_of_partial_waves()
         np = ni * (ni + 1) // 2
         self.D_sp = npy.zeros((nspins, np))
+        self.Dresp_sp = npy.zeros((nspins, np))
         self.H_sp = npy.zeros((nspins, np))
         self.P_uni = npy.zeros((nmyu, nbands, ni), self.dtype)
         self.F_c = npy.zeros(3)

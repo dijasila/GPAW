@@ -215,7 +215,7 @@ class AllElectron:
             self.vXC[:] = 0.0
 
             if self.xc.is_non_local():
-                Exc = self.xc.get_non_local_energy_and_potential(self.u_j, self.f_j, self.e_j, self.l_j, self.vXC)
+                Exc = self.xc.get_non_local_energy_and_potential(self.u_j, self.f_j, self.e_j, self.l_j, self.vXC, niter)
             else:
                 tau = None
                 if self.xc.xcfunc.mgga:

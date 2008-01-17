@@ -107,7 +107,7 @@ class SphericalIterator:
         self.core = core
         self.slice = 0
         self.slices = len(self.expander.weights)
-        D_Lq = dot3(self.expander.B_Lqp, D_p)
+        D_Lq = dot(self.expander.B_Lqp, D_p)
         self.n_Lg = num.dot(D_Lq, self.expander.n_qg)
         if self.core:
             self.n_Lg[0] += self.expander.nc_g * num.sqrt(4 * num.pi)
@@ -143,7 +143,7 @@ class SphericalIterator:
         Y_L = self.expander.Y_yL[self.slice]
         w = self.get_weight()
         # Integrate the slice with respect to orbitals
-        H_p += coeff * w * num.dot(dot3(self.expander.B_pqL, Y_L),
+        H_p += coeff * w * num.dot(num.dot(self.expander.B_pqL, Y_L),
                            num.dot(self.expander.n_qg, v_g * self.expander.rgd.dv_g))
 
     def has_next(self):

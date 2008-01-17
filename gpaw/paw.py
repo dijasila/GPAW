@@ -463,6 +463,7 @@ class PAW(PAWExtra, Output):
             self.print_iteration()
             self.niter += 1
             self.call()
+            self.print_converged()
 
         self.call(final=True)
         self.print_converged()
@@ -1307,7 +1308,33 @@ class PAW(PAWExtra, Output):
             self.occupation.fix_moment(M)
 
         self.occupation.set_communicator(self.kpt_comm)
-        
+
+        ################# GLLB STUFF ###############
+        ################# GLLB STUFF ###############
+        ################# GLLB STUFF ###############
+        ################# GLLB STUFF ###############
+        ################# GLLB STUFF ###############
+        if self.xcfunc.is_non_local():        
+            n = self.nvalence
+            print "Number of valence electrons ", n
+            assert(self.nspins == 1)
+            if self.nspins == 1:
+                n /= 2
+                if n == 0: n = 1 # Half, and a half electrons
+                print "N now ", n
+                if self.xcfunc.xc.lumo_reference:
+                    print "Setting reference index to ", n
+                    self.xcfunc.xc.set_reference_index([n])
+                    print "Using LUMO-orbital as reference level!"
+                else:
+                    print "Setting reference index to ", n-1
+                    self.xcfunc.xc.set_reference_index([n-1])
+                    print "Using HOMO-orbital as reference level!"
+        ################# GLLB STUFF ###############
+        ################# GLLB STUFF ###############
+        ################# GLLB STUFF ###############
+        ################# GLLB STUFF ###############
+        ################# GLLB STUFF ###############
 
     def initialize_kinetic(self):
         if not self.hamiltonian.xc.xcfunc.mgga:
