@@ -295,6 +295,30 @@ class Density:
                 for nucleus in self.my_nuclei:
                     nucleus.symmetrize(D_aii, symmetry.maps, s)
 
+            # GLLB STUFFFFFFFFFF!!!!!!!!!!!!!!!!!!!!!
+            # GLLB STUFFFFFFFFFF!!!!!!!!!!!!!!!!!!!!!
+            # GLLB STUFFFFFFFFFF!!!!!!!!!!!!!!!!!!!!!
+            D_asp = []
+            for nucleus in self.nuclei:
+                if comm.rank == nucleus.rank:
+                    Dresp_sp = nucleus.Dresp_sp
+                    comm.broadcast(Dresp_sp, nucleus.rank)
+                else:
+                    ni = nucleus.get_number_of_partial_waves()
+                    np = ni * (ni + 1) / 2
+                    Dresp_sp = zeros((self.nspins, np))
+                    comm.broadcast(Dresp_sp, nucleus.rank)
+                D_asp.append(Dresp_sp)
+
+            for s in range(self.nspins):
+                Dresp_aii = [unpack2(Dresp_sp[s]) for Dresp_sp in Dresp_asp]
+                for nucleus in self.my_nuclei:
+                    nucleus.symmetrize(Dresp_aii, symmetry.maps, s, response = True)
+            # GLLB STUFFFFFFFFFF!!!!!!!!!!!!!!!!!!!!!
+            # GLLB STUFFFFFFFFFF!!!!!!!!!!!!!!!!!!!!!
+            # GLLB STUFFFFFFFFFF!!!!!!!!!!!!!!!!!!!!!
+
+
         self.mixer.mix(self.nt_sG)
 
         self.interpolate_pseudo_density()

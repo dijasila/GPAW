@@ -51,6 +51,8 @@ class Nucleus:
                functions of this atom (``P_{\sigma\vec{k}ni}^a``).
      ``D_sp``  Atomic density matrix (``D_{\sigma i_1i_2}^a``).
                Packed with pack 1.
+     ``Dresp_sp``  Atomic density matrix (``D_{\sigma i_1i_2}^a``).
+               Packed with pack 1. Only used within GLLB.
      ``dH_sp`` Atomic Hamiltonian correction (``\Delta H_{\sigma i_1i_2}^a``).
                Packed with pack 2.
      ``Q_L``   Multipole moments  (``Q_{\ell m}^a``).
@@ -665,9 +667,13 @@ class Nucleus:
             self.pt_i.add(b_nG, None, k, communicate=True)
 
 
-    def symmetrize(self, D_aii, map_sa, s):
-        D_ii = self.setup.symmetrize(self.a, D_aii, map_sa)
-        self.D_sp[s] = pack(D_ii)
+    def symmetrize(self, D_aii, map_sa, s, response = False):
+        if not response:
+            D_ii = self.setup.symmetrize(self.a, D_aii, map_sa)
+            self.D_sp[s] = pack(D_ii)
+        else:
+            Dresp_ii = self.setup.symmetrize(self.a, D_aii, map_sa)
+            self.Dresp_sp[s] = pack(Dresp_ii)
 
     def calculate_force_kpoint(self, kpt):
         f_n = kpt.f_n
