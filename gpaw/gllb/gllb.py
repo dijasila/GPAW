@@ -553,3 +553,10 @@ class GLLBFunctional:
         return Exc
 
 
+    def get_weights_kpoint(self, kpt):
+        w_n = num.zeros(len(kpt.eps_n), num.Float)
+        # Return a weight for each of eigenvalues of k-point
+        for i, e in enumerate(kpt.eps_n):
+            w_n[i] = gllb_weight(e, self.reference_level_s[kpt.s])
+        return w_n
+

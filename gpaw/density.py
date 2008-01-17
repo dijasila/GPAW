@@ -252,6 +252,26 @@ class Density:
             nucleus.D_sp[:] = [pack(D_ii) for D_ii in D_sii]
             self.kpt_comm.sum(nucleus.D_sp)
 
+        # GLLB STUFFFFFFFFFF!!!!!!!!!!!!!!!!!!!!!
+        # GLLB STUFFFFFFFFFF!!!!!!!!!!!!!!!!!!!!!
+        # GLLB STUFFFFFFFFFF!!!!!!!!!!!!!!!!!!!!!
+        # Compute atomic density matrices:
+        for nucleus in self.my_nuclei:
+            ni = nucleus.get_number_of_partial_waves()
+            Dresp_sii = zeros((self.nspins, ni, ni))
+            for kpt in kpt_u:
+                P_ni = nucleus.P_uni[kpt.u]
+                # Get the response weights
+                w = nucleus.setup.xc_correction.gllb_xc.get_weights_kpoint(kpt)
+                # Calculate the "response density"-matrix
+                Dresp_sii[kpt.s] += real(dot(cc(transpose(P_ni)),
+                                             P_ni * kpt.f_n[:, newaxis] * w[:, newaxis]))
+            nucleus.Dresp_sp[:] = [pack(Dresp_ii) for Dresp_ii in Dresp_sii]
+            self.kpt_comm.sum(nucleus.D_sp)
+        # GLLB STUFFFFFFFFFF!!!!!!!!!!!!!!!!!!!!!
+        # GLLB STUFFFFFFFFFF!!!!!!!!!!!!!!!!!!!!!
+        # GLLB STUFFFFFFFFFF!!!!!!!!!!!!!!!!!!!!!
+
         comm = self.gd.comm
         
         if symmetry is not None:
