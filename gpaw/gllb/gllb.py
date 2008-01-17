@@ -1,8 +1,8 @@
 # Imports
-import Numeric as num
+import numpy as num
 from gpaw.xc_functional import XC3DGrid, XCFunctional
-SMALL_NUMBER = 1e-12
-SMALL_NUMBER_ATOM = 1e-12
+SMALL_NUMBER = 1e-8
+SMALL_NUMBER_ATOM = 1e-8
 
 # Some useful constants
 EXCHANGE_FUNCTIONAL = "X_B88-None"
@@ -223,7 +223,7 @@ class GLLBFunctional:
         for kpt in self.kpt_u:
             w_n = self.get_weights_kpoint(kpt)
             for f, psit_G, w in zip(kpt.f_n, kpt.psit_nG, w_n):
-                    if kpt.typecode is num.Float:
+                    if kpt.typecode == float:
                         axpy(f*w, psit_G**2, self.vt_G)
                         #self.vt_G += f * w * psit_G **2
                     else:
@@ -291,7 +291,7 @@ class GLLBFunctional:
                                           self.finegd, self.nspins)
 
 
-    def prepare_exchange_1D(self):
+    def prepare_exchange_1D(self, gd):
         # Do we have already XCRadialGrid object, if not, create one
         if self.slater_part1D == None:
             from gpaw.xc_functional import XCFunctional, XCRadialGrid
@@ -325,7 +325,7 @@ class GLLBFunctional:
         if self.e_g1D == None:
             self.e_g = n_g.copy()
 
-        self.prepare_exchange_1D()
+        self.prepare_exchange_1D(gd)
 
         self.v_g[:] = 0.0
         self.e_g[:] = 0.0
@@ -414,7 +414,6 @@ class GLLBFunctional:
 
         # Fix the r=0 value
         v_xc[0] = v_xc[1]
-        print v_xc
         return Exc
 
     # input:  ae : AllElectron object.
@@ -436,10 +435,10 @@ class GLLBFunctional:
 
         # Allocate new array for core_response
         N = len(ae.rgd.r_g)
-        v_xc = num.zeros(N, num.Float)
+        v_xc = num.zeros(N, float)
 
         # Calculate the response part using wavefunctions, eigenvalues etc. from AllElectron calculator
-        self.get_non_local_energy_and_potential1D(ae.rgd, ae.u_j, ae.f_j, ae.e_j, ae.l_j, v_xc,
+        self.get_non_local_energy_and_potential1D(ae.rgd, ae.u_j, ae.f_j, ae.e_j, ae.l_j, v_xc, 200, 
                                                   njcore = ae.njcore)
 
         extra_xc_data['core_response'] = v_xc.copy()
@@ -463,9 +462,9 @@ class GLLBFunctional:
         self.prepare_exchange_1D()
         N = len(n_g)
         # TODO: Allocate these only once
-        vtemp_g = num.zeros(N, num.Float)
-        etemp_g = num.zeros(N, num.Float)
-        deda2temp_g = num.zeros(N, num.Float)
+        vtemp_g = num.zeros(N, float)
+        etemp_g = num.zeros(N, float)
+        deda2temp_g = num.zeros(N, float)
 
         self.slater_part1D.calculate_spinpaired(etemp_g, n_g, vtemp_g, a2_g, deda2temp_g)
 
@@ -482,11 +481,11 @@ class GLLBFunctional:
         if not self.initialization_ready:
             return 0
         
-        n_g = num.zeros(N, num.Float) # Density
-        v_g = num.zeros(N, num.Float) # Potential
-        a2_g = num.zeros(N, num.Float) # Density gradient |\/n|^2
-        resp_g = num.zeros(N, num.Float) # Numerator of response pontial
-        core_resp_g = num.zeros(N, num.Float) # Numerator of core response potential
+        n_g = num.zeros(N, float) # Density
+        v_g = num.zeros(N, float) # Potential
+        a2_g = num.zeros(N, float) # Density gradient |\/n|^2
+        resp_g = num.zeros(N, float) # Numerator of response pontial
+        core_resp_g = num.zeros(N, float) # Numerator of core response potential
 
         deg = len(D_sp)
 
@@ -554,7 +553,7 @@ class GLLBFunctional:
 
 
     def get_weights_kpoint(self, kpt):
-        w_n = num.zeros(len(kpt.eps_n), num.Float)
+        w_n = num.zeros(len(kpt.eps_n), float)
         # Return a weight for each of eigenvalues of k-point
         for i, e in enumerate(kpt.eps_n):
             w_n[i] = gllb_weight(e, self.reference_level_s[kpt.s])

@@ -17,7 +17,7 @@ class XCNonLocalCorrection:
                  jl,     # jl-indices
                  lmax,   # maximal angular momentum to consider
                  Exc0,   # Exc contribution already taken in to account in setups
-                 extra_xc_data, setup): # The response parts of core orbitals
+                 extra_xc_data): # The response parts of core orbitals
 
 
         # Some part's of code access xc.xcfunc.hydrid, this is to ensure
@@ -31,8 +31,6 @@ class XCNonLocalCorrection:
         self.Exc0 = Exc0
         self.sphere_n = SphericalExpander(rgd, lmax, jl, w_j, nc)
         self.sphere_nt = SphericalExpander(rgd, lmax, jl, wt_j, nct)
-
-        self.setup = setup
 
     def calculate_energy_and_derivatives(self, D_sp, H_sp, a):
         # Use special method to find nucleus in parallel calculations

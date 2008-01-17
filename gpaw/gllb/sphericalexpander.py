@@ -1,15 +1,14 @@
 from math import pi, sqrt
 
-import Numeric as num
-from multiarray import matrixproduct as dot3  # Avoid dotblas bug!
-from multiarray import innerproduct as inner # avoid the dotblas version!
+from numpy import array, dot, newaxis, zeros, transpose
+import numpy as num
 
 from gpaw.gaunt import gaunt
 from gpaw.spherical_harmonics import YL
 # load points and weights for the angular integration
 from gpaw.sphere import Y_nL, points, weights
 
-A_Liy = num.zeros((25, 3, len(points)), num.Float)
+A_Liy = zeros((25, 3, len(points)))
 
 y = 0
 for R in points:
@@ -69,7 +68,7 @@ class SphericalExpander:
         nq = nj * (nj + 1) // 2
 
         # Make Gaunt's coefficient table
-        self.B_Lqp = num.zeros((self.Lmax, nq, np), num.Float)
+        self.B_Lqp = zeros((self.Lmax, nq, np), float)
         p = 0
         i1 = 0
         for j1, l1, L1 in jlL:
@@ -83,7 +82,7 @@ class SphericalExpander:
             i1 += 1
         self.B_pqL = num.transpose(self.B_Lqp).copy()
         self.dv_g = rgd.dv_g
-        self.n_qg = num.zeros((nq, ng), num.Float)
+        self.n_qg = zeros((nq, ng), float)
         q = 0
         for j1, l1 in jl:
             for j2, l2 in jl[j1:]:
@@ -114,7 +113,7 @@ class SphericalIterator:
             self.n_Lg[0] += self.expander.nc_g * num.sqrt(4 * num.pi)
 
         if need_gradient:
-            self.dndr_Lg = num.zeros((self.expander.Lmax, self.expander.ng), num.Float)
+            self.dndr_Lg = zeros((self.expander.Lmax, self.expander.ng), float)
        
             for L in range(self.expander.Lmax):
                 self.expander.rgd.derivative(self.n_Lg[L], self.dndr_Lg[L])
