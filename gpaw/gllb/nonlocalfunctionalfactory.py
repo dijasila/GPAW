@@ -3,11 +3,11 @@ class NonLocalFunctionalFactory:
 
     NonLocalFunctionalFactory is used by xc_functional.py, when the
     functional starts with words GLLB.
-    
+
     It contains a method called get_functional_by_name, which takes
     the xc-name for non-local functional and returns the corresponding
     XCNonLocalFunctional object. Currently there are 5 keywords
-    available: 
+    available:
 
     * GLLB (The fermi-level reference set to HOMO)
     * GLLBLUMO (The fermi-level reference set to LUMO)
@@ -28,7 +28,7 @@ class NonLocalFunctionalFactory:
             return GLLBFunctional(relaxed_core_response=True)
         elif name == 'GLLBplusC':
             from gpaw.gllb.gllbc import GLLBCFunctional
-            return GLLBCFunctional()
+            return GLLBFunctional(correlation = True)
         elif name == 'GLLBLUMO':
             from gpaw.gllb.gllb import GLLBFunctional
             return GLLBFunctional(lumo=True)
