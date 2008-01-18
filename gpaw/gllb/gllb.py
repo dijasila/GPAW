@@ -71,7 +71,7 @@ def find_reference_level1D(f_j, e_j, lumo=False):
 
 class GLLBFunctional:
 
-    def __init__(self, relaxed_core_response = False, lumo_reference = False, correlation = False, mixing = 0.3):
+    def __init__(self, relaxed_core_response = False, lumo_reference = False, correlation = False, mixing = 1.0):
         """Initialize GLLB Functional class.
 
         About relax_core_resonse flag:
@@ -126,8 +126,8 @@ class GLLBFunctional:
         reference_level The fermi-level of the system
         =============== ==========================================================
         """
-
-        if (epsilon > reference_level):
+        # 0.05 eV means degenerate
+        if (epsilon + 0.05 / 27.21> reference_level):
             return 0.0
 
         return K_G * num.sqrt(reference_level-epsilon)
@@ -230,13 +230,13 @@ class GLLBFunctional:
                     eps = kpt.eps_n[self.reference_index[s]]
                     if c*level < c*eps:
                         level = eps
-            print c
-            print level
-            print self.kpt_comm
+            #print c
+            #print level
+            #print self.kpt_comm
             level = c*self.kpt_comm.max(c*level)
             reference_level_s.append(level)
 
-        print "Located reference levels: ", reference_level_s
+        #print "Located reference levels: ", reference_level_s
         return reference_level_s
 
 
@@ -253,6 +253,7 @@ class GLLBFunctional:
         self.prepare_exchange()
         self.exchange_functional.get_energy_and_potential_spinpaired(n_sg[0], self.v_g, e_g=self.e_g)
         v_sg[0] += 2 * self.e_g / (n_sg[0] + SMALL_NUMBER)
+        #print "GLLB smooth Exchange: ", num.sum(self.e_g.flat)
         e_g [:]= self.e_g.flat
 
         # Use the coarse grid for response part
@@ -265,7 +266,7 @@ class GLLBFunctional:
             w_n = self.get_weights_kpoint(kpt)
             for f, psit_G, w in zip(kpt.f_n, kpt.psit_nG, w_n):
                 if w > 0:
-                    print "Adding response part", f, w
+                    #print "Adding response part", f, w
                     if kpt.dtype == float:
                         #axpy(f*w, psit_G**2, self.vt_G)
                         self.vt_G += f * w * psit_G **2
@@ -277,7 +278,7 @@ class GLLBFunctional:
 
         # Include the symmetry to the response part also
         if self.symmetry is not None:
-            symmetry.symmetrize(self.vt_G, self.gd)
+            self.symmetry.symmetrize(self.vt_G, self.gd)
 
         # Interpolate the response part to fine grid
         self.vt_g[:] = 0.0 
@@ -486,6 +487,9 @@ class GLLBFunctional:
 
         extra_xc_data['core_response'] = v_xc.copy()
 
+        w_j = self.get_response_weights1D(ae.u_j[ae.njcore:], ae.f_j[ae.njcore:], ae.e_j[ae.njcore:])
+        extra_xc_data['response_weights'] = w_j
+
         if self.relaxed_core_response:
 
             for nc in range(0, ae.njcore):
@@ -520,9 +524,6 @@ class GLLBFunctional:
     def calculate_non_local_paw_correction(self, D_sp, H_sp, sphere_nt, sphere_n, nucleus, extra_xc_data, a):
         N = sphere_n.get_slice_length()
 
-        if not self.initialized:
-            return 0
-        
         n_g = num.zeros(N, float) # Density
         v_g = num.zeros(N, float) # Potential
         a2_g = num.zeros(N, float) # Density gradient |\/n|^2
@@ -545,13 +546,13 @@ class GLLBFunctional:
             else:
                 # Take the core response directly from setup
                 core_resp_g[:] = extra_xc_data['core_response']
-                print "Core response", core_resp_g
+                #print "Core response", core_resp_g
 
             n_iter = sphere_n.get_iterator(D_p)
             nt_iter = sphere_nt.get_iterator(D_p)
             resp_iter = sphere_n.get_iterator(Dresp_p, core=False, gradient=False)
             respt_iter = sphere_nt.get_iterator(Dresp_p, core=False, gradient=False)
-            print "Response density matrix:", Dresp_p
+            #print "Response density matrix:", Dresp_p
             Exc = 0
             while n_iter.has_next():
                 # Calculate true density, density gradient and numerator of response
@@ -592,7 +593,10 @@ class GLLBFunctional:
                 resp_iter.next()
                 respt_iter.next()
 
-        print "H_sp",H_sp
+        #print "Atom index ", a
+        #print "D_sp", D_sp
+        #print "Dresp_sp", Dresp_p
+        #print "H_sp",H_sp
         print "Exc", Exc
         return Exc
 

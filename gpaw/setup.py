@@ -94,6 +94,7 @@ class Setup:
         self.l_j = l_j
         self.f_j = f_j
         self.eps_j = eps_j
+        self.extra_xc_data = extra_xc_data
 
         g = npy.arange(ng, dtype=float)
         r_g = beta * g / (ng - g)

@@ -16,7 +16,7 @@ EX = {'Be': -2.666 - 0.010, 'Ne': -12.107 -0.122, 'Mg': -15.992 -0.092 }
 EHOMO = {'Be': -0.309 + 0.008, 'Ne': -0.851 + 0.098, 'Mg': -0.253 + 0.006}
 eignum = {'Be': 0, 'Ne':3, 'Mg':0 }
 
-atoms = ['Be','Ne','Mg']
+atoms = ['Ne']
 for atom in atoms:
 
        # Test AllElectron GLLB
@@ -36,10 +36,10 @@ for atom in atoms:
 
        # TODO: Do a 3D calculation and check that the eigenvalues and total energy
        # do not change much. 
-       SS = Atoms([Atom(atom)], cell=(8, 8, 8), pbc=False)
+       SS = Atoms([Atom(atom)], cell=(12, 12, 12), pbc=False)
        SS.center()
 
-       h = 0.25
+       h = 0.13
        calc = Calculator(h=h, xc='GLLB')
        SS.set_calculator(calc)
        out("Total energy diff.", "3D", atom, 0.0, SS.get_potential_energy()/calc.Ha, "Ha")

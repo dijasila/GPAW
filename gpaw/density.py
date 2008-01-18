@@ -268,7 +268,7 @@ class Density:
                 Dresp_sii[kpt.s] += real(dot(cc(transpose(P_ni)),
                                              P_ni * kpt.f_n[:, newaxis] * w[:, newaxis]))
             nucleus.Dresp_sp[:] = [pack(Dresp_ii) for Dresp_ii in Dresp_sii]
-            self.kpt_comm.sum(nucleus.D_sp)
+            self.kpt_comm.sum(nucleus.Dresp_sp)
         # GLLB STUFFFFFFFFFF!!!!!!!!!!!!!!!!!!!!!
         # GLLB STUFFFFFFFFFF!!!!!!!!!!!!!!!!!!!!!
         # GLLB STUFFFFFFFFFF!!!!!!!!!!!!!!!!!!!!!
@@ -312,7 +312,7 @@ class Density:
                 D_asp.append(Dresp_sp)
 
             for s in range(self.nspins):
-                Dresp_aii = [unpack2(Dresp_sp[s]) for Dresp_sp in Dresp_asp]
+                Dresp_aii = [unpack2(Dresp_sp[s]) for Dresp_sp in D_asp]
                 for nucleus in self.my_nuclei:
                     nucleus.symmetrize(Dresp_aii, symmetry.maps, s, response = True)
             # GLLB STUFFFFFFFFFF!!!!!!!!!!!!!!!!!!!!!

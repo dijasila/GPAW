@@ -290,20 +290,27 @@ class Nucleus:
             # Convert to ndarray:
             self.f_si = npy.asarray(self.f_si, float)
         else:
-            self.f_si = self.calculate_initial_occupation_numbers(ns, niao,
-                                                                  magmom, hund)
+            self.f_si, self.w_si = self.calculate_initial_occupation_numbers(ns, niao,
+                                                                             magmom, hund)
         if self.in_this_domain:
             D_sii = npy.zeros((ns, ni, ni))
+            Dresp_sii = npy.zeros((ns, ni, ni))
             for i in range(min(ni, niao)):
                 D_sii[:, i, i] = self.f_si[:, i]
+                Dresp_sii[:, i, i] = self.w_si[:,i] * self.f_si[:,i]
             for s in range(ns):
                 self.D_sp[s] = pack(D_sii[s])
+                self.Dresp_sp[s] = pack(Dresp_sii[s])
 
         for s in range(ns):
             self.phit_i.add_density(nt_sG[s], self.f_si[s])
 
     def calculate_initial_occupation_numbers(self, ns, niao, magmom, hund):
         f_si = npy.zeros((ns, niao))
+
+        w_si = npy.zeros((ns, niao))
+        w_j = self.setup.extra_xc_data['response_weights']
+
         i = 0
         nj = len(self.setup.n_j)
         for j, phit in enumerate(self.setup.phit_j):
@@ -318,6 +325,7 @@ class Nucleus:
                 # Use Hunds rules:
                 f_si[0, i:i + min(f, degeneracy)] = 1.0      # spin up
                 f_si[1, i:i + max(f - degeneracy, 0)] = 1.0  # spin down
+                w_si[0, i:i + min(f, degeneracy)] = w_j[j]
                 if f < degeneracy:
                     magmom -= f
                 else:
@@ -325,6 +333,7 @@ class Nucleus:
             else:
                 if ns == 1:
                     f_si[0, i:i + degeneracy] = 1.0 * f / degeneracy
+                    w_si[0, i:i + degeneracy] = w_j[j]
                 else:
                     maxmom = min(f, 2 * degeneracy - f)
                     mag = magmom
@@ -332,6 +341,8 @@ class Nucleus:
                         mag = cmp(mag, 0) * maxmom
                     f_si[0, i:i + degeneracy] = 0.5 * (f + mag) / degeneracy
                     f_si[1, i:i + degeneracy] = 0.5 * (f - mag) / degeneracy
+                    w_si[0, i:i + degeneracy] = w_j[j]
+                    w_si[1, i:i + degeneracy] = w_j[j]
                     magmom -= mag
                 
             i += degeneracy
@@ -340,7 +351,7 @@ class Nucleus:
             raise RuntimeError('Bad magnetic moment for %s atom!' %
                                self.setup.symbol)
         assert i == niao
-        return f_si
+        return f_si, w_si
     
     def add_smooth_core_density(self, nct_G, nspins):
         if self.nct is not None:
@@ -404,6 +415,8 @@ class Nucleus:
 
             Exc = s.xc_correction.calculate_energy_and_derivatives(
                 self.D_sp, self.H_sp, self.a)
+
+            print "Nucleus.Exc ", Exc
 
             Ekin = npy.dot(s.K_p, D_p) + s.Kc
 

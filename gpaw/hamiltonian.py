@@ -140,6 +140,8 @@ class Hamiltonian:
             Exc = self.xc.get_energy_and_potential(
                 density.nt_sg[0], self.vt_sg[0])
 
+        print "Hamiltonian... smooth part xc: ", Exc
+
         self.timer.start('Poisson')
         # npoisson is the number of iterations:
         self.npoisson = self.poisson.solve(self.vHt_g, density.rhot_g,
@@ -175,6 +177,7 @@ class Hamiltonian:
             Ebar += b
             Eext += v
             Exc += x
+            print "Nuclei corrections to XC ", x
 
         self.timer.stop('Atomic Hamiltonians')
 
