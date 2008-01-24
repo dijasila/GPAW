@@ -223,7 +223,7 @@ class Density:
         if abs(charge) > self.charge_eps:
             raise RuntimeError('Charge not conserved: excess=%.7f' % charge ) 
 
-    def update(self, kpt_u, symmetry):
+    def update(self, kpt_u, symmetry, xc):
         """Calculate pseudo electron-density.
 
         The pseudo electron-density ``nt_sG`` is calculated from the
@@ -252,26 +252,21 @@ class Density:
             nucleus.D_sp[:] = [pack(D_ii) for D_ii in D_sii]
             self.kpt_comm.sum(nucleus.D_sp)
 
-        # GLLB STUFFFFFFFFFF!!!!!!!!!!!!!!!!!!!!!
-        # GLLB STUFFFFFFFFFF!!!!!!!!!!!!!!!!!!!!!
-        # GLLB STUFFFFFFFFFF!!!!!!!!!!!!!!!!!!!!!
-        # Compute atomic density matrices:
-        for nucleus in self.my_nuclei:
-            ni = nucleus.get_number_of_partial_waves()
-            Dresp_sii = zeros((self.nspins, ni, ni))
-            for kpt in kpt_u:
-                P_ni = nucleus.P_uni[kpt.u]
-                # Get the response weights
-                w = nucleus.setup.xc_correction.gllb_xc.get_weights_kpoint(kpt)
-                print "Response weights at density.py ", w
-                # Calculate the "response density"-matrix
-                Dresp_sii[kpt.s] += real(dot(cc(transpose(P_ni)),
+        # Compute atomic 'response-density' matrices for GLLB functional:
+        if xc.is_gllb():
+            for nucleus in self.my_nuclei:
+                ni = nucleus.get_number_of_partial_waves()
+                Dresp_sii = zeros((self.nspins, ni, ni))
+                for kpt in kpt_u:
+                    P_ni = nucleus.P_uni[kpt.u]
+                    # Get the response weights
+                    w = nucleus.setup.xc_correction.gllb_xc.get_weights_kpoint(kpt)
+                    print "Response weights at density.py ", w
+                    # Calculate the "response density"-matrix
+                    Dresp_sii[kpt.s] += real(dot(cc(transpose(P_ni)),
                                              P_ni * kpt.f_n[:, newaxis] * w[:, newaxis]))
-            nucleus.Dresp_sp[:] = [pack(Dresp_ii) for Dresp_ii in Dresp_sii]
-            self.kpt_comm.sum(nucleus.Dresp_sp)
-        # GLLB STUFFFFFFFFFF!!!!!!!!!!!!!!!!!!!!!
-        # GLLB STUFFFFFFFFFF!!!!!!!!!!!!!!!!!!!!!
-        # GLLB STUFFFFFFFFFF!!!!!!!!!!!!!!!!!!!!!
+                nucleus.Dresp_sp[:] = [pack(Dresp_ii) for Dresp_ii in Dresp_sii]
+                self.kpt_comm.sum(nucleus.Dresp_sp)
 
         comm = self.gd.comm
         
@@ -296,29 +291,24 @@ class Density:
                 for nucleus in self.my_nuclei:
                     nucleus.symmetrize(D_aii, symmetry.maps, s)
 
-            # GLLB STUFFFFFFFFFF!!!!!!!!!!!!!!!!!!!!!
-            # GLLB STUFFFFFFFFFF!!!!!!!!!!!!!!!!!!!!!
-            # GLLB STUFFFFFFFFFF!!!!!!!!!!!!!!!!!!!!!
-            D_asp = []
-            for nucleus in self.nuclei:
-                if comm.rank == nucleus.rank:
-                    Dresp_sp = nucleus.Dresp_sp
-                    comm.broadcast(Dresp_sp, nucleus.rank)
-                else:
-                    ni = nucleus.get_number_of_partial_waves()
-                    np = ni * (ni + 1) / 2
-                    Dresp_sp = zeros((self.nspins, np))
-                    comm.broadcast(Dresp_sp, nucleus.rank)
-                D_asp.append(Dresp_sp)
+            # Symmetrize the atomic 'response-density'-matrices
+            if xc.is_gllb():
+                D_asp = []
+                for nucleus in self.nuclei:
+                    if comm.rank == nucleus.rank:
+                        Dresp_sp = nucleus.Dresp_sp
+                        comm.broadcast(Dresp_sp, nucleus.rank)
+                    else:
+                        ni = nucleus.get_number_of_partial_waves()
+                        np = ni * (ni + 1) / 2
+                        Dresp_sp = zeros((self.nspins, np))
+                        comm.broadcast(Dresp_sp, nucleus.rank)
+                    D_asp.append(Dresp_sp)
 
-            for s in range(self.nspins):
-                Dresp_aii = [unpack2(Dresp_sp[s]) for Dresp_sp in D_asp]
-                for nucleus in self.my_nuclei:
-                    nucleus.symmetrize(Dresp_aii, symmetry.maps, s, response = True)
-            # GLLB STUFFFFFFFFFF!!!!!!!!!!!!!!!!!!!!!
-            # GLLB STUFFFFFFFFFF!!!!!!!!!!!!!!!!!!!!!
-            # GLLB STUFFFFFFFFFF!!!!!!!!!!!!!!!!!!!!!
-
+                for s in range(self.nspins):
+                    Dresp_aii = [unpack2(Dresp_sp[s]) for Dresp_sp in D_asp]
+                    for nucleus in self.my_nuclei:
+                        nucleus.symmetrize(Dresp_aii, symmetry.maps, s, response = True)
 
         self.mixer.mix(self.nt_sG)
 

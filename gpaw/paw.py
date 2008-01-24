@@ -470,9 +470,9 @@ class PAW(PAWExtra, Output):
 
     def step(self):
         if self.niter > self.fixdensity:
-            if self.xcfunc.is_non_local():
+            if self.xcfunc.is_gllb():
                 self.xcfunc.xc.update()
-            self.density.update(self.kpt_u, self.symmetry)
+            self.density.update(self.kpt_u, self.symmetry, self.xcfunc)
             self.update_kinetic()
             self.hamiltonian.update(self.density)
 
@@ -1311,12 +1311,8 @@ class PAW(PAWExtra, Output):
 
         self.occupation.set_communicator(self.kpt_comm)
 
-        ################# GLLB STUFF ###############
-        ################# GLLB STUFF ###############
-        ################# GLLB STUFF ###############
-        ################# GLLB STUFF ###############
-        ################# GLLB STUFF ###############
-        if self.xcfunc.is_non_local():        
+        # Initialize the reference-level searching for GLLB
+        if self.xcfunc.is_gllb():        
             n = self.nvalence
             print "Number of valence electrons ", n
             assert(self.nspins == 1)
@@ -1332,11 +1328,6 @@ class PAW(PAWExtra, Output):
                     print "Setting reference index to ", n-1
                     self.xcfunc.xc.set_reference_index([n-1])
                     print "Using HOMO-orbital as reference level!"
-        ################# GLLB STUFF ###############
-        ################# GLLB STUFF ###############
-        ################# GLLB STUFF ###############
-        ################# GLLB STUFF ###############
-        ################# GLLB STUFF ###############
 
     def initialize_kinetic(self):
         if not self.hamiltonian.xc.xcfunc.mgga:

@@ -51,7 +51,7 @@ class Nucleus:
                functions of this atom (``P_{\sigma\vec{k}ni}^a``).
      ``D_sp``  Atomic density matrix (``D_{\sigma i_1i_2}^a``).
                Packed with pack 1.
-     ``Dresp_sp``  Atomic density matrix (``D_{\sigma i_1i_2}^a``).
+     ``Dresp_sp``  Atomic density matrix (``D_{\sigma i_1i_2}^{resp,a}``).
                Packed with pack 1. Only used within GLLB.
      ``dH_sp`` Atomic Hamiltonian correction (``\Delta H_{\sigma i_1i_2}^a``).
                Packed with pack 2.
@@ -290,26 +290,36 @@ class Nucleus:
             # Convert to ndarray:
             self.f_si = npy.asarray(self.f_si, float)
         else:
-            self.f_si, self.w_si = self.calculate_initial_occupation_numbers(ns, niao,
+            if self.setup.xcfunc.is_gllb():
+                self.f_si, self.w_si = self.calculate_initial_occupation_numbers(ns, niao,
+                                                                             magmom, hund)
+            else:
+                self.f_si = self.calculate_initial_occupation_numbers(ns, niao,
                                                                              magmom, hund)
         if self.in_this_domain:
             D_sii = npy.zeros((ns, ni, ni))
-            Dresp_sii = npy.zeros((ns, ni, ni))
             for i in range(min(ni, niao)):
                 D_sii[:, i, i] = self.f_si[:, i]
-                Dresp_sii[:, i, i] = self.w_si[:,i] * self.f_si[:,i]
             for s in range(ns):
                 self.D_sp[s] = pack(D_sii[s])
-                self.Dresp_sp[s] = pack(Dresp_sii[s])
+
+            if self.setup.xcfunc.is_gllb():
+                Dresp_sii = npy.zeros((ns, ni, ni))
+                for i in range(min(ni, niao)):
+                    Dresp_sii[:, i, i] = self.w_si[:,i] * self.f_si[:,i]
+                for s in range(ns):
+                    self.Dresp_sp[s] = pack(Dresp_sii[s])
 
         for s in range(ns):
             self.phit_i.add_density(nt_sG[s], self.f_si[s])
 
     def calculate_initial_occupation_numbers(self, ns, niao, magmom, hund):
         f_si = npy.zeros((ns, niao))
-
-        w_si = npy.zeros((ns, niao))
-        w_j = self.setup.extra_xc_data['response_weights']
+        
+        gllb = self.setup.xcfunc.is_gllb()
+        if gllb:
+            w_si = npy.zeros((ns, niao))
+            w_j = self.setup.extra_xc_data['response_weights']
 
         i = 0
         nj = len(self.setup.n_j)
@@ -325,7 +335,8 @@ class Nucleus:
                 # Use Hunds rules:
                 f_si[0, i:i + min(f, degeneracy)] = 1.0      # spin up
                 f_si[1, i:i + max(f - degeneracy, 0)] = 1.0  # spin down
-                w_si[0, i:i + min(f, degeneracy)] = w_j[j]
+                if gllb:
+                    w_si[:, i:i + degeneracy] = w_j[j]
                 if f < degeneracy:
                     magmom -= f
                 else:
@@ -333,7 +344,8 @@ class Nucleus:
             else:
                 if ns == 1:
                     f_si[0, i:i + degeneracy] = 1.0 * f / degeneracy
-                    w_si[0, i:i + degeneracy] = w_j[j]
+                    if gllb:
+                        w_si[0, i:i + degeneracy] = w_j[j]
                 else:
                     maxmom = min(f, 2 * degeneracy - f)
                     mag = magmom
@@ -341,8 +353,8 @@ class Nucleus:
                         mag = cmp(mag, 0) * maxmom
                     f_si[0, i:i + degeneracy] = 0.5 * (f + mag) / degeneracy
                     f_si[1, i:i + degeneracy] = 0.5 * (f - mag) / degeneracy
-                    w_si[0, i:i + degeneracy] = w_j[j]
-                    w_si[1, i:i + degeneracy] = w_j[j]
+                    if gllb:
+                        w_si[:, i:i + degeneracy] = w_j[j]
                     magmom -= mag
                 
             i += degeneracy
@@ -351,7 +363,10 @@ class Nucleus:
             raise RuntimeError('Bad magnetic moment for %s atom!' %
                                self.setup.symbol)
         assert i == niao
-        return f_si, w_si
+        if gllb:
+            return f_si, w_si
+        else: 
+            return f_si
     
     def add_smooth_core_density(self, nct_G, nspins):
         if self.nct is not None:
