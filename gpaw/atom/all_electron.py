@@ -188,7 +188,7 @@ class AllElectron:
             self.intialize_wave_functions()
             n[:] = self.calculate_density()
         else:
-            if not self.xc.is_non_local():
+            if not self.xc.is_gllb():
                 t('Using old density for initial guess.')
                 n[:] = pickle.load(f)
                 n *= Z / (npy.dot(n * r**2, dr) * 4 * pi)
@@ -214,7 +214,7 @@ class AllElectron:
             # calculated exchange correlation potential and energy
             self.vXC[:] = 0.0
 
-            if self.xc.is_non_local():
+            if self.xc.is_gllb():
                 Exc = self.xc.get_non_local_energy_and_potential(self.u_j, self.f_j, self.e_j, self.l_j, self.vXC, niter)
             else:
                 tau = None
@@ -266,10 +266,6 @@ class AllElectron:
 ##         self.write(tau2,'tau2')
 ##         self.write(tau-tau2,'tau12')
 ##         print "Ekin(tau2)=",npy.dot(tau2 *r**2 , dr) * 4*pi
-
-        # When iterations are over calculate the correct exchange energy
-        #if self.xc.is_non_local():
-        #    Exc = atomic_exact_exchange(self)
 
         t()
         t('Converged in %d iteration%s.' % (niter, 's'[:niter != 1]))

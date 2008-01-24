@@ -1,7 +1,7 @@
 module load python
 module swap PrgEnv-pgi  PrgEnv-gnu
 
-setenv PYTHONPATH /v/linux26_x86_64/appl/nano/ASE3/lib/python:$WRKDIR/gllb_1801:
+setenv PYTHONPATH /v/linux26_x86_64/appl/nano/ASE3/lib/python:$WRKDIR/gllb_2301:
 setenv GPAW_SETUP_PATH '.'
-setenv PATH "$PATH":$WRKDIR/gllb_1801/build/bin.linux-x86_64-2.4
+setenv PATH "$PATH":$WRKDIR/gllb_2301/build/bin.linux-x86_64-2.4
 

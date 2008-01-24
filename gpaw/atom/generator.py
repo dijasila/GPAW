@@ -440,7 +440,7 @@ class Generator(AllElectron):
 
         extra_xc_data = {}
 
-        if not self.xc.is_non_local():
+        if not self.xc.is_gllb():
             Exct = self.xc.get_energy_and_potential(nt, vXCt)
         else:
             # The difference between local and non-local functionals

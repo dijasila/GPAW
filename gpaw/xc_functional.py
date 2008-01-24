@@ -50,6 +50,7 @@ class XCFunctional:
         self.mgga = False
         self.gga = False
         self.orbital_dependent = False
+        self.gllb = False
         self.uses_libxc = False
         self.nspins = nspins
 
@@ -139,9 +140,7 @@ class XCFunctional:
             if self.setupname is None:
                 self.setupname = 'LDA'
         elif xcname.startswith('GLLB') or xcname=='KLI':
-            # GLLB type of functionals which use orbitals, require special treatment at first iterations,
-            # where there is no orbitals available. Therefore orbital_dependent = True!
-            self.orbital_dependent = True
+            self.gllb = True
             code = 'gllb'
         else:
             self.gga = True
@@ -230,18 +229,16 @@ class XCFunctional:
         self.__init__(xcname, parameters)
 
     # Returns true, if the orbital is orbital dependent.
-    def is_non_local(self):
-        return self.orbital_dependent
+    def is_gllb(self):
+        return self.gllb
 
     def set_non_local_things(self, paw, energy_only=False):
-        if not self.orbital_dependent:
-            return
-
-        if self.xcname.startswith('GLLB') or self.xcname == 'KLI':
+        
+        if self.is_gllb():
             self.xc.pass_stuff(paw.kpt_u, paw.gd, paw.finegd, paw.density.interpolate,
                                paw.nspins, paw.my_nuclei, paw.occupation, paw.kpt_comm, paw.symmetry)
 
-        if self.hybrid > 0.0:
+        if self.orbital_dependent and self.hybrid > 0.0:
             if paw.dtype == complex:
                 raise NotImplementedError, 'k-point calculation with EXX'
             if self.parameters and self.parameters.has_key('finegrid'):
@@ -601,8 +598,8 @@ class XCRadialGrid(XCGrid):
         self.e_g = npy.empty(self.shape)
 
     # True, if this xc-potential depends on more than just density
-    def is_non_local(self):
-        return self.xcfunc.is_non_local()
+    def is_gllb(self):
+        return self.xcfunc.is_gllb()
 
     # This is called from all_electron.py
     # Special function for just 1D-case
