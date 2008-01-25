@@ -27,7 +27,7 @@ class NonLocalFunctionalFactory:
             from gpaw.gllb.gllb import GLLBFunctional
             return GLLBFunctional(relaxed_core_response=True)
         elif name == 'GLLBplusC':
-            from gpaw.gllb.gllbc import GLLBCFunctional
+            from gpaw.gllb.gllb import GLLBFunctional
             return GLLBFunctional(correlation = True)
         elif name == 'GLLBLUMO':
             from gpaw.gllb.gllb import GLLBFunctional
@@ -36,14 +36,8 @@ class NonLocalFunctionalFactory:
             from gpaw.gllb.gllb import GLLBFunctional
             return GLLBFunctional(lumo=True, relaxed_core_response=True)
         elif name == 'GLLBplusCLUMO':
-            from gpaw.gllb.gllbc import GLLBCFunctional
+            from gpaw.gllb.gllbc import GLLBFunctional
             return GLLBCFunctional(lumo=True)
-        #elif name == 'GLLBSlaterCore':
-        #    from gpaw.gllb.gllbsc import GLLBSlaterCoreFunctional
-        #    return GLLBSlaterCoreFunctional()
-        #elif name == 'KLI':
-        #    from gpaw.gllb.kli import KLIFunctional
-        #    return KLIFunctional()
         else:
             raise RuntimeError('Unkown NonLocal density functional: ' + name)
 

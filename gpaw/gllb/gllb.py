@@ -1,12 +1,12 @@
 # Imports
 import numpy as num
 from gpaw.xc_functional import XC3DGrid, XCFunctional
-SMALL_NUMBER = 1e-8
-SMALL_NUMBER_ATOM = 1e-8
+SMALL_NUMBER = 1e-12
+SMALL_NUMBER_ATOM = 1e-10
 
 # Some useful constants
-EXCHANGE_FUNCTIONAL = "X_B88-None"
-CORRELATION_FUNCTIONAL = "None-C_P86"
+EXCHANGE_FUNCTIONAL = "X_B88"
+CORRELATION_FUNCTIONAL = "C_PW91"
 K_G = 0.382106112167171
 
 # Few useful functions
@@ -19,7 +19,10 @@ def find_nucleus(nuclei, a):
     return nucleus
 
 def safe_sqr(u_j):
-    return num.where(abs(u_j) < 1e-160, 0, u_j)**2
+    return u_j**2
+    #OBSOLETE!
+    #Thanks to numpy, no more safe_sqr
+    #return num.where(abs(u_j) < 1e-160, 0, u_j)**2
 
 def construct_density1D(gd, u_j, f_j):
     """
@@ -94,7 +97,7 @@ class GLLBFunctional:
 
         About correlation flag:
 
-        Correlation is P86.
+        Correlation is PW91.
         """
 
         self.relaxed_core_response = relaxed_core_response
@@ -103,12 +106,11 @@ class GLLBFunctional:
         self.mixing = mixing
 
         self.old_v_sg = []
-        self.correlation_functional = None
-        self.exchange_functional = None
+        self.gga_xc = None
 
         self.v_g1D = None
         self.e_g1D = None
-        self.slater_part1D = None
+        self.gga_xc1D = None
 
         self.initialized = False
         self.reference_level_s = [ -1000 ]
@@ -214,6 +216,14 @@ class GLLBFunctional:
         return self.reference_index
 
 
+    def is_ready(self):
+        try:
+            self.kpt_u[0].eps_n
+        except AttributeError:
+            print "Attribute error."
+            return False
+        return True
+
     def find_reference_level(self):
         if self.lumo_reference:
             c = -1
@@ -230,13 +240,10 @@ class GLLBFunctional:
                     eps = kpt.eps_n[self.reference_index[s]]
                     if c*level < c*eps:
                         level = eps
-            #print c
-            #print level
-            #print self.kpt_comm
+
             level = c*self.kpt_comm.max(c*level)
             reference_level_s.append(level)
 
-        #print "Located reference levels: ", reference_level_s
         return reference_level_s
 
 
@@ -249,11 +256,13 @@ class GLLBFunctional:
         # Only spin-paired calculation supported
         assert(self.nspins == 1)
 
-        # Calculate the Slater-part of exchange potential
-        self.prepare_exchange()
-        self.exchange_functional.get_energy_and_potential_spinpaired(n_sg[0], self.v_g, e_g=self.e_g)
+        if not self.is_ready():
+            return
+
+        # Calculate the Slater-part of exchange (and correlation) potential
+        self.prepare_gga_xc()
+        Exc = self.gga_xc.get_energy_and_potential_spinpaired(n_sg[0], self.v_g, e_g=self.e_g)
         v_sg[0] += 2 * self.e_g / (n_sg[0] + SMALL_NUMBER)
-        #print "GLLB smooth Exchange: ", num.sum(self.e_g.flat)
         e_g [:]= self.e_g.flat
 
         # Use the coarse grid for response part
@@ -266,10 +275,8 @@ class GLLBFunctional:
             w_n = self.get_weights_kpoint(kpt)
             for f, psit_G, w in zip(kpt.f_n, kpt.psit_nG, w_n):
                 if w > 0:
-                    #print "Adding response part", f, w
                     if kpt.dtype == float:
-                        #axpy(f*w, psit_G**2, self.vt_G)
-                        self.vt_G += f * w * psit_G **2
+                        self.vt_G += f * w * (psit_G **2)
                     else:
                         self.vt_G += f * w * (psit_G * num.conjugate(psit_G)).real
 
@@ -287,15 +294,7 @@ class GLLBFunctional:
         # Add the response part to the potential
         v_sg[0] += self.vt_g / (n_sg[0] + SMALL_NUMBER)
 
-        # Calculate the correlation potential
-        if self.correlation:
-            print "Including correlation..."
-            self.prepare_correlation()
-            self.correlation_functional.get_energy_and_potential_spinpaired(n_sg[0], self.v_g, e_g=self.e_g)
-            v_sg[0] += self.v_g
-            e_g += self.e_g.flat
-
-    def pass_stuff(self, kpt_u, gd, finegd, interpolate, nspins, nuclei, occupation, kpt_comm, symmetry):
+    def pass_stuff(self, kpt_u, gd, finegd, interpolate, nspins, nuclei, occupation, kpt_comm, symmetry, fixdensity):
         """
         Important quanities is supplied to non-local functional using this method.
 
@@ -319,28 +318,33 @@ class GLLBFunctional:
         self.e_g = finegd.empty()
         self.vt_G = gd.empty()
         self.vt_g = finegd.empty()
+        if fixdensity:
+            self.mixing = 0.0
 
-    def prepare_exchange(self):
-        # Create the exchange functional for Slater part (only once per calculation)
-        if self.exchange_functional == None:
+    def get_gga_xc_name(self):
+        xcname = EXCHANGE_FUNCTIONAL
+        if self.correlation:
+            xcname += '-' + CORRELATION_FUNCTIONAL
+        else:
+            xcname += '-None'
+        print "Using GGA-functional ", xcname, " for screening part"
+        return xcname
+
+
+
+    def prepare_gga_xc(self):
+        # Create the exchange and correlation functional for screening part (only once per calculation)
+        if self.gga_xc == None:
+            xcname = self.get_gga_xc_name()
             from gpaw.xc_functional import XCFunctional
-            self.exchange_functional = XC3DGrid(XCFunctional(EXCHANGE_FUNCTIONAL, 1), \
-                                       self.finegd, self.nspins)
+            self.gga_xc = XC3DGrid(XCFunctional(xcname, 1), self.finegd, self.nspins)
 
-    def prepare_correlation(self):
-        # Create the correlation functional 
-        if self.correlation_functional == None:
-            from gpaw.xc_functional import XCFunctional
-            self.correlation_functional = XC3DGrid(XCFunctional(CORRELATION_FUNCTIONAL, 1), \
-                                          self.finegd, self.nspins)
-
-
-    def prepare_exchange_1D(self, gd):
+    def prepare_gga_xc_1D(self, gd):
         # Do we have already XCRadialGrid object, if not, create one
-        if self.slater_part1D == None:
+        if self.gga_xc1D == None:
+            xcname = self.get_gga_xc_name()
             from gpaw.xc_functional import XCFunctional, XCRadialGrid
-            self.slater_part1D = XCRadialGrid(XCFunctional(EXCHANGE_FUNCTIONAL, 1), gd)
-
+            self.gga_xc1D = XCRadialGrid(XCFunctional(xcname, 1), gd)
 
     def get_slater1D(self, gd, n_g, u_j, f_j, l_j, vrho_xc):
         """Return approximate exchange energy.
@@ -369,13 +373,13 @@ class GLLBFunctional:
         if self.e_g1D == None:
             self.e_g = n_g.copy()
 
-        self.prepare_exchange_1D(gd)
+        self.prepare_gga_xc_1D(gd)
 
         self.v_g[:] = 0.0
         self.e_g[:] = 0.0
         
         # Calculate B88-energy density
-        self.slater_part1D.get_energy_and_potential_spinpaired(n_g, self.v_g, e_g=self.e_g)
+        self.gga_xc1D.get_energy_and_potential_spinpaired(n_g, self.v_g, e_g=self.e_g)
 
         # Calculate the exchange energy
         Exc = num.dot(self.e_g, gd.dv_g)
@@ -447,7 +451,7 @@ class GLLBFunctional:
         # Add the response multiplied with density to potential
         v_xc[:] += construct_density1D(gd, u_j[:imax], [f*w for f,w in zip(f_j[:imax] , w_j[:imax])])
 
-        if iteration < 5:
+        if iteration < 10:
             NUMBER = SMALL_NUMBER_ATOM
         else:
             NUMBER = SMALL_NUMBER
@@ -506,13 +510,13 @@ class GLLBFunctional:
             ndenom_g = n_g
 
         # TODO: This method needs more arguments to support arbitary slater part
-        self.prepare_exchange_1D(rgd)
+        self.prepare_gga_xc_1D(rgd)
         N = len(n_g)
         # TODO: Allocate these only once
         vtemp_g = num.zeros(N, float)
         etemp_g = num.zeros(N, float)
         deda2temp_g = num.zeros(N, float)
-        self.slater_part1D.xcfunc.calculate_spinpaired(etemp_g, n_g, vtemp_g, a2_g, deda2temp_g)
+        self.gga_xc1D.xcfunc.calculate_spinpaired(etemp_g, n_g, vtemp_g, a2_g, deda2temp_g)
 
         # Grr... When n_g = 0, B88 returns -0.03 for e_g!!!!!!!!!!!!!!!!!
         etemp_g[:] = num.where(abs(n_g) < SMALL_NUMBER, 0, etemp_g)
@@ -529,10 +533,7 @@ class GLLBFunctional:
         a2_g = num.zeros(N, float) # Density gradient |\/n|^2
         resp_g = num.zeros(N, float) # Numerator of response pontial
         core_resp_g = num.zeros(N, float) # Numerator of core response potential
-
         deg = len(D_sp)
-
-        #print "RefLev:", self.reference_levels
 
         for s, (D_p, H_p, Dresp_p) in enumerate(zip(D_sp, H_sp, nucleus.Dresp_sp)):
             H_p[:] = 0.0
@@ -546,13 +547,11 @@ class GLLBFunctional:
             else:
                 # Take the core response directly from setup
                 core_resp_g[:] = extra_xc_data['core_response']
-                #print "Core response", core_resp_g
 
             n_iter = sphere_n.get_iterator(D_p)
             nt_iter = sphere_nt.get_iterator(D_p)
             resp_iter = sphere_n.get_iterator(Dresp_p, core=False, gradient=False)
             respt_iter = sphere_nt.get_iterator(Dresp_p, core=False, gradient=False)
-            #print "Response density matrix:", Dresp_p
             Exc = 0
             while n_iter.has_next():
                 # Calculate true density, density gradient and numerator of response
@@ -567,8 +566,7 @@ class GLLBFunctional:
 
                 # Calculate the response potential
                 v_g[:] += (resp_g + core_resp_g) / (n_g + SMALL_NUMBER)
-                #print "A",resp_g
-                #print "B", core_resp_g
+
                 # Integrate v_g over wave functions to get H_p
                 n_iter.integrate(1.0, v_g, H_p)
 
@@ -592,12 +590,6 @@ class GLLBFunctional:
                 nt_iter.next()
                 resp_iter.next()
                 respt_iter.next()
-
-        #print "Atom index ", a
-        #print "D_sp", D_sp
-        #print "Dresp_sp", Dresp_p
-        #print "H_sp",H_sp
-        print "Exc", Exc
         return Exc
 
 

@@ -35,7 +35,7 @@ class XCNonLocalCorrection:
     def calculate_energy_and_derivatives(self, D_sp, H_sp, a):
         # Use special method to find nucleus in parallel calculations
         nucleus = find_nucleus(self.gllb_xc.nuclei, a)
-        print "Hello! I am processor ", world.rank, " and I am calculating PAW corrections for atom ", a
+        #print "Hello! I am processor ", world.rank, " and I am calculating PAW corrections for atom ", a
         # The GLLB-functional class will perform the corrections
         E = self.gllb_xc.calculate_non_local_paw_correction( \
                 D_sp, H_sp, self.sphere_nt, self.sphere_n, nucleus, self.extra_xc_data, a)

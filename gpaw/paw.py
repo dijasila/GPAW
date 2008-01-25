@@ -463,7 +463,6 @@ class PAW(PAWExtra, Output):
             self.print_iteration()
             self.niter += 1
             self.call()
-            self.print_converged()
 
         self.call(final=True)
         self.print_converged()

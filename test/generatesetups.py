@@ -21,7 +21,7 @@ for symbol in ['H', 'He', 'Li', 'N']:
     gen(symbol, 'PBE')
 for symbol in ['He', 'Li']:
     gen(symbol, 'revPBE')
-for symbol in ['Mg']:
+for symbol in ['Mg','Si']:
     gen(symbol, 'GLLB')
 
 if __name__ != '__main__':

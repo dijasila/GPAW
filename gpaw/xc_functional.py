@@ -236,7 +236,8 @@ class XCFunctional:
         
         if self.is_gllb():
             self.xc.pass_stuff(paw.kpt_u, paw.gd, paw.finegd, paw.density.interpolate,
-                               paw.nspins, paw.my_nuclei, paw.occupation, paw.kpt_comm, paw.symmetry)
+                               paw.nspins, paw.my_nuclei, paw.occupation, paw.kpt_comm, paw.symmetry, 
+                               paw.fixdensity)
 
         if self.orbital_dependent and self.hybrid > 0.0:
             if paw.dtype == complex:

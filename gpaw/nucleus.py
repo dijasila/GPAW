@@ -319,7 +319,10 @@ class Nucleus:
         gllb = self.setup.xcfunc.is_gllb()
         if gllb:
             w_si = npy.zeros((ns, niao))
-            w_j = self.setup.extra_xc_data['response_weights']
+            if self.setup.type == 'paw':
+                w_j = self.setup.extra_xc_data['response_weights']
+            else:
+                w_j = npy.zeros((niao))
 
         i = 0
         nj = len(self.setup.n_j)
@@ -430,8 +433,6 @@ class Nucleus:
 
             Exc = s.xc_correction.calculate_energy_and_derivatives(
                 self.D_sp, self.H_sp, self.a)
-
-            print "Nucleus.Exc ", Exc
 
             Ekin = npy.dot(s.K_p, D_p) + s.Kc
 

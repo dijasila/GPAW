@@ -260,11 +260,10 @@ class Density:
                 for kpt in kpt_u:
                     P_ni = nucleus.P_uni[kpt.u]
                     # Get the response weights
-                    w = nucleus.setup.xc_correction.gllb_xc.get_weights_kpoint(kpt)
-                    print "Response weights at density.py ", w
+                    w = kpt.f_n * nucleus.setup.xc_correction.gllb_xc.get_weights_kpoint(kpt)
                     # Calculate the "response density"-matrix
                     Dresp_sii[kpt.s] += real(dot(cc(transpose(P_ni)),
-                                             P_ni * kpt.f_n[:, newaxis] * w[:, newaxis]))
+                                             P_ni * w[:, newaxis]))
                 nucleus.Dresp_sp[:] = [pack(Dresp_ii) for Dresp_ii in Dresp_sii]
                 self.kpt_comm.sum(nucleus.Dresp_sp)
 
