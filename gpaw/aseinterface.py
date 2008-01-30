@@ -211,7 +211,9 @@ class Calculator(PAW):
 
     def get_eigenvalues(self, kpt=0, spin=0):
         """Return eigenvalue array."""
-        return self.collect_eigenvalues(kpt, spin) * self.Ha
+        result = self.collect_eigenvalues(kpt, spin)
+        if result is not None:
+            return result*self.Ha
 
     def GetWannierLocalizationMatrix(self, nbands, dirG, kpoint,
                                      nextkpoint, G_I, spin):

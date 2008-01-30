@@ -23,21 +23,18 @@ class NonLocalFunctionalFactory:
         if name == 'GLLB':
             from gpaw.gllb.gllb import GLLBFunctional
             return GLLBFunctional()
-        elif name == 'GLLBRC':
-            from gpaw.gllb.gllb import GLLBFunctional
-            return GLLBFunctional(relaxed_core_response=True)
         elif name == 'GLLBplusC':
             from gpaw.gllb.gllb import GLLBFunctional
             return GLLBFunctional(correlation = True)
+        elif name == 'GLLBplusCPBE':
+            from gpaw.gllb.gllb import GLLBFunctional
+            return GLLBFunctional(correlation = True, slater_xc_name='PBE')
         elif name == 'GLLBLUMO':
             from gpaw.gllb.gllb import GLLBFunctional
-            return GLLBFunctional(lumo=True)
-        elif name == 'GLLBRCLUMO':
-            from gpaw.gllb.gllb import GLLBFunctional
-            return GLLBFunctional(lumo=True, relaxed_core_response=True)
+            return GLLBFunctional(lumo_reference=True)
         elif name == 'GLLBplusCLUMO':
-            from gpaw.gllb.gllbc import GLLBFunctional
-            return GLLBCFunctional(lumo=True)
+            from gpaw.gllb.gllb import GLLBFunctional
+            return GLLBFunctional(lumo_reference=True, correlation=True)
         else:
             raise RuntimeError('Unkown NonLocal density functional: ' + name)
 

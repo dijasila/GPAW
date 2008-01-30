@@ -1,7 +1,7 @@
 # Imports
 import numpy as num
 from gpaw.xc_functional import XC3DGrid, XCFunctional
-SMALL_NUMBER = 1e-12
+SMALL_NUMBER = 1e-10
 SMALL_NUMBER_ATOM = 1e-10
 
 # Some useful constants
@@ -74,7 +74,7 @@ def find_reference_level1D(f_j, e_j, lumo=False):
 
 class GLLBFunctional:
 
-    def __init__(self, relaxed_core_response = False, lumo_reference = False, correlation = False, mixing = 1.0):
+    def __init__(self, relaxed_core_response = False, lumo_reference = False, correlation = False, mixing = 1.0, slater_xc_name = None):
         """Initialize GLLB Functional class.
 
         About relax_core_resonse flag:
@@ -105,6 +105,8 @@ class GLLBFunctional:
         self.correlation = correlation
         self.mixing = mixing
 
+        self.slater_xc_name = slater_xc_name
+
         self.old_v_sg = []
         self.gga_xc = None
 
@@ -132,7 +134,8 @@ class GLLBFunctional:
         if (epsilon + 0.05 / 27.21> reference_level):
             return 0.0
 
-        return K_G * num.sqrt(reference_level-epsilon)
+        diff = reference_level-epsilon
+        return K_G * num.sqrt(diff) 
 
     def calculate_spinpaired(self, e_g, n_g, v_g):
         """Calculates the KS-exchange potential for spin paired calculation
@@ -322,6 +325,9 @@ class GLLBFunctional:
             self.mixing = 0.0
 
     def get_gga_xc_name(self):
+        if self.slater_xc_name is not None:
+            return self.slater_xc_name
+
         xcname = EXCHANGE_FUNCTIONAL
         if self.correlation:
             xcname += '-' + CORRELATION_FUNCTIONAL
@@ -329,8 +335,6 @@ class GLLBFunctional:
             xcname += '-None'
         print "Using GGA-functional ", xcname, " for screening part"
         return xcname
-
-
 
     def prepare_gga_xc(self):
         # Create the exchange and correlation functional for screening part (only once per calculation)
