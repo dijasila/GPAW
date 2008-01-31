@@ -49,7 +49,7 @@ def write(paw, filename, mode):
       Defines the filenames to be ``'mywfs/psit_Gs%dk%dn%d' % (s, k, n)``.
       The directory ``mywfs`` is created if not present. XXX
     """
-    
+
     if paw.master:
         w = open(filename, 'w')
 
@@ -211,7 +211,8 @@ def write(paw, filename, mode):
         assert q2 == nadm
         w.add('AtomicDensityMatrices', ('nspins', 'nadm'), all_D_sp)
         w.add('NonLocalPartOfHamiltonian', ('nspins', 'nadm'), all_H_sp)
-        w.add('ResponseDensityMatrices', ('nspins','nadm'), all_Dresp_sp)
+        if paw.xcfunc.is_gllb():
+            w.add('ResponseDensityMatrices', ('nspins','nadm'), all_Dresp_sp)
         
     elif paw.kpt_comm.rank == MASTER:
         for nucleus in paw.my_nuclei:
@@ -252,6 +253,17 @@ def write(paw, filename, mode):
         for kpt in paw.kpt_u:
             paw.kpt_comm.send(kpt.f_n, MASTER, 4300)
 
+    if paw.xcfunc.is_gllb():
+        if paw.master:
+            w.add('GLLBFinePotential',
+                  ('nspins', 'nfinegptsx', 'nfinegptsy', 'nfinegptsz'), dtype=float)
+
+        if paw.kpt_comm.rank == MASTER:
+            for s in range(paw.nspins):
+                vt_g = paw.finegd.collect(paw.xcfunc.xc.old_v_sg[s])
+                if paw.master:
+                    w.fill(vt_g)
+         
     # Write the pseudodensity on the coarse grid:
     if paw.master:
         w.add('PseudoElectronDensity',
@@ -359,6 +371,13 @@ def read(paw, reader):
         paw.gd.distribute(r.get('PseudoElectronDensity', s),
                           paw.density.nt_sG[s])
 
+
+    if paw.xcfunc.is_gllb():
+        paw.xcfunc.xc.old_v_sg = [ paw.finegd.zeros() for s in range(paw.nspins) ]
+        for s in range(paw.nspins):
+            paw.finegd.distribute(r.get('GLLBFinePotential', s),
+                              paw.xcfunc.xc.old_v_sg[s])
+
     # Transfer the density to the fine grid:
     paw.density.interpolate_pseudo_density()  # Do this later??????
     paw.density.initialized = True
@@ -373,13 +392,15 @@ def read(paw, reader):
     if version > 0.3:
         H_sp = r.get('NonLocalPartOfHamiltonian')
     p1 = 0
-    Dresp_sp = r.get('ResponseDensityMatrices')
+    if paw.xcfunc.is_gllb():
+        Dresp_sp = r.get('ResponseDensityMatrices')
     for nucleus in paw.nuclei:
         ni = nucleus.get_number_of_partial_waves()
         p2 = p1 + ni * (ni + 1) / 2
         if nucleus.in_this_domain:
             nucleus.D_sp[:] = D_sp[:, p1:p2]
-            nucleus.Dresp_sp[:] = Dresp_sp[:, p1:p2]
+            if paw.xcfunc.is_gllb():
+                nucleus.Dresp_sp[:] = Dresp_sp[:, p1:p2]
             if version > 0.3:
                 nucleus.H_sp[:] = H_sp[:, p1:p2]
         p1 = p2
