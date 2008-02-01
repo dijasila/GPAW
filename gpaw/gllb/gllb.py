@@ -1,6 +1,10 @@
 # Imports
 import numpy as num
 from gpaw.xc_functional import XC3DGrid, XCFunctional
+
+from gpaw.utilities import pack, unpack2
+from gpaw.utilities.complex import cc, real
+
 SMALL_NUMBER = 1e-10
 SMALL_NUMBER_ATOM = 1e-10
 
@@ -254,6 +258,70 @@ class GLLBFunctional:
         # Locate the reference levels
         self.reference_level_s = self.find_reference_level()
         self.initialized = True
+
+    def prepare_for_fixed_density_lumo_reference_calculation(self, paw):
+        assert(self.lumo_reference == False)
+
+        # Set the lumo reference
+        self.lumo_reference = True
+
+        # Find the new reference level
+        reference_level_s_lumo = self.find_reference_level()
+        reference_level_s_homo = self.reference_level_s
+
+        self.vt_G[:] = 0.0
+
+        # For each k-point, add the response part
+        for kpt in self.kpt_u:
+            self.reference_level_s = reference_level_s_lumo
+            w_n =  self.get_weights_kpoint(kpt)
+            self.reference_level_s = reference_level_s_homo
+            w_n -= self.get_weights_kpoint(kpt)
+
+            for f, psit_G, w in zip(kpt.f_n, kpt.psit_nG, w_n):
+                if w > 0:
+                    if kpt.dtype == float:
+                        self.vt_G += f * w * (psit_G **2)
+                    else:
+                        self.vt_G += f * w * (psit_G * num.conjugate(psit_G)).real
+
+        # Communicate the coarse-response part
+        self.kpt_comm.sum(self.vt_G)
+
+        # Include the symmetry to the response part also
+        if self.symmetry is not None:
+            self.symmetry.symmetrize(self.vt_G, self.gd)
+
+        # Interpolate the response part to fine grid
+        self.vt_g[:] = 0.0 
+        self.interpolate(self.vt_G, self.vt_g)
+
+        n_sg = paw.density.nt_sg
+        # Add the additional response part to the stored gllb potential
+        self.old_v_sg[0] += self.vt_g / (n_sg[0] + SMALL_NUMBER)
+
+        for nucleus in self.nuclei:
+            ni = nucleus.get_number_of_partial_waves()
+            Dresp_sii = num.zeros((self.nspins, ni, ni))
+            for kpt in self.kpt_u:
+                P_ni = nucleus.P_uni[kpt.u]
+                # Get the response weights
+
+                self.reference_level_s = reference_level_s_lumo
+                w_n =  self.get_weights_kpoint(kpt)
+                self.reference_level_s = reference_level_s_homo
+                w_n -= self.get_weights_kpoint(kpt)
+                w_n *= kpt.f_n 
+
+                # Calculate the increase to "response density"-matrix
+                Dresp_sii[kpt.s] += real(num.dot(cc(num.transpose(P_ni)),
+                                         P_ni * w_n[:, num.newaxis]))
+                # Parallelization must be done before adding to Dresp
+                self.kpt_comm.sum(Dresp_sii)
+
+                nucleus.Dresp_sp[:] += [pack(Dresp_ii) for Dresp_ii in Dresp_sii]
+
+
 
     def calculate_gllb(self, n_sg, v_sg, e_g):
         # Only spin-paired calculation supported
