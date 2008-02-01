@@ -186,7 +186,8 @@ def write(paw, filename, mode):
     # Write atomic density matrices and non-local part of hamiltonian:
     if paw.master:
         all_D_sp = npy.empty((paw.nspins, nadm))
-        all_Dresp_sp = npy.empty((paw.nspins, nadm))
+        if paw.xcfunc.is_gllb():
+            all_Dresp_sp = npy.empty((paw.nspins, nadm))
         all_H_sp = npy.empty((paw.nspins, nadm))
         q1 = 0
         for nucleus in paw.nuclei:
@@ -194,19 +195,22 @@ def write(paw, filename, mode):
             np = ni * (ni + 1) / 2
             if nucleus.in_this_domain:
                 D_sp = nucleus.D_sp
-                Dresp_sp = nucleus.Dresp_sp
+                if paw.xcfunc.is_gllb():
+                    Dresp_sp = nucleus.Dresp_sp
                 H_sp = nucleus.H_sp
             else:
                 D_sp = npy.empty((paw.nspins, np))
                 paw.domain.comm.receive(D_sp, nucleus.rank, 207)
-                Drespp_sp = npy.empty((paw.nspins, np))
-                paw.domain.comm.receive(D_sp, nucleus.rank, 999)
+                if paw.xcfunc.is_gllb():
+                    Dresp_sp = npy.empty((paw.nspins, np))
+                    paw.domain.comm.receive(Dresp_sp, nucleus.rank, 999)
                 H_sp = npy.empty((paw.nspins, np))
                 paw.domain.comm.receive(H_sp, nucleus.rank, 2071)
             q2 = q1 + np
             all_D_sp[:, q1:q1+np] = D_sp
             all_H_sp[:, q1:q1+np] = H_sp
-            all_Dresp_sp[:, q1:q1+np ] = Dresp_sp
+            if paw.xcfunc.is_gllb():
+                all_Dresp_sp[:, q1:q1+np ] = Dresp_sp
             q1 = q2
         assert q2 == nadm
         w.add('AtomicDensityMatrices', ('nspins', 'nadm'), all_D_sp)
@@ -217,7 +221,8 @@ def write(paw, filename, mode):
     elif paw.kpt_comm.rank == MASTER:
         for nucleus in paw.my_nuclei:
             paw.domain.comm.send(nucleus.D_sp, MASTER, 207)
-            paw.domain.comm.send(nucleus.Dresp_sp, MASTER, 999)
+            if paw.xcfunc.is_gllb():
+                paw.domain.comm.send(nucleus.Dresp_sp, MASTER, 999)
             paw.domain.comm.send(nucleus.H_sp, MASTER, 2071)
 
     # Write the eigenvalues:
