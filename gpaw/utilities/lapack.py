@@ -8,7 +8,8 @@ Linear Algebra PACKage (LAPACK)
 
 import numpy as npy
 
-from gpaw import debug
+from gpaw import debug, scalapack
+from gpaw.mpi import parallel, size, world
 import _gpaw
 
 from gpaw.utilities.blas import gemm
@@ -36,14 +37,46 @@ def diagonalize(a, w, b=None):
         assert b.flags.contiguous
         assert b.dtype == a.dtype
         assert b.shape == a.shape
-        info = _gpaw.diagonalize(a, w, b)
+        if scalapack:
+            if scalapack: assert parallel
+            print 'python ScaLapack diagonalize general'
+            assert len(scalapack) == 4
+            assert scalapack[0]*scalapack[1] <= size
+            # symmetrize the matrix
+            for i in range(n):
+                for j in range(i, n):
+                    a[i,j] = a[j,i]
+            print 'python ScaLapack diagonalize general not implemented yet'
+            assert (not scalapack)
+            info = world.diagonalize(a, w,
+                                     scalapack[0],
+                                     scalapack[1],
+                                     scalapack[2], 0, b)
+        else:
+            print 'python Lapack diagonalize general'
+            info = _gpaw.diagonalize(a, w, b)
     else:
-        info = _gpaw.diagonalize(a, w)
+        if scalapack:
+            if scalapack: assert parallel
+            print 'python ScaLapack diagonalize'
+            assert len(scalapack) == 4
+            assert scalapack[0]*scalapack[1] <= size
+            # symmetrize the matrix
+            for i in range(n):
+                for j in range(i, n):
+                    a[i,j] = a[j,i]
+            info = world.diagonalize(a, w,
+                                     scalapack[0],
+                                     scalapack[1],
+                                     scalapack[2], 0)
+        else:
+            print 'python Lapack diagonalize'
+            info = _gpaw.diagonalize(a, w)
     return info
 
 def inverse_cholesky(a):
     """Calculate the inverse of the Cholesky decomposition of
-    a symmetric/hermitian positive definete matrix `a`.
+    a symmetric/hermitian positive definite matrix `a`.
 
     Uses dpotrf/zpotrf to calculate the decomposition and then
     dtrtri/ztrtri for the inversion"""
@@ -52,7 +85,22 @@ def inverse_cholesky(a):
     assert a.dtype in [float, complex]
     n = len(a)
     assert a.shape == (n, n)
-    info = _gpaw.inverse_cholesky(a)
+    if scalapack:
+        if scalapack: assert parallel
+        print 'python ScaLapack inverse_cholesky'
+        assert len(scalapack) == 4
+        assert scalapack[0]*scalapack[1] <= size
+        # symmetrize the matrix
+        for i in range(n):
+            for j in range(i, n):
+                a[i,j] = a[j,i]
+        info = world.inverse_cholesky(a,
+                                      scalapack[0],
+                                      scalapack[1],
+                                      scalapack[2], 0)
+    else:
+        print 'python Lapack inverse_cholesky'
+        info = _gpaw.inverse_cholesky(a)
     return info
 
 
@@ -129,10 +177,10 @@ def sqrt_matrix(a, preserve=False):
 
     # sqrt(b) = c * Z^T
     gemm(1., ZT, c, 0., b)
-    
+
     return b
 
 if not debug:
-    diagonalize = _gpaw.diagonalize
+    #diagonalize = _gpaw.diagonalize
     right_eigenvectors = _gpaw.right_eigenvectors
-    inverse_cholesky = _gpaw.inverse_cholesky
+    #inverse_cholesky = _gpaw.inverse_cholesky

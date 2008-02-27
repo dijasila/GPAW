@@ -42,7 +42,7 @@ static PyObject * mpi_receive(MPIObject *self, PyObject *args)
       return Py_BuildValue("s#", &req, sizeof(req));
     }
 }
- 
+
 static PyObject * mpi_send(MPIObject *self, PyObject *args)
 {
   PyArrayObject* a;
@@ -66,7 +66,7 @@ static PyObject * mpi_send(MPIObject *self, PyObject *args)
       return Py_BuildValue("s#", &req, sizeof(req));
     }
 }
- 
+
 static PyObject * mpi_abort(MPIObject *self, PyObject *args)
 {
   int errcode;
@@ -92,7 +92,7 @@ static PyObject * mpi_wait(MPIObject *self, PyObject *args)
   MPI_Wait((MPI_Request*)s, MPI_STATUS_IGNORE);
   Py_RETURN_NONE;
 }
- 
+
 static PyObject * mpi_sum(MPIObject *self, PyObject *args)
 {
   PyObject* obj;
@@ -111,7 +111,7 @@ static PyObject * mpi_sum(MPIObject *self, PyObject *args)
     }
   else if (PyComplex_Check(obj))
     {
-      double din[2]; 
+      double din[2];
       double dout[2];
       din[0] = PyComplex_RealAsDouble(obj);
       din[1] = PyComplex_ImagAsDouble(obj);
@@ -217,7 +217,7 @@ static PyObject * mpi_max(MPIObject *self, PyObject *args)
     }
 }
 
- 
+
 static PyObject * mpi_allgather(MPIObject *self, PyObject *args)
 {
   PyArrayObject* a;
@@ -231,7 +231,7 @@ static PyObject * mpi_allgather(MPIObject *self, PyObject *args)
   MPI_Allgather(LONGP(a), n, MPI_BYTE, LONGP(b), n, MPI_BYTE, self->comm);
   Py_RETURN_NONE;
 }
- 
+
 static PyObject * mpi_gather(MPIObject *self, PyObject *args)
 {
   PyArrayObject* a;
@@ -248,7 +248,7 @@ static PyObject * mpi_gather(MPIObject *self, PyObject *args)
     MPI_Gather(LONGP(a), n, MPI_BYTE, LONGP(b), n, MPI_BYTE, root, self->comm);
   Py_RETURN_NONE;
 }
- 
+
 static PyObject * mpi_broadcast(MPIObject *self, PyObject *args)
 {
   PyArrayObject* buf;
@@ -262,23 +262,27 @@ static PyObject * mpi_broadcast(MPIObject *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
+#include "scalapack.c"
+
 // Forward declaration of MPI_Communicator because it needs MPIType
 // that needs MPI_getattr that needs MPI_Methods that need
 // MPI_Communicator that need ...
 static PyObject * MPICommunicator(MPIObject *self, PyObject *args);
 
 static PyMethodDef mpi_methods[] = {
-    {"receive",      (PyCFunction)mpi_receive,     METH_VARARGS, 0},
-    {"send",         (PyCFunction)mpi_send,        METH_VARARGS, 0},
-    {"abort",        (PyCFunction)mpi_abort,       METH_VARARGS, 0},
-    {"barrier",      (PyCFunction)mpi_barrier,     METH_VARARGS, 0},
-    {"wait",         (PyCFunction)mpi_wait,        METH_VARARGS, 0},
-    {"sum",          (PyCFunction)mpi_sum,         METH_VARARGS, 0},
-    {"max",          (PyCFunction)mpi_max,         METH_VARARGS, 0},
-    {"gather",       (PyCFunction)mpi_gather,      METH_VARARGS, 0},
-    {"all_gather",   (PyCFunction)mpi_allgather,   METH_VARARGS, 0},
-    {"broadcast",    (PyCFunction)mpi_broadcast,   METH_VARARGS, 0},
-    {"new_communicator", (PyCFunction)MPICommunicator, METH_VARARGS, 0},
+    {"receive",          (PyCFunction)mpi_receive,      METH_VARARGS, 0},
+    {"send",             (PyCFunction)mpi_send,         METH_VARARGS, 0},
+    {"abort",            (PyCFunction)mpi_abort,        METH_VARARGS, 0},
+    {"barrier",          (PyCFunction)mpi_barrier,      METH_VARARGS, 0},
+    {"wait",             (PyCFunction)mpi_wait,         METH_VARARGS, 0},
+    {"sum",              (PyCFunction)mpi_sum,          METH_VARARGS, 0},
+    {"max",              (PyCFunction)mpi_max,          METH_VARARGS, 0},
+    {"gather",           (PyCFunction)mpi_gather,       METH_VARARGS, 0},
+    {"all_gather",       (PyCFunction)mpi_allgather,    METH_VARARGS, 0},
+    {"broadcast",        (PyCFunction)mpi_broadcast,    METH_VARARGS, 0},
+    {"diagonalize",      (PyCFunction)diagonalize,      METH_VARARGS, 0},
+    {"inverse_cholesky", (PyCFunction)inverse_cholesky, METH_VARARGS, 0},
+    {"new_communicator", (PyCFunction)MPICommunicator,  METH_VARARGS, 0},
     {0, 0, 0, 0}
 };
 
@@ -356,7 +360,7 @@ PyTypeObject MPIType = {
     0,                         /* tp_dictoffset */
     (initproc)NewMPIObject2,      /* tp_init */
     0,                         /* tp_alloc */
-    Noddy_new,                 /* tp_new */ 
+    Noddy_new,                 /* tp_new */
 };
 
 static PyObject * MPICommunicator(MPIObject *self, PyObject *args)
@@ -381,7 +385,7 @@ static PyObject * MPICommunicator(MPIObject *self, PyObject *args)
   MPI_Comm_create(self->comm, newgroup, &comm);
   MPI_Group_free(&newgroup);
   MPI_Group_free(&group);
-  if (comm == MPI_COMM_NULL) 
+  if (comm == MPI_COMM_NULL)
     {
       Py_RETURN_NONE;
     }

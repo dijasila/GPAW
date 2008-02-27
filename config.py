@@ -135,12 +135,12 @@ def get_system_config(define_macros, undef_macros,
         extra_compile_args += ['-Wall', '-std=c99']
 
         # Look for ACML libraries:
-        acml = glob('/opt/acml*/gnu64/lib')
-        if len(acml) > 0:
-            libraries += ['acml', 'g2c']
-            library_dirs += [acml[-1]]
-            extra_link_args += ['-Wl,-rpath=' + acml[-1]]
-            msg += ['* Using ACML library']
+        #acml = glob('/opt/acml*/gnu64/lib')
+        #if len(acml) > 0:
+        #    libraries += ['acml', 'g2c']
+        #    library_dirs += [acml[-1]]
+        #    extra_link_args += ['-Wl,-rpath=' + acml[-1]]
+        #    msg += ['* Using ACML library']
 
     elif machine =='ia64':
 
@@ -343,7 +343,10 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     cfiles += glob('c/libxc/src/*.c')
     cfiles2remove = ['c/libxc/src/test.c',
                      'c/libxc/src/xc_f.c',
-                     'c/libxc/src/work_gga_x.c']
+                     'c/libxc/src/work_gga_x.c',
+                     'c/scalapack.c',
+                     'c/sl_inverse_cholesky.c'
+                     ]
     for c2r in glob('c/libxc/src/funcs_*.c'): cfiles2remove.append(c2r)
     for c2r in cfiles2remove: cfiles.remove(c2r)
     sources = ['c/bc.c', 'c/localized_functions.c', 'c/mpi.c', 'c/_gpaw.c',

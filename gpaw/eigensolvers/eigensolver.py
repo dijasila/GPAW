@@ -9,12 +9,16 @@ from gpaw.utilities.blas import axpy, r2k, gemm
 from gpaw.utilities.complex import cc, real
 from gpaw.utilities.tools import apply_subspace_mask
 from gpaw.utilities import unpack
+from gpaw.mpi import parallel, rank
+from gpaw import debug, scalapack
 
 
 class Eigensolver:
     def __init__(self):
         self.initialized = False
         self.lcao = False
+        #if debug: # iteration counter for the timer
+        self.iteration = 0
 
     def initialize(self, paw, nbands=None):
         self.timer = paw.timer
@@ -26,7 +30,7 @@ class Eigensolver:
             self.nbands = paw.nbands
         else:
             self.nbands = nbands
-            
+
         self.nbands_converge = paw.input_parameters['convergence']['bands']
         self.set_tolerance(paw.input_parameters['convergence']['eigenstates'])
 
@@ -60,13 +64,13 @@ class Eigensolver:
         error = 0.0
         for kpt in kpt_u:
             error += self.iterate_one_k_point(hamiltonian, kpt)
-            
+
         self.error = self.kpt_comm.sum(error)
 
     def iterate_one_k_point(self, hamiltonian, kpt):
         """Implemented in subclasses."""
         return 0.0
-    
+
     def diagonalize(self, hamiltonian, kpt, rotate=True):
         """Diagonalize the Hamiltonian in the subspace of kpt.psit_nG
 
@@ -78,32 +82,32 @@ class Eigensolver:
         ``H_nn`` matrix is calculated and diagonalized, and finally,
         the wave functions are rotated.  Also the projections
         ``P_uni`` (an attribute of the nuclei) are rotated.
-        
+
         It is assumed that the wave functions ``psit_n`` are orthonormal
         and that the integrals of projector functions and wave functions
         ``P_uni`` are already calculated
-        """        
-           
+        """
+
         self.timer.start('Subspace diag.')
 
         if self.nbands != kpt.nbands:
             raise RuntimeError('Bands: %d != %d' % (self.nbands, kpt.nbands))
-        
+
         Htpsit_nG = self.Htpsit_nG
         psit_nG = kpt.psit_nG
         eps_n = kpt.eps_n
         H_nn = self.H_nn
 
         hamiltonian.kin.apply(psit_nG, Htpsit_nG, kpt.phase_cd)
-        
+
         Htpsit_nG += psit_nG * hamiltonian.vt_sG[kpt.s]
 
         H_nn[:] = 0.0  # r2k fails without this!
-        
+
         self.timer.start('Non-local xc')
         hamiltonian.xc.xcfunc.apply_non_local(kpt, Htpsit_nG, H_nn)
         self.timer.stop('Non-local xc')
-        
+
         r2k(0.5 * self.gd.dv, psit_nG, Htpsit_nG, 1.0, H_nn)
         for nucleus in hamiltonian.my_nuclei:
             P_ni = nucleus.P_uni[kpt.u]
@@ -120,13 +124,33 @@ class Eigensolver:
             self.comm.broadcast(H_nn, kpt.root)
             self.timer.stop('Subspace diag.')
             return
-        
-        self.timer.start('dsyev/zheev')
-        if self.comm.rank == kpt.root:
+
+        if scalapack: assert parallel
+        if scalapack:
+            dsyev_zheev_string = 'pdsyev/pzheev'
+        else:
+            dsyev_zheev_string = 'dsyev/zheev'
+
+        self.timer.start(dsyev_zheev_string)
+        #if debug:
+        self.timer.start(dsyev_zheev_string+' %03d' % self.iteration)
+        if scalapack:
             info = diagonalize(H_nn, eps_n)
+        else:
+            if self.comm.rank == kpt.root:
+                info = diagonalize(H_nn, eps_n)
+        #if debug:
+        self.timer.stop(dsyev_zheev_string+' %03d' % self.iteration)
+        if scalapack:
             if info != 0:
                 raise RuntimeError, 'Very Bad!!'
-        self.timer.stop('dsyev/zheev')
+        else:
+            if self.comm.rank == kpt.root:
+                if info != 0:
+                    raise RuntimeError, 'Very Bad!!'
+        #if debug:
+        self.iteration += 1
+        self.timer.stop(dsyev_zheev_string)
 
         self.timer.start('bcast H')
         self.comm.broadcast(H_nn, kpt.root)
@@ -137,13 +161,13 @@ class Eigensolver:
 
         # Rotate psit_nG:
         gemm(1.0, psit_nG, H_nn, 0.0, self.work)
-        
+
         # Rotate Htpsit_nG:
         gemm(1.0, Htpsit_nG, H_nn, 0.0, psit_nG)
 
         #Switch the references
         kpt.psit_nG, self.Htpsit_nG, self.work = self.work, psit_nG, Htpsit_nG
-        
+
         # Rotate P_uni:
         for nucleus in hamiltonian.my_nuclei:
             P_ni = nucleus.P_uni[kpt.u]
@@ -154,4 +178,3 @@ class Eigensolver:
             hamiltonian.xc.xcfunc.exx.rotate(kpt.u, H_nn)
 
         self.timer.stop('Subspace diag.')
-

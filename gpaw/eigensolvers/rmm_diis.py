@@ -9,6 +9,7 @@ from gpaw.utilities import unpack
 from gpaw.utilities.complex import cc, real
 from gpaw.eigensolvers.eigensolver import Eigensolver
 from gpaw.mpi import run
+from gpaw import scalapack
 
 
 class RMM_DIIS(Eigensolver):
@@ -35,8 +36,8 @@ class RMM_DIIS(Eigensolver):
 
         self.S_nn = npy.empty((self.nbands, self.nbands), self.dtype)
         self.S_nn[:] = 0.0  # rk fails the first time without this!
-        
-    def iterate_one_k_point(self, hamiltonian, kpt):      
+
+    def iterate_one_k_point(self, hamiltonian, kpt):
         """Do a single RMM-DIIS iteration for the kpoint"""
 
         self.diagonalize(hamiltonian, kpt, self.rotate)
@@ -48,7 +49,7 @@ class RMM_DIIS(Eigensolver):
             for R_G, eps, psit_G in zip(R_nG, kpt.eps_n, kpt.psit_nG):
                 # R_G -= eps * psit_G
                 axpy(-eps, psit_G, R_G)
-                
+
             run([nucleus.adjust_residual(R_nG, kpt.eps_n, kpt.s, kpt.u, kpt.k)
                  for nucleus in hamiltonian.pt_nuclei])
         else:
@@ -91,12 +92,12 @@ class RMM_DIIS(Eigensolver):
                                   kpt.k_c)
 
             hamiltonian.kin.apply(pR_G, dR_G, kpt.phase_cd)
-                
+
             if (dR_G.dtype.char == float):
                 elementwise_multiply_add(vt_G, pR_G, dR_G)
             else:
                 dR_G += vt_G * pR_G
-            
+
             axpy(-kpt.eps_n[n], pR_G, dR_G)  # dR_G -= kpt.eps_n[n] * pR_G
 
             run([nucleus.adjust_residual2(pR_G, dR_G, kpt.eps_n[n],
@@ -105,7 +106,7 @@ class RMM_DIIS(Eigensolver):
 
             hamiltonian.xc.xcfunc.adjust_non_local_residual(
                 pR_G, dR_G, kpt.eps_n[n], kpt.u, kpt.s, kpt.k, n)
-            
+
             if (dR_G.dtype.char == float):
                 RdR = self.comm.sum(utilities_vdot(R_G, dR_G))
                 dRdR = self.comm.sum(utilities_vdot_self(dR_G))
@@ -118,7 +119,7 @@ class RMM_DIIS(Eigensolver):
             axpy(lam**2, dR_G, R_G)  # R_G += lam**2 * dR_G
             kpt.psit_nG[n] += self.preconditioner(R_G, kpt.phase_cd,
                                                  kpt.psit_nG[n], kpt.k_c)
-            
+
         self.timer.stop('RMM-DIIS')
 
         self.timer.start('Orthogonalize')
@@ -136,13 +137,21 @@ class RMM_DIIS(Eigensolver):
 
         self.comm.sum(S_nn, kpt.root)
 
-        if self.comm.rank == kpt.root:
+        if scalapack:
             info = inverse_cholesky(S_nn)
+        else:
+            if self.comm.rank == kpt.root:
+                info = inverse_cholesky(S_nn)
+        if scalapack:
             if info != 0:
                 raise RuntimeError('Orthogonalization failed!')
+        else:
+            if self.comm.rank == kpt.root:
+                if info != 0:
+                    raise RuntimeError('Orthogonalization failed!')
 
         self.comm.broadcast(S_nn, kpt.root)
-        
+
         gemm(1.0, kpt.psit_nG, S_nn, 0.0, self.work)
         kpt.psit_nG, self.work = self.work, kpt.psit_nG  # swap
 
@@ -150,7 +159,6 @@ class RMM_DIIS(Eigensolver):
             P_ni = nucleus.P_uni[kpt.u]
             gemm(1.0, P_ni.copy(), S_nn, 0.0, P_ni)
         self.timer.stop('Orthogonalize')
-     
+
         error = self.comm.sum(error)
         return error
-    
