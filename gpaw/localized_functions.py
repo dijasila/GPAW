@@ -10,6 +10,7 @@ import numpy as npy
 
 from gpaw import debug
 from gpaw.utilities import is_contiguous
+from gpaw.mpi import run
 import _gpaw
 
 
@@ -77,37 +78,51 @@ class LocFuncs:
             self.ni += 2 * l + 1
 
         self.dtype = dtype
-        self.set_communicator(gd.comm, MASTER)
+        self.comm = gd.comm
+        self.set_ranks([0], 0)
         self.phase_kb = None
 
-    def set_communicator(self, comm, root):
+    def set_ranks(self, ranks, root):
         """Set MPI-communicator and master CPU."""
-        self.comm = comm
+        self.ranks = ranks
         self.root = root
 
     def set_phase_factors(self, k_kc):
         self.phase_kb = npy.exp(2j * pi * npy.inner(k_kc, self.sdisp_bc))
         
     def add(self, a_xg, coef_xi, k=None, communicate=False):
-        for i in self.iadd(a_xg, coef_xi, k, communicate):
-            pass
-        
-    def iadd(self, a_xg, coef_xi, k=None, communicate=False):
         """Add localized functions to extended arrays.
 
-        Add the product of ``coef_xi`` and the localized functions to
-        ``a_xg``.  With Bloch boundary-condtions, ``k`` is used to
-        index the phase-factors.  If ``communicate`` is false,
-        ``coef_xi`` will be broadcasted from the root-CPU."""
+        Add the product of coef_xi and the localized functions to
+        a_xg.  With Bloch boundary-condtions, k is used to
+        index the phase-factors.  If communicate is True,
+        coef_xi will be broadcasted from the root-CPU."""
         
+        run(self.iadd(a_xg, coef_xi, k, communicate))
+        
+    def iadd(self, a_xg, coef_xi, k=None, communicate=False):
+        """Iterator for adding localized functions to extended arrays."""
         if communicate:
-            if coef_xi is None:
-                shape = a_xg.shape[:-3] + (self.ni,)
-                coef_xi = npy.zeros(shape, self.dtype)
-            self.comm.broadcast(coef_xi, self.root)
+            if len(self.ranks) == 1:
+                # Nothing to do:
+                yield None
+            else:
+                # Send coefficients to other ranks:
+                if self.comm.rank == self.root:
+                    requests = []
+                    for rank in self.ranks:
+                        if rank == self.root:
+                            continue
+                        request = self.comm.send(coef_xi, rank, 1329, True)
+                        requests.append(request)
+                else:
+                    # Get coefficients from root:
+                    shape = a_xg.shape[:-3] + (self.ni,)
+                    coef_xi = npy.zeros(shape, self.dtype)
+                    request = self.comm.receive(coef_xi, self.root, 1329, True)
 
         yield None
-        
+
         if k is None or self.phase_kb is None:
             # No k-points:
             for box in self.box_b:
@@ -116,26 +131,24 @@ class LocFuncs:
             # K-points:
             for box, phase in zip(self.box_b, self.phase_kb[k]):
                 box.add(coef_xi / phase, a_xg)
-                                                
+                
         yield None
-        
+
     def integrate(self, a_xg, result_xi, k=None):
-        for i in self.iintegrate(a_xg, result_xi, k):
-            pass
+        run(self.iintegrate(a_xg, result_xi, k))
         
     def iintegrate(self, a_xg, result_xi, k=None):
-        """Calculate integrals of arrays times localized functions.
-
-        Return the integral of extended arrays times localized
-        functions in ``result_xi``.  Correct phase-factors are used if
-        the **k**-point index ``k`` is not ``None`` (Bloch
-        boundary-condtions)."""
-
+        """Iterator for projecting extended arrays onto localized functions."""
         shape = a_xg.shape[:-3] + (self.ni,)
         tmp_xi = npy.zeros(shape, self.dtype)
+
         if result_xi is None:
             result_xi = npy.zeros(shape, self.dtype)
             
+        isum = self.isum(result_xi)
+        isum.next()
+        yield None
+                    
         if k is None or self.phase_kb is None:
             # No k-points:
             for box in self.box_b:
@@ -146,13 +159,58 @@ class LocFuncs:
             for box, phase in zip(self.box_b, self.phase_kb[k]):
                 box.integrate(a_xg, tmp_xi)
                 result_xi += phase * tmp_xi
-               
+
+
+        isum.next()
         yield None
+        isum.next()
+        yield None
+
+    def sum(self, a_x):
+        run(self.isum(a_x))
         
-        self.comm.sum(result_xi, self.root)
+    def isum(self, a_x):
+        """Iterator for adding arrays.
+
+        There are three steps:
+
+        1. Root node starts receiving.
+        2. Non-root nodes start sending.
+        3. Wait.  Then root does sum.
+        """
+
+        ndomains = len(self.ranks)
+        if ndomains > 1:
+            if self.comm.rank == self.root:
+                requests = []
+                a_dx = npy.empty((ndomains - 1,) + a_x.shape, self.dtype)
+                d = 0
+                for rank in self.ranks:
+                    if rank == self.root:
+                        continue
+                    request = self.comm.receive(a_dx[d:d + 1], rank,
+                                                1330, True)
+                    requests.append(request)
+                    d += 1
+
+                yield None
+                yield None
+
+                for request in self.requests:
+                    self.comm.wait(request)
+
+                a_x += a_dx.sum(0)
+            else:
+                yield None
+                request = self.comm.send(a_x, self.root, 1330, True)
+                yield None
+                self.comm.wait(request)
+        else:
+            yield None
+            yield None
 
         yield None
-        
+            
     def derivative(self, a_xg, result_xic, k=None):
         """Calculate derivatives of localized integrals.
 
@@ -161,11 +219,18 @@ class LocFuncs:
         Correct phase-factors are used if the **k**-point index ``k``
         is not ``None`` (Block boundary-condtions)."""
         
+        run(self.iderivative(a_xg, result_xic, k))
+        
+    def iderivative(self, a_xg, result_xic, k=None):
         shape = a_xg.shape[:-3] + (self.ni, 3)
         tmp_xic = npy.zeros(shape, self.dtype)
         if result_xic is None:
             result_xic = npy.zeros(shape, self.dtype)
             
+        isum = self.isum(result_xic)
+        isum.next()
+        yield None
+
         if k is None or self.phase_kb is None:
             # No k-points:
             for box in self.box_b:
@@ -177,7 +242,10 @@ class LocFuncs:
                 box.derivative(a_xg, tmp_xic)
                 result_xic += phase * tmp_xic
                
-        self.comm.sum(result_xic, self.root)
+        isum.next()
+        yield None
+        isum.next()
+        yield None
 
     def add_density(self, n_G, f_i):
         """Add atomic electron density to extended density array.
@@ -197,6 +265,7 @@ class LocFuncs:
 
         The method returns the integral of the atomic electron density
         """
+        assert self.comm.size == 1
         I = 0.0
         for box in self.box_b:
             I += box.add_density2(n_G, D_p)
@@ -208,7 +277,7 @@ class LocFuncs:
         I_i = npy.zeros(self.ni)
         for box in self.box_b:
             box.norm(I_i)
-        self.comm.sum(I_i)
+        self.sum(I_i)
         return I_i
         
     def normalize(self, I0):

@@ -30,8 +30,8 @@ class PairDensity2:
     
             if Ghat_L is not None:
                 assert nucleus.ghat_L is not None
-                Ghat_L.set_communicator(nucleus.ghat_L.comm,
-                                        nucleus.ghat_L.root)
+                Ghat_L.set_ranks(nucleus.ghat_L.ranks,
+                                 nucleus.ghat_L.root)
     
         self.yes_I_have_done_the_Ghat_L = True
     
@@ -127,8 +127,8 @@ class PairDensity:
     
             if Ghat_L is not None:
                 assert nucleus.ghat_L is not None
-                Ghat_L.set_communicator(nucleus.ghat_L.comm,
-                                        nucleus.ghat_L.root)
+                Ghat_L.set_ranks(nucleus.ghat_L.ranks,
+                                 nucleus.ghat_L.root)
     
         paw.yes_I_have_done_the_Ghat_L = True
     
