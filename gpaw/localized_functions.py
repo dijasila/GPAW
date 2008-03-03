@@ -113,14 +113,20 @@ class LocFuncs:
                     for rank in self.ranks:
                         if rank == self.root:
                             continue
-                        request = self.comm.send(coef_xi, rank, 1329, True)
+                        request = self.comm.send(coef_xi, rank, 1329, False)
                         requests.append(request)
+                    yield None
+                    for request in requests:
+                        self.comm.wait(request)
                 else:
                     # Get coefficients from root:
                     shape = a_xg.shape[:-3] + (self.ni,)
                     coef_xi = npy.zeros(shape, self.dtype)
-                    request = self.comm.receive(coef_xi, self.root, 1329, True)
+                    request = self.comm.receive(coef_xi, self.root,
+                                                1329, False)
 
+                    yield None
+                    self.comm.wait(request)
         yield None
 
         if k is None or self.phase_kb is None:
@@ -166,17 +172,28 @@ class LocFuncs:
         isum.next()
         yield None
 
-    def sum(self, a_x):
-        run(self.isum(a_x))
+    def sum(self, a_x, broadcast=False):
+        """Sum up array.
+
+        The default behavior is to let the owner-node return the
+        result in a_x.  With broadcast=True, all nodes will return the
+        result in a_x."""
         
-    def isum(self, a_x):
+        run(self.isum(a_x, broadcast))
+        
+    def isum(self, a_x, broadcast=False):
         """Iterator for adding arrays.
 
         There are three steps:
 
-        1. Root node starts receiving.
+        1. Root-node starts receiving.
         2. Non-root nodes start sending.
         3. Wait.  Then root does sum.
+
+        If broadcast is True, there will be two more steps:
+
+        4. Root-node sends and non-root nodes receive.
+        5. Wait.
         """
 
         ndomains = len(self.ranks)
@@ -189,25 +206,46 @@ class LocFuncs:
                     if rank == self.root:
                         continue
                     request = self.comm.receive(a_dx[d:d + 1], rank,
-                                                1330, True)
+                                                1330, False)
                     requests.append(request)
                     d += 1
 
                 yield None
                 yield None
 
-                for request in self.requests:
+                for request in requests:
                     self.comm.wait(request)
 
                 a_x += a_dx.sum(0)
+
+                if broadcast:
+                    yield None
+                    requests = []
+                    for rank in self.ranks:
+                        if rank == self.root:
+                            continue
+                        request = self.comm.send(a_x, rank, 1331, False)
+                        requests.append(request)
+                    yield None
+                    for request in requests:
+                        self.comm.wait(request)
             else:
                 yield None
-                request = self.comm.send(a_x, self.root, 1330, True)
+                request = self.comm.send(a_x, self.root, 1330, False)
                 yield None
                 self.comm.wait(request)
+                if broadcast:
+                    yield None
+                    request = self.comm.receive(a_x, self.root, 1331, False)
+                    yield None
+                    self.comm.wait(request)
+
         else:
             yield None
             yield None
+            if broadcast:
+                yield None
+                yield None
 
         yield None
             
@@ -277,7 +315,7 @@ class LocFuncs:
         I_i = npy.zeros(self.ni)
         for box in self.box_b:
             box.norm(I_i)
-        self.sum(I_i)
+        self.sum(I_i, broadcast=True)
         return I_i
         
     def normalize(self, I0):
