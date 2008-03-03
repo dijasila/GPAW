@@ -8,6 +8,7 @@ import numpy as npy
 from numpy.linalg import solve, inv
 from ase.data import atomic_names
 
+from gpaw.setup_data import SetupData
 from gpaw.atom.configurations import configurations
 from gpaw.version import version
 from gpaw.atom.all_electron import AllElectron, shoot
@@ -29,7 +30,7 @@ parameters = {
  'F' : {'core': '[He]',   'rcut': 1.2},
  'Ne': {'core': '[He]',   'rcut': 1.8},
  'Na': {'core': '[Ne]',   'rcut': 2.55},
- 'Mg': {'core': '[Ne]',   'rcut': 2.0},
+ 'Mg': {'core': '[Ne]',   'rcut': [1.9, 2.0]},
  'Al': {'core': '[Ne]',   'rcut': 2.05},
  'Si': {'core': '[Ne]',   'rcut': 2.0},
  'P' : {'core': '[Ne]',   'rcut': 1.8},
@@ -37,20 +38,21 @@ parameters = {
  'Cl': {'core': '[Ne]',   'rcut': 1.5},
  'Ar': {'core': '[Ne]',   'rcut': 1.6},
  'K' : {'core': '[Ar]',   'rcut': 3.3},
- 'Ca': {'core': '[Ar]',   'rcut': 2.9},
- 'Ti': {'core': '[Ar]',   'rcut': [2.5, 2.6, 2.3]},
- 'V' : {'core': '[Ar]',   'rcut': [2.5, 2.4, 2.2],
-        'vbar': ('poly', 2.2), 'rcutcomp': 2.5},
- 'Cr': {'core': '[Ar]',   'rcut': [2.4, 2.4, 2.2]},
- 'Fe': {'core': '[Ar]',   'rcut': 2.3},
- 'Ni': {'core': '[Ar]',   'rcut': 2.3},
+ 'Ca': {'core': '[Ne]',   'rcut': [2.0, 1.7]},
+ 'Ti': {'core': '[Ar]',   'rcut': [2.4, 2.6, 2.4]},
+ 'V' : {'core': '[Ar]',   'rcut': [2.5, 2.4, 2.0],
+        'vbar': ('poly', 2.3), 'rcutcomp': 2.5},
+ 'Cr': {'core': '[Ar]',   'rcut': [2.2, 2.3, 2.1]},
+ 'Mn': {'core': '[Ar]',   'rcut': [2.2, 2.1, 2.1]},
+ 'Fe': {'core': '[Ar]',   'rcut': [2.2, 2.0, 2.0]},
+ 'Ni': {'core': '[Ar]',   'rcut': [1.8, 1.9, 1.8]},
  'Cu': {'core': '[Ar]',   'rcut': [2.2, 2.2, 2.0]},
- 'Zn': {'core': '[Ar]',   'rcut': [2.1, 2.2, 2.1]},
+ 'Zn': {'core': '[Ar]',   'rcut': [2.0, 1.9, 1.9]},
  'Ga': {'core': '[Ar]3d', 'rcut': 2.2},
  'As': {'core': '[Ar]',   'rcut': 2.0},
  'Kr': {'core': '[Ar]3d', 'rcut': 2.2},
- 'Rb': {'core': '[Kr]',   'rcut': 4.0},
- 'Sr': {'core': '[Ar]3d', 'rcut': [2.4, 2.4, 2.3], 
+ 'Rb': {'core': '[Kr]',   'rcut': 4.05},
+ 'Sr': {'core': '[Ar]3d', 'rcut': [2.4, 2.4, 2.3],
         'extra':{1: [0.0], 2: [0.0]}},
  'Zr': {'core': '[Ar]3d', 'rcut': 2.0},
  'Nb': {'core': '[Kr]',   'rcut': 3.0},
@@ -60,11 +62,13 @@ parameters = {
  'Pd': {'core': '[Kr]',   'rcut': [2.3, 2.5, 2.2]},
  'Ag': {'core': '[Kr]',   'rcut': 2.45},
  'Cd': {'core': '[Kr]',   'rcut': 2.5},
- 'Ba': {'core': '[Kr]4d', 'rcut': 3.0, 'extra': {1: [0.0], 2: [0.0, 1.0]}},
- 'La': {'core': '[Kr]4d', 'rcut': 2.85, 'extra': {1: [0.0], 2: [0.0, 1.0]}},
+ 'Cs': {'core': '[Kr]4d', 'rcut': [2.2, 2.0]},
+ 'Ba': {'core': '[Kr]4d', 'rcut': 2.2, 'extra': {1: [0.0], 2: [0.0, 1.0]}},
+ 'La': {'core': '[Kr]4d', 'rcut': [2.3, 2.0, 1.9]},
 # 'Ta': {'core': '[Xe]',   'rcut': 2.5},
 # 'W':  {'core': '[Xe]',   'rcut': 2.5},
-# 'Ir': {'core': '[Xe]4f', 'rcut': [2.5, 2.5, 2.3]},
+ 'Ir': {'core': '[Xe]4f', 'rcut': [2.3, 2.6, 2.0],
+        'vbar': ('poly', 2.1), 'rcutcomp': 2.3},
  'Pt': {'core': '[Xe]4f', 'rcut': [2.5, 2.7, 2.3]},
  'Au': {'core': '[Xe]4f', 'rcut': 2.5},
  'Pb': {'core': '[Xe]4f', 'rcut': [2.4,2.6,2.4]}
@@ -79,7 +83,8 @@ class Generator(AllElectron):
 
     def run(self, core='', rcut=1.0, extra=None,
             logderiv=False, vbar=None, exx=False, name=None,
-            normconserving='', filter=(0.4, 1.75), rcutcomp=None):
+            normconserving='', filter=(0.4, 1.75), rcutcomp=None,
+            write_xml=True):
 
         self.name = name
 
@@ -446,11 +451,11 @@ class Generator(AllElectron):
             # The difference between local and non-local functionals
             # is that non-local ones need all the pseudo wave-functions,
             # not just the valence ones.
-	
+
             self.s_j = self.u_j.copy()
             # Construct all pseudo wave-functions
             for j, (l, u) in enumerate(zip(self.l_j, self.u_j)):
-                construct_smooth_wavefunction(u, l, gcutnc, r, self.s_j[j])
+                construct_smooth_wavefunction(u, l, gcut_l[l], r, self.s_j[j])
                 if (j < njcore):
                      self.s_j[j][:] = 0.0
 
@@ -695,9 +700,84 @@ class Generator(AllElectron):
             X_p = None
             ExxC = None
 
-        self.write_xml(vl_j, vn_j, vf_j, ve_j, vu_j, vs_j, vq_j,
-                       nc, nct, nt, Ekincore, X_p, ExxC, vbar,
-                       tauc, tauct, extra_xc_data)
+        #self.write_xml(vl_j, vn_j, vf_j, ve_j, vu_j, vs_j, vq_j,
+        #               nc, nct, nt, Ekincore, X_p, ExxC, vbar,
+        #               tauc, tauct, extra_xc_data)
+        sqrt4pi = sqrt(4 * pi)
+        setup = SetupData(self.symbol, self.xcfunc.get_name(), self.name,
+                          readxml=False)
+
+        def divide_by_r(x_g, l):
+            r = self.r
+            #for x_g, l in zip(x_jg, l_j):
+            p = x_g.copy()
+            p[1:] /= self.r[1:]
+            # XXXXX go to higher order!!!!!
+            if l == 0:#l_j[self.jcorehole] == 0:
+                p[0] = (p[2] +
+                        (p[1] - p[2]) * (r[0] - r[2]) / (r[1] - r[2]))
+            return p
+
+        def divide_all_by_r(x_jg):
+            return [divide_by_r(x_g, l) for x_g, l in zip(x_jg, vl_j)]
+
+        setup.l_j = vl_j
+        setup.n_j = vn_j
+        setup.f_j = vf_j
+        setup.eps_j = ve_j
+        setup.rcut_j = [rcut_l[l] for l in vl_j]
+
+        setup.nc_g = nc * sqrt4pi
+        setup.nct_g = nct * sqrt4pi
+        setup.nvt_g = (nt - nct) * sqrt4pi
+        setup.e_kinetic_core = Ekincore
+        setup.vbar_g = vbar * sqrt4pi
+        setup.tauc_g = tauc * sqrt4pi
+        setup.tauct_g = tauct * sqrt4pi
+        setup.extra_xc_data = extra_xc_data
+        setup.Z = Z
+        setup.Nc = self.Nc
+        setup.Nv = self.Nv
+        setup.e_kinetic = self.Ekin
+        setup.e_xc = self.Exc
+        setup.e_electrostatic = self.Epot
+        setup.e_total = self.Epot + self.Exc + self.Ekin
+        setup.beta = self.beta
+        setup.ng = self.N
+        setup.rcgauss = self.rcutcomp / sqrt(self.gamma)
+        setup.e_kin_jj = self.dK_jj
+        setup.ExxC = ExxC
+        setup.phi_jg = divide_all_by_r(vu_j)
+        setup.phit_jg = divide_all_by_r(vs_j)
+        setup.pt_jg = divide_all_by_r(vq_j)
+        setup.X_p = X_p
+
+        if self.jcorehole is not None:
+            setup.has_corehole = True
+            setup.lcorehole = l_j[self.jcorehole] # l_j or vl_j ????? XXX
+            setup.ncorehole = n_j[self.jcorehole]
+            setup.phicorehole_g = divide_by_r(self.u_j[self.jcorehole],
+                                                  setup.lcorehole)
+            setup.core_hole_e = self.e_j[self.jcorehole]
+            setup.core_hole_e_kin = self.Ekincorehole
+
+        if self.ghost:
+            raise RuntimeError('Ghost!')
+
+        if self.scalarrel:
+            reltype = 'scalar-relativistic'
+        else:
+            reltype = 'non-relativistic'
+
+        attrs = [('type', reltype), ('name', 'gpaw-%s' % version)]
+        data = 'Frozen core: '+ (self.core or 'none')
+
+        setup.generatorattrs = attrs
+        setup.generatordata  = data
+
+        if write_xml:
+            setup.write_xml()
+        return setup
 
     def diagonalize(self, h):
         ng = 350
@@ -787,6 +867,7 @@ class Generator(AllElectron):
     def write_xml(self, vl_j, vn_j, vf_j, ve_j, vu_j, vs_j, vq_j,
                   nc, nct, nt, Ekincore, X_p, ExxC, vbar,
                   tauc, tauct, extra_xc_data):
+        raise DeprecationWarning('use gpaw/setup_data.py')
         xcname = self.xcfunc.get_name()
         if self.name is None:
             xml = open('%s.%s' % (self.symbol, xcname), 'w')

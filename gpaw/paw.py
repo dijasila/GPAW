@@ -561,6 +561,8 @@ class PAW(PAWExtra, Output):
             self.hamiltonian.xc.set_functional(xcfunc)
             for setup in self.setups:
                 setup.xc_correction.xc.set_functional(xcfunc)
+            if xcfunc.is_gllb():
+                xcfunc.initialize_gllb(self)
 
         # Calculate occupation numbers:
         self.occupation.calculate(self.kpt_u)
@@ -967,8 +969,8 @@ class PAW(PAWExtra, Output):
         ranks = range(r0, r0 + (ndomains * parsize_bands), ndomains)
         self.band_comm = self.world.new_communicator(npy.array(ranks))
 
-        assert(size == domain_comm.size * self.kpt_comm.size *
-               self.band_comm.size)
+        assert (size == domain_comm.size * self.kpt_comm.size *
+                self.band_comm.size)
 
     def initialize(self, atoms=None):
         """Inexpensive initialization."""
@@ -981,8 +983,6 @@ class PAW(PAWExtra, Output):
         self.world = p.get('communicator')
         if self.world is None:
             self.world = mpi.world
-        else:
-            assert isinstance(self.world, mpi._Communicator)
         self.master = (self.world.rank == 0)
         
         self.set_text(p['txt'], p['verbose'])
@@ -994,11 +994,19 @@ class PAW(PAWExtra, Output):
         cell_cc = atoms.get_cell() / Bohr
         pbc_c = atoms.get_pbc()
         Z_a = atoms.get_atomic_numbers()
-        magmom_a = atoms.get_magnetic_moments()
-        if magmom_a is None:
+        try:
+            magmom_a = atoms.get_magnetic_moments()
+            if magmom_a is None:
+                print 'Please update ase!'
+                raise KeyError
+        except KeyError:
             magmom_a = npy.zeros(self.natoms)
-        tag_a = atoms.get_tags()
-        if tag_a is None:
+        try:
+            tag_a = atoms.get_tags()
+            if tag_a is None:
+                print 'Please update ase!'
+                raise KeyError
+        except KeyError:
             tag_a = npy.zeros(self.natoms, int)
 
         # Check that the cell is orthorhombic:

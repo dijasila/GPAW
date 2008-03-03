@@ -49,6 +49,9 @@ class Output:
                     # it as a GPAW text file.
                     firsttime = True
                 self.txt = open(txt, 'w')
+        else:
+            assert hasattr(txt, 'write'), 'Not a stream object!'
+            self.txt = txt
         if firsttime:
             self.print_logo()
 
@@ -273,6 +276,8 @@ class Output:
                 t(nucleus.a, nucleus.mom)
             t()
 
+        if self.xcfunc.is_gllb():
+            self.xcfunc.xc.print_converged(self)
 
     def print_iteration(self):
         # Output from each iteration:
