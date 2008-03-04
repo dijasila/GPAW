@@ -89,7 +89,7 @@ class LocFuncs:
             gd.comm.all_gather(i_have_a_piece, i_have_a_piece_r)
             if i_have_a_piece:
                 self.ranks = npy.arange(self.comm.size)[i_have_a_piece_r == 1]
-                self.rank = gd.domain.get_rank_for_position(spos_c)
+                self.root = gd.domain.get_rank_for_position(spos_c)
         else:
             self.ranks = [0]
             self.root = 0
