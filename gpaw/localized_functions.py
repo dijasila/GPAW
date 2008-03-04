@@ -79,23 +79,21 @@ class LocFuncs:
 
         self.dtype = dtype
         self.comm = gd.comm
-        self.set_ranks([0], 0)
         self.phase_kb = None
 
-    def set_ranks(self, ranks, root):
-        """Set ranks and root.
-
-        Parameters
-        ==========
-        ranks: list of int
-            Ranks that have a piece of the localized functions.
-        root: int
-            Rank of the CPU that has the center of the localized
-            function in its domain.
-        """
-        
-        self.ranks = ranks
-        self.root = root
+        if gd.comm.size > 1:
+            # Find out which ranks have a piece of the
+            # localized functions:
+            i_have_a_piece = npy.array(int(b > 0))
+            i_have_a_piece_r = npy.empty(gd.comm.size, int)
+            gd.comm.all_gather(i_have_a_piece, i_have_a_piece_r)
+            allranks = 
+            if i_have_a_piece:
+                self.ranks = npy.arange(self.comm.size)[i_have_a_piece_r == 1]
+                self.rank = gd.domain.get_rank_for_position(spos_c)
+        else:
+            self.ranks = [0]
+            self.root = 0
 
     def set_phase_factors(self, k_kc):
         """Set phase factors for Bloch boundary conditions."""

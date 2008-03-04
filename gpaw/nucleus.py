@@ -138,8 +138,7 @@ class Nucleus:
         self.in_this_domain = in_this_domain
         self.rank = rank
 
-    def move(self, spos_c, gd, finegd, k_ki, lfbc, domain,
-             pt_nuclei, ghat_nuclei):
+    def move(self, spos_c, gd, finegd, k_ki, lfbc, pt_nuclei, ghat_nuclei):
         """Move nucleus.
 
         """
@@ -207,22 +206,6 @@ class Nucleus:
         tauct = self.setup.tauct
         self.tauct = create([tauct], gd, spos_c, cut=True, lfbc=lfbc)
             
-        if self.comm.size > 1:
-            # Make MPI-group communicators:
-            flags = npy.array([1 * (pt_i is not None) +
-                               2 * (vbar is not None) +
-                               4 * (ghat_L is not None)])
-
-            flags_r = npy.zeros((self.comm.size, 1), int)
-            self.comm.all_gather(flags, flags_r)
-            for mask, lfs in [(1, [pt_i]),
-                              (2, [vbar, stepf]),
-                              (4, [ghat_L, vhat_L])]:
-                group = [r for r, flags in enumerate(flags_r) if flags & mask]
-                for lf in lfs:
-                    if lf is not None:
-                        lf.set_ranks(group, rank)
-
         self.ready = True
 
         # Moving the atoms in a course grid EXX calculation doesn't
@@ -247,8 +230,6 @@ class Nucleus:
             Nct = -(self.setup.Delta0 * sqrt(4 * pi)
                     + self.setup.Z - self.setup.Nc)
             self.nct.normalize(Nct)
-        else:
-            self.comm.sum(0.0)
 
     def initialize_atomic_orbitals(self, gd, k_ki, lfbc):
         phit_j = self.setup.phit_j
@@ -795,9 +776,7 @@ class Nucleus:
                 if self.vhat_L is not None:
                     self.vhat_L.derivative(nt_g, None)
                 
-            if self.nct is None:
-                self.comm.sum(npy.zeros(3), self.rank)
-            else:
+            if self.nct is not None:
                 self.nct.derivative(vt_G, None)
                 
             if self.vbar is not None:
