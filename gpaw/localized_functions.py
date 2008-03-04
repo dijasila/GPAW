@@ -1,8 +1,7 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
-"""Atomic-centered localized functions.
-"""
+"""Atomic-centered localized functions."""
 
 from math import pi, cos, sin
 
@@ -20,21 +19,22 @@ MASTER = 0
 def create_localized_functions(functions, gd, spos_c,
                                dtype=float, cut=False,
                                forces=True, lfbc=None):
-    """Create `LocFuncs` object.
+    """Create LocFuncs object.
 
     From a list of splines, a grid-descriptor and a scaled position,
-    create a `LocFuncs` object.  If this domain does not contribute to
-    the localized functions, ``None`` is returned.
+    create a LocFuncs object.  If this domain does not contribute to
+    the localized functions, None is returned.
 
-    ============= ======================== ===================================
-    keyword       type
-    ============= ======================== ===================================
-    ``dtype``     ``float`` or ``complex`` Type of arrays to operate on.
-    ``cut``       ``bool``                 Allow functions to cut boundaries
-                                           when not periodic.
-    ``forces``    ``bool``                 Calculate derivatives.
-    ``lfbc``      `LocFuncBroadcaster`     Parallelization ...
-    ============= ======================== ===================================
+    Parameters
+    ==========
+    dtype: float or complex
+        Type of arrays to operate on.
+    cut: bool
+        Allow functions to cut boundaries when not periodic.
+    forces: bool
+        Calculate derivatives.
+    lfbc: LocFuncBroadcaster
+        Parallelization over **k**-points/spins.
     """
 
     lfs = LocFuncs(functions, gd, spos_c,
@@ -51,9 +51,9 @@ class LocFuncs:
     """Class to handle atomic-centered localized functions."""
     def __init__(self, functions, gd, spos_c,
                  dtype, cut, forces, lfbc):
-        """Create `LocFuncs` object.
+        """Create LocFuncs object.
 
-        Use `create_localized_functions()` to create this object."""
+        Use create_localized_functions() to create this object."""
 
         # We assume that all functions have the same cut-off:
         rcut = functions[0].get_cutoff()
@@ -83,11 +83,22 @@ class LocFuncs:
         self.phase_kb = None
 
     def set_ranks(self, ranks, root):
-        """Set MPI-communicator and master CPU."""
+        """Set ranks and root.
+
+        Parameters
+        ==========
+        ranks: list of int
+            Ranks that have a piece of the localized functions.
+        root: int
+            Rank of the CPU that has the center of the localized
+            function in its domain.
+        """
+        
         self.ranks = ranks
         self.root = root
 
     def set_phase_factors(self, k_kc):
+        """Set phase factors for Bloch boundary conditions."""
         self.phase_kb = npy.exp(2j * pi * npy.inner(k_kc, self.sdisp_bc))
         
     def add(self, a_xg, coef_xi, k=None, communicate=False):
@@ -141,10 +152,25 @@ class LocFuncs:
         yield None
 
     def integrate(self, a_xg, result_xi, k=None):
+        """Calculate integrals of arrays times localized functions.
+
+        Return the integral of extended arrays times localized
+        functions in result_xi.  Correct phase-factors are used if the
+        **k**-point index k is not None (Bloch boundary-condtions)."""
+
         run(self.iintegrate(a_xg, result_xi, k))
         
     def iintegrate(self, a_xg, result_xi, k=None):
-        """Iterator for projecting extended arrays onto localized functions."""
+        """Iterator for projecting extended arrays onto localized functions.
+
+        There are three steps (the iterator will yield three times):
+
+        1. Root-cpu starts non-blocking receive.
+        2. Do local integral.  Non-root cpus send results to root
+           (non-blocking).
+        3. Wait for sends/receives to finish, then root returns sum.
+        """
+
         shape = a_xg.shape[:-3] + (self.ni,)
         tmp_xi = npy.zeros(shape, self.dtype)
 
@@ -260,6 +286,7 @@ class LocFuncs:
         run(self.iderivative(a_xg, result_xic, k))
         
     def iderivative(self, a_xg, result_xic, k=None):
+        """Iterator for calculating derivatives of localized integrals."""
         shape = a_xg.shape[:-3] + (self.ni, 3)
         tmp_xic = npy.zeros(shape, self.dtype)
         if result_xic is None:
