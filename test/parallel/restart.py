@@ -31,7 +31,7 @@ for nkpt in [4]:
                               tolerance = 1e-10)
 	
             fcc.set_calculator(calc)
-            fcc[0].set_magnetic_moment(magmom)
+            #fcc[0].set_magnetic_moment(magmom)
             e = fcc.get_potential_energy()
             calc.write(file_prefix+'.gpw')
             del calc,fcc
@@ -43,7 +43,7 @@ for nkpt in [4]:
                               txt=file_prefix+'_restart.txt',
                               tolerance = 1e-10)
             atoms = calc.get_atoms()
-            atoms[0].set_cartesian_position([0, 0, -0.0001])
+            atoms.positions[0] = (0, 0, -0.0001)
             erg = atoms.get_potential_energy()
 
 
@@ -74,7 +74,7 @@ if 1:
     #equal(2.1062, sum(abs(f.ravel())), 1e-2)
     calc.write('O2.gpw')
     print e0, f
-    O2[1].set_cartesian_position((1.21+d,d,d))
+    O2.positions[1] = (1.21+d,d,d)
     e2 = O2.get_potential_energy()
     niter2 = calc.niter
     f2 = O2.get_forces()
@@ -85,7 +85,7 @@ if 1:
     atoms = Calculator('O2.gpw', txt='O2-restart.txt',
                        tolerance=1e-9).get_atoms()
     e = atoms.get_potential_energy()
-    atoms[1].set_cartesian_position((1.21+d,d,d))
+    atoms.positions[1] = (1.21+d,d,d)
     e1 = atoms.get_potential_energy()
     f1 = atoms.get_forces()
     niter1 = atoms.get_calculator().niter

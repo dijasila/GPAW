@@ -4,6 +4,7 @@ from ase import *
 from gpaw import Calculator
 from gpaw.mpi import rank
 
+gpw = '/scratch/jensj/H-par.gpw'
 a = 4.0
 
 def f(n, magmom, periodic, dd):
@@ -15,8 +16,8 @@ def f(n, magmom, periodic, dd):
                                 txt=None, tolerance=0.001,
                                 parsize=dd))
     e = H.get_potential_energy()
-    H.get_calculator().write('H-par.gpw')
-    H = Calculator('H-par.gpw', txt=None).get_atoms()
+    H.get_calculator().write(gpw)
+    H = Calculator(gpw, txt=None).get_atoms()
     assert e == H.get_potential_energy()
     return e
     
