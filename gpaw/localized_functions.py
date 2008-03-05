@@ -276,9 +276,9 @@ class LocFuncs:
         """Calculate derivatives of localized integrals.
 
         Return the *x*- *y*- and *z*-derivatives of the integral of
-        extended arrays times localized functions in ``result_xi``.
-        Correct phase-factors are used if the **k**-point index ``k``
-        is not ``None`` (Block boundary-condtions)."""
+        extended arrays times localized functions in result_xi.
+        Correct phase-factors are used if the **k**-point index k
+        is not None (Block boundary-condtions)."""
         
         run(self.iderivative(a_xg, result_xic, k))
         
@@ -314,7 +314,7 @@ class LocFuncs:
 
         Special method for adding the atomic electron density
         calculated from atomic orbitals and occupation numbers
-        ``f_i``."""
+        f_i."""
         for box in self.box_b:
             box.add_density(n_G, f_i)
 
@@ -323,7 +323,7 @@ class LocFuncs:
         
         Special method for adding the atomic electron density
         calculated from all cross products of atomic orbitals
-        weighted using the density matrix ``D_p``.
+        weighted using the density matrix D_p.
 
         The method returns the integral of the atomic electron density
         """
@@ -346,7 +346,7 @@ class LocFuncs:
         """Normalize localized functions.
         
         The integral of the first function (shperically symmetric, l =
-        0) is normalized to the value ``I0`` and the following
+        0) is normalized to the value I0 and the following
         functions (l > 0) are adjusted so that they integrate to
         zero."""
 
@@ -356,23 +356,23 @@ class LocFuncs:
 
         
 class LocalizedFunctionsWrapper:
-    """Python wrapper class for C-extension: ``LocalizedFunctions``.
+    """Python wrapper class for C-extension: LocalizedFunctions.
 
     This class is used for construction of the C-object and for adding
     type-checking to the C-methods."""
     
     def __init__(self, functions, beg_c, end_c, spos_c, sdisp_c, gd,
                  dtype, forces, locfuncbcaster):
-        """Construct a ``LocalizedFunctions`` C-object.
+        """Construct a LocalizedFunctions C-object.
 
         Evaluate function values from a list of splines
-        (``functions``) inside a box between grid points ``beg_c``
-        (included) to ``end_c`` (not included).  The functions are
-        centered at the scaled position ``spos_c`` displaced by
-        ``sdisp_c`` (in units of lattice vectors), and ``gd`` is the
+        (functions) inside a box between grid points beg_c
+        (included) to end_c (not included).  The functions are
+        centered at the scaled position spos_c displaced by
+        sdisp_c (in units of lattice vectors), and gd is the
         grid-descriptor.
 
-        Derivatives are calculated when ``forces=True``."""
+        Derivatives are calculated when forces=True."""
 
         assert dtype in [float, complex]
 
@@ -410,7 +410,7 @@ class LocalizedFunctionsWrapper:
         """Calculate integrals of arrays times localized functions.
 
         Return the integral of extended arrays times localized
-        functions in ``result_xi``."""
+        functions in result_xi."""
         
         assert is_contiguous(a_xg, self.dtype)
         assert is_contiguous(result_xi, self.dtype)
@@ -424,7 +424,7 @@ class LocalizedFunctionsWrapper:
 
         Return the *x*- *y*- and *z*-derivatives of the integral of
         extended arrays times localized functions in
-        ``result_xic``."""
+        result_xic."""
 
         assert self.forces
         assert is_contiguous(a_xg, self.dtype)
@@ -437,8 +437,8 @@ class LocalizedFunctionsWrapper:
     def add(self, coef_xi, a_xg):
         """Add localized functions to extended arrays.
 
-        Add the product of ``coef_xi`` and the localized functions to
-        ``a_xg``."""
+        Add the product of coef_xi and the localized functions to
+        a_xg."""
         
         assert is_contiguous(a_xg, self.dtype)
         assert is_contiguous(coef_xi, self.dtype)
@@ -452,7 +452,7 @@ class LocalizedFunctionsWrapper:
 
         Special method for adding the atomic electron density
         calculated from atomic orbitals and occupation numbers
-        ``f_i``."""
+        f_i."""
         
         assert is_contiguous(n_G, float)
         assert is_contiguous(f_i, float)
@@ -465,7 +465,7 @@ class LocalizedFunctionsWrapper:
         
         Special method for adding the atomic electron density
         calculated from all cross products of atomic orbitals
-        weighted using the density matrix ``D_p``.
+        weighted using the density matrix D_p.
 
         The method returns the integral of the atomic electron density
         """
@@ -501,13 +501,19 @@ else:
 
 
 class LocFuncBroadcaster:
-    """..."""
-    def __init__(self, comm):
+    """Parallelize evaluation of localized functions over k-points/spins."""
+    def __init__(self, kpt_comm):
+        """Set up framework for parallelization over k-points/spins.
+        
+        One of the CPU's in the k-point communicator will do the work
+        and later broadcast arrays to the other CPU's.
+        """
+
         if debug:
-            comm = comm.comm
-        self.comm = comm
-        self.size = comm.size
-        self.rank = comm.rank
+            kpt_comm = kpt_comm.comm
+        self.kpt_comm = kpt_comm
+        self.size = kpt_comm.size
+        self.rank = kpt_comm.rank
         self.reset()
 
     def reset(self):
@@ -515,15 +521,22 @@ class LocFuncBroadcaster:
         self.root = 0
 
     def next(self):
+        """Distribute work.
+
+        Return True if this CPU should do anything.
+        """
+        
         compute = (self.root == self.rank)
         self.root = (self.root + 1) % self.size
         return compute
 
     def add(self, lf):
+        """Add localized functions to pool."""
         self.lfs.append(lf)
     
     def broadcast(self):
+        """Distribute arrays to all processors."""
         if self.size > 1:
             for root, lf in enumerate(self.lfs):
-                lf.broadcast(self.comm, root % self.size)
+                lf.broadcast(self.kpt_comm, root % self.size)
         self.reset()
