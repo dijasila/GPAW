@@ -23,7 +23,7 @@ class SerialCommunicator:
 
     def max(self, value, root=-1):
         return value
-        
+
     def broadcast(self, buf, root):
         pass
 
@@ -58,7 +58,7 @@ if debug:
             self.size = comm.size
             self.rank = comm.rank
 
-        def new_communicator(self, ranks):            
+        def new_communicator(self, ranks):
             assert is_contiguous(ranks, int)
             sranks = npy.sort(ranks)
             # Are all ranks in range?
@@ -127,13 +127,13 @@ if debug:
             if not block:
                 assert sys.getrefcount(a) > 3
             return self.comm.send(a, dest, tag, block)
-            
+
         def receive(self, a, src, tag=123, block=True):
             assert 0 <= src < self.size
             assert src != self.rank
             assert is_contiguous(a)
             return self.comm.receive(a, src, tag, block)
-            
+
         def wait(self, request):
             self.comm.wait(request)
 
@@ -142,6 +142,16 @@ if debug:
 
         def barrier(self):
             self.comm.barrier()
+
+        def diagonalize(self, a, w,
+                        nprow=1, npcol=1, mb=32, root=0,
+                        b=None):
+            self.comm.diagonalize(a, w, nprow, npcol, mb, root, b)
+
+        def inverse_cholesky(self, a,
+                             nprow=1, npcol=1, mb=32, root=0):
+            self.comm.inverse_cholesky(a, nprow, npcol, mb, root)
+
 
     world = _Communicator(world)
     serial_comm = _Communicator(serial_comm)
@@ -177,7 +187,7 @@ def run(iterators):
         for i in iterators:
             pass
         return
-    
+
     if len(iterators) == 0:
         return
 
@@ -186,4 +196,3 @@ def run(iterators):
             results = [iter.next() for iter in iterators]
         except StopIteration:
             return results
-

@@ -1,5 +1,5 @@
 // BLACS
-#ifdef GPAW_AIX
+#ifdef GPAW_MKL
 #define   Cblacs_barrier_  Cblacs_barrier
 #define   Cblacs_exit_     Cblacs_exit
 #define   Cblacs_get_      Cblacs_get
@@ -9,7 +9,9 @@
 #define   Cblacs_pinfo_    Cblacs_pinfo
 #define   Cblacs_pnum_     Cblacs_pnum
 #define   Cblacs_setup_    Cblacs_setup
+#endif
 
+#ifdef GPAW_AIX
 #define   dgebr2d_  dgebr2d
 #define   dgebs2d_  dgebs2d
 #define   zgebr2d_  zgebr2d
@@ -56,7 +58,6 @@ void zgebs2d_(int *ConTxt, char* scope, char* top, int *m, int *n,
 #define   pdelset_  pdelset
 #define   pzelset_  pzelset
 #define   pdgemr2d_  pdgemr2d
-#define   Cpdgemr2d_  Cpdgemr2d
 
 #define   pdpotrf_  pdpotrf
 #define   pdpotri_  pdpotri
@@ -69,6 +70,10 @@ void zgebs2d_(int *ConTxt, char* scope, char* top, int *m, int *n,
 #define   pdsyev_  pdsyev
 #define   pzheev_  pzheev
 #define   sl_init_  sl_init
+#endif
+
+#ifdef GPAW_MKL
+#define   Cpdgemr2d_  Cpdgemr2d
 #endif
 
 void descinit_(int* desc, int* m, int* n, int* mb, int* nb, int* irsrc, int* icsrc, int* ictxt,
