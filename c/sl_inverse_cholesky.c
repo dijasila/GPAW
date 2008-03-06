@@ -209,7 +209,7 @@ static PyObject* inverse_cholesky(MPIObject *self, PyObject *args)
           printf("info pdtrtri, rank %d, %d\n", info, rank);
 
           // pdgemr2d_(&n, &n, z, &one, &one, desc, DOUBLEP(a), &one, &one, desc0, &ConTxt);
-          Cpdgemr2d(m, n, mat, one, one, desc, DOUBLEP(a), one, one, desc0, ConTxt);
+          Cpdgemr2d_(m, n, mat, one, one, desc, DOUBLEP(a), one, one, desc0, ConTxt);
 
           if (info == 0)
           {

@@ -35,7 +35,6 @@ trace = False
 dry_run = False
 parsize = None
 parsize_bands = None
-scalapack = None
 arg = None
 setup_paths = []
 i = 1
@@ -58,24 +57,6 @@ while len(sys.argv) > i:
         parsize = [int(n) for n in arg.split('=')[1].split(',')]
     elif arg.startswith('--state-parallelization='):
         parsize_bands = int(arg.split('=')[1])
-    elif arg.startswith('--scalapack='):
-        # --scalapack=nprow,npcol,mb,cpus_per_node # see c/scalapack.c
-        # use 'd' for the default of one or more of the parameters
-        # --scalapack=default to use all default values
-        sl_args = [n for n in arg.split('=')[1].split(',')]
-        if len(sl_args) == 1:
-            assert sl_args[0] == 'default'
-            scalapack = ['d']*4
-        else:
-            scalapack = []
-            assert len(sl_args) == 4
-            for sl_args_index in range(len(sl_args)):
-                assert sl_args[sl_args_index] is not None
-                if sl_args[sl_args_index] is not 'd':
-                    assert int(sl_args[sl_args_index]) > 0
-                    scalapack.append(int(sl_args[sl_args_index]))
-                else:
-                    scalapack.append(sl_args[sl_args_index])
     else:
         i += 1
         continue
@@ -144,12 +125,12 @@ if trace:
         f = frame.f_code.co_filename
         if not f.startswith(path):
             return
-
+        
         if event == 'call':
             print '%s%s:%d(%s)' % (indent, f[len(path):], frame.f_lineno,
                                    frame.f_code.co_name)
             indent += '| '
         elif event == 'return':
             indent = indent[:-2]
-
+        
     sys.setprofile(profile)

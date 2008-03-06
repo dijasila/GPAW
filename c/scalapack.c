@@ -1,15 +1,20 @@
 // BLACS
-//#ifdef F77_WITH_NO_UNDERSCORE
-#define   Cblacs_barrier_      Cblacs_barrier
-#define   Cblacs_exit_    Cblacs_exit
-#define   Cblacs_get_     Cblacs_get
-#define   Cblacs_gridexit_     Cblacs_gridexit
-#define   Cblacs_gridinfo_     Cblacs_gridinfo
-#define   Cblacs_gridinit_      Cblacs_gridinit
-#define   Cblacs_pinfo_      Cblacs_pinfo
+#ifdef GPAW_AIX
+#define   Cblacs_barrier_  Cblacs_barrier
+#define   Cblacs_exit_     Cblacs_exit
+#define   Cblacs_get_      Cblacs_get
+#define   Cblacs_gridexit_ Cblacs_gridexit
+#define   Cblacs_gridinfo_ Cblacs_gridinfo
+#define   Cblacs_gridinit_ Cblacs_gridinit
+#define   Cblacs_pinfo_    Cblacs_pinfo
 #define   Cblacs_pnum_     Cblacs_pnum
-#define   Cblacs_setup_     Cblacs_setup
-//#endif
+#define   Cblacs_setup_    Cblacs_setup
+
+#define   dgebr2d_  dgebr2d
+#define   dgebs2d_  dgebs2d
+#define   zgebr2d_  zgebr2d
+#define   zgebs2d_  zgebs2d
+#endif
 
 void Cblacs_barrier_(int ConTxt, char *scope);
 
@@ -44,6 +49,28 @@ void zgebs2d_(int *ConTxt, char* scope, char* top, int *m, int *n,
 // End of BLACS
 
 // ScaLapack
+
+#ifdef GPAW_AIX
+#define   descinit_  descinit
+#define   numroc_  numroc
+#define   pdelset_  pdelset
+#define   pzelset_  pzelset
+#define   pdgemr2d_  pdgemr2d
+#define   Cpdgemr2d_  Cpdgemr2d
+
+#define   pdpotrf_  pdpotrf
+#define   pdpotri_  pdpotri
+#define   pzpotrf_  pzpotrf
+#define   pzpotri_  pzpotri
+#define   pdtrtri_  pdtrtri
+#define   pztrtri_  pztrtri
+
+#define   pdsyevd_  pdsyevd
+#define   pdsyev_  pdsyev
+#define   pzheev_  pzheev
+#define   sl_init_  sl_init
+#endif
+
 void descinit_(int* desc, int* m, int* n, int* mb, int* nb, int* irsrc, int* icsrc, int* ictxt,
               int* lld, int* info);
 
@@ -58,7 +85,7 @@ void pzelset_(void* a,int* ia,int* ja,int* desca,void* alpha);
 int pdgemr2d_(int* m, int*n, double* a, int* ia, int* ja, int* desca,
               double* b, int* ib, int* jb, int* descb, int* ctxt);
 
-void Cpdgemr2d(int m, int n, double *A, int IA, int JA, int *descA,
+void Cpdgemr2d_(int m, int n, double *A, int IA, int JA, int *descA,
                double *B, int IB, int JB, int *descB, int gcontext);
 
 // cholesky
@@ -307,7 +334,7 @@ static PyObject* diagonalize(MPIObject *self, PyObject *args)
           printf("info pdsyevd, rank %d, %d\n", info, rank);
 
           // pdgemr2d_(&n, &n, z, &one, &one, desc, DOUBLEP(a), &one, &one, desc0, &ConTxt);
-          Cpdgemr2d(m, n, z, one, one, desc, DOUBLEP(a), one, one, desc0, ConTxt);
+          Cpdgemr2d_(m, n, z, one, one, desc, DOUBLEP(a), one, one, desc0, ConTxt);
 
           //for(int i1 = one; i1 < m+one; ++i1) {
                //printf("w(%d) = %f\n",i1, DOUBLEP(w)[i1]);
