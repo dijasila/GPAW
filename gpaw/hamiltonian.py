@@ -17,9 +17,10 @@ from gpaw.poisson import PoissonSolver
 from gpaw.transformers import Transformer
 from gpaw.xc_functional import XC3DGrid
 from gpaw.mpi import run
+from gpaw.lcao.hamiltonian import LCAOHamiltonian
 
 
-class Hamiltonian:
+class Hamiltonian(LCAOHamiltonian):
     """Hamiltonian object.
 
     Attributes:
@@ -41,9 +42,15 @@ class Hamiltonian:
      ========== =========================================
     """
 
-    def __init__(self, paw):
+    def __init__(self, ng=2**12):
         """Create the Hamiltonian."""
+        LCAOHamiltonian.__init__(self, ng)
 
+        # These should be set here:
+        #self.vext_g = ...
+        #self.nn = ...
+
+    def initialize(self, paw):
         self.nspins = paw.nspins
         self.gd = paw.gd
         self.finegd = paw.finegd
@@ -196,17 +203,17 @@ class Hamiltonian:
         """Apply the Hamiltonian operator to a set of vectors.
 
         Parameters
-        ..........
-        a_nG           : ndarray, input
+        ==========
+        a_nG: ndarray
             Set of vectors to which the overlap operator is applied.
-        b_nG           : ndarray, output
+        b_nG: ndarray, output
             Resulting S times a_nG vectors.
-        kpt            : KPoint object (kpoint.py), input
-
-        calculate_P_uni: boolean, input
+        kpt: KPoint object
+             k-point object defined in kpoint.py.
+        calculate_P_uni: bool
             When True, the integrals of projector times vectors
             P_ni = <p_i | a_nG> are calculated.
-            When false, existing P_uni are used
+            When False, existing P_uni are used
         
         """
 

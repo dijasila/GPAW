@@ -27,7 +27,6 @@ from gpaw.poisson import PoissonSolver
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.hamiltonian import Hamiltonian
 from gpaw.overlap import Overlap
-from gpaw.lcao.hamiltonian import LCAOHamiltonian
 from gpaw.lcao.lcao import LCAOKPoint
 from gpaw.kpoint import KPoint
 from gpaw.localized_functions import LocFuncBroadcaster
@@ -589,6 +588,8 @@ class PAW(PAWExtra, Output):
 
             self.converged = False
             self.F_ac = None
+
+            ????????
             # Free allocated space for radial grids:
 ##             for setup in self.setups:
 ##                 del setup.phit_j
@@ -1200,11 +1201,9 @@ class PAW(PAWExtra, Output):
         self.ghat_nuclei = []
 
         self.density = Density(self, magmom_a)#???
-        if self.eigensolver.lcao:
-            self.hamiltonian = LCAOHamiltonian(self)
-        else:
-            self.hamiltonian = Hamiltonian(self)
-
+        self.hamiltonian = Hamiltonian()
+        self.hamiltonian.initialize(self)
+        
         self.overlap = Overlap(self)
 
         self.xcfunc.set_non_local_things(self)
