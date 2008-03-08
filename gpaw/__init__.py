@@ -36,6 +36,7 @@ dry_run = False
 parsize = None
 parsize_bands = None
 scalapack = None
+sl_inverse_cholesky = None
 arg = None
 setup_paths = []
 i = 1
@@ -76,6 +77,24 @@ while len(sys.argv) > i:
                     scalapack.append(int(sl_args[sl_args_index]))
                 else:
                     scalapack.append(sl_args[sl_args_index])
+    elif arg.startswith('--sl_inverse_cholesky='):
+        # --sl_inverse_cholesky=nprow,npcol,mb,cpus_per_node # see c/sl_inverse_cholesky.c
+        # use 'd' for the default of one or more of the parameters
+        # --sl_inverse_cholesky=default to use all default values
+        sl_args = [n for n in arg.split('=')[1].split(',')]
+        if len(sl_args) == 1:
+            assert sl_args[0] == 'default'
+            sl_inverse_cholesky = ['d']*4
+        else:
+            sl_inverse_cholesky = []
+            assert len(sl_args) == 4
+            for sl_args_index in range(len(sl_args)):
+                assert sl_args[sl_args_index] is not None
+                if sl_args[sl_args_index] is not 'd':
+                    assert int(sl_args[sl_args_index]) > 0
+                    sl_inverse_cholesky.append(int(sl_args[sl_args_index]))
+                else:
+                    sl_inverse_cholesky.append(sl_args[sl_args_index])
     else:
         i += 1
         continue

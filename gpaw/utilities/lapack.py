@@ -8,7 +8,7 @@ Linear Algebra PACKage (LAPACK)
 
 import numpy as npy
 
-from gpaw import debug, scalapack
+from gpaw import debug, scalapack, sl_inverse_cholesky
 from gpaw.mpi import parallel, size, world
 import _gpaw
 
@@ -85,19 +85,19 @@ def inverse_cholesky(a):
     assert a.dtype in [float, complex]
     n = len(a)
     assert a.shape == (n, n)
-    if scalapack:
-        if scalapack: assert parallel
+    if sl_inverse_cholesky:
+        if sl_inverse_cholesky: assert parallel
         print 'python ScaLapack inverse_cholesky'
-        assert len(scalapack) == 4
-        assert scalapack[0]*scalapack[1] <= size
+        assert len(sl_inverse_cholesky) == 4
+        assert sl_inverse_cholesky[0]*sl_inverse_cholesky[1] <= size
         # symmetrize the matrix
         for i in range(n):
             for j in range(i, n):
                 a[i,j] = a[j,i]
         info = world.inverse_cholesky(a,
-                                      scalapack[0],
-                                      scalapack[1],
-                                      scalapack[2], 0)
+                                      sl_inverse_cholesky[0],
+                                      sl_inverse_cholesky[1],
+                                      sl_inverse_cholesky[2], 0)
     else:
         print 'python Lapack inverse_cholesky'
         info = _gpaw.inverse_cholesky(a)

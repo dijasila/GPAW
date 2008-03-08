@@ -15,6 +15,7 @@ from gpaw.utilities.complex import cc
 from gpaw.utilities.blas import rk, gemm
 from gpaw.utilities.lapack import inverse_cholesky
 from gpaw.utilities import swap
+from gpaw import sl_inverse_cholesky
 
 class Overlap:
     """Overlap operator class.
@@ -57,7 +58,7 @@ class Overlap:
             When True, the integrals of projector times vectors
             P_ni = <p_i | a_nG> are calculated.
             When False, existing P_uni are used
-        
+
         """
 
         self.timer.start('Apply overlap')
@@ -72,7 +73,7 @@ class Overlap:
         """Apply approximative inverse overlap operator to wave functions."""
 
         b_nG[:] = a_nG
-        
+
         for nucleus in self.pt_nuclei:
             # Apply the non-local part:
             nucleus.apply_inverse_overlap(a_nG, b_nG, kpt.k)
@@ -86,7 +87,7 @@ class Overlap:
         is inverted and orthonormal vectors a_nG' are obtained as::
 
           a_nG' = inv(C_nn) a_nG
-        
+
         Parameters
         ----------
         a_nG: ndarray, input/output
@@ -109,7 +110,7 @@ class Overlap:
             work_nn = npy.zeros((nbands, nbands), self.dtype)
         elif len(work_nn) != nbands:
                 raise RuntimeError('Incompatible dimensions: %d != %d' % (len(S_nn), nbands))
-        
+
         if work_nG is None:
             work_nG = npy.zeros(a_nG.shape, self.dtype)
         elif work_nG.shape != a_nG.shape:
@@ -126,10 +127,18 @@ class Overlap:
 
         self.comm.sum(S_nn, kpt.root)
 
-        if self.comm.rank == kpt.root:
+        if sl_inverse_cholesky:
             info = inverse_cholesky(S_nn)
+        else:
+            if self.comm.rank == kpt.root:
+                info = inverse_cholesky(S_nn)
+        if sl_inverse_cholesky:
             if info != 0:
                 raise RuntimeError('Orthogonalization failed!')
+        else:
+            if self.comm.rank == kpt.root:
+                if info != 0:
+                    raise RuntimeError('Orthogonalization failed!')
 
         self.comm.broadcast(S_nn, kpt.root)
 

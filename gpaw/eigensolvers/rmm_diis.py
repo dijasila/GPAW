@@ -9,7 +9,7 @@ from gpaw.utilities import unpack
 from gpaw.utilities.complex import cc, real
 from gpaw.eigensolvers.eigensolver import Eigensolver
 from gpaw.mpi import run
-from gpaw import scalapack
+from gpaw import sl_inverse_cholesky
 
 
 class RMM_DIIS(Eigensolver):
@@ -137,12 +137,12 @@ class RMM_DIIS(Eigensolver):
 
         self.comm.sum(S_nn, kpt.root)
 
-        if scalapack:
+        if sl_inverse_cholesky:
             info = inverse_cholesky(S_nn)
         else:
             if self.comm.rank == kpt.root:
                 info = inverse_cholesky(S_nn)
-        if scalapack:
+        if sl_inverse_cholesky:
             if info != 0:
                 raise RuntimeError('Orthogonalization failed!')
         else:
