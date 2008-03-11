@@ -242,7 +242,7 @@ class KPoint:
                     taut_G += f * (d_G * npy.conjugate(d_G)).real
 
     def calculate_wave_functions_from_lcao_coefficients(self):
-        self.psit_nG = self.gd.empty(self.nbands, dtype=self.dtype)
+        self.psit_nG = self.gd.zeros(self.nbands, dtype=self.dtype)
         m1 = 0
         for nucleus in self.nuclei:
             niao = nucleus.get_number_of_atomic_orbitals()

@@ -11,8 +11,8 @@ setup_paths.insert(0, '.')
 
 a = 8.0
 c = a / 2
-Cu = Atoms([Atom('Cu', (c, c, c), magmom=1)],
-                 cell=(a, a, a))
+Cu = Atoms('Cu', [(c, c, c)], magmoms=[1],
+           cell=(a, a, a), pbc=1)
 
 calc = Calculator(h=0.2, lmax=0)
 Cu.set_calculator(calc)

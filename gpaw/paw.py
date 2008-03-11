@@ -470,108 +470,6 @@ class PAW(PAWExtra, Output):
             # Output the updated position of the atoms
             self.print_positions(pos_ac)
 
-    def initialize_wave_functions_from_atomic_orbitals(self):
-        """Initialize wave function from atomic orbitals."""  # surprise!
-        
-        # count the total number of atomic orbitals (bands):
-        nao = 0
-        for nucleus in self.nuclei:
-            nao += nucleus.get_number_of_atomic_orbitals()
-
-        if self.random_wf:
-            nao = 0
-
-        nrandom = max(0, self.nbands - nao)
-
-        if self.nbands == 1:
-            string = 'Initializing one band from'
-        else:
-            string = 'Initializing %d bands from' % self.nbands
-        if nao == 1:
-            string += ' one atomic orbital'
-        elif nao > 0:
-            string += ' linear combination of %d atomic orbitals' % nao
-
-        if nrandom > 0 :
-            if nao > 0:
-                string += ' and'
-            string += ' %d random orbitals' % nrandom
-        string += '.'
-
-        self.text(string)
-
-        xcfunc = self.hamiltonian.xc.xcfunc
-
-        if xcfunc.orbital_dependent:
-            # At this point, we can't use orbital dependent
-            # functionals, because we don't have the right orbitals
-            # yet.  So we use a simple density functional to set up the
-            # initial hamiltonian:
-            localxcfunc = xcfunc.get_local_xc()
-            self.hamiltonian.xc.set_functional(localxcfunc)
-            for setup in self.setups:
-                setup.xc_correction.xc.set_functional(localxcfunc)
-
-        self.hamiltonian.update(self.density)
-
-        if self.random_wf:
-            # Improve the random guess with conjugate gradient
-            eig = get_eigensolver('dav')
-            eig.initialize(self)
-            eig.nbands_converge = self.nbands
-            for kpt in self.kpt_u:
-                kpt.create_random_orbitals(self.nbands)
-                # Calculate projections and orthonormalize wave functions:
-                run([nucleus.calculate_projections(kpt)
-                     for nucleus in self.pt_nuclei])
-                self.overlap.orthonormalize(kpt.psit_nG, kpt)
-            for nit in range(2):
-                eig.iterate(self.hamiltonian, self.kpt_u)
-        else:
-            for nucleus in self.my_nuclei:
-                # XXX already allocated once, but with wrong size!!!
-                ni = nucleus.get_number_of_partial_waves()
-                nucleus.P_uni = npy.empty((self.nmyu, nao, ni), self.dtype)
-
-            # Use the LCAO eigensolver:
-            solver = LCAO()
-            solver.initialize(self)
-            # Take one step:
-            if self.input_parameters['hund']:
-                assert self.natoms == 1
-                for kpt in self.kpt_u:
-                    kpt.f_n[:self.nbands] = self.nuclei[0].f_si[kpt.s,
-                                                                :self.nbands]
-                    kpt.C_nm = npy.eye(nao)#??????????????????????????????????????????????????????????????????????????????????????
-            else:
-                solver.iterate(self.hamiltonian, self.kpt_u)
-            for kpt in self.kpt_u:
-                kpt.calculate_wave_functions_from_lcao_coefficients()
-                kpt.C_nm = None
-
-        for nucleus in self.my_nuclei:
-            nucleus.reallocate(self.nbands)
-
-        for kpt in self.kpt_u:
-            kpt.adjust_number_of_bands(self.nbands, self.pt_nuclei)
-            self.overlap.orthonormalize(kpt.psit_nG, kpt)
-
-        if xcfunc.orbital_dependent:
-            # Switch back to the orbital dependent functional:
-            self.hamiltonian.xc.set_functional(xcfunc)
-            for setup in self.setups:
-                setup.xc_correction.xc.set_functional(xcfunc)
-            if xcfunc.is_gllb():
-                xcfunc.initialize_gllb(self)
-
-        # Calculate occupation numbers:
-        self.occupation.calculate(self.kpt_u)
-
-        self.wave_functions_initialized = True
-        self.wave_functions_orthonormalized = True
-        # do at least the first 3 iterations with fixed density
-        self.fixdensity = max(2, self.fixdensity)
-
     def initialize_wave_functions(self):
         if self.eigensolver.lcao:
             for nucleus in self.nuclei:
@@ -591,20 +489,24 @@ class PAW(PAWExtra, Output):
             original_eigensolver = self.eigensolver
             self.eigensolver = get_eigensolver('lcao')
             self.density.lcao = True
+            #Add pt_i ?????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
             self.find_ground_state(self.atoms, io=False)
             for kpt in self.kpt_u:
                 kpt.calculate_wave_functions_from_lcao_coefficients()
                 kpt.C_nm = None
+            #del P_kni ????????????????????????????????????????????????????????????????????????????????????.
             self.eigensolver = original_eigensolver
             self.density.mixer.reset(self.my_nuclei)
             self.density.lcao = False
             self.density.scale()
+            self.density.interpolate_pseudo_density()
             self.converged = False
             self.wave_functions_orthonormalized = False
             self.converged = False
             self.F_ac = None
             self.old_energies = []
-
+            self.niter = 0 #???????????????????????????????????????????????????????????????????????????
+            
             # Free allocated space for radial grids:
             for setup in self.setups:
                  del setup.phit_j
@@ -627,9 +529,11 @@ class PAW(PAWExtra, Output):
                 for kpt in self.kpt_u:
                     kpt.psit_nG = kpt.psit_nG[:]
 
-        for kpt in self.kpt_u:
+        self.orthonormalize_wave_functions()
+        if 0:#?????????????????????????for kpt in self.kpt_u:
             kpt.adjust_number_of_bands(self.nbands, self.pt_nuclei)
             self.overlap.orthonormalize(kpt.psit_nG, kpt)
+            print '***********'
 
     def orthonormalize_wave_functions(self):
         if self.eigensolver.lcao:
@@ -1245,8 +1149,7 @@ class PAW(PAWExtra, Output):
         self.initialized = True
 
     def initialize_occupation(self, charge, nbands, kT, fixmom, magmom_a):
-        """Sets number of valence orbitals and initializes
-        occupation"""
+        """Sets number of valence orbitals and initializes occupation."""
 
         # Sum up the number of valence electrons:
         self.nvalence = 0
@@ -1304,3 +1207,107 @@ class PAW(PAWExtra, Output):
             #pseudo kinetic energy array on 3D grid
             self.density.update_kinetic(self.kpt_u)
             self.hamiltonian.xc.set_kinetic(self.density.taut_sg)           
+
+    def initialize_wave_functions_from_atomic_orbitals(self):
+        """Initialize wave function from atomic orbitals."""  # surprise!
+
+        assert 0
+        # count the total number of atomic orbitals (bands):
+        nao = 0
+        for nucleus in self.nuclei:
+            nao += nucleus.get_number_of_atomic_orbitals()
+
+        if self.random_wf:
+            nao = 0
+
+        nrandom = max(0, self.nbands - nao)
+
+        if self.nbands == 1:
+            string = 'Initializing one band from'
+        else:
+            string = 'Initializing %d bands from' % self.nbands
+        if nao == 1:
+            string += ' one atomic orbital'
+        elif nao > 0:
+            string += ' linear combination of %d atomic orbitals' % nao
+
+        if nrandom > 0 :
+            if nao > 0:
+                string += ' and'
+            string += ' %d random orbitals' % nrandom
+        string += '.'
+
+        self.text(string)
+
+        xcfunc = self.hamiltonian.xc.xcfunc
+
+        if xcfunc.orbital_dependent:
+            # At this point, we can't use orbital dependent
+            # functionals, because we don't have the right orbitals
+            # yet.  So we use a simple density functional to set up the
+            # initial hamiltonian:
+            localxcfunc = xcfunc.get_local_xc()
+            self.hamiltonian.xc.set_functional(localxcfunc)
+            for setup in self.setups:
+                setup.xc_correction.xc.set_functional(localxcfunc)
+
+        self.hamiltonian.update(self.density)
+
+        if self.random_wf:
+            # Improve the random guess with conjugate gradient
+            eig = get_eigensolver('dav')
+            eig.initialize(self)
+            eig.nbands_converge = self.nbands
+            for kpt in self.kpt_u:
+                kpt.create_random_orbitals(self.nbands)
+                # Calculate projections and orthonormalize wave functions:
+                run([nucleus.calculate_projections(kpt)
+                     for nucleus in self.pt_nuclei])
+                self.overlap.orthonormalize(kpt.psit_nG, kpt)
+            for nit in range(2):
+                eig.iterate(self.hamiltonian, self.kpt_u)
+        else:
+            for nucleus in self.my_nuclei:
+                # XXX already allocated once, but with wrong size!!!
+                ni = nucleus.get_number_of_partial_waves()
+                nucleus.P_uni = npy.empty((self.nmyu, nao, ni), self.dtype)
+
+            # Use the LCAO eigensolver:
+            solver = LCAO()
+            solver.initialize(self)
+            # Take one step:
+            if self.input_parameters['hund']:
+                assert self.natoms == 1
+                for kpt in self.kpt_u:
+                    kpt.f_n[:self.nbands] = self.nuclei[0].f_si[kpt.s,
+                                                                :self.nbands]
+                    kpt.C_nm = npy.eye(nao)#??????????????????????????????????????????????????????????????????????????????????????
+            else:
+                solver.iterate(self.hamiltonian, self.kpt_u)
+            for kpt in self.kpt_u:
+                kpt.calculate_wave_functions_from_lcao_coefficients()
+                kpt.C_nm = None
+
+        for nucleus in self.my_nuclei:
+            nucleus.reallocate(self.nbands)
+
+        for kpt in self.kpt_u:
+            kpt.adjust_number_of_bands(self.nbands, self.pt_nuclei)
+            self.overlap.orthonormalize(kpt.psit_nG, kpt)
+
+        if xcfunc.orbital_dependent:
+            # Switch back to the orbital dependent functional:
+            self.hamiltonian.xc.set_functional(xcfunc)
+            for setup in self.setups:
+                setup.xc_correction.xc.set_functional(xcfunc)
+            if xcfunc.is_gllb():
+                xcfunc.initialize_gllb(self)
+
+        # Calculate occupation numbers:
+        self.occupation.calculate(self.kpt_u)
+
+        self.wave_functions_initialized = True
+        self.wave_functions_orthonormalized = True
+        # do at least the first 3 iterations with fixed density
+        self.fixdensity = max(2, self.fixdensity)
+

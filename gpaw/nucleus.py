@@ -101,6 +101,8 @@ class Nucleus:
             self.vxx_unii = npy.zeros((nmyu, nbands, ni, ni), self.dtype)
 
     def reallocate(self, nbands):
+        assert 0
+        adfgsdfg
         nu, nao, ni = self.P_uni.shape
         if nbands < nao:
             self.P_uni = self.P_uni[:, :nbands, :].copy()

@@ -164,7 +164,8 @@ class Density:
                                         -Q_s[0] + Q_s[1] + M]))
 
             if self.charge == 0:
-                if abs(x - 1.0) > 0.17 or abs(y - 1.0) > 0.17:
+                if (abs(x - 1.0) > 0.17 and Nt_s[0] > 1e-5 or
+                    abs(y - 1.0) > 0.17 and Nt_s[1] > 1e-5):
                     warning = ('Bad initial density.  Scaling factors: %f, %f'
                                % (x, y))
                     if self.idiotproof:
@@ -215,7 +216,7 @@ class Density:
         for nucleus in self.nuclei:
             nucleus.calculate_multipole_moments()
             Q += nucleus.Q_L[0] * sqrt(4 * pi)
-        
+
         if self.lcao:
             Nt = self.finegd.integrate(self.nt_g)
             if Nt != 0:
@@ -260,7 +261,7 @@ class Density:
                 P_ni = nucleus.P_uni[kpt.u]
                 D_sii[kpt.s] += real(dot(cc(transpose(P_ni)),
                                              P_ni * kpt.f_n[:, newaxis]))
-
+                
                 # hack used in delta scf - calculations
                 if hasattr(kpt, 'ft_omn'):
                     for i in range(len(kpt.ft_omn)):
