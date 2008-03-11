@@ -47,7 +47,7 @@ class KPoint:
         H_nn and the Cholesky decomposition of S_nn.
     """
     
-    def __init__(self, gd, weight, s, k, u, k_c, dtype, timer=None):
+    def __init__(self, nuclei, gd, weight, s, k, u, k_c, dtype, timer=None):
         """Construct k-point object.
 
         Parameters
@@ -86,6 +86,7 @@ class KPoint:
         multiple of the number of processors, `P`.
         """
 
+        self.nuclei = nuclei
         self.weight = weight
         self.dtype = dtype
         self.timer = timer
@@ -107,9 +108,11 @@ class KPoint:
         self.u = u  # combined spin and k-point index
 
         self.set_grid_descriptor(gd)
-        
-        self.psit_nG = None
 
+        # Only one of these two will be used:
+        self.psit_nG = None  # wave functions on 3D grid
+        self.C_nm = None     # LCAO coefficients for wave functions
+        
     def set_grid_descriptor(self, gd):
         self.gd = gd
         # Which CPU does overlap-matrix Cholesky-decomposition and
@@ -193,16 +196,30 @@ class KPoint:
             interpolate2(psit_G2, psit_G1, self.phase_cd)
             interpolate1(psit_G1, psit_G, self.phase_cd)
 
-    def add_to_density(self, nt_G):
+    def add_to_density(self, nt_G, use_lcao):
         """Add contribution to pseudo electron-density."""
-        if self.dtype == float:
-            for psit_G, f in zip(self.psit_nG, self.f_n):
-                axpy(f, psit_G**2, nt_G)  # nt_G += f * psit_G**2
+        if use_lcao:
+            psit_G = self.gd.empty(dtype=self.dtype)
+            nuclei = [nucleus
+                      for nucleus in self.nuclei if nucleus.phit_i is not None]
+            for n in range(self.nbands):
+                psit_G[:] = 0.0
+                m1 = 0
+                for nucleus in nuclei:
+                    niao = nucleus.get_number_of_atomic_orbitals()
+                    m2 = m1 + niao
+                    nucleus.phit_i.add(psit_G, self.C_nm[n, m1:m2], self.k)
+                    m1 = m2
+                nt_G += self.f_n[n] * (psit_G * psit_G.conj()).real
         else:
-            for psit_G, f in zip(self.psit_nG, self.f_n):
-                nt_G += f * (psit_G * npy.conjugate(psit_G)).real
+            if self.dtype == float:
+                for psit_G, f in zip(self.psit_nG, self.f_n):
+                    axpy(f, psit_G**2, nt_G)  # nt_G += f * psit_G**2
+            else:
+                for psit_G, f in zip(self.psit_nG, self.f_n):
+                    nt_G += f * (psit_G * npy.conjugate(psit_G)).real
 
-        # hack used in delta scf - calculations
+        # Hack used in delta-scf calculations:
         if hasattr(self, 'ft_omn'):
             for ft_mn in self.ft_omn:
                 for ft_n, psi_m in zip(ft_mn, self.psit_nG):
@@ -223,6 +240,17 @@ class KPoint:
                     axpy(f, d_G[c]**2, taut_G) #taut_G += f * d_G[c]**2
                 else:
                     taut_G += f * (d_G * npy.conjugate(d_G)).real
+
+    def calculate_wave_functions_from_lcao_coefficients(self):
+        self.psit_nG = self.gd.empty(self.nbands, dtype=self.dtype)
+        m1 = 0
+        for nucleus in self.nuclei:
+            niao = nucleus.get_number_of_atomic_orbitals()
+            m2 = m1 + niao
+            if nucleus.phit_i is not None:
+                nucleus.phit_i.add(self.psit_nG, self.C_nm[:, m1:m2].copy(),
+                                   self.k)
+            m1 = m2
 
     def create_atomic_orbitals(self, nao, nuclei):
         """Initialize the wave functions from atomic orbitals.

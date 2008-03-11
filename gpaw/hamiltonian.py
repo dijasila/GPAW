@@ -108,6 +108,8 @@ class Hamiltonian(LCAOHamiltonian):
         # Exchange-correlation functional object:
         self.xc = XC3DGrid(paw.xcfunc, self.finegd, self.nspins)
 
+        LCAOHamiltonian.initialize(self, paw)
+
     def update(self, density):
         """Calculate effective potential.
 

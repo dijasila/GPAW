@@ -2,7 +2,6 @@ from math import sqrt, pi
 
 import numpy as npy
 
-from gpaw.hamiltonian import Hamiltonian
 from gpaw.utilities.blas import rk, r2k
 from gpaw.utilities import unpack
 from gpaw.lcao.overlap import TwoCenterIntegrals
@@ -10,19 +9,21 @@ from gpaw import debug
 from _gpaw import overlap
 
 
-class LCAOHamiltonian(Hamiltonian):
+class LCAOHamiltonian:
     """Hamiltonian class for LCAO-basis calculations."""
 
-    def __init__(self, paw):
-        Hamiltonian.__init__(self, paw)
+    def __init__(self, ng=2**12):
+        self.tci = None  # two-center integrals
+        self.lcao_initialized = False
+        self.ng = ng
+
+    def initialize(self, paw):
         self.setups = paw.setups
         self.ibzk_kc = paw.ibzk_kc
         self.gamma = paw.gamma
         self.dtype = paw.dtype
-        self.initialized = False
-        self.ng = 2**12
 
-    def initialize(self):
+    def initialize_lcao(self):
         """Setting up S_kmm, T_kmm and P_kmi for LCAO calculations.
 
         ======    ==============================================
@@ -34,12 +35,12 @@ class LCAOHamiltonian(Hamiltonian):
         
         self.nao = 0
         for nucleus in self.nuclei:
-            nucleus.initialize_atomic_orbitals(self.gd, self.ibzk_kc, lfbc=None)
             self.nao += nucleus.get_number_of_atomic_orbitals()
 
-        tci = TwoCenterIntegrals(self.setups, self.ng)
+        if self.tci is None:
+            self.tci = TwoCenterIntegrals(self.setups, self.ng)
 
-        R_dc = self.calculate_displacements(tci.rcmax)
+        R_dc = self.calculate_displacements(self.tci.rcmax)
         
         nkpts = len(self.ibzk_kc)
 
@@ -55,7 +56,7 @@ class LCAOHamiltonian(Hamiltonian):
                     id1 = (setup1.symbol, j1)
                     l1 = pt1.get_angular_momentum_number()
                     for m1 in range(2 * l1 + 1):
-                        self.p_overlap(R_c, i1, pos1, id1, l1, m1, P_mi, tci)
+                        self.p_overlap(R_c, i1, pos1, id1, l1, m1, P_mi)
                         i1 += 1
                 if self.gamma:
                     nucleus1.P_kmi[0] += P_mi
@@ -79,7 +80,7 @@ class LCAOHamiltonian(Hamiltonian):
                     l1 = phit1.get_angular_momentum_number()
                     for m1 in range(2 * l1 + 1):
                         self.st_overlap(R_c, i1, pos1, id1,
-                                        l1, m1, S_mm, T_mm, tci)
+                                        l1, m1, S_mm, T_mm)
                         i1 += 1
             if self.gamma:
                 self.S_kmm[0] += S_mm
@@ -106,9 +107,9 @@ class LCAOHamiltonian(Hamiltonian):
             print 'Eigenvalues:'    
             print npy.linalg.eig(self.S_kmm[0])[0]
 
-        self.initialized = True
+        self.lcao_initialized = True
 
-    def p_overlap(self, R_c, i1, pos1, id1, l1, m1, P_mi, tci):
+    def p_overlap(self, R_c, i1, pos1, id1, l1, m1, P_mi):
         i2 = 0
         for nucleus2 in self.nuclei:
             pos2 = nucleus2.spos_c
@@ -118,11 +119,11 @@ class LCAOHamiltonian(Hamiltonian):
                 id2 = (setup2.symbol, j2)
                 l2 = phit2.get_angular_momentum_number()
                 for m2 in range(2 * l2 + 1):
-                    P = tci.p_overlap(id1, id2, l1, l2, m1, m2, d)
+                    P = self.tci.p_overlap(id1, id2, l1, l2, m1, m2, d)
                     P_mi[i2, i1] = P
                     i2 += 1
 
-    def st_overlap(self, R_c, i1, pos1, id1, l1, m1, S_mm, T_mm, tci):
+    def st_overlap(self, R_c, i1, pos1, id1, l1, m1, S_mm, T_mm):
        i2 = 0
        for nucleus2 in self.nuclei:
            pos2 = nucleus2.spos_c
@@ -132,7 +133,7 @@ class LCAOHamiltonian(Hamiltonian):
                id2 = (setup2.symbol, j2)
                l2 = phit2.get_angular_momentum_number()
                for m2 in range(2 * l2 + 1):
-                   S, T = tci.st_overlap(id1, id2, l1, l2,
+                   S, T = self.tci.st_overlap(id1, id2, l1, l2,
                                          m1, m2, d)
                    S_mm[i1, i2] = S
                    T_mm[i1, i2] = T

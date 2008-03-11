@@ -203,7 +203,8 @@ def symmetrize(matrix):
     npy.multiply(.5, matrix, matrix)
     return matrix
 
-erf3D = npy.frompyfunc(erf, 1, 1)
+import _gpaw
+erf3D = npy.frompyfunc(_gpaw.erf, 1, 1)
 ## def erf3D(M):
 ##     """Return matrix with the value of the error function evaluated for
 ##     each element in input matrix 'M'.

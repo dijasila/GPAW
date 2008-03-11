@@ -8,7 +8,7 @@ class LCAO:
     """Eigensolver for LCAO-basis calculation"""
 
     def __init__(self):
-        self.lcao = True # paw object wants to know this
+        self.lcao = True
         self.initialized = False
 
     def initialize(self, paw):
@@ -22,8 +22,8 @@ class LCAO:
         self.initialized = True
 
     def iterate(self, hamiltonian, kpt_u):
-        if not hamiltonian.initialized:
-            hamiltonian.initialize()
+        if not hamiltonian.lcao_initialized:
+            hamiltonian.initialize_lcao()
             nao = hamiltonian.nao
             self.eps_m = npy.empty(nao)
             self.S_mm = npy.empty((nao, nao), self.dtype)

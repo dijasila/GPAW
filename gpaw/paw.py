@@ -27,7 +27,7 @@ from gpaw.poisson import PoissonSolver
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.hamiltonian import Hamiltonian
 from gpaw.overlap import Overlap
-from gpaw.lcao.lcao import LCAOKPoint
+from gpaw.lcao.eigensolver import LCAO
 from gpaw.kpoint import KPoint
 from gpaw.localized_functions import LocFuncBroadcaster
 from gpaw.utilities.timing import Timer
@@ -358,7 +358,7 @@ class PAW(PAWExtra, Output):
         atoms.set_calculator(self)
         return atoms
 
-    def find_ground_state(self, atoms):
+    def find_ground_state(self, atoms, io=True):
         """Start iterating towards the ground state."""
         
         self.print_parameters()
@@ -385,10 +385,12 @@ class PAW(PAWExtra, Output):
             self.check_convergence()
             self.print_iteration()
             self.niter += 1
-            self.call()
+            if io:
+                self.call()
 
-        self.call(final=True)
-        self.print_converged()
+        if io:
+            self.call(final=True)
+            self.print_converged()
 
     def step(self):
         if self.niter > self.fixdensity:
@@ -531,21 +533,21 @@ class PAW(PAWExtra, Output):
                 ni = nucleus.get_number_of_partial_waves()
                 nucleus.P_uni = npy.empty((self.nmyu, nao, ni), self.dtype)
 
-            # Use the generic eigensolver for subspace diagonalization
-            eig = Eigensolver()
-            eig.initialize(self, nao)
-            for kpt in self.kpt_u:
-                kpt.create_atomic_orbitals(nao, self.nuclei)
-                # Calculate projections and orthonormalize wave functions:
-                run([nucleus.calculate_projections(kpt)
-                     for nucleus in self.pt_nuclei])
-                self.overlap.orthonormalize(kpt.psit_nG, kpt)
-                if self.input_parameters['hund']:
-                    assert self.natoms == 1
+            # Use the LCAO eigensolver:
+            solver = LCAO()
+            solver.initialize(self)
+            # Take one step:
+            if self.input_parameters['hund']:
+                assert self.natoms == 1
+                for kpt in self.kpt_u:
                     kpt.f_n[:self.nbands] = self.nuclei[0].f_si[kpt.s,
                                                                 :self.nbands]
-                else:
-                    eig.diagonalize(self.hamiltonian, kpt)
+                    kpt.C_nm = npy.eye(nao)#??????????????????????????????????????????????????????????????????????????????????????
+            else:
+                solver.iterate(self.hamiltonian, self.kpt_u)
+            for kpt in self.kpt_u:
+                kpt.calculate_wave_functions_from_lcao_coefficients()
+                kpt.C_nm = None
 
         for nucleus in self.my_nuclei:
             nucleus.reallocate(self.nbands)
@@ -571,33 +573,43 @@ class PAW(PAWExtra, Output):
         self.fixdensity = max(2, self.fixdensity)
 
     def initialize_wave_functions(self):
-        p = self.input_parameters
-
-        #if not self.wave_functions_initialized:
-        if self.kpt_u[0].psit_nG is None:
-            # Initialize wave functions from atomic orbitals:
+        if self.eigensolver.lcao:
             for nucleus in self.nuclei:
                 nucleus.initialize_atomic_orbitals(self.gd, self.ibzk_kc,
                                                    self.locfuncbcaster)
             self.locfuncbcaster.broadcast()
-
+            
             if not self.density.initialized:
                 self.density.initialize()
 
-            self.initialize_wave_functions_from_atomic_orbitals()
-
+            for kpt in self.kpt_u:
+                kpt.allocate(self.nbands)
+            return
+        
+        if self.kpt_u[0].psit_nG is None:
+            # Initialize wave functions from atomic orbitals:
+            original_eigensolver = self.eigensolver
+            self.eigensolver = get_eigensolver('lcao')
+            self.density.lcao = True
+            self.find_ground_state(self.atoms, io=False)
+            for kpt in self.kpt_u:
+                kpt.calculate_wave_functions_from_lcao_coefficients()
+                kpt.C_nm = None
+            self.eigensolver = original_eigensolver
+            self.density.mixer.reset(self.my_nuclei)
+            self.density.lcao = False
+            self.density.scale()
+            self.converged = False
+            self.wave_functions_orthonormalized = False
             self.converged = False
             self.F_ac = None
+            self.old_energies = []
 
-            ????????
             # Free allocated space for radial grids:
-##             for setup in self.setups:
-##                 del setup.phit_j
+            for setup in self.setups:
+                 del setup.phit_j
             for nucleus in self.nuclei:
-                try:
-                    del nucleus.phit_i
-                except AttributeError:
-                    pass
+                del nucleus.phit_i
 
         elif not isinstance(self.kpt_u[0].psit_nG, npy.ndarray):
             # Calculation started from a restart file.  Copy data
@@ -620,6 +632,10 @@ class PAW(PAWExtra, Output):
             self.overlap.orthonormalize(kpt.psit_nG, kpt)
 
     def orthonormalize_wave_functions(self):
+        if self.eigensolver.lcao:
+            self.wave_functions_orthonormalized = True
+            return
+        
         for kpt in self.kpt_u:
             run([nucleus.calculate_projections(kpt)
                 for nucleus in self.pt_nuclei])
@@ -1093,12 +1109,6 @@ class PAW(PAWExtra, Output):
             self.ibzk_kc = npy.zeros((1, 3))
             self.nkpts = 1
         else:
-            if not self.eigensolver.lcao:
-                # The atomic basis sets are only used for the initial
-                # wave function guess, and therefore not important for
-                # the symmetry analysis:
-                basis_a = [None] * self.natoms
-
             # Reduce the the k-points to those in the irreducible part of
             # the Brillouin zone:
             self.symmetry, self.weight_k, self.ibzk_kc = reduce_kpoints(
@@ -1175,17 +1185,14 @@ class PAW(PAWExtra, Output):
                 s, k = divmod(self.kpt_comm.rank * self.nmyu + u, self.nkpts)
                 weight = self.weight_k[k] * 2 / self.nspins
                 k_c = self.ibzk_kc[k]
-                if self.eigensolver.lcao:
-                    self.kpt_u.append(LCAOKPoint(self.nuclei,
-                                                 self.gd, weight, s, k, u, k_c,
-                                                 self.dtype))
-                else:
-                    self.kpt_u.append(KPoint(self.gd, weight, s, k, u, k_c,
-                                             self.dtype, self.timer))
+                self.kpt_u.append(KPoint(self.nuclei,
+                                         self.gd, weight, s, k, u, k_c,
+                                         self.dtype))
         else:
             for kpt in self.kpt_u:
                 kpt.set_grid_descriptor(self.gd)
-
+                kpt.nuclei = self.nuclei
+                
         cc = p['convergence']  # convergence criteria
         er = self.error        # errors
 
@@ -1218,17 +1225,19 @@ class PAW(PAWExtra, Output):
                                  self.nspins, self.nmyu, self.nmybands)
             
         if self.reuse_old_density:
-            self.density.nt_sG[:] = nt_sG
-            self.density.interpolate_pseudo_density()
-            self.density.initialized = True
             for a, D_sp in D_asp.items():
                 self.nuclei[a].D_sp[:] = D_sp
             for a, P_uni in P_auni.items():
                 self.nuclei[a].P_uni[:] = P_uni
+            self.density.nt_sG[:] = nt_sG
+            #self.density.scale()
+            self.density.interpolate_pseudo_density()
+            self.density.initialized = True
 
         self.print_init(pos_ac)
 
         if dry_run:
+            self.print_parameters()
             estimate_memory(self)
             self.txt.flush()
             sys.exit()
