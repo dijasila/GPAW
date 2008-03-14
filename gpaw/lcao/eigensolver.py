@@ -29,6 +29,8 @@ class LCAO:
             self.S_mm = npy.empty((nao, nao), self.dtype)
             self.Vt_skmm = npy.empty((self.nspins, self.nkpts, nao, nao),
                                      self.dtype)
+            for kpt in kpt_u:
+                kpt.C_nm = npy.empty((self.nbands, nao), self.dtype)
 
         hamiltonian.calculate_effective_potential_matrix(self.Vt_skmm)
         for kpt in kpt_u:
@@ -48,12 +50,12 @@ class LCAO:
         H_mm += hamiltonian.T_kmm[k]
 
         self.S_mm[:] = hamiltonian.S_kmm[k]
-        #error = diagonalize(self.S_mm, self.eps_m)
-        #print self.eps_m, error
+
         error = diagonalize(H_mm, self.eps_m, self.S_mm)
         if error != 0:
             raise RuntimeError('Error code from dsyevd/zheevd: %d.' % error)
-        kpt.C_nm = H_mm[0:self.nbands].copy()  # XXX
+
+        kpt.C_nm[:] = H_mm[0:self.nbands]
         kpt.eps_n[:] = self.eps_m[0:self.nbands]
         
         for nucleus in self.nuclei:

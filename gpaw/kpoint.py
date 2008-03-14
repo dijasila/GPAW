@@ -159,7 +159,7 @@ class KPoint:
             self.eps_n[nao:] = self.eps_n[nao - 1] + 0.5
             self.random_wave_functions(self.psit_nG[nao:])
 
-            #Calculate projections
+            # Calculate projections
             for nucleus in pt_nuclei:
                 if nucleus.in_this_domain:
                     P_ni = nucleus.P_uni[self.u,nao:]
@@ -202,15 +202,15 @@ class KPoint:
             psit_G = self.gd.empty(dtype=self.dtype)
             nuclei = [nucleus
                       for nucleus in self.nuclei if nucleus.phit_i is not None]
-            for n in range(self.nbands):
+            for f, C_m in zip(self.f_n, self.C_nm):
                 psit_G[:] = 0.0
                 m1 = 0
                 for nucleus in nuclei:
                     niao = nucleus.get_number_of_atomic_orbitals()
                     m2 = m1 + niao
-                    nucleus.phit_i.add(psit_G, self.C_nm[n, m1:m2], self.k)
+                    nucleus.phit_i.add(psit_G, C_m[m1:m2], self.k)
                     m1 = m2
-                nt_G += self.f_n[n] * (psit_G * psit_G.conj()).real
+                nt_G += f * (psit_G * psit_G.conj()).real
         else:
             if self.dtype == float:
                 for psit_G, f in zip(self.psit_nG, self.f_n):

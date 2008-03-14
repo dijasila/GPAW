@@ -487,7 +487,11 @@ class PAW(PAWExtra, Output):
         if self.kpt_u[0].psit_nG is None:
             # Initialize wave functions from atomic orbitals:
             original_eigensolver = self.eigensolver
+            original_nbands = self.nbands
+            
+            self.nbands = min(self.nbands, self.nao)
             self.eigensolver = get_eigensolver('lcao')
+
             self.density.lcao = True
             #Add pt_i ?????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
             self.find_ground_state(self.atoms, io=False)
@@ -1153,16 +1157,20 @@ class PAW(PAWExtra, Output):
 
         # Sum up the number of valence electrons:
         self.nvalence = 0
-        nao = 0
+        self.nao = 0
         for nucleus in self.nuclei:
             self.nvalence += nucleus.setup.Nv
-            nao += nucleus.setup.niAO
+            self.nao += nucleus.setup.niAO
         self.nvalence -= charge
         
         self.nbands = nbands
         if self.nbands is None:
-            self.nbands = nao
-
+            self.nbands = self.nao
+        elif self.nbands > self.nao and self.eigensolver.lcao:
+            raise ValueError('Too many bands for LCAO calculation:' +
+                             '%d bands and only %d atomic orbitals!' %
+                             (self.nbands, self.nao))
+        
         if self.nvalence < 0:
             raise ValueError(
                 'Charge %f is not possible - not enough valence electrons' %
