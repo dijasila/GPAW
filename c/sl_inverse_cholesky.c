@@ -214,12 +214,20 @@ static PyObject* inverse_cholesky(MPIObject *self, PyObject *args)
           if (info == 0)
           {
                /* Make sure that the other diagonal is zero */
-               for(int i1 = zero; i1 < m; ++i1) {
-                    for(int i2 = i1+one; i2 < n; ++i2) {
-                         //printf("a(%d, %d) = %f, rank %d\n",i1, i2, DOUBLEP(a)[i1*m+i2], rank);
-                         DOUBLEP(a)[i1*m+i2] = 0.0;
-                    }
+               double* ap = DOUBLEP(a);
+               ap++;
+               for (int i = 0; i < n - 1; i++)
+               {
+                    memset(ap, 0, (n-1-i) * sizeof(double));
+                    ap += n + 1;
                }
+               ///* Make sure that the other diagonal is zero */
+               //for(int i1 = zero; i1 < m; ++i1) {
+               //     for(int i2 = i1+one; i2 < n; ++i2) {
+               //          //printf("a(%d, %d) = %f, rank %d\n",i1, i2, DOUBLEP(a)[i1*m+i2], rank);
+               //          DOUBLEP(a)[i1*m+i2] = 0.0;
+               //     }
+               //}
           }
 
           //for(int i1 = one; i1 < m+one; ++i1) {
