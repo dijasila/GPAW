@@ -154,12 +154,12 @@ class Eigensolver:
         self.iteration += 1
         self.timer.stop(dsyev_zheev_string)
 
-        self.timer.start('bcast H')
+        self.timer.start('Subspace diag.: bcast H')
         self.comm.broadcast(H_nn, kpt.root)
-        self.timer.stop('bcast H')
-        self.timer.start('bcast eps')
+        self.timer.stop('Subspace diag.: bcast H')
+        self.timer.start('Subspace diag.: bcast eps')
         self.comm.broadcast(eps_n, kpt.root)
-        self.timer.stop('bcast eps')
+        self.timer.stop('Subspace diag.: bcast eps')
 
         # Rotate psit_nG:
         self.timer.start('Subspace diag.: psit_nG gemm')

@@ -90,35 +90,49 @@ class RMM_DIIS(Eigensolver):
             weight = kpt.f_n[n]
             if self.nbands_converge != 'occupied':
                 weight = kpt.weight * float(n < self.nbands_converge)
+            self.timer.start('RMM-DIIS: npy.vdot')
             error += weight * real(npy.vdot(R_G, R_G))
+            self.timer.stop('RMM-DIIS: npy.vdot')
 
+            self.timer.start('RMM-DIIS: pR_G')
             pR_G = self.preconditioner(R_G, kpt.phase_cd, kpt.psit_nG[n],
                                   kpt.k_c)
+            self.timer.stop('RMM-DIIS: pR_G')
 
+            self.timer.start('RMM-DIIS: hamiltonian.kin.apply')
             hamiltonian.kin.apply(pR_G, dR_G, kpt.phase_cd)
+            self.timer.stop('RMM-DIIS: hamiltonian.kin.apply')
 
+            self.timer.start('RMM-DIIS: elementwise_multiply_add')
             if (dR_G.dtype.char == float):
                 elementwise_multiply_add(vt_G, pR_G, dR_G)
             else:
                 dR_G += vt_G * pR_G
+            self.timer.stop('RMM-DIIS: elementwise_multiply_add')
 
             self.timer.start('RMM-DIIS: axpy pR_G')
             axpy(-kpt.eps_n[n], pR_G, dR_G)  # dR_G -= kpt.eps_n[n] * pR_G
             self.timer.stop('RMM-DIIS: axpy pR_G')
 
+            self.timer.start('RMM-DIIS: adjust_residual2')
             run([nucleus.adjust_residual2(pR_G, dR_G, kpt.eps_n[n],
                                           kpt.u, kpt.s, kpt.k, n)
                  for nucleus in hamiltonian.pt_nuclei])
+            self.timer.stop('RMM-DIIS: adjust_residual2')
 
+            self.timer.start('RMM-DIIS: adjust_non_local_residual')
             hamiltonian.xc.xcfunc.adjust_non_local_residual(
                 pR_G, dR_G, kpt.eps_n[n], kpt.u, kpt.s, kpt.k, n)
+            self.timer.stop('RMM-DIIS: adjust_non_local_residual')
 
+            self.timer.start('RMM-DIIS: self.comm.sum')
             if (dR_G.dtype.char == float):
                 RdR = self.comm.sum(utilities_vdot(R_G, dR_G))
                 dRdR = self.comm.sum(utilities_vdot_self(dR_G))
             else:
                 RdR = self.comm.sum(real(npy.vdot(R_G, dR_G)))
                 dRdR = self.comm.sum(real(npy.vdot(dR_G, dR_G)))
+            self.timer.stop('RMM-DIIS: self.comm.sum')
             lam = -RdR / dRdR
 
             R_G *= 2.0 * lam
@@ -161,7 +175,7 @@ class RMM_DIIS(Eigensolver):
                 if info != 0:
                     raise RuntimeError('Orthogonalization failed!')
         self.timer.stop('Orthogonalize: inverse_cholesky')
-        
+
         self.comm.broadcast(S_nn, kpt.root)
 
         self.timer.start('Orthogonalize: gemm')
