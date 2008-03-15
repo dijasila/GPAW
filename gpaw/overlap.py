@@ -123,11 +123,15 @@ class Overlap:
         rk(self.gd.dv, a_nG, 0.0, S_nn)
         self.timer.stop('Orthonormalize: rk')
 
+        self.timer.start('Orthonormalize: P_ni S_nn')
         for nucleus in self.my_nuclei:
             P_ni = nucleus.P_uni[kpt.u]
             S_nn += npy.dot(P_ni, cc(npy.inner(nucleus.setup.O_ii, P_ni)))
+        self.timer.stop('Orthonormalize: P_ni S_nn')
 
+        self.timer.start('Orthonormalize: comm.sum')
         self.comm.sum(S_nn, kpt.root)
+        self.timer.stop('Orthonormalize: comm.sum')
 
         self.timer.start('Orthonormalize: inverse_cholesky')
         if sl_inverse_cholesky:
@@ -144,7 +148,9 @@ class Overlap:
                     raise RuntimeError('Orthogonalization failed!')
         self.timer.stop('Orthonormalize: inverse_cholesky')
 
+        self.timer.start('Orthonormalize: comm.broadcast')
         self.comm.broadcast(S_nn, kpt.root)
+        self.timer.stop('Orthonormalize: comm.broadcast')
 
         self.timer.start('Orthonormalize: gemm')
         gemm(1.0, a_nG, S_nn, 0.0, work_nG)

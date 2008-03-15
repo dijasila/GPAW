@@ -98,7 +98,9 @@ class Eigensolver:
         eps_n = kpt.eps_n
         H_nn = self.H_nn
 
+        self.timer.start('Subspace diag.: hamiltonian.kin.apply')
         hamiltonian.kin.apply(psit_nG, Htpsit_nG, kpt.phase_cd)
+        self.timer.stop('Subspace diag.: hamiltonian.kin.apply')
 
         Htpsit_nG += psit_nG * hamiltonian.vt_sG[kpt.s]
 
@@ -111,10 +113,12 @@ class Eigensolver:
         self.timer.start('Subspace diag.: r2k')
         r2k(0.5 * self.gd.dv, psit_nG, Htpsit_nG, 1.0, H_nn)
         self.timer.stop('Subspace diag.: r2k')
+        self.timer.start('Subspace diag.: hamiltonian.my_nuclei')
         for nucleus in hamiltonian.my_nuclei:
             P_ni = nucleus.P_uni[kpt.u]
             dH_ii = unpack(nucleus.H_sp[kpt.s])
             H_nn += npy.dot(P_ni, npy.inner(dH_ii, P_ni).conj())
+        self.timer.stop('Subspace diag.: hamiltonian.my_nuclei')
 
         self.comm.sum(H_nn, kpt.root)
 
