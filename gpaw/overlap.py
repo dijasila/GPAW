@@ -119,7 +119,9 @@ class Overlap:
         S_nn = work_nn
 
         # Construct the overlap matrix
+        self.timer.start('Orthonormalize: rk')
         rk(self.gd.dv, a_nG, 0.0, S_nn)
+        self.timer.stop('Orthonormalize: rk')
 
         for nucleus in self.my_nuclei:
             P_ni = nucleus.P_uni[kpt.u]
@@ -127,11 +129,12 @@ class Overlap:
 
         self.comm.sum(S_nn, kpt.root)
 
+        self.timer.start('Orthonormalize: inverse_cholesky')
         if sl_inverse_cholesky:
-            info = inverse_cholesky(S_nn)
+            info = inverse_cholesky(S_nn, kpt.root)
         else:
             if self.comm.rank == kpt.root:
-                info = inverse_cholesky(S_nn)
+                info = inverse_cholesky(S_nn, kpt.root)
         if sl_inverse_cholesky:
             if info != 0:
                 raise RuntimeError('Orthogonalization failed!')
@@ -139,14 +142,19 @@ class Overlap:
             if self.comm.rank == kpt.root:
                 if info != 0:
                     raise RuntimeError('Orthogonalization failed!')
+        self.timer.stop('Orthonormalize: inverse_cholesky')
 
         self.comm.broadcast(S_nn, kpt.root)
 
+        self.timer.start('Orthonormalize: gemm')
         gemm(1.0, a_nG, S_nn, 0.0, work_nG)
+        self.timer.stop('Orthonormalize: gemm')
         swap(a_nG, work_nG) # swap the pointers
 
+        self.timer.start('Orthonormalize: P_ni gemm')
         for nucleus in self.my_nuclei:
             P_ni = nucleus.P_uni[kpt.u]
             gemm(1.0, P_ni.copy(), S_nn, 0.0, P_ni)
+        self.timer.stop('Orthonormalize: P_ni gemm')
 
         self.timer.stop('Orthonormalize')

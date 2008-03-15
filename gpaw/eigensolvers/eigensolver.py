@@ -17,8 +17,8 @@ class Eigensolver:
     def __init__(self):
         self.initialized = False
         self.lcao = False
-        if debug: # iteration counter for the timer
-            self.iteration = 0
+        #if debug: # iteration counter for the timer
+        self.iteration = 0
 
     def initialize(self, paw, nbands=None):
         self.timer = paw.timer
@@ -108,7 +108,9 @@ class Eigensolver:
         hamiltonian.xc.xcfunc.apply_non_local(kpt, Htpsit_nG, H_nn)
         self.timer.stop('Non-local xc')
 
+        self.timer.start('Subspace diag.: r2k')
         r2k(0.5 * self.gd.dv, psit_nG, Htpsit_nG, 1.0, H_nn)
+        self.timer.stop('Subspace diag.: r2k')
         for nucleus in hamiltonian.my_nuclei:
             P_ni = nucleus.P_uni[kpt.u]
             dH_ii = unpack(nucleus.H_sp[kpt.s])
@@ -127,20 +129,20 @@ class Eigensolver:
 
         if scalapack: assert parallel
         if scalapack:
-            dsyev_zheev_string = 'pdsyev/pzheev'
+            dsyev_zheev_string = 'Subspace diag.: '+'pdsyev/pzheev'
         else:
-            dsyev_zheev_string = 'dsyev/zheev'
+            dsyev_zheev_string = 'Subspace diag.: '+'dsyev/zheev'
 
         self.timer.start(dsyev_zheev_string)
-        if debug:
-            self.timer.start(dsyev_zheev_string+' %03d' % self.iteration)
+        #if debug:
+        self.timer.start(dsyev_zheev_string+' %03d' % self.iteration)
         if scalapack:
-            info = diagonalize(H_nn, eps_n)
+            info = diagonalize(H_nn, eps_n, root=kpt.root)
         else:
             if self.comm.rank == kpt.root:
-                info = diagonalize(H_nn, eps_n)
-        if debug:
-            self.timer.stop(dsyev_zheev_string+' %03d' % self.iteration)
+                info = diagonalize(H_nn, eps_n, root=kpt.root)
+        #if debug:
+        self.timer.stop(dsyev_zheev_string+' %03d' % self.iteration)
         if scalapack:
             if info != 0:
                 raise RuntimeError, 'Very Bad!!'
@@ -148,8 +150,8 @@ class Eigensolver:
             if self.comm.rank == kpt.root:
                 if info != 0:
                     raise RuntimeError, 'Very Bad!!'
-        if debug:
-            self.iteration += 1
+        #if debug:
+        self.iteration += 1
         self.timer.stop(dsyev_zheev_string)
 
         self.timer.start('bcast H')
@@ -160,18 +162,24 @@ class Eigensolver:
         self.timer.stop('bcast eps')
 
         # Rotate psit_nG:
+        self.timer.start('Subspace diag.: psit_nG gemm')
         gemm(1.0, psit_nG, H_nn, 0.0, self.work)
+        self.timer.stop('Subspace diag.: psit_nG gemm')
 
         # Rotate Htpsit_nG:
+        self.timer.start('Subspace diag.: Htpsit_nG gemm')
         gemm(1.0, Htpsit_nG, H_nn, 0.0, psit_nG)
+        self.timer.stop('Subspace diag.: Htpsit_nG gemm')
 
         #Switch the references
         kpt.psit_nG, self.Htpsit_nG, self.work = self.work, psit_nG, Htpsit_nG
 
         # Rotate P_uni:
+        self.timer.start('Subspace diag.: P_ni gemm')
         for nucleus in hamiltonian.my_nuclei:
             P_ni = nucleus.P_uni[kpt.u]
             gemm(1.0, P_ni.copy(), H_nn, 0.0, P_ni)
+        self.timer.stop('Subspace diag.: P_ni gemm')
 
         # Rotate EXX related stuff
         if hamiltonian.xc.xcfunc.hybrid > 0.0:

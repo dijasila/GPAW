@@ -48,7 +48,9 @@ class RMM_DIIS(Eigensolver):
         if self.rotate:
             for R_G, eps, psit_G in zip(R_nG, kpt.eps_n, kpt.psit_nG):
                 # R_G -= eps * psit_G
+                self.timer.start('Residuals: axpy psit_G')
                 axpy(-eps, psit_G, R_G)
+                self.timer.stop('Residuals: axpy psit_G')
 
             run([nucleus.adjust_residual(R_nG, kpt.eps_n, kpt.s, kpt.u, kpt.k)
                  for nucleus in hamiltonian.pt_nuclei])
@@ -60,7 +62,9 @@ class RMM_DIIS(Eigensolver):
 
             kpt.eps_n = npy.diagonal(H_nn)
 
+            self.timer.start('Residuals: gemm')
             gemm(-1.0, kpt.psit_nG, H_nn, 1.0, R_nG)
+            self.timer.stop('Residuals: gemm')
 
             for nucleus in hamiltonian.pt_nuclei:
                 if nucleus.in_this_domain:
@@ -98,7 +102,9 @@ class RMM_DIIS(Eigensolver):
             else:
                 dR_G += vt_G * pR_G
 
+            self.timer.start('RMM-DIIS: axpy pR_G')
             axpy(-kpt.eps_n[n], pR_G, dR_G)  # dR_G -= kpt.eps_n[n] * pR_G
+            self.timer.stop('RMM-DIIS: axpy pR_G')
 
             run([nucleus.adjust_residual2(pR_G, dR_G, kpt.eps_n[n],
                                           kpt.u, kpt.s, kpt.k, n)
@@ -116,7 +122,9 @@ class RMM_DIIS(Eigensolver):
             lam = -RdR / dRdR
 
             R_G *= 2.0 * lam
+            self.timer.start('RMM-DIIS: axpy dR_G')
             axpy(lam**2, dR_G, R_G)  # R_G += lam**2 * dR_G
+            self.timer.stop('RMM-DIIS: axpy dR_G')
             kpt.psit_nG[n] += self.preconditioner(R_G, kpt.phase_cd,
                                                  kpt.psit_nG[n], kpt.k_c)
 
@@ -129,7 +137,9 @@ class RMM_DIIS(Eigensolver):
         S_nn = self.S_nn
 
         # Fill in the lower triangle:
+        self.timer.start('Orthogonalize: rk')
         rk(self.gd.dv, kpt.psit_nG, 0.0, S_nn)
+        self.timer.stop('Orthogonalize: rk')
 
         for nucleus in hamiltonian.my_nuclei:
             P_ni = nucleus.P_uni[kpt.u]
@@ -137,11 +147,12 @@ class RMM_DIIS(Eigensolver):
 
         self.comm.sum(S_nn, kpt.root)
 
+        self.timer.start('Orthogonalize: inverse_cholesky')
         if sl_inverse_cholesky:
-            info = inverse_cholesky(S_nn)
+            info = inverse_cholesky(S_nn, kpt.root)
         else:
             if self.comm.rank == kpt.root:
-                info = inverse_cholesky(S_nn)
+                info = inverse_cholesky(S_nn, kpt.root)
         if sl_inverse_cholesky:
             if info != 0:
                 raise RuntimeError('Orthogonalization failed!')
@@ -149,15 +160,20 @@ class RMM_DIIS(Eigensolver):
             if self.comm.rank == kpt.root:
                 if info != 0:
                     raise RuntimeError('Orthogonalization failed!')
-
+        self.timer.stop('Orthogonalize: inverse_cholesky')
+        
         self.comm.broadcast(S_nn, kpt.root)
 
+        self.timer.start('Orthogonalize: gemm')
         gemm(1.0, kpt.psit_nG, S_nn, 0.0, self.work)
+        self.timer.stop('Orthogonalize: gemm')
         kpt.psit_nG, self.work = self.work, kpt.psit_nG  # swap
 
+        self.timer.start('Orthogonalize: P_ni gemm')
         for nucleus in hamiltonian.my_nuclei:
             P_ni = nucleus.P_uni[kpt.u]
             gemm(1.0, P_ni.copy(), S_nn, 0.0, P_ni)
+        self.timer.stop('Orthogonalize: P_ni gemm')
         self.timer.stop('Orthogonalize')
 
         error = self.comm.sum(error)

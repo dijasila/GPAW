@@ -9,12 +9,12 @@ Linear Algebra PACKage (LAPACK)
 import numpy as npy
 
 from gpaw import debug, scalapack, sl_inverse_cholesky
-from gpaw.mpi import parallel, size, world
+from gpaw.mpi import parallel, rank, size, world
 import _gpaw
 
 from gpaw.utilities.blas import gemm
 
-def diagonalize(a, w, b=None):
+def diagonalize(a, w, b=None, root=0):
     """Diagonalize a symmetric/hermitian matrix.
 
     Uses dsyevd/zheevd to diagonalize symmetric/hermitian matrix
@@ -39,26 +39,30 @@ def diagonalize(a, w, b=None):
         assert b.shape == a.shape
         if scalapack:
             if scalapack: assert parallel
-            print 'python ScaLapack diagonalize general'
+            if rank == root:
+                print 'python ScaLapack diagonalize general'
             assert len(scalapack) == 4
             assert scalapack[0]*scalapack[1] <= size
             # symmetrize the matrix
             for i in range(n):
                 for j in range(i, n):
                     a[i,j] = a[j,i]
-            print 'python ScaLapack diagonalize general not implemented yet'
+            if rank == root:
+                print 'python ScaLapack diagonalize general not implemented yet'
             assert (not scalapack)
             info = world.diagonalize(a, w,
                                      scalapack[0],
                                      scalapack[1],
-                                     scalapack[2], 0, b)
+                                     scalapack[2], root, b)
         else:
-            print 'python Lapack diagonalize general'
+            if rank == root:
+                print 'python Lapack diagonalize general'
             info = _gpaw.diagonalize(a, w, b)
     else:
         if scalapack:
             if scalapack: assert parallel
-            print 'python ScaLapack diagonalize'
+            if rank == root:
+                print 'python ScaLapack diagonalize'
             assert len(scalapack) == 4
             assert scalapack[0]*scalapack[1] <= size
             # symmetrize the matrix
@@ -68,13 +72,14 @@ def diagonalize(a, w, b=None):
             info = world.diagonalize(a, w,
                                      scalapack[0],
                                      scalapack[1],
-                                     scalapack[2], 0)
+                                     scalapack[2], root)
         else:
-            print 'python Lapack diagonalize'
+            if rank == root:
+                print 'python Lapack diagonalize'
             info = _gpaw.diagonalize(a, w)
     return info
 
-def inverse_cholesky(a):
+def inverse_cholesky(a, root=0):
     """Calculate the inverse of the Cholesky decomposition of
     a symmetric/hermitian positive definite matrix `a`.
 
@@ -87,7 +92,8 @@ def inverse_cholesky(a):
     assert a.shape == (n, n)
     if sl_inverse_cholesky:
         if sl_inverse_cholesky: assert parallel
-        print 'python ScaLapack inverse_cholesky'
+        if rank == root:
+            print 'python ScaLapack inverse_cholesky'
         assert len(sl_inverse_cholesky) == 4
         assert sl_inverse_cholesky[0]*sl_inverse_cholesky[1] <= size
         # symmetrize the matrix
@@ -97,9 +103,10 @@ def inverse_cholesky(a):
         info = world.inverse_cholesky(a,
                                       sl_inverse_cholesky[0],
                                       sl_inverse_cholesky[1],
-                                      sl_inverse_cholesky[2], 0)
+                                      sl_inverse_cholesky[2], root)
     else:
-        print 'python Lapack inverse_cholesky'
+        if rank == root:
+            print 'python Lapack inverse_cholesky'
         info = _gpaw.inverse_cholesky(a)
     return info
 
