@@ -7,6 +7,7 @@ the fastest will be run first.
 
 import os
 import sys
+import time
 import unittest
 from glob import glob
 import gc
@@ -136,6 +137,18 @@ class ScriptTestCase(unittest.TestCase):
     def __repr__(self):
         return "ScriptTestCase('%s')" % self.filename
 
+class MyTextTestResult(unittest._TextTestResult):
+    def startTest(self, test):
+        unittest._TextTestResult.startTest(self, test)
+        self.t0 = time.time()
+        
+    def addSuccess(self, test):
+        self.stream.write('(%.3fs) ' % (time.time() - self.t0))    
+        unittest._TextTestResult.addSuccess(self, test)
+
+class MyTextTestRunner(unittest.TextTestRunner):
+    def _makeResult(self):
+        return MyTextTestResult(self.stream, self.descriptions, self.verbosity)
 
 ts = unittest.TestSuite()
 for test in tests:
@@ -144,7 +157,7 @@ for test in tests:
 from gpaw.utilities import devnull
 sys.stdout = devnull
 
-ttr = unittest.TextTestRunner(verbosity=opt.verbosity)
+ttr = MyTextTestRunner(verbosity=opt.verbosity)
 result = ttr.run(ts)
 failed = [test.filename for test, msg in result.failures + result.errors]
 
