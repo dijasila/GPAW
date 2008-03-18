@@ -45,7 +45,7 @@ class Output:
         self.txt.write(kwargs.get('sep', ' ').join([str(arg)
                                                     for arg in args]) +
                        kwargs.get('end', '\n'))
-        
+
     def print_logo(self):
         self.text()
         self.text('  ___ ___ ___ _ _ _  ')
@@ -56,24 +56,24 @@ class Output:
         self.text()
 
         uname = os.uname()
-        self.text('User:', os.getenv('USER') + '@' + uname[1])
+        self.text('User:', os.getenv('USER', '???') + '@' + uname[1])
         self.text('Date:', time.asctime())
         self.text('Arch:', uname[4])
         self.text('Pid: ', os.getpid())
         self.text('Dir: ', os.path.dirname(gpaw.__file__))
-                  
+
     def print_init(self, pos_ac):
         t = self.text
         p = self.input_parameters
 
         self.print_parameters()
-        
+
         t()
         t('Unit Cell:')
         t('         Periodic  Length  Points   Spacing')
         t('  -----------------------------------------')
         for c in range(3):
-            t('  %s-axis   %s   %8.4f   %3d    %8.4f' % 
+            t('  %s-axis   %s   %8.4f   %3d    %8.4f' %
               ('xyz'[c],
                ['no ', 'yes'][int(self.domain.periodic_c[c])],
                self.a0 * self.domain.cell_c[c],
@@ -87,14 +87,14 @@ class Output:
         t('Positions in Ang:')
         for a, pos_c in enumerate(pos_ac):
             symbol = self.nuclei[a].setup.symbol
-            t('%3d %-2s %8.4f%8.4f%8.4f' % 
+            t('%3d %-2s %8.4f%8.4f%8.4f' %
               ((a, symbol) + tuple(self.a0 * pos_c)))
         t()
 
     def print_parameters(self):
         t = self.text
         p = self.input_parameters
-        
+
         if self.spinpol:
             t('Spin-Polarized Calculation.')
             t('Magnetic Moment: %.6f' % sum(self.density.magmom_a), end='')
@@ -121,10 +121,10 @@ class Output:
             order = order+'rd'
         else:
             order = order+'th'
-        
+
         t('Interpolation:       '+order+' Order')
         t('Reference Energy: %10.6f' % (self.Eref * self.Ha))
-        t()          
+        t()
         if self.gamma:
             t('Gamma Point Calculation')
 
@@ -145,7 +145,7 @@ class Output:
 
         if self.symmetry is not None:
             self.symmetry.print_symmetries(t)
-        
+
         t(('%d k-point%s in the Irreducible Part of the ' +
            'Brillouin Zone (total: %d)') %
           (self.nkpts, ' s'[1:self.nkpts], len(self.bzk_kc)))
@@ -179,7 +179,7 @@ class Output:
         self.print_all_information()
 
     def print_all_information(self):
-        t = self.text    
+        t = self.text
         if len(self.nuclei) == 1:
             t('Energy Contributions Relative to Reference Atom:', end='')
         else:
@@ -231,7 +231,7 @@ class Output:
 
     def print_iteration(self):
         # Output from each iteration:
-        t = self.text    
+        t = self.text
 
         if self.verbose != 0:
             T = time.localtime()
@@ -246,7 +246,7 @@ class Output:
             t()
             self.print_all_information()
 
-        else:        
+        else:
             if self.niter == 0:
                 header = """\
                      log10-error:    Total        Iterations:
@@ -262,7 +262,7 @@ class Output:
             else:
                 eigerror = '%-+5.1f' % (log(self.error['eigenstates']) /
                                         log(10))
-                
+
             dNt = self.density.mixer.get_charge_sloshing()
             if dNt is None or self.nvalence == 0:
                 dNt = ''
@@ -276,7 +276,7 @@ class Output:
                 niterocc = '%d' % niterocc
 
             niterpoisson = '%d' % self.hamiltonian.npoisson
-            
+
             t("""\
 iter: %3d  %02d:%02d:%02d  %-5s  %-5s    %-12.5f %-5s  %-7s""" %
               (self.niter,
@@ -286,7 +286,7 @@ iter: %3d  %02d:%02d:%02d  %-5s  %-5s    %-12.5f %-5s  %-7s""" %
                self.Ha * (self.Etot + 0.5 * self.S),
                niterocc,
                niterpoisson), end='')
-            
+
             if self.spinpol:
                 t('  %+.4f' % self.occupation.magmom)
             else:
@@ -298,10 +298,10 @@ iter: %3d  %02d:%02d:%02d  %-5s  %-5s    %-12.5f %-5s  %-7s""" %
         t = self.text
         t()
         t('Forces in eV/Ang:')
-        c = self.Ha / self.a0        
+        c = self.Ha / self.a0
         for a, nucleus in enumerate(self.nuclei):
             symbol = nucleus.setup.symbol
-            t('%3d %-2s %8.4f%8.4f%8.4f' % 
+            t('%3d %-2s %8.4f%8.4f%8.4f' %
               ((a, symbol) + tuple(self.F_ac[a] * c)))
 
     def print_eigenvalues(self):
@@ -333,7 +333,7 @@ def eigenvalue_string(paw,comment=None):
 
     s = ''
     if paw.nspins == 1:
-        s += comment + 'Band   Eigenvalues  Occupancy\n'        
+        s += comment + 'Band   Eigenvalues  Occupancy\n'
         kpt = paw.kpt_u[0]
         for n in range(paw.nbands):
             s += ('%4d   %10.5f  %10.5f\n' %
@@ -405,15 +405,15 @@ def plot(positions, numbers, cell):
             grid.put(c, i + n + 1, j, depth)
     k = 0
     for i, j in [(1, 0), (1 + nx, 0)]:
-        grid.put('*', i, j) 
+        grid.put('*', i, j)
         grid.put('.', i + ny, j + ny)
         if k == 0:
             grid.put('*', i, j + nz)
         grid.put('.', i + ny, j + nz + ny)
         for y in range(1, ny):
-            grid.put('/', i + y, j + y, y / sy) 
+            grid.put('/', i + y, j + y, y / sy)
             if k == 0:
-                grid.put('/', i + y, j + y + nz, y / sy) 
+                grid.put('/', i + y, j + y + nz, y / sy)
         for z in range(1, nz):
             if k == 0:
                 grid.put('|', i, j + z)

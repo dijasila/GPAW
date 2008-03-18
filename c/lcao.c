@@ -1,23 +1,28 @@
+#include <complex.h>
 #include "localized_functions.h"
 #include "extensions.h"
 #include "bmgs/bmgs.h"
 
+#ifdef GPAW_AIX
+#  define dgemv_ dgemv
+#  define dgemm_ dgemm
+#endif
 
 int dgemv_(char *trans, int *m, int * n,
-	   double *alpha, double *a, int *lda, 
-	   double *x, int *incx, double *beta, 
+	   double *alpha, double *a, int *lda,
+	   double *x, int *incx, double *beta,
 	   double *y, int *incy);
 int dgemm_(char *transa, char *transb, int *m, int * n,
-	   int *k, const double *alpha, double *a, int *lda, 
-	   double *b, int *ldb, double *beta, 
+	   int *k, const double *alpha, double *a, int *lda,
+	   double *b, int *ldb, double *beta,
 	   double *c, int *ldc);
 
 
 //                    +-----------n
 //  +----m   +----m   | +----c+m  |
 //  |    |   |    |   | |    |    |
-//  |  b | = |  v | * | |  a |    |  
-//  |    |   |    |   | |    |    |  
+//  |  b | = |  v | * | |  a |    |
+//  |    |   |    |   | |    |    |
 //  0----+   0----+   | c----+    |
 //                    |           |
 //                    0-----------+
@@ -138,4 +143,3 @@ PyObject * overlap(PyObject* self, PyObject *args)
     free(a1);
   Py_RETURN_NONE;
 }
- 

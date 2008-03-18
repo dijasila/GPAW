@@ -84,7 +84,7 @@ def get_system_config(define_macros, undef_macros,
         #  _||_|| \|
         #
 
-        extra_compile_args += ['-KPIC', '-fast']
+        extra_compile_args += ['-Kpic', '-fast']
 
         # Suppress warning from -fast (-xarch=native):
         f = open('cc-test.c', 'w')
@@ -98,13 +98,14 @@ def get_system_config(define_macros, undef_macros,
 
 
         # We need the -Bstatic before the -lsunperf and -lfsu:
-        extra_link_args += ['-Bstatic', '-lsunperf', '-lfsu']
+        # http://forum.java.sun.com/thread.jspa?threadID=5072537&messageID=9265782
+        extra_link_args += ['-Bstatic', '-lsunperf', '-lfsu', '-Bdynamic']
         cc_version = os.popen3('cc -V')[2].readline().split()[3]
         if cc_version > '5.6':
             libraries.append('mtsk')
         else:
             extra_link_args.append('-lmtsk')
-            define_macros.append(('NO_C99_COMPLEX', '1'))
+        #define_macros.append(('NO_C99_COMPLEX', '1'))
 
         msg += ['* Using SUN high performance library']
 
@@ -118,7 +119,7 @@ def get_system_config(define_macros, undef_macros,
         extra_compile_args += ['-qlanglvl=stdc99']
         extra_link_args += ['-bmaxdata:0x80000000', '-bmaxstack:0x80000000']
 
-        libraries += ['f', 'essl', 'lapack']
+        libraries += ['f', 'lapack', 'essl']
         define_macros.append(('GPAW_AIX', '1'))
 
     elif machine == 'x86_64':
@@ -137,6 +138,8 @@ def get_system_config(define_macros, undef_macros,
             library_dirs += [acml[-1]]
             extra_link_args += ['-Wl,-rpath=' + acml[-1]]
             msg += ['* Using ACML library']
+        else:
+            libraries += ['blas', 'lapack']
 
     elif machine =='ia64':
 
@@ -343,7 +346,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     for c2r in glob('c/libxc/src/funcs_*.c'): cfiles2remove.append(c2r)
     for c2r in cfiles2remove: cfiles.remove(c2r)
     sources = ['c/bc.c', 'c/localized_functions.c', 'c/mpi.c', 'c/_gpaw.c',
-               'c/operators.c', 'c/transformers.c']
+               'c/operators.c', 'c/transformers.c'] 
     objects = ' '.join(['build/temp.%s/' % plat + x[:-1] + 'o'
                         for x in cfiles])
 
