@@ -101,8 +101,6 @@ class Nucleus:
             self.vxx_unii = npy.zeros((nmyu, nbands, ni, ni), self.dtype)
 
     def reallocate(self, nbands):
-        assert 0
-        adfgsdfg
         nu, nao, ni = self.P_uni.shape
         if nbands < nao:
             self.P_uni = self.P_uni[:, :nbands, :].copy()
@@ -270,6 +268,7 @@ class Nucleus:
         else:
             self.f_si = self.calculate_initial_occupation_numbers(ns, niao,
                                                                   magmom, hund)
+
         if self.in_this_domain:
             D_sii = npy.zeros((ns, ni, ni))
             for i in range(min(ni, niao)):

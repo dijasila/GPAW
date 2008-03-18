@@ -57,7 +57,7 @@ class LCAO:
 
         kpt.C_nm[:] = H_mm[0:self.nbands]
         kpt.eps_n[:] = self.eps_m[0:self.nbands]
-        
+
         for nucleus in self.nuclei:
             nucleus.P_uni[u] = npy.dot(kpt.C_nm, nucleus.P_kmi[k])
  

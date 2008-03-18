@@ -220,7 +220,7 @@ class Density:
         if self.lcao:
             Nt = self.finegd.integrate(self.nt_g)
             if Nt != 0:
-                scale = -Q / Nt
+                scale = -(self.charge + Q) / Nt
                 if abs(scale - 1.0) > 0.01:
                     print 'Scale = %.03f' % scale
                 self.nt_g *= scale

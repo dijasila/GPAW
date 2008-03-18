@@ -17,8 +17,7 @@ utilities_vdot = _gpaw.utilities_vdot
 utilities_vdot_self = _gpaw.utilities_vdot_self
 
 
-# Error function:
-erf = _gpaw.erf
+erf = npy.vectorize(_gpaw.erf, (float,), 'Error function')
 
 
 # Factorials:

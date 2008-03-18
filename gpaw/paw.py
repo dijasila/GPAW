@@ -358,7 +358,7 @@ class PAW(PAWExtra, Output):
         atoms.set_calculator(self)
         return atoms
 
-    def find_ground_state(self, atoms, io=True):
+    def find_ground_state(self, atoms, write=True):
         """Start iterating towards the ground state."""
         
         self.print_parameters()
@@ -385,10 +385,10 @@ class PAW(PAWExtra, Output):
             self.check_convergence()
             self.print_iteration()
             self.niter += 1
-            if io:
+            if write:
                 self.call()
 
-        if io:
+        if write:
             self.call(final=True)
             self.print_converged()
 
@@ -482,6 +482,7 @@ class PAW(PAWExtra, Output):
 
             for kpt in self.kpt_u:
                 kpt.allocate(self.nbands)
+
             return
         
         if self.kpt_u[0].psit_nG is None:
@@ -492,13 +493,27 @@ class PAW(PAWExtra, Output):
             self.nbands = min(self.nbands, self.nao)
             self.eigensolver = get_eigensolver('lcao')
 
+            for nucleus in self.my_nuclei:
+                nucleus.reallocate(self.nbands)
+
             self.density.lcao = True
-            #Add pt_i ?????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
-            self.find_ground_state(self.atoms, io=False)
+
+            # We should create pt_i now !!!!!!!!!!!!!!!!!
+            
+            self.find_ground_state(self.atoms, write=False)
+            
+            self.nbands = original_nbands
             for kpt in self.kpt_u:
-                kpt.calculate_wave_functions_from_lcao_coefficients()
+                kpt.calculate_wave_functions_from_lcao_coefficients(
+                    self.nbands)
                 kpt.C_nm = None
-            #del P_kni ????????????????????????????????????????????????????????????????????????????????????.
+
+            for nucleus in self.nuclei:
+                del nucleus.P_kmi
+                
+            for nucleus in self.my_nuclei:
+                nucleus.reallocate(self.nbands)
+
             self.eigensolver = original_eigensolver
             self.density.mixer.reset(self.my_nuclei)
             self.density.lcao = False
@@ -509,13 +524,20 @@ class PAW(PAWExtra, Output):
             self.converged = False
             self.F_ac = None
             self.old_energies = []
-            self.niter = 0 #???????????????????????????????????????????????????????????????????????????
-            
+            self.niter = 0
+
             # Free allocated space for radial grids:
             for setup in self.setups:
                  del setup.phit_j
             for nucleus in self.nuclei:
                 del nucleus.phit_i
+
+
+            if self.nbands > self.nao:
+                for kpt in self.kpt_u:
+                    kpt.add_extra_bands(self.nbands, self.nao)
+
+            self.orthonormalize_wave_functions()
 
         elif not isinstance(self.kpt_u[0].psit_nG, npy.ndarray):
             # Calculation started from a restart file.  Copy data
@@ -532,12 +554,6 @@ class PAW(PAWExtra, Output):
             else:
                 for kpt in self.kpt_u:
                     kpt.psit_nG = kpt.psit_nG[:]
-
-        self.orthonormalize_wave_functions()
-        if 0:#?????????????????????????for kpt in self.kpt_u:
-            kpt.adjust_number_of_bands(self.nbands, self.pt_nuclei)
-            self.overlap.orthonormalize(kpt.psit_nG, kpt)
-            print '***********'
 
     def orthonormalize_wave_functions(self):
         if self.eigensolver.lcao:

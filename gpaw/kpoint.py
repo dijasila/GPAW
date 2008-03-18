@@ -126,47 +126,25 @@ class KPoint:
         self.eps_n = npy.empty(nbands)
         self.f_n = npy.empty(nbands)
         
-    def adjust_number_of_bands(self, nbands, pt_nuclei):
-        """Adjust the number of states.
+    def add_extra_bands(self, nbands, nao):
+        """Add extra states.
 
-        If we are starting from atomic orbitals, then the desired
-        number of bands (nbands) will most likely differ from the
-        number of current atomic orbitals (self.nbands).  If this
-        is the case, then new arrays are allocated:
-
-        * Too many bands: The bands with the lowest eigenvalues are
-          used.
-        * Too few bands: Extra random wave functions are added.
+        If the number of atomic orbitals is less than the desired
+        number of bands, then extra random wave functions are added.
         """
-        
-        if nbands == self.nbands:
-            return
 
-        nao = self.nbands  # number of atomic orbitals
-        nmin = min(nao, nbands)
+        eps_n = self.eps_n
+        f_n = self.f_n
 
-        tmp_nG = self.psit_nG
-        self.psit_nG = self.gd.empty(nbands, self.dtype)
-        self.psit_nG[:nmin] = tmp_nG[:nmin]
-
-        tmp_n = self.eps_n
         self.allocate(nbands)
-        self.eps_n[:nmin] = tmp_n[:nmin]
 
-        extra = nbands - nao
-        if extra > 0:
-            # Generate random wave functions:
-            self.eps_n[nao:] = self.eps_n[nao - 1] + 0.5
-            self.random_wave_functions(self.psit_nG[nao:])
+        self.eps_n[:nao] = eps_n
+        self.f_n[:nao] = f_n
 
-            # Calculate projections
-            for nucleus in pt_nuclei:
-                if nucleus.in_this_domain:
-                    P_ni = nucleus.P_uni[self.u,nao:]
-                    P_ni[:] = 0.0
-                    nucleus.pt_i.integrate(self.psit_nG[nao:], P_ni, self.k)
-                else:
-                    nucleus.pt_i.integrate(self.psit_nG[nao:], None, self.k)
+        # Generate random wave functions:
+        self.eps_n[nao:] = self.eps_n[nao - 1] + 0.5
+        self.f_n[nao:] = 0.0
+        self.random_wave_functions(self.psit_nG[nao:])
                     
     def random_wave_functions(self, psit_nG):
         """Generate random wave functions"""
@@ -241,15 +219,16 @@ class KPoint:
                 else:
                     taut_G += f * (d_G * npy.conjugate(d_G)).real
 
-    def calculate_wave_functions_from_lcao_coefficients(self):
-        self.psit_nG = self.gd.zeros(self.nbands, dtype=self.dtype)
+    def calculate_wave_functions_from_lcao_coefficients(self, nbands):
+        self.nbands = nbands
+        self.psit_nG = self.gd.zeros(nbands, dtype=self.dtype)
+        psit_nG = self.psit_nG[:len(self.C_nm)]
         m1 = 0
         for nucleus in self.nuclei:
             niao = nucleus.get_number_of_atomic_orbitals()
             m2 = m1 + niao
             if nucleus.phit_i is not None:
-                nucleus.phit_i.add(self.psit_nG, self.C_nm[:, m1:m2].copy(),
-                                   self.k)
+                nucleus.phit_i.add(psit_nG, self.C_nm[:, m1:m2].copy(), self.k)
             m1 = m2
 
     def create_atomic_orbitals(self, nao, nuclei):

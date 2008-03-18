@@ -203,15 +203,6 @@ def symmetrize(matrix):
     npy.multiply(.5, matrix, matrix)
     return matrix
 
-import _gpaw
-erf3D = npy.frompyfunc(_gpaw.erf, 1, 1)
-## def erf3D(M):
-##     """Return matrix with the value of the error function evaluated for
-##     each element in input matrix 'M'.
-##     """
-##     from gpaw.utilities import erf
-##     return elementwise_apply(M, erf, copy=True)
-
 def elementwise_apply(array, function, copy=True):
     """Apply ``function`` to each element of input ``array``. If copy is False,
        the input matrix will be changed (no new allocation of memory).
