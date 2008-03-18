@@ -498,14 +498,13 @@ class PAW(PAWExtra, Output):
 
             self.density.lcao = True
 
-            # We should create pt_i now !!!!!!!!!!!!!!!!!
-            
             self.find_ground_state(self.atoms, write=False)
             
             self.nbands = original_nbands
             for kpt in self.kpt_u:
                 kpt.calculate_wave_functions_from_lcao_coefficients(
                     self.nbands)
+                # Delete basis-set expansion coefficients:
                 kpt.C_nm = None
 
             for nucleus in self.nuclei:
@@ -532,11 +531,12 @@ class PAW(PAWExtra, Output):
             for nucleus in self.nuclei:
                 del nucleus.phit_i
 
-
             if self.nbands > self.nao:
                 for kpt in self.kpt_u:
                     kpt.add_extra_bands(self.nbands, self.nao)
 
+            # We should only create pt_i now !!!!!!!!!!!!!!!!!
+            
             self.orthonormalize_wave_functions()
 
         elif not isinstance(self.kpt_u[0].psit_nG, npy.ndarray):
