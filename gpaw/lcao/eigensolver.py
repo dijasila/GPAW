@@ -12,8 +12,9 @@ class LCAO:
         self.initialized = False
 
     def initialize(self, paw):
-        self.gd = paw.gd
         self.nuclei = paw.nuclei
+        self.my_nuclei = paw.my_nuclei
+        self.comm = paw.gd.comm
         self.error = 0.0
         self.nspins = paw.nspins
         self.nkpts = paw.nkpts
@@ -42,22 +43,31 @@ class LCAO:
         u = kpt.u
         
         H_mm = self.Vt_skmm[s, k]
-        for nucleus in self.nuclei:
+        for nucleus in self.my_nuclei:
             dH_ii = unpack(nucleus.H_sp[s])
             P_mi = nucleus.P_kmi[k]
             H_mm += npy.dot(P_mi, npy.inner(dH_ii, P_mi).conj())
 
+        #print H_mm
+        self.comm.sum(H_mm)
+        #print H_mm
+        
         H_mm += hamiltonian.T_kmm[k]
 
         self.S_mm[:] = hamiltonian.S_kmm[k]
-
-        error = diagonalize(H_mm, self.eps_m, self.S_mm)
-        if error != 0:
-            raise RuntimeError('Error code from dsyevd/zheevd: %d.' % error)
+        #error = diagonalize(self.S_mm, self.eps_m)
+        #print self.eps_m, error;dfgh
+        
+        self.eps_m[0] = 42.424242
+        errorcode = diagonalize(H_mm, self.eps_m, self.S_mm)
+        assert self.eps_m[0] != 42.424242
+        if errorcode != 0:
+            raise RuntimeError('Error code from dsyevd/zheevd: %d.' %
+                               errorcode)
 
         kpt.C_nm[:] = H_mm[0:self.nbands]
         kpt.eps_n[:] = self.eps_m[0:self.nbands]
 
-        for nucleus in self.nuclei:
+        for nucleus in self.my_nuclei:
             nucleus.P_uni[u] = npy.dot(kpt.C_nm, nucleus.P_kmi[k])
  

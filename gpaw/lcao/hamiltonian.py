@@ -164,7 +164,8 @@ class LCAOHamiltonian:
         # Count number of boxes:
         nb = 0
         for nucleus in self.nuclei:
-            nb += len(nucleus.phit_i.box_b)
+            if nucleus.phit_i is not None:
+                nb += len(nucleus.phit_i.box_b)
         
         # Array to hold basis set index:
         m_b = npy.empty(nb, int)
@@ -181,18 +182,21 @@ class LCAOHamiltonian:
         lfs_b = []
         for nucleus in self.nuclei:
             phit_i = nucleus.phit_i
-            if debug:	
-                box_b = [box.lfs for box in phit_i.box_b]
-            else:	
-                box_b = phit_i.box_b
-            b2 = b1 + len(box_b)
-            m_b[b1:b2] = m
-            lfs_b.extend(box_b)
-            if not self.gamma:
-                phase_bk[b1:b2] = phit_i.phase_kb.T
-            m += phit_i.ni
-            b1 = b2
+            if phit_i is not None:
+                if debug:	
+                    box_b = [box.lfs for box in phit_i.box_b]
+                else:	
+                    box_b = phit_i.box_b
+                b2 = b1 + len(box_b)
+                m_b[b1:b2] = m
+                lfs_b.extend(box_b)
+                if not self.gamma:
+                    phase_bk[b1:b2] = phit_i.phase_kb.T
+                b1 = b2
+            m += nucleus.get_number_of_atomic_orbitals()
 
+        assert b1 == nb
+        
         overlap(lfs_b, m_b, phase_bk, self.vt_sG, Vt_skmm)
 
     def old_initialize(self):
