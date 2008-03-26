@@ -102,7 +102,9 @@ class Eigensolver:
         hamiltonian.kin.apply(psit_nG, Htpsit_nG, kpt.phase_cd)
         self.timer.stop('Subspace diag.: hamiltonian.kin.apply')
 
+        self.timer.start('Subspace diag.: Htpsit_nG')
         Htpsit_nG += psit_nG * hamiltonian.vt_sG[kpt.s]
+        self.timer.stop('Subspace diag.: Htpsit_nG')
 
         H_nn[:] = 0.0  # r2k fails without this!
 
@@ -120,7 +122,9 @@ class Eigensolver:
             H_nn += npy.dot(P_ni, npy.inner(dH_ii, P_ni).conj())
         self.timer.stop('Subspace diag.: hamiltonian.my_nuclei')
 
+        self.timer.start('Subspace diag.: self.comm.sum')
         self.comm.sum(H_nn, kpt.root)
+        self.timer.stop('Subspace diag.: self.comm.sum')
 
         # Uncouple occupied and unoccupied subspaces
         if hamiltonian.xc.xcfunc.hybrid > 0.0:
