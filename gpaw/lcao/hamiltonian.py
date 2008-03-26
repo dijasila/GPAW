@@ -5,6 +5,7 @@ import numpy as npy
 from gpaw.utilities.blas import rk, r2k
 from gpaw.utilities import unpack
 from gpaw.lcao.overlap import TwoCenterIntegrals
+from gpaw.utilities.lapack import diagonalize
 from gpaw import debug
 from _gpaw import overlap
 
@@ -96,6 +97,14 @@ class LCAOHamiltonian:
             dO_ii = nucleus.setup.O_ii
             for S_mm, P_mi in zip(self.S_kmm, nucleus.P_kmi):
                 S_mm += npy.dot(P_mi, npy.inner(dO_ii, P_mi).conj())
+
+        if debug:
+            s_m = npy.empty(self.nao)
+            for S_mm in self.S_kmm:
+                assert diagonalize(S_mm.copy(), s_m) != 0
+                if s_m[0] <= 0:
+                    print s_m[:10]
+                    raise RuntimeError('Overlap matrix not positive definite!')
 
         # Debug stuff        
         if 0:

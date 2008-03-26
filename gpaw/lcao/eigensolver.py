@@ -41,26 +41,20 @@ class LCAO:
         k = kpt.k
         s = kpt.s
         u = kpt.u
-        
+
         H_mm = self.Vt_skmm[s, k]
         for nucleus in self.my_nuclei:
             dH_ii = unpack(nucleus.H_sp[s])
             P_mi = nucleus.P_kmi[k]
             H_mm += npy.dot(P_mi, npy.inner(dH_ii, P_mi).conj())
 
-        #print H_mm
         self.comm.sum(H_mm)
-        #print H_mm
         
         H_mm += hamiltonian.T_kmm[k]
 
         self.S_mm[:] = hamiltonian.S_kmm[k]
-        #error = diagonalize(self.S_mm, self.eps_m)
-        #print self.eps_m, error;dfgh
-        
-        self.eps_m[0] = 42.424242
+
         errorcode = diagonalize(H_mm, self.eps_m, self.S_mm)
-        assert self.eps_m[0] != 42.424242
         if errorcode != 0:
             raise RuntimeError('Error code from dsyevd/zheevd: %d.' %
                                errorcode)
