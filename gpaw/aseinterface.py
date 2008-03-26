@@ -193,22 +193,28 @@ class Calculator(PAW):
         energies, weights = raw_orbital_LDOS(self, a, spin, angular)
         return fold(energies * self.Ha, weights, npts, width)
 
-    def get_pseudo_wave_function(self, band=0, kpt=0, spin=0):
+    def get_pseudo_wave_function(self, band=0, kpt=0, spin=0, broadcast=True):
         """Return pseudo-wave-function array."""
-        return self.get_wave_function_array(band, kpt, spin) / self.a0**1.5
+        psit_G = self.get_wave_function_array(band, kpt, spin)
+        if broadcast:
+            if not self.master:
+                psit_G = self.gd.empty(dtype=self.dtype, global_array=True)
+            self.world.broadcast(psit_G, 0)
+            return psit_G / Bohr**1.5
+        elif self.master:
+            return psit_G / Bohr**1.5
 
     def get_eigenvalues(self, kpt=0, spin=0):
         """Return eigenvalue array."""
         return self.collect_eigenvalues(kpt, spin) * self.Ha
 
-    def GetWannierLocalizationMatrix(self, nbands, dirG, kpoint,
-                                     nextkpoint, G_I, spin):
+    def get_wannier_localization_matrix(self, nbands, Gdir_c, kpoint,
+                                        nextkpoint, k0_c, spin):
         """Calculate integrals for maximally localized Wannier functions."""
 
         # Due to orthorhombic cells, only one component of dirG is non-zero.
-        c = dirG.index(1)
-        kpts = self.GetBZKPoints()
-        G = kpts[nextkpoint, c] - kpts[kpoint, c] + G_I[c]
+        c = Gdir_c.tolist().index(1)
+        G = self.bzk_kc[nextkpoint, c] - self.bzk_kc[kpoint, c] + k0_c[c]
 
         return self.get_wannier_integrals(c, spin, kpoint, nextkpoint, G)
 

@@ -54,7 +54,9 @@ class LCAO:
 
         self.S_mm[:] = hamiltonian.S_kmm[k]
 
+        self.eps_m[0] = 42
         errorcode = diagonalize(H_mm, self.eps_m, self.S_mm)
+        assert self.eps_m[0] != 42
         if errorcode != 0:
             raise RuntimeError('Error code from dsyevd/zheevd: %d.' %
                                errorcode)

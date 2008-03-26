@@ -142,8 +142,7 @@ class LCAOHamiltonian:
                id2 = (setup2.symbol, j2)
                l2 = phit2.get_angular_momentum_number()
                for m2 in range(2 * l2 + 1):
-                   S, T = self.tci.st_overlap(id1, id2, l1, l2,
-                                         m1, m2, d)
+                   S, T = self.tci.st_overlap(id1, id2, l1, l2, m1, m2, d)
                    S_mm[i1, i2] = S
                    T_mm[i1, i2] = T
                    i2 += 1

@@ -555,6 +555,12 @@ class PAW(PAWExtra, Output):
                 for kpt in self.kpt_u:
                     kpt.psit_nG = kpt.psit_nG[:]
 
+        """
+        for kpt in self.kpt_u:
+            kpt.adjust_number_of_bands(self.nmybands, self.pt_nuclei)
+            self.overlap.orthonormalize(kpt.psit_nG, kpt)
+        """
+
     def orthonormalize_wave_functions(self):
         if self.eigensolver.lcao:
             self.wave_functions_orthonormalized = True

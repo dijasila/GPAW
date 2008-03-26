@@ -399,7 +399,7 @@ class Nucleus:
             Epot = U + s.M + npy.dot(D_p, (s.M_p + npy.dot(s.M_pp, D_p)))
 
             if s.HubU is not None:
-                print '-----'
+##                 print '-----'
                 nspins = len(self.D_sp)
                 i0 = s.Hubi
                 i1 = i0 + 2 * s.Hubl + 1
@@ -407,11 +407,11 @@ class Nucleus:
                     N_mm = unpack2(D_p)[i0:i1, i0:i1] / 2 * nspins 
                     Eorb = s.HubU/2. * (N_mm - npy.dot(N_mm,N_mm)).trace()
                     Vorb = s.HubU * (0.5 * npy.eye(i1-i0) - N_mm)
-                    print '========='
-                    print 'occs:',npy.diag(N_mm)
-                    print 'Eorb:',Eorb
-                    print 'Vorb:',npy.diag(Vorb)
-                    print '========='
+##                     print '========='
+##                     print 'occs:',npy.diag(N_mm)
+##                     print 'Eorb:',Eorb
+##                     print 'Vorb:',npy.diag(Vorb)
+##                     print '========='
                     Exc += Eorb                    
                     Htemp = unpack(H_p)
                     Htemp[i0:i1,i0:i1] += Vorb
@@ -420,7 +420,7 @@ class Nucleus:
             # Note that the external potential is assumed to be
             # constant inside the augmentation spheres.
             Eext = 0.0
-            if vext:
+            if vext is not None:
                 Eext += vext * sqrt(4 * pi) * (self.Q_L[0] + s.Z)
                 dH_p += vext * sqrt(4 * pi) * s.Delta_pL[:, 0]
             
@@ -657,8 +657,8 @@ class Nucleus:
             self.pt_i.add(b_nG, None, k, communicate=True)
 
 
-    def apply_linear_xfield(self, a_nG, b_nG, k, c0, cx):
-        """Apply non-local part of the polynomial operator."""
+    def apply_linear_field(self, a_nG, b_nG, k, c0, cxyz):
+        """Apply non-local part of the linear field."""
         
         if self.in_this_domain:
             # number of wavefunctions, psit_nG
@@ -685,22 +685,31 @@ class Nucleus:
             # where (see spherical_harmonics.py)
             #
             #   1_ij = sqrt(4pi) Delta_0ij
+            #   y_ij = sqrt(4pi/3) Delta_1ij
+            #   z_ij = sqrt(4pi/3) Delta_2ij
             #   x_ij = sqrt(4pi/3) Delta_3ij
             # ...
 
             Delta_Lii = self.setup.Delta_Lii
 
             #   1_ij = sqrt(4pi) Delta_0ij
+            #   y_ij = sqrt(4pi/3) Delta_1ij
+            #   z_ij = sqrt(4pi/3) Delta_2ij
             #   x_ij = sqrt(4pi/3) Delta_3ij
             oneij = npy.sqrt(4.*npy.pi) \
                 * npy.dot(P_ni, Delta_Lii[:,:,0])
+            yij = npy.sqrt(4.*npy.pi / 3.) \
+                * npy.dot(P_ni, Delta_Lii[:,:,1])
+            zij = npy.sqrt(4.*npy.pi / 3.) \
+                * npy.dot(P_ni, Delta_Lii[:,:,2])
             xij = npy.sqrt(4.*npy.pi / 3.) \
                 * npy.dot(P_ni, Delta_Lii[:,:,3])
 
             # coefficients
             # coefs_ni = sum_j ( <phi_i| f(x,y,z) | phi_j>
             #                    - <phit_i| f(x,y,z) | phit_j> ) P_nj
-            coefs_ni = c0 * oneij + cx * xij
+            coefs_ni = ( c0 * oneij 
+                         + cxyz[0] * xij + cxyz[1] * yij + cxyz[2] * zij )
 
             # add partial wave pt_nG to psit_nG with proper coefficient
             self.pt_i.add(b_nG, coefs_ni, k, communicate=True)

@@ -31,6 +31,7 @@ PyObject* overlap(PyObject *self, PyObject *args);
 PyObject* wigner_seitz_grid(PyObject *self, PyObject *args);
 PyObject* vdw(PyObject *self, PyObject *args);
 PyObject* swap_arrays(PyObject *self, PyObject *args);
+PyObject* spherical_harmonics(PyObject *self, PyObject *args);
 
 static PyMethodDef functions[] = {
   {"gemm", gemm, METH_VARARGS, 0},
@@ -63,6 +64,7 @@ static PyMethodDef functions[] = {
   {"wigner_seitz_grid", wigner_seitz_grid, METH_VARARGS, 0},
   {"vdw", vdw, METH_VARARGS, 0},
   {"swap", swap_arrays, METH_VARARGS, 0},
+  {"spherical_harmonics", spherical_harmonics, METH_VARARGS, 0},
  {0, 0, 0, 0}
 };
 
@@ -109,7 +111,7 @@ extern DL_EXPORT(int) Py_Main(int, char **);
 int
 main(int argc, char **argv)
 {
-
+  int status;
   MPI_Init(&argc, &argv);
   Py_Initialize();
 
@@ -128,6 +130,8 @@ main(int argc, char **argv)
   Py_INCREF(&MPIType);
   PyModule_AddObject(m, "Communicator", (PyObject *)&MPIType);
   import_array1(-1);
-  return Py_Main(argc, argv);
+  status = Py_Main(argc, argv);
+  MPI_Finalize();
+  return status;
 }
 #endif

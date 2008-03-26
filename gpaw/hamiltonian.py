@@ -176,7 +176,7 @@ class Hamiltonian(LCAOHamiltonian):
             if self.vext_g is not None and nucleus.in_this_domain:
                 g_c = nucleus.get_nearest_grid_point(density.finegd)
                 g_c -= (g_c == density.finegd.n_c) # force point to this domain
-                vext = self.vext_g[g_c]
+                vext = self.vext_g[tuple(g_c)]
             else:
                 vext = None
 
