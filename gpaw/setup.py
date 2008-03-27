@@ -518,7 +518,7 @@ class Setup:
 
     def read_basis_functions(self, basis):
         if isinstance(basis, str):
-            basis = Basis(self.symbol, basis_name)
+            basis = Basis(self.symbol, basis)
         #g = npy.arange(basis.ng, dtype=float)
         #r_g = basis.beta * g / (basis.ng - g)
         rc = basis.d * (basis.ng - 1)
