@@ -100,7 +100,7 @@ class LCAOHamiltonian:
 
         s_m = npy.empty(self.nao)
         for S_mm in self.S_kmm:
-            assert diagonalize(S_mm.copy(), s_m) != 0
+            assert diagonalize(S_mm.copy(), s_m) == 0
             if s_m[0] <= 0:
                 print s_m[:10]
                 raise RuntimeError('Overlap matrix not positive definite!')
