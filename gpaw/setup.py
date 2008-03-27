@@ -516,8 +516,9 @@ class Setup:
                 self.phit_j.append(Spline(l, rcut3, phit_g, r_g, beta,
                                           points=100))
 
-    def read_basis_functions(self, basis_name):
-        basis = Basis(self.symbol, basis_name)
+    def read_basis_functions(self, basis):
+        if isinstance(basis, str):
+            basis = Basis(self.symbol, basis_name)
         #g = npy.arange(basis.ng, dtype=float)
         #r_g = basis.beta * g / (basis.ng - g)
         rc = basis.d * (basis.ng - 1)

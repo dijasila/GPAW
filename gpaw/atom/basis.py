@@ -10,6 +10,7 @@ from numpy.linalg import solve
 from ase.units import Hartree
 
 from gpaw.spline import Spline
+from gpaw.atom.configurations import configurations
 from gpaw.atom.generator import Generator, parameters
 from gpaw.atom.polarization import PolarizationOrbitalGenerator, Reference
 from gpaw.utilities import devnull, divrl
@@ -299,14 +300,24 @@ class BasisMaker:
         # Thus we must find the j corresponding to the highest energy of
         # each orbital-type.
         #
+        # However not all orbitals in l_j are actually occupied, so we
+        # will check the atomic configurations dictionary.
+        #
         # ASSUMPTION: The last index of a given value in l_j corresponds
-        # exactly to the orbital we want.
+        # exactly to the orbital we want, except those which are not occupied
         g = self.generator
+
+        atomic_number, states = configurations[g.symbol]
+        # read: max([state.l for state in states if state.occ > 0])
+        # someone should fix our data structures
+        lmax = max([state[1] for state in states if state[2] > 0])
+
+        #lmax = max(g.l_j)
+        lvalues = range(lmax + 1)
+
         print >> txt, 'Basis functions for %s' % g.symbol
         print >> txt, '====================' + '='*len(g.symbol)
         print >> txt
-        lmax = max(g.l_j)
-        lvalues = range(lmax + 1)
         
         j_l = [] # index j by l rather than the other way around
         reversed_l_j = list(g.l_j)

@@ -222,22 +222,13 @@ class CoefficientOptimizer:
         return self.evaluate([1.] + list(coef))
 
     def evaluate(self, coef):
-        ncoef = len(coef)
-
-        coef_trans = npy.array([coef]) # complex coefficients?
-        coef = coef_trans.transpose()
-
+        coef = npy.array(coef) # complex coefficients?
         terms_km = npy.zeros(self.S_kmii.shape[0:2])
-
         for i, (s_mii, S_mii) in enumerate(zip(self.s_kmii, self.S_kmii)):
             for j, (s_ii, S_ii) in enumerate(zip(s_mii, S_mii)):
-                numerator = npy.dot(coef_trans, npy.dot(S_ii, coef))
-                denominator = npy.dot(coef_trans, npy.dot(s_ii, coef))
-                assert numerator.shape == (1,1)
-                assert denominator.shape == (1,1)                
-                terms_km[i, j] = numerator[0,0] / denominator[0,0]
-
-        #print terms_km
+                numerator = npy.vdot(coef, npy.dot(S_ii, coef))
+                denominator = npy.vdot(coef, npy.dot(s_ii, coef))
+                terms_km[i, j] = numerator / denominator
         
         self.lastterms = terms_km
         quality = terms_km.sum()
@@ -258,7 +249,7 @@ class PolarizationOrbitalGenerator:
     def __init__(self, rcut, gaussians=None):
         self.rcut = rcut
         if gaussians is None:
-            gaussians = int(rcut / .3) # lots!
+            gaussians = 4
         if isinstance(gaussians, int):
             self.r_alphas = npy.linspace(1., .6 * rcut, gaussians + 1)[1:]
         else: # assume it is a list of actual characteristic lengths
@@ -331,15 +322,11 @@ def overlaps(l, gd, splines, kpt_u, spos_ac=((.5, .5, .5),),
 
     dtype = kpt_u[0].dtype
     print >> txt, 'Creating localized functions'
-    #lf_a = [create_localized_functions(splines, gd, spos_c, dtype=dtype)
-    #        for spos_c in spos_ac]
     lf = create_localized_functions(splines, gd, spos_c, dtype=dtype)
 
     k_kc = [kpt.k_c for kpt in kpt_u]
     if dtype == complex:
         lf.set_phase_factors(k_kc)
-        #for lf in lf_a:
-        #    lf.set_phase_factors(k_kc)
 
     # make sanity checks
     for kpt in kpt_u:
@@ -355,21 +342,16 @@ def overlaps(l, gd, splines, kpt_u, spos_ac=((.5, .5, .5),),
     #phi_miG = gd.zeros(mcount * fcount, dtype=dtype)
     print >> txt, 'Calculating phi-phi products'
     for kpt in kpt_u:
-        #gramschmidt(gd, kpt.psit_nG)
+        gramschmidt(gd, kpt.psit_nG)
         normsqr = gd.integrate(npy.conjugate(kpt.psit_nG) * kpt.psit_nG)
         for n in range(bcount):
             kpt.psit_nG[n] /= normsqr[n] ** .5
         phi_nG = gd.zeros(mcount * fcount, dtype=dtype)
-        #for lf in lf_a:
-        #    lf.add(phi_nG, coef_xi, k=kpt.k)
         lf.add(phi_nG, coef_xi, k=kpt.k)
         phi_overlaps_ii = npy.zeros((fcount * mcount,
                                      fcount * mcount), dtype=dtype)
         # XXX products for different m unneeded.  Bottleneck for large fcount
         lf.integrate(phi_nG, phi_overlaps_ii, k=kpt.k)
-        #for lf in lf_a:
-        #    # every integration will add to the result array
-        #    lf.integrate(phi_nG, phi_overlaps_ii, k=kpt.k)
         phi_overlaps_ii.shape = (fcount, mcount, fcount, mcount)
         for m in range(mcount):
             for i in range(fcount):
@@ -381,13 +363,8 @@ def overlaps(l, gd, splines, kpt_u, spos_ac=((.5, .5, .5),),
     overlaps_knmi = npy.zeros((kcount, bcount, mcount, fcount), dtype=dtype)
     print >> txt, 'Calculating phi-psi products'
     for kpt in kpt_u:
-        #psit_nG_weighted = kpt.psit_nG.copy()
-        #for n in range(bcount):
-        #    psit_nG_weighted[n] *= kpt.f_n[n]
         # Note: will be reashaped to (n, i, m) like its name suggests
         overlaps_nim = npy.zeros((bcount, mcount * fcount), dtype=dtype)
-        #for lf in lf_a:
-        #    lf.integrate(kpt.psit_nG, overlaps_nim, k=kpt.k)
         lf.integrate(kpt.psit_nG, overlaps_nim, k=kpt.k)
         overlaps_nim.shape = (bcount, fcount, mcount)
         overlaps_knmi[kpt.k, :, :, :] = overlaps_nim.swapaxes(1, 2)
