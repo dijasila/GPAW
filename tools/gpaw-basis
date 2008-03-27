@@ -23,19 +23,30 @@ parser.add_option('-P', '--plot', action='store_true',
                   help='plot basis functions')
 parser.add_option('-N', '--no-files', action='store_true',
                   help='Do not write basis function files')
-parser.add_option('--rcut-max', type='float', default=16., metavar='rcut',
+parser.add_option('--rcut-max', type='float', default=16., metavar='<rcut>',
                   help='Max cutoff for confined atomic orbitals.  This '+
                   'option has no effect on orbitals with smaller cutoff '+
                   '[default: %default]')
-parser.add_option('--rcut-pol-rel', type='float', default=1.0, metavar='rcut',
+parser.add_option('--rcut-pol-rel', type='float', default=1.0,
+                  metavar='<rcut>',
                   help='polarization function cutoff relative to largest'+
                   ' single-zeta cutoff [default: %default]')
-parser.add_option('--gaussians', type='int', metavar='n',
-                  help='Use the specified number of Gaussians for '+
+parser.add_option('--gaussians', type='int', metavar='<n>',
+                  help='use the specified number of Gaussians for '+
                   'polarization functions.')
 parser.add_option('-X', '--exclude', action='store_true',
-                  help='Generate basis sets for all g2 elements, excluding '+
+                  help='generate basis sets for all g2 elements, excluding '+
                   'those specified')
+parser.add_option('--vconf-amplitude', type='float', default=8.,
+                  metavar='<alpha>',
+                  help='set proportinality constant of smooth confinement '+
+                  'potential [default: %default]')
+parser.add_option('--vconf-rstart-rel', type='float', default=.6,
+                  metavar='<ri/rc>',
+                  help='set inner cutoff for smooth confinement potential '+
+                  'relative to hard cutoff [default: %default]')
+parser.add_option('--vconf-sharp-confinement', action='store_true',
+                  help='use sharp rather than smooth confinement potential')
 parser.add_option('--debug', action='store_true',
                   help='Use gpaw-DEBUG mode')
 
@@ -126,6 +137,10 @@ def main():
         else:
             figfile = '%s.%s.png' % (symbol, name)
         tailnorm = [float(norm) for norm in opts.tailnorm.split(',')]
+        vconf_args = None
+        if not opts.vconf_sharp_confinement:
+            vconf_args = opts.vconf_amplitude, opts.vconf_rstart_rel
+            
         basis = bm.generate(zetacount, polcount,
                             tailnorm=tailnorm,
                             energysplit=opts.energy_shift,
@@ -133,7 +148,8 @@ def main():
                             referenceindex=referenceindex,
                             rcutpol_rel=opts.rcut_pol_rel,
                             rcutmax=opts.rcut_max,
-                            ngaussians=opts.gaussians)
+                            ngaussians=opts.gaussians,
+                            vconf_args=vconf_args)
         if opts.plot:
             bm.plot(basis, title=referencefile, filename=figfile)
         if not opts.no_files:

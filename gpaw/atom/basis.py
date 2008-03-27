@@ -17,7 +17,6 @@ from gpaw.utilities import devnull, divrl
 from gpaw.basis_data import Basis, BasisFunction
 from gpaw.version import version
 
-AMPLITUDE = 100. # default confinement potential modifier
 
 class BasisMaker:
     """Class for creating atomic basis functions."""
@@ -209,7 +208,8 @@ class BasisMaker:
         y[icut:] *= 0
         return y * r # Recall that wave functions are represented as psi*r
 
-    def rcut_by_energy(self, j, esplit=.1, tolerance=.1, rguess=6.):
+    def rcut_by_energy(self, j, esplit=.1, tolerance=.1, rguess=6.,
+                       vconf_args=None):
         """Find confinement cutoff corresponding to given orbital energy shift.
 
         Creates a confinement potential for the orbital given by j,
@@ -218,16 +218,20 @@ class BasisMaker:
         g = self.generator
         e_base = g.e_j[j]
         rc = rguess
-        ri = rc * .6
-        vconf = g.get_confinement_potential(AMPLITUDE, ri, rc)
+
+        if vconf_args is None:
+            vconf = None
+        else:
+            amplitude, ri_rel = vconf_args
+            vconf = g.get_confinement_potential(amplitude, ri_rel * rc, rc)
 
         psi_g, e = g.solve_confined(j, rc, vconf)
-        de_min, de_max = esplit/Hartree, (esplit+tolerance)/Hartree
+        de_min, de_max = esplit / Hartree, (esplit + tolerance) / Hartree
 
         rmin = 0.
         rmax = g.r[-1]
-        i_left = g.r2g(rmin)
-        i_right = g.r2g(rmax)
+        #i_left = g.r2g(rmin)
+        #i_right = g.r2g(rmax)
 
         de = e - e_base
         #print '--------'
@@ -242,14 +246,17 @@ class BasisMaker:
             else: # Move rc right
                 rmin = rc
                 rc = (rc + rmax) / 2.
-            ri = rc * .6
-            vconf = g.get_confinement_potential(AMPLITUDE, ri, rc)
+            if vconf is not None:
+                vconf = g.get_confinement_potential(amplitude, ri_rel * rc, rc)
             psi_g, e = g.solve_confined(j, rc, vconf)
             de = e - e_base
             #print 'rc = %.03f :: e = %.03f :: de = %.03f' % (rc, e*Hartree,
             #                                                 de*Hartree)
+            #if rmin - rmax < 1e-
+            if g.r2g(rmax) - g.r2g(rmin) <= 1:
+                break # Cannot meet tolerance due to grid resolution
         #print 'Done!'
-        return psi_g, e, de, vconf, ri, rc
+        return psi_g, e, de, vconf, rc
 
     def rsplit_by_norm(self, l, u, tailnorm, txt):
         g = self.generator
@@ -268,10 +275,10 @@ class BasisMaker:
         splitwave = self.make_split_valence_vector(u, l, rsplit)
         return rsplit, partial_norm, splitwave
 
-    def generate(self, zetacount=2, polarizationcount=1, 
-                 tailnorm=(.15, .25, .35), energysplit=.2, tolerance=1.0e-3, 
+    def generate(self, zetacount=2, polarizationcount=0, 
+                 tailnorm=(.15, .25, .35), energysplit=.3, tolerance=1.0e-3,
                  referencefile=None, referenceindex=None, rcutpol_rel=1., 
-                 rcutmax=20., ngaussians=None, txt='-'):
+                 rcutmax=20., ngaussians=None, vconf_args=(8., .6), txt='-'):
         """Generate an entire basis set."""
         if txt == '-':
             txt = sys.stdout
@@ -293,6 +300,9 @@ class BasisMaker:
                 self.out1.write(string)
                 self.out2.write(string)
         txt = TeeStream(txt, buffer)
+
+        if vconf_args is not None:
+            amplitude, ri_rel = vconf_args
 
         # Find out all relevant orbitals
         # We'll probably need: s, p and d.
@@ -340,13 +350,21 @@ class BasisMaker:
             msg = 'Basis functions for l=%d, n=%d' % (l, n)
             print >> txt, msg + '\n', '-' * len(msg)
             print >> txt
-            print >> txt, 'Zeta 1: softly confined pseudo wave,',
-            u, e, de, vconf, ri, rc = self.rcut_by_energy(j, energysplit,
-                                                          tolerance)
+            if vconf_args is None:
+                adverb = 'sharply'
+            else:
+                adverb = 'softly'
+            print >> txt, 'Zeta 1: %s confined pseudo wave,' % adverb,
+
+            u, e, de, vconf, rc = self.rcut_by_energy(j, energysplit,
+                                                      tolerance,
+                                                      vconf_args=vconf_args)
             if rc > rcutmax:
-                ri = ri * rc / rcutmax # scale things down
-                rc = rcutmax
-                vconf = g.get_confinement_potential(AMPLITUDE, ri, rc)
+                rc = rcutmax # scale things down
+                if vconf is not None:
+                    vconf = g.get_confinement_potential(amplitude,
+                                                        ri_rel * rc,
+                                                        rc)
                 u, e = g.solve_confined(j, rc, vconf)
                 print >> txt, 'using maximum cutoff'
                 print >> txt, 'rc=%.02f Bohr' % rc
@@ -354,6 +372,9 @@ class BasisMaker:
                 print >> txt, 'fixed energy shift'    
                 print >> txt, 'DE=%.03f eV :: rc=%.02f Bohr' % (de * Hartree,
                                                                 rc)
+            if vconf is not None:
+                print >> txt, ('Potential amp=%.02f :: ri/rc=%.02f' %
+                               (amplitude, ri_rel))
             phit_g = self.smoothify(u, l)
             bf = BasisFunction(l, rc, phit_g,
                                '%s-sz confined orbital' % orbitaltype)
