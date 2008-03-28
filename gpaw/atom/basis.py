@@ -4,7 +4,6 @@ import os
 import sys
 from StringIO import StringIO
 
-from math import pi, cos, sin
 import numpy as npy
 from numpy.linalg import solve
 from ase.units import Hartree
@@ -95,7 +94,7 @@ class BasisMaker:
         g = self.generator
         (q, u, s) = (g.q_ln[l], g.u_ln[l], g.s_ln[l])
         
-        psi_jg = [psit_jg[j] + sum([(u[i]-s[i])*q[i,j]
+        psi_jg = [psit_jg[j] + sum([(u[i] - s[i]) * q[i, j]
                                     for i in range(len(s))])
                for j in range(len(psit_jg))]
         return psi_jg
@@ -122,8 +121,8 @@ class BasisMaker:
         g = self.generator
         (q, u, s) = (g.q_ln[l], g.u_ln[l], g.s_ln[l])
         
-        psit_jg = [psi_jg[j] + sum([(s[i]-u[i])*p[i,j]
-                              for i in range(len(s))])
+        psit_jg = [psi_jg[j] + sum([(s[i] - u[i]) * p[i, j]
+                                    for i in range(len(s))])
                 for j in range(len(psi_jg))]
         return psit_jg
 
@@ -188,7 +187,6 @@ class BasisMaker:
 
         # fancy formatting
         rowcount, columncount = generator.qualities.shape
-        rowheader = list('-' * columncount)
         columnheader = list('|' * rowcount)
         columnheader[rowcount // 2] = 'k'
         print >> txt, ' ', ' m '.center(len(rowstrings[0]), '-')
@@ -259,6 +257,7 @@ class BasisMaker:
         return psi_g, e, de, vconf, rc
 
     def rsplit_by_norm(self, l, u, tailnorm, txt):
+        """Find radius outside which remaining tail has a particular norm."""
         g = self.generator
         norm = npy.dot(g.dr, u*u)
         partial_norm = 0.
@@ -279,7 +278,30 @@ class BasisMaker:
                  tailnorm=(.15, .25, .35), energysplit=.3, tolerance=1.0e-3,
                  referencefile=None, referenceindex=None, rcutpol_rel=1., 
                  rcutmax=20., ngaussians=None, vconf_args=(8., .6), txt='-'):
-        """Generate an entire basis set."""
+        """Generate an entire basis set.
+
+        This is a high-level method which will return a basis set
+        consisting of several different basis vector types.
+
+        Parameters:
+
+        ===================== =================================================
+        ``zetacount``         Number of basis functions per occupied orbital
+        ``polarizationcount`` Number of polarization functions
+        ``tailnorm``          List of tail norms for split-valence scheme
+        ``energysplit``       Energy increase defining confinement radius (eV)
+        ``tolerance``         Tolerance of energy split (eV)
+        ``referencefile``     gpw-file used to generate polarization function
+        ``referenceindex``    Index in reference system of relevant atom
+        ``rcutpol_rel``       Polarization rcut relative to largest other rcut
+        ``rcutmax``           No cutoff will be greater than this value
+        ``ngaussians``        Number of gaussians for polarization function
+        ``vconf_args``        Parameters (alpha, ri/rc) for conf. potential
+        ``txt``               Log filename or '-' for stdout
+        ===================== =================================================
+
+        Returns a fully initialized Basis object.
+        """
         if txt == '-':
             txt = sys.stdout
         elif txt is None:
@@ -291,7 +313,7 @@ class BasisMaker:
                 'Needs %d tail norm values, but only %d are specified' %
                 (max(polarizationcount, zetacount) - 1, len(tailnorm)))
 
-        buffer = StringIO()
+        textbuffer = StringIO()
         class TeeStream: # Quick hack to both write and save output
             def __init__(self, out1, out2):
                 self.out1 = out1
@@ -299,7 +321,7 @@ class BasisMaker:
             def write(self, string):
                 self.out1.write(string)
                 self.out2.write(string)
-        txt = TeeStream(txt, buffer)
+        txt = TeeStream(txt, textbuffer)
 
         if vconf_args is not None:
             amplitude, ri_rel = vconf_args
@@ -318,12 +340,15 @@ class BasisMaker:
         g = self.generator
 
         atomic_number, states = configurations[g.symbol]
+
         # read: max([state.l for state in states if state.occ > 0])
         # someone should fix our data structures
-        lmax = max([state[1] for state in states if state[2] > 0])
+        #lmax = max([state[1] for state in states if state[2] > 0])
 
         #lmax = max(g.l_j)
-        lvalues = range(lmax + 1)
+        #lvalues = range(lmax + 1)
+        lvalues = [state[1] for state in states if state[2] > 0]
+        lmax = max(lvalues)
 
         print >> txt, 'Basis functions for %s' % g.symbol
         print >> txt, '====================' + '='*len(g.symbol)
@@ -390,36 +415,6 @@ class BasisMaker:
                                                        'dtq56789'[i])
                 bf = BasisFunction(l, rsplit, phit_g - splitwave, descr)
                 multizetas[i].append(bf)
-                #doublezetas.append(bf)
-            
-            """if zetacount > 1:
-                # add one split-valence vector using fixed-tail-norm scheme
-                print >> txt, '\nZeta 2: split-valence wave, fixed tail norm'
-
-                rsplit = find_rsplit_by_norm(u, tailnorm[0])
-
-                msg = 'Tail norm %.03f :: rsplit=%.02f Bohr' % (partial_norm,
-                                                                rsplit)
-                print >> txt, msg
-                splitwave = self.make_split_valence_vector(phit_g, l, rsplit)
-                bf_dz = BasisFunction(l, rsplit, phit_g - splitwave, 
-                                      '%s-dz split-valence wave' % orbitaltype)
-
-                doublezetas.append(bf_dz)
-
-                # If there are even more zetas, make new, smaller split radii
-                # We'll just distribute them evenly between 0 and rsplit
-                extra_split_radii = npy.linspace(rsplit, 0., zetacount)[1:-1]
-                for i, rsplit in enumerate(extra_split_radii):
-                    print >> txt, '\nZeta %d: extra split-valence wave' % (3+i)
-                    print >> txt, 'rsplit=%.02f Bohr' % rsplit
-                    splitwave = self.make_split_valence_vector(phit_g, l, 
-                                                               rsplit)
-                    bf_multizeta = BasisFunction(l, rsplit, phit_g - splitwave,
-                                                 '%s-%sz split-valence wave' 
-                                                 % (orbitaltype, 'tq5678'[i]))
-                    other_multizetas[i].append(bf_multizeta)
-               """
             
         if polarizationcount > 0:
             # Now make up some properties for the polarization orbital
@@ -435,18 +430,6 @@ class BasisMaker:
                                                       referenceindex,
                                                       ngaussians,
                                                       txt)
-            
-            # We'll just make a hack here to make it go more smoothly to zero
-            #gc1 = g.r2g(.1*rcut)
-            #gc2 = g.r2g(.4*rcut) + 1
-            #ri = g.r[gc1]
-            #rc = g.r[gc2 - 1]
-
-            #R = (g.r[gc1:gc2]-ri) / (rc-ri)
-            #F = 1 - 3 * R**2 + 2 * R**3
-            #psi_pol[gc1:gc2] *= F
-            #psi_pol[gc2:] = 0
-            #print >> txt, 'Forced cutoff over %.03f to %.03f !!' % (ri, rc)
             
             bf_pol = BasisFunction(l_pol, rcut, psi_pol, 
                                    '%s-type polarization' % 'spdfg'[l_pol])
@@ -491,9 +474,9 @@ class BasisMaker:
         basis.ng = len(equidistant_grid)
         basis.d = equidistant_grid[1]
         basis.bf_j = bf_j
-        basis.generatordata = buffer.getvalue().strip()
+        basis.generatordata = textbuffer.getvalue().strip()
         basis.generatorattrs = {'version' : version}
-        buffer.close()
+        textbuffer.close()
 
         return basis
 
