@@ -341,18 +341,13 @@ class BasisMaker:
 
         atomic_number, states = configurations[g.symbol]
 
-        # read: max([state.l for state in states if state.occ > 0])
+        # read: [state.l for state in states if state.occ > 0]
         # someone should fix our data structures
-        #lmax = max([state[1] for state in states if state[2] > 0])
-
-        #lmax = max(g.l_j)
-        #lvalues = range(lmax + 1)
-        lvalues = [state[1] for state in states if state[2] > 0]
-        lmax = max(lvalues)
-
+        lvalues = npy.unique([state[1] for state in states if state[2] > 0])
+        lmax = lvalues[-1]
+        
         print >> txt, 'Basis functions for %s' % g.symbol
         print >> txt, '====================' + '='*len(g.symbol)
-        print >> txt
         
         j_l = [] # index j by l rather than the other way around
         reversed_l_j = list(g.l_j)
@@ -373,6 +368,7 @@ class BasisMaker:
             n = g.n_j[j]
             orbitaltype = str(n) + 'spdf'[l]
             msg = 'Basis functions for l=%d, n=%d' % (l, n)
+            print >> txt
             print >> txt, msg + '\n', '-' * len(msg)
             print >> txt
             if vconf_args is None:
