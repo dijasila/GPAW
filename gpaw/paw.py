@@ -489,7 +489,9 @@ class PAW(PAWExtra, Output):
             # Initialize wave functions from atomic orbitals:
             original_eigensolver = self.eigensolver
             original_nbands = self.nbands
-            
+            original_maxiter = self.maxiter
+
+            self.maxiter = 2
             self.nbands = min(self.nbands, self.nao)
             self.eigensolver = get_eigensolver('lcao')
 
@@ -498,8 +500,12 @@ class PAW(PAWExtra, Output):
 
             self.density.lcao = True
 
-            self.find_ground_state(self.atoms, write=False)
-            
+            try:
+                self.find_ground_state(self.atoms, write=False)
+            except ConvergenceError:
+                pass
+
+            self.maxiter = original_maxiter
             self.nbands = original_nbands
             for kpt in self.kpt_u:
                 kpt.calculate_wave_functions_from_lcao_coefficients(

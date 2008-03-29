@@ -1,4 +1,5 @@
 from math import sqrt, pi
+from time import time
 
 import numpy as npy
 
@@ -6,6 +7,7 @@ from gpaw.utilities.blas import rk, r2k
 from gpaw.utilities import unpack
 from gpaw.lcao.overlap import TwoCenterIntegrals
 from gpaw.utilities.lapack import diagonalize
+from gpaw.spherical_harmonics import Yl
 from gpaw import debug
 from _gpaw import overlap
 
@@ -36,6 +38,7 @@ class LCAOHamiltonian:
         
         self.nao = 0
         for nucleus in self.nuclei:
+            nucleus.m = self.nao
             self.nao += nucleus.get_number_of_atomic_orbitals()
 
         if self.tci is None:
@@ -71,6 +74,78 @@ class LCAOHamiltonian:
         S_mm = npy.zeros((self.nao, self.nao), self.dtype)
         T_mm = npy.zeros((self.nao, self.nao), self.dtype)
 
+        if 0:
+            t0 = time()
+            cell_c = self.gd.domain.cell_c
+            from ase import Atoms, view
+            from ase.calculators.neighborlist import NeighborList
+            atoms = Atoms(symbols=[n.setup.symbol for n in self.nuclei],
+                          positions=[n.spos_c * cell_c for n in self.nuclei],
+                          cell=cell_c,
+                          pbc=self.gd.domain.pbc_c)
+
+            nl = NeighborList([max([phit.get_cutoff()
+                                    for phit in n.setup.phit_j])
+                               for n in self.nuclei], skin=0, sorted=True)
+            nl.update(atoms)
+
+            for a, nucleusa in enumerate(self.nuclei):
+                sposa = nucleusa.spos_c
+                setupa = nucleusa.setup
+                i, offsets = nl.get_neighbors(a)
+                for b, offset in zip(i, offsets):
+                    assert b >= a
+                    selfinteraction = (a == b and offset.any())
+                    ma = nucleusa.m
+                    nucleusb = self.nuclei[b] 
+                    sposb = nucleusb.spos_c + offset
+                    setupb = nucleusb.setup
+
+                    d = -cell_c * (sposb - sposa)
+                    r = sqrt(npy.dot(d, d))
+                    rlY_lm = []
+                    for l in range(5):
+                        rlY_m = npy.empty(2 * l + 1)
+                        Yl(l, d, rlY_m)
+                        rlY_lm.append(rlY_m)
+
+                    phase_k = npy.exp(2j * pi * npy.dot(self.ibzk_kc, offset))
+                    phase_k.shape = (-1, 1, 1)
+                    
+                    for ja, phita in enumerate(setupa.phit_j):
+                        ida = (setupa.symbol, ja)
+                        la = phita.get_angular_momentum_number()
+                        ma2 = ma + 2 * la + 1
+                        mb = nucleusb.m
+                        for jb, phitb in enumerate(setupb.phit_j):
+                            idb = (setupb.symbol, jb)
+                            lb = phitb.get_angular_momentum_number()
+                            mb2 = mb + 2 * lb + 1
+                            s_mm, t_mm = self.tci.st_overlap3(ida, idb, la, lb,
+                                                              r, rlY_lm)
+
+                            if self.gamma:
+                                if selfinteraction:
+                                    s_mm *= 2
+                                    t_mm *= 2
+                                self.S_kmm[0, ma:ma2, mb:mb2] += s_mm
+                                self.T_kmm[0, ma:ma2, mb:mb2] += t_mm
+                            else:
+                                s_kmm = s_mm[None, :, :] * phase_k
+                                if selfinteraction:
+                                    s_kmm += s_kmm.conj().T
+                                self.S_kmm[:, ma:ma2, mb:mb2] += s_kmm
+                                self.T_kmm[:, ma:ma2, mb:mb2] += t_kmm
+                            mb = mb2
+                        ma = ma2
+
+            t1 = time()
+            print t1 - t0
+
+        ####################################
+        S_mm = npy.zeros((self.nao, self.nao), self.dtype)
+        T_mm = npy.zeros((self.nao, self.nao), self.dtype)
+
         for R_c in R_dc:
             i1 = 0
             for nucleus1 in self.nuclei:
@@ -86,13 +161,23 @@ class LCAOHamiltonian:
             if self.gamma:
                 self.S_kmm[0] += S_mm
                 self.T_kmm[0] += T_mm
+                #self.S_kmm[0] -= S_mm
+                #self.T_kmm[0] -= T_mm
             else:
                 phase_k = npy.exp(2j * pi * npy.dot(self.ibzk_kc, R_c))
                 for k in range(nkpts):            
                     self.S_kmm[k] += S_mm * phase_k[k]
                     self.T_kmm[k] += T_mm * phase_k[k]
+                    #self.S_kmm[k] -= S_mm * phase_k[k]
+                    #self.T_kmm[k] -= T_mm * phase_k[k]
 
 
+        if 0:
+            t2 = time()
+            print t2 - t1
+            print self.S_kmm
+            raise SystemExit
+    
         for nucleus in self.nuclei:
             dO_ii = nucleus.setup.O_ii
             for S_mm, P_mi in zip(self.S_kmm, nucleus.P_kmi):
