@@ -109,7 +109,7 @@ class LCAOHamiltonian:
                         Yl(l, d, rlY_m)
                         rlY_lm.append(rlY_m)
 
-                    phase_k = npy.exp(2j * pi * npy.dot(self.ibzk_kc, offset))
+                    phase_k = npy.exp(-2j * pi * npy.dot(self.ibzk_kc, offset))
                     phase_k.shape = (-1, 1, 1)
                     
                     for ja, phita in enumerate(setupa.phit_j):
@@ -132,8 +132,17 @@ class LCAOHamiltonian:
                                 self.T_kmm[0, ma:ma2, mb:mb2] += t_mm
                             else:
                                 s_kmm = s_mm[None, :, :] * phase_k
+                                t_kmm = t_mm[None, :, :] * phase_k
                                 if selfinteraction:
-                                    s_kmm += s_kmm.conj().T
+                                    dim = (s_kmm.shape[0],
+                                           s_kmm.shape[2],
+                                           s_kmm.shape[1])
+                                    s1_kmm = npy.zeros(dim)
+                                    t1_kmm = npy.zeros(dim)
+                                    s1_kmm = s_kmm.transpose(0,2,1).conj()
+                                    t1_kmm = t_kmm.transpose(0,2,1).conj()
+                                    self.S_kmm[:, mb:mb2, ma:ma2] += s1_kmm
+                                    self.T_kmm[:, mb:mb2, ma:ma2] += t1_kmm
                                 self.S_kmm[:, ma:ma2, mb:mb2] += s_kmm
                                 self.T_kmm[:, ma:ma2, mb:mb2] += t_kmm
                             mb = mb2
@@ -141,8 +150,18 @@ class LCAOHamiltonian:
 
             t1 = time()
             print t1 - t0
+            
+            for m in range(self.nao - 1):
+                self.S_kmm[:, m:, m] = self.S_kmm[:, m, m:].conj()
+                self.T_kmm[:, m:, m] = self.T_kmm[:, m, m:].conj()
 
+            #S_opt = self.S_kmm    
+            #print S_opt
+            
         ####################################
+        self.S_kmm = npy.zeros((nkpts, self.nao, self.nao), self.dtype)
+        self.T_kmm = npy.zeros((nkpts, self.nao, self.nao), self.dtype)
+       
         S_mm = npy.zeros((self.nao, self.nao), self.dtype)
         T_mm = npy.zeros((self.nao, self.nao), self.dtype)
 
@@ -161,22 +180,18 @@ class LCAOHamiltonian:
             if self.gamma:
                 self.S_kmm[0] += S_mm
                 self.T_kmm[0] += T_mm
-                #self.S_kmm[0] -= S_mm
-                #self.T_kmm[0] -= T_mm
             else:
                 phase_k = npy.exp(2j * pi * npy.dot(self.ibzk_kc, R_c))
                 for k in range(nkpts):            
                     self.S_kmm[k] += S_mm * phase_k[k]
                     self.T_kmm[k] += T_mm * phase_k[k]
-                    #self.S_kmm[k] -= S_mm * phase_k[k]
-                    #self.T_kmm[k] -= T_mm * phase_k[k]
-
 
         if 0:
             t2 = time()
             print t2 - t1
+            print 'Old S_kmm'
             print self.S_kmm
-            raise SystemExit
+            #raise SystemExit'''
     
         for nucleus in self.nuclei:
             dO_ii = nucleus.setup.O_ii
