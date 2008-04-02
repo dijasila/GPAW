@@ -36,18 +36,23 @@ class LCAOHamiltonian:
         ======    ==============================================
         """
         
+        nkpts = len(self.ibzk_kc)
+
         self.nao = 0
         for nucleus in self.nuclei:
             nucleus.m = self.nao
             self.nao += nucleus.get_number_of_atomic_orbitals()
+
+        for nucleus in self.nuclei:
+            ni = nucleus.get_number_of_partial_waves()
+            nucleus.P_kmi = npy.zeros((nkpts, self.nao, ni), self.dtype)
 
         if self.tci is None:
             self.tci = TwoCenterIntegrals(self.setups, self.ng)
 
         R_dc = self.calculate_displacements(self.tci.rcmax)
         
-        nkpts = len(self.ibzk_kc)
-
+        t0 = time()
         for nucleus1 in self.nuclei:
             pos1 = nucleus1.spos_c
             setup1 = nucleus1.setup
@@ -55,7 +60,7 @@ class LCAOHamiltonian:
             nucleus1.P_kmi = npy.zeros((nkpts, self.nao, ni1), self.dtype)
             P_mi = npy.zeros((self.nao, ni1), self.dtype)
             for R_c in R_dc:
-                i1 = 0 
+                i1 = 0  
                 for j1, pt1 in enumerate(setup1.pt_j):
                     id1 = (setup1.symbol, j1)
                     l1 = pt1.get_angular_momentum_number()
@@ -68,14 +73,15 @@ class LCAOHamiltonian:
                     phase_k = npy.exp(-2j * pi * npy.dot(self.ibzk_kc, R_c))
                     for k in range(nkpts):
                         nucleus1.P_kmi[k] += P_mi * phase_k[k]
-                    
+        t1 = time()
+                   
         self.S_kmm = npy.zeros((nkpts, self.nao, self.nao), self.dtype)
         self.T_kmm = npy.zeros((nkpts, self.nao, self.nao), self.dtype)
         S_mm = npy.zeros((self.nao, self.nao), self.dtype)
         T_mm = npy.zeros((self.nao, self.nao), self.dtype)
 
         if 0:
-            t0 = time()
+            T = 0
             cell_c = self.gd.domain.cell_c
             from ase import Atoms, view
             from ase.calculators.neighborlist import NeighborList
@@ -111,7 +117,8 @@ class LCAOHamiltonian:
 
                     phase_k = npy.exp(-2j * pi * npy.dot(self.ibzk_kc, offset))
                     phase_k.shape = (-1, 1, 1)
-                    
+
+                    # Calculate overlaps:
                     for ja, phita in enumerate(setupa.phit_j):
                         ida = (setupa.symbol, ja)
                         la = phita.get_angular_momentum_number()
@@ -134,11 +141,6 @@ class LCAOHamiltonian:
                                 s_kmm = s_mm[None, :, :] * phase_k
                                 t_kmm = t_mm[None, :, :] * phase_k
                                 if selfinteraction:
-                                    dim = (s_kmm.shape[0],
-                                           s_kmm.shape[2],
-                                           s_kmm.shape[1])
-                                    s1_kmm = npy.zeros(dim)
-                                    t1_kmm = npy.zeros(dim)
                                     s1_kmm = s_kmm.transpose(0,2,1).conj()
                                     t1_kmm = t_kmm.transpose(0,2,1).conj()
                                     self.S_kmm[:, mb:mb2, ma:ma2] += s1_kmm
@@ -148,9 +150,22 @@ class LCAOHamiltonian:
                             mb = mb2
                         ma = ma2
 
-            t1 = time()
-            print t1 - t0
-            
+                    # Calculate basis-projector function overlaps:
+                    t0a = time()
+                    self.p(a, b, r,
+                           [rlY_m * (-1)**l
+                            for l, rlY_m in enumerate(rlY_lm)],
+                           phase_k)
+                    if a != b or offset.any():
+                        self.p(b, a, r,
+                               rlY_lm,
+                               phase_k.conj())
+                    t0b = time()
+                    T += t0b- t0a
+                    
+
+
+
             for m in range(self.nao - 1):
                 self.S_kmm[:, m:, m] = self.S_kmm[:, m, m:].conj()
                 self.T_kmm[:, m:, m] = self.T_kmm[:, m, m:].conj()
@@ -187,11 +202,11 @@ class LCAOHamiltonian:
                     self.T_kmm[k] += T_mm * phase_k[k]
 
         if 0:
-            t2 = time()
-            print t2 - t1
-            print 'Old S_kmm'
-            print self.S_kmm
-            #raise SystemExit'''
+            print t1 - t0, T
+            for n in self.nuclei:
+                print n.P_kmi
+                
+            raise SystemExit
     
         for nucleus in self.nuclei:
             dO_ii = nucleus.setup.O_ii
@@ -217,6 +232,29 @@ class LCAOHamiltonian:
 
         self.lcao_initialized = True
 
+    def p(self, a, b, r, rlY_lm, phase_k):
+        setupa = self.nuclei[a].setup
+        ma = self.nuclei[a].m
+        nucleusb = self.nuclei[b]
+        setupb = nucleusb.setup
+        for ja, phita in enumerate(setupa.phit_j):
+            ida = (setupa.symbol, ja)
+            la = phita.get_angular_momentum_number()
+            ma2 = ma + 2 * la + 1
+            ib = 0
+            for jb, ptb in enumerate(setupb.pt_j):
+                idb = (setupb.symbol, jb)
+                lb = ptb.get_angular_momentum_number()
+                ib2 = ib + 2 * lb + 1
+                p_mi = self.tci.p(ida, idb, la, lb, r, rlY_lm)
+                if self.gamma:
+                    nucleusb.P_kmi[0, ma:ma2, ib:ib2] -= p_mi
+                else:
+                    nucleusb.P_kmi[:, ma:ma2, ib:ib2] -= (p_mi[None, :, :] *
+                                                          phase_k)
+                ib = ib2
+            ma = ma2
+                        
     def p_overlap(self, R_c, i1, pos1, id1, l1, m1, P_mi):
         i2 = 0
         for nucleus2 in self.nuclei:
