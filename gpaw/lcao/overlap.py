@@ -149,14 +149,14 @@ class TwoCenterIntegrals:
     def st_overlap3(self, ida, idb, la, lb, r, Y_lm):
         """ Returns the overlap and kinetic energy matrices. """
         
-        s_mm = npy.zeros((2 * la + 1, 2 * lb + 1))
-        t_mm = npy.zeros((2 * la + 1, 2 * lb + 1))
+        s_mm = npy.zeros((2 * lb + 1, 2 * la + 1))
+        t_mm = npy.zeros((2 * lb + 1, 2 * la + 1))
         ssplines = self.S[(ida, idb)]
         tsplines = self.T[(ida, idb)]
         l = (la + lb) % 2
         for s, t in zip(ssplines, tsplines):
-            G_mmm = gaunt[la**2:(la + 1)**2,
-                          lb**2:(lb + 1)**2,
+            G_mmm = gaunt[lb**2:(lb + 1)**2,
+                          la**2:(la + 1)**2,
                           l**2:(l + 1)**2].transpose((0, 2, 1))
             s_mm += s(r) * npy.dot(Y_lm[l], G_mmm)
             t_mm += t(r) * npy.dot(Y_lm[l], G_mmm)
