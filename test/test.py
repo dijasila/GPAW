@@ -63,7 +63,7 @@ if len(tests) == 0:
              # 'fixdensity.py', 'average_potential.py', 'lxc_testsetups.py',
              # 'restart3.py', 'td_abs_beryllium.py', 'totype_test.py'
              'h2o-xas.py', 'h2o-xas-recursion.py', 'si-xas.py', 'relax.py',
-             'davidson.py', 'wannier-ethylene.py',
+             'davidson.py', 'wannier-ethylene.py', 'bulk-lcao.py',
              'restart2.py', 'refine.py', 'CH4.py', 'gllb2.py',
              'lrtddft.py', 'apmb.py',
              'fixmom.py',
