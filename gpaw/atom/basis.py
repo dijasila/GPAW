@@ -9,7 +9,6 @@ from numpy.linalg import solve
 from ase.units import Hartree
 
 from gpaw.spline import Spline
-from gpaw.atom.configurations import configurations
 from gpaw.atom.generator import Generator, parameters
 from gpaw.atom.polarization import PolarizationOrbitalGenerator, Reference
 from gpaw.utilities import devnull, divrl
@@ -228,8 +227,6 @@ class BasisMaker:
 
         rmin = 0.
         rmax = g.r[-1]
-        #i_left = g.r2g(rmin)
-        #i_right = g.r2g(rmax)
 
         de = e - e_base
         #print '--------'
@@ -251,7 +248,7 @@ class BasisMaker:
             #print 'rc = %.03f :: e = %.03f :: de = %.03f' % (rc, e*Hartree,
             #                                                 de*Hartree)
             #if rmin - rmax < 1e-
-            if g.r2g(rmax) - g.r2g(rmin) <= 1:
+            if g.r2g(rmax) - g.r2g(rmin) <= 1: # adjacent points
                 break # Cannot meet tolerance due to grid resolution
         #print 'Done!'
         return psi_g, e, de, vconf, rc
@@ -333,28 +330,26 @@ class BasisMaker:
         # each orbital-type.
         #
         # However not all orbitals in l_j are actually occupied, so we
-        # will check the atomic configurations dictionary.
+        # will check the occupations in the generator object's lists
         #
         # ASSUMPTION: The last index of a given value in l_j corresponds
         # exactly to the orbital we want, except those which are not occupied
         g = self.generator
 
-        atomic_number, states = configurations[g.symbol]
-
-        # read: [state.l for state in states if state.occ > 0]
-        # someone should fix our data structures
-        lvalues = npy.unique([state[1] for state in states if state[2] > 0])
-        lmax = lvalues[-1]
+        # Get (only) one occupied valence state for each l
+        lvalues = npy.unique([l for l, f in zip(g.l_j[g.njcore:], 
+                                                g.f_j[g.njcore:])
+                              if f > 0])
         
         print >> txt, 'Basis functions for %s' % g.symbol
         print >> txt, '====================' + '='*len(g.symbol)
         
-        j_l = [] # index j by l rather than the other way around
+        j_l = {} # index j by l rather than the other way around
         reversed_l_j = list(g.l_j)
         reversed_l_j.reverse() # the values we want are stored last
         for l in lvalues:
             j = len(reversed_l_j) - reversed_l_j.index(l) - 1
-            j_l.append(j)
+            j_l[l] = j
 
         singlezetas = []
         multizetas = [[] for i in range(zetacount - 1)]
@@ -383,8 +378,7 @@ class BasisMaker:
             if rc > rcutmax:
                 rc = rcutmax # scale things down
                 if vconf is not None:
-                    vconf = g.get_confinement_potential(amplitude,
-                                                        ri_rel * rc,
+                    vconf = g.get_confinement_potential(amplitude, ri_rel * rc,
                                                         rc)
                 u, e = g.solve_confined(j, rc, vconf)
                 print >> txt, 'using maximum cutoff'
@@ -417,7 +411,13 @@ class BasisMaker:
             # We just use the cutoffs from the previous one times a factor
             rcut = max([bf.rc for bf in singlezetas]) * rcutpol_rel
             rcut = min(rcut, rcutmax)
-            l_pol = lmax + 1
+            # Find 'missing' values in lvalues
+            for i, l in enumerate(lvalues):
+                if i != l:
+                    l_pol = i
+                    break
+            else:
+                l_pol = lvalues[-1] + 1
             msg = 'Polarization function: l=%d, rc=%.02f' % (l_pol, rcut)
             print >> txt, '\n' + msg
             print >> txt, '-' * len(msg)
