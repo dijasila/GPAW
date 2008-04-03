@@ -133,7 +133,8 @@ class TwoCenterIntegrals:
         return splines
 
     def p(self, ida, idb, la, lb, r, Y_lm):
-        """ Returns the overlap and kinetic energy matrices. """
+        """ Returns the overlap between basis functions and projector
+        functions. """
         
         p_mi = npy.zeros((2 * la + 1, 2 * lb + 1))
 
@@ -162,7 +163,9 @@ class TwoCenterIntegrals:
             t_mm += t(r) * npy.dot(Y_lm[l], G_mmm)
             l += 2
         return s_mm, t_mm
+
         
+    #################  Old overlaps  ####################
     def st_overlap0(self, id1, id2, l1, l2, m1, m2, R):
         """ Returns the overlap and kinetic energy matrices. """
         
