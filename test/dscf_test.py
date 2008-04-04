@@ -10,9 +10,6 @@ atoms = Atoms(positions=[[0.,0.,5.],
               cell=[3.,3.,9.1],
               pbc=[True,True,False])
 
-#from ase import view
-#view(atoms)
-#adfgsdfg
 calc = Calculator(h=0.24,
                   nbands=6,
                   xc='PBE',

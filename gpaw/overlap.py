@@ -136,7 +136,9 @@ class Overlap:
 
         gemm(1.0, a_nG, S_nn, 0.0, work_nG)
 
-        assert sys.getrefcount(a_nG) <= 4
+        if sys.getrefcount(a_nG) > 4:
+            raise RuntimeError("Can't swap pointers.   " +
+                               'A view of a_nG exists somewhere!')
         swap(a_nG, work_nG)  # swap the pointers
 
         for nucleus in self.my_nuclei:
