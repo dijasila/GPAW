@@ -149,8 +149,8 @@ class LCAOHamiltonian:
                                                               r, rlY_lm)
                 if self.gamma:
                     if selfinteraction:
-                        s_mm *= 2
-                        t_mm *= 2
+                        self.S_kmm[0, ma:ma2, mb:mb2] += s_mm.T
+                        self.T_kmm[0, ma:ma2, mb:mb2] += t_mm.T
                     self.S_kmm[0, mb:mb2, ma:ma2] += s_mm
                     self.T_kmm[0, mb:mb2, ma:ma2] += t_mm
                 else:

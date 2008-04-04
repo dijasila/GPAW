@@ -36,7 +36,7 @@ def swap(a, b):
 
 def gcd(a, b):
     """Return greatest common divisor of a and b, using the
-       euclidian algorithm.
+    euclidian algorithm.
     """
     while b != 0:
         a, b = b, a % b

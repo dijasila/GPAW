@@ -164,8 +164,9 @@ class Density:
                                         -Q_s[0] + Q_s[1] + M]))
 
             if self.charge == 0:
-                if (abs(x - 1.0) > 0.17 and Nt_s[0] > 1e-5 or
-                    abs(y - 1.0) > 0.17 and Nt_s[1] > 1e-5):
+                print Nt_s, x, y
+                if (abs(x - 1.0) > 0.17 and Nt_s[0] > 0.1 or
+                    abs(y - 1.0) > 0.17 and Nt_s[1] > 0.1):
                     warning = ('Bad initial density.  Scaling factors: %f, %f'
                                % (x, y))
                     if self.idiotproof:

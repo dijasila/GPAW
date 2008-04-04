@@ -8,6 +8,7 @@ The module defines an overlap operator and implements overlap-related
 functions.
 
 """
+import sys
 
 import numpy as npy
 from gpaw.mpi import run
@@ -134,7 +135,9 @@ class Overlap:
         self.comm.broadcast(S_nn, kpt.root)
 
         gemm(1.0, a_nG, S_nn, 0.0, work_nG)
-        swap(a_nG, work_nG) # swap the pointers
+
+        assert sys.getrefcount(a_nG) <= 4
+        swap(a_nG, work_nG)  # swap the pointers
 
         for nucleus in self.my_nuclei:
             P_ni = nucleus.P_uni[kpt.u]
