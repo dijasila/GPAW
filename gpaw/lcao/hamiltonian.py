@@ -59,8 +59,7 @@ class LCAOHamiltonian:
 
         cell_c = self.gd.domain.cell_c
 
-        atoms = Atoms(symbols=[n.setup.symbol for n in self.nuclei],
-                      positions=[n.spos_c * cell_c for n in self.nuclei],
+        atoms = Atoms(positions=[n.spos_c * cell_c for n in self.nuclei],
                       cell=cell_c,
                       pbc=self.gd.domain.pbc_c)
 
