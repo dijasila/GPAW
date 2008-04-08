@@ -43,10 +43,8 @@ for atom in atoms:
     #h = 0.20
     h = 0.25
     world.barrier()
-    calc = Calculator(h=h, xc='LDA', nbands=5)
+    calc = Calculator(h=h, nbands=5, xc=xcname)
     SS.set_calculator(calc)
-    E = SS.get_potential_energy()
-    calc.set(xc=xcname)
     E = SS.get_potential_energy()
     eigs = calc.get_eigenvalues()
     if world.rank == 0:

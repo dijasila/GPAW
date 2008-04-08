@@ -176,11 +176,16 @@ class KPoint:
 
     def add_to_density(self, nt_G, use_lcao):
         """Add contribution to pseudo electron-density."""
+        self.add_to_density_with_occupation(nt_G, use_lcao, self.f_n)
+        
+    def add_to_density_with_occupation(self, nt_G, use_lcao, f_n):
+        """Add contribution to pseudo electron-density. Do not use the standard
+        occupation numbers, but ones given with argument f_n."""
         if use_lcao:
             psit_G = self.gd.empty(dtype=self.dtype)
             nuclei = [nucleus
                       for nucleus in self.nuclei if nucleus.phit_i is not None]
-            for f, C_m in zip(self.f_n, self.C_nm):
+            for f, C_m in zip(f_n, self.C_nm):
                 psit_G[:] = 0.0
                 m1 = 0
                 for nucleus in nuclei:
@@ -191,10 +196,10 @@ class KPoint:
                 nt_G += f * (psit_G * psit_G.conj()).real
         else:
             if self.dtype == float:
-                for psit_G, f in zip(self.psit_nG, self.f_n):
+                for psit_G, f in zip(self.psit_nG, f_n):
                     axpy(f, psit_G**2, nt_G)  # nt_G += f * psit_G**2
             else:
-                for psit_G, f in zip(self.psit_nG, self.f_n):
+                for psit_G, f in zip(self.psit_nG, f_n):
                     nt_G += f * (psit_G * npy.conjugate(psit_G)).real
 
         # Hack used in delta-scf calculations:

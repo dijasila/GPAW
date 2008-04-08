@@ -374,6 +374,9 @@ class PAW(PAWExtra, Output):
             self.orthonormalize_wave_functions()
         if not self.density.initialized:
             self.density.update(self.kpt_u, self.symmetry)
+        if self.xcfunc.is_gllb():
+            if not self.xcfunc.xc.initialized:
+                self.xcfunc.initialize_gllb(self)
         self.hamiltonian.update(self.density)
 
         # Self-consistency loop:
@@ -520,6 +523,8 @@ class PAW(PAWExtra, Output):
                 nucleus.reallocate(self.nbands)
 
             self.eigensolver = original_eigensolver
+            if self.xcfunc.is_gllb():
+                self.xcfunc.xc.eigensolver = self.eigensolver
             self.density.mixer.reset(self.my_nuclei)
             self.density.lcao = False
             self.density.scale()
@@ -540,6 +545,8 @@ class PAW(PAWExtra, Output):
             if self.nbands > self.nao:
                 for kpt in self.kpt_u:
                     kpt.add_extra_bands(self.nbands, self.nao)
+                if self.xcfunc.is_gllb():
+                    self.xcfunc.xc.update_band_count()
 
             # We should only create pt_i now !!!!!!!!!!!!!!!!!
             
