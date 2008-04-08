@@ -21,4 +21,4 @@ H2 = Atoms([Atom('H', (c - s, c - s, c - s)),
 H2.set_calculator(Calculator(h=0.1, setups='ae'))
 e2 = H2.get_potential_energy()
 print e1, e2, 2 * e1 - e2
-equal(2 * e1 - e2, 4.55352019132, 1e-5)
+equal(2 * e1 - e2, 4.55348420809, 1e-5)

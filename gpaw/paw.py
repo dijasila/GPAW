@@ -491,7 +491,7 @@ class PAW(PAWExtra, Output):
             original_nbands = self.nbands
             original_maxiter = self.maxiter
 
-            self.maxiter = 2
+            self.maxiter = 0
             self.nbands = min(self.nbands, self.nao)
             self.eigensolver = get_eigensolver('lcao')
 
