@@ -18,9 +18,9 @@ from gpaw.version import version
 
 class BasisMaker:
     """Class for creating atomic basis functions."""
-    def __init__(self, generator, name=None, run=True):
+    def __init__(self, generator, name=None, run=True, gtxt='-'):
         if isinstance(generator, str): # treat 'generator' as symbol
-            generator = Generator(generator, scalarrel=True)
+            generator = Generator(generator, scalarrel=True, txt=gtxt)
         self.generator = generator
         self.name = name
         if run:
@@ -181,6 +181,8 @@ class BasisMaker:
         print >> txt, 'Reference states: %d' % len(kpt_u[0].psit_nG)
         print >> txt, 'Quality: %.03f' % generator.quality
 
+        print >> txt, 'Coefficients:', ' '.join(['%5.2f' % f for f in y.coefs])
+
         rowstrings = [' '.join(['%4.2f' % f for f in row])
                       for row in generator.qualities]
 
@@ -274,7 +276,8 @@ class BasisMaker:
     def generate(self, zetacount=2, polarizationcount=0, 
                  tailnorm=(.15, .25, .35), energysplit=.3, tolerance=1.0e-3,
                  referencefile=None, referenceindex=None, rcutpol_rel=1., 
-                 rcutmax=20., ngaussians=None, vconf_args=(8., .6), txt='-'):
+                 rcutmax=20., ngaussians=None, vconf_args=(8., .6), txt='-',
+                 include_energy_derivatives=False):
         """Generate an entire basis set.
 
         This is a high-level method which will return a basis set
@@ -352,10 +355,12 @@ class BasisMaker:
             j_l[l] = j
 
         singlezetas = []
+        energy_derivative_functions = []
         multizetas = [[] for i in range(zetacount - 1)]
         polarization_functions = []
 
         splitvalencedescr = 'split-valence wave, fixed tail norm'
+        derivativedescr = 'derivative of sz wrt. (ri/rc) of potential'
 
         for l in lvalues:
             # Get one unmodified pseudo-orbital basis vector for each l
@@ -395,14 +400,33 @@ class BasisMaker:
                                '%s-sz confined orbital' % orbitaltype)
             singlezetas.append(bf)
 
-            for i in range(zetacount - 1):
-                zeta = i + 2
+            zetacounter = iter(xrange(2, zetacount + 1))
+
+            if include_energy_derivatives:
+                assert zetacount > 1
+                zeta = zetacounter.next()
+                print >> txt, '\nZeta %d: %s' % (zeta, derivativedescr)
+                vconf2 = g.get_confinement_potential(amplitude,
+                                                     ri_rel * rc * .99, rc)
+                u2, e2 = g.solve_confined(j, rc, vconf2)
+                
+                phit2_g = self.smoothify(u2, l)
+                dphit_g = phit2_g - phit_g
+                
+                dphit_norm = npy.dot(g.dr, dphit_g * dphit_g) ** .5
+                dphit_g /= dphit_norm
+                descr = '%s-dz E-derivative of sz' % orbitaltype
+                bf = BasisFunction(l, rc, dphit_g, descr)
+                                   
+                energy_derivative_functions.append(bf)
+
+            for i, zeta in enumerate(zetacounter): # range(zetacount - 1):
                 print >> txt, '\nZeta %d: %s' % (zeta, splitvalencedescr)
                 rsplit, norm, splitwave = self.rsplit_by_norm(l, phit_g,
                                                               tailnorm[i],
                                                               txt)
                 descr = '%s-%sz split-valence wave' % (orbitaltype,
-                                                       'dtq56789'[i])
+                                                       '0sdtq56789'[zeta])
                 bf = BasisFunction(l, rsplit, phit_g - splitwave, descr)
                 multizetas[i].append(bf)
             
@@ -446,6 +470,7 @@ class BasisMaker:
                     
         bf_j = []
         bf_j.extend(singlezetas)
+        bf_j.extend(energy_derivative_functions)
         for multizeta_list in multizetas:
             bf_j.extend(multizeta_list)
         bf_j.extend(polarization_functions)

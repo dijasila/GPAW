@@ -241,7 +241,7 @@ def norm_squared(r, f, l):
     assert abs(r[1] - (r[-1] - r[-2])) < 1e-10 # error if not equidistant
     return sum(frl * frl * r * r * dr)
 
-def get_norm(r, f, l=0):
+def get_norm(r, f, l):
     return norm_squared(r, f, l) ** .5
 
 class PolarizationOrbitalGenerator:
