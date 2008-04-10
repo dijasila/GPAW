@@ -533,6 +533,7 @@ class Setup:
         else:
             text('%s-setup (%.1f core hole):' % (self.symbol, self.fcorehole))
         text('  name   :', atomic_names[self.Z])
+        text('  id     :', self.fingerprint)
         text('  Z      :', self.Z)
         text('  valence:', self.Nv)
         if self.phicorehole_g is None:

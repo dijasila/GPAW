@@ -361,7 +361,7 @@ class PAW(PAWExtra, Output):
     def find_ground_state(self, atoms, write=True):
         """Start iterating towards the ground state."""
         
-        self.print_parameters()
+        self.print_parameters()  #?????????????????????????
         self.set_positions(atoms)
         self.initialize_kinetic()
         if not self.eigensolver.initialized:
@@ -395,6 +395,9 @@ class PAW(PAWExtra, Output):
             self.call(final=True)
             self.print_converged()
 
+        # Don't fix the density in the next step:
+        self.fixdensity = -1
+        
     def step(self):
         if self.niter > self.fixdensity:
             self.density.update(self.kpt_u, self.symmetry)
@@ -474,6 +477,9 @@ class PAW(PAWExtra, Output):
             self.print_positions(pos_ac)
 
     def initialize_wave_functions(self):
+        # do at least the first 3 iterations with fixed density
+        self.fixdensity = max(2, self.fixdensity)
+
         if self.eigensolver.lcao:
             for nucleus in self.nuclei:
                 nucleus.initialize_atomic_orbitals(self.gd, self.ibzk_kc,
@@ -486,6 +492,7 @@ class PAW(PAWExtra, Output):
             for kpt in self.kpt_u:
                 kpt.allocate(self.nbands)
 
+            self.wave_functions_initialized = True
             return
         
         if self.kpt_u[0].psit_nG is None:
@@ -525,12 +532,13 @@ class PAW(PAWExtra, Output):
             self.eigensolver = original_eigensolver
             if self.xcfunc.is_gllb():
                 self.xcfunc.xc.eigensolver = self.eigensolver
-            self.density.mixer.reset(self.my_nuclei)
+            #self.density.mixer.reset(self.my_nuclei)
             self.density.lcao = False
             self.density.scale()
             self.density.interpolate_pseudo_density()
             self.converged = False
             self.wave_functions_orthonormalized = False
+            self.wave_functions_initialized = True
             self.converged = False
             self.F_ac = None
             self.old_energies = []
@@ -568,12 +576,12 @@ class PAW(PAWExtra, Output):
                 for kpt in self.kpt_u:
                     kpt.psit_nG = kpt.psit_nG[:]
 
+            self.wave_functions_initialized = True
         """
         for kpt in self.kpt_u:
             kpt.adjust_number_of_bands(self.nmybands, self.pt_nuclei)
             self.overlap.orthonormalize(kpt.psit_nG, kpt)
         """
-
     def orthonormalize_wave_functions(self):
         if self.eigensolver.lcao:
             self.wave_functions_orthonormalized = True
