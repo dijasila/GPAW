@@ -335,11 +335,13 @@ class PAW(PAWExtra, Output):
             self.kpt_u = None
             self.reuse_old_density = False
             self.initialize(atoms)
+            self.print_parameters()
             self.find_ground_state(atoms)
             return
 
         if not self.initialized:
             self.initialize(atoms)
+            self.print_parameters()
             self.find_ground_state(atoms)
             return
 
@@ -361,7 +363,6 @@ class PAW(PAWExtra, Output):
     def find_ground_state(self, atoms, write=True):
         """Start iterating towards the ground state."""
         
-        self.print_parameters()  #?????????????????????????
         self.set_positions(atoms)
         self.initialize_kinetic()
         if not self.eigensolver.initialized:
@@ -501,6 +502,11 @@ class PAW(PAWExtra, Output):
             original_nbands = self.nbands
             original_maxiter = self.maxiter
 
+            self.text('Atomic orbitals used for initialization:', self.nao)
+            if self.nbands > self.nao:
+                self.text('Random orbitals used for initialization:',
+                          self.nbands - self.nao)
+            
             self.maxiter = 0
             self.nbands = min(self.nbands, self.nao)
             self.eigensolver = get_eigensolver('lcao')
@@ -1259,106 +1265,4 @@ class PAW(PAWExtra, Output):
             self.density.update_kinetic(self.kpt_u)
             self.hamiltonian.xc.set_kinetic(self.density.taut_sg)           
 
-    def initialize_wave_functions_from_atomic_orbitals(self):
-        """Initialize wave function from atomic orbitals."""  # surprise!
-
-        assert 0
-        # count the total number of atomic orbitals (bands):
-        nao = 0
-        for nucleus in self.nuclei:
-            nao += nucleus.get_number_of_atomic_orbitals()
-
-        if self.random_wf:
-            nao = 0
-
-        nrandom = max(0, self.nbands - nao)
-
-        if self.nbands == 1:
-            string = 'Initializing one band from'
-        else:
-            string = 'Initializing %d bands from' % self.nbands
-        if nao == 1:
-            string += ' one atomic orbital'
-        elif nao > 0:
-            string += ' linear combination of %d atomic orbitals' % nao
-
-        if nrandom > 0 :
-            if nao > 0:
-                string += ' and'
-            string += ' %d random orbitals' % nrandom
-        string += '.'
-
-        self.text(string)
-
-        xcfunc = self.hamiltonian.xc.xcfunc
-
-        if xcfunc.orbital_dependent:
-            # At this point, we can't use orbital dependent
-            # functionals, because we don't have the right orbitals
-            # yet.  So we use a simple density functional to set up the
-            # initial hamiltonian:
-            localxcfunc = xcfunc.get_local_xc()
-            self.hamiltonian.xc.set_functional(localxcfunc)
-            for setup in self.setups:
-                setup.xc_correction.xc.set_functional(localxcfunc)
-
-        self.hamiltonian.update(self.density)
-
-        if self.random_wf:
-            # Improve the random guess with conjugate gradient
-            eig = get_eigensolver('dav')
-            eig.initialize(self)
-            eig.nbands_converge = self.nbands
-            for kpt in self.kpt_u:
-                kpt.create_random_orbitals(self.nbands)
-                # Calculate projections and orthonormalize wave functions:
-                run([nucleus.calculate_projections(kpt)
-                     for nucleus in self.pt_nuclei])
-                self.overlap.orthonormalize(kpt.psit_nG, kpt)
-            for nit in range(2):
-                eig.iterate(self.hamiltonian, self.kpt_u)
-        else:
-            for nucleus in self.my_nuclei:
-                # XXX already allocated once, but with wrong size!!!
-                ni = nucleus.get_number_of_partial_waves()
-                nucleus.P_uni = npy.empty((self.nmyu, nao, ni), self.dtype)
-
-            # Use the LCAO eigensolver:
-            solver = LCAO()
-            solver.initialize(self)
-            # Take one step:
-            if self.input_parameters['hund']:
-                assert self.natoms == 1
-                for kpt in self.kpt_u:
-                    kpt.f_n[:self.nbands] = self.nuclei[0].f_si[kpt.s,
-                                                                :self.nbands]
-                    kpt.C_nm = npy.eye(nao)#??????????????????????????????????????????????????????????????????????????????????????
-            else:
-                solver.iterate(self.hamiltonian, self.kpt_u)
-            for kpt in self.kpt_u:
-                kpt.calculate_wave_functions_from_lcao_coefficients()
-                kpt.C_nm = None
-
-        for nucleus in self.my_nuclei:
-            nucleus.reallocate(self.nbands)
-
-        for kpt in self.kpt_u:
-            kpt.adjust_number_of_bands(self.nbands, self.pt_nuclei)
-            self.overlap.orthonormalize(kpt.psit_nG, kpt)
-
-        if xcfunc.orbital_dependent:
-            # Switch back to the orbital dependent functional:
-            self.hamiltonian.xc.set_functional(xcfunc)
-            for setup in self.setups:
-                setup.xc_correction.xc.set_functional(xcfunc)
-            if xcfunc.is_gllb():
-                xcfunc.initialize_gllb(self)
-
-        # Calculate occupation numbers:
-        self.occupation.calculate(self.kpt_u)
-
-        self.wave_functions_initialized = True
-        self.wave_functions_orthonormalized = True
-        # do at least the first 3 iterations with fixed density
-        self.fixdensity = max(2, self.fixdensity)
 
