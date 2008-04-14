@@ -51,7 +51,7 @@ class Wannier:
     def get_hamiltonian(self, calc):
         # U^T diag(eps_n) U
         eps_n = calc.get_eigenvalues(kpt=0, spin=self.spin)
-        npy.dot(self.U_nn.T * eps_n, self.U_nn)
+        return npy.dot(self.U_nn.T * eps_n, self.U_nn)
 
 
 class LocFun(Wannier):
@@ -110,14 +110,14 @@ def get_locfun_rotation(projections_nj, N=None, ortho=False):
     Scd = npy.diagonal(npy.linalg.cholesky(S_jj))
     if Scd.min() < 0.01:
         print ('Warning: possibly near linear depedence.\n'
-               'Minimum eigenvale of cholesky decomposition is', Scd.min())
+               'Minimum eigenvalue of cholesky decomposition is %s'
+               % Scd.min())
 
     if ortho:
         ap_nj = lowdin(ap_nj, S_jj)
         ap_vj = lowdin(ap_vj, S_jj)
 
-    U_nj = npy.concatenate([ap_nj.flatten(),
-                            ap_vj.flatten()]).reshape([N + V, M])
+    U_nj = npy.concatenate([ap_nj.flat, ap_vj.flat]).reshape(N + V, M)
     return U_nj, S_jj
 
 def single_zeta(paw, spin):

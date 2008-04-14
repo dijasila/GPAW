@@ -300,8 +300,8 @@ class Output:
                 t(nucleus.a, nucleus.mom)
             t()
 
-        if self.xcfunc.is_gllb():
-            self.xcfunc.xc.print_converged(self)
+##         if self.xcfunc.is_gllb():
+##             self.xcfunc.xc.print_converged(self)
 
     def print_iteration(self):
         # Output from each iteration:
@@ -338,7 +338,7 @@ class Output:
                                         log(10))
 
             dNt = self.density.mixer.get_charge_sloshing()
-            if dNt is None or self.nvalence == 0:
+            if dNt is None or dNt == 0 or self.nvalence == 0:
                 dNt = ''
             else:
                 dNt = '%+.1f' % (log(dNt / self.nvalence) / log(10))
@@ -351,8 +351,7 @@ class Output:
 
             niterpoisson = '%d' % self.hamiltonian.npoisson
 
-            t("""\
-iter: %3d  %02d:%02d:%02d  %-5s  %-5s    %- 12.5f %-5s  %-7s""" %
+            t("iter: %3d  %02d:%02d:%02d  %-5s  %-5s    %- 12.5f %-5s  %-7s" %
               (self.niter,
                T[3], T[4], T[5],
                eigerror,

@@ -22,7 +22,7 @@ parameters = {
  'H' : {'rcut': 0.9},
  'He': {'rcut': 1.5},
  'Li': {'core': '[He]',   'rcut': 2.1},
- 'Be': {'core': '[He]',   'rcut': 1.5},
+ 'Be': {'core': '[He]',   'rcut': 1.5}, # rcut=1.9 is enough?
  'B' : {'core': '[He]',   'rcut': 1.2},
  'C' : {'core': '[He]',   'rcut': 1.2},
  'N' : {'core': '[He]',   'rcut': 1.1},
@@ -49,13 +49,14 @@ parameters = {
  'Cu': {'core': '[Ar]',   'rcut': [2.2, 2.2, 2.0]},
  'Zn': {'core': '[Ar]',   'rcut': [2.0, 1.9, 1.9]},
  'Ga': {'core': '[Ar]3d', 'rcut': 2.2},
+ 'Ge': {'core': '[Ar]3d', 'rcut': 1.9},
  'As': {'core': '[Ar]',   'rcut': 2.0},
  'Kr': {'core': '[Ar]3d', 'rcut': 2.2},
- 'Rb': {'core': '[Kr]',   'rcut': 4.05},
+ 'Rb': {'core': '[Ar]3d', 'rcut': [2.8, 2.4, 2.4]},
  'Sr': {'core': '[Ar]3d', 'rcut': [2.4, 2.4, 2.3],
         'extra':{1: [0.0], 2: [0.0]}},
  'Zr': {'core': '[Ar]3d', 'rcut': 2.0},
- 'Nb': {'core': '[Kr]',   'rcut': 3.0},
+ 'Nb': {'core': '[Kr]',   'rcut': [2.9, 2.9, 2.6]},
  'Mo': {'core': '[Kr]',   'rcut': [2.8, 2.8, 2.5]},
  'Ru': {'core': '[Kr]',   'rcut': 2.6},
  'Rh': {'core': '[Kr]',   'rcut': 2.5},
@@ -65,6 +66,7 @@ parameters = {
  'Cs': {'core': '[Kr]4d', 'rcut': [2.2, 2.0]},
  'Ba': {'core': '[Kr]4d', 'rcut': 2.2, 'extra': {1: [0.0], 2: [0.0, 1.0]}},
  'La': {'core': '[Kr]4d', 'rcut': [2.3, 2.0, 1.9]},
+# 'La': {'core': '[Kr]4d5s', 'rcut': [2.3, 2.0, 1.9]},
 # 'Ta': {'core': '[Xe]',   'rcut': 2.5},
 # 'W':  {'core': '[Xe]',   'rcut': 2.5},
  'Ir': {'core': '[Xe]4f', 'rcut': [2.3, 2.6, 2.0],
@@ -73,6 +75,13 @@ parameters = {
  'Au': {'core': '[Xe]4f', 'rcut': 2.5},
  'Pb': {'core': '[Xe]4f', 'rcut': [2.4,2.6,2.4]}
  }
+
+parameters_hard = {
+ 'Li': {'name': 'hard', 'rcut': 1.5, 'extra': {1: [-0.0413]}}, # nocore
+ 'O' : {'name': 'hard', 'core': '[He]', 'rcut': 1.2},
+ 'Si': {'name': 'hard', 'core': '[Ne]', 'rcut': 1.85},
+ }
+
 
 class Generator(AllElectron):
     def __init__(self, symbol, xcname='LDA', scalarrel=False, corehole=None,
@@ -819,7 +828,7 @@ class Generator(AllElectron):
             e_n = npy.zeros(ng)
             error = diagonalize(H, e_n, S)
             if error != 0:
-                raise RuntimeError
+                raise RuntimeError('Diagonaliztion failed for l=%d.' % l)
             ePAW = e_n[0]
             if l <= self.lmax and self.n_ln[l][0] > 0:
                 eAE = self.e_ln[l][0]
@@ -1031,7 +1040,7 @@ def construct_smooth_wavefunction(u, l, gc, r, s):
 if __name__ == '__main__':
     import os
     from gpaw.xc_functional import XCFunctional
-    for symbol in 'Pt Au'.split():
+    for symbol in 'Ir Pt Au'.split():
         g = Generator(symbol, 'LDA', scalarrel=False, nofiles=False)
         g.run(exx=True, **parameters[symbol])
     #for xcname in ['LDA', 'PBE', 'X-C_PW', 'X_PBE-C_PBE']:

@@ -139,7 +139,7 @@ class XCFunctional:
             self.orbital_dependent = True
             if self.setupname is None:
                 self.setupname = 'LDA'
-        elif xcname.startswith('GLLB') or xcname=='KLI':
+        elif xcname.startswith('GLLB') or xcname=='KLI' or xcname == 'SAOP':
             # GLLB type of functionals which use orbitals, require special
             # treatment at first iterations, where there is no orbitals
             # available. Therefore orbital_dependent = True!
@@ -179,8 +179,16 @@ class XCFunctional:
                 ##self.mgga = False ## use local tau and local potential
             elif xcname == 'PW91':
                 code = 14
-            elif xcname == 'LB94':
+            elif xcname == 'LB94' or xcname == 'LBalpha':
                 code = 17
+                if xcname == 'LB94':
+                    parameters = [1., 0.05] # alpha, beta
+                else:
+                    parameters = [1.19, 0.01] # alpha, beta
+                if self.parameters:
+                    for i, key in enumerate(['alpha', 'beta']):
+                        if self.parameters.has_key(key):
+                            parameters[i] = self.parameters[key]
             elif xcname == 'BEE1':
                 code = 18
             else:
@@ -190,7 +198,7 @@ class XCFunctional:
             i = int(xcname[3])
             s0 = float(xcname[5:])
             self.xc = _gpaw.XCFunctional(code, self.gga, s0, i)
-        elif code in [5, 18]:
+        elif code in [5, 17, 18]:
             self.xc = _gpaw.XCFunctional(code, self.gga,
                                          0.0, 0, npy.array(parameters))
         elif code == 6:
@@ -243,7 +251,8 @@ class XCFunctional:
     def initialize_gllb(self, paw):
         self.xc.pass_stuff(paw.hamiltonian.vt_sg, paw.density.nt_sg, paw.kpt_u, paw.gd, paw.finegd,
                            paw.density.interpolate, paw.nspins,
-                           paw.my_nuclei, paw.nuclei, paw.occupation, paw.kpt_comm, paw.symmetry, paw.nvalence)
+                           paw.my_nuclei, paw.nuclei, paw.occupation, paw.kpt_comm, paw.symmetry, paw.nvalence,
+                           paw.eigensolver)
 
 
     def set_non_local_things(self, paw, energy_only=False):
@@ -266,13 +275,7 @@ class XCFunctional:
             else:
                 use_finegrid = True
 
-            self.exx = EXX(paw,
-                           paw.gd, paw.finegd, paw.density.interpolate,
-                           paw.hamiltonian.restrict, paw.hamiltonian.poisson,
-                           paw.my_nuclei, paw.ghat_nuclei,
-                           paw.nspins, paw.nmyu, paw.nbands, len(paw.nuclei),
-                           paw.kpt_comm, paw.domain.comm, energy_only,
-                           use_finegrid=use_finegrid)
+            self.exx = EXX(paw, energy_only, use_finegrid=use_finegrid)
         
     def apply_non_local(self, kpt, Htpsit_nG=None, H_nn=None):
         if self.orbital_dependent:

@@ -8,6 +8,7 @@ The module defines an overlap operator and implements overlap-related
 functions.
 
 """
+import sys
 
 import numpy as npy
 from gpaw.mpi import run
@@ -58,7 +59,7 @@ class Overlap:
             When True, the integrals of projector times vectors
             P_ni = <p_i | a_nG> are calculated.
             When False, existing P_uni are used
-
+        
         """
 
         self.timer.start('Apply overlap')
@@ -89,7 +90,7 @@ class Overlap:
         is inverted and orthonormal vectors a_nG' are obtained as::
 
           a_nG' = inv(C_nn) a_nG
-
+        
         Parameters
         ----------
         a_nG: ndarray, input/output
@@ -157,7 +158,11 @@ class Overlap:
         self.timer.start('Orthonormalize: gemm')
         gemm(1.0, a_nG, S_nn, 0.0, work_nG)
         self.timer.stop('Orthonormalize: gemm')
-        swap(a_nG, work_nG) # swap the pointers
+
+        if sys.getrefcount(a_nG) > 4:
+            raise RuntimeError("Can't swap pointers.   " +
+                               'A view of a_nG exists somewhere!')
+        swap(a_nG, work_nG)  # swap the pointers
 
         self.timer.start('Orthonormalize: P_ni gemm')
         for nucleus in self.my_nuclei:

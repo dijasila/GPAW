@@ -3,9 +3,19 @@
 """This module implements time propagators for time-dependent density 
 functional theory calculations."""
 
+import sys
+
 import numpy as npy
 
 from gpaw.utilities.blas import axpy
+
+from gpaw.mpi import rank
+
+# Multivector ZAXPY: a x + y => y
+def multi_zaxpy2(a,x,y, nvec):
+    for i in range(nvec):
+        axpy(a*(1+0J), x[i], y[i])
+
 
 ###############################################################################
 # Propagator
@@ -19,13 +29,14 @@ class Propagator:
     def __init__(self, td_density, td_hamiltonian, td_overlap):
         """Create the Propagator-object.
         
-        ================ ====================================================
-        Parameters:
-        ================ ====================================================
-        td_density       the time-dependent density
-        td_hamiltonian   the time-dependent hamiltonian
-        td_overlap       the time-dependent overlap operator
-        ================ ====================================================
+        Parameters
+        ----------
+        td_density: TimeDependentDensity
+            the time-dependent density
+        td_hamiltonian: TimeDependentHamiltonian
+            the time-dependent hamiltonian
+        td_overlap: TimeDependentOverlap
+            the time-dependent overlap operator
         
         """ 
         raise RuntimeError( 'Error in Propagator: Propagator is virtual. '
@@ -33,17 +44,19 @@ class Propagator:
         self.td_density = td_density
         self.td_hamiltonian = td_hamiltonian
         self.td_overlap = td_overlap
+
         
     def propagate(self, kpt_u, time, time_step):
-        """Propagate spin up and down wavefunctions. 
+        """Propagate wavefunctions once. 
         
-        =========== ==========================================================
-        Parameters:
-        =========== ==========================================================
-        kpt_u       K-points (= spins, contains wavefunctions)
-        time        the current time
-        time_step   the time step
-        =========== ==========================================================
+        Parameters
+        ----------
+        kpt_u: Kpoint
+            K-point
+        time: float
+            the current time
+        time_step: float
+            the time step
         
         """ 
         raise RuntimeError( 'Error in Propagator: '
@@ -67,17 +80,22 @@ class ExplicitCrankNicolson(Propagator):
                   solver, preconditioner, gd, timer):
         """Create ExplicitCrankNicolson-object.
         
-        ================ =====================================================
-        Parameters:
-        ================ =====================================================
-        td_density       the time-dependent density
-        td_hamiltonian   the time-dependent hamiltonian
-        td_overlap       the time-dependent overlap operator
-        solver           solver for linear equations
-        preconditioner   a preconditioner for linear equations
-        gd               coarse (wavefunction) grid descriptor
-        timer            timer
-        ================ =====================================================
+        Parameters
+        ----------
+        td_density: TimeDependentDensity
+            time-dependent density
+        td_hamiltonian: TimeDependentHamiltonian
+            time-dependent hamiltonian
+        td_overlap: TimeDependentOverlap
+            time-dependent overlap operator
+        solver: LinearSolver
+            solver for linear equations
+        preconditioner: Preconditioner
+            preconditioner for linear equations
+        gd: GridDescriptor
+            coarse (/wavefunction) grid descriptor
+        timer: Timer
+            timer
         
         """
         self.td_density = td_density
@@ -94,15 +112,16 @@ class ExplicitCrankNicolson(Propagator):
         
     # ( S + i H dt/2 ) psit(t+dt) = ( S - i H dt/2 ) psit(t)
     def propagate(self, kpt_u, time, time_step):
-        """Propagate spin up and down wavefunctions. 
+        """Propagate wavefunctions. 
         
-        =========== =========================================================
-        Parameters:
-        =========== =========================================================
-        kpt_u       K-points (= spins, contains wavefunctions)
-        time        the current time
-        time_step   the time step
-        =========== =========================================================
+        Parameters
+        ----------
+        kpt_u: List of Kpoints
+            K-points
+        time: float
+            the current time
+        time_step: float
+            time step
         
         """
         self.timer.start('Update time-dependent operators')
@@ -111,41 +130,41 @@ class ExplicitCrankNicolson(Propagator):
         self.td_density.update()
         self.td_hamiltonian.update(self.td_density.get_density(), time)
         self.td_overlap.update()
+
         if self.hpsit is None:
-            self.hpsit = self.gd.zeros(dtype=complex)
+            self.hpsit = self.gd.zeros(n=len(kpt_u[0].psit_nG), dtype=complex)
         if self.spsit is None:
-            self.spsit = self.gd.zeros(dtype=complex)
+            self.spsit = self.gd.zeros(n=len(kpt_u[0].psit_nG), dtype=complex)
 
         self.timer.stop('Update time-dependent operators')
-        
+
         # loop over k-points (spins)
         for kpt in kpt_u:
             self.kpt = kpt
-            # loop over wavefunctions of this k-point (spin)
-            for psit in kpt.psit_nG:
-                self.timer.start('Apply time-dependent operators')
-                self.td_hamiltonian.apply(self.kpt, psit, self.hpsit)
-                self.td_overlap.apply(self.kpt, psit, self.spsit)
-                self.timer.stop('Apply time-dependent operators')
+            self.timer.start('Apply time-dependent operators')
+            self.td_hamiltonian.apply(self.kpt, kpt.psit_nG, self.hpsit)
+            self.td_overlap.apply(self.kpt, kpt.psit_nG, self.spsit)
+            self.timer.stop('Apply time-dependent operators')
 
-                #psit[:] = self.spsit - .5J * self.hpsit * time_step
-                psit[:] = self.spsit
-                axpy(-.5j * self.time_step, self.hpsit, psit)
+            #psit[:] = self.spsit - .5J * self.hpsit * time_step
+            kpt.psit_nG[:] = self.spsit
+            multi_zaxpy2(-.5j * self.time_step, self.hpsit, kpt.psit_nG, 
+                          len(kpt.psit_nG))
 
-                # A x = b
-                psit[:] = self.solver.solve(self,psit,psit)
+            # A x = b
+            self.solver.solve(self, kpt.psit_nG, kpt.psit_nG)
 
 
     # ( S + i H dt/2 ) psi
     def dot(self, psi, psin):
         """Applies the propagator matrix to the given wavefunction.
 
-        =========== ===================================
-        Parameters:
-        =========== ===================================
-        psi         the known wavefunction
-        psin        the result
-        =========== ===================================
+        Parameters
+        ----------
+        psi: List of coarse grids
+            the known wavefunctions
+        psin: List of coarse grids
+            the result
 
         """
         self.timer.start('Apply time-dependent operators')
@@ -155,26 +174,28 @@ class ExplicitCrankNicolson(Propagator):
 
         #  psin[:] = self.spsit + .5J * self.time_step * self.hpsit 
         psin[:] = self.spsit
-        axpy(.5j * self.time_step, self.hpsit, psin)
+        multi_zaxpy2(.5j * self.time_step, self.hpsit, psin,
+                      len(psi))
+
 
     #  M psin = psi, where M = T (kinetic energy operator)
-    def solve_preconditioner(self, psi, psin):
+    def apply_preconditioner(self, psi, psin):
         """Solves preconditioner equation.
 
-        =========== ===================================
-        Parameters:
-        =========== ===================================
-        psi         the known wavefunction
-        psin        the result
-        =========== ===================================
+        Parameters
+        ----------
+        psi: List of coarse grids
+            the known wavefunctions
+        psin: List of coarse grids
+            the result
         
         """
-        self.timer.start('Solve TDDFT preconditioner')
+        self.timer.start('Apply TDDFT preconditioner')
         if self.preconditioner is not None:
-            self.preconditioner.solve(self.kpt, psi, psin)
+            self.preconditioner.apply(self.kpt, psi, psin)
         else:
             psin[:] = psi
-        self.timer.stop('Solve TDDFT preconditioner')
+        self.timer.stop('Apply TDDFT preconditioner')
 
 
 ###############################################################################
@@ -203,25 +224,30 @@ class AbsorptionKick(ExplicitCrankNicolson):
     
     """
     
-    def __init__(self, abs_kick_hamiltonian, td_overlap, solver, gd, timer):
+    def __init__(self, abs_kick_hamiltonian, td_overlap, solver, preconditioner, gd, timer):
         """Create AbsorptionKick-object.
         
-        ===================== =================================================
-        Parameters:
-        ===================== =================================================
-        abs_kick_hamiltonian  the absorption kick hamiltonian
-        td_overlap            the time-dependent overlap operator
-        solver                solver for linear equations
-        gd                    coarse (wavefunction) grid descriptor
-        timer                 timer
-        ===================== =================================================
+        Parameters
+        ----------
+        abs_kick_hamiltonian: AbsorptionKickHamiltonian
+            the absorption kick hamiltonian
+        td_overlap: TimeDependentOverlap
+            the time-dependent overlap operator
+        solver: LinearSolver
+            solver for linear equations
+        preconditioner: Preconditioner
+            preconditioner for linear equations
+        gd: GridDescriptor
+            coarse (wavefunction) grid descriptor
+        timer: Timer
+            timer
 
         """
         self.td_density = DummyDensity()
         self.td_hamiltonian = abs_kick_hamiltonian
         self.td_overlap = td_overlap
         self.solver = solver
-        self.preconditioner = None
+        self.preconditioner = preconditioner
         self.gd = gd
         self.timer = timer
 
@@ -230,15 +256,25 @@ class AbsorptionKick(ExplicitCrankNicolson):
 
 
     def kick(self, kpt_u):
-        """Excite all possible frequencies.""" 
-        #print "Absorption kick iterations = ", self.td_hamiltonian.iterations
-        #print " (. = 10 iterations)"
+        """Excite all possible frequencies.
+        
+        Parameters
+        ----------
+        kpt_u: List of Kpoints
+            K-points
+
+        """ 
+
+        if rank == 0:
+            print "Kick iterations = ", self.td_hamiltonian.iterations
+
         for l in range(self.td_hamiltonian.iterations):
             self.propagate(kpt_u, 0, 1.0)
-        #    if ( ((l+1) % 10) == 0 ): 
-        #        print ".",
-        #        sys.stdout.flush()
-        #print ""
+            if rank == 0:
+                print '.',
+                sys.stdout.flush()
+        if rank == 0:
+            print ''
         
 
 ###############################################################################
@@ -262,17 +298,22 @@ class SemiImplicitCrankNicolson(Propagator):
                   solver, preconditioner, gd, timer ):
         """Create SemiImplicitCrankNicolson-object.
         
-        ================ =====================================================
-        Parameters:
-        ================ =====================================================
-        td_density       the time-dependent density
-        td_hamiltonian   the time-dependent hamiltonian
-        td_overlap       the time-dependent overlap operator
-        solver           a solver for linear equations
-        preconditioner   a preconditioner for linear equations
-        gd               coarse (wavefunction) grid descriptor
-        timer            timer
-        ================ =====================================================
+        Parameters
+        ----------
+        td_density: TimeDependentDensity
+            the time-dependent density
+        td_hamiltonian: TimeDependentHamiltonian
+            the time-dependent hamiltonian
+        td_overlap: TimeDependentOverlap
+            the time-dependent overlap operator
+        solver: LinearSolver
+            solver for linear equations
+        preconditioner: Preconditioner
+            preconditioner for linear equations
+        gd: GridDescriptor
+            coarse (wavefunction) grid descriptor
+        timer: Timer
+            timer
         
         """
         self.td_density = td_density
@@ -283,38 +324,39 @@ class SemiImplicitCrankNicolson(Propagator):
         self.gd = gd
         self.timer = timer
         
-        self.twf = None        
+        self.tmp_psit_nG = None
         self.hpsit = None
         self.spsit = None
         
         
     def propagate(self, kpt_u, time, time_step):
-        """Propagate spin up and down wavefunctions.
+        """Propagate wavefunctions once.
         
-        =========== =========================================================
-        Parameters:
-        =========== =========================================================
-        kpt_u       K-points (= spins, contains wavefunctions)
-        time        the current time
-        time_step   the time step
-        =========== =========================================================
-        
+        Parameters
+        ----------
+        kpt_u: List of Kpoints
+            K-points
+        time: float
+            the current time
+        time_step: float
+            time step
         """
         # temporary wavefunctions
-        if self.twf is None:
-            self.twf = []
+        
+        if self.tmp_psit_nG is None:
+            self.tmp_psit_nG = []
             for kpt in kpt_u:
-                self.twf.append( self.gd.empty( len(kpt.psit_nG),
-                                                dtype=complex ) )
+                self.tmp_psit_nG.append( self.gd.empty( n=len(kpt.psit_nG),
+                                                        dtype=complex ) )
 
         # copy current wavefunctions to temporary variable
         for u in range(len(kpt_u)):
-            self.twf[u][:] = kpt_u[u].psit_nG
+            self.tmp_psit_nG[u][:] = kpt_u[u].psit_nG
         
         if self.hpsit is None:
-            self.hpsit = self.gd.zeros(dtype=complex)
+            self.hpsit = self.gd.zeros(len(kpt_u[0].psit_nG), dtype=complex)
         if self.spsit is None:
-            self.spsit = self.gd.zeros(dtype=complex)
+            self.spsit = self.gd.zeros(len(kpt_u[0].psit_nG), dtype=complex)
         
         self.time_step = time_step
 
@@ -347,7 +389,7 @@ class SemiImplicitCrankNicolson(Propagator):
 
         # propagate psit(t), not psit(t+dt), in correct
         for u in range(len(kpt_u)):
-            kpt_u[u].psit_nG[:] = self.twf[u]
+            kpt_u[u].psit_nG[:] = self.tmp_psit_nG[u]
         
         # correct
         self.solve_propagation_equation(kpt_u, time_step)
@@ -358,30 +400,30 @@ class SemiImplicitCrankNicolson(Propagator):
         
         for kpt in kpt_u:
             self.kpt = kpt
-            for psit in kpt.psit_nG:
-                self.timer.start('Apply time-dependent operators')
-                self.td_hamiltonian.apply(self.kpt, psit, self.hpsit)
-                self.td_overlap.apply(self.kpt, psit, self.spsit)
-                self.timer.stop('Apply time-dependent operators')
+            self.timer.start('Apply time-dependent operators')
+            self.td_hamiltonian.apply(self.kpt, kpt.psit_nG, self.hpsit)
+            self.td_overlap.apply(self.kpt, kpt.psit_nG, self.spsit)
+            self.timer.stop('Apply time-dependent operators')
 
-                #psit[:] = self.spsit - .5J * self.hpsit * time_step
-                psit[:] = self.spsit
-                axpy(-.5j * self.time_step, self.hpsit, psit)
-            
-                # A x = b
-                psit[:] = self.solver.solve(self,psit,psit)
+            #psit[:] = self.spsit - .5J * self.hpsit * time_step
+            kpt.psit_nG[:] = self.spsit
+            multi_zaxpy2(-.5j * self.time_step, self.hpsit, kpt.psit_nG,
+                          len(kpt.psit_nG))
+
+            # A x = b
+            self.solver.solve(self, kpt.psit_nG, kpt.psit_nG)
             
             
     # ( S + i H dt/2 ) psi
     def dot(self, psi, psin):
-        """Applies the propagator matrix to the given wavefunction.
+        """Applies the propagator matrix to the given wavefunctions.
         
-        =========== ===================================
-        Parameters:
-        =========== ===================================
-        psi         the known wavefunction
-        psin        the result
-        =========== ===================================
+        Parameters
+        ----------
+        psi: List of coarse grids
+            the known wavefunctions
+        psin: List of coarse grids
+            the result
         
         """
         self.timer.start('Apply time-dependent operators')
@@ -391,24 +433,25 @@ class SemiImplicitCrankNicolson(Propagator):
 
         #  psin[:] = self.spsit + .5J * self.time_step * self.hpsit
         psin[:] = self.spsit
-        axpy(.5j * self.time_step, self.hpsit, psin)
+        multi_zaxpy2(.5j * self.time_step, self.hpsit, psin,
+                     len(psi))
 
 
     #  M psin = psi, where M = T (kinetic energy operator)
-    def solve_preconditioner(self, psi, psin):
-        """Solves preconditioner equation.
+    def apply_preconditioner(self, psi, psin):
+        """Applies preconditioner.
         
-        =========== ===================================
-        Parameters:
-        =========== ===================================
-        psi         the known wavefunction
-        psin        the result
-        =========== ===================================
+        Parameters
+        ----------
+        psi: List of coarse grids
+            the known wavefunctions
+        psin: List of coarse grids
+            the result
         
         """
         self.timer.start('Solve TDDFT preconditioner')
         if self.preconditioner is not None:
-            self.preconditioner.solve(self.kpt, psi, psin)
+            self.preconditioner.apply(self.kpt, psi, psin)
         else:
             psin[:] = psi
         self.timer.stop('Solve TDDFT preconditioner')
