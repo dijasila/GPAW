@@ -10,7 +10,7 @@ from gpaw.utilities.complex import cc, real
 from gpaw.utilities.tools import apply_subspace_mask
 from gpaw.utilities import unpack
 from gpaw.mpi import parallel, rank
-from gpaw import debug, scalapack
+from gpaw import debug, sl_diagonalize
 
 
 class Eigensolver:
@@ -135,8 +135,8 @@ class Eigensolver:
             self.timer.stop('Subspace diag.')
             return
 
-        if scalapack: assert parallel
-        if scalapack:
+        if sl_diagonalize: assert parallel
+        if sl_diagonalize:
             dsyev_zheev_string = 'Subspace diag.: '+'pdsyev/pzheev'
         else:
             dsyev_zheev_string = 'Subspace diag.: '+'dsyev/zheev'
@@ -144,14 +144,14 @@ class Eigensolver:
         self.timer.start(dsyev_zheev_string)
         #if debug:
         self.timer.start(dsyev_zheev_string+' %03d' % self.iteration)
-        if scalapack:
+        if sl_diagonalize:
             info = diagonalize(H_nn, eps_n, root=kpt.root)
         else:
             if self.comm.rank == kpt.root:
                 info = diagonalize(H_nn, eps_n, root=kpt.root)
         #if debug:
         self.timer.stop(dsyev_zheev_string+' %03d' % self.iteration)
-        if scalapack:
+        if sl_diagonalize:
             if info != 0:
                 raise RuntimeError, 'Very Bad!!'
         else:

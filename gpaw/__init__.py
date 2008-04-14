@@ -35,7 +35,7 @@ trace = False
 dry_run = False
 parsize = None
 parsize_bands = None
-scalapack = None
+sl_diagonalize = None
 sl_inverse_cholesky = None
 arg = None
 setup_paths = []
@@ -59,24 +59,24 @@ while len(sys.argv) > i:
         parsize = [int(n) for n in arg.split('=')[1].split(',')]
     elif arg.startswith('--state-parallelization='):
         parsize_bands = int(arg.split('=')[1])
-    elif arg.startswith('--scalapack='):
-        # --scalapack=nprow,npcol,mb,cpus_per_node # see c/scalapack.c
+    elif arg.startswith('--sl_diagonalize='):
+        # --sl_diagonalize=nprow,npcol,mb,cpus_per_node # see c/scalapack.c
         # use 'd' for the default of one or more of the parameters
-        # --scalapack=default to use all default values
+        # --sl_diagonalize=default to use all default values
         sl_args = [n for n in arg.split('=')[1].split(',')]
         if len(sl_args) == 1:
             assert sl_args[0] == 'default'
-            scalapack = ['d']*4
+            sl_diagonalize = ['d']*4
         else:
-            scalapack = []
+            sl_diagonalize = []
             assert len(sl_args) == 4
             for sl_args_index in range(len(sl_args)):
                 assert sl_args[sl_args_index] is not None
                 if sl_args[sl_args_index] is not 'd':
                     assert int(sl_args[sl_args_index]) > 0
-                    scalapack.append(int(sl_args[sl_args_index]))
+                    sl_diagonalize.append(int(sl_args[sl_args_index]))
                 else:
-                    scalapack.append(sl_args[sl_args_index])
+                    sl_diagonalize.append(sl_args[sl_args_index])
     elif arg.startswith('--sl_inverse_cholesky='):
         # --sl_inverse_cholesky=nprow,npcol,mb,cpus_per_node # see c/sl_inverse_cholesky.c
         # use 'd' for the default of one or more of the parameters

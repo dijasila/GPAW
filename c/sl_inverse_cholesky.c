@@ -51,9 +51,9 @@ static PyObject* inverse_cholesky(MPIObject *self, PyObject *args)
      int mycol = -1;
      Cblacs_gridinfo_(ConTxt, &nprow, &npcol, &myrow, &mycol);
 
-     int rank;
+     //int rank;
      int pnum;
-     MPI_Comm_rank(self->comm, &rank);
+     //MPI_Comm_rank(self->comm, &rank);
 
      char TOP = ' '; // ?
      char scope = 'A'; // All grid
@@ -125,7 +125,7 @@ static PyObject* inverse_cholesky(MPIObject *self, PyObject *args)
           //for(int i1 = one; i1 < m+one; ++i1) {
                //printf("w(%d) = %f\n",i1, DOUBLEP(w)[i1]);
           //     for(int i2 = one; i2 < n+one; ++i2) {
-                    //printf("rank %d, before a(%d, %d) = %f\n",rank, i1, i2, DOUBLEP(a)[(i1-one)*n+i2-one]);
+                    //printf("pnum %d, before a(%d, %d) = %f\n",pnum, i1, i2, DOUBLEP(a)[(i1-one)*n+i2-one]);
           //     }
           //}
 
@@ -166,7 +166,7 @@ static PyObject* inverse_cholesky(MPIObject *self, PyObject *args)
 
 /*           for(int i1 = one; i1 < locM+one; ++i1) { */
 /*                for(int i2 = one; i2 < locN+one; ++i2) { */
-/*                     printf("before pdpotrf rank %d, locM %d, locN %d, mat(%d, %d) = %f\n",rank, locM, locN, i1, i2, mat[(i1-one)*locN+i2-one]); */
+/*                     printf("before pdpotrf pnum %d, locM %d, locN %d, mat(%d, %d) = %f\n",pnum, locM, locN, i1, i2, mat[(i1-one)*locN+i2-one]); */
 /*                } */
 /*           } */
 
@@ -174,16 +174,16 @@ static PyObject* inverse_cholesky(MPIObject *self, PyObject *args)
 
 /*           for(int i1 = one; i1 < locM+one; ++i1) { */
 /*                for(int i2 = one; i2 < locN+one; ++i2) { */
-/*                     printf("after pdpotrf rank %d, locM %d, locN %d, mat(%d, %d) = %f\n",rank, locM, locN, i1, i2, mat[(i1-one)*locN+i2-one]); */
+/*                     printf("after pdpotrf pnum %d, locM %d, locN %d, mat(%d, %d) = %f\n",pnum, locM, locN, i1, i2, mat[(i1-one)*locN+i2-one]); */
 /*                } */
 /*           } */
 
-          printf("info pdpotrf, rank %d, %d\n", info, rank);
-          //printf("pdpotrf %d, rank %d\n", info, rank);
+          printf("info pdpotrf, pnum %d, %d\n", info, pnum);
+          //printf("pdpotrf %d, pnum %d\n", info, pnum);
           if (info == 0)
           {
                pdtrtri_(&uplo, &diag, &n, mat, &one, &one, desc, &info);
-               //printf("dtrtri %d, rank %d\n", info, rank);
+               //printf("dtrtri %d, pnum %d\n", info, pnum);
           }
 
           t1 = MPI_Wtime();
@@ -193,20 +193,20 @@ static PyObject* inverse_cholesky(MPIObject *self, PyObject *args)
                //printf("w(%d) = %f\n",i1, DOUBLEP(w)[i1]);
                //for(int i2 = one; i2 < locN+one; ++i2) {
           //z[(i1-one)*locN+i2-one] = mat[(i1-one)*locN+i2-one];
-                    //printf("rank %d, locM %d, locN %d, mat(%d, %d) = %f\n",rank, locM, locN, i1, i2, mat[(i1-one)*locN+i2-one]);
+                    //printf("pnum %d, locM %d, locN %d, mat(%d, %d) = %f\n",pnum, locM, locN, i1, i2, mat[(i1-one)*locN+i2-one]);
           //}
           //}
-          //if (rank == 0) {
-          //     printf("rank %d, %f\n", rank, z[(1-one)*locM+1-one]);
+          //if (pnum == 0) {
+          //     printf("pnum %d, %f\n", pnum, z[(1-one)*locM+1-one]);
           //     z[(1-one)*locM+1-one] = 0.0;
           //}
-          //if (rank == 1) {
-          //     printf("rank %d, %f\n", rank, z[(1-one)*locM+1-one]);
+          //if (pnum == 1) {
+          //     printf("pnum %d, %f\n", pnum, z[(1-one)*locM+1-one]);
           //     z[(1-one)*locN+1-one] = 0.0;
           //}
 
           //printf("run %d\n", 10);
-          printf("info pdtrtri, rank %d, %d\n", info, rank);
+          printf("info pdtrtri, pnum %d, %d\n", info, pnum);
 
           // pdgemr2d_(&n, &n, z, &one, &one, desc, DOUBLEP(a), &one, &one, desc0, &ConTxt);
           Cpdgemr2d_(m, n, mat, one, one, desc, DOUBLEP(a), one, one, desc0, ConTxt);
@@ -224,7 +224,7 @@ static PyObject* inverse_cholesky(MPIObject *self, PyObject *args)
                ///* Make sure that the other diagonal is zero */
                //for(int i1 = zero; i1 < m; ++i1) {
                //     for(int i2 = i1+one; i2 < n; ++i2) {
-               //          //printf("a(%d, %d) = %f, rank %d\n",i1, i2, DOUBLEP(a)[i1*m+i2], rank);
+               //          //printf("a(%d, %d) = %f, pnum %d\n",i1, i2, DOUBLEP(a)[i1*m+i2], pnum);
                //          DOUBLEP(a)[i1*m+i2] = 0.0;
                //     }
                //}
@@ -233,11 +233,11 @@ static PyObject* inverse_cholesky(MPIObject *self, PyObject *args)
           //for(int i1 = one; i1 < m+one; ++i1) {
                //printf("w(%d) = %f\n",i1, DOUBLEP(w)[i1]);
                //for(int i2 = one; i2 < n+one; ++i2) {
-          //printf("rank %d, after a(%d, %d) = %f\n",rank, i1, i2, DOUBLEP(a)[(i1-one)*n+i2-one]);
+          //printf("pnum %d, after a(%d, %d) = %f\n",pnum, i1, i2, DOUBLEP(a)[(i1-one)*n+i2-one]);
           //}
           //}
 
-          //printf("after Cpdgemr2d, rank %d\n", rank);
+          //printf("after Cpdgemr2d, pnum %d\n", pnum);
           //Cblacs_barrier_(ConTxt, &scope);
 
 //          if (pnum == root) {
@@ -271,7 +271,7 @@ static PyObject* inverse_cholesky(MPIObject *self, PyObject *args)
 /*           free(work); */
 //          }
 //     }
-     //printf("info %d, rank %d\n", info, rank);
+     //printf("info %d, pnum %d\n", info, pnum);
      //Py_RETURN_NONE;
      return Py_BuildValue("i", info);
 }

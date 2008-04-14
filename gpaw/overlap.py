@@ -74,9 +74,11 @@ class Overlap:
 
         b_nG[:] = a_nG
 
+        self.timer.start('Apply inverse')
         for nucleus in self.pt_nuclei:
             # Apply the non-local part:
             nucleus.apply_inverse_overlap(a_nG, b_nG, kpt.k)
+        self.timer.stop('Apply inverse')
 
 
     def orthonormalize(self, a_nG, kpt, work_nG=None, work_nn=None):

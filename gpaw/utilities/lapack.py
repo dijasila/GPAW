@@ -8,7 +8,7 @@ Linear Algebra PACKage (LAPACK)
 
 import numpy as npy
 
-from gpaw import debug, scalapack, sl_inverse_cholesky
+from gpaw import debug, sl_diagonalize, sl_inverse_cholesky
 from gpaw.mpi import parallel, rank, size, world
 import _gpaw
 
@@ -37,42 +37,42 @@ def diagonalize(a, w, b=None, root=0):
         assert b.flags.contiguous
         assert b.dtype == a.dtype
         assert b.shape == a.shape
-        if scalapack:
-            if scalapack: assert parallel
+        if sl_diagonalize:
+            if sl_diagonalize: assert parallel
             if rank == root:
                 print 'python ScaLapack diagonalize general'
-            assert len(scalapack) == 4
-            assert scalapack[0]*scalapack[1] <= size
+            assert len(sl_diagonalize) == 4
+            assert sl_diagonalize[0]*sl_diagonalize[1] <= size
             # symmetrize the matrix
             for i in range(n):
                 for j in range(i, n):
                     a[i,j] = a[j,i]
             if rank == root:
                 print 'python ScaLapack diagonalize general not implemented yet'
-            assert (not scalapack)
+            assert (not sl_diagonalize)
             info = world.diagonalize(a, w,
-                                     scalapack[0],
-                                     scalapack[1],
-                                     scalapack[2], root, b)
+                                     sl_diagonalize[0],
+                                     sl_diagonalize[1],
+                                     sl_diagonalize[2], root, b)
         else:
             if rank == root:
                 print 'python Lapack diagonalize general'
             info = _gpaw.diagonalize(a, w, b)
     else:
-        if scalapack:
-            if scalapack: assert parallel
+        if sl_diagonalize:
+            if sl_diagonalize: assert parallel
             if rank == root:
                 print 'python ScaLapack diagonalize'
-            assert len(scalapack) == 4
-            assert scalapack[0]*scalapack[1] <= size
+            assert len(sl_diagonalize) == 4
+            assert sl_diagonalize[0]*sl_diagonalize[1] <= size
             # symmetrize the matrix
             for i in range(n):
                 for j in range(i, n):
                     a[i,j] = a[j,i]
             info = world.diagonalize(a, w,
-                                     scalapack[0],
-                                     scalapack[1],
-                                     scalapack[2], root)
+                                     sl_diagonalize[0],
+                                     sl_diagonalize[1],
+                                     sl_diagonalize[2], root)
         else:
             if rank == root:
                 print 'python Lapack diagonalize'

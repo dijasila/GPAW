@@ -11,7 +11,7 @@ from ase.data import chemical_symbols
 from gpaw.utilities import devnull
 from gpaw.mpi import MASTER, size
 from gpaw.version import version
-from gpaw import scalapack, sl_inverse_cholesky
+from gpaw import sl_diagonalize, sl_inverse_cholesky
 import gpaw
 
 
@@ -129,27 +129,27 @@ class Output:
         t('Fermi Temperature: %.6f' % (self.kT * self.Ha))
         t('Eigen Solver:      %s \n                   (%s)' %
           (p['eigensolver'], fd(p['stencils'][0])))
-        if scalapack:
-            assert len(scalapack) == 4
+        if sl_diagonalize:
+            assert len(sl_diagonalize) == 4
             # set ScaLapack defaults
             # cpus_per_node used only to make the topology of the grid
-            if scalapack[3] is 'd':
+            if sl_diagonalize[3] is 'd':
                 cpus_per_node = 4
             else:
-                cpus_per_node = int(scalapack[3])
+                cpus_per_node = int(sl_diagonalize[3])
             assert cpus_per_node > 0
             npcol = max(1, cpus_per_node *
                         (int(sqrt(size) / cpus_per_node + 0.5)))
             nprow = min(max(1, int(size/npcol)), npcol)
             npcol = max(max(1, int(size/npcol)), npcol)
             sl_defaults = [nprow, npcol, 32, cpus_per_node]
-            for sl_args_index in range(len(scalapack)):
-                if scalapack[sl_args_index] is 'd':
-                    scalapack[sl_args_index] = sl_defaults[sl_args_index]
-            assert scalapack[0]*scalapack[1] <= size
+            for sl_args_index in range(len(sl_diagonalize)):
+                if sl_diagonalize[sl_args_index] is 'd':
+                    sl_diagonalize[sl_args_index] = sl_defaults[sl_args_index]
+            assert sl_diagonalize[0]*sl_diagonalize[1] <= size
             diag_string = ('ScaLapack'+
                            ' - grid: [nprow, npcol, nb] = %s'
-                           % (scalapack[:3]))
+                           % (sl_diagonalize[:3]))
         else:
             diag_string = 'Lapack'
         t('Diagonalizer:      %s' % (diag_string))

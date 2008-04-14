@@ -206,5 +206,7 @@ class RMM_DIIS(Eigensolver):
         self.timer.stop('Orthogonalize: P_ni gemm')
         self.timer.stop('Orthogonalize')
 
+        self.timer.start('Orthogonalize: comm.sum error')
         error = self.comm.sum(error)
+        self.timer.stop('Orthogonalize: comm.sum error')
         return error
