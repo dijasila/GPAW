@@ -1,7 +1,10 @@
+from math import sqrt, pi
+
 import pylab as pl
 from sys import argv
 from ase.data import atomic_names as names
 from gpaw.setup_data import SetupData
+from gpaw.atom.all_electron import shoot
 
 input = argv[1].split('.')
 symbol = input[0]
@@ -21,39 +24,114 @@ for j, n in enumerate(setup.n_j):
 
 g = pl.arange(setup.ng, dtype=float)
 r_g = setup.beta * g / (setup.ng - g)
-
-print 'Element    :', symbol, names[setup.Z].title()
-print 'Setup      :', '.'.join([setupname, xcname])
-print 'Filename   :', setup.filename
-print 'Fingerprint:', setup.fingerprint
-print 'Electrons  : %d (%d core and %d valence)' % (setup.Z, setup.Nc, 
-                                                    setup.Nv)
-print ''
-print 'Energy'
-print '---------------------'
-print 'Kinetic  : %10.4f' % setup.e_kinetic
-print 'Potential: %10.4f' % setup.e_electrostatic
-print 'XC       : %10.4f' % setup.e_xc
-#print 'Core-kin : %10.4f' % e_kinetic_core
-print '---------------------'
-print 'Total    : %10.4f' % setup.e_total
-print ''
-print 'Partial Waves'
-print 'id occ   eps  rcut'
-for id, f, eps, rcut in zip(id_j, setup.f_j, setup.eps_j, setup.rcut_j):
-    print '%s  %s  %6.3f %4.2f' % (id, f, eps, rcut)
-print ''
-print 'Compensation charge cutoff: %0.4f Bohr' % setup.rcgauss
-#print 'Kinetic energy differences:\n', e_kin_jj
-
+dr_g = setup.beta * setup.ng / (setup.ng - g)**2
+d2gdr2 = -2 * setup.ng * setup.beta / (setup.beta + r_g)**3
 rmax = max(setup.rcut_j)
-fig = pl.figure(1, figsize=(13, 6))
-fig.subplots_adjust(left=.05, right=.95)
+gmax = 1 + int(rmax * setup.ng / (rmax + setup.beta))
+rlog = r_g[gmax + 10]
+rcutcomp = sqrt(10) * setup.rcgauss
 
-pl.subplot(131)
+# Find Fourier-filter cutoff radius:
+g = setup.ng - 1
+while setup.pt_jg[0][g] == 0.0:
+    g -= 1
+gcutfilter = g + 1
+rcutfilter = r_g[gcutfilter]
+
+# Find cutoff for core density:
+if setup.Nc == 0:
+    rcore = 0.5
+else:
+    N = 0.0
+    g = setup.ng - 1
+    while N < 1e-7:
+        N += sqrt(4 * pi) * setup.nc_g[g] * r_g[g]**2 * dr_g[g]
+        g -= 1
+    rcore = r_g[g]
+
+# Construct logarithmic derivatives
+eig = {}
+for l, e in zip(setup.l_j, setup.eps_j):
+    eig['spdf'[l]] = eig.get('spdf'[l], []) + [e,]
+logd = {}
+ref = []
+try: # Only works if logarithmic derivatives have been predetermined
+    loge = pl.load(symbol + '.ae.ld.s')[:, 0]
+    logd['sae'] = pl.load(symbol + '.ae.ld.s')[:, 1]
+    logd['pae'] = pl.load(symbol + '.ae.ld.p')[:, 1]
+    logd['dae'] = pl.load(symbol + '.ae.ld.d')[:, 1]
+    logd['sps'] = pl.load(symbol + '.ps.ld.s')[:, 1]
+    logd['pps'] = pl.load(symbol + '.ps.ld.p')[:, 1]
+    logd['dps'] = pl.load(symbol + '.ps.ld.d')[:, 1]
+    
+    for l, e in zip(setup.l_j, setup.eps_j):
+        i = loge.searchsorted(e)
+        ref.append([loge[i], logd['spdf'[l] + 'ae'][i]])
+    ref = pl.array(ref)
+except:
+    pass
+
+def pfill(s, l):
+    print s + (l-len(s)) * ' ' + '|'
+
+print '+-------------+------------------+'
+print '| Setup Details                  |'
+print '+=============+==================+'
+pfill('| Element     | %s (%s)' % (names[setup.Z].title(), symbol), 33)
+print '+-------------+------------------+'
+pfill('| Setup       | %s' % '.'.join([setupname, xcname]), 33)
+print '+-------------+------------------+'
+## pfill('| Filename    | %s' % setup.filename, 33)
+## print '+-------------+------------------+'
+## pfill('| Fingerprint | %s' % setup.fingerprint, 33)
+## print '+-------------+------------------+'
+pfill('| |           | %d (total)' % setup.Z, 33)
+print '+ |           +------------------+'
+pfill('| | Electrons | %d (valence)' % setup.Nv, 33)
+print '+ |           +------------------+'
+pfill('| |           | %d (core)' % setup.Nc, 33)
+print '+-------------+------------------+'
+print '| |           | %4.2f Bohr (comp) |' % rcutcomp
+print '+ |           +------------------+'
+print '| | Cutoffs   | %4.2f Bohr (filt) |' % rcutfilter
+print '+ |           +------------------+'
+print '| |           | %4.2f Bohr (core) |' % rcore
+print '+-------------+------------------+'
+print ''
+print '========= ==============='
+print 'Energy Contributions '
+print '========================='
+print 'Kinetic   %12.4f Ha' % setup.e_kinetic
+print 'Potential %12.4f Ha' % setup.e_electrostatic
+print 'XC        %12.4f Ha' % setup.e_xc
+print '--------- ---------------'
+print 'Total     %12.4f Ha' % setup.e_total
+print '========= ==============='
+print ''
+print '=== === ========= ========='
+print 'Partial Wave Valence States'
+print '==========================='
+print 'id  occ eigenvals cutoff'
+print '--- --- --------- ---------'
+for id, f, eps, rcut in zip(id_j, setup.f_j, setup.eps_j, setup.rcut_j):
+    print '%3s  %s  %6.3f Ha %4.2f Bohr' % (id.replace('*','\*'), f, eps, rcut)
+print '=== === ========= ========='
+print
+print '.. figure:: waves.png'
+print 
+print 'Back to `periodic table`_.'
+print 
+print '.. _periodic table: Setups_'
+print
+
+dpi = 80
+fig = pl.figure(1, figsize=(9.2, 8.4), dpi=dpi)
+fig.subplots_adjust(left=.075, right=.99, top=.96, bottom=.06)
+
+pl.subplot(221)
 for phi_g, phit_g, id, color in zip(setup.phi_jg, setup.phit_jg, id_j, colors):
-    pl.plot(r_g, phi_g, color + '-', label=id)
-    pl.plot(r_g, phit_g, color + '--', label='_nolegend_')
+    pl.plot(r_g, r_g * phi_g, color + '-', label=id)
+    pl.plot(r_g, r_g * phit_g, color + '--', label='_nolegend_')
 pl.legend()
 pl.axis('tight')
 lim = pl.axis(xmin=0, xmax=rmax*1.2)
@@ -61,11 +139,11 @@ pl.plot([rmax, rmax], lim[2:], 'k--', label='_nolegend_')
 pl.text(rmax, lim[2], r'$r_c$', ha='left', va='bottom', size=17)
 pl.title('Partial Waves')
 pl.xlabel('r [Bohr]')
-pl.ylabel(r'$r^l\phi, r^l\tilde{\phi}, \rm{[Bohr}^{-3/2}\rm{]}$')
+pl.ylabel(r'$r^{l+1}\phi,\ r^{l+1}\tilde{\phi},\ \rm{[Bohr}^{-3/2}\rm{]}$')
 
-pl.subplot(132)
+pl.subplot(222)
 for pt_g, id, color in zip(setup.pt_jg, id_j, colors):
-    pl.plot(r_g, pt_g, color + '-', label=id)
+    pl.plot(r_g, r_g * pt_g, color + '-', label=id)
 pl.axis('tight')
 lim = pl.axis(xmin=0, xmax=rmax*1.2)
 pl.plot([rmax, rmax], lim[2:], 'k--', label='_nolegend_')
@@ -73,9 +151,22 @@ pl.text(rmax, lim[2], r'$r_c$', ha='left', va='bottom', size=17)
 pl.legend()
 pl.title('Projectors')
 pl.xlabel('r [Bohr]')
-pl.ylabel(r'$r^l\tilde{p}, \rm{[Bohr}^{-3/2}\rm{]}$')
+pl.ylabel(r'$r^{l+1}\tilde{p},\ \rm{[Bohr}^{-3/2}\rm{]}$')
 
-pl.subplot(133)
+pl.subplot(223)
+if len(logd) != 0:
+    pl.plot(ref[:, 0], ref[:, 1], 'ko', label='_nolegend_')
+    for id, color in zip('spd', colors):
+        pl.plot(loge, logd[id+'ae'], linestyle='-', color=color, label=id)
+        pl.plot(loge, logd[id+'ps'], linestyle='--', color=color,
+                label='_nolegend_')
+lim = pl.axis('tight')
+pl.legend()
+pl.title('Logarithmic Derivatives')
+pl.ylabel('log. deriv. at r=%s Bohr' % rlog)
+pl.xlabel('Energy [Hartree]')
+
+pl.subplot(224)
 pl.plot(r_g, setup.nc_g, colors[0], label=r'$n_c$')
 pl.plot(r_g, setup.nct_g, colors[1], label=r'$\tilde{n}_c$')
 pl.plot(r_g, setup.vbar_g, colors[2], label=r'$\bar{v}$')
@@ -88,4 +179,5 @@ pl.legend()
 pl.title('Other stuff')
 pl.xlabel('r [Bohr]')
 
+pl.savefig('waves.png', dpi=dpi)
 pl.show()
