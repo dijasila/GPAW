@@ -112,6 +112,11 @@ class XCFunctional:
             code = 'lxc' # libxc
             self.uses_libxc = True
             xcname = 'X_RPBE-None'
+        elif xcname == 'PW91':
+            assert (nspins is not None)
+            code = 'lxc' # libxc
+            self.uses_libxc = True
+            xcname = 'X_PW91-C_PW91'
         elif xcname == 'PBE0':
             assert (nspins is not None)
             code = 'lxc' # libxc
@@ -139,12 +144,19 @@ class XCFunctional:
             self.orbital_dependent = True
             if self.setupname is None:
                 self.setupname = 'LDA'
-        elif xcname.startswith('GLLB') or xcname=='KLI' or xcname == 'SAOP':
+        elif xcname.startswith('GLLB') or xcname=='KLI':
             # GLLB type of functionals which use orbitals, require special
             # treatment at first iterations, where there is no orbitals
             # available. Therefore orbital_dependent = True!
             self.orbital_dependent = True
             self.gllb = True
+            code = 'gllb'
+        elif xcname == 'SAOP':
+            self.reference = ( 'P.R.T. Schipper et al, ' +
+                               'J Chem Phys 112 (2000) 1344' )
+            self.orbital_dependent = True
+            self.gllb = True
+            self.gga = True
             code = 'gllb'
         else:
             self.gga = True
@@ -172,18 +184,25 @@ class XCFunctional:
                 xcname = 'revPBEx'
             elif xcname == 'oldRPBEx':
                 code = 12
-                xcname = 'oldRPBEx'
+                xcname = 'RPBEx'
             elif xcname == 'TPSS':
                 code = 9
                 self.mgga = True ## use real tau and local potential
-                ##self.mgga = False ## use local tau and local potential
-            elif xcname == 'PW91':
+                local_tau = False ## use Weiszacker term
+                self.orbital_dependent = True
+
+            elif xcname == 'oldPW91':
                 code = 14
+                xcname = 'PW91'
             elif xcname == 'LB94' or xcname == 'LBalpha':
                 code = 17
                 if xcname == 'LB94':
+                    self.reference = ( 'R. van Leeuwen and E. J. Bearends, ' +
+                                       'Phys Rev A 49 (1994) 2421' )
                     parameters = [1., 0.05] # alpha, beta
                 else:
+                    self.reference = ( 'P.R.T. Schipper et al, ' +
+                                       'J Chem Phys 112 (2000) 1344' )
                     parameters = [1.19, 0.01] # alpha, beta
                 if self.parameters:
                     for i, key in enumerate(['alpha', 'beta']):
@@ -204,7 +223,7 @@ class XCFunctional:
         elif code == 6:
             self.xc = ZeroFunctional()
         elif code == 9:
-            self.xc = _gpaw.MGGAFunctional(code,self.mgga)
+            self.xc = _gpaw.MGGAFunctional(code,local_tau)
         elif code == 'gllb':
             # Get the correct functional from NonLocalFunctionalFactory
             self.xc = NonLocalFunctionalFactory().get_functional_by_name(xcname)
@@ -249,20 +268,14 @@ class XCFunctional:
 
     # Initialize the GLLB functional, hopefully at this stage, the eigenvalues and functions are already available
     def initialize_gllb(self, paw):
-        self.xc.pass_stuff(paw.hamiltonian.vt_sg, paw.density.nt_sg, paw.kpt_u, paw.gd, paw.finegd,
+        self.xc.pass_stuff(paw.hamiltonian.vt_sg, paw.density.nt_sg,
+                           paw.kpt_u, paw.gd, paw.finegd,
                            paw.density.interpolate, paw.nspins,
-                           paw.my_nuclei, paw.nuclei, paw.occupation, paw.kpt_comm, paw.symmetry, paw.nvalence,
-                           paw.eigensolver)
-
+                           paw.my_nuclei, paw.nuclei, paw.occupation,
+                           paw.kpt_comm, paw.symmetry, paw.nvalence,
+                           paw.eigensolver, paw.hamiltonian)
 
     def set_non_local_things(self, paw, energy_only=False):
-        if self.xcname == 'TPSS':
-            paw.hamiltonian.xc.taua_g = paw.gd.empty()
-            if self.nspins == 2:
-                paw.hamiltonian.taub_g = paw.gd.empty()
-            paw.density.initialize_kinetic()
-            paw.density.update_kinetic(paw.kpt_u)
-            paw.hamiltonian.xc.set_kinetic(paw.density.taut_sg)
 
         if not self.orbital_dependent:
             return
@@ -276,7 +289,18 @@ class XCFunctional:
                 use_finegrid = True
 
             self.exx = EXX(paw, energy_only, use_finegrid=use_finegrid)
-        
+
+        if self.xcname == 'TPSS':
+            paw.density.initialize_kinetic()
+            paw.density.update_kinetic(paw.kpt_u)
+            if paw.nspins ==1:
+                paw.hamiltonian.xc.taua_g = paw.density.taut_sg[0]
+            if self.nspins == 2:
+                paw.hamiltonian.xc.taua_g = paw.density.taut_sg[0]
+                paw.hamiltonian.xc.taub_g = paw.density.taut_sg[1]
+            for nucleus in paw.my_nuclei:
+                nucleus.setup.xc_correction.initialize_kinetic(nucleus.setup.data)
+
     def apply_non_local(self, kpt, Htpsit_nG=None, H_nn=None):
         if self.orbital_dependent:
             if self.hybrid > 0.0:
@@ -320,12 +344,12 @@ class XCFunctional:
             gd, u_j, f_j, e_j, l_j, v_xc, density=density)
 
     def calculate_spinpaired(self, e_g, n_g, v_g, a2_g=None, deda2_g=None,
-                             taua_g=None):
+                             taua_g=None,dedtaua_g=None):
         if self.timer is not None:
             self.timer.start('Local xc')
         if self.mgga:
             self.xc.calculate_spinpaired(e_g.ravel(), n_g, v_g, a2_g, deda2_g,
-                                         taua_g)
+                                         taua_g,dedtaua_g)
         elif self.gga:
             # e_g.ravel() !!!!! XXX
             self.xc.calculate_spinpaired(e_g.ravel(), n_g, v_g, a2_g, deda2_g)
@@ -337,14 +361,16 @@ class XCFunctional:
     def calculate_spinpolarized(self, e_g, na_g, va_g, nb_g, vb_g,
                                a2_g=None, aa2_g=None, ab2_g=None,
                                deda2_g=None, dedaa2_g=None, dedab2_g=None,
-                                taua_g=None,taub_g=None):
+                                taua_g=None,taub_g=None,dedtaua_g=None,
+                                dedtaub_g=None):
         if self.timer is not None:
             self.timer.start('Local xc')
         if self.mgga:
+            #dedtau on the grid not used, only in xc_correction 
               self.xc.calculate_spinpolarized(e_g.ravel(), na_g, va_g, nb_g, vb_g,
                                            a2_g, aa2_g, ab2_g,
                                            deda2_g, dedaa2_g, dedab2_g,
-                                              taua_g,taub_g)
+                                              taua_g,taub_g,dedtaua_g,dedtaub_g)
         elif self.gga:
             self.xc.calculate_spinpolarized(e_g.ravel(), na_g, va_g, nb_g, vb_g,
                                            a2_g, aa2_g, ab2_g,
@@ -465,7 +491,8 @@ class XC3DGrid(XCGrid):
                 self.ab2_g = gd.empty()
                 self.dedaa2_g = gd.empty()
                 self.dedab2_g = gd.empty()
-
+        if xcfunc.mgga:
+            self.temp = gd.empty()
         self.e_g = gd.empty()
 
     # Calculates exchange energy and potential.
@@ -483,7 +510,7 @@ class XC3DGrid(XCGrid):
             self.xcfunc.calculate_spinpaired(e_g, n_g, v_g,
                                              self.a2_g,
                                              self.deda2_g,
-                                             self.taua_g)
+                                             self.taua_g,self.temp)
             tmp_g = self.dndr_cg[0]
             for c in range(3):
                 self.ddr[c](self.deda2_g * self.dndr_cg[c], tmp_g)
@@ -492,7 +519,7 @@ class XC3DGrid(XCGrid):
         elif self.xcfunc.gga:
             for c in range(3):
                 self.ddr[c](n_g, self.dndr_cg[c])
-            
+
             npy.sum(self.dndr_cg**2, axis=0, out=self.a2_g)
 
             self.xcfunc.calculate_spinpaired(e_g,
@@ -530,7 +557,9 @@ class XC3DGrid(XCGrid):
                                                 self.dedaa2_g,
                                                 self.dedab2_g,
                                                 self.taua_g,
-                                                self.taub_g)
+                                                self.taub_g,
+                                                self.temp,
+                                                self.temp)
             tmp_g = self.a2_g
             for c in range(3):
                 if not self.uses_libxc:
@@ -585,12 +614,6 @@ class XC3DGrid(XCGrid):
                                                 nb_g, vb_g)
         return e_g.sum() * self.dv
 
-    def set_kinetic(self,taut_sg):
-        if self.nspins ==1:
-            self.taua_g = taut_sg[0]
-        if self.nspins == 2:
-            self.taua_g = taut_sg[0]
-            self.taub_g = taut_sg[1]
 
 class XCRadialGrid(XCGrid):
     def __init__(self, xcfunc, gd, nspins=1):

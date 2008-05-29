@@ -1,4 +1,4 @@
-# Copyright (c) 2007 Lauri Lehtovaara
+# Written by Lauri Lehtovaara, 2007
 
 """This module implements classes for time-dependent variables and 
 operators."""
@@ -157,8 +157,8 @@ class AbsorptionKickHamiltonian:
                              + strength[2]*strength[2])
         # iterations
         self.iterations = int(round(magnitude / 1.0e-4))
-        if self.iterations < 4:
-            self.iterations = 4
+        if self.iterations < 1:
+            self.iterations = 1
         # delta p
         self.dp = strength / self.iterations
 

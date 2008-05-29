@@ -64,10 +64,8 @@ def write(paw, filename, mode):
 
         try:
             magmom_a = atoms.get_magnetic_moments()
-            if magmom_a is None:
-                raise KeyError
-        except KeyError:
-            magmom_a = npy.zeros(paw.natoms)
+        except RuntimeError:
+            magmom_a = atoms.get_initial_magnetic_moments()
         try:
             tag_a = atoms.get_tags()
             if tag_a is None:
@@ -374,7 +372,7 @@ def read(paw, reader):
 
     # Transfer the density to the fine grid:
     paw.density.interpolate_pseudo_density()  # Do this later??????
-    paw.density.initialized = True
+    paw.density.starting_density_initialized = True
     
     if version > 0.3:
         for s in range(paw.nspins): 
@@ -410,7 +408,8 @@ def read(paw, reader):
     paw.S = r['S']
     paw.Etot = r.get('PotentialEnergy') - 0.5 * paw.S
 
-    paw.occupation.set_fermi_level(r['FermiLevel'])
+    if not paw.fixmom:
+        paw.occupation.set_fermi_level(r['FermiLevel'])
 
     # Wave functions and eigenvalues:
     nkpts = len(r.get('IBZKPoints'))

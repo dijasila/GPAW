@@ -336,11 +336,11 @@ class LocFuncs:
     def norm(self):
         """Calculate norm of localized functions."""
 
-        I_i = npy.zeros(self.ni)
+        I_ic = npy.zeros((self.ni, 4))
         for box in self.box_b:
-            box.norm(I_i)
-        self.sum(I_i, broadcast=True)
-        return I_i
+            box.norm(I_ic)
+        self.sum(I_ic, broadcast=True)
+        return I_ic
         
     def normalize(self, I0):
         """Normalize localized functions.
@@ -350,9 +350,9 @@ class LocFuncs:
         functions (l > 0) are adjusted so that they integrate to
         zero."""
 
-        I_i = self.norm()
+        I_ic = self.norm()
         for box in self.box_b:
-            box.normalize(I0, I_i)
+            box.normalize(I0, I_ic)
 
         
 class LocalizedFunctionsWrapper:
@@ -476,17 +476,19 @@ class LocalizedFunctionsWrapper:
         assert D_p.shape == (self.ni * (self.ni + 1) / 2,)
         return self.lfs.add_density2(n_G, D_p)
 
-    def norm(self, I_i):
+    def norm(self, I_ic):
         """Integrate functions."""
-        assert is_contiguous(I_i, float)
-        assert I_i.shape == (self.ni,)
-        return self.lfs.norm(I_i)
+        assert I_ic.flags.contiguous
+        assert I_ic.dtype == float
+        assert I_ic.shape == (self.ni, 4)
+        return self.lfs.norm(I_ic)
 
-    def normalize(self, I0, I_i):
+    def normalize(self, I0, I_ic):
         """Normalize functions."""
-        assert is_contiguous(I_i, float)
-        assert I_i.shape == (self.ni,)
-        return self.lfs.normalize(I0, I_i)
+        assert I_ic.flags.contiguous
+        assert I_ic.dtype == float
+        assert I_ic.shape == (self.ni, 4)
+        return self.lfs.normalize(I0, I_ic)
 
 if debug:
     # Add type and sanity checks:

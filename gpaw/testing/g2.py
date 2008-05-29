@@ -2030,7 +2030,7 @@ elements = ['H','Li','Be','B','C','N','O','F','Na','Mg','Al','Si','P','S','Cl']
 extra = order[:1] # The extra systems
 g1 = order[1:56]  # The g1 molecules
 g2 = order[1:149] # The g2 molecules
-g3 = order[1:]    # The g3 molecules
+g3 = order[1:224] # The g3 molecules
 del order
 
 def get_ae(name):
@@ -2053,7 +2053,7 @@ def get_g2(name, cell=(1.0, 1.0, 1.0)):
         loa =  Atoms([Atom(name, magmom=atoms[name][0])], cell=cell, pbc=False)
     elif name in extra or name in g2:
         loa = eval(name).copy()
-        loa.set_cell(cell, fix=True)
+        loa.set_cell(cell)
         loa.set_pbc(False)
     else:
         raise NotImplementedError('System %s not in database.' % name)

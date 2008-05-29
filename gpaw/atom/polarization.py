@@ -205,7 +205,7 @@ class CoefficientOptimizer:
         simplex = npy.concatenate((npy.ones((ccount,1)),
                                    ones + .5 * diag), axis=1)
         simplex = npy.transpose(simplex)
-        self.amoeba = Amoeba(simplex, function=function, tolerance=1e-10)
+        self.amoeba = Amoeba(function, simplex, tolerance=1e-10)
         
     def find_coefficients(self):
         self.amoeba.optimize()
@@ -744,6 +744,13 @@ def dummy_test(lmax=4, rcut=6., lmin=0): # fix args
 restart_filename = 'ref.%s.gpw'
 output_filename = 'ref.%s.txt'
 
+# XXX find a better way to do this
+# Default characteristic radii when using only one gaussian
+default_rchar_rel = .25
+# Defaults for each l.  Actually we don't care right now
+rchar_rels = {}#1: .3,
+              #2: .25}
+
 # Systems for non-dimer-forming or troublesome atoms
 # 'symbol' : (g2 key, index of desired atom)
 
@@ -778,7 +785,7 @@ def get_systems(symbols=None):
 class Reference:
     """Represents a reference function loaded from a file."""
     def __init__(self, symbol, filename=None, index=None, txt=None):
-        if filename is None:
+        if filename is None or filename == '-':
             formula, index = get_system(symbol)
             filename = restart_filename % formula
         calc = Calculator(filename, txt=txt)

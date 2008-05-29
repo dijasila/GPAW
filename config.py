@@ -77,6 +77,7 @@ def get_system_config(define_macros, undef_macros,
     undef_macros += ['NDEBUG']
     import numpy
     include_dirs += [numpy.get_include()]
+    include_dirs += ['c/libxc']
 
     machine = os.uname()[4]
     if machine == 'sun4u':
@@ -345,13 +346,14 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     cfiles2remove = ['c/libxc/src/test.c',
                      'c/libxc/src/xc_f.c',
                      'c/libxc/src/work_gga_x.c',
+                     'c/libxc/src/work_lda.c',
                      'c/scalapack.c',
                      'c/sl_inverse_cholesky.c'
                      ]
     for c2r in glob('c/libxc/src/funcs_*.c'): cfiles2remove.append(c2r)
     for c2r in cfiles2remove: cfiles.remove(c2r)
     sources = ['c/bc.c', 'c/localized_functions.c', 'c/mpi.c', 'c/_gpaw.c',
-               'c/operators.c', 'c/transformers.c']
+               'c/operators.c', 'c/transformers.c'] 
     objects = ' '.join(['build/temp.%s/' % plat + x[:-1] + 'o'
                         for x in cfiles])
 

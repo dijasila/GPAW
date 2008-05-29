@@ -18,6 +18,12 @@ class Cluster(Atoms):
 
         self.data = {}
 
+        if len(args) > 0:
+            filename = args[0]
+            if isinstance(filename, str):
+                self.read(filename, kwargs.get('filetype'))
+                return
+            
         if kwargs.get('filename') is not None:
             filename = kwargs.pop('filename')
             Atoms.__init__(self, *args, **kwargs)
@@ -84,7 +90,7 @@ class Cluster(Atoms):
             
         # move lower corner to (0,0,0)
         self.translate(tuple(-1.*npy.array(extr[0])))
-        self.set_cell(tuple(extr[1]), fix=True)
+        self.set_cell(tuple(extr[1]))
 
         return self.get_cell()
 
@@ -117,6 +123,10 @@ class Cluster(Atoms):
 
         if filetype == 'cube':
             loa = read_cube(filename)
+        elif filetype == 'vmol':
+            from gpaw.utilities.viewmol import Trajectory
+            traj = Trajectory(filename)
+            loa = traj[-1]
         elif filetype == 'xyz':
             loa = read_xyz(filename)
         else:

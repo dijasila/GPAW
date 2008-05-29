@@ -154,6 +154,22 @@ static PyObject * mpi_sum(MPIObject *self, PyObject *args)
     }
 }
 
+static PyObject * mpi_scatter(MPIObject *self, PyObject *args)
+{
+  PyObject* sendobj;
+  PyObject* recvobj;
+  int root;
+  if (!PyArg_ParseTuple(args, "OOi", &sendobj, &recvobj, &root))
+    return NULL;
+  PyArrayObject* s = (PyArrayObject*)sendobj;
+  PyArrayObject* r = (PyArrayObject*)recvobj;
+  int n = r->descr->elsize;
+  for (int d = 0; d < r->nd; d++)
+    n *= r->dimensions[d];
+  MPI_Scatter(LONGP(s), n, MPI_BYTE, LONGP(r), n, MPI_BYTE, root, self->comm);
+  Py_RETURN_NONE;
+}
+
 static PyObject * mpi_max(MPIObject *self, PyObject *args)
 {
   PyObject* obj;

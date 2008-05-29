@@ -42,7 +42,7 @@ class Nucleus:
      ``vhat_L`` Correction potentials for overlapping compensation charges.
      ``pt_i``   Projector functions.
      ``vbar``   Arbitrary localized potential.
-     ``phit_i`` Pseudo partial waves used for initial wave function guess.
+     ``phit_i`` Basis functions used for LCAO and initial wave function guess.
      ========== ===========================================================
 
     Arrays:
@@ -51,7 +51,7 @@ class Nucleus:
                functions of this atom (``P_{\sigma\vec{k}ni}^a``).
      ``D_sp``  Atomic density matrix (``D_{\sigma i_1i_2}^a``).
                Packed with pack 1.
-     ``dH_sp`` Atomic Hamiltonian correction (``\Delta H_{\sigma i_1i_2}^a``).
+     ``H_sp`` Atomic Hamiltonian correction (``\Delta H_{\sigma i_1i_2}^a``).
                Packed with pack 2.
      ``Q_L``   Multipole moments  (``Q_{\ell m}^a``).
      ``F_c``   Force.
@@ -81,6 +81,11 @@ class Nucleus:
         self.nct = None
         self.tauct = None
         self.mom = npy.array(0.0)
+        self.P_uni = None
+        self.P_kmi = None # basis function/projector overlaps
+        self.dPdR_kcmi = None
+        self.phit_i = None # basis functions
+        self.m = None # lowest index of basis functions for this nucleus
 
     def __cmp__(self, other):
         """Ordering of nuclei.
@@ -231,11 +236,11 @@ class Nucleus:
                     + self.setup.Z - self.setup.Nc)
             self.nct.normalize(Nct)
 
-    def initialize_atomic_orbitals(self, gd, k_ki, lfbc):
+    def initialize_atomic_orbitals(self, gd, k_ki, lfbc, lcao_forces=False):
         phit_j = self.setup.phit_j
         self.phit_i = create_localized_functions(
             phit_j, gd, self.spos_c, dtype=self.dtype,
-            cut=True, forces=False, lfbc=lfbc)
+            cut=True, forces=lcao_forces, lfbc=lfbc)
         if self.dtype == complex and self.phit_i is not None:
             self.phit_i.set_phase_factors(k_ki)
 
@@ -266,13 +271,29 @@ class Nucleus:
             # Convert to ndarray:
             self.f_si = npy.asarray(self.f_si, float)
         else:
-            self.f_si = self.calculate_initial_occupation_numbers(ns, niao,
-                                                                  magmom, hund)
+            self.f_si = self.calculate_initial_occupation_numbers(
+                ns, niao, magmom, hund)
 
         if self.in_this_domain:
             D_sii = npy.zeros((ns, ni, ni))
-            for i in range(min(ni, niao)):
-                D_sii[:, i, i] = self.f_si[:, i]
+            nj = len(self.setup.n_j)
+            j = 0
+            i = 0
+            ib = 0
+            for phit in self.setup.phit_j:
+                l = phit.get_angular_momentum_number()
+                # Skip projector functions not in basis set:
+                while j < nj and self.setup.l_j[j] != l:
+                    i += 2 * self.setup.l_j[j] + 1
+                    j += 1
+                if j == nj:
+                    break
+
+                for m in range(2 * l + 1):
+                    D_sii[:, i + m, i + m] = self.f_si[:, ib + m]
+                j += 1
+                i += 2 * l + 1
+                ib += 2 * l + 1
             for s in range(ns):
                 self.D_sp[s] = pack(D_sii[s])
 
@@ -281,16 +302,27 @@ class Nucleus:
 
     def calculate_initial_occupation_numbers(self, ns, niao, magmom, hund):
         f_si = npy.zeros((ns, niao))
+
+        setup = self.setup
+
+        # Projector function indices:
+        j = 0
+        nj = len(setup.n_j)
+        
         i = 0
-        nj = len(self.setup.n_j)
-        for j, phit in enumerate(self.setup.phit_j):
+        for phit in setup.phit_j:
             l = phit.get_angular_momentum_number()
-            if j < nj and self.setup.n_j[j] >= 0:
-                f = self.setup.f_j[j]
+
+            # Skip projector functions not in basis set:
+            while j < nj and setup.l_j[j] != l:
+                j += 1
+            if j < nj:
+                f = int(setup.f_j[j])
             else:
                 f = 0
+
             degeneracy = 2 * l + 1
-            f = int(f)
+
             if hund:
                 # Use Hunds rules:
                 f_si[0, i:i + min(f, degeneracy)] = 1.0      # spin up
@@ -312,11 +344,13 @@ class Nucleus:
                     magmom -= mag
                 
             i += degeneracy
+            j += 1
 
         if magmom != 0:
             raise RuntimeError('Bad magnetic moment %g for %s atom!' %
                                (magmom, self.setup.symbol))
         assert i == niao
+
         return f_si
     
     def add_smooth_core_density(self, nct_G, nspins):
@@ -443,6 +477,31 @@ class Nucleus:
 
             yield 0.0, 0.0, 0.0, 0.0, 0.0
 
+    def update_core_eigenvalues(self, vHt_g):
+        # TODO: How to calculate just W_0? Get it from calculate hamiltonian?
+        W_L = npy.zeros((self.setup.lmax + 1)**2)
+        for x in self.ghat_L.iintegrate(vHt_g, W_L):
+            yield None
+    
+        all_Et = W_L[0] / sqrt(4*pi) 
+        all_Eat = - self.Q_L[0] * self.setup.core_B - self.setup.core_C
+
+        D_p = self.D_sp.sum(0)
+
+        # Start with pure kinetic energy + external potential contribution
+        self.coreref_k = self.setup.coreref_k.copy()
+
+        # Calculate the eigenvalue dependent contributions
+        for k in range(0, self.setup.njcore):
+            # From E^a
+            I = npy.dot(D_p, self.setup.core_A_kp[k])
+            # From \tilde{E}^a
+            It = npy.dot(D_p, self.setup.core_At_kp[k])
+            # Include all corrections to eigenvalue
+            self.coreref_k[k] += all_Et + all_Eat + I - It
+
+        yield None
+            
     def adjust_residual(self, R_nG, eps_n, s, u, k):
         if self.in_this_domain:
             H_ii = unpack(self.H_sp[s])
@@ -725,6 +784,123 @@ class Nucleus:
         else:
             self.D_sp[s] = pack(D_ii)
 
+
+    def get_projector_derivatives(self, c, hamiltonian, kpt):
+        # Get dPdRa, i.e. derivative of all projector overlaps
+        # with respect to the position of *this* atom.  That inclues
+        # projectors from *all* atoms.
+        #
+        # Some overlap derivatives must be multiplied by 0 or -1
+        # depending on which atom is moved.  This is a temporary hack.
+        # 
+        # For some reason the "masks" for atoms *before* this one must be
+        # multiplied by -1, whereas those *after* must not.
+        #
+        # Also, for this atom, we must apply a mask which is -1 for
+        # m < self.m, and +1 for m > self.m + self.setup.niAO
+        dPdRa_ami = []
+        factor = -1.
+        mask_m = npy.zeros(hamiltonian.nao)
+        mask_m[self.m:self.m + self.get_number_of_atomic_orbitals()] = 1.
+        for nucleus in hamiltonian.nuclei:
+            if self == nucleus:
+                ownmask_m = npy.zeros(hamiltonian.nao)
+                m1 = self.m
+                m2 = self.m + self.get_number_of_atomic_orbitals()
+                ownmask_m[:m1] = -1.
+                ownmask_m[m2:] = +1.
+                selfcontrib = (self.dPdR_kcmi[kpt.k, c, :, :] * 
+                               ownmask_m[None].T)
+                dPdRa_ami.append(selfcontrib)
+                factor = 1.
+            else:
+                dPdRa_mi = (nucleus.dPdR_kcmi[kpt.k, c, :, :] * 
+                           mask_m[None].T * factor)
+                dPdRa_ami.append(dPdRa_mi)
+        return dPdRa_ami
+
+    def get_overlap_derivatives(self, c, dPdRa_ami, hamiltonian, kpt):
+        P_ami = [nucleus.P_kmi[kpt.k, :, :] for nucleus
+                 in hamiltonian.nuclei]
+        O_aii = [nucleus.setup.O_ii for nucleus in hamiltonian.nuclei]
+        dThetadR_mm = hamiltonian.dThetadR_kcmm[kpt.k, c, :, :]
+        
+        pawcorrection_mm = npy.zeros((hamiltonian.nao, hamiltonian.nao), 
+                                     self.dtype)
+
+        for dPdRa_mi, P_mi, O_ii in zip(dPdRa_ami, P_ami, O_aii):
+            A_mm = npy.dot(dPdRa_mi, npy.dot(O_ii, P_mi.T.conj()))
+            B_mm = npy.dot(P_mi, npy.dot(O_ii, dPdRa_mi.T.conj()))
+            # XXX symmmetry
+            pawcorrection_mm += A_mm + B_mm
+
+        return dThetadR_mm * self.mask_mm + pawcorrection_mm
+
+    def calculate_potential_derivatives(self, hamiltonian, kpt):
+        nao = hamiltonian.nao
+        my_nao = self.get_number_of_atomic_orbitals()
+        m1 = self.m
+        m2 = m1 + my_nao
+        dtype = kpt.dtype
+        vt_G = hamiltonian.vt_sG[kpt.s]
+        dVtdRa_mMc = npy.zeros((nao, my_nao, 3), dtype)
+
+        phit_mG = npy.zeros((nao,) + vt_G.shape, dtype)
+        for a, nucleus in enumerate(hamiltonian.nuclei):
+            its_nao = nucleus.get_number_of_atomic_orbitals()
+            M1 = nucleus.m
+            M2 = M1 + its_nao
+
+            coef_MM = npy.identity(its_nao)
+            nucleus.phit_i.add(phit_mG[M1:M2], coef_MM, kpt.k)
+
+        for phit_G in phit_mG:
+            phit_G *= vt_G
+
+        # Maybe it's possible to do this in a less loop-intensive way
+        self.phit_i.derivative(phit_mG, dVtdRa_mMc, kpt.k)
+
+        dVtdRa_mmc = npy.zeros((nao, nao, 3), dtype)
+        dVtdRa_mmc[:, m1:m2, :] -= dVtdRa_mMc
+        return dVtdRa_mmc
+
+    def calculate_force_kpoint_lcao(self, kpt, hamiltonian):
+        assert hamiltonian.lcao_forces, 'Not set up for force calculations!'
+        k = kpt.k
+        C_nm = kpt.C_nm
+        Chc_mn = C_nm.T.conj()
+        rho_mm = npy.dot(Chc_mn * kpt.f_n, C_nm)
+
+        P_mi = self.P_kmi[k]
+        S_mm = hamiltonian.S_kmm[k]
+        T_mm = hamiltonian.T_kmm[k]
+        dTdR_cmm = hamiltonian.dTdR_kcmm[k]
+        dPdR_cmi = self.dPdR_kcmi[k]
+
+        H_ii = unpack(self.H_sp[kpt.s])
+        
+        mask_mm = self.mask_mm
+        dVtdRa_mmc = self.calculate_potential_derivatives(hamiltonian, kpt)
+
+        for c, (dTdR_mm, dPdR_mi) in enumerate(zip(dTdR_cmm, dPdR_cmi)):
+            dPdRa_ami = self.get_projector_derivatives(c, hamiltonian, kpt)
+            dSdRa_mm = self.get_overlap_derivatives(c, dPdRa_ami,
+                                                    hamiltonian, kpt)
+
+            dEdrhodrhodR = - npy.dot(npy.dot(kpt.eps_n * kpt.f_n * Chc_mn, 
+                                             C_nm), dSdRa_mm).trace()
+            dEdTdTdR = npy.dot(rho_mm, dTdR_mm * mask_mm).trace()
+            dEdDdDdR = 0.
+            for nucleus, dPdRa_mi in zip(hamiltonian.nuclei, dPdRa_ami):
+                A_ii = npy.dot(dPdRa_mi.T.conj(), 
+                               npy.dot(rho_mm, nucleus.P_kmi[k]))
+                Hb_ii = unpack(nucleus.H_sp[kpt.s])
+                dEdDdDdR += 2 * npy.dot(Hb_ii, A_ii).real.trace()
+
+            dEdndndR = 2 * npy.dot(rho_mm, dVtdRa_mmc[:, :, c]).real.trace()
+            F = - (dEdrhodrhodR + dEdTdTdR + dEdDdDdR + dEdndndR)
+            self.F_c[c] += F
+
     def calculate_force_kpoint(self, kpt):
         f_n = kpt.f_n
         eps_n = kpt.eps_n
@@ -839,8 +1015,8 @@ class Nucleus:
                 + self.setup.Z - self.setup.Nc)
 
         # Actual normalizations:
-        Nc0 = nc.norm()[0]
-        Nct0 = nct.norm()[0]
+        Nc0 = nc.norm()[0, 0]
+        Nct0 = nct.norm()[0, 0]
 
         for s in range(nspins):
             # Numeric and analytic integrations of density corrections:
@@ -888,3 +1064,7 @@ class Nucleus:
         Z_nn = e * npy.dot(npy.dot(P_ni, O_ii), cc(npy.transpose(P1_ni)))
 
         return Z_nn
+
+    def get_electrostatic_correction(self):
+        """Calculate PAW correction to average electrostatic potential."""
+        return self.setup.dEH0 + npy.dot(self.setup.dEH_p, self.D_sp.sum(0))

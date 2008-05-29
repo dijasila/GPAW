@@ -46,6 +46,10 @@ class Spline:
         """Return the angular momentum quantum number."""
         return self.spline.get_angular_momentum_number()
 
+    def get_value_and_derivative(self, r):
+        """Return the value and derivative."""
+        return self.spline.get_value_and_derivative(r)
+
     def __call__(self, r):
         assert r >= 0.0
         return self.spline(r)

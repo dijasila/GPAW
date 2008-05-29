@@ -22,7 +22,7 @@ parameters = {
  'H' : {'rcut': 0.9},
  'He': {'rcut': 1.5},
  'Li': {'core': '[He]',   'rcut': 2.1},
- 'Be': {'core': '[He]',   'rcut': 1.5}, # rcut=1.9 is enough?
+ 'Be': {'core': '[He]',   'rcut': 1.5},
  'B' : {'core': '[He]',   'rcut': 1.2},
  'C' : {'core': '[He]',   'rcut': 1.2},
  'N' : {'core': '[He]',   'rcut': 1.1},
@@ -37,9 +37,10 @@ parameters = {
  'S' : {'core': '[Ne]',   'rcut': 1.6},
  'Cl': {'core': '[Ne]',   'rcut': 1.5},
  'Ar': {'core': '[Ne]',   'rcut': 1.6},
- 'K' : {'core': '[Ar]',   'rcut': 3.3},
+ 'K' : {'core': '[Ne]',   'rcut': [2.5, 2.1, 2.1]},
  'Ca': {'core': '[Ne]',   'rcut': [2.0, 1.7]},
- 'Ti': {'core': '[Ar]',   'rcut': [2.4, 2.6, 2.4]},
+ 'Ti': {'core': '[Ne]3s', 'rcut': [2.4, 1.8, 1.8],
+        'vbar': ('poly', 2.3), 'rcutcomp': 2.3},
  'V' : {'core': '[Ar]',   'rcut': [2.5, 2.4, 2.0],
         'vbar': ('poly', 2.3), 'rcutcomp': 2.5},
  'Cr': {'core': '[Ar]',   'rcut': [2.2, 2.3, 2.1]},
@@ -50,7 +51,8 @@ parameters = {
  'Zn': {'core': '[Ar]',   'rcut': [2.0, 1.9, 1.9]},
  'Ga': {'core': '[Ar]3d', 'rcut': 2.2},
  'Ge': {'core': '[Ar]3d', 'rcut': 1.9},
- 'As': {'core': '[Ar]',   'rcut': 2.0},
+ 'As': {'core': '[Ar]3d', 'rcut': 2.0},
+ 'Se': {'core': '[Ar]3d', 'rcut': [1.6, 1.9]},
  'Kr': {'core': '[Ar]3d', 'rcut': 2.2},
  'Rb': {'core': '[Ar]3d', 'rcut': [2.8, 2.4, 2.4]},
  'Sr': {'core': '[Ar]3d', 'rcut': [2.4, 2.4, 2.3],
@@ -76,10 +78,15 @@ parameters = {
  'Pb': {'core': '[Xe]4f', 'rcut': [2.4,2.6,2.4]}
  }
 
-parameters_hard = {
- 'Li': {'name': 'hard', 'rcut': 1.5, 'extra': {1: [-0.0413]}}, # nocore
+# Extra setups
+parameters_extra = {
+ 'H' : {'name': 'single', 'rcut': 0.9, 'extra': {}},# No extra projectors
+ 'Li': {'name': 'hard', 'rcut': 1.5, 'extra': {1: [-0.0413]}}, # No core
+ 'Be': {'name': 'soft', 'core': '[He]', 'rcut': 1.9},
  'O' : {'name': 'hard', 'core': '[He]', 'rcut': 1.2},
  'Si': {'name': 'hard', 'core': '[Ne]', 'rcut': 1.85},
+ 'Pt': {'name': 'soft', 'core': '[Xe]4f', 'rcut': [2.5, 2.7, 2.3],
+        'rcutcomp': 2.5},
  }
 
 
@@ -209,6 +216,8 @@ class Generator(AllElectron):
             nc = npy.dot(f_j[:njcore], uc_j**2) / (4 * pi)
             nc[1:] /= r[1:]**2
             nc[0] = nc[1]
+
+        self.nc = nc
 
         # Calculate core kinetic energy density
         if njcore == 0:
@@ -1040,10 +1049,17 @@ def construct_smooth_wavefunction(u, l, gc, r, s):
 if __name__ == '__main__':
     import os
     from gpaw.xc_functional import XCFunctional
-    for symbol in 'Ir Pt Au'.split():
+
+    # Pt and Au needs to be done non-scalar-relatistic first:
+    for symbol in 'Pt Au'.split():
         g = Generator(symbol, 'LDA', scalarrel=False, nofiles=False)
         g.run(exx=True, **parameters[symbol])
-    #for xcname in ['LDA', 'PBE', 'X-C_PW', 'X_PBE-C_PBE']:
+
+    # Special case for Ir also:
+    g = Generator('Ir', 'LDA', scalarrel=False, nofiles=False)
+    g.run(exx=True, **{'core': '[Xe]4f', 'rcut': [2.5, 2.6, 2.5],
+                       'vbar': ('poly', 2.1), 'rcutcomp': 2.3})
+
     for xcname in ['LDA', 'PBE']:
         for symbol, par in parameters.items():
             filename = symbol + '.' + XCFunctional(xcname).get_name()

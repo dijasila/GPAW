@@ -42,15 +42,10 @@ class Hamiltonian(LCAOHamiltonian):
      ========== =========================================
     """
 
-    def __init__(self, ng=2**12):
+    def __init__(self, paw, ng=2**12):
         """Create the Hamiltonian."""
         LCAOHamiltonian.__init__(self, ng)
 
-        # These should be set here:
-        #self.vext_g = ...
-        #self.nn = ...
-
-    def initialize(self, paw):
         self.nspins = paw.nspins
         self.gd = paw.gd
         self.finegd = paw.finegd
@@ -60,11 +55,15 @@ class Hamiltonian(LCAOHamiltonian):
         self.nuclei = paw.nuclei
         self.timer = paw.timer
 
-        # Allocate arrays for potentials and densities on coarse and
-        # fine grids:
-        self.vt_sG = self.gd.empty(self.nspins)
-        self.vHt_g = self.finegd.zeros()
-        self.vt_sg = self.finegd.empty(self.nspins)
+        p = paw.input_parameters
+        self.stencils = p['stencils']
+
+
+        # Solver for the Poisson equation:
+        psolver = p['poissonsolver']
+        if psolver is None:
+            psolver = PoissonSolver(nn='M', relax='J')
+        self.poisson = psolver
 
         # The external potential
         vext_g = paw.input_parameters['external']
@@ -76,39 +75,44 @@ class Hamiltonian(LCAOHamiltonian):
         else:
             self.vext_g = None
 
-        p = paw.input_parameters
-        stencils = p['stencils']
+        self.initialized = False
+
+    def initialize(self, paw):
+        """Allocate arrays for potentials on coarse and fine grids
+        and initialize objects which require array allocations"""
+
+        self.vt_sG = self.gd.empty(self.nspins)
+        self.vHt_g = self.finegd.zeros()
+        self.vt_sg = self.finegd.empty(self.nspins)
+
+        self.poisson.initialize(self.finegd)
+        self.npoisson = 0 #???
 
         # Number of neighbor grid points used for finite difference
         # Laplacian in the Schrödinger equation (1, 2, ...):
-        nn = stencils[0]
+        nn = self.stencils[0]
 
         # Kinetic energy operator:
         self.kin = Laplace(self.gd, -0.5, nn, paw.dtype)
 
         # Number of neighbor grid points used for interpolation (1, 2,
         # or 3):
-        nn = stencils[1]
+        nn = self.stencils[1]
 
         # Restrictor function for the potential:
         self.restrict = Transformer(self.finegd, self.gd, nn).apply
 
-        # Solver for the Poisson equation:
-        psolver = p['poissonsolver']
-        if psolver is None:
-            psolver = PoissonSolver(nn='M', relax='J')
-        self.poisson = psolver
-        self.poisson.initialize(self.finegd)
-
         # Pair potential for electrostatic interacitons:
         self.pairpot = PairPotential(paw.setups)
-
-        self.npoisson = 0 #???
 
         # Exchange-correlation functional object:
         self.xc = XC3DGrid(paw.xcfunc, self.finegd, self.nspins)
 
+        paw.xcfunc.set_non_local_things(paw)
+
         LCAOHamiltonian.initialize(self, paw)
+
+        self.initialized = True
 
     def update(self, density):
         """Calculate effective potential.
@@ -120,8 +124,6 @@ class Hamiltonian(LCAOHamiltonian):
         self.timer.start('Hamiltonian')
         vt_g = self.vt_sg[0]
         vt_g[:] = 0.0
-
-        density.update_pseudo_charge()
 
         for nucleus in self.ghat_nuclei:
             nucleus.add_localized_potential(vt_g)
@@ -201,7 +203,8 @@ class Hamiltonian(LCAOHamiltonian):
 
         self.timer.stop('Hamiltonian')
 
-    def apply(self, a_nG, b_nG, kpt, calculate_P_uni=True):
+    def apply(self, a_nG, b_nG, kpt, 
+              calculate_projections=True, local_part_only=False):
         """Apply the Hamiltonian operator to a set of vectors.
 
         Parameters
@@ -211,7 +214,7 @@ class Hamiltonian(LCAOHamiltonian):
         b_nG: ndarray, output
             Resulting S times a_nG vectors.
         kpt: KPoint object
-             k-point object defined in kpoint.py.
+            k-point object defined in kpoint.py.
         calculate_P_uni: bool
             When True, the integrals of projector times vectors
             P_ni = <p_i | a_nG> are calculated.
@@ -219,21 +222,27 @@ class Hamiltonian(LCAOHamiltonian):
         
         """
 
-        b_nG[:] = 0.0
-        if self.timer is not None:
-            self.timer.start('Apply pseudo-hamiltonian');
-        self.kin.apply(a_nG, b_nG, kpt.phase_cd)
-        b_nG += a_nG * self.vt_sG[kpt.s]
-        if self.timer is not None:
-            self.timer.stop('Apply pseudo-hamiltonian');
-        
-        # Apply the non-local part:
-        if self.timer is not None:
-            self.timer.start('Apply atomic hamiltonian');
-        run([nucleus.apply_hamiltonian(a_nG, b_nG, kpt, calculate_P_uni)
-             for nucleus in self.pt_nuclei])
+        self.timer.start('Apply pseudo-hamiltonian')
 
-        if self.timer is not None:
+        self.kin.apply(a_nG, b_nG, kpt.phase_cd)
+        vt_G = self.vt_sG[kpt.s]
+        if a_nG.ndim == 3:
+            b_nG += a_nG * vt_G
+        else:
+            for a_G, b_G in zip(a_nG, b_nG):
+                b_G += a_G * vt_G
+
+        self.timer.stop('Apply pseudo-hamiltonian');
+        
+        if local_part_only:
+            assert not calculate_projections
+        else:
+            # Apply the non-local part:
+            self.timer.start('Apply atomic hamiltonian');
+            run([nucleus.apply_hamiltonian(a_nG, b_nG, kpt,
+                                           calculate_projections)
+                 for nucleus in self.pt_nuclei])
+
             self.timer.stop('Apply atomic hamiltonian');
 
         

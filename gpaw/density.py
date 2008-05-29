@@ -66,8 +66,19 @@ class Density:
             setup = nucleus.setup
             self.charge += (setup.Z - setup.Nv - setup.Nc)
         
-        # Allocate arrays for potentials and densities on coarse and
-        # fine grids:
+        # Number of neighbor grid points used for interpolation (1, 2, or 3):
+        self.nn = p['stencils'][1]
+
+        
+        # Density mixer
+        self.set_mixer(paw, p['mixer'])
+        
+        self.initialized = False
+        self.starting_density_initialized = False
+
+    def initialize(self):
+        """Allocate arrays for densities on coarse and fine grids"""
+
         self.nct_G = self.gd.empty()
         self.nt_sG = self.gd.empty(self.nspins)
         self.rhot_g = self.finegd.empty()
@@ -77,19 +88,13 @@ class Density:
         else:
             self.nt_g = self.finegd.empty()
 
-        # Number of neighbor grid points used for interpolation (1, 2, or 3):
-        nn = p['stencils'][1]
-
         # Interpolation function for the density:
-        self.interpolate = Transformer(self.gd, self.finegd, nn).apply
-        
-        # Density mixer
-        self.set_mixer(paw, p['mixer'])
-        
-        self.initialized = False
+        self.interpolate = Transformer(self.gd, self.finegd, self.nn).apply
 
-    def initialize(self):
-        """Initialize density.
+        self.initialized = True
+
+    def initialize_from_atomic_density(self):
+        """Initialize density from atomic densities.
 
         The density is initialized from atomic orbitals, and will
         be constructed with the specified magnetic moments and
@@ -113,11 +118,16 @@ class Density:
         # the compensation charges:
         self.scale()
 
-        self.mixer.mix(self.nt_sG)
+        if not self.mixer.mix_rho:
+            self.mixer.mix(self)
 
         self.interpolate_pseudo_density()
+        self.update_pseudo_charge()
 
-        self.initialized = True
+        if self.mixer.mix_rho:
+            self.mixer.mix(self)
+
+        self.starting_density_initialized = True
 
     def scale(self):
         for nucleus in self.nuclei:
@@ -205,7 +215,7 @@ class Density:
             else:
                 self.mixer = Mixer()#mix, self.gd, self.nspins)
 
-        self.mixer.initialize(self.gd, self.nspins)
+        self.mixer.initialize(paw)
         
     def update_pseudo_charge(self):
         if self.nspins == 2:
@@ -295,17 +305,25 @@ class Density:
                 for nucleus in self.my_nuclei:
                     nucleus.symmetrize(D_aii, symmetry.maps, s)
 
-        self.mixer.mix(self.nt_sG)
+        if not self.mixer.mix_rho:
+            self.mixer.mix(self)
 
         self.interpolate_pseudo_density()
+        self.update_pseudo_charge()
+
+        if self.mixer.mix_rho:
+            self.mixer.mix(self)
 
     def move(self):
-        self.mixer.reset(self.my_nuclei)
+        self.mixer.reset()
 
         # Set up smooth core density:
         self.nct_G[:] = 0.0
         for nucleus in self.nuclei:
             nucleus.add_smooth_core_density(self.nct_G, self.nspins)
+
+        if self.starting_density_initialized:
+            self.update_pseudo_charge()
 
     def calculate_local_magnetic_moments(self):
         # XXX remove this?
@@ -369,8 +387,8 @@ class Density:
         """Initial pseudo electron kinetic density."""
         """flag to use local variable in tpss.c"""
 
-        self.taut_sG = self.gd.empty(self.nspins)
-        self.taut_sg = self.finegd.empty(self.nspins)
+        self.taut_sG = self.gd.zeros(self.nspins)
+        self.taut_sg = self.finegd.zeros(self.nspins)
 
     def update_kinetic(self, kpt_u):
         """Calculate pseudo electron kinetic density.
@@ -383,6 +401,9 @@ class Density:
             kpt.add_to_kinetic_density(self.taut_sG[kpt.s])
         self.band_comm.sum(self.taut_sG)
         self.kpt_comm.sum(self.taut_sG)
+        """Add the pseudo core kinetic array """
+        for nucleus in self.nuclei:
+            nucleus.add_smooth_core_kinetic_energy_density(self.taut_sG,self.nspins)
 
         """Transfer the density from the coarse to the fine grid."""
         for s in range(self.nspins):

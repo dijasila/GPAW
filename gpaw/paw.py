@@ -43,7 +43,7 @@ import tempfile
 import time
 
 from gpaw.utilities import check_unit_cell
-from gpaw.utilities.memory import maxrss
+from gpaw.utilities.memory import estimate_memory, maxrss
 import gpaw.utilities.timing as timing
 import gpaw.io
 import gpaw.mpi as mpi
@@ -52,7 +52,6 @@ from gpaw.rotation import rotation
 from gpaw.domain import Domain
 from gpaw.xc_functional import XCFunctional
 from gpaw.utilities import gcd
-from gpaw.utilities.memory import estimate_memory
 from gpaw.setup import create_setup
 from gpaw.pawextra import PAWExtra
 from gpaw.output import Output
@@ -259,7 +258,8 @@ class PAW(PAWExtra, Output):
         self.callback_functions = []
         self.niter = 0
         self.F_ac = None
-
+        self.big_work_arrays = {}
+        
         self.eigensolver = None
         self.density = None
         self.kpt_u = None
@@ -276,6 +276,8 @@ class PAW(PAWExtra, Output):
 
         if filename is not None:
             self.initialize()
+            self.density.initialize()
+            self.hamiltonian.initialize(self)
             gpaw.io.read(self, reader)
             self.plot_atoms(self.atoms)
 
@@ -321,6 +323,8 @@ class PAW(PAWExtra, Output):
                          'communicator']:
                 self.reuse_old_density = False
                 self.kpt_u = None
+            else:
+                raise TypeError('Unknown keyword argument:' + key)
             
     def calculate(self, atoms):
         """Update PAW calculaton if needed."""
@@ -335,13 +339,11 @@ class PAW(PAWExtra, Output):
             self.kpt_u = None
             self.reuse_old_density = False
             self.initialize(atoms)
-            self.print_parameters()
             self.find_ground_state(atoms)
             return
 
         if not self.initialized:
             self.initialize(atoms)
-            self.print_parameters()
             self.find_ground_state(atoms)
             return
 
@@ -363,8 +365,14 @@ class PAW(PAWExtra, Output):
     def find_ground_state(self, atoms, write=True):
         """Start iterating towards the ground state."""
         
+        if not self.density.initialized:
+            self.density.initialize()
+        if not self.hamiltonian.initialized:
+            self.hamiltonian.initialize(self)
+
         self.set_positions(atoms)
         self.initialize_kinetic()
+        
         if not self.eigensolver.initialized:
             # We know that we have enough memory to initialize the
             # eigensolver here:
@@ -373,11 +381,12 @@ class PAW(PAWExtra, Output):
             self.initialize_wave_functions()
         if not self.wave_functions_orthonormalized:
             self.orthonormalize_wave_functions()
-        if not self.density.initialized:
+        if not self.density.starting_density_initialized:
             self.density.update(self.kpt_u, self.symmetry)
         if self.xcfunc.is_gllb():
             if not self.xcfunc.xc.initialized:
                 self.xcfunc.initialize_gllb(self)
+
         self.hamiltonian.update(self.density)
 
         # Self-consistency loop:
@@ -391,7 +400,7 @@ class PAW(PAWExtra, Output):
             self.niter += 1
             if write:
                 self.call()
-
+                
         if write:
             self.call(final=True)
             self.print_converged()
@@ -455,11 +464,19 @@ class PAW(PAWExtra, Output):
                              self.ibzk_kc, self.locfuncbcaster,
                              self.pt_nuclei, self.ghat_nuclei)
 
+                if self.eigensolver.lcao or self.kpt_u[0].psit_nG is None:
+                    nucleus.initialize_atomic_orbitals(
+                        self.gd, self.ibzk_kc,
+                        self.locfuncbcaster,
+                        self.hamiltonian.lcao_forces)
+                    
         if movement:
             self.niter = 0
             self.converged = False
             self.F_ac = None
             self.old_energies = []
+            
+            self.hamiltonian.lcao_initialized = False
             
             self.locfuncbcaster.broadcast()
 
@@ -482,13 +499,8 @@ class PAW(PAWExtra, Output):
         self.fixdensity = max(2, self.fixdensity)
 
         if self.eigensolver.lcao:
-            for nucleus in self.nuclei:
-                nucleus.initialize_atomic_orbitals(self.gd, self.ibzk_kc,
-                                                   self.locfuncbcaster)
-            self.locfuncbcaster.broadcast()
-            
-            if not self.density.initialized:
-                self.density.initialize()
+            if not self.density.starting_density_initialized:
+                self.density.initialize_from_atomic_density()
 
             for kpt in self.kpt_u:
                 kpt.allocate(self.nbands)
@@ -585,14 +597,10 @@ class PAW(PAWExtra, Output):
             self.wave_functions_initialized = True
 
     def orthonormalize_wave_functions(self):
-        if self.eigensolver.lcao:
-            self.wave_functions_orthonormalized = True
-            return
-        
-        for kpt in self.kpt_u:
-            run([nucleus.calculate_projections(kpt)
-                for nucleus in self.pt_nuclei])
-            self.overlap.orthonormalize(kpt.psit_nG, kpt)
+        if not self.eigensolver.lcao:
+            for kpt in self.kpt_u:
+                self.overlap.orthonormalize(kpt)
+
         self.wave_functions_orthonormalized = True
 
     def calculate_forces(self):
@@ -602,6 +610,10 @@ class PAW(PAWExtra, Output):
             return
 
         self.F_ac = npy.empty((self.natoms, 3))
+
+        self.density.update(self.kpt_u, self.symmetry)
+        self.update_kinetic()
+        self.hamiltonian.update(self.density)
         
         nt_g = self.density.nt_g
         vt_sG = self.hamiltonian.vt_sG
@@ -618,7 +630,11 @@ class PAW(PAWExtra, Output):
         # Calculate force-contribution from k-points:
         for kpt in self.kpt_u:
             for nucleus in self.pt_nuclei:
-                nucleus.calculate_force_kpoint(kpt)
+                # XXX
+                if self.eigensolver.lcao:
+                    nucleus.calculate_force_kpoint_lcao(kpt, self.hamiltonian)
+                else:
+                    nucleus.calculate_force_kpoint(kpt)
         for nucleus in self.my_nuclei:
             self.kpt_comm.sum(nucleus.F_c)
 
@@ -895,12 +911,16 @@ class PAW(PAWExtra, Output):
         if not hasattr(self, 'txt') or self.txt is None:
             return
         
-        if hasattr(self, 'timer'):
-            self.timer.write(self.txt)
+        if not dry_run:
+            mr = maxrss()
+            if mr > 0:
+                if mr < 1024.0**3:
+                    self.text('Memory  usage: %.2f MB' % (mr / 1024.0**2))
+                else:
+                    self.text('Memory  usage: %.2f GB' % (mr / 1024.0**3))
 
-        mr = maxrss()
-        if mr > 0:
-            self.text('memory  : %.2f MB' % (mr / 1024**2))
+            if hasattr(self, 'timer'):
+                self.timer.write(self.txt)
 
     def distribute_cpus(self, parsize_c, parsize_bands, N_c):
         """Distribute k-points/spins to processors.
@@ -963,13 +983,8 @@ class PAW(PAWExtra, Output):
         cell_cc = atoms.get_cell() / Bohr
         pbc_c = atoms.get_pbc()
         Z_a = atoms.get_atomic_numbers()
-        try:
-            magmom_a = atoms.get_magnetic_moments()
-            if magmom_a is None:
-                print 'Please update ase!'
-                raise KeyError
-        except KeyError:
-            magmom_a = npy.zeros(self.natoms)
+        magmom_a = atoms.get_initial_magnetic_moments()
+        
         try:
             tag_a = atoms.get_tags()
             if tag_a is None:
@@ -1036,18 +1051,6 @@ class PAW(PAWExtra, Output):
             self.dtype = float
         else:
             self.dtype = complex
-
-        if self.density is None:
-            self.reuse_old_density = False
-            
-        if self.reuse_old_density:
-            nt_sG = self.density.nt_sG
-            D_asp = {}
-            P_auni = {}
-            for nucleus in self.my_nuclei:
-                D_asp[nucleus.a] = nucleus.D_sp
-                if self.kpt_u is not None:
-                    P_auni[nucleus.a] = nucleus.P_uni
                 
         type_a, basis_a = self.create_nuclei_and_setups(Z_a)
 
@@ -1156,17 +1159,21 @@ class PAW(PAWExtra, Output):
         
         self.locfuncbcaster = LocFuncBroadcaster(self.kpt_comm)
 
+        if self.density is None:
+            self.reuse_old_density = False
+
+        if self.reuse_old_density:
+            nt_sG = self.density.nt_sG
+            D_asp = {}
+            P_auni = {}
+            for nucleus in self.my_nuclei:
+                D_asp[nucleus.a] = nucleus.D_sp
+                if self.kpt_u is not None:
+                    P_auni[nucleus.a] = nucleus.P_uni
+
         self.my_nuclei = []
         self.pt_nuclei = []
         self.ghat_nuclei = []
-
-        self.density = Density(self, magmom_a)#???
-        self.hamiltonian = Hamiltonian()
-        self.hamiltonian.initialize(self)
-        
-        self.overlap = Overlap(self)
-
-        self.xcfunc.set_non_local_things(self)
 
         self.Eref = 0.0
         for nucleus in self.nuclei:
@@ -1176,8 +1183,14 @@ class PAW(PAWExtra, Output):
             spos_c = self.domain.scale_position(pos_c)
             nucleus.set_position(spos_c, self.domain, self.my_nuclei,
                                  self.nspins, self.nmyu, self.nmybands)
-            
+
+        self.density = Density(self, magmom_a)#???
+
+        self.hamiltonian = Hamiltonian(self)        
+        self.overlap = Overlap(self)
+
         if self.reuse_old_density:
+            self.density.initialize()
             for a, D_sp in D_asp.items():
                 self.nuclei[a].D_sp[:] = D_sp
             for a, P_uni in P_auni.items():
@@ -1185,13 +1198,12 @@ class PAW(PAWExtra, Output):
             self.density.nt_sG[:] = nt_sG
             #self.density.scale()
             self.density.interpolate_pseudo_density()
-            self.density.initialized = True
-
+            self.density.starting_density_initialized = True
+            
         self.print_init(pos_ac)
-
+        self.print_parameters()
+        estimate_memory(self)
         if dry_run:
-            self.print_parameters()
-            estimate_memory(self)
             self.txt.flush()
             sys.exit()
 

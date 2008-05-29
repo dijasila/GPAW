@@ -23,7 +23,7 @@ from distutils.util import get_platform
 from glob import glob
 from os.path import join, isfile
 
-__all__ = ['Calculator', 'Mixer', 'MixerSum', 'PoissonSolver']
+__all__ = ['Calculator', 'Mixer', 'MixerSum', 'PoissonSolver', 'restart']
 
 
 class ConvergenceError(Exception):
@@ -33,6 +33,7 @@ class ConvergenceError(Exception):
 debug = False
 trace = False
 dry_run = False
+dry_run_size = 1
 parsize = None
 parsize_bands = None
 sl_diagonalize = None
@@ -51,8 +52,10 @@ while len(sys.argv) > i:
     elif arg == '--debug':
         debug = True
         print >> sys.stderr, 'gpaw-DEBUG mode'
-    elif arg == '--dry-run':
+    elif arg.startswith('--dry-run'):
         dry_run = True
+        if len(arg.split('=')) == 2:
+            dry_run_size = int(arg.split('=')[1])
     elif arg.startswith('--setups='):
         setup_paths = arg.split('=')[1].split(':')
     elif arg.startswith('--domain-decomposition='):
@@ -119,7 +122,7 @@ if debug:
         if a.dtype == int:
             a[:] = -100000000
         else:
-            a[:] = 1e400
+            a[:] = numpy.inf
         return a
     numpy.empty = empty
 
@@ -138,11 +141,6 @@ def get_gpaw_python_path():
             return path
     raise RuntimeError('Could not find gpaw-python!')
 
-#import Numeric
-#from gpaw.utilities.blas import dotc
-#Numeric.vdot = dotc
-
-
 
 paths = os.environ.get('GPAW_SETUP_PATH', '')
 if paths != '':
@@ -151,6 +149,13 @@ if paths != '':
 from gpaw.aseinterface import Calculator
 from gpaw.mixer import Mixer, MixerSum
 from gpaw.poisson import PoissonSolver
+
+
+def restart(filename, Class=Calculator, **kwargs):
+    calc = Class(filename, **kwargs)
+    atoms = calc.get_atoms()
+    return atoms, calc
+
 
 if trace:
     indent = '    '
@@ -163,12 +168,12 @@ if trace:
         f = frame.f_code.co_filename
         if not f.startswith(path):
             return
-
+        
         if event == 'call':
             print '%s%s:%d(%s)' % (indent, f[len(path):], frame.f_lineno,
                                    frame.f_code.co_name)
             indent += '| '
         elif event == 'return':
             indent = indent[:-2]
-
+        
     sys.setprofile(profile)

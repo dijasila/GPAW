@@ -64,8 +64,9 @@ class XCCorrection:
                  lmax,  # maximal angular momentum to consider
                  Exc0,
                  phicorehole_g, fcorehole, nspins, # ?
-                 tauc_g=None): # kinetic core energy array
- 
+                 tauc_g=None, # kinetic core energy array
+                 tauct_g=None): # kinetic core energy array
+
         
         self.nc_g = nc_g
         self.nct_g = nct_g
@@ -124,14 +125,6 @@ class XCCorrection:
                 ncorehole_g = fcorehole * phicorehole_g**2 / (4 * pi)
                 self.nca_g = 0.5 * (nc_g - ncorehole_g)
                 self.ncb_g = 0.5 * (nc_g + ncorehole_g)
-        
-        if self.xc.get_functional().mgga:
-            ny = len(points)
-            self.tau_ypg = npy.zeros((ny, np, ng))
-            self.taut_ypg = npy.zeros((ny, np, ng))
-            self.create_kinetic(lmax,jlL,jl,ny,np,wt_jg,self.taut_ypg)
-            self.create_kinetic(lmax,jlL,jl,len(points),np,w_jg,self.tau_ypg)            
-            self.tauc_g = tauc_g
 
     def calculate_energy_and_derivatives(self, D_sp, H_sp, a=None):
         if self.xc.get_functional().is_gllb():
@@ -864,12 +857,14 @@ class XCCorrection:
             y = 0
 
             for w, Y_L in zip(self.weights, self.Y_yL):
-                ## Calculate pseudo and all electron kinetic energy from orbitals
+                ## Calculate pseudo and all electron kinetic energy 
+                ## from orbitals
                 taut_pg = self.taut_ypg[y]
                 taut_g = npy.dot(D_p,taut_pg)
                 tau_pg = self.tau_ypg[y]
                 tau_g = npy.dot(D_p,tau_pg)
                 tau_g += self.tauc_g / sqrt(4. * pi)
+                taut_g += self.tauct_g / sqrt(4. * pi)
                 A_Li = A_Liy[:self.Lmax, :, y]
                 
                 n_g = npy.dot(Y_L, n_Lg)
@@ -884,8 +879,9 @@ class XCCorrection:
                 v_g = npy.zeros(self.ng)
                 e_g = npy.zeros(self.ng)
                 deda2_g = npy.zeros(self.ng)
+                dedtaua_g = npy.zeros(self.ng)
                 xcfunc.calculate_spinpaired(e_g, n_g, v_g, a2_g, deda2_g,
-                                            tau_g)
+                                            tau_g,dedtaua_g)
                 E += w * npy.dot(e_g, self.dv_g)
                 x_g = -2.0 * deda2_g * self.dv_g * a1_g
                 self.rgd.derivative2(x_g, x_g)
@@ -903,6 +899,8 @@ class XCCorrection:
                 dEdD_p += w * npy.dot(dot3(self.B_pqL,
                                            A_Li[:, 2]),
                                       npy.dot(self.n_qg, x_g * a1z_g))
+                dedtaua_g *= self.dv_g
+                dEdD_p += w * npy.dot(tau_pg,dedtaua_g)
 
                 n_g = npy.dot(Y_L, nt_Lg)
                 a1x_g = npy.dot(A_Li[:, 0], nt_Lg)
@@ -917,7 +915,7 @@ class XCCorrection:
                 e_g = npy.zeros(self.ng)
                 deda2_g = npy.zeros(self.ng)
                 xcfunc.calculate_spinpaired(e_g, n_g, v_g, a2_g, deda2_g,
-                                            taut_g)
+                                            taut_g,dedtaua_g)
                 E -= w * npy.dot(e_g, self.dv_g)
                 x_g = -2.0 * deda2_g * self.dv_g * a1_g
                 self.rgd.derivative2(x_g, x_g)
@@ -935,7 +933,8 @@ class XCCorrection:
                 dEdD_p -= w * npy.dot(dot3(self.B_pqL,
                                            A_Li[:, 2]),
                                       npy.dot(self.nt_qg, x_g * a1z_g))
-
+                dedtaua_g *= self.dv_g
+                dEdD_p -= w * npy.dot(taut_pg,dedtaua_g)
                 y += 1
         else:
             Da_p = D_sp[0]
@@ -975,6 +974,8 @@ class XCCorrection:
                 taub_g = npy.dot(Db_p,tau_pg)
                 taua_g += self.tauc_g * 0.5 / sqrt(4. * pi)
                 taub_g += self.tauc_g * 0.5 / sqrt(4. * pi)
+                tauat_g += self.tauct_g * 0.5 / sqrt(4. * pi)
+                taubt_g += self.tauct_g * 0.5 / sqrt(4. * pi)
                 A_Li = A_Liy[:self.Lmax, :, y]                
 
                 na_g = npy.dot(Y_L, na_Lg)
@@ -1010,10 +1011,13 @@ class XCCorrection:
                 deda2_g = npy.zeros(self.ng)
                 dedaa2_g = npy.zeros(self.ng)
                 dedab2_g = npy.zeros(self.ng)
+                dedtaua_g = npy.zeros(self.ng)
+                dedtaub_g = npy.zeros(self.ng)
                 xcfunc.calculate_spinpolarized(e_g, na_g, va_g, nb_g, vb_g,
                                                a2_g, aa2_g, ab2_g,
                                                deda2_g, dedaa2_g, dedab2_g,
-                                               taua_g,taub_g)
+                                               taua_g,taub_g,dedtaua_g,
+                                               dedtaub_g)
                 E += w * npy.dot(e_g, self.dv_g)
 
                 x_g = -2.0 * deda2_g * self.dv_g * (aa1_g + ab1_g)
@@ -1069,6 +1073,10 @@ class XCCorrection:
                 dEdDb_p += w * npy.dot(dot3(self.B_pqL,
                                             A_Li[:, 2]),
                                        npy.dot(self.n_qg, x_g * ab1z_g))
+                dedtaua_g *= self.dv_g
+                dedtaub_g *= self.dv_g
+                dEdDa_p += w * npy.dot(tau_pg,dedtaua_g)
+                dEdDb_p += w * npy.dot(tau_pg,dedtaub_g)
 
                 na_g = npy.dot(Y_L, nat_Lg)
                 aa1x_g = npy.dot(A_Li[:, 0], nat_Lg)
@@ -1106,7 +1114,8 @@ class XCCorrection:
                 xcfunc.calculate_spinpolarized(e_g, na_g, va_g, nb_g, vb_g,
                                                a2_g, aa2_g, ab2_g,
                                                deda2_g, dedaa2_g, dedab2_g,
-                                               tauat_g,taubt_g)
+                                               tauat_g,taubt_g,dedtaua_g,
+                                               dedtaub_g)
                 E -= w * npy.dot(e_g, self.dv_g)
 
                 x_g = -2.0 * deda2_g * self.dv_g * (aa1_g + ab1_g)
@@ -1161,8 +1170,12 @@ class XCCorrection:
                 dEdDb_p -= w * npy.dot(dot3(self.B_pqL,
                                             A_Li[:, 2]),
                                        npy.dot(self.nt_qg, x_g * ab1z_g))
-                
+                dedtaua_g *= self.dv_g
+                dedtaub_g *= self.dv_g
+                dEdDa_p -= w * npy.dot(taut_pg,dedtaua_g)
+                dEdDb_p -= w * npy.dot(taut_pg,dedtaub_g)
                 y += 1
+
 #        return 0.0
         return E - self.Exc0
 
@@ -1186,7 +1199,7 @@ class XCCorrection:
                 psi2_g = extra_xc_data['core_orbital_density_'+str(nc)]
                 deps = reference_levels[0]-extra_xc_data['core_eigenvalue_'+str(nc)]
                 
-                core_response[:] += psi2_g * K_G * (npy.where(deps<0, 0, deps))**(0.5)
+                core_response[:] += psi2_g * extra_xc_data['core_occupation_'+str(nc)]* K_G * (npy.where(deps<0, 0, deps))**(0.5)
         else:
             # Otherwise, the static core response from setup is used
             core_response = extra_xc_data['core_response']
@@ -1254,13 +1267,17 @@ class XCCorrection:
                     e_g[:] += e2_g
                     x_g += v2_g
                 
-
-                #if gllb.relaxed_core_response:
-                #    stuff todo here:
-
                 E += w * npy.dot(e_g, self.dv_g)
+
+                #print "x_g", x_g
                 
                 x_g *= self.dv_g
+
+                if gllb.relaxed_core_response:
+                    # This is the XC-contribution to core-eigenvalue
+                    for k in range(0, njcore):
+                        psi2_g = extra_xc_data['core_orbital_density_'+str(k)]
+                        nucleus.coreref_k[k] += w * npy.dot(x_g, psi2_g)
                 
                 B_Lqp = self.B_Lqp
                 dEdD_p += w * npy.dot(dot3(self.B_pqL, Y_L),
@@ -1406,38 +1423,64 @@ class XCCorrection:
         return J_pp
 
 
-    def create_kinetic(self,lmax,jlL,jl,ny,np,w_jg,tau_ypg):
-        #no core kinetic energy added
-        ng = self.ng
-        jlmax = (jl[-1][0] + 1, lmax + 1)
-        dphitdr_jlg = npy.zeros(jlmax + (ng,))
-        for j1,l1 in jl:
-            phit_jlg = self.rgd.r_g**l1 * w_jg[j1]                
-            self.rgd.derivative(phit_jlg, dphitdr_jlg[j1][l1])
+    def create_kinetic(self,jlL,jl,ny,np,phi_jg,tau_ypg):
 
-        Y_L = npy.zeros((self.Lmax))
-        taut = npy.zeros((ng))
+        """                                                     
+        kinetic expression is              __         __ 
+        tau_s = 1/2 Sum_{i1,i2} D(s,i1,i2) \/phi_i1 . \/phi_i2 +tauc_s
+
+        here the orbital dependent part is calculated.
+        __         __         
+        \/phi_i1 . \/phi_i2 = 
+                    __    __
+                    \/YL1.\/YL2 phi_j1 phi_j2 +YL1 YL2 dphi_j1 dphi_j2
+                                                       ------  ------
+                                                         dr     dr
+        __    __
+        \/YL1.\/YL2 [y] = Sum_c A[L1,c,y] A[L2,c,y] / r**2 
+        
+        """
+        ng = self.ng
+        Lmax = self.Lmax
+        nj = len(jl)
+        ni = len(jlL)
+        np = ni * (ni + 1) // 2
+        dphidr_jg = npy.zeros(npy.shape(phi_jg))
+        for j in range(nj):
+            phi_g = phi_jg[j]
+            self.rgd.derivative(phi_g, dphidr_jg[j])
+        ##second term
+        i1 = 0
+        p = 0
+        for y in range(ny):
+            Y_L = self.Y_yL[y]
+            for j1, l1, L1 in jlL:
+                for j2, l2, L2 in jlL[i1:]:
+                    c = Y_L[L1]*Y_L[L2]
+                    temp = c * dphidr_jg[j1] *  dphidr_jg[j2]
+                    tau_ypg[y,p,:] += temp
+                    p += 1
+                i1 +=1
+        ##first term
+        i1 = 0
+        p = 0
         for y in range(ny):
             A_Li = A_Liy[:self.Lmax, :, y]
             A_Lxg = A_Li[:, 0]
             A_Lyg = A_Li[:, 1]
             A_Lzg = A_Li[:, 2]
-            Y_L = Y_nL[y,:self.Lmax]
-            p = 0
-            i1 = 0
-            for j1, l1 , L1 in jlL:
-                dphi1 = dphitdr_jlg[j1][l1]
+            for j1, l1, L1 in jlL:
                 for j2, l2, L2 in jlL[i1:]:
-                    dphi2 = dphitdr_jlg[j2][l2]
-                    tau = A_Lxg[L1] * A_Lxg[L2] + A_Lyg[L1] * A_Lyg[L2] + A_Lzg[L1] * A_Lzg[L2] 
-                    tau *= self.rgd.r_g**(l1 + l2) * w_jg[j1] * w_jg[j2] 
-                    tau[1:] /= self.rgd.r_g[1:]**2                       
-                    tau[0] = tau[1]
-                    tau += dphi1 * dphi2 * Y_L[L1] * Y_L[L2]
-                    tau *= 0.5
-                    tau_ypg[y,p] = tau
-                    p +=1
-                i1 += 1
+                    temp = A_Lxg[L1] * A_Lxg[L2] + A_Lyg[L1] * A_Lyg[L2]
+                    + A_Lzg[L1] * A_Lzg[L2] 
+                    temp *=  phi_jg[j1] * phi_jg[j2] 
+                    temp[1:] /= self.rgd.r_g[1:]**2                       
+                    temp[0] = temp[1]
+                    tau_ypg[y,p,:] += temp
+                    p += 1
+                i1 +=1
+        tau_ypg *= 0.5
+                    
         return 
         
     def set_nspins(self, nspins):
@@ -1448,3 +1491,31 @@ class XCCorrection:
                 self.nc_g = self.nca_g + self.ncb_g
             else:
                 self.nca_g = self.ncb_g = 0.5 * self.nc_g
+                
+    def initialize_kinetic(self,data):
+        r_g = self.rgd.r_g
+        ny = len(points)
+        ng = self.ng
+        l_j = data.l_j
+        nj = len(l_j)
+        jl =  [(j, l_j[j]) for j in range(nj)]
+        jlL = []
+        for j, l in jl:
+            for m in range(2 * l + 1):
+                jlL.append((j, l, l**2 + m))
+        ni = len(jlL)
+        np = ni * (ni + 1) // 2
+        self.tau_ypg = npy.zeros((ny, np, ng))
+        self.taut_ypg = npy.zeros((ny, np, ng))
+        phi_jg = data.phi_jg
+        phit_jg = data.phit_jg
+        phi_jg = npy.array([phi_g[:ng].copy() for phi_g in phi_jg])
+        phit_jg = npy.array([phit_g[:ng].copy() for phit_g in phit_jg])
+        self.create_kinetic(jlL,jl,ny,np,phit_jg,self.taut_ypg)
+        self.create_kinetic(jlL,jl,ny,np,phi_jg,self.tau_ypg)            
+        tauc_g = data.tauc_g
+        tauct_g = data.tauct_g
+        self.tauc_g = npy.array(tauc_g[:ng].copy())
+        self.tauct_g = npy.array(tauct_g[:ng].copy())
+        return
+    
