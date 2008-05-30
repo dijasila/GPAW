@@ -290,6 +290,7 @@ static PyMethodDef mpi_methods[] = {
     {"barrier",          (PyCFunction)mpi_barrier,      METH_VARARGS, 0},
     {"wait",             (PyCFunction)mpi_wait,         METH_VARARGS, 0},
     {"sum",              (PyCFunction)mpi_sum,          METH_VARARGS, 0},
+    {"scatter",          (PyCFunction)mpi_scatter,      METH_VARARGS, 0},
     {"max",              (PyCFunction)mpi_max,          METH_VARARGS, 0},
     {"gather",           (PyCFunction)mpi_gather,       METH_VARARGS, 0},
     {"all_gather",       (PyCFunction)mpi_allgather,    METH_VARARGS, 0},

@@ -23,7 +23,7 @@ class SerialCommunicator:
 
     def scatter(self, s, r, root):
         r[:] = s
-        
+
     def max(self, value, root=-1):
         return value
 
@@ -102,7 +102,7 @@ if debug:
             """Call MPI_Scatter.
 
             Distribute *s* array from *root* to *r*."""
-            
+
             assert s.dtype == r.dtype
             assert s.size == self.size * r.size
             assert s.flags.contiguous
@@ -173,11 +173,11 @@ if debug:
         def diagonalize(self, a, w,
                         nprow=1, npcol=1, mb=32, root=0,
                         b=None):
-            self.comm.diagonalize(a, w, nprow, npcol, mb, root, b)
+            return self.comm.diagonalize(a, w, nprow, npcol, mb, root, b)
 
         def inverse_cholesky(self, a,
                              nprow=1, npcol=1, mb=32, root=0):
-            self.comm.inverse_cholesky(a, nprow, npcol, mb, root)
+            return self.comm.inverse_cholesky(a, nprow, npcol, mb, root)
 
 
     world = _Communicator(world)
