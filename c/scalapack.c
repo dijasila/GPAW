@@ -70,6 +70,7 @@ void zgebs2d_(int *ConTxt, char* scope, char* top, int *m, int *n,
 #define   pdsyevd_  pdsyevd
 #define   pdsyev_  pdsyev
 #define   pdsyevx_  pdsyevx
+#define   pdsygvx_  pdsygvx
 #define   pzheev_  pzheev
 #define   sl_init_  sl_init
 #endif
@@ -119,6 +120,11 @@ void pdsyevx_(char *jobz, char *range, char *uplo, int *n, double* a, int *ia, i
               double* vu, int* il, int* iu, double* abstol, int* m, int* nz, double* w, double* orfac, double* z, int *iz,
               int* jz, int* descz, double *work, int *lwork, int *iwork, int *liwork, int *ifail, int *iclustr, double* gap, int *info);
 
+void pdsygvx_(int *ibtype, char *jobz, char *range, char *uplo, int *n, double* a, int *ia, int* ja,
+              int* desca, double* b, int *ib, int* jb, int* descb, double* vl, double* vu, int* il, int* iu,
+              double* abstol, int* m, int* nz, double* w, double* orfac, double* z, int *iz, int* jz, int* descz,
+              double *work, int *lwork, int *iwork, int *liwork, int *ifail, int *iclustr, double* gap, int *info);
+
 void pzheev_(char *jobz, char *uplo, int *n, double* a, int *ia, int* ja, int* desca, double *w, double* z, int *iz, int* jz,
              int* descz, double *work, int *lwork, double *rwork, int *lrwork, int *info);
 
@@ -158,7 +164,7 @@ static PyObject* diagonalize(MPIObject *self, PyObject *args)
      int m = n;
      int lda = n;
      int ldb = n;
-     int itype = 1;
+     int ibtype = 1;
      int info = 0;
      int iam = -1;
 
@@ -213,7 +219,14 @@ static PyObject* diagonalize(MPIObject *self, PyObject *args)
                          //printf("a(%d, %d) = %f\n",i1, i2, DOUBLEP(a)[(i1-one)*n+i2-one]);
                //}
                //}
-               printf("C diagonalize ScaLapack\n");
+               if (b == 0) {
+                    printf("C diagonalize ScaLapack\n");
+               }
+               else
+               {
+                    printf("C diagonalize general ScaLapack\n");
+                    dgebs2d_(&ConTxt,&scope,&TOP,&m,&n,DOUBLEP(b),&lda);
+               }
                // http://icl.cs.utk.edu/lapack-forum/viewtopic.php?p=87&
                // distribute the matrix
                // Uncomment for PDSYEV:
@@ -224,6 +237,9 @@ static PyObject* diagonalize(MPIObject *self, PyObject *args)
                //zgebs2d_(&ConTxt,&scope,&TOP,&m,&n,DOUBLEP(a),&lda);
           }
           else {
+               if (b != 0) {
+                    dgebr2d_(&ConTxt,&scope,&TOP,&m,&n,DOUBLEP(b),&lda,&rsrc,&csrc);
+               }
                // receive the matrix
                // Uncomment for PDSYEV:
                //printf("run %d\n", 3);
@@ -238,15 +254,17 @@ static PyObject* diagonalize(MPIObject *self, PyObject *args)
           // get the size of the distributed matrix
           int locM = numroc_(&m, &mb, &myrow, &rsrc, &nprow);
           int locN = numroc_(&n, &nb, &mycol, &csrc, &npcol);
-          // allocate the distributed matrix
-          double* mat = GPAW_MALLOC(double, locM*locN);
+          // allocate the distributed matrices
+          double* mata = GPAW_MALLOC(double, locM*locN);
+          double* matb;
+          if (b != 0) matb = GPAW_MALLOC(double, locM*locN);
           // allocate the distributed matrix of eigenvectors
           double* z = GPAW_MALLOC(double, locM*locN);
 //          for(int i1 = zero; i1 < locM; ++i1) {
 //               for(int i2 = zero; i2 < locN; ++i2) {
 ////          for(int i1 = zero; i1 < m; ++i1) {
 ////               for(int i2 = zero; i2 < n; ++i2) {
-//                    mat[i1*locM+i2] = 0.0;
+//                    mata[i1*locM+i2] = 0.0;
 //               }
 //          }
 
@@ -263,14 +281,25 @@ static PyObject* diagonalize(MPIObject *self, PyObject *args)
           //}
 
           //printf("run %d\n", 5);
-          // build the distributed matrix
+          // build the distributed matrices
           for(int i1 = one; i1 < m+one; ++i1) {
                for(int i2 = one; i2 < n+one; ++i2) {
                     // Uncomment for PDSYEV:
                     // http://icl.cs.utk.edu/lapack-forum/viewtopic.php?t=321&sid=f2ac0a3c06c66d74a2fbd65c222ffdb0
-                    pdelset_(mat,&i1,&i2,desc,&DOUBLEP(a)[(i1-one)*n+i2-one]);
+                    pdelset_(mata,&i1,&i2,desc,&DOUBLEP(a)[(i1-one)*n+i2-one]);
                     // Uncomment for PZHEEV:
-                    //pzelset_(mat,&i1,&i2,desc,a(i1-one,i2-one));
+                    //pzelset_(mata,&i1,&i2,desc,a(i1-one,i2-one));
+               }
+          }
+          if (b != 0) {
+               for(int i1 = one; i1 < m+one; ++i1) {
+                    for(int i2 = one; i2 < n+one; ++i2) {
+                         // Uncomment for PDSYEV:
+                         // http://icl.cs.utk.edu/lapack-forum/viewtopic.php?t=321&sid=f2ac0a3c06c66d74a2fbd65c222ffdb0
+                         pdelset_(matb,&i1,&i2,desc,&DOUBLEP(b)[(i1-one)*n+i2-one]);
+                         // Uncomment for PZHEEV:
+                         //pzelset_(matb,&i1,&i2,desc,b(i1-one,i2-one));
+                    }
                }
           }
 
@@ -309,22 +338,33 @@ static PyObject* diagonalize(MPIObject *self, PyObject *args)
           int* iwork;
           iwork = GPAW_MALLOC(int, 1);
           int queryliwork = 1;
+          if (b != 0) queryliwork = -1;
+          //queryliwork = -1;
 
-          printf("run %d\n", 7);
-          //pdsyevx_(&jobz, &range, &uplo, &n, mat, &one, &one, desc, &vl,
-          //         &vu, &il, &iu, &abstol, &eigvalm, &nz, DOUBLEP(w), &orfac, z, &one,
-          //         &one, desc, work, &querylwork, iwork, &queryliwork, ifail, iclustr, gap, &info);
-          pdsyevd_(&jobz, &uplo, &n, mat, &one, &one, desc, DOUBLEP(w),
-                   z, &one, &one, desc,
-                   work, &querylwork, iwork, &queryliwork, &info);
-          //pdsyev_(&jobz, &uplo, &m, mat, &one, &one, desc, DOUBLEP(w),
-          //        z, &one, &one, desc, work, &querylwork, &info);
+          //printf("run %d\n", 7);
+          if (b == 0) {
+               //pdsyevx_(&jobz, &range, &uplo, &n, mata, &one, &one, desc, &vl,
+               //         &vu, &il, &iu, &abstol, &eigvalm, &nz, DOUBLEP(w), &orfac, z, &one,
+               //         &one, desc, work, &querylwork, iwork, &queryliwork, ifail, iclustr, gap, &info);
+               pdsyevd_(&jobz, &uplo, &n, mata, &one, &one, desc, DOUBLEP(w),
+                        z, &one, &one, desc,
+                        work, &querylwork, iwork, &queryliwork, &info);
+               //pdsyev_(&jobz, &uplo, &m, mata, &one, &one, desc, DOUBLEP(w),
+               //        z, &one, &one, desc, work, &querylwork, &info);
+          }
+          else
+          {
+               pdsygvx_(&ibtype, &jobz, &range, &uplo, &n, mata, &one, &one,
+                        desc, matb, &one, &one, desc, &vl, &vu, &il, &iu,
+                        &abstol, &eigvalm, &nz, DOUBLEP(w), &orfac, z, &one, &one, desc,
+                        work, &querylwork, iwork, &queryliwork, ifail, iclustr, gap, &info);
+          }
 
           int lwork = (int)work[0];
-          printf("lwork %d\n", lwork);
+          //printf("lwork %d\n", lwork);
           free(work);
           int liwork = (int)iwork[0];
-          printf("liwork %d\n", liwork);
+          //printf("liwork %d\n", liwork);
           free(iwork);
 
           //printf("run %d\n", 8);
@@ -348,14 +388,23 @@ static PyObject* diagonalize(MPIObject *self, PyObject *args)
           int runs = 1;
 
           t0 = MPI_Wtime();
-          //pdsyevx_(&jobz, &range, &uplo, &n, mat, &one, &one, desc, &vl,
-          //         &vu, &il, &iu, &abstol, &eigvalm, &nz, DOUBLEP(w), &orfac, z, &one,
-          //         &one, desc, work, &lwork, iwork, &liwork, ifail, iclustr, gap, &info);
-          pdsyevd_(&jobz, &uplo, &n, mat, &one, &one, desc, DOUBLEP(w),
-                   z, &one, &one, desc,
-                   work, &lwork, iwork, &liwork, &info);
-          //pdsyev_(&jobz, &uplo, &m, mat, &one, &one, desc, DOUBLEP(w),
-          //        z, &one, &one, desc, work, &lwork, &info);
+          if (b == 0) {
+               //pdsyevx_(&jobz, &range, &uplo, &n, mata, &one, &one, desc, &vl,
+               //         &vu, &il, &iu, &abstol, &eigvalm, &nz, DOUBLEP(w), &orfac, z, &one,
+               //         &one, desc, work, &lwork, iwork, &liwork, ifail, iclustr, gap, &info);
+               pdsyevd_(&jobz, &uplo, &n, mata, &one, &one, desc, DOUBLEP(w),
+                        z, &one, &one, desc,
+                        work, &lwork, iwork, &liwork, &info);
+               //pdsyev_(&jobz, &uplo, &m, mata, &one, &one, desc, DOUBLEP(w),
+               //        z, &one, &one, desc, work, &lwork, &info);
+          }
+          else
+          {
+               pdsygvx_(&ibtype, &jobz, &range, &uplo, &n, mata, &one, &one,
+                        desc, matb, &one, &one, desc, &vl, &vu, &il, &iu,
+                        &abstol, &eigvalm, &nz, DOUBLEP(w), &orfac, z, &one, &one, desc,
+                        work, &lwork, iwork, &liwork, ifail, iclustr, gap, &info);
+          }
           t1 = MPI_Wtime();
           time = time + (t1 - t0);
 
@@ -365,8 +414,8 @@ static PyObject* diagonalize(MPIObject *self, PyObject *args)
           //for(int i1 = one; i1 < locM+one; ++i1) {
                //printf("w(%d) = %f\n",i1, DOUBLEP(w)[i1]);
                //for(int i2 = one; i2 < locN+one; ++i2) {
-          //z[(i1-one)*locN+i2-one] = mat[(i1-one)*locN+i2-one];
-                    //printf("pnum %d, locM %d, locN %d, mat(%d, %d) = %f\n",pnum, locM, locN, i1, i2, mat[(i1-one)*locN+i2-one]);
+          //z[(i1-one)*locN+i2-one] = mata[(i1-one)*locN+i2-one];
+                    //printf("pnum %d, locM %d, locN %d, mata(%d, %d) = %f\n",pnum, locM, locN, i1, i2, mata[(i1-one)*locN+i2-one]);
           //}
           //}
           //if (pnum == 0) {
@@ -379,7 +428,7 @@ static PyObject* diagonalize(MPIObject *self, PyObject *args)
           //}
 
           //printf("run %d\n", 10);
-          printf("info pdsyevd, pnum %d, %d\n", info, pnum);
+          //printf("info diagonalize, pnum %d, %d\n", info, pnum);
 
           //Cblacs_barrier_(ConTxt, &scope);
 
@@ -416,7 +465,8 @@ static PyObject* diagonalize(MPIObject *self, PyObject *args)
           free(ifail);
 
           free(z);
-          free(mat);
+          free(mata);
+          if (b != 0) free(matb);
           //printf("run %d\n", 12);
           // clean up the grid
           Cblacs_gridexit_(ConTxt);

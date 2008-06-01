@@ -2,6 +2,8 @@ import numpy as npy
 from gpaw.utilities.blas import rk, r2k
 from gpaw.utilities import unpack
 from gpaw.utilities.lapack import diagonalize
+from gpaw.mpi import parallel, rank
+from gpaw import debug, sl_diagonalize
 
 
 class LCAO:
@@ -10,8 +12,11 @@ class LCAO:
     def __init__(self):
         self.lcao = True
         self.initialized = False
+        #if debug: # iteration counter for the timer
+        self.iteration = 0
 
     def initialize(self, paw):
+        self.timer = paw.timer
         self.nuclei = paw.nuclei
         self.my_nuclei = paw.my_nuclei
         self.comm = paw.gd.comm
@@ -55,7 +60,8 @@ class LCAO:
         self.S_mm[:] = hamiltonian.S_kmm[k]
 
         #Check and remove linear dependence for the current k-point
-        if k in hamiltonian.linear_kpts:
+        #if k in hamiltonian.linear_kpts:
+        if 0:
             print '*Warning*: near linear dependence detected for k=%s' %k
             P_mm, p_m = hamiltonian.linear_kpts[k]
             thres = hamiltonian.thres
@@ -63,12 +69,25 @@ class LCAO:
             kpt.C_nm[:] = C_nm[0:self.nbands]
             kpt.eps_n[:] = eps_q[0:self.nbands]
         else:
+            if sl_diagonalize: assert parallel
+            if sl_diagonalize:
+                #dsyev_zheev_string = 'LCAO: '+'pdsyev/pzheev'
+                dsyev_zheev_string = 'LCAO: '+'dsyev/zheev'
+            else:
+                dsyev_zheev_string = 'LCAO: '+'dsyev/zheev'
+
+            self.timer.start(dsyev_zheev_string)
+            #if debug:
             self.eps_m[0] = 42
-            errorcode = diagonalize(H_mm, self.eps_m, self.S_mm)
+            self.timer.start(dsyev_zheev_string+' %03d' % self.iteration)
+            info = diagonalize(H_mm, self.eps_m, self.S_mm)
+            self.timer.stop(dsyev_zheev_string+' %03d' % self.iteration)
             assert self.eps_m[0] != 42
-            if errorcode != 0:
-                raise RuntimeError('Error code from dsyevd/zheevd: %d.' %
-                                   errorcode)
+            if info != 0:
+                raise RuntimeError('Failed to diagonalize: info=%d' % info)
+            #if debug:
+            self.iteration += 1
+            self.timer.stop(dsyev_zheev_string)
 
             kpt.C_nm[:] = H_mm[0:self.nbands]
             kpt.eps_n[:] = self.eps_m[0:self.nbands]

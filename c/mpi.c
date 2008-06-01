@@ -140,7 +140,7 @@ static PyObject * mpi_sum(MPIObject *self, PyObject *args)
           double* b = 0;
           int rank;
           MPI_Comm_rank(self->comm, &rank);
-          if (rank == root)
+          // if (rank == root) // bug on BGP
             b = GPAW_MALLOC(double, n);
           // XXX Use MPI_IN_PLACE!!
           MPI_Reduce(LONGP(a), b, n, MPI_DOUBLE, MPI_SUM, root, self->comm);
@@ -217,7 +217,7 @@ static PyObject * mpi_max(MPIObject *self, PyObject *args)
           double* b = 0;
           int rank;
           MPI_Comm_rank(self->comm, &rank);
-          if (rank == root)
+          // if (rank == root) // bug on BGP
             b = GPAW_MALLOC(double, n);
           // XXX Use MPI_IN_PLACE!!
           MPI_Reduce(LONGP(a), b, n, MPI_DOUBLE, MPI_MAX, root, self->comm);

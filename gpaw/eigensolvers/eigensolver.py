@@ -82,11 +82,9 @@ class Eigensolver:
         a single kpoint.
         """
 
-        self.timer.start('Subspace diag.: iterate_one_k_point')
         error = 0.0
         for kpt in kpt_u:
             error += self.iterate_one_k_point(hamiltonian, kpt)
-        self.timer.stop('Subspace diag.: iterate_one_k_point')
 
         self.timer.start('Subspace diag.: kpt_comm.sum')
         self.error = self.kpt_comm.sum(error)
