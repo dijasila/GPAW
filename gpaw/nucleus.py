@@ -346,9 +346,11 @@ class Nucleus:
             i += degeneracy
             j += 1
 
-        if magmom != 0:
-            raise RuntimeError('Bad magnetic moment %g for %s atom!' %
-                               (magmom, self.setup.symbol))
+        #These lines disable the calculation of charged atoms!
+        #Therefore I commented them. -Mikael
+        #if magmom != 0:
+        #    raise RuntimeError('Bad magnetic moment %g for %s atom!'
+        # % (magmom, self.setup.symbol))
         assert i == niao
 
         return f_si
@@ -372,7 +374,7 @@ class Nucleus:
         if self.vbar is not None:
             self.vbar.add(vt2, npy.array([1.0]))
         
-    def calculate_projections(self, kpt):
+    def calculate_projections(self, kpt, psit_nG=None):
         """Iterator for calculation of wave-function projections.
 
         This iterator must be called twice, and after that the result
@@ -384,13 +386,16 @@ class Nucleus:
 
         """
         
+        if psit_nG is None:
+            psit_nG = kpt.psit_nG
+
         if self.in_this_domain:
             P_ni = self.P_uni[kpt.u]
             P_ni[:] = 0.0
         else:
             P_ni = None
 
-        for x in self.pt_i.iintegrate(kpt.psit_nG, P_ni, kpt.k):
+        for x in self.pt_i.iintegrate(psit_nG, P_ni, kpt.k):
             yield None
 
     def calculate_multipole_moments(self):
@@ -557,7 +562,7 @@ class Nucleus:
                 ni = self.get_number_of_partial_waves()
                 P_ni = npy.zeros((n, ni), self.dtype)
                 for x in self.pt_i.iintegrate(a_nG, P_ni, k):
-                    yield None
+                    yield None             
             else:
                 P_ni = self.P_uni[u]
             H_ii = unpack(self.H_sp[s])

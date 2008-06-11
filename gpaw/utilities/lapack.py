@@ -37,30 +37,31 @@ def diagonalize(a, w, b=None, root=0):
         assert b.flags.contiguous
         assert b.dtype == a.dtype
         assert b.shape == a.shape
-        #if sl_diagonalize:
-        #    if sl_diagonalize: assert parallel
-        #    if rank == root:
-        #        print 'python ScaLapack diagonalize general'
-        #    assert len(sl_diagonalize) == 4
-        #    assert sl_diagonalize[0]*sl_diagonalize[1] <= size
-        #    # symmetrize the matrix
-        #    for i in range(n):
-        #        for j in range(i, n):
-        #            a[i,j] = a[j,i]
-        #    if rank == root:
-        #        print 'python ScaLapack diagonalize general not implemented yet'
-        #    assert (not sl_diagonalize)
-        #    info = world.diagonalize(a, w,
-        #                             sl_diagonalize[0],
-        #                             sl_diagonalize[1],
-        #                             sl_diagonalize[2], root, b)
-        #else:
-        #    if rank == root:
-        #        print 'python Lapack diagonalize general'
-        #    info = _gpaw.diagonalize(a, w, b)
-        if rank == root:
-            print 'python Lapack diagonalize general'
-        info = _gpaw.diagonalize(a, w, b)
+        if sl_diagonalize:
+            if sl_diagonalize: assert parallel
+            if rank == root:
+                print 'python ScaLapack diagonalize general'
+            assert len(sl_diagonalize) == 4
+            assert sl_diagonalize[0]*sl_diagonalize[1] <= size
+            # symmetrize the matrix
+            for i in range(n):
+                for j in range(i, n):
+                    a[i,j] = a[j,i]
+                    b[i,j] = b[j,i]
+            #if rank == root:
+            #    print 'python ScaLapack diagonalize general not implemented yet'
+            #assert (not sl_diagonalize)
+            info = world.diagonalize(a, w,
+                                     sl_diagonalize[0],
+                                     sl_diagonalize[1],
+                                     sl_diagonalize[2], root, b)
+        else:
+            if rank == root:
+                print 'python Lapack diagonalize general'
+            info = _gpaw.diagonalize(a, w, b)
+        #if rank == root:
+        #    print 'python Lapack diagonalize general'
+        #info = _gpaw.diagonalize(a, w, b)
     else:
         if sl_diagonalize:
             if sl_diagonalize: assert parallel

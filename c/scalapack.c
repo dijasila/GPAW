@@ -315,7 +315,7 @@ static PyObject* diagonalize(MPIObject *self, PyObject *args)
 
           char cmach = 'U';
 
-          double abstol = pdlamch_(&ConTxt, &cmach);
+          double abstol = 2.0 * pdlamch_(&ConTxt, &cmach);
 
           int eigvalm, nz;
 
@@ -361,6 +361,7 @@ static PyObject* diagonalize(MPIObject *self, PyObject *args)
           }
 
           int lwork = (int)work[0];
+          if (b != 0) lwork = lwork + (n-1)*n;
           //printf("lwork %d\n", lwork);
           free(work);
           int liwork = (int)iwork[0];

@@ -50,9 +50,6 @@ class Density:
         self.nspins = paw.nspins
         self.gd = paw.gd
         self.finegd = paw.finegd
-        self.my_nuclei = paw.my_nuclei
-        self.ghat_nuclei = paw.ghat_nuclei
-        self.nuclei = paw.nuclei
         self.timer = paw.timer
         self.kpt_comm = paw.kpt_comm
         self.band_comm = paw.band_comm
@@ -61,7 +58,12 @@ class Density:
         self.charge_eps = 1e-7
         self.lcao = paw.eigensolver.lcao
         
+        self.my_nuclei = paw.my_nuclei
+        self.ghat_nuclei = paw.ghat_nuclei
+        self.nuclei = paw.nuclei
+
         self.nvalence0 = self.nvalence + self.charge
+
         for nucleus in self.nuclei:
             setup = nucleus.setup
             self.charge += (setup.Z - setup.Nv - setup.Nc)
@@ -69,7 +71,6 @@ class Density:
         # Number of neighbor grid points used for interpolation (1, 2, or 3):
         self.nn = p['stencils'][1]
 
-        
         # Density mixer
         self.set_mixer(paw, p['mixer'])
         
@@ -148,7 +149,6 @@ class Density:
             if Nt != 0:
                 x = -(self.charge + Q) / Nt
                 self.nt_sG *= x
-
         else:
             Q_s = array([0.0, 0.0])
             for nucleus in self.my_nuclei:
@@ -214,6 +214,9 @@ class Density:
                 self.mixer = MixerSum()#mix, self.gd)
             else:
                 self.mixer = Mixer()#mix, self.gd, self.nspins)
+
+        if self.nspins == 1 and isinstance(mixer, MixerSum):
+            raise RuntimeError('Cannot use MixerSum with nspins==1')
 
         self.mixer.initialize(paw)
         

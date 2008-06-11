@@ -56,23 +56,40 @@ class RMM_DIIS(Eigensolver):
         vt_G = hamiltonian.vt_sG[kpt.s]
         dR_G = self.big_work_arrays['work_nG'][0]
         error = 0.0
-        for n in range(kpt.nbands):
-            R_G = R_nG[n]
+        n0 = self.band_comm.rank * self.nmybands
+        for n in range(self.nmybands):
+            if self.keep_htpsit:
+                R_G = R_nG[n]
+            else:
+                R_G = self.big_work_arrays['work_nG'][1]
+                psit_G = kpt.psit_nG[n]
+                self.timer.start('RMM-DIIS: hamiltonian.apply')
+                hamiltonian.apply(psit_G, R_G, kpt,
+                                  local_part_only=True,
+                                  calculate_projections=False)
+                self.timer.stop('RMM-DIIS: hamiltonian.apply')
+                self.timer.start('RMM-DIIS: axpy pR_G')
+                axpy(-kpt.eps_n[n], psit_G, R_G)
+                self.timer.stop('RMM-DIIS: axpy pR_G')
+                self.timer.start('RMM-DIIS: adjust_residual2')
+                run([nucleus.adjust_residual2(psit_G, R_G, kpt.eps_n[n],
+                                             kpt.s, kpt.u, kpt.k, n)
+                     for nucleus in hamiltonian.pt_nuclei])
+                self.timer.stop('RMM-DIIS: adjust_residual2')
 
             weight = kpt.f_n[n]
-            self.timer.start('RMM-DIIS: weight')
             if self.nbands_converge != 'occupied':
-                weight = kpt.weight * float(n < self.nbands_converge)
-            self.timer.stop('RMM-DIIS: weight')
-            self.timer.start('RMM-DIIS: npy.vdot')
+                if n0 + n < self.nbands_converge:
+                    weight = kpt.weight
+                else:
+                    weight = 0.0
             error += weight * np.vdot(R_G, R_G).real
-            self.timer.stop('RMM-DIIS: npy.vdot')
 
             # Precondition the residual:
-            self.timer.start('RMM-DIIS: pR_G')
+            self.timer.start('RMM-DIIS: kpt.psit_nG')
             pR_G = self.preconditioner(R_G, kpt.phase_cd, kpt.psit_nG[n],
                                        kpt.k_c)
-            self.timer.stop('RMM-DIIS: pR_G')
+            self.timer.stop('RMM-DIIS: kpt.psit_nG')
 
             self.timer.start('RMM-DIIS: hamiltonian.apply')
             # Calculate the residual of pR_G, dR_G = (H - e S) pR_G:
@@ -89,16 +106,17 @@ class RMM_DIIS(Eigensolver):
                  for nucleus in hamiltonian.pt_nuclei])
             self.timer.stop('RMM-DIIS: adjust_residual2')
 
-            self.timer.start('RMM-DIIS: adjust_non_local_residual')
             hamiltonian.xc.xcfunc.adjust_non_local_residual(
                 pR_G, dR_G, kpt.eps_n[n], kpt.u, kpt.s, kpt.k, n)
-            self.timer.stop('RMM-DIIS: adjust_non_local_residual')
 
-            self.timer.start('RMM-DIIS: self.comm.sum')
             # Find lam that minimizes the norm of R'_G = R_G + lam dR_G
+            self.timer.start('RMM-DIIS: self.comm.sum RdR')
             RdR = self.comm.sum(np.vdot(R_G, dR_G).real)
+            self.timer.stop('RMM-DIIS: self.comm.sum RdR')
+            self.timer.start('RMM-DIIS: self.comm.sum dRdR')
             dRdR = self.comm.sum(np.vdot(dR_G, dR_G).real)
-            self.timer.stop('RMM-DIIS: self.comm.sum')
+            self.timer.stop('RMM-DIIS: self.comm.sum dRdR')
+
             lam = -RdR / dRdR
 
             # Calculate new psi'_G = psi_G + lam pR_G + lam pR'_G

@@ -291,12 +291,11 @@ class Output:
             t('Center of Charge: %s' % (dipole * self.a0))
 
         if self.nspins == 2:
-            magmom_a = self.get_magnetic_moments()
-
+            self.calculate_magnetic_moments()
             t()
             t('Total Magnetic Moment: %f' % self.occupation.magmom)
             t('Local Magnetic Moments:')
-            for a, mom in enumerate(magmom_a):
+            for a, mom in enumerate(self.magmom_a):
                 t(a, mom)
             t()
 
@@ -408,9 +407,10 @@ def eigenvalue_string(paw, comment=None):
         s += comment + 'Band   Eigenvalues  Occupancy\n'
         eps_n = paw.collect_eigenvalues(k=0, s=0)
         f_n   = paw.collect_occupations(k=0, s=0)
-        for n in range(paw.nbands):
-            s += ('%4d   %10.5f  %10.5f\n' %
-                  (n, Ha * eps_n[n], f_n[n]))
+        if paw.master:
+            for n in range(paw.nbands):
+                s += ('%4d   %10.5f  %10.5f\n' %
+                      (n, Ha * eps_n[n], f_n[n]))
     else:
         s += comment + '                 Up                     Down\n'
         s += comment + 'Band  Eigenvalues  Occupancy  Eigenvalues  Occupancy\n'

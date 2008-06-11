@@ -257,8 +257,8 @@ def mtime(path, name, mtimes):
 
     if mtimes.has_key(name):
         return mtimes[name]
-    t = os.stat(os.path.join(path,name))[ST_MTIME]
-    for name2 in include.findall(open(os.path.join(path,name)).read()):
+    t = os.stat(os.path.join(path, name))[ST_MTIME]
+    for name2 in include.findall(open(os.path.join(path, name)).read()):
         path2, name22 = os.path.split(name2)
         if (path2 != ''):
             name2 = name22
@@ -353,7 +353,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     for c2r in glob('c/libxc/src/funcs_*.c'): cfiles2remove.append(c2r)
     for c2r in cfiles2remove: cfiles.remove(c2r)
     sources = ['c/bc.c', 'c/localized_functions.c', 'c/mpi.c', 'c/_gpaw.c',
-               'c/operators.c', 'c/transformers.c'] 
+               'c/operators.c', 'c/transformers.c']
     objects = ' '.join(['build/temp.%s/' % plat + x[:-1] + 'o'
                         for x in cfiles])
 

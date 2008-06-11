@@ -339,11 +339,13 @@ class PAW(PAWExtra, Output):
             self.kpt_u = None
             self.reuse_old_density = False
             self.initialize(atoms)
+            self.print_parameters()
             self.find_ground_state(atoms)
             return
 
         if not self.initialized:
             self.initialize(atoms)
+            self.print_parameters()
             self.find_ground_state(atoms)
             return
 
@@ -400,7 +402,6 @@ class PAW(PAWExtra, Output):
             self.niter += 1
             if write:
                 self.call()
-                
         if write:
             self.call(final=True)
             self.print_converged()
@@ -426,6 +427,7 @@ class PAW(PAWExtra, Output):
 
     def add_up_energies(self):
         H = self.hamiltonian
+        #print H.Ekin, self.occupation.Eband, self.Enlkin, H.Epot, H.Eext, H.Ebar, H.Exc, self.Enlxc,self.occupation.S
         self.Ekin = H.Ekin + self.occupation.Eband + self.Enlkin
         self.Epot = H.Epot
         self.Eext = H.Eext
@@ -437,7 +439,22 @@ class PAW(PAWExtra, Output):
         if len(self.old_energies) == 3:
             self.old_energies.pop(0)
         self.old_energies.append(self.Etot)
-        
+
+    def calculate_magnetic_moments(self):
+        """Calculate the local magnetic moments within augmentation spheres.
+        Local magnetic moments are scaled to sum up to the total magnetic
+        moment"""
+
+        if self.nspins == 2:
+            self.density.calculate_local_magnetic_moments()
+            for a, nucleus in enumerate(self.nuclei):
+                self.magmom_a[a] = nucleus.mom
+            # scale the moments to sum up tp the total magnetic moment
+            M = self.magmom_a.sum()
+            if abs(M) > 1e-4:
+                scale = self.occupation.magmom / M
+                self.magmom_a *= scale
+
     def set_positions(self, atoms=None):
         """Update the positions of the atoms.
 
@@ -458,6 +475,9 @@ class PAW(PAWExtra, Output):
             spos_c = self.domain.scale_position(pos_c)
             if npy.sometrue(spos_c != nucleus.spos_c) or not nucleus.ready:
                 movement = True
+                if len(self.pt_nuclei) == 1 and self.pt_nuclei[0] is None:
+                    self.pt_nuclei.pop()
+                    self.ghat_nuclei.pop()
                 nucleus.set_position(spos_c, self.domain, self.my_nuclei,
                                      self.nspins, self.nmyu, self.nmybands)
                 nucleus.move(spos_c, self.gd, self.finegd,
@@ -503,7 +523,7 @@ class PAW(PAWExtra, Output):
                 self.density.initialize_from_atomic_density()
 
             for kpt in self.kpt_u:
-                kpt.allocate(self.nbands)
+                kpt.allocate(self.nmybands)
 
             self.wave_functions_initialized = True
             return
@@ -512,6 +532,7 @@ class PAW(PAWExtra, Output):
             # Initialize wave functions from atomic orbitals:
             original_eigensolver = self.eigensolver
             original_nbands = self.nbands
+            original_nmybands = self.nmybands
             original_maxiter = self.maxiter
 
             self.text('Atomic orbitals used for initialization:', self.nao)
@@ -521,10 +542,13 @@ class PAW(PAWExtra, Output):
             
             self.maxiter = 0
             self.nbands = min(self.nbands, self.nao)
+            if self.band_comm.size == 1:
+                self.nmybands = self.nbands
+                
             self.eigensolver = get_eigensolver('lcao')
 
             for nucleus in self.my_nuclei:
-                nucleus.reallocate(self.nbands)
+                nucleus.reallocate(self.nmybands)
 
             self.density.lcao = True
 
@@ -535,9 +559,10 @@ class PAW(PAWExtra, Output):
 
             self.maxiter = original_maxiter
             self.nbands = original_nbands
+            self.nmybands = original_nmybands
             for kpt in self.kpt_u:
                 kpt.calculate_wave_functions_from_lcao_coefficients(
-                    self.nbands)
+                    self.nmybands)
                 # Delete basis-set expansion coefficients:
                 kpt.C_nm = None
 
@@ -545,7 +570,7 @@ class PAW(PAWExtra, Output):
                 del nucleus.P_kmi
                 
             for nucleus in self.my_nuclei:
-                nucleus.reallocate(self.nbands)
+                nucleus.reallocate(self.nmybands)
 
             self.eigensolver = original_eigensolver
             if self.xcfunc.is_gllb():
@@ -637,6 +662,7 @@ class PAW(PAWExtra, Output):
                     nucleus.calculate_force_kpoint(kpt)
         for nucleus in self.my_nuclei:
             self.kpt_comm.sum(nucleus.F_c)
+            self.band_comm.sum(nucleus.F_c)
 
         for nucleus in self.nuclei:
             nucleus.calculate_force(vHt_g, nt_g, vt_G)
@@ -649,7 +675,7 @@ class PAW(PAWExtra, Output):
                 else:
                     self.domain.comm.receive(self.F_ac[a], nucleus.rank, 7)
         else:
-            if self.kpt_comm.rank == 0:
+            if self.kpt_comm.rank == 0 and self.band_comm.rank == 0:
                 for nucleus in self.my_nuclei:
                     self.domain.comm.send(nucleus.F_c, MASTER, 7)
 
@@ -850,6 +876,16 @@ class PAW(PAWExtra, Output):
         except (AttributeError, KeyError):
             pass
 
+        try:
+            datatype = r['DataType']
+        except (AttributeError, KeyError):
+            pass
+        else:
+            if datatype == 'Float':
+                self.dtype = float
+            else:
+                self.dtype = complex
+
         pos_ac = r.get('CartesianPositions')
         Z_a = npy.asarray(r.get('AtomicNumbers'), int)
         cell_cc = r.get('UnitCell')
@@ -983,7 +1019,7 @@ class PAW(PAWExtra, Output):
         cell_cc = atoms.get_cell() / Bohr
         pbc_c = atoms.get_pbc()
         Z_a = atoms.get_atomic_numbers()
-        magmom_a = atoms.get_initial_magnetic_moments()
+        self.magmom_a = atoms.get_initial_magnetic_moments()
         
         try:
             tag_a = atoms.get_tags()
@@ -1007,7 +1043,7 @@ class PAW(PAWExtra, Output):
         else:
             self.bzk_kc = npy.array(kpts)
         
-        magnetic = bool(npy.sometrue(magmom_a))  # numpy!
+        magnetic = bool(npy.sometrue(self.magmom_a))  # numpy!
 
         self.spinpol = p['spinpol']
         if self.spinpol is None:
@@ -1047,10 +1083,11 @@ class PAW(PAWExtra, Output):
         self.gamma = (len(self.bzk_kc) == 1 and
                       not npy.sometrue(self.bzk_kc[0]))
 
-        if self.gamma:
-            self.dtype = float
-        else:
-            self.dtype = complex
+        if not hasattr(self, 'dtype'):
+            if self.gamma:
+                self.dtype = float
+            else:
+                self.dtype = complex
                 
         type_a, basis_a = self.create_nuclei_and_setups(Z_a)
 
@@ -1068,7 +1105,7 @@ class PAW(PAWExtra, Output):
             # Reduce the the k-points to those in the irreducible part of
             # the Brillouin zone:
             self.symmetry, self.weight_k, self.ibzk_kc = reduce_kpoints(
-                self.bzk_kc, pos_ac, Z_a, type_a, magmom_a, basis_a,
+                self.bzk_kc, pos_ac, Z_a, type_a, self.magmom_a, basis_a,
                 self.domain, p['usesymm'])
             self.nkpts = len(self.ibzk_kc)
         
@@ -1090,7 +1127,7 @@ class PAW(PAWExtra, Output):
             self.kT /= Hartree
             
         self.initialize_occupation(p['charge'], p['nbands'],
-                                   self.kT, p['fixmom'], magmom_a)
+                                   self.kT, p['fixmom'])
 
         if parsize is not None:  # command-line option
             p['parsize'] = parsize
@@ -1099,9 +1136,8 @@ class PAW(PAWExtra, Output):
             p['parsize_bands'] = parsize_bands
 
         self.distribute_cpus(p['parsize'], p['parsize_bands'], N_c)
-        ## print "My bands", self.nmybands
 
-        self.occupation.set_communicator(self.kpt_comm)
+        self.occupation.set_communicator(self.kpt_comm, self.band_comm)
 
         self.stencils = p['stencils']
         self.maxiter = p['maxiter']
@@ -1165,15 +1201,12 @@ class PAW(PAWExtra, Output):
         if self.reuse_old_density:
             nt_sG = self.density.nt_sG
             D_asp = {}
-            P_auni = {}
             for nucleus in self.my_nuclei:
                 D_asp[nucleus.a] = nucleus.D_sp
-                if self.kpt_u is not None:
-                    P_auni[nucleus.a] = nucleus.P_uni
 
         self.my_nuclei = []
-        self.pt_nuclei = []
-        self.ghat_nuclei = []
+        self.pt_nuclei = [None]
+        self.ghat_nuclei = [None]
 
         self.Eref = 0.0
         for nucleus in self.nuclei:
@@ -1184,8 +1217,7 @@ class PAW(PAWExtra, Output):
             nucleus.set_position(spos_c, self.domain, self.my_nuclei,
                                  self.nspins, self.nmyu, self.nmybands)
 
-        self.density = Density(self, magmom_a)#???
-
+        self.density = Density(self, self.magmom_a.copy())#???
         self.hamiltonian = Hamiltonian(self)        
         self.overlap = Overlap(self)
 
@@ -1193,23 +1225,21 @@ class PAW(PAWExtra, Output):
             self.density.initialize()
             for a, D_sp in D_asp.items():
                 self.nuclei[a].D_sp[:] = D_sp
-            for a, P_uni in P_auni.items():
-                self.nuclei[a].P_uni[:] = P_uni
             self.density.nt_sG[:] = nt_sG
             #self.density.scale()
             self.density.interpolate_pseudo_density()
             self.density.starting_density_initialized = True
             
         self.print_init(pos_ac)
-        self.print_parameters()
         estimate_memory(self)
         if dry_run:
+            self.print_parameters()
             self.txt.flush()
             sys.exit()
 
         self.initialized = True
 
-    def initialize_occupation(self, charge, nbands, kT, fixmom, magmom_a):
+    def initialize_occupation(self, charge, nbands, kT, fixmom):
         """Sets number of valence orbitals and initializes occupation."""
 
         # Sum up the number of valence electrons:
@@ -1235,7 +1265,7 @@ class PAW(PAWExtra, Output):
 
         # check number of bands ?  XXX
         
-        M = magmom_a.sum()
+        M = self.magmom_a.sum()
 
         if self.nbands <= 0:
             self.nbands = int(self.nvalence + M + 0.5) // 2 + (-self.nbands)

@@ -49,10 +49,12 @@ class Hamiltonian(LCAOHamiltonian):
         self.nspins = paw.nspins
         self.gd = paw.gd
         self.finegd = paw.finegd
+
         self.my_nuclei = paw.my_nuclei
         self.pt_nuclei = paw.pt_nuclei
         self.ghat_nuclei = paw.ghat_nuclei
         self.nuclei = paw.nuclei
+
         self.timer = paw.timer
 
         p = paw.input_parameters
@@ -64,6 +66,7 @@ class Hamiltonian(LCAOHamiltonian):
         if psolver is None:
             psolver = PoissonSolver(nn='M', relax='J')
         self.poisson = psolver
+        self.poisson_eps = 2e-10
 
         # The external potential
         vext_g = paw.input_parameters['external']
@@ -159,6 +162,7 @@ class Hamiltonian(LCAOHamiltonian):
         self.timer.start('Poisson')
         # npoisson is the number of iterations:
         self.npoisson = self.poisson.solve(self.vHt_g, density.rhot_g,
+                                           self.poisson_eps, 
                                            charge=-density.charge)
         self.timer.stop('Poisson')
 
@@ -234,9 +238,7 @@ class Hamiltonian(LCAOHamiltonian):
 
         self.timer.stop('Apply pseudo-hamiltonian');
         
-        if local_part_only:
-            assert not calculate_projections
-        else:
+        if not local_part_only:
             # Apply the non-local part:
             self.timer.start('Apply atomic hamiltonian');
             run([nucleus.apply_hamiltonian(a_nG, b_nG, kpt,
