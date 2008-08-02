@@ -6,8 +6,10 @@ Atomic Density Functional Theory
 """
 
 from math import pi, sqrt, log
+import tempfile
 import pickle
 import sys
+import os
 
 import numpy as npy
 from ase.data import atomic_names
@@ -17,6 +19,9 @@ from gpaw.grid_descriptor import RadialGridDescriptor
 from gpaw.xc_functional import XCRadialGrid, XCFunctional
 from gpaw.utilities import hartree, devnull
 from gpaw.exx import atomic_exact_exchange
+
+tempdir = tempfile.gettempdir()
+
 
 # fine-structure constant
 alpha = 1 / 137.036
@@ -183,23 +188,30 @@ class AllElectron:
         vHr = npy.zeros(self.N)
         self.vXC = npy.zeros(self.N)
 
-        try:
-            f = open(self.symbol + '.restart', 'r')
-        except IOError:
+        restartfile = '%s/%s.restart' % (tempdir, self.symbol)
+        if self.xc.is_non_local():
+            # Do not start from initial guess when doing
+            # non local XC!
+            # This is because we need wavefunctions as well
+            # on the first iteration.
+            fd = None
+        else:
+            try:
+                fd = open(restartfile, 'r')
+            except IOError:
+                fd = None
+            else:
+                try:
+                    n[:] = pickle.load(fd)
+                except (ValueError, IndexError):
+                    fd = None
+                else:
+                    t('Using old density for initial guess.')
+                    n *= Z / (npy.dot(n * r**2, dr) * 4 * pi)
+
+        if fd is None:
             self.intialize_wave_functions()
             n[:] = self.calculate_density()
-        else:
-            if not self.xc.is_non_local():
-                t('Using old density for initial guess.')
-                n[:] = pickle.load(f)
-                n *= Z / (npy.dot(n * r**2, dr) * 4 * pi)
-            else:
-                # Do not start from initial guess when doing
-                # non local XC!
-                # This is because we need wavefunctions as well
-                # on the first iteration.
-                self.intialize_wave_functions()
-                n[:] = self.calculate_density()
 
         bar = '|------------------------------------------------|'
         t(bar)
@@ -275,8 +287,13 @@ class AllElectron:
         t()
         t('Converged in %d iteration%s.' % (niter, 's'[:niter != 1]))
 
-        if not self.nofiles:
-            pickle.dump(n, open(self.symbol + '.restart', 'w'))
+        try:
+            fd = open(restartfile, 'w')
+        except IOError:
+            pass
+        else:
+            pickle.dump(n, fd)
+            os.chmod(restartfile, 0666)
 
         Epot = 2 * pi * npy.dot(n * r * (vHr - Z), dr)
         Ekin = -4 * pi * npy.dot(n * vr * r, dr)

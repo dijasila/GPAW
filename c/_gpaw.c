@@ -16,6 +16,7 @@ PyObject* NewLocalizedFunctionsObject(PyObject *self, PyObject *args);
 PyObject* NewOperatorObject(PyObject *self, PyObject *args);
 PyObject* NewSplineObject(PyObject *self, PyObject *args);
 PyObject* NewTransformerObject(PyObject *self, PyObject *args);
+PyObject *pc_potential(PyObject *self, PyObject *args);
 PyObject* elementwise_multiply_add(PyObject *self, PyObject *args);
 PyObject* utilities_vdot(PyObject *self, PyObject *args);
 PyObject* utilities_vdot_self(PyObject *self, PyObject *args);
@@ -27,6 +28,7 @@ PyObject* localize(PyObject *self, PyObject *args);
 PyObject* NewXCFunctionalObject(PyObject *self, PyObject *args);
 PyObject* NewMGGAFunctionalObject(PyObject *self, PyObject *args);
 PyObject* NewlxcXCFunctionalObject(PyObject *self, PyObject *args);
+PyObject *exterior_electron_density_region(PyObject *self, PyObject *args);
 PyObject* elf(PyObject *self, PyObject *args);
 PyObject* overlap(PyObject *self, PyObject *args);
 PyObject* wigner_seitz_grid(PyObject *self, PyObject *args);
@@ -53,6 +55,7 @@ static PyMethodDef functions[] = {
   {"elementwise_multiply_add", elementwise_multiply_add, METH_VARARGS, 0},
   {"utilities_vdot", utilities_vdot, METH_VARARGS, 0},
   {"utilities_vdot_self", utilities_vdot_self, METH_VARARGS, 0},
+  {"eed_region", exterior_electron_density_region, METH_VARARGS, 0},
   {"erf",        errorfunction,        METH_VARARGS, 0},
   {"unpack",       unpack,           METH_VARARGS, 0},
   {"unpack_complex",       unpack_complex,           METH_VARARGS, 0},
@@ -67,6 +70,7 @@ static PyMethodDef functions[] = {
   {"vdw", vdw, METH_VARARGS, 0},
   {"swap", swap_arrays, METH_VARARGS, 0},
   {"spherical_harmonics", spherical_harmonics, METH_VARARGS, 0},
+  {"pc_potential", pc_potential, METH_VARARGS, 0},
  {0, 0, 0, 0}
 };
 

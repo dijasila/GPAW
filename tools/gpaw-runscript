@@ -3,7 +3,6 @@
 
 import os
 import sys
-import socket
 import re
 from optparse import OptionParser
 
@@ -19,19 +18,23 @@ defaults = { 'err'   : None,
              'wd'    : None
              }
 
-hosts = { 'batman'             : 'pbs',
+hosts = { 'batman'             : 'pbs_batman',
           'c551'               : 'murska',
           'c552'               : 'murska',
           'c553'               : 'murska',
           'c554'               : 'murska',
           'louhi'              : 'louhi',
           'opaali.phys.jyu.fi' : 'sge',
-          'sepeli.csc.fi'      : 'sepeli'
+          'sepeli.csc.fi'      : 'sepeli',
+          'ui.bfg.uni'         : 'pbs'
           }
+
+platforms = { 'aix5' : 'loadleveler' }
 
 env = {'PYTHONPATH'      : None,
        'GPAW_PYTHON'     : None, 
-       'GPAW_SETUP_PATH' : None
+       'GPAW_SETUP_PATH' : None,
+       'GPAW_MAIL'       : None
        }
 
 set = defaults
@@ -50,6 +53,26 @@ def dhms(secs):
     s = secs % 60
     dhms[3] = int(s+.5)
     return dhms
+
+def hms(secs):
+    """return hours,minutes and seconds"""
+    hms = [0,0,0]
+    hms[0] = int(secs // 3600)
+    s = secs % 3600
+    hms[1] = int(s // 60)
+    s = secs % 60
+    hms[2] = int(s+.5)
+    return hms
+
+def hms_string(secs):
+    """return hours,minutes and seconds string, e.g. 02:00:45"""
+    l = hms(secs)
+    def extend10(n):
+        if n<10:
+	    return '0' + str(n)
+        else:
+            return str(n)
+    return extend10(l[0]) + ':' + extend10(l[1]) + ':' + extend10(l[2])
 
 def s_from_dhms(time):
     """return seconds from dhms"""
@@ -72,10 +95,19 @@ def s_from_dhms(time):
                 raise RuntimeError, 'unknown format in timestring ' + time
     return seconds
     
+def list_systems(obj):
+    print "Allowed names are:"
+    p = re.compile('__')
+    for host in dir(obj):
+        if not p.match(host):
+            print '', host
+ 
 class RunScript:
     def __init__(self, set, env, name=None):
         if not hasattr(self,set['qsys']):
-            raise RuntimeError, "unkown system >"+set['qsys']+"<"
+            print "unkown system >"+set['qsys']+"<"
+            list_systems(self)
+            sys.exit()
         if name is None:
             name = 'run.'+set['qsys']
         f = open(name,'w')
@@ -83,6 +115,36 @@ class RunScript:
         eval(call)
         f.close()
         print name,"written"
+
+    def loadleveler(self, f, set, env):
+        print >> f,"#!/bin/bash"
+	if set['nodes'] > 1:
+            print >> f, "# @ job_type=parallel"
+	else:
+            print >> f, "# @ job_type=serial"
+        # ibm nodes contain 32 cpus
+        nodes = int(set['nodes'] / 32)
+	if nodes == 0:
+            print >> f, '# @ node = 1'
+        else:
+            if nodes * 32 != int(set['nodes']):
+                raise RuntimeError("! use a multiple of 32 cpus !")
+            print >> f, '# @ node =', nodes
+        print >> f, '# @ total_tasks =', set['nodes']
+        print >> f, '# @ wall_clock_limit =', hms_string(set['time']) 
+##        print >> f, "#PBS -N", set['name']
+        print >> f, '# @ output = ', (set['out'] + '.$(jobid).$(stepid)')
+        print >> f, '# @ error = ', (set['err'] + '.$(jobid).$(stepid)')
+        print >> f, '# @ notify_user =', str(env['GPAW_MAIL'])
+        print >> f, '# @ queue'
+        print >> f
+        print >> f, "export GPAW_SETUP_PATH=" + str(env['GPAW_SETUP_PATH'])
+        print >> f, "export PYTHONPATH=$PYTHONPATH:"+env['PYTHONPATH']
+        print >> f, "export GPAW_PYTHON=" + str(env['GPAW_PYTHON'])
+        print >> f
+        print >> f, 'cd', set['wd']
+        print >> f, 'poe $GPAW_PYTHON', set['script']
+
 
     def louhi(self,f,set,env):
         size=int((set['nodes']+1)/2)
@@ -185,7 +247,7 @@ class RunScript:
         print >> f, 'module load gpaw'
         print >> f,"mpirun -srun $GPAW_PYTHON",set['script']
       
-    def pbs(self, f, set, env):
+    def pbs_batman(self, f, set, env):
         print >> f,"#PBS -N "+set['name']
         print >> f,"#PBS -l ncpus="+str(set['nodes'])
         print >> f,"#PBS -l walltime="""+str(set['time'])
@@ -222,6 +284,23 @@ unset CC CFLAGS LDFLAGS
         print >> f, 'date'
         print >> f, 'echo "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"'
         print >> f, 'exit 0'
+
+    def pbs_bfg(self, f, set, env):
+        print >> f, '#!/bin/bash'
+        print >> f, '#PBS -N '+set['name']
+        print >> f, '#PBS -l ncpus='+str(set['nodes'])
+        print >> f, '#PBS -l walltime='+str(set['time'])
+        print >> f, '#PBS -m bea'
+        if set['mail'] is not None:
+            print >> f, '#PBS -M',set['mail']
+        print >> f, '#PBS -o', set['out']+'_$PBS_JOBID'
+        print >> f, '#PBS -e', set['err']+'_$PBS_JOBID'
+        print >> f, 'cd', set['wd']
+        print >> f, 'export PYTHONPATH=$PYTHONPATH:' + env['PYTHONPATH']
+        print >> f, 'export GPAW_SETUP_PATH='+env['GPAW_SETUP_PATH']
+        print >> f, 'export GPAW_PYTHON=~/gridpaw/build/bin.linux-ia64-2.4/gpaw-python'
+        print >> f, 'mpirun -np', set['nodes'], '$GPAW_PYTHON', set['script']
+        print >> f, 'date'
 
     def sepeli(self, f, set, env):
         print >> f,"#$ -N",set['name']
@@ -331,17 +410,25 @@ if len(args):
 if opt.qsys:
     set['qsys']=opt.qsys
 else:
-    host = socket.gethostname().split('-')[0]
+    host = None
+    try:
+        import socket
+        host = socket.gethostname().split('-')[0]
+    except:
+        dummy, hostname = os.popen4('hostname -s')
+        host = hostname.readline().split()
+        
     if hosts.has_key(host):
         set['qsys']=hosts[host]
         print 'hostname',host,'found,',
+    elif platforms.has_key(sys.platform):
+	set['qsys'] = platforms[sys.platform]
+        print 'platform', sys.platform, 'found,',
     else:
-        print "Host "+str(host)+" unknown, try -q option. Allowed names are:"
-        p = re.compile('__')
-        for host in dir(RunScript):
-            if not p.match(host):
-                print '',host
+        print "Host "+str(host)+" unknown, try -q option."
+        list_systems(RunScript)
         sys.exit()
+
 print 'using',set['qsys']
 
 # ............................................................

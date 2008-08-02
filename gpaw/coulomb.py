@@ -13,8 +13,12 @@ from gpaw.utilities.gauss import Gaussian
 from gpaw.utilities.blas import r2k
 
 
-def get_vxc(paw, spin):
+def get_vxc(paw, spin=0, U=None):
     """Calculate matrix elements of the xc-potential."""
+
+    if U is not None: # Rotate xc matrix
+        return npy.dot(dagger(U), npy.dot(get_vxc(paw, spin), U))
+    
     psit_nG = paw.kpt_u[spin].psit_nG[:]
     nt_g = paw.density.nt_sg[spin]
     vxct_g = paw.finegd.zeros()
@@ -217,8 +221,8 @@ class Coulomb4:
             self.pd.add_compensation_charges(self.nt34_G, rhot34_g)
 
         # smooth part
-        Z12 = float(npy.all(n1 == n2))
-        Z34 = float(npy.all(n3 == n4))
+        Z12 = None#float(npy.all(n1 == n2))
+        Z34 = None#float(npy.all(n3 == n4))
         I = self.coulomb(rhot12_g, rhot34_g, Z12, Z34, self.method)
 
         # Add atomic corrections
@@ -319,7 +323,30 @@ def wannier_coulomb_integrals(paw, U_nj, spin,
         result += (eval('V_' + type), )
     return result
 
+def symmetry(i, j, k, l):
+    ijkl = npy.array((i, j, k, l), int)
+    a = npy.argmin(ijkl)
+    conj = False
+    if a == 1:
+        npy.take(ijkl, (1, 0, 3, 2), out=ijkl)
+    elif a == 2:
+        conj = True
+        npy.take(ijkl, (2, 3, 0, 1), out=ijkl)
+    elif a == 3:
+        conj = True
+        npy.take(ijkl, (3, 2, 1, 0), out=ijkl)
 
+    if ijkl[0] == ijkl[1] and ijkl[3] < ijkl[2]:
+        npy.take(ijkl, (0, 1, 3, 2), out=ijkl)
+
+    return tuple(ijkl), conj
+
+def update_dict(i, j, k, l, dict, func):
+    ijkl, conj = symmetry(i, j, k, l)
+    if conj:
+        return dict.setdefault(ijkl, npy.conj(func(i, j, k, l)))
+    return dict.setdefault(ijkl, func(i, j, k, l))
+   
 def coulomb_all(paw, U_nj, spin=0):
     # Returns all of the Coulomb integrals
     # V_{ijkl} = \iint drdr' / |r-r'| i*(r) j*(r') k(r) l(r')
@@ -357,6 +384,8 @@ from gpaw.utilities import packed_index, unpack2
 from gpaw.utilities.blas import r2k
 class HF:
     def __init__(self, paw):
+        paw.set_positions()
+        
         self.nspins       = paw.nspins
         self.nbands       = paw.nbands
         self.my_nuclei    = paw.my_nuclei
@@ -416,7 +445,13 @@ class HF:
                         h_nn[:,n2] += f1 * npy.dot(P_ni,npy.dot(v_ii,P_ni[n1]))
                     
         symmetrize(h_nn) # Grrrr why!!! XXX
+
+        # Fill in upper triangle
         r2k(0.5 * self.dv, kpt.psit_nG[:], Htpsit_nG, 1.0, H_nn)
+
+        # Fill in lower triangle
+        for n in range(self.nbands - 1):
+            H_nn[n:, n] = H_nn[n, n:]
 
     def atomic_val_val(self, kpt, H_nn):
         deg = 2 / self.nspins

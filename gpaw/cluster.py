@@ -3,12 +3,15 @@ import re
 import numpy as npy
 
 from ase import Atom, Atoms
+from ase.io.cube import write_cube
 from ase.io.xyz import read_xyz, write_xyz
 from ase.io.pdb import write_pdb
+from gpaw.io.cc1 import read_cc1
 from ase.io.cube import read_cube
 from ase import read as ase_read
+from ase import write as ase_write
 from gpaw.utilities.vector import Vector3d
-from gpaw.io.xyz import read_xyz
+#from gpaw.io.xyz import read_xyz
 
 class Cluster(Atoms):
     """A class for cluster structures
@@ -89,10 +92,11 @@ class Cluster(Atoms):
             extr[1][i]+=b[i]-extr[0][i] # shifted already
             
         # move lower corner to (0,0,0)
-        self.translate(tuple(-1.*npy.array(extr[0])))
+        shift = tuple(-1.*npy.array(extr[0]))
+        self.translate(shift)
         self.set_cell(tuple(extr[1]))
 
-        return self.get_cell()
+        return shift
 
     def get(self, name):
         """General get"""
@@ -121,7 +125,9 @@ class Cluster(Atoms):
             filetype = filename.split('.')[-1]
         filetype.lower()
 
-        if filetype == 'cube':
+        if filetype == 'cc1':
+            loa = read_cc1(filename)
+        elif filetype == 'cube':
             loa = read_cube(filename)
         elif filetype == 'vmol':
             from gpaw.utilities.viewmol import Trajectory
@@ -167,11 +173,16 @@ class Cluster(Atoms):
             filetype = filename.split('.')[-1]
         filetype.lower()
 
-        if filetype == 'pdb':
+        if filetype == 'cube':
+            write_cube(filename, out)
+        elif filetype == 'pdb':
             write_pdb(filename, out)
         elif filetype == 'xyz':
             write_xyz(filename, out)
         else:
-            raise NotImplementedError('unknown file type "'+filetype+'"')
+            try:
+                ase_write(filename, self)
+            except:
+                raise NotImplementedError('unknown file type "'+filetype+'"')
                 
        

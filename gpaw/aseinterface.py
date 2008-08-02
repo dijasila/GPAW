@@ -44,10 +44,10 @@ class Calculator(PAW):
 
         if force_consistent:
             # Free energy:
-            return self.Ha * self.Etot
+            return Hartree * self.Etot
         else:
             # Energy extrapolated to zero Kelvin:
-            return self.Ha * (self.Etot + 0.5 * self.S)
+            return Hartree * (self.Etot + 0.5 * self.S)
 
     def get_forces(self, atoms):
         """Return the forces for the current state of the ListOfAtoms."""
@@ -56,11 +56,34 @@ class Calculator(PAW):
                 self.converged = False
         self.calculate(atoms)
         self.calculate_forces()
-        return self.F_ac * (self.Ha / self.a0)
+        return self.F_ac * (Hartree / Bohr)
       
     def get_stress(self, atoms):
         """Return the stress for the current state of the ListOfAtoms."""
         raise NotImplementedError
+
+    def calculation_required(self, atoms, quantities):
+        if 'stress' in quantities:
+            quantities.remove('stress')
+
+        if len(quantities) == 0:
+            return False
+
+        if not (self.initialized and self.converged):
+            return True
+
+        if (len(atoms) != len(self.atoms) or
+            (atoms.get_positions() != self.atoms.get_positions()).any() or
+            (atoms.get_atomic_numbers() !=
+             self.atoms.get_atomic_numbers()).any() or
+            (atoms.get_cell() != self.atoms.get_cell()).any() or
+            (atoms.get_pbc() != self.atoms.get_pbc()).any()):
+            return True
+
+        if 'forces' in quantities:
+            return self.F_ac is None
+
+        return False
 
     def get_number_of_bands(self):
         """Return the number of bands."""
@@ -95,12 +118,36 @@ class Calculator(PAW):
         
         return self.weight_k
 
-    def get_pseudo_valence_density(self, pad=False):
-        """Return pseudo-density array."""
-        if pad:
-            return self.gd.zero_pad(self.get_pseudo_valence_density(False))
-        return self.density.get_density_array() / self.a0**3
+    def get_pseudo_density(self, spin=None, pad=True):
+        """Return pseudo-density array.
 
+        If *spin* is not given, then the total density is returned.
+        Otherwise, the spin up or down density is returned (spin=0 or
+        1)."""
+        
+        nt_sG = self.density.nt_sG
+        if self.nspins == 1:
+            nt_G = nt_sG[0]
+            if spin is not None:
+                nt_G = 0.5 * nt_G
+        else:
+            if spin is None:
+                nt_G = nt_sG.sum(axis=0)
+            else:
+                nt_G = nt_sG[spin]
+        if pad:
+            nt_G = self.gd.zero_pad(nt_G)
+        return nt_G / Bohr**3
+
+    get_pseudo_valence_density = get_pseudo_density  # Don't use this one!
+    
+    def get_effective_potential(self, spin=0, pad=True):
+        """Return pseudo effective-potential."""
+        vt_G = self.hamiltonian.vt_sG[spin]
+        if pad:
+            vt_G = self.gd.zero_pad(vt_G)
+        return vt_G * Hartree
+    
     def get_pseudo_density_corrections(self):
         """Integrated density corrections.
 
@@ -115,13 +162,12 @@ class Calculator(PAW):
             return npy.array([[n.get_density_correction(spin, 2)
                               for n in self.nuclei] for spin in range(2)])
 
-    def get_all_electron_density(self, gridrefinement=2, pad=False):
+    def get_all_electron_density(self, gridrefinement=2, pad=True):
         """Return reconstructed all-electron density array."""
+        n_G = self.density.get_all_electron_density(gridrefinement)
         if pad:
-            return self.gd.zero_pad(self.get_all_electron_density(
-                gridrefinement, False))
-        return self.density.get_all_electron_density(gridrefinement)\
-               / self.a0**3
+            n_G = self.gd.zero_pad(n_G)
+        return n_G / Bohr**3
 
     def get_wigner_seitz_densities(self, spin):
         """Get the weight of the spin-density in Wigner-Seitz cells
@@ -145,7 +191,7 @@ class Calculator(PAW):
             
         return weight_a
 
-    def get_dos(self, spin, npts=201, width=None):
+    def get_dos(self, spin=0, npts=201, width=None):
         """The total DOS.
 
         Fold eigenvalues with Gaussians, and put on an energy grid."""
@@ -165,9 +211,10 @@ class Calculator(PAW):
             x += Nb
             
         from gpaw.utilities.dos import fold
-        return fold(energies, weights, npts, width)        
+        e, dos = fold(energies, weights, npts, width)
+        return e - self.get_fermi_level(), dos
 
-    def get_wigner_seitz_ldos(self, a, spin, npts=201, width=None):
+    def get_wigner_seitz_ldos(self, a, spin=0, npts=201, width=None):
         """The Local Density of States, using a Wigner-Seitz basis function.
 
         Project wave functions onto a Wigner-Seitz box at atom ``a``, and
@@ -179,16 +226,22 @@ class Calculator(PAW):
 
         from gpaw.utilities.dos import raw_wignerseitz_LDOS, fold
         energies, weights = raw_wignerseitz_LDOS(self, a, spin)
-        return fold(energies * self.Ha, weights, npts, width)        
+        e, ldos = fold(energies * Hartree, weights, npts, width)
+        return e - self.get_fermi_level(), ldos
     
-    def get_orbital_ldos(self, a, spin, angular, npts=201, width=None):
+    def get_orbital_ldos(self, a,
+                         spin=0, angular='spdf', npts=201, width=None):
         """The Local Density of States, using atomic orbital basis functions.
 
         Project wave functions onto an atom orbital at atom ``a``, and
         use this as weight when summing the eigenvalues.
 
         The atomic orbital has angular momentum ``angular``, which can be
-        's', 'p', 'd', 'f', or any combination (e.g. 'sdf')."""
+        's', 'p', 'd', 'f', or any combination (e.g. 'sdf').
+
+        An integer value for ``angular`` can also be used to specify a specific
+        projector function to project onto.
+        """
         if width is None:
             width = self.get_electronic_temperature()
         if width == 0.0:
@@ -196,13 +249,16 @@ class Calculator(PAW):
 
         from gpaw.utilities.dos import raw_orbital_LDOS, fold
         energies, weights = raw_orbital_LDOS(self, a, spin, angular)
-        return fold(energies * self.Ha, weights, npts, width)
+        e, ldos = fold(energies * Hartree, weights, npts, width)
+        return e - self.get_fermi_level(), ldos
 
-    def get_molecular_ldos(self, mol, spin, npts=201, width=None,
+    def get_molecular_ldos(self, mol, spin=0, npts=201, width=None,
                            lc=None, wf=None, P_uai=None):
-        """The Projected Density of States, using either atomic
-        orbital basis functions (lc) for a specified molecule (mol)
-        or a molecular wavefunction(wf)."""
+        """The Projected Density of States, using molecular orbitals.
+
+        Projects onto either atomic orbital basis functions (lc) for a
+        specified molecule (mol), or a molecular wavefunction(wf).
+        """
         
         if width is None:
             width = self.get_electronic_temperature()
@@ -212,11 +268,15 @@ class Calculator(PAW):
         from gpaw.utilities.dos import molecular_LDOS, fold
         energies, weights = molecular_LDOS(self, mol, spin,
                                            lc=lc, wf=wf, P_uai=P_uai)
-        return fold(energies * self.Ha, weights, npts, width)
+        e, ldos = fold(energies * Hartree, weights, npts, width)
+        return e - self.get_fermi_level(), ldos
 
     def get_pseudo_wave_function(self, band=0, kpt=0, spin=0, broadcast=True,
                                  pad=False):
-        """Return pseudo-wave-function array."""
+        """Return pseudo-wave-function array.
+
+        Unit: 1/Angstrom^(3/2)
+        """
         if pad:
             return self.gd.zero_pad(self.get_pseudo_wave_function(
                 band, kpt, spin, broadcast, False))
@@ -233,8 +293,14 @@ class Calculator(PAW):
         """Return eigenvalue array."""
         result = self.collect_eigenvalues(kpt, spin)
         if result is not None:
-            return result * self.Ha
+            return result * Hartree
 
+    def get_occupation_numbers(self, kpt=0, spin=0):
+        """Return occupation array."""
+        return self.collect_occupations(kpt, spin)
+
+    get_occupations = get_occupation_numbers
+    
     def initial_wannier(self, initialwannier, kpointgrid, fixedstates,
                         edf, spin):
         """Initial guess for the shape of wannier functions.
@@ -254,7 +320,8 @@ class Calculator(PAW):
         c = dirG.tolist().index(1)
         G = self.bzk_kc[nextkpoint, c] - self.bzk_kc[kpoint, c] + G_I[c]
 
-        return self.get_wannier_integrals(c, spin, kpoint, nextkpoint, G)
+        return self.get_wannier_integrals(c, spin, kpoint,
+                                          nextkpoint, G, nbands)
 
     def get_magnetic_moment(self, atoms=None):
         """Return the total magnetic moment."""
@@ -286,4 +353,4 @@ class Calculator(PAW):
         return npy.array(coefs)
 
     def get_electronic_temperature(self):
-        return self.kT * self.Ha
+        return self.kT * Hartree

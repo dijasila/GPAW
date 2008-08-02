@@ -253,11 +253,11 @@ class XCFunctional:
         self.timer = timer
 
     def __getstate__(self):
-        return self.xcname, self.parameters
+        return self.xcname, self.nspins, self.parameters
 
     def __setstate__(self, state):
-        xcname, parameters = state
-        self.__init__(xcname, parameters)
+        xcname, nspins, parameters = state
+        self.__init__(xcname, nspins, parameters)
 
     # Returns true, if the orbital is orbital dependent.
     def is_non_local(self):
@@ -287,8 +287,8 @@ class XCFunctional:
                 use_finegrid = self.parameters['finegrid']
             else:
                 use_finegrid = True
-
-            self.exx = EXX(paw, energy_only, use_finegrid=use_finegrid)
+            self.exx = EXX(paw, energy_only=energy_only,
+                           use_finegrid=use_finegrid)
 
         if self.xcname == 'TPSS':
             paw.density.initialize_kinetic()

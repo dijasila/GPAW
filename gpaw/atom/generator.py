@@ -21,7 +21,7 @@ from gpaw.atom.filter import Filter
 parameters = {
  'H' : {'rcut': 0.9},
  'He': {'rcut': 1.5},
- 'Li': {'core': '[He]',   'rcut': 2.1},
+ 'Li': {'core': '[He]',   'rcut': 2.0},
  'Be': {'core': '[He]',   'rcut': 1.5},
  'B' : {'core': '[He]',   'rcut': 1.2},
  'C' : {'core': '[He]',   'rcut': 1.2},
@@ -40,8 +40,8 @@ parameters = {
  'K' : {'core': '[Ne]',   'rcut': [2.5, 2.1, 2.1]},
  'Ca': {'core': '[Ne]',   'rcut': [2.0, 1.7]},
 #'Sc': Missing
- 'Ti': {'core': '[Ne]3s', 'rcut': [2.4, 1.8, 1.8],
-        'vbar': ('poly', 2.3), 'rcutcomp': 2.3},
+ 'Ti': {'core': '[Ne]', 'rcut': [2.4, 2.0, 2.0],
+        'vbar': ('f', 1.8), 'rcutcomp': 2.3},
  'V' : {'core': '[Ar]',   'rcut': [2.5, 2.4, 2.0],
         'vbar': ('poly', 2.3), 'rcutcomp': 2.5},
  'Cr': {'core': '[Ar]',   'rcut': [2.2, 2.3, 2.1]},
@@ -55,7 +55,7 @@ parameters = {
  'Ge': {'core': '[Ar]3d', 'rcut': 1.9},
  'As': {'core': '[Ar]3d', 'rcut': 2.0},
  'Se': {'core': '[Ar]3d', 'rcut': [1.6, 1.9]},
- 'Br': {'core': '[Ar]3d', 'rcut': 2.2},
+# 'Br': Missing
  'Kr': {'core': '[Ar]3d', 'rcut': 2.2},
  'Rb': {'core': '[Ar]3d', 'rcut': [2.8, 2.4, 2.4]},
  'Sr': {'core': '[Ar]3d', 'rcut': [2.4, 2.4, 2.3],
@@ -69,8 +69,8 @@ parameters = {
  'Rh': {'core': '[Kr]',   'rcut': 2.5},
  'Pd': {'core': '[Kr]',   'rcut': [2.3, 2.5, 2.2]},
  'Ag': {'core': '[Kr]',   'rcut': 2.45},
- 'Cd': {'core': '[Kr]',   'rcut': 2.5},
- 'Sn': {'core': '[Kr]',   'rcut': 2.5},
+ 'Cd': {'core': '[Kr]',   'rcut': [2.1, 2.5, 2.0]},
+ 'Sn': {'core': '[Kr]',   'rcut': 2.2},
 #'Sb' : Missing 
 #'Te' : Missing 
 #'I'  : Missing 
@@ -340,6 +340,7 @@ class Generator(AllElectron):
         gcut_l = [1 + int(rc * N / (rc + beta)) for rc in rcut_l]
 
         rcutfilter = xfilter * rcutmax
+        self.rcutfilter = rcutfilter
         gcutfilter = 1 + int(rcutfilter * N / (rcutfilter + beta))
         gcutmax = 1 + int(rcutmax * N / (rcutmax + beta))
 
@@ -431,7 +432,7 @@ class Generator(AllElectron):
 
         # Calculate pseudo core density:
         gcutnc = 1 + int(rcutmax * N / (rcutmax + beta))
-        nct = nc.copy()
+        self.nct = nct = nc.copy()
         A = npy.ones((4, 4))
         A[0] = 1.0
         A[1] = r[gcutnc - 2:gcutnc + 2]**2
@@ -605,6 +606,8 @@ class Generator(AllElectron):
             q_n[:] = npy.dot(inv(npy.transpose(A_nn)), q_n)
 
         self.vt = vt
+        self.vbar = vbar
+
 
         t('state    eigenvalue         norm')
         t('--------------------------------')
@@ -619,9 +622,13 @@ class Generator(AllElectron):
                     t('*%s    : %12.6f' % ('spdf'[l], e_n[n]))
         t('--------------------------------')
 
+        self.logd = {}
         if logderiv:
+            ni = 300
+            self.elog = npy.linspace(-5.0, 1.0, ni)
             # Calculate logarithmic derivatives:
             gld = gcutmax + 10
+            self.rlog = r[gld]
             assert gld < gmax
             t('Calculating logarithmic derivatives at r=%.3f' % r[gld])
             t('(skip with [Ctrl-C])')
@@ -629,6 +636,7 @@ class Generator(AllElectron):
             try:
                 u = npy.zeros(N)
                 for l in range(3):
+                    self.logd[l] = (npy.empty(ni), npy.empty(ni))
                     if l <= lmax:
                         dO_nn = dO_lnn[l]
                         dH_nn = dH_lnn[l]
@@ -637,17 +645,15 @@ class Generator(AllElectron):
                     fae = open(self.symbol + '.ae.ld.' + 'spdf'[l], 'w')
                     fps = open(self.symbol + '.ps.ld.' + 'spdf'[l], 'w')
 
-                    ni = 300
-                    e1 = -5.0
-                    e2 = 1.0
-                    e = e1
-                    for i in range(ni):
+                    for i, e in enumerate(self.elog):
                         # All-electron logarithmic derivative:
                         u[:] = 0.0
                         shoot(u, l, self.vr, e, self.r2dvdr, r, dr, c10, c2,
                               self.scalarrel, gmax=gld)
                         dudr = 0.5 * (u[gld + 1] - u[gld - 1]) / dr[gld]
-                        print >> fae, e,  dudr / u[gld] - 1.0 / r[gld]
+                        ld = dudr / u[gld] - 1.0 / r[gld]
+                        print >> fae, e, ld
+                        self.logd[l][0][i] = ld
 
                         # PAW logarithmic derivative:
                         s = self.integrate(l, vt, e, gld)
@@ -664,9 +670,10 @@ class Generator(AllElectron):
                             s -= npy.dot(c_n, s_n)
 
                         dsdr = 0.5 * (s[gld + 1] - s[gld - 1]) / dr[gld]
-                        print >> fps, e, dsdr / s[gld] - 1.0 / r[gld]
+                        ld = dsdr / s[gld] - 1.0 / r[gld]
+                        print >> fps, e, ld
+                        self.logd[l][1][i] = ld
 
-                        e += (e2 - e1) / ni
             except KeyboardInterrupt:
                 pass
 
@@ -798,6 +805,7 @@ class Generator(AllElectron):
                                                   setup.lcorehole)
             setup.core_hole_e = self.e_j[self.jcorehole]
             setup.core_hole_e_kin = self.Ekincorehole
+            setup.fcorehole = self.fcorehole
 
         if self.ghost:
             raise RuntimeError('Ghost!')
@@ -1069,18 +1077,21 @@ def construct_smooth_wavefunction(u, l, gc, r, s):
 if __name__ == '__main__':
     import os
     from gpaw.xc_functional import XCFunctional
-
+    from gpaw.atom.all_electron import tempdir
+    
     # Pt and Au needs to be done non-scalar-relatistic first:
-    for symbol in 'Pt Au'.split():
-        g = Generator(symbol, 'LDA', scalarrel=False, nofiles=False)
-        g.run(exx=True, **parameters[symbol])
+    for symbol in 'Pt Au Ir'.split():
+        if not os.path.isfile('%s/%s.restart' % (tempdir, symbol)):
+            AllElectron(symbol, 'LDA', scalarrel=False, nofiles=False).run()
 
-    # Special case for Ir also:
-    g = Generator('Ir', 'LDA', scalarrel=False, nofiles=False)
-    g.run(exx=True, **{'core': '[Xe]4f', 'rcut': [2.5, 2.6, 2.5],
-                       'vbar': ('poly', 2.1), 'rcutcomp': 2.3})
-
-    for xcname in ['LDA', 'PBE']:
+    # Special case for Ta and W:
+    if not os.path.isfile('%s/Ta.restart' % tempdir):
+        AllElectron('Re', 'LDA', scalarrel=False, nofiles=False).run()
+        os.system('cp %s/Re.restart %s/Ta.restart' % (tempdir, tempdir))
+    if not os.path.isfile('%s/W.restart' % tempdir):
+        os.system('cp %s/Ta.restart %s/W.restart' % (tempdir, tempdir))
+        
+    for xcname in ['LDA', 'PBE', 'RPBE']:
         for symbol, par in parameters.items():
             filename = symbol + '.' + XCFunctional(xcname).get_name()
             if os.path.isfile(filename):

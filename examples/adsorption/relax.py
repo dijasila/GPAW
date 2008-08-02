@@ -18,15 +18,10 @@ calc = Calculator(nbands=2 * 5,
                   txt='ontop.txt')
 fcc.set_calculator(calc)
 
-# Make a trajectory file:
-traj = PickleTrajectory('ontop.traj', 'w', fcc)
-
 # Only the height (z-coordinate) of the H atom is relaxed:
 fcc.set_constraint(FixAtoms([0, 1]))
 
-dyn = QuasiNewton(fcc)
-
-dyn.attach(traj.write)
+dyn = QuasiNewton(fcc, trajectory='ontop.traj')
 
 # Find optimal height.  The stopping criteria is: the force on the
 # H atom should be less than 0.05 eV/Ang
@@ -37,7 +32,7 @@ calc.write('ontop.gpw') # Write gpw output after the minimization
 print 'ontop:', fcc.get_potential_energy()
 print 'height:', fcc.positions[-1, 2]
 
-pseudo_density = calc.get_pseudo_valence_density()
+pseudo_density = calc.get_pseudo_density()
 ae_density = calc.get_all_electron_density()
 
 for format in ['cube', 'plt']:

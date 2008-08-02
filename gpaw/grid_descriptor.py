@@ -14,14 +14,12 @@ from cmath import exp
 
 import numpy as npy
 
-from gpaw.utilities.complex import cc
+from gpaw.mpi import MASTER
 
 # Remove this:  XXX
 assert (-1) % 3 == 2
 assert (npy.array([-1]) % 3)[0] == 2
 
-
-MASTER = 0
 NONBLOCKING = False
 
 class GridDescriptor:
@@ -77,6 +75,7 @@ class GridDescriptor:
          ``end_c``  End of grid-point indices (exclusive).
          ``comm``   MPI-communicator for domain decomosition.
          ========== ========================================================
+         The length unit is Bohr.
         """
         
         self.domain = domain
@@ -256,6 +255,20 @@ class GridDescriptor:
 
         return boxes
 
+    def get_nearest_grid_point(self, spos_c=None, position=None):
+        """Return index of nearest grid point.
+        
+        The nearest grid point can be on a different CPU than the one the
+        nucleus belongs to (i.e. return can be negative, or larger than
+        gd.end_c), in which case something clever should be done.
+        """
+        if spos_c is None and position is None:
+            raise RuntimeError('Expecting a position')
+        else:
+            if spos_c is None:
+                spos_c = position / self.h_c
+        return npy.around(self.N_c * spos_c).astype(int) - self.beg_c
+
     def mirror(self, a_g, c):
         """Apply mirror symmetry to array.
 
@@ -414,7 +427,7 @@ class GridDescriptor:
         self.comm.sum(d_c)
         return d_c
 
-    def wannier_matrix(self, psit_nG, psit_nG1, c, G):
+    def wannier_matrix(self, psit_nG, psit_nG1, c, G, nbands=None):
         """Wannier localization integrals
 
         The soft part of Z is given by (Eq. 27 ref1)::
@@ -433,7 +446,9 @@ class GridDescriptor:
         if psit_nG is psit_nG1:
             same_wave = True
 
-        nbands = len(psit_nG)
+        if nbands is None:
+            nbands = len(psit_nG)
+            
         Z_nn = npy.zeros((nbands, nbands), complex)
         psit_nG = psit_nG[:]
         if not same_wave:
@@ -441,11 +456,11 @@ class GridDescriptor:
             
         def get_slice(c, g, psit_nG):
             if c == 0:
-                slice_nG = psit_nG[:, g].copy()
+                slice_nG = psit_nG[:nbands, g].copy()
             elif c == 1:
-                slice_nG = psit_nG[:, :, g].copy()
+                slice_nG = psit_nG[:nbands, :, g].copy()
             else:
-                slice_nG = psit_nG[:, :, :, g].copy()
+                slice_nG = psit_nG[:nbands, :, :, g].copy()
             slice_nG.shape = (nbands, -1)
             return slice_nG
 
@@ -458,7 +473,7 @@ class GridDescriptor:
                 B_nG = get_slice(c, g, psit_nG1)
                 
             e = exp(-2.j * pi * G * (g + self.beg_c[c]) / self.N_c[c])
-            Z_nn += e * npy.dot(cc(A_nG), npy.transpose(B_nG)) * self.dv
+            Z_nn += e * npy.dot(A_nG.conj(), B_nG.T) * self.dv
             
         return Z_nn
 

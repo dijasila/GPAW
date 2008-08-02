@@ -167,6 +167,7 @@ class AbsorptionKickHamiltonian:
         # hamiltonian
         self.abs_hamiltonian = npy.array([self.dp[0], self.dp[1], self.dp[2]])
         
+
     def update(self, density, time):
         """Dummy function = does nothing. Required to have correct interface.
         
@@ -232,6 +233,8 @@ class TimeDependentOverlap:
         """
         self.overlap = overlap
     
+
+
     def update(self):
         """Updates the time-dependent overlap operator. !Currently does nothing!
         
@@ -289,8 +292,11 @@ class TimeDependentDensity:
         paw: PAW
             the PAW-object
         """
-        self.paw = paw
-        
+        self.density = paw.density
+        self.symmetry = paw.symmetry
+        self.kpt_u = paw.kpt_u
+        self.pt_nuclei = paw.pt_nuclei
+
     def update(self):
         """Updates the time-dependent density.
         
@@ -299,10 +305,10 @@ class TimeDependentDensity:
         None
 
         """
-        for kpt in self.paw.kpt_u:
+        for kpt in self.kpt_u:
             run([nucleus.calculate_projections(kpt)
-                 for nucleus in self.paw.pt_nuclei])
-        self.paw.density.update(self.paw.kpt_u, self.paw.symmetry)
+                 for nucleus in self.pt_nuclei])
+        self.density.update(self.kpt_u, self.symmetry)
        
     def get_density(self):
         """Returns the current density.
@@ -312,4 +318,4 @@ class TimeDependentDensity:
         None
 
         """
-        return self.paw.density
+        return self.density

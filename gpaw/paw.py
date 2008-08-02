@@ -19,7 +19,7 @@ import gpaw.io
 import gpaw.mpi as mpi
 import gpaw.occupations as occupations
 from gpaw import parsize, parsize_bands, dry_run
-from gpaw import ConvergenceError
+from gpaw import KohnShamConvergenceError
 from gpaw.density import Density
 from gpaw.eigensolvers import get_eigensolver
 from gpaw.eigensolvers.eigensolver import Eigensolver
@@ -394,7 +394,7 @@ class PAW(PAWExtra, Output):
         # Self-consistency loop:
         while not self.converged:
             if self.niter > self.maxiter:
-                raise ConvergenceError('Did not converge!')
+                raise KohnShamConvergenceError('Did not converge!')
             self.step()
             self.add_up_energies()
             self.check_convergence()
@@ -434,7 +434,8 @@ class PAW(PAWExtra, Output):
         self.Ebar = H.Ebar
         self.Exc = H.Exc + self.Enlxc
         self.S = self.occupation.S
-        self.Etot = self.Ekin + self.Epot + self.Ebar + self.Exc - self.S
+        self.Etot = (self.Ekin + self.Epot + self.Eext + 
+                     self.Ebar + self.Exc - self.S       )
 
         if len(self.old_energies) == 3:
             self.old_energies.pop(0)
@@ -530,53 +531,63 @@ class PAW(PAWExtra, Output):
         
         if self.kpt_u[0].psit_nG is None:
             # Initialize wave functions from atomic orbitals:
-            original_eigensolver = self.eigensolver
-            original_nbands = self.nbands
-            original_nmybands = self.nmybands
-            original_maxiter = self.maxiter
-
             self.text('Atomic orbitals used for initialization:', self.nao)
             if self.nbands > self.nao:
                 self.text('Random orbitals used for initialization:',
                           self.nbands - self.nao)
-            
-            self.maxiter = 0
-            self.nbands = min(self.nbands, self.nao)
-            if self.band_comm.size == 1:
-                self.nmybands = self.nbands
-                
-            self.eigensolver = get_eigensolver('lcao')
 
-            for nucleus in self.my_nuclei:
-                nucleus.reallocate(self.nmybands)
+            if self.nao > 0:
+                original_eigensolver = self.eigensolver
+                original_nbands = self.nbands
+                original_nmybands = self.nmybands
+                original_maxiter = self.maxiter
 
-            self.density.lcao = True
+                self.maxiter = 0
+                self.nbands = min(self.nbands, self.nao)
+                if self.band_comm.size == 1:
+                    self.nmybands = self.nbands
 
-            try:
-                self.find_ground_state(self.atoms, write=False)
-            except ConvergenceError:
-                pass
+                self.eigensolver = get_eigensolver('lcao')
 
-            self.maxiter = original_maxiter
-            self.nbands = original_nbands
-            self.nmybands = original_nmybands
-            for kpt in self.kpt_u:
-                kpt.calculate_wave_functions_from_lcao_coefficients(
-                    self.nmybands)
-                # Delete basis-set expansion coefficients:
-                kpt.C_nm = None
+                for nucleus in self.my_nuclei:
+                    nucleus.reallocate(self.nmybands)
 
-            for nucleus in self.nuclei:
-                del nucleus.P_kmi
-                
-            for nucleus in self.my_nuclei:
-                nucleus.reallocate(self.nmybands)
+                self.density.lcao = True
 
-            self.eigensolver = original_eigensolver
-            if self.xcfunc.is_gllb():
-                self.xcfunc.xc.eigensolver = self.eigensolver
-            #self.density.mixer.reset(self.my_nuclei)
-            self.density.lcao = False
+                try:
+                    self.find_ground_state(self.atoms, write=False)
+                except KohnShamConvergenceError:
+                    pass
+
+                self.maxiter = original_maxiter
+                self.nbands = original_nbands
+                self.nmybands = original_nmybands
+                for kpt in self.kpt_u:
+                    kpt.calculate_wave_functions_from_lcao_coefficients(
+                        self.nmybands)
+                    # Delete basis-set expansion coefficients:
+                    kpt.C_nm = None
+
+                for nucleus in self.nuclei:
+                    del nucleus.P_kmi
+
+                for nucleus in self.my_nuclei:
+                    nucleus.reallocate(self.nmybands)
+
+                self.eigensolver = original_eigensolver
+                if self.xcfunc.is_gllb():
+                    self.xcfunc.xc.eigensolver = self.eigensolver
+                #self.density.mixer.reset(self.my_nuclei)
+                self.density.lcao = False
+            else:
+                # Use only random wave functions:
+                for kpt in self.kpt_u:
+                    kpt.allocate(0)
+                    kpt.psit_nG = self.gd.zeros(self.nmybands,
+                                                dtype=self.dtype)
+                if not self.density.starting_density_initialized:
+                    self.density.initialize_from_atomic_density()
+
             self.density.scale()
             self.density.interpolate_pseudo_density()
             self.converged = False
@@ -685,7 +696,13 @@ class PAW(PAWExtra, Output):
         # Add non-local contributions
         for kpt in self.kpt_u:
             self.F_ac += self.xcfunc.get_non_local_force(kpt)
-            
+    
+        # Add contributions from external fields
+        external = self.input_parameters['external']
+        if hasattr(external, 'get_ion_energy_and_forces'):
+            E_ext, F_ext = external.get_ion_energy_and_forces(self.nuclei)
+            self.F_ac += F_ext
+
         if self.symmetry is not None:
             # Symmetrize forces:
             F_ac = npy.zeros((self.natoms, 3))
@@ -1083,7 +1100,7 @@ class PAW(PAWExtra, Output):
         self.gamma = (len(self.bzk_kc) == 1 and
                       not npy.sometrue(self.bzk_kc[0]))
 
-        if not hasattr(self, 'dtype'):
+        if not hasattr(self, 'time'):
             if self.gamma:
                 self.dtype = float
             else:
@@ -1225,10 +1242,11 @@ class PAW(PAWExtra, Output):
             self.density.initialize()
             for a, D_sp in D_asp.items():
                 self.nuclei[a].D_sp[:] = D_sp
-            self.density.nt_sG[:] = nt_sG
-            #self.density.scale()
-            self.density.interpolate_pseudo_density()
-            self.density.starting_density_initialized = True
+            if self.density.nt_sG.shape == nt_sG.shape:
+                self.density.nt_sG[:] = nt_sG
+                #self.density.scale()
+                self.density.interpolate_pseudo_density()
+                self.density.starting_density_initialized = True
             
         self.print_init(pos_ac)
         estimate_memory(self)
@@ -1254,7 +1272,7 @@ class PAW(PAWExtra, Output):
         if self.nbands is None:
             self.nbands = self.nao
         elif self.nbands > self.nao and self.eigensolver.lcao:
-            raise ValueError('Too many bands for LCAO calculation:' +
+            raise ValueError('Too many bands for LCAO calculation: ' +
                              '%d bands and only %d atomic orbitals!' %
                              (self.nbands, self.nao))
         

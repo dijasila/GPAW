@@ -1,11 +1,23 @@
 from math import pi, sqrt
 import numpy as npy
 from gpaw.utilities import pack, wignerseitz
+from gpaw.setup_data import SetupData
+
+
 
 def print_projectors(nucleus):
-    """Print information on the projectors of input nucleus object"""
-    n_j = nucleus.setup.n_j
-    l_j = nucleus.setup.l_j
+    """Print information on the projectors of input nucleus object.
+
+    If nucleus is a string, treat this as an element name.
+    """
+    if type(nucleus) is str:
+        setup = SetupData(nucleus, 'LDA', 'paw')
+        n_j = setup.n_j
+        l_j = setup.l_j
+    else:
+        n_j = nucleus.setup.n_j
+        l_j = nucleus.setup.l_j
+    
     angular = [['1'],
                ['y', 'z', 'x'],
                ['xy', 'yz', '3z^2-r^2', 'xz', 'x^2-y^2'],
@@ -27,7 +39,7 @@ def get_angular_projectors(nucleus, angular, type='bound'):
     quantum number.
 
     angular can be s, p, d, f, or a list of these.
-    If type is 'bound', only bound state projectors are considered, otherwize
+    If type is 'bound', only bound state projectors are considered, otherwise
     all projectors are included.
     """
     # Get the number of relevant j values
@@ -60,18 +72,21 @@ def fold(energies, weights, npts, width):
     for each."""
     emin = min(energies) - 5 * width
     emax = max(energies) + 5 * width
-    step = (emax - emin) / (npts - 1)
-    e = npy.arange(emin, emax + 1e-7, step, dtype=float)
-    ldos_e = npy.zeros(npts, dtype=float)
+    e = npy.linspace(emin, emax, npts)
+    dos_e = npy.zeros(npts)
     for e0, w in zip(energies, weights):
-        ldos_e += w * delta(e, e0, width)
-    return e, ldos_e
+        dos_e += w * delta(e, e0, width)
+    return e, dos_e
 
 def raw_orbital_LDOS(paw, a, spin, angular='spdf'):
     """Return a list of eigenvalues, and their weight on the specified atom.
 
     angular can be s, p, d, f, or a list of these.
-    If angular is None, the raw weight for each projector is returned"""
+    If angular is None, the raw weight for each projector is returned.
+
+    An integer value for ``angular`` can also be used to specify a specific
+    projector function.
+    """
     w_k = paw.weight_k
     nk = len(w_k)
     nb = paw.nbands
@@ -88,6 +103,8 @@ def raw_orbital_LDOS(paw, a, spin, angular='spdf'):
 
     if angular is None:
         return energies, weights_xi
+    elif type(angular) is int:
+        return energies, weights_xi[angular]
     else:
         projectors = get_angular_projectors(nucleus, angular, type='bound')
         weights = npy.sum(npy.take(weights_xi,

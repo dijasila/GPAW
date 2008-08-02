@@ -182,7 +182,7 @@ class PAWExtra:
             self.kpt_comm.receive(b_n, kpt_rank, 1301)
             return b_n
 
-    def get_wannier_integrals(self, c, s, k, k1, G):
+    def get_wannier_integrals(self, c, s, k, k1, G, nbands=None):
         """Calculate integrals for maximally localized Wannier functions."""
 
         assert s <= self.nspins
@@ -195,11 +195,11 @@ class PAWExtra:
         
         # Get pseudo part
         Z_nn = self.gd.wannier_matrix(self.kpt_u[u].psit_nG,
-                                      self.kpt_u[u1].psit_nG, c, G)
+                                      self.kpt_u[u1].psit_nG, c, G, nbands)
 
         # Add corrections
         for nucleus in self.my_nuclei:
-            Z_nn += nucleus.wannier_correction(G, c, u, u1)
+            Z_nn += nucleus.wannier_correction(G, c, u, u1, nbands)
 
         self.gd.comm.sum(Z_nn, 0)
             
@@ -214,17 +214,20 @@ class PAWExtra:
             newxcfunc = XCFunctional(xcname, self.nspins)
         else:
             newxcfunc = xcname
-
+        
         newxcfunc.set_non_local_things(self, energy_only=True)
 
         xc.set_functional(newxcfunc)
         for setup in self.setups:
             setup.xc_correction.xc.set_functional(newxcfunc)
 
-        if newxcfunc.hybrid > 0.0 and not self.nuclei[0].ready:
+        if newxcfunc.hybrid > 0.0 and not self.nuclei[0].ready: #bugged?
             self.set_positions(npy.array([n.spos_c * self.domain.cell_c
                                           for n in self.nuclei]))
-
+        if newxcfunc.hybrid > 0.0:
+            for nucleus in self.my_nuclei:
+                nucleus.allocate_non_local_things(self.nmyu,self.nmybands)
+        
         vt_g = self.finegd.empty()  # not used for anything!
         nt_sg = self.density.nt_sg
         if self.nspins == 2:

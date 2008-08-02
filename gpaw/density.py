@@ -339,7 +339,7 @@ class Density:
         for nucleus in self.nuclei:
             #locmom += nucleus.mom[0]
             mom = array([0.0])
-            if nucleus.stepf is not None:
+            if hasattr(nucleus, 'stepf') and nucleus.stepf is not None:
                 nucleus.stepf.integrate(spindensity, mom)
                 nucleus.mom = array(nucleus.mom + mom[0])
             nucleus.comm.broadcast(nucleus.mom, nucleus.rank)
@@ -396,8 +396,7 @@ class Density:
     def update_kinetic(self, kpt_u):
         """Calculate pseudo electron kinetic density.
         The pseudo electron-density ``taut_sG`` is calculated from the
-        wave functions, the occupation numbers,
-        the peusdo core density ``tauct_G``, is not included"""
+        wave functions, the occupation numbers"""
 
         ## Add contribution from all k-points:
         for kpt in kpt_u:
@@ -406,7 +405,8 @@ class Density:
         self.kpt_comm.sum(self.taut_sG)
         """Add the pseudo core kinetic array """
         for nucleus in self.nuclei:
-            nucleus.add_smooth_core_kinetic_energy_density(self.taut_sG,self.nspins)
+            nucleus.add_smooth_core_kinetic_energy_density(self.taut_sG,self.nspins,
+                                                           self.gd)
 
         """Transfer the density from the coarse to the fine grid."""
         for s in range(self.nspins):

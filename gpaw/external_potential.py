@@ -1,3 +1,5 @@
+import numpy as npy
+
 """This module defines different external potentials to be used in 
 time-independent and time-dependent calculations."""
 
@@ -5,6 +7,36 @@ class ExternalPotential:
     """ External potential
 
     """
+    def __init__(self, vext_g=None, gd=None):
+        """Initialize with a grid and the corresponding grid descriptor."""
+        self.vext_g = vext_g
+        self.gd = gd
+        if self.gd is not None:
+            if npy.alltrue(vext_g.shape ==
+                           gd.get_size_of_global_array()):
+                # this is a global array and has to be distributed
+                self.vext_g = self.gd.zeros()
+                self.gd.distribute(vext_g, self.vext_g)
+
+    def get_potential(self, gd=None):
+        if self.gd is None:
+            self.gd = gd
+        else:
+            if gd is not None:
+                # make shure we are talking about the same grid
+                assert(gd == self.gd)
+        return self.vext_g
+
+    def get_value(self, spos_c=None, position=None):
+        """The potential value (as seen by an electron) 
+        at a certain grid point."""
+        g_c = self.gd.get_nearest_grid_point(spos_c, position)
+        g_c -= (g_c == self.gd.n_c) # force point to this domain
+        return self.vext_g[tuple(g_c)]
+
+    def get_nuclear_energy(self, nucleus):
+        """Return the energy contribution of the bare nucleus."""
+        return 0. # don't assume anything about the nucleus
 
     def add_linear_field(self, pt_nuclei, a_nG, b_nG, strength, kpt):
         """Adds (does NOT apply) linear field 
@@ -148,3 +180,71 @@ class ExternalPotential:
                 nucleus.apply_polynomial(a_nG, b_nG, self.k, None)
 
 
+class ConstantPotential(ExternalPotential):
+    """Constant potential for tests."""
+    def __init__(self, constant=1.):
+        self.constant = constant
+        ExternalPotential.__init__(self)
+    def get_potential(self, gd):
+        if self.vext_g is None:
+            self.gd = gd
+            self.vext_g = gd.zeros() + self.constant
+        return self.vext_g
+    def get_ion_energy_and_forces(self, atoms):
+        """Return the ionic energy and force contribution."""
+        forces = npy.zeros((len(atoms),3))
+        energy = 0
+        return energy, forces
+
+class ConstantElectricField(ExternalPotential):
+    """External constant electric field"""
+    def __init__(self, strength, direction=[0,0,1], center=None):
+        """
+        strength: field strength [???]
+        direction: polarisation direction
+        center: the center of zero field
+        """
+        self.strength = strength
+        self.center = center
+
+        # normalise the direction
+        dir = npy.array(direction)
+        dir /= npy.sqrt(npy.dot(dir, dir))
+        self.direction = dir
+        
+    def get_potential(self, gd):
+        """Get the potential on the grid."""
+
+        if hasattr(self, 'potential') and gd == self.gd:
+            # nothing changed
+            return self.potential
+
+        self.gd = gd
+
+        if self.center is None:
+            # use the center of the grid as default
+            self.center = .5 * gd.h_c * gd.N_c
+        else:
+            self.center = npy.array(self.center)
+
+        potential = gd.empty()
+        for i in range(gd.beg_c[0],gd.end_c[0]):
+            ii = i - gd.beg_c[0]
+            for j in range(gd.beg_c[1],gd.end_c[1]):
+                jj = j - gd.beg_c[1]
+                for k in range(gd.beg_c[2],gd.end_c[2]):
+                    kk = k - gd.beg_c[2]
+                    vr = npy.array([i * gd.h_c[0],
+                                    j * gd.h_c[1],
+                                    k * gd.h_c[2]])
+                    potential[ii,jj,kk] = self.get_value(vr)
+        self.potential = potential
+        return potential
+
+    def get_value(self, spos_c=None, position=None):
+        gd = self.gd
+        if position is None:
+            vr = spos_c * gd.h_c * gd.N_c - self.center
+        else:
+            vr =  position - self.center
+        return - self.strength * npy.dot(vr, self.direction)

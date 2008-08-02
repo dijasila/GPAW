@@ -11,9 +11,8 @@ from cmath import exp
 
 import numpy as npy
 
-from gpaw.utilities.complex import real, cc
 from gpaw.localized_functions import create_localized_functions
-from gpaw.utilities import unpack, pack, pack2, unpack2
+from gpaw.utilities import unpack, pack, pack2, unpack2, hartree
 import gpaw.mpi as mpi
 
 
@@ -104,6 +103,11 @@ class Nucleus:
         if self.setup.xc_correction.xc.xcfunc.hybrid > 0.0:
             self.vxx_uni = npy.empty((nmyu, nbands, ni), self.dtype)
             self.vxx_unii = npy.zeros((nmyu, nbands, ni, ni), self.dtype)
+    
+    def allocate_non_local_things(self, nmyu, nbands):
+        ni = self.get_number_of_partial_waves()
+        self.vxx_uni = npy.empty((nmyu, nbands, ni), self.dtype)
+        self.vxx_unii = npy.zeros((nmyu, nbands, ni, ni), self.dtype)    
 
     def reallocate(self, nbands):
         nu, nao, ni = self.P_uni.shape
@@ -359,9 +363,10 @@ class Nucleus:
         if self.nct is not None:
             self.nct.add(nct_G, npy.array([1.0 / nspins]))
 
-    def add_smooth_core_kinetic_energy_density(self, tauct_G, nspins):
+    def add_smooth_core_kinetic_energy_density(self, tauct_G, nspins,gd):
         if self.tauct is not None:
-            self.tauct.add(tauct_G, npy.array([1.0 / nspins]))
+            for s in range(nspins):
+                self.tauct.add(tauct_G[s], npy.array([1.0 / nspins]))
 
     def add_compensation_charge(self, nt2):
         self.ghat_L.add(nt2, self.Q_L)
@@ -460,7 +465,7 @@ class Nucleus:
             # constant inside the augmentation spheres.
             Eext = 0.0
             if vext is not None:
-                Eext += vext * sqrt(4 * pi) * (self.Q_L[0] + s.Z)
+                Eext += vext * (sqrt(4 * pi) * self.Q_L[0] + s.Z)
                 dH_p += vext * sqrt(4 * pi) * s.Delta_pL[:, 0]
             
             for H_p in self.H_sp:
@@ -481,6 +486,100 @@ class Nucleus:
                 yield None
 
             yield 0.0, 0.0, 0.0, 0.0, 0.0
+
+    def calculate_all_electron_potential(self, vHt_g):
+        nspins = len(self.D_sp)
+        nj = self.setup.gcut2
+        Lmax = self.setup.Lmax
+        lmax = self.setup.lmax
+        corr = self.setup.xc_correction
+        xc = self.setup.xc_correction.xc
+
+        # Calculate the generalized gaussian integrals over smooth ES potential
+
+        W_L = npy.zeros(Lmax)
+        W_L2 = npy.zeros(Lmax)
+        W_L3 = npy.zeros(Lmax)
+        self.ghat_L.integrate(vHt_g, W_L)
+        # The KS potential expanded in spherical harmonics
+        vKS_sLg = npy.zeros((nspins, Lmax, nj))
+
+        n_sg  = npy.zeros((nspins, nj)) # density
+        nt_sg = npy.zeros((nspins, nj)) # density
+        v_sg  = npy.zeros((nspins, nj)) # potential
+
+        vH_g = npy.zeros(nj)
+        vHt1_g = npy.zeros(nj)
+
+        def H(n_g, l):
+            v_g = npy.zeros(nj)
+            hartree(l, n_g * corr.rgd.r_g * corr.rgd.dr_g, self.setup.beta, self.setup.ng, v_g)
+            v_g[1:] /= corr.rgd.r_g[1:]
+            v_g[0] = v_g[1]
+            return v_g
+
+        # Calculate poisson solutions for radial functions
+        wn_lqg = [npy.array([H(corr.n_qg[q], l) for q in range(self.setup.nq)])
+                  for l in range(2 * self.setup.lcut + 1)]
+        
+        wnt_lqg = [npy.array([H(corr.nt_qg[q], l) for q in range(self.setup.nq)])
+                   for l in range(2 * self.setup.lcut + 1)]
+
+        # Prepare expansion of Hartree-potential
+        i_sw = corr.prepare_slater_integration(self.D_sp.sum(0) , wn_lqg, wnt_lqg)
+        # The core Hartree-potential
+        wc_g = H(self.setup.nc_g, 0) / sqrt(4*pi)
+        # First calculate the exchange potential
+        # Calculate the spin-density expansion
+        i_sn = [ corr.prepare_density_integration(D_p, add_core=True) for D_p in self.D_sp ]
+        print "D_sp", self.D_sp
+        #print "Q_L", self.Q_L
+        for i in corr.get_slices():
+            y, (w, Y_L) = i
+            for s, i_n in enumerate(i_sn):
+                corr.expand_density(i, i_n, n_sg[s], nt_sg[s]) #nt_sg not used
+                v_sg[s][:] = 0.0
+
+            if nspins == 1:
+                xc.get_energy_and_potential(n_sg[0], v_sg[0])
+            else:
+                xc.get_energy_and_potential(n_sg[0], v_sg[0], n_sg[1], v_sg[1])
+
+            corr.expand_density(i, i_sw, vH_g, vHt1_g)
+
+            L = 0
+            for l in range(0, lmax):
+                for m in range(0, l*2+1):
+                    W_L[L] -= w * Y_L[L] * npy.dot(vHt1_g, self.setup.g_lg[l] * corr.rgd.dv_g) 
+                    W_L[L] -= w * self.Q_L[L] * Y_L[L] * npy.dot(self.setup.g_lg[l], self.setup.wg_lg[l]) * sqrt(4*pi)
+                    L += 1
+            
+            vH_g[1:] += -self.setup.Z / corr.rgd.r_g[1:]
+            vH_g[0] = vH_g[1]
+            vH_g += wc_g
+
+            # Add the electrostatic potential
+            for s, v_g in enumerate(v_sg):
+                v_sg[:] += vH_g 
+
+            # Integrate wrt spherical harmonics
+            for s, v_g in enumerate(v_sg):
+                for L, Y in enumerate(Y_L):
+                    if L < Lmax:
+                        vKS_sLg[s][L] += w * Y * v_sg[s] * 4 * pi
+
+        # Add the correction from outside the sphere
+
+        print "W_L", W_L
+
+        L = 0
+        for l in range(0, lmax):
+            for m in range(0, l*2+1):
+                vKS_sLg[s][L][:] += W_L[L] * corr.rgd.r_g ** l 
+                L += 1
+
+        return vKS_sLg
+            
 
     def update_core_eigenvalues(self, vHt_g):
         # TODO: How to calculate just W_0? Get it from calculate hamiltonian?
@@ -914,7 +1013,7 @@ class Nucleus:
         u = kpt.u
         k = kpt.k
         if self.in_this_domain:
-            P_ni = cc(self.P_uni[u])
+            P_ni = self.P_uni[u].conj()
             nb = P_ni.shape[0]
             H_ii = unpack(self.H_sp[s])
             O_ii = self.setup.O_ii
@@ -924,14 +1023,14 @@ class Nucleus:
             self.pt_i.derivative(psit_nG, F_nic, k)
             F_nic.shape = (nb, ni * 3)
             F_nic *= f_n[:, None]
-            F_iic = npy.dot(H_ii, npy.dot(npy.transpose(P_ni), F_nic))
+            F_iic = npy.dot(H_ii, npy.dot(P_ni.T, F_nic))
             F_nic *= eps_n[:, None]
-            F_iic -= npy.dot(O_ii, npy.dot(npy.transpose(P_ni), F_nic))
+            F_iic -= npy.dot(O_ii, npy.dot(P_ni.T, F_nic))
             F_iic *= 2.0
             F = self.F_c
             F_iic.shape = (ni, ni, 3)
             for i in range(ni):
-                F += real(F_iic[i, i])
+                F += F_iic[i, i].real
         else:
             self.pt_i.derivative(psit_nG, None, k)
 
@@ -972,15 +1071,6 @@ class Nucleus:
                 
             if self.vbar is not None:
                 self.vbar.derivative(nt_g, None)
-
-    def get_nearest_grid_point(self, gd):
-        """Return index of nearest grid point.
-        
-        The nearest grid point can be on a different CPU than the one the
-        nucleus belongs to (i.e. return can be negative, or larger than
-        gd.end_c), in which case something clever should be done.
-        """
-        return npy.around(gd.N_c * self.spos_c).astype(int) - gd.beg_c
 
     def get_density_correction(self, spin, nspins):
         """Integrated atomic density correction.
@@ -1038,10 +1128,10 @@ class Nucleus:
                 nct.add(n_sg[s], -npy.ones(1) / nspins)
 
             # Correct density, such that correction is norm-conserving
-            g_c = tuple(self.get_nearest_grid_point(gd) % gd.N_c)
+            g_c = tuple(gd.get_nearest_grid_point(self.spos_c) % gd.N_c)
             n_sg[s][g_c] += (Iana - Inum) / gd.dv
         
-    def wannier_correction(self, G, c, u, u1):
+    def wannier_correction(self, G, c, u, u1, nbands=None):
         """
         Calculate the correction to the wannier integrals Z,
         given by (Eq. 27 ref1)::
@@ -1051,9 +1141,9 @@ class Nucleus:
              nm       n             m
                             
                            __                __
-                   ~      \              a  \     a  a    a  *
-            Z    = Z    +  ) exp[-i G . R ]  )   P  O   (P  )
-             nmx    nmx   /__            x  /__   ni ii'  mi'
+                   ~      \              a  \     a*  a    a   
+            Z    = Z    +  ) exp[-i G . R ]  )   P   O    P  
+             nmx    nmx   /__            x  /__   ni  ii'  mi'
 
                            a                 ii'
 
@@ -1062,11 +1152,15 @@ class Nucleus:
 
         ref1: Thygesen et al, Phys. Rev. B 72, 125119 (2005) 
         """
-        P_ni = self.P_uni[u]
-        P1_ni = self.P_uni[u1]
+
+        if nbands is None:
+            nbands = self.P_uni.shape[1]
+            
+        P_ni = self.P_uni[u, :nbands]
+        P1_ni = self.P_uni[u1, :nbands]
         O_ii = self.setup.O_ii
         e = exp(-2.j * pi * G * self.spos_c[c])
-        Z_nn = e * npy.dot(npy.dot(P_ni, O_ii), cc(npy.transpose(P1_ni)))
+        Z_nn = e * npy.dot(npy.dot(P_ni.conj(), O_ii), P1_ni.T)
 
         return Z_nn
 

@@ -1,7 +1,8 @@
 import os
 import sys
 import time
-from math import log, sqrt
+from math import log
+from math import sqrt
 
 import numpy as npy
 import ase
@@ -9,7 +10,8 @@ from ase.version import version as ase_version
 from ase.data import chemical_symbols
 
 from gpaw.utilities import devnull
-from gpaw.mpi import MASTER, size
+from gpaw.mpi import MASTER
+from gpaw.mpi import size
 from gpaw.version import version
 from gpaw import sl_diagonalize, sl_inverse_cholesky
 import gpaw
@@ -224,7 +226,10 @@ class Output:
             mixer = self.density.mixer
             t('Linear Mixing Parameter:           %g' % mixer.beta)
             t('Pulay Mixing with %d Old Densities' % mixer.nmaxold)
-            t('Damping of Long Wave Oscillations: %g' % mixer.weight)
+            if mixer.metric_type is None:
+                t('No Damping of Long Wave Oscillations')
+            else:
+                t('Damping of Long Wave Oscillations: %g' % mixer.weight)
 
         cc = p['convergence']
         t()
@@ -288,7 +293,7 @@ class Output:
         if self.density.charge == 0:
             t('Dipole Moment: %s' % (dipole * self.a0))
         else:
-            t('Center of Charge: %s' % (dipole * self.a0))
+            t('Center of Charge: %s' % (dipole * self.a0 / abs(charge)))
 
         if self.nspins == 2:
             self.calculate_magnetic_moments()
@@ -406,7 +411,7 @@ def eigenvalue_string(paw, comment=None):
     if paw.nspins == 1:
         s += comment + 'Band   Eigenvalues  Occupancy\n'
         eps_n = paw.collect_eigenvalues(k=0, s=0)
-        f_n   = paw.collect_occupations(k=0, s=0)
+        f_n   = paw.collect_occupations(k=0, s=0) 
         if paw.master:
             for n in range(paw.nbands):
                 s += ('%4d   %10.5f  %10.5f\n' %
