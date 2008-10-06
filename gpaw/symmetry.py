@@ -60,7 +60,8 @@ class Symmetry:
                    for m1 in mirrors[1]
                    for m2 in mirrors[2]]
 
-        self.symmetries = []
+        self.symmetries = [] #symmetry operations as pairs of swaps and mirrors
+        self.operations = [] #symmetry operations as matrices
         cell_cdt=npy.dot(npy.transpose(self.cell_c),self.cell_c) #metric tensor
 
         #make operation matrix out of every swap/operation pair
@@ -77,7 +78,8 @@ class Symmetry:
 
                 if not npy.sometrue(cell_cdt-cell_cdodt):
                     self.symmetries.append([swap,mirror])
-        
+                    self.operations.append(operation)
+
         self.prune_symmetries(pos_ac)
 
     def prune_symmetries(self, pos_ac):
