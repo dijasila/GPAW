@@ -146,9 +146,9 @@ class Symmetry:
 
         Check if positions satisfy symmetry operations."""
 
-        nsymold = len(self.symmetries)
+        nsymold = len(self.operations)
         self.prune_symmetries(pos_ac)
-        if len(self.symmetries) < nsymold:
+        if len(self.operations) < nsymold:
             raise RuntimeError('Broken symmetry!')
 
     def reduce(self, bzk_kc):
