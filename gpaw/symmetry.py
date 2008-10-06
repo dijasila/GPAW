@@ -64,7 +64,7 @@ class Symmetry:
         self.operations = [] #symmetry operations as matrices
         cell_cdt=npy.dot(npy.transpose(self.cell_c),self.cell_c) #metric tensor
 
-        #make operation matrix out of every swap/operation pair
+        #make (orthogonal) operation matrix out of every swap/operation pair
         for swap in swaps:
             for mirror in mirrors:
                 operation=[[1,0,0],[0,1,0],[0,0,1]]
@@ -99,12 +99,14 @@ class Symmetry:
                 species[ZTMB] = [(a, spos_c)]
 
         symmok = []
+        opok = []
         maps = []
-        for swap, mirror in self.symmetries:
+        #reduce point group using operation matrices
+        for ioperation, operation in enumerate(self.operations):
             map = npy.zeros(len(pos_ac), int)
             for specie in species.values():
                 for a1, spos1_c in specie:
-                    spos1_c = npy.take(spos1_c * mirror, swap)
+                    spos1_c = npy.dot(operation,spos1_c)
                     ok = False
                     for a2, spos2_c in specie:
                         sdiff = spos1_c - spos2_c
@@ -118,7 +120,9 @@ class Symmetry:
                 if not ok:
                     break
             if ok:
+                swap,mirror=self.symmetries[ioperation]
                 symmok.append((swap, mirror))
+                opok.append(operation)
                 maps.append(map)
 
         if debug:
@@ -135,6 +139,7 @@ class Symmetry:
 
         self.maps = maps
         self.symmetries = symmok
+        self.operations = opok
                 
     def check(self, pos_ac):
         """Check(positions) -> boolean
