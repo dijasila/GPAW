@@ -35,7 +35,7 @@ class Symmetry:
                             (1, 0, 2), (1, 2, 0),
                             (2, 0, 1), (2, 1, 0)]
         # Only swap axes of equal length:
-        cellsyms = [[abs(self.cell_c[c1] - self.cell_c[c2]) < self.tol and
+        cellsyms = [[abs(npy.vdot(self.cell_c[c1],self.cell_c[c1])-npy.vdot(self.cell_c[c2],self.cell_c[c2]))<self.tol and
                      self.pbc_c[c1] and self.pbc_c[c2]
                      for c1 in range(3)]
                     for c2 in range(3)]
@@ -59,9 +59,24 @@ class Symmetry:
                    for m0 in mirrors[0]
                    for m1 in mirrors[1]
                    for m2 in mirrors[2]]
-                            
-        self.symmetries = [(swap, mirror)
-                           for swap in swaps for mirror in mirrors]
+
+        self.symmetries = []
+        cell_cdt=npy.dot(npy.transpose(self.cell_c),self.cell_c) #metric tensor
+
+        #make operation matrix out of every swap/operation pair
+        for swap in swaps:
+            for mirror in mirrors:
+                operation=[[1,0,0],[0,1,0],[0,0,1]]
+
+                for i1 in range(3):
+                    operation[i1]=npy.take(operation[i1]*mirror,swap)
+
+                #generalized criterion of a matrix being a symmetry operation 
+                cell_cdo  =npy.dot(self.cell_c,operation)
+                cell_cdodt=npy.dot(npy.transpose(cell_cdo),cell_cdo)
+
+                if not npy.sometrue(cell_cdt-cell_cdodt):
+                    self.symmetries.append([swap,mirror])
         
         self.prune_symmetries(pos_ac)
 
