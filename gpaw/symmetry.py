@@ -154,14 +154,17 @@ class Symmetry:
     def reduce(self, bzk_kc):
         # Add inversion symmetry if it's not there:
         have_inversion_symmetry = False
-        for swap_c, mirror_c in self.symmetries:
-            if swap_c == (0, 1, 2) and not npy.sometrue(mirror_c + 1):
+        identity=npy.identity(3).ravel()
+        for operation in self.operations:
+            if sum(abs(npy.array(operation).ravel()+identity))<self.tol:
                 have_inversion_symmetry = True
                 break
-        nsym = len(self.symmetries)
+        nsym = len(self.operations)
         if not have_inversion_symmetry:
-            for swap_c, mirror_c in self.symmetries[:nsym]:
+            for ioperation, operation in enumerate(self.operations[:nsym]):
+                swap_c, mirror_c = self.symmetries[ioperation]
                 self.symmetries.append((swap_c, -mirror_c))
+                self.operations.append(npy.negative(operation))
 
         nbzkpts = len(bzk_kc)
         ibzk0_kc = npy.empty((nbzkpts, 3))
