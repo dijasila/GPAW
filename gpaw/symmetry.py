@@ -193,7 +193,7 @@ class Symmetry:
                 swap_c,mirror_c=self.break_operation(operation)
                 symmetries.append((swap_c,mirror_c))
             else:
-                symmetries.append(0)
+                symmetries.append(operation)
         return symmetries
 
     def break_operation(self,operation):
@@ -204,10 +204,6 @@ class Symmetry:
                 if abs(operation[i1][i2])>0:
                     swap[i1]=i2
                     mirror[i2]=operation[i1][i2]
-                    #if (abs(operation[i1][i2]-1))==0:
-                    #    mirror[i2]=1
-                    #else:
-                    #    mirror[i2]=-1
         return (tuple(swap),mirror)
                                                                                                                                         
     def symmetrize(self, a, gd):
@@ -222,7 +218,7 @@ class Symmetry:
         a /= len(self.symmetries)
 
     def print_symmetries(self, text):
-        n = len(self.symmetries)
+        n = len(self.operations)
         if n == 48:
             text('symmetries: all')
             return
