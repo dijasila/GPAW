@@ -173,8 +173,11 @@ class Symmetry:
         nibzkpts = 0
         for k_c in bzk_kc[::-1]:
             found = False
-            for swap_c, mirror_c in self.symmetries:
-                d_kc = npy.take(ibzk_kc * mirror_c, swap_c, 1) - k_c
+            for operation in self.operations:
+                if len(ibzk_kc)==0:
+                    break
+                opit=npy.transpose(npy.linalg.inv(operation))
+                d_kc = [npy.dot(opit,ibzk_kc[i1]) for i1 in range(len(ibzk_kc))] - k_c
                 d_kc *= d_kc
                 d_k = d_kc.sum(1) < self.tol
                 if d_k.any():
@@ -187,6 +190,7 @@ class Symmetry:
                 ibzk_kc[-1] = k_c
 
         del self.symmetries[nsym:]
+        del self.operations[nsym:]
 
         return ibzk_kc[::-1].copy(), weight_k[:nibzkpts][::-1] / nbzkpts
 
