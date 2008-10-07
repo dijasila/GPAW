@@ -21,8 +21,6 @@ class Symmetry:
         self.pbc_c = domain.pbc_c
         self.scale_position = domain.scale_position  # XXX ref to domain!
         self.tol = tolerance
-        # The identity:
-        self.symmetries = [((0, 1, 2), npy.array((1, 1, 1)))]
 
     def analyze(self, pos_ac):
         """Analyse(atoms)
@@ -77,9 +75,8 @@ class Symmetry:
                 cell_cdodt=npy.dot(npy.transpose(cell_cdo),cell_cdo)
 
                 if not npy.sometrue(cell_cdt-cell_cdodt):
-                    self.symmetries.append([swap,mirror])
                     self.operations.append(operation)
-
+                    
         self.prune_symmetries(pos_ac)
 
     def prune_symmetries(self, pos_ac):
@@ -98,7 +95,6 @@ class Symmetry:
             else:
                 species[ZTMB] = [(a, spos_c)]
 
-        symmok = []
         opok = []
         maps = []
         #reduce point group using operation matrices
@@ -120,8 +116,6 @@ class Symmetry:
                 if not ok:
                     break
             if ok:
-                swap,mirror=self.symmetries[ioperation]
-                symmok.append((swap, mirror))
                 opok.append(operation)
                 maps.append(map)
 
@@ -138,7 +132,6 @@ class Symmetry:
                     assert npy.dot(sdiff, sdiff) < self.tol
 
         self.maps = maps
-        self.symmetries = symmok
         self.operations = opok
                 
     def check(self, pos_ac):
@@ -161,9 +154,7 @@ class Symmetry:
                 break
         nsym = len(self.operations)
         if not have_inversion_symmetry:
-            for ioperation, operation in enumerate(self.operations[:nsym]):
-                swap_c, mirror_c = self.symmetries[ioperation]
-                self.symmetries.append((swap_c, -mirror_c))
+            for operation in self.operations[:nsym]:
                 self.operations.append(npy.negative(operation))
 
         nbzkpts = len(bzk_kc)
@@ -189,11 +180,36 @@ class Symmetry:
                 ibzk_kc = ibzk0_kc[:nibzkpts]
                 ibzk_kc[-1] = k_c
 
-        del self.symmetries[nsym:]
         del self.operations[nsym:]
+        self.symmetries=self.convert_operations(self.operations)
 
         return ibzk_kc[::-1].copy(), weight_k[:nibzkpts][::-1] / nbzkpts
 
+    def convert_operations(self,operations):
+        #create pairs of mirrors and swaps for (orthogonal) matrices
+        symmetries=[]
+        for operation in self.operations:
+            if not npy.sometrue(npy.dot(operation,npy.transpose(operation))-npy.identity(3)):
+                swap_c,mirror_c=self.break_operation(operation)
+                symmetries.append((swap_c,mirror_c))
+            else:
+                symmetries.append(0)
+        return symmetries
+
+    def break_operation(self,operation):
+        #break an (orthogonal) matrix to swaps and mirrors
+        swap=[0,0,0]; mirror=npy.array([0.,0.,0.])
+        for i1 in range(3):
+            for i2 in range(3):
+                if abs(operation[i1][i2])>0:
+                    swap[i1]=i2
+                    mirror[i2]=operation[i1][i2]
+                    #if (abs(operation[i1][i2]-1))==0:
+                    #    mirror[i2]=1
+                    #else:
+                    #    mirror[i2]=-1
+        return (tuple(swap),mirror)
+                                                                                                                                        
     def symmetrize(self, a, gd):
         b = a.copy()
         a[:] = 0.0
