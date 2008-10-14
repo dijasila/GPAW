@@ -278,8 +278,8 @@ class PAW(PAWExtra, Output):
 
         if filename is not None:
             self.initialize()
-            self.density.initialize()
             self.hamiltonian.initialize(self)
+            self.density.initialize(self)
             gpaw.io.read(self, reader)
             self.plot_atoms(self.atoms)
 
@@ -369,10 +369,10 @@ class PAW(PAWExtra, Output):
     def find_ground_state(self, atoms, write=True):
         """Start iterating towards the ground state."""
         
-        if not self.density.initialized:
-            self.density.initialize()
         if not self.hamiltonian.initialized:
             self.hamiltonian.initialize(self)
+        if not self.density.initialized:
+            self.density.initialize(self)
 
         self.set_positions(atoms)
         self.initialize_kinetic()
@@ -494,11 +494,11 @@ class PAW(PAWExtra, Output):
                              self.ibzk_kc, self.locfuncbcaster,
                              self.pt_nuclei, self.ghat_nuclei)
 
-                if self.eigensolver.lcao or self.kpt_u[0].psit_nG is None:
-                    nucleus.initialize_atomic_orbitals(
-                        self.gd, self.ibzk_kc,
-                        self.locfuncbcaster,
-                        self.hamiltonian.lcao_forces)
+##                 if self.eigensolver.lcao or self.kpt_u[0].psit_nG is None:
+##                     nucleus.initialize_atomic_orbitals(
+##                         self.gd, self.ibzk_kc,
+##                         self.locfuncbcaster,
+##                         self.hamiltonian.lcao_forces)
                     
         if movement:
             self.niter = 0

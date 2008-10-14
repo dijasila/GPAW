@@ -241,6 +241,7 @@ class Nucleus:
             self.nct.normalize(Nct)
 
     def initialize_atomic_orbitals(self, gd, k_ki, lfbc, lcao_forces=False):
+        aaaaaaaaaaaaaaaaaa
         phit_j = self.setup.phit_j
         self.phit_i = create_localized_functions(
             phit_j, gd, self.spos_c, dtype=self.dtype,
@@ -255,6 +256,7 @@ class Nucleus:
         return self.setup.ni
     
     def create_atomic_orbitals(self, psit_iG, k):
+        bbbbbbbbbbbbbb
         if self.phit_i is None:
             # Nothing to do in this domain:
             return
@@ -262,49 +264,8 @@ class Nucleus:
         coefs_ii = npy.identity(len(psit_iG), psit_iG.dtype.char)
         self.phit_i.add(psit_iG, coefs_ii, k)
 
-    def add_atomic_density(self, nt_sG, magmom, hund):
-        if self.phit_i is None:
-            # Nothing to do in this domain:
-            return
-
-        ns = len(nt_sG)
-        ni = self.get_number_of_partial_waves()
+    def calculate_initial_occupation_numbers(self, ns, magmom, hund):
         niao = self.get_number_of_atomic_orbitals()
-        
-        if hasattr(self, 'f_si'):
-            # Convert to ndarray:
-            self.f_si = npy.asarray(self.f_si, float)
-        else:
-            self.f_si = self.calculate_initial_occupation_numbers(
-                ns, niao, magmom, hund)
-
-        if self.in_this_domain:
-            D_sii = npy.zeros((ns, ni, ni))
-            nj = len(self.setup.n_j)
-            j = 0
-            i = 0
-            ib = 0
-            for phit in self.setup.phit_j:
-                l = phit.get_angular_momentum_number()
-                # Skip projector functions not in basis set:
-                while j < nj and self.setup.l_j[j] != l:
-                    i += 2 * self.setup.l_j[j] + 1
-                    j += 1
-                if j == nj:
-                    break
-
-                for m in range(2 * l + 1):
-                    D_sii[:, i + m, i + m] = self.f_si[:, ib + m]
-                j += 1
-                i += 2 * l + 1
-                ib += 2 * l + 1
-            for s in range(ns):
-                self.D_sp[s] = pack(D_sii[s])
-
-        for s in range(ns):
-            self.phit_i.add_density(nt_sG[s], self.f_si[s])
-
-    def calculate_initial_occupation_numbers(self, ns, niao, magmom, hund):
         f_si = npy.zeros((ns, niao))
 
         setup = self.setup
@@ -359,6 +320,31 @@ class Nucleus:
 
         return f_si
     
+    def initialize_density_matrix(self, f_si):
+        if self.in_this_domain:
+            ns, ni = f_si.shape
+            D_sii = npy.zeros((ns, ni, ni))
+            nj = len(self.setup.n_j)
+            j = 0
+            i = 0
+            ib = 0
+            for phit in self.setup.phit_j:
+                l = phit.get_angular_momentum_number()
+                # Skip projector functions not in basis set:
+                while j < nj and self.setup.l_j[j] != l:
+                    i += 2 * self.setup.l_j[j] + 1
+                    j += 1
+                if j == nj:
+                    break
+
+                for m in range(2 * l + 1):
+                    D_sii[:, i + m, i + m] = f_si[:, ib + m]
+                j += 1
+                i += 2 * l + 1
+                ib += 2 * l + 1
+            for s in range(ns):
+                self.D_sp[s] = pack(D_sii[s])
+
     def add_smooth_core_density(self, nct_G, nspins):
         if self.nct is not None:
             self.nct.add(nct_G, npy.array([1.0 / nspins]))

@@ -10,6 +10,7 @@ from gpaw.utilities.lapack import diagonalize
 from gpaw.spherical_harmonics import Yl, nablaYL
 from ase import Atoms
 from ase.calculators.neighborlist import NeighborList
+from gpaw.lfc import BasisFunctions
 from gpaw import debug
 from _gpaw import overlap
 
@@ -27,6 +28,7 @@ class LCAOHamiltonian:
         # yet, so presently we disable this.  Change behaviour by setting
         # this boolean.
         self.lcao_forces = False # XXX
+        self.basis_functions = None
 
     def initialize(self, paw):
         self.setups = paw.setups
@@ -34,6 +36,12 @@ class LCAOHamiltonian:
         self.gamma = paw.gamma
         self.dtype = paw.dtype
 
+        self.basis_functions = BasisFunctions([n.setup.phit_j
+                                               for n in paw.nuclei],
+                                              [n.spos_c for n in paw.nuclei],
+                                              paw.gd)
+        self.basis_functions.update()
+        
     def initialize_lcao(self):
         """Setting up S_kmm, T_kmm and P_kmi for LCAO calculations.
 
@@ -43,6 +51,8 @@ class LCAOHamiltonian:
         P_kmi     Overlap between basis-functions and projectors
         ======    ==============================================
         """
+
+        self.basis_functions.update_positions([n.spos_c for n in self.nuclei])
 
         nkpts = len(self.ibzk_kc)
 

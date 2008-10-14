@@ -76,7 +76,7 @@ class Density:
         self.initialized = False
         self.starting_density_initialized = False
 
-    def initialize(self):
+    def initialize(self, paw):
         """Allocate arrays for densities on coarse and fine grids"""
 
         self.nct_G = self.gd.empty()
@@ -91,6 +91,8 @@ class Density:
         # Interpolation function for the density:
         self.interpolate = Transformer(self.gd, self.finegd, self.nn).apply
 
+        self.basis_functions = paw.hamiltonian.basis_functions
+
         self.initialized = True
 
     def initialize_from_atomic_density(self):
@@ -101,9 +103,24 @@ class Density:
         obeying Hund's rules if ``hund`` is true."""
 
         self.nt_sG[:] = self.nct_G
-        for magmom, nucleus in zip(self.magmom_a, self.nuclei):
-            nucleus.add_atomic_density(self.nt_sG, magmom, self.hund)
 
+        f_asi = []
+        for magmom, nucleus in zip(self.magmom_a, self.nuclei):
+            if hasattr(nucleus, 'f_si'):
+                # Convert to ndarray:
+                f_si = npy.asarray(nucleus.f_si, float)
+            else:
+                ns = len(self.nt_sG)
+                f_si = nucleus.calculate_initial_occupation_numbers(
+                    ns, magmom, self.hund)
+
+            nucleus.initialize_density_matrix(f_si)
+            
+            f_asi.append(f_si)
+        
+        self.basis_functions.add_to_density(self.nt_sG, f_asi)
+
+        #magmoms_a, hund):
         # The nucleus.add_atomic_density() method should be improved
         # so that we don't have to do this scaling: XXX
         if self.nvalence != self.nvalence0:
