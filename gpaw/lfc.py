@@ -4,7 +4,6 @@ from gpaw.spherical_harmonics import Y
 class LF:
     def __init__(self, spline, spos_c, sdisp_c, gd, mu, a, i):
         self.spline = spline
-        self.rcut = spline.get_cutoff()
         self.l = spline.get_angular_momentum_number()
         self.mu = mu
         self.gd = gd
@@ -20,7 +19,7 @@ class LF:
 
     def spline_to_grid(self, spline, spos_c):
         self.spos_c = spos_c
-        rcut = self.rcut
+        rcut = spline.get_cutoff()
         gd = self.gd
         dom = gd.domain
         h_cv = dom.cell_cv / gd.N_c[:, None]
@@ -30,8 +29,13 @@ class LF:
         end_c = np.ceil(np.dot(dom.icell_cv, pos_v + rcut) *
                           gd.N_c).astype(int)
 
+        self.A_gm, self.G_B = self._spline_to_grid(spline, start_c, end_c,
+                                                   pos_v, h_cv)
+
+    def _spline_to_grid(self, spline, start_c, end_c, pos_v, h_cv):
+        rcut = spline.get_cutoff()
         G_B = []
-        f_gm = []
+        A_gm = []
         for gx in range(start_c[0], end_c[0]):
             for gy in range(start_c[1], end_c[1]):
                 gz1 = None
@@ -44,25 +48,23 @@ class LF:
                             gz1 = gz
                         gz2 = gz
                         fr = spline(r)
-                        f_gm.append([fr * Y(self.l**2 + m, *(d_v / r))
+                        A_gm.append([fr * Y(self.l**2 + m, *(d_v / r))
                                      for m in range(2 * self.l + 1)])
                 if gz2 is not None:
                     gz2 += 1
-                    g1 = gz1 + gd.n_c[2] * (gy + gx * gd.n_c[1])
-                    g2 = gz2 + gd.n_c[2] * (gy + gx * gd.n_c[1])
-                    G_B.extend((g1, g2))
+                    G1 = self.gd.flat_index((gx, gy, gz1))
+                    G2 = self.gd.flat_index((gx, gy, gz2))
+                    G_B.extend((G1, G2))
                     
-        self.f_gm = np.array(f_gm)
-        self.G_B = np.array(G_B)
+        return np.array(A_gm), np.array(G_B)
 
     def add_squared(self, a_xG, c_xm):
         a_xG = a_xG.reshape(a_xG.shape[:-3] + (-1,))
         g = 0
         for G1, G2 in self.G_B.reshape((-1, 2)):
-            #print G1,G2,g, self.f_gm.shape,a_xG[..., G1:G2].shape,self.f_gm[g:g + G2 - G1,0].shape,c_xm[:, 0].shape
             for m in range(2 * self.l + 1):
                 a_xG[..., G1:G2] += np.outer(c_xm[..., m],
-                                             self.f_gm[g:g + G2 - G1, m]**2)
+                                             self.A_gm[g:g + G2 - G1, m]**2)
                                              
             g += G2 - G1
 
@@ -71,7 +73,7 @@ class LF:
         b = a.ravel()
         g = 0
         for G1, G2 in self.G_B.reshape((-1, 2)):
-            b[G1:G2] = self.f_gm[g:g + G2 - G1, 0]
+            b[G1:G2] = self.A_gm[g:g + G2 - G1, 0]
             g += G2 - G1
 
         import pylab as plt
@@ -80,7 +82,8 @@ class LF:
 
 
 class LocalizedFunctionsCollection:
-    def __init__(self, lfs):
+    def __init__(self, gd, lfs):
+        self.gd = gd
         self.lfs = lfs
 
     def update(self):
@@ -89,11 +92,11 @@ class LocalizedFunctionsCollection:
         G_B = np.empty(nB, int)
         lfindex_B = np.empty(nB, int)
         B1 = 0
-        for i, lf in enumerate(self.lfs):
+        for I, lf in enumerate(self.lfs):
             B2 = B1 + len(lf.G_B)
             G_B[B1:B2] = lf.G_B.ravel()
-            lfindex_B[B1:B2:2] = i
-            lfindex_B[B1 + 1:B2 + 1:2] = -i - 1
+            lfindex_B[B1:B2:2] = I
+            lfindex_B[B1 + 1:B2 + 1:2] = -I - 1
             B1 = B2
 
         assert B1 == nB
@@ -109,20 +112,20 @@ class LocalizedFunctionsCollection:
         
     def griditer(self):
         """Iterate over grid points."""
-        self.g_i = np.zeros(len(self.lfs), int)
+        self.g_I = np.zeros(len(self.lfs), int)
         self.current_lfindices = []
         G1 = 0
-        for i, G in zip(self.lfindex_B, self.G_B):
+        for I, G in zip(self.lfindex_B, self.G_B):
             G2 = G
 
             yield G1, G2
             
-            self.g_i[self.current_lfindices] += G2 - G1
+            self.g_I[self.current_lfindices] += G2 - G1
 
-            if i >= 0:
-                self.current_lfindices.append(i)
+            if I >= 0:
+                self.current_lfindices.append(I)
             else:
-                self.current_lfindices.remove(-1 - i)
+                self.current_lfindices.remove(-1 - I)
 
             G1 = G2
 
@@ -140,7 +143,21 @@ class BasisFunctions(LocalizedFunctionsCollection):
                 i += 2 * spline.get_angular_momentum_number() + 1
             mu += i
 
-        LocalizedFunctionsCollection.__init__(self, lfs)
+        LocalizedFunctionsCollection.__init__(self, gd, lfs)
+
+    def add_to_density(self, nt_sG, f_asi):
+        nspins = len(nt_sG)
+        nt_sG = nt_sG.reshape((nspins, -1))
+
+        for G1, G2 in self.griditer():
+            for I in self.current_lfindices:
+                lf = self.lfs[I]
+                a = lf.a
+                i = lf.i
+                A_gm = lf.A_gm[self.g_I[I]:self.g_I[I] + G2 - G1]
+                for m in range(2 * lf.l + 1):
+                    nt_sG[0, G1:G2] += (f_asi[a][0, i + m] *
+                                        A_gm[:, m]**2)
 
     def construct_density(self, rho_MM, nt_G):
         """Calculate electron density from density matrix.
@@ -152,17 +169,16 @@ class BasisFunctions(LocalizedFunctionsCollection):
         """
         
         nt_G = nt_G.ravel()
-        nt_G[:] = 0.0
 
         for G1, G2 in self.griditer():
-            for i1 in self.current_lfindices:
-                lf1 = self.lfs[i1]
+            for I1 in self.current_lfindices:
+                lf1 = self.lfs[I1]
                 mu1 = lf1.mu
-                f1_gm = lf1.f_gm[self.g_i[i1]:self.g_i[i1] + G2 - G1]
-                for i2 in self.current_lfindices:
-                    lf2 = self.lfs[i2]
+                f1_gm = lf1.A_gm[self.g_I[I1]:self.g_I[I1] + G2 - G1]
+                for I2 in self.current_lfindices:
+                    lf2 = self.lfs[I2]
                     mu2 = lf2.mu
-                    f2_gm = lf2.f_gm[self.g_i[i2]:self.g_i[i2] + G2 - G1]
+                    f2_gm = lf2.A_gm[self.g_I[I2]:self.g_I[I2] + G2 - G1]
                     rho_mm = rho_MM[mu1:mu1 + 2 * lf1.l + 1,
                                     mu2:mu2 + 2 * lf2.l + 1]
                     for m1 in range(2 * lf1.l + 1):
@@ -170,7 +186,7 @@ class BasisFunctions(LocalizedFunctionsCollection):
                             nt_G[G1:G2] += (rho_mm[m1, m2] *
                                             f1_gm[:, m1] * f2_gm[:, m2])
 
-    def calculate_effective_potential_matrix(self, vt_sG, Vt_skMM):
+    def calculate_potential_matrix(self, vt_sG, Vt_skMM):
         """Calculate electron density from density matrix.
 
         rho_MM: ndarray
@@ -178,34 +194,29 @@ class BasisFunctions(LocalizedFunctionsCollection):
         nt_G: ndarray
             Pseudo electron density.
         """
-        
-        vt_sG = nt_G.reshape((len(vt_sG), -1))
+
+        vt_sG = vt_sG.reshape((len(vt_sG), -1))
         Vt_skMM[:] = 0.0
+        assert Vt_skMM.shape[:2] == (1, 1)
+        dv = self.gd.dv
 
         for G1, G2 in self.griditer():
-            for i1 in current_lfindices:
-                lf1 = self.lfs[i1]
+            for I1 in self.current_lfindices:
+                lf1 = self.lfs[I1]
                 mu1 = lf1.mu
-                f1_gm = lf1.f_gm[g_i[i1]:g_i[i1] + G2 - G1]
-                for i2 in current_lfindices:
-                    lf2 = self.lfs[i2]
+                f1_gm = lf1.A_gm[self.g_I[I1]:self.g_I[I1] + G2 - G1]
+                for I2 in self.current_lfindices:
+                    lf2 = self.lfs[I2]
                     mu2 = lf2.mu
-                    f2_gm = lf2.f_gm[g_i[i2]:g_i[i2] + G2 - G1]
-                    Vt_mm = Vt_MM[mu1:mu1 + 2 * lf1.l + 1,
-                                  mu2:mu2 + 2 * lf2.l + 1]
+                    f2_gm = lf2.A_gm[self.g_I[I2]:self.g_I[I2] + G2 - G1]
+                    Vt_mm = Vt_skMM[0, 0,
+                                    mu1:mu1 + 2 * lf1.l + 1,
+                                    mu2:mu2 + 2 * lf2.l + 1]
                     for m1 in range(2 * lf1.l + 1):
                         for m2 in range(2 * lf2.l + 1):
-                            Vt_mm[m1, m2] += np.dot(vt_sG[G1:G2],
+                            Vt_mm[m1, m2] += np.dot(vt_sG[0, G1:G2],
                                                     f1_gm[:, m1] *
-                                                    f2_gm[:, m2])
-
-    def add_to_density(self, nt_sG, f_asi):
-        for G1, G2 in self.griditer():
-            for q in self.current_lfindices:
-                lf = self.lfs[q]
-                a = lf.a
-                i = lf.i
-                lf.add_squared(nt_sG, f_asi[a][:, i:i + 2 * lf.l + 1])
+                                                    f2_gm[:, m2]) * dv
 
         
 

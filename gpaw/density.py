@@ -274,7 +274,8 @@ class Density:
 
         # Add contribution from all k-points:
         for kpt in kpt_u:
-            kpt.add_to_density(self.nt_sG[kpt.s], self.lcao)
+            kpt.add_to_density(self.nt_sG[kpt.s],
+                               self.lcao, self.basis_functions)
 
         self.band_comm.sum(self.nt_sG)
         self.kpt_comm.sum(self.nt_sG)

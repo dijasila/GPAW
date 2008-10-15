@@ -122,6 +122,10 @@ class GridDescriptor:
     def get_size_of_global_array(self):
         return self.N_c - 1 + self.domain.pbc_c
 
+    def flat_index(self, G_c):
+        g1, g2, g3 = G_c - self.beg_c
+        return g3 + self.n_c[2] * (g2 + g1 * self.n_c[1])
+    
     def get_slice(self):
         return [slice(b - 1 + p, e - 1 + p) for b, e, p in
                 zip(self.beg_c, self.end_c, self.domain.pbc_c)]

@@ -340,6 +340,7 @@ class LCAOHamiltonian:
             ma = ma2
 
     def calculate_effective_potential_matrix(self, Vt_skmm):
+        ccccccccccccc
         Vt_skmm[:] = 0.0
 
         # Count number of boxes:

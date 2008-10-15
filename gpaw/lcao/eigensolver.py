@@ -31,7 +31,8 @@ class LCAO:
             s = kpt.s
         
         H_mm = self.Vt_skmm[s,k]
-
+        print H_mm
+        
         for nucleus in self.my_nuclei:
             dH_ii = unpack(nucleus.H_sp[s])
             P_mi = nucleus.P_kmi[k]
@@ -55,7 +56,8 @@ class LCAO:
                 kpt.C_nm = npy.empty((self.nmybands, self.nao), self.dtype)
 
         self.timer.start('LCAO: potential matrix')
-        hamiltonian.calculate_effective_potential_matrix(self.Vt_skmm)
+        hamiltonian.basis_functions.calculate_potential_matrix(
+            hamiltonian.vt_sG, self.Vt_skmm)
         self.timer.stop('LCAO: potential matrix')
 
         for kpt in kpt_u:

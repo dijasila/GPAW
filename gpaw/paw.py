@@ -1207,8 +1207,7 @@ class PAW(PAWExtra, Output):
                 s, k = divmod(self.kpt_comm.rank * self.nmyu + u, self.nkpts)
                 weight = self.weight_k[k] * 2 / self.nspins
                 k_c = self.ibzk_kc[k]
-                self.kpt_u.append(KPoint(self.nuclei,
-                                         self.gd, weight, s, k, u, k_c,
+                self.kpt_u.append(KPoint(self.gd, weight, s, k, u, k_c,
                                          self.dtype))
         else:
             for kpt in self.kpt_u:

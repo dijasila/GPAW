@@ -47,7 +47,7 @@ class KPoint:
         H_nn and the Cholesky decomposition of S_nn.
     """
     
-    def __init__(self, nuclei, gd, weight, s, k, u, k_c, dtype, timer=None):
+    def __init__(self, gd, weight, s, k, u, k_c, dtype, timer=None):
         """Construct k-point object.
 
         Parameters
@@ -86,7 +86,6 @@ class KPoint:
         multiple of the number of processors, `P`.
         """
 
-        self.nuclei = nuclei
         self.weight = weight
         self.dtype = dtype
         self.timer = timer
@@ -173,25 +172,19 @@ class KPoint:
             interpolate2(psit_G2, psit_G1, self.phase_cd)
             interpolate1(psit_G1, psit_G, self.phase_cd)
 
-    def add_to_density(self, nt_G, use_lcao):
+    def add_to_density(self, nt_G, use_lcao, basis_functions):
         """Add contribution to pseudo electron-density."""
-        self.add_to_density_with_occupation(nt_G, use_lcao, self.f_n)
+        self.add_to_density_with_occupation(nt_G, use_lcao, self.f_n,
+                                            basis_functions)
         
-    def add_to_density_with_occupation(self, nt_G, use_lcao, f_n):
+    def add_to_density_with_occupation(self, nt_G, use_lcao, f_n,
+                                       basis_functions):
         """Add contribution to pseudo electron-density. Do not use the standard
         occupation numbers, but ones given with argument f_n."""
         if use_lcao:
-            psit_G = self.gd.empty(dtype=self.dtype)
-            for f, C_m in zip(f_n, self.C_nm):
-                psit_G[:] = 0.0
-                m1 = 0
-                for nucleus in self.nuclei:
-                    niao = nucleus.get_number_of_atomic_orbitals()
-                    m2 = m1 + niao
-                    if nucleus.phit_i is not None:
-                        nucleus.phit_i.add(psit_G, C_m[m1:m2], self.k)
-                    m1 = m2
-                nt_G += f * (psit_G * psit_G.conj()).real
+            C_nM = self.C_nm
+            rho_MM = npy.dot(C_nM.conj().T * f_n, C_nM)
+            basis_functions.construct_density(rho_MM, nt_G)
         else:
             if self.dtype == float:
                 for f, psit_G in zip(f_n, self.psit_nG):

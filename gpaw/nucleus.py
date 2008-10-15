@@ -83,7 +83,7 @@ class Nucleus:
         self.P_uni = None
         self.P_kmi = None # basis function/projector overlaps
         self.dPdR_kcmi = None
-        self.phit_i = None # basis functions
+        self.phit_i = 'sfdgsdfg'#None # basis functions
         self.m = None # lowest index of basis functions for this nucleus
 
     def __cmp__(self, other):
@@ -322,7 +322,9 @@ class Nucleus:
     
     def initialize_density_matrix(self, f_si):
         if self.in_this_domain:
-            ns, ni = f_si.shape
+            ns, niao = f_si.shape
+            ni = self.get_number_of_partial_waves()
+
             D_sii = npy.zeros((ns, ni, ni))
             nj = len(self.setup.n_j)
             j = 0
