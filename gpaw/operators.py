@@ -136,8 +136,8 @@ def Laplace(gd, scale=1.0, n=1, dtype=float):
     h = gd.h_c
     h2 = h**2
 
-    iucell_cv = npy.linalg.inv((gd.domain.cell_cv/((gd.domain.cell_cv**2).sum(1)**0.5)).T)
-    d2 = (iucell_cv**2).sum(1)
+    iucell_cv = npy.linalg.inv((gd.domain.cell_cv/((gd.domain.cell_cv**2).sum(1)**0.5)).T) #jacobian of transformation
+    d2 = (iucell_cv**2).sum(1) # gradient magnitudes squared [(Delta_xyzLattice_vector_i)**2]
 
     offsets = [(0, 0, 0)]
     coefs = [scale * npy.sum(d2 * npy.divide(laplace[n][0],h2))]
@@ -152,7 +152,7 @@ def Laplace(gd, scale=1.0, n=1, dtype=float):
                       c[1], c[1],
                       c[2], c[2]])
 
-    #cross terms
+    #cross-partial derivatives
     n = min(n,4)
     ci=0
 
@@ -166,17 +166,13 @@ def Laplace(gd, scale=1.0, n=1, dtype=float):
             for i in range(3):
                 c=2.*cross[n][ci]*npy.dot(iucell_cv[i],iucell_cv[(i+1)%3])/(h[i]*h[(i+1)%3])
 
-                if abs(c)>1E-10:
+                if abs(c)>1E-11: #extend stencil only to points of non zero coefficient
                     offsets.extend(offset[i])
                     coefs.extend([c,-c,-c,c])
 
-                    if (d1<>d2): #ugly XXX
-                        if (i==0):
-                            offsets.extend([( d2+1, d1+1, 0   ),( d2+1,-d1-1,0    ),(-d2-1, d1+1, 0   ),(-d2-1,-d1-1,0    )])
-                        elif (i==1):
-                            offsets.extend([( 0   , d2+1, d1+1),( 0   , d2+1,-d1-1),( 0   ,-d2-1, d1+1),( 0   ,-d2-1,-d1-1)])
-                        elif (i==2):
-                            offsets.extend([( d1+1, 0   , d2+1),(-d1-1, 0   , d2+1),( d1+1, 0   ,-d2-1),(-d1-1, 0   ,-d2-1)])
+                    if (d2>d1):  #extend stencil to symmetric points (ex. [1,2,3] <-> [2,1,3])
+                        ind=[0,1,2]; ind[i]=(i+1)%3; ind[(i+1)%3]=i
+                        offsets.extend([tuple(npy.take(offset[i][i2],ind)) for i2 in range(4)])
                         coefs.extend([c,-c,-c,c])
 
             ci+=1
