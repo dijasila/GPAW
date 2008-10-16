@@ -37,6 +37,7 @@ PyObject* wigner_seitz_grid(PyObject *self, PyObject *args);
 PyObject* vdw(PyObject *self, PyObject *args);
 PyObject* swap_arrays(PyObject *self, PyObject *args);
 PyObject* spherical_harmonics(PyObject *self, PyObject *args);
+PyObject* spline_to_grid(PyObject *self, PyObject *args);
 
 static PyMethodDef functions[] = {
   {"gemm", gemm, METH_VARARGS, 0},
@@ -74,6 +75,7 @@ static PyMethodDef functions[] = {
   {"spherical_harmonics", spherical_harmonics, METH_VARARGS, 0},
   {"pc_potential", pc_potential, METH_VARARGS, 0},
   {"pc_potential_value", pc_potential_value, METH_VARARGS, 0},
+  {"spline_to_grid", spline_to_grid, METH_VARARGS, 0},
  {0, 0, 0, 0}
 };
 

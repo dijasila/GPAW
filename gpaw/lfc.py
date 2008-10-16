@@ -1,5 +1,7 @@
 import numpy as np
 from gpaw.spherical_harmonics import Y
+import _gpaw
+
 
 class LF:
     def __init__(self, spline, spos_c, sdisp_c, gd, mu, a, i):
@@ -31,7 +33,8 @@ class LF:
 
         self.A_gm, self.G_B = self._spline_to_grid(spline, start_c, end_c,
                                                    pos_v, h_cv)
-
+        print self.A_gm, self.G_B;dafg
+        
     def _spline_to_grid(self, spline, start_c, end_c, pos_v, h_cv):
         rcut = spline.get_cutoff()
         G_B = []
@@ -80,6 +83,16 @@ class LF:
         plt.contourf(a[:, 15, :])
         plt.show()
 
+
+class CLF(LF):
+    def _spline_to_grid(self, spline, start_c, end_c, pos_v, h_cv):
+        print start_c, end_c, pos_v, h_cv, self.gd.n_c, self.gd.beg_c
+        a,b=_gpaw.spline_to_grid(spline.spline, start_c, end_c, pos_v, h_cv,
+                                 self.gd.n_c, self.gd.beg_c)
+        print a,b
+
+
+#LF = CLF
 
 class LocalizedFunctionsCollection:
     def __init__(self, gd, lfs):
