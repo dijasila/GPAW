@@ -86,11 +86,13 @@ PyObject* spline_to_grid(PyObject *self, PyObject *args)
                                                               NPY_DOUBLE);
 
   memcpy(A_gm_obj->data, A_gm, ngm * sizeof(double));
+  free(A_gm);
 
   npy_intp B_dims[1] = {nB};
   PyArrayObject* G_B_obj = (PyArrayObject*)PyArray_SimpleNew(1, B_dims,
                                                              NPY_INT);
   memcpy(G_B_obj->data, G_B, nB * sizeof(int));
+  free(G_B);
 
   return Py_BuildValue("(OO)", A_gm_obj, G_B_obj);
 }

@@ -33,7 +33,6 @@ class LF:
 
         self.A_gm, self.G_B = self._spline_to_grid(spline, start_c, end_c,
                                                    pos_v, h_cv)
-        print self.A_gm, self.G_B;dafg
         
     def _spline_to_grid(self, spline, start_c, end_c, pos_v, h_cv):
         rcut = spline.get_cutoff()
@@ -86,11 +85,8 @@ class LF:
 
 class CLF(LF):
     def _spline_to_grid(self, spline, start_c, end_c, pos_v, h_cv):
-        print start_c, end_c, pos_v, h_cv, self.gd.n_c, self.gd.beg_c
-        a,b=_gpaw.spline_to_grid(spline.spline, start_c, end_c, pos_v, h_cv,
-                                 self.gd.n_c, self.gd.beg_c)
-        print a,b
-
+        return _gpaw.spline_to_grid(spline.spline, start_c, end_c, pos_v, h_cv,
+                                    self.gd.n_c, self.gd.beg_c)
 
 #LF = CLF
 
