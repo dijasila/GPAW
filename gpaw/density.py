@@ -16,7 +16,6 @@ from gpaw.transformers import Transformer
 from gpaw.utilities import pack, unpack2
 from gpaw.utilities.complex import cc, real
 
-
 class Density:
     """Density object.
     
@@ -247,7 +246,7 @@ class Density:
         if abs(charge) > self.charge_eps:
             raise RuntimeError('Charge not conserved: excess=%.7f' % charge ) 
 
-    def update(self, kpt_u, symmetry):
+    def update(self, kpt_u, symmetry, lcao_initialized=True):
         """Calculate pseudo electron-density.
 
         The pseudo electron-density ``nt_sG`` is calculated from the
@@ -266,24 +265,25 @@ class Density:
         # add the smooth core density:
         self.nt_sG += self.nct_G
 
-        # Compute atomic density matrices:
-        for nucleus in self.my_nuclei:
-            ni = nucleus.get_number_of_partial_waves()
-            D_sii = zeros((self.nspins, ni, ni))
-            for kpt in kpt_u:
-                P_ni = nucleus.P_uni[kpt.u]
-                D_sii[kpt.s] += real(dot(cc(transpose(P_ni)),
+        if not self.lcao or lcao_initialized:
+            # Compute atomic density matrices:
+            for nucleus in self.my_nuclei:
+                ni = nucleus.get_number_of_partial_waves()
+                D_sii = zeros((self.nspins, ni, ni))
+                for kpt in kpt_u:
+                    P_ni = nucleus.P_uni[kpt.u]
+                    D_sii[kpt.s] += real(dot(cc(transpose(P_ni)),
                                              P_ni * kpt.f_n[:, newaxis]))
-                
-                # hack used in delta scf - calculations
-                if hasattr(kpt, 'ft_omn'):
-                    for i in range(len(kpt.ft_omn)):
-                        D_sii[kpt.s] += real(dot(cc(transpose(P_ni)),
-                                             dot(kpt.ft_omn[i], P_ni)))
 
-            nucleus.D_sp[:] = [pack(D_ii) for D_ii in D_sii]
-            self.band_comm.sum(nucleus.D_sp)
-            self.kpt_comm.sum(nucleus.D_sp)
+                    # hack used in delta scf - calculations
+                    if hasattr(kpt, 'ft_omn'):
+                        for i in range(len(kpt.ft_omn)):
+                            D_sii[kpt.s] += real(dot(cc(transpose(P_ni)),
+                                                 dot(kpt.ft_omn[i], P_ni)))
+
+                nucleus.D_sp[:] = [pack(D_ii) for D_ii in D_sii]
+                self.band_comm.sum(nucleus.D_sp)
+                self.kpt_comm.sum(nucleus.D_sp)
 
         comm = self.gd.comm
         
@@ -351,7 +351,7 @@ class Density:
         else:
             return self.nt_sG[0]
     
-    def get_all_electron_density(self, gridrefinement=2):
+    def get_all_electron_density(self, gridrefinement=2, collect=True):
         """Return real all-electron density array."""
 
         # Refinement of coarse grid, for representation of the AE-density
@@ -379,9 +379,12 @@ class Density:
         splines = {}
         for nucleus in self.nuclei:
             nucleus.add_density_correction(n_sg, self.nspins, gd, splines)
-        
+
+        if collect:
+            n_sg = gd.collect(n_sg)
+
         # Return AE-(spin)-density
-        if self.nspins == 2:
+        if self.nspins == 2 or n_sg is None:
             return n_sg
         else:
             return n_sg[0]

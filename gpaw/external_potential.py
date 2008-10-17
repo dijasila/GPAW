@@ -1,5 +1,7 @@
 import numpy as npy
 
+from ase.units import Bohr
+
 """This module defines different external potentials to be used in 
 time-independent and time-dependent calculations."""
 
@@ -27,10 +29,22 @@ class ExternalPotential:
                 assert(gd == self.gd)
         return self.vext_g
 
-    def get_value(self, spos_c=None, position=None):
+    def get_taylor(self, position=None, spos_c=None):
+        """Get the Taylor expansion around a point
+
+        position [Angstrom]"""
+        # use only 0 order term, i.e. the value
+        return [[self.get_value(position, spos_c)]]
+
+    def get_value(self, position=None, spos_c=None):
         """The potential value (as seen by an electron) 
-        at a certain grid point."""
-        g_c = self.gd.get_nearest_grid_point(spos_c, position)
+        at a certain grid point.
+
+        position [Angstrom]
+        spos_c scaled position on the grid"""
+        if spos_c is None:
+            spos_c = self.gd.domain.scale_position(position / Bohr)
+        g_c = self.gd.get_nearest_grid_point(spos_c)
         g_c -= (g_c == self.gd.n_c) # force point to this domain
         return self.vext_g[tuple(g_c)]
 
@@ -196,55 +210,98 @@ class ConstantPotential(ExternalPotential):
         energy = 0
         return energy, forces
 
-class ConstantElectricField(ExternalPotential):
+class ElectrostaticPotential(ExternalPotential):
+    """External electrostatic potential
+
+    The action of the external potential on the nucleus is defined in the
+    electrostatic case.
+    """
+    def get_ion_energy_and_forces(self, atoms):
+        """Return the ionic energy and force contribution."""
+        forces = npy.zeros((len(atoms),3))
+        energy = 0
+        for i, atom in enumerate(atoms):
+            taylor = self.get_taylor(atom.position)
+##            print "pos, taylor=", atom.position, taylor 
+            Z = atom.number
+            energy -= Z * taylor[0][0]
+            if len(taylor) > 1:
+                # see spherical_harmonics.py for the assignment
+                forces[i] += Z * npy.array([taylor[1][2], # x
+                                            taylor[1][0], # y
+                                            taylor[1][1]])# z
+        return energy, forces
+    
+class ConstantElectricField(ElectrostaticPotential):
     """External constant electric field"""
     def __init__(self, strength, direction=[0,0,1], center=None):
         """
-        strength: field strength [???]
+        strength: field strength [atomic units]
         direction: polarisation direction
-        center: the center of zero field
+        center: the center of zero field [Angstrom]
         """
         self.strength = strength
-        self.center = center
+        if center is None:
+            self.center = None
+        else:
+            self.center = npy.array(center) / Bohr
 
         # normalise the direction
         dir = npy.array(direction)
         dir /= npy.sqrt(npy.dot(dir, dir))
         self.direction = dir
         
-    def get_potential(self, gd):
+    def get_potential(self, gd=None):
         """Get the potential on the grid."""
 
-        if hasattr(self, 'potential') and gd == self.gd:
-            # nothing changed
-            return self.potential
+        if hasattr(self, 'potential'):
+            if gd == self.gd or gd is None:
+                # nothing changed
+                return self.potential
 
         self.gd = gd
 
         if self.center is None:
             # use the center of the grid as default
             self.center = .5 * gd.h_c * gd.N_c
-        else:
-            self.center = npy.array(self.center)
 
         potential = gd.empty()
+        sp_c = gd.h_c * Bohr
         for i in range(gd.beg_c[0],gd.end_c[0]):
             ii = i - gd.beg_c[0]
             for j in range(gd.beg_c[1],gd.end_c[1]):
                 jj = j - gd.beg_c[1]
                 for k in range(gd.beg_c[2],gd.end_c[2]):
                     kk = k - gd.beg_c[2]
-                    vr = npy.array([i * gd.h_c[0],
-                                    j * gd.h_c[1],
-                                    k * gd.h_c[2]])
-                    potential[ii,jj,kk] = self.get_value(vr)
+                    pos_c = npy.array([i, j, k]) * sp_c
+                    potential[ii,jj,kk] = self.get_value(pos_c)
         self.potential = potential
         return potential
 
-    def get_value(self, spos_c=None, position=None):
+    def get_taylor(self, position=None, spos_c=None):
+        """Get the Taylor expansion around a point
+
+        position [Angstrom]"""
+        if position is None:
+            gd = self.gd
+            pos = spos_c * gd.h_c * gd.N_c * Bohr
+        else:
+            pos = position
+        # see spherical_harmonics.py for the assignment
+        return [[self.get_value(position=pos)],
+                [- self.strength * self.direction[1], # y
+                 - self.strength * self.direction[2], # z
+                 - self.strength * self.direction[0]]]# x
+
+    def get_value(self, position=None, spos_c=None):
+        """The potential value (as seen by an electron) 
+        at a certain grid point.
+
+        position [Angstrom]
+        spos_c scaled position on the grid"""
         gd = self.gd
         if position is None:
             vr = spos_c * gd.h_c * gd.N_c - self.center
         else:
-            vr =  position - self.center
+            vr =  position / Bohr - self.center
         return - self.strength * npy.dot(vr, self.direction)

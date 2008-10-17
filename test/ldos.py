@@ -1,8 +1,14 @@
+import os
 import numpy as npy
 from ase import *
 from gpaw import Calculator
-from gpaw.utilities.dos import raw_orbital_LDOS, raw_wignerseitz_LDOS
+from gpaw.utilities.dos import raw_orbital_LDOS, raw_wignerseitz_LDOS, RawLDOS
 from gpaw.utilities import equal
+import gpaw.mpi as mpi
+import numpy as np
+
+comms = [mpi.world.new_communicator(np.array([r])) for r in range(mpi.size)]
+comm = comms[mpi.rank]
 
 Hnospin = Atoms([Atom('H')], cell=[5, 5, 5], pbc=False)
 Hspin = Atoms([Atom('H', magmom=1)], cell=[5, 5, 5], pbc=False)
@@ -17,18 +23,18 @@ LiH.center()
 # architecture-independent results:
 LiH.translate(0.003234)
 
-calc = Calculator(fixmom=True, hund=True)
+calc = Calculator(fixmom=True, hund=True, communicator=comm)
 Hnospin.set_calculator(calc)
 Hnospin.get_potential_energy()
 energies, sweight = raw_orbital_LDOS(calc, a=0, spin=0, angular='s')
 energies, pdfweight = raw_orbital_LDOS(calc, a=0, spin=0, angular='pdf')
 
-calc = Calculator(fixmom=True, hund=True)
+calc = Calculator(fixmom=True, hund=True, communicator=comm)
 Hspin.set_calculator(calc)
 Hspin.get_potential_energy()
 energies,sweight_spin = raw_orbital_LDOS(calc, a=0, spin=0, angular='s')
 
-calc = Calculator(fixmom=True, nbands=2, eigensolver='dav')
+calc = Calculator(fixmom=True, nbands=2, eigensolver='dav', communicator=comm)
 LiH.set_calculator(calc)
 LiH.get_potential_energy()
 energies, Li_orbitalweight = raw_orbital_LDOS(calc, a=0, spin=0, angular=None)
@@ -36,6 +42,11 @@ energies, H_orbitalweight = raw_orbital_LDOS(calc, a=1, spin=0, angular=None)
 energies, Li_wzweight = raw_wignerseitz_LDOS(calc, a=0, spin=0)
 energies, H_wzweight = raw_wignerseitz_LDOS(calc, a=1, spin=0)
 n_a = calc.get_wigner_seitz_densities(spin=0)
+
+ldos = RawLDOS(calc)
+fname = 'ldbe.dat'
+ldos.by_element_to_file(fname)
+ldos.by_element_to_file(fname, 2.)
 
 ## print sweight, pdfweight
 ## print sweight_spin

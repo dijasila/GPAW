@@ -1,12 +1,16 @@
 #User provided customizations for the gpaw setup
 
-#Here, one can override the default arguments, or append own 
+#Here, one can override the default arguments, or append own
 #arguments to default ones
 #To override use the form
-#     libraries = ['somelib',otherlib']
+#     libraries = ['somelib','otherlib']
 #To append use the form
-#     libraries += ['somelib',otherlib']
+#     libraries += ['somelib','otherlib']
 
+# Valid values for scalapack are False, or True:
+# False (the default) - no ScaLapack compiled in
+# True - ScaLapack compiled in
+#scalapack = True
 
 #compiler = 'mpcc'
 #libraries = []

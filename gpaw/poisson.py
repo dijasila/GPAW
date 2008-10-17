@@ -11,6 +11,7 @@ from gpaw.operators import Laplace, LaplaceA, LaplaceB
 from gpaw import PoissonConvergenceError
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.gauss import Gaussian
+from gpaw.utilities.ewald import Ewald
 
 
 class PoissonSolver:
@@ -104,29 +105,21 @@ class PoissonSolver:
 
             if self.charged_periodic_correction == None:
                 print "+-----------------------------------------------------+"
-                print "| Calculating charged periodic correction according   |"
-                print "| to eq (45) of JCP 122, 243102 (2005) using the      |"
-                print "| difference in energy between non periodic and       |"
-                print "| periodic gaussian test charge.                      |"
+                print "| Calculating charged periodic correction using the   |"
+                print "| Ewald potential from a lattice of point charges in  |"
+                print "| a homogenous background density                     |"
                 print "+-----------------------------------------------------+"
-                self.load_gauss()
-                periodic_gauss = self.gd.zeros()
-                neutral_gauss = (self.rho_gauss / npy.sqrt(4 * pi) -
-                                 1. / npy.product(self.gd.domain.cell_c))
-                self.solve_neutral(periodic_gauss, neutral_gauss, eps=1e-10)
-                E_periodic = self.gd.integrate(periodic_gauss * neutral_gauss)
-                E_single = self.gd.integrate(self.rho_gauss *
-                                             self.phi_gauss) / (4 * pi)
-                self.charged_periodic_correction = E_single - E_periodic
+                ewald = Ewald(self.gd.domain.cell_cv)
+                self.charged_periodic_correction = ewald.get_electrostatic_potential([.0,.0,.0], npy.array([[.0,.0,.0]]), [-1], 0)
                 print "Potential shift will be ", \
-                       self.charged_periodic_correction, " Ha."
-            
+                      self.charged_periodic_correction , "Ha."
+                       
             # Set initial guess for potential
             if zero_initial_phi:
                 phi[:] = 0.0
             else:
                 phi -= charge * self.charged_periodic_correction
-
+            
             iters = self.solve_neutral(phi, rho - background, eps=eps)
             phi += charge * self.charged_periodic_correction
             return iters            
@@ -155,7 +148,7 @@ class PoissonSolver:
 
             # correct error introduced by removing monopole
             axpy(q, self.phi_gauss, phi) #phi += q * self.phi_gauss
-
+            
             return niter
         else:
             # System is charged with mixed boundaryconditions
@@ -178,7 +171,7 @@ class PoissonSolver:
             print 'CHARGE, eps:', charge, eps
             msg = 'Poisson solver did not converge in %d iterations!' % maxiter
             raise PoissonConvergenceError(msg)
-
+        
         # Set the average potential to zero in periodic systems
         if npy.alltrue(self.gd.domain.pbc_c):
             phi_ave = self.gd.comm.sum(npy.sum(phi.ravel()))
@@ -253,6 +246,7 @@ from gpaw.utilities.tools import construct_reciprocal
 
 class PoissonFFTSolver(PoissonSolver):
     def __init__(self):
+        self.charged_periodic_correction = None
         pass
 
     """FFT implementation of the poisson solver"""
@@ -272,4 +266,33 @@ class PoissonFFTSolver(PoissonSolver):
 
     def solve_screened(self, phi, rho, screening=0):
         phi[:] = real(ifftn(fftn(rho) * 4 * pi / (self.k2 + screening**2)))
+        return 1
+
+
+class FFTPoissonSolver(PoissonSolver):
+    """FFT poisson-solver for for general unit cells."""
+    
+    relax_method = 0
+    nn = 999
+    
+    def __init__(self):
+        self.charged_periodic_correction = None
+        pass
+
+    def initialize(self, gd):
+        assert gd.domain.comm.size == 1 and gd.domain.pbc_c.all()
+
+        N_c1 = gd.N_c[:, npy.newaxis]
+        i_cq = npy.indices(gd.N_c).reshape((3, -1))
+        i_cq += N_c1 // 2
+        i_cq %= N_c1
+        i_cq -= N_c1 // 2
+        B_vc = 2.0 * pi * gd.domain.icell_cv.T
+        k_vq = npy.dot(B_vc, i_cq)
+        k_vq *= k_vq
+        self.k2_Q = k_vq.sum(axis=0).reshape(gd.N_c)
+        self.k2_Q[0, 0, 0] = 42.0
+
+    def solve_neutral(self, phi_g, rho_g, eps=None):
+        phi_g[:] = ifftn(fftn(rho_g) * 4.0 * pi / self.k2_Q).real
         return 1

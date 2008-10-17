@@ -11,12 +11,15 @@ functions.
 import sys
 
 import numpy as npy
-from gpaw.mpi import run
+from gpaw.mpi import run, parallel
 from gpaw.utilities.complex import cc
 from gpaw.utilities.blas import rk, gemm
 from gpaw.utilities.lapack import inverse_cholesky
 from gpaw.utilities import swap
+from gpaw.eigensolvers.eigensolver import blocked_matrix_multiply
+from gpaw.utilities import scalapack
 from gpaw import sl_inverse_cholesky
+
 
 class Overlap:
     """Overlap operator class.
@@ -81,11 +84,9 @@ class Overlap:
 
         b_nG[:] = a_nG
 
-        self.timer.start('Apply inverse')
         for nucleus in self.pt_nuclei:
             # Apply the non-local part:
             nucleus.apply_inverse_overlap(a_nG, b_nG, kpt.k)
-        self.timer.stop('Apply inverse')
 
 
     def orthonormalize(self, kpt, psit_nG=None, work_nG=None,
@@ -119,12 +120,10 @@ class Overlap:
 
         self.timer.start('Orthonormalize')
 
-        self.timer.start('Orthonormalize: calculate_projections')
         if calculate_projections:
             assert psit_nG is None
             run([nucleus.calculate_projections(kpt)
                  for nucleus in self.pt_nuclei])
-        self.timer.stop('Orthonormalize: calculate_projections')
 
         if psit_nG is None:
             psit_nG = kpt.psit_nG
@@ -148,6 +147,9 @@ class Overlap:
         self.calculate_overlap_matrix(psit_nG, work_nG, kpt, S_nn)
 
         self.timer.start('Orthonormalize: inverse_cholesky')
+
+        if sl_inverse_cholesky: assert parallel
+        if sl_inverse_cholesky: assert scalapack()
         if sl_inverse_cholesky:
             info = inverse_cholesky(S_nn, kpt.root)
         else:
@@ -166,11 +168,9 @@ class Overlap:
         C_nn = S_nn
         del S_nn
 
-        self.timer.start('Orthonormalize: band_comm.broadcast')
         if self.band_comm.rank == 0:
             self.comm.broadcast(C_nn, kpt.root)
         self.band_comm.broadcast(C_nn, 0)
-        self.timer.stop('Orthonormalize: band_comm.broadcast')
 
         self.matrix_multiplication(kpt, C_nn)
 
@@ -183,20 +183,19 @@ class Overlap:
         work_nG = self.big_work_arrays['work_nG']
         nmybands = len(psit_nG)
         if size == 1:
-            self.timer.start('Orthonormalize: psit_nG gemm')
-            gemm(1.0, psit_nG, C_nn, 0.0, work_nG)
-            self.timer.stop('Orthonormalize: psit_nG gemm')
+            if psit_nG.shape != work_nG.shape:
+                blocked_matrix_multiply(psit_nG, C_nn, work_nG)
+            else:
+                gemm(1.0, psit_nG, C_nn, 0.0, work_nG)
 
-            kpt.psit_nG = work_nG
+                kpt.psit_nG = work_nG
 
-            if work_nG is self.big_work_arrays.get('work_nG'):
-                self.big_work_arrays['work_nG'] = psit_nG
+                if work_nG is self.big_work_arrays.get('work_nG'):
+                    self.big_work_arrays['work_nG'] = psit_nG
 
-            self.timer.start('Orthonormalize: P_ni gemm')
             for nucleus in self.my_nuclei:
                 P_ni = nucleus.P_uni[kpt.u]
                 gemm(1.0, P_ni.copy(), C_nn, 0.0, P_ni)
-            self.timer.stop('Orthonormalize: P_ni gemm')
 
             return
 
@@ -208,22 +207,16 @@ class Overlap:
 
         beta = 0.0
         for p in range(size - 1):
-            self.timer.start('Orthonormalize: band_comm.send/receive')
             sreq = band_comm.send(psit_nG, (rank - 1) % size, 61, False)
             rreq = band_comm.receive(work_nG, (rank + 1) % size, 61, False)
-            self.timer.stop('Orthonormalize: band_comm.send/receive')
-            self.timer.start('Orthonormalize: psit_nG gemm')
             gemm(1.0, psit_nG, C_bnbn[rank, :, (rank + p) % size],
                  beta, work2_nG)
-            self.timer.stop('Orthonormalize: psit_nG gemm')
             beta = 1.0
             band_comm.wait(rreq)
             band_comm.wait(sreq)
             psit_nG, work_nG = work_nG, psit_nG
 
-        self.timer.start('Orthonormalize: psit_nG gemm')
         gemm(1.0, psit_nG, C_bnbn[rank, :, rank - 1], 1.0, work2_nG)
-        self.timer.stop('Orthonormalize: psit_nG gemm')
 
         kpt.psit_nG = work2_nG
         self.big_work_arrays['work2_nG'] = psit_nG
@@ -235,20 +228,14 @@ class Overlap:
         band_comm = self.band_comm
         size = band_comm.size
         if size == 1:
-            self.timer.start('Orthonormalize: rk')
             rk(self.gd.dv, psit_nG, 0.0, S_nn)
-            self.timer.stop('Orthonormalize: rk')
-            self.timer.start('Orthonormalize: P_ni S_nn')
             for nucleus in self.my_nuclei:
                 P_ni = nucleus.P_uni[kpt.u]
                 dO_ii = nucleus.setup.O_ii
                 #???????gemm(1.0, P_ni, npy.dot(P_ni, dO_ii), 1.0, S_nn, 't')
                 S_nn += npy.dot(P_ni, cc(npy.inner(nucleus.setup.O_ii, P_ni)))
-            self.timer.stop('Orthonormalize: P_ni S_nn')
 
-            self.timer.start('Orthonormalize: comm.sum')
             self.comm.sum(S_nn, kpt.root)
-            self.timer.stop('Orthonormalize: comm.sum')
             return
 
         assert size % 2 == 1
@@ -275,7 +262,6 @@ class Overlap:
         S_pnn = self.S_pnn
 
         I1 = 0
-        self.timer.start('Orthonormalize: inner')
         for nucleus in self.my_nuclei:
             ni = nucleus.get_number_of_partial_waves()
             I2 = I1 + ni
@@ -283,10 +269,8 @@ class Overlap:
             dO_ii = nucleus.setup.O_ii
             work_In[I1:I2] = npy.inner(dO_ii, P_ni).conj()
             I1 = I2
-        self.timer.stop('Orthonormalize: inner')
 
         for p in range(np):
-            self.timer.start('Orthonormalize: band_comm.send/receive')
             if p == 0:
                 sreq = band_comm.send(psit_nG, (rank - 1) % size, 11, False)
             else:
@@ -294,26 +278,19 @@ class Overlap:
             sreq2 = band_comm.send(work_In, (rank - 1) % size, 31, False)
             rreq = band_comm.receive(work2_nG, (rank + 1) % size, 11, False)
             rreq2 = band_comm.receive(work2_In, (rank + 1) % size, 31, False)
-            self.timer.stop('Orthonormalize: band_comm.send/receive')
 
             if p == 0:
-                self.timer.start('Orthonormalize: rk')
                 rk(self.gd.dv, psit_nG, 0.0, S_pnn[0])
-                self.timer.stop('Orthonormalize: rk')
             else:
-                self.timer.start('Orthonormalize: psit_nG gemm')
                 gemm(self.gd.dv, psit_nG, work_nG, 0.0, S_pnn[p], 'c')
-                self.timer.stop('Orthonormalize: psit_nG gemm')
 
             I1 = 0
-            self.timer.start('Orthonormalize: npy.dot')
             for nucleus in self.my_nuclei:
                 ni = nucleus.get_number_of_partial_waves()
                 I2 = I1 + ni
                 P_ni = nucleus.P_uni[kpt.u]
                 S_pnn[p] += npy.dot(P_ni, work_In[I1:I2]).T
                 I1 = I2
-            self.timer.stop('Orthonormalize: npy.dot')
 
             band_comm.wait(sreq)
             band_comm.wait(sreq2)

@@ -21,7 +21,7 @@ from gpaw.lrtddft.spectrum import spectrum
 
 """This module defines a linear response TDDFT-class."""
 
-__all__ = ['LrTDDFT', 'photoabsorption_spectrum']
+__all__ = ['LrTDDFT', 'photoabsorption_spectrum', 'spectrum']
 
 class LrTDDFT(ExcitationList):
     """Linear Response TDDFT excitation class
@@ -67,32 +67,32 @@ class LrTDDFT(ExcitationList):
                  ):
 
         self.txt=txt
+        self.nspins = None
+        self.istart=None
+        self.jend=None
 
+        if isinstance(calculator, str):
+            return self.read(calculator)
+        if filename is not None:
+            return self.read(filename)
+
+        ExcitationList.__init__(self, calculator)
+
+        self.filename=None
+        self.calculator=None
+        self.eps=None
+        self.xc=None
+        self.derivativeLevel=None
+        self.numscale=numscale
+        self.finegrid=finegrid
+        self.force_ApmB=force_ApmB
+ 
         if calculator is not None:
             if not calculator.wave_functions_initialized:
                 calculator.initialize_wave_functions()
-
-        if filename is None:
-
-            ExcitationList.__init__(self,calculator)
-
-            self.filename=None
-            self.calculator=None
-            self.nspins=None
-            self.eps=None
-            self.istart=None
-            self.jend=None
-            self.xc=None
-            self.derivativeLevel=None
-            self.numscale=numscale
-            self.finegrid=finegrid
-            self.force_ApmB=force_ApmB
-            
-            self.update(calculator,nspins,eps,istart,jend,
-                        xc,derivativeLevel,numscale)
-
-        else:
-            self.read(filename)
+                
+            self.update(calculator, nspins, eps, istart, jend,
+                        xc, derivativeLevel, numscale)
 
     def analyse(self, what=None, out=None, min=0.1):
         """Print info about the transitions.
@@ -179,7 +179,7 @@ class LrTDDFT(ExcitationList):
         return self.Om
 
     def Read(self, filename=None, fh=None):
-        return self.read(filename,fh)
+        return self.read(filename, fh)
         
     def read(self, filename=None, fh=None):
         """Read myself from a file"""
@@ -245,6 +245,24 @@ class LrTDDFT(ExcitationList):
 
             if fh is None:
                 f.close()
+
+            # update own variables
+            self.istart = self.Om.fullkss.istart
+            self.jend = self.Om.fullkss.jend
+
+    def singlets_triplets(self):
+        """Split yourself into a singlet and triplet object"""
+
+        slr = LrTDDFT(None, self.nspins, self.eps,
+                      self.istart, self.jend, self.xc, 
+                      self.derivativeLevel, self.numscale)
+        tlr = LrTDDFT(None, self.nspins, self.eps,
+                      self.istart, self.jend, self.xc, 
+                      self.derivativeLevel, self.numscale)
+        slr.Om, tlr.Om = self.Om.singlets_triplets()
+        for lr in [slr, tlr]:
+            lr.kss = lr.Om.fullkss
+        return slr, tlr
 
     def SPA(self):
         """Return the excitation list according to the

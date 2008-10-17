@@ -8,7 +8,9 @@ Linear Algebra PACKage (LAPACK)
 
 import numpy as npy
 
-from gpaw import debug, sl_diagonalize, sl_inverse_cholesky
+from gpaw import debug
+from gpaw.utilities import scalapack
+from gpaw import sl_diagonalize, sl_inverse_cholesky
 from gpaw.mpi import parallel, rank, size, world
 import _gpaw
 
@@ -33,12 +35,15 @@ def diagonalize(a, w, b=None, root=0):
     n = len(a)
     assert a.shape == (n, n)
     assert w.shape == (n,)
+
+    if sl_diagonalize: assert parallel
+    if sl_diagonalize: assert scalapack()
+
     if b is not None:
         assert b.flags.contiguous
         assert b.dtype == a.dtype
         assert b.shape == a.shape
         if sl_diagonalize:
-            if sl_diagonalize: assert parallel
             if rank == root:
                 print 'python ScaLapack diagonalize general'
             assert len(sl_diagonalize) == 4
@@ -64,7 +69,6 @@ def diagonalize(a, w, b=None, root=0):
         #info = _gpaw.diagonalize(a, w, b)
     else:
         if sl_diagonalize:
-            if sl_diagonalize: assert parallel
             if rank == root:
                 print 'python ScaLapack diagonalize'
             assert len(sl_diagonalize) == 4
@@ -94,8 +98,11 @@ def inverse_cholesky(a, root=0):
     assert a.dtype in [float, complex]
     n = len(a)
     assert a.shape == (n, n)
+
+    if sl_inverse_cholesky: assert parallel
+    if sl_inverse_cholesky: assert scalapack()
+
     if sl_inverse_cholesky:
-        if sl_inverse_cholesky: assert parallel
         if rank == root:
             print 'python ScaLapack inverse_cholesky'
         assert len(sl_inverse_cholesky) == 4

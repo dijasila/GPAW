@@ -1,16 +1,18 @@
 from ase import *
+from ase.parallel import rank, barrier
 from gpaw import Calculator
-from gpaw.testing.g2 import get_g2
 from gpaw.atom.generator import Generator, parameters
 from gpaw import setup_paths
 
 # Generate setup for oxygen with a core-hole:
-g = Generator('O', xcname='PBE', scalarrel=True,
-              corehole=(1, 0, 1.0), nofiles=True)
-g.run(name='fch1s', **parameters['O'])
+if rank == 0:
+    g = Generator('O', xcname='PBE', scalarrel=True,
+                  corehole=(1, 0, 1.0), nofiles=True)
+    g.run(name='fch1s', **parameters['O'])
+barrier()
 setup_paths.insert(0, '.')
 
-atoms = get_g2('H2O')
+atoms = molecule('H2O')
 atoms.center(vacuum=2.5)
 
 calc = Calculator(xc='PBE')

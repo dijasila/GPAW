@@ -1,4 +1,5 @@
 #include <Python.h>
+#define PY_ARRAY_UNIQUE_SYMBOL GPAW_ARRAY_API
 #include <numpy/arrayobject.h>
 
 PyObject* gemm(PyObject *self, PyObject *args);
@@ -17,6 +18,7 @@ PyObject* NewOperatorObject(PyObject *self, PyObject *args);
 PyObject* NewSplineObject(PyObject *self, PyObject *args);
 PyObject* NewTransformerObject(PyObject *self, PyObject *args);
 PyObject *pc_potential(PyObject *self, PyObject *args);
+PyObject *pc_potential_value(PyObject *self, PyObject *args);
 PyObject* elementwise_multiply_add(PyObject *self, PyObject *args);
 PyObject* utilities_vdot(PyObject *self, PyObject *args);
 PyObject* utilities_vdot_self(PyObject *self, PyObject *args);
@@ -33,8 +35,10 @@ PyObject* elf(PyObject *self, PyObject *args);
 PyObject* overlap(PyObject *self, PyObject *args);
 PyObject* wigner_seitz_grid(PyObject *self, PyObject *args);
 PyObject* vdw(PyObject *self, PyObject *args);
+PyObject* vdw2(PyObject *self, PyObject *args);
 PyObject* swap_arrays(PyObject *self, PyObject *args);
 PyObject* spherical_harmonics(PyObject *self, PyObject *args);
+PyObject* compiled_WITH_SL(PyObject *self, PyObject *args);
 
 static PyMethodDef functions[] = {
   {"gemm", gemm, METH_VARARGS, 0},
@@ -68,9 +72,12 @@ static PyMethodDef functions[] = {
   {"overlap",       overlap,        METH_VARARGS, 0},
   {"wigner_seitz_grid", wigner_seitz_grid, METH_VARARGS, 0},
   {"vdw", vdw, METH_VARARGS, 0},
+  {"vdw2", vdw2, METH_VARARGS, 0},
   {"swap", swap_arrays, METH_VARARGS, 0},
   {"spherical_harmonics", spherical_harmonics, METH_VARARGS, 0},
+  {"compiled_with_sl", compiled_WITH_SL, METH_VARARGS, 0},
   {"pc_potential", pc_potential, METH_VARARGS, 0},
+  {"pc_potential_value", pc_potential_value, METH_VARARGS, 0},
  {0, 0, 0, 0}
 };
 
@@ -87,7 +94,7 @@ PyMODINIT_FUNC init_gpaw(void)
 #endif
 
   PyObject* m = Py_InitModule3("_gpaw", functions,
-			       "C-extension for GPAW\n\n...\n");
+             "C-extension for GPAW\n\n...\n");
   if (m == NULL)
     return;
 
@@ -118,7 +125,14 @@ int
 main(int argc, char **argv)
 {
   int status;
+#ifndef GPAW_OMP
   MPI_Init(&argc, &argv);
+#else
+  int granted;
+  MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &granted);
+  if(granted != MPI_THREAD_MULTIPLE) exit(1);
+#endif
+
   Py_Initialize();
 
 #ifdef NO_SOCKET
@@ -129,7 +143,7 @@ main(int argc, char **argv)
     return -1;
 
   PyObject* m = Py_InitModule3("_gpaw", functions,
-			       "C-extension for GPAW\n\n...\n");
+             "C-extension for GPAW\n\n...\n");
   if (m == NULL)
     return -1;
 

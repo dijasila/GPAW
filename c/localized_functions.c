@@ -329,6 +329,34 @@ static PyObject * localized_functions_normalize(LocalizedFunctionsObject* self,
   Py_RETURN_NONE;
 }
 
+static PyObject * get_functions(LocalizedFunctionsObject* self,
+				PyObject *args)
+{
+  if (!PyArg_ParseTuple(args, ""))
+    return NULL;
+
+  npy_intp dims[4] = {self->nf,
+		      self->size0[0], self->size0[1], self->size0[2]};
+  PyArrayObject* functions = (PyArrayObject*)PyArray_SimpleNew(4, dims,
+							       NPY_DOUBLE);
+  memcpy(functions->data, self->f,
+	 self->nf * self->ng0 * sizeof(double));
+  return (PyObject*)functions;
+}
+
+static PyObject * set_corner(LocalizedFunctionsObject* self,
+                             PyObject *args)
+{
+  PyArrayObject* start_c_obj;
+  if (!PyArg_ParseTuple(args, "O", &start_c_obj))
+    return NULL;
+
+  double *start_c = DOUBLEP(start_c_obj);
+  for (int c = 0; c < 3; c++)
+    self->start[c] = start_c[c];
+  Py_RETURN_NONE;
+}
+
 #ifdef PARALLEL
 static PyObject * localized_functions_broadcast(LocalizedFunctionsObject*
 						self,
@@ -362,6 +390,10 @@ static PyMethodDef localized_functions_methods[] = {
      (PyCFunction)localized_functions_norm, METH_VARARGS, 0},
     {"normalize",
      (PyCFunction)localized_functions_normalize, METH_VARARGS, 0},
+    {"get_functions",
+     (PyCFunction)get_functions, METH_VARARGS, 0},
+    {"set_corner",
+     (PyCFunction)set_corner, METH_VARARGS, 0},
 #ifdef PARALLEL
     {"broadcast",
      (PyCFunction)localized_functions_broadcast, METH_VARARGS, 0},

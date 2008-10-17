@@ -2,13 +2,17 @@ import os.path
 
 import numpy as npy
 
-import _gpaw
 from ase.atom import Atom
+from ase.atoms import Atoms
 from ase.units import Bohr
 
-class PointCharges(list):
+import _gpaw
+from gpaw import debug
+from gpaw.external_potential import ElectrostaticPotential
+
+class PointCharges(Atoms, ElectrostaticPotential):
     def __init__(self, file=None):
-        list.__init__(self)
+        Atoms.__init__(self)
         
         if file is not None:
             self.read(file)
@@ -85,23 +89,28 @@ class PointCharges(list):
                                               float(z)),
                                     charge=float(q) ) )
 
-    def get_potential(self, gd):
+    def get_potential(self, gd=None):
         """Create the Coulomb potential on the grid."""
 
-        if hasattr(self, 'potential') and gd == self.gd:
-            # nothing changed
-            return self.potential
+        if hasattr(self, 'potential'):
+            if gd == self.gd or gd is None:
+                # nothing changed
+                return self.potential
 
+        if gd is None:
+            gd = self.gd
         potential = gd.empty()
 
         n = len(self)
-        pc_c = npy.empty((n, 3))
-        charges = npy.empty((n))
+        pc_nc = npy.empty((n, 3))
+        charge_n = npy.empty((n))
         for a, pc in enumerate(self):
-            pc_c[a] = pc.position / Bohr 
-            charges[a] = pc.charge
+            pc_nc[a] = pc.position / Bohr 
+            charge_n[a] = pc.charge
+        self.pc_nc = pc_nc
+        self.charge_n = charge_n
 
-        _gpaw.pc_potential(potential, pc_c, charges, 
+        _gpaw.pc_potential(potential, pc_nc, charge_n, 
                            gd.beg_c, gd.end_c, gd.h_c)
 
         # save grid descriptor and potential for future use
@@ -113,34 +122,50 @@ class PointCharges(list):
     def get_nuclear_energy(self, nucleus):
         return -1. * nucleus.setup.Z * self.get_value(spos_c = nucleus.spos_c)
 
-    def get_value(self, spos_c=None, position=None):
-        """Value as seen by an electron."""
+    def get_value(self, position=None, spos_c=None):
+        """The potential value (as seen by an electron) 
+        at a certain grid point.
+
+        position [Angstrom]
+        spos_c scaled position on the grid"""
         if position is None:
-            position = spos_c * self.gd.h_c
-        v = 0
-        for pc in self:
-            # use c function XXXXX
-            d = npy.sqrt(npy.sum((position - pc.position / Bohr)**2))
-            v -= pc.charge / d
+            vr = spos_c * self.gd.h_c * self.gd.N_c
+        else:
+            vr = position / Bohr
+
+        if debug:
+            v = 0
+            for pc in self:
+                # use c function XXXXX
+                d = npy.sqrt(npy.sum((vr - pc.position / Bohr)**2))
+                v -= pc.charge / d
+        else:
+            v = _gpaw.pc_potential_value(vr, self.pc_nc, self.charge_n)
         return v
 
-    def get_ion_energy_and_forces(self, nuclei):
-        """Return the ionic energy and force contribution."""
-        forces = npy.zeros((len(atoms),3))
-        energy = 0
-        for a, atom in enumerate(atoms):
-            for pc in self:
-                dr = atom.position - pc.position
-                dist = sqrt(npy.sum(dr*dr))
-                e = atom.number * pc.charge / dist
-                forces[a] += dr * e
-                energy += e
-        return energy, forces
-        
-    def translate(self, displacement):
-        for pc in self:
-            pc.position += displacement
+    def get_taylor(self, position=None, spos_c=None):
+        """Get the Taylor expansion around a point
 
+        position [Angstrom]
+        output [Hartree, Hartree/Bohr]
+        """
+        if position is None:
+            gd = self.gd
+            pos = spos_c * gd.h_c * gd.N_c * Bohr
+        else:
+            pos = position
+        vr = pos / Bohr
+
+        nabla = npy.zeros((3))
+        for pc in self:
+            dist = vr - pc.position / Bohr
+            d2 = npy.sum(dist**2)
+            nabla += dist * ( pc.charge / (d2 * npy.sqrt(d2)) )
+            
+        # see spherical_harmonics.py for the assignment
+        return [[self.get_value(position=pos)], 
+                npy.array([nabla[1], nabla[2], nabla[0]])]
+        
     def write(self, file='PC.xyz', filetype=None):
 
         if filetype is None and isinstance(file, str):

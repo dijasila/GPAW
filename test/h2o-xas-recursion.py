@@ -1,16 +1,18 @@
 import os
 from math import pi, cos, sin
 from ase import *
+from ase.parallel import rank, barrier
 from gpaw import Calculator
 from gpaw.atom.generator import Generator, parameters
 from gpaw import setup_paths
 import numpy as npy
 
-if 1:
+if rank == 0:
     # Generate setup for oxygen with half a core-hole:
     g = Generator('O', scalarrel=True, corehole=(1, 0, 0.5), nofiles=True)
     g.run(name='hch1s', **parameters['O'])
 
+barrier()
 setup_paths.insert(0, '.')
 
 if 1:
@@ -50,6 +52,3 @@ if 0:
     legend()
     show()
 
-os.system('rm h2o.pckl h2o.gpw')
-# remove O.hch1s.* setup
-os.remove(calc.nuclei[0].setup.filename)

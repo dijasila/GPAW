@@ -23,7 +23,10 @@ from distutils.util import get_platform
 from glob import glob
 from os.path import join, isfile
 
-__all__ = ['Calculator', 'Mixer', 'MixerSum', 'PoissonSolver', 'restart']
+__all__ = ['GPAW', 'Calculator',
+           'Mixer', 'MixerSum', 'MixerDif',
+           'PoissonSolver',
+           'restart']
 
 
 class ConvergenceError(Exception):
@@ -45,8 +48,8 @@ dry_run = False
 dry_run_size = 1
 parsize = None
 parsize_bands = None
-sl_diagonalize = None
-sl_inverse_cholesky = None
+sl_diagonalize = False
+sl_inverse_cholesky = False
 arg = None
 setup_paths = []
 i = 1
@@ -156,9 +159,10 @@ if paths != '':
     setup_paths += paths.split(':')
 
 from gpaw.aseinterface import Calculator
-from gpaw.mixer import Mixer, MixerSum
+from gpaw.mixer import Mixer, MixerSum, MixerDif
 from gpaw.poisson import PoissonSolver
 
+GPAW = Calculator
 
 def restart(filename, Class=Calculator, **kwargs):
     calc = Class(filename, **kwargs)
@@ -177,12 +181,12 @@ if trace:
         f = frame.f_code.co_filename
         if not f.startswith(path):
             return
-        
+
         if event == 'call':
             print '%s%s:%d(%s)' % (indent, f[len(path):], frame.f_lineno,
                                    frame.f_code.co_name)
             indent += '| '
         elif event == 'return':
             indent = indent[:-2]
-        
+
     sys.setprofile(profile)

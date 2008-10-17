@@ -189,6 +189,8 @@ class PAW(PAWExtra, Output):
     =============== ===================================================
     """
 
+    non_orthorhombic_unit_cells_allowed = False
+    
     def __init__(self, filename=None, **kwargs):
         """ASE-calculator interface.
 
@@ -411,7 +413,8 @@ class PAW(PAWExtra, Output):
         
     def step(self):
         if self.niter > self.fixdensity:
-            self.density.update(self.kpt_u, self.symmetry)
+            self.density.update(self.kpt_u, self.symmetry,
+                                self.hamiltonian.lcao_initialized)
             self.update_kinetic()
             self.hamiltonian.update(self.density)
 
@@ -430,7 +433,13 @@ class PAW(PAWExtra, Output):
         #print H.Ekin, self.occupation.Eband, self.Enlkin, H.Epot, H.Eext, H.Ebar, H.Exc, self.Enlxc,self.occupation.S
         self.Ekin = H.Ekin + self.occupation.Eband + self.Enlkin
         self.Epot = H.Epot
+
         self.Eext = H.Eext
+        # Add energy contribution due to the nuclei
+        vext_g = self.input_parameters['external']
+        if hasattr(vext_g, 'get_ion_energy_and_forces'):
+            self.Eext += vext_g.get_ion_energy_and_forces(self.atoms)[0]
+
         self.Ebar = H.Ebar
         self.Exc = H.Exc + self.Enlxc
         self.S = self.occupation.S
@@ -469,10 +478,10 @@ class PAW(PAWExtra, Output):
             # Save the state of the atoms:
             self.atoms = atoms.copy()
             
-        pos_ac = atoms.get_positions() / Bohr
+        pos_av = atoms.get_positions() / Bohr
 
         movement = False
-        for nucleus, pos_c in zip(self.nuclei, pos_ac):
+        for nucleus, pos_c in zip(self.nuclei, pos_av):
             spos_c = self.domain.scale_position(pos_c)
             if npy.sometrue(spos_c != nucleus.spos_c) or not nucleus.ready:
                 movement = True
@@ -481,9 +490,11 @@ class PAW(PAWExtra, Output):
                     self.ghat_nuclei.pop()
                 nucleus.set_position(spos_c, self.domain, self.my_nuclei,
                                      self.nspins, self.nmyu, self.nmybands)
+
                 nucleus.move(spos_c, self.gd, self.finegd,
                              self.ibzk_kc, self.locfuncbcaster,
-                             self.pt_nuclei, self.ghat_nuclei)
+                             self.pt_nuclei, self.ghat_nuclei,
+                             not self.eigensolver.lcao)
 
                 if self.eigensolver.lcao or self.kpt_u[0].psit_nG is None:
                     nucleus.initialize_atomic_orbitals(
@@ -505,15 +516,15 @@ class PAW(PAWExtra, Output):
                 nucleus.normalize_shape_function_and_pseudo_core_density()
 
             if self.symmetry:
-                self.symmetry.check(pos_ac)
+                self.symmetry.check(pos_av)
 
-            self.hamiltonian.pairpot.update(pos_ac, self.nuclei, self.domain,
+            self.hamiltonian.pairpot.update(pos_av, self.nuclei, self.domain,
                                             self.text)
 
             self.density.move()
 
             # Output the updated position of the atoms
-            self.print_positions(pos_ac)
+            self.print_positions(pos_av)
 
     def initialize_wave_functions(self):
         # do at least the first 3 iterations with fixed density
@@ -700,7 +711,7 @@ class PAW(PAWExtra, Output):
         # Add contributions from external fields
         external = self.input_parameters['external']
         if hasattr(external, 'get_ion_energy_and_forces'):
-            E_ext, F_ext = external.get_ion_energy_and_forces(self.nuclei)
+            E_ext, F_ext = external.get_ion_energy_and_forces(self.atoms)
             self.F_ac += F_ext
 
         if self.symmetry is not None:
@@ -903,18 +914,18 @@ class PAW(PAWExtra, Output):
             else:
                 self.dtype = complex
 
-        pos_ac = r.get('CartesianPositions')
+        pos_av = r.get('CartesianPositions')
         Z_a = npy.asarray(r.get('AtomicNumbers'), int)
-        cell_cc = r.get('UnitCell')
+        cell_cv = r.get('UnitCell')
         pbc_c = r.get('BoundaryConditions')
         tag_a = r.get('Tags')
         magmom_a = r.get('MagneticMoments')
 
-        self.atoms = Atoms(positions=pos_ac * Bohr,
+        self.atoms = Atoms(positions=pos_av * Bohr,
                            numbers=Z_a,
                            tags=tag_a,
                            magmoms=magmom_a,
-                           cell=cell_cc * Bohr,
+                           cell=cell_cv * Bohr,
                            pbc=pbc_c)
         return r
     
@@ -968,9 +979,9 @@ class PAW(PAWExtra, Output):
             mr = maxrss()
             if mr > 0:
                 if mr < 1024.0**3:
-                    self.text('Memory  usage: %.2f MB' % (mr / 1024.0**2))
+                    self.text('Memory usage: %.2f MB' % (mr / 1024.0**2))
                 else:
-                    self.text('Memory  usage: %.2f GB' % (mr / 1024.0**3))
+                    self.text('Memory usage: %.2f GB' % (mr / 1024.0**3))
 
             if hasattr(self, 'timer'):
                 self.timer.write(self.txt)
@@ -1032,8 +1043,8 @@ class PAW(PAWExtra, Output):
         
         self.natoms = len(atoms)
 
-        pos_ac = atoms.get_positions() / Bohr
-        cell_cc = atoms.get_cell() / Bohr
+        pos_av = atoms.get_positions() / Bohr
+        cell_cv = atoms.get_cell() / Bohr
         pbc_c = atoms.get_pbc()
         Z_a = atoms.get_atomic_numbers()
         self.magmom_a = atoms.get_initial_magnetic_moments()
@@ -1046,10 +1057,9 @@ class PAW(PAWExtra, Output):
         except KeyError:
             tag_a = npy.zeros(self.natoms, int)
 
-        # Check that the cell is orthorhombic:
-        check_unit_cell(cell_cc)
-        # Get the diagonal:
-        cell_c = npy.diagonal(cell_cc)
+        if not self.non_orthorhombic_unit_cells_allowed:
+            # Check that the cell is orthorhombic:
+            check_unit_cell(cell_cv)
         
         # Set the scaled k-points:
         kpts = p['kpts']
@@ -1071,13 +1081,15 @@ class PAW(PAWExtra, Output):
 
         self.nspins = 1 + int(self.spinpol)
 
+        if not self.spinpol:
+            p['hund'] = False
+            # the magnetic moment is fixed already
+            p['fixmom'] = False
+
         self.fixmom = p['fixmom']
         if p['hund']:
             self.fixmom = True
             assert self.natoms == 1
-            if not self.spinpol:
-                p['hund'] = False
-                self.fixmom = False
 
         self.xcfunc = XCFunctional(p['xc'], self.nspins)
         self.xcfunc.set_timer(self.timer)
@@ -1091,10 +1103,15 @@ class PAW(PAWExtra, Output):
             else:
                 h = p['h'] / Bohr
             # N_c should be a multiple of 4:
-            N_c = npy.array([max(4, int(L / h / 4 + 0.5) * 4) for L in cell_c])
+            N_c = []
+            for axis_v in cell_cv:
+                L = (axis_v**2).sum()**0.5
+                N_c.append(max(4, int(L / h / 4 + 0.5) * 4))
+            N_c = npy.array(N_c)
+                       
         
         # Create a Domain object:
-        self.domain = Domain(cell_c, pbc_c)
+        self.domain = Domain(cell_cv, pbc_c)
 
         # Is this a gamma-point calculation?
         self.gamma = (len(self.bzk_kc) == 1 and
@@ -1122,7 +1139,7 @@ class PAW(PAWExtra, Output):
             # Reduce the the k-points to those in the irreducible part of
             # the Brillouin zone:
             self.symmetry, self.weight_k, self.ibzk_kc = reduce_kpoints(
-                self.bzk_kc, pos_ac, Z_a, type_a, self.magmom_a, basis_a,
+                self.bzk_kc, pos_av, Z_a, type_a, self.magmom_a, basis_a,
                 self.domain, p['usesymm'])
             self.nkpts = len(self.ibzk_kc)
         
@@ -1229,7 +1246,7 @@ class PAW(PAWExtra, Output):
         for nucleus in self.nuclei:
             self.Eref += nucleus.setup.E
 
-        for nucleus, pos_c in zip(self.nuclei, pos_ac):
+        for nucleus, pos_c in zip(self.nuclei, pos_av):
             spos_c = self.domain.scale_position(pos_c)
             nucleus.set_position(spos_c, self.domain, self.my_nuclei,
                                  self.nspins, self.nmyu, self.nmybands)
@@ -1248,7 +1265,7 @@ class PAW(PAWExtra, Output):
                 self.density.interpolate_pseudo_density()
                 self.density.starting_density_initialized = True
             
-        self.print_init(pos_ac)
+        self.print_init(pos_av)
         estimate_memory(self)
         if dry_run:
             self.print_parameters()
@@ -1322,3 +1339,11 @@ class PAW(PAWExtra, Output):
             self.hamiltonian.xc.set_kinetic(self.density.taut_sg)           
 
 
+    def get_myu(self, k, s):
+        """Return my u corresponding to a certain kpoint and spin - or None"""
+        # very slow, but we are shure, that we have it
+        for u in range(self.nmyu):
+            if self.kpt_u[u].k == k and self.kpt_u[u].s == s:
+                return u
+        return None
+            

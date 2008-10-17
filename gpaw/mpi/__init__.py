@@ -8,6 +8,7 @@ import numpy as npy
 
 from gpaw import debug, dry_run, dry_run_size
 from gpaw.utilities import is_contiguous
+from gpaw.utilities import scalapack
 import _gpaw
 
 
@@ -23,10 +24,10 @@ class SerialCommunicator:
 
     def scatter(self, s, r, root):
         r[:] = s
-        
+
     def max(self, value, root=-1):
         return value
-        
+
     def broadcast(self, buf, root):
         pass
 
@@ -40,6 +41,9 @@ class SerialCommunicator:
         b[:] = a
 
     def new_communicator(self, ranks):
+        return self
+
+    def cart_create(self, dimx, dimy, dimz, periodic):
         return self
 
 class DummyCommunicator(SerialCommunicator):
@@ -61,7 +65,7 @@ except:
 if dry_run and dry_run_size > 1:
     world = DummyCommunicator()
     world.size = dry_run_size
-    
+
 size = world.size
 rank = world.rank
 parallel = (size > 1)
@@ -73,7 +77,7 @@ if debug:
             self.size = comm.size
             self.rank = comm.rank
 
-        def new_communicator(self, ranks):            
+        def new_communicator(self, ranks):
             assert is_contiguous(ranks, int)
             sranks = npy.sort(ranks)
             # Are all ranks in range?
@@ -102,7 +106,7 @@ if debug:
             """Call MPI_Scatter.
 
             Distribute *s* array from *root* to *r*."""
-            
+
             assert s.dtype == r.dtype
             assert s.size == self.size * r.size
             assert s.flags.contiguous
@@ -154,13 +158,13 @@ if debug:
             if not block:
                 assert sys.getrefcount(a) > 3
             return self.comm.send(a, dest, tag, block)
-            
+
         def receive(self, a, src, tag=123, block=True):
             assert 0 <= src < self.size
             assert src != self.rank
             assert is_contiguous(a)
             return self.comm.receive(a, src, tag, block)
-            
+
         def wait(self, request):
             self.comm.wait(request)
 
@@ -173,24 +177,28 @@ if debug:
         def barrier(self):
             self.comm.barrier()
 
-        def diagonalize(self, a, w,
-                        nprow=1, npcol=1, mb=32, root=0,
-                        b=None):
-            n = len(a)
-            for i in range(n):
-                for j in range(i, n):
-                    a[i,j] = a[j,i]
-                    if b is not None:
-                        b[i,j] = b[j,i]
-            return self.comm.diagonalize(a, w, nprow, npcol, mb, root, b)
+        if scalapack():
+            def diagonalize(self, a, w,
+                            nprow=1, npcol=1, mb=32, root=0,
+                            b=None):
+                n = len(a)
+                for i in range(n):
+                    for j in range(i, n):
+                        a[i,j] = a[j,i]
+                        if b is not None:
+                            b[i,j] = b[j,i]
+                return self.comm.diagonalize(a, w, nprow, npcol, mb, root, b)
 
-        def inverse_cholesky(self, a,
-                             nprow=1, npcol=1, mb=32, root=0):
-            n = len(a)
-            for i in range(n):
-                for j in range(i, n):
-                    a[i,j] = a[j,i]
-            return self.comm.inverse_cholesky(a, nprow, npcol, mb, root)
+            def inverse_cholesky(self, a,
+                                 nprow=1, npcol=1, mb=32, root=0):
+                n = len(a)
+                for i in range(n):
+                    for j in range(i, n):
+                        a[i,j] = a[j,i]
+                return self.comm.inverse_cholesky(a, nprow, npcol, mb, root)
+
+        def cart_create(self, dimx, dimy, dimz, periodic):
+            return self.comm.cart_create(dimx, dimy, dimz, periodic)
 
 
     world = _Communicator(world)
@@ -227,7 +235,7 @@ def run(iterators):
         for i in iterators:
             pass
         return
-    
+
     if len(iterators) == 0:
         return
 
@@ -236,4 +244,3 @@ def run(iterators):
             results = [iter.next() for iter in iterators]
         except StopIteration:
             return results
-

@@ -1,33 +1,35 @@
-//*** The operator apply and some associate structors are imple-  ***//
+//*** The apply operator and some associate structors are imple-  ***//
 //*** mented in two version: a original version and a speciel     ***//
-//*** Blue Gene version. By default the original version will     ***//
-//*** be used, but it's possible to use the Blue Gene version     ***//
-//*** by compiling gpaw with the macro BLUEGENE defined.          ***//
-//*** Author of the optimized Blue Gene code:                     ***//
+//*** OpenMP version. By default the original version will        ***//
+//*** be used, but it's possible to use the OpenMP version        ***//
+//*** by compiling gpaw with the macro GPAW_OMP defined and       ***//
+//*** and the compile/link option "-fopenmp".                     ***//
+//*** Author of the optimized OpenMP code:                        ***//
 //*** Mads R. B. Kristensen - madsbk@diku.dk                      ***//
 
 #include <Python.h>
+#define PY_ARRAY_UNIQUE_SYMBOL GPAW_ARRAY_API
 #define NO_IMPORT_ARRAY
 #include <numpy/arrayobject.h>
+#include <stdlib.h>
 #include <pthread.h>
 #include "extensions.h"
 #include "bc.h"
 #include "mympi.h"
-#include "bmgs/bmgs.h"
+
+#ifdef GPAW_ASYNC
+  #define GPAW_ASYNC_D 3
+#else
+  #define GPAW_ASYNC_D 1
+#endif
 
 typedef struct
 {
   PyObject_HEAD
   bmgsstencil stencil;
   boundary_conditions* bc;
-#ifndef BLUEGENE
   MPI_Request recvreq[2];
   MPI_Request sendreq[2];
-#else
-  //We need 2 revc and send request per Blue Gene kernel e.g. 4.
-  MPI_Request recvreq[2 * 4];
-  MPI_Request sendreq[2 * 4];
-#endif
   double* buf;
   double* sendbuf;
   double* recvbuf;
@@ -67,7 +69,7 @@ static PyObject * Operator_relax(OperatorObject *self,
         {
           bc_unpack1(bc, fun, self->buf, i,
                self->recvreq, self->sendreq,
-               self->recvbuf, self->sendbuf, ph + 2 * i);
+               self->recvbuf, self->sendbuf, ph + 2 * i, 0);
           bc_unpack2(bc, self->buf, i,
                self->recvreq, self->sendreq, self->recvbuf);
         }
@@ -75,7 +77,88 @@ static PyObject * Operator_relax(OperatorObject *self,
     }
   Py_RETURN_NONE;
 }
-#ifndef BLUEGENE
+
+struct apply_args{
+  int thread_id;
+  OperatorObject *self;
+  int ng;
+  int ng2;
+  int nin;
+  int nthds;
+  const double* in;
+  double* out;
+  int real;
+  const double_complex* ph;
+};
+
+void *apply_worker(void *threadarg)
+{
+  struct apply_args *args = (struct apply_args *) threadarg;
+  boundary_conditions* bc = args->self->bc;
+  double* sendbuf = args->self->sendbuf + args->thread_id * bc->maxsend * GPAW_ASYNC_D;
+  double* recvbuf = args->self->recvbuf + args->thread_id * bc->maxrecv * GPAW_ASYNC_D;
+  double* buf = args->self->buf + args->thread_id * args->ng2;
+  MPI_Request recvreq[2 * GPAW_ASYNC_D];
+  MPI_Request sendreq[2 * GPAW_ASYNC_D];
+
+  int chunksize = args->nin / args->nthds;
+  if (!chunksize)
+    chunksize = 1;
+  int nstart = args->thread_id * chunksize;
+  if (nstart >= args->nin)
+    return NULL;
+  int nend = nstart + chunksize;
+  if (nend > args->nin)
+    nend = args->nin;
+
+  //printf("thd: %d, nin: %d, nthds: %d, chunk: %d, nstart: %d, nend: %d\n", args->thread_id, args->nin, args->nthds, chunksize, nstart, nend);
+
+  for (int n = nstart; n < nend; n++)
+    {
+      const double* in = args->in + n * args->ng;
+      double* out = args->out + n * args->ng;
+    #ifndef GPAW_ASYNC
+      if (1)
+    #else
+      if (bc->cfd == 0)
+    #endif
+        {
+          for (int i = 0; i < 3; i++)
+            {
+              bc_unpack1(bc, in, buf, i,
+                         recvreq, sendreq,
+                         recvbuf, sendbuf, args->ph + 2 * i,
+                         args->thread_id);
+              bc_unpack2(bc, buf, i,
+                         recvreq, sendreq, recvbuf);
+            }
+        }
+      else
+        {
+          for (int i = 0; i < 3; i++)
+            {
+              bc_unpack1(bc, in, buf, i,
+                         recvreq + i * 2, sendreq + i * 2,
+                         recvbuf + i * bc->maxrecv,
+                         sendbuf + i * bc->maxsend, args->ph + 2 * i,
+                         args->thread_id);
+            }
+          for (int i = 0; i < 3; i++)
+            {
+              bc_unpack2(bc, buf, i,
+                         recvreq + i * 2, sendreq + i * 2,
+                         recvbuf + i * bc->maxrecv);
+            }
+        }
+      if (args->real)
+        bmgs_fd(&args->self->stencil, buf, out);
+      else
+        bmgs_fdz(&args->self->stencil, (const double_complex*) buf,
+                                       (double_complex*)out);
+    }
+    return NULL;
+}
+
 static PyObject * Operator_apply(OperatorObject *self,
                                  PyObject *args)
 {
@@ -89,9 +172,11 @@ static PyObject * Operator_apply(OperatorObject *self,
   if (input->nd == 4)
     nin = input->dimensions[0];
 
-  const boundary_conditions* bc = self->bc;
+  boundary_conditions* bc = self->bc;
   const int* size1 = bc->size1;
+  const int* size2 = bc->size2;
   int ng = bc->ndouble * size1[0] * size1[1] * size1[2];
+  int ng2 = bc->ndouble * size2[0] * size2[1] * size2[2];
 
   const double* in = DOUBLEP(input);
   double* out = DOUBLEP(output);
@@ -104,131 +189,42 @@ static PyObject * Operator_apply(OperatorObject *self,
   else
     ph = COMPLEXP(phases);
 
-  for (int n = 0; n < nin; n++)
-    {
-      for (int i = 0; i < 3; i++)
-        {
-          bc_unpack1(bc, in, self->buf, i,
-               self->recvreq, self->sendreq,
-               self->recvbuf, self->sendbuf, ph + 2 * i);
-          bc_unpack2(bc, self->buf, i,
-               self->recvreq, self->sendreq, self->recvbuf);
-        }
-      if (real)
-        bmgs_fd(&self->stencil, self->buf, out);
-      else
-        bmgs_fdz(&self->stencil, (const double_complex*)self->buf,
-                                 (double_complex*)out);
-
-      in += ng;
-      out += ng;
-    }
-  Py_RETURN_NONE;
-}
-
-#else
-
-typedef struct
-{
-  OperatorObject *self;
-  boundary_conditions *bc;
-  double *in, *out;
-  int nin, ng, thd_id;
-  bool real;
-  double_complex *ph;
-  pthread_barrier_t *barrier;
-} fd_worker_t;
-
-void* fd_worker(void* args)
-{
-  fd_worker_t* arg = args;
-  OperatorObject *self = arg->self;
-  int thd_id = arg->thd_id;
-  int nin = arg->nin;
-
-  double *in = arg->in + (thd_id * arg->ng * (nin / 4));
-  double *out = arg->out + (thd_id * arg->ng * (nin / 4));
-
-  double *buf = self->buf + thd_id;
-  double *sendbuf = self->sendbuf + thd_id;
-  double *recvbuf = self->recvbuf + thd_id;
-  MPI_Request *sendreq = self->sendreq + (thd_id * 2);
-  MPI_Request *recvreq = self->recvreq + (thd_id * 2);
-
-  int nmax = (thd_id == 3) ? nin : (nin / 4) * (thd_id + 1);
-  for (int n = (nin / 4) * thd_id; n < nmax; n++)
-  {
-    for (int i = 0; i < 3; i++)
-      {
-        bc_unpack1(arg->bc, in, buf, i,
-                   recvreq, sendreq,
-                   recvbuf, sendbuf, arg->ph + 2 * i);
-        bc_unpack2(arg->bc, buf, i,
-                   recvreq, sendreq, recvbuf);
-      }
-    if (arg->real)
-      bmgs_fd(&arg->self->stencil, buf, out);
-    else
-      bmgs_fdz(&arg->self->stencil, (const double_complex*)buf,
-                                    (double_complex*)out);
-    in += arg->ng;
-    out += arg->ng;
-  }
-  return NULL;
-}
-
-static PyObject * Operator_apply(OperatorObject *self,
-                                  PyObject *args)
-{
-  PyArrayObject* input;
-  PyArrayObject* output;
-  PyArrayObject* phases = 0;
-  if (!PyArg_ParseTuple(args, "OO|O", &input, &output, &phases))
-    return NULL;
-
-  int nin = 1;
-  if (input->nd == 4)
-    nin = input->dimensions[0];
-
-  boundary_conditions* bc = self->bc;
-  const int* size1 = bc->size1;
-  int ng = bc->ndouble * size1[0] * size1[1] * size1[2];
-
-  double* in = DOUBLEP(input);
-  double* out = DOUBLEP(output);
-  double_complex* ph;
-
-  bool real = (input->descr->type_num == PyArray_DOUBLE);
-
-  if (real)
-    ph = 0;
-  else
-    ph = COMPLEXP(phases);
-
-  // Worker-thread handlers
-  pthread_t fd_threads[4];
-  fd_worker_t* fd_arg = malloc(4 * sizeof(fd_worker_t));
-
-  for (int i = 0; i < 4; i++)
-    {
-      (fd_arg + i)->thd_id = i;
-      (fd_arg + i)->self = self;
-      (fd_arg + i)->bc = bc;
-      (fd_arg + i)->in = in;
-      (fd_arg + i)->out = out;
-      (fd_arg + i)->nin = nin;
-      (fd_arg + i)->real = real;
-      (fd_arg + i)->ng = ng;
-      (fd_arg + i)->ph = ph;
-      pthread_create(&fd_threads[i], NULL, &fd_worker, (fd_arg + i));
-    }
-  for (int i = 0; i < 4; i++)
-    pthread_join(fd_threads[i], NULL);
-  free(fd_arg);
-
-  Py_RETURN_NONE;
-}
+  int nthds = 1;
+#ifdef GPAW_OMP
+  if (getenv("OMP_NUM_THREADS") != NULL)
+    nthds = atoi(getenv("OMP_NUM_THREADS"));
 #endif
+  struct apply_args *wargs = GPAW_MALLOC(struct apply_args, nthds);
+  pthread_t *thds = GPAW_MALLOC(pthread_t, nthds);
+
+  for(int i=0; i < nthds; i++)
+    {
+      (wargs+i)->thread_id = i;
+      (wargs+i)->nthds = nthds;
+      (wargs+i)->self = self;
+      (wargs+i)->ng = ng;
+      (wargs+i)->ng2 = ng2;
+      (wargs+i)->nin = nin;
+      (wargs+i)->in = in;
+      (wargs+i)->out = out;
+      (wargs+i)->real = real;
+      (wargs+i)->ph = ph;
+    }
+#ifdef GPAW_OMP
+  for(int i=1; i < nthds; i++)
+    pthread_create(thds + i, NULL, apply_worker, (void*) (wargs+i));
+#endif
+  apply_worker(wargs);
+#ifdef GPAW_OMP
+  for(int i=1; i < nthds; i++)
+    pthread_join(*(thds+i), NULL);
+#endif
+  free(wargs);
+  free(thds);
+
+  Py_RETURN_NONE;
+}
+
 
 static PyObject * Operator_get_diagonal_element(OperatorObject *self,
                                               PyObject *args)
@@ -308,17 +304,23 @@ PyObject * NewOperatorObject(PyObject *obj, PyObject *args)
   self->bc = bc_init(LONGP(size), padding, padding, nb, comm, real, cfd);
 
   const int* size2 = self->bc->size2;
-#ifndef BLUEGENE
+
+#ifndef GPAW_OMP
   self->buf = GPAW_MALLOC(double, size2[0] * size2[1] * size2[2] *
-        self->bc->ndouble);
-  self->sendbuf = GPAW_MALLOC(double, self->bc->maxsend);
-  self->recvbuf = GPAW_MALLOC(double, self->bc->maxrecv);
+                          self->bc->ndouble);
+  self->sendbuf = GPAW_MALLOC(double, self->bc->maxsend * GPAW_ASYNC_D);
+  self->recvbuf = GPAW_MALLOC(double, self->bc->maxrecv * GPAW_ASYNC_D);
 #else
-  //We need a buffer per Blue Gene kernel e.g. 4.
+  int nthds = 1;
+  if (getenv("OMP_NUM_THREADS") != NULL)
+    nthds = atoi(getenv("OMP_NUM_THREADS"));
+  //We need a buffer per OpenMP Thread.
   self->buf = GPAW_MALLOC(double, size2[0] * size2[1] * size2[2] *
-        self->bc->ndouble * 4);
-  self->sendbuf = GPAW_MALLOC(double, self->bc->maxsend * 4);
-  self->recvbuf = GPAW_MALLOC(double, self->bc->maxrecv * 4);
+                          self->bc->ndouble * nthds);
+  self->sendbuf = GPAW_MALLOC(double, self->bc->maxsend *
+                              nthds * GPAW_ASYNC_D);
+  self->recvbuf = GPAW_MALLOC(double, self->bc->maxrecv *
+                              nthds * GPAW_ASYNC_D);
 #endif
   return (PyObject*)self;
 }

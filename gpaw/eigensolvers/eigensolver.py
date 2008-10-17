@@ -10,24 +10,51 @@ from gpaw.utilities.lapack import diagonalize
 from gpaw.utilities.blas import axpy, r2k, gemm
 from gpaw.utilities.tools import apply_subspace_mask
 from gpaw.utilities import unpack
-from gpaw.mpi import run
-from gpaw.mpi import parallel, rank
-from gpaw import debug, sl_diagonalize
+from gpaw.mpi import run, parallel
+from gpaw.utilities import scalapack
+from gpaw import sl_diagonalize
+from gpaw import debug
 
 
-def blocked_matrix_multiply(a_nG, U_nn, work_nG):
-    nbands = len(a_nG)
-    b_ng = a_nG.reshape((nbands, -1))
-    w_ng = work_nG.reshape((nbands, -1))
+def blocked_matrix_multiply(A_nG, U_nn, work_nG):
+    """Inplace matrix multipication.
+
+    Perform an inplace multiplication of *A_nG* and *U_nn* using
+    *work_nG* as work-space::
+
+             __
+            \
+      A   <- )  A   U
+       nG   /__  mG  nm
+             m
+
+    """
+
+    nbands = len(A_nG)
+    b_ng = A_nG.reshape((nbands, -1))
     ngpts = b_ng.shape[1]
-    blocksize = w_ng.shape[1]
+    nbands0 = work_nG.shape[0]
+    ngpts0 = ngpts * nbands0 // (2 * nbands)
+    w = work_nG.reshape((-1,))[:2 * nbands * ngpts0]
+    w1_nq, w2_nq = w.reshape(2, nbands, ngpts0)
     g1 = 0
     while g1 < ngpts:
-        g2 = g1 + blocksize
-        if g2 > ngpts:
-            g2 = ngpts
-        gemm(1.0, b_ng[:, g1:g2], U_nn, 0.0, w_ng[:, :g2 - g1])
-        b_ng[:, g1:g2] = w_ng[:, :g2 - g1]
+        g2 = g1 + ngpts0
+        print g1,g2
+        if g2 <= ngpts:
+            w1_nq[:] = b_ng[:, g1:g2]
+            gemm(1.0, w1_nq, U_nn, 0.0, w2_nq)
+            b_ng[:, g1:g2] = w2_nq
+            g1 = g2
+        else:
+            print '*'
+            w = work_nG.reshape((-1,))[:2 * nbands * (ngpts - g1)]
+            w1_nq, w2_nq = w.reshape(2, nbands, ngpts - g1)
+            w1_nq[:] = b_ng[:, g1:]
+            gemm(1.0, w1_nq, U_nn, 0.0, w2_nq)
+            b_ng[:, g1:] = w2_nq
+            break
+
 
 class Eigensolver:
     def __init__(self, keep_htpsit=True, nblocks=1):
@@ -38,8 +65,8 @@ class Eigensolver:
         self.Htpsit_nG = None
         self.work_In = None
         self.H_pnn = None
-        #if debug: # iteration counter for the timer
-        self.iteration = 0
+        if debug:
+            self.eig_iteration = 0
 
     def initialize(self, paw):
         self.timer = paw.timer
@@ -94,9 +121,7 @@ class Eigensolver:
         for kpt in kpt_u:
             error += self.iterate_one_k_point(hamiltonian, kpt)
 
-        self.timer.start('Subspace diag.: kpt_comm.sum')
         self.error = self.band_comm.sum(self.kpt_comm.sum(error))
-        self.timer.stop('Subspace diag.: kpt_comm.sum')
 
     def iterate_one_k_point(self, hamiltonian, kpt):
         """Implemented in subclasses."""
@@ -117,11 +142,8 @@ class Eigensolver:
         *P_uni* are already calculated
         """
 
-        # MDTMP: This causes problems
-        #self.timer.start('Subspace diag.: calculate_hamiltonian_matrix2')
         if self.band_comm.size > 1:
             return self.calculate_hamiltonian_matrix2(hamiltonian, kpt)
-        #self.timer.stop('Subspace diag.: calculate_hamiltonian_matrix2')
 
         psit_nG = kpt.psit_nG
         H_nn = self.H_nn
@@ -129,46 +151,34 @@ class Eigensolver:
 
         if self.keep_htpsit:
             Htpsit_nG = self.Htpsit_nG
-            self.timer.start('Subspace diag.: hamiltonian.apply')
             hamiltonian.apply(psit_nG, Htpsit_nG, kpt,
                               local_part_only=True,
                               calculate_projections=False)
-            self.timer.stop('Subspace diag.: hamiltonian.apply')
 
             hamiltonian.xc.xcfunc.apply_non_local(kpt, Htpsit_nG, H_nn)
 
-            self.timer.start('Subspace diag.: r2k')
             r2k(0.5 * self.gd.dv, psit_nG, Htpsit_nG, 1.0, H_nn)
-            self.timer.stop('Subspace diag.: r2k')
 
         else:
-            Htpsit_nG = self.work_nG
+            Htpsit_nG = self.big_work_arrays['work_nG']
             n1 = 0
             while n1 < self.nbands:
                 n2 = n1 + self.blocksize
                 if n2 > self.nbands:
                     n2 = self.nbands
-                self.timer.start('Subspace diag.: hamiltonian.apply')
                 hamiltonian.apply(psit_nG[n1:n2], Htpsit_nG[:n2 - n1], kpt,
                                   local_part_only=True)
-                self.timer.stop('Subspace diag.: hamiltonian.apply')
 
-                self.timer.start('Subspace diag.: r2k')
-                r2k(0.5 * self.gd.dv, psit_nG[n1:], Htpsit_nG, 0.0,
-                    H_nn[n1:, n1:n2])
-                self.timer.stop('Subspace diag.: r2k')
+                gemm(self.gd.dv, Htpsit_nG, psit_nG[n1:], 0.0,
+                     H_nn[n1:, n1:n2], 'c')
                 n1 = n2
 
-        self.timer.start('Subspace diag.: hamiltonian.my_nuclei')
         for nucleus in hamiltonian.my_nuclei:
             P_ni = nucleus.P_uni[kpt.u]
             dH_ii = unpack(nucleus.H_sp[kpt.s])
             H_nn += npy.dot(P_ni, npy.inner(dH_ii, P_ni.conj()))
-        self.timer.stop('Subspace diag.: hamiltonian.my_nuclei')
 
-        self.timer.start('Subspace diag.: self.comm.sum')
         self.comm.sum(H_nn, kpt.root)
-        self.timer.stop('Subspace diag.: self.comm.sum')
 
         # Uncouple occupied and unoccupied subspaces:
         if hamiltonian.xc.xcfunc.hybrid > 0.0:
@@ -198,14 +208,15 @@ class Eigensolver:
         band_comm = self.band_comm
 
         if sl_diagonalize: assert parallel
+        if sl_diagonalize: assert scalapack()
         if sl_diagonalize:
             dsyev_zheev_string = 'Subspace diag.: '+'pdsyevd/pzheevd'
         else:
             dsyev_zheev_string = 'Subspace diag.: '+'dsyev/zheev'
 
         self.timer.start(dsyev_zheev_string)
-        #if debug:
-        self.timer.start(dsyev_zheev_string+' %03d' % self.iteration)
+        if debug:
+            self.timer.start(dsyev_zheev_string+' %03d' % self.eig_iteration)
         if sl_diagonalize:
             info = diagonalize(H_nn, self.eps_n, root=kpt.root)
             if info != 0:
@@ -216,42 +227,30 @@ class Eigensolver:
                     info = diagonalize(H_nn, self.eps_n, root=kpt.root)
                     if info != 0:
                         raise RuntimeError('Failed to diagonalize: info=%d' % info)
-        #if debug:
-        self.timer.stop(dsyev_zheev_string+' %03d' % self.iteration)
-        #if debug:
-        self.iteration += 1
+        if debug:
+            self.timer.stop(dsyev_zheev_string+' %03d' % self.eig_iteration)
+            self.eig_iteration += 1
         self.timer.stop(dsyev_zheev_string)
 
         if self.comm.rank == kpt.root:
-            self.timer.start('Subspace diag.: scatter eps_n')
             band_comm.scatter(self.eps_n, kpt.eps_n, 0)
-            self.timer.stop('Subspace diag.: scatter eps_n')
-            self.timer.start('Subspace diag.: broadcast H_nn')
             band_comm.broadcast(H_nn, 0)
-            self.timer.stop('Subspace diag.: broadcast H_nn')
 
         U_nn = H_nn
         del H_nn
 
-        self.timer.start('Subspace diag.: bcast U_nn')
         self.comm.broadcast(U_nn, kpt.root)
-        self.timer.stop('Subspace diag.: bcast U_nn')
-        self.timer.start('Subspace diag.: bcast eps_n')
         self.comm.broadcast(kpt.eps_n, kpt.root)
-        self.timer.stop('Subspace diag.: bcast eps_n')
 
         work_nG = self.big_work_arrays['work_nG']
         psit_nG = kpt.psit_nG
 
-        self.timer.start('Subspace diag.: psit_nG gemm')
         # Rotate psit_nG:
         if self.nblocks == 1:
             self.matrix_multiplication(kpt, U_nn)
         else:
             blocked_matrix_multiply(psit_nG, U_nn, work_nG)
-        self.timer.stop('Subspace diag.: psit_nG gemm')
 
-        self.timer.start('Subspace diag.: Htpsit_nG gemm')
         if self.keep_htpsit:
             # Rotate Htpsit_nG:
             Htpsit_nG = self.Htpsit_nG
@@ -260,9 +259,7 @@ class Eigensolver:
             self.Htpsit_nG = work_nG
             work_nG = Htpsit_nG
             self.big_work_arrays['work_nG'] = work_nG
-        self.timer.stop('Subspace diag.: Htpsit_nG gemm')
 
-        self.timer.start('Subspace diag.: P_ni gemm')
         if self.band_comm.size == 1:
             for nucleus in hamiltonian.my_nuclei:
                 P_ni = nucleus.P_uni[kpt.u]
@@ -270,7 +267,6 @@ class Eigensolver:
         else:
             run([nucleus.calculate_projections(kpt)
                  for nucleus in hamiltonian.pt_nuclei])
-        self.timer.stop('Subspace diag.: P_ni gemm')
 
         # Rotate EXX related stuff
         if hamiltonian.xc.xcfunc.hybrid > 0.0:

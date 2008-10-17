@@ -61,7 +61,7 @@ class Wannier:
 
 
 class LocFun(Wannier):
-    def localize(self, calc, M=None, T=0,projections=None, ortho=True,
+    def localize(self, calc, M=None, T=0, projections=None, ortho=True,
                  verbose=False):
         # M is size of Hilbert space to fix. Default is ~ number of occ. bands.
         if M is None:
@@ -91,7 +91,7 @@ class LocFun(Wannier):
         z_jjc = npy.empty(self.S_jj.shape+(3,))
         for c in range(3):
             z_jjc = npy.dot(dagger(self.U_nn),
-                            npy.dot(self.Z_nnc[:,:,c],self.U_nn))
+                            npy.dot(self.Z_nnc[:,:,c], self.U_nn))
 
         scaled_c = -npy.angle(z_jjc.diagonal()).T / (2 * pi)
         return (scaled_c % 1.0) * self.cell_c
@@ -99,16 +99,9 @@ class LocFun(Wannier):
     def get_eigenstate_centers(self):
         scaled_c = -npy.angle(self.Z_nnc.diagonal()).T / (2 * pi)
         return (scaled_c % 1.0) * self.cell_c
-        
-
-    def get_proj_norm(self,calc):
-        U_nj = self.U_nn
-        N,M = U_nj.shape
-        norm_n = npy.zeros(N,npy.float)
-        for n in range(N):
-            norm_n[n] = npy.sqrt(npy.dot(U_nj[n],U_nj[n].conjugate()))
-        
-        return norm_n
+    
+    def get_proj_norm(self, calc):
+        return npy.array([npy.linalg.norm(U_j) for U_j in self.U_nn])
             
 
 def get_locfun_rotation(projections_nj, M=None, T=0, ortho=False):
@@ -137,7 +130,7 @@ def get_locfun_rotation(projections_nj, M=None, T=0, ortho=False):
         assert npy.diagonal(npy.linalg.cholesky(S_jj)).min() > .01, \
                'Close to linear dependence.'
         if ortho:
-            U_nj = lowdin(U_nj, S_jj)
+            lowdin(U_nj, S_jj)
             S_jj = npy.identity(len(S_jj))
         return U_nj, S_jj
 
@@ -160,12 +153,13 @@ def get_locfun_rotation(projections_nj, M=None, T=0, ortho=False):
                'Minimum eigenvalue of cholesky decomposition is %s' % Scd)
 
     if ortho:
-        ap_nj = lowdin(ap_nj, S_jj)
-        ap_vj = lowdin(ap_vj, S_jj)
+        lowdin(ap_nj, S_jj)
+        lowdin(ap_vj, S_jj)
         S_jj = npy.identity(len(S_jj))
 
     U_nj = npy.concatenate([ap_nj.flat, ap_vj.flat]).reshape(M+V, Nw)
     return U_nj, S_jj
+
 
 def single_zeta(paw, spin, verbose=False):
     angular = [['1'],
@@ -191,40 +185,3 @@ def single_zeta(paw, spin, verbose=False):
     projections_nj = dagger(npy.array(p_jn))
     assert projections_nj.shape[0] >= projections_nj.shape[1]
     return projections_nj
-
-
-def initial_guess(calc, initwan):
-    """Initial guess for Wannier functions
-
-    initwan = [[spos_c], l, a]
-    """
-    from gpaw.localized_functions import create_localized_functions
-    from gpaw.spline import Spline
-
-    nbf = 0
-    for spos_c, l, a in initwan:
-        nbf += 2 * l + 1
-    f_kni = npy.zeros((len(calc.ibzk_kc), calc.nbands, nbf), complex)
-
-    nbf = 0
-    for spos_c, l, a in initwan:
-        if len(spos_c) == 1:
-            spos_c = calc.nuclei[spos_c[0]].spos_c
-
-        a /= calc.a0
-        cutoff = 10 * a
-        x = npy.arange(0.0, cutoff, cutoff / 500.0)
-        rad_g = npy.exp(-x*x / a)
-        rad_g[-2:] = 0.0
-        functions = [Spline(l, cutoff, rad_g)]
-        lf = create_localized_functions(functions, calc.gd, spos_c,
-                                        dtype=complex)
-        lf.set_phase_factors(calc.ibzk_kc)
-        nlf = 2 * l + 1
-        nbands = calc.nbands
-        nkpts = len(calc.ibzk_kc)
-        for k in range(nkpts):
-            lf.integrate(calc.kpt_u[k].psit_nG[:],
-                         f_kni[k, :, nbf:nbf + nlf], k=k)
-        nbf += nlf
-    return f_kni.conj()

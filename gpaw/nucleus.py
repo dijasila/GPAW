@@ -50,7 +50,7 @@ class Nucleus:
                functions of this atom (``P_{\sigma\vec{k}ni}^a``).
      ``D_sp``  Atomic density matrix (``D_{\sigma i_1i_2}^a``).
                Packed with pack 1.
-     ``H_sp`` Atomic Hamiltonian correction (``\Delta H_{\sigma i_1i_2}^a``).
+     ``H_sp``  Atomic Hamiltonian correction (``\Delta H_{\sigma i_1i_2}^a``).
                Packed with pack 2.
      ``Q_L``   Multipole moments  (``Q_{\ell m}^a``).
      ``F_c``   Force.
@@ -147,7 +147,8 @@ class Nucleus:
         self.in_this_domain = in_this_domain
         self.rank = rank
 
-    def move(self, spos_c, gd, finegd, k_ki, lfbc, pt_nuclei, ghat_nuclei):
+    def move(self, spos_c, gd, finegd, k_kc, lfbc, pt_nuclei, ghat_nuclei,
+             add_projectors_to_grid):
         """Move nucleus.
 
         """
@@ -158,11 +159,15 @@ class Nucleus:
         create = create_localized_functions
 
         # Projectors:
-        pt_j = self.setup.pt_j
-        pt_i = create(pt_j, gd, spos_c, dtype=self.dtype, lfbc=lfbc)
+        if add_projectors_to_grid:
+            pt_j = self.setup.pt_j
+            pt_i = create(pt_j, gd, spos_c, dtype=self.dtype, lfbc=lfbc)
+        else:
+            pt_i = None
+            assert self.pt_i is None
 
         if self.dtype == complex and pt_i is not None:
-            pt_i.set_phase_factors(k_ki)
+            pt_i.set_phase_factors(k_kc)
         
         # Update pt_nuclei:
         if pt_i is not None and self.pt_i is None:
@@ -217,7 +222,7 @@ class Nucleus:
             
         self.ready = True
 
-        # Moving the atoms in a course grid EXX calculation doesn't
+        # Moving the atoms in a coarse grid EXX calculation doesn't
         # work.  Make sure it fails:
         self.Ghat_L = None
 
@@ -238,15 +243,35 @@ class Nucleus:
         if self.nct is not None:
             Nct = -(self.setup.Delta0 * sqrt(4 * pi)
                     + self.setup.Z - self.setup.Nc)
-            self.nct.normalize(Nct)
+            if abs(Nct) > 1e-15:
+                self.nct.normalize(Nct)
 
-    def initialize_atomic_orbitals(self, gd, k_ki, lfbc, lcao_forces=False):
+    def initialize_atomic_orbitals(self, gd, k_kc, lfbc, lcao_forces=False):
         phit_j = self.setup.phit_j
-        self.phit_i = create_localized_functions(
-            phit_j, gd, self.spos_c, dtype=self.dtype,
-            cut=True, forces=lcao_forces, lfbc=lfbc)
+
+        from gpaw.localized_functions import DissimilarlyLocalizedFunctions,\
+             LocFuncs
+
+        #phit_i = create_localized_functions(phit_j, gd, self.spos_c,
+        #                                    dtype=self.dtype, cut=True,
+        #                                    forces=lcao_forces, lfbc=lfbc)
+        #self.phit_i = phit_i
+        
+        self.phit_i = None
+        phit_i = [LocFuncs([phit], gd, self.spos_c,
+                           dtype=self.dtype, cut=True,
+                           forces=lcao_forces,
+                           lfbc=lfbc)
+                  for phit in phit_j]
+
+        # The self.phit_i must be None when no functions are in domain
+        for phit in phit_i:
+            if phit.box_b:
+                self.phit_i = DissimilarlyLocalizedFunctions(phit_i)
+                break
+        
         if self.dtype == complex and self.phit_i is not None:
-            self.phit_i.set_phase_factors(k_ki)
+            self.phit_i.set_phase_factors(k_kc)
 
     def get_number_of_atomic_orbitals(self):
         return self.setup.niAO
@@ -461,13 +486,20 @@ class Nucleus:
                     Htemp[i0:i1,i0:i1] += Vorb
                     H_p[:] = pack2(Htemp)
 
-            # Note that the external potential is assumed to be
-            # constant inside the augmentation spheres.
             Eext = 0.0
             if vext is not None:
-                Eext += vext * (sqrt(4 * pi) * self.Q_L[0] + s.Z)
-                dH_p += vext * sqrt(4 * pi) * s.Delta_pL[:, 0]
-            
+                # Tailor expansion to the zeroth order
+                Eext += vext[0][0] * (sqrt(4 * pi) * self.Q_L[0] + s.Z)
+                dH_p += vext[0][0] * sqrt(4 * pi) * s.Delta_pL[:, 0]
+                if len(vext) > 1:
+                    # Tailor expansion to the first order
+                    Eext += sqrt(4 * pi / 3) * npy.dot(vext[1], self.Q_L[1:4])
+                    # there must be a better way XXXX
+                    Delta_p1 = npy.array([s.Delta_pL[:, 1],
+                                          s.Delta_pL[:, 2],
+                                          s.Delta_pL[:, 3]])
+                    dH_p += sqrt(4 * pi / 3) * npy.dot(vext[1], Delta_p1)
+
             for H_p in self.H_sp:
                 H_p += dH_p
 
@@ -1088,6 +1120,7 @@ class Nucleus:
         Add the function correcting the pseuso density to the all-electron
         density, to the density array `n_sg`.
         """
+
         # Load splines
         symbol = self.setup.symbol
         if not symbol in splines:
@@ -1100,7 +1133,6 @@ class Nucleus:
         create = create_localized_functions
         phi_i = create(phi_j, gd, self.spos_c)
         phit_i = create(phit_j, gd, self.spos_c)
-
         nc = create([nc], gd, self.spos_c)
         nct = create([nct], gd, self.spos_c)
 
@@ -1110,26 +1142,40 @@ class Nucleus:
                 + self.setup.Z - self.setup.Nc)
 
         # Actual normalizations:
-        Nc0 = nc.norm()[0, 0]
-        Nct0 = nct.norm()[0, 0]
+        if nc is not None:
+            Nc0 = nc.norm()[0, 0]
+            Nct0 = nct.norm()[0, 0]
+        else:
+            Nc0 = Nct0 = 0
 
         for s in range(nspins):
-            # Numeric and analytic integrations of density corrections:
+            # Numeric integration of density corrections:
             Inum = (Nc0 - Nct0) / nspins
-            Iana = ((Nc - Nct) / nspins +
-                    sqrt(4 * pi) * npy.dot(self.D_sp[s],
-                                           self.setup.Delta_pL[:, 0]))
 
             # Add density corrections to input array n_G
-            Inum += phi_i.add_density2(n_sg[s], self.D_sp[s])
-            Inum += phit_i.add_density2(n_sg[s], -self.D_sp[s])
-            if Nc != 0:
+            if hasattr(self, 'D_sp'):
+                Inum += phi_i.add_density2(n_sg[s], self.D_sp[s])
+                Inum += phit_i.add_density2(n_sg[s], -self.D_sp[s])
+
+                # This code needs to be parallelized.  If phi or phit
+                # is distributed over more domains, Inum will be
+                # wrong.
+                assert phi_i.comm.size == 1
+                
+            if nc is not None and Nc != 0:
                 nc.add(n_sg[s], npy.ones(1) / nspins)
                 nct.add(n_sg[s], -npy.ones(1) / nspins)
 
-            # Correct density, such that correction is norm-conserving
-            g_c = tuple(gd.get_nearest_grid_point(self.spos_c) % gd.N_c)
-            n_sg[s][g_c] += (Iana - Inum) / gd.dv
+            if self.in_this_domain:
+                # Correct density, such that correction is norm-conserving
+
+                # analytic integration of density corrections
+                Iana = ((Nc - Nct) / nspins +
+                        sqrt(4 * pi) * npy.dot(self.D_sp[s],
+                                               self.setup.Delta_pL[:, 0]))
+                g_c = tuple(gd.get_nearest_grid_point(self.spos_c, True)
+                            % gd.N_c)
+                n_sg[s][g_c] += (Iana - Inum) / gd.dv
         
     def wannier_correction(self, G, c, u, u1, nbands=None):
         """
@@ -1147,7 +1193,7 @@ class Nucleus:
 
                            a                 ii'
 
-        Note that this correction is an approximation assuming that the
+        Note that this correction is an approximation that assumes the
         exponential varies slowly over the extent of the augmentation sphere.
 
         ref1: Thygesen et al, Phys. Rev. B 72, 125119 (2005) 

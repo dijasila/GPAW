@@ -13,7 +13,8 @@ from ase.calculators.neighborlist import NeighborList
 from gpaw import debug
 from _gpaw import overlap
 from gpaw.mpi import parallel
-from gpaw import debug, sl_diagonalize
+from gpaw.utilities import scalapack
+from gpaw import sl_diagonalize
 
 
 class LCAOHamiltonian:
@@ -23,8 +24,8 @@ class LCAOHamiltonian:
         self.tci = None  # two-center integrals
         self.lcao_initialized = False
         self.ng = ng
-        #if debug: # iteration counter for the timer
-        self.iteration = 0
+        if debug:
+            self.eig_lcao_iteration = 0
 
         # Derivative overlaps should be evaluated lazily rather than
         # during initialization  to save memory/time. This is not implemented
@@ -37,7 +38,6 @@ class LCAOHamiltonian:
         self.ibzk_kc = paw.ibzk_kc
         self.gamma = paw.gamma
         self.dtype = paw.dtype
-        self.band_comm = paw.band_comm
 
     def initialize_lcao(self):
         """Setting up S_kmm, T_kmm and P_kmi for LCAO calculations.
@@ -56,10 +56,13 @@ class LCAOHamiltonian:
             nucleus.m = self.nao
             self.nao += nucleus.get_number_of_atomic_orbitals()
 
-        for nucleus in self.nuclei:
+        for nucleus in self.my_nuclei:
             ni = nucleus.get_number_of_partial_waves()
             nucleus.P_kmi = npy.zeros((nkpts, self.nao, ni), self.dtype)
-            if self.lcao_forces:
+
+        if self.lcao_forces:
+            for nucleus in self.nuclei:
+                ni = nucleus.get_number_of_partial_waves()
                 nucleus.dPdR_kcmi = npy.zeros((nkpts, 3, self.nao, ni),
                                               self.dtype)
                 # XXX Create "masks" on the nuclei which specify signs
@@ -177,10 +180,17 @@ class LCAOHamiltonian:
         #                         -----
         #                          aij
         #
-        for nucleus in self.nuclei:
+
+        if self.gd.comm.size > 1:
+            self.S_kmm /= self.gd.comm.size
+
+        for nucleus in self.my_nuclei:
             dO_ii = nucleus.setup.O_ii
             for S_mm, P_mi in zip(self.S_kmm, nucleus.P_kmi):
                 S_mm += npy.dot(P_mi, npy.inner(dO_ii, P_mi).conj())
+
+        if self.gd.comm.size > 1:
+            self.gd.comm.sum(self.S_kmm)
 
         # Near-linear dependence check. This is done by checking the
         # eigenvalues of the overlap matrix S_kmm. Eigenvalues close
@@ -191,6 +201,7 @@ class LCAOHamiltonian:
             p_m = npy.empty(self.nao)
 
             if sl_diagonalize: assert parallel
+            if sl_diagonalize: assert scalapack()
             if sl_diagonalize:
                 dsyev_zheev_string = 'LCAO: '+'pdsyevd/pzhegvx test'
             else:
@@ -198,23 +209,20 @@ class LCAOHamiltonian:
 
             p_m[0] = 42
             self.timer.start(dsyev_zheev_string)
-            #if debug:
-            self.timer.start(dsyev_zheev_string+' %03d' % self.iteration)
+            if debug:
+                self.timer.start(dsyev_zheev_string+' %03d' % self.eig_lcao_iteration)
             if sl_diagonalize:
                 info = diagonalize(P_mm, p_m, root=0)
                 if info != 0:
                     raise RuntimeError('Failed to diagonalize: info=%d' % info)
-                self.band_comm.broadcast(p_m, 0)
-                self.band_comm.broadcast(P_mm, 0)
             else:
                 if self.gd.comm.rank == 0:
                     info = diagonalize(P_mm, p_m, root=0)
                     if info != 0:
                         raise RuntimeError('Failed to diagonalize: info=%d' % info)
-            #if debug:
-            self.timer.stop(dsyev_zheev_string+' %03d' % self.iteration)
-            #if debug:
-            self.iteration += 1
+            if debug:
+                self.timer.stop(dsyev_zheev_string+' %03d' % self.eig_lcao_iteration)
+                self.eig_lcao_iteration += 1
             self.timer.stop(dsyev_zheev_string)
 
             self.gd.comm.broadcast(P_mm, 0)
@@ -309,9 +317,13 @@ class LCAOHamiltonian:
         """Calculate basis-projector functions overlaps for the (a,b) pair
         of atoms."""
 
+        nucleusb = self.nuclei[b]
+
+        if not (self.lcao_forces or nucleusb.in_this_domain):
+            return
+
         setupa = self.nuclei[a].setup
         ma = self.nuclei[a].m
-        nucleusb = self.nuclei[b]
         setupb = nucleusb.setup
         for ja, phita in enumerate(setupa.phit_j):
             ida = (setupa.symbol, ja)
@@ -324,9 +336,9 @@ class LCAOHamiltonian:
                 ib2 = ib + 2 * lb + 1
                 p_mi, dPdR_cmi = self.tci.p(ida, idb, la, lb, r, R,
                                             rlY_lm, drlYdR_lm)
-                if self.gamma:
+                if self.gamma and nucleusb.in_this_domain:
                     nucleusb.P_kmi[0, ma:ma2, ib:ib2] += p_mi
-                else:
+                elif nucleusb.in_this_domain:
                     nucleusb.P_kmi[:, ma:ma2, ib:ib2] += (p_mi[None, :, :] *
                                                           phase_k)
 
@@ -348,7 +360,8 @@ class LCAOHamiltonian:
         nb = 0
         for nucleus in self.nuclei:
             if nucleus.phit_i is not None:
-                nb += len(nucleus.phit_i.box_b)
+                for phit in nucleus.phit_i.lf_j:
+                    nb += len(phit.box_b)
 
         # Array to hold basis set index:
         m_b = npy.empty(nb, int)
@@ -366,17 +379,20 @@ class LCAOHamiltonian:
         for nucleus in self.nuclei:
             phit_i = nucleus.phit_i
             if phit_i is not None:
-                if debug:
-                    box_b = [box.lfs for box in phit_i.box_b]
-                else:
-                    box_b = phit_i.box_b
-                b2 = b1 + len(box_b)
-                m_b[b1:b2] = m
-                lfs_b.extend(box_b)
-                if not self.gamma:
-                    phase_bk[b1:b2] = phit_i.phase_kb.T
-                b1 = b2
-            m += nucleus.get_number_of_atomic_orbitals()
+                for phit in phit_i.lf_j:
+                    if debug:
+                        box_b = [box.lfs for box in phit.box_b]
+                    else:
+                        box_b = phit.box_b
+                    b2 = b1 + len(box_b)
+                    m_b[b1:b2] = m
+                    lfs_b.extend(box_b)
+                    if not self.gamma:
+                        phase_bk[b1:b2] = phit.phase_kb.T
+                    b1 = b2
+                    m += phit.ni
+            else:
+                m += nucleus.get_number_of_atomic_orbitals()
 
         assert b1 == nb
 

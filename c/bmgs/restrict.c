@@ -1,56 +1,136 @@
 #include "bmgs.h"
+#include <pthread.h>
+#include "../extensions.h"
 
 #ifdef K
+struct RST1DA{
+  int thread_id;
+  int nthds;
+  const T* a;
+  int n;
+  int m;
+  T* b;
+};
+
+void *RST1DW(void *threadarg)
+{
+  struct RST1DA *args = (struct RST1DA *) threadarg;
+  int m = args->m;
+  int chunksize = m / args->nthds + 1;
+  int nstart = args->thread_id * chunksize;
+  if (nstart >= m)
+    return NULL;
+  int nend = nstart + chunksize;
+  if (nend > m)
+    nend = m;
+
+  for (int j = 0; j < m; j++)
+    {
+      const T* aa = args->a + j * (args->n * 2 + K * 2 - 3);
+      T* bb = args->b + j;
+
+      for (int i = 0; i < args->n; i++)
+        {
+        #if defined(BMGSCOMPLEX) && defined(NO_C99_COMPLEX)
+          if(K==2)
+            {
+              bb[0].r=0.5*(aa[0].r+0.5*(aa[1].r+aa[-1].r));
+              bb[0].i=0.5*(aa[0].i+0.5*(aa[1].i+aa[-1].i));
+            }
+          else if(K==4)
+            {
+              bb[0].r=0.5*(aa[0].r+0.5625*(aa[1].r+aa[-1].r)+-0.0625*(aa[3].r+aa[-3].r));
+              bb[0].i=0.5*(aa[0].i+0.5625*(aa[1].i+aa[-1].i)+-0.0625*(aa[3].i+aa[-3].i));
+            }
+          else if(K==6)
+            {
+              bb[0].r=0.5*(aa[0].r+0.58593750*(aa[1].r+aa[-1].r)+-0.09765625*(aa[3].r+aa[-3].r)+0.01171875*(aa[5].r+aa[-5].r));
+              bb[0].i=0.5*(aa[0].i+0.58593750*(aa[1].i+aa[-1].i)+-0.09765625*(aa[3].i+aa[-3].i)+0.01171875*(aa[5].i+aa[-5].i));
+            }
+        #else
+          if      (K == 2)
+            bb[0] = 0.5 * (aa[0] +
+              0.5 * (aa[1] + aa[-1]));
+
+          else if (K == 4)
+            bb[0] = 0.5 * (aa[0] +
+               0.5625 * (aa[1] + aa[-1]) +
+              -0.0625 * (aa[3] + aa[-3]));
+
+          else if (K == 6)
+            bb[0] = 0.5 * (aa[0] +
+               0.58593750 * (aa[1] + aa[-1]) +
+              -0.09765625 * (aa[3] + aa[-3]) +
+               0.01171875 * (aa[5] + aa[-5]));
+          #endif
+          aa += 2;
+          bb += m;
+        }
+    }
+  return NULL;
+}
 
 void RST1D(const T* a, int n, int m, T* b)
 {
   a += K - 1;
-  for (int j = 0; j < m; j++)
-    {
-      T* c = b;
-      for (int i = 0; i < n; i++)
-	{
-#if defined(BMGSCOMPLEX) && defined(NO_C99_COMPLEX)
-	  if(K==2){c[0].r=0.5*(a[0].r+0.5*(a[1].r+a[-1].r));c[0].i=0.5*(a[0].i+0.5*(a[1].i+a[-1].i));}else if(K==4){c[0].r=0.5*(a[0].r+0.5625*(a[1].r+a[-1].r)+-0.0625*(a[3].r+a[-3].r));c[0].i=0.5*(a[0].i+0.5625*(a[1].i+a[-1].i)+-0.0625*(a[3].i+a[-3].i));}else if(K==6){c[0].r=0.5*(a[0].r+0.58593750*(a[1].r+a[-1].r)+-0.09765625*(a[3].r+a[-3].r)+0.01171875*(a[5].r+a[-5].r));c[0].i=0.5*(a[0].i+0.58593750*(a[1].i+a[-1].i)+-0.09765625*(a[3].i+a[-3].i)+0.01171875*(a[5].i+a[-5].i));}
-#else
-	  if      (K == 2)
-	    c[0] = 0.5 * (a[0] + 
-			  0.5 * (a[1] + a[-1]));
 
-	  else if (K == 4)
-	    c[0] = 0.5 * (a[0] + 
-			   0.5625 * (a[1] + a[-1]) +
-			  -0.0625 * (a[3] + a[-3]));
-
-	  else if (K == 6)
-	    c[0] = 0.5 * (a[0] + 
-			   0.58593750 * (a[1] + a[-1]) +
-			  -0.09765625 * (a[3] + a[-3]) +
-			   0.01171875 * (a[5] + a[-5]));
+  int nthds = 1;
+#ifdef GPAW_OMP
+  if (getenv("OMP_NUM_THREADS") != NULL)
+    nthds = atoi(getenv("OMP_NUM_THREADS"));
 #endif
-	  a += 2;
-	  c += m;
-	}
-      a += K * 2 - 3;
-      b++;
+  struct RST1DA *wargs = GPAW_MALLOC(struct RST1DA, nthds);
+  pthread_t *thds = GPAW_MALLOC(pthread_t, nthds);
+
+  for(int i=0; i < nthds; i++)
+    {
+      (wargs+i)->thread_id = i;
+      (wargs+i)->nthds = nthds;
+      (wargs+i)->a = a;
+      (wargs+i)->n = n;
+      (wargs+i)->m = m;
+      (wargs+i)->b = b;
     }
+#ifdef GPAW_OMP
+  for(int i=1; i < nthds; i++)
+    pthread_create(thds + i, NULL, RST1DW, (void*) (wargs+i));
+#endif
+  RST1DW(wargs);
+#ifdef GPAW_OMP
+  for(int i=1; i < nthds; i++)
+    pthread_join(*(thds+i), NULL);
+#endif
+  free(wargs);
+  free(thds);
 }
 
 #else
 #  define K 2
 #  define RST1D Z(bmgs_restrict1D2)
+#  define RST1DA Z(bmgs_restrict1D2_args)
+#  define RST1DW Z(bmgs_restrict1D2_worker)
 #  include "restrict.c"
 #  undef RST1D
+#  undef RST1DA
+#  undef RST1DW
 #  undef K
 #  define K 4
 #  define RST1D Z(bmgs_restrict1D4)
+#  define RST1DA Z(bmgs_restrict1D4_args)
+#  define RST1DW Z(bmgs_restrict1D4_worker)
 #  include "restrict.c"
 #  undef RST1D
+#  undef RST1DA
+#  undef RST1DW
 #  undef K
 #  define K 6
 #  define RST1D Z(bmgs_restrict1D6)
+#  define RST1DA Z(bmgs_restrict1D6_args)
+#  define RST1DW Z(bmgs_restrict1D6_worker)
 #  include "restrict.c"
 #  undef RST1D
+#  undef RST1DA
+#  undef RST1DW
 #  undef K
 
 void Z(bmgs_restrict)(int k, T* a, const int n[3], T* b, T* w)

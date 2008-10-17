@@ -137,8 +137,10 @@ def get_system_config(define_macros, undef_macros,
         # Look for ACML libraries:
         acml = glob('/opt/acml*/g*64/lib')
         if len(acml) > 0:
-            libraries += ['acml', 'g2c']
             library_dirs += [acml[-1]]
+            libraries += ['acml']
+            if acml[-1].find('gfortran') != -1: libraries.append('gfortran')
+            if acml[-1].find('gnu') != -1: libraries.append('g2c')
             extra_link_args += ['-Wl,-rpath=' + acml[-1]]
             msg += ['* Using ACML library']
         else:
@@ -244,6 +246,11 @@ def get_parallel_config(mpi_libraries,mpi_library_dirs,mpi_include_dirs,
 
     return mpicompiler
 
+def get_scalapack_config(define_macros):
+    # check ScaLapack settings
+    define_macros.append(('GPAW_WITH_SL', '1'))
+
+
 def mtime(path, name, mtimes):
     """Return modification time.
 
@@ -332,7 +339,7 @@ def write_configuration(define_macros, include_dirs, libraries, library_dirs,
 def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
                       extra_link_args, extra_compile_args,
                       runtime_library_dirs, extra_objects,
-                      mpicompiler, mpi_libraries, mpi_library_dirs,
+                      mpicompiler, mpilinker, mpi_libraries, mpi_library_dirs,
                       mpi_include_dirs, mpi_runtime_library_dirs,
                       mpi_define_macros):
 
@@ -346,14 +353,15 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     cfiles2remove = ['c/libxc/src/test.c',
                      'c/libxc/src/xc_f.c',
                      'c/libxc/src/work_gga_x.c',
-                     'c/libxc/src/work_lda.c',
-                     'c/scalapack.c',
-                     'c/sl_inverse_cholesky.c'
+                     'c/libxc/src/work_lda.c'
                      ]
+    cfiles2remove.append('c/scalapack.c')
+    cfiles2remove.append('c/sl_inverse_cholesky.c')
+
     for c2r in glob('c/libxc/src/funcs_*.c'): cfiles2remove.append(c2r)
     for c2r in cfiles2remove: cfiles.remove(c2r)
     sources = ['c/bc.c', 'c/localized_functions.c', 'c/mpi.c', 'c/_gpaw.c',
-               'c/operators.c', 'c/transformers.c'] 
+               'c/operators.c', 'c/transformers.c']
     objects = ' '.join(['build/temp.%s/' % plat + x[:-1] + 'o'
                         for x in cfiles])
 
@@ -418,12 +426,12 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
         if "--dry-run" not in sys.argv:
             error=os.system(cmd)
             if error != 0:
-                msg += ['* FAILED!  Only serial version of code will work.']
+                msg += ['* compiling FAILED!  Only serial version of code will work.']
                 break
 
     # Link the custom interpreter
     cmd = ('%s -o %s %s %s %s %s %s %s' ) % \
-          (mpicompiler,
+          (mpilinker,
            exefile,
            objects,
            ' '.join(extra_objects),
@@ -437,7 +445,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     if "--dry-run" not in sys.argv:
         error=os.system(cmd)
         if error != 0:
-            msg += ['* FAILED!  Only serial version of code will work.']
+            msg += ['* linking FAILED!  Only serial version of code will work.']
 
 
     return error, msg

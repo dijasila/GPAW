@@ -3,7 +3,9 @@ from gpaw.utilities.blas import rk, r2k
 from gpaw.utilities import unpack
 from gpaw.utilities.lapack import diagonalize
 from gpaw.mpi import parallel
-from gpaw import debug, sl_diagonalize
+from gpaw.utilities import scalapack
+from gpaw import sl_diagonalize
+from gpaw import debug
 
 
 class LCAO:
@@ -12,8 +14,8 @@ class LCAO:
     def __init__(self):
         self.lcao = True
         self.initialized = False
-        #if debug: # iteration counter for the timer
-        self.iteration = 0
+        if debug:
+            self.eig_lcao_iteration = 0
 
     def initialize(self, paw):
         self.timer = paw.timer
@@ -28,6 +30,24 @@ class LCAO:
         self.band_comm = paw.band_comm
         self.dtype = paw.dtype
         self.initialized = True
+
+    def get_hamiltonian_matrix(self, hamiltonian, kpt=None,k=0,s=0):
+        if kpt != None:
+            k = kpt.k
+            s = kpt.s
+
+        H_mm = self.Vt_skmm[s,k]
+
+        for nucleus in self.my_nuclei:
+            dH_ii = unpack(nucleus.H_sp[s])
+            P_mi = nucleus.P_kmi[k]
+            H_mm += npy.dot(P_mi, npy.inner(dH_ii, P_mi).conj())
+
+        self.comm.sum(H_mm)
+
+        H_mm += hamiltonian.T_kmm[k]
+
+        return H_mm
 
     def iterate(self, hamiltonian, kpt_u):
         if not hamiltonian.lcao_initialized:
@@ -47,21 +67,13 @@ class LCAO:
         for kpt in kpt_u:
             self.iterate_one_k_point(hamiltonian, kpt)
 
+
     def iterate_one_k_point(self, hamiltonian, kpt):
         k = kpt.k
         s = kpt.s
         u = kpt.u
 
-        H_mm = self.Vt_skmm[s, k]
-        for nucleus in self.my_nuclei:
-            dH_ii = unpack(nucleus.H_sp[s])
-            P_mi = nucleus.P_kmi[k]
-            H_mm += npy.dot(P_mi, npy.inner(dH_ii, P_mi).conj())
-
-        self.comm.sum(H_mm)
-
-        H_mm += hamiltonian.T_kmm[k]
-
+        H_mm = self.get_hamiltonian_matrix(hamiltonian, kpt)
         self.S_mm[:] = hamiltonian.S_kmm[k]
 
         rank = self.band_comm.rank
@@ -79,6 +91,7 @@ class LCAO:
             kpt.eps_n[:] = eps_q[n1:n2]
         else:
             if sl_diagonalize: assert parallel
+            if sl_diagonalize: assert scalapack()
             if sl_diagonalize:
                 dsyev_zheev_string = 'LCAO: '+'pdsyevx/pzhegvx'
             else:
@@ -87,23 +100,20 @@ class LCAO:
             self.eps_m[0] = 42
 
             self.timer.start(dsyev_zheev_string)
-            #if debug:
-            self.timer.start(dsyev_zheev_string+' %03d' % self.iteration)
+            if debug:
+                self.timer.start(dsyev_zheev_string+' %03d' % self.eig_lcao_iteration)
             if sl_diagonalize:
                 info = diagonalize(H_mm, self.eps_m, self.S_mm, root=0)
                 if info != 0:
                     raise RuntimeError('Failed to diagonalize: info=%d' % info)
-                self.band_comm.broadcast(self.eps_m, 0)
-                self.band_comm.broadcast(H_mm, 0)
             else:
                 if self.comm.rank == 0:
                     info = diagonalize(H_mm, self.eps_m, self.S_mm, root=0)
                     if info != 0:
                         raise RuntimeError('Failed to diagonalize: info=%d' % info)
-            #if debug:
-            self.timer.stop(dsyev_zheev_string+' %03d' % self.iteration)
-            #if debug:
-            self.iteration += 1
+            if debug:
+                self.timer.stop(dsyev_zheev_string+' %03d' % self.eig_lcao_iteration)
+                self.eig_lcao_iteration += 1
             self.timer.stop(dsyev_zheev_string)
 
             self.comm.broadcast(self.eps_m, 0)
@@ -124,7 +134,7 @@ class LCAO:
         The eigenvectors P_mm of the overlap matrix S_mm which correspond
         to eigenvalues p_m < thres are removed, thus producing a
         q-dimensional subspace. The hamiltonian H_mm is also transformed into
-        H_qq and diagonalized. The transformation operator P_mq looks like
+        H_qq and diagonalized. The transformation operator P_mq looks like::
 
                 ------------m--------- ...
                 ---p---  ------q------ ...
@@ -137,6 +147,7 @@ class LCAO:
            |   |
              . |
              .
+
 
         """
 
@@ -162,8 +173,8 @@ class LCAO:
             dsyev_zheev_string1 = 'LCAO: '+'dsygv/zhegv remove'
 
         self.timer.start(dsyev_zheev_string)
-        #if debug:
-        self.timer.start(dsyev_zheev_string+' %03d' % self.iteration)
+        if debug:
+            self.timer.start(dsyev_zheev_string+' %03d' % self.eig_lcao_iteration)
         if sl_diagonalize:
             eps_q[0] = 42
             info = diagonalize(H_qq, eps_q, S_qq, root=0)
@@ -179,10 +190,9 @@ class LCAO:
                 assert eps_q[0] != 42
                 if info != 0:
                     raise RuntimeError('Failed to diagonalize: info=%d' % info)
-        #if debug:
-        self.timer.stop(dsyev_zheev_string+' %03d' % self.iteration)
-        #if debug:
-        self.iteration += 1
+        if debug:
+            self.timer.stop(dsyev_zheev_string+' %03d' % self.eig_lcao_iteration)
+            self.eig_lcao_iteration += 1
         self.timer.stop(dsyev_zheev_string)
 
         self.comm.broadcast(eps_q, 0)

@@ -25,20 +25,28 @@ def read_plt(filename):
 
     fmt='iii'
     if byteswap: fmt='>iii'
-    nz, ny, nx = unpack(fmt,f.read(calcsize(fmt)))
+    dim_c = unpack(fmt,f.read(calcsize(fmt)))
+    nz, ny, nx = dim_c
 
+    cell_c = npy.zeros((3))
+    origin_c = npy.zeros((3))
     fmt='ff'
     if byteswap: fmt='>ff'
-    z0, ze = unpack(fmt,f.read(calcsize(fmt)))
-    y0, ye = unpack(fmt,f.read(calcsize(fmt)))
-    x0, xe = unpack(fmt,f.read(calcsize(fmt)))
-    dz = (ze-z0)/(nz-1)
-    dy = (ye-y0)/(ny-1)
-    dx = (xe-x0)/(nx-1)
+    for c, n in enumerate(dim_c):
+        x0, xe  = unpack(fmt,f.read(calcsize(fmt)))
+        if n % 2 == 0:
+            # periodic -> all points stored
+            cell_c[c] = xe * n / (n - 1)
+            origin_c[c] = x0
+        else:
+            # non-periodic -> first point not stored
+            cell_c[c] = xe * (n + 1)/ n
+            origin_c[c] = x0 - xe / n
+
     cell = npy.zeros((3,3))
-    cell[0,0] = (nx+1)*dx 
-    cell[1,1] = (ny+1)*dy 
-    cell[2,2] = (nz+1)*dz 
+    cell[0,0] = cell_c[2]
+    cell[1,1] = cell_c[1]
+    cell[2,2] = cell_c[0]
     
     fmt='f'
     if byteswap: fmt='>f'
@@ -47,7 +55,7 @@ def read_plt(filename):
     if byteswap: arr = arr.byteswap()
     f.close()
 
-    return cell, npy.transpose(npy.resize(arr,(nz,ny,nx))), (x0-dx,y0-dy,z0-dz)
+    return cell, npy.transpose(npy.resize(arr,(nz,ny,nx))), origin_c[::-1]
 
 def write_collected_plt(gd,
                         grid,

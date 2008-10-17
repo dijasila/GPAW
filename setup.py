@@ -101,9 +101,10 @@ mpicompiler = get_parallel_config(mpi_libraries,
                                   mpi_runtime_library_dirs,
                                   mpi_define_macros)
 
-
+mpilinker = mpicompiler
 compiler = None
 
+scalapack = False
 #User provided customizations
 if os.path.isfile('customize.py'):
     execfile('customize.py')
@@ -127,6 +128,11 @@ if mpicompiler is not None:
             custom_interpreter = True
             break
 
+# apply ScaLapack settings
+if scalapack:
+    get_scalapack_config(define_macros)
+    msg.append('* Compiling with ScaLapack')
+
 # distutils clean does not remove the _gpaw.so library and gpaw-python
 # binary so do it here:
 plat = get_platform() + '-' + sys.version[0:3]
@@ -146,10 +152,10 @@ sources = sources + glob('c/libxc/src/*.c')
 sources2remove = ['c/libxc/src/test.c',
                   'c/libxc/src/xc_f.c',
                   'c/libxc/src/work_gga_x.c',
-                  'c/libxc/src/work_lda.c',
-                  'c/scalapack.c',
-                  'c/sl_inverse_cholesky.c'
+                  'c/libxc/src/work_lda.c'
                   ]
+sources2remove.append('c/scalapack.c')
+sources2remove.append('c/sl_inverse_cholesky.c')
 for s2r in glob('c/libxc/src/funcs_*.c'): sources2remove.append(s2r)
 for s2r in sources2remove: sources.remove(s2r)
 
@@ -168,7 +174,7 @@ extension = Extension('_gpaw',
                       extra_objects=extra_objects)
 
 scripts = [join('tools', script)
-           for script in ('gpaw-setup', 'gpaw-basis', 'gpaw')]
+           for script in ('gpaw-setup', 'gpaw-basis')]
 
 write_configuration(define_macros, include_dirs, libraries, library_dirs,
                     extra_link_args, extra_compile_args,
@@ -197,7 +203,7 @@ if custom_interpreter:
     error, par_msg = build_interpreter(define_macros, include_dirs, libraries,
                              library_dirs, extra_link_args, extra_compile_args,
                              runtime_library_dirs, extra_objects,
-                             mpicompiler, mpi_libraries, mpi_library_dirs,
+                             mpicompiler, mpilinker, mpi_libraries, mpi_library_dirs,
                              mpi_include_dirs,
                              mpi_runtime_library_dirs, mpi_define_macros)
     msg += par_msg
