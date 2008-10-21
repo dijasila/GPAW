@@ -2,12 +2,52 @@ import numpy as np
 from gpaw.spherical_harmonics import Y
 import _gpaw
 
+"""
+
+===  =================================================
+ M   Global localized function number.
+ I   Global sphere number.
+ G   Global grid point number.
+ g   Local (inside sphere) grid point number.
+ i   Index into list of current spheres for current G.
+===  =================================================
+
+l
+m
+
+Global grid point number (*G*) for a 7*6 grid::
+
+   -------------
+  |5 . . . . . .|
+  |4 . . . . . .|
+  |3 9 . . . . .|
+  |2 8 . . . . .|
+  |1 7 . . . . .|
+  |0 6 . . . . .|
+   -------------
+
+For this example *G* runs from 0 to 41.
+
+Here is a sphere inside the box with grid points (*g*) numbered from 0
+to 7::
+
+   -------------
+  |. . . . . . .|
+  |. . . . 5 . .|
+  |. . . 1 4 7 .|
+  |. . . 0 3 6 .|
+  |. . . . 2 . .|
+  |. . . . . . .|
+   -------------
+
+
+"""
 
 class LF:
-    def __init__(self, spline, spos_c, sdisp_c, gd, mu, a, i):
+    def __init__(self, spline, spos_c, sdisp_c, gd, M, a, i):
         self.spline = spline
         self.l = spline.get_angular_momentum_number()
-        self.mu = mu
+        self.M = M
         self.gd = gd
         self.a = a
         self.i = i
@@ -102,27 +142,27 @@ class LocalizedFunctionsCollection:
         self.M_I = np.empty(nI, np.intc)
         
         G_B = np.empty(nB, np.intc)
-        lfindex_B = np.empty(nB, np.intc)
+        I_B = np.empty(nB, np.intc)
         B1 = 0
         for I, lf in enumerate(self.lfs):
             B2 = B1 + len(lf.G_B)
             G_B[B1:B2] = lf.G_B.ravel()
-            lfindex_B[B1:B2:2] = I
-            lfindex_B[B1 + 1:B2 + 1:2] = -I - 1
-            self.M_I[I] = lf.mu
+            I_B[B1:B2:2] = I
+            I_B[B1 + 1:B2 + 1:2] = -I - 1
+            self.M_I[I] = lf.M
             B1 = B2
 
         assert B1 == nB
         
         indices = np.argsort(G_B)
         self.G_B = G_B[indices]
-        self.lfindex_B = lfindex_B[indices]
+        self.I_B = I_B[indices]
 
         ngmax = (self.G_B[1:] - self.G_B[:-1]).max() # XXX vacuum!!
         lmax = 2
         self.A_gm = np.empty((ngmax, 2 * lmax + 1))
 
-        nimax = np.add.accumulate((self.lfindex_B >= 0) * 2 - 1).max()
+        nimax = np.add.accumulate((self.I_B >= 0) * 2 - 1).max()
         self.I_i = np.empty(nimax, np.intc)
         self.g_I = np.empty(len(self.lfs), np.intc)
         self.i_I = np.empty(len(self.lfs), np.intc)
@@ -137,7 +177,7 @@ class LocalizedFunctionsCollection:
         self.g_I[:] = 0
         self.current_lfindices = []
         G1 = 0
-        for I, G in zip(self.lfindex_B, self.G_B):
+        for I, G in zip(self.I_B, self.G_B):
             G2 = G
 
             yield G1, G2
@@ -155,15 +195,15 @@ class LocalizedFunctionsCollection:
 class BasisFunctions(LocalizedFunctionsCollection):
     def __init__(self, spline_aj, spos_ac, gd, cut=True):
         lfs = []
-        mu = 0
+        M = 0
         for a, (spline_j, spos_c) in enumerate(zip(spline_aj, spos_ac)):
             i = 0
             for spline in spline_j:
                 rcut = spline.get_cutoff()
                 for beg_c, end_c, sdisp_c in gd.get_boxes(spos_c, rcut, cut):
-                    lfs.append(LF(spline, spos_c, sdisp_c, gd, mu, a, i))
+                    lfs.append(LF(spline, spos_c, sdisp_c, gd, M, a, i))
                 i += 2 * spline.get_angular_momentum_number() + 1
-            mu += i
+            M += i
 
         LocalizedFunctionsCollection.__init__(self, gd, lfs)
 
@@ -195,14 +235,14 @@ class BasisFunctions(LocalizedFunctionsCollection):
         for G1, G2 in self.griditer():
             for I1 in self.current_lfindices:
                 lf1 = self.lfs[I1]
-                mu1 = lf1.mu
+                M1 = lf1.M
                 f1_gm = lf1.A_gm[self.g_I[I1]:self.g_I[I1] + G2 - G1]
                 for I2 in self.current_lfindices:
                     lf2 = self.lfs[I2]
-                    mu2 = lf2.mu
+                    M2 = lf2.M
                     f2_gm = lf2.A_gm[self.g_I[I2]:self.g_I[I2] + G2 - G1]
-                    rho_mm = rho_MM[mu1:mu1 + 2 * lf1.l + 1,
-                                    mu2:mu2 + 2 * lf2.l + 1]
+                    rho_mm = rho_MM[M1:M1 + 2 * lf1.l + 1,
+                                    M2:M2 + 2 * lf2.l + 1]
                     for m1 in range(2 * lf1.l + 1):
                         for m2 in range(2 * lf2.l + 1):
                             nt_G[G1:G2] += (rho_mm[m1, m2] *
@@ -217,15 +257,15 @@ class BasisFunctions(LocalizedFunctionsCollection):
         for G1, G2 in self.griditer():
             for I1 in self.current_lfindices:
                 lf1 = self.lfs[I1]
-                mu1 = lf1.mu
+                M1 = lf1.M
                 f1_gm = lf1.A_gm[self.g_I[I1]:self.g_I[I1] + G2 - G1]
                 for I2 in self.current_lfindices:
                     lf2 = self.lfs[I2]
-                    mu2 = lf2.mu
+                    M2 = lf2.M
                     f2_gm = lf2.A_gm[self.g_I[I2]:self.g_I[I2] + G2 - G1]
                     Vt_mm = Vt_skMM[0, 0,
-                                    mu1:mu1 + 2 * lf1.l + 1,
-                                    mu2:mu2 + 2 * lf2.l + 1]
+                                    M1:M1 + 2 * lf1.l + 1,
+                                    M2:M2 + 2 * lf2.l + 1]
                     for m1 in range(2 * lf1.l + 1):
                         for m2 in range(2 * lf2.l + 1):
                             Vt_mm[m1, m2] += np.dot(vt_sG[0, G1:G2],
@@ -237,7 +277,7 @@ class BasisFunctions(LocalizedFunctionsCollection):
         self.g_I[:] = 0
         Vt_skMM[:] = 0.0
         _gpaw.calculate_potential_matrix(A_Igm, vt_sG,
-                                         self.M_I, self.G_B, self.lfindex_B,
+                                         self.M_I, self.G_B, self.I_B,
                                          self.g_I, self.I_i, self.i_I,
                                          self.gd.dv,
                                          self.A_gm, Vt_skMM)
