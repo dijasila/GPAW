@@ -71,10 +71,13 @@ PyObject* spline_to_grid(PyObject *self, PyObject *args)
 		    g2_beg = g2; // found boundary
 		  g2_end = g2;
                   double Ar = bmgs_splinevalue(spline, r);
-                  for (int m = -l; m <= l; m++)
+                  if (l == 0)
+                    A_gm[ngm++] = 0.28209479177387814 * Ar;
+                  else
                     {
-                      double Y = 0.28209479177387814; //sphericalharmonic(l, m, x/r, y/r, z/r);
-                      A_gm[ngm++] = Y * Ar;
+                      A_gm[ngm++] = 0.48860251190291992 * y * Ar;
+                      A_gm[ngm++] = 0.48860251190291992 * z * Ar;
+                      A_gm[ngm++] = 0.48860251190291992 * x * Ar;
                     }
                 }
             }
