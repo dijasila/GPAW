@@ -88,7 +88,7 @@ class CLF(LF):
         return _gpaw.spline_to_grid(spline.spline, start_c, end_c, pos_v, h_cv,
                                     self.gd.n_c, self.gd.beg_c)
 
-#LF = CLF
+LF = CLF
 
 class LocalizedFunctionsCollection:
     def __init__(self, gd, lfs):
@@ -98,14 +98,18 @@ class LocalizedFunctionsCollection:
     def update(self):
         nB = sum([len(lf.G_B) for lf in self.lfs])
 
-        G_B = np.empty(nB, int)
-        lfindex_B = np.empty(nB, int)
+        nI = len(self.lfs)
+        self.M_I = np.empty(nI, np.intc)
+        
+        G_B = np.empty(nB, np.intc)
+        lfindex_B = np.empty(nB, np.intc)
         B1 = 0
         for I, lf in enumerate(self.lfs):
             B2 = B1 + len(lf.G_B)
             G_B[B1:B2] = lf.G_B.ravel()
             lfindex_B[B1:B2:2] = I
             lfindex_B[B1 + 1:B2 + 1:2] = -I - 1
+            self.M_I[I] = lf.mu
             B1 = B2
 
         assert B1 == nB
@@ -114,6 +118,15 @@ class LocalizedFunctionsCollection:
         self.G_B = G_B[indices]
         self.lfindex_B = lfindex_B[indices]
 
+        ngmax = (self.G_B[1:] - self.G_B[:-1]).max() # XXX vacuum!!
+        lmax = 2
+        self.A_gm = np.empty((ngmax, 2 * lmax + 1))
+
+        nimax = np.add.accumulate((self.lfindex_B >= 0) * 2 - 1).max()
+        self.I_i = np.empty(nimax, np.intc)
+        self.g_I = np.empty(len(self.lfs), np.intc)
+        self.i_I = np.empty(len(self.lfs), np.intc)
+
     def update_positions(self, spos_ac):
         for lf in self.lfs:
             lf.update_position(spos_ac[lf.a])
@@ -121,7 +134,7 @@ class LocalizedFunctionsCollection:
         
     def griditer(self):
         """Iterate over grid points."""
-        self.g_I = np.zeros(len(self.lfs), int)
+        self.g_I[:] = 0
         self.current_lfindices = []
         G1 = 0
         for I, G in zip(self.lfindex_B, self.G_B):
@@ -196,14 +209,6 @@ class BasisFunctions(LocalizedFunctionsCollection):
                                             f1_gm[:, m1] * f2_gm[:, m2])
 
     def calculate_potential_matrix(self, vt_sG, Vt_skMM):
-        """Calculate electron density from density matrix.
-
-        rho_MM: ndarray
-            Density matrix.
-        nt_G: ndarray
-            Pseudo electron density.
-        """
-
         vt_sG = vt_sG.reshape((len(vt_sG), -1))
         Vt_skMM[:] = 0.0
         assert Vt_skMM.shape[:2] == (1, 1)
@@ -227,7 +232,16 @@ class BasisFunctions(LocalizedFunctionsCollection):
                                                     f1_gm[:, m1] *
                                                     f2_gm[:, m2]) * dv
 
-        
+    def _calculate_potential_matrix(self, vt_sG, Vt_skMM):
+        A_Igm = [lf.A_gm for lf in self.lfs]
+        self.g_I[:] = 0
+        Vt_skMM[:] = 0.0
+        _gpaw.calculate_potential_matrix(A_Igm, vt_sG,
+                                         self.M_I, self.G_B, self.lfindex_B,
+                                         self.g_I, self.I_i, self.i_I,
+                                         self.gd.dv,
+                                         self.A_gm, Vt_skMM)
+
 
 def test():
     from gpaw.grid_descriptor import GridDescriptor

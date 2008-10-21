@@ -31,7 +31,6 @@ class LCAO:
             s = kpt.s
         
         H_mm = self.Vt_skmm[s,k]
-        print H_mm
         
         for nucleus in self.my_nuclei:
             dH_ii = unpack(nucleus.H_sp[s])

@@ -5,6 +5,14 @@
 #include "spline.h"
 #include "bmgs/bmgs.h"
 
+#ifdef GPAW_AIX
+#  define dgemm_ dgemm
+#endif
+int dgemm_(char *transa, char *transb, int *m, int * n,
+	   int *k, double *alpha, const double *a, int *lda,
+	   const double *b, int *ldb, double *beta,
+	   double *c, int *ldc);
+
 PyObject* spline_to_grid(PyObject *self, PyObject *args)
 {
   const SplineObject* spline_obj;
@@ -33,7 +41,6 @@ PyObject* spline_to_grid(PyObject *self, PyObject *args)
   int ngmax = ((end_c[0] - beg_c[0]) *
                (end_c[1] - beg_c[1]) *
                (end_c[2] - beg_c[2]));
-  printf("%d %d %f\n", ngmax,l, rcut);
   double* A_gm = GPAW_MALLOC(double, ngmax * (2 * l + 1));
   
   int nBmax = ((end_c[0] - beg_c[0]) *
@@ -44,7 +51,7 @@ PyObject* spline_to_grid(PyObject *self, PyObject *args)
   int ngm = 0;
   int G = n_c[2] * (beg_c[1] - gdcorner_c[1] + n_c[1] 
                     * (beg_c[0] - gdcorner_c[0]));
-  printf("%d\n", G);
+
   for (int g0 = beg_c[0]; g0 < end_c[0]; g0++)
     {
       for (int g1 = beg_c[1]; g1 < end_c[1]; g1++)
@@ -97,3 +104,101 @@ PyObject* spline_to_grid(PyObject *self, PyObject *args)
   return Py_BuildValue("(OO)", A_gm_obj, G_B_obj);
 }
 
+
+PyObject* calculate_potential_matrix(PyObject *self, PyObject *args)
+{
+  PyObject* A_Igm_obj;
+  const PyArrayObject* vt_sG_obj;
+  const PyArrayObject* M_I_obj;
+  const PyArrayObject* G_B_obj;
+  const PyArrayObject* I_B_obj;
+  PyArrayObject* g_I_obj;
+  PyArrayObject* I_i_obj;
+  PyArrayObject* i_I_obj;
+  double dv;
+  PyArrayObject* A_gm_obj;
+  PyArrayObject* Vt_skMM_obj;
+
+  if (!PyArg_ParseTuple(args, "OOOOOOOOdOO", &A_Igm_obj, &vt_sG_obj, &M_I_obj,
+                        &G_B_obj, &I_B_obj, &g_I_obj, &I_i_obj, &i_I_obj,
+                        &dv, &A_gm_obj, &Vt_skMM_obj))
+    return NULL; 
+
+  const double* vt_sG = (const double*)vt_sG_obj->data;
+  const int* M_I = (const int*)M_I_obj->data;
+  const int* G_B = (const int*)G_B_obj->data;
+  const int* I_B = (const int*)I_B_obj->data;
+
+  int* g_I = (int*)g_I_obj->data;
+  int* I_i = (int*)I_i_obj->data;
+  int* i_I = (int*)i_I_obj->data;
+
+  double* A1vt_gm = (double*)A_gm_obj->data;
+  double* Vt_skMM = (double*)Vt_skMM_obj->data;
+
+  int nM = Vt_skMM_obj->dimensions[2];
+  int nB = G_B_obj->dimensions[0];
+
+  int Ga = 0;
+  int B = 0;
+  int ni = 0;
+  while (B < nB)
+    {
+      int Gb = G_B[B];
+      int nG = Gb - Ga;
+      if (nG > 0)
+        // Do work for [Ga:Gb) range:
+        for (int i1 = 0; i1 < ni; i1++)
+          {
+            int I1 = I_i[i1];
+            int M1 = M_I[I1];
+            const PyArrayObject* A1_gm_obj = \
+              (const PyArrayObject*)PyList_GetItem(A_Igm_obj, I1);
+            const double* A1_gm = (const double*)A1_gm_obj->data + g_I[I1];
+            int nm1 = A1_gm_obj->dimensions[1];
+            
+            int gm1 = 0;
+            for (int G = Ga; G < Gb; G++)
+              for (int m1 = 0; m1 < nm1; m1++, gm1++)
+                A1vt_gm[gm1] = vt_sG[G] * A1_gm[gm1];
+            
+            for (int i2 = i1; i2 < ni; i2++)
+              {
+                int I2 = I_i[i2];
+                int M2 = M_I[I2];
+                const PyArrayObject* A2_gm_obj = \
+                  (const PyArrayObject*)PyList_GetItem(A_Igm_obj, I2);
+                const double* A2_gm = ((const double*)A2_gm_obj->data +
+                                       g_I[I2]);
+                int nm2 = A2_gm_obj->dimensions[1];
+                
+                double one = 1.0;
+                dgemm_("n", "t", &nm2, &nm1, &nG, &dv, 
+                       A2_gm, &nm1, A1vt_gm, &nm2, &one, 
+                       Vt_skMM + M1 * nM + M2, &nM);
+              }
+            g_I[I1] += nG;
+          }
+      int Inew = I_B[B];
+      if (Inew >= 0)
+        {
+          // Entering new sphere:
+          I_i[ni] = Inew;
+          i_I[Inew] = ni;
+          ni++;
+        }
+      else
+        {
+          // Leaving sphere:
+          Inew = -1 - Inew;
+          ni--;
+          int Ilast = I_i[ni];
+          int ihole = i_I[Inew];
+          I_i[ihole] = Ilast;
+          i_I[Ilast] = ihole;
+        }
+      Ga = Gb;
+      B++;
+    }
+  Py_RETURN_NONE;
+}
