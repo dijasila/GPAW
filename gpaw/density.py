@@ -10,6 +10,7 @@ import time
 
 from numpy import array, dot, newaxis, zeros, transpose
 from numpy.linalg import solve
+import numpy as np
 
 from gpaw.mixer import Mixer, MixerSum
 from gpaw.transformers import Transformer
@@ -104,21 +105,25 @@ class Density:
 
         self.nt_sG[:] = self.nct_G
 
-        f_asi = []
+        ns = len(self.nt_sG)
+        
+        f_sM = np.empty((ns, self.basis_functions.Mmax))
+        M1 = 0
         for magmom, nucleus in zip(self.magmom_a, self.nuclei):
             if hasattr(nucleus, 'f_si'):
                 # Convert to ndarray:
-                f_si = npy.asarray(nucleus.f_si, float)
+                f_si = np.asarray(nucleus.f_si, float)
             else:
-                ns = len(self.nt_sG)
                 f_si = nucleus.calculate_initial_occupation_numbers(
                     ns, magmom, self.hund)
 
             nucleus.initialize_density_matrix(f_si)
-            
-            f_asi.append(f_si)
+
+            M2 = M1 + f_si.shape[1]
+            f_sM[:, M1:M2] = f_si
+            M1 = M2
         
-        self.basis_functions.add_to_density(self.nt_sG, f_asi)
+        self.basis_functions.add_to_density(self.nt_sG, f_sM)
 
         #magmoms_a, hund):
         # The nucleus.add_atomic_density() method should be improved

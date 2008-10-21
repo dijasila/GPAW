@@ -202,3 +202,188 @@ PyObject* calculate_potential_matrix(PyObject *self, PyObject *args)
     }
   Py_RETURN_NONE;
 }
+
+
+PyObject* construct_density(PyObject *self, PyObject *args)
+{
+  PyObject* A_Igm_obj;
+  const PyArrayObject* rho_skMM_obj;
+  const PyArrayObject* M_I_obj;
+  const PyArrayObject* G_B_obj;
+  const PyArrayObject* I_B_obj;
+  PyArrayObject* g_I_obj;
+  PyArrayObject* I_i_obj;
+  PyArrayObject* i_I_obj;
+  PyArrayObject* A_gm_obj;
+  PyArrayObject* nt_sG_obj;
+
+  if (!PyArg_ParseTuple(args, "OOOOOOOOOO", &A_Igm_obj, &rho_skMM_obj,
+                        &M_I_obj,
+                        &G_B_obj, &I_B_obj, &g_I_obj, &I_i_obj, &i_I_obj,
+                        &A_gm_obj, &nt_sG_obj))
+    return NULL; 
+
+  const double* rho_skMM = (const double*)rho_skMM_obj->data;
+  const int* M_I = (const int*)M_I_obj->data;
+  const int* G_B = (const int*)G_B_obj->data;
+  const int* I_B = (const int*)I_B_obj->data;
+
+  int* g_I = (int*)g_I_obj->data;
+  int* I_i = (int*)I_i_obj->data;
+  int* i_I = (int*)i_I_obj->data;
+
+  double* Arho_gm = (double*)A_gm_obj->data;
+  double* nt_sG = (double*)nt_sG_obj->data;
+
+  int nM = rho_skMM_obj->dimensions[0];
+  int nB = G_B_obj->dimensions[0];
+
+  int Ga = 0;
+  int B = 0;
+  int ni = 0;
+  while (B < nB)
+    {
+      int Gb = G_B[B];
+      int nG = Gb - Ga;
+      if (nG > 0)
+        // Do work for [Ga:Gb) range:
+        for (int i1 = 0; i1 < ni; i1++)
+          {
+            int I1 = I_i[i1];
+            int M1 = M_I[I1];
+            const PyArrayObject* A1_gm_obj = \
+              (const PyArrayObject*)PyList_GetItem(A_Igm_obj, I1);
+            const double* A1_gm = (const double*)A1_gm_obj->data + g_I[I1];
+            int nm1 = A1_gm_obj->dimensions[1];
+            memset(Arho_gm, 0, nG * nm1 * sizeof(double));
+
+            double factor = 1.0;
+            for (int i2 = i1; i2 < ni; i2++)
+              {
+                int I2 = I_i[i2];
+                int M2 = M_I[I2];
+                const PyArrayObject* A2_gm_obj = \
+                  (const PyArrayObject*)PyList_GetItem(A_Igm_obj, I2);
+                const double* A2_gm = ((const double*)A2_gm_obj->data +
+                                       g_I[I2]);
+                int nm2 = A2_gm_obj->dimensions[1];
+                
+                double one = 1.0;
+                dgemm_("t", "n", &nm1, &nG, &nm2, &factor, 
+                       rho_skMM + M1 * nM + M2, &nM,
+                       A2_gm, &nm2,
+                       &one, Arho_gm, &nm1);
+                factor = 2.0;
+              }
+            int gm1 = 0;
+            for (int G = Ga; G < Gb; G++)
+              {
+                double nt = 0.0;
+                for (int m1 = 0; m1 < nm1; m1++, gm1++)
+                  nt += A1_gm[gm1] * Arho_gm[gm1];
+                nt_sG[G] += nt;
+              }
+            g_I[I1] += nG;
+          }
+      int Inew = I_B[B];
+      if (Inew >= 0)
+        {
+          // Entering new sphere:
+          I_i[ni] = Inew;
+          i_I[Inew] = ni;
+          ni++;
+        }
+      else
+        {
+          // Leaving sphere:
+          Inew = -1 - Inew;
+          ni--;
+          int Ilast = I_i[ni];
+          int ihole = i_I[Inew];
+          I_i[ihole] = Ilast;
+          i_I[Ilast] = ihole;
+        }
+      Ga = Gb;
+      B++;
+    }
+  Py_RETURN_NONE;
+}
+
+
+PyObject* construct_density1(PyObject *self, PyObject *args)
+{
+  PyObject* A_Igm_obj;
+  const PyArrayObject* f_sM_obj;
+  const PyArrayObject* M_I_obj;
+  const PyArrayObject* G_B_obj;
+  const PyArrayObject* I_B_obj;
+  PyArrayObject* g_I_obj;
+  PyArrayObject* I_i_obj;
+  PyArrayObject* i_I_obj;
+  PyArrayObject* nt_sG_obj;
+
+  if (!PyArg_ParseTuple(args, "OOOOOOOOO", &A_Igm_obj, &f_sM_obj,
+                        &M_I_obj,
+                        &G_B_obj, &I_B_obj, &g_I_obj, &I_i_obj, &i_I_obj,
+                        &nt_sG_obj))
+    return NULL; 
+
+  const double* f_sM = (const double*)f_sM_obj->data;
+  const int* M_I = (const int*)M_I_obj->data;
+  const int* G_B = (const int*)G_B_obj->data;
+  const int* I_B = (const int*)I_B_obj->data;
+
+  int* g_I = (int*)g_I_obj->data;
+  int* I_i = (int*)I_i_obj->data;
+  int* i_I = (int*)i_I_obj->data;
+
+  double* nt_sG = (double*)nt_sG_obj->data;
+
+  int nB = G_B_obj->dimensions[0];
+
+  int Ga = 0;
+  int B = 0;
+  int ni = 0;
+  while (B < nB)
+    {
+      int Gb = G_B[B];
+      int nG = Gb - Ga;
+      if (nG > 0)
+        // Do work for [Ga:Gb) range:
+        for (int i = 0; i < ni; i++)
+          {
+            int II = I_i[i];
+            int M = M_I[II];
+            const PyArrayObject* A_gm_obj = \
+              (const PyArrayObject*)PyList_GetItem(A_Igm_obj, II);
+            const double* A_gm = (const double*)A_gm_obj->data + g_I[II];
+            int nm = A_gm_obj->dimensions[1];
+            //int gm = 0;
+            for (int gm = 0, G = Ga; G < Gb; G++)
+              for (int m = 0; m < nm; m++, gm++)
+                nt_sG[G] += A_gm[gm] * A_gm[gm] * f_sM[M];
+            g_I[II] += nG;
+          }
+      int Inew = I_B[B];
+      if (Inew >= 0)
+        {
+          // Entering new sphere:
+          I_i[ni] = Inew;
+          i_I[Inew] = ni;
+          ni++;
+        }
+      else
+        {
+          // Leaving sphere:
+          Inew = -1 - Inew;
+          ni--;
+          int Ilast = I_i[ni];
+          int ihole = i_I[Inew];
+          I_i[ihole] = Ilast;
+          i_I[Ilast] = ihole;
+        }
+      Ga = Gb;
+      B++;
+    }
+  Py_RETURN_NONE;
+}

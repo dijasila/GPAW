@@ -204,22 +204,28 @@ class BasisFunctions(LocalizedFunctionsCollection):
                     lfs.append(LF(spline, spos_c, sdisp_c, gd, M, a, i))
                 i += 2 * spline.get_angular_momentum_number() + 1
             M += i
+        self.Mmax = M
 
         LocalizedFunctionsCollection.__init__(self, gd, lfs)
 
-    def add_to_density(self, nt_sG, f_asi):
+    def add_to_density(self, nt_sG, f_sM):
         nspins = len(nt_sG)
         nt_sG = nt_sG.reshape((nspins, -1))
 
         for G1, G2 in self.griditer():
             for I in self.current_lfindices:
                 lf = self.lfs[I]
-                a = lf.a
-                i = lf.i
+                M = self.M_I[I]
                 A_gm = lf.A_gm[self.g_I[I]:self.g_I[I] + G2 - G1]
-                for m in range(2 * lf.l + 1):
-                    nt_sG[0, G1:G2] += (f_asi[a][0, i + m] *
-                                        A_gm[:, m]**2)
+                nm = A_gm.shape[1]
+                nt_sG[0, G1:G2] += np.dot(A_gm**2, f_sM[0, M:M + nm])
+    def add_to_density(self, nt_sG, f_sM):
+        A_Igm = [lf.A_gm for lf in self.lfs]
+        self.g_I[:] = 0
+        _gpaw.construct_density1(A_Igm, f_sM,
+                                 self.M_I, self.G_B, self.I_B,
+                                 self.g_I, self.I_i, self.i_I,
+                                 nt_sG)
 
     def construct_density(self, rho_MM, nt_G):
         """Calculate electron density from density matrix.
@@ -229,7 +235,6 @@ class BasisFunctions(LocalizedFunctionsCollection):
         nt_G: ndarray
             Pseudo electron density.
         """
-        
         nt_G = nt_G.ravel()
 
         for G1, G2 in self.griditer():
@@ -247,6 +252,14 @@ class BasisFunctions(LocalizedFunctionsCollection):
                         for m2 in range(2 * lf2.l + 1):
                             nt_G[G1:G2] += (rho_mm[m1, m2] *
                                             f1_gm[:, m1] * f2_gm[:, m2])
+        
+    def construct_density(self, rho_MM, nt_G):
+        A_Igm = [lf.A_gm for lf in self.lfs]
+        self.g_I[:] = 0
+        _gpaw.construct_density(A_Igm, rho_MM,
+                                self.M_I, self.G_B, self.I_B,
+                                self.g_I, self.I_i, self.i_I,
+                                self.A_gm, nt_G)
 
     def calculate_potential_matrix(self, vt_sG, Vt_skMM):
         vt_sG = vt_sG.reshape((len(vt_sG), -1))
@@ -272,7 +285,7 @@ class BasisFunctions(LocalizedFunctionsCollection):
                                                     f1_gm[:, m1] *
                                                     f2_gm[:, m2]) * dv
 
-    def _calculate_potential_matrix(self, vt_sG, Vt_skMM):
+    def calculate_potential_matrix(self, vt_sG, Vt_skMM):
         A_Igm = [lf.A_gm for lf in self.lfs]
         self.g_I[:] = 0
         Vt_skMM[:] = 0.0
