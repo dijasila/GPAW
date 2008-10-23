@@ -1,6 +1,10 @@
 #include <Python.h>
 #define PY_ARRAY_UNIQUE_SYMBOL GPAW_ARRAY_API
 #include <numpy/arrayobject.h>
+#ifdef GPAW_CUDA
+#include <cublas.h>
+#endif
+
 
 PyObject* gemm(PyObject *self, PyObject *args);
 PyObject* axpy(PyObject *self, PyObject *args);
@@ -102,6 +106,9 @@ PyMODINIT_FUNC init_gpaw(void)
 #endif
 
   import_array();
+#ifdef GPAW_CUDA
+  cublasInit();
+#endif
 }
 #endif
 

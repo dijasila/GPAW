@@ -16,6 +16,11 @@
 #  define ddot_ ddot
 #endif
 
+#ifdef GPAW_CUDA
+#include <cublas.h>
+#define IDX2F(i,j,ld) ((((j)-1)*(ld))+((i)-1))
+#endif
+
 void daxpy_(int* n, double* alpha,
 	    double* x, int *incx, 
 	    double* y, int *incy);
@@ -55,6 +60,11 @@ PyObject* gemm(PyObject *self, PyObject *args)
   Py_complex beta;
   PyArrayObject* c;
   char transa = 'n';
+#ifdef GPAW_CUDA
+double* devPtrA;
+double* devPtrB;
+double* devPtrC;
+#endif
   if (!PyArg_ParseTuple(args, "DOODO|c", &alpha, &a, &b, &beta, &c, &transa)) 
     return NULL;
   int m, k, lda, ldb, ldc;
@@ -80,12 +90,34 @@ PyObject* gemm(PyObject *self, PyObject *args)
     } 
   int n = b->dimensions[0];
   if (a->descr->type_num == PyArray_DOUBLE)
+#ifdef GPAW_CUDA
+    {
+
+	  cublasAlloc (m*k, sizeof(double), (void**)&devPtrA);
+	  cublasAlloc (k*n, sizeof(double), (void**)&devPtrB);
+	  cublasAlloc (m*n, sizeof(double), (void**)&devPtrC);
+
+	  cublasSetMatrix (m, k, sizeof(double), DOUBLEP(a), m, devPtrA, m);
+	  cublasSetMatrix (k, n, sizeof(double), DOUBLEP(b), k, devPtrB, k);
+	  cublasSetMatrix (m, n, sizeof(double), DOUBLEP(c), m, devPtrC, m);
+
+	  cublasDgemm(transa, 'n', m, n, k, alpha.real,
+		      devPtrA, lda, devPtrB, ldb, beta.real,
+		      devPtrC, ldc);
+
+	  cublasGetMatrix (m, n, sizeof(double), devPtrC, m, DOUBLEP(c), m);
+	  cublasFree (devPtrA);
+	  cublasFree (devPtrB);
+	  cublasFree (devPtrC);
+    }
+#else   
     dgemm_(&transa, "n", &m, &n, &k, 
            &(alpha.real),
            DOUBLEP(a), &lda, 
            DOUBLEP(b), &ldb,
            &(beta.real), 
            DOUBLEP(c), &ldc);
+#endif
   else
     zgemm_(&transa, "n", &m, &n, &k, 
            &alpha,
@@ -109,6 +141,22 @@ PyObject* axpy(PyObject *self, PyObject *args)
     n *= x->dimensions[d];
   int incx = 1;
   int incy = 1;
+#ifdef GPAW_CUDDA
+  double* devPtrx;
+  double* devPtry;
+
+  cublasAlloc (n, sizeof(double), (void**)&devPtrx);
+  cublasAlloc (n, sizeof(double), (void**)&devPtry);
+  cublasSetVector (n, sizeof(double), DOUBLEP(x), 1, devPtrx, 1);
+  cublasSetVector (n, sizeof(double), DOUBLEP(y), 1, devPtry, 1);
+
+  PyFloatObject* palpha = (PyFloatObject*)alpha;
+  cublasDaxpy(n, palpha->ob_fval, devPtrx, 1, devPtry, 1);
+
+  cublasGetVector(n, sizeof(double), devPtry, 1, DOUBLEP(y), 1);
+  cublasFree(devPtrx);
+  cublasFree(devPtry);
+#else
   if (PyFloat_Check(alpha))
     {
       if (x->descr->type_num == PyArray_CDOUBLE)
@@ -125,6 +173,7 @@ PyObject* axpy(PyObject *self, PyObject *args)
              (void*)COMPLEXP(x), &incx,
              (void*)COMPLEXP(y), &incy);
     }
+#endif  
   Py_RETURN_NONE;
 }
 
