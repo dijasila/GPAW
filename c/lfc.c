@@ -49,7 +49,7 @@ PyObject* spline_to_grid(PyObject *self, PyObject *args)
 
   int nB = 0;
   int ngm = 0;
-  int G = n_c[2] * (beg_c[1] - gdcorner_c[1] + n_c[1] 
+  int G = -gdcorner_c[2] + n_c[2] * (beg_c[1] - gdcorner_c[1] + n_c[1] 
                     * (beg_c[0] - gdcorner_c[0]));
 
   for (int g0 = beg_c[0]; g0 < end_c[0]; g0++)
