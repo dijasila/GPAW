@@ -90,7 +90,7 @@ class LF:
                             gz1 = gz
                         gz2 = gz
                         fr = spline(r)
-                        A_gm.append([fr * Y(self.l**2 + m, *(d_v / r))
+                        A_gm.append([fr * Y(self.l**2 + m, *d_v)
                                      for m in range(2 * self.l + 1)])
                 if gz2 is not None:
                     gz2 += 1
