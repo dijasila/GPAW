@@ -52,7 +52,7 @@ class LF:
         self.a = a
         self.i = i
 
-        self.spline_to_grid(spline, spos_c)
+        self.spline_to_grid(spline, spos_c - sdisp_c)
 
     def update_position(self, spos_c):
         # Perhaps: don't do checks here, but only call on relevant ones
@@ -128,7 +128,7 @@ class CLF(LF):
         return _gpaw.spline_to_grid(spline.spline, start_c, end_c, pos_v, h_cv,
                                     self.gd.n_c, self.gd.beg_c)
 
-LF = CLF
+#LF = CLF
 
 class LocalizedFunctionsCollection:
     def __init__(self, gd, lfs):
@@ -202,8 +202,9 @@ class BasisFunctions(LocalizedFunctionsCollection):
                 rcut = spline.get_cutoff()
                 for beg_c, end_c, sdisp_c in gd.get_boxes(spos_c, rcut, cut):
                     lfs.append(LF(spline, spos_c, sdisp_c, gd, M, a, i))
-                i += 2 * spline.get_angular_momentum_number() + 1
-            M += i
+                l = spline.get_angular_momentum_number()
+                i += 2 * l + 1
+                M += 2 * l + 1
         self.Mmax = M
 
         LocalizedFunctionsCollection.__init__(self, gd, lfs)
@@ -219,7 +220,7 @@ class BasisFunctions(LocalizedFunctionsCollection):
                 A_gm = lf.A_gm[self.g_I[I]:self.g_I[I] + G2 - G1]
                 nm = A_gm.shape[1]
                 nt_sG[0, G1:G2] += np.dot(A_gm**2, f_sM[0, M:M + nm])
-    def add_to_density(self, nt_sG, f_sM):
+    def _add_to_density(self, nt_sG, f_sM):
         A_Igm = [lf.A_gm for lf in self.lfs]
         self.g_I[:] = 0
         _gpaw.construct_density1(A_Igm, f_sM,
@@ -253,7 +254,7 @@ class BasisFunctions(LocalizedFunctionsCollection):
                             nt_G[G1:G2] += (rho_mm[m1, m2] *
                                             f1_gm[:, m1] * f2_gm[:, m2])
         
-    def construct_density(self, rho_MM, nt_G):
+    def _construct_density(self, rho_MM, nt_G):
         A_Igm = [lf.A_gm for lf in self.lfs]
         self.g_I[:] = 0
         _gpaw.construct_density(A_Igm, rho_MM,
@@ -285,7 +286,7 @@ class BasisFunctions(LocalizedFunctionsCollection):
                                                     f1_gm[:, m1] *
                                                     f2_gm[:, m2]) * dv
 
-    def calculate_potential_matrix(self, vt_sG, Vt_skMM):
+    def _calculate_potential_matrix(self, vt_sG, Vt_skMM):
         A_Igm = [lf.A_gm for lf in self.lfs]
         self.g_I[:] = 0
         Vt_skMM[:] = 0.0
