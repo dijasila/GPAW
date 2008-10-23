@@ -207,9 +207,9 @@ class Eigensolver:
         H_nn = self.H_nn
         band_comm = self.band_comm
 
-        if sl_diagonalize: assert parallel
-        if sl_diagonalize: assert scalapack()
         if sl_diagonalize:
+            assert parallel
+            assert scalapack()
             dsyev_zheev_string = 'Subspace diag.: '+'pdsyevd/pzheevd'
         else:
             dsyev_zheev_string = 'Subspace diag.: '+'dsyev/zheev'

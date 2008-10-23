@@ -90,9 +90,9 @@ class LCAO:
             kpt.C_nm[:] = C_nm[n1:n2]
             kpt.eps_n[:] = eps_q[n1:n2]
         else:
-            if sl_diagonalize: assert parallel
-            if sl_diagonalize: assert scalapack()
             if sl_diagonalize:
+                assert parallel
+                assert scalapack()
                 dsyev_zheev_string = 'LCAO: '+'pdsyevx/pzhegvx'
             else:
                 dsyev_zheev_string = 'LCAO: '+'dsygv/zhegv'
@@ -166,8 +166,8 @@ class LCAO:
 
         eps_q = npy.zeros(q)
 
-        if sl_diagonalize: assert parallel
         if sl_diagonalize:
+            assert parallel
             dsyev_zheev_string = 'LCAO: '+'pdsyevx/pzhegvx remove'
         else:
             dsyev_zheev_string1 = 'LCAO: '+'dsygv/zhegv remove'
@@ -181,8 +181,6 @@ class LCAO:
             assert eps_q[0] != 42
             if info != 0:
                 raise RuntimeError('Failed to diagonalize: info=%d' % info)
-            self.band_comm.broadcast(eps_q, 0)
-            self.band_comm.broadcast(H_qq, 0)
         else:
             if self.comm.rank == 0:
                 eps_q[0] = 42

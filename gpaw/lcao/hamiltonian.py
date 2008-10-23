@@ -200,9 +200,9 @@ class LCAOHamiltonian:
             P_mm = self.S_kmm[k].copy()
             p_m = npy.empty(self.nao)
 
-            if sl_diagonalize: assert parallel
-            if sl_diagonalize: assert scalapack()
             if sl_diagonalize:
+                assert parallel
+                assert scalapack()
                 dsyev_zheev_string = 'LCAO: '+'pdsyevd/pzhegvx test'
             else:
                 dsyev_zheev_string = 'LCAO: '+'dsyev/zheev test'
