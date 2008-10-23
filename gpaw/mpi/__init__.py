@@ -177,25 +177,14 @@ if debug:
         def barrier(self):
             self.comm.barrier()
 
-        if scalapack():
-            def diagonalize(self, a, w,
-                            nprow=1, npcol=1, mb=32, root=0,
-                            b=None):
-                n = len(a)
-                for i in range(n):
-                    for j in range(i, n):
-                        a[i,j] = a[j,i]
-                        if b is not None:
-                            b[i,j] = b[j,i]
-                return self.comm.diagonalize(a, w, nprow, npcol, mb, root, b)
+        def diagonalize(self, a, w,
+                        nprow=1, npcol=1, mb=32, root=0,
+                        b=None):
+            return self.comm.diagonalize(a, w, nprow, npcol, mb, root, b)
 
-            def inverse_cholesky(self, a,
-                                 nprow=1, npcol=1, mb=32, root=0):
-                n = len(a)
-                for i in range(n):
-                    for j in range(i, n):
-                        a[i,j] = a[j,i]
-                return self.comm.inverse_cholesky(a, nprow, npcol, mb, root)
+        def inverse_cholesky(self, a,
+                             nprow=1, npcol=1, mb=32, root=0):
+            return self.comm.inverse_cholesky(a, nprow, npcol, mb, root)
 
         def cart_create(self, dimx, dimy, dimz, periodic):
             return self.comm.cart_create(dimx, dimy, dimz, periodic)

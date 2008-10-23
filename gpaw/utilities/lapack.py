@@ -36,8 +36,8 @@ def diagonalize(a, w, b=None, root=0):
     assert a.shape == (n, n)
     assert w.shape == (n,)
 
-    if sl_diagonalize: assert parallel
-    if sl_diagonalize: assert scalapack()
+    if sl_diagonalize:
+        assert parallel and scalapack()
 
     if b is not None:
         assert b.flags.contiguous
@@ -99,8 +99,8 @@ def inverse_cholesky(a, root=0):
     n = len(a)
     assert a.shape == (n, n)
 
-    if sl_inverse_cholesky: assert parallel
-    if sl_inverse_cholesky: assert scalapack()
+    if sl_inverse_cholesky:
+        assert parallel and scalapack()
 
     if sl_inverse_cholesky:
         if rank == root:
@@ -199,6 +199,10 @@ def sqrt_matrix(a, preserve=False):
     return b
 
 if not debug:
-    #diagonalize = _gpaw.diagonalize
+    # Bypass the Python wrappers
     right_eigenvectors = _gpaw.right_eigenvectors
-    #inverse_cholesky = _gpaw.inverse_cholesky
+
+    # For ScaLAPACK, we can't bypass the Python wrappers!
+    if not scalapack():
+        diagonalize = _gpaw.diagonalize
+        inverse_cholesky = _gpaw.inverse_cholesky
