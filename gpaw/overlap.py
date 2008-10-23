@@ -16,6 +16,8 @@ from gpaw.utilities.complex import cc
 from gpaw.utilities.blas import rk, gemm
 from gpaw.utilities.lapack import inverse_cholesky
 from gpaw.utilities import swap
+from gpaw.eigensolvers.eigensolver import blocked_matrix_multiply
+
 
 class Overlap:
     """Overlap operator class.
@@ -64,7 +66,7 @@ class Overlap:
             When True, the integrals of projector times vectors
             P_ni = <p_i | a_nG> are calculated.
             When False, existing P_uni are used
-        
+
         """
 
         self.timer.start('Apply overlap')
@@ -79,7 +81,7 @@ class Overlap:
         """Apply approximative inverse overlap operator to wave functions."""
 
         b_nG[:] = a_nG
-        
+
         for nucleus in self.pt_nuclei:
             # Apply the non-local part:
             nucleus.apply_inverse_overlap(a_nG, b_nG, kpt.k)
@@ -99,7 +101,7 @@ class Overlap:
           psi (r) = )  C    psi (r)
              n     /__  nm     m
                     m
-                    
+
         Parameters
         ----------
         psit_nG: ndarray, input/output
@@ -123,7 +125,7 @@ class Overlap:
 
         if psit_nG is None:
             psit_nG = kpt.psit_nG
-            
+
         nmybands = len(psit_nG)
         nbands = nmybands * self.band_comm.size
 
@@ -132,7 +134,7 @@ class Overlap:
             self.work_nn = npy.zeros((nbands, nbands), self.dtype)
 
         S_nn = self.work_nn
-            
+
         if work_nG is None:
             if 'work_nG' in self.big_work_arrays:
                 work_nG = self.big_work_arrays['work_nG']
@@ -166,12 +168,15 @@ class Overlap:
         work_nG = self.big_work_arrays['work_nG']
         nmybands = len(psit_nG)
         if size == 1:
-            gemm(1.0, psit_nG, C_nn, 0.0, work_nG)
-            
-            kpt.psit_nG = work_nG
+            if psit_nG.shape != work_nG.shape:
+                blocked_matrix_multiply(psit_nG, C_nn, work_nG)
+            else:
+                gemm(1.0, psit_nG, C_nn, 0.0, work_nG)
 
-            if work_nG is self.big_work_arrays.get('work_nG'):
-                self.big_work_arrays['work_nG'] = psit_nG
+                kpt.psit_nG = work_nG
+
+                if work_nG is self.big_work_arrays.get('work_nG'):
+                    self.big_work_arrays['work_nG'] = psit_nG
 
             for nucleus in self.my_nuclei:
                 P_ni = nucleus.P_uni[kpt.u]
@@ -182,7 +187,7 @@ class Overlap:
         # Parallelize over bands:
         C_bnbn = C_nn.reshape((size, nmybands, size, nmybands))
         work2_nG = self.big_work_arrays['work2_nG']
-        
+
         rank = band_comm.rank
 
         beta = 0.0
@@ -271,12 +276,12 @@ class Overlap:
                 P_ni = nucleus.P_uni[kpt.u]
                 S_pnn[p] += npy.dot(P_ni, work_In[I1:I2]).T
                 I1 = I2
-            
+
             band_comm.wait(sreq)
             band_comm.wait(sreq2)
             band_comm.wait(rreq)
             band_comm.wait(rreq2)
-            
+
             work_nG, work2_nG = work2_nG, work_nG
             work_In, work2_In = work2_In, work_In
 

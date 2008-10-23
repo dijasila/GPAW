@@ -264,19 +264,22 @@ class Calculator(PAW):
         return e - self.get_fermi_level(), ldos
 
     def get_molecular_ldos(self, mol, spin=0, npts=201, width=None,
-                           lc=None, wf=None, P_aui=None):
+                           lc=None, wf=None, P_aui=None, raw=False):
         """The Projected Density of States, using molecular orbitals.
 
         Projects onto either atomic orbital basis functions (lc) for a
         specified molecule (mol), or a molecular wavefunction(wf).
         """
-        
+        from gpaw.utilities.dos import molecular_LDOS, fold
+
+        if raw:
+            return molecular_LDOS(self, mol, spin,
+                                  lc=lc, wf=wf, P_aui=P_aui)
         if width is None:
             width = self.get_electronic_temperature()
         if width == 0.0:
             width = 0.1
 
-        from gpaw.utilities.dos import molecular_LDOS, fold
         energies, weights = molecular_LDOS(self, mol, spin,
                                            lc=lc, wf=wf, P_aui=P_aui)
         e, ldos = fold(energies * Hartree, weights, npts, width)
@@ -319,9 +322,14 @@ class Calculator(PAW):
         Use initial guess for wannier orbitals to determine rotation
         matrices U and C.
         """
-        raise NotImplementedError
-
-        return c, U
+        if self.nkpts != 1:
+            raise NotImplementedError
+        from ase.dft.wannier import rotation_from_projection
+        proj_knw = self.get_projections(intialwannier, spin)
+        U_ww, C_ul = rotation_from_projection(proj_knw[0],
+                                              fixedstates[0],
+                                              ortho=True)
+        return [C_ul], U_ww[npy.newaxis]
 
     def get_wannier_localization_matrix(self, nbands, dirG, kpoint,
                                         nextkpoint, G_I, spin):
@@ -329,7 +337,7 @@ class Calculator(PAW):
 
         # Due to orthorhombic cells, only one component of dirG is non-zero.
         c = dirG.tolist().index(1)
-        G = self.bzk_kc[nextkpoint, c] - self.bzk_kc[kpoint, c] + G_I[c]
+        G = self.bzk_kc[nextkpoint, c] - self.bzk_kc[kpoint, c] - G_I[c]
 
         return self.get_wannier_integrals(c, spin, kpoint,
                                           nextkpoint, G, nbands)

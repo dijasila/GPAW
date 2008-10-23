@@ -262,16 +262,23 @@ class GridDescriptor:
 
         return boxes
 
-    def get_nearest_grid_point(self, spos_c=None):
+    def get_nearest_grid_point(self, spos_c=None, force_to_this_domain=False):
         """Return index of nearest grid point.
         
         The nearest grid point can be on a different CPU than the one the
         nucleus belongs to (i.e. return can be negative, or larger than
         gd.end_c), in which case something clever should be done.
+        The point can be forced to the grid descriptors domain to be
+        consistent with self.domain.get_rank_for_position(spos_c).
         """
         if spos_c is None:
             raise RuntimeError('Expecting a scaled position')
-        return npy.around(self.N_c * spos_c).astype(int) - self.beg_c
+        g_c = npy.around(self.N_c * spos_c).astype(int)
+        if force_to_this_domain:
+            for c in range(3):
+                g_c[c] = max(g_c[c], self.beg_c[c])
+                g_c[c] = min(g_c[c], self.end_c[c] - 1)
+        return g_c - self.beg_c
 
     def mirror(self, a_g, c):
         """Apply mirror symmetry to array.
@@ -440,9 +447,10 @@ class GridDescriptor:
             Z   = <psi | e      |psi >
              nm       n             m
                     
-        G is 1/N_c, where N_c is the number of k-points along axis c, psit_nG
-        and psit_nG1 are the set of wave functions for the two different
-        spin/kpoints in question.
+        G is 1/N_c (plus 1 if k-points distances should be wrapped over
+        the Brillouin zone), where N_c is the number of k-points along
+        axis c, psit_nG and psit_nG1 are the set of wave functions for
+        the two different spin/kpoints in question.
 
         ref1: Thygesen et al, Phys. Rev. B 72, 125119 (2005) 
         """
@@ -452,12 +460,7 @@ class GridDescriptor:
 
         if nbands is None:
             nbands = len(psit_nG)
-            
-        Z_nn = npy.zeros((nbands, nbands), complex)
-        psit_nG = psit_nG[:]
-        if not same_wave:
-            psit_nG1 = psit_nG1[:]
-            
+        
         def get_slice(c, g, psit_nG):
             if c == 0:
                 slice_nG = psit_nG[:nbands, g].copy()
@@ -465,9 +468,9 @@ class GridDescriptor:
                 slice_nG = psit_nG[:nbands, :, g].copy()
             else:
                 slice_nG = psit_nG[:nbands, :, :, g].copy()
-            slice_nG.shape = (nbands, -1)
-            return slice_nG
-
+            return slice_nG.reshape(nbands, -1)
+        
+        Z_nn = npy.zeros((nbands, nbands), complex)
         for g in range(self.n_c[c]):
             A_nG = get_slice(c, g, psit_nG)
                 

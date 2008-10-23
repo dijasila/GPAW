@@ -192,6 +192,9 @@ class PAWExtra:
 
         # XXX not for the kpoint/spin parallel case
         assert self.kpt_comm.size == 1
+
+        # If calc is a save file, read in tar references to memory
+        self.initialize_wave_functions()
         
         # Get pseudo part
         Z_nn = self.gd.wannier_matrix(self.kpt_u[u].psit_nG,
@@ -383,3 +386,47 @@ class PAWExtra:
             e_lumo = min(e_lumo, eig[lumo])
 
         return e_homo * self.Ha, e_lumo * self.Ha
+
+    def get_projections(self, locfun, spin=0):
+        """Project wave functions onto localized functions
+
+        Determine the projections of the Kohn-Sham eigenstates
+        onto specified localized functions of the format::
+
+          locfun = [[spos_c, l, a], [...]]
+
+        spos_c can be an atom index, or a scaled position vector.
+
+        Return format is::
+
+          f_kni = <psi_kn | f_i>
+
+        where psi_kn are the wave functions, and f_i are the specified
+        localized functions.
+        """
+        from gpaw.localized_functions import create_localized_functions
+        from gpaw.spline import Spline
+
+        nbf = 0
+        for spos_c, l, a in locfun:
+            nbf += 2 * l + 1
+        f_kni = npy.zeros((len(self.ibzk_kc), self.nbands, nbf), complex)
+
+        nbf = 0
+        for spos_c, l, a in locfun:
+            if type(spos_c) is int:
+                spos_c = self.nuclei[spos_c].spos_c
+            a /= self.a0
+            rad_g = npy.exp(-npy.linspace(0, 10. * a, 500)**2 / a)
+            rad_g[-2:] = 0.0
+            functions = [Spline(l, cutoff, rad_g)]
+            lf = create_localized_functions(functions, self.gd, spos_c,
+                                            dtype=complex)
+            lf.set_phase_factors(self.ibzk_kc)
+            nlf = 2 * l + 1
+            nbands = self.nbands
+            for k in range(self.nkpts):
+                lf.integrate(self.kpt_u[k + spin * self.nkpts].psit_nG[:],
+                             f_kni[k, :, nbf:nbf + nlf], k=k)
+            nbf += nlf
+        return f_kni.conj()

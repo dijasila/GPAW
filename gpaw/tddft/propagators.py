@@ -128,6 +128,7 @@ class ExplicitCrankNicolson(Propagator):
             time step
         
         """
+        self.niter = 0
         self.timer.start('Update time-dependent operators')
 
         self.time_step = time_step
@@ -162,6 +163,7 @@ class ExplicitCrankNicolson(Propagator):
             # A x = b
             self.solver.solve(self, kpt.psit_nG, kpt.psit_nG)
 
+        return self.niter
 
     # ( S + i H dt/2 ) psi
     def dot(self, psi, psin):
@@ -277,16 +279,15 @@ class AbsorptionKick(ExplicitCrankNicolson):
 
         """ 
 
-        if rank == 0:
-            print 'Kick iterations = ', self.td_hamiltonian.iterations
+        # if rank == 0:
+        #     self.text('Kick iterations = ', self.td_hamiltonian.iterations)
 
         for l in range(self.td_hamiltonian.iterations):
             self.propagate(kpt_u, 0, 1.0)
-            if rank == 0:
-                print '.',
-                sys.stdout.flush()
-        if rank == 0:
-            print ''
+            # if rank == 0:
+            #     self.text('.')
+        # if rank == 0:
+        #     print ''
         
 
 ###############################################################################
@@ -357,6 +358,7 @@ class SemiImplicitCrankNicolson(Propagator):
             time step
         """
 
+        self.niter = 0
         # temporary wavefunctions
         if self.tmp_kpt_u is None:
             self.tmp_kpt_u = []
@@ -438,7 +440,7 @@ class SemiImplicitCrankNicolson(Propagator):
         #   used to calculate rhs )
         self.solve_propagation_equation(kpt_u, self.tmp_kpt_u, time_step)
         
-
+        return self.niter
 
 
     # ( S + i H dt/2 ) psit(t+dt) = ( S - i H dt/2 ) psit(t)
@@ -477,7 +479,7 @@ class SemiImplicitCrankNicolson(Propagator):
                 self.mblas.multi_zaxpy(-1.0j * self.time_step, self.hpsit, kpt.psit_nG, nvec)
 
             # A x = b
-            self.solver.solve(self, kpt.psit_nG, rhs_kpt.psit_nG)
+            self.niter += self.solver.solve(self, kpt.psit_nG, rhs_kpt.psit_nG)
 
             # Apply shift exp(i eps t)
             #self.phase_shift = npy.exp(1.0J * self.shift * self.time_step)
@@ -595,6 +597,7 @@ class SemiImplicitTaylorExponential(Propagator):
             time step
         """
 
+        self.niter = 0
         # temporary wavefunctions
         if self.tmp_kpt_u is None:
             self.tmp_kpt_u = []
@@ -657,6 +660,7 @@ class SemiImplicitTaylorExponential(Propagator):
         # correct
         self.solve_propagation_equation(kpt_u, time_step)
         
+        return self.niter
 
     # psi(t) = exp(-i t S^-1 H) psi(0)
     # psi(t) = 1  + (-i S^-1 H t) (1 + (1/2) (-i S^-1 H t) (1 + ... ) )
@@ -673,7 +677,7 @@ class SemiImplicitTaylorExponential(Propagator):
                 self.td_hamiltonian.apply(self.kpt, self.psin, self.hpsit)
                 # S psin = H psin
                 self.psin[:] = self.hpsit
-                self.solver.solve(self, self.psin, self.hpsit)
+                self.niter += self.solver.solve(self, self.psin, self.hpsit)
                 #print 'Linear solver iterations = ', self.solver.iterations
                 # psin = psi(0) + (-it/k) S^-1 H psin
                 self.mblas.multi_scale( -(1.0J) * self.time_step / k, 
@@ -776,6 +780,7 @@ class SemiImplicitKrylovExponential(Propagator):
             time step
         """
 
+        self.niter = 0
         # temporary wavefunctions
         if self.tmp_kpt_u is None:
             self.tmp_kpt_u = []
@@ -868,7 +873,8 @@ class SemiImplicitKrylovExponential(Propagator):
         # correct
         self.solve_propagation_equation(kpt_u, time_step)
         
-
+        return self.niter
+    
     # psi(t) = exp(-i t S^-1 H) psi(0)
     def solve_propagation_equation(self, kpt_u, time_step):
         nvec = len(kpt_u[0].psit_nG)

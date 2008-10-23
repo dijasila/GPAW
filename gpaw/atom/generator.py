@@ -57,7 +57,7 @@ parameters = {
  'Se': {'core': '[Ar]3d', 'rcut': [1.6, 1.9]},
 # 'Br': Missing
  'Kr': {'core': '[Ar]3d', 'rcut': 2.2},
- 'Rb': {'core': '[Ar]3d', 'rcut': [2.8, 2.4, 2.4]},
+ 'Rb': {'core': '[Ar]3d', 'rcut': [2.6, 2.4, 2.3]},
  'Sr': {'core': '[Ar]3d', 'rcut': [2.4, 2.4, 2.3],
         'extra':{1: [0.0], 2: [0.0]}},
 #'Y' : Missing 
@@ -74,7 +74,7 @@ parameters = {
  'Sn': {'core': '[Kr]',   'rcut': 2.2},
 #'Sb' : Missing 
 #'Te' : Missing 
-#'I'  : Missing 
+ 'I': {'core': '[Kr]4d',   'rcut': 2.2},
 #'Xe' : Missing 
  'Cs': {'core': '[Kr]4d', 'rcut': [2.2, 2.0]},
  'Ba': {'core': '[Kr]4d', 'rcut': 2.2, 'extra': {1: [0.0], 2: [0.0, 1.0]}},
@@ -92,7 +92,8 @@ parameters = {
  'Au': {'core': '[Xe]4f', 'rcut': 2.5},
 #'Hg' : Missing 
 #'Tl' : Missing 
- 'Pb': {'core': '[Xe]4f', 'rcut': [2.4,2.6,2.4]}
+ 'Pb': {'core': '[Xe]4f', 'rcut': [2.4,2.6,2.4]},
+ 'Bi': {'core': '[Xe]4f', 'rcut': [2.2,2.4,2.2]}
 #'Bi' : Missing 
 #'Po' : Missing 
 #'At' : Missing 
@@ -747,9 +748,6 @@ class Generator(AllElectron):
             X_p = None
             ExxC = None
 
-        #self.write_xml(vl_j, vn_j, vf_j, ve_j, vu_j, vs_j, vq_j,
-        #               nc, nct, nt, Ekincore, X_p, ExxC, vbar,
-        #               tauc, tauct, extra_xc_data)
         sqrt4pi = sqrt(4 * pi)
         setup = SetupData(self.symbol, self.xcfunc.get_name(), self.name,
                           readxml=False)
@@ -822,6 +820,15 @@ class Generator(AllElectron):
 
         setup.generatorattrs = attrs
         setup.generatordata  = data
+
+        self.id_j = []
+        for l, n in zip(vl_j, vn_j):
+            if n > 0:
+                id = '%s-%d%s' % (self.symbol, n, 'spdf'[l])
+            else:
+                id = '%s-%s%d' % (self.symbol, 'spdf'[l], -n)
+            self.id_j.append(id)
+        setup.id_j = self.id_j
 
         if write_xml:
             setup.write_xml()

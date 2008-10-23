@@ -137,8 +137,10 @@ def get_system_config(define_macros, undef_macros,
         # Look for ACML libraries:
         acml = glob('/opt/acml*/g*64/lib')
         if len(acml) > 0:
-            libraries += ['acml', 'g2c']
             library_dirs += [acml[-1]]
+            libraries += ['acml']
+            if acml[-1].find('gfortran') != -1: libraries.append('gfortran')
+            if acml[-1].find('gnu') != -1: libraries.append('g2c')
             extra_link_args += ['-Wl,-rpath=' + acml[-1]]
             msg += ['* Using ACML library']
         else:
@@ -415,7 +417,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
         if "--dry-run" not in sys.argv:
             error=os.system(cmd)
             if error != 0:
-                msg += ['* FAILED!  Only serial version of code will work.']
+                msg += ['* compiling FAILED!  Only serial version of code will work.']
                 break
 
     # Link the custom interpreter
@@ -434,7 +436,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     if "--dry-run" not in sys.argv:
         error=os.system(cmd)
         if error != 0:
-            msg += ['* FAILED!  Only serial version of code will work.']
+            msg += ['* linking FAILED!  Only serial version of code will work.']
 
 
     return error, msg

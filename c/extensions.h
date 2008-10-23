@@ -1,8 +1,17 @@
+#ifndef H_EXTENSIONS
+#define H_EXTENSIONS
+
+
 #include <Python.h>
 #define PY_ARRAY_UNIQUE_SYMBOL GPAW_ARRAY_API
 #define NO_IMPORT_ARRAY
 #include <numpy/arrayobject.h>
 #include <malloc.h>
+
+/* If strict ANSI, then some useful macros are not defined */
+#if defined(__STRICT_ANSI__)
+# define M_PI           3.14159265358979323846  /* pi */
+#endif
 
 #ifndef DOUBLECOMPLEXDEFINED
 #  define DOUBLECOMPLEXDEFINED 1
@@ -21,7 +30,7 @@
 #ifndef NO_C99_COMPLEX
 #define INLINE inline
 #else
-#define INLINE 
+#define INLINE
 #endif
 
 static INLINE void* gpaw_malloc(int n)
@@ -45,3 +54,5 @@ static INLINE void* gpaw_malloc(int n)
 #define LONGP(a) ((long*)((a)->data))
 #define DOUBLEP(a) ((double*)((a)->data))
 #define COMPLEXP(a) ((double_complex*)((a)->data))
+
+#endif //H_EXTENSIONS

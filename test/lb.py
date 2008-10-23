@@ -1,6 +1,7 @@
 import os
 
 from ase import *
+from ase.parallel import rank, barrier
 from gpaw import Calculator
 from gpaw import setup_paths
 from gpaw.atom.all_electron import AllElectron
@@ -37,10 +38,11 @@ print 'atom [refs] -e_homo diff   all in mHa'
 for atom in e_HOMO_cs.keys():
     e_ref = e_HOMO_cs[atom]
     # generate setup for the atom
-    if not setups.has_key(atom):
+    if rank == 0 and not setups.has_key(atom):
         g = Generator(atom, 'LB94', nofiles=True, txt=txt)
         g.run(**parameters[atom])
         setups[atom] = 1
+    barrier()
     
     SS = Atoms([Atom(atom)], cell=(7, 7, 7), pbc=False)
     SS.center()
@@ -71,10 +73,11 @@ for atom in e_HOMO_os.keys():
     e_ref = e_HOMO_os[atom][0]
     magmom =  e_HOMO_os[atom][1]
     # generate setup for the atom
-    if not setups.has_key(atom):
+    if rank == 0 and not setups.has_key(atom):
         g = Generator(atom, 'LB94', nofiles=True, txt=txt)
         g.run(**parameters[atom])
         setups[atom] = 1
+    barrier()
 
     SS = Atoms([Atom(atom, magmom=magmom)], cell=(7, 7, 7), pbc=False)
     SS.center()
@@ -90,9 +93,4 @@ for atom in e_HOMO_os.keys():
     e_homo = int( e_homo * 10000 + .5 ) / 10.
     diff = e_ref + e_homo
     print '%2s %8g %6.1f %4.1f' % (atom, e_ref, -e_homo, diff)
-    assert( abs(diff) < 14 )
-        
-        
-# clean up
-for atom in setups:
-    os.remove(atom + '.LB94')
+    assert abs(diff) < 14

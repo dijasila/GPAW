@@ -30,8 +30,10 @@ GPAW calculator:
    restart_files
    xc/xc
    tddft/tddft
+   dscf/dscf
+   pdos/pdos
    xas/xas
-
+   rmm-diis
 
 .. _ml:
 

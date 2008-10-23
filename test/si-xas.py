@@ -1,15 +1,17 @@
 import os
 from math import pi, cos, sin
 from ase import *
+from ase.parallel import rank, barrier
 from gpaw import Calculator
 from gpaw.atom.generator import Generator, parameters
 from gpaw import setup_paths
 from gpaw.xas import XAS, RecursionMethod
 
-if 1:
+if rank == 0:
     # Generate setup for oxygen with half a core-hole:
     g = Generator('Si', scalarrel=True, corehole=(1, 0, 0.5), nofiles=True)
     g.run(name='hch1s', **parameters['Si'])
+barrier()
 setup_paths.insert(0, '.')
 
 a = 4.0
@@ -41,19 +43,22 @@ calc = Calculator('si.gpw', kpts=(k, k, k))
 
 assert calc.dtype == complex
 
-xas = XAS(calc)
-x, y = xas.get_spectra()
+import gpaw.mpi as mpi
+if mpi.size == 1:
+    xas = XAS(calc)
+    x, y = xas.get_spectra()
+else:
+    x = np.linspace(0, 10, 50)
+    
 calc.set_positions(si)
 r = RecursionMethod(calc)
 r.run(40)
-z = r.get_spectra(x)
+if mpi.size == 1:
+    z = r.get_spectra(x)
+    
 if 0:
     import pylab as p
     p.plot(x, y[0])
     p.plot(x, sum(y))
     p.plot(x, z[0])
     p.show()
-
-os.system('rm si.gpw')
-# remove Si.hch1s.* setup
-os.remove(calc.nuclei[0].setup.filename)

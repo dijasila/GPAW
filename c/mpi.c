@@ -218,11 +218,11 @@ static PyObject * mpi_max(MPIObject *self, PyObject *args)
       PyArrayObject* a = (PyArrayObject*)obj;
       int n = 1;
       if (a->descr->type_num == PyArray_CDOUBLE)
-	{
-	  printf("mpi_max does not work with complex numbers \n");
-	  MPI_Abort(MPI_COMM_WORLD, 1);
-	  Py_RETURN_NONE;
-	}
+  {
+    printf("mpi_max does not work with complex numbers \n");
+    MPI_Abort(MPI_COMM_WORLD, 1);
+    Py_RETURN_NONE;
+  }
       for (int d = 0; d < a->nd; d++)
         n *= a->dimensions[d];
       if (root == -1)
@@ -306,6 +306,23 @@ static PyObject * mpi_broadcast(MPIObject *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
+static PyObject * mpi_cart_create(MPIObject *self, PyObject *args)
+{
+  int dimx, dimy, dimz;
+  int periodic;
+
+  if (!PyArg_ParseTuple(args, "iii|i", &dimx,
+                        &dimy, &dimz, &periodic))
+    return NULL;
+
+  int dims[3] = {dimx, dimy, dimz};
+  int periods[3] = {periodic, periodic, periodic};
+  MPI_Comm comm_new;
+  MPI_Cart_create(self->comm, 3, dims, periods, 1, &comm_new);
+  return Py_BuildValue("s#", &comm_new, sizeof(comm_new));
+}
+
+
 // Forward declaration of MPI_Communicator because it needs MPIType
 // that needs MPI_getattr that needs MPI_Methods that need
 // MPI_Communicator that need ...
@@ -325,6 +342,7 @@ static PyMethodDef mpi_methods[] = {
     {"all_gather",       (PyCFunction)mpi_allgather,    METH_VARARGS, 0},
     {"broadcast",        (PyCFunction)mpi_broadcast,    METH_VARARGS, 0},
     {"new_communicator", (PyCFunction)MPICommunicator,  METH_VARARGS, 0},
+    {"cart_create",      (PyCFunction)mpi_cart_create,  METH_VARARGS, 0},
     {0, 0, 0, 0}
 };
 
@@ -343,6 +361,7 @@ static int NewMPIObject2(MPIObject* self, PyObject *args, PyObject *kwds)
 
 #ifndef GPAW_INTERPRETER
   int argc = 0;
+
 #ifndef GPAW_OMP
   MPI_Init(&argc, 0);
 #else
@@ -350,10 +369,15 @@ static int NewMPIObject2(MPIObject* self, PyObject *args, PyObject *kwds)
   MPI_Init_thread(&argc, 0, MPI_THREAD_MULTIPLE, &granted);
   if(granted != MPI_THREAD_MULTIPLE) exit(1);
 #endif
+
+
+
+
 #endif
   MPI_Comm_size(MPI_COMM_WORLD, &(self->size));
   MPI_Comm_rank(MPI_COMM_WORLD, &(self->rank));
   self->comm = MPI_COMM_WORLD;
+
   return 0;
 }
 
@@ -392,12 +416,12 @@ PyTypeObject MPIType = {
   0,                         /*tp_as_buffer*/
   Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
   "MPI object",           /* tp_doc */
-  0,		               /* tp_traverse */
-  0,		               /* tp_clear */
-  0,		               /* tp_richcompare */
-  0,		               /* tp_weaklistoffset */
-  0,		               /* tp_iter */
-  0,		               /* tp_iternext */
+  0,                   /* tp_traverse */
+  0,                   /* tp_clear */
+  0,                   /* tp_richcompare */
+  0,                   /* tp_weaklistoffset */
+  0,                   /* tp_iter */
+  0,                   /* tp_iternext */
   mpi_methods,             /* tp_methods */
   mpi_members,
     0,                         /* tp_getset */
@@ -452,5 +476,4 @@ static PyObject * MPICommunicator(MPIObject *self, PyObject *args)
       return (PyObject*)obj;
     }
 }
-
 #endif

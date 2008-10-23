@@ -1,7 +1,6 @@
 # creates: pt_h2.png
 
 from ase import *
-import os
 
 a = 2.41 # Pt binding lenght
 b = 0.90 # H2 binding lenght
@@ -15,9 +14,8 @@ atoms.positions[-5:, 0] = [(i -2.5)* a + b + 2 * c for i in range(4, 9)]
 atoms.positions[5:7, 0] = [1.5 * a + c, 1.5 * a + c + b]
 atoms.positions[:, 1:] = L / 2.
 
-pov_options = {'display': False, 'transparent': False}
-write('pt_h2.pov', atoms, show_unit_cell=2, **pov_options)
-os.system('povray pt_h2.ini')
+from ase.io.pov import povpng
+povpng('pt_h2.pov', atoms, show_unit_cell=2)
 
 
 

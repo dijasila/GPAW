@@ -132,8 +132,9 @@ def molecular_LDOS(paw, mol, spin, lc=None, wf=None, P_aui=None):
     w_k = paw.weight_k
     nk = len(w_k)
     nb = paw.nbands
+    ns = paw.nspins
     
-    P_un = npy.zeros((nk, nb), npy.complex)
+    P_un = npy.zeros((nk*ns, nb), npy.complex)
 
     if wf is None:
         P_auni = npy.array([paw.nuclei[a].P_uni for a in mol])
@@ -149,16 +150,12 @@ def molecular_LDOS(paw, mol, spin, lc=None, wf=None, P_aui=None):
         P_un /= sqrt(N)
 
     else:
-        if len(wf) == 1:  # Using the Gamma point only
-            wf = [wf[0] for u in range(nk)]
-            P_aui = [P_aui[0] for u in range(nk)]
         P_aui = [npy.conjugate(P_aui[a]) for a in range(len(mol))]
-        for kpt in paw.kpt_u:
-            w = npy.reshape(npy.conjugate(wf)[kpt.u], -1)
+        for kpt in paw.kpt_u[spin*nk:(spin+1)*nk]:
+            w = npy.reshape(npy.conjugate(wf)[kpt.k], -1)
             for n in range(nb):
                 psit_nG = npy.reshape(kpt.psit_nG[n], -1)
-                dV = paw.gd.h_c[0] * paw.gd.h_c[1] * paw.gd.h_c[2]
-                P_un[kpt.u][n] = npy.dot(w, psit_nG) * dV * paw.a0**1.5
+                P_un[kpt.u][n] = npy.dot(w, psit_nG) * paw.gd.dv * paw.a0**1.5
                 for a, b in zip(mol, range(len(mol))):
                     atom = paw.nuclei[a]
                     p_i = atom.P_uni[kpt.u][n]
@@ -264,8 +261,13 @@ class RawLDOS:
 
     def by_element_to_file(self, 
                            filename='ldos_by_element.dat',
-                           width=None):
-        """Write the LDOS by element to a file"""
+                           width=None,
+                           shift=True):
+        """Write the LDOS by element to a file
+
+        If a width is given, the LDOS will be Gaussian folded and shifted to set 
+        Fermi energy to 0 eV. The latter can be avoided by setting shift=False. 
+        """
         ldbe = self.by_element()
 
         f = paropen(filename,'w')
@@ -318,11 +320,21 @@ class RawLDOS:
             emin -= 4*width
             emax += 4*width
 
+            eshift = 0
+            if shift:
+                eshift = -self.paw.get_fermi_level()
+
             # set de to sample 4 points in the width
             de = width/4.
             
             for s in range(self.paw.nspins):
                 print >> f, '# Gauss folded, width=%g [eV]' % width
+                if shift:
+                    print >> f, '# shifted to Fermi energy = 0'
+                    print >> f, '# Fermi energy was',
+                else:
+                    print >> f, '# Fermi energy',
+                print >> f, self.paw.get_fermi_level(), 'eV'
                 print >> f, '# e[eV]  spin ',
                 for key in ldbe:
                     if len(key) == 1: key=' '+key
@@ -351,7 +363,7 @@ class RawLDOS:
                             for key in ldbe:
                                 val[key] += w_i * ldbe[key][u, n]
 
-                    print >> f, '%10.5f %2d' % (e, s), 
+                    print >> f, '%10.5f %2d' % (e + eshift, s), 
                     for key in val:
                         spd = val[key]
                         for l in range(3):

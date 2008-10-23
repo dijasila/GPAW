@@ -8,10 +8,9 @@ from pair_density import PairDensity2 as PairDensity
 from gpaw.poisson import PoissonSolver
 from gpaw.utilities import pack, unpack
 from gpaw.utilities.tools import pick, construct_reciprocal, dagger
-from gpaw.utilities.complex import real
 from gpaw.utilities.gauss import Gaussian
 from gpaw.utilities.blas import r2k
-
+from gpaw.mpi import rank, MASTER
 
 def get_vxc(paw, spin=0, U=None):
     """Calculate matrix elements of the xc-potential."""
@@ -46,8 +45,8 @@ def get_vxc(paw, spin=0, U=None):
     return Vxc_nn * Hartree
 
 
-class Coulomb:
-    """Class used to evaluate coulomb integrals"""
+class Coulomb2:
+    """Class used to evaluate two index coulomb integrals"""
     def __init__(self, gd, poisson=None):
         """Class should be initialized with a grid_descriptor 'gd' from
            the gpaw module.
@@ -134,13 +133,12 @@ class Coulomb:
             I = self.gd.zeros()
             if n2 == None: n2 = n1; Z2 = Z1
             self.solve(I, n2, charge=Z2, eps=1e-12, zero_initial_phi=True)
-            I *= npy.conjugate(n1)           
+            I *= n1.conj()
         elif method == 'recip_ewald':
             n1k = fftn(n1)
             if n2 == None: n2k = n1k
             else: n2k = fftn(n2)
-            I = npy.conjugate(n1k) * n2k * \
-                self.ewald * 4 * pi / (self.k2 * self.N3)
+            I = n1k.conj() * n2k * self.ewald * 4 * pi / (self.k2 * self.N3)
         elif method == 'recip_gauss':
             # Determine total charges
             if Z1 == None: Z1 = self.gd.integrate(n1)
@@ -150,80 +148,78 @@ class Coulomb:
             # (n1 - Z1 ng)* int dr'  (n2 - Z2 ng) / |r - r'|
             nk1 = fftn(n1 - Z1 * self.ng)
             if n2 == None:
-                I = npy.absolute(nk1)**2 * 4 * pi / (self.k2 * self.N3)
+                I = abs(nk1)**2 * 4 * pi / (self.k2 * self.N3)
             else:
                 nk2 = fftn(n2 - Z2 * self.ng)
-                I = npy.conjugate(nk1) * nk2 * 4 * pi / (self.k2 * self.N3)
+                I = nk1.conj() * nk2 * 4 * pi / (self.k2 * self.N3)
 
             # add the corrections to the integrand due to neutralization
             if n2 == None:
-                I += (2 * real(npy.conjugate(Z1) * n1) - abs(Z1)**2 * self.ng)\
-                     * self.vg
+                I += (2 * npy.real(npy.conj(Z1) * n1) -
+                      abs(Z1)**2 * self.ng) * self.vg
             else:
-                I += (npy.conjugate(Z1) * n2 + Z2 * npy.conjugate(n1) -
-                      npy.conjugate(Z1) * Z2 * self.ng) * self.vg
+                I += (npy.conj(Z1) * n2 + Z2 * n1.conj() -
+                      npy.conj(Z1) * Z2 * self.ng) * self.vg
         else:
              raise RuntimeError, 'Method %s unknown' % method
          
         if n1.dtype.char == float and (n2 == None or
-                                           n2.dtype.char == float):
-            return real(self.gd.integrate(I))
+                                       n2.dtype.char == float):
+            return npy.real(self.gd.integrate(I))
         else:
             return self.gd.integrate(I)
 
 
+## # coulomb integral types:
+## 'ijij', # Direct
+## 'ijji', # Exchange
+## 'iijj', # iijj
+## 'iiij', # Semiexchange
+## 'ikjk', # Extra
 class Coulomb4:
-    """Determine four-index Coulomb integrals::
-
-                                             *
-                            /    /      rho12(r) rho34(r')
-          (n1 n2 | n3 n4) = | dr | dr'  ------------------,
-                            /    /            |r - r'|
-                            
-                                                *     *
-                            /    /      w1(r) w2(r) w3(r') w4(r')
-                          = | dr | dr'  -------------------------,
-                            /    /               |r - r'|
-
-    where::
-
-                       *
-          rho12(r) = w1(r) w2(r)
-    """
-    def __init__(self, paw, spin, method='real'):
+    """Determine four-index Coulomb integrals"""
+    def __init__(self, paw, spin=0):
         self.kpt = paw.kpt_u[spin]
         self.pd = PairDensity(paw, finegrid=True)
         self.nt12_G = paw.gd.empty()
         self.nt34_G = paw.gd.empty()
         self.rhot12_g = paw.finegd.empty()
         self.rhot34_g = paw.finegd.empty()
+        self.potential_g = paw.finegd.empty()
         self.psum = paw.gd.comm.sum
         self.my_nuclei = paw.my_nuclei
+        self.integrate = paw.finegd.integrate
+        self.poisson_solve = paw.hamiltonian.poisson.solve
         self.u = spin
-
-        coulomb = Coulomb(paw.finegd, poisson=paw.hamiltonian.poisson)
-        coulomb.load(method)
-        self.method = method
-        self.coulomb = coulomb.coulomb
         
-    def get_integral(self, n1, n2, n3, n4):
-        rhot12_g = self.rhot12_g
+    def get_integral(self, n1, n2, n3, n4, order=0):
+        """Get four-index coulomb integral.
+
+        Indices can be vectors or scalars.
+        If order == 0, return the Coulomb integrals::
+        
+          C4(ijkl) = \iint drdr' / |r-r'| i(r) j*(r) k*(r') l(r')
+
+        else, return::
+
+          V_{ijkl} = \iint drdr' / |r-r'| i*(r) j*(r') k(r) l(r')
+
+        Notice that V_ijkl = C4(kijl)
+        """
+        if order != 0:
+            n1, n2, n3, n4 = n3, n1, n2, n4
+        
         self.pd.initialize(self.kpt, n1, n2)
         self.pd.get_coarse(self.nt12_G)
-        self.pd.add_compensation_charges(self.nt12_G, rhot12_g)
+        self.pd.add_compensation_charges(self.nt12_G, self.rhot12_g)
         
-        if npy.all(n3 == n1) and npy.all(n4 == n2):
-            rhot34_g = None
-        else:
-            rhot34_g = self.rhot34_g
-            self.pd.initialize(self.kpt, n3, n4)
-            self.pd.get_coarse(self.nt34_G)
-            self.pd.add_compensation_charges(self.nt34_G, rhot34_g)
+        self.pd.initialize(self.kpt, n3, n4)
+        self.pd.get_coarse(self.nt34_G)
+        self.pd.add_compensation_charges(self.nt34_G, self.rhot34_g)
 
-        # smooth part
-        Z12 = None#float(npy.all(n1 == n2))
-        Z34 = None#float(npy.all(n3 == n4))
-        I = self.coulomb(rhot12_g, rhot34_g, Z12, Z34, self.method)
+        self.poisson_solve(self.potential_g, self.rhot34_g, charge=None,
+                           eps=1e-12, zero_initial_phi=True)
+        I = self.integrate(self.rhot12_g * self.potential_g)
 
         # Add atomic corrections
         Ia = 0.0
@@ -236,94 +232,16 @@ class Coulomb4:
             D12_p = pack(npy.outer(pick(P_ni, n1), pick(P_ni, n2)), 1e3)
             D34_p = pack(npy.outer(pick(P_ni, n3), pick(P_ni, n4)), 1e3)
             Ia += 2 * npy.dot(D12_p, npy.dot(nucleus.setup.M_pp, D34_p))
-        #I += self.psum(Ia)
-        # print Ia
-        I += Ia
+        I += self.psum(Ia)
 
         return I
 
 
-def wannier_coulomb_integrals(paw, U_nj, spin,
-                              types=['xc',   # Local xc functional
-                                     'ijij', # Direct
-                                     'ijji', # Exchange
-                                     'iijj', # iijj
-                                     'iiij', # Semiexchange
-                                     'ikjk', # Extra
-                                     ]):
-    # Returns some of the Coulomb integrals
-    # V_{ijkl} = \iint drdr' / |r-r'| i*(r) j*(r') k(r) l(r')
-    # using coulomb4, which determines
-    # C4(ijkl) = \iint drdr' / |r-r'| i(r) j*(r) k*(r') l(r')
-    # i.e. V_ijkl = C4(kijl)
-
-    paw.set_positions()
-    coulomb4 = Coulomb4(paw, spin).get_integral
-    nwannier = U_nj.shape[1]
-    if paw.dtype is complex or U_nj.dtype is complex:
-        dtype = complex
-    else:
-        dtype = float
-                          
-    if 'xc' in types:
-        V_xc = npy.dot(dagger(U_nj), npy.dot(get_vxc(paw, spin), U_nj))
-    V_ijij = npy.zeros([nwannier, nwannier], dtype)
-    V_ijji = npy.zeros([nwannier, nwannier], dtype)
-    V_iijj = npy.zeros([nwannier, nwannier], dtype)
-    V_iiij = npy.zeros([nwannier, nwannier], dtype)
-    if 'ikjk' in types:
-        V_ikjk = npy.zeros([nwannier, nwannier, nwannier], dtype)
-    
-    for i in range(nwannier):
-        ni = U_nj[:, i]
-        for j in range(i, nwannier):
-            nj = U_nj[:, j]
-            print "Doing Coulomb integrals for orbitals", i, j
-
-            if i == j:
-                V_ijij[i, i] = V_ijji[i, i] = V_iijj[i, i] = V_iiij[i, i] = \
-                               coulomb4(ni, ni, ni, ni) * Hartree
-            else:
-                if 'ijij' in types:
-                    # V_{ij, ij} = C4(iijj)
-                    V_ijij[i, j] = coulomb4(ni, ni, nj, nj) * Hartree
-
-                if 'ijji' in types:
-                    # V_{ij, ji} = C4(jiji)
-                    V_ijji[i, j] = coulomb4(nj, ni, nj, ni) * Hartree
-
-                if 'iijj' in types:
-                    # V_{ii, jj} = C4(jiij)
-                    V_iijj[i, j] = coulomb4(nj, ni, ni, nj) * Hartree
-
-                if 'iiij' in types:
-                    # V_{ii, ij} = C4(iiij)
-                    V_iiij[i, j] = coulomb4(ni, ni, ni, nj) * Hartree
-
-                    # V_{jj, ji} = C4(jjji)
-                    V_iiij[j, i] = coulomb4(nj, nj, nj, ni) * Hartree
-
-            if 'ikjk' in types:
-                for k in range(nwannier):
-                    nk = U_nj[:, k]
-                    # V_{ik, jk} = C4(jikk)
-                    V_ikjk[i, j, k] = coulomb4(nj, ni, nk, nk) * Hartree
-
-    # Fill out lower triangle of direct, exchange, and iijj elements
-    for i in range(nwannier):
-        for j in range(i):
-            V_ijij[i, j] = V_ijij[j, i]
-            V_ijji[i, j] = V_ijji[j, i]
-            V_iijj[i, j] = V_iijj[j, i].conj()
-            if 'ikjk' in types:
-                V_ikjk[i,j,:] = V_ikjk[j,i,:].conj()
-
-    result = ()
-    for type in types:
-        result += (eval('V_' + type), )
-    return result
-
 def symmetry(i, j, k, l):
+    """Uniqify index order.
+
+    Permute indices into unique ordering, conserving the symmetry of
+    the Coulomb kernel."""
     ijkl = npy.array((i, j, k, l), int)
     a = npy.argmin(ijkl)
     conj = False
@@ -338,40 +256,47 @@ def symmetry(i, j, k, l):
 
     if ijkl[0] == ijkl[1] and ijkl[3] < ijkl[2]:
         npy.take(ijkl, (0, 1, 3, 2), out=ijkl)
-
+    elif ijkl[2] == ijkl[3] and ijkl[2] < ijkl[1]:
+        conj = not conj
+        npy.take(ijkl, (2, 3, 0, 1), out=ijkl)
+    
     return tuple(ijkl), conj
 
-def update_dict(i, j, k, l, done, func):
-    ijkl, conj = symmetry(i, j, k, l)
-    if conj:
-        return done.setdefault(ijkl, npy.conj(func(i, j, k, l)))
-    return done.setdefault(ijkl, func(i, j, k, l))
-   
-def get_coulomb(i, j, k, l, coulomb, done, U, dtype):
-    ijkl, conj = symmetry(i, j, k, l)
-    if dtype == float: conj = False
-    ni, nj, nk, nl = U[:, ijkl].T
-    if conj:
-        return done.setdefault(ijkl, npy.conj(
-            coulomb.get_integral(nk, ni, nj, nl)) * Hartree)
-    return done.setdefault(ijkl, coulomb.get_integral(nk, ni, nj, nl) *Hartree)
 
-def coulomb_all2(paw, U_nj, spin=0):
+def get_coulomb(i, j, k, l, coulomb, U, done={}):
+    ijkl, conj = symmetry(i, j, k, l)
+    ni, nj, nk, nl = U[:, ijkl].T
+    val = done.setdefault(ijkl, coulomb.get_integral(nk, ni, nj, nl) * Hartree)
+    
+    if conj:
+        return npy.conj(val)
+    else:
+        return val
+
+
+def coulomb_all(paw, U_nj, spin=0):
     paw.set_positions()
     nwannier = U_nj.shape[1]
     dtype = float
     if paw.dtype is complex or U_nj.dtype is complex: dtype = complex
     coulomb = Coulomb4(paw, spin)
-    done = {}
-    V_ijkl = npy.zeros([nwannier, nwannier, nwannier, nwannier], dtype)
+    if rank == Master:
+        done = {}
+        V_ijkl = npy.zeros([nwannier, nwannier, nwannier, nwannier], dtype)
+    else:
+        V_ijkl = None
     for i in range(nwannier):
         for j in range(nwannier):
             for k in range(nwannier):
                 for l in range(nwannier):
                     print 'Doing', i, j, k, l
-                    V_ijkl[i, j, k, l] = get_coulomb(i, j, k, l,
-                                                     coulomb, done, U_nj,dtype)
+                    if rank == Master:
+                        V_ijkl[i, j, k, l] = get_coulomb(
+                            i, j, k, l, coulomb, U_nj, done)
+                    else:
+                        get_coulomb(i, j, k, l, coulomb, U_nj)
     return V_ijkl
+
 
 def coulomb_pairs(paw, U_nj, spin, basis):
     paw.set_positions()
@@ -389,39 +314,8 @@ def coulomb_pairs(paw, U_nj, spin, basis):
                         for l in range(start2, end2):
                             print 'Doing', i, j, k, l
                             V_ijkl[i, j, k, l] = get_coulomb(i, j, k, l,
-                                                     coulomb, done, U_nj,dtype)
+                                                     coulomb, U_nj, done)
     return V_ijkl, done
-
-def coulomb_all(paw, U_nj, spin=0):
-    # Returns all of the Coulomb integrals
-    # V_{ijkl} = \iint drdr' / |r-r'| i*(r) j*(r') k(r) l(r')
-    # using coulomb4, which determines
-    # C4(ijkl) = \iint drdr' / |r-r'| i(r) j*(r) k*(r') l(r')
-    # i.e. V_ijkl = C4(kijl)
-    paw.set_positions()
-    coulomb4 = Coulomb4(paw, spin).get_integral
-    nwannier = U_nj.shape[1]
-    if paw.dtype is complex or U_nj.dtype is complex:
-        dtype = complex
-    else:
-        dtype = float
-
-    V_ijkl = npy.zeros([nwannier, nwannier, nwannier, nwannier], dtype)
-    for i in range(nwannier):
-        ni = U_nj[:, i]
-        for j in range(i, nwannier):
-            nj = U_nj[:, j]
-            for k in range(nwannier):
-                nk = U_nj[:, k]
-                for l in range(nwannier):
-                    nl = U_nj[:, l]
-                    print 'Doing', i, j, k, l
-                    V_ijkl[i, j, k, l] = coulomb4(nk, ni, nj, nl) * Hartree
-    
-    for i in range(nwannier):
-        for j in range(i):
-            V_ijkl[i, j] = V_ijkl[j, i].T
-    return V_ijkl
 
 
 from gpaw.utilities.tools import symmetrize

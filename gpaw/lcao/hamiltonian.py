@@ -22,6 +22,8 @@ class LCAOHamiltonian:
         self.tci = None  # two-center integrals
         self.lcao_initialized = False
         self.ng = ng
+        if debug:
+            self.eig_lcao_iteration = 0
 
         # Derivative overlaps should be evaluated lazily rather than
         # during initialization  to save memory/time. This is not implemented
@@ -188,7 +190,7 @@ class LCAOHamiltonian:
 
         if self.gd.comm.size > 1:
             self.S_kmm /= self.gd.comm.size
-            
+
         for nucleus in self.my_nuclei:
             dO_ii = nucleus.setup.O_ii
             for S_mm, P_mi in zip(self.S_kmm, nucleus.P_kmi):
@@ -204,14 +206,24 @@ class LCAOHamiltonian:
         for k in range(nkpts):
             P_mm = self.S_kmm[k].copy()
             p_m = npy.empty(self.nao)
-            self.timer.start('LCAO: diagonalize-test')
+
+            dsyev_zheev_string = 'LCAO: '+'diagonalize-test'
+
+            self.timer.start(dsyev_zheev_string)
+            if debug:
+                self.timer.start(dsyev_zheev_string+' %03d' % self.eig_lcao_iteration)
+
             if self.gd.comm.rank == 0:
                 p_m[0] = 42
                 info = diagonalize(P_mm, p_m)
                 assert p_m[0] != 42
                 if info != 0:
                     raise RuntimeError('Failed to diagonalize: info=%d' % info)
-            self.timer.stop('LCAO: diagonalize-test')
+
+            if debug:
+                self.timer.stop(dsyev_zheev_string+' %03d' % self.eig_lcao_iteration)
+                self.eig_lcao_iteration += 1
+            self.timer.stop(dsyev_zheev_string)
 
             self.gd.comm.broadcast(P_mm, 0)
             self.gd.comm.broadcast(p_m, 0)
@@ -307,7 +319,7 @@ class LCAOHamiltonian:
 
         if not (self.lcao_forces or nucleusb.in_this_domain):
             return
-        
+
         setupa = self.nuclei[a].setup
         ma = self.nuclei[a].m
         setupb = nucleusb.setup
@@ -347,7 +359,8 @@ class LCAOHamiltonian:
         nb = 0
         for nucleus in self.nuclei:
             if nucleus.phit_i is not None:
-                nb += len(nucleus.phit_i.box_b)
+                for phit in nucleus.phit_i.lf_j:
+                    nb += len(phit.box_b)
 
         # Array to hold basis set index:
         m_b = npy.empty(nb, int)
@@ -365,17 +378,20 @@ class LCAOHamiltonian:
         for nucleus in self.nuclei:
             phit_i = nucleus.phit_i
             if phit_i is not None:
-                if debug:
-                    box_b = [box.lfs for box in phit_i.box_b]
-                else:
-                    box_b = phit_i.box_b
-                b2 = b1 + len(box_b)
-                m_b[b1:b2] = m
-                lfs_b.extend(box_b)
-                if not self.gamma:
-                    phase_bk[b1:b2] = phit_i.phase_kb.T
-                b1 = b2
-            m += nucleus.get_number_of_atomic_orbitals()
+                for phit in phit_i.lf_j:
+                    if debug:
+                        box_b = [box.lfs for box in phit.box_b]
+                    else:
+                        box_b = phit.box_b
+                    b2 = b1 + len(box_b)
+                    m_b[b1:b2] = m
+                    lfs_b.extend(box_b)
+                    if not self.gamma:
+                        phase_bk[b1:b2] = phit.phase_kb.T
+                    b1 = b2
+                    m += phit.ni
+            else:
+                m += nucleus.get_number_of_atomic_orbitals()
 
         assert b1 == nb
 

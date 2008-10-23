@@ -44,6 +44,7 @@ if len(tests) == 0:
     # Fastest first, slowest last:
     tests = ['pbe-pw91.py', 'xcfunc.py', 'xc.py', 'gp2.py', 'lapack.py',
              'gradient.py', 'lf.py', 'non-periodic.py', 'lxc_xc.py',
+             'blockedmm.py',
              'transformations.py', 'Gauss.py', 'denom_int.py', 'setups.py',
              'poisson.py', 'cluster.py', 'integral4.py', 'cg2.py', 'XC2.py',
              'd2Excdn2.py', 'XC2Spin.py', 'multipoletest.py', 'eed.py',
@@ -52,7 +53,7 @@ if len(tests) == 0:
              'gauss_func.py', 'xcatom.py', 'wfs_io.py', 'ylexpand.py',
              'nonselfconsistentLDA.py', 'bee1.py', 'gga-atom.py', 'revPBE.py',
              'td_na2.py', 'nonselfconsistent.py', 'external_potential.py',
-             'bulk.py', 'spinpol.py', 'refine.py',
+             'bulk.py', 'spinpol.py', 'refine.py', 'ewald.py',
              'bulk-lcao.py', 'stdout.py', 'restart2.py', 'hydrogen.py',
              'H-force.py', 'plt.py', 'h2o-xas.py', 'degeneracy.py',
              'davidson.py', 'cg.py', 'ldos.py', 'h2o-xas-recursion.py',
@@ -91,11 +92,17 @@ if opt.exclude is not None:
 if not opt.parallel:
     exclude.extend(tests_parallel)
 
+from ase.parallel import size
+if size > 1:
+    exclude += ['wannier-ethylene.py', 'lrtddft.py', 'apmb.py']
+    
 for test in exclude:
     if test in tests:
         tests.remove(test)
 
 #gc.set_debug(gc.DEBUG_SAVEALL)
+
+import gpaw.mpi as mpi
 
 class ScriptTestCase(unittest.TestCase):
     garbage = []
@@ -108,9 +115,12 @@ class ScriptTestCase(unittest.TestCase):
 
     def testfile(self):
         try:
-            execfile(self.filename, {})
-        except KeyboardInterrupt:
-            raise RuntimeError('Keyboard interrupt')
+            try:
+                execfile(self.filename, {})
+            except KeyboardInterrupt:
+                raise RuntimeError('Keyboard interrupt')
+        finally:
+            mpi.world.barrier()
         
     def tearDown(self):
         gc.collect()
@@ -147,15 +157,14 @@ for test in tests:
     ts.addTest(ScriptTestCase(filename=test))
 
 from gpaw.utilities import devnull
+
 sys.stdout = devnull
 
-ttr = MyTextTestRunner(verbosity=opt.verbosity)
+ttr = MyTextTestRunner(verbosity=opt.verbosity, stream=sys.__stdout__)
 result = ttr.run(ts)
 failed = [test.filename for test, msg in result.failures + result.errors]
 
 sys.stdout = sys.__stdout__
 
-from gpaw.mpi import rank
-
-if rank == 0 and len(failed) > 0:
+if mpi.rank == 0 and len(failed) > 0:
     open('failed-tests.txt', 'w').write('\n'.join(failed) + '\n')
