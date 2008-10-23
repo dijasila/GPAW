@@ -217,7 +217,7 @@ class LCAOHamiltonian:
                     raise RuntimeError('Failed to diagonalize: info=%d' % info)
             else:
                 if self.gd.comm.rank == 0:
-                    info = diagonalize(P_mm, p_m, root=0)
+                    info = diagonalize(P_mm, p_m)
                     if info != 0:
                         raise RuntimeError('Failed to diagonalize: info=%d' % info)
             if debug:

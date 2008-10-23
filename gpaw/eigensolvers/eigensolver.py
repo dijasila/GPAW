@@ -224,7 +224,7 @@ class Eigensolver:
         else:
             if self.comm.rank == kpt.root:
                 if band_comm.rank == 0:
-                    info = diagonalize(H_nn, self.eps_n, root=kpt.root)
+                    info = diagonalize(H_nn, self.eps_n)
                     if info != 0:
                         raise RuntimeError('Failed to diagonalize: info=%d' % info)
         if debug:

@@ -148,13 +148,12 @@ class Overlap:
 
         self.timer.start('Orthonormalize: inverse_cholesky')
 
-        if sl_inverse_cholesky: assert parallel
-        if sl_inverse_cholesky: assert scalapack()
         if sl_inverse_cholesky:
+            assert parallel and scalapack()
             info = inverse_cholesky(S_nn, kpt.root)
         else:
             if self.comm.rank == kpt.root and self.band_comm.rank == 0:
-                info = inverse_cholesky(S_nn, kpt.root)
+                info = inverse_cholesky(S_nn)
         if sl_inverse_cholesky:
             if info != 0:
                 raise RuntimeError('Orthogonalization failed!')

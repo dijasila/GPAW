@@ -108,7 +108,7 @@ class LCAO:
                     raise RuntimeError('Failed to diagonalize: info=%d' % info)
             else:
                 if self.comm.rank == 0:
-                    info = diagonalize(H_mm, self.eps_m, self.S_mm, root=0)
+                    info = diagonalize(H_mm, self.eps_m, self.S_mm)
                     if info != 0:
                         raise RuntimeError('Failed to diagonalize: info=%d' % info)
             if debug:
@@ -184,7 +184,7 @@ class LCAO:
         else:
             if self.comm.rank == 0:
                 eps_q[0] = 42
-                info = diagonalize(H_qq, eps_q, S_qq, root=0)
+                info = diagonalize(H_qq, eps_q, S_qq)
                 assert eps_q[0] != 42
                 if info != 0:
                     raise RuntimeError('Failed to diagonalize: info=%d' % info)
