@@ -203,6 +203,7 @@ if not debug:
     right_eigenvectors = _gpaw.right_eigenvectors
 
     # For ScaLAPACK, we can't bypass the Python wrappers!
-    if not scalapack():
+    if not sl_diagonalize:
         diagonalize = _gpaw.diagonalize
+    if not sl_inverse_cholesky:
         inverse_cholesky = _gpaw.inverse_cholesky
