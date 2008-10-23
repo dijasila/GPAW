@@ -51,8 +51,8 @@ class LF:
         self.gd = gd
         self.a = a
         self.i = i
-
-        self.spline_to_grid(spline, spos_c - sdisp_c)
+        self.sdisp_c = sdisp_c
+        self.spline_to_grid(spline, spos_c)
 
     def update_position(self, spos_c):
         # Perhaps: don't do checks here, but only call on relevant ones
@@ -65,14 +65,20 @@ class LF:
         gd = self.gd
         dom = gd.domain
         h_cv = dom.cell_cv / gd.N_c[:, None]
-        pos_v = np.dot(spos_c, dom.cell_cv)
+        pos_v = np.dot(spos_c - self.sdisp_c, dom.cell_cv)
         start_c = np.ceil(np.dot(dom.icell_cv, pos_v - rcut) *
                           gd.N_c).astype(int)
         end_c = np.ceil(np.dot(dom.icell_cv, pos_v + rcut) *
                           gd.N_c).astype(int)
-
+        start_c = np.maximum(start_c, gd.beg_c)
+        end_c = np.minimum(end_c, gd.end_c)
+        assert ((end_c - start_c) > 0).all()
         self.A_gm, self.G_B = self._spline_to_grid(spline, start_c, end_c,
                                                    pos_v, h_cv)
+        print spos_c
+        #print spos_c, rcut, gd.n_c, gd.N_c, gd.n_c.prod()
+        #print start_c, end_c,  pos_v, h_cv
+        #print self.A_gm.shape, self.G_B.shape, self.G_B
         
     def _spline_to_grid(self, spline, start_c, end_c, pos_v, h_cv):
         rcut = spline.get_cutoff()
@@ -128,7 +134,7 @@ class CLF(LF):
         return _gpaw.spline_to_grid(spline.spline, start_c, end_c, pos_v, h_cv,
                                     self.gd.n_c, self.gd.beg_c)
 
-#LF = CLF
+LF = CLF
 
 class LocalizedFunctionsCollection:
     def __init__(self, gd, lfs):
