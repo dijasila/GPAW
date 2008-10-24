@@ -8,15 +8,15 @@
 #     libraries += ['somelib','otherlib']
 
 
-#compiler = 'mpcc'
+#compiler = 'nvcc'
 #libraries = []
-#libraries += []
+libraries += ['cublas']
 
 #library_dirs = []
-#library_dirs += []
+library_dirs += ['/opt/cuda/lib']
 
 #include_dirs = []
-#include_dirs += []
+include_dirs += ['/opt/cuda/include']
 
 #extra_link_args = []
 #extra_link_args += []
@@ -31,7 +31,7 @@
 #extra_objects += []
 
 #define_macros = []
-#define_macros += []
+define_macros += [('GPAW_CUDA','1')]
 
 #mpicompiler = None
 #mpi_libraries = []
