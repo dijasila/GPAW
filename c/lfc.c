@@ -3,6 +3,7 @@
 #define NO_IMPORT_ARRAY
 #include <numpy/arrayobject.h>
 #include "spline.h"
+#include "bmgs/spherical_harmonics.h"
 #include "bmgs/bmgs.h"
 
 #ifdef GPAW_AIX
@@ -36,12 +37,13 @@ PyObject* spline_to_grid(PyObject *self, PyObject *args)
   long* gdcorner_c = LONGP(gdcorner_c_obj);
 
   int l = spline_obj->spline.l;
+  int nm = 2 * l + 1;
   double rcut = spline->dr * spline->nbins;
 
   int ngmax = ((end_c[0] - beg_c[0]) *
                (end_c[1] - beg_c[1]) *
                (end_c[2] - beg_c[2]));
-  double* A_gm = GPAW_MALLOC(double, ngmax * (2 * l + 1));
+  double* A_gm = GPAW_MALLOC(double, ngmax * nm);
   
   int nBmax = ((end_c[0] - beg_c[0]) *
                (end_c[1] - beg_c[1]));
@@ -70,7 +72,14 @@ PyObject* spline_to_grid(PyObject *self, PyObject *args)
 		  if (g2_beg < 0)
 		    g2_beg = g2; // found boundary
 		  g2_end = g2;
-                  double Ar = bmgs_splinevalue(spline, r);
+                  double A = bmgs_splinevalue(spline, r);
+		  double* p = A_gm + ngm;
+		  
+		  spherical_harmonics(l, A, x, y, z, r2, p);
+		  
+		  ngm += nm;
+
+		  /*
                   if (l == 0)
                     A_gm[ngm++] = 0.28209479177387814 * Ar;
                   else
@@ -79,6 +88,7 @@ PyObject* spline_to_grid(PyObject *self, PyObject *args)
                       A_gm[ngm++] = 0.48860251190291992 * z * Ar;
                       A_gm[ngm++] = 0.48860251190291992 * x * Ar;
                     }
+		  */
                 }
             }
 	  if (g2_end >= 0)
