@@ -186,9 +186,14 @@ PyObject* calculate_potential_matrix(PyObject *self, PyObject *args)
                 int nm2 = A2_gm_obj->dimensions[1];
                 
                 double one = 1.0;
-                dgemm_("n", "t", &nm2, &nm1, &nG, &dv, 
-                       A2_gm, &nm1, A1vt_gm, &nm2, &one, 
-                       Vt_skMM + M1 * nM + M2, &nM);
+                if (M1 > M2)
+                  dgemm_("n", "t", &nm2, &nm1, &nG, &dv, 
+                         A2_gm, &nm2, A1vt_gm, &nm1, &one, 
+                         Vt_skMM + M1 * nM + M2, &nM);
+                else
+                  dgemm_("n", "t", &nm1, &nm2, &nG, &dv, 
+                         A1vt_gm, &nm1, A2_gm, &nm2, &one, 
+                         Vt_skMM + M2 * nM + M1, &nM);
               }
             g_I[I1] += nG;
           }
