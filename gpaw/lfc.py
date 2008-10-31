@@ -75,10 +75,6 @@ class LF:
         assert ((end_c - start_c) > 0).all()
         self.A_gm, self.G_B = self._spline_to_grid(spline, start_c, end_c,
                                                    pos_v, h_cv)
-        print spos_c
-        #print spos_c, rcut, gd.n_c, gd.N_c, gd.n_c.prod()
-        #print start_c, end_c,  pos_v, h_cv
-        #print self.A_gm.shape, self.G_B.shape, self.G_B
         
     def _spline_to_grid(self, spline, start_c, end_c, pos_v, h_cv):
         rcut = spline.get_cutoff()
@@ -173,6 +169,10 @@ class LocalizedFunctionsCollection:
         self.g_I = np.empty(len(self.lfs), np.intc)
         self.i_I = np.empty(len(self.lfs), np.intc)
 
+        if 0:
+            self.lfc = _gpaw.LFC([lf.A_gm for lf in self.lfs], self.M_I,
+                                 self.G_B, self.I_B, self.gd.dv)
+        
     def update_positions(self, spos_ac):
         for lf in self.lfs:
             lf.update_position(spos_ac[lf.a])
@@ -226,6 +226,7 @@ class BasisFunctions(LocalizedFunctionsCollection):
                 A_gm = lf.A_gm[self.g_I[I]:self.g_I[I] + G2 - G1]
                 nm = A_gm.shape[1]
                 nt_sG[0, G1:G2] += np.dot(A_gm**2, f_sM[0, M:M + nm])
+                
     def _add_to_density(self, nt_sG, f_sM):
         A_Igm = [lf.A_gm for lf in self.lfs]
         self.g_I[:] = 0
@@ -301,6 +302,11 @@ class BasisFunctions(LocalizedFunctionsCollection):
                                          self.g_I, self.I_i, self.i_I,
                                          self.gd.dv,
                                          self.A_gm, Vt_skMM)
+
+    def _calculate_potential_matrix(self, vt_sG, Vt_skMM):
+        Vt_skMM[:] = 0.0
+        self.lfc.calculate_potential_matrix(vt_sG[0], Vt_skMM[0,0])
+        #Vt_skMM[0,0,1,0] = Vt_skMM[0,0,0,1]
 
 
 def test():

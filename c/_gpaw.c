@@ -39,9 +39,12 @@ PyObject* vdw2(PyObject *self, PyObject *args);
 PyObject* swap_arrays(PyObject *self, PyObject *args);
 PyObject* spherical_harmonics(PyObject *self, PyObject *args);
 PyObject* spline_to_grid(PyObject *self, PyObject *args);
+PyObject* NewLFCObject(PyObject *self, PyObject *args);
+/*
 PyObject* calculate_potential_matrix(PyObject *self, PyObject *args);
 PyObject* construct_density(PyObject *self, PyObject *args);
 PyObject* construct_density1(PyObject *self, PyObject *args);
+*/
 
 static PyMethodDef functions[] = {
   {"gemm", gemm, METH_VARARGS, 0},
@@ -81,10 +84,13 @@ static PyMethodDef functions[] = {
   {"pc_potential", pc_potential, METH_VARARGS, 0},
   {"pc_potential_value", pc_potential_value, METH_VARARGS, 0},
   {"spline_to_grid", spline_to_grid, METH_VARARGS, 0},
+  {"LFC", NewLFCObject, METH_VARARGS, 0},
+  /*
   {"calculate_potential_matrix", calculate_potential_matrix, METH_VARARGS, 0},
   {"construct_density", construct_density, METH_VARARGS, 0},
   {"construct_density1", construct_density1, METH_VARARGS, 0},
- {0, 0, 0, 0}
+  */
+  {0, 0, 0, 0}
 };
 
 #ifdef PARALLEL
