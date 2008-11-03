@@ -38,11 +38,10 @@ class LCAOHamiltonian:
         self.gamma = paw.gamma
         self.dtype = paw.dtype
 
-        self.basis_functions = BasisFunctions([n.setup.phit_j
-                                               for n in paw.nuclei],
-                                              [n.spos_c for n in paw.nuclei],
-                                              paw.gd)
-        self.basis_functions.update()
+        self.basis_functions = BasisFunctions(paw.gd,
+                                              [n.setup.phit_j
+                                               for n in paw.nuclei])
+        self.basis_functions.set_positions([n.spos_c for n in self.nuclei])
         
     def initialize_lcao(self):
         """Setting up S_kmm, T_kmm and P_kmi for LCAO calculations.
@@ -54,7 +53,7 @@ class LCAOHamiltonian:
         ======    ==============================================
         """
 
-        self.basis_functions.update_positions([n.spos_c for n in self.nuclei])
+        self.basis_functions.set_positions([n.spos_c for n in self.nuclei])
 
         nkpts = len(self.ibzk_kc)
 

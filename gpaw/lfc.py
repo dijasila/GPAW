@@ -6,7 +6,7 @@ import _gpaw
 
 ===  =================================================
  M   Global localized function number.
- I   Global sphere number.
+ W   Global volume number.
  G   Global grid point number.
  g   Local (inside sphere) grid point number.
  i   Index into list of current spheres for current G.
@@ -43,197 +43,130 @@ to 7::
 
 """
 
-class LF:
-    def __init__(self, spline, spos_c, sdisp_c, gd, M, a, i):
-        self.spline = spline
-        self.l = spline.get_angular_momentum_number()
-        self.M = M
-        self.gd = gd
-        self.a = a
-        self.i = i
-        self.sdisp_c = sdisp_c
-        self.spline_to_grid(spline, spos_c)
+class Sphere:
+    def __init__(self, spline_j):
+        self.spline_j = spline_j
+        self.spos_c = None
 
-    def update_position(self, spos_c):
-        # Perhaps: don't do checks here, but only call on relevant ones
-        if (self.spos_c - spos_c).any():
-            self.spline_to_grid(self.spline, spos_c)
+    def set_position(self, spos_c, gd, cut):
+        if self.spos_c is not None and not (self.spos_c - spos_c).any():
+            return False
 
-    def spline_to_grid(self, spline, spos_c):
+        self.A_wgm = []
+        self.G_wb = []
+        self.M_w = []
+        M = 0
+        for spline in self.spline_j:
+            rcut = spline.get_cutoff()
+            l = spline.get_angular_momentum_number()
+            for beg_c, end_c, sdisp_c in gd.get_boxes(spos_c, rcut, cut):
+                A_gm, G_b = self.spline_to_grid(spline, gd, beg_c, end_c,
+                                                spos_c - sdisp_c)
+                self.A_wgm.append(A_gm)
+                self.G_wb.append(G_b)
+                self.M_w.append(M)
+            M += 2 * l + 1
+        self.Mmax = M
         self.spos_c = spos_c
-        rcut = spline.get_cutoff()
-        gd = self.gd
+        return True
+
+    def spline_to_grid(self, spline, gd, start_c, end_c, spos_c):
         dom = gd.domain
         h_cv = dom.cell_cv / gd.N_c[:, None]
-        pos_v = np.dot(spos_c - self.sdisp_c, dom.cell_cv)
-        start_c = np.ceil(np.dot(dom.icell_cv, pos_v - rcut) *
-                          gd.N_c).astype(int)
-        end_c = np.ceil(np.dot(dom.icell_cv, pos_v + rcut) *
-                          gd.N_c).astype(int)
-        start_c = np.maximum(start_c, gd.beg_c)
-        end_c = np.minimum(end_c, gd.end_c)
-        assert ((end_c - start_c) > 0).all()
-        self.A_gm, self.G_B = self._spline_to_grid(spline, start_c, end_c,
-                                                   pos_v, h_cv)
-        
-    def _spline_to_grid(self, spline, start_c, end_c, pos_v, h_cv):
-        rcut = spline.get_cutoff()
-        G_B = []
-        A_gm = []
-        for gx in range(start_c[0], end_c[0]):
-            for gy in range(start_c[1], end_c[1]):
-                gz1 = None
-                gz2 = None
-                for gz in range(start_c[2], end_c[2]):
-                    d_v = np.dot((gx, gy, gz), h_cv) - pos_v
-                    r = (d_v**2).sum()**0.5
-                    if r < rcut:
-                        if gz1 is None:
-                            gz1 = gz
-                        gz2 = gz
-                        fr = spline(r)
-                        A_gm.append([fr * Y(self.l**2 + m, *d_v)
-                                     for m in range(2 * self.l + 1)])
-                if gz2 is not None:
-                    gz2 += 1
-                    G1 = self.gd.flat_index((gx, gy, gz1))
-                    G2 = self.gd.flat_index((gx, gy, gz2))
-                    G_B.extend((G1, G2))
-                    
-        return np.array(A_gm), np.array(G_B)
-
-    def add_squared(self, a_xG, c_xm):
-        a_xG = a_xG.reshape(a_xG.shape[:-3] + (-1,))
-        g = 0
-        for G1, G2 in self.G_B.reshape((-1, 2)):
-            for m in range(2 * self.l + 1):
-                a_xG[..., G1:G2] += np.outer(c_xm[..., m],
-                                             self.A_gm[g:g + G2 - G1, m]**2)
-                                             
-            g += G2 - G1
-
-    def test(self):
-        a = self.gd.zeros()
-        b = a.ravel()
-        g = 0
-        for G1, G2 in self.G_B.reshape((-1, 2)):
-            b[G1:G2] = self.A_gm[g:g + G2 - G1, 0]
-            g += G2 - G1
-
-        import pylab as plt
-        plt.contourf(a[:, 15, :])
-        plt.show()
-
-
-class CLF(LF):
-    def _spline_to_grid(self, spline, start_c, end_c, pos_v, h_cv):
+        pos_v = np.dot(spos_c, dom.cell_cv)
         return _gpaw.spline_to_grid(spline.spline, start_c, end_c, pos_v, h_cv,
-                                    self.gd.n_c, self.gd.beg_c)
+                                    gd.n_c, gd.beg_c)
 
-LF = CLF
+
 
 class LocalizedFunctionsCollection:
-    def __init__(self, gd, lfs):
+    def __init__(self, gd, spline_aj, cut=False):
         self.gd = gd
-        self.lfs = lfs
+        self.sphere_a = [Sphere(spline_j) for spline_j in spline_aj]
+        self.cut = cut
 
-    def update(self):
-        nB = sum([len(lf.G_B) for lf in self.lfs])
+    def set_positions(self, spos_ac):
+        movement = False
+        for spos_c, sphere in zip(spos_ac, self.sphere_a):
+            movement |= sphere.set_position(spos_c, self.gd, self.cut)
 
-        nI = len(self.lfs)
-        self.M_I = np.empty(nI, np.intc)
-        
-        G_B = np.empty(nB, np.intc)
-        I_B = np.empty(nB, np.intc)
+        if movement:
+            self._update(spos_ac)
+    
+    def _update(self, spos_ac):
+        nB = 0
+        nW = 0
+        for sphere in self.sphere_a:
+            nB += sum([len(G_b) for G_b in sphere.G_wb])
+            nW += len(sphere.G_wb)
+
+        self.M_W = np.empty(nW, np.intc)
+        self.G_B = np.empty(nB, np.intc)
+        self.W_B = np.empty(nB, np.intc)
+        self.A_Wgm = []
+
         B1 = 0
-        for I, lf in enumerate(self.lfs):
-            B2 = B1 + len(lf.G_B)
-            G_B[B1:B2] = lf.G_B.ravel()
-            I_B[B1:B2:2] = I
-            I_B[B1 + 1:B2 + 1:2] = -I - 1
-            self.M_I[I] = lf.M
-            B1 = B2
-
+        W = 0
+        M = 0
+        for sphere in self.sphere_a:
+            for A_gm, G_b, dM in zip(sphere.A_wgm, sphere.G_wb, sphere.M_w):
+                self.A_Wgm.append(A_gm)
+                B2 = B1 + len(G_b)
+                self.G_B[B1:B2] = G_b
+                self.W_B[B1:B2:2] = W
+                self.W_B[B1 + 1:B2 + 1:2] = -W - 1
+                self.M_W[W] = M + dM
+                B1 = B2
+                W += 1
+            M += sphere.Mmax
+        self.Mmax = M
         assert B1 == nB
-        
-        indices = np.argsort(G_B)
-        self.G_B = G_B[indices]
-        self.I_B = I_B[indices]
+        indices = np.argsort(self.G_B)
+        self.G_B = self.G_B[indices]
+        self.W_B = self.W_B[indices]
 
-        ngmax = (self.G_B[1:] - self.G_B[:-1]).max() # XXX vacuum!!
-        lmax = 2
-        self.A_gm = np.empty((ngmax, 2 * lmax + 1))
+        self.lfc = _gpaw.LFC(self.A_Wgm, self.M_W, self.G_B, self.W_B,
+                             self.gd.dv)
 
-        nimax = np.add.accumulate((self.I_B >= 0) * 2 - 1).max()
-        self.I_i = np.empty(nimax, np.intc)
-        self.g_I = np.empty(len(self.lfs), np.intc)
-        self.i_I = np.empty(len(self.lfs), np.intc)
+        nimax = np.add.accumulate((self.W_B >= 0) * 2 - 1).max()
+        self.W_i = np.empty(nimax, np.intc)
+        self.g_W = np.empty(nW, np.intc)
+        self.i_W = np.empty(nW, np.intc)
 
-        if 0:
-            self.lfc = _gpaw.LFC([lf.A_gm for lf in self.lfs], self.M_I,
-                                 self.G_B, self.I_B, self.gd.dv)
-        
-    def update_positions(self, spos_ac):
-        for lf in self.lfs:
-            lf.update_position(spos_ac[lf.a])
-        self.update()
-        
     def griditer(self):
         """Iterate over grid points."""
-        self.g_I[:] = 0
+        self.g_W[:] = 0
         self.current_lfindices = []
         G1 = 0
-        for I, G in zip(self.I_B, self.G_B):
+        for W, G in zip(self.W_B, self.G_B):
             G2 = G
 
             yield G1, G2
             
-            self.g_I[self.current_lfindices] += G2 - G1
+            self.g_W[self.current_lfindices] += G2 - G1
 
-            if I >= 0:
-                self.current_lfindices.append(I)
+            if W >= 0:
+                self.current_lfindices.append(W)
             else:
-                self.current_lfindices.remove(-1 - I)
+                self.current_lfindices.remove(-1 - W)
 
             G1 = G2
 
 
 class BasisFunctions(LocalizedFunctionsCollection):
-    def __init__(self, spline_aj, spos_ac, gd, cut=True):
-        lfs = []
-        M = 0
-        for a, (spline_j, spos_c) in enumerate(zip(spline_aj, spos_ac)):
-            i = 0
-            for spline in spline_j:
-                rcut = spline.get_cutoff()
-                for beg_c, end_c, sdisp_c in gd.get_boxes(spos_c, rcut, cut):
-                    lfs.append(LF(spline, spos_c, sdisp_c, gd, M, a, i))
-                l = spline.get_angular_momentum_number()
-                i += 2 * l + 1
-                M += 2 * l + 1
-        self.Mmax = M
-
-        LocalizedFunctionsCollection.__init__(self, gd, lfs)
-
     def add_to_density(self, nt_sG, f_sM):
         nspins = len(nt_sG)
         nt_sG = nt_sG.reshape((nspins, -1))
 
         for G1, G2 in self.griditer():
-            for I in self.current_lfindices:
-                lf = self.lfs[I]
-                M = self.M_I[I]
-                A_gm = lf.A_gm[self.g_I[I]:self.g_I[I] + G2 - G1]
+            for W in self.current_lfindices:
+                M = self.M_W[W]
+                A_gm = self.A_Wgm[W][self.g_W[W]:self.g_W[W] + G2 - G1]
                 nm = A_gm.shape[1]
                 nt_sG[0, G1:G2] += np.dot(A_gm**2, f_sM[0, M:M + nm])
                 
-    def _add_to_density(self, nt_sG, f_sM):
-        A_Igm = [lf.A_gm for lf in self.lfs]
-        self.g_I[:] = 0
-        _gpaw.construct_density1(A_Igm, f_sM,
-                                 self.M_I, self.G_B, self.I_B,
-                                 self.g_I, self.I_i, self.i_I,
-                                 nt_sG)
+    def add_to_density(self, nt_sG, f_sM):
+        self.lfc.construct_density1(f_sM[0], nt_sG[0])
 
     def construct_density(self, rho_MM, nt_G):
         """Calculate electron density from density matrix.
@@ -246,28 +179,19 @@ class BasisFunctions(LocalizedFunctionsCollection):
         nt_G = nt_G.ravel()
 
         for G1, G2 in self.griditer():
-            for I1 in self.current_lfindices:
-                lf1 = self.lfs[I1]
-                M1 = lf1.M
-                f1_gm = lf1.A_gm[self.g_I[I1]:self.g_I[I1] + G2 - G1]
-                for I2 in self.current_lfindices:
-                    lf2 = self.lfs[I2]
-                    M2 = lf2.M
-                    f2_gm = lf2.A_gm[self.g_I[I2]:self.g_I[I2] + G2 - G1]
-                    rho_mm = rho_MM[M1:M1 + 2 * lf1.l + 1,
-                                    M2:M2 + 2 * lf2.l + 1]
-                    for m1 in range(2 * lf1.l + 1):
-                        for m2 in range(2 * lf2.l + 1):
-                            nt_G[G1:G2] += (rho_mm[m1, m2] *
-                                            f1_gm[:, m1] * f2_gm[:, m2])
+            for W1 in self.current_lfindices:
+                M1 = self.M_W[W1]
+                f1_gm = self.A_Wgm[W1][self.g_W[W1]:self.g_W[W1] + G2 - G1]
+                nm1 = f1_gm.shape[1]
+                for W2 in self.current_lfindices:
+                    M2 = self.M_W[W2]
+                    f2_gm = self.A_Wgm[W2][self.g_W[W2]:self.g_W[W2] + G2 - G1]
+                    nm2 = f2_gm.shape[1]
+                    rho_mm = rho_MM[M1:M1 + nm1, M2:M2 + nm2]
+                    nt_G[G1:G2] += (np.dot(f1_gm, rho_mm) * f2_gm).sum(1)
         
-    def _construct_density(self, rho_MM, nt_G):
-        A_Igm = [lf.A_gm for lf in self.lfs]
-        self.g_I[:] = 0
-        _gpaw.construct_density(A_Igm, rho_MM,
-                                self.M_I, self.G_B, self.I_B,
-                                self.g_I, self.I_i, self.i_I,
-                                self.A_gm, nt_G)
+    def construct_density(self, rho_MM, nt_G):
+        self.lfc.construct_density(rho_MM, nt_G)
 
     def calculate_potential_matrix(self, vt_sG, Vt_skMM):
         vt_sG = vt_sG.reshape((len(vt_sG), -1))
@@ -276,37 +200,21 @@ class BasisFunctions(LocalizedFunctionsCollection):
         dv = self.gd.dv
 
         for G1, G2 in self.griditer():
-            for I1 in self.current_lfindices:
-                lf1 = self.lfs[I1]
-                M1 = lf1.M
-                f1_gm = lf1.A_gm[self.g_I[I1]:self.g_I[I1] + G2 - G1]
-                for I2 in self.current_lfindices:
-                    lf2 = self.lfs[I2]
-                    M2 = lf2.M
-                    f2_gm = lf2.A_gm[self.g_I[I2]:self.g_I[I2] + G2 - G1]
-                    Vt_mm = Vt_skMM[0, 0,
-                                    M1:M1 + 2 * lf1.l + 1,
-                                    M2:M2 + 2 * lf2.l + 1]
-                    for m1 in range(2 * lf1.l + 1):
-                        for m2 in range(2 * lf2.l + 1):
-                            Vt_mm[m1, m2] += np.dot(vt_sG[0, G1:G2],
-                                                    f1_gm[:, m1] *
-                                                    f2_gm[:, m2]) * dv
+            for W1 in self.current_lfindices:
+                M1 = self.M_W[W1]
+                f1_gm = self.A_Wgm[W1][self.g_W[W1]:self.g_W[W1] + G2 - G1]
+                nm1 = f1_gm.shape[1]
+                for W2 in self.current_lfindices:
+                    M2 = self.M_W[W2]
+                    f2_gm = self.A_Wgm[W2][self.g_W[W2]:self.g_W[W2] + G2 - G1]
+                    nm2 = f2_gm.shape[1]
+                    Vt_mm = Vt_skMM[0,0,M1:M1 + nm1, M2:M2 + nm2]
+                    Vt_mm += np.dot(f1_gm.T, vt_sG[0, G1:G2, None] * f2_gm) * dv
 
-    def _calculate_potential_matrix(self, vt_sG, Vt_skMM):
-        A_Igm = [lf.A_gm for lf in self.lfs]
-        self.g_I[:] = 0
-        Vt_skMM[:] = 0.0
-        _gpaw.calculate_potential_matrix(A_Igm, vt_sG,
-                                         self.M_I, self.G_B, self.I_B,
-                                         self.g_I, self.I_i, self.i_I,
-                                         self.gd.dv,
-                                         self.A_gm, Vt_skMM)
-
-    def _calculate_potential_matrix(self, vt_sG, Vt_skMM):
+    def calculate_potential_matrix(self, vt_sG, Vt_skMM):
+        # Lower part only.
         Vt_skMM[:] = 0.0
         self.lfc.calculate_potential_matrix(vt_sG[0], Vt_skMM[0,0])
-        #Vt_skMM[0,0,1,0] = Vt_skMM[0,0,0,1]
 
 
 def test():
@@ -339,6 +247,36 @@ def test():
     plt.show()
     return xy
     
-    
+class Sphere0(Sphere):
+    def spline_to_grid(self, spline, gd, start_c, end_c, spos_c):
+        dom = gd.domain
+        h_cv = dom.cell_cv / gd.N_c[:, None]
+        pos_v = np.dot(spos_c, dom.cell_cv)
+        rcut = spline.get_cutoff()
+        l = spline.get_angular_momentum_number()
+        G_B = []
+        A_gm = []
+        for gx in range(start_c[0], end_c[0]):
+            for gy in range(start_c[1], end_c[1]):
+                gz1 = None
+                gz2 = None
+                for gz in range(start_c[2], end_c[2]):
+                    d_v = np.dot((gx, gy, gz), h_cv) - pos_v
+                    r = (d_v**2).sum()**0.5
+                    if r < rcut:
+                        if gz1 is None:
+                            gz1 = gz
+                        gz2 = gz
+                        fr = spline(r)
+                        A_gm.append([fr * Y(l**2 + m, *d_v)
+                                     for m in range(2 * l + 1)])
+                if gz2 is not None:
+                    gz2 += 1
+                    G1 = gd.flat_index((gx, gy, gz1))
+                    G2 = gd.flat_index((gx, gy, gz2))
+                    G_B.extend((G1, G2))
+                    
+        return np.array(A_gm), np.array(G_B)
+#Sphere = Sphere0
 if __name__ == '__main__':
     test()

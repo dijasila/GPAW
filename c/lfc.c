@@ -7,13 +7,6 @@
 #include "bmgs/spherical_harmonics.h"
 #include "bmgs/bmgs.h"
 
-#ifdef GPAW_AIX
-#  define dgemm_ dgemm
-#endif
-int dgemm_(char *transa, char *transb, int *m, int * n,
-	   int *k, double *alpha, const double *a, int *lda,
-	   const double *b, int *ldb, double *beta,
-	   double *c, int *ldc);
 
 static void lfc_dealloc(LFCObject *self)
 {
@@ -26,10 +19,16 @@ static void lfc_dealloc(LFCObject *self)
 }
 
 PyObject* calculate_potential_matrix(PyObject *self, PyObject *args);
+PyObject* construct_density(PyObject *self, PyObject *args);
+PyObject* construct_density1(LFCObject *self, PyObject *args);
 
 static PyMethodDef lfc_methods[] = {
     {"calculate_potential_matrix",
      (PyCFunction)calculate_potential_matrix, METH_VARARGS, 0},
+    {"construct_density",
+     (PyCFunction)construct_density, METH_VARARGS, 0},
+    {"construct_density1",
+     (PyCFunction)construct_density1, METH_VARARGS, 0},
 #ifdef PARALLEL
     {"broadcast",
      (PyCFunction)localized_functions_broadcast, METH_VARARGS, 0},
@@ -100,12 +99,13 @@ PyObject * NewLFCObject(PyObject *obj, PyObject *args)
             nimax = ni;
           ni--;
         }
+      Ga = Gb;
     }
   assert(ni == 0);
   
   self->volume_W = GPAW_MALLOC(LFVolume, nW);
   self->i_W = GPAW_MALLOC(int, nW);
-  self->ng_W = GPAW_MALLOC(int, nW);
+  self->ngm_W = GPAW_MALLOC(int, nW);
 
   int nmmax = 0;
   for (int W = 0; W < nW; W++)
@@ -114,7 +114,7 @@ PyObject * NewLFCObject(PyObject *obj, PyObject *args)
         (const PyArrayObject*)PyList_GetItem(A_Wgm_obj, W);
       LFVolume* volume = &self->volume_W[W];
       volume->A_gm = (const double*)A_gm_obj->data;
-      self->ng_W[W] = A_gm_obj->dimensions[0];
+      self->ngm_W[W] = A_gm_obj->dimensions[0] * A_gm_obj->dimensions[1];
       volume->nm = A_gm_obj->dimensions[1];
       volume->M = M_W[W];
       volume->W = W;
@@ -122,7 +122,6 @@ PyObject * NewLFCObject(PyObject *obj, PyObject *args)
         nmmax = volume->nm;
     }
 
-  printf("AAAAA: %d %d %d %d %d %f\n", nimax, ngmax, nmmax, nB, nW, dv);
   self->work_gm = GPAW_MALLOC(double, ngmax * nmmax);
   self->volume_i = GPAW_MALLOC(LFVolume, nimax);
   if (!self->gamma)
@@ -130,58 +129,6 @@ PyObject * NewLFCObject(PyObject *obj, PyObject *args)
 
   return (PyObject*)self;
 }
-
-#define GRID_LOOP_START(lfc, k)                \
-  int* G_B = lfc->G_B;                                 \
-  int* W_B = lfc->W_B;                                     \
-  int* i_W = lfc->i_W;                                     \
-  complex double* phase_i = lfc->phase_i;                  \
-  LFVolume* volume_i = lfc->volume_i;                      \
-  LFVolume* volume_W = lfc->volume_W;                          \
-  bool kpoints = !(lfc->gamma);                                \
-  double complex* phase_W = lfc->phase_kW + k * lfc->nW;      \
-  int Ga = 0;                                                   \
-  int ni = 0;                                                   \
-  for (int B = 0; B < lfc->nB; B++)                                \
-    {                                                           \
-      int Gb = G_B[B];                                          \
-      int nG = Gb - Ga;                                         \
-      if (nG > 0)                                               \
-        {
-
-#define GRID_LOOP_STOP(lfc)                                            \
-          for (int i = 0; i < ni; i++)                                  \
-            volume_i[i].A_gm += nG;                                     \
-        }                                                               \
-      int Wnew = W_B[B];                                                \
-      if (Wnew >= 0)                                                    \
-        {                                                               \
-          /* Entering new sphere: */                                    \
-          volume_i[ni] = volume_W[Wnew];                                \
-          if (kpoints)                                                  \
-            phase_i[ni] = phase_W[Wnew];                                \
-          i_W[Wnew] = ni;                                               \
-          ni++;                                                         \
-        }                                                               \
-      else                                                              \
-        {                                                               \
-          /* Leaving sphere: */                                         \
-          int Wold = -1 - Wnew;                                         \
-          int iold = i_W[Wold];                                         \
-          volume_W[Wold].A_gm = volume_i[iold].A_gm;                    \
-          ni--;                                                         \
-          volume_i[iold] = volume_i[ni];                                \
-          if (kpoints)                                                  \
-            phase_i[iold] = phase_i[ni];                                \
-          int Wlast = volume_i[iold].W;                                 \
-          i_W[Wlast] = iold;                                            \
-        }                                                               \
-      Ga = Gb;                                                          \
-    }                                                                   \
-  for (int W = 0; lfc->nW < 2; W++)                                    \
-    volume_W[W].A_gm -= lfc->ng_W[W];
-
-
 
 PyObject* calculate_potential_matrix(PyObject *self, PyObject *args)
 {
@@ -198,7 +145,7 @@ PyObject* calculate_potential_matrix(PyObject *self, PyObject *args)
 
   LFCObject* lfc = (LFCObject*)self;
 
-  GRID_LOOP_START(lfc, 0)
+  GRID_LOOP_START(lfc, -1)
     {
       for (int i1 = 0; i1 < ni; i1++)
         {
@@ -207,217 +154,124 @@ PyObject* calculate_potential_matrix(PyObject *self, PyObject *args)
           int nm1 = v1->nm;
           int gm1 = 0;
           for (int G = Ga; G < Gb; G++)
-            for (int m1 = 0; m1 < v1->nm; m1++, gm1++)
+            for (int m1 = 0; m1 < nm1; m1++, gm1++)
               lfc->work_gm[gm1] = vt_G[G] * v1->A_gm[gm1];
           
+          for (int i2 = 0; i2 < ni; i2++)
+            {
+              LFVolume* v2 = volume_i + i2;
+              int M2 = v2->M;
+              int nm2 = v2->nm;
+              if (1)//(M1 > M2)
+		{
+		  double* Vt_mm = Vt_MM + M1 * nM + M2;
+		  for (int g = 0; g < nG; g++)
+		    for (int m1 = 0; m1 < nm1; m1++)
+		      for (int m2 = 0; m2 < nm2; m2++)
+			Vt_mm[m2 + m1 * nM] += (v2->A_gm[g * nm2 + m2] * 
+						lfc->work_gm[g * nm1 + m1] *
+						lfc->dv);
+		}
+	      else
+		{
+		  double* Vt_mm = Vt_MM + M2 * nM + M1;
+		  for (int g = 0; g < nG; g++)
+		    for (int m2 = 0; m2 < nm2; m2++)
+		      for (int m1 = 0; m1 < nm1; m1++)
+			Vt_mm[m1 + m2 * nM] += (v2->A_gm[g * nm2 + m2] * 
+						lfc->work_gm[g * nm1 + m1] *
+						lfc->dv);
+		}
+            }
+        }
+    }
+  GRID_LOOP_STOP(lfc, -1);
+  Py_RETURN_NONE;
+}
+
+
+PyObject* construct_density(PyObject *self, PyObject *args)
+{
+  const PyArrayObject* rho_MM_obj;
+  PyArrayObject* nt_G_obj;
+  
+  if (!PyArg_ParseTuple(args, "OO", &rho_MM_obj, &nt_G_obj))
+    return NULL; 
+  
+  const double* rho_MM = (const double*)rho_MM_obj->data;
+  double* nt_G = (double*)nt_G_obj->data;
+  
+  int nM = rho_MM_obj->dimensions[0];
+  
+  LFCObject* lfc = (LFCObject*)self;
+  
+  GRID_LOOP_START(lfc, -1)
+    {
+      for (int i1 = 0; i1 < ni; i1++)
+        {
+          LFVolume* v1 = volume_i + i1;
+          int M1 = v1->M;
+          int nm1 = v1->nm;
+	  memset(lfc->work_gm, 0, nG * nm1 * sizeof(double));
+	  double factor = 1.0;
           for (int i2 = i1; i2 < ni; i2++)
             {
               LFVolume* v2 = volume_i + i2;
               int M2 = v2->M;
               int nm2 = v2->nm;
-              double one = 1.0;
-              if (M1 > M2)
-                dgemm_("n", "t", &nm2, &nm1, &nG, &lfc->dv, 
-                       v2->A_gm, &nm2, lfc->work_gm, &nm1, &one, 
-                       Vt_MM + M1 * nM + M2, &nM);
-              else
-                dgemm_("n", "t", &nm1, &nm2, &nG, &lfc->dv, 
-                       lfc->work_gm, &nm1, v2->A_gm, &nm2, &one, 
-                       Vt_MM + M2 * nM + M1, &nM);
-            }
-        }
+	      const double* rho_mm = rho_MM + M1 * nM + M2;
+	      for (int g = 0; g < nG; g++)
+		for (int m2 = 0; m2 < nm2; m2++)
+		  for (int m1 = 0; m1 < nm1; m1++)
+		    lfc->work_gm[m1 + g * nm1] += (v2->A_gm[g * nm2 + m2] * 
+						   rho_mm[m2 + m1 * nM] *
+						   factor);
+	      /*
+	      dgemm_("t", "n", &nm1, &nG, &nm2, &factor, 
+		     rho_MM + M1 * nM + M2, &nM,
+		     v2->A_gm, &nm2,
+		     &one, lfc->work_gm, &nm1);*/
+	      factor = 2.0;
+	    }
+	  int gm1 = 0;
+	  for (int G = Ga; G < Gb; G++)
+	    {
+	      double nt = 0.0;
+	      for (int m1 = 0; m1 < nm1; m1++, gm1++)
+		nt += v1->A_gm[gm1] * lfc->work_gm[gm1];
+	      nt_G[G] += nt;
+	    }
+	}
     }
-  GRID_LOOP_STOP(lfc);
-  printf("(%d,%d)\n",nM,42);
+  GRID_LOOP_STOP(lfc, -1);
   Py_RETURN_NONE;
 }
 
-/*
-PyObject* construct_density(PyObject *self, PyObject *args)
+PyObject* construct_density1(LFCObject *lfc, PyObject *args)
 {
-  PyObject* A_Igm_obj;
-  const PyArrayObject* rho_MM_obj;
-  const PyArrayObject* M_I_obj;
-  const PyArrayObject* G_B_obj;
-  const PyArrayObject* I_B_obj;
-  PyArrayObject* g_I_obj;
-  PyArrayObject* I_i_obj;
-  PyArrayObject* i_I_obj;
-  PyArrayObject* A_gm_obj;
+  const PyArrayObject* f_M_obj;
   PyArrayObject* nt_G_obj;
-
-  if (!PyArg_ParseTuple(args, "OOOOOOOOOO", &A_Igm_obj, &rho_MM_obj,
-                        &M_I_obj,
-                        &G_B_obj, &I_B_obj, &g_I_obj, &I_i_obj, &i_I_obj,
-                        &A_gm_obj, &nt_G_obj))
+  
+  if (!PyArg_ParseTuple(args, "OO", &f_M_obj, &nt_G_obj))
     return NULL; 
-
-  const double* rho_MM = (const double*)rho_MM_obj->data;
-  const int* M_I = (const int*)M_I_obj->data;
-  const int* G_B = (const int*)G_B_obj->data;
-  const int* I_B = (const int*)I_B_obj->data;
-
-  int* g_I = (int*)g_I_obj->data;
-  int* I_i = (int*)I_i_obj->data;
-  int* i_I = (int*)i_I_obj->data;
-
-  double* Arho_gm = (double*)A_gm_obj->data;
+  
+  const double* f_M = (const double*)f_M_obj->data;
   double* nt_G = (double*)nt_G_obj->data;
-
-  int nM = rho_MM_obj->dimensions[0];
-  int nB = G_B_obj->dimensions[0];
-
-  int Ga = 0;
-  int B = 0;
-  int ni = 0;
-  while (B < nB)
+  
+  GRID_LOOP_START(lfc, -1)
     {
-      int Gb = G_B[B];
-      int nG = Gb - Ga;
-      if (nG > 0)
-        // Do work for [Ga:Gb) range:
-        for (int i1 = 0; i1 < ni; i1++)
-          {
-            int I1 = I_i[i1];
-            int M1 = M_I[I1];
-            const PyArrayObject* A1_gm_obj = \
-              (const PyArrayObject*)PyList_GetItem(A_Igm_obj, I1);
-            const double* A1_gm = (const double*)A1_gm_obj->data + g_I[I1];
-            int nm1 = A1_gm_obj->dimensions[1];
-            memset(Arho_gm, 0, nG * nm1 * sizeof(double));
-
-            double factor = 1.0;
-            for (int i2 = i1; i2 < ni; i2++)
-              {
-                int I2 = I_i[i2];
-                int M2 = M_I[I2];
-                const PyArrayObject* A2_gm_obj = \
-                  (const PyArrayObject*)PyList_GetItem(A_Igm_obj, I2);
-                const double* A2_gm = ((const double*)A2_gm_obj->data +
-                                       g_I[I2]);
-                int nm2 = A2_gm_obj->dimensions[1];
-                
-                double one = 1.0;
-                dgemm_("t", "n", &nm1, &nG, &nm2, &factor, 
-                       rho_MM + M1 * nM + M2, &nM,
-                       A2_gm, &nm2,
-                       &one, Arho_gm, &nm1);
-                factor = 2.0;
-              }
-            int gm1 = 0;
-            for (int G = Ga; G < Gb; G++)
-              {
-                double nt = 0.0;
-                for (int m1 = 0; m1 < nm1; m1++, gm1++)
-                  nt += A1_gm[gm1] * Arho_gm[gm1];
-                nt_G[G] += nt;
-              }
-            g_I[I1] += nG;
-          }
-      int Inew = I_B[B];
-      if (Inew >= 0)
-        {
-          // Entering new sphere:
-          I_i[ni] = Inew;
-          i_I[Inew] = ni;
-          ni++;
-        }
-      else
-        {
-          // Leaving sphere:
-          Inew = -1 - Inew;
-          ni--;
-          int Ilast = I_i[ni];
-          int ihole = i_I[Inew];
-          I_i[ihole] = Ilast;
-          i_I[Ilast] = ihole;
-        }
-      Ga = Gb;
-      B++;
+      for (int i = 0; i < ni; i++)
+	{
+	  LFVolume* v = volume_i + i;
+	  for (int gm = 0, G = Ga; G < Gb; G++)
+	    for (int m = 0; m < v->nm; m++, gm++)
+	      nt_G[G] += v->A_gm[gm] * v->A_gm[gm] * f_M[v->M];
+	}
     }
+  GRID_LOOP_STOP(lfc, -1);
   Py_RETURN_NONE;
 }
 
-
-PyObject* construct_density1(PyObject *self, PyObject *args)
-{
-  PyObject* A_Igm_obj;
-  const PyArrayObject* f_sM_obj;
-  const PyArrayObject* M_I_obj;
-  const PyArrayObject* G_B_obj;
-  const PyArrayObject* I_B_obj;
-  PyArrayObject* g_I_obj;
-  PyArrayObject* I_i_obj;
-  PyArrayObject* i_I_obj;
-  PyArrayObject* nt_sG_obj;
-
-  if (!PyArg_ParseTuple(args, "OOOOOOOOO", &A_Igm_obj, &f_sM_obj,
-                        &M_I_obj,
-                        &G_B_obj, &I_B_obj, &g_I_obj, &I_i_obj, &i_I_obj,
-                        &nt_sG_obj))
-    return NULL; 
-
-  const double* f_sM = (const double*)f_sM_obj->data;
-  const int* M_I = (const int*)M_I_obj->data;
-  const int* G_B = (const int*)G_B_obj->data;
-  const int* I_B = (const int*)I_B_obj->data;
-
-  int* g_I = (int*)g_I_obj->data;
-  int* I_i = (int*)I_i_obj->data;
-  int* i_I = (int*)i_I_obj->data;
-
-  double* nt_sG = (double*)nt_sG_obj->data;
-
-  int nB = G_B_obj->dimensions[0];
-
-  int Ga = 0;
-  int B = 0;
-  int ni = 0;
-  while (B < nB)
-    {
-      int Gb = G_B[B];
-      int nG = Gb - Ga;
-      if (nG > 0)
-        // Do work for [Ga:Gb) range:
-        for (int i = 0; i < ni; i++)
-          {
-            int II = I_i[i];
-            int M = M_I[II];
-            const PyArrayObject* A_gm_obj = \
-              (const PyArrayObject*)PyList_GetItem(A_Igm_obj, II);
-            const double* A_gm = (const double*)A_gm_obj->data + g_I[II];
-            int nm = A_gm_obj->dimensions[1];
-            //int gm = 0;
-            for (int gm = 0, G = Ga; G < Gb; G++)
-              for (int m = 0; m < nm; m++, gm++)
-                nt_sG[G] += A_gm[gm] * A_gm[gm] * f_sM[M];
-            g_I[II] += nG;
-          }
-      int Inew = I_B[B];
-      if (Inew >= 0)
-        {
-          // Entering new sphere:
-          I_i[ni] = Inew;
-          i_I[Inew] = ni;
-          ni++;
-        }
-      else
-        {
-          // Leaving sphere:
-          Inew = -1 - Inew;
-          ni--;
-          int Ilast = I_i[ni];
-          int ihole = i_I[Inew];
-          I_i[ihole] = Ilast;
-          i_I[Ilast] = ihole;
-        }
-      Ga = Gb;
-      B++;
-    }
-  Py_RETURN_NONE;
-}
-
-*/
 PyObject* spline_to_grid(PyObject *self, PyObject *args)
 {
   const SplineObject* spline_obj;
