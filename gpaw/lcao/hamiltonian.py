@@ -18,19 +18,23 @@ from _gpaw import overlap
 class LCAOHamiltonian:
     """Hamiltonian class for LCAO-basis calculations."""
 
-    def __init__(self, ng=2**12):
+    def __init__(self, basis_functions, hamiltonian, ng=2**12):
         self.tci = None  # two-center integrals
         self.lcao_initialized = False
         self.ng = ng
         if debug:
             self.eig_lcao_iteration = 0
+        self.basis_functions = basis_functions
+        self.nuclei = hamiltonian.nuclei
+        self.my_nuclei = hamiltonian.my_nuclei
+        self.gd = hamiltonian.gd
+        self.timer = hamiltonian.timer
 
         # Derivative overlaps should be evaluated lazily rather than
         # during initialization  to save memory/time. This is not implemented
         # yet, so presently we disable this.  Change behaviour by setting
         # this boolean.
         self.lcao_forces = False # XXX
-        self.basis_functions = None
 
     def initialize(self, paw):
         self.setups = paw.setups
@@ -38,11 +42,6 @@ class LCAOHamiltonian:
         self.gamma = paw.gamma
         self.dtype = paw.dtype
 
-        self.basis_functions = BasisFunctions(paw.gd,
-                                              [n.setup.phit_j
-                                               for n in paw.nuclei])
-        self.basis_functions.set_positions([n.spos_c for n in self.nuclei])
-        
     def initialize_lcao(self):
         """Setting up S_kmm, T_kmm and P_kmi for LCAO calculations.
 
@@ -210,7 +209,8 @@ class LCAOHamiltonian:
 
             self.timer.start(dsyev_zheev_string)
             if debug:
-                self.timer.start(dsyev_zheev_string+' %03d' % self.eig_lcao_iteration)
+                self.timer.start(dsyev_zheev_string +
+                                 ' %03d' % self.eig_lcao_iteration)
 
             if self.gd.comm.rank == 0:
                 p_m[0] = 42
@@ -220,7 +220,8 @@ class LCAOHamiltonian:
                     raise RuntimeError('Failed to diagonalize: info=%d' % info)
 
             if debug:
-                self.timer.stop(dsyev_zheev_string+' %03d' % self.eig_lcao_iteration)
+                self.timer.stop(dsyev_zheev_string +
+                                ' %03d' % self.eig_lcao_iteration)
                 self.eig_lcao_iteration += 1
             self.timer.stop(dsyev_zheev_string)
 

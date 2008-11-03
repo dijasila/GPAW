@@ -22,18 +22,18 @@ from gpaw import parsize, parsize_bands, dry_run
 from gpaw import KohnShamConvergenceError
 from gpaw.density import Density
 from gpaw.eigensolvers import get_eigensolver
-from gpaw.eigensolvers.eigensolver import Eigensolver
 from gpaw.poisson import PoissonSolver
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.hamiltonian import Hamiltonian
 from gpaw.overlap import Overlap
 from gpaw.lcao.eigensolver import LCAO
-from gpaw.kpoint import KPoint
+from gpaw.kpoint import KPoint, KPointCollection
 from gpaw.localized_functions import LocFuncBroadcaster
 from gpaw.utilities.timing import Timer
 from gpaw.xc_functional import XCFunctional
 from gpaw.mpi import run, MASTER
 from gpaw.brillouin import reduce_kpoints
+from gpaw.wavefunctions import Gridmotron, LCAOmatic
 import _gpaw
 
 
@@ -255,8 +255,8 @@ class PAW(PAWExtra, Output):
         self.initialized = False
         self.converged = False
         self.error = {}
-        self.wave_functions_initialized = False
-        self.wave_functions_orthonormalized = False
+        #self.wave_functions_initialized = False
+        #self.wave_functions_orthonormalized = False
         self.callback_functions = []
         self.niter = 0
         self.F_ac = None
@@ -264,7 +264,8 @@ class PAW(PAWExtra, Output):
         
         self.eigensolver = None
         self.density = None
-        self.kpt_u = None
+        self.kpoints = None
+        self.wfs = None
         self.nbands = None
         self.nmybands = None
         self.atoms = None
@@ -319,12 +320,12 @@ class PAW(PAWExtra, Output):
             elif key in ['charge', 'xc']:
                 self.reuse_old_density = False
             elif key in ['kpts', 'nbands']:
-                self.kpt_u = None
+                self.kpoints = None
             elif key in ['h', 'gpts', 'setups', 'basis', 'spinpol',
                          'usesymm', 'parsize', 'parsize_bands',
                          'communicator']:
                 self.reuse_old_density = False
-                self.kpt_u = None
+                self.kpoints = None
             else:
                 raise TypeError('Unknown keyword argument:' + key)
             
@@ -338,7 +339,7 @@ class PAW(PAWExtra, Output):
               (atoms.get_cell() != self.atoms.get_cell()).any() or
               (atoms.get_pbc() != self.atoms.get_pbc()).any()))):
             # Drastic changes:
-            self.kpt_u = None
+            self.kpoints = None
             self.reuse_old_density = False
             self.initialize(atoms)
             self.print_parameters()
@@ -373,9 +374,12 @@ class PAW(PAWExtra, Output):
             self.hamiltonian.initialize(self)
         if not self.density.initialized:
             self.density.initialize(self)
-
         self.set_positions(atoms)
         self.initialize_kinetic()
+
+        self.wfs.initialize(self, atoms, self.hamiltonian,
+                            self.density, self.eigensolver)
+        """
         
         if not self.eigensolver.initialized:
             # We know that we have enough memory to initialize the
@@ -383,16 +387,20 @@ class PAW(PAWExtra, Output):
             self.eigensolver.initialize(self)
         if not self.wave_functions_initialized:
             self.initialize_wave_functions()
+        
+        """
+        
         if not self.wave_functions_orthonormalized:
             self.orthonormalize_wave_functions()
         if not self.density.starting_density_initialized:
-            self.density.update(self.kpt_u, self.symmetry)
+            self.density.update(self.wfs, self.symmetry)
         if self.xcfunc.is_gllb():
             if not self.xcfunc.xc.initialized:
                 self.xcfunc.initialize_gllb(self)
 
         self.hamiltonian.update(self.density)
-
+        
+        
         # Self-consistency loop:
         while not self.converged:
             if self.niter > self.maxiter:
@@ -413,12 +421,12 @@ class PAW(PAWExtra, Output):
         
     def step(self):
         if self.niter > self.fixdensity:
-            self.density.update(self.kpt_u, self.symmetry,
+            self.density.update(self.wfs, self.symmetry,
                                 self.hamiltonian.lcao_initialized)
             self.update_kinetic()
             self.hamiltonian.update(self.density)
 
-        self.eigensolver.iterate(self.hamiltonian, self.kpt_u)
+        self.eigensolver.iterate(self.hamiltonian, self.wfs)
 
         # Make corrections due to non-local xc:
         xcfunc = self.hamiltonian.xc.xcfunc
@@ -426,7 +434,7 @@ class PAW(PAWExtra, Output):
         self.Enlkin = xcfunc.get_non_local_kinetic_corrections()
 
         # Calculate occupation numbers:
-        self.occupation.calculate(self.kpt_u)
+        self.occupation.calculate(self.kpoints.kpt_u)
 
     def add_up_energies(self):
         H = self.hamiltonian
@@ -529,18 +537,9 @@ class PAW(PAWExtra, Output):
     def initialize_wave_functions(self):
         # do at least the first 3 iterations with fixed density
         self.fixdensity = max(2, self.fixdensity)
+        wfs = self.wfs
 
-        if self.eigensolver.lcao:
-            if not self.density.starting_density_initialized:
-                self.density.initialize_from_atomic_density()
-
-            for kpt in self.kpt_u:
-                kpt.allocate(self.nmybands)
-
-            self.wave_functions_initialized = True
-            return
-        
-        if self.kpt_u[0].psit_nG is None:
+        if self.kpoints.kpt_u[0].psit_nG is None:
             # Initialize wave functions from atomic orbitals:
             self.text('Atomic orbitals used for initialization:', self.nao)
             if self.nbands > self.nao:
@@ -548,56 +547,10 @@ class PAW(PAWExtra, Output):
                           self.nbands - self.nao)
 
             if self.nao > 0:
-                original_eigensolver = self.eigensolver
-                original_nbands = self.nbands
-                original_nmybands = self.nmybands
-                original_maxiter = self.maxiter
-
-                self.maxiter = 0
-                self.nbands = min(self.nbands, self.nao)
-                if self.band_comm.size == 1:
-                    self.nmybands = self.nbands
-
-                self.eigensolver = get_eigensolver('lcao')
-
-                for nucleus in self.my_nuclei:
-                    nucleus.reallocate(self.nmybands)
-
-                self.density.lcao = True
-
-                try:
-                    self.find_ground_state(self.atoms, write=False)
-                except KohnShamConvergenceError:
-                    pass
-
-                self.maxiter = original_maxiter
-                self.nbands = original_nbands
-                self.nmybands = original_nmybands
-                for kpt in self.kpt_u:
-                    kpt.calculate_wave_functions_from_lcao_coefficients(
-                        self.nmybands)
-                    # Delete basis-set expansion coefficients:
-                    kpt.C_nm = None
-
-                for nucleus in self.nuclei:
-                    del nucleus.P_kmi
-
-                for nucleus in self.my_nuclei:
-                    nucleus.reallocate(self.nmybands)
-
-                self.eigensolver = original_eigensolver
-                if self.xcfunc.is_gllb():
-                    self.xcfunc.xc.eigensolver = self.eigensolver
-                #self.density.mixer.reset(self.my_nuclei)
-                self.density.lcao = False
+                wfs.initialize_wave_functions_from_atomic_orbitals(self)
+                # XXX
             else:
-                # Use only random wave functions:
-                for kpt in self.kpt_u:
-                    kpt.allocate(0)
-                    kpt.psit_nG = self.gd.zeros(self.nmybands,
-                                                dtype=self.dtype)
-                if not self.density.starting_density_initialized:
-                    self.density.initialize_from_atomic_density()
+                wfs.random_wave_functions(self)
 
             self.density.scale()
             self.density.interpolate_pseudo_density()
@@ -610,13 +563,14 @@ class PAW(PAWExtra, Output):
             self.niter = 0
 
             # Free allocated space for radial grids:
-            for setup in self.setups:
-                 del setup.phit_j
-            for nucleus in self.nuclei:
-                del nucleus.phit_i
+            # XXX we may want to do this, but not this way
+            #for setup in self.setups:
+            #     del setup.phit_j
+            #for nucleus in self.nuclei:
+            #    del nucleus.phit_i
 
             if self.nbands > self.nao:
-                for kpt in self.kpt_u:
+                for kpt in self.kpoints.kpt_u:
                     kpt.add_extra_bands(self.nbands, self.nao)
                 if self.xcfunc.is_gllb():
                     self.xcfunc.xc.update_band_count()
@@ -625,29 +579,11 @@ class PAW(PAWExtra, Output):
             
             self.orthonormalize_wave_functions()
 
-        elif not isinstance(self.kpt_u[0].psit_nG, npy.ndarray):
-            # Calculation started from a restart file.  Copy data
-            # from the file to memory:
-            if self.world.size > 1:
-                i = self.gd.get_slice()
-                for kpt in self.kpt_u:
-                    refs = kpt.psit_nG
-                    kpt.psit_nG = self.gd.empty(self.nmybands, self.dtype)
-                    # Read band by band to save memory
-                    for n, psit_G in enumerate(kpt.psit_nG):
-                        full = refs[n][:]
-                        psit_G[:] = full[i]
-            else:
-                for kpt in self.kpt_u:
-                    kpt.psit_nG = kpt.psit_nG[:]
-
-            self.wave_functions_initialized = True
+        elif not isinstance(self.kpoints.kpt_u[0].psit_nG, npy.ndarray):
+            wfs.initialize_wave_functions_from_restart_file(self)
 
     def orthonormalize_wave_functions(self):
-        if not self.eigensolver.lcao:
-            for kpt in self.kpt_u:
-                self.overlap.orthonormalize(kpt)
-
+        self.wfs.orthonormalize()
         self.wave_functions_orthonormalized = True
 
     def calculate_forces(self):
@@ -658,7 +594,7 @@ class PAW(PAWExtra, Output):
 
         self.F_ac = npy.empty((self.natoms, 3))
 
-        self.density.update(self.kpt_u, self.symmetry)
+        self.density.update(self.kpoints, self.symmetry)
         self.update_kinetic()
         self.hamiltonian.update(self.density)
         
@@ -675,7 +611,7 @@ class PAW(PAWExtra, Output):
             nucleus.F_c[:] = 0.0
 
         # Calculate force-contribution from k-points:
-        for kpt in self.kpt_u:
+        for kpt in self.kpoints.kpt_u:
             for nucleus in self.pt_nuclei:
                 # XXX
                 if self.eigensolver.lcao:
@@ -705,7 +641,7 @@ class PAW(PAWExtra, Output):
         self.world.broadcast(self.F_ac, MASTER)
 
         # Add non-local contributions
-        for kpt in self.kpt_u:
+        for kpt in self.kpoints.kpt_u:
             self.F_ac += self.xcfunc.get_non_local_force(kpt)
     
         # Add contributions from external fields
@@ -1176,17 +1112,20 @@ class PAW(PAWExtra, Output):
         self.stencils = p['stencils']
         self.maxiter = p['maxiter']
 
-        if p['convergence'].get('bands') == 'all':
-            p['convergence']['bands'] = self.nbands
+        cc = p['convergence']  # convergence criteria
+        er = self.error        # errors
 
-        cbands = p['convergence']['bands']
+        if cc.get('bands') == 'all':
+            cc['bands'] = self.nbands
+
+        cbands = cc['bands']
         if isinstance(cbands, int) and cbands < 0:
-            p['convergence']['bands'] += self.nbands
+            cc['bands'] += self.nbands
             
         if p['fixdensity'] == True:
-            self.fixdensity = self.maxiter + 1000000
+            self.fixdensity = self.maxiter + 1000000 # yuck!  Oh, well
             # Density won't converge
-            p['convergence']['density'] = 1e8
+            cc['density'] = 1e8
         else:
             self.fixdensity = p['fixdensity']
 
@@ -1203,24 +1142,40 @@ class PAW(PAWExtra, Output):
         # Number of k-point/spin combinations on this cpu:
         self.nmyu = nu // self.kpt_comm.size
 
-        if self.kpt_u is None:
+        if self.kpoints is None:
+            self.kpoints = KPointCollection(self.gd,
+                                            self.weight_k,
+                                            self.ibzk_kc,
+                                            self.nkpts,
+                                            self.nmyu,
+                                            self.kpt_comm.rank * self.nmyu,
+                                            self.dtype)
             self.wave_functions_initialized = False
             self.wave_functions_orthonormalized = False
-            self.kpt_u = []
-            for u in range(self.nmyu):
-                s, k = divmod(self.kpt_comm.rank * self.nmyu + u, self.nkpts)
-                weight = self.weight_k[k] * 2 / self.nspins
-                k_c = self.ibzk_kc[k]
-                self.kpt_u.append(KPoint(self.gd, weight, s, k, u, k_c,
-                                         self.dtype))
-        else:
-            for kpt in self.kpt_u:
-                kpt.set_grid_descriptor(self.gd)
-                kpt.nuclei = self.nuclei
-                
-        cc = p['convergence']  # convergence criteria
-        er = self.error        # errors
 
+            if self.eigensolver.lcao:
+                self.wfs = LCAOmatic(self.kpoints)
+            else:
+                self.wfs = Gridmotron(self.kpoints)
+            
+        #if self.kpt_u is None:
+        #    self.wave_functions_initialized = False
+        #    self.wave_functions_orthonormalized = False
+        #    self.kpt_u = []
+        #    for u in range(self.nmyu):
+        #        s, k = divmod(self.kpt_comm.rank * self.nmyu + u, self.nkpts)
+        #        weight = self.weight_k[k] * 2 / self.nspins
+        #        k_c = self.ibzk_kc[k]
+        #        self.kpt_u.append(KPoint(self.gd, weight, s, k, u, k_c,
+        #                                 self.dtype))
+        else:
+            self.kpoints.set_grid_descriptor(self.gd)
+            #self.kpoints.set_nuclei(self.nuclei)
+            # XXX I dont think kpoints use nucleus objects anymore!
+            #for kpt in self.kpt_u:
+            #    kpt.set_grid_descriptor(self.gd)
+            #    kpt.nuclei = self.nuclei
+                
         if len(er) != 0:
             self.converged = ((er['eigenstates'] < cc['eigenstates']) and
                               (er['energy'] * Hartree < cc['energy']) and
@@ -1241,9 +1196,7 @@ class PAW(PAWExtra, Output):
         self.pt_nuclei = [None]
         self.ghat_nuclei = [None]
 
-        self.Eref = 0.0
-        for nucleus in self.nuclei:
-            self.Eref += nucleus.setup.E
+        self.Eref = sum([nucleus.setup.E for nucleus in self.nuclei])
 
         for nucleus, pos_c in zip(self.nuclei, pos_av):
             spos_c = self.domain.scale_position(pos_c)
@@ -1319,7 +1272,6 @@ class PAW(PAWExtra, Output):
             self.occupation.fix_moment(M)
 
         # self.occupation.set_communicator(self.kpt_comm)
-        
 
     def initialize_kinetic(self):
         if not self.hamiltonian.xc.xcfunc.mgga:
@@ -1334,7 +1286,7 @@ class PAW(PAWExtra, Output):
             return
         else:
             #pseudo kinetic energy array on 3D grid
-            self.density.update_kinetic(self.kpt_u)
+            self.density.update_kinetic(self.kpoints.kpt_u)
             self.hamiltonian.xc.set_kinetic(self.density.taut_sg)           
 
 
@@ -1342,7 +1294,7 @@ class PAW(PAWExtra, Output):
         """Return my u corresponding to a certain kpoint and spin - or None"""
         # very slow, but we are shure, that we have it
         for u in range(self.nmyu):
-            if self.kpt_u[u].k == k and self.kpt_u[u].s == s:
+            if self.kpoints.kpt_u[u].k == k and self.kpoints.kpt_u[u].s == s:
                 return u
         return None
             

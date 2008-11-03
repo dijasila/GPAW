@@ -19,7 +19,7 @@ from gpaw.utilities.lapack import diagonalize
 from gpaw.polynomial import Polynomial
 
 class KPoint:
-    """Class for a singel k-point.
+    """Class for a single k-point.
 
     The KPoint class takes care of all wave functions for a
     certain k-point and a certain spin.
@@ -109,8 +109,8 @@ class KPoint:
         self.set_grid_descriptor(gd)
 
         # Only one of these two will be used:
-        self.psit_nG = None  # wave functions on 3D grid
-        self.C_nm = None     # LCAO coefficients for wave functions
+        #self.psit_nG = None  # wave functions on 3D grid
+        #self.C_nm = None     # LCAO coefficients for wave functions
         
     def set_grid_descriptor(self, gd):
         self.gd = gd
@@ -120,30 +120,11 @@ class KPoint:
         self.root = self.u % self.comm.size
 
     def allocate(self, nbands):
+        raise DeprecationWarning
         """Allocate arrays."""
         self.eps_n = npy.empty(nbands)
         self.f_n = npy.empty(nbands)
-        
-    def add_extra_bands(self, nbands, nao):
-        """Add extra states.
-
-        If the number of atomic orbitals is less than the desired
-        number of bands, then extra random wave functions are added.
-        """
-
-        eps_n = self.eps_n
-        f_n = self.f_n
-
-        self.allocate(nbands)
-
-        self.eps_n[:nao] = eps_n
-        self.f_n[:nao] = f_n
-
-        # Generate random wave functions:
-        self.eps_n[nao:] = self.eps_n[nao - 1] + 0.5
-        self.f_n[nao:] = 0.0
-        self.random_wave_functions(self.psit_nG[nao:])
-                    
+                            
     def random_wave_functions(self, psit_nG):
         """Generate random wave functions"""
 
@@ -171,14 +152,16 @@ class KPoint:
 
             interpolate2(psit_G2, psit_G1, self.phase_cd)
             interpolate1(psit_G1, psit_G, self.phase_cd)
-
+    
     def add_to_density(self, nt_G, use_lcao, basis_functions):
+        raise DeprecationWarning
         """Add contribution to pseudo electron-density."""
         self.add_to_density_with_occupation(nt_G, use_lcao, self.f_n,
                                             basis_functions)
         
     def add_to_density_with_occupation(self, nt_G, use_lcao, f_n,
                                        basis_functions):
+        raise DeprecationWarning
         """Add contribution to pseudo electron-density. Do not use the standard
         occupation numbers, but ones given with argument f_n."""
         if use_lcao:
@@ -201,6 +184,8 @@ class KPoint:
                         if abs(ft) > 1.e-12:
                             nt_G += (npy.conjugate(psi_m) *
                                      ft * psi_n).real
+        
+
 
     def add_to_kinetic_density(self, taut_G):
         """Add contribution to pseudo kinetic energy density."""
@@ -215,23 +200,26 @@ class KPoint:
                     ddr[c](psit_G,d_G,self.phase_cd)
                     taut_G += 0.5* f * (d_G * npy.conjugate(d_G)).real
 
-    def calculate_wave_functions_from_lcao_coefficients(self, nbands):
+    def calculate_wave_functions_from_lcao_coefficients(self, nbands,
+                                                        basis_functions):
         self.psit_nG = self.gd.zeros(nbands, dtype=self.dtype)
         nlcao = len(self.C_nm)
         psit_nG = self.psit_nG[:nlcao]
-        m1 = 0
-        for nucleus in self.nuclei:
-            niao = nucleus.get_number_of_atomic_orbitals()
-            m2 = m1 + niao
-            if nucleus.phit_i is not None:
-                nucleus.phit_i.add(psit_nG, self.C_nm[:, m1:m2].copy(), self.k)
-            m1 = m2
+        basis_functions.lcao_to_grid(self.C_nm, psit_nG)
+        #m1 = 0
+        #for nucleus in self.nuclei:
+        #    niao = nucleus.get_number_of_atomic_orbitals()
+        #    m2 = m1 + niao
+        #    if nucleus.phit_i is not None:
+        #        nucleus.phit_i.add(psit_nG, self.C_nm[:, m1:m2].copy(),
+        #                           self.k)
+        #    m1 = m2
 
     def create_atomic_orbitals(self, nao, nuclei):
         """Initialize the wave functions from atomic orbitals.
 
         Create nao atomic orbitals."""
-
+        raise DeprecationWarning
         # Allocate space for wave functions, occupation numbers,
         # eigenvalues and projections:
         self.allocate(nao)
@@ -253,3 +241,69 @@ class KPoint:
         self.random_wave_functions(self.psit_nG)                   
 
 
+class KPointCollection:
+    def __init__(self, gd, weight_k, ibzk_kc, nkpts, nmyu, myuoffset, dtype):
+        self.gd = gd
+        self.weight_k = weight_k
+        self.ibzk_kc = ibzk_kc
+        self.nkpts = nkpts
+        self.nmyu = nmyu
+        self.myuoffset = myuoffset
+        self.dtype = dtype
+
+        self.kpt_u = []
+        for u in range(nmyu):
+            s, k = divmod(myuoffset + u, nkpts)
+            weight = weight_k[k]
+            k_c = ibzk_kc[k]
+            kpt = KPoint(gd, weight, s, k, u, k_c, dtype)
+            self.kpt_u.append(kpt)
+
+        self.nmybands = None
+        self.eps_un = None
+        self.f_un = None # :(
+
+    def allocate(self, nbands):
+        self.nmybands = nbands
+        shape = self.nmyu, nbands
+        self.eps_un = npy.empty(shape)
+        self.f_un = npy.empty(shape)
+        for eps_n, f_n, kpt in zip(self.eps_un, self.f_un, self.kpt_u):
+            kpt.eps_n = eps_n
+            kpt.f_n = f_n
+
+    def add_extra_bands(self, nbands, nao):
+        """Add extra states.
+
+        If the number of atomic orbitals is less than the desired
+        number of bands, then extra random wave functions are added.
+        """
+
+        eps_un = self.eps_un
+        f_un = self.f_un
+
+        self.allocate(nbands)
+
+        self.eps_un[:, :nao] = eps_un
+        self.f_un[:, :nao] = f_n
+
+        # Generate random wave functions:
+        self.eps_un[:, nao:] = self.eps_un[:, nao - 1] + 0.5
+        self.f_un[:, nao:] = 0.0
+        for psit_nG, kpt in zip(self.psit_unG, self.kpt_u):
+            kpt.random_wave_functions(psit_nG[nao:])
+
+    def set_grid_descriptor(self, gd):
+        for kpt in self.kpt_u:
+            kpt.set_grid_descriptor(gd)
+
+    def add_to_density(self, nt_sG, use_lcao, basis_functions):
+        for kpt in self.kpt_u:
+            kpt.add_to_density(nt_sG[kpt.s], use_lcao, basis_functions)
+
+
+    def subset(self, uvalues):
+        # This method should be implemented to ensure that one can
+        # run methods like add_to_density on e.g. a single k-point at a time
+        # (useful for debugging)
+        raise NotImplementedError

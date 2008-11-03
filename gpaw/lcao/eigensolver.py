@@ -14,21 +14,27 @@ class LCAO:
         if debug:
             self.eig_lcao_iteration = 0
 
-    def initialize(self, paw):
+    def initialize(self, paw, wfs):
         self.timer = paw.timer
         self.nuclei = paw.nuclei
         self.my_nuclei = paw.my_nuclei
         self.comm = paw.gd.comm
         self.error = 0.0
-        self.nspins = paw.nspins
-        self.nkpts = paw.nkpts
-        self.nbands = paw.nbands
+        #self.nspins = paw.nspins
+        #self.nkpts = paw.nkpts
+        #self.nbands = paw.nbands
         self.nmybands = paw.nmybands
         self.band_comm = paw.band_comm
         self.dtype = paw.dtype
+
+        self.nao = wfs.nao
+        self.eps_m = npy.empty(self.nao)
+        self.S_mm = npy.empty((self.nao, self.nao), self.dtype)
+        self.Vt_skmm = npy.empty((paw.nspins, paw.nkpts,
+                                  self.nao, self.nao), self.dtype)
         self.initialized = True
 
-    def get_hamiltonian_matrix(self, hamiltonian, kpt=None,k=0,s=0):
+    def get_hamiltonian_matrix(self, hamiltonian, wfs, kpt=None,k=0,s=0):
         if kpt != None:
             k = kpt.k
             s = kpt.s
@@ -42,57 +48,49 @@ class LCAO:
 
         self.comm.sum(H_mm)
 
-        H_mm += hamiltonian.T_kmm[k]
+        H_mm += wfs.T_kMM[k]
 
         return H_mm
 
-    def iterate(self, hamiltonian, kpt_u):
-        if not hamiltonian.lcao_initialized:
-            hamiltonian.initialize_lcao()
-            self.nao = hamiltonian.nao
-            self.eps_m = npy.empty(self.nao)
-            self.S_mm = npy.empty((self.nao, self.nao), self.dtype)
-            self.Vt_skmm = npy.empty((self.nspins, self.nkpts,
-                                      self.nao, self.nao), self.dtype)
-            for kpt in kpt_u:
-                kpt.C_nm = npy.empty((self.nmybands, self.nao), self.dtype)
-
+    def iterate(self, hamiltonian, wfs):
         self.timer.start('LCAO: potential matrix')
-        hamiltonian.basis_functions.calculate_potential_matrix(
-            hamiltonian.vt_sG, self.Vt_skmm)
+        wfs.basis_functions.calculate_potential_matrix(hamiltonian.vt_sG,
+                                                       self.Vt_skmm)
         self.timer.stop('LCAO: potential matrix')
 
-        for kpt in kpt_u:
-            self.iterate_one_k_point(hamiltonian, kpt)
+        for kpt in wfs.kpoints.kpt_u:
+            self.iterate_one_k_point(hamiltonian, wfs, kpt)
 
 
-    def iterate_one_k_point(self, hamiltonian, kpt):
+    def iterate_one_k_point(self, hamiltonian, wfs, kpt):
         k = kpt.k
         s = kpt.s
         u = kpt.u
 
-        H_mm = self.get_hamiltonian_matrix(hamiltonian, kpt)
-        self.S_mm[:] = hamiltonian.S_kmm[k]
+        H_mm = self.get_hamiltonian_matrix(hamiltonian, wfs, kpt)
+        self.S_mm[:] = wfs.S_kMM[k]
 
         rank = self.band_comm.rank
         size = self.band_comm.size
+
         n1 = rank * self.nmybands
         n2 = n1 + self.nmybands
 
         # Check and remove linear dependence for the current k-point
-        if k in hamiltonian.linear_kpts:
-            print '*Warning*: near linear dependence detected for k=%s' %k
-            P_mm, p_m = hamiltonian.linear_kpts[k]
-            thres = hamiltonian.thres
+        if k in wfs.lcao_hamiltonian.linear_kpts:
+            print '*Warning*: near linear dependence detected for k=%s' % k
+            P_mm, p_m = wfs.lcao_hamiltonian.linear_kpts[k]
+            thres = wfs.lcao_hamiltonian.thres
             eps_q, C_nm = self.remove_linear_dependence(P_mm, p_m, H_mm, thres)
             kpt.C_nm[:] = C_nm[n1:n2]
             kpt.eps_n[:] = eps_q[n1:n2]
         else:
-            dsyev_zheev_string = 'LCAO: '+'dsygv/zhegv'
+            dsyev_zheev_string = 'LCAO: ' + 'dsygv/zhegv'
 
             self.timer.start(dsyev_zheev_string)
             if debug:
-                self.timer.start(dsyev_zheev_string+' %03d' % self.eig_lcao_iteration)
+                self.timer.start(dsyev_zheev_string +
+                                 ' %03d' % self.eig_lcao_iteration)
 
             if self.comm.rank == 0:
                 self.eps_m[0] = 42
@@ -102,7 +100,8 @@ class LCAO:
                     raise RuntimeError('Failed to diagonalize: info=%d' % info)
 
             if debug:
-                self.timer.stop(dsyev_zheev_string+' %03d' % self.eig_lcao_iteration)
+                self.timer.stop(dsyev_zheev_string + ' %03d'
+                                % self.eig_lcao_iteration)
                 self.eig_lcao_iteration += 1
             self.timer.stop(dsyev_zheev_string)
 
@@ -154,11 +153,12 @@ class LCAO:
 
         eps_q = npy.zeros(q)
 
-        dsyev_zheev_string = 'LCAO: '+'dsygv/zhegv remove'
+        dsyev_zheev_string = 'LCAO: ' + 'dsygv/zhegv remove'
 
         self.timer.start(dsyev_zheev_string)
         if debug:
-            self.timer.start(dsyev_zheev_string+' %03d' % self.eig_lcao_iteration)
+            self.timer.start(dsyev_zheev_string +
+                             ' %03d' % self.eig_lcao_iteration)
 
         if self.comm.rank == 0:
             eps_q[0] = 42
@@ -168,7 +168,8 @@ class LCAO:
                 raise RuntimeError('Failed to diagonalize: info=%d' % info)
 
         if debug:
-            self.timer.stop(dsyev_zheev_string+' %03d' % self.eig_lcao_iteration)
+            self.timer.stop(dsyev_zheev_string +
+                            ' %03d' % self.eig_lcao_iteration)
             self.eig_lcao_iteration += 1
         self.timer.stop(dsyev_zheev_string)
 

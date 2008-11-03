@@ -216,6 +216,22 @@ class BasisFunctions(LocalizedFunctionsCollection):
         Vt_skMM[:] = 0.0
         self.lfc.calculate_potential_matrix(vt_sG[0], Vt_skMM[0,0])
 
+    def lcao_to_grid0(self, c_M, psit_G):
+        psit_G = psit_G.ravel()
+        for G1, G2 in self.griditer():
+            for I in self.current_lfindices:
+                A_Gm = self.lfs[I].A_gm[self.g_I[I]:self.g_I[I] + G2 - G1]
+                #print 'A shape', A_Gm.shape
+                #print 'A sum shape', A_Gm.sum(1).shape
+                #print 'G', G1, G2
+                #print 'psitpartshape', psit_G[G1:G2].shape
+                psit_G[G1:G2] += A_Gm.sum(1)
+
+
+    def lcao_to_grid(self, c_nM, psit_nG):
+        for c_M, psit_G in zip(c_nM, psit_nG):
+            self.lcao_to_grid0(c_M, psit_G)
+
 
 def test():
     from gpaw.grid_descriptor import GridDescriptor

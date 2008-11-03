@@ -82,19 +82,21 @@ class PAWExtra:
         global master."""
 
         kpt_rank, u = divmod(k + self.nkpts * s, self.nmyu)
+        kpt_u = self.kpoints.kpt_u
+        
         # Does this work correctly? Strides?
-        return self.collect_array(self.kpt_u[u].eps_n, kpt_rank)
+        return self.collect_array(kpt_u[u].eps_n, kpt_rank)
 
         if kpt_rank == MASTER:
             if self.band_comm.size == 1:
-                return self.kpt_u[u].eps_n
+                return kpt_u[u].eps_n
                 
 
         if self.kpt_comm.rank == kpt_rank:
             if not (kpt_rank == MASTER and self.master):
                 # Domain master send this to the global master
                 if self.domain.comm.rank == MASTER:
-                    self.world.send(self.kpt_u[u].eps_n, MASTER, 1301)
+                    self.world.send(kpt_u[u].eps_n, MASTER, 1301)
         elif self.master:
             eps_all_n = npy.zeros(self.nbands)
             nstride = self.band_comm.size
@@ -102,7 +104,7 @@ class PAWExtra:
             r0 = 0
             if kpt_rank == MASTER:
                 # Master has already the first slice
-                eps_all_n[0::nstride] = self.kpt_u[u].eps_n
+                eps_all_n[0::nstride] = kpt_u[u].eps_n
                 r0 = 1
             for r in range(r0, self.band_comm.size):
                 world_rank = kpt_rank * self.domain.comm.size * self.band_comm.size + r * self.domain.comm.size
@@ -120,17 +122,18 @@ class PAWExtra:
         global master."""
 
         kpt_rank, u = divmod(k + self.nkpts * s, self.nmyu)
-        return self.collect_array(self.kpt_u[u].f_n, kpt_rank)
+        kpt_u = self.kpoints.kpt_u
+        return self.collect_array(kpt_u[u].f_n, kpt_rank)
 
         if kpt_rank == MASTER:
             if self.band_comm.size == 1:
-                return self.kpt_u[u].f_n
+                return kpt_u[u].f_n
 
         if self.kpt_comm.rank == kpt_rank:
             if not (kpt_rank == MASTER and self.master):
                 # Domain master send this to the global master
                 if self.domain.comm.rank == MASTER:
-                    self.world.send(self.kpt_u[u].f_n, MASTER, 1313)
+                    self.world.send(kpt_u[u].f_n, MASTER, 1313)
         elif self.master:
             f_all_n = npy.zeros(self.nbands)
             nstride = self.band_comm.size
@@ -138,7 +141,7 @@ class PAWExtra:
             r0 = 0
             if kpt_rank == MASTER:
                 # Master has already the first slice
-                f_all_n[0::nstride] = self.kpt_u[u].f_n
+                f_all_n[0::nstride] = kpt_u[u].f_n
                 r0 = 1
             for r in range(r0, self.band_comm.size):
                 world_rank = kpt_rank * self.domain.comm.size * self.band_comm.size + r * self.domain.comm.size
@@ -189,6 +192,7 @@ class PAWExtra:
 
         kpt_rank, u = divmod(k + self.nkpts * s, self.nmyu)
         kpt_rank1, u1 = divmod(k1 + self.nkpts * s, self.nmyu)
+        kpt_u = self.kpoints.kpt_u
 
         # XXX not for the kpoint/spin parallel case
         assert self.kpt_comm.size == 1
@@ -197,8 +201,8 @@ class PAWExtra:
         self.initialize_wave_functions()
         
         # Get pseudo part
-        Z_nn = self.gd.wannier_matrix(self.kpt_u[u].psit_nG,
-                                      self.kpt_u[u1].psit_nG, c, G, nbands)
+        Z_nn = self.gd.wannier_matrix(kpt_u[u].psit_nG,
+                                      kpt_u[u1].psit_nG, c, G, nbands)
 
         # Add corrections
         for nucleus in self.my_nuclei:
@@ -246,7 +250,7 @@ class PAWExtra:
 
         Exc = self.domain.comm.sum(Exc)
 
-        for kpt in self.kpt_u:
+        for kpt in self.kpoints.kpt_u:
             newxcfunc.apply_non_local(kpt)
         Exc += newxcfunc.get_non_local_energy()
 
@@ -274,7 +278,7 @@ class PAWExtra:
         
         self.set_positions()
         self.density.move()
-        self.density.update(self.kpt_u, self.symmetry)
+        self.density.update(self.kpoints.kpt_u, self.symmetry)
 ##         if self.wave_functions_initialized:
 ##             self.density.move()
 ##             self.density.update(self.kpt_u, self.symmetry)
@@ -309,7 +313,7 @@ class PAWExtra:
         self.set_positions()
 
         # Wave functions
-        for kpt in self.kpt_u:
+        for kpt in self.kpoints.kpt_u:
             kpt.dtype = dtype
             kpt.psit_nG = npy.array(kpt.psit_nG[:], dtype)
 
@@ -320,8 +324,8 @@ class PAWExtra:
     def read_wave_functions(self, mode='gpw'):
         """Read wave functions one by one from seperate files"""
 
-        for u in range(self.nmyu):
-            kpt = self.kpt_u[u]
+        for u, kpt in enumerate(self.kpoints.kpt_u):
+            #kpt = self.kpt_u[u]
             kpt.psit_nG = self.gd.empty(self.nbands, self.dtype)
             # Read band by band to save memory
             s = kpt.s
@@ -342,7 +346,7 @@ class PAWExtra:
         volumes = npy.empty((nu,self.nbands))
 
         for k in range(nu):
-            for n, psit_G in enumerate(self.kpt_u[k].psit_nG):
+            for n, psit_G in enumerate(self.kpoints.kpt_u[k].psit_nG):
                 volumes[k, n] = self.gd.integrate(psit_G**4)
 
                 # atomic corrections
@@ -425,8 +429,9 @@ class PAWExtra:
             lf.set_phase_factors(self.ibzk_kc)
             nlf = 2 * l + 1
             nbands = self.nbands
+            kpt_u = self.kpoints.kpt_u
             for k in range(self.nkpts):
-                lf.integrate(self.kpt_u[k + spin * self.nkpts].psit_nG[:],
+                lf.integrate(kpt_u[k + spin * self.nkpts].psit_nG[:],
                              f_kni[k, :, nbf:nbf + nlf], k=k)
             nbf += nlf
         return f_kni.conj()

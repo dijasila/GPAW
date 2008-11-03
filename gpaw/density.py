@@ -78,8 +78,7 @@ class Density:
         self.starting_density_initialized = False
 
     def initialize(self, paw):
-        """Allocate arrays for densities on coarse and fine grids"""
-
+        """Allocate arrays for densities on coarse and fine grids."""
         self.nct_G = self.gd.empty()
         self.nt_sG = self.gd.empty(self.nspins)
         self.rhot_g = self.finegd.empty()
@@ -91,12 +90,9 @@ class Density:
 
         # Interpolation function for the density:
         self.interpolate = Transformer(self.gd, self.finegd, self.nn).apply
-
-        self.basis_functions = paw.hamiltonian.basis_functions
-
         self.initialized = True
 
-    def initialize_from_atomic_density(self):
+    def initialize_from_atomic_density(self, wfs):
         """Initialize density from atomic densities.
 
         The density is initialized from atomic orbitals, and will
@@ -107,7 +103,7 @@ class Density:
 
         ns = len(self.nt_sG)
         
-        f_sM = np.empty((ns, self.basis_functions.Mmax))
+        f_sM = np.empty((ns, wfs.basis_functions.Mmax))
         M1 = 0
         for magmom, nucleus in zip(self.magmom_a, self.nuclei):
             if hasattr(nucleus, 'f_si'):
@@ -123,7 +119,7 @@ class Density:
             f_sM[:, M1:M2] = f_si
             M1 = M2
         
-        self.basis_functions.add_to_density(self.nt_sG, f_sM)
+        wfs.basis_functions.add_to_density(self.nt_sG, f_sM)
 
         #magmoms_a, hund):
         # The nucleus.add_atomic_density() method should be improved
@@ -268,7 +264,7 @@ class Density:
         if abs(charge) > self.charge_eps:
             raise RuntimeError('Charge not conserved: excess=%.7f' % charge ) 
 
-    def update(self, kpt_u, symmetry, lcao_initialized=True):
+    def update(self, wfs, symmetry, lcao_initialized=True):
         """Calculate pseudo electron-density.
 
         The pseudo electron-density ``nt_sG`` is calculated from the
@@ -278,10 +274,7 @@ class Density:
         self.nt_sG[:] = 0.0
 
         # Add contribution from all k-points:
-        for kpt in kpt_u:
-            kpt.add_to_density(self.nt_sG[kpt.s],
-                               self.lcao, self.basis_functions)
-
+        wfs.add_to_density(self.nt_sG)
         self.band_comm.sum(self.nt_sG)
         self.kpt_comm.sum(self.nt_sG)
 
@@ -293,12 +286,12 @@ class Density:
             for nucleus in self.my_nuclei:
                 ni = nucleus.get_number_of_partial_waves()
                 D_sii = zeros((self.nspins, ni, ni))
-                for kpt in kpt_u:
+                for kpt in wfs.kpoints.kpt_u:
                     P_ni = nucleus.P_uni[kpt.u]
                     D_sii[kpt.s] += real(dot(cc(transpose(P_ni)),
                                              P_ni * kpt.f_n[:, newaxis]))
 
-                    # hack used in delta scf - calculations
+                    # hack used in delta scf-calculations
                     if hasattr(kpt, 'ft_omn'):
                         for i in range(len(kpt.ft_omn)):
                             D_sii[kpt.s] += real(dot(cc(transpose(P_ni)),
@@ -368,6 +361,7 @@ class Density:
             nucleus.comm.broadcast(nucleus.mom, nucleus.rank)
 
     def get_density_array(self):
+        # XXX why not replace with get_spin_density and get_total_density?
         """Return pseudo-density array."""
         if self.nspins == 2:
             return self.nt_sG
@@ -431,7 +425,8 @@ class Density:
         self.kpt_comm.sum(self.taut_sG)
         """Add the pseudo core kinetic array """
         for nucleus in self.nuclei:
-            nucleus.add_smooth_core_kinetic_energy_density(self.taut_sG,self.nspins,
+            nucleus.add_smooth_core_kinetic_energy_density(self.taut_sG,
+                                                           self.nspins,
                                                            self.gd)
 
         """Transfer the density from the coarse to the fine grid."""

@@ -20,7 +20,7 @@ from gpaw.mpi import run
 from gpaw.lcao.hamiltonian import LCAOHamiltonian
 
 
-class Hamiltonian(LCAOHamiltonian):
+class Hamiltonian: #(LCAOHamiltonian):
     """Hamiltonian object.
 
     Attributes:
@@ -42,9 +42,9 @@ class Hamiltonian(LCAOHamiltonian):
      ========== =========================================
     """
 
-    def __init__(self, paw, ng=2**12):
+    def __init__(self, paw):#, ng=2**12):
         """Create the Hamiltonian."""
-        LCAOHamiltonian.__init__(self, ng)
+        #LCAOHamiltonian.__init__(self, ng)
 
         self.nspins = paw.nspins
         self.gd = paw.gd
@@ -106,7 +106,7 @@ class Hamiltonian(LCAOHamiltonian):
 
         paw.xcfunc.set_non_local_things(paw)
 
-        LCAOHamiltonian.initialize(self, paw)
+        #LCAOHamiltonian.initialize(self, paw)
 
         self.initialized = True
 

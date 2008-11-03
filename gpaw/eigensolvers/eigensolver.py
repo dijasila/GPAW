@@ -107,7 +107,7 @@ class Eigensolver:
 
         self.tolerance = tolerance
 
-    def iterate(self, hamiltonian, kpt_u):
+    def iterate(self, hamiltonian, wfs):
         """Solves eigenvalue problem iteratively
 
         This method is inherited by the actual eigensolver which should
@@ -116,7 +116,7 @@ class Eigensolver:
         """
 
         error = 0.0
-        for kpt in kpt_u:
+        for kpt in wfs.kpoints.kpt_u:
             error += self.iterate_one_k_point(hamiltonian, kpt)
 
         self.error = self.band_comm.sum(self.kpt_comm.sum(error))
