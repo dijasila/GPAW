@@ -377,23 +377,20 @@ class PAW(PAWExtra, Output):
         self.set_positions(atoms)
         self.initialize_kinetic()
 
-        self.wfs.initialize(self, atoms, self.hamiltonian,
-                            self.density, self.eigensolver)
-        """
+        # Question.  Should we have allocate() methods to create big arrays,
+        # and initialize() to e.g. initialize density and so on?
+        # Right now, density will be initialized from the same methods
+        # which will otherwise just allocate.
+
+        wfs = self.wfs
+        wfs.initialize(self, atoms, self.hamiltonian,
+                       self.density, self.eigensolver)
         
-        if not self.eigensolver.initialized:
-            # We know that we have enough memory to initialize the
-            # eigensolver here:
-            self.eigensolver.initialize(self)
-        if not self.wave_functions_initialized:
-            self.initialize_wave_functions()
-        
-        """
-        
-        if not self.wave_functions_orthonormalized:
-            self.orthonormalize_wave_functions()
-        if not self.density.starting_density_initialized:
-            self.density.update(self.wfs, self.symmetry)
+        if not wfs.is_orthonormalized():
+            wfs.orthonormalize()
+        assert self.density.starting_density_initialized # XXXX
+        #if not self.density.starting_density_initialized:
+        #    self.density.update(self.wfs, self.symmetry)
         if self.xcfunc.is_gllb():
             if not self.xcfunc.xc.initialized:
                 self.xcfunc.initialize_gllb(self)
@@ -418,11 +415,10 @@ class PAW(PAWExtra, Output):
 
         # Don't fix the density in the next step:
         self.fixdensity = -1
-        
+
     def step(self):
         if self.niter > self.fixdensity:
-            self.density.update(self.wfs, self.symmetry,
-                                self.hamiltonian.lcao_initialized)
+            self.density.update(self.wfs, self.symmetry)
             self.update_kinetic()
             self.hamiltonian.update(self.density)
 
@@ -516,7 +512,7 @@ class PAW(PAWExtra, Output):
             self.F_ac = None
             self.old_energies = []
             
-            self.hamiltonian.lcao_initialized = False
+            #self.hamiltonian.lcao_initialized = False XXX
             
             self.locfuncbcaster.broadcast()
 
@@ -535,6 +531,7 @@ class PAW(PAWExtra, Output):
             self.print_positions(pos_av)
 
     def initialize_wave_functions(self):
+        raise DeprecationWarning
         # do at least the first 3 iterations with fixed density
         self.fixdensity = max(2, self.fixdensity)
         wfs = self.wfs
@@ -577,14 +574,10 @@ class PAW(PAWExtra, Output):
 
             # We should only create pt_i now !!!!!!!!!!!!!!!!!
             
-            self.orthonormalize_wave_functions()
+            wfs.orthonormalize()
 
         elif not isinstance(self.kpoints.kpt_u[0].psit_nG, npy.ndarray):
             wfs.initialize_wave_functions_from_restart_file(self)
-
-    def orthonormalize_wave_functions(self):
-        self.wfs.orthonormalize()
-        self.wave_functions_orthonormalized = True
 
     def calculate_forces(self):
         """Return the atomic forces."""
@@ -1150,8 +1143,8 @@ class PAW(PAWExtra, Output):
                                             self.nmyu,
                                             self.kpt_comm.rank * self.nmyu,
                                             self.dtype)
-            self.wave_functions_initialized = False
-            self.wave_functions_orthonormalized = False
+            #self.wave_functions_initialized = False
+            #self.wave_functions_orthonormalized = False
 
             if self.eigensolver.lcao:
                 self.wfs = LCAOmatic(self.kpoints)
@@ -1205,7 +1198,7 @@ class PAW(PAWExtra, Output):
 
         self.density = Density(self, self.magmom_a.copy())#???
         self.hamiltonian = Hamiltonian(self)        
-        self.overlap = Overlap(self)
+        self.overlap = Overlap(self) # XXX grid specific, should live in wfs
 
         if self.reuse_old_density:
             self.density.initialize()

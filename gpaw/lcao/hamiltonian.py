@@ -20,11 +20,7 @@ class LCAOHamiltonian:
 
     def __init__(self, basis_functions, hamiltonian, ng=2**12):
         self.tci = None  # two-center integrals
-        self.lcao_initialized = False
         self.ng = ng
-        if debug:
-            self.eig_lcao_iteration = 0
-        self.basis_functions = basis_functions
         self.nuclei = hamiltonian.nuclei
         self.my_nuclei = hamiltonian.my_nuclei
         self.gd = hamiltonian.gd
@@ -51,8 +47,6 @@ class LCAOHamiltonian:
         P_kmi     Overlap between basis-functions and projectors
         ======    ==============================================
         """
-
-        self.basis_functions.set_positions([n.spos_c for n in self.nuclei])
 
         nkpts = len(self.ibzk_kc)
 
@@ -196,53 +190,6 @@ class LCAOHamiltonian:
 
         if self.gd.comm.size > 1:
             self.gd.comm.sum(self.S_kmm)
-
-        # Near-linear dependence check. This is done by checking the
-        # eigenvalues of the overlap matrix S_kmm. Eigenvalues close
-        # to zero mean near-linear dependence in the basis-set.
-        self.linear_kpts = {}
-        for k in range(nkpts):
-            P_mm = self.S_kmm[k].copy()
-            p_m = npy.empty(self.nao)
-
-            dsyev_zheev_string = 'LCAO: '+'diagonalize-test'
-
-            self.timer.start(dsyev_zheev_string)
-            if debug:
-                self.timer.start(dsyev_zheev_string +
-                                 ' %03d' % self.eig_lcao_iteration)
-
-            if self.gd.comm.rank == 0:
-                p_m[0] = 42
-                info = diagonalize(P_mm, p_m)
-                assert p_m[0] != 42
-                if info != 0:
-                    raise RuntimeError('Failed to diagonalize: info=%d' % info)
-
-            if debug:
-                self.timer.stop(dsyev_zheev_string +
-                                ' %03d' % self.eig_lcao_iteration)
-                self.eig_lcao_iteration += 1
-            self.timer.stop(dsyev_zheev_string)
-
-            self.gd.comm.broadcast(P_mm, 0)
-            self.gd.comm.broadcast(p_m, 0)
-
-            self.thres = 1e-6
-            if (p_m <= self.thres).any():
-                self.linear_kpts[k] = (P_mm, p_m)
-
-        # Debug stuff
-        if 0:
-            print 'Hamiltonian S_kmm[0] diag'
-            print self.S_kmm[0].diagonal()
-            print 'Hamiltonian S_kmm[0]'
-            for row in self.S_kmm[0]:
-                print ' '.join(['%02.03f' % f for f in row])
-            print 'Eigenvalues:'
-            print npy.linalg.eig(self.S_kmm[0])[0]
-
-        self.lcao_initialized = True
 
     def st(self, a, b, r, R, rlY_lm, drlYdR_lmc, phase_k, selfinteraction):
         """Calculate overlaps and kinetic energy matrix elements for the

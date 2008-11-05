@@ -200,20 +200,6 @@ class KPoint:
                     ddr[c](psit_G,d_G,self.phase_cd)
                     taut_G += 0.5* f * (d_G * npy.conjugate(d_G)).real
 
-    def calculate_wave_functions_from_lcao_coefficients(self, nbands,
-                                                        basis_functions):
-        self.psit_nG = self.gd.zeros(nbands, dtype=self.dtype)
-        nlcao = len(self.C_nm)
-        psit_nG = self.psit_nG[:nlcao]
-        basis_functions.lcao_to_grid(self.C_nm, psit_nG)
-        #m1 = 0
-        #for nucleus in self.nuclei:
-        #    niao = nucleus.get_number_of_atomic_orbitals()
-        #    m2 = m1 + niao
-        #    if nucleus.phit_i is not None:
-        #        nucleus.phit_i.add(psit_nG, self.C_nm[:, m1:m2].copy(),
-        #                           self.k)
-        #    m1 = m2
 
     def create_atomic_orbitals(self, nao, nuclei):
         """Initialize the wave functions from atomic orbitals.
@@ -301,6 +287,21 @@ class KPointCollection:
         for kpt in self.kpt_u:
             kpt.add_to_density(nt_sG[kpt.s], use_lcao, basis_functions)
 
+    def calculate_wave_functions_from_lcao_coefficients(self, nbands,
+                                                        basis_functions):
+        # XXXXX here!!!
+        self.psit_nG = self.gd.zeros(nbands, dtype=self.dtype)
+        nlcao = len(self.C_nm)
+        psit_nG = self.psit_nG[:nlcao]
+        basis_functions.lcao_to_grid(self.C_nm, psit_nG)
+        #m1 = 0
+        #for nucleus in self.nuclei:
+        #    niao = nucleus.get_number_of_atomic_orbitals()
+        #    m2 = m1 + niao
+        #    if nucleus.phit_i is not None:
+        #        nucleus.phit_i.add(psit_nG, self.C_nm[:, m1:m2].copy(),
+        #                           self.k)
+        #    m1 = m2
 
     def subset(self, uvalues):
         # This method should be implemented to ensure that one can

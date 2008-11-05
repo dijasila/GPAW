@@ -17,10 +17,9 @@ from gpaw.poisson import PoissonSolver
 from gpaw.transformers import Transformer
 from gpaw.xc_functional import XC3DGrid
 from gpaw.mpi import run
-from gpaw.lcao.hamiltonian import LCAOHamiltonian
 
 
-class Hamiltonian: #(LCAOHamiltonian):
+class Hamiltonian:
     """Hamiltonian object.
 
     Attributes:
@@ -42,24 +41,19 @@ class Hamiltonian: #(LCAOHamiltonian):
      ========== =========================================
     """
 
-    def __init__(self, paw):#, ng=2**12):
+    def __init__(self, paw):
         """Create the Hamiltonian."""
-        #LCAOHamiltonian.__init__(self, ng)
-
         self.nspins = paw.nspins
         self.gd = paw.gd
         self.finegd = paw.finegd
-
         self.my_nuclei = paw.my_nuclei
         self.pt_nuclei = paw.pt_nuclei
         self.ghat_nuclei = paw.ghat_nuclei
         self.nuclei = paw.nuclei
 
         self.timer = paw.timer
-
         p = paw.input_parameters
         self.stencils = p['stencils']
-
 
         # Solver for the Poisson equation:
         psolver = p['poissonsolver']
@@ -105,8 +99,6 @@ class Hamiltonian: #(LCAOHamiltonian):
         self.xc = XC3DGrid(paw.xcfunc, self.finegd, self.nspins)
 
         paw.xcfunc.set_non_local_things(paw)
-
-        #LCAOHamiltonian.initialize(self, paw)
 
         self.initialized = True
 
