@@ -21,8 +21,8 @@ typedef struct
   int* G_B;                  // boundary grid points
   int* W_B;                  // volume numbers
   int* i_W;                  // mapping from all volumes to current volumes
-  int* ngm_W;                 // number of grid poinst per volume
-  bool gamma;                // Gamma-point calculation?
+  int* ngm_W;                // number of grid poinst per volume
+  bool bloch_boundary_conditions;  // Gamma-point calculation?
   complex double* phase_kW;  // phase factors: exp(ik.R)
   complex double* phase_i;   // phase factors for current volumes
 } LFCObject;

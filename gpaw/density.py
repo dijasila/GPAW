@@ -105,13 +105,14 @@ class Density:
         
         f_sM = np.empty((ns, wfs.basis_functions.Mmax))
         M1 = 0
-        for magmom, nucleus in zip(self.magmom_a, self.nuclei):
+        for a in self.basis_functions.atom_indices:
+            nucleus = self.nuclei[a]
             if hasattr(nucleus, 'f_si'):
                 # Convert to ndarray:
                 f_si = np.asarray(nucleus.f_si, float)
             else:
                 f_si = nucleus.calculate_initial_occupation_numbers(
-                    ns, magmom, self.hund)
+                    ns, self.magmom_a[a], self.hund)
 
             nucleus.initialize_density_matrix(f_si)
 

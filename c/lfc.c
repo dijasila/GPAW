@@ -10,11 +10,13 @@
 
 static void lfc_dealloc(LFCObject *self)
 {
-  free(self->volume_i);
-  free(self->volume_W);
-  free(self->i_W);
-  if (!self->gamma)
+  if (self->bloch_boundary_conditions)
     free(self->phase_i);
+  free(self->volume_i);
+  free(self->work_gm);
+  free(self->ngm_W);
+  free(self->i_W);
+  free(self->volume_W);
   PyObject_DEL(self);
 }
 
@@ -69,7 +71,7 @@ PyObject * NewLFCObject(PyObject *obj, PyObject *args)
     return NULL;
 
   self->dv = dv;
-  self->gamma = true;
+  self->bloch_boundary_conditions = false;
 
   const int* M_W = (const int*)M_W_obj->data;
   self->G_B = (int*)G_B_obj->data;
@@ -124,7 +126,7 @@ PyObject * NewLFCObject(PyObject *obj, PyObject *args)
 
   self->work_gm = GPAW_MALLOC(double, ngmax * nmmax);
   self->volume_i = GPAW_MALLOC(LFVolume, nimax);
-  if (!self->gamma)
+  if (self->bloch_boundary_conditions)
     self->phase_i = GPAW_MALLOC(complex double, nimax);
 
   return (PyObject*)self;

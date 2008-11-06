@@ -55,6 +55,7 @@ class Sphere:
         self.A_wgm = []
         self.G_wb = []
         self.M_w = []
+        ng = 0
         M = 0
         for spline in self.spline_j:
             rcut = spline.get_cutoff()
@@ -65,8 +66,17 @@ class Sphere:
                 self.A_wgm.append(A_gm)
                 self.G_wb.append(G_b)
                 self.M_w.append(M)
+                ng += A_gm.shape[0]
             M += 2 * l + 1
-        self.Mmax = M
+
+        if ng > 0:
+            self.Mmax = M
+        else:
+            self.Mmax = 0
+            self.A_wgm = []
+            self.G_wb = []
+            self.M_w = []
+
         self.spos_c = spos_c
         return True
 
@@ -96,9 +106,13 @@ class LocalizedFunctionsCollection:
     def _update(self, spos_ac):
         nB = 0
         nW = 0
-        for sphere in self.sphere_a:
-            nB += sum([len(G_b) for G_b in sphere.G_wb])
-            nW += len(sphere.G_wb)
+        self.atom_indices = []
+        for a, sphere in enumerate(self.sphere_a):
+            G_wb = sphere.G_wb
+            if len(G_wb) > 0:
+                nB += sum([len(G_b) for G_b in G_wb])
+                nW += len(G_wb)
+                self.atom_indices.append(a)
 
         self.M_W = np.empty(nW, np.intc)
         self.G_B = np.empty(nB, np.intc)
@@ -155,6 +169,20 @@ class LocalizedFunctionsCollection:
 
 class BasisFunctions(LocalizedFunctionsCollection):
     def add_to_density(self, nt_sG, f_sM):
+        for nt_G, f_M in zip(nt_sG, f_sM):
+            self.lfc.construct_density1(f_M, nt_G)
+
+    def construct_density(self, rho_MM, nt_G):
+        self.lfc.construct_density(rho_MM, nt_G)
+
+    def calculate_potential_matrix(self, vt_sG, Vt_skMM):
+        # Lower part only.
+        Vt_skMM[:] = 0.0
+        self.lfc.calculate_potential_matrix(vt_sG[0], Vt_skMM[0,0])
+
+    # XXXXXXXXXXXXXXXXXXXXXX
+    # Python implementations:
+    def add_to_density(self, nt_sG, f_sM):
         nspins = len(nt_sG)
         nt_sG = nt_sG.reshape((nspins, -1))
 
@@ -165,9 +193,6 @@ class BasisFunctions(LocalizedFunctionsCollection):
                 nm = A_gm.shape[1]
                 nt_sG[0, G1:G2] += np.dot(A_gm**2, f_sM[0, M:M + nm])
                 
-    def add_to_density(self, nt_sG, f_sM):
-        self.lfc.construct_density1(f_sM[0], nt_sG[0])
-
     def construct_density(self, rho_MM, nt_G):
         """Calculate electron density from density matrix.
 
@@ -190,9 +215,6 @@ class BasisFunctions(LocalizedFunctionsCollection):
                     rho_mm = rho_MM[M1:M1 + nm1, M2:M2 + nm2]
                     nt_G[G1:G2] += (np.dot(f1_gm, rho_mm) * f2_gm).sum(1)
         
-    def construct_density(self, rho_MM, nt_G):
-        self.lfc.construct_density(rho_MM, nt_G)
-
     def calculate_potential_matrix(self, vt_sG, Vt_skMM):
         vt_sG = vt_sG.reshape((len(vt_sG), -1))
         Vt_skMM[:] = 0.0
@@ -211,22 +233,15 @@ class BasisFunctions(LocalizedFunctionsCollection):
                     Vt_mm = Vt_skMM[0,0,M1:M1 + nm1, M2:M2 + nm2]
                     Vt_mm += np.dot(f1_gm.T, vt_sG[0, G1:G2, None] * f2_gm) * dv
 
-    def calculate_potential_matrix(self, vt_sG, Vt_skMM):
-        # Lower part only.
-        Vt_skMM[:] = 0.0
-        self.lfc.calculate_potential_matrix(vt_sG[0], Vt_skMM[0,0])
 
     def lcao_to_grid0(self, c_M, psit_G):
         psit_G = psit_G.ravel()
         for G1, G2 in self.griditer():
-            for I in self.current_lfindices:
-                A_Gm = self.lfs[I].A_gm[self.g_I[I]:self.g_I[I] + G2 - G1]
-                #print 'A shape', A_Gm.shape
-                #print 'A sum shape', A_Gm.sum(1).shape
-                #print 'G', G1, G2
-                #print 'psitpartshape', psit_G[G1:G2].shape
-                psit_G[G1:G2] += A_Gm.sum(1)
-
+            for W in self.current_lfindices:
+                A_gm = self.A_Wgm[W].A_gm[self.g_W[W]:self.g_W[W] + G2 - G1]
+                M1 = self.M_W[W]
+                M2 = M + A_gm.shape[1]
+                psit_G[G1:G2] += np.dot(A_gm, c_M[M1:M2])
 
     def lcao_to_grid(self, c_nM, psit_nG):
         for c_M, psit_G in zip(c_nM, psit_nG):
