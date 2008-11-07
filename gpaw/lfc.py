@@ -264,7 +264,7 @@ class BasisFunctions(LocalizedFunctionsCollection):
                         Vt_mm = (Vt_mm *
                                  self.phase_kW[k, W1] *
                                  self.phase_kW[k, W2].conj())
-                    Vt_MM[M1:M1 + nm1, M2:M2 + nm2] = Vt_mm
+                    Vt_MM[M1:M1 + nm1, M2:M2 + nm2] += Vt_mm
                     
     def lcao_to_grid0(self, c_M, psit_G):
         psit_G = psit_G.ravel()
