@@ -423,7 +423,6 @@ class PAW(PAWExtra, Output):
             self.hamiltonian.update(self.density)
 
         self.eigensolver.iterate(self.hamiltonian, self.wfs)
-
         # Make corrections due to non-local xc:
         xcfunc = self.hamiltonian.xc.xcfunc
         self.Enlxc = xcfunc.get_non_local_energy()
@@ -1137,7 +1136,7 @@ class PAW(PAWExtra, Output):
 
         if self.kpoints is None:
             self.kpoints = KPointCollection(self.gd,
-                                            self.weight_k,
+                                            self.weight_k * 2 / self.nspins,
                                             self.ibzk_kc,
                                             self.nkpts,
                                             self.nmyu,

@@ -55,7 +55,7 @@ class LCAOmatic(WaveFunctions):
                                               [n.setup.phit_j
                                                for n in paw.nuclei])
         if not paw.gamma:
-            self.basis_functions.set_j_points(self.kpoints.ibzk_kc)
+            self.basis_functions.set_k_points(self.kpoints.ibzk_kc)
             
         self.basis_functions.set_positions([n.spos_c for n in paw.nuclei])
 

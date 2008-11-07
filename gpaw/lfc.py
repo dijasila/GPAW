@@ -1,4 +1,7 @@
+from math import pi
+
 import numpy as np
+
 from gpaw.spherical_harmonics import Y
 import _gpaw
 
@@ -104,7 +107,6 @@ class LocalizedFunctionsCollection:
         self.ibzk_kc = None
         
     def set_k_points(self, ibzk_kc):
-        sdfgjkll
         self.ibzk_kc = ibzk_kc
         
     def set_positions(self, spos_ac):
@@ -142,7 +144,7 @@ class LocalizedFunctionsCollection:
             nw = len(sphere.M_w)
             self.M_W[W:W + nw] = M + np.array(sphere.M_w)
             if self.ibzk_kc is not None:
-                self.sdisp_Wc[W:W + nw] = sphere.sdisp_wc
+                sdisp_Wc[W:W + nw] = sphere.sdisp_wc
             for G_b in sphere.G_wb:
                 B2 = B1 + len(G_b)
                 self.G_B[B1:B2] = G_b
@@ -155,7 +157,7 @@ class LocalizedFunctionsCollection:
         assert B1 == nB
 
         if self.ibzk_kc is not None:
-            self.phase_kW = np.exp(2j * pi * np.inner(ibzk_kc, sdisp_Wc))
+            self.phase_kW = np.exp(2j * pi * np.inner(self.ibzk_kc, sdisp_Wc))
         else:
             self.phase_kW = np.empty((0, nW), complex)
         
@@ -203,14 +205,12 @@ class BasisFunctions(LocalizedFunctionsCollection):
         """Calculate lower part of potential matrix."""
         Vt_MM[:] = 0.0
         self.lfc.calculate_potential_matrix(vt_G, Vt_MM, k)
-
-    # XXXXXXXXXXXXXXXXXXXXXX
+        
     # Python implementations:
 
     def _add_to_density(self, nt_sG, f_sM):
         nspins = len(nt_sG)
         nt_sG = nt_sG.reshape((nspins, -1))
-
         for G1, G2 in self.griditer():
             for W in self.current_lfindices:
                 M = self.M_W[W]
@@ -238,6 +238,10 @@ class BasisFunctions(LocalizedFunctionsCollection):
                     f2_gm = self.A_Wgm[W2][self.g_W[W2]:self.g_W[W2] + G2 - G1]
                     nm2 = f2_gm.shape[1]
                     rho_mm = rho_MM[M1:M1 + nm1, M2:M2 + nm2]
+                    if self.ibzk_kc is not None:
+                        rho_mm = (rho_mm *
+                                  self.phase_kW[k, W1] *
+                                  self.phase_kW[k, W2].conj()).real
                     nt_G[G1:G2] += (np.dot(f1_gm, rho_mm) * f2_gm).sum(1)
 
     def _calculate_potential_matrix(self, vt_G, Vt_MM, k):
@@ -254,9 +258,13 @@ class BasisFunctions(LocalizedFunctionsCollection):
                     M2 = self.M_W[W2]
                     f2_gm = self.A_Wgm[W2][self.g_W[W2]:self.g_W[W2] + G2 - G1]
                     nm2 = f2_gm.shape[1]
-                    Vt_mm = Vt_MM[M1:M1 + nm1, M2:M2 + nm2]
-                    Vt_mm += np.dot(f1_gm.T,
-                                    vt_G[G1:G2, None] * f2_gm) * dv
+                    Vt_mm = np.dot(f1_gm.T,
+                                   vt_G[G1:G2, None] * f2_gm) * dv
+                    if self.ibzk_kc is not None:
+                        Vt_mm = (Vt_mm *
+                                 self.phase_kW[k, W1] *
+                                 self.phase_kW[k, W2].conj())
+                    Vt_MM[M1:M1 + nm1, M2:M2 + nm2] = Vt_mm
                     
     def lcao_to_grid0(self, c_M, psit_G):
         psit_G = psit_G.ravel()

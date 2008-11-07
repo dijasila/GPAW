@@ -99,7 +99,7 @@ class ZeroKelvin(Dummy):
             self.magmom = ma - mb
             # copy back information
             if self.kpt_comm.size>1: 
-                kpts[0].f_n = f_n[self.kpt_comm.rank]
+                kpts[0].f_n[:] = f_n[self.kpt_comm.rank]
 
         self.calculate_band_energy(kpts)
 

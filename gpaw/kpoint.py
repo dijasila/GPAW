@@ -247,7 +247,7 @@ class KPointCollection:
 
         self.nmybands = None
         self.eps_un = None
-        self.f_un = None # :(
+        self.f_un = None # :(  meget morsomt!
 
     def allocate(self, nbands):
         self.nmybands = nbands
