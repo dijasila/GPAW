@@ -1060,7 +1060,7 @@ class PAW(PAWExtra, Output):
         # Brillouin zone stuff:
         if self.gamma:
             self.symmetry = None
-            self.weight_k = [1.0]
+            self.weight_k = npy.array([1.0])
             self.ibzk_kc = npy.zeros((1, 3))
             self.nkpts = 1
         else:
