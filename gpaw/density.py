@@ -105,7 +105,7 @@ class Density:
         
         f_sM = np.empty((ns, wfs.basis_functions.Mmax))
         M1 = 0
-        for a in self.basis_functions.atom_indices:
+        for a in wfs.basis_functions.atom_indices:
             nucleus = self.nuclei[a]
             if hasattr(nucleus, 'f_si'):
                 # Convert to ndarray:

@@ -31,8 +31,7 @@ class LCAO:
         self.nao = wfs.nao
         self.eps_M = npy.empty(self.nao)
         self.S_MM = npy.empty((self.nao, self.nao), self.dtype)
-        self.Vt_skMM = npy.empty((paw.nspins, paw.nkpts,
-                                  self.nao, self.nao), self.dtype)
+        self.H_MM = npy.empty((self.nao, self.nao), self.dtype)
         self.linear_dependence_check(wfs)
         self.initialized = True
 
@@ -84,32 +83,29 @@ class LCAO:
             print npy.linalg.eig(self.S_kMM[0])[0]
 
     def get_hamiltonian_matrix(self, hamiltonian, wfs, kpt=None, k=0, s=0):
-        if kpt != None:
+        if kpt is not None:
             k = kpt.k
             s = kpt.s
 
-        H_MM = self.Vt_skMM[s,k]
+        self.timer.start('LCAO: potential matrix')
+        wfs.basis_functions.calculate_potential_matrix(
+            hamiltonian.vt_sG[s], self.H_MM, k)
+        self.timer.stop('LCAO: potential matrix')
         
         for nucleus in self.my_nuclei:
             dH_ii = unpack(nucleus.H_sp[s])
             P_Mi = nucleus.P_kmi[k]
-            H_MM += npy.dot(P_Mi, npy.inner(dH_ii, P_Mi).conj())
+            self.H_MM += npy.dot(P_Mi, npy.inner(dH_ii, P_Mi).conj())
 
-        self.comm.sum(H_MM)
+        self.comm.sum(self.H_MM)
 
-        H_MM += wfs.T_kMM[k]
+        self.H_MM += wfs.T_kMM[k]
 
-        return H_MM
+        return self.H_MM
 
     def iterate(self, hamiltonian, wfs):
-        self.timer.start('LCAO: potential matrix')
-        wfs.basis_functions.calculate_potential_matrix(hamiltonian.vt_sG,
-                                                       self.Vt_skMM)
-        self.timer.stop('LCAO: potential matrix')
-
         for kpt in wfs.kpoints.kpt_u:
             self.iterate_one_k_point(hamiltonian, wfs, kpt)
-
 
     def iterate_one_k_point(self, hamiltonian, wfs, kpt):
         k = kpt.k

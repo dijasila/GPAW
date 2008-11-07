@@ -48,13 +48,15 @@ class Sphere:
         self.spline_j = spline_j
         self.spos_c = None
 
-    def set_position(self, spos_c, gd, cut):
+    def set_position(self, spos_c, gd, cut, ibzk_kc):
         if self.spos_c is not None and not (self.spos_c - spos_c).any():
             return False
 
         self.A_wgm = []
         self.G_wb = []
         self.M_w = []
+        if ibzk_kc is not None:
+            self.sdisp_wc = []
         ng = 0
         M = 0
         for spline in self.spline_j:
@@ -63,10 +65,13 @@ class Sphere:
             for beg_c, end_c, sdisp_c in gd.get_boxes(spos_c, rcut, cut):
                 A_gm, G_b = self.spline_to_grid(spline, gd, beg_c, end_c,
                                                 spos_c - sdisp_c)
-                self.A_wgm.append(A_gm)
-                self.G_wb.append(G_b)
-                self.M_w.append(M)
-                ng += A_gm.shape[0]
+                if len(G_b) > 0:
+                    self.A_wgm.append(A_gm)
+                    self.G_wb.append(G_b)
+                    self.M_w.append(M)
+                    if ibzk_kc is not None:
+                        self.sdisp_wc.append(sdisp_c)
+                    ng += A_gm.shape[0]
             M += 2 * l + 1
 
         if ng > 0:
@@ -76,7 +81,9 @@ class Sphere:
             self.A_wgm = []
             self.G_wb = []
             self.M_w = []
-
+            if ibzk_kc is not None:
+                self.sdisp_wc = []
+            
         self.spos_c = spos_c
         return True
 
@@ -94,11 +101,17 @@ class LocalizedFunctionsCollection:
         self.gd = gd
         self.sphere_a = [Sphere(spline_j) for spline_j in spline_aj]
         self.cut = cut
-
+        self.ibzk_kc = None
+        
+    def set_k_points(self, ibzk_kc):
+        sdfgjkll
+        self.ibzk_kc = ibzk_kc
+        
     def set_positions(self, spos_ac):
         movement = False
         for spos_c, sphere in zip(spos_ac, self.sphere_a):
-            movement |= sphere.set_position(spos_c, self.gd, self.cut)
+            movement |= sphere.set_position(spos_c, self.gd, self.cut,
+                                            self.ibzk_kc)
 
         if movement:
             self._update(spos_ac)
@@ -118,29 +131,40 @@ class LocalizedFunctionsCollection:
         self.G_B = np.empty(nB, np.intc)
         self.W_B = np.empty(nB, np.intc)
         self.A_Wgm = []
-
+        if self.ibzk_kc is not None:
+            sdisp_Wc = np.empty((nW, 3))
+            
         B1 = 0
         W = 0
         M = 0
         for sphere in self.sphere_a:
-            for A_gm, G_b, dM in zip(sphere.A_wgm, sphere.G_wb, sphere.M_w):
-                self.A_Wgm.append(A_gm)
+            self.A_Wgm.extend(sphere.A_wgm)
+            nw = len(sphere.M_w)
+            self.M_W[W:W + nw] = M + np.array(sphere.M_w)
+            if self.ibzk_kc is not None:
+                self.sdisp_Wc[W:W + nw] = sphere.sdisp_wc
+            for G_b in sphere.G_wb:
                 B2 = B1 + len(G_b)
                 self.G_B[B1:B2] = G_b
                 self.W_B[B1:B2:2] = W
                 self.W_B[B1 + 1:B2 + 1:2] = -W - 1
-                self.M_W[W] = M + dM
                 B1 = B2
                 W += 1
             M += sphere.Mmax
         self.Mmax = M
         assert B1 == nB
-        indices = np.argsort(self.G_B)
+
+        if self.ibzk_kc is not None:
+            self.phase_kW = np.exp(2j * pi * np.inner(ibzk_kc, sdisp_Wc))
+        else:
+            self.phase_kW = np.empty((0, nW), complex)
+        
+        indices = np.argsort(self.G_B, kind='mergesort')
         self.G_B = self.G_B[indices]
         self.W_B = self.W_B[indices]
 
         self.lfc = _gpaw.LFC(self.A_Wgm, self.M_W, self.G_B, self.W_B,
-                             self.gd.dv)
+                             self.gd.dv, self.phase_kW)
 
         nimax = np.add.accumulate((self.W_B >= 0) * 2 - 1).max()
         self.W_i = np.empty(nimax, np.intc)
@@ -172,17 +196,18 @@ class BasisFunctions(LocalizedFunctionsCollection):
         for nt_G, f_M in zip(nt_sG, f_sM):
             self.lfc.construct_density1(f_M, nt_G)
 
-    def construct_density(self, rho_MM, nt_G):
-        self.lfc.construct_density(rho_MM, nt_G)
+    def construct_density(self, rho_MM, nt_G, k):
+        self.lfc.construct_density(rho_MM, nt_G, k)
 
-    def calculate_potential_matrix(self, vt_sG, Vt_skMM):
-        # Lower part only.
-        Vt_skMM[:] = 0.0
-        self.lfc.calculate_potential_matrix(vt_sG[0], Vt_skMM[0,0])
+    def calculate_potential_matrix(self, vt_G, Vt_MM, k):
+        """Calculate lower part of potential matrix."""
+        Vt_MM[:] = 0.0
+        self.lfc.calculate_potential_matrix(vt_G, Vt_MM, k)
 
     # XXXXXXXXXXXXXXXXXXXXXX
     # Python implementations:
-    def add_to_density(self, nt_sG, f_sM):
+
+    def _add_to_density(self, nt_sG, f_sM):
         nspins = len(nt_sG)
         nt_sG = nt_sG.reshape((nspins, -1))
 
@@ -192,8 +217,8 @@ class BasisFunctions(LocalizedFunctionsCollection):
                 A_gm = self.A_Wgm[W][self.g_W[W]:self.g_W[W] + G2 - G1]
                 nm = A_gm.shape[1]
                 nt_sG[0, G1:G2] += np.dot(A_gm**2, f_sM[0, M:M + nm])
-                
-    def construct_density(self, rho_MM, nt_G):
+
+    def _construct_density(self, rho_MM, nt_G, k):
         """Calculate electron density from density matrix.
 
         rho_MM: ndarray
@@ -214,11 +239,10 @@ class BasisFunctions(LocalizedFunctionsCollection):
                     nm2 = f2_gm.shape[1]
                     rho_mm = rho_MM[M1:M1 + nm1, M2:M2 + nm2]
                     nt_G[G1:G2] += (np.dot(f1_gm, rho_mm) * f2_gm).sum(1)
-        
-    def calculate_potential_matrix(self, vt_sG, Vt_skMM):
-        vt_sG = vt_sG.reshape((len(vt_sG), -1))
-        Vt_skMM[:] = 0.0
-        assert Vt_skMM.shape[:2] == (1, 1)
+
+    def _calculate_potential_matrix(self, vt_G, Vt_MM, k):
+        vt_G = vt_G.ravel()
+        Vt_MM[:] = 0.0
         dv = self.gd.dv
 
         for G1, G2 in self.griditer():
@@ -230,10 +254,10 @@ class BasisFunctions(LocalizedFunctionsCollection):
                     M2 = self.M_W[W2]
                     f2_gm = self.A_Wgm[W2][self.g_W[W2]:self.g_W[W2] + G2 - G1]
                     nm2 = f2_gm.shape[1]
-                    Vt_mm = Vt_skMM[0,0,M1:M1 + nm1, M2:M2 + nm2]
-                    Vt_mm += np.dot(f1_gm.T, vt_sG[0, G1:G2, None] * f2_gm) * dv
-
-
+                    Vt_mm = Vt_MM[M1:M1 + nm1, M2:M2 + nm2]
+                    Vt_mm += np.dot(f1_gm.T,
+                                    vt_G[G1:G2, None] * f2_gm) * dv
+                    
     def lcao_to_grid0(self, c_M, psit_G):
         psit_G = psit_G.ravel()
         for G1, G2 in self.griditer():

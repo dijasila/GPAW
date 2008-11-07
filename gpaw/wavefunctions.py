@@ -54,6 +54,9 @@ class LCAOmatic(WaveFunctions):
         self.basis_functions = BasisFunctions(paw.gd,
                                               [n.setup.phit_j
                                                for n in paw.nuclei])
+        if not paw.gamma:
+            self.basis_functions.set_j_points(self.kpoints.ibzk_kc)
+            
         self.basis_functions.set_positions([n.spos_c for n in paw.nuclei])
 
         if not self.lcao_initialized: # XXX
@@ -91,9 +94,10 @@ class LCAOmatic(WaveFunctions):
     def add_to_density_with_occupation(self, nt_sG, f_un):
         """Add contribution to pseudo electron-density. Do not use the standard
         occupation numbers, but ones given with argument f_n."""
+        
         for f_n, C_nM, kpt in zip(f_un, self.C_unM, self.kpoints.kpt_u):
             rho_MM = npy.dot(C_nM.conj().T * f_n, C_nM)
-            self.basis_functions.construct_density(rho_MM, nt_sG[kpt.s])
+            self.basis_functions.construct_density(rho_MM, nt_sG[kpt.s], kpt.k)
 
 
 class Gridmotron(WaveFunctions):
