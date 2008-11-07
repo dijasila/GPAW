@@ -174,24 +174,14 @@ PyObject* calculate_potential_matrix(LFCObject *lfc, PyObject *args)
                 {
                   LFVolume* v2 = volume_i + i2;
                   int M2 = v2->M;
-                  int nm2 = v2->nm;
-                  if (M1 > M2)
+                  if (M1 >= M2)
                     {
+                      int nm2 = v2->nm;
                       double* Vt_mm = Vt_MM + M1 * nM + M2;
                       for (int g = 0; g < nG; g++)
                         for (int m1 = 0; m1 < nm1; m1++)
                           for (int m2 = 0; m2 < nm2; m2++)
                             Vt_mm[m2 + m1 * nM] += (v2->A_gm[g * nm2 + m2] * 
-                                                    work_gm[g * nm1 + m1] *
-                                                    lfc->dv);
-                    }
-                  else
-                    {
-                      double* Vt_mm = Vt_MM + M2 * nM + M1;
-                      for (int g = 0; g < nG; g++)
-                        for (int m2 = 0; m2 < nm2; m2++)
-                          for (int m1 = 0; m1 < nm1; m1++)
-                            Vt_mm[m1 + m2 * nM] += (v2->A_gm[g * nm2 + m2] * 
                                                     work_gm[g * nm1 + m1] *
                                                     lfc->dv);
                     }
@@ -219,9 +209,9 @@ PyObject* calculate_potential_matrix(LFCObject *lfc, PyObject *args)
                 {
                   LFVolume* v2 = volume_i + i2;
                   int M2 = v2->M;
-                  int nm2 = v2->nm;
-                  if (M1 > M2)
+                  if (M1 >= M2)
                     {
+                      int nm2 = v2->nm;
                       double complex phase = (phase_i[i1] * conj(phase_i[i2]) *
                                               lfc->dv);
                       double complex* Vt_mm = Vt_MM + M1 * nM + M2;
@@ -229,18 +219,6 @@ PyObject* calculate_potential_matrix(LFCObject *lfc, PyObject *args)
                         for (int m1 = 0; m1 < nm1; m1++)
                           for (int m2 = 0; m2 < nm2; m2++)
                             Vt_mm[m2 + m1 * nM] += (v2->A_gm[g * nm2 + m2] * 
-                                                    work_gm[g * nm1 + m1] *
-                                                    phase);
-                    }
-                  else
-                    {
-                      double complex phase = (phase_i[i2] * conj(phase_i[i1]) *
-                                              lfc->dv);
-                      double complex* Vt_mm = Vt_MM + M2 * nM + M1;
-                      for (int g = 0; g < nG; g++)
-                        for (int m2 = 0; m2 < nm2; m2++)
-                          for (int m1 = 0; m1 < nm1; m1++)
-                            Vt_mm[m1 + m2 * nM] += (v2->A_gm[g * nm2 + m2] * 
                                                     work_gm[g * nm1 + m1] *
                                                     phase);
                     }
