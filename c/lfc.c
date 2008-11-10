@@ -23,6 +23,7 @@ static void lfc_dealloc(LFCObject *self)
 PyObject* calculate_potential_matrix(LFCObject *self, PyObject *args);
 PyObject* construct_density(LFCObject *self, PyObject *args);
 PyObject* construct_density1(LFCObject *self, PyObject *args);
+PyObject* lcao_to_grid(LFCObject *self, PyObject *args);
 
 static PyMethodDef lfc_methods[] = {
     {"calculate_potential_matrix",
@@ -31,6 +32,8 @@ static PyMethodDef lfc_methods[] = {
      (PyCFunction)construct_density, METH_VARARGS, 0},
     {"construct_density1",
      (PyCFunction)construct_density1, METH_VARARGS, 0},
+    {"lcao_to_grid",
+     (PyCFunction)lcao_to_grid, METH_VARARGS, 0},
 #ifdef PARALLEL
     {"broadcast",
      (PyCFunction)localized_functions_broadcast, METH_VARARGS, 0},
@@ -348,6 +351,50 @@ PyObject* construct_density1(LFCObject *lfc, PyObject *args)
 	}
     }
   GRID_LOOP_STOP(lfc, -1);
+  Py_RETURN_NONE;
+}
+
+PyObject* lcao_to_grid(LFCObject *lfc, PyObject *args)
+{
+  const PyArrayObject* c_M_obj;
+  PyArrayObject* psit_G_obj;
+  int k;
+
+  if (!PyArg_ParseTuple(args, "OO", &c_M_obj, &psit_G_obj, &k))
+    return NULL; 
+  
+  if (!lfc->bloch_boundary_conditions)
+    {
+      const double* c_M = (const double*)c_M_obj->data;
+      double* psit_G = (double*)psit_G_obj->data;
+      GRID_LOOP_START(lfc, -1)
+	{
+	  for (int i = 0; i < ni; i++)
+	    {
+	      LFVolume* v = volume_i + i;
+	      for (int gm = 0, G = Ga; G < Gb; G++)
+		for (int m = 0; m < v->nm; m++, gm++)
+		  psit_G[G] += v->A_gm[gm] * c_M[v->M + m];
+	    }
+	}
+      GRID_LOOP_STOP(lfc, -1);
+    }
+  else
+    {
+      const double complex* c_M = (const double complex*)c_M_obj->data;
+      double complex* psit_G = (double complex*)psit_G_obj->data;
+      GRID_LOOP_START(lfc, k)
+	{
+	  for (int i = 0; i < ni; i++)
+	    {
+	      LFVolume* v = volume_i + i;
+	      for (int gm = 0, G = Ga; G < Gb; G++)
+		for (int m = 0; m < v->nm; m++, gm++)
+		  psit_G[G] += v->A_gm[gm] * c_M[v->M + m] * phase_i[i];
+	    }
+	}
+      GRID_LOOP_STOP(lfc, -1);
+    }
   Py_RETURN_NONE;
 }
 

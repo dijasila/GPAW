@@ -275,9 +275,10 @@ class BasisFunctions(LocalizedFunctionsCollection):
                 M2 = M + A_gm.shape[1]
                 psit_G[G1:G2] += np.dot(A_gm, c_M[M1:M2])
 
-    def lcao_to_grid(self, c_nM, psit_nG):
+    def lcao_to_grid(self, c_nM, psit_nG, k):
         for c_M, psit_G in zip(c_nM, psit_nG):
-            self.lcao_to_grid0(c_M, psit_G)
+            #self.lcao_to_grid0(c_M, psit_G)
+            self.lfc.lcao_to_grid(c_M, psit_G, k)
 
 
 def test():
