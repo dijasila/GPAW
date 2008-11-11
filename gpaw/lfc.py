@@ -69,6 +69,7 @@ class Sphere:
                 A_gm, G_b = self.spline_to_grid(spline, gd, beg_c, end_c,
                                                 spos_c - sdisp_c)
                 if len(G_b) > 0:
+                    print M, A_gm.shape, sdisp_c, rcut, l
                     self.A_wgm.append(A_gm)
                     self.G_wb.append(G_b)
                     self.M_w.append(M)
@@ -134,7 +135,7 @@ class LocalizedFunctionsCollection:
         self.W_B = np.empty(nB, np.intc)
         self.A_Wgm = []
         if self.ibzk_kc is not None:
-            sdisp_Wc = np.empty((nW, 3))
+            sdisp_Wc = np.empty((nW, 3), int)
             
         B1 = 0
         W = 0
@@ -205,7 +206,7 @@ class BasisFunctions(LocalizedFunctionsCollection):
         """Calculate lower part of potential matrix."""
         Vt_MM[:] = 0.0
         self.lfc.calculate_potential_matrix(vt_G, Vt_MM, k)
-        
+
     # Python implementations:
 
     def _add_to_density(self, nt_sG, f_sM):
@@ -244,7 +245,7 @@ class BasisFunctions(LocalizedFunctionsCollection):
                                   self.phase_kW[k, W2].conj()).real
                     nt_G[G1:G2] += (np.dot(f1_gm, rho_mm) * f2_gm).sum(1)
 
-    def _calculate_potential_matrix(self, vt_G, Vt_MM, k):
+    def calculate_potential_matrix(self, vt_G, Vt_MM, k):
         vt_G = vt_G.ravel()
         Vt_MM[:] = 0.0
         dv = self.gd.dv
@@ -262,23 +263,27 @@ class BasisFunctions(LocalizedFunctionsCollection):
                                    vt_G[G1:G2, None] * f2_gm) * dv
                     if self.ibzk_kc is not None:
                         Vt_mm = (Vt_mm *
-                                 self.phase_kW[k, W1] *
-                                 self.phase_kW[k, W2].conj())
+                                 self.phase_kW[k, W1].conj() *
+                                 self.phase_kW[k, W2])
                     Vt_MM[M1:M1 + nm1, M2:M2 + nm2] += Vt_mm
                     
-    def _lcao_band_to_grid(self, c_M, psit_G):
+    def _lcao_band_to_grid(self, c_M, psit_G, k):
         psit_G = psit_G.ravel()
         for G1, G2 in self.griditer():
             for W in self.current_lfindices:
                 A_gm = self.A_Wgm[W][self.g_W[W]:self.g_W[W] + G2 - G1]
                 M1 = self.M_W[W]
                 M2 = M1 + A_gm.shape[1]
-                psit_G[G1:G2] += np.dot(A_gm, c_M[M1:M2])
+                if self.ibzk_kc is None:
+                    psit_G[G1:G2] += np.dot(A_gm, c_M[M1:M2])
+                else:
+                    psit_G[G1:G2] += np.dot(A_gm,
+                                            c_M[M1:M2] * self.phase_kW[k, W])
 
     def lcao_to_grid(self, c_nM, psit_nG, k):
         for c_M, psit_G in zip(c_nM, psit_nG):
-            #self.lfc.lcao_to_grid(c_M, psit_G, k)
-            self._lcao_band_to_grid(c_M, psit_G)
+            self.lfc.lcao_to_grid(c_M, psit_G, k)
+            #self._lcao_band_to_grid(c_M, psit_G, k)
 
 def test():
     from gpaw.grid_descriptor import GridDescriptor

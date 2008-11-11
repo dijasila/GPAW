@@ -215,7 +215,7 @@ PyObject* calculate_potential_matrix(LFCObject *lfc, PyObject *args)
                   if (M1 >= M2)
                     {
                       int nm2 = v2->nm;
-                      double complex phase = (phase_i[i1] * conj(phase_i[i2]) *
+                      double complex phase = (conj(phase_i[i1]) * phase_i[i2] *
                                               lfc->dv);
                       double complex* Vt_mm = Vt_MM + M1 * nM + M2;
                       for (int g = 0; g < nG; g++)
@@ -360,7 +360,7 @@ PyObject* lcao_to_grid(LFCObject *lfc, PyObject *args)
   PyArrayObject* psit_G_obj;
   int k;
 
-  if (!PyArg_ParseTuple(args, "OOI", &c_M_obj, &psit_G_obj, &k))
+  if (!PyArg_ParseTuple(args, "OOi", &c_M_obj, &psit_G_obj, &k))
     return NULL; 
   
   if (!lfc->bloch_boundary_conditions)
@@ -393,7 +393,7 @@ PyObject* lcao_to_grid(LFCObject *lfc, PyObject *args)
 		  psit_G[G] += v->A_gm[gm] * c_M[v->M + m] * phase_i[i];
 	    }
 	}
-      GRID_LOOP_STOP(lfc, -1);
+      GRID_LOOP_STOP(lfc, k);
     }
   Py_RETURN_NONE;
 }

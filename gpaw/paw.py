@@ -189,8 +189,6 @@ class PAW(PAWExtra, Output):
     =============== ===================================================
     """
 
-    non_orthorhombic_unit_cells_allowed = False
-    
     def __init__(self, filename=None, **kwargs):
         """ASE-calculator interface.
 
@@ -984,10 +982,6 @@ class PAW(PAWExtra, Output):
         except KeyError:
             tag_a = npy.zeros(self.natoms, int)
 
-        if not self.non_orthorhombic_unit_cells_allowed:
-            # Check that the cell is orthorhombic:
-            check_unit_cell(cell_cv)
-        
         # Set the scaled k-points:
         kpts = p['kpts']
         if kpts is None:

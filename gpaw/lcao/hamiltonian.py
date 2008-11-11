@@ -86,10 +86,11 @@ class LCAOHamiltonian:
             self.dTdR_kcmm = npy.zeros((nkpts, 3, self.nao, self.nao),
                                        self.dtype)
 
-        cell_c = self.gd.domain.cell_c
+        cell_cv = self.gd.domain.cell_cv
 
-        atoms = Atoms(positions=[n.spos_c * cell_c for n in self.nuclei],
-                      cell=cell_c,
+        atoms = Atoms(positions=[npy.dot(n.spos_c, cell_cv)
+                                 for n in self.nuclei],
+                      cell=cell_cv,
                       pbc=self.gd.domain.pbc_c)
 
         nl = NeighborList([max([phit.get_cutoff()
@@ -107,7 +108,7 @@ class LCAOHamiltonian:
                 nucleusb = self.nuclei[b]
                 sposb = nucleusb.spos_c + offset
 
-                d = -cell_c * (sposb - sposa)
+                d = -npy.dot(sposb - sposa, cell_cv)
                 r = sqrt(npy.dot(d, d))
                 rlY_lm = []
                 drlYdR_lmc = []
@@ -346,6 +347,7 @@ class LCAOHamiltonian:
 
     # Methods not in use any more
     def p_overlap(self, R_c, i1, pos1, id1, l1, m1, P_mi):
+        xxxxxxxxxxxxx
         i2 = 0
         for nucleus2 in self.nuclei:
             pos2 = nucleus2.spos_c
@@ -360,24 +362,26 @@ class LCAOHamiltonian:
                     i2 += 1
 
     def st_overlap(self, R_c, i1, pos1, id1, l1, m1, S_mm, T_mm):
-       i2 = 0
-       for nucleus2 in self.nuclei:
-           pos2 = nucleus2.spos_c
-           d = (pos1 - pos2 + R_c) * self.gd.domain.cell_c
-           setup2 = nucleus2.setup
-           for j2, phit2 in enumerate(setup2.phit_j):
-               id2 = (setup2.symbol, j2)
-               l2 = phit2.get_angular_momentum_number()
-               for m2 in range(2 * l2 + 1):
-                   S, T = self.tci.st_overlap(id1, id2, l1, l2, m1, m2, d)
-                   S_mm[i1, i2] = S
-                   T_mm[i1, i2] = T
-                   i2 += 1
+        xxxxxxxxxxxxxx
+        i2 = 0
+        for nucleus2 in self.nuclei:
+            pos2 = nucleus2.spos_c
+            d = (pos1 - pos2 + R_c) * self.gd.domain.cell_c
+            setup2 = nucleus2.setup
+            for j2, phit2 in enumerate(setup2.phit_j):
+                id2 = (setup2.symbol, j2)
+                l2 = phit2.get_angular_momentum_number()
+                for m2 in range(2 * l2 + 1):
+                    S, T = self.tci.st_overlap(id1, id2, l1, l2, m1, m2, d)
+                    S_mm[i1, i2] = S
+                    T_mm[i1, i2] = T
+                    i2 += 1
 
     def calculate_displacements(self, rmax):
         """Calculate displacement vectors to be used for the relevant
         phase factors (phase_k)."""
 
+        xxxxxxxxxxxxx
         nn_c = npy.zeros(3, int)  # Number of neighboring cells
         for c in range(3):
             if self.gd.domain.pbc_c[c]:
@@ -394,6 +398,7 @@ class LCAOHamiltonian:
         return R_dc
 
     def old_initialize(self):
+        xxxxxxxxxxx
         self.nao = 0
         for nucleus in self.nuclei:
             self.nao += nucleus.get_number_of_atomic_orbitals()
