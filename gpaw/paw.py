@@ -383,8 +383,7 @@ class PAW(PAWExtra, Output):
         # which will otherwise just allocate.
 
         wfs = self.wfs
-        wfs.initialize(self, atoms, self.hamiltonian,
-                       self.density, self.eigensolver)
+        wfs.initialize(self, self.hamiltonian, self.density, self.eigensolver)
         
         if not wfs.is_orthonormalized():
             wfs.orthonormalize()

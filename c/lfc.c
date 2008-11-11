@@ -360,7 +360,7 @@ PyObject* lcao_to_grid(LFCObject *lfc, PyObject *args)
   PyArrayObject* psit_G_obj;
   int k;
 
-  if (!PyArg_ParseTuple(args, "OO", &c_M_obj, &psit_G_obj, &k))
+  if (!PyArg_ParseTuple(args, "OOI", &c_M_obj, &psit_G_obj, &k))
     return NULL; 
   
   if (!lfc->bloch_boundary_conditions)

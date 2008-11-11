@@ -255,7 +255,7 @@ class Density:
                 if abs(scale - 1.0) > 0.01:
                     print 'Scale = %.03f' % scale
                 self.nt_g *= scale
-            
+        
         self.rhot_g[:] = self.nt_g
 
         for nucleus in self.ghat_nuclei:
@@ -287,7 +287,7 @@ class Density:
             nucleus.D_sp[:] = [pack(D_ii) for D_ii in D_sii]
             self.band_comm.sum(nucleus.D_sp)
             self.kpt_comm.sum(nucleus.D_sp)
-        
+
     def update_pseudo_electronic_density(self, wfs, symmetry):
         """Calculate pseudo electron-density.
 

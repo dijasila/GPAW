@@ -266,20 +266,19 @@ class BasisFunctions(LocalizedFunctionsCollection):
                                  self.phase_kW[k, W2].conj())
                     Vt_MM[M1:M1 + nm1, M2:M2 + nm2] += Vt_mm
                     
-    def lcao_to_grid0(self, c_M, psit_G):
+    def _lcao_band_to_grid(self, c_M, psit_G):
         psit_G = psit_G.ravel()
         for G1, G2 in self.griditer():
             for W in self.current_lfindices:
-                A_gm = self.A_Wgm[W].A_gm[self.g_W[W]:self.g_W[W] + G2 - G1]
+                A_gm = self.A_Wgm[W][self.g_W[W]:self.g_W[W] + G2 - G1]
                 M1 = self.M_W[W]
-                M2 = M + A_gm.shape[1]
+                M2 = M1 + A_gm.shape[1]
                 psit_G[G1:G2] += np.dot(A_gm, c_M[M1:M2])
 
     def lcao_to_grid(self, c_nM, psit_nG, k):
         for c_M, psit_G in zip(c_nM, psit_nG):
-            #self.lcao_to_grid0(c_M, psit_G)
-            self.lfc.lcao_to_grid(c_M, psit_G, k)
-
+            #self.lfc.lcao_to_grid(c_M, psit_G, k)
+            self._lcao_band_to_grid(c_M, psit_G)
 
 def test():
     from gpaw.grid_descriptor import GridDescriptor

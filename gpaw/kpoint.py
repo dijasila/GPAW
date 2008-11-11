@@ -109,8 +109,8 @@ class KPoint:
         self.set_grid_descriptor(gd)
 
         # Only one of these two will be used:
-        #self.psit_nG = None  # wave functions on 3D grid
-        #self.C_nm = None     # LCAO coefficients for wave functions
+        self.psit_nG = None  # wave functions on 3D grid
+        #self.C_nm = None     # LCAO coefficients for wave functions XXX
         
     def set_grid_descriptor(self, gd):
         self.gd = gd
@@ -191,7 +191,7 @@ class KPoint:
         """Add contribution to pseudo kinetic energy density."""
         ddr = [Gradient(self.gd, c, dtype=self.dtype).apply for c in range(3)]
         d_G = self.gd.empty(dtype=self.dtype)
-        for f,psit_G in zip(self.f_n,self.psit_nG):
+        for f, psit_G in zip(self.f_n, self.psit_nG):
             for c in range(3):
                 if self.dtype == float:
                     ddr[c](psit_G,d_G)
@@ -286,22 +286,6 @@ class KPointCollection:
     def add_to_density(self, nt_sG, use_lcao, basis_functions):
         for kpt in self.kpt_u:
             kpt.add_to_density(nt_sG[kpt.s], use_lcao, basis_functions)
-
-    def calculate_wave_functions_from_lcao_coefficients(self, nbands,
-                                                        basis_functions):
-        # XXXXX here!!!
-        self.psit_nG = self.gd.zeros(nbands, dtype=self.dtype)
-        nlcao = len(self.C_nm)
-        psit_nG = self.psit_nG[:nlcao]
-        basis_functions.lcao_to_grid(self.C_nm, psit_nG)
-        #m1 = 0
-        #for nucleus in self.nuclei:
-        #    niao = nucleus.get_number_of_atomic_orbitals()
-        #    m2 = m1 + niao
-        #    if nucleus.phit_i is not None:
-        #        nucleus.phit_i.add(psit_nG, self.C_nm[:, m1:m2].copy(),
-        #                           self.k)
-        #    m1 = m2
 
     def subset(self, uvalues):
         # This method should be implemented to ensure that one can

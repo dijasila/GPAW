@@ -2,6 +2,7 @@ import numpy as npy
 
 from gpaw.lfc import BasisFunctions
 from gpaw.eigensolvers import get_eigensolver
+from gpaw.utilities.blas import axpy
 
 class WaveFunctions:
     def __init__(self, kpoints):
@@ -26,7 +27,7 @@ class WaveFunctions:
     def is_initialized(self):
         return self.wfs_initialized
 
-    def initialize(self, paw, atoms, hamiltonian, density, eigensolver):
+    def initialize(self, paw, hamiltonian, density, eigensolver):
         raise NotImplementedError
 
     def atomic_movement(self):
@@ -49,11 +50,10 @@ class LCAOmatic(WaveFunctions):
         self.lcao_initialized = False
         #self.lcao_hamiltonian = None # class to be removed
 
-    def initialize(self, paw, atoms, hamiltonian, density, eigensolver):
+    def initialize(self, paw, hamiltonian, density, eigensolver):
         assert eigensolver.lcao
-        self.basis_functions = BasisFunctions(paw.gd,
-                                              [n.setup.phit_j
-                                               for n in paw.nuclei])
+        self.basis_functions = BasisFunctions(paw.gd, [n.setup.phit_j
+                                                       for n in paw.nuclei])
         if not paw.gamma:
             self.basis_functions.set_k_points(self.kpoints.ibzk_kc)
             
@@ -103,8 +103,9 @@ class LCAOmatic(WaveFunctions):
 class Gridmotron(WaveFunctions):
     def __init__(self, kpoints):
         WaveFunctions.__init__(self, kpoints)
-        self.psit_unG = None
-        self.projectors = None
+        # XXX
+        #self.psit_unG = None
+        #self.projectors = None
 
     def initialize_wave_functions_from_restart_file(self, paw):
         # Calculation started from a restart file.  Copy data
@@ -126,91 +127,76 @@ class Gridmotron(WaveFunctions):
     def initialize_wave_functions_from_atomic_orbitals(self, paw):
         lcaowfs = LCAOmatic(self.kpoints)
         eigensolver = get_eigensolver('lcao')
-        paw.density.lcao = True
-        lcaowfs.initialize(paw, paw.atoms, paw.hamiltonian, paw.density,
+
+        original_eigensolver = paw.eigensolver
+        original_nbands = paw.nbands
+        original_nmybands = paw.nmybands
+        
+
+        lcaowfs.initialize(paw, paw.hamiltonian, paw.density,
                            eigensolver)
-        nbands = min(paw.nbands, lcaowfs.nao)
 
-        #if paw.band_comm.size == 1:
-        #    nmybands = nbands
-
-        #for nucleus in paw.my_nuclei:
-        #    nucleus.reallocate(nmybands)
-        old_eigensolver = paw.eigensolver
+        paw.nbands = min(paw.nbands, lcaowfs.nao)
+        paw.nmybands = min(paw.nmybands, lcaowfs.nao)
+        paw.density.lcao = True
         paw.eigensolver = eigensolver
         paw.wfs = lcaowfs
-        
+
+        if paw.band_comm.size == 1:
+            paw.nmybands = paw.nbands # XXX how can this be right?
+        for nucleus in paw.my_nuclei:
+            nucleus.reallocate(paw.nmybands)
         paw.hamiltonian.update(paw.density)
         eigensolver.iterate(paw.hamiltonian, lcaowfs)
         
         xcfunc = paw.hamiltonian.xc.xcfunc
         paw.Enlxc = xcfunc.get_non_local_energy()
         paw.Enlkin = xcfunc.get_non_local_kinetic_corrections()
-        paw.occupation.calculate(self.kpoints.kpt_u)        
+        paw.occupation.calculate(self.kpoints.kpt_u)
         paw.add_up_energies()
         paw.check_convergence()
         paw.print_iteration()
+        paw.fixdensity = 2 # XXX
 
-        paw.eigensolver = old_eigensolver
         paw.wfs = self
+        paw.eigensolver = original_eigensolver
+        paw.nbands = original_nbands
+        paw.nmybands = original_nmybands
+        paw.density.lcao = False
 
-        #raise RuntimeError('sdfkjsdfkj')
-        
-        #paw.hamiltonian.update(paw.density)
-        #paw.density.update(self, paw.symmetry)
-        #paw.update_kinetic()
-        #paw.hamiltonian.update(paw.density)
-        #paw.eigensolver.iterate(paw.hamiltonian, self)
-
-        #original_eigensolver = self.eigensolver
-        #original_nbands = self.nbands
-        #original_nmybands = self.nmybands
-        #original_maxiter = self.maxiter
-
-        #self.maxiter = 0
-
-
-        #try:
-        #    self.find_ground_state(self.atoms, write=False)
-        #except KohnShamConvergenceError:
-         #   pass
-
-        #self.maxiter = original_maxiter
-        #self.nbands = original_nbands
-        #self.nmybands = original_nmybands
-        for kpt in self.kpt_u:
-            kpt.calculate_wave_functions_from_lcao_coefficients(
-                self.nmybands, self.hamiltonian.basis_functions)
-            # Delete basis-set expansion coefficients:
-            #kpt.C_nm = None
-
-        for nucleus in self.nuclei:
+        for kpt in self.kpoints.kpt_u:
+            kpt.psit_nG = kpt.gd.zeros(self.kpoints.nmybands)
+        # XXX might number of lcao bands be different from grid bands?
+        part_psit_unG = [kpt.psit_nG[:self.kpoints.nmybands]
+                         for kpt in self.kpoints.kpt_u]
+        for C_nM, psit_nG, kpt in zip(lcaowfs.C_unM, part_psit_unG,
+                                      self.kpoints.kpt_u):
+            lcaowfs.basis_functions.lcao_to_grid(C_nM, psit_nG, kpt.k)
+        # XXX init remaining wave functions randomly
+        for nucleus in paw.nuclei:
             del nucleus.P_kmi
+        for nucleus in paw.my_nuclei:
+            nucleus.reallocate(paw.nmybands)
+                
+        paw.density.scale()
+        paw.density.interpolate_pseudo_density()
+        self.orthonormalize()
 
-        for nucleus in self.my_nuclei:
-            nucleus.reallocate(self.nmybands)
-
-        self.eigensolver = original_eigensolver
-        if self.xcfunc.is_gllb():
-            self.xcfunc.xc.eigensolver = self.eigensolver
-        #self.density.mixer.reset(self.my_nuclei)
-        self.density.lcao = False
+        if paw.xcfunc.is_gllb():
+            paw.xcfunc.xc.eigensolver = paw.eigensolver
 
     def random_wave_functions(self, paw):
         self.kpoints.allocate(0)
         for kpt in self.kpoints.kpt_u:
             kpt.psit_nG = self.gd.zeros(self.nmybands,
                                         dtype=self.dtype)
-        if not self.density.starting_density_initialized: # XXX???
+        if not self.density.starting_density_initialized:
             self.density.initialize_from_atomic_density(self.wfs)
-            # Should use preinitialized LCAO wave function object?
-            # This makes little sense, why is this code called
-            # from a section concerning only random wfs?
-            #
-            # Isn't this completely broken?
 
-    def add_to_density_with_occupation(self, nt_G, f_n):
+    def add_to_density_with_occupation(self, nt_sG, f_un):
         for kpt in self.kpoints.kpt_u:
+            nt_G = nt_sG[kpt.s]
+            f_n = f_un[kpt.u]
             if kpt.dtype == float:
                 for f, psit_G in zip(f_n, kpt.psit_nG):
                     axpy(f, psit_G**2, nt_G)  # nt_G += f * psit_G**2
@@ -232,7 +218,7 @@ class Gridmotron(WaveFunctions):
             self.overlap.orthonormalize(kpt)
         self.orthonormalized = True
 
-    def initialize(self, paw, atoms, hamiltonian, density, eigensolver):
+    def initialize(self, paw, hamiltonian, density, eigensolver):
         assert not eigensolver.lcao
         self.overlap = paw.overlap
         if not eigensolver.initialized:
