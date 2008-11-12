@@ -446,9 +446,9 @@ PyObject* spline_to_grid(PyObject *self, PyObject *args)
 	  int g2_end = -1;
           for (int g2 = beg_c[2]; g2 < end_c[2]; g2++)
             {
-              double x = h_cv[0] * g0 + h_cv[1] * g1 + h_cv[2] * g2 - pos_v[0];
-              double y = h_cv[3] * g0 + h_cv[4] * g1 + h_cv[5] * g2 - pos_v[1];
-              double z = h_cv[6] * g0 + h_cv[7] * g1 + h_cv[8] * g2 - pos_v[2];
+              double x = h_cv[0] * g0 + h_cv[3] * g1 + h_cv[6] * g2 - pos_v[0];
+              double y = h_cv[1] * g0 + h_cv[4] * g1 + h_cv[7] * g2 - pos_v[1];
+              double z = h_cv[2] * g0 + h_cv[5] * g1 + h_cv[8] * g2 - pos_v[2];
               double r2 = x * x + y * y + z * z;
               double r = sqrt(r2);
               if (r < rcut)
