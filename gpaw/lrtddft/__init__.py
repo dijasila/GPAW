@@ -88,8 +88,8 @@ class LrTDDFT(ExcitationList):
         self.force_ApmB=force_ApmB
  
         if calculator is not None:
-            if not calculator.wave_functions_initialized:
-                calculator.initialize_wave_functions()
+            if not calculator.wfs.initialized:
+                calculator.wfs.initialize(calculator) # XXX remember to test
                 
             self.update(calculator, nspins, eps, istart, jend,
                         xc, derivativeLevel, numscale)

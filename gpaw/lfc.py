@@ -69,7 +69,6 @@ class Sphere:
                 A_gm, G_b = self.spline_to_grid(spline, gd, beg_c, end_c,
                                                 spos_c - sdisp_c)
                 if len(G_b) > 0:
-                    print M, A_gm.shape, sdisp_c, rcut, l
                     self.A_wgm.append(A_gm)
                     self.G_wb.append(G_b)
                     self.M_w.append(M)
@@ -245,7 +244,7 @@ class BasisFunctions(LocalizedFunctionsCollection):
                                   self.phase_kW[k, W2].conj()).real
                     nt_G[G1:G2] += (np.dot(f1_gm, rho_mm) * f2_gm).sum(1)
 
-    def calculate_potential_matrix(self, vt_G, Vt_MM, k):
+    def _calculate_potential_matrix(self, vt_G, Vt_MM, k):
         vt_G = vt_G.ravel()
         Vt_MM[:] = 0.0
         dv = self.gd.dv
@@ -278,12 +277,12 @@ class BasisFunctions(LocalizedFunctionsCollection):
                     psit_G[G1:G2] += np.dot(A_gm, c_M[M1:M2])
                 else:
                     psit_G[G1:G2] += np.dot(A_gm,
-                                            c_M[M1:M2] * self.phase_kW[k, W])
+                                            c_M[M1:M2] / self.phase_kW[k, W])
 
     def lcao_to_grid(self, c_nM, psit_nG, k):
         for c_M, psit_G in zip(c_nM, psit_nG):
-            self.lfc.lcao_to_grid(c_M, psit_G, k)
-            #self._lcao_band_to_grid(c_M, psit_G, k)
+            #self.lfc.lcao_to_grid(c_M, psit_G, k)
+            self._lcao_band_to_grid(c_M, psit_G, k)
 
 def test():
     from gpaw.grid_descriptor import GridDescriptor

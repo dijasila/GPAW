@@ -198,7 +198,7 @@ class PAWExtra:
         assert self.kpt_comm.size == 1
 
         # If calc is a save file, read in tar references to memory
-        self.initialize_wave_functions()
+        self.wfs.initialize(self)
         
         # Get pseudo part
         Z_nn = self.gd.wannier_matrix(kpt_u[u].psit_nG,

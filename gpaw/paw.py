@@ -33,7 +33,7 @@ from gpaw.utilities.timing import Timer
 from gpaw.xc_functional import XCFunctional
 from gpaw.mpi import run, MASTER
 from gpaw.brillouin import reduce_kpoints
-from gpaw.wavefunctions import Gridmotron, LCAOmatic
+from gpaw.wavefunctions import Gridmotron, LCAOmatic, EmptyWaveFunctions
 import _gpaw
 
 
@@ -253,17 +253,15 @@ class PAW(PAWExtra, Output):
         self.initialized = False
         self.converged = False
         self.error = {}
-        #self.wave_functions_initialized = False
-        #self.wave_functions_orthonormalized = False
         self.callback_functions = []
         self.niter = 0
         self.F_ac = None
         self.big_work_arrays = {}
         
+        self.wfs = EmptyWaveFunctions()
         self.eigensolver = None
         self.density = None
         self.kpoints = None
-        self.wfs = None
         self.nbands = None
         self.nmybands = None
         self.atoms = None
@@ -312,7 +310,7 @@ class PAW(PAWExtra, Output):
             # More drastic changes:
             self.converged = False
             self.error = {}
-            self.wave_functions_orthonormalized = False
+            self.wfs.orthonormalized = False
             if key in ['lmax', 'width', 'stencils', 'external']:
                 pass
             elif key in ['charge', 'xc']:
@@ -357,7 +355,7 @@ class PAW(PAWExtra, Output):
         if (atoms.get_positions() != self.atoms.get_positions()).any():
             # The positions have changed.  Wave functions are no
             # longer orthonormal!
-            self.wave_functions_orthonormalized = False
+            self.wfs.orthonormalized = False
             self.find_ground_state(atoms)
         
     def get_atoms(self):
@@ -381,9 +379,9 @@ class PAW(PAWExtra, Output):
         # which will otherwise just allocate.
 
         wfs = self.wfs
-        wfs.initialize(self, self.hamiltonian, self.density, self.eigensolver)
+        wfs.initialize(self)
         
-        if not wfs.is_orthonormalized():
+        if not wfs.orthonormalized:
             wfs.orthonormalize()
         assert self.density.starting_density_initialized # XXXX
         #if not self.density.starting_density_initialized:
@@ -548,8 +546,8 @@ class PAW(PAWExtra, Output):
             self.density.scale()
             self.density.interpolate_pseudo_density()
             self.converged = False
-            self.wave_functions_orthonormalized = False
-            self.wave_functions_initialized = True
+            self.wfs.orthonormalized = False
+            self.wfs.initialized = False
             self.converged = False
             self.F_ac = None
             self.old_energies = []

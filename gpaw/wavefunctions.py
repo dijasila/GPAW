@@ -9,7 +9,7 @@ class WaveFunctions:
         self.kpoints = kpoints
         self.eigensolver = None
         self.orthonormalized = False
-        self.wfs_initialized = False
+        self.initialized = False
 
     def add_to_density(self, nt_sG):
         """Add contribution to pseudo electron-density."""
@@ -21,13 +21,7 @@ class WaveFunctions:
     def orthonormalize(self):
         raise NotImplementedError
 
-    def is_orthonormalized(self):
-        return self.orthonormalized
-
-    def is_initialized(self):
-        return self.wfs_initialized
-
-    def initialize(self, paw, hamiltonian, density, eigensolver):
+    def initialize(self, paw):
         raise NotImplementedError
 
     def atomic_movement(self):
@@ -42,7 +36,7 @@ class LCAOmatic(WaveFunctions):
     def __init__(self, kpoints):
         WaveFunctions.__init__(self, kpoints)
         self.C_unM = None
-        self.P_kMI = None # I ~ a, i, i.e. projectors across all atoms
+        #self.P_kMI = None # I ~ a, i, i.e. projectors across all atoms
         self.S_kMM = None
         self.T_kMM = None
         self.basis_functions = None
@@ -50,10 +44,14 @@ class LCAOmatic(WaveFunctions):
         self.lcao_initialized = False
         #self.lcao_hamiltonian = None # class to be removed
 
-    def initialize(self, paw, hamiltonian, density, eigensolver):
+    def initialize(self, paw):
+        hamiltonian = paw.hamiltonian
+        density = paw.density
+        eigensolver = paw.eigensolver
         assert eigensolver.lcao
         self.basis_functions = BasisFunctions(paw.gd, [n.setup.phit_j
-                                                       for n in paw.nuclei])
+                                                       for n in paw.nuclei],
+                                              cut=True)
         if not paw.gamma:
             self.basis_functions.set_k_points(self.kpoints.ibzk_kc)
             
@@ -67,7 +65,7 @@ class LCAOmatic(WaveFunctions):
             lcao_hamiltonian.initialize_lcao()
             self.nao = lcao_hamiltonian.nao
             nao = lcao_hamiltonian.nao
-            self.nao = nao
+            #self.nao = nao
             self.T_kMM = lcao_hamiltonian.T_kmm
             self.S_kMM = lcao_hamiltonian.S_kmm
             del lcao_hamiltonian
@@ -75,18 +73,18 @@ class LCAOmatic(WaveFunctions):
 
         if not eigensolver.initialized:
             eigensolver.initialize(paw, self)
-        if not self.wfs_initialized:
+        if not self.initialized:
             kpts = self.kpoints
             kpts.allocate(paw.nmybands)
             self.C_unM = npy.empty((kpts.nmyu, kpts.nmybands, nao), kpts.dtype)
-            self.wfs_initialized = True
+            self.initialized = True
         
         if not density.starting_density_initialized:
             density.initialize_from_atomic_density(self)
             #paw.wave_functions_initialized = True
 
         # TODO: initialize P_kMI, ...
-        self.wfs_initialized = True
+        self.initialized = True
 
     def orthonormalize(self):
         self.orthonormalized = True
@@ -122,7 +120,7 @@ class Gridmotron(WaveFunctions):
         else:
             for kpt in self.kpoints.kpt_u:
                 kpt.psit_nG = kpt.psit_nG[:]
-        self.wfs_initialized = True
+        self.initialized = True
         
     def initialize_wave_functions_from_atomic_orbitals(self, paw):
         lcaowfs = LCAOmatic(self.kpoints)
@@ -131,16 +129,15 @@ class Gridmotron(WaveFunctions):
         original_eigensolver = paw.eigensolver
         original_nbands = paw.nbands
         original_nmybands = paw.nmybands
-        
 
-        lcaowfs.initialize(paw, paw.hamiltonian, paw.density,
-                           eigensolver)
-
-        paw.nbands = min(paw.nbands, lcaowfs.nao)
-        paw.nmybands = min(paw.nmybands, lcaowfs.nao)
         paw.density.lcao = True
         paw.eigensolver = eigensolver
         paw.wfs = lcaowfs
+
+        lcaowfs.initialize(paw)
+
+        paw.nbands = min(paw.nbands, lcaowfs.nao)
+        paw.nmybands = min(paw.nmybands, lcaowfs.nao)
 
         if paw.band_comm.size == 1:
             paw.nmybands = paw.nbands # XXX how can this be right?
@@ -165,13 +162,15 @@ class Gridmotron(WaveFunctions):
         paw.density.lcao = False
 
         for kpt in self.kpoints.kpt_u:
-            kpt.psit_nG = kpt.gd.zeros(self.kpoints.nmybands)
+            kpt.psit_nG = kpt.gd.zeros(self.kpoints.nmybands,
+                                       paw.dtype)
         # XXX might number of lcao bands be different from grid bands?
         part_psit_unG = [kpt.psit_nG[:self.kpoints.nmybands]
                          for kpt in self.kpoints.kpt_u]
         for C_nM, psit_nG, kpt in zip(lcaowfs.C_unM, part_psit_unG,
                                       self.kpoints.kpt_u):
             lcaowfs.basis_functions.lcao_to_grid(C_nM, psit_nG, kpt.k)
+
         # XXX init remaining wave functions randomly
         for nucleus in paw.nuclei:
             del nucleus.P_kmi
@@ -218,12 +217,15 @@ class Gridmotron(WaveFunctions):
             self.overlap.orthonormalize(kpt)
         self.orthonormalized = True
 
-    def initialize(self, paw, hamiltonian, density, eigensolver):
+    def initialize(self, paw):
+        hamiltonian = paw.hamiltonian
+        density = paw.density
+        eigensolver = paw.eigensolver
         assert not eigensolver.lcao
         self.overlap = paw.overlap
         if not eigensolver.initialized:
             eigensolver.initialize(paw)
-        if not self.wfs_initialized:
+        if not self.initialized:
             paw.text('Atomic orbitals used for initialization:', paw.nao)
             if paw.nbands > paw.nao:
                 paw.text('Random orbitals used for initialization:',

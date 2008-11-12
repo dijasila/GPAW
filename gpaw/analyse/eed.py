@@ -69,7 +69,7 @@ class ExteriorElectronDensity:
         print >> out, '# Y. Harada et al., Chem. Rev. 97 (1997) 1897'
         if paw.nspins == 1:
             print >> out, '# Band   energy      occ         weight'
-            kpt = paw.kpt_u[0]
+            kpt = paw.kpoints.kpt_u[0]
             for n in range(paw.nbands):
                 print  >> out, '%4d  %10.5f  %10.5f  %10.5f' % \
                     (n, 
