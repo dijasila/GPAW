@@ -183,6 +183,10 @@ PyObject* rk(PyObject *self, PyObject *args)
   PyArrayObject* a;
   double beta;
   PyArrayObject* c;
+#ifdef GPAW_CUDA
+double* devPtrA;
+double* devPtrC;
+#endif
   if (!PyArg_ParseTuple(args, "dOdO", &alpha, &a, &beta, &c)) 
     return NULL;
   int n = a->dimensions[0];
@@ -191,9 +195,28 @@ PyObject* rk(PyObject *self, PyObject *args)
     k *= a->dimensions[d];
   int ldc = c->strides[0] / c->strides[1];
   if (a->descr->type_num == PyArray_DOUBLE)
+#ifdef GPAW_CUDA
+    {
+
+	  cublasAlloc (n*k, sizeof(double), (void**)&devPtrA);
+	  cublasAlloc (n*n, sizeof(double), (void**)&devPtrC);
+
+	  cublasSetMatrix (n, k, sizeof(double), DOUBLEP(a), n, devPtrA, n);
+	  cublasSetMatrix (n, n, sizeof(double), DOUBLEP(c), n, devPtrC, n);
+
+	  cublasDsyrk('u', 'c', n, k, alpha,
+		       devPtrA, k, beta,
+		      devPtrC, ldc);
+
+	  cublasGetMatrix (n, n, sizeof(double), devPtrC, n, DOUBLEP(c), n);
+	  cublasFree (devPtrA);
+	  cublasFree (devPtrC);
+    }
+#else   
     dsyrk_("u", "c", &n, &k, 
            &alpha, DOUBLEP(a), &k, &beta,
            DOUBLEP(c), &ldc);
+#endif
   else
     zherk_("u", "c", &n, &k, 
            &alpha, (void*)COMPLEXP(a), &k, &beta,
@@ -208,6 +231,11 @@ PyObject* r2k(PyObject *self, PyObject *args)
   PyArrayObject* b;
   double beta;
   PyArrayObject* c;
+#ifdef GPAW_CUDA
+double* devPtrA;
+double* devPtrB;
+double* devPtrC;
+#endif
   if (!PyArg_ParseTuple(args, "DOOdO", &alpha, &a, &b, &beta, &c)) 
     return NULL;
   int n = a->dimensions[0];
@@ -215,10 +243,32 @@ PyObject* r2k(PyObject *self, PyObject *args)
   for (int d = 2; d < a->nd; d++)
     k *= a->dimensions[d];
   if (a->descr->type_num == PyArray_DOUBLE)
+#ifdef GPAW_CUDA
+    {
+
+	  cublasAlloc (n*k, sizeof(double), (void**)&devPtrA);
+	  cublasAlloc (n*k, sizeof(double), (void**)&devPtrB);
+	  cublasAlloc (n*n, sizeof(double), (void**)&devPtrC);
+
+	  cublasSetMatrix (n, k, sizeof(double), DOUBLEP(a), n, devPtrA, n);
+	  cublasSetMatrix (n, k, sizeof(double), DOUBLEP(b), n, devPtrB, n);
+	  cublasSetMatrix (n, n, sizeof(double), DOUBLEP(c), n, devPtrC, n);
+
+	  cublasDsyr2k('u', 'c', n, k, alpha.real,
+		       devPtrA, k, devPtrB, k, beta,
+		      devPtrC, n);
+
+	  cublasGetMatrix (n, n, sizeof(double), devPtrC, n, DOUBLEP(c), n);
+	  cublasFree (devPtrA);
+	  cublasFree (devPtrB);
+	  cublasFree (devPtrC);
+    }
+#else   
     dsyr2k_("u", "c", &n, &k, 
             (double*)(&alpha), DOUBLEP(a), &k, 
             DOUBLEP(b), &k, &beta,
             DOUBLEP(c), &n);
+#endif
   else
     zher2k_("u", "c", &n, &k, 
             (void*)(&alpha), (void*)COMPLEXP(a), &k, 
