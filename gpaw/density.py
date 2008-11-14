@@ -273,7 +273,7 @@ class Density:
         for nucleus in self.my_nuclei:
             ni = nucleus.get_number_of_partial_waves()
             D_sii = zeros((self.nspins, ni, ni))
-            for kpt in wfs.kpoints.kpt_u:
+            for kpt in wfs.kpt_u:
                 P_ni = nucleus.P_uni[kpt.u]
                 D_sii[kpt.s] += real(dot(cc(transpose(P_ni)),
                                          P_ni * kpt.f_n[:, newaxis]))

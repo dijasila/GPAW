@@ -83,7 +83,6 @@ class Nucleus:
         self.P_uni = None
         self.P_kmi = None # basis function/projector overlaps
         self.dPdR_kcmi = None
-        self.phit_i = 'sfdgsdfg'#None # basis functions # XXX
         self.m = None # lowest index of basis functions for this nucleus
 
     def __cmp__(self, other):

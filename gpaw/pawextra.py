@@ -47,7 +47,7 @@ class PAWExtra:
         kpt_rank, u = divmod(k + self.nkpts * s, self.nmyu)
         nn, band_rank = divmod(n, self.band_comm.size)
 
-        psit_nG = self.kpt_u[u].psit_nG
+        psit_nG = self.wfs.kpt_u[u].psit_nG
         if psit_nG is None:
             raise RuntimeError('This calculator has no wave functions!')
 
@@ -82,7 +82,7 @@ class PAWExtra:
         global master."""
 
         kpt_rank, u = divmod(k + self.nkpts * s, self.nmyu)
-        kpt_u = self.kpoints.kpt_u
+        kpt_u = self.wfs.kpt_u
         
         # Does this work correctly? Strides?
         return self.collect_array(kpt_u[u].eps_n, kpt_rank)
@@ -122,7 +122,7 @@ class PAWExtra:
         global master."""
 
         kpt_rank, u = divmod(k + self.nkpts * s, self.nmyu)
-        kpt_u = self.kpoints.kpt_u
+        kpt_u = self.wfs.kpt_u
         return self.collect_array(kpt_u[u].f_n, kpt_rank)
 
         if kpt_rank == MASTER:
@@ -192,7 +192,7 @@ class PAWExtra:
 
         kpt_rank, u = divmod(k + self.nkpts * s, self.nmyu)
         kpt_rank1, u1 = divmod(k1 + self.nkpts * s, self.nmyu)
-        kpt_u = self.kpoints.kpt_u
+        kpt_u = self.wfs.kpt_u
 
         # XXX not for the kpoint/spin parallel case
         assert self.kpt_comm.size == 1
@@ -250,7 +250,7 @@ class PAWExtra:
 
         Exc = self.domain.comm.sum(Exc)
 
-        for kpt in self.kpoints.kpt_u:
+        for kpt in self.wfs.kpt_u:
             newxcfunc.apply_non_local(kpt)
         Exc += newxcfunc.get_non_local_energy()
 
@@ -278,7 +278,7 @@ class PAWExtra:
         
         self.set_positions()
         self.density.move()
-        self.density.update(self.kpoints.kpt_u, self.symmetry)
+        self.density.update(self.wfs.kpt_u, self.symmetry)
 ##         if self.wave_functions_initialized:
 ##             self.density.move()
 ##             self.density.update(self.kpt_u, self.symmetry)
@@ -313,7 +313,7 @@ class PAWExtra:
         self.set_positions()
 
         # Wave functions
-        for kpt in self.kpoints.kpt_u:
+        for kpt in self.wfs.kpt_u:
             kpt.dtype = dtype
             kpt.psit_nG = npy.array(kpt.psit_nG[:], dtype)
 
@@ -324,7 +324,7 @@ class PAWExtra:
     def read_wave_functions(self, mode='gpw'):
         """Read wave functions one by one from seperate files"""
 
-        for u, kpt in enumerate(self.kpoints.kpt_u):
+        for u, kpt in enumerate(self.wfs.kpt_u):
             #kpt = self.kpt_u[u]
             kpt.psit_nG = self.gd.empty(self.nbands, self.dtype)
             # Read band by band to save memory
@@ -346,7 +346,7 @@ class PAWExtra:
         volumes = npy.empty((nu,self.nbands))
 
         for k in range(nu):
-            for n, psit_G in enumerate(self.kpoints.kpt_u[k].psit_nG):
+            for n, psit_G in enumerate(self.wfs.kpt_u[k].psit_nG):
                 volumes[k, n] = self.gd.integrate(psit_G**4)
 
                 # atomic corrections
@@ -429,7 +429,7 @@ class PAWExtra:
             lf.set_phase_factors(self.ibzk_kc)
             nlf = 2 * l + 1
             nbands = self.nbands
-            kpt_u = self.kpoints.kpt_u
+            kpt_u = self.wfs.kpt_u
             for k in range(self.nkpts):
                 lf.integrate(kpt_u[k + spin * self.nkpts].psit_nG[:],
                              f_kni[k, :, nbf:nbf + nlf], k=k)

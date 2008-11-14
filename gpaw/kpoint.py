@@ -106,25 +106,13 @@ class KPoint:
         self.k = k  # k-point index
         self.u = u  # combined spin and k-point index
 
-        self.set_grid_descriptor(gd)
+        self.eps_n = None
+        self.f_n = None
 
         # Only one of these two will be used:
         self.psit_nG = None  # wave functions on 3D grid
-        #self.C_nm = None     # LCAO coefficients for wave functions XXX
+        self.C_nM = None     # LCAO coefficients for wave functions XXX
         
-    def set_grid_descriptor(self, gd):
-        self.gd = gd
-        # Which CPU does overlap-matrix Cholesky-decomposition and
-        # Hamiltonian-matrix diagonalization?
-        self.comm = self.gd.comm
-        self.root = self.u % self.comm.size
-
-    def allocate(self, nbands):
-        raise DeprecationWarning
-        """Allocate arrays."""
-        self.eps_n = npy.empty(nbands)
-        self.f_n = npy.empty(nbands)
-                            
     def random_wave_functions(self, psit_nG):
         """Generate random wave functions"""
 
@@ -165,7 +153,7 @@ class KPoint:
         """Add contribution to pseudo electron-density. Do not use the standard
         occupation numbers, but ones given with argument f_n."""
         if use_lcao:
-            C_nM = self.C_nm
+            C_nM = self.C_nM
             rho_MM = npy.dot(C_nM.conj().T * f_n, C_nM)
             basis_functions.construct_density(rho_MM, nt_G)
         else:
@@ -228,35 +216,51 @@ class KPoint:
 
 
 class KPointCollection:
-    def __init__(self, gd, weight_k, ibzk_kc, nkpts, nmyu, myuoffset, dtype):
+    def __init__(self, gd, dtype):
         self.gd = gd
+        self.dtype = dtype
+
+        self.nkpts = None
+        self.nmyu = None
+        self.myuoffset = None
+        self.kpt_u = None
+        self.nmybands = None
+        self.nbands = None
+
+        self.weight_k = None
+        self.ibzk_kc = None
+
+        #self.eps_un = None
+        #self.f_un = None
+    
+    def initialize(self, weight_k, ibzk_kc, nkpts, nmyu, myuoffset):
         self.weight_k = weight_k
         self.ibzk_kc = ibzk_kc
         self.nkpts = nkpts
         self.nmyu = nmyu
         self.myuoffset = myuoffset
-        self.dtype = dtype
 
         self.kpt_u = []
         for u in range(nmyu):
             s, k = divmod(myuoffset + u, nkpts)
             weight = weight_k[k]
             k_c = ibzk_kc[k]
-            kpt = KPoint(gd, weight, s, k, u, k_c, dtype)
+            kpt = KPoint(self.gd, weight, s, k, u, k_c, self.dtype)
             self.kpt_u.append(kpt)
 
-        self.nmybands = None
-        self.eps_un = None
-        self.f_un = None # :(  meget morsomt!
+        self.set_grid_descriptor(self.gd) # XXX illogical
 
-    def allocate(self, nbands):
+    #def create_kpoint(self, weight, s, k, u, k_c):
+    #    return KPoint(self.gd, weight, s, k, u, k_c, self.dtype)
+
+    def allocate_bands(self, nbands):
         self.nmybands = nbands
         shape = self.nmyu, nbands
-        self.eps_un = npy.empty(shape)
-        self.f_un = npy.empty(shape)
-        for eps_n, f_n, kpt in zip(self.eps_un, self.f_un, self.kpt_u):
-            kpt.eps_n = eps_n
-            kpt.f_n = f_n
+        #self.eps_un = 
+        #self.f_un = npy.empty(shape)
+        for kpt in self.kpt_u:
+            kpt.eps_n = npy.empty(nbands)
+            kpt.f_n = npy.empty(nbands)
 
     def add_extra_bands(self, nbands, nao):
         """Add extra states.
@@ -268,7 +272,7 @@ class KPointCollection:
         eps_un = self.eps_un
         f_un = self.f_un
 
-        self.allocate(nbands)
+        self.allocate_bands(nbands)
 
         self.eps_un[:, :nao] = eps_un
         self.f_un[:, :nao] = f_n
@@ -280,15 +284,19 @@ class KPointCollection:
             kpt.random_wave_functions(psit_nG[nao:])
 
     def set_grid_descriptor(self, gd):
+        self.comm = gd.comm
+        self.gd = gd
         for kpt in self.kpt_u:
-            kpt.set_grid_descriptor(gd)
+            kpt.gd = gd # XXX unnecessary
+            kpt.comm = gd.comm # XXX also unnecessary
+            kpt.root = kpt.u % self.comm.size
+            # Which CPU does overlap-matrix Cholesky-decomposition and
+            # Hamiltonian-matrix diagonalization?
 
     def add_to_density(self, nt_sG, use_lcao, basis_functions):
         for kpt in self.kpt_u:
             kpt.add_to_density(nt_sG[kpt.s], use_lcao, basis_functions)
 
-    def subset(self, uvalues):
-        # This method should be implemented to ensure that one can
-        # run methods like add_to_density on e.g. a single k-point at a time
-        # (useful for debugging)
-        raise NotImplementedError
+    def create_random_orbitals(self, nbands):
+        for kpt in self.kpt_u:
+            kpt.create_random_orbitals(nbands)

@@ -119,7 +119,7 @@ class TDDFT(PAW):
         for nucleus in self.nuclei:
             nucleus.ready = False
         self.set_positions()
-        self.initialize_wave_functions()
+        self.wfs.initialize(self)
         # Don't be too strict
         self.density.update_pseudo_charge()
 
@@ -335,21 +335,23 @@ class TDDFT(PAW):
                                             self.time )
                 self.td_overlap.update()
 
+                kpt_u = self.kpoints.kpt_u
                 if self.hpsit is None:
-                    self.hpsit = self.gd.zeros( len(self.kpt_u[0].psit_nG), 
+                    self.hpsit = self.gd.zeros( len(kpt_u[0].psit_nG), 
                                                 dtype=complex )
                 if self.eps_tmp is None:
-                    self.eps_tmp = npy.zeros( len(self.kpt_u[0].eps_n), 
+                    self.eps_tmp = npy.zeros( len(kpt_u[0].eps_n), 
                                               dtype=complex )
 
-                for kpt in self.kpt_u:
+                for kpt in kpt_u:
                     self.td_hamiltonian.apply(kpt, kpt.psit_nG, self.hpsit)
-                    self.mblas.multi_zdotc(self.eps_tmp, kpt.psit_nG, self.hpsit, len(self.kpt_u[0].psit_nG)) 
+                    self.mblas.multi_zdotc(self.eps_tmp, kpt.psit_nG,
+                                           self.hpsit, len(kpt_u[0].psit_nG)) 
                     self.eps_tmp *= self.gd.dv
                     #print 'Eps_n = ', self.eps_tmp
                     kpt.eps_n = self.eps_tmp.real
 
-                self.occupation.calculate_band_energy(self.kpt_u)
+                self.occupation.calculate_band_energy(kpt_u)
                 # Nonlocal
                 xcfunc = H.xc.xcfunc
                 self.Enlxc = xcfunc.get_non_local_energy()
@@ -375,7 +377,7 @@ class TDDFT(PAW):
 
 
             # propagate
-            niterpropagator = self.propagator.propagate(self.kpt_u, self.time,
+            niterpropagator = self.propagator.propagate(kpt_u, self.time,
                                                         time_step)
             self.time += time_step
 
@@ -418,7 +420,7 @@ class TDDFT(PAW):
                                                                  dtype=float) ),
                             self.td_overlap, self.solver, None,
                             self.gd, self.timer )
-        abs_kick.kick(self.kpt_u)
+        abs_kick.kick(self.kpoints.kpt_u)
 
     def __del__(self):
         """Destructor"""

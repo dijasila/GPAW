@@ -33,7 +33,8 @@ from gpaw.utilities.timing import Timer
 from gpaw.xc_functional import XCFunctional
 from gpaw.mpi import run, MASTER
 from gpaw.brillouin import reduce_kpoints
-from gpaw.wavefunctions import Gridmotron, LCAOmatic, EmptyWaveFunctions
+from gpaw.wavefunctions import GridWaveFunctions, LCAOWaveFunctions,\
+     EmptyWaveFunctions
 import _gpaw
 
 
@@ -261,7 +262,6 @@ class PAW(PAWExtra, Output):
         self.wfs = EmptyWaveFunctions()
         self.eigensolver = None
         self.density = None
-        self.kpoints = None
         self.nbands = None
         self.nmybands = None
         self.atoms = None
@@ -316,12 +316,12 @@ class PAW(PAWExtra, Output):
             elif key in ['charge', 'xc']:
                 self.reuse_old_density = False
             elif key in ['kpts', 'nbands']:
-                self.kpoints = None
+                self.wfs = EmptyWaveFunctions() # should just reset kpoints
             elif key in ['h', 'gpts', 'setups', 'basis', 'spinpol',
                          'usesymm', 'parsize', 'parsize_bands',
                          'communicator']:
                 self.reuse_old_density = False
-                self.kpoints = None
+                self.wfs = EmptyWaveFunctions() # just reset kpoints
             else:
                 raise TypeError('Unknown keyword argument:' + key)
             
@@ -335,7 +335,7 @@ class PAW(PAWExtra, Output):
               (atoms.get_cell() != self.atoms.get_cell()).any() or
               (atoms.get_pbc() != self.atoms.get_pbc()).any()))):
             # Drastic changes:
-            self.kpoints = None
+            self.wfs = EmptyWaveFunctions() # maybe just kpoints
             self.reuse_old_density = False
             self.initialize(atoms)
             self.print_parameters()
@@ -424,7 +424,7 @@ class PAW(PAWExtra, Output):
         self.Enlkin = xcfunc.get_non_local_kinetic_corrections()
 
         # Calculate occupation numbers:
-        self.occupation.calculate(self.kpoints.kpt_u)
+        self.occupation.calculate(self.wfs.kpt_u)
 
     def add_up_energies(self):
         H = self.hamiltonian
@@ -581,7 +581,7 @@ class PAW(PAWExtra, Output):
 
         self.F_ac = npy.empty((self.natoms, 3))
 
-        self.density.update(self.kpoints, self.symmetry)
+        self.density.update(self.wfs, self.symmetry)
         self.update_kinetic()
         self.hamiltonian.update(self.density)
         
@@ -598,7 +598,7 @@ class PAW(PAWExtra, Output):
             nucleus.F_c[:] = 0.0
 
         # Calculate force-contribution from k-points:
-        for kpt in self.kpoints.kpt_u:
+        for kpt in self.wfs.kpt_u:
             for nucleus in self.pt_nuclei:
                 # XXX
                 if self.eigensolver.lcao:
@@ -628,7 +628,7 @@ class PAW(PAWExtra, Output):
         self.world.broadcast(self.F_ac, MASTER)
 
         # Add non-local contributions
-        for kpt in self.kpoints.kpt_u:
+        for kpt in self.wfs.kpt_u:
             self.F_ac += self.xcfunc.get_non_local_force(kpt)
     
         # Add contributions from external fields
@@ -854,7 +854,6 @@ class PAW(PAWExtra, Output):
     
     def check_convergence(self):
         """Check convergence of eigenstates, energy and density."""
-        
         # Get convergence criteria and error dictionaries:
         cc = self.input_parameters['convergence']
         er = self.error
@@ -1044,10 +1043,6 @@ class PAW(PAWExtra, Output):
                 
         type_a, basis_a = self.create_nuclei_and_setups(Z_a)
 
-        self.eigensolver = p['eigensolver']
-        if isinstance(self.eigensolver, str):
-            self.eigensolver = get_eigensolver(self.eigensolver)
-
         # Brillouin zone stuff:
         if self.gamma:
             self.symmetry = None
@@ -1125,40 +1120,29 @@ class PAW(PAWExtra, Output):
         # Number of k-point/spin combinations on this cpu:
         self.nmyu = nu // self.kpt_comm.size
 
-        if self.kpoints is None:
-            self.kpoints = KPointCollection(self.gd,
-                                            self.weight_k * 2 / self.nspins,
-                                            self.ibzk_kc,
-                                            self.nkpts,
-                                            self.nmyu,
-                                            self.kpt_comm.rank * self.nmyu,
-                                            self.dtype)
-            #self.wave_functions_initialized = False
-            #self.wave_functions_orthonormalized = False
+        eigensolver = p['eigensolver']
+        if isinstance(eigensolver, str):
+            eigensolver = get_eigensolver(eigensolver)
 
-            if self.eigensolver.lcao:
-                self.wfs = LCAOmatic(self.kpoints)
-            else:
-                self.wfs = Gridmotron(self.kpoints)
-            
-        #if self.kpt_u is None:
-        #    self.wave_functions_initialized = False
-        #    self.wave_functions_orthonormalized = False
-        #    self.kpt_u = []
-        #    for u in range(self.nmyu):
-        #        s, k = divmod(self.kpt_comm.rank * self.nmyu + u, self.nkpts)
-        #        weight = self.weight_k[k] * 2 / self.nspins
-        #        k_c = self.ibzk_kc[k]
-        #        self.kpt_u.append(KPoint(self.gd, weight, s, k, u, k_c,
-        #                                 self.dtype))
+        self.eigensolver = eigensolver # XXX
+
+        if eigensolver.lcao:
+            WFS = LCAOWaveFunctions
         else:
-            self.kpoints.set_grid_descriptor(self.gd)
-            #self.kpoints.set_nuclei(self.nuclei)
-            # XXX I dont think kpoints use nucleus objects anymore!
-            #for kpt in self.kpt_u:
-            #    kpt.set_grid_descriptor(self.gd)
-            #    kpt.nuclei = self.nuclei
-                
+            WFS = GridWaveFunctions
+
+        # Maybe reuse
+        self.wfs = WFS(self.gd, eigensolver, self.dtype)
+
+        # Maybe there is no change
+        self.wfs.set_kpoints(self.weight_k * 2 / self.nspins,
+                             self.ibzk_kc,
+                             self.nkpts,
+                             self.nmyu,
+                             self.kpt_comm.rank * self.nmyu)
+
+        # self.kpoints.set_grid_descriptor(self.gd) #XXX
+
         if len(er) != 0:
             self.converged = ((er['eigenstates'] < cc['eigenstates']) and
                               (er['energy'] * Hartree < cc['energy']) and
@@ -1269,15 +1253,15 @@ class PAW(PAWExtra, Output):
             return
         else:
             #pseudo kinetic energy array on 3D grid
-            self.density.update_kinetic(self.kpoints.kpt_u)
+            self.density.update_kinetic(self.wfs.kpt_u)
             self.hamiltonian.xc.set_kinetic(self.density.taut_sg)           
 
 
     def get_myu(self, k, s):
         """Return my u corresponding to a certain kpoint and spin - or None"""
-        # very slow, but we are shure, that we have it
+        # very slow, but we are sure that we have it
         for u in range(self.nmyu):
-            if self.kpoints.kpt_u[u].k == k and self.kpoints.kpt_u[u].s == s:
+            if self.wfs.kpt_u[u].k == k and self.wfs.kpt_u[u].s == s:
                 return u
         return None
             

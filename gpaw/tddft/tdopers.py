@@ -294,7 +294,7 @@ class TimeDependentDensity:
         """
         self.density = paw.density
         self.symmetry = paw.symmetry
-        self.kpt_u = paw.kpt_u
+        self.kpt_u = paw.kpoints.kpt_u
         self.pt_nuclei = paw.pt_nuclei
 
     def update(self):

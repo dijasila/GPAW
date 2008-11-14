@@ -21,9 +21,6 @@ class LCAO:
         self.my_nuclei = paw.my_nuclei
         self.comm = paw.gd.comm
         self.error = 0.0
-        #self.nspins = paw.nspins
-        #self.nkpts = paw.nkpts
-        #self.nbands = paw.nbands
         self.nmybands = paw.nmybands
         self.band_comm = paw.band_comm
         self.dtype = paw.dtype
@@ -104,7 +101,7 @@ class LCAO:
         return self.H_MM
 
     def iterate(self, hamiltonian, wfs):
-        for kpt in wfs.kpoints.kpt_u:
+        for kpt in wfs.kpt_u:
             self.iterate_one_k_point(hamiltonian, wfs, kpt)
 
     def iterate_one_k_point(self, hamiltonian, wfs, kpt):
@@ -121,15 +118,12 @@ class LCAO:
         n1 = rank * self.nmybands
         n2 = n1 + self.nmybands
 
-        #C_unm = wfs.C_unm
-        C_nM = wfs.C_unM[kpt.u]
         # Check and remove linear dependence for the current k-point
         if k in self.linear_kpts:
             print '*Warning*: near linear dependence detected for k=%s' % k
             P_MM, p_M = wfs.lcao_hamiltonian.linear_kpts[k]
             eps_q, C2_nM = self.remove_linear_dependence(P_MM, p_M, H_MM)
-            C_nM[:] = C2_nM[n1:n2] # XXX ???
-            #kpt.C_nm[:] = C_nm[n1:n2]
+            kpt.C_nM[:] = C2_nM[n1:n2]
             kpt.eps_n[:] = eps_q[n1:n2]
         else:
             dsyev_zheev_string = 'LCAO: ' + 'dsygv/zhegv'
@@ -155,12 +149,11 @@ class LCAO:
             self.comm.broadcast(self.eps_M, 0)
             self.comm.broadcast(H_MM, 0)
 
-            C_nM[:] = H_MM[n1:n2]
-            #kpt.C_nm[:] = H_mm[n1:n2]
+            kpt.C_nM[:] = H_MM[n1:n2]
             kpt.eps_n[:] = self.eps_M[n1:n2]
 
         for nucleus in self.my_nuclei:
-            nucleus.P_uni[u] = npy.dot(C_nM, nucleus.P_kmi[k])
+            nucleus.P_uni[u] = npy.dot(kpt.C_nM, nucleus.P_kmi[k])
 
     def remove_linear_dependence(self, P_MM, p_M, H_MM):
         """Diagonalize H_MM with a reduced overlap matrix from which the
