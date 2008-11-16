@@ -172,9 +172,9 @@ class ApmB(OmegaMatrix):
             return integrals[name]
         # create the Kohn-Sham singles
         kss_ij = PairDensity(self.paw)
-        kss_ij.initialize(self.paw.kpt_u[spin], i, j)
+        kss_ij.initialize(self.paw.wfs.kpt_u[spin], i, j)
         kss_kq = PairDensity(self.paw)
-        kss_kq.initialize(self.paw.kpt_u[spin], k, q)
+        kss_kq.initialize(self.paw.wfs.kpt_u[spin], k, q)
 ##         kss_ij = KSSingle(i, j, spin, spin, self.paw)
 ##         kss_kq = KSSingle(k, q, spin, spin, self.paw)
 

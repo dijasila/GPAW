@@ -25,7 +25,7 @@ if not load:
 ##    calc.write('H2.gpw', 'all')
 else:
     calc = Calculator('H2.gpw', txt=txt)
-calc.initialize_wave_functions()
+#calc.initialize_wave_functions()
 
 #-----------------------------------------------------------
 # DFT only

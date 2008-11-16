@@ -33,7 +33,7 @@ if True:
 ##    print '\n################## no potential'
     c00 = Calculator(h=0.3, nbands=-1, txt=txt)
     c00.calculate(H2)
-    eps00_n = c00.kpt_u[0].eps_n
+    eps00_n = c00.get_eigenvalues()
 
 # 0 potential
 if False:
@@ -50,10 +50,10 @@ if True:
     c1.calculate(H2)
 
 for i in range(c00.nbands):
-    f00 = c00.kpt_u[0].f_n[i]
+    f00 = c00.get_occupations()[i]
     if f00 > 0.01:
-        e00 = c00.kpt_u[0].eps_n[i] * Hartree
-        e1 = c1.kpt_u[0].eps_n[i] * Hartree
+        e00 = c00.get_eigenvalues()[i]
+        e1 = c1.get_eigenvalues()[i]
         print 'Eigenvalues no pot, expected, error=', e00, e1 + 1, e00 - e1 - 1
         equal(e00, e1 + 1., 0.002)
 

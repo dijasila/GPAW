@@ -109,7 +109,7 @@ class ZeroKelvinDSCF(ZeroKelvin):
         for orb in self.orbitals:
             ft_okm.append(orb[1].get_ft_km(self.epsF))
             
-        for kpt in self.paw.kpt_u:
+        for kpt in self.paw.wfs.kpt_u:
             kpt.ft_omn = npy.zeros((len(self.orbitals),
                                     len(kpt.f_n), len(kpt.f_n)), npy.complex)
             for o in range(len(self.orbitals)):
@@ -174,7 +174,7 @@ class FermiDiracDSCF(FermiDirac):
         for orb in self.orbitals:
             ft_okm.append(orb[1].get_ft_km(self.epsF))
             
-        for kpt in self.paw.kpt_u:
+        for kpt in self.paw.wfs.kpt_u:
             kpt.ft_omn = npy.zeros((len(self.orbitals),
                                     len(kpt.f_n), len(kpt.f_n)), npy.complex)
             for o in range(len(self.orbitals)):
@@ -283,10 +283,10 @@ class MolecularOrbitals:
         elif not self.paw.fixmom:
             epsF = [epsF, epsF]
         if self.nos == None:
-            self.nos = len(self.paw.kpt_u[0].f_n)
+            self.nos = len(self.paw.wfs.kpt_u[0].f_n)
             
         ft_km = []
-        for kpt in self.paw.kpt_u:
+        for kpt in self.paw.wfs.kpt_u:
             Porb_n = npy.zeros(npy.swapaxes(P_auni[0][0],0,1)[0].shape,
                                    npy.complex)
             for nuc in range(len(self.mol)):
@@ -365,26 +365,26 @@ class WaveFunction:
         self.nos = no_of_states
 
     def get_ft_km(self, epsF):
-
+        kpt_u = self.paw.wfs.kpt_u
         if self.paw.nspins == 1:
             epsF = [epsF]
         elif not self.paw.fixmom:
             epsF = [epsF, epsF]
         if self.nos == None:
-            self.nos = len(self.paw.kpt_u[0].f_n)
+            self.nos = len(kpt_u[0].f_n)
 
-        if len(self.wf_u) == len(self.paw.kpt_u):
+        if len(self.wf_u) == len(kpt_u):
             wf_u = self.wf_u
             P_aui = self.P_aui
         else:
             raise RuntimeError('List of wavefunctions has wrong size')
 
-        if self.paw.kpt_u[0].psit_nG is None:
-            return npy.zeros((len(self.paw.kpt_u), self.paw.nbands), float)
+        if kpt_u[0].psit_nG is None:
+            return npy.zeros((len(kpt_u), self.paw.nbands), float)
               
         ft_un = []
         
-        for kpt in self.paw.kpt_u:
+        for kpt in kpt_u:
 
             # Inner product of pseudowavefunctions
             wf = npy.reshape(wf_u[kpt.u], -1)

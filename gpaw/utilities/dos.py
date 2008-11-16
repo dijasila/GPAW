@@ -151,7 +151,7 @@ def molecular_LDOS(paw, mol, spin, lc=None, wf=None, P_aui=None):
 
     else:
         P_aui = [npy.conjugate(P_aui[a]) for a in range(len(mol))]
-        for kpt in paw.kpt_u[spin*nk:(spin+1)*nk]:
+        for kpt in paw.wfs.kpt_u[spin*nk:(spin+1)*nk]:
             w = npy.reshape(npy.conjugate(wf)[kpt.k], -1)
             for n in range(nb):
                 psit_nG = npy.reshape(kpt.psit_nG[n], -1)
@@ -197,7 +197,7 @@ def raw_wignerseitz_LDOS(paw, a, spin):
     for k, w in enumerate(w_k):
         u = spin * nk + k
         energies[x:x + nb] = paw.collect_eigenvalues(k=k, s=spin)
-        for n, psit_G in enumerate(paw.kpt_u[u].psit_nG):
+        for n, psit_G in enumerate(paw.wfs.kpt_u[u].psit_nG):
             P_i = nucleus.P_uni[u, n]
             P_p = pack(npy.outer(P_i, P_i))
             Delta_p = sqrt(4 * pi) * nucleus.setup.Delta_pL[:, 0]
@@ -288,7 +288,7 @@ class RawLDOS:
                     if myu is None:
                         w = 0.
                     else:
-                        w = self.paw.kpt_u[myu].weight
+                        w = self.paw.wfs.kpt_u[myu].weight
                     self.paw.kpt_comm.max(w)
                     for n in range(self.paw.nbands):
                         sum = 0.
@@ -354,7 +354,7 @@ class RawLDOS:
                         if myu is None:
                             w = 0.
                         else:
-                            w = self.paw.kpt_u[myu].weight
+                            w = self.paw.wfs.kpt_u[myu].weight
                         self.paw.kpt_comm.max(w)
 
                         e_n = self.paw.collect_eigenvalues(k=k, s=s) * Hartree

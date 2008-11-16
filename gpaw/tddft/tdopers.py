@@ -294,7 +294,8 @@ class TimeDependentDensity:
         """
         self.density = paw.density
         self.symmetry = paw.symmetry
-        self.kpt_u = paw.kpoints.kpt_u
+        self.wfs = paw.wfs
+        self.kpt_u = self.wfs.kpt_u
         self.pt_nuclei = paw.pt_nuclei
 
     def update(self):
@@ -308,7 +309,7 @@ class TimeDependentDensity:
         for kpt in self.kpt_u:
             run([nucleus.calculate_projections(kpt)
                  for nucleus in self.pt_nuclei])
-        self.density.update(self.kpt_u, self.symmetry)
+        self.density.update(self.wfs, self.symmetry)
        
     def get_density(self):
         """Returns the current density.

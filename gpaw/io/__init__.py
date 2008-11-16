@@ -247,7 +247,7 @@ def write(paw, filename, mode):
                 nstride = paw.band_comm.size
                 for band_rank in range(paw.band_comm.size):
                     if kpt_rank == MASTER and band_rank == MASTER:
-                        eps_all_n[0::nstride] = paw.kpoints.kpt_u[u].eps_n
+                        eps_all_n[0::nstride] = paw.wfs.kpt_u[u].eps_n
                     else:
                         eps_n = npy.empty(paw.nmybands)
                         world_rank = kpt_rank * paw.domain.comm.size * paw.band_comm.size + band_rank * paw.domain.comm.size 
@@ -255,7 +255,7 @@ def write(paw, filename, mode):
                         eps_all_n[band_rank::nstride] = eps_n
                 w.fill(eps_all_n)
     elif paw.domain.comm.rank == MASTER:
-        for kpt in paw.kpoints.kpt_u:
+        for kpt in paw.wfs.kpt_u:
             paw.world.send(kpt.eps_n, MASTER, 4300)
 
     # Write the occupation numbers:
@@ -269,7 +269,7 @@ def write(paw, filename, mode):
                 nstride = paw.band_comm.size
                 for band_rank in range(paw.band_comm.size):
                     if kpt_rank == MASTER and band_rank == MASTER:
-                        f_all_n[0::nstride] = paw.kpoints.kpt_u[u].f_n
+                        f_all_n[0::nstride] = paw.wfs.kpt_u[u].f_n
                     else:
                         f_n = npy.empty(paw.nmybands)
                         world_rank = kpt_rank * paw.domain.comm.size * paw.band_comm.size + band_rank * paw.domain.comm.size 
@@ -277,7 +277,7 @@ def write(paw, filename, mode):
                         f_all_n[band_rank::nstride] = f_n
                 w.fill(f_all_n)
     elif paw.domain.comm.rank == MASTER:
-        for kpt in paw.kpoints.kpt_u:
+        for kpt in paw.wfs.kpt_u:
             paw.world.send(kpt.f_n, MASTER, 4301)
 
     # Write the pseudodensity on the coarse grid:
@@ -440,8 +440,8 @@ def read(paw, reader):
     nbands = len(r.get('Eigenvalues', 0, 0))
 
     if nkpts == paw.nkpts and nbands == paw.band_comm.size * paw.nmybands:
-        paw.kpoints.allocate(paw.nmybands)
-        for kpt in paw.kpoints.kpt_u:
+        paw.wfs.allocate_bands(paw.nmybands)
+        for kpt in paw.wfs.kpt_u:
             # Eigenvalues and occupation numbers:
             k = kpt.k
             s = kpt.s
@@ -459,7 +459,7 @@ def read(paw, reader):
             # functions in memory - so psit_nG will be a special type of
             # array that is really just a reference to a file:
             if paw.world.size > 1: # if parallel
-                for kpt in paw.kpoints.kpt_u:
+                for kpt in paw.wfs.kpt_u:
                     # Read band by band to save memory
                     kpt.psit_nG = []
                     for nb in range(paw.nmybands):
@@ -468,11 +468,11 @@ def read(paw, reader):
                             r.get_reference('PseudoWaveFunctions',
                                             kpt.s, kpt.k, n) )
             else:
-                for kpt in paw.kpoints.kpt_u:
+                for kpt in paw.wfs.kpt_u:
                     kpt.psit_nG = r.get_reference('PseudoWaveFunctions',
                                                   kpt.s, kpt.k)
 
-        for u, kpt in enumerate(paw.kpoints.kpt_u):
+        for u, kpt in enumerate(paw.wfs.kpt_u):
             P_ni = r.get('Projections', kpt.s, kpt.k)
             i1 = 0
             n0 = paw.band_comm.rank

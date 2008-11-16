@@ -123,14 +123,13 @@ class Symmetry:
                 maps.append(map)
 
         if debug:
-            for symmetry, map in zip(symmok, maps):
-                swap, mirror = symmetry
+            for symmetry, map in zip(opok, maps):
                 for a1, ZTMB1 in enumerate(self.ZTMB_a):
                     a2 = map[a1]
                     assert ZTMB1 == self.ZTMB_a[a2]
                     spos1_c = self.scale_position(pos_ac[a1])
                     spos2_c = self.scale_position(pos_ac[a2])
-                    sdiff = npy.take(spos1_c * mirror, swap) - spos2_c
+                    sdiff = npy.dot(symmetry, spos1_c) - spos2_c
                     sdiff -= npy.floor(sdiff + 0.5)
                     assert npy.dot(sdiff, sdiff) < self.tol
 

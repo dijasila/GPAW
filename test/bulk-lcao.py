@@ -12,7 +12,7 @@ bulk = Atoms([Atom(sym)], pbc=True)
 k = 4
 g = 8
 calc = Calculator(gpts=(g, g, g), kpts=(k, k, k),
-                  eigensolver='lcao', basis={sym : basis})
+                  mode='lcao', basis={sym : basis})
 bulk.set_calculator(calc)
 e = []
 A = [2.6, 2.65, 2.7, 2.75, 2.8]

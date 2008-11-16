@@ -269,7 +269,7 @@ class XCFunctional:
     # Initialize the GLLB functional, hopefully at this stage, the eigenvalues and functions are already available
     def initialize_gllb(self, paw):
         self.xc.pass_stuff(paw.hamiltonian.vt_sg, paw.density.nt_sg,
-                           paw.kpt_u, paw.gd, paw.finegd,
+                           paw.wfs.kpt_u, paw.gd, paw.finegd,
                            paw.density.interpolate, paw.nspins,
                            paw.my_nuclei, paw.nuclei, paw.occupation,
                            paw.kpt_comm, paw.symmetry, paw.nvalence,
@@ -292,7 +292,7 @@ class XCFunctional:
 
         if self.xcname == 'TPSS':
             paw.density.initialize_kinetic()
-            paw.density.update_kinetic(paw.kpt_u)
+            paw.density.update_kinetic(paw.wfs.kpt_u)
             if paw.nspins ==1:
                 paw.hamiltonian.xc.taua_g = paw.density.taut_sg[0]
             if self.nspins == 2:

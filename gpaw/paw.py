@@ -245,10 +245,11 @@ class PAW(PAWExtra, Output):
             'parsize_bands': None,
             'external':      None,  # eV
             'verbose':       0,
-            'eigensolver':   'rmm-diis',
+            'eigensolver':   None,
             'poissonsolver': None,
             'communicator' : None,
             'idiotproof'   : True,
+            'mode':          'fd'
             }
 
         self.initialized = False
@@ -304,7 +305,8 @@ class PAW(PAWExtra, Output):
         for key in kwargs:
             if key in ['fixmom', 'mixer', 'convergence', 'fixdensity',
                        'verbose', 'txt', 'hund', 'random', 'maxiter',
-                       'eigensolver', 'poissonsolver', 'idiotproof']:
+                       'eigensolver', 'poissonsolver', 'idiotproof',
+                       'mode']:
                 continue
 
             # More drastic changes:
@@ -313,7 +315,7 @@ class PAW(PAWExtra, Output):
             self.wfs.orthonormalized = False
             if key in ['lmax', 'width', 'stencils', 'external']:
                 pass
-            elif key in ['charge', 'xc']:
+            elif key in ['charge', 'xc']:  # XXX why is 'xc' here?
                 self.reuse_old_density = False
             elif key in ['kpts', 'nbands']:
                 self.wfs = EmptyWaveFunctions() # should just reset kpoints
@@ -380,18 +382,18 @@ class PAW(PAWExtra, Output):
 
         wfs = self.wfs
         wfs.initialize(self)
-        
         if not wfs.orthonormalized:
             wfs.orthonormalize()
-        assert self.density.starting_density_initialized # XXXX
-        #if not self.density.starting_density_initialized:
-        #    self.density.update(self.wfs, self.symmetry)
+
+        #assert self.density.starting_density_initialized # XXXX
+        if not self.density.starting_density_initialized:
+            self.density.update(self.wfs, self.symmetry)
+        
         if self.xcfunc.is_gllb():
             if not self.xcfunc.xc.initialized:
                 self.xcfunc.initialize_gllb(self)
 
         self.hamiltonian.update(self.density)
-        
         
         # Self-consistency loop:
         while not self.converged:
@@ -960,6 +962,8 @@ class PAW(PAWExtra, Output):
             self.world = mpi.world
         self.master = (self.world.rank == 0)
         
+        self.mode = p['mode']
+
         self.set_text(p['txt'], p['verbose'])
         self.plot_atoms(atoms)
         
@@ -1120,26 +1124,30 @@ class PAW(PAWExtra, Output):
         # Number of k-point/spin combinations on this cpu:
         self.nmyu = nu // self.kpt_comm.size
 
+
         eigensolver = p['eigensolver']
+
+        if eigensolver is None:
+            eigensolver = {'fd': 'rmm-diis', 'lcao': 'lcao'}[self.mode]
         if isinstance(eigensolver, str):
             eigensolver = get_eigensolver(eigensolver)
 
         self.eigensolver = eigensolver # XXX
 
-        if eigensolver.lcao:
-            WFS = LCAOWaveFunctions
-        else:
-            WFS = GridWaveFunctions
+        if isinstance(self.wfs, EmptyWaveFunctions):
+            if self.mode == 'lcao':
+                WFS = LCAOWaveFunctions
+            else:
+                WFS = GridWaveFunctions
+            self.wfs = WFS(self.gd, eigensolver, self.dtype)
 
-        # Maybe reuse
-        self.wfs = WFS(self.gd, eigensolver, self.dtype)
+            # do k-point analysis here?
 
-        # Maybe there is no change
-        self.wfs.set_kpoints(self.weight_k * 2 / self.nspins,
-                             self.ibzk_kc,
-                             self.nkpts,
-                             self.nmyu,
-                             self.kpt_comm.rank * self.nmyu)
+            self.wfs.set_kpoints(self.weight_k * 2 / self.nspins,
+                                 self.ibzk_kc,
+                                 self.nkpts,
+                                 self.nmyu,
+                                 self.kpt_comm.rank * self.nmyu)
 
         # self.kpoints.set_grid_descriptor(self.gd) #XXX
 
@@ -1174,8 +1182,9 @@ class PAW(PAWExtra, Output):
         self.hamiltonian = Hamiltonian(self)        
         self.overlap = Overlap(self) # XXX grid specific, should live in wfs
 
+        self.density.initialize(self)
+        
         if self.reuse_old_density:
-            self.density.initialize()
             for a, D_sp in D_asp.items():
                 self.nuclei[a].D_sp[:] = D_sp
             if self.density.nt_sG.shape == nt_sG.shape:
@@ -1207,7 +1216,7 @@ class PAW(PAWExtra, Output):
         self.nbands = nbands
         if self.nbands is None:
             self.nbands = self.nao
-        elif self.nbands > self.nao and self.eigensolver.lcao:
+        elif self.nbands > self.nao and self.mode == 'lcao':
             raise ValueError('Too many bands for LCAO calculation: ' +
                              '%d bands and only %d atomic orbitals!' %
                              (self.nbands, self.nao))

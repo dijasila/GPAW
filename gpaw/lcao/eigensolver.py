@@ -21,6 +21,7 @@ class LCAO:
         self.my_nuclei = paw.my_nuclei
         self.comm = paw.gd.comm
         self.error = 0.0
+        self.nbands = paw.nbands
         self.nmybands = paw.nmybands
         self.band_comm = paw.band_comm
         self.dtype = paw.dtype

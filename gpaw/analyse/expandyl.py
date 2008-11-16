@@ -159,7 +159,7 @@ class ExpandYl:
             for k in krange:
                 u = k*calculator.nspins + s
                 for n in nrange:
-                    kpt = calculator.kpoints.kpt_u[u]
+                    kpt = calculator.wfs.kpt_u[u]
                     psit_G = kpt.psit_nG[n]
                     norm = self.gd.integrate(psit_G**2)
 

@@ -101,8 +101,8 @@ class LCAOWaveFunctions(WaveFunctions):
         """Add contribution to pseudo electron-density. Do not use the standard
         occupation numbers, but ones given with argument f_n."""
         
-        for f_n, C_nM, kpt in zip(f_un, self.C_unM, self.kpt_u):
-            rho_MM = npy.dot(C_nM.conj().T * f_n, C_nM)
+        for kpt, f_n in zip(self.kpt_u, f_un):
+            rho_MM = npy.dot(kpt.C_nM.conj().T * f_n, kpt.C_nM)
             self.basis_functions.construct_density(rho_MM, nt_sG[kpt.s], kpt.k)
 
 
@@ -138,8 +138,9 @@ class GridWaveFunctions(WaveFunctions):
                             self.nmyu, self.myuoffset)
         lcaowfs.kpt_u = self.kpt_u
 
+        nbands = paw.nbands
         original_eigensolver = paw.eigensolver
-        original_nbands = paw.nbands
+        original_nbands = nbands
         original_nmybands = paw.nmybands
 
         paw.density.lcao = True
@@ -147,14 +148,28 @@ class GridWaveFunctions(WaveFunctions):
         paw.wfs = lcaowfs
 
         lcaowfs.initialize(paw)
+        nao = lcaowfs.nao
 
-        paw.nbands = min(paw.nbands, lcaowfs.nao)
-        paw.nmybands = min(paw.nmybands, lcaowfs.nao)
+        nmin = min(nbands, nao)
+        paw.nbands = nmin
+        paw.nmybands = nmin
+        self.nbands = nmin
+        self.nmybands = nmin
 
-        if paw.band_comm.size == 1:
-            paw.nmybands = paw.nbands # XXX how can this be right?
+        if nbands > nao:
+            assert paw.band_comm.size == 1
+            self.allocate_bands(nao)
+            for kpt in self.kpt_u:
+                kpt.C_nM = npy.empty((nao, nao), self.dtype)
+            eigensolver.initialize(paw, lcaowfs)
+
         for nucleus in paw.my_nuclei:
             nucleus.reallocate(paw.nmybands)
+
+        if paw.xcfunc.is_gllb():
+            if not paw.xcfunc.xc.initialized:
+                paw.xcfunc.initialize_gllb(paw)
+
         paw.hamiltonian.update(paw.density)
         eigensolver.iterate(paw.hamiltonian, lcaowfs)
         
@@ -171,6 +186,8 @@ class GridWaveFunctions(WaveFunctions):
         paw.eigensolver = original_eigensolver
         paw.nbands = original_nbands
         paw.nmybands = original_nmybands
+        self.nbands = original_nbands
+        self.nmybands = original_nmybands
         paw.density.lcao = False
 
         #self.allocate_bands(paw.nmybands)
@@ -181,11 +198,28 @@ class GridWaveFunctions(WaveFunctions):
         for kpt in self.kpt_u:
             kpt.psit_nG = self.gd.zeros(self.nmybands,
                                         self.dtype)
-            part_psit_nG = kpt.psit_nG[:self.nmybands]
+            part_psit_nG = kpt.psit_nG[:nmin]
             lcaowfs.basis_functions.lcao_to_grid(kpt.C_nM, part_psit_nG, kpt.k)
             kpt.C_nM = None
 
-        # XXX init remaining wave functions randomly
+        if nbands > nao:
+            for kpt in self.kpt_u:
+                # Add extra states.
+                # If the number of atomic orbitals is less than the desired
+                # number of bands, then extra random wave functions are added.
+
+                eps_n = npy.empty(nbands)
+                f_n = npy.empty(nbands)
+                eps_n[:nao] = kpt.eps_n[:nao]
+                eps_n[nao:] = kpt.eps_n[nao - 1] + 0.5
+                f_n[nao:] = 0.0
+                f_n[:nao] = kpt.f_n[:nao]
+                kpt.eps_n = eps_n
+                kpt.f_n = f_n
+                kpt.random_wave_functions(nao)
+            if paw.xcfunc.is_gllb():
+                paw.xcfunc.xc.update_band_count(nbands)
+
         for nucleus in paw.nuclei:
             del nucleus.P_kmi
         for nucleus in paw.my_nuclei:
@@ -198,7 +232,11 @@ class GridWaveFunctions(WaveFunctions):
         if paw.xcfunc.is_gllb():
             paw.xcfunc.xc.eigensolver = paw.eigensolver
 
+        self.initialized = True
+
     def random_wave_functions(self, paw):
+        dsfglksjdfglksjdghlskdjfhglsdfkjghsdljgkhsdljghdsfjghdlfgjkhdsfgjhsdfjgkhdsfgjkhdsfgkjhdsflkjhg
+
         self.allocate_bands(0)
         for kpt in self.kpt_u:
             kpt.psit_nG = self.gd.zeros(self.nmybands,
@@ -240,12 +278,15 @@ class GridWaveFunctions(WaveFunctions):
         if not eigensolver.initialized:
             eigensolver.initialize(paw)
         if not self.initialized:
-            paw.text('Atomic orbitals used for initialization:', paw.nao)
-            if paw.nbands > paw.nao:
-                paw.text('Random orbitals used for initialization:',
-                         paw.nbands - paw.nao)
+            if self.kpt_u[0].psit_nG is None:
+                paw.text('Atomic orbitals used for initialization:', paw.nao)
+                if paw.nbands > paw.nao:
+                    paw.text('Random orbitals used for initialization:',
+                             paw.nbands - paw.nao)
             
-            # Now we should find out whether init'ing from file or
-            # something else
-            self.initialize_wave_functions_from_atomic_orbitals(paw)
-            #self.initialize_wave_functions() # XXX
+                # Now we should find out whether init'ing from file or
+                # something else
+                self.initialize_wave_functions_from_atomic_orbitals(paw)
+
+            else:
+                self.initialize_wave_functions_from_restart_file(paw)

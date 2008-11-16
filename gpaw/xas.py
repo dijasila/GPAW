@@ -24,7 +24,7 @@ class XAS:
             self.list_kpts=[]
 
             #find kpoints with up spin 
-            for i,kpt in  enumerate(paw.kpt_u):
+            for i, kpt in  enumerate(paw.wfs.kpt_u):
                 if kpt.s ==0:
                     self.list_kpts.append(i)
                 print self.list_kpts
@@ -33,7 +33,7 @@ class XAS:
             #find number of occupied orbitals, if no fermi smearing
             nocc = 0.
             for i in self.list_kpts:
-                nocc += sum(paw.kpt_u[i].f_n)
+                nocc += sum(paw.wfs.kpt_u[i].f_n)
             nocc = int(nocc + 0.5)
             print "nocc", nocc
 
@@ -72,7 +72,7 @@ class XAS:
         n1 = 0
         for k in self.list_kpts:
             n2 = n1 + n
-            self.eps_n[n1:n2] = paw.kpt_u[k].eps_n[n_start:n_end] * paw.Ha
+            self.eps_n[n1:n2] = paw.wfs.kpt_u[k].eps_n[n_start:n_end] * paw.Ha
             P_ni = nucleus.P_uni[k, n_start:n_end]
             a_cn = npy.inner(A_ci, P_ni)
             print "weight", paw.weight_k[k]
@@ -438,7 +438,7 @@ class RecursionMethod:
         else:
             b_c = npy.reshape(npy.zeros(self.dim), (self.dim, 1, 1, 1))
     
-        self.paw.hamiltonian.apply(z_cG, y_cG, self.paw.kpt_u[u])
+        self.paw.hamiltonian.apply(z_cG, y_cG, self.paw.wfs.kpt_u[u])
         a_c = npy.reshape(integrate(npy.conjugate(z_cG) * y_cG), (self.dim, 1, 1, 1))
         wnew_cG = (y_cG - a_c * w_cG - b_c * wold_cG)
         wold_cG[:] = w_cG
@@ -527,14 +527,15 @@ class RecursionMethod:
     
     def solve(self, w_cG, z_cG, u):
         # exact inverse overlap
-        self.paw.overlap.apply_inverse(w_cG, self.tmp1_cG, self.paw.kpt_u[u])
+        self.paw.overlap.apply_inverse(w_cG, self.tmp1_cG,
+                                       self.paw.wfs.kpt_u[u])
         self.u = u
         CG(self, z_cG, self.tmp1_cG,
            tolerance=self.tol, maxiter=self.maxiter)
 
     def solve2(self, w_cG, z_cG, u):
         # approximate inverse overlap
-        self.paw.overlap.apply_inverse(w_cG, z_cG, self.paw.kpt_u[u])
+        self.paw.overlap.apply_inverse(w_cG, z_cG, self.paw.wfs.kpt_u[u])
 
         self.u = u
 
@@ -553,7 +554,7 @@ class RecursionMethod:
         """Function that is called by CG. It returns S~-1Sx_in in x_out
         """
 
-        kpt = self.paw.kpt_u[self.u]
+        kpt = self.paw.wfs.kpt_u[self.u]
         self.paw.overlap.apply(in_cG, self.tmp2_cG, kpt)
         self.paw.overlap.apply_inverse(self.tmp2_cG, out_cG, kpt)
 

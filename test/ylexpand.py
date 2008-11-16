@@ -29,10 +29,10 @@ def max_index(l):
 
 # check numbers
 for n in [0,1]:
-    gl, w = yl.expand(calc.kpt_u[0].psit_nG[n])
+    gl, w = yl.expand(calc.get_pseudo_wave_function(band=n))
     print 'max_index(gl), n=', max_index(gl), n
     assert(max_index(gl) == n)
 
 # io
 fname = 'expandyl.dat'
-yl.to_file(calc,fname)
+yl.to_file(calc, fname)

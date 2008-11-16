@@ -52,7 +52,7 @@ class KSSingles(ExcitationList):
             return # leave the list empty
 
         paw = self.calculator
-        self.kpt_u = paw.kpt_u
+        self.kpt_u = paw.wfs.kpt_u
         if self.kpt_u[0].psit_nG is None:
             raise RuntimeError('No wave functions in calculator!')
 
@@ -188,18 +188,18 @@ class KSSingle(Excitation, PairDensity):
         # normal entry
         
         PairDensity.__init__(self, paw)
-        PairDensity.initialize(self, paw.kpt_u[spin], iidx, jidx)
+        PairDensity.initialize(self, paw.wfs.kpt_u[spin], iidx, jidx)
 
         self.pspin=pspin
         
-        f=paw.kpt_u[spin].f_n
+        f=paw.wfs.kpt_u[spin].f_n
         self.fij=(f[iidx]-f[jidx])*fijscale
-        e=paw.kpt_u[spin].eps_n
+        e=paw.wfs.kpt_u[spin].eps_n
         self.energy=e[jidx]-e[iidx]
 
         # calculate matrix elements -----------
 
-        gd = paw.kpt_u[spin].gd
+        gd = paw.wfs.kpt_u[spin].gd
         self.gd = gd
 
         # length form ..........................

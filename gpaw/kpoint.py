@@ -113,7 +113,7 @@ class KPoint:
         self.psit_nG = None  # wave functions on 3D grid
         self.C_nM = None     # LCAO coefficients for wave functions XXX
         
-    def random_wave_functions(self, psit_nG):
+    def random_wave_functions(self, nao):
         """Generate random wave functions"""
 
         gd1 = self.gd.coarsen()
@@ -131,7 +131,7 @@ class KPoint:
 
         seed(4 + mpi.rank)
 
-        for psit_G in psit_nG:
+        for psit_G in self.psit_nG[nao:]:
             if self.dtype == float:
                 psit_G2[:] = (random(shape) - 0.5) * scale
             else:
@@ -209,7 +209,7 @@ class KPoint:
 
     def create_random_orbitals(self, nbands):
         """Initialize all the wave functions from random numbers"""
-
+        xxxxxxxxxxxxxxxxxxxxxxxxxx
         self.allocate(nbands)
         self.psit_nG = self.gd.zeros(nbands, self.dtype)
         self.random_wave_functions(self.psit_nG)                   
@@ -262,27 +262,6 @@ class KPointCollection:
             kpt.eps_n = npy.empty(nbands)
             kpt.f_n = npy.empty(nbands)
 
-    def add_extra_bands(self, nbands, nao):
-        """Add extra states.
-
-        If the number of atomic orbitals is less than the desired
-        number of bands, then extra random wave functions are added.
-        """
-
-        eps_un = self.eps_un
-        f_un = self.f_un
-
-        self.allocate_bands(nbands)
-
-        self.eps_un[:, :nao] = eps_un
-        self.f_un[:, :nao] = f_n
-
-        # Generate random wave functions:
-        self.eps_un[:, nao:] = self.eps_un[:, nao - 1] + 0.5
-        self.f_un[:, nao:] = 0.0
-        for psit_nG, kpt in zip(self.psit_unG, self.kpt_u):
-            kpt.random_wave_functions(psit_nG[nao:])
-
     def set_grid_descriptor(self, gd):
         self.comm = gd.comm
         self.gd = gd
@@ -298,5 +277,6 @@ class KPointCollection:
             kpt.add_to_density(nt_sG[kpt.s], use_lcao, basis_functions)
 
     def create_random_orbitals(self, nbands):
+        xxxxxxxxxxxxxxxxx
         for kpt in self.kpt_u:
             kpt.create_random_orbitals(nbands)

@@ -335,7 +335,7 @@ class TDDFT(PAW):
                                             self.time )
                 self.td_overlap.update()
 
-                kpt_u = self.kpoints.kpt_u
+                kpt_u = self.wfs.kpt_u
                 if self.hpsit is None:
                     self.hpsit = self.gd.zeros( len(kpt_u[0].psit_nG), 
                                                 dtype=complex )
@@ -420,7 +420,7 @@ class TDDFT(PAW):
                                                                  dtype=float) ),
                             self.td_overlap, self.solver, None,
                             self.gd, self.timer )
-        abs_kick.kick(self.kpoints.kpt_u)
+        abs_kick.kick(self.wfs.kpt_u)
 
     def __del__(self):
         """Destructor"""
@@ -428,7 +428,9 @@ class TDDFT(PAW):
 
 # Function for calculating photoabsorption spectrum
 #def photoabsorption_spectrum(dipole_moment_file, spectrum_file, fwhm = 0.5, delta_omega = 0.05, max_energy = 50.0):
-def photoabsorption_spectrum(dipole_moment_file, spectrum_file, folding='Gauss', width=0.2123, e_min=0.0, e_max=30.0, delta_e=0.05):
+def photoabsorption_spectrum(dipole_moment_file, spectrum_file,
+                             folding='Gauss', width=0.2123,
+                             e_min=0.0, e_max=30.0, delta_e=0.05):
     """ Calculates photoabsorption spectrum from the time-dependent
     dipole moment.
     

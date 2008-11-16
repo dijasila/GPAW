@@ -43,7 +43,14 @@ to 7::
   |. . . . . . .|
    -------------
 
+~  _  ^  ~  ~
+p  v  g  n  F  
+ i     L  c  M
 
+i
+d  d  d  d  d
+s     s
+   s     s
 """
 
 class Sphere:
@@ -173,6 +180,16 @@ class LocalizedFunctionsCollection:
         self.g_W = np.empty(nW, np.intc)
         self.i_W = np.empty(nW, np.intc)
 
+    def x(self):
+        # Find out which ranks have a piece of the
+        # localized functions:
+        natoms = len(self.sphere_a)
+        x_a = npy.zeros(natoms, bool)
+        x_a[self.atom_indices] = True
+        x_ra = npy.empty((self.gd.comm.size, natoms), bool)
+        self.gd.comm.all_gather(x_a, x_ra)
+        self.ranks = [x_ra[:, a].nonzeros()[0] for a in self.atom_indices]
+        
     def griditer(self):
         """Iterate over grid points."""
         self.g_W[:] = 0

@@ -70,10 +70,12 @@ class GLLBFunctional(ZeroFunctional, GLLB1D):
         if self.ref_loc < 0: ref_loc = 0
         self.initialized = True
 
-    def update_band_count(self):
+    def update_band_count(self, nbands=None):
+        if nbands is None:
+            nbands = self.eigensolver.nbands
         # Allocate the 'response-weights' for each kpoint
         for kpt in self.kpt_u:
-            kpt.wf_n = npy.zeros(self.eigensolver.nbands)
+            kpt.wf_n = npy.zeros(nbands)
 
     def update_xc_potential(self):
         assert(self.nspins == 1)
@@ -127,13 +129,17 @@ class GLLBFunctional(ZeroFunctional, GLLB1D):
         self.vt_G[:] = 0.0
 
         # If in lcao-mode and first iteration, do nothing.
-        if self.eigensolver.lcao:
-            if self.kpt_u[0].C_nm is None:
-                print "LCAO-Wave functions not available. Not updating response part."
-                return
+        if self.kpt_u[0].psit_nG is None:
+            return
+        #if self.eigensolver.lcao:
+        #    if self.kpt_u[0].C_nM is None:
+        #        print "LCAO-Wave functions not available. Not updating response part."
+        #        return
 
         for kpt in self.kpt_u:
-            kpt.add_to_density_with_occupation(self.vt_G, self.eigensolver.lcao, kpt.wf_n)
+            for f, psit_G in zip(kpt.wf_n, kpt.psit_nG):
+                self.vt_G += f * (psit_G * npy.conjugate(psit_G)).real
+            #kpt.add_to_density_with_occupation(self.vt_G, self.eigensolver.lcao, kpt.wf_n)
 
         # Communicate the coarse-response part
         self.kpt_comm.sum(self.vt_G)
