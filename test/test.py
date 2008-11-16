@@ -115,10 +115,7 @@ class ScriptTestCase(unittest.TestCase):
 
     def testfile(self):
         try:
-            try:
-                execfile(self.filename, {})
-            except KeyboardInterrupt:
-                raise RuntimeError('Keyboard interrupt')
+            execfile(self.filename, {})
         finally:
             mpi.world.barrier()
         
@@ -127,8 +124,18 @@ class ScriptTestCase(unittest.TestCase):
         n = len(gc.garbage)
         ScriptTestCase.garbage += gc.garbage
         del gc.garbage[:]
-        assert n == 0, ('Leak: Uncollectable garbage (%d object%s)' %
-                        (n, 's'[:n > 1]))
+        assert n == 0, ('Leak: Uncollectable garbage (%d object%s) %s' %
+                        (n, 's'[:n > 1], ScriptTestCase.garbage))
+    def run(self, result=None):
+        if result is None: result = self.defaultTestResult()
+        try:
+            unittest.TestCase.run(self, result)
+        except KeyboardInterrupt:
+            result.stream.write('SKIPPED\n')
+            try:
+                time.sleep(0.5)
+            except KeyboardInterrupt:
+                result.stop()
 
     def id(self):
         return self.filename
@@ -142,11 +149,22 @@ class ScriptTestCase(unittest.TestCase):
 class MyTextTestResult(unittest._TextTestResult):
     def startTest(self, test):
         unittest._TextTestResult.startTest(self, test)
+        self.stream.flush()
         self.t0 = time.time()
-        
+    
+    def _write_time(self):
+        if self.showAll:
+            self.stream.write('(%.3fs) ' % (time.time() - self.t0))
+
     def addSuccess(self, test):
-        self.stream.write('(%.3fs) ' % (time.time() - self.t0))    
+        self._write_time()
         unittest._TextTestResult.addSuccess(self, test)
+    def addError(self, test, err):
+        self._write_time()
+        unittest._TextTestResult.addError(self, test, err)
+    def addFailure(self, test, err):
+        self._write_time()
+        unittest._TextTestResult.addFailure(self, test, err)
 
 class MyTextTestRunner(unittest.TextTestRunner):
     def _makeResult(self):
