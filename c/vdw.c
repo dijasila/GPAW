@@ -52,9 +52,12 @@ PyObject * vdw(PyObject* self, PyObject *args)
   double ddelta;
   int iA;
   int iB;
-  if (!PyArg_ParseTuple(args, "OOOOOOOddii", &n_obj, &q0_obj, &R_obj,
+  PyArrayObject* histogram_obj;
+  double rcut;
+  if (!PyArg_ParseTuple(args, "OOOOOOOddiiOd", &n_obj, &q0_obj, &R_obj,
 			&cell_obj, &pbc_obj, &repeat_obj,
-			&phi_obj, &dD, &ddelta, &iA, &iB))
+			&phi_obj, &dD, &ddelta, &iA, &iB,
+			&histogram_obj, &rcut))
     return NULL;
 
   int nD = phi_obj->dimensions[1];
@@ -66,6 +69,10 @@ PyObject * vdw(PyObject* self, PyObject *args)
   const char* pbc = (const char*)(cell_obj->data);
   const long* repeat = (const long*)(repeat_obj->data);
   const double (*phi)[nD] = (const double (*)[nD])DOUBLEP(phi_obj);
+  double* histogram = (double*)DOUBLEP(histogram_obj);
+
+  double dr = rcut / (histogram_obj->dimensions[0] - 1);
+  double rcut2 = rcut * rcut;
 
   double energy = 0.0;
   if (repeat[0] == 0 && repeat[1] == 0 && repeat[2] == 0)
@@ -73,29 +80,32 @@ PyObject * vdw(PyObject* self, PyObject *args)
       {
 	const double* R1 = R[i1];
 	double q01 = q0[i1];
-	double e1 = 0.0;
 	for (int i2 = 0; i2 < i1; i2++)
 	  {
-	    double r2 = 0.0;
+	    double rr = 0.0;
 	    for (int c = 0; c < 3; c++)
 	      {
 		double f = R[i2][c] - R1[c];
 		if (pbc[c])
 		  f = fmod(f + 1.5 * cell[c], cell[c]) - 0.5 * cell[c];
-		r2 += f * f;
+		rr += f * f;
 	      }
-	    double e12 = vdwkernel(sqrt(r2), q01, q0[i2],
-				   nD, ndelta, dD, ddelta, phi);
-	    e1 += n[i2] * e12;
+	    if (rr < rcut2)
+	      {
+		double r = sqrt(rr);
+		double e12 = (vdwkernel(r, q01, q0[i2],
+					nD, ndelta, dD, ddelta, phi) *
+			      n[i1] * n[i2]);
+		histogram[(int)(r / dr)] += e12; 
+		energy += e12;
+	      }
 	  }
-	energy += n[i1] * e1;
       }
   else
     for (int i1 = iA; i1 < iB; i1++)
       {
 	const double* R1 = R[i1];
 	double q01 = q0[i1];
-	double e1 = 0.0;
 	for (int a1 = -repeat[0]; a1 <= repeat[0]; a1++)
 	  for (int a2 = -repeat[1]; a2 <= repeat[1]; a2++)
 	    for (int a3 = -repeat[2]; a3 <= repeat[2]; a3++)
@@ -113,18 +123,23 @@ PyObject * vdw(PyObject* self, PyObject *args)
 				 R1[2] + a3 * cell[2]};
 		for (int i2 = 0; i2 < i2max; i2++)
 		  {
-		    double r2 = 0.0;
+		    double rr = 0.0;
 		    for (int c = 0; c < 3; c++)
 		      {
 			double f = R[i2][c] - R1a[c];
-			r2 += f * f;
+			rr += f * f;
 		      }
-		    double e12 = vdwkernel(sqrt(r2), q01, q0[i2],
-					   nD, ndelta, dD, ddelta, phi);
-		    e1 += x * n[i2] * e12;
+		    if (rr < rcut2)
+		      {
+			double r = sqrt(rr);
+			double e12 = (vdwkernel(r, q01, q0[i2],
+						nD, ndelta, dD, ddelta, phi) *
+				      n[i1] * n[i2] * x);
+			energy += e12;
+			histogram[(int)(r / dr)] += e12; 
+		      }
 		  }
 	      }
-	energy += n[i1] * e1;
       }
   return PyFloat_FromDouble(0.25 * energy / M_PI);
 }
@@ -174,13 +189,21 @@ void vdwkernel2(double r, double q01, double q02, int nD, int ndelta,
 		 (1.0 - a) * b         * phi[jdelta    ][jD + 1] +
 		 (1.0 - a) * (1.0 - b) * phi[jdelta    ][jD    ]) /
 		(D * D));
-      //first derivative of phi with d 
-      double dphidd = ((          b         * phi[jdelta + 1][jD + 1] +
+      //first derivative of phi with D 
+      double dphidD = ((          a         * phi[jdelta + 1][jD + 1] -
+				   a *         phi[jdelta + 1][jD    ] +
+				  (1.0 - a)   * phi[jdelta    ][jD + 1] -
+				  (1.0 - a) * phi[jdelta    ][jD    ]) /
+			(D * D))-2/(D * D)*Phi[3];
+
+      double dphiddelta = ((          b         * phi[jdelta + 1][jD + 1] +
 				  (1.0 - b) * phi[jdelta + 1][jD    ] -
 				  b         * phi[jdelta    ][jD + 1] -
 				  (1.0 - b) * phi[jdelta    ][jD    ]) /
 	     (D * D));
-      Phi[0] = d1 * dphidd;
+      Phi[0] = d1 * (0.5* dphiddelta+0.5*dphidD);
+
+      
 
       //getting the interpolation of second derivative
       /*
@@ -196,15 +219,21 @@ void vdwkernel2(double r, double q01, double q02, int nD, int ndelta,
 	    (D * D));
       */
       
-      double d2phidddd = 1.7;
+      double d2phidddd =d1*d1*(((         1         *  phi[jdelta + 1][jD + 1] -
+				   1  *         phi[jdelta + 1][jD    ] -
+				   1  *         phi[jdelta    ][jD + 1] +
+				   1  *         phi[jdelta    ][jD    ]) /
+				(D * D))-2/(D * D)*dphiddelta);
+
       Phi[1] = d1 * d1 * d2phidddd;
-      double d2phiddddp = 1.7;
-      Phi[2] = dphidd + d1 * d2phidddd + d2 * d2phiddddp;
+      double d2phiddddp = 0;
+      Phi[2] = (0.5* dphiddelta+0.5*dphidD) + d1 * d2phidddd + d2 * d2phiddddp;
     }
 }
 
 PyObject * vdw2(PyObject* self, PyObject *args)
 {
+  
   const PyArrayObject* n_obj;
   const PyArrayObject* q0_obj;
   const PyArrayObject* R_obj;
@@ -220,7 +249,7 @@ PyObject * vdw2(PyObject* self, PyObject *args)
   const PyArrayObject* s_obj;
   PyArrayObject* v_obj;
   if (!PyArg_ParseTuple(args, "OOOOOOddiiOOOO",
-			&n_obj, &q0_obj, q0_obj, &R_obj,
+			&n_obj, &q0_obj, &R_obj,
 			&cell_obj, &pbc_obj,
 			&phi_obj, &dD, &ddelta, &iA, &iB,
 			&a1_obj, &a2_obj, &s_obj, &v_obj))
@@ -239,16 +268,13 @@ PyObject * vdw2(PyObject* self, PyObject *args)
   const double* a2 = (const double*)DOUBLEP(a2_obj);
   const double (*s)[3] = (const double (*)[3])DOUBLEP(s_obj);
 
+  
   double* potential = (double*)DOUBLEP(v_obj);
   double energy = 0.0;
   for (int i1 = iA; i1 < iB; i1++)
     {
       const double* R1 = R[i1];
       double q01 = q0[i1];
-      double e1 = 0.0;
-      double e2 = 0.0;
-      double e3 = 0.0;
-      double e4 = 0.0;
       double A1 = a1[i1];
       double A2 = a2[i1];
       const double* S = s[i1];
@@ -270,13 +296,11 @@ PyObject * vdw2(PyObject* self, PyObject *args)
 		     nD, ndelta, dD, ddelta, phi, ie);
 	  double A3 = Rrr[0] * S[0] + Rrr[1] * S[1] + Rrr[2] * S[2];
 	  A3 *= Zabover9 / r;
-	  e1 += n[i2] * ie[0];
-	  e2 += n[i2] * ie[1] * A1;
-	  e3 += n[i2] * ie[2] * A2;
-	  e4 += n[i2] * ie[3] * A3;
+	  energy += ie[3] * n[i1] * n[i2];
+	  double ev = n[i2] * (ie[0] + ie[1] * A1 + ie[2] * A2 + ie[3] * A3);
+          potential[i1] += ev;
+          potential[i2] += ev;
 	}
-      potential[i1] += e1 + e2 + e3 + e4;
-      energy += n[i1] * e1;
     }
   return PyFloat_FromDouble(0.25 * energy / M_PI);
 }

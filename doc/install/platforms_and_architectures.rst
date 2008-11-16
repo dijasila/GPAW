@@ -7,6 +7,37 @@ Platforms and architectures
 Ubuntu
 ======
 
+Install the required packages, listed below, then :ref:`download
+<download>` GPAW trunk or 0.3 and modify :file:`.bashrc` as detailed
+in the :ref:`installationguide`.
+
+Version 8.10
+------------
+
+Install these packages:
+
+* python-dev
+* python-numpy
+* liblapack-dev
+
+Optional:
+
+* python-scientific
+* python-matplotlib
+* python-sphinx
+* povray
+
+Sphinx and povray are necessary only to build the documentation.
+
+For your pasting convenience::
+  
+  sudo apt-get install python-dev python-numpy liblapack-dev python-scientific python-matplotlib python-sphinx povray
+
+If using GPAW 0.3, Numeric is required rather than numpy (as below).
+
+Version 8.04 or earlier
+-----------------------
+
 Install these packages:
 
 * python-dev
@@ -374,6 +405,7 @@ with gcc compiler using the following :file:`customize.py` file
   ]
 
   mpicompiler = '/usr/local/infinipath-2.0/bin/mpicc'
+  mpilinker = mpicompiler
 
 You can alternatively build on ``slid`` build GPAW (``python setup.py
 build_ext``) with pathcc (pathcc looks ~3% slower - check other jobs!)
@@ -412,6 +444,7 @@ experimental ``scalapack`` and ``blacs`` features)::
   ]
 
   mpicompiler = '/usr/local/infinipath-2.0/bin/mpicc -Ofast'
+  mpilinker = mpicompiler
 
 A gpaw script :file:`gpaw-script.py` can be submitted like this::
 

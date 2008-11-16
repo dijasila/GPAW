@@ -120,7 +120,7 @@ static void lxcXCFunctional_dealloc(lxcXCFunctionalObject *self)
   switch(self->c_functional.family)
     {
     case XC_FAMILY_LDA:
-      XC(lda_end)(&(self->c_functional.lda_func));
+/*      XC(lda_end)(&(self->c_functional.lda_func)); */
       break;
     case XC_FAMILY_GGA:
       XC(gga_end)(&(self->c_functional.gga_func));
@@ -527,12 +527,6 @@ lxcXCFunctional_XCEnergy(lxcXCFunctionalObject *self, PyObject *args)
           nb = NMIN;
 
      double n = na + nb;
-
-     double dExcdna = 0.0;
-     double dExcdsigma0 = 0.0;
-     double dExcdnb = 0.0;
-     double dExcdsigma2 = 0.0;
-     double dExcdsigma1 = 0.0;
 
      double dExdna = 0.0;
      double dExdsigma0 = 0.0;

@@ -14,7 +14,7 @@ from gpaw.utilities import  check_unit_cell
 from gpaw import Calculator
 import gpaw.mpi as mpi
 import _gpaw
-
+from gpaw.operators import Gradient
 
 class VanDerWaals:
     def __init__(self, n_g, gd, calc=None,
@@ -41,6 +41,11 @@ class VanDerWaals:
         
         self.gd = gd
 
+        if n_g.shape != tuple(gd.n_c):
+            bign_g = n_g
+            n_g = gd.empty()
+            gd.distribute(bign_g, n_g)
+            
         v_g = gd.empty()
 
         # GGA exchange and correlation:
@@ -78,9 +83,9 @@ class VanDerWaals:
         ncut = 1.0e-7
         n_g.clip(ncut, npy.inf, out=n_g)
 
-        kF_g = (3.0 * pi**2 * n_g)**(1.0 / 3.0)
+        self.kF_g = (3.0 * pi**2 * n_g)**(1.0 / 3.0)
         self.n_g = n_g
-        self.q0_g = self.get_q0(kF_g)
+        self.q0_g = self.get_q0(self.kF_g)
 
         for n in range(ncoarsen):
             coarsegd = self.gd.coarsen()
@@ -108,7 +113,7 @@ class VanDerWaals:
         p.ylabel(r'$4\pi D^2 \phi(\rm{Hartree})$')
         p.show()
         
-    def get_energy(self, repeat=None, ncut=0.0005):
+    def get_energy(self, repeat=None, ncut=0.0005, rcut=20.0):
         #introduces periodic boundary conditions using
         #the minimum image convention
 
@@ -154,11 +159,15 @@ class VanDerWaals:
             repeat_c = npy.zeros(3, int)
         else:
             repeat_c = npy.asarray(repeat, int)
-            
+
+        self.histogram = npy.zeros(300)
         E_cl = _gpaw.vdw(n_i, q0_i, R_ic, gd.domain.cell_c, gd.domain.pbc_c,
                          repeat_c,
                          self.phi_jk, self.deltaD, self.deltadelta,
-                         iA, iB)
+                         iA, iB,
+                         self.histogram, rcut)
+        self.histogram *= gd.h_c.prod()**2 / (rcut / 299) / 4 / pi * Hartree
+        mpi.world.sum(self.histogram)
         E_cl = mpi.world.sum(E_cl * gd.h_c.prod()**2)
         E_nl_c = self.dExc_semilocal + E_cl
         return E_nl_c * Hartree, E_cl*Hartree
@@ -319,24 +328,26 @@ class VanDerWaals:
         
         s2 = (self.s_cg**2).sum(axis=0)
 
-        self.alpha2_g = gd.zeros()
+        self.alpha2 = gd.zeros()
         temp_g = gd.empty()
         for c in range(3):
             grad[c].apply(self.q0_g, temp_g)
-            self.alpha2_g += self.s_cg[c] * temp_g
-        self.alpha2 *= Zab / 9 / self.q0_g**2
+            self.alpha2 += self.s_cg[c] * temp_g
+        self.alpha2 *= -0.8491/9.0 / self.q0_g**2
         
         # LDA:
         xc = XC3DGrid('LDA', gd)
         v_g = gd.empty()
         e_g = gd.empty()
-        xc.get_energy_and_potential_spinpaired(self, n_g, v_g, e_g)
+        xc.get_energy_and_potential_spinpaired( n_g, v_g, e_g)
         
 
+        q0=self.get_q0
+        self.alpha1=1.0/self.q0_g*(-0.8491/9.0*sggf+7.0/3.0*-0.8491/9.0*s2*self.kF_g-4.0*npy.pi/3.0*(v_g-e_g))
 
-        a1=1/self.get_q0*(-0.8491/9.0*sggf+7.0/3.0*-0.8491/9.0*s2*kF_g-4.0*npy.pi/3.0*n_g)####*vlda#####
+        
 
-        return a1,a2
+        return self.alpha1,self.alpha2        
 
     def get_potential(self, repeat=None, ncut=0.0005):
         #introduces periodic boundary conditions using
@@ -351,6 +362,7 @@ class VanDerWaals:
         mpi.world.broadcast(n_g, 0)
         mpi.world.broadcast(q0_g, 0)
 
+    
         n_c = n_g.shape
         R_gc = npy.empty(n_c + (3,))
         R_gc[..., 0] = (npy.arange(0, n_c[0]) * gd.h_c[0]).reshape((-1, 1, 1))
@@ -361,7 +373,12 @@ class VanDerWaals:
         R_ic = R_gc.reshape((-1, 3)).compress(mask_g, axis=0)
         n_i = n_g.ravel().compress(mask_g)
         q0_i = q0_g.ravel().compress(mask_g)
-
+        # Here we will cut the alphas and the s
+    
+        a1_i = self.alpha1.ravel().compress(mask_g)
+    
+        a2_i = self.alpha2.ravel().compress(mask_g)
+        s_i = self.s_cg.ravel().compress(mask_g)
         # Number of grid points:
         ni = len(n_i)
 
@@ -385,13 +402,21 @@ class VanDerWaals:
         else:
             repeat_c = npy.asarray(repeat, int)
 
-        v_g = self.gd.zeros()
+        v_i = npy.zeros_like(n_i)
         E_cl = _gpaw.vdw2(n_i, q0_i, R_ic, gd.domain.cell_c, gd.domain.pbc_c,
                           #repeat_c,
                           self.phi_jk, self.deltaD, self.deltadelta,
                           iA, iB,
-                          self.a1_g, self.a2_g, self.s_cg, v_g)
-        return v_g
-    
-
+                          a1_i, a2_i, s_i, v_i)
+        v_g = self.gd.empty()
+        v_g.ravel()[mask_g] = v_i
+        #a=v_g.ravel()
+        #n=0
+        #for x in range(v_g.shape[0]):
+         #for y in range(v_g.shape[1]):
+          #for z in range(v_g.shape[2]):
+          # v_g[x,y,z]=a[n]
+          # n=n+1
+           
+        return v_g ,R_ic, a1_i ,s_i
 

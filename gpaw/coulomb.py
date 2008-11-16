@@ -28,6 +28,7 @@ def get_vxc(paw, spin=0, U=None):
 
     # Fill in upper triangle
     r2k(0.5 * paw.gd.dv, psit_nG, vxct_G * psit_nG, 0.0, Vxc_nn)
+    paw.gd.comm.sum(Vxc_nn)
 
     # Fill in lower triangle
     for n in range(paw.nbands - 1):
@@ -45,7 +46,7 @@ def get_vxc(paw, spin=0, U=None):
     return Vxc_nn * Hartree
 
 
-class Coulomb2:
+class Coulomb:
     """Class used to evaluate two index coulomb integrals"""
     def __init__(self, gd, poisson=None):
         """Class should be initialized with a grid_descriptor 'gd' from
@@ -179,6 +180,9 @@ class Coulomb2:
 class Coulomb4:
     """Determine four-index Coulomb integrals"""
     def __init__(self, paw, spin=0):
+        paw.set_positions()
+        paw.initialize_wave_functions()
+        
         self.kpt = paw.kpt_u[spin]
         self.pd = PairDensity(paw, finegrid=True)
         self.nt12_G = paw.gd.empty()
@@ -263,59 +267,37 @@ def symmetry(i, j, k, l):
     return tuple(ijkl), conj
 
 
-def get_coulomb(i, j, k, l, coulomb, U, done={}):
-    ijkl, conj = symmetry(i, j, k, l)
-    ni, nj, nk, nl = U[:, ijkl].T
-    val = done.setdefault(ijkl, coulomb.get_integral(nk, ni, nj, nl) * Hartree)
-    
-    if conj:
-        return npy.conj(val)
-    else:
-        return val
+def reduce_pairs(pairs):
+    p = 0
+    while p < len(pairs):
+        i, j, k, l = pairs[p]
+        ijkl, conj = symmetry(i, j, k, l)
+        if ijkl == (i, j, k, l):
+            p += 1
+        else:
+            pairs.pop(p)
 
 
-def coulomb_all(paw, U_nj, spin=0):
-    paw.set_positions()
-    nwannier = U_nj.shape[1]
-    dtype = float
-    if paw.dtype is complex or U_nj.dtype is complex: dtype = complex
+def coulomb_dict(paw, U_nj, pairs, spin=0, done={}):
     coulomb = Coulomb4(paw, spin)
-    if rank == Master:
-        done = {}
-        V_ijkl = npy.zeros([nwannier, nwannier, nwannier, nwannier], dtype)
-    else:
-        V_ijkl = None
-    for i in range(nwannier):
-        for j in range(nwannier):
-            for k in range(nwannier):
-                for l in range(nwannier):
-                    print 'Doing', i, j, k, l
-                    if rank == Master:
-                        V_ijkl[i, j, k, l] = get_coulomb(
-                            i, j, k, l, coulomb, U_nj, done)
+    for ijkl in pairs:
+        ni, nj, nk, nl = U_nj[:, ijkl].T
+        done[ijkl] = coulomb.get_integral(nk, ni, nj, nl) * Hartree
+    return done
+
+
+def unfold(N, done, dtype=float):
+    V = npy.empty([N, N, N, N], dtype)
+    for i in xrange(N):
+        for j in xrange(N):
+            for k in xrange(N):
+                for l in xrange(N):
+                    ijkl, conj = symmetry(i, j, k, l)
+                    if conj:
+                        V[i, j, k, l] = npy.conj(done.get(ijkl, 0))
                     else:
-                        get_coulomb(i, j, k, l, coulomb, U_nj)
-    return V_ijkl
-
-
-def coulomb_pairs(paw, U_nj, spin, basis):
-    paw.set_positions()
-    nwannier = U_nj.shape[1]
-    dtype = float
-    if paw.dtype is complex or U_nj.dtype is complex: dtype = complex
-    coulomb = Coulomb4(paw, spin)
-    done = {}
-    V_ijkl = npy.zeros([nwannier, nwannier, nwannier, nwannier], dtype)
-    for start1, end1 in basis:
-        for start2, end2 in basis:
-            for i in range(start1, end1):
-                for k in range(start1, end1):
-                    for j in range(start2, end2):
-                        for l in range(start2, end2):
-                            print 'Doing', i, j, k, l
-                            V_ijkl[i, j, k, l] = get_coulomb(i, j, k, l,
-                                                     coulomb, U_nj, done)
-    return V_ijkl, done
+                        V[i, j, k, l] = done.get(ijkl, 0)
+    return V
 
 
 from gpaw.utilities.tools import symmetrize

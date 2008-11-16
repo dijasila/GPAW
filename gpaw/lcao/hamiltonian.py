@@ -13,6 +13,9 @@ from ase.calculators.neighborlist import NeighborList
 from gpaw.lfc import BasisFunctions
 from gpaw import debug
 from _gpaw import overlap
+from gpaw.mpi import parallel
+from gpaw.utilities import scalapack
+from gpaw import sl_diagonalize
 
 
 class LCAOHamiltonian:

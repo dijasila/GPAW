@@ -31,7 +31,6 @@ PyObject* NewXCFunctionalObject(PyObject *self, PyObject *args);
 PyObject* NewMGGAFunctionalObject(PyObject *self, PyObject *args);
 PyObject* NewlxcXCFunctionalObject(PyObject *self, PyObject *args);
 PyObject *exterior_electron_density_region(PyObject *self, PyObject *args);
-PyObject* elf(PyObject *self, PyObject *args);
 PyObject* overlap(PyObject *self, PyObject *args);
 PyObject* wigner_seitz_grid(PyObject *self, PyObject *args);
 PyObject* vdw(PyObject *self, PyObject *args);
@@ -40,11 +39,7 @@ PyObject* swap_arrays(PyObject *self, PyObject *args);
 PyObject* spherical_harmonics(PyObject *self, PyObject *args);
 PyObject* spline_to_grid(PyObject *self, PyObject *args);
 PyObject* NewLFCObject(PyObject *self, PyObject *args);
-/*
-PyObject* calculate_potential_matrix(PyObject *self, PyObject *args);
-PyObject* construct_density(PyObject *self, PyObject *args);
-PyObject* construct_density1(PyObject *self, PyObject *args);
-*/
+PyObject* compiled_WITH_SL(PyObject *self, PyObject *args);
 
 static PyMethodDef functions[] = {
   {"gemm", gemm, METH_VARARGS, 0},
@@ -74,13 +69,13 @@ static PyMethodDef functions[] = {
   {"XCFunctional",    NewXCFunctionalObject,    METH_VARARGS, 0},
   {"MGGAFunctional",    NewMGGAFunctionalObject,    METH_VARARGS, 0},
   {"lxcXCFunctional",    NewlxcXCFunctionalObject,    METH_VARARGS, 0},
-  {"elf",    elf,    METH_VARARGS, 0},
   {"overlap",       overlap,        METH_VARARGS, 0},
   {"wigner_seitz_grid", wigner_seitz_grid, METH_VARARGS, 0},
   {"vdw", vdw, METH_VARARGS, 0},
   {"vdw2", vdw2, METH_VARARGS, 0},
   {"swap", swap_arrays, METH_VARARGS, 0},
   {"spherical_harmonics", spherical_harmonics, METH_VARARGS, 0},
+  {"compiled_with_sl", compiled_WITH_SL, METH_VARARGS, 0},
   {"pc_potential", pc_potential, METH_VARARGS, 0},
   {"pc_potential_value", pc_potential_value, METH_VARARGS, 0},
   {"spline_to_grid", spline_to_grid, METH_VARARGS, 0},

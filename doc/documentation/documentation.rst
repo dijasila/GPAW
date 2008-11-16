@@ -28,12 +28,13 @@ GPAW calculator:
    
    parallel_runs/parallel_runs
    restart_files
+   rmm-diis
+   orthogonalization
    xc/xc
    tddft/tddft
    dscf/dscf
    pdos/pdos
    xas/xas
-   rmm-diis
 
 .. _ml:
 
@@ -43,8 +44,5 @@ Mailing list
 If you can't find what you are looking for, ask on the `mailing list`_.
 
 
-.. _mailing list: https://lists.berlios.de/mailman/listinfo/gridpaw-developer
+.. _mailing list: http://lists.berlios.de/mailman/listinfo/gridpaw-developer
 .. _Python: http://www.python.org
-
-
-

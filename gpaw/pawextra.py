@@ -397,9 +397,11 @@ class PAWExtra:
         Determine the projections of the Kohn-Sham eigenstates
         onto specified localized functions of the format::
 
-          locfun = [[spos_c, l, a], [...]]
+          locfun = [[spos_c, l, sigma], [...]]
 
-        spos_c can be an atom index, or a scaled position vector.
+        spos_c can be an atom index, or a scaled position vector. l is
+        the angular momentum, and sigma is the (half-) width of the
+        radial gaussian.
 
         Return format is::
 
@@ -407,31 +409,50 @@ class PAWExtra:
 
         where psi_kn are the wave functions, and f_i are the specified
         localized functions.
+
+        As a special case, locfun can be the string 'projectors', in which
+        case the bound state projectors are used as localized functions.
         """
+
+        if locfun == 'projectors':
+            f_kin = []
+            for k in range(self.nkpts):
+                u = k + spin * self.nkpts
+                for nucleus in self.nuclei:
+                    i = 0
+                    for l, n in zip(nucleus.setup.l_j, nucleus.setup.n_j):
+                        if n >= 0:
+                            for j in range(i, i + 2 * l + 1):
+                                f_kin.append(nucleus.P_uni[u, :, j])
+                        i += 2 * l + 1
+            f_kni = npy.array(f_kin).reshape(
+                self.nkpts, -1, self.nbands).transpose(0, 2, 1)
+            return f_kni.conj()
+
         from gpaw.localized_functions import create_localized_functions
         from gpaw.spline import Spline
+        from gpaw.utilities import fac
 
-        nbf = 0
-        for spos_c, l, a in locfun:
-            nbf += 2 * l + 1
-        f_kni = npy.zeros((len(self.ibzk_kc), self.nbands, nbf), complex)
+        nbf = npy.sum([2 * l + 1 for pos, l, a in locfun])
+        f_kni = npy.zeros((self.nkpts, self.nbands, nbf), self.dtype)
 
-        nbf = 0
-        for spos_c, l, a in locfun:
+        bf = 0
+        for spos_c, l, sigma in locfun:
             if type(spos_c) is int:
                 spos_c = self.nuclei[spos_c].spos_c
-            a /= self.a0
-            rad_g = npy.exp(-npy.linspace(0, 10. * a, 500)**2 / a)
-            rad_g[-2:] = 0.0
-            functions = [Spline(l, cutoff, rad_g)]
+            a = .5 * self.a0**2 / sigma**2
+            r = npy.linspace(0, 6. * sigma, 500)
+            f_g = (fac[l] * (4 * a)**(l + 3 / 2.) * npy.exp(-a * r**2) /
+                   (npy.sqrt(4 * npy.pi) * fac[2 * l + 1]))
+            functions = [Spline(l, rmax=r[-1], f_g=f_g, points=61)]
             lf = create_localized_functions(functions, self.gd, spos_c,
-                                            dtype=complex)
+                                            dtype=self.dtype)
             lf.set_phase_factors(self.ibzk_kc)
             nlf = 2 * l + 1
             nbands = self.nbands
             kpt_u = self.wfs.kpt_u
             for k in range(self.nkpts):
                 lf.integrate(kpt_u[k + spin * self.nkpts].psit_nG[:],
-                             f_kni[k, :, nbf:nbf + nlf], k=k)
-            nbf += nlf
+                             f_kni[k, :, bf:bf + nlf], k=k)
+            bf += nlf
         return f_kni.conj()
