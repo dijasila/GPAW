@@ -106,7 +106,7 @@ class Sphere:
 
 
 
-class LocalizedFunctionsCollection:
+class NewLocalizedFunctionsCollection:
     def __init__(self, gd, spline_aj, cut=False):
         self.gd = gd
         self.sphere_a = [Sphere(spline_j) for spline_j in spline_aj]
@@ -184,12 +184,33 @@ class LocalizedFunctionsCollection:
         # Find out which ranks have a piece of the
         # localized functions:
         natoms = len(self.sphere_a)
-        x_a = npy.zeros(natoms, bool)
+        x_a = np.zeros(natoms, bool)
         x_a[self.atom_indices] = True
-        x_ra = npy.empty((self.gd.comm.size, natoms), bool)
+        x_ra = np.empty((self.gd.comm.size, natoms), bool)
         self.gd.comm.all_gather(x_a, x_ra)
-        self.ranks = [x_ra[:, a].nonzeros()[0] for a in self.atom_indices]
-        
+        self.ranks_a = [x_ra[:, a].nonzeros()[0] for a in self.atom_indices]
+        # use get_rank_for_position .....
+    
+    def add(self, c_axm, a_xG, k=-1):
+        dtype = a_xG.dtype
+        nx = len(a_xG)
+        c_xM = np.empty((nx, self.Mmax), dtype)
+        requests = []
+        M1 = 0
+        for a in self.atom_indices:
+            c_xm =  c_axm.get(a)
+            M2 = M1 + self.sphere_a[a].Mmax
+            if c_xm is None:
+                requests.append(comm.receive(c_xM[M1:M2], r, a, False))
+            else:
+                for r in ranks_a[a]:
+                    requests.append(comm.send(c_xm, r, a, False))
+
+        for request in requests:
+            comm.wait(request)
+
+        self.lfc.add(c_xM, a_xG, k)
+
     def griditer(self):
         """Iterate over grid points."""
         self.g_W[:] = 0
@@ -210,7 +231,7 @@ class LocalizedFunctionsCollection:
             G1 = G2
 
 
-class BasisFunctions(LocalizedFunctionsCollection):
+class BasisFunctions(NewLocalizedFunctionsCollection):
     def add_to_density(self, nt_sG, f_sM):
         for nt_G, f_M in zip(nt_sG, f_sM):
             self.lfc.construct_density1(f_M, nt_G)
@@ -223,83 +244,138 @@ class BasisFunctions(LocalizedFunctionsCollection):
         Vt_MM[:] = 0.0
         self.lfc.calculate_potential_matrix(vt_G, Vt_MM, k)
 
-    # Python implementations:
-
-    def _add_to_density(self, nt_sG, f_sM):
-        nspins = len(nt_sG)
-        nt_sG = nt_sG.reshape((nspins, -1))
-        for G1, G2 in self.griditer():
-            for W in self.current_lfindices:
-                M = self.M_W[W]
-                A_gm = self.A_Wgm[W][self.g_W[W]:self.g_W[W] + G2 - G1]
-                nm = A_gm.shape[1]
-                nt_sG[0, G1:G2] += np.dot(A_gm**2, f_sM[0, M:M + nm])
-
-    def _construct_density(self, rho_MM, nt_G, k):
-        """Calculate electron density from density matrix.
-
-        rho_MM: ndarray
-            Density matrix.
-        nt_G: ndarray
-            Pseudo electron density.
-        """
-        nt_G = nt_G.ravel()
-
-        for G1, G2 in self.griditer():
-            for W1 in self.current_lfindices:
-                M1 = self.M_W[W1]
-                f1_gm = self.A_Wgm[W1][self.g_W[W1]:self.g_W[W1] + G2 - G1]
-                nm1 = f1_gm.shape[1]
-                for W2 in self.current_lfindices:
-                    M2 = self.M_W[W2]
-                    f2_gm = self.A_Wgm[W2][self.g_W[W2]:self.g_W[W2] + G2 - G1]
-                    nm2 = f2_gm.shape[1]
-                    rho_mm = rho_MM[M1:M1 + nm1, M2:M2 + nm2]
-                    if self.ibzk_kc is not None:
-                        rho_mm = (rho_mm *
-                                  self.phase_kW[k, W1] *
-                                  self.phase_kW[k, W2].conj()).real
-                    nt_G[G1:G2] += (np.dot(f1_gm, rho_mm) * f2_gm).sum(1)
-
-    def _calculate_potential_matrix(self, vt_G, Vt_MM, k):
-        vt_G = vt_G.ravel()
-        Vt_MM[:] = 0.0
-        dv = self.gd.dv
-
-        for G1, G2 in self.griditer():
-            for W1 in self.current_lfindices:
-                M1 = self.M_W[W1]
-                f1_gm = self.A_Wgm[W1][self.g_W[W1]:self.g_W[W1] + G2 - G1]
-                nm1 = f1_gm.shape[1]
-                for W2 in self.current_lfindices:
-                    M2 = self.M_W[W2]
-                    f2_gm = self.A_Wgm[W2][self.g_W[W2]:self.g_W[W2] + G2 - G1]
-                    nm2 = f2_gm.shape[1]
-                    Vt_mm = np.dot(f1_gm.T,
-                                   vt_G[G1:G2, None] * f2_gm) * dv
-                    if self.ibzk_kc is not None:
-                        Vt_mm = (Vt_mm *
-                                 self.phase_kW[k, W1].conj() *
-                                 self.phase_kW[k, W2])
-                    Vt_MM[M1:M1 + nm1, M2:M2 + nm2] += Vt_mm
-                    
-    def _lcao_band_to_grid(self, C_M, psit_G, k):
-        psit_G = psit_G.ravel()
-        for G1, G2 in self.griditer():
-            for W in self.current_lfindices:
-                A_gm = self.A_Wgm[W][self.g_W[W]:self.g_W[W] + G2 - G1]
-                M1 = self.M_W[W]
-                M2 = M1 + A_gm.shape[1]
-                if self.ibzk_kc is None:
-                    psit_G[G1:G2] += np.dot(A_gm, C_M[M1:M2])
-                else:
-                    psit_G[G1:G2] += np.dot(A_gm,
-                                            C_M[M1:M2] / self.phase_kW[k, W])
-
     def lcao_to_grid(self, C_nM, psit_nG, k):
         for C_M, psit_G in zip(C_nM, psit_nG):
             self.lfc.lcao_to_grid(C_M, psit_G, k)
-            #self._lcao_band_to_grid(C_M, psit_G, k)
+
+    # Python implementations:
+    if 0:
+        def add_to_density(self, nt_sG, f_sM):
+            nspins = len(nt_sG)
+            nt_sG = nt_sG.reshape((nspins, -1))
+            for G1, G2 in self.griditer():
+                for W in self.current_lfindices:
+                    M = self.M_W[W]
+                    A_gm = self.A_Wgm[W][self.g_W[W]:self.g_W[W] + G2 - G1]
+                    nm = A_gm.shape[1]
+                    nt_sG[0, G1:G2] += np.dot(A_gm**2, f_sM[0, M:M + nm])
+
+        def construct_density(self, rho_MM, nt_G, k):
+            """Calculate electron density from density matrix.
+
+            rho_MM: ndarray
+                Density matrix.
+            nt_G: ndarray
+                Pseudo electron density.
+            """
+            nt_G = nt_G.ravel()
+
+            for G1, G2 in self.griditer():
+                for W1 in self.current_lfindices:
+                    M1 = self.M_W[W1]
+                    f1_gm = self.A_Wgm[W1][self.g_W[W1]:self.g_W[W1] + G2 - G1]
+                    nm1 = f1_gm.shape[1]
+                    for W2 in self.current_lfindices:
+                        M2 = self.M_W[W2]
+                        f2_gm = self.A_Wgm[W2][self.g_W[W2]:
+                                               self.g_W[W2] + G2 - G1]
+                        nm2 = f2_gm.shape[1]
+                        rho_mm = rho_MM[M1:M1 + nm1, M2:M2 + nm2]
+                        if self.ibzk_kc is not None:
+                            rho_mm = (rho_mm *
+                                      self.phase_kW[k, W1] *
+                                      self.phase_kW[k, W2].conj()).real
+                        nt_G[G1:G2] += (np.dot(f1_gm, rho_mm) * f2_gm).sum(1)
+
+        def calculate_potential_matrix(self, vt_G, Vt_MM, k):
+            vt_G = vt_G.ravel()
+            Vt_MM[:] = 0.0
+            dv = self.gd.dv
+
+            for G1, G2 in self.griditer():
+                for W1 in self.current_lfindices:
+                    M1 = self.M_W[W1]
+                    f1_gm = self.A_Wgm[W1][self.g_W[W1]:self.g_W[W1] + G2 - G1]
+                    nm1 = f1_gm.shape[1]
+                    for W2 in self.current_lfindices:
+                        M2 = self.M_W[W2]
+                        f2_gm = self.A_Wgm[W2][self.g_W[W2]:
+                                               self.g_W[W2] + G2 - G1]
+                        nm2 = f2_gm.shape[1]
+                        Vt_mm = np.dot(f1_gm.T,
+                                       vt_G[G1:G2, None] * f2_gm) * dv
+                        if self.ibzk_kc is not None:
+                            Vt_mm = (Vt_mm *
+                                     self.phase_kW[k, W1].conj() *
+                                     self.phase_kW[k, W2])
+                        Vt_MM[M1:M1 + nm1, M2:M2 + nm2] += Vt_mm
+
+        def lcao_to_grid(self, C_nM, psit_nG, k):
+            for C_M, psit_G in zip(C_nM, psit_nG):
+                self._lcao_band_to_grid(C_M, psit_G, k)
+
+        def _lcao_band_to_grid(self, C_M, psit_G, k):
+            psit_G = psit_G.ravel()
+            for G1, G2 in self.griditer():
+                for W in self.current_lfindices:
+                    A_gm = self.A_Wgm[W][self.g_W[W]:self.g_W[W] + G2 - G1]
+                    M1 = self.M_W[W]
+                    M2 = M1 + A_gm.shape[1]
+                    if self.ibzk_kc is None:
+                        psit_G[G1:G2] += np.dot(A_gm, C_M[M1:M2])
+                    else:
+                        psit_G[G1:G2] += np.dot(A_gm,
+                                                C_M[M1:M2] /
+                                                self.phase_kW[k, W])
+
+
+from gpaw.localized_functions import LocFuncs, LocFuncBroadcaster
+from gpaw.mpi import run
+
+class LocalizedFunctionsCollection:
+    def __init__(self, gd, spline_aj, cut=False, forces=False, dtype=float):
+        self.gd = gd
+        self.spline_aj = spline_aj
+        self.cut = cut
+        self.forces = forces
+        self.dtype = dtype
+        self.spos_ac = None
+        self.lfs_a = {}
+        self.ibzk_kc = None
+        
+    def set_k_points(self, ibzk_kc):
+        self.ibzk_kc = ibzk_kc
+        
+    def set_positions(self, spos_ac, kpt_comm=None):
+        if kpt_comm is None:
+            lfbc = None
+        else:
+            lfbc = LocFuncBroadcaster(kpt_comm)
+
+        for a, spline_j in enumerate(self.spline_aj):
+            if self.spos_ac is None or (self.spos_ac[a] != spos_ac[a]).any():
+                lfs = LocFuncs(spline_j, self.gd, spos_ac[a],
+                               self.dtype, self.cut, self.forces, lfbc)
+                if len(lfs.box_b) > 0:
+                    if self.ibzk_kc is not None:
+                        lfs.set_phase_factors(self.ibzk_kc)
+                    self.lfs_a[a] = lfs
+                else:
+                    del self.lfs_a[a]
+
+        if kpt_comm is not None:
+            lfbc.broadcast()
+
+    def add(self, a_xG, c_axm=None, k=-1):
+        if c_axm is None:
+            c_xm = np.array([1.0])
+            run([lfs.iadd(a_xG, c_xm, k) for lfs in self.lfs_a.values()])
+        else:
+            run([lfs.iadd(a_xG, c_axm[a], k) for a, lfs in self.lfs_a.items()])
+
+    def integrate(self, a_xG, c_axm, k=-1):
+        run([lfs.iintegrate(c_axm[a], a_xG, k) for lfs in self.lfs_a])
+
 
 def test():
     from gpaw.grid_descriptor import GridDescriptor
@@ -318,49 +394,14 @@ def test():
     from gpaw.spline import Spline
     a = np.array([1, 0.9, 0.8, 0.0])
     s = Spline(0, 0.2, a)
-    x = LF(s, (0.5, 0.45, 0.5), (0, 0, 0), gd, 0)
-    y = LF(s, (0.5, 0.55, 0.5), (0, 0, 0), gd, 1)
-    xy = LocalizedFunctionsCollection([x,y])
-    #x.test()
+    x = LocalizedFunctionsCollection(gd, [[s], [s]])
+    x.set_positions([(0.5, 0.45, 0.5), (0.5, 0.55, 0.5)])
     n_G = gd.zeros()
-    xy.construct_density(np.array(([(1.0, 0),(0.0,-1)])), n_G)
+    x.add(n_G)
     #xy.f(np.array(([(2.0,)])), n_G)
     import pylab as plt
     plt.contourf(n_G[20, :, :])
     plt.axis('equal')
     plt.show()
-    return xy
-    
-class Sphere0(Sphere):
-    def spline_to_grid(self, spline, gd, start_c, end_c, spos_c):
-        dom = gd.domain
-        h_cv = dom.cell_cv / gd.N_c[:, None]
-        pos_v = np.dot(spos_c, dom.cell_cv)
-        rcut = spline.get_cutoff()
-        l = spline.get_angular_momentum_number()
-        G_B = []
-        A_gm = []
-        for gx in range(start_c[0], end_c[0]):
-            for gy in range(start_c[1], end_c[1]):
-                gz1 = None
-                gz2 = None
-                for gz in range(start_c[2], end_c[2]):
-                    d_v = np.dot((gx, gy, gz), h_cv) - pos_v
-                    r = (d_v**2).sum()**0.5
-                    if r < rcut:
-                        if gz1 is None:
-                            gz1 = gz
-                        gz2 = gz
-                        fr = spline(r)
-                        A_gm.append([fr * Y(l**2 + m, *d_v)
-                                     for m in range(2 * l + 1)])
-                if gz2 is not None:
-                    gz2 += 1
-                    G1 = gd.flat_index((gx, gy, gz1))
-                    G2 = gd.flat_index((gx, gy, gz2))
-                    G_B.extend((G1, G2))
-                    
-        return np.array(A_gm), np.array(G_B)
-#Sphere = Sphere0
-if __name__ == '__main__':
-    test()
+
+test()
