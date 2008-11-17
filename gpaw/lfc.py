@@ -404,4 +404,5 @@ def test():
     plt.axis('equal')
     plt.show()
 
-test()
+if __name__ == '__main__':
+    test()
