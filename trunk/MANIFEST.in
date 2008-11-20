@@ -1,0 +1,9 @@
+include LICENSE config.py customize.py bg_compiler.py
+include c/*.c
+include c/*.h
+include c/libxc/*.h
+include c/bmgs/*.h
+include c/bmgs/*.c
+recursive-include examples *
+recursive-include test *
+recursive-include c/libxc *
