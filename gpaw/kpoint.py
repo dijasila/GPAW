@@ -47,7 +47,7 @@ class KPoint:
         H_nn and the Cholesky decomposition of S_nn.
     """
     
-    def __init__(self, gd, weight, s, k, u, k_c, dtype, timer=None):
+    def __init__(self, weight, s, k, q):
         """Construct k-point object.
 
         Parameters
@@ -87,32 +87,19 @@ class KPoint:
         """
 
         self.weight = weight
-        self.dtype = dtype
-        self.timer = timer
-        
-        self.phase_cd = npy.ones((3, 2), complex)
-        if dtype == float:
-            # Gamma-point calculation:
-            self.k_c = None
-        else:
-            sdisp_cd = gd.domain.sdisp_cd
-            for c in range(3):
-                for d in range(2):
-                    self.phase_cd[c, d] = exp(2j * pi *
-                                              sdisp_cd[c, d] * k_c[c])
-            self.k_c = k_c
-
         self.s = s  # spin index
         self.k = k  # k-point index
-        self.u = u  # combined spin and k-point index
+        self.q = q  # local k-point index
 
         self.eps_n = None
         self.f_n = None
+        self.P_ani = None
 
         # Only one of these two will be used:
         self.psit_nG = None  # wave functions on 3D grid
         self.C_nM = None     # LCAO coefficients for wave functions XXX
-        
+        self.P_aMi = None
+
     def random_wave_functions(self, nao):
         """Generate random wave functions"""
 
@@ -214,69 +201,3 @@ class KPoint:
         self.psit_nG = self.gd.zeros(nbands, self.dtype)
         self.random_wave_functions(self.psit_nG)                   
 
-
-class KPointCollection:
-    def __init__(self, gd, dtype):
-        self.gd = gd
-        self.dtype = dtype
-
-        self.nkpts = None
-        self.nmyu = None
-        self.myuoffset = None
-        self.kpt_u = None
-        self.nmybands = None
-        self.nbands = None
-
-        self.weight_k = None
-        self.ibzk_kc = None
-
-        #self.eps_un = None
-        #self.f_un = None
-    
-    def initialize(self, weight_k, ibzk_kc, nkpts, nmyu, myuoffset):
-        self.weight_k = weight_k
-        self.ibzk_kc = ibzk_kc
-        self.nkpts = nkpts
-        self.nmyu = nmyu
-        self.myuoffset = myuoffset
-
-        self.kpt_u = []
-        for u in range(nmyu):
-            s, k = divmod(myuoffset + u, nkpts)
-            weight = weight_k[k]
-            k_c = ibzk_kc[k]
-            kpt = KPoint(self.gd, weight, s, k, u, k_c, self.dtype)
-            self.kpt_u.append(kpt)
-
-        self.set_grid_descriptor(self.gd) # XXX illogical
-
-    #def create_kpoint(self, weight, s, k, u, k_c):
-    #    return KPoint(self.gd, weight, s, k, u, k_c, self.dtype)
-
-    def allocate_bands(self, nbands):
-        self.nmybands = nbands
-        shape = self.nmyu, nbands
-        #self.eps_un = 
-        #self.f_un = npy.empty(shape)
-        for kpt in self.kpt_u:
-            kpt.eps_n = npy.empty(nbands)
-            kpt.f_n = npy.empty(nbands)
-
-    def set_grid_descriptor(self, gd):
-        self.comm = gd.comm
-        self.gd = gd
-        for kpt in self.kpt_u:
-            kpt.gd = gd # XXX unnecessary
-            kpt.comm = gd.comm # XXX also unnecessary
-            kpt.root = kpt.u % self.comm.size
-            # Which CPU does overlap-matrix Cholesky-decomposition and
-            # Hamiltonian-matrix diagonalization?
-
-    def add_to_density(self, nt_sG, use_lcao, basis_functions):
-        for kpt in self.kpt_u:
-            kpt.add_to_density(nt_sG[kpt.s], use_lcao, basis_functions)
-
-    def create_random_orbitals(self, nbands):
-        xxxxxxxxxxxxxxxxx
-        for kpt in self.kpt_u:
-            kpt.create_random_orbitals(nbands)

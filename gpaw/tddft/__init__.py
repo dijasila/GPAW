@@ -249,7 +249,7 @@ class TDDFT(PAW):
                 if self.band_comm.size > 1:
                     self.text('Parallelization Over bands on %d Processors' %
                               self.band_comm.size)
-            self.text('States per processor = ', self.nmybands)
+            self.text('States per processor = ', self.mynbands)
 
         self.hpsit = None
         self.eps_tmp = None

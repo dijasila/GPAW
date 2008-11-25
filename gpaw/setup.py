@@ -7,14 +7,14 @@ import sys
 
 import numpy as npy
 from numpy.linalg import inv
-from ase.data import atomic_names
+from ase.data import atomic_names, chemical_symbols, atomic_numbers
 
 from gpaw.setup_data import SetupData
 from gpaw.basis_data import Basis
 from gpaw.gaunt import gaunt as G_LLL
 from gpaw.spline import Spline
 from gpaw.grid_descriptor import RadialGridDescriptor
-from gpaw.utilities import unpack, erf, fac, hartree, pack2, divrl
+from gpaw.utilities import unpack, pack, erf, fac, hartree, pack2, divrl
 from gpaw.xc_correction import XCCorrection
 from gpaw.xc_functional import XCRadialGrid
 
@@ -50,6 +50,7 @@ class Setup:
     """
     def __init__(self, symbol, xcfunc, lmax=0, nspins=1,
                  type='paw', basis=None, setupdata=None):
+        self.natoms = 0  # number of atoms with this setup
         actual_symbol = symbol
         self.type = type
 
@@ -408,6 +409,9 @@ class Setup:
         self.Delta_Lii = npy.zeros((ni, ni, self.Lmax))
         for L in range(self.Lmax):
             self.Delta_Lii[:,:,L] = unpack(self.Delta_pL[:, L].copy())
+
+        # Integral of smooth core density:
+        self.Nct = -Delta0 * sqrt(4 * pi) - self.Z + self.Nc
 
         K_q = []
         for j1 in range(nj):
@@ -784,6 +788,178 @@ class Setup:
 
         self.I4_iip = I4_iip
 
+    def calculate_initial_occupation_numbers(self, magmom, hund):
+        niao = self.niAO
+        nspins = self.xc_correction.nspins
+        f_si = npy.zeros((nspins, niao))
+
+        # Projector function indices:
+        j = 0
+        nj = len(self.n_j)
+        
+        i = 0
+        for phit in self.phit_j:
+            l = phit.get_angular_momentum_number()
+
+            # Skip projector functions not in basis set:
+            while j < nj and self.l_j[j] != l:
+                j += 1
+            if j < nj:
+                f = int(self.f_j[j])
+            else:
+                f = 0
+
+            degeneracy = 2 * l + 1
+
+            if hund:
+                # Use Hunds rules:
+                f_si[0, i:i + min(f, degeneracy)] = 1.0      # spin up
+                f_si[1, i:i + max(f - degeneracy, 0)] = 1.0  # spin down
+                if f < degeneracy:
+                    magmom -= f
+                else:
+                    magmom -= 2 * degeneracy - f
+            else:
+                if nspins == 1:
+                    f_si[0, i:i + degeneracy] = 1.0 * f / degeneracy
+                else:
+                    maxmom = min(f, 2 * degeneracy - f)
+                    mag = magmom
+                    if abs(mag) > maxmom:
+                        mag = cmp(mag, 0) * maxmom
+                    f_si[0, i:i + degeneracy] = 0.5 * (f + mag) / degeneracy
+                    f_si[1, i:i + degeneracy] = 0.5 * (f - mag) / degeneracy
+                    magmom -= mag
+                
+            i += degeneracy
+            j += 1
+
+        #These lines disable the calculation of charged atoms!
+        #Therefore I commented them. -Mikael
+        #if magmom != 0:
+        #    raise RuntimeError('Bad magnetic moment %g for %s atom!'
+        # % (magmom, self.self.symbol))
+        assert i == niao
+
+        return f_si
+    
+    def initialize_density_matrix(self, f_si):
+        nspins, niao = f_si.shape
+        ni = self.ni
+
+        D_sii = npy.zeros((nspins, ni, ni))
+        D_sp = npy.zeros((nspins, ni * (ni + 1) // 2))
+        nj = len(self.n_j)
+        j = 0
+        i = 0
+        ib = 0
+        for phit in self.phit_j:
+            l = phit.get_angular_momentum_number()
+            # Skip projector functions not in basis set:
+            while j < nj and self.l_j[j] != l:
+                i += 2 * self.l_j[j] + 1
+                j += 1
+            if j == nj:
+                break
+
+            for m in range(2 * l + 1):
+                D_sii[:, i + m, i + m] = f_si[:, ib + m]
+            j += 1
+            i += 2 * l + 1
+            ib += 2 * l + 1
+        for s in range(nspins):
+            D_sp[s] = pack(D_sii[s])
+        return D_sp
+
+
+class Setups(list):
+    """
+
+    ``nvalence``    Number of valence electrons.
+    """
+
+    def __init__(self, Z_a, setup_types, basis_sets, nspins, lmax, xcfunc):
+        list.__init__(self)
+        natoms =  len(Z_a)
+        if isinstance(setup_types, str):
+            setup_types = {None: setup_types}
+        
+        # setup_types is a dictionary mapping chemical symbols and/or atom
+        # numbers to setup types.
+        
+        # If present, None will map to the default type:
+        default = setup_types.get(None, 'paw')
+        
+        type_a = [default] * natoms
+        
+        # First symbols ...
+        for symbol, type in setup_types.items():
+            if isinstance(symbol, str):
+                number = atomic_numbers[symbol]
+                for a, Z in enumerate(Z_a):
+                    if Z == number:
+                        type_a[a] = type
+        
+        # and then atom indices:
+        for a, type in setup_types.items():
+            if isinstance(a, int):
+                type_a[a] = type
+        
+        if isinstance(basis_sets, str):
+            basis_sets = {None: basis_sets}
+        
+        # basis_sets is a dictionary mapping chemical symbols and/or atom
+        # numbers to basis sets.
+        
+        # If present, None will map to the default type:
+        default = basis_sets.get(None, None)
+        
+        basis_a = [default] * natoms
+        
+        # First symbols ...
+        for symbol, basis in basis_sets.items():
+            if isinstance(symbol, str):
+                number = atomic_numbers[symbol]
+                for a, Z in enumerate(Z_a):
+                    if Z == number:
+                        basis_a[a] = basis
+        
+        # and then atom numbers:
+        for a, basis in basis_sets.items():
+            if isinstance(a, int):
+                basis_a[a] = basis
+        
+        # Construct necessary PAW-setup objects:
+        self.setups = {}
+        self.id_a = zip(Z_a, type_a, basis_a)
+        for a, id in enumerate(self.id_a):
+            setup = self.setups.get(id)
+            if setup is None:
+                Z, type, basis = id
+                symbol = chemical_symbols[Z]
+                setup = create_setup(symbol, xcfunc, lmax, nspins, type, basis)
+                self.setups[id] = setup
+            setup.natoms += 1
+            self.append(setup)
+
+        # Sum up ...
+        self.nvalence = 0       # number of valence electrons
+        self.nao = 0            # number of atomic orbitals
+        self.Eref = 0.0         # reference energy
+        self.core_charge = 0.0  # core hole charge
+        for setup in self.setups.values():
+            self.Eref += setup.natoms * setup.E
+            self.core_charge += setup.natoms * (setup.Z - setup.Nv - setup.Nc)
+            self.nvalence += setup.natoms * setup.Nv
+            self.nao += setup.natoms * setup.niAO
+
+    def set_symmetry(self, symmetry):
+        """Find rotation matrices for spherical harmonics."""
+        R_slmm = [[rotation(l, symm) for l in range(3)]
+                  for symm in self.symmetry.symmetries]
+        
+        for setup in self.setups:
+            setup.calculate_rotations(R_slmm)
     
 
 if __name__ == '__main__':

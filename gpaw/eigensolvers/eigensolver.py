@@ -61,7 +61,6 @@ class Eigensolver:
         self.keep_htpsit = keep_htpsit
         self.nblocks = nblocks
         self.initialized = False
-        self.lcao = False
         self.Htpsit_nG = None
         self.work_In = None
         self.H_pnn = None
@@ -76,9 +75,9 @@ class Eigensolver:
         self.gd = paw.gd
         self.comm = paw.gd.comm
         self.nbands = paw.nbands
-        self.nmybands = paw.nmybands
+        self.mynbands = paw.mynbands
 
-        if self.nmybands != self.nbands:
+        if self.mynbands != self.nbands:
             self.keep_htpsit = False
 
         self.eps_n = npy.empty(self.nbands)
@@ -95,7 +94,7 @@ class Eigensolver:
             self.Htpsit_nG = self.gd.empty(self.nbands, self.dtype)
 
         # Work array for e.g. subspace rotations:
-        self.blocksize = int(ceil(1.0 * self.nmybands / self.nblocks))
+        self.blocksize = int(ceil(1.0 * self.mynbands / self.nblocks))
         paw.big_work_arrays['work_nG'] = self.gd.empty(self.blocksize,
                                                        self.dtype)
         self.big_work_arrays = paw.big_work_arrays
@@ -281,15 +280,15 @@ class Eigensolver:
         np = size // 2 + 1
         rank = band_comm.rank
         psit_nG = kpt.psit_nG
-        nmybands = len(psit_nG)
+        mynbands = len(psit_nG)
 
         nI = 0
         for nucleus in hamiltonian.my_nuclei:
             nI += nucleus.get_number_of_partial_waves()
 
         if self.work_In is None or len(self.work_In) != nI:
-            self.work_In = npy.empty((nI, nmybands), psit_nG.dtype)
-            self.work2_In = npy.empty((nI, nmybands), psit_nG.dtype)
+            self.work_In = npy.empty((nI, mynbands), psit_nG.dtype)
+            self.work2_In = npy.empty((nI, mynbands), psit_nG.dtype)
         work_In = self.work_In
         work2_In = self.work2_In
 
@@ -297,7 +296,7 @@ class Eigensolver:
         work2_nG = self.big_work_arrays['work2_nG']
 
         if self.H_pnn is None:
-            self.H_pnn = npy.zeros((np, nmybands, nmybands), psit_nG.dtype)
+            self.H_pnn = npy.zeros((np, mynbands, mynbands), psit_nG.dtype)
         H_pnn = self.H_pnn
 
         I1 = 0
@@ -337,7 +336,7 @@ class Eigensolver:
         self.comm.sum(H_pnn, kpt.root)
 
         H_nn = self.H_nn
-        H_bnbn = H_nn.reshape((size, nmybands, size, nmybands))
+        H_bnbn = H_nn.reshape((size, mynbands, size, mynbands))
         if self.comm.rank == kpt.root:
             if rank == 0:
                 H_bnbn[:np, :, 0] = H_pnn
@@ -356,7 +355,7 @@ class Eigensolver:
         size = band_comm.size
         psit_nG =  kpt.psit_nG
         work_nG = self.big_work_arrays['work_nG']
-        nmybands = len(psit_nG)
+        mynbands = len(psit_nG)
         if size == 1:
             gemm(1.0, psit_nG, C_nn, 0.0, work_nG)
             kpt.psit_nG = work_nG
@@ -366,7 +365,7 @@ class Eigensolver:
             return
 
         # Parallelize over bands:
-        C_bnbn = C_nn.reshape((size, nmybands, size, nmybands))
+        C_bnbn = C_nn.reshape((size, mynbands, size, mynbands))
         work2_nG = self.big_work_arrays['work2_nG']
 
         rank = band_comm.rank

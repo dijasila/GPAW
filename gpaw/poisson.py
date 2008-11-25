@@ -15,9 +15,9 @@ from gpaw.utilities.ewald import Ewald
 
 
 class PoissonSolver:
-    def __init__(self, nn='M', relax='GS'):
+    def __init__(self, nn='M', relax='GS', eps=2e-10):
         self.nn = nn
-
+        self.eps = eps
         self.charged_periodic_correction = None
         
         # Relaxation method
@@ -87,8 +87,11 @@ class PoissonSolver:
             self.rho_gauss = gauss.get_gauss(0)
             self.phi_gauss = gauss.get_gauss_pot(0)
 
-    def solve(self, phi, rho, eps=2e-10, charge=0, maxcharge=1e-6,
+    def solve(self, phi, rho, eps=None, charge=0, maxcharge=1e-6,
               zero_initial_phi=False):
+
+        if eps is None:
+            eps = self.eps
 
         # Determine charge (if set to None)
         if charge == None:

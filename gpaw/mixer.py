@@ -86,8 +86,8 @@ class BaseMixer:
         else:
             raise RuntimeError('Unknown metric type: "%s".' % self.metric_type)
         
-    def initialize(self, paw):
-        self.initialize_metric(paw.gd)
+    def initialize(self, gd):
+        self.initialize_metric(gd)
 
     def reset(self):
         """Reset Density-history.
@@ -195,22 +195,22 @@ class Mixer(BaseMixer):
     """Mix spin up and down densities separately"""
 
 
-    def initialize(self, paw):
+    def initialize(self, gd, nspins):
         self.mixers = []
-        for s in range(paw.nspins):
+        for s in range(nspins):
             mixer = BaseMixer(self.beta, self.nmaxold,
                               self.metric_type, self.weight)
-            mixer.initialize_metric(paw.gd)
+            mixer.initialize_metric(gd)
             self.mixers.append(mixer)
     
     def mix(self, density):
         """Mix pseudo electron densities."""
 
         nt_sG = density.nt_sG
-        D_asp = [nucleus.D_sp for nucleus in density.my_nuclei]
+        D_asp = density.D_asp.values()
         D_sap = []
         for s in range(density.nspins):
-            D_sap.append([D[s] for D in D_asp])
+            D_sap.append([D_sp[s] for D_sp in D_asp])
         for nt_G, D_ap, mixer in zip(nt_sG, D_sap, self.mixers):
             mixer.mix(nt_G, D_ap)
 

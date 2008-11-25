@@ -1,129 +1,71 @@
 import numpy as npy
-from gpaw.utilities.blas import rk, r2k
 from gpaw.utilities import unpack
 from gpaw.utilities.lapack import diagonalize
 from gpaw.mpi import parallel
 from gpaw.utilities import scalapack
 from gpaw import sl_diagonalize
-from gpaw import debug
 
 
 class LCAO:
     """Eigensolver for LCAO-basis calculation"""
 
     def __init__(self):
-        self.lcao = True
-        self.initialized = False
-        if debug:
-            self.eig_lcao_iteration = 0
-        self.linear_kpts = None
-
-    def initialize(self, paw, wfs):
-        self.timer = paw.timer
-        self.nuclei = paw.nuclei
-        self.my_nuclei = paw.my_nuclei
-        self.comm = paw.gd.comm
         self.error = 0.0
-        self.nbands = paw.nbands
-        self.nmybands = paw.nmybands
-        self.band_comm = paw.band_comm
-        self.dtype = paw.dtype
+        self.linear_kpts = None
+        self.eps_n = None
+        self.S_MM = None
+        self.H_MM = None
+        self.timer = None
+        self.comm = None
+        self.mynbands = None
+        self.band_comm = None
 
-        self.nao = wfs.nao
-        self.eps_n = npy.empty(self.nao)
-        self.S_MM = npy.empty((self.nao, self.nao), self.dtype)
-        self.H_MM = npy.empty((self.nao, self.nao), self.dtype)
-        self.linear_dependence_check(wfs)
-        self.initialized = True
+    def calculate_hamiltonian_matrix(self, hamiltonian, wfs, kpt):
+        if self.H_MM is None:
+            nao = wfs.setups.nao
+            self.eps_n = npy.empty(nao)
+            self.S_MM = npy.empty((nao, nao), wfs.dtype)
+            self.H_MM = npy.empty((nao, nao), wfs.dtype)
+            self.timer = wfs.timer
+            self.comm = wfs.gd.comm
+            self.mynbands = wfs.mynbands
+            self.band_comm = wfs.band_comm
+            #self.linear_dependence_check(wfs)
+            print 'self.linear_dependence_check(wfs)'
 
-    def linear_dependence_check(self, wfs):
-        # Near-linear dependence check. This is done by checking the
-        # eigenvalues of the overlap matrix S_kmm. Eigenvalues close
-        # to zero mean near-linear dependence in the basis-set.
-        self.linear_kpts = {}
-        for k, S_MM in enumerate(wfs.S_kMM):
-            P_MM = S_MM.copy()
-            #P_mm = wfs.S_kMM[k].copy()
-            p_M = npy.empty(self.nao)
-
-            dsyev_zheev_string = 'LCAO: '+'diagonalize-test'
-
-            self.timer.start(dsyev_zheev_string)
-            if debug:
-                self.timer.start(dsyev_zheev_string +
-                                 ' %03d' % self.eig_lcao_iteration)
-
-            if self.comm.rank == 0:
-                p_M[0] = 42
-                info = diagonalize(P_MM, p_M)
-                assert p_M[0] != 42
-                if info != 0:
-                    raise RuntimeError('Failed to diagonalize: info=%d' % info)
-
-            if debug:
-                self.timer.stop(dsyev_zheev_string +
-                                ' %03d' % self.eig_lcao_iteration)
-                self.eig_lcao_iteration += 1
-            self.timer.stop(dsyev_zheev_string)
-
-            self.comm.broadcast(P_MM, 0)
-            self.comm.broadcast(p_M, 0)
-
-            self.thres = 1e-6
-            if (p_M <= self.thres).any():
-                self.linear_kpts[k] = (P_MM, p_M)
-
-        # Debug stuff
-        if 0:
-            print 'Hamiltonian S_kMM[0] diag'
-            print self.S_kMM[0].diagonal()
-            print 'Hamiltonian S_kMM[0]'
-            for row in self.S_kMM[0]:
-                print ' '.join(['%02.03f' % f for f in row])
-            print 'Eigenvalues:'
-            print npy.linalg.eig(self.S_kMM[0])[0]
-
-    def get_hamiltonian_matrix(self, hamiltonian, wfs, kpt=None, k=0, s=0):
-        if kpt is not None:
-            k = kpt.k
-            s = kpt.s
+        s = kpt.s
+        q = kpt.q
 
         self.timer.start('LCAO: potential matrix')
-        wfs.basis_functions.calculate_potential_matrix(
-            hamiltonian.vt_sG[s], self.H_MM, k)
+        wfs.basis_functions.calculate_potential_matrix(hamiltonian.vt_sG[s],
+                                                       self.H_MM, q)
         self.timer.stop('LCAO: potential matrix')
-        
-        for nucleus in self.my_nuclei:
-            dH_ii = unpack(nucleus.H_sp[s])
-            P_Mi = nucleus.P_kmi[k]
+
+        for a, P_Mi in kpt.P_aMi.items():
+            dH_ii = unpack(hamiltonian.dH_asp[a][s])
+            
             self.H_MM += npy.dot(P_Mi, npy.inner(dH_ii, P_Mi).conj())
 
         self.comm.sum(self.H_MM)
 
-        self.H_MM += wfs.T_kMM[k]
-
-        return self.H_MM
+        self.H_MM += wfs.T_qMM[q]
 
     def iterate(self, hamiltonian, wfs):
         for kpt in wfs.kpt_u:
             self.iterate_one_k_point(hamiltonian, wfs, kpt)
 
     def iterate_one_k_point(self, hamiltonian, wfs, kpt):
-        k = kpt.k
-        s = kpt.s
-        u = kpt.u
 
-        H_MM = self.get_hamiltonian_matrix(hamiltonian, wfs, kpt)
-        self.S_MM[:] = wfs.S_kMM[k]
+        self.calculate_hamiltonian_matrix(hamiltonian, wfs, kpt)
+        self.S_MM[:] = wfs.S_qMM[kpt.q]
 
         rank = self.band_comm.rank
         size = self.band_comm.size
-
-        n1 = rank * self.nmybands
-        n2 = n1 + self.nmybands
+        n1 = rank * self.mynbands
+        n2 = n1 + self.mynbands
 
         # Check and remove linear dependence for the current k-point
-        if k in self.linear_kpts:
+        if 0:#k in self.linear_kpts:
             print '*Warning*: near linear dependence detected for k=%s' % k
             P_MM, p_M = wfs.lcao_hamiltonian.linear_kpts[k]
             eps_q, C2_nM = self.remove_linear_dependence(P_MM, p_M, H_MM)
@@ -140,34 +82,27 @@ class LCAO:
             self.eps_n[0] = 42
 
             self.timer.start(dsyev_zheev_string)
-            if debug:
-                self.timer.start(dsyev_zheev_string +
-                                 ' %03d' % self.eig_lcao_iteration)
             if sl_diagonalize:
-                info = diagonalize(H_MM, self.eps_n, self.S_MM, root=0)
+                info = diagonalize(self.H_MM, self.eps_n, self.S_MM, root=0)
                 if info != 0:
                     raise RuntimeError('Failed to diagonalize: info=%d' % info)
             else:
                 if self.comm.rank == 0:
-                    info = diagonalize(H_MM, self.eps_n, self.S_MM)
+                    info = diagonalize(self.H_MM, self.eps_n, self.S_MM)
                     if info != 0:
                         raise RuntimeError('Failed to diagonalize: info=%d' % info)
-            if debug:
-                self.timer.stop(dsyev_zheev_string + ' %03d'
-                                % self.eig_lcao_iteration)
-                self.eig_lcao_iteration += 1
             self.timer.stop(dsyev_zheev_string)
 
-            self.comm.broadcast(self.eps_n, 0)
-            self.comm.broadcast(H_MM, 0)
+            kpt.C_nM[:] = self.H_MM[n1:n2]
+            kpt.eps_n[:] = self.eps_n[n1:n2]
+
+            self.comm.broadcast(kpt.C_nM, 0)
+            self.comm.broadcast(kpt.eps_n, 0)
 
             assert self.eps_n[0] != 42
 
-            kpt.C_nM[:] = H_MM[n1:n2]
-            kpt.eps_n[:] = self.eps_n[n1:n2]
-
-        for nucleus in self.my_nuclei:
-            nucleus.P_uni[u] = npy.dot(kpt.C_nM, nucleus.P_kmi[k])
+        for P_ni, P_Mi in zip(kpt.P_ani.values(), kpt.P_aMi.values()):
+            P_ni[:] = npy.dot(kpt.C_nM, P_Mi)
 
     def remove_linear_dependence(self, P_MM, p_M, H_MM):
         """Diagonalize H_MM with a reduced overlap matrix from which the
@@ -215,9 +150,7 @@ class LCAO:
             dsyev_zheev_string1 = 'LCAO: '+'dsygv/zhegv remove'
 
         self.timer.start(dsyev_zheev_string)
-        if debug:
-            self.timer.start(dsyev_zheev_string +
-                             ' %03d' % self.eig_lcao_iteration)
+
         if sl_diagonalize:
             eps_q[0] = 42
             info = diagonalize(H_qq, eps_q, S_qq, root=0)
@@ -231,10 +164,7 @@ class LCAO:
                 assert eps_q[0] != 42
                 if info != 0:
                     raise RuntimeError('Failed to diagonalize: info=%d' % info)
-        if debug:
-            self.timer.stop(dsyev_zheev_string +
-                            ' %03d' % self.eig_lcao_iteration)
-            self.eig_lcao_iteration += 1
+
         self.timer.stop(dsyev_zheev_string)
 
         self.comm.broadcast(eps_q, 0)
@@ -243,3 +173,33 @@ class LCAO:
         C_nq = H_qq
         C_nM = npy.dot(C_nq, P_Mq.T.conj())
         return eps_q, C_nM
+
+    def linear_dependence_check(self, wfs):
+        # Near-linear dependence check. This is done by checking the
+        # eigenvalues of the overlap matrix S_kmm. Eigenvalues close
+        # to zero mean near-linear dependence in the basis-set.
+        self.linear_kpts = {}
+        for k, S_MM in enumerate(wfs.S_kMM):
+            P_MM = S_MM.copy()
+            #P_mm = wfs.S_kMM[k].copy()
+            p_M = npy.empty(self.nao)
+
+            dsyev_zheev_string = 'LCAO: '+'diagonalize-test'
+
+            self.timer.start(dsyev_zheev_string)
+
+            if self.comm.rank == 0:
+                p_M[0] = 42
+                info = diagonalize(P_MM, p_M)
+                assert p_M[0] != 42
+                if info != 0:
+                    raise RuntimeError('Failed to diagonalize: info=%d' % info)
+
+            self.timer.stop(dsyev_zheev_string)
+
+            self.comm.broadcast(P_MM, 0)
+            self.comm.broadcast(p_M, 0)
+
+            self.thres = 1e-6
+            if (p_M <= self.thres).any():
+                self.linear_kpts[k] = (P_MM, p_M)

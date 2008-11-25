@@ -17,6 +17,7 @@ import gpaw.mpi as mpi
 
 
 class Nucleus:
+    XXX
     """Nucleus-class.
 
     The ``Nucleus`` object basically consists of a ``Setup`` object, a
@@ -245,33 +246,6 @@ class Nucleus:
             if abs(Nct) > 1e-15:
                 self.nct.normalize(Nct)
 
-    def initialize_atomic_orbitals(self, gd, k_kc, lfbc, lcao_forces=False):
-        aaaaaaaaaaaaaaaaaa
-        phit_j = self.setup.phit_j
-
-        from gpaw.localized_functions import DissimilarlyLocalizedFunctions,\
-             LocFuncs
-
-        #phit_i = create_localized_functions(phit_j, gd, self.spos_c,
-        #                                    dtype=self.dtype, cut=True,
-        #                                    forces=lcao_forces, lfbc=lfbc)
-        #self.phit_i = phit_i
-        
-        self.phit_i = None
-        phit_i = [LocFuncs([phit], gd, self.spos_c,
-                           dtype=self.dtype, cut=True,
-                           forces=lcao_forces,
-                           lfbc=lfbc)
-                  for phit in phit_j]
-
-        # The self.phit_i must be None when no functions are in domain
-        for phit in phit_i:
-            if phit.box_b:
-                self.phit_i = DissimilarlyLocalizedFunctions(phit_i)
-                break
-        
-        if self.dtype == complex and self.phit_i is not None:
-            self.phit_i.set_phase_factors(k_kc)
 
     def get_number_of_atomic_orbitals(self):
         return self.setup.niAO
@@ -279,15 +253,6 @@ class Nucleus:
     def get_number_of_partial_waves(self):
         return self.setup.ni
     
-    def create_atomic_orbitals(self, psit_iG, k):
-        bbbbbbbbbbbbbb
-        if self.phit_i is None:
-            # Nothing to do in this domain:
-            return
-
-        coefs_ii = npy.identity(len(psit_iG), psit_iG.dtype.char)
-        self.phit_i.add(psit_iG, coefs_ii, k)
-
     def calculate_initial_occupation_numbers(self, ns, magmom, hund):
         niao = self.get_number_of_atomic_orbitals()
         f_si = npy.zeros((ns, niao))

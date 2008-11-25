@@ -36,22 +36,19 @@ class Overlap:
         Numerical type of operator (float/complex)
     """
 
-    def __init__(self, paw):
+    def __init__(self, wfs):
         """Create the Overlap operator."""
 
-        self.my_nuclei = paw.my_nuclei
-        self.pt_nuclei = paw.pt_nuclei
-        self.nuclei = paw.nuclei
-        self.gd = paw.gd
-        self.dtype = paw.dtype
-        self.timer = paw.timer
-        self.comm = paw.gd.comm
-        self.band_comm = paw.band_comm
+        self.gd = wfs.gd
+        self.dtype = wfs.dtype
+        self.timer = wfs.timer
+        self.comm = wfs.gd.comm
+        self.band_comm = wfs.band_comm
         self.work_nn = None
         self.S_pnn = None
         self.work_In = None
         self.work2_In = None
-        self.big_work_arrays = paw.big_work_arrays
+        self.big_work_arrays = wfs.big_work_arrays
 
     def apply(self, a_nG, b_nG, kpt, calculate_P_uni=True):
         """Apply the overlap operator to a set of vectors.
@@ -128,8 +125,8 @@ class Overlap:
         if psit_nG is None:
             psit_nG = kpt.psit_nG
 
-        nmybands = len(psit_nG)
-        nbands = nmybands * self.band_comm.size
+        mynbands = len(psit_nG)
+        nbands = mynbands * self.band_comm.size
 
         # Allocate work arrays if necessary:
         if self.work_nn is None:
@@ -180,7 +177,7 @@ class Overlap:
         size = band_comm.size
         psit_nG =  kpt.psit_nG
         work_nG = self.big_work_arrays['work_nG']
-        nmybands = len(psit_nG)
+        mynbands = len(psit_nG)
         if size == 1:
             if psit_nG.shape != work_nG.shape:
                 blocked_matrix_multiply(psit_nG, C_nn, work_nG)
@@ -199,7 +196,7 @@ class Overlap:
             return
 
         # Parallelize over bands:
-        C_bnbn = C_nn.reshape((size, nmybands, size, nmybands))
+        C_bnbn = C_nn.reshape((size, mynbands, size, mynbands))
         work2_nG = self.big_work_arrays['work2_nG']
 
         rank = band_comm.rank
@@ -240,15 +237,15 @@ class Overlap:
         assert size % 2 == 1
         np = size // 2 + 1
         rank = band_comm.rank
-        nmybands = len(work_nG)
+        mynbands = len(work_nG)
 
         nI = 0
         for nucleus in self.my_nuclei:
             nI += nucleus.get_number_of_partial_waves()
 
         if self.work_In is None or len(self.work_In) != nI:
-            self.work_In = npy.empty((nI, nmybands), psit_nG.dtype)
-            self.work2_In = npy.empty((nI, nmybands), psit_nG.dtype)
+            self.work_In = npy.empty((nI, mynbands), psit_nG.dtype)
+            self.work2_In = npy.empty((nI, mynbands), psit_nG.dtype)
         work_In = self.work_In
         work2_In = self.work2_In
 
@@ -257,7 +254,7 @@ class Overlap:
         work2_nG = self.big_work_arrays['work2_nG']
 
         if self.S_pnn is None:
-            self.S_pnn = npy.empty((np, nmybands, nmybands), psit_nG.dtype)
+            self.S_pnn = npy.empty((np, mynbands, mynbands), psit_nG.dtype)
         S_pnn = self.S_pnn
 
         I1 = 0
@@ -301,7 +298,7 @@ class Overlap:
 
         self.comm.sum(S_pnn, kpt.root)
 
-        S_bnbn = S_nn.reshape((size, nmybands, size, nmybands))
+        S_bnbn = S_nn.reshape((size, mynbands, size, mynbands))
         if self.comm.rank == kpt.root:
             if rank == 0:
                 S_bnbn[:np, :, 0] = S_pnn

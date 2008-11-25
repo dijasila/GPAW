@@ -6,7 +6,8 @@ import sys
 
 import numpy as npy
 
-from gpaw import debug, dry_run, dry_run_size
+from gpaw import debug
+from gpaw import dry_run as dry_run_size
 from gpaw.utilities import is_contiguous
 from gpaw.utilities import scalapack
 import _gpaw
@@ -46,15 +47,6 @@ class SerialCommunicator:
     def cart_create(self, dimx, dimy, dimz, periodic):
         return self
 
-class DummyCommunicator(SerialCommunicator):
-    size = 1
-    size = 0
-    def new_communicator(self, ranks):
-        new_comm = DummyCommunicator()
-        new_comm.size = len(ranks)
-        return new_comm
-
-
 serial_comm = SerialCommunicator()
 
 try:
@@ -62,8 +54,13 @@ try:
 except:
     world = serial_comm
 
-if dry_run and dry_run_size > 1:
-    world = DummyCommunicator()
+if dry_run_size > 1:
+    class DryRunCommunicator(SerialCommunicator):
+        def new_communicator(self, ranks):
+            new_comm = DryRunCommunicator()
+            new_comm.size = len(ranks)
+            return new_comm
+    world = DryRunCommunicator()
     world.size = dry_run_size
 
 size = world.size

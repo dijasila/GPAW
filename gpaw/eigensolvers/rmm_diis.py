@@ -51,8 +51,8 @@ class RMM_DIIS(Eigensolver):
         vt_G = hamiltonian.vt_sG[kpt.s]
         dR_G = self.big_work_arrays['work_nG'][0]
         error = 0.0
-        n0 = self.band_comm.rank * self.nmybands
-        for n in range(self.nmybands):
+        n0 = self.band_comm.rank * self.mynbands
+        for n in range(self.mynbands):
             if self.keep_htpsit:
                 R_G = R_nG[n]
             else:

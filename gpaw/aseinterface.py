@@ -5,30 +5,19 @@
 
 """ASE-calculator interface."""
 
-import os
-import weakref
-from math import sqrt, pi
-
 import numpy as npy
-import ase
-#from ase.parallel import register_parallel_cleanup_function
 from ase.units import Bohr, Hartree
 
 from gpaw.paw import PAW
 
-#register_parallel_cleanup_function()
 
-
-class Calculator(PAW):
+class GPAW(PAW):
     """This is the ASE-calculator frontend for doing a PAW calculation.
     """
-
-    def __init__(self, filename=None, **kwargs):
-        # Set units to ASE units:
-        self.a0 = Bohr
-        self.Ha = Hartree
-
-        PAW.__init__(self, filename, **kwargs)
+    def get_atoms(self):
+        atoms = self.atoms.copy()
+        atoms.set_calculator(self)
+        return atoms
 
     def get_potential_energy(self, atoms=None, force_consistent=False):
         """Return total energy.
@@ -40,21 +29,21 @@ class Calculator(PAW):
         if atoms is None:
             atoms = self.atoms
 
-        self.calculate(atoms)
+        self.calculate(atoms, converge=True)
 
         if force_consistent:
             # Free energy:
-            return Hartree * self.Etot
+            return Hartree * self.scf.Etot
         else:
             # Energy extrapolated to zero Kelvin:
-            return Hartree * (self.Etot + 0.5 * self.S)
+            return Hartree * (self.scf.Etot + 0.5 * self.scf.S)
 
     def get_forces(self, atoms):
         """Return the forces for the current state of the ListOfAtoms."""
         if self.F_ac is None:
             if hasattr(self, 'nuclei') and not self.nuclei[0].ready:
                 self.converged = False
-        self.calculate(atoms)
+        self.calculate(atoms, converge=True)
         self.calculate_forces()
         return self.F_ac * (Hartree / Bohr)
       
@@ -305,15 +294,13 @@ class Calculator(PAW):
 
     def get_eigenvalues(self, kpt=0, spin=0):
         """Return eigenvalue array."""
-        result = self.collect_eigenvalues(kpt, spin)
-        if result is not None:
-            return result * Hartree
+        eps_n = self.wfs.collect_array('eps_n', kpt, spin)
+        if eps_n is not None:
+            return eps_n * Hartree
 
     def get_occupation_numbers(self, kpt=0, spin=0):
         """Return occupation array."""
-        return self.collect_occupations(kpt, spin)
-
-    get_occupations = get_occupation_numbers
+        return self.wfs.collect_array('f_n', kpt, spin)
     
     def initial_wannier(self, initialwannier, kpointgrid, fixedstates,
                         edf, spin):
@@ -344,7 +331,7 @@ class Calculator(PAW):
 
     def get_magnetic_moment(self, atoms=None):
         """Return the total magnetic moment."""
-        return self.occupation.magmom
+        return self.occupations.magmom
 
     def get_magnetic_moments(self, atoms=None):
         """Return the local magnetic moments within augmentation spheres"""

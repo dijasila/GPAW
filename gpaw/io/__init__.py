@@ -190,7 +190,7 @@ def write(paw, filename, mode):
                     if kpt_rank == MASTER and band_rank == MASTER and nucleus.in_this_domain:
                         P_uni = nucleus.P_uni
                     else:
-                        P_uni = npy.empty((paw.nmyu, paw.nmybands, ni), paw.dtype)
+                        P_uni = npy.empty((paw.nmyu, paw.mynbands, ni), paw.dtype)
                         world_rank = nucleus.rank + kpt_rank * paw.domain.comm.size * paw.band_comm.size + band_rank * paw.domain.comm.size
                         paw.world.receive(P_uni, world_rank, 300)
 
@@ -249,7 +249,7 @@ def write(paw, filename, mode):
                     if kpt_rank == MASTER and band_rank == MASTER:
                         eps_all_n[0::nstride] = paw.wfs.kpt_u[u].eps_n
                     else:
-                        eps_n = npy.empty(paw.nmybands)
+                        eps_n = npy.empty(paw.mynbands)
                         world_rank = kpt_rank * paw.domain.comm.size * paw.band_comm.size + band_rank * paw.domain.comm.size 
                         paw.world.receive(eps_n, world_rank, 4300)
                         eps_all_n[band_rank::nstride] = eps_n
@@ -271,7 +271,7 @@ def write(paw, filename, mode):
                     if kpt_rank == MASTER and band_rank == MASTER:
                         f_all_n[0::nstride] = paw.wfs.kpt_u[u].f_n
                     else:
-                        f_n = npy.empty(paw.nmybands)
+                        f_n = npy.empty(paw.mynbands)
                         world_rank = kpt_rank * paw.domain.comm.size * paw.band_comm.size + band_rank * paw.domain.comm.size 
                         paw.world.receive(f_n, world_rank, 4301)
                         f_all_n[band_rank::nstride] = f_n
@@ -439,8 +439,8 @@ def read(paw, reader):
     nkpts = len(r.get('IBZKPoints'))
     nbands = len(r.get('Eigenvalues', 0, 0))
 
-    if nkpts == paw.nkpts and nbands == paw.band_comm.size * paw.nmybands:
-        paw.wfs.allocate_bands(paw.nmybands)
+    if nkpts == paw.nkpts and nbands == paw.band_comm.size * paw.mynbands:
+        paw.wfs.allocate_bands(paw.mynbands)
         for kpt in paw.wfs.kpt_u:
             # Eigenvalues and occupation numbers:
             k = kpt.k
@@ -462,7 +462,7 @@ def read(paw, reader):
                 for kpt in paw.wfs.kpt_u:
                     # Read band by band to save memory
                     kpt.psit_nG = []
-                    for nb in range(paw.nmybands):
+                    for nb in range(paw.mynbands):
                         n = paw.band_comm.rank + nb * paw.band_comm.size
                         kpt.psit_nG.append(
                             r.get_reference('PseudoWaveFunctions',
@@ -480,12 +480,36 @@ def read(paw, reader):
             for nucleus in paw.nuclei:
                 i2 = i1 + nucleus.get_number_of_partial_waves()
                 if nucleus.in_this_domain:
-                    nucleus.P_uni[u, :paw.nmybands] = P_ni[n0::nstride, i1:i2]
+                    nucleus.P_uni[u, :paw.mynbands] = P_ni[n0::nstride, i1:i2]
                 i1 = i2
 
     # Get the forces from the old calculation:
     if r.has_array('CartesianForces'):
         paw.F_ac = r.get('CartesianForces')
+
+
+def read_atoms(reader):
+    if isinstance(reader, str):
+        reader = open(filename, 'r')
+
+    positions = reader.get('CartesianPositions') * Bohr
+    numbers = reader.get('AtomicNumbers')
+    cell = reader.get('UnitCell') * Bohr
+    pbc = reader.get('BoundaryConditions')
+    tags = reader.get('Tags')
+    magmoms = reader.get('MagneticMoments')
+
+    atoms = Atoms(positions=positions,
+                  numbers=numbers,
+                  cell=cell,
+                  pbc=pbc)
+
+    if tags.any():
+        atoms.set_tags(tags)
+    if magmoms.any():
+        atoms.set_magnetic_moments(magmoms)
+
+    return atoms
 
 
 def read_wave_function(gd, s, k, n, mode):

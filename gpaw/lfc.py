@@ -2,6 +2,7 @@ from math import pi
 
 import numpy as np
 
+from gpaw import debug
 from gpaw.spherical_harmonics import Y
 import _gpaw
 
@@ -58,14 +59,14 @@ class Sphere:
         self.spline_j = spline_j
         self.spos_c = None
 
-    def set_position(self, spos_c, gd, cut, ibzk_kc):
+    def set_position(self, spos_c, gd, cut, ibzk_qc):
         if self.spos_c is not None and not (self.spos_c - spos_c).any():
             return False
 
         self.A_wgm = []
         self.G_wb = []
         self.M_w = []
-        if ibzk_kc is not None:
+        if ibzk_qc is not None:
             self.sdisp_wc = []
         ng = 0
         M = 0
@@ -79,7 +80,7 @@ class Sphere:
                     self.A_wgm.append(A_gm)
                     self.G_wb.append(G_b)
                     self.M_w.append(M)
-                    if ibzk_kc is not None:
+                    if ibzk_qc is not None:
                         self.sdisp_wc.append(sdisp_c)
                     ng += A_gm.shape[0]
             M += 2 * l + 1
@@ -91,7 +92,7 @@ class Sphere:
             self.A_wgm = []
             self.G_wb = []
             self.M_w = []
-            if ibzk_kc is not None:
+            if ibzk_qc is not None:
                 self.sdisp_wc = []
             
         self.spos_c = spos_c
@@ -105,22 +106,26 @@ class Sphere:
                                     gd.n_c, gd.beg_c)
 
 
+print 'get_rank_for_position .....'
 
 class NewLocalizedFunctionsCollection:
-    def __init__(self, gd, spline_aj, cut=False):
+    def __init__(self, gd, spline_aj, kpt_comm=None, cut=False):
         self.gd = gd
         self.sphere_a = [Sphere(spline_j) for spline_j in spline_aj]
         self.cut = cut
-        self.ibzk_kc = None
+        self.ibzk_qc = None
+        self.gamma = True
         
-    def set_k_points(self, ibzk_kc):
-        self.ibzk_kc = ibzk_kc
-        
+    def set_k_points(self, ibzk_qc):
+        jhgkjhg
+        self.ibzk_qc = ibzk_qc
+        self.gamma = False
+                
     def set_positions(self, spos_ac):
         movement = False
         for spos_c, sphere in zip(spos_ac, self.sphere_a):
             movement |= sphere.set_position(spos_c, self.gd, self.cut,
-                                            self.ibzk_kc)
+                                            self.ibzk_qc)
 
         if movement:
             self._update(spos_ac)
@@ -128,7 +133,8 @@ class NewLocalizedFunctionsCollection:
     def _update(self, spos_ac):
         nB = 0
         nW = 0
-        self.atom_indices = []
+        print 'My_atoms_indices'
+        self.my_atom_indices = self.atom_indices = []
         for a, sphere in enumerate(self.sphere_a):
             G_wb = sphere.G_wb
             if len(G_wb) > 0:
@@ -140,7 +146,7 @@ class NewLocalizedFunctionsCollection:
         self.G_B = np.empty(nB, np.intc)
         self.W_B = np.empty(nB, np.intc)
         self.A_Wgm = []
-        if self.ibzk_kc is not None:
+        if not self.gamma:
             sdisp_Wc = np.empty((nW, 3), int)
             
         B1 = 0
@@ -150,7 +156,7 @@ class NewLocalizedFunctionsCollection:
             self.A_Wgm.extend(sphere.A_wgm)
             nw = len(sphere.M_w)
             self.M_W[W:W + nw] = M + np.array(sphere.M_w)
-            if self.ibzk_kc is not None:
+            if not self.gamma:
                 sdisp_Wc[W:W + nw] = sphere.sdisp_wc
             for G_b in sphere.G_wb:
                 B2 = B1 + len(G_b)
@@ -163,22 +169,28 @@ class NewLocalizedFunctionsCollection:
         self.Mmax = M
         assert B1 == nB
 
-        if self.ibzk_kc is not None:
-            self.phase_kW = np.exp(2j * pi * np.inner(self.ibzk_kc, sdisp_Wc))
+        if self.gamma:
+            self.phase_qW = np.empty((0, nW), complex)
         else:
-            self.phase_kW = np.empty((0, nW), complex)
+            self.phase_qW = np.exp(2j * pi * np.inner(self.ibzk_qc, sdisp_Wc))
         
         indices = np.argsort(self.G_B, kind='mergesort')
         self.G_B = self.G_B[indices]
         self.W_B = self.W_B[indices]
 
         self.lfc = _gpaw.LFC(self.A_Wgm, self.M_W, self.G_B, self.W_B,
-                             self.gd.dv, self.phase_kW)
+                             self.gd.dv, self.phase_qW)
 
         nimax = np.add.accumulate((self.W_B >= 0) * 2 - 1).max()
         self.W_i = np.empty(nimax, np.intc)
         self.g_W = np.empty(nW, np.intc)
         self.i_W = np.empty(nW, np.intc)
+
+        if debug:
+            # Holm-Nielsen check:
+            natoms = len(spos_ac)
+            assert (self.gd.comm.sum(float(sum(self.my_atom_indices))) ==
+                    natoms * (natoms - 1) // 2)
 
     def x(self):
         # Find out which ranks have a piece of the
@@ -281,10 +293,10 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
                                                self.g_W[W2] + G2 - G1]
                         nm2 = f2_gm.shape[1]
                         rho_mm = rho_MM[M1:M1 + nm1, M2:M2 + nm2]
-                        if self.ibzk_kc is not None:
+                        if self.ibzk_qc is not None:
                             rho_mm = (rho_mm *
-                                      self.phase_kW[k, W1] *
-                                      self.phase_kW[k, W2].conj()).real
+                                      self.phase_qW[k, W1] *
+                                      self.phase_qW[k, W2].conj()).real
                         nt_G[G1:G2] += (np.dot(f1_gm, rho_mm) * f2_gm).sum(1)
 
         def calculate_potential_matrix(self, vt_G, Vt_MM, k):
@@ -304,10 +316,10 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
                         nm2 = f2_gm.shape[1]
                         Vt_mm = np.dot(f1_gm.T,
                                        vt_G[G1:G2, None] * f2_gm) * dv
-                        if self.ibzk_kc is not None:
+                        if self.ibzk_qc is not None:
                             Vt_mm = (Vt_mm *
-                                     self.phase_kW[k, W1].conj() *
-                                     self.phase_kW[k, W2])
+                                     self.phase_qW[k, W1].conj() *
+                                     self.phase_qW[k, W2])
                         Vt_MM[M1:M1 + nm1, M2:M2 + nm2] += Vt_mm
 
         def lcao_to_grid(self, C_nM, psit_nG, k):
@@ -321,60 +333,84 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
                     A_gm = self.A_Wgm[W][self.g_W[W]:self.g_W[W] + G2 - G1]
                     M1 = self.M_W[W]
                     M2 = M1 + A_gm.shape[1]
-                    if self.ibzk_kc is None:
+                    if self.ibzk_qc is None:
                         psit_G[G1:G2] += np.dot(A_gm, C_M[M1:M2])
                     else:
                         psit_G[G1:G2] += np.dot(A_gm,
                                                 C_M[M1:M2] /
-                                                self.phase_kW[k, W])
+                                                self.phase_qW[k, W])
 
 
 from gpaw.localized_functions import LocFuncs, LocFuncBroadcaster
 from gpaw.mpi import run
 
 class LocalizedFunctionsCollection:
-    def __init__(self, gd, spline_aj, cut=False, forces=False, dtype=float):
+    def __init__(self, gd, spline_aj, kpt_comm=None,
+                 cut=False, forces=False, dtype=float,
+                 integral=None):
         self.gd = gd
         self.spline_aj = spline_aj
         self.cut = cut
         self.forces = forces
         self.dtype = dtype
+        self.integral_a = integral
+
         self.spos_ac = None
         self.lfs_a = {}
-        self.ibzk_kc = None
-        
-    def set_k_points(self, ibzk_kc):
-        self.ibzk_kc = ibzk_kc
-        
-    def set_positions(self, spos_ac, kpt_comm=None):
-        if kpt_comm is None:
-            lfbc = None
-        else:
+        self.ibzk_qc = None
+        self.gamma = True
+        self.kpt_comm = kpt_comm
+
+        self.my_atom_indices = np.arange(len(spline_aj))
+
+    def set_k_points(self, ibzk_qc):
+        sdfgasdfg
+        self.ibzk_qc = ibzk_qc
+        self.gamma = False
+
+    def set_positions(self, spos_ac):
+        if self.kpt_comm:
             lfbc = LocFuncBroadcaster(kpt_comm)
+        else:
+            lfbc = None
 
         for a, spline_j in enumerate(self.spline_aj):
             if self.spos_ac is None or (self.spos_ac[a] != spos_ac[a]).any():
                 lfs = LocFuncs(spline_j, self.gd, spos_ac[a],
                                self.dtype, self.cut, self.forces, lfbc)
                 if len(lfs.box_b) > 0:
-                    if self.ibzk_kc is not None:
-                        lfs.set_phase_factors(self.ibzk_kc)
+                    if not self.gamma:
+                        lfs.set_phase_factors(self.ibzk_qc)
                     self.lfs_a[a] = lfs
                 else:
                     del self.lfs_a[a]
 
-        if kpt_comm is not None:
+        if lfbc:
             lfbc.broadcast()
+
+        if self.integral_a is not None:
+            if isinstance(self.integral_a, (float, int)):
+                integral = self.integral_a
+                for a, lfs in self.lfs_a.items():
+                    lfs.normalize(integral)
+            else:
+                for a, lfs in self.lfs_a.items():
+                    integral = self.integral_a[a]
+                    if abs(integral) > 1e-15:
+                        lfs.normalize(normalize)
+
 
     def add(self, a_xG, c_axm=None, k=-1):
         if c_axm is None:
             c_xm = np.array([1.0])
             run([lfs.iadd(a_xG, c_xm, k) for lfs in self.lfs_a.values()])
         else:
-            run([lfs.iadd(a_xG, c_axm[a], k) for a, lfs in self.lfs_a.items()])
+            run([lfs.iadd(a_xG, c_axm.get(a), k, True)
+                 for a, lfs in self.lfs_a.items()])
 
     def integrate(self, a_xG, c_axm, k=-1):
-        run([lfs.iintegrate(c_axm[a], a_xG, k) for lfs in self.lfs_a])
+        run([lfs.iintegrate(a_xG, c_axm.get(a), k)
+             for a, lfs in self.lfs_a.items()])
 
 
 def test():

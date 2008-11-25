@@ -100,7 +100,7 @@ class PAWExtra:
         elif self.master:
             eps_all_n = npy.zeros(self.nbands)
             nstride = self.band_comm.size
-            eps_n = npy.zeros(self.nmybands)
+            eps_n = npy.zeros(self.mynbands)
             r0 = 0
             if kpt_rank == MASTER:
                 # Master has already the first slice
@@ -233,7 +233,7 @@ class PAWExtra:
                                           for n in self.nuclei]))
         if newxcfunc.hybrid > 0.0:
             for nucleus in self.my_nuclei:
-                nucleus.allocate_non_local_things(self.nmyu,self.nmybands)
+                nucleus.allocate_non_local_things(self.nmyu,self.mynbands)
         
         vt_g = self.finegd.empty()  # not used for anything!
         nt_sg = self.density.nt_sg
@@ -308,7 +308,7 @@ class PAWExtra:
 
         # reallocate only my_nuclei (as the others are not allocated at all)
         for nucleus in self.my_nuclei:
-            nucleus.reallocate(self.nmybands)
+            nucleus.reallocate(self.mynbands)
 
         self.set_positions()
 
