@@ -118,6 +118,7 @@ class PAW(PAWTextOutput):
         self.input_parameters = InputParameters()
         self.timer = self.timer_class()
         self.scf = None
+        self.forces = None
         self.wfs = EmptyWaveFunctions()
         self.occupations = None
         self.domain = None

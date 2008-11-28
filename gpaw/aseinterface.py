@@ -40,12 +40,9 @@ class GPAW(PAW):
 
     def get_forces(self, atoms):
         """Return the forces for the current state of the ListOfAtoms."""
-        if self.F_ac is None:
-            if hasattr(self, 'nuclei') and not self.nuclei[0].ready:
-                self.converged = False
         self.calculate(atoms, converge=True)
-        self.calculate_forces()
-        return self.F_ac * (Hartree / Bohr)
+        F_av = self.forces.calculate(self.wfs, self.density, self.hamiltonian)
+        return F_av * (Hartree / Bohr)
       
     def get_stress(self, atoms):
         """Return the stress for the current state of the ListOfAtoms."""
@@ -291,7 +288,7 @@ class GPAW(PAW):
         if pad:
             return self.gd.zero_pad(self.get_pseudo_wave_function(
                 band, kpt, spin, broadcast, False))
-        psit_G = self.get_wave_function_array(band, kpt, spin)
+        psit_G = self.wfs.get_wave_function_array(band, kpt, spin)
         if broadcast:
             if not self.master:
                 psit_G = self.gd.empty(dtype=self.dtype, global_array=True)
@@ -310,6 +307,10 @@ class GPAW(PAW):
         """Return occupation array."""
         return self.wfs.collect_array('f_n', kpt, spin)
     
+    def get_xc_difference(self, xcname):
+        return self.hamiltonian.get_xc_difference(xcname, self.wfs,
+                                                  self.density) * Hartree
+
     def initial_wannier(self, initialwannier, kpointgrid, fixedstates,
                         edf, spin):
         """Initial guess for the shape of wannier functions.

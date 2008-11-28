@@ -398,19 +398,41 @@ class LocalizedFunctionsCollection:
                     if abs(integral) > 1e-15:
                         lfs.normalize(integral)
 
-
-    def add(self, a_xG, c_axm=None, k=-1):
-        if c_axm is None:
-            c_xm = np.array([1.0])
-            run([lfs.iadd(a_xG, c_xm, k) for lfs in self.lfs_a.values()])
+    def dict(self, shape=(), derivative=False):
+        if isinstance(shape, int):
+            shape = (shape,)
+        if derivative:
+            c_axiv = {}
+            for a in self.my_atom_indices:
+                ni = self.lfs_a[a].ni
+                c_axiv[a] = np.empty(shape + (ni, 3), self.dtype)
+            return c_axiv
         else:
-            run([lfs.iadd(a_xG, c_axm.get(a), k, True)
+            c_axi = {}
+            for a in self.my_atom_indices:
+                ni = self.lfs_a[a].ni
+                c_axi[a] = np.empty(shape + (ni,), self.dtype)
+            return c_axi
+        
+    def add(self, a_xG, c_axi=None, q=-1):
+        if c_axi is None:
+            assert q == -1
+            c_xi = np.array([1.0])
+            run([lfs.iadd(a_xG, c_xi) for lfs in self.lfs_a.values()])
+        else:
+            run([lfs.iadd(a_xG, c_axi.get(a), q, True)
                  for a, lfs in self.lfs_a.items()])
 
-    def integrate(self, a_xG, c_axm, k=-1):
-        for c_xm in c_axm.values():
-            c_xm.fill(0.0)
-        run([lfs.iintegrate(a_xG, c_axm.get(a), k)
+    def integrate(self, a_xG, c_axi, q=-1):
+        for c_xi in c_axi.values():
+            c_xi.fill(0.0)
+        run([lfs.iintegrate(a_xG, c_axi.get(a), q)
+             for a, lfs in self.lfs_a.items()])
+
+    def derivative(self, a_xG, c_axiv, q=-1):
+        for c_xiv in c_axiv.values():
+            c_xiv.fill(0.0)
+        run([lfs.iderivative(a_xG, c_axiv.get(a), q)
              for a, lfs in self.lfs_a.items()])
 
 

@@ -42,7 +42,8 @@ class Hamiltonian:
         self.nspins = nspins
         self.setups = setups
         self.timer = timer
-
+        self.xcfunc = xcfunc
+        
         # Solver for the Poisson equation:
         if psolver is None:
             psolver = PoissonSolver(nn='M', relax='J')
@@ -218,3 +219,51 @@ class Hamiltonian:
         else:
             for psit_G, Htpsit_G in zip(psit_nG, Htpsit_nG):
                 Htpsit_G += psit_G * vt_G
+
+    def get_xc_difference(self, xcname, wfs, density):
+        """Calculate non-selfconsistent XC-energy difference."""
+        xc = self.xc
+        oldxcfunc = xc.xcfunc
+
+        if isinstance(xcname, str):
+            newxcfunc = XCFunctional(xcname, self.nspins)
+        else:
+            newxcfunc = xcname
+        
+        newxcfunc.set_non_local_things(wfs, energy_only=True)
+
+        xc.set_functional(newxcfunc)
+        for setup in self.setups.setups.values():
+            setup.xc_correction.xc.set_functional(newxcfunc)
+
+        if newxcfunc.hybrid > 0.0 and not self.nuclei[0].ready: #bugged?
+            self.set_positions(npy.array([n.spos_c * self.domain.cell_c
+                                          for n in self.nuclei]))
+        if newxcfunc.hybrid > 0.0:
+            for nucleus in self.my_nuclei:
+                nucleus.allocate_non_local_things(self.nmyu,self.mynbands)
+        
+        vt_g = self.finegd.empty()  # not used for anything!
+        nt_sg = density.nt_sg
+        if self.nspins == 2:
+            Exc = xc.get_energy_and_potential(nt_sg[0], vt_g, nt_sg[1], vt_g)
+        else:
+            Exc = xc.get_energy_and_potential(nt_sg[0], vt_g)
+
+        for a, D_sp in density.D_asp.items():
+            setup = self.setups[a]
+            Exc += setup.xc_correction.calculate_energy_and_derivatives(
+                D_sp, np.zeros_like(D_sp))
+
+        Exc = self.gd.comm.sum(Exc)
+
+        for kpt in wfs.kpt_u:
+            newxcfunc.apply_non_local(kpt)
+        Exc += newxcfunc.get_non_local_energy()
+
+        xc.set_functional(oldxcfunc)
+        for setup in self.setups.setups.values():
+            setup.xc_correction.xc.set_functional(oldxcfunc)
+
+        return Exc - self.Exc
+

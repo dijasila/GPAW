@@ -69,7 +69,7 @@ class WaveFunctions(EmptyWaveFunctions):
             if gamma:
                 phase_cd = None
             else:
-                phase_cd = exp(2j * pi * sdisp_cd * ibzk_kc[k])
+                phase_cd = np.exp(2j * np.pi * sdisp_cd * ibzk_kc[k])
             self.kpt_u.append(KPoint(weight, s, k, q, phase_cd))
 
         self.ibzk_qc = ibzk_kc[k0:k + 1]
@@ -250,6 +250,8 @@ from gpaw.eigensolvers import get_eigensolver
 from gpaw.overlap import Overlap
 from gpaw.operators import Laplace
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
+from gpaw.utilities import unpack
+
 class GridWaveFunctions(WaveFunctions):
     def __init__(self, stencil, *args):
         WaveFunctions.__init__(self, *args)
@@ -419,3 +421,62 @@ class GridWaveFunctions(WaveFunctions):
 
             else:
                 self.initialize_wave_functions_from_restart_file(paw)
+
+    def get_wave_function_array(self, n, k, s):
+        """Return pseudo-wave-function array.
+        
+        For the parallel case find the rank in kpt_comm that contains
+        the (k,s) pair, for this rank, collect on the corresponding
+        domain a full array on the domain master and send this to the
+        global master."""
+
+        nk = len(self.ibzk_kc)
+        mynu = len(self.kpt_u)
+        kpt_rank, u = divmod(k + nk * s, mynu)
+        nn, band_rank = divmod(n, self.band_comm.size)
+
+        psit_nG = self.kpt_u[u].psit_nG
+        if psit_nG is None:
+            raise RuntimeError('This calculator has no wave functions!')
+
+        size = self.world.size
+        rank = self.world.rank
+        if size == 1:
+            return psit_nG[nn][:]
+
+        if self.kpt_comm.rank == kpt_rank:
+            if self.band_comm.rank == band_rank:
+                psit_G = self.gd.collect(psit_nG[nn][:])
+
+                if kpt_rank == 0 and band_rank == 0:
+                    if rank == 0:
+                        return psit_G
+
+                # Domain master send this to the global master
+                if self.domain.comm.rank == 0:
+                    self.world.send(psit_G, 0, 1398)
+
+        if rank == 0:
+            # allocate full wavefunction and receive
+            psit_G = self.gd.empty(dtype=self.dtype, global_array=True)
+            world_rank = (kpt_rank * self.domain.comm.size *
+                          self.band_comm.size +
+                          band_rank * self.domain.comm.size)
+            self.world.receive(psit_G, world_rank, 1398)
+            return psit_G
+
+    def calculate_forces(self, hamiltonian, F_av):
+        # Calculate force-contribution from k-points:
+        F_aniv = self.pt.dict(self.nbands, derivative=True)
+        for kpt in self.kpt_u:
+            self.pt.derivative(kpt.psit_nG, F_aniv, kpt.q)
+            for a, F_niv in F_aniv.items():
+                F_niv = F_niv.conj()
+                F_niv *= kpt.f_n[:, np.newaxis, np.newaxis]
+                dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
+                P_ni = kpt.P_ani[a]
+                F_vii = np.dot(np.dot(F_niv.transpose(), P_ni), dH_ii)
+                F_niv *= kpt.eps_n[:, np.newaxis, np.newaxis]
+                dO_ii = hamiltonian.setups[a].O_ii
+                F_vii -= np.dot(np.dot(F_niv.transpose(), P_ni), dO_ii)
+                F_av[a] += 2 * F_vii.real.trace(0, 1, 2)

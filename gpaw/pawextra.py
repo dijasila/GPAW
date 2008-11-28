@@ -19,43 +19,6 @@ from gpaw.mpi import run, MASTER
 
 
 class PAWExtra:
-    def get_wave_function_array(self, n, k, s):
-        """Return pseudo-wave-function array.
-        
-        For the parallel case find the rank in kpt_comm that contains
-        the (k,s) pair, for this rank, collect on the corresponding
-        domain a full array on the domain master and send this to the
-        global master."""
-
-        kpt_rank, u = divmod(k + self.nkpts * s, self.nmyu)
-        nn, band_rank = divmod(n, self.band_comm.size)
-
-        psit_nG = self.wfs.kpt_u[u].psit_nG
-        if psit_nG is None:
-            raise RuntimeError('This calculator has no wave functions!')
-
-        if self.world.size == 1:
-            return psit_nG[nn][:]
-
-        if self.kpt_comm.rank == kpt_rank:
-            if self.band_comm.rank == band_rank:
-                psit_G = self.gd.collect(psit_nG[nn][:])
-
-                if kpt_rank == MASTER and band_rank == MASTER:
-                    if self.master:
-                        return psit_G
-
-                # Domain master send this to the global master
-                if self.domain.comm.rank == MASTER:
-                    self.world.send(psit_G, MASTER, 1398)
-
-        if self.master:
-            # allocate full wavefunction and receive
-            psit_G = self.gd.empty(dtype=self.dtype, global_array=True)
-            world_rank = kpt_rank * self.domain.comm.size * self.band_comm.size + band_rank * self.domain.comm.size
-            self.world.receive(psit_G, world_rank, 1398)
-            return psit_G
-
     def collect_eigenvalues(self, k=0, s=0):
         """Return eigenvalue array.
 
@@ -195,54 +158,6 @@ class PAWExtra:
         self.gd.comm.sum(Z_nn, 0)
             
         return Z_nn
-
-    def get_xc_difference(self, xcname):
-        """Calculate non-selfconsistent XC-energy difference."""
-        xc = self.hamiltonian.xc
-        oldxcfunc = xc.xcfunc
-
-        if isinstance(xcname, str):
-            newxcfunc = XCFunctional(xcname, self.nspins)
-        else:
-            newxcfunc = xcname
-        
-        newxcfunc.set_non_local_things(self, energy_only=True)
-
-        xc.set_functional(newxcfunc)
-        for setup in self.setups:
-            setup.xc_correction.xc.set_functional(newxcfunc)
-
-        if newxcfunc.hybrid > 0.0 and not self.nuclei[0].ready: #bugged?
-            self.set_positions(npy.array([n.spos_c * self.domain.cell_c
-                                          for n in self.nuclei]))
-        if newxcfunc.hybrid > 0.0:
-            for nucleus in self.my_nuclei:
-                nucleus.allocate_non_local_things(self.nmyu,self.mynbands)
-        
-        vt_g = self.finegd.empty()  # not used for anything!
-        nt_sg = self.density.nt_sg
-        if self.nspins == 2:
-            Exc = xc.get_energy_and_potential(nt_sg[0], vt_g, nt_sg[1], vt_g)
-        else:
-            Exc = xc.get_energy_and_potential(nt_sg[0], vt_g)
-
-        for nucleus in self.my_nuclei:
-            D_sp = nucleus.D_sp
-            H_sp = npy.zeros(D_sp.shape) # not used for anything!
-            xc_correction = nucleus.setup.xc_correction
-            Exc += xc_correction.calculate_energy_and_derivatives(D_sp, H_sp)
-
-        Exc = self.domain.comm.sum(Exc)
-
-        for kpt in self.wfs.kpt_u:
-            newxcfunc.apply_non_local(kpt)
-        Exc += newxcfunc.get_non_local_energy()
-
-        xc.set_functional(oldxcfunc)
-        for setup in self.setups:
-            setup.xc_correction.xc.set_functional(oldxcfunc)
-
-        return self.Ha * (Exc - self.Exc)
 
     def get_grid_spacings(self):
         return self.a0 * self.gd.h_c

@@ -383,10 +383,9 @@ class PAWTextOutput:
         t()
         t('Forces in eV/Ang:')
         c = Hartree / Bohr
-        for a, nucleus in enumerate(self.nuclei):
-            symbol = nucleus.setup.symbol
+        for a, setup in enumerate(self.setups):
             t('%3d %-2s %10.5f %10.5f %10.5f' %
-              ((a, symbol) + tuple(self.F_ac[a] * c)))
+              ((a, setup.symbol) + tuple(self.forces.F_ac[a] * c)))
 
     def print_eigenvalues(self):
         """Print eigenvalues and occupation numbers."""

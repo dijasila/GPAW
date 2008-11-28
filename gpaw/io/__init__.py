@@ -61,7 +61,7 @@ def write(paw, filename, mode):
 
         atoms = paw.atoms
 
-        magmom_a = paw.wfs.density.magmom_a
+        magmom_a = paw.density.magmom_a
         try:
             tag_a = atoms.get_tags()
             if tag_a is None:

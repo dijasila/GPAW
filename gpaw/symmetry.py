@@ -202,7 +202,7 @@ class Symmetry:
                     swap[i1]=i2
                     mirror[i2]=operation[i1][i2]
         return (tuple(swap),mirror)
-                                                                                                                                        
+
     def symmetrize(self, a, gd):
         b = a.copy()
         a[:] = 0.0
@@ -214,6 +214,14 @@ class Symmetry:
             a += gd.swap_axes(d, swap)
         a /= len(self.symmetries)
 
+    def symmetrice_forces(self, F0_av):
+        F_ac = np.zeros_like(F0_av)
+        for map_a, symmetry in zip(self.maps, self.symmetries):
+            swap, mirror = symmetry
+            for a1, a2 in enumerate(map_a):
+                F_ac[a2] += np.take(F0_ac[a1] * mirror, swap)
+        return F_ac / len(self.symmetries)
+        
     def print_symmetries(self, text):
         n = len(self.operations)
         if n == 48:
