@@ -269,7 +269,7 @@ class TwoCenterIntegrals:
                                    for phit in setup.phit_j])
                 self.M_a[a] = M
                 M += setup.niAO
-
+            
             self.nl = NeighborList(cutoff_a, skin=0, sorted=True)
             self.atoms = Atoms(scaled_positions=spos_ac,
                                cell=self.domain.cell_cv,
@@ -298,7 +298,6 @@ class TwoCenterIntegrals:
                 mask_mm[m1:m2, m1:m2] = 0.
                 nucleus.mask_mm = mask_mm
 
-        if self.lcao_forces:
             self.dSdR_kcmm = np.zeros((nq, 3, nao, nao),
                                        self.dtype)
             self.dTdR_kcmm = np.zeros((nq, 3, nao, nao),
@@ -402,13 +401,12 @@ class TwoCenterIntegrals:
         self.domain.comm.sum(T_qMM)
 
     def st(self, a1, a2, r, R, rlY_lm, drlYdR_lmc, phase_k, selfinteraction,
-           M1, M2, S_qMM, T_qMM):
+           M1a, M2, S_qMM, T_qMM):
         """Calculate overlaps and kinetic energy matrix elements for the
         (a,b) pair of atoms."""
 
         setup1 = self.setups[a1]
         setup2 = self.setups[a2]
-        M1a = M1
         for j1, phit1 in enumerate(setup1.phit_j):
             id1 = (setup1.symbol, j1)
             l1 = phit1.get_angular_momentum_number()
@@ -464,7 +462,7 @@ class TwoCenterIntegrals:
                         self.dSdR_kcmm[:, :, M2a:M2b, M1a:M1b] += dSdR_kcmm
                         self.dTdR_kcmm[:, :, M2a:M2b, M1a:M1b] += dTdR_kcmm
 
-                m2a = M2b
+                M2a = M2b
             M1a = M1b
 
     def p(self, a1, a2, r, R, rlY_lm, drlYdR_lm, phase_q, P2_qMi, M1a):

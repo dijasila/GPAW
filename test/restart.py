@@ -13,7 +13,7 @@ atoms = Atoms('Na3', positions=[( 0, 0, 0),
 
 # Only a short, non-converged calcuation
 conv = {'eigenstates': 1e-2, 'energy':2e-1, 'density':1e-1}
-calc = Calculator(h=0.35, nbands=3, convergence=conv)
+calc = GPAW(h=0.35, nbands=3, convergence=conv)
 atoms.set_calculator(calc)
 e0 = atoms.get_potential_energy()
 f0 = atoms.get_forces()
@@ -32,7 +32,7 @@ eig11 = calc.get_eigenvalues(spin=1)
 equal(e0, e1, 1e-10)
 # print f0, f1
 for ff0, ff1 in zip(f0, f1):
-    err = npy.linalg.norm(ff0-ff1)
+    err = np.linalg.norm(ff0-ff1)
     assert err <= 1e-10
 # print m0, m1
 for mm0, mm1 in zip(m0, m1):

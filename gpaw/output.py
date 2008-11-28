@@ -121,7 +121,7 @@ class PAWTextOutput:
         t('Using the %s Exchange-Correlation Functional.' % self.xcfunc.xcname)
         if self.spinpol:
             t('Spin-Polarized Calculation.')
-            t('Magnetic Moment:   %.6f' % sum(self.density.magmom_a), end='')
+            t('Magnetic Moment:   %.6f' % self.density.magmom_a.sum(), end='')
             if self.fixmom:
                 t('(fixed)')
             else:
@@ -301,11 +301,12 @@ class PAWTextOutput:
             t('Center of Charge: %s' % (dipole * Bohr / abs(charge)))
 
         if self.wfs.nspins == 2:
-            self.calculate_magnetic_moments()
+            self.density.calculate_magnetic_moments()
             t()
             t('Total Magnetic Moment: %f' % self.occupations.magmom)
             t('Local Magnetic Moments:')
-            for a, mom in enumerate(self.magmom_a):
+            print 'scaling om magmom_a?'
+            for a, mom in enumerate(self.density.magmom_a):
                 t(a, mom)
             t()
 

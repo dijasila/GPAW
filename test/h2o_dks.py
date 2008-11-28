@@ -1,6 +1,6 @@
 from ase import *
 from ase.parallel import rank, barrier
-from gpaw import Calculator
+from gpaw import GPAW
 from gpaw.atom.generator import Generator, parameters
 from gpaw import setup_paths
 
@@ -15,7 +15,7 @@ setup_paths.insert(0, '.')
 atoms = molecule('H2O')
 atoms.center(vacuum=2.5)
 
-calc = Calculator(xc='PBE')
+calc = GPAW(xc='PBE')
 atoms.set_calculator(calc)
 e1 = atoms.get_potential_energy() + calc.Eref * Hartree
 

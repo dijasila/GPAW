@@ -100,27 +100,18 @@ class Density:
 
         self.nt_sG += self.nct_G
 
-        comp_charge = 0.0
-        for a, D_sp in self.D_asp.items():
-            Q_L =self.Q_aL[a]
-            Q_L[:] = np.dot(D_sp.sum(0), self.setups[a].Delta_pL)
-            Q_L[0] += self.setups[a].Delta0
-            comp_charge += Q_L[0]
-        comp_charge = self.gd.comm.sum(comp_charge) * sqrt(4 * pi)
+        comp_charge = self.calculate_multipole_moments()
         
-        pseudo_charge_s = self.gd.integrate(self.nt_sG)
-        
-        if isinstance(wfs, LCAOWaveFunctions):
-            pseudo_charge = pseudo_charge_s.sum()
+        if basis_functions or isinstance(wfs, LCAOWaveFunctions):
+            pseudo_charge = self.gd.integrate(self.nt_sG).sum()
             if pseudo_charge != 0:
                 x = -(self.charge + comp_charge) / pseudo_charge
-                print 'XXX', x
                 self.nt_sG *= x
-                pseudo_charge_s *= x
 
         if not self.mixer.mix_rho:
             self.mixer.mix(self)
-
+            comp_charge = self.calculate_multipole_moments()
+            
         if self.nt_sg is None:
             self.nt_sg = self.finegd.empty(self.nspins)
 
@@ -132,10 +123,10 @@ class Density:
         if not self.gd.domain.pbc_c.all():
             # With zero-boundary conditions in one or more directions,
             # this is not the case.
-            for s, pseudo_charge in enumerate(pseudo_charge_s):
-                if pseudo_charge != 0:
-                    x = pseudo_charge / self.finegd.integrate(self.nt_sg[s])
-                    self.nt_sg[s] *= x
+            pseudo_charge = -(self.charge + comp_charge)
+            if pseudo_charge != 0:
+                x = pseudo_charge / self.finegd.integrate(self.nt_sg).sum()
+                self.nt_sg *= x
 
         self.nt_g = self.nt_sg.sum(axis=0)
         self.rhot_g = self.nt_g.copy()
@@ -148,6 +139,15 @@ class Density:
 
         if self.mixer.mix_rho:
             self.mixer.mix(self)
+
+    def calculate_multipole_moments(self):
+        comp_charge = 0.0
+        for a, D_sp in self.D_asp.items():
+            Q_L = self.Q_aL[a]
+            Q_L[:] = np.dot(D_sp.sum(0), self.setups[a].Delta_pL)
+            Q_L[0] += self.setups[a].Delta0
+            comp_charge += Q_L[0]
+        return self.gd.comm.sum(comp_charge) * sqrt(4 * pi)
 
     def initialize_from_atomic_densities(self, basis_functions):
         """Initialize density from atomic densities.
@@ -189,25 +189,21 @@ class Density:
         if self.nspins == 1 and isinstance(mixer, MixerSum):
             raise RuntimeError('Cannot use MixerSum with nspins==1')
 
-        self.mixer.initialize(self.gd, self.nspins)
+        self.mixer.initialize(self)
         
-    def calculate_local_magnetic_moments(self):
-        # XXX remove this?
-        spindensity = self.nt_sg[0] - self.nt_sg[1]
-
-        for nucleus in self.nuclei:
-            nucleus.calculate_magnetic_moments()
-            
-        #locmom = 0.0
-        for nucleus in self.nuclei:
-            #locmom += nucleus.mom[0]
-            mom = array([0.0])
-            if hasattr(nucleus, 'stepf') and nucleus.stepf is not None:
-                nucleus.stepf.integrate(spindensity, mom)
-                nucleus.mom = array(nucleus.mom + mom[0])
-            nucleus.comm.broadcast(nucleus.mom, nucleus.rank)
+    def calculate_magnetic_moments(self):
+        if self.nspins == 1:
+            assert not self.magmom_a.any()
+        else:
+            self.magmom_a.fill(0.0)
+            for a, D_sp in self.D_asp.items():
+                self.magmom_a[a] = np.dot(D_sp[0] - D_sp[1],
+                                          self.setups[a].N0_p)
+            self.gd.comm.sum(self.magmom_a)
+        return self.magmom_a
 
     def get_density_array(self):
+        XXX
         # XXX why not replace with get_spin_density and get_total_density?
         """Return pseudo-density array."""
         if self.nspins == 2:

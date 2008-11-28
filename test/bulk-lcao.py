@@ -1,5 +1,5 @@
 from ase import *
-from gpaw import Calculator
+from gpaw import GPAW
 from gpaw.atom.basis import BasisMaker
 
 sym = 'Li'
@@ -11,7 +11,7 @@ basis = bm.generate(2, 1)
 bulk = Atoms([Atom(sym)], pbc=True)
 k = 4
 g = 8
-calc = Calculator(gpts=(g, g, g), kpts=(k, k, k),
+calc = GPAW(gpts=(g, g, g), kpts=(k, k, k),
                   mode='lcao', basis={sym : basis})
 bulk.set_calculator(calc)
 e = []
@@ -22,7 +22,7 @@ for a in A:
 print e
 
 
-import numpy as npy
-a = npy.roots(npy.polyder(npy.polyfit(A, e, 2), 1))[0]
+import numpy as np
+a = np.roots(np.polyder(np.polyfit(A, e, 2), 1))[0]
 print 'a =', a
 assert abs(a - 2.6516) < 0.0001

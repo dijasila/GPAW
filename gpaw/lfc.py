@@ -364,13 +364,12 @@ class LocalizedFunctionsCollection:
         self.my_atom_indices = np.arange(len(spline_aj))
 
     def set_k_points(self, ibzk_qc):
-        sdfgasdfg
         self.ibzk_qc = ibzk_qc
         self.gamma = False
 
     def set_positions(self, spos_ac):
         if self.kpt_comm:
-            lfbc = LocFuncBroadcaster(kpt_comm)
+            lfbc = LocFuncBroadcaster(self.kpt_comm)
         else:
             lfbc = None
 
@@ -397,7 +396,7 @@ class LocalizedFunctionsCollection:
                 for a, lfs in self.lfs_a.items():
                     integral = self.integral_a[a]
                     if abs(integral) > 1e-15:
-                        lfs.normalize(normalize)
+                        lfs.normalize(integral)
 
 
     def add(self, a_xG, c_axm=None, k=-1):
@@ -409,6 +408,8 @@ class LocalizedFunctionsCollection:
                  for a, lfs in self.lfs_a.items()])
 
     def integrate(self, a_xG, c_axm, k=-1):
+        for c_xm in c_axm.values():
+            c_xm.fill(0.0)
         run([lfs.iintegrate(a_xG, c_axm.get(a), k)
              for a, lfs in self.lfs_a.items()])
 

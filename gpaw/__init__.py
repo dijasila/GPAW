@@ -117,13 +117,14 @@ while len(sys.argv) > i:
 
 if debug:
     import numpy
+    numpy.seterr(all='raise')
     oldempty = numpy.empty
     def empty(*args, **kwargs):
         a = oldempty(*args, **kwargs)
         if a.dtype == int:
             a[:] = -100000000
         else:
-            a[:] = numpy.inf
+            a[:] = numpy.nan
         return a
     numpy.empty = empty
 
@@ -153,7 +154,7 @@ from gpaw.poisson import PoissonSolver
 
 class Calculator(GPAW):
     def __init__(self, *args, **kwargs):
-        os.stderr.write('Please start using GPAW instead of Calculator!\n')
+        sys.stderr.write('Please start using GPAW instead of Calculator!\n')
         GPAW.__init__(self, *args, **kwargs)
 
 def restart(filename, Class=GPAW, **kwargs):

@@ -4,6 +4,7 @@ import numpy as np
 
 from gpaw.utilities.blas import axpy
 from gpaw.eigensolvers.eigensolver import Eigensolver
+from gpaw.utilities import unpack
 from gpaw.mpi import run
 
 
@@ -28,23 +29,55 @@ class RMM_DIIS(Eigensolver):
         Eigensolver.initialize(self, paw)
         self.overlap = paw.overlap
 
-    def iterate_one_k_point(self, hamiltonian, kpt):
+    def calculate_residual(self, wfs, hamiltonian, kpt, eps, R_G, psit_G):
+        wfs.kin.apply(psit_G, R_G, kpt.phase_cd)
+        hamiltonian.apply_local_potential(psit_G, R_G, kpt.s)
+        P_ai = dict([(a, np.zeros(wfs.setups[a].ni, wfs.dtype))
+                      for a in kpt.P_ani])
+        wfs.pt.integrate(psit_G, P_ai, kpt.q)
+        axpy(-eps, psit_G, R_G)
+        c_ai = {}
+        for a, P_i in P_ai.items():
+            dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
+            dO_ii = hamiltonian.setups[a].O_ii
+            c_i = np.dot(P_i, dH_ii - eps * dO_ii)
+            c_ai[a] = c_i
+        wfs.pt.add(R_G, c_ai, kpt.q)
+        
+    def calculate_residuals(self, wfs, hamiltonian, kpt, R_nG, psit_nG):
+        wfs.kin.apply(psit_nG, R_nG, kpt.phase_cd)
+        hamiltonian.apply_local_potential(psit_nG, R_nG, kpt.s)
+        P_ani = dict([(a, np.zeros_like(P_ni))
+                      for a, P_ni in kpt.P_ani.items()])
+        wfs.pt.integrate(psit_nG, P_ani, kpt.q)
+        self.calculate_residuals2(wfs, hamiltonian, kpt, R_nG, psit_nG, P_ani)
+        
+    def calculate_residuals2(self, wfs, hamiltonian, kpt, R_nG,
+                             eps_n=None, psit_nG=None, P_ani=None):
+        if psit_nG is None:
+            psit_nG = kpt.psit_nG
+        if P_ani is None:
+            P_ani = kpt.P_ani
+        for R_G, eps, psit_G in zip(R_nG, kpt.eps_n, psit_nG):
+            axpy(-eps, psit_G, R_G)
+        c_ani = {}
+        for a, P_ni in P_ani.items():
+            dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
+            dO_ii = hamiltonian.setups[a].O_ii
+            c_ni = (np.dot(P_ni, dH_ii) -
+                    np.dot(P_ni * kpt.eps_n[:, np.newaxis], dO_ii))
+            c_ani[a] = c_ni
+        wfs.pt.add(R_nG, c_ani, kpt.q)
+
+    def iterate_one_k_point(self, hamiltonian, wfs, kpt):
         """Do a single RMM-DIIS iteration for the kpoint"""
 
-        self.subspace_diagonalize(hamiltonian, kpt)
+        self.subspace_diagonalize(hamiltonian, wfs, kpt)
 
         self.timer.start('Residuals')
-
         if self.keep_htpsit:
             R_nG = self.Htpsit_nG
-
-            for R_G, eps, psit_G in zip(R_nG, kpt.eps_n, kpt.psit_nG):
-                # R_G -= eps * psit_G
-                axpy(-eps, psit_G, R_G)
-
-            run([nucleus.adjust_residual(R_nG, kpt.eps_n, kpt.s, kpt.u, kpt.k)
-                 for nucleus in hamiltonian.pt_nuclei])
-
+            self.calculate_residuals2(wfs, hamiltonian, kpt, R_nG)
         self.timer.stop('Residuals')
 
         self.timer.start('RMM-DIIS')
@@ -66,7 +99,10 @@ class RMM_DIIS(Eigensolver):
                                              kpt.s, kpt.u, kpt.k, n)
                      for nucleus in hamiltonian.pt_nuclei])
 
-            weight = kpt.f_n[n]
+            if kpt.f_n is None:
+                weight = kpt.weight
+            else:
+                weight = kpt.f_n[n]
             if self.nbands_converge != 'occupied':
                 if n0 + n < self.nbands_converge:
                     weight = kpt.weight
@@ -75,20 +111,11 @@ class RMM_DIIS(Eigensolver):
             error += weight * np.vdot(R_G, R_G).real
 
             # Precondition the residual:
-            pR_G = self.preconditioner(R_G, kpt.phase_cd, kpt.psit_nG[n],
-                                       kpt.k_c)
+            pR_G = self.preconditioner(R_G, kpt.phase_cd, kpt.psit_nG[n])
 
             # Calculate the residual of pR_G, dR_G = (H - e S) pR_G:
-            hamiltonian.apply(pR_G, dR_G, kpt, local_part_only=True,
-                              calculate_projections=False)
-            axpy(-kpt.eps_n[n], pR_G, dR_G)  # dR_G -= kpt.eps_n[n] * pR_G
-
-            run([nucleus.adjust_residual2(pR_G, dR_G, kpt.eps_n[n],
-                                          kpt.u, kpt.s, kpt.k, n)
-                 for nucleus in hamiltonian.pt_nuclei])
-
-            hamiltonian.xc.xcfunc.adjust_non_local_residual(
-                pR_G, dR_G, kpt.eps_n[n], kpt.u, kpt.s, kpt.k, n)
+            self.calculate_residual(wfs, hamiltonian, kpt, kpt.eps_n[n],
+                                    dR_G, pR_G)
 
             # Find lam that minimizes the norm of R'_G = R_G + lam dR_G
             RdR = self.comm.sum(np.vdot(R_G, dR_G).real)
@@ -101,12 +128,9 @@ class RMM_DIIS(Eigensolver):
             R_G *= 2.0 * lam
             axpy(lam**2, dR_G, R_G)  # R_G += lam**2 * dR_G
             kpt.psit_nG[n] += self.preconditioner(R_G, kpt.phase_cd,
-                                                  kpt.psit_nG[n], kpt.k_c)
+                                                  kpt.psit_nG[n])
 
         self.timer.stop('RMM-DIIS')
-
-        # Orthonormalize the wave functions
-        self.overlap.orthonormalize(kpt)
 
         error = self.comm.sum(error)
         return error

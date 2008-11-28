@@ -1,5 +1,5 @@
 from ase import Atoms
-from gpaw import Calculator
+from gpaw import GPAW
 from gpaw.dscf import dscf_calculation,MolecularOrbitals
 from gpaw.utilities import equal
 
@@ -10,7 +10,7 @@ atoms = Atoms(positions=[[0.,0.,5.],
               cell=[3.,3.,9.1],
               pbc=[True,True,False])
 
-calc = Calculator(h=0.24,
+calc = GPAW(h=0.24,
                   nbands=6,
                   xc='PBE',
                   spinpol = True,

@@ -1,13 +1,13 @@
 import os
 from ase import *
-from gpaw import Calculator
+from gpaw import GPAW
 from gpaw.utilities import equal
 h = 0.2
 n = 24
 a = n * h
 b = a / 2
 H = Atoms('H', [(b, b, b)], pbc=True, cell=(a, a, a))
-calc = Calculator(nbands=1, gpts=(n, n, n), txt='ltt.txt')
+calc = GPAW(nbands=1, gpts=(n, n, n), txt='ltt.txt')
 H.set_calculator(calc)
 e0 = H.get_potential_energy()
 cmd = 'ps -eo comm,pmem | grep python'

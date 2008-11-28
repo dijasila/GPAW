@@ -1,4 +1,5 @@
 import numpy as np
+from ase.units import Bohr
 
 from gpaw.symmetry import Symmetry
 
@@ -9,18 +10,22 @@ def reduce_kpoints(atoms, bzk_kc, setups, usesymm):
     Returns symmetry object, weights and k-points in the irreducible
     part of the BZ."""
 
-    if np.logical_and(np.logical_not(atoms.pbc), bzk_kc.any(axis=0)).any():
+
+    #if np.logical_and(np.logical_not(atoms.pbc), bzk_kc.any(axis=0)).any():
+    if (~atoms.pbc & bzk_kc.any(0)).any():
         raise ValueError('K-points can only be used with PBCs!')
 
-    id_a = zip(atoms.get_initial_magnetic_moments(), setups.get_ids())
+    # Round off:
+    magmom_a = atoms.get_initial_magnetic_moments().round(decimals=3)
+    id_a = zip(magmom_a, setups.id_a)
 
     # Construct a Symmetry instance containing the identity
     # operation only:
-    symmetry = Symmetry(id_a, atoms.get_cell())
+    symmetry = Symmetry(id_a, atoms.get_cell() / Bohr, atoms.get_pbc())
 
     if usesymm:
         # Find symmetry operations of atoms:
-        symmetry.analyze(atoms.positions)
+        symmetry.analyze(atoms.get_scaled_positions())
 
     # Reduce the set of k-points:
     ibzk_kc, weight_k = symmetry.reduce(bzk_kc)

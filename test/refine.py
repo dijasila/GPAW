@@ -1,7 +1,7 @@
 """Test automatically write out of restart files"""
 
 import os
-from gpaw import Calculator
+from gpaw import GPAW
 from ase import *
 from gpaw.utilities import equal
 
@@ -20,7 +20,7 @@ for ending in endings:
     H.center(vacuum=2.0)
 
     if 1:
-        calc = Calculator(nbands=2,
+        calc = GPAW(nbands=2,
                           convergence={'eigenstates': 0.001,
                                        'energy': 0.1,
                                        'density': 0.1})
@@ -33,7 +33,7 @@ for ending in endings:
         Edirect = H.get_potential_energy()
 
     # refine the result after reading from a file
-    H = Calculator(restart_wf, convergence={'energy': 0.00001}).get_atoms()
+    H = GPAW(restart_wf, convergence={'energy': 0.00001}).get_atoms()
     Erestart = H.get_potential_energy()
 
     print Edirect, Erestart

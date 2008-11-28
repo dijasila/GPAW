@@ -3,7 +3,7 @@ from ase import *
 from gpaw import GPAW
 from gpaw.utilities import equal
 from gpaw.wannier import Wannier
-import numpy as npy
+import numpy as np
 
 # GPAW wannier example for ethylene corresponding to the ASE Wannier
 # tutorial.
@@ -38,7 +38,7 @@ def check(calc):
     equal(13.7995, wannier.value, 0.016)
     for center in centers:
         i = 0
-        while npy.sum((expected[i] - center)**2) > 0.01:
+        while np.sum((expected[i] - center)**2) > 0.01:
             i += 1
             if i == len(expected):
                 raise RuntimeError, 'Correct center not found'

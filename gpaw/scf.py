@@ -29,7 +29,7 @@ class SCFLoop:
         self.niter_fixdensity = niter_fixdensity
         if fixdensity:
             self.niter_fixdensity = 10000000
-            self.density_error = np.inf
+            self.max_density_error = np.inf
             
         self.reset()
 

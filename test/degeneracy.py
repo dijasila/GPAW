@@ -1,5 +1,5 @@
 from ase import *
-from gpaw import Calculator
+from gpaw import GPAW
 from gpaw.utilities import equal
 
 
@@ -15,7 +15,7 @@ atoms = Atoms([Atom('C', (0.0, 0.0, 0.0)),
                     pbc=False)
 
 atoms.positions[:] += a / 2
-atoms.set_calculator(Calculator(h=0.25, nbands=4,
+atoms.set_calculator(GPAW(h=0.25, nbands=4,
                                 convergence={'eigenstates': 1e-11}))
 energy = atoms.get_potential_energy()
 

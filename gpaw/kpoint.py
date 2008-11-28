@@ -6,7 +6,7 @@
 from math import pi, sqrt
 from cmath import exp
 
-import numpy as npy
+import numpy as np
 from numpy.random import random, seed
 
 from gpaw import mpi
@@ -47,7 +47,7 @@ class KPoint:
         H_nn and the Cholesky decomposition of S_nn.
     """
     
-    def __init__(self, weight, s, k, q):
+    def __init__(self, weight, s, k, q, phase_cd):
         """Construct k-point object.
 
         Parameters
@@ -90,7 +90,8 @@ class KPoint:
         self.s = s  # spin index
         self.k = k  # k-point index
         self.q = q  # local k-point index
-
+        self.phase_cd = phase_cd
+        
         self.eps_n = None
         self.f_n = None
         self.P_ani = None
@@ -114,7 +115,7 @@ class KPoint:
 
         shape = tuple(gd2.n_c)
 
-        scale = sqrt(12 / npy.product(gd2.domain.cell_c))
+        scale = sqrt(12 / np.product(gd2.domain.cell_c))
 
         seed(4 + mpi.rank)
 
@@ -141,7 +142,7 @@ class KPoint:
         occupation numbers, but ones given with argument f_n."""
         if use_lcao:
             C_nM = self.C_nM
-            rho_MM = npy.dot(C_nM.conj().T * f_n, C_nM)
+            rho_MM = np.dot(C_nM.conj().T * f_n, C_nM)
             basis_functions.construct_density(rho_MM, nt_G)
         else:
             if self.dtype == float:
@@ -149,7 +150,7 @@ class KPoint:
                     axpy(f, psit_G**2, nt_G)  # nt_G += f * psit_G**2
             else:
                 for f, psit_G in zip(f_n, self.psit_nG):
-                    nt_G += f * (psit_G * npy.conjugate(psit_G)).real
+                    nt_G += f * (psit_G * np.conjugate(psit_G)).real
 
         # Hack used in delta-scf calculations:
         if hasattr(self, 'ft_omn'):
@@ -157,7 +158,7 @@ class KPoint:
                 for ft_n, psi_m in zip(ft_mn, self.psit_nG):
                     for ft, psi_n in zip(ft_n, self.psit_nG):
                         if abs(ft) > 1.e-12:
-                            nt_G += (npy.conjugate(psi_m) *
+                            nt_G += (np.conjugate(psi_m) *
                                      ft * psi_n).real
         
 
@@ -173,7 +174,7 @@ class KPoint:
                     axpy(0.5*f, d_G**2, taut_G) #taut_G += 0.5*f * d_G**2
                 else:
                     ddr[c](psit_G,d_G,self.phase_cd)
-                    taut_G += 0.5* f * (d_G * npy.conjugate(d_G)).real
+                    taut_G += 0.5* f * (d_G * np.conjugate(d_G)).real
 
 
     def create_atomic_orbitals(self, nao, nuclei):

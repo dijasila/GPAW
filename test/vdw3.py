@@ -1,5 +1,5 @@
 from gpaw.vdw import VanDerWaals
-import numpy as npy
+import numpy as np
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.domain import Domain
 

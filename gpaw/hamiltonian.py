@@ -6,7 +6,7 @@
 
 from math import pi, sqrt
 
-import numpy as npy
+import numpy as np
 
 from gpaw.poisson import PoissonSolver
 from gpaw.transformers import Transformer
@@ -87,7 +87,7 @@ class Hamiltonian:
             self.vt_sG = self.gd.empty(2)
             self.poisson.initialize(self.finegd)
 
-        Ebar = npy.vdot(self.vbar_g, density.nt_g) * self.finegd.dv
+        Ebar = np.vdot(self.vbar_g, density.nt_g) * self.finegd.dv
 
         vt_g = self.vt_sg[0]
         vt_g[:] = self.vbar_g
@@ -95,7 +95,7 @@ class Hamiltonian:
         Eext = 0.0
         if self.vext_g is not None:
             vt_g += self.vext_g.get_potential(self.finegd)
-            Eext = npy.vdot(vt_g, density.nt_g) * self.finegd.dv - Ebar
+            Eext = np.vdot(vt_g, density.nt_g) * self.finegd.dv - Ebar
 
         if self.nspins == 2:
             self.vt_sg[1] = vt_g
@@ -119,18 +119,18 @@ class Hamiltonian:
                                            charge=-density.charge)
         self.timer.stop('Poisson')
 
-        Epot = 0.5 * npy.vdot(self.vHt_g, density.rhot_g) * self.finegd.dv
+        Epot = 0.5 * np.vdot(self.vHt_g, density.rhot_g) * self.finegd.dv
         Ekin = 0.0
         for vt_g, vt_G, nt_G in zip(self.vt_sg, self.vt_sG, density.nt_sG):
             vt_g += self.vHt_g
             self.restrict(vt_g, vt_G)
-            Ekin -= npy.vdot(vt_G, nt_G - density.nct_G) * self.gd.dv
+            Ekin -= np.vdot(vt_G, nt_G - density.nct_G) * self.gd.dv
 
         # Calculate atomic hamiltonians:
         self.timer.start('Atomic Hamiltonians')
         W_aL = {}
         for a in density.D_asp:
-            W_aL[a] = npy.zeros((self.setups[a].lmax + 1)**2)
+            W_aL[a] = np.empty((self.setups[a].lmax + 1)**2)
         density.ghat.integrate(self.vHt_g, W_aL)
         self.dH_asp = {}
         for a, D_sp in density.D_asp.items():
@@ -139,11 +139,11 @@ class Hamiltonian:
 
             D_p = D_sp.sum(0)
             dH_p = (setup.K_p + setup.M_p +
-                    setup.MB_p + 2.0 * npy.dot(setup.M_pp, D_p) +
-                    npy.dot(setup.Delta_pL, W_L))
-            Ekin += npy.dot(setup.K_p, D_p) + setup.Kc
-            Ebar += setup.MB + npy.dot(setup.MB_p, D_p)
-            Epot += setup.M + npy.dot(D_p, (setup.M_p + npy.dot(setup.M_pp, D_p)))
+                    setup.MB_p + 2.0 * np.dot(setup.M_pp, D_p) +
+                    np.dot(setup.Delta_pL, W_L))
+            Ekin += np.dot(setup.K_p, D_p) + setup.Kc
+            Ebar += setup.MB + np.dot(setup.MB_p, D_p)
+            Epot += setup.M + np.dot(D_p, (setup.M_p + np.dot(setup.M_pp, D_p)))
 
             if setup.HubU is not None:
 ##                 print '-----'
@@ -152,12 +152,12 @@ class Hamiltonian:
                 i1 = i0 + 2 * setup.Hubl + 1
                 for D_p, H_p in zip(self.D_sp, self.H_sp):
                     N_mm = unpack2(D_p)[i0:i1, i0:i1] / 2 * nspins 
-                    Eorb = setup.HubU/2. * (N_mm - npy.dot(N_mm,N_mm)).trace()
-                    Vorb = setup.HubU * (0.5 * npy.eye(i1-i0) - N_mm)
+                    Eorb = setup.HubU/2. * (N_mm - np.dot(N_mm,N_mm)).trace()
+                    Vorb = setup.HubU * (0.5 * np.eye(i1-i0) - N_mm)
 ##                     print '========='
-##                     print 'occs:',npy.diag(N_mm)
+##                     print 'occs:',np.diag(N_mm)
 ##                     print 'Eorb:',Eorb
-##                     print 'Vorb:',npy.diag(Vorb)
+##                     print 'Vorb:',np.diag(Vorb)
 ##                     print '========='
                     Exc += Eorb                    
                     Htemp = unpack(H_p)
@@ -170,20 +170,20 @@ class Hamiltonian:
                 dH_p += vext[0][0] * sqrt(4 * pi) * setup.Delta_pL[:, 0]
                 if len(vext) > 1:
                     # Tailor expansion to the first order
-                    Eext += sqrt(4 * pi / 3) * npy.dot(vext[1], self.Q_L[1:4])
+                    Eext += sqrt(4 * pi / 3) * np.dot(vext[1], self.Q_L[1:4])
                     # there must be a better way XXXX
-                    Delta_p1 = npy.array([setup.Delta_pL[:, 1],
+                    Delta_p1 = np.array([setup.Delta_pL[:, 1],
                                           setup.Delta_pL[:, 2],
                                           setup.Delta_pL[:, 3]])
-                    dH_p += sqrt(4 * pi / 3) * npy.dot(vext[1], Delta_p1)
+                    dH_p += sqrt(4 * pi / 3) * np.dot(vext[1], Delta_p1)
 
-            self.dH_asp[a] = dH_sp = npy.zeros_like(D_sp)
+            self.dH_asp[a] = dH_sp = np.zeros_like(D_sp)
             Exc += setup.xc_correction.calculate_energy_and_derivatives(
                 D_sp, dH_sp)
             dH_sp += dH_p
 
             Ekin -= (D_sp * dH_sp).sum()
-            
+
         self.timer.stop('Atomic Hamiltonians')
 
         comm = self.gd.comm
@@ -195,8 +195,7 @@ class Hamiltonian:
 
         self.timer.stop('Hamiltonian')
 
-    def apply(self, a_nG, b_nG, kpt, 
-              calculate_projections=True, local_part_only=False):
+    def apply_local_potential(self, psit_nG, Htpsit_nG, s):
         """Apply the Hamiltonian operator to a set of vectors.
 
         Parameters
@@ -213,26 +212,9 @@ class Hamiltonian:
             When False, existing P_uni are used
         
         """
-
-        self.timer.start('Apply pseudo-hamiltonian')
-
-        self.kin.apply(a_nG, b_nG, kpt.phase_cd)
-        vt_G = self.vt_sG[kpt.s]
-        if a_nG.ndim == 3:
-            b_nG += a_nG * vt_G
+        vt_G = self.vt_sG[s]
+        if psit_nG.ndim == 3:
+            Htpsit_nG += psit_nG * vt_G
         else:
-            for a_G, b_G in zip(a_nG, b_nG):
-                b_G += a_G * vt_G
-
-        self.timer.stop('Apply pseudo-hamiltonian');
-        
-        if not local_part_only:
-            # Apply the non-local part:
-            self.timer.start('Apply atomic hamiltonian');
-            run([nucleus.apply_hamiltonian(a_nG, b_nG, kpt,
-                                           calculate_projections)
-                 for nucleus in self.pt_nuclei])
-
-            self.timer.stop('Apply atomic hamiltonian');
-
-        
+            for psit_G, Htpsit_G in zip(psit_nG, Htpsit_nG):
+                Htpsit_G += psit_G * vt_G

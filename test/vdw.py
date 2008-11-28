@@ -1,10 +1,10 @@
 from math import sqrt, exp, pi
 from gpaw.vdw import VanDerWaals
-import numpy as npy
+import numpy as np
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.domain import Domain
 import pylab
-#npy.seterr(all='raise')
+#np.seterr(all='raise')
 
 
 nfig=0
@@ -21,12 +21,12 @@ tolerance =0.000001
 
 
 n = 48
-d = npy.ones((2 * n, n, n))
+d = np.ones((2 * n, n, n))
 a = 16.0
 c = a / 2
 h = a / n
             
-uc = npy.array([(2 * a, 0, 0),
+uc = np.array([(2 * a, 0, 0),
                 (0,     a, 0),
                 (0,     0, a)])
 
@@ -63,7 +63,7 @@ E_RPBE = vdw_RPBE.get_energy()
 ##################################################
 
 def interpolation(ymax=8):
-    Dtab = npy.arange(0,vdw_revPBE.Dmax+vdw_revPBE.deltaD,vdw_revPBE.deltaD)
+    Dtab = np.arange(0,vdw_revPBE.Dmax+vdw_revPBE.deltaD,vdw_revPBE.deltaD)
     nfig=60
     pylab.figure(nfig)
     nfig +=1
@@ -73,17 +73,17 @@ def interpolation(ymax=8):
     ##########
     #plot interpolated 
     ##########
-    deltatab = npy.arange(0,vdw_revPBE.deltamax+vdw_revPBE.deltadelta,vdw_revPBE.deltadelta)
+    deltatab = np.arange(0,vdw_revPBE.deltamax+vdw_revPBE.deltadelta,vdw_revPBE.deltadelta)
     deltaD = vdw_revPBE.deltaD
     deltadelta = vdw_revPBE.deltadelta
     phitab_N = vdw_revPBE.phimat.copy()
     phitab_N.shape = [vdw_revPBE.phimat.shape[0]*vdw_revPBE.phimat.shape[1]]
     for n in [0,10,18]:
-        pylab.plot(npy.arange(0,ymax,0.001),vdw_revPBE.getphi(npy.arange(0,ymax,0.001),(npy.ones(len(npy.arange(0,ymax,0.001)))*(n*0.05)),Dtab,deltatab,deltaD,deltadelta,phitab_N),label='interpolated'+str(n*0.05))
+        pylab.plot(np.arange(0,ymax,0.001),vdw_revPBE.getphi(np.arange(0,ymax,0.001),(np.ones(len(np.arange(0,ymax,0.001)))*(n*0.05)),Dtab,deltatab,deltaD,deltadelta,phitab_N),label='interpolated'+str(n*0.05))
     pylab.legend(loc='upper right')
     pylab.ylabel(r'$\phi *4\pi D^2$')
     pylab.xlabel(r'$D$')
-    pylab.plot(Dtab[:int(ymax/vdw_revPBE.deltaD)],npy.zeros(len(vdw_revPBE.phimat[0,:int(ymax/vdw_revPBE.deltaD)])))
+    pylab.plot(Dtab[:int(ymax/vdw_revPBE.deltaD)],np.zeros(len(vdw_revPBE.phimat[0,:int(ymax/vdw_revPBE.deltaD)])))
     pylab.show()
 
 
@@ -96,10 +96,10 @@ def interpolation(ymax=8):
 # 
 ##########
 ref_label = ['min', 'max', 'average']
-reference = npy.array([0.024754860873480139,7.512329131951498,0.87798411512677765])
+reference = np.array([0.024754860873480139,7.512329131951498,0.87798411512677765])
 
 q0=vdw_RPBE.q0_g
-q0test = npy.array([q0.min(), q0.max(), q0.mean()]) - reference
+q0test = np.array([q0.min(), q0.max(), q0.mean()]) - reference
 print q0test
 
 for n in range(len(q0test)):
@@ -180,12 +180,12 @@ for n in [1,2,4,8]:
 ##################################################
 
 n = 48
-d = npy.ones((2 * n, n, n))
+d = np.ones((2 * n, n, n))
 a = 16.0
 c = a / 2
 h = a / n
         
-uc = npy.array([(2 * a, 0, 0),
+uc = np.array([(2 * a, 0, 0),
                 (0,     a, 0),
                 (0,     0, a)])
 
@@ -210,7 +210,7 @@ E_RPBE = vdw_RPBE.get_energy()
 # 
 ##########
 ref_label = ['E_revPBE', 'E_RPBE']
-reference = npy.array([-0.45965246445715274, -0.45965246445798807])
+reference = np.array([-0.45965246445715274, -0.45965246445798807])
 test=[E_revPBE[0],E_RPBE[0]]
 print test
 for n in range(len(reference)):
@@ -251,7 +251,7 @@ pylab.show()
 
 
 ## n = 48
-## d = npy.ones((2 * n, n, n), npy.Float)
+## d = np.ones((2 * n, n, n), np.Float)
 ## a = 16.0
 ## c = a / 2
 ## h = a / n
@@ -261,8 +261,8 @@ pylab.show()
 ##             r = sqrt((x * h - c)**2 + (y * h - c)**2 + (z * h - c)**2)
 ##             d[x, y, z] = exp(-2 * r) / pi
 
-## print npy.sum(d.flat) * h**3
-## uc = npy.array([(2 * a, 0, 0),
+## print np.sum(d.flat) * h**3
+## uc = np.array([(2 * a, 0, 0),
 ##                 (0,     a, 0),
 ##                 (0,     0, a)])
 

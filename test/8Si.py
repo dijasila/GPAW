@@ -1,4 +1,4 @@
-from gpaw import Calculator
+from gpaw import GPAW
 from ase import *
 from ase.calculators import numeric_force
 from gpaw.utilities import equal
@@ -16,7 +16,7 @@ bulk = Atoms(symbols='Si8',
              pbc=True)
 bulk.set_cell((a, a, a), scale_atoms=True)
 n = 20
-calc = Calculator(gpts=(n, n, n),
+calc = GPAW(gpts=(n, n, n),
                   nbands=8*3,
                   width=0.01,
                   kpts=(2, 2, 2))

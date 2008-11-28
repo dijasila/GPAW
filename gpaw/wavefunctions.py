@@ -61,11 +61,16 @@ class WaveFunctions(EmptyWaveFunctions):
         ks0 = kpt_comm.rank * mynks
         k0 = ks0 % nibzkpts
         self.kpt_u = []
+        sdisp_cd = gd.domain.sdisp_cd
         for ks in range(ks0, ks0 + mynks):
             s, k = divmod(ks, nibzkpts)
             q = k - k0
             weight = weight_k[k] * 2 / nspins
-            self.kpt_u.append(KPoint(weight, s, k, q))
+            if gamma:
+                phase_cd = None
+            else:
+                phase_cd = exp(2j * pi * sdisp_cd * ibzk_kc[k])
+            self.kpt_u.append(KPoint(weight, s, k, q, phase_cd))
 
         self.ibzk_qc = ibzk_kc[k0:k + 1]
 
@@ -200,22 +205,21 @@ class LCAOWaveFunctions(WaveFunctions):
                 kpt.S_MM = self.S_qMM[q]
                 kpt.T_MM = self.T_qMM[q]
                 kpt.C_nM = np.empty((mynbands, nao), self.dtype)
-                kpt.eps_n = np.empty(mynbands)
-                kpt.f_n = np.empty(mynbands)
 
-        self.P_aqMi = {}
-        self.P_aqni = {}
+        for kpt in self.kpt_u:
+            kpt.P_ani = {}
         for a in self.basis_functions.my_atom_indices:
             ni = self.setups[a].ni
-            self.P_aqMi[a] = np.zeros((nq, nao, ni), self.dtype)
-            self.P_aqni[a] = np.empty((nq, mynbands, ni), self.dtype)
+            for kpt in self.kpt_u:
+                kpt.P_ani[a] = np.empty((mynbands, ni), self.dtype)
             
+        self.P_aqMi = {}
+        for a in self.basis_functions.my_atom_indices:
+            self.P_aqMi[a] = np.zeros((nq, nao, ni), self.dtype)
         for kpt in self.kpt_u:
             q = kpt.q
             kpt.P_aMi = dict([(a, P_qMi[q])
                               for a, P_qMi in self.P_aqMi.items()])
-            kpt.P_ani = dict([(a, P_qni[q])
-                              for a, P_qni in self.P_aqni.items()])
             
         self.tci.set_positions(spos_ac)
         self.tci.calculate(spos_ac, self.S_qMM, self.T_qMM, self.P_aqMi)
@@ -239,25 +243,29 @@ class LCAOWaveFunctions(WaveFunctions):
         occupation numbers, but ones given with argument f_n."""
         
         rho_MM = np.dot(kpt.C_nM.conj().T * kpt.f_n, kpt.C_nM)
-        self.basis_functions.construct_density(rho_MM, nt_sG[kpt.s], kpt.k)
+        self.basis_functions.construct_density(rho_MM, nt_sG[kpt.s], kpt.q)
 
 
 from gpaw.eigensolvers import get_eigensolver
 from gpaw.overlap import Overlap
+from gpaw.operators import Laplace
+from gpaw.lfc import LocalizedFunctionsCollection as LFC
 class GridWaveFunctions(WaveFunctions):
     def __init__(self, stencil, *args):
         WaveFunctions.__init__(self, *args)
         # Kinetic energy operator:
         self.kin = Laplace(self.gd, -0.5, stencil, self.dtype)
         self.set_orthonormalized(False)
-        self.pt = LFC(gd, [setup.pt_j for setup in setups], self.kpt_comm)
+        self.pt = LFC(self.gd, [setup.pt_j for setup in self.setups],
+                      self.kpt_comm)
         if not self.gamma:
             self.pt.set_k_points(self.ibzk_qc)
-
+        self.big_work_arrays = {}
+        
     def set_orthonormalized(self, flag):
         self.orthonormalized = flag
 
-    def set_positions(self, spoc_ac):
+    def set_positions(self, spos_ac):
         WaveFunctions.set_positions(self, spos_ac)
 
         self.set_orthonormalized(False)
@@ -266,18 +274,14 @@ class GridWaveFunctions(WaveFunctions):
 
         self.overlap = Overlap(self) # XXX grid specific, should live in wfs
 
-        nq = len(self.ibzk_qc)
         mynbands = self.mynbands
 
-        self.P_aqni = {}
+        for kpt in self.kpt_u:
+            kpt.P_ani = {}
         for a in self.pt.my_atom_indices:
             ni = self.setups[a].ni
-            self.P_aqni[a] = np.empty((nq, mynbands, ni), self.dtype)
-            
-        for kpt in self.kpt_u:
-            q = kpt.q
-            kpt.P_ani = dict([(a, P_qni[q])
-                              for a, P_qni in self.P_aqni.items()])
+            for kpt in self.kpt_u:
+                kpt.P_ani[a] = np.empty((mynbands, ni), self.dtype)
 
     def initialize(self, density, hamiltonian, spos_ac):
         if density.nt_sG is None or self.kpt_u[0].psit_nG is None:
@@ -295,22 +299,26 @@ class GridWaveFunctions(WaveFunctions):
         hamiltonian.update(density)
 
         if self.kpt_u[0].psit_nG is None:
-            nlcaobands = min(self.nbands, self.setups.nao)
-            lcao = LCAOWaveFunctions(self.gd, self.nspins, lcaonbands,
-                                     self.mynbands, self.dtype,
-                                     self.kpt_comm, self.band_comm,
-                                     self.gamma, self.bzk_kc, self.ibzk_kc,
-                                     self.weight_k, self.symmetry)
-            lcao.basis_functions = basis_functions
+            lcaonbands = min(self.nbands, self.setups.nao)
+            lcaowfs = LCAOWaveFunctions(self.gd, self.nspins, self.setups,
+                                        lcaonbands,
+                                        self.mynbands, self.dtype,
+                                        self.world, self.kpt_comm,
+                                        self.band_comm,
+                                        self.gamma, self.bzk_kc, self.ibzk_kc,
+                                        self.weight_k, self.symmetry)
+            lcaowfs.basis_functions = basis_functions
+            lcaowfs.timer = self.timer
+            lcaowfs.set_positions(spos_ac)
             hamiltonian.update(density)
             eigensolver = get_eigensolver('lcao', 'lcao')
-            eigensolver.iterate(hamiltonian, lcao)
+            eigensolver.iterate(hamiltonian, lcaowfs)
 
-            for kpt, lcaokpt in zip(self.kpt_u, lcao.kpt_u):
+            for kpt, lcaokpt in zip(self.kpt_u, lcaowfs.kpt_u):
                 kpt.psit_nG = self.gd.zeros(self.mynbands,
                                             self.dtype)
                 basis_functions.lcao_to_grid(lcaokpt.C_nM, 
-                                             kpt.psit_nG[:nlcaobands], kpt.k)
+                                             kpt.psit_nG[:lcaonbands], kpt.k)
                 lcaokpt.C_nM = None
 
                 if 0:#nbands > nao:
@@ -357,15 +365,15 @@ class GridWaveFunctions(WaveFunctions):
 
     def add_to_density_from_k_point(self, nt_sG, kpt):
         nt_G = nt_sG[kpt.s]
-        f_n = f_un[kpt.u]
         if self.dtype == float:
-            for f, psit_G in zip(f_n, kpt.psit_nG):
+            for f, psit_G in zip(kpt.f_n, kpt.psit_nG):
                 axpy(f, psit_G**2, nt_G)
         else:
-            for f, psit_G in zip(f_n, kpt.psit_nG):
+            for f, psit_G in zip(kpt.f_n, kpt.psit_nG):
                 nt_G += f * (psit_G * psit_G.conj()).real
 
     def add_to_density_with_occupation(self, nt_sG, f_un):
+        XXX
         for kpt in self.kpt_u:
             nt_G = nt_sG[kpt.s]
             f_n = f_un[kpt.u]
@@ -387,7 +395,7 @@ class GridWaveFunctions(WaveFunctions):
 
     def orthonormalize(self):
         for kpt in self.kpt_u:
-            self.overlap.orthonormalize(kpt)
+            self.overlap.orthonormalize(self, kpt)
         self.set_orthonormalized(True)
 
     def initialize2(self, paw):

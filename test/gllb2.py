@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 from ase import *
-from gpaw import Calculator
+from gpaw import GPAW
 from gpaw.utilities import equal
 from gpaw.atom.all_electron import AllElectron
 from gpaw.atom.generator import Generator, parameters
@@ -45,7 +45,7 @@ for atom in atoms:
 
     #h = 0.20
     h = 0.25
-    calc = Calculator(h=h, nbands=5, xc=xcname)
+    calc = GPAW(h=h, nbands=5, xc=xcname)
     SS.set_calculator(calc)
     E = SS.get_potential_energy()
     eigs = calc.get_eigenvalues()

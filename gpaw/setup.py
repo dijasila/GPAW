@@ -17,6 +17,7 @@ from gpaw.grid_descriptor import RadialGridDescriptor
 from gpaw.utilities import unpack, pack, erf, fac, hartree, pack2, divrl
 from gpaw.xc_correction import XCCorrection
 from gpaw.xc_functional import XCRadialGrid
+from gpaw.rotation import rotation
 
 
 def create_setup(symbol, xcfunc, lmax=0, nspins=1, type='paw', basis=None,
@@ -145,10 +146,9 @@ class Setup:
         gcutfilter = g + 1
 
         self.rcutfilter = rcutfilter = r_g[gcutfilter]
-
+ 
         rcutmax = max(rcut_j)
         rcut2 = 2 * rcutmax
-        gcutmax = 1 + int(rcutmax * ng / (rcutmax + beta))
         gcut2 = 1 + int(rcut2 * ng / (rcut2 + beta))
         self.gcut2 = gcut2
 
@@ -186,11 +186,6 @@ class Setup:
         if tauct_g is None:
             tauct_g = npy.zeros(ng)
         self.tauct = Spline(0, self.rcore, tauct_g, r_g, beta)
-
-        # Step function:
-        stepf = sqrt(4 * pi) * npy.ones(ng)
-        stepf[gcutmax:] = 0.0
-        self.stepf = Spline(0, rcutfilter, stepf, r_g, beta)
 
         self.pt_j = []
         for j in range(nj):
@@ -520,6 +515,15 @@ class Setup:
         Delta0 = npy.dot(self.nc_g - self.nct_g,
                         r_g**2 * dr_g) - self.Z / sqrt(4 * pi)
         self.Delta0 = Delta0
+
+        # Electron density inside augmenation sphere.  Used for estimating
+        # atomic magnetic moment:
+
+        rcutmax = max(self.rcut_j)
+        gcutmax = int(round(rcutmax * self.ng / (rcutmax + self.beta)))
+        N0_q = npy.dot(n_qg[:, :gcutmax], (r_g**2 * dr_g)[:gcutmax])
+        self.N0_p = npy.dot(N0_q, T_Lqp[0])
+
         return g_lg, n_qg, nt_qg, Delta_lq
 
 
@@ -956,9 +960,9 @@ class Setups(list):
     def set_symmetry(self, symmetry):
         """Find rotation matrices for spherical harmonics."""
         R_slmm = [[rotation(l, symm) for l in range(3)]
-                  for symm in self.symmetry.symmetries]
+                  for symm in symmetry.symmetries]
         
-        for setup in self.setups:
+        for setup in self.setups.values():
             setup.calculate_rotations(R_slmm)
     
 

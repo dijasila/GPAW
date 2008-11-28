@@ -2,7 +2,7 @@
 
 from math import ceil
 
-import numpy as npy
+import numpy as np
 
 from gpaw.operators import Laplace
 from gpaw.preconditioner import Preconditioner
@@ -40,14 +40,12 @@ def blocked_matrix_multiply(A_nG, U_nn, work_nG):
     g1 = 0
     while g1 < ngpts:
         g2 = g1 + ngpts0
-        print g1,g2
         if g2 <= ngpts:
             w1_nq[:] = b_ng[:, g1:g2]
             gemm(1.0, w1_nq, U_nn, 0.0, w2_nq)
             b_ng[:, g1:g2] = w2_nq
             g1 = g2
         else:
-            print '*'
             w = work_nG.reshape((-1,))[:2 * nbands * (ngpts - g1)]
             w1_nq, w2_nq = w.reshape(2, nbands, ngpts - g1)
             w1_nq[:] = b_ng[:, g1:]
@@ -67,27 +65,23 @@ class Eigensolver:
         if debug:
             self.eig_iteration = 0
 
-    def initialize(self, paw):
-        self.timer = paw.timer
-        self.kpt_comm = paw.kpt_comm
-        self.band_comm = paw.band_comm
-        self.dtype = paw.dtype
-        self.gd = paw.gd
-        self.comm = paw.gd.comm
-        self.nbands = paw.nbands
-        self.mynbands = paw.mynbands
+    def initialize(self, wfs):
+        self.timer = wfs.timer
+        self.kpt_comm = wfs.kpt_comm
+        self.band_comm = wfs.band_comm
+        self.dtype = wfs.dtype
+        self.gd = wfs.gd
+        self.comm = wfs.gd.comm
+        self.nbands = wfs.nbands
+        self.mynbands = wfs.mynbands
 
         if self.mynbands != self.nbands:
             self.keep_htpsit = False
 
-        self.eps_n = npy.empty(self.nbands)
-
-        self.nbands_converge = paw.input_parameters['convergence']['bands']
-        self.set_tolerance(paw.input_parameters['convergence']['eigenstates'])
+        self.eps_n = np.empty(self.nbands)
 
         # Preconditioner for the electronic gradients:
-        self.preconditioner = Preconditioner(self.gd, paw.hamiltonian.kin,
-                                             self.dtype)
+        self.preconditioner = Preconditioner(self.gd, wfs.kin, self.dtype)
 
         if self.keep_htpsit:
             # Soft part of the Hamiltonian times psit:
@@ -95,18 +89,18 @@ class Eigensolver:
 
         # Work array for e.g. subspace rotations:
         self.blocksize = int(ceil(1.0 * self.mynbands / self.nblocks))
-        paw.big_work_arrays['work_nG'] = self.gd.empty(self.blocksize,
+        wfs.big_work_arrays['work_nG'] = self.gd.empty(self.blocksize,
                                                        self.dtype)
-        self.big_work_arrays = paw.big_work_arrays
+        self.big_work_arrays = wfs.big_work_arrays
 
         # Hamiltonian matrix
-        self.H_nn = npy.empty((self.nbands, self.nbands), self.dtype)
+        self.H_nn = np.empty((self.nbands, self.nbands), self.dtype)
+
+        for kpt in wfs.kpt_u:
+            if kpt.eps_n is None:
+                kpt.eps_n = np.empty(self.mynbands)
+
         self.initialized = True
-
-    def set_tolerance(self, tolerance):
-        """Sets the tolerance for the eigensolver"""
-
-        self.tolerance = tolerance
 
     def iterate(self, hamiltonian, wfs):
         """Solves eigenvalue problem iteratively
@@ -116,17 +110,25 @@ class Eigensolver:
         a single kpoint.
         """
 
+        if not self.initialized:
+            self.initialize(wfs)
+
+        if not wfs.orthonormalized:
+            wfs.orthonormalize()
+            
         error = 0.0
         for kpt in wfs.kpt_u:
-            error += self.iterate_one_k_point(hamiltonian, kpt)
+            error += self.iterate_one_k_point(hamiltonian, wfs, kpt)
+
+        wfs.orthonormalize()
 
         self.error = self.band_comm.sum(self.kpt_comm.sum(error))
 
     def iterate_one_k_point(self, hamiltonian, kpt):
         """Implemented in subclasses."""
-        return 0.0
+        raise NotImplementedError
 
-    def calculate_hamiltonian_matrix(self, hamiltonian, kpt):
+    def calculate_hamiltonian_matrix(self, hamiltonian, wfs, kpt):
         """Set up the Hamiltonian in the subspace of kpt.psit_nG
 
         *Htpsit_nG* is a work array of same size as psit_nG which contains
@@ -150,14 +152,13 @@ class Eigensolver:
 
         if self.keep_htpsit:
             Htpsit_nG = self.Htpsit_nG
-            hamiltonian.apply(psit_nG, Htpsit_nG, kpt,
-                              local_part_only=True,
-                              calculate_projections=False)
+
+            wfs.kin.apply(psit_nG, Htpsit_nG, kpt.phase_cd)
+            hamiltonian.apply_local_potential(psit_nG, Htpsit_nG, kpt.s)
 
             hamiltonian.xc.xcfunc.apply_non_local(kpt, Htpsit_nG, H_nn)
 
             r2k(0.5 * self.gd.dv, psit_nG, Htpsit_nG, 1.0, H_nn)
-
         else:
             Htpsit_nG = self.big_work_arrays['work_nG']
             n1 = 0
@@ -172,18 +173,17 @@ class Eigensolver:
                      H_nn[n1:, n1:n2], 'c')
                 n1 = n2
 
-        for nucleus in hamiltonian.my_nuclei:
-            P_ni = nucleus.P_uni[kpt.u]
-            dH_ii = unpack(nucleus.H_sp[kpt.s])
-            H_nn += npy.dot(P_ni, npy.inner(dH_ii, P_ni.conj()))
+        for a, P_ni in kpt.P_ani.items():
+            dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
+            H_nn += np.dot(P_ni, np.inner(dH_ii, P_ni.conj()))
 
-        self.comm.sum(H_nn, kpt.root)
+        self.comm.sum(H_nn, 0)
 
         # Uncouple occupied and unoccupied subspaces:
         if hamiltonian.xc.xcfunc.hybrid > 0.0:
             apply_subspace_mask(H_nn, kpt.f_n)
 
-    def subspace_diagonalize(self, hamiltonian, kpt):
+    def subspace_diagonalize(self, hamiltonian, wfs, kpt):
         """Diagonalize the Hamiltonian in the subspace of kpt.psit_nG
 
         *Htpsit_nG* is a work array of same size as psit_nG which contains
@@ -202,7 +202,7 @@ class Eigensolver:
 
         self.timer.start('Subspace diag.')
 
-        self.calculate_hamiltonian_matrix(hamiltonian, kpt)
+        self.calculate_hamiltonian_matrix(hamiltonian, wfs, kpt)
         H_nn = self.H_nn
         band_comm = self.band_comm
 
@@ -217,11 +217,11 @@ class Eigensolver:
         if debug:
             self.timer.start(dsyev_zheev_string+' %03d' % self.eig_iteration)
         if sl_diagonalize:
-            info = diagonalize(H_nn, self.eps_n, root=kpt.root)
+            info = diagonalize(H_nn, self.eps_n, root=0)
             if info != 0:
                 raise RuntimeError('Failed to diagonalize: info=%d' % info)
         else:
-            if self.comm.rank == kpt.root:
+            if self.comm.rank == 0:
                 if band_comm.rank == 0:
                     info = diagonalize(H_nn, self.eps_n)
                     if info != 0:
@@ -231,15 +231,15 @@ class Eigensolver:
             self.eig_iteration += 1
         self.timer.stop(dsyev_zheev_string)
 
-        if self.comm.rank == kpt.root:
+        if self.comm.rank == 0:
             band_comm.scatter(self.eps_n, kpt.eps_n, 0)
             band_comm.broadcast(H_nn, 0)
 
         U_nn = H_nn
         del H_nn
 
-        self.comm.broadcast(U_nn, kpt.root)
-        self.comm.broadcast(kpt.eps_n, kpt.root)
+        self.comm.broadcast(U_nn, 0)
+        self.comm.broadcast(kpt.eps_n, 0)
 
         work_nG = self.big_work_arrays['work_nG']
         psit_nG = kpt.psit_nG
@@ -260,8 +260,7 @@ class Eigensolver:
             self.big_work_arrays['work_nG'] = work_nG
 
         if self.band_comm.size == 1:
-            for nucleus in hamiltonian.my_nuclei:
-                P_ni = nucleus.P_uni[kpt.u]
+            for P_ni in kpt.P_ani.values():
                 gemm(1.0, P_ni.copy(), U_nn, 0.0, P_ni)
         else:
             run([nucleus.calculate_projections(kpt)
@@ -287,8 +286,8 @@ class Eigensolver:
             nI += nucleus.get_number_of_partial_waves()
 
         if self.work_In is None or len(self.work_In) != nI:
-            self.work_In = npy.empty((nI, mynbands), psit_nG.dtype)
-            self.work2_In = npy.empty((nI, mynbands), psit_nG.dtype)
+            self.work_In = np.empty((nI, mynbands), psit_nG.dtype)
+            self.work2_In = np.empty((nI, mynbands), psit_nG.dtype)
         work_In = self.work_In
         work2_In = self.work2_In
 
@@ -296,7 +295,7 @@ class Eigensolver:
         work2_nG = self.big_work_arrays['work2_nG']
 
         if self.H_pnn is None:
-            self.H_pnn = npy.zeros((np, mynbands, mynbands), psit_nG.dtype)
+            self.H_pnn = np.zeros((np, mynbands, mynbands), psit_nG.dtype)
         H_pnn = self.H_pnn
 
         I1 = 0
@@ -305,7 +304,7 @@ class Eigensolver:
             I2 = I1 + ni
             P_ni = nucleus.P_uni[kpt.u]
             dH_ii = unpack(nucleus.H_sp[kpt.s])
-            work_In[I1:I2] = npy.inner(dH_ii, P_ni).conj()
+            work_In[I1:I2] = np.inner(dH_ii, P_ni).conj()
             I1 = I2
 
         hamiltonian.apply(psit_nG, work_nG, kpt, local_part_only=True, calculate_projections=False)
@@ -322,7 +321,7 @@ class Eigensolver:
                 ni = nucleus.get_number_of_partial_waves()
                 I2 = I1 + ni
                 P_ni = nucleus.P_uni[kpt.u]
-                H_pnn[p] += npy.dot(P_ni, work_In[I1:I2]).T
+                H_pnn[p] += np.dot(P_ni, work_In[I1:I2]).T
                 I1 = I2
 
             band_comm.wait(sreq)

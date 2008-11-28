@@ -9,8 +9,6 @@ import numpy as npy
 import gpaw.mpi as mpi
 
 
-MASTER = 0
-
 def open(filename, mode='r'):
     if filename.endswith('.nc'):
         import gpaw.io.netcdf as io
@@ -52,7 +50,8 @@ def write(paw, filename, mode):
       The directory ``mywfs`` is created if not present. XXX
     """
 
-    if paw.master:
+    master = (paw.wfs.world.rank == 0)
+    if master:
         w = open(filename, 'w')
 
         w['history'] = 'GPAW restart file'
@@ -62,7 +61,7 @@ def write(paw, filename, mode):
 
         atoms = paw.atoms
 
-        magmom_a = paw.magmom_a
+        magmom_a = paw.wfs.density.magmom_a
         try:
             tag_a = atoms.get_tags()
             if tag_a is None:
@@ -187,7 +186,7 @@ def write(paw, filename, mode):
                 i = 0
                 for nucleus in paw.nuclei:
                     ni = nucleus.get_number_of_partial_waves()
-                    if kpt_rank == MASTER and band_rank == MASTER and nucleus.in_this_domain:
+                    if kpt_rank == 0 and band_rank == 0 and nucleus.in_this_domain:
                         P_uni = nucleus.P_uni
                     else:
                         P_uni = npy.empty((paw.nmyu, paw.mynbands, ni), paw.dtype)
@@ -204,11 +203,11 @@ def write(paw, filename, mode):
     # else is slave
     else:
         for nucleus in paw.my_nuclei:
-            paw.world.send(nucleus.P_uni, MASTER, 300)
+            paw.world.send(nucleus.P_uni, 0, 300)
 
 
     # Write atomic density matrices and non-local part of hamiltonian:
-    if paw.master:
+    if master:
         all_D_sp = npy.empty((paw.nspins, nadm))
         all_H_sp = npy.empty((paw.nspins, nadm))
         q1 = 0
@@ -231,14 +230,14 @@ def write(paw, filename, mode):
         w.add('AtomicDensityMatrices', ('nspins', 'nadm'), all_D_sp)
         w.add('NonLocalPartOfHamiltonian', ('nspins', 'nadm'), all_H_sp)
 
-    elif paw.kpt_comm.rank == MASTER:
+    elif paw.kpt_comm.rank == 0:
         for nucleus in paw.my_nuclei:
-            paw.domain.comm.send(nucleus.D_sp, MASTER, 207)
-            paw.domain.comm.send(nucleus.H_sp, MASTER, 2071)
+            paw.domain.comm.send(nucleus.D_sp, 0, 207)
+            paw.domain.comm.send(nucleus.H_sp, 0, 2071)
 
 
     # Write the eigenvalues:
-    if paw.master:
+    if master:
         w.add('Eigenvalues', ('nspins', 'nibzkpts', 'nbands'), dtype=float)
         for kpt_rank in range(paw.kpt_comm.size):
             for u in range(paw.nmyu):
@@ -246,7 +245,7 @@ def write(paw, filename, mode):
                 eps_all_n = npy.empty(paw.nbands)
                 nstride = paw.band_comm.size
                 for band_rank in range(paw.band_comm.size):
-                    if kpt_rank == MASTER and band_rank == MASTER:
+                    if kpt_rank == 0 and band_rank == 0:
                         eps_all_n[0::nstride] = paw.wfs.kpt_u[u].eps_n
                     else:
                         eps_n = npy.empty(paw.mynbands)
@@ -254,12 +253,12 @@ def write(paw, filename, mode):
                         paw.world.receive(eps_n, world_rank, 4300)
                         eps_all_n[band_rank::nstride] = eps_n
                 w.fill(eps_all_n)
-    elif paw.domain.comm.rank == MASTER:
+    elif paw.domain.comm.rank == 0:
         for kpt in paw.wfs.kpt_u:
-            paw.world.send(kpt.eps_n, MASTER, 4300)
+            paw.world.send(kpt.eps_n, 0, 4300)
 
     # Write the occupation numbers:
-    if paw.master:
+    if master:
         w.add('OccupationNumbers', ('nspins', 'nibzkpts', 'nbands'),
               dtype=float)
         for kpt_rank in range(paw.kpt_comm.size):
@@ -268,7 +267,7 @@ def write(paw, filename, mode):
                 f_all_n = npy.empty(paw.nbands)
                 nstride = paw.band_comm.size
                 for band_rank in range(paw.band_comm.size):
-                    if kpt_rank == MASTER and band_rank == MASTER:
+                    if kpt_rank == 0 and band_rank == 0:
                         f_all_n[0::nstride] = paw.wfs.kpt_u[u].f_n
                     else:
                         f_n = npy.empty(paw.mynbands)
@@ -276,33 +275,33 @@ def write(paw, filename, mode):
                         paw.world.receive(f_n, world_rank, 4301)
                         f_all_n[band_rank::nstride] = f_n
                 w.fill(f_all_n)
-    elif paw.domain.comm.rank == MASTER:
+    elif paw.domain.comm.rank == 0:
         for kpt in paw.wfs.kpt_u:
-            paw.world.send(kpt.f_n, MASTER, 4301)
+            paw.world.send(kpt.f_n, 0, 4301)
 
     # Write the pseudodensity on the coarse grid:
-    if paw.master:
+    if master:
         w.add('PseudoElectronDensity',
               ('nspins', 'ngptsx', 'ngptsy', 'ngptsz'), dtype=float)
-    if paw.kpt_comm.rank == MASTER:
+    if paw.kpt_comm.rank == 0:
         for s in range(paw.nspins):
             nt_sG = paw.gd.collect(paw.density.nt_sG[s])
-            if paw.master:
+            if master:
                 w.fill(nt_sG)
 
     # Write the pseudpotential on the coarse grid:
-    if paw.master:
+    if master:
         w.add('PseudoPotential',
               ('nspins', 'ngptsx', 'ngptsy', 'ngptsz'), dtype=float)
-    if paw.kpt_comm.rank == MASTER:
+    if paw.kpt_comm.rank == 0:
         for s in range(paw.nspins):
             vt_sG = paw.gd.collect(paw.hamiltonian.vt_sG[s])
-            if paw.master:
+            if master:
                 w.fill(vt_sG)
 
     if mode == 'all':
         # Write the wave functions:
-        if paw.master:
+        if master:
             w.add('PseudoWaveFunctions', ('nspins', 'nibzkpts', 'nbands',
                                           'ngptsx', 'ngptsy', 'ngptsz'),
                   dtype=dtype)
@@ -311,7 +310,7 @@ def write(paw, filename, mode):
             for k in range(paw.nkpts):
                 for n in range(paw.nbands):
                     psit_G = paw.get_wave_function_array(n, k, s)
-                    if paw.master: 
+                    if master: 
                         w.fill(psit_G)
     elif mode != '':
         # Write the wave functions as seperate files
@@ -320,7 +319,7 @@ def write(paw, filename, mode):
         ftype, template = wave_function_name_template(mode)
         dirname = os.path.dirname(template)
         if dirname:
-            if paw.master and not os.path.isdir(dirname):
+            if master and not os.path.isdir(dirname):
                 if not os.path.exists(dirname):
                     os.makedirs(dirname)
                 else:
@@ -337,7 +336,7 @@ def write(paw, filename, mode):
             for k in range(paw.nkpts):
                 for n in range(paw.nbands):
                     psit_G = paw.get_wave_function_array(n, k, s)
-                    if paw.master:
+                    if master:
                         fname = template % (s,k,n) + '.'+ftype
                         wpsi = open(fname,'w')
                         wpsi.dimension('1', 1)
@@ -350,7 +349,7 @@ def write(paw, filename, mode):
                         wpsi.fill(psit_G)
                         wpsi.close()
 
-    if paw.master:
+    if master:
         # Close the file here to ensure that the last wave function is
         # written to disk:
         w.close()

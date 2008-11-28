@@ -19,23 +19,6 @@ from gpaw.mpi import run, MASTER
 
 
 class PAWExtra:
-    def get_fermi_level(self):
-        """Return the Fermi-level."""
-        e = self.occupation.get_fermi_level()
-        if e is None:
-            # Zero temperature calculation - return vacuum level:
-            e = 0.0
-        return e * self.Ha
-
-    def write(self, filename, mode=''):
-        """use mode='all' to write the wave functions"""
-        self.timer.start('IO')
-        gpaw.io.write(self, filename, mode)
-        self.timer.stop('IO')
-        
-    def get_reference_energy(self):
-        return self.Eref * self.Ha
-    
     def get_wave_function_array(self, n, k, s):
         """Return pseudo-wave-function array.
         
@@ -188,6 +171,7 @@ class PAWExtra:
     def get_wannier_integrals(self, c, s, k, k1, G, nbands=None):
         """Calculate integrals for maximally localized Wannier functions."""
 
+        XXXXXX
         assert s <= self.nspins
 
         kpt_rank, u = divmod(k + self.nkpts * s, self.nmyu)

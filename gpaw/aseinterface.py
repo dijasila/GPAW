@@ -90,11 +90,11 @@ class GPAW(PAW):
         return self.bzk_kc
  
     def get_number_of_spins(self):
-        return self.nspins
+        return self.wfs.nspins
 
     def get_spin_polarized(self):
         """Is it a spin-polarized calculation?"""
-        return self.nspins == 2
+        return self.wfs.nspins == 2
     
     def get_ibz_k_points(self):
         """Return k-points in the irreducible part of the Brillouin zone."""
@@ -115,7 +115,7 @@ class GPAW(PAW):
         1)."""
         
         nt_sG = self.density.nt_sG
-        if self.nspins == 1:
+        if self.wfs.nspins == 1:
             nt_G = nt_sG[0]
             if spin is not None:
                 nt_G = 0.5 * nt_G
@@ -144,7 +144,7 @@ class GPAW(PAW):
         and the all-electron densities at each atom.  These are the numbers
         you should add to the result of doing e.g. Bader analysis on the
         pseudo density."""
-        if self.nspins == 1:
+        if self.wfs.nspins == 1:
             return npy.array([n.get_density_correction(0, 1)
                               for n in self.nuclei])
         else:
@@ -157,9 +157,9 @@ class GPAW(PAW):
         if n_G is None:
             return npy.array([0.]) # let the slave return something
         
-        if self.nspins == 1 and spin is not None:
+        if self.wfs.nspins == 1 and spin is not None:
             n_G *= .5
-        elif self.nspins == 2:
+        elif self.wfs.nspins == 2:
             if spin is None:
                 n_G = n_G.sum(axis=0)
             else:
@@ -168,6 +168,14 @@ class GPAW(PAW):
         if pad:
             n_G = self.gd.zero_pad(n_G)
         return n_G / Bohr**3
+
+    def get_fermi_level(self):
+        """Return the Fermi-level."""
+        e = self.occupation.get_fermi_level()
+        if e is None:
+            # Zero temperature calculation - return vacuum level:
+            e = 0.0
+        return e * Hartree
 
     def get_wigner_seitz_densities(self, spin):
         """Get the weight of the spin-density in Wigner-Seitz cells
@@ -186,7 +194,7 @@ class GPAW(PAW):
         for a, nucleus in enumerate(self.nuclei):
             # XXX Optimize! No need to integrate in zero-region
             smooth = self.gd.integrate(npy.where(atom_index == a, nt_G, .0))
-            correction = nucleus.get_density_correction(spin, self.nspins)
+            correction = nucleus.get_density_correction(spin, self.wfs.nspins)
             weight_a[a] = smooth + correction
             
         return weight_a
@@ -335,7 +343,11 @@ class GPAW(PAW):
 
     def get_magnetic_moments(self, atoms=None):
         """Return the local magnetic moments within augmentation spheres"""
-        return self.magmom_a
+        magmom_a = self.density.calculate_magnetic_moments()
+        M = self.occupations.magmom
+        if abs(M) > 1e-7:
+            magmom_a *= M / magmom_a.sum()
+        return magmom_a
         
     def get_number_of_grid_points(self):
         return self.gd.N_c

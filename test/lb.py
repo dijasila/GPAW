@@ -2,7 +2,7 @@ import os
 
 from ase import *
 from ase.parallel import rank, barrier
-from gpaw import Calculator
+from gpaw import GPAW
 from gpaw import setup_paths
 from gpaw.atom.all_electron import AllElectron
 from gpaw.atom.generator import Generator, parameters
@@ -46,7 +46,7 @@ for atom in e_HOMO_cs.keys():
     
     SS = Atoms([Atom(atom)], cell=(7, 7, 7), pbc=False)
     SS.center()
-    c = Calculator(h=.3, xc='LB94', nbands=-2, txt=txt)
+    c = GPAW(h=.3, xc='LB94', nbands=-2, txt=txt)
     c.calculate(SS)
     # find HOMO energy
     kpt = c.kpt_u[0]
@@ -81,7 +81,7 @@ for atom in e_HOMO_os.keys():
 
     SS = Atoms([Atom(atom, magmom=magmom)], cell=(7, 7, 7), pbc=False)
     SS.center()
-    c = Calculator(h=.3, xc='LB94', nbands=-2, spinpol=True,
+    c = GPAW(h=.3, xc='LB94', nbands=-2, spinpol=True,
                    fixmom=True, txt=txt)
     c.calculate(SS)
     # find HOMO energy

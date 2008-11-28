@@ -1,14 +1,14 @@
 #!/usr/bin/env python
-import numpy as npy
+import numpy as np
 
 from ase import *
 from ase.parallel import rank
 
-from gpaw import Calculator
+from gpaw import GPAW
 from gpaw.utilities import equal
 
 try:
-    calc = Calculator('NaCl.gpw')
+    calc = GPAW('NaCl.gpw')
     NaCl = calc.get_atoms()
 except:
     h = 0.17 # gridspacing
@@ -19,7 +19,7 @@ except:
                   Atom('Cl', [0, 0, d])],
                  pbc=False, cell=a)
     NaCl.center()
-    calc = Calculator(h=h, xc='LDA', nbands=5, lmax=0,
+    calc = GPAW(h=h, xc='LDA', nbands=5, lmax=0,
                       convergence={'eigenstates': 1e-6}, spinpol=1)
 
     NaCl.set_calculator(calc)
@@ -30,9 +30,9 @@ nt = calc.get_pseudo_valence_density()
 gridrefinement = 2 # grid-refinement-factor for all-electron density
 n = calc.get_all_electron_density(gridrefinement=gridrefinement)
 
-dv = npy.product(calc.get_grid_spacings())
-Zt = npy.sum(nt.ravel()) * dv
-Z = npy.sum(n.ravel()) * dv / gridrefinement**3
+dv = np.product(calc.get_grid_spacings())
+Zt = np.sum(nt.ravel()) * dv
+Z = np.sum(n.ravel()) * dv / gridrefinement**3
 
 if rank == 0:
     print 'Integral of pseudo density:', Zt

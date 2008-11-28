@@ -1,4 +1,4 @@
-import numpy as npy
+import numpy as np
 from gpaw.utilities import unpack
 from gpaw.utilities.lapack import diagonalize
 from gpaw.mpi import parallel
@@ -21,18 +21,6 @@ class LCAO:
         self.band_comm = None
 
     def calculate_hamiltonian_matrix(self, hamiltonian, wfs, kpt):
-        if self.H_MM is None:
-            nao = wfs.setups.nao
-            self.eps_n = npy.empty(nao)
-            self.S_MM = npy.empty((nao, nao), wfs.dtype)
-            self.H_MM = npy.empty((nao, nao), wfs.dtype)
-            self.timer = wfs.timer
-            self.comm = wfs.gd.comm
-            self.mynbands = wfs.mynbands
-            self.band_comm = wfs.band_comm
-            #self.linear_dependence_check(wfs)
-            print 'self.linear_dependence_check(wfs)'
-
         s = kpt.s
         q = kpt.q
 
@@ -41,16 +29,35 @@ class LCAO:
                                                        self.H_MM, q)
         self.timer.stop('LCAO: potential matrix')
 
+        print self.H_MM
         for a, P_Mi in kpt.P_aMi.items():
             dH_ii = unpack(hamiltonian.dH_asp[a][s])
-            
-            self.H_MM += npy.dot(P_Mi, npy.inner(dH_ii, P_Mi).conj())
+            self.H_MM += np.dot(P_Mi, np.inner(dH_ii, P_Mi).conj())
+        print self.H_MM
 
         self.comm.sum(self.H_MM)
 
         self.H_MM += wfs.T_qMM[q]
+        print self.H_MM
+        print wfs.T_qMM[q]
+        print wfs.S_qMM[q]
 
     def iterate(self, hamiltonian, wfs):
+        if self.H_MM is None:
+            nao = wfs.setups.nao
+            self.eps_n = np.empty(nao)
+            self.S_MM = np.empty((nao, nao), wfs.dtype)
+            self.H_MM = np.empty((nao, nao), wfs.dtype)
+            self.timer = wfs.timer
+            self.comm = wfs.gd.comm
+            self.mynbands = wfs.mynbands
+            self.band_comm = wfs.band_comm
+            #self.linear_dependence_check(wfs)
+            print 'self.linear_dependence_check(wfs)'
+            for kpt in wfs.kpt_u:
+                if kpt.eps_n is None:
+                    kpt.eps_n = np.empty(self.mynbands)
+
         for kpt in wfs.kpt_u:
             self.iterate_one_k_point(hamiltonian, wfs, kpt)
 
@@ -94,6 +101,7 @@ class LCAO:
             self.timer.stop(dsyev_zheev_string)
 
             kpt.C_nM[:] = self.H_MM[n1:n2]
+            print kpt.eps_n, self.eps_n,n1,n2
             kpt.eps_n[:] = self.eps_n[n1:n2]
 
             self.comm.broadcast(kpt.C_nM, 0)
@@ -102,7 +110,7 @@ class LCAO:
             assert self.eps_n[0] != 42
 
         for P_ni, P_Mi in zip(kpt.P_ani.values(), kpt.P_aMi.values()):
-            P_ni[:] = npy.dot(kpt.C_nM, P_Mi)
+            P_ni[:] = np.dot(kpt.C_nM, P_Mi)
 
     def remove_linear_dependence(self, P_MM, p_M, H_MM):
         """Diagonalize H_MM with a reduced overlap matrix from which the
@@ -128,9 +136,9 @@ class LCAO:
 
         """
 
-        s_q = npy.extract(p_M > self.thres, p_M)
-        S_qq = npy.diag(s_q)
-        S_qq = npy.array(S_qq, self.dtype)
+        s_q = np.extract(p_M > self.thres, p_M)
+        S_qq = np.diag(s_q)
+        S_qq = np.array(S_qq, self.dtype)
         q = len(s_q)
         p = self.nao - q
         P_Mq = P_MM[p:, :].T.conj()
@@ -139,9 +147,9 @@ class LCAO:
         for M in range(self.nao - 1):
             H_MM[M, m:] = H_MM[M:, M].conj()
 
-        H_qq = npy.dot(P_Mq.T.conj(), npy.dot(H_MM, P_Mq))
+        H_qq = np.dot(P_Mq.T.conj(), np.dot(H_MM, P_Mq))
 
-        eps_q = npy.zeros(q)
+        eps_q = np.zeros(q)
 
         if sl_diagonalize:
             assert parallel
@@ -171,7 +179,7 @@ class LCAO:
         self.comm.broadcast(H_qq, 0)
 
         C_nq = H_qq
-        C_nM = npy.dot(C_nq, P_Mq.T.conj())
+        C_nM = np.dot(C_nq, P_Mq.T.conj())
         return eps_q, C_nM
 
     def linear_dependence_check(self, wfs):
@@ -182,7 +190,7 @@ class LCAO:
         for k, S_MM in enumerate(wfs.S_kMM):
             P_MM = S_MM.copy()
             #P_mm = wfs.S_kMM[k].copy()
-            p_M = npy.empty(self.nao)
+            p_M = np.empty(self.nao)
 
             dsyev_zheev_string = 'LCAO: '+'diagonalize-test'
 

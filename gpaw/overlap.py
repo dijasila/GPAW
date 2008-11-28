@@ -49,7 +49,8 @@ class Overlap:
         self.work_In = None
         self.work2_In = None
         self.big_work_arrays = wfs.big_work_arrays
-
+        self.setups = wfs.setups
+        
     def apply(self, a_nG, b_nG, kpt, calculate_P_uni=True):
         """Apply the overlap operator to a set of vectors.
 
@@ -86,8 +87,7 @@ class Overlap:
             nucleus.apply_inverse_overlap(a_nG, b_nG, kpt.k)
 
 
-    def orthonormalize(self, kpt, psit_nG=None, work_nG=None,
-                       calculate_projections=True):
+    def orthonormalize(self, wfs, kpt):
         """Orthonormalizes the vectors a_nG with respect to the overlap.
 
         First, a Cholesky factorization C is done for the overlap
@@ -117,13 +117,8 @@ class Overlap:
 
         self.timer.start('Orthonormalize')
 
-        if calculate_projections:
-            assert psit_nG is None
-            run([nucleus.calculate_projections(kpt)
-                 for nucleus in self.pt_nuclei])
-
-        if psit_nG is None:
-            psit_nG = kpt.psit_nG
+        wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+        psit_nG = kpt.psit_nG
 
         mynbands = len(psit_nG)
         nbands = mynbands * self.band_comm.size
@@ -134,7 +129,7 @@ class Overlap:
 
         S_nn = self.work_nn
 
-        if work_nG is None:
+        if 1:#work_nG is None:
             if 'work_nG' in self.big_work_arrays:
                 work_nG = self.big_work_arrays['work_nG']
             else:
@@ -142,20 +137,20 @@ class Overlap:
 
         # Construct the overlap matrix:
         self.calculate_overlap_matrix(psit_nG, work_nG, kpt, S_nn)
-
+        
         self.timer.start('Orthonormalize: inverse_cholesky')
 
         if sl_inverse_cholesky:
             assert parallel and scalapack()
-            info = inverse_cholesky(S_nn, kpt.root)
+            info = inverse_cholesky(S_nn, 0)
         else:
-            if self.comm.rank == kpt.root and self.band_comm.rank == 0:
+            if self.comm.rank == 0 and self.band_comm.rank == 0:
                 info = inverse_cholesky(S_nn)
         if sl_inverse_cholesky:
             if info != 0:
                 raise RuntimeError('Orthogonalization failed!')
         else:
-            if self.comm.rank == kpt.root and self.band_comm.rank == 0:
+            if self.comm.rank == 0 and self.band_comm.rank == 0:
                 if info != 0:
                     raise RuntimeError('Orthogonalization failed!')
         self.timer.stop('Orthonormalize: inverse_cholesky')
@@ -165,7 +160,7 @@ class Overlap:
         del S_nn
 
         if self.band_comm.rank == 0:
-            self.comm.broadcast(C_nn, kpt.root)
+            self.comm.broadcast(C_nn, 0)
         self.band_comm.broadcast(C_nn, 0)
 
         self.matrix_multiplication(kpt, C_nn)
@@ -189,8 +184,7 @@ class Overlap:
                 if work_nG is self.big_work_arrays.get('work_nG'):
                     self.big_work_arrays['work_nG'] = psit_nG
 
-            for nucleus in self.my_nuclei:
-                P_ni = nucleus.P_uni[kpt.u]
+            for P_ni in kpt.P_ani.values():
                 gemm(1.0, P_ni.copy(), C_nn, 0.0, P_ni)
 
             return
@@ -225,13 +219,12 @@ class Overlap:
         size = band_comm.size
         if size == 1:
             rk(self.gd.dv, psit_nG, 0.0, S_nn)
-            for nucleus in self.my_nuclei:
-                P_ni = nucleus.P_uni[kpt.u]
-                dO_ii = nucleus.setup.O_ii
+            for a, P_ni in kpt.P_ani.items():
+                dO_ii = self.setups[a].O_ii
                 #???????gemm(1.0, P_ni, npy.dot(P_ni, dO_ii), 1.0, S_nn, 't')
-                S_nn += npy.dot(P_ni, cc(npy.inner(nucleus.setup.O_ii, P_ni)))
+                S_nn += npy.dot(P_ni, npy.inner(dO_ii, P_ni).conj())
 
-            self.comm.sum(S_nn, kpt.root)
+            self.comm.sum(S_nn, 0)
             return
 
         assert size % 2 == 1

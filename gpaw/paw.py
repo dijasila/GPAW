@@ -14,7 +14,7 @@ from ase.dft import monkhorst_pack
 import gpaw.io
 import gpaw.mpi as mpi
 import gpaw.occupations as occupations
-from gpaw import dry_run
+from gpaw import dry_run, KohnShamConvergenceError
 from gpaw.density import Density
 from gpaw.eigensolvers import get_eigensolver
 from gpaw.grid_descriptor import GridDescriptor
@@ -200,6 +200,8 @@ class PAW(PAWTextOutput):
         elif (len(atoms) != len(self.atoms) or
               (atoms.get_atomic_numbers() !=
                self.atoms.get_atomic_numbers()).any() or
+              (atoms.get_initial_magnetic_moments() !=
+               self.atoms.get_initial_magnetic_moments()).any() or
               (atoms.get_cell() != self.atoms.get_cell()).any() or
               (atoms.get_pbc() != self.atoms.get_pbc()).any()):
             # Drastic changes:
@@ -207,9 +209,13 @@ class PAW(PAWTextOutput):
             self.density = None
             self.initialize(atoms)
             self.set_positions(atoms)
+        elif not self.initialized:
+            self.initialize(atoms)
+            self.set_positions(atoms)
         elif (atoms.get_positions() != self.atoms.get_positions()).any():
             # The positions have changed.  Wave functions are no
             # longer orthonormal!
+            print('wfs.set_ortho(0)')
             self.set_positions(atoms)
 
         self.scf.run(self.wfs, self.hamiltonian, self.density,
@@ -255,7 +261,10 @@ class PAW(PAWTextOutput):
         world = par.communicator
         if world is None:
             world = mpi.world
+        self.wfs.world = world
         
+        self.set_text(par.txt, par.verbose)
+
         natoms = len(atoms)
 
         pos_av = atoms.get_positions() / Bohr
@@ -427,7 +436,7 @@ class PAW(PAWTextOutput):
             if par.mode == 'lcao':
                 self.wfs = LCAOWaveFunctions(*args)
             else:
-                self.wfs = GridWaveFunctions(stencils[0], *args)
+                self.wfs = GridWaveFunctions(par.stencils[0], *args)
 
         eigensolver = get_eigensolver(par.eigensolver, par.mode)
         eigensolver.nbands_converge = nbands_converge
@@ -446,7 +455,6 @@ class PAW(PAWTextOutput):
 
         self.forces = ForceCalculator()
 
-        self.set_text(par.txt, par.verbose)
         self.plot_atoms(atoms)
         self.print_init(pos_av)
         print 'MEMORY?'#estimate_memory(self)
@@ -516,6 +524,15 @@ class PAW(PAWTextOutput):
 
         return domain_comm, kpt_comm, band_comm
 
+    def get_reference_energy(self):
+        return self.wfs.setups.Eref * Hartree
+    
+    def write(self, filename, mode=''):
+        """use mode='all' to write the wave functions"""
+        self.timer.start('IO')
+        gpaw.io.write(self, filename, mode)
+        self.timer.stop('IO')
+        
     def initialize_kinetic(self):
         if not self.hamiltonian.xc.xcfunc.mgga:
             return
