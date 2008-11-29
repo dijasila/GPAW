@@ -50,6 +50,7 @@ def write(paw, filename, mode):
       The directory ``mywfs`` is created if not present. XXX
     """
 
+    wfs = paw.wfs
     master = (paw.wfs.world.rank == 0)
     if master:
         w = open(filename, 'w')
@@ -60,6 +61,7 @@ def write(paw, filename, mode):
         w['energyunit'] = 'Hartree'
 
         atoms = paw.atoms
+        natoms = len(atoms)
 
         magmom_a = paw.density.magmom_a
         try:
@@ -67,9 +69,9 @@ def write(paw, filename, mode):
             if tag_a is None:
                 raise KeyError
         except KeyError:
-            tag_a = npy.zeros(paw.natoms, int)
+            tag_a = npy.zeros(natoms, int)
 
-        w.dimension('natoms', paw.natoms)
+        w.dimension('natoms', natoms)
         w.dimension('3', 3)
 
         w.add('AtomicNumbers', ('natoms',),
@@ -81,17 +83,18 @@ def write(paw, filename, mode):
         w.add('BoundaryConditions', ('3',), atoms.get_pbc(), units=(0, 0))
         w.add('UnitCell', ('3', '3'), atoms.get_cell() / Bohr, units=(1, 0))
 
-        w.add('PotentialEnergy', (), paw.Etot + 0.5 * paw.S,
+        w.add('PotentialEnergy', (), paw.scf.Etot + 0.5 * paw.scf.S,
               units=(0, 1))
-        if paw.F_ac is not None:
-            w.add('CartesianForces', ('natoms', '3'), paw.F_ac, units=(-1, 1))
+        if paw.forces.F_av is not None:
+            w.add('CartesianForces', ('natoms', '3'), paw.forces.F_ac,
+                  units=(-1, 1))
 
         # Write the k-points:
-        w.dimension('nbzkpts', len(paw.bzk_kc))
-        w.dimension('nibzkpts', paw.nkpts)
-        w.add('BZKPoints', ('nbzkpts', '3'), paw.bzk_kc)
-        w.add('IBZKPoints', ('nibzkpts', '3'), paw.ibzk_kc)
-        w.add('IBZKPointWeights', ('nibzkpts',), paw.weight_k)
+        w.dimension('nbzkpts', len(wfs.bzk_kc))
+        w.dimension('nibzkpts', len(wfs.ibzk_kc))
+        w.add('BZKPoints', ('nbzkpts', '3'), wfs.bzk_kc)
+        w.add('IBZKPoints', ('nibzkpts', '3'), wfs.ibzk_kc)
+        w.add('IBZKPointWeights', ('nibzkpts',), wfs.weight_k)
 
         # Create dimensions for varioius netCDF variables:
         ng = paw.gd.get_size_of_global_array()
@@ -107,8 +110,8 @@ def write(paw, filename, mode):
 
         nproj = 0
         nadm = 0
-        for nucleus in paw.nuclei:
-            ni = nucleus.get_number_of_partial_waves()
+        for setup in wfs.setups:
+            ni = setup.ni
             nproj += ni
             nadm += ni * (ni + 1) / 2
         w.dimension('nproj', nproj)
@@ -119,42 +122,42 @@ def write(paw, filename, mode):
         (w['KohnShamStencil'],
          w['InterpolationStencil']) = p['stencils']
         w['PoissonStencil'] = paw.hamiltonian.poisson.nn
-        w['XCFunctional'] = paw.hamiltonian.xc.xcfunc.get_name()
+        w['XCFunctional'] = paw.hamiltonian.xcfunc.get_name()
         w['Charge'] = p['charge']
         w['FixMagneticMoment'] = paw.fixmom
         w['UseSymmetry'] = p['usesymm']
-        w['Converged'] = paw.converged
-        w['FermiWidth'] = paw.occupation.kT
+        w['Converged'] = paw.scf.converged
+        w['FermiWidth'] = paw.occupations.kT
         w['MixClass'] = paw.density.mixer.__class__.__name__
         w['MixBeta'] = paw.density.mixer.beta
         w['MixOld'] = paw.density.mixer.nmaxold
         w['MixMetric'] = paw.density.mixer.metric_type
         w['MixWeight'] = paw.density.mixer.weight
-        w['MaximumAngularMomentum'] = paw.nuclei[0].setup.lmax
-        w['SoftGauss'] = paw.nuclei[0].setup.softgauss
-        w['FixDensity'] = paw.fixdensity > paw.maxiter
+        w['MaximumAngularMomentum'] = p.lmax
+        w['SoftGauss'] = False
+        w['FixDensity'] = p.fixdensity
         w['DensityConvergenceCriterion'] = p['convergence']['density']
         w['EnergyConvergenceCriterion'] = p['convergence']['energy'] / Hartree
         w['EigenstatesConvergenceCriterion'] = p['convergence']['eigenstates']
         w['NumberOfBandsToConverge'] = p['convergence']['bands']
-        w['Ekin'] = paw.Ekin
-        w['Epot'] = paw.Epot
-        w['Ebar'] = paw.Ebar
-        w['Eext'] = paw.Eext
-        w['Exc'] = paw.Exc
-        w['S'] = paw.S
-        epsF = paw.occupation.get_fermi_level()
+        w['Ekin'] = scf.Ekin
+        w['Epot'] = scf.Epot
+        w['Ebar'] = scf.Ebar
+        w['Eext'] = scf.Eext
+        w['Exc'] = scf.Exc
+        w['S'] = scf.S
+        epsF = paw.occupations.get_fermi_level()
         if epsF is None:
             # Zero temperature calculation - use vacuum level:
             epsF = 0.0
         w['FermiLevel'] = epsF
 
         # write errors
-        w['DensityError'] = paw.error['density']
-        w['EnergyError'] = paw.error['energy']
-        w['EigenstateError'] = paw.error['eigenstates']
+        w['DensityError'] = 10.0
+        w['EnergyError'] = 10.0
+        w['EigenstateError'] = 10.0  # XXX
 
-        if paw.dtype == float:
+        if wfs.dtype == float:
             w['DataType'] = 'Float'
         else:
             w['DataType'] = 'Complex'
@@ -163,7 +166,7 @@ def write(paw, filename, mode):
             w['Time'] = paw.time
 
         # Write fingerprint (md5-digest) for all setups:
-        for setup in paw.setups:
+        for setup in wfs.setups:
             key = atomic_names[setup.Z] + 'Fingerprint'
             if setup.type != 'paw':
                 key += '(%s)' % setup.type
@@ -174,7 +177,7 @@ def write(paw, filename, mode):
             setup_types = {None: setup_types}
         w['SetupTypes'] = repr(setup_types)
 
-        dtype = {float: float, complex: complex}[paw.dtype]
+        dtype = {float: float, complex: complex}[wfs.dtype]
         # write projections
         w.add('Projections', ('nspins', 'nibzkpts', 'nbands', 'nproj'),
               dtype=dtype)
@@ -246,7 +249,7 @@ def write(paw, filename, mode):
                 nstride = paw.band_comm.size
                 for band_rank in range(paw.band_comm.size):
                     if kpt_rank == 0 and band_rank == 0:
-                        eps_all_n[0::nstride] = paw.wfs.kpt_u[u].eps_n
+                        eps_all_n[0::nstride] = wfs.kpt_u[u].eps_n
                     else:
                         eps_n = npy.empty(paw.mynbands)
                         world_rank = kpt_rank * paw.domain.comm.size * paw.band_comm.size + band_rank * paw.domain.comm.size 
@@ -254,7 +257,7 @@ def write(paw, filename, mode):
                         eps_all_n[band_rank::nstride] = eps_n
                 w.fill(eps_all_n)
     elif paw.domain.comm.rank == 0:
-        for kpt in paw.wfs.kpt_u:
+        for kpt in wfs.kpt_u:
             paw.world.send(kpt.eps_n, 0, 4300)
 
     # Write the occupation numbers:
@@ -268,7 +271,7 @@ def write(paw, filename, mode):
                 nstride = paw.band_comm.size
                 for band_rank in range(paw.band_comm.size):
                     if kpt_rank == 0 and band_rank == 0:
-                        f_all_n[0::nstride] = paw.wfs.kpt_u[u].f_n
+                        f_all_n[0::nstride] = wfs.kpt_u[u].f_n
                     else:
                         f_n = npy.empty(paw.mynbands)
                         world_rank = kpt_rank * paw.domain.comm.size * paw.band_comm.size + band_rank * paw.domain.comm.size 
@@ -276,7 +279,7 @@ def write(paw, filename, mode):
                         f_all_n[band_rank::nstride] = f_n
                 w.fill(f_all_n)
     elif paw.domain.comm.rank == 0:
-        for kpt in paw.wfs.kpt_u:
+        for kpt in wfs.kpt_u:
             paw.world.send(kpt.f_n, 0, 4301)
 
     # Write the pseudodensity on the coarse grid:
@@ -439,8 +442,8 @@ def read(paw, reader):
     nbands = len(r.get('Eigenvalues', 0, 0))
 
     if nkpts == paw.nkpts and nbands == paw.band_comm.size * paw.mynbands:
-        paw.wfs.allocate_bands(paw.mynbands)
-        for kpt in paw.wfs.kpt_u:
+        wfs.allocate_bands(paw.mynbands)
+        for kpt in wfs.kpt_u:
             # Eigenvalues and occupation numbers:
             k = kpt.k
             s = kpt.s
@@ -458,7 +461,7 @@ def read(paw, reader):
             # functions in memory - so psit_nG will be a special type of
             # array that is really just a reference to a file:
             if paw.world.size > 1: # if parallel
-                for kpt in paw.wfs.kpt_u:
+                for kpt in wfs.kpt_u:
                     # Read band by band to save memory
                     kpt.psit_nG = []
                     for nb in range(paw.mynbands):
@@ -467,11 +470,11 @@ def read(paw, reader):
                             r.get_reference('PseudoWaveFunctions',
                                             kpt.s, kpt.k, n) )
             else:
-                for kpt in paw.wfs.kpt_u:
+                for kpt in wfs.kpt_u:
                     kpt.psit_nG = r.get_reference('PseudoWaveFunctions',
                                                   kpt.s, kpt.k)
 
-        for u, kpt in enumerate(paw.wfs.kpt_u):
+        for u, kpt in enumerate(wfs.kpt_u):
             P_ni = r.get('Projections', kpt.s, kpt.k)
             i1 = 0
             n0 = paw.band_comm.rank

@@ -106,8 +106,6 @@ class Sphere:
                                     gd.n_c, gd.beg_c)
 
 
-print 'get_rank_for_position .....'
-
 class NewLocalizedFunctionsCollection:
     def __init__(self, gd, spline_aj, kpt_comm=None, cut=False):
         self.gd = gd
@@ -117,7 +115,6 @@ class NewLocalizedFunctionsCollection:
         self.gamma = True
         
     def set_k_points(self, ibzk_qc):
-        jhgkjhg
         self.ibzk_qc = ibzk_qc
         self.gamma = False
                 
@@ -133,7 +130,7 @@ class NewLocalizedFunctionsCollection:
     def _update(self, spos_ac):
         nB = 0
         nW = 0
-        print 'My_atoms_indices'
+        #print 'My_atoms_indices'
         self.my_atom_indices = self.atom_indices = []
         for a, sphere in enumerate(self.sphere_a):
             G_wb = sphere.G_wb

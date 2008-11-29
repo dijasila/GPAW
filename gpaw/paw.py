@@ -384,7 +384,7 @@ class PAW(PAWTextOutput):
             self.occupations = occupations.FermiDirac(nvalence, nspins, width)
 
         if fixmom:
-            self.occupation.fix_moment(M)
+            self.occupations.fix_moment(M)
 
         from gpaw import parsize
         if parsize is None:
@@ -458,7 +458,7 @@ class PAW(PAWTextOutput):
 
         self.plot_atoms(atoms)
         self.print_init(pos_av)
-        print 'MEMORY?'#estimate_memory(self)
+
         if dry_run:
             self.print_parameters()
             self.txt.flush()

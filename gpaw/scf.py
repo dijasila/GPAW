@@ -69,14 +69,17 @@ class SCFLoop:
         self.niter_fixdensity = 0
 
     def add_up_energies(self, hamiltonian, occupations):
-        self.Ekin = hamiltonian.Ekin + occupations.Eband;print ' + self.Enlkin'
+        self.Ekin = hamiltonian.Ekin + occupations.Eband
         self.Epot = hamiltonian.Epot
         self.Eext = hamiltonian.Eext
         self.Ebar = hamiltonian.Ebar
         self.Exc = hamiltonian.Exc# + self.Enlxc
-        self.S = occupations.S
+        self.S = occupations.S  # entropy
+
+        # Total free energy:
         self.Etot = (self.Ekin + self.Epot + self.Eext + 
                      self.Ebar + self.Exc - self.S)
+
         self.energies.append(self.Etot)
 
     def check_convergence(self, density, eigensolver):

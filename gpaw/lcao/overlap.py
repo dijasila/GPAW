@@ -400,7 +400,7 @@ class TwoCenterIntegrals:
         self.domain.comm.sum(S_qMM)
         self.domain.comm.sum(T_qMM)
 
-    def st(self, a1, a2, r, R, rlY_lm, drlYdR_lmc, phase_k, selfinteraction,
+    def st(self, a1, a2, r, R, rlY_lm, drlYdR_lmc, phase_q, selfinteraction,
            M1a, M2, S_qMM, T_qMM):
         """Calculate overlaps and kinetic energy matrix elements for the
         (a,b) pair of atoms."""
@@ -427,11 +427,11 @@ class TwoCenterIntegrals:
                     S_qMM[0, M2a:M2b, M1a:M1b] += s_mm
                     T_qMM[0, M2a:M2b, M1a:M1b] += t_mm
                 else:
-                    s_qmm = s_mm[None, :, :] * phase_k.conj()
-                    t_qmm = t_mm[None, :, :] * phase_k.conj()
+                    s_qmm = s_mm[None, :, :] * phase_q.conj()
+                    t_qmm = t_mm[None, :, :] * phase_q.conj()
                     if selfinteraction:
-                        s1_qmm = s_qMM.transpose(0, 2, 1).conj()
-                        t1_qmm = t_qMM.transpose(0, 2, 1).conj()
+                        s1_qmm = s_qmm.transpose(0, 2, 1).conj()
+                        t1_qmm = t_qmm.transpose(0, 2, 1).conj()
                         S_qMM[:, M1a:M1b, M2a:M2b] += s1_qmm
                         T_qMM[:, M1a:M1b, M2a:M2b] += t1_qmm
                     S_qMM[:, M2a:M2b, M1a:M1b] += s_qmm

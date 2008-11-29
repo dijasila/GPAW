@@ -10,7 +10,7 @@ import numpy as np
 
 from gpaw.poisson import PoissonSolver
 from gpaw.transformers import Transformer
-from gpaw.xc_functional import XC3DGrid
+from gpaw.xc_functional import XCFunctional, XC3DGrid
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 
 
@@ -63,7 +63,8 @@ class Hamiltonian:
         # Exchange-correlation functional object:
         self.xc = XC3DGrid(xcfunc, finegd, nspins)
 
-        self.vbar = LFC(self.finegd, [[setup.vbar] for setup in setups])
+        self.vbar = LFC(self.finegd, [[setup.vbar] for setup in setups],
+                        forces=True)
 
     def set_positions(self, spos_ac):
         self.vbar.set_positions(spos_ac)

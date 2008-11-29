@@ -40,7 +40,7 @@ class ForceCalculator:
 
         # Force from zero potential:
         dF_av = hamiltonian.vbar.dict(derivative=True)
-        hamiltonian.vbar.derivative(vt_G, dF_av)
+        hamiltonian.vbar.derivative(density.nt_g, dF_av)
         for a, dF_v in dF_av.items():
             self.F_av[a] += dF_v[0]
 

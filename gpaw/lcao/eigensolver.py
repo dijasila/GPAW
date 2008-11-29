@@ -29,18 +29,12 @@ class LCAO:
                                                        self.H_MM, q)
         self.timer.stop('LCAO: potential matrix')
 
-        print self.H_MM
         for a, P_Mi in kpt.P_aMi.items():
             dH_ii = unpack(hamiltonian.dH_asp[a][s])
             self.H_MM += np.dot(P_Mi, np.inner(dH_ii, P_Mi).conj())
-        print self.H_MM
-
         self.comm.sum(self.H_MM)
 
         self.H_MM += wfs.T_qMM[q]
-        print self.H_MM
-        print wfs.T_qMM[q]
-        print wfs.S_qMM[q]
 
     def iterate(self, hamiltonian, wfs):
         if self.H_MM is None:
@@ -53,7 +47,6 @@ class LCAO:
             self.mynbands = wfs.mynbands
             self.band_comm = wfs.band_comm
             #self.linear_dependence_check(wfs)
-            print 'self.linear_dependence_check(wfs)'
             for kpt in wfs.kpt_u:
                 if kpt.eps_n is None:
                     kpt.eps_n = np.empty(self.mynbands)
@@ -101,7 +94,6 @@ class LCAO:
             self.timer.stop(dsyev_zheev_string)
 
             kpt.C_nM[:] = self.H_MM[n1:n2]
-            print kpt.eps_n, self.eps_n,n1,n2
             kpt.eps_n[:] = self.eps_n[n1:n2]
 
             self.comm.broadcast(kpt.C_nM, 0)

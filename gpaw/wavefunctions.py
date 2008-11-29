@@ -2,7 +2,7 @@ import numpy as np
 
 from gpaw.lfc import BasisFunctions
 from gpaw.utilities.blas import axpy
-from gpaw.utilities import pack
+from gpaw.utilities import pack, unpack2
 from gpaw.kpoint import KPoint
 
 
@@ -69,7 +69,8 @@ class WaveFunctions(EmptyWaveFunctions):
             if gamma:
                 phase_cd = None
             else:
-                phase_cd = np.exp(2j * np.pi * sdisp_cd * ibzk_kc[k])
+                phase_cd = np.exp(2j * np.pi *
+                                  sdisp_cd * ibzk_kc[k, :, np.newaxis])
             self.kpt_u.append(KPoint(weight, s, k, q, phase_cd))
 
         self.ibzk_qc = ibzk_kc[k0:k + 1]
@@ -95,8 +96,8 @@ class WaveFunctions(EmptyWaveFunctions):
             self.band_comm.sum(D_sp)
             self.kpt_comm.sum(D_sp)
 
-        if self.symmetry is not None:
-            for nt_G in self.nt_sG:
+        if self.symmetry:
+            for nt_G in nt_sG:
                 self.symmetry.symmetrize(nt_G, self.gd)
 
             all_D_asp = []
@@ -112,8 +113,9 @@ class WaveFunctions(EmptyWaveFunctions):
             for s in range(self.nspins):
                 D_aii = [unpack2(D_sp[s]) for D_sp in all_D_asp]
                 for a, D_sp in D_asp.items():
-                    D_sp[s] = pack(self.setups[a].symmetrize(a, D_aii,
-                                                             symmetry.maps))
+                    setup = self.setups[a]
+                    D_sp[s] = pack(setup.symmetrize(a, D_aii,
+                                                    self.symmetry.maps))
 
     def set_positions(self, spos_ac):
         if self.symmetry is not None:
@@ -186,7 +188,7 @@ class LCAOWaveFunctions(WaveFunctions):
                                                   self.kpt_comm,
                                                   cut=True)
             if not self.gamma:
-                basis_functions.set_k_points(self.ibzk_qc)
+                self.basis_functions.set_k_points(self.ibzk_qc)
         self.basis_functions.set_positions(spos_ac)
 
         nq = len(self.ibzk_qc)
@@ -259,7 +261,7 @@ class GridWaveFunctions(WaveFunctions):
         self.kin = Laplace(self.gd, -0.5, stencil, self.dtype)
         self.set_orthonormalized(False)
         self.pt = LFC(self.gd, [setup.pt_j for setup in self.setups],
-                      self.kpt_comm)
+                      self.kpt_comm, dtype=self.dtype, forces=True)
         if not self.gamma:
             self.pt.set_k_points(self.ibzk_qc)
         self.big_work_arrays = {}

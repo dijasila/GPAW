@@ -64,9 +64,9 @@ class Density:
         self.interpolate = Transformer(self.gd, self.finegd, stencil).apply
 
         self.nct = LFC(self.gd, [[setup.nct] for setup in setups],
-                       integral=[setup.Nct for setup in setups])
+                       integral=[setup.Nct for setup in setups], forces=True)
         self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
-                        integral=sqrt(4 * pi))
+                        integral=sqrt(4 * pi), forces=True)
 
     def set_positions(self, spos_ac):
         self.nct.set_positions(spos_ac)
