@@ -4,6 +4,7 @@ import os.path
 
 from ase.units import Bohr, Hartree
 from ase.data import atomic_names
+from ase.atoms import Atoms
 import numpy as npy
 
 import gpaw.mpi as mpi
@@ -51,7 +52,11 @@ def write(paw, filename, mode):
     """
 
     wfs = paw.wfs
+    scf = paw.scf
+    hamiltonian = paw.hamiltonian
+
     master = (paw.wfs.world.rank == 0)
+
     if master:
         w = open(filename, 'w')
 
@@ -83,7 +88,7 @@ def write(paw, filename, mode):
         w.add('BoundaryConditions', ('3',), atoms.get_pbc(), units=(0, 0))
         w.add('UnitCell', ('3', '3'), atoms.get_cell() / Bohr, units=(1, 0))
 
-        w.add('PotentialEnergy', (), paw.scf.Etot + 0.5 * paw.scf.S,
+        w.add('PotentialEnergy', (), hamiltonian.Etot + 0.5 * hamiltonian.S,
               units=(0, 1))
         if paw.forces.F_av is not None:
             w.add('CartesianForces', ('natoms', '3'), paw.forces.F_ac,
@@ -105,8 +110,8 @@ def write(paw, filename, mode):
         w.dimension('nfinegptsx', ng[0])
         w.dimension('nfinegptsy', ng[1])
         w.dimension('nfinegptsz', ng[2])
-        w.dimension('nspins', paw.nspins)
-        w.dimension('nbands', paw.nbands)
+        w.dimension('nspins', wfs.nspins)
+        w.dimension('nbands', wfs.nbands)
 
         nproj = 0
         nadm = 0
@@ -124,9 +129,9 @@ def write(paw, filename, mode):
         w['PoissonStencil'] = paw.hamiltonian.poisson.nn
         w['XCFunctional'] = paw.hamiltonian.xcfunc.get_name()
         w['Charge'] = p['charge']
-        w['FixMagneticMoment'] = paw.fixmom
+        w['FixMagneticMoment'] = p.fixmom
         w['UseSymmetry'] = p['usesymm']
-        w['Converged'] = paw.scf.converged
+        w['Converged'] = scf.converged
         w['FermiWidth'] = paw.occupations.kT
         w['MixClass'] = paw.density.mixer.__class__.__name__
         w['MixBeta'] = paw.density.mixer.beta
@@ -140,12 +145,12 @@ def write(paw, filename, mode):
         w['EnergyConvergenceCriterion'] = p['convergence']['energy'] / Hartree
         w['EigenstatesConvergenceCriterion'] = p['convergence']['eigenstates']
         w['NumberOfBandsToConverge'] = p['convergence']['bands']
-        w['Ekin'] = scf.Ekin
-        w['Epot'] = scf.Epot
-        w['Ebar'] = scf.Ebar
-        w['Eext'] = scf.Eext
-        w['Exc'] = scf.Exc
-        w['S'] = scf.S
+        w['Ekin'] = hamiltonian.Ekin
+        w['Epot'] = hamiltonian.Epot
+        w['Ebar'] = hamiltonian.Ebar
+        w['Eext'] = hamiltonian.Eext
+        w['Exc'] = hamiltonian.Exc
+        w['S'] = hamiltonian.S
         epsF = paw.occupations.get_fermi_level()
         if epsF is None:
             # Zero temperature calculation - use vacuum level:
@@ -166,7 +171,7 @@ def write(paw, filename, mode):
             w['Time'] = paw.time
 
         # Write fingerprint (md5-digest) for all setups:
-        for setup in wfs.setups:
+        for setup in wfs.setups.setups.values():
             key = atomic_names[setup.Z] + 'Fingerprint'
             if setup.type != 'paw':
                 key += '(%s)' % setup.type
@@ -182,113 +187,84 @@ def write(paw, filename, mode):
         w.add('Projections', ('nspins', 'nibzkpts', 'nbands', 'nproj'),
               dtype=dtype)
 
-        all_P_uni = npy.empty((paw.nmyu, paw.nbands, nproj), paw.dtype)
-        nstride = paw.band_comm.size
-        for kpt_rank in range(paw.kpt_comm.size):
-            for band_rank in range(paw.band_comm.size):
-                i = 0
-                for nucleus in paw.nuclei:
-                    ni = nucleus.get_number_of_partial_waves()
-                    if kpt_rank == 0 and band_rank == 0 and nucleus.in_this_domain:
-                        P_uni = nucleus.P_uni
-                    else:
-                        P_uni = npy.empty((paw.nmyu, paw.mynbands, ni), paw.dtype)
-                        world_rank = nucleus.rank + kpt_rank * paw.domain.comm.size * paw.band_comm.size + band_rank * paw.domain.comm.size
-                        paw.world.receive(P_uni, world_rank, 300)
+        mynu = len(wfs.kpt_u)
+        all_P_ni = npy.empty((wfs.nbands, nproj), wfs.dtype)
+        nstride = wfs.band_comm.size
+        for kpt_rank in range(wfs.kpt_comm.size):
+            for u in range(mynu):
+                P_ani = wfs.kpt_u[u].P_ani
+                for band_rank in range(wfs.band_comm.size):
+                    i = 0
+                    for a in range(natoms):
+                        ni = wfs.setups[a].ni
+                        if (kpt_rank == 0 and band_rank == 0 and a in P_ani):
+                            P_ni = P_ani[a]
+                        else:
+                            P_ni = npy.empty((wfs.mynbands, ni), wfs.dtype)
+                            world_rank = nucleus.rank + kpt_rank * paw.domain.comm.size * wfs.band_comm.size + band_rank * paw.domain.comm.size
+                            wfs.world.receive(P_ni, world_rank, 300 + a)
 
-                    all_P_uni[:, band_rank::nstride, i:i + ni] = P_uni
-                    i += ni
-
-            for u in range(paw.nmyu):
-                w.fill(all_P_uni[u])
+                        all_P_ni[band_rank::nstride, i:i + ni] = P_ni
+                        i += ni
+                w.fill(all_P_ni)
         assert i == nproj
 
     # else is slave
     else:
-        for nucleus in paw.my_nuclei:
-            paw.world.send(nucleus.P_uni, 0, 300)
-
+        for u in range(mynu):
+            P_ani = wfs.kpt_u[u].P_ani
+            for a in range(natoms):
+                if a in P_ani:
+                    wfs.world.send(P_ani[a], 0, 300 + a)
 
     # Write atomic density matrices and non-local part of hamiltonian:
     if master:
-        all_D_sp = npy.empty((paw.nspins, nadm))
-        all_H_sp = npy.empty((paw.nspins, nadm))
-        q1 = 0
-        for nucleus in paw.nuclei:
-            ni = nucleus.get_number_of_partial_waves()
-            np = ni * (ni + 1) / 2
-            if nucleus.in_this_domain:
-                D_sp = nucleus.D_sp
-                H_sp = nucleus.H_sp
+        all_D_sp = npy.empty((wfs.nspins, nadm))
+        all_H_sp = npy.empty((wfs.nspins, nadm))
+        p1 = 0
+        for a in range(natoms):
+            ni = wfs.setups[a].ni
+            nii = ni * (ni + 1) / 2
+            if a in paw.density.D_asp:
+                D_sp = paw.density.D_asp[a]
+                dH_sp = paw.hamiltonian.dH_asp[a]
             else:
-                D_sp = npy.empty((paw.nspins, np))
+                D_sp = npy.empty((wfs.nspins, nii))
                 paw.domain.comm.receive(D_sp, nucleus.rank, 207)
-                H_sp = npy.empty((paw.nspins, np))
+                H_sp = npy.empty((wfs.nspins, nii))
                 paw.domain.comm.receive(H_sp, nucleus.rank, 2071)
-            q2 = q1 + np
-            all_D_sp[:, q1:q1+np] = D_sp
-            all_H_sp[:, q1:q1+np] = H_sp
-            q1 = q2
-        assert q2 == nadm
+            p2 = p1 + nii
+            all_D_sp[:, p1:p2] = D_sp
+            all_H_sp[:, p1:p2] = dH_sp
+            p1 = p2
+        assert p2 == nadm
         w.add('AtomicDensityMatrices', ('nspins', 'nadm'), all_D_sp)
         w.add('NonLocalPartOfHamiltonian', ('nspins', 'nadm'), all_H_sp)
 
-    elif paw.kpt_comm.rank == 0:
-        for nucleus in paw.my_nuclei:
-            paw.domain.comm.send(nucleus.D_sp, 0, 207)
-            paw.domain.comm.send(nucleus.H_sp, 0, 2071)
+    elif wfs.kpt_comm.rank == 0:
+        for a in range(natoms):
+            if a in paw.density.D_asp:
+                paw.domain.comm.send(nucleus.D_sp, 0, 207)
+                paw.domain.comm.send(nucleus.H_sp, 0, 2071)
 
-
-    # Write the eigenvalues:
-    if master:
-        w.add('Eigenvalues', ('nspins', 'nibzkpts', 'nbands'), dtype=float)
-        for kpt_rank in range(paw.kpt_comm.size):
-            for u in range(paw.nmyu):
-                s, k = divmod(u + kpt_rank * paw.nmyu, paw.nkpts)
-                eps_all_n = npy.empty(paw.nbands)
-                nstride = paw.band_comm.size
-                for band_rank in range(paw.band_comm.size):
-                    if kpt_rank == 0 and band_rank == 0:
-                        eps_all_n[0::nstride] = wfs.kpt_u[u].eps_n
-                    else:
-                        eps_n = npy.empty(paw.mynbands)
-                        world_rank = kpt_rank * paw.domain.comm.size * paw.band_comm.size + band_rank * paw.domain.comm.size 
-                        paw.world.receive(eps_n, world_rank, 4300)
-                        eps_all_n[band_rank::nstride] = eps_n
-                w.fill(eps_all_n)
-    elif paw.domain.comm.rank == 0:
-        for kpt in wfs.kpt_u:
-            paw.world.send(kpt.eps_n, 0, 4300)
-
-    # Write the occupation numbers:
-    if master:
-        w.add('OccupationNumbers', ('nspins', 'nibzkpts', 'nbands'),
-              dtype=float)
-        for kpt_rank in range(paw.kpt_comm.size):
-            for u in range(paw.nmyu):
-                s, k = divmod(u + kpt_rank * paw.nmyu, paw.nkpts)
-                f_all_n = npy.empty(paw.nbands)
-                nstride = paw.band_comm.size
-                for band_rank in range(paw.band_comm.size):
-                    if kpt_rank == 0 and band_rank == 0:
-                        f_all_n[0::nstride] = wfs.kpt_u[u].f_n
-                    else:
-                        f_n = npy.empty(paw.mynbands)
-                        world_rank = kpt_rank * paw.domain.comm.size * paw.band_comm.size + band_rank * paw.domain.comm.size 
-                        paw.world.receive(f_n, world_rank, 4301)
-                        f_all_n[band_rank::nstride] = f_n
-                w.fill(f_all_n)
-    elif paw.domain.comm.rank == 0:
-        for kpt in wfs.kpt_u:
-            paw.world.send(kpt.f_n, 0, 4301)
+    nibzkpts = len(wfs.ibzk_kc)
+    # Write the eigenvalues and occupation numbers:
+    for name, var in [('Eigenvalues', 'eps_n'), ('OccupationNumbers', 'f_n')]:
+        if master:
+            w.add(name, ('nspins', 'nibzkpts', 'nbands'), dtype=float)
+        for s in range(wfs.nspins):
+            for k in range(nibzkpts):
+                a_n = wfs.collect_array(var, k, s)
+                if master:
+                    w.fill(a_n)
 
     # Write the pseudodensity on the coarse grid:
     if master:
         w.add('PseudoElectronDensity',
               ('nspins', 'ngptsx', 'ngptsy', 'ngptsz'), dtype=float)
-    if paw.kpt_comm.rank == 0:
-        for s in range(paw.nspins):
-            nt_sG = paw.gd.collect(paw.density.nt_sG[s])
+    if wfs.kpt_comm.rank == 0:
+        for s in range(wfs.nspins):
+            nt_sG = wfs.gd.collect(paw.density.nt_sG[s])
             if master:
                 w.fill(nt_sG)
 
@@ -296,9 +272,9 @@ def write(paw, filename, mode):
     if master:
         w.add('PseudoPotential',
               ('nspins', 'ngptsx', 'ngptsy', 'ngptsz'), dtype=float)
-    if paw.kpt_comm.rank == 0:
-        for s in range(paw.nspins):
-            vt_sG = paw.gd.collect(paw.hamiltonian.vt_sG[s])
+    if wfs.kpt_comm.rank == 0:
+        for s in range(wfs.nspins):
+            vt_sG = wfs.gd.collect(paw.hamiltonian.vt_sG[s])
             if master:
                 w.fill(vt_sG)
 
@@ -309,10 +285,10 @@ def write(paw, filename, mode):
                                           'ngptsx', 'ngptsy', 'ngptsz'),
                   dtype=dtype)
 
-        for s in range(paw.nspins):
-            for k in range(paw.nkpts):
-                for n in range(paw.nbands):
-                    psit_G = paw.get_wave_function_array(n, k, s)
+        for s in range(wfs.nspins):
+            for k in range(nibzkpts):
+                for n in range(wfs.nbands):
+                    psit_G = wfs.get_wave_function_array(n, k, s)
                     if master: 
                         w.fill(psit_G)
     elif mode != '':
@@ -326,18 +302,18 @@ def write(paw, filename, mode):
                 if not os.path.exists(dirname):
                     os.makedirs(dirname)
                 else:
-                    raise RuntimeError('Can\'t create subdir '+dirname)
+                    raise RuntimeError("Can't create subdir " + dirname)
         else:
             dirname = '.'
         # the slaves have to wait until the directory is created
-        paw.world.barrier()
+        wfs.world.barrier()
         print >> paw.txt, 'Writing wave functions to', dirname,\
               'using mode=', mode
 
         ngd = paw.gd.get_size_of_global_array()
         for s in range(paw.nspins):
-            for k in range(paw.nkpts):
-                for n in range(paw.nbands):
+            for k in range(nibzkpts):
+                for n in range(wfs.nbands):
                     psit_G = paw.get_wave_function_array(n, k, s)
                     if master:
                         fname = template % (s,k,n) + '.'+ftype
@@ -359,15 +335,16 @@ def write(paw, filename, mode):
 
     # We don't want the slaves to start reading before the master has
     # finished writing:
-    paw.world.barrier()
+    wfs.world.barrier()
 
 
 def read(paw, reader):
     r = reader
-
+    wfs = paw.wfs
+    scf = paw.scf
+    hamiltonian = paw.hamiltonian
     version = r['version']
-
-    for setup in paw.setups:
+    for setup in paw.wfs.setups.setups.values():
         try:
             key = atomic_names[setup.Z] + 'Fingerprint'
             if setup.type != 'paw':
@@ -385,50 +362,46 @@ def read(paw, reader):
             
     # Read pseudoelectron density pseudo potential on the coarse grid
     # and distribute out to nodes:
-    for s in range(paw.nspins):
+    paw.density.nt_sG = wfs.gd.empty(wfs.nspins)
+    for s in range(wfs.nspins):
         paw.gd.distribute(r.get('PseudoElectronDensity', s),
                           paw.density.nt_sG[s])
 
-    # Transfer the density to the fine grid:
-    paw.density.interpolate_pseudo_density()  # Do this later??????
-    paw.density.starting_density_initialized = True
     
     if version > 0.3:
-        for s in range(paw.nspins): 
+        paw.hamiltonian.vt_sG = wfs.gd.empty(wfs.nspins)
+        for s in range(wfs.nspins): 
             paw.gd.distribute(r.get('PseudoPotential', s),
                               paw.hamiltonian.vt_sG[s])
 
     # Read atomic density matrices and non-local part of hamiltonian:
     D_sp = r.get('AtomicDensityMatrices')
     if version > 0.3:
-        H_sp = r.get('NonLocalPartOfHamiltonian')
+        dH_sp = r.get('NonLocalPartOfHamiltonian')
     p1 = 0
-    for nucleus in paw.nuclei:
-        ni = nucleus.get_number_of_partial_waves()
-        p2 = p1 + ni * (ni + 1) / 2
-        if nucleus.in_this_domain:
-            nucleus.D_sp[:] = D_sp[:, p1:p2]
-            if version > 0.3:
-                nucleus.H_sp[:] = H_sp[:, p1:p2]
+    paw.density.D_asp = {}
+    paw.hamiltonian.dH_asp = {}
+    for a, setup in enumerate(wfs.setups):
+        ni = setup.ni
+        p2 = p1 + ni * (ni + 1) // 2
+        paw.density.D_asp[a] = D_sp[:, p1:p2].copy()
+        if version > 0.3:
+            paw.hamiltonian.dH_asp[a] = dH_sp[:, p1:p2].copy()
         p1 = p2
 
-    paw.Ekin = r['Ekin']
+    hamiltonian.Ekin = r['Ekin']
+    hamiltonian.Epot = r['Epot']
+    hamiltonian.Ebar = r['Ebar']
     try:
-        paw.Ekin0 = r['Ekin0']
+        hamiltonian.Eext = r['Eext']
     except (AttributeError, KeyError):
-        paw.Ekin0 = 0.0
-    paw.Epot = r['Epot']
-    paw.Ebar = r['Ebar']
-    try:
-        paw.Eext = r['Eext']
-    except (AttributeError, KeyError):
-        paw.Eext = 0.0        
-    paw.Exc = r['Exc']
-    paw.S = r['S']
-    paw.Etot = r.get('PotentialEnergy') - 0.5 * paw.S
+        hamiltonian.Eext = 0.0        
+    hamiltonian.Exc = r['Exc']
+    hamiltonian.S = r['S']
+    hamiltonian.Etot = r.get('PotentialEnergy') - 0.5 * hamiltonian.S
 
-    if not paw.fixmom:
-        paw.occupation.set_fermi_level(r['FermiLevel'])
+    if not paw.input_parameters.fixmom:
+        paw.occupations.set_fermi_level(r['FermiLevel'])
 
     # Try to read the current time in time-propagation:
     if hasattr(paw, 'time'):
@@ -438,29 +411,27 @@ def read(paw, reader):
             pass
         
     # Wave functions and eigenvalues:
-    nkpts = len(r.get('IBZKPoints'))
-    nbands = len(r.get('Eigenvalues', 0, 0))
+    nibzkpts = r.dims['nibzkpts']
+    nbands = r.dims['nbands']
 
-    if nkpts == paw.nkpts and nbands == paw.band_comm.size * paw.mynbands:
-        wfs.allocate_bands(paw.mynbands)
+    if (nibzkpts == len(wfs.kpt_u) and
+        nbands == wfs.band_comm.size * wfs.mynbands):
         for kpt in wfs.kpt_u:
             # Eigenvalues and occupation numbers:
             k = kpt.k
             s = kpt.s
-            eps_n = npy.empty(nbands)
-            f_n = npy.empty(nbands)
-            eps_n[:] = r.get('Eigenvalues', s, k)
-            f_n[:] = r.get('OccupationNumbers', s, k)
-            n0 = paw.band_comm.rank
-            nstride = paw.band_comm.size
-            kpt.eps_n[:] = eps_n[n0::nstride]
-            kpt.f_n[:] = f_n[n0::nstride]
+            eps_n = r.get('Eigenvalues', s, k)
+            f_n = r.get('OccupationNumbers', s, k)
+            n0 = wfs.band_comm.rank
+            nstride = wfs.band_comm.size
+            kpt.eps_n = eps_n[n0::nstride].copy()
+            kpt.f_n = f_n[n0::nstride].copy()
         
         if r.has_array('PseudoWaveFunctions'):
             # We may not be able to keep all the wave
             # functions in memory - so psit_nG will be a special type of
             # array that is really just a reference to a file:
-            if paw.world.size > 1: # if parallel
+            if wfs.world.size > 1: # if parallel
                 for kpt in wfs.kpt_u:
                     # Read band by band to save memory
                     kpt.psit_nG = []
@@ -477,17 +448,17 @@ def read(paw, reader):
         for u, kpt in enumerate(wfs.kpt_u):
             P_ni = r.get('Projections', kpt.s, kpt.k)
             i1 = 0
-            n0 = paw.band_comm.rank
-            nstride = paw.band_comm.size
-            for nucleus in paw.nuclei:
-                i2 = i1 + nucleus.get_number_of_partial_waves()
-                if nucleus.in_this_domain:
-                    nucleus.P_uni[u, :paw.mynbands] = P_ni[n0::nstride, i1:i2]
+            n0 = wfs.band_comm.rank
+            nstride = wfs.band_comm.size
+            kpt.P_ani = {}
+            for a, setup in enumerate(wfs.setups):
+                i2 = i1 + setup.ni
+                kpt.P_ani[a] = P_ni[n0::nstride, i1:i2].copy()
                 i1 = i2
 
     # Get the forces from the old calculation:
     if r.has_array('CartesianForces'):
-        paw.F_ac = r.get('CartesianForces')
+        paw.forces.F_av = r.get('CartesianForces')
 
 
 def read_atoms(reader):

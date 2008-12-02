@@ -40,7 +40,7 @@ class SCFLoop:
         self.density_error = None
         self.converged = False
 
-    def run(self, wfs, hamiltonian, density, occupations, paw=None):
+    def run(self, wfs, hamiltonian, density, occupations):
         if self.converged:
             return
 
@@ -49,16 +49,12 @@ class SCFLoop:
             occupations.calculate(wfs.kpt_u)
             # XXX ortho, dens, wfs?
 
-            self.add_up_energies(hamiltonian, occupations)
+            energy = hamiltonian.get_energy(occupations)
+            self.energies.append(energy)
             self.check_convergence(density, wfs.eigensolver)
-            if paw is not None:
-                paw.call_observers(iter)
-                paw.print_iteration(iter)
+            yield iter
             
             if self.converged:
-                if paw is not None:
-                    paw.call_observers(iter, final=True)
-                    paw.print_converged(iter)
                 break
 
             if iter > self.niter_fixdensity:
@@ -67,20 +63,6 @@ class SCFLoop:
 
         # Don't fix the density in the next step:
         self.niter_fixdensity = 0
-
-    def add_up_energies(self, hamiltonian, occupations):
-        self.Ekin = hamiltonian.Ekin + occupations.Eband
-        self.Epot = hamiltonian.Epot
-        self.Eext = hamiltonian.Eext
-        self.Ebar = hamiltonian.Ebar
-        self.Exc = hamiltonian.Exc# + self.Enlxc
-        self.S = occupations.S  # entropy
-
-        # Total free energy:
-        self.Etot = (self.Ekin + self.Epot + self.Eext + 
-                     self.Ebar + self.Exc - self.S)
-
-        self.energies.append(self.Etot)
 
     def check_convergence(self, density, eigensolver):
         """Check convergence of eigenstates, energy and density."""

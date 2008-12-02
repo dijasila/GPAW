@@ -130,7 +130,7 @@ class PAW(PAWTextOutput):
         self.initialized = False
 
         if filename is not None:
-            reader = gpaw.io.open(reader, 'r')
+            reader = gpaw.io.open(filename, 'r')
             self.atoms = gpaw.io.read_atoms(reader)
             self.input_parameters.read(reader)
 
@@ -219,10 +219,16 @@ class PAW(PAWTextOutput):
             print('wfs.set_ortho(0)')
             self.set_positions(atoms)
 
-        self.scf.run(self.wfs, self.hamiltonian, self.density,
-                     self.occupations, self)
-
-        if converge and not self.scf.converged:
+        iter = 1
+        for iter in self.scf.run(self.wfs, self.hamiltonian, self.density,
+                                 self.occupations):
+            self.call_observers(iter)
+            self.print_iteration(iter)
+            
+        if self.scf.converged:
+            self.call_observers(iter, final=True)
+            self.print_converged(iter)
+        elif converge:
             raise KohnShamConvergenceError('Did not converge!')        
 
     def set_positions(self, atoms=None):

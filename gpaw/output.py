@@ -269,20 +269,20 @@ class PAWTextOutput:
 
         t('-------------------------')
 
-        energies = [('Kinetic:      ',  self.scf.Ekin),
-                    ('Potential:    ',  self.scf.Epot),
-                    ('External:     ',  self.scf.Eext),
-                    ('XC:           ',  self.scf.Exc),
-                    ('Entropy (-ST):', -self.scf.S),
-                    ('Local:        ',  self.scf.Ebar)]
+        energies = [('Kinetic:      ',  self.hamiltonian.Ekin),
+                    ('Potential:    ',  self.hamiltonian.Epot),
+                    ('External:     ',  self.hamiltonian.Eext),
+                    ('XC:           ',  self.hamiltonian.Exc),
+                    ('Entropy (-ST):', -self.hamiltonian.S),
+                    ('Local:        ',  self.hamiltonian.Ebar)]
 
         for name, e in energies:
             t('%-14s %+10.5f' % (name, Hartree * e))
 
         t('-------------------------')
-        t('Free Energy:   %+10.5f' % (Hartree * self.scf.Etot))
-        t('Zero Kelvin:   %+10.5f' % (Hartree * (self.scf.Etot +
-                                                 0.5 * self.scf.S)))
+        t('Free Energy:   %+10.5f' % (Hartree * self.hamiltonian.Etot))
+        t('Zero Kelvin:   %+10.5f' % (Hartree * (self.hamiltonian.Etot +
+                                                 0.5 * self.hamiltonian.S)))
         t()
         epsF = self.occupations.get_fermi_level()
         if epsF is not None:
@@ -367,7 +367,7 @@ class PAWTextOutput:
                T[3], T[4], T[5],
                eigerr,
                denserr,
-               Hartree * (self.scf.Etot + 0.5 * self.scf.S),
+               Hartree * (self.hamiltonian.Etot + 0.5 * self.hamiltonian.S),
                niterocc,
                niterpoisson), end='')
 

@@ -23,7 +23,7 @@ LiH.center()
 # architecture-independent results:
 LiH.translate(0.003234)
 
-calc = GPAW(fixmom=True, hund=True, communicator=comm)
+calc = GPAW(communicator=comm)
 Hnospin.set_calculator(calc)
 Hnospin.get_potential_energy()
 energies, sweight = raw_orbital_LDOS(calc, a=0, spin=0, angular='s')

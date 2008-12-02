@@ -66,6 +66,15 @@ class Hamiltonian:
         self.vbar = LFC(self.finegd, [[setup.vbar] for setup in setups],
                         forces=True)
 
+        self.Ekin0 = None
+        self.Ekin = None
+        self.Epot = None
+        self.Ebar = None
+        self.Eext = None
+        self.Exc = None
+        self.Etot = None
+        self.S = None
+
     def set_positions(self, spos_ac):
         self.vbar.set_positions(spos_ac)
         if self.vbar_g is None:
@@ -84,9 +93,9 @@ class Hamiltonian:
         self.timer.start('Hamiltonian')
 
         if self.vt_sg is None:
-            self.vt_sg = self.finegd.empty(2)
+            self.vt_sg = self.finegd.empty(self.nspins)
             self.vHt_g = self.finegd.zeros()
-            self.vt_sG = self.gd.empty(2)
+            self.vt_sG = self.gd.empty(self.nspins)
             self.poisson.initialize(self.finegd)
 
         Ebar = np.vdot(self.vbar_g, density.nt_g) * self.finegd.dv
@@ -114,7 +123,6 @@ class Hamiltonian:
             self.timer.start('GLLB')
             Exc = self.xc.xcfunc.xc.update_xc_potential()
             self.timer.stop('GLLB')
-
         self.timer.start('Poisson')
         # npoisson is the number of iterations:
         self.npoisson = self.poisson.solve(self.vHt_g, density.rhot_g,
@@ -189,13 +197,23 @@ class Hamiltonian:
         self.timer.stop('Atomic Hamiltonians')
 
         comm = self.gd.comm
-        self.Ekin = comm.sum(Ekin)
+        self.Ekin0 = comm.sum(Ekin)
         self.Epot = comm.sum(Epot)
         self.Ebar = comm.sum(Ebar)
         self.Eext = comm.sum(Eext)
         self.Exc = comm.sum(Exc)
 
         self.timer.stop('Hamiltonian')
+
+    def get_energy(self, occupations):
+        self.Ekin = self.Ekin0 + occupations.Eband
+        self.S = occupations.S  # entropy
+
+        # Total free energy:
+        self.Etot = (self.Ekin + self.Epot + self.Eext + 
+                     self.Ebar + self.Exc - self.S)
+
+        return self.Etot
 
     def apply_local_potential(self, psit_nG, Htpsit_nG, s):
         """Apply the Hamiltonian operator to a set of vectors.
@@ -245,6 +263,8 @@ class Hamiltonian:
                 nucleus.allocate_non_local_things(self.nmyu,self.mynbands)
         
         vt_g = self.finegd.empty()  # not used for anything!
+        if density.nt_sg is None:
+            density.interpolate()
         nt_sg = density.nt_sg
         if self.nspins == 2:
             Exc = xc.get_energy_and_potential(nt_sg[0], vt_g, nt_sg[1], vt_g)

@@ -33,10 +33,10 @@ class GPAW(PAW):
 
         if force_consistent:
             # Free energy:
-            return Hartree * self.scf.Etot
+            return Hartree * self.hamiltonian.Etot
         else:
             # Energy extrapolated to zero Kelvin:
-            return Hartree * (self.scf.Etot + 0.5 * self.scf.S)
+            return Hartree * (self.hamiltonian.Etot + 0.5 * self.hamiltonian.S)
 
     def get_forces(self, atoms):
         """Return the forces for the current state of the ListOfAtoms."""
@@ -283,18 +283,18 @@ class GPAW(PAW):
                                  pad=True):
         """Return pseudo-wave-function array.
 
-        Unit: 1/Angstrom^(3/2)
+        Units: 1/Angstrom^(3/2)
         """
         if pad:
             return self.gd.zero_pad(self.get_pseudo_wave_function(
                 band, kpt, spin, broadcast, False))
         psit_G = self.wfs.get_wave_function_array(band, kpt, spin)
         if broadcast:
-            if not self.master:
+            if not self.wfs.world.rank == 0:
                 psit_G = self.gd.empty(dtype=self.dtype, global_array=True)
             self.world.broadcast(psit_G, 0)
             return psit_G / Bohr**1.5
-        elif self.master:
+        elif self.wfs.world.rank == 0:
             return psit_G / Bohr**1.5
 
     def get_eigenvalues(self, kpt=0, spin=0):

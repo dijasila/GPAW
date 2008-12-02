@@ -1,3 +1,8 @@
+from ase.units import Hartree
+
+from gpaw.poisson import PoissonSolver
+
+
 class InputParameters(dict):
     def __init__(self):
         dict.__init__(self, [
@@ -41,7 +46,7 @@ class InputParameters(dict):
     def __setattr__(self, key, value):
         self[key] = value
 
-    def read_atoms_and_input_parameters(self, reader):
+    def read(self, reader):
         """Read state from file."""
 
         if isinstance(reader, str):

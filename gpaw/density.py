@@ -46,6 +46,7 @@ class Density:
 
         self.charge_eps = 1e-7
         self.D_asp = None
+        self.Q_aL = None
 
         self.nct_G = None
         self.nt_sG = None
@@ -61,7 +62,7 @@ class Density:
         self.magmom_a = magmom_a
         
         # Interpolation function for the density:
-        self.interpolate = Transformer(self.gd, self.finegd, stencil).apply
+        self.interpolater = Transformer(self.gd, self.finegd, stencil)
 
         self.nct = LFC(self.gd, [[setup.nct] for setup in setups],
                        integral=[setup.Nct for setup in setups], forces=True)
@@ -74,18 +75,15 @@ class Density:
         self.mixer.reset()
 
         self.nct_G = self.gd.zeros()
-        self.nct.add(self.nct_G)
+        self.nct.add(self.nct_G, 1.0 / self.nspins)
         self.nt_sG = None
         self.nt_sg = None
         self.nt_g = None
         self.rhot_g = None
         self.D_asp = {}
-        self.Q_aL = {}
         for a in self.nct.my_atom_indices:
             ni = self.setups[a].ni
             self.D_asp[a] = np.empty((self.nspins, ni * (ni + 1) // 2))
-            lmax = self.setups[a].lmax
-            self.Q_aL[a] = np.empty((lmax + 1)**2)
 
     def update(self, wfs, basis_functions=None):
         if self.nt_sG is None:
@@ -110,23 +108,9 @@ class Density:
 
         if not self.mixer.mix_rho:
             self.mixer.mix(self)
-            comp_charge = self.calculate_multipole_moments()
+            comp_charge = None
             
-        if self.nt_sg is None:
-            self.nt_sg = self.finegd.empty(self.nspins)
-
-        for s in range(self.nspins):
-            self.interpolate(self.nt_sG[s], self.nt_sg[s])
-
-        # With periodic boundary conditions, the interpolation will
-        # conserve the number of electrons.
-        if not self.gd.domain.pbc_c.all():
-            # With zero-boundary conditions in one or more directions,
-            # this is not the case.
-            pseudo_charge = -(self.charge + comp_charge)
-            if pseudo_charge != 0:
-                x = pseudo_charge / self.finegd.integrate(self.nt_sg).sum()
-                self.nt_sg *= x
+        self.interpolate(comp_charge)
 
         self.nt_g = self.nt_sg.sum(axis=0)
         self.rhot_g = self.nt_g.copy()
@@ -140,11 +124,31 @@ class Density:
         if self.mixer.mix_rho:
             self.mixer.mix(self)
 
+    def interpolate(self, comp_charge=None):
+        if comp_charge is None:
+            comp_charge = self.calculate_multipole_moments()
+
+        if self.nt_sg is None:
+            self.nt_sg = self.finegd.empty(self.nspins)
+
+        for s in range(self.nspins):
+            self.interpolater.apply(self.nt_sG[s], self.nt_sg[s])
+
+        # With periodic boundary conditions, the interpolation will
+        # conserve the number of electrons.
+        if not self.gd.domain.pbc_c.all():
+            # With zero-boundary conditions in one or more directions,
+            # this is not the case.
+            pseudo_charge = -(self.charge + comp_charge)
+            if pseudo_charge != 0:
+                x = pseudo_charge / self.finegd.integrate(self.nt_sg).sum()
+                self.nt_sg *= x
+
     def calculate_multipole_moments(self):
         comp_charge = 0.0
+        self.Q_aL = {}
         for a, D_sp in self.D_asp.items():
-            Q_L = self.Q_aL[a]
-            Q_L[:] = np.dot(D_sp.sum(0), self.setups[a].Delta_pL)
+            Q_L = self.Q_aL[a] = np.dot(D_sp.sum(0), self.setups[a].Delta_pL)
             Q_L[0] += self.setups[a].Delta0
             comp_charge += Q_L[0]
         return self.gd.comm.sum(comp_charge) * sqrt(4 * pi)
@@ -226,7 +230,7 @@ class Density:
             gd = self.finegd.refine()
             
             # Interpolation function for the density:
-            interpolator = Transformer(self.finegd, gd, 3)
+            interpolater = Transformer(self.finegd, gd, 3)
 
             # Transfer the pseudo-density to the fine grid:
             n_sg = gd.empty(self.nspins)
@@ -274,6 +278,6 @@ class Density:
 
         """Transfer the density from the coarse to the fine grid."""
         for s in range(self.nspins):
-            self.interpolate(self.taut_sG[s], self.taut_sg[s])
+            self.interpolater.apply(self.taut_sG[s], self.taut_sg[s])
 
         return 

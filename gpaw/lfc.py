@@ -411,10 +411,10 @@ class LocalizedFunctionsCollection:
                 c_axi[a] = np.empty(shape + (ni,), self.dtype)
             return c_axi
         
-    def add(self, a_xG, c_axi=None, q=-1):
-        if c_axi is None:
+    def add(self, a_xG, c_axi=1.0, q=-1):
+        if isinstance(c_axi, float):
             assert q == -1
-            c_xi = np.array([1.0])
+            c_xi = np.array([c_axi])
             run([lfs.iadd(a_xG, c_xi) for lfs in self.lfs_a.values()])
         else:
             run([lfs.iadd(a_xG, c_axi.get(a), q, True)
