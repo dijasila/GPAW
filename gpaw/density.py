@@ -159,23 +159,18 @@ class Density:
         The density is initialized from atomic orbitals, and will
         be constructed with the specified magnetic moments and
         obeying Hund's rules if ``hund`` is true."""
-        
+
         f_sM = np.empty((self.nspins, basis_functions.Mmax))
         self.D_asp = {}
-        M1 = 0
+        f_asi = {}
         for a in basis_functions.atom_indices:
             f_si = self.setups[a].calculate_initial_occupation_numbers(
                     self.magmom_a[a], self.hund)
-
-            if 1:
-                assert self.gd.comm.size == 1
+            if a in basis_functions.my_atom_indices:
                 self.D_asp[a] = self.setups[a].initialize_density_matrix(f_si)
+            f_asi[a] = f_si
 
-            M2 = M1 + f_si.shape[1]
-            f_sM[:, M1:M2] = f_si
-            M1 = M2
-
-        basis_functions.add_to_density(self.nt_sG, f_sM)
+        basis_functions.add_to_density(self.nt_sG, f_asi)
 
     def set_mixer(self, mixer, fixmom, width):
         if mixer is not None:

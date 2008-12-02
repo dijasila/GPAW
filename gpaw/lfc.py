@@ -58,6 +58,8 @@ class Sphere:
     def __init__(self, spline_j):
         self.spline_j = spline_j
         self.spos_c = None
+        self.rank = None
+        self.ranks = None
 
     def set_position(self, spos_c, gd, cut, ibzk_qc):
         if self.spos_c is not None and not (self.spos_c - spos_c).any():
@@ -83,17 +85,21 @@ class Sphere:
                     if ibzk_qc is not None:
                         self.sdisp_wc.append(sdisp_c)
                     ng += A_gm.shape[0]
+                    assert A_gm.shape[0] > 0
             M += 2 * l + 1
 
         if ng > 0:
             self.Mmax = M
+            self.rank = gd.domain.get_rank_from_position(spos_c)
         else:
             self.Mmax = 0
-            self.A_wgm = []
-            self.G_wb = []
-            self.M_w = []
+            self.rank = None
+            self.ranks = None
+            self.A_wgm = None
+            self.G_wb = None
+            self.M_w = None
             if ibzk_qc is not None:
-                self.sdisp_wc = []
+                self.sdisp_wc = None
             
         self.spos_c = spos_c
         return True
@@ -130,14 +136,22 @@ class NewLocalizedFunctionsCollection:
     def _update(self, spos_ac):
         nB = 0
         nW = 0
-        #print 'My_atoms_indices'
-        self.my_atom_indices = self.atom_indices = []
+        self.my_atom_indices = []
+        self.atom_indices = []
         for a, sphere in enumerate(self.sphere_a):
             G_wb = sphere.G_wb
-            if len(G_wb) > 0:
+            if G_wb:
                 nB += sum([len(G_b) for G_b in G_wb])
                 nW += len(G_wb)
                 self.atom_indices.append(a)
+                if sphere.rank == self.gd.comm.rank:
+                    self.my_atom_indices.append(a)
+
+        natoms = len(spos_ac)
+        if debug:
+            # Holm-Nielsen check:
+            assert (self.gd.comm.sum(float(sum(self.my_atom_indices))) ==
+                    natoms * (natoms - 1) // 2)
 
         self.M_W = np.empty(nW, np.intc)
         self.G_B = np.empty(nB, np.intc)
@@ -149,7 +163,8 @@ class NewLocalizedFunctionsCollection:
         B1 = 0
         W = 0
         M = 0
-        for sphere in self.sphere_a:
+        for a in self.atom_indices:
+            sphere = self.sphere_a[a]
             self.A_Wgm.extend(sphere.A_wgm)
             nw = len(sphere.M_w)
             self.M_W[W:W + nw] = M + np.array(sphere.M_w)
@@ -183,42 +198,37 @@ class NewLocalizedFunctionsCollection:
         self.g_W = np.empty(nW, np.intc)
         self.i_W = np.empty(nW, np.intc)
 
-        if debug:
-            # Holm-Nielsen check:
-            natoms = len(spos_ac)
-            assert (self.gd.comm.sum(float(sum(self.my_atom_indices))) ==
-                    natoms * (natoms - 1) // 2)
-
-    def x(self):
         # Find out which ranks have a piece of the
         # localized functions:
-        natoms = len(self.sphere_a)
         x_a = np.zeros(natoms, bool)
         x_a[self.atom_indices] = True
+        x_a[self.my_atom_indices] = False
         x_ra = np.empty((self.gd.comm.size, natoms), bool)
         self.gd.comm.all_gather(x_a, x_ra)
-        self.ranks_a = [x_ra[:, a].nonzeros()[0] for a in self.atom_indices]
-        # use get_rank_for_position .....
+        for a in self.atom_indices:
+            self.sphere_a[a].ranks = x_ra[:, a].nonzero()[0]
     
-    def add(self, c_axm, a_xG, k=-1):
+    def add(self, c_axm, a_xG, q=-1):
         dtype = a_xG.dtype
-        nx = len(a_xG)
-        c_xM = np.empty((nx, self.Mmax), dtype)
+        xshape = a_xG.shape[:-3]
+        c_xM = np.empty(xshape + (self.Mmax,), dtype)
         requests = []
         M1 = 0
         for a in self.atom_indices:
-            c_xm =  c_axm.get(a)
-            M2 = M1 + self.sphere_a[a].Mmax
+            c_xm = c_axm.get(a)
+            sphere = self.sphere_a[a]
+            M2 = M1 + sphere.Mmax
             if c_xm is None:
-                requests.append(comm.receive(c_xM[M1:M2], r, a, False))
+                requests.append(comm.receive(c_xM[..., '???', M1:M2],
+                                             sphere.rank, a, False))
             else:
-                for r in ranks_a[a]:
+                for r in sphere.ranks:
                     requests.append(comm.send(c_xm, r, a, False))
 
         for request in requests:
             comm.wait(request)
 
-        self.lfc.add(c_xM, a_xG, k)
+        self.lfc.add(c_xM, a_xG, q)
 
     def griditer(self):
         """Iterate over grid points."""
@@ -241,7 +251,15 @@ class NewLocalizedFunctionsCollection:
 
 
 class BasisFunctions(NewLocalizedFunctionsCollection):
-    def add_to_density(self, nt_sG, f_sM):
+    def add_to_density(self, nt_sG, f_asi):
+        nspins = len(nt_sG)
+        f_sM = np.empty((nspins, self.Mmax))
+        M1 = 0
+        for a in self.atom_indices:
+            sphere = self.sphere_a[a]
+            M2 = M1 + sphere.Mmax
+            f_sM[:, M1:M2] = f_asi[a]
+
         for nt_G, f_M in zip(nt_sG, f_sM):
             self.lfc.construct_density1(f_M, nt_G)
 
@@ -358,7 +376,7 @@ class LocalizedFunctionsCollection:
         self.gamma = True
         self.kpt_comm = kpt_comm
 
-        self.my_atom_indices = np.arange(len(spline_aj))
+        self.my_atom_indices = None
 
     def set_k_points(self, ibzk_qc):
         self.ibzk_qc = ibzk_qc
@@ -383,6 +401,10 @@ class LocalizedFunctionsCollection:
 
         if lfbc:
             lfbc.broadcast()
+
+        rank = self.gd.comm.rank
+        self.my_atom_indices = [a for a, lfs in self.lfs_a.items()
+                                if lfs.root == rank]
 
         if self.integral_a is not None:
             if isinstance(self.integral_a, (float, int)):

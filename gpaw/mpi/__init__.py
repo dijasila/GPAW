@@ -41,6 +41,9 @@ class SerialCommunicator:
     def gather(self, a, root, b):
         b[:] = a
 
+    def all_gather(self, a, b):
+        b[:] = a
+
     def new_communicator(self, ranks):
         return self
 

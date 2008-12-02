@@ -99,7 +99,7 @@ class LCAO:
             self.comm.broadcast(kpt.C_nM, 0)
             self.comm.broadcast(kpt.eps_n, 0)
 
-            assert self.eps_n[0] != 42
+            assert kpt.eps_n[0] != 42
 
         for P_ni, P_Mi in zip(kpt.P_ani.values(), kpt.P_aMi.values()):
             P_ni[:] = np.dot(kpt.C_nM, P_Mi)
