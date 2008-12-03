@@ -259,6 +259,7 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
             sphere = self.sphere_a[a]
             M2 = M1 + sphere.Mmax
             f_sM[:, M1:M2] = f_asi[a]
+            M1 = M2
 
         for nt_G, f_M in zip(nt_sG, f_sM):
             self.lfc.construct_density1(f_M, nt_G)

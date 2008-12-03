@@ -217,7 +217,9 @@ class LCAOWaveFunctions(WaveFunctions):
             
         self.P_aqMi = {}
         for a in self.basis_functions.my_atom_indices:
+            ni = self.setups[a].ni
             self.P_aqMi[a] = np.zeros((nq, nao, ni), self.dtype)
+
         for kpt in self.kpt_u:
             q = kpt.q
             kpt.P_aMi = dict([(a, P_qMi[q])

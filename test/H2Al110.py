@@ -20,7 +20,7 @@ slab = Atoms([Atom('Al', (0, 0, 0)),
                     Atom('H', (a/2+b/2, 0, z))],
                    cell=(2*a, d, 5*d), pbc=(1, 1, 1))
 calc = GPAW(h=0.25, nbands=28, kpts=(2, 6, 1),
-                  convergence={'eigenstates': 1e-5})
+            convergence={'eigenstates': 1e-5})
 slab.set_calculator(calc)
 e = slab.get_potential_energy()
 assert calc.nkpts == 3
