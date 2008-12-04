@@ -101,8 +101,8 @@ class LCAO:
 
             assert kpt.eps_n[0] != 42
 
-        for P_ni, P_Mi in zip(kpt.P_ani.values(), kpt.P_aMi.values()):
-            P_ni[:] = np.dot(kpt.C_nM, P_Mi)
+        for a, P_ni in kpt.P_ani.items():
+            P_ni[:] = np.dot(kpt.C_nM, kpt.P_aMi[a])
 
     def remove_linear_dependence(self, P_MM, p_M, H_MM):
         """Diagonalize H_MM with a reduced overlap matrix from which the
