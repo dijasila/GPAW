@@ -57,6 +57,9 @@ def write(paw, filename, mode):
 
     master = (paw.wfs.world.rank == 0)
 
+    atoms = paw.atoms
+    natoms = len(atoms)
+
     if master:
         w = open(filename, 'w')
 
@@ -64,9 +67,6 @@ def write(paw, filename, mode):
         w['version'] = '0.7'
         w['lengthunit'] = 'Bohr'
         w['energyunit'] = 'Hartree'
-
-        atoms = paw.atoms
-        natoms = len(atoms)
 
         magmom_a = paw.density.magmom_a
         try:
@@ -211,8 +211,8 @@ def write(paw, filename, mode):
 
     # else is slave
     else:
-        for u in range(mynu):
-            P_ani = wfs.kpt_u[u].P_ani
+        for kpt in wfs.kpt_u:
+            P_ani = kpt.P_ani
             for a in range(natoms):
                 if a in P_ani:
                     wfs.world.send(P_ani[a], 0, 300 + a)

@@ -102,7 +102,7 @@ class GPAW(PAW):
         
         The sum of all weights is one."""
         
-        return self.weight_k
+        return self.wfs.weight_k
 
     def get_pseudo_density(self, spin=None, pad=True):
         """Return pseudo-density array.

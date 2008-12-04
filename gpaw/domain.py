@@ -97,6 +97,12 @@ class Domain:
                 spos_c[c] %= 1.0
         return spos_c
 
+    def get_ranks_from_positions(self, spos_ac):
+        """Calculate rank of domain containing scaled position."""
+        rnk_ac = npy.floor(spos_ac * self.parsize_c).astype(int)
+        assert (rnk_ac >= 0).all() and (rnk_ac < self.parsize_c).all()
+        return npy.dot(rnk_ac, self.stride_c)
+
     def get_rank_from_position(self, spos_c):
         """Calculate rank of domain containing scaled position."""
         rnk_c = npy.floor(spos_c * self.parsize_c).astype(int)

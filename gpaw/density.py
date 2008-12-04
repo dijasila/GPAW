@@ -94,7 +94,7 @@ class Density:
         if basis_functions:
             self.initialize_from_atomic_densities(basis_functions)
         else:
-            wfs.add_to_density(self.nt_sG, self.D_asp)
+            wfs.add_to_density(self)
 
         self.nt_sG += self.nct_G
 

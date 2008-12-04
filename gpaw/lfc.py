@@ -264,17 +264,17 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
         for nt_G, f_M in zip(nt_sG, f_sM):
             self.lfc.construct_density1(f_M, nt_G)
 
-    def construct_density(self, rho_MM, nt_G, k):
-        self.lfc.construct_density(rho_MM, nt_G, k)
+    def construct_density(self, rho_MM, nt_G, q):
+        self.lfc.construct_density(rho_MM, nt_G, q)
 
-    def calculate_potential_matrix(self, vt_G, Vt_MM, k):
+    def calculate_potential_matrix(self, vt_G, Vt_MM, q):
         """Calculate lower part of potential matrix."""
         Vt_MM[:] = 0.0
-        self.lfc.calculate_potential_matrix(vt_G, Vt_MM, k)
+        self.lfc.calculate_potential_matrix(vt_G, Vt_MM, q)
 
-    def lcao_to_grid(self, C_nM, psit_nG, k):
+    def lcao_to_grid(self, C_nM, psit_nG, q):
         for C_M, psit_G in zip(C_nM, psit_nG):
-            self.lfc.lcao_to_grid(C_M, psit_G, k)
+            self.lfc.lcao_to_grid(C_M, psit_G, q)
 
     # Python implementations:
     if 0:
@@ -397,7 +397,7 @@ class LocalizedFunctionsCollection:
                     if not self.gamma:
                         lfs.set_phase_factors(self.ibzk_qc)
                     self.lfs_a[a] = lfs
-                else:
+                elif a in self.lfs_a:
                     del self.lfs_a[a]
 
         if lfbc:

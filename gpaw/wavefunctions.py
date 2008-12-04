@@ -49,6 +49,7 @@ class WaveFunctions(EmptyWaveFunctions):
         self.weight_k = weight_k
         self.symmetry = symmetry
         self.kpt_comm = kpt_comm
+        self.rank_a = None
 
         nibzkpts = len(weight_k)
 
@@ -78,8 +79,10 @@ class WaveFunctions(EmptyWaveFunctions):
         self.eigensolver = None
         self.timer = None
         
-    def add_to_density(self, nt_sG, D_asp):
+    def add_to_density(self, density):
         """Add contribution to pseudo electron-density."""
+        nt_sG = density.nt_sG
+        D_asp = density.D_asp
         for kpt in self.kpt_u:
             self.add_to_density_from_k_point(nt_sG, kpt)
         self.band_comm.sum(nt_sG)
@@ -105,9 +108,8 @@ class WaveFunctions(EmptyWaveFunctions):
                 D_sp = D_asp.get(a)
                 if D_sp is None:
                     ni = setup.ni
-                    D_sp = np.empty((self.nspins, ni * (ni + 1) / 2))
-                self.gd.comm.broadcast(D_sp, 0)
-                assert self.gd.comm.size == 1
+                    D_sp = np.empty((self.nspins, ni * (ni + 1) // 2))
+                self.gd.comm.broadcast(D_sp, self.rank_a[a])
                 all_D_asp.append(D_sp)
 
             for s in range(self.nspins):
@@ -118,6 +120,7 @@ class WaveFunctions(EmptyWaveFunctions):
                                                     self.symmetry.maps))
 
     def set_positions(self, spos_ac):
+        self.rank_a = self.gd.domain.get_ranks_from_positions(spos_ac)
         if self.symmetry is not None:
             self.symmetry.check(spos_ac)
 
@@ -305,10 +308,17 @@ class GridWaveFunctions(WaveFunctions):
         hamiltonian.update(density)
 
         if self.kpt_u[0].psit_nG is None:
-            lcaonbands = min(self.nbands, self.setups.nao)
+            if self.nbands < self.setups.nao:
+                lcaonbands = self.nbands
+                lcaomynbands = self.mynbands
+            else:
+                lcaonbands = self.setups.nao
+                lcaomynbands = self.setups.nao
+                assert self.band_comm.size == 1
+
             lcaowfs = LCAOWaveFunctions(self.gd, self.nspins, self.setups,
                                         lcaonbands,
-                                        self.mynbands, self.dtype,
+                                        lcaomynbands, self.dtype,
                                         self.world, self.kpt_comm,
                                         self.band_comm,
                                         self.gamma, self.bzk_kc, self.ibzk_kc,
@@ -324,10 +334,11 @@ class GridWaveFunctions(WaveFunctions):
                 kpt.psit_nG = self.gd.zeros(self.mynbands,
                                             self.dtype)
                 basis_functions.lcao_to_grid(lcaokpt.C_nM, 
-                                             kpt.psit_nG[:lcaonbands], kpt.k)
+                                             kpt.psit_nG[:lcaomynbands], kpt.q)
                 lcaokpt.C_nM = None
 
-                if 0:#nbands > nao:
+                if self.mynbands > lcaomynbands:
+                    assert not True
                     # Add extra states.
                     # If the number of atomic orbitals is less than the desired
                     # number of bands, then extra random wave functions are added.

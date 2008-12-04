@@ -23,7 +23,7 @@ calc = GPAW(h=0.25, nbands=28, kpts=(2, 6, 1),
             convergence={'eigenstates': 1e-5})
 slab.set_calculator(calc)
 e = slab.get_potential_energy()
-assert calc.nkpts == 3
+assert len(calc.get_k_point_weights()) == 3
 
 for i in range(1):
     slab.positions[-2, 0] -= 0.01
