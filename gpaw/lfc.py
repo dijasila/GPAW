@@ -410,6 +410,12 @@ class LocalizedFunctionsCollection:
         self.atom_indices = [a for a, lfs in self.lfs_a.items()]
         self.atom_indices.sort()
 
+        if debug:
+            # Holm-Nielsen check:
+            natoms = len(spos_ac)
+            assert (self.gd.comm.sum(float(sum(self.my_atom_indices))) ==
+                    natoms * (natoms - 1) // 2)
+
         if self.integral_a is not None:
             if isinstance(self.integral_a, (float, int)):
                 integral = self.integral_a
@@ -444,18 +450,23 @@ class LocalizedFunctionsCollection:
             c_xi = np.array([c_axi])
             run([lfs.iadd(a_xG, c_xi) for lfs in self.lfs_a.values()])
         else:
-            run([lfs.iadd(a_xG, c_axi.get(a), q, True)
-                 for a, lfs in self.lfs_a.items()])
+            #run([lfs.iadd(a_xG, c_axi.get(a), q, True)
+            #     for a, lfs in self.lfs_a.items()])
+            run([self.lfs_a[a].iadd(a_xG, c_axi.get(a), q, True)
+                 for a in self.atom_indices])
 
     def integrate(self, a_xG, c_axi, q=-1):
         for c_xi in c_axi.values():
             c_xi.fill(0.0)
-        run([lfs.iintegrate(a_xG, c_axi.get(a), q)
-             for a, lfs in self.lfs_a.items()])
+        #run([lfs.iintegrate(a_xG, c_axi.get(a), q)
+        #     for a, lfs in self.lfs_a.items()])
+        run([self.lfs_a[a].iintegrate(a_xG, c_axi.get(a), q)
+             for a in self.atom_indices])
 
     def derivative(self, a_xG, c_axiv, q=-1):
         for c_xiv in c_axiv.values():
             c_xiv.fill(0.0)
+        order#?
         run([lfs.iderivative(a_xG, c_axiv.get(a), q)
              for a, lfs in self.lfs_a.items()])
 
