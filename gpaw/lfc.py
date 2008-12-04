@@ -406,14 +406,18 @@ class LocalizedFunctionsCollection:
         rank = self.gd.comm.rank
         self.my_atom_indices = [a for a, lfs in self.lfs_a.items()
                                 if lfs.root == rank]
+        self.my_atom_indices.sort()
+        self.atom_indices = [a for a, lfs in self.lfs_a.items()]
+        self.atom_indices.sort()
 
         if self.integral_a is not None:
             if isinstance(self.integral_a, (float, int)):
                 integral = self.integral_a
-                for a, lfs in self.lfs_a.items():
-                    lfs.normalize(integral)
+                for a in self.atom_indices:
+                    self.lfs_a[a].normalize(integral)
             else:
-                for a, lfs in self.lfs_a.items():
+                for a in self.atom_indices:
+                    lfs = self.lfs_a[a]
                     integral = self.integral_a[a]
                     if abs(integral) > 1e-15:
                         lfs.normalize(integral)
