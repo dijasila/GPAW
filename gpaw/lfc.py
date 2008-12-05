@@ -88,11 +88,11 @@ class Sphere:
                     assert A_gm.shape[0] > 0
             M += 2 * l + 1
 
+        self.Mmax = M
+        
         if ng > 0:
-            self.Mmax = M
             self.rank = gd.domain.get_rank_from_position(spos_c)
         else:
-            self.Mmax = 0
             self.rank = None
             self.ranks = None
             self.A_wgm = None
@@ -138,7 +138,11 @@ class NewLocalizedFunctionsCollection:
         nW = 0
         self.my_atom_indices = []
         self.atom_indices = []
+        M = 0
+        self.M_a = []
         for a, sphere in enumerate(self.sphere_a):
+            self.M_a.append(M)
+            M += sphere.Mmax
             G_wb = sphere.G_wb
             if G_wb:
                 nB += sum([len(G_b) for G_b in G_wb])
@@ -146,6 +150,7 @@ class NewLocalizedFunctionsCollection:
                 self.atom_indices.append(a)
                 if sphere.rank == self.gd.comm.rank:
                     self.my_atom_indices.append(a)
+        self.Mmax = M
 
         natoms = len(spos_ac)
         if debug:
@@ -162,12 +167,11 @@ class NewLocalizedFunctionsCollection:
             
         B1 = 0
         W = 0
-        M = 0
         for a in self.atom_indices:
             sphere = self.sphere_a[a]
             self.A_Wgm.extend(sphere.A_wgm)
             nw = len(sphere.M_w)
-            self.M_W[W:W + nw] = M + np.array(sphere.M_w)
+            self.M_W[W:W + nw] = self.M_a[a] + np.array(sphere.M_w)
             if not self.gamma:
                 sdisp_Wc[W:W + nw] = sphere.sdisp_wc
             for G_b in sphere.G_wb:
@@ -177,8 +181,6 @@ class NewLocalizedFunctionsCollection:
                 self.W_B[B1 + 1:B2 + 1:2] = -W - 1
                 B1 = B2
                 W += 1
-            M += sphere.Mmax
-        self.Mmax = M
         assert B1 == nB
 
         if self.gamma:
@@ -209,6 +211,7 @@ class NewLocalizedFunctionsCollection:
             self.sphere_a[a].ranks = x_ra[:, a].nonzero()[0]
     
     def add(self, c_axm, a_xG, q=-1):
+        xxx
         dtype = a_xG.dtype
         xshape = a_xG.shape[:-3]
         c_xM = np.empty(xshape + (self.Mmax,), dtype)
@@ -254,12 +257,11 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
     def add_to_density(self, nt_sG, f_asi):
         nspins = len(nt_sG)
         f_sM = np.empty((nspins, self.Mmax))
-        M1 = 0
         for a in self.atom_indices:
             sphere = self.sphere_a[a]
+            M1 = self.M_a[a]
             M2 = M1 + sphere.Mmax
             f_sM[:, M1:M2] = f_asi[a]
-            M1 = M2
 
         for nt_G, f_M in zip(nt_sG, f_sM):
             self.lfc.construct_density1(f_M, nt_G)

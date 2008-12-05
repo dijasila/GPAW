@@ -33,7 +33,6 @@ class LCAO:
             dH_ii = unpack(hamiltonian.dH_asp[a][s])
             self.H_MM += np.dot(P_Mi, np.inner(dH_ii, P_Mi).conj())
         self.comm.sum(self.H_MM)
-
         self.H_MM += wfs.T_qMM[q]
 
     def iterate(self, hamiltonian, wfs):
