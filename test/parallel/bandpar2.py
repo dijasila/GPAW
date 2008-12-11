@@ -6,13 +6,14 @@ from gpaw.grid_descriptor import GridDescriptor
 from gpaw.domain import Domain
 from gpaw.operators import Laplace
 from gpaw.mpi import world
+from gpaw.utilities.blas import gemm
 
 B = parsize_bands   # number of blocks
 # if len(sys.argv) > 1:
 #    B = int(sys.argv[1])
     
 G = 120  # number of grid points (G x G x G)
-N = 1000  # number of bands
+N = 2000  # number of bands
 
 h = 0.2        # grid spacing
 a = h * G      # side length of box
@@ -43,9 +44,9 @@ send_mG = gd.empty(M)
 recv_mG = gd.empty(M)
 
 # Reshape arrays (colapse x, y, z axes to one axis):
-psit_mG.shape = (M, -1)
-send_mG.shape = (M, -1)
-recv_mG.shape = (M, -1)
+# psit_mG.shape = (M, -1)
+# send_mG.shape = (M, -1)
+# recv_mG.shape = (M, -1)
 
 def run():
     S_nn = overlap(psit_mG, send_mG, recv_mG)
@@ -59,7 +60,7 @@ def run():
 
     if world.rank == 0:
         print 'Cholesky Time %f' % (t2-t1)
-
+        
     # Distribute matrix:
     world.broadcast(C_nn, 0)
 
@@ -69,10 +70,10 @@ def run():
     S_nn = overlap(psit_mG, send_mG, recv_mG)
 
     if world.rank == 0:
-        # Fill in upper part:
-        for n in range(N - 1):
-            S_nn[n, n + 1:] = S_nn[n + 1:, n]
-        assert (S_nn.round(7) == np.eye(N)).all()
+      # Fill in upper part:
+      for n in range(N - 1):
+          S_nn[n, n + 1:] = S_nn[n + 1:, n]
+      assert (S_nn.round(7) == np.eye(N)).all()
 
 def overlap(psit_mG, send_mG, recv_mG):
     """Calculate overlap matrix.
@@ -89,11 +90,11 @@ def overlap(psit_mG, send_mG, recv_mG):
     for i in range(Q - 1):
         rrequest = band_comm.receive(recv_mG, (rank + 1) % B, 42, False)
         srequest = band_comm.send(send_mG, (rank - 1) % B, 42, False)
-        S_imm[i] = np.inner(psit_mG, send_mG)
+        gemm(gd.dv, psit_mG, send_mG, 0.0, S_imm[i], 'c')
         band_comm.wait(rrequest)
         band_comm.wait(srequest)
         send_mG, recv_mG = recv_mG, send_mG
-    S_imm[Q - 1] = np.inner(psit_mG, send_mG)
+    gemm(gd.dv, psit_mG, send_mG, 0.0, S_imm[Q - 1], 'c')
 
     domain_comm.sum(S_imm)
 
@@ -104,14 +105,14 @@ def overlap(psit_mG, send_mG, recv_mG):
             S_nn = np.empty((N, N))
             S_nn[:] = 11111.77777
             S_imim = S_nn.reshape((B, M, B, M))
-            S_imim[:Q, :, 0] = S_imm.transpose(0, 2, 1)
+            S_imim[:Q, :, 0] = S_imm
             for i1 in range(1, B):
                 band_comm.receive(S_imm, i1, i1)
                 for i2 in range(Q):
                     if i1 + i2 < B:
-                        S_imim[i1 + i2, :, i1] = S_imm[i2].T
+                        S_imim[i1 + i2, :, i1] = S_imm[i2]
                     else:
-                        S_imim[i1, :, i1 + i2 - B] = S_imm[i2]
+                        S_imim[i1, :, i1 + i2 - B] = S_imm[i2].T
             t2 = time()
             print 'Collect submatrices time %f' % (t2-t1)
             return S_nn
@@ -125,19 +126,23 @@ def matrix_multiply(C_nn, psit_mG, send_mG, recv_mG):
     C_imim = C_nn.reshape((B, M, B, M))
     send_mG[:] = psit_mG
     psit_mG[:] = 0.0
+    beta = 0.0
     for i in range(B - 1):
         rrequest = band_comm.receive(recv_mG, (rank + 1) % B, 117, False)
         srequest = band_comm.send(send_mG, (rank - 1) % B, 117, False)
-        psit_mG += np.dot(C_imim[rank, :, (rank + i) % B], send_mG)
+        gemm(1.0, send_mG, C_imim[rank, :, (rank + i) % B], beta, psit_mG)
+        beta = 1.0
         band_comm.wait(rrequest)
         band_comm.wait(srequest)
         send_mG, recv_mG = recv_mG, send_mG
-    psit_mG += np.dot(C_imim[rank, :, rank - 1], send_mG)
+
+    gemm(1.0, send_mG, C_imim[rank, :, rank - 1], beta, psit_mG)
+
     return psit_mG
 
 ta = time()
 
-# Do twenty iterations.
+# Do twenty iterations
 for x in range(20):
     run()
 
