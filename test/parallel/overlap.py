@@ -44,18 +44,20 @@ if world.rank == 0:
     print 'Size of wave function array:', psit_mG.shape
 P_ani = {0: psit_mG[:, :2, 0, 0].copy(),
          1: psit_mG[:, -1, -1, -3:].copy()}
-X = M // K
-assert K * X == M
-if G**3 // D // K * K < G**3 // D:
-    X += 1
-print X
-work1_xG = gd.empty(X)
-work2_xG = gd.empty(X)
+if 0:
+    X = M // K
+    assert K * X == M
+    if G**3 // D // K * K < G**3 // D:
+        X += 1
+    print X
+    work1_xG = gd.empty(X)
+    work2_xG = gd.empty(X)
 
 def run(psit_mG):
-    overlap = Operator(band_comm, domain_comm, gd.dv, K)
-    overlap.work1_xG = work1_xG
-    overlap.work2_xG = work2_xG
+    overlap = Operator(band_comm, domain_comm, gd, K)
+    if 0:
+        overlap.work1_xG = work1_xG
+        overlap.work2_xG = work2_xG
     S_nn = np.empty((N, N))
     def S(x):
         return x
@@ -91,11 +93,13 @@ def run(psit_mG):
             assert abs(S_nn[n, n] - 1.0) < 1e-10
             assert not S_nn[n + 1:, n].round(10).any()
 
+    return psit_mG
+
 ta = time()
 
 # Do twenty iterations
 for x in range(2):
-    run(psit_mG)
+    psit_mG = run(psit_mG)
 
 tb = time()
 

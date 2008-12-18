@@ -7,14 +7,29 @@ from gpaw.utilities.blas import rk, r2k, gemm
 
 class Operator:
     """Base class for overlap and hamiltonian operators."""
-    def __init__(self, band_comm, domain_comm, dv, nblocks=1):
+    def __init__(self, band_comm, domain_comm, gd, nblocks=1):
         self.band_comm = band_comm
         self.domain_comm = domain_comm
-        self.dv = dv
+        self.gd = gd
         self.nblocks = nblocks
         self.work1_xG = None
         self.work2_xG = None
         self.A_qnn = None
+
+    def allocate_work_arrays(self, mynbands, dtype):
+        ngroups = self.band_comm.size
+        if ngroups == 1 and self.nblocks == 1:
+            self.work1_xG = self.gd.empty(mynbands)
+        else:
+            assert mynbands % self.nblocks == 0
+            X = mynbands // self.nblocks
+            if self.gd.n_c.prod() % self.nblocks != 0:
+                X += 1
+            self.work1_xG = self.gd.empty(X, dtype)
+            self.work2_xG = self.gd.empty(X, dtype)
+            if ngroups > 1:
+                self.A_qnn = np.empty((ngroups // 2 + 1, mynbands, mynbands),
+                                      dtype)
 
     def calculate_matrix_elements(self, psit_nG, P_ani, A, dA_aii, A_NN):
         """Calculate matrix elements for A-operator.
@@ -32,14 +47,19 @@ class Operator:
         bcomm = self.band_comm
         B = bcomm.size
         J = self.nblocks
+        N = len(psit_nG)  # mynbands
+        dv = self.gd.dv
+        
+        if self.work1_xG is None:
+            self.allocate_work_arrays(N, psit_nG.dtype)
 
         if B == 1 and J == 1:
             # Simple case:
             Apsit_nG = A(psit_nG)
             if Apsit_nG is psit_nG:
-                rk(self.dv, psit_nG, 0.0, A_NN)
+                rk(dv, psit_nG, 0.0, A_NN)
             else:
-                r2k(0.5 * self.dv, psit_nG, Apsit_nG, 0.0, A_NN)
+                r2k(0.5 * dv, psit_nG, Apsit_nG, 0.0, A_NN)
             for a, P_ni in P_ani.items():
                 gemm(1.0, P_ni, np.dot(P_ni, dA_aii[a]), 1.0, A_NN, 'c')
             return
@@ -51,14 +71,11 @@ class Operator:
         rank = bcomm.rank
         rankm = (rank - 1) % B
         rankp = (rank + 1) % B
-        N = len(psit_nG)  # mynbands
         M = N // J
         
         if B == 1:
             A_qnn = A_NN.reshape((1, N, N))
         else:
-            if self.A_qnn is None:
-                self.A_qnn = np.empty((Q, N, N), psit_nG.dtype)
             A_qnn = self.A_qnn
 
         for j in range(J):
@@ -66,7 +83,7 @@ class Operator:
             n2 = n1 + M
             psit_mG = psit_nG[n1:n2]
             sbuf_mG = A(psit_mG)
-            rbuf_mG = self.work1_xG[:M]
+            rbuf_mG = self.work2_xG[:M]
             for q in range(Q):
                 A_nn = A_qnn[q]
                 A_mn = A_nn[n1:n2]
@@ -84,18 +101,17 @@ class Operator:
                         rreq2 = bcomm.receive(rbuf_In, rankp, 31, False)
 
                 if q > 0:
-                    gemm(self.dv, psit_nG, sbuf_mG, 0.0, A_mn, 'c')
+                    gemm(dv, psit_nG, sbuf_mG, 0.0, A_mn, 'c')
                 else:
                     # We only need the lower part:
                     if j == 0:
                         # Important special-cases:
                         if sbuf_mG is psit_mG:
-                            rk(self.dv, psit_mG, 0.0, A_mn[:, :M])
+                            rk(dv, psit_mG, 0.0, A_mn[:, :M])
                         else:
-                            r2k(0.5 * self.dv, psit_mG, sbuf_mG, 0.0, A_mn[:, :M])
+                            r2k(0.5 * dv, psit_mG, sbuf_mG, 0.0, A_mn[:, :M])
                     else:
-                        gemm(self.dv, psit_nG[:n2], sbuf_mG, 0.0,
-                             A_mn[:, :n2], 'c')
+                        gemm(dv, psit_nG[:n2], sbuf_mG, 0.0, A_mn[:, :n2], 'c')
                         
                 if j == J - 1:
                     I1 = 0
@@ -116,7 +132,7 @@ class Operator:
                 bcomm.wait(rreq)
 
                 if q == 0:
-                    sbuf_mG = self.work2_xG[:M]
+                    sbuf_mG = self.work1_xG[:M]
                 sbuf_mG, rbuf_mG = rbuf_mG, sbuf_mG
 
         self.domain_comm.sum(A_qnn, 0)
