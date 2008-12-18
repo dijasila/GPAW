@@ -2,7 +2,7 @@
 # Please see the accompanying LICENSE file for further information.
 
 import numpy as np
-from gpaw.utilities.blas import rk, gemm
+from gpaw.utilities.blas import rk, r2k, gemm
 
 
 class Operator:
@@ -39,7 +39,7 @@ class Operator:
             if Apsit_nG is psit_nG:
                 rk(self.dv, psit_nG, 0.0, A_NN)
             else:
-                r2k(self.dv, psit_nG, Apsit_nG, 0.0, A_NN)
+                r2k(0.5 * self.dv, psit_nG, Apsit_nG, 0.0, A_NN)
             for a, P_ni in P_ani.items():
                 gemm(1.0, P_ni, np.dot(P_ni, dA_aii[a]), 1.0, A_NN, 'c')
             return
@@ -92,7 +92,7 @@ class Operator:
                         if sbuf_mG is psit_mG:
                             rk(self.dv, psit_mG, 0.0, A_mn[:, :M])
                         else:
-                            r2k(self.dv, psit_mG, sbuf_mG, 0.0, A_mn[:, :M])
+                            r2k(0.5 * self.dv, psit_mG, sbuf_mG, 0.0, A_mn[:, :M])
                     else:
                         gemm(self.dv, psit_nG[:n2], sbuf_mG, 0.0,
                              A_mn[:, :n2], 'c')
