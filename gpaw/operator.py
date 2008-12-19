@@ -7,19 +7,20 @@ from gpaw.utilities.blas import rk, r2k, gemm
 
 class Operator:
     """Base class for overlap and hamiltonian operators."""
-    def __init__(self, band_comm, domain_comm, gd, nblocks=1):
+    def __init__(self, band_comm, gd, nblocks=1):
         self.band_comm = band_comm
-        self.domain_comm = domain_comm
+        self.domain_comm = gd.comm
         self.gd = gd
         self.nblocks = nblocks
         self.work1_xG = None
         self.work2_xG = None
         self.A_qnn = None
+        self.A_nn = None
 
     def allocate_work_arrays(self, mynbands, dtype):
         ngroups = self.band_comm.size
         if ngroups == 1 and self.nblocks == 1:
-            self.work1_xG = self.gd.empty(mynbands)
+            self.work1_xG = self.gd.empty(mynbands, dtype)
         else:
             assert mynbands % self.nblocks == 0
             X = mynbands // self.nblocks
@@ -30,8 +31,10 @@ class Operator:
             if ngroups > 1:
                 self.A_qnn = np.empty((ngroups // 2 + 1, mynbands, mynbands),
                                       dtype)
+        nbands = ngroups * mynbands
+        self.A_nn = np.empty((nbands, nbands), dtype)
 
-    def calculate_matrix_elements(self, psit_nG, P_ani, A, dA_aii, A_NN):
+    def calculate_matrix_elements(self, psit_nG, P_ani, A, dA_aii):
         """Calculate matrix elements for A-operator.
 
         Results will be put in the *A_nn* array::
@@ -53,6 +56,8 @@ class Operator:
         if self.work1_xG is None:
             self.allocate_work_arrays(N, psit_nG.dtype)
 
+        A_NN = self.A_nn
+        
         if B == 1 and J == 1:
             # Simple case:
             Apsit_nG = A(psit_nG)
@@ -62,7 +67,7 @@ class Operator:
                 r2k(0.5 * dv, psit_nG, Apsit_nG, 0.0, A_NN)
             for a, P_ni in P_ani.items():
                 gemm(1.0, P_ni, np.dot(P_ni, dA_aii[a]), 1.0, A_NN, 'c')
-            return
+            return A_NN
         
         # Now is gets nasty!  We parallelize over B groups of bands
         # and each group is blocked in J blocks.
@@ -138,7 +143,7 @@ class Operator:
         self.domain_comm.sum(A_qnn, 0)
 
         if B == 1:
-            return
+            return A_NN
 
         A_bnbn = A_NN.reshape((B, N, B, N))
         if self.domain_comm.rank == 0:
@@ -153,8 +158,9 @@ class Operator:
                             A_bnbn[q1, :, q1 + q2 - B] = A_qnn[q2].T
             else:
                 bcomm.send(A_qnn, 0, 13)
+        return A_NN
         
-    def matrix_multiply(self, C_nn, psit_nG, P_ani):
+    def matrix_multiply(self, C_nn, psit_nG, P_ani=None):
         """Calculate new linear combinations of wave functions.
 
         ::
@@ -176,8 +182,9 @@ class Operator:
             newpsit_nG = self.work1_xG
             gemm(1.0, psit_nG, C_nn, 0.0, newpsit_nG)
             self.work1_xG = psit_nG
-            for P_ni in P_ani.values():
-                gemm(1.0, P_ni.copy(), C_nn, 0.0, P_ni)
+            if P_ani:
+                for P_ni in P_ani.values():
+                    gemm(1.0, P_ni.copy(), C_nn, 0.0, P_ni)
             return newpsit_nG
         
         # Now is gets nasty!  We parallelize over B groups of bands
@@ -205,10 +212,11 @@ class Operator:
             sbuf_ng = self.work1_xG.reshape(-1)[:N * g].reshape(N, g)
             rbuf_ng = self.work2_xG.reshape(-1)[:N * g].reshape(N, g)
             sbuf_ng[:] = psit_nG[:, G1:G2]
-            sbuf_In = np.concatenate([P_ni.T for P_ni in P_ani.values()])
+            if P_ani:
+                sbuf_In = np.concatenate([P_ni.T for P_ni in P_ani.values()])
             beta = 0.0
             for q in range(B):
-                if j == 0:
+                if j == 0 and P_ani:
                     if B > 1:
                         rbuf_In = np.empty_like(sbuf_In)
                     if q < B - 1:
@@ -219,7 +227,7 @@ class Operator:
                     rreq = bcomm.receive(rbuf_ng, rankp, 61, False)
                 C_mm = C_bnbn[rank, :, (rank + q) % B]
                 gemm(1.0, sbuf_ng, C_mm, beta, psit_nG[:, G1:G2])
-                if j == 0:
+                if j == 0 and P_ani:
                     I1 = 0
                     for P_ni in P_ani.values():
                         I2 = I1 + P_ni.shape[1]

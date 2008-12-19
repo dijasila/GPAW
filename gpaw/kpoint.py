@@ -100,6 +100,8 @@ class KPoint:
         self.psit_nG = None  # wave functions on 3D grid
         self.C_nM = None     # LCAO coefficients for wave functions XXX
         self.P_aMi = None
+        self.S_MM = None
+        self.T_MM = None
 
     def random_wave_functions(self, nao):
         """Generate random wave functions"""

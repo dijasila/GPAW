@@ -281,7 +281,7 @@ class GridWaveFunctions(WaveFunctions):
 
         self.pt.set_positions(spos_ac)
 
-        self.overlap = Overlap(self) # XXX grid specific, should live in wfs
+        self.overlap = Overlap(self)
 
         mynbands = self.mynbands
 
@@ -330,12 +330,18 @@ class GridWaveFunctions(WaveFunctions):
             eigensolver = get_eigensolver('lcao', 'lcao')
             eigensolver.iterate(hamiltonian, lcaowfs)
 
+            # Transfer coefficients ...
             for kpt, lcaokpt in zip(self.kpt_u, lcaowfs.kpt_u):
-                kpt.psit_nG = self.gd.zeros(self.mynbands,
-                                            self.dtype)
-                basis_functions.lcao_to_grid(lcaokpt.C_nM, 
+                kpt.C_nM = lcaokpt.C_nM
+
+            # and rid of potentially big arrays early:
+            del eigensolver, lcaowfs
+                
+            for kpt in self.kpt_u:
+                kpt.psit_nG = self.gd.zeros(self.mynbands, self.dtype)
+                basis_functions.lcao_to_grid(kpt.C_nM, 
                                              kpt.psit_nG[:lcaomynbands], kpt.q)
-                lcaokpt.C_nM = None
+                kpt.C_nM = None
 
                 if self.mynbands > lcaomynbands:
                     assert not True
@@ -416,6 +422,7 @@ class GridWaveFunctions(WaveFunctions):
         self.set_orthonormalized(True)
 
     def initialize2(self, paw):
+        khjgkjhgkhjg
         hamiltonian = paw.hamiltonian
         density = paw.density
         eigensolver = paw.eigensolver

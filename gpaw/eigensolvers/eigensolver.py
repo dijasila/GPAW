@@ -16,54 +16,11 @@ from gpaw import sl_diagonalize
 from gpaw import debug
 
 
-def blocked_matrix_multiply(A_nG, U_nn, work_nG):
-    """Inplace matrix multipication.
-
-    Perform an inplace multiplication of *A_nG* and *U_nn* using
-    *work_nG* as work-space::
-
-             __
-            \
-      A   <- )  A   U
-       nG   /__  mG  nm
-             m
-
-    """
-
-    nbands = len(A_nG)
-    b_ng = A_nG.reshape((nbands, -1))
-    ngpts = b_ng.shape[1]
-    nbands0 = work_nG.shape[0]
-    ngpts0 = ngpts * nbands0 // (2 * nbands)
-    w = work_nG.reshape((-1,))[:2 * nbands * ngpts0]
-    w1_nq, w2_nq = w.reshape(2, nbands, ngpts0)
-    g1 = 0
-    while g1 < ngpts:
-        g2 = g1 + ngpts0
-        if g2 <= ngpts:
-            w1_nq[:] = b_ng[:, g1:g2]
-            gemm(1.0, w1_nq, U_nn, 0.0, w2_nq)
-            b_ng[:, g1:g2] = w2_nq
-            g1 = g2
-        else:
-            w = work_nG.reshape((-1,))[:2 * nbands * (ngpts - g1)]
-            w1_nq, w2_nq = w.reshape(2, nbands, ngpts - g1)
-            w1_nq[:] = b_ng[:, g1:]
-            gemm(1.0, w1_nq, U_nn, 0.0, w2_nq)
-            b_ng[:, g1:] = w2_nq
-            break
-
-
 class Eigensolver:
-    def __init__(self, keep_htpsit=True, nblocks=1):
+    def __init__(self, keep_htpsit=True):
         self.keep_htpsit = keep_htpsit
-        self.nblocks = nblocks
         self.initialized = False
         self.Htpsit_nG = None
-        self.work_In = None
-        self.H_pnn = None
-        if debug:
-            self.eig_iteration = 0
 
     def initialize(self, wfs):
         self.timer = wfs.timer
@@ -87,12 +44,6 @@ class Eigensolver:
             # Soft part of the Hamiltonian times psit:
             self.Htpsit_nG = self.gd.empty(self.nbands, self.dtype)
 
-        # Work array for e.g. subspace rotations:
-        self.blocksize = int(ceil(1.0 * self.mynbands / self.nblocks))
-        wfs.big_work_arrays['work_nG'] = self.gd.empty(self.blocksize,
-                                                       self.dtype)
-        self.big_work_arrays = wfs.big_work_arrays
-
         # Hamiltonian matrix
         self.H_nn = np.empty((self.nbands, self.nbands), self.dtype)
 
@@ -100,6 +51,8 @@ class Eigensolver:
             if kpt.eps_n is None:
                 kpt.eps_n = np.empty(self.mynbands)
 
+        self.operator = wfs.overlap.operator
+        
         self.initialized = True
 
     def iterate(self, hamiltonian, wfs):
@@ -202,9 +155,25 @@ class Eigensolver:
 
         self.timer.start('Subspace diag.')
 
-        self.calculate_hamiltonian_matrix(hamiltonian, wfs, kpt)
-        H_nn = self.H_nn
-        band_comm = self.band_comm
+        psit_nG = kpt.psit_nG
+        P_ani = kpt.P_ani
+
+        if self.keep_htpsit:
+            Htpsit_xG = self.Htpsit_nG
+        else:
+            Htpsit_xG = self.operator.work1_xG
+            
+        def H(psit_xG):
+            wfs.kin.apply(psit_xG, Htpsit_xG, kpt.phase_cd)
+            hamiltonian.apply_local_potential(psit_xG, Htpsit_xG, kpt.s)
+            #hamiltonian.xc.xcfunc.apply_non_local(kpt, Htpsit_xG, H_nn)
+            return Htpsit_xG
+        
+        dH_aii = dict([(a, unpack(dH_sp[kpt.s]))
+                       for a, dH_sp in hamiltonian.dH_asp.items()])
+
+        H_nn = self.operator.calculate_matrix_elements(psit_nG, P_ani,
+                                                       H, dH_aii)
 
         if sl_diagonalize:
             assert parallel
@@ -214,26 +183,21 @@ class Eigensolver:
             dsyev_zheev_string = 'Subspace diag.: '+'dsyev/zheev'
 
         self.timer.start(dsyev_zheev_string)
-        if debug:
-            self.timer.start(dsyev_zheev_string+' %03d' % self.eig_iteration)
         if sl_diagonalize:
             info = diagonalize(H_nn, self.eps_n, root=0)
             if info != 0:
                 raise RuntimeError('Failed to diagonalize: info=%d' % info)
         else:
             if self.comm.rank == 0:
-                if band_comm.rank == 0:
+                if self.band_comm.rank == 0:
                     info = diagonalize(H_nn, self.eps_n)
                     if info != 0:
                         raise RuntimeError('Failed to diagonalize: info=%d' % info)
-        if debug:
-            self.timer.stop(dsyev_zheev_string+' %03d' % self.eig_iteration)
-            self.eig_iteration += 1
         self.timer.stop(dsyev_zheev_string)
 
         if self.comm.rank == 0:
-            band_comm.scatter(self.eps_n, kpt.eps_n, 0)
-            band_comm.broadcast(H_nn, 0)
+            self.band_comm.scatter(self.eps_n, kpt.eps_n, 0)
+            self.band_comm.broadcast(H_nn, 0)
 
         U_nn = H_nn
         del H_nn
@@ -241,146 +205,12 @@ class Eigensolver:
         self.comm.broadcast(U_nn, 0)
         self.comm.broadcast(kpt.eps_n, 0)
 
-        work_nG = self.big_work_arrays['work_nG']
-        psit_nG = kpt.psit_nG
-
-        # Rotate psit_nG:
-        if self.nblocks == 1:
-            self.matrix_multiplication(kpt, U_nn)
-        else:
-            blocked_matrix_multiply(psit_nG, U_nn, work_nG)
-
+        kpt.psit_nG = self.operator.matrix_multiply(U_nn, psit_nG, P_ani)
         if self.keep_htpsit:
-            # Rotate Htpsit_nG:
-            Htpsit_nG = self.Htpsit_nG
-            work_nG = self.big_work_arrays['work_nG']
-            gemm(1.0, Htpsit_nG, U_nn, 0.0, work_nG)
-            self.Htpsit_nG = work_nG
-            work_nG = Htpsit_nG
-            self.big_work_arrays['work_nG'] = work_nG
-
-        if self.band_comm.size == 1:
-            for P_ni in kpt.P_ani.values():
-                gemm(1.0, P_ni.copy(), U_nn, 0.0, P_ni)
-        else:
-            run([nucleus.calculate_projections(kpt)
-                 for nucleus in hamiltonian.pt_nuclei])
+            self.Htpsit_nG = self.operator.matrix_multiply(U_nn, Htpsit_xG)
 
         # Rotate EXX related stuff
         if hamiltonian.xc.xcfunc.hybrid > 0.0:
             hamiltonian.xc.xcfunc.exx.rotate(kpt.u, U_nn)
 
         self.timer.stop('Subspace diag.')
-
-    def calculate_hamiltonian_matrix2(self, hamiltonian, kpt):
-        band_comm = self.band_comm
-        size = band_comm.size
-        assert size % 2 == 1
-        np = size // 2 + 1
-        rank = band_comm.rank
-        psit_nG = kpt.psit_nG
-        mynbands = len(psit_nG)
-
-        nI = 0
-        for nucleus in hamiltonian.my_nuclei:
-            nI += nucleus.get_number_of_partial_waves()
-
-        if self.work_In is None or len(self.work_In) != nI:
-            self.work_In = np.empty((nI, mynbands), psit_nG.dtype)
-            self.work2_In = np.empty((nI, mynbands), psit_nG.dtype)
-        work_In = self.work_In
-        work2_In = self.work2_In
-
-        work_nG = self.big_work_arrays['work_nG']
-        work2_nG = self.big_work_arrays['work2_nG']
-
-        if self.H_pnn is None:
-            self.H_pnn = np.zeros((np, mynbands, mynbands), psit_nG.dtype)
-        H_pnn = self.H_pnn
-
-        I1 = 0
-        for nucleus in hamiltonian.my_nuclei:
-            ni = nucleus.get_number_of_partial_waves()
-            I2 = I1 + ni
-            P_ni = nucleus.P_uni[kpt.u]
-            dH_ii = unpack(nucleus.H_sp[kpt.s])
-            work_In[I1:I2] = np.inner(dH_ii, P_ni).conj()
-            I1 = I2
-
-        hamiltonian.apply(psit_nG, work_nG, kpt, local_part_only=True, calculate_projections=False)
-
-        for p in range(np):
-            sreq = band_comm.send(work_nG, (rank - 1) % size, 11, False)
-            sreq2 = band_comm.send(work_In, (rank - 1) % size, 31, False)
-            rreq = band_comm.receive(work2_nG, (rank + 1) % size, 11, False)
-            rreq2 = band_comm.receive(work2_In, (rank + 1) % size, 31, False)
-            gemm(self.gd.dv, psit_nG, work_nG, 0.0, H_pnn[p], 'c')
-
-            I1 = 0
-            for nucleus in hamiltonian.my_nuclei:
-                ni = nucleus.get_number_of_partial_waves()
-                I2 = I1 + ni
-                P_ni = nucleus.P_uni[kpt.u]
-                H_pnn[p] += np.dot(P_ni, work_In[I1:I2]).T
-                I1 = I2
-
-            band_comm.wait(sreq)
-            band_comm.wait(sreq2)
-            band_comm.wait(rreq)
-            band_comm.wait(rreq2)
-
-            work_nG, work2_nG = work2_nG, work_nG
-            work_In, work2_In = work2_In, work_In
-
-        self.comm.sum(H_pnn, kpt.root)
-
-        H_nn = self.H_nn
-        H_bnbn = H_nn.reshape((size, mynbands, size, mynbands))
-        if self.comm.rank == kpt.root:
-            if rank == 0:
-                H_bnbn[:np, :, 0] = H_pnn
-                for p1 in range(1, size):
-                    band_comm.receive(H_pnn, p1, 13)
-                    for p2 in range(np):
-                        if p1 + p2 < size:
-                            H_bnbn[p1 + p2, :, p1] = H_pnn[p2]
-                        else:
-                            H_bnbn[p1, :, p1 + p2 - size] = H_pnn[p2].T
-            else:
-                band_comm.send(H_pnn, 0, 13)
-
-    def matrix_multiplication(self, kpt, C_nn):
-        band_comm = self.band_comm
-        size = band_comm.size
-        psit_nG =  kpt.psit_nG
-        work_nG = self.big_work_arrays['work_nG']
-        mynbands = len(psit_nG)
-        if size == 1:
-            gemm(1.0, psit_nG, C_nn, 0.0, work_nG)
-            kpt.psit_nG = work_nG
-            if work_nG is self.big_work_arrays.get('work_nG'):
-                self.big_work_arrays['work_nG'] = psit_nG
-
-            return
-
-        # Parallelize over bands:
-        C_bnbn = C_nn.reshape((size, mynbands, size, mynbands))
-        work2_nG = self.big_work_arrays['work2_nG']
-
-        rank = band_comm.rank
-
-        beta = 0.0
-        for p in range(size - 1):
-            sreq = band_comm.send(psit_nG, (rank - 1) % size, 61, False)
-            rreq = band_comm.receive(work_nG, (rank + 1) % size, 61, False)
-            gemm(1.0, psit_nG, C_bnbn[rank, :, (rank + p) % size],
-                 beta, work2_nG)
-            beta = 1.0
-            band_comm.wait(rreq)
-            band_comm.wait(sreq)
-            psit_nG, work_nG = work_nG, psit_nG
-
-        gemm(1.0, psit_nG, C_bnbn[rank, :, rank - 1], 1.0, work2_nG)
-
-        kpt.psit_nG = work2_nG
-        self.big_work_arrays['work2_nG'] = psit_nG
