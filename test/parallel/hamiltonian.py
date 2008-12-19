@@ -9,14 +9,18 @@ from gpaw.utilities.lapack import inverse_cholesky
 from gpaw.operator import Operator
 from gpaw.operators import Laplace
 
-B = parsize_bands   # number of groups
+B = parsize_bands or 1  # number of groups
     
 G = 120  # number of grid points (G x G x G)
 N = 2000  # number of bands
 
 G = 8
-N = int(sys.argv[1])
-J = int(sys.argv[2])  # number of blocks
+try:
+    N = int(sys.argv[1])
+    J = int(sys.argv[2])
+except IndexError:
+    N = 6
+    J = 3
 
 h = 0.2        # grid spacing
 a = h * G      # side length of box
@@ -51,15 +55,14 @@ vt_G = gd.empty()
 vt_G.fill(0.567)
 
 def run(psit_mG):
-    overlap = Operator(band_comm, domain_comm, gd, J)
-    H_nn = np.empty((N, N))
+    overlap = Operator(band_comm, gd, J)
     def H(psit_xG):
         kin(psit_xG, overlap.work1_xG[:M // J])
         for psit_G, y_G in zip(psit_xG, overlap.work1_xG):
             y_G += vt_G * psit_G
         return overlap.work1_xG[:M // J]
     dH_aii = {0: np.ones((2, 2)) * 0.123, 1: np.ones((3, 3)) * 0.321}
-    overlap.calculate_matrix_elements(psit_mG, P_ani, H, dH_aii, H_nn)
+    H_nn = overlap.calculate_matrix_elements(psit_mG, P_ani, H, dH_aii)
 
     t1 = time()
     if world.rank == 0:
@@ -83,7 +86,7 @@ def run(psit_mG):
     assert not(P_ani[0] - psit_mG[:, :2, 0, 0]).round(10).any()
     assert not(P_ani[1] - psit_mG[:, -1, -1, -3:]).round(10).any()
 
-    overlap.calculate_matrix_elements(psit_mG, P_ani, H, dH_aii, H_nn)
+    H_nn = overlap.calculate_matrix_elements(psit_mG, P_ani, H, dH_aii)
 
     if world.rank == 0:
         for n in range(N):

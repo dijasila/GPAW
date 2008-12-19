@@ -8,14 +8,18 @@ from gpaw.mpi import world
 from gpaw.utilities.lapack import inverse_cholesky
 from gpaw.operator import Operator
 
-B = parsize_bands   # number of blocks
+B = parsize_bands or 1   # number of blocks
     
 G = 120  # number of grid points (G x G x G)
 N = 2000  # number of bands
 
 G = 8
-N = int(sys.argv[1])
-K = int(sys.argv[2])
+try:
+    N = int(sys.argv[1])
+    K = int(sys.argv[2])
+except IndexError:
+    N = 6
+    K = 3
 
 h = 0.2        # grid spacing
 a = h * G      # side length of box
@@ -54,15 +58,15 @@ if 0:
     work2_xG = gd.empty(X)
 
 def run(psit_mG):
-    overlap = Operator(band_comm, domain_comm, gd, K)
+    overlap = Operator(band_comm, gd, K)
     if 0:
         overlap.work1_xG = work1_xG
         overlap.work2_xG = work2_xG
-    S_nn = np.empty((N, N))
+    #S_nn = np.empty((N, N))
     def S(x):
         return x
     dS_aii = {0: np.ones((2, 2)) * 0.123, 1: np.ones((3, 3)) * 0.321}
-    overlap.calculate_matrix_elements(psit_mG, P_ani, S, dS_aii, S_nn)
+    S_nn = overlap.calculate_matrix_elements(psit_mG, P_ani, S, dS_aii)
 
     t1 = time()
     if world.rank == 0:
@@ -83,7 +87,7 @@ def run(psit_mG):
         print 'Made it past matrix multiply'
 
     # Check:
-    overlap.calculate_matrix_elements(psit_mG, P_ani, S, dS_aii, S_nn)
+    S_nn = overlap.calculate_matrix_elements(psit_mG, P_ani, S, dS_aii)
 
     assert not(P_ani[0] - psit_mG[:, :2, 0, 0]).round(10).any()
     assert not(P_ani[1] - psit_mG[:, -1, -1, -3:]).round(10).any()
