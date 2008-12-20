@@ -4,6 +4,7 @@ from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.lcao.overlap import TwoCenterIntegrals
 from gpaw.lfc import BasisFunctions
 from gpaw.utilities import unpack
+from gpaw.lcao.tools import get_bf_centers
 from ase import Hartree
 
 
@@ -107,7 +108,8 @@ def get_p_and_tci(calc, q=0, s=0):
   
 
 class ProjectedWannierFunctions:
-    def __init__(self, projections, h_lcao, s_lcao, eps_n, L, M, N=-1):
+    def __init__(self, projections, h_lcao, s_lcao, eps_n, 
+                 L=None, M=None, N=None, fixedenergy=None):
         """projections[n,i] = <psi_n|f_i>
            h_lcao[i1, i2] = <f_i1|h|f_i2>
            s_lcao[[i1, i2] = <f_i1|f_i2>
@@ -132,13 +134,25 @@ class ProjectedWannierFunctions:
            projected wannier function basis.
            
            """
+        
         self.eps_n = eps_n
         self.V_ni = projections   #<psi_n1|f_i1>
-        self.F_ii = s_lcao #F_ii[i1,i2] = <f_i1|f_i2>
+        self.s_lcao_ii = s_lcao #F_ii[i1,i2] = <f_i1|f_i2>
         self.h_lcao_ii = h_lcao
+        if fixedenergy!=None:
+            M = sum(eps_n<=fixedenergy)
+            L = self.V_ni.shape[1] - M
+        if L==None and M!=None:
+            L = self.V_ni.shape[1] - M
+        if M==None and L!=None:
+            M = self.V_ni.shape[1] - L
         self.M = M              #Number of occupied states
         self.L = L              #Number of EDF's
+        if N==None:
+            N = M + L
         self.N = N              #Number of bands
+        print "(N, M, L) = (%i, %i, %i)" % (N, M, L)
+        print "Number of PWFs:", M + L
 
     def get_hamiltonian_and_overlap_matrix(self, useibl=True):
         self.calculate_edf(useibl=useibl)
@@ -164,7 +178,7 @@ class ProjectedWannierFunctions:
         self.Fo_ii = np.dot(dagger(Vo_ni), Vo_ni)
 
         if useibl:
-            self.Fu_ii = self.F_ii - self.Fo_ii
+            self.Fu_ii = self.s_lcao_ii - self.Fo_ii
         else:
             Vu_ni = self.V_ni[self.M:self.N]
             self.Fu_ii = np.dot(dagger(Vu_ni), Vu_ni)
@@ -229,9 +243,21 @@ class ProjectedWannierFunctions:
         return eigs
 
     def get_lcao_eigenvalues(self):
-        eigs = la.eigvals(la.solve(self.F_ii, self.h_lcao_ii)).real
+        eigs = la.eigvals(la.solve(self.s_lcao_ii, self.h_lcao_ii)).real
         eigs.sort()
         return eigs
+
+
+    def get_norm_of_projection(self):
+        norm_n = np.zeros(self.N)
+        Sinv_ii = la.inv(self.S_ii)
+        Uo_ni = self.Uo_ni
+        norm_n[:self.M] = dots([Uo_ni, Sinv_ii, dagger(Uo_ni)]).diagonal()
+        Vu_ni = self.V_ni[self.M:self.N]
+        Pu_ni = dots([Vu_ni, self.b_il, self.Uu_li])
+        norm_n[self.M:self.N] = dots([Pu_ni, Sinv_ii, dagger(Pu_ni)]).diagonal()
+        return norm_n
+        
 
 
 if __name__=='__main__':
@@ -240,19 +266,18 @@ if __name__=='__main__':
     from projected_wannier import ProjectedWannierFunctions
     from projected_wannier import get_p_and_tci
 
-    atoms = molecule('H2')
+    atoms = molecule('C6H6')
     atoms.center(vacuum=2.5)
-    spos_ac = atoms.get_scaled_positions()
-    calc = GPAW(basis='sz')
+    calc = GPAW(basis='sz',h=0.3, nbands=20)
     atoms.set_calculator(calc)
     atoms.get_potential_energy()
     eps_n = calc.get_eigenvalues()
-
     V_nM, H_MM, S_MM = get_p_and_tci(calc, q=0, s=0)
-    pwf = ProjectedWannierFunctions(V_nM, H_MM, S_MM, eps_n, L=1, M=1)
+    pwf = ProjectedWannierFunctions(V_nM, h_lcao=H_MM, s_lcao=S_MM, eps_n=eps_n, M=17, N=20)
     h, s = pwf.get_hamiltonian_and_overlap_matrix(useibl=True)
     eps2_n = pwf.get_eigenvalues()
-    print "Difference in eigenvalues:", abs(eps2_n - eps_n)
-
+    print "Difference in eigenvalues:", abs(eps2_n[:len(eps_n)] - eps_n)
+    print "norm of proj.:", pwf.get_norm_of_projection()
+    print "condition number:", pwf.conditionnumber
 
     
