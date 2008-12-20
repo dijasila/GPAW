@@ -5,6 +5,7 @@ from gpaw.lcao.overlap import TwoCenterIntegrals
 from gpaw.lfc import BasisFunctions
 from gpaw.utilities import unpack
 from gpaw.lcao.tools import get_bf_centers
+from gpaw.utilities.tools import dagger, lowdin
 from ase import Hartree
 
 
@@ -16,9 +17,6 @@ def dots(Ms):
         x = np.dot(x, Ms[i])
         i+=1
     return x        
-
-def dagger(a):
-    return np.conj(a.T)
 
 def normalize(U, U2=None):
     if U2==None:
@@ -35,8 +33,7 @@ def normalize2(C, S):
     norm = 1.0 / np.sqrt(np.dot(np.dot(dagger(C), S), C).diagonal())
     C *= norm
 
-
-def get_p_and_tci(calc, q=0, s=0):
+def get_phs(calc, s=0):
     spos_ac = calc.atoms.get_scaled_positions()
     setups = calc.wfs.setups
     domain = calc.domain
@@ -60,30 +57,34 @@ def get_p_and_tci(calc, q=0, s=0):
     tci.calculate(spos_ac, S_qMM, T_qMM, P_aqMi)
 
     vt_G = calc.hamiltonian.vt_sG[s]
-    H_MM = np.zeros((nao, nao)) 
-    bfs.calculate_potential_matrix(vt_G, H_MM, q)
+    H_qMM = np.zeros((nq, nao, nao))
+    for q, H_MM in enumerate(H_qMM):
+        bfs.calculate_potential_matrix(vt_G, H_MM, q)
     #non-local corrections
     for a, P_qMi in P_aqMi.items():
         P_Mi = P_qMi[q]
         dH_ii = unpack(calc.hamiltonian.dH_asp[a][s])
         H_MM +=  np.dot(P_Mi, np.inner(dH_ii, P_Mi).conj())
 
-    H_MM += T_qMM[q]#kinetic energy
-    S_MM = S_qMM[q]
+    H_qMM += T_qMM#kinetic energy
+    S_qMM = S_qMM
+    #fill in the upper triangle
     tri = np.tri(nao)
     tri.flat[::nao + 1] = 0.5
-    H_MM = tri * H_MM
-    H_MM += H_MM.copy().T
-    H_MM *= Hartree
-    S_MM = tri * S_MM
-    S_MM += S_MM.copy().T
+    for H_MM, S_MM in zip(H_qMM, S_qMM):
+        H_MM *= tri 
+        H_MM[:] = H_MM + dagger(H_MM)
+        H_MM *= Hartree
+        S_MM *= tri 
+        S_MM[:] = S_MM + dagger(S_MM)
     # Calculate projections
-    V_nM = 0
+    V_qnM = np.zeros((nq, calc.wfs.nbands, nao), calc.wfs.dtype)
     #non local corrections
-    for a, P_ni in calc.wfs.kpt_u[q].P_ani.items():
-        dS_ii = calc.wfs.setups[a].O_ii
-        P_Mi = P_aqMi[a][q]
-        V_nM += np.dot(P_ni, np.inner(dS_ii, P_Mi).conj())
+    for q in range(nq):
+        for a, P_ni in calc.wfs.kpt_u[q].P_ani.items():
+            dS_ii = calc.wfs.setups[a].O_ii
+            P_Mi = P_aqMi[a][q]
+            V_qnM[q] += np.dot(P_ni, np.inner(dS_ii, P_Mi).conj())
     #Hack XXX, not needed when BasisFunctions get
     #an integrate method.
     spos_Ac = []
@@ -95,17 +96,19 @@ def get_p_and_tci(calc, q=0, s=0):
             
     bfs = LFC(calc.gd, spline_Aj, calc.wfs.kpt_comm, cut=True)
     bfs.set_positions(np.array(spos_Ac))
-    V_Ani = bfs.dict(calc.wfs.nbands)
-    bfs.integrate(calc.wfs.kpt_u[q].psit_nG, V_Ani, q)
-    M1 = 0
-    for A in range(len(spos_Ac)):
-        V_ni = V_Ani[A]
-        M2 = M1 + V_ni.shape[1]
-        V_nM[:, M1:M2] += V_ni
-        M1 = M2
+    V_qAni = [bfs.dict(calc.wfs.nbands) for q in range(nq)]
+    #XXX a copy is made of psit_nG in case it is a tar-reference.
+    for q, V_Ani in enumerate(V_qAni):
+        bfs.integrate(calc.wfs.kpt_u[q].psit_nG[:], V_Ani, q)
+        M1 = 0
+        for A in range(len(spos_Ac)):
+            V_ni = V_Ani[A]
+            M2 = M1 + V_ni.shape[1]
+            V_qnM[q, :, M1:M2] += V_ni
+            M1 = M2
 
-    return V_nM, H_MM, S_MM
-  
+    return V_qnM, H_qMM, S_qMM
+
 
 class ProjectedWannierFunctions:
     def __init__(self, projections, h_lcao, s_lcao, eps_n, 
@@ -139,17 +142,23 @@ class ProjectedWannierFunctions:
         self.V_ni = projections   #<psi_n1|f_i1>
         self.s_lcao_ii = s_lcao #F_ii[i1,i2] = <f_i1|f_i2>
         self.h_lcao_ii = h_lcao
+
         if fixedenergy!=None:
-            M = sum(eps_n<=fixedenergy)
+            M = sum(eps_n <= fixedenergy)
             L = self.V_ni.shape[1] - M
+        
         if L==None and M!=None:
             L = self.V_ni.shape[1] - M
+        
         if M==None and L!=None:
             M = self.V_ni.shape[1] - L
+        
         self.M = M              #Number of occupied states
         self.L = L              #Number of EDF's
+        
         if N==None:
             N = M + L
+        
         self.N = N              #Number of bands
         print "(N, M, L) = (%i, %i, %i)" % (N, M, L)
         print "Number of PWFs:", M + L
@@ -158,7 +167,7 @@ class ProjectedWannierFunctions:
         self.calculate_edf(useibl=useibl)
         self.calculate_rotations()
         self.calculate_overlaps()
-        self.calculate_hamiltonian_matrix()
+        self.calculate_hamiltonian_matrix(useibl=useibl)
         return self.H_ii, self.S_ii
 
     def calculate_edf(self, useibl=True):
@@ -211,10 +220,16 @@ class ProjectedWannierFunctions:
         self.Wo_ii = Wo_ii
         self.Wu_ii = Wu_ii
         self.S_ii = Wo_ii + Wu_ii
-        eigs = la.eigvalsh(self.S_ii)
-        self.conditionnumber = eigs.max() / eigs.min()
+        #eigs = la.eigvalsh(self.S_ii)
+        #self.conditionnumber = eigs.max() / eigs.min()
 
-    def calculate_hamiltonian_matrix(self):
+    def get_condition_number(self):
+        eigs = la.eigvalsh(self.S_ii)
+        return eigs.max() / eigs.min()
+
+       
+
+    def calculate_hamiltonian_matrix(self, useibl):
         """Calculate H_ij = H^o_ij + H^u_ij 
         """
         Uo_ni = self.Uo_ni
@@ -224,7 +239,7 @@ class ProjectedWannierFunctions:
         epso_n = self.eps_n[:self.M]
 
         self.Ho_ii = np.dot(dagger(Uo_ni) * epso_n, Uo_ni)
-        if self.h_lcao_ii!=None:
+        if self.h_lcao_ii!=None and useibl:
             print "Using h_lcao"
             Vo_ni = self.V_ni[:self.M]
             Huf_ii = self.h_lcao_ii - np.dot(dagger(Vo_ni) * epso_n, Vo_ni)
@@ -257,27 +272,61 @@ class ProjectedWannierFunctions:
         Pu_ni = dots([Vu_ni, self.b_il, self.Uu_li])
         norm_n[self.M:self.N] = dots([Pu_ni, Sinv_ii, dagger(Pu_ni)]).diagonal()
         return norm_n
+
+    def get_mlwf_initial_guess(self):
+        """calculate initial guess for maximally localized 
+        wannier functions. Does not work for the infinite band limit.
+        cu_nl: rotation coefficents of unoccupied stattes
+        U_ii: rotation matrix of eigenstates and edf.
+        """
+        Vu_ni = self.Vu_ni[self.M:self.N]
+        cu_nl = np.dot(Vu_ni, self.b_il)
+        nbf = Vu_ni.shape[1]
+        U_ii = np.zero((nbf, nbf))
+        U_ii[:self.M] = self.Uo_ni
+        U_ii[self.M:] = self.Uo_li
+        lowdin(U_ii)
+        return U_ii, cu_nl
+         
         
-
-
 if __name__=='__main__':
     from ase import molecule
     from gpaw import GPAW
     from projected_wannier import ProjectedWannierFunctions
-    from projected_wannier import get_p_and_tci
+    from projected_wannier import get_phs
 
-    atoms = molecule('C6H6')
-    atoms.center(vacuum=2.5)
-    calc = GPAW(basis='sz',h=0.3, nbands=20)
-    atoms.set_calculator(calc)
-    atoms.get_potential_energy()
+    if 0:
+        atoms = molecule('C6H6')
+        atoms.center(vacuum=2.5)
+        calc = GPAW(h=0.3, nbands=20)
+        atoms.set_calculator(calc)
+        atoms.get_potential_energy()
+        calc.write('C6H6.gpw', 'all')
+
+    calc = GPAW('C6H6.gpw', txt=None, basis='sz')
     eps_n = calc.get_eigenvalues()
-    V_nM, H_MM, S_MM = get_p_and_tci(calc, q=0, s=0)
-    pwf = ProjectedWannierFunctions(V_nM, h_lcao=H_MM, s_lcao=S_MM, eps_n=eps_n, M=17, N=20)
+    
+    V_qnM, H_qMM, S_qMM = get_phs(calc, s=0)
+
+    pwf = ProjectedWannierFunctions(V_qnM[0], 
+                                    h_lcao=H_qMM[0], 
+                                    s_lcao=S_qMM[0], 
+                                    eps_n=eps_n, 
+                                    M=17,
+                                    N=20)
+
     h, s = pwf.get_hamiltonian_and_overlap_matrix(useibl=True)
     eps2_n = pwf.get_eigenvalues()
-    print "Difference in eigenvalues:", abs(eps2_n[:len(eps_n)] - eps_n)
-    print "norm of proj.:", pwf.get_norm_of_projection()
-    print "condition number:", pwf.conditionnumber
+    print 'Deviation from exact eigenvalues:'
+    diff_n = np.around(abs(eps2_n[:len(eps_n)] - eps_n),12)
+    for n, diff in enumerate(diff_n):
+        print '%3i  %.2e' % (n+1, diff)
+
+    print "norm of proj.:"
+    norm_n = pwf.get_norm_of_projection()
+    for n, norm in enumerate(norm_n):
+        print '%3i  %.2e' % (n+1, norm)
+
+    print 'condition number: %.1e' % pwf.get_condition_number()
 
     
