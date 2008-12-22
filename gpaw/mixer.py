@@ -179,7 +179,8 @@ class BaseMixer:
             for i, alpha in enumerate(alpha_i):
                 axpy(alpha, self.nt_iG[i], nt_G)
                 axpy(alpha * beta, self.R_iG[i], nt_G)
-                for D_p, D_ip, dD_ip in zip(D_ap, self.D_iap[i], self.dD_iap[i]):
+                for D_p, D_ip, dD_ip in zip(D_ap, self.D_iap[i],
+                                            self.dD_iap[i]):
                     axpy(alpha, D_ip, D_p)
                     axpy(alpha * beta, dD_ip, D_p)
 

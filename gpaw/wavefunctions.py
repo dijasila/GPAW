@@ -79,15 +79,22 @@ class WaveFunctions(EmptyWaveFunctions):
         self.eigensolver = None
         self.timer = None
         
-    def add_to_density(self, density):
-        """Add contribution to pseudo electron-density."""
+    def calculate_density(self, density):
+        """Calculate density from wave functions."""
         nt_sG = density.nt_sG
-        D_asp = density.D_asp
+        nt_sG.fill(0.0)
         for kpt in self.kpt_u:
             self.add_to_density_from_k_point(nt_sG, kpt)
         self.band_comm.sum(nt_sG)
         self.kpt_comm.sum(nt_sG)
 
+        if self.symmetry:
+            for nt_G in nt_sG:
+                self.symmetry.symmetrize(nt_G, self.gd)
+
+    def calculate_atomic_density_matrices(self, density):
+        """Calculate atomic density matrices from projections."""
+        D_asp = density.D_asp
         for a, D_sp in D_asp.items():
             ni = self.setups[a].ni
             D_sii = np.zeros((self.nspins, ni, ni))
@@ -100,9 +107,6 @@ class WaveFunctions(EmptyWaveFunctions):
             self.kpt_comm.sum(D_sp)
 
         if self.symmetry:
-            for nt_G in nt_sG:
-                self.symmetry.symmetrize(nt_G, self.gd)
-
             all_D_asp = []
             for a, setup in enumerate(self.setups):
                 D_sp = D_asp.get(a)
@@ -281,7 +285,7 @@ class GridWaveFunctions(WaveFunctions):
 
         self.pt.set_positions(spos_ac)
 
-        self.overlap = Overlap(self)
+        self.overlap = Overlap(self);print 'Overlap again!!!'
 
         mynbands = self.mynbands
 
@@ -293,7 +297,7 @@ class GridWaveFunctions(WaveFunctions):
                 kpt.P_ani[a] = np.empty((mynbands, ni), self.dtype)
 
     def initialize(self, density, hamiltonian, spos_ac):
-        if density.nt_sG is None or self.kpt_u[0].psit_nG is None:
+        if self.kpt_u[0].psit_nG is None:
             basis_functions = BasisFunctions(self.gd,
                                              [setup.phit_j
                                               for setup in self.setups],
@@ -303,7 +307,10 @@ class GridWaveFunctions(WaveFunctions):
             basis_functions.set_positions(spos_ac)
 
         if density.nt_sG is None:
-            density.update(self, basis_functions=basis_functions)
+            if self.kpt_u[0].psit_nG is None:
+                density.update(self, basis_functions=basis_functions)
+            else:
+                density.update(self, calculate_atomic_density_matrices=False)
 
         hamiltonian.update(density)
 
@@ -345,9 +352,10 @@ class GridWaveFunctions(WaveFunctions):
 
                 if self.mynbands > lcaomynbands:
                     assert not True
-                    # Add extra states.
-                    # If the number of atomic orbitals is less than the desired
-                    # number of bands, then extra random wave functions are added.
+                    # Add extra states.  If the number of atomic
+                    # orbitals is less than the desired number of
+                    # bands, then extra random wave functions are
+                    # added.
 
                     eps_n = np.empty(nbands)
                     f_n = np.empty(nbands)

@@ -80,27 +80,52 @@ class Density:
         self.nt_sg = None
         self.nt_g = None
         self.rhot_g = None
-        self.D_asp = {}
-        for a in self.nct.my_atom_indices:
-            ni = self.setups[a].ni
-            self.D_asp[a] = np.empty((self.nspins, ni * (ni + 1) // 2))
+        self.Q_aL = None
 
-    def update(self, wfs, basis_functions=None):
-        if self.nt_sG is None:
-            self.nt_sG = self.gd.zeros(self.nspins)
+        if self.D_asp is None:
+            # First time:
+            self.D_asp = {}
+            for a in self.nct.my_atom_indices:
+                ni = self.setups[a].ni
+                self.D_asp[a] = np.empty((self.nspins, ni * (ni + 1) // 2))
         else:
-            self.nt_sG[:] = 0.0
+            requests = []
+            D_asp = {}
+            for a in self.nct.my_atom_indices:
+                if a in self.D_asp:
+                    D_asp[a] = self.D_asp.pop(a)
+                else:
+                    # Get matrix from old domain:
+                    ni = self.setups[a].ni
+                    D_sp = np.empty((self.nspins, ni * (ni + 1) // 2))
+                    D_asp[a] = D_sp
+                    requests.append(self.gd.comm.receive(D_sp, 2134234))
+            for a, D_sp in self.D_asp.items():
+                # Send matrix to new domain:
+                requests.append(self.gd.comm.send(D_sp, 2134234))
+            for request in requests:
+                self.gd.comm.wait(request)
+            self.D_asp = D_asp
+
+    def update(self, wfs, basis_functions=None,
+               calculate_atomic_density_matrices=True):
+        if self.nt_sG is None:
+            self.nt_sG = self.gd.empty(self.nspins)
 
         if basis_functions:
             self.initialize_from_atomic_densities(basis_functions)
         else:
-            wfs.add_to_density(self)
+            wfs.calculate_density(self)
+            if calculate_atomic_density_matrices:
+                wfs.calculate_atomic_density_matrices(self)
 
         self.nt_sG += self.nct_G
 
         comp_charge = self.calculate_multipole_moments()
         
-        if basis_functions or isinstance(wfs, LCAOWaveFunctions):
+        if (basis_functions or
+            isinstance(wfs, LCAOWaveFunctions) or
+            not calculate_atomic_density_matrices):
             pseudo_charge = self.gd.integrate(self.nt_sG).sum()
             if pseudo_charge != 0:
                 x = -(self.charge + comp_charge) / pseudo_charge
@@ -170,6 +195,7 @@ class Density:
                 self.D_asp[a] = self.setups[a].initialize_density_matrix(f_si)
             f_asi[a] = f_si
 
+        self.nt_sG.fill(0.0)
         basis_functions.add_to_density(self.nt_sG, f_asi)
 
     def set_mixer(self, mixer, fixmom, width):

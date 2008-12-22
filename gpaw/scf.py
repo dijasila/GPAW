@@ -20,7 +20,7 @@ class SCFLoop:
     ``converged`` Do we have a self-consistent solution?
     """
     def __init__(self, eigenstates=0.1, energy=0.1, density=0.1, maxiter=100,
-                 fixdensity=False, niter_fixdensity=3):
+                 fixdensity=False, niter_fixdensity=2):
         self.max_eigenstates_error = max(eigenstates, 1e-20)
         self.max_energy_error = energy
         self.max_density_error = max(density, 1e-20)
@@ -81,6 +81,6 @@ class SCFLoop:
         self.converged = (
             self.eigenstates_error < self.max_eigenstates_error and
             self.energy_error < self.max_energy_error and
-            self.density_error < self.max_density_error)
+            self.density_error <= self.max_density_error)
         return self.converged
     

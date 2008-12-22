@@ -468,9 +468,8 @@ class LocalizedFunctionsCollection:
     def derivative(self, a_xG, c_axiv, q=-1):
         for c_xiv in c_axiv.values():
             c_xiv.fill(0.0)
-        order#?
-        run([lfs.iderivative(a_xG, c_axiv.get(a), q)
-             for a, lfs in self.lfs_a.items()])
+        run([self.lfs_a[a].iderivative(a_xG, c_axiv.get(a), q)
+             for a in self.atom_indices])
 
 
 def test():

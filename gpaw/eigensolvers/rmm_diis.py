@@ -47,7 +47,7 @@ class RMM_DIIS(Eigensolver):
             psit_nG = kpt.psit_nG
         if P_ani is None:
             P_ani = kpt.P_ani
-        for R_G, eps, psit_G in zip(R_nG, kpt.eps_n, psit_nG):
+        for R_G, eps, psit_G in zip(R_nG, eps_n, psit_nG):
             axpy(-eps, psit_G, R_G)
         c_ani = {}
         for a, P_ni in P_ani.items():
@@ -105,7 +105,7 @@ class RMM_DIIS(Eigensolver):
                 error += weight * np.vdot(R_G, R_G).real
 
             # Precondition the residual:
-            pR_G = self.preconditioner(R_G, kpt.phase_cd, kpt.psit_nG[n])
+            pR_G = self.preconditioner(R_G, kpt.phase_cd, kpt.psit_nG[n1])
 
             # Calculate the residual of pR_G, dR_G = (H - e S) pR_G:
             shape = (1,) + dR_G.shape
@@ -118,7 +118,6 @@ class RMM_DIIS(Eigensolver):
             dRdR = self.comm.sum(np.vdot(dR_G, dR_G).real)
 
             lam = -RdR / dRdR
-
             # Calculate new psi'_G = psi_G + lam pR_G + lam pR'_G
             #                      = psi_G + p(2 lam R_G + lam**2 dR_G)
             R_G *= 2.0 * lam
@@ -127,6 +126,6 @@ class RMM_DIIS(Eigensolver):
                                                    kpt.psit_nG[n1])
 
         self.timer.stop('RMM-DIIS')
-
+        
         error = self.comm.sum(error)
         return error

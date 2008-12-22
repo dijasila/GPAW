@@ -20,7 +20,7 @@ class InputParameters(dict):
             ('spinpol',       None,   ),
             ('usesymm',       True,   ),
             ('stencils',      (2, 3), ),
-            ('fixdensity',    0,      ),
+            ('fixdensity',    False   ),
             ('mixer',         None,   ),
             ('txt',           '-',    ),
             ('hund',          False,  ),

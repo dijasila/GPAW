@@ -214,9 +214,6 @@ class PAW(PAWTextOutput):
             self.initialize(atoms)
             self.set_positions(atoms)
         elif (atoms.get_positions() != self.atoms.get_positions()).any():
-            # The positions have changed.  Wave functions are no
-            # longer orthonormal!
-            print('wfs.set_ortho(0)')
             self.set_positions(atoms)
 
         iter = 1
@@ -421,7 +418,7 @@ class PAW(PAWTextOutput):
         if par.mode == 'lcao':
             niter_fixdensity = 0
         else:
-            niter_fixdensity = 3
+            niter_fixdensity = 2
 
         self.scf = self.scf_loop_class(cc['eigenstates'] * nvalence, 
                                        cc['energy'] / Hartree * natoms,
