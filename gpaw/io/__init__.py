@@ -341,9 +341,9 @@ def write(paw, filename, mode):
 def read(paw, reader):
     r = reader
     wfs = paw.wfs
-    scf = paw.scf
     hamiltonian = paw.hamiltonian
     version = r['version']
+
     for setup in paw.wfs.setups.setups.values():
         try:
             key = atomic_names[setup.Z] + 'Fingerprint'
@@ -374,6 +374,11 @@ def read(paw, reader):
             paw.gd.distribute(r.get('PseudoPotential', s),
                               paw.hamiltonian.vt_sG[s])
 
+    if version > 0.3:
+        paw.scf.converged = r['Converged']
+    else:
+        paw.scf.converged = True
+        
     # Read atomic density matrices and non-local part of hamiltonian:
     D_sp = r.get('AtomicDensityMatrices')
     if version > 0.3:

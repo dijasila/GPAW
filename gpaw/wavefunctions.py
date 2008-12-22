@@ -79,6 +79,9 @@ class WaveFunctions(EmptyWaveFunctions):
         self.eigensolver = None
         self.timer = None
         
+    def __nonzero__(self):
+        return True
+
     def calculate_density(self, density):
         """Calculate density from wave functions."""
         nt_sG = density.nt_sG
@@ -262,6 +265,7 @@ from gpaw.overlap import Overlap
 from gpaw.operators import Laplace
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.utilities import unpack
+from gpaw.io.tar import TarFileReference
 
 class GridWaveFunctions(WaveFunctions):
     def __init__(self, stencil, *args):
@@ -273,28 +277,27 @@ class GridWaveFunctions(WaveFunctions):
                       self.kpt_comm, dtype=self.dtype, forces=True)
         if not self.gamma:
             self.pt.set_k_points(self.ibzk_qc)
-        self.big_work_arrays = {}
+
+        self.overlap = None
         
     def set_orthonormalized(self, flag):
         self.orthonormalized = flag
 
     def set_positions(self, spos_ac):
         WaveFunctions.set_positions(self, spos_ac)
-
         self.set_orthonormalized(False)
-
         self.pt.set_positions(spos_ac)
 
-        self.overlap = Overlap(self);print 'Overlap again!!!'
-
         mynbands = self.mynbands
-
         for kpt in self.kpt_u:
             kpt.P_ani = {}
         for a in self.pt.my_atom_indices:
             ni = self.setups[a].ni
             for kpt in self.kpt_u:
                 kpt.P_ani[a] = np.empty((mynbands, ni), self.dtype)
+
+        if not self.overlap:
+            self.overlap = Overlap(self)
 
     def initialize(self, density, hamiltonian, spos_ac):
         if self.kpt_u[0].psit_nG is None:
@@ -315,74 +318,80 @@ class GridWaveFunctions(WaveFunctions):
         hamiltonian.update(density)
 
         if self.kpt_u[0].psit_nG is None:
-            if self.nbands < self.setups.nao:
-                lcaonbands = self.nbands
-                lcaomynbands = self.mynbands
-            else:
-                lcaonbands = self.setups.nao
-                lcaomynbands = self.setups.nao
-                assert self.band_comm.size == 1
+            self.initialize_wave_functions_from_basis_functions(
+                basis_functions, density, hamiltonian, spos_ac)
+        elif isinstance(self.kpt_u[0].psit_nG, TarFileReference):
+            self.initialize_wave_functions_from_restart_file()
 
-            lcaowfs = LCAOWaveFunctions(self.gd, self.nspins, self.setups,
-                                        lcaonbands,
-                                        lcaomynbands, self.dtype,
-                                        self.world, self.kpt_comm,
-                                        self.band_comm,
-                                        self.gamma, self.bzk_kc, self.ibzk_kc,
-                                        self.weight_k, self.symmetry)
-            lcaowfs.basis_functions = basis_functions
-            lcaowfs.timer = self.timer
-            lcaowfs.set_positions(spos_ac)
-            hamiltonian.update(density)
-            eigensolver = get_eigensolver('lcao', 'lcao')
-            eigensolver.iterate(hamiltonian, lcaowfs)
+    def initialize_wave_functions_from_basis_functions(self,
+                                                       basis_functions,
+                                                       density, hamiltonian,
+                                                       spos_ac):
+        if self.nbands < self.setups.nao:
+            lcaonbands = self.nbands
+            lcaomynbands = self.mynbands
+        else:
+            lcaonbands = self.setups.nao
+            lcaomynbands = self.setups.nao
+            assert self.band_comm.size == 1
 
-            # Transfer coefficients ...
-            for kpt, lcaokpt in zip(self.kpt_u, lcaowfs.kpt_u):
-                kpt.C_nM = lcaokpt.C_nM
+        lcaowfs = LCAOWaveFunctions(self.gd, self.nspins, self.setups,
+                                    lcaonbands,
+                                    lcaomynbands, self.dtype,
+                                    self.world, self.kpt_comm,
+                                    self.band_comm,
+                                    self.gamma, self.bzk_kc, self.ibzk_kc,
+                                    self.weight_k, self.symmetry)
+        lcaowfs.basis_functions = basis_functions
+        lcaowfs.timer = self.timer
+        lcaowfs.set_positions(spos_ac)
+        hamiltonian.update(density)
+        eigensolver = get_eigensolver('lcao', 'lcao')
+        eigensolver.iterate(hamiltonian, lcaowfs)
 
-            # and rid of potentially big arrays early:
-            del eigensolver, lcaowfs
-                
-            for kpt in self.kpt_u:
-                kpt.psit_nG = self.gd.zeros(self.mynbands, self.dtype)
-                basis_functions.lcao_to_grid(kpt.C_nM, 
-                                             kpt.psit_nG[:lcaomynbands], kpt.q)
-                kpt.C_nM = None
+        # Transfer coefficients ...
+        for kpt, lcaokpt in zip(self.kpt_u, lcaowfs.kpt_u):
+            kpt.C_nM = lcaokpt.C_nM
 
-                if self.mynbands > lcaomynbands:
-                    assert not True
-                    # Add extra states.  If the number of atomic
-                    # orbitals is less than the desired number of
-                    # bands, then extra random wave functions are
-                    # added.
+        # and rid of potentially big arrays early:
+        del eigensolver, lcaowfs
 
-                    eps_n = np.empty(nbands)
-                    f_n = np.empty(nbands)
-                    eps_n[:nao] = kpt.eps_n[:nao]
-                    eps_n[nao:] = kpt.eps_n[nao - 1] + 0.5
-                    f_n[nao:] = 0.0
-                    f_n[:nao] = kpt.f_n[:nao]
-                    kpt.eps_n = eps_n
-                    kpt.f_n = f_n
-                    kpt.random_wave_functions(nao)
+        for kpt in self.kpt_u:
+            kpt.psit_nG = self.gd.zeros(self.mynbands, self.dtype)
+            basis_functions.lcao_to_grid(kpt.C_nM, 
+                                         kpt.psit_nG[:lcaomynbands], kpt.q)
+            kpt.C_nM = None
 
-    def initialize_wave_functions_from_restart_file(self, paw):
+            if self.mynbands > lcaomynbands:
+                assert not True
+                # Add extra states.  If the number of atomic
+                # orbitals is less than the desired number of
+                # bands, then extra random wave functions are
+                # added.
+
+                eps_n = np.empty(nbands)
+                f_n = np.empty(nbands)
+                eps_n[:nao] = kpt.eps_n[:nao]
+                eps_n[nao:] = kpt.eps_n[nao - 1] + 0.5
+                f_n[nao:] = 0.0
+                f_n[:nao] = kpt.f_n[:nao]
+                kpt.eps_n = eps_n
+                kpt.f_n = f_n
+                kpt.random_wave_functions(nao)
+
+    def initialize_wave_functions_from_restart_file(self):
         # Calculation started from a restart file.  Copy data
         # from the file to memory:
-        if paw.world.size > 1:
-            i = paw.gd.get_slice()
-            for kpt in self.kpt_u:
-                refs = kpt.psit_nG
-                kpt.psit_nG = paw.gd.empty(paw.mynbands, self.dtype)
-                # Read band by band to save memory
-                for n, psit_G in enumerate(kpt.psit_nG):
-                    full = refs[n][:]
-                    psit_G[:] = full[i]
-        else:
-            for kpt in self.kpt_u:
-                kpt.psit_nG = kpt.psit_nG[:]
-        self.initialized = True
+        for kpt in self.kpt_u:
+            file_nG = kpt.psit_nG
+            kpt.psit_nG = self.gd.empty(self.mynbands, self.dtype)
+            # Read band by band to save memory
+            for n, psit_G in enumerate(kpt.psit_nG):
+                if self.world.rank == 0:
+                    big_psit_G = file_nG[n][:]
+                else:
+                    big_psit_G = None
+                self.gd.distribute(big_psit_G, psit_G)
         
     def random_wave_functions(self, paw):
         dsfglksjdfglksjdghlskdjfhglsdfkjghsdljgkhsdljghdsfjghdlfgjkhdsfgjhsdfjgkhdsfgjkhdsfgkjhdsflkjhg

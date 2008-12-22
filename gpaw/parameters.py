@@ -44,6 +44,7 @@ class InputParameters(dict):
         return self[key]
 
     def __setattr__(self, key, value):
+        assert key in self
         self[key] = value
 
     def read(self, reader):
@@ -112,30 +113,11 @@ class InputParameters(dict):
             self.stencils = (2, 3)
             self.charge = 0.0
             self.fixmom = False
-            self.converged = True
         else:
             self.stencils = (r['KohnShamStencil'],
                              r['InterpolationStencil'])
             self.poissonsolver = PoissonSolver(nn=r['PoissonStencil'])
             self.charge = r['Charge']
             self.fixmom = r['FixMagneticMoment']
-            self.converged = r['Converged']
 
         self.width = r['FermiWidth'] * Hartree
-
-        try:
-            self.error['density'] = r['DensityError']
-            self.error['energy'] = r['EnergyError']
-            self.error['eigenstates'] = r['EigenstateError'] 
-        except (AttributeError, KeyError):
-            pass
-
-        try:
-            datatype = r['DataType']
-        except (AttributeError, KeyError):
-            pass
-        else:
-            if datatype == 'Float':
-                self.dtype = float
-            else:
-                self.dtype = complex

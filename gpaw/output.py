@@ -290,6 +290,9 @@ class PAWTextOutput:
 
         self.print_eigenvalues()
 
+        if self.density.rhot_g is None:
+            return
+        
         t()
         charge = self.finegd.integrate(self.density.rhot_g)
         t('Total Charge:  %f electrons' % charge)

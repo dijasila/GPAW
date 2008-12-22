@@ -21,7 +21,8 @@ class Eigensolver:
         self.keep_htpsit = keep_htpsit
         self.initialized = False
         self.Htpsit_nG = None
-
+        self.error = np.inf
+        
     def initialize(self, wfs):
         self.timer = wfs.timer
         self.kpt_comm = wfs.kpt_comm

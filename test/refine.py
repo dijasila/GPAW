@@ -21,9 +21,9 @@ for ending in endings:
 
     if 1:
         calc = GPAW(nbands=2,
-                          convergence={'eigenstates': 0.001,
-                                       'energy': 0.1,
-                                       'density': 0.1})
+                    convergence={'eigenstates': 0.001,
+                                 'energy': 0.1,
+                                 'density': 0.1})
         H.set_calculator(calc)
         H.get_potential_energy()
         calc.write(restart_wf, 'all')

@@ -49,7 +49,7 @@ if len(tests) == 0:
              'poisson.py', 'cluster.py', 'integral4.py', 'cg2.py', 'XC2.py',
              'd2Excdn2.py', 'XC2Spin.py', 'multipoletest.py', 'eed.py',
              'coulomb.py',
-             'parallel/overlap.py', 'parallel/hamiltonian.py'
+             'parallel/overlap.py', 'parallel/hamiltonian.py',
              'ase3k.py', 'mixer.py', 'proton.py', 'timing.py', 'restart.py',
              'gauss_func.py', 'xcatom.py', 'wfs_io.py', 'ylexpand.py',
              'nonselfconsistentLDA.py', 'bee1.py', 'gga-atom.py', 'revPBE.py',

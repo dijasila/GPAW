@@ -215,6 +215,9 @@ class PAW(PAWTextOutput):
             self.set_positions(atoms)
         elif (atoms.get_positions() != self.atoms.get_positions()).any():
             self.set_positions(atoms)
+        elif not self.scf.check_convergence(self.density,
+                                            self.wfs.eigensolver):
+            self.set_positions(atoms)
 
         iter = 1
         for iter in self.scf.run(self.wfs, self.hamiltonian, self.density,
@@ -320,9 +323,6 @@ class PAW(PAWTextOutput):
                 N_c.append(max(4, int(L / h / 4 + 0.5) * 4))
             N_c = np.array(N_c)
                        
-        # Create a Domain object:
-        self.domain = Domain(cell_cv, pbc_c)
-
         # Is this a gamma-point calculation?
         gamma = len(bzk_kc) == 1 and not bzk_kc[0].any()
 
@@ -402,10 +402,6 @@ class PAW(PAWTextOutput):
                                (nbands, parsize_bands))
         mynbands = nbands // parsize_bands
 
-        domain_comm, kpt_comm, band_comm = self.distribute_cpus(
-            world, parsize, parsize_bands, nspins, len(ibzk_kc))
-        self.domain.set_decomposition(domain_comm, parsize, N_c)
-
         cc = par.convergence
 
         # Number of bands to converge:
@@ -426,13 +422,20 @@ class PAW(PAWTextOutput):
                                        par.maxiter, par.fixdensity,
                                        niter_fixdensity)
 
-        # Construct grid descriptors for coarse grids (wave functions) and
-        # fine grids (densities and potentials):
-        self.gd = GridDescriptor(self.domain, N_c)
-        self.finegd = GridDescriptor(self.domain, 2 * N_c)
-
         if not self.wfs:
+            domain_comm, kpt_comm, band_comm = self.distribute_cpus(
+                world, parsize, parsize_bands, nspins, len(ibzk_kc))
+
+            # Create a Domain object:
+            self.domain = Domain(cell_cv, pbc_c)
+            self.domain.set_decomposition(domain_comm, parsize, N_c)
+
+            # Construct grid descriptors for coarse grids (wave functions) and
+            # fine grids (densities and potentials):
+            self.gd = GridDescriptor(self.domain, N_c)
+
             # do k-point analysis here? XXX
+
             args = (self.gd, nspins, setups,
                     nbands, mynbands,
                     dtype, world, kpt_comm, band_comm,
@@ -441,14 +444,16 @@ class PAW(PAWTextOutput):
                 self.wfs = LCAOWaveFunctions(*args)
             else:
                 self.wfs = GridWaveFunctions(par.stencils[0], *args)
-
+            
         eigensolver = get_eigensolver(par.eigensolver, par.mode)
         eigensolver.nbands_converge = nbands_converge
         self.wfs.eigensolver = eigensolver
         self.wfs.timer = self.timer
 
         if self.density is None:
+            self.finegd = GridDescriptor(self.domain, 2 * N_c)
             self.density = Density(self.gd, self.finegd, nspins, par.charge)
+
         self.density.initialize(setups, par.stencils[1], self.timer,
                                 magmom_a, par.hund)
         self.density.set_mixer(par.mixer, fixmom, width)
