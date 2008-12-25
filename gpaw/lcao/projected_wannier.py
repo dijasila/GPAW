@@ -156,13 +156,16 @@ class ProjectedWannierFunctions:
             N = self.V_kni.shape[1]
 
         self.N = N
+        
+        assert fixedenergy!=None, 'Only fixedenergy is implemented for now'
 
         if fixedenergy!=None:
             self.fixedenergy = fixedenergy
             self.M_k = [sum(eps_n<=fixedenergy) for eps_n in self.eps_kn]
             self.L_k = [self.Nw - M for M in self.M_k]
             
-        print "fixedenergy =", self.fixedenergy
+        if fixedenergy!=None:
+            print "fixedenergy =", self.fixedenergy
         print 'N =', self.N
         print "skpt_kc = "
         print self.ibzk_kc
@@ -277,15 +280,25 @@ class ProjectedWannierFunctions:
         return np.asarray(eigs_kn)
 
     def get_norm_of_projection(self):
-        assert 0, 'Not implemented yet'
         norm_kn = np.zeros((self.nk, self.N))
         Sinv_kii = np.asarray([la.inv(S_ii) for S_ii in self.S_kii])
-        normo_kn = np.assarray([dots([Uo_ni, Sinv_ii, dagger(Uo_ni)]).diagonal()
-                   for Uo_ni, Sinv_ii in zip(self.Uo_kni, Sinv_kii)])
-        #Vu_ni = self.V_ni[self.M:self.N]
-        #Pu_ni = dots([Vu_ni, self.b_il, self.Uu_li])
-        #norm_n[self.M:self.N] = dots([Pu_ni, Sinv_ii, dagger(Pu_ni)]).diagonal()
-        return norm_n
+
+        normo_kn = np.asarray([dots([Uo_ni, Sinv_ii, dagger(Uo_ni)]).diagonal()
+                    for Uo_ni, Sinv_ii in zip(self.Uo_kni, Sinv_kii)])
+        
+        Vu_kni = np.asarray([V_ni[M:self.N] 
+                             for V_ni, M in zip(self.V_kni, self.M_k)])
+
+        Pu_kni = [dots([Vu_ni, b_il, Uu_li]) 
+                for Vu_ni, b_il, Uu_li in zip(Vu_kni, self.b_kil, self.Uu_kli)]
+
+        normu_kn = np.asarray([dots([Pu_ni, Sinv_ii, dagger(Pu_ni)]).diagonal()
+                    for Pu_ni, Sinv_ii in zip(Pu_kni, Sinv_kii)])
+
+        norm_kn = np.concatenate([normo_kn.flat, normu_kn.flat])
+        norm_kn.shape = ([normo_kn.shape[0],
+                          normo_kn.shape[1]+normu_kn.shape[1]])
+        return norm_kn                          
 
     def get_mlwf_initial_guess(self):
         """calculate initial guess for maximally localized 
@@ -305,7 +318,7 @@ class ProjectedWannierFunctions:
         
 if __name__=='__main__':
     from ase import Atoms, molecule
-    from gpaw import GPAW
+    from gpaw import GPAW, Mixer
     import numpy as np
     from gpaw.lcao.tools import get_realspace_hs
     from time import time
@@ -313,13 +326,13 @@ if __name__=='__main__':
     if 0:
         atoms = molecule('C6H6')
         atoms.center(vacuum=2.5)
-        calc = GPAW(h=0.2, basis='sz', width=0.05, convergence={'bands':17})
+        calc = GPAW(h=0.2, basis='szp', width=0.05, convergence={'bands':17})
         atoms.set_calculator(calc)
         atoms.get_potential_energy()
         calc.write('C6H6.gpw', 'all')
 
 
-    if 1:
+    if 0:
         calc = GPAW('C6H6.gpw', txt=None, basis='sz')
         ibzk_kc = calc.wfs.ibzk_kc
         nk = len(ibzk_kc)
@@ -341,9 +354,17 @@ if __name__=='__main__':
         h, s = pwf.get_hamiltonian_and_overlap_matrix(useibl=True)
         t2 = time()
         print "\nTime to construct PWF: %.3f seconds "  % (t2 - t1)
-        deps_n = np.around(abs(eps_kn - pwf.get_eigenvalues())[0], 13)
-        for n, deps in enumerate(deps_n):
-            print "%.3i  %.2e" % (n, deps)
+        norm_kn = pwf.get_norm_of_projection()
+        eps1_kn = pwf.get_eigenvalues()
+        print "band | deps/eV |  norm"
+        print "-------------------------"
+        for n in range(norm_kn.shape[1]):
+            norm = norm_kn[0, n]
+            if n>=eps1_kn.shape[1]:
+                print "%4i |    -    | %.1e " % (n, norm)
+            else:
+                deps = np.around(abs(eps1_kn[0,n] - eps_kn[0, n]),13)
+                print "%4i | %.1e | %.1e " % (n, deps, norm)
 
 
     if 0:
@@ -393,3 +414,38 @@ if __name__=='__main__':
         n = 2
         w_k = calc.wfs.weight_k
         h_n, s_n = get_realspace_hs(h_skMM, s_kMM, ibzk_kc, w_k, (n, 0, 0))
+
+    if 0:
+        atoms = Atoms('Al', cell=(2.42, 7, 7), pbc=True)
+        atoms*=(8, 1, 1)
+        calc = GPAW(h=0.2, basis='szp', kpts=(1, 1, 1), 
+                    convergence={'bands':4*8}, width=0.1,
+                    maxiter=200, mixer=Mixer(0.1,7,metric='new', weight=100.))
+        atoms.set_calculator(calc)
+        atoms.get_potential_energy()
+        calc.write('al8.gpw', 'all')
+
+    if 1:
+        calc = GPAW('al8.gpw', txt=None, basis='sz')
+        ibzk_kc = calc.wfs.ibzk_kc
+        nk = len(ibzk_kc)
+        Ef = calc.get_fermi_level()
+        eps_kn = np.asarray([calc.get_eigenvalues(kpt=k) for k in range(nk)])
+        eps_kn -= Ef
+        
+        V_knM, H_kMM, S_kMM = get_phs(calc, s=0)
+        H_kMM -= S_kMM * Ef
+        
+        pwf = ProjectedWannierFunctions(V_knM, 
+                                        h_lcao=H_kMM, 
+                                        s_lcao=S_kMM, 
+                                        eigenvalues=eps_kn, 
+                                        fixedenergy=0.0,
+                                        kpoints=ibzk_kc)
+        
+        t1 = time()
+        h_kMM, s_kMM = pwf.get_hamiltonian_and_overlap_matrix(useibl=True)
+        t2 = time()
+        print "\nTime to construct PWF: %.3f seconds "  % (t2 - t1)
+
+
