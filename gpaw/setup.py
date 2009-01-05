@@ -792,7 +792,7 @@ class Setup:
 
         self.I4_iip = I4_iip
 
-    def calculate_initial_occupation_numbers(self, magmom, hund):
+    def calculate_initial_occupation_numbers(self, magmom, hund, charge):
         niao = self.niAO
         nspins = self.xc_correction.nspins
         f_si = npy.zeros((nspins, niao))
@@ -800,7 +800,23 @@ class Setup:
         # Projector function indices:
         j = 0
         nj = len(self.n_j)
-        
+
+        f_j = npy.array(self.f_j, float)
+        if charge >= 0:
+            for j in range(nj - 1, -1, -1):
+                f = f_j[j]
+                c = min(f, charge)
+                f_j[j] -= c
+                charge -= c
+        else:
+            for j in range(nj - 1, -1, -1):
+                f = f_j[j]
+                l = self.l_j[j]
+                c = min(2 * l + 1 - f, -charge)
+                f_j[j] += c
+                charge += c
+        assert charge == 0.0
+
         i = 0
         for phit in self.phit_j:
             l = phit.get_angular_momentum_number()
@@ -809,7 +825,7 @@ class Setup:
             while j < nj and self.l_j[j] != l:
                 j += 1
             if j < nj:
-                f = int(self.f_j[j])
+                f = f_j[j]
             else:
                 f = 0
 
@@ -817,6 +833,8 @@ class Setup:
 
             if hund:
                 # Use Hunds rules:
+                assert f == int(f)
+                f = int(f)
                 f_si[0, i:i + min(f, degeneracy)] = 1.0      # spin up
                 f_si[1, i:i + max(f - degeneracy, 0)] = 1.0  # spin down
                 if f < degeneracy:

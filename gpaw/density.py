@@ -42,7 +42,7 @@ class Density:
         self.gd = gd
         self.finegd = finegd
         self.nspins = nspins
-        self.charge = charge
+        self.charge = float(charge)
 
         self.charge_eps = 1e-7
         self.D_asp = None
@@ -165,7 +165,7 @@ class Density:
             # With zero-boundary conditions in one or more directions,
             # this is not the case.
             pseudo_charge = -(self.charge + comp_charge)
-            if pseudo_charge != 0:
+            if abs(pseudo_charge) > 1.0e-14:
                 x = pseudo_charge / self.finegd.integrate(self.nt_sg).sum()
                 self.nt_sg *= x
 
@@ -188,9 +188,10 @@ class Density:
         f_sM = np.empty((self.nspins, basis_functions.Mmax))
         self.D_asp = {}
         f_asi = {}
+        c = self.charge / len(self.setups)  # distribute charge on all atoms
         for a in basis_functions.atom_indices:
             f_si = self.setups[a].calculate_initial_occupation_numbers(
-                    self.magmom_a[a], self.hund)
+                    self.magmom_a[a], self.hund, charge=c)
             if a in basis_functions.my_atom_indices:
                 self.D_asp[a] = self.setups[a].initialize_density_matrix(f_si)
             f_asi[a] = f_si
