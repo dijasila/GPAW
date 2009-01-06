@@ -8,18 +8,18 @@ from gpaw.gauss import Gauss
 
 import gpaw.mpi as mpi
 
-def print_projectors(nucleus):
+def print_projectors(setup):
     """Print information on the projectors of input nucleus object.
 
     If nucleus is a string, treat this as an element name.
     """
-    if type(nucleus) is str:
-        setup = SetupData(nucleus, 'LDA', 'paw')
+    if type(setup) is str:
+        setup = SetupData(setup, 'LDA', 'paw')
         n_j = setup.n_j
         l_j = setup.l_j
     else:
-        n_j = nucleus.setup.n_j
-        l_j = nucleus.setup.l_j
+        n_j = setup.n_j
+        l_j = setup.l_j
     
     angular = [['1'],
                ['y', 'z', 'x'],
@@ -37,7 +37,7 @@ def print_projectors(nucleus):
             print '%2s %s %s_%s' % (i, n, 'spdf'[l], angular[l][m])
             i += 1
 
-def get_angular_projectors(nucleus, angular, type='bound'):
+def get_angular_projectors(setup, angular, type='bound'):
     """Determine the projector indices which have specified angula
     quantum number.
 
@@ -48,17 +48,17 @@ def get_angular_projectors(nucleus, angular, type='bound'):
     # Get the number of relevant j values
     if type == 'bound':
         nj = 0
-        while nucleus.setup.n_j[nj] != -1: nj += 1
+        while setup.n_j[nj] != -1: nj += 1
     else:
-        nj = len(nucleus.setup.n_j)
+        nj = len(setup.n_j)
             
 
     # Choose the relevant projectors
     projectors = []
     i = j = 0
     for j in range(nj):
-        m = 2 * nucleus.setup.l_j[j] + 1
-        if 'spdf'[nucleus.setup.l_j[j]] in angular:
+        m = 2 * setup.l_j[j] + 1
+        if 'spdf'[setup.l_j[j]] in angular:
             projectors.extend(range(i, i + m))
         j += 1
         i += m
@@ -90,18 +90,19 @@ def raw_orbital_LDOS(paw, a, spin, angular='spdf'):
     An integer value for ``angular`` can also be used to specify a specific
     projector function.
     """
-    w_k = paw.weight_k
+    wfs = paw.wfs
+    w_k = wfs.weight_k
     nk = len(w_k)
-    nb = paw.nbands
-    nucleus = paw.nuclei[a]
+    nb = wfs.nbands
+    setup = wfs.setups[a]
 
     energies = npy.empty(nb * nk)
-    weights_xi = npy.empty((nb * nk, nucleus.setup.ni))
+    weights_xi = npy.empty((nb * nk, setup.ni))
     x = 0
     for k, w in enumerate(w_k):
-        energies[x:x + nb] = paw.collect_eigenvalues(k=k, s=spin)
+        energies[x:x + nb] = wfs.collect_eigenvalues(k=k, s=spin)
         u = spin * nk + k
-        weights_xi[x:x + nb, :] = w * npy.absolute(nucleus.P_uni[u])**2
+        weights_xi[x:x + nb, :] = w * npy.absolute(wfs.kpt_u[u].P_ani[a])**2
         x += nb
 
     if angular is None:
@@ -109,7 +110,7 @@ def raw_orbital_LDOS(paw, a, spin, angular='spdf'):
     elif type(angular) is int:
         return energies, weights_xi[angular]
     else:
-        projectors = get_angular_projectors(nucleus, angular, type='bound')
+        projectors = get_angular_projectors(setup, angular, type='bound')
         weights = npy.sum(npy.take(weights_xi,
                                    indices=projectors, axis=1), axis=1)
         return energies, weights
@@ -151,7 +152,7 @@ def molecular_LDOS(paw, mol, spin, lc=None, wf=None, P_aui=None):
 
     else:
         P_aui = [npy.conjugate(P_aui[a]) for a in range(len(mol))]
-        for kpt in paw.wfs.kpt_u[spin*nk:(spin+1)*nk]:
+        for kpt in paw.kpt_u[spin*nk:(spin+1)*nk]:
             w = npy.reshape(npy.conjugate(wf)[kpt.k], -1)
             for n in range(nb):
                 psit_nG = npy.reshape(kpt.psit_nG[n], -1)
@@ -197,7 +198,7 @@ def raw_wignerseitz_LDOS(paw, a, spin):
     for k, w in enumerate(w_k):
         u = spin * nk + k
         energies[x:x + nb] = paw.collect_eigenvalues(k=k, s=spin)
-        for n, psit_G in enumerate(paw.wfs.kpt_u[u].psit_nG):
+        for n, psit_G in enumerate(paw.kpt_u[u].psit_nG):
             P_i = nucleus.P_uni[u, n]
             P_p = pack(npy.outer(P_i, P_i))
             Delta_p = sqrt(4 * pi) * nucleus.setup.Delta_pL[:, 0]

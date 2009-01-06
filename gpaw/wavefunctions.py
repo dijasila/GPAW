@@ -135,6 +135,12 @@ class WaveFunctions(EmptyWaveFunctions):
         if self.symmetry is not None:
             self.symmetry.check(spos_ac)
 
+    def collect_eigenvalues(self, k, s):
+        return self.collect_array('eps_n', k, s)
+    
+    def collect_occupations(self, k, s):
+        return self.collect_array('f_n', k, s)
+    
     def collect_array(self, name, k, s):
         """Helper method for collect_eigenvalues and collect_occupations.
 
