@@ -230,6 +230,16 @@ class Density:
             self.gd.comm.sum(magmom_a)
         return magmom_a
 
+    def get_correction(self, a, spin):
+        """Integrated atomic density correction.
+
+        Get the integrated correction to the pseuso density relative to
+        the all-electron density.
+        """
+        return sqrt(4 * pi) * (
+            np.dot(self.D_asp[a][spin], self.setups[a].Delta_pL[:, 0])
+            + self.setups[a].Delta0 / self.nspins)
+
     def get_density_array(self):
         XXX
         # XXX why not replace with get_spin_density and get_total_density?

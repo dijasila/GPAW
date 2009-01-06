@@ -142,11 +142,12 @@ class GPAW(PAW):
         you should add to the result of doing e.g. Bader analysis on the
         pseudo density."""
         if self.wfs.nspins == 1:
-            return npy.array([n.get_density_correction(0, 1)
-                              for n in self.nuclei])
+            return npy.array([self.density.get_correction(a, 0)
+                              for a in range(len(self.atoms))])
         else:
-            return npy.array([[n.get_density_correction(spin, 2)
-                              for n in self.nuclei] for spin in range(2)])
+            return npy.array([[self.density.get_correction(a, spin)
+                               for a in range(len(self.atoms))]
+                              for spin in range(2)])
 
     def get_all_electron_density(self, spin=None, gridrefinement=2, pad=True):
         """Return reconstructed all-electron density array."""
@@ -183,15 +184,15 @@ class GPAW(PAW):
         """
         from gpaw.utilities import wignerseitz
         atom_index = self.gd.empty(dtype=int)
-        atom_ac = npy.array([n.spos_c * self.gd.N_c for n in self.nuclei])
+        atom_ac = self.atoms.get_scaled_positions() * self.gd.N_c
         wignerseitz(atom_index, atom_ac, self.gd.beg_c, self.gd.end_c)
 
         nt_G = self.density.nt_sG[spin]
-        weight_a = npy.empty(len(self.nuclei))
-        for a, nucleus in enumerate(self.nuclei):
+        weight_a = npy.empty(len(self.atoms))
+        for a in range(len(self.atoms)):
             # XXX Optimize! No need to integrate in zero-region
-            smooth = self.gd.integrate(npy.where(atom_index == a, nt_G, .0))
-            correction = nucleus.get_density_correction(spin, self.wfs.nspins)
+            smooth = self.gd.integrate(npy.where(atom_index == a, nt_G, 0.0))
+            correction = self.density.get_correction(a, spin)
             weight_a[a] = smooth + correction
             
         return weight_a
