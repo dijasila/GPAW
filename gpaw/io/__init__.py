@@ -68,7 +68,7 @@ def write(paw, filename, mode):
         w['lengthunit'] = 'Bohr'
         w['energyunit'] = 'Hartree'
 
-        magmom_a = paw.density.magmom_a
+        magmom_a = paw.get_magnetic_moments()
         try:
             tag_a = atoms.get_tags()
             if tag_a is None:
@@ -91,7 +91,7 @@ def write(paw, filename, mode):
         w.add('PotentialEnergy', (), hamiltonian.Etot + 0.5 * hamiltonian.S,
               units=(0, 1))
         if paw.forces.F_av is not None:
-            w.add('CartesianForces', ('natoms', '3'), paw.forces.F_ac,
+            w.add('CartesianForces', ('natoms', '3'), paw.forces.F_av,
                   units=(-1, 1))
 
         # Write the k-points:
@@ -158,9 +158,9 @@ def write(paw, filename, mode):
         w['FermiLevel'] = epsF
 
         # write errors
-        w['DensityError'] = 10.0
-        w['EnergyError'] = 10.0
-        w['EigenstateError'] = 10.0  # XXX
+        w['DensityError'] = scf.density_error
+        w['EnergyError'] = scf.energy_error
+        w['EigenstateError'] = scf.eigenstates_error
 
         if wfs.dtype == float:
             w['DataType'] = 'Float'
@@ -374,11 +374,6 @@ def read(paw, reader):
             paw.gd.distribute(r.get('PseudoPotential', s),
                               paw.hamiltonian.vt_sG[s])
 
-    if version > 0.3:
-        paw.scf.converged = r['Converged']
-    else:
-        paw.scf.converged = True
-        
     # Read atomic density matrices and non-local part of hamiltonian:
     D_sp = r.get('AtomicDensityMatrices')
     if version > 0.3:
@@ -405,9 +400,20 @@ def read(paw, reader):
     hamiltonian.S = r['S']
     hamiltonian.Etot = r.get('PotentialEnergy') - 0.5 * hamiltonian.S
 
+    if version > 0.3:
+        paw.scf.converged = r['Converged']
+        paw.density.mixer.dNt = r['DensityError']
+        Etot = hamiltonian.Etot
+        paw.scf.energies = [Etot, Etot + r['EnergyError'], Etot]
+        wfs.eigensolver.error = r['EigenstateError']
+    else:
+        paw.scf.converged = True
+        
     if not paw.input_parameters.fixmom:
         paw.occupations.set_fermi_level(r['FermiLevel'])
 
+    paw.occupations.magmom = paw.atoms.get_initial_magnetic_moments().sum()
+    
     # Try to read the current time in time-propagation:
     if hasattr(paw, 'time'):
         try:
@@ -419,7 +425,7 @@ def read(paw, reader):
     nibzkpts = r.dims['nibzkpts']
     nbands = r.dims['nbands']
 
-    if (nibzkpts == len(wfs.kpt_u) and
+    if (nibzkpts == len(wfs.ibzk_kc) and
         nbands == wfs.band_comm.size * wfs.mynbands):
         for kpt in wfs.kpt_u:
             # Eigenvalues and occupation numbers:

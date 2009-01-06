@@ -304,12 +304,10 @@ class PAWTextOutput:
             t('Center of Charge: %s' % (dipole * Bohr / abs(charge)))
 
         if self.wfs.nspins == 2:
-            self.density.calculate_magnetic_moments()
             t()
             t('Total Magnetic Moment: %f' % self.occupations.magmom)
             t('Local Magnetic Moments:')
-            print 'scaling om magmom_a?'
-            for a, mom in enumerate(self.density.magmom_a):
+            for a, mom in enumerate(self.get_magnetic_moments()):
                 t(a, mom)
             t()
 

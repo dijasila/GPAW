@@ -9,7 +9,7 @@ from math import pi, sqrt
 import numpy as np
 
 from gpaw import debug
-from gpaw.mixer import Mixer, MixerSum
+from gpaw.mixer import BaseMixer, Mixer, MixerSum
 from gpaw.transformers import Transformer
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.wavefunctions import LCAOWaveFunctions
@@ -55,6 +55,8 @@ class Density:
         self.nt_sg = None
         self.nt_g = None
 
+        self.mixer = BaseMixer()
+        
     def initialize(self, setups, stencil, timer, magmom_a, hund):
         self.timer = timer
         self.setups = setups
@@ -220,16 +222,13 @@ class Density:
 
         self.mixer.initialize(self)
         
-    def calculate_magnetic_moments(self):
-        if self.nspins == 1:
-            assert not self.magmom_a.any()
-        else:
-            self.magmom_a.fill(0.0)
+    def estimate_magnetic_moments(self):
+        magmom_a = np.zeros_like(self.magmom_a)
+        if self.nspins == 2:
             for a, D_sp in self.D_asp.items():
-                self.magmom_a[a] = np.dot(D_sp[0] - D_sp[1],
-                                          self.setups[a].N0_p)
-            self.gd.comm.sum(self.magmom_a)
-        return self.magmom_a
+                magmom_a[a] = np.dot(D_sp[0] - D_sp[1], self.setups[a].N0_p)
+            self.gd.comm.sum(magmom_a)
+        return magmom_a
 
     def get_density_array(self):
         XXX

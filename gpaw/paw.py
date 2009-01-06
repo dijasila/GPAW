@@ -219,7 +219,9 @@ class PAW(PAWTextOutput):
                                             self.wfs.eigensolver):
             self.set_positions(atoms)
 
-        iter = 1
+        if self.scf.converged:
+            return
+
         for iter in self.scf.run(self.wfs, self.hamiltonian, self.density,
                                  self.occupations):
             self.call_observers(iter)
