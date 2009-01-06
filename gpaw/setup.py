@@ -518,11 +518,10 @@ class Setup:
 
         # Electron density inside augmenation sphere.  Used for estimating
         # atomic magnetic moment:
-
         rcutmax = max(self.rcut_j)
         gcutmax = int(round(rcutmax * self.ng / (rcutmax + self.beta)))
         N0_q = npy.dot(n_qg[:, :gcutmax], (r_g**2 * dr_g)[:gcutmax])
-        self.N0_p = npy.dot(N0_q, T_Lqp[0])
+        self.N0_p = npy.dot(N0_q, T_Lqp[0]) * sqrt(4 * pi)
 
         return g_lg, n_qg, nt_qg, Delta_lq
 
