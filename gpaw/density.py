@@ -82,13 +82,7 @@ class Density:
         self.rhot_g = None
         self.Q_aL = None
 
-        if self.D_asp is None:
-            # First time:
-            self.D_asp = {}
-            for a in self.nct.my_atom_indices:
-                ni = self.setups[a].ni
-                self.D_asp[a] = np.empty((self.nspins, ni * (ni + 1) // 2))
-        else:
+        if self.D_asp is not None:
             requests = []
             D_asp = {}
             for a in self.nct.my_atom_indices:
@@ -108,10 +102,18 @@ class Density:
             self.D_asp = D_asp
 
     def update(self, wfs, basis_functions=None,
-               calculate_atomic_density_matrices=True):
+               calculate_atomic_density_matrices=True,
+               normalize_density=False):
         if self.nt_sG is None:
             self.nt_sG = self.gd.empty(self.nspins)
 
+        if self.D_asp is None:
+            assert calculate_atomic_density_matrices
+            self.D_asp = {}
+            for a in self.nct.my_atom_indices:
+                ni = self.setups[a].ni
+                self.D_asp[a] = np.empty((self.nspins, ni * (ni + 1) // 2))
+            
         if basis_functions:
             self.initialize_from_atomic_densities(basis_functions)
         else:
@@ -123,7 +125,8 @@ class Density:
 
         comp_charge = self.calculate_multipole_moments()
         
-        if (basis_functions or
+        if (normalize_density or
+            basis_functions or
             isinstance(wfs, LCAOWaveFunctions) or
             not calculate_atomic_density_matrices):
             pseudo_charge = self.gd.integrate(self.nt_sG).sum()

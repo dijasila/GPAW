@@ -36,7 +36,6 @@ class WaveFunctions(EmptyWaveFunctions):
                  gamma, bzk_kc, ibzk_kc, weight_k, symmetry):
         self.gd = gd
         self.nspins = nspins
-        self.setups = setups
         self.nbands = nbands
         self.mynbands = mynbands
         self.dtype = dtype
@@ -50,6 +49,8 @@ class WaveFunctions(EmptyWaveFunctions):
         self.symmetry = symmetry
         self.kpt_comm = kpt_comm
         self.rank_a = None
+
+        self.set_setups(setups)
 
         nibzkpts = len(weight_k)
 
@@ -79,6 +80,9 @@ class WaveFunctions(EmptyWaveFunctions):
         self.eigensolver = None
         self.timer = None
         
+    def set_setups(self, setups):
+        self.setups = setups
+
     def __nonzero__(self):
         return True
 
@@ -273,13 +277,16 @@ class GridWaveFunctions(WaveFunctions):
         # Kinetic energy operator:
         self.kin = Laplace(self.gd, -0.5, stencil, self.dtype)
         self.set_orthonormalized(False)
-        self.pt = LFC(self.gd, [setup.pt_j for setup in self.setups],
+
+    def set_setups(self, setups):
+        WaveFunctions.set_setups(self, setups)
+        self.pt = LFC(self.gd, [setup.pt_j for setup in setups],
                       self.kpt_comm, dtype=self.dtype, forces=True)
         if not self.gamma:
             self.pt.set_k_points(self.ibzk_qc)
 
         self.overlap = None
-        
+
     def set_orthonormalized(self, flag):
         self.orthonormalized = flag
 
@@ -313,7 +320,13 @@ class GridWaveFunctions(WaveFunctions):
             if self.kpt_u[0].psit_nG is None:
                 density.update(self, basis_functions=basis_functions)
             else:
-                density.update(self, calculate_atomic_density_matrices=False)
+                if density.D_asp is None:
+                    for kpt in self.kpt_u:
+                        self.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+                    density.update(self, normalize_density=True)
+                else:
+                    density.update(self,
+                                   calculate_atomic_density_matrices=False)
 
         hamiltonian.update(density)
 

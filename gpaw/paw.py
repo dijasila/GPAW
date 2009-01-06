@@ -444,6 +444,8 @@ class PAW(PAWTextOutput):
                 self.wfs = LCAOWaveFunctions(*args)
             else:
                 self.wfs = GridWaveFunctions(par.stencils[0], *args)
+        else:
+            self.wfs.set_setups(setups)
             
         eigensolver = get_eigensolver(par.eigensolver, par.mode)
         eigensolver.nbands_converge = nbands_converge
