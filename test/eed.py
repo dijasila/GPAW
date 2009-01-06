@@ -17,5 +17,5 @@ calc = GPAW(h=0.3, nbands=2,
 H2.set_calculator(calc)
 H2.get_potential_energy()
 
-eed = ExteriorElectronDensity(calc.gd, calc.nuclei)
-eed.write_mies_weights(calc)
+eed = ExteriorElectronDensity(calc.gd, calc.wfs.setups, H2)
+eed.write_mies_weights(calc.wfs)
