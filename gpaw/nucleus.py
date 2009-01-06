@@ -1062,39 +1062,6 @@ class Nucleus:
                             % gd.N_c)
                 n_sg[s][g_c] += (Iana - Inum) / gd.dv
         
-    def wannier_correction(self, G, c, u, u1, nbands=None):
-        """
-        Calculate the correction to the wannier integrals Z,
-        given by (Eq. 27 ref1)::
-
-                          -i G.r    
-            Z   = <psi | e      |psi >
-             nm       n             m
-                            
-                           __                __
-                   ~      \              a  \     a*  a    a   
-            Z    = Z    +  ) exp[-i G . R ]  )   P   O    P  
-             nmx    nmx   /__            x  /__   ni  ii'  mi'
-
-                           a                 ii'
-
-        Note that this correction is an approximation that assumes the
-        exponential varies slowly over the extent of the augmentation sphere.
-
-        ref1: Thygesen et al, Phys. Rev. B 72, 125119 (2005) 
-        """
-
-        if nbands is None:
-            nbands = self.P_uni.shape[1]
-            
-        P_ni = self.P_uni[u, :nbands]
-        P1_ni = self.P_uni[u1, :nbands]
-        O_ii = self.setup.O_ii
-        e = exp(-2.j * pi * G * self.spos_c[c])
-        Z_nn = e * npy.dot(npy.dot(P_ni.conj(), O_ii), P1_ni.T)
-
-        return Z_nn
-
     def get_electrostatic_correction(self):
         """Calculate PAW correction to average electrostatic potential."""
         return self.setup.dEH0 + npy.dot(self.setup.dEH_p, self.D_sp.sum(0))

@@ -5,7 +5,7 @@
 
 """ASE-calculator interface."""
 
-import numpy as npy
+import numpy as np
 from ase.units import Bohr, Hartree
 
 from gpaw.paw import PAW
@@ -142,18 +142,18 @@ class GPAW(PAW):
         you should add to the result of doing e.g. Bader analysis on the
         pseudo density."""
         if self.wfs.nspins == 1:
-            return npy.array([self.density.get_correction(a, 0)
-                              for a in range(len(self.atoms))])
+            return np.array([self.density.get_correction(a, 0)
+                             for a in range(len(self.atoms))])
         else:
-            return npy.array([[self.density.get_correction(a, spin)
-                               for a in range(len(self.atoms))]
-                              for spin in range(2)])
+            return np.array([[self.density.get_correction(a, spin)
+                              for a in range(len(self.atoms))]
+                             for spin in range(2)])
 
     def get_all_electron_density(self, spin=None, gridrefinement=2, pad=True):
         """Return reconstructed all-electron density array."""
         n_G = self.density.get_all_electron_density(gridrefinement)
         if n_G is None:
-            return npy.array([0.]) # let the slave return something
+            return np.array([0.0]) # let the slave return something
         
         if self.wfs.nspins == 1 and spin is not None:
             n_G *= .5
@@ -188,10 +188,10 @@ class GPAW(PAW):
         wignerseitz(atom_index, atom_ac, self.gd.beg_c, self.gd.end_c)
 
         nt_G = self.density.nt_sG[spin]
-        weight_a = npy.empty(len(self.atoms))
+        weight_a = np.empty(len(self.atoms))
         for a in range(len(self.atoms)):
             # XXX Optimize! No need to integrate in zero-region
-            smooth = self.gd.integrate(npy.where(atom_index == a, nt_G, 0.0))
+            smooth = self.gd.integrate(np.where(atom_index == a, nt_G, 0.0))
             correction = self.density.get_correction(a, spin)
             weight_a[a] = smooth + correction
             
@@ -208,8 +208,8 @@ class GPAW(PAW):
 
         w_k = self.weight_k
         Nb = self.nbands
-        energies = npy.empty(len(w_k) * Nb)
-        weights  = npy.empty(len(w_k) * Nb)
+        energies = np.empty(len(w_k) * Nb)
+        weights  = np.empty(len(w_k) * Nb)
         x = 0
         for k, w in enumerate(w_k):
             energies[x:x + Nb] = self.get_eigenvalues(k, spin)
@@ -326,7 +326,7 @@ class GPAW(PAW):
         U_ww, C_ul = rotation_from_projection(proj_knw[0],
                                               fixedstates[0],
                                               ortho=True)
-        return [C_ul], U_ww[npy.newaxis]
+        return [C_ul], U_ww[np.newaxis]
 
     def get_wannier_localization_matrix(self, nbands, dirG, kpoint,
                                         nextkpoint, G_I, spin):
@@ -338,6 +338,68 @@ class GPAW(PAW):
 
         return self.get_wannier_integrals(c, spin, kpoint,
                                           nextkpoint, G, nbands)
+
+    def get_wannier_integrals(self, c, s, k, k1, G, nbands=None):
+        """Calculate integrals for maximally localized Wannier functions."""
+
+        assert s <= self.wfs.nspins
+        kpt_rank, u = divmod(k + len(self.wfs.ibzk_kc) * s,
+                             len(self.wfs.kpt_u))
+        kpt_rank1, u1 = divmod(k1 + len(self.wfs.ibzk_kc) * s,
+                               len(self.wfs.kpt_u))
+        kpt_u = self.wfs.kpt_u
+
+        # XXX not for the kpoint/spin parallel case
+        assert self.wfs.kpt_comm.size == 1
+
+        # If calc is a save file, read in tar references to memory
+        self.wfs.initialize_wave_functions_from_restart_file()
+        
+        # Get pseudo part
+        Z_nn = self.gd.wannier_matrix(kpt_u[u].psit_nG,
+                                      kpt_u[u1].psit_nG, c, G, nbands)
+
+        # Add corrections
+        self.add_wannier_correction(Z_nn, G, c, u, u1, nbands)
+
+        self.gd.comm.sum(Z_nn, 0)
+            
+        return Z_nn
+
+    def add_wannier_correction(self, Z_nn, G, c, u, u1, nbands=None):
+        """
+        Calculate the correction to the wannier integrals Z,
+        given by (Eq. 27 ref1)::
+
+                          -i G.r    
+            Z   = <psi | e      |psi >
+             nm       n             m
+                            
+                           __                __
+                   ~      \              a  \     a*  a    a   
+            Z    = Z    +  ) exp[-i G . R ]  )   P   O    P  
+             nmx    nmx   /__            x  /__   ni  ii'  mi'
+
+                           a                 ii'
+
+        Note that this correction is an approximation that assumes the
+        exponential varies slowly over the extent of the augmentation sphere.
+
+        ref1: Thygesen et al, Phys. Rev. B 72, 125119 (2005) 
+        """
+
+        if nbands is None:
+            nbands = self.wfs.nbands
+            
+        P_ani = self.wfs.kpt_u[u].P_ani
+        P1_ani = self.wfs.kpt_u[u1].P_ani
+        spos_av = self.atoms.get_scaled_positions()
+        for a, P_ni in P_ani.items():
+            P_ni = P_ani[a][:nbands]
+            P1_ni = P1_ani[a][:nbands]
+            O_ii = self.wfs.setups[a].O_ii
+            e = np.exp(-2.j * np.pi * G * spos_av[a, c])
+            Z_nn += e * np.dot(np.dot(P_ni.conj(), O_ii), P1_ni.T)
 
     def get_magnetic_moment(self, atoms=None):
         """Return the total magnetic moment."""
@@ -370,7 +432,7 @@ class GPAW(PAW):
                  self.get_xc_difference('XC-1-1.0') - E0,
                  self.get_xc_difference('XC-2-1.0') - E0)
         self.text('BEE: (%.9f, %.9f, %.9f, %.9f)' % coefs)
-        return npy.array(coefs)
+        return np.array(coefs)
 
     def get_electronic_temperature(self):
         return self.kT * Hartree

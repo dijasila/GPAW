@@ -399,6 +399,9 @@ class GridWaveFunctions(WaveFunctions):
                 kpt.random_wave_functions(nao)
 
     def initialize_wave_functions_from_restart_file(self):
+        if not isinstance(self.kpt_u[0].psit_nG, TarFileReference):
+            return
+        
         # Calculation started from a restart file.  Copy data
         # from the file to memory:
         for kpt in self.kpt_u:

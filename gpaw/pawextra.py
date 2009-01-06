@@ -131,34 +131,6 @@ class PAWExtra:
         # might be nicer to have the correct array everywhere XXXX 
         return a_n
 
-    def get_wannier_integrals(self, c, s, k, k1, G, nbands=None):
-        """Calculate integrals for maximally localized Wannier functions."""
-
-        XXXXXX
-        assert s <= self.nspins
-
-        kpt_rank, u = divmod(k + self.nkpts * s, self.nmyu)
-        kpt_rank1, u1 = divmod(k1 + self.nkpts * s, self.nmyu)
-        kpt_u = self.wfs.kpt_u
-
-        # XXX not for the kpoint/spin parallel case
-        assert self.kpt_comm.size == 1
-
-        # If calc is a save file, read in tar references to memory
-        self.wfs.initialize(self)
-        
-        # Get pseudo part
-        Z_nn = self.gd.wannier_matrix(kpt_u[u].psit_nG,
-                                      kpt_u[u1].psit_nG, c, G, nbands)
-
-        # Add corrections
-        for nucleus in self.my_nuclei:
-            Z_nn += nucleus.wannier_correction(G, c, u, u1, nbands)
-
-        self.gd.comm.sum(Z_nn, 0)
-            
-        return Z_nn
-
     def get_grid_spacings(self):
         return self.a0 * self.gd.h_c
 
