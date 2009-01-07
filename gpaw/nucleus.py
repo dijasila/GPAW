@@ -698,24 +698,6 @@ class Nucleus:
 #             self.pt_i.integrate(a_nG, None, k)
 #             self.pt_i.add(b_nG, None, k, communicate=True)
             
-    def apply_inverse_overlap(self, a_nG, b_nG, k):
-        """Apply non-local part of the approximative inverse overlap operator.
-
-        Non-local part of the overlap operator is applied to ``a_nG``
-        and added to ``b_nG``."""
-
-        if self.in_this_domain:
-            n = len(a_nG)
-            ni = self.get_number_of_partial_waves()
-            P_ni = npy.zeros((n, ni), self.dtype)
-            self.pt_i.integrate(a_nG, P_ni, k)
-            coefs_ni = npy.dot(P_ni, self.setup.C_ii)
-            self.pt_i.add(b_nG, coefs_ni, k, communicate=True)
-        else:
-            self.pt_i.integrate(a_nG, None, k)
-            self.pt_i.add(b_nG, None, k, communicate=True)
-
-
     def apply_polynomial(self, a_nG, b_nG, k, poly):
         """Apply non-local part of the polynomial operator.
 

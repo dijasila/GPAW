@@ -3,20 +3,11 @@
 
 """This module defines a ``KPoint`` class."""
 
-from math import pi, sqrt
-from cmath import exp
-
 import numpy as np
-from numpy.random import random, seed
 
-from gpaw import mpi
 from gpaw.operators import Gradient
-from gpaw.transformers import Transformer
-from gpaw.utilities.blas import axpy, rk, gemm
-from gpaw.utilities.complex import cc, real
-from gpaw.utilities.lapack import diagonalize
+from gpaw.utilities.blas import axpy
 
-from gpaw.polynomial import Polynomial
 
 class KPoint:
     """Class for a single k-point.
@@ -103,34 +94,6 @@ class KPoint:
         self.S_MM = None
         self.T_MM = None
 
-    def random_wave_functions(self, nao):
-        """Generate random wave functions"""
-
-        gd1 = self.gd.coarsen()
-        gd2 = gd1.coarsen()
-
-        psit_G1 = gd1.empty(dtype=self.dtype)
-        psit_G2 = gd2.empty(dtype=self.dtype)
-
-        interpolate2 = Transformer(gd2, gd1, 1, self.dtype).apply
-        interpolate1 = Transformer(gd1, self.gd, 1, self.dtype).apply
-
-        shape = tuple(gd2.n_c)
-
-        scale = sqrt(12 / np.product(gd2.domain.cell_c))
-
-        seed(4 + mpi.rank)
-
-        for psit_G in self.psit_nG[nao:]:
-            if self.dtype == float:
-                psit_G2[:] = (random(shape) - 0.5) * scale
-            else:
-                psit_G2.real = (random(shape) - 0.5) * scale
-                psit_G2.imag = (random(shape) - 0.5) * scale
-
-            interpolate2(psit_G2, psit_G1, self.phase_cd)
-            interpolate1(psit_G1, psit_G, self.phase_cd)
-    
     def add_to_density(self, nt_G, use_lcao, basis_functions):
         raise DeprecationWarning
         """Add contribution to pseudo electron-density."""

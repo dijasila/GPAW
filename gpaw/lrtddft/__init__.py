@@ -88,8 +88,7 @@ class LrTDDFT(ExcitationList):
         self.force_ApmB=force_ApmB
  
         if calculator is not None:
-            if not calculator.wfs.initialized:
-                calculator.wfs.initialize(calculator) # XXX remember to test
+            print 'if not calculator.wfs.initialized: calculator.wfs.initialize(calculator) # XXX remember to test'
                 
             self.update(calculator, nspins, eps, istart, jend,
                         xc, derivativeLevel, numscale)
@@ -184,8 +183,7 @@ class LrTDDFT(ExcitationList):
     def read(self, filename=None, fh=None):
         """Read myself from a file"""
         if mpi.rank == mpi.MASTER:
-            self.Ha = Hartree
-            
+
             if fh is None:
                 if filename.endswith('.gz'):
                     try:

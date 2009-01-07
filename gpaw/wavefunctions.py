@@ -4,6 +4,8 @@ from gpaw.lfc import BasisFunctions
 from gpaw.utilities.blas import axpy
 from gpaw.utilities import pack, unpack2
 from gpaw.kpoint import KPoint
+from gpaw.transformers import Transformer
+from gpaw import mpi
 
 
 class EmptyWaveFunctions:
@@ -50,8 +52,6 @@ class WaveFunctions(EmptyWaveFunctions):
         self.kpt_comm = kpt_comm
         self.rank_a = None
 
-        self.set_setups(setups)
-
         nibzkpts = len(weight_k)
 
         # Total number of k-point/spin combinations:
@@ -80,6 +80,8 @@ class WaveFunctions(EmptyWaveFunctions):
         self.eigensolver = None
         self.timer = None
         
+        self.set_setups(setups)
+
     def set_setups(self, setups):
         self.setups = setups
 
@@ -372,7 +374,7 @@ class GridWaveFunctions(WaveFunctions):
         for kpt, lcaokpt in zip(self.kpt_u, lcaowfs.kpt_u):
             kpt.C_nM = lcaokpt.C_nM
 
-        # and rid of potentially big arrays early:
+        # and get rid of potentially big arrays early:
         del eigensolver, lcaowfs
 
         for kpt in self.kpt_u:
@@ -381,22 +383,11 @@ class GridWaveFunctions(WaveFunctions):
                                          kpt.psit_nG[:lcaomynbands], kpt.q)
             kpt.C_nM = None
 
-            if self.mynbands > lcaomynbands:
-                assert not True
-                # Add extra states.  If the number of atomic
-                # orbitals is less than the desired number of
-                # bands, then extra random wave functions are
-                # added.
-
-                eps_n = np.empty(nbands)
-                f_n = np.empty(nbands)
-                eps_n[:nao] = kpt.eps_n[:nao]
-                eps_n[nao:] = kpt.eps_n[nao - 1] + 0.5
-                f_n[nao:] = 0.0
-                f_n[:nao] = kpt.f_n[:nao]
-                kpt.eps_n = eps_n
-                kpt.f_n = f_n
-                kpt.random_wave_functions(nao)
+        if self.mynbands > lcaomynbands:
+            # Add extra states.  If the number of atomic orbitals is
+            # less than the desired number of bands, then extra random
+            # wave functions are added.
+            self.random_wave_functions(lcaomynbands)
 
     def initialize_wave_functions_from_restart_file(self):
         if not isinstance(self.kpt_u[0].psit_nG, TarFileReference):
@@ -415,16 +406,37 @@ class GridWaveFunctions(WaveFunctions):
                     big_psit_G = None
                 self.gd.distribute(big_psit_G, psit_G)
         
-    def random_wave_functions(self, paw):
-        dsfglksjdfglksjdghlskdjfhglsdfkjghsdljgkhsdljghdsfjghdlfgjkhdsfgjhsdfjgkhdsfgjkhdsfgkjhdsflkjhg
+    def random_wave_functions(self, nao):
+        """Generate random wave functions"""
 
-        self.allocate_bands(0)
+        gd1 = self.gd.coarsen()
+        gd2 = gd1.coarsen()
+
+        psit_G1 = gd1.empty(dtype=self.dtype)
+        psit_G2 = gd2.empty(dtype=self.dtype)
+
+        interpolate2 = Transformer(gd2, gd1, 1, self.dtype).apply
+        interpolate1 = Transformer(gd1, self.gd, 1, self.dtype).apply
+
+        shape = tuple(gd2.n_c)
+
+        scale = np.sqrt(12 / np.product(gd2.domain.cell_c))
+
+        from numpy.random import random, seed
+
+        seed(4 + mpi.rank)
+
         for kpt in self.kpt_u:
-            kpt.psit_nG = self.gd.zeros(self.mynbands,
-                                        dtype=self.dtype)
-        if not self.density.starting_density_initialized:
-            self.density.initialize_from_atomic_density(self.wfs)
-
+            for psit_G in kpt.psit_nG[nao:]:
+                if self.dtype == float:
+                    psit_G2[:] = (random(shape) - 0.5) * scale
+                else:
+                    psit_G2.real = (random(shape) - 0.5) * scale
+                    psit_G2.imag = (random(shape) - 0.5) * scale
+                    
+                interpolate2(psit_G2, psit_G1, kpt.phase_cd)
+                interpolate1(psit_G1, psit_G, kpt.phase_cd)
+    
     def add_to_density_from_k_point(self, nt_sG, kpt):
         nt_G = nt_sG[kpt.s]
         if self.dtype == float:

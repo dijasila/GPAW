@@ -3,7 +3,7 @@ import numpy as npy
 
 from gpaw.utilities import pack
 from gpaw.utilities.tools import pick
-from gpaw.localized_functions import create_localized_functions
+from gpaw.lfc import LocalizedFunctionsCollection as LFC
 
 
 class PairDensity2:
@@ -99,16 +99,19 @@ class PairDensity:
         """basic initialisation knowing"""
 
         self.density = paw.density
-
-        self.ghat_nuclei = paw.ghat_nuclei
-        self.nuclei = paw.nuclei
+        self.setups = paw.wfs.setups
+        self.spos_ac = paw.atoms.get_scaled_positions()
+        
+        #self.ghat_nuclei = paw.ghat_nuclei
+        #self.nuclei = paw.nuclei
         
         # we need to set Ghat_nuclei and Ghat_L
         # on the course grid if not initialized already
-        if not hasattr(paw, 'yes_I_have_done_the_Ghat_L'):
-            self.set_coarse_ghat(paw)
+        #if not hasattr(paw, 'yes_I_have_done_the_Ghat_L'):
+        #    self.set_coarse_ghat(paw)
 
     def set_coarse_ghat(self, paw):
+        xxx
         create = create_localized_functions
         for nucleus in self.nuclei:
             # Shape functions:
@@ -131,8 +134,8 @@ class PairDensity:
         """initialize yourself with the wavefunctions"""
         self.i = i
         self.j = j
-        self.u = kpt.u
         self.spin = kpt.s
+        self.P_ani = kpt.P_ani
         
         self.wfi = kpt.psit_nG[i]
         self.wfj = kpt.psit_nG[j]
@@ -145,7 +148,7 @@ class PairDensity:
 
         # interpolate the pair density to the fine grid
         nijt_g = self.density.finegd.empty()
-        self.density.interpolate(nijt, nijt_g)
+        self.density.interpolater.apply(nijt, nijt_g)
 
         return nijt_g
 
@@ -153,30 +156,30 @@ class PairDensity:
         """Get pair densisty including the compensation charges"""
         rhot = self.get(finegrid)
 
-        ghat_nuclei = self.ghat_nuclei
-        
         # Determine the compensation charges for each nucleus
-        for nucleus in ghat_nuclei:
-            if nucleus.in_this_domain:
-                # Generate density matrix
-                Pi_i = nucleus.P_uni[self.u, self.i]
-                Pj_i = nucleus.P_uni[self.u, self.j]
-                D_ii = npy.outer(Pi_i, Pj_i)
-                # allowed to pack as used in the scalar product with
-                # the symmetric array Delta_pL
-                D_p  = pack(D_ii, tolerance=1e30)
-                    
-                # Determine compensation charge coefficients:
-                Q_L = npy.dot(D_p, nucleus.setup.Delta_pL)
-            else:
-                Q_L = None
+        Q_aL = {}
+        for a, P_ni in self.P_ani.items():
+            # Generate density matrix
+            Pi_i = P_ni[self.i]
+            Pj_i = P_ni[self.j]
+            D_ii = npy.outer(Pi_i, Pj_i)
+            # allowed to pack as used in the scalar product with
+            # the symmetric array Delta_pL
+            D_p  = pack(D_ii, tolerance=1e30)
+            
+            # Determine compensation charge coefficients:
+            Q_aL[a] = npy.dot(D_p, self.setups[a].Delta_pL)
 
-            # Add compensation charges
-            if finegrid:
-                nucleus.ghat_L.add(rhot, Q_L, communicate=True)
-            else:
-                Ghat_L = nucleus.Ghat_L
-                if Ghat_L is not None:
-                    Ghat_L.add(rhot, Q_L, communicate=True)
+        # Add compensation charges
+        if finegrid:
+            self.density.ghat.add(rhot, Q_aL)
+        else:
+            if not hasattr(self.density, 'Ghat'):
+                self.density.Ghat = LFC(self.density.gd,
+                                        [setup.ghat_l
+                                         for setup in self.setups],
+                                        integral=sqrt(4 * pi))
+                self.density.Ghat.set_positions(self.spos_ac)
+            self.density.Ghat.add(rhot, Q_aL)
                 
         return rhot

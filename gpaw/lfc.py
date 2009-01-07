@@ -430,10 +430,11 @@ class LocalizedFunctionsCollection:
                     if abs(integral) > 1e-15:
                         lfs.normalize(integral)
 
-    def dict(self, shape=(), derivative=False):
+    def dict(self, shape=(), derivative=False, zero=False):
         if isinstance(shape, int):
             shape = (shape,)
         if derivative:
+            assert not zero
             c_axiv = {}
             for a in self.my_atom_indices:
                 ni = self.lfs_a[a].ni
@@ -444,6 +445,8 @@ class LocalizedFunctionsCollection:
             for a in self.my_atom_indices:
                 ni = self.lfs_a[a].ni
                 c_axi[a] = np.empty(shape + (ni,), self.dtype)
+                if zero:
+                    c_axi[a].fill(0.0)
             return c_axi
         
     def add(self, a_xG, c_axi=1.0, q=-1):

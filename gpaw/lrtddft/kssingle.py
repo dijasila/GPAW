@@ -1,6 +1,7 @@
 from math import pi, sqrt
 
 import numpy as npy
+from ase.units import Bohr
 
 import gpaw.mpi as mpi
 from gpaw import debug
@@ -51,8 +52,8 @@ class KSSingles(ExcitationList):
         if calculator is None:
             return # leave the list empty
 
-        paw = self.calculator
-        self.kpt_u = paw.wfs.kpt_u
+        wfs = self.calculator.wfs
+        self.kpt_u = wfs.kpt_u
         if self.kpt_u[0].psit_nG is None:
             raise RuntimeError('No wave functions in calculator!')
 
@@ -62,8 +63,8 @@ class KSSingles(ExcitationList):
         #       i.e. the spin used in the ground state calculation
         # pspin is the physical spin of the wave functions
         #       i.e. the spin of the excited states
-        self.nvspins = paw.nspins
-        self.npspins = paw.nspins
+        self.nvspins = wfs.nspins
+        self.npspins = wfs.nspins
         fijscale=1
         if self.nvspins < 2:
             if nspins>self.nvspins:
@@ -84,7 +85,8 @@ class KSSingles(ExcitationList):
                     fij=f[i]-f[j]
                     if fij>eps:
                         # this is an accepted transition
-                        ks=KSSingle(i,j,ispin,vspin,paw,fijscale=fijscale)
+                        ks=KSSingle(i,j,ispin,vspin,calculator,
+                                    fijscale=fijscale)
                         self.append(ks)
 
         self.istart = istart
@@ -188,18 +190,19 @@ class KSSingle(Excitation, PairDensity):
         # normal entry
         
         PairDensity.__init__(self, paw)
-        PairDensity.initialize(self, paw.wfs.kpt_u[spin], iidx, jidx)
+        wfs = paw.wfs
+        PairDensity.initialize(self, wfs.kpt_u[spin], iidx, jidx)
 
         self.pspin=pspin
         
-        f=paw.wfs.kpt_u[spin].f_n
+        f=wfs.kpt_u[spin].f_n
         self.fij=(f[iidx]-f[jidx])*fijscale
-        e=paw.wfs.kpt_u[spin].eps_n
+        e=wfs.kpt_u[spin].eps_n
         self.energy=e[jidx]-e[iidx]
 
         # calculate matrix elements -----------
 
-        gd = paw.wfs.kpt_u[spin].gd
+        gd = wfs.gd
         self.gd = gd
 
         # length form ..........................
@@ -211,11 +214,12 @@ class KSSingle(Excitation, PairDensity):
 
         # augmentation contributions
         ma = npy.zeros(me.shape)
-        for nucleus in paw.my_nuclei:
-            Ra = nucleus.spos_c*paw.domain.cell_c
-            Pi_i = nucleus.P_uni[self.u,self.i]
-            Pj_i = nucleus.P_uni[self.u,self.j]
-            Delta_pL = nucleus.setup.Delta_pL
+        pos_av = paw.atoms.get_positions() / Bohr
+        for a, P_ni in wfs.kpt_u[spin].P_ani.items():
+            Ra = pos_av[a]
+            Pi_i = P_ni[self.i]
+            Pj_i = P_ni[self.j]
+            Delta_pL = wfs.setups[a].Delta_pL
             ni=len(Pi_i)
             ma0 = 0
             ma1 = npy.zeros(me.shape)
@@ -226,11 +230,11 @@ class KSSingle(Excitation, PairDensity):
                     # L=0 term
                     ma0 += Delta_pL[ij,0]*pij
                     # L=1 terms
-                    if nucleus.setup.lmax>=1:
+                    if wfs.setups[a].lmax >= 1:
                         # see spherical_harmonics.py for
                         # L=1:y L=2:z; L=3:x
-                        ma1 += npy.array([ Delta_pL[ij,3], Delta_pL[ij,1], \
-                                           Delta_pL[ij,2] ])*pij
+                        ma1 += npy.array([Delta_pL[ij,3], Delta_pL[ij,1],
+                                          Delta_pL[ij,2]]) * pij
             ma += sqrt(4*pi/3)*ma1 + Ra*sqrt(4*pi)*ma0
         gd.comm.sum(ma)
 
@@ -258,7 +262,7 @@ class KSSingle(Excitation, PairDensity):
         
         # m depends on how the origin is set, so we need th centre of mass
         # of the structure
-#        cm = paw
+#        cm = wfs
 
 #        for i in range(3):
 #            me[i] = gd.integrate(self.wfi*dwfdr_cg[i])

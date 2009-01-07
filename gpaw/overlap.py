@@ -115,7 +115,7 @@ class Overlap:
 
         self.timer.stop('Orthonormalize')
 
-    def apply(self, a_nG, b_nG, kpt, calculate_P_uni=True):
+    def apply(self, a_xG, b_xG, wfs, kpt, calculate_P_uni=True):
         """Apply the overlap operator to a set of vectors.
 
         Parameters
@@ -133,23 +133,25 @@ class Overlap:
 
         """
 
-        xxx
+        assert calculate_P_uni
+        
         self.timer.start('Apply overlap')
-        b_nG[:] = a_nG
-
-        run([nucleus.apply_overlap(a_nG, b_nG, kpt, calculate_P_uni)
-             for nucleus in self.pt_nuclei])
-
+        b_xG[:] = a_xG
+        shape = a_xG.shape[:-3]
+        P_axi = wfs.pt.dict(shape)
+        wfs.pt.integrate(a_xG, P_axi, kpt.q)
+        for a, P_xi in P_axi.items():
+            P_axi[a] = np.dot(P_xi, self.setups[a].O_ii)
+        wfs.pt.add(b_xG, P_axi, kpt.q)
         self.timer.stop('Apply overlap')
 
-    def apply_inverse(self, a_nG, b_nG, kpt):
+    def apply_inverse(self, a_xG, b_xG, wfs, kpt):
         """Apply approximative inverse overlap operator to wave functions."""
 
-        xxx
-        b_nG[:] = a_nG
-
-        for nucleus in self.pt_nuclei:
-            # Apply the non-local part:
-            nucleus.apply_inverse_overlap(a_nG, b_nG, kpt.k)
-
-
+        b_xG[:] = a_xG
+        shape = a_xG.shape[:-3]
+        P_axi = wfs.pt.dict(shape)
+        wfs.pt.integrate(a_xG, P_axi, kpt.q)
+        for a, P_xi in P_axi.items():
+            P_axi[a] = np.dot(P_xi, self.setups[a].C_ii)
+        wfs.pt.add(b_xG, P_axi, kpt.q)

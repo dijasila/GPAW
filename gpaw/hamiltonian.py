@@ -12,6 +12,7 @@ from gpaw.poisson import PoissonSolver
 from gpaw.transformers import Transformer
 from gpaw.xc_functional import XCFunctional, XC3DGrid
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
+from gpaw.utilities import unpack
 
 
 class Hamiltonian:
@@ -238,6 +239,17 @@ class Hamiltonian:
         else:
             for psit_G, Htpsit_G in zip(psit_nG, Htpsit_nG):
                 Htpsit_G += psit_G * vt_G
+
+    def apply(self, a_xG, b_xG, wfs, kpt):
+        wfs.kin.apply(a_xG, b_xG, kpt.phase_cd)
+        self.apply_local_potential(a_xG, b_xG, kpt.s)
+        shape = a_xG.shape[:-3]
+        P_axi = wfs.pt.dict(shape)
+        wfs.pt.integrate(a_xG, P_axi, kpt.q)
+        for a, P_xi in P_axi.items():
+            dH_ii = unpack(self.dH_asp[a][kpt.s])
+            P_axi[a] = np.dot(P_xi, dH_ii)
+        wfs.pt.add(b_xG, P_axi, kpt.q)
 
     def get_xc_difference(self, xcname, wfs, density):
         """Calculate non-selfconsistent XC-energy difference."""
