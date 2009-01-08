@@ -16,7 +16,7 @@ def reduce_kpoints(atoms, bzk_kc, setups, usesymm):
 
     if usesymm is None:
         nkpts = len(bzk_kc)
-        return None, bzk_kc.copy(), np.ones(nkpts) / nkpts
+        return None, np.ones(nkpts) / nkpts, bzk_kc.copy()
     
     # Round off:
     magmom_a = atoms.get_initial_magnetic_moments().round(decimals=3)
