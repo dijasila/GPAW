@@ -470,6 +470,8 @@ def read(paw, reader):
     # Get the forces from the old calculation:
     if r.has_array('CartesianForces'):
         paw.forces.F_av = r.get('CartesianForces')
+    else:
+        paw.forces.reset()
 
 
 def read_atoms(reader):

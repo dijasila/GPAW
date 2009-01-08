@@ -13,14 +13,23 @@ This document describes the most important objects used for a DFT calculation.
 More information can be found in the :epydoc:`API <gpaw>` or in the code.
 
 ::
-   --------------------
-  |WaveFunctions:      |
-  |nspins,setups,kpt_u |
-   --------------------
-   --------   -------------------
-  |PAW:    | |Density:           |
-  |txt,    | |nt_sG, D_asp, Q_aL |
-   --------   -------------------
+
+     
+        +---------------+              +-----------+
+        |ForceCalculator|              |Hamiltonian|
+        +---------------+              +-----------+
+
+     +-----+              +---+           +------+     
+     |Atoms|              |PAW|           |Setups|     
+     +-----+              +---+           +------+     
+
+      +-------------+     +-------+       +-------+    
+      |WaveFunctions|     |Density|       |SCFLoop|    
+      +-------------+     +-------+       +-------+    
+   
+   
+   
+
 
 
 .. _overview_array_naming:
