@@ -117,7 +117,8 @@ while len(sys.argv) > i:
 
 if debug:
     import numpy
-    numpy.seterr(all='raise')
+    numpy.seterr(over='raise', divide='raise', invalid='raise', under='ignore')
+
     oldempty = numpy.empty
     def empty(*args, **kwargs):
         a = oldempty(*args, **kwargs)
