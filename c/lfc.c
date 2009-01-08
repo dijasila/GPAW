@@ -219,11 +219,17 @@ PyObject* calculate_potential_matrix(LFCObject *lfc, PyObject *args)
                                               lfc->dv);
                       double complex* Vt_mm = Vt_MM + M1 * nM + M2;
                       for (int g = 0; g < nG; g++)
-                        for (int m1 = 0; m1 < nm1; m1++)
-                          for (int m2 = 0; m2 < nm2; m2++)
-                            Vt_mm[m2 + m1 * nM] += (v2->A_gm[g * nm2 + m2] * 
-                                                    work_gm[g * nm1 + m1] *
-                                                    phase);
+			{
+			  for (int m1 = 0; m1 < nm1; m1++)
+			    {
+			      complex double wphase = work_gm[g * nm1 + m1] * phase;
+			      for (int m2 = 0; m2 < nm2; m2++)
+				{
+				  Vt_mm[m2 + m1 * nM] += (v2->A_gm[g * nm2 + m2] * 
+							  wphase);
+				}
+			    }
+			}
                     }
                 }
             }
