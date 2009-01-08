@@ -90,6 +90,9 @@ class KPoint:
         # Only one of these two will be used:
         self.psit_nG = None  # wave functions on 3D grid
         self.C_nM = None     # LCAO coefficients for wave functions XXX
+
+        self.rho_MM = None
+        
         self.P_aMi = None
         self.S_MM = None
         self.T_MM = None

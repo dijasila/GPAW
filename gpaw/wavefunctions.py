@@ -269,7 +269,10 @@ class LCAOWaveFunctions(WaveFunctions):
         """Add contribution to pseudo electron-density. Do not use the standard
         occupation numbers, but ones given with argument f_n."""
         
-        rho_MM = np.dot(kpt.C_nM.conj().T * kpt.f_n, kpt.C_nM)
+        if kpt.rho_MM is not None:
+            rho_MM = kpt.rho_MM
+        else:
+            rho_MM = np.dot(kpt.C_nM.conj().T * kpt.f_n, kpt.C_nM)
         self.basis_functions.construct_density(rho_MM, nt_sG[kpt.s], kpt.q)
 
     def calculate_forces(self, hamiltonian, F_av):
