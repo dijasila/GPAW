@@ -303,16 +303,30 @@ PyObject* construct_density(LFCObject *lfc, PyObject *args)
                 {
                   if (i2 > i1)
                     factor = 2.0 * phase_i[i1] * conj(phase_i[i2]);
+
+		  double rfactor = creal(factor);
+		  double ifactor = cimag(factor);
+
                   LFVolume* v2 = volume_i + i2;
                   int M2 = v2->M;
                   int nm2 = v2->nm;
                   const double complex* rho_mm = rho_MM + M1 * nM + M2;
                   for (int g = 0; g < nG; g++)
-                    for (int m2 = 0; m2 < nm2; m2++)
-                      for (int m1 = 0; m1 < nm1; m1++)
-                        work_gm[m1 + g * nm1] += (v2->A_gm[g * nm2 + m2] * 
-                                                  creal(rho_mm[m2 + m1 * nM] *
-                                                        factor));
+		    {
+		      for (int m2 = 0; m2 < nm2; m2++)
+			{
+			  for (int m1 = 0; m1 < nm1; m1++)
+			    {
+			      complex double rho = rho_mm[m2 + m1 * nM];
+			      double rrho = creal(rho);
+			      double irho = cimag(rho);
+			      double x = rfactor * rrho - ifactor * irho;
+			      work_gm[m1 + g * nm1] += (v2->A_gm[g * nm2 + m2] * x);
+							//creal(rho_mm[m2 + m1 * nM] *
+							//factor));
+			    }
+			}
+		    }
                 }
               int gm1 = 0;
               for (int G = Ga; G < Gb; G++)
