@@ -279,37 +279,49 @@ class TwoCenterIntegrals:
         
         self.nl.update(self.atoms)
 
-    def calculate(self, spos_ac, S_qMM, T_qMM, P_aqMi):
+    def calculate(self, spos_ac, S_qMM, T_qMM, P_aqMi, dtype):
         if self.lcao_forces:
             nq = len(self.ibzk_qc)
             nao = self.setups.nao
-            for nucleus in self.nuclei:
-                ni = nucleus.get_number_of_partial_waves()
-                nucleus.dPdR_kcmi = np.zeros((nq, 3, nao, ni),
-                                              self.dtype)
+
+            self.dPdR_akcmi = {}
+            self.mask_amm = {}
+
+            for a, M in enumerate(self.M_a):
+                ni = self.setups[a].ni
+                assert ni == P_aqMi[a].shape[-1]
+                nM = self.setups[a].niAO
+
+                dPdR_kcmi = np.zeros((nq, 3, nao, ni), dtype)
+                self.dPdR_akcmi[a] = dPdR_kcmi
                 # XXX Create "masks" on the nuclei which specify signs
                 # and zeros for overlap derivatives.
                 # This is inefficient and only a temporary hack!
-                m1 = nucleus.m
-                m2 = m1 + nucleus.get_number_of_atomic_orbitals()
+                m1 = M
+                m2 = m1 + nM
                 mask_mm = np.zeros((nao, nao))
                 mask_mm[:, m1:m2] = 1.
                 mask_mm[m1:m2, :] = -1.
                 mask_mm[m1:m2, m1:m2] = 0.
-                nucleus.mask_mm = mask_mm
+                self.mask_amm[a] = mask_mm
 
-            self.dSdR_kcmm = np.zeros((nq, 3, nao, nao),
-                                       self.dtype)
-            self.dTdR_kcmm = np.zeros((nq, 3, nao, nao),
-                                       self.dtype)
-
+            self.dSdR_kcmm = np.zeros((nq, 3, nao, nao), dtype)
+            self.dTdR_kcmm = np.zeros((nq, 3, nao, nao), dtype)
         cell_cv = self.domain.cell_cv
+
+        if self.lcao_forces: # XXX
+            dPdR_akcmi = self.dPdR_akcmi
+        else:
+            dPdR_akcmi = {}
+
         for a1, spos1_c in enumerate(spos_ac):
             P1_qMi = P_aqMi.get(a1)
+            dPdR1_qvMi = dPdR_akcmi.get(a1) # XXX variable names
             M1 = self.M_a[a1]
             i, offsets = self.nl.get_neighbors(a1)
             for a2, offset in zip(i, offsets):
                 P2_qMi = P_aqMi.get(a2)
+                dPdR2_qvMi = dPdR_akcmi.get(a2)
                 if P1_qMi is None and P2_qMi is None:
                     continue
 
@@ -350,22 +362,23 @@ class TwoCenterIntegrals:
                             for l, rlY_m in enumerate(rlY_lm)],
                            [drlYdR_mc * (-1)**l
                             for l, drlYdR_mc in enumerate(drlYdR_lmc)],
-                           phase_q, P2_qMi, M1)
+                           phase_q, P2_qMi, M1, dPdR2_qvMi)
                 if P1_qMi is not None and (a1 != a2 or offset.any()):
                     self.p(a2, a1, r, d,
                            rlY_lm, drlYdR_lmc,
-                           phase_q.conj(), P1_qMi, M2)
+                           phase_q.conj(), P1_qMi, M2, dPdR1_qvMi)
 
         # Only lower triangle matrix elements of S and T have been calculated
         # so far.  Better fill out the rest
         if self.lcao_forces:
+            nao = self.setups.nao
             tri1 = np.tri(nao)
             tri2 = np.tri(nao, None, -1)
             def tri2full(matrix, op=1):
                 return tri1 * matrix + (op * tri2 * matrix).transpose().conj()
 
-            for S_mm, T_mm, dSdR_cmm, dTdR_cmm in zip(self.S_kmm,
-                                                      self.T_kmm,
+            for S_mm, T_mm, dSdR_cmm, dTdR_cmm in zip(S_qMM,
+                                                      T_qMM,
                                                       self.dSdR_kcmm,
                                                       self.dTdR_kcmm):
                 S_mm[:] = tri2full(S_mm)
@@ -380,6 +393,7 @@ class TwoCenterIntegrals:
             # presently found during force calculations, which means it is
             # not necessary here
             #self.Theta_kmm = self.S_kmm.copy()
+            self.Theta_qMM = S_qMM.copy()
             self.dThetadR_kcmm = self.dSdR_kcmm.copy()
 
         # Add adjustment from O_ii, having already calculated <phi_m1|phi_m2>:
@@ -465,7 +479,8 @@ class TwoCenterIntegrals:
                 M2a = M2b
             M1a = M1b
 
-    def p(self, a1, a2, r, R, rlY_lm, drlYdR_lm, phase_q, P2_qMi, M1a):
+    def p(self, a1, a2, r, R, rlY_lm, drlYdR_lm, phase_q, P2_qMi, M1a,
+          dPdR2_qvMi=None):
         """Calculate basis-projector functions overlaps for the (a,b) pair
         of atoms."""
 
@@ -489,11 +504,14 @@ class TwoCenterIntegrals:
 
                 if self.lcao_forces:
                     if self.gamma:
-                        nucleusb.dPdR_kcmi[0, :, M1a:M1b, ib:ib2] += dPdR_cmi
+                        #dPdR2_qvMi[0, :, M1a:M1b, ib:ib2] += dPdR_cmi
+                        dPdR2_qvMi[0, :, M1a:M1b, i2a:i2b] += dPdR_cmi
                     else: # XXX phase_kc
                         phase_kc = phase_k[:, None, :, :].repeat(3, axis=1)
-                        nucleusb.dPdR_kcmi[:, :, M1a:M1b, ib:ib2] += \
-                            dPdR_cmi[None, :, :, :] * phase_kc
-
+                        dPdR2_qvMi[:, :, M1a:M1b, i2a:i2b] += \
+                                      dPdR_cmi[None, :, :, :] * phase_kc
+                        #dPdR2_qvMi[:, :, M1a:M1b, ib:ib2] += \
+                        #              dPdR_cmi[None, :, :, :] * phase_kc
+                        
                 i2a = i2b
             M1a = M1b

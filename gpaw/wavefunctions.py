@@ -159,7 +159,7 @@ class WaveFunctions(EmptyWaveFunctions):
                 return a_n
             
             if self.band_comm.rank == 0:
-                b_n = npy.zeros(self.nbands)
+                b_n = np.zeros(self.nbands)
             else:
                 b_n = None
             self.band_comm.gather(a_n, 0, b_n)
@@ -172,7 +172,7 @@ class WaveFunctions(EmptyWaveFunctions):
                     self.kpt_comm.send(a_n, 0, 1301)
                 else:
                     if self.band_comm.rank == 0:
-                        b_n = npy.zeros(self.nbands)
+                        b_n = np.zeros(self.nbands)
                     else:
                         b_n = None
                     self.band_comm.gather(a_n, 0, b_n)
@@ -180,7 +180,7 @@ class WaveFunctions(EmptyWaveFunctions):
                         self.kpt_comm.send(b_n, 0, 1301)
 
         elif self.world.rank == 0:
-            b_n = npy.zeros(self.nbands)
+            b_n = np.zeros(self.nbands)
             self.kpt_comm.receive(b_n, kpt_rank, 1301)
             return b_n
 
@@ -221,7 +221,7 @@ class LCAOWaveFunctions(WaveFunctions):
             # First time:
             self.tci = TwoCenterIntegrals(self.gd.domain, self.setups,
                                           self.gamma, self.ibzk_qc)
-
+            
             self.S_qMM = np.zeros((nq, nao, nao), self.dtype)
             self.T_qMM = np.zeros((nq, nao, nao), self.dtype)
             for kpt in self.kpt_u:
@@ -229,6 +229,9 @@ class LCAOWaveFunctions(WaveFunctions):
                 kpt.S_MM = self.S_qMM[q]
                 kpt.T_MM = self.T_qMM[q]
                 kpt.C_nM = np.empty((mynbands, nao), self.dtype)
+        else:
+            self.S_qMM[:] = 0.0
+            self.T_qMM[:] = 0.0
 
         for kpt in self.kpt_u:
             kpt.P_ani = {}
@@ -246,9 +249,10 @@ class LCAOWaveFunctions(WaveFunctions):
             q = kpt.q
             kpt.P_aMi = dict([(a, P_qMi[q])
                               for a, P_qMi in self.P_aqMi.items()])
-            
+
         self.tci.set_positions(spos_ac)
-        self.tci.calculate(spos_ac, self.S_qMM, self.T_qMM, self.P_aqMi)
+        self.tci.calculate(spos_ac, self.S_qMM, self.T_qMM, self.P_aqMi,
+                           self.dtype)
             
     def initialize(self, density, hamiltonian, spos_ac):
         if density.nt_sG is None:
@@ -270,6 +274,163 @@ class LCAOWaveFunctions(WaveFunctions):
         
         rho_MM = np.dot(kpt.C_nM.conj().T * kpt.f_n, kpt.C_nM)
         self.basis_functions.construct_density(rho_MM, nt_sG[kpt.s], kpt.q)
+
+    def calculate_forces(self, hamiltonian, F_av):
+        # This will do a whole lot of unnecessary allocation, but we'll
+        # do better later
+        grid_bfs = LFC(self.gd, [s.phit_j for s in self.setups],
+                       self.kpt_comm, dtype=self.dtype, forces=True,
+                       cut=True)
+        # XXX remember phases
+        spos_ac = hamiltonian.vbar.spos_ac # XXX ugly way to obtain spos_ac
+        grid_bfs.set_positions(spos_ac)
+
+        # This will recalculate everything, which again is not necessary
+        # But it won't bother non-force calculations
+        tci = TwoCenterIntegrals(self.gd.domain, self.setups,
+                                 self.gamma, self.ibzk_qc)
+        tci.lcao_forces = True
+        tci.set_positions(spos_ac)
+        S_qMM = np.zeros(self.S_qMM.shape, self.dtype)
+        T_qMM = np.zeros(self.T_qMM.shape, self.dtype)
+        P_aqMi = dict([(a, np.zeros(P.shape, self.dtype))
+                       for a, P in self.P_aqMi.items()])
+        
+        tci.calculate(spos_ac, S_qMM, T_qMM, P_aqMi, self.dtype)
+
+        # Things required for force calculations
+        dSdR_qvMM = tci.dSdR_kcmm
+        dTdR_qvMM = tci.dTdR_kcmm
+        dPdR_aqvMi = tci.dPdR_akcmi
+        dThetadR_qvMM = tci.dThetadR_kcmm
+        mask_aMM = tci.mask_amm
+
+        for kpt in self.kpt_u:
+            for a, F_v in zip(grid_bfs.my_atom_indices, F_av):
+                self.calculate_force_kpoint_lcao(a, kpt, hamiltonian, F_v, tci,
+                                                 grid_bfs)
+
+
+    def get_projector_derivatives(self, tci, a, c, k):
+        # Get dPdRa, i.e. derivative of all projector overlaps
+        # with respect to the position of *this* atom.  That includes
+        # projectors from *all* atoms.
+        #
+        # Some overlap derivatives must be multiplied by 0 or -1
+        # depending on which atom is moved.  This is a temporary hack.
+        # 
+        # For some reason the "masks" for atoms *before* this one must be
+        # multiplied by -1, whereas those *after* must not.
+        #
+        # Also, for this atom, we must apply a mask which is -1 for
+        # m < self.m, and +1 for m > self.m + self.setup.niAO
+        dPdRa_ami = []
+        factor = -1.
+        m = tci.M_a[a]
+        mask_m = np.zeros(self.setups.nao)
+        mask_m[m:m + self.setups[a].niAO] = 1.
+        for b, setup in enumerate(self.setups):
+            if b == a:
+                ownmask_m = np.zeros(self.setups.nao)
+                m1 = m
+                m2 = m + self.setups[a].niAO
+                ownmask_m[:m1] = -1.
+                ownmask_m[m2:] = +1.
+                selfcontrib = (tci.dPdR_akcmi[a][k, c, :, :] * 
+                               ownmask_m[None].T)
+                dPdRa_ami.append(selfcontrib)
+                factor = 1.
+            else:
+                dPdRa_mi = (tci.dPdR_akcmi[b][k, c, :, :] * 
+                            mask_m[None].T * factor)
+                dPdRa_ami.append(dPdRa_mi)
+        return dPdRa_ami
+
+    def get_overlap_derivatives(self, tci, a, c, dPdRa_ami, k):
+        P_ami = [self.P_aqMi[b][k, :, :] for b
+                 in range(len(self.setups))]
+        
+        O_aii = [setup.O_ii for setup in self.setups]
+        assert len(P_ami) == len(O_aii)
+        dThetadR_mm = tci.dThetadR_kcmm[k, c, :, :]
+
+        nao = self.setups.nao
+        pawcorrection_mm = np.zeros((nao, nao), self.dtype)
+
+        for dPdRa_mi, P_mi, O_ii in zip(dPdRa_ami, P_ami, O_aii):
+            A_mm = np.dot(dPdRa_mi, np.dot(O_ii, P_mi.T.conj()))
+            B_mm = np.dot(P_mi, np.dot(O_ii, dPdRa_mi.T.conj()))
+            # XXX symmmetry
+            pawcorrection_mm += A_mm + B_mm
+
+        return dThetadR_mm * tci.mask_amm[a] + pawcorrection_mm
+
+    def calculate_potential_derivatives(self, tci, a, hamiltonian, kpt,
+                                        grid_bfs):
+        nao = self.setups.nao
+        my_nao = self.setups[a].niAO
+        m1 = tci.M_a[a]
+        m2 = m1 + my_nao
+        dtype = self.dtype
+        vt_G = hamiltonian.vt_sG[kpt.s]
+        dVtdRa_mMc = np.zeros((nao, my_nao, 3), dtype)
+
+        phit_mG = np.zeros((nao,) + vt_G.shape, dtype)
+        for b, setup in enumerate(self.setups):
+            its_nao = setup.niAO
+            M1 = tci.M_a[b]
+            M2 = M1 + its_nao
+
+            coef_MM = np.identity(its_nao)
+            grid_bfs.lfs_a[b].add(phit_mG[M1:M2], coef_MM, kpt.k)
+
+        for phit_G in phit_mG:
+            phit_G *= vt_G
+
+        # Maybe it's possible to do this in a less loop-intensive way
+        grid_bfs.lfs_a[a].derivative(phit_mG, dVtdRa_mMc, kpt.k)
+
+        dVtdRa_mmc = np.zeros((nao, nao, 3), dtype)
+        dVtdRa_mmc[:, m1:m2, :] -= dVtdRa_mMc
+
+        return dVtdRa_mmc
+
+    def calculate_force_kpoint_lcao(self, a, kpt, hamiltonian, F_c, tci,
+                                    grid_bfs):
+        assert tci.lcao_forces, 'Not set up for force calculations!'
+        k = kpt.k
+        C_nm = kpt.C_nM
+        Chc_mn = C_nm.T.conj()
+        rho_mm = np.dot(Chc_mn * kpt.f_n, C_nm)
+
+        P_mi = kpt.P_aMi[a]
+        S_mm = kpt.S_MM
+        T_mm = kpt.T_MM
+        dTdR_cmm = tci.dTdR_kcmm[k]
+        dPdR_cmi = tci.dPdR_akcmi[a][k]
+
+        mask_mm = tci.mask_amm[a]
+        dVtdRa_mmc = self.calculate_potential_derivatives(tci, a, hamiltonian,
+                                                          kpt, grid_bfs)
+        for c, (dTdR_mm, dPdR_mi) in enumerate(zip(dTdR_cmm, dPdR_cmi)):
+            dPdRa_ami = self.get_projector_derivatives(tci, a, c, k)
+            dSdRa_mm = self.get_overlap_derivatives(tci, a, c, dPdRa_ami, k)
+            dEdrhodrhodR = - np.dot(np.dot(kpt.eps_n * kpt.f_n * Chc_mn, 
+                                           C_nm), dSdRa_mm).trace()
+            
+            dEdTdTdR = np.dot(rho_mm, dTdR_mm * mask_mm).trace()
+            
+            dEdDdDdR = 0.
+            for b, dPdRa_mi in enumerate(dPdRa_ami): # XXX
+                A_ii = np.dot(dPdRa_mi.T.conj(), 
+                              np.dot(rho_mm, self.P_aqMi[b][k]))
+                Hb_ii = unpack(hamiltonian.dH_asp[b][kpt.s])
+                dEdDdDdR += 2 * np.dot(Hb_ii, A_ii).real.trace()
+
+            dEdndndR = 2 * np.dot(rho_mm, dVtdRa_mmc[:, :, c]).real.trace()
+            
+            F = - (dEdrhodrhodR + dEdTdTdR + dEdDdDdR + dEdndndR)
+            F_c[c] += F
 
 
 from gpaw.eigensolvers import get_eigensolver

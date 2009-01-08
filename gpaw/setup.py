@@ -636,7 +636,7 @@ class Setup:
 
         # enable if-statement to revert to 'inefficient' equal-range basis
         # functions.  Left for testing purposes
-        if 0:
+        if 1: # XXX
             for j, bf in enumerate(basis.bf_j):
                 phit_g = npy.zeros(r_g.shape)
                 phit_g[:bf.ng] = bf.phit_g

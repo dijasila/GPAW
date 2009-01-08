@@ -161,7 +161,7 @@ class Hamiltonian:
                 nspins = len(self.D_sp)
                 i0 = setup.Hubi
                 i1 = i0 + 2 * setup.Hubl + 1
-                for D_p, H_p in zip(self.D_sp, self.H_sp):
+                for D_p, H_p in zip(self.D_sp, self.H_sp): # XXX self.H_sp ??
                     N_mm = unpack2(D_p)[i0:i1, i0:i1] / 2 * nspins 
                     Eorb = setup.HubU/2. * (N_mm - np.dot(N_mm,N_mm)).trace()
                     Vorb = setup.HubU * (0.5 * np.eye(i1-i0) - N_mm)

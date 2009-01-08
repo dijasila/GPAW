@@ -22,6 +22,7 @@ lcao_forces_default = False
 
 >>>>>>> .merge-right.r2891
 class LCAOHamiltonian:
+    kfjsdfjsldfkjsldfkjslkdfjslkdfjslkfjslkdfj
     """Hamiltonian class for LCAO-basis calculations."""
     def __init__(self, domain, setups):
         self.domain = domain

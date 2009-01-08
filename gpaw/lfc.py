@@ -429,6 +429,7 @@ class LocalizedFunctionsCollection:
                     integral = self.integral_a[a]
                     if abs(integral) > 1e-15:
                         lfs.normalize(integral)
+        self.spos_ac = spos_ac
 
     def dict(self, shape=(), derivative=False, zero=False):
         if isinstance(shape, int):
