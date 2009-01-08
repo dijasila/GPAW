@@ -122,7 +122,6 @@ class PAW(PAWTextOutput):
         self.wfs = EmptyWaveFunctions()
         self.occupations = None
         self.domain = None
-        self.eigensolver = None
         self.density = None
         self.hamiltonian = None
         self.atoms = None
