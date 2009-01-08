@@ -89,12 +89,15 @@ class LCAO:
                 if self.comm.rank == 0:
                     info = diagonalize(self.H_MM, self.eps_n, self.S_MM)
                     if info != 0:
-                        raise RuntimeError('Failed to diagonalize: info=%d' % info)
+                        raise RuntimeError('Failed to diagonalize: info=%d' %
+                                           info)
             self.timer.stop(dsyev_zheev_string)
 
             kpt.C_nM[:] = self.H_MM[n1:n2]
             kpt.eps_n[:] = self.eps_n[n1:n2]
 
+            self.band_comm.broadcast(kpt.C_nM, 0)
+            self.band_comm.broadcast(kpt.eps_n, 0)
             self.comm.broadcast(kpt.C_nM, 0)
             self.comm.broadcast(kpt.eps_n, 0)
 
@@ -177,6 +180,8 @@ class LCAO:
         # Near-linear dependence check. This is done by checking the
         # eigenvalues of the overlap matrix S_kmm. Eigenvalues close
         # to zero mean near-linear dependence in the basis-set.
+
+        assert not sl_diagonalize
         self.linear_kpts = {}
         for k, S_MM in enumerate(wfs.S_kMM):
             P_MM = S_MM.copy()

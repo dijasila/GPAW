@@ -43,7 +43,6 @@ energies, Li_wzweight = raw_wignerseitz_LDOS(calc, a=0, spin=0)
 energies, H_wzweight = raw_wignerseitz_LDOS(calc, a=1, spin=0)
 n_a = calc.get_wigner_seitz_densities(spin=0)
 
-
 print sweight, pdfweight
 print sweight_spin
 print Li_wzweight
@@ -74,5 +73,5 @@ assert not H_orbitalweight.round(1).any()
 
 ldos = RawLDOS(calc)
 fname = 'ldbe.dat'
-ldos.by_element_to_file(fname)
-ldos.by_element_to_file(fname, 2.)
+ldos.by_element_to_file(fname, shift=False)
+ldos.by_element_to_file(fname, 2.0, shift=False)

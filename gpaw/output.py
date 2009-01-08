@@ -284,8 +284,11 @@ class PAWTextOutput:
         t('Zero Kelvin:   %+10.5f' % (Hartree * (self.hamiltonian.Etot +
                                                  0.5 * self.hamiltonian.S)))
         t()
-        epsF = self.occupations.get_fermi_level()
-        if epsF is not None:
+        try:
+            epsF = self.occupations.get_fermi_level()
+        except NotImplementedError:
+            pass
+        else:
             t('Fermi Level:', Hartree * epsF)
 
         self.print_eigenvalues()

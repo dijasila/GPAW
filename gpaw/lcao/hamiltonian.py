@@ -1,6 +1,28 @@
+<<<<<<< .working
+=======
+from math import sqrt, pi
+from time import time
+
+import numpy as npy
+
+from gpaw.utilities.blas import rk, r2k
+from gpaw.utilities import unpack
+from gpaw.lcao.overlap import TwoCenterIntegrals
+from gpaw.utilities.lapack import diagonalize
+from gpaw.spherical_harmonics import Yl, nablaYL
+from ase import Atoms
+from ase.calculators.neighborlist import NeighborList
+from gpaw import debug
+from _gpaw import overlap
+from gpaw.mpi import parallel
+from gpaw.utilities import scalapack
+from gpaw import sl_diagonalize
+
+lcao_forces_default = False
+
+>>>>>>> .merge-right.r2891
 class LCAOHamiltonian:
     """Hamiltonian class for LCAO-basis calculations."""
-
     def __init__(self, domain, setups):
         self.domain = domain
         self.setups = setups
@@ -10,7 +32,7 @@ class LCAOHamiltonian:
         # during initialization  to save memory/time. This is not implemented
         # yet, so presently we disable this.  Change behaviour by setting
         # this boolean.
-        self.lcao_forces = False # XXX
+        self.lcao_forces = lcao_forces_default # XXX
 
         self.initialize_splines(self):
     def initialize(self, paw):
@@ -172,6 +194,70 @@ class LCAOHamiltonian:
         if self.gd.comm.size > 1:
             self.gd.comm.sum(self.S_kmm)
 
+<<<<<<< .working
+=======
+        # MDTMP Near-linear dependence check
+        # MDTMP does not work for band parallelization with scalapack
+        if sl_diagonalize:
+            self.linear_kpts = {}
+            self.lcao_initialized = True
+            return
+
+        # Near-linear dependence check. This is done by checking the
+        # eigenvalues of the overlap matrix S_kmm. Eigenvalues close
+        # to zero mean near-linear dependence in the basis-set.
+        self.linear_kpts = {}
+        for k in range(nkpts):
+            P_mm = self.S_kmm[k].copy()
+            p_m = npy.empty(self.nao)
+
+            if sl_diagonalize:
+                assert parallel
+                assert scalapack()
+                dsyev_zheev_string = 'LCAO: '+'pdsyevd/pzhegvx test'
+            else:
+                dsyev_zheev_string = 'LCAO: '+'dsyev/zheev test'
+
+            p_m[0] = 42
+            self.timer.start(dsyev_zheev_string)
+            if debug:
+                self.timer.start(dsyev_zheev_string+' %03d' % self.eig_lcao_iteration)
+            if sl_diagonalize:
+                info = diagonalize(P_mm, p_m, root=0)
+                if info != 0:
+                    raise RuntimeError('Failed to diagonalize: info=%d' % info)
+            else:
+                if self.gd.comm.rank == 0:
+                    info = diagonalize(P_mm, p_m)
+                    if info != 0:
+                        raise RuntimeError('Failed to diagonalize: info=%d' % info)
+            if debug:
+                self.timer.stop(dsyev_zheev_string+' %03d' % self.eig_lcao_iteration)
+                self.eig_lcao_iteration += 1
+            self.timer.stop(dsyev_zheev_string)
+
+            self.gd.comm.broadcast(P_mm, 0)
+            self.gd.comm.broadcast(p_m, 0)
+
+            assert p_m[0] != 42
+
+            self.thres = 1e-6
+            if (p_m <= self.thres).any():
+                self.linear_kpts[k] = (P_mm, p_m)
+
+        # Debug stuff
+        if 0:
+            print 'Hamiltonian S_kmm[0] diag'
+            print self.S_kmm[0].diagonal()
+            print 'Hamiltonian S_kmm[0]'
+            for row in self.S_kmm[0]:
+                print ' '.join(['%02.03f' % f for f in row])
+            print 'Eigenvalues:'
+            print npy.linalg.eig(self.S_kmm[0])[0]
+
+        self.lcao_initialized = True
+
+>>>>>>> .merge-right.r2891
     def st(self, a, b, r, R, rlY_lm, drlYdR_lmc, phase_k, selfinteraction):
         """Calculate overlaps and kinetic energy matrix elements for the
         (a,b) pair of atoms."""

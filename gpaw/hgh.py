@@ -6,6 +6,7 @@ from ase.data import atomic_numbers
 from gpaw.utilities import pack2
 from gpaw.setup import Setup
 from gpaw.setup_data import SetupData
+from gpaw.basis_data import Basis
 
 setups = {} # Filled out during parsing below
 
@@ -82,43 +83,49 @@ class HGHSetup(Setup):
 
         self.expand_hamiltonian_matrix()
 
-    def find_core_density_cutoff(self, r_g, dr_g, nc_g):
-        return 0.5
-    
+    def construct_core_densities(self, r_g, dr_g, beta, setupdata):
+        return 0.5, setupdata.nc_g, setupdata.nct_g, None
+
+    def create_basis_functions(self, phit_jg, beta, ng, rcut2,
+                               gcut2, r_g):
+        raise NotImplementedError('No partial waves for HGH setups from '
+                                  'which to create basis functions!  '
+                                  'Please specify basis manually.')
+
+    def read_basis_functions(self, basis):
+        if isinstance(basis, str):
+            basis = Basis(self.symbol, basis)
+        rc = basis.d * (basis.ng - 1)
+        r_g = npy.linspace(0., rc, basis.ng)
+        for bf in basis.bf_j:
+            rb_g = r_g[:bf.ng]
+            normsqr = npy.sum((bf.phit_g * rb_g)**2) * basis.d
+            bf.phit_g /= normsqr ** .5
+        return Setup.read_basis_functions(self, basis)
+
     def initialize_setup_data(self, symbol, xcfunc, hghdata):
-        data = SetupData(symbol, xcfunc.get_setup_name(), 'paw', readxml=False)
+        data = SetupData(symbol, xcfunc.get_setup_name(), 'hgh', readxml=False)
         self.hghdata = hghdata
 
         ng = 450
         beta = .4        
         g = npy.arange(ng, dtype=float)
-        r_g = self.r_g = beta * g / (ng - g)
+        self.r_g = r_g = beta * g / (ng - g)
         self.dr_g = dr_g = beta * ng / (ng - g)**2
-        self.r_g = r_g
 
         self.vloc_g = create_local_shortrange_potential(r_g, hghdata.Nv,
                                                         hghdata.rloc,
                                                         hghdata.c_n)
 
-        # XXX not necessary when relying on compensation charge generation
-        #self.charge_g = create_charge_distribution(r_g, hghdata.Nv,
-        #                                           hghdata.rloc)
-
-        # XXX it must be possible to somehow check that the automatically
-        # generated compensation charge due to core charge specifications
-        # does in fact have the right constant of proportionality
-
         # Code probably breaks if we use different radial grids for
         # projectors/partial waves, so we'll use this as filler
-        zerofunction = npy.zeros(r_g.shape)
+        zerofunction = npy.zeros(ng)
 
         data.tauc_g = zerofunction
         data.tauct_g = zerofunction
 
-        trueZ = atomic_numbers[symbol]
-
-        data.Z = trueZ
-        data.Nc = trueZ -  hghdata.Nv
+        data.Z = hghdata.Z
+        data.Nc = hghdata.Z -  hghdata.Nv
         data.Nv = hghdata.Nv
         data.beta = beta
         data.ng = ng
@@ -162,38 +169,52 @@ class HGHSetup(Setup):
         # Construct projectors
         electroncount = 0 # Occupations are used during initialization,
         # for this reason we'll have to at least specify the right number
-        for v in v_l:
-            l = v.l
-            for n in range(v.nn):
-                pt_g = create_hgh_projector(r_g, l, n, v.r0)
-                norm = sqrt(npy.dot(dr_g, pt_g**2 * r_g**2))
-                assert npy.abs(1 - norm) < 1e-5
 
-                data.l_j.append(l)
-                data.n_j.append(42) # Must not be negative, because then
-                # setup.py thinks it shouldn't add the splines phit_j even 
-                # though we define phit_jg
+        v_j = []
+        n_j = []
+        l_j = []
 
-                f = npy.min(data.Nv - electroncount)
-                electroncount += f
-                data.f_j.append(f) # Must be right because of lcao init
-                data.eps_j.append(0.) # XXX
-                data.rcut_j.append(3.) # XXX I have no idea
-                data.id_j.append('%s-%s%d' % (symbol, 'spdf'[l], n))
+        # j ordering is significant, must be nl rather than ln
+        for n in range(4):
+            for l, v in enumerate(v_l):
+                if n < v.nn:
+                    v_j.append(v)
+                    n_j.append(n + 1) # Note: actual n must be positive!
+                    l_j.append(l)
+        assert nj == len(v_j)
 
-                # Must force projectors to be small so they don't extend
-                # past cells and so on.  Of course this is wasteful, but
-                # so is the stuff going on in setup.py
-                rc = 3.0
-                gcut = rc * ng / (beta + rc) # why doesn't this crash?
-                pt_g[gcut:] = 0.0
+        data.l_j = l_j
+        data.n_j = n_j
 
-                data.pt_jg.append(pt_g)
-                data.phi_jg.append(zerofunction)
-                data.phit_jg.append(zerofunction)
+        for n, l, v in zip(n_j, l_j, v_j):
+            pt_g = create_hgh_projector(r_g, l, n, v.r0)
+            norm = sqrt(npy.dot(dr_g, pt_g**2 * r_g**2))
+            assert npy.abs(1 - norm) < 1e-5
+
+            degeneracy = (2 * l + 1) * 2
+            f = min(data.Nv - electroncount, degeneracy)
+            electroncount += f
+            data.f_j.append(f)
+            data.eps_j.append(-1.) # probably doesn't matter
+            data.rcut_j.append(3.) # XXX I have no idea
+            data.id_j.append('%s-%s%d' % (symbol, 'spdf'[l], n))
+            
+            # Must force projectors to be small so they don't extend
+            # past cells and so on.  Of course this is wasteful, but
+            # so is the stuff going on in setup.py
+            rc = 3.0
+            gcut = int(rc * ng / (beta + rc))
+            pt_g[gcut:] = 0.0
+
+            data.pt_jg.append(pt_g)
+            data.phi_jg.append(zerofunction)
+            data.phit_jg.append(zerofunction)
 
         data.stdfilename = '%s.hgh.LDA' % symbol
         return data
+
+    def print_info(self, text):
+        self.hghdata.print_info(text)
 
     def expand_hamiltonian_matrix(self):
         """Construct H_p from individual h_nn for each l."""
@@ -224,15 +245,6 @@ class HGHSetup(Setup):
         self.K_p[:] = K_p # Maybe simple assignment is enough
         # But this will complain if anything goes wrong with shape etc.
 
-def create_charge_distribution(r_g, Z, rloc):
-    """Get the charge distribution corresponding to the long-range part
-    of the local potential.
-
-    The long-range part goes like erf(r)/r, which corresponds to a
-    Gaussian-shaped radial charge distribution.
-    """
-    nabla2V = (2.0 / npy.pi) * Z / rloc**3 * npy.exp(-0.5 * r_g**2 / rloc**2)
-    return - nabla2V / 4. / npy.pi
 
 def create_local_shortrange_potential(r_g, Z, rloc, c_n):
     rr_g = r_g / rloc # "Relative r"
@@ -250,7 +262,6 @@ def create_local_shortrange_potential(r_g, Z, rloc, c_n):
 
 
 def create_hgh_projector(r_g, l, n, r0):
-    n += 1
     poly_g = r_g**(l + 2 * (n - 1))
     gauss_g = npy.exp(-.5 * r_g**2 / r0**2)
     A = r0**(l + (4 * n - 1)/2.)
@@ -297,24 +308,36 @@ class VNonLocal:
 
 class HGHData:
     """Wrapper class for HGH-specific data corresponding to one element."""
-    def __init__(self, symbol, Nv, rloc, c_n):
-        self.symbol = symbol
-        self.Nv = Nv
-        self.rloc = rloc
-        self.c_n = c_n
+    def __init__(self, symbol, Z, Nv, rloc, c_n):
+        self.symbol = symbol # Identifier, e.g. 'Na', 'Na.sc', ...
+        self.Z = Z # Actual atomic number
+        self.Nv = Nv # Valence electron count
+        self.rloc = rloc # Characteristic radius of local part
+        self.c_n = c_n # Polynomial coefficients for local part
         self.v_l = [] # Non-local parts
         
-
+    def print_info(self, txt):
+        txt('HGH setup for %s' % self.symbol)
+        txt('Valence Z=%.3f, rloc=%.3f' % (self.Nv, self.rloc))
+        txt('Local part coeffs')
+        txt('  ' + ' '.join(['%5.3f' % c for c in self.c_n]))
+        for v in self.v_l:
+            txt('Projector  l=%d, rc=%.3f' % (v.l, v.r0))
+            for n in range(v.nn):
+                txt('  ' + ' '.join(['%7.3f' % h_n[n] for h_n in v.h_nn]))
+        
 def parse_local_part(string):
     """Create HGHData object with local part initialized."""
     tokens = iter(string.split())
     symbol = tokens.next()
-    assert symbol.split('.')[0].isalpha()
+    actual_chemical_symbol = symbol.split('.')[0]
+    Z = atomic_numbers[actual_chemical_symbol]
     Nv = int(tokens.next())
     rloc = float(tokens.next())
     c_n = [float(token) for token in tokens]
-    hgh = HGHData(symbol, Nv, rloc, c_n)
+    hgh = HGHData(symbol, Z, Nv, rloc, c_n)
     return hgh
+
 
 def parse_hgh_setup(lines):
     """Initialize HGHData object from text representation."""
@@ -354,6 +377,7 @@ def mksetup(symbol):
     setup = HGHSetup(symbol, xcfunc, 1)
     return setup
 
+
 def test_hgh():
     from gpaw import Calculator
     from ase.data.molecules import molecule
@@ -363,13 +387,13 @@ def test_hgh():
                       idiotproof=False,
                       basis='sz')
 
-    system = molecule('N', cell=(7.,7.,7.))
+    system = molecule('N', cell=(8.,8.,8.))
     system.center()
     system.set_calculator(calc)
     
     E = system.get_potential_energy()
 
-    sys2 = molecule('N2', cell=(7.,7.,7.))
+    sys2 = molecule('N2', cell=(8.,8.,8.))
     sys2.center()
     sys2.set_calculator(calc)
     E2 = sys2.get_potential_energy()

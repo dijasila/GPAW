@@ -19,6 +19,63 @@ from gpaw.mpi import run, MASTER
 
 
 class PAWExtra:
+<<<<<<< .working
+=======
+    def get_fermi_level(self):
+        """Return the Fermi-level."""
+        return self.occupation.get_fermi_level() * self.Ha
+
+    def get_homo_lumo(self):
+        """Return HOMO and LUMO eigenvalues."""
+        return self.occupation.get_homo_lumo(self.kpt_u) * self.Ha
+
+    def write(self, filename, mode=''):
+        """use mode='all' to write the wave functions"""
+        self.timer.start('IO')
+        gpaw.io.write(self, filename, mode)
+        self.timer.stop('IO')
+        
+    def get_reference_energy(self):
+        return self.Eref * self.Ha
+    
+    def get_wave_function_array(self, n, k, s):
+        """Return pseudo-wave-function array.
+        
+        For the parallel case find the rank in kpt_comm that contains
+        the (k,s) pair, for this rank, collect on the corresponding
+        domain a full array on the domain master and send this to the
+        global master."""
+
+        kpt_rank, u = divmod(k + self.nkpts * s, self.nmyu)
+        nn, band_rank = divmod(n, self.band_comm.size)
+
+        psit_nG = self.kpt_u[u].psit_nG
+        if psit_nG is None:
+            raise RuntimeError('This calculator has no wave functions!')
+
+        if self.world.size == 1:
+            return psit_nG[nn][:]
+
+        if self.kpt_comm.rank == kpt_rank:
+            if self.band_comm.rank == band_rank:
+                psit_G = self.gd.collect(psit_nG[nn][:])
+
+                if kpt_rank == MASTER and band_rank == MASTER:
+                    if self.master:
+                        return psit_G
+
+                # Domain master send this to the global master
+                if self.domain.comm.rank == MASTER:
+                    self.world.send(psit_G, MASTER, 1398)
+
+        if self.master:
+            # allocate full wavefunction and receive
+            psit_G = self.gd.empty(dtype=self.dtype, global_array=True)
+            world_rank = kpt_rank * self.domain.comm.size * self.band_comm.size + band_rank * self.domain.comm.size
+            self.world.receive(psit_G, world_rank, 1398)
+            return psit_G
+
+>>>>>>> .merge-right.r2891
     def collect_eigenvalues(self, k=0, s=0):
         """Return eigenvalue array.
 
@@ -236,31 +293,6 @@ class PAWExtra:
                 volumes[k, n] += I
                 
         return 1. / volumes
-
-    def get_homo_lumo(self):
-        """Return HOMO and LUMO eigenvalues.
-
-        Works for zero-temperature Gamma-point calculations only.
-        """
-        if len(self.bzk_kc) != 1 or self.kT != 0:
-            raise RuntimeError
-        occ = self.collect_occupations()
-        eig = self.collect_eigenvalues()
-        lumo = self.nbands - occ[::-1].searchsorted(0, side='right')
-        homo = lumo - 1
-        e_homo = eig[homo]
-        e_lumo = eig[lumo]
-        if self.nspins == 2:
-            # Spin polarized: check if frontier orb is in minority spin
-            occ = self.collect_occupations(s=1)
-            eig = self.collect_eigenvalues(s=1)
-            lumo = self.nbands - occ[::-1].searchsorted(0, side='right')
-            homo = lumo - 1
-            if homo >= 0:
-                e_homo = max(e_homo, eig[homo])
-            e_lumo = min(e_lumo, eig[lumo])
-
-        return e_homo * self.Ha, e_lumo * self.Ha
 
     def get_projections(self, locfun, spin=0):
         """Project wave functions onto localized functions

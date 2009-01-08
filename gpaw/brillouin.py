@@ -10,11 +10,14 @@ def reduce_kpoints(atoms, bzk_kc, setups, usesymm):
     Returns symmetry object, weights and k-points in the irreducible
     part of the BZ."""
 
-
     #if np.logical_and(np.logical_not(atoms.pbc), bzk_kc.any(axis=0)).any():
     if (~atoms.pbc & bzk_kc.any(0)).any():
         raise ValueError('K-points can only be used with PBCs!')
 
+    if usesymm is None:
+        nkpts = len(bzk_kc)
+        return None, bzk_kc.copy(), np.ones(nkpts) / nkpts
+    
     # Round off:
     magmom_a = atoms.get_initial_magnetic_moments().round(decimals=3)
     id_a = zip(magmom_a, setups.id_a)

@@ -5,12 +5,13 @@ from ase.units import Bohr
 
 import gpaw.mpi as mpi
 from gpaw import debug
-from gpaw.utilities import pack,packed_index
+from gpaw.utilities import pack, packed_index
 from gpaw.lrtddft.excitation import Excitation,ExcitationList
 from gpaw.localized_functions import create_localized_functions
 from gpaw.pair_density import PairDensity
 from gpaw.operators import Gradient
 
+from gpaw.utilities import contiguous, is_contiguous
 
 # KS excitation classes
 
@@ -41,19 +42,37 @@ class KSSingles(ExcitationList):
                  eps=0.001,
                  istart=0,
                  jend=None,
-                 filehandle=None):
+                 energyrange=None,
+                 filehandle=None,
+                 out=None):
 
         if filehandle is not None:
             self.read(fh=filehandle)
             return None
 
-        ExcitationList.__init__(self,calculator)
+        ExcitationList.__init__(self, calculator, out=out)
         
         if calculator is None:
             return # leave the list empty
 
-        wfs = self.calculator.wfs
+        self.select(nspins, eps, istart, jend, energyrange)
+
+        trkm = self.GetTRK()
+        print >> self.out, 'KSS TRK sum %g (%g,%g,%g)' % \
+              (npy.sum(trkm)/3.,trkm[0],trkm[1],trkm[2])
+        pol = self.GetPolarizabilities(lmax=3)
+        print >> self.out, \
+              'KSS polarisabilities(l=0-3) %g, %g, %g, %g' % \
+              tuple(pol.tolist())
+
+    def select(self, nspins=None, eps=0.001,
+               istart=0, jend=None, energyrange=None):
+        """Select KSSingles according to the given criterium."""
+
+        paw = self.calculator
+        wfs = paw.wfs
         self.kpt_u = wfs.kpt_u
+
         if self.kpt_u[0].psit_nG is None:
             raise RuntimeError('No wave functions in calculator!')
 
@@ -67,38 +86,47 @@ class KSSingles(ExcitationList):
         self.npspins = wfs.nspins
         fijscale=1
         if self.nvspins < 2:
-            if nspins>self.nvspins:
+            if nspins > self.nvspins:
                 self.npspins = nspins
                 fijscale = 0.5
-                
-        # get possible transitions
-        for ispin in range(self.npspins):
-            vspin=ispin
-            if self.nvspins<2:
-                vspin=0
-            f=self.kpt_u[vspin].f_n
-            if jend==None: jend=len(f)-1
-            else         : jend=min(jend,len(f)-1)
-            
-            for i in range(istart,jend+1):
-                for j in range(istart,jend+1):
-                    fij=f[i]-f[j]
-                    if fij>eps:
-                        # this is an accepted transition
-                        ks=KSSingle(i,j,ispin,vspin,calculator,
-                                    fijscale=fijscale)
-                        self.append(ks)
 
-        self.istart = istart
-        self.jend = jend
+        if energyrange is not None:
+            emin, emax = energyrange
+            # select transitions according to transition energy
+            for kpt in self.kpt_u:
+                f_n = kpt.f_n
+                eps_n = kpt.eps_n
+                for i in range(len(f_n)):
+                    for j in range(i+1, len(f_n)):
+                        fij = f_n[i] - f_n[j]
+                        epsij = eps_n[j] - eps_n[j]
+                        if fij > eps and epsij >= emin and epsij < emax:
+                            # this is an accepted transition
+                            ks = KSSingle(i, j, kpt.s, kpt, paw,
+                                          fijscale=fijscale)
+                            self.append(ks)
+        else:
+            # select transitions according to band index
+            for ispin in range(self.npspins):
+                vspin=ispin
+                if self.nvspins<2:
+                    vspin=0
+                f=self.kpt_u[vspin].f_n
+                if jend==None: jend=len(f)-1
+                else         : jend=min(jend,len(f)-1)
 
-        trkm = self.GetTRK()
-        print >> self.out, 'KSS TRK sum %g (%g,%g,%g)' % \
-              (npy.sum(trkm)/3.,trkm[0],trkm[1],trkm[2])
-        pol = self.GetPolarizabilities(lmax=3)
-        print >> self.out, \
-              'KSS polarisabilities(l=0-3) %g, %g, %g, %g' % \
-              tuple(pol.tolist())
+                for i in range(istart,jend+1):
+                    for j in range(istart,jend+1):
+                        fij=f[i]-f[j]
+                        if fij > eps:
+                            # this is an accepted transition
+                            ks = KSSingle(i, j, ispin, 
+                                          self.kpt_u[vspin], paw,
+                                          fijscale=fijscale)
+                            self.append(ks)
+
+            self.istart = istart
+            self.jend = jend
 
     def read(self, filename=None, fh=None):
         """Read myself from a file"""
@@ -174,13 +202,14 @@ class KSSingle(Excitation, PairDensity):
 
       pspin=physical spin
       spin=virtual  spin, i.e. spin in the ground state calc.
+      kpt=the Kpoint object
       fijscale=weight for the occupation difference::
       me  = sqrt(fij*epsij) * <i|r|j>
       mur = - <i|r|a>
       muv = - <i|nabla|a>/omega_ia with omega_ia>0
       m   = <i|[r x nabla]|a> / (2c)
     """
-    def __init__(self, iidx=None, jidx=None, pspin=None, spin=None,
+    def __init__(self, iidx=None, jidx=None, pspin=None, kpt=None,
                  paw=None, string=None, fijscale=1):
         
         if string is not None: 
@@ -191,13 +220,13 @@ class KSSingle(Excitation, PairDensity):
         
         PairDensity.__init__(self, paw)
         wfs = paw.wfs
-        PairDensity.initialize(self, wfs.kpt_u[spin], iidx, jidx)
+        PairDensity.initialize(self, kpt, iidx, jidx)
 
         self.pspin=pspin
         
-        f=wfs.kpt_u[spin].f_n
+        f = kpt.f_n
         self.fij=(f[iidx]-f[jidx])*fijscale
-        e=wfs.kpt_u[spin].eps_n
+        e=kpt.eps_n
         self.energy=e[jidx]-e[iidx]
 
         # calculate matrix elements -----------
@@ -210,12 +239,12 @@ class KSSingle(Excitation, PairDensity):
         # course grid contribution
         # <i|r|j> is the negative of the dipole moment (because of negative
         # e- charge)
-        me = -gd.calculate_dipole_moment(self.get())
+        me = - gd.calculate_dipole_moment(self.get())
 
         # augmentation contributions
         ma = npy.zeros(me.shape)
         pos_av = paw.atoms.get_positions() / Bohr
-        for a, P_ni in wfs.kpt_u[spin].P_ani.items():
+        for a, P_ni in kpt.P_ani.items():
             Ra = pos_av[a]
             Pi_i = P_ni[self.i]
             Pj_i = P_ni[self.j]
@@ -238,9 +267,9 @@ class KSSingle(Excitation, PairDensity):
             ma += sqrt(4*pi/3)*ma1 + Ra*sqrt(4*pi)*ma0
         gd.comm.sum(ma)
 
-#        print '<KSSingle> i,j,me,ma,fac=',self.i,self.j,\
-#            me, ma,sqrt(self.energy*self.fij)
-        self.me = sqrt(self.energy*self.fij) * ( me + ma )
+##        print '<KSSingle> i,j,me,ma,fac=',self.i,self.j,\
+##            me, ma,sqrt(self.energy*self.fij)
+        self.me = sqrt(self.energy * self.fij) * ( me + ma )
 
         self.mur = - ( me + ma )
 ##        print '<KSSingle> mur=',self.mur,-self.fij *me
@@ -248,19 +277,23 @@ class KSSingle(Excitation, PairDensity):
         # velocity form .............................
 
         # smooth contribution
-        dwfdr_G = gd.empty()
-        if not hasattr(gd,'ddr'):
-            gd.ddr = [Gradient(gd, c).apply for c in range(3)]
+        dtype = self.wfj.dtype
+        dwfdr_G = gd.empty(dtype=dtype)
+        if not hasattr(gd, 'ddr'):
+            gd.ddr = [Gradient(gd, c, dtype=dtype).apply for c in range(3)]
         for c in range(3):
-            gd.ddr[c](self.wfj, dwfdr_G)
-            me[c] = gd.integrate(self.wfi*dwfdr_G)
+            gd.ddr[c](self.wfj, dwfdr_G, kpt.phase_cd)
+            me[c] = gd.integrate(self.wfi * dwfdr_G)
             
+        # XXXX local corrections are missing here
+
+        # XXXX the weight fij is missing here
         self.muv = me / self.energy
-##        print '<KSSingle> muv=',self.muv
+#        print '<KSSingle> muv=', self.muv
 
         # magnetic transition dipole ................
         
-        # m depends on how the origin is set, so we need th centre of mass
+        # m depends on how the origin is set, so we need the centre of mass
         # of the structure
 #        cm = wfs
 

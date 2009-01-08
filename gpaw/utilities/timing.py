@@ -19,6 +19,10 @@ avoided by calling the ``update()`` function at intervals smaller than
 
 import time
 import sys
+try:
+    import pytau
+except ImportError:
+    pass
 
 import gpaw.mpi as mpi
 MASTER = 0
@@ -89,6 +93,8 @@ class Timer:
                 self.timers[name] = 0.0
                 
     def write(self, out=sys.stdout):
+        while self.running:
+            self.stop()
         if len(self.timers) == 0:
             return
         print >> out
@@ -118,6 +124,7 @@ class Timer:
     def add(self, timer):
         for name, t in timer.timers.items():
             self.timers[name] = self.timers.get(name, 0.0) + t
+
 
 class StepTimer(Timer):
     """Step timer to print out timing used in computation steps.
@@ -153,3 +160,32 @@ class StepTimer(Timer):
         self.out.flush()
         del self.timers[self.now]
         self.start(self.now)
+
+class TauTimer(Timer):
+    """TauTimers require installation of the TAU Performance System
+    http://www.cs.uoregon.edu/research/tau/home.php
+
+    The TAU Python API will not output any data if there are any
+    unmatched starts/stops in the code."""
+    
+    def __init__(self):
+        self.timers = {}
+        self.running = []
+        pytau.setNode(mpi.rank)
+        self.start('PAW_calc') 
+
+    def start(self, name):
+        self.timers[name] = pytau.profileTimer(name)
+        self.running.append(name)
+        pytau.start(self.timers[name])
+        
+    def stop(self, name=None):
+        if name is None: name = self.running[-1]
+        if name != self.running.pop():
+            raise RuntimeError
+        pytau.stop(self.timers[name])
+
+    def write(self, out=sys.stdout):
+        # Forces TAU to dump all its timing data.
+        # pytau.dbDump()
+        return

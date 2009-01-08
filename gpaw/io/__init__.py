@@ -151,11 +151,11 @@ def write(paw, filename, mode):
         w['Eext'] = hamiltonian.Eext
         w['Exc'] = hamiltonian.Exc
         w['S'] = hamiltonian.S
-        epsF = paw.occupations.get_fermi_level()
-        if epsF is None:
-            # Zero temperature calculation - use vacuum level:
-            epsF = 0.0
-        w['FermiLevel'] = epsF
+        try:
+            w['FermiLevel'] = paw.occupations.get_fermi_level()
+        except NotImplementedError:
+            # Zero temperature calculation - don't write Fermi level:
+            pass
 
         # write errors
         w['DensityError'] = scf.density_error
@@ -409,7 +409,7 @@ def read(paw, reader):
     else:
         paw.scf.converged = True
         
-    if not paw.input_parameters.fixmom:
+    if not paw.input_parameters.fixmom and 'FermiLevel' in r.parameters:
         paw.occupations.set_fermi_level(r['FermiLevel'])
 
     paw.occupations.magmom = paw.atoms.get_initial_magnetic_moments().sum()

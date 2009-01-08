@@ -127,6 +127,9 @@ class XCFunctional:
             if self.setupname is None:
                 self.setupname = 'PBE'
         # End of: Abbreviations for common functionals from libxc
+        elif xcname == 'vdWDF':
+            code = 'vdWDF'
+            self.gga = True
         elif xcname == 'oldLDA':
             self.maxDerivativeLevel=2
             code = 117 # not used!
@@ -224,6 +227,9 @@ class XCFunctional:
             self.xc = ZeroFunctional()
         elif code == 9:
             self.xc = _gpaw.MGGAFunctional(code,local_tau)
+        elif code == 'vdWDF':
+            from gpaw.vdw import VDWFunctional
+            self.xc = VDWFunctional(nspins)
         elif code == 'gllb':
             # Get the correct functional from NonLocalFunctionalFactory
             self.xc = NonLocalFunctionalFactory().get_functional_by_name(xcname)
@@ -277,6 +283,11 @@ class XCFunctional:
 
     def set_non_local_things(self, paw, energy_only=False):
 
+        from gpaw.vdw import VDWFunctional
+        if isinstance(self.xc, VDWFunctional):
+            self.xc.gd = paw.finegd
+            return
+            
         if not self.orbital_dependent:
             return
 
@@ -292,7 +303,7 @@ class XCFunctional:
 
         if self.xcname == 'TPSS':
             paw.density.initialize_kinetic()
-            paw.density.update_kinetic(paw.wfs.kpt_u)
+            paw.density.update_kinetic(paw.wfs.kpt_u, symmetry=paw.symmetry)
             if paw.nspins ==1:
                 paw.hamiltonian.xc.taua_g = paw.density.taut_sg[0]
             if self.nspins == 2:

@@ -116,6 +116,99 @@ where :file:`run.sh` looks like this::
   mpirun $HOME/gpaw/build/bin.linux-i686-2.3/gpaw-python gpaw-script.py
 
 
+Linux cluster Akka at HPC2N
+===========================
+
+The Akka machine 
+(`<http://www.hpc2n.umu.se/resources/Akka/>`_)
+is a cluster of Intel Xeon dual-socket, quad-core L5420 CPUs,
+2.5 GHz processors with 2 GB of memory per core.
+
+On Akka, you need to use the filesystem located under `/pfs/`
+to be able to write files when running in the queue.
+Enable it with (`<http://www.hpc2n.umu.se/support/userguide/common/filesystems.html>`_)::
+
+ ln -s /pfs/nobackup$HOME $HOME/pfs
+
+Due to problems with intel mkl
+(version `10.0.2.018` gives errors when running on the compute nodes:
+`cannot allocate memory for thread-local data: ABORT`)
+build numpy using its internal blas/lapack::
+
+ python setup.py install --home=~/pfs/numpy-1.0.4-1
+
+Set these environment variables in the :file:`.bashrc` file::
+
+  export home=~/pfs
+  module add openmpi/gcc
+
+  export PYTHONPATH=${home}/gpaw:${home}/ase3k:${home}/numpy-1.0.4-1/lib64/python:
+  export GPAW_SETUP_PATH=${home}/gpaw-setups-0.4.2039
+
+  export LD_LIBRARY_PATH=/usr/local/lib
+  export PATH=${home}/gpaw/tools:${home}/ase3k/tools:${PATH}
+
+  if [ $PBS_ENVIRONMENT ]; then
+        cd $PBS_O_WORKDIR
+        export PYTHONPATH=${PBS_O_WORKDIR}:${PYTHONPATH}
+        return
+  fi
+
+and build GPAW (``python setup.py build_ext``) with this
+:file:`customize.py` file (static linking fixes
+`cannot allocate memory for thread-local data: ABORT`)::
+
+  scalapack = True
+
+  extra_compile_args += [
+      '-O3'
+      ]
+
+  extra_link_args = [
+  '/usr/local/lib/libmkl_intel_lp64.a',
+  '/usr/local/lib/libmkl_sequential.a',
+  '/usr/local/lib/libmkl_core.a',
+  '/usr/local/lib/libmkl_blacs_openmpi_lp64.a',
+  '/usr/local/lib/libmkl_scalapack.a',
+  '/usr/local/lib/libmkl_blacs_openmpi_lp64.a',
+  '/usr/local/lib/libmkl_intel_lp64.a',
+  '/usr/local/lib/libmkl_sequential.a',
+  '/usr/local/lib/libmkl_core.a',
+  '/usr/local/lib/libmkl_intel_lp64.a',
+  '/usr/local/lib/libmkl_sequential.a',
+  '/usr/local/lib/libmkl_core.a',
+  ]  
+
+  define_macros += [
+    ('GPAW_MKL', '1')
+  ]
+
+A gpaw script :file:`gpaw-script.py` can be submitted like this::
+
+  qsub -l nodes=1:ppn=8 -l walltime=02:00:00 -m abe pbs_submitfile
+
+with the following
+`pbs_submitfile <http://www.hpc2n.umu.se/support/userguide/Sarek/src/pbs_submitfile>`_::
+
+  #!/bin/bash
+  ###PBS -A SNICXXX-YY-ZZ
+  ###PBS -N Parallel
+  ###PBS -o test.out
+  ###PBS -e test.err
+  ###PBS -m ae
+  ###PBS -l nodes=2:ppn=8
+  ###PBS -l walltime=00:10:00
+  ###PBS -l pmem=1900mb # default
+  ###PBS -l pvmem=2000mb # default
+  
+  cd $PBS_O_WORKDIR
+  module add openmpi/gcc
+
+  mpiexec gpaw-python gpaw-script.py
+
+It's convenient to customize as described on the :ref:`parallel_runs` page.
+
+
 Linux cluster Carbon at CNM
 ===========================
 
@@ -645,11 +738,11 @@ After bulding ``lapack_bgp`` and ``cblas_bgp``, get numpy-1.0.4_ and do this::
   $ patch -p1 < ../numpy-1.0.4-system_info.py.patch.lapack_bgp_goto_esslbg
   $ cp ../numpy-1.0.4-site.cfg.lapack_bgp_goto_esslbg site.cfg
   $ ldpath=/bgsys/drivers/ppcfloor/gnu-linux/lib
-  $ ldflags="-Wl,--allow-multiple-definition"
+  $ ldflags="-Wl,--allow-multiple-definition -L/opt/ibmcmp/xlmass/bg/4.4/bglib"
   $ root=$HOME/numpy-1.0.4-1.optimized
   $ p=/bgsys/drivers/ppcfloor/gnu-linux/bin/python
-  $ c="\"/bgsys/drivers/ppcfloor/gnu-linux/bin/powerpc-bgp-linux-gcc -DNO_APPEND_FORTRAN\""
-  $ LDFLAGS="$ldflags" LD_LIBRARY_PATH="$ldpath" CC="$c" $p setup.py install --root="$root"
+  $ c="\"/bgsys/drivers/ppcfloor/gnu-linux/bin/powerpc-bgp-linux-gcc -DNO_APPEND_FORTRAN -L/opt/ibmcmp/xlmass/bg/4.4/bglib\""
+  $ MATHLIB="mass" LDFLAGS="$ldflags" LD_LIBRARY_PATH="$ldpath" CC="$c" $p setup.py install --root="$root"
 
 Numpy built in this way does contain the
 :file:`$root/bgsys/drivers/ppcfloor/gnu-linux/lib/python2.5/site-packages/numpy/core/_dotblas.so`
@@ -1068,6 +1161,162 @@ Absolute paths are important!
 
 It's convenient to customize as in :file:`gpaw-qsub.py` which can be
 found at the :ref:`parallel_runs` page.
+
+jugene.fz-juelich.de
+--------------------
+Numpy needs to be build with powerpc-bgp-linux-gfortran instead of gfortran
+compiler, so in order to build numpy specify the environment variable F90::
+
+ $ export F90=/bgsys/drivers/ppcfloor/gnu-linux/powerpc-bgp-linux/bin/gfortran
+
+After that, numpy can be installed to $HOME/python as::
+
+ $ ldpath=/bgsys/drivers/ppcfloor/gnu-linux/lib
+ $ p=/bgsys/drivers/ppcfloor/gnu-linux/bin/python
+ $ LD_LIBRARY_PATH="$ldpath" $p setup.py install --home=$HOME/python
+
+In order to build GPAW, use the following customize.py::
+
+ libraries = [
+            'lapack',
+            'esslbg',
+             'xl',
+             'xlopt',
+             'xlf90_r',
+             'xlfmath',
+             'pthread',
+             'xlomp_ser',
+            ]
+
+ library_dirs = [
+           '/bgsys/local/lib/',
+            '/opt/ibmcmp/xlf/bg/11.1/lib',
+            '/opt/ibmcmp/xlsmp/bg/1.7/lib',
+            '/bgsys/drivers/ppcfloor/gnu-linux/lib'
+            ]
+
+ extra_compile_args += ['-std=c99']
+
+ define_macros += [
+           ('GPAW_AIX', '1'),
+           ('GPAW_MKL', '1'),
+           ('GPAW_BGP', '1')
+                  ]
+
+Because of missing ``popen3`` function you need to remove all the
+contents of the :file:`gpaw/version.py` file after ``version =
+'0.4'``.  The same holds for :file:`ase/version.py` in the ase
+installation!  Suggestions how to skip the ``popen3`` testing in
+:file:`gpaw/version.py` on BGP are welcome!
+
+
+Here is an example of batch job script::
+
+  #!/bin/bash
+ # @ job_name = hello
+ # @ output = $(job_name).o$(jobid)
+ # @ error = $(job_name).e$(jobid)
+ # @ wall_clock_limit = 00:12:00
+ # @ notification = never
+ # @ notify_user = my_email@csc.fi
+ # @ job_type = bluegene
+ # @ bg_size = 1
+ # @ queue
+ home=/homea/prace/prace025
+ prog=${home}/python/bin/gpaw-python
+ args="${home}/test-gpaw/CH4.py"
+
+ mpirun=/bgsys/drivers/ppcfloor/bin/mpirun
+
+ ldpath="/bgsys/local/lib/ibmcmp/lib/bglib"
+
+ pythonpath="${home}/python/lib/python/"
+
+ gpaw_setups="${home}/gpaw-setups-0.4.2039"
+
+ runargs="-np 4"
+
+ runargs="$runargs -cwd $PWD"
+ runargs="$runargs -mode SMP"
+ runargs="$runargs -env LD_LIBRARY_PATH=$ldpath -env PYTHONPATH=$pythonpath -envGPAW_SETUP_PATH=$gpaw_setups"
+
+ echo "Hello. This is `hostname` at `date` `pwd`"
+
+ echo "$mpirun $runargs -exe $prog $args"
+ /usr/bin/time $mpirun $runargs -exe $prog -args $args
+
+ echo "Program completed at `date` with exit code $?."
+
+The batch jobs are submitted with ``llsubmit``::
+
+ $ llsubmit job_file
+
+
+huygens.sara.nl
+---------------
+
+One should not use the systems defaul python, but load the python module::
+
+ $ module load python
+
+Now, numpy and ASE can be installed in the standard way::
+
+ $ python setup.py install ...
+
+In order to use gcc for parallel compilation of GPAW, set the environment variable 
+MP_COMPILER::
+ 
+ $ export MP_COMPILER=gcc
+
+Use the following customize.py::
+
+ libraries += ['xlf90_r', 'xlsmp', 'xlfmath', 'lapack', 'essl', 'xl']
+
+ library_dirs += ['/sara/sw/lapack/3.1.1/lib',
+                  '/opt/ibmcmp/xlf/12.1/lib64/',
+                  '/opt/ibmcmp/xlsmp/1.8/lib64/',
+                 ]
+
+ define_macros += [('GPAW_AIX', '1')]
+ extra_compile_args += ['-std=c99']
+ mpicompiler = 'mpcc'
+ mpilinker = 'mpcc
+
+Here is an example batch job script ::
+
+ # @ node = 1
+ # @ tasks_per_node = 4
+ #
+ # Loadleveler can send email, but for this job, we ask Loadleveler not
+ #     to send any email:
+ #
+ # @ notification = never
+ #
+ # Define the standard input, output and error for the job:
+ #
+ # @ input = /dev/null
+ # @ output = out.$(jobid)
+ # @ error = err.$(jobid)
+ #
+ # @ wall_clock_limit = 0:30:00
+ #
+ # @ job_type = parallel
+ #
+ # @ network.MPI = sn_all,not_shared,US
+ # @ queue
+ #
+
+ cd $HOME/gpaw-benchmarks/
+
+ export PYTHONPATH=$HOME/python/lib/python
+ export GPAW_SETUP_PATH=$HOME/gpaw-setups-0.4.2039
+ export GPAW_PYTHON=$HOME/python/bin/gpaw-python
+ $GPAW_PYTHON input.py
+
+
+The batch jobs are submitted with ``llsubmit``::
+
+ $ llsubmit job_file
 
 
 HP

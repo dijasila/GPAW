@@ -214,7 +214,8 @@ class Nucleus:
 
         # Smooth core density:
         nct = self.setup.nct
-        self.nct = create([nct], gd, spos_c, cut=True, lfbc=lfbc)
+        if nct is not None:
+            self.nct = create([nct], gd, spos_c, cut=True, lfbc=lfbc)
 
         # Smooth core kinetic energy density:
         tauct = self.setup.tauct
@@ -243,8 +244,7 @@ class Nucleus:
         if self.nct is not None:
             Nct = -(self.setup.Delta0 * sqrt(4 * pi)
                     + self.setup.Z - self.setup.Nc)
-            if abs(Nct) > 1e-15:
-                self.nct.normalize(Nct)
+            self.nct.normalize(Nct)
 
 
     def get_number_of_atomic_orbitals(self):
@@ -440,11 +440,11 @@ class Nucleus:
 
             Eext = 0.0
             if vext is not None:
-                # Tailor expansion to the zeroth order
+                # Taylor expansion to the zeroth order
                 Eext += vext[0][0] * (sqrt(4 * pi) * self.Q_L[0] + s.Z)
                 dH_p += vext[0][0] * sqrt(4 * pi) * s.Delta_pL[:, 0]
                 if len(vext) > 1:
-                    # Tailor expansion to the first order
+                    # Taylor expansion to the first order
                     Eext += sqrt(4 * pi / 3) * npy.dot(vext[1], self.Q_L[1:4])
                     # there must be a better way XXXX
                     Delta_p1 = npy.array([s.Delta_pL[:, 1],
@@ -971,6 +971,77 @@ class Nucleus:
             F = - (dEdrhodrhodR + dEdTdTdR + dEdDdDdR + dEdndndR)
             self.F_c[c] += F
 
+<<<<<<< .working
+=======
+    def calculate_force_kpoint(self, kpt):
+        f_n = kpt.f_n
+        eps_n = kpt.eps_n
+        psit_nG = kpt.psit_nG
+        s = kpt.s
+        u = kpt.u
+        k = kpt.k
+        if self.in_this_domain:
+            P_ni = self.P_uni[u].conj()
+            nb = P_ni.shape[0]
+            H_ii = unpack(self.H_sp[s])
+            O_ii = self.setup.O_ii
+            ni = self.setup.ni
+            F_nic = npy.zeros((nb, ni, 3), self.dtype)
+            # ???? Optimization: Take the real value of F_nk * P_ni early.
+            self.pt_i.derivative(psit_nG, F_nic, k)
+            F_nic.shape = (nb, ni * 3)
+            F_nic *= f_n[:, None]
+            F_iic = npy.dot(H_ii, npy.dot(P_ni.T, F_nic))
+            F_nic *= eps_n[:, None]
+            F_iic -= npy.dot(O_ii, npy.dot(P_ni.T, F_nic))
+            F_iic *= 2.0
+            F = self.F_c
+            F_iic.shape = (ni, ni, 3)
+            for i in range(ni):
+                F += F_iic[i, i].real
+        else:
+            self.pt_i.derivative(psit_nG, None, k)
+
+    def calculate_force(self, vHt_g, nt_g, vt_G):
+        if self.in_this_domain:
+            lmax = self.setup.lmax
+            # ???? Optimization: do the sum over L before the sum over g and G.
+            F_Lc = npy.zeros(((lmax + 1)**2, 3))
+            self.ghat_L.derivative(vHt_g, F_Lc)
+            if self.vhat_L is not None:
+                self.vhat_L.derivative(nt_g, F_Lc) 
+            
+            Q_L = self.Q_L
+            F = self.F_c
+            F[:] += npy.dot(Q_L, F_Lc)
+
+            # Force from smooth core charge:
+##            self.nct.derivative(vt_G, F[npy.newaxis, :])
+            if self.nct is not None:
+                self.nct.derivative(vt_G, npy.reshape(F, (1, 3)))  # numpy!
+
+            # Force from zero potential:
+            self.vbar.derivative(nt_g, npy.reshape(F, (1, 3)))
+
+            dF = npy.zeros(((lmax + 1)**2, 3))
+            for neighbor in self.neighbors:
+                for c in range(3):
+                    dF[:, c] += npy.dot(neighbor.dvdr_LLc[:, :, c],
+                                        neighbor.nucleus().Q_L)
+            F += npy.dot(self.Q_L, dF)
+        else:
+            if self.ghat_L is not None:
+                self.ghat_L.derivative(vHt_g, None)
+                if self.vhat_L is not None:
+                    self.vhat_L.derivative(nt_g, None)
+                
+            if self.nct is not None:
+                self.nct.derivative(vt_G, None)
+                
+            if self.vbar is not None:
+                self.vbar.derivative(nt_g, None)
+
+>>>>>>> .merge-right.r2891
     def get_density_correction(self, spin, nspins):
         """Integrated atomic density correction.
 
