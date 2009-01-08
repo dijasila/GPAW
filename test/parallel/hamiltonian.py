@@ -14,7 +14,6 @@ B = parsize_bands or 1  # number of groups
 G = 120  # number of grid points (G x G x G)
 N = 2000  # number of bands
 
-G = 8
 try:
     N = int(sys.argv[1])
     J = int(sys.argv[2])
@@ -97,7 +96,7 @@ def run(psit_mG):
 
 ta = time()
 
-for x in range(2):
+for x in range(20):
     psit_mG = run(psit_mG)
 
 tb = time()
