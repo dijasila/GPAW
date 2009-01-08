@@ -280,6 +280,11 @@ class TwoCenterIntegrals:
         self.nl.update(self.atoms)
 
     def calculate(self, spos_ac, S_qMM, T_qMM, P_aqMi, dtype):
+        S_qMM[:] = 0.0
+        T_qMM[:] = 0.0
+        for P_qMi in P_aqMi.values():
+            P_qMi[:] = 0.0
+        
         if self.lcao_forces:
             nq = len(self.ibzk_qc)
             nao = self.setups.nao

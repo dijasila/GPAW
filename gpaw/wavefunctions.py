@@ -222,16 +222,13 @@ class LCAOWaveFunctions(WaveFunctions):
             self.tci = TwoCenterIntegrals(self.gd.domain, self.setups,
                                           self.gamma, self.ibzk_qc)
             
-            self.S_qMM = np.zeros((nq, nao, nao), self.dtype)
-            self.T_qMM = np.zeros((nq, nao, nao), self.dtype)
+            self.S_qMM = np.empty((nq, nao, nao), self.dtype)
+            self.T_qMM = np.empty((nq, nao, nao), self.dtype)
             for kpt in self.kpt_u:
                 q = kpt.q
                 kpt.S_MM = self.S_qMM[q]
                 kpt.T_MM = self.T_qMM[q]
                 kpt.C_nM = np.empty((mynbands, nao), self.dtype)
-        else:
-            self.S_qMM[:] = 0.0
-            self.T_qMM[:] = 0.0
 
         for kpt in self.kpt_u:
             kpt.P_ani = {}
@@ -243,7 +240,7 @@ class LCAOWaveFunctions(WaveFunctions):
         self.P_aqMi = {}
         for a in self.basis_functions.my_atom_indices:
             ni = self.setups[a].ni
-            self.P_aqMi[a] = np.zeros((nq, nao, ni), self.dtype)
+            self.P_aqMi[a] = np.empty((nq, nao, ni), self.dtype)
 
         for kpt in self.kpt_u:
             q = kpt.q
@@ -291,8 +288,8 @@ class LCAOWaveFunctions(WaveFunctions):
                                  self.gamma, self.ibzk_qc)
         tci.lcao_forces = True
         tci.set_positions(spos_ac)
-        S_qMM = np.zeros(self.S_qMM.shape, self.dtype)
-        T_qMM = np.zeros(self.T_qMM.shape, self.dtype)
+        S_qMM = np.empty(self.S_qMM.shape, self.dtype)
+        T_qMM = np.empty(self.T_qMM.shape, self.dtype)
         P_aqMi = dict([(a, np.zeros(P.shape, self.dtype))
                        for a, P in self.P_aqMi.items()])
         
