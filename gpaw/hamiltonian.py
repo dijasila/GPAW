@@ -261,7 +261,7 @@ class Hamiltonian:
         else:
             newxcfunc = xcname
         
-        newxcfunc.set_non_local_things(wfs, energy_only=True)
+        newxcfunc.set_non_local_things(density, self, wfs, energy_only=True)
 
         xc.set_functional(newxcfunc)
         for setup in self.setups.setups.values():

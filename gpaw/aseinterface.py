@@ -73,7 +73,7 @@ class GPAW(PAW):
 
     def get_number_of_bands(self):
         """Return the number of bands."""
-        return self.nbands 
+        return self.wfs.nbands 
   
     def get_xc_functional(self):
         """Return the XC-functional identifier.
@@ -84,7 +84,7 @@ class GPAW(PAW):
  
     def get_bz_k_points(self):
         """Return the k-points."""
-        return self.bzk_kc
+        return self.wfs.bzk_kc
  
     def get_number_of_spins(self):
         return self.wfs.nspins
@@ -95,7 +95,7 @@ class GPAW(PAW):
     
     def get_ibz_k_points(self):
         """Return k-points in the irreducible part of the Brillouin zone."""
-        return self.ibzk_kc
+        return self.wfs.ibzk_kc
 
     def get_k_point_weights(self):
         """Weights of the k-points. 
@@ -314,7 +314,7 @@ class GPAW(PAW):
         Use initial guess for wannier orbitals to determine rotation
         matrices U and C.
         """
-        if self.nkpts != 1:
+        if not self.wfs.gamma:
             raise NotImplementedError
         from ase.dft.wannier import rotation_from_projection
         proj_knw = self.get_projections(initialwannier, spin)
@@ -329,7 +329,8 @@ class GPAW(PAW):
 
         # Due to orthorhombic cells, only one component of dirG is non-zero.
         c = dirG.tolist().index(1)
-        G = self.bzk_kc[nextkpoint, c] - self.bzk_kc[kpoint, c] - G_I[c]
+        k_kc = self.wfs.bzk_kc
+        G = k_kc[nextkpoint, c] - k_kc[kpoint, c] - G_I[c]
 
         return self.get_wannier_integrals(c, spin, kpoint,
                                           nextkpoint, G, nbands)
@@ -395,6 +396,106 @@ class GPAW(PAW):
             O_ii = self.wfs.setups[a].O_ii
             e = np.exp(-2.j * np.pi * G * spos_av[a, c])
             Z_nn += e * np.dot(np.dot(P_ni.conj(), O_ii), P1_ni.T)
+
+    def get_projections(self, locfun, spin=0):
+        """Project wave functions onto localized functions
+
+        Determine the projections of the Kohn-Sham eigenstates
+        onto specified localized functions of the format::
+
+          locfun = [[spos_c, l, sigma], [...]]
+
+        spos_c can be an atom index, or a scaled position vector. l is
+        the angular momentum, and sigma is the (half-) width of the
+        radial gaussian.
+
+        Return format is::
+
+          f_kni = <psi_kn | f_i>
+
+        where psi_kn are the wave functions, and f_i are the specified
+        localized functions.
+
+        As a special case, locfun can be the string 'projectors', in which
+        case the bound state projectors are used as localized functions.
+        """
+
+        wfs = self wfs
+        
+        if locfun == 'projectors':
+            f_kin = []
+            for kpt in wfs.kpt_u:
+                if kpt.s == spin:
+                    f_in = []
+                    for a, P_ni in kpt.P_ani.items():
+                        i = 0
+                        setup = wfs.setups[a]
+                        for l, n in zip(setup.l_j, setup.n_j):
+                            if n >= 0:
+                                for j in range(i, i + 2 * l + 1):
+                                    f_in.append(P_ni[:, j])
+                            i += 2 * l + 1
+                    f_kin.append(f_in)
+            f_kni = np.array(f_kin).transpose(0, 2, 1)
+            return f_kni.conj()
+
+        from gpaw.localized_functions import create_localized_functions
+        from gpaw.spline import Spline
+        from gpaw.utilities import fac
+
+        nkpts = len(wfs.ibzk_kc)
+        nbf = np.sum([2 * l + 1 for pos, l, a in locfun])
+        f_kni = np.zeros((nkpts, wfs.nbands, nbf), wfs.dtype)
+
+        bf = 0
+
+        spos_ac = self.atoms.get_scaled_positions() % 1.0
+        spos_xc = []
+        splines_x = []
+        for spos_c, l, sigma in locfun:
+            if isinstance(spos_c, int):
+                spos_c = spos_ac[spos_c]
+            spos_xc.append(spos_c)
+            
+            alpha = .5 * self.a0**2 / sigma**2
+            r = np.linspace(0, 6. * sigma, 500)
+            f_g = (fac[l] * (4 * alpha)**(l + 3 / 2.) *
+                   npy.exp(-a * r**2) /
+                   (np.sqrt(4 * np.pi) * fac[2 * l + 1]))
+            splines_x.append([Spline(l, rmax=r[-1], f_g=f_g, points=61)])
+            
+        lf = LFC(wfs.gd, splines_x, wfs.kpt_comm, dtype=wfs.dtype)
+        if not wfs.gamma:
+            lf.set_k_points(wfs.ibzk_qc)
+
+            lf.set_phase_factors(self.ibzk_kc)
+            nlf = 2 * l + 1
+            nbands = self.nbands
+            kpt_u = self.wfs.kpt_u
+            for k in range(self.nkpts):
+                lf.integrate(kpt_u[k + spin * self.nkpts].psit_nG[:],
+                             f_kni[k, :, bf:bf + nlf], k=k)
+            bf += nlf
+        bf = 0
+        for spos_c, l, sigma in locfun:
+            if type(spos_c) is int:
+                spos_c = self.nuclei[spos_c].spos_c
+            a = .5 * self.a0**2 / sigma**2
+            r = npy.linspace(0, 6. * sigma, 500)
+            f_g = (fac[l] * (4 * a)**(l + 3 / 2.) * npy.exp(-a * r**2) /
+                   (npy.sqrt(4 * npy.pi) * fac[2 * l + 1]))
+            functions = [Spline(l, rmax=r[-1], f_g=f_g, points=61)]
+            lf = create_localized_functions(functions, self.gd, spos_c,
+                                            dtype=self.dtype)
+            lf.set_phase_factors(self.ibzk_kc)
+            nlf = 2 * l + 1
+            nbands = self.nbands
+            kpt_u = self.wfs.kpt_u
+            for k in range(self.nkpts):
+                lf.integrate(kpt_u[k + spin * self.nkpts].psit_nG[:],
+                             f_kni[k, :, bf:bf + nlf], k=k)
+            bf += nlf
+        return f_kni.conj()
 
     def get_magnetic_moment(self, atoms=None):
         """Return the total magnetic moment."""

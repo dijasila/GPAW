@@ -281,18 +281,19 @@ class XCFunctional:
                            paw.kpt_comm, paw.symmetry, paw.nvalence,
                            paw.eigensolver, paw.hamiltonian)
 
-    def set_non_local_things(self, paw, energy_only=False):
+    def set_non_local_things(self, density, hamiltonian, wfs,
+                             energy_only=False):
 
         from gpaw.vdw import VDWFunctional
         if isinstance(self.xc, VDWFunctional):
-            self.xc.gd = paw.finegd
+            self.xc.gd = density.finegd
             return
             
         if not self.orbital_dependent:
             return
 
         if self.hybrid > 0.0:
-            if paw.dtype == complex:
+            if wfs.dtype == complex:
                 raise NotImplementedError, 'k-point calculation with EXX'
             if self.parameters and self.parameters.has_key('finegrid'):
                 use_finegrid = self.parameters['finegrid']
@@ -302,8 +303,8 @@ class XCFunctional:
                            use_finegrid=use_finegrid)
 
         if self.xcname == 'TPSS':
-            paw.density.initialize_kinetic()
-            paw.density.update_kinetic(paw.wfs.kpt_u, symmetry=paw.symmetry)
+            density.initialize_kinetic()
+            density.update_kinetic(wfs.kpt_u, symmetry=paw.symmetry)
             if paw.nspins ==1:
                 paw.hamiltonian.xc.taua_g = paw.density.taut_sg[0]
             if self.nspins == 2:

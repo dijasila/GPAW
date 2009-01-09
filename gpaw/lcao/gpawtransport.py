@@ -7,7 +7,8 @@ from ase import Atoms, Atom, monkhorst_pack, Hartree
 import ase
 import numpy as np
 
-from gpaw import GPAW, Mixer, restart
+from gpaw import GPAW, Mixer
+from gpaw import restart as restart_gpaw
 from gpaw.lcao.tools import get_realspace_hs, get_kspace_hs, \
      tri2full, remove_pbc
 from gpaw.mpi import world
@@ -198,7 +199,8 @@ class GPAWTransport:
                 pickle.dump((self.h2_skmm, self.s2_kmm, self.nxklead), fd, 2)
                 fd.close()
         else:
-            atoms, calc = restart('lead' + str(l) + '.gpw')
+            atoms, calc = restart_gpaw('lead' + str(l) + '.gpw')
+            calc.set_positions()
             self.atoms_l[l] = atoms
             if l == 0:        
                 fd = file('leadhs0','r') 
@@ -225,7 +227,8 @@ class GPAWTransport:
             self.nct_G = np.copy(calc.density.nct_G)
                         
         else:
-            atoms, calc = restart('scat.gpw')
+            atoms, calc = restart_gpaw('scat.gpw')
+            calc.set_positions()
             self.atoms = atoms
             fd = file('scaths', 'r')
             self.h_skmm, self.s_kmm = pickle.load(fd)
@@ -319,7 +322,7 @@ class GPAWTransport:
 
         p = self.atoms.calc.input_parameters.copy()           
         self.nxkmol = p['kpts'][0]  
-        self.update_scat_hamiltonian(0)
+        self.update_scat_hamiltonian(flag)
         self.nbmol = self.h_skmm.shape[-1]
         self.d_skmm = self.generate_density_matrix(2, flag)
         self.initial_mol()        
@@ -1000,7 +1003,7 @@ class GPAWTransport:
         if self.verbose:
             for i in range(nspins):
                 print 'spin', i, 'charge on atomic basis', np.diag(np.sum(qr_mm[s],axis=0))            
-            print 'tolal charge'
+            print 'total charge'
             print np.trace(np.sum(np.sum(qr_mm, axis=0), axis=0))
 
         rvector = np.zeros([relate_layer, 3])

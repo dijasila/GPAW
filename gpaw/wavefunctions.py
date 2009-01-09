@@ -108,8 +108,13 @@ class WaveFunctions(EmptyWaveFunctions):
             ni = self.setups[a].ni
             D_sii = np.zeros((self.nspins, ni, ni))
             for kpt in self.kpt_u:
-                P_ni = kpt.P_ani[a]
-                D_sii[kpt.s] += np.dot(P_ni.T.conj() * kpt.f_n, P_ni).real
+                if kpt.rho_MM is not None:
+                    P_Mi = kpt.P_aMi[a]
+                    D_sii[kpt.s] += np.dot(np.dot(P_Mi.T.conj(), kpt.rho_MM),
+                                           P_Mi).real
+                else:
+                    P_ni = kpt.P_ani[a]
+                    D_sii[kpt.s] += np.dot(P_ni.T.conj() * kpt.f_n, P_ni).real
 
             D_sp[:] = [pack(D_ii) for D_ii in D_sii]
             self.band_comm.sum(D_sp)
