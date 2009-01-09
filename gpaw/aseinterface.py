@@ -439,7 +439,7 @@ class GPAW(PAW):
             f_kni = np.array(f_kin).transpose(0, 2, 1)
             return f_kni.conj()
 
-        from gpaw.localized_functions import create_localized_functions
+        from gpaw.lfc import LocalizedFunctionsCollection as LFC
         from gpaw.spline import Spline
         from gpaw.utilities import fac
 
@@ -457,44 +457,31 @@ class GPAW(PAW):
                 spos_c = spos_ac[spos_c]
             spos_xc.append(spos_c)
             
-            alpha = .5 * self.a0**2 / sigma**2
+            alpha = .5 * Bohr**2 / sigma**2
             r = np.linspace(0, 6. * sigma, 500)
             f_g = (fac[l] * (4 * alpha)**(l + 3 / 2.) *
-                   npy.exp(-a * r**2) /
+                   np.exp(-a * r**2) /
                    (np.sqrt(4 * np.pi) * fac[2 * l + 1]))
             splines_x.append([Spline(l, rmax=r[-1], f_g=f_g, points=61)])
             
         lf = LFC(wfs.gd, splines_x, wfs.kpt_comm, dtype=wfs.dtype)
         if not wfs.gamma:
             lf.set_k_points(wfs.ibzk_qc)
+        lf.set_positions(spos_xc)
 
-            lf.set_phase_factors(self.ibzk_kc)
-            nlf = 2 * l + 1
-            nbands = self.nbands
-            kpt_u = self.wfs.kpt_u
-            for k in range(self.nkpts):
-                lf.integrate(kpt_u[k + spin * self.nkpts].psit_nG[:],
-                             f_kni[k, :, bf:bf + nlf], k=k)
-            bf += nlf
-        bf = 0
-        for spos_c, l, sigma in locfun:
-            if type(spos_c) is int:
-                spos_c = self.nuclei[spos_c].spos_c
-            a = .5 * self.a0**2 / sigma**2
-            r = npy.linspace(0, 6. * sigma, 500)
-            f_g = (fac[l] * (4 * a)**(l + 3 / 2.) * npy.exp(-a * r**2) /
-                   (npy.sqrt(4 * npy.pi) * fac[2 * l + 1]))
-            functions = [Spline(l, rmax=r[-1], f_g=f_g, points=61)]
-            lf = create_localized_functions(functions, self.gd, spos_c,
-                                            dtype=self.dtype)
-            lf.set_phase_factors(self.ibzk_kc)
-            nlf = 2 * l + 1
-            nbands = self.nbands
-            kpt_u = self.wfs.kpt_u
-            for k in range(self.nkpts):
-                lf.integrate(kpt_u[k + spin * self.nkpts].psit_nG[:],
-                             f_kni[k, :, bf:bf + nlf], k=k)
-            bf += nlf
+        k = 0
+        f_ani = lf.dict(wfs.nbands)
+        for kpt in wfs.kpt_u:
+            if kpt.s != spin:
+                continue
+            lf.integrate(kpt.psit_nG[:], f_ani, kpt.q)
+            i1 = 0
+            for x, f_ni in f_ani.items():
+                i2 = i1 + f_ni.shape[1]
+                f_kni[k, :, i1:i2] = f_ni
+                i1 = i2
+            k += 1
+
         return f_kni.conj()
 
     def get_magnetic_moment(self, atoms=None):
