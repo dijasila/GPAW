@@ -16,16 +16,16 @@ class XAS:
         #
         # to allow spin polarized calclulation
         #
-        nkpts = wfs.nkpts
+        nkpts = len(wfs.ibzk_kc)
         if wfs.nspins == 1:
-            nocc = int(wfs.nvalence / 2)
+            nocc = int(wfs.setups.nvalence / 2)
             self.list_kpts = range(nkpts)
         else:
             self.list_kpts=[]
 
             #find kpoints with up spin 
             for i, kpt in  enumerate(wfs.kpt_u):
-                if kpt.s ==0:
+                if kpt.s == 0:
                     self.list_kpts.append(i)
                 print self.list_kpts
             assert len(self.list_kpts) == nkpts
@@ -36,16 +36,13 @@ class XAS:
                 nocc += sum(wfs.kpt_u[i].f_n)
             nocc = int(nocc + 0.5)
             print "nocc", nocc
-
-
-
                  
-        for nucleus in wfs.nuclei:
+        for a, setup in enumerate(wfs.setups):
             #print "i"
-            if nucleus.setup.phicorehole_g is not None:  
+            if setup.phicorehole_g is not None:  
                 break
 
-        A_ci = nucleus.setup.A_ci
+        A_ci = setup.A_ci
 
         # xas, xes or all modes
         if mode == "xas":
@@ -61,22 +58,25 @@ class XAS:
             n_end = wfs.nbands 
             n = wfs.nbands
         else:
-            raise RuntimeError("wrong keyword for 'mode', use 'xas', 'xes' or 'all'")
+            raise RuntimeError(
+                "wrong keyword for 'mode', use 'xas', 'xes' or 'all'")
 
         self.n = n
-
-        
             
         self.eps_n = npy.empty(nkpts * n)
         self.sigma_cn = npy.empty((3, nkpts * n), complex)
         n1 = 0
-        for k in self.list_kpts:
+        for kpt in wfs.kpt_u:
+            if kpt.s != 0:
+                continue
+            
             n2 = n1 + n
-            self.eps_n[n1:n2] = wfs.kpt_u[k].eps_n[n_start:n_end] * wfs.Ha
-            P_ni = nucleus.P_uni[k, n_start:n_end]
+            self.eps_n[n1:n2] = kpt.eps_n[n_start:n_end] * Hartree
+            P_ni = kpt.P_ani[a][n_start:n_end]
             a_cn = npy.inner(A_ci, P_ni)
-            print "weight", wfs.weight_k[k]
-            self.sigma_cn[:, n1:n2] = wfs.weight_k[k] ** 0.5 * a_cn #.real
+            weight = kpt.weight * wfs.nspins / 2
+            print "weight", weight
+            self.sigma_cn[:, n1:n2] = weight**0.5 * a_cn #.real
             n1 = n2
 
         self.symmetry = wfs.symmetry
