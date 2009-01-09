@@ -79,14 +79,20 @@ class CSCG:
         # number of vectors
         nvec = len(x)
 
-        # r_0 = b - A x_0
+        # r(0) = b - A x(0)
         r = self.gd.zeros(nvec, dtype=complex)
         A.dot(-x,r)
         r += b
 
+        # p(0) = r(0)
         p = self.gd.zeros(nvec, dtype=complex)
-        q = self.gd.zeros(nvec, dtype=complex)
+        p[:] = r
+
+        # z(0) = M^(-1).r(0)
         z = self.gd.zeros(nvec, dtype=complex)
+        A.apply_preconditioner(r,z)
+
+        q = self.gd.zeros(nvec, dtype=complex)
 
         alpha = npy.zeros((nvec,), dtype=complex) 
         beta = npy.zeros((nvec,), dtype=complex) 
@@ -94,8 +100,6 @@ class CSCG:
         rhop  = npy.zeros((nvec,), dtype=complex) 
         scale = npy.zeros((nvec,), dtype=complex) 
         tmp = npy.zeros((nvec,), dtype=complex) 
-
-        rhop[:] = 1.
 
         # Multivector dot product, a^T b, where ^T is transpose
         def multi_zdotu(s, x,y, nvec):
@@ -112,6 +116,9 @@ class CSCG:
             for i in range(nvec):
                 x[i] *= a[i]
 
+        # rho(0) = r(0)^T z(0)
+        multi_zdotu(rhop, r, z, nvec)
+
         # scale = square of the norm of b
         multi_zdotu(scale, b,b, nvec)
         scale = npy.abs( scale )
@@ -122,21 +129,9 @@ class CSCG:
 
         #print 'Scale = ', scale
 
-        slow_convergence_iters = 100
+        slow_convergence_iters = 1
 
         for i in range(self.max_iter):
-            # z_i = (M^-1.r)
-            A.apply_preconditioner(r,z)
-
-            # rho_i-1 = r^T z_i-1
-            multi_zdotu(rho, r, z, nvec)
-
-            #print 'Rho = ', rho
-
-            # if i=1, p_i = r_i-1
-            # else beta = (rho_i-1 / rho_i-2) (alpha_i-1 / omega_i-1)
-            #      p_i = r_i-1 + b_i-1 (p_i-1 - omega_i-1 v_i-1)
-            beta = rho / rhop
 
             #print 'Beta = ', beta
 
@@ -146,25 +141,31 @@ class CSCG:
                 raise RuntimeError("Conjugate gradient method failed (abs(beta)=%le < eps = %le)." % (npy.min(npy.abs(beta)),self.eps))
 
 
-            # p = z + beta p
-            multi_scale(beta, p, nvec)
-            p += z
-
-
-            # q = A.p
+            # q(i) = A.p(i)
             A.dot(p,q)
 
-            # alpha_i = rho_i-1 / (p^T q_i)
+            # alpha(i) = rho(i) / (p(i)^T q(i))
             multi_zdotu(alpha, p, q, nvec)
-            alpha = rho / alpha
+            alpha = rhop / alpha
 
-            #print 'Alpha = ', alpha
-
-            # x_i = x_i-1 + alpha_i p_i
+            # x(i+1) = x(i) + alpha(i) p(i)
             multi_zaxpy(alpha, p, x, nvec)
-            # r_i = r_i-1 - alpha_i q_i
+
+            # r(i+1) = r(i) - alpha(i) q(i)
             multi_zaxpy(-alpha, q, r, nvec)
 
+            # z(i+1) = M^(-1).r(i+1)
+            A.apply_preconditioner(r,z)
+
+            # rho(i+1) = r(i+1)^T z(i+1)
+            multi_zdotu(rho, r, z, nvec)
+
+            # beta(i) = rho(i+1)/rho(i)
+            beta = rho / rhop
+
+            # p(i+1) = z(i+1) + beta(i) p(i)
+            multi_scale(beta, p, nvec)
+            p += z
 
             # if ( |r|^2 < tol^2 ) done
             multi_zdotu(tmp, r,r, nvec)
@@ -175,10 +176,10 @@ class CSCG:
 
             # print if slow convergence
             if ((i+1) % slow_convergence_iters) == 0:
-                print 'R2 of proc #', rank, '  = ' , tmp, \
+                print 'R2 of proc #', rank, '  = ' , '['+','.join(map(lambda v: '%.5g' % v,abs(tmp)))+']', \
                     ' after ', i+1, ' iterations'
 
-            # finally update rho
+            # finally update rho(i)->rho(i+1)
             rhop[:] = rho
 
 

@@ -126,7 +126,7 @@ class BiCGStab:
 
         #print 'Scale = ', scale
 
-        slow_convergence_iters = 50
+        slow_convergence_iters = 1
 
         for i in range(self.max_iter):
             # rho_i-1 = q^H r_i-1
