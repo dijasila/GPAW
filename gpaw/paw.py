@@ -455,7 +455,8 @@ class PAW(PAWTextOutput):
 
         if self.density is None:
             self.finegd = GridDescriptor(self.domain, 2 * N_c)
-            self.density = Density(self.gd, self.finegd, nspins, par.charge)
+            self.density = Density(self.gd, self.finegd, nspins,
+                                   par.charge + setups.core_charge)
 
         self.density.initialize(setups, par.stencils[1], self.timer,
                                 magmom_a, par.hund)
