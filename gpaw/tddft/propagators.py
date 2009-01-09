@@ -291,7 +291,7 @@ class AbsorptionKick(ExplicitCrankNicolson):
         
 
 ###############################################################################
-# SemiImpicitCrankNicolson
+# SemiImplicitCrankNicolson
 ###############################################################################
 class SemiImplicitCrankNicolson(Propagator):
     """Semi-implicit Crank-Nicolson propagator
@@ -339,10 +339,11 @@ class SemiImplicitCrankNicolson(Propagator):
         
         self.mblas = MultiBlas(gd)
 
+        self.old_kpt_u = None
         self.tmp_kpt_u = None
-        self.tmp2_kpt_u = None
         self.hpsit = None
         self.spsit = None
+        self.sihpsit = None
 
 
     def propagate(self, kpt_u, time, time_step):
@@ -359,7 +360,16 @@ class SemiImplicitCrankNicolson(Propagator):
         """
 
         self.niter = 0
-        # temporary wavefunctions
+
+        # old/temporary wavefunctions
+        if self.old_kpt_u is None:
+            self.old_kpt_u = []
+            for kpt in kpt_u:
+                old_kpt = DummyKPoint()
+                old_kpt.psit_nG = self.gd.empty( n=len(kpt.psit_nG),
+                                                 dtype=complex )
+                self.old_kpt_u.append(old_kpt)
+
         if self.tmp_kpt_u is None:
             self.tmp_kpt_u = []
             for kpt in kpt_u:
@@ -368,17 +378,9 @@ class SemiImplicitCrankNicolson(Propagator):
                                                  dtype=complex )
                 self.tmp_kpt_u.append(tmp_kpt)
 
-        if self.tmp2_kpt_u is None:
-            self.tmp2_kpt_u = []
-            for kpt in kpt_u:
-                tmp_kpt = DummyKPoint()
-                tmp_kpt.psit_nG = self.gd.empty( n=len(kpt.psit_nG),
-                                                 dtype=complex )
-                self.tmp2_kpt_u.append(tmp_kpt)
-
-
         if self.hpsit is None:
             self.hpsit = self.gd.zeros(len(kpt_u[0].psit_nG), dtype=complex)
+
         if self.spsit is None:
             self.spsit = self.gd.zeros(len(kpt_u[0].psit_nG), dtype=complex)
 
@@ -396,25 +398,16 @@ class SemiImplicitCrankNicolson(Propagator):
 
         self.timer.stop('Update time-dependent operators')
 
-
-        # copy current wavefunctions to temporary variable
-        #for u in range(len(kpt_u)):
-        #    self.tmp_psit_nG[u][:] = kpt_u[u].psit_nG
+        # copy current wavefunctions psi(t) to old/temporary wavefunctions
         for u in range(len(kpt_u)):
             self.tmp_kpt_u[u].psit_nG[:] = kpt_u[u].psit_nG
-            #self.tmp2_kpt_u[u].psit_nG[:] = kpt_u[u].psit_nG
-            #kpt_u[u].psit_nG[:] = 0.0
+            self.old_kpt_u[u].psit_nG[:] = kpt_u[u].psit_nG
 
 
         # predict
-        #  here kpt_u is overwritten by (S - i H(t) t / 2 hbar) kpt_u
-        #  before actually solving the equation, maybe better would
-        #  be full Euler step (S - i H(t) t hbar) kpt_u, maybe not
-        #self.solve_propagation_equation(kpt_u, self.tmp2_kpt_u, time_step, True)
-        #self.solve_propagation_equation(kpt_u, self.tmp2_kpt_u, time_step)
-        # Don't guess
-        self.solve_propagation_equation(kpt_u, kpt_u, time_step)
-
+        # ( here tmp_kpt_u is overwritten by (1 - i S^(-1)(t) H(t) dt) kpt_u
+        #   as a full Euler step before psit(t+dt) is predicted )
+        self.solve_propagation_equation(kpt_u, self.tmp_kpt_u, time_step, guess=True)
 
         self.timer.start('Update time-dependent operators')
 
@@ -428,65 +421,60 @@ class SemiImplicitCrankNicolson(Propagator):
 
         self.timer.stop('Update time-dependent operators')
 
-        # propagate psit(t), not psit(t+dt), in correct
-        #for u in range(len(kpt_u)):
-        #    kpt_u[u].psit_nG[:] = self.tmp_psit_nG[u]
-
-        #for u in range(len(kpt_u)):
-        #    kpt_u[u].psit_nG[:] = self.tmp_kpt_u[u].psit_nG
-
         # correct
         # ( predicted kpt_u is given as initial guess, old wavefunction are
         #   used to calculate rhs )
-        self.solve_propagation_equation(kpt_u, self.tmp_kpt_u, time_step)
+        self.solve_propagation_equation(kpt_u, self.old_kpt_u, time_step)
         
         return self.niter
 
 
     # ( S + i H dt/2 ) psit(t+dt) = ( S - i H dt/2 ) psit(t)
-    def solve_propagation_equation(self, kpt_u, rhs_kpt_u, time_step, guess = False):
+    def solve_propagation_equation(self, kpt_u, rhs_kpt_u, time_step, guess=False):
 
         # kpt_u is guess, rhs_kpt_u is used to calculate rhs and is overwritten
         for [kpt, rhs_kpt] in zip(kpt_u, rhs_kpt_u):
             nvec = len(rhs_kpt.psit_nG)
-            #self.shift = npy.zeros(nvec, complex)
-            #self.tmp_shift = npy.zeros(nvec, complex)
 
-            self.kpt = kpt
+            assert kpt != rhs_kpt, 'Data race condition detected'
+
             self.timer.start('Apply time-dependent operators')
+            # Store H psi(t) as hpsit and S psit(t) as spsit
             run([nucleus.calculate_projections(kpt, rhs_kpt.psit_nG)
                  for nucleus in self.td_hamiltonian.pt_nuclei])
-            self.td_hamiltonian.apply(self.kpt, rhs_kpt.psit_nG, self.hpsit,
+            self.td_hamiltonian.apply(kpt, rhs_kpt.psit_nG, self.hpsit,
                                       calculate_P_uni=False)
-            self.td_overlap.apply(self.kpt, rhs_kpt.psit_nG, self.spsit,
+            self.td_overlap.apply(kpt, rhs_kpt.psit_nG, self.spsit,
                                   calculate_P_uni=False)
             self.timer.stop('Apply time-dependent operators')
 
-            #self.mblas.multi_zdotc(self.shift, rhs_kpt.psit_nG, self.hpsit, nvec)
-            #self.shift *= self.gd.dv
-            #self.mblas.multi_zdotc(self.tmp_shift, rhs_kpt.psit_nG, self.spsit, nvec)
-            #self.tmp_shift *= self.gd.dv
-            #self.shift /= self.tmp_shift
-
-            #self.psit_nG[:] = self.spsit - .5J * self.hpsit * time_step
+            # Update rhs_kpt.psit_nG to reflect ( S - i H dt/2 ) psit(t)
+            #rhs_kpt.psit_nG[:] = self.spsit - .5J * self.hpsit * time_step
             rhs_kpt.psit_nG[:] = self.spsit
             self.mblas.multi_zaxpy(-.5j * self.time_step, self.hpsit, rhs_kpt.psit_nG, nvec)
-            # Apply shift -i eps S t/2
-            #self.mblas.multi_zaxpy(-.5j * self.time_step * (-self.shift), self.spsit, rhs_kpt.psit_nG, nvec)
 
             if guess:
-                kpt.psit_nG[:] = self.spsit
-                self.mblas.multi_zaxpy(-1.0j * self.time_step, self.hpsit, kpt.psit_nG, nvec)
+                ## Update kpt.psit_nG to estimate psit(t+dt) as S^(-1)( S - i H dt ) psit(t)
+                #kpt.psit_nG[:] = self.spsit
+                #self.mblas.multi_zaxpy(-1.0j * self.time_step, self.hpsit, kpt.psit_nG, nvec)
+                #
+                ##TODO!!! Needs to be implemented in TimeDependentOverlap!
+                #self.td_overlap.overlap.apply_inverse(kpt.psit_nG, kpt.psit_nG, kpt)
 
-            # A x = b
+                if self.sihpsit is None:
+                    self.sihpsit = self.gd.zeros(len(kpt_u[0].psit_nG), dtype=complex)
+
+                # Update kpt.psit_nG to estimate psit(t+dt) as ( 1 - i S^(-1) H dt ) psit(t)
+                #TODO! apply_inverse needs to be implemented in TimeDependentOverlap
+                self.td_overlap.overlap.apply_inverse(self.hpsit, self.sihpsit, kpt)
+                self.mblas.multi_zaxpy(-1.0j * self.time_step, self.sihpsit, kpt.psit_nG, nvec)
+
+            # TODO! Workaround because solver.solve -> self.dot needs relevant kpoint
+            self.kpt = kpt
+
+            # Solve A x = b where A is (S + i H dt/2) and b = rhs_kpt.psit_nG
             self.niter += self.solver.solve(self, kpt.psit_nG, rhs_kpt.psit_nG)
-
-            # Apply shift exp(i eps t)
-            #self.phase_shift = npy.exp(1.0J * self.shift * self.time_step)
-            #self.mblas.multi_scale(self.phase_shift, kpt.psit_nG, nvec)
-
-            
-            
+                        
     # ( S + i H dt/2 ) psi
     def dot(self, psi, psin):
         """Applies the propagator matrix to the given wavefunctions.
@@ -510,8 +498,6 @@ class SemiImplicitCrankNicolson(Propagator):
         #  psin[:] = self.spsit + .5J * self.time_step * self.hpsit
         psin[:] = self.spsit
         self.mblas.multi_zaxpy(.5j * self.time_step, self.hpsit, psin, len(psi))
-        # Apply shift -i eps S t/2 
-        #self.mblas.multi_zaxpy(.5j * self.time_step * (-self.shift), self.spsit, psin, len(psi))
 
 
     #  Solve M psin = psi
@@ -532,7 +518,6 @@ class SemiImplicitCrankNicolson(Propagator):
         else:
             psin[:] = psi
         self.timer.stop('Solve TDDFT preconditioner')
-
 
 
 ###############################################################################
