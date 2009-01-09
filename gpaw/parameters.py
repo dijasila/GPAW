@@ -121,3 +121,5 @@ class InputParameters(dict):
             self.fixmom = r['FixMagneticMoment']
 
         self.width = r['FermiWidth'] * Hartree
+
+        self.mode = r.parameters.get('Mode', 'fd')

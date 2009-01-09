@@ -170,6 +170,8 @@ def write(paw, filename, mode):
         if hasattr(paw, 'time'):
             w['Time'] = paw.time
 
+        w['Mode'] = p.mode
+        
         # Write fingerprint (md5-digest) for all setups:
         for setup in wfs.setups.setups.values():
             key = atomic_names[setup.Z] + 'Fingerprint'
