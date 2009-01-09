@@ -34,9 +34,6 @@ class LCAO:
             self.band_comm = wfs.band_comm
             self.timer = wfs.timer
             #self.linear_dependence_check(wfs)
-            for kpt in wfs.kpt_u:
-                if kpt.eps_n is None:
-                    kpt.eps_n = np.empty(self.mynbands)
 
         self.timer.start('LCAO: potential matrix')
         wfs.basis_functions.calculate_potential_matrix(hamiltonian.vt_sG[s],
@@ -63,6 +60,9 @@ class LCAO:
         n1 = rank * self.mynbands
         n2 = n1 + self.mynbands
 
+        if kpt.eps_n is None:
+            kpt.eps_n = np.empty(self.mynbands)
+            
         # Check and remove linear dependence for the current k-point
         if 0:#k in self.linear_kpts:
             print '*Warning*: near linear dependence detected for k=%s' % k
