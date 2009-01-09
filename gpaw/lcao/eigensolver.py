@@ -24,6 +24,20 @@ class LCAO:
         s = kpt.s
         q = kpt.q
 
+        if self.H_MM is None:
+            nao = wfs.setups.nao
+            self.eps_n = np.empty(nao)
+            self.S_MM = np.empty((nao, nao), wfs.dtype)
+            self.H_MM = np.empty((nao, nao), wfs.dtype)
+            self.comm = wfs.gd.comm
+            self.mynbands = wfs.mynbands
+            self.band_comm = wfs.band_comm
+            self.timer = wfs.timer
+            #self.linear_dependence_check(wfs)
+            for kpt in wfs.kpt_u:
+                if kpt.eps_n is None:
+                    kpt.eps_n = np.empty(self.mynbands)
+
         self.timer.start('LCAO: potential matrix')
         wfs.basis_functions.calculate_potential_matrix(hamiltonian.vt_sG[s],
                                                        self.H_MM, q)
@@ -36,20 +50,6 @@ class LCAO:
         self.H_MM += wfs.T_qMM[q]
 
     def iterate(self, hamiltonian, wfs):
-        if self.H_MM is None:
-            nao = wfs.setups.nao
-            self.eps_n = np.empty(nao)
-            self.S_MM = np.empty((nao, nao), wfs.dtype)
-            self.H_MM = np.empty((nao, nao), wfs.dtype)
-            self.timer = wfs.timer
-            self.comm = wfs.gd.comm
-            self.mynbands = wfs.mynbands
-            self.band_comm = wfs.band_comm
-            #self.linear_dependence_check(wfs)
-            for kpt in wfs.kpt_u:
-                if kpt.eps_n is None:
-                    kpt.eps_n = np.empty(self.mynbands)
-
         for kpt in wfs.kpt_u:
             self.iterate_one_k_point(hamiltonian, wfs, kpt)
 
