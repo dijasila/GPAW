@@ -420,7 +420,7 @@ class GPAW(PAW):
         case the bound state projectors are used as localized functions.
         """
 
-        wfs = self wfs
+        wfs = self.wfs
         
         if locfun == 'projectors':
             f_kin = []
