@@ -519,3 +519,14 @@ class GPAW(PAW):
 
     def get_electronic_temperature(self):
         return self.kT * Hartree
+
+    def get_electrostatic_corrections(self):
+        """Calculate PAW correction to average electrostatic potential."""
+        dEH_a = np.zeros(len(self.atoms))
+        for a, D_sp in self.density.D_asp.items():
+            setups = self.wfs.setups[a]
+            dEH_a[a] = setup.dEH0 + np.dot(setup.dEH_p, D_sp.sum(0))
+        self.wfs.gd.comm.sum(dEH_a)
+        return dEH_a * Hartree * Bohr**3
+
+

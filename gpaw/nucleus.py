@@ -1114,7 +1114,3 @@ class Nucleus:
                 g_c = tuple(gd.get_nearest_grid_point(self.spos_c, True)
                             % gd.N_c)
                 n_sg[s][g_c] += (Iana - Inum) / gd.dv
-        
-    def get_electrostatic_correction(self):
-        """Calculate PAW correction to average electrostatic potential."""
-        return self.setup.dEH0 + npy.dot(self.setup.dEH_p, self.D_sp.sum(0))
