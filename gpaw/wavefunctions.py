@@ -286,7 +286,8 @@ class LCAOWaveFunctions(WaveFunctions):
         grid_bfs = LFC(self.gd, [s.phit_j for s in self.setups],
                        self.kpt_comm, dtype=self.dtype, forces=True, cut=True)
         spos_ac = hamiltonian.vbar.spos_ac # XXX ugly way to obtain spos_ac
-        grid_bfs.set_k_points(self.ibzk_kc)
+        if not self.gamma:
+            grid_bfs.set_k_points(self.ibzk_kc)
         grid_bfs.set_positions(spos_ac)
 
         # This will recalculate everything, which again is not necessary
@@ -310,12 +311,11 @@ class LCAOWaveFunctions(WaveFunctions):
         mask_aMM = tci.mask_amm
 
         for kpt in self.kpt_u:
-            for a, F_v in zip(grid_bfs.my_atom_indices, F_av):
-                self.calculate_force_kpoint_lcao(a, kpt, hamiltonian, F_v, tci,
-                                                 grid_bfs, S_qMM[kpt.k],
-                                                 T_qMM[kpt.k],
-                                                 P_aqMi[a][kpt.k])
-
+            self.calculate_forces_kpoint_lcao(kpt, hamiltonian,
+                                              F_av, tci,
+                                              grid_bfs, S_qMM[kpt.k],
+                                              T_qMM[kpt.k],
+                                              P_aqMi)
 
     def get_projector_derivatives(self, tci, a, c, k):
         # Get dPdRa, i.e. derivative of all projector overlaps
@@ -401,53 +401,65 @@ class LCAOWaveFunctions(WaveFunctions):
 
         return dVtdRa_mmc
 
-    def calculate_force_kpoint_lcao(self, a, kpt, hamiltonian, F_c, tci,
-                                    grid_bfs, S_mm, T_mm, P_mi):
+    def calculate_forces_kpoint_lcao(self, kpt, hamiltonian,
+                                     F_av, tci, grid_bfs, S_MM,
+                                     T_MM, P_aqMi):
         assert tci.lcao_forces, 'Not set up for force calculations!'
         k = kpt.k
         if kpt.rho_MM is None:
-            rho_mm = np.dot(kpt.C_nM.T.conj() * kpt.f_n, kpt.C_nM)
+            rho_MM = np.dot(kpt.C_nM.T.conj() * kpt.f_n, kpt.C_nM)
         else:
-            rho_mm = kpt.rho_MM
+            rho_MM = kpt.rho_MM
 
-        dTdR_cmm = tci.dTdR_kcmm[k]
-        dPdR_cmi = tci.dPdR_akcmi[a][k]
+        dTdR_vMM = tci.dTdR_kcmm[k]
 
-        mask_mm = tci.mask_amm[a]
-        dVtdRa_mmc = self.calculate_potential_derivatives(tci, a, hamiltonian,
+        self.eigensolver.calculate_hamiltonian_matrix(hamiltonian, self,
+                                                      kpt)
+        H_MM = self.eigensolver.H_MM.copy()
+        # H_MM is halfway full of garbage!  Only lower triangle is
+        # actually correct.  Create correct H_MM:
+        nao = self.setups.nao
+        ltri = np.tri(nao)
+        utri = np.tri(nao, nao, -1).T
+        H_MM[:] = H_MM * ltri + H_MM.T.conj() * utri
+
+        ChcEFC_MM = np.dot(np.dot(np.linalg.inv(S_MM), H_MM), rho_MM)
+        
+        for a in grid_bfs.my_atom_indices:
+            dPdR_vMi = tci.dPdR_akcmi[a][k]
+            mask_MM = tci.mask_amm[a]
+            self.calculate_force_on_atom_lcao(a, kpt, hamiltonian, F_av[a],
+                                              tci, grid_bfs, T_MM,
+                                              P_aqMi[a][kpt.q],
+                                              rho_MM, dTdR_vMM, dPdR_vMi,
+                                              mask_MM, H_MM, ChcEFC_MM)
+
+    def calculate_force_on_atom_lcao(self, a, kpt, hamiltonian, F_v, tci,
+                                     grid_bfs, T_MM, P_Mi, rho_MM,
+                                     dTdR_vMM, dPdR_vMi, mask_MM, H_MM,
+                                     ChcEFC_MM):
+        k = kpt.k
+        dVtdRa_MMv = self.calculate_potential_derivatives(tci, a, hamiltonian,
                                                           kpt, grid_bfs)
-        for c, (dTdR_mm, dPdR_mi) in enumerate(zip(dTdR_cmm, dPdR_cmi)):
-            dPdRa_ami = self.get_projector_derivatives(tci, a, c, k)
-            dSdRa_mm = self.get_overlap_derivatives(tci, a, c, dPdRa_ami, k)
-
-            self.eigensolver.calculate_hamiltonian_matrix(hamiltonian,
-                                                          self,
-                                                          kpt)
-            H_MM = self.eigensolver.H_MM.copy()
-            # H_MM is halfway full of garbage!  Only lower triangle is
-            # actually correct.  Create correct H_MM:
-            nao = self.setups.nao
-            ltri = np.tri(nao)
-            utri = np.tri(nao, nao, -1).T
-            H_MM[:] = H_MM * ltri + H_MM.T.conj() * utri
-
-            ChcEFC_MM = np.dot(np.dot(np.linalg.inv(S_mm), H_MM), rho_mm)
+        for v, (dTdR_MM, dPdR_Mi) in enumerate(zip(dTdR_vMM, dPdR_vMi)):
+            dPdRa_aMi = self.get_projector_derivatives(tci, a, v, k)
+            dSdRa_MM = self.get_overlap_derivatives(tci, a, v, dPdRa_aMi, k)
             
-            dEdrhodrhodR = - np.dot(ChcEFC_MM, dSdRa_mm).real.trace()
+            dEdrhodrhodR = - np.dot(ChcEFC_MM, dSdRa_MM).real.trace()
             
-            dEdTdTdR = np.dot(rho_mm, dTdR_mm * mask_mm).real.trace()
+            dEdTdTdR = np.dot(rho_MM, dTdR_MM * mask_MM).real.trace()
             
-            dEdDdDdR = 0.
-            for b, dPdRa_mi in enumerate(dPdRa_ami): # XXX
-                A_ii = np.dot(dPdRa_mi.T.conj(), 
-                              np.dot(rho_mm, self.P_aqMi[b][k]))
+            dEdDdDdR = 0.0
+            for b, dPdRa_Mi in enumerate(dPdRa_aMi): # XXX
+                A_ii = np.dot(dPdRa_Mi.T.conj(), 
+                              np.dot(rho_MM, self.P_aqMi[b][k]))
                 Hb_ii = unpack(hamiltonian.dH_asp[b][kpt.s])
                 dEdDdDdR += 2 * np.dot(Hb_ii, A_ii).real.trace()
 
-            dEdndndR = 2 * np.dot(rho_mm, dVtdRa_mmc[:, :, c]).real.trace()
+            dEdndndR = 2 * np.dot(rho_MM, dVtdRa_MMv[:, :, v]).real.trace()
             
             F = - (dEdrhodrhodR + dEdTdTdR + dEdDdDdR + dEdndndR)
-            F_c[c] += F
+            F_v[v] += F
 
 
 from gpaw.eigensolvers import get_eigensolver
