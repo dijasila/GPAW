@@ -469,9 +469,9 @@ class TwoCenterIntegrals:
                         self.dTdR_kcmm[0, :, M2a:M2b, M1a:M1b] += dTdR_cmm
                     else:
                         # XXX cumbersome
-                        phase_kc = phase_k[:, None, :, :].repeat(3, axis=1)
-                        dSdR_kcmm = dSdR_cmm[None, :, :, :] * phase_kc.conj()
-                        dTdR_kcmm = dTdR_cmm[None, :, :, :] * phase_kc.conj()
+                        phase_qc = phase_q[:, None, :, :].repeat(3, axis=1)
+                        dSdR_kcmm = dSdR_cmm[None, :, :, :] * phase_qc.conj()
+                        dTdR_kcmm = dTdR_cmm[None, :, :, :] * phase_qc.conj()
 
                         if selfinteraction:
                             dSdR1_kcmm = dSdR_kcmm.transpose(0, 1, 3, 2).conj()
@@ -511,12 +511,12 @@ class TwoCenterIntegrals:
                     if self.gamma:
                         #dPdR2_qvMi[0, :, M1a:M1b, ib:ib2] += dPdR_cmi
                         dPdR2_qvMi[0, :, M1a:M1b, i2a:i2b] += dPdR_cmi
-                    else: # XXX phase_kc
-                        phase_kc = phase_k[:, None, :, :].repeat(3, axis=1)
+                    else: # XXX phase_qc
+                        phase_qc = phase_q[:, None, :, :].repeat(3, axis=1)
                         dPdR2_qvMi[:, :, M1a:M1b, i2a:i2b] += \
-                                      dPdR_cmi[None, :, :, :] * phase_kc
+                                      dPdR_cmi[None, :, :, :] * phase_qc
                         #dPdR2_qvMi[:, :, M1a:M1b, ib:ib2] += \
-                        #              dPdR_cmi[None, :, :, :] * phase_kc
+                        #              dPdR_cmi[None, :, :, :] * phase_qc
                         
                 i2a = i2b
             M1a = M1b

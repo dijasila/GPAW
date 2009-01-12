@@ -313,7 +313,9 @@ class LCAOWaveFunctions(WaveFunctions):
         for kpt in self.kpt_u:
             for a, F_v in zip(grid_bfs.my_atom_indices, F_av):
                 self.calculate_force_kpoint_lcao(a, kpt, hamiltonian, F_v, tci,
-                                                 grid_bfs)
+                                                 grid_bfs, S_qMM[kpt.k],
+                                                 T_qMM[kpt.k],
+                                                 P_aqMi[a][kpt.k])
 
 
     def get_projector_derivatives(self, tci, a, c, k):
@@ -401,16 +403,14 @@ class LCAOWaveFunctions(WaveFunctions):
         return dVtdRa_mmc
 
     def calculate_force_kpoint_lcao(self, a, kpt, hamiltonian, F_c, tci,
-                                    grid_bfs):
+                                    grid_bfs, S_mm, T_mm, P_mi):
         assert tci.lcao_forces, 'Not set up for force calculations!'
         k = kpt.k
-        C_nm = kpt.C_nM
-        Chc_mn = C_nm.T.conj()
-        rho_mm = np.dot(Chc_mn * kpt.f_n, C_nm)
+        if kpt.rho_MM is None:
+            rho_mm = np.dot(kpt.C_nM.T.conj() * kpt.f_n, kpt.C_nM)
+        else:
+            rho_mm = kpt.rho_MM
 
-        P_mi = kpt.P_aMi[a]
-        S_mm = kpt.S_MM
-        T_mm = kpt.T_MM
         dTdR_cmm = tci.dTdR_kcmm[k]
         dPdR_cmi = tci.dPdR_akcmi[a][k]
 
@@ -420,8 +420,21 @@ class LCAOWaveFunctions(WaveFunctions):
         for c, (dTdR_mm, dPdR_mi) in enumerate(zip(dTdR_cmm, dPdR_cmi)):
             dPdRa_ami = self.get_projector_derivatives(tci, a, c, k)
             dSdRa_mm = self.get_overlap_derivatives(tci, a, c, dPdRa_ami, k)
-            dEdrhodrhodR = - np.dot(np.dot(kpt.eps_n * kpt.f_n * Chc_mn, 
-                                           C_nm), dSdRa_mm).trace()
+
+            self.eigensolver.calculate_hamiltonian_matrix(hamiltonian,
+                                                          self,
+                                                          kpt)
+            H_MM = self.eigensolver.H_MM.copy()
+            # H_MM is halfway full of garbage!  Only lower triangle is
+            # actually correct.  Create correct H_MM:
+            nao = self.setups.nao
+            ltri = np.tri(nao)
+            utri = np.tri(nao, nao, -1).T
+            H_MM[:] = H_MM * ltri + H_MM.T.conj() * utri
+
+            ChcEFC_MM = np.dot(np.dot(np.linalg.inv(S_mm), H_MM), rho_mm)
+            
+            dEdrhodrhodR = - np.dot(ChcEFC_MM, dSdRa_mm).trace()
             
             dEdTdTdR = np.dot(rho_mm, dTdR_mm * mask_mm).trace()
             
