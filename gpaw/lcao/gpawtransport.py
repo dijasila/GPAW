@@ -2,7 +2,7 @@ import pickle
 
 from ase.transport.selfenergy import LeadSelfEnergy
 from ase.transport.greenfunction import GreenFunction
-from ase.transport.tools import *;print 'XXX??????'
+from ase.transport.tools import function_integral, fermidistribution
 from ase import Atoms, Atom, monkhorst_pack, Hartree
 import ase
 import numpy as np
@@ -15,7 +15,7 @@ from gpaw.mpi import world
 from gpaw.utilities.lapack import diagonalize
 from gpaw.utilities import pack
 from gpaw.lcao.IntCtrl import IntCtrl
-from gpaw.lcao.CvgCtrl import *;print 'XXX??????'
+from gpaw.lcao.CvgCtrl import CvgCtrl
 from gpaw.utilities.timing import Timer
 
 class PathInfo:
@@ -181,9 +181,9 @@ class GPAWTransport:
             fd.close()
         world.barrier()
 
-    def update_lead_hamiltonian(self, l, flag=0):
-        # flag: 0 for calculation, 1 for restart
-        if flag == 0:
+    def update_lead_hamiltonian(self, l, restart_flag=False):
+        # flag: 0 for calculation, 1 for restart_flag
+        if not restart_flag:
             self.atoms_l[l] = self.get_lead_atoms(l)
             atoms = self.atoms_l[l]
             atoms.get_potential_energy()
@@ -191,38 +191,46 @@ class GPAWTransport:
             if l == 0:
                 self.h1_skmm, self.s1_kmm = self.get_hs(atoms)
                 fd = file('leadhs0','wb')
-                pickle.dump((self.h1_skmm, self.s1_kmm, self.nxklead), fd, 2)            
+                pickle.dump((self.h1_skmm, self.s1_kmm,
+                             self.atoms_l[0].calc.hamiltonian.vt_sG,
+                             self.nxklead), fd, 2)            
                 fd.close()            
             elif l == 1:
                 self.h2_skmm, self.s2_kmm = self.get_hs(atoms)
                 fd = file('leadhs1','wb')
-                pickle.dump((self.h2_skmm, self.s2_kmm, self.nxklead), fd, 2)
+                pickle.dump((self.h2_skmm, self.s2_kmm,
+                             self.atoms_l[1].calc.hamiltonian.vt_sG,
+                             self.nxklead), fd, 2)
                 fd.close()
         else:
             atoms, calc = restart_gpaw('lead' + str(l) + '.gpw')
             calc.set_positions()
             self.atoms_l[l] = atoms
+            self.atoms_l[l].calc = calc
             if l == 0:        
                 fd = file('leadhs0','r') 
-                self.h1_skmm, self.s1_kmm, self.nxklead = pickle.load(fd)
+                self.h1_skmm, self.s1_kmm, \
+                                   self.atoms_l[0].calc.hamiltonian.vt_sG, \
+                                               self.nxklead = pickle.load(fd)
                 fd.close()
             elif l == 1:
                 fd = file('leadhs1','r') 
-                self.h2_skmm, self.s2_kmm, self.nxklead = pickle.load(fd)
+                self.h2_skmm, self.s2_kmm, \
+                                   self.atoms_l[1].calc.hamiltonian.vt_sG, \
+                                               self.nxklead = pickle.load(fd)
                 fd.close()
 
-    def update_scat_hamiltonian(self, restart=False):
-        if not restart:
+ 
+    def update_scat_hamiltonian(self, restart_flag=False):
+        if not restart_flag:
             atoms = self.atoms
             atoms.get_potential_energy()
-            atoms.calc.write('scat.gpw')
+            calc = atoms.calc
+            calc.write('scat.gpw')
             self.h_skmm, self.s_kmm = self.get_hs(atoms)
             fd = file('scaths', 'wb')
-            pickle.dump((self.h_skmm, self.s_kmm), fd, 2)
-            fd.close()
-            calc = atoms.calc
-            fd = file('nct_G.dat', 'wb')
-            pickle.dump(calc.density.nct_G, fd, 2)
+            pickle.dump((self.h_skmm, self.s_kmm, calc.density.nct_G,
+                                          calc.hamiltonian.vt_sG), fd, 2)
             fd.close()
             self.nct_G = np.copy(calc.density.nct_G)
                         
@@ -231,11 +239,10 @@ class GPAWTransport:
             calc.set_positions()
             self.atoms = atoms
             fd = file('scaths', 'r')
-            self.h_skmm, self.s_kmm = pickle.load(fd)
+            self.h_skmm, self.s_kmm, calc.density.nct_G, \
+                                    calc.hamiltonian.vt_sG = pickle.load(fd)
             fd.close()
-            fd = file('nct_G.dat', 'r')
-            self.nct_G = pickle.load(fd)
-            fd.close()
+            self.atoms.calc = calc
             
     def get_hs(self, atoms):
         calc = atoms.calc
@@ -266,7 +273,7 @@ class GPAWTransport:
         atomsl.set_calculator(self.get_lead_calc(l))
         return atomsl
 
-    def get_lead_calc(self, l, nkpts=21):
+    def get_lead_calc(self, l, nkpts=35):
         p = self.atoms.calc.input_parameters.copy()
         p['nbands'] = None
         kpts = list(p['kpts'])
@@ -297,9 +304,9 @@ class GPAWTransport:
         self.atoms_l[0] = self.get_lead_atoms(0)
         self.atoms_l[1] = self.get_lead_atoms(1)
         
-    def negf_prepare(self, filename, flag=0):
-        # flag: 0 for calculation, 1 for restart
-        self.update_lead_hamiltonian(0, flag)
+    def negf_prepare(self, filename, restart_flag=False):
+        # flag: 0 for calculation, 1 for restart_flag
+        self.update_lead_hamiltonian(0, restart_flag)
 
         atoms1 = self.atoms_l[0]
         kpts = atoms1.calc.wfs.ibzk_kc
@@ -311,20 +318,19 @@ class GPAWTransport:
         nxk = self.nxklead
         weight = np.array([1.0 / nxk] * nxk )
         xkpts = self.pick_out_xkpts(nxk, kpts)
-        self.check_edge(self.s1_kmm, xkpts, weight)
-        self.d1_skmm = self.generate_density_matrix(0, flag)        
+        self.d1_skmm = self.generate_density_matrix(0, restart_flag)        
+        self.check_edge()
         self.initial_lead(0)
-       
 
-        self.update_lead_hamiltonian(1, flag)
-        self.d2_skmm = self.generate_density_matrix(1, flag)
+        self.update_lead_hamiltonian(1, restart_flag)
+        self.d2_skmm = self.generate_density_matrix(1, restart_flag)
         self.initial_lead(1)
 
         p = self.atoms.calc.input_parameters.copy()           
         self.nxkmol = p['kpts'][0]  
-        self.update_scat_hamiltonian(flag)
+        self.update_scat_hamiltonian(restart_flag)
         self.nbmol = self.h_skmm.shape[-1]
-        self.d_skmm = self.generate_density_matrix(2, flag)
+        self.d_skmm = self.generate_density_matrix(2, restart_flag)
         self.initial_mol()        
  
         self.edge_density_mm = self.calc_edge_charge(self.d_syzkmm_ij,
@@ -337,7 +343,10 @@ class GPAWTransport:
                 print 'edge_charge[',i,']=', self.edge_charge[i, j]
 
     def initial_lead(self, lead):
+        nspins = self.nspins
         nxk = self.nxklead
+        nyzk = self.nyzk
+        nblead = self.nblead
         kpts = self.atoms_l[lead].calc.wfs.ibzk_kc
         if lead == 0:
             self.h1_syzkmm = self.substract_yzk(nxk, kpts, self.h1_skmm, 'h')
@@ -347,8 +356,13 @@ class GPAWTransport:
             self.s1_yzkmm_ij = self.substract_yzk(nxk, kpts, self.s1_kmm, 's',
                                                [1.0,0,0])
             self.d1_syzkmm = self.substract_yzk(nxk, kpts, self.d1_skmm, 'h')
-            self.d1_syzkmm_ij = self.substract_yzk(nxk, kpts, self.d1_skmm, 'h',
-                                               [1.0,0,0])
+            self.d1_syzkmm_ij = np.empty([self.relate_layer, nspins, nyzk, 
+                                          nblead, nblead])
+            position = [1.0, 0, 0]
+            for i in range(self.relate_layer):
+                self.d1_syzkmm_ij[i] = self.substract_yzk(nxk, kpts,
+                                            self.d1_skmm, 'h', position)
+                position[0] += 1.0
         elif lead == 1:
             self.h2_syzkmm = self.substract_yzk(nxk, kpts, self.h2_skmm, 'h')
             self.s2_yzkmm = self.substract_yzk(nxk, kpts, self.s2_kmm)
@@ -404,26 +418,33 @@ class GPAWTransport:
                                                    xkpts, weight, position)
         return yzk_mm   
             
-    def check_edge(self, k_mm, xkpts, weight):
-        tolx = 1e-6
+    def check_edge(self):
+        self.edge_density_tolx = 0.08
+        self.edge_overlap_tolx = 1e-6
         position = [2,0,0]
-        nbf = k_mm.shape[-1]
         nxk = self.nxklead
         nyzk = self.nyzk
-        xk_mm = np.empty([nxk, nbf, nbf], complex)
-      
-        num = 0       
-        for i in range(nxk):
-            xk_mm[i] = np.copy(k_mm[num])
-            num += nyzk
-
-        r_mm = np.empty([nbf, nbf], complex)
-        r_mm = get_realspace_hs(None, xk_mm, xkpts, weight, position)
-        matmax = np.max(abs(r_mm))
-
-        if matmax > tolx:
+        kpts = self.atoms_l[0].calc.wfs.ibzk_kc
+        s_yzkmm = self.substract_yzk(nxk, kpts,
+                                                 self.s1_kmm, 's', position)
+        matmax = np.max(abs(s_yzkmm))
+        if matmax > self.edge_overlap_tolx:
             print 'Warning*: the principle layer should be lagger, \
-                                                          matmax=%f' % matmax
+                                                          matmax=%f' % matmax        
+        matmax = self.edge_density_tolx + 1
+        while matmax > self.edge_density_tolx:
+            d_syzkmm = self.substract_yzk(nxk, kpts,
+                                                 self.d1_skmm, 'h', position)
+            matmax = np.max(abs(d_syzkmm))
+            position[0] += 1
+        self.relate_layer = int(position[0] - 2)
+        if self.relate_layer > 1:
+            print 'Warning*: the scattering region should at least include \
+            %d principle layers at one side' % self.relate_layer
+            
+            
+
+
     
     def calc_edge_charge(self, d_syzkmm_ij, s_yzkmm_ij):
         nspins = self.nspins
@@ -447,10 +468,10 @@ class GPAWTransport:
             num += nyzk
         return xkpts
 
-    def generate_density_matrix(self, lead, flag=0):
+    def generate_density_matrix(self, lead, restart_flag=False):
         nxk = self.nxklead
         nyzk = self.nyzk
-        if flag == 0:
+        if not restart_flag:
             if lead == 0:
                 calc = self.atoms_l[0].calc
                 dim = self.h1_skmm.shape
@@ -492,12 +513,21 @@ class GPAWTransport:
         return d_skmm
     
     def fill_density_matrix(self):
-        pl1 = self.h1_skmm.shape[-1]
-        nbmol = self.h_skmm.shape[-1]
+        nblead = self.nblead
+        nbmol = self.nbmol
         nyzk = self.nyzk
         nspins = self.nspins
         d_syzkmm_ij = np.zeros([nspins, nyzk, nbmol, nbmol])
-        d_syzkmm_ij[:, :, -pl1:, :pl1] = np.copy(self.d1_syzkmm_ij)
+        for i in range(1, self.relate_layer + 1):
+            for j in range(i):
+                if i - j - 1 == 0:
+                    d_syzkmm_ij[:, :, -nblead:,
+                                     j * nblead : (j + 1) * nblead] = \
+                                            np.copy(self.d1_syzkmm_ij[i - 1])                    
+                else:    
+                    d_syzkmm_ij[:, :, -(i - j) * nblead:-(i - j - 1) * nblead,
+                                     j * nblead : (j + 1) * nblead] = \
+                                            np.copy(self.d1_syzkmm_ij[i - 1])
         return d_syzkmm_ij
 
     def boundary_check(self):
@@ -509,13 +539,16 @@ class GPAWTransport:
              float_diff = np.max(abs(matdiff - matdiff1)) 
              if float_diff > 1e-6:
                   print 'Warning!, float_diff between spins %f' % float_diff
-        if self.bias == 0:
-            ediff = np.sum(np.diag(matdiff[0])) / np.sum(
-                                                   np.diag(self.s1_yzkmm[0]))
-            print_diff = np.max(abs(matdiff - ediff * self.s1_yzkmm))
-        else:
-            ediff = matdiff[0,0,0]/ self.s1_yzkmm[0,0,0]
-            print_diff = abs(ediff)
+        #if self.bias == 0:
+            #ediff = np.sum(np.diag(matdiff[0])) / np.sum(
+            #                                       np.diag(self.s1_yzkmm[0]))
+            #print_diff = np.max(abs(matdiff - ediff * self.s1_yzkmm))
+            
+        #else:
+            #ediff = matdiff[0,0,0]/ self.s1_yzkmm[0,0,0]
+            #print_diff = abs(ediff)
+        ediff = self.zero_float * Hartree
+        print_diff = ediff
         if print_diff > tol:
             print 'Warning*: hamiltonian boundary difference %f' % print_diff
             
@@ -595,7 +628,7 @@ class GPAWTransport:
             for k in range(nyzk):
                 self.eqpathinfo[s].append(PathInfo('eq'))
                 self.nepathinfo[s].append(PathInfo('ne'))
-
+        self.get_zero_float()
         self.boundary_check() 
 
         #-------get the path --------    
@@ -960,7 +993,8 @@ class GPAWTransport:
         print 'getdensity', timer.gettime('getdensity'), 'seconds'
         calc.update_kinetic()
         calc.hamiltonian.update(density)
-        
+
+        self.get_zero_float()        
         linear_potential = np.empty(calc.hamiltonian.vt_sG.shape)
         dimx = linear_potential.shape[0]
         dimyz = linear_potential.shape[1:]
@@ -1026,3 +1060,13 @@ class GPAWTransport:
             kpt.rho_MM = self.d_skmm[kpt.s, kpt.q]
         density.update(wfs)
         return density
+
+    def get_zero_float(self):
+        calc = self.atoms.calc
+        vmol = calc.hamiltonian.vt_sG
+        vlead = self.atoms_l[0].calc.hamiltonian.vt_sG 
+        dimy_lead = vlead.shape[2]
+        dimz_lead = vlead.shape[3]
+        self.zero_float = vmol[0,0, dimy_lead/2, dimz_lead /2
+                                    ] - vlead[0,0, dimy_lead/2, dimz_lead /2]
+
