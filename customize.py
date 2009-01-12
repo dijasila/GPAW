@@ -37,18 +37,18 @@
 #define_macros = []
 #define_macros += []
 
-mpicompiler = None
-mpilinker = None
-mpi_libraries = []
+#mpicompiler = None
+#mpilinker = None
+#mpi_libraries = []
 #mpi_libraries += []
 
-mpi_library_dirs = []
+#mpi_library_dirs = []
 #mpi_library_dirs += []
 
-mpi_include_dirs = []
+#mpi_include_dirs = []
 #mpi_include_dirs += []
 
-mpi_runtime_library_dirs = []
+#mpi_runtime_library_dirs = []
 #mpi_runtime_library_dirs += []
 
 #mpi_define_macros = []
