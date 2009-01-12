@@ -15,15 +15,15 @@ atoms.positions[-5:, 0] = [i * a + 3 * a for i in range(4, 9)]
 atoms.positions[5:7, 0] = [5 * a, 6 * a ]
 atoms.positions[:, 1:] = L / 2.
 
-bm = BasisMaker('Na', run=False)
-bm.generator.run(write_xml=False)
+bm = BasisMaker('Na')#, run=False)
+#bm.generator.run(write_xml=False)
 basis = bm.generate(1, 1)
 
 atoms.center()
 # Attach a GPAW calculator, attention to two keywords: fortransport, usesymm
 atoms.set_calculator(GPAW(h=0.3,
                           xc='PBE',
-                          basis=basis,
+                          basis={'Na': basis},
                           kpts=(3,1,1),
                           width=0.01,
                           mode='lcao',

@@ -29,6 +29,4 @@ equal(f1, f2, 0.005)
 # Volume per atom:
 vol = a**3 / 8
 de = calc.get_electrostatic_corrections() / vol
-print de
-assert de.ptp() < 1e-10
 assert abs(de[0] - -2.19) < 0.001
