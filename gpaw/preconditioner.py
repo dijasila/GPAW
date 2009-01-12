@@ -26,7 +26,7 @@ class Preconditioner:
         self.interpolator2 = Transformer(gd2, gd1, 1, dtype).apply
         self.interpolator1 = Transformer(gd1, gd0, 1, dtype).apply
         
-    def __call__(self, residual, phases, phit, kpt=None):
+    def __call__(self, residual, phases, phit=None, kpt=None):
         step = self.step
         d0, q0 = self.scratch0
         r1, d1, q1 = self.scratch1

@@ -7,7 +7,7 @@ from gpaw.eigensolvers.davidson import Davidson
 from gpaw.lcao.eigensolver import LCAO
 
 
-def get_eigensolver(name, mode):
+def get_eigensolver(name, mode, convergence=None):
     """Create eigensolver object."""
     if name is None:
         name = {'fd': 'rmm-diis', 'lcao': 'lcao'}[mode]
@@ -20,6 +20,9 @@ def get_eigensolver(name, mode):
                        }[name]()
     else:
         eigensolver = name
+    
+    if isinstance(eigensolver, CG):
+        eigensolver.tolerance = convergence['eigenstates']
 
     assert isinstance(eigensolver, LCAO) == (mode == 'lcao')
 

@@ -448,7 +448,8 @@ class PAW(PAWTextOutput):
         else:
             self.wfs.set_setups(setups)
             
-        eigensolver = get_eigensolver(par.eigensolver, par.mode)
+        eigensolver = get_eigensolver(par.eigensolver, par.mode,
+                                      par.convergence)
         eigensolver.nbands_converge = nbands_converge
         self.wfs.eigensolver = eigensolver
         self.wfs.timer = self.timer
@@ -573,5 +574,5 @@ class PAW(PAWTextOutput):
             
     def get_homo_lumo(self):
         """Return HOMO and LUMO eigenvalues."""
-        return self.occupation.get_homo_lumo(self.wfs.kpt_u) * Hartree
+        return self.occupations.get_homo_lumo(self.wfs.kpt_u) * Hartree
 

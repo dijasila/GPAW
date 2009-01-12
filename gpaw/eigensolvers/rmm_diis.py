@@ -25,38 +25,9 @@ class RMM_DIIS(Eigensolver):
     def __init__(self, keep_hpsit=True):
         Eigensolver.__init__(self, keep_hpsit)
 
-    def initialize(self, paw):
-        Eigensolver.initialize(self, paw)
-        self.overlap = paw.overlap
-
-    def calculate_residuals(self, wfs, hamiltonian, kpt, eps_n, R_nG, psit_nG):
-        B = len(eps_n)  # block size
-        wfs.kin.apply(psit_nG, R_nG, kpt.phase_cd)
-        hamiltonian.apply_local_potential(psit_nG, R_nG, kpt.s)
-        P_ani = dict([(a, np.zeros((B, wfs.setups[a].ni), wfs.dtype))
-                      for a in kpt.P_ani])
-        wfs.pt.integrate(psit_nG, P_ani, kpt.q)
-        self.calculate_residuals2(wfs, hamiltonian, kpt, R_nG,
-                                  eps_n, psit_nG, P_ani)
-        
-    def calculate_residuals2(self, wfs, hamiltonian, kpt, R_nG,
-                             eps_n=None, psit_nG=None, P_ani=None):
-        if eps_n is None:
-            eps_n = kpt.eps_n
-        if psit_nG is None:
-            psit_nG = kpt.psit_nG
-        if P_ani is None:
-            P_ani = kpt.P_ani
-        for R_G, eps, psit_G in zip(R_nG, eps_n, psit_nG):
-            axpy(-eps, psit_G, R_G)
-        c_ani = {}
-        for a, P_ni in P_ani.items():
-            dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
-            dO_ii = hamiltonian.setups[a].O_ii
-            c_ni = (np.dot(P_ni, dH_ii) -
-                    np.dot(P_ni * eps_n[:, np.newaxis], dO_ii))
-            c_ani[a] = c_ni
-        wfs.pt.add(R_nG, c_ani, kpt.q)
+    def initialize(self, wfs):
+        Eigensolver.initialize(self, wfs)
+        self.overlap = wfs.overlap
 
     def iterate_one_k_point(self, hamiltonian, wfs, kpt):
         """Do a single RMM-DIIS iteration for the kpoint"""
