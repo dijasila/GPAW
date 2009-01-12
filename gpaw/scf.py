@@ -81,6 +81,6 @@ class SCFLoop:
         self.converged = (
             self.eigenstates_error < self.max_eigenstates_error and
             self.energy_error < self.max_energy_error and
-            self.density_error <= self.max_density_error)
+            self.density_error < self.max_density_error)
         return self.converged
     
