@@ -5,9 +5,9 @@ gradient stabilized method. Requires Numpy and GPAW's own BLAS."""
 
 import numpy as npy
 
-from gpaw.utilities.blas import axpy
-from gpaw.utilities.blas import dotc
 from gpaw.mpi import rank
+
+from gpaw.tddft.utils import MultiBlas
 
 class BiCGStab:
     """Biconjugate gradient stabilized method
@@ -62,7 +62,8 @@ class BiCGStab:
         
         self.gd = gd
         self.timer = timer
-        
+
+        self.mblas = MultiBlas(gd)
 
     def solve(self, A, x, b):
         """Solve a set of linear equations A.x = b.
@@ -101,23 +102,8 @@ class BiCGStab:
         rhop[:] = 1.
         omega[:] = 1.
 
-        # Multivector dot product, a^H b, where ^H is conjugate transpose
-        def multi_zdotc(s, x,y, nvec):
-            for i in range(nvec):
-                s[i] = dotc(x[i],y[i])
-            self.gd.comm.sum(s)
-            return s
-        # Multivector ZAXPY: a x + y => y
-        def multi_zaxpy(a,x,y, nvec):
-            for i in range(nvec):
-                axpy(a[i]*(1+0J), x[i], y[i])
-        # Multiscale: a x => x
-        def multi_scale(a,x, nvec):
-            for i in range(nvec):
-                x[i] *= a[i]
-
         # scale = square of the norm of b
-        multi_zdotc(scale, b,b, nvec)
+        self.mblas.multi_zdotc(scale, b,b, nvec)
         scale = npy.abs( scale )
 
         # if scale < eps, then convergence check breaks down
@@ -130,7 +116,7 @@ class BiCGStab:
 
         for i in range(self.max_iter):
             # rho_i-1 = q^H r_i-1
-            multi_zdotc(rho, q, r, nvec)
+            self.mblas.multi_zdotc(rho, q, r, nvec)
 
             #print 'Rho = ', rho
 
@@ -149,8 +135,8 @@ class BiCGStab:
 
             # p = r + beta * (p - omega * v)
             # vvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-            multi_zaxpy(-omega, v, p, nvec)
-            multi_scale(beta, p, nvec)
+            self.mblas.multi_zaxpy(-omega, v, p, nvec)
+            self.mblas.multi_scale(beta, p, nvec)
             p += r
             # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -158,20 +144,20 @@ class BiCGStab:
             A.apply_preconditioner(p,m)
             A.dot(m,v)
             # alpha_i = rho_i-1 / (q^H v_i)
-            multi_zdotc(alpha, q,v, nvec)
+            self.mblas.multi_zdotc(alpha, q,v, nvec)
             alpha = rho / alpha
             # s = r_i-1 - alpha_i v_i
-            multi_zaxpy(-alpha, v, r, nvec)
+            self.mblas.multi_zaxpy(-alpha, v, r, nvec)
             # s is denoted by r
 
             #print 'Alpha = ', alpha
 
             # x_i = x_i-1 + alpha_i (M^-1.p_i) + omega_i (M^-1.s)
             # next line is x_i = x_i-1 + alpha (M^-1.p_i)
-            multi_zaxpy(alpha, m, x, nvec)
+            self.mblas.multi_zaxpy(alpha, m, x, nvec)
 
             # if ( |s|^2 < tol^2 ) done
-            multi_zdotc(tmp, r,r, nvec)
+            self.mblas.multi_zdotc(tmp, r,r, nvec)
             if ( (npy.abs(tmp) / scale) < self.tol*self.tol ).all():
                 #print 'R2 of proc #', rank, '  = ' , tmp, \
                 #    ' after ', i+1, ' iterations'
@@ -186,21 +172,21 @@ class BiCGStab:
             A.apply_preconditioner(r,m)
             A.dot(m,t)
             # omega_i = t^H s / (t^H t)
-            multi_zdotc(omega, t,r, nvec)
-            multi_zdotc(tmp, t,t, nvec)
+            self.mblas.multi_zdotc(omega, t,r, nvec)
+            self.mblas.multi_zdotc(tmp, t,t, nvec)
             omega = omega / tmp
 
             #print 'Omega = ', omega
 
             # x_i = x_i-1 + alpha_i (M^-1.p_i) + omega_i (M^-1.s)
             # next line is x_i = ... + omega_i (M^-1.s)
-            multi_zaxpy(omega, m, x, nvec)
+            self.mblas.multi_zaxpy(omega, m, x, nvec)
             # r_i = s - omega_i * t
-            multi_zaxpy(-omega, t, r, nvec)
+            self.mblas.multi_zaxpy(-omega, t, r, nvec)
             # s is no longer denoted by r
 
             # if ( |r|^2 < tol^2 ) done
-            multi_zdotc(tmp, r,r, nvec)
+            self.mblas.multi_zdotc(tmp, r,r, nvec)
             if ( (npy.abs(tmp) / scale) < self.tol*self.tol ).all():
                 #print 'R2 of proc #', rank, '  = ' , tmp, \
                 #    ' after ', i+1, ' iterations'

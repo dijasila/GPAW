@@ -5,10 +5,9 @@ for complex symmetric matrices. Requires Numpy and GPAW's own BLAS."""
 
 import numpy as npy
 
-from gpaw.utilities.blas import axpy
-from gpaw.utilities.blas import dotu
-from gpaw.utilities.blas import dotc
 from gpaw.mpi import rank
+
+from gpaw.tddft.utils import MultiBlas
 
 class CSCG:
     """Conjugate gradient for complex symmetric matrices
@@ -63,6 +62,7 @@ class CSCG:
         self.gd = gd
         self.timer = timer
         
+        self.mblas = MultiBlas(gd)
 
     def solve(self, A, x, b):
         """Solve a set of linear equations A.x = b.
@@ -101,26 +101,11 @@ class CSCG:
         scale = npy.zeros((nvec,), dtype=complex) 
         tmp = npy.zeros((nvec,), dtype=complex) 
 
-        # Multivector dot product, a^T b, where ^T is transpose
-        def multi_zdotu(s, x,y, nvec):
-            for i in range(nvec):
-                s[i] = dotu(x[i],y[i])
-            self.gd.comm.sum(s)
-            return s
-        # Multivector ZAXPY: a x + y => y
-        def multi_zaxpy(a,x,y, nvec):
-            for i in range(nvec):
-                axpy(a[i]*(1+0J), x[i], y[i])
-        # Multiscale: a x => x
-        def multi_scale(a,x, nvec):
-            for i in range(nvec):
-                x[i] *= a[i]
-
         # rho(0) = r(0)^T z(0)
-        multi_zdotu(rhop, r, z, nvec)
+        self.mblas.multi_zdotu(rhop, r, z, nvec)
 
         # scale = square of the norm of b
-        multi_zdotu(scale, b,b, nvec)
+        self.mblas.multi_zdotu(scale, b,b, nvec)
         scale = npy.abs( scale )
 
         # if scale < eps, then convergence check breaks down
@@ -145,30 +130,30 @@ class CSCG:
             A.dot(p,q)
 
             # alpha(i) = rho(i) / (p(i)^T q(i))
-            multi_zdotu(alpha, p, q, nvec)
+            self.mblas.multi_zdotu(alpha, p, q, nvec)
             alpha = rhop / alpha
 
             # x(i+1) = x(i) + alpha(i) p(i)
-            multi_zaxpy(alpha, p, x, nvec)
+            self.mblas.multi_zaxpy(alpha, p, x, nvec)
 
             # r(i+1) = r(i) - alpha(i) q(i)
-            multi_zaxpy(-alpha, q, r, nvec)
+            self.mblas.multi_zaxpy(-alpha, q, r, nvec)
 
             # z(i+1) = M^(-1).r(i+1)
             A.apply_preconditioner(r,z)
 
             # rho(i+1) = r(i+1)^T z(i+1)
-            multi_zdotu(rho, r, z, nvec)
+            self.mblas.multi_zdotu(rho, r, z, nvec)
 
             # beta(i) = rho(i+1)/rho(i)
             beta = rho / rhop
 
             # p(i+1) = z(i+1) + beta(i) p(i)
-            multi_scale(beta, p, nvec)
+            self.mblas.multi_scale(beta, p, nvec)
             p += z
 
             # if ( |r|^2 < tol^2 ) done
-            multi_zdotu(tmp, r,r, nvec)
+            self.mblas.multi_zdotu(tmp, r,r, nvec)
             if ( (npy.abs(tmp) / scale) < self.tol*self.tol ).all():
                 #print 'R2 of proc #', rank, '  = ' , tmp, \
                 #    ' after ', i+1, ' iterations'

@@ -1,7 +1,6 @@
 # Written by Lauri Lehtovaara 2008
 
-from gpaw.utilities.blas import axpy
-from gpaw.utilities.blas import dotc
+from gpaw.utilities.blas import axpy,dotc,dotu
 
 class MultiBlas:
     def __init__(self, gd):
@@ -22,7 +21,14 @@ class MultiBlas:
             s[i] = dotc(x[i],y[i])
         self.gd.comm.sum(s)
         return s
-            
+
+    # Multivector dot product, a^T b, where ^T is transpose
+    def multi_zdotu(s, x,y, nvec):
+        for i in range(nvec):
+            s[i] = dotu(x[i],y[i])
+        self.gd.comm.sum(s)
+        return s
+
     # Multiscale: a x => x
     def multi_scale(self, a,x, nvec):
         if isinstance(a, (float, complex)):
