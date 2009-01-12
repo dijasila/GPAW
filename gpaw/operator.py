@@ -61,6 +61,7 @@ class Operator:
         if B == 1 and J == 1:
             # Simple case:
             Apsit_nG = A(psit_nG)
+            A_NN.fill(0.0)  # Some BLAS libraries needs this!
             if Apsit_nG is psit_nG:
                 rk(dv, psit_nG, 0.0, A_NN)
             else:
