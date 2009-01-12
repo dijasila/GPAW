@@ -284,10 +284,9 @@ class LCAOWaveFunctions(WaveFunctions):
         # This will do a whole lot of unnecessary allocation, but we'll
         # do better later
         grid_bfs = LFC(self.gd, [s.phit_j for s in self.setups],
-                       self.kpt_comm, dtype=self.dtype, forces=True,
-                       cut=True)
-        # XXX remember phases
+                       self.kpt_comm, dtype=self.dtype, forces=True, cut=True)
         spos_ac = hamiltonian.vbar.spos_ac # XXX ugly way to obtain spos_ac
+        grid_bfs.set_k_points(self.ibzk_kc)
         grid_bfs.set_positions(spos_ac)
 
         # This will recalculate everything, which again is not necessary
@@ -434,9 +433,9 @@ class LCAOWaveFunctions(WaveFunctions):
 
             ChcEFC_MM = np.dot(np.dot(np.linalg.inv(S_mm), H_MM), rho_mm)
             
-            dEdrhodrhodR = - np.dot(ChcEFC_MM, dSdRa_mm).trace()
+            dEdrhodrhodR = - np.dot(ChcEFC_MM, dSdRa_mm).real.trace()
             
-            dEdTdTdR = np.dot(rho_mm, dTdR_mm * mask_mm).trace()
+            dEdTdTdR = np.dot(rho_mm, dTdR_mm * mask_mm).real.trace()
             
             dEdDdDdR = 0.
             for b, dPdRa_mi in enumerate(dPdRa_ami): # XXX
