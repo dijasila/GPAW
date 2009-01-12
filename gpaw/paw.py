@@ -471,9 +471,9 @@ class PAW(PAWTextOutput):
 
         self.plot_atoms(atoms)
         self.print_init(pos_av)
+        self.print_parameters()
 
         if dry_run:
-            self.print_parameters()
             self.txt.flush()
             raise SystemExit
 

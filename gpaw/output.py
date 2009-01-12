@@ -118,8 +118,9 @@ class PAWTextOutput:
         t = self.text
         p = self.input_parameters
 
-        t('Using the %s Exchange-Correlation Functional.' % self.xcfunc.xcname)
-        if self.spinpol:
+        t('Using the %s Exchange-Correlation Functional.'
+          % self.hamiltonian.xcfunc.xcname)
+        if self.wfs.nspins == 2:
             t('Spin-Polarized Calculation.')
             t('Magnetic Moment:   %.6f' % self.density.magmom_a.sum(), end='')
             if self.fixmom:
@@ -130,7 +131,7 @@ class PAWTextOutput:
             t('Spin-Paired Calculation')
 
         t('Total Charge:      %.6f' % p['charge'])
-        t('Fermi Temperature: %.6f' % (self.kT * Hartree))
+        t('Fermi Temperature: %.6f' % (self.occupations.kT * Hartree))
         t('Eigen Solver:      %s \n                   (%s)' %
           (p['eigensolver'], fd(p['stencils'][0])))
         diag_string = 'Lapack'
@@ -147,17 +148,16 @@ class PAWTextOutput:
             assert cpus_per_node > 0
             npcol = max(1, cpus_per_node *
                         (int(sqrt(size) / cpus_per_node + 0.5)))
-            nprow = min(max(1, int(size/npcol)), npcol)
-            npcol = max(max(1, int(size/npcol)), npcol)
+            nprow = min(max(1, int(size / npcol)), npcol)
+            npcol = max(max(1, int(size / npcol)), npcol)
             sl_defaults = [nprow, npcol, 32, cpus_per_node]
             for sl_args_index in range(len(sl_diagonalize)):
                 if sl_diagonalize[sl_args_index] is 'd':
                     sl_diagonalize[sl_args_index] = sl_defaults[sl_args_index]
-            assert sl_diagonalize[0]*sl_diagonalize[1] <= size
-            diag_string = ('ScaLapack'+
-                           ' - grid: [nprow, npcol, nb] = %s'
-                           % (sl_diagonalize[:3]))
-        t('Diagonalizer:      %s' % (diag_string))
+            assert sl_diagonalize[0] * sl_diagonalize[1] <= size
+            diag_string = ('ScaLapack - grid: [nprow, npcol, nb] = %s'
+                           % sl_diagonalize[:3])
+        t('Diagonalizer:      %s' % diag_string)
         inverse_cholesky_string = 'Lapack'
         if sl_inverse_cholesky: assert parallel
         if sl_inverse_cholesky: assert scalapack()
@@ -172,38 +172,40 @@ class PAWTextOutput:
             assert cpus_per_node > 0
             npcol = max(1, cpus_per_node *
                         (int(sqrt(size) / cpus_per_node + 0.5)))
-            nprow = min(max(1, int(size/npcol)), npcol)
-            npcol = max(max(1, int(size/npcol)), npcol)
+            nprow = min(max(1, int(size / npcol)), npcol)
+            npcol = max(max(1, int(size / npcol)), npcol)
             sl_defaults = [nprow, npcol, 32, cpus_per_node]
             for sl_args_index in range(len(sl_inverse_cholesky)):
                 if sl_inverse_cholesky[sl_args_index] is 'd':
                     sl_inverse_cholesky[sl_args_index] = sl_defaults[sl_args_index]
             assert sl_inverse_cholesky[0]*sl_inverse_cholesky[1] <= size
-            inverse_cholesky_string = ('ScaLapack'+
+            inverse_cholesky_string = ('ScaLapack' +
                                        ' - grid: [nprow, npcol, nb] = %s'
-                                       % (sl_inverse_cholesky[:3]))
-        t('Inverse Cholesky:  %s' % (inverse_cholesky_string))
+                                       % sl_inverse_cholesky[:3])
+        t('Inverse Cholesky:  %s' % inverse_cholesky_string)
         t('Poisson Solver:    %s \n                   (%s)' %
           ([0, 'GaussSeidel', 'Jacobi'][self.hamiltonian.poisson.relax_method],
            fd(self.hamiltonian.poisson.nn)))
         order = str((2 * p['stencils'][1]))
         if order[-1] == '1':
-            order = order+'st'
+            order = order + 'st'
         elif order[-1] == '2':
-            order = order+'nd'
+            order = order + 'nd'
         elif order[-1] == '3':
-            order = order+'rd'
+            order = order + 'rd'
         else:
-            order = order+'th'
+            order = order + 'th'
 
-        t('Interpolation:     '+order+' Order')
-        t('Reference Energy:  %.6f' % (self.Eref * Hartree))
+        t('Interpolation:     ' + order + ' Order')
+        t('Reference Energy:  %.6f' % (self.wfs.setups.Eref * Hartree))
         t()
-        if self.gamma:
+        if self.wfs.gamma:
             t('Gamma Point Calculation')
 
-        if self.kpt_comm.size > 1:
-            if self.wfs.nspins == 2 and self.nkpts == 1:
+        nkpts = len(self.wfs.kpt_u)
+
+        if self.wfs.kpt_comm.size > 1:
+            if self.wfs.nspins == 2 and nkpts == 1:
                 t('Parallelization Over Spin')
             elif self.wfs.nspins == 2:
                 t('Parallelization Over k-points and Spin on %d Processors' %
@@ -217,14 +219,14 @@ class PAWTextOutput:
             t('Using Domain Decomposition: %d x %d x %d' %
               tuple(domain.parsize_c))
 
-        if self.symmetry is not None:
-            self.symmetry.print_symmetries(t)
+        if self.wfs.symmetry is not None:
+            self.wfs.symmetry.print_symmetries(t)
 
         t(('%d k-point%s in the Irreducible Part of the ' +
            'Brillouin Zone (total: %d)') %
-          (self.nkpts, ' s'[1:self.nkpts], len(self.bzk_kc)))
+          (nkpts, ' s'[1:nkpts], len(self.wfs.bzk_kc)))
 
-        if self.fixdensity > self.maxiter:
+        if self.scf.fixdensity > self.scf.maxiter:
             t('Fixing the initial density')
         else:
             mixer = self.density.mixer
@@ -243,13 +245,14 @@ class PAWTextOutput:
         t('Integral of Absolute Density Change:    %g electrons' %
           cc['density'])
         t('Integral of Absolute Eigenstate Change: %g' % cc['eigenstates'])
-        t('Number of Bands in Calculation:         %i' % self.nbands)
+        t('Number of Bands in Calculation:         %i' % self.wfs.nbands)
         t('Bands to Converge:                      ', end='')
         if cc['bands'] == 'occupied':
             t('Occupied States Only')
         else:
             t('%d Lowest Bands' % cc['bands'])
-        t('Number of Valence Electrons:            %i' % self.nvalence)
+        t('Number of Valence Electrons:            %i'
+          % self.wfs.setups.nvalence)
 
     def print_converged(self, iter):
         t = self.text
