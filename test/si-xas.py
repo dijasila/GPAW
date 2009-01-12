@@ -41,7 +41,7 @@ calc.write('si.gpw')
 # restart from file
 calc = GPAW('si.gpw', kpts=(k, k, k))
 
-assert calc.dtype == complex
+assert calc.wfs.dtype == complex
 
 import gpaw.mpi as mpi
 if mpi.size == 1:

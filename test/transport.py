@@ -1,6 +1,7 @@
 from ase import *
 from gpaw import *
 from gpaw.lcao.gpawtransport import GPAWTransport 
+from gpaw.atom.basis import BasisMaker
 import pickle
 import numpy as npy
 
@@ -14,11 +15,15 @@ atoms.positions[-5:, 0] = [i * a + 3 * a for i in range(4, 9)]
 atoms.positions[5:7, 0] = [5 * a, 6 * a ]
 atoms.positions[:, 1:] = L / 2.
 
+bm = BasisMaker('Na', run=False)
+bm.generator.run(write_xml=False)
+basis = bm.generate(1, 1)
+
 atoms.center()
 # Attach a GPAW calculator, attention to two keywords: fortransport, usesymm
 atoms.set_calculator(GPAW(h=0.3,
                           xc='PBE',
-                          basis='szp',
+                          basis=basis,
                           kpts=(3,1,1),
                           width=0.01,
                           mode='lcao',

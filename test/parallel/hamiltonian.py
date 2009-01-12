@@ -13,6 +13,7 @@ B = parsize_bands or 1  # number of groups
     
 G = 120  # number of grid points (G x G x G)
 N = 2000  # number of bands
+repeats = 20
 
 try:
     N = int(sys.argv[1])
@@ -20,6 +21,7 @@ try:
 except IndexError:
     N = 6
     J = 3
+    repeats = 2
 
 h = 0.2        # grid spacing
 a = h * G      # side length of box
@@ -89,14 +91,14 @@ def run(psit_mG):
 
     if world.rank == 0:
         for n in range(N):
-            assert abs(H_nn[n, n] - eps_n[n]) < 1e-10
-            assert not H_nn[n + 1:, n].round(10).any()
+            assert abs(H_nn[n, n] - eps_n[n]) < 1e-9
+            assert not H_nn[n + 1:, n].round(9).any()
 
     return psit_mG
 
 ta = time()
 
-for x in range(20):
+for x in range(repeats):
     psit_mG = run(psit_mG)
 
 tb = time()
