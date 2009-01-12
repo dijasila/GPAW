@@ -343,7 +343,7 @@ class SemiImplicitCrankNicolson(Propagator):
         self.tmp_kpt_u = None
         self.hpsit = None
         self.spsit = None
-        self.sihpsit = None
+        self.sinvhpsit = None
 
 
     def propagate(self, kpt_u, time, time_step):
@@ -458,16 +458,14 @@ class SemiImplicitCrankNicolson(Propagator):
                 #kpt.psit_nG[:] = self.spsit
                 #self.mblas.multi_zaxpy(-1.0j * self.time_step, self.hpsit, kpt.psit_nG, nvec)
                 #
-                ##TODO!!! Needs to be implemented in TimeDependentOverlap!
-                #self.td_overlap.overlap.apply_inverse(kpt.psit_nG, kpt.psit_nG, kpt)
+                #self.td_overlap.apply_inverse(kpt, kpt.psit_nG, kpt.psit_nG)
 
-                if self.sihpsit is None:
-                    self.sihpsit = self.gd.zeros(len(kpt_u[0].psit_nG), dtype=complex)
+                if self.sinvhpsit is None:
+                    self.sinvhpsit = self.gd.zeros(len(kpt_u[0].psit_nG), dtype=complex)
 
                 # Update kpt.psit_nG to estimate psit(t+dt) as ( 1 - i S^(-1) H dt ) psit(t)
-                #TODO! apply_inverse needs to be implemented in TimeDependentOverlap
-                self.td_overlap.overlap.apply_inverse(self.hpsit, self.sihpsit, kpt)
-                self.mblas.multi_zaxpy(-1.0j * self.time_step, self.sihpsit, kpt.psit_nG, nvec)
+                self.td_overlap.apply_inverse(kpt, self.hpsit, self.sinvhpsit)
+                self.mblas.multi_zaxpy(-1.0j * self.time_step, self.sinvhpsit, kpt.psit_nG, nvec)
 
             # TODO! Workaround because solver.solve -> self.dot needs relevant kpoint
             self.kpt = kpt

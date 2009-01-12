@@ -232,8 +232,6 @@ class TimeDependentOverlap:
 
         """
         self.overlap = overlap
-    
-
 
     def update(self):
         """Updates the time-dependent overlap operator. !Currently does nothing!
@@ -241,6 +239,7 @@ class TimeDependentOverlap:
         Parameters
         ----------
         None
+
         """
         # !!! FIX ME !!! update overlap operator/projectors/...
         pass
@@ -253,12 +252,13 @@ class TimeDependentOverlap:
         Parameters
         ----------
         None
+
         """
         # !!! FIX ME !!! update overlap operator/projectors/...
         pass
     
     def apply(self, kpt, psit, spsit, calculate_P_uni=True):
-        """Applies the time-dependent overlap operator to the wavefunction 
+        """Apply the time-dependent overlap operator to the wavefunction 
         psit of the k-point kpt.
         
         Parameters
@@ -273,6 +273,23 @@ class TimeDependentOverlap:
 
         """
         self.overlap.apply(psit, spsit, kpt, calculate_P_uni)
+
+    def apply_inverse(self, kpt, psit, sinvpsit):
+        """Apply the approximative time-dependent inverse overlap operator
+        to the wavefunction psit of the k-point kpt.
+
+        Parameters
+        ----------
+        kpt: Kpoint
+            the current k-point (kpt_u[index_of_k-point])
+        psit: List of coarse grids
+            the wavefuntions (on coarse grid) 
+            (kpt_u[index_of_k-point].psit_nG[indices_of_wavefunc])
+        sinvpsit: List of coarse grids
+            the resulting "operated wavefunctions" (S^(-1) psit)
+
+        """
+        self.overlap.apply_inverse(psit, sinvpsit, kpt)
 
 
 
@@ -291,6 +308,7 @@ class TimeDependentDensity:
         ----------
         paw: PAW
             the PAW-object
+
         """
         self.density = paw.density
         self.symmetry = paw.symmetry
@@ -319,3 +337,4 @@ class TimeDependentDensity:
 
         """
         return self.density
+
