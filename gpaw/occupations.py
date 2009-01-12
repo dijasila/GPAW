@@ -280,7 +280,7 @@ class FermiDirac(OccupationNumbers):
             if self.fixmom:
                 ne = np.array([(self.ne + self.M) / 2, (self.ne - self.M) / 2])
                 # we might be dividing by dnde, so it should not be too small
-                dnde = npy.where(abs(dnde) < 1.5e-10, 1.0e-10, dnde)
+                dnde = np.where(abs(dnde) < 1.5e-10, 1.0e-10, dnde)
                 dn = ne - n
                 if np.alltrue(abs(dn) < 1.0e-9):
                     if abs(magmom - self.M) > 1.0e-8:
