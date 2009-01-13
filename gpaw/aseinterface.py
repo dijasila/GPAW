@@ -39,9 +39,16 @@ class GPAW(PAW):
             return Hartree * (self.hamiltonian.Etot + 0.5 * self.hamiltonian.S)
 
     def get_forces(self, atoms):
-        """Return the forces for the current state of the ListOfAtoms."""
+        """Return the forces for the current state of the atoms."""
+        
+        if (self.forces.F_av is None and
+            hasattr(self.wfs, 'kpt_u') and
+            not isinstance(self.wfs.kpt_u[0].psit_nG, np.ndarray)):
+            force_call_to_set_positions = True
+        else:
+            force_call_to_set_positions = False
         self.calculate(atoms, converge=True,
-                       force_call_to_set_positions=(self.forces.F_av is None))
+                       force_call_to_set_positions=force_call_to_set_positions)
         F_av = self.forces.calculate(self.wfs, self.density, self.hamiltonian)
         return F_av * (Hartree / Bohr)
       

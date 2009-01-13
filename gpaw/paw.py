@@ -118,7 +118,7 @@ class PAW(PAWTextOutput):
         self.input_parameters = InputParameters()
         self.timer = self.timer_class()
         self.scf = None
-        self.forces = None
+        self.forces = ForceCalculator()
         self.wfs = EmptyWaveFunctions()
         self.occupations = None
         self.domain = None
@@ -326,7 +326,9 @@ class PAW(PAWTextOutput):
         # Is this a gamma-point calculation?
         gamma = len(bzk_kc) == 1 and not bzk_kc[0].any()
 
-        if not hasattr(self, 'time'):
+        if hasattr(self, 'time'):
+            dtype = complex
+        else:
             if gamma:
                 dtype = float
             else:
@@ -465,8 +467,6 @@ class PAW(PAWTextOutput):
         self.hamiltonian = Hamiltonian(self.gd, self.finegd, nspins, setups,
                                        par.stencils[1], self.timer, xcfunc,
                                        par.poissonsolver, par.external)
-
-        self.forces = ForceCalculator()
 
         self.plot_atoms(atoms)
         self.print_init(pos_av)

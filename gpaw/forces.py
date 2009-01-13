@@ -2,6 +2,9 @@ import numpy as np
 
 
 class ForceCalculator:
+    def __init__(self):
+        self.reset()
+        
     def reset(self):
         self.F_av = None
 
