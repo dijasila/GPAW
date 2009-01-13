@@ -237,9 +237,10 @@ class Density:
         Get the integrated correction to the pseuso density relative to
         the all-electron density.
         """
+        setup = self.setups[a]
         return sqrt(4 * pi) * (
-            np.dot(self.D_asp[a][spin], self.setups[a].Delta_pL[:, 0])
-            + self.setups[a].Delta0 / self.nspins)
+            np.dot(self.D_asp[a][spin], setup.Delta_pL[:, 0])
+            + setup.Delta0 / self.nspins)
 
     def get_density_array(self):
         XXX
@@ -250,7 +251,7 @@ class Density:
         else:
             return self.nt_sG[0]
     
-    def get_all_electron_density(self, gridrefinement=2, collect=True):
+    def get_all_electron_density(self, atoms, rank_a, gridrefinement=2):
         """Return real all-electron density array."""
 
         # Refinement of coarse grid, for representation of the AE-density
@@ -259,6 +260,8 @@ class Density:
             n_sg = self.nt_sG.copy()
         elif gridrefinement == 2:
             gd = self.finegd
+            if self.nt_sg is None:
+                self.interpolate()
             n_sg = self.nt_sg.copy()
         elif gridrefinement == 4:
             # Extra fine grid
@@ -276,80 +279,53 @@ class Density:
 
         # Add corrections to pseudo-density to get the AE-density
         splines = {}
-        for nucleus in self.nuclei:
-            nucleus.add_density_correction(n_sg, self.nspins, gd, splines)
-
-        if collect:
-            n_sg = gd.collect(n_sg)
-
-        # Return AE-(spin)-density
-        if self.nspins == 2 or n_sg is None:
-            return n_sg
-        else:
-            return n_sg[0]
-
-    def add_density_correction(self, n_sg, nspins, gd, splines={}):
-        """Add atomic density correction function.
-
-        Add the function correcting the pseuso density to the all-electron
-        density, to the density array `n_sg`.
-        """
-
-        # Load splines
-        symbol = self.setup.symbol
-        if not symbol in splines:
-            phi_j, phit_j, nc, nct = self.setup.get_partial_waves()[:4]
-            splines[symbol] = (phi_j, phit_j, nc, nct)
-        else:
-            phi_j, phit_j, nc, nct = splines[symbol]
+        dphi_aj = []
+        dnc_a = []
+        for a, id in enumerate(self.setups.id_a):
+            if id in splines:
+                dphi_j, dnc = splines[id]
+            else:
+                # Load splines:
+                dphi_j, dnc = self.setups[a].get_partial_waves_diff()[:2]
+                splines[id] = (dphi_j, dnc)
+            dphi_aj.append(dphi_j)
+            dnc_a.append([dnc])
 
         # Create localized functions from splines
-        create = create_localized_functions
-        phi_i = create(phi_j, gd, self.spos_c)
-        phit_i = create(phit_j, gd, self.spos_c)
-        nc = create([nc], gd, self.spos_c)
-        nct = create([nct], gd, self.spos_c)
+        dphi = LFC(gd, dphi_aj)
+        dnc = LFC(gd, dnc_a)
+        spos_ac = atoms.get_scaled_positions() % 1.0
+        dphi.set_positions(spos_ac)
+        dnc.set_positions(spos_ac)
 
-        # The correct normalizations are:
-        Nc = self.setup.Nc
-        Nct = -(self.setup.Delta0 * sqrt(4 * pi)
-                + self.setup.Z - self.setup.Nc)
+        all_D_asp = []
+        for a, setup in enumerate(self.setups):
+            D_sp = self.D_asp.get(a)
+            if D_sp is None:
+                ni = setup.ni
+                D_sp = np.empty((self.nspins, ni * (ni + 1) // 2))
+            if gd.comm.size > 1:
+                gd.comm.broadcast(D_sp, rank_a[a])
+            all_D_asp.append(D_sp)
 
-        # Actual normalizations:
-        if nc is not None:
-            Nc0 = nc.norm()[0, 0]
-            Nct0 = nct.norm()[0, 0]
-        else:
-            Nc0 = Nct0 = 0
+        for s in range(self.nspins):
+            I_a = np.zeros(len(atoms))
+            dnc.add1(n_sg[s], 1.0 / self.nspins, I_a)
+            dphi.add2(n_sg[s], all_D_asp, s, I_a)
+            gd.comm.sum(I_a)
+            for a, D_sp in self.D_asp.items():
+                setup = self.setups[a]
+                I_a[a] -= ((setup.Nc - setup.Nct) / self.nspins +
+                           sqrt(4 * pi) *
+                           np.dot(D_sp[s], setup.Delta_pL[:, 0]))
+            gd.comm.sum(I_a)
+            N_c = gd.N_c
+            g_ac = np.around(N_c * spos_ac).astype(int) % N_c - gd.beg_c
+            for I, g_c in zip(I_a, g_ac):
+                if (g_c >= 0).all() and (g_c < gd.n_c).all():
+                    n_sg[s][tuple(g_c)] -= I / gd.dv
 
-        for s in range(nspins):
-            # Numeric integration of density corrections:
-            Inum = (Nc0 - Nct0) / nspins
-
-            # Add density corrections to input array n_G
-            if hasattr(self, 'D_sp'):
-                Inum += phi_i.add_density2(n_sg[s], self.D_sp[s])
-                Inum += phit_i.add_density2(n_sg[s], -self.D_sp[s])
-
-                # This code needs to be parallelized.  If phi or phit
-                # is distributed over more domains, Inum will be
-                # wrong.
-                assert phi_i.comm.size == 1
-                
-            if nc is not None and Nc != 0:
-                nc.add(n_sg[s], npy.ones(1) / nspins)
-                nct.add(n_sg[s], -npy.ones(1) / nspins)
-
-            if self.in_this_domain:
-                # Correct density, such that correction is norm-conserving
-
-                # analytic integration of density corrections
-                Iana = ((Nc - Nct) / nspins +
-                        sqrt(4 * pi) * npy.dot(self.D_sp[s],
-                                               self.setup.Delta_pL[:, 0]))
-                g_c = tuple(gd.get_nearest_grid_point(self.spos_c, True)
-                            % gd.N_c)
-                n_sg[s][g_c] += (Iana - Inum) / gd.dv
+        return n_sg
 
     def initialize_kinetic(self):
         """Initial pseudo electron kinetic density."""

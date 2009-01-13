@@ -456,16 +456,12 @@ class LocalizedFunctionsCollection:
             c_xi = np.array([c_axi])
             run([lfs.iadd(a_xG, c_xi) for lfs in self.lfs_a.values()])
         else:
-            #run([lfs.iadd(a_xG, c_axi.get(a), q, True)
-            #     for a, lfs in self.lfs_a.items()])
             run([self.lfs_a[a].iadd(a_xG, c_axi.get(a), q, True)
                  for a in self.atom_indices])
 
     def integrate(self, a_xG, c_axi, q=-1):
         for c_xi in c_axi.values():
             c_xi.fill(0.0)
-        #run([lfs.iintegrate(a_xG, c_axi.get(a), q)
-        #     for a, lfs in self.lfs_a.items()])
         run([self.lfs_a[a].iintegrate(a_xG, c_axi.get(a), q)
              for a in self.atom_indices])
 
@@ -474,6 +470,20 @@ class LocalizedFunctionsCollection:
             c_xiv.fill(0.0)
         run([self.lfs_a[a].iderivative(a_xG, c_axiv.get(a), q)
              for a in self.atom_indices])
+
+    def add1(self, n_g, scale, I_a):
+        scale_i = np.array([scale], float)
+        for lfs in self.lfs_a.values():
+            lfs.add(n_g, scale_i)
+        for a, lfs in self.lfs_a.items():
+            I_ic = np.zeros((1, 4))
+            for box in lfs.box_b:
+                box.norm(I_ic)
+            I_a[a] += I_ic[0, 0] * scale
+
+    def add2(self, n_g, D_asp, s, I_a):
+        for a, lfs in self.lfs_a.items():
+            I_a[a] += lfs.add_density2(n_g, D_asp[a][s])
 
 
 def test():

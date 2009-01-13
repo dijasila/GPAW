@@ -188,9 +188,6 @@ class PAWExtra:
         # might be nicer to have the correct array everywhere XXXX 
         return a_n
 
-    def get_grid_spacings(self):
-        return self.a0 * self.gd.h_c
-
     def get_exact_exchange(self):
         dExc = self.get_xc_difference('EXX') / self.Ha
         Exx = self.Exc + dExc

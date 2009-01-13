@@ -104,7 +104,7 @@ class GPAW(PAW):
         
         return self.wfs.weight_k
 
-    def get_pseudo_density(self, spin=None, pad=True):
+    def get_pseudo_density(self, spin=None, pad=True, broadcast=False):
         """Return pseudo-density array.
 
         If *spin* is not given, then the total density is returned.
@@ -112,17 +112,31 @@ class GPAW(PAW):
         1)."""
         
         nt_sG = self.density.nt_sG
-        if self.wfs.nspins == 1:
-            nt_G = nt_sG[0]
-            if spin is not None:
-                nt_G = 0.5 * nt_G
-        else:
-            if spin is None:
+
+        if spin is None:
+            if self.wfs.nspins == 1:
+                nt_G = nt_sG[0]
+            else:
                 nt_G = nt_sG.sum(axis=0)
+        else:
+            if self.wfs.nspins == 1:
+                nt_G = 0.5 * nt_sG[0]
             else:
                 nt_G = nt_sG[spin]
+
+        nt_G = self.wfs.gd.collect(nt_G)
+        
+        if broadcast:
+            if nt_G is None:
+                nt_G = self.wfs.gd.empty(global_array=True)
+            self.world.broadcast(nt_G, 0)
+
+        if nt_G is None:
+            return None
+        
         if pad:
-            nt_G = self.gd.zero_pad(nt_G)
+            nt_G = self.wfs.gd.zero_pad(nt_G)
+
         return nt_G / Bohr**3
 
     get_pseudo_valence_density = get_pseudo_density  # Don't use this one!
@@ -149,22 +163,36 @@ class GPAW(PAW):
                               for a in range(len(self.atoms))]
                              for spin in range(2)])
 
-    def get_all_electron_density(self, spin=None, gridrefinement=2, pad=True):
+    def get_all_electron_density(self, spin=None, gridrefinement=2,
+                                 pad=True, broadcast=False):
         """Return reconstructed all-electron density array."""
-        n_G = self.density.get_all_electron_density(gridrefinement)
-        if n_G is None:
-            return np.array([0.0]) # let the slave return something
-        
-        if self.wfs.nspins == 1 and spin is not None:
-            n_G *= .5
-        elif self.wfs.nspins == 2:
-            if spin is None:
-                n_G = n_G.sum(axis=0)
+        n_sG = self.density.get_all_electron_density(
+            self.atoms, self.wfs.rank_a, gridrefinement=gridrefinement)
+
+        if spin is None:
+            if self.wfs.nspins == 1:
+                n_G = n_sG[0]
             else:
-                n_G = n_G[spin]
+                n_G = n_sG.sum(axis=0)
+        else:
+            if self.wfs.nspins == 1:
+                n_G = 0.5 * n_sG[0]
+            else:
+                n_G = n_sG[spin]
+
+        n_G = self.wfs.gd.collect(n_G)
+        
+        if broadcast:
+            if n_G is None:
+                n_G = self.wfs.gd.empty(global_array=True)
+            self.world.broadcast(n_G, 0)
+
+        if n_G is None:
+            return None
         
         if pad:
-            n_G = self.gd.zero_pad(n_G)
+            n_G = self.wfs.gd.zero_pad(n_G)
+
         return n_G / Bohr**3
 
     def get_fermi_level(self):
@@ -528,3 +556,7 @@ class GPAW(PAW):
             dEH_a[a] = setup.dEH0 + np.dot(setup.dEH_p, D_sp.sum(0))
         self.wfs.gd.comm.sum(dEH_a)
         return dEH_a * Hartree * Bohr**3
+
+    def get_grid_spacings(self):
+        return Bohr * self.wfs.gd.h_c
+
