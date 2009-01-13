@@ -187,7 +187,8 @@ class PAW(PAWTextOutput):
             
         p.update(kwargs)
 
-    def calculate(self, atoms=None, converge=False):
+    def calculate(self, atoms=None, converge=False,
+                  force_call_to_set_positions=False):
         """Update PAW calculaton if needed."""
 
         if atoms is None:
@@ -217,7 +218,9 @@ class PAW(PAWTextOutput):
         elif not self.scf.check_convergence(self.density,
                                             self.wfs.eigensolver):
             self.set_positions(atoms)
-
+        elif force_call_to_set_positions:
+            self.set_positions(atoms)
+            
         if self.scf.converged:
             return
 
@@ -233,11 +236,7 @@ class PAW(PAWTextOutput):
             raise KohnShamConvergenceError('Did not converge!')        
 
     def set_positions(self, atoms=None):
-        """Update the positions of the atoms.
-
-        Localized functions centered on atoms that have moved will
-        have to be computed again.  Neighbor list is updated and the
-        array holding all the pseudo core densities is updated."""
+        """Update the positions of the atoms."""
 
         if atoms is None:
             atoms = self.atoms

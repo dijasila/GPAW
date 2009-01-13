@@ -223,7 +223,9 @@ class Mixer(BaseMixer):
 
         Calculated as the integral of the absolute value of the change
         of the density from input to output."""
-        
+
+        if self.dNt is not None:
+            return self.dNt
         if self.mixers[0].dNt is None:
             return None
         return sum([mixer.dNt for mixer in self.mixers])

@@ -40,7 +40,8 @@ class GPAW(PAW):
 
     def get_forces(self, atoms):
         """Return the forces for the current state of the ListOfAtoms."""
-        self.calculate(atoms, converge=True)
+        self.calculate(atoms, converge=True,
+                       force_call_to_set_positions=(self.forces.F_av is None))
         F_av = self.forces.calculate(self.wfs, self.density, self.hamiltonian)
         return F_av * (Hartree / Bohr)
       
