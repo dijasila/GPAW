@@ -21,7 +21,6 @@ try:
 except IndexError:
     N = 6
     J = 3
-    repeats = 2
 
 h = 0.2        # grid spacing
 a = h * G      # side length of box
@@ -72,7 +71,7 @@ def run(psit_mG):
     t2 = time()
 
     if world.rank == 0:
-        print 'Cholesky Time %f' % (t2-t1)
+        print 'Diagonalization Time %f' % (t2-t1)
         print eps_n
 
     # Distribute matrix:

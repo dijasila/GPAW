@@ -8,10 +8,11 @@ from gpaw.mpi import world
 from gpaw.utilities.lapack import inverse_cholesky
 from gpaw.operator import Operator
 
-B = parsize_bands or 1   # number of blocks
+B = parsize_bands or 1   # number of groups
     
 G = 120  # number of grid points (G x G x G)
 N = 2000  # number of bands
+repeats = 20
 
 try:
     N = int(sys.argv[1])
@@ -22,7 +23,7 @@ except IndexError:
 
 h = 0.2        # grid spacing
 a = h * G      # side length of box
-M = N // B     # number of bands per block
+M = N // B     # number of bands per group
 assert M * B == N
 
 D = world.size // B  # number of domains
@@ -101,7 +102,7 @@ def run(psit_mG):
 ta = time()
 
 # Do twenty iterations
-for x in range(20):
+for x in range(repeats):
     psit_mG = run(psit_mG)
 
 tb = time()
