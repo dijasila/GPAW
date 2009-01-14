@@ -82,7 +82,10 @@ class RMM_DIIS(Eigensolver):
             shape = (1,) + dR_G.shape
             self.calculate_residuals(wfs, hamiltonian, kpt, kpt.eps_n[n1:n2],
                                      dR_G.reshape(shape),
-                                     pR_G.reshape(shape))
+                                     pR_G.reshape(shape), n1)
+
+            hamiltonian.xc.xcfunc.adjust_non_local_residual(
+                pR_G, dR_G, kpt, n1)
 
             # Find lam that minimizes the norm of R'_G = R_G + lam dR_G
             RdR = self.comm.sum(np.vdot(R_G, dR_G).real)

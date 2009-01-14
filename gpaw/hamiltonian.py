@@ -124,6 +124,7 @@ class Hamiltonian:
             self.timer.start('GLLB')
             Exc = self.xc.xcfunc.xc.update_xc_potential()
             self.timer.stop('GLLB')
+
         self.timer.start('Poisson')
         # npoisson is the number of iterations:
         self.npoisson = self.poisson.solve(self.vHt_g, density.rhot_g,
@@ -197,12 +198,22 @@ class Hamiltonian:
 
         self.timer.stop('Atomic Hamiltonians')
 
+        # Make corrections due to non-local xc:
+        xcfunc = self.xc.xcfunc
+        self.Enlxc = xcfunc.get_non_local_energy()
+        self.Enlkin = xcfunc.get_non_local_kinetic_corrections()
+        if self.Enlxc != 0 or self.Enlkin != 0:
+            print 'Where should we do comm.sum() ?'
+
         comm = self.gd.comm
         self.Ekin0 = comm.sum(Ekin)
         self.Epot = comm.sum(Epot)
         self.Ebar = comm.sum(Ebar)
         self.Eext = comm.sum(Eext)
         self.Exc = comm.sum(Exc)
+
+        self.Exc += self.Enlxc
+        self.Ekin0 += self.Enlkin
 
         self.timer.stop('Hamiltonian')
 
@@ -213,6 +224,8 @@ class Hamiltonian:
         # Total free energy:
         self.Etot = (self.Ekin + self.Epot + self.Eext + 
                      self.Ebar + self.Exc - self.S)
+        #print self.Etot ,self.Ekin , self.Epot , self.Eext ,                     self.Ebar ,self.Exc , self.S
+        #print self.Enlxc,self.Enlkin
 
         return self.Etot
 

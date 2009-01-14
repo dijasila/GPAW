@@ -281,7 +281,7 @@ class XCFunctional:
                            paw.kpt_comm, paw.symmetry, paw.nvalence,
                            paw.eigensolver, paw.hamiltonian)
 
-    def set_non_local_things(self, density, hamiltonian, wfs,
+    def set_non_local_things(self, density, hamiltonian, wfs, atoms,
                              energy_only=False):
 
         from gpaw.vdw import VDWFunctional
@@ -294,12 +294,13 @@ class XCFunctional:
 
         if self.hybrid > 0.0:
             if wfs.dtype == complex:
-                raise NotImplementedError, 'k-point calculation with EXX'
+                raise NotImplementedError('k-point calculation with EXX')
             if self.parameters and self.parameters.has_key('finegrid'):
                 use_finegrid = self.parameters['finegrid']
             else:
                 use_finegrid = True
-            self.exx = EXX(paw, energy_only=energy_only,
+            self.exx = EXX(density, hamiltonian, wfs, atoms,
+                           energy_only=energy_only,
                            use_finegrid=use_finegrid)
 
         if self.xcname == 'TPSS':
@@ -313,10 +314,10 @@ class XCFunctional:
             for nucleus in paw.my_nuclei:
                 nucleus.setup.xc_correction.initialize_kinetic(nucleus.setup.data)
 
-    def apply_non_local(self, kpt, Htpsit_nG=None, H_nn=None):
+    def apply_non_local(self, kpt, Htpsit_nG=None, H_nn=None, dH_asp=None):
         if self.orbital_dependent:
             if self.hybrid > 0.0:
-                self.exx.apply(kpt, Htpsit_nG, H_nn, self.hybrid)
+                self.exx.apply(kpt, Htpsit_nG, H_nn, dH_asp, self.hybrid)
 
     def get_non_local_force(self, kpt):
         F_ac = 0.0
@@ -342,9 +343,9 @@ class XCFunctional:
 
         return Ekin
 
-    def adjust_non_local_residual(self, pR_G, dR_G, eps, u, s, k, n):
+    def adjust_non_local_residual(self, pR_G, dR_G, kpt, n):
         if self.hybrid > 0.0:
-            self.exx.adjust_residual(pR_G, dR_G, u, n)
+            self.exx.adjust_residual(pR_G, dR_G, kpt, n)
 
     # For non-local functional, this function does the calculation for special
     # case of setup-generator. The processes for non-local in radial and

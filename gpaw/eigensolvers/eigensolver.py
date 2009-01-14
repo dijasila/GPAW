@@ -82,7 +82,8 @@ class Eigensolver:
         """Implemented in subclasses."""
         raise NotImplementedError
 
-    def calculate_residuals(self, wfs, hamiltonian, kpt, eps_n, R_nG, psit_nG):
+    def calculate_residuals(self, wfs, hamiltonian, kpt, eps_n, R_nG, psit_nG,
+                            n=None):
         B = len(eps_n)  # block size
         wfs.kin.apply(psit_nG, R_nG, kpt.phase_cd)
         hamiltonian.apply_local_potential(psit_nG, R_nG, kpt.s)
@@ -90,10 +91,10 @@ class Eigensolver:
                       for a in kpt.P_ani])
         wfs.pt.integrate(psit_nG, P_ani, kpt.q)
         self.calculate_residuals2(wfs, hamiltonian, kpt, R_nG,
-                                  eps_n, psit_nG, P_ani)
+                                  eps_n, psit_nG, P_ani, n=n)
         
     def calculate_residuals2(self, wfs, hamiltonian, kpt, R_nG,
-                             eps_n=None, psit_nG=None, P_ani=None):
+                             eps_n=None, psit_nG=None, P_ani=None, n=None):
         if eps_n is None:
             eps_n = kpt.eps_n
         if psit_nG is None:
@@ -108,65 +109,17 @@ class Eigensolver:
             dO_ii = hamiltonian.setups[a].O_ii
             c_ni = (np.dot(P_ni, dH_ii) -
                     np.dot(P_ni * eps_n[:, np.newaxis], dO_ii))
+
+            if hamiltonian.xc.xcfunc.hybrid > 0.0:
+                if n is None:
+                    c_ni += kpt.vxx_ani[a]
+                else:
+                    assert len(P_ni) == 1
+                    c_ni[0] += np.dot(kpt.vxx_anii[a][n], P_ni[0])
+
             c_ani[a] = c_ni
+
         wfs.pt.add(R_nG, c_ani, kpt.q)
-
-    def calculate_hamiltonian_matrix(self, hamiltonian, wfs, kpt):
-        XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-
-        """Set up the Hamiltonian in the subspace of kpt.psit_nG
-
-        *Htpsit_nG* is a work array of same size as psit_nG which contains
-        the local part of the Hamiltonian times psit on exit
-
-        The Hamiltonian (defined by *kin*, *vt_sG*, and
-        *my_nuclei*) is applied to the wave functions, then the
-        *H_nn* matrix is calculated.
-
-        It is assumed that the wave functions *psit_n* are orthonormal
-        and that the integrals of projector functions and wave functions
-        *P_uni* are already calculated
-        """
-
-        if self.band_comm.size > 1:
-            return self.calculate_hamiltonian_matrix2(hamiltonian, kpt)
-
-        psit_nG = kpt.psit_nG
-        H_nn = self.H_nn
-        H_nn[:] = 0.0  # r2k can fail without this!
-
-        if self.keep_htpsit:
-            Htpsit_nG = self.Htpsit_nG
-
-            wfs.kin.apply(psit_nG, Htpsit_nG, kpt.phase_cd)
-            hamiltonian.apply_local_potential(psit_nG, Htpsit_nG, kpt.s)
-
-            hamiltonian.xc.xcfunc.apply_non_local(kpt, Htpsit_nG, H_nn)
-
-            r2k(0.5 * self.gd.dv, psit_nG, Htpsit_nG, 1.0, H_nn)
-        else:
-            Htpsit_nG = self.big_work_arrays['work_nG']
-            n1 = 0
-            while n1 < self.nbands:
-                n2 = n1 + self.blocksize
-                if n2 > self.nbands:
-                    n2 = self.nbands
-                hamiltonian.apply(psit_nG[n1:n2], Htpsit_nG[:n2 - n1], kpt,
-                                  local_part_only=True)
-
-                gemm(self.gd.dv, Htpsit_nG, psit_nG[n1:], 0.0,
-                     H_nn[n1:, n1:n2], 'c')
-                n1 = n2
-
-        for a, P_ni in kpt.P_ani.items():
-            dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
-            H_nn += np.dot(P_ni, np.inner(dH_ii, P_ni.conj()))
-
-        self.comm.sum(H_nn, 0)
-
-        # Uncouple occupied and unoccupied subspaces:
-        if hamiltonian.xc.xcfunc.hybrid > 0.0:
-            apply_subspace_mask(H_nn, kpt.f_n)
 
     def subspace_diagonalize(self, hamiltonian, wfs, kpt):
         """Diagonalize the Hamiltonian in the subspace of kpt.psit_nG
@@ -198,15 +151,18 @@ class Eigensolver:
         def H(psit_xG):
             wfs.kin.apply(psit_xG, Htpsit_xG, kpt.phase_cd)
             hamiltonian.apply_local_potential(psit_xG, Htpsit_xG, kpt.s)
-            #hamiltonian.xc.xcfunc.apply_non_local(kpt, Htpsit_xG, H_nn)
             return Htpsit_xG
         
         dH_aii = dict([(a, unpack(dH_sp[kpt.s]))
                        for a, dH_sp in hamiltonian.dH_asp.items()])
 
-        H_nn = self.operator.calculate_matrix_elements(psit_nG, P_ani,
-                                                       H, dH_aii)
-
+        if hamiltonian.xc.xcfunc.hybrid == 0.0:
+            H_nn = self.operator.calculate_matrix_elements(psit_nG, P_ani,
+                                                           H, dH_aii)
+        else:
+            H_nn = hamiltonian.xc.xcfunc.exx.grr(wfs, kpt, Htpsit_xG,
+                                                 hamiltonian)
+            
         if sl_diagonalize:
             assert parallel
             assert scalapack()
@@ -244,6 +200,6 @@ class Eigensolver:
 
         # Rotate EXX related stuff
         if hamiltonian.xc.xcfunc.hybrid > 0.0:
-            hamiltonian.xc.xcfunc.exx.rotate(kpt.u, U_nn)
+            hamiltonian.xc.xcfunc.exx.rotate(kpt, U_nn)
 
         self.timer.stop('Subspace diag.')

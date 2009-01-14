@@ -468,6 +468,9 @@ class PAW(PAWTextOutput):
                                        par.stencils[1], self.timer, xcfunc,
                                        par.poissonsolver, par.external)
 
+        xcfunc.set_non_local_things(self.density, self.hamiltonian, self.wfs,
+                                    self.atoms)
+
         self.plot_atoms(atoms)
         self.print_init(pos_av)
         self.print_parameters()
