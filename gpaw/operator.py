@@ -68,6 +68,7 @@ class Operator:
                 r2k(0.5 * dv, psit_nG, Apsit_nG, 0.0, A_NN)
             for a, P_ni in P_ani.items():
                 gemm(1.0, P_ni, np.dot(P_ni, dA_aii[a]), 1.0, A_NN, 'c')
+            self.domain_comm.sum(A_NN, 0)
             return A_NN
         
         # Now is gets nasty!  We parallelize over B groups of bands
