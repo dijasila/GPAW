@@ -264,7 +264,7 @@ class Hamiltonian:
             P_axi[a] = np.dot(P_xi, dH_ii)
         wfs.pt.add(b_xG, P_axi, kpt.q)
 
-    def get_xc_difference(self, xcname, wfs, density):
+    def get_xc_difference(self, xcname, wfs, density, atoms):
         """Calculate non-selfconsistent XC-energy difference."""
         xc = self.xc
         oldxcfunc = xc.xcfunc
@@ -274,7 +274,8 @@ class Hamiltonian:
         else:
             newxcfunc = xcname
         
-        newxcfunc.set_non_local_things(density, self, wfs, energy_only=True)
+        newxcfunc.set_non_local_things(density, self, wfs, atoms,
+                                       energy_only=True)
 
         xc.set_functional(newxcfunc)
         for setup in self.setups.setups.values():
