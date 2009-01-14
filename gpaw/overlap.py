@@ -35,7 +35,7 @@ class Overlap:
 
         self.operator = Operator(wfs.band_comm, wfs.gd, nblocks)
         self.timer = wfs.timer
-        self.comm = wfs.gd.comm
+        self.domain_comm = wfs.gd.comm
         self.band_comm = wfs.band_comm
         self.setups = wfs.setups
 
@@ -72,10 +72,9 @@ class Overlap:
 
         self.timer.start('Orthonormalize')
 
-        wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
         psit_nG = kpt.psit_nG
         P_ani = kpt.P_ani
-
+        wfs.pt.integrate(psit_nG, P_ani, kpt.q)
         mynbands = len(psit_nG)
         nbands = mynbands * self.band_comm.size
 
@@ -91,13 +90,13 @@ class Overlap:
             assert parallel and scalapack()
             info = inverse_cholesky(S_nn, 0)
         else:
-            if self.comm.rank == 0 and self.band_comm.rank == 0:
+            if self.domain_comm.rank == 0 and self.band_comm.rank == 0:
                 info = inverse_cholesky(S_nn)
         if sl_inverse_cholesky:
             if info != 0:
                 raise RuntimeError('Orthogonalization failed!')
         else:
-            if self.comm.rank == 0 and self.band_comm.rank == 0:
+            if self.domain_comm.rank == 0 and self.band_comm.rank == 0:
                 if info != 0:
                     raise RuntimeError('Orthogonalization failed!')
         self.timer.stop('Orthonormalize: inverse_cholesky')
@@ -108,11 +107,10 @@ class Overlap:
         del S_nn
 
         if self.band_comm.rank == 0:
-            self.comm.broadcast(C_nn, 0)
+            self.domain_comm.broadcast(C_nn, 0)
         self.band_comm.broadcast(C_nn, 0)
 
         kpt.psit_nG = self.operator.matrix_multiply(C_nn, psit_nG, P_ani)
-
         self.timer.stop('Orthonormalize')
 
     def apply(self, a_xG, b_xG, wfs, kpt, calculate_P_uni=True):
