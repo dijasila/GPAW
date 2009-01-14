@@ -214,18 +214,20 @@ class RawLDOS:
     """Class to get the unfolded LDOS"""
     def __init__(self, calc):
         self.paw = calc
-        for nucleus in calc.nuclei:
-            if not hasattr(nucleus.setup,'l_i'):
+        for setup in calc.wfs.setups.setups.values():
+            if not hasattr(setup, 'l_i'):
                 # get the mapping
                 l_i = []
-                for l in nucleus.setup.l_j:
-                    for i in range(2*l+1):
+                for l in setup.l_j:
+                    for m in range(2 * l + 1):
                         l_i.append(l)
-                nucleus.setup.l_i = l_i
+                setup.l_i = l_i
 
     def get(self, atom):
         """Return the s,p,d weights for each state"""
-        spd = npy.zeros((self.wfs.nspins * self.wfs.nkpts, self.wfs.nbands, 3))
+        wfs = self.paw.wfs
+        nibzkpts = len(wfs.ibzk_kc)
+        spd = npy.zeros((wfs.nspins, nibzkpts, wfs.nbands, 3))
 
         if hasattr(atom, '__iter__'):
             # atom is a list of atom indicies 
@@ -233,19 +235,14 @@ class RawLDOS:
                 spd += self.get(a)
             return spd
 
-        k=0
-        nucleus = self.wfs.nuclei[atom]
-        for k in range(self.wfs.nkpts):
-            for s in range(self.wfs.nspins):
-                myu = self.wfs.get_myu(k, s)
-                u = k * self.wfs.nspins + s
-                if myu is not None and nucleus.in_this_domain:
-                    for n in range(self.wfs.nbands):
-                        for i, P in enumerate(nucleus.P_uni[myu, n]):
-                            spd[u, n, nucleus.setup.l_i[i]] += abs(P)**2
-                        
-        self.wfs.domain.comm.sum(spd)
-        self.wfs.kpt_comm.sum(spd)
+        l_i = wfs.setups[atom].l_i
+        for kpt in self.paw.wfs.kpt_u:
+            if atom in kpt.P_ani:
+                for i, P_n in enumerate(kpt.P_ani[atom].T):
+                    spd[s, k, :, l_i[i]] += np.abs(P_n)**2
+
+        wfs.domain.comm.sum(spd)
+        wfs.kpt_comm.sum(spd)
         return spd
 
     def by_element(self):
@@ -257,7 +254,7 @@ class RawLDOS:
                 elemi[symbol].append(i)
             else:
                 elemi[symbol] = [i]
-        for key in elemi.keys():
+        for key in elemi:
             elemi[key] = self.get(elemi[key])
         return elemi
 
