@@ -123,7 +123,7 @@ class PAWTextOutput:
         if self.wfs.nspins == 2:
             t('Spin-Polarized Calculation.')
             t('Magnetic Moment:   %.6f' % self.density.magmom_a.sum(), end='')
-            if self.fixmom:
+            if p.fixmom:
                 t('(fixed)')
             else:
                 t()

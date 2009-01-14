@@ -35,9 +35,6 @@ class PAWExtra:
         gpaw.io.write(self, filename, mode)
         self.timer.stop('IO')
         
-    def get_reference_energy(self):
-        return self.Eref * self.Ha
-    
     def get_wave_function_array(self, n, k, s):
         """Return pseudo-wave-function array.
         

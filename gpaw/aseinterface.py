@@ -38,6 +38,9 @@ class GPAW(PAW):
             # Energy extrapolated to zero Kelvin:
             return Hartree * (self.hamiltonian.Etot + 0.5 * self.hamiltonian.S)
 
+    def get_reference_energy(self):
+        return self.wfs.setups.Eref * Hartree
+    
     def get_forces(self, atoms):
         """Return the forces for the current state of the atoms."""
         
@@ -341,7 +344,8 @@ class GPAW(PAW):
     
     def get_xc_difference(self, xcname):
         return self.hamiltonian.get_xc_difference(xcname, self.wfs,
-                                                  self.density) * Hartree
+                                                  self.density,
+                                                  self.atoms) * Hartree
 
     def initial_wannier(self, initialwannier, kpointgrid, fixedstates,
                         edf, spin):
