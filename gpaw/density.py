@@ -55,6 +55,8 @@ class Density:
         self.nt_sg = None
         self.nt_g = None
 
+        self.rank_a = None
+
         self.mixer = BaseMixer()
         
     def initialize(self, setups, stencil, timer, magmom_a, hund):
@@ -72,7 +74,7 @@ class Density:
         self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
                         integral=sqrt(4 * pi), forces=True)
 
-    def set_positions(self, spos_ac):
+    def set_positions(self, spos_ac, rank_a=None):
         self.nct.set_positions(spos_ac)
         self.ghat.set_positions(spos_ac)
         self.mixer.reset()
@@ -96,13 +98,16 @@ class Density:
                     ni = self.setups[a].ni
                     D_sp = np.empty((self.nspins, ni * (ni + 1) // 2))
                     D_asp[a] = D_sp
-                    requests.append(self.gd.comm.receive(D_sp, 2134234))
+                    requests.append(self.gd.comm.receive(D_sp, self.rank_a[a],
+                                                         39, False))
             for a, D_sp in self.D_asp.items():
                 # Send matrix to new domain:
-                requests.append(self.gd.comm.send(D_sp, 2134234))
+                requests.append(self.gd.comm.send(D_sp, rank_a[a], 39, False))
             for request in requests:
                 self.gd.comm.wait(request)
             self.D_asp = D_asp
+
+        self.rank_a = rank_a
 
     def update(self, wfs, basis_functions=None,
                calculate_atomic_density_matrices=True,

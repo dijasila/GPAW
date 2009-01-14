@@ -244,7 +244,7 @@ class PAW(PAWTextOutput):
         spos_ac = atoms.get_scaled_positions() % 1.0
 
         self.wfs.set_positions(spos_ac)
-        self.density.set_positions(spos_ac)
+        self.density.set_positions(spos_ac, self.wfs.rank_a)
         self.hamiltonian.set_positions(spos_ac)
 
         self.wfs.initialize(self.density, self.hamiltonian, spos_ac)
