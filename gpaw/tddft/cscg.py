@@ -157,6 +157,7 @@ class CSCG:
             if ( (npy.abs(tmp) / scale) < self.tol*self.tol ).all():
                 #print 'R2 of proc #', rank, '  = ' , tmp, \
                 #    ' after ', i+1, ' iterations'
+                print 'R2 or proc #', rank, ' = [<converged>] after ', i+1, ' iterations'
                 break
 
             # print if slow convergence

@@ -67,7 +67,7 @@ from gpaw.tddft import TDDFT
 
 class GammaPointTDDFT(GammaPointSetup):
 
-    tolerance = 1e-6
+    tolerance = 1e-8
 
     def setUp(self):
         GammaPointSetup.setUp(self)
