@@ -50,8 +50,6 @@ class DummyPropagator:
             timer
         
         """ 
-        #raise RuntimeError( 'Error in DummyPropagator: DummyPropagator is virtual. '
-        #                    'Use derived classes.' )
         self.td_density = td_density
         self.td_hamiltonian = td_hamiltonian
         self.td_overlap = td_overlap
@@ -137,18 +135,8 @@ class ExplicitCrankNicolson(DummyPropagator):
             timer
         
         """
-        #self.td_density = td_density
-        #self.td_hamiltonian = td_hamiltonian
-        #self.td_overlap = td_overlap
         DummyPropagator.__init__(self, td_density, td_hamiltonian, td_overlap,
                     solver, preconditioner, gd, timer)
-
-        #self.solver = solver
-        #self.preconditioner = preconditioner
-        #self.gd = gd
-        #self.timer = timer
-
-        #self.mblas = MultiBlas(gd)
         
         self.hpsit = None
         self.spsit = None
@@ -193,6 +181,7 @@ class ExplicitCrankNicolson(DummyPropagator):
     def solve_propagation_equation(self, kpt, time_step):
 
         self.timer.start('Apply time-dependent operators')
+        # Store H psi(t) as hpsit and S psit(t) as spsit
         run([nucleus.calculate_projections(kpt)
              for nucleus in self.td_hamiltonian.pt_nuclei])
         self.td_hamiltonian.apply(kpt, kpt.psit_nG, self.hpsit,
@@ -210,7 +199,7 @@ class ExplicitCrankNicolson(DummyPropagator):
         self.kpt = kpt
         self.time_step = time_step
 
-        # A x = b
+        # Solve A x = b where A is (S + i H dt/2) and b = kpt.psit_nG
         self.solver.solve(self, kpt.psit_nG, kpt.psit_nG)
 
     # ( S + i H dt/2 ) psi
@@ -233,7 +222,7 @@ class ExplicitCrankNicolson(DummyPropagator):
         self.td_overlap.apply(self.kpt, psi, self.spsit, calculate_P_uni=False)
         self.timer.stop('Apply time-dependent operators')
 
-        #  psin[:] = self.spsit + .5J * self.time_step * self.hpsit 
+        # psin[:] = self.spsit + .5J * self.time_step * self.hpsit 
         psin[:] = self.spsit
         self.mblas.multi_zaxpy(.5j * self.time_step, self.hpsit, psin, len(psi))
 
@@ -277,19 +266,6 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
             timer
         
         """
-        #self.td_density = td_density
-        #self.td_hamiltonian = td_hamiltonian
-        #self.td_overlap = td_overlap
-        #self.solver = solver
-        #self.preconditioner = preconditioner
-        #self.gd = gd
-        #self.timer = timer        
-
-        #self.mblas = MultiBlas(gd)
-
-        #self.hpsit = None
-        #self.spsit = None
-
         ExplicitCrankNicolson.__init__(self, td_density, td_hamiltonian, 
                         td_overlap, solver, preconditioner, gd, timer)
 
@@ -494,19 +470,6 @@ class AbsorptionKick(ExplicitCrankNicolson):
             timer
 
         """
-        #self.td_density = DummyDensity()
-        #self.td_hamiltonian = abs_kick_hamiltonian
-        #self.td_overlap = td_overlap
-        #self.solver = solver
-        #self.preconditioner = preconditioner
-        #self.gd = gd
-        #self.timer = timer
-
-        #self.mblas = MultiBlas(gd)
-
-        #self.hpsit = None
-        #self.spsit = None
-
         ExpliticCrankNicolson.__init__(self, DummyDensity(), abs_kick_hamiltonian,
                         td_overlap, solver, preconditioner, gd, timer)
 
@@ -565,19 +528,10 @@ class SemiImplicitTaylorExponential(DummyPropagator):
             timer
         
         """
-        #self.td_density = td_density
-        #self.td_hamiltonian = td_hamiltonian
-        #self.td_overlap = td_overlap
         DummyPropagator.__init__(self, td_density, td_hamiltonian, td_overlap,
                                 solver, preconditioner, gd, timer)
 
-        #self.solver = solver
-        #self.preconditioner = preconditioner
         self.degree = degree
-        #self.gd = gd
-        #self.timer = timer
-        
-        #self.mblas = MultiBlas(gd)
 
         self.tmp_kpt_u = None
         self.psin = None
@@ -730,19 +684,9 @@ class SemiImplicitKrylovExponential(DummyPropagator):
             timer
         
         """
-        #self.td_density = td_density
-        #self.td_hamiltonian = td_hamiltonian
-        #self.td_overlap = td_overlap
         DummyPropagator.__init__(self, td_density, td_hamiltonian, td_overlap,
                                 solver, preconditioner, gd, timer)
-
-        #self.solver = solver
-        #self.preconditioner = preconditioner
         self.kdim = degree + 1
-        #self.gd = gd
-        #self.timer = timer
-
-        #self.mblas = MultiBlas(gd)
         
         self.tmp_kpt_u = None
         self.lm = None
@@ -866,7 +810,7 @@ class SemiImplicitKrylovExponential(DummyPropagator):
         
         return self.niter
     
-    # psi(t) = exp(-i t S^-1 H) psi(0)
+    # psi(t+dt) = exp(-i dt S^-1 H) psi(t)
     def solve_propagation_equation(self, kpt_u, time_step): #TODO! for each kpt individually... how?
         nvec = len(kpt_u[0].psit_nG)
         tmp = npy.zeros((nvec,), complex)
