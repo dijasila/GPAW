@@ -25,8 +25,8 @@ H2 = Atoms([Atom(at, (a/2, a/2, (c-R)/2)),
 print at, 'dimer'
 nelectrons = 2 * H2[0].number
 
-txt='/dev/null'
-#txt='-'
+txt = None
+#txt = '-'
 
 # without potential
 if True:
@@ -49,8 +49,8 @@ if True:
     c1 = GPAW(h=0.3, nbands=-2, external=cp1, txt=txt)
     c1.calculate(H2)
 
-for i in range(c00.nbands):
-    f00 = c00.get_occupations()[i]
+for i in range(c00.get_number_of_bands()):
+    f00 = c00.get_occupation_numbers()[i]
     if f00 > 0.01:
         e00 = c00.get_eigenvalues()[i]
         e1 = c1.get_eigenvalues()[i]
