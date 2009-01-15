@@ -68,11 +68,12 @@ if 0:
 
 test_files = glob('test/*')
 # subdirectories must not be referenced directly
-for dir_to_remove in ['test/analyse', 'test/parallel']:
+for dir_to_remove in ['test/analyse', 'test/parallel', 'test/experimental']:
     if dir_to_remove in test_files:
         test_files.remove(dir_to_remove)
 test_analyse_files = glob('test/analyse/*')
 test_parallel_files = glob('test/parallel/*')
+test_experimental_files = glob('test/experimental/*')
 
 data_files=[
     #('share/gpaw/examples', examples_files),
@@ -80,7 +81,8 @@ data_files=[
     #('share/gpaw/examples/tutorials', examples_tutorials_files),
     ('share/gpaw/test', test_files),
     ('share/gpaw/test/analyse', test_analyse_files),
-    ('share/gpaw/test/parallel', test_parallel_files)
+    ('share/gpaw/test/parallel', test_parallel_files),
+    ('share/gpaw/test/experimental', test_experimental_files)
     ]
 
 force_inclusion_of_ase = False

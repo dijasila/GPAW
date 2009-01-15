@@ -227,7 +227,7 @@ class TimeDependentOverlap:
         
         Parameters
         ----------
-        pt_nuclei: List of ?LocalizedFunctions?   
+        pt_nuclei: List of ?LocalizedFunctions?
             projector functions (pt_nuclei)
 
         """

@@ -23,7 +23,7 @@ class MultiBlas:
         return s
 
     # Multivector dot product, a^T b, where ^T is transpose
-    def multi_zdotu(s, x,y, nvec):
+    def multi_zdotu(self, s, x,y, nvec):
         for i in range(nvec):
             s[i] = dotu(x[i],y[i])
         self.gd.comm.sum(s)
