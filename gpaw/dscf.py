@@ -45,7 +45,7 @@ def dscf_calculation(calc, orbitals, atoms=None):
     # occupation object
     if not hasattr(calc, 'occupation'):
        calc.initialize(atoms)
-    occ = calc.occupation
+    occ = calc.occupations
     if isinstance(occ, FermiDirac) and not isinstance(occ, FermiDiracDSCF):
         n_occ = FermiDiracDSCF(occ.ne, occ.nspins, occ.kT, orbitals, calc)
         n_occ.set_communicator(occ.kpt_comm)
