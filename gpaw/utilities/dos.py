@@ -239,9 +239,9 @@ class RawLDOS:
         for kpt in self.paw.wfs.kpt_u:
             if atom in kpt.P_ani:
                 for i, P_n in enumerate(kpt.P_ani[atom].T):
-                    spd[s, k, :, l_i[i]] += np.abs(P_n)**2
+                    spd[kpt.s, kpt.k, :, l_i[i]] += npy.abs(P_n)**2
 
-        wfs.domain.comm.sum(spd)
+        wfs.gd.comm.sum(spd)
         wfs.kpt_comm.sum(spd)
         return spd
 
@@ -271,6 +271,7 @@ class RawLDOS:
 
         f = paropen(filename,'w')
 
+        wfs = self.paw.wfs
         if width is None:
             # unfolded ldos
             eu = '[eV]'
@@ -279,22 +280,18 @@ class RawLDOS:
                 if len(key) == 1: key=' '+key
                 print  >> f, ' '+key+':s     p        d      ',
             print  >> f,' sum'
-            for k in range(self.wfs.nkpts):
-                for s in range(self.wfs.nspins):
-                    u = k * self.wfs.nspins + s
-                    e_n = self.wfs.collect_eigenvalues(k=k, s=s) * Hartree
-                    myu = self.wfs.get_myu(k, s)
-                    if myu is None:
-                        w = 0.
-                    else:
-                        w = self.wfs.wfs.kpt_u[myu].weight
-                    self.wfs.kpt_comm.max(w)
-                    for n in range(self.wfs.nbands):
-                        sum = 0.
+            for k in range(wfs.nibzkpts):
+                for s in range(wfs.nspins):
+                    e_n = self.paw.get_eigenvalues(kpt=k, spin=s)
+                    if e_n is None:
+                        continue
+                    w = wfs.weight_k[k]
+                    for n in range(wfs.nbands):
+                        sum = 0.0
                         print >> f, '%10.5f %2d %5d' % (e_n[n], s, k), 
                         print >> f, '%6d %8.4f' % (n, w),
                         for key in ldbe:
-                            spd = ldbe[key][u,n]
+                            spd = ldbe[key][s, k, n]
                             for l in range(3):
                                 sum += spd[l]
                                 print >> f, '%8.4f' % spd[l],
@@ -307,26 +304,23 @@ class RawLDOS:
             # minimal and maximal energies
             emin = 1.e32
             emax = -1.e32
-            for k in range(self.wfs.nkpts):
-                for s in range(self.wfs.nspins):
-                    e_n = self.wfs.collect_eigenvalues(k=k, s=s).tolist()
-                    e_n.append(emin)
-                    emin = min(e_n)
-                    e_n[-1] = emax
-                    emax = max(e_n)
-            emin *= Hartree
-            emax *= Hartree
-            emin -= 4*width
-            emax += 4*width
+            for k in range(wfs.nibzkpts):
+                for s in range(wfs.nspins):
+                    e_n = self.paw.get_eigenvalues(kpt=k, spin=s,
+                                                   broadcast=True)
+                    emin = min(e_n.min(), emin)
+                    emax = min(e_n.max(), emax)
+            emin -= 4 * width
+            emax += 4 * width
 
-            eshift = 0
+            eshift = 0.0
             if shift:
                 eshift = -self.paw.get_fermi_level()
 
             # set de to sample 4 points in the width
-            de = width/4.
+            de = width / 4
             
-            for s in range(self.wfs.nspins):
+            for s in range(wfs.nspins):
                 print >> f, '# Gauss folded, width=%g [eV]' % width
                 if shift:
                     print >> f, '# shifted to Fermi energy = 0'
@@ -350,20 +344,14 @@ class RawLDOS:
                     val = {}
                     for key in ldbe:
                         val[key] = npy.zeros((3))
-                    for k in range(self.wfs.nkpts):
-                        u = k * self.wfs.nspins + s
-                        myu = self.wfs.get_myu(k, s)
-                        if myu is None:
-                            w = 0.
-                        else:
-                            w = self.wfs.wfs.kpt_u[myu].weight
-                        self.wfs.kpt_comm.max(w)
-
-                        e_n = self.wfs.collect_eigenvalues(k=k, s=s) * Hartree
-                        for n in range(self.wfs.nbands):
+                    for k in range(wfs.nibzkpts):
+                        w = wfs.weight_[k]
+                        e_n = self.paw.get_eigenvalues(kpt=k, spin=s,
+                                                       broadcast=True)
+                        for n in range(wfs.nbands):
                             w_i = w * gauss.get(e_n[n] - e)
                             for key in ldbe:
-                                val[key] += w_i * ldbe[key][u, n]
+                                val[key] += w_i * ldbe[key][s, k, n]
 
                     print >> f, '%10.5f %2d' % (e + eshift, s), 
                     for key in val:
