@@ -882,10 +882,10 @@ class Setup:
                 f_j[j] -= c
                 charge -= c
         else:
-            for j in range(nj - 1, -1, -1):
+            for j in range(nj):
                 f = f_j[j]
                 l = self.l_j[j]
-                c = min(2 * l + 1 - f, -charge)
+                c = min(2 * (2 * l + 1) - f, -charge)
                 f_j[j] += c
                 charge += c
         assert charge == 0.0
