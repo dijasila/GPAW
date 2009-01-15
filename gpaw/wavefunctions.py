@@ -52,20 +52,20 @@ class WaveFunctions(EmptyWaveFunctions):
         self.kpt_comm = kpt_comm
         self.rank_a = None
 
-        nibzkpts = len(weight_k)
+        self.nibzkpts = len(weight_k)
 
         # Total number of k-point/spin combinations:
-        nks = nibzkpts * nspins
+        nks = self.nibzkpts * nspins
 
         # Number of k-point/spin combinations on this cpu:
         mynks = nks // kpt_comm.size
 
         ks0 = kpt_comm.rank * mynks
-        k0 = ks0 % nibzkpts
+        k0 = ks0 % self.nibzkpts
         self.kpt_u = []
         sdisp_cd = gd.domain.sdisp_cd
         for ks in range(ks0, ks0 + mynks):
-            s, k = divmod(ks, nibzkpts)
+            s, k = divmod(ks, self.nibzkpts)
             q = k - k0
             weight = weight_k[k] * 2 / nspins
             if gamma:
