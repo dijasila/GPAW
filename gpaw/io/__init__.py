@@ -313,10 +313,10 @@ def write(paw, filename, mode):
               'using mode=', mode
 
         ngd = paw.gd.get_size_of_global_array()
-        for s in range(paw.nspins):
+        for s in range(wfs.nspins):
             for k in range(nibzkpts):
                 for n in range(wfs.nbands):
-                    psit_G = paw.get_wave_function_array(n, k, s)
+                    psit_G = wfs.get_wave_function_array(n, k, s)
                     if master:
                         fname = template % (s,k,n) + '.'+ftype
                         wpsi = open(fname,'w')

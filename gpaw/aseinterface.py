@@ -572,3 +572,16 @@ class GPAW(PAW):
     def get_grid_spacings(self):
         return Bohr * self.wfs.gd.h_c
 
+    def read_wave_functions(self, mode='gpw'):
+        """Read wave functions one by one from seperate files"""
+
+        from gpaw.io import read_wave_function
+        for u, kpt in enumerate(self.wfs.kpt_u):
+            #kpt = self.kpt_u[u]
+            kpt.psit_nG = self.gd.empty(self.wfs.nbands, self.wfs.dtype)
+            # Read band by band to save memory
+            s = kpt.s
+            k = kpt.k
+            for n, psit_G in enumerate(kpt.psit_nG):
+                psit_G[:] = read_wave_function(self.gd, s, k, n, mode)
+                
