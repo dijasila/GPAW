@@ -327,20 +327,31 @@ class GPAW(PAW):
         if broadcast:
             if not self.wfs.world.rank == 0:
                 psit_G = self.gd.empty(dtype=self.dtype, global_array=True)
-            self.world.broadcast(psit_G, 0)
+            self.wfs.world.broadcast(psit_G, 0)
             return psit_G / Bohr**1.5
         elif self.wfs.world.rank == 0:
             return psit_G / Bohr**1.5
 
-    def get_eigenvalues(self, kpt=0, spin=0):
+    def get_eigenvalues(self, kpt=0, spin=0, broadcast=False):
         """Return eigenvalue array."""
         eps_n = self.wfs.collect_array('eps_n', kpt, spin)
+        if broadcast:
+            if self.wfs.world.rank != 0:
+                assert eps_n is None
+                eps_n = np.empty(self.wfs.nbands)
+            self.wfs.world.broadcast(eps_n, 0)
         if eps_n is not None:
             return eps_n * Hartree
 
-    def get_occupation_numbers(self, kpt=0, spin=0):
+    def get_occupation_numbers(self, kpt=0, spin=0, broadcast=False):
         """Return occupation array."""
-        return self.wfs.collect_array('f_n', kpt, spin)
+        f_n = self.wfs.collect_array('f_n', kpt, spin)
+        if broadcast:
+            if self.wfs.world.rank != 0:
+                assert f_n is None
+                f_n = np.empty(self.wfs.nbands)
+            self.wfs.world.broadcast(f_n, 0)
+        return f_n
     
     def get_xc_difference(self, xcname):
         return self.hamiltonian.get_xc_difference(xcname, self.wfs,
