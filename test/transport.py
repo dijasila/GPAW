@@ -5,14 +5,11 @@ from gpaw.atom.basis import BasisMaker
 import pickle
 import numpy as npy
 
-a = 3.6 # Na binding length
-L = 7.00 # width of unit cell
+a = 3.6
+L = 7.00
 
-# Setup the Atoms for the scattering region.
-atoms = Atoms('Na12', pbc=(1, 1, 1), cell=[12 * a, L, L])
-atoms.positions[:5, 0] = [i * a for i in range(5)]
-atoms.positions[-5:, 0] = [i * a + 3 * a for i in range(4, 9)]
-atoms.positions[5:7, 0] = [5 * a, 6 * a ]
+atoms = Atoms('Na4', pbc=(1, 1, 1), cell=[4 * a, L, L])
+atoms.positions[:4, 0] = [i * a for i in range(4)]
 atoms.positions[:, 1:] = L / 2.
 
 bm = BasisMaker('Na')#, run=False)
@@ -20,7 +17,6 @@ bm = BasisMaker('Na')#, run=False)
 basis = bm.generate(1, 1)
 
 atoms.center()
-# Attach a GPAW calculator, attention to two keywords: fortransport, usesymm
 atoms.set_calculator(GPAW(h=0.3,
                           xc='PBE',
                           basis={'Na': basis},
@@ -42,14 +38,7 @@ gpawtran = GPAWTransport(atoms=atoms,
                          pl_cells=(pl_cell1, pl_cell2),
                          d=0) #transport direction (0 := x)
 
-#generte the guess for transport selfconsistent calculation
-#flag: 0 for calculation, 1 for restart
 gpawtran.negf_prepare('test1', 0)
-
-#the result restored in the h_syzkmm member of gpawtransport object
 gpawtran.get_selfconsistent_hamiltonian(bias=0, gate=0, verbose=1)
 
-filename = 'Na12_eq'
-fd = file(filename,'wb')
-pickle.dump((gpawtran.h_syzkmm, gpawtran.d_syzkmm, gpawtran.atoms.calc.hamiltonian.vt_sG), fd, 2)
-fd.close()
+
