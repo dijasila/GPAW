@@ -18,10 +18,11 @@ repeats = 20
 try:
     N = int(sys.argv[1])
     J = int(sys.argv[2])
-except IndexError:
+except (IndexError, ValueError):
     N = 6
     J = 3
-
+    repeats = 3
+    
 h = 0.2        # grid spacing
 a = h * G      # side length of box
 M = N // B     # number of bands per group

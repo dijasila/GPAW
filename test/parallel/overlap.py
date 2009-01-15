@@ -17,9 +17,10 @@ repeats = 20
 try:
     N = int(sys.argv[1])
     K = int(sys.argv[2])
-except IndexError:
+except (IndexError, ValueError):
     N = 6
     K = 3
+    repeats = 3
 
 h = 0.2        # grid spacing
 a = h * G      # side length of box
