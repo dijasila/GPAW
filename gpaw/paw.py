@@ -448,6 +448,9 @@ class PAW(PAWTextOutput):
                 self.wfs = GridWaveFunctions(par.stencils[0], *args)
         else:
             self.wfs.set_setups(setups)
+
+        self.occupations.set_communicator(self.wfs.kpt_comm,
+                                          self.wfs.band_comm)
             
         eigensolver = get_eigensolver(par.eigensolver, par.mode,
                                       par.convergence)
