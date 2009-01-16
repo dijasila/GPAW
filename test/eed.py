@@ -5,7 +5,7 @@ from gpaw import GPAW
 from gpaw.utilities import equal
 from gpaw.analyse.eed import ExteriorElectronDensity
 
-sc = 1.
+sc = 1.5
 R=0.7 # approx. experimental bond length
 a = 2 * sc
 c = 3 * sc
