@@ -18,13 +18,14 @@ def test():
 
     a = 7.5 * Bohr
     n = 16
-    atoms = Atoms([Atom('He', (0.0, 0.0, 0.0))], cell=(a, a, a), pbc=True)
+    atoms = Atoms('He', [(0.0, 0.0, 0.0)], cell=(a, a, a), pbc=True)
     calc = GPAW(gpts=(n, n, n), nbands=1, xc='revPBE')
     atoms.set_calculator(calc)
     e1 = atoms.get_potential_energy()
     calc.write('He')
     e2 = e1 + calc.get_xc_difference('vdWDF')
     print e1, e2
+    assert abs(e2 - -1.82358800345) < 1e-5
 
 if 'VDW' in os.environ:
     test()

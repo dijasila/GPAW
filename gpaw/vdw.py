@@ -439,47 +439,48 @@ class VDWFunctional:
         #the minimum image convention
 
         gd = self.gd
-        n_g = gd.collect(self.n_g)
-        q0_g = gd.collect(self.q0_g)
-        if mpi.rank != 0:
-            n_g = gd.empty(global_array=True)
-            q0_g = gd.empty(global_array=True)
-        mpi.world.broadcast(n_g, 0)
-        mpi.world.broadcast(q0_g, 0)
-        
+
+        n_g = self.n_g
+        q0_g = self.q0_g
         
         grad = [Gradient(gd, c) for c in range(3)]
-        self.s_cg = gd.empty(3)
+        s_cg = gd.empty(3)
         for c in range(3):
-            grad[c].apply(n_g, self.s_cg[c])
+            grad[c].apply(n_g, s_cg[c])
             
         #div(s)    
-        self.s_cg /= 2 * self.kF_g * n_g
+        s_cg /= 2 * self.kF_g * n_g
         s2_cg = gd.empty(3)
         for c in range(3):
-            grad[c].apply(self.s_cg[c], s2_cg[c])
+            grad[c].apply(s_cg[c], s2_cg[c])
         sggf = s2_cg.sum(axis=0)
         #exc'lda
         
-        s2 = (self.s_cg**2).sum(axis=0)
+        s2 = (s_cg**2).sum(axis=0)
 
-        self.alpha2 = gd.zeros()
+        alpha2_g = gd.zeros()
         temp_g = gd.empty()
         for c in range(3):
-            grad[c].apply(self.q0_g, temp_g)
-            self.alpha2 += self.s_cg[c] * temp_g
-        self.alpha2 *= -0.8491/9.0 / self.q0_g**2
+            grad[c].apply(q0_g, temp_g)
+            alpha2_g += s_cg[c] * temp_g
+        alpha2_g *= -0.8491 / 9.0 / q0_g**2
         
         # LDA:
         xc = XC3DGrid('LDA', gd)
         v_g = gd.empty()
         e_g = gd.empty()
-        xc.get_energy_and_potential_spinpaired( n_g, v_g, e_g)
+        xc.get_energy_and_potential_spinpaired(n_g, v_g, e_g)
         
-
-        q0=self.get_q0
-        self.alpha1=1.0/self.q0_g*(-0.8491/9.0*sggf+7.0/3.0*-0.8491/9.0*s2*self.kF_g-4.0*npy.pi/3.0*(v_g-e_g))
+        alpha1_g = 1.0 / q0_g * (-0.8491 / 9.0 * sggf +
+                                 7.0 / 3.0 * -0.8491 / 9.0 * s2 * self.kF_g -
+                                 4.0 * npy.pi / 3.0 * (v_g - e_g))
     
+        n_g = gd.collect(n_g, broadcast=True)
+        q0_g = gd.collect(q0_g, broadcast=True)
+        alpha1_g = gd.collect(alpha1_g, broadcast=True)
+        alpha2_g = gd.collect(alpha2_g, broadcast=True)
+        s_cg = gd.collect(s_cg, broadcast=True)
+        
         n_c = n_g.shape
         R_gc = npy.empty(n_c + (3,))
         R_gc[..., 0] = (npy.arange(0, n_c[0]) * gd.h_c[0]).reshape((-1, 1, 1))
@@ -492,10 +493,10 @@ class VDWFunctional:
         q0_i = q0_g.ravel().compress(mask_g)
         # Here we will cut the alphas and the s
     
-        a1_i = self.alpha1.ravel().compress(mask_g)
-    
-        a2_i = self.alpha2.ravel().compress(mask_g)
-        s_i = self.s_cg.ravel().compress(mask_g)
+        a1_i = alpha1_g.ravel().compress(mask_g)
+        a2_i = alpha2_g.ravel().compress(mask_g)
+        s_ci = s_cg.reshape((3, -1)).compress(mask_g, axis=1)
+
         # Number of grid points:
         ni = len(n_i)
 
@@ -525,10 +526,12 @@ class VDWFunctional:
                              #repeat_c,
                              self.phi_jk, self.deltaD, self.deltadelta,
                              iA, iB,
-                             a1_i, a2_i, s_i, v_i)
+                             a1_i, a2_i, s_ci, v_i)
         E_vdwnl = mpi.world.sum(E_vdwnl * gd.h_c.prod()**2)
-        v_g = self.gd.zeros()
+        mpi.world.sum(v_i)
+        v_g = gd.zeros(global_array=True)
         v_g.ravel()[mask_g] = v_i
+        v_g = v_g[gd.get_slice()].copy()
         return E_vdwnl, v_g
 
     def calculate_spinpaired(self, e_g, n_g, v_g, a2_g, deda2_g):
@@ -545,5 +548,6 @@ class VDWFunctional:
             #e = self.get_energy()
             e, vvdw_g = self.get_potential()
             v_g += vvdw_g
-            e_g[0] += e / self.gd.h_c.prod()
-            
+            print e, e_g.shape
+            if self.gd.comm.rank == 0:
+                e_g[0] += e / self.gd.h_c.prod()
