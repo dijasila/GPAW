@@ -1,11 +1,13 @@
 from ase import *
 from gpaw import *
 from gpaw.lcao.gpawtransport import GPAWTransport 
+from gpaw.atom.basis import BasisMaker
 import pickle
-import numpy as npy
 
 a = 3.6
 L = 7.00 
+
+basis = BasisMaker('Na').generate(1, 1)
 
 atoms = Atoms('Na4', pbc=(1, 1, 1), cell=[4 * a, L, L])
 atoms.positions[:4, 0] = [i * a for i in range(4)]
@@ -13,7 +15,7 @@ atoms.positions[:, 1:] = L / 2.
 atoms.center()
 atoms.set_calculator(GPAW(h=0.3,
                           xc='PBE',
-                          basis='szp',
+                          basis={'Na': basis},
                           kpts=(3,1,1),
                           width=0.01,
                           mode='lcao',
