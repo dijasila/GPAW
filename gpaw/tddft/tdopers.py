@@ -18,7 +18,7 @@ class TimeDependentHamiltonian:
     Hamiltonian to a wavefunction.
     """
     
-    def __init__(self, pt_nuclei, hamiltonian, td_potential):
+    def __init__(self, pt_nuclei, hamiltonian, td_potential=None):
         """ Create the TimeDependentHamiltonian-object.
         
         The time-dependent potential object must (be None or) have a member
@@ -40,10 +40,10 @@ class TimeDependentHamiltonian:
         self.td_potential = td_potential
         self.time = self.old_time = 0
         
-        # internal smooth potential
+        # Allocate ndarray for internal smooth potential for each spin
         self.vt_sG = hamiltonian.gd.zeros(n=hamiltonian.nspins)
 
-        # Increase the accuracy of Poisson solver
+        # Increase the accuracy of the Poisson solver
         self.hamiltonian.poisson_eps = 1e-12
 
         # external potential
@@ -53,11 +53,9 @@ class TimeDependentHamiltonian:
         #self.ti_vext_g = hamiltonian.vext_g
         #self.td_vext_g = hamiltonian.finegd.zeros(n=hamiltonian.nspins)
 
-        # internal PAW-potential
-        self.H_asp = [
-            npy.zeros(nucleus.H_sp.shape)
-            for nucleus in hamiltonian.my_nuclei
-            ]
+        # Allocate ndarray for internal PAW-potential at each nucleus
+        self.H_asp = [npy.zeros(nucleus.H_sp.shape,dtype=nucleus.H_sp.dtype)
+                      for nucleus in hamiltonian.my_nuclei]
 
 
     def update(self, density, time):
@@ -93,18 +91,23 @@ class TimeDependentHamiltonian:
         self.old_time = self.time
         self.time = time
 
-        # copy old        
+        # copy old
         self.vt_sG[:] = self.hamiltonian.vt_sG
-        for a in range(len(self.hamiltonian.my_nuclei)):
-            self.H_asp[a][:] = self.hamiltonian.my_nuclei[a].H_sp
+        #for a in range(len(self.hamiltonian.my_nuclei)):
+        #    self.H_asp[a][:] = self.hamiltonian.my_nuclei[a].H_sp
+        for (a,nucleus) in enumerate(self.hamiltonian.my_nuclei):
+            self.H_asp[a][:] = nucleus.H_sp
+
         # update
         self.hamiltonian.update(density)
         # average
         self.hamiltonian.vt_sG += self.vt_sG
         self.hamiltonian.vt_sG *= .5
-        for a in range(len(self.hamiltonian.my_nuclei)):
-            self.hamiltonian.my_nuclei[a].H_sp += self.H_asp[a] 
-            self.hamiltonian.my_nuclei[a].H_sp *= .5
+        #for a in range(len(self.hamiltonian.my_nuclei)):
+        #    self.hamiltonian.my_nuclei[a].H_sp += self.H_asp[a] 
+        #    self.hamiltonian.my_nuclei[a].H_sp *= .5
+        for (a,nucleus) in enumerate(self.hamiltonian.my_nuclei):
+            nucleus.H_sp[:] = 0.5*(nucleus.H_sp + self.H_asp[a])
 
         
     def apply(self, kpt, psit, hpsit, calculate_P_uni=True):
@@ -125,10 +128,8 @@ class TimeDependentHamiltonian:
         self.hamiltonian.apply(psit, hpsit, kpt, calculate_P_uni)
         if self.td_potential is not None:
             strength = self.td_potential.strength
-            ExternalPotential().add_linear_field( self.pt_nuclei, psit, hpsit,
-                                                  .5*strength(self.time)
-                                                  + .5*strength(self.old_time),
-                                                  kpt )
+            ExternalPotential().add_linear_field(self.pt_nuclei, psit, hpsit,
+                    0.5*(strength(self.time) + strength(self.old_time)), kpt)
 
 
 # AbsorptionKickHamiltonian
@@ -210,8 +211,8 @@ class AbsorptionKickHamiltonian:
 
         """
         hpsit[:] = 0.0
-        ExternalPotential().add_linear_field( self.pt_nuclei, psit, hpsit,
-                                              self.abs_hamiltonian, kpt )
+        ExternalPotential().add_linear_field(self.pt_nuclei, psit, hpsit,
+                                             self.abs_hamiltonian, kpt)
 
 
 # Overlap

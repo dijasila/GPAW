@@ -38,7 +38,7 @@ class Output:
 
         firsttime = (self.txt is None)
 
-        if txt is None or (not self.master):
+        if txt is None or (hasattr(self,'master') and not self.master):
             self.txt = devnull
         elif txt == '-':
             self.txt = sys.stdout

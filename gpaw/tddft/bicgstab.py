@@ -24,8 +24,8 @@ class BiCGStab:
     Now x and b are multivectors, i.e., list of vectors.
     """ 
     
-    def __init__( self, gd, timer = None,
-                  tolerance = 1e-15, max_iterations = 1000, eps=1e-15 ):
+    def __init__(self, gd, timer=None, tolerance=1e-15,
+                 max_iterations=1000, eps=1e-15):
         """Create the BiCGStab-object.
         
         Tolerance should not be smaller than attainable accuracy, which is 
@@ -53,7 +53,7 @@ class BiCGStab:
         
         self.tol = tolerance
         self.max_iter = max_iterations
-        if ( eps <= tolerance ):
+        if eps <= tolerance:
             self.eps = eps
         else:
             raise RuntimeError("BiCGStab method got invalid tolerance (tol = %le < eps = %le)." % (tolerance,eps))

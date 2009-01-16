@@ -15,9 +15,13 @@ from gpaw.mpi import rank, run
 from gpaw.tddft.utils import MultiBlas
 
 
+###############################################################################
+# DummyKPoint
+###############################################################################
 class DummyKPoint:
     def __init__(self):
         pass
+
 
 ###############################################################################
 # DummyPropagator
@@ -29,7 +33,7 @@ class DummyPropagator:
     
     """
     def __init__(self, td_density, td_hamiltonian, td_overlap,
-                solver, preconditioner, gd, timer, debug=True):
+                solver, preconditioner, gd, timer):
         """Create the DummyPropagator-object.
         
         Parameters
@@ -60,8 +64,6 @@ class DummyPropagator:
         self.timer = timer
 
         self.mblas = MultiBlas(gd)
-
-        self.debug = debug #TODO! temporary
 
     #  Solve M psin = psi
     def apply_preconditioner(self, psi, psin):
@@ -96,8 +98,8 @@ class DummyPropagator:
             the time step
         
         """ 
-        raise RuntimeError( 'Error in DummyPropagator: '
-                            'Member function propagate is virtual.' )
+        raise RuntimeError('Error in DummyPropagator: '
+                            'Member function propagate is virtual.')
 
 
 ###############################################################################
@@ -113,8 +115,8 @@ class ExplicitCrankNicolson(DummyPropagator):
     
     """
     
-    def __init__( self, td_density, td_hamiltonian, td_overlap, 
-                  solver, preconditioner, gd, timer):
+    def __init__(self, td_density, td_hamiltonian, td_overlap, 
+                 solver, preconditioner, gd, timer):
         """Create ExplicitCrankNicolson-object.
         
         Parameters
@@ -136,11 +138,11 @@ class ExplicitCrankNicolson(DummyPropagator):
         
         """
         DummyPropagator.__init__(self, td_density, td_hamiltonian, td_overlap,
-                    solver, preconditioner, gd, timer)
+                                 solver, preconditioner, gd, timer)
         
         self.hpsit = None
         self.spsit = None
-        
+        self.sinvhpsit = None
 
     # ( S + i H dt/2 ) psit(t+dt) = ( S - i H dt/2 ) psit(t)
     def propagate(self, kpt_u, time, time_step):
@@ -171,14 +173,18 @@ class ExplicitCrankNicolson(DummyPropagator):
         self.timer.stop('Update time-dependent operators')
 
         # loop over k-points (spins)
-        if self.debug: print '\nECN: Predictor step for psit(t+dt) with t=%g, dt=%g' % (time,time_step)
+        if self.debug is not None:
+            self.debug.text('\nECN: Predictor step for psit(t+dt) with t=%g, dt=%g' % (time,time_step))
+
         for kpt in kpt_u:
-            self.solve_propagation_equation(kpt, time_step)
+            self.solve_propagation_equation(kpt, time_step) #TODO! XXX guess=True
 
         return self.niter
 
     # ( S + i H dt/2 ) psit(t+dt) = ( S - i H dt/2 ) psit(t)
-    def solve_propagation_equation(self, kpt, time_step):
+    def solve_propagation_equation(self, kpt, time_step, guess=False):
+
+        nvec = len(kpt.psit_nG)
 
         self.timer.start('Apply time-dependent operators')
         # Store H psi(t) as hpsit and S psit(t) as spsit
@@ -194,6 +200,16 @@ class ExplicitCrankNicolson(DummyPropagator):
         kpt.psit_nG[:] = self.spsit
         self.mblas.multi_zaxpy(-.5j * time_step, self.hpsit, kpt.psit_nG, 
                                 len(kpt.psit_nG))
+
+        if guess:
+            raise NotImplementedError('Data race condition for kpt.psit_nG is a TODO...')
+
+            if self.sinvhpsit is None:
+                self.sinvhpsit = self.gd.zeros(len(kpt.psit_nG), dtype=complex)
+
+            # Update kpt.psit_nG to estimate psit(t+dt) as ( 1 - i S^(-1) H dt ) psit(t)
+            self.td_overlap.apply_inverse(kpt, self.hpsit, self.sinvhpsit)
+            self.mblas.multi_zaxpy(-1.0j * time_step, self.sinvhpsit, kpt.psit_nG, nvec)
 
         # Information needed by solver.solve -> self.dot
         self.kpt = kpt
@@ -244,8 +260,8 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
     
     """
     
-    def __init__( self, td_density, td_hamiltonian, td_overlap, 
-                  solver, preconditioner, gd, timer):
+    def __init__(self, td_density, td_hamiltonian, td_overlap, 
+                 solver, preconditioner, gd, timer):
         """Create SemiImplicitCrankNicolson-object.
         
         Parameters
@@ -267,11 +283,10 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         
         """
         ExplicitCrankNicolson.__init__(self, td_density, td_hamiltonian, 
-                        td_overlap, solver, preconditioner, gd, timer)
+                          td_overlap, solver, preconditioner, gd, timer)
 
         self.old_kpt_u = None
         self.tmp_kpt_u = None
-        self.sinvhpsit = None
 
 
     def propagate(self, kpt_u, time, time_step):
@@ -294,16 +309,16 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
             self.old_kpt_u = []
             for kpt in kpt_u:
                 old_kpt = DummyKPoint()
-                old_kpt.psit_nG = self.gd.empty( n=len(kpt.psit_nG),
-                                                 dtype=complex )
+                old_kpt.psit_nG = self.gd.empty(n=len(kpt.psit_nG),
+                                                dtype=complex)
                 self.old_kpt_u.append(old_kpt)
 
         if self.tmp_kpt_u is None:
             self.tmp_kpt_u = []
             for kpt in kpt_u:
                 tmp_kpt = DummyKPoint()
-                tmp_kpt.psit_nG = self.gd.empty( n=len(kpt.psit_nG),
-                                                 dtype=complex )
+                tmp_kpt.psit_nG = self.gd.empty(n=len(kpt.psit_nG),
+                                                dtype=complex)
                 self.tmp_kpt_u.append(tmp_kpt)
 
         if self.hpsit is None:
@@ -335,7 +350,9 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         # Predictor step
         # Here each psit_nG in tmp_kpt_u is overwritten by (1 - i S^(-1)(t) H(t) dt) psit_nG
         # from corresponding kpt_u as a full Euler step before psit(t+dt) is predicted.
-        if self.debug: print '\nSICN: Predictor step for psit(t+dt) with t=%g, dt=%g' % (time,time_step)
+        if self.debug is not None:
+            self.debug.text('\nSICN: Predictor step for psit(t+dt) with t=%g, dt=%g' % (time,time_step))
+
         for [kpt, rhs_kpt] in zip(kpt_u, self.tmp_kpt_u):
             self.solve_propagation_equation(kpt, rhs_kpt, time_step, guess=True)
 
@@ -346,8 +363,8 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         self.td_density.update()
 
         # Estimate Hamiltonian H(t+dt/2) and overlap S(t+dt/2) based on change
-        self.td_hamiltonian.half_update( self.td_density.get_density(),
-                                         time + time_step )
+        self.td_hamiltonian.half_update(self.td_density.get_density(),
+                                        time + time_step)
         self.td_overlap.half_update()
 
         self.timer.stop('Update time-dependent operators')
@@ -355,7 +372,9 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         # Corrector step
         # Each predicted psit_nG in kpt_u is given as an initial guess, whereas the old 
         # wavefunction in old_kpt_u are used to calculate rhs based on psit(t).
-        if self.debug: print '\nSICN: Corrector step for psit(t+dt) with t=%g, dt=%g' % (time,time_step)
+        if self.debug is not None:
+            self.debug.text('\nSICN: Corrector step for psit(t+dt) with t=%g, dt=%g' % (time,time_step))
+
         for [kpt, rhs_kpt] in zip(kpt_u, self.old_kpt_u):
             self.solve_propagation_equation(kpt, rhs_kpt, time_step)
         
@@ -369,6 +388,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         nvec = len(rhs_kpt.psit_nG)
 
         assert kpt != rhs_kpt, 'Data race condition detected'
+        assert len(kpt.psit_nG) == nvec, 'Incompatible number of lhs/rhs vectors'
 
         self.timer.start('Apply time-dependent operators')
         # Store H psi(t) as hpsit and S psit(t) as spsit
@@ -451,7 +471,8 @@ class AbsorptionKick(ExplicitCrankNicolson):
     
     """
     
-    def __init__(self, abs_kick_hamiltonian, td_overlap, solver, preconditioner, gd, timer):
+    def __init__(self, abs_kick_hamiltonian, td_overlap,
+                 solver, preconditioner, gd, timer):
         """Create AbsorptionKick-object.
         
         Parameters
@@ -470,8 +491,9 @@ class AbsorptionKick(ExplicitCrankNicolson):
             timer
 
         """
-        ExpliticCrankNicolson.__init__(self, DummyDensity(), abs_kick_hamiltonian,
-                        td_overlap, solver, preconditioner, gd, timer)
+        ExpliticCrankNicolson.__init__(self, DummyDensity(),
+                        abs_kick_hamiltonian, td_overlap, solver,
+                        preconditioner, gd, timer)
 
 
     def kick(self, kpt_u):
@@ -504,8 +526,8 @@ class SemiImplicitTaylorExponential(DummyPropagator):
     
     """
     
-    def __init__( self, td_density, td_hamiltonian, td_overlap, solver, 
-                  preconditioner, degree, gd, timer ):
+    def __init__(self, td_density, td_hamiltonian, td_overlap, solver, 
+                 preconditioner, gd, timer, degree):
         """Create SemiImplicitTaylorExponential-object.
         
         Parameters
@@ -520,16 +542,16 @@ class SemiImplicitTaylorExponential(DummyPropagator):
             solver for linear equations
         preconditioner: Preconditioner
             preconditioner
-        degree: integer
-            Degree of the Taylor polynomial
         gd: GridDescriptor
             coarse (wavefunction) grid descriptor
         timer: Timer
             timer
+        degree: integer
+            Degree of the Taylor polynomial
         
         """
         DummyPropagator.__init__(self, td_density, td_hamiltonian, td_overlap,
-                                solver, preconditioner, gd, timer)
+                                 solver, preconditioner, gd, timer)
 
         self.degree = degree
 
@@ -557,19 +579,17 @@ class SemiImplicitTaylorExponential(DummyPropagator):
             self.tmp_kpt_u = []
             for kpt in kpt_u:
                 tmp_kpt = DummyKPoint()
-                tmp_kpt.psit_nG = self.gd.empty( n=len(kpt.psit_nG),
-                                                 dtype=complex )
+                tmp_kpt.psit_nG = self.gd.empty(n=len(kpt.psit_nG),
+                                                dtype=complex)
                 self.tmp_kpt_u.append(tmp_kpt)
 
 
         # Allocate memory 
         nvec = len(kpt_u[0].psit_nG)
         if self.psin is None:
-            self.psin = self.gd.zeros( nvec, 
-                                       dtype=complex )
+            self.psin = self.gd.zeros(nvec, dtype=complex)
         if self.hpsit is None:
-            self.hpsit = self.gd.zeros( nvec, 
-                                       dtype=complex )
+            self.hpsit = self.gd.zeros(nvec, dtype=complex)
         
         #self.time_step = time_step #TODO! verify that commenting this out is dependency-safe
 
@@ -591,7 +611,9 @@ class SemiImplicitTaylorExponential(DummyPropagator):
             self.tmp_kpt_u[u].psit_nG[:] = kpt_u[u].psit_nG
 
         # predict for each kpt_u
-        if self.debug: print '\nSITE: Predictor step for psit(t+dt) with t=%g, dt=%g' % (time,time_step)
+        if self.debug is not None:
+            self.debug.text('\nSITE: Predictor step for psit(t+dt) with t=%g, dt=%g' % (time,time_step))
+
         for kpt in kpt_u:
             self.solve_propagation_equation(kpt, time_step)
 
@@ -601,8 +623,8 @@ class SemiImplicitTaylorExponential(DummyPropagator):
         # rho(t+dt)
         self.td_density.update()
         # H(t+dt/2)
-        self.td_hamiltonian.half_update( self.td_density.get_density(),
-                                         time + time_step )
+        self.td_hamiltonian.half_update(self.td_density.get_density(),
+                                        time + time_step)
         # S(t+dt/2)
         self.td_overlap.half_update()
 
@@ -614,7 +636,9 @@ class SemiImplicitTaylorExponential(DummyPropagator):
             kpt_u[u].psit_nG[:] = self.tmp_kpt_u[u].psit_nG
 
         # correct for each kpt_u
-        if self.debug: print '\nSITE: Corrector step for psit(t+dt) with t=%g, dt=%g' % (time,time_step)
+        if self.debug is not None:
+            self.debug.text('\nSITE: Corrector step for psit(t+dt) with t=%g, dt=%g' % (time,time_step))
+
         for kpt in kpt_u:
             self.solve_propagation_equation(kpt, time_step)
         
@@ -641,8 +665,8 @@ class SemiImplicitTaylorExponential(DummyPropagator):
             self.niter += self.solver.solve(self, self.psin, self.hpsit)
             #print 'Linear solver iterations = ', self.solver.iterations
             # psin = psi(0) + (-it/k) S^-1 H psin
-            self.mblas.multi_scale( -(1.0J) * time_step / k, 
-                                     self.psin, nvec )
+            self.mblas.multi_scale(-1.0J * time_step / k, 
+                                    self.psin, nvec)
             self.mblas.multi_zaxpy(1.0, kpt.psit_nG, self.psin, nvec)
 
         kpt.psit_nG[:] = self.psin
@@ -660,8 +684,8 @@ class SemiImplicitKrylovExponential(DummyPropagator):
     
     """
     
-    def __init__( self, td_density, td_hamiltonian, td_overlap, solver, 
-                  preconditioner, degree, gd, timer ):
+    def __init__(self, td_density, td_hamiltonian, td_overlap, solver, 
+                 preconditioner, gd, timer, degree):
         """Create SemiImplicitKrylovExponential-object.
         
         Parameters
@@ -676,16 +700,17 @@ class SemiImplicitKrylovExponential(DummyPropagator):
             solver for linear equations
         preconditioner: Preconditioner
             preconditioner
-        degree: integer
-            Degree of the Krylov subspace
         gd: GridDescriptor
             coarse (wavefunction) grid descriptor
         timer: Timer
             timer
+        degree: integer
+            Degree of the Krylov subspace
         
         """
         DummyPropagator.__init__(self, td_density, td_hamiltonian, td_overlap,
-                                solver, preconditioner, gd, timer)
+                                 solver, preconditioner, gd, timer)
+
         self.kdim = degree + 1
         
         self.tmp_kpt_u = None
@@ -719,8 +744,8 @@ class SemiImplicitKrylovExponential(DummyPropagator):
             self.tmp_kpt_u = []
             for kpt in kpt_u:
                 tmp_kpt = DummyKPoint()
-                tmp_kpt.psit_nG = self.gd.empty( n=len(kpt.psit_nG),
-                                                 dtype=complex )
+                tmp_kpt.psit_nG = self.gd.empty(n=len(kpt.psit_nG),
+                                                dtype=complex)
                 self.tmp_kpt_u.append(tmp_kpt)
 
 
@@ -729,38 +754,38 @@ class SemiImplicitKrylovExponential(DummyPropagator):
 
         # em = (wfs, degree)
         if self.em is None:
-            self.em = npy.zeros( (nvec, self.kdim), float)
+            self.em = npy.zeros((nvec, self.kdim), float)
 
         # lm = (wfs)
         if self.lm is None:
-            self.lm = npy.zeros( (nvec,), complex)
+            self.lm = npy.zeros((nvec,), complex)
 
         # hm = (wfs, degree, degree)
         if self.hm is None:
-            self.hm = npy.zeros( (nvec, self.kdim, self.kdim), complex)
+            self.hm = npy.zeros((nvec, self.kdim, self.kdim), complex)
         # sm = (wfs, degree, degree)
         if self.sm is None:
-            self.sm = npy.zeros( (nvec, self.kdim, self.kdim), complex)
+            self.sm = npy.zeros((nvec, self.kdim, self.kdim), complex)
         # xm = (wfs, degree, degree)
         if self.xm is None:
-            self.xm = npy.zeros( (nvec, self.kdim, self.kdim), complex)
+            self.xm = npy.zeros((nvec, self.kdim, self.kdim), complex)
 
         # qm = (degree, wfs, nx, ny, nz) 
         if self.qm is None:
-            self.qm = self.gd.zeros( (self.kdim, nvec), 
-                                     dtype=complex )
+            self.qm = self.gd.zeros((self.kdim, nvec), 
+                                    dtype=complex)
         # H qm = (degree, wfs, nx, ny, nz) 
         if self.Hqm is None:
-            self.Hqm = self.gd.zeros( (self.kdim, nvec), 
-                                     dtype=complex )
+            self.Hqm = self.gd.zeros((self.kdim, nvec), 
+                                     dtype=complex)
         # S qm = (degree, wfs, nx, ny, nz) 
         if self.Sqm is None:
-            self.Sqm = self.gd.zeros( (self.kdim, nvec), 
-                                     dtype=complex )
+            self.Sqm = self.gd.zeros((self.kdim, nvec), 
+                                     dtype=complex)
         # rqm = (wfs, nx, ny, nz) 
         if self.rqm is None:
-            self.rqm = self.gd.zeros( (nvec,), 
-                                      dtype=complex )
+            self.rqm = self.gd.zeros((nvec,),
+                                     dtype=complex)
 
         
         #self.time_step = time_step #TODO! verify that commenting this out is dependency-safe
@@ -783,7 +808,9 @@ class SemiImplicitKrylovExponential(DummyPropagator):
             self.tmp_kpt_u[u].psit_nG[:] = kpt_u[u].psit_nG
 
         # predict
-        if self.debug: print '\nSIKE: Predictor step for psit(t+dt) with t=%g, dt=%g' % (time,time_step)
+        if self.debug is not None:
+            self.debug.text('\nSIKE: Predictor step for psit(t+dt) with t=%g, dt=%g' % (time,time_step))
+
         self.solve_propagation_equation(kpt_u, time_step)
 
 
@@ -792,8 +819,8 @@ class SemiImplicitKrylovExponential(DummyPropagator):
         # rho(t+dt)
         self.td_density.update()
         # H(t+dt/2)
-        self.td_hamiltonian.half_update( self.td_density.get_density(),
-                                         time + time_step )
+        self.td_hamiltonian.half_update(self.td_density.get_density(),
+                                        time + time_step)
         # S(t+dt/2)
         self.td_overlap.half_update()
 
@@ -805,7 +832,9 @@ class SemiImplicitKrylovExponential(DummyPropagator):
             kpt_u[u].psit_nG[:] = self.tmp_kpt_u[u].psit_nG
 
         # correct
-        if self.debug: print '\nSIKE: Corrector step for psit(t+dt) with t=%g, dt=%g' % (time,time_step)
+        if self.debug is not None:
+            self.debug.text('\nSIKE: Corrector step for psit(t+dt) with t=%g, dt=%g' % (time,time_step))
+
         self.solve_propagation_equation(kpt_u, time_step)
         
         return self.niter
@@ -825,10 +854,10 @@ class SemiImplicitKrylovExponential(DummyPropagator):
             self.kpt = kpt
             self.time_step = time_step
 
-            scale = self.create_krylov_subspace( kpt,
-                                                 self.td_hamiltonian,
-                                                 self.td_overlap,
-                                                 self.qm, self.Hqm, self.Sqm )
+            scale = self.create_krylov_subspace(kpt,
+                                                self.td_hamiltonian,
+                                                self.td_overlap,
+                                                self.qm, self.Hqm, self.Sqm)
 
             # Calculate hm and sm
             for i in range(self.kdim):
@@ -891,8 +920,8 @@ class SemiImplicitKrylovExponential(DummyPropagator):
     def create_krylov_subspace(self, kpt, h, s, qm, Hqm, Sqm):
         nvec = len(kpt.psit_nG)
         # tmp = (wfs)
-        tmp = npy.zeros( (nvec,), complex)
-        scale = npy.zeros( (nvec,), complex)
+        tmp = npy.zeros((nvec,), complex)
+        scale = npy.zeros((nvec,), complex)
         scale[:] = 0.0
         rqm = self.rqm
 

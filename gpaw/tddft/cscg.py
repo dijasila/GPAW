@@ -23,8 +23,8 @@ class CSCG:
     Now x and b are multivectors, i.e., list of vectors.
     """
     
-    def __init__( self, gd, timer = None,
-                  tolerance = 1e-15, max_iterations = 1000, eps=1e-15 ):
+    def __init__(self, gd, timer=None, tolerance=1e-15, 
+                 max_iterations=1000, eps=1e-15):
         """Create the CSCG-object.
         
         Tolerance should not be smaller than attainable accuracy, which is 
@@ -52,7 +52,7 @@ class CSCG:
         
         self.tol = tolerance
         self.max_iter = max_iterations
-        if ( eps <= tolerance ):
+        if eps <= tolerance:
             self.eps = eps
         else:
             raise RuntimeError("CSCG method got invalid tolerance (tol = %le < eps = %le)." % (tolerance,eps))
@@ -61,7 +61,8 @@ class CSCG:
         
         self.gd = gd
         self.timer = timer
-        
+        assert self.timer is not None #DEBUG
+
         self.mblas = MultiBlas(gd)
 
     def solve(self, A, x, b):
@@ -106,24 +107,21 @@ class CSCG:
 
         # scale = square of the norm of b
         self.mblas.multi_zdotu(scale, b,b, nvec)
-        scale = npy.abs( scale )
+        scale = npy.abs(scale)
 
         # if scale < eps, then convergence check breaks down
         if (scale < self.eps).any():
-            raise RuntimeError("CSCG method detected underflow for squared norm of right-hand side (scale = %le < eps = %le)." % (scale,eps))
-
-        #print 'Scale = ', scale
+            raise RuntimeError('CSCG method detected underflow for squared ' +
+            'norm of right-hand side (scale = %le < eps = %le).' % (scale,eps))
 
         slow_convergence_iters = 1
 
         for i in range(self.max_iter):
 
-            #print 'Beta = ', beta
-
-            # if abs(beta) / scale < eps, then CSCG breaks down
-            if ( (i > 0) and
-                 ((npy.abs(beta) / scale) < self.eps).any() ):
-                raise RuntimeError("Conjugate gradient method failed (abs(beta)=%le < eps = %le)." % (npy.min(npy.abs(beta)),self.eps))
+            # If abs(beta) / scale < eps, then CSCG breaks down
+            if i > 0 and ((npy.abs(beta) / scale) < self.eps).any():
+                raise RuntimeError('Conjugate gradient method failed ' +
+                '(min|beta|=%le < eps=%le).' % (npy.min(npy.abs(beta)),self.eps))
 
 
             # q(i) = A.p(i)
@@ -154,33 +152,32 @@ class CSCG:
 
             # if ( |r|^2 < tol^2 ) done
             self.mblas.multi_zdotu(tmp, r,r, nvec)
-            if ( (npy.abs(tmp) / scale) < self.tol*self.tol ).all():
-                #print 'R2 of proc #', rank, '  = ' , tmp, \
-                #    ' after ', i+1, ' iterations'
-                print 'R2 or proc #', rank, ' = [<converged>] after ', i+1, ' iterations'
+
+            if ((npy.abs(tmp) / scale) < self.tol*self.tol).all():
+                if self.debug is not None:
+                    self.debug.text('R2 or proc #%d = [<converged>] after %d iterations' % (rank,i+1))
+
                 break
 
             # print if slow convergence
-            if ((i+1) % slow_convergence_iters) == 0:
-                print 'R2 of proc #', rank, '  = ' , '['+','.join(map(lambda v: '%.5g' % v,abs(tmp)))+']', \
-                    ' after ', i+1, ' iterations'
+            if self.debug is not None and (i+1) % slow_convergence_iters == 0:
+                stmp = '['+','.join(map(lambda v: '%.5g' % v,abs(tmp)))+']'
+                self.debug.text('R2 of proc #%d  = %s after %d iterations' % (rank,stmp,i+1))
 
             # finally update rho(i)->rho(i+1)
             rhop[:] = rho
 
 
         # if max iters reached, raise error
-        if (i >= self.max_iter-1):
+        if i >= self.max_iter-1:
             raise RuntimeError("Conjugate gradient method failed to converged within given number of iterations (= %d)." % self.max_iter)
 
 
         # done
         self.iterations = i+1
-        #print 'CSCG iterations = ', self.iterations
 
         if self.timer is not None:
             self.timer.stop('CSCG')
 
         return self.iterations
-        #print self.iterations
 

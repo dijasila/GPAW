@@ -14,6 +14,7 @@ import numpy as npy
 from ase.units import Bohr, Hartree
 
 from gpaw.paw import PAW
+from gpaw.output import Output
 #from gpaw.pawextra import PAWExtra
 from gpaw.mixer import BaseMixer
 
@@ -70,14 +71,14 @@ class InverseOverlapPreconditioner:
 # Main class
 ###########################
 class TDDFT(PAW):
-    """ Time-dependent density functional theory
+    """Time-dependent density functional theory calculation based on PAW.
     
     This class is the core class of the time-dependent density functional 
-    theory implementation and is the only class which user has to use.
+    theory implementation and is the only class which a user has to use.
     """
     
-    def __init__( self, ground_state_file=None, txt='-', td_potential = None,
-                  propagator='SICN', solver='CSCG', tolerance=1e-8 ):
+    def __init__(self, ground_state_file=None, txt='-', td_potential=None,
+                 propagator='SICN', solver='CSCG', tolerance=1e-8, debug=None):
         """Create TDDFT-object.
         
         Parameters:
@@ -85,20 +86,20 @@ class TDDFT(PAW):
         ground_state_file: string
             File name for the ground state data
         td_potential: class, optional
-            Function class for the time-dependent potential. It must have method
+            Function class for the time-dependent potential. Must have a method
             'strength(time)' which returns the strength of the linear potential
             to each direction as a vector of three floats.
-        propagator:  {'SICN', 'ECN'}, optional
-            Name of the propagator the name of the time propagator
+        propagator:  {'SICN', 'ECN', 'SITE', 'SIKE4', 'SIKE5', 'SIKE6'}, optional
+            Name of the time propagator for the Kohn-Sham wavefunctions
         solver: {'CSCG','BiCGStab'}, optional
-            Name of the iterative linear equations solver 
+            Name of the iterative linear equations solver for time propagation
         tolerance: float
             Tolerance for the linear solver
 
         """
-
         if ground_state_file is None:
-            raise RuntimeError('TD calculation has to start from ground state restart file')
+            raise RuntimeError('TDDFT calculation has to start from converged '
+                               'ground or excited state restart file') #TODO! ft_omn
 
         # Set units to ASE units
         self.a0 = Bohr
@@ -106,12 +107,14 @@ class TDDFT(PAW):
         self.attosec_to_autime = 1/24.188843265
         self.autime_to_attosec = 24.188843265
 
-
         # Set initial time
         self.time = 0.0
 
+        # Prepare for dipole moment file handle
+        self.dm_file = None
+
         # Initialize paw-object
-        PAW.__init__(self,ground_state_file, txt=txt)
+        PAW.__init__(self, ground_state_file, txt=txt)
 
         # Initialize wavefunctions and density 
         # (necessary after restarting from file)
@@ -143,98 +146,57 @@ class TDDFT(PAW):
 
         # Time-dependent variables and operators
         self.td_potential = td_potential
-        self.td_hamiltonian = \
-            TimeDependentHamiltonian( self.pt_nuclei,
-                                      self.hamiltonian,
-                                      td_potential )
+        self.td_hamiltonian = TimeDependentHamiltonian(self.pt_nuclei,
+                                        self.hamiltonian, td_potential)
         self.td_overlap = TimeDependentOverlap(self.overlap)
         self.td_density = TimeDependentDensity(self)
 
         # Solver for linear equations
         self.text('Solver: ', solver)
         if solver is 'BiCGStab':
-            self.solver = BiCGStab( gd=self.gd, timer=self.timer,
-                                    tolerance=tolerance )
-
+            self.solver = BiCGStab(gd=self.gd, timer=self.timer,
+                                   tolerance=tolerance)
         elif solver is 'CSCG':
-            self.solver = CSCG( gd=self.gd, timer=self.timer,
-                                tolerance=tolerance )
+            self.solver = CSCG(gd=self.gd, timer=self.timer,
+                               tolerance=tolerance)
         else:
-            raise RuntimeError( 'Error in TDDFT: Solver %s not supported. '
-                                'Only BiCGStab is currently supported.' 
-                                % (solver) )
+            raise RuntimeError('Solver %s not supported.' % solver)
 
         # Preconditioner
         # No preconditioner as none good found
         self.text('Preconditioner: ', 'None')
-        self.preconditioner = None
+        self.preconditioner = None #TODO! check out SSOR preconditioning
         #self.preconditioner = InverseOverlapPreconditioner(self.overlap)
         #self.preconditioner = KineticEnergyPreconditioner(self.gd, self.td_hamiltonian.hamiltonian.kin, npy.complex)
 
         # Time propagator
         self.text('Propagator: ', propagator)
         if propagator is 'ECN':
-            self.propagator = \
-                ExplicitCrankNicolson( self.td_density,
-                                       self.td_hamiltonian,
-                                       self.td_overlap,
-                                       self.solver,
-                                       self.preconditioner,
-                                       self.gd,
-                                       self.timer )
+            self.propagator = ExplicitCrankNicolson(self.td_density,
+                self.td_hamiltonian, self.td_overlap, self.solver,
+                self.preconditioner, self.gd, self.timer)
         elif propagator is 'SICN':
-            self.propagator = \
-                SemiImplicitCrankNicolson( self.td_density,
-                                           self.td_hamiltonian,
-                                           self.td_overlap,
-                                           self.solver,
-                                           self.preconditioner,
-                                           self.gd,
-                                           self.timer )
-        elif propagator is 'SITE':
-            self.propagator = \
-                SemiImplicitTaylorExponential( self.td_density,
-                                               self.td_hamiltonian,
-                                               self.td_overlap,
-                                               self.solver,
-                                               self.preconditioner,
-                                               degree = 4,
-                                               gd = self.gd,
-                                               timer = self.timer )
-        elif propagator is 'SIKE':
-            self.propagator = \
-                SemiImplicitKrylovExponential( self.td_density,
-                                               self.td_hamiltonian,
-                                               self.td_overlap,
-                                               self.solver,
-                                               self.preconditioner,
-                                               degree = 4,
-                                               gd = self.gd,
-                                               timer = self.timer )
+            self.propagator = SemiImplicitCrankNicolson(self.td_density,
+                self.td_hamiltonian, self.td_overlap, self.solver,
+                self.preconditioner, self.gd, self.timer)
+        elif propagator in ['SITE4', 'SITE']:
+            self.propagator = SemiImplicitTaylorExponential(self.td_density,
+                self.td_hamiltonian, self.td_overlap, self.solver,
+                self.preconditioner, self.gd, self.timer, degree = 4)
+        elif propagator in ['SIKE4', 'SIKE']:
+            self.propagator = SemiImplicitKrylovExponential(self.td_density,
+                self.td_hamiltonian, self.td_overlap, self.solver,
+                self.preconditioner, self.gd, self.timer, degree = 4)
         elif propagator is 'SIKE5':
-            self.propagator = \
-                SemiImplicitKrylovExponential( self.td_density,
-                                               self.td_hamiltonian,
-                                               self.td_overlap,
-                                               self.solver,
-                                               self.preconditioner,
-                                               degree = 5,
-                                               gd = self.gd,
-                                               timer = self.timer )
+            self.propagator = SemiImplicitKrylovExponential(self.td_density,
+                self.td_hamiltonian, self.td_overlap, self.solver,
+                self.preconditioner, self.gd, self.timer, degree = 5)
         elif propagator is 'SIKE6':
-            self.propagator = \
-                SemiImplicitKrylovExponential( self.td_density,
-                                               self.td_hamiltonian,
-                                               self.td_overlap,
-                                               self.solver,
-                                               self.preconditioner,
-                                               degree = 6,
-                                               gd = self.gd,
-                                               timer = self.timer )
+            self.propagator = SemiImplicitKrylovExponential(self.td_density,
+                self.td_hamiltonian, self.td_overlap, self.solver, 
+                self.preconditioner, self.gd, self.timer, degree = 6)
         else:
-            raise RuntimeError( 'Error in TDDFT:' +
-                                'Time propagator %s not supported. '
-                                % (propagator) )
+            raise RuntimeError('Time propagator %s not supported.' % propagator)
 
         if rank == 0:
             if self.kpt_comm.size > 1:
@@ -257,10 +219,23 @@ class TDDFT(PAW):
 
         self.kick_strength = npy.array([0.0,0.0,0.0], dtype=float)
 
+        self.set_debug(debug) #TODO! temporary
 
-    def propagate(self, time_step, iterations,
-                  dipole_moment_file = None,
-                  restart_file = None, dump_interval = 100):
+    def set_debug(self, debug):
+        if debug is not None:
+            assert isinstance(debug,Output), 'Debugging object must be derived from the Output class'
+
+        self.debug = debug
+
+        self.td_hamiltonian.debug = debug
+        self.td_overlap.debug = debug
+        self.td_density.debug  = debug
+        self.solver.debug = debug
+        self.propagator.debug = debug
+
+
+    def propagate(self, time_step, iterations, dipole_moment_file=None,
+                  restart_file=None, dump_interval=100):
         """Propagates wavefunctions.
         
         Parameters
@@ -295,33 +270,16 @@ class TDDFT(PAW):
         time_step = time_step * self.attosec_to_autime
         
         if dipole_moment_file is not None:
-            if rank == 0:
-                if self.time == 0.0:
-                    mode = 'w'
-                else:
-                    # We probably continue from restart
-                    mode = 'a'
-                dm_file = file(dipole_moment_file, mode)
-                line = '# Kick = [%22.12le, %22.12le, %22.12le]\n' \
-                    % (self.kick_strength[0], self.kick_strength[1], self.kick_strength[2])
-                dm_file.write(line)
-                line = '# %15s %15s %22s %22s %22s\n' \
-                        % ('time', 'norm', 'dmx', 'dmy', 'dmz')
-                dm_file.write(line)
-                dm_file.flush()
+            self.initialize_dipole_moment_file(dipole_moment_file)
 
         niterpropagator = 0
+
         while self.niter<iterations:
             norm = self.finegd.integrate(self.density.rhot_g)
 
-            # write dipole moment at every iteration
+            # Write dipole moment at every iteration
             if dipole_moment_file is not None:
-                dm = self.finegd.calculate_dipole_moment(self.density.rhot_g)
-                if rank == 0:
-                    line = '%20.8lf %20.8le %22.12le %22.12le %22.12le\n' \
-                        % (self.time, norm, dm[0], dm[1], dm[2])
-                    dm_file.write(line)
-                    dm_file.flush()
+                self.update_dipole_moment_file(norm)
 
             if self.niter % 10 == 0:
                 # print output (energy etc.) every 10th iteration 
@@ -330,18 +288,17 @@ class TDDFT(PAW):
                 # Calculate and print total energy here 
                 # self.Eband = sum_i <psi_i|H|psi_j>
                 # !!!!
-                H = self.td_hamiltonian.hamiltonian
                 self.td_density.update()
-                self.td_hamiltonian.update( self.td_density.get_density(), 
-                                            self.time )
+                self.td_hamiltonian.update(self.td_density.get_density(), 
+                                           self.time)
                 self.td_overlap.update()
 
                 if self.hpsit is None:
-                    self.hpsit = self.gd.zeros( len(self.kpt_u[0].psit_nG), 
-                                                dtype=complex )
+                    self.hpsit = self.gd.zeros(len(self.kpt_u[0].psit_nG), 
+                                               dtype=complex)
                 if self.eps_tmp is None:
-                    self.eps_tmp = npy.zeros( len(self.kpt_u[0].eps_n), 
-                                              dtype=complex )
+                    self.eps_tmp = npy.zeros(len(self.kpt_u[0].eps_n), 
+                                             dtype=complex)
 
                 for kpt in self.kpt_u:
                     self.td_hamiltonian.apply(kpt, kpt.psit_nG, self.hpsit)
@@ -351,10 +308,14 @@ class TDDFT(PAW):
                     kpt.eps_n = self.eps_tmp.real
 
                 self.occupation.calculate_band_energy(self.kpt_u)
+
+                H = self.td_hamiltonian.hamiltonian
+
                 # Nonlocal
                 xcfunc = H.xc.xcfunc
                 self.Enlxc = xcfunc.get_non_local_energy()
                 self.Enlkin = xcfunc.get_non_local_kinetic_corrections()
+
                 # PAW
                 self.Ekin = H.Ekin + self.occupation.Eband + self.Enlkin
                 self.Epot = H.Epot
@@ -362,6 +323,7 @@ class TDDFT(PAW):
                 self.Ebar = H.Ebar
                 self.Exc = H.Exc + self.Enlxc
                 self.Etot = self.Ekin + self.Epot + self.Ebar + self.Exc
+
                 T = time.localtime()
                 if rank == 0:
                     iter_text = """iter: %3d  %02d:%02d:%02d %11.2f\
@@ -375,7 +337,7 @@ class TDDFT(PAW):
                     self.txt.flush()
 
 
-            # propagate
+            # Propagate the Kohn-Shame wavefunctions a single timestep
             niterpropagator = self.propagator.propagate(self.kpt_u, self.time,
                                                         time_step)
             self.time += time_step
@@ -385,25 +347,62 @@ class TDDFT(PAW):
             self.call()
 
             # restart data
-            if restart_file is not None and ( self.niter % dump_interval == 0 ):
+            if restart_file is not None and self.niter % dump_interval == 0:
                 self.write(restart_file, 'all')
-                if rank == 0:
-                    print 'Wrote restart file.'
-                    print self.niter, ' iterations done. Current time is ', \
-                        self.time * self.autime_to_attosec, ' as.' 
+                if rank == 0 and self.debug is not None:
+                    self.debug.text('Wrote restart file.')
+                    self.debug.text('%d iterations done. Current time is %f as' % 
+                        (self.niter, self.time * self.autime_to_attosec))
                     # print 'Warning: Writing restart files in TDDFT does not work yet.'
                     # print 'Continuing without writing restart file.'
 
-        # close dipole moment file
+        # Write final results and close dipole moment file
         if dipole_moment_file is not None:
-            if rank == 0:
-                dm_file.close()
+            #TODO! XXX! final iteration -> propagated, but nothing is updated!!!
+            norm = self.finegd.integrate(self.density.rhot_g)
+            self.finalize_dipole_moment_file(norm)
 
         # call registered callback functions
         self.call(final=True)
 
         if restart_file is not None:
             self.write(restart_file, 'all')
+
+    def initialize_dipole_moment_file(self, dipole_moment_file):
+        if rank == 0:
+            if self.dm_file is not None and not self.dm_file.closed:
+                raise RuntimeError('Dipole moment file is already open')
+
+            if self.time == 0.0:
+                mode = 'w'
+            else:
+                # We probably continue from restart
+                mode = 'a'
+
+            self.dm_file = file(dipole_moment_file, mode)
+            line = '# Kick = [%22.12le, %22.12le, %22.12le]\n' \
+                % (self.kick_strength[0], self.kick_strength[1], self.kick_strength[2])
+            self.dm_file.write(line)
+            line = '# %15s %15s %22s %22s %22s\n' \
+                    % ('time', 'norm', 'dmx', 'dmy', 'dmz')
+            self.dm_file.write(line)
+            self.dm_file.flush()
+
+    def update_dipole_moment_file(self, norm):
+        dm = self.finegd.calculate_dipole_moment(self.density.rhot_g)
+
+        if rank == 0:
+            line = '%20.8lf %20.8le %22.12le %22.12le %22.12le\n' \
+                % (self.time, norm, dm[0], dm[1], dm[2])
+            self.dm_file.write(line)
+            self.dm_file.flush()
+
+    def finalize_dipole_moment_file(self, norm):
+        self.update_dipole_moment_file(norm) #TODO! needs testing
+
+        if rank == 0:
+            self.dm_file.close()
+            self.dm_file = None
 
     # exp(ip.r) psi
     def absorption_kick(self, kick_strength):
@@ -417,14 +416,13 @@ class TDDFT(PAW):
         """
         if rank == 0:
             self.text('Delta kick = ', kick_strength)
+
         self.kick_strength = npy.array(kick_strength)
 
-        abs_kick = \
-            AbsorptionKick( AbsorptionKickHamiltonian( self.pt_nuclei,
-                                                       npy.array(kick_strength,
-                                                                 dtype=float) ),
-                            self.td_overlap, self.solver, None,
-                            self.gd, self.timer )
+        abs_kick_hamiltonian = AbsorptionKickHamiltonian(self.pt_nuclei,
+                               npy.array(kick_strength,dtype=float))
+        abs_kick = AbsorptionKick(abs_kick_hamiltonian, self.td_overlap,
+                   self.solver, preconditioner, self.gd, self.timer)
         abs_kick.kick(self.kpt_u)
 
     def __del__(self):
