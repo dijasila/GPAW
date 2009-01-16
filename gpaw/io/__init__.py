@@ -55,7 +55,12 @@ def write(paw, filename, mode):
     scf = paw.scf
     hamiltonian = paw.hamiltonian
 
-    master = (paw.wfs.world.rank == 0)
+    world = paw.wfs.world
+    domain_comm = wfs.gd.comm
+    kpt_comm = wfs.kpt_comm
+    band_comm = wfs.band_comm
+
+    master = (world.rank == 0)
 
     atoms = paw.atoms
     natoms = len(atoms)
@@ -191,11 +196,11 @@ def write(paw, filename, mode):
 
         mynu = len(wfs.kpt_u)
         all_P_ni = npy.empty((wfs.nbands, nproj), wfs.dtype)
-        nstride = wfs.band_comm.size
-        for kpt_rank in range(wfs.kpt_comm.size):
+        nstride = band_comm.size
+        for kpt_rank in range(kpt_comm.size):
             for u in range(mynu):
                 P_ani = wfs.kpt_u[u].P_ani
-                for band_rank in range(wfs.band_comm.size):
+                for band_rank in range(band_comm.size):
                     i = 0
                     for a in range(natoms):
                         ni = wfs.setups[a].ni
@@ -203,9 +208,11 @@ def write(paw, filename, mode):
                             P_ni = P_ani[a]
                         else:
                             P_ni = npy.empty((wfs.mynbands, ni), wfs.dtype)
-                            world_rank = nucleus.rank + kpt_rank * paw.domain.comm.size * wfs.band_comm.size + band_rank * paw.domain.comm.size
-                            wfs.world.receive(P_ni, world_rank, 300 + a)
-
+                            world_rank = (wfs.rank_a[a] +
+                                          kpt_rank * domain_comm.size *
+                                          band_comm.size +
+                                          band_rank * domain_comm.size)
+                            world.receive(P_ni, world_rank, 300 + a)
                         all_P_ni[band_rank::nstride, i:i + ni] = P_ni
                         i += ni
                 w.fill(all_P_ni)
@@ -217,7 +224,7 @@ def write(paw, filename, mode):
             P_ani = kpt.P_ani
             for a in range(natoms):
                 if a in P_ani:
-                    wfs.world.send(P_ani[a], 0, 300 + a)
+                    world.send(P_ani[a], 0, 300 + a)
 
     # Write atomic density matrices and non-local part of hamiltonian:
     if master:
@@ -232,9 +239,9 @@ def write(paw, filename, mode):
                 dH_sp = paw.hamiltonian.dH_asp[a]
             else:
                 D_sp = npy.empty((wfs.nspins, nii))
-                paw.domain.comm.receive(D_sp, nucleus.rank, 207)
-                H_sp = npy.empty((wfs.nspins, nii))
-                paw.domain.comm.receive(H_sp, nucleus.rank, 2071)
+                domain_comm.receive(D_sp, wfs.rank_a[a], 207)
+                dH_sp = npy.empty((wfs.nspins, nii))
+                domain_comm.receive(dH_sp, wfs.rank_a[a], 2071)
             p2 = p1 + nii
             all_D_sp[:, p1:p2] = D_sp
             all_H_sp[:, p1:p2] = dH_sp
@@ -243,11 +250,11 @@ def write(paw, filename, mode):
         w.add('AtomicDensityMatrices', ('nspins', 'nadm'), all_D_sp)
         w.add('NonLocalPartOfHamiltonian', ('nspins', 'nadm'), all_H_sp)
 
-    elif wfs.kpt_comm.rank == 0:
+    elif kpt_comm.rank == 0 and band_comm.rank == 0:
         for a in range(natoms):
             if a in paw.density.D_asp:
-                paw.domain.comm.send(nucleus.D_sp, 0, 207)
-                paw.domain.comm.send(nucleus.H_sp, 0, 2071)
+                domain_comm.send(paw.density.D_asp[a], 0, 207)
+                domain_comm.send(paw.hamiltonian.dH_asp[a], 0, 2071)
 
     nibzkpts = len(wfs.ibzk_kc)
     # Write the eigenvalues and occupation numbers:
@@ -264,7 +271,7 @@ def write(paw, filename, mode):
     if master:
         w.add('PseudoElectronDensity',
               ('nspins', 'ngptsx', 'ngptsy', 'ngptsz'), dtype=float)
-    if wfs.kpt_comm.rank == 0:
+    if kpt_comm.rank == 0:
         for s in range(wfs.nspins):
             nt_sG = wfs.gd.collect(paw.density.nt_sG[s])
             if master:
@@ -274,7 +281,7 @@ def write(paw, filename, mode):
     if master:
         w.add('PseudoPotential',
               ('nspins', 'ngptsx', 'ngptsy', 'ngptsz'), dtype=float)
-    if wfs.kpt_comm.rank == 0:
+    if kpt_comm.rank == 0:
         for s in range(wfs.nspins):
             vt_sG = wfs.gd.collect(paw.hamiltonian.vt_sG[s])
             if master:
@@ -308,7 +315,7 @@ def write(paw, filename, mode):
         else:
             dirname = '.'
         # the slaves have to wait until the directory is created
-        wfs.world.barrier()
+        world.barrier()
         print >> paw.txt, 'Writing wave functions to', dirname,\
               'using mode=', mode
 
@@ -337,13 +344,19 @@ def write(paw, filename, mode):
 
     # We don't want the slaves to start reading before the master has
     # finished writing:
-    wfs.world.barrier()
+    world.barrier()
 
 
 def read(paw, reader):
     r = reader
     wfs = paw.wfs
     hamiltonian = paw.hamiltonian
+
+    world = paw.wfs.world
+    domain_comm = wfs.gd.comm
+    kpt_comm = wfs.kpt_comm
+    band_comm = wfs.band_comm
+
     version = r['version']
 
     for setup in paw.wfs.setups.setups.values():
@@ -428,15 +441,15 @@ def read(paw, reader):
     nbands = r.dims['nbands']
 
     if (nibzkpts == len(wfs.ibzk_kc) and
-        nbands == wfs.band_comm.size * wfs.mynbands):
+        nbands == band_comm.size * wfs.mynbands):
         for kpt in wfs.kpt_u:
             # Eigenvalues and occupation numbers:
             k = kpt.k
             s = kpt.s
             eps_n = r.get('Eigenvalues', s, k)
             f_n = r.get('OccupationNumbers', s, k)
-            n0 = wfs.band_comm.rank
-            nstride = wfs.band_comm.size
+            n0 = band_comm.rank
+            nstride = band_comm.size
             kpt.eps_n = eps_n[n0::nstride].copy()
             kpt.f_n = f_n[n0::nstride].copy()
         
@@ -444,12 +457,12 @@ def read(paw, reader):
             # We may not be able to keep all the wave
             # functions in memory - so psit_nG will be a special type of
             # array that is really just a reference to a file:
-            if wfs.world.size > 1: # if parallel
+            if world.size > 1: # if parallel
                 for kpt in wfs.kpt_u:
                     # Read band by band to save memory
                     kpt.psit_nG = []
-                    for nb in range(paw.mynbands):
-                        n = paw.band_comm.rank + nb * paw.band_comm.size
+                    for nb in range(wfs.mynbands):
+                        n = band_comm.rank + nb * band_comm.size
                         kpt.psit_nG.append(
                             r.get_reference('PseudoWaveFunctions',
                                             kpt.s, kpt.k, n) )
@@ -461,8 +474,8 @@ def read(paw, reader):
         for u, kpt in enumerate(wfs.kpt_u):
             P_ni = r.get('Projections', kpt.s, kpt.k)
             i1 = 0
-            n0 = wfs.band_comm.rank
-            nstride = wfs.band_comm.size
+            n0 = band_comm.rank
+            nstride = band_comm.size
             kpt.P_ani = {}
             for a, setup in enumerate(wfs.setups):
                 i2 = i1 + setup.ni

@@ -119,8 +119,11 @@ class GridDescriptor:
         if max(self.h_c) / min(self.h_c) > 1.3:
             raise ValueError('Very anisotropic grid spacings: %s' % self.h_c)
 
-    def get_size_of_global_array(self):
-        return self.N_c - 1 + self.domain.pbc_c
+    def get_size_of_global_array(self, pad=False):
+        if pad:
+            return self.N_c
+        else:
+            return self.N_c - 1 + self.domain.pbc_c
 
     def flat_index(self, G_c):
         g1, g2, g3 = G_c - self.beg_c
@@ -130,7 +133,7 @@ class GridDescriptor:
         return [slice(b - 1 + p, e - 1 + p) for b, e, p in
                 zip(self.beg_c, self.end_c, self.domain.pbc_c)]
 
-    def zeros(self, n=(), dtype=float, global_array=False):
+    def zeros(self, n=(), dtype=float, global_array=False, pad=False):
         """Return new zeroed 3D array for this domain.
 
         The type can be set with the ``dtype`` keyword (default:
@@ -138,9 +141,9 @@ class GridDescriptor:
         global array spanning all domains can be allocated with
         ``global_array=True``."""
 
-        return self._new_array(n, dtype, True, global_array)
+        return self._new_array(n, dtype, True, global_array, pad)
     
-    def empty(self, n=(), dtype=float, global_array=False):
+    def empty(self, n=(), dtype=float, global_array=False, pad=False):
         """Return new uninitialized 3D array for this domain.
 
         The type can be set with the ``dtype`` keyword (default:
@@ -148,12 +151,12 @@ class GridDescriptor:
         global array spanning all domains can be allocated with
         ``global_array=True``."""
 
-        return self._new_array(n, dtype, False, global_array)
+        return self._new_array(n, dtype, False, global_array, pad)
         
     def _new_array(self, n=(), dtype=float, zero=True,
-                  global_array=False):
+                  global_array=False, pad=False):
         if global_array:
-            shape = self.get_size_of_global_array()
+            shape = self.get_size_of_global_array(pad)
         else:
             shape = self.n_c
             

@@ -451,10 +451,10 @@ def eigenvalue_string(paw, comment=None):
     else:
         s += comment + '                 Up                     Down\n'
         s += comment + 'Band  Eigenvalues  Occupancy  Eigenvalues  Occupancy\n'
-        epsa_n = paw.get_eigenvalues(kpt=0, spin=0)
-        epsb_n = paw.get_eigenvalues(kpt=0, spin=1)
-        fa_n   = paw.get_occupation_numbers(kpt=0, spin=0)
-        fb_n   = paw.get_occupation_numbers(kpt=0, spin=1)
+        epsa_n = paw.get_eigenvalues(kpt=0, spin=0, broadcast=False)
+        epsb_n = paw.get_eigenvalues(kpt=0, spin=1, broadcast=False)
+        fa_n   = paw.get_occupation_numbers(kpt=0, spin=0, broadcast=False)
+        fb_n   = paw.get_occupation_numbers(kpt=0, spin=1, broadcast=False)
         if paw.wfs.world.rank == 0:
             for n in range(paw.wfs.nbands):
                 s += (' %4d  %11.5f  %9.5f  %11.5f  %9.5f\n' %

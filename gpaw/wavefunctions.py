@@ -157,24 +157,17 @@ class WaveFunctions(EmptyWaveFunctions):
         global master."""
 
         kpt_u = self.kpt_u
-        kpt_rank, u = divmod(k + len(self.ibzk_kc) * s, len(kpt_u))
-        a_n = getattr(kpt_u[u], name)
-        if kpt_rank == 0:
-            if self.band_comm.size == 1:
-                return a_n
-            
-            if self.band_comm.rank == 0:
-                b_n = np.zeros(self.nbands)
-            else:
-                b_n = None
-            self.band_comm.gather(a_n, 0, b_n)
-            return b_n
+        kpt_rank, u = divmod(k + self.nibzkpts * s, len(kpt_u))
 
         if self.kpt_comm.rank == kpt_rank:
+            a_n = getattr(kpt_u[u], name)
             # Domain master send this to the global master
-            if self.gd.domain.comm.rank == 0:
+            if self.gd.comm.rank == 0:
                 if self.band_comm.size == 1:
-                    self.kpt_comm.send(a_n, 0, 1301)
+                    if kpt_rank == 0:
+                        return a_n
+                    else:
+                        self.kpt_comm.send(a_n, 0, 1301)
                 else:
                     if self.band_comm.rank == 0:
                         b_n = np.zeros(self.nbands)
@@ -182,16 +175,15 @@ class WaveFunctions(EmptyWaveFunctions):
                         b_n = None
                     self.band_comm.gather(a_n, 0, b_n)
                     if self.band_comm.rank == 0:
-                        self.kpt_comm.send(b_n, 0, 1301)
+                        if kpt_rank == 0:
+                            return b_n
+                        else:
+                            self.kpt_comm.send(b_n, 0, 1301)
 
-        elif self.world.rank == 0:
+        elif self.world.rank == 0 and kpt_rank != 0:
             b_n = np.zeros(self.nbands)
             self.kpt_comm.receive(b_n, kpt_rank, 1301)
             return b_n
-
-        # return something also on the slaves
-        # might be nicer to have the correct array everywhere XXXX 
-        #return a_n or should it be b_n?  Fix this later XXX
 
 
 from gpaw.lcao.overlap import TwoCenterIntegrals
@@ -716,15 +708,15 @@ class GridWaveFunctions(WaveFunctions):
                         return psit_G
 
                 # Domain master send this to the global master
-                if self.domain.comm.rank == 0:
+                if self.gd.comm.rank == 0:
                     self.world.send(psit_G, 0, 1398)
 
         if rank == 0:
             # allocate full wavefunction and receive
             psit_G = self.gd.empty(dtype=self.dtype, global_array=True)
-            world_rank = (kpt_rank * self.domain.comm.size *
+            world_rank = (kpt_rank * self.gd.comm.size *
                           self.band_comm.size +
-                          band_rank * self.domain.comm.size)
+                          band_rank * self.gd.comm.size)
             self.world.receive(psit_G, world_rank, 1398)
             return psit_G
 

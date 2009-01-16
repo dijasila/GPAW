@@ -332,7 +332,7 @@ class GPAW(PAW):
         elif self.wfs.world.rank == 0:
             return psit_G / Bohr**1.5
 
-    def get_eigenvalues(self, kpt=0, spin=0, broadcast=False):
+    def get_eigenvalues(self, kpt=0, spin=0, broadcast=True):
         """Return eigenvalue array."""
         eps_n = self.wfs.collect_array('eps_n', kpt, spin)
         if broadcast:
@@ -343,7 +343,7 @@ class GPAW(PAW):
         if eps_n is not None:
             return eps_n * Hartree
 
-    def get_occupation_numbers(self, kpt=0, spin=0, broadcast=False):
+    def get_occupation_numbers(self, kpt=0, spin=0, broadcast=True):
         """Return occupation array."""
         f_n = self.wfs.collect_array('f_n', kpt, spin)
         if broadcast:
