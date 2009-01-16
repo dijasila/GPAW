@@ -202,17 +202,17 @@ class PAWTextOutput:
         if self.wfs.gamma:
             t('Gamma Point Calculation')
 
-        nkpts = len(self.wfs.kpt_u)
+        nibzkpts = self.wfs.nibzkpts
 
         if self.wfs.kpt_comm.size > 1:
-            if self.wfs.nspins == 2 and nkpts == 1:
+            if self.wfs.nspins == 2 and nibzkpts == 1:
                 t('Parallelization Over Spin')
             elif self.wfs.nspins == 2:
                 t('Parallelization Over k-points and Spin on %d Processors' %
-                  self.kpt_comm.size)
+                  self.wfs.kpt_comm.size)
             else:
                 t('Parallelization Over k-points on %d Processors' %
-                  self.kpt_comm.size)
+                  self.wfs.kpt_comm.size)
 
         domain = self.domain
         if domain.comm.size > 1:
@@ -224,7 +224,7 @@ class PAWTextOutput:
 
         t(('%d k-point%s in the Irreducible Part of the ' +
            'Brillouin Zone (total: %d)') %
-          (nkpts, ' s'[1:nkpts], len(self.wfs.bzk_kc)))
+          (nibzkpts, ' s'[1:nibzkpts], len(self.wfs.bzk_kc)))
 
         if self.scf.fixdensity > self.scf.maxiter:
             t('Fixing the initial density')
