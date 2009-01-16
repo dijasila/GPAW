@@ -65,6 +65,8 @@ def write(paw, filename, mode):
     atoms = paw.atoms
     natoms = len(atoms)
 
+    magmom_a = paw.get_magnetic_moments()
+
     if master:
         w = open(filename, 'w')
 
@@ -73,7 +75,6 @@ def write(paw, filename, mode):
         w['lengthunit'] = 'Bohr'
         w['energyunit'] = 'Hartree'
 
-        magmom_a = paw.get_magnetic_moments()
         try:
             tag_a = atoms.get_tags()
             if tag_a is None:
