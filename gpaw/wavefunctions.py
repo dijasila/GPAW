@@ -358,7 +358,6 @@ class LCAOWaveFunctions(WaveFunctions):
         for dPdRa_mi, P_mi, O_ii in zip(dPdRa_ami, P_ami, O_aii):
             A_mm = np.dot(dPdRa_mi, np.dot(O_ii, P_mi.T.conj()))
             B_mm = np.dot(P_mi, np.dot(O_ii, dPdRa_mi.T.conj()))
-            # XXX symmmetry
             pawcorrection_mm += A_mm + B_mm
 
         return dThetadR_mm * tci.mask_amm[a] + pawcorrection_mm
@@ -416,6 +415,11 @@ class LCAOWaveFunctions(WaveFunctions):
         H_MM[:] = H_MM * ltri + H_MM.T.conj() * utri
 
         ChcEFC_MM = np.dot(np.dot(np.linalg.inv(S_MM), H_MM), rho_MM)
+
+        # Useful check - whether C^dagger eps f C == S^(-1) H rho
+        # Although this won't work if people are supplying a customized rho
+        #assert abs(ChcEFC_MM - np.dot(kpt.C_nM.T.conj() * kpt.f_n * kpt.eps_n,
+        #                              kpt.C_nM)).max() < 1e-8
         
         for a in grid_bfs.my_atom_indices:
             dPdR_vMi = tci.dPdR_akcmi[a][k]
@@ -442,7 +446,7 @@ class LCAOWaveFunctions(WaveFunctions):
             dEdTdTdR = np.dot(rho_MM, dTdR_MM * mask_MM).real.trace()
             
             dEdDdDdR = 0.0
-            for b, dPdRa_Mi in enumerate(dPdRa_aMi): # XXX
+            for b, dPdRa_Mi in enumerate(dPdRa_aMi): # XXX atomic indices
                 A_ii = np.dot(dPdRa_Mi.T.conj(), 
                               np.dot(rho_MM, self.P_aqMi[b][k]))
                 Hb_ii = unpack(hamiltonian.dH_asp[b][kpt.s])
