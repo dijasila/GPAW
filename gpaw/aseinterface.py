@@ -178,7 +178,7 @@ class GPAW(PAW):
                                  pad=True, broadcast=False):
         """Return reconstructed all-electron density array."""
         n_sG = self.density.get_all_electron_density(
-            self.atoms, self.wfs.rank_a, gridrefinement=gridrefinement)
+            self.atoms, gridrefinement=gridrefinement)
 
         if spin is None:
             if self.wfs.nspins == 1:

@@ -24,4 +24,5 @@ equal(e1ref + e1, e2ref + e2 + de21, 93e-5 * 27)
 calc.write('PBE.gpw')
 
 de21b = GPAW('PBE.gpw').get_xc_difference('LDA')
+print de21, de21b
 equal(de21, de21b, 9e-8)

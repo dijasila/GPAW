@@ -393,15 +393,19 @@ def read(paw, reader):
     D_sp = r.get('AtomicDensityMatrices')
     if version > 0.3:
         dH_sp = r.get('NonLocalPartOfHamiltonian')
-    p1 = 0
     paw.density.D_asp = {}
     paw.hamiltonian.dH_asp = {}
+    natoms = len(paw.atoms)
+    wfs.rank_a = npy.zeros(natoms, int)
+    paw.density.rank_a = npy.zeros(natoms, int)
+    p1 = 0
     for a, setup in enumerate(wfs.setups):
         ni = setup.ni
         p2 = p1 + ni * (ni + 1) // 2
-        paw.density.D_asp[a] = D_sp[:, p1:p2].copy()
-        if version > 0.3:
-            paw.hamiltonian.dH_asp[a] = dH_sp[:, p1:p2].copy()
+        if domain_comm.rank == 0:
+            paw.density.D_asp[a] = D_sp[:, p1:p2].copy()
+            if version > 0.3:
+                paw.hamiltonian.dH_asp[a] = dH_sp[:, p1:p2].copy()
         p1 = p2
 
     hamiltonian.Ekin = r['Ekin']

@@ -256,7 +256,7 @@ class Density:
         else:
             return self.nt_sG[0]
     
-    def get_all_electron_density(self, atoms, rank_a, gridrefinement=2):
+    def get_all_electron_density(self, atoms, gridrefinement=2):
         """Return real all-electron density array."""
 
         # Refinement of coarse grid, for representation of the AE-density
@@ -310,7 +310,7 @@ class Density:
                 ni = setup.ni
                 D_sp = np.empty((self.nspins, ni * (ni + 1) // 2))
             if gd.comm.size > 1:
-                gd.comm.broadcast(D_sp, rank_a[a])
+                gd.comm.broadcast(D_sp, self.rank_a[a])
             all_D_asp.append(D_sp)
 
         for s in range(self.nspins):
