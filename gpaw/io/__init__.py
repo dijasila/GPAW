@@ -458,22 +458,25 @@ def read(paw, reader):
             kpt.f_n = f_n[n0::nstride].copy()
         
         if r.has_array('PseudoWaveFunctions'):
-            # We may not be able to keep all the wave
-            # functions in memory - so psit_nG will be a special type of
-            # array that is really just a reference to a file:
-            if world.size > 1: # if parallel
-                for kpt in wfs.kpt_u:
-                    # Read band by band to save memory
-                    kpt.psit_nG = []
-                    for nb in range(wfs.mynbands):
-                        n = band_comm.rank + nb * band_comm.size
-                        kpt.psit_nG.append(
-                            r.get_reference('PseudoWaveFunctions',
-                                            kpt.s, kpt.k, n) )
-            else:
+            if band_comm.size == 1:
+                # We may not be able to keep all the wave
+                # functions in memory - so psit_nG will be a special type of
+                # array that is really just a reference to a file:
                 for kpt in wfs.kpt_u:
                     kpt.psit_nG = r.get_reference('PseudoWaveFunctions',
                                                   kpt.s, kpt.k)
+            else:
+                for kpt in wfs.kpt_u:
+                    # Read band by band to save memory
+                    kpt.psit_nG = wfs.gd.empty(wfs.mynbands, wfs.dtype)
+                    for myn, psit_G in enumerate(kpt.psit_nG):
+                        n = band_comm.rank + myn * band_comm.size
+                        if domain_comm.rank == 0:
+                            big_psit_G = r.get('PseudoWaveFunctions',
+                                               kpt.s, kpt.k, n)
+                        else:
+                            big_psit_G = None
+                        wfs.gd.distribute(big_psit_G, psit_G)
 
         for u, kpt in enumerate(wfs.kpt_u):
             P_ni = r.get('Projections', kpt.s, kpt.k)

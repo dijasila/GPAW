@@ -505,6 +505,8 @@ class GridWaveFunctions(WaveFunctions):
             if not self.gamma:
                 basis_functions.set_k_points(self.ibzk_qc)
             basis_functions.set_positions(spos_ac)
+        elif isinstance(self.kpt_u[0].psit_nG, TarFileReference):
+            self.initialize_wave_functions_from_restart_file()
 
         if density.nt_sG is None:
             if self.kpt_u[0].psit_nG is None:
@@ -523,8 +525,6 @@ class GridWaveFunctions(WaveFunctions):
         if self.kpt_u[0].psit_nG is None:
             self.initialize_wave_functions_from_basis_functions(
                 basis_functions, density, hamiltonian, spos_ac)
-        elif isinstance(self.kpt_u[0].psit_nG, TarFileReference):
-            self.initialize_wave_functions_from_restart_file()
 
     def initialize_wave_functions_from_basis_functions(self,
                                                        basis_functions,
@@ -574,7 +574,7 @@ class GridWaveFunctions(WaveFunctions):
     def initialize_wave_functions_from_restart_file(self):
         if not isinstance(self.kpt_u[0].psit_nG, TarFileReference):
             return
-        
+
         # Calculation started from a restart file.  Copy data
         # from the file to memory:
         for kpt in self.kpt_u:
