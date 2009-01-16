@@ -343,20 +343,26 @@ class GridDescriptor:
         self.distribute(A_g, b_g)
         return b_g
 
-    def collect(self, a_xg):
-        """Collect distributed array to master-CPU."""
+    def collect(self, a_xg, broadcast=False):
+        """Collect distributed array to master-CPU or all CPU's."""
         if self.comm.size == 1:
             return a_xg
+
+        xshape = a_xg.shape[:-3]
 
         # Collect all arrays on the master:
         if self.rank != MASTER:
             self.comm.send(a_xg, MASTER, 301)
-            return
+            if broadcast:
+                A_xg = self.empty(xshape, a_xg.dtype, global_array=True)
+                self.comm.broadcast(A_xg, 0)
+                return A_xg
+            else:
+                return None
 
         # Put the subdomains from the slaves into the big array
         # for the whole domain:
-        xshape = a_xg.shape[:-3]
-        A_xg = self.empty(xshape, a_xg.dtype.char, global_array=True)
+        A_xg = self.empty(xshape, a_xg.dtype, global_array=True)
         parsize_c = self.domain.parsize_c
         r = 0
         for n0 in range(parsize_c[0]):
@@ -372,6 +378,8 @@ class GridDescriptor:
                         self.comm.receive(a_xg, r, 301)
                     A_xg[..., b0:e0, b1:e1, b2:e2] = a_xg
                     r += 1
+        if broadcast:
+            self.comm.broadcast(A_xg, 0)
         return A_xg
 
     def distribute(self, B_xg, b_xg):
