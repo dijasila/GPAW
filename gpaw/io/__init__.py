@@ -487,7 +487,8 @@ def read(paw, reader):
             kpt.P_ani = {}
             for a, setup in enumerate(wfs.setups):
                 i2 = i1 + setup.ni
-                kpt.P_ani[a] = P_ni[n0::nstride, i1:i2].copy()
+                if domain_comm.rank == 0:
+                    kpt.P_ani[a] = P_ni[n0::nstride, i1:i2].copy()
                 i1 = i2
 
     # Get the forces from the old calculation:
