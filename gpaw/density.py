@@ -330,7 +330,7 @@ class Density:
                 if (g_c >= 0).all() and (g_c < gd.n_c).all():
                     n_sg[s][tuple(g_c)] -= I / gd.dv
 
-        return n_sg
+        return n_sg, gd
 
     def initialize_kinetic(self):
         """Initial pseudo electron kinetic density."""

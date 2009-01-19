@@ -115,7 +115,7 @@ class GPAW(PAW):
         
         return self.wfs.weight_k
 
-    def get_pseudo_density(self, spin=None, pad=True, broadcast=False):
+    def get_pseudo_density(self, spin=None, pad=True, broadcast=True):
         """Return pseudo-density array.
 
         If *spin* is not given, then the total density is returned.
@@ -135,12 +135,7 @@ class GPAW(PAW):
             else:
                 nt_G = nt_sG[spin]
 
-        nt_G = self.wfs.gd.collect(nt_G)
-        
-        if broadcast:
-            if nt_G is None:
-                nt_G = self.wfs.gd.empty(global_array=True)
-            self.world.broadcast(nt_G, 0)
+        nt_G = self.wfs.gd.collect(nt_G, broadcast)
 
         if nt_G is None:
             return None
@@ -175,9 +170,9 @@ class GPAW(PAW):
                              for spin in range(2)])
 
     def get_all_electron_density(self, spin=None, gridrefinement=2,
-                                 pad=True, broadcast=False):
+                                 pad=True, broadcast=True):
         """Return reconstructed all-electron density array."""
-        n_sG = self.density.get_all_electron_density(
+        n_sG, gd = self.density.get_all_electron_density(
             self.atoms, gridrefinement=gridrefinement)
 
         if spin is None:
@@ -191,18 +186,13 @@ class GPAW(PAW):
             else:
                 n_G = n_sG[spin]
 
-        n_G = self.wfs.gd.collect(n_G)
-        
-        if broadcast:
-            if n_G is None:
-                n_G = self.wfs.gd.empty(global_array=True)
-            self.world.broadcast(n_G, 0)
+        n_G = gd.collect(n_G, broadcast)
 
         if n_G is None:
             return None
         
         if pad:
-            n_G = self.wfs.gd.zero_pad(n_G)
+            n_G = gd.zero_pad(n_G)
 
         return n_G / Bohr**3
 
