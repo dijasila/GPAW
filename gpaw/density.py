@@ -317,7 +317,6 @@ class Density:
             I_a = np.zeros(len(atoms))
             dnc.add1(n_sg[s], 1.0 / self.nspins, I_a)
             dphi.add2(n_sg[s], all_D_asp, s, I_a)
-            gd.comm.sum(I_a)
             for a, D_sp in self.D_asp.items():
                 setup = self.setups[a]
                 I_a[a] -= ((setup.Nc - setup.Nct) / self.nspins +
