@@ -255,13 +255,6 @@ class PAWExtra:
             for n, psit_G in enumerate(kpt.psit_nG):
                 psit_G[:] = gpaw.io.read_wave_function(self.gd, s, k, n, mode)
                 
-    def warn(self, string=None):
-        if not string:
-            string = "somethings wrong"
-        print >> self.txt, "WARNING >>"
-        print >> self.txt, string
-        print >> self.txt, "WARNING <<"
-                
     def wave_function_volumes(self):
         """Return the volume needed by the wave functions"""
         nu = self.nkpts * self.nspins

@@ -425,6 +425,13 @@ class PAWTextOutput:
             if hasattr(self, 'timer'):
                 self.timer.write(self.txt)
 
+    def warn(self, string=None):
+        if not string:
+            string = "somethings wrong"
+        print >> self.txt, "WARNING >>"
+        print >> self.txt, string
+        print >> self.txt, "WARNING <<"
+                
 
 def eigenvalue_string(paw, comment=None):
     """
