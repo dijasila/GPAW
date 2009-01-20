@@ -35,57 +35,7 @@ from gpaw.forces import ForceCalculator
 
 
 class PAW(PAWTextOutput):
-    """This is the main calculation object for doing a PAW calculation.
-
-    The ``Paw`` object is the central object for a calculation.  It is
-    a container for **k**-points (there may only be one **k**-point).
-    The attribute ``kpt_u`` is a list of ``KPoint`` objects (the
-    **k**-point object stores the actual wave functions, occupation
-    numbers and eigenvalues).  Each **k**-point object can be either
-    spin up, spin down or no spin (spin-saturated calculation).
-    Example: For a spin-polarized calculation on an isolated molecule,
-    the **k**-point list will have length two (assuming the
-    calculation is not parallelized over **k**-points/spin).
-
-    These are the most important attributes of a ``Paw`` object:
-
-    =============== =====================================================
-    Name            Description
-    =============== =====================================================
-    ``domain``      Domain object.
-    ``timer``       Timer object.
-    ``gd``          Grid descriptor for coarse grids.
-    ``finegd``      Grid descriptor for fine grids.
-    ``occupation``  Occupation-number object.
-    =============== =====================================================
-
-    =========== ==========================================
-
-    The attribute ``usesymm`` has the same meaning as the
-    corresponding ``Calculator`` keyword (see the Manual_).  Internal
-    units are Hartree and Angstrom and ``Ha`` and ``a0`` are the
-    conversion factors to external `ASE units`_.  ``error`` is the
-    error in the Kohn-Sham wave functions - should be zero (or small)
-    for a converged calculation.
-
-    ============ ===============================
-                 Description
-    ============ ===============================
-    ``nfermi``   finding the Fermi-level
-    ``niter``    solving the Kohn-Sham equations
-    ``npoisson`` Solving the Poisson equation
-    ============ ===============================
-
-    Only attribute not mentioned now is ``nspins`` (number of spins) and
-    those used for parallelization:
-
-
-    .. _Manual: https://wiki.fysik.dtu.dk/gridcode/Manual
-    .. _ASE units: https://wiki.fysik.dtu.dk/ase/Units
-
-    Parameters:
-
-    """
+    """This is the main calculation object for doing a PAW calculation."""
 
     timer_class = Timer
     scf_loop_class = SCFLoop
@@ -237,9 +187,11 @@ class PAW(PAWTextOutput):
 
     def set_positions(self, atoms=None):
         """Update the positions of the atoms."""
-
         if atoms is None:
             atoms = self.atoms
+        else:
+            # Save the state of the atoms:
+            self.atoms = atoms.copy()
             
         spos_ac = atoms.get_scaled_positions() % 1.0
 
@@ -301,7 +253,6 @@ class PAW(PAWTextOutput):
         nspins = 1 + int(spinpol)
         if not spinpol:
             assert not par.hund
-            assert not par.fixmom
 
         fixmom = par.fixmom
         if par.hund:
