@@ -517,7 +517,7 @@ def read_atoms(reader):
     if tags.any():
         atoms.set_tags(tags)
     if magmoms.any():
-        atoms.set_magnetic_moments(magmoms)
+        atoms.set_initial_magnetic_moments(magmoms)
 
     return atoms
 
