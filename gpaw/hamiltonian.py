@@ -33,6 +33,20 @@ class Hamiltonian:
      ``vt_sG``  Effective potential on the coarse grid.
      ``vt_sg``  Effective potential on the fine grid.
      ========== =========================================
+
+    Energy contributions and forces:
+
+    =========== ==========================================
+                Description
+    =========== ==========================================
+    ``Ekin``    Kinetic energy.
+    ``Epot``    Potential energy.
+    ``Etot``    Total energy.
+    ``Exc``     Exchange-Correlation energy.
+    ``Eext``    Energy of external potential
+    ``Eref``    Reference energy for all-electron atoms.
+    ``S``       Entropy.
+    ``Ebar``    Should be close to zero!
     """
 
     def __init__(self, gd, finegd, nspins, setups, stencil, timer, xcfunc,
@@ -232,8 +246,8 @@ class Hamiltonian:
     def apply_local_potential(self, psit_nG, Htpsit_nG, s):
         """Apply the Hamiltonian operator to a set of vectors.
 
-        Parameters
-        ==========
+        Parameters:
+
         a_nG: ndarray
             Set of vectors to which the overlap operator is applied.
         b_nG: ndarray, output

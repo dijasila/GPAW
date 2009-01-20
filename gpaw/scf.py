@@ -4,21 +4,11 @@ from gpaw import KohnShamConvergenceError
 
 
 class SCFLoop:
-    """Energy contributions and forces:
-
-    =========== ==========================================
-                Description
-    =========== ==========================================
-    ``Ekin``    Kinetic energy.
-    ``Epot``    Potential energy.
-    ``Etot``    Total energy.
-    ``Exc``     Exchange-Correlation energy.
-    ``Eext``    Energy of external potential
-    ``Eref``    Reference energy for all-electron atoms.
-    ``S``       Entropy.
-    ``Ebar``    Should be close to zero!
-    ``converged`` Do we have a self-consistent solution?
+    """Self-consistent field loop.
+    
+    converged: Do we have a self-consistent solution?
     """
+    
     def __init__(self, eigenstates=0.1, energy=0.1, density=0.1, maxiter=100,
                  fixdensity=False, niter_fixdensity=2):
         self.max_eigenstates_error = max(eigenstates, 1e-20)

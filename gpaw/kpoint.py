@@ -15,8 +15,8 @@ class KPoint:
     The KPoint class takes care of all wave functions for a
     certain k-point and a certain spin.
 
-    Attributes
-    ==========
+    Attributes:
+
     phase_cd: complex ndarray
         Bloch phase-factors for translations - axis c=0,1,2
         and direction d=0,1.
@@ -29,8 +29,8 @@ class KPoint:
     nbands: int
         Number of bands.
 
-    Parallel stuff
-    ==============
+    Parallel stuff:
+
     comm: Communicator object
         MPI-communicator for domain.
     root: int
@@ -41,8 +41,8 @@ class KPoint:
     def __init__(self, weight, s, k, q, phase_cd):
         """Construct k-point object.
 
-        Parameters
-        ==========
+        Parameters:
+
         gd: GridDescriptor object
             Descriptor for wave-function grid.
         weight: float
