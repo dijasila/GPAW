@@ -25,7 +25,7 @@ def test():
     calc.write('He')
     e2 = e1 + calc.get_xc_difference('vdWDF')
     print e1, e2
-    assert abs(e2 - -1.82358800345) < 1e-5
+    assert abs(e2 - -1.82358800345) < 3.0e-5
 
 if 'VDW' in os.environ:
     test()
