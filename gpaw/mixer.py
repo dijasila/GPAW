@@ -114,6 +114,9 @@ class BaseMixer:
         
         return self.dNt
 
+    def set_charge_sloshing(self, dNt):
+        self.dNt = dNt
+        
     def mix(self, nt_G, D_ap):
         iold = len(self.nt_iG)
         if iold > 0:
@@ -224,12 +227,13 @@ class Mixer(BaseMixer):
         Calculated as the integral of the absolute value of the change
         of the density from input to output."""
 
-        if self.dNt is not None:
-            return self.dNt
         if self.mixers[0].dNt is None:
             return None
         return sum([mixer.dNt for mixer in self.mixers])
 
+    def set_charge_sloshing(self, dNt):
+        for mixer in self mixers:
+            mixer.set_charge_sloshing(dNt / len(self.mixers))
 
 class MixerSum(BaseMixer):
     """For pseudo electron densities, mix the total charge density and for
