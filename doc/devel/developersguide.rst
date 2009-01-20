@@ -119,7 +119,7 @@ The constants `\Delta O_{i_1 i_2}^a` are found in
   [\phi_{i_1}^a(\mathbf{r})\phi_{i_2}^a(\mathbf{r}) -
    \tilde{\phi}_{i_1}^a(\mathbf{r})\tilde{\phi}_{i_2}^a(\mathbf{r})].
 
-See also :epydoc:`gpaw.setup.Setup`, :epydoc:`gpaw.nucleus.Nucleus`
+See also :epydoc:`gpaw.setup.Setup`,
 and :epydoc:`gpaw.spline.Spline`.
 
 

@@ -4,39 +4,162 @@
 Overview
 ========
 
-
-------------
-Introduction
-------------
-
 This document describes the most important objects used for a DFT calculation.
 More information can be found in the :epydoc:`API <gpaw>` or in the code.
 
+
+PAW
+===
+
+This object is the central object for a GPAW calculation::
+
+                    +---------------+
+                    |ForceCalculator|      +-----------+
+                    +---------------+  --->|Hamiltonian|
+        +------+             ^        /    +-----------+
+        |Setups|<--------    |    ----      +---------------+
+        +------+         \   |   /     ---->|InputParameters|
+     +-----+              +-----+     /     +---------------+     
+     |Atoms|<-------------| PAW |-----      
+     +-----+              +-----+     \          
+                         /   |   \     \            +-----------+
+      +-------------+   /    |    ---   ----------->|Occupations|
+      |WaveFunctions|<--     v       \              +-----------+
+      +-------------+     +-------+   \   +-------+    
+                          |Density|    -->|SCFLoop|    
+                          +-------+       +-------+
+
+The implementation is in :svn:`gpaw/paw.py`.  The
+:class:`~gpaw.paw.PAW` class doesn't do any part of the actual
+calculation - it only handles the logic of parsing the input
+parameters and setting up the neccesary objects for doing the actual
+work (see figure above).
+
+
+A PAW instance has the following attributes: :attr:`atoms`,
+:attr:`input_parameters setups`, :attr:`wfs`, :attr:`density`,
+:attr:`hamiltonian`, :attr:`scf`, :attr:`forces`, :attr:`timer`,
+:attr:`occupations`, :attr:`initialized` and :attr:`observers`.
+
+
+
+GPAW
+====
+
+The :class:`~gpaw.aseinterface.GPAW` class
+(:svn:`gpaw/aseinterface.py`), which implements the :ase:`ASE calculator
+interface <ase/calculators/calculators.html#calculator-interface>`,
+inherits from the PAW class, and does unit conversion between GPAW's
+internal atomic units (`\hbar=e=m=1`) and :ase:`ASE's units <ase/units.html>`
+(Angstrom and eV)::
+
+        gpaw          |    ase
+  
+  (Hartree and Bohr)  |  (eV and Angstrom)
+               
+     +-----+          |
+     | PAW |
+     +-----+          |
+        ^
+       /_\            |
+        |
+        |             |
+     +------+           calc +-------+
+     | GPAW |<---------------| Atoms |
+     +------+                +-------+
+                      |
+
+
+Generating a GPAW instance from scratch
+---------------------------------------
+
+When a GPAW instance is created from scratch::
+
+  calc = GPAW(xc='LDA', nbands=7)
+
+the GPAW object is almost empty.  In order to start a calculation, one
+will have to call the :meth:`~gpaw.PAW.calculate` method::
+
+  calc.calculate(converge=True)
+
+This will trigger:
+
+1) A call to the :meth:`~gpaw.PAW.initialize` method, which will set
+   up the objects needed for a calculation:
+   :class:`gpaw.`:class:`gpaw.density.Density`,
+   :class:`gpaw.hamiltonian.Hamiltonian`, :class:`gpaw.wfs.WaveFunctions`,
+   :class:`gpaw.setup.Setups` and a few more (see figure above).
+
+2) A call to the :meth:`~gpaw.PAW.set_positions` method, which will:
+
+   a) Pass on the atomic positions to the wave functions, hamiltonian
+      and density objects (call their ``set_positions()`` methods).
+   
+   b) Make sure the wave functions are initialized.
+
+   c) Reset the :class:`~gpaw.scf.SCFLoop` and
+      :class:`~gpaw.forces.ForceCalculator` objects.
+
+
+Generating a GPAW instance from a restart file
+----------------------------------------------
+
+When a GPAW instance is created like this::
+
+  calc = GPAW('restart.gpw')
+
+the :meth:`~gpaw.PAW.initialize` method is called first, and then the
+parts read from the file can be placed inside the objects where they
+belong: the effective pseudo potential and the total energy are put in
+the hamiltonian, the pseudo density is put in density object and so
+on.
+
+...
+
+
+WaveFunctions
+=============
+
+We currently have two implementations of the 
+
 ::
 
-     
-        +---------------+              +-----------+
-        |ForceCalculator|              |Hamiltonian|
-        +---------------+              +-----------+
+     +--------------+     +-----------+
+     |GridDescriptor|     |Eigensolver|
+     +--------------+     +-----------+
+                 ^           ^
+                 |gd         |
+                  \          |
+   +------+        +-------------+ kpt_u   +------+
+   |Setups|<-------|WaveFunctions|-------->|KPoint|+
+   +------+        +-------------+         +------+|+
+                          ^                 +------+|
+                         /_\                 +------+
+                          |
+                          |
+               -----------^--------------------
+              |                                |
+     +-----------------+            +-----------------+
+     |LCAOWaveFunctions|            |GridWaveFunctions|
+     +-----------------+            +-----------------+
+           |        |              /    |           |
+           v        |tci          |     |kin        |pt
+   +--------------+ |             v     |           v
+   |BasisFunctions| |        +-------+  |         +----------+
+   +--------------+ |        |Overlap|  |         |Projectors|
+                    v        +-------+  |         +----------+
+     +------------------+               v                             
+     |TwoCenterIntegrals|     +---------------------+         
+     +------------------+     |KineticEnergyOperator|         
+                              +---------------------+         
 
-     +-----+              +---+           +------+     
-     |Atoms|              |PAW|           |Setups|     
-     +-----+              +---+           +------+     
-
-      +-------------+     +-------+       +-------+    
-      |WaveFunctions|     |Density|       |SCFLoop|    
-      +-------------+     +-------+       +-------+    
-   
-   
-   
 
 
 
 .. _overview_array_naming:
 
-----------------------------
 Naming convention for arrays
-----------------------------
+============================
 
 A few examples:
 
@@ -73,7 +196,7 @@ A few examples:
  ``r``    CPU-rank
  =======  ==================================================
 
---------------------------------
+
 Array names and their definition
 --------------------------------
 
@@ -87,9 +210,9 @@ Array names and their definition
  setup.M_pp        eq. (C2,C3) in [1]_ and eq. (6.48c) in [2]_
  ================  ==================================================
  
-------------------------------------------------
+
 Parallelization over spins, k-points and domains
-------------------------------------------------
+================================================
 
 When using parallization over spins, **k**-points and domains,
 three different MPI communicators are used:
