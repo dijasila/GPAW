@@ -232,8 +232,9 @@ class Mixer(BaseMixer):
         return sum([mixer.dNt for mixer in self.mixers])
 
     def set_charge_sloshing(self, dNt):
-        for mixer in self mixers:
+        for mixer in self.mixers:
             mixer.set_charge_sloshing(dNt / len(self.mixers))
+
 
 class MixerSum(BaseMixer):
     """For pseudo electron densities, mix the total charge density and for
