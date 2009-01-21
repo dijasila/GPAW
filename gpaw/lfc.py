@@ -195,8 +195,8 @@ class NewLocalizedFunctionsCollection:
         self.lfc = _gpaw.LFC(self.A_Wgm, self.M_W, self.G_B, self.W_B,
                              self.gd.dv, self.phase_qW)
 
-        nimax = np.add.accumulate((self.W_B >= 0) * 2 - 1).max()
-        self.W_i = np.empty(nimax, np.intc)
+        #nimax = np.add.accumulate((self.W_B >= 0) * 2 - 1).max()
+        #self.W_i = np.empty(nimax, np.intc)
         self.g_W = np.empty(nW, np.intc)
         self.i_W = np.empty(nW, np.intc)
 
