@@ -286,49 +286,5 @@ equal to *mpi.world*.
        This document can be found at the :ref:`exx` page.
 
 
-Documentation from docstrings
-=============================
-
-.. autoclass:: gpaw.paw.PAW
-   :members:
-
-.. autoclass:: gpaw.aseinterface.GPAW
-   :members:
-
-.. autoclass:: gpaw.density.Density
-   :members:
-
-.. autoclass:: gpaw.hamiltonian.Hamiltonian
-   :members:
-
-.. autoclass:: gpaw.setup.Setups
-   :members:
-
-.. autoclass:: gpaw.wavefunctions.WaveFunctions
-   :members:
-
-.. autoclass:: gpaw.wavefunctions.GridWaveFunctions
-   :members:
-
-.. autoclass:: gpaw.wavefunctions.LCAOWaveFunctions
-   :members:
-
-.. autoclass:: gpaw.forces.ForceCalculator
-   :members:
-
-.. autoclass:: gpaw.grid_descriptor.GridDescriptor
-   :members:
-
-.. autoclass:: gpaw.eigensolvers.eigensolver.Eigensolver
-   :members:
-
-.. autoclass:: gpaw.setup.Setups
-   :members:
-
-.. autoclass:: gpaw.kpoint.KPoint
-   :members:
-
-
-
 
 .. default-role::

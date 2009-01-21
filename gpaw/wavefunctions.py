@@ -16,7 +16,9 @@ class EmptyWaveFunctions:
         pass
 
 class WaveFunctions(EmptyWaveFunctions):
-    """
+    """...
+
+    ==============  ====================================================
     ``setups``      List of setup objects.
     ``symmetry``    Symmetry object.
     ``kpt_u``       List of **k**-point objects.
@@ -32,6 +34,8 @@ class WaveFunctions(EmptyWaveFunctions):
                     of the Brillouin zone (summing up to 1).
     ``kpt_comm``    MPI-communicator for parallelization over
                     **k**-points.
+    ==============  ====================================================
+
     """
     def __init__(self, gd, nspins, setups, nbands, mynbands, dtype,
                  world, kpt_comm, band_comm,

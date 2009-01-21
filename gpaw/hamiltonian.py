@@ -47,6 +47,8 @@ class Hamiltonian:
     ``Eref``    Reference energy for all-electron atoms.
     ``S``       Entropy.
     ``Ebar``    Should be close to zero!
+    =========== ==========================================
+
     """
 
     def __init__(self, gd, finegd, nspins, setups, stencil, timer, xcfunc,
