@@ -19,8 +19,6 @@ from gpaw.mpi import run, MASTER
 
 
 class PAWExtra:
-<<<<<<< .working
-=======
     def get_fermi_level(self):
         """Return the Fermi-level."""
         return self.occupation.get_fermi_level() * self.Ha
@@ -72,7 +70,6 @@ class PAWExtra:
             self.world.receive(psit_G, world_rank, 1398)
             return psit_G
 
->>>>>>> .merge-right.r2891
     def collect_eigenvalues(self, k=0, s=0):
         """Return eigenvalue array.
 

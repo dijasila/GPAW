@@ -1,5 +1,3 @@
-<<<<<<< .working
-=======
 from math import sqrt, pi
 from time import time
 
@@ -20,7 +18,6 @@ from gpaw import sl_diagonalize
 
 lcao_forces_default = False
 
->>>>>>> .merge-right.r2891
 class LCAOHamiltonian:
     kfjsdfjsldfkjsldfkjslkdfjslkdfjslkfjslkdfj
     """Hamiltonian class for LCAO-basis calculations."""
@@ -195,8 +192,6 @@ class LCAOHamiltonian:
         if self.gd.comm.size > 1:
             self.gd.comm.sum(self.S_kmm)
 
-<<<<<<< .working
-=======
         # MDTMP Near-linear dependence check
         # MDTMP does not work for band parallelization with scalapack
         if sl_diagonalize:
@@ -258,7 +253,6 @@ class LCAOHamiltonian:
 
         self.lcao_initialized = True
 
->>>>>>> .merge-right.r2891
     def st(self, a, b, r, R, rlY_lm, drlYdR_lmc, phase_k, selfinteraction):
         """Calculate overlaps and kinetic energy matrix elements for the
         (a,b) pair of atoms."""

@@ -181,13 +181,15 @@ class ProjectedWannierFunctions:
         return self.H_kii, self.S_kii
 
     def calculate_edf(self, useibl=True):
-        """Calculate the coefficients b_il
-           in the expansion of the EDF: 
-                        |phi_l> = sum_i b_il |f^u_i>,
-           in terms of |f^u_i> = P^u|f_i>.
+        """Calculate the coefficients b_il in the expansion of the EDF
 
-           To use the infinite band limit set useibl=True.
-           N is the total number of bands to use
+        ::
+                        |phi_l> = sum_i b_il |f^u_i>,
+                        
+        in terms of ``|f^u_i> = P^u|f_i>``.
+
+        To use the infinite band limit set useibl=True.
+        N is the total number of bands to use.
         """
         
         for k, L in enumerate(self.L_k):
