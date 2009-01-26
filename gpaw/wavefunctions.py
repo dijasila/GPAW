@@ -538,6 +538,12 @@ class GridWaveFunctions(WaveFunctions):
                                                        basis_functions,
                                                        density, hamiltonian,
                                                        spos_ac):
+        if 0:
+            for kpt in self.kpt_u:
+                kpt.psit_nG = self.gd.zeros(self.mynbands, self.dtype)
+            self.random_wave_functions(0)
+            return
+        
         if self.nbands < self.setups.nao:
             lcaonbands = self.nbands
             lcaomynbands = self.mynbands
