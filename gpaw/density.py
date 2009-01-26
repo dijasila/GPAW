@@ -9,7 +9,7 @@ from math import pi, sqrt
 import numpy as np
 
 from gpaw import debug
-from gpaw.mixer import BaseMixer, Mixer, MixerSum, Mixer_Broydn
+from gpaw.mixer import BaseMixer, Mixer, MixerSum
 from gpaw.transformers import Transformer
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.wavefunctions import LCAOWaveFunctions
