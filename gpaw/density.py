@@ -9,7 +9,7 @@ from math import pi, sqrt
 import numpy as np
 
 from gpaw import debug
-from gpaw.mixer import BaseMixer, Mixer, MixerSum
+from gpaw.mixer import BaseMixer, Mixer, MixerSum, Mixer_Broydn
 from gpaw.transformers import Transformer
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.wavefunctions import LCAOWaveFunctions
@@ -129,6 +129,7 @@ class Density:
             if calculate_atomic_density_matrices:
                 wfs.calculate_atomic_density_matrices(self)
 
+
         self.nt_sG += self.nct_G
 
         comp_charge = self.calculate_multipole_moments()
@@ -141,10 +142,11 @@ class Density:
             if pseudo_charge != 0:
                 x = -(self.charge + comp_charge) / pseudo_charge
                 self.nt_sG *= x
-
-        if not self.mixer.mix_rho:
-            self.mixer.mix(self)
-            comp_charge = None
+####modify here
+        if not hasattr(self, 'transport'):
+            if not self.mixer.mix_rho:
+                self.mixer.mix(self)
+                comp_charge = None
             
         self.interpolate(comp_charge)
 
@@ -156,9 +158,10 @@ class Density:
             if abs(charge) > self.charge_eps:
                 raise RuntimeError('Charge not conserved: excess=%.9f' %
                                    charge)
-
-        if self.mixer.mix_rho:
-            self.mixer.mix(self)
+#####modify here
+        if not hasattr(self, 'transport'):
+            if self.mixer.mix_rho:
+                self.mixer.mix(self)
 
     def interpolate(self, comp_charge=None):
         if comp_charge is None:
