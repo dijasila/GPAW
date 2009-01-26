@@ -49,19 +49,15 @@ class RMM_DIIS(Eigensolver):
         B = 1
         for n1 in range(0, self.mynbands, B):
             n2 = min(n1 + B, self.mynbands)
+            shape = (1,) + dR_G.shape
             if self.keep_htpsit:
                 R_G = R_nG[n1]
             else:
-                XXX
                 R_G = wfs.overlap.operator.work1_xG[1]
-                psit_G = kpt.psit_nG[n]
-                hamiltonian.apply(psit_G, R_G, kpt,
-                                  local_part_only=True,
-                                  calculate_projections=False)
-                axpy(-kpt.eps_n[n], psit_G, R_G)
-                run([nucleus.adjust_residual2(psit_G, R_G, kpt.eps_n[n],
-                                              kpt.s, kpt.u, kpt.k, n)
-                     for nucleus in hamiltonian.pt_nuclei])
+                self.calculate_residuals(wfs, hamiltonian, kpt,
+                                         kpt.eps_n[n1:n2],
+                                         R_G.reshape(shape),
+                                         kpt.psit_nG[n1:n2])
 
             for n in range(n1, n2):
                 if kpt.f_n is None:
@@ -79,7 +75,6 @@ class RMM_DIIS(Eigensolver):
             pR_G = self.preconditioner(R_G, kpt.phase_cd, kpt.psit_nG[n1])
 
             # Calculate the residual of pR_G, dR_G = (H - e S) pR_G:
-            shape = (1,) + dR_G.shape
             self.calculate_residuals(wfs, hamiltonian, kpt, kpt.eps_n[n1:n2],
                                      dR_G.reshape(shape),
                                      pR_G.reshape(shape), n1)
