@@ -31,8 +31,8 @@ gpawtran = GPAWTransport(atoms=atoms,
                          pl_atoms=(pl_atoms1, pl_atoms2),
                          pl_cells=(pl_cell1, pl_cell2),
                          d=0) 
-gpawtran.negf_prepare('test1', scat_restart=False, lead_restart=False)
-gpawtran.get_selfconsistent_hamiltonian(bias=0, gate=0,extend_layer=0,verbose=1)
+gpawtran.negf_prepare(scat_restart=True, lead_restart=True)
+gpawtran.get_selfconsistent_hamiltonian(bias=0, gate=0,verbose=1)
 filename = 'Na4_eq'
 fd = file(filename,'wb')
 pickle.dump((gpawtran.h_syzkmm, gpawtran.d_syzkmm, gpawtran.atoms.calc.hamiltonian.vt_sG), fd, 2)
