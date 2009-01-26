@@ -247,9 +247,9 @@ Array names and their definition
    * - hamiltonian.dH_sp
      - `\Delta H_{s i_1i_2}^a`
    * - setup.Delta_pL
-     - `\Delta_{Li_1i_2}`
+     - `\Delta_{Li_1i_2}^a`
    * - setup.M_pp
-     - eq. (C2,C3) in [1]_ and eq. (6.48c) in [2]_
+     - `\Delta C_{i_1i_2i_3i_4}^a` eq. (C2) in [1]_ or eq. (47) in [2]_
    * - wfs.kpt_u[u].psit_nG
      - `\tilde{\psi}_{\sigma\mathbf{k}n}(\mathbf{r})`
    * - setup.pt_j
@@ -283,8 +283,7 @@ equal to *mpi.world*.
 
 .. [1] J J. Mortensen and L. B. Hansen and K. W. Jacobsen,
        Phys. Rev. B 71 (2005) 035109.
-.. [2] C. Rostgaard, Masters thesis, CAMP, dep. of physics, Denmark, 2006.
-       This document can be found at the :ref:`exx` page.
+.. [2] C. Rostgaard, `The Projector Augmented Wave Method <../paw_note.pdf>`_.
 
 
 
