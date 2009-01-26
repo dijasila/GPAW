@@ -299,7 +299,7 @@ class GPAWTransport:
         self.atoms_l[0] = self.get_lead_atoms(0)
         self.atoms_l[1] = self.get_lead_atoms(1)
         
-    def negf_prepare(self, scat_restart = False, lead_restart=True):
+    def negf_prepare(self, scat_restart=False, lead_restart=True):
         self.update_lead_hamiltonian(0, lead_restart)
 
         atoms1 = self.atoms_l[0]
@@ -582,7 +582,8 @@ class GPAWTransport:
         self.kt = self.atoms.calc.occupations.kT * Hartree
         self.fermi = 0
         self.current = 0
-        self.buffer = self.nblead
+        #self.buffer = self.nblead
+        self.buffer = 0
         self.atoms.calc.density.transport = True       
         if self.verbose:
             print 'prepare for selfconsistent calculation'
@@ -1099,7 +1100,8 @@ class GPAWTransport:
             print 'Warning!, the spacing between the scat %f and lead %f is not small, \
                   the linear potential maybe not very precise' % (spacing_lead, spacing_scat)
         
-        buffer_dim = dimx_lead
+        #buffer_dim = dimx_lead
+        buffer_dim = 0
         scat_dim = dimx - buffer_dim * 2
         bias = self.bias / Hartree
         vx = np.empty([dimx])
@@ -1276,6 +1278,11 @@ class GPAWTransport:
     def move_buffer(self):
         self.nbmol_inner = self.nbmol - 2 * self.buffer
         pl1 = self.buffer
-        self.h_syzkmm_mol = self.h_syzkmm[:, :, pl1: -pl1, pl1:-pl1]
-        self.d_syzkmm_mol = self.d_syzkmm[:, :, pl1: -pl1, pl1:-pl1]
-        self.s_yzkmm_mol = self.s_yzkmm[:, pl1: -pl1, pl1:-pl1]
+        if pl1 == 0:
+            self.h_syzkmm_mol = self.h_syzkmm
+            self.d_syzkmm_mol = self.d_syzkmm
+            self.s_yzkmm_mol = self.s_yzkmm
+        else:
+            self.h_syzkmm_mol = self.h_syzkmm[:, :, pl1: -pl1, pl1:-pl1]
+            self.d_syzkmm_mol = self.d_syzkmm[:, :, pl1: -pl1, pl1:-pl1]
+            self.s_yzkmm_mol = self.s_yzkmm[:, pl1: -pl1, pl1:-pl1]
