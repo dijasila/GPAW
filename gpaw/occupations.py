@@ -41,7 +41,14 @@ class Dummy:
         # Sum up all eigenvalues weighted with occupation numbers:
         Eband = 0.0
         for kpt in kpt_u:
-            Eband += npy.dot(kpt.f_n, kpt.eps_n)    
+            Eband += npy.dot(kpt.f_n, kpt.eps_n)
+
+            # Hack used in delta-scf calculations:
+            if hasattr(kpt, 'ft_omn'):
+                for i in range(len(kpt.ft_omn)):
+                    Eband += npy.dot(npy.diagonal(kpt.ft_omn[i]).real,
+                                     kpt.eps_n)
+
         self.Eband = self.band_comm.sum(self.kpt_comm.sum(Eband))
 
     def get_homo_lumo(self, kpts):

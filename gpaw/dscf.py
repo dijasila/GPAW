@@ -80,6 +80,7 @@ class ZeroKelvinDSCF(ZeroKelvin):
             self.cnoe += orb[0]
         self.ne -= self.cnoe
 
+    """
     def calculate_band_energy(self, kpt_u):
         # Sum up all eigenvalues weighted with occupation numbers:
         Eband = 0.0
@@ -90,9 +91,11 @@ class ZeroKelvinDSCF(ZeroKelvin):
                     Eband += npy.dot(npy.diagonal(kpt.ft_omn[i]).real,
                                      kpt.eps_n)
         self.Eband = self.kpt_comm.sum(Eband)
+    """
 
     def calculate(self, kpts):
-        # place all non-controlled electrons in the lowest lying states
+        # Place all non-controlled electrons in the lowest lying states
+        # TODO suppress implicit calculate_band_energy call untill later
         ZeroKelvin.calculate(self, kpts)
         
         # Estimate fermi energy, which is used when collecting the
@@ -127,6 +130,7 @@ class ZeroKelvinDSCF(ZeroKelvin):
                 else:
                     kpt.ft_omn[o] *= 0.5 * kpt.weight
 
+        # Re-calculate the band energy including the expansion coefficients
         self.calculate_band_energy(kpts)
         
 
@@ -148,6 +152,7 @@ class FermiDiracDSCF(FermiDirac):
             self.cnoe += orb[0]
         self.ne -= self.cnoe
 
+    """
     def calculate_band_energy(self, kpt_u):
         # Sum up all eigenvalues weighted with occupation numbers:
         Eband = 0.0
@@ -158,6 +163,7 @@ class FermiDiracDSCF(FermiDirac):
                     Eband += npy.dot(npy.diagonal(kpt.ft_omn[i]).real,
                                      kpt.eps_n)
         self.Eband = self.kpt_comm.sum(Eband)
+    """
 
     def calculate(self, kpts):
 
@@ -173,7 +179,7 @@ class FermiDiracDSCF(FermiDirac):
         ft_okm = []
         for orb in self.orbitals:
             ft_okm.append(orb[1].get_ft_km(self.epsF))
-            
+
         for kpt in self.paw.kpt_u:
             kpt.ft_omn = npy.zeros((len(self.orbitals),
                                     len(kpt.f_n), len(kpt.f_n)), npy.complex)
@@ -192,6 +198,9 @@ class FermiDiracDSCF(FermiDirac):
                 else:
                     kpt.ft_omn[o] *= 0.5 * kpt.weight
 
+        # TODO remove copy/paste from FermiDirac.calculate by
+        # TODO suppressing implicit find_fermi_level (done beforehand)
+
         S = 0.0
         for kpt in kpts:
             if self.fixmom:
@@ -206,7 +215,7 @@ class FermiDiracDSCF(FermiDirac):
             y -= npy.log(z)
             S -= kpt.weight * npy.sum(y)
 
-        self.S = self.kpt_comm.sum(S) * self.kT
+        self.S = self.band_comm.sum(self.kpt_comm.sum(S)) * self.kT
         self.calculate_band_energy(kpts)
 
 
