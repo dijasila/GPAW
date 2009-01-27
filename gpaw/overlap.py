@@ -30,10 +30,10 @@ class Overlap:
 
     """
 
-    def __init__(self, wfs, nblocks=1):
+    def __init__(self, wfs):
         """Create the Overlap operator."""
 
-        self.operator = Operator(wfs.band_comm, wfs.gd, nblocks)
+        self.operator = Operator(wfs.band_comm, wfs.gd)
         self.timer = wfs.timer
         self.domain_comm = wfs.gd.comm
         self.band_comm = wfs.band_comm

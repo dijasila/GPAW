@@ -6,16 +6,18 @@ from gpaw.utilities.blas import rk, r2k, gemm
 
 
 class Operator:
+    nblocks = 1
     """Base class for overlap and hamiltonian operators."""
-    def __init__(self, band_comm, gd, nblocks=1):
+    def __init__(self, band_comm, gd, nblocks=None):
         self.band_comm = band_comm
         self.domain_comm = gd.comm
         self.gd = gd
-        self.nblocks = nblocks
         self.work1_xG = None
         self.work2_xG = None
         self.A_qnn = None
         self.A_nn = None
+        if nblocks is not None:
+            self.nblocks = nblocks
 
     def allocate_work_arrays(self, mynbands, dtype):
         ngroups = self.band_comm.size
