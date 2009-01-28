@@ -79,6 +79,9 @@ Exciting the LUMO in CO::
     wf = [kpt.psit_nG[5] for kpt in calc.kpt_u]
     P_aui = [a.P_uni[:,5,:] for a in calc.nuclei]
 
+    P_aui = [[kpt.P_ani[a][5] for kpt in calc.wfs.kpt_u]
+             for a in range(len(CO)]
+
     # Excited state calculation
     #--------------------------------------------
 
