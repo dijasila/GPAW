@@ -1471,8 +1471,6 @@ class XCCorrection:
             dEdD_p += w * npy.dot(dot3(self.B_pqL, Y_L),
                                   npy.dot(self.n_qg, v_g))
 
-    
-
     def expand_density(self, i, i_n, n_g, nt_g):
         (n_Lg, nt_Lg) = i_n
         (y, (w, Y_L)) = i
@@ -1573,10 +1571,9 @@ class XCCorrection:
 
         return J_pp
 
-
     def create_kinetic(self,jlL,jl,ny,np,phi_jg,tau_ypg):
-
-        """Short title here.                                                     
+        """Short title here.
+        
         kinetic expression is::
 
                                              __         __ 

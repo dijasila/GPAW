@@ -16,6 +16,7 @@ import gpaw.mpi as mpi
 import _gpaw
 from gpaw.operators import Gradient
 
+
 class VanDerWaals:
     def __init__(self, n_g, gd, calc=None,
                  xcname='revPBE', ncoarsen=0):
@@ -113,10 +114,10 @@ class VanDerWaals:
         p.ylabel(r'$4\pi D^2 \phi(\rm{Hartree})$')
         p.show()
         
-    def get_energy(self, repeat=None, ncut=0.0005, rcut=20.0):
+    def get_energy(self, repeat=None, ncut=0.0005, rcut=15.0):
         #introduces periodic boundary conditions using
         #the minimum image convention
-
+        
         gd = self.gd
         n_g = gd.collect(self.n_g)
         q0_g = gd.collect(self.q0_g)
@@ -131,7 +132,7 @@ class VanDerWaals:
         R_gc[..., 0] = (npy.arange(0, n_c[0]) * gd.h_c[0]).reshape((-1, 1, 1))
         R_gc[..., 1] = (npy.arange(0, n_c[1]) * gd.h_c[1]).reshape((-1, 1))
         R_gc[..., 2] = npy.arange(0, n_c[2]) * gd.h_c[2]
-
+        
         mask_g = (n_g.ravel() > ncut)
         R_ic = R_gc.reshape((-1, 3)).compress(mask_g, axis=0)
         n_i = n_g.ravel().compress(mask_g)
@@ -168,9 +169,10 @@ class VanDerWaals:
                          self.histogram, rcut)
         self.histogram *= gd.h_c.prod()**2 / (rcut / 299) / 4 / pi * Hartree
         mpi.world.sum(self.histogram)
+        
         E_cl = mpi.world.sum(E_cl * gd.h_c.prod()**2)
         E_nl_c = self.dExc_semilocal + E_cl
-        return E_nl_c * Hartree, E_cl*Hartree
+        return E_nl_c * Hartree, E_cl*Hartree, self.histogram
 
     def get_e_xc_LDA(self):
         e_xc_LDA=self.get_e_c_LDA()+self.get_e_x_LDA()
@@ -433,12 +435,26 @@ class VDWFunctional:
         file.close()
         return filearray1D
         
+
    
     def get_potential(self, repeat=None, ncut=0.0005):
         #introduces periodic boundary conditions using
         #the minimum image convention
 
+
         gd = self.gd
+        n_g = gd.collect(self.n_g)
+        q0_g = gd.collect(self.q0_g)
+        if mpi.rank != 0:
+            n_g = gd.empty(global_array=True)
+            q0_g = gd.empty(global_array=True)
+        mpi.world.broadcast(n_g, 0)
+        mpi.world.broadcast(q0_g, 0)
+
+        #n_g = self.n_g
+        #q0_g = self.q0_g
+        #gd = self.gd
+
         n_g = gd.collect(self.n_g)
         q0_g = gd.collect(self.q0_g)
         if mpi.rank != 0:
@@ -478,8 +494,8 @@ class VDWFunctional:
         
 
         q0=self.get_q0
-        self.alpha1=1.0/self.q0_g*(-0.8491/9.0*sggf+7.0/3.0*-0.8491/9.0*s2*self.kF_g-4.0*npy.pi/3.0*(v_g-e_g))
-    
+
+        self.alpha1=1.0/self.q0_g*(-0.8491/9.0*sggf+7.0/3.0*-0.8491/9.0*s2*self.kF_g-4.0*npy.pi/3.0*(v_g-e_g))    
         n_c = n_g.shape
         R_gc = npy.empty(n_c + (3,))
         R_gc[..., 0] = (npy.arange(0, n_c[0]) * gd.h_c[0]).reshape((-1, 1, 1))
@@ -525,7 +541,7 @@ class VDWFunctional:
                              #repeat_c,
                              self.phi_jk, self.deltaD, self.deltadelta,
                              iA, iB,
-                             a1_i, a2_i, s_i, v_i)
+                             a1_i, a2_i, s_i, v_i)/2
         E_vdwnl = mpi.world.sum(E_vdwnl * gd.h_c.prod()**2)
         v_g = self.gd.zeros()
         v_g.ravel()[mask_g] = v_i
@@ -547,3 +563,38 @@ class VDWFunctional:
             v_g += vvdw_g
             e_g[0] += e / self.gd.h_c.prod()
             
+
+"""
+from math import sin, cos, exp, pi, log
+import numpy as np
+from scipy.integrate import dblquad
+
+def T(w, x, y, z):
+    return 0.5 * ((1.0 / (w + x) + 1.0 / (y + z)) *
+                  (1.0 / ((w + y) * (x + z)) + 1.0 / ((w + z) * (y + x))))
+def W(a, b):
+    return 2 * ((3 - a**2) * b * cos(b) * sin(a) +
+                (3 - b**2) * a * cos(a) * sin(b) +
+                (a**2 + b**2 - 3) * sin(a) * sin(b) -
+                3 * a * b * cos(a) * cos(b)) / (a * b)**3
+eta = 8 * pi / 9
+def nu(y, d):
+    return 0.5 * y**2 / (1 - exp(-0.5 * eta * (y / d)**2))
+def f(a, b, d):
+    va = nu(a, d)
+    vb = nu(b, d)
+    return (a * b)**2 * W(a, b) * T(va, vb, va, vb)
+A = 0
+B = 10
+import pylab as plt
+dd = np.linspace(0.1, 6, 40)
+#plt.plot(dd, [dblquad(f, A, B, lambda x: A, lambda x: B, (d,))[0] * d**2
+#          for d in dd])
+def g(x,y,d):
+    return f(-log(x), -log(y), d) / x / y
+A = 0
+B = 1
+plt.plot(dd, [dblquad(g, A, B, lambda x: A, lambda x: B, (d,))[0] * d**2
+          for d in dd])
+plt.show()
+"""
