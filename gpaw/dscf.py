@@ -76,9 +76,11 @@ class ZeroKelvinDSCF(ZeroKelvin):
 
         # sum up the total number of controlled electrons
         self.cnoe = 0.
-        for orb in orbitals:
+        for orb in self.orbitals:
             self.cnoe += orb[0]
         self.ne -= self.cnoe
+
+        self.norbitals = len(self.orbitals)
 
     """
     def calculate_band_energy(self, kpt_u):
@@ -113,9 +115,9 @@ class ZeroKelvinDSCF(ZeroKelvin):
             ft_okm.append(orb[1].get_ft_km(self.epsF))
             
         for kpt in self.paw.kpt_u:
-            kpt.ft_omn = npy.zeros((len(self.orbitals),
+            kpt.ft_omn = npy.zeros((self.norbitals,
                                     len(kpt.f_n), len(kpt.f_n)), npy.complex)
-            for o in range(len(self.orbitals)):
+            for o in range(self.norbitals):
                 ft_m = ft_okm[o][kpt.u]
                 for n1 in range(len(kpt.f_n)):
                      for n2 in range(len(kpt.f_n)):
@@ -148,9 +150,11 @@ class FermiDiracDSCF(FermiDirac):
         self.paw=paw
 
         self.cnoe = 0.
-        for orb in orbitals:
+        for orb in self.orbitals:
             self.cnoe += orb[0]
         self.ne -= self.cnoe
+
+        self.norbitals = len(self.orbitals)
 
     """
     def calculate_band_energy(self, kpt_u):
@@ -181,9 +185,9 @@ class FermiDiracDSCF(FermiDirac):
             ft_okm.append(orb[1].get_ft_km(self.epsF))
 
         for kpt in self.paw.kpt_u:
-            kpt.ft_omn = npy.zeros((len(self.orbitals),
+            kpt.ft_omn = npy.zeros((self.norbitals,
                                     len(kpt.f_n), len(kpt.f_n)), npy.complex)
-            for o in range(len(self.orbitals)):
+            for o in range(self.norbitals):
                 ft_m = ft_okm[o][kpt.u]
                 for n1 in range(len(kpt.f_n)):
                      for n2 in range(len(kpt.f_n)):

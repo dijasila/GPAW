@@ -281,6 +281,47 @@ def write(paw, filename, mode):
         for kpt in paw.kpt_u:
             paw.world.send(kpt.f_n, MASTER, 4301)
 
+    # Attempt to read the number of delta-scf orbitals:
+    if hasattr(paw.occupation,'norbitals'):
+        norbitals = paw.occupation.norbitals
+    else:
+        norbitals = None
+
+    # Write the linear expansion coefficients for delta-scf:
+    if norbitals is not None:
+        w.dimension('norbitals', norbitals)
+
+        if paw.master:
+            #TODO what if complex but paw.dtype is float?!?
+            w.add('LinearExpansionCoefficients', ('nspins', 'nibzkpts',
+                  'norbitals', 'nbands', 'nbands'), dtype=complex)
+            for kpt_rank in range(paw.kpt_comm.size):
+                for u in range(paw.nmyu):
+                    s, k = divmod(u + kpt_rank * paw.nmyu, paw.nkpts)
+                    ft_all_omn = npy.empty((norbitals,paw.nbands,paw.nbands),
+                                       dtype=complex)
+
+                    #nstride = paw.band_comm.size
+                    #for band_rank in range(paw.band_comm.size):
+                    #    if kpt_rank == MASTER and band_rank == MASTER:
+                    #        for o in range(norbitals):
+                    #            ft_all_omn[o][0::nstride][???] = paw.kpt_u[u].ft_omn[o]
+                    #    else:
+                    #        ft_omn = npy.empty(norbitals,paw.nmybands,paw.nmybands)
+                    #        world_rank = kpt_rank * paw.domain.comm.size * paw.band_comm.size + band_rank * paw.domain.comm.size 
+                    #        paw.world.receive(ft_omn, world_rank, 4302)
+                    #        ft_all_omn[band_rank::nstride] = ft_omn
+
+                    ft_all_omn[:] = paw.kpt_u[u].ft_omn
+
+                    w.fill(ft_all_omn)
+
+        #elif paw.domain.comm.rank == MASTER:
+        #    for kpt in paw.kpt_u:
+        #        paw.world.send(kpt.ft_omn, MASTER, 4302)
+
+
+
     # Write the pseudodensity on the coarse grid:
     if paw.master:
         w.add('PseudoElectronDensity',
@@ -435,7 +476,14 @@ def read(paw, reader):
             paw.time = r['Time']
         except KeyError:
             pass
-        
+
+    # Try to read the number of delta-scf orbitals
+    try:
+        norbitals = r.dimension('norbitals')
+        paw.occupation.norbitals = norbitals
+    except (AttributeError, KeyError):
+        norbitals = None
+
     # Wave functions and eigenvalues:
     nkpts = len(r.get('IBZKPoints'))
     nbands = len(r.get('Eigenvalues', 0, 0))
@@ -454,6 +502,11 @@ def read(paw, reader):
             nstride = paw.band_comm.size
             kpt.eps_n[:] = eps_n[n0::nstride]
             kpt.f_n[:] = f_n[n0::nstride]
+
+            if norbitals is not None:
+                #TODO what if complex but paw.dtype is float?!?
+                kpt.ft_omn = npy.empty((norbitals,nbands,nbands),dtype=complex)
+                kpt.ft_omn[:] = r.get('LinearExpansionCoefficients', s, k)
         
         if r.has_array('PseudoWaveFunctions'):
             # We may not be able to keep all the wave
