@@ -86,6 +86,13 @@ class UTGammaPointSetup_DSCFGroundState(unittest.TestCase):
             for (a,b) in degeneracies:
                 self.assertAlmostEqual(kpt.eps_n[a],kpt.eps_n[b],places=6)
 
+    def test_occupancy(self):
+
+        ne_u = [5., 5.]
+
+        for kpt in self.calc.kpt_u:
+            self.assertAlmostEqual(sum(kpt.f_n),ne_u[kpt.u],places=4)
+
 # -------------------------------------------------------------------
 
 class UTGammaPointSetup_DSCFExcitedState(unittest.TestCase):
@@ -148,16 +155,31 @@ class UTGammaPointSetup_DSCFExcitedState(unittest.TestCase):
 
     def test_consistency(self):
 
-        #self.assertEqual(self.calc.initialized,self.restarted)
+        self.assertTrue(self.calc.initialized)
         self.assertEqual(self.calc.converged,self.restarted)
 
         Epot = self.atoms.get_potential_energy()
 
-        print 'Epot=%.16f' % Epot
-        #self.assertAlmostEqual(Epot,29.0327,places=4)
+        self.assertAlmostEqual(Epot,-17.1042,places=4)
 
         self.assertTrue(self.calc.initialized)
         self.assertTrue(self.calc.converged)
+
+    def test_degeneracy(self):
+
+        #TODO apparently the px/py-degeneracy is lifted for both spins?
+        degeneracies = []
+
+        for kpt in self.calc.kpt_u:
+            for (a,b) in degeneracies:
+                self.assertAlmostEqual(kpt.eps_n[a],kpt.eps_n[b],places=6)
+
+    def test_occupancy(self):
+
+        ne_u = [4., 5.]
+
+        for kpt in self.calc.kpt_u:
+            self.assertAlmostEqual(sum(kpt.f_n),ne_u[kpt.u],places=4)
 
 # -------------------------------------------------------------------
 
