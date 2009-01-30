@@ -324,7 +324,7 @@ class GPAW(PAW):
 
     def get_eigenvalues(self, kpt=0, spin=0, broadcast=True):
         """Return eigenvalue array."""
-        eps_n = self.wfs.collect_array('eps_n', kpt, spin)
+        eps_n = self.wfs.collect_eigenvalues(kpt, spin)
         if broadcast:
             if self.wfs.world.rank != 0:
                 assert eps_n is None
@@ -335,7 +335,7 @@ class GPAW(PAW):
 
     def get_occupation_numbers(self, kpt=0, spin=0, broadcast=True):
         """Return occupation array."""
-        f_n = self.wfs.collect_array('f_n', kpt, spin)
+        f_n = self.wfs.collect_occupations(kpt, spin)
         if broadcast:
             if self.wfs.world.rank != 0:
                 assert f_n is None

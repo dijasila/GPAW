@@ -12,8 +12,8 @@ Kohn-Sham orbitals.
 """
 
 import copy
-import numpy as npy
-from gpaw.occupations import ZeroKelvin, FermiDirac
+import numpy as np
+from gpaw.occupations import OccupationNumbers, FermiDirac
 import gpaw.mpi as mpi
 
 def dscf_calculation(calc, orbitals, atoms=None):
@@ -44,93 +44,19 @@ def dscf_calculation(calc, orbitals, atoms=None):
     # if the calculator has not been initialized it does not have an
     # occupation object
     if not hasattr(calc, 'occupation'):
-       calc.initialize(atoms)
+        calc.initialize(atoms)
     occ = calc.occupations
-    if isinstance(occ, FermiDirac) and not isinstance(occ, FermiDiracDSCF):
-        n_occ = FermiDiracDSCF(occ.ne, occ.nspins, occ.kT, orbitals, calc)
-        n_occ.set_communicator(occ.kpt_comm)
-        calc.occupation = n_occ
-        calc.converged = False
-    elif (isinstance(occ, ZeroKelvin) and
-          not isinstance(occ, ZeroKelvinDSCF)):
-        n_occ = ZeroKelvinDSCF(occ.ne, occ.nspins, orbitals ,calc)
-        n_occ.set_communicator(occ.kpt_comm)
-        calc.occupation = n_occ
-        calc.converged = False
+    if occ.kT == 0:
+        occ.kT = 1e-6
+    if isinstance(occ, OccupationsDSCF):
+        calc.occupations.orbitals = orbitals
     else:
-        calc.occupation.orbitals = orbitals 
+        new_occ = OccupationsDSCF(occ.ne, occ.nspins, occ.kT, orbitals, calc)
+        new_occ.set_communicator(occ.kpt_comm)
+        calc.occupations = new_occ
+        calc.converged = False
 
-        
-class ZeroKelvinDSCF(ZeroKelvin):
-    """ Occupation class
-
-    Corresponds to the ordinary ZeroKelvin class in occupation.py. Only
-    difference is that it forces some electrons in the supplied orbitals
-    in stead of placing all the eletrons in the lowest lying states.
-    """
-
-    def __init__(self, ne, nspins, orbitals, paw):
-        ZeroKelvin.__init__(self, ne, nspins)
-        self.orbitals = orbitals
-        self.paw=paw
-
-        # sum up the total number of controlled electrons
-        self.cnoe = 0.
-        for orb in orbitals:
-            self.cnoe += orb[0]
-        self.ne -= self.cnoe
-
-    def calculate_band_energy(self, kpt_u):
-        # Sum up all eigenvalues weighted with occupation numbers:
-        Eband = 0.0
-        for kpt in kpt_u:
-            Eband += npy.dot(kpt.f_n, kpt.eps_n)
-            if hasattr(kpt, 'ft_omn'):
-                for i in range(len(kpt.ft_omn)):
-                    Eband += npy.dot(npy.diagonal(kpt.ft_omn[i]).real,
-                                     kpt.eps_n)
-        self.Eband = self.kpt_comm.sum(Eband)
-
-    def calculate(self, kpts):
-        # place all non-controlled electrons in the lowest lying states
-        ZeroKelvin.calculate(self, kpts)
-        
-        # Estimate fermi energy, which is used when collecting the
-        # KS-orbitals used in the linear expansion of orbitals
-        epsF = 0.
-        for kpt in kpts:
-            ffi = npy.argsort(kpt.f_n)[0]
-            epsF += 0.5 * (kpt.eps_n[ffi-1] + kpt.eps_n[ffi])
-        self.epsF = self.kpt_comm.sum(epsF) / self.nspins
-
-        # Get the expansion coefficients for the dscf-orbital(s)
-        # and create the density matrices, kpt.ft_mn
-        ft_okm = []
-        for orb in self.orbitals:
-            ft_okm.append(orb[1].get_ft_km(self.epsF))
-            
-        for kpt in self.paw.wfs.kpt_u:
-            kpt.ft_omn = npy.zeros((len(self.orbitals),
-                                    len(kpt.f_n), len(kpt.f_n)), npy.complex)
-            for o in range(len(self.orbitals)):
-                ft_m = ft_okm[o][kpt.u]
-                for n1 in range(len(kpt.f_n)):
-                     for n2 in range(len(kpt.f_n)):
-                         kpt.ft_omn[o,n1,n2] = (self.orbitals[o][0] *
-                                                ft_m[n1] *
-                                                npy.conjugate(ft_m[n2]))
-
-                if self.nspins == 2 and self.orbitals[o][2] == kpt.s:
-                    kpt.ft_omn[o] *= kpt.weight
-                elif self.nspins == 2 and self.orbitals[o][2] < 2:
-                    kpt.ft_omn[o] *= 0.
-                else:
-                    kpt.ft_omn[o] *= 0.5 * kpt.weight
-
-        self.calculate_band_energy(kpts)
-        
-
-class FermiDiracDSCF(FermiDirac):
+class OccupationsDSCF(FermiDirac):
     """Occupation class.
 
     Corresponds to the ordinary FermiDirac class in occupation.py. Only
@@ -140,6 +66,7 @@ class FermiDiracDSCF(FermiDirac):
 
     def __init__(self, ne, nspins, kT, orbitals, paw):
         FermiDirac.__init__(self, ne, nspins, kT)
+        
         self.orbitals = orbitals
         self.paw=paw
 
@@ -152,19 +79,19 @@ class FermiDiracDSCF(FermiDirac):
         # Sum up all eigenvalues weighted with occupation numbers:
         Eband = 0.0
         for kpt in kpt_u:
-            Eband += npy.dot(kpt.f_n, kpt.eps_n)
+            Eband += np.dot(kpt.f_n, kpt.eps_n)
             if hasattr(kpt, 'ft_omn'):
                 for i in range(len(kpt.ft_omn)):
-                    Eband += npy.dot(npy.diagonal(kpt.ft_omn[i]).real,
-                                     kpt.eps_n)
+                    Eband += np.dot(np.diagonal(kpt.ft_omn[i]).real,
+                                    kpt.eps_n)
         self.Eband = self.kpt_comm.sum(Eband)
 
     def calculate(self, kpts):
+        OccupationNumbers.calculate(self, kpts)
 
         if self.epsF is None:
-            # Fermi level not set.  Make a good guess:
-            self.guess_fermi_level(kpts)
-
+             #Fermi level not set.  Make a good guess:
+             self.guess_fermi_level(kpts)
         # Now find the correct Fermi level for the non-controlled electrons
         self.find_fermi_level(kpts)
 
@@ -174,16 +101,16 @@ class FermiDiracDSCF(FermiDirac):
         for orb in self.orbitals:
             ft_okm.append(orb[1].get_ft_km(self.epsF))
             
-        for kpt in self.paw.wfs.kpt_u:
-            kpt.ft_omn = npy.zeros((len(self.orbitals),
-                                    len(kpt.f_n), len(kpt.f_n)), npy.complex)
+        for u, kpt in enumerate(self.paw.wfs.kpt_u):
+            kpt.ft_omn = np.zeros((len(self.orbitals),
+                                    len(kpt.f_n), len(kpt.f_n)), np.complex)
             for o in range(len(self.orbitals)):
-                ft_m = ft_okm[o][kpt.u]
+                ft_m = ft_okm[o][u]
                 for n1 in range(len(kpt.f_n)):
                      for n2 in range(len(kpt.f_n)):
                          kpt.ft_omn[o,n1,n2] = (self.orbitals[o][0] *
                                                 ft_m[n1] *
-                                                npy.conjugate(ft_m[n2]))
+                                                np.conjugate(ft_m[n2]))
 
                 if self.nspins == 2 and self.orbitals[o][2] == kpt.s:
                     kpt.ft_omn[o] *= kpt.weight
@@ -192,25 +119,32 @@ class FermiDiracDSCF(FermiDirac):
                 else:
                     kpt.ft_omn[o] *= 0.5 * kpt.weight
 
+            #print np.diagonal(kpt.ft_omn[0]).real
+        
         S = 0.0
         for kpt in kpts:
             if self.fixmom:
-                x = npy.clip((kpt.eps_n - self.epsF[kpt.s]) / self.kT,
+                x = np.clip((kpt.eps_n - self.epsF[kpt.s]) / self.kT,
                              -100.0, 100.0)
             else:
-                x = npy.clip((kpt.eps_n - self.epsF) / self.kT, -100.0, 100.0)
-            y = npy.exp(x)
+                x = np.clip((kpt.eps_n - self.epsF) / self.kT, -100.0, 100.0)
+            y = np.exp(x)
             z = y + 1.0
             y *= x
             y /= z
-            y -= npy.log(z)
-            S -= kpt.weight * npy.sum(y)
+            y -= np.log(z)
+            S -= kpt.weight * np.sum(y)
 
         self.S = self.kpt_comm.sum(S) * self.kT
         self.calculate_band_energy(kpts)
 
-
-class MolecularOrbitals:
+        for orb in self.orbitals:
+            if orb[2] == 0:
+                self.magmom += orb[0]
+            elif orb[2] == 1:
+                self.magmom -= orb[0]
+        
+class MolecularOrbital:
     """Class defining the orbitals that should be filled in a dSCF calculation.
     
     An orbital is defined through a linear combination of the atomic
@@ -245,10 +179,10 @@ class MolecularOrbitals:
     """
 
     def __init__(self, paw, molecule=[0,1], Estart=0.0, Eend=1.e6,
-                 no_of_states=None,w=[[1.,0.,0.,0.],[-1.,0.,0.,0.]]):
+                 no_of_states=None, w=[[1.,0.,0.,0.],[-1.,0.,0.,0.]]):
+        
         self.paw = paw
         self.mol = molecule
-
         self.w = w
         self.Estart = Estart
         self.Eend = Eend
@@ -257,50 +191,29 @@ class MolecularOrbitals:
     def get_ft_km(self, epsF):
 
         # get P_uni from the relevent nuclei
-        P_auni = []
-        for atom_no in self.mol:
-            nucleus = self.paw.nuclei[atom_no]
+        P_auni = [[kpt.P_ani[a] for kpt in self.paw.wfs.kpt_u]
+                  for a in self.mol]
 
-            no_waves = npy.zeros(1, npy.int)
-            if nucleus.in_this_domain:
-                no_waves[0] = nucleus.get_number_of_partial_waves()
-            self.paw.domain.comm.broadcast(no_waves, nucleus.rank)
-
-            if nucleus.in_this_domain:
-                P_uni = nucleus.P_uni
-            else:
-                shape = (self.paw.nmyu, self.paw.nbands, no_waves[0])
-                if self.paw.dtype == float:
-                    P_uni = npy.zeros(shape, npy.float)
-                else:
-                    P_uni = npy.zeros(shape, npy.complex)
-            self.paw.domain.comm.broadcast(P_uni, nucleus.rank)
-
-            P_auni.append(P_uni)
-
-        if self.paw.nspins == 1:
+        if self.paw.wfs.nspins == 1:
             epsF = [epsF]
-        elif not self.paw.fixmom:
+        elif not self.paw.input_parameters.fixmom:
             epsF = [epsF, epsF]
+            
         if self.nos == None:
             self.nos = len(self.paw.wfs.kpt_u[0].f_n)
-            
+
         ft_km = []
-        for kpt in self.paw.wfs.kpt_u:
-            Porb_n = npy.zeros(npy.swapaxes(P_auni[0][0],0,1)[0].shape,
-                                   npy.complex)
-            for nuc in range(len(self.mol)):
-                for pw_no in range(len(self.w[nuc])):
-                    Porb_n += (self.w[nuc][pw_no] *
-                               npy.swapaxes(P_auni[nuc][kpt.u],0,1)[pw_no])
-            Porb_n = npy.swapaxes(Porb_n,0,1)
-
+        for u, kpt in enumerate(self.paw.wfs.kpt_u):
+            Porb_n = np.zeros(len(kpt.f_n), np.complex)
+            for atom in range(len(self.mol)):
+                for pw_no in range(len(self.w[atom])):
+                    Porb_n += (self.w[atom][pw_no] *
+                               np.swapaxes(P_auni[atom][u], 0, 1)[pw_no])
+            Porb_n = np.swapaxes(Porb_n, 0, 1)
             Pabs_n = abs(Porb_n)**2
-            argsort = npy.argsort(Pabs_n)
+            argsort = np.argsort(Pabs_n)
 
-            assert(len(kpt.f_n) == len(Pabs_n))
-
-            ft_m = npy.zeros(len(kpt.f_n), npy.complex)
+            ft_m = np.zeros(len(kpt.f_n), np.complex)
             nosf = 0
             for m in argsort[::-1]:
                 if (kpt.eps_n[m] > epsF[kpt.s] + self.Estart and
@@ -310,13 +223,11 @@ class MolecularOrbitals:
                 if nosf == self.nos:
                     break
 
-            ft_m /= npy.sqrt(sum(abs(ft_m)**2))
-
+            ft_m /= np.sqrt(sum(abs(ft_m)**2))
             ft_km.append(ft_m)
-
         return ft_km
                     
-class WaveFunction:
+class AEOrbital:
     """Class defining the orbitals that should be filled in a dSCF calculation.
     
     An orbital is defined through a linear combination of KS orbitals
@@ -366,9 +277,9 @@ class WaveFunction:
 
     def get_ft_km(self, epsF):
         kpt_u = self.paw.wfs.kpt_u
-        if self.paw.nspins == 1:
+        if self.paw.wfs.nspins == 1:
             epsF = [epsF]
-        elif not self.paw.fixmom:
+        elif not self.paw.input_parameters.fixmom:
             epsF = [epsF, epsF]
         if self.nos == None:
             self.nos = len(kpt_u[0].f_n)
@@ -380,53 +291,50 @@ class WaveFunction:
             raise RuntimeError('List of wavefunctions has wrong size')
 
         if kpt_u[0].psit_nG is None:
-            return npy.zeros((len(kpt_u), self.paw.nbands), float)
+            return np.zeros((len(kpt_u), self.paw.nbands), float)
               
         ft_un = []
         
-        for kpt in kpt_u:
+        for u, kpt in enumerate(kpt_u):
 
             # Inner product of pseudowavefunctions
-            wf = npy.reshape(wf_u[kpt.u], -1)
+            wf = np.reshape(wf_u[u], -1)
             Wf_n = kpt.psit_nG
-            Wf_n = npy.reshape(Wf_n, (len(kpt.f_n), -1))
-            p_n = npy.dot(npy.conjugate(Wf_n), wf) * self.paw.gd.dv
+            Wf_n = np.reshape(Wf_n, (len(kpt.f_n), -1))
+            p_n = np.dot(Wf_n.conj(), wf) * self.paw.gd.dv
             
             # Correction to obtain inner product of AE wavefunctions
-            a = 0
-            for A in self.mol:
-                atom = self.paw.nuclei[A]
-                if atom.in_this_domain:
-                    for n in range(self.paw.nbands):
-                        P_ni = atom.P_uni[kpt.u]
-                        nai = len(P_aui[a][0])
-                        for i in range(nai):
-                            for j in range(nai):
-                                p_n[n] += (npy.conjugate(P_ni[n][i]) *
-                                           atom.setup.O_ii[i][j] *
-                                           P_aui[a][kpt.u][j])
-                    a += 1
+            P_ani = [kpt.P_ani[a] for a in self.mol]
+            for P_ni, a, b in zip(P_ani, self.mol, range(len(self.mol))):
+                for n in range(self.paw.wfs.nbands):
+                    for i in range(len(P_ni[0])):
+                        for j in range(len(P_ni[0])):
+                            p_n[n] += (P_ni[n][i].conj() *
+                                       self.paw.wfs.setups[a].O_ii[i][j] *
+                                       P_aui[b][u][j])
 
-            self.paw.gd.comm.sum(p_n)
+##             self.paw.gd.comm.sum(p_n)
 
-            print 'Kpoint', mpi.rank, kpt.u, kpt.k, kpt.s, sum(abs(p_n)**2)
-
-            if self.paw.dtype == float:
-                ft_n = npy.zeros(len(kpt.f_n), npy.float)
+            #print abs(p_n)**2
+            print 'Kpt:', kpt.k, ' Spin:', kpt.s, \
+                  ' Sum_n|<orb|nks>|^2:', sum(abs(p_n)**2)
+            
+            if self.paw.wfs.dtype == float:
+                ft_n = np.zeros(len(kpt.f_n), np.float)
             else:
-                ft_n = npy.zeros(len(kpt.f_n), npy.complex)
+                ft_n = np.zeros(len(kpt.f_n), np.complex)
 
-            argsort = npy.argsort(abs(p_n)**2)
+            argsort = np.argsort(abs(p_n)**2)
             nosf = 0
             for m in argsort[::-1]:
                 if (kpt.eps_n[m] > epsF[kpt.s] + self.Estart and
                     kpt.eps_n[m] < epsF[kpt.s] + self.Eend):
-                    ft_n[m] = npy.conjugate(p_n[m])
+                    ft_n[m] = p_n[m].conj()
                     nosf += 1
                 if nosf == self.nos:
                     break
 
-            ft_n /= npy.sqrt(sum(abs(ft_n)**2))
+            ft_n /= np.sqrt(sum(abs(ft_n)**2))
             
             ft_un.append(ft_n)
             

@@ -120,6 +120,13 @@ class WaveFunctions(EmptyWaveFunctions):
                     P_ni = kpt.P_ani[a]
                     D_sii[kpt.s] += np.dot(P_ni.T.conj() * kpt.f_n, P_ni).real
 
+                # hack used in delta scf - calculations
+                if hasattr(kpt, 'ft_omn'):
+                    for i in range(len(kpt.ft_omn)):
+                        D_sii[kpt.s] += (np.dot(P_ni.T.conj(),
+                                                np.dot(kpt.ft_omn[i], P_ni))).real
+
+
             D_sp[:] = [pack(D_ii) for D_ii in D_sii]
             self.band_comm.sum(D_sp)
             self.kpt_comm.sum(D_sp)
@@ -150,7 +157,13 @@ class WaveFunctions(EmptyWaveFunctions):
         return self.collect_array('eps_n', k, s)
     
     def collect_occupations(self, k, s):
-        return self.collect_array('f_n', k, s)
+        f_n = self.collect_array('f_n', k, s)
+        # Delta SCF hack
+        if hasattr(self.kpt_u[k+s*len(self.weight_k)], 'ft_omn'):
+            for ft_mn in self.kpt_u[k+s*len(self.weight_k)].ft_omn:
+                f_n += np.diagonal(ft_mn).real
+            
+        return f_n
     
     def collect_array(self, name, k, s):
         """Helper method for collect_eigenvalues and collect_occupations.
@@ -642,6 +655,14 @@ class GridWaveFunctions(WaveFunctions):
             for f, psit_G in zip(kpt.f_n, kpt.psit_nG):
                 nt_G += f * (psit_G * psit_G.conj()).real
 
+        # Hack used in delta-scf calculations:
+        if hasattr(kpt, 'ft_omn'):
+            for ft_mn in kpt.ft_omn:
+                for ft_n, psi_m in zip(ft_mn, kpt.psit_nG):
+                    for ft, psi_n in zip(ft_n, kpt.psit_nG):
+                        if abs(ft) > 1.e-12:
+                            nt_G += (psi_m.conj() * ft * psi_n).real
+
     def add_to_density_with_occupation(self, nt_sG, f_un):
         XXX
         for kpt in self.kpt_u:
@@ -653,15 +674,6 @@ class GridWaveFunctions(WaveFunctions):
             else:
                 for f, psit_G in zip(f_n, kpt.psit_nG):
                     nt_G += f * (psit_G * np.conjugate(psit_G)).real
-
-            # Hack used in delta-scf calculations:
-            if hasattr(kpt, 'ft_omn'):
-                for ft_mn in kpt.ft_omn:
-                    for ft_n, psi_m in zip(ft_mn, kpt.psit_nG):
-                        for ft, psi_n in zip(ft_n, kpt.psit_nG):
-                            if abs(ft) > 1.e-12:
-                                nt_G += (np.conjugate(psi_m) *
-                                         ft * psi_n).real
 
     def orthonormalize(self):
         for kpt in self.kpt_u:

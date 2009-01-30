@@ -108,6 +108,7 @@ class KPoint:
         raise DeprecationWarning
         """Add contribution to pseudo electron-density. Do not use the standard
         occupation numbers, but ones given with argument f_n."""
+        print 'nnnnnnnnnnnnnnoooooooooooo'
         if use_lcao:
             C_nM = self.C_nM
             rho_MM = np.dot(C_nM.conj().T * f_n, C_nM)
@@ -119,18 +120,7 @@ class KPoint:
             else:
                 for f, psit_G in zip(f_n, self.psit_nG):
                     nt_G += f * (psit_G * np.conjugate(psit_G)).real
-
-        # Hack used in delta-scf calculations:
-        if hasattr(self, 'ft_omn'):
-            for ft_mn in self.ft_omn:
-                for ft_n, psi_m in zip(ft_mn, self.psit_nG):
-                    for ft, psi_n in zip(ft_n, self.psit_nG):
-                        if abs(ft) > 1.e-12:
-                            nt_G += (np.conjugate(psi_m) *
-                                     ft * psi_n).real
         
-
-
     def add_to_kinetic_density(self, taut_G):
         """Add contribution to pseudo kinetic energy density."""
         ddr = [Gradient(self.gd, c, dtype=self.dtype).apply for c in range(3)]
