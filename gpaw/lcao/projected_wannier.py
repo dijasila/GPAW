@@ -10,12 +10,9 @@ from ase import Hartree
 
 
 def dots(Ms):
-    N = len(Ms)
-    x = 1
-    i = 0
-    while i < N:
-        x = np.dot(x, Ms[i])
-        i+=1
+    x = Ms[0]
+    for M in Ms[1:]:
+        x = npy.dot(x, M)
     return x        
 
 def normalize(U, U2=None):
@@ -30,8 +27,7 @@ def normalize(U, U2=None):
             col2 *= N
        
 def normalize2(C, S):
-    norm = 1.0 / np.sqrt(np.dot(np.dot(dagger(C), S), C).diagonal())
-    C *= norm
+    C /= np.sqrt(np.dot(np.dot(dagger(C), S), C).diagonal())
 
 def get_phs(calc, s=0):
     dtype = calc.wfs.dtype
@@ -133,14 +129,20 @@ class ProjectedWannierFunctions:
            The following steps are performed:
             
            1) calculate_edf       -> self.b_il
-           2) calculate_rotations -> self.Uo_mi an self.Uu_li
+           2) calculate_rotations -> self.Uo_mi and self.Uu_li
            3) calculate_overlaps  -> self.S_ii
            4) calculate_hamiltonian_matrix -> self.H_ii
 
            -- get_eigenvalues --
            gives the eigenvalues of of the hamiltonian in the
            projected wannier function basis.
-           
+
+           -- indices --
+           i localized function index
+           n eigenstate index
+           l edf index
+           m fixed eigenstate index
+           k k-point index
            """
          
         self.eps_kn = eigenvalues
@@ -302,15 +304,12 @@ class ProjectedWannierFunctions:
     def get_mlwf_initial_guess(self):
         """calculate initial guess for maximally localized 
         wannier functions. Does not work for the infinite band limit.
-        cu_nl: rotation coefficents of unoccupied stattes
+        cu_nl: rotation coefficents of unoccupied states
         U_ii: rotation matrix of eigenstates and edf.
         """
-        Vu_ni = self.Vu_ni[self.M:self.N]
+        Vu_ni = self.Vu_ni[self.M: self.N]
         cu_nl = np.dot(Vu_ni, self.b_il)
-        nbf = Vu_ni.shape[1]
-        U_ii = np.zero((nbf, nbf))
-        U_ii[:self.M] = self.Uo_ni
-        U_ii[self.M:] = self.Uo_li
+        U_ii = np.vstack((self.Uo_ni, self.Uu_li))
         lowdin(U_ii)
         return U_ii, cu_nl
          
@@ -336,9 +335,8 @@ if __name__=='__main__':
         ibzk_kc = calc.wfs.ibzk_kc
         nk = len(ibzk_kc)
         Ef = calc.get_fermi_level()
-        eps_kn = np.asarray([calc.get_eigenvalues() for k in range(nk)])
+        eps_kn = np.asarray([calc.get_eigenvalues(k) for k in range(nk)])
         eps_kn -= Ef
-
 
         V_knM, H_kMM, S_kMM = get_phs(calc, s=0)
         H_kMM -= Ef * S_kMM 
@@ -359,10 +357,10 @@ if __name__=='__main__':
         print "-------------------------"
         for n in range(norm_kn.shape[1]):
             norm = norm_kn[0, n]
-            if n>=eps1_kn.shape[1]:
+            if n >= eps1_kn.shape[1]:
                 print "%4i |    -    | %.1e " % (n, norm)
             else:
-                deps = np.around(abs(eps1_kn[0,n] - eps_kn[0, n]),13)
+                deps = np.around(abs(eps1_kn[0,n] - eps_kn[0, n]), 13)
                 print "%4i | %.1e | %.1e " % (n, deps, norm)
 
 

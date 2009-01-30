@@ -33,7 +33,10 @@ Reports, presentations, and theses using gpaw
 * A master thesis on the inclusion of a localized basis in the PAW
   formalism, plus implementation and test results in GPAW: `lcao`_
 
-* A master thesis on the inclusion of localized basis sets in the PAW formalism, focusing on basis set generation and force calculations: `localized basis sets`_
+* A master thesis on the inclusion of localized basis sets in the PAW
+  formalism, focusing on basis set generation and force calculations:
+  `localized basis sets`_
+
 * A course report on a project involving the optimization of the
   setups (equivalent of pseudopotentials) in gpaw: `setup
   optimization`_
