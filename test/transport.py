@@ -31,7 +31,7 @@ gpawtran = GPAWTransport(atoms=atoms,
                          pl_atoms=(pl_atoms1, pl_atoms2),
                          pl_cells=(pl_cell1, pl_cell2),
                          d=2) 
-gpawtran.negf_prepare(scat_restart=True, lead_restart=True)
+gpawtran.negf_prepare(scat_restart=False, lead_restart=False)
 gpawtran.get_selfconsistent_hamiltonian(bias=0, gate=0,verbose=1)
 filename = 'Na4_eq'
 gpawtran.output(filename)
