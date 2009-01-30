@@ -87,30 +87,23 @@ class OccupationsDSCF(FermiDirac):
         self.Eband = self.kpt_comm.sum(Eband)
 
     def calculate(self, kpts):
-        OccupationNumbers.calculate(self, kpts)
+        FermiDirac.calculate(self, kpts)
 
-        if self.epsF is None:
-             #Fermi level not set.  Make a good guess:
-             self.guess_fermi_level(kpts)
-        # Now find the correct Fermi level for the non-controlled electrons
-        self.find_fermi_level(kpts)
-
-        # Get the expansion coefficients for the dscf-orbital(s)
-        # and create the density matrices, kpt.ft_mn
-        ft_okm = []
+        # Get the expansion coefficients c_un for the dscf-orbital(s)
+        # and create the occupation matrices, kpt.ft_omn
+        c_oun = []
         for orb in self.orbitals:
-            ft_okm.append(orb[1].get_ft_km(self.epsF))
+            c_oun.append(orb[1].expand(self.epsF))
             
         for u, kpt in enumerate(self.paw.wfs.kpt_u):
-            kpt.ft_omn = np.zeros((len(self.orbitals),
-                                    len(kpt.f_n), len(kpt.f_n)), np.complex)
-            for o in range(len(self.orbitals)):
-                ft_m = ft_okm[o][u]
+            kpt.ft_omn = np.zeros((len(self.orbitals), len(kpt.f_n),
+                                   len(kpt.f_n)), np.complex)
+            for o, orb in enumerate(self.orbitals):
+                c_n = c_oun[o][u]
                 for n1 in range(len(kpt.f_n)):
                      for n2 in range(len(kpt.f_n)):
-                         kpt.ft_omn[o,n1,n2] = (self.orbitals[o][0] *
-                                                ft_m[n1] *
-                                                np.conjugate(ft_m[n2]))
+                         kpt.ft_omn[o, n1, n2] = (self.orbitals[o][0] * c_n[n1]
+                                                  * c_n[n2].conj())
 
                 if self.nspins == 2 and self.orbitals[o][2] == kpt.s:
                     kpt.ft_omn[o] *= kpt.weight
@@ -119,25 +112,7 @@ class OccupationsDSCF(FermiDirac):
                 else:
                     kpt.ft_omn[o] *= 0.5 * kpt.weight
 
-            #print np.diagonal(kpt.ft_omn[0]).real
-        
-        S = 0.0
-        for kpt in kpts:
-            if self.fixmom:
-                x = np.clip((kpt.eps_n - self.epsF[kpt.s]) / self.kT,
-                             -100.0, 100.0)
-            else:
-                x = np.clip((kpt.eps_n - self.epsF) / self.kT, -100.0, 100.0)
-            y = np.exp(x)
-            z = y + 1.0
-            y *= x
-            y /= z
-            y -= np.log(z)
-            S -= kpt.weight * np.sum(y)
-
-        self.S = self.kpt_comm.sum(S) * self.kT
-        self.calculate_band_energy(kpts)
-
+        # Correct the magnetic moment
         for orb in self.orbitals:
             if orb[2] == 0:
                 self.magmom += orb[0]
@@ -148,11 +123,14 @@ class MolecularOrbital:
     """Class defining the orbitals that should be filled in a dSCF calculation.
     
     An orbital is defined through a linear combination of the atomic
-    projector functions. In each self-consistent cycle the method get_ft_km
-    is called. This method take the Kohn-Sham orbittals forfilling the
-    criteria given by Estart, Eend and no_of_states and return the best
-    possible expansion of the orbital in this basis.
-
+    partial waves. In each self-consistent cycle the method expand
+    is called. This method take the Kohn-Sham orbitals fulfilling the
+    criteria given by Estart, Eend and nos and return the best
+    possible expansion of the orbital in this basis. The integral
+    of the Kohn-Sham all-electron wavefunction |u,n> (u being local spin
+    and kpoint index) and the partial wave |\phi_i^a> is appoximated
+    by wfs.kpt_u[u].P_ani = <\tilde p_i^a|\tilde\psi_{un}>.
+    
     Parameters
     ----------
     paw: gpaw calculator instance
@@ -165,10 +143,11 @@ class MolecularOrbital:
     Eend: float
         Kohn-Sham orbitals with an energy below Efermi+Eend are used
         in the linear expansion.
-    no_of_states: int
-        The maximum number of Kohn-Sham orbitals used in the linear expansion.
+    nos: int
+        The maximum Number Of States used in the linear expansion.
     w: list
-        The weights of the atomic projector functions.
+        The weights of the atomic projector functions corresponding to
+        a linear combination of atomic orbitals.
         Format::
 
           [[weight of 1. projector function of the 1. atom,
@@ -179,20 +158,16 @@ class MolecularOrbital:
     """
 
     def __init__(self, paw, molecule=[0,1], Estart=0.0, Eend=1.e6,
-                 no_of_states=None, w=[[1.,0.,0.,0.],[-1.,0.,0.,0.]]):
+                 nos=None, w=[[1.,0.,0.,0.],[-1.,0.,0.,0.]]):
         
         self.paw = paw
         self.mol = molecule
         self.w = w
         self.Estart = Estart
         self.Eend = Eend
-        self.nos = no_of_states
+        self.nos = nos
 
-    def get_ft_km(self, epsF):
-
-        # get P_uni from the relevent nuclei
-        P_auni = [[kpt.P_ani[a] for kpt in self.paw.wfs.kpt_u]
-                  for a in self.mol]
+    def expand(self, epsF):
 
         if self.paw.wfs.nspins == 1:
             epsF = [epsF]
@@ -202,7 +177,11 @@ class MolecularOrbital:
         if self.nos == None:
             self.nos = len(self.paw.wfs.kpt_u[0].f_n)
 
-        ft_km = []
+        # Get P_uni from the relevent nuclei
+        P_auni = [[kpt.P_ani[a] for kpt in self.paw.wfs.kpt_u]
+                  for a in self.mol]
+
+        c_un = []
         for u, kpt in enumerate(self.paw.wfs.kpt_u):
             Porb_n = np.zeros(len(kpt.f_n), np.complex)
             for atom in range(len(self.mol)):
@@ -213,33 +192,33 @@ class MolecularOrbital:
             Pabs_n = abs(Porb_n)**2
             argsort = np.argsort(Pabs_n)
 
-            ft_m = np.zeros(len(kpt.f_n), np.complex)
-            nosf = 0
-            for m in argsort[::-1]:
-                if (kpt.eps_n[m] > epsF[kpt.s] + self.Estart and
-                    kpt.eps_n[m] < epsF[kpt.s] + self.Eend):
-                    ft_m[m] = Porb_n[m]
-                    nosf += 1
-                if nosf == self.nos:
+            c_n = np.zeros(len(kpt.f_n), np.complex)
+            nos = 0
+            for n in argsort[::-1]:
+                if (kpt.eps_n[n] > epsF[kpt.s] + self.Estart and
+                    kpt.eps_n[n] < epsF[kpt.s] + self.Eend):
+                    c_n[n] = Porb_n[n]
+                    nos += 1
+                if nos == self.nos:
                     break
 
-            ft_m /= np.sqrt(sum(abs(ft_m)**2))
-            ft_km.append(ft_m)
-        return ft_km
+            c_n /= np.sqrt(sum(abs(c_n)**2))
+            c_un.append(c_n)
+        return c_un
                     
 class AEOrbital:
     """Class defining the orbitals that should be filled in a dSCF calculation.
     
     An orbital is defined through a linear combination of KS orbitals
-    which is determined by this class as follows: For each kpoint we
-    calculate the quantity ``ft_m = <m|a>`` where ``|m>`` is the
+    which is determined by this class as follows: For each kpoint and spin
+    we calculate the quantity ``c_n = <n|a>`` where ``|n>`` is the
     all-electron KS states in the calculation and ``|a>`` is the
     all-electron resonant state to be kept occupied.  We can then
-    write ``|a> = Sum(ft_m|m>)`` and in each self-consistent cycle the
-    method get_ft_km is called. This method take the Kohn-Sham
+    write ``|a> = Sum(c_n|n>)`` and in each self-consistent cycle the
+    method expand is called. This method take the Kohn-Sham
     orbitals fulfilling the criteria given by Estart, Eend and
-    no_of_states and return the best possible expansion of the orbital
-    in this basis.
+    nos (Number Of States) and return the best possible expansion of
+    the orbital in this basis.
 
     Parameters
     ----------
@@ -253,8 +232,8 @@ class AEOrbital:
     Eend: float
         Kohn-Sham orbitals with an energy below Efermi+Eend are used
         in the linear expansion.
-    no_of_states: int
-        The maximum number of Kohn-Sham orbitals used in the linear expansion.
+    nos: int
+        The maximum Number Of States used in the linear expansion.
     wf_u: list of wavefunction arrays
         Wavefunction to be occupied on the kpts on this processor.
     P_aui: list of two-dimensional arrays.
@@ -265,7 +244,7 @@ class AEOrbital:
     """
 
     def __init__(self, paw, wf_u, P_aui, Estart=0.0, Eend=1.e6,
-                 molecule=[0,1], no_of_states=None):
+                 molecule=[0,1], nos=None):
     
         self.paw = paw
         self.wf_u = wf_u
@@ -273,29 +252,27 @@ class AEOrbital:
         self.Estart = Estart
         self.Eend = Eend
         self.mol = molecule
-        self.nos = no_of_states
+        self.nos = nos
 
-    def get_ft_km(self, epsF):
-        kpt_u = self.paw.wfs.kpt_u
+    def expand(self, epsF):
+        
         if self.paw.wfs.nspins == 1:
             epsF = [epsF]
         elif not self.paw.input_parameters.fixmom:
             epsF = [epsF, epsF]
-        if self.nos == None:
-            self.nos = len(kpt_u[0].f_n)
 
-        if len(self.wf_u) == len(kpt_u):
+        if self.nos == None:
+            self.nos = len(self.paw.wfs.kpt_u[0].f_n)
+        
+        # Check dimension of lists
+        if len(self.wf_u) == len(self.paw.wfs.kpt_u):
             wf_u = self.wf_u
             P_aui = self.P_aui
         else:
             raise RuntimeError('List of wavefunctions has wrong size')
 
-        if kpt_u[0].psit_nG is None:
-            return np.zeros((len(kpt_u), self.paw.nbands), float)
-              
-        ft_un = []
-        
-        for u, kpt in enumerate(kpt_u):
+        c_un = []
+        for u, kpt in enumerate(self.paw.wfs.kpt_u):
 
             # Inner product of pseudowavefunctions
             wf = np.reshape(wf_u[u], -1)
@@ -315,27 +292,26 @@ class AEOrbital:
 
 ##             self.paw.gd.comm.sum(p_n)
 
-            #print abs(p_n)**2
             print 'Kpt:', kpt.k, ' Spin:', kpt.s, \
                   ' Sum_n|<orb|nks>|^2:', sum(abs(p_n)**2)
             
             if self.paw.wfs.dtype == float:
-                ft_n = np.zeros(len(kpt.f_n), np.float)
+                c_n = np.zeros(len(kpt.f_n), np.float)
             else:
-                ft_n = np.zeros(len(kpt.f_n), np.complex)
+                c_n = np.zeros(len(kpt.f_n), np.complex)
 
             argsort = np.argsort(abs(p_n)**2)
-            nosf = 0
-            for m in argsort[::-1]:
-                if (kpt.eps_n[m] > epsF[kpt.s] + self.Estart and
-                    kpt.eps_n[m] < epsF[kpt.s] + self.Eend):
-                    ft_n[m] = p_n[m].conj()
-                    nosf += 1
-                if nosf == self.nos:
+            nos = 0
+            for n in argsort[::-1]:
+                if (kpt.eps_n[n] > epsF[kpt.s] + self.Estart and
+                    kpt.eps_n[n] < epsF[kpt.s] + self.Eend):
+                    c_n[n] = p_n[n].conj()
+                    nos += 1
+                if nos == self.nos:
                     break
 
-            ft_n /= np.sqrt(sum(abs(ft_n)**2))
+            c_n /= np.sqrt(sum(abs(c_n)**2))
             
-            ft_un.append(ft_n)
+            c_un.append(c_n)
             
-        return ft_un
+        return c_un
