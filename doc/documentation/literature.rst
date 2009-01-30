@@ -100,6 +100,21 @@ GPAW applied to the study of graphene edges:
  
   __ http://dx.doi.org/10.1103/PhysRevLett.101.115502
 
+Description of the delta SCF method implemented in GPAW for determination of excited-state energy surfaces.
+  | `Delta self-consistent field method to obtain potential energy surfaces of excited molecules on surfaces`__
+  | Jeppe Gavnholt, Thomas Olsen, Mads Engelund, and Jakob Schiotz
+  | Physical Review B, Vol. **78**, 075441 (2008)
+
+  __ http://dx.doi.org/10.1103/PhysRevB.78.075441
+
+Application of delta SCF method, for making predictions on hot-electron assisted chemistry.
+  | Thomas Olsen, Jeppe Gavnholt, and Jakob Schiotz
+  | `Hot-electron-mediated desorption rates calculated from excited-state potential energy surfaces`__
+  | Physical Review B, Vol. **79**, 035403 (2009)
+
+  __ http://dx.doi.org/10.1103/PhysRevB.79.035403
+
+
 
 Articles on the PAW formalism
 -----------------------------
