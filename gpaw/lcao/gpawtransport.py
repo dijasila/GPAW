@@ -186,8 +186,7 @@ class GPAWTransport:
             atoms = self.atoms_l[l]
             atoms.get_potential_energy()
             rank = world.rank
-            if rank == 0:
-                atoms.calc.write('lead' + str(l) + '.gpw')
+            atoms.calc.write('lead' + str(l) + '.gpw')
             if l == 0:
                 self.h1_skmm, self.s1_kmm = self.get_hs(atoms)
                 fd = file('leadhs0_' + str(rank),'wb')
@@ -227,8 +226,7 @@ class GPAWTransport:
             atoms.get_potential_energy()
             calc = atoms.calc
             rank = world.rank
-            if rank == 0:
-                calc.write('scat.gpw')
+            calc.write('scat.gpw')
             self.h_skmm, self.s_kmm = self.get_hs(atoms)
             fd = file('scaths_' + str(rank), 'wb')
             pickle.dump((self.h_skmm, self.s_kmm, calc.density.nct_G,
@@ -308,14 +306,16 @@ class GPAWTransport:
         
     def negf_prepare(self, scat_restart=False, lead_restart=True):
         self.update_lead_hamiltonian(0, lead_restart)
+        world.barrier()
         self.update_lead_hamiltonian(1, lead_restart)
+        world.barrier()
         if self.extend:
             self.extend_scat()
         
         p = self.atoms.calc.input_parameters.copy()           
         self.ntkmol = p['kpts'][self.d]
         self.update_scat_hamiltonian(scat_restart)
-        
+        world.barrier()
         self.nspins = self.h1_skmm.shape[0]
         self.nblead = self.h1_skmm.shape[-1]
         self.nbmol = self.h_skmm.shape[-1]
@@ -523,7 +523,7 @@ class GPAWTransport:
         e_diff = matdiff[0,0,0] / self.s1_pkmm[0,0,0]
         if abs(e_diff) > tol:
             print 'Warning*: hamiltonian boundary difference %f' %  e_diff
-            self.do_shift = True
+            #self.do_shift = True
         self.zero_shift = e_diff
         matdiff = self.d_spkmm[:, :, :pl1, :pl1] - self.d1_spkmm
         print_diff = np.max(abs(matdiff))
@@ -537,7 +537,7 @@ class GPAWTransport:
         atoms = self.atoms_l[0] + atoms_inner + self.atoms_l[1]
         atoms.set_pbc(atoms_inner._pbc)
         cell = self.atoms._cell.copy()
-        cell[2, 2] += self.pl_cells[2][2] * 2
+        cell[2, 2] += self.pl_cells[0][2] * 2
         atoms.set_cell(cell)
         for i in range(lead_atoms_num):
             atoms.positions[i, 2] -= self.pl_cells[0][2]
@@ -546,23 +546,29 @@ class GPAWTransport:
         atoms.calc = self.atoms.calc
         self.atoms = atoms
 
-    def get_selfconsistent_hamiltonian(self, bias=0, gate=0, verbose=0):
-        self.initialize_scf(bias, gate, verbose)  
+    def get_selfconsistent_hamiltonian(self, bias=0, gate=0,
+                                                    cal_loc=False, verbose=0):
+        self.initialize_scf(bias, gate, cal_loc, verbose)  
         self.move_buffer()
         nbmol = self.nbmol_inner
         nspins = self.nspins
         npk = self.my_npk
         den = np.empty([nspins, npk, nbmol, nbmol], complex)
         denocc = np.empty([nspins, npk, nbmol, nbmol], complex)
+        if self.cal_loc:
+            denloc = np.empty([nspins, npk, nbmol, nbmol], complex)            
         #denvir = np.empty([nspins, npk, nbmol, nbmol], complex)
-       
+ 
         self.boundary_check() 
         world.barrier()
         #-------get the path --------    
         for s in range(nspins):
             for k in range(npk):      
                 den[s, k] = self.get_eqintegral_points(self.intctrl, s, k)
-                denocc[s, k]= self.get_neintegral_points(self.intctrl, s, k)
+                denocc[s, k] = self.get_neintegral_points(self.intctrl, s, k)
+                if self.cal_loc:
+                    denloc[s, k] = self.get_neintegral_points(self.intctrl,
+                                                              s, k, 'locInt')                    
         #        denvir[s, k]= self.get_neintegral_points(self.intctrl, s, k,
         #                                                          'neVirInt')
         
@@ -577,6 +583,8 @@ class GPAWTransport:
         spin_coff = 3 - nspins
         max_steps = 100
         while self.cvgflag == 0 and self.step < max_steps:
+            if self.master:
+                print '----------------step %d -------------------' % self.step
             self.move_buffer()
             f_spkmm_mol = self.fcvg.matcvg(self.h_spkmm_mol)
             timer.start('Fock2Den')
@@ -587,14 +595,14 @@ class GPAWTransport:
                                                             f_spkmm_mol,
                                                             s, k)
             timer.stop('Fock2Den')
-            if self.verbose:
+            if self.verbose and self.master:
                 print'Fock2Den', timer.gettime('Fock2Den'), 'second'
             d_spkmm_out = self.dcvg.matcvg(self.d_spkmm)
             self.cvgflag = self.fcvg.bcvg and self.dcvg.bcvg
             timer.start('Den2Fock')            
             self.h_skmm = self.den2fock(d_spkmm_out)
             timer.stop('Den2Fock')
-            if self.verbose:
+            if self.verbose and self.master:
                 print'Den2Fock', timer.gettime('Den2Fock'),'second'
          
             self.h_spkmm = self.substract_pk(ntk, kpts, self.h_skmm, 'h')
@@ -605,8 +613,10 @@ class GPAWTransport:
             
         return 1
  
-    def initialize_scf(self, bias, gate, verbose, alpha=0.1):
+    def initialize_scf(self, bias, gate, cal_loc, verbose, alpha=0.1):
+        self.cal_loc = cal_loc
         self.verbose = verbose
+        self.master = (world.rank==0)
         self.bias = bias
         self.gate = gate
         self.kt = self.atoms.calc.occupations.kT * Hartree
@@ -617,26 +627,20 @@ class GPAWTransport:
         else:
             self.buffer = self.nblead
         self.atoms.calc.density.transport = True       
-        if self.verbose:
-            print 'prepare for selfconsistent calculation'
-            print '[bias, gate] =', bias, gate, 'V'
-            print 'lead_fermi_level =', self.fermi
 
         self.intctrl = IntCtrl(self.kt, self.fermi, self.bias)
-        self.fcvg = CvgCtrl()
-        self.dcvg = CvgCtrl()
+        self.fcvg = CvgCtrl(self.master)
+        self.dcvg = CvgCtrl(self.master)
         inputinfo = {'fasmethodname':'SCL_None', 'fmethodname':'CVG_None',
                      'falpha': 0.1, 'falphascaling':0.1, 'ftol':1e-3,
                      'fallowedmatmax':1e-4, 'fndiis':10, 'ftolx':1e-5,
                      'fsteadycheck': False,
                      'dasmethodname':'SCL_None', 'dmethodname':'CVG_Broydn',
-                     'dalpha': alpha, 'dalphascaling':0.1, 'dtol':1e-3,
+                     'dalpha': alpha, 'dalphascaling':0.1, 'dtol':1e-4,
                      'dallowedmatmax':1e-4, 'dndiis':6, 'dtolx':1e-5,
                      'dsteadycheck': False}
         self.fcvg(inputinfo, 'f', self.dcvg)
         self.dcvg(inputinfo, 'd', self.fcvg)
-        if self.verbose:
-            print 'mix_factor =', inputinfo['dalpha']
         
         self.selfenergies = [LeadSelfEnergy((self.h1_spkmm[0,0],
                                                             self.s1_pkmm[0]), 
@@ -662,13 +666,28 @@ class GPAWTransport:
        
         self.eqpathinfo = []
         self.nepathinfo = []
+        if self.cal_loc:
+             self.locpathinfo = []
        
         for s in range(self.nspins):
             self.eqpathinfo.append([])
             self.nepathinfo.append([])
+            if self.cal_loc:
+                self.locpathinfo.append([])
             for k in self.my_pk:
                 self.eqpathinfo[s].append(PathInfo('eq'))
                 self.nepathinfo[s].append(PathInfo('ne'))    
+                if self.cal_loc:
+                    self.pathinfo[s].eppend(PathInfo('eq'))
+        if self.master:
+            print '------------------Transport SCF-----------------------'
+            print 'Mixer: %s,  Mixing factor: %s,  tol_Ham=%f, tol_Den=%f ' % (
+                                      inputinfo['dmethodname'],
+                                      inputinfo['dalpha'],
+                                      inputinfo['ftol'],
+                                      inputinfo['dtol']) 
+            print 'bias = %f (V), gate = %f (V)' % (bias, gate)
+
      
     def get_eqintegral_points(self, intctrl, s, k):
         #global zint, fint, tgtint, cntint
@@ -739,7 +758,7 @@ class GPAWTransport:
                 siglist[i].append(sigma)
         self.eqpathinfo[s][k].add(elist, wlist, flist, siglist)    
    
-        if self.verbose: 
+        if self.verbose and self.master: 
             if self.nspins == 1:
                 print 'Eq_k[%d]= %f '% (k, np.trace(np.dot(den,
                                                 self.greenfunction.S)) * 2 )
@@ -836,7 +855,7 @@ class GPAWTransport:
             self.nepathinfo[s][k].add(zgp, wgp, flist, siglist)
         # Loop neintpath
         neq = np.trace(np.dot(denocc, self.greenfunction.S))
-        if self.verbose:
+        if self.verbose and self.master:
             if self.nspins == 1:
                 print 'NEQ_k[%d]= %f + %f j' % (k,
                                            np.real(neq) * 2, np.imag(neq) * 2)
@@ -914,7 +933,7 @@ class GPAWTransport:
             elif calcutype == 'neVirInt':
                 gammavir = np.zeros([nbmol, nbmol], complex)
                 for n in [0, 1]:
-                    self.fint[n].append(  fermidistribution(zp[i] -
+                    self.fint[n].append(fermidistribution(zp[i] -
                                          intctrl.maxfermi, intctrl.kt) - 
                                          fermidistribution(zp[i] -
                                              intctrl.leadfermi[n], intctrl.kt))
@@ -922,7 +941,15 @@ class GPAWTransport:
                 avir = np.dot(gr, gammavir)
                 avir = np.dot(avir, gr.T.conj())
                 gfunc[i] = avir
-                    
+            # --local-Integral--
+            elif calcutype == 'locInt':
+                # fmax-fmin
+                self.fint.append( fermidistribution(zp[i] -
+                                    intctrl.maxfermi, intctrl.kt) - \
+                                    fermidistribution(zp[i] -
+                                    intctrl.minfermi, intctrl.kt) )
+                gfunc[i] = gr * self.fint[self.cntint]
+ 
             # --res-Integral --
             elif calcutype == 'resInt':
                 self.fint.append(-2.j * np.pi * intctrl.kt)
@@ -1025,17 +1052,51 @@ class GPAWTransport:
                     else:
                         pass
         qr_mm += self.edge_density_mm
+        world.barrier()
         self.kpt_comm.sum(qr_mm)
         qr_mm /= self.npk
      
-        
-        if world.rank == 0:
+        if self.master:
             if self.verbose:
                 for i in range(nspins):
-                    print 'spin[%d] charge on atomic basis =' % i
-                    print np.diag(np.sum(qr_mm[i],axis=0))
-                print 'total charge'
-                print np.trace(np.sum(np.sum(qr_mm, axis=0), axis=0))
+                   print 'spin[%d] charge on atomic basis =' % i
+                   print np.diag(np.sum(qr_mm[i],axis=0))
+
+            qr_mm = np.sum(np.sum(qr_mm, axis=0), axis=0)
+            natom_inlead = len(self.pl_atoms[0])
+            nb_atom = self.nblead / natom_inlead
+            pl1 = self.buffer + self.nblead
+            natom_print = pl1 / nb_atom 
+            edge_charge0 = np.diag(qr_mm[:pl1,:pl1])
+            edge_charge1 = np.diag(qr_mm[-pl1:, -pl1:])
+            edge_charge0.shape = (natom_print, nb_atom)
+            edge_charge1.shape = (natom_print, nb_atom)
+            edge_charge0 = np.sum(edge_charge0,axis=1)
+            edge_charge1 = np.sum(edge_charge1,axis=1)
+            print '***charge distribution at edges***'
+            if self.verbose:
+                info = []
+                for i in range(natom_print):
+                    info.append('--' +  str(edge_charge0[i])+'--')
+                print info
+                info = []
+                for i in range(natom_print):
+                    info.append('--' +  str(edge_charge1[i])+'--')
+                print info
+            else:
+                edge_charge0.shape = (natom_print / natom_inlead, natom_inlead)
+                edge_charge1.shape = (natom_print / natom_inlead, natom_inlead)                
+                edge_charge0 = np.sum(edge_charge0,axis=1)
+                edge_charge1 = np.sum(edge_charge1,axis=1)
+                info = ''
+                for i in range(natom_print / natom_inlead):
+                    info += '--' +  str(edge_charge0[i]) + '--'
+                info += '---******---'
+                for i in range(natom_print / natom_inlead):
+                    info += '--' +  str(edge_charge1[i]) + '--'
+                print info
+            print '***total charge***'
+            print np.trace(qr_mm)            
 
         rvector = np.zeros([relate_layer_num, 3])
         tkpts = self.pick_out_tkpts(ntk, self.my_kpts)
@@ -1076,13 +1137,13 @@ class GPAWTransport:
         calc1 = self.atoms_l[0].calc
         dimt_lead = calc1.hamiltonian.vt_sG.shape[-1]
            
-        spacing_tol = 1e-5
+        spacing_tol = 0.05
         spacing_lead = calc1.domain.cell_c[-1] / dimt_lead
         spacing_scat = calc.domain.cell_c[-1] / dimt
         
         if abs(spacing_lead -spacing_scat) < spacing_tol:
             pass
-        else:
+        elif self.master:
             print 'Warning!, the spacing between the scat %f and lead %f \
                  is not small,  the linear potential maybe not very precise' \
                   % (spacing_lead, spacing_scat)
@@ -1107,7 +1168,8 @@ class GPAWTransport:
     
     
     def output(self, filename):
-        fd = file(filename, 'wb')
+        filename1 = filename + str(world.rank)
+        fd = file(filename1, 'wb')
         pickle.dump((self.h1_spkmm, 
                      self.h1_spkmm_ij, 
                      self.h_spkmm,
@@ -1128,7 +1190,8 @@ class GPAWTransport:
         fd.close()
         
     def input(self, filename):
-        fd = file(filename, 'r')
+        filename1 = filename + str(world.rank)
+        fd = file(filename1, 'r')
         (self.h1_spkmm, 
                      self.h1_spkmm_ij,
                      self.h_spkmm,
