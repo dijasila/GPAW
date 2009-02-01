@@ -597,7 +597,9 @@ class GPAWTransport:
             timer.stop('Fock2Den')
             if self.verbose and self.master:
                 print'Fock2Den', timer.gettime('Fock2Den'), 'second'
-            d_spkmm_out = self.dcvg.matcvg(self.d_spkmm)
+            self.collect_density_matrix()
+            d_stkmm_out = self.dcvg.matcvg(self.d_stkmm)
+            d_spkmm_out = self.distribute_density_matrix(d_stkmm_out)
             self.cvgflag = self.fcvg.bcvg and self.dcvg.bcvg
             timer.start('Den2Fock')            
             self.h_skmm = self.den2fock(d_spkmm_out)
@@ -1323,3 +1325,32 @@ class GPAWTransport:
             for j, k in zip(range(npk_each), self.my_pk):
                 self.my_lead_kpts[j * self.ntklead + i] = kpts[
                                                         k * self.ntklead + i]         
+
+    def real_projecting(self):
+        world.barrier()
+        self.h_spmm = np.sum(self.h_spkmm, axis=1)
+        self.s_pmm = np.sum(self.s_pkmm, axis=0)
+        self.d_spmm = np.sum(self.d_spkmm, axis=1)
+        self.kpt_comm.sum(self.h_spmm)
+        self.kpt_comm.sum(self.s_pmm)
+        self.kpt_comm.sum(self.d_spmm)
+        self.h_spmm /= self.npk
+        self.s_pmm /= self.npk
+        self.d_spmm /= self.npk
+
+#    def reciprocal_projecting(self):
+        
+    def collect_density_matrix(self):
+        world.barrier()
+        npk = self.npk
+        self.d_stkmm = np.empty([self.nspins, npk, self.nbmol, self.nbmol])
+        for pk, kk in zip(self.my_pk, range(self.my_npk)):
+            self.d_stkmm[:, pk] = self.d_spkmm[:, kk]
+
+    def distribute_density_matrix(self, d_stkmm):
+        world.barrier()
+        d_spkmm = np.empty(self.d_spkmm.shape, complex)
+        for pk, kk in zip(self.my_pk, range(self.my_npk)):
+            d_spkmm[:, kk] = d_stkmm[:, pk]
+        return d_spkmm
+        
