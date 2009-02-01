@@ -17,9 +17,9 @@ class IntCtrl:
         neintpath    // [ minfermi leadfermi maxfermi ] + eta ( 1e-8 )}
     """
     
-    def __init__(self, kt, efermi, bias, eqintpath = None, eqinttol = None,
-                 locintpath = None, locinttol = None, neintmethod = 0,
-                 neintstep = 0, neintpath = None, neinttol = None):
+    def __init__(self, kt, efermi, bias, verbose=False, eqintpath=None,
+                 eqinttol=None, locintpath=None, locinttol=None,
+                 neintmethod=0, neintstep=0, neintpath=None, neinttol=None):
         
         #if u_l>u_r,bias>0
         self.kt = kt
@@ -36,14 +36,15 @@ class IntCtrl:
         #           5i*2*pi*kt+20kt] + minfermi
         
         if self.kt < self.kttol: #T=0K
-            self.eqintpath = [-120, -120 + 20.j, 10.j, 1e-8j]
+            self.eqintpath = [-50, -50 + 20.j, 10.j, 1e-8j]
             self.eqdelta = 0
             self.eqresz = []
-            print '--eqIntCtrl:  Tol =', self.eqinttol
+            if verbose:
+                print '--eqIntCtrl:  Tol =', self.eqinttol
         else:        #T>0K
             nkt = 20 * self.kt
             dkt = 10 * npy.pi * self.kt
-            self.eqintpath = [-350, -350 + 20.j, 10.j - nkt, dkt * 1.j - nkt,
+            self.eqintpath = [-50, -50 + 20.j, 10.j - nkt, dkt * 1.j - nkt,
                               dkt * 1.j + nkt]
             self.eqdelta = dkt
             nRes = 10
@@ -52,8 +53,8 @@ class IntCtrl:
             self.eqresz = range(1, nRes, 2)
             for i in range(len(self.eqresz)):
                 self.eqresz[i] *=  1.j * npy.pi * self.kt
-            
-            print '--eqIntCtrl: Tol = ', self.eqinttol, 'Delta =', \
+            if verbose:
+                print '--eqIntCtrl: Tol = ', self.eqinttol, 'Delta =', \
                                           self.eqdelta, ' nRes =', self.eqresz
 
         for i in range(len(self.eqintpath)):
@@ -74,13 +75,15 @@ class IntCtrl:
             self.locPath = None
             self.locdelta = 0
             self.locresz = 0
-            print '--locInt: None'
+            if verbose:
+                print '--locInt: None'
         elif self.kt < self.kttol: #T=0K
             self.locPath = [self.minfermi + 1e-8j, self.minfermi + 1.j,
                             self.maxfermi + 1.j, self.maxfermi + 1e-8j]
             self.locdelta = 0
             self.locresz = 0
-            print '--locInt: Tol', self.lcointtol    
+            if verbose:
+                print '--locInt: Tol', self.lcointtol    
         else:
             nkt = 20 * self.kt
             dkt = 10 * npy.pi * self.kt
@@ -103,7 +106,8 @@ class IntCtrl:
             for i in range(tmp):
                 self.locresz[0][i] += self.minfermi
                 self.locresz[1][i] += self.maxfermi
-            print '--locInt: Tol =', self.locinttol, 'Delta =', \
+            if verbose:
+                print '--locInt: Tol =', self.locinttol, 'Delta =', \
                                self.locdelta, 'nRes=', len(self.locresz[0])
 
         #ne-Integral Path : 
@@ -111,12 +115,12 @@ class IntCtrl:
         # IntMethod = Manual Method
         # -------------------------------------------------- 
         # -- Integral Method -- 
-        self.neinttol = 1e-3        
+        self.neinttol = 1e-5        
         self.neintmethod= 1 # 0: Linear 1: Auto
 
         # -- Integral Step--
 
-        self.neintstep = 1e-2                    
+        self.neintstep = 1e-3                    
         
         # -- Integral Path --
 
@@ -134,12 +138,15 @@ class IntCtrl:
             self.neintpath[i] += 1e-8j 
 
         if len(self.neintpath) == 0:
-            print ' --neInt: None'
+            if verbose:
+                print ' --neInt: None'
         elif self.neintmethod == 0:
-            print ' --neInt: ManualEp -> Step=', self.neintstep, 'Eta =', \
+            if verbose:
+                print ' --neInt: ManualEp -> Step=', self.neintstep, 'Eta =',\
                                               npy.imag(self.neintpath[0])
         elif self.neintmethod == 1:
-            print ' --neInt: AutoEp   -> Tol =', self.neinttol,  'Eta =', \
+            if verbose:
+                print ' --neInt: AutoEp   -> Tol =', self.neinttol,  'Eta =',\
                                               npy.imag(self.neintpath[0])
 
         
