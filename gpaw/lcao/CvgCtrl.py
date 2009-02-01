@@ -1,7 +1,8 @@
 import numpy as npy
 
 class CvgCtrl:
-    def __init__(self):
+    def __init__(self, master):
+        self.master = master
         self.matname = 'f'
         self.cvgmethod = 'CVG_None'
         self.ndiis = 10
@@ -45,12 +46,12 @@ class CvgCtrl:
             ctrlmode = 'SelfCtrl'
         else:
             ctrlmode = 'Co-Ctrl'
-        print self.matname + 'CvgCtrl: Init:Method=', self.cvgmethod,\
-                        'tol0', self.tol, 'ctrlmode=', ctrlmode, \
-                                'steady_check0', self.bstdchk
-        print 'alpha=', self.alpha, 'ndiis0', self.ndiis, 'tolx0', self.tolx
-        print 'alpha_control_method=', self.asmethod, 'alphascaling=', \
-                      self.alphascaling, 'allowedmatmax=', self.allowedmatmax
+        #print self.matname + 'CvgCtrl: Init:Method=', self.cvgmethod,\
+        #                'tol0', self.tol, 'ctrlmode=', ctrlmode, \
+        #                        'steady_check0', self.bstdchk
+        #print 'alpha=', self.alpha, 'ndiis0', self.ndiis, 'tolx0', self.tolx
+        # print 'alpha_control_method=', self.asmethod, 'alphascaling=', \
+        #              self.alphascaling, 'allowedmatmax=', self.allowedmatmax
     
     def cvgjudge(self, matin):
         dmatmax = 0
@@ -65,9 +66,12 @@ class CvgCtrl:
             if dmatmax < self.tol:
                 self.bcvg = 1
             if self.tol >= 0:
-                print self.matname + 'CvgCtrl: CvgJudge: dmatmax= %d %d %f tol= %f isCvg= %d' %(arg_max1, arg_max2, dmatmax, self.tol, self.bcvg)
-#                print self.matname + 'CvgCtrl: CvgJudge: dmatmax= ', \
-#                                dmatmax, 'tol=', self.tol, 'isCvg=', self.bcvg
+                if self.matname == 'f' and self.master:
+                    print 'Hamiltonian: dmatmax= [%d, %d] %f tol=%f isCvg=%d'\
+                          %(arg_max1, arg_max2, dmatmax, self.tol, self.bcvg)
+                elif self.matname == 'd' and self.master:
+                    print  'Density: dmatmax= [%d %d] %f tol=%f isCvg=%d'\
+                        %(arg_max1, arg_max2, dmatmax, self.tol, self.bcvg)                    
         self.record_dmatmax.append(dmatmax)   #attention here, vector push_back in C
 
     def matcvg(self, matin):
@@ -99,7 +103,7 @@ class CvgCtrl:
         if self.step > 0:
             self.dmat[0] = matin - self.mat[0]
             fmin = npy.sum(self.dmat[0] * self.dmat[0]) #attention here matDotSum in C
-            print self.matname + 'CvgCtrl: broydn: fmin=', fmin
+            #print self.matname + 'CvgCtrl: broydn: fmin=', fmin
         if self.step == 0:
             self.dmat = [npy.empty(matin.shape), npy.empty(matin.shape)]
             self.mat = [npy.empty(matin.shape), npy.empty(matin.shape)] 
@@ -150,9 +154,6 @@ class CvgCtrl:
         col = matin.shape[-1]
         test = 0.0
         tmplam = -100.0
-
-        if self.step == 20:
-            print 'haha'
 
         if self.step == 0:
             self.dmat = [npy.empty(matin.shape), npy.empty(matin.shape)]
