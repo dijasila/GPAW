@@ -127,9 +127,11 @@ class MolecularOrbital:
     is called. This method take the Kohn-Sham orbitals fulfilling the
     criteria given by Estart, Eend and nos and return the best
     possible expansion of the orbital in this basis. The integral
-    of the Kohn-Sham all-electron wavefunction |u,n> (u being local spin
-    and kpoint index) and the partial wave |\phi_i^a> is appoximated
-    by wfs.kpt_u[u].P_ani = <\tilde p_i^a|\tilde\psi_{un}>.
+    of the Kohn-Sham all-electron wavefunction ``|u,n>`` (u being local spin
+    and kpoint index) and the partial wave ``|\phi_i^a>`` is appoximated
+    by::
+
+      wfs.kpt_u[u].P_ani = <\tilde p_i^a|\tilde\psi_{un}>.
     
     Parameters
     ----------
