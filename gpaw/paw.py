@@ -425,6 +425,10 @@ class PAW(PAWTextOutput):
         xcfunc.set_non_local_things(self.density, self.hamiltonian, self.wfs,
                                     self.atoms)
 
+        # For gllb releated calculations, the required parameters (wfs, etc.) are obtained using paw object
+        if xcfunc.gllb:
+            xcfunc.initialize_gllb(self)
+
         self.plot_atoms(atoms)
         self.print_init(pos_av)
         self.print_parameters()

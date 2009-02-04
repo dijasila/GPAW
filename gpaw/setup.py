@@ -366,30 +366,31 @@ class Setup:
                 L += 1
 
         if xcfunc.is_gllb():
-            if xcfunc.xc.relaxed_core_response:
-                self.njcore = extra_xc_data['njcore']
-                self.core_A_kp = npy.zeros((self.njcore, np))
-                self.core_At_kp = npy.zeros((self.njcore, np))
-                self.core_B = npy.dot(g_lg[0], wg_lg[0]) / sqrt(4*pi)
-                self.core_C = npy.dot(nct_g, wg_lg[0]) / sqrt(4*pi)
-                self.coreref_k = npy.zeros((self.njcore))
-                for k in range(0, self.njcore):
-                    # Put the density of core orbital into radial
-                    # representation
-                    rho_g = extra_xc_data['core_orbital_density_'
-                                          + str(k)] * sqrt(4*pi)
-
-                    # Calculate the D_p dependent correction for E^a
-                    self.core_A_kp[k] = npy.dot(npy.dot(n_qg, H(rho_g, 0)),
-                                                T_Lqp[0])
-
-                    # Calculate the D_P dependent correction for \tilde{E}^a
-                    self.core_At_kp[k] = npy.dot(npy.dot(nt_qg, wg_lg[0]),
-                                                 T_Lqp[0]) / sqrt(4 * pi)
-
-                    # All other contributions are already included in
-                    # reference from setup
-                    self.coreref_k[k] = extra_xc_data['core_ref_' + str(k)]
+            pass
+            #if xcfunc.xc.relaxed_core_response:
+            #    self.njcore = extra_xc_data['njcore']
+            #    self.core_A_kp = npy.zeros((self.njcore, np))
+            #    self.core_At_kp = npy.zeros((self.njcore, np))
+            #    self.core_B = npy.dot(g_lg[0], wg_lg[0]) / sqrt(4*pi)
+            #    self.core_C = npy.dot(nct_g, wg_lg[0]) / sqrt(4*pi)
+            #    self.coreref_k = npy.zeros((self.njcore))
+            #    for k in range(0, self.njcore):
+            #        # Put the density of core orbital into radial
+            #        # representation
+            #        rho_g = extra_xc_data['core_orbital_density_'
+            #                              + str(k)] * sqrt(4*pi)
+            #
+            #        # Calculate the D_p dependent correction for E^a
+            #        self.core_A_kp[k] = npy.dot(npy.dot(n_qg, H(rho_g, 0)),
+            #                                    T_Lqp[0])
+            #
+            #        # Calculate the D_P dependent correction for \tilde{E}^a
+            #        self.core_At_kp[k] = npy.dot(npy.dot(nt_qg, wg_lg[0]),
+            #                                     T_Lqp[0]) / sqrt(4 * pi)
+            #
+            #        # All other contributions are already included in
+            #        # reference from setup
+            #        self.coreref_k[k] = extra_xc_data['core_ref_' + str(k)]
 
         # Make a radial grid descriptor:
         rgd = RadialGridDescriptor(r_g, dr_g)

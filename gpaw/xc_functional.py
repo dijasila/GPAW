@@ -231,7 +231,7 @@ class XCFunctional:
             from gpaw.vdw import VDWFunctional
             self.xc = VDWFunctional(nspins)
         elif code == 'gllb':
-            # Get the correct functional from NonLocalFunctionalFactory
+            # Get the correctly configured functional from NonLocalFunctionalFactory
             self.xc = NonLocalFunctionalFactory().get_functional_by_name(xcname)
         elif code == 'lxc':
 ###            self.xcname = xcname # MDTMP: to get the lxc name for setup
@@ -272,15 +272,10 @@ class XCFunctional:
     def is_gllb(self):
         return self.gllb
 
-    # Initialize the GLLB functional, hopefully at this stage, the eigenvalues and functions are already available
+    # Initialize the GLLB functional
     def initialize_gllb(self, paw):
-        self.xc.pass_stuff(paw.hamiltonian.vt_sg, paw.density.nt_sg,
-                           paw.wfs.kpt_u, paw.gd, paw.finegd,
-                           paw.density.interpolate, paw.nspins,
-                           paw.my_nuclei, paw.nuclei, paw.occupation,
-                           paw.kpt_comm, paw.symmetry, paw.nvalence,
-                           paw.eigensolver, paw.hamiltonian)
-
+        self.xc.pass_stuff(paw)
+        
     def set_non_local_things(self, density, hamiltonian, wfs, atoms,
                              energy_only=False):
 
@@ -346,15 +341,6 @@ class XCFunctional:
     def adjust_non_local_residual(self, pR_G, dR_G, kpt, n):
         if self.hybrid > 0.0:
             self.exx.adjust_residual(pR_G, dR_G, kpt, n)
-
-    # For non-local functional, this function does the calculation for special
-    # case of setup-generator. The processes for non-local in radial and
-    # 3D-grid deviate so greatly that this is special treatment is needed.
-    def get_non_local_energy_and_potential1D(self, gd, u_j, f_j, e_j, l_j,
-                                             v_xc, density=None):
-        # Send the command one .xc up
-        return self.xc.get_non_local_energy_and_potential1D(
-            gd, u_j, f_j, e_j, l_j, v_xc, density=density)
 
     def calculate_spinpaired(self, e_g, n_g, v_g, a2_g=None, deda2_g=None,
                              taua_g=None,dedtaua_g=None):
@@ -660,12 +646,6 @@ class XCRadialGrid(XCGrid):
     # True, if this xc-potential depends on more than just density
     def is_non_local(self):
         return self.xcfunc.is_non_local()
-
-    # This is called from all_electron.py
-    # Special function for just 1D-case
-    def get_non_local_energy_and_potential(self, u_j, f_j, e_j, l_j, v_xc, density=None):
-        # Send the command one .xc up. Include also the grid descriptor.
-        return self.xcfunc.get_non_local_energy_and_potential1D(self.gd, u_j, f_j, e_j, l_j, v_xc, density=density)
 
     def get_energy_and_potential_spinpaired(self, n_g, v_g, e_g = None):
         if e_g == None:

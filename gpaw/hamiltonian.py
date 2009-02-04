@@ -136,11 +136,6 @@ class Hamiltonian:
             Exc = self.xc.get_energy_and_potential(
                 density.nt_sg[0], self.vt_sg[0])
 
-        if self.xc.xcfunc.is_gllb():
-            self.timer.start('GLLB')
-            Exc = self.xc.xcfunc.xc.update_xc_potential()
-            self.timer.stop('GLLB')
-
         self.timer.start('Poisson')
         # npoisson is the number of iterations:
         self.npoisson = self.poisson.solve(self.vHt_g, density.rhot_g,
@@ -207,7 +202,7 @@ class Hamiltonian:
 
             self.dH_asp[a] = dH_sp = np.zeros_like(D_sp)
             Exc += setup.xc_correction.calculate_energy_and_derivatives(
-                D_sp, dH_sp)
+                D_sp, dH_sp, a)
             dH_sp += dH_p
 
             Ekin -= (D_sp * dH_sp).sum()
@@ -316,7 +311,7 @@ class Hamiltonian:
         for a, D_sp in density.D_asp.items():
             setup = self.setups[a]
             Exc += setup.xc_correction.calculate_energy_and_derivatives(
-                D_sp, np.zeros_like(D_sp))
+                D_sp, np.zeros_like(D_sp), a)
 
         Exc = self.gd.comm.sum(Exc)
 
