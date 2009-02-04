@@ -1,4 +1,16 @@
 # -*- coding: utf-8 -*-
+
+"""Van der Waals density functional.
+
+This module implements the Dion-Rydberg-Schröder-Langreth-Lundqvist
+XC-functional.  There are two implementations:
+
+1. A simlpe real-space double sum.
+
+2. A more efficient FFT implementation based on the Román-Péres-Soler paper.
+
+"""
+
 import os
 import sys
 import pickle
@@ -6,7 +18,6 @@ from math import sin, cos, exp, pi, log, sqrt, ceil
 
 import numpy as np
 from numpy.fft import fftn, fftfreq, fft
-from ase.units import Hartree
 
 from gpaw.xc_functional import XCFunctional
 from gpaw.operators import Gradient
@@ -61,14 +72,37 @@ def hRPS(x, xc=1.0):
 
 
 class VDWFunctional:
+    """Base class for vdW-DF."""
     def __init__(self, nspins=1, gd=None, world=None, q0cut=5.0,
                  phi0=0.5, ds=1.0, Dmax=20.0, nD=201, ndelta=21,
-                 repeat=None, ncut=0.0005,
                  verbose=False):
-                 
+        """vdW-DF.
+
+        parameters:
+
+        nspins: int
+            Number of spins.
+        gd: GridDescriptor
+            Grid descrioptor.
+        world: MPI communicator
+            Communicator to parallelize over.  Defaults to gpaw.mpi.world.
+        q0cut: float
+            Maximum value for q0.
+        phi0: float
+            Smooth value for phi(0,0).
+        ds: float
+            Cutoff for smooth kernel.
+        Dmax: float
+            Maximum value for D.
+        nD: int
+            Number of values for D in kernel-table.
+        ndelta: int
+            Number of values for delta in kernel-table.
+        verbose: bool
+            Print useful information.
+        """
+        
         self.gd = gd
-        self.repeat = repeat
-        self.ncut = ncut
 
         if world is None:
             self.world = mpi.world
@@ -105,96 +139,56 @@ class VDWFunctional:
         pass
 
     def get_non_local_energy(self, n_g=None, a2_g=None, e_LDAc_g=None):
+        """Calculate non-local correlation energy.
+
+        parameters:
+
+        n_g: ndarray
+            Density.
+        a2_g: ndarray
+            Absolute value of the gradient of the density - squared.
+        e_LDAc_g: ndarray
+            LDA correlation energy density.
+        """
+        
         if n_g is None:
             return 0.0
         
         gd = self.gd
         
         if a2_g is None:
+            # Calculate square of gradient:
             a2_g = np.zeros_like(n_g)
             dndx_g = np.zeros_like(n_g)
             for c in range(3):
                 Gradient(gd, c).apply(n_g, dndx_g)
                 a2_g += dndx_g**2
 
-        n_g.clip(1e-7, np.inf, out=n_g)
+        n_g = n_g.clip(1e-7, np.inf)
+        
         if e_LDAc_g is None:
+            # Calculate LDA correlation energy density:
             e_LDAc_g = np.empty_like(n_g)
             v_g = np.empty_like(n_g)
             self.LDAc.calculate_spinpaired(e_LDAc_g, n_g, v_g)
         else:
             e_LDAc_g.shape = n_g.shape
 
+        # Calculate q0 and cut it off smoothly at q0cut:
         kF_g = (3 * pi**2 * n_g)**(1.0 / 3.0)
         Zab = -0.8491
         q0_g = hRPS(kF_g -
                     4 * pi / 3 * e_LDAc_g / n_g -
                     Zab / 36 / kF_g * a2_g / n_g**2, self.q0cut)
 
+        # Distribute density and q0 to all processors:
         n_g = gd.collect(n_g, broadcast=True)
         q0_g = gd.collect(q0_g, broadcast=True)
 
         return self.calculate_6d_integral(n_g, q0_g)
-    
-    def calculate_6d_integral(self, n_g, q0_g):
-        gd = self.gd
-        n_c = n_g.shape
-        R_gc = np.empty(n_c + (3,))
-        R_gc[..., 0] = (np.arange(0, n_c[0]) * gd.h_c[0]).reshape((-1, 1, 1))
-        R_gc[..., 1] = (np.arange(0, n_c[1]) * gd.h_c[1]).reshape((-1, 1))
-        R_gc[..., 2] = np.arange(0, n_c[2]) * gd.h_c[2]
-
-        mask_g = (n_g.ravel() > self.ncut)
-        R_ic = R_gc.reshape((-1, 3)).compress(mask_g, axis=0)
-        n_i = n_g.ravel().compress(mask_g)
-        q0_i = q0_g.ravel().compress(mask_g)
-
-        # Number of grid points:
-        ni = len(n_i)
-
-        if self.verbose:
-            print 'VDW: number of points:', ni
-            
-        # Number of pairs per processor:
-        world = self.world
-        p = ni * (ni - 1) // 2 // world.size
-        
-        iA = 0
-        for r in range(world.size):
-            iB = iA + int(0.5 - iA + sqrt((iA - 0.5)**2 + 2 * p))
-            if r == world.rank:
-                break
-            iA = iB
-
-        assert iA <= iB
-        
-        if world.rank == world.size - 1:
-            iB = ni
-
-        if self.repeat is None:
-            repeat_c = np.zeros(3, int)
-        else:
-            repeat_c = np.asarray(self.repeat, int)
-
-        self.rhistogram = np.zeros(200)
-        self.Dhistogram = np.zeros(200)
-        dr = 0.05
-        dD = 0.05
-        E_vdwnl = _gpaw.vdw(n_i, q0_i, R_ic, gd.domain.cell_c,
-                            gd.domain.pbc_c,
-                            repeat_c,
-                            self.phi_ij, self.delta_i[1], self.D_j[1],
-                            iA, iB,
-                            self.rhistogram, dr,
-                            self.Dhistogram, dD)
-        self.rhistogram *= gd.dv**2 / dr
-        self.Dhistogram *= gd.dv**2 / dD
-        self.world.sum(self.rhistogram)
-        self.world.sum(self.Dhistogram)
-        E_vdwnl = self.world.sum(E_vdwnl * gd.dv**2)
-        return E_vdwnl
 
     def calculate_spinpaired(self, e_g, n_g, v_g, a2_g, deda2_g):
+        """Calculate energy and potential."""
         # LDA correlation:
         e_LDAc_g = np.empty_like(e_g)
         self.LDAc.calculate_spinpaired(e_LDAc_g, n_g, v_g)
@@ -271,6 +265,11 @@ class VDWFunctional:
         plt.show()
 
     def phi(self, d, dp):
+        """Kernel function.
+
+        Uses bi-linear interpolation and returns zero for D > Dmax.
+        """
+        
         P = self.phi_ij
         D = (d + dp) / 2.0
         if D < 1e-14:
@@ -296,12 +295,106 @@ class VDWFunctional:
                      (1 - y) * P[i + 1, j]) +
                 (1 - x) * (y * P[i, j + 1] +
                            (1 - y) * P[i, j]))
+
+
+class RealSpaceVDWFunctional(VDWFunctional):
+    """Real-space implementation of vdW-DF."""
+    def __init__(self, nspins=1, repeat=None, ncut=0.0005, **kwargs):
+        """Real-space vdW-DF.
+
+        parameters:
+
+        repeat: 3-tuple
+            Repeat the unit cell.
+        ncut: float
+            Density cutoff.
+        """
         
+        VDWFunctional.__init__(self, nspins, **kwargs)
+        self.repeat = repeat
+        self.ncut = ncut
+        
+    def calculate_6d_integral(self, n_g, q0_g):
+        """Real-space double-sum."""
+        gd = self.gd
+        n_c = n_g.shape
+        R_gc = np.empty(n_c + (3,))
+        R_gc[..., 0] = (np.arange(0, n_c[0]) * gd.h_c[0]).reshape((-1, 1, 1))
+        R_gc[..., 1] = (np.arange(0, n_c[1]) * gd.h_c[1]).reshape((-1, 1))
+        R_gc[..., 2] = np.arange(0, n_c[2]) * gd.h_c[2]
+
+        mask_g = (n_g.ravel() > self.ncut)
+        R_ic = R_gc.reshape((-1, 3)).compress(mask_g, axis=0)
+        n_i = n_g.ravel().compress(mask_g)
+        q0_i = q0_g.ravel().compress(mask_g)
+
+        # Number of grid points:
+        ni = len(n_i)
+
+        if self.verbose:
+            print 'VDW: number of points:', ni
+            
+        # Number of pairs per processor:
+        world = self.world
+        p = ni * (ni - 1) // 2 // world.size
+        
+        iA = 0
+        for r in range(world.size):
+            iB = iA + int(0.5 - iA + sqrt((iA - 0.5)**2 + 2 * p))
+            if r == world.rank:
+                break
+            iA = iB
+
+        assert iA <= iB
+        
+        if world.rank == world.size - 1:
+            iB = ni
+
+        if self.repeat is None:
+            repeat_c = np.zeros(3, int)
+        else:
+            repeat_c = np.asarray(self.repeat, int)
+
+        self.rhistogram = np.zeros(200)
+        self.Dhistogram = np.zeros(200)
+        dr = 0.05
+        dD = 0.05
+        E_vdwnl = _gpaw.vdw(n_i, q0_i, R_ic, gd.domain.cell_c,
+                            gd.domain.pbc_c,
+                            repeat_c,
+                            self.phi_ij, self.delta_i[1], self.D_j[1],
+                            iA, iB,
+                            self.rhistogram, dr,
+                            self.Dhistogram, dD)
+        self.rhistogram *= gd.dv**2 / dr
+        self.Dhistogram *= gd.dv**2 / dD
+        self.world.sum(self.rhistogram)
+        self.world.sum(self.Dhistogram)
+        E_vdwnl = self.world.sum(E_vdwnl * gd.dv**2)
+        return E_vdwnl
+
 
 class FFTVDWFunctional(VDWFunctional):
+    """FFT implementation of vdW-DF."""
     def __init__(self, nspins=1,
                  Nalpha=20, lambd=1.2, rcut=125.0, Nr=2048, shape=None,
                  **kwargs):
+        """FFT vdW-DF.
+
+        parameters:
+
+        Nalpha: int
+            Number of interpolating cubic splines.
+        lambd: float
+            Parameter for defining geometric series of interpolation points.
+        rcut: float
+            Cutoff for kernel function.
+        Nr: int
+            Number of real-space points for kernel function.
+        shape: 3-tuple
+            Size of FFT-grid.
+        """
+        
         VDWFunctional.__init__(self, nspins, **kwargs)
         self.Nalpha = Nalpha
         self.lambd = lambd
@@ -313,7 +406,13 @@ class FFTVDWFunctional(VDWFunctional):
         self.phi_aajp = None
         
     def construct_cubic_splines(self):
-        """http://en.wikipedia.org/wiki/Spline_(mathematics)"""
+        """Construc interpolating splines for q0.
+
+        The recipe is from
+
+          http://en.wikipedia.org/wiki/Spline_(mathematics)
+        """
+        
         n = self.Nalpha
         lambd = self.lambd
         q1 = self.q0cut * (lambd - 1) / (lambd**(n - 1) - 1)
@@ -352,6 +451,7 @@ class FFTVDWFunctional(VDWFunctional):
         self.q_a = q
 
     def p(self, alpha, q):
+        """Interpolating spline."""
         i = int(log(q / self.q_a[1] * (self.lambd - 1) + 1) / log(self.lambd))
         a, b, c, d = self.C_aip[alpha, i]
         dq = q - self.q_a[i]
@@ -365,7 +465,7 @@ class FFTVDWFunctional(VDWFunctional):
         k_j = np.arange(M // 2) * (2 * pi / rcut)
 
         if self.verbose:
-            print ("VDW: cutoff for fft'ed kernel: %.2f Hartree" %
+            print ("VDW: cutoff for fft'ed kernel: %.3f Hartree" %
                    (0.5 * k_j[-1]**2))
             
         for a in range(self.Nalpha):
@@ -396,20 +496,22 @@ class FFTVDWFunctional(VDWFunctional):
                     if not gd.domain.pbc_c[c]:
                         self.shape[c] = int(2**ceil(log(n) / log(2)))
                 
+            d_c = gd.domain.cell_c / (2 * pi * gd.N_c)
+            kx2 = fftfreq(self.shape[0], d_c[0]).reshape((-1,  1,  1))**2
+            ky2 = fftfreq(self.shape[1], d_c[1]).reshape(( 1, -1,  1))**2
+            kz2 = fftfreq(self.shape[2], d_c[2]).reshape(( 1,  1, -1))**2
+            k_k = (kx2 + ky2 + kz2)**0.5
+            self.dj_k = k_k / (2 * pi / self.rcut)
+            self.j_k = self.dj_k.astype(int)
+            self.dj_k -= self.j_k
+            self.dj_k *= 2 * pi / self.rcut
+        
             if self.verbose:
                 print 'VDW: density array size:', n_g.shape
                 print 'VDW: zero-padded array size:', self.shape
-        
-        d_c = gd.domain.cell_c / (2 * pi * gd.N_c)
-        kx2 = fftfreq(self.shape[0], d_c[0]).reshape((-1,  1,  1))**2
-        ky2 = fftfreq(self.shape[1], d_c[1]).reshape(( 1, -1,  1))**2
-        kz2 = fftfreq(self.shape[2], d_c[2]).reshape(( 1,  1, -1))**2
-        k_k = (kx2 + ky2 + kz2)**0.5
-        dj_k = k_k / (2 * pi / self.rcut)
-        j_k = dj_k.astype(int)
-        dj_k -= j_k
-        dj_k *= 2 * pi / self.rcut
-        
+                print ('VDW: maximum kinetic energy: %.3f Hartree' %
+                       (0.5 * k_k.max()**2))
+                
         i_g = (np.log(q0_g / self.q_a[1] * (self.lambd - 1) + 1) /
                log(self.lambd)).astype(int)
         
@@ -417,7 +519,7 @@ class FFTVDWFunctional(VDWFunctional):
         theta_ak = {}
 
         if self.verbose:
-            print 'VDW: FFT:',
+            print 'VDW: fft:',
             
         for a in range(world.rank, N, world.size):
             C_pg = self.C_aip[a, i_g].transpose((3, 0, 1, 2))
@@ -432,13 +534,14 @@ class FFTVDWFunctional(VDWFunctional):
         if self.verbose:
             print
             print 'VDW: convolution:',
-            
+
+        dj_k = self.dj_k
         energy = 0.0
         for a in range(N):
             ranka = a % world.size
             Fa_k = 0.0
             for b in range(world.rank, N, world.size):
-                C_pk = self.phi_aajp[a, b][j_k].transpose((3, 0, 1, 2))
+                C_pk = self.phi_aajp[a, b][self.j_k].transpose((3, 0, 1, 2))
                 Fa_k += theta_ak[b] * (C_pk[0] + dj_k *
                                        (C_pk[1] + dj_k *
                                         (C_pk[2] + dj_k * C_pk[3])))
@@ -475,6 +578,7 @@ def spline(x, y):
         b[i] = (a[i + 1] - a[i]) / h[i] - h[i] * (c[i + 1] + 2 * c[i]) / 3
         d[i] = (c[i + 1] - c[i]) / 3 / h[i]
     return abcd
+
 
 if __name__ == '__main__':
     vdw = VDWFunctional()

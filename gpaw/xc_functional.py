@@ -228,8 +228,8 @@ class XCFunctional:
         elif code == 9:
             self.xc = _gpaw.MGGAFunctional(code,local_tau)
         elif code == 'vdWDF':
-            from gpaw.vdw import VDWFunctional
-            self.xc = VDWFunctional(nspins)
+            from gpaw.vdw import FFTVDWFunctional
+            self.xc = FFTVDWFunctional(nspins)
         elif code == 'gllb':
             # Get the correctly configured functional from NonLocalFunctionalFactory
             self.xc = NonLocalFunctionalFactory().get_functional_by_name(xcname)
