@@ -535,7 +535,7 @@ class XC3DGrid(XCGrid):
 
             npy.sum(self.dndr_cg**2, axis=0, out=self.a2_g)
 
-            self.xcfunc.calculate_spinpaired(e_g,
+            self.xcfunc.calculate_spinpaired(e_g.ravel(),
                                              n_g, v_g,
                                              self.a2_g,
                                              self.deda2_g)
