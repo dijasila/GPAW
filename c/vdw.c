@@ -167,11 +167,11 @@ PyObject * vdw2(PyObject* self, PyObject *args)
 			&theta_k_obj, &F_k_obj))
     return NULL;
 
-  const double* phi_jp = (const double*)DOUBLEP(phi_jp_obj);
-  const int* j_k = (const int*)DOUBLEP(j_k_obj);
-  const double* dk_k = (const double*)DOUBLEP(dk_k_obj);
-  const complex double* theta_k = (const complex double*)DOUBLEP(theta_k_obj);
-  complex double* F_k = (complex double*)DOUBLEP(F_k_obj);
+  const double* phi_jp = (const double*)phi_jp_obj->data;
+  const long* j_k = (const long*)j_k_obj->data;
+  const double* dk_k = (const double*)dk_k_obj->data;
+  const complex double* theta_k = (const complex double*)theta_k_obj->data;
+  complex double* F_k = (complex double*)F_k_obj->data;
 
   int nk = PyArray_SIZE(j_k_obj);
   for (int k = 0; k < nk; k++)

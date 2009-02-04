@@ -477,7 +477,7 @@ class FFTVDWFunctional(VDWFunctional):
                          (rcut / M * 4 * pi))
                 phi_j[0] = np.dot(r_g, r_g * phi_g) * (rcut / M * 4 * pi)
                 phi_j[1:] /= k_j[1:]
-                phi_aajp[a, b] = phi_aajp[b, a] = spline(k_j, phi_j).T
+                phi_aajp[a, b] = phi_aajp[b, a] = spline(k_j, phi_j)
         
     def calculate_6d_integral(self, n_g, q0_g):
         gd = self.gd
@@ -526,7 +526,7 @@ class FFTVDWFunctional(VDWFunctional):
             theta_ak[a] = fftn(n_g * (C_pg[0] + dq0_g *
                                       (C_pg[1] + dq0_g *
                                        (C_pg[2] + dq0_g * C_pg[3]))),
-                               self.shape)
+                               self.shape).copy()
             if self.verbose:
                 print a,
                 sys.stdout.flush()
@@ -539,12 +539,10 @@ class FFTVDWFunctional(VDWFunctional):
         energy = 0.0
         for a in range(N):
             ranka = a % world.size
-            Fa_k = 0.0
+            Fa_k = np.zeros(self.shape, complex)
             for b in range(world.rank, N, world.size):
-                C_pk = self.phi_aajp[a, b][self.j_k].transpose((3, 0, 1, 2))
-                Fa_k += theta_ak[b] * (C_pk[0] + dj_k *
-                                       (C_pk[1] + dj_k *
-                                        (C_pk[2] + dj_k * C_pk[3])))
+                _gpaw.vdw2(self.phi_aajp[a, b], self.j_k, dj_k,
+                           theta_ak[b], Fa_k)
 
             self.world.sum(Fa_k, ranka)
             if world.rank == ranka:
@@ -562,7 +560,8 @@ class FFTVDWFunctional(VDWFunctional):
     
 def spline(x, y):
     n = len(y)
-    abcd = a, b, c, d = np.zeros((4, n))
+    result = np.zeros((n, 4))
+    a, b, c, d = result.T
     a[:] = y
     h = x[1:] - x[:-1]
     alpha = 3 * ((a[2:] - a[1:-1]) / h[1:] - (a[1:-1] - a[:-2]) / h[:-1])
@@ -577,7 +576,7 @@ def spline(x, y):
         c[i] = z[i] - mu[i] * c[i + 1]
         b[i] = (a[i + 1] - a[i]) / h[i] - h[i] * (c[i + 1] + 2 * c[i]) / 3
         d[i] = (c[i + 1] - c[i]) / 3 / h[i]
-    return abcd
+    return result
 
 
 if __name__ == '__main__':
