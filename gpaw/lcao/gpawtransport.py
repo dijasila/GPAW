@@ -321,7 +321,6 @@ class GPAWTransport:
         self.nbmol = self.h_skmm.shape[-1]
         kpts = self.atoms_l[0].calc.wfs.ibzk_kc  
         self.npk = kpts.shape[0] / self.ntklead  
-      
         self.allocate_cpus()
 
         self.d1_skmm = self.generate_density_matrix('lead_l', lead_restart)        
@@ -340,8 +339,10 @@ class GPAWTransport:
         for i in range(self.nspins):
             for j in range(self.my_npk):
                 self.edge_charge[i] += np.trace(self.edge_density_mm[i, j])
-                self.kpt_comm.sum(self.edge_charge[i])
-            if world.rank == 0:
+            
+        self.kpt_comm.sum(self.edge_charge)
+        if world.rank == 0:
+            for i in range(self.nspins):  
                 total_edge_charge  = self.edge_charge[i] / self.npk
                 print 'edge_charge[%d]=%f' % (i, total_edge_charge)
 
@@ -522,13 +523,15 @@ class GPAWTransport:
                   print 'Warning!, float_diff between spins %f' % float_diff
         e_diff = matdiff[0,0,0] / self.s1_pkmm[0,0,0]
         if abs(e_diff) > tol:
-            print 'Warning*: hamiltonian boundary difference %f' %  e_diff
-            #self.do_shift = True
+            print 'Warning*: hamiltonian boundary difference(rank=%d) %f' % (
+                                                           world.rank, e_diff)
+            self.do_shift = True
         self.zero_shift = e_diff
         matdiff = self.d_spkmm[:, :, :pl1, :pl1] - self.d1_spkmm
         print_diff = np.max(abs(matdiff))
         if print_diff > tol:
-            print 'Warning*: density boundary difference %f' % print_diff
+            print 'Warning*: density boundary difference(rank=%d) %f' % (
+                                                       world.rank, print_diff)
             
     def extend_scat(self):
         lead_atoms_num = len(self.pl_atoms[0])
@@ -581,7 +584,7 @@ class GPAWTransport:
         ntk = self.ntkmol
         kpts = self.my_kpts
         spin_coff = 3 - nspins
-        max_steps = 100
+        max_steps = 200
         while self.cvgflag == 0 and self.step < max_steps:
             if self.master:
                 print '----------------step %d -------------------' % self.step
@@ -734,7 +737,7 @@ class GPAWTransport:
         # res Calcu
         grsum += self.calgfunc(intctrl.eqresz, 'resInt', intctrl)    
         grsum.shape = (nbmol, nbmol)
-        den += 1.j * (grsum - grsum.conj()) / np.pi / 2
+        den += 1.j * (grsum - grsum.T.conj()) / np.pi / 2
 
         # --sort SGF --
         nres = len(intctrl.eqresz)
@@ -874,7 +877,9 @@ class GPAWTransport:
                
             # res Calcu :maxfermi
             sumgr += self.calgfunc(intctrl.locresz[1, :], 'resInt', intctrl)
-            den = 1.j * (sumgr - np.conj(sumgr)) / np.pi / 2
+            
+            sumgr.shape = (nbmol, nbmol)
+            den = 1.j * (sumgr - sumgr.T.conj()) / np.pi / 2
          
             # --sort SGF --
             nres = intctrl.locresz.shape[-1]
@@ -1038,7 +1043,7 @@ class GPAWTransport:
             fermifactor = self.eqpathinfo[s][k].fermi_factor[i]
             weight = self.eqpathinfo[s][k].weight[i]
             den += gr * fermifactor * weight
-        den = 1.j * (den - den.conj()) / np.pi / 2
+        den = 1.j * (den - den.T.conj()) / np.pi / 2
 
         if self.cal_loc:
             eqzp = self.locpathinfo[s][k].energy
@@ -1050,7 +1055,7 @@ class GPAWTransport:
                 fermifactor = self.locpathinfo[s][k].fermi_factor[i]
                 weight = self.locpathinfo[s][k].weight[i]
                 denloc += gr * fermifactor * weight
-            denloc = 1.j * (denloc - denloc.conj()) / np.pi / 2
+            denloc = 1.j * (denloc - denloc.T.conj()) / np.pi / 2
 
         nezp = self.nepathinfo[s][k].energy
         
@@ -1065,12 +1070,12 @@ class GPAWTransport:
            
             sigmatmp = self.nepathinfo[s][k].sigma[0][i]
             sigmalesser[:nblead, :nblead] += 1.0j * fermifactor * (
-                                          sigmatmp - sigmatmp.conj())
+                                          sigmatmp - sigmatmp.T.conj())
             fermifactor = np.real(self.nepathinfo[s][k].fermi_factor[1][i])
 
             sigmatmp = self.nepathinfo[s][k].sigma[1][i] 
             sigmalesser[-nblead:, -nblead:] += 1.0j * fermifactor * (
-                                          sigmatmp - sigmatmp.conj())       
+                                          sigmatmp - sigmatmp.T.conj())       
             glesser = np.dot(sigmalesser, gr.T.conj())
             glesser = np.dot(gr, glesser)
             weight = self.nepathinfo[s][k].weight[i]            
@@ -1084,7 +1089,7 @@ class GPAWTransport:
                 fermifactor = np.real(fermifactor)
                 sigmatmp = self.nepathinfo[s][k].sigma[0][i]
                 sigmalesser[:nblead, :nblead] += 1.0j * fermifactor * (
-                                                   sigmatmp - sigmatmp.conj())
+                                                   sigmatmp - sigmatmp.T.conj())
                 fermifactor = fermidistribution(nezp[i] -
                                          intctrl.maxfermi, intctrl.kt) -  \
                               fermidistribution(nezp[i] -
@@ -1092,7 +1097,7 @@ class GPAWTransport:
                 fermifactor = np.real(fermifactor)
                 sigmatmp = self.nepathinfo[s][k].sigma[1][i] 
                 sigmalesser[-nblead:, -nblead:] += 1.0j * fermifactor * (
-                                                   sigmatmp - sigmatmp.conj())       
+                                                   sigmatmp - sigmatmp.T.conj())       
                 glesser = np.dot(sigmalesser, gr.T.conj())
                 glesser = np.dot(gr, glesser)
                 weight = self.nepathinfo[s][k].weight[i]            
@@ -1439,9 +1444,10 @@ class GPAWTransport:
     def collect_density_matrix(self):
         world.barrier()
         npk = self.npk
-        self.d_stkmm = np.empty([self.nspins, npk, self.nbmol, self.nbmol])
+        self.d_stkmm = np.zeros([self.nspins, npk, self.nbmol, self.nbmol])
         for pk, kk in zip(self.my_pk, range(self.my_npk)):
             self.d_stkmm[:, pk] = self.d_spkmm[:, kk]
+        self.kpt_comm.sum(self.d_stkmm)
 
     def distribute_density_matrix(self, d_stkmm):
         world.barrier()
@@ -1454,6 +1460,6 @@ class GPAWTransport:
         if method=='transiesta':
             weight = denocc * denocc.conj() / (denocc * denocc.conj() +
                                                denvir * denvir.conj())
-            weight = (weight +  weight.T) / 2
+            print 'weight', np.max(abs(weight))
         return weight
         
