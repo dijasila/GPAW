@@ -273,7 +273,7 @@ class GPAWTransport:
         atomsl.set_calculator(self.get_lead_calc(l))
         return atomsl
 
-    def get_lead_calc(self, l, nkpts=13):
+    def get_lead_calc(self, l, nkpts=15):
         p = self.atoms.calc.input_parameters.copy()
         p['nbands'] = None
         kpts = list(p['kpts'])
@@ -340,8 +340,8 @@ class GPAWTransport:
         for i in range(self.nspins):
             for j in range(self.my_npk):
                 self.edge_charge[i] += np.trace(self.edge_density_mm[i, j])
-            if world.rank == 0:
                 self.kpt_comm.sum(self.edge_charge[i])
+            if world.rank == 0:
                 total_edge_charge  = self.edge_charge[i] / self.npk
                 print 'edge_charge[%d]=%f' % (i, total_edge_charge)
 
@@ -556,8 +556,9 @@ class GPAWTransport:
         den = np.empty([nspins, npk, nbmol, nbmol], complex)
         denocc = np.empty([nspins, npk, nbmol, nbmol], complex)
         if self.cal_loc:
+            #denvir = np.empty([nspins, npk, nbmol, nbmol], complex)
             denloc = np.empty([nspins, npk, nbmol, nbmol], complex)            
-        #denvir = np.empty([nspins, npk, nbmol, nbmol], complex)
+
  
         self.boundary_check() 
         world.barrier()
@@ -567,12 +568,11 @@ class GPAWTransport:
                 den[s, k] = self.get_eqintegral_points(self.intctrl, s, k)
                 denocc[s, k] = self.get_neintegral_points(self.intctrl, s, k)
                 if self.cal_loc:
+                    #denvir[s, k]= self.get_neintegral_points(self.intctrl,
+                    #                                         s, k, 'neVirInt')
                     denloc[s, k] = self.get_neintegral_points(self.intctrl,
                                                               s, k, 'locInt')                    
-        #        denvir[s, k]= self.get_neintegral_points(self.intctrl, s, k,
-        #                                                          'neVirInt')
-        
-        
+       
         #-------begin the SCF ----------         
         self.step = 0
         self.cvgflag = 0
@@ -669,18 +669,24 @@ class GPAWTransport:
         self.eqpathinfo = []
         self.nepathinfo = []
         if self.cal_loc:
-             self.locpathinfo = []
+            #self.virpathinfo = [] 
+            self.locpathinfo = []
+             
        
         for s in range(self.nspins):
             self.eqpathinfo.append([])
             self.nepathinfo.append([])
+            if self.cal_loc:
+                #self.virpathinfo.append([])
+                self.locpathinfo.append([])                
             if self.cal_loc:
                 self.locpathinfo.append([])
             for k in self.my_pk:
                 self.eqpathinfo[s].append(PathInfo('eq'))
                 self.nepathinfo[s].append(PathInfo('ne'))    
                 if self.cal_loc:
-                    self.pathinfo[s].eppend(PathInfo('eq'))
+                    #self.virpathinfo[s].append(PathInfo('ne'))
+                    self.locpathinfo[s].append(PathInfo('eq'))
         if self.master:
             print '------------------Transport SCF-----------------------'
             print 'Mixer: %s,  Mixing factor: %s,  tol_Ham=%f, tol_Den=%f ' % (
@@ -727,8 +733,8 @@ class GPAWTransport:
                                                        0, 'eqInt', intctrl)
         # res Calcu
         grsum += self.calgfunc(intctrl.eqresz, 'resInt', intctrl)    
-        tmp = np.resize(grsum, [nbmol, nbmol])
-        den += 1.j * (tmp - tmp.T.conj()) / np.pi / 2
+        grsum.shape = (nbmol, nbmol)
+        den += 1.j * (grsum - grsum.conj()) / np.pi / 2
 
         # --sort SGF --
         nres = len(intctrl.eqresz)
@@ -774,9 +780,7 @@ class GPAWTransport:
         intpathtol = 1e-8
         nblead = self.nblead
         nbmol = self.nbmol_inner
-        denocc = np.zeros([nbmol, nbmol], complex)
-        denvir = np.zeros([nbmol, nbmol], complex)
-        denloc = np.zeros([nbmol, nbmol], complex)
+        den = np.zeros([nbmol, nbmol], complex)
         maxintcnt = 500
 
         self.zint = [0] * maxintcnt
@@ -799,75 +803,119 @@ class GPAWTransport:
         self.greenfunction.H = self.h_spkmm_mol[s, k]
         self.greenfunction.S = self.s_pkmm_mol[k]
 
-        for n in range(1, len(intctrl.neintpath)):
-            self.cntint = -1
-            self.fint = [[],[]]
-            if intctrl.kt <= 0:
-                neintpath = [intctrl.neintpath[n - 1] + intpathtol,
-                             intctrl.neintpath[n] - intpathtol]
-            else:
-                neintpath = [intctrl.neintpath[n-1],intctrl.neintpath[n]]
-            if intctrl.neintmethod== 1:
+        if calcutype == 'neInt' or calcutype == 'neVirInt':
+            for n in range(1, len(intctrl.neintpath)):
+                self.cntint = -1
+                self.fint = [[],[]]
+                if intctrl.kt <= 0:
+                    neintpath = [intctrl.neintpath[n - 1] + intpathtol,
+                                 intctrl.neintpath[n] - intpathtol]
+                else:
+                    neintpath = [intctrl.neintpath[n-1],intctrl.neintpath[n]]
+                if intctrl.neintmethod== 1:
     
-                # ----Auto Integral------
-                sumga, zgp, wgp, nefcnt = function_integral(self,
+                    # ----Auto Integral------
+                    sumga, zgp, wgp, nefcnt = function_integral(self,
                                                             neintpath,
                                                         intctrl.neinttol,
                                                             0, calcutype,
                                                               intctrl)
     
-                nefcnt = len(zgp)
-                sgforder = [0] * nefcnt
-                for i in range(nefcnt):
-                    sgferr = np.min(np.abs(zgp[i] - np.array(
-                                        self.zint[:self.cntint + 1 ])))
-                    sgforder[i] = np.argmin(np.abs(zgp[i] -
+                    nefcnt = len(zgp)
+                    sgforder = [0] * nefcnt
+                    for i in range(nefcnt):
+                        sgferr = np.min(np.abs(zgp[i] - np.array(
+                                            self.zint[:self.cntint + 1 ])))
+                        sgforder[i] = np.argmin(np.abs(zgp[i] -
                                        np.array(self.zint[:self.cntint + 1])))
-                    if sgferr > 1e-15:
-                        print '--Warning: SGF not found, nezgp[%d]=%f' % (i,
-                                                                     zgp[i])
-            else:
-                # ----Manual Integral------
-                nefcnt = max(np.ceil(np.real(neintpath[1] -
-                                                neintpath[0]) /
-                                                intctrl.neintstep) + 1, 6)
-                nefcnt = int(nefcnt)
-                zgp = np.linspace(neintpath[0], neintpath[1], nefcnt)
-                zgp = list(zgp)
-                wgp = np.array([3.0 / 8, 7.0 / 6, 23.0 / 24] + [1] *
-                         (nefcnt - 6) + [23.0 / 24, 7.0 / 6, 3.0 / 8]) * (
+                        if sgferr > 1e-15:
+                            print '--Warning: SGF not found, nezgp[%d]=%f' % (
+                                                                    i, zgp[i])
+                else:
+                    # ----Manual Integral------
+                    nefcnt = max(np.ceil(np.real(neintpath[1] -
+                                                    neintpath[0]) /
+                                                    intctrl.neintstep) + 1, 6)
+                    nefcnt = int(nefcnt)
+                    zgp = np.linspace(neintpath[0], neintpath[1], nefcnt)
+                    zgp = list(zgp)
+                    wgp = np.array([3.0 / 8, 7.0 / 6, 23.0 / 24] + [1] *
+                             (nefcnt - 6) + [23.0 / 24, 7.0 / 6, 3.0 / 8]) * (
                                                           zgp[1] - zgp[0])
-                wgp = list(wgp)
-                sgforder = range(nefcnt)
-                sumga = np.zeros([1, nbmol, nbmol], complex)
-                for i in range(nefcnt):
-                    sumga += self.calgfunc(zgp[i], calcutype,
-                                                      intctrl) * wgp[i]
-            denocc += sumga[0] / np.pi / 2
-   
-            flist = [[],[]]
+                    wgp = list(wgp)
+                    sgforder = range(nefcnt)
+                    sumga = np.zeros([1, nbmol, nbmol], complex)
+                    for i in range(nefcnt):
+                        sumga += self.calgfunc(zgp[i], calcutype,
+                                                           intctrl) * wgp[i]
+                den += sumga[0] / np.pi / 2
+                flist = [[],[]]
+                siglist = [[],[]]
+                sigma= np.empty([nblead, nblead], complex)
+                for i in [0, 1]:
+                    for j, num in zip(range(nefcnt), sgforder):
+                        fermi_factor = self.fint[i][num]
+                        sigma = self.tgtint[i, num]
+                        flist[i].append(fermi_factor)    
+                        siglist[i].append(sigma)
+                if calcutype == 'neInt':
+                    self.nepathinfo[s][k].add(zgp, wgp, flist, siglist)
+                elif calcutype == 'neVirInt':
+                    self.virpathinfo[s][k].add(zgp, wgp, flist, siglist)
+        # Loop neintpath
+        elif calcutype == 'locInt':
+            self.cntint = -1
+            self.fint =[]
+            sumgr, zgp, wgp, locfcnt = function_integral(self,
+                                    intctrl.locintpath, intctrl.locinttol, 0,
+                                                        'locInt', intctrl)
+            # res Calcu :minfermi
+            sumgr -= self.calgfunc(intctrl.locresz[0, :], 'resInt', intctrl)
+               
+            # res Calcu :maxfermi
+            sumgr += self.calgfunc(intctrl.locresz[1, :], 'resInt', intctrl)
+            den = 1.j * (sumgr - np.conj(sumgr)) / np.pi / 2
+         
+            # --sort SGF --
+            nres = intctrl.locresz.shape[-1]
+            self.locpathinfo[s][k].set_nres(2 * nres)
+            loc_e = intctrl.locresz.copy()
+            loc_e.shape = (2 * nres, )
+            elist = zgp + loc_e.tolist()
+            wlist = wgp + [-1.0] * nres + [1.0] * nres
+            fcnt = len(elist)
+            sgforder = [0] * fcnt
+            for i in range(fcnt):
+                sgferr = np.min(abs(elist[i] -
+                                      np.array(self.zint[:self.cntint + 1 ])))
+                
+                sgforder[i] = np.argmin(abs(elist[i]
+                                     - np.array(self.zint[:self.cntint + 1])))
+                if sgferr > 1e-15:
+                    print 'Warning: SGF not Found. eqzgp[%d]= %f' %(i,
+                                                                     elist[i])
+            flist = self.fint[:]
             siglist = [[],[]]
+            for i, num in zip(range(fcnt), sgforder):
+                flist[i] = self.fint[num]
             sigma= np.empty([nblead, nblead], complex)
             for i in [0, 1]:
-                for j, num in zip(range(nefcnt), sgforder):
-                    fermi_factor = self.fint[i][num]
+                for j, num in zip(range(fcnt), sgforder):
                     sigma = self.tgtint[i, num]
-                    flist[i].append(fermi_factor)    
                     siglist[i].append(sigma)
-            self.nepathinfo[s][k].add(zgp, wgp, flist, siglist)
-        # Loop neintpath
-        neq = np.trace(np.dot(denocc, self.greenfunction.S))
+            self.locpathinfo[s][k].add(elist, wlist, flist, siglist)           
+        neq = np.trace(np.dot(den, self.greenfunction.S))
         if self.verbose and self.master:
             if self.nspins == 1:
-                print 'NEQ_k[%d]= %f + %f j' % (k,
+                print '%s NEQ_k[%d]= %f + %f j' % (calcutype, k,
                                            np.real(neq) * 2, np.imag(neq) * 2)
             else:
-                print 'NEQ_sk[%d, %d]= %f, %f j' % (s, k,
+                print '%s NEQ_sk[%d, %d]= %f, %f j' % (calcutype, s, k,
                                                 np.real(neq), np.imag(neq))
         del self.zint, self.tgtint
         if len(intctrl.neintpath) >= 2:
             del self.fint
-        return denocc
+        return den
         
     def calgfunc(self, zp, calcutype, intctrl):			 
         #calcutype = 
@@ -970,14 +1018,18 @@ class GPAWTransport:
         nblead = self.nblead
         nbmol = self.nbmol_inner
         den = np.zeros([nbmol, nbmol], complex)
+        denocc = np.zeros([nbmol, nbmol], complex)
+        if self.cal_loc:
+            denvir = np.zeros([nbmol, nbmol], complex)
+            denloc = np.zeros([nbmol, nbmol], complex)
         sigmatmp = np.zeros([nblead, nblead], complex)
 
         # missing loc states
         eqzp = self.eqpathinfo[s][k].energy
-        nezp = self.nepathinfo[s][k].energy
         
         self.greenfunction.H = f_spkmm[s, k]
         self.greenfunction.S = self.s_pkmm_mol[k]
+        
         for i in range(len(eqzp)):
             sigma = np.zeros([nbmol, nbmol], complex)  
             sigma[:nblead, :nblead] += self.eqpathinfo[s][k].sigma[0][i]
@@ -986,8 +1038,23 @@ class GPAWTransport:
             fermifactor = self.eqpathinfo[s][k].fermi_factor[i]
             weight = self.eqpathinfo[s][k].weight[i]
             den += gr * fermifactor * weight
-        den = 1.j * (den - den.T.conj()) / np.pi / 2
+        den = 1.j * (den - den.conj()) / np.pi / 2
 
+        if self.cal_loc:
+            eqzp = self.locpathinfo[s][k].energy
+            for i in range(len(eqzp)):
+                sigma = np.zeros([nbmol, nbmol], complex)  
+                sigma[:nblead, :nblead] += self.locpathinfo[s][k].sigma[0][i]
+                sigma[-nblead:, -nblead:] += self.locpathinfo[s][k].sigma[1][i]
+                gr = self.greenfunction.calculate(eqzp[i], sigma)
+                fermifactor = self.locpathinfo[s][k].fermi_factor[i]
+                weight = self.locpathinfo[s][k].weight[i]
+                denloc += gr * fermifactor * weight
+            denloc = 1.j * (denloc - denloc.conj()) / np.pi / 2
+
+        nezp = self.nepathinfo[s][k].energy
+        
+        intctrl = self.intctrl
         for i in range(len(nezp)):
             sigma = np.zeros([nbmol, nbmol], complex)
             sigmalesser = np.zeros([nbmol, nbmol], complex)
@@ -998,16 +1065,45 @@ class GPAWTransport:
            
             sigmatmp = self.nepathinfo[s][k].sigma[0][i]
             sigmalesser[:nblead, :nblead] += 1.0j * fermifactor * (
-                                          sigmatmp - sigmatmp.T.conj())
+                                          sigmatmp - sigmatmp.conj())
             fermifactor = np.real(self.nepathinfo[s][k].fermi_factor[1][i])
 
             sigmatmp = self.nepathinfo[s][k].sigma[1][i] 
             sigmalesser[-nblead:, -nblead:] += 1.0j * fermifactor * (
-                                          sigmatmp - sigmatmp.T.conj())       
+                                          sigmatmp - sigmatmp.conj())       
             glesser = np.dot(sigmalesser, gr.T.conj())
             glesser = np.dot(gr, glesser)
             weight = self.nepathinfo[s][k].weight[i]            
-            den += glesser * weight / np.pi / 2
+            denocc += glesser * weight / np.pi / 2
+            if self.cal_loc:
+                sigmalesser = np.zeros([nbmol, nbmol], complex)
+                fermifactor = fermidistribution(nezp[i] -
+                                              intctrl.maxfermi, intctrl.kt)-\
+                              fermidistribution(nezp[i] -
+                                             intctrl.leadfermi[0], intctrl.kt)
+                fermifactor = np.real(fermifactor)
+                sigmatmp = self.nepathinfo[s][k].sigma[0][i]
+                sigmalesser[:nblead, :nblead] += 1.0j * fermifactor * (
+                                                   sigmatmp - sigmatmp.conj())
+                fermifactor = fermidistribution(nezp[i] -
+                                         intctrl.maxfermi, intctrl.kt) -  \
+                              fermidistribution(nezp[i] -
+                                         intctrl.leadfermi[1], intctrl.kt)
+                fermifactor = np.real(fermifactor)
+                sigmatmp = self.nepathinfo[s][k].sigma[1][i] 
+                sigmalesser[-nblead:, -nblead:] += 1.0j * fermifactor * (
+                                                   sigmatmp - sigmatmp.conj())       
+                glesser = np.dot(sigmalesser, gr.T.conj())
+                glesser = np.dot(gr, glesser)
+                weight = self.nepathinfo[s][k].weight[i]            
+                denvir += glesser * weight / np.pi / 2
+        #denvir = (denvir + denvir.T) / 2
+        if self.cal_loc:
+            weight_mm = self.integral_diff_weight(denocc, denvir,
+                                                                 'transiesta')
+            den += denocc + (denloc - (denocc + denvir)) * weight_mm
+        else:
+            den += denocc
         return den    
 
     def den2fock(self, d_pkmm):
@@ -1111,7 +1207,7 @@ class GPAWTransport:
                 for j in range(npk):
                     self.d_skmm[s, j, i] = get_kspace_hs(None, dr_mm[s, j, :],
                                                          rvector, tkpts[i])
-                    self.d_skmm[s, j, i] /=  ntk * npk
+                    self.d_skmm[s, j, i] /=  ntk * self.npk
 
         self.d_skmm.shape = (nspins, ntk * npk, nbmol, nbmol)
         for kpt in calc.wfs.kpt_u:
@@ -1308,10 +1404,10 @@ class GPAWTransport:
         size = world.size
         npk = self.npk
         npk_each = npk / size
-        r0 = (rank // npk_each) * npk_each
+        r0 = rank * npk_each
         self.my_pk = np.arange(r0, r0 + npk_each)
         self.my_npk = npk_each
-        self.kpt_comm = world.new_communicator(np.arange(rank, rank + 1))
+        self.kpt_comm = world.new_communicator(np.arange(size))
 
         self.my_kpts = np.empty((npk_each * self.ntkmol, 3), complex)
         kpts = self.atoms.calc.wfs.ibzk_kc
@@ -1353,4 +1449,11 @@ class GPAWTransport:
         for pk, kk in zip(self.my_pk, range(self.my_npk)):
             d_spkmm[:, kk] = d_stkmm[:, pk]
         return d_spkmm
+     
+    def integral_diff_weight(self, denocc, denvir, method='transiesta'):
+        if method=='transiesta':
+            weight = denocc * denocc.conj() / (denocc * denocc.conj() +
+                                               denvir * denvir.conj())
+            weight = (weight +  weight.T) / 2
+        return weight
         
