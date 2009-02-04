@@ -19,9 +19,9 @@ This object is the central object for a GPAW calculation::
                     +---------------+
                     |ForceCalculator|      +-----------+
                     +---------------+  --->|Hamiltonian|
-        +------+             ^        /    +-----------+
-        |Setups|<--------    |    ----      +---------------+
-        +------+         \   |   /     ---->|InputParameters|
+                             ^        /    +-----------+
+                             |    ----      +---------------+
+                             |   /     ---->|InputParameters|
      +-----+              +-----+     /     +---------------+     
      |Atoms|<-------------| PAW |-----      
      +-----+              +-----+     \          
@@ -40,7 +40,7 @@ work (see figure above).
 
 
 A PAW instance has the following attributes: :attr:`atoms`,
-:attr:`input_parameters setups`, :attr:`wfs`, :attr:`density`,
+:attr:`input_parameters`, :attr:`wfs`, :attr:`density`,
 :attr:`hamiltonian`, :attr:`scf`, :attr:`forces`, :attr:`timer`,
 :attr:`occupations`, :attr:`initialized` and :attr:`observers`.
 
