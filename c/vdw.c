@@ -155,3 +155,34 @@ PyObject * vdw(PyObject* self, PyObject *args)
       }
   return PyFloat_FromDouble(energy);
 }
+
+PyObject * vdw2(PyObject* self, PyObject *args)
+{
+  const PyArrayObject* phi_jp_obj;
+  const PyArrayObject* j_k_obj;
+  const PyArrayObject* dk_k_obj;
+  const PyArrayObject* theta_k_obj;
+  const PyArrayObject* F_k_obj;
+  if (!PyArg_ParseTuple(args, "OOOOO", &phi_jp_obj, &j_k_obj, &dk_k_obj,
+			&theta_k_obj, &F_k_obj))
+    return NULL;
+
+  const double* phi_jp = (const double*)DOUBLEP(phi_jp_obj);
+  const int* j_k = (const int*)DOUBLEP(j_k_obj);
+  const double* dk_k = (const double*)DOUBLEP(dk_k_obj);
+  const complex double* theta_k = (const complex double*)DOUBLEP(theta_k_obj);
+  complex double* F_k = (complex double*)DOUBLEP(F_k_obj);
+
+  int nk = PyArray_SIZE(j_k_obj);
+  for (int k = 0; k < nk; k++)
+    {
+      double* phi_p = phi_jp + 4 * j_k[k];
+      double a = phi_p[0];
+      double b = phi_p[1];
+      double c = phi_p[2];
+      double d = phi_p[3];
+      double x = dk_k[k];
+      F_k[k] += theta_k[k] * (a + x * (b + x * (c + x * d)));
+    }
+  Py_RETURN_NONE;
+}
