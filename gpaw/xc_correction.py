@@ -12,8 +12,6 @@ from gpaw.spherical_harmonics import YL
 # load points and weights for the angular integration
 from gpaw.sphere import Y_nL, points, weights
 
-from gpaw.gllb import SMALL_NUMBER
-
 """
                            3
              __   dn       __   __    dY
