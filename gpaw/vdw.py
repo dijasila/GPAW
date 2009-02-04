@@ -491,7 +491,7 @@ class FFTVDWFunctional(VDWFunctional):
             self.construct_fourier_transformed_kernels()
             
             if self.shape is None:
-                self.shape = gd.N_c
+                self.shape = gd.N_c.copy()
                 for c, n in enumerate(self.shape):
                     if not gd.domain.pbc_c[c]:
                         self.shape[c] = int(2**ceil(log(n) / log(2)))
