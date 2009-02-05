@@ -20,4 +20,4 @@ E = 2 * e - e2
 Evdw = E + 2 * evdw - e2vdw
 print E, Evdw
 assert abs(E - -0.0048) < 1e-4
-assert abs(E - +0.0223) < 1e-4
+assert abs(E - +0.0223) < 1e-3
