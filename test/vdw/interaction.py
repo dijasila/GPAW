@@ -1,11 +1,11 @@
 import pickle
 from ase import *
 from gpaw import GPAW
-from gpaw.vdw import VDWFunctional
+from gpaw.vdw import FFTVDWFunctional, RealSpaceVDWFunctional
 
 d = np.linspace(3.0, 5.5, 11)
 for symbol in ['Ar', 'Kr']:
-    vdw = 'vdWDF'#VDWFunctional(verbose=1)
+    vdw = FFTVDWFunctional(verbose=1)
     e = np.empty(11)
     de = np.empty(11)
     for i, r in enumerate(d):
