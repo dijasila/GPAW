@@ -1,38 +1,47 @@
 from ase import *
 from gpaw import *
 from gpaw import dscf
+from gpaw.utilities import equal
 
 # Ground state calculation
 #------------------------------------------------------------------
 
-calc = GPAW(nbands=8, h=0.2, xc='PBE', spinpol=True,
-            convergence={'energy': 100,
-                         'density': 100,
-                         'eigenstates': 1.0e-9,
-                         'bands': -1})
+calc_gs = GPAW(nbands=8, h=0.2, xc='PBE', spinpol=True,
+               convergence={'energy': 100,
+                            'density': 100,
+                            'eigenstates': 1.0e-9,
+                            'bands': -1})
 
 CO = molecule('CO')
 CO.center(vacuum=3)
-CO.set_calculator(calc)
-
+CO.set_calculator(calc_gs)
 E_gs = CO.get_potential_energy()
 
-calc.write('CO.gpw', mode='all')
-CO, calc = restart('CO.gpw')
-
-## '''Obtain the pseudowavefunctions and projector overlaps of the
-##  state which is to be occupied. n=5,6 is the 2pix and 2piy orbitals'''
-wf_u = [kpt.psit_nG[5] for kpt in calc.wfs.kpt_u]
-P_aui = [[kpt.P_ani[a][5] for kpt in calc.wfs.kpt_u]
+'''Obtain the pseudowavefunctions and projector overlaps of the
+   state which is to be occupied. n=5,6 is the 2pix and 2piy orbitals'''
+wf_u = [kpt.psit_nG[5] for kpt in calc_gs.wfs.kpt_u]
+P_aui = [[kpt.P_ani[a][5] for kpt in calc_gs.wfs.kpt_u]
           for a in range(len(CO))]
 
 # Excited state calculation
 #--------------------------------------------
 
-lumo = dscf.AEOrbital(calc, wf_u, P_aui, molecule=[0,1])
-#lumo = dscf.MolecularOrbital(calc, molecule=[0,1], w=[[0,0,0,1],[0,0,0,-1]])
-dscf.dscf_calculation(calc, [[1.0, lumo, 1]], CO)
+calc_es = GPAW(nbands=8, h=0.2, xc='PBE', spinpol=True,
+               convergence={'energy': 100,
+                            'density': 100,
+                            'eigenstates': 1.0e-9,
+                            'bands': -1})
 
-E_es = CO.get_potential_energy()
+CO.set_calculator(calc_es)
 
-print 'Excitation energy: ', E_es-E_gs
+lumo = dscf.MolecularOrbital(calc_es, molecule=[0,1], w=[[0,0,0,1],[0,0,0,-1]])
+dscf.dscf_calculation(calc_es, [[1.0, lumo, 1]], CO)
+E_es1 = CO.get_potential_energy()
+
+lumo = dscf.AEOrbital(calc_es, wf_u, P_aui, molecule=[0,1])
+dscf.dscf_calculation(calc_es, [[1.0, lumo, 1]], CO)
+E_es2 = CO.get_potential_energy()
+
+equal(E_es1, E_gs+5.8, 0.1)
+equal(E_es1, E_es2, 0.001)
+

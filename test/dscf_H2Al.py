@@ -14,45 +14,33 @@ calc = Calculator(h=0.24,
                   nbands=6,
                   xc='PBE',
                   spinpol = True,
-                  kpts=[1,1,1],
-                  width=0.1,
-                  convergence={'energy': 0.01,
-                               'density': 1.0e-2,
-                               'eigenstates': 1.0e-6,
-                               'bands': -1})
+                  kpts=[8,8,1],
+                  convergence={'energy': 0.001,
+                               'density': 0.001,
+                               'eigenstates': 1.0e-8,
+                               'bands': -3})
 
 atoms.set_calculator(calc)
-e_gs = atoms.get_potential_energy()
+E_gs = atoms.get_potential_energy()
 
-## lumo = MolecularOrbital(calc, molecule=[0,1],
-##                          w=[[1.,0.,0.,0.],[-1.,0.,0.,0.]])
-## dscf_calculation(calc, [[1.0, lumo, 1]], atoms)
-## e_1 = atoms.get_potential_energy()
+# Dscf calculation based on the MolecularOrbital class
+calc.set(nbands=12)
+lumo = MolecularOrbital(calc, molecule=[0,1],
+                        w=[[1.,0.,0.,0.],[-1.,0.,0.,0.]])
+dscf_calculation(calc, [[1.0, lumo, 1]], atoms)
+E_es1 = atoms.get_potential_energy()
+equal(E_es1, E_gs + 6.8, 0.1)
 
+# Dscf calculation based on the AEOrbital class
 H2 = atoms.copy()
 del H2[-1]
-calc2 = Calculator(h=0.24,
-                   #nbands=6,
-                   xc='PBE',
-                   spinpol = True,
-                   kpts=[1,1,1],
-                   width=0.1,
-                   convergence={'energy': 0.01,
-                                'density': 1.0e-2,
-                                'eigenstates': 1.0e-6,
-                                'bands': -1})
-H2.set_calculator(calc2)
+calc_mol = Calculator(h=0.24, xc='PBE', spinpol = True, kpts=[8,8,1])
+H2.set_calculator(calc_mol)
 H2.get_potential_energy()
-wf_u = [kpt.psit_nG[1] for kpt in calc2.wfs.kpt_u]
-P_aui = [[kpt.P_ani[a][1] for kpt in calc2.wfs.kpt_u]
-          for a in range(len(H2))]
-
+wf_u = [kpt.psit_nG[1] for kpt in calc_mol.wfs.kpt_u]
+P_aui = [[kpt.P_ani[a][1] for kpt in calc_mol.wfs.kpt_u]
+         for a in range(len(H2))]
 lumo = AEOrbital(calc, wf_u, P_aui, molecule=[0,1])
 dscf_calculation(calc, [[1.0, lumo, 1]], atoms)
-e_2 = atoms.get_potential_energy()
-
-equal(e_2, e_gs + 3.0, 0.01)
-
-del lumo
-del calc.occupations
-del calc
+E_es2 = atoms.get_potential_energy()
+equal(E_es2, E_gs + 3.9, 0.1)
