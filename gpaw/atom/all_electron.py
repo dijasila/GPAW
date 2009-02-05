@@ -31,7 +31,7 @@ class AllElectron:
 
     def __init__(self, symbol, xcname='LDA', scalarrel=False,
                  corehole=None, configuration=None, nofiles=True,
-                 txt='-'):
+                 txt='-', gpernode=150):
         """Do an atomic DFT calculation.
 
         Example::
@@ -86,7 +86,7 @@ class AllElectron:
                           'Xe': 11}[conf]
 
         maxnodes = max([n - l - 1 for n, l in zip(self.n_j, self.l_j)])
-        self.N = (maxnodes + 1) * 150
+        self.N = (maxnodes + 1) * gpernode
         self.beta = 0.4
 
         t = self.text
