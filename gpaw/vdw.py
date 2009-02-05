@@ -204,6 +204,27 @@ class VDWFunctional:
                 assert e_g.ndim == 1
                 e_g[0] += e / self.gd.dv
                 
+    def calculate_spinpolarized(self, e_g, na_g, va_g, nb_g, vb_g,
+                                a2_g, aa2_g, ab2_g,
+                                deda2_g, dedaa2_g, dedab2_g):
+        """Calculate energy and potential."""
+        # LDA correlation:
+        e_LDAc_g = np.empty_like(e_g)
+        self.LDAc.calculate_spinpolarized(e_LDAc_g, na_g, va_g, nb_g, vb_g)
+
+        # revPBE exchange:
+        self.revPBEx.calculate_spinpolarized(e_g, na_g, va_g, nb_g, vb_g,
+                                             a2_g, aa2_g, ab2_g,
+                                             deda2_g, dedaa2_g, dedab2_g)
+        e_g += e_LDAc_g
+        
+        if na_g.ndim == 3:
+            # Non-local part:
+            e = self.get_non_local_energy(na_g + nb_g, a2_g, e_LDAc_g)
+            if self.gd.comm.rank == 0:
+                assert e_g.ndim == 1
+                e_g[0] += e / self.gd.dv
+        
     def read_table(self):
         name = os.path.join(os.environ.get('GPAW_VDW', '.'),
                             'phi-%.3f-%.3f-%.3f-%d-%d.pckl' %

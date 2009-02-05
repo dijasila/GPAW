@@ -578,7 +578,7 @@ class XC3DGrid(XCGrid):
             npy.sum(self.dndr_cg**2, axis=0, out=self.a2_g)
             npy.sum(self.dnadr_cg**2, axis=0, out=self.aa2_g)
             npy.sum(self.dnbdr_cg**2, axis=0, out=self.ab2_g)
-            self.xcfunc.calculate_spinpolarized(e_g,
+            self.xcfunc.calculate_spinpolarized(e_g.ravel(),
                                                 na_g, va_g,
                                                 nb_g, vb_g,
                                                 self.a2_g,
