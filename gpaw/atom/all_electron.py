@@ -178,7 +178,6 @@ class AllElectron:
         if self.xc.is_non_local():
             self.xcfunc.xc.pass_stuff_1d(self)
             self.xcfunc.xc.initialize_1d()
-            self.Exc = 0
             
         n_j = self.n_j
         l_j = self.l_j

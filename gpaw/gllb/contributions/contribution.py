@@ -10,12 +10,10 @@ class Contribution:
     def initialize_1d(self):
         raise NotImplementedError
 
-    def calculate_spinpaired(self, e_g, n_g, v_g, a2_g = None, deda2_g=None):
+    def calculate_spinpaired(self, e_g, n_g, v_g):
         raise NotImplementedError
 
-    def calculate_spinpolarized(self, e_g, na_g, va_g, nb_g, vb_g, 
-                                a2_g=None, aa2_g=None, ab2_g=None, deda2_g=None,
-                                dedaa2_g=None, dedab2_g=None):
+    def calculate_spinpolarized(self, e_g, na_g, va_g, nb_g, vb_g):
         raise NotImplementedError
 
     def calculate_energy_and_derivatives(self, D_sp, H_sp, a):

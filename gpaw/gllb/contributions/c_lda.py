@@ -18,16 +18,14 @@ class C_LDA(Contribution):
         self.xc = XCRadialGrid('LDA', self.ae.rgd) 
         self.v_g = npy.zeros(self.ae.N)
 
-    def calculate_spinpaired(self, e_g, n_g, v_g, a2_g = None, deda2_g=None):
+    def calculate_spinpaired(self, e_g, n_g, v_g):
         self.e_g[:] = 0.0
         self.vt_sg[:] = 0.0
         self.xc.calculate_spinpaired(self.e_g, n_g, self.vt_sg[0])
         v_g += self.weight * self.vt_sg[0]
         e_g += (self.weight * self.e_g).ravel()
 
-    def calculate_spinpolarized(self, e_g, na_g, va_g, nb_g, vb_g, 
-                                a2_g=None, aa2_g=None, ab2_g=None, deda2_g=None,
-                                dedaa2_g=None, dedab2_g=None):
+    def calculate_spinpolarized(self, e_g, na_g, va_g, nb_g, vb_g):
         self.e_g[:] = 0.0
         self.vt_sg[:] = 0.0
         self.xc.calculate_spinpolarized(self.e_g, na_g, self.vt_sg[0], nb_g, self.vt_sg[0])
