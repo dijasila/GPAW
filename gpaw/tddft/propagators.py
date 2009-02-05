@@ -101,6 +101,7 @@ class ExplicitCrankNicolson(Propagator):
         
         """
         self.td_density = td_density
+        self.wfs = td_density.wfs
         self.td_hamiltonian = td_hamiltonian
         self.td_overlap = td_overlap
         self.solver = solver
@@ -147,12 +148,11 @@ class ExplicitCrankNicolson(Propagator):
         for kpt in kpt_u:
             self.kpt = kpt
             self.timer.start('Apply time-dependent operators')
-            run([nucleus.calculate_projections(kpt)
-                 for nucleus in self.td_hamiltonian.pt_nuclei])
+            self.wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
             self.td_hamiltonian.apply(self.kpt, kpt.psit_nG, self.hpsit,
-                                      calculate_P_uni=False)
+                                      calculate_P_ani=False)
             self.td_overlap.apply(self.kpt, kpt.psit_nG, self.spsit,
-                                  calculate_P_uni=False)
+                                  calculate_P_ani=False)
             self.timer.stop('Apply time-dependent operators')
 
             #psit[:] = self.spsit - .5J * self.hpsit * time_step
@@ -178,11 +178,10 @@ class ExplicitCrankNicolson(Propagator):
 
         """
         self.timer.start('Apply time-dependent operators')
-        run([nucleus.calculate_projections(self.kpt, psi)
-             for nucleus in self.td_hamiltonian.pt_nuclei])
+        self.wfs.pt.integrate(self.kpt.psit_nG, self.kpt.P_ani, self.kpt.q)
         self.td_hamiltonian.apply(self.kpt, psi, self.hpsit,
-                                  calculate_P_uni=False)
-        self.td_overlap.apply(self.kpt, psi, self.spsit, calculate_P_uni=False)
+                                  calculate_P_ani=False)
+        self.td_overlap.apply(self.kpt, psi, self.spsit, calculate_P_ani=False)
         self.timer.stop('Apply time-dependent operators')
 
         #  psin[:] = self.spsit + .5J * self.time_step * self.hpsit 
@@ -236,7 +235,7 @@ class AbsorptionKick(ExplicitCrankNicolson):
     
     """
     
-    def __init__(self, abs_kick_hamiltonian, td_overlap, solver, preconditioner, gd, timer):
+    def __init__(self, wfs, abs_kick_hamiltonian, td_overlap, solver, preconditioner, gd, timer):
         """Create AbsorptionKick-object.
         
         Parameters
@@ -255,6 +254,7 @@ class AbsorptionKick(ExplicitCrankNicolson):
             timer
 
         """
+        self.wfs = wfs
         self.td_density = DummyDensity()
         self.td_hamiltonian = abs_kick_hamiltonian
         self.td_overlap = td_overlap
@@ -330,6 +330,7 @@ class SemiImplicitCrankNicolson(Propagator):
         
         """
         self.td_density = td_density
+        self.wfs = td_density.wfs
         self.td_hamiltonian = td_hamiltonian
         self.td_overlap = td_overlap
         self.solver = solver
@@ -454,12 +455,11 @@ class SemiImplicitCrankNicolson(Propagator):
 
             self.kpt = kpt
             self.timer.start('Apply time-dependent operators')
-            run([nucleus.calculate_projections(kpt, rhs_kpt.psit_nG)
-                 for nucleus in self.td_hamiltonian.pt_nuclei])
+            self.wfs.pt.integrate(self.kpt.psit_nG, self.kpt.P_ani, self.kpt.q) 
             self.td_hamiltonian.apply(self.kpt, rhs_kpt.psit_nG, self.hpsit,
-                                      calculate_P_uni=False)
+                                      calculate_P_ani=False)
             self.td_overlap.apply(self.kpt, rhs_kpt.psit_nG, self.spsit,
-                                  calculate_P_uni=False)
+                                  calculate_P_ani=False)
             self.timer.stop('Apply time-dependent operators')
 
             #self.mblas.multi_zdotc(self.shift, rhs_kpt.psit_nG, self.hpsit, nvec)
@@ -500,11 +500,10 @@ class SemiImplicitCrankNicolson(Propagator):
         
         """
         self.timer.start('Apply time-dependent operators')
-        run([nucleus.calculate_projections(self.kpt, psi)
-             for nucleus in self.td_hamiltonian.pt_nuclei])
+        self.wfs.pt.integrate(self.kpt.psit_nG, self.kpt.P_ani, self.kpt.q) 
         self.td_hamiltonian.apply(self.kpt, psi, self.hpsit,
-                                  calculate_P_uni=False)
-        self.td_overlap.apply(self.kpt, psi, self.spsit, calculate_P_uni=False)
+                                  calculate_P_ani=False)
+        self.td_overlap.apply(self.kpt, psi, self.spsit, calculate_P_ani=False)
         self.timer.stop('Apply time-dependent operators')
 
         #  psin[:] = self.spsit + .5J * self.time_step * self.hpsit

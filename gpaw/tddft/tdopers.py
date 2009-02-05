@@ -18,7 +18,7 @@ class TimeDependentHamiltonian:
     Hamiltonian to a wavefunction.
     """
     
-    def __init__(self, pt_nuclei, hamiltonian, td_potential):
+    def __init__(self, wfs, hamiltonian, td_potential):
         """ Create the TimeDependentHamiltonian-object.
         
         The time-dependent potential object must (be None or) have a member
@@ -27,24 +27,24 @@ class TimeDependentHamiltonian:
         
         Parameters
         ----------
-        pt_nuclei: List of ?LocalizedFunctions?
-            projector functions (paw.pt_nuclei)
+        wfs: GridWaveFunctions
+            time-independent grid-based wavefunctions
         hamiltonian: Hamiltonian
             time-independent Hamiltonian
         td_potential: TimeDependentPotential
             time-dependent potential
         """
-        
-        self.pt_nuclei = pt_nuclei
+
+        self.wfs = wfs
         self.hamiltonian = hamiltonian
         self.td_potential = td_potential
         self.time = self.old_time = 0
         
         # internal smooth potential
-        self.vt_sG = hamiltonian.gd.zeros(n=hamiltonian.nspins)
+        self.vt_sG = hamiltonian.gd.zeros(hamiltonian.nspins)
 
         # Increase the accuracy of Poisson solver
-        self.hamiltonian.poisson_eps = 1e-12
+        self.hamiltonian.poisson.eps = 1e-12
 
         # external potential
         #if hamiltonian.vext_g is None:
@@ -52,13 +52,6 @@ class TimeDependentHamiltonian:
 
         #self.ti_vext_g = hamiltonian.vext_g
         #self.td_vext_g = hamiltonian.finegd.zeros(n=hamiltonian.nspins)
-
-        # internal PAW-potential
-        self.H_asp = [
-            npy.zeros(nucleus.H_sp.shape)
-            for nucleus in hamiltonian.my_nuclei
-            ]
-
 
     def update(self, density, time):
         """Updates the time-dependent Hamiltonian.
@@ -95,19 +88,19 @@ class TimeDependentHamiltonian:
 
         # copy old        
         self.vt_sG[:] = self.hamiltonian.vt_sG
-        for a in range(len(self.hamiltonian.my_nuclei)):
-            self.H_asp[a][:] = self.hamiltonian.my_nuclei[a].H_sp
+        dH_asp = {}
+        for a, dH_sp in self.hamiltonian.dH_asp.items():
+            dH_asp[a] = dH_sp.copy()
         # update
         self.hamiltonian.update(density)
         # average
         self.hamiltonian.vt_sG += self.vt_sG
         self.hamiltonian.vt_sG *= .5
-        for a in range(len(self.hamiltonian.my_nuclei)):
-            self.hamiltonian.my_nuclei[a].H_sp += self.H_asp[a] 
-            self.hamiltonian.my_nuclei[a].H_sp *= .5
-
+        for a, dH_sp in self.hamiltonian.dH_asp.items():
+            dH_sp += dH_asp[a] 
+            dH_sp *= 0.5
         
-    def apply(self, kpt, psit, hpsit, calculate_P_uni=True):
+    def apply(self, kpt, psit, hpsit, calculate_P_ani=True):
         """Applies the time-dependent Hamiltonian to the wavefunction psit of
         the k-point kpt.
         
@@ -122,13 +115,16 @@ class TimeDependentHamiltonian:
             the resulting "operated wavefunctions" (H psit)
 
         """
-        self.hamiltonian.apply(psit, hpsit, kpt, calculate_P_uni)
+        calculate_P_ani = True #TODO care about argument
+
+        #TODO on shaky ground here... might nok work if calculate_P_ani=False
+        self.hamiltonian.apply(psit, hpsit, self.wfs, kpt, calculate_P_ani)
         if self.td_potential is not None:
             strength = self.td_potential.strength
-            ExternalPotential().add_linear_field( self.pt_nuclei, psit, hpsit,
-                                                  .5*strength(self.time)
-                                                  + .5*strength(self.old_time),
-                                                  kpt )
+            ExternalPotential().add_linear_field(psit, hpsit,
+                                                 0.5 * strength(self.time) +
+                                                 0.5 * strength(self.old_time),
+                                                 kpt)
 
 
 # AbsorptionKickHamiltonian
@@ -139,20 +135,19 @@ class AbsorptionKickHamiltonian:
     Hamiltonian to a wavefunction.
     """
     
-    def __init__(self, pt_nuclei, strength = [0.0, 0.0, 1e-3]):
+    def __init__(self, wfs, atoms, strength=[0.0, 0.0, 1e-3]):
         """ Create the AbsorptionKickHamiltonian-object.
 
         Parameters
         ----------
-        pt_nuclei: List of ?LocalizedFunctions?
-            projector functions (pt_nuclei)
         strength: float[3]
             strength of the delta field to different directions
 
         """
 
-        self.pt_nuclei = pt_nuclei
-
+        self.wfs = wfs
+        self.spos_ac = atoms.get_scaled_positions() % 1.0
+        
         # magnitude
         magnitude = npy.sqrt(strength[0]*strength[0] 
                              + strength[1]*strength[1] 
@@ -194,7 +189,7 @@ class AbsorptionKickHamiltonian:
         """
         pass
         
-    def apply(self, kpt, psit, hpsit, calculate_P_uni=True):
+    def apply(self, kpt, psit, hpsit, calculate_P_ani=True):
         """Applies the absorption kick Hamiltonian to the wavefunction psit of
         the k-point kpt.
         
@@ -210,8 +205,9 @@ class AbsorptionKickHamiltonian:
 
         """
         hpsit[:] = 0.0
-        ExternalPotential().add_linear_field( self.pt_nuclei, psit, hpsit,
-                                              self.abs_hamiltonian, kpt )
+        ExternalPotential().add_linear_field(self.wfs, self.spos_ac,
+                                             psit, hpsit,
+                                             self.abs_hamiltonian, kpt)
 
 
 # Overlap
@@ -222,7 +218,7 @@ class TimeDependentOverlap:
     overlap operator to a wavefunction.
     """
     
-    def __init__(self, overlap):
+    def __init__(self, wfs):
         """Creates the TimeDependentOverlap-object.
         
         Parameters
@@ -231,7 +227,8 @@ class TimeDependentOverlap:
             projector functions (pt_nuclei)
 
         """
-        self.overlap = overlap
+        self.wfs = wfs
+        self.overlap = wfs.overlap
     
 
 
@@ -257,7 +254,7 @@ class TimeDependentOverlap:
         # !!! FIX ME !!! update overlap operator/projectors/...
         pass
     
-    def apply(self, kpt, psit, spsit, calculate_P_uni=True):
+    def apply(self, kpt, psit, spsit, calculate_P_ani=True):
         """Applies the time-dependent overlap operator to the wavefunction 
         psit of the k-point kpt.
         
@@ -272,7 +269,8 @@ class TimeDependentOverlap:
             the resulting "operated wavefunctions" (S psit)
 
         """
-        self.overlap.apply(psit, spsit, kpt, calculate_P_uni)
+        calculate_P_ani = True #TODO care about argument
+        self.overlap.apply(psit, spsit, self.wfs, kpt, calculate_P_ani)
 
 
 
@@ -293,10 +291,7 @@ class TimeDependentDensity:
             the PAW-object
         """
         self.density = paw.density
-        self.symmetry = paw.symmetry
         self.wfs = paw.wfs
-        self.kpt_u = self.wfs.kpt_u
-        self.pt_nuclei = paw.pt_nuclei
 
     def update(self):
         """Updates the time-dependent density.
@@ -306,10 +301,9 @@ class TimeDependentDensity:
         None
 
         """
-        for kpt in self.kpt_u:
-            run([nucleus.calculate_projections(kpt)
-                 for nucleus in self.pt_nuclei])
-        self.density.update(self.wfs, self.symmetry)
+        for kpt in self.wfs.kpt_u:
+            self.wfs.pt.integrate(kpt.psit_nG, kpt.P_ani)
+        self.density.update(self.wfs)
        
     def get_density(self):
         """Returns the current density.

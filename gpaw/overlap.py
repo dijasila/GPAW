@@ -113,7 +113,7 @@ class Overlap:
         kpt.psit_nG = self.operator.matrix_multiply(C_nn, psit_nG, P_ani)
         self.timer.stop('Orthonormalize')
 
-    def apply(self, a_xG, b_xG, wfs, kpt, calculate_P_uni=True):
+    def apply(self, a_xG, b_xG, wfs, kpt, calculate_P_ani=True):
         """Apply the overlap operator to a set of vectors.
 
         Parameters
@@ -124,20 +124,23 @@ class Overlap:
             Resulting S times a_nG vectors.
         kpt: KPoint object
             k-point object defined in kpoint.py.
-        calculate_P_uni: bool
+        calculate_P_ani: bool
             When True, the integrals of projector times vectors
             P_ni = <p_i | a_nG> are calculated.
             When False, existing P_uni are used
 
         """
 
-        assert calculate_P_uni
+        assert calculate_P_ani #TODO calculate_P_ani=False is experimental
         
         self.timer.start('Apply overlap')
         b_xG[:] = a_xG
         shape = a_xG.shape[:-3]
         P_axi = wfs.pt.dict(shape)
-        wfs.pt.integrate(a_xG, P_axi, kpt.q)
+
+        if calculate_P_ani: #TODO calculate_P_ani=False is experimental
+            wfs.pt.integrate(a_xG, P_axi, kpt.q)
+
         for a, P_xi in P_axi.items():
             P_axi[a] = np.dot(P_xi, self.setups[a].O_ii)
         wfs.pt.add(b_xG, P_axi, kpt.q)

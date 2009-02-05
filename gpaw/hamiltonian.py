@@ -264,12 +264,36 @@ class Hamiltonian:
             for psit_G, Htpsit_G in zip(psit_nG, Htpsit_nG):
                 Htpsit_G += psit_G * vt_G
 
-    def apply(self, a_xG, b_xG, wfs, kpt):
+    def apply(self, a_xG, b_xG, wfs, kpt, calculate_P_ani=True):
+        """Apply the Hamiltonian operator to a set of vectors.
+
+        Parameters:
+
+        a_nG: ndarray
+            Set of vectors to which the overlap operator is applied.
+        b_nG: ndarray, output
+            Resulting S times a_nG vectors.
+        wfs: WaveFunctions
+            Wave-function object defined in wavefunctions.py
+        kpt: KPoint object
+            k-point object defined in kpoint.py.
+        calculate_P_ani: bool
+            When True, the integrals of projector times vectors
+            P_ni = <p_i | a_nG> are calculated.
+            When False, existing P_ani are used
+        
+        """
+
+        assert calculate_P_ani #TODO calculate_P_ani=False is experimental
+
         wfs.kin.apply(a_xG, b_xG, kpt.phase_cd)
         self.apply_local_potential(a_xG, b_xG, kpt.s)
         shape = a_xG.shape[:-3]
         P_axi = wfs.pt.dict(shape)
-        wfs.pt.integrate(a_xG, P_axi, kpt.q)
+
+        if calculate_P_ani: #TODO calculate_P_ani=False is experimental
+            wfs.pt.integrate(a_xG, P_axi, kpt.q)
+
         for a, P_xi in P_axi.items():
             dH_ii = unpack(self.dH_asp[a][kpt.s])
             P_axi[a] = np.dot(P_xi, dH_ii)
