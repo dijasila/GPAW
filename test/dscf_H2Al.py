@@ -31,17 +31,27 @@ e_gs = atoms.get_potential_energy()
 
 H2 = atoms.copy()
 del H2[-1]
-H2.set_calculator(calc)
+calc2 = Calculator(h=0.24,
+                   #nbands=6,
+                   xc='PBE',
+                   spinpol = True,
+                   kpts=[1,1,1],
+                   width=0.1,
+                   convergence={'energy': 0.01,
+                                'density': 1.0e-2,
+                                'eigenstates': 1.0e-6,
+                                'bands': -1})
+H2.set_calculator(calc2)
 H2.get_potential_energy()
-wf_u = [kpt.psit_nG[1] for kpt in calc.wfs.kpt_u]
-P_aui = [[kpt.P_ani[a][1] for kpt in calc.wfs.kpt_u]
+wf_u = [kpt.psit_nG[1] for kpt in calc2.wfs.kpt_u]
+P_aui = [[kpt.P_ani[a][1] for kpt in calc2.wfs.kpt_u]
           for a in range(len(H2))]
 
 lumo = AEOrbital(calc, wf_u, P_aui, molecule=[0,1])
 dscf_calculation(calc, [[1.0, lumo, 1]], atoms)
 e_2 = atoms.get_potential_energy()
 
-equal(e_2, e_gs+3.0, 0.01)
+equal(e_2, e_gs + 3.0, 0.01)
 
 del lumo
 del calc.occupations
