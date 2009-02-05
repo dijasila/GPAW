@@ -26,16 +26,16 @@ class NonLocalFunctionalFactory:
             # Contains screening part from GGA functional
             # And response part based on simple square root expection
             # of orbital energy differences.
-
             from gpaw.gllb.contributions.c_gllbscr import C_GLLBScr
             from gpaw.gllb.contributions.c_response import C_Response
-            C_Response(functional, 1.0, C_GLLBScr(functional, 1.0))
+            C_Response(functional, 1.0, C_GLLBScr(functional, 1.0).get_coefficient_calculator())
             return functional
         elif name == 'GLLBLDA':
             from gpaw.gllb.contributions.c_lda import C_LDA
             C_LDA(functional, 1.0)
             return functional
         elif name == 'GLLBSLATER':
+            raise RuntimeError('Slater functional not implemented')
             from gpaw.gllb.contributions.c_slater import C_Slater
             C_Slater(functional, 1.0)
             return functional

@@ -1,9 +1,12 @@
 from gpaw.gllb.contributions.contribution import Contribution
 from gpaw.xc_functional import XCRadialGrid, XCFunctional, XC3DGrid
 from gpaw.xc_correction import A_Liy
+from gpaw.gllb import safe_sqr
 from math import sqrt, pi
 
 import numpy as npy
+
+K_G = 0.382106112167171
 
 class C_GLLBScr(Contribution):
     def __init__(self, nlfunc, weight):
@@ -11,7 +14,6 @@ class C_GLLBScr(Contribution):
         
     # Initialize GLLBScr functional
     def initialize_1d(self):
-        print "In C_GLLBScr::initialize_1d"
         self.ae = self.nlfunc.ae
         self.xc = XCRadialGrid('X_B88-None', self.ae.rgd) 
         self.v_g = npy.zeros(self.ae.N)
@@ -31,6 +33,18 @@ class C_GLLBScr(Contribution):
         self.xc_grid3d = XC3DGrid(self.xc, self.nlfunc.finegd, self.nlfunc.nspins)
         self.vt_sg = self.nlfunc.finegd.empty(self.nlfunc.nspins)
         self.e_g = self.nlfunc.finegd.empty()#.ravel()
+
+    def get_coefficient_calculator(self):
+        return self
+
+    def get_coefficients_1d(self):
+        homo = 0
+        for i, f in enumerate(self.ae.f_j):
+            if f > 1e-3:
+                homo = i
+
+        e_ref = self.ae.e_j[homo]
+        return npy.array([ K_G * npy.sqrt( max(0, e_ref - e)) for e in self.ae.e_j ])
 
     def calculate_spinpaired(self, e_g, n_g, v_g):
         self.e_g[:] = 0.0
