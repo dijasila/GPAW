@@ -53,7 +53,6 @@ class WaveFunctions(EmptyWaveFunctions):
         self.ibzk_kc = ibzk_kc
         self.weight_k = weight_k
         self.symmetry = symmetry
-        self.kpt_comm = kpt_comm
         self.rank_a = None
 
         self.nibzkpts = len(weight_k)
@@ -124,7 +123,8 @@ class WaveFunctions(EmptyWaveFunctions):
                 if hasattr(kpt, 'ft_omn'):
                     for i in range(len(kpt.ft_omn)):
                         D_sii[kpt.s] += (np.dot(P_ni.T.conj(),
-                                                np.dot(kpt.ft_omn[i], P_ni))).real
+                                                np.dot(kpt.ft_omn[i],
+                                                       P_ni))).real
 
 
             D_sp[:] = [pack(D_ii) for D_ii in D_sii]
@@ -319,7 +319,7 @@ class LCAOWaveFunctions(WaveFunctions):
         dThetadR_qvMM = tci.dThetadR_kcmm
         mask_aMM = tci.mask_amm
 
-        for kpt in self.kpt_u:
+        for kpt in self.kpt_u:            
             self.calculate_forces_kpoint_lcao(kpt, hamiltonian,
                                               F_av, tci,
                                               grid_bfs, S_qMM[kpt.k],
@@ -339,12 +339,12 @@ class LCAOWaveFunctions(WaveFunctions):
         #
         # Also, for this atom, we must apply a mask which is -1 for
         # m < self.m, and +1 for m > self.m + self.setup.niAO
-        dPdRa_ami = []
-        factor = -1.
+        dPdRa_ami = {}
         m = tci.M_a[a]
         mask_m = np.zeros(self.setups.nao)
         mask_m[m:m + self.setups[a].niAO] = 1.
-        for b, setup in enumerate(self.setups):
+        
+        for b in self.basis_functions.my_atom_indices:
             if b == a:
                 ownmask_m = np.zeros(self.setups.nao)
                 m1 = m
@@ -353,34 +353,63 @@ class LCAOWaveFunctions(WaveFunctions):
                 ownmask_m[m2:] = +1.
                 selfcontrib = (tci.dPdR_akcmi[a][k, c, :, :] * 
                                ownmask_m[None].T)
-                dPdRa_ami.append(selfcontrib)
-                factor = 1.
+                dPdRa_ami[b] = selfcontrib
             else:
+                if b > a:
+                    factor = 1.0
+                else:
+                    factor = -1.0
                 dPdRa_mi = (tci.dPdR_akcmi[b][k, c, :, :] * 
                             mask_m[None].T * factor)
-                dPdRa_ami.append(dPdRa_mi)
+                dPdRa_ami[b] = dPdRa_mi
         return dPdRa_ami
 
     def get_overlap_derivatives(self, tci, a, c, dPdRa_ami, k):
-        P_ami = [self.P_aqMi[b][k, :, :] for b
-                 in range(len(self.setups))]
-        
-        O_aii = [setup.O_ii for setup in self.setups]
-        assert len(P_ami) == len(O_aii)
-        dThetadR_mm = tci.dThetadR_kcmm[k, c, :, :]
-
         nao = self.setups.nao
+        dThetadR_mm = tci.dThetadR_kcmm[k, c, :, :]
         pawcorrection_mm = np.zeros((nao, nao), self.dtype)
 
-        for dPdRa_mi, P_mi, O_ii in zip(dPdRa_ami, P_ami, O_aii):
+        for b in self.basis_functions.my_atom_indices:
+            O_ii = self.setups[b].O_ii
+            dPdRa_mi = dPdRa_ami[b]            
+            P_mi = self.P_aqMi[b][k]
             A_mm = np.dot(dPdRa_mi, np.dot(O_ii, P_mi.T.conj()))
             B_mm = np.dot(P_mi, np.dot(O_ii, dPdRa_mi.T.conj()))
             pawcorrection_mm += A_mm + B_mm
-
+        self.basis_functions.gd.comm.sum(pawcorrection_mm)
+        
         return dThetadR_mm * tci.mask_amm[a] + pawcorrection_mm
 
+    def calculate_all_potential_derivatives(self, tci, hamiltonian, kpt,
+                                            grid_bfs, rho_MM):
+        nao = self.setups.nao
+        vt_G = hamiltonian.vt_sG[kpt.s]
+        rho_aMi = grid_bfs.dict(nao)
+        for b, rho_Mi in rho_aMi.items():
+            Mb = self.basis_functions.M_a[b]
+            dMb = self.setups[b].niAO
+            assert rho_Mi.shape[-1] == dMb
+            rho_Mi[:, :] = rho_MM[:, Mb:Mb + dMb].copy()
+
+        phit_MG = grid_bfs.gd.zeros(nao, self.dtype)
+        derivs_aMiv = grid_bfs.dict(nao, derivative=True)
+        dEdndndR_av = np.zeros((len(self.setups), 3))
+
+        grid_bfs.add(phit_MG, rho_aMi, kpt.k)
+        grid_bfs.derivative(phit_MG * vt_G, derivs_aMiv, kpt.k)
+
+        for b, derivs_Miv in derivs_aMiv.items():
+            M1 = self.basis_functions.M_a[b]
+            M2 = M1 + self.setups[b].niAO
+            dtr_v = -2 * derivs_Miv[M1:M2, :].real.trace()
+            dEdndndR_av[b, :] = dtr_v
+
+        self.gd.comm.sum(dEdndndR_av)        
+        return dEdndndR_av
+
     def calculate_potential_derivatives(self, tci, a, hamiltonian, kpt,
-                                        grid_bfs):
+                                        grid_bfs, rho_MM):
+        raise DeprecationWarning('code to be removed, using new LF interface')
         nao = self.setups.nao
         my_nao = self.setups[a].niAO
         m1 = tci.M_a[a]
@@ -407,22 +436,30 @@ class LCAOWaveFunctions(WaveFunctions):
         dVtdRa_mmc = np.zeros((nao, nao, 3), dtype)
         dVtdRa_mmc[:, m1:m2, :] -= dVtdRa_mMc
 
-        return dVtdRa_mmc
+        dVtdRa_MMv = dVtdRa_mmc
+
+        dEdndndR_v = np.empty(3)
+        for v in range(3):
+            X = np.dot(rho_MM, dVtdRa_MMv[:, :, v])
+            dEdndndR_v[v] = 2 * X.real.trace()
+        return dEdndndR_v
 
     def calculate_forces_kpoint_lcao(self, kpt, hamiltonian,
                                      F_av, tci, grid_bfs, S_MM,
                                      T_MM, P_aqMi):
-        assert tci.lcao_forces, 'Not set up for force calculations!'
         k = kpt.k
         if kpt.rho_MM is None:
             rho_MM = np.dot(kpt.C_nM.T.conj() * kpt.f_n, kpt.C_nM)
         else:
             rho_MM = kpt.rho_MM
 
+        dEdndndR_av = self.calculate_all_potential_derivatives(tci,
+                                                               hamiltonian,
+                                                               kpt, grid_bfs,
+                                                               rho_MM)
         dTdR_vMM = tci.dTdR_kcmm[k]
 
-        self.eigensolver.calculate_hamiltonian_matrix(hamiltonian, self,
-                                                      kpt)
+        self.eigensolver.calculate_hamiltonian_matrix(hamiltonian, self, kpt)
         H_MM = self.eigensolver.H_MM.copy()
         # H_MM is halfway full of garbage!  Only lower triangle is
         # actually correct.  Create correct H_MM:
@@ -438,22 +475,22 @@ class LCAOWaveFunctions(WaveFunctions):
         #assert abs(ChcEFC_MM - np.dot(kpt.C_nM.T.conj() * kpt.f_n * kpt.eps_n,
         #                              kpt.C_nM)).max() < 1e-8
         
-        for a in grid_bfs.my_atom_indices:
+        for a in range(len(self.setups)):
             dPdR_vMi = tci.dPdR_akcmi[a][k]
             mask_MM = tci.mask_amm[a]
             self.calculate_force_on_atom_lcao(a, kpt, hamiltonian, F_av[a],
                                               tci, grid_bfs, T_MM,
-                                              P_aqMi[a][kpt.q],
+                                              P_aqMi,
                                               rho_MM, dTdR_vMM, dPdR_vMi,
-                                              mask_MM, H_MM, ChcEFC_MM)
+                                              mask_MM, H_MM, ChcEFC_MM,
+                                              dEdndndR_av)
 
     def calculate_force_on_atom_lcao(self, a, kpt, hamiltonian, F_v, tci,
-                                     grid_bfs, T_MM, P_Mi, rho_MM,
+                                     grid_bfs, T_MM, P_aqMi, rho_MM,
                                      dTdR_vMM, dPdR_vMi, mask_MM, H_MM,
-                                     ChcEFC_MM):
+                                     ChcEFC_MM, dEdndndR_av):
         k = kpt.k
-        dVtdRa_MMv = self.calculate_potential_derivatives(tci, a, hamiltonian,
-                                                          kpt, grid_bfs)
+        
         for v, (dTdR_MM, dPdR_Mi) in enumerate(zip(dTdR_vMM, dPdR_vMi)):
             dPdRa_aMi = self.get_projector_derivatives(tci, a, v, k)
             dSdRa_MM = self.get_overlap_derivatives(tci, a, v, dPdRa_aMi, k)
@@ -462,17 +499,18 @@ class LCAOWaveFunctions(WaveFunctions):
             
             dEdTdTdR = np.dot(rho_MM, dTdR_MM * mask_MM).real.trace()
             
-            dEdDdDdR = 0.0
-            for b, dPdRa_Mi in enumerate(dPdRa_aMi): # XXX atomic indices
+            dEdDdDdR = np.zeros(1)
+            for b, dPdRa_Mi in dPdRa_aMi.items():
                 A_ii = np.dot(dPdRa_Mi.T.conj(), 
                               np.dot(rho_MM, self.P_aqMi[b][k]))
                 Hb_ii = unpack(hamiltonian.dH_asp[b][kpt.s])
                 dEdDdDdR += 2 * np.dot(Hb_ii, A_ii).real.trace()
-
-            dEdndndR = 2 * np.dot(rho_MM, dVtdRa_MMv[:, :, v]).real.trace()
+            self.gd.comm.sum(dEdDdDdR)
             
+            dEdndndR = dEdndndR_av[a][v]
             F = - (dEdrhodrhodR + dEdTdTdR + dEdDdDdR + dEdndndR)
-            F_v[v] += F
+            if a in dPdRa_aMi:
+                F_v[v] += F
 
 
 from gpaw.eigensolvers import get_eigensolver

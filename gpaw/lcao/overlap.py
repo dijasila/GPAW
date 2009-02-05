@@ -294,7 +294,6 @@ class TwoCenterIntegrals:
 
             for a, M in enumerate(self.M_a):
                 ni = self.setups[a].ni
-                assert ni == P_aqMi[a].shape[-1]
                 nM = self.setups[a].niAO
 
                 dPdR_kcmi = np.zeros((nq, 3, nao, ni), dtype)
@@ -416,8 +415,15 @@ class TwoCenterIntegrals:
             for S_MM, P_Mi in zip(S_qMM, P_qMi):
                 S_MM += np.dot(P_Mi, np.inner(dO_ii, P_Mi).conj())
 
-        self.domain.comm.sum(S_qMM)
-        self.domain.comm.sum(T_qMM)
+        comm = self.domain.comm
+        comm.sum(S_qMM)
+        comm.sum(T_qMM)
+
+        if self.lcao_forces:
+            comm.sum(self.Theta_qMM)
+            comm.sum(self.dThetadR_kcmm)
+            comm.sum(self.dSdR_kcmm)
+            comm.sum(self.dTdR_kcmm)
 
     def st(self, a1, a2, r, R, rlY_lm, drlYdR_lmc, phase_q, selfinteraction,
            M1a, M2, S_qMM, T_qMM):

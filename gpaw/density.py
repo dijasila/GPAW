@@ -50,7 +50,6 @@ class Density:
 
         self.nct_G = None
         self.nt_sG = None
-        self.nt_g = None
         self.rhot_g = None
         self.nt_sg = None
         self.nt_g = None
