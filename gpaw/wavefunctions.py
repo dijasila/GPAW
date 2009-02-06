@@ -104,6 +104,9 @@ class WaveFunctions(EmptyWaveFunctions):
             for nt_G in nt_sG:
                 self.symmetry.symmetrize(nt_G, self.gd)
 
+    def calculate_atomic_density_matrices_k_point(self, D_sii, kpt, a):
+        raise NotImplementedError
+
     def calculate_atomic_density_matrices(self, density):
         """Calculate atomic density matrices from projections."""
         D_asp = density.D_asp
@@ -111,21 +114,14 @@ class WaveFunctions(EmptyWaveFunctions):
             ni = self.setups[a].ni
             D_sii = np.zeros((self.nspins, ni, ni))
             for kpt in self.kpt_u:
-                if kpt.rho_MM is not None:
-                    P_Mi = kpt.P_aMi[a]
-                    D_sii[kpt.s] += np.dot(np.dot(P_Mi.T.conj(), kpt.rho_MM),
-                                           P_Mi).real
-                else:
-                    P_ni = kpt.P_ani[a]
-                    D_sii[kpt.s] += np.dot(P_ni.T.conj() * kpt.f_n, P_ni).real
-
+                self.calculate_atomic_density_matrices_k_point(D_sii, kpt, a)
+                
                 # hack used in delta scf - calculations
                 if hasattr(kpt, 'ft_omn'):
                     for i in range(len(kpt.ft_omn)):
                         D_sii[kpt.s] += (np.dot(P_ni.T.conj(),
                                                 np.dot(kpt.ft_omn[i],
                                                        P_ni))).real
-
 
             D_sp[:] = [pack(D_ii) for D_ii in D_sii]
             self.band_comm.sum(D_sp)
@@ -270,24 +266,26 @@ class LCAOWaveFunctions(WaveFunctions):
             density.update(self, basis_functions=self.basis_functions)
         hamiltonian.update(density)
 
-    def add_to_density_with_occupation(self, nt_sG, f_un):
-        XXX
+    def add_to_density_from_k_point_with_occupation(self, nt_sG, kpt, f_n):
         """Add contribution to pseudo electron-density. Do not use the standard
         occupation numbers, but ones given with argument f_n."""
         
-        for kpt, f_n in zip(self.kpt_u, f_un):
-            rho_MM = np.dot(kpt.C_nM.conj().T * f_n, kpt.C_nM)
-            self.basis_functions.construct_density(rho_MM, nt_sG[kpt.s], kpt.k)
+        rho_MM = np.dot(kpt.C_nM.conj().T * f_n, kpt.C_nM)
+        self.basis_functions.construct_density(rho_MM, nt_sG[kpt.s], kpt.k)
 
     def add_to_density_from_k_point(self, nt_sG, kpt):
-        """Add contribution to pseudo electron-density. Do not use the standard
-        occupation numbers, but ones given with argument f_n."""
-        
+        """Add contribution to pseudo electron-density. """
+                
         if kpt.rho_MM is not None:
             rho_MM = kpt.rho_MM
         else:
             rho_MM = np.dot(kpt.C_nM.conj().T * kpt.f_n, kpt.C_nM)
         self.basis_functions.construct_density(rho_MM, nt_sG[kpt.s], kpt.q)
+
+    def calculate_atomic_density_matrices_k_point(D_sii, kpt, a):
+        P_Mi = kpt.P_aMi[a]
+        D_sii[kpt.s] += np.dot(np.dot(P_Mi.T.conj(), kpt.rho_MM),
+                               P_Mi).real
 
     def calculate_forces(self, hamiltonian, F_av):
         # This will do a whole lot of unnecessary allocation, but we'll
@@ -683,6 +681,10 @@ class GridWaveFunctions(WaveFunctions):
                     
                 interpolate2(psit_G2, psit_G1, kpt.phase_cd)
                 interpolate1(psit_G1, psit_G, kpt.phase_cd)
+
+    def calculate_atomic_density_matrices_k_point(self, D_sii, kpt, a):
+        P_ni = kpt.P_ani[a]
+        D_sii[kpt.s] += np.dot(P_ni.T.conj() * kpt.f_n, P_ni).real
     
     def add_to_density_from_k_point(self, nt_sG, kpt):
         nt_G = nt_sG[kpt.s]
@@ -701,17 +703,14 @@ class GridWaveFunctions(WaveFunctions):
                         if abs(ft) > 1.e-12:
                             nt_G += (psi_m.conj() * ft * psi_n).real
 
-    def add_to_density_with_occupation(self, nt_sG, f_un):
-        XXX
-        for kpt in self.kpt_u:
-            nt_G = nt_sG[kpt.s]
-            f_n = f_un[kpt.u]
-            if kpt.dtype == float:
-                for f, psit_G in zip(f_n, kpt.psit_nG):
-                    axpy(f, psit_G**2, nt_G)  # nt_G += f * psit_G**2
-            else:
-                for f, psit_G in zip(f_n, kpt.psit_nG):
-                    nt_G += f * (psit_G * np.conjugate(psit_G)).real
+    def add_to_density_from_k_point_with_occupation(self, nt_sG, kpt, f_n):
+        nt_G = nt_sG[kpt.s]
+        if self.dtype == float:
+            for f, psit_G in zip(f_n, kpt.psit_nG):
+                axpy(f, psit_G**2, nt_G)
+        else:
+            for f, psit_G in zip(f_n, kpt.psit_nG):
+                nt_G += f * (psit_G * psit_G.conj()).real
 
     def orthonormalize(self):
         for kpt in self.kpt_u:
