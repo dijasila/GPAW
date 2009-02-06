@@ -88,7 +88,7 @@ class LrTDDFT(ExcitationList):
         self.force_ApmB=force_ApmB
  
         if calculator is not None:
-            print 'if not calculator.wfs.initialized: calculator.wfs.initialize(calculator) # XXX remember to test'
+            caclulator.set_positions()
                 
             self.update(calculator, nspins, eps, istart, jend,
                         xc, derivativeLevel, numscale)

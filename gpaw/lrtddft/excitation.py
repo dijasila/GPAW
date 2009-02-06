@@ -28,8 +28,6 @@ class ExcitationList(list):
         if calculator is not None:
             if out is None:
                 self.out = calculator.txt
-            # initialize the nuclei if not ready
-            print 'if not calculator.nuclei[0].ready:calculator.set_positions()'
         else:
             if mpi.rank != MASTER: self.out = DownTheDrain()
             else: self.out = sys.stdout
