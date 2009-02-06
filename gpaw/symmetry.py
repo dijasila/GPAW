@@ -20,6 +20,9 @@ class Symmetry:
         self.pbc_c = pbc_c
         self.tol = tolerance
 
+        self.symmetries = [((0, 1, 2), np.array((1, 1, 1)))]
+        self.operations = [[np.array([ 1.,  0.,  0.]), np.array([ 0.,  1.,  0.]), np.array([ 0.,  0.,  1.])]]
+        
     def analyze(self, spos_ac):
         """Analyse(atoms)
 
