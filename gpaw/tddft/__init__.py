@@ -12,7 +12,7 @@ from math import log
 import numpy as npy
 from ase.units import Bohr, Hartree
 
-from gpaw.paw import PAW
+from gpaw.aseinterface import GPAW
 from gpaw.mixer import BaseMixer
 from gpaw.version import version
 from gpaw.preconditioner import Preconditioner
@@ -63,7 +63,7 @@ class InverseOverlapPreconditioner:
 ###########################
 # Main class
 ###########################
-class TDDFT(PAW):
+class TDDFT(GPAW):
     """ Time-dependent density functional theory
     
     This class is the core class of the time-dependent density functional 
@@ -105,7 +105,7 @@ class TDDFT(PAW):
         self.time = 0.0
 
         # Initialize paw-object
-        PAW.__init__(self, ground_state_file, txt=txt)
+        GPAW.__init__(self, ground_state_file, txt=txt)
 
         # Paw-object has no ``niter`` counter in this branch TODO!
         self.niter = 0
@@ -438,7 +438,7 @@ class TDDFT(PAW):
 
     def __del__(self):
         """Destructor"""
-        PAW.__del__(self)
+        GPAW.__del__(self)
 
 
 from gpaw.mpi import world

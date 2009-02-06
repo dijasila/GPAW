@@ -422,9 +422,13 @@ def read(paw, reader):
 
     if version > 0.3:
         paw.scf.converged = r['Converged']
-        paw.density.mixer.set_charge_sloshing(r['DensityError'])
+        density_error = r['DensityError']
+        if density_error is not None:
+            paw.density.mixer.set_charge_sloshing(density_error)
         Etot = hamiltonian.Etot
-        paw.scf.energies = [Etot, Etot + r['EnergyError'], Etot]
+        energy_error = r['EnergyError']
+        if energy_error is not None:
+            paw.scf.energies = [Etot, Etot + energy_error, Etot]
         wfs.eigensolver.error = r['EigenstateError']
     else:
         paw.scf.converged = True
