@@ -64,7 +64,8 @@ if len(tests) == 0:
              'gllb2.py', 'apmb.py', 'relax.py', 'fixmom.py',
              'si-xas.py', 'fermilevel.py', 'transport.py',
              'revPBE_Li.py', 'lxc_xcatom.py', 'exx_coarse.py', '2Al.py',
-             '8Si.py', 'dscf_test.py', 'lcao-h2o.py', 'IP-oxygen.py',
+             '8Si.py', 'dscf_CO.py', 'lcao-h2o.py', 'IP-oxygen.py',
+             'dscf_H2Al.py',
              'generatesetups.py', 'aedensity.py', 'h2o_dks.py', 'Cu.py',
              'exx.py',
              'H2Al110.py', 'ltt.py']
