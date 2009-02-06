@@ -7,14 +7,17 @@ from ase.units import Hartree
 from pair_density import PairDensity2 as PairDensity
 from gpaw.poisson import PoissonSolver
 from gpaw.utilities import pack, unpack
-from gpaw.utilities.tools import pick, construct_reciprocal, dagger, fill
+from gpaw.utilities.tools import pick, construct_reciprocal, dagger, tri2full
 from gpaw.utilities.gauss import Gaussian
 from gpaw.utilities.blas import r2k
 from gpaw.mpi import rank, MASTER
 
+
 def get_vxc(paw, spin=0, U=None):
     """Calculate matrix elements of the xc-potential."""
-
+    assert not paw.hamiltonian.xc.xcfunc.orbital_dependent, "LDA/GGA's only"
+    assert paw.dtype is float, 'Complex waves not implemented'
+    
     if U is not None: # Rotate xc matrix
         return npy.dot(dagger(U), npy.dot(get_vxc(paw, spin), U))
     
@@ -26,13 +29,10 @@ def get_vxc(paw, spin=0, U=None):
     paw.hamiltonian.restrict(vxct_g, vxct_G)
     Vxc_nn = npy.zeros((paw.nbands, paw.nbands))
 
-    # Fill in upper triangle
-    r2k(0.5 * paw.gd.dv, psit_nG, vxct_G * psit_nG, 0.0, Vxc_nn)
+    # Apply pseudo part
+    r2k(.5 * paw.gd.dv, psit_nG, vxct_G * psit_nG, .0, Vxc_nn) # lower triangle
+    tri2full(Vxc_nn, 'L') # Fill in upper triangle from lower
     paw.gd.comm.sum(Vxc_nn)
-
-    # Fill in lower triangle
-    for n in range(paw.nbands - 1):
-        Vxc_nn[n:, n] = Vxc_nn[n, n:]
 
     # Add atomic PAW corrections
     for nucleus in paw.my_nuclei:
@@ -47,7 +47,7 @@ def get_vxc(paw, spin=0, U=None):
 
 
 class Coulomb:
-    """Class used to evaluate two index coulomb integrals"""
+    """Class used to evaluate two index coulomb integrals."""
     def __init__(self, gd, poisson=None):
         """Class should be initialized with a grid_descriptor 'gd' from
            the gpaw module.
@@ -370,8 +370,8 @@ class HF:
         # Fill in lower triangle
         r2k(0.5 * self.dv, kpt.psit_nG[:], Htpsit_nG, 1.0, H_nn)
 
-        # Fill in upper triangle
-        fill(H_nn, 'upper')
+        # Fill in upper triangle from lower
+        tri2full(H_nn, 'L')
 
     def atomic_val_val(self, kpt, H_nn):
         deg = 2 / self.nspins

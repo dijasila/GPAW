@@ -88,7 +88,8 @@ class LrTDDFT(ExcitationList):
         self.force_ApmB=force_ApmB
  
         if calculator is not None:
-            caclulator.set_positions()
+            if calculator.density.nct_G is None:
+                calculator.set_positions()
                 
             self.update(calculator, nspins, eps, istart, jend,
                         xc, derivativeLevel, numscale)

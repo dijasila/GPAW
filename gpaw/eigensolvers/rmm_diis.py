@@ -81,7 +81,7 @@ class RMM_DIIS(Eigensolver):
 
             hamiltonian.xc.xcfunc.adjust_non_local_residual(
                 pR_G, dR_G, kpt, n1)
-
+            
             # Find lam that minimizes the norm of R'_G = R_G + lam dR_G
             RdR = self.comm.sum(np.vdot(R_G, dR_G).real)
             dRdR = self.comm.sum(np.vdot(dR_G, dR_G).real)
@@ -93,8 +93,8 @@ class RMM_DIIS(Eigensolver):
             axpy(lam**2, dR_G, R_G)  # R_G += lam**2 * dR_G
             kpt.psit_nG[n1] += self.preconditioner(R_G, kpt.phase_cd,
                                                    kpt.psit_nG[n1])
-
+            
         self.timer.stop('RMM-DIIS')
-        
         error = self.comm.sum(error)
         return error
+    

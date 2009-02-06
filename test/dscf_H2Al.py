@@ -1,5 +1,5 @@
 from ase import Atoms
-from gpaw import Calculator
+from gpaw import GPAW
 from gpaw.dscf import dscf_calculation, MolecularOrbital, AEOrbital
 from gpaw.utilities import equal
 
@@ -10,15 +10,15 @@ atoms = Atoms(positions=[[0.,0.,5.],
               cell=[3.,3.,9.1],
               pbc=[True,True,False])
 
-calc = Calculator(h=0.24,
-                  nbands=6,
-                  xc='PBE',
-                  spinpol = True,
-                  kpts=[8,8,1],
-                  convergence={'energy': 0.001,
-                               'density': 0.001,
-                               'eigenstates': 1.0e-8,
-                               'bands': -3})
+calc = GPAW(h=0.24,
+            nbands=6,
+            xc='PBE',
+            spinpol = True,
+            kpts=[8,8,1],
+            convergence={'energy': 0.001,
+                         'density': 0.001,
+                         'eigenstates': 1.0e-8,
+                         'bands': -3})
 
 atoms.set_calculator(calc)
 E_gs = atoms.get_potential_energy()
@@ -34,7 +34,7 @@ equal(E_es1, E_gs + 6.8, 0.1)
 # Dscf calculation based on the AEOrbital class
 H2 = atoms.copy()
 del H2[-1]
-calc_mol = Calculator(h=0.24, xc='PBE', spinpol = True, kpts=[8,8,1])
+calc_mol = GPAW(h=0.24, xc='PBE', spinpol = True, kpts=[8,8,1])
 H2.set_calculator(calc_mol)
 H2.get_potential_energy()
 wf_u = [kpt.psit_nG[1] for kpt in calc_mol.wfs.kpt_u]

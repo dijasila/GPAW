@@ -352,7 +352,9 @@ class GridDescriptor:
 
         # Collect all arrays on the master:
         if self.rank != MASTER:
-            self.comm.send(a_xg, MASTER, 301)
+            # There can be several sends before the corresponding receives
+            # are posted, so use syncronous send here
+            self.comm.ssend(a_xg, MASTER, 301)
             if broadcast:
                 A_xg = self.empty(xshape, a_xg.dtype, global_array=True)
                 self.comm.broadcast(A_xg, 0)

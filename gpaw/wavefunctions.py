@@ -118,6 +118,7 @@ class WaveFunctions(EmptyWaveFunctions):
                 
                 # hack used in delta scf - calculations
                 if hasattr(kpt, 'ft_omn'):
+                    P_ni = kpt.P_ani[a]
                     for i in range(len(kpt.ft_omn)):
                         D_sii[kpt.s] += (np.dot(P_ni.T.conj(),
                                                 np.dot(kpt.ft_omn[i],
@@ -282,10 +283,14 @@ class LCAOWaveFunctions(WaveFunctions):
             rho_MM = np.dot(kpt.C_nM.conj().T * kpt.f_n, kpt.C_nM)
         self.basis_functions.construct_density(rho_MM, nt_sG[kpt.s], kpt.q)
 
-    def calculate_atomic_density_matrices_k_point(D_sii, kpt, a):
-        P_Mi = kpt.P_aMi[a]
-        D_sii[kpt.s] += np.dot(np.dot(P_Mi.T.conj(), kpt.rho_MM),
-                               P_Mi).real
+    def calculate_atomic_density_matrices_k_point(self, D_sii, kpt, a):
+        if kpt.rho_MM is not None: 
+            P_Mi = kpt.P_aMi[a] 
+            D_sii[kpt.s] += np.dot(np.dot(P_Mi.T.conj(), kpt.rho_MM),
+                                   P_Mi).real 
+        else: 
+            P_ni = kpt.P_ani[a] 
+            D_sii[kpt.s] += np.dot(P_ni.T.conj() * kpt.f_n, P_ni).real
 
     def calculate_forces(self, hamiltonian, F_av):
         # This will do a whole lot of unnecessary allocation, but we'll

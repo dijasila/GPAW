@@ -1,19 +1,9 @@
 from gpaw.utilities import unpack
+from gpaw.utilities.tools import tri2full
 from ase import Hartree
-import pickle
+import cPickle as pickle
 import numpy as npy
 from gpaw.mpi import world, rank
-
-def tri2full(M,UL='L'):
-    """UP='L' => fill upper triangle from lower triangle
-       such that M=M^d"""
-    nbf = len(M)
-    if UL=='L':
-        for i in range(nbf-1):
-            M[i,i:] = M[i:,i].conjugate()
-    elif UL=='U':
-        for i in range(nbf-1):
-            M[i:,i] = M[i,i:].conjugate()
 
 def get_bf_centers(atoms):
     calc = atoms.get_calculator()
@@ -32,27 +22,46 @@ def get_bf_centers(atoms):
         index += nao
     return pos_ic
 
-def get_realspace_hs(h_skmm,s_kmm, ibzk_kc, weight_k, R_c=(0,0,0)):
+def get_realspace_hs(h_skmm,s_kmm, ibzk_kc, weight_k, R_c=(0,0,0), 
+                     usesymm=None):
+
     phase_k = npy.dot(2 * npy.pi * ibzk_kc, R_c)
     c_k = npy.exp(1.0j * phase_k) * weight_k
     c_k.shape = (len(ibzk_kc),1,1)
 
-    if h_skmm != None:
+    if usesymm==None:                     
+        if h_skmm != None:
+            nbf = h_skmm.shape[-1]
+            nspins = len(h_skmm)
+            h_smm = npy.empty((nspins,nbf,nbf),complex)
+            for s in range(nspins):
+                h_smm[s] = npy.sum((h_skmm[s] * c_k), axis=0)
+        if s_kmm != None:
+            nbf = s_kmm.shape[-1]
+            s_mm = npy.empty((nbf,nbf),complex)
+            s_mm[:] = npy.sum((s_kmm * c_k), axis=0)      
+        if h_skmm != None and s_kmm != None:
+            return h_smm, s_mm
+        elif h_skmm == None:
+            return s_mm
+        elif s_kmm == None:
+            return h_smm
+
+    elif usesymm==False:        
         nbf = h_skmm.shape[-1]
         nspins = len(h_skmm)
-        h_smm = npy.empty((nspins,nbf,nbf),complex)
+        h_smm = npy.empty((nspins, nbf, nbf))
+        s_mm = npy.empty((nbf,nbf))
         for s in range(nspins):
-            h_smm[s] = npy.sum((h_skmm[s] * c_k), axis=0)
-    if s_kmm != None:
-        nbf = s_kmm.shape[-1]
-        s_mm = npy.empty((nbf,nbf),complex)
-        s_mm[:] = npy.sum((s_kmm * c_k), axis=0)      
-    if h_skmm != None and s_kmm != None:
+            h_smm[s] = npy.sum((h_skmm[s] * c_k).real, axis=0)
+   
+        s_mm[:] = npy.sum((s_kmm * c_k).real, axis=0)
+        
         return h_smm, s_mm
-    elif h_skmm == None:
-        return s_mm
-    elif s_kmm == None:
-        return h_smm
+
+    elif usesymm==True:
+        raise 'Not implemented'
+            
 
 def get_kspace_hs(h_srmm, s_rmm, R_vector, kvector=(0,0,0)):
     phase_k = npy.dot(2 * npy.pi * R_vector, kvector)
@@ -94,10 +103,9 @@ def remove_pbc(atoms, h, s=None, d=0):
             s[:,i] = s[:,i] * mask_i
 
 def dump_hamiltonian(filename, atoms, direction=None):
-    
     h_skmm, s_kmm = get_hamiltonian(atoms)
     if direction != None:
-        d = {'x': 0, 'y': 1, 'z': 2}[direction]
+        d = 'xyz'.index(direction)
         for s in range(atoms.calc.nspins):
             for k in range(atoms.calc.nkpts):
                 if s==0:
@@ -150,4 +158,41 @@ def get_hamiltonian(atoms):
 
     return h_skmm, s_kmm
 
+def lead_kspace2realspace(filename, direction='x'):
+    """Convert a dumped hamiltonian representing a lead, to a realspace
+    hamiltonian of double size representing two principal layers and the
+    coupling between."""
+    dir = 'xyz'.index(direction)
+    fd = file(filename, 'rb')
+    h_skmm, s_kmm = pickle.load(fd)
+    atom_data = pickle.load(fd)
+    calc_data = pickle.load(fd)
+    fd.close()
 
+    nbf = h_skmm.shape[-1]
+    nspin = len(h_skmm)
+    h_smm = npy.zeros((nspin, 2 * nbf, 2 * nbf), h_skmm.dtype)
+    s_mm = npy.zeros((2 * nbf, 2 * nbf), h_skmm.dtype)
+
+    R_c = [0, 0, 0]
+    h_sii, s_ii = get_realspace_hs(h_skmm,
+                                   s_kmm,
+                                   calc_data['ibzk_kc'],
+                                   calc_data['weight_k'],
+                                   R_c)
+    R_c[dir] = 1.
+    h_sij, s_ij = get_realspace_hs(h_skmm,
+                                   s_kmm,
+                                   calc_data['ibzk_kc'],
+                                   calc_data['weight_k'],
+                                   R_c)
+
+    h_smm[:, :nbf, :nbf] = h_smm[:, nbf:, nbf:] = h_sii
+    h_smm[:, :nbf, nbf:] = h_sij
+    h_smm[:, nbf:, :nbf] = h_sij.swapaxes(1, 2).conj()
+
+    s_mm[:nbf, :nbf] = s_mm[nbf:, nbf:] = s_ii
+    s_mm[:nbf, nbf:] = s_ij
+    s_mm[nbf:, :nbf] = s_ij.T.conj()
+
+    return h_smm, s_mm
