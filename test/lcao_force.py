@@ -6,6 +6,11 @@
 import numpy as np
 from ase.data.molecules import molecule
 from gpaw import GPAW
+from gpaw.atom.basis import BasisMaker
+
+obasis = BasisMaker('O').generate(2, 1)
+hbasis = BasisMaker('H').generate(2, 1)
+basis = {'O' : obasis, 'H' : hbasis}
 
 system = molecule('H2O')
 system.center(vacuum=1.5)
@@ -14,7 +19,7 @@ system.set_pbc(1)
 
 args = dict(h=0.2,
             mode='lcao',
-            basis='dzp',
+            basis=basis,
             kpts=[(.3, .1, .4)],
             convergence={'density':1e-5}
             )

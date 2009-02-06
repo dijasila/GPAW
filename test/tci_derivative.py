@@ -6,9 +6,14 @@
 #
 # and compares to finite difference results.
 
-from gpaw import GPAW
 from ase.data.molecules import molecule
 from ase.units import Bohr
+from gpaw import GPAW
+from gpaw.atom.basis import BasisMaker
+
+obasis = BasisMaker('O').generate(2, 1)
+hbasis = BasisMaker('H').generate(2, 1)
+basis = {'O' : obasis, 'H' : hbasis}
 
 system1 = molecule('H2O')
 system1.center(vacuum=2.0)
@@ -19,7 +24,7 @@ system2.set_cell((3., 3., 3.))
 system2.set_pbc(1)
 
 def runcheck(system, dR, kpts=None):
-    calc = GPAW(mode='lcao', basis='dzp', txt=None)
+    calc = GPAW(mode='lcao', basis=basis, txt=None)
     system.set_calculator(calc)
 
     calc.initialize(system)
