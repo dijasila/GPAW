@@ -176,7 +176,7 @@ PyObject * vdw2(PyObject* self, PyObject *args)
   int nk = PyArray_SIZE(j_k_obj);
   for (int k = 0; k < nk; k++)
     {
-      double* phi_p = phi_jp + 4 * j_k[k];
+      const double* phi_p = phi_jp + 4 * j_k[k];
       double a = phi_p[0];
       double b = phi_p[1];
       double c = phi_p[2];
