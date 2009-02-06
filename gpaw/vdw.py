@@ -268,7 +268,7 @@ class VDWFunctional:
         print
         print 'VDW: Done!'
         if self.world.rank == 0:
-            pickle.dump(self.phi_ij, open(name, 'w'))
+            pickle.dump(self.phi_ij, open(name, 'w'), pickle.HIGHEST_PROTOCOL)
 
     def make_prl_plot(self, multiply_by_4_pi_D_squared=True):
         import pylab as plt
