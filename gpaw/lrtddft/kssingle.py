@@ -10,6 +10,8 @@ from gpaw.lrtddft.excitation import Excitation,ExcitationList
 from gpaw.localized_functions import create_localized_functions
 from gpaw.pair_density import PairDensity
 from gpaw.operators import Gradient
+from gpaw.gaunt import gaunt as G_LLL
+from gpaw.gaunt import ylnyl
 
 from gpaw.utilities import contiguous, is_contiguous
 
@@ -264,11 +266,12 @@ class KSSingle(Excitation, PairDensity):
                         # L=1:y L=2:z; L=3:x
                         ma1 += npy.array([Delta_pL[ij,3], Delta_pL[ij,1],
                                           Delta_pL[ij,2]]) * pij
-            ma += sqrt(4*pi/3)*ma1 + Ra*sqrt(4*pi)*ma0
+            ma += sqrt(4 * pi / 3) * ma1 + Ra * sqrt(4 * pi) * ma0
         gd.comm.sum(ma)
 
 ##        print '<KSSingle> i,j,me,ma,fac=',self.i,self.j,\
 ##            me, ma,sqrt(self.energy*self.fij)
+#        print 'l: me, ma', me, ma
         self.me = sqrt(self.energy * self.fij) * ( me + ma )
 
         self.mur = - ( me + ma )
@@ -286,9 +289,49 @@ class KSSingle(Excitation, PairDensity):
             me[c] = gd.integrate(self.wfi * dwfdr_G)
             
         # XXXX local corrections are missing here
+        # augmentation contributions
+        ma = npy.zeros(me.shape)
+        for a, P_ni in kpt.P_ani.items():
+            setup = paw.wfs.setups[a]
+#            print setup.Delta1_jj
+#            print "l_j", setup.l_j, setup.n_j
+
+            if not (hasattr(setup, 'j_i') and hasattr(setup, 'l_i')):
+                l_i = [] # map i -> l
+                j_i = [] # map i -> j
+                for j, l in enumerate(setup.l_j):
+                    for m in range(2 * l + 1):
+                        l_i.append(l)
+                        j_i.append(j)
+                        
+                setup.l_i = l_i
+                setup.j_i = j_i
+
+            Pi_i = P_ni[self.i]
+            Pj_i = P_ni[self.j]
+            
+            ma1 = npy.zeros(me.shape)
+            for i1 in range(ni):
+                L1 = setup.l_i[i1]
+                j1 = setup.j_i[i1]
+                for i2 in range(ni):
+                    L2 = setup.l_i[i2]
+                    j2 = setup.j_i[i2]
+ 
+                    pi1i2 = Pi_i[i1] * Pj_i[i2]
+                    p = packed_index(i1, i2, ni)
+                    
+                    v1 = sqrt(4 * pi / 3) * npy.array([G_LLL[L1, L2, 3],
+                                                       G_LLL[L1, L2, 1],
+                                                       G_LLL[L1, L2, 2]])
+                    v2 = ylnyl[L1, L2, :]
+                    ma1 += pij * (v1 * setup.Delta1_jj[j1, j2] +
+                                  v2 * setup.Delta_pL[p, 0]      )
+            ma += ma1
+#        print 'v: me, ma=', me, ma
 
         # XXXX the weight fij is missing here
-        self.muv = me / self.energy
+        self.muv = (me + ma) / self.energy
 #        print '<KSSingle> muv=', self.muv
 
         # magnetic transition dipole ................

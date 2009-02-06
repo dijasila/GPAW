@@ -288,8 +288,10 @@ class Setup:
          Delta_lq) = self.create_compensation_charges(r_g, dr_g, phi_jg,
                                                       phit_jg, np,
                                                       T_Lqp)
-
         self.g_lg = g_lg
+        self.Delta1_jj = self.create_derivative_integrals(r_g, dr_g, 
+                                                          phi_jg, phit_jg)
+#        print "self.Delta1_jj=", self.Delta1_jj
 
         # Solves the radial poisson equation for density n_g
         def H(n_g, l):
@@ -558,6 +560,37 @@ class Setup:
         self.N0_p = npy.dot(N0_q, T_Lqp[0]) * sqrt(4 * pi)
 
         return g_lg, n_qg, nt_qg, Delta_lq
+
+    def create_derivative_integrals(self, r_g, dr_g, phi_jg, phit_jg):
+        """Calculate the integrals
+
+        ::
+
+        /
+        | dr r^2 [ phi_j1 d/dr phi_j2 - phit_j1 d/dr phit_j2 ]
+        /
+        """
+        # calculate radial derivatives
+        dphi_jg = npy.zeros((self.nj, self.gcut2))
+        dphit_jg = npy.zeros((self.nj, self.gcut2))
+        for j in range(self.nj):
+            for g in range(self.gcut2 - 1):
+                dphi_jg[j, g] = ((phi_jg[j, g + 1] - phi_jg[j, g]) /
+                                 dr_g[g])
+                dphit_jg[j, g] = ((phit_jg[j, g + 1] - phit_jg[j, g]) /
+                                  dr_g[g])
+        
+        pnp_jjg = npy.zeros((self.nj, self.nj, self.gcut2))
+        pnpt_jjg = npy.zeros((self.nj, self.nj, self.gcut2))
+
+        q = 0 # q: common index for j1, j2
+        for j1 in range(self.nj):
+            for j2 in range(self.nj):
+                pnp_jjg[j1, j2] = phi_jg[j1] * dphi_jg[j2]
+                pnpt_jjg[j1, j2] = phit_jg[j1] * dphit_jg[j2]
+
+        Delta1_jj = npy.dot(pnp_jjg - pnpt_jjg, r_g**2 * dr_g)
+        return Delta1_jj
 
     def construct_core_densities(self, r_g, dr_g, beta, setupdata):
         rcore = self.find_core_density_cutoff(r_g, dr_g, setupdata.nc_g)
