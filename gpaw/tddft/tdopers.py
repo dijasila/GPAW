@@ -115,11 +115,11 @@ class TimeDependentHamiltonian:
             the resulting "operated wavefunctions" (H psit)
 
         """
-        calculate_P_ani = True #TODO care about argument
 
-        #TODO on shaky ground here... might nok work if calculate_P_ani=False
         self.hamiltonian.apply(psit, hpsit, self.wfs, kpt, calculate_P_ani)
+
         if self.td_potential is not None:
+            #TODO on shaky ground here...
             strength = self.td_potential.strength
             ExternalPotential().add_linear_field(psit, hpsit,
                                                  0.5 * strength(self.time) +
@@ -205,6 +205,8 @@ class AbsorptionKickHamiltonian:
 
         """
         hpsit[:] = 0.0
+
+        #TODO on shaky ground here...
         ExternalPotential().add_linear_field(self.wfs, self.spos_ac,
                                              psit, hpsit,
                                              self.abs_hamiltonian, kpt)
@@ -269,7 +271,6 @@ class TimeDependentOverlap:
             the resulting "operated wavefunctions" (S psit)
 
         """
-        calculate_P_ani = True #TODO care about argument
         self.overlap.apply(psit, spsit, self.wfs, kpt, calculate_P_ani)
 
 

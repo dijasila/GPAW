@@ -287,8 +287,6 @@ class Hamiltonian:
         
         """
 
-        assert calculate_P_ani #TODO calculate_P_ani=False is experimental
-
         wfs.kin.apply(a_xG, b_xG, kpt.phase_cd)
         self.apply_local_potential(a_xG, b_xG, kpt.s)
         shape = a_xG.shape[:-3]
@@ -296,6 +294,9 @@ class Hamiltonian:
 
         if calculate_P_ani: #TODO calculate_P_ani=False is experimental
             wfs.pt.integrate(a_xG, P_axi, kpt.q)
+        else:
+            for a,P_ni in kpt.P_ani.items():
+                P_axi[a][:] = P_ni
 
         for a, P_xi in P_axi.items():
             dH_ii = unpack(self.dH_asp[a][kpt.s])
