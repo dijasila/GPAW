@@ -50,6 +50,15 @@ class OccupationNumbers:
         raise NotImplementedError('get_homo_lumo() only implemented for zero '
                                   'Kelvin calculations!')
 
+    def get_zero_kelvin_homo_eigenvalue(self, kpt_u):
+        if kpt_u[0].eps_n is not None:
+            homo = (self.ne // 2)-1
+            print "homo eigenvalue", homo
+            return max([ kpt.eps_n[homo] for kpt in kpt_u])
+        else:
+            print "Eigenvalues not ready!"
+            return -1000
+
 class ZeroKelvin(OccupationNumbers):
     """Occupations for Gamma-point calculations without Fermi-smearing"""
 

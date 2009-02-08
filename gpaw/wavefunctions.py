@@ -127,7 +127,7 @@ class WaveFunctions(EmptyWaveFunctions):
                                    P_Mi).real 
         else: 
             P_ni = kpt.P_ani[a] 
-            D_sii[kpt.s] += np.dot(P_ni.T.conj() * kpt.f_n, P_ni).real 
+            D_sii[kpt.s] += np.dot(P_ni.T.conj() * f_n, P_ni).real 
 
     def calculate_atomic_density_matrices(self, density):
         """Calculate atomic density matrices from projections."""
@@ -137,8 +137,6 @@ class WaveFunctions(EmptyWaveFunctions):
             D_sii = np.zeros((self.nspins, ni, ni))
             for kpt in self.kpt_u:
                 self.calculate_atomic_density_matrices_k_point(D_sii, kpt, a)
-                
-
 
             D_sp[:] = [pack(D_ii) for D_ii in D_sii]
             self.band_comm.sum(D_sp)
@@ -146,7 +144,7 @@ class WaveFunctions(EmptyWaveFunctions):
 
         self.symmetrize_atomic_density_matrices(D_asp)
 
-    def calculate_atomic_density_matrices_with_occupation(D_asp, f_kn):
+    def calculate_atomic_density_matrices_with_occupation(self, D_asp, f_kn):
         """Calculate atomic density matrices from projections with custom occupation f_kn."""
         for a, D_sp in D_asp.items():
             ni = self.setups[a].ni

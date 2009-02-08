@@ -29,6 +29,7 @@ class C_GLLBScr(Contribution):
         return Exc
 
     def initialize(self):
+        self.occupations = self.nlfunc.occupations
         self.xc = XCFunctional('X_B88-None')
         self.xc_grid3d = XC3DGrid(self.xc, self.nlfunc.finegd, self.nlfunc.nspins)
         self.vt_sg = self.nlfunc.finegd.empty(self.nlfunc.nspins)
@@ -44,7 +45,15 @@ class C_GLLBScr(Contribution):
                 homo = i
 
         e_ref = self.ae.e_j[homo]
-        return npy.array([ K_G * npy.sqrt( max(0, e_ref - e)) for e in self.ae.e_j ])
+        return npy.array([ f * K_G * npy.sqrt( max(0, e_ref - e)) for e,f in zip(self.ae.e_j, self.ae.f_j) ])
+
+    def get_coefficients_by_kpt(self, kpt_u):
+        if kpt_u[0].eps_n is None:
+            return None
+
+        e_ref = self.occupations.get_zero_kelvin_homo_eigenvalue(kpt_u)
+        return [ npy.array([ f * K_G * npy.sqrt( npy.where(e_ref - e>1e-3, e_ref-e,0)) for e, f in zip(kpt.eps_n, kpt.f_n) ]) for kpt in kpt_u ]
+        
 
     def calculate_spinpaired(self, e_g, n_g, v_g):
         self.e_g[:] = 0.0
@@ -63,7 +72,6 @@ class C_GLLBScr(Contribution):
         c = self.nlfunc.setups[a].xc_correction
 
         assert self.nlfunc.nspins == 1
-        print "D_sp", D_sp
 
         D_p = D_sp[0]
         dEdD_p = H_sp[0][:]
@@ -132,19 +140,13 @@ class C_GLLBScr(Contribution):
             # Calculate GGA energy density (potential is discarded)
             self.xc.calculate_spinpaired(e_g, n_g, v_g, a2_g, deda2_g)
 
-            #print "e_g", e_g
-            #print "2*e_g/nt_g",  2 * e_g / (n_g + 1e-10)
-
             # Calculate GLLB-potential from GGA-energy density
             v_g[:] = 2 * e_g / (n_g + 1e-10)
-            print "v_g[0]", v_g[5], " n_g[0]", n_g[5]
-            
             
             dEdD_p += self.weight * w * npy.dot(npy.dot(c.B_pqL, Y_L),
                                   npy.dot(c.n_qg, v_g * c.rgd.dv_g))
             E += w * npy.dot(e_g, c.rgd.dv_g)
             
-        print "Exc corr", E
         return (E - c.Exc0) * self.weight
 
     def add_smooth_xc_potential_and_energy_1d(self, vt_g):
