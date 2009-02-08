@@ -105,7 +105,29 @@ class WaveFunctions(EmptyWaveFunctions):
                 self.symmetry.symmetrize(nt_G, self.gd)
 
     def calculate_atomic_density_matrices_k_point(self, D_sii, kpt, a):
-        raise NotImplementedError
+        if kpt.rho_MM is not None: 
+            P_Mi = kpt.P_aMi[a] 
+            D_sii[kpt.s] += np.dot(np.dot(P_Mi.T.conj(), kpt.rho_MM), 
+                                   P_Mi).real 
+        else: 
+            P_ni = kpt.P_ani[a] 
+            D_sii[kpt.s] += np.dot(P_ni.T.conj() * kpt.f_n, P_ni).real
+
+        if hasattr(kpt, 'ft_omn'):
+            for i in range(len(kpt.ft_omn)):
+                D_sii[kpt.s] += (np.dot(P_ni.T.conj(),
+                                        np.dot(kpt.ft_omn[i],
+                                               P_ni))).real
+                
+    def calculate_atomic_density_matrices_k_point_with_occupation(self, D_sii, kpt, a, f_n):
+        if kpt.rho_MM is not None: 
+            P_Mi = kpt.P_aMi[a]
+            rho_MM = np.dot(kpt.C_nM.conj().T * f_n, kpt.C_nM)
+            D_sii[kpt.s] += np.dot(np.dot(P_Mi.T.conj(), kpt.rho_MM), 
+                                   P_Mi).real 
+        else: 
+            P_ni = kpt.P_ani[a] 
+            D_sii[kpt.s] += np.dot(P_ni.T.conj() * kpt.f_n, P_ni).real 
 
     def calculate_atomic_density_matrices(self, density):
         """Calculate atomic density matrices from projections."""
@@ -116,18 +138,31 @@ class WaveFunctions(EmptyWaveFunctions):
             for kpt in self.kpt_u:
                 self.calculate_atomic_density_matrices_k_point(D_sii, kpt, a)
                 
-                # hack used in delta scf - calculations
-                if hasattr(kpt, 'ft_omn'):
-                    P_ni = kpt.P_ani[a]
-                    for i in range(len(kpt.ft_omn)):
-                        D_sii[kpt.s] += (np.dot(P_ni.T.conj(),
-                                                np.dot(kpt.ft_omn[i],
-                                                       P_ni))).real
+
 
             D_sp[:] = [pack(D_ii) for D_ii in D_sii]
             self.band_comm.sum(D_sp)
             self.kpt_comm.sum(D_sp)
 
+        self.symmetrize_atomic_density_matrices(D_asp)
+
+    def calculate_atomic_density_matrices_with_occupation(D_asp, f_kn):
+        """Calculate atomic density matrices from projections with custom occupation f_kn."""
+        for a, D_sp in D_asp.items():
+            ni = self.setups[a].ni
+            D_sii = np.zeros((self.nspins, ni, ni))
+            for f_n, kpt in zip(f_kn, self.kpt_u):
+                self.calculate_atomic_density_matrices_k_point_with_occupation(
+                    D_sii, kpt, a, f_n)
+
+            D_sp[:] = [pack(D_ii) for D_ii in D_sii]
+            self.band_comm.sum(D_sp)
+            self.kpt_comm.sum(D_sp)
+
+        self.symmetrize_atomic_density_matrices(D_asp)
+
+
+    def symmetrize_atomic_density_matrices(self, D_asp):
         if self.symmetry:
             all_D_asp = []
             for a, setup in enumerate(self.setups):
@@ -282,15 +317,6 @@ class LCAOWaveFunctions(WaveFunctions):
         else:
             rho_MM = np.dot(kpt.C_nM.conj().T * kpt.f_n, kpt.C_nM)
         self.basis_functions.construct_density(rho_MM, nt_sG[kpt.s], kpt.q)
-
-    def calculate_atomic_density_matrices_k_point(self, D_sii, kpt, a):
-        if kpt.rho_MM is not None: 
-            P_Mi = kpt.P_aMi[a] 
-            D_sii[kpt.s] += np.dot(np.dot(P_Mi.T.conj(), kpt.rho_MM),
-                                   P_Mi).real 
-        else: 
-            P_ni = kpt.P_ani[a] 
-            D_sii[kpt.s] += np.dot(P_ni.T.conj() * kpt.f_n, P_ni).real
 
     def calculate_forces(self, hamiltonian, F_av):
         # This will do a whole lot of unnecessary allocation, but we'll
@@ -687,10 +713,6 @@ class GridWaveFunctions(WaveFunctions):
                 interpolate2(psit_G2, psit_G1, kpt.phase_cd)
                 interpolate1(psit_G1, psit_G, kpt.phase_cd)
 
-    def calculate_atomic_density_matrices_k_point(self, D_sii, kpt, a):
-        P_ni = kpt.P_ani[a]
-        D_sii[kpt.s] += np.dot(P_ni.T.conj() * kpt.f_n, P_ni).real
-    
     def add_to_density_from_k_point(self, nt_sG, kpt):
         nt_G = nt_sG[kpt.s]
         if self.dtype == float:
