@@ -24,7 +24,5 @@ calc = GPAW(nbands=4, h=0.15, xc='GLLB')
 He.set_calculator(calc)
 e = He.get_potential_energy()
 
-print "1D Homo Eigenvalue ", eps
-print "3D Homo Eigenvalue ", calc.wfs.kpt_u[0].eps_n[-1]
-
-
+eps3d = calc.wfs.kpt_u[0].eps_n[-1]
+equal(eps, eps3d, 1e-3)
