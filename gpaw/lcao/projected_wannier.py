@@ -12,7 +12,7 @@ from ase import Hartree
 def dots(Ms):
     x = Ms[0]
     for M in Ms[1:]:
-        x = npy.dot(x, M)
+        x = np.dot(x, M)
     return x        
 
 def normalize(U, U2=None):
