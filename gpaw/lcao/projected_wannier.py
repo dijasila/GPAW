@@ -9,9 +9,9 @@ from gpaw.lcao.tools import get_realspace_hs
 from ase import Hartree
 
 
-def dots(Ms):
-    x = Ms[0]
-    for M in Ms[1:]:
+def dots(*args):
+    x = args[0]
+    for M in args[1:]:
         x = np.dot(x, M)
     return x        
 
@@ -53,19 +53,20 @@ def get_phs(calc, s=0):
         ni = calc.wfs.setups[a].ni
         P_aqMi[a] = np.zeros((nq, nao, ni), dtype)
 
-    tci.calculate(spos_ac, S_qMM, T_qMM, P_aqMi)
+    tci.calculate(spos_ac, S_qMM, T_qMM, P_aqMi, dtype)
 
     vt_G = calc.hamiltonian.vt_sG[s]
     H_qMM = np.zeros((nq, nao, nao), dtype)
     for q, H_MM in enumerate(H_qMM):
         bfs.calculate_potential_matrix(vt_G, H_MM, q)
-    #non-local corrections
+
+    # Non-local corrections
     for a, P_qMi in P_aqMi.items():
         dH_ii = unpack(calc.hamiltonian.dH_asp[a][s])
         for P_Mi, H_MM in zip(P_qMi, H_qMM):
             H_MM +=  np.dot(P_Mi, np.inner(dH_ii, P_Mi).conj())
 
-    H_qMM += T_qMM#kinetic energy
+    H_qMM += T_qMM # kinetic energy
     #fill in the upper triangle
     tri = np.tri(nao, dtype=dtype)
     tri.flat[::nao + 1] = 0.5
@@ -75,14 +76,17 @@ def get_phs(calc, s=0):
         H_MM *= Hartree
         S_MM *= tri 
         S_MM += dagger(S_MM)
+
     # Calculate projections
     V_qnM = np.zeros((nq, calc.wfs.nbands, nao), dtype)
-    #non local corrections
+
+    # Non local corrections
     for q in range(nq):
         for a, P_ni in calc.wfs.kpt_u[q].P_ani.items():
             dS_ii = calc.wfs.setups[a].O_ii
             P_Mi = P_aqMi[a][q]
             V_qnM[q] += np.dot(P_ni, np.inner(dS_ii, P_Mi).conj())
+
     #Hack XXX, not needed when BasisFunctions get
     #an integrate method.
     spos_Ac = []
@@ -108,7 +112,7 @@ def get_phs(calc, s=0):
             V_qnM[q, :, M1:M2] += V_ni
             M1 = M2
 
-    return V_qnM, H_qMM, S_qMM
+    return V_qnM, H_qMM, S_qMM#, P_aqMi, bfs.lcao_to_grid(C_nM, psit_nG, q)
 
 
 class ProjectedWannierFunctions:
@@ -154,26 +158,24 @@ class ProjectedWannierFunctions:
         self.s_lcao_kii = s_lcao #F_ii[i1,i2] = <f_i1|f_i2>
         self.h_lcao_kii = h_lcao
 
-        if N==None:
+        if N is None:
             N = self.V_kni.shape[1]
-
         self.N = N
         
-        assert fixedenergy!=None, 'Only fixedenergy is implemented for now'
-
-        if fixedenergy!=None:
+        if fixedenergy is None:
+            raise NotImplementedError,'Only fixedenergy is implemented for now'
+        else:
             self.fixedenergy = fixedenergy
-            self.M_k = [sum(eps_n<=fixedenergy) for eps_n in self.eps_kn]
+            self.M_k = [sum(eps_n <= fixedenergy) for eps_n in self.eps_kn]
             self.L_k = [self.Nw - M for M in self.M_k]
-            
-        if fixedenergy!=None:
             print "fixedenergy =", self.fixedenergy
+
         print 'N =', self.N
-        print "skpt_kc = "
+        print 'skpt_kc = '
         print self.ibzk_kc
-        print '\nM_k =', self.M_k
-        print '\nL_k =', self.L_k
-        print '\nNw = ', self.Nw
+        print 'M_k =', self.M_k
+        print 'L_k =', self.L_k
+        print 'Nw =', self.Nw
 
     def get_hamiltonian_and_overlap_matrix(self, useibl=True):
         self.calculate_edf(useibl=useibl)
@@ -227,7 +229,7 @@ class ProjectedWannierFunctions:
 
     def calculate_overlaps(self):
         Wo_kii = [np.dot(dagger(Uo_ni), Uo_ni) for Uo_ni in self.Uo_kni]
-        Wu_kii = [dots([dagger(Uu_li), dagger(b_il), Fu_ii, b_il, Uu_li]) 
+        Wu_kii = [dots(dagger(Uu_li), dagger(b_il), Fu_ii, b_il, Uu_li) 
         for Uu_li, b_il, Fu_ii in zip(self.Uu_kli, self.b_kil, self.Fu_kii)]
         Wo_kii = np.asarray(Wo_kii)
         Wu_kii = np.asarray(Wu_kii)
@@ -238,7 +240,7 @@ class ProjectedWannierFunctions:
         return np.asarray([abs(eigs_n.max() / eigs_n.min()) 
                           for eigs_n in eigs_kn])
 
-    def calculate_hamiltonian_matrix(self, useibl):
+    def calculate_hamiltonian_matrix(self, useibl=True):
         """Calculate H_kij = H^o_i(k)j(k) + H^u_i(k)j(k)
            i(k): Bloch sum of omega_i
         """
@@ -264,7 +266,7 @@ class ProjectedWannierFunctions:
                        for Vu_ni, epsu_n in zip(self.Vu_kni, epsu_kn)]
             self.Huf_kii = np.asarray(Huf_kii)
 
-        Hu_kii = [dots([dagger(Uu_li), dagger(b_il), Huf_ii, b_il, Uu_li])
+        Hu_kii = [dots(dagger(Uu_li), dagger(b_il), Huf_ii, b_il, Uu_li)
                   for Uu_li, b_il, Huf_ii in zip(self.Uu_kli, self.b_kil,
                                                  self.Huf_kii)]
         self.Hu_kii = np.asarray(Hu_kii)
@@ -284,16 +286,16 @@ class ProjectedWannierFunctions:
         norm_kn = np.zeros((self.nk, self.N))
         Sinv_kii = np.asarray([la.inv(S_ii) for S_ii in self.S_kii])
 
-        normo_kn = np.asarray([dots([Uo_ni, Sinv_ii, dagger(Uo_ni)]).diagonal()
+        normo_kn = np.asarray([dots(Uo_ni, Sinv_ii, dagger(Uo_ni)).diagonal()
                     for Uo_ni, Sinv_ii in zip(self.Uo_kni, Sinv_kii)])
         
         Vu_kni = np.asarray([V_ni[M:self.N] 
                              for V_ni, M in zip(self.V_kni, self.M_k)])
 
-        Pu_kni = [dots([Vu_ni, b_il, Uu_li]) 
+        Pu_kni = [dots(Vu_ni, b_il, Uu_li) 
                 for Vu_ni, b_il, Uu_li in zip(Vu_kni, self.b_kil, self.Uu_kli)]
 
-        normu_kn = np.asarray([dots([Pu_ni, Sinv_ii, dagger(Pu_ni)]).diagonal()
+        normu_kn = np.asarray([dots(Pu_ni, Sinv_ii, dagger(Pu_ni)).diagonal()
                     for Pu_ni, Sinv_ii in zip(Pu_kni, Sinv_kii)])
 
         norm_kn = np.concatenate([normo_kn.flat, normu_kn.flat])
@@ -312,7 +314,33 @@ class ProjectedWannierFunctions:
         U_ii = np.vstack((self.Uo_ni, self.Uu_li))
         lowdin(U_ii)
         return U_ii, cu_nl
-         
+
+    def get_function(self, wfs, bfs=None, useibl=True):
+        """Returns specified projected wannier function (k, i).
+
+        The Wannier function is constructed by
+        a) rotating the pseudo eigen states and pseudo target functions,
+        b) rotating the corresponding projector function overlaps.
+
+        bfs must be specified if useibl is True.
+        """
+        k = 0 # XXX temporary hack
+        Gshape = wfs.kpt_u[k].psit_nG.shape[-3:]
+        psit_nG = wfs.kpt_u[k].psit_nG[:self.N].reshape(self.N, -1)
+        bU_ii = np.dot(self.b_kil[k], self.Uu_kli[k])
+        if useibl:
+            # Rotate occupied part
+            rot_mi = self.Uo_kni[k] - np.dot(self.V_kni[k, :self.M], bU_ii)
+            w_iG = np.dot(rot_mi.T, psit_nG[:self.M]).reshape((-1) + Gshape)
+            
+            # Mix in relevant combination of target functions
+            bfs.lcao_to_grid(bU_ii, w_iG, q=-1)
+        else:
+            rot_ni = np.vstack(self.Uo_kni[k],
+                              np.dot(self.V_kni[k, self.M:], bU_ii))
+            w_iG = np.dot(rot_ni.T, psit_nG).reshape((-1) + Gshape)
+        return w_iG
+
         
 if __name__=='__main__':
     from ase import Atoms, molecule
@@ -422,7 +450,7 @@ if __name__=='__main__':
         atoms.get_potential_energy()
         calc.write('al8.gpw', 'all')
 
-    if 1:
+    if 0:
         calc = GPAW('al8.gpw', txt=None, basis='sz')
         ibzk_kc = calc.wfs.ibzk_kc
         nk = len(ibzk_kc)
