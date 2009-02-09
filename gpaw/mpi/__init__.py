@@ -180,7 +180,10 @@ if debug:
         def diagonalize(self, a, w,
                         nprow=1, npcol=1, mb=32, root=0,
                         b=None):
-            return self.comm.diagonalize(a, w, nprow, npcol, mb, root, b)
+            if b is None:
+                return self.comm.diagonalize(a, w, nprow, npcol, mb, root)
+            else:
+                return self.comm.diagonalize(a, w, nprow, npcol, mb, root, b)
 
         def inverse_cholesky(self, a,
                              nprow=1, npcol=1, mb=32, root=0):
