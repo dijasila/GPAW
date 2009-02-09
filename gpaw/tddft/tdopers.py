@@ -1,6 +1,6 @@
 # Written by Lauri Lehtovaara, 2007
 
-"""This module implements classes for time-dependent variables and 
+"""This module implements classes for time-dependent variables and
 operators."""
 
 import numpy as npy
@@ -12,14 +12,14 @@ from gpaw.mpi import run
 
 # Hamiltonian
 class TimeDependentHamiltonian:
-    """ Time-dependent Hamiltonian, H(t)
+    """Time-dependent Hamiltonian, H(t)
     
     This class contains information required to apply time-dependent
     Hamiltonian to a wavefunction.
     """
     
     def __init__(self, wfs, hamiltonian, td_potential):
-        """ Create the TimeDependentHamiltonian-object.
+        """Create the TimeDependentHamiltonian-object.
         
         The time-dependent potential object must (be None or) have a member
         function strength(self,time), which provides the strength of the
@@ -113,6 +113,10 @@ class TimeDependentHamiltonian:
             (kpt_u[index_of_k-point].psit_nG[indices_of_wavefunc])
         hpsit: List of coarse grid
             the resulting "operated wavefunctions" (H psit)
+        calculate_P_ani: bool
+            When True, the integrals of projector times vectors
+            P_ni = <p_i | psit> are calculated.
+            When False, existing P_uni are used
 
         """
 
@@ -129,17 +133,21 @@ class TimeDependentHamiltonian:
 
 # AbsorptionKickHamiltonian
 class AbsorptionKickHamiltonian:
-    """ Absorption kick Hamiltonian, p.r
+    """Absorption kick Hamiltonian, p.r
     
-    This class contains information required to apply absorption kick 
+    This class contains information required to apply absorption kick
     Hamiltonian to a wavefunction.
     """
     
     def __init__(self, wfs, atoms, strength=[0.0, 0.0, 1e-3]):
-        """ Create the AbsorptionKickHamiltonian-object.
+        """Create the AbsorptionKickHamiltonian-object.
 
         Parameters
         ----------
+        wfs: GridWaveFunctions
+            time-independent grid-based wavefunctions
+        atoms: Atoms
+            list of atoms
         strength: float[3]
             strength of the delta field to different directions
 
@@ -202,6 +210,10 @@ class AbsorptionKickHamiltonian:
             (kpt_u[index_of_k-point].psit_nG[indices_of_wavefunc])
         hpsit: List of coarse grids
             the resulting "operated wavefunctions" (H psit)
+        calculate_P_ani: bool
+            When True, the integrals of projector times vectors
+            P_ni = <p_i | psit> are calculated.
+            When False, existing P_uni are used
 
         """
         hpsit[:] = 0.0
@@ -225,14 +237,12 @@ class TimeDependentOverlap:
         
         Parameters
         ----------
-        pt_nuclei: List of ?LocalizedFunctions?   
-            projector functions (pt_nuclei)
+        wfs: GridWaveFunctions
+            time-independent grid-based wavefunctions
 
         """
         self.wfs = wfs
         self.overlap = wfs.overlap
-    
-
 
     def update(self):
         """Updates the time-dependent overlap operator. !Currently does nothing!
@@ -240,24 +250,26 @@ class TimeDependentOverlap:
         Parameters
         ----------
         None
+
         """
         # !!! FIX ME !!! update overlap operator/projectors/...
         pass
     
     def half_update(self):
-        """Updates the time-dependent overlap operator, in such a way, 
-        that a half of the old overlap operator is kept and the other half 
+        """Updates the time-dependent overlap operator, in such a way,
+        that a half of the old overlap operator is kept and the other half
         is updated. !Currently does nothing!
 
         Parameters
         ----------
         None
+
         """
         # !!! FIX ME !!! update overlap operator/projectors/...
         pass
     
     def apply(self, kpt, psit, spsit, calculate_P_ani=True):
-        """Applies the time-dependent overlap operator to the wavefunction 
+        """Apply the time-dependent overlap operator to the wavefunction
         psit of the k-point kpt.
         
         Parameters
@@ -269,14 +281,64 @@ class TimeDependentOverlap:
             (kpt_u[index_of_k-point].psit_nG[indices_of_wavefunc])
         spsit: List of coarse grids
             the resulting "operated wavefunctions" (S psit)
+        calculate_P_ani: bool
+            When True, the integrals of projector times vectors
+            P_ni = <p_i | psit> are calculated.
+            When False, existing P_uni are used
 
         """
         self.overlap.apply(psit, spsit, self.wfs, kpt, calculate_P_ani)
 
+    def apply_inverse(self, kpt, psit, sinvpsit, calculate_P_ani=True):
+        """Apply the approximative time-dependent inverse overlap operator
+        to the wavefunction psit of the k-point kpt.
+
+        Parameters
+        ----------
+        kpt: Kpoint
+            the current k-point (kpt_u[index_of_k-point])
+        psit: List of coarse grids
+            the wavefuntions (on coarse grid) 
+            (kpt_u[index_of_k-point].psit_nG[indices_of_wavefunc])
+        sinvpsit: List of coarse grids
+            the resulting "operated wavefunctions" (S^(-1) psit)
+        calculate_P_ani: bool
+            When True, the integrals of projector times vectors
+            P_ni = <p_i | psit> are calculated.
+            When False, existing P_uni are used
+
+        """
+        self.overlap.apply_inverse(psit, sinvpsit, self.wfs, kpt,
+                                   calculate_P_ani)
+
+
+# DummyDensity
+class DummyDensity:
+    """Implements dummy (= does nothing) density for AbsorptionKick."""
+
+    def __init__(self, wfs):
+        """Placeholder Density object for AbsorptionKick.
+
+        Parameters
+        ----------
+        wfs: GridWaveFunctions
+            time-independent grid-based wavefunctions
+
+        """
+        self.wfs = wfs
+
+    def update(self):
+        pass
+
+    def get_wavefunctions(self):
+        return self.wfs
+
+    def get_density(self):
+        return None
 
 
 # Density
-class TimeDependentDensity:
+class TimeDependentDensity(DummyDensity):
     """Time-dependent density rho(t)
     
     This class contains information required to get the time-dependent
@@ -291,8 +353,8 @@ class TimeDependentDensity:
         paw: PAW
             the PAW-object
         """
+        DummyDensity.__init__(self, paw.wfs)
         self.density = paw.density
-        self.wfs = paw.wfs
 
     def update(self):
         """Updates the time-dependent density.

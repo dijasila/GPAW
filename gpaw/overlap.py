@@ -136,7 +136,7 @@ class Overlap:
         shape = a_xG.shape[:-3]
         P_axi = wfs.pt.dict(shape)
 
-        if calculate_P_ani: #TODO calculate_P_ani=False is experimental
+        if calculate_P_ani:
             wfs.pt.integrate(a_xG, P_axi, kpt.q)
         else:
             for a,P_ni in kpt.P_ani.items():
@@ -147,13 +147,19 @@ class Overlap:
         wfs.pt.add(b_xG, P_axi, kpt.q)
         self.timer.stop('Apply overlap')
 
-    def apply_inverse(self, a_xG, b_xG, wfs, kpt):
+    def apply_inverse(self, a_xG, b_xG, wfs, kpt, calculate_P_ani=True):
         """Apply approximative inverse overlap operator to wave functions."""
 
         b_xG[:] = a_xG
         shape = a_xG.shape[:-3]
         P_axi = wfs.pt.dict(shape)
-        wfs.pt.integrate(a_xG, P_axi, kpt.q)
+
+        if calculate_P_ani:
+            wfs.pt.integrate(a_xG, P_axi, kpt.q)
+        else:
+            for a,P_ni in kpt.P_ani.items():
+                P_axi[a][:] = P_ni
+
         for a, P_xi in P_axi.items():
             P_axi[a] = np.dot(P_xi, self.setups[a].C_ii)
         wfs.pt.add(b_xG, P_axi, kpt.q)
