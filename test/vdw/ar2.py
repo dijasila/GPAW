@@ -1,6 +1,14 @@
 from ase import *
-from gpaw import GPAW
+from gpaw import GPAW, setup_paths
 from gpaw.vdw import FFTVDWFunctional
+from ase.parallel import rank, barrier
+from gpaw.atom.generator import Generator, parameters
+
+if rank == 0:
+    g = Generator('Ar', 'revPBE', scalarrel=True, nofiles=True)
+    g.run(**parameters['Ar'])
+barrier()
+setup_paths.insert(0, '.')
 
 vdw = FFTVDWFunctional(verbose=1)
 d = 3.9
@@ -20,4 +28,4 @@ E = 2 * e - e2
 Evdw = E + 2 * evdw - e2vdw
 print E, Evdw
 assert abs(E - -0.0048) < 1e-4
-assert abs(E - +0.0223) < 1e-3
+assert abs(Evdw - +0.0223) < 1e-4
