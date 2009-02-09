@@ -548,6 +548,7 @@ class GPAWTransport:
             atoms.positions[i, 2] += self.atoms._cell[2, 2]
         atoms.calc = self.atoms.calc
         self.atoms = atoms
+        self.atoms.center()
 
     def get_selfconsistent_hamiltonian(self, bias=0, gate=0,
                                                     cal_loc=False, verbose=0):
@@ -619,11 +620,11 @@ class GPAWTransport:
         return 1
  
     def initialize_scf(self, bias, gate, cal_loc, verbose, alpha=0.1):
-        self.cal_loc = cal_loc
         self.verbose = verbose
         self.master = (world.rank==0)
         self.bias = bias
         self.gate = gate
+        self.cal_loc = cal_loc and self.bias != 0
         self.kt = self.atoms.calc.occupations.kT * Hartree
         self.fermi = 0
         self.current = 0
@@ -730,12 +731,9 @@ class GPAWTransport:
         self.greenfunction.S = self.s_pkmm_mol[k]
        
         #--eq-Integral-----
-        [grsum, zgp, wgp, fcnt] = function_integral(self,
-                                                        intctrl.eqintpath,
-                                                        intctrl.eqinttol,
-                                                       0, 'eqInt', intctrl)
+        [grsum, zgp, wgp, fcnt] = function_integral(self, 'eqInt')
         # res Calcu
-        grsum += self.calgfunc(intctrl.eqresz, 'resInt', intctrl)    
+        grsum += self.calgfunc(intctrl.eqresz, 'resInt')    
         grsum.shape = (nbmol, nbmol)
         den += 1.j * (grsum - grsum.T.conj()) / np.pi / 2
 
@@ -753,7 +751,7 @@ class GPAWTransport:
                 
             sgforder[i] = np.argmin(abs(elist[i]
                                      - np.array(self.zint[:self.cntint + 1])))
-            if sgferr > 1e-15:
+            if sgferr > 1e-12:
                 print 'Warning: SGF not Found. eqzgp[%d]= %f' %(i, elist[i])
                                              
         
@@ -819,10 +817,7 @@ class GPAWTransport:
     
                     # ----Auto Integral------
                     sumga, zgp, wgp, nefcnt = function_integral(self,
-                                                            neintpath,
-                                                        intctrl.neinttol,
-                                                            0, calcutype,
-                                                              intctrl)
+                                                                    calcutype)
     
                     nefcnt = len(zgp)
                     sgforder = [0] * nefcnt
@@ -849,8 +844,7 @@ class GPAWTransport:
                     sgforder = range(nefcnt)
                     sumga = np.zeros([1, nbmol, nbmol], complex)
                     for i in range(nefcnt):
-                        sumga += self.calgfunc(zgp[i], calcutype,
-                                                           intctrl) * wgp[i]
+                        sumga += self.calgfunc(zgp[i], calcutype) * wgp[i]
                 den += sumga[0] / np.pi / 2
                 flist = [[],[]]
                 siglist = [[],[]]
@@ -869,14 +863,12 @@ class GPAWTransport:
         elif calcutype == 'locInt':
             self.cntint = -1
             self.fint =[]
-            sumgr, zgp, wgp, locfcnt = function_integral(self,
-                                    intctrl.locintpath, intctrl.locinttol, 0,
-                                                        'locInt', intctrl)
+            sumgr, zgp, wgp, locfcnt = function_integral(self, 'locInt')
             # res Calcu :minfermi
-            sumgr -= self.calgfunc(intctrl.locresz[0, :], 'resInt', intctrl)
+            sumgr -= self.calgfunc(intctrl.locresz[0, :], 'resInt')
                
             # res Calcu :maxfermi
-            sumgr += self.calgfunc(intctrl.locresz[1, :], 'resInt', intctrl)
+            sumgr += self.calgfunc(intctrl.locresz[1, :], 'resInt')
             
             sumgr.shape = (nbmol, nbmol)
             den = 1.j * (sumgr - sumgr.T.conj()) / np.pi / 2
@@ -896,7 +888,7 @@ class GPAWTransport:
                 
                 sgforder[i] = np.argmin(abs(elist[i]
                                      - np.array(self.zint[:self.cntint + 1])))
-                if sgferr > 1e-15:
+                if sgferr > 1e-12:
                     print 'Warning: SGF not Found. eqzgp[%d]= %f' %(i,
                                                                      elist[i])
             flist = self.fint[:]
@@ -921,14 +913,15 @@ class GPAWTransport:
         if len(intctrl.neintpath) >= 2:
             del self.fint
         return den
-        
-    def calgfunc(self, zp, calcutype, intctrl):			 
+         
+    def calgfunc(self, zp, calcutype):			 
         #calcutype = 
         #  - 'eqInt':  gfunc[Mx*Mx,nE] (default)
         #  - 'neInt':  gfunc[Mx*Mx,nE]
         #  - 'resInt': gfunc[Mx,Mx] = gr * fint
         #              fint = -2i*pi*kt
       
+        intctrl = self.intctrl
         sgftol = 1e-10
         stepintcnt = 100
         nlead = 2
@@ -1018,7 +1011,18 @@ class GPAWTransport:
                                                 intctrl.minfermi, intctrl.kt))
                 gfunc[i] = gr * self.fint[self.cntint]    
         return gfunc        
-
+    
+    '''
+    def calgfunc(self,  zp, calcutype):
+        if type(zp)==list or type(zp) ==np.ndarray:
+            pass
+        else:
+            zp = [zp]
+        gfunc = np.empty([len(zp)])
+        for i in range(len(zp)):
+            gfunc[i] = 1
+        return gfunc
+    '''
     def fock2den(self, intctrl, f_spkmm, s, k):
         nblead = self.nblead
         nbmol = self.nbmol_inner
@@ -1102,11 +1106,13 @@ class GPAWTransport:
                 glesser = np.dot(gr, glesser)
                 weight = self.nepathinfo[s][k].weight[i]            
                 denvir += glesser * weight / np.pi / 2
-        #denvir = (denvir + denvir.T) / 2
         if self.cal_loc:
             weight_mm = self.integral_diff_weight(denocc, denvir,
                                                                  'transiesta')
-            den += denocc + (denloc - (denocc + denvir)) * weight_mm
+            diff = (denloc - (denocc + denvir)) * weight_mm
+            den += denocc + diff
+            percents = np.sum( diff * diff ) / np.sum( denocc * denocc )
+            print 'local percents %f' % percents
         else:
             den += denocc
         return den    
@@ -1444,7 +1450,7 @@ class GPAWTransport:
     def collect_density_matrix(self):
         world.barrier()
         npk = self.npk
-        self.d_stkmm = np.zeros([self.nspins, npk, self.nbmol, self.nbmol])
+        self.d_stkmm = np.zeros([self.nspins, npk, self.nbmol, self.nbmol], complex)
         for pk, kk in zip(self.my_pk, range(self.my_npk)):
             self.d_stkmm[:, pk] = self.d_spkmm[:, kk]
         self.kpt_comm.sum(self.d_stkmm)
@@ -1460,6 +1466,20 @@ class GPAWTransport:
         if method=='transiesta':
             weight = denocc * denocc.conj() / (denocc * denocc.conj() +
                                                denvir * denvir.conj())
-            print 'weight', np.max(abs(weight))
         return weight
-        
+
+    def revoke_right_lead(self):
+        self.h2_spkmm = self.h1_spkmm
+        self.s2_pkmm = self.s1_pkmm
+
+        self.h2_spkmm_ij = np.empty(self.h1_spkmm_ij.shape, complex)
+        self.s2_pkmm_ij = np.empty(self.s1_pkmm_ij.shape, complex)
+
+        nspins = self.h2_spkmm.shape[0]
+        npk = self.h2_spkmm.shape[1]
+
+        for s in range(nspins):
+            for k in range(npk):
+                 self.h2_spkmm_ij[s,k] = self.h1_spkmm_ij[s,k].T.conj()
+        for k in range(npk):
+            self.s2_pkmm_ij[k] = self.s1_pkmm_ij[k].T.conj()
