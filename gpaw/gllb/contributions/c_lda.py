@@ -82,6 +82,10 @@ class C_LDA(Contribution):
         vt_g += self.weight * self.v_g
         return self.weight * Exc
 
+    def initialize_from_atomic_orbitals(self, basis_functions):
+        # LDA needs only density, which is already initialized
+        pass
+
     def add_extra_setup_data(self, dict):
         # LDA has not any special data
         pass

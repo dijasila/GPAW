@@ -262,7 +262,7 @@ class Setup:
         extra_xc_data = dict(data.extra_xc_data)
         # Cut down the GLLB related extra data
         for key, item in extra_xc_data.iteritems():
-            if len(item) > 1:
+            if len(item) > 1 and len(item)>gcut2:
                 extra_xc_data[key] = item[:gcut2].copy()
         self.extra_xc_data = extra_xc_data
 
@@ -902,16 +902,22 @@ class Setup:
 
         return self.I4_pp
 
-    def calculate_initial_occupation_numbers(self, magmom, hund, charge):
+    def calculate_initial_occupation_numbers(self, magmom, hund, charge, f_j = None):
+        """ If f_j is specified, custom occupation numbers will be used. Hund rules
+        disabled if so."""
         niao = self.niAO
         nspins = self.xc_correction.nspins
         f_si = npy.zeros((nspins, niao))
+
+        assert hund == False or f_j is None
+        if f_j == None:
+            f_j = self.f_j
 
         # Projector function indices:
         j = 0
         nj = len(self.n_j)
 
-        f_j = npy.array(self.f_j, float)
+        f_j = npy.array(f_j, float)
         if charge >= 0:
             for j in range(nj - 1, -1, -1):
                 f = f_j[j]

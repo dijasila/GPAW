@@ -491,15 +491,6 @@ class Generator(AllElectron):
         if not self.xc.is_non_local():
             Exct = self.xc.get_energy_and_potential(nt, vXCt)
         else:
-            self.s_j = self.u_j.copy()
-            # Construct all pseudo wave-functions, keep the indexing according to hard ones
-            for j, (l, u) in enumerate(zip(self.l_j, self.u_j)):
-                construct_smooth_wavefunction(u, l, gcut_l[l], r, self.s_j[j])
-                if (j < njcore):
-                     self.s_j[j][:] = 0.0
-
-            # Calculate the response part using smooth orbitals, but
-            # the GGA-energy density part using the smooth core density.
             Exct = self.xcfunc.xc.get_smooth_xc_potential_and_energy_1d(vXCt)
 
             # Calculate extra-stuff for non-local functionals

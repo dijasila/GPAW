@@ -597,6 +597,11 @@ class GridWaveFunctions(WaveFunctions):
         if density.nt_sG is None:
             if self.kpt_u[0].psit_nG is None:
                 density.update(self, basis_functions=basis_functions)
+                # Initialize GLLB-potential from basis function orbitals
+                if hamiltonian.xcfunc.gllb:
+                    hamiltonian.xcfunc.xc.initialize_from_atomic_orbitals(basis_functions)
+
+
             else:
                 if density.D_asp is None:
                     for kpt in self.kpt_u:

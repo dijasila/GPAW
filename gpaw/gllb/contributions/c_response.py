@@ -31,6 +31,7 @@ class C_Response(Contribution):
         self.setups = self.wfs.setups
         self.density = self.nlfunc.density
         self.symmetry = self.wfs.symmetry
+        self.nspins = self.nlfunc.nspins
 
         self.vt_sg = self.finegd.empty(self.nlfunc.nspins)
         self.vt_sG = self.gd.empty(self.nlfunc.nspins)
@@ -41,36 +42,27 @@ class C_Response(Contribution):
     def calculate_spinpaired(self, e_g, n_g, v_g):
         w_kn = self.coefficients.get_coefficients_by_kpt(self.kpt_u)
         f_kn = [ kpt.f_n for kpt in self.kpt_u ]
-        if w_kn is None:
-            return 0.0
 
-        self.vt_sG[:] = 0.0
-        self.nt_sG[:] = 0.0
-        for kpt, w_n in zip(self.kpt_u, w_kn):
-            self.wfs.add_to_density_from_k_point_with_occupation(self.vt_sG, kpt, w_n)
-            self.wfs.add_to_density_from_k_point(self.nt_sG, kpt)
+        if w_kn is not None:
+            self.vt_sG[:] = 0.0
+            self.nt_sG[:] = 0.0
+            for kpt, w_n in zip(self.kpt_u, w_kn):
+                self.wfs.add_to_density_from_k_point_with_occupation(self.vt_sG, kpt, w_n)
+                self.wfs.add_to_density_from_k_point(self.nt_sG, kpt)
 
-        if self.wfs.symmetry:
-            for nt_G, vt_G in zip(self.nt_sG, self.vt_sG):
-                self.symmetry.symmetrize(nt_G, self.gd)
-                self.symmetry.symmetrize(vt_G, self.gd)
+            if self.wfs.symmetry:
+                for nt_G, vt_G in zip(self.nt_sG, self.vt_sG):
+                    self.symmetry.symmetrize(nt_G, self.gd)
+                    self.symmetry.symmetrize(vt_G, self.gd)
 
-        if self.Dresp_asp is None:
-            # Initiailze 'response-density' and density-matrices
-            self.Dresp_asp = {}
-            self.D_asp = {}
-            for a in self.density.nct.my_atom_indices:
-                ni = self.setups[a].ni
-                self.Dresp_asp[a] = npy.zeros((self.nlfunc.nspins, ni * (ni + 1) // 2))
-                self.D_asp[a] = npy.zeros((self.nlfunc.nspins, ni * (ni + 1) // 2))
+
+            self.wfs.calculate_atomic_density_matrices_with_occupation(
+                self.Dresp_asp, w_kn)
+            self.wfs.calculate_atomic_density_matrices_with_occupation(
+                self.D_asp, f_kn)
+
+            self.vt_sG /= self.nt_sG +1e-10
             
-
-        self.wfs.calculate_atomic_density_matrices_with_occupation(
-            self.Dresp_asp, w_kn)
-        self.wfs.calculate_atomic_density_matrices_with_occupation(
-            self.D_asp, f_kn)
-
-        self.vt_sG /= self.nt_sG[0] +1e-10
         self.density.interpolater.apply(self.vt_sG[0], self.vt_sg[0])
         v_g[:] += self.weight * self.vt_sg[0]
         return 0.0
@@ -81,8 +73,6 @@ class C_Response(Contribution):
         raise NotImplementedError
 
     def calculate_energy_and_derivatives(self, D_sp, H_sp, a):
-        if self.Dresp_asp is None:
-            return 0.0
         # Get the XC-correction instance
         c = self.nlfunc.setups[a].xc_correction
         ncresp_g = self.nlfunc.setups[a].extra_xc_data['core_response']
@@ -117,16 +107,67 @@ class C_Response(Contribution):
         return 0.0
     
     def add_smooth_xc_potential_and_energy_1d(self, vt_g):
-        w_j = self.coefficients.get_coefficients_1d()
-        u2_j = safe_sqr(self.ae.s_j) # s_j, not u_j!
-        vt_g += self.weight * npy.dot(w_j, u2_j) / (npy.dot(self.ae.f_j, u2_j) +1e-10)
+        w_ln = self.coefficients.get_coefficients_1d(smooth=True)
+        v_g = npy.zeros(self.ae.N)
+        n_g = npy.zeros(self.ae.N)
+        for w_n, f_n, u_n in zip(w_ln, self.ae.f_ln, self.ae.s_ln): # For each angular momentum
+            u2_n = safe_sqr(u_n)
+            v_g += npy.dot(w_n, u2_n)
+            n_g += npy.dot(f_n, u2_n)
+                           
+        vt_g += self.weight * v_g / (n_g + 1e-10)
         return 0.0 # Response part does not contribute to energy
+
+    def initialize_from_atomic_orbitals(self, basis_functions):
+        # Initiailze 'response-density' and density-matrices
+        self.Dresp_asp = {}
+        self.D_asp = {}
         
+        for a in self.density.nct.my_atom_indices:
+            ni = self.setups[a].ni
+            self.Dresp_asp[a] = npy.zeros((self.nlfunc.nspins, ni * (ni + 1) // 2))
+            self.D_asp[a] = npy.zeros((self.nlfunc.nspins, ni * (ni + 1) // 2))
+            
+        f_sM = npy.empty((self.nspins, basis_functions.Mmax))
+        self.D_asp = {}
+        f_asi = {}
+        w_asi = {}
+
+        assert self.nspins == 1  # Note: All initializations with magmom=0, hund=False and charge=0
+        for a in basis_functions.atom_indices:
+            w_j = self.setups[a].extra_xc_data['w_j']
+            # Basis function coefficients based of response weights
+            w_si = self.setups[a].calculate_initial_occupation_numbers(
+                    0, False, charge=0, f_j = w_j)
+            # Basis function coefficients based on density
+            f_si = self.setups[a].calculate_initial_occupation_numbers(
+                    0, False, charge=0)            
+            if a in basis_functions.my_atom_indices:
+                self.Dresp_asp[a] = self.setups[a].initialize_density_matrix(w_si)
+                self.D_asp[a] = self.setups[a].initialize_density_matrix(f_si)
+                
+            f_asi[a] = f_si
+            w_asi[a] = w_si
+
+        self.nt_sG.fill(0.0)
+        basis_functions.add_to_density(self.nt_sG, f_asi)
+        self.vt_sG.fill(0.0)
+        basis_functions.add_to_density(self.vt_sG, w_asi)
+        # Update vt_sG to correspond atomic response potential. This will be
+        # used until occupations and eigenvalues are available.
+        self.vt_sG /= self.nt_sG + 1e-10
+
     def add_extra_setup_data(self, dict):
         ae = self.ae
         njcore = ae.njcore
-        w_j = self.coefficients.get_coefficients_1d()
+        w_ln = self.coefficients.get_coefficients_1d(smooth=True)
+        w_j = []
+        for w_n in w_ln:
+            for w in w_n:
+                w_j.append(w)
+        dict['w_j'] = w_j
 
+        w_j = self.coefficients.get_coefficients_1d()
         x_g = npy.dot(w_j[:njcore], safe_sqr(ae.u_j[:njcore]))
         x_g[1:] /= ae.r[1:]**2 * 4*npy.pi
         x_g[0] = x_g[1]

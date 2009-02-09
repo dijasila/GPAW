@@ -38,21 +38,30 @@ class C_GLLBScr(Contribution):
     def get_coefficient_calculator(self):
         return self
 
-    def get_coefficients_1d(self):
+    def get_coefficients_1d(self, smooth=False):
         homo = 0
         for i, f in enumerate(self.ae.f_j):
             if f > 1e-3:
                 homo = i
-
         e_ref = self.ae.e_j[homo]
-        return npy.array([ f * K_G * npy.sqrt( max(0, e_ref - e)) for e,f in zip(self.ae.e_j, self.ae.f_j) ])
+
+        if not smooth:
+            return npy.array([ f * K_G * npy.sqrt( max(0, e_ref - e))
+                               for e,f in zip(self.ae.e_j, self.ae.f_j) ])
+        else:
+            return [ [ f * K_G * npy.sqrt( max(0, e_ref - e))
+                    for e,f in zip(e_n, f_n) ]
+                     for e_n, f_n in zip(self.ae.e_ln, self.ae.f_ln) ]
+        
 
     def get_coefficients_by_kpt(self, kpt_u):
         if kpt_u[0].eps_n is None:
             return None
 
         e_ref = self.occupations.get_zero_kelvin_homo_eigenvalue(kpt_u)
-        return [ npy.array([ f * K_G * npy.sqrt( npy.where(e_ref - e>1e-3, e_ref-e,0)) for e, f in zip(kpt.eps_n, kpt.f_n) ]) for kpt in kpt_u ]
+        return [ npy.array([ f * K_G * npy.sqrt( npy.where(e_ref - e>1e-3, e_ref-e,0))
+                for e, f in zip(kpt.eps_n, kpt.f_n) ])
+                for kpt in kpt_u ]
         
 
     def calculate_spinpaired(self, e_g, n_g, v_g):
@@ -155,6 +164,10 @@ class C_GLLBScr(Contribution):
         self.xc.get_energy_and_potential_spinpaired(self.ae.nt, self.v_g, e_g=self.e_g)
         vt_g += 2 * self.weight * self.e_g / (self.ae.nt + 1e-10)
         return self.weight * npy.sum(self.e_g * self.ae.rgd.dv_g)
+
+    def initialize_from_atomic_orbitals(self, basis_functions):
+        # GLLBScr needs only density which is already initialized
+        pass
         
     def add_extra_setup_data(self, dict):
         # GLLBScr has not any special data
