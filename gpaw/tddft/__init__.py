@@ -137,7 +137,7 @@ class TDDFT(GPAW):
 
             # Wave functions
             for kpt in wfs.kpt_u:
-                kpt.psit_nG = npy.array(kpp.psit_nG[:], complex)
+                kpt.psit_nG = npy.array(kpt.psit_nG[:], complex)
         else:
             self.set_positions()
 
