@@ -26,7 +26,7 @@ class IntCtrl:
         self.leadfermi = [efermi + bias / 2, efermi - bias / 2]
         self.minfermi = min(efermi + bias / 2, efermi - bias / 2)
         self.maxfermi = max(efermi + bias / 2, efermi - bias / 2)
-        self.eqinttol = 1e-8
+        self.eqinttol = 1e-3
         self.kttol = 1e-5
         self.biastol = 1e-10
         
@@ -44,8 +44,13 @@ class IntCtrl:
         else:        #T>0K
             nkt = 20 * self.kt
             dkt = 10 * npy.pi * self.kt
-            self.eqintpath = [-50, -50 + 20.j, 10.j - nkt, dkt * 1.j - nkt,
-                              dkt * 1.j + nkt]
+            #self.eqintpath = [-20.0, -20.0 + dkt * 1.j, -nkt + dkt * 1.j,
+            #                  dkt * 1.j + nkt]
+            self.eqintpath = [-20, -20 + 10*1.j, -nkt + 5*1.j,
+                                         -nkt + dkt * 1.j, dkt *1.j +nkt]
+           
+            self.eqpath_origin = -(20 + nkt) / 2. + dkt * 1.j
+            self.eqpath_radius = (20 - nkt) / 2.0
             self.eqdelta = dkt
             nRes = 10
             if abs( nRes - (npy.round((nRes - 1) / 2) * 2 + 1)) < 1e-3 :
@@ -72,13 +77,13 @@ class IntCtrl:
 
         self.locinttol = self.eqinttol
         if (self.maxfermi - self.minfermi)< self.biastol:
-            self.locPath = None
+            self.locintpath = None
             self.locdelta = 0
             self.locresz = 0
             if verbose:
                 print '--locInt: None'
         elif self.kt < self.kttol: #T=0K
-            self.locPath = [self.minfermi + 1e-8j, self.minfermi + 1.j,
+            self.locintpath = [self.minfermi + 1e-8j, self.minfermi + 1.j,
                             self.maxfermi + 1.j, self.maxfermi + 1e-8j]
             self.locdelta = 0
             self.locresz = 0
@@ -93,7 +98,7 @@ class IntCtrl:
                                    self.maxfermi + nkt + dkt * 1.j]
             else:
                 self.locintpath = [self.minfermi - nkt + dkt * 1.j,
-                                   self.maxfermi + nkt + dkt * 1.j,
+                                   self.minfermi + nkt + dkt * 1.j,
                                    (self.maxfermi + self.minfermi) / 2 + 1.j,
                                    self.maxfermi - nkt + dkt * 1.j,
                                    self.maxfermi + nkt + dkt * 1.j]
