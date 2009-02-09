@@ -3,7 +3,7 @@ from gpaw.xc_functional import XCRadialGrid, XCFunctional, XC3DGrid
 from gpaw.xc_correction import A_Liy
 from gpaw.gllb import safe_sqr
 from math import sqrt, pi
-
+from gpaw.io.tar import TarFileReference
 import numpy as npy
 
 K_G = 0.382106112167171
@@ -55,7 +55,7 @@ class C_GLLBScr(Contribution):
         
 
     def get_coefficients_by_kpt(self, kpt_u):
-        if kpt_u[0].eps_n is None:
+        if kpt_u[0].psit_nG is None or isinstance(kpt_u[0].psit_nG, TarFileReference): 
             return None
 
         e_ref = self.occupations.get_zero_kelvin_homo_eigenvalue(kpt_u)
@@ -171,6 +171,14 @@ class C_GLLBScr(Contribution):
         
     def add_extra_setup_data(self, dict):
         # GLLBScr has not any special data
+        pass
+
+    def read(self, reader):
+        # GLLBScr has no special data to be read
+        pass
+
+    def write(self, writer):
+        # GLLBScr has no special data to be written
         pass
         
 

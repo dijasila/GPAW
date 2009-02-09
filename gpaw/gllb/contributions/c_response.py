@@ -35,6 +35,7 @@ class C_Response(Contribution):
 
         self.vt_sg = self.finegd.empty(self.nlfunc.nspins)
         self.vt_sG = self.gd.empty(self.nlfunc.nspins)
+        print "Writing over vt_sG!"
         self.nt_sG = self.gd.empty(self.nlfunc.nspins)
 
         self.Dresp_asp = None
@@ -62,6 +63,9 @@ class C_Response(Contribution):
                 self.D_asp, f_kn)
 
             self.vt_sG /= self.nt_sG +1e-10
+            print "Updating vt_sG"
+        else:
+            print "Reusing potential"
             
         self.density.interpolater.apply(self.vt_sG[0], self.vt_sg[0])
         v_g[:] += self.weight * self.vt_sg[0]
@@ -179,3 +183,98 @@ class C_Response(Contribution):
         v_g = self.weight * npy.dot(w_j, u2_j) / (npy.dot(self.ae.f_j, u2_j) +1e-10)
         v_g[0] = v_g[1]
         dict['all_electron_response'] = v_g
+
+    def write(self, w):
+        wfs = self.wfs
+        world = wfs.world
+        domain_comm = wfs.gd.comm
+        kpt_comm = wfs.kpt_comm
+        band_comm = wfs.band_comm
+        
+        master = (world.rank == 0)
+
+        atoms = self.nlfunc.atoms
+        natoms = len(atoms)
+
+        nadm = 0
+        for setup in wfs.setups:
+            ni = setup.ni
+            nadm += ni * (ni + 1) / 2
+
+        # Not yet tested for parallerization
+        assert world.size == 1
+
+        # Write the pseudodensity on the coarse grid:
+        if master:
+            w.add('GLLBPseudoResponsePotential',
+                  ('nspins', 'ngptsx', 'ngptsy', 'ngptsz'), dtype=float)
+        if kpt_comm.rank == 0:
+            for s in range(wfs.nspins):
+                vt_sG = wfs.gd.collect(self.vt_sG[s])
+                if master:
+                    w.fill(vt_sG)
+
+        print "Integration over vt_sG", npy.sum(self.vt_sG.ravel())
+                
+        if master:
+            all_D_sp = npy.empty((wfs.nspins, nadm))
+            all_Dresp_sp = npy.empty((wfs.nspins, nadm))
+            p1 = 0
+            for a in range(natoms):
+                ni = wfs.setups[a].ni
+                nii = ni * (ni + 1) / 2
+                if a in self.D_asp:
+                    D_sp = self.D_asp[a]
+                    Dresp_sp = self.Dresp_asp[a]
+                else:
+                    D_sp = npy.empty((wfs.nspins, nii))
+                    domain_comm.receive(D_sp, wfs.rank_a[a], 27)
+                    Dresp_sp = npy.empty((wfs.nspins, nii))
+                    domain_comm.receive(Dresp_sp, wfs.rank_a[a], 271)
+                p2 = p1 + nii
+                all_D_sp[:, p1:p2] = D_sp
+                all_Dresp_sp[:, p1:p2] = Dresp_sp
+                p1 = p2
+            assert p2 == nadm
+            w.add('GLLBAtomicDensityMatrices', ('nspins', 'nadm'), all_D_sp)
+            w.add('GLLBAtomicResponseMatrices', ('nspins', 'nadm'), all_Dresp_sp)
+        elif kpt_comm.rank == 0 and band_comm.rank == 0:
+            for a in range(natoms):
+                if a in self.density.D_asp:
+                    domain_comm.send(self.D_asp[a], 0, 27)
+                    domain_comm.send(self.Dresp_asp[a], 0, 271)
+
+        #print "Wrote Dresp_asp", self.Dresp_asp
+        
+    def read(self, r):
+        wfs = self.wfs
+        world = wfs.world
+        domain_comm = wfs.gd.comm
+        kpt_comm = wfs.kpt_comm
+        band_comm = wfs.band_comm
+        
+        self.vt_sG = wfs.gd.empty(wfs.nspins)
+        print "Reading vt_sG"
+        for s in range(wfs.nspins):
+            self.gd.distribute(r.get('GLLBPseudoResponsePotential', s),
+                              self.vt_sG[s])
+        print "Integration over vt_sG", npy.sum(self.vt_sG.ravel())
+        
+        # Read atomic density matrices and non-local part of hamiltonian:
+        D_sp = r.get('GLLBAtomicDensityMatrices')
+        Dresp_sp = r.get('GLLBAtomicResponseMatrices')
+        
+        self.D_asp = {}
+        self.Dresp_asp = {}
+        p1 = 0
+        for a, setup in enumerate(wfs.setups):
+            ni = setup.ni
+            p2 = p1 + ni * (ni + 1) // 2
+            if domain_comm.rank == 0:
+                # NOTE: Distrbibutes the matrices to more processors than necessary
+                self.D_asp[a] = D_sp[:, p1:p2].copy()
+                self.Dresp_asp[a] = Dresp_sp[:, p1:p2].copy()
+            p1 = p2
+
+        #print "Read Dresp_asp", self.Dresp_asp
+

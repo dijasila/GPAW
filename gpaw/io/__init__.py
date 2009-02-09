@@ -288,6 +288,10 @@ def write(paw, filename, mode):
             if master:
                 w.fill(vt_sG)
 
+    # Write GLLB-releated stuff
+    if paw.hamiltonian.xcfunc.gllb:
+        paw.hamiltonian.xcfunc.xc.write(w)
+
     if mode == 'all':
         # Write the wave functions:
         if master:
@@ -501,6 +505,9 @@ def read(paw, reader):
     else:
         paw.forces.reset()
 
+    # Read GLLB-releated stuff
+    if paw.hamiltonian.xcfunc.gllb:
+        paw.hamiltonian.xcfunc.xc.read(r)
 
 def read_atoms(reader):
     if isinstance(reader, str):

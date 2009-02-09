@@ -89,4 +89,12 @@ class C_LDA(Contribution):
     def add_extra_setup_data(self, dict):
         # LDA has not any special data
         pass
+
+    def write(self, writer):
+        # LDA has not any special data to be written
+        pass
+
+    def read(self, reader):
+        # LDA has not any special data to be read
+        pass
         
