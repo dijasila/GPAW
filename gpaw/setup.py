@@ -566,9 +566,9 @@ class Setup:
 
         ::
 
-        /
-        | dr r^2 [ phi_j1 d/dr phi_j2 - phit_j1 d/dr phit_j2 ]
-        /
+          /
+          | dr r^2 [ phi_j1 d/dr phi_j2 - phit_j1 d/dr phit_j2 ]
+          /
         """
         # calculate radial derivatives
         dphi_jg = npy.zeros((self.nj, self.gcut2))
