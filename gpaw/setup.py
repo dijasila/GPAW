@@ -914,7 +914,6 @@ class Setup:
             f_j = self.f_j
 
         # Projector function indices:
-        j = 0
         nj = len(self.n_j)
 
         f_j = npy.array(f_j, float)
@@ -934,6 +933,7 @@ class Setup:
         assert charge == 0.0
 
         i = 0
+        j = 0
         for phit in self.phit_j:
             l = phit.get_angular_momentum_number()
 
