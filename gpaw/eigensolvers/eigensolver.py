@@ -172,7 +172,6 @@ class Eigensolver:
 
         self.timer.start(dsyev_zheev_string)
         if sl_diagonalize:
-            print 'Should H_nn be broadcast first?'
             info = diagonalize(H_nn, self.eps_n, root=0)
             if info != 0:
                 raise RuntimeError('Failed to diagonalize: info=%d' % info)
