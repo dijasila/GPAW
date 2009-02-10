@@ -66,7 +66,7 @@ class SCFLoop:
 
         self.density_error = density.mixer.get_charge_sloshing()
         if self.density_error is None:
-            self.density_error = self.max_density_error
+            self.density_error = 1000000.0
 
         self.converged = (
             self.eigenstates_error < self.max_eigenstates_error and
