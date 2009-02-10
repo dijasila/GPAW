@@ -281,7 +281,7 @@ class XCFunctional:
 
         from gpaw.vdw import VDWFunctional
         if isinstance(self.xc, VDWFunctional):
-            self.xc.gd = density.finegd
+            self.xc.set_grid_descriptor(density.finegd)
             return
             
         if not self.orbital_dependent:

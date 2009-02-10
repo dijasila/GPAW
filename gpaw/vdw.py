@@ -73,7 +73,7 @@ def hRPS(x, xc=1.0):
 
 class VDWFunctional:
     """Base class for vdW-DF."""
-    def __init__(self, nspins=1, gd=None, world=None, q0cut=5.0,
+    def __init__(self, nspins=1, world=None, q0cut=5.0,
                  phi0=0.5, ds=1.0, Dmax=20.0, nD=201, ndelta=21,
                  verbose=False):
         """vdW-DF.
@@ -82,8 +82,6 @@ class VDWFunctional:
 
         nspins: int
             Number of spins.
-        gd: GridDescriptor
-            Grid descrioptor.
         world: MPI communicator
             Communicator to parallelize over.  Defaults to gpaw.mpi.world.
         q0cut: float
@@ -102,8 +100,6 @@ class VDWFunctional:
             Print useful information.
         """
         
-        self.gd = gd
-
         if world is None:
             self.world = mpi.world
         else:
@@ -127,10 +123,15 @@ class VDWFunctional:
         self.mgga = not True
         self.hybrid = 0.0
         self.uses_libxc = False
-        
+
+        self.gd = None
+
+    def set_grid_descriptor(self, gd):
+        self.gd = gd
+
     def set_non_local_things(self, density, hamiltonian, wfs, atoms,
                              energy_only=False):
-        self.gd = density.finegd
+        self.set_grid_descriptor(density.finegd)
 
     def is_gllb(self):
         return False
@@ -499,39 +500,47 @@ class FFTVDWFunctional(VDWFunctional):
                 phi_j[0] = np.dot(r_g, r_g * phi_g) * (rcut / M * 4 * pi)
                 phi_j[1:] /= k_j[1:]
                 phi_aajp[a, b] = phi_aajp[b, a] = spline(k_j, phi_j)
-        
+
+    def set_grid_descriptor(self, gd):
+        if (self.gd is not None and
+            (self.gd.N_c == gd.N_c).all() and
+            (self.gd.domain.pbc_c == gd.domain.pbc_c).all() and
+            (self.gd.domain.cell_c == gd.domain.cell_c).all()):
+            return
+
+        VDWFunctional.set_grid_descriptor(self, gd)
+
+        self.construct_cubic_splines()
+        self.construct_fourier_transformed_kernels()
+
+        if self.shape is None:
+            self.shape = gd.N_c.copy()
+            for c, n in enumerate(self.shape):
+                if not gd.domain.pbc_c[c]:
+                    self.shape[c] = int(2**ceil(log(n) / log(2)))
+
+        d_c = gd.domain.cell_c / (2 * pi * gd.N_c)
+        kx2 = fftfreq(self.shape[0], d_c[0]).reshape((-1,  1,  1))**2
+        ky2 = fftfreq(self.shape[1], d_c[1]).reshape(( 1, -1,  1))**2
+        kz2 = fftfreq(self.shape[2], d_c[2]).reshape(( 1,  1, -1))**2
+        k_k = (kx2 + ky2 + kz2)**0.5
+        self.dj_k = k_k / (2 * pi / self.rcut)
+        self.j_k = self.dj_k.astype(int)
+        self.dj_k -= self.j_k
+        self.dj_k *= 2 * pi / self.rcut
+
+        if self.verbose:
+            print 'VDW: density array size:', gd.get_size_of_global_array()
+            print 'VDW: zero-padded array size:', self.shape
+            print ('VDW: maximum kinetic energy: %.3f Hartree' %
+                   (0.5 * k_k.max()**2))
+
     def calculate_6d_integral(self, n_g, q0_g):
         gd = self.gd
         N = self.Nalpha
 
         world = self.world
 
-        if self.C_aip is None:
-            # First time:
-            self.construct_cubic_splines()
-            self.construct_fourier_transformed_kernels()
-            
-            if self.shape is None:
-                self.shape = gd.N_c.copy()
-                for c, n in enumerate(self.shape):
-                    if not gd.domain.pbc_c[c]:
-                        self.shape[c] = int(2**ceil(log(n) / log(2)))
-                
-            d_c = gd.domain.cell_c / (2 * pi * gd.N_c)
-            kx2 = fftfreq(self.shape[0], d_c[0]).reshape((-1,  1,  1))**2
-            ky2 = fftfreq(self.shape[1], d_c[1]).reshape(( 1, -1,  1))**2
-            kz2 = fftfreq(self.shape[2], d_c[2]).reshape(( 1,  1, -1))**2
-            k_k = (kx2 + ky2 + kz2)**0.5
-            self.dj_k = k_k / (2 * pi / self.rcut)
-            self.j_k = self.dj_k.astype(int)
-            self.dj_k -= self.j_k
-            self.dj_k *= 2 * pi / self.rcut
-        
-            if self.verbose:
-                print 'VDW: density array size:', n_g.shape
-                print 'VDW: zero-padded array size:', self.shape
-                print ('VDW: maximum kinetic energy: %.3f Hartree' %
-                       (0.5 * k_k.max()**2))
                 
         i_g = (np.log(q0_g / self.q_a[1] * (self.lambd - 1) + 1) /
                log(self.lambd)).astype(int)
