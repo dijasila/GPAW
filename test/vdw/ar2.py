@@ -19,7 +19,11 @@ dimer.center()
 calc = GPAW(h=0.2, xc='revPBE')
 dimer.set_calculator(calc)
 e2 = dimer.get_potential_energy()
+calc.write('Ar2.gpw')
 e2vdw = calc.get_xc_difference(vdw)
+e2vdwb = GPAW('Ar2.gpw').get_xc_difference(vdw)
+print e2vdw - e2vdw
+assert abs(e2vdw - e2vdw) < 1e-9
 del dimer[1]
 e = dimer.get_potential_energy()
 evdw = calc.get_xc_difference(vdw)
