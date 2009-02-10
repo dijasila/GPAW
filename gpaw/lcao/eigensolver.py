@@ -93,13 +93,12 @@ class LCAO:
                                            info)
             self.timer.stop(dsyev_zheev_string)
 
-            kpt.C_nM[:] = self.H_MM[n1:n2]
-            kpt.eps_n[:] = self.eps_n[n1:n2]
-
-            self.band_comm.broadcast(kpt.C_nM, 0)
-            self.band_comm.broadcast(kpt.eps_n, 0)
-            self.comm.broadcast(kpt.C_nM, 0)
-            self.comm.broadcast(kpt.eps_n, 0)
+            if rank == 0:
+                self.comm.broadcast(self.H_MM[:wfs.nbands], 0)
+                self.comm.broadcast(self.eps_n[:wfs.nbands], 0)
+                
+            self.band_comm.scatter(self.H_MM[:wfs.nbands], kpt.C_nM, 0)
+            self.band_comm.scatter(self.eps_n[:wfs.nbands], kpt.eps_n, 0)
 
             assert kpt.eps_n[0] != 42
 
