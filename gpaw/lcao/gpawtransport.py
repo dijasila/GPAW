@@ -219,7 +219,8 @@ class GPAWTransport:
                                    self.atoms_l[1].calc.hamiltonian.vt_sG, \
                                                self.ntklead = pickle.load(fd)
                 fd.close()
-
+        self.dimt_lead = self.atoms_l[0].calc.hamiltonian.vt_sG.shape[-1]
+        
     def update_scat_hamiltonian(self, restart=False):
         if not restart:
             atoms = self.atoms
@@ -345,6 +346,9 @@ class GPAWTransport:
             for i in range(self.nspins):  
                 total_edge_charge  = self.edge_charge[i] / self.npk
                 print 'edge_charge[%d]=%f' % (i, total_edge_charge)
+        self.boundary_check()
+        
+        del self.atoms_l
 
     def initial_lead(self, lead):
         nspins = self.nspins
@@ -564,7 +568,7 @@ class GPAWTransport:
             denloc = np.empty([nspins, npk, nbmol, nbmol], complex)            
 
  
-        self.boundary_check() 
+
         world.barrier()
         #-------get the path --------    
         for s in range(nspins):
@@ -1115,6 +1119,7 @@ class GPAWTransport:
             print 'local percents %f' % percents
         else:
             den += denocc
+        den = (den + den.T.conj()) / 2
         return den    
 
     def den2fock(self, d_pkmm):
@@ -1213,14 +1218,21 @@ class GPAWTransport:
             rvector[i, self.d] = i - (relate_layer_num - 1) / 2
         
         self.d_skmm.shape = (nspins, npk, ntk, nbmol, nbmol)
+        test = 0
+        test1 = 0
+        test2 = 0
         for s in range(nspins):
             for i in range(ntk):
                 for j in range(npk):
                     self.d_skmm[s, j, i] = get_kspace_hs(None, dr_mm[s, j, :],
                                                          rvector, tkpts[i])
                     self.d_skmm[s, j, i] /=  ntk * self.npk
-
+                    test += np.max(abs(self.d_skmm[s, j,i] - self.d_skmm[s, j , i].T.conj()))
+                    if i==0:
+                        test1 += np.max(abs(d_spkmm[s, j] - d_spkmm[s, j].T.conj()))
+                        test2 += np.max(abs(self.d_spkmm[s, j] - self.d_spkmm[s, j].T.conj()))
         self.d_skmm.shape = (nspins, ntk * npk, nbmol, nbmol)
+        print 'sym_test', test, test1, test2
         for kpt in calc.wfs.kpt_u:
             kpt.rho_MM = self.d_skmm[kpt.s, kpt.q]
         density.update(wfs)
@@ -1243,19 +1255,7 @@ class GPAWTransport:
         
         dimt = linear_potential.shape[-1]
         dimp = linear_potential.shape[1:3]
-        calc1 = self.atoms_l[0].calc
-        dimt_lead = calc1.hamiltonian.vt_sG.shape[-1]
-           
-        spacing_tol = 0.05
-        spacing_lead = calc1.domain.cell_c[-1] / dimt_lead
-        spacing_scat = calc.domain.cell_c[-1] / dimt
-        
-        if abs(spacing_lead -spacing_scat) < spacing_tol:
-            pass
-        elif self.master:
-            print 'Warning!, the spacing between the scat %f and lead %f \
-                 is not small,  the linear potential maybe not very precise' \
-                  % (spacing_lead, spacing_scat)
+        dimt_lead = self.dimt_lead
         if self.nblead == self.nbmol:
             buffer_dim = 0
         else:
@@ -1445,7 +1445,6 @@ class GPAWTransport:
         self.s_pmm /= self.npk
         self.d_spmm /= self.npk
 
-#    def reciprocal_projecting(self):
         
     def collect_density_matrix(self):
         world.barrier()
@@ -1454,12 +1453,18 @@ class GPAWTransport:
         for pk, kk in zip(self.my_pk, range(self.my_npk)):
             self.d_stkmm[:, pk] = self.d_spkmm[:, kk]
         self.kpt_comm.sum(self.d_stkmm)
+        for i in range(npk):
+            self.d_stkmm[0,i] = (self.d_stkmm[0,i] + self.d_stkmm[0,i].T.conj()) / 2
 
     def distribute_density_matrix(self, d_stkmm):
         world.barrier()
+        dagger_tol = 1e-9
         d_spkmm = np.empty(self.d_spkmm.shape, complex)
         for pk, kk in zip(self.my_pk, range(self.my_npk)):
-            d_spkmm[:, kk] = d_stkmm[:, pk]
+            if np.max(abs(d_stkmm[0, pk] -
+                          d_stkmm[0, pk].T.conj())) > dagger_tol:
+                print 'Warning, density matrix is not dagger symmetric'
+            d_spkmm[0, kk] = (d_stkmm[0, pk] + d_stkmm[0, pk].T.conj()) / 2.
         return d_spkmm
      
     def integral_diff_weight(self, denocc, denvir, method='transiesta'):
