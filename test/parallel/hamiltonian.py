@@ -88,11 +88,10 @@ def run(psit_mG):
     assert not(P_ani[1] - psit_mG[:, -1, -1, -3:]).round(10).any()
 
     H_nn = overlap.calculate_matrix_elements(psit_mG, P_ani, H, dH_aii)
-
     if world.rank == 0:
         for n in range(N):
-            assert abs(H_nn[n, n] - eps_n[n]) < 1e-9
-            assert not H_nn[n + 1:, n].round(9).any()
+            assert abs(H_nn[n, n] - eps_n[n]) < 1e-8
+            assert not H_nn[n + 1:, n].round(8).any()
 
     return psit_mG
 
