@@ -399,7 +399,7 @@ class RealSpaceVDWFunctional(VDWFunctional):
 class FFTVDWFunctional(VDWFunctional):
     """FFT implementation of vdW-DF."""
     def __init__(self, nspins=1,
-                 Nalpha=20, lambd=1.2, rcut=125.0, Nr=2048, shape=None,
+                 Nalpha=20, lambd=1.2, rcut=125.0, Nr=2048, size=None,
                  **kwargs):
         """FFT vdW-DF.
 
@@ -413,7 +413,7 @@ class FFTVDWFunctional(VDWFunctional):
             Cutoff for kernel function.
         Nr: int
             Number of real-space points for kernel function.
-        shape: 3-tuple
+        size: 3-tuple
             Size of FFT-grid.
         """
         
@@ -422,7 +422,7 @@ class FFTVDWFunctional(VDWFunctional):
         self.lambd = lambd
         self.rcut = rcut
         self.Nr = Nr
-        self.shape = shape
+        self.size = size
         
         self.C_aip = None
         self.phi_aajp = None
@@ -510,15 +510,14 @@ class FFTVDWFunctional(VDWFunctional):
 
         VDWFunctional.set_grid_descriptor(self, gd)
 
-        self.construct_cubic_splines()
-        self.construct_fourier_transformed_kernels()
-
-        if self.shape is None:
+        if self.size is None:
             self.shape = gd.N_c.copy()
             for c, n in enumerate(self.shape):
                 if not gd.domain.pbc_c[c]:
                     self.shape[c] = int(2**ceil(log(n) / log(2)))
-
+        else:
+            self.shape = np.array(self.size)
+            
         d_c = gd.domain.cell_c / (2 * pi * gd.N_c)
         kx2 = fftfreq(self.shape[0], d_c[0]).reshape((-1,  1,  1))**2
         ky2 = fftfreq(self.shape[1], d_c[1]).reshape(( 1, -1,  1))**2
@@ -536,6 +535,10 @@ class FFTVDWFunctional(VDWFunctional):
                    (0.5 * k_k.max()**2))
 
     def calculate_6d_integral(self, n_g, q0_g):
+        if self.C_aip is None:
+            self.construct_cubic_splines()
+            self.construct_fourier_transformed_kernels()
+
         gd = self.gd
         N = self.Nalpha
 
