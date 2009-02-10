@@ -113,6 +113,16 @@ class Sphere:
 
 
 class NewLocalizedFunctionsCollection:
+    """New LocalizedFunctionsCollection
+
+    Utilizes that localized functions can be stored on a spherical subset of
+    the uniform grid, as opposed to LocalizedFunctionsCollection which is just
+    a wrapper around the old localized_functions which use rectangular grids.
+
+    Methods missing before LocalizedFunctionsCollection is obsolete:
+
+    dict, add, add1, add2, integrate, derivative
+    """
     def __init__(self, gd, spline_aj, kpt_comm=None, cut=False):
         self.gd = gd
         self.sphere_a = [Sphere(spline_j) for spline_j in spline_aj]
@@ -255,6 +265,14 @@ class NewLocalizedFunctionsCollection:
 
 class BasisFunctions(NewLocalizedFunctionsCollection):
     def add_to_density(self, nt_sG, f_asi):
+        """Add linear combination of localized functions to density.
+
+        ::
+
+          ~         _   _   a    ~ a
+          n (r) += >_  >_  f    phi (r)
+            s       a   i   si     i
+        """
         nspins = len(nt_sG)
         f_sM = np.empty((nspins, self.Mmax))
         for a in self.atom_indices:
@@ -267,6 +285,20 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
             self.lfc.construct_density1(f_M, nt_G)
 
     def construct_density(self, rho_MM, nt_G, q):
+        """Calculate electron density from density matrix.
+
+        rho_MM: ndarray
+            Density matrix.
+        nt_G: ndarray
+            Pseudo electron density.
+
+        ::
+                  
+          ~        --    ~ *             ~
+          n(r) +=  >    phi (r) rho     phi (r)
+                   --     M1       M1M2   M2
+                  M1,M2 
+        """
         self.lfc.construct_density(rho_MM, nt_G, q)
 
     def calculate_potential_matrix(self, vt_G, Vt_MM, q):
@@ -291,13 +323,6 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
                     nt_sG[0, G1:G2] += np.dot(A_gm**2, f_sM[0, M:M + nm])
 
         def construct_density(self, rho_MM, nt_G, k):
-            """Calculate electron density from density matrix.
-
-            rho_MM: ndarray
-                Density matrix.
-            nt_G: ndarray
-                Pseudo electron density.
-            """
             nt_G = nt_G.ravel()
 
             for G1, G2 in self.griditer():

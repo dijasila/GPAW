@@ -24,6 +24,7 @@ for n in range(n):
         c[s] = a
     C.append(c)
 
+
 def fbt(l, f, r, k):
     """Fast Bessel transform.
 
