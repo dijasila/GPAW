@@ -187,13 +187,7 @@ class WaveFunctions(EmptyWaveFunctions):
         return self.collect_array('eps_n', k, s)
     
     def collect_occupations(self, k, s):
-        f_n = self.collect_array('f_n', k, s)
-        # Delta SCF hack
-        if hasattr(self.kpt_u[k+s*len(self.weight_k)], 'ft_omn'):
-            for ft_mn in self.kpt_u[k+s*len(self.weight_k)].ft_omn:
-                f_n += np.diagonal(ft_mn).real
-            
-        return f_n
+        return self.collect_array('f_n', k, s)
     
     def collect_array(self, name, k, s):
         """Helper method for collect_eigenvalues and collect_occupations.
@@ -208,6 +202,12 @@ class WaveFunctions(EmptyWaveFunctions):
 
         if self.kpt_comm.rank == kpt_rank:
             a_n = getattr(kpt_u[u], name)
+
+            # Delta SCF hack
+            if name == 'f_n' and hasattr(kpt_u[u], 'ft_omn'):
+                for ft_mn in self.kpt_u[u].ft_omn:
+                    a_n += np.diagonal(ft_mn).real
+
             # Domain master send this to the global master
             if self.gd.comm.rank == 0:
                 if self.band_comm.size == 1:
