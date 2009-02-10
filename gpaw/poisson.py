@@ -19,6 +19,7 @@ class PoissonSolver:
         self.nn = nn
         self.eps = eps
         self.charged_periodic_correction = None
+        self.maxiter = 1000
         
         # Relaxation method
         if relax == 'GS':
@@ -166,7 +167,7 @@ class PoissonSolver:
             self.B.apply(rho, self.rhos[0])
         
         niter = 1
-        maxiter = 1000
+        maxiter = self.maxiter
         while self.iterate2(self.step) > eps and niter < maxiter:
             niter += 1
         if niter == maxiter:
