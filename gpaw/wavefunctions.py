@@ -411,25 +411,29 @@ class LCAOWaveFunctions(WaveFunctions):
                                             grid_bfs, rho_MM):
         nao = self.setups.nao
         vt_G = hamiltonian.vt_sG[kpt.s]
-        rho_aMi = grid_bfs.dict(nao)
-        for b, rho_Mi in rho_aMi.items():
-            Mb = self.basis_functions.M_a[b]
-            dMb = self.setups[b].niAO
-            assert rho_Mi.shape[-1] == dMb
-            rho_Mi[:, :] = rho_MM[:, Mb:Mb + dMb].copy()
 
-        phit_MG = grid_bfs.gd.zeros(nao, self.dtype)
+        phit_1G = grid_bfs.gd.empty(1, self.dtype)
+        derivs_a1iv = grid_bfs.dict(1, derivative=True)
         derivs_aMiv = grid_bfs.dict(nao, derivative=True)
-        dEdndndR_av = np.zeros((len(self.setups), 3))
+        dEdndndR_av = np.empty((len(self.setups), 3))
 
-        grid_bfs.add(phit_MG, rho_aMi, kpt.k)
-        grid_bfs.derivative(phit_MG * vt_G, derivs_aMiv, kpt.k)
+        for M in range(nao):
+            phit_1G[:] = 0.0
+            coef_1M = np.zeros((1, nao), self.dtype)
+            coef_1M[0, M] = 1.0
+
+            self.basis_functions.lcao_to_grid(coef_1M, phit_1G, kpt.q)
+            grid_bfs.derivative(phit_1G * vt_G, derivs_a1iv, kpt.q)
+            for b, derivs_1iv in derivs_a1iv.items():
+                derivs_aMiv[b][M, :, :] = derivs_1iv[0, :, :]
 
         for b, derivs_Miv in derivs_aMiv.items():
             M1 = self.basis_functions.M_a[b]
             M2 = M1 + self.setups[b].niAO
-            dtr_v = -2 * derivs_Miv[M1:M2, :].real.trace()
-            dEdndndR_av[b, :] = dtr_v
+            for v in range(3):
+                forcecontrib = -2 * np.dot(rho_MM[M1:M2, :],
+                                           derivs_Miv[:, :, v]).real.trace()
+                dEdndndR_av[b, v] = forcecontrib
 
         self.gd.comm.sum(dEdndndR_av)        
         return dEdndndR_av
