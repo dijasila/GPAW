@@ -66,7 +66,7 @@ class GPAW(PAW):
         if len(quantities) == 0:
             return False
 
-        if not (self.initialized and self.converged):
+        if not (self.initialized and self.scf.converged):
             return True
 
         if (len(atoms) != len(self.atoms) or
@@ -78,7 +78,7 @@ class GPAW(PAW):
             return True
 
         if 'forces' in quantities:
-            return self.F_ac is None
+            return self.forces.F_av is None
 
         return False
 
