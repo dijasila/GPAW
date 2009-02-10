@@ -390,7 +390,7 @@ class TDDFT(GPAW):
     def update_dipole_moment_file(self, norm):
         dm = self.finegd.calculate_dipole_moment(self.density.rhot_g)
 
-        if rank == 0:
+        if self.rank == 0:
             line = '%20.8lf %20.8le %22.12le %22.12le %22.12le\n' \
                 % (self.time, norm, dm[0], dm[1], dm[2])
             self.dm_file.write(line)
@@ -400,7 +400,7 @@ class TDDFT(GPAW):
         if norm is not None:
             self.update_dipole_moment_file(norm)
 
-        if rank == 0:
+        if self.rank == 0:
             self.dm_file.close()
             self.dm_file = None
 
