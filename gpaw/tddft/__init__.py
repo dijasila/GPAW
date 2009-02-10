@@ -36,7 +36,7 @@ from gpaw.tddft.tdopers import \
 # vvvvvvvvv
 class DummyMixer(BaseMixer):
     """Dummy mixer for TDDFT, i.e., it does not mix."""
-    def mix(self, nt_sG):
+    def mix(self, nt_G):
         pass
 
 # T^-1
@@ -284,10 +284,10 @@ class TDDFT(GPAW):
                 # Calculate and print total energy here 
                 # self.Eband = sum_i <psi_i|H|psi_j>
                 # !!!!
+                self.td_overlap.update()
                 self.td_density.update()
                 self.td_hamiltonian.update(self.td_density.get_density(),
                                            self.time)
-                self.td_overlap.update()
 
                 kpt_u = self.wfs.kpt_u
                 if self.hpsit is None:
@@ -298,7 +298,8 @@ class TDDFT(GPAW):
                                              dtype=complex)
 
                 for kpt in kpt_u:
-                    self.td_hamiltonian.apply(kpt, kpt.psit_nG, self.hpsit)
+                    self.td_hamiltonian.apply(kpt, kpt.psit_nG, self.hpsit,
+                                              calculate_P_ani=False)
                     self.mblas.multi_zdotc(self.eps_tmp, kpt.psit_nG,
                                            self.hpsit, len(kpt_u[0].psit_nG))
                     self.eps_tmp *= self.gd.dv

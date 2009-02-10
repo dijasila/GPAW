@@ -244,16 +244,34 @@ class TimeDependentOverlap:
         self.wfs = wfs
         self.overlap = wfs.overlap
 
+    def update_k_point_projections(self, kpt, psit=None):
+        """Updates the projector function overlap integrals
+        with the wavefunctions of a given k-point.
+        
+        Parameters
+        ----------
+        kpt: Kpoint
+            the current k-point (kpt_u[index_of_k-point])
+        psit: List of coarse grids (optional)
+            the wavefuntions (on coarse grid) 
+            (kpt_u[index_of_k-point].psit_nG[indices_of_wavefunc])
+
+        """
+        if psit is not None:
+            self.wfs.pt.integrate(psit, kpt.P_ani, kpt.q)
+        else:
+            self.wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+
     def update(self):
-        """Updates the time-dependent overlap operator. !Currently does nothing!
+        """Updates the time-dependent overlap operator.
         
         Parameters
         ----------
         None
 
         """
-        # !!! FIX ME !!! update overlap operator/projectors/...
-        pass
+        for kpt in self.wfs.kpt_u:
+            self.update_k_point_projections(kpt)
     
     def half_update(self):
         """Updates the time-dependent overlap operator, in such a way,
@@ -284,7 +302,7 @@ class TimeDependentOverlap:
         calculate_P_ani: bool
             When True, the integrals of projector times vectors
             P_ni = <p_i | psit> are calculated.
-            When False, existing P_uni are used
+            When False, existing P_ani are used
 
         """
         self.overlap.apply(psit, spsit, self.wfs, kpt, calculate_P_ani)
@@ -364,8 +382,8 @@ class TimeDependentDensity(DummyDensity):
         None
 
         """
-        for kpt in self.wfs.kpt_u:
-            self.wfs.pt.integrate(kpt.psit_nG, kpt.P_ani)
+        #for kpt in self.wfs.kpt_u:
+        #    self.wfs.pt.integrate(kpt.psit_nG, kpt.P_ani)
         self.density.update(self.wfs)
        
     def get_density(self):
