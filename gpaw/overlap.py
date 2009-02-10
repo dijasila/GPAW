@@ -127,7 +127,7 @@ class Overlap:
         calculate_P_ani: bool
             When True, the integrals of projector times vectors
             P_ni = <p_i | a_nG> are calculated.
-            When False, existing P_uni are used
+            When False, existing P_ani are used
 
         """
 
