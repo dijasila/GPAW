@@ -514,7 +514,10 @@ class LocalizedFunctionsCollection(BaseLFC):
                     if abs(integral) > 1e-15:
                         lfs.normalize(integral)
         self.spos_ac = spos_ac
-        
+
+    def get_dtype(self): # old LFC uses the dtype attribute for dicts
+        return self.dtype
+
     def add(self, a_xG, c_axi=1.0, q=-1):
         if isinstance(c_axi, float):
             assert q == -1
