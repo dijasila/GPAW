@@ -15,6 +15,7 @@ def dots(*args):
         x = np.dot(x, M)
     return x        
 
+
 def normalize(U, U2=None):
     if U2==None:
         for col in U.T:
@@ -26,8 +27,19 @@ def normalize(U, U2=None):
             col1 *= N
             col2 *= N
        
+
 def normalize2(C, S):
     C /= np.sqrt(np.dot(np.dot(dagger(C), S), C).diagonal())
+
+
+def get_bfs(calc):
+    bfs = BasisFunctions(calc.gd, [setup.phit_j for setup in calc.wfs.setups],
+                         calc.wfs.kpt_comm, cut=True)
+    if not calc.wfs.gamma:
+        bfs.set_k_points(calc.wfs.ibzk_qc)
+    bfs.set_positions(calc.atoms.get_scaled_positions())
+    return bfs
+
 
 def get_phs(calc, s=0):
     dtype = calc.wfs.dtype
@@ -41,12 +53,9 @@ def get_phs(calc, s=0):
     nao = calc.wfs.setups.nao
     S_qMM = np.zeros((nq, nao, nao), dtype)
     T_qMM = np.zeros((nq, nao, nao), dtype)
+
     #setup basis functions
-    bfs = BasisFunctions(calc.gd, [setup.phit_j for setup in calc.wfs.setups],
-                         calc.wfs.kpt_comm, cut=True)
-    if not calc.wfs.gamma:
-        bfs.set_k_points(calc.wfs.ibzk_qc)
-    bfs.set_positions(spos_ac)
+    bfs = get_bfs(calc)
     
     P_aqMi = {}
     for a in bfs.my_atom_indices:
@@ -112,7 +121,7 @@ def get_phs(calc, s=0):
             V_qnM[q, :, M1:M2] += V_ni
             M1 = M2
 
-    return V_qnM, H_qMM, S_qMM#, P_aqMi, bfs.lcao_to_grid(C_nM, psit_nG, q)
+    return V_qnM, H_qMM, S_qMM, P_aqMi
 
 
 class ProjectedWannierFunctions:
@@ -327,18 +336,20 @@ class ProjectedWannierFunctions:
         k = 0 # XXX temporary hack
         Gshape = wfs.kpt_u[k].psit_nG.shape[-3:]
         psit_nG = wfs.kpt_u[k].psit_nG[:self.N].reshape(self.N, -1)
+        M = self.M_k[k]
         bU_ii = np.dot(self.b_kil[k], self.Uu_kli[k])
+        Uo_ni = self.Uo_kni[k]
+        V_ni = self.V_kni[k]
         if useibl:
             # Rotate occupied part
-            rot_mi = self.Uo_kni[k] - np.dot(self.V_kni[k, :self.M], bU_ii)
-            w_iG = np.dot(rot_mi.T, psit_nG[:self.M]).reshape((-1) + Gshape)
+            rot_mi = Uo_ni - np.dot(V_ni[:M], bU_ii)
+            w_iG = np.dot(rot_mi.T, psit_nG[:M]).reshape((-1,) + Gshape)
             
             # Mix in relevant combination of target functions
             bfs.lcao_to_grid(bU_ii, w_iG, q=-1)
         else:
-            rot_ni = np.vstack(self.Uo_kni[k],
-                              np.dot(self.V_kni[k, self.M:], bU_ii))
-            w_iG = np.dot(rot_ni.T, psit_nG).reshape((-1) + Gshape)
+            rot_ni = np.vstack((Uo_ni, np.dot(V_ni[M:], bU_ii)))
+            w_iG = np.dot(rot_ni.T, psit_nG).reshape((-1,) + Gshape)
         return w_iG
 
         
@@ -366,7 +377,7 @@ if __name__=='__main__':
         eps_kn = np.asarray([calc.get_eigenvalues(k) for k in range(nk)])
         eps_kn -= Ef
 
-        V_knM, H_kMM, S_kMM = get_phs(calc, s=0)
+        V_knM, H_kMM, S_kMM, P_aqMi = get_phs(calc, s=0)
         H_kMM -= Ef * S_kMM 
         
         pwf = ProjectedWannierFunctions(V_knM, 
@@ -390,6 +401,14 @@ if __name__=='__main__':
             else:
                 deps = np.around(abs(eps1_kn[0,n] - eps_kn[0, n]), 13)
                 print "%4i | %.1e | %.1e " % (n, deps, norm)
+
+##         import tab
+##         bfs = get_bfs(calc)
+##         w_iG = pwf.get_function(calc.wfs, bfs=bfs, useibl=True)
+##         from ase import write
+##         atoms = calc.get_atoms()
+##         for i in range(30):
+##             write('wf_ibl_%s.cube' % i, atoms, data = w_iG[i])
 
 
     if 0:
