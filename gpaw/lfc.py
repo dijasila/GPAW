@@ -18,6 +18,8 @@ import _gpaw
 
 l
 m
+b
+w
 
 Global grid point number (*G*) for a 7*6 grid::
 
@@ -60,6 +62,11 @@ class Sphere:
         self.spos_c = None
         self.rank = None
         self.ranks = None
+        self.Mmax = None
+        self.A_wgm = None
+        self.G_wb = None
+        self.M_w = None
+        self.sdisp_wc = None
 
     def set_position(self, spos_c, gd, cut, ibzk_qc):
         if self.spos_c is not None and not (self.spos_c - spos_c).any():
@@ -111,8 +118,40 @@ class Sphere:
         return _gpaw.spline_to_grid(spline.spline, start_c, end_c, pos_v, h_cv,
                                     gd.n_c, gd.beg_c)
 
+    def get_function_count(self):
+        return sum([2 * spline.get_angular_momentum_number() + 1
+                    for spline in self.spline_j])
 
-class NewLocalizedFunctionsCollection:
+
+# Quick hack: base class to share basic functionality across LFC classes
+class BaseLFC:
+    def dict(self, shape=(), derivative=False, zero=False):
+        if isinstance(shape, int):
+            shape = (shape,)
+        if derivative:
+            assert not zero
+            c_axiv = {}
+            for a in self.my_atom_indices:
+                ni = self.get_function_count(a)
+                c_axiv[a] = np.empty(shape + (ni, 3), self.get_dtype())
+            return c_axiv
+        else:
+            c_axi = {}
+            for a in self.my_atom_indices:
+                ni = self.get_function_count(a)
+                c_axi[a] = np.empty(shape + (ni,), self.get_dtype())
+                if zero:
+                    c_axi[a].fill(0.0)
+            return c_axi
+
+    def get_dtype(self): # only old LFC has the dtype attribute
+        if self.gamma:
+            return float
+        else:
+            return complex
+
+
+class NewLocalizedFunctionsCollection(BaseLFC):
     """New LocalizedFunctionsCollection
 
     Utilizes that localized functions can be stored on a spherical subset of
@@ -121,7 +160,7 @@ class NewLocalizedFunctionsCollection:
 
     Methods missing before LocalizedFunctionsCollection is obsolete:
 
-    dict, add, add1, add2, integrate, derivative
+    add, add1, add2, integrate, derivative
     """
     def __init__(self, gd, spline_aj, kpt_comm=None, cut=False):
         self.gd = gd
@@ -262,6 +301,9 @@ class NewLocalizedFunctionsCollection:
 
             G1 = G2
 
+    def get_function_count(self, a):
+        return self.sphere_a[a].get_function_count()
+
 
 class BasisFunctions(NewLocalizedFunctionsCollection):
     def add_to_density(self, nt_sG, f_asi):
@@ -302,11 +344,28 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
         self.lfc.construct_density(rho_MM, nt_G, q)
 
     def calculate_potential_matrix(self, vt_G, Vt_MM, q):
-        """Calculate lower part of potential matrix."""
+        """Calculate lower part of potential matrix.
+
+                       /
+            ~         |     *  _  ~ _        _   _
+            V      =  |  Phi  (r) v(r) Phi  (r) dr    for  mu >= nu
+             mu nu    |     mu            nu
+                     /
+
+        Overwrites the elements of the target matrix Vt_MM. """
         Vt_MM[:] = 0.0
         self.lfc.calculate_potential_matrix(vt_G, Vt_MM, q)
 
     def lcao_to_grid(self, C_nM, psit_nG, q):
+        """Deploy basis functions onto grids according to coefficients.
+
+                      -----
+             ~   _     \                 _
+            psi (r) =   )    C     Phi  (r)
+               n       /      n mu    mu
+                      -----
+                        mu
+        """
         for C_M, psit_G in zip(C_nM, psit_nG):
             self.lfc.lcao_to_grid(C_M, psit_G, q)
 
@@ -387,7 +446,7 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
 from gpaw.localized_functions import LocFuncs, LocFuncBroadcaster
 from gpaw.mpi import run
 
-class LocalizedFunctionsCollection:
+class LocalizedFunctionsCollection(BaseLFC):
     def __init__(self, gd, spline_aj, kpt_comm=None,
                  cut=False, forces=False, dtype=float,
                  integral=None):
@@ -455,25 +514,6 @@ class LocalizedFunctionsCollection:
                     if abs(integral) > 1e-15:
                         lfs.normalize(integral)
         self.spos_ac = spos_ac
-
-    def dict(self, shape=(), derivative=False, zero=False):
-        if isinstance(shape, int):
-            shape = (shape,)
-        if derivative:
-            assert not zero
-            c_axiv = {}
-            for a in self.my_atom_indices:
-                ni = self.lfs_a[a].ni
-                c_axiv[a] = np.empty(shape + (ni, 3), self.dtype)
-            return c_axiv
-        else:
-            c_axi = {}
-            for a in self.my_atom_indices:
-                ni = self.lfs_a[a].ni
-                c_axi[a] = np.empty(shape + (ni,), self.dtype)
-                if zero:
-                    c_axi[a].fill(0.0)
-            return c_axi
         
     def add(self, a_xG, c_axi=1.0, q=-1):
         if isinstance(c_axi, float):
@@ -510,11 +550,13 @@ class LocalizedFunctionsCollection:
         for a, lfs in self.lfs_a.items():
             I_a[a] += lfs.add_density2(n_g, D_asp[a][s])
 
+    def get_function_count(self, a):
+        return self.lfs_a[a].ni
+
 
 def test():
     from gpaw.grid_descriptor import GridDescriptor
     from gpaw.domain import Domain
-    from gpaw.poisson import PoissonSolver
     import gpaw.mpi as mpi
 
     ngpts = 40
