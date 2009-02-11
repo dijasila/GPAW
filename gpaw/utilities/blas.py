@@ -4,6 +4,9 @@
 """
 Python wrapper functions for the ``C`` package:
 Basic Linear Algebra Subroutines (BLAS)
+
+See also:
+http://en.wikipedia.org/wiki/Basic_Linear_Algebra_Subprograms
 """
 
 import numpy as npy
