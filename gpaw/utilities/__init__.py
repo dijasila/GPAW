@@ -24,8 +24,11 @@ erf = npy.vectorize(_gpaw.erf, (float,), 'Error function')
 fac = [1, 1, 2, 6, 24, 120, 720, 5040, 40320,
        362880, 3628800, 39916800, 479001600]
 
+
 def swap(a, b):
     """Swap the references of a and b.
+
+    More efficient than 'a, b = b, a' as this uses a temporary working array.
     """
 
     assert isinstance(a, npy.ndarray)
@@ -44,7 +47,8 @@ def gcd(a, b):
 
 
 def contiguous(array, dtype):
-    """Convert a sequence to a contiguous Numeric array."""
+    # XXX Use numpy.ascontiguousarray(array, dtype=None) instead!
+    """Convert a sequence to a contiguous Numpy array."""
     array = npy.asarray(array, dtype)
     if array.flags.contiguous:
         return array
