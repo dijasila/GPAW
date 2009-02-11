@@ -82,13 +82,15 @@ class PAW(PAWTextOutput):
             reader = gpaw.io.open(filename, 'r')
             self.atoms = gpaw.io.read_atoms(reader)
             self.input_parameters.read(reader)
-
+            self.initialize()
+            self.read(reader)
+            
         self.set(**kwargs)
 
         if filename is not None:
-            self.initialize()
-            self.read(reader)
-
+            if not self.initialized:
+                self.initialize()
+                
         self.observers = []
 
     def read(self, reader):
@@ -112,25 +114,35 @@ class PAW(PAWTextOutput):
             kwargs['convergence'] = cc
 
         self.initialized = False
-        
+
         for key in kwargs:
-            if key in ['fixmom', 'mixer', 'convergence', 'fixdensity',
-                       'verbose', 'txt', 'hund', 'random', 'maxiter',
+            if key in ['fixmom', 'mixer',
+                       'verbose', 'txt', 'hund', 'random',
                        'eigensolver', 'poissonsolver', 'idiotproof']:
                 continue
                 
+            if key in ['convergence', 'fixdensity', 'maxiter']:
+                self.scf = None
+                continue
+                
             # More drastic changes:
+            self.scf = None
             self.wfs.set_orthonormalized(False)
             if key in ['lmax', 'width', 'stencils', 'external']:
-                pass
+                self.hamiltonian = None
+                self.occupations = None
             elif key in ['charge', 'xc']:  # XXX why is 'xc' here?
+                self.hamiltonian = None
                 self.density = None
             elif key in ['kpts', 'nbands']:
                 self.wfs = EmptyWaveFunctions()
+                self.occupations = None
             elif key in ['h', 'gpts', 'setups', 'basis', 'spinpol',
                          'usesymm', 'parsize', 'parsize_bands',
                          'communicator', 'mode']:
                 self.density = None
+                self.occupations = None
+                self.hamiltonian = None
                 self.wfs = EmptyWaveFunctions()
             else:
                 raise TypeError('Unknown keyword argument:' + key)
@@ -157,7 +169,10 @@ class PAW(PAWTextOutput):
               (atoms.get_pbc() != self.atoms.get_pbc()).any()):
             # Drastic changes:
             self.wfs = EmptyWaveFunctions()
+            self.occupations = None
             self.density = None
+            self.hamiltonian = None
+            self.scf = None
             self.initialize(atoms)
             self.set_positions(atoms)
         elif not self.initialized:
@@ -192,7 +207,7 @@ class PAW(PAWTextOutput):
         else:
             # Save the state of the atoms:
             self.atoms = atoms.copy()
-            
+
         spos_ac = atoms.get_scaled_positions() % 1.0
 
         self.wfs.set_positions(spos_ac)
@@ -333,12 +348,16 @@ class PAW(PAWTextOutput):
         if nvalence > 2 * nbands:
             raise ValueError('Too few bands!')
 
-        # Create object for occupation numbers:
-        if width == 0 or 2 * nbands == nvalence:
-            self.occupations = occupations.ZeroKelvin(nvalence, nspins)
-        else:
-            self.occupations = occupations.FermiDirac(nvalence, nspins, width)
+        if self.occupations is None:
+            # Create object for occupation numbers:
+            if width == 0 or 2 * nbands == nvalence:
+                self.occupations = occupations.ZeroKelvin(nvalence, nspins)
+            else:
+                self.occupations = occupations.FermiDirac(nvalence, nspins,
+                                                          width)
 
+        self.occupations.magmom = atoms.get_initial_magnetic_moments().sum()
+        
         if fixmom:
             self.occupations.fix_moment(M)
 
@@ -369,12 +388,13 @@ class PAW(PAWTextOutput):
         else:
             niter_fixdensity = 2
 
-        self.scf = self.scf_loop_class(cc['eigenstates'] * nvalence, 
-                                       cc['energy'] / Hartree * natoms,
-                                       cc['density'] * nvalence,
-                                       par.maxiter, par.fixdensity,
-                                       niter_fixdensity)
-
+        if self.scf is None:
+            self.scf = self.scf_loop_class(cc['eigenstates'] * nvalence, 
+                                           cc['energy'] / Hartree * natoms,
+                                           cc['density'] * nvalence,
+                                           par.maxiter, par.fixdensity,
+                                           niter_fixdensity)
+        
         if not self.wfs:
             domain_comm, kpt_comm, band_comm = self.distribute_cpus(
                 world, parsize, parsize_bands, nspins, len(ibzk_kc))
@@ -418,9 +438,11 @@ class PAW(PAWTextOutput):
                                 magmom_a, par.hund)
         self.density.set_mixer(par.mixer, fixmom, width)
 
-        self.hamiltonian = Hamiltonian(self.gd, self.finegd, nspins, setups,
-                                       par.stencils[1], self.timer, xcfunc,
-                                       par.poissonsolver, par.external)
+        if self.hamiltonian is None:
+            self.hamiltonian = Hamiltonian(self.gd, self.finegd, nspins,
+                                           setups, par.stencils[1], self.timer,
+                                           xcfunc, par.poissonsolver,
+                                           par.external)
 
         xcfunc.set_non_local_things(self.density, self.hamiltonian, self.wfs,
                                     self.atoms)

@@ -36,10 +36,9 @@ if mpi.size == 1: # XXX
 
 calc.write('h2o-xas.gpw')
 
-comm = mpi.world.new_communicator(np.array([0]))
-
-if mpi.rank == 0:
-    calc = GPAW('h2o-xas.gpw', txt=None, communicator=comm)
+if mpi.size == 1:
+    calc = GPAW('h2o-xas.gpw', txt=None)
+    calc.initialize()
     xas = XAS(calc)
     x, y = xas.get_spectra()
     e2_n = xas.eps_n

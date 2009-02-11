@@ -364,7 +364,7 @@ def read(paw, reader):
 
     version = r['version']
 
-    for setup in paw.wfs.setups.setups.values():
+    for setup in wfs.setups.setups.values():
         try:
             key = atomic_names[setup.Z] + 'Fingerprint'
             if setup.type != 'paw':
@@ -440,7 +440,7 @@ def read(paw, reader):
     if not paw.input_parameters.fixmom and 'FermiLevel' in r.parameters:
         paw.occupations.set_fermi_level(r['FermiLevel'])
 
-    paw.occupations.magmom = paw.atoms.get_initial_magnetic_moments().sum()
+    #paw.occupations.magmom = paw.atoms.get_initial_magnetic_moments().sum()
     
     # Try to read the current time in time-propagation:
     if hasattr(paw, 'time'):

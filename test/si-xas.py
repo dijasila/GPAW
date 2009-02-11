@@ -28,20 +28,18 @@ si = Atoms([Atom('Si', (0, 0, 0)),
             Atom('Si', (c, d, d))],
            cell=(a, a, a), pbc=True)
 
-k = 2
 import numpy as np
-calc = GPAW(nbands=None, h=0.25, 
-                  width=0.05,
-                  setups={0: 'hch1s'}, usesymm=True
-                  )
+calc = GPAW(nbands=None,
+            h=0.25, 
+            width=0.05,
+            setups={0: 'hch1s'},
+            usesymm=True)
 si.set_calculator(calc)
 e = si.get_potential_energy()
 calc.write('si.gpw')
 
 # restart from file
-calc = GPAW('si.gpw', kpts=(k, k, k))
-
-assert calc.wfs.dtype == complex
+calc = GPAW('si.gpw')
 
 import gpaw.mpi as mpi
 if mpi.size == 1:
@@ -50,7 +48,12 @@ if mpi.size == 1:
 else:
     x = np.linspace(0, 10, 50)
     
+k = 2
+calc.set(kpts=(k, k, k))
+calc.initialize()
 calc.set_positions(si)
+assert calc.wfs.dtype == complex
+
 r = RecursionMethod(calc)
 r.run(40)
 if mpi.size == 1:

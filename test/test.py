@@ -42,33 +42,7 @@ opt, tests = parser.parse_args()
 
 if len(tests) == 0:
     # Fastest first, slowest last:
-    tests = ['pbe-pw91.py', 'xcfunc.py', 'xc.py', 'gp2.py', 'lapack.py',
-             'gradient.py', 'lf.py', 'non-periodic.py', 'lxc_xc.py',
-             'pbc.py', 'test_dot.py',
-             'transformations.py', 'Gauss.py', 'setups.py',
-             'poisson.py', 'cluster.py', 'integral4.py', 'cg2.py', 'XC2.py',
-             'd2Excdn2.py', 'XC2Spin.py', 'multipoletest.py', 'eed.py',
-             'coulomb.py', 'vdw/quick.py',
-             'parallel/overlap.py', 'parallel/hamiltonian.py',
-             'ase3k.py', 'mixer.py', 'proton.py', 'timing.py', 'restart.py',
-             'gauss_func.py', 'xcatom.py', 'wfs_io.py', 'ylexpand.py',
-             'gemm.py', 'vdw/ar2.py', 'lrtddft2.py', 'CL_minus.py',
-             'nonselfconsistentLDA.py', 'bee1.py', 'gga-atom.py', 'revPBE.py',
-             'td_na2.py', 'nonselfconsistent.py', 'external_potential.py',
-             'bulk.py', 'spinpol.py', 'refine.py', 'ewald.py', 'asewannier.py',
-             'bulk-lcao.py', 'stdout.py', 'restart2.py', 'hydrogen.py',
-             'H-force.py', 'plt.py', 'h2o-xas.py', 'degeneracy.py',
-             'davidson.py', 'cg.py', 'lcao_force.py', 'tci_derivative.py',
-             'ldos.py', 'h2o-xas-recursion.py',
-             'atomize.py', 'wannier-ethylene.py', 'lrtddft.py', 'CH4.py',
-             'apmb.py', 'relax.py', 'fixmom.py',
-             'si-xas.py', 'fermilevel.py', 'transport.py',
-             'revPBE_Li.py', 'lxc_xcatom.py', 'exx_coarse.py', '2Al.py',
-             '8Si.py', 'dscf_CO.py', 'lcao-h2o.py', 'IP-oxygen.py',
-             'dscf_H2Al.py',
-             'generatesetups.py', 'aedensity.py', 'h2o_dks.py', 'Cu.py',
-             'exx.py','tpss.py',
-             'H2Al110.py', 'ltt.py']
+    tests = ['lapack.py', 'setups.py', 'xc.py', 'xcfunc.py', 'gradient.py', 'pbe-pw91.py', 'cg2.py', 'd2Excdn2.py', 'test_dot.py', 'gp2.py', 'non-periodic.py', 'lf.py', 'lxc_xc.py', 'Gauss.py', 'cluster.py', 'integral4.py', 'transformations.py', 'pbc.py', 'poisson.py', 'XC2.py', 'XC2Spin.py', 'multipoletest.py', 'aedensity.py', 'proton.py', 'coulomb.py', 'ase3k.py', 'eed.py', 'timing.py', 'gauss_func.py', 'xcatom.py', 'parallel/overlap.py', 'mixer.py', 'ylexpand.py', 'wfs_io.py', 'restart.py', 'gga-atom.py', 'nonselfconsistentLDA.py', 'bee1.py', 'refine.py', 'revPBE.py', 'lrtddft2.py', 'nonselfconsistent.py', 'stdout.py', 'ewald.py', 'spinpol.py', 'plt.py', 'parallel/hamiltonian.py', 'bulk.py', 'restart2.py', 'hydrogen.py', 'H-force.py', 'CL_minus.py', 'external_potential.py', 'gemm.py', 'fermilevel.py', 'degeneracy.py', 'h2o-xas.py', 'asewannier.py', 'vdw/quick.py', 'lxc_xcatom.py', 'davidson.py', 'cg.py', 'tci_derivative.py', 'h2o-xas-recursion.py', 'atomize.py', 'lrtddft.py', 'lcao_force.py', 'wannier-ethylene.py', 'CH4.py', 'apmb.py', 'relax.py', 'ldos.py', 'bulk-lcao.py', 'revPBE_Li.py', 'fixmom.py', 'generatesetups.py', 'td_na2.py', 'exx_coarse.py', '2Al.py', 'si-xas.py', 'tpss.py', '8Si.py', 'transport.py', 'Cu.py', 'lcao-h2o.py', 'IP-oxygen.py', 'exx.py', 'dscf_CO.py', 'h2o_dks.py', 'H2Al110.py', 'ltt.py', 'vdw/ar2.py', 'dscf_H2Al.py']
 
 disabled_tests = ['lb.py', 'kli.py', 'C-force.py', 'apply.py',
                   'viewmol_trajectory.py', 'fixdensity.py',

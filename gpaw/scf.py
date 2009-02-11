@@ -33,7 +33,7 @@ class SCFLoop:
     def run(self, wfs, hamiltonian, density, occupations):
         if self.converged:
             return
-
+        
         for iter in range(1, self.maxiter + 1):
             wfs.eigensolver.iterate(hamiltonian, wfs)
             occupations.calculate(wfs.kpt_u)
@@ -53,9 +53,11 @@ class SCFLoop:
 
         # Don't fix the density in the next step:
         self.niter_fixdensity = 0
-
+        
     def check_convergence(self, density, eigensolver):
         """Check convergence of eigenstates, energy and density."""
+        if self.converged:
+            return True
 
         self.eigenstates_error = eigensolver.error
 
@@ -67,6 +69,11 @@ class SCFLoop:
         self.density_error = density.mixer.get_charge_sloshing()
         if self.density_error is None:
             self.density_error = 1000000.0
+
+        if 0:
+            print (self.eigenstates_error, self.max_eigenstates_error,
+                   self.energy_error, self.max_energy_error,
+                   self.density_error, self.max_density_error)
 
         self.converged = (
             self.eigenstates_error < self.max_eigenstates_error and
