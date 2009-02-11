@@ -25,8 +25,8 @@ class UTGammaPointTDDFT(UTGammaPointSetup):
                     propagator=self.propagator, solver=self.solver,
                     tolerance=self.tolerance)#, debug=debug) TODO!
 
-        self.time_step = 10.0    # 1 attoseconds = 0.041341 autime
-        self.iterations = 3      # 3 x 10 as => 1.24023 autime
+        self.time_step = 5.0     # 1 attoseconds = 0.041341 autime
+        self.iterations = 10      # 10 x 5 as => 2.067050 autime
 
     def tearDown(self):
         del self.tdcalc

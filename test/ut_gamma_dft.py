@@ -4,6 +4,7 @@ import os.path
 
 from ase import Atoms,Atom
 from gpaw import GPAW
+from gpaw.mixer import Mixer,MixerSum
 
 #from numpy import ndarray,zeros,any,all,abs
 
@@ -12,6 +13,9 @@ from gpaw import GPAW
 class UTGammaPointSetup(unittest.TestCase):
     """
     Setup a simple gamma point calculation with DFT."""
+
+    # Number of additional bands e.g. for DSCF linear expansion
+    nextra = 0
 
     def setUp(self):
         self.restartfile = 'ut_gamma_dft.gpw'
@@ -33,19 +37,29 @@ class UTGammaPointSetup(unittest.TestCase):
     # =================================
 
     def initialize(self):
-        # Bond lengths between H-C and C-C
-        dhc = 1.06
-        dcc = 0.6612
+        # Bond lengths between H-C and C-C for ethyne (acetylene) cf.
+        # CRC Handbook of Chemistry and Physics, 87th ed., p. 9-28
+        dhc = 1.060
+        dcc = 1.203
 
         self.atoms = Atoms([Atom('H', (0, 0, 0)),
                     Atom('C', (dhc, 0, 0)),
                     Atom('C', (dhc+dcc, 0, 0)),
                     Atom('H', (2*dhc+dcc, 0, 0))])
 
-        self.atoms.center(vacuum=2.0)
+        self.atoms.center(vacuum=4.0)
 
-        self.calc = GPAW(nbands=int(10/2.0)+4,
-                    h = 0.1,
+        # Number of occupied and unoccupied bands to converge
+        nbands = int(10/2.0)+3
+
+        self.calc = GPAW(h=0.2,
+                    nbands=nbands+self.nextra,
+                    xc='RPBE',
+                    spinpol=True,
+                    eigensolver='cg',
+                    mixer=MixerSum(nmaxold=5, beta=0.1, weight=100),
+                    #convergence={'eigenstates': 1e-9, 'bands':nbands},
+                    #width=0.1, #TODO might help convergence?
                     txt='ut_gamma_dft.txt')
 
         self.atoms.set_calculator(self.calc)
@@ -55,14 +69,29 @@ class UTGammaPointSetup(unittest.TestCase):
     def test_consistency(self):
 
         self.assertEqual(self.calc.initialized,self.restarted)
-        self.assertEqual(self.calc.scf.converged,self.restarted)
+        #self.assertEqual(self.calc.scf.converged,self.restarted)
 
         Epot = self.atoms.get_potential_energy()
 
-        self.assertAlmostEqual(Epot,27.5186,places=4)
+        self.assertAlmostEqual(Epot,-22.8126,places=4)
 
         self.assertTrue(self.calc.initialized)
         self.assertTrue(self.calc.scf.converged)
+
+    def test_degeneracy(self):
+
+        degeneracies = [(3,4),(5,6)]
+
+        for kpt in self.calc.wfs.kpt_u:
+            for (a,b) in degeneracies:
+                self.assertAlmostEqual(kpt.eps_n[a],kpt.eps_n[b],places=6)
+
+    def test_occupancy(self):
+
+        ne_u = [5., 5.]
+
+        for kpt,ne in zip(self.calc.wfs.kpt_u,ne_u):
+            self.assertAlmostEqual(sum(kpt.f_n),ne,places=4)
 
 # -------------------------------------------------------------------
 
