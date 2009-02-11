@@ -86,7 +86,7 @@ class TimeDependentHamiltonian:
         self.old_time = self.time
         self.time = time
 
-        # copy old        
+        # copy old
         self.vt_sG[:] = self.hamiltonian.vt_sG
         dH_asp = {}
         for a, dH_sp in self.hamiltonian.dH_asp.items():
@@ -283,6 +283,18 @@ class TimeDependentOverlap:
         None
 
         """
+        #for kpt in self.wfs.kpt_u:
+        #    # copy old
+        #    P_ani = {}
+        #    for a,P_ni in kpt.P_ani.items():
+        #        P_ani[a] = P_ni.copy()
+        #    # update
+        #    self.update_k_point_projections(kpt)
+        #    # average
+        #    for a,P_ni in P_ani.items():
+        #        kpt.P_ani[a] += P_ni
+        #        kpt.P_ani[a] *= .5
+
         # !!! FIX ME !!! update overlap operator/projectors/...
         pass
     

@@ -217,7 +217,7 @@ class ExplicitCrankNicolson(DummyPropagator):
 
         self.timer.start('Apply time-dependent operators')
         # Store H psi(t) as hpsit and S psit(t) as spsit
-        self.wfs.pt.integrate(rhs_kpt.psit_nG, kpt.P_ani, kpt.q)
+        self.td_overlap.update_k_point_projections(kpt, rhs_kpt.psit_nG)
         self.td_hamiltonian.apply(kpt, rhs_kpt.psit_nG, self.hpsit,
                                   calculate_P_ani=False)
         self.td_overlap.apply(kpt, rhs_kpt.psit_nG, self.spsit,
@@ -258,7 +258,7 @@ class ExplicitCrankNicolson(DummyPropagator):
 
         """
         self.timer.start('Apply time-dependent operators')
-        self.wfs.pt.integrate(psi, self.kpt.P_ani, self.kpt.q)
+        self.td_overlap.update_k_point_projections(self.kpt, psi)
         self.td_hamiltonian.apply(self.kpt, psi, self.hpsit,
                                   calculate_P_ani=False)
         self.td_overlap.apply(self.kpt, psi, self.spsit, calculate_P_ani=False)
@@ -419,7 +419,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
 
         self.timer.start('Apply time-dependent operators')
         # Store H psi(t) as hpsit and S psit(t) as spsit
-        self.wfs.pt.integrate(rhs_kpt.psit_nG, kpt.P_ani, kpt.q)
+        self.td_overlap.update_k_point_projections(kpt, rhs_kpt.psit_nG)
         self.td_hamiltonian.apply(kpt, rhs_kpt.psit_nG, self.hpsit,
                                   calculate_P_ani=False)
         self.td_overlap.apply(kpt, rhs_kpt.psit_nG, self.spsit,
