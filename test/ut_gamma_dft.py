@@ -14,11 +14,13 @@ class UTGammaPointSetup(unittest.TestCase):
     """
     Setup a simple gamma point calculation with DFT."""
 
+    name = 'ut_gamma_dft'
+
     # Number of additional bands e.g. for DSCF linear expansion
     nextra = 0
 
     def setUp(self):
-        self.restartfile = 'ut_gamma_dft.gpw'
+        self.restartfile = self.name+'.gpw'
         self.restarted = os.path.isfile(self.restartfile)
 
         if self.restarted:
@@ -60,7 +62,7 @@ class UTGammaPointSetup(unittest.TestCase):
                     mixer=MixerSum(nmaxold=5, beta=0.1, weight=100),
                     #convergence={'eigenstates': 1e-9, 'bands':nbands},
                     #width=0.1, #TODO might help convergence?
-                    txt='ut_gamma_dft.txt')
+                    txt=self.name+'.txt')
 
         self.atoms.set_calculator(self.calc)
 
@@ -78,20 +80,6 @@ class UTGammaPointSetup(unittest.TestCase):
         self.assertTrue(self.calc.initialized)
         self.assertTrue(self.calc.scf.converged)
 
-    def test_degeneracy(self):
-
-        degeneracies = [(3,4),(5,6)]
-
-        for kpt in self.calc.wfs.kpt_u:
-            for (a,b) in degeneracies:
-                self.assertAlmostEqual(kpt.eps_n[a],kpt.eps_n[b],places=6)
-
-    def test_occupancy(self):
-
-        ne_u = [5., 5.]
-
-        for kpt,ne in zip(self.calc.wfs.kpt_u,ne_u):
-            self.assertAlmostEqual(sum(kpt.f_n),ne,places=4)
 
 # -------------------------------------------------------------------
 

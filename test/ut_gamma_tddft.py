@@ -15,18 +15,22 @@ class UTGammaPointTDDFT(UTGammaPointSetup):
     """
     Propagate a gamma point calculation with TDDFT."""
 
+    name = 'ut_gamma_tddft'
     tolerance = 1e-8
 
     def setUp(self):
+        name_old,self.name = self.name,UTGammaPointSetup.name
         UTGammaPointSetup.setUp(self)
+        self.name = name_old
+
         self.assertTrue(self.restarted)
 
-        self.tdcalc = TDDFT(self.restartfile, txt='ut_gamma_tddft.txt',
+        self.tdcalc = TDDFT(self.restartfile, txt=self.name+'.txt',
                     propagator=self.propagator, solver=self.solver,
                     tolerance=self.tolerance)#, debug=debug) TODO!
 
         self.time_step = 5.0     # 1 attoseconds = 0.041341 autime
-        self.iterations = 10      # 10 x 5 as => 2.067050 autime
+        self.iterations = 10     # 10 x 5 as => 2.067050 autime
 
     def tearDown(self):
         del self.tdcalc
@@ -45,24 +49,31 @@ class UTGammaPointTDDFT_ECN_CSCG(UTGammaPointTDDFT):
     __doc__ = UTGammaPointTDDFT.__doc__ + """
     Propagator is ECN and solver CSCG."""
 
+    name = UTGammaPointTDDFT.name + '_ecn_cscg'
     propagator = 'ECN'
     solver = 'CSCG'
 
 class UTGammaPointTDDFT_SICN_CSCG(UTGammaPointTDDFT):
     __doc__ = UTGammaPointTDDFT.__doc__ + """
     Propagator is SICN and solver CSCG."""
+
+    name = UTGammaPointTDDFT.name + '_sicn_cscg'
     propagator = 'SICN'
     solver = 'CSCG'
 
 class UTGammaPointTDDFT_SITE_CSCG(UTGammaPointTDDFT):
     __doc__ = UTGammaPointTDDFT.__doc__ + """
     Propagator is SITE and solver CSCG."""
+
+    name = UTGammaPointTDDFT.name + '_site_cscg'
     propagator = 'SITE'
     solver = 'CSCG'
 
 class UTGammaPointTDDFT_SIKE_CSCG(UTGammaPointTDDFT):
     __doc__ = UTGammaPointTDDFT.__doc__ + """
     Propagator is SIKE6 and solver CSCG."""
+
+    name = UTGammaPointTDDFT.name + '_sike_cscg'
     propagator = 'SIKE6'
     solver = 'CSCG'
 
