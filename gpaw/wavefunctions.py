@@ -415,7 +415,7 @@ class LCAOWaveFunctions(WaveFunctions):
         phit_1G = grid_bfs.gd.empty(1, self.dtype)
         derivs_a1iv = grid_bfs.dict(1, derivative=True)
         derivs_aMiv = grid_bfs.dict(nao, derivative=True)
-        dEdndndR_av = np.empty((len(self.setups), 3))
+        dEdndndR_av = np.zeros((len(self.setups), 3))
 
         for M in range(nao):
             phit_1G[:] = 0.0
@@ -435,7 +435,7 @@ class LCAOWaveFunctions(WaveFunctions):
                                            derivs_Miv[:, :, v]).real.trace()
                 dEdndndR_av[b, v] = forcecontrib
 
-        self.gd.comm.sum(dEdndndR_av)        
+        self.gd.comm.sum(dEdndndR_av)
         return dEdndndR_av
 
     def calculate_potential_derivatives(self, tci, a, hamiltonian, kpt,
