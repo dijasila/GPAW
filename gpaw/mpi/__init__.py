@@ -159,6 +159,12 @@ if debug:
                 assert sys.getrefcount(a) > 3
             return self.comm.send(a, dest, tag, block)
 
+        def ssend(self, a, dest, tag=123):
+            assert 0 <= dest < self.size
+            assert dest != self.rank
+            assert is_contiguous(a)
+            return self.comm.ssend(a, dest, tag)
+
         def receive(self, a, src, tag=123, block=True):
             assert 0 <= src < self.size
             assert src != self.rank
