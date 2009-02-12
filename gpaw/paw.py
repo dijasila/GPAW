@@ -75,7 +75,9 @@ class PAW(PAWTextOutput):
         self.density = None
         self.hamiltonian = None
         self.atoms = None
-
+        self.gd = None
+        self.finegd = None
+        
         self.initialized = False
 
         if filename is not None:
@@ -398,6 +400,12 @@ class PAW(PAWTextOutput):
         if not self.wfs:
             domain_comm, kpt_comm, band_comm = self.distribute_cpus(
                 world, parsize, parsize_bands, nspins, len(ibzk_kc))
+
+            if self.gd is not None and self.gd.comm.size != domain_comm.size:
+                # Domain decomposition has changed, so we need to
+                # reinitialize density and hamiltonian:
+                self.density = None
+                self.hamiltonian = None
 
             # Create a Domain object:
             self.domain = Domain(cell_cv, pbc_c)
