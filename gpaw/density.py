@@ -80,7 +80,7 @@ class Density:
 
         self.nct_G = self.gd.zeros()
         self.nct.add(self.nct_G, 1.0 / self.nspins)
-        self.nt_sG = None
+        #self.nt_sG = None
         self.nt_sg = None
         self.nt_g = None
         self.rhot_g = None
@@ -108,47 +108,27 @@ class Density:
 
         self.rank_a = rank_a
 
-    def update(self, wfs, basis_functions=None,
-               calculate_atomic_density_matrices=True,
-               normalize_density=False):
-        if self.nt_sG is None:
-            self.nt_sG = self.gd.empty(self.nspins)
-
-        if self.D_asp is None:
-            assert calculate_atomic_density_matrices
-            self.D_asp = {}
-            for a in self.nct.my_atom_indices:
-                ni = self.setups[a].ni
-                self.D_asp[a] = np.empty((self.nspins, ni * (ni + 1) // 2))
-            
-        if basis_functions:
-            self.initialize_from_atomic_densities(basis_functions)
-        else:
-            wfs.calculate_density(self)
-            if calculate_atomic_density_matrices:
-                wfs.calculate_atomic_density_matrices(self)
-
-
+    def update(self, wfs):
+        wfs.calculate_density(self)
+        wfs.calculate_atomic_density_matrices(self)
         self.nt_sG += self.nct_G
-
         comp_charge = self.calculate_multipole_moments()
         
-        if (normalize_density or
-            basis_functions or
-            isinstance(wfs, LCAOWaveFunctions) or
-            not calculate_atomic_density_matrices):
-            pseudo_charge = self.gd.integrate(self.nt_sG).sum()
-            if pseudo_charge != 0:
-                x = -(self.charge + comp_charge) / pseudo_charge
-                self.nt_sG *= x
-####modify here
-        if not hasattr(self, 'transport'):
-            if not self.mixer.mix_rho:
-                self.mixer.mix(self)
-                comp_charge = None
-            
-        self.interpolate(comp_charge)
+        if isinstance(wfs, LCAOWaveFunctions):
+            self.normalize(comp_charge)
 
+        self.mix(comp_charge)
+
+    def normalize(self, comp_charge=None):
+        if comp_charge is None:
+            comp_charge = self.calculate_multipole_moments()
+        
+        pseudo_charge = self.gd.integrate(self.nt_sG).sum()
+        if pseudo_charge != 0:
+            x = -(self.charge + comp_charge) / pseudo_charge
+            self.nt_sG *= x
+
+    def calculate_pseudo_charge(self):
         self.nt_g = self.nt_sg.sum(axis=0)
         self.rhot_g = self.nt_g.copy()
         self.ghat.add(self.rhot_g, self.Q_aL)
@@ -157,10 +137,16 @@ class Density:
             if abs(charge) > self.charge_eps:
                 raise RuntimeError('Charge not conserved: excess=%.9f' %
                                    charge)
-#####modify here
-        if not hasattr(self, 'transport'):
-            if self.mixer.mix_rho:
-                self.mixer.mix(self)
+    def mix(self, comp_charge):
+        if not self.mixer.mix_rho and not hasattr(self, 'transport'):
+            self.mixer.mix(self)
+            comp_charge = None
+            
+        self.interpolate(comp_charge)
+        self.calculate_pseudo_charge()
+
+        if self.mixer.mix_rho and not hasattr(self, 'transport'):
+            self.mixer.mix(self)
 
     def interpolate(self, comp_charge=None):
         if comp_charge is None:
@@ -209,8 +195,9 @@ class Density:
                 self.D_asp[a] = self.setups[a].initialize_density_matrix(f_si)
             f_asi[a] = f_si
 
-        self.nt_sG.fill(0.0)
+        self.nt_sG = self.gd.zeros(self.nspins)
         basis_functions.add_to_density(self.nt_sG, f_asi)
+        self.nt_sG += self.nct_G
 
     def set_mixer(self, mixer, fixmom, width):
         if mixer is not None:

@@ -77,7 +77,7 @@ class PAW(PAWTextOutput):
         self.atoms = None
         self.gd = None
         self.finegd = None
-        
+
         self.initialized = False
 
         if filename is not None:
@@ -130,7 +130,7 @@ class PAW(PAWTextOutput):
             # More drastic changes:
             self.scf = None
             self.wfs.set_orthonormalized(False)
-            if key in ['lmax', 'width', 'stencils', 'external']:
+            if key in ['lmax', 'width', 'stencils', 'external', 'xc']:
                 self.hamiltonian = None
                 self.occupations = None
             elif key in ['charge', 'xc']:  # XXX why is 'xc' here?
@@ -181,6 +181,7 @@ class PAW(PAWTextOutput):
             self.initialize(atoms)
             self.set_positions(atoms)
         elif (atoms.get_positions() != self.atoms.get_positions()).any():
+            self.density.nt_sG = None
             self.set_positions(atoms)
         elif not self.scf.check_convergence(self.density,
                                             self.wfs.eigensolver):
@@ -411,8 +412,7 @@ class PAW(PAWTextOutput):
             self.domain = Domain(cell_cv, pbc_c)
             self.domain.set_decomposition(domain_comm, parsize, N_c)
 
-            # Construct grid descriptors for coarse grids (wave functions) and
-            # fine grids (densities and potentials):
+            # Construct grid descriptor for coarse grids for wave functions:
             self.gd = GridDescriptor(self.domain, N_c)
 
             # do k-point analysis here? XXX
@@ -438,6 +438,8 @@ class PAW(PAWTextOutput):
         self.wfs.timer = self.timer
 
         if self.density is None:
+            # Construct grid descriptor for fine grids for densities
+            # and potentials:
             self.finegd = GridDescriptor(self.domain, 2 * N_c)
             self.density = Density(self.gd, self.finegd, nspins,
                                    par.charge + setups.core_charge)

@@ -18,24 +18,29 @@ class EmptyWaveFunctions:
 class WaveFunctions(EmptyWaveFunctions):
     """...
 
-    ==============  ====================================================
-    ``setups``      List of setup objects.
-    ``symmetry``    Symmetry object.
-    ``kpt_u``       List of **k**-point objects.
-    ``nbands``      Number of bands.
-    ``nspins``      Number of spins.
-    ``dtype``       Data type of wave functions (``float`` or
-                    ``complex``).
-    ``bzk_kc``      Scaled **k**-points used for sampling the whole
-                    Brillouin zone - values scaled to [-0.5, 0.5).
-    ``ibzk_kc``     Scaled **k**-points in the irreducible part of the
-                    Brillouin zone.
-    ``weight_k``    Weights of the **k**-points in the irreducible part
-                    of the Brillouin zone (summing up to 1).
-    ``kpt_comm``    MPI-communicator for parallelization over
-                    **k**-points.
-    ==============  ====================================================
-
+    setups:
+        List of setup objects.
+    symmetry:
+        Symmetry object.
+    kpt_u:
+        List of **k**-point objects.
+    nbands: int
+        Number of bands.
+    nspins: int
+        Number of spins.
+    dtype: dtype
+        Data type of wave functions (float or complex).
+    bzk_kc: ndarray
+        Scaled **k**-points used for sampling the whole
+        Brillouin zone - values scaled to [-0.5, 0.5).
+    ibzk_kc: ndarray
+        Scaled **k**-points in the irreducible part of the
+        Brillouin zone.
+    weight_k: ndarray
+        Weights of the **k**-points in the irreducible part
+        of the Brillouin zone (summing up to 1).
+    kpt_comm:
+        MPI-communicator for parallelization over **k**-points.
     """
     def __init__(self, gd, nspins, setups, nbands, mynbands, dtype,
                  world, kpt_comm, band_comm,
@@ -296,8 +301,10 @@ class LCAOWaveFunctions(WaveFunctions):
                            self.dtype)
             
     def initialize(self, density, hamiltonian, spos_ac):
-        if density.nt_sG is None:
-            density.update(self, basis_functions=self.basis_functions)
+        density.initialize_from_atomic_densities(self.basis_functions)
+        comp_charge = density.calculate_multipole_moments()
+        density.normalize(comp_charge)
+        density.mix(comp_charge)
         hamiltonian.update(density)
 
     def add_to_density_from_k_point_with_occupation(self, nt_sG, kpt, f_n):
@@ -600,20 +607,21 @@ class GridWaveFunctions(WaveFunctions):
 
         if density.nt_sG is None:
             if self.kpt_u[0].psit_nG is None:
-                density.update(self, basis_functions=basis_functions)
+                density.initialize_from_atomic_densities(basis_functions)
                 # Initialize GLLB-potential from basis function orbitals
                 if hamiltonian.xcfunc.gllb:
-                    hamiltonian.xcfunc.xc.initialize_from_atomic_orbitals(basis_functions)
+                    hamiltonian.xcfunc.xc.initialize_from_atomic_orbitals(
+                        basis_functions)
 
 
             else:
-                if density.D_asp is None:
-                    for kpt in self.kpt_u:
-                        self.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                    density.update(self, normalize_density=True)
-                else:
-                    density.update(self,
-                                   calculate_atomic_density_matrices=False)
+                density.nt_sG = self.gd.empty(self.nspins)
+                self.calculate_density(density)
+                density.nt_sG += density.nct_G
+
+        comp_charge = density.calculate_multipole_moments()
+        density.normalize(comp_charge)
+        density.mix(comp_charge)
 
         hamiltonian.update(density)
 

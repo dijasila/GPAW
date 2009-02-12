@@ -17,9 +17,11 @@ bulk = Atoms(symbols='Si8',
 bulk.set_cell((a, a, a), scale_atoms=True)
 n = 20
 calc = GPAW(gpts=(n, n, n),
-                  nbands=8*3,
-                  width=0.01,
-                  kpts=(2, 2, 2))
+            nbands=8*3,
+            width=0.01,
+            kpts=(2, 2, 2),
+            #convergence={'eigenstates': 1e-11}
+            )
 bulk.set_calculator(calc)
 f1 = bulk.get_forces()[0, 2]
 f2 = numeric_force(bulk, 0, 2)

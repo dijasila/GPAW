@@ -27,11 +27,11 @@ del bulk
 del calc
 
 bulk, calc = restart('temp.gpw', fixdensity=True)
-calc.scf.reset()
+#calc.scf.reset()
 bulk.get_potential_energy()
 eigs2 = calc.get_eigenvalues(kpt=0)
-print "Orginal", eigs
-print "Fixdensity", eigs2
-print "Difference", eigs2-eigs
+print 'Orginal', eigs
+print 'Fixdensity', eigs2
+print 'Difference', eigs2-eigs
 
-assert sum(abs(eigs2 - eigs)) < 1e-5
+assert np.fabs(eigs2 - eigs)[:-1].max() < 3e-5
