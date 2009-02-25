@@ -48,6 +48,10 @@ PyObject* spherical_harmonics(PyObject *self, PyObject *args);
 PyObject* spline_to_grid(PyObject *self, PyObject *args);
 PyObject* NewLFCObject(PyObject *self, PyObject *args);
 PyObject* compiled_WITH_SL(PyObject *self, PyObject *args);
+#ifdef GPAW_WITH_SL
+PyObject* blacs_array(PyObject *self, PyObject *args);
+PyObject* blacs_redist(PyObject *self, PyObject *args);
+#endif
 
 static PyMethodDef functions[] = {
   {"gemm", gemm, METH_VARARGS, 0},
@@ -93,6 +97,10 @@ static PyMethodDef functions[] = {
   {"construct_density", construct_density, METH_VARARGS, 0},
   {"construct_density1", construct_density1, METH_VARARGS, 0},
   */
+#ifdef GPAW_WITH_SL
+  {"blacs_array",      blacs_array,      METH_VARARGS, 0},
+  {"blacs_redist",     blacs_redist,     METH_VARARGS, 0},
+#endif
   {0, 0, 0, 0}
 };
 
