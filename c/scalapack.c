@@ -9,6 +9,7 @@
 #define   Cblacs_pinfo_    Cblacs_pinfo
 #define   Cblacs_pnum_     Cblacs_pnum
 #define   Cblacs_setup_    Cblacs_setup
+#define   Csys2blacs_handle_ Csys2blacs_handle
 #endif
 
 #ifdef GPAW_AIX
@@ -36,6 +37,8 @@ void Cblacs_pinfo_(int *mypnum, int *nprocs);
 int Cblacs_pnum_(int ConTxt, int prow, int pcol);
 
 void Cblacs_setup_(int *mypnum, int *nprocs);
+
+int Csys2blacs_handle_(MPI_Comm SysCtxt);
 
 void dgebr2d_(int *ConTxt, char* scope, char* top, int *m, int *n,
               double *A, int *lda, int *rsrc, int *csrc);
@@ -512,6 +515,93 @@ static PyObject* diagonalize(MPIObject *self, PyObject *args)
   //printf("info %d, pnum %d\n", info, pnum);
   //Py_RETURN_NONE;
   return Py_BuildValue("i", info);
+}
+
+PyObject* blacs_array(PyObject *self, PyObject *args)
+{
+  PyObject*  comm_obj;     // communicator
+  char order='R';
+  int m, n, nprow, npcol, mb, nb, lld;
+  int nprocs;
+  int ConTxt = -1;
+  int iam = 0;
+  int rsrc = 0;
+  int csrc = 0;
+  int myrow = -1;
+  int mycol = -1;
+  int desc[9];
+
+  npy_intp desc_dims[1] = {9};
+  PyArrayObject* desc_obj = (PyArrayObject*)PyArray_SimpleNew(1, desc_dims, NPY_INT);
+
+  if (!PyArg_ParseTuple(args, "Oiiiiiii", &comm_obj, &m, &n, &nprow, &npcol, &mb, &nb, &lld))
+    return NULL;
+
+  // Create blacs grid on this communicator
+  MPI_Comm comm = ((MPIObject*)comm_obj)->comm;
+
+  // sl_init_(&ConTxt, &nprow, &npcol); 
+  // Forces you to use all MPI processes, not what we want.
+  Cblacs_pinfo_(&iam, &nprocs);
+  MPI_Comm_size(comm, &nprocs);
+  printf("iam=%d,nprocs=%d\n",iam,nprocs);
+  ConTxt = Csys2blacs_handle(comm);
+  Cblacs_gridinit_(&ConTxt, &order, nprow, npcol );
+  printf("ConTxt=%d,nprow=%d,npcol=%d\n",ConTxt,nprow,npcol);
+  Cblacs_gridinfo_(ConTxt, &nprow, &npcol, &myrow, &mycol);
+
+  printf("myrow=%d,mycol=%d\n",myrow,mycol);
+  // printf("m=%d,n=%d,mb=%d,nb=%d,rsrc=%d,csrc=%d,ConTxt=%d,lld=%d\n",m,n,mb,nb,rsrc,csrc,ConTxt,lld);
+  // descinit_(INTP(desc),&m,&n,&mb,&nb,&rsrc,&csrc,&ConTxt,&lld,&info);
+
+  desc[0] = 1;
+  desc[1] = ConTxt;
+  desc[2] = m;
+  desc[3] = n;
+  desc[4] = mb;
+  desc[5] = nb;
+  desc[6] = 0;
+  desc[7] = 0;
+  desc[8] = lld;
+
+  memcpy(desc_obj->data, desc, 9*sizeof(int));
+
+  return Py_BuildValue("O",desc_obj);
+}
+
+PyObject* blacs_redist(PyObject *self, PyObject *args)
+{
+    PyArrayObject* a_obj;     //source matrix
+    PyArrayObject* adesc; //description vector
+    PyArrayObject* bdesc; //description vector
+    int m, n, ConTxt; 
+    if (!PyArg_ParseTuple(args, "OOOiii", &a_obj, &adesc, &bdesc, &m, &n, &ConTxt))
+      return NULL;
+ 
+    static int one = 1;
+
+    int b_mycol = -1;
+    int b_myrow = -1;
+    int b_nprow, b_npcol; 
+    int b_ConTxt = INTP(bdesc)[1];
+    int b_m = INTP(bdesc)[2];
+    int b_n = INTP(bdesc)[3];
+    int b_mb = INTP(bdesc)[4];
+    int b_nb = INTP(bdesc)[5];
+    int b_rsrc = INTP(bdesc)[6];
+    int b_csrc = INTP(bdesc)[7];
+
+    Cblacs_gridinfo_(b_ConTxt, &b_nprow, &b_npcol,&b_myrow, &b_mycol);
+    int b_locM = numroc_(&b_m, &b_mb, &b_myrow, &b_rsrc, &b_nprow);
+    int b_locN = numroc_(&b_n, &b_nb, &b_mycol, &b_csrc, &b_npcol);
+
+    npy_intp b_dims[2] = {b_locM, b_locN};
+    PyArrayObject* b_obj = (PyArrayObject*)PyArray_SimpleNew(2, b_dims, NPY_DOUBLE);
+    
+    
+    Cpdgemr2d_(m, n, DOUBLEP(a_obj), one, one, INTP(adesc), DOUBLEP(b_obj), one, one, INTP(bdesc), ConTxt);     
+    
+    return Py_BuildValue("O",b_obj);
 }
 
 #include "sl_inverse_cholesky.c"
