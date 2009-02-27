@@ -46,7 +46,6 @@ mpi_define_macros = []
 packages = ['gpaw',
             'gpaw.analyse',
             'gpaw.atom',
-            'gpaw.db',
             'gpaw.eigensolvers',
             'gpaw.gllb',
             'gpaw.io',
