@@ -1,3 +1,4 @@
+import gpaw.db
 import os
 import os.path
 
@@ -8,11 +9,14 @@ from ase.atoms import Atoms
 import numpy as npy
 
 import gpaw.mpi as mpi
+import os,time,tempfile
 
 
 def open(filename, mode='r'):
     if filename.endswith('.nc'):
         import gpaw.io.netcdf as io
+    elif filename.endswith('.db'):
+        import gpaw.db.gpaw_ReadWriter as io
     else:
         if not filename.endswith('.gpw'):
             filename += '.gpw'
@@ -33,7 +37,7 @@ def wave_function_name_template(mode):
         template = 'wfs/psit_Gs%dk%dn%d'
     return ftype, template
 
-def write(paw, filename, mode):
+def write(paw, filename, mode, db=True, private="660", **kwargs):
     """Write state to file.
     
     The `mode` argument should be one of:
@@ -43,12 +47,32 @@ def write(paw, filename, mode):
     ``'all'``:
       Write also the wave functions to the file.
     ``'nc'`` or ``'gpw'``:
-      Write wave functions as seperate files (the default filenames
+      Write wave functions as separate files (the default filenames
       are ``'psit_Gs%dk%dn%d.nc' % (s, k, n)`` for ``'nc'``, where
       ``s``, ``k`` and ``n`` are spin, **k**-point and band indices). XXX
     ``'nc:mywfs/psit_Gs%dk%dn%d'``:
       Defines the filenames to be ``'mywfs/psit_Gs%dk%dn%d' % (s, k, n)``.
       The directory ``mywfs`` is created if not present. XXX
+    
+    Please note: mode argument is ignored by *.db files
+
+    The `db` argument:
+        if True a copy of the results is automatically written to the location
+        specified in gpaw.db.db_path, IF that path exists!
+
+    The `private` argument:
+       unix file access rights (i.e. 700 or ug+rwx) for the db file
+
+       private is only applicable to *.db files.
+
+    The `kwargs` can be any keyword-parameter (only supported with *.db files). 
+    The following are commonly used arguments:
+        desc:     A short description of the calculation.
+        db_path:  The path to the user-database which will be a directory where
+                  the output is stored. (The filename is automatically created.)
+        keywords: A list of keywords to identify the calculation.
+                  A good practise is to identify calculations that belong
+                  together with the same keyword.
     """
 
     wfs = paw.wfs
@@ -74,6 +98,9 @@ def write(paw, filename, mode):
         w['version'] = '0.7'
         w['lengthunit'] = 'Bohr'
         w['energyunit'] = 'Hartree'
+
+        if filename.endswith(".db"):
+           w.write_additional_db_params(**kwargs)
 
         try:
             tag_a = atoms.get_tags()
@@ -139,6 +166,7 @@ def write(paw, filename, mode):
         w['UseSymmetry'] = p['usesymm']
         w['Converged'] = scf.converged
         w['FermiWidth'] = paw.occupations.kT
+        w['BasisSet'] = p['basis']
         w['MixClass'] = paw.density.mixer.__class__.__name__
         w['MixBeta'] = paw.density.mixer.beta
         w['MixOld'] = paw.density.mixer.nmaxold
@@ -268,6 +296,27 @@ def write(paw, filename, mode):
                 if master:
                     w.fill(a_n)
 
+    # Attempt to read the number of delta-scf orbitals:
+    if hasattr(paw.occupations,'norbitals'):
+        norbitals = paw.occupations.norbitals
+    else:
+        norbitals = None
+
+    # Write the linear expansion coefficients for Delta SCF:
+    if mode == 'all' and norbitals is not None:
+        w.dimension('norbitals', norbitals)
+
+        if master:
+            w.add('LinearExpansionCoefficients', ('norbitals',
+                  'nspins', 'nibzkpts', 'nbands'), dtype=dtype)
+        for o in range(norbitals):
+            for s in range(wfs.nspins):
+                for k in range(nibzkpts):
+                    c_n = wfs.collect_array('c_on', k, s, subset=o)
+                if master:
+                    w.fill(c_n)
+
+
     # Write the pseudodensity on the coarse grid:
     if master:
         w.add('PseudoElectronDensity',
@@ -342,6 +391,10 @@ def write(paw, filename, mode):
                         wpsi.fill(psit_G)
                         wpsi.close()
 
+    if master and filename.endswith(".db"):
+       # Set the private flag for the db copy
+       w.set_db_copy_settings(db, private)
+
     if master:
         # Close the file here to ensure that the last wave function is
         # written to disk:
@@ -350,6 +403,22 @@ def write(paw, filename, mode):
     # We don't want the slaves to start reading before the master has
     # finished writing:
     world.barrier()
+
+    # Creates a db file
+    if master and db and not filename.endswith(".db"):
+       #Write a db copy to the database
+       tmp = tempfile.gettempdir()+"/"
+       if tmp==None:
+          tmp = "" #current directory
+       fname  = tmp+"gpaw.db"
+       
+       while os.path.exists(fname):
+             fname = tmp+str(time.time())+".db"
+       write(paw, fname, mode='', db=True, private=private, **kwargs)
+       try:
+           os.remove(fname)
+       except:
+           pass
 
 
 def read(paw, reader):
@@ -437,7 +506,7 @@ def read(paw, reader):
     else:
         paw.scf.converged = True
         
-    if not paw.input_parameters.fixmom and 'FermiLevel' in r.parameters:
+    if not paw.input_parameters.fixmom and 'FermiLevel' in r.get_parameters():
         paw.occupations.set_fermi_level(r['FermiLevel'])
 
     #paw.occupations.magmom = paw.atoms.get_initial_magnetic_moments().sum()
@@ -448,6 +517,14 @@ def read(paw, reader):
             paw.time = r['Time']
         except KeyError:
             pass
+
+    # Try to read the number of Delta SCF orbitals
+    try:
+        norbitals = r.dims['norbitals']
+        paw.occupations.norbitals = norbitals
+    except (AttributeError, KeyError):
+        norbitals = None
+
         
     # Wave functions and eigenvalues:
     nibzkpts = r.dims['nibzkpts']
@@ -465,7 +542,13 @@ def read(paw, reader):
             nstride = band_comm.size
             kpt.eps_n = eps_n[n0::nstride].copy()
             kpt.f_n = f_n[n0::nstride].copy()
-        
+
+            if norbitals is not None:
+                kpt.c_on = npy.empty((norbitals,wfs.mynbands), wfs.dtype)
+                for o in range(norbitals):
+                    c_n = r.get('LinearExpansionCoefficients', o, s, k)
+                    kpt.c_on[o,:] = c_n[n0::nstride].copy()
+
         if r.has_array('PseudoWaveFunctions'):
             if band_comm.size == 1:
                 # We may not be able to keep all the wave
@@ -481,8 +564,8 @@ def read(paw, reader):
                     for myn, psit_G in enumerate(kpt.psit_nG):
                         n = band_comm.rank + myn * band_comm.size
                         if domain_comm.rank == 0:
-                            big_psit_G = r.get('PseudoWaveFunctions',
-                                               kpt.s, kpt.k, n)
+                            big_psit_G = npy.array(r.get('PseudoWaveFunctions',
+                                               kpt.s, kpt.k, n), wfs.dtype)
                         else:
                             big_psit_G = None
                         wfs.gd.distribute(big_psit_G, psit_G)

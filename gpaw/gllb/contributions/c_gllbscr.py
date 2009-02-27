@@ -9,16 +9,20 @@ import numpy as npy
 K_G = 0.382106112167171
 
 class C_GLLBScr(Contribution):
-    def __init__(self, nlfunc, weight):
+    def __init__(self, nlfunc, weight, functional = 'X_B88-None'):
         Contribution.__init__(self, nlfunc, weight)
+        self.functional = functional
 
     def get_name(self):
-        return "GLLBSCR"
+        return "SCREENING"
+
+    def get_desc(self):
+        return "("+self.functional+")"
         
     # Initialize GLLBScr functional
     def initialize_1d(self):
         self.ae = self.nlfunc.ae
-        self.xc = XCRadialGrid('X_B88-None', self.ae.rgd) 
+        self.xc = XCRadialGrid(self.functional, self.ae.rgd) 
         self.v_g = npy.zeros(self.ae.N)
         self.e_g = npy.zeros(self.ae.N)
 
@@ -33,7 +37,7 @@ class C_GLLBScr(Contribution):
 
     def initialize(self):
         self.occupations = self.nlfunc.occupations
-        self.xc = XCFunctional('X_B88-None')
+        self.xc = XCFunctional(self.functional)
         self.xc_grid3d = XC3DGrid(self.xc, self.nlfunc.finegd, self.nlfunc.nspins)
         self.vt_sg = self.nlfunc.finegd.empty(self.nlfunc.nspins)
         self.e_g = self.nlfunc.finegd.empty()#.ravel()
@@ -41,18 +45,21 @@ class C_GLLBScr(Contribution):
     def get_coefficient_calculator(self):
         return self
 
-    def get_coefficients_1d(self, smooth=False):
-        homo = 0
-        for i, f in enumerate(self.ae.f_j):
-            if f > 1e-3:
-                homo = i
-        e_ref = self.ae.e_j[homo]
-
+    def f(self, f):
+        return sqrt(f)
+    
+    def get_coefficients_1d(self, smooth=False, lumo_perturbation = False):
+        homo_e = max( [ npy.where(f>1e-3, e, -1000) for f,e in zip(self.ae.f_j, self.ae.e_j)]) 
         if not smooth:
-            return npy.array([ f * K_G * npy.sqrt( max(0, e_ref - e))
-                               for e,f in zip(self.ae.e_j, self.ae.f_j) ])
+            if lumo_perturbation:
+                lumo_e = min( [ npy.where(f<1e-3, e, 1000) for f,e in zip(self.ae.f_j, self.ae.e_j)])
+                return npy.array([ f * K_G * (self.f( max(0, lumo_e - e)) - self.f(max(0, homo_e -e)))
+                                        for e,f in zip(self.ae.e_j, self.ae.f_j) ])
+            else:
+                return npy.array([ f * K_G * (self.f( max(0, homo_e - e)))
+                                   for e,f in zip(self.ae.e_j, self.ae.f_j) ])
         else:
-            return [ [ f * K_G * npy.sqrt( max(0, e_ref - e))
+            return [ [ f * K_G * self.f( max(0, homo_e - e))
                     for e,f in zip(e_n, f_n) ]
                      for e_n, f_n in zip(self.ae.e_ln, self.ae.f_ln) ]
         
@@ -65,14 +72,14 @@ class C_GLLBScr(Contribution):
         if lumo_perturbation:
             e_ref_lumo = self.occupations.get_zero_kelvin_lumo_eigenvalue(kpt_u)
             return [ npy.array([
-                f * K_G * (npy.sqrt( npy.where(e_ref_lumo - e>1e-3, e_ref_lumo-e,0))
-                         - npy.sqrt( npy.where(e_ref      - e>1e-3, e_ref-e,0)))
+                f * K_G * (self.f( npy.where(e_ref_lumo - e>1e-3, e_ref_lumo-e,0))
+                         -self.f( npy.where(e_ref      - e>1e-3, e_ref-e,0)))
                      for e, f in zip(kpt.eps_n, kpt.f_n) ])
                      for kpt in kpt_u ]
             
             
         else:
-            return [ npy.array([ f * K_G * npy.sqrt( npy.where(e_ref - e>1e-3, e_ref-e,0))
+            return [ npy.array([ f * K_G * self.f( npy.where(e_ref - e>1e-3, e_ref-e,0))
                      for e, f in zip(kpt.eps_n, kpt.f_n) ])
                      for kpt in kpt_u ]
         
@@ -169,7 +176,7 @@ class C_GLLBScr(Contribution):
                                   npy.dot(c.n_qg, v_g * c.rgd.dv_g))
             E += w * npy.dot(e_g, c.rgd.dv_g)
             
-        return (E - c.Exc0) * self.weight
+        return (E) * self.weight
 
     def add_smooth_xc_potential_and_energy_1d(self, vt_g):
         self.v_g[:] = 0.0

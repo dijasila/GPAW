@@ -575,7 +575,7 @@ PyObject* blacs_redist(PyObject *self, PyObject *args)
     PyArrayObject* adesc; //description vector
     PyArrayObject* bdesc; //description vector
     int m, n, ConTxt; 
-    if (!PyArg_ParseTuple(args, "OOOiii", &a_obj, &adesc, &bdesc, &m, &n, &ConTxt))
+    if (!PyArg_ParseTuple(args, "OOOiii", &a_obj, &adesc, &bdesc, &m, &n))
       return NULL;
  
     static int one = 1;
@@ -591,15 +591,18 @@ PyObject* blacs_redist(PyObject *self, PyObject *args)
     int b_rsrc = INTP(bdesc)[6];
     int b_csrc = INTP(bdesc)[7];
 
+    printf("descb=%d",INTP(bdesc)[2]);
+    printf("desca=%d",INTP(adesc)[2]);
+
     Cblacs_gridinfo_(b_ConTxt, &b_nprow, &b_npcol,&b_myrow, &b_mycol);
+    printf("b_ConTxt=%d,b_nprow=%d,b_npcol=%d\n",b_ConTxt,b_nprow,b_npcol);
     int b_locM = numroc_(&b_m, &b_mb, &b_myrow, &b_rsrc, &b_nprow);
     int b_locN = numroc_(&b_n, &b_nb, &b_mycol, &b_csrc, &b_npcol);
 
     npy_intp b_dims[2] = {b_locM, b_locN};
     PyArrayObject* b_obj = (PyArrayObject*)PyArray_SimpleNew(2, b_dims, NPY_DOUBLE);
     
-    
-    Cpdgemr2d_(m, n, DOUBLEP(a_obj), one, one, INTP(adesc), DOUBLEP(b_obj), one, one, INTP(bdesc), ConTxt);     
+    Cpdgemr2d_(m, n, DOUBLEP(a_obj), one, one, INTP(adesc), DOUBLEP(b_obj), one, one, INTP(bdesc), b_ConTxt);     
     
     return Py_BuildValue("O",b_obj);
 }

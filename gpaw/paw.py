@@ -541,10 +541,10 @@ class PAW(PAWTextOutput):
     def get_reference_energy(self):
         return self.wfs.setups.Eref * Hartree
     
-    def write(self, filename, mode=''):
+    def write(self, filename, mode='', db=True, private="660", **kwargs):
         """use mode='all' to write the wave functions"""
         self.timer.start('IO')
-        gpaw.io.write(self, filename, mode)
+        gpaw.io.write(self, filename, mode, db=db, private=private, **kwargs)
         self.timer.stop('IO')
         
     def initialize_kinetic(self):
@@ -552,7 +552,8 @@ class PAW(PAWTextOutput):
             return
         else:
             #pseudo kinetic energy array on 3D grid
-            self.density.initialize_kinetic()
+            self.density.initialize_kinetic(self.atoms)
+            self.density.interpolate_kinetic()
             self.hamiltonian.xc.set_kinetic(self.density.taut_sg)
 
     def update_kinetic(self):
@@ -561,6 +562,7 @@ class PAW(PAWTextOutput):
         else:
             #pseudo kinetic energy array on 3D grid
             self.density.update_kinetic(self.wfs)
+            self.density.interpolate_kinetic()
             self.hamiltonian.xc.set_kinetic(self.density.taut_sg)           
 
     def get_myu(self, k, s):

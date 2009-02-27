@@ -120,12 +120,12 @@ class WaveFunctions(EmptyWaveFunctions):
             P_ni = kpt.P_ani[a] 
             D_sii[kpt.s] += np.dot(P_ni.T.conj() * kpt.f_n, P_ni).real
 
-        if hasattr(kpt, 'ft_omn'):
-            for i in range(len(kpt.ft_omn)):
+        if hasattr(kpt, 'c_on'):
+            for o,c_n in enumerate(kpt.c_on):
+                ft_mn = np.outer(c_n.conj(), c_n)
                 D_sii[kpt.s] += (np.dot(P_ni.T.conj(),
-                                        np.dot(kpt.ft_omn[i],
-                                               P_ni))).real
-                
+                                        np.dot(ft_mn, P_ni))).real
+
     def calculate_atomic_density_matrices_k_point_with_occupation(self, D_sii,
                                                                   kpt, a, f_n):
         if kpt.rho_MM is not None: 
@@ -214,7 +214,7 @@ class WaveFunctions(EmptyWaveFunctions):
     def collect_occupations(self, k, s):
         return self.collect_array('f_n', k, s)
     
-    def collect_array(self, name, k, s):
+    def collect_array(self, name, k, s, subset=None):
         """Helper method for collect_eigenvalues and collect_occupations.
 
         For the parallel case find the rank in kpt_comm that contains
@@ -228,10 +228,8 @@ class WaveFunctions(EmptyWaveFunctions):
         if self.kpt_comm.rank == kpt_rank:
             a_n = getattr(kpt_u[u], name)
 
-            ## Delta SCF hack - does not belong here XXX
-            #if name == 'f_n' and hasattr(kpt_u[u], 'ft_omn'):
-            #    for ft_mn in self.kpt_u[u].ft_omn:
-            #        a_n += np.diagonal(ft_mn).real
+            if subset is not None:
+                a_n = a_n[subset]
 
             # Domain master send this to the global master
             if self.gd.comm.rank == 0:
@@ -362,18 +360,11 @@ class LCAOWaveFunctions(WaveFunctions):
         
         tci.calculate(spos_ac, S_qMM, T_qMM, P_aqMi, self.dtype)
 
-        # Things required for force calculations
-        dSdR_qvMM = tci.dSdR_kcmm
-        dTdR_qvMM = tci.dTdR_kcmm
-        dPdR_aqvMi = tci.dPdR_akcmi
-        dThetadR_qvMM = tci.dThetadR_kcmm
-        mask_aMM = tci.mask_amm
-
         for kpt in self.kpt_u:            
             self.calculate_forces_by_kpoint(kpt, hamiltonian,
                                             F_av, tci,
-                                            S_qMM[kpt.k],
-                                            T_qMM[kpt.k],
+                                            S_qMM[kpt.q],
+                                            T_qMM[kpt.q],
                                             P_aqMi)
 
     def get_projector_derivatives(self, tci, a, c, k):
@@ -453,14 +444,13 @@ class LCAOWaveFunctions(WaveFunctions):
     def calculate_forces_by_kpoint(self, kpt, hamiltonian,
                                    F_av, tci, S_MM, T_MM, P_aqMi):
         k = kpt.k
+        q = kpt.q
         if kpt.rho_MM is None:
             rho_MM = np.dot(kpt.C_nM.T.conj() * kpt.f_n, kpt.C_nM)
         else:
             rho_MM = kpt.rho_MM
 
-        dEdndndR_av = self.get_potential_derivative(tci, hamiltonian, kpt,
-                                                    rho_MM)
-        dTdR_vMM = tci.dTdR_kcmm[k]
+        dTdR_vMM = tci.dTdR_kcmm[q]
 
         self.eigensolver.calculate_hamiltonian_matrix(hamiltonian, self, kpt)
         H_MM = self.eigensolver.H_MM.copy()
@@ -483,27 +473,90 @@ class LCAOWaveFunctions(WaveFunctions):
         
         dEdTdTdR_av = np.zeros_like(F_av)
         for a in my_atom_indices:
-            mask_MM = tci.mask_amm[a]
+            M1 = self.basis_functions.M_a[a]
+            M2 = M1 + self.setups[a].niAO
             for v in range(3):
-                dEdTdTdR_av[a, v] = np.dot(rho_MM, dTdR_vMM[v] *
-                                           mask_MM).real.trace()
+                dTdR_MM = dTdR_vMM[v]
+                x1 = (rho_MM[M1:M2, :] * dTdR_MM[:, M1:M2].T).real.sum()
+                x2 = (rho_MM[:, M1:M2] * dTdR_MM[M1:M2, :].T).real.sum()
+                dEdTdTdR_av[a, v] = x1 - x2
 
         dEdDdDdR_av = np.zeros_like(F_av)
         dEdrhodrhodR_av = np.zeros_like(F_av)
+        pawcorrection_avMM = dict([(a, np.zeros((3, nao, nao), self.dtype))
+                                   for a in atom_indices])
+        dPdR_avMi = dict([(a, tci.dPdR_akcmi[a][q]) for a in my_atom_indices])
+        for v in range(3):
+            for a in atom_indices:
+                M1 = self.basis_functions.M_a[a]
+                M2 = M1 + self.setups[a].niAO
+                pawcorrection_MM = pawcorrection_avMM[a][v]
+                for b in my_atom_indices:
+                    P_Mi = self.P_aqMi[b][q]
+                    PdO_Mi = np.dot(P_Mi, self.setups[b].O_ii)
+                    dOP_iM = PdO_Mi.T.conj()
+                    dPdR_Mi = dPdR_avMi[b][v]
+                    sign = cmp(b, a)
+                    if sign != 0:
+                        A_iM = np.dot(dPdR_Mi[M1:M2, :], dOP_iM)
+                        B_Mi = np.dot(PdO_Mi, dPdR_Mi.T.conj()[:, M1:M2])
+                        pawcorrection_MM[M1:M2, :] += A_iM * sign
+                        pawcorrection_MM[:, M1:M2] += B_Mi * sign
+                    else:
+                        A1_MM = np.dot(dPdR_Mi[:M1, :], dOP_iM)
+                        A2_MM = np.dot(dPdR_Mi[M2:, :], dOP_iM)
+                        B1_MM = np.dot(PdO_Mi, dPdR_Mi.T.conj()[:, :M1])
+                        B2_MM = np.dot(PdO_Mi, dPdR_Mi.T.conj()[:, M2:])
+                        pawcorrection_MM[:M1, :] -= A1_MM
+                        pawcorrection_MM[M2:, :] += A2_MM
+                        pawcorrection_MM[:, :M1] -= B1_MM
+                        pawcorrection_MM[:, M2:] += B2_MM
+        
+        dEdndndR_av = np.zeros_like(F_av)
+        vt_G = hamiltonian.vt_sG[kpt.s]
+        rho_hc_MM = rho_MM.T.conj()
+        DVt_MMv = np.zeros((nao, nao, 3), self.dtype)
+
+        # Minimize synchronization by performing all operations requiring
+        # communication now
+        self.basis_functions.calculate_potential_matrix_derivative(vt_G,
+                                                                   DVt_MMv,
+                                                                   kpt.q)
         for a in atom_indices:
+            self.basis_functions.gd.comm.sum(pawcorrection_avMM[a])
+        
+        for b in my_atom_indices:
+            M1 = self.basis_functions.M_a[b]
+            M2 = M1 + self.setups[b].niAO
             for v in range(3):
-                dPdRa_aMi = self.get_projector_derivatives(tci, a, v, k)
-                dSdRa_MM = self.get_overlap_derivatives(tci, a, v,
-                                                        dPdRa_aMi, k)
-                if a in dPdRa_aMi:
-                    dEdrhodrhodR_av[a, v] = - np.dot(ChcEFC_MM,
-                                                     dSdRa_MM).real.trace()
+                forcecontrib = -2 * (DVt_MMv[M1:M2, :, v].T
+                                     * rho_hc_MM[:, M1:M2]).real.sum()
+                dEdndndR_av[b, v] = forcecontrib
+
+        for v in range(3):
+            for a in atom_indices:
+                M1 = self.basis_functions.M_a[a]
+                M2 = M1 + self.setups[a].niAO
+                pawcorrection_MM = pawcorrection_avMM[a][v]
+                if a in dPdR_avMi:
+                    dSdRa_MM = pawcorrection_MM.copy()
+                    dThetadR_MM = tci.dThetadR_kcmm[q, v, :, :]
+                    dSdRa_MM[:, M1:M2] += dThetadR_MM[:, M1:M2]
+                    dSdRa_MM[M1:M2, :] -= dThetadR_MM[M1:M2, :]
+                    dEdrhodrhodR_av[a, v] = -(ChcEFC_MM.T
+                                              * dSdRa_MM).real.sum()
             
-                for b, dPdRa_Mi in dPdRa_aMi.items():
-                    A_ii = np.dot(dPdRa_Mi.T.conj(), 
-                                  np.dot(rho_MM, self.P_aqMi[b][k]))
+                for b in my_atom_indices:
+                    dPdR_Mi = dPdR_avMi[b][v]
+                    rhoP_Mi = np.dot(rho_MM, self.P_aqMi[b][q])
                     Hb_ii = unpack(hamiltonian.dH_asp[b][kpt.s])
-                    dEdDdDdR_av[a, v] += 2 * np.dot(Hb_ii, A_ii).real.trace()
+                    if a != b:
+                        A_ii = np.dot(dPdR_Mi.T.conj()[:, M1:M2],
+                                      rhoP_Mi[M1:M2, :]) * cmp(b, a)
+                    else:
+                        A_ii = np.dot(dPdR_Mi.T.conj()[:, M2:], rhoP_Mi[M2:])\
+                               - np.dot(dPdR_Mi.T.conj()[:, :M1],rhoP_Mi[:M1])
+                    dEdDdDdR_av[a, v] += 2 * (Hb_ii.T * A_ii).real.sum()
         # The array dEdDdDdR_av may contain contributions for atoms on this
         # cpu stored on other CPUs.  comm.sum() of this array yields
         # correct result on all CPUs.  However this is postponed till after
@@ -514,7 +567,6 @@ class LCAOWaveFunctions(WaveFunctions):
             # Prints rank, label, list of atomic indices, and element sum
             # for parts of array on this cpu as a primitive "hash" function
             from gpaw.mpi import rank
-            my_atom_indices = self.basis_functions.my_atom_indices
             for name, array_x in zip(names, arrays_ax):
                 sums = [array_x[a].sum() for a in my_atom_indices]
                 print rank, name, my_atom_indices, sums
@@ -523,7 +575,7 @@ class LCAOWaveFunctions(WaveFunctions):
         #print_arrays_with_ranks(self, names, [dEdrhodrhodR_av, dEdTdTdR_av,
         #                                      dEdDdDdR_av, dEdndndR_av])
 
-        # For whom it may concern, dEdDdDdR is the only component which
+        # For whom it may concern, dEdDdDdR is the only force component which
         # is nonzero even for atoms outside my_atom_indices
         # (though indeed zero for atoms outside atom_indices)
         F_av -= (dEdrhodrhodR_av + dEdTdTdR_av + dEdDdDdR_av + dEdndndR_av)
@@ -605,11 +657,14 @@ class GridWaveFunctions(WaveFunctions):
                                                        density, hamiltonian,
                                                        spos_ac):
         if 0:
+            self.timer.start('Wavefunction: random')
             for kpt in self.kpt_u:
                 kpt.psit_nG = self.gd.zeros(self.mynbands, self.dtype)
             self.random_wave_functions(0)
+            self.timer.stop('Wavefunction: random')
             return
         
+        self.timer.start('Wavefunction: lcao')
         if self.nbands < self.setups.nao:
             lcaonbands = self.nbands
             lcaomynbands = self.mynbands
@@ -650,6 +705,7 @@ class GridWaveFunctions(WaveFunctions):
             # less than the desired number of bands, then extra random
             # wave functions are added.
             self.random_wave_functions(lcaomynbands)
+        self.timer.stop('Wavefunction: lcao')
 
     def initialize_wave_functions_from_restart_file(self):
         if not isinstance(self.kpt_u[0].psit_nG, TarFileReference):
@@ -709,8 +765,9 @@ class GridWaveFunctions(WaveFunctions):
                 nt_G += f * (psit_G * psit_G.conj()).real
 
         # Hack used in delta-scf calculations:
-        if hasattr(kpt, 'ft_omn'):
-            for ft_mn in kpt.ft_omn:
+        if hasattr(kpt, 'c_on'):
+            for c_n in kpt.c_on:
+                ft_mn = np.outer(c_n.conj(), c_n)
                 for ft_n, psi_m in zip(ft_mn, kpt.psit_nG):
                     for ft, psi_n in zip(ft_n, kpt.psit_nG):
                         if abs(ft) > 1.e-12:
@@ -741,10 +798,11 @@ class GridWaveFunctions(WaveFunctions):
                     taut_G += 0.5 * f * (dpsit_G.conj() * dpsit_G).real
 
         # Hack used in delta-scf calculations:
-        if hasattr(kpt, 'ft_omn'):
+        if hasattr(kpt, 'c_on'):
             dwork_G = self.gd.empty(dtype=self.dtype)
             if self.dtype == float:
-                for ft_mn in kpt.ft_omn:
+                for c_n in kpt.c_on:
+                    ft_mn = np.outer(c_n.conj(), c_n)
                     for ft_n, psit_m in zip(ft_mn, kpt.psit_nG):
                         d_c[c](psit_m, dpsit_G)
                         for ft, psit_n in zip(ft_n, kpt.psit_nG):
@@ -752,7 +810,8 @@ class GridWaveFunctions(WaveFunctions):
                                 d_c[c](psit_n, dwork_G)
                                 axpy(0.5*ft, dpsit_G * dwork_G, taut_G) #taut_G += 0.5*f*dpsit_G*dwork_G
             else:
-                for ft_mn in kpt.ft_omn:
+                for c_n in kpt.c_on:
+                    ft_mn = np.outer(c_n.conj(), c_n)
                     for ft_n, psit_m in zip(ft_mn, kpt.psit_nG):
                         d_c[c](psit_m, dpsit_G, kpt.phase_cd)
                         for ft, psit_n in zip(ft_n, kpt.psit_nG):

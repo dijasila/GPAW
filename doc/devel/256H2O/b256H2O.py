@@ -8,8 +8,9 @@ from gpaw.mpi import rank
 
 from gpaw import setup_paths
 
-# Use setups from the $PWD first
+# Use setups from the $PWD and $PWD/.. first
 setup_paths.insert(0, '.')
+setup_paths.insert(0, '../')
 
 positions=[
     (-0.069, 0.824,-1.295),  ( 0.786, 0.943,-0.752),  (-0.414,-0.001,-0.865),
@@ -53,9 +54,9 @@ atoms.set_cell((L,L,L),scale_atoms=False)
 atoms.set_pbc(1)
 r = [2, 2, 2]
 atoms = atoms.repeat(r)
-n = [60 * ri for ri in r]
+n = [56 * ri for ri in r]
 # nbands (>=128) is the number of bands per 32 water molecules
-nbands = 2*3*5*6 # 180
+nbands = 2*6*11 # 132
 for ri in r: nbands = nbands*ri
 calc = GPAW(nbands=nbands,
             gpts=tuple(n),

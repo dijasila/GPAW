@@ -52,6 +52,7 @@ class NonLocalFunctional(ZeroFunctional):
         H_sp[:] = 0.0
         for contribution in self.contributions:
             Exc += contribution.calculate_energy_and_derivatives(D_sp, H_sp, a)
+        Exc -= self.setups[a].xc_correction.Exc0
         return Exc
 
     def get_xc_potential_and_energy_1d(self, v_g):
@@ -81,12 +82,12 @@ class NonLocalFunctional(ZeroFunctional):
     def print_functional(self):
         print
         print "Functional being used consists of"
-        print "--------------------------------"
-        print "| Weight    | Functional       |"
-        print "--------------------------------"
+        print "---------------------------------------------------"
+        print "| Weight    | Module           | Description      |"
+        print "---------------------------------------------------"
         for contribution in self.contributions:
-            print "|%9.3f  | %-17s|" % (contribution.weight, contribution.get_name())
-        print "--------------------------------"
+            print "|%9.3f  | %-17s| %-17s|" % (contribution.weight, contribution.get_name(), contribution.get_desc())
+        print "---------------------------------------------------"
         print
 
     def read(self, reader):
