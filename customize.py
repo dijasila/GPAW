@@ -1,47 +1,55 @@
-# extra_compile_args += ['-O3']
-# extra_compile_args += ['-std=c99']
-# extra_compile_args += ['-g']
-# extra_compile_args += ['-fPIC']
+#User provided customizations for the gpaw setup
 
-libraries = [
-           'hpm',
-           'lapack_bgp',
-           'scalapack',
-           'blacsCinit_MPI-BGP-0',
-           'blacs_MPI-BGP-0',
-           'lapack_bgp',
-           'goto',
-           'xlf90_r',
-           'xlopt',
-           'xl',
-           'xlfmath',
-           'xlsmp'
-           ]
+#Here, one can override the default arguments, or append own
+#arguments to default ones
+#To override use the form
+#     libraries = ['somelib','otherlib']
+#To append use the form
+#     libraries += ['somelib','otherlib']
 
-library_dirs = [
-           '/soft/apps/UPC/lib',
-           '/soft/apps/LAPACK',
-           '/soft/apps/LIBGOTO',
-           '/soft/apps/BLACS',
-           '/soft/apps/SCALAPACK',
-           '/opt/ibmcmp/xlf/bg/11.1/bglib',
-           '/opt/ibmcmp/xlsmp/bg/1.7/bglib',
-           '/bgsys/drivers/ppcfloor/gnu-linux/lib'
-           ]
+# Valid values for scalapack are False, or True:
+# False (the default) - no ScaLapack compiled in
+# True - ScaLapack compiled in
+#scalapack = True
 
-include_dirs += [
-    '/home/dulak/numpy-1.0.4-1.optimized/bgsys/drivers/ppcfloor/gnu-linux/lib/python2.5/site-packages/numpy/core/include'
-    ]
+#compiler = 'mpcc'
+#libraries = []
+#libraries += []
 
-define_macros += [("GPAW_AIX",1)]
-define_macros += [("GPAW_MKL",1)]
-define_macros += [("GPAW_BGP",1)]
-define_macros += [("GPAW_ASYNC",1)]
-# define_macros += [('GPAW_BGP_PERF',1)]
-# define_macros += [("GPAW_OMP",1)]
+#library_dirs = []
+#library_dirs += []
 
-scalapack = True
+#include_dirs = []
+#include_dirs += []
 
-compiler = "bg_gcc.py"
-mpicompiler = "bg_gcc.py"
-mpilinker   = "mpicc"
+#extra_link_args = []
+#extra_link_args += []
+
+#extra_compile_args = []
+#extra_compile_args += []
+
+#runtime_library_dirs = []
+#runtime_library_dirs += []
+
+#extra_objects = []
+#extra_objects += []
+
+#define_macros = []
+#define_macros += []
+
+#mpicompiler = None
+#mpilinker = None
+#mpi_libraries = []
+#mpi_libraries += []
+
+#mpi_library_dirs = []
+#mpi_library_dirs += []
+
+#mpi_include_dirs = []
+#mpi_include_dirs += []
+
+#mpi_runtime_library_dirs = []
+#mpi_runtime_library_dirs += []
+
+#mpi_define_macros = []
+#mpi_define_macros += []
