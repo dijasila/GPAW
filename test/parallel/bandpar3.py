@@ -13,7 +13,7 @@ import _gpaw
 B = parsize_bands   # number of blocks
     
 G = 120  # number of grid points (G x G x G)
-N = 1000  # number of bands
+N = 100  # number of bands
 
 h = 0.2        # grid spacing
 a = h * G      # side length of box
@@ -133,25 +133,31 @@ def overlap(psit_mG, send_mG, recv_mG):
 
     # Test
     if world.rank == 0: print "before redist"
-    if world.rank in range(B):
-        S_nm = world.rank*np.ones((N,M))
 
-    # if world.rank in scalapack0_procs:
-    desc0 = _gpaw.blacs_array(world,N,N,1,B,N,M)
-    desc1 = _gpaw.blacs_array(world,N,N,B,B,M,M)
-    if world.rank == 0: print desc0
-    if world.rank == 1: print desc1
+    # Create a simple matrix, elements equal to ranks
+    if scalapack0_comm.rank != -1:
+        S_nm = scalapack0_comm.rank*np.ones((N,M))
+        print scalapack0_comm.rank, S_nm
     
+    # Desc for S_nm
+    desc0 = _gpaw.blacs_array(scalapack0_comm,N,N,1,B,N,M)
+
+    # Desc for S_mm
+    desc1 = _gpaw.blacs_array(scalapack1_comm,N,N,B,B,M,M)
+   
+    # Copy from S_nm -> S_mm
     S_mm = _gpaw.blacs_redist(S_nm,desc0,desc1,N,N,desc1[1])
     
     if world.rank == 0: print 'redistributed array'
-    if desc1[1] != -1:
-        print world.rank, S_mm
+    if scalapack1_comm.rank != -1:
+        print scalapack1_comm.rank, S_mm
 
+    # Copy from S_mm -> S2_nm which should equal S_nm
     S2_nm = _gpaw.blacs_redist(S_mm,desc1,desc0,N,N,desc1[1])
+
     if world.rank == 0: print 'restore original array'
-    if desc0[1] != -1:
-        print world.rank, S2_nm
+    if scalapack0_comm.rank != -1:
+        print scalapack0_comm.rank, S2_nm
                 
 def matrix_multiply(C_nn, psit_mG, send_mG, recv_mG):
     """Calculate new linear compination of wave functions."""
