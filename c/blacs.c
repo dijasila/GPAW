@@ -119,7 +119,6 @@ PyObject* blacs_array(PyObject *self, PyObject *args)
   int myrow = -1;
   int mycol = -1;
   int desc[9];
-  int info = 0;
 
   npy_intp desc_dims[1] = {9};
   PyArrayObject* desc_obj = (PyArrayObject*)PyArray_SimpleNew(1, desc_dims, NPY_INT);
@@ -127,35 +126,46 @@ PyObject* blacs_array(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "Oiiiiii", &comm_obj, &m, &n, &nprow, &npcol, &mb, &nb))
     return NULL;
 
-  // Create blacs grid on this communicator
-  MPI_Comm comm = ((MPIObject*)comm_obj)->comm;
+  if (((MPIObject*)comm_obj)->comm == MPI_COMM_NULL)
+    {
+      desc[0] = 1;
+      desc[1] = -1; // Tells BLACS to ignore me.
+      desc[2] = m;
+      desc[3] = n;
+      desc[4] = mb;
+      desc[5] = nb;
+      desc[6] = 0;
+      desc[7] = 0;
+      desc[8] = 1;
+    }
+  else
+    {
+      // Create blacs grid on this communicator
+      MPI_Comm comm = ((MPIObject*)comm_obj)->comm;
 
-  // sl_init_(&ConTxt, &nprow, &npcol); 
-  // Forces you to use all MPI processes, not what we want.
-  Cblacs_pinfo_(&iam, &nprocs);
-  MPI_Comm_size(comm, &nprocs);
-  // printf("iam=%d,nprocs=%d\n",iam,nprocs);
-  ConTxt = Csys2blacs_handle(comm);
-  Cblacs_gridinit_(&ConTxt, &order, nprow, npcol);
-  // printf("ConTxt=%d,nprow=%d,npcol=%d\n",ConTxt,nprow,npcol);
-  Cblacs_gridinfo_(ConTxt, &nprow, &npcol, &myrow, &mycol);
+      // Get my id and nprocs. This is for debugging purposes only
+      Cblacs_pinfo_(&iam, &nprocs);
+      MPI_Comm_size(comm, &nprocs);
+      // printf("iam=%d,nprocs=%d\n",iam,nprocs);
 
-  // printf("myrow=%d,mycol=%d\n",myrow,mycol);
-  // printf("m=%d,n=%d,mb=%d,nb=%d,rsrc=%d,csrc=%d,ConTxt=%d,lld=%d\n",m,n,mb,nb,rsrc,csrc,ConTxt,lld);
-  
-  lld = numroc_(&m, &mb, &myrow, &rsrc, &nprow);
-  // descinit_(desc,&m,&n,&mb,&nb,&rsrc,&csrc,&ConTxt,&lld,&info);
+      // Create blacs grid on this communicator continued
+      ConTxt = Csys2blacs_handle(comm);
+      Cblacs_gridinit_(&ConTxt, &order, nprow, npcol);
+      // printf("ConTxt=%d,nprow=%d,npcol=%d\n",ConTxt,nprow,npcol);
+      Cblacs_gridinfo_(ConTxt, &nprow, &npcol, &myrow, &mycol);
 
-  desc[0] = 1;
-  desc[1] = ConTxt;
-  desc[2] = m;
-  desc[3] = n;
-  desc[4] = mb;
-  desc[5] = nb;
-  desc[6] = 0;
-  desc[7] = 0;
-  desc[8] = MAX(1, lld);
+      lld = numroc_(&m, &mb, &myrow, &rsrc, &nprow);
 
+      desc[0] = 1;
+      desc[1] = ConTxt;
+      desc[2] = m;
+      desc[3] = n;
+      desc[4] = mb;
+      desc[5] = nb;
+      desc[6] = 0;
+      desc[7] = 0;
+      desc[8] = MAX(1, lld);
+    }
   memcpy(desc_obj->data, desc, 9*sizeof(int));
 
   return Py_BuildValue("O",desc_obj);
