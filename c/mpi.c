@@ -12,7 +12,8 @@ static void mpi_dealloc(MPIObject *obj)
 {
   if (obj->comm != MPI_COMM_WORLD)
     {
-      MPI_Comm_free(&(obj->comm));
+      if (obj->comm != MPI_COMM_NULL)
+        MPI_Comm_free(&(obj->comm));
       Py_DECREF(obj->parent);
     }
   PyObject_DEL(obj);
@@ -481,23 +482,25 @@ static PyObject * MPICommunicator(MPIObject *self, PyObject *args)
   MPI_Comm_create(self->comm, newgroup, &comm);
   MPI_Group_free(&newgroup);
   MPI_Group_free(&group);
+  MPIObject *obj = PyObject_NEW(MPIObject, &MPIType);
+  if (obj == NULL)
+    return NULL;
   if (comm == MPI_COMM_NULL)
     {
-      Py_RETURN_NONE;
+      // This will help us identify MPI_COMM_NULL in Python
+      obj->size = -1;
+      obj->rank = -1;
     }
   else
     {
-      MPIObject *obj = PyObject_NEW(MPIObject, &MPIType);
-      if (obj == NULL)
-        return NULL;
       MPI_Comm_size(comm, &(obj->size));
       MPI_Comm_rank(comm, &(obj->rank));
-      obj->comm = comm;
-      // Make sure that MPI_COMM_WORLD is kept alive til the end (we
-      // don't want MPI_Finalize to be called before MPI_Comm_free):
-      Py_INCREF(self);
-      obj->parent = (PyObject*)self;
-      return (PyObject*)obj;
     }
+  obj->comm = comm;
+  // Make sure that MPI_COMM_WORLD is kept alive til the end (we
+  // don't want MPI_Finalize to be called before MPI_Comm_free):
+  Py_INCREF(self);
+  obj->parent = (PyObject*)self;
+  return (PyObject*)obj;
 }
 #endif
