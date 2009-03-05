@@ -135,7 +135,7 @@ def overlap(psit_mG, send_mG, recv_mG):
     if world.rank == 0: print "before redist"
 
     # Create a simple matrix, elements equal to ranks
-    if scalapack0_comm.rank != -1:
+    if (scalapack0_comm):
         S_nm = scalapack0_comm.rank*np.ones((N,M))
         print scalapack0_comm.rank, S_nm
     
@@ -149,14 +149,14 @@ def overlap(psit_mG, send_mG, recv_mG):
     S_mm = _gpaw.blacs_redist(S_nm,desc0,desc1,N,N,desc1[1])
     
     if world.rank == 0: print 'redistributed array'
-    if scalapack1_comm.rank != -1:
+    if (scalapack1_comm):
         print scalapack1_comm.rank, S_mm
 
     # Copy from S_mm -> S2_nm which should equal S_nm
     S2_nm = _gpaw.blacs_redist(S_mm,desc1,desc0,N,N,desc1[1])
 
     if world.rank == 0: print 'restore original array'
-    if scalapack0_comm.rank != -1:
+    if (scalapack0_comm):
         print scalapack0_comm.rank, S2_nm
                 
 def matrix_multiply(C_nn, psit_mG, send_mG, recv_mG):
