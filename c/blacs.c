@@ -126,7 +126,7 @@ PyObject* blacs_array(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "Oiiiiii", &comm_obj, &m, &n, &nprow, &npcol, &mb, &nb))
     return NULL;
 
-  if (((MPIObject*)comm_obj)->comm == MPI_COMM_NULL)
+  if (comm_obj == Py_None)
     {
       desc[0] = 1;
       desc[1] = -1; // Tells BLACS to ignore me.
