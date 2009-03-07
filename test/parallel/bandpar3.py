@@ -13,7 +13,7 @@ import _gpaw
 B = parsize_bands   # number of blocks
     
 G = 120  # number of grid points (G x G x G)
-N = 100  # number of bands
+N = 1000  # number of bands
 
 h = 0.2        # grid spacing
 a = h * G      # side length of box
@@ -117,47 +117,42 @@ def overlap(psit_mG, send_mG, recv_mG):
     domain_comm.sum(S_imm)
 
     # Blocks of matrix on each processor become one matrix.
-    # We can think of this as a B-column of S_nm 
+    # We can think of this as a 1D block matrix 
     S_nm = S_imm.reshape(N,M)
     del S_imm
-
-    # This will make the redistribution of S_nm easier.
-    # The master rank on each band communicator, will send
-    # its piece to one of the B ranks.
-    if world.rank in range(1,B):
-        print world.rank, scalapack0_procs[world.rank]
-        world.receive(S_nm, scalapack0_procs[world.rank], 13)
-    elif world.rank in scalapack0_procs[1:B]:
-        print world.rank, world.rank // D
-        world.send(S_nm, world.rank // D, 13)
 
     # Test
     if world.rank == 0: print "before redist"
 
-    # Create a simple matrix, elements equal to ranks
+    # Create a simple matrix, diagonal elements 
+    # will equal ranks
     if (scalapack0_comm):
-        S_nm = scalapack0_comm.rank*np.ones((N,M))
+        # S_nm = scalapack0_comm.rank*np.eye(N,M,-M*scalapack0_comm.rank)
+        S_nm = np.random.uniform(0,1,(N,M))
         print scalapack0_comm.rank, S_nm
     
     # Desc for S_nm
     desc0 = _gpaw.blacs_array(scalapack0_comm,N,N,1,B,N,M)
 
     # Desc for S_mm
-    desc1 = _gpaw.blacs_array(scalapack1_comm,N,N,B,B,M,M)
-   
+    desc1 = _gpaw.blacs_array(scalapack1_comm,N,N,B,B,64,64)
+
     # Copy from S_nm -> S_mm
-    S_mm = _gpaw.blacs_redist(S_nm,desc0,desc1,N,N,desc1[1])
+    S_mm = _gpaw.blacs_redist(S_nm,desc0,desc1)
     
     if world.rank == 0: print 'redistributed array'
     if (scalapack1_comm):
         print scalapack1_comm.rank, S_mm
 
-    # Copy from S_mm -> S2_nm which should equal S_nm
-    S2_nm = _gpaw.blacs_redist(S_mm,desc1,desc0,N,N,desc1[1])
+    # Call scalapack diagonalize
+    W, Z_mm  = _gpaw.scalapack_diagonalize_dc(S_mm, desc1)
+  
+    # Copy from Z_mm -> Z_nm 
+    # Z_nm = _gpaw.blacs_redist(Z_mm,desc1,desc0)
 
     if world.rank == 0: print 'restore original array'
     if (scalapack0_comm):
-        print scalapack0_comm.rank, S2_nm
+        print scalapack0_comm.rank, W
                 
 def matrix_multiply(C_nn, psit_mG, send_mG, recv_mG):
     """Calculate new linear compination of wave functions."""
