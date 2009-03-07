@@ -237,7 +237,6 @@ PyObject* blacs_redist(PyObject *self, PyObject *args)
     // Determine the largest grid because the ConTxt that is passed
     // to Cpdgemr2d must encompass both grids (I think). The SCALAPACK
     // documentation is not clear on this point. 
-    printf("a_nprow=%d,a_npcol=%d,b_nprow=%d,b_npcol=%d\n",a_nprow,a_npcol,b_nprow,b_npcol);
     if ((a_nprow*a_npcol) > (b_nprow*b_npcol))
       {
         ConTxt = a_ConTxt;
@@ -275,7 +274,7 @@ PyObject* scalapack_diagonalize_dc(PyObject *self, PyObject *args)
     int z_mycol = -1;
     int z_myrow = -1;
     int z_nprow, z_npcol;
-    int z_type, z_ConTxt, z_m, z_n, z_mb, z_nb, z_rsrc, z_csrc;
+    int z_type, z_ConTxt, z_m, z_n, z_mb, z_nb, z_rsrc, z_csrc, z_lld;
     int zdesc[9];
     char jobz = 'V'; // eigenvectors also
     char uplo = 'U'; // work with upper
@@ -285,21 +284,19 @@ PyObject* scalapack_diagonalize_dc(PyObject *self, PyObject *args)
       return NULL;
 
     // adesc
-    int a_type  = INTP(adesc)[0];
+    int a_type   = INTP(adesc)[0];
     int a_ConTxt = INTP(adesc)[1];
-    int a_m = INTP(adesc)[2];
-    int a_n = INTP(adesc)[3];
-    int a_mb = INTP(adesc)[4];
-    int a_nb = INTP(adesc)[5];
-    int a_rsrc = INTP(adesc)[6];
-    int a_csrc = INTP(adesc)[7];
+    int a_m      = INTP(adesc)[2];
+    int a_n      = INTP(adesc)[3];
+    int a_mb     = INTP(adesc)[4];
+    int a_nb     = INTP(adesc)[5];
+    int a_rsrc   = INTP(adesc)[6];
+    int a_csrc   = INTP(adesc)[7];
+    int a_lld    = INTP(adesc)[8];
 
     // Note that A is symmetric, so n = a_m = a_n;
     // We do not test for that here.
     int n = a_n;
-    if (a_ConTxt == -1) n = 0; // Eigenvalues end up on same tasks
-                               // as eigenvectors
-
 
     // zdesc = adesc
     // This is generally not required, as long as the 
@@ -314,6 +311,7 @@ PyObject* scalapack_diagonalize_dc(PyObject *self, PyObject *args)
     z_nb     = a_nb;
     z_rsrc   = a_rsrc;
     z_csrc   = a_csrc;
+    z_lld    = a_lld;
     zdesc[0] = z_type;
     zdesc[1] = z_ConTxt;
     zdesc[2] = z_m;
@@ -322,7 +320,7 @@ PyObject* scalapack_diagonalize_dc(PyObject *self, PyObject *args)
     zdesc[5] = z_nb;
     zdesc[6] = z_rsrc;
     zdesc[7] = z_csrc;
-
+    zdesc[8] = z_lld;
 
     Cblacs_gridinfo_(z_ConTxt, &z_nprow, &z_npcol,&z_myrow, &z_mycol);
 
@@ -332,6 +330,8 @@ PyObject* scalapack_diagonalize_dc(PyObject *self, PyObject *args)
     if (z_locM < 0) z_locM = 0;
     if (z_locN < 0) z_locN = 0;
 
+    if (z_ConTxt == -1) n = 0; // Eigenvalues only end up on same tasks
+                               // as eigenvectors
     // Eigenvectors
     npy_intp z_dims[2] = {z_locM, z_locN};
     PyArrayObject* z_obj = (PyArrayObject*)PyArray_SimpleNew(2, z_dims, NPY_DOUBLE);
@@ -345,16 +345,17 @@ PyObject* scalapack_diagonalize_dc(PyObject *self, PyObject *args)
         // Query part, need to find the optimal size of a number of work arrays
 	int info;
         double* work;
-        work = GPAW_MALLOC(double, 3);
+        work = GPAW_MALLOC(double, 1);
         int querylwork = -1;
         int* iwork;
         iwork = GPAW_MALLOC(int, 1);
-        int queryliwork = 1;
+        int queryliwork = -1;
         pdsyevd_(&jobz, &uplo, &n, DOUBLEP(a_obj), &one, &one, INTP(adesc), 
                  DOUBLEP(w_obj), DOUBLEP(z_obj), &one, &one, zdesc, 
                  work, &querylwork, iwork, &queryliwork, &info);
+        // printf("query info = %d\n", info);
 	// Computation part
-        int lwork = (int)work[0];
+        int lwork = (int)(work[0]+0.1); // Give extra space to avoid complaint from PDORMTR
         free(work);
         int liwork = (int)iwork[0];
         free(iwork);
@@ -363,10 +364,10 @@ PyObject* scalapack_diagonalize_dc(PyObject *self, PyObject *args)
         pdsyevd_(&jobz, &uplo, &n, DOUBLEP(a_obj), &one, &one, INTP(adesc), 
                  DOUBLEP(w_obj), DOUBLEP(z_obj), &one, &one, zdesc, 
                  work, &lwork, iwork, &liwork, &info);
-
+        // printf("computation info = %d\n", info);
         free(work);
 	free(iwork);
-        return Py_BuildValue("(OO)", w_obj, z_obj);
+        return Py_BuildValue("(OO)", w_obj,z_obj);
       }
     else
       {
