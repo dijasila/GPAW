@@ -52,6 +52,7 @@ PyObject* compiled_WITH_SL(PyObject *self, PyObject *args);
 PyObject* blacs_array(PyObject *self, PyObject *args);
 PyObject* blacs_redist(PyObject *self, PyObject *args);
 PyObject* scalapack_diagonalize_dc(PyObject *self, PyObject *args);
+PyObject* scalapack_general_diagonalize(PyObject *self, PyObject *args);
 #endif
 
 static PyMethodDef functions[] = {
@@ -102,6 +103,7 @@ static PyMethodDef functions[] = {
   {"blacs_array",      blacs_array,      METH_VARARGS, 0},
   {"blacs_redist",     blacs_redist,     METH_VARARGS, 0},
   {"scalapack_diagonalize_dc", scalapack_diagonalize_dc, METH_VARARGS, 0}, 
+  {"scalapack_general_diagonalize", scalapack_general_diagonalize, METH_VARARGS, 0},
 #endif
   {0, 0, 0, 0}
 };
