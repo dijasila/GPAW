@@ -276,9 +276,10 @@ PyObject* scalapack_diagonalize_dc(PyObject *self, PyObject *args)
     int z_nprow, z_npcol;
     int z_type, z_ConTxt, z_m, z_n, z_mb, z_nb, z_rsrc, z_csrc, z_lld;
     int zdesc[9];
+    static int one = 1;
+
     char jobz = 'V'; // eigenvectors also
     char uplo = 'U'; // work with upper
-    static int one = 1;
 
     if (!PyArg_ParseTuple(args, "OO", &a_obj, &adesc))
       return NULL;
@@ -371,7 +372,147 @@ PyObject* scalapack_diagonalize_dc(PyObject *self, PyObject *args)
       }
     else
       {
-	Py_RETURN_NONE;
+	return Py_BuildValue("(OO)", Py_None, Py_None);
+      }
+}
+PyObject* scalapack_general_diagonalize(PyObject *self, PyObject *args)
+{
+    // Expert Driver for QR
+    // Computes *all* eigenvalues and eigenvectors
+ 
+    PyArrayObject* a_obj; // symmetric matrix
+    PyArrayObject* b_obj; // overlap matrix
+    PyArrayObject* adesc; // symmetric matrix description vector
+    int ibtype  =  1;
+    int z_mycol = -1;
+    int z_myrow = -1;
+    int z_nprow, z_npcol;
+    int z_type, z_ConTxt, z_m, z_n, z_mb, z_nb, z_rsrc, z_csrc, z_lld;
+    int zdesc[9];
+    int il, iu;  // not used when range = 'A' or 'V'
+    int m, eigvalm, nz;
+    static int one = 1;
+ 
+    double vl, vu; // not used when range = 'A' or 'I'
+
+    char jobz = 'V'; // eigenvectors also
+    char range = 'A'; // all eigenvalues
+    char uplo = 'U'; // work with upper
+    char cmach = 'U';
+
+    if (!PyArg_ParseTuple(args, "OOO", &a_obj, &b_obj, &adesc))
+      return NULL;
+
+    // adesc,
+    // bdesc = adesc
+    // This is generally not required, as long as the
+    // alignment properties are satisfied, see pdsygvx.f
+    // In the context of GPAW, don't see why bdesc would
+    // not be equal to adesc so I am just hard-coding it in.
+    int a_type   = INTP(adesc)[0];
+    int a_ConTxt = INTP(adesc)[1];
+    int a_m      = INTP(adesc)[2];
+    int a_n      = INTP(adesc)[3];
+    int a_mb     = INTP(adesc)[4];
+    int a_nb     = INTP(adesc)[5];
+    int a_rsrc   = INTP(adesc)[6];
+    int a_csrc   = INTP(adesc)[7];
+    int a_lld    = INTP(adesc)[8];
+
+    // Note that A is symmetric, so n = a_m = a_n;
+    // We do not test for that here.
+    int n = a_n;
+
+    // Convergence tolerance
+    double abstol = pdlamch_(&a_ConTxt, &cmach);
+    double orfac = -1.0;
+
+    // zdesc = adesc
+    // This is generally not required, as long as the 
+    // alignment properties are satisfied, see pdsygvx.f
+    // In the context of GPAW, don't see why zdesc would
+    // not be equal to adesc so I am just hard-coding it in.
+    z_type   = a_type;
+    z_ConTxt = a_ConTxt;
+    z_m      = a_m;
+    z_n      = a_n;
+    z_mb     = a_mb;
+    z_nb     = a_nb;
+    z_rsrc   = a_rsrc;
+    z_csrc   = a_csrc;
+    z_lld    = a_lld;
+    zdesc[0] = z_type;
+    zdesc[1] = z_ConTxt;
+    zdesc[2] = z_m;
+    zdesc[3] = z_n;
+    zdesc[4] = z_mb;
+    zdesc[5] = z_nb;
+    zdesc[6] = z_rsrc;
+    zdesc[7] = z_csrc;
+    zdesc[8] = z_lld;
+
+    // bdesc = adesc
+
+    Cblacs_gridinfo_(z_ConTxt, &z_nprow, &z_npcol,&z_myrow, &z_mycol);
+
+    int z_locM = numroc_(&z_m, &z_mb, &z_myrow, &z_rsrc, &z_nprow);
+    int z_locN = numroc_(&z_n, &z_nb, &z_mycol, &z_csrc, &z_npcol);
+    
+    if (z_locM < 0) z_locM = 0;
+    if (z_locN < 0) z_locN = 0;
+
+    if (z_ConTxt == -1) n = 0; // Eigenvalues only end up on same tasks
+                               // as eigenvectors
+    // Eigenvectors
+    npy_intp z_dims[2] = {z_locM, z_locN};
+    PyArrayObject* z_obj = (PyArrayObject*)PyArray_SimpleNew(2, z_dims, NPY_DOUBLE);
+    
+    // Eigenvalues
+    npy_intp w_dims[1] = {n};
+    PyArrayObject* w_obj = (PyArrayObject*)PyArray_SimpleNew(1, w_dims, NPY_DOUBLE);
+
+    if (z_ConTxt != -1)
+      {
+        // Query part, need to find the optimal size of a number of work arrays
+        int info;
+        int *ifail;
+        ifail = GPAW_MALLOC(int, n);
+        int *iclustr;
+        iclustr = GPAW_MALLOC(int, 2*z_nprow*z_npcol);
+        double  *gap;
+        gap = GPAW_MALLOC(double, z_nprow*z_npcol);
+        double* work;
+        work = GPAW_MALLOC(double, 1);
+        int querylwork = -1;
+        int* iwork;
+        iwork = GPAW_MALLOC(int, 1);
+        int queryliwork = -1;
+        pdsygvx_(&ibtype, &jobz, &range, &uplo, &n, DOUBLEP(a_obj), &one, &one, 
+                 INTP(adesc), DOUBLEP(b_obj), &one, &one, INTP(adesc), &vl, &vu, 
+                 &il, &iu, &abstol, &eigvalm, &nz, DOUBLEP(w_obj), &orfac,
+                 DOUBLEP(z_obj), &one, &one, zdesc, work, &querylwork, iwork, 
+                 &queryliwork, ifail, iclustr, gap, &info);
+        // printf("query info = %d\n", info);
+	// Computation part
+        int lwork = (int)(work[0]+0.1); // Give extra space to avoid complaint from PDORMTR
+        lwork = lwork + (n-1)*n;
+        free(work);
+        int liwork = (int)iwork[0];
+        free(iwork);
+        work  = GPAW_MALLOC(double, lwork);
+        iwork = GPAW_MALLOC(int, liwork);
+        pdsygvx_(&ibtype, &jobz, &range, &uplo, &n, DOUBLEP(a_obj), &one, &one, 
+                 INTP(adesc), DOUBLEP(b_obj), &one, &one, INTP(adesc), &vl, &vu, 
+                 &il, &iu, &abstol, &eigvalm, &nz, DOUBLEP(w_obj), &orfac,
+                 DOUBLEP(z_obj), &one, &one, zdesc, work, &querylwork, iwork, 
+                 &queryliwork, ifail, iclustr, gap, &info);                
+        free(work);
+        free(iwork);
+        return Py_BuildValue("(OO)", w_obj,z_obj);
+      }
+    else
+      {
+	return Py_BuildValue("(OO)", Py_None, Py_None);
       }
 }
 #endif
