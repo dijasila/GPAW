@@ -62,18 +62,8 @@ double pdlamch_(int* ictxt, char* cmach);
 // cholesky
 void pdpotrf_(char *uplo, int *n, double* a, int *ia, int* ja, int* desca,
               int *info);
-void pdpotri_(char *uplo, int *n, double* a, int *ia, int* ja, int* desca,
-              int *info);
-
-void pzpotrf_(char *uplo, int *n, void* a, int *ia, int* ja, int* desca,
-              int *info);
-void pzpotri_(char *uplo, int *n, void* a, int *ia, int* ja, int* desca,
-              int *info);
-
 
 void pdtrtri_(char *uplo, char *diag, int *n, double* a, int *ia, int* ja,
-              int* desca, int *info);
-void pztrtri_(char *uplo, char *diag, int *n, void* a, int *ia, int* ja,
               int* desca, int *info);
 
 // diagonalization
@@ -81,18 +71,6 @@ void pdsyevd_(char *jobz, char *uplo, int *n, double* a, int *ia, int* ja,
               int* desca, double *w,
               double* z, int *iz, int* jz, int* descz, double *work,
               int *lwork, int *iwork, int *liwork, int *info);
-
-void pdsyev_(char *jobz, char *uplo, int *n, double* a, int *ia, int* ja,
-             int* desca, double *w,
-             double* z, int *iz, int* jz, int* descz, double *work,
-             int *lwork, int *info);
-
-void pdsyevx_(char *jobz, char *range, char *uplo, int *n, double* a,
-              int *ia, int* ja, int* desca, double* vl,
-              double* vu, int* il, int* iu, double* abstol, int* m, int* nz,
-              double* w, double* orfac, double* z, int *iz,
-              int* jz, int* descz, double *work, int *lwork, int *iwork,
-              int *liwork, int *ifail, int *iclustr, double* gap, int *info);
 
 void pdsygvx_(int *ibtype, char *jobz, char *range, char *uplo, int *n,
               double* a, int *ia, int* ja,
@@ -102,11 +80,6 @@ void pdsygvx_(int *ibtype, char *jobz, char *range, char *uplo, int *n,
               double* z, int *iz, int* jz, int* descz,
               double *work, int *lwork, int *iwork, int *liwork, int *ifail,
               int *iclustr, double* gap, int *info);
-
-void pzheev_(char *jobz, char *uplo, int *n, double* a, int *ia, int* ja,
-             int* desca, double *w, double* z, int *iz, int* jz,
-             int* descz, double *work, int *lwork, double *rwork,
-             int *lrwork, int *info);
 
 
 PyObject* blacs_array(PyObject *self, PyObject *args)
@@ -129,6 +102,7 @@ PyObject* blacs_array(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "Oiiiiii", &comm_obj, &m, &n, &nprow, &npcol, &mb, &nb))
     return NULL;
 
+  // Special Case: Rank is not part of this communicator
   if (comm_obj == Py_None)
     {
       desc[0] = 1;  // BLOCK_CYCLIC_2D
@@ -224,16 +198,6 @@ PyObject* blacs_redist(PyObject *self, PyObject *args)
     Cblacs_gridinfo_(b_ConTxt, &b_nprow, &b_npcol,&b_myrow, &b_mycol);
     // printf("b_ConTxt=%d,b_nprow=%d,b_npcol=%d,b_myrow=%d,b_mycol=%d\n",b_ConTxt,b_nprow,b_npcol,b_myrow,b_mycol);
 
-    int b_locM = numroc_(&b_m, &b_mb, &b_myrow, &b_rsrc, &b_nprow);
-    int b_locN = numroc_(&b_n, &b_nb, &b_mycol, &b_csrc, &b_npcol);
-    
-    if (b_locM < 0) b_locM = 0;
-    if (b_locN < 0) b_locN = 0;
-
-    npy_intp b_dims[2] = {b_locM, b_locN};
-    PyArrayObject* b_obj = (PyArrayObject*)PyArray_SimpleNew(2, b_dims, NPY_DOUBLE);
-
-
     // Determine the largest grid because the ConTxt that is passed
     // to Cpdgemr2d must encompass both grids (I think). The SCALAPACK
     // documentation is not clear on this point. 
@@ -256,6 +220,21 @@ PyObject* blacs_redist(PyObject *self, PyObject *args)
     // parallelization=B it is about (B-2)/B*(nbands-by-nbands).
     if (ConTxt != -1)
       {
+        // Need a dummy a_obj
+        if (a_obj == Py_None)
+          {
+            npy_intp a_dims[2] = {0, 0};
+            PyArrayObject* a_obj = (PyArrayObject*)PyArray_SimpleNew(2, a_dims, NPY_DOUBLE);  
+          }
+        int b_locM = numroc_(&b_m, &b_mb, &b_myrow, &b_rsrc, &b_nprow);
+        int b_locN = numroc_(&b_n, &b_nb, &b_mycol, &b_csrc, &b_npcol);
+    
+        if (b_locM < 0) b_locM = 0;
+        if (b_locN < 0) b_locN = 0;
+
+        npy_intp b_dims[2] = {b_locM, b_locN};
+        PyArrayObject* b_obj = (PyArrayObject*)PyArray_SimpleNew(2, b_dims, NPY_DOUBLE);
+
 	Cpdgemr2d_(m, n, DOUBLEP(a_obj), one, one, INTP(adesc), DOUBLEP(b_obj), one, one, INTP(bdesc), ConTxt);
 	return Py_BuildValue("O",b_obj);
       }
@@ -325,24 +304,22 @@ PyObject* scalapack_diagonalize_dc(PyObject *self, PyObject *args)
 
     Cblacs_gridinfo_(z_ConTxt, &z_nprow, &z_npcol,&z_myrow, &z_mycol);
 
-    int z_locM = numroc_(&z_m, &z_mb, &z_myrow, &z_rsrc, &z_nprow);
-    int z_locN = numroc_(&z_n, &z_nb, &z_mycol, &z_csrc, &z_npcol);
-    
-    if (z_locM < 0) z_locM = 0;
-    if (z_locN < 0) z_locN = 0;
-
-    if (z_ConTxt == -1) n = 0; // Eigenvalues only end up on same tasks
-                               // as eigenvectors
-    // Eigenvectors
-    npy_intp z_dims[2] = {z_locM, z_locN};
-    PyArrayObject* z_obj = (PyArrayObject*)PyArray_SimpleNew(2, z_dims, NPY_DOUBLE);
-    
-    // Eigenvalues
-    npy_intp w_dims[1] = {n};
-    PyArrayObject* w_obj = (PyArrayObject*)PyArray_SimpleNew(1, w_dims, NPY_DOUBLE);
-
     if (z_ConTxt != -1)
       {
+        int z_locM = numroc_(&z_m, &z_mb, &z_myrow, &z_rsrc, &z_nprow);
+        int z_locN = numroc_(&z_n, &z_nb, &z_mycol, &z_csrc, &z_npcol);
+    
+        if (z_locM < 0) z_locM = 0;
+        if (z_locN < 0) z_locN = 0;
+
+        // Eigenvectors
+        npy_intp z_dims[2] = {z_locM, z_locN};
+        PyArrayObject* z_obj = (PyArrayObject*)PyArray_SimpleNew(2, z_dims, NPY_DOUBLE);
+    
+        // Eigenvalues
+        npy_intp w_dims[1] = {n};
+        PyArrayObject* w_obj = (PyArrayObject*)PyArray_SimpleNew(1, w_dims, NPY_DOUBLE);
+
         // Query part, need to find the optimal size of a number of work arrays
 	int info;
         double* work;
