@@ -10,14 +10,14 @@
 
 // BLACS
 #ifdef GPAW_AIX
-#define   Cblacs_get_      Cblacs_get
+#define   Cblacs_gridexit_ Cblacs_gridexit
 #define   Cblacs_gridinfo_ Cblacs_gridinfo
 #define   Cblacs_gridinit_ Cblacs_gridinit
 #define   Cblacs_pinfo_    Cblacs_pinfo
 #define   Csys2blacs_handle_ Csys2blacs_handle
 #endif
 
-void Cblacs_get_(int ConTxt, int what, int* val);
+void Cblacs_gridexit_(int ConTxt);
 
 void Cblacs_gridinfo_(int ConTxt, int *nprow, int *npcol,
               int *myrow, int *mycol);
@@ -33,7 +33,6 @@ int Csys2blacs_handle_(MPI_Comm SysCtxt);
 #ifdef GPAW_AIX
 #define   descinit_   descinit
 #define   numroc_     numroc
-#define   Cpdgemr2d_  Cpdgemr2d
 #define   Cpdgemr2do_ Cpdgemr2do
 #define   pdlamch_    pdlamch
 
@@ -45,10 +44,7 @@ int Csys2blacs_handle_(MPI_Comm SysCtxt);
 #define   pztrtri_  pztrtri
 
 #define   pdsyevd_  pdsyevd
-#define   pdsyev_   pdsyev
-#define   pdsyevx_  pdsyevx
 #define   pdsygvx_  pdsygvx
-#define   pzheev_   pzheev
 #endif
 
 // tools
@@ -57,9 +53,6 @@ void descinit_(int* desc, int* m, int* n, int* mb, int* nb, int* irsrc,
                int* lld, int* info);
 
 int numroc_(int* n, int* nb, int* iproc, int* isrcproc, int* nprocs);
-
-void Cpdgemr2d_(int m, int n, double *A, int IA, int JA, int *descA,
-               double *B, int IB, int JB, int *descB, int gcontext);
 
 void Cpdgemr2do_(int m, int n, double *A, int IA, int JA, int *descA,
                double *B, int IB, int JB, int *descB);
@@ -89,7 +82,7 @@ void pdsygvx_(int *ibtype, char *jobz, char *range, char *uplo, int *n,
               int *iclustr, double* gap, int *info);
 
 
-PyObject* blacs_array(PyObject *self, PyObject *args)
+PyObject* blacs_create(PyObject *self, PyObject *args)
 {
   PyObject*  comm_obj;     // communicator
   char order='R';
@@ -163,6 +156,20 @@ PyObject* blacs_array(PyObject *self, PyObject *args)
   return Py_BuildValue("O",desc_obj);
 }
 
+PyObject* blacs_destroy(PyObject *self, PyObject *args)
+{
+    PyArrayObject* adesc; //blacs descriptor
+
+    if (!PyArg_ParseTuple(args, "O", &adesc))
+      return NULL;
+
+    int a_ConTxt = INTP(adesc)[1];
+
+    if (a_ConTxt != -1) Cblacs_gridexit_(a_ConTxt);
+
+    Py_RETURN_NONE;
+}
+
 PyObject* blacs_redist(PyObject *self, PyObject *args)
 {
     PyArrayObject* a_obj; //source matrix
@@ -233,7 +240,7 @@ PyObject* blacs_redist(PyObject *self, PyObject *args)
 
     // Make Fortran contiguos array, ScaLAPACK requires Fortran order arrays!
     // Note there are some times when you can get away with C order arrays.
-    // Most notable example is a symmetric matrix store on a square grid.
+    // Most notable example is a symmetric matrix stored on a square ConTxt.
     PyArray_UpdateFlags(b_obj,NPY_F_CONTIGUOUS);
 
     // This should work for redistributing a_obj unto b_obj regardless of whether
@@ -245,14 +252,14 @@ PyObject* blacs_redist(PyObject *self, PyObject *args)
     Cpdgemr2do_(m, n, DOUBLEP(a_obj), one, one, INTP(adesc), DOUBLEP(b_obj), one, one, INTP(bdesc));
 
     // Note that we choose to return Py_None, instead of an empty array.
-    if ((b_locM == 0) | (b_locN == 0)) b_obj = Py_None;
+    if ((b_locM == 0) | (b_locN == 0)) Py_RETURN_NONE;
 
     return Py_BuildValue("O",b_obj);
 }
 
 PyObject* scalapack_diagonalize_dc(PyObject *self, PyObject *args)
 {
-    // Standard Driver for Divide and Conquer Algorithm
+    // Standard Driver for Divide and Conquer algorithm
     // Computes all eigenvalues and eigenvectors
  
     PyArrayObject* a_obj; // symmetric matrix
@@ -313,17 +320,16 @@ PyObject* scalapack_diagonalize_dc(PyObject *self, PyObject *args)
 
     if (z_ConTxt != -1)
       {
+        // z_locM, z_locN should not be negative or zero
         int z_locM = numroc_(&z_m, &z_mb, &z_myrow, &z_rsrc, &z_nprow);
         int z_locN = numroc_(&z_n, &z_nb, &z_mycol, &z_csrc, &z_npcol);
     
-        if (z_locM < 0) z_locM = 0;
-        if (z_locN < 0) z_locN = 0;
-
         // Eigenvectors
         npy_intp z_dims[2] = {z_locM, z_locN};
         PyArrayObject* z_obj = (PyArrayObject*)PyArray_SimpleNew(2, z_dims, NPY_DOUBLE);
-    
-        // Eigenvalues
+        PyArray_UpdateFlags(z_obj,NPY_F_CONTIGUOUS);
+
+        // Eigenvalues, since w_obj is 1D-array NPY_F_CONTIGUOUS not needed here
         npy_intp w_dims[1] = {n};
         PyArrayObject* w_obj = (PyArrayObject*)PyArray_SimpleNew(1, w_dims, NPY_DOUBLE);
 
@@ -361,12 +367,12 @@ PyObject* scalapack_diagonalize_dc(PyObject *self, PyObject *args)
 }
 PyObject* scalapack_general_diagonalize(PyObject *self, PyObject *args)
 {
-    // Expert Driver for QR
+    // Expert Driver for QR algorithm
     // Computes *all* eigenvalues and eigenvectors
  
-    PyArrayObject* a_obj; // symmetric matrix
+    PyArrayObject* a_obj; // Hamiltonian matrix
     PyArrayObject* b_obj; // overlap matrix
-    PyArrayObject* adesc; // symmetric matrix description vector
+    PyArrayObject* adesc; // Hamintonian matrix descriptor
     int ibtype  =  1;
     int z_mycol = -1;
     int z_myrow = -1;
@@ -439,24 +445,21 @@ PyObject* scalapack_general_diagonalize(PyObject *self, PyObject *args)
 
     Cblacs_gridinfo_(z_ConTxt, &z_nprow, &z_npcol,&z_myrow, &z_mycol);
 
-    int z_locM = numroc_(&z_m, &z_mb, &z_myrow, &z_rsrc, &z_nprow);
-    int z_locN = numroc_(&z_n, &z_nb, &z_mycol, &z_csrc, &z_npcol);
-    
-    if (z_locM < 0) z_locM = 0;
-    if (z_locN < 0) z_locN = 0;
-
-    if (z_ConTxt == -1) n = 0; // Eigenvalues only end up on same tasks
-                               // as eigenvectors
-    // Eigenvectors
-    npy_intp z_dims[2] = {z_locM, z_locN};
-    PyArrayObject* z_obj = (PyArrayObject*)PyArray_SimpleNew(2, z_dims, NPY_DOUBLE);
-    
-    // Eigenvalues
-    npy_intp w_dims[1] = {n};
-    PyArrayObject* w_obj = (PyArrayObject*)PyArray_SimpleNew(1, w_dims, NPY_DOUBLE);
-
     if (z_ConTxt != -1)
       {
+        // z_locM, z_locN should not be negative or zero
+        int z_locM = numroc_(&z_m, &z_mb, &z_myrow, &z_rsrc, &z_nprow);
+        int z_locN = numroc_(&z_n, &z_nb, &z_mycol, &z_csrc, &z_npcol);
+
+        // Eigenvectors
+        npy_intp z_dims[2] = {z_locM, z_locN};
+        PyArrayObject* z_obj = (PyArrayObject*)PyArray_SimpleNew(2, z_dims, NPY_DOUBLE);
+        PyArray_UpdateFlags(z_obj,NPY_F_CONTIGUOUS);    
+
+        // Eigenvalues, since w_obj is 1D-array NPY_F_CONTIGUOUS not needed here
+        npy_intp w_dims[1] = {n};
+        PyArrayObject* w_obj = (PyArrayObject*)PyArray_SimpleNew(1, w_dims, NPY_DOUBLE);
+
         // Query part, need to find the optimal size of a number of work arrays
         int info;
         int *ifail;

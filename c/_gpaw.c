@@ -49,7 +49,8 @@ PyObject* spline_to_grid(PyObject *self, PyObject *args);
 PyObject* NewLFCObject(PyObject *self, PyObject *args);
 PyObject* compiled_WITH_SL(PyObject *self, PyObject *args);
 #ifdef GPAW_WITH_SL
-PyObject* blacs_array(PyObject *self, PyObject *args);
+PyObject* blacs_create(PyObject *self, PyObject *args);
+PyObject* blacs_destroy(PyObject *self, PyObject *args);
 PyObject* blacs_redist(PyObject *self, PyObject *args);
 PyObject* scalapack_diagonalize_dc(PyObject *self, PyObject *args);
 PyObject* scalapack_general_diagonalize(PyObject *self, PyObject *args);
@@ -100,8 +101,9 @@ static PyMethodDef functions[] = {
   {"construct_density1", construct_density1, METH_VARARGS, 0},
   */
 #ifdef GPAW_WITH_SL
-  {"blacs_array",      blacs_array,      METH_VARARGS, 0},
-  {"blacs_redist",     blacs_redist,     METH_VARARGS, 0},
+  {"blacs_create",      blacs_create,      METH_VARARGS, 0},
+  {"blacs_destroy",     blacs_destroy,      METH_VARARGS, 0},
+  {"blacs_redist",      blacs_redist,     METH_VARARGS, 0},
   {"scalapack_diagonalize_dc", scalapack_diagonalize_dc, METH_VARARGS, 0}, 
   {"scalapack_general_diagonalize", scalapack_general_diagonalize, METH_VARARGS, 0},
 #endif
