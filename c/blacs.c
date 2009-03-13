@@ -10,11 +10,14 @@
 
 // BLACS
 #ifdef GPAW_AIX
+#define   Cblacs_get_      Cblacs_get
 #define   Cblacs_gridinfo_ Cblacs_gridinfo
 #define   Cblacs_gridinit_ Cblacs_gridinit
 #define   Cblacs_pinfo_    Cblacs_pinfo
 #define   Csys2blacs_handle_ Csys2blacs_handle
 #endif
+
+void Cblacs_get_(int ConTxt, int what, int* val);
 
 void Cblacs_gridinfo_(int ConTxt, int *nprow, int *npcol,
               int *myrow, int *mycol);
@@ -28,10 +31,11 @@ int Csys2blacs_handle_(MPI_Comm SysCtxt);
 
 // ScaLAPACK
 #ifdef GPAW_AIX
-#define   descinit_  descinit
-#define   numroc_    numroc
-#define   Cpdgemr2d_ Cpdgemr2d
-#define   pdlamch_   pdlamch
+#define   descinit_   descinit
+#define   numroc_     numroc
+#define   Cpdgemr2d_  Cpdgemr2d
+#define   Cpdgemr2do_ Cpdgemr2do
+#define   pdlamch_    pdlamch
 
 #define   pdpotrf_  pdpotrf
 #define   pdpotri_  pdpotri
@@ -56,6 +60,9 @@ int numroc_(int* n, int* nb, int* iproc, int* isrcproc, int* nprocs);
 
 void Cpdgemr2d_(int m, int n, double *A, int IA, int JA, int *descA,
                double *B, int IB, int JB, int *descB, int gcontext);
+
+void Cpdgemr2do_(int m, int n, double *A, int IA, int JA, int *descA,
+               double *B, int IB, int JB, int *descB);
 
 double pdlamch_(int* ictxt, char* cmach);
 
@@ -86,6 +93,7 @@ PyObject* blacs_array(PyObject *self, PyObject *args)
 {
   PyObject*  comm_obj;     // communicator
   char order='R';
+  int row_order = 1;
   int m, n, nprow, npcol, mb, nb, lld;
   int nprocs;
   int ConTxt = -1;
@@ -99,13 +107,21 @@ PyObject* blacs_array(PyObject *self, PyObject *args)
   npy_intp desc_dims[1] = {9};
   PyArrayObject* desc_obj = (PyArrayObject*)PyArray_SimpleNew(1, desc_dims, NPY_INT);
 
-  if (!PyArg_ParseTuple(args, "Oiiiiii", &comm_obj, &m, &n, &nprow, &npcol, &mb, &nb))
+  if (!PyArg_ParseTuple(args, "Oiiiiii|i", &comm_obj, &m, &n, &nprow, &npcol, &mb, &nb, &row_order))
     return NULL;
 
-  // Special Case: Rank is not part of this communicator
+  // False, gives us C-column order. Not clear when this would be beneficial, but we
+  // do not hard-code R-row order for the sake of generality.
+  if (!row_order) order = 'C';
+
+
   if (comm_obj == Py_None)
     {
-      desc[0] = 1;  // BLOCK_CYCLIC_2D
+      // SPECIAL CASE: Rank is not part of this communicator
+      // ScaLAPACK documentation here is vague. It was emperically determined that
+      // the values of desc[1]-desc[5] are important for use with pdgemr2d routines.
+      // (otherwise, ScaLAPACK core dumps). 
+      desc[0] = -1;
       desc[1] = -1; // Tells BLACS to ignore me.
       desc[2] = m;
       desc[3] = n;
@@ -113,7 +129,7 @@ PyObject* blacs_array(PyObject *self, PyObject *args)
       desc[5] = nb;
       desc[6] = 0;
       desc[7] = 0;
-      desc[8] = 1;
+      desc[8] = 0;
     }
   else
     {
@@ -132,7 +148,6 @@ PyObject* blacs_array(PyObject *self, PyObject *args)
       Cblacs_gridinfo_(ConTxt, &nprow, &npcol, &myrow, &mycol);
 
       lld = numroc_(&m, &mb, &myrow, &rsrc, &nprow);
-
       desc[0] = 1; // BLOCK_CYCLIC_2D
       desc[1] = ConTxt;
       desc[2] = m;
@@ -155,7 +170,6 @@ PyObject* blacs_redist(PyObject *self, PyObject *args)
     PyArrayObject* bdesc; //destination descriptor
     int m = 0;
     int n = 0;
-    int ConTxt;
     static int one = 1;
 
     if (!PyArg_ParseTuple(args, "OOO|ii", &a_obj, &adesc, &bdesc, &m, &n))
@@ -194,55 +208,48 @@ PyObject* blacs_redist(PyObject *self, PyObject *args)
 
     // Get adesc and bdesc grid info
     Cblacs_gridinfo_(a_ConTxt, &a_nprow, &a_npcol,&a_myrow, &a_mycol);
-
+    
     Cblacs_gridinfo_(b_ConTxt, &b_nprow, &b_npcol,&b_myrow, &b_mycol);
-    // printf("b_ConTxt=%d,b_nprow=%d,b_npcol=%d,b_myrow=%d,b_mycol=%d\n",b_ConTxt,b_nprow,b_npcol,b_myrow,b_mycol);
 
-    // Determine the largest grid because the ConTxt that is passed
-    // to Cpdgemr2d must encompass both grids (I think). The SCALAPACK
-    // documentation is not clear on this point. 
-    if ((a_nprow*a_npcol) > (b_nprow*b_npcol))
-      {
-        ConTxt = a_ConTxt;
-      }
-    else
-      {
-	ConTxt = b_ConTxt;
-      }
-
-
-    // It appears that the memory requirements for Cpdgemr2d are non-trivial.
+    // It appears that the memory requirements for Cpdgemr2do are non-trivial.
     // Consideer A_loc, B_loc to be the local piece of the global array. Then
     // to perform this operation you will need an extra A_loc, B_loc worth of
     // memory. Hence, for --state-parallelization=4 the memory savings are
     // about nbands-by-nbands is exactly 1/4*(nbands-by-nbands). For --state-
     // parallelization=8 it is about 3/4*(nbands-by-nbands). For --state-
     // parallelization=B it is about (B-2)/B*(nbands-by-nbands).
-    if (ConTxt != -1)
-      {
-        // Need a dummy a_obj
-        if (a_obj == Py_None)
-          {
-            npy_intp a_dims[2] = {0, 0};
-            PyArrayObject* a_obj = (PyArrayObject*)PyArray_SimpleNew(2, a_dims, NPY_DOUBLE);  
-          }
-        int b_locM = numroc_(&b_m, &b_mb, &b_myrow, &b_rsrc, &b_nprow);
-        int b_locN = numroc_(&b_n, &b_nb, &b_mycol, &b_csrc, &b_npcol);
+
+    int b_locM = numroc_(&b_m, &b_mb, &b_myrow, &b_rsrc, &b_nprow);
+    int b_locN = numroc_(&b_n, &b_nb, &b_mycol, &b_csrc, &b_npcol);
     
-        if (b_locM < 0) b_locM = 0;
-        if (b_locN < 0) b_locN = 0;
-
-        npy_intp b_dims[2] = {b_locM, b_locN};
-        PyArrayObject* b_obj = (PyArrayObject*)PyArray_SimpleNew(2, b_dims, NPY_DOUBLE);
-
-	Cpdgemr2d_(m, n, DOUBLEP(a_obj), one, one, INTP(adesc), DOUBLEP(b_obj), one, one, INTP(bdesc), ConTxt);
-	return Py_BuildValue("O",b_obj);
+    if ((b_locM < 0) | (b_locN < 0))
+      { 
+          b_locM = 0;
+          b_locN = 0;
       }
-    else
-      {
-	Py_RETURN_NONE;
-      }
+
+    npy_intp b_dims[2] = {b_locM, b_locN};
+    PyArrayObject* b_obj = (PyArrayObject*)PyArray_SimpleNew(2, b_dims, NPY_DOUBLE);
+
+    // Make Fortran contiguos array, ScaLAPACK requires Fortran order arrays!
+    // Note there are some times when you can get away with C order arrays.
+    // Most notable example is a symmetric matrix store on a square grid.
+    PyArray_UpdateFlags(b_obj,NPY_F_CONTIGUOUS);
+
+    // This should work for redistributing a_obj unto b_obj regardless of whether
+    // the ConTxt are overlapping. Cpdgemr2do is undocumented but can be understood
+    // by looking at the scalapack-1.8.0/REDIST/SRC/pdgemr.c. Cpdgemr2do creates
+    // another ConTxt which encompasses MPI_COMM_WORLD. It is used as an intermediary
+    // for copying between a_ConTxt and b_ConTxt. It then calls Cpdgemr2d which
+    // performs the actual redistribution.
+    Cpdgemr2do_(m, n, DOUBLEP(a_obj), one, one, INTP(adesc), DOUBLEP(b_obj), one, one, INTP(bdesc));
+
+    // Note that we choose to return Py_None, instead of an empty array.
+    if ((b_locM == 0) | (b_locN == 0)) b_obj = Py_None;
+
+    return Py_BuildValue("O",b_obj);
 }
+
 PyObject* scalapack_diagonalize_dc(PyObject *self, PyObject *args)
 {
     // Standard Driver for Divide and Conquer Algorithm
