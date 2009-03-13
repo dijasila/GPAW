@@ -27,20 +27,8 @@ assert D * B == world.size
 r = world.rank // D * D
 domain_comm = world.new_communicator(np.arange(r, r + D))
 band_comm = world.new_communicator(np.arange(world.rank % D, world.size, D))
-if world.rank == 0: print "created domain_comm and band_comm successfully"
 scalapack0_comm = world.new_communicator(np.arange(0, world.size, D))
 scalapack1_comm = world.new_communicator(np.arange(0, world.size, D // B))
-scalapack0_procs = np.arange(0, world.size, D)
-scalapack1_procs = np.arange(0, world.size, D // B)
-
-if world.rank == 0: print scalapack0_procs
-if world.rank == 0: print scalapack1_procs
-# if world.rank == 127:
-#     print world.rank
-#     print domain_comm.rank
-#     print band_comm.rank
-#     print scalapack0_comm.rank
-#     print scalapack1_comm.rank
     
 # Set up domain and grid descriptors:
 domain = Domain((a, a, a))
@@ -118,7 +106,7 @@ def overlap(psit_mG, send_mG, recv_mG):
 
     # Blocks of matrix on each processor become one matrix.
     # We can think of this as a 1D block matrix 
-    S_nm = None; # Otherwise, blacs_redist will complain of UnboundLocalError
+    S_nm = np.zeros((0,0)); # Otherwise, blacs_redist will complain of UnboundLocalError
     if (scalapack0_comm):
         S_nm = S_imm.reshape(N,M)
     del S_imm
@@ -130,8 +118,8 @@ def overlap(psit_mG, send_mG, recv_mG):
     # will equal ranks
     if (scalapack0_comm):
         S_nm = scalapack0_comm.rank*np.eye(N,M,-M*scalapack0_comm.rank)
-        # S_nm = np.random.uniform(0,1,(N,M))
-        # print scalapack0_comm.rank, S_nm
+        S_nm = S_nm.copy("Fortran") # Fortran order required for ScaLAPACK
+        print scalapack0_comm.rank, S_nm
 
     # Desc for S_nm
     desc0 = _gpaw.blacs_array(scalapack0_comm,N,N,1,B,N,M)
@@ -139,31 +127,35 @@ def overlap(psit_mG, send_mG, recv_mG):
     # Desc for S_mm
     desc1 = _gpaw.blacs_array(scalapack1_comm,N,N,B,B,64,64)
 
-    # Copy from S_nm -> S_mm
+    #  Debugging only
+    #  if (scalapack0_comm):
+    #     print 'desc0 =', desc0
+    #     print 'desc1 =', desc1
+        
+    # Redistribute from S_nm -> S_mm
     S_mm = _gpaw.blacs_redist(S_nm,desc0,desc1)
-    
-    if world.rank == 0: print 'redistributed array'
 
+    if world.rank == 0: print 'redistributed array'
+    if (scalapack1_comm):
+        print scalapack1_comm.rank, S_mm
+        
     # Call new scalapack diagonalize
     W, Z_mm  = _gpaw.scalapack_diagonalize_dc(S_mm, desc1)
 
-    # Save memory
-    del S_mm
+    if (scalapack1_comm):
+        print scalapack1_comm.rank, Z_mm
 
-    # Delete W outside of communicator, mostly for testing
-    if (scalapack0_comm == None):
-        del W
-        
-    # if (scalapack1_comm):
-    #     print scalapack1_comm.rank, Z_mm
-        
+    # Get the eigevenctors from Z_mm and redistribute to S_nm
     # Copy from Z_mm -> Z_nm 
     S_nm = _gpaw.blacs_redist(Z_mm,desc1,desc0)
 
-    if world.rank == 0: print 'restore original array'
+    # if world.rank == 0: print 'restore original array'
     if (scalapack0_comm):
+        S_nm = S_nm.copy("C") # Convert to C array, which is default for NumPy
         print scalapack0_comm.rank, W
-                
+        print scalapack0_comm.rank, S_nm
+
+
 def matrix_multiply(C_nn, psit_mG, send_mG, recv_mG):
     """Calculate new linear compination of wave functions."""
     rank = band_comm.rank
