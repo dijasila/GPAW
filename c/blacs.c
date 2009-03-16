@@ -170,7 +170,7 @@ PyObject* blacs_destroy(PyObject *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
-PyObject* blacs_redist(PyObject *self, PyObject *args)
+PyObject* scalapack_redist(PyObject *self, PyObject *args)
 {
     PyArrayObject* a_obj; //source matrix
     PyArrayObject* adesc; //source descriptor
@@ -235,13 +235,13 @@ PyObject* blacs_redist(PyObject *self, PyObject *args)
           b_locN = 0;
       }
 
-    npy_intp b_dims[2] = {b_locM, b_locN};
-    PyArrayObject* b_obj = (PyArrayObject*)PyArray_SimpleNew(2, b_dims, NPY_DOUBLE);
-
-    // Make Fortran contiguos array, ScaLAPACK requires Fortran order arrays!
-    // Note there are some times when you can get away with C order arrays.
+    // Make Fortran contiguous array, ScaLAPACK requires Fortran order arrays!
+    // Note there are some times when you can get away with C order arrays.                                          
     // Most notable example is a symmetric matrix stored on a square ConTxt.
-    PyArray_UpdateFlags(b_obj,NPY_F_CONTIGUOUS);
+    // PyArray_UpdateFlags(b_obj,NPY_F_CONTIGUOUS);
+    npy_intp b_dims[2] = {b_locM, b_locN};
+    PyArrayObject* b_obj = (PyArrayObject*)PyArray_EMPTY(2, b_dims, NPY_DOUBLE,
+                                                            NPY_F_CONTIGUOUS);
 
     // This should work for redistributing a_obj unto b_obj regardless of whether
     // the ConTxt are overlapping. Cpdgemr2do is undocumented but can be understood
@@ -326,8 +326,8 @@ PyObject* scalapack_diagonalize_dc(PyObject *self, PyObject *args)
     
         // Eigenvectors
         npy_intp z_dims[2] = {z_locM, z_locN};
-        PyArrayObject* z_obj = (PyArrayObject*)PyArray_SimpleNew(2, z_dims, NPY_DOUBLE);
-        PyArray_UpdateFlags(z_obj,NPY_F_CONTIGUOUS);
+        PyArrayObject* z_obj = (PyArrayObject*)PyArray_EMPTY(2, z_dims, NPY_DOUBLE, 
+                                                                NPY_F_CONTIGUOUS);
 
         // Eigenvalues, since w_obj is 1D-array NPY_F_CONTIGUOUS not needed here
         npy_intp w_dims[1] = {n};
@@ -373,7 +373,7 @@ PyObject* scalapack_general_diagonalize(PyObject *self, PyObject *args)
     PyArrayObject* a_obj; // Hamiltonian matrix
     PyArrayObject* b_obj; // overlap matrix
     PyArrayObject* adesc; // Hamintonian matrix descriptor
-    int ibtype  =  1;
+    int ibtype  =  1; // Solve H*psi = lambda*S*psi
     int z_mycol = -1;
     int z_myrow = -1;
     int z_nprow, z_npcol;
@@ -388,7 +388,8 @@ PyObject* scalapack_general_diagonalize(PyObject *self, PyObject *args)
     char jobz = 'V'; // eigenvectors also
     char range = 'A'; // all eigenvalues
     char uplo = 'U'; // work with upper
-    char cmach = 'U';
+    // char cmach = 'U'; // most orthogonal eigenvectors    
+    char cmach = 'S'; // most acccurate eigenvalues
 
     if (!PyArg_ParseTuple(args, "OOO", &a_obj, &b_obj, &adesc))
       return NULL;
@@ -412,10 +413,6 @@ PyObject* scalapack_general_diagonalize(PyObject *self, PyObject *args)
     // Note that A is symmetric, so n = a_m = a_n;
     // We do not test for that here.
     int n = a_n;
-
-    // Convergence tolerance
-    double abstol = pdlamch_(&a_ConTxt, &cmach);
-    double orfac = -1.0;
 
     // zdesc = adesc
     // This is generally not required, as long as the 
@@ -447,14 +444,19 @@ PyObject* scalapack_general_diagonalize(PyObject *self, PyObject *args)
 
     if (z_ConTxt != -1)
       {
+        // Convergence tolerance                                                         
+        // double abstol = pdlamch_(&z_ConTxt, &cmach); // most orthogonal eigenvectors     
+        double abstol = 2.0*pdlamch_(&z_ConTxt, &cmach); // most accurate eigenvalues            
+        double orfac = -1.0;
+
         // z_locM, z_locN should not be negative or zero
         int z_locM = numroc_(&z_m, &z_mb, &z_myrow, &z_rsrc, &z_nprow);
         int z_locN = numroc_(&z_n, &z_nb, &z_mycol, &z_csrc, &z_npcol);
 
         // Eigenvectors
         npy_intp z_dims[2] = {z_locM, z_locN};
-        PyArrayObject* z_obj = (PyArrayObject*)PyArray_SimpleNew(2, z_dims, NPY_DOUBLE);
-        PyArray_UpdateFlags(z_obj,NPY_F_CONTIGUOUS);    
+        PyArrayObject* z_obj = (PyArrayObject*)PyArray_EMPTY(2, z_dims, NPY_DOUBLE,
+                                                                NPY_F_CONTIGUOUS);
 
         // Eigenvalues, since w_obj is 1D-array NPY_F_CONTIGUOUS not needed here
         npy_intp w_dims[1] = {n};
@@ -469,7 +471,7 @@ PyObject* scalapack_general_diagonalize(PyObject *self, PyObject *args)
         double  *gap;
         gap = GPAW_MALLOC(double, z_nprow*z_npcol);
         double* work;
-        work = GPAW_MALLOC(double, 1);
+        work = GPAW_MALLOC(double, 3);
         int querylwork = -1;
         int* iwork;
         iwork = GPAW_MALLOC(int, 1);
@@ -481,7 +483,7 @@ PyObject* scalapack_general_diagonalize(PyObject *self, PyObject *args)
                  &queryliwork, ifail, iclustr, gap, &info);
         // printf("query info = %d\n", info);
 	// Computation part
-        int lwork = (int)(work[0]+0.1); // Give extra space to avoid complaint from PDORMTR
+        int lwork = (int)work[0];
         lwork = lwork + (n-1)*n;
         free(work);
         int liwork = (int)iwork[0];
