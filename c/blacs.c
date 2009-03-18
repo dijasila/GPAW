@@ -252,7 +252,11 @@ PyObject* scalapack_redist(PyObject *self, PyObject *args)
     Cpdgemr2do_(m, n, DOUBLEP(a_obj), one, one, INTP(adesc), DOUBLEP(b_obj), one, one, INTP(bdesc));
 
     // Note that we choose to return Py_None, instead of an empty array.
-    if ((b_locM == 0) | (b_locN == 0)) Py_RETURN_NONE;
+    if ((b_locM == 0) | (b_locN == 0))
+      {
+        Py_DECREF(b_obj);
+        Py_RETURN_NONE;
+      }
 
     return Py_BuildValue("O",b_obj);
 }
@@ -358,7 +362,7 @@ PyObject* scalapack_diagonalize_dc(PyObject *self, PyObject *args)
         // printf("computation info = %d\n", info);
         free(work);
 	free(iwork);
-        return Py_BuildValue("(OO)", w_obj,z_obj);
+        return Py_BuildValue("(OO)", w_obj, z_obj);
       }
     else
       {
@@ -388,8 +392,8 @@ PyObject* scalapack_general_diagonalize(PyObject *self, PyObject *args)
     char jobz = 'V'; // eigenvectors also
     char range = 'A'; // all eigenvalues
     char uplo = 'U'; // work with upper
-    // char cmach = 'U'; // most orthogonal eigenvectors    
-    char cmach = 'S'; // most acccurate eigenvalues
+    char cmach = 'U'; // most orthogonal eigenvectors    
+    // char cmach = 'S'; // most acccurate eigenvalues
 
     if (!PyArg_ParseTuple(args, "OOO", &a_obj, &b_obj, &adesc))
       return NULL;
@@ -440,7 +444,7 @@ PyObject* scalapack_general_diagonalize(PyObject *self, PyObject *args)
 
     // bdesc = adesc
 
-    Cblacs_gridinfo_(z_ConTxt, &z_nprow, &z_npcol,&z_myrow, &z_mycol);
+    Cblacs_gridinfo_(z_ConTxt, &z_nprow, &z_npcol, &z_myrow, &z_mycol);
 
     if (z_ConTxt != -1)
       {
@@ -481,7 +485,7 @@ PyObject* scalapack_general_diagonalize(PyObject *self, PyObject *args)
                  &il, &iu, &abstol, &eigvalm, &nz, DOUBLEP(w_obj), &orfac,
                  DOUBLEP(z_obj), &one, &one, zdesc, work, &querylwork, iwork, 
                  &queryliwork, ifail, iclustr, gap, &info);
-        // printf("query info = %d\n", info);
+        printf("query info = %d\n", info);
 	// Computation part
         int lwork = (int)work[0];
         lwork = lwork + (n-1)*n;
@@ -493,11 +497,16 @@ PyObject* scalapack_general_diagonalize(PyObject *self, PyObject *args)
         pdsygvx_(&ibtype, &jobz, &range, &uplo, &n, DOUBLEP(a_obj), &one, &one, 
                  INTP(adesc), DOUBLEP(b_obj), &one, &one, INTP(adesc), &vl, &vu, 
                  &il, &iu, &abstol, &eigvalm, &nz, DOUBLEP(w_obj), &orfac,
-                 DOUBLEP(z_obj), &one, &one, zdesc, work, &querylwork, iwork, 
-                 &queryliwork, ifail, iclustr, gap, &info);                
+                 DOUBLEP(z_obj), &one, &one, zdesc, work, &lwork, iwork, 
+                 &liwork, ifail, iclustr, gap, &info);
+        printf("computation info = %d\n", info);                
         free(work);
         free(iwork);
-        return Py_BuildValue("(OO)", w_obj,z_obj);
+        free(gap);
+        free(iclustr);
+        free(ifail);
+
+        return Py_BuildValue("(OO)", w_obj, z_obj);
       }
     else
       {
