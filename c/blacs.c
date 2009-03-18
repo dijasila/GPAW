@@ -513,4 +513,42 @@ PyObject* scalapack_general_diagonalize(PyObject *self, PyObject *args)
 	return Py_BuildValue("(OO)", Py_None, Py_None);
       }
 }
+
+PyObject* scalapack_inverse_cholesky(PyObject *self, PyObject *args)
+{
+    // Cholesky plus inverse of triangular matrix
+ 
+    PyArrayObject* a_obj; // overlap matrix
+    PyArrayObject* adesc; // symmetric matrix description vector
+    int a_mycol = -1;
+    int a_myrow = -1;
+    int a_nprow, a_npcol;
+    int info;
+    static int one = 1;
+
+    char diag = 'N'; // non-unit triangular
+    char uplo = 'U'; // work with upper
+
+    if (!PyArg_ParseTuple(args, "OO", &a_obj, &adesc))
+      return NULL;
+
+    // adesc
+    int a_ConTxt = INTP(adesc)[1];
+    int a_m      = INTP(adesc)[2];
+    int a_n      = INTP(adesc)[3];
+
+    // Note that A is symmetric, so n = a_m = a_n;
+    // We do not test for that here.
+    int n = a_n;
+
+    Cblacs_gridinfo_(a_ConTxt, &a_nprow, &a_npcol,&a_myrow, &a_mycol);
+
+    if (a_ConTxt != -1)
+      { 
+          pdpotrf_(&uplo, &n, DOUBLEP(a_obj), &one, &one, INTP(adesc), &info);
+
+          pdtrtri_(&uplo, &diag, &n, DOUBLEP(a_obj), &one, &one, INTP(adesc), &info);
+      }
+    Py_RETURN_NONE;
+}
 #endif
