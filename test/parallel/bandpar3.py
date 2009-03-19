@@ -68,14 +68,14 @@ def run():
         print 'Made it past matrix multiply'
 
     # Check:
-#    S_nn = overlap(psit_mG, send_mG, recv_mG)
+    # S_nn = overlap(psit_mG, send_mG, recv_mG)
 
-#    Assert below requires more memory.
-#    if world.rank == 0:
-#        # Fill in upper part:
-#        for n in range(N - 1):
-#            S_nn[n, n + 1:] = S_nn[n + 1:, n]
-#      assert (S_nn.round(7) == np.eye(N)).all()
+    # Assert below requires more memory.
+    # if world.rank == 0:
+    #   # Fill in upper part:
+    #   for n in range(N - 1):
+    #      S_nn[n, n + 1:] = S_nn[n + 1:, n]
+    #      assert (S_nn.round(7) == np.eye(N)).all()
 
 def overlap(psit_mG, send_mG, recv_mG):
     """Calculate overlap matrix.
@@ -112,22 +112,26 @@ def overlap(psit_mG, send_mG, recv_mG):
         S_nm = None
     del S_imm
 
-    # Test
+    # Test, N = 16
     # Step 0 - Initialize distributed Matrix to None;
     # Otherwise, scalapack_redist will complain of UnboundLocalError
     if world.rank == 0: print "before redist"
     H_nm = None 
-    S_nm = None 
-
+    S_nm = None
+    B_mm = None
+     
     # Step 1 - Fill matrices with values and convert to Fortran order 
-    # Create a simple matrix H: diagonal elements which equal ranks
-    # Create a simple overlap matrix: unity
+    # Create a simple matrix H: diagonal elements + 0.1 off-diagonal
+    # Create a simple overlap matrix: unity + 0.2 off-diagonal
     if (scalapack0_comm):
         H_nm = scalapack0_comm.rank*np.eye(N,M,-M*scalapack0_comm.rank)
+        H_nm = H_nm[:,0:4] + 0.1*np.eye(N,M,-M*scalapack0_comm.rank+1)
         H_nm = H_nm.copy("Fortran") # Fortran order required for ScaLAPACK
         S_nm = np.eye(N,M,-M*scalapack0_comm.rank)
+        S_nm = S_nm[:,0:4] + 0.2*np.eye(N,M,-M*scalapack0_comm.rank+1)
         S_nm = S_nm.copy("Fortran") # Fortran order required for ScaLAPACK
-        print scalapack0_comm.rank, H_nm
+        print scalapack0_comm.rank, "H_nm =", H_nm
+        print scalapack0_comm.rank, "S_nm =", S_nm
 
     # Step 2 - Create descriptor for distributed arrays.
     # Desc for H_nm : 1D grid
@@ -140,44 +144,60 @@ def overlap(psit_mG, send_mG, recv_mG):
     H_mm = _gpaw.scalapack_redist(H_nm,desc0,desc1)
     S_mm = _gpaw.scalapack_redist(S_nm,desc0,desc1)
 
+    # Make backup copy for inverse Cholesky test later
+    if S_mm is not None:
+        B_mm = S_mm.copy("Fortran")
+    
     # Debug
-    # if (scalapack1_comm):
-    #             print "H_mm Fortran order =", H_mm.flags.f_contiguous
-                
     # if world.rank == 0: print 'redistributed array'
-    # if (scalapack1_comm):
-    #     print scalapack1_comm.rank, H_mm, S_mm
-
+    # if H_mm is not None:
+    #     print "H_mm Fortran order =", H_mm.flags.f_contiguous
+    #     print H_mm
+    # if S_mm is not None:
+    #     print "S_mm Fortran order =", S_mm.flags.f_contiguous
+    #     print S_mm
+                
     # Step 4 - Call ScaLAPACK diagonalize
     # Call scalapack diagonalize D&C
-    W, Z_mm  = _gpaw.scalapack_diagonalize_dc(H_mm, desc1)
+    # W, Z_mm  = _gpaw.scalapack_diagonalize_dc(H_mm, desc1)
 
     # Call ScaLAPACK general diagonalize
-    # W, Z_mm = _gpaw.scalapack_general_diagonalize(H_mm, S_mm, desc1)
+    W, Z_mm = _gpaw.scalapack_general_diagonalize(H_mm, S_mm, desc1)
 
     # Debug
     # Eigenvectors
-    # if (scalapack1_comm):
-        #     print "Z_mm Fortran order =", Z_mm.flags.f_contiguous
+    # if Z_mm is not None:
+    #     print "Z_mm Fortran order =", Z_mm.flags.f_contiguous
 
     # Step 5 - Redistribute from 2D -> 1D grid
-    # Copy from Z_mm -> H_nm, we use arrays whenever possible
+    # Copy from Z_mm -> H_nm, we re-use arrays whenever possible
     # Note that W is still only on scalapack1_comm, i.e. desc1, and
     # contains *all* eigenvalues
     H_nm = _gpaw.scalapack_redist(Z_mm,desc1,desc0)
 
     # Debug
-    # if (scalapack0_comm):
-    #     print "H_nm Fortran order =", H_nm.flags.f_contiguous
+    # if world.rank == 0: print 'result in original distribution'
+    # if H_nm is not None:
+    #      print "H_nm Fortran order =", H_nm.flags.f_contiguous
         
-    if world.rank == 0: print 'result in original distribution'
-
     # Step 6 - Convert to C array for general use in GPAW.
-    if (scalapack0_comm):
+    if H_nm is not None:
         H_nm = H_nm.copy("C")
-        print scalapack0_comm.rank, W 
-        print scalapack0_comm.rank, H_nm
+        print scalapack0_comm.rank, "W =", W 
+        print scalapack0_comm.rank, "H_nm =", H_nm
 
+    # Step 7 - Inverse cholesky test
+    _gpaw.scalapack_inverse_cholesky(B_mm,desc1)
+
+    # Step 8 - Redistribute from 2D -> 1D grid
+    # Copy from B_mm -> B_nm
+    B_nm = _gpaw.scalapack_redist(B_mm,desc1,desc0)
+
+    # Step 9 - Convert to C array for general use in GPAW
+    if B_nm is not None:
+        B_nm = B_nm.copy("C")
+        print scalapack0_comm.rank, "B_nm =", B_nm
+        
     _gpaw.blacs_destroy(desc0)
     _gpaw.blacs_destroy(desc1)
 
