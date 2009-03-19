@@ -384,7 +384,7 @@ PyObject* scalapack_general_diagonalize(PyObject *self, PyObject *args)
     int z_type, z_ConTxt, z_m, z_n, z_mb, z_nb, z_rsrc, z_csrc, z_lld;
     int zdesc[9];
     int il, iu;  // not used when range = 'A' or 'V'
-    int m, eigvalm, nz;
+    int eigvalm, nz;
     static int one = 1;
  
     double vl, vu; // not used when range = 'A' or 'I'
@@ -449,8 +449,8 @@ PyObject* scalapack_general_diagonalize(PyObject *self, PyObject *args)
     if (z_ConTxt != -1)
       {
         // Convergence tolerance                                                         
-        // double abstol = pdlamch_(&z_ConTxt, &cmach); // most orthogonal eigenvectors     
-        double abstol = 2.0*pdlamch_(&z_ConTxt, &cmach); // most accurate eigenvalues            
+        double abstol = pdlamch_(&z_ConTxt, &cmach); // most orthogonal eigenvectors     
+        // double abstol = 2.0*pdlamch_(&z_ConTxt, &cmach); // most accurate eigenvalues            
         double orfac = -1.0;
 
         // z_locM, z_locN should not be negative or zero
@@ -485,7 +485,7 @@ PyObject* scalapack_general_diagonalize(PyObject *self, PyObject *args)
                  &il, &iu, &abstol, &eigvalm, &nz, DOUBLEP(w_obj), &orfac,
                  DOUBLEP(z_obj), &one, &one, zdesc, work, &querylwork, iwork, 
                  &queryliwork, ifail, iclustr, gap, &info);
-        printf("query info = %d\n", info);
+        // printf("query info = %d\n", info);
 	// Computation part
         int lwork = (int)work[0];
         lwork = lwork + (n-1)*n;
@@ -499,7 +499,7 @@ PyObject* scalapack_general_diagonalize(PyObject *self, PyObject *args)
                  &il, &iu, &abstol, &eigvalm, &nz, DOUBLEP(w_obj), &orfac,
                  DOUBLEP(z_obj), &one, &one, zdesc, work, &lwork, iwork, 
                  &liwork, ifail, iclustr, gap, &info);
-        printf("computation info = %d\n", info);                
+        // printf("computation info = %d\n", info);                
         free(work);
         free(iwork);
         free(gap);
