@@ -162,9 +162,13 @@ class PAW(PAWTextOutput):
             # First time:
             self.initialize(atoms)
             self.set_positions(atoms)
-        elif (atoms != self.atoms or
+        elif (len(atoms) != len(self.atoms) or
+              (atoms.get_atomic_numbers() !=
+               self.atoms.get_atomic_numbers()).any() or
               (atoms.get_initial_magnetic_moments() !=
-               self.atoms.get_initial_magnetic_moments()).any()):
+               self.atoms.get_initial_magnetic_moments()).any() or
+              (atoms.get_cell() != self.atoms.get_cell()).any() or
+              (atoms.get_pbc() != self.atoms.get_pbc()).any()):
             # Drastic changes:
             self.wfs = EmptyWaveFunctions()
             self.occupations = None
