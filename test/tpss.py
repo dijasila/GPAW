@@ -39,6 +39,7 @@ for formula in systems:
                 nbands=-2,
                 xc='PBE',
                 fixmom=True,
+                stencils=(2, 3),
                 txt=formula + '.txt')
     if len(loa) == 1:
         calc.set(hund=True)

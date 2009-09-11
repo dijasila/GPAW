@@ -87,8 +87,9 @@ if not io_only:
     equal(t3.get_energy(), t4.get_energy(), 1.e-6)
 
 e4 = t4.get_energy()
-# old e4OK = 0.869884 decreased because of increase of the box
+# old e4OK = 0.869884, decreased because of increase of the box
 # old e4OK = 0.657616, reason unclear
-e4OK = 0.675941
+# old e4OK = 0.675941, stencil change
+e4OK = 0.676579
 print e4, e4OK
 equal(e4, e4OK, 1.e-04)

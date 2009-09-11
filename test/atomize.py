@@ -9,7 +9,7 @@ atom = Atoms([Atom('H', (c, c, c), magmom=1)],
                    cell=(a, a, a), pbc=False)
 
 # gpaw calculator:
-calc = GPAW(h=0.2, nbands=1, xc='PBE', txt='H.txt')
+calc = GPAW(h=0.2, nbands=1, xc='PBE', txt='H.txt', stencils=(2, 3))
 atom.set_calculator(calc)
 
 e1 = atom.get_potential_energy()

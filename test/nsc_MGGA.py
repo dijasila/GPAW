@@ -16,7 +16,8 @@ a = 6 * Bohr
 n = 12
 atoms = Atoms([Atom('H', (0.0, 0.0, 0.0),magmom=1)], cell=(a, a, a), pbc=True)
 atoms.center(vacuum=3)
-calc = GPAW(gpts=(n, n, n), nbands=1, xc='PBE', txt='Hnsc.txt')
+calc = GPAW(gpts=(n, n, n), nbands=1, xc='PBE', txt='Hnsc.txt',
+            stencils=(2, 3))
 atoms.set_calculator(calc)
 e1 = atoms.get_potential_energy()
 e1ref = calc.get_reference_energy()
@@ -41,7 +42,8 @@ a = 6 * Bohr
 n = 12
 atomsHe = Atoms([Atom('He', (0.0, 0.0, 0.0))], cell=(a, a, a), pbc=True)
 atomsHe.center(vacuum=3)
-calc = GPAW(gpts=(n, n, n), nbands=1, xc='PBE', txt='Hensc.txt')
+calc = GPAW(gpts=(n, n, n), nbands=1, xc='PBE', txt='Hensc.txt',
+            stencils=(2, 3))
 atomsHe.set_calculator(calc)
 e1He = atomsHe.get_potential_energy()
 e1refHe = calc.get_reference_energy()

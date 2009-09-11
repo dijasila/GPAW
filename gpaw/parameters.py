@@ -21,7 +21,7 @@ class InputParameters(dict):
             ('width',         None,   ),  # eV
             ('spinpol',       None,   ),
             ('usesymm',       True,   ),
-            ('stencils',      (2, 3), ),
+            ('stencils',      (3, 3), ),
             ('fixdensity',    False   ),
             ('mixer',         None,   ),
             ('txt',           '-',    ),

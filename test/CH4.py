@@ -21,7 +21,8 @@ atoms = Atoms([Atom('C', (0.0, 0.0, 0.0)),
                Atom('H', (-x, x, -x))],
               cell=(a, a, a), pbc=True)
 atoms.set_calculator(GPAW(gpts=(n, n, n), nbands=4, txt=None,
-                          mixer=Mixer(0.25, 3, 1)))
+                          mixer=Mixer(0.25, 3, 1),
+                          stencils=(2, 3)))
 e0 = atoms.get_potential_energy()
 
 for d, eref in ref_3775:

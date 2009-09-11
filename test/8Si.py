@@ -20,7 +20,7 @@ calc = GPAW(gpts=(n, n, n),
             nbands=8*3,
             width=0.01,
             kpts=(2, 2, 2),
-            #convergence={'eigenstates': 1e-11}
+            convergence={'energy': 1e-6}
             )
 bulk.set_calculator(calc)
 f1 = bulk.get_forces()[0, 2]

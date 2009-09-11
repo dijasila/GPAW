@@ -4,7 +4,7 @@ from gpaw.utilities import equal
 from gpaw import GPAW, Mixer
 
 a = 4.0
-n = 16
+n = 20
 atoms = Atoms([Atom('H', [1.234, 2.345, 3.456])],
                     cell=(a, a, a), pbc=True)
 calc = GPAW(nbands=1, gpts=(n, n, n), txt=None,

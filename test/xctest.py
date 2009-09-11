@@ -23,28 +23,28 @@ def run_test(tests=[0, 1, 2, 3]):
         bulk = Atoms('Li', magmoms=[1.], calculator=calc, **atom_kwargs)
         E = bulk.get_potential_energy()
         printstr(calc)
-        equal(E, -1.87472627206, 1e-4)
+        equal(E, -1.8736388589615016, 1e-4)
 
     if 1 in tests:# spin paired GGA (libxc)
         calc = GPAW(xc='PBE', **calc_kwargs)
         bulk = Atoms('Li', calculator=calc, **atom_kwargs)
         E = bulk.get_potential_energy()
         printstr(calc)
-        equal(E, -1.74718132024, 1e-4)
+        equal(E, -1.7462441034168366, 1e-4)
 
     if 2 in tests: # spin polarized GGA (libxc)
         calc = GPAW(xc='PBE', **calc_kwargs)
         bulk = Atoms('Li', magmoms=[1.], calculator=calc, **atom_kwargs)
         E = bulk.get_potential_energy()
         printstr(calc)
-        equal(E, -1.74848080152, 1e-4)
+        equal(E, -1.7475695872574966, 1e-4)
 
     if 3 in tests: # spin polarized GGA (gpaw built_in)
         calc = GPAW(xc='oldPBE', **calc_kwargs)
         bulk = Atoms('Li', magmoms=[1.], calculator=calc, **atom_kwargs)
         E = bulk.get_potential_energy()
         printstr(calc)
-        equal(E, -1.74853307793, 1e-4)
+        equal(E, -1.7476312483210699, 1e-4)
 
 usenewxc = extra_parameters.get('usenewxc')
 try:

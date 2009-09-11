@@ -15,7 +15,7 @@ setup_paths.insert(0, '.')
 atoms = molecule('H2O')
 atoms.center(vacuum=2.5)
 
-calc = GPAW(xc='PBE')
+calc = GPAW(xc='PBE', stencils=(2, 3))
 atoms.set_calculator(calc)
 e1 = atoms.get_potential_energy() + calc.get_reference_energy()
 
