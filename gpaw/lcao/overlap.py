@@ -267,13 +267,11 @@ class ManySiteDictionaryWrapper(BaseOverlapExpansionSet):
         return xdict_aqxMi[a2][..., Mstart:Mend, :], tsoe
 
     def evaluate_slice(self, disp, x_aqxMi):
-        #disp = disp.reverse().reverse() # XXX copy
         x_qxmi, oe = self.getslice(disp.a1, disp.a2, x_aqxMi)
         rdisp = disp.reverse() # XXX yuck
         rdisp.evaluate_overlap(oe, x_qxmi)
         if disp.a1 != disp.a2:
             x2_qxmi, oe2 = self.getslice(disp.a2, disp.a1, x_aqxMi)
-            #disp.phases.phase_q = 1 / disp.phases.phase_q
             disp.evaluate_overlap(oe2, x2_qxmi)
 
         
@@ -316,11 +314,33 @@ class NeighborPairs:
             for a2, offset in zip(a2_a, offsets):
                 spos2_c = spos_ac[a2] + offset
                 R_c = np.dot(spos2_c - spos1_c, cell_cv)
-                #a1, a2, = a2, a1
-                #R_c *= -1.0
                 yield a1, a2, R_c, offset
-                if a1 == a2 and offset.any():
-                    yield a1, a1, -R_c, -offset
+
+
+class PairFilter:
+    def __init__(self, pairs):
+        self.pairs = pairs
+
+    def set_positions(self, spos_ac):
+        self.pairs.set_positions(spos_ac)
+
+    def iter(self):
+        return self.pairs.iter()
+
+
+class PairsWithSelfinteraction(PairFilter):
+    def iter(self):
+        for a1, a2, R_c, offset in self.pairs.iter():
+            yield a1, a2, R_c, offset
+            if a1 == a2 and offset.any():
+                yield a1, a1, -R_c, -offset
+
+
+class PairsBothWays(PairFilter):
+    def iter(self):
+        for a1, a2, R_c, offset in self.pairs.iter():
+            yield a1, a2, R_c, offset
+            yield a2, a1, -R_c, -offset
 
 
 class FourierTransformer:
@@ -554,8 +574,10 @@ class NewTwoCenterIntegrals:
 
         self.I_a = I_a
         self.setups_I = setups_I        
-        self.atompairs = NeighborPairs(cutoff_a, cell_cv, pbc_c)
-        self.atoms = self.atompairs.atoms # XXX compatibility
+        self.atompairs = PairsWithSelfinteraction(NeighborPairs(cutoff_a,
+                                                                cell_cv,
+                                                                pbc_c))
+        self.atoms = self.atompairs.pairs.atoms # XXX compatibility
 
         rcmax = max(cutoff_I)
         
