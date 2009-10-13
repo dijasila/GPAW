@@ -5,6 +5,7 @@ import numpy as np
 from gpaw import debug, extra_parameters
 from gpaw.spherical_harmonics import Y
 from gpaw.grid_descriptor import GridDescriptor
+from gpaw.mpi import serial_comm
 import _gpaw
 
 """
@@ -737,24 +738,31 @@ class NewLocalizedFunctionsCollection(BaseLFC):
 
 class BasisFunctions(NewLocalizedFunctionsCollection):
     def __init__(self, gd, spline_aj, kpt_comm=None, cut=False, dtype=float,
-                 integral=None, forces=None):
+                 integral=None, forces=None, orbital_comm=serial_comm):
         NewLocalizedFunctionsCollection.__init__(self, gd, spline_aj,
                                                  kpt_comm, cut,
                                                  dtype, integral,
                                                  forces)
         self.use_global_indices = True
 
-        self.Mstart = -1
-        self.Mstop = -1
-        
-    def set_matrix_distribution(self, orbital_comm):
-        """Distribute matrices using BLACS."""
-        B = orbital_comm.size
-        b = orbital_comm.rank
-        blocksize = -((-self.Mmax) // B)
-        # Range of basis functions for BLACS distribution of matrices:
-        self.Mstart = b * blocksize
-        self.Mstop = min(self.Mstart + blocksize, self.Mmax)
+        self.orbital_comm = orbital_comm
+        self.Mstart = None
+        self.Mstop = None
+
+    def set_positions(self, spos_ac):
+        NewLocalizedFunctionsCollection.set_positions(self, spos_ac)
+
+        if not extra_parameters.get('blacs'):
+            self.Mstart = 0
+            self.Mstop = self.Mmax
+        else:
+            # Distribute matrices using BLACS.
+            B = self.orbital_comm.size
+            b = self.orbital_comm.rank
+            blocksize = -((-self.Mmax) // B)
+            # Range of basis functions for BLACS distribution of matrices:
+            self.Mstart = b * blocksize
+            self.Mstop = min(self.Mstart + blocksize, self.Mmax)
         
     def add_to_density(self, nt_sG, f_asi):
         """Add linear combination of squared localized functions to density.

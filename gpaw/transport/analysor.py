@@ -1,5 +1,6 @@
 from gpaw.transport.selfenergy import LeadSelfEnergy, CellSelfEnergy
-from gpaw.transport.tools import get_matrix_index, aa1d, aa2d, sum_by_unit, dot
+from gpaw.transport.tools import get_matrix_index, aa1d, aa2d, sum_by_unit, \
+                                                      dot, fermidistribution
 from gpaw.mpi import world
 
 from ase.units import Hartree
@@ -91,7 +92,8 @@ class Transport_Analysor:
             self.energies = np.linspace(ef - 3, ef + 3, 61) + 1e-4 * 1.j
             self.lead_pairs = [[0,1]]
         else:
-            self.energies = tp.plot_option['energies'] + 1e-4 * 1.j
+            self.energies = tp.plot_option['energies'] + tp.lead_fermi[0] + \
+                                                              1e-4 * 1.j
             self.lead_pairs = tp.plot_option['lead_pairs']
        
     def initialize(self):
@@ -251,22 +253,22 @@ class Transport_Analysor:
         vt_sG = gd.collect(calc.hamiltonian.vt_sG, True)
 
         dim1, dim2 = nt_sG.shape[1:3]
-        #nt = aa1d(nt_sG[0]) 
-        #vt = aa1d(vt_sG[0]) * Hartree
-        nt = nt_sG[0, dim1 / 2, dim2 / 2]
-        vt = vt_sG[0, dim1 / 2, dim2 / 2] * Hartree
+        nt = aa1d(nt_sG[0]) 
+        vt = aa1d(vt_sG[0]) * Hartree
+        #nt = nt_sG[0, dim1 / 2, dim2 / 2]
+        #vt = vt_sG[0, dim1 / 2, dim2 / 2] * Hartree
 
         gd = tp.finegd
         rhot_g = gd.empty(tp.nspins, global_array=True)
         rhot_g = gd.collect(tp.density.rhot_g, True)
-        dim1, dim2 = rhot_g.shape[:2]
-        rho = rhot_g[dim1 / 2, dim2 / 2]
-        #rho = aa1d(rhot_g)
+        #dim1, dim2 = rhot_g.shape[:2]
+        #rho = rhot_g[dim1 / 2, dim2 / 2]
+        rho = aa1d(rhot_g)
         
         gd = finegd
         vHt_g = gd.collect(calc.hamiltonian.vHt_g, True)
-        #vHt = aa1d(vHt_g) * Hartree
-        vHt = vHt_g[dim1 / 2, dim2 / 2] * Hartree
+        vHt = aa1d(vHt_g) * Hartree
+        #vHt = vHt_g[dim1 / 2, dim2 / 2] * Hartree
         
         #D_asp = copy.deepcopy(tp.density.D_asp)
         #dH_asp = copy.deepcopy(calc.hamiltonian.dH_asp)
@@ -289,7 +291,7 @@ class Transport_Analysor:
         tc_array, dos_array = self.collect_transmission_and_dos()
         dv = self.abstract_d_and_v()
         if not tp.non_sc:
-            current = self.calculate_current()
+            current = self.calculate_current2(0)
         else:
             current = 0
         step.initialize_data(tp.bias, tp.gate, self.energies, self.lead_pairs,
@@ -453,6 +455,44 @@ class Transport_Analysor:
                                                        fermi_factor[i][0][j]
         return current
 
+    def calculate_current_of_energy(self, epts, lead_pair_index, s):
+        # temperary, because different lead_pairs have different energy points
+        tp = self.tp
+        tc_array, dos_array = self.collect_transmission_and_dos(epts)
+        tc_all = np.sum(tc_array, axis=1) / tp.npk
+        #attention here, pk weight should be changed
+        fd = fermidistribution
+        intctrl = tp.intctrl
+        kt = intctrl.kt
+        lead_ef1 = intctrl.leadfermi[self.lead_pairs[lead_pair_index][0]]
+        lead_ef2 = intctrl.leadfermi[self.lead_pairs[lead_pair_index][1]]
+        fermi_factor = fd(epts - lead_ef1, kt) - fd(epts - lead_ef2, kt)
+        current = tc_all[s, lead_pair_index] * fermi_factor
+        return current
+    
+    def calculate_current2(self, lead_pair_index=0, s=0):
+        from scipy.integrate import simps
+        intctrl = self.tp.intctrl
+        kt = intctrl.kt
+        lead_ef1 = intctrl.leadfermi[self.lead_pairs[lead_pair_index][0]]
+        lead_ef2 = intctrl.leadfermi[self.lead_pairs[lead_pair_index][1]]
+        if lead_ef2 > lead_ef1:
+            lead_ef1, lead_ef2 = lead_ef2, lead_ef1
+        lead_ef1 += 2 * kt
+        lead_ef2 -= 2 * kt
+        ne = int(abs(lead_ef1 -lead_ef2) / 0.02)
+        epts = np.linspace(lead_ef1, lead_ef2, ne) + 1e-4 * 1.j
+        interval = epts[1] - epts[0]
+        #ne = len(self.energies)
+        #epts = self.energies
+        #interval = self.energies[1] - self.energies[0]
+        cures = self.calculate_current_of_energy(epts, lead_pair_index, s)
+        if ne != 0:
+            current =  simps(cures, None, interval)
+        else:
+            current = 0
+        return current
+    
     def plot_transmission_and_dos(self, ni, nb, s, k, leads=[0,1]):
         l0, l1 = leads
         ep = self.energies
@@ -827,6 +867,7 @@ class Transport_Analysor:
         pylab.show()
           
 class Transport_Plotter:
+    flags = ['b-o', 'r--']
     def __init__(self, flag='bias', data_file=None):
         if data_file is None:
             data_file = 'analysis_data_' + flag
@@ -849,6 +890,14 @@ class Transport_Plotter:
                 self.ele_steps = data
         fd.close()
 
+    def plot_setup(self):
+        from matplotlib import rcParams
+        rcParams['xtick.labelsize'] = 18
+        rcParams['ytick.labelsize'] = 18
+        rcParams['legend.fontsize'] = 18
+        rcParams['axes.titlesize'] = 18
+        rcParams['axes.labelsize'] = 18
+        
     def set_ele_steps(self, n_ion_step=None, n_bias_step=0):
         if n_ion_step != None:
             self.bias_steps = self.ion_steps[n_ion_step].bias_steps
@@ -885,7 +934,7 @@ class Transport_Plotter:
         
     def compare_two_calculations(self, nstep, s, k):
         fd = file('analysis_data_cmp', 'r')
-        self.ele_steps_cmp = pickle.load(fd)
+        self.ele_steps_cmp, self.energies_cmp = pickle.load(fd)
         fd.close()
         ee = self.energies
         #ee = np.linspace(-3, 3, 61)
@@ -970,7 +1019,8 @@ class Transport_Plotter:
         p.show()
 
     def plot_bias_step_info(self, info, steps_indices, s, k,
-                                                     height=None, unit=None):
+                                            height=None, unit=None,
+                                            all=False, show=True):
         xdata = self.energies
         #xdata = np.linspace(-3, 3, 61)
         energy_axis = False        
@@ -979,69 +1029,72 @@ class Transport_Plotter:
         if info == 'tc':
             data = 'tc[s, k, 0]'
             title = 'trasmission coefficeints'
+            xlabel = 'Energy(eV)'
+            ylabel = 'T'
+            dim = 3
             energy_axis = True
         elif info == 'dos':
             data = 'dos[s, k]'
             title = 'density of states'
+            xlabel = 'Energy(eV)'
+            ylabel = 'DOS(Electron / eV)'
+            dim = 2
             energy_axis = True
+        elif info == 'den':
+            data = "dv['s0nt_1d_z']"
+            title = 'density'
+            xlabel = 'Transport axis'
+            ylabel = 'Electron'
+            energy_axis = False
+        elif info == 'ham':
+            data = "dv['s0vt_1d_z']"
+            title = 'hamiltonian'
+            xlabel = 'Transport axis'
+            ylabel = 'Energy(eV)'
+            energy_axis = False
         else:
             raise ValueError('no this info type---' + info)        
 
+        eye = np.zeros([10, 1]) + 1
+        
         for i, step in enumerate(self.bias_steps):
             if i in steps_indices:
-                ydata = eval('step.' + data)
+                if not all:
+                    ydata = eval('step.' + data)
+                else:
+                    ydata = eval('step.' + info)
+                    npk = ydata.shape[1]
+                    for j in range(dim):
+                        ydata = np.sum(ydata, axis=0)
+                    if info == 'dos':
+                        ydata /= npk
                 if unit != None:
                     ydata = sum_by_unit(ydata, unit)
+                f1 = (step.lead_fermis[0] + step.bias[0]) * eye
+                f2 = (step.lead_fermis[1] + step.bias[1]) * eye
+                a1 = np.max(ydata)
+                l1 = np.linspace(0, a1, 10)
+                flags = self.flags
                 if not energy_axis:
-                    p.plot(ydata)
+                    if info == 'ham':
+                        p.plot(ydata * Hartree)
+                    else:
+                        p.plot(ydata)
                 else:
-                    p.plot(xdata, ydata)
+                    p.plot(xdata, ydata, flags[0], f1, l1, flags[1],
+                                                             f2, l1, flags[1])
                 legends.append('step' + str(step.bias_step))
         p.title(title)
+        p.xlabel(xlabel)
+        p.ylabel(ylabel)
         p.legend(legends)
         if height != None:
             p.axis([xdata[0], xdata[-1], 0, height])
-        p.show()
+        if show:
+            p.show()
 
-    def plot_ele_step_extended_info(self, info, steps_indices, s, k, unit=None):
-        import pylab as p
-        legends = []
-        if info == 'edd':
-            data = 'edmm[s, k]'
-            title = 'extended density matrix diagonal elements'
-        elif info == 'ent_G':
-            data = 'ent_G'
-            title = 'extended density on coarse gird'
-        elif info == 'evt_G':
-            data = 'evt_G'
-            title = 'extended hamiltonian on coarse grid'
-        elif info == 'ent_g':
-            data = 'ent_g'
-            title = 'extended density on fine grid'
-        elif info == 'evt_g':
-            data = 'evt_g'
-            title = 'extended hamiltonian on fine grid'
-        elif info == 'ehot_g':
-            data = 'ehot_g'
-            title = 'extended rho-density'
-        elif info == 'vHt_g':
-            data = 'evHt_g'
-            title = 'extended Hartree potential'
-        else:
-            raise ValueError('no this info type---' + info)        
-
-        for i, step in enumerate(self.ele_steps):
-            if i in steps_indices:
-                ydata = eval('step.' + data)
-                if unit != None:
-                    ydata = sum_by_unit(ydata, unit)
-                p.plot(ydata)
-                legends.append('step' + str(step.ele_step))
-        p.title(title)
-        p.legend(legends)
-        p.show()        
-
-    def compare_ele_step_info(self, info, steps_indices, s, k, height=None, unit=None):
+    def compare_ele_step_info(self, info, steps_indices, s, k, height=None,
+                                                                   unit=None):
         xdata = self.energies
         #xdata = np.linspace(-3, 3, 61)
         energy_axis = False        
@@ -1098,7 +1151,8 @@ class Transport_Plotter:
             p.axis([xdata[0], xdata[-1], 0, height])
         p.show()
 
-    def compare_bias_step_info(self, info, steps_indices, s, k, height=None, unit=None):
+    def compare_bias_step_info(self, info, steps_indices, s, k,
+                               height=None, unit=None):
         xdata = self.energies
         #xdata = np.linspace(-3, 3, 61)
         energy_axis = False        
@@ -1107,28 +1161,50 @@ class Transport_Plotter:
         if info == 'dd':
             data = 'dd[s, k]'
             title = 'density matrix diagonal elements'
+            xlabel = 'Basis Sequence'
+            ylabel = 'Number'
+            energy_axis = False      
         elif info == 'df':
             data = 'df[s, k]'
             title = 'hamiltonian matrix diagonal elements'
+            xlabel = 'Basis Sequence'
+            ylabel = 'Number'
+            energy_axis = False           
         elif info == 'den':
             data = 'nt'
             title = 'density'
+            xlabel = 'Transport Axis'
+            ylabel = 'Electron'
+            energy_axis = False            
         elif info == 'ham':
             data = 'vt'
             title = 'hamiltonian'
+            xlabel = 'Transport Axis'
+            ylabel = 'Energy(eV)'
+            energy_axis = False             
         elif info == 'rho':
             data = 'rho'
             title = 'total poisson density'
+            xlabel = 'Transport Axis'
+            ylabel = 'Electron'
+            energy_axis = False             
         elif info == 'vHt':
             data = 'vHt'
-            title = 'total Hartree potential'             
+            title = 'total Hartree potential'
+            xlabel = 'Transport Axis'
+            ylabel = 'Energy(eV)'
+            energy_axis = False             
         elif info == 'tc':
             data = 'tc[s, k, 0]'
             title = 'trasmission coefficeints'
+            xlabel = 'Energy(eV)'
+            ylabel = 'T'            
             energy_axis = True
         elif info == 'dos':
             data = 'dos[s, k]'
             title = 'density of states'
+            xlabel = 'Energy(eV)'
+            ylabel = 'DOS(Electron/eV)'              
             energy_axis = True
         else:
             raise ValueError('no this info type---' + info)        
@@ -1150,6 +1226,8 @@ class Transport_Plotter:
         legends.append('step' + str(steps_indices[1]) +
                        'minus step' + str(steps_indices[0]))
         p.title(title)
+        p.xlabel(xlabel)
+        p.ylabel(ylabel)
         p.legend(legends)
         if height != None:
             p.axis([xdata[0], xdata[-1], 0, height])
@@ -1170,6 +1248,95 @@ class Transport_Plotter:
                 p.colorbar()
                 p.show()
 
+    def plot_current(self, au=True, spinpol=False, dense_level=0):
+        bias = []
+        current = []
+        
+        for step in self.bias_steps:
+            bias.append(step.bias[0] - step.bias[1])
+            current.append(np.real(step.current))
+        import pylab as p
+        unit = 6.624 * 1e3 
+        current = np.array(current) / (Hartree * 2 * np.pi)
+        current = current.reshape(-1)
+        if not spinpol:
+            current *= 2
+        ylabel = 'Current(au.)'
+        if not au:
+            current *= unit
+            ylabel = 'Current($\mu$A)'
+        p.plot(bias, current, self.flags[0])
+        p.xlabel('Bias(V)')
+        p.ylabel(ylabel)
+        p.show()
+        
+        if dense_level != 0:
+            from scipy import interpolate
+            tck = interpolate.splrep(bias, current, s=0)
+            numb = len(bias)
+            newbias = np.linspace(bias[0], bias[-1], numb * (dense_level + 1))
+            newcurrent = interpolate.splev(newbias, tck, der=0)
+            p.plot(newbias, newcurrent, self.flags[0])
+            p.xlabel('Bias(V)')
+            p.ylabel(ylabel)
+            p.show()
+
+    def plot_didv(self, au=True, spinpol=False, dense_level=0):
+        bias = []
+        current = []
+        
+        for step in self.bias_steps:
+            bias.append(step.bias[0] - step.bias[1])
+            current.append(np.real(step.current))
+        import pylab as p
+        unit = 6.624 * 1e3 
+        current = np.array(current) / (Hartree * np.pi)
+        current = current.reshape(-1)
+        if not spinpol:
+            current *= 2
+        from scipy import interpolate
+        tck = interpolate.splrep(bias, current, s=0)
+        numb = len(bias)
+        newbias = np.linspace(bias[0], bias[-1], numb * (dense_level + 1))
+        newcurrent = interpolate.splev(newbias, tck, der=0)
+        if not au:
+            newcurrent *= unit
+            ylabel = 'dI/dV($\mu$A/V)'
+        else:
+            newcurrent *= Hartree
+            ylabel = 'dI/dV(au.)'            
+
+        p.plot(newbias[:-1], np.diff(newcurrent), self.flags[0])
+        p.xlabel('Bias(V)')
+        p.ylabel(ylabel)
+        p.show()
+
+    def plot_tvs_curve(self, spinpol=False, dense_level=0):
+        bias = []
+        current = []
+        for step in self.bias_steps:
+            bias.append(step.bias[0] - step.bias[1])
+            current.append(np.real(step.current))
+        import pylab as p
+        unit = 6.624 * 1e-3
+        current = np.array(current) / (Hartree * np.pi)
+        current = current.reshape(-1)
+        if not spinpol:
+            current *= 2
+        from scipy import interpolate
+        tck = interpolate.splrep(bias, current, s=0)
+        numb = len(bias)
+        newbias = np.linspace(bias[0], bias[-1], numb * (dense_level + 1))
+        newcurrent = interpolate.splev(newbias, tck, der=0)
+        newcurrent *= unit
+        ylabel = '$ln(I/V^2)$'
+        ydata = np.log(abs(newcurrent[1:]) / (newbias[1:] * newbias[1:]))
+        xdata = 1 / newbias[1:]
+        p.plot(xdata, ydata, self.flags[0])
+        p.xlabel('1/V')
+        p.ylabel(ylabel)
+        p.show()        
+           
     def compare_ele_step_info2(self, info, steps_indices, s):
         import pylab as p
         if info[:2] == 'nt':

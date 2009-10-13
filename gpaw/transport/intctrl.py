@@ -17,7 +17,8 @@ class IntCtrl:
     """
     
     def __init__(self, kt, efermi, bias, env_bias=[], min_energy=-100,
-                                                            verbose=False):
+                                                 neintmethod=0,
+                                            neintstep=0.02, verbose=False):
         #if u_l>u_r,bias>0
         self.kt = kt
         self.leadfermi = []
@@ -28,7 +29,7 @@ class IntCtrl:
             self.envfermi.append(efermi + env_bias[i])
         self.minfermi = min(self.leadfermi + self.envfermi)
         self.maxfermi = max(self.leadfermi + self.envfermi)
-        self.eqinttol = 1e-5
+        self.eqinttol = 1e-4
         self.kttol = 1e-5
         self.biastol = 1e-10
         
@@ -123,11 +124,11 @@ class IntCtrl:
         # -------------------------------------------------- 
         # -- Integral Method -- 
         self.neinttol = 1e-3        
-        self.neintmethod= 1 # 0: Linear 1: Auto
+        self.neintmethod= neintmethod # 0: Linear 1: Auto
 
         # -- Integral Step--
 
-        self.neintstep = 2e-2                    
+        self.neintstep = neintstep                    
         
         # -- Integral Path --
 
@@ -136,7 +137,7 @@ class IntCtrl:
         elif self.kt < self.kttol : #T=0K
             self.neintpath = [self.minfermi, self.maxfermi]
         else :
-            nkt = 10 * kt
+            nkt = 2 * kt
             self.neintpath = [self.minfermi - nkt, self.maxfermi + nkt]
 
         # -- Integral eta --

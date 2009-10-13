@@ -256,10 +256,26 @@ def compare_atoms(atoms, comm=world):
     # Compare fingerprints:
     fingerprints = npy.empty((comm.size, 4), fingerprint.dtype)
     comm.all_gather(fingerprint, fingerprints)
-    return not fingerprints.ptp(0).any()
+    mismatches = fingerprints.ptp(0)
+
+    if debug:
+        dumpfile = 'compare_atoms'
+        for i in npy.argwhere(mismatches).ravel():
+            itemname = ['positions','cell','pbc','magmoms'][i]
+            itemfps = fingerprints[:,i]
+            itemdata = [atoms.positions,
+                        atoms.cell,
+                        atoms.pbc * 1.0,
+                        atoms.get_initial_magnetic_moments()][i]
+            if comm.rank == 0:
+                print 'DEBUG: compare_atoms failed for %s' % itemname
+                itemfps.dump('%s_fps_%s.pickle' % (dumpfile,itemname))
+            itemdata.dump('%s_r%04d_%s.pickle' % (dumpfile,comm.rank,itemname))
+
+    return not mismatches.any()
 
 
-def broadcast_string(string=None, root=MASTER, comm=world):
+def broadcast_string(string=None, root=0, comm=world):
     if rank == root:
         assert isinstance(string, str)
         n = npy.array(len(string), int)
@@ -274,6 +290,16 @@ def broadcast_string(string=None, root=MASTER, comm=world):
     comm.broadcast(string, root)
     return string.tostring()
 
+def send_string(string, rank, comm=world):
+    comm.send(npy.array(len(string)), rank)
+    comm.send(npy.fromstring(string, npy.int8), rank)
+
+def receive_string(rank, comm=world):
+    n = npy.array(0)
+    comm.receive(n, rank)
+    string = npy.empty(n, npy.int8)
+    comm.receive(string, rank)
+    return string.tostring()
 
 def all_gather_array(comm, a): #???
     # Gather array into flat array
@@ -281,7 +307,6 @@ def all_gather_array(comm, a): #???
     all = npy.zeros(shape)
     comm.all_gather(a, all)
     return all.ravel()
-
 
 def run(iterators):
     """Run through list of iterators one step at a time."""

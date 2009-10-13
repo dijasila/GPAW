@@ -76,22 +76,25 @@ class WaveFunctions(EmptyWaveFunctions):
         mynks = nks // kpt_comm.size
 
         ks0 = kpt_comm.rank * mynks
-        kpt_u = []
+        self.kpt_u = []
         sdisp_cd = gd.sdisp_cd
         for ks in range(ks0, ks0 + mynks):
             s, k = divmod(ks, self.nibzkpts)
-            q = ks - ks0
+            q = (ks - ks0) % self.nibzkpts
             weight = weight_k[k] * 2 / nspins
             if gamma:
                 phase_cd = np.ones((3, 2), complex)
             else:
                 phase_cd = np.exp(2j * np.pi *
                                   sdisp_cd * ibzk_kc[k, :, np.newaxis])
-            kpt_u.append(KPoint(weight, s, k, q, phase_cd))
+            self.kpt_u.append(KPoint(weight, s, k, q, phase_cd))
 
-        self.kpt_u = kpt_u
-        self.ibzk_qc = np.vstack((ibzk_kc, ibzk_kc))[ks0:ks0 + mynks]
-
+        if nspins == 2 and kpt_comm.size == 1:
+            # Avoid duplicating k-points in local list of k-points.
+            self.ibzk_qc = ibzk_kc.copy()
+        else:
+            self.ibzk_qc = np.vstack((ibzk_kc, ibzk_kc))[ks0:ks0 + mynks]
+        
         self.eigensolver = None
         self.positions_set = False
         
@@ -418,8 +421,6 @@ class WaveFunctions(EmptyWaveFunctions):
 from gpaw.lcao.overlap import TwoCenterIntegrals
 from gpaw.lcao.overlap import NewTwoCenterIntegrals as NewTCI
 from gpaw.utilities.blas import gemm, gemmdot
-if extra_parameters.get('blacs'):
-    from gpaw.lcao.overlap import BlacsTwoCenterIntegrals as TwoCenterIntegrals
 
 class LCAOWaveFunctions(WaveFunctions):
     def __init__(self, *args):
@@ -431,6 +432,10 @@ class LCAOWaveFunctions(WaveFunctions):
         if extra_parameters.get('usenewtci'):
             self.tci = NewTCI(self.gd.cell_cv, self.gd.pbc_c, self.setups,
                               self.ibzk_qc, self.gamma)
+        elif extra_parameters.get('blacs'):
+            from gpaw.lcao.overlap import BlacsTwoCenterIntegrals
+            self.tci = BlacsTwoCenterIntegrals(self.gd, self.setups,
+                                               self.gamma, self.ibzk_qc)
         else:
             self.tci = TwoCenterIntegrals(self.gd, self.setups,
                                           self.gamma, self.ibzk_qc)
@@ -438,13 +443,15 @@ class LCAOWaveFunctions(WaveFunctions):
                                               [setup.phit_j
                                                for setup in self.setups],
                                               self.kpt_comm,
-                                              cut=True)
+                                              cut=True,
+                                              orbital_comm=self.band_comm)
         if not self.gamma:
             self.basis_functions.set_k_points(self.ibzk_qc)
 
     def set_eigensolver(self, eigensolver):
         WaveFunctions.set_eigensolver(self, eigensolver)
-        eigensolver.initialize(self.kpt_comm, self.gd, self.band_comm, self.dtype, 
+        eigensolver.initialize(self.kpt_comm, self.gd, self.band_comm,
+                               self.dtype, 
                                self.setups.nao, self.mynbands, self.world)
 
     def set_positions(self, spos_ac):
@@ -455,16 +462,14 @@ class LCAOWaveFunctions(WaveFunctions):
         nao = self.setups.nao
         mynbands = self.mynbands
         
+        Mstop = self.basis_functions.Mstop
+        Mstart = self.basis_functions.Mstart
+        mynao = Mstop - Mstart
+        
         if self.S_qMM is None: # XXX
             # First time:
             if extra_parameters.get('blacs'):
-                self.basis_functions.set_matrix_distribution(self.band_comm)
-                Mstop = self.basis_functions.Mstop
-                Mstart = self.basis_functions.Mstart
-                mynao = Mstop - Mstart
-                self.tci.set_matrix_distribution(self.band_comm, Mstart, Mstop)
-            else:
-                mynao = nao
+                self.tci.set_matrix_distribution(Mstart, mynao)
                 
             self.S_qMM = np.empty((nq, mynao, nao), self.dtype)
             self.T_qMM = np.empty((nq, mynao, nao), self.dtype)
@@ -499,25 +504,13 @@ class LCAOWaveFunctions(WaveFunctions):
                     dOP_iM = np.zeros((dO_ii.shape[1], nao), P_Mi.dtype)
                     # (ATLAS can't handle uninitialized output array)
                     gemm(1.0, P_Mi, dO_ii, 0.0, dOP_iM, 'c')
-                    gemm(1.0, dOP_iM, P_Mi, 1.0, S_MM, 'n')
-
+                    gemm(1.0, dOP_iM, P_Mi[Mstart:Mstop], 1.0, S_MM, 'n')
+                    
             comm = self.gd.comm
             comm.sum(self.S_qMM)
             comm.sum(self.T_qMM)
 
-        dtype=self.dtype
-        dThetadR_qvMM = np.empty((nq, 3, nao, nao), dtype)
-        dTdR_qvMM = np.empty((nq, 3, nao, nao), dtype)
-        dPdR_aqvMi = {}
-        for a in self.basis_functions.my_atom_indices:
-            ni = self.setups[a].ni
-            dPdR_aqvMi[a] = np.empty((nq, 3, nao, ni), dtype)
-        #self.timer.start('LCAO forces: tci derivative')
-        self.tci.calculate_derivative(spos_ac, dThetadR_qvMM, dTdR_qvMM,
-                                      dPdR_aqvMi)
-        #self.timer.stop('LCAO forces: tci derivative')
-
-        if debug:
+        if debug and self.band_comm.size == 1:
             from numpy.linalg import eigvalsh
             for S_MM in self.S_qMM:
                 smin = eigvalsh(S_MM).real.min()
@@ -596,6 +589,10 @@ class LCAOWaveFunctions(WaveFunctions):
         self.timer.start('LCAO forces: tci derivative')
         self.tci.calculate_derivative(spos_ac, dThetadR_qvMM, dTdR_qvMM,
                                       dPdR_aqvMi)
+        if not hasattr(self.tci, 'set_positions'): # XXX newtci
+            comm = self.gd.comm
+            comm.sum(dThetadR_qvMM)
+            comm.sum(dTdR_qvMM)
         self.timer.stop('LCAO forces: tci derivative')
         
         # TODO: Most contributions will be the same for each spin.
@@ -733,7 +730,7 @@ class LCAOWaveFunctions(WaveFunctions):
         #
         #           -----                        -----
         #  a         \      a                     \     b
-        # F += -2 Re  )    Z      E        + 2 Re  )   Z      E
+        # F +=  2 Re  )    Z      E        - 2 Re  )   Z      E
         #            /      mu nu  nu mu          /     mu nu  nu mu
         #           -----                        -----
         #           mu nu                    b; mu in a; nu
@@ -761,18 +758,18 @@ class LCAOWaveFunctions(WaveFunctions):
                 ZE_MM = (work_MM * ET_MM).real
                 for a, M1, M2 in slices():
                     dE = 2 * ZE_MM[M1:M2].sum()
-                    Frho_av[a, v] += dE # the "b; mu in a; nu" term
-                    Frho_av[b, v] -= dE # the "mu nu" term
+                    Frho_av[a, v] -= dE # the "b; mu in a; nu" term
+                    Frho_av[b, v] += dE # the "mu nu" term
         del work_MM, ZE_MM
         self.timer.stop('LCAO forces: paw correction')
         
         # Atomic density contribution
-        #           -----                         -----
-        #  a         \     a                       \     b
-        # F  += 2 Re  )   A      rho       - 2 Re   )   A      rho
-        #            /     mu nu    nu mu          /     mu nu    nu mu
-        #           -----                         -----
-        #           mu nu                     b; mu in a; nu
+        #            -----                         -----
+        #  a          \     a                       \     b
+        # F  += -2 Re  )   A      rho       + 2 Re   )   A      rho
+        #             /     mu nu    nu mu          /     mu nu    nu mu
+        #            -----                         -----
+        #            mu nu                     b; mu in a; nu
         #
         #                  b*
         #         ----- d P
@@ -792,8 +789,8 @@ class LCAOWaveFunctions(WaveFunctions):
                 ArhoT_MM = (gemmdot(dPdR_Mi, HP_iM) * rhoT_MM).real
                 for a, M1, M2 in slices():
                     dE = 2 * ArhoT_MM[M1:M2].sum()
-                    Fatom_av[a, v] -= dE # the "b; mu in a; nu" term
-                    Fatom_av[b, v] += dE # the "mu nu" term
+                    Fatom_av[a, v] += dE # the "b; mu in a; nu" term
+                    Fatom_av[b, v] -= dE # the "mu nu" term
         self.timer.stop('LCAO forces: atomic density')
         
         F_av += Fkin_av + Fpot_av + Frho_av + Fatom_av
@@ -881,7 +878,8 @@ class GridWaveFunctions(WaveFunctions):
             basis_functions = BasisFunctions(self.gd,
                                              [setup.phit_j
                                               for setup in self.setups],
-                                             cut=True)
+                                             cut=True,
+                                             orbital_comm=self.band_comm)
             if not self.gamma:
                 basis_functions.set_k_points(self.ibzk_qc)
             basis_functions.set_positions(spos_ac)
@@ -940,6 +938,8 @@ class GridWaveFunctions(WaveFunctions):
         eigensolver = get_eigensolver('lcao', 'lcao')
         eigensolver.initialize(self.kpt_comm, self.gd, self.band_comm, self.dtype,
                                self.setups.nao, lcaomynbands, self.world)
+        # XXX when density matrix is properly distributed, be sure to
+        # update the density here also
         eigensolver.iterate(hamiltonian, lcaowfs)
 
         # Transfer coefficients ...

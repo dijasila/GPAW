@@ -38,7 +38,7 @@ def blacs_destroy(adesc):
     assert len(adesc) == 9
     _gpaw.blacs_destroy(adesc)
 
-def scalapack_redist(a_obj, adesc, bdesc, isreal=True, comm_obj=mpi.world, m=0, n=0):
+def scalapack_redist(a_obj, adesc, bdesc, isreal, comm_obj=mpi.world, m=0, n=0):
     if a_obj is not None:
         assert a_obj.ndim == 2
         assert a_obj.dtype in [float, complex]
@@ -57,15 +57,16 @@ def scalapack_redist(a_obj, adesc, bdesc, isreal=True, comm_obj=mpi.world, m=0, 
     # There is no simple may to check if adesc and bdesc are disjoint to comm_obj
     return _gpaw.scalapack_redist(a_obj, adesc, bdesc, isreal, comm_obj, m, n)
 
-def scalapack_diagonalize_dc(a_obj, adesc):
+def scalapack_diagonalize_dc(a_obj, adesc, uplo):
     if a_obj is not None:
         assert a_obj.ndim == 2
         assert (a_obj.dtype == float) or (a_obj.dtype == complex)
         assert a_obj.flags.f_contiguous
     assert len(adesc) == 9
-    return _gpaw.scalapack_diagonalize_dc(a_obj, adesc)
+    assert uplo in ['U','L']
+    return _gpaw.scalapack_diagonalize_dc(a_obj, adesc, uplo)
 
-def scalapack_general_diagonalize(a_obj, b_obj, adesc):
+def scalapack_diagonalize_ex(a_obj, adesc, uplo, b_obj=None):
     if a_obj is not None:
         assert a_obj.ndim == 2
         assert (a_obj.dtype == float) or (a_obj.dtype == complex)
@@ -77,20 +78,22 @@ def scalapack_general_diagonalize(a_obj, b_obj, adesc):
     if a_obj is None:
         assert b_obj is None
     assert len(adesc) == 9
-    return _gpaw.scalapack_general_diagonalize(a_obj, b_obj, adesc)
+    assert uplo in ['U','L']
+    return _gpaw.scalapack_diagonalize_ex(a_obj, adesc, uplo, b_obj)
 
-def scalapack_inverse_cholesky(a_obj, adesc):
+def scalapack_inverse_cholesky(a_obj, adesc, uplo):
     if a_obj is not None:
         assert a_obj.ndim == 2
         assert (a_obj.dtype == float) or (a_obj.dtype == complex)
         assert a_obj.flags.f_contiguous
     assert len(adesc) == 9
-    _gpaw.scalapack_inverse_cholesky(a_obj, adesc)
+    assert uplo in ['U','L']
+    _gpaw.scalapack_inverse_cholesky(a_obj, adesc, uplo)
     
 if not debug:
     blacs_create = _gpaw.blacs_create
     blacs_destroy = _gpaw.blacs_destroy
     scalapack_redist = _gpaw.scalapack_redist
-    scalapack_diagonalize = _gpaw.scalapack_diagonalize_dc
-    scalapack_general_diagonalize = _gpaw.scalapack_general_diagonalize
+    scalapack_diagonalize_dc = _gpaw.scalapack_diagonalize_dc
+    scalapack_diagonalize_ex = _gpaw.scalapack_diagonalize_ex
     scalapack_inverse_cholesky = _gpaw.scalapack_inverse_cholesky

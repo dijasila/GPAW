@@ -164,7 +164,7 @@ class OverlapExpansion(BaseOverlapExpansionSet):
             x_mi += spline(r) * np.dot(G_mmm, rlY_lm[l])
         return x_mi
 
-    def derivative(self, r, R, rlY_lm, drlYdR_lmc):
+    def derivative(self, r, Rhat_c, rlY_lm, drlYdR_lmc):
         """Get derivative of overlap between localized functions.
 
         This function assumes r > 0.  If r = 0, i.e. if the functions
@@ -173,7 +173,7 @@ class OverlapExpansion(BaseOverlapExpansionSet):
         for l, spline, G_mmm in self.gaunt_iter():
             x, dxdr = spline.get_value_and_derivative(r)
             GrlY_mi = np.dot(G_mmm, rlY_lm[l])
-            dxdR_cmi += dxdr / r * GrlY_mi * R[:, None, None]
+            dxdR_cmi += dxdr * GrlY_mi * Rhat_c[:, None, None]
             dxdR_cmi += x * np.dot(G_mmm, drlYdR_lmc[l]).transpose(2, 0, 1)
         return dxdR_cmi
 
@@ -204,10 +204,10 @@ class TwoSiteOverlapExpansions(BaseOverlapExpansionSet):
             x_mm += oe.evaluate(r, rlY_lm)
         return x_MM
 
-    def derivative(self, r, R, rlY_lm, drlYdR_lmc):
+    def derivative(self, r, Rhat, rlY_lm, drlYdR_lmc):
         x_cMM = self.zeros(3)
         for x_cmm, oe in self.slice(x_cMM):
-            x_cmm += oe.derivative(r, R, rlY_lm, drlYdR_lmc)
+            x_cmm += oe.derivative(r, Rhat, rlY_lm, drlYdR_lmc)
         return x_cMM
 
 
@@ -248,16 +248,22 @@ class ManySiteOverlapExpansions(BaseOverlapExpansionSet):
 
     def evaluate_slice(self, disp, x_qxMM):
         x_qxmm, oe = self.getslice(disp.a1, disp.a2, x_qxMM)
-        disp.reverse().evaluate_overlap(oe, x_qxmm)
+        disp.evaluate_overlap(oe, x_qxmm)
 
+class DomainDecomposedExpansions(BaseOverlapExpansionSet):
+    def __init__(self, msoe, local_indices):
+        self.msoe = msoe
+        self.local_indices = local_indices
+        BaseOverlapExpansionSet.__init__(self, msoe.shape)
 
-class ManySiteDictionaryWrapper(BaseOverlapExpansionSet):
+    def evaluate_slice(self, disp, x_xqMM):
+        if disp.a2 in self.local_indices:
+            self.msoe.evaluate_slice(disp, x_xqMM)
+
+class ManySiteDictionaryWrapper(DomainDecomposedExpansions):
     # Used with dictionaries such as P_aqMi and dPdR_aqcMi
     # Works only with NeighborPairs, not SimpleAtomIter, since it
     # compensates for only seeing the atoms once
-    def __init__(self, msoe):
-        self.msoe = msoe
-        BaseOverlapExpansionSet.__init__(self, msoe.shape)
 
     def getslice(self, a1, a2, xdict_aqxMi):
         msoe = self.msoe
@@ -267,14 +273,54 @@ class ManySiteDictionaryWrapper(BaseOverlapExpansionSet):
         return xdict_aqxMi[a2][..., Mstart:Mend, :], tsoe
 
     def evaluate_slice(self, disp, x_aqxMi):
-        x_qxmi, oe = self.getslice(disp.a1, disp.a2, x_aqxMi)
-        rdisp = disp.reverse() # XXX yuck
-        rdisp.evaluate_overlap(oe, x_qxmi)
-        if disp.a1 != disp.a2:
+        if disp.a2 in x_aqxMi:
+            x_qxmi, oe = self.getslice(disp.a1, disp.a2, x_aqxMi)
+            disp.evaluate_overlap(oe, x_qxmi)
+        if disp.a1 in x_aqxMi and (disp.a1 != disp.a2):
             x2_qxmi, oe2 = self.getslice(disp.a2, disp.a1, x_aqxMi)
-            disp.evaluate_overlap(oe2, x2_qxmi)
+            rdisp = disp.reverse()
+            rdisp.evaluate_overlap(oe2, x2_qxmi)
 
+class BlacsOverlapExpansions(BaseOverlapExpansionSet):
+    def __init__(self, msoe, local_indices, Mmystart, mynao):
+        self.msoe = msoe
+        self.local_indices = local_indices
+        BaseOverlapExpansionSet.__init__(self, msoe.shape)
         
+        self.Mmystart = Mmystart
+        self.mynao = mynao
+        
+        M_a = msoe.M1_a
+        natoms = len(M_a)
+        a = 0
+        while a < natoms and M_a[a] <= Mmystart:
+            a += 1
+        a -= 1
+        self.astart = a
+        
+        while a < natoms and M_a[a] < Mmystart + mynao:
+            a += 1
+        self.aend = a
+            
+    def evaluate_slice(self, disp, x_xqNM):
+        a1 = disp.a1
+        a2 = disp.a2
+        if (a2 in self.local_indices and (self.astart <= a1 < self.aend)):
+            msoe = self.msoe
+            I1 = msoe.I1_a[a1]
+            I2 = msoe.I2_a[a2]
+            tsoe = msoe.tsoe_II[I1, I2]
+            x_qxmm = tsoe.zeros(*x_xqNM.shape[:-2])
+            disp.evaluate_overlap(tsoe, x_qxmm)
+            Mstart1 = msoe.M1_a[a1] - self.Mmystart
+            Mend1 = Mstart1 + tsoe.shape[0]
+            Mstart1b = max(0, Mstart1)
+            Mend1b = min(self.mynao, Mend1)
+            Mstart2 = msoe.M2_a[a2]
+            Mend2 = Mstart2 + tsoe.shape[1]
+            x_xqNM[..., Mstart1b:Mend1b, Mstart2:Mend2] = \
+                        x_qxmm[..., Mstart1b - Mstart1:Mend1b - Mstart1, :]
+            
 class SimpleAtomIter:
     def __init__(self, cell_cv, spos1_ac, spos2_ac, offsetsteps=0):
         self.cell_cv = cell_cv
@@ -292,7 +338,7 @@ class SimpleAtomIter:
             for a2, spos2_c in enumerate(self.spos2_ac):
                 for offset in offsets:
                     R_c = np.dot(spos2_c - spos1_c + offset, self.cell_cv)
-                    yield a1, a2, R_c, offset
+                    yield a1, a2, -R_c, -offset
         
 
 class NeighborPairs:
@@ -344,8 +390,8 @@ class PairsBothWays(PairFilter):
 
 
 class FourierTransformer:
-    def __init__(self, rcmax):
-        self.ng = 2**12
+    def __init__(self, rcmax, ng):
+        self.ng = ng
         self.rcmax = rcmax
         self.dr = rcmax / self.ng
         self.r_g = np.arange(self.ng) * self.dr
@@ -356,7 +402,7 @@ class FourierTransformer:
     def transform(self, spline):
         assert spline.get_cutoff() <= self.rcmax
         l = spline.get_angular_momentum_number()
-        f_g = np.array(map(spline, self.r_g))
+        f_g = spline.map(self.r_g)
         f_q = fbt(l, f_g, self.r_g, self.k_q)
         return f_q
 
@@ -388,9 +434,9 @@ class FourierTransformer:
                 a_g[0] = 8 * np.sum(a_q * k1**(-lmax)) * self.dk
             else:
                 a_g[0] = a_g[1]  # XXXX
-            a_g *= (-1)**((-l1 + l2 - l) // 2)
-            # XXX what's with all the division in the next line?
-            s = Spline(l, self.Q // self.ng // 2 * self.rcmax, a_g)
+            a_g *= (-1)**((l1 - l2 - l) // 2)
+            n = len(a_g) // 256
+            s = Spline(l, 2 * self.rcmax, np.concatenate((a_g[::n], [0.0])))
             splines.append(s)
         return OverlapExpansion(l1, l2, splines)
 
@@ -490,9 +536,13 @@ class AtomicDisplacement:
 class DerivativeAtomicDisplacement(AtomicDisplacement):
     def _set_spherical_harmonics(self, R_c):
         self.rlY_lm, self.drlYdr_lmc = spherical_harmonics_and_derivatives(R_c)
+        if R_c.any():
+            self.Rhat_c = R_c / self.r
+        else:
+            self.Rhat_c = np.zeros(3)
 
     def _evaluate_without_phases(self, oe):
-        x = oe.derivative(self.r, self.R_c, self.rlY_lm, self.drlYdr_lmc)
+        x = oe.derivative(self.r, self.Rhat_c, self.rlY_lm, self.drlYdr_lmc)
         return x
 
 
@@ -510,7 +560,7 @@ class NullPhases:
     
 class BlochPhases:
     def __init__(self, ibzk_qc, offset):
-        self.phase_q = np.exp(2j * pi * np.dot(ibzk_qc, offset))
+        self.phase_q = np.exp(-2j * pi * np.dot(ibzk_qc, offset))
         self.ibzk_qc = ibzk_qc
         self.offset = offset
 
@@ -545,8 +595,8 @@ class TwoCenterIntegralCalculator:
 
     def iter(self, atompairs):
         for a1, a2, R_c, offset in atompairs.iter():
-            if a1 == a2 and self.derivative:
-                continue
+            #if a1 == a2 and self.derivative:
+            #    continue
             phase_applier = self.phaseclass(self.ibzk_qc, offset)
             yield self.displacementclass(self, a1, a2, R_c, offset,
                                          phase_applier)
@@ -580,13 +630,23 @@ class NewTwoCenterIntegrals:
         self.atoms = self.atompairs.pairs.atoms # XXX compatibility
 
         rcmax = max(cutoff_I)
-        
-        transformer = FourierTransformer(rcmax)
+
+        ng = 2**extra_parameters.get('log2ng', 10)
+        transformer = FourierTransformer(rcmax, ng)
         tsoc = TwoSiteOverlapCalculator(transformer)
         self.msoc = ManySiteOverlapCalculator(tsoc, I_a, I_a)
         self.calculate_expansions()
 
         self.calculate = self.evaluate # XXX compatibility
+
+        self.set_matrix_distribution(None, None)
+        
+    def set_matrix_distribution(self, Mmystart, mynao):
+        """Distribute matrices using BLACS."""
+        # Range of basis functions for BLACS distribution of matrices:
+        self.Mmystart = Mmystart
+        self.mynao = mynao
+        self.blacs = mynao is not None
 
     def calculate_expansions(self):
         phit_Ij = [setup.phit_j for setup in self.setups_I]
@@ -605,27 +665,39 @@ class NewTwoCenterIntegrals:
         self.Theta_expansions = msoc.calculate_expansions(l_Ij, phit_Ijq,
                                                           l_Ij, phit_Ijq)
         self.T_expansions = msoc.calculate_kinetic_expansions(l_Ij, phit_Ijq)
-        P_expansions = msoc.calculate_expansions(l_Ij, phit_Ijq,
-                                                 pt_l_Ij, pt_Ijq)
-        self.P_expansions = ManySiteDictionaryWrapper(P_expansions)
+        self.P_expansions = msoc.calculate_expansions(l_Ij, phit_Ijq,
+                                                      pt_l_Ij, pt_Ijq)
 
     def _calculate(self, calc, spos_ac, Theta_qxMM, T_qxMM, P_aqxMi):
         for X_xMM in [Theta_qxMM, T_qxMM] + P_aqxMi.values():
             X_xMM.fill(0.0)
         
         self.atompairs.set_positions(spos_ac)
-        expansions = [self.Theta_expansions, self.T_expansions,
-                      self.P_expansions]
+
+        if self.blacs:
+            # S and T matrices are distributed:
+            expansions = [
+                BlacsOverlapExpansions(self.Theta_expansions,
+                                       P_aqxMi, self.Mmystart, self.mynao),
+                BlacsOverlapExpansions(self.T_expansions,
+                                       P_aqxMi, self.Mmystart, self.mynao)]
+        else:
+            expansions = [DomainDecomposedExpansions(self.Theta_expansions,
+                                                     P_aqxMi),
+                          DomainDecomposedExpansions(self.T_expansions,
+                                                     P_aqxMi)]
+            
+        expansions.append(ManySiteDictionaryWrapper(self.P_expansions,
+                                                    P_aqxMi))
         arrays = [Theta_qxMM, T_qxMM, P_aqxMi]
-        #ap = SimpleAtomIter(self.atompairs.atoms.cell, spos_ac, spos_ac, 0)
-        #calc.calculate(ap, expansions, arrays)
         calc.calculate(self.atompairs, expansions, arrays)
 
     def evaluate(self, spos_ac, Theta_qMM, T_qMM, P_aqMi):
         calc = TwoCenterIntegralCalculator(self.ibzk_qc, derivative=False)
         self._calculate(calc, spos_ac, Theta_qMM, T_qMM, P_aqMi)
-        for X_MM in list(Theta_qMM) + list(T_qMM):
-            tri2full(X_MM, UL=UL)
+        if not self.blacs:
+            for X_MM in list(Theta_qMM) + list(T_qMM):
+                tri2full(X_MM, UL=UL)
 
     def derivative(self, spos_ac, dThetadR_qcMM, dTdR_qcMM, dPdR_aqcMi):
         calc = TwoCenterIntegralCalculator(self.ibzk_qc, derivative=True)
@@ -637,7 +709,6 @@ class NewTwoCenterIntegrals:
         for X_cMM in list(dThetadR_qcMM) + list(dTdR_qcMM):
             for X_MM in X_cMM:
                 tri2full(X_MM, UL=UL, map=antihermitian)
-                X_MM *= -1.0 # XXXXXXX
 
     calculate_derivative = derivative # XXX compatibility
 
@@ -702,7 +773,7 @@ class TwoCenterIntegralSplines:
 
     def __init__(self, rcmax):
         self.rcmax = rcmax
-        self.set_ng(2**extra_parameters.get('log2ng', 12))
+        self.set_ng(2**extra_parameters.get('log2ng', 10))
 
     def set_ng(self, ng):
         # The ng parameter is rather sensitive.  2**11 might be sufficient,
@@ -787,8 +858,9 @@ class TwoCenterIntegralSplines:
                 a_g[0] = 8 * np.sum(a_q * k1**(-lmax)) * self.dk
             else:
                 a_g[0] = a_g[1]  # XXXX
-            a_g *= (-1)**((-l1 + l2 - l) // 2)
-            s = Spline(l, self.Q // self.ng // 2 * self.rcmax, a_g)
+            a_g *= (-1)**((l1 - l2 - l) // 2)
+            n = len(a_g) // 256
+            s = Spline(l, 2 * self.rcmax, np.concatenate((a_g[::n], [0.0])))
             splines.append(s)
         return splines
 
@@ -957,6 +1029,8 @@ class TwoCenterIntegrals:
                 tri2full(S_MM)
                 tri2full(T_MM)
             if derivative:
+                S_MM *= -1.0
+                T_MM *= -1.0
                 for M in range(nao - 1):
                     S_MM[M, M + 1:] = -S_MM[M + 1:, M].conj()
                     T_MM[M, M + 1:] = -T_MM[M + 1:, M].conj()
@@ -985,7 +1059,7 @@ class TwoCenterIntegrals:
                 assert a2 >= a1
                 spos2_c = spos2_ac[a2] + offset
 
-                R = -np.dot(spos2_c - spos1_c, cell_cv)
+                R = np.dot(spos2_c - spos1_c, cell_cv)
                 r = sqrt(np.dot(R, R))
 
                 phase_q = np.exp(-2j * pi * np.dot(self.ibzk_qc, offset))
@@ -1078,12 +1152,11 @@ class TwoCenterIntegrals:
 
 
 class BlacsTwoCenterIntegrals(TwoCenterIntegrals):
-    def set_matrix_distribution(self, band_comm, Mstart, Mstop):
+    def set_matrix_distribution(self, Mstart, mynao):
         """Distribute matrices using BLACS."""
-        self.band_comm = band_comm
         # Range of basis functions for BLACS distribution of matrices:
         self.Mstart = Mstart
-        self.Mstop = Mstop
+        self.Mstop = Mstart + mynao
         
     def set_positions(self, spos_ac):
         TwoCenterIntegrals.set_positions(self, spos_ac)

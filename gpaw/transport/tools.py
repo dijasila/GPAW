@@ -5,6 +5,7 @@ import numpy as np
 from gpaw.mpi import world, rank
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.timing import Timer
+from gpaw.utilities.lapack import inverse_general
 import copy
 import _gpaw
 
@@ -95,7 +96,7 @@ class Banded_Sparse_HSD:
             self.band_index = spar[pk].band_index
        
 class Banded_Sparse_Matrix:
-    def __init__(self, dtype, mat=None, band_index=None, tol=1e-12):
+    def __init__(self, dtype, mat=None, band_index=None, tol=1e-9):
         self.tol = tol
         self.dtype = dtype
         self.band_index = band_index
@@ -199,15 +200,42 @@ class Banded_Sparse_Matrix:
         else:
             self.spar += mat.recover()[index1, index2]           
 
+    def test_inv_speed(self):
+        full_mat = self.recover()
+        timer = Timer()
+        timer.start('full_numpy')
+        tmp0 = np.linalg.inv(full_mat)
+        timer.stop('full_numpy')
+        
+        timer.start('full_lapack')
+        inverse_general(full_mat)
+        timer.stop('full_lapack')
+        
+        timer.start('sparse_lapack')
+        self.inv()
+        timer.stop('sparse_lapack')
+        
+        times = []
+        methods = ['full_numpy', 'full_lapack', 'sparse_lapack']
+        for name in methods:
+            time = timer.gettime(name)
+            print name, time
+            times.append(time)
+        
+        mintime = np.min(times)
+        self.inv_method = methods[np.argmin(times)]
+        print 'mintime', mintime
+                
     def inv(self):
-        kl, ku, index0 = self.band_index[:3]
-        dim = index0.shape[0]
-        inv_mat = np.eye(dim, dtype=complex)
-        ldab = 2*kl + ku + 1
-        source_mat = self.spar[index0]
-        assert source_mat.flags.contiguous
-        info = _gpaw.linear_solve_band(source_mat, inv_mat, kl, ku)            
-        return inv_mat
+        #kl, ku, index0 = self.band_index[:3]
+        #dim = index0.shape[0]
+        #inv_mat = np.eye(dim, dtype=complex)
+        #ldab = 2*kl + ku + 1
+        #source_mat = self.spar[index0]
+        #assert source_mat.flags.contiguous
+        #info = _gpaw.linear_solve_band(source_mat, inv_mat, kl, ku)            
+        #return inv_mat
+        return np.linalg.inv(self.recover()).copy()
        
 class Tp_Sparse_HSD:
     def __init__(self, dtype, ns, npk, ll_index, ex=True):
@@ -492,7 +520,7 @@ class Tp_Sparse_Matrix:
                 mat[indr2, indc2] = self.dwnc_h[i][j]
         return mat        
 
-    def test_inv_eq(self, tol=1e-12):
+    def test_inv_eq(self, tol=1e-9):
         tp_mat = copy.deepcopy(self)
         tp_mat.inv_eq()
         mol_h = dot(tp_mat.mol_h.recover(), self.mol_h.recover())
@@ -706,6 +734,38 @@ class Tp_Sparse_Matrix:
                     self.upc_h[j][k] +=  self.dotdot(inv_mat[i][j][k - 1], se_less[i],
                                                     inv_mat[i][j][k].T.conj())
 
+    def test_inv_speed(self):
+        full_mat = self.recover()
+        timer = Timer()
+        timer.start('full_numpy')
+        tmp0 = np.linalg.inv(full_mat)
+        timer.stop('full_numpy')
+        
+        timer.start('full_lapack')
+        inverse_general(full_mat)
+        timer.stop('full_lapack')
+        
+        timer.start('sparse_lapack')
+        self.inv_eq()
+        timer.stop('sparse_lapack')
+        
+        timer.start('sparse_lapack_ne')
+        self.inv_ne()
+        timer.stop('sparse_lapack_ne')
+        
+        times = []
+        methods = ['full_numpy', 'full_lapack', 'sparse_lapack']
+        for name in methods:
+            time = timer.gettime(name)
+            print name, time
+            times.append(time)
+        
+        mintime = np.min(times)
+        self.inv_method = methods[np.argmin(times)]
+        print 'mintime', mintime
+        
+        print  'sparse_lapack_ne', timer.gettime('sparse_lapack_ne')
+
 class CP_Sparse_HSD:
     def __init__(self, dtype, ns, npk, index=None):
         self.index = index
@@ -743,7 +803,7 @@ class CP_Sparse_HSD:
             self.index = spar[pk].index
      
 class CP_Sparse_Matrix:
-    def __init__(self, dtype, mat=None, index=None, flag=None, tol=1e-12):
+    def __init__(self, dtype, mat=None, index=None, flag=None, tol=1e-9):
         self.tol = tol
         self.index = index
         self.dtype = dtype
@@ -814,7 +874,7 @@ class CP_Sparse_Matrix:
         return mat
 
 class Se_Sparse_Matrix:
-    def __init__(self, mat, tri_type, nn=None, tol=1e-12):
+    def __init__(self, mat, tri_type, nn=None, tol=1e-9):
         # coupling sparse matrix A_ij!=0 if i>dim-nn and j>dim-nn (for right selfenergy)
         # or A_ij!=0 if i<nn and j<nn (for left selfenergy, dim is the shape of A)
         self.tri_type = tri_type
@@ -858,6 +918,10 @@ class Se_Sparse_Matrix:
         else:
             mat[-self.nn:, -self.nn:] = self.spar
         return mat   
+
+def fermidistribution(energy, kt):
+    #fermi level is fixed to zero
+    return 1.0 / (1.0 + np.exp(energy / kt) )
 
 def get_tri_type(mat):
     #mat is lower triangular or upper triangular matrix
