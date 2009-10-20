@@ -53,7 +53,7 @@ class ExcitationList(list):
         see Jamorski et al. J. Chem. Phys. 104 (1996) 5134"""
         S=np.zeros((lmax+1))
         for ex in self:
-            e = ex.GetEnergy()
+            e = ex.get_energy()
             f = ex.GetOscillatorStrength()[0]
             for l in range(lmax+1):
                 S[l] += e**(-2*l) * f

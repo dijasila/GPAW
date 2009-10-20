@@ -5,6 +5,7 @@ import gpaw.mpi as mpi
 MASTER = mpi.MASTER
 
 from ase.parallel import paropen
+from ase.units import Hartree
 
 from gpaw import debug
 import gpaw.mpi as mpi
@@ -412,8 +413,8 @@ class OmegaMatrix:
                     timer2.stop()
 
                 timer2.start('integrate')
-                pre = 2.*sqrt(kss[ij].GetEnergy()*kss[kq].GetEnergy()*
-                                  kss[ij].GetWeight()*kss[kq].GetWeight())
+                pre = 2.*sqrt(kss[ij].get_energy()*kss[kq].get_energy()*
+                                  kss[ij].get_weight()*kss[kq].get_weight())
                 Om[ij,kq]= pre * self.gd.integrate(rhot*phit)
 ##                print "int=",Om[ij,kq]
                 timer2.stop()
@@ -442,7 +443,7 @@ class OmegaMatrix:
                 Om[ij,kq] += pre * self.gd.comm.sum(Ia)
                     
                 if ij == kq:
-                    Om[ij,kq] += kss[ij].GetEnergy()**2
+                    Om[ij,kq] += kss[ij].get_energy()**2
                 else:
                     Om[kq,ij]=Om[ij,kq]
 
@@ -597,8 +598,8 @@ class OmegaMatrix:
     def weight_Kijkq(self, ij, kq):
         """weight for the coupling matrix terms"""
         kss = self.fullkss
-        return 2.*sqrt( kss[ij].GetEnergy() * kss[kq].GetEnergy() *
-                        kss[ij].GetWeight() * kss[kq].GetWeight()   )
+        return 2.*sqrt( kss[ij].get_energy() * kss[kq].get_energy() *
+                        kss[ij].get_weight() * kss[kq].get_weight()   )
 
     def __str__(self):
         str='<OmegaMatrix> '
@@ -606,7 +607,7 @@ class OmegaMatrix:
             str += 'dimension '+ ('%d'%len(self.eigenvalues))
             str += "\neigenvalues: "
             for ev in self.eigenvalues:
-                str += ' ' + ('%f'%(sqrt(ev)*27.211))
+                str += ' ' + ('%f'%(sqrt(ev) * Hartree))
         return str
     
 

@@ -1,7 +1,7 @@
 from math import pi, sqrt
 
 import numpy as np
-from ase.units import Bohr
+from ase.units import Bohr, Hartree
 
 import gpaw.mpi as mpi
 from gpaw import debug
@@ -413,7 +413,7 @@ class KSSingle(Excitation, PairDensity):
     def __str__(self):
         str = "# <KSSingle> %d->%d %d(%d) eji=%g[eV]" % \
               (self.i, self.j, self.pspin, self.spin,
-               self.energy*27.211)
+               self.energy * Hartree)
         str += " (%g,%g,%g)" % (self.me[0],self.me[1],self.me[2])
         return str
     
@@ -425,5 +425,8 @@ class KSSingle(Excitation, PairDensity):
         return self.energy
 
     def GetWeight(self):
+        return self.fij
+
+    def get_weight(self):
         return self.fij
 

@@ -4,6 +4,8 @@ from math import sqrt
 import numpy as np
 from numpy.linalg import inv
 
+from ase.units import Hartree
+
 import _gpaw
 import gpaw.mpi as mpi
 MASTER = mpi.MASTER
@@ -119,7 +121,7 @@ class ApmB(OmegaMatrix):
                 timer2.stop()
                 
                 if ij == kq:
-                    epsij =  kss[ij].GetEnergy() / kss[ij].GetWeight()
+                    epsij =  kss[ij].get_energy() / kss[ij].get_weight()
                     AmB[ij,kq] += epsij
                     ApB[ij,kq] += epsij
 
@@ -369,7 +371,7 @@ class ApmB(OmegaMatrix):
             str += 'dimension '+ ('%d'%len(self.eigenvalues))
             str += "\neigenvalues: "
             for ev in self.eigenvalues:
-                str += ' ' + ('%f'%(sqrt(ev)*27.211))
+                str += ' ' + ('%f'%(sqrt(ev) * Hartree))
         return str
     
 
