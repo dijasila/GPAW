@@ -1,14 +1,28 @@
 import sys
+    
 from optparse import OptionParser, OptionGroup
 from gpaw.parameters import InputParameters
 from gpaw.poisson import PoissonSolver
+
+# Problems and unresolved issues
+# ------------------------------
+#
+# what do we do about large objects such as PoissonSolvers?
+# option parsers have cyclic references, maybe call destroy()
 
 
 def build_parser():
     usage = '%prog [OPTIONS] [FILE]'
     description = ('Print representation of GPAW input parameters to stdout.')
-    p = OptionParser(usage=usage, description=description)
-    return p
+    parser = OptionParser(usage=usage, description=description)
+    g = OptionGroup(parser, 'General')
+    g.add_option('--complete', action='store_true', default=False,
+                 help='print complete set of input parameters')
+    g.add_option('--pretty', action='store_true', default=False,
+                 help='format output nicely')
+    parser.add_option_group(g)
+    return parser
+
 
 def append_to_optiongroup(parameters, opts):
     for key, value in parameters.items():
@@ -25,37 +39,27 @@ def deserialize(filename):
     parameters = eval(stringrep)
     return parameters
 
-def stringdict2inputparameters(parameters):
-    """Convert values from string representations to objects.
-
-    Returns an InputParameters given an ordinary dictionary."""
-    reconstructed_parameters = {}
-    for key, value in parameters.items():
-        reconstructed_parameters[key] = eval(value)
-    output = InputParameters(**reconstructed_parameters)
-    return output
-
 
 def populate_parser(parser, defaultparameters):
     opts = OptionGroup(parser, 'GPAW parameters')
     append_to_optiongroup(defaultparameters, opts)
     parser.add_option_group(opts)
     return parser
-    opts, args = parser.parse_args()
-    return opts, args
 
 
-def main():
+def main(argv):
     # build from scratch
     # build from existing
     # build from gpw?
     # just print nicely?
     # print as python script?
+    defaults = InputParameters()
     parser = build_parser()
-    populate_parser(parser, InputParameters())
-    opts, args = parser.parse_args()
+    populate_parser(parser, defaults)
+
+    opts, args = parser.parse_args(argv)
     
-    if len(args) == 1:
+    for arg in args:
         deserialized_parameters = deserialize(args[0])
         # We have to use the newly loaded info (target file)
         # to get new defaults!
@@ -66,12 +70,33 @@ def main():
         # and somehow detect which one is relevant?)
         parser2 = OptionParser()
         populate_parser(parser2, deserialized_parameters)
-        opts, args2 = parser2.parse_args()
-        
+        opts, args2 = parser2.parse_args(argv)
+
     parameters = {}
-    parameters.update(vars(opts))
-    output = stringdict2inputparameters(parameters)
-    print output
+    for key, value in vars(opts).items():
+        if key in defaults:
+            parameters[key] = eval(value)
+    output = InputParameters(**parameters)
+
+    # Remove keys which are not changed from defaults
+    if not opts.complete:
+        for key in defaults:
+            if defaults[key] == output[key]:
+                # XXX this is probably not meant to be done
+                del output[key]
     
-if __name__ == '__main__':
-    main()
+    if opts.pretty:
+        start = 'InputParameters('
+        indent = ' ' * len(start)
+        keyvals = ['%s=%s' % (key, repr(value))
+                   for key, value in output.items()]
+        end = ')\n'
+
+        sys.stdout.write(start)
+        
+        keyval_string = (',\n%s' % indent).join(keyvals)
+        sys.stdout.write(keyval_string)
+        sys.stdout.write(end)
+        
+    else:
+        print output
