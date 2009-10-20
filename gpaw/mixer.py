@@ -10,6 +10,7 @@ import numpy as npy
 from gpaw.utilities.blas import axpy
 from gpaw.operators import Operator
 
+
 class BaseMixer:
     """Pulay density mixer."""
     
@@ -179,6 +180,12 @@ class BaseMixer:
         gridbytes = gd.bytecount()
         mem.subnode('nt_iG, R_iG', 2 * self.nmaxold * gridbytes)
 
+    def __repr__(self):
+        classname = self.__class__.__name__
+        template = '%s(beta=%f, nmaxold=%d, weight=%f)'
+        string = template % (classname, self.beta, self.nmaxold, self.weight)
+        return string
+
 
 class DummyMixer(BaseMixer):
     """Dummy mixer for TDDFT, i.e., it does not mix."""
@@ -187,6 +194,7 @@ class DummyMixer(BaseMixer):
 
     def estimate_memory(self, mem, gd):
         pass
+
 
 class Mixer(BaseMixer):
     """Mix spin up and down densities separately"""
@@ -374,6 +382,7 @@ class MixerRho2(BaseMixer):
         rhot_g = density.rhot_g
         BaseMixer.mix(self, rhot_g, density.D_asp.values())
 
+
 class BaseMixer_Broydn:
     def __init__(self, beta=0.1, nmaxold=6):
         self.step = 0
@@ -471,6 +480,7 @@ class BaseMixer_Broydn:
         for D_ip, D_p in zip(self.D_iap, D_ap):
             D_ip.append(npy.copy(D_p))
         self.step += 1
+
         
 class Mixer_Broydn(BaseMixer_Broydn):
     """Mix spin up and down densities separately"""
@@ -512,6 +522,7 @@ class Mixer_Broydn(BaseMixer_Broydn):
         for mixer in self.mixers:
             mixer.set_charge_sloshing(dNt / len(self.mixers))
 
+
 class MixerSum_Broydn(BaseMixer_Broydn):
     def mix(self, density):
         nt_sG = density.nt_sG
@@ -528,4 +539,3 @@ class MixerSum_Broydn(BaseMixer_Broydn):
         # Construct new spin up/down densities 
         nt_sG[0] = 0.5 * (nt_G + dnt_G)
         nt_sG[1] = 0.5 * (nt_G - dnt_G)
-

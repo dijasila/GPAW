@@ -562,9 +562,9 @@ class LCAOWaveFunctions(WaveFunctions):
             nao = self.setups.nao
             rho_MM = np.empty((nao, nao), self.dtype)
             self.calculate_density_matrix(f_n, kpt.C_nM, rho_MM)
-        self.timer.start('LCAO WaveFunctions: construct density')
+        self.timer.start('Construct density')
         self.basis_functions.construct_density(rho_MM, nt_sG[kpt.s], kpt.q)
-        self.timer.stop('LCAO WaveFunctions: construct density')
+        self.timer.stop('Construct density')
 
     def add_to_density_from_k_point(self, nt_sG, kpt):
         """Add contribution to pseudo electron-density. """
@@ -916,14 +916,14 @@ class GridWaveFunctions(WaveFunctions):
                                                        density, hamiltonian,
                                                        spos_ac):
         if 0:
-            self.timer.start('Wavefunction: random')
+            self.timer.start('Random wavefunction initialization')
             for kpt in self.kpt_u:
                 kpt.psit_nG = self.gd.zeros(self.mynbands, self.dtype)
             self.random_wave_functions(0)
-            self.timer.stop('Wavefunction: random')
+            self.timer.stop('Random wavefunction initialization')
             return
         
-        self.timer.start('Wavefunction: lcao initialization')
+        self.timer.start('LCAO initialization')
         if self.nbands <= self.setups.nao:
             lcaonbands = self.nbands
             lcaomynbands = self.mynbands
@@ -967,7 +967,7 @@ class GridWaveFunctions(WaveFunctions):
             # less than the desired number of bands, then extra random
             # wave functions are added.
             self.random_wave_functions(lcaomynbands)
-        self.timer.stop('Wavefunction: lcao initialization')
+        self.timer.stop('LCAO initialization')
 
     def initialize_wave_functions_from_restart_file(self):
         if not isinstance(self.kpt_u[0].psit_nG, TarFileReference):

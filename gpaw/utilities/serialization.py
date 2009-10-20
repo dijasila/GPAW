@@ -3,6 +3,8 @@ import sys
 from optparse import OptionParser, OptionGroup
 from gpaw.parameters import InputParameters
 from gpaw.poisson import PoissonSolver
+from gpaw.mixer import Mixer, MixerSum, MixerDif
+from gpaw import GPAW
 
 # Problems and unresolved issues
 # ------------------------------
@@ -20,6 +22,8 @@ def build_parser():
                  help='print complete set of input parameters')
     g.add_option('--pretty', action='store_true', default=False,
                  help='format output nicely')
+    #g.add_option('--validate', action='store_true', default=False,
+    #             help='validate arguments to some extent')
     parser.add_option_group(g)
     return parser
 
@@ -68,7 +72,7 @@ def main(argv):
         # We can probably avoid this somehow, think about it in the future
         # (can one have different call formats like e.g. the 'du' man-page,
         # and somehow detect which one is relevant?)
-        parser2 = OptionParser()
+        parser2 = build_parser()
         populate_parser(parser2, deserialized_parameters)
         opts, args2 = parser2.parse_args(argv)
 
@@ -100,3 +104,7 @@ def main(argv):
         
     else:
         print output
+
+    #if opts.validate:
+    #    output['txt'] = None
+    #    calc = GPAW(**output)
