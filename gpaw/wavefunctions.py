@@ -606,6 +606,11 @@ class LCAOWaveFunctions(WaveFunctions):
                                             dThetadR_qvMM[kpt.q],
                                             dTdR_qvMM[kpt.q],
                                             dPdR_aqvMi)
+        self.bd.comm.sum(F_av, 0) # XXX copy/paste - does this make sense?
+
+        if self.bd.comm.rank == 0:
+            self.kpt_comm.sum(F_av, 0)
+
         self.timer.stop('LCAO forces')
 
     def print_arrays_with_ranks(self, names, arrays_nax):
@@ -1113,7 +1118,8 @@ class GridWaveFunctions(WaveFunctions):
 
     def calculate_forces(self, hamiltonian, F_av):
         # Calculate force-contribution from k-points:
-        F_aniv = self.pt.dict(self.nbands, derivative=True)
+        F_av.fill(0.0)
+        F_aniv = self.pt.dict(self.bd.mynbands, derivative=True)
         for kpt in self.kpt_u:
             self.pt.derivative(kpt.psit_nG, F_aniv, kpt.q)
             for a, F_niv in F_aniv.items():
@@ -1126,6 +1132,11 @@ class GridWaveFunctions(WaveFunctions):
                 dO_ii = hamiltonian.setups[a].O_ii
                 F_vii -= np.dot(np.dot(F_niv.transpose(), P_ni), dO_ii)
                 F_av[a] += 2 * F_vii.real.trace(0, 1, 2)
+
+        self.bd.comm.sum(F_av, 0)
+
+        if self.bd.comm.rank == 0:
+            self.kpt_comm.sum(F_av, 0)
 
     def _get_wave_function_array(self, u, n):
         psit_nG = self.kpt_u[u].psit_nG
