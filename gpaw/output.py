@@ -136,6 +136,9 @@ class PAWTextOutput:
 
         for setup in self.wfs.setups.setups.values():
             setup.print_info(self.text)
+            basis_descr = setup.get_basis_description()
+            t(basis_descr)
+            t()
             
         t('Using the %s Exchange-Correlation Functional.'
           % self.hamiltonian.xcfunc.xcname)
