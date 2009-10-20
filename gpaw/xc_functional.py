@@ -484,8 +484,9 @@ class XCFunctional:
          d_ex[5], d_ex[6], 
          d_ec[0], d_ec[1],
          d_ec[2], d_ec[3], d_ec[4],
-         d_ec[5], d_ec[6]
-		 ) = self.xc.calculate_xcenergy(na, nb, sigma0, sigma1, sigma2, taua, taub)
+         d_ec[5], d_ec[6]) = self.xc.calculate_xcenergy(na, nb, sigma0,
+                                                        sigma1, sigma2,
+                                                        taua, taub)
         return exc, ex, ec, d_exc, d_ex, d_ec
 
 class XCGrid:

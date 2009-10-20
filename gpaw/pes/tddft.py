@@ -25,7 +25,7 @@ class TDDFTPES(BasePES):
         
         self.check_systems()
         self.lr_d.jend=self.lr_d.kss[-1].j        
-	
+        
         # Make good way for initialising these
 
         self.imax=0
@@ -40,7 +40,7 @@ class TDDFTPES(BasePES):
 
         self.f=None
         self.be=None
-	self.first_peak_energy=None
+        self.first_peak_energy=None
 
     def _calculate(self):
         self._create_d()
