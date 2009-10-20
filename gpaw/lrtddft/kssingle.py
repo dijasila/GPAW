@@ -67,10 +67,10 @@ class KSSingles(ExcitationList):
 
         self.select(nspins, eps, istart, jend, energyrange)
 
-        trkm = self.GetTRK()
+        trkm = self.get_trk()
         print >> self.txt, 'KSS TRK sum %g (%g,%g,%g)' % \
               (np.sum(trkm)/3.,trkm[0],trkm[1],trkm[2])
-        pol = self.GetPolarizabilities(lmax=3)
+        pol = self.get_polarizabilities(lmax=3)
         print >> self.txt, \
               'KSS polarisabilities(l=0-3) %g, %g, %g, %g' % \
               tuple(pol.tolist())
@@ -420,12 +420,6 @@ class KSSingle(Excitation, PairDensity):
     #####################
     ## User interface: ##
     #####################
-
-    def GetEnergy(self):
-        return self.energy
-
-    def GetWeight(self):
-        return self.fij
 
     def get_weight(self):
         return self.fij

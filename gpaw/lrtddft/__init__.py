@@ -181,9 +181,6 @@ class LrTDDFT(ExcitationList):
     def get_Om(self):
         return self.Om
 
-    def Read(self, filename=None, fh=None):
-        return self.read(filename, fh)
-        
     def read(self, filename=None, fh=None):
         """Read myself from a file"""
 
@@ -284,9 +281,6 @@ class LrTDDFT(ExcitationList):
         string += self.kss.__str__()
         return string
 
-    def Write(self, filename=None, fh=None):
-        return self.write(filename,fh)
-    
     def write(self, filename=None, fh=None):
         """Write current state to a file.
 
@@ -407,7 +401,7 @@ class LrTDDFTExcitation(Excitation):
     def analyse(self,min=.1):
         """Return an analysis string of the excitation"""
         s='E=%.3f'%(self.energy * Hartree)+' eV, f=%.3g'\
-           %(self.GetOscillatorStrength()[0])+'\n'
+           %(self.get_oscillator_strength()[0])+'\n'
 
         def sqr(x): return x*x
         spin = ['u','d'] 
