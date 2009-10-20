@@ -4,7 +4,7 @@
 from math import pi
 import sys
 
-import numpy as npy
+import numpy as np
 
 from gpaw.transformers import Transformer
 from gpaw.operators import Laplace, LaplaceA, LaplaceB
@@ -162,7 +162,7 @@ class PoissonSolver:
             self.load_gauss()
 
             # Remove monopole moment
-            q = actual_charge / npy.sqrt(4 * pi) # Monopole moment
+            q = actual_charge / np.sqrt(4 * pi) # Monopole moment
             rho_neutral = rho - q * self.rho_gauss # neutralized density
 
             # Set initial guess for potential
@@ -195,16 +195,16 @@ class PoissonSolver:
         while self.iterate2(self.step) > eps and niter < maxiter:
             niter += 1
         if niter == maxiter:
-            charge = npy.sum(rho.ravel()) * self.dv
+            charge = np.sum(rho.ravel()) * self.dv
             print 'CHARGE, eps:', charge, eps
             msg = 'Poisson solver did not converge in %d iterations!' % maxiter
             raise PoissonConvergenceError(msg)
         
         # Set the average potential to zero in periodic systems
-        if npy.alltrue(self.gd.pbc_c):
+        if np.alltrue(self.gd.pbc_c):
             phi_ave = self.gd.comm.sum(npy.sum(phi.ravel()))
             N_c = self.gd.get_size_of_global_array()
-            phi_ave /= npy.product(N_c)
+            phi_ave /= np.product(N_c)
             phi -= phi_ave
 
         return niter
@@ -372,15 +372,15 @@ class FixedBoundaryPoissonSolver(PoissonSolver):
         if self.gd.comm.rank == 0: 
             d3 = b_phi1.shape[2]
             gd = self.gd
-            N_c1 = gd.N_c[:2, npy.newaxis]
-            i_cq = npy.indices(gd.N_c[:2]).reshape((2, -1))
+            N_c1 = gd.N_c[:2, np.newaxis]
+            i_cq = np.indices(gd.N_c[:2]).reshape((2, -1))
             i_cq += N_c1 // 2
             i_cq %= N_c1
             i_cq -= N_c1 // 2
-            B_vc = 2.0 * npy.pi * gd.icell_cv.T[:2, :2]
-            k_vq = npy.dot(B_vc, i_cq) 
+            B_vc = 2.0 * np.pi * gd.icell_cv.T[:2, :2]
+            k_vq = np.dot(B_vc, i_cq) 
             k_vq *= k_vq
-            self.k_vq2 = npy.sum(k_vq, axis=0)
+            self.k_vq2 = np.sum(k_vq, axis=0)
   
             b_phi1 = fft2(b_phi1, None, (0,1))
             b_phi2 = fft2(b_phi2, None, (0,1))
@@ -406,16 +406,16 @@ class FixedBoundaryPoissonSolver(PoissonSolver):
 
             phi_g2 = self.gd.zeros(global_array=True, dtype=complex)
             phi_g2.shape = (d1 * d2, d3)
-            du0 = npy.zeros(d3 - 1, dtype=complex)
-            du20 = npy.zeros(d3 - 2, dtype=complex)       
+            du0 = np.zeros(d3 - 1, dtype=complex)
+            du20 = np.zeros(d3 - 2, dtype=complex)       
         
             h2 = self.gd.h_c[2] ** 2
             for phi, rho, rv2, bp1, bp2, i in zip(phi_g2, rho_g1,
                                            self.k_vq2,
                                            self.b_phi1,
                                            self.b_phi2, range(d1*d2)):
-                A = npy.zeros(d3, dtype=complex) + 2 + h2 * rv2
-                phi = rho * npy.pi * 4 * h2
+                A = np.zeros(d3, dtype=complex) + 2 + h2 * rv2
+                phi = rho * np.pi * 4 * h2
                 phi[0] += bp1
                 phi[-1] += bp2
                 du = du0 - 1

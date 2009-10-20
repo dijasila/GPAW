@@ -4,7 +4,7 @@ import time
 from math import log
 from math import sqrt
 
-import numpy as npy
+import numpy as np
 import ase
 from ase.version import version as ase_version
 from ase.data import chemical_symbols
@@ -502,7 +502,7 @@ def plot(atoms):
 ## z
 
     cell_cv = atoms.get_cell()
-    if (cell_cv - npy.diag(cell_cv.diagonal())).any():
+    if (cell_cv - np.diag(cell_cv.diagonal())).any():
         atoms = atoms.copy()
         atoms.center(vacuum=2.0)
         cell_cv = atoms.get_cell()
@@ -510,7 +510,7 @@ def plot(atoms):
     else:
         plot_box = True
 
-    cell = npy.diagonal(cell_cv) / Bohr
+    cell = np.diagonal(cell_cv) / Bohr
     positions = atoms.get_positions() / Bohr
     numbers = atoms.get_atomic_numbers()
 
@@ -519,8 +519,8 @@ def plot(atoms):
     sx, sy, sz = n / cell
     grid = Grid(nx + ny + 4, nz + ny + 1)
     positions = (positions % cell + cell) % cell
-    ij = npy.dot(positions, [(sx, 0), (sy, sy), (0, sz)])
-    ij = npy.around(ij).astype(int)
+    ij = np.dot(positions, [(sx, 0), (sy, sy), (0, sz)])
+    ij = np.around(ij).astype(int)
     for a, Z in enumerate(numbers):
         symbol = chemical_symbols[Z]
         i, j = ij[a]
@@ -551,13 +551,13 @@ def plot(atoms):
                 grid.put('-', i + x + ny, j + ny)
             k = 0
     return '\n'.join([''.join([chr(x) for x in line])
-                      for line in npy.transpose(grid.grid)[::-1]])
+                      for line in np.transpose(grid.grid)[::-1]])
 
 class Grid:
     def __init__(self, i, j):
-        self.grid = npy.zeros((i, j), npy.int8)
+        self.grid = np.zeros((i, j), np.int8)
         self.grid[:] = ord(' ')
-        self.depth = npy.zeros((i, j))
+        self.depth = np.zeros((i, j))
         self.depth[:] = 1e10
 
     def put(self, c, i, j, depth=1e9):

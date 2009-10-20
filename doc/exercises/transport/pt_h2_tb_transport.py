@@ -1,15 +1,15 @@
-import numpy as npy
+import numpy as np
 from ase.transport.calculators import TransportCalculator
 import pylab
 
 # onsite energies 0.0, nearest neighbor hopping -1.0, and
 # second nearest neighbor hopping 0.2
-H_lead = npy.array([[ 0. , -1. ,  0.2,  0. ],
+H_lead = np.array([[ 0. , -1. ,  0.2,  0. ],
                     [-1. ,  0. , -1. ,  0.2],
                     [ 0.2, -1. ,  0. , -1. ],
                     [ 0. ,  0.2, -1. ,  0. ]])
 
-H_scat = npy.zeros((6, 6))
+H_scat = np.zeros((6, 6))
 
 #Principal layers on either side of S
 H_scat[:2, :2] = H_scat[-2:, -2:] = H_lead[:2, :2]

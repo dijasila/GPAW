@@ -1,6 +1,6 @@
 from math import pi, cos, sin, sqrt, acos
 
-import numpy as npy
+import numpy as np
 
 from ase.atoms import Atoms
 from ase.parallel import paropen
@@ -43,7 +43,7 @@ def line2cell(line):
         A, B, C = [float(z) * pi / 180 for z in x[4:]]
     except ValueError:
         return None
-    cell = npy.zeros((3, 3))
+    cell = np.zeros((3, 3))
     cell[0, 0] = a
     cell[1, 0] = b * cos(C)
     cell[1, 1] = b * sin(C)
@@ -52,7 +52,7 @@ def line2cell(line):
     z = sqrt(c**2 - x**2 - y**2)
     cell[2] = (x, y, z)
     # handle rounding errors in cos, sin
-    cell = npy.where(cell < 1.e-10, 0.0, cell)
+    cell = np.where(cell < 1.e-10, 0.0, cell)
     return cell
 
 def write_xyz(fileobj, images):

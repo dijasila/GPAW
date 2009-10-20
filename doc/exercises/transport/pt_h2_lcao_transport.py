@@ -1,5 +1,5 @@
 from ase.transport.calculators import TransportCalculator
-import numpy as npy
+import numpy as np
 import pickle
 import pylab
 

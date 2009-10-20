@@ -47,7 +47,7 @@ from gpaw import setup_paths
 from glob import glob
 from os import remove
 
-import numpy as npy
+import numpy as np
 
 from math import sqrt
 

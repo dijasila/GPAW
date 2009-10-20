@@ -25,7 +25,7 @@ from os import remove
 from os.path import exists
 
 try:
-    import numpy as npy
+    import numpy as np
 except ImportError:
     raise SystemExit('numpy is not installed!')
 

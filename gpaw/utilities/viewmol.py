@@ -1,7 +1,7 @@
 """Trajectory module with viewmol support.""" 
 
 from math import sqrt
-import numpy as npy
+import numpy as np
 
 from ase import Angstrom, Atoms, Atom, Hartree, PickleTrajectory
 from ase.io import filetype as ase_filetype

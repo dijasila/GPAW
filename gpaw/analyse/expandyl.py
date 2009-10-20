@@ -1,6 +1,6 @@
 from math import pi
 
-import numpy as npy
+import numpy as np
 from ase.units import Bohr, Hartree
 
 import gpaw.mpi as mpi
@@ -66,10 +66,10 @@ class ExpandYl:
         # self.ball_g will contain the mask of the ball of radius Rmax
         # self.y_Lg will contain the YL values corresponding to
         #     each grid point
-        R_V = npy.zeros((int(Rmax / dR + 1),))
+        R_V = np.zeros((int(Rmax / dR + 1),))
         y_Lg = gd.zeros((nL,))
-        R_g = npy.zeros(y_Lg[0].shape, int) - 1
-        ball_g = npy.zeros(y_Lg[0].shape, int)
+        R_g = np.zeros(y_Lg[0].shape, int) - 1
+        ball_g = np.zeros(y_Lg[0].shape, int)
         for i in range(gd.beg_c[0],gd.end_c[0]):
             ii = i - gd.beg_c[0]
             for j in range(gd.beg_c[1],gd.end_c[1]):
@@ -98,14 +98,14 @@ class ExpandYl:
     def expand(self,psit_g):
         """Expand a wave function"""
       
-        gamma_l = npy.zeros((self.lmax+1))
+        gamma_l = np.zeros((self.lmax+1))
         nL = len(self.L_l)
         L_l = self.L_l
         dR = self.dR
         
         for i,dV in enumerate(self.R_V):
             # get the R shell and it's Volume
-            R_g = npy.where(self.R_g == i, 1, 0)
+            R_g = np.where(self.R_g == i, 1, 0)
             if dV > 0:
                 for L in range(nL):
                     psit_LR = self.gd.integrate(psit_g * R_g * self.y_Lg[L])
@@ -164,7 +164,7 @@ class ExpandYl:
                     norm = self.gd.integrate(psit_G**2)
 
                     gl, weight = self.expand(psit_G)
-                    gsum = npy.sum(gl)
+                    gsum = np.sum(gl)
                     gl = 100 * gl / gsum
 
                     print >> f, '%2d %5d %5d' % (s, k, n),

@@ -5,7 +5,7 @@
 Ref. to Kresse-paper ... XXX
 """
 
-import numpy as npy
+import numpy as np
 
 from gpaw.utilities.blas import axpy
 from gpaw.operators import Operator
@@ -82,7 +82,7 @@ class BaseMixer:
         # History for Pulay mixing of densities:
         self.nt_iG = [] # Pseudo-electron densities
         self.R_iG = []  # Residuals
-        self.A_ii = npy.zeros((0, 0))
+        self.A_ii = np.zeros((0, 0))
         self.dNt = None
         
         self.D_iap = []
@@ -123,7 +123,7 @@ class BaseMixer:
                 self.dD_iap[-1].append(D_p - D_ip)
 
             # Update matrix:
-            A_ii = npy.zeros((iold, iold))
+            A_ii = np.zeros((iold, iold))
             i1 = 0
             i2 = iold - 1
             
@@ -142,9 +142,9 @@ class BaseMixer:
             self.A_ii = A_ii
 
             try:
-                B_ii = npy.linalg.inv(A_ii)
-            except npy.linalg.LinAlgError:
-                alpha_i = npy.zeros(iold)
+                B_ii = np.linalg.inv(A_ii)
+            except np.linalg.LinAlgError:
+                alpha_i = np.zeros(iold)
                 alpha_i[-1] = 1.0
             else:
                 alpha_i = B_ii.sum(1)
@@ -424,7 +424,7 @@ class BaseMixer_Broydn:
             if self.verbose:
                 print 'Mixer: broydn: fmin_G = %f fmin_D = %f'% fmin_G
         if self.step == 0:
-            self.eta_G = npy.empty(nt_G.shape)
+            self.eta_G = np.empty(nt_G.shape)
             self.eta_D = []
             for D_p in D_ap:
                 self.eta_D.append(0)

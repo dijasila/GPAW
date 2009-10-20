@@ -1,11 +1,11 @@
 from time import time
 try:
-    import numpy as npy
-    npy_float = npy.float
+    import numpy as np
+    npy_float = np.float
 except ImportError:
     try:
         import Numeric as npy
-        npy_float = npy.Float
+        npy_float = np.Float
     except ImportError:
         raise SystemExit('numpy nor Numeric not installed!')
 from gpaw import mpi
@@ -32,7 +32,7 @@ def run(ngpts, repeat, narrays, prec=False):
         out.close()
 
 def go(comm, ngpts, repeat, narrays, out, prec):
-    N_c = npy.array((ngpts, ngpts, ngpts))
+    N_c = np.array((ngpts, ngpts, ngpts))
     a = 10.0
     gd = GridDescriptor(N_c, (a, a, a), comm=comm))
     gdcoarse = gd.coarsen()
