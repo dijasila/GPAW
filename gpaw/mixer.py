@@ -528,5 +528,4 @@ class MixerSum_Broydn(BaseMixer_Broydn):
         # Construct new spin up/down densities 
         nt_sG[0] = 0.5 * (nt_G + dnt_G)
         nt_sG[1] = 0.5 * (nt_G - dnt_G)
-        
-        
+
