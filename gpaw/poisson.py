@@ -17,6 +17,7 @@ import _gpaw
 
 class PoissonSolver:
     def __init__(self, nn='M', relax='GS', eps=2e-10):
+        self.relax = relax
         self.nn = nn
         self.eps = eps
         self.charged_periodic_correction = None
@@ -288,6 +289,11 @@ class PoissonSolver:
         if self.B is not None:
             name = self.B.__class__.__name__
             self.B.estimate_memory(mem.subnode('B [%s]' % name))
+
+    def __repr__(self):
+        template = 'PoissonSolver(relax=\'%s\', nn=%s, eps=%e)'
+        representation = template % (self.relax, repr(self.nn), self.eps)
+        return representation
 
 
 from numpy.fft import fftn, ifftn, fft2, ifft2
