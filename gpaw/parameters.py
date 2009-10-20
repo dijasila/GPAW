@@ -68,8 +68,8 @@ class InputParameters(dict):
             if isinstance(haschanged, np.ndarray):
                 haschanged = haschanged.any()
 
-            if haschanged:
-                self.notify(key)
+            #if haschanged:
+            #    self.notify(key)
 
         dict.update(self, parameters)
 
