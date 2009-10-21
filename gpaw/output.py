@@ -504,6 +504,7 @@ def plot(atoms):
     cell_cv = atoms.get_cell()
     if (cell_cv - np.diag(cell_cv.diagonal())).any():
         atoms = atoms.copy()
+        atoms.cell = [1, 1, 1]
         atoms.center(vacuum=2.0)
         cell_cv = atoms.get_cell()
         plot_box = False
