@@ -250,7 +250,7 @@ class TestAtom:
                 
             plt.subplot(323)
             for i in range(self.ng):
-                x, y = f(npy.linspace(0, 0.5 * h[i], 25),
+                x, y = f(np.linspace(0, 0.5 * h[i], 25),
                          Eegg[i] - Eegg[i, 0],
                          -self.Fegg[i])
                 plt.plot(x, 1000 * y, color=colors[i])

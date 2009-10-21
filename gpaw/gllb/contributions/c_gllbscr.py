@@ -161,7 +161,7 @@ class C_GLLBScr(Contribution):
             vt_g[:] = 2 * e_g / (nt_g + 1e-10)
 
             
-            dEdD_p -= self.weight * w * np.dot(npy.dot(c.B_pqL, Y_L),
+            dEdD_p -= self.weight * w * np.dot(np.dot(c.B_pqL, Y_L),
                                   np.dot(c.nt_qg, vt_g * c.rgd.dv_g))
 
             E -= w * np.dot(e_g, c.rgd.dv_g)
@@ -187,7 +187,7 @@ class C_GLLBScr(Contribution):
             # Calculate GLLB-potential from GGA-energy density
             v_g[:] = 2 * e_g / (n_g + 1e-10)
             
-            dEdD_p += self.weight * w * np.dot(npy.dot(c.B_pqL, Y_L),
+            dEdD_p += self.weight * w * np.dot(np.dot(c.B_pqL, Y_L),
                                   np.dot(c.n_qg, v_g * c.rgd.dv_g))
             E += w * np.dot(e_g, c.rgd.dv_g)
             

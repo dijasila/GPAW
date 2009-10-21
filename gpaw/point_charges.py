@@ -137,7 +137,7 @@ class PointCharges(Atoms, ElectrostaticPotential):
             v = 0
             for pc in self:
                 # use c function XXXXX
-                d = np.sqrt(npy.sum((vr - pc.position / Bohr)**2))
+                d = np.sqrt(np.sum((vr - pc.position / Bohr)**2))
                 v -= pc.charge / d
         else:
             v = _gpaw.pc_potential_value(vr, self.pc_nc, self.charge_n)

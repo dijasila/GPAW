@@ -266,7 +266,7 @@ class EXX:
                     v_aL = ghat.dict()
                     ghat.integrate(self.vt_g, v_aL)
                     for a, v_L in v_aL.items():
-                        v_ii = unpack(npy.dot(setups[a].Delta_pL, v_L))
+                        v_ii = unpack(np.dot(setups[a].Delta_pL, v_L))
                         v_ni = vxx_ani[a]
                         v_nii = vxx_anii[a]
                         P_ni = P_ani[a]
@@ -283,7 +283,7 @@ class EXX:
 
             # Add non-trivial corrections the Hamiltonian matrix
             if not self.energy_only:
-                h_nn = symmetrize(npy.inner(P_ni, vxx_ani[a]))
+                h_nn = symmetrize(np.inner(P_ni, vxx_ani[a]))
                 H_nn += h_nn
                 Ekin -= np.dot(f_n, np.diagonal(h_nn))
 
@@ -393,7 +393,7 @@ class EXX:
                         nucleus.Ghat_L.integrate(self.vt_G, v_L)
                     
                     if nucleus.in_this_domain:
-                        v_ii = unpack(npy.dot(nucleus.setup.Delta_pL, v_L))
+                        v_ii = unpack(np.dot(nucleus.setup.Delta_pL, v_L))
 
                         ni = nucleus.setup.ni
                         F_ic = np.zeros((ni, 3))

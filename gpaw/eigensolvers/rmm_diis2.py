@@ -84,8 +84,8 @@ class RMM_DIIS2(Eigensolver):
             axpy(-kpt.eps_n[n], self.work[1], dR_G)
 
             # Find lam that minimizes the norm of R'_G = R_G + lam dR_G
-            RdR = self.gd.comm.sum(npy.vdot(R_G, dR_G).real)
-            dRdR = self.gd.comm.sum(npy.vdot(dR_G, dR_G).real)
+            RdR = self.gd.comm.sum(np.vdot(R_G, dR_G).real)
+            dRdR = self.gd.comm.sum(np.vdot(dR_G, dR_G).real)
             lam = -RdR / dRdR
 
             # Calculate new psi'_G = psi_G + lam pR_G + lam pR'_G

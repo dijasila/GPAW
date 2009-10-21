@@ -49,12 +49,12 @@ d_i = d0 - 0.5 * b_i / a_i
 
 n = len(d_i)
 d = np.sum(d_i) / n
-sigma = (npy.sum((d_i - d)**2) / n)**0.5
+sigma = (np.sum((d_i - d)**2) / n)**0.5
 print 'Best fit:',
 print 'd =', d, '+-', sigma, 'Ang'
 hv_i = a_i**0.5 * s
 hv = np.sum(hv_i) / n
-sigma = (npy.sum((hv_i - hv)**2) / n)**0.5
+sigma = (np.sum((hv_i - hv)**2) / n)**0.5
 print 'hv =', hv, '+-', sigma, 'meV'
 
 """

@@ -47,7 +47,7 @@ class ExpandYl:
             for corner in ([0,0,0],[1,0,0],[0,1,0],[1,1,0],
                            [0,0,1],[1,0,1],[0,1,1],[1,1,1]):
                 Rmax = max(Rmax,
-                           self.center.distance(npy.array(corner) * extreme) )
+                           self.center.distance(np.array(corner) * extreme) )
         else:
             Rmax /= a0
         self.Rmax = Rmax

@@ -201,7 +201,7 @@ class CoefficientOptimizer:
             ccount -= 1
         ones = np.ones((ccount, ccount))
         diag = np.identity(ccount)
-        simplex = np.concatenate((npy.ones((ccount,1)),
+        simplex = np.concatenate((np.ones((ccount,1)),
                                    ones + .5 * diag), axis=1)
         simplex = np.transpose(simplex)
         self.amoeba = Amoeba(function, simplex, tolerance=1e-10)
@@ -340,7 +340,7 @@ def overlaps(l, gd, splines, kpt_u, spos_ac=((.5, .5, .5),),
     print >> txt, 'Calculating phi-phi products'
     for kpt in kpt_u:
         gramschmidt(gd, kpt.psit_nG)
-        normsqr = gd.integrate(npy.conjugate(kpt.psit_nG) * kpt.psit_nG)
+        normsqr = gd.integrate(np.conjugate(kpt.psit_nG) * kpt.psit_nG)
         for n in range(bcount):
             kpt.psit_nG[n] /= normsqr[n] ** .5
         phi_nG = gd.zeros(mcount * fcount, dtype=dtype)
@@ -488,7 +488,7 @@ def old_overlaps(l, gd, splines, kpt_u, center=(.5, .5, .5)):
     s = np.array([phiproducts_mij])
 
     # S[mij] = sum over k: < phi_mi | psit_k > < psit_k | phi_mj >
-    S = np.array([[npy.dot(psiproducts_ik, np.transpose(psiproducts_ik))
+    S = np.array([[np.dot(psiproducts_ik, np.transpose(psiproducts_ik))
                     for psiproducts_ik in psiproducts_mik]])
 
     return s, S

@@ -163,7 +163,7 @@ def interpolate(xvalues, yvalues):
     three points. TODO: generalize... """
     x = np.asarray(xvalues)
     y = np.asarray(yvalues)
-    xmatrix = np.transpose(npy.array([x**0, x**1, x**2]))
+    xmatrix = np.transpose(np.array([x**0, x**1, x**2]))
     coeffs = np.dot(inv(xmatrix), y)
     xmin = - coeffs[1] / (2. * coeffs[2]) # "-b/(2a)"
     ymin = coeffs[0] + xmin * (coeffs[1] + xmin * coeffs[2])

@@ -95,7 +95,7 @@ class PAWTextOutput:
         self.text('Dir: ', os.path.dirname(gpaw.__file__))
         self.text('ase:  ', os.path.dirname(ase.__file__),
                   ' version: ', ase_version)
-        self.text('numpy:', os.path.dirname(npy.__file__))
+        self.text('numpy:', os.path.dirname(np.__file__))
         self.text('units: Angstrom and eV')
 
         if extra_parameters:

@@ -39,7 +39,7 @@ class GInteraction2:
 ##         self.mindist = rcutproj * .6
 
     def __call__(self, R):
-##         dist = sqrt(npy.sum(R**2))
+##         dist = sqrt(np.sum(R**2))
 ##         if dist > 0 and dist < self.mindist:
 ##             from sys import stderr
 ##             print >> stderr, warning('Atomic distance: %4.2f Bohr.\n%s' % (

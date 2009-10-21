@@ -142,8 +142,8 @@ class CSCG:
 
             # if abs(beta) / scale < eps, then CSCG breaks down
             if ( (i > 0) and
-                 ((npy.abs(beta) / scale) < self.eps).any() ):
-                raise RuntimeError("Conjugate gradient method failed (abs(beta)=%le < eps = %le)." % (npy.min(npy.abs(beta)),self.eps))
+                 ((np.abs(beta) / scale) < self.eps).any() ):
+                raise RuntimeError("Conjugate gradient method failed (abs(beta)=%le < eps = %le)." % (np.min(np.abs(beta)),self.eps))
 
 
             # p = z + beta p
@@ -168,7 +168,7 @@ class CSCG:
 
             # if ( |r|^2 < tol^2 ) done
             multi_zdotu(tmp, r,r, nvec)
-            if ( (npy.abs(tmp) / scale) < self.tol*self.tol ).all():
+            if ( (np.abs(tmp) / scale) < self.tol*self.tol ).all():
                 #print 'R2 of proc #', rank, '  = ' , tmp, \
                 #    ' after ', i+1, ' iterations'
                 break

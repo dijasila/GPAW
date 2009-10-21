@@ -212,7 +212,7 @@ class CoreEigenvalues(AllElectronPotential):
       t('-----------------------------------------------')
       for m, l, f, e, u in zip(atom.n_j, atom.l_j, atom.f_j, atom.e_j, atom.u_j):
          # Find kinetic energy:
-         k = e - np.sum((npy.where(abs(u) < 1e-160, 0, u)**2 * #XXXNumeric!
+         k = e - np.sum((np.where(abs(u) < 1e-160, 0, u)**2 * #XXXNumeric!
                             atom.vr * atom.dr)[1:] / atom.r[1:])
 
          # Find outermost maximum:
@@ -221,7 +221,7 @@ class CoreEigenvalues(AllElectronPotential):
             g -= 1
          x = atom.r[g - 1:g + 2]
          y = u[g - 1:g + 2]
-         A = np.transpose(npy.array([x**i for i in range(3)]))
+         A = np.transpose(np.array([x**i for i in range(3)]))
          c, b, a = np.linalg.solve(A, y)
          assert a < 0.0
          rmax = -0.5 * b / a

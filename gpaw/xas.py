@@ -154,7 +154,7 @@ class XAS:
                     sigma1_cn[i,:] = np.dot(p, self.sigma_cn)
                                                 
             sigma2_cn = np.empty(sigma1_cn.shape)
-            sigma2_cn = (sigma1_cn*npy.conjugate(sigma1_cn)).real
+            sigma2_cn = (sigma1_cn*np.conjugate(sigma1_cn)).real
 
         else:
            sigma2_cn = (self.sigma_cn * np.conjugate(self.sigma_cn)).real
@@ -378,7 +378,7 @@ class RecursionMethod:
 
             proj_tmp = []
             for p in proj_2:
-               proj_tmp.append(npy.dot(p, A_ci))
+               proj_tmp.append(np.dot(p, A_ci))
             proj_tmp = np.array(proj_tmp, float)   
 
             # if proj_xyz is True, append projections to A_ci
@@ -444,7 +444,7 @@ class RecursionMethod:
         z_cG = self.z_cG
         
         self.solver(w_cG, self.z_cG, u)
-        I_c = np.reshape(integrate(npy.conjugate(z_cG) * w_cG)**-0.5,
+        I_c = np.reshape(integrate(np.conjugate(z_cG) * w_cG)**-0.5,
                           (self.dim, 1, 1, 1))
         z_cG *= I_c
         w_cG *= I_c
@@ -452,10 +452,10 @@ class RecursionMethod:
         if i != 0:
             b_c =  1.0 / I_c 
         else:
-            b_c = np.reshape(npy.zeros(self.dim), (self.dim, 1, 1, 1))
+            b_c = np.reshape(np.zeros(self.dim), (self.dim, 1, 1, 1))
     
         self.hamiltonian.apply(z_cG, y_cG, self.wfs, self.wfs.kpt_u[u])
-        a_c = np.reshape(integrate(npy.conjugate(z_cG) * y_cG), (self.dim, 1, 1, 1))
+        a_c = np.reshape(integrate(np.conjugate(z_cG) * y_cG), (self.dim, 1, 1, 1))
         wnew_cG = (y_cG - a_c * w_cG - b_c * wold_cG)
         wold_cG[:] = w_cG
         w_cG[:] = wnew_cG

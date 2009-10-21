@@ -443,7 +443,7 @@ def simplify(xyzs):
 
     # determine least common divisor for 'xyz' coefficients
     dmax = 1
-    num_max = max(abs(npy.floor(numxyz)))
+    num_max = max(abs(np.floor(numxyz)))
     for d in range(2, num_max + 1):
         test = numxyz / d
         if np.alltrue(test == np.floor(test)): dmax = d

@@ -36,7 +36,7 @@ for n in range(len(eps_n)):
 tcalc.set(h=h_rot, s=s_rot)
 
 # plot the transmission function
-tcalc.set(energies=npy.arange(-8, 4, 0.1))
+tcalc.set(energies=np.arange(-8, 4, 0.1))
 T = tcalc.get_transmission()
 pylab.plot(tcalc.energies, T)
 pylab.title('Transmission function')

@@ -89,7 +89,7 @@ class _Operator:
     def estimate_memory(self, mem):
         bufsize_c = np.array(self.gd.n_c) + 2 * self.mp
         itemsize = mem.itemsize[self.dtype]
-        mem.setsize(npy.prod(bufsize_c) * itemsize)
+        mem.setsize(np.prod(bufsize_c) * itemsize)
 
 
 class OperatorWrapper:
@@ -241,7 +241,7 @@ def Laplace(gd, scale=1.0, n=1, dtype=float, allocate=True):
 
                     if (d2>d1):  #extend stencil to symmetric points (ex. [1,2,3] <-> [2,1,3])
                         ind=[0,1,2]; ind[i]=(i+1)%3; ind[(i+1)%3]=i
-                        offsets.extend([tuple(npy.take(offset[i][i2],ind)) for i2 in range(4)])
+                        offsets.extend([tuple(np.take(offset[i][i2],ind)) for i2 in range(4)])
                         coefs.extend([c,-c,-c,c])
 
             ci+=1

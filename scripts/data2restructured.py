@@ -30,7 +30,7 @@ def main(molecules, moleculedata, results, Ea):
             M = np.zeros((4, 5))
             for n in range(4):
                 M[n] = d**-n
-            a = solve(npy.innerproduct(M, M), np.dot(M, result['Em'] - E0))
+            a = solve(np.innerproduct(M, M), np.dot(M, result['Em'] - E0))
 
             dmin = 1 / ((-2 * a[2] +
                          sqrt(4 * a[2]**2 - 12 * a[1] * a[3])) / (6 * a[3]))

@@ -329,9 +329,9 @@ class Generator(AllElectron):
         self.q_ln = q_ln = []  # p-tilde * r
         for l in range(lmax + 1):
             nn = len(n_ln[l])
-            u_ln.append(npy.zeros((nn, N)))
-            s_ln.append(npy.zeros((nn, N)))
-            q_ln.append(npy.zeros((nn, N)))
+            u_ln.append(np.zeros((nn, N)))
+            s_ln.append(np.zeros((nn, N)))
+            q_ln.append(np.zeros((nn, N)))
 
         # Fill in all-electron wave functions:
         for l in range(lmax + 1):
@@ -443,7 +443,7 @@ class Generator(AllElectron):
         A[2] = A[1]**2
         A[3] = A[1] * A[2]
         a = nc[gcutnc - 2:gcutnc + 2]
-        a = solve(npy.transpose(A), a)
+        a = solve(np.transpose(A), a)
         r2 = r[:gcutnc]**2
         nct[:gcutnc] = a[0] + r2 * (a[1] + r2 * (a[2] + r2 * a[3]))
         t('Pseudo-core charge: %.6f' % (4 * pi * np.dot(nct, dv)))
@@ -451,7 +451,7 @@ class Generator(AllElectron):
         # ... and the pseudo core kinetic energy density:
         tauct = tauc.copy()
         a = tauc[gcutnc - 2:gcutnc + 2]
-        a = solve(npy.transpose(A), a)
+        a = solve(np.transpose(A), a)
         tauct[:gcutnc] = a[0] + r2 * (a[1] + r2 * (a[2] + r2 * a[3]))
 
         # ... and the soft valence density:
@@ -554,7 +554,7 @@ class Generator(AllElectron):
             A[0] = 1.0
             A[1] = r[gc - 1:gc + 1]**2
             a = vt[gc - 1:gc + 1]
-            a = solve(npy.transpose(A), a)
+            a = solve(np.transpose(A), a)
             r2 = r**2
             vbar = a[0] + r2 * a[1] - vt
             vbar[gc:] = 0.0
@@ -588,25 +588,25 @@ class Generator(AllElectron):
                     L_nn[j,i] = 1.0 * U_nn[j,i] / U_nn[i,i]
                     U_nn[j,:] -= U_nn[i,:] * L_nn[j,i]
 
-            dO_nn = (npy.inner(u_n, u_n * dr) -
+            dO_nn = (np.inner(u_n, u_n * dr) -
                      np.inner(s_n, s_n * dr))
 
             e_nn = np.zeros((nn, nn))
             e_nn.ravel()[::nn + 1] = e_n
             dH_nn = np.dot(dO_nn, e_nn) - A_nn
 
-            q_n[:] = np.dot(inv(npy.transpose(U_nn)), q_n)
+            q_n[:] = np.dot(inv(np.transpose(U_nn)), q_n)
             s_n[:] = np.dot(inv(L_nn), s_n)
             u_n[:] = np.dot(inv(L_nn), u_n)
 
-            dO_nn = np.dot(npy.dot(inv(L_nn), dO_nn),
-                            inv(npy.transpose(L_nn)))
-            dH_nn = np.dot(npy.dot(inv(L_nn), dH_nn),
-                            inv(npy.transpose(L_nn)))
+            dO_nn = np.dot(np.dot(inv(L_nn), dO_nn),
+                            inv(np.transpose(L_nn)))
+            dH_nn = np.dot(np.dot(inv(L_nn), dH_nn),
+                            inv(np.transpose(L_nn)))
 
             ku_n = [self.kin(l, u, e) for u, e in zip(u_n, e_n)]
             ks_n = [self.kin(l, s) for s in s_n]
-            dK_nn = 0.5 * (npy.inner(u_n, ku_n * dr) -
+            dK_nn = 0.5 * (np.inner(u_n, ku_n * dr) -
                            np.inner(s_n, ks_n * dr))
             dK_nn += np.transpose(dK_nn).copy()
 
@@ -618,7 +618,7 @@ class Generator(AllElectron):
                 q[:] = filter(q, l) * r**(l + 1)
 
             A_nn = np.inner(s_n, q_n * dr)
-            q_n[:] = np.dot(inv(npy.transpose(A_nn)), q_n)
+            q_n[:] = np.dot(inv(np.transpose(A_nn)), q_n)
 
         self.vt = vt
         self.vbar = vbar
@@ -651,7 +651,7 @@ class Generator(AllElectron):
             try:
                 u = np.zeros(N)
                 for l in range(4):
-                    self.logd[l] = (npy.empty(ni), np.empty(ni))
+                    self.logd[l] = (np.empty(ni), np.empty(ni))
                     if l <= lmax:
                         dO_nn = dO_lnn[l]
                         dH_nn = dH_lnn[l]
@@ -872,9 +872,9 @@ class Generator(AllElectron):
         for l in range(4):
             if l <= self.lmax:
                 q_n = np.array([interpolate(q) for q in self.q_ln[l]])
-                H = np.dot(npy.transpose(q_n),
+                H = np.dot(np.transpose(q_n),
                            np.dot(self.dH_lnn[l], q_n)) * h
-                S = np.dot(npy.transpose(q_n),
+                S = np.dot(np.transpose(q_n),
                            np.dot(self.dO_lnn[l], q_n)) * h
             else:
                 H = np.zeros((ng, ng))

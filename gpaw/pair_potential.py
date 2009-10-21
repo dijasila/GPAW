@@ -79,8 +79,8 @@ class PairPotential:
                 nucleus1.neighbors.append(Neighbor(V_LL, dVdr_LLc, nucleus2))
                 if nucleus2 is not nucleus1:
                     nucleus2.neighbors.append(
-                        Neighbor(npy.transpose(V_LL),
-                                 -npy.transpose(dVdr_LLc, (1, 0, 2)),
+                        Neighbor(np.transpose(V_LL),
+                                 -np.transpose(dVdr_LLc, (1, 0, 2)),
                                  nucleus1))
 
     def print_info(self, out):

@@ -55,7 +55,7 @@ def read_plt(filename):
     if byteswap: arr = arr.byteswap()
     f.close()
 
-    return cell, np.transpose(npy.resize(arr,(nz,ny,nx))), origin_c[::-1]
+    return cell, np.transpose(np.resize(arr,(nz,ny,nx))), origin_c[::-1]
 
 def write_collected_plt(gd,
                         grid,
@@ -114,9 +114,9 @@ def write_plt(cell,
     if hasattr(grid,'dtype') and grid.dtype.char == 'f':
         fgrid = np.transpose(grid)
     else:
-        fgrid = np.array(npy.transpose(grid).tolist(),'f')
+        fgrid = np.array(np.transpose(grid).tolist(),'f')
         #    np.asarray does not work here !
-        #    fgrid = np.asarray(npy.transpose(grid), float32)
+        #    fgrid = np.asarray(np.transpose(grid), float32)
     f.write(fgrid.tostring())
 
     f.close()

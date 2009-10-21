@@ -42,7 +42,7 @@ class NSCFSIC:
                 xc.calculate_spinpolarized(e_g, na, va, nb, vb)
                 Exc = np.dot(e_g, g.rgd.dv_g)
                 hartree(0, na * g.r * g.dr, g.beta, g.N, vHr)
-                EHa = 2*pi*npy.dot(vHr*na*g.r , g.dr)
+                EHa = 2*pi*np.dot(vHr*na*g.r , g.dr)
                 print "%10.2f%10.2f%10.2f" % (Exc*27.21, EHa*27.21, -f*(EHa+Exc)*27.21)
                 ESIC += -f*(EHa+Exc)
                 
@@ -98,7 +98,7 @@ class NSCFSIC:
                     D_sp = self.paw.wfs.get_orbital_density_matrix(a, kpt, n)
 
                     # PAW correction to pseudo Hartree-energy
-                    EH+= np.sum([npy.dot(D_p, np.dot(self.paw.density.setups[a].M_pp, D_p)) for D_p in D_sp])
+                    EH+= np.sum([np.dot(D_p, np.dot(self.paw.density.setups[a].M_pp, D_p)) for D_p in D_sp])
                     # Expand the density matrix to spin-polarized case
                     if len(D_sp) == 1:
                         D_p2 = D_sp[0].copy()

@@ -202,7 +202,7 @@ class PoissonSolver:
         
         # Set the average potential to zero in periodic systems
         if np.alltrue(self.gd.pbc_c):
-            phi_ave = self.gd.comm.sum(npy.sum(phi.ravel()))
+            phi_ave = self.gd.comm.sum(np.sum(phi.ravel()))
             N_c = self.gd.get_size_of_global_array()
             phi_ave /= np.product(N_c)
             phi -= phi_ave
@@ -219,7 +219,7 @@ class PoissonSolver:
             else:
                 self.operators[level].apply(self.phis[level], residual)
                 residual -= self.rhos[level]
-            error = self.gd.comm.sum(npy.vdot(residual, residual))
+            error = self.gd.comm.sum(np.vdot(residual, residual))
             if niter == 1 and level < self.levels:
                 self.restrictors[level].apply(residual, self.rhos[level + 1])
                 self.phis[level + 1][:] = 0.0
@@ -263,7 +263,7 @@ class PoissonSolver:
         if level == 0:
             self.operators[level].apply(self.phis[level], residual)
             residual -= self.rhos[level]
-            error = self.gd.comm.sum(npy.dot(residual.ravel(),
+            error = self.gd.comm.sum(np.dot(residual.ravel(),
                                              residual.ravel())) * self.dv
             return error
 

@@ -46,7 +46,7 @@ class Wannier:
         return value # / Bohr**6
 
     def get_centers(self):
-        scaled_c = -npy.angle(self.Z_nnc.diagonal()).T / (2 * pi)
+        scaled_c = -np.angle(self.Z_nnc.diagonal()).T / (2 * pi)
         return (scaled_c % 1.0) * self.cell_c
 
     def get_function(self, calc, n, pad=True):
@@ -86,7 +86,7 @@ class LocFun(Wannier):
             self.Z_jjc[:, :, c] = np.dot(dagger(self.U_nn),
                                      np.dot(self.Z_nnc[:, :, c], self.U_nn))
         
-        self.value = np.sum(npy.abs(self.Z_jjc.diagonal())**2)
+        self.value = np.sum(np.abs(self.Z_jjc.diagonal())**2)
         
         return self.value # / Bohr**6
 
@@ -96,15 +96,15 @@ class LocFun(Wannier):
             z_jjc = np.dot(dagger(self.U_nn),
                             np.dot(self.Z_nnc[:,:,c], self.U_nn))
 
-        scaled_c = -npy.angle(z_jjc.diagonal()).T / (2 * pi)
+        scaled_c = -np.angle(z_jjc.diagonal()).T / (2 * pi)
         return (scaled_c % 1.0) * self.cell_c
 
     def get_eigenstate_centers(self):
-        scaled_c = -npy.angle(self.Z_nnc.diagonal()).T / (2 * pi)
+        scaled_c = -np.angle(self.Z_nnc.diagonal()).T / (2 * pi)
         return (scaled_c % 1.0) * self.cell_c
     
     def get_proj_norm(self, calc):
-        return np.array([npy.linalg.norm(U_j) for U_j in self.U_nn])
+        return np.array([np.linalg.norm(U_j) for U_j in self.U_nn])
             
 
 def get_locfun_rotation(projections_nj, M=None, T=0, ortho=False):
@@ -130,16 +130,16 @@ def get_locfun_rotation(projections_nj, M=None, T=0, ortho=False):
         D_jj = np.dot(dagger(projections_nj), projections_nj)
         U_nj = 1.0 / np.sqrt(D_jj.diagonal()) * projections_nj
         S_jj = np.dot(dagger(U_nj), U_nj)
-        assert np.diagonal(npy.linalg.cholesky(S_jj)).min() > .01, \
+        assert np.diagonal(np.linalg.cholesky(S_jj)).min() > .01, \
                'Close to linear dependence.'
         if ortho:
             lowdin(U_nj, S_jj)
             S_jj = np.identity(len(S_jj))
         return U_nj, S_jj
 
-    #b_v, b_vv = np.linalg.eigh(npy.dot(a0_vj, dagger(a0_vj)))
+    #b_v, b_vv = np.linalg.eigh(np.dot(a0_vj, dagger(a0_vj)))
     #T_vp = b_vv[:, np.argsort(-b_v)[:L]]
-    b_j, b_jj = np.linalg.eigh(npy.dot(dagger(a0_vj), a0_vj))
+    b_j, b_jj = np.linalg.eigh(np.dot(dagger(a0_vj), a0_vj))
     T_vp = np.dot(a0_vj, b_jj[:, np.argsort(-b_j.real)[:L]])
 
     R_vv = np.dot(T_vp, dagger(T_vp))
@@ -151,7 +151,7 @@ def get_locfun_rotation(projections_nj, M=None, T=0, ortho=False):
     S_jj = np.dot(dagger(ap_nj), ap_nj) + np.dot(dagger(ap_vj), ap_vj)
 
     # Check for linear dependencies
-    Scd = np.diagonal(npy.linalg.cholesky(S_jj)).min()
+    Scd = np.diagonal(np.linalg.cholesky(S_jj)).min()
     if Scd < 0.01:
         print ('Warning: possibly near linear depedence.\n'
                'Minimum eigenvalue of cholesky decomposition is %s' % Scd)
@@ -187,6 +187,6 @@ def single_zeta(paw, spin, verbose=False):
                     print '%5i %4i %s_%s' % (len(p_jn), a,
                                              'spdf'[l], angular[l][j - i])
             i += 2 * l + 1
-    projections_nj = dagger(npy.array(p_jn))
+    projections_nj = dagger(np.array(p_jn))
     assert projections_nj.shape[0] >= projections_nj.shape[1]
     return projections_nj

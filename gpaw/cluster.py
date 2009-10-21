@@ -35,7 +35,7 @@ class Cluster(Atoms):
     def extreme_positions(self):
         """get the extreme positions of the structure"""
         pos = self.get_positions()
-        return np.array([npy.minimum.reduce(pos), np.maximum.reduce(pos)])
+        return np.array([np.minimum.reduce(pos), np.maximum.reduce(pos)])
 
     def find_connected(self, i, dmax):
         """Find the atoms connected to self[i] and return them."""
@@ -169,7 +169,7 @@ class Cluster(Atoms):
                 for j in range(repeat[1] + 1):
                     for k in range(repeat[2] + 1):
                         copy = self.copy()
-                        copy.translate(npy.array([i, j, k]) * cell)
+                        copy.translate(np.array([i, j, k]) * cell)
                         out += copy
 
         write(filename, out, format)

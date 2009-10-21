@@ -90,7 +90,7 @@ class DataUnentangler:
             M[n] = dists**(-n)
         energies = np.array(self.molecular_energies[formula])
         atomic_energy = self.atomic_energy_sum[formula]
-        a = np.linalg.solve(npy.inner(M, M),
+        a = np.linalg.solve(np.inner(M, M),
                              np.dot(M, energies - atomic_energy))
 
         disc = 4 * a[2]**2 - 12 * a[1] * a[3]

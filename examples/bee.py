@@ -43,7 +43,7 @@ for xc in ['PBE', 'RPBE']:
 
     n = len(eai)
     ea0 = np.sum(eai) / n
-    sigma = (npy.sum((eai - ea0)**2) / n)**0.5
+    sigma = (np.sum((eai - ea0)**2) / n)**0.5
     print 'Best fit:', ea0, '+-', sigma, 'eV'
 
 """

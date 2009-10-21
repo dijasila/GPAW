@@ -54,7 +54,7 @@ class CvgCtrl:
         if self.matname == 'f' or self.matname == 'd':       
             nbmol = matin.shape[-1]
             if self.step > 0:
-                dmatmax = np.max(npy.abs(self.matlast - matin))
+                dmatmax = np.max(np.abs(self.matlast - matin))
                 if dmatmax < self.tol:
                     self.bcvg = 1
                 if self.tol >= 0:
@@ -95,8 +95,8 @@ class CvgCtrl:
             self.dmat[0] = matin - self.mat[0]
             fmin = np.sum(self.dmat[0] * self.dmat[0]) 
         if self.step == 0:
-            self.dmat = [npy.empty(matin.shape,complex), np.empty(matin.shape,complex)]
-            self.mat = [npy.empty(matin.shape, complex), np.empty(matin.shape, complex)] 
+            self.dmat = [np.empty(matin.shape,complex), np.empty(matin.shape,complex)]
+            self.mat = [np.empty(matin.shape, complex), np.empty(matin.shape, complex)] 
             self.eta = np.empty(matin.shape, complex)
             self.c =  []
             self.v = []
@@ -114,10 +114,10 @@ class CvgCtrl:
                                                     self.dmat[1])))
                 if len(self.v) < nmaxold:
                     for i in range(self.step - 1):
-                        self.c.append(npy.sum(self.v[i] * self.dmat[0])) 
+                        self.c.append(np.sum(self.v[i] * self.dmat[0])) 
                 else:
                     for i in range(nmaxold):
-                        self.c.append(npy.sum(self.v[i] * self.dmat[0]))
+                        self.c.append(np.sum(self.v[i] * self.dmat[0]))
                 self.u.append(self.alpha * (self.dmat[0] - self.dmat[1]) + 
                                                 (self.mat[0]-self.mat[1]))
                 usize = len(self.u)    
@@ -140,8 +140,8 @@ class CvgCtrl:
         tmplam = -100.0
 
         if self.step == 0:
-            self.dmat = [npy.empty(matin.shape), np.empty(matin.shape)]
-            self.mat = [npy.empty(matin.shape), np.empty(matin.shape)]
+            self.dmat = [np.empty(matin.shape), np.empty(matin.shape)]
+            self.mat = [np.empty(matin.shape), np.empty(matin.shape)]
             self.c =  []
             self.v = []
             self.u = []
@@ -168,7 +168,7 @@ class CvgCtrl:
  
                     usize = len(self.u) 
                     for i in range(usize):
-                        self.c.append(npy.sum(self.v[i] * self.dmat[0])) 
+                        self.c.append(np.sum(self.v[i] * self.dmat[0])) 
                     for i in range(usize - 1):
                         a = np.sum(self.v[i] * (self.dmat[0] - self.dmat[1]))
                         self.u[usize - 1] -=  a * self.u[i]

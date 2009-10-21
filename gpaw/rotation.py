@@ -35,7 +35,7 @@ def Y_matrix(l, symmetry):
 
 
 identity = ((0, 1, 2), (1, 1, 1))
-iY_lmm = [npy.linalg.inv(Y_matrix(l, identity)) for l in range(3)]
+iY_lmm = [np.linalg.inv(Y_matrix(l, identity)) for l in range(3)]
          
 
 def rotation(l, symmetry):

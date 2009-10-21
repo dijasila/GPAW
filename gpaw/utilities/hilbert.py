@@ -79,9 +79,9 @@ def hilbert(f, ker=None, nfft=None, axis=0,
     if translate == 0:
         trans = 1
     else:
-        trans = (npy.arange(nfft) + (nfft - 1) / 2) % nfft - (nfft - 1) / 2
+        trans = (np.arange(nfft) + (nfft - 1) / 2) % nfft - (nfft - 1) / 2
 #          nfft = 8 ->       [ 0  1  2  3  4 -3 -2 -1]
-#       trans = (npy.arange(nfft) + nfft / 2) % nfft - nfft / 2
+#       trans = (np.arange(nfft) + nfft / 2) % nfft - nfft / 2
 #          nfft = 8 ->       [ 0  1  2  3 -4 -3 -2 -1]
         trans = np.exp(1.j * translate * 2 * np.pi / nfft * trans)
         trans.shape = ker.shape
@@ -92,14 +92,14 @@ def hilbert(f, ker=None, nfft=None, axis=0,
     
 def analytic_transforms(x):
     """Returns a list of functions and their Hilbert transforms"""
-    func_l = [npy.sin(x),
+    func_l = [np.sin(x),
               np.cos(x),
               np.where(x == 0, 1, np.sin(x) / x),
               1 / (1 + x**2)]
 
-    hfunc_l = [npy.cos(x),
-               -npy.sin(x),
-               np.where(x == 0, 0, (npy.cos(x) - 1) / x),
+    hfunc_l = [np.cos(x),
+               -np.sin(x),
+               np.where(x == 0, 0, (np.cos(x) - 1) / x),
                -x / (1 + x**2)]
 
     return func_l, hfunc_l

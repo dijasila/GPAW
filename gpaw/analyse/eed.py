@@ -37,7 +37,7 @@ class ExteriorElectronDensity:
         does not contribute."""
 
         # smooth part
-        weigth = self.gd.integrate(npy.where(self.mask == 1, 
+        weigth = self.gd.integrate(np.where(self.mask == 1, 
                                              psit_G * psit_G.conj(), 0.0))
 
         return weigth

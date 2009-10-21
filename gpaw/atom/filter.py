@@ -70,9 +70,9 @@ class Filter:
         beta = 5 * log(10) / (alpha - 1.0)**2
         self.cut_i = np.ones(N)
         self.cut_i[icut:] = np.exp(
-            -npy.clip(beta * (q_i[icut:] / qcut - 1.0)**2, 0, 400))
+            -np.clip(beta * (q_i[icut:] / qcut - 1.0)**2, 0, 400))
         # self.cut_i[icut:] = np.exp(
-        #     -npy.clip(0, 400, beta * (q_i[icut:] / qcut - 1.0)**2))
+        #     -np.clip(0, 400, beta * (q_i[icut:] / qcut - 1.0)**2))
 
         # Mask function:
         gamma = 3 * log(10) / rcut**2
@@ -191,7 +191,7 @@ if __name__ == '__main__':
     x_g = r_g / rc
     p_g = 1 - x_g**2 * (3 - 2 * x_g)
     p_g[gcut:] = 0.0
-    #p_g = np.exp(-npy.clip(5.0 * r_g**2, 0, 400))
+    #p_g = np.exp(-np.clip(5.0 * r_g**2, 0, 400))
 
     h = 0.4
     f = Filter(r_g, drdg_g, rc2, h)

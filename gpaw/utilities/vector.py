@@ -19,7 +19,7 @@ class Vector3d(list):
         return result
 
     def __div__(self,other):
-        return Vector3d(npy.array(self) / other)
+        return Vector3d(np.array(self) / other)
 
     def __mul__(self, x):
         if type(x) == type(self):

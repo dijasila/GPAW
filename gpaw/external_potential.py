@@ -123,13 +123,13 @@ class ExternalPotential:
             #   y_ij = sqrt(4pi/3) Delta_1ij
             #   z_ij = sqrt(4pi/3) Delta_2ij
             #   x_ij = sqrt(4pi/3) Delta_3ij
-            oneij = np.sqrt(4.*npy.pi) \
+            oneij = np.sqrt(4.*np.pi) \
                 * np.dot(P_ni, Delta_iiL[:,:,0])
-            yij = np.sqrt(4.*npy.pi / 3.) \
+            yij = np.sqrt(4.*np.pi / 3.) \
                 * np.dot(P_ni, Delta_iiL[:,:,1])
-            zij = np.sqrt(4.*npy.pi / 3.) \
+            zij = np.sqrt(4.*np.pi / 3.) \
                 * np.dot(P_ni, Delta_iiL[:,:,2])
-            xij = np.sqrt(4.*npy.pi / 3.) \
+            xij = np.sqrt(4.*np.pi / 3.) \
                 * np.dot(P_ni, Delta_iiL[:,:,3])
 
             # coefficients
@@ -281,7 +281,7 @@ class ConstantElectricField(ElectrostaticPotential):
 
         # normalise the direction
         dir = np.array(direction)
-        dir /= np.sqrt(npy.dot(dir, dir))
+        dir /= np.sqrt(np.dot(dir, dir))
         self.direction = dir
         
     def get_potential(self, gd=None):

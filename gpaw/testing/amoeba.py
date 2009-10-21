@@ -66,7 +66,7 @@ class Amoeba:
         self.calc_coord_sums()
         self.analyzepoints()
 
-    def optimize(self, maxiter=npy.inf):
+    def optimize(self, maxiter=np.inf):
         """Run optimization.
 
         Returns minimum point and corresponding function value."""
@@ -196,7 +196,7 @@ class Logger:
         self.y.append(y)
         currentcenter = center(self.amoeba.simplex)
         dcenter = currentcenter - self.center
-        self.dx.append(npy.sqrt(npy.dot(dcenter, dcenter)))        
+        self.dx.append(np.sqrt(np.dot(dcenter, dcenter)))        
         self.dev.append(self.amoeba.relativedeviation)
         self.vol.append(volume(self.amoeba.simplex))
         self.center = currentcenter
@@ -216,22 +216,22 @@ class Logger:
 def build_simplex(x_c, dx):
     nc = len(x_c)
     nn = nc + 1
-    simplex_nc = np.repeat(npy.asarray([x_c]), nn, 0)
+    simplex_nc = np.repeat(np.asarray([x_c]), nn, 0)
     simplex_nc[1:] += np.identity(nc) * dx
     return simplex_nc
 
 
 def center(simplex):
     """Get the center of a simplex."""
-    vertices = [npy.array(point) for point in simplex]
+    vertices = [np.array(point) for point in simplex]
     return sum(vertices)/len(simplex)
 
 
 def volume(simplex):
     """Get the volume of a simplex."""
-    vertices = [npy.array(point) for point in simplex]
+    vertices = [np.array(point) for point in simplex]
     differences = [vertices[i]-vertices[i+1] for i in range(len(vertices)-1)]
-    return np.linalg.det(npy.array(differences))
+    return np.linalg.det(np.array(differences))
 
 
 def standardfunction(x):

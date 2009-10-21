@@ -67,12 +67,12 @@ def write_xyz(fileobj, images):
     for atoms in images:
         fileobj.write('%d\nUnitCell:' % natoms)
         cell = atoms.get_cell()
-        A = [npy.linalg.norm(a) for a in cell]
+        A = [np.linalg.norm(a) for a in cell]
         for c1 in range(3):
             c2 = (c1 + 1) % 3
             c3 = (c1 + 2) % 3
             A.append(180 / pi *
-                     acos(npy.dot(cell[c2], cell[c3]) / A[c2] / A[c3]))
+                     acos(np.dot(cell[c2], cell[c3]) / A[c2] / A[c3]))
         fileobj.write((' %.6f' * 6) % tuple(A) + '\n')
         for s, (x, y, z) in zip(symbols, atoms.get_positions()):
             fileobj.write('%-2s %22.15f %22.15f %22.15f\n' % (s, x, y, z))

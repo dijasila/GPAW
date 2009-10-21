@@ -292,8 +292,8 @@ def broadcast_string(string=None, root=0, comm=world):
     return string.tostring()
 
 def send_string(string, rank, comm=world):
-    comm.send(npy.array(len(string)), rank)
-    comm.send(npy.fromstring(string, np.int8), rank)
+    comm.send(np.array(len(string)), rank)
+    comm.send(np.fromstring(string, np.int8), rank)
 
 def receive_string(rank, comm=world):
     n = np.array(0)

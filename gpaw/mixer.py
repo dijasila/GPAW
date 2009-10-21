@@ -116,7 +116,7 @@ class BaseMixer:
             # Calculate new residual (difference between input and
             # output density):
             R_G = nt_G - self.nt_iG[-1]
-            self.dNt = self.gd.integrate(npy.fabs(R_G))
+            self.dNt = self.gd.integrate(np.fabs(R_G))
             self.R_iG.append(R_G)
             self.dD_iap.append([])
             for D_p, D_ip in zip(D_ap, self.D_iap[-1]):
@@ -134,7 +134,7 @@ class BaseMixer:
                 self.metric(R_G, mR_G)
                 
             for R_1G in self.R_iG:
-                a = self.gd.comm.sum(npy.vdot(R_1G, mR_G))
+                a = self.gd.comm.sum(np.vdot(R_1G, mR_G))
                 A_ii[i1, i2] = a
                 A_ii[i2, i1] = a
                 i1 += 1
@@ -420,7 +420,7 @@ class BaseMixer_Broydn:
             for d_Dp, D_p, D_ip in zip(self.d_D_ap, D_ap, self.D_iap):
                 d_Dp.append(D_p - D_ip[-1])
             fmin_G = self.gd.integrate(self.d_nt_G[-1] * self.d_nt_G[-1])
-            self.dNt = self.gd.integrate(npy.fabs(self.d_nt_G[-1]))
+            self.dNt = self.gd.integrate(np.fabs(self.d_nt_G[-1]))
             if self.verbose:
                 print 'Mixer: broydn: fmin_G = %f fmin_D = %f'% fmin_G
         if self.step == 0:
@@ -476,9 +476,9 @@ class BaseMixer_Broydn:
                 del self.nt_iG[0]
                 for D_ip in self.D_iap:
                     del D_ip[0]
-        self.nt_iG.append(npy.copy(nt_G))
+        self.nt_iG.append(np.copy(nt_G))
         for D_ip, D_p in zip(self.D_iap, D_ap):
-            D_ip.append(npy.copy(D_p))
+            D_ip.append(np.copy(D_p))
         self.step += 1
 
         

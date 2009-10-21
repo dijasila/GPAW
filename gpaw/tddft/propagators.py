@@ -915,11 +915,11 @@ class SemiImplicitKrylovExponential(DummyPropagator):
         #print 'Hm ='
         #print np.round(self.hm*1e4) / 1e4
         #print 'log Hm ='
-        #print np.round(npy.log(self.hm)*1e2)/1e2
+        #print np.round(np.log(self.hm)*1e2)/1e2
         #print 'Sm ='
         #print np.round(self.sm*1e4) / 1e4
 
-        #print np.round(npy.log10(npy.abs(npy.linalg.eigh(self.hm[0])[1]))*1e6)/1e6
+        #print np.round(np.log10(np.abs(np.linalg.eigh(self.hm[0])[1]))*1e6)/1e6
 
         # Diagonalize
         # Propagate
@@ -984,10 +984,10 @@ class SemiImplicitKrylovExponential(DummyPropagator):
             s.apply(kpt, qm[i], Sqm[i])
             self.mblas.multi_zdotc(tmp, qm[i], Sqm[i], nvec)
             tmp *= self.gd.dv
-            self.mblas.multi_scale(1./npy.sqrt(tmp), qm[i], nvec)
-            self.mblas.multi_scale(1./npy.sqrt(tmp), Sqm[i], nvec)
+            self.mblas.multi_scale(1./np.sqrt(tmp), qm[i], nvec)
+            self.mblas.multi_scale(1./np.sqrt(tmp), Sqm[i], nvec)
             if i == 0:
-                scale[:] = 1/npy.sqrt(tmp)
+                scale[:] = 1/np.sqrt(tmp)
                 #print 'Scale', scale
 
             # H q_i
@@ -1025,7 +1025,7 @@ class SemiImplicitKrylovExponential(DummyPropagator):
             self.solver.solve(self, self.kpt.psit_nG, self.kpt.psit_nG)
             self.mblas.multi_zdotc(nrm2, self.kpt.psit_nG, self.kpt.psit_nG, nvec)
             nrm2 *= self.gd.dv
-            self.mblas.multi_scale(1/npy.sqrt(nrm2), self.kpt.psit_nG, nvec)
+            self.mblas.multi_scale(1/np.sqrt(nrm2), self.kpt.psit_nG, nvec)
         self.td_overlap.apply(self.kpt, self.kpt.psit_nG, self.tmp)
         self.mblas.multi_zdotc(nrm2, self.kpt.psit_nG, self.tmp, nvec)
         nrm2 *= self.gd.dv
@@ -1044,7 +1044,7 @@ class SemiImplicitKrylovExponential(DummyPropagator):
             self.td_overlap.apply(self.kpt, self.tmp, self.kpt.psit_nG)
             self.mblas.multi_zdotc(nrm2, self.kpt.psit_nG, self.kpt.psit_nG, nvec)
             nrm2 *= self.gd.dv
-            self.mblas.multi_scale(1/npy.sqrt(nrm2), self.kpt.psit_nG, nvec)
+            self.mblas.multi_scale(1/np.sqrt(nrm2), self.kpt.psit_nG, nvec)
         self.td_overlap.apply(self.kpt, self.kpt.psit_nG, self.tmp)
         self.mblas.multi_zdotc(nrm2, self.kpt.psit_nG, self.tmp, nvec)
         nrm2 *= self.gd.dv
@@ -1062,7 +1062,7 @@ class SemiImplicitKrylovExponential(DummyPropagator):
             self.solver.solve(self, self.kpt.psit_nG, self.kpt.psit_nG)
             self.mblas.multi_zdotc(nrm2, self.kpt.psit_nG, self.kpt.psit_nG, nvec)
             nrm2 *= self.gd.dv
-            self.mblas.multi_scale(1/npy.sqrt(nrm2), self.kpt.psit_nG, nvec)
+            self.mblas.multi_scale(1/np.sqrt(nrm2), self.kpt.psit_nG, nvec)
         self.td_hamiltonian.apply(self.kpt, self.kpt.psit_nG, self.tmp)
         self.mblas.multi_zdotc(nrm2, self.kpt.psit_nG, self.tmp, nvec)
         nrm2 *= self.gd.dv
@@ -1081,7 +1081,7 @@ class SemiImplicitKrylovExponential(DummyPropagator):
             self.td_hamiltonian.apply(self.kpt, self.tmp, self.kpt.psit_nG)
             self.mblas.multi_zdotc(nrm2, self.kpt.psit_nG, self.kpt.psit_nG, nvec)
             nrm2 *= self.gd.dv
-            self.mblas.multi_scale(1/npy.sqrt(nrm2), self.kpt.psit_nG, nvec)
+            self.mblas.multi_scale(1/np.sqrt(nrm2), self.kpt.psit_nG, nvec)
         self.td_hamiltonian.apply(self.kpt, self.kpt.psit_nG, self.tmp)
         self.mblas.multi_zdotc(nrm2, self.kpt.psit_nG, self.tmp, nvec)
         nrm2 *= self.gd.dv
