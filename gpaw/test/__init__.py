@@ -204,7 +204,8 @@ class TestRunner:
             self.log = stream
         else:
             self.log = devnull
-        
+        self.n = max([len(test) for test in tests])
+
     def run(self):
         self.log.write('=' * 77 + '\n')
         sys.stdout = devnull
@@ -268,7 +269,7 @@ class TestRunner:
                 
     def run_one(self, test):
         if self.jobs == 1:
-            self.log.write('%-30s' % test)
+            self.log.write('%*s' % (-self.n, test))
             self.log.flush()
             
         t0 = time.time()
@@ -339,5 +340,5 @@ class TestRunner:
     def write_result(self, test, text, t0):
         t = time.time() - t0
         if self.jobs > 1:
-            self.log.write('%-30s' % test)
-        self.log.write('%9.3f  %s\n' % (t, text))
+            self.log.write('%*s' % (-self.n, test))
+        self.log.write('%10.3f  %s\n' % (t, text))
