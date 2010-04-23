@@ -1,0 +1,57 @@
+#!/usr/bin/env python
+# Emacs: treat this as -*- python -*-
+
+from sys import argv
+import os
+
+i = 1
+while not argv[i].endswith('.py'):
+    i += 1
+
+options = ' '.join(argv[1:i])
+script = argv[i]
+job = ' '.join(argv[i:])
+
+qsub = '#!/usr/bin/env python\n'
+qsub += '#PBS -N %s\n' % script.split('/')[-1] # set default job name
+
+for line in open(script, 'r'):
+    if line.startswith('#PBS'):
+        qsub += line
+
+# Lock script until it starts running:
+os.chmod(script, 0444)
+
+qsub += """\
+import os
+import sys
+from gpaw import get_gpaw_python_path
+
+nodename = os.uname()[1]
+c = nodename[0]
+assert c in 'nmpqtu'
+
+if c in 'nmq':
+    # Normal Niflheim node:
+    mpirun = ('export LD_LIBRARY_PATH=/opt/acml-4.0.1/gfortran64/lib:' +
+              '/opt/acml-4.0.1/gfortran64/lib:' +
+              '/usr/local/openmpi-1.2.5-gfortran/lib64 && ' +
+              'export PATH=/usr/local/openmpi-1.2.5-gfortran/bin:${PATH} && ' +
+              'mpirun')
+
+elif c == 'p':
+    # Infiniband:
+    np = len(open(os.environ['PBS_NODEFILE']).readlines())
+    mpirun = 'mpirun -np %d -machinefile $PBS_NODEFILE' % np
+"""
+
+# Release script:
+qsub += "os.chmod('%s', 0644)\n" % script
+
+# Start script:
+qsub += """
+path = get_gpaw_python_path()
+os.system('%s %s/gpaw-python JOB' % (mpirun, path))
+""".replace('JOB', job)
+
+os.popen('qsub ' + options, 'w').write(qsub)
