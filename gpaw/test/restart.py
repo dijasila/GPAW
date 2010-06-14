@@ -2,13 +2,12 @@ import os
 from gpaw import *
 from ase import *
 from gpaw.test import equal
+from gpaw.utilities import hdf5
 
 modes = ['gpw']
-try:
-    import h5py
+
+if hdf5():
     modes.append('hdf5')
-except ImportError:
-    pass
 
 d = 3.0
 atoms = Atoms('Na3', positions=[( 0, 0, 0),
