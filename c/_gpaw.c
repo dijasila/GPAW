@@ -79,6 +79,8 @@ PyObject* swap_arrays(PyObject *self, PyObject *args);
 PyObject* spherical_harmonics(PyObject *self, PyObject *args);
 PyObject* spline_to_grid(PyObject *self, PyObject *args);
 PyObject* NewLFCObject(PyObject *self, PyObject *args);
+
+// Parallel ScaLAPACK
 PyObject* compiled_WITH_SL(PyObject *self, PyObject *args);
 #if defined(GPAW_WITH_SL) && defined(PARALLEL)
 PyObject* new_blacs_context(PyObject *self, PyObject *args);
@@ -102,17 +104,18 @@ PyObject* pblas_gemm(PyObject *self, PyObject *args);
 PyObject* pblas_gemv(PyObject *self, PyObject *args);
 PyObject* pblas_r2k(PyObject *self, PyObject *args);
 PyObject* pblas_rk(PyObject *self, PyObject *args);
-#endif
+#endif // GPAW_WITH_SL && PARALLEL
 
 // Moving least squares interpolation
 PyObject* mlsqr(PyObject *self, PyObject *args); 
 
 // Parallel HDF5
-#ifdef HDF5
-void init_h5py();
+PyObject* compiled_WITH_HDF5(PyObject *self, PyObject *args);
+#if defined(GPAW_WITH_HDF5) && defined(PARALLEL)
+int init_h5py(void);
 PyObject* set_fapl_mpio(PyObject *self, PyObject *args);
 PyObject* set_dxpl_mpio(PyObject *self, PyObject *args);
-#endif
+#endif // GPAW_WITH_HDF5 && PARALLEL
 
 // IO wrappers
 #ifdef IO_WRAPPERS
@@ -170,6 +173,7 @@ static PyMethodDef functions[] = {
   {"swap", swap_arrays, METH_VARARGS, 0},
   {"spherical_harmonics", spherical_harmonics, METH_VARARGS, 0},
   {"compiled_with_sl", compiled_WITH_SL, METH_VARARGS, 0},
+  {"compiled_with_hdf5", compiled_WITH_HDF5, METH_VARARGS, 0},
   {"pc_potential", pc_potential, METH_VARARGS, 0},
   {"pc_potential_value", pc_potential_value, METH_VARARGS, 0},
   {"spline_to_grid", spline_to_grid, METH_VARARGS, 0},
@@ -214,10 +218,10 @@ static PyMethodDef functions[] = {
   {"craypat_region_end", craypat_region_end, METH_VARARGS, 0},
 #endif // GPAW_CRAYPAT
   {"mlsqr", mlsqr, METH_VARARGS, 0}, 
-#ifdef HDF5
+#if defined(GPAW_WITH_HDF5) && defined(PARALLEL)
   {"h5_set_fapl_mpio", set_fapl_mpio, METH_VARARGS, 0}, 
   {"h5_set_dxpl_mpio", set_dxpl_mpio, METH_VARARGS, 0}, 
-#endif // HDF5
+#endif // GPAW_WITH_HDF5 && PARALLEL
   {"enable_io_wrappers", Py_enable_io_wrappers, METH_VARARGS, 0},
   {"disable_io_wrappers", Py_disable_io_wrappers, METH_VARARGS, 0},
   {0, 0, 0, 0}
@@ -324,8 +328,13 @@ main(int argc, char **argv)
   MPI_Errhandler_set(MPI_COMM_WORLD, MPI_ERRORS_RETURN);
 #endif
 
-#ifdef HDF5
-  init_h5py();
+#if defined(GPAW_WITH_HDF5) && defined(PARALLEL)
+  int res = init_h5py();
+  if (res != 0)
+    {
+      fprintf(stderr, "H5PY init failed (retured %d)!", res);
+      return -1;
+    }
 #endif
 
   Py_Initialize();

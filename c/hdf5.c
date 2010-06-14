@@ -4,34 +4,37 @@
 
 /* Routines needed for using parallel IO in combination with h5py */
 
-#ifdef HDF5
+#ifdef PARALLEL
 #include <Python.h>
+#ifdef GPAW_WITH_HDF5
 #include <hdf5.h>
 #include <mpi.h>
 #include "mympi.h"
 
 
 extern void inith5(void);
-extern void  inith5e(void);
-extern void  inith5f(void);
-extern void  inith5g(void);
-extern void  inith5s(void);
-extern void  inith5t(void);
-extern void  inith5d(void);
-extern void  inith5a(void);
-extern void  inith5p(void);
-extern void  inith5z(void);
-extern void  inith5i(void);
-extern void  inith5r(void);
+extern void inith5e(void);
+extern void inith5f(void);
+extern void inith5g(void);
+extern void inith5s(void);
+extern void inith5t(void);
+extern void inith5d(void);
+extern void inith5a(void);
+extern void inith5p(void);
+extern void inith5z(void);
+extern void inith5i(void);
+extern void inith5r(void);
 extern void inith5fd(void);
 extern void initutils(void);
-extern void  inith5o(void);
-extern void  inith5l(void);
+extern void inith5o(void);
+extern void inith5l(void);
+extern void init_conv(void);
+extern void init_proxy(void);
 
-void init_h5py()
+
+int init_h5py()
 {
   // Add h5py init functions to the list of builtin modules
-
   struct _inittab _h5py_Inittab[] = {
         {"h5", inith5},
         {"h5e", inith5e},
@@ -49,11 +52,12 @@ void init_h5py()
         {"utils", initutils},
         {"h5o", inith5o},
         {"h5l", inith5l},
+        {"_conv", init_conv},
+        {"_proxy", init_proxy},
 // Sentinel
         {0, 0}
   };
-  PyImport_ExtendInittab(_h5py_Inittab);
-
+  return PyImport_ExtendInittab(_h5py_Inittab);
 }
 
 PyObject* set_fapl_mpio(PyObject *self, PyObject *args)
@@ -88,5 +92,6 @@ PyObject* set_dxpl_mpio(PyObject *self, PyObject *args)
   H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
   Py_RETURN_NONE;
 }
-#endif
 
+#endif
+#endif // PARALLEL
