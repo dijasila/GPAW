@@ -1,8 +1,8 @@
 import os
 import sys
 import time
-import h5py
-import h5py.selections as sel
+import gpaw.h5py as h5py
+import gpaw.h5py.selections as sel
 import _gpaw
 
 import numpy as np
