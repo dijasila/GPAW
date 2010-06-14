@@ -69,7 +69,8 @@ packages = ['gpaw',
             'gpaw.testing',
             'gpaw.transport',
             'gpaw.utilities',
-            'gpaw.wavefunctions']
+            'gpaw.wavefunctions',
+            'gpaw.h5py']
 
 include_ase = False
 if '--include-ase' in sys.argv:
@@ -110,6 +111,7 @@ mpilinker = mpicompiler
 compiler = None
 
 scalapack = False
+hdf5 = False
 #User provided customizations
 if os.path.isfile(customize):
     execfile(customize)
@@ -152,6 +154,11 @@ if scalapack:
     get_scalapack_config(define_macros)
     msg.append('* Compiling with ScaLapack')
 
+# apply HDF5 settings
+if hdf5:
+    get_hdf5_config(define_macros)
+    msg.append('* Compiling with HDF5')
+
 # distutils clean does not remove the _gpaw.so library and gpaw-python
 # binary so do it here:
 plat = distutils.util.get_platform()
@@ -168,6 +175,7 @@ if 'clean' in sys.argv:
         os.remove(gpawbin)
 
 sources = glob('c/*.c') + ['c/bmgs/bmgs.c']
+
 # libxc sources
 sources = sources + glob('c/libxc/src/*.c')
 sources2remove = ['c/libxc/src/test.c',
@@ -175,9 +183,25 @@ sources2remove = ['c/libxc/src/test.c',
                   'c/libxc/src/work_gga_x.c',
                   'c/libxc/src/work_lda.c'
                   ]
+for s2r in glob('c/libxc/src/funcs_*.c'):
+    sources2remove.append(s2r)
+
+# h5py sources (XXX building _gpaw.so without MPI)
+"""
+if hdf5:
+    #sources = sources + glob('c/h5py/h5py/*.c')
+    #sources = sources + ['c/h5py/lzf/lzf_filter.c']
+    #sources = sources + glob('c/h5py/lzf/lzf/*.c')
+    #include_dirs = include_dirs + ['c/h5py/lzf']
+    sources = sources + glob('c/h5py/*.c')
+    sources = sources + glob('c/h5py/lzf/*.c')
+    #extra_compile_args.append('-UH5_HAVE_PARALLEL') #XXX
+"""
+
+# included in mpi.c
 sources2remove.append('c/scalapack.c')
 sources2remove.append('c/sl_inverse_cholesky.c')
-for s2r in glob('c/libxc/src/funcs_*.c'): sources2remove.append(s2r)
+
 for s2r in sources2remove:
     if s2r in sources: sources.remove(s2r)
 
@@ -199,9 +223,11 @@ scripts = [join('tools', script)
            for script in ('gpaw', 'gpaw-test', 'gpaw-setup', 'gpaw-basis',
                           'gpaw-mpisim')]
 
+data_files = [('gpaw/h5py', glob('gpaw/h5py/*.pyx') + glob('gpaw/h5py/*.px*'))]
+
 write_configuration(define_macros, include_dirs, libraries, library_dirs,
                     extra_link_args, extra_compile_args,
-                    runtime_library_dirs,extra_objects, mpicompiler,
+                    runtime_library_dirs, extra_objects, mpicompiler,
                     mpi_libraries, mpi_library_dirs, mpi_include_dirs,
                     mpi_runtime_library_dirs, mpi_define_macros)
 
@@ -216,6 +242,8 @@ setup(name = 'gpaw',
       packages=packages,
       ext_modules=[extension],
       scripts=scripts,
+      #data_files=data_files,
+      cmdclass={'install_data':install_libdata},
       long_description=long_description,
       )
 
@@ -244,6 +272,8 @@ if custom_interpreter:
               packages=packages,
               ext_modules=[extension],
               scripts=scripts,
+              #data_files=data_files,
+              cmdclass={'install_data':install_libdata},
               long_description=long_description,
               )
 

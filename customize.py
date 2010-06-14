@@ -12,6 +12,11 @@
 # True - ScaLapack compiled in
 #scalapack = True
 
+# Valid values for hdf5 are False, or True:
+# False (the default) - no HDF5 compiled in
+# True - HDF5 compiled in
+#hdf5 = True
+
 #compiler = 'mpcc'
 #libraries = []
 #libraries += []

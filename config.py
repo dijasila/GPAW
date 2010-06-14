@@ -8,6 +8,7 @@ import re
 import distutils.util
 from distutils.sysconfig import get_config_var, get_config_vars
 from distutils.command.config import config
+from distutils.command.install_data import install_data
 from glob import glob
 from os.path import join
 from stat import ST_MTIME
@@ -265,6 +266,9 @@ def get_scalapack_config(define_macros):
     # check ScaLapack settings
     define_macros.append(('GPAW_WITH_SL', '1'))
 
+def get_hdf5_config(define_macros):
+    # check HDF5 settings
+    define_macros.append(('GPAW_WITH_HDF5', '1'))
 
 def mtime(path, name, mtimes):
     """Return modification time.
@@ -309,6 +313,15 @@ def check_dependencies(sources):
         # Remove shared object C-extension:
         # print 'removing', so
         os.remove(so)
+
+class install_libdata(install_data):
+    # Fix to make install_data path equal path for install_lib (for data_files)
+    # http://mail.python.org/pipermail/distutils-sig/2001-May/002396.html
+
+    def finalize_options(self):
+        # Override install path of data files with that of the library files
+        self.set_undefined_options('install', ('install_lib', 'install_dir'),)
+        install_data.finalize_options(self)
 
 def test_configuration():
     raise NotImplementedError
@@ -360,24 +373,38 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     plat = distutils.util.get_platform() + '-' + sys.version[0:3]
 
     cfiles = glob('c/[a-zA-Z_]*.c') + ['c/bmgs/bmgs.c']
-    cfiles += glob('c/libxc/src/*.c')
-    if ('HDF5', 1) in define_macros:
-        cfiles += glob('h5py/c/*.c')
-        cfiles += glob('h5py/c/lzf/*.c')
 
+    # libxc sources
+    cfiles += glob('c/libxc/src/*.c')
     cfiles2remove = ['c/libxc/src/test.c',
                      'c/libxc/src/xc_f.c',
                      'c/libxc/src/work_gga_x.c',
                      'c/libxc/src/work_lda.c'
                      ]
+    for c2r in glob('c/libxc/src/funcs_*.c'):
+        cfiles2remove.append(c2r)
+
+    # included in mpi.c
     cfiles2remove.append('c/scalapack.c')
     cfiles2remove.append('c/sl_inverse_cholesky.c')
 
-    for c2r in glob('c/libxc/src/funcs_*.c'): cfiles2remove.append(c2r)
-    for c2r in cfiles2remove: cfiles.remove(c2r)
+    for c2r in cfiles2remove:
+        cfiles.remove(c2r)
+
     sources = ['c/bc.c', 'c/localized_functions.c', 'c/mpi.c', 'c/_gpaw.c',
                'c/operators.c', 'c/transformers.c', 'c/compiled_WITH_SL.c',
-               'c/blacs.c', 'c/io_wrappers.c']
+               'c/compiled_WITH_HDF5.c', 'c/blacs.c', 'c/hdf5.c',
+               'c/io_wrappers.c']
+    if int(dict(define_macros).get('GPAW_WITH_HDF5', 0)):
+        sources += glob('c/h5py/*.c')
+        sources += glob('c/h5py/lzf/*.c')
+        os.makedirs('build/temp.%s/c/h5py' % plat)
+        os.makedirs('build/temp.%s/c/h5py/lzf' % plat)
+        extra_objects += ['build/temp.%s/' % plat + x[:-1] + 'o'
+                          for x in glob('c/h5py/*.c')]
+        extra_objects += ['build/temp.%s/' % plat + x[:-1] + 'o'
+                          for x in glob('c/h5py/lzf/*.c')]
+
     objects = ' '.join(['build/temp.%s/' % plat + x[:-1] + 'o'
                         for x in cfiles])
 
@@ -429,7 +456,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     else:
         extra_link_args.append(cfgDict['LINKFORSHARED'])
 
-    if ('IO_WRAPPERS', 1) in define_macros:
+    if int(dict(define_macros).get('IO_WRAPPERS', 0)):
         extra_link_args += ['-Wl,-wrap,fread',
                             '-Wl,-wrap,_IO_getc',
                             '-Wl,-wrap,getc_unlocked',
