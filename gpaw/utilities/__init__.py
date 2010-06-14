@@ -363,6 +363,11 @@ def scalapack(extended_check=False):
         return False
     return _gpaw.compiled_with_sl()
 
+def hdf5(extended_check=False):
+    if extended_check and not hasattr(_gpaw, 'Communicator'):
+        return False
+    return _gpaw.compiled_with_hdf5()
+
 def load_balance(paw, atoms):
     try:
         paw.initialize(atoms)
