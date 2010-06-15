@@ -37,7 +37,7 @@ class File(h5py.File):
         else:
             raise ValueError("Invalid mode; must be one of r, w")
 
-        self.id = self.fid  # So the Group constructor can find it.
+        self._id = self.fid  # So the Group constructor can find it.
         h5py.Group.__init__(self, self, '/')
 
         self._mode = mode
