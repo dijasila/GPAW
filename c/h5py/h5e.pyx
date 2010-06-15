@@ -20,7 +20,7 @@ include "config.pxi"
 from python_exc cimport PyErr_SetString, PyErr_Occurred
 from h5 cimport SmartStruct
 
-import _stub
+import gpaw.h5py._stub as _stub
 
 
 # === Exception hierarchy based on major error codes ==========================
