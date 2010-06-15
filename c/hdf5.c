@@ -11,6 +11,7 @@
 #include <mpi.h>
 #include "mympi.h"
 
+int hdf5_inited = 0;
 
 extern void inith5(void);
 extern void inith5e(void);
