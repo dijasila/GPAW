@@ -120,7 +120,7 @@ class Writer:
             fspace = h5py.h5s.create_simple(fshape, (h5py.h5s.UNLIMITED,)*len(fshape))
             self.dset.id.write(mspace, fspace, array, mtype, plist)
         else:
-            selection = sel.select(fshape, indices)
+            selection = sel.select(fshape, indices, self.dset.id)
             for fspace in selection.broadcast(mshape):
                 if write == False:
                     h5py.h5s.select_none(fspace)
