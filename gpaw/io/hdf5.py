@@ -157,13 +157,15 @@ class Reader:
 
     def dimension(self, name):
         dims_grp = self.file['Dimensions']
+        if name not in dims_grp.attrs:
+            raise KeyError(name)
         return dims_grp.attrs[name]
     
     def __getitem__(self, name):
         value = self.params_grp.attrs[name]
         try:
             value = eval(value, {})
-        except (SyntaxError, NameError, TypeError):
+        except (SyntaxError, NameError, TypeError): #XXX WHAT?!?
             pass
         return value
 
