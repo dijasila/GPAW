@@ -20,8 +20,8 @@ class File(h5py.File):
 
         plist = h5py.h5p.create(h5py.h5p.FILE_ACCESS)
         plist.set_fclose_degree(h5py.h5f.CLOSE_STRONG)
-        if comm:
-            _gpaw.h5_set_fapl_mpio(plist.id, comm)
+        if comm is not None:
+            _gpaw.h5_set_fapl_mpio(plist.id, comm.get_c_object())
 
         try:
             # If the byte string doesn't match the default encoding, just
