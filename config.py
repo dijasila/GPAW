@@ -8,7 +8,6 @@ import re
 import distutils.util
 from distutils.sysconfig import get_config_var, get_config_vars
 from distutils.command.config import config
-from distutils.command.install_data import install_data
 from glob import glob
 from os.path import join
 from stat import ST_MTIME
@@ -314,14 +313,6 @@ def check_dependencies(sources):
         # print 'removing', so
         os.remove(so)
 
-class install_libdata(install_data):
-    # Fix to make install_data path equal path for install_lib (for data_files)
-    # http://mail.python.org/pipermail/distutils-sig/2001-May/002396.html
-
-    def finalize_options(self):
-        # Override install path of data files with that of the library files
-        self.set_undefined_options('install', ('install_lib', 'install_dir'),)
-        install_data.finalize_options(self)
 
 def test_configuration():
     raise NotImplementedError

@@ -70,7 +70,15 @@ packages = ['gpaw',
             'gpaw.transport',
             'gpaw.utilities',
             'gpaw.wavefunctions',
-            'gpaw.h5py']
+            'gpaw.h5py',
+            'gpaw.h5py.tests',
+            'gpaw.h5py.tests.high',
+            'gpaw.h5py.tests.low',
+            'gpaw.h5py.tests.types']
+
+# Copy H5PY unittest data files too
+package_dir = {'gpaw.h5py.tests': 'gpaw/h5py/tests'}
+package_data = {'gpaw.h5py.tests': ['data/*.h5', 'data/*.hdf5']}
 
 include_ase = False
 if '--include-ase' in sys.argv:
@@ -223,8 +231,6 @@ scripts = [join('tools', script)
            for script in ('gpaw', 'gpaw-test', 'gpaw-setup', 'gpaw-basis',
                           'gpaw-mpisim')]
 
-data_files = [('gpaw/h5py', glob('gpaw/h5py/*.pyx') + glob('gpaw/h5py/*.px*'))]
-
 write_configuration(define_macros, include_dirs, libraries, library_dirs,
                     extra_link_args, extra_compile_args,
                     runtime_library_dirs, extra_objects, mpicompiler,
@@ -242,8 +248,8 @@ setup(name = 'gpaw',
       packages=packages,
       ext_modules=[extension],
       scripts=scripts,
-      #data_files=data_files,
-      cmdclass={'install_data':install_libdata},
+      package_dir=package_dir,
+      package_data=package_data,
       long_description=long_description,
       )
 
@@ -272,8 +278,8 @@ if custom_interpreter:
               packages=packages,
               ext_modules=[extension],
               scripts=scripts,
-              #data_files=data_files,
-              cmdclass={'install_data':install_libdata},
+              package_dir=package_dir,
+              package_data=package_data,
               long_description=long_description,
               )
 
