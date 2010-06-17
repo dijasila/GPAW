@@ -92,6 +92,7 @@ tests = [
     'gauss_wave.py',
     'coulomb.py',
     'timing.py',
+    'ut_h5py.py',
     'lcao_density.py',
     'gauss_func.py',
     'ah.py',
