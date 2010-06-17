@@ -30,6 +30,9 @@ except ImportError, e:
         raise ImportError('Import error:\n"%s"\n\nBe sure to exit source directory before importing h5py' % e)
     raise
 
+# XXX added to remove errors
+import h5e, utils
+
 # This is messy but much less frustrating when using h5py from IPython
 import h5, h5a, h5d, h5f, h5fd, h5g, h5l, h5o, h5i, h5p, h5r, h5s, h5t, h5z
 import highlevel, filters, selections, version
