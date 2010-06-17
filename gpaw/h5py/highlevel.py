@@ -37,7 +37,7 @@ import numpy
 from gpaw.h5py import h5, h5f, h5g, h5s, h5t, h5d, h5a, \
                  h5p, h5r, h5z, h5i, h5fd, h5o, h5l, \
                  version, filters, _extras
-import selections as sel
+from gpaw.h5py import selections as sel
 
 from h5e import register_thread
 
