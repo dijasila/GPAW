@@ -29,18 +29,6 @@ def check_packages(packages, msg, include_ase, import_numpy):
     else:
         msg += ['* numpy is not installed.',
                 '  "include_dirs" in your customize.py must point to "numpy/core/include".']
-    try:
-        import Scientific.IO.NetCDF
-    except ImportError:
-        try:
-            import Scientific
-        except ImportError:
-            msg += ['* Scientific is not installed.']
-        else:
-            msg += ['* Scientific.IO.NetCDF is not installed (the NetCDF',
-                    '  C-library is probably missing).']
-        msg += ['  You will not be able to write and read wave functions',
-                '  in the netCDF format.']
 
     if not include_ase:
         if import_numpy:
@@ -277,6 +265,9 @@ def get_scalapack_config(define_macros):
     # check ScaLapack settings
     define_macros.append(('GPAW_WITH_SL', '1'))
 
+def get_hdf5_config(define_macros):
+    # check HDF5 settings
+    define_macros.append(('GPAW_WITH_HDF5', '1'))
 
 def mtime(path, name, mtimes):
     """Return modification time.
@@ -321,6 +312,7 @@ def check_dependencies(sources):
         # Remove shared object C-extension:
         # print 'removing', so
         os.remove(so)
+
 
 def test_configuration():
     raise NotImplementedError
@@ -372,24 +364,38 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     plat = distutils.util.get_platform() + '-' + sys.version[0:3]
 
     cfiles = glob('c/[a-zA-Z_]*.c') + ['c/bmgs/bmgs.c']
-    cfiles += glob('c/libxc/src/*.c')
-    if ('HDF5', 1) in define_macros:
-        cfiles += glob('h5py/c/*.c')
-        cfiles += glob('h5py/c/lzf/*.c')
 
+    # libxc sources
+    cfiles += glob('c/libxc/src/*.c')
     cfiles2remove = ['c/libxc/src/test.c',
                      'c/libxc/src/xc_f.c',
                      'c/libxc/src/work_gga_x.c',
                      'c/libxc/src/work_lda.c'
                      ]
+    for c2r in glob('c/libxc/src/funcs_*.c'):
+        cfiles2remove.append(c2r)
+
+    # included in mpi.c
     cfiles2remove.append('c/scalapack.c')
     cfiles2remove.append('c/sl_inverse_cholesky.c')
 
-    for c2r in glob('c/libxc/src/funcs_*.c'): cfiles2remove.append(c2r)
-    for c2r in cfiles2remove: cfiles.remove(c2r)
+    for c2r in cfiles2remove:
+        cfiles.remove(c2r)
+
     sources = ['c/bc.c', 'c/localized_functions.c', 'c/mpi.c', 'c/_gpaw.c',
                'c/operators.c', 'c/transformers.c', 'c/compiled_WITH_SL.c',
-               'c/blacs.c', 'c/io_wrappers.c']
+               'c/compiled_WITH_HDF5.c', 'c/blacs.c', 'c/hdf5.c',
+               'c/io_wrappers.c']
+    if int(dict(define_macros).get('GPAW_WITH_HDF5', 0)):
+        sources += glob('c/h5py/*.c')
+        sources += glob('c/h5py/lzf/*.c')
+        os.makedirs('build/temp.%s/c/h5py' % plat)
+        os.makedirs('build/temp.%s/c/h5py/lzf' % plat)
+        extra_objects += ['build/temp.%s/' % plat + x[:-1] + 'o'
+                          for x in glob('c/h5py/*.c')]
+        extra_objects += ['build/temp.%s/' % plat + x[:-1] + 'o'
+                          for x in glob('c/h5py/lzf/*.c')]
+
     objects = ' '.join(['build/temp.%s/' % plat + x[:-1] + 'o'
                         for x in cfiles])
 
@@ -397,7 +403,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
         os.makedirs('build/bin.%s/' % plat)
     exefile = 'build/bin.%s/' % plat + '/gpaw-python'
 
-    # libraries += mpi_libraries
+    #libraries += mpi_libraries
     library_dirs += mpi_library_dirs
     define_macros += mpi_define_macros
     include_dirs += mpi_include_dirs
@@ -405,7 +411,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
 
     define_macros.append(('PARALLEL', '1'))
     define_macros.append(('GPAW_INTERPRETER', '1'))
-    macros = ' '.join(['-D%s=%s' % x for x in define_macros])
+    macros = ' '.join(['-D%s=%s' % x for x in define_macros if x[0].strip()])
 
     include_dirs.append(cfgDict['INCLUDEPY'])
     include_dirs.append(cfgDict['CONFINCLUDEPY'])
@@ -414,11 +420,11 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     library_dirs.append(cfgDict['LIBPL'])
     lib_dirs = ' '.join(['-L' + lib for lib in library_dirs])
 
-    libs = ' '.join(['-l' + lib for lib in libraries])
-    # BlueGene/P statically links everything except
-    # python, runtime and pthread library
-    libs += ' -Wl,-dy'
-    libs += ' -lpython%s ' % cfgDict['VERSION']
+    libs = ' '.join(['-l' + lib for lib in libraries if lib.strip()])
+    # BlueGene/P statically links everything except        
+    # python, runtime and pthread library                  
+    libs += ' -Wl,-dy'                                     
+    libs += ' -lpython%s ' % cfgDict['VERSION']            
     libs += ' '.join(['-l' + lib for lib in mpi_libraries])
     libs += ' -lrt -lpthread'
     # libs = ' '.join([libs, cfgDict['LIBS'], cfgDict['LIBM']])
@@ -438,6 +444,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
 
     runtime_libs = ' '.join([ runtime_lib_option + lib for lib in runtime_library_dirs])
 
+    extra_link_args.append(cfgDict['LDFLAGS'])
     if sys.platform == 'aix5':
         extra_link_args.append(cfgDict['LINKFORSHARED'].replace('Modules', cfgDict['LIBPL']))
     elif sys.platform == 'darwin':
@@ -445,7 +452,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     else:
         extra_link_args.append(cfgDict['LINKFORSHARED'])
 
-    if ('IO_WRAPPERS', 1) in define_macros:
+    if int(dict(define_macros).get('IO_WRAPPERS', 0)):
         extra_link_args += ['-Wl,-wrap,fread',
                             '-Wl,-wrap,_IO_getc',
                             '-Wl,-wrap,getc_unlocked',
