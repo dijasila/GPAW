@@ -13,6 +13,7 @@ define_macros += [("GPAW_MR3",1)]
 # define_macros += [("GPAW_OMP",1)] # not really working
 
 scalapack = True
+hdf5 = True
 
 # If you are using threading, you probably
 # need to change the following library:
@@ -48,6 +49,7 @@ libraries = [
            'xlfmath',
            'xlomp_ser',
 #           'hpm',
+           'hdf5',
            ]
 
 library_dirs = [
@@ -60,10 +62,12 @@ library_dirs = [
            '/soft/apps/ibmcmp-jan2010/xlsmp/bg/1.7/bglib',
            '/bgsys/drivers/ppcfloor/gnu-linux/lib',
 #           '/soft/apps/UPC/lib',
+           '/soft/apps/hdf5-1.6.6/lib',
            ]
 
 include_dirs += [
-    '/soft/apps/python/python-2.6-cnk-gcc/numpy-1.3.0/lib/python2.6/site-packages/numpy/core/include'
+    '/soft/apps/python/python-2.6-cnk-gcc/numpy-1.3.0/lib/python2.6/site-packages/numpy/core/include',
+    '/soft/apps/hdf5-1.6.6/include',
     ]
 
 mpi_libraries = [
