@@ -43,13 +43,13 @@ libraries = [
            'lapack_bgp',
            'esslbg',
 #           'goto',
+           'hdf5',
            'xlf90_r',
            'xlopt',
            'xl',
            'xlfmath',
            'xlomp_ser',
 #           'hpm',
-           'hdf5',
            ]
 
 library_dirs = [
