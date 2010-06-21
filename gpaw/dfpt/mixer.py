@@ -14,7 +14,7 @@ from gpaw.fd_operators import FDOperator
 class BaseMixer:
     """Pulay density mixer."""
     
-    def __init__(self, beta=0.1, nmaxold=3, weight=50.0):
+    def __init__(self, beta=0.1, nmaxold=3, weight=50.0, dtype=float):
         """Construct density-mixer object.
 
         Parameters
@@ -33,6 +33,7 @@ class BaseMixer:
         self.beta = beta
         self.nmaxold = nmaxold
         self.weight = weight
+        self.dtype = dtype
 
         self.dNt = None
 
@@ -64,8 +65,8 @@ class BaseMixer:
                                       (-1, 1, 1), (1, -1, -1), (-1, -1, 1),  #d
                                       (-1, 1, -1), (-1, -1, -1)              #d
                                       ],
-                                     gd, float).apply
-            self.mR_G = gd.empty()
+                                     gd, self.dtype).apply
+            self.mR_G = gd.empty(dtype=self.dtype)
         
     def initialize(self, density):
         self.initialize_metric(density.gd)
@@ -98,7 +99,7 @@ class BaseMixer:
     def set_charge_sloshing(self, dNt):
         self.dNt = dNt
         
-    def mix(self, nt_G, D_ap):
+    def mix(self, nt_G, D_ap, phase_cd=None):
         iold = len(self.nt_iG)
         if iold > 0:
             if iold > self.nmaxold:
@@ -130,7 +131,7 @@ class BaseMixer:
                 mR_G = R_G
             else:
                 mR_G = self.mR_G
-                self.metric(R_G, mR_G)
+                self.metric(R_G, mR_G, phase_cd=phase_cd)
                 
             for R_1G in self.R_iG:
                 # Inner product between new and old residues
@@ -161,7 +162,7 @@ class BaseMixer:
             for D in D_ap:
                 D[:] = 0.0
             beta = self.beta
-            
+
             for i, alpha in enumerate(alpha_i):
                 axpy(alpha, self.nt_iG[i], nt_G)
                 axpy(alpha * beta, self.R_iG[i], nt_G)

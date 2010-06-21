@@ -12,15 +12,6 @@ condition, it needs the information of the electrodes and
 scattering region, and can calculate the density, hamiltonian, 
 total energy, forces and current as well.
 
-Quick Overview
---------------
-
-This is a small script to get an i-v curve for a sodium 
-atomic chain, which includes some main concepts in transport.
-
-.. literalinclude:: transport.py
-
-
 Model Picture
 -------------
 
@@ -65,9 +56,9 @@ in a item named surface Green's function
 leads respectively, and since they are inifinite, we need to
 do some handling to get it.
 
-We import the concept of priciple layer, the unit cell when 
-solving the surface Green's function. We assum the interaction
-Hamiltonian only exsits between two adjacent principle layers.
+We induce the concept of priciple layer, the unit cell when 
+solving the surface Green's function. We assum interaction 
+only exsits between two adjacent principle layers.
 That means the Hamiltonian matrix is tridiagonal by the size
 of a principle layer, which is necessary to get the surface
 Green's function. 
@@ -83,7 +74,7 @@ The selfenergy of lead can be calculated like this
   \tau _l = E * S_{lc} - H_{lc}
 
 `S_{lc}` and `H_{lc}` are the coupling overlap and Hamiltonian
-matrices. 
+matrices. The detailed process can be accessed in Phys. Rev. B 28 4397.
 
 Scattering region
 -----------------
@@ -134,7 +125,100 @@ scattering region. Something special for Transport is:
 
 * ``usesymm`` does not act, Transport set a value for it automatically.
  
-Other keywords:
+Other keywords (used frequently):
+
+
+=========================  =====  =============  ===================================
+keyword                    type   default value  description
+=========================  =====  =============  ===================================
+``non_sc``                 bool   False          :ref:`manual_non_sc`
+``plot_eta``               float  1e-4           :ref:`manual_plot_eta`
+``plot_energy_range``      list   [-5,5]         :ref:`manual_plot_energy_range`
+``plot_energy_point_num``  int    201            :ref:`manual_plot_energy_point_num` 
+``analysis_mode``          bool   False          :ref:`manual_analysis_mode`
+=========================  =====  =============  ===================================
+
+Usage:
+
+Calculate transmission using hamiltonian from normal DFT
+
+.. literalinclude:: transport_non_sc.py
+
+Get an iv curve using NEGF:
+
+.. literalinclude:: transport.py
+  
+Analysis:
+
+>>> from gpaw.transport.analysor import Transport_Plotter
+>>> plotter = Transport_Plotter()
+>>> data = plotter.get_info(XXX, bias_step, ion_step) 
+
+Transport_Plotter now just get the data, users need to plot the data themselves.
+XXX can be one in the list ['tc', 'dos', 'force', 'lead_fermi', 'bias', 'gate', 'nt', 'vt'].
+The analysis functionality only works after a transport calculation
+is done successfully and the directory analysis_data and some files in it are generated. 
+
+Analysis Package:
+
+Some small scripts are provided in the analysis_scripts directory to analyze the result. 
+One can include them in python path, and more convenient way is to append some 
+alias lines in .bashrc or cshrc. 
+
+.. literalinclude:: alias_lines
+
+The syntax is 
+Transmission: 
+>>> tc X Y
+Density of States:
+>>> dos X Y
+X is the bias step index, Y is the ionic step index, the default for Y is 0
+
+Average Effective Potential or Pseudo Density(average x, y directions):
+>>> vt X Y
+Here X support a linking symbol -, i.e. vt 5-0 plot the potential difference
+for the bias step 5 and bias step 0, which can be used to judge the 
+screening effects. In this plot, x axis is the realspace position in transport
+direction, and the potential of one principle layer, which is from the 
+electrode calculation, will be attached outside.
+>>> nt X Y
+Similiar to vt X Y, it plot the pseudo density.
+
+more...
+>>> vtx X Y
+>>> vty X Y
+>>> ntx X Y
+>>> nty X Y
+These commands make 2-d color plots, the data is average in one direction(x or y).
+
+Partial Density of States:
+>>> pdos X Y ZZZ
+ZZZ is a description of the partial orbital,
+i.e., C=40_S plot the S orbital DOS of a C atom whose index is 40;
+or,   C]30[40_P plot the P orbital DOS of some C atoms whose index range from 30 to 40;
+or,   C-H_S  plot the S orbital DOS of all C atoms and all H atoms;
+or,   C-H_S C-H_P C-H_A plot the S orbital, P orbital, and total DOS of C and H atoms
+respectively in one figure.
+As a summery, the linking symbol - means plus a element, _ means the orbital type,
+],[,= defines the atomic indices, A represent all the atoms or orbtials, so dos X Y is
+equalivalent to pdos X Y A_A. This command support multi inputparameters seperated by
+space.
+
+IV Characteristic:
+>>> iv X
+It plot out the IV curve for the fisrt X bias points.
+
+Charge:
+>>> charge X Y ZZZ
+Usage is similiar to pdos, it plot the charge of the partial orbitals as a function 
+of bias.
+
+Force:
+>>> force X Y
+It plots the force of bias step X and ionic step Y, X here also supports linking symbol -,
+i.e., force 1-0 plot the force differnece for bias step 1 and bias step 0.
+
+Optional keywords:
 
 
 ====================  =====  =============  ==============================
@@ -149,40 +233,9 @@ keyword               type   default value  description
 ``recal_path``        bool   False          :ref:`manual_recal_path`
 ``use_buffer``        bool   False          :ref:`manual_use_buffer`
 ``buffer_atoms``      list   []             :ref:`manual_buffer_atoms`
-``edge_atoms``        list   []             :ref:`manual_edge_atoms`
 ``use_qzk_boundary``  bool   False          :ref:`manual_use_qzk_boundary`
 ``identical_leads``   bool   False          :ref:`manual_identical_leads`
-``non_sc``            bool   False          :ref:`manual_non_sc`
 ====================  =====  =============  ==============================
-
-Usage:
-Get an iv curve:
-
->>> from gpaw.transport.calculator import Transport
->>> atoms = Atoms(...)
->>> t = Transport(...)
->>> atoms.set_calculator(t)
->>> t.calculate_iv(3., 16)
-  
-Optimize:
-
->>> from gpaw.transport.calculator import Transport  
->>> atoms = Atoms(...)
->>> t = Transport(...)
->>> atoms.set_calculator(t)
->>> dyn = QuasiNewton(atoms, trajectory='xxx.traj')
->>> dyn.run(fmax=0.05)
-
-Analysis:
-
->>> from gpaw.transport.analysor import Transport_Plotter
->>> plotter = Transport_Plotter()
->>> data = plotter.get_info(XXX, bias_step, ion_step) 
-
-Transport_Plotter now just get the data, users need to plot the data themselves.
-XXX can be one in the list ['tc', 'dos', 'force', 'lead_fermi', 'bias', 'gate', 'nt', 'vt'].
-The analysis functionality only works after a transport calculation
-is done successfully and the directory analysis_data and some files in it are generated. 
  
 .. _manual_pl_atoms:
 
@@ -343,7 +396,40 @@ NonSelfConsistent
 When ``non_sc`` is True, the scattering region is calculated by a normal
 DFT using a periodical slab. 
 
+.. _manual_analysis_mode:
 
+Analysis Mode
+-------------
+
+If analysis_mode is set True, the hamiltonian in the bias data file will be
+read and restart the transmission calculation with the k sampling
+adjustable, this is often used to project the trammission into dense k sampling.
+
+
+.. _manual_plot_eta:
+
+Plot Eta
+--------
+
+When calculating the Green function for the transmision plot, a small 
+imaginary float is added to the real energy to avoid singularity, in principle
+eta should be a infinitesimal, while the bigger eta can smear the 
+sharp peaks in transmission and dos.
+
+.. _manual_plot_energy_range:
+
+Plot Energy Range
+-----------------
+
+The energy scale in the transmission plot.
+
+.. _manual_plot_energy_point_num:
+
+Plot Energy Point Num
+---------------------
+
+The number of energy points used in the transmission plot which determines the
+density of the plot.
 
 
 

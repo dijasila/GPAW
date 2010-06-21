@@ -8,13 +8,16 @@ class Perturbation:
 
     """
     
-    def __init__(self):
-        """Init required attributes."""
+    def get_phase_cd(self):
+        """Return phase for instances of class ``Transformer``.
 
-        # 
-        self.phase_cd = None
+        Only relevant for q-specific perturbations.
 
-    def apply(self, x_nG, y_nG, kpt):
+        """
+        
+        return None
+    
+    def apply(self, x_nG, y_nG, k, kplusq=None):
         """Multiply the perturbing potential to a (set of) wave-function(s)."""
         
         raise NotImplementedError, ("Implement in derived classes")

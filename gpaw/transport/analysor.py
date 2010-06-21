@@ -172,7 +172,7 @@ class Transport_Analysor:
     def calculate_transmission(self, s, k, energy, nid_flag=None):
         self.reset_selfenergy(s, k)
         self.reset_green_function(s, k)
-        sigma = self.calculate_sigma(s, k, energy + 0.1*1.j, nid_flag)
+        sigma = self.calculate_sigma(s, k, energy, nid_flag)
         gamma = self.get_gamma(sigma)    
         trans_coff = []
         for i, lead_pair in enumerate(self.lead_pairs):
@@ -192,7 +192,7 @@ class Transport_Analysor:
     def calculate_dos(self, s, k, energy, nid_flag=None):
         self.reset_selfenergy(s, k)
         self.reset_green_function(s, k)
-        sigma = self.calculate_sigma(s, k, energy + 0.1*1.j, nid_flag)
+        sigma = self.calculate_sigma(s, k, energy, nid_flag)
         gr = self.calculate_green_function_of_k_point(s, k, energy, sigma)        
         dos = - np.imag(np.diag(dot(gr, self.tp.hsd.S[k].recover()))) / np.pi         
         return dos
@@ -770,7 +770,7 @@ class Transport_Analysor:
         if world.rank == 0 :           
             for name in ['nt', 'vt', 'ntx', 'vtx', 'nty', 'vty']:
                 self.data[name] = eval(name)
-        if tp.non_sc or self.tp.analysis_mode < 0:
+        if tp.non_sc or self.tp.analysis_mode:
             force = None
             contour = None
         else:       
@@ -796,7 +796,7 @@ class Transport_Analysor:
                 self.data[name] = eval(obj)
        
         if world.rank == 0:
-            if self.tp.analysis_mode == -2:
+            if self.tp.analysis_mode:
                 filename = '/abias_step_' + str(self.n_bias_step)
             else:
                 filename = '/bias_step_' + str(self.n_bias_step)
