@@ -1,9 +1,9 @@
 #!/usr/bin/env python
-from ase import *
+from ase import Atom, Atoms
 from gpaw import GPAW
 from gpaw.test import equal
 
-a = 6
+a = 6.
 b = a / 2
 mol = Atoms([Atom('O',(b, b, 0.1219 + b)),
              Atom('H',(b, 0.7633 + b, -0.4876 + b)),

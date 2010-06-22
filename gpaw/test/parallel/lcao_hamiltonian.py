@@ -1,5 +1,6 @@
 import cPickle as pickle
-from ase import *
+import numpy as np
+from ase import Atoms
 from gpaw import GPAW, restart, setup_paths
 from gpaw.lcao.tools import get_lcao_hamiltonian
 from gpaw.mpi import world

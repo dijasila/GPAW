@@ -14,7 +14,7 @@ Forces are compared to a previous finite-difference result.
 """
 
 import numpy as np
-from ase import *
+from ase.data.molecules import molecule
 from gpaw import GPAW
 from gpaw.utilities import unpack
 from gpaw.atom.basis import BasisMaker
@@ -57,7 +57,7 @@ print 'max force error', ferr
 fdcheck = False
 
 if fdcheck:
-    from ase.calculators import numeric_forces
+    from ase.calculators.test import numeric_forces
     F_ac_fd = numeric_forces(mol)
 
     print 'Self-consistent forces'

@@ -48,7 +48,7 @@ for xc in libxc_set:
     xcfunc = XCFunctional(xc, 1)
     s = create_setup('N', xcfunc)
     ni = s.ni
-    nii = ni * (ni + 1) / 2
+    nii = ni * (ni + 1) // 2
     D_p = 0.1 * ra.random(nii) + 0.4
     H_p = np.zeros(nii)
 
@@ -69,11 +69,11 @@ for xc in libxc_set:
     print E2, E2s
     equal(E2, E2s, 1.0e-12)
 
-    if reference.has_key(xc): # compare with old gpaw
+    if xc in reference: # compare with old gpaw
         print 'A:', E2, reference[xc]
         equal(E2, reference[xc], tolerance)
 
-    if reference_libxc.has_key(xc): # compare with reference libxc
+    if xc in reference_libxc: # compare with reference libxc
         print 'B:', E2, reference_libxc[xc]
         equal(E2, reference_libxc[xc], tolerance)
 
