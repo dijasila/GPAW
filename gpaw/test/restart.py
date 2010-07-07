@@ -3,6 +3,8 @@ from gpaw import GPAW, restart
 from ase import Atoms
 from gpaw.test import equal
 from gpaw.utilities import hdf5
+from math import sqrt
+import numpy as np
 
 modes = ['gpw']
 
