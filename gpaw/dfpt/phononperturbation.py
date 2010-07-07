@@ -15,8 +15,8 @@ from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.dfpt.poisson import PoissonSolver, FFTPoissonSolver
 
 from gpaw.dfpt.perturbation import Perturbation
+from gpaw.dfpt.kpointcontainer import KPointContainer
 
-from pylab import *
 
 class PhononPerturbation(Perturbation):
     """Implementation of a phonon perturbation.
@@ -36,7 +36,6 @@ class PhononPerturbation(Perturbation):
        
         """
 
-        self.calc = calc
         self.gamma = gamma
         self.ibzq_qc = ibzq_qc
         self.poisson = poisson_solver
@@ -50,6 +49,7 @@ class PhononPerturbation(Perturbation):
             
         # dtype for ground-state wave-functions (used for the projectors)
         self.gs_gamma = calc.wfs.gamma
+        # k-points for the wave-functions also needed for the projectors
         self.ibzk_qc = calc.get_ibz_k_points()
 
         # Temp solution - should be given as argument to the init method
@@ -65,23 +65,24 @@ class PhononPerturbation(Perturbation):
                 # FFT Poisson solver
                 self.poisson = FFTPoissonSolver(dtype=self.dtype)
       
-            
         # Store grid-descriptors
         self.gd = calc.density.gd
         self.finegd = calc.density.finegd
 
-        # Steal setups
+        # Steal setups for the lfc's
         setups = calc.wfs.setups
+
+        # Store projector coefficients
+        self.dH_asp = calc.hamiltonian.dH_asp.copy()
         
         # Localized functions:
-        # projectors
-        self.pt = LFC(self.gd, [setup.pt_j for setup in setups])
         # core corections
         self.nct = LFC(self.gd, [[setup.nct] for setup in setups],
                        integral=[setup.Nct for setup in setups])
         # compensation charges
-        self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
-                        integral=sqrt(4 * pi))
+        self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups])        
+        # self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
+        #                 integral=sqrt(4 * pi))
         # vbar potential
         self.vbar = LFC(self.finegd, [[setup.vbar] for setup in setups])
 
@@ -102,27 +103,14 @@ class PhononPerturbation(Perturbation):
         else:
             self.q = None
 
-        # Coefficients for the non-local part of the perturbation
-        self.P_ani = None
-        self.dP_aniv = None
-
-    def initialize(self):
+    def initialize(self, spos_ac):
         """Prepare the various attributes for a calculation."""
 
-        # Get scaled atomic positions
-        spos_ac = self.calc.atoms.get_scaled_positions()
-
         # Set positions on LFC's
-        self.pt.set_positions(spos_ac)
         self.nct.set_positions(spos_ac)
         self.ghat.set_positions(spos_ac)
         self.vbar.set_positions(spos_ac)
 
-        if not self.gs_gamma:
-            # Set k-vectors and update
-            self.pt.set_k_points(self.ibzk_qc)
-            self.pt._update(spos_ac)
-            
         if not self.gamma:
             
             # Set q-vectors and update
@@ -151,6 +139,20 @@ class PhononPerturbation(Perturbation):
         # Grid transformer
         self.restrictor.allocate()
 
+    def get_phase_cd(self):
+        """Return phases for instances of class ``Transformer`` ."""
+
+        return self.phase_cd
+    
+    def has_q(self):
+        """Overwrite base class member function."""
+        return True
+
+    def get_q(self):
+        """Return q-vector."""
+
+        return self.ibzq_qc[self.q]
+    
     def set_perturbation(self, a, v):
         """Set atom and cartesian coordinate of the perturbation.
 
@@ -211,22 +213,22 @@ class PhononPerturbation(Perturbation):
             # NOTICE: solve_neutral
             self.poisson.solve_neutral(phi_g, rho_g)  
         else:
-            # Divide out the phase factor to get the periodic part 
-            rho_g /= self.phase_qg[self.q]
+            # Divide out the phase factor to get the periodic part
+            rhot_g = rho_g/self.phase_qg[self.q]
 
             # Solve Poisson's equation for the periodic part of the potential
             # NOTICE: solve_neutral
-            self.poisson.solve_neutral(phi_g, rho_g)
+            self.poisson.solve_neutral(phi_g, rhot_g)
 
             # Return to Bloch form
             phi_g *= self.phase_qg[self.q]
 
-    def apply(self, x_nG, y_nG, k, kplusq):
-        """Apply the perturbation to a vector.
+    def apply(self, psi_nG, y_nG, wfs, k, kplusq):
+        """Apply perturbation to unperturbed wave-functions.
 
         Parameters
         ----------
-        x_nG: ndarray
+        psi_nG: ndarray
             Set of grid vectors to which the perturbation is applied.
         y_nG: ndarray
             Output vectors.
@@ -234,22 +236,24 @@ class PhononPerturbation(Perturbation):
             Index of the k-point for the vectors.
         kplusq: int
             Index of the k+q vector.
+        calculate_projector_coef: bool
+            Use existing coefficients when True.
             
         """
 
-        assert x_nG.ndim in (3, 4)
-        assert tuple(self.gd.n_c) == x_nG.shape[-3:]
+        assert self.a is not None
+        assert self.v is not None
+        assert self.q is not None
+        assert psi_nG.ndim in (3, 4)
+        assert tuple(self.gd.n_c) == psi_nG.shape[-3:]
 
-        if self.v1_G is None:
-            self.calculate_local_potential()
-        
-        if x_nG.ndim == 3:
-            y_nG += x_nG * self.v1_G
+        if psi_nG.ndim == 3:
+            y_nG += psi_nG * self.v1_G
         else:
-            for x_G, y_G in zip(x_nG, y_nG):
+            for x_G, y_G in zip(psi_nG, y_nG):
                 y_G += x_G * self.v1_G
 
-        self.apply_nonlocal_potential(x_nG, y_nG, k, kplusq)
+        self.apply_nonlocal_potential(psi_nG, y_nG, wfs, k, kplusq)
 
     def calculate_local_potential(self):
         """Derivate of the local potential wrt an atomic displacements.
@@ -274,8 +278,8 @@ class PhononPerturbation(Perturbation):
 
         # Grid for derivative of compensation charges
         ghat1_g = self.finegd.zeros(dtype=self.dtype)
-        self.ghat.add_derivative(a, v, ghat1_g, Q_aL, q=self.q)
-            
+        self.ghat.add_derivative(a, v, ghat1_g, c_axi=Q_aL, q=self.q)
+        
         # Solve Poisson's eq. for the potential from the periodic part of the
         # compensation charge derivative
         v1_g = self.finegd.zeros(dtype=self.dtype)
@@ -291,14 +295,15 @@ class PhononPerturbation(Perturbation):
 
         # Store potential for the evaluation of the energy derivative
         self.v1_g = v1_g.copy()
-
+        # self.v1_g = ghat1_g.copy()
+        
         # Transfer to coarse grid
         v1_G = self.gd.zeros(dtype=self.dtype)
         self.restrictor.apply(v1_g, v1_G, phases=self.phase_cd)
 
         self.v1_G = v1_G
 
-    def apply_nonlocal_potential(self, x_nG, y_nG, k, kplusq):
+    def apply_nonlocal_potential(self, psi_nG, y_nG, wfs, k, kplusq):
         """Derivate of the non-local PAW potential wrt an atomic displacement.
 
         Parameters
@@ -312,87 +317,41 @@ class PhononPerturbation(Perturbation):
 
         assert self.a is not None
         assert self.v is not None
-        assert x_nG.ndim in (3,4)
-        assert tuple(self.gd.n_c) == x_nG.shape[-3:]
+        assert psi_nG.ndim in (3,4)
+        assert tuple(self.gd.n_c) == psi_nG.shape[-3:]
         
-        if x_nG.ndim == 3:
+        if psi_nG.ndim == 3:
             n = 1
         else:
-            n = x_nG.shape[0]
+            n = psi_nG.shape[0]
             
         a = self.a
         v = self.v
         
-        # Calculate coefficients needed for the non-local part of the PP
-        self.calculate_projector_coef(x_nG, k)
-
-        hamiltonian = self.calc.hamiltonian
-
-        # <p_a^i | psi_n >
-        P_ni = self.P_ani[a]
-        # <dp_av^i | psi_n > - remember the sign convention of the derivative
-        dP_ni = -1 * self.dP_aniv[a][...,v]
+        P_ani = wfs.kpt_u[k].P_ani
+        dP_aniv = wfs.kpt_u[k].dP_aniv
+        pt = wfs.pt
+        
+        # < p_a^i | Psi_nk >
+        P_ni = P_ani[a]
+        # < dp_av^i | Psi_nk > - remember the sign convention of the derivative
+        dP_ni = -1 * dP_aniv[a][...,v]
 
         # Expansion coefficients for the projectors on atom a
-        dH_ii = unpack(hamiltonian.dH_asp[a][0])
-
+        dH_ii = unpack(self.dH_asp[a][0])
        
         # The derivative of the non-local PAW potential has two contributions
         # 1) Sum over projectors
         c_ni = np.dot(dP_ni, dH_ii)
-        c_ani = self.pt.dict(shape=n, zero=True)
+        c_ani = pt.dict(shape=n, zero=True)
         c_ani[a] = c_ni
         # k+q !!
-        self.pt.add(y_nG, c_ani, q=kplusq)
+        pt.add(y_nG, c_ani, q=kplusq)
 
         # 2) Sum over derivatives of the projectors
         dc_ni = np.dot(P_ni, dH_ii)
-        dc_ani = self.pt.dict(shape=n, zero=True)
+        dc_ani = pt.dict(shape=n, zero=True)
         # Take care of sign of derivative in the coefficients
         dc_ani[a] = -1 * dc_ni
         # k+q !!
-        self.pt.add_derivative(a, v, y_nG, dc_ani, q=kplusq)
-        
-    def calculate_projector_coef(self, x_nG, k):
-        """Coefficients for the derivative of the non-local part of the PP.
-
-        Parameters
-        ----------
-        k: int
-            Index of the k-point of the Bloch state on which the non-local
-            potential operates on.
-
-        The calculated coefficients are the following (except for an overall
-        sign of -1; see ``derivative`` method of the ``lfc`` class)::
-
-                     /        a*           
-          dP_aniv =  | dG dPhi  (G) Psi (G) ,
-                     /        iv       n
-
-        where::
-                       
-              a        d       a
-          dPhi  (G) =  ---  Phi (G) .
-              iv         a     i
-                       dR
-
-        """
-
-        if x_nG.ndim == 3:
-            n = 1
-        else:
-            n = x_nG.shape[0]
-            
-        # Integration dicts
-        P_ani   = self.pt.dict(shape=n)
-        dP_aniv = self.pt.dict(shape=n, derivative=True)
-
-        # 1) Integrate with projectors
-        # k
-        self.pt.integrate(x_nG, P_ani, q=k)
-        self.P_ani = P_ani
-
-        # 2) Integrate with derivative of projectors
-        # k
-        self.pt.derivative(x_nG, dP_aniv, q=k)
-        self.dP_aniv = dP_aniv
+        pt.add_derivative(a, v, y_nG, dc_ani, q=kplusq)

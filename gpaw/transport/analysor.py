@@ -280,7 +280,7 @@ class Transport_Analysor:
 
     def calculate_realspace_wave_functions(self, C_nm, q):
         #nl number of molecular levels
-        wfs = self.tp.extended_calc.wfs
+        wfs = self.tp.wfs
         nao = wfs.setups.nao
         nb, nl = C_nm.shape
         if wfs.dtype == float:
@@ -790,7 +790,8 @@ class Transport_Analysor:
         self.data = gather_ndarray_dict(self.data, tp.contour.comm)
         self.data['contour'] = contour
         self.data['force'] = force
-        
+        if tp.non_sc:
+            self.data['total_energy'] = tp.guess_total_energy
         for condition, obj, name in tp.special_datas:
             if eval(condition):
                 self.data[name] = eval(obj)

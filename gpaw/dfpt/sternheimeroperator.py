@@ -18,11 +18,11 @@ class SternheimerOperator:
     perturbation with a specific q-vector, only the projections onto states at
     k+q are needed.
     
-    The main purpose of this class is to implement the multiplication with a
-    vector in the ``apply`` member function. An additional ``matvec`` member
-    function has been defined so that instances of this class can be passed as
-    a linear operator to scipy's iterative Krylov solvers in
-    ``scipy.sparse.linalg``.
+    The main purpose of this class is to implement the multiplication of the
+    linear operator (H - eps_nk) with a vector in the ``apply`` member
+    function. An additional ``matvec`` member function has been defined so that
+    instances of this class can be passed as a linear operator to scipy's
+    iterative Krylov solvers in ``scipy.sparse.linalg``.
 
     """
     
@@ -33,7 +33,7 @@ class SternheimerOperator:
         ----------
         hamiltonian: Hamiltonian
             Hamiltonian for a ground-state calculation.
-        wfs: GridWavefunctions
+        wfs: WaveFunctions
             Ground-state wave-functions.
         gd: GridDescriptor
             Grid on which the operator is defined.
@@ -45,10 +45,6 @@ class SternheimerOperator:
         self.kpt_u = wfs.kpt_u
         self.pt = wfs.pt
         self.gd = gd
-
-        # Occupied bands
-        nvalence = wfs.nvalence
-        self.nbands = max(1, nvalence/2 + nvalence%2)
 
         # Variables for k-point and band index
         self.k = None
@@ -88,7 +84,7 @@ class SternheimerOperator:
         self.kplusq = kplusq
 
     def apply(self, x_nG, y_nG):
-        """Apply the Sternheimer operator to a vector.
+        """Apply the linear operator in the Sternheimer equation to a vector.
 
         For the eigenvalue term the k-point is the one of the state.
         For the other terms the k-point to be used is the one given by the k+q
@@ -120,7 +116,7 @@ class SternheimerOperator:
         # Local part of effective potential - no phase !!
         self.hamiltonian.apply_local_potential(x_nG, y_nG, kpt.s)
         
-        # Non-local part from projectors
+        # Non-local part from projectors (coefficients can not be reused)
         shape = x_nG.shape[:-3]
         P_ani = self.pt.dict(shape)
         # k+q 
@@ -168,13 +164,13 @@ class SternheimerOperator:
         kpt = self.kpt_u[self.kplusq]
 
         # Occupied wave function
-        psit_nG = kpt.psit_nG[:self.nbands]
+        psit_nG = kpt.psit_nG
         
         # Project out one orbital at a time
-        for n in range(self.nbands):
+        for n, psit_G in enumerate(psit_nG): #range(self.nbands):
 
-            proj_n = self.gd.integrate(psit_nG[n].conjugate() * x_nG)
-            x_nG -= proj_n * psit_nG[n]
+            proj_n = self.gd.integrate(psit_G.conjugate() * x_nG)
+            x_nG -= proj_n * psit_G
 
         # Do the projection in one go - figure out how to use np.dot correctly
         # a_G -= np.dot(proj_n, psit_nG)

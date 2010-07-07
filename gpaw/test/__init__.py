@@ -78,6 +78,7 @@ tests = [
     'integral4.py',
     'transformations.py',
     'nabla.py',
+    'aeatom.py',
     'pbc.py',
     'poisson.py',
     'XC2.py',
@@ -88,6 +89,7 @@ tests = [
     'parallel/compare.py',
     'ase3k.py',
     'laplace.py',
+    'ds_beta.py',
     'gauss_wave.py',
     'coulomb.py',
     'timing.py',
@@ -238,7 +240,8 @@ try:
     import scipy
 except ImportError:
     exclude += ['diamond_absorption.py',
-                'aluminum_EELS.py']
+                'aluminum_EELS.py',
+                'aeatom.py']
 
 for test in exclude:
     if test in tests:
