@@ -389,8 +389,9 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     if int(dict(define_macros).get('GPAW_WITH_HDF5', 0)):
         sources += glob('c/h5py/*.c')
         sources += glob('c/h5py/lzf/*.c')
-        os.makedirs('build/temp.%s/c/h5py' % plat)
-        os.makedirs('build/temp.%s/c/h5py/lzf' % plat)
+        if not os.path.isdir('build/temp.%s/c/h5py' % plat):
+            os.makedirs('build/temp.%s/c/h5py' % plat)
+            os.makedirs('build/temp.%s/c/h5py/lzf' % plat)
         extra_objects += ['build/temp.%s/' % plat + x[:-1] + 'o'
                           for x in glob('c/h5py/*.c')]
         extra_objects += ['build/temp.%s/' % plat + x[:-1] + 'o'
