@@ -90,10 +90,16 @@ class PAW(PAWTextOutput):
             filename = None # XXX
 
         if filename is not None:
+            self.timer.start('IO')
+            self.timer.start('Read')
+            self.timer.start('Meta data')
             reader = gpaw.io.open(filename, 'r')
             self.atoms = gpaw.io.read_atoms(reader)
             par = self.input_parameters
             par.read(reader)
+            self.timer.stop('Meta data')
+            self.timer.stop('Read')
+            self.timer.stop('IO')
 
         self.set(**kwargs)
 
@@ -127,7 +133,9 @@ class PAW(PAWTextOutput):
         self.observers = []
 
     def read(self, reader):
+        self.timer.start('IO')
         gpaw.io.read(self, reader)
+        self.timer.stop('IO')
 
     def set(self, **kwargs):
         p = self.input_parameters
