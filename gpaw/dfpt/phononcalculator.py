@@ -23,16 +23,17 @@ from gpaw.dfpt.dynamicalmatrix import DynamicalMatrix
 class PhononCalculator:
     """This class defines the interface for phonon calculations."""
     
-    def __init__(self, atoms, gamma=True, **kwargs):
+    def __init__(self, calc, gamma=True, **kwargs):
         """Inititialize class with a list of atoms.
 
         The atoms object must contain a converged ground-state calculation.
 
+        For now the q-points are taken from the ground-state calculation.
+
         """
  
         # Store useful objects
-        self.atoms = atoms
-        calc = atoms.get_calculator()
+        self.atoms = calc.get_atoms()
         self.calc = calc
         
         # Make sure localized functions are initialized
@@ -64,8 +65,8 @@ class PhononCalculator:
             # FFT Poisson solver
             poisson = FFTPoissonSolver(dtype=self.dtype)
             
-        # List of atom indices to include in calculation
-        self.atoms_a = [atom.index for atom in atoms]
+        # Include all atoms and cartesian coordinates by default
+        self.atoms_a = dict([ (atom.index, [0, 1, 2]) for atom in self.atoms])
         
         # Phonon perturbation
         self.perturbation = PhononPerturbation(calc, self.gamma,
@@ -84,13 +85,14 @@ class PhononCalculator:
 
         # WaveFunctions object
         wfs = WaveFunctions(nbands, calc.wfs.kpt_u, calc.wfs.setups,
-                            calc.wfs.gamma, kd, calc.density.gd)
+                            calc.wfs.gamma, kd, calc.density.gd,
+                            dtype=calc.wfs.dtype)
         
         # Linear response calculator
         self.response_calc = ResponseCalculator(calc, wfs, self.perturbation, kd)
 
         # Dynamical matrix object
-        self.D_matrix = DynamicalMatrix(atoms, ibzq_qc=self.ibzq_qc,
+        self.D_matrix = DynamicalMatrix(self.atoms, ibzq_qc=self.ibzq_qc,
                                         dtype=self.dtype)
 
         # Initialize flag
@@ -107,10 +109,28 @@ class PhononCalculator:
 
         self.initialized = True
         
-    def set_atoms(self, atoms_a):
-        """Set indices of atoms to include in the calculation."""
+    def set_atoms(self, atoms_a, exclude=True):
+        """Set indices of atoms to include in the calculation.
 
-        self.atoms_a = atoms_a
+        Parameters
+        ----------
+        exclude: bool
+            If True, all other atoms are neglected in the calculation of the
+            dynamical matrix.
+
+        """
+
+        assert isinstance(atoms_a, dict) or isinstance(atoms_a, list)
+        
+        if isinstance(atoms_a, dict):
+            if exclude:
+                self.atoms_a = atoms_a
+            else:
+                self.atoms_a.update(atoms_a)
+        else:
+            # List of atoms indices
+            for a in atoms_a:
+                self.atoms_a = [0, 1, 2]
 
     def __call__(self):
         """Run calculation for atomic displacements and update matrix."""
@@ -118,38 +138,45 @@ class PhononCalculator:
         if not self.initialized:
             self.initialize()
        
+        if self.gamma:
+            i_q = [0]
+        else:
+            i_q = range(len(self.ibzq_qc))
+                        
         # Calculate linear response wrt displacements of specified atoms
-        #for q, q_c in enumerate(self.ibzq_qc):
+        for q in i_q:
 
-        self.perturbation.set_q(0)
+            if not self.gamma:
+                self.perturbation.set_q(q)
 
-        for a in [0]:#self.atoms_a:
-            
-            for v in [2]:#[0, 1, 2]:
-
-                components = ['x','y','z']
-                symbols = self.atoms.get_chemical_symbols()
-                print "Atom index: %i" % a
-                print "Atomic symbol: %s" % symbols[a]
-                print "Component: %s" % components[v]
-                
-                self.perturbation.set_perturbation(a, v)
+            for a in self.atoms_a:
     
-                output = self.response_calc()
-
-                if False: #save:
-                    assert filebase is not None
-                    file_av = "a_%.1i_v_%.1i.pckl" % (a, v)
-                    fname = "_".join([filebase, file_av])
-                    f = open(fname, 'w')
-                    pickle.dump([nt1_G, psit1_unG], f)
-                    f.close()
-                            
-                self.D_matrix.update_row(self.perturbation,
-                                         self.response_calc)
-                
-        self.D_matrix.density_ground_state(self.perturbation, self.calc)
-        self.D_matrix.wfs_ground_state(self.perturbation, self.response_calc)
+                for v in self.atoms_a[a]:
+    
+                    components = ['x', 'y', 'z']
+                    symbols = self.atoms.get_chemical_symbols()
+                    print "q-vector index: %i" % q
+                    print "Atom index: %i" % a
+                    print "Atomic symbol: %s" % symbols[a]
+                    print "Component: %s" % components[v]
+                    
+                    self.perturbation.set_perturbation(a, v)
+        
+                    output = self.response_calc()
+    
+                    if False: #save:
+                        assert filebase is not None
+                        file_av = "a_%.1i_v_%.1i.pckl" % (a, v)
+                        fname = "_".join([filebase, file_av])
+                        f = open(fname, 'w')
+                        pickle.dump([nt1_G, psit1_unG], f)
+                        f.close()
+                                
+                    self.D_matrix.update_row(self.perturbation,
+                                             self.response_calc)
+                    
+        self.D_matrix.density_ground_state(self.calc)
+        # self.D_matrix.wfs_ground_state(self.calc, self.response_calc)
 
     def get_dynamical_matrix(self):
         """Assemble and return the dynamical matrix as an ndarray."""

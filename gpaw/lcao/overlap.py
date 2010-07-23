@@ -53,7 +53,7 @@ from ase.calculators.neighborlist import NeighborList
 from gpaw.gaunt import gaunt
 from gpaw.spherical_harmonics import Yl, nablaYL
 from gpaw.spline import Spline
-from gpaw.utilities import fac
+from gpaw.utilities import _fact
 from gpaw.utilities.tools import tri2full
 from gpaw.utilities.blas import gemm
 from gpaw import extra_parameters
@@ -69,7 +69,7 @@ if extra_parameters.get('fprojectors'):
 for n in range(LMAX):
     c = np.zeros(n + 1, complex)
     for s in range(n + 1):
-        a = (1.0j)**s * fac[n + s] / (fac[s] * 2**s * fac[n - s])
+        a = (1.0j)**s * _fact[n + s] / (_fact[s] * 2**s * _fact[n - s])
         a *= (-1.0j)**(n + 1)
         c[s] = a
     C.append(c)
@@ -190,9 +190,9 @@ class TwoSiteOverlapExpansions(BaseOverlapExpansionSet):
         Ma1 = 0
         for j1, oe_j in enumerate(self.oe_jj):
             Mb1 = 0
-            Ma2 = Ma1 + oe_j[-1].shape[0]
+            Ma2 = Ma1
             for j2, oe in enumerate(oe_j):
-                assert oe.shape[0] == Ma2 - Ma1
+                Ma2 = Ma1 + oe.shape[0]
                 Mb2 = Mb1 + oe.shape[1]
                 yield x_xMM[..., Ma1:Ma2, Mb1:Mb2], oe
                 Mb1 = Mb2

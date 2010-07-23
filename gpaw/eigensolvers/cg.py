@@ -52,7 +52,7 @@ class CG(Eigensolver):
         
         self.subspace_diagonalize(hamiltonian, wfs, kpt)
         
-        R_nG = self.overlap.operator.suggest_temporary_buffer(wfs.dtype)
+        R_nG = wfs.matrixoperator.suggest_temporary_buffer(wfs.dtype)
         Htphi_G = R_nG[0]
         
         R_nG[:] = self.Htpsit_nG
@@ -75,7 +75,7 @@ class CG(Eigensolver):
                     # print >> self.f, "cg:iters", n, nit
                     break
 
-                pR_G = self.preconditioner(R_G, kpt.phase_cd)
+                pR_G = self.preconditioner(R_G, kpt)
 
                 # New search direction
                 gamma = self.gd.comm.sum(np.vdot(pR_G, R_G).real)

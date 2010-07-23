@@ -228,7 +228,7 @@ class Transport(GPAW):
         p['n_ion_step'] = 0
         p['eqinttol'] = 1e-4
         p['plot_eta'] = 0.005
-        p['plot_energy_range'] = [-5,5]
+        p['plot_energy_range'] = [-5.,5.]
         p['plot_energy_point_num'] = 201
         p['alpha'] = 0.0
         p['beta_guess'] = 0.1
@@ -965,10 +965,15 @@ class Transport(GPAW):
    
         if self.save_bias_data:
             vt_sG = self.gd1.collect(self.extended_calc.hamiltonian.vt_sG)
-            ham = self.hamiltonian
+            if not self.use_qzk_boundary:
+                density = self.density
+                ham = self.hamiltonian
+            else:
+                density = self.extended_calc.density
+                ham = self.extended_calc.hamiltonian                
             dH_asp = collect_atomic_matrices(ham.dH_asp, ham.setups,
                                              ham.nspins, ham.gd.comm,
-                                             self.density.rank_a)
+                                             density.rank_a)
             if self.master:
                 fd = file('bias_data' + str(self.analysor.n_bias_step), 'wb')
                 cPickle.dump((self.bias, vt_sG, dH_asp), fd, 2)
@@ -1074,7 +1079,11 @@ class Transport(GPAW):
             self.diag_ham_old = np.copy(diag_ham)
         if var == 'd':
             if self.step > 0:
-                self.diff_d = self.density.mixer.get_charge_sloshing()
+                if not self.use_qzk_boundary:
+                    density = self.density
+                else:
+                    density = self.extended_calc.density
+                self.diff_d = density.mixer.get_charge_sloshing()
                 tol =  self.scf.max_density_error
  
                 if self.master:
@@ -1135,7 +1144,7 @@ class Transport(GPAW):
         self.step = 0
         self.cvgflag = False
         self.spin_coff = 3. - self.nspins
-        self.max_steps = 300
+        self.max_steps = 400
         self.h_cvg = False
         self.d_cvg = False
         self.ele_data = {}
@@ -1743,11 +1752,17 @@ class Transport(GPAW):
                 self.analysor.save_ion_step()
                 self.text('--------------ionic_step---' +
                           str(self.analysor.n_ion_step) + '---------------')
-                self.F_av = None   
-            f = self.calculate_force()
+                self.F_av = None
+
             if not self.optimize:
                 self.optimize = True
-            return f * Hartree / Bohr 
+
+            if not self.use_qzk_boundary:    
+                f = self.calculate_force()
+                return f * Hartree / Bohr
+            else:
+                f = self.extended_calc.get_forces()[:len(self.atoms)]
+                return f  
 
     def calculate_force(self):
         """Return the atomic forces.""" 
@@ -1853,32 +1868,45 @@ class Transport(GPAW):
                 kpt.rho_MM = self.hsd.D[0][kpt.q].recover(True)
         self.timer.stop('dmm recover')        
         
-        density = self.density
+        if not self.use_qzk_boundary:        
+            density = self.density
+        else:
+            density = self.extended_calc.density
         self.timer.start('construct density')
 
         density.charge_eps = 1000
             
         nt_sG = self.gd1.zeros(self.nspins)
         self.extended_calc.wfs.calculate_density_contribution(nt_sG)
-        nn = self.surround.nn
-        density.nt_sG = self.surround.uncapsule(nn, nt_sG, self.gd1,
+        
+        if not self.use_qzk_boundary:
+            nn = self.surround.nn
+            density.nt_sG = self.surround.uncapsule(nn, nt_sG, self.gd1,
                                                     self.gd)
+        else:
+            density.nt_sG = nt_sG
+            
         density.nt_sG += density.nct_G
 
         self.timer.stop('construct density')
         self.timer.start('atomic density')
-
-        D_asp = self.extended_D_asp
+        
+        if not self.use_qzk_boundary:
+            D_asp = self.extended_D_asp
+        else:
+            D_asp = self.extended_calc.density.D_asp
         self.extended_calc.wfs.calculate_atomic_density_matrices(D_asp)
         #all_D_asp = collect_D_asp2(D_asp, self.extended_calc.wfs.setups, self.nspins,
         #                    self.gd.comm, self.extended_calc.wfs.rank_a)
-        wfs = self.extended_calc.wfs
-        all_D_asp = collect_atomic_matrices(D_asp, wfs.setups, self.nspins,
+        
+        if not self.use_qzk_boundary:    
+            wfs = self.extended_calc.wfs
+            all_D_asp = collect_atomic_matrices(D_asp, wfs.setups, self.nspins,
                                             self.gd.comm, wfs.rank_a)
-            
-        D_asp = all_D_asp[:len(self.atoms)]
-        #distribute_D_asp(D_asp, density)
-        distribute_atomic_matrices(D_asp, density.D_asp, density.setups)
+            D_asp = all_D_asp[:len(self.atoms)]
+
+            #distribute_D_asp(D_asp, density)
+            distribute_atomic_matrices(D_asp, density.D_asp, density.setups)
 
         self.timer.stop('atomic density')
         comp_charge = density.calculate_multipole_moments()
@@ -1887,7 +1915,10 @@ class Transport(GPAW):
         density.mix(comp_charge)
 
     def normalize(self, comp_charge):
-        density = self.density
+        if not self.use_qzk_boundary:
+            density = self.density
+        else:
+            density = self.extended_calc.density
         """Normalize pseudo density."""
         pseudo_charge = density.gd.integrate(density.nt_sG).sum()
         if pseudo_charge != 0:
@@ -2317,20 +2348,22 @@ class Transport(GPAW):
                 c = density.charge / len(density.setups)  
                 for a in wfs.basis_functions.atom_indices:
                     f_si = wfs.setups[a].calculate_initial_occupation_numbers(
-                             magmom_a[a], density.hund, charge=c)
+                        magmom_a[a], density.hund, charge=c,
+                        nspins=self.nspins)
                     
                     if a in wfs.basis_functions.my_atom_indices:
-                        self.extended_D_asp[a] = \
-                                wfs.setups[a].initialize_density_matrix(f_si)
+                        self.extended_D_asp[a] = (
+                            wfs.setups[a].initialize_density_matrix(f_si))
                     f_asi[a] = f_si
 
                 for a in self.wfs.basis_functions.atom_indices:
                     setup = self.wfs.setups[a]
                     f_si = setup.calculate_initial_occupation_numbers(
-                                  density.magmom_a[a], density.hund, charge=c)
+                        density.magmom_a[a], density.hund, charge=c,
+                        nspins=self.nspins)
                     if a in self.wfs.basis_functions.my_atom_indices:
                         density.D_asp[a] = setup.initialize_density_matrix(
-                                                                         f_si)                    
+                            f_si)                    
 
                 all_D_asp = []
                 for a, setup in enumerate(wfs.setups):

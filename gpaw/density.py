@@ -73,7 +73,13 @@ class Density:
         self.interpolator = Transformer(self.gd, self.finegd, stencil,
                                         allocate=False)
         
-        self.nct = LFC(self.gd, [[setup.nct] for setup in setups],
+        spline_aj = []
+        for setup in setups:
+            if setup.nct is None:
+                spline_aj.append([])
+            else:
+                spline_aj.append([setup.nct])
+        self.nct = LFC(self.gd, spline_aj, #[[setup.nct] for setup in setups],
                        integral=[setup.Nct for setup in setups],
                        forces=True, cut=True)
         self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
@@ -254,7 +260,7 @@ class Density:
         c = self.charge / len(self.setups)  # distribute charge on all atoms
         for a in basis_functions.atom_indices:
             f_si = self.setups[a].calculate_initial_occupation_numbers(
-                    self.magmom_a[a], self.hund, charge=c)
+                    self.magmom_a[a], self.hund, charge=c, nspins=self.nspins)
             if a in basis_functions.my_atom_indices:
                 self.D_asp[a] = self.setups[a].initialize_density_matrix(f_si)
             f_asi[a] = f_si
@@ -550,3 +556,21 @@ class Density:
         
         self.interpolator.estimate_memory(mem.subnode('Interpolator'))
 
+    def get_spin_contamination(self, atoms, majority_spin=0):
+        """Calculate the spin contamination.
+
+        Spin contamination is defined as the integral over the
+        spin density difference, where it is negative (i.e. the
+        minority spin density is larger than the majority spin density.
+        """
+
+        if majority_spin == 0:
+            smaj = 0
+            smin = 1
+        else:
+            smaj = 1
+            smin = 0
+        nt_sg, gd = self.get_all_electron_density(atoms)
+        dt_sg = nt_sg[smin] - nt_sg[smaj]
+        dt_sg = np.where(dt_sg > 0, dt_sg, 0.0)
+        return gd.integrate(dt_sg)

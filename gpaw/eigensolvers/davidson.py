@@ -57,7 +57,7 @@ class Davidson(Eigensolver):
         H_2n2n = self.H_2n2n
         S_2n2n = self.S_2n2n
         eps_2n = self.eps_2n
-        psit2_nG = self.overlap.operator.suggest_temporary_buffer(wfs.dtype)
+        psit2_nG = wfs.matrixoperator.suggest_temporary_buffer(wfs.dtype)
 
         self.timer.start('Davidson')
         R_nG = self.Htpsit_nG 
@@ -82,7 +82,7 @@ class Davidson(Eigensolver):
 
                 H_2n2n[n,n] = kpt.eps_n[n]
                 S_2n2n[n,n] = 1.0
-                psit2_nG[n] = self.preconditioner(R_nG[n], kpt.phase_cd)
+                psit2_nG[n] = self.preconditioner(R_nG[n], kpt)
             
             # Calculate projections
             P2_ani = wfs.pt.dict(nbands)

@@ -477,7 +477,7 @@ Publications using the gpaw code
    introductions of electron-withdrawing ligands into the ligand shell
    of a thiolate-protected Au25 nanoparticle`__
 
-   J. Phys. Chem. C 114, 8276 (2010)
+   \J. Phys. Chem. C 114, 8276 (2010)
 
    __ http://dx.doi.org/10.1021/jp101265v
 
@@ -489,7 +489,7 @@ Publications using the gpaw code
    `Materials from thiolate-protected Au25 superatoms: Dimers and 
    crystals`__
 
-   J. Phys. Chem C ASAP
+   \J. Phys. Chem C ASAP
 
    __ http://dx.doi.org/10.1021/jp1015438
 
@@ -527,7 +527,7 @@ Publications using the gpaw code
    `Chirality and electronic structure of the thiolate-protected Au38 
    nanocluster`__
 
-   J. Am. Chem. Soc. ASAP article
+   \J. Am. Chem. Soc. ASAP article
 
    __ http://dx.doi.org/10.1021/ja102934q
 
@@ -545,8 +545,31 @@ Publications using the gpaw code
    `Electronic structure calculations with GPAW: a real-space
    implementation of the projector augmented-wave method`__ 
 
-   J. Phys.: Condens. Matter **22**, 253202 (2010)
+   \J. Phys.: Condens. Matter **22**, 253202 (2010)
 
    __ http://stacks.iop.org/0953-8984/22/253202
 
    .. 8 June 2010
+
+#) R. Frigge, T. Hoger, B. Siemer, H. Witte, M. Silies, H. Zacharias, 
+   T. Olsen and J. Schiøtz
+
+   `Site Specificity in Femtosecond Laser Desorption of Neutral 
+   H Atoms from Graphite(0001)`__  
+
+   Physical Review Letters **104**, 256102 (2010)
+
+   __ http://dx.doi.org/10.1103/PhysRevLett.104.256102
+
+   .. 25 June 2010
+
+#) Thomas Olsen and Jakob Schiøtz
+
+   `Quantum corrected Langevin dynamics for adsorbates on metal 
+   surfaces interacting with hot electrons`__  
+
+   Journal of Chemical Physics **133**, 034115 (2010)
+
+   __ http://dx.doi.org/10.1063/1.3457947
+
+   .. 20 July 2010

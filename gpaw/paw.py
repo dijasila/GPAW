@@ -14,7 +14,8 @@ from ase.dft import monkhorst_pack
 import gpaw.io
 import gpaw.mpi as mpi
 import gpaw.occupations as occupations
-from gpaw import dry_run, KohnShamConvergenceError, hooks
+from gpaw import dry_run, memory_estimate_depth, \
+                 KohnShamConvergenceError, hooks
 from gpaw.density import Density
 from gpaw.eigensolvers import get_eigensolver
 from gpaw.band_descriptor import BandDescriptor
@@ -25,8 +26,9 @@ from gpaw.utilities.timing import Timer
 from gpaw.xc_functional import XCFunctional
 from gpaw.brillouin import reduce_kpoints
 from gpaw.wavefunctions.base import EmptyWaveFunctions
-from gpaw.wavefunctions.fd import GridWaveFunctions
+from gpaw.wavefunctions.fd import FDWaveFunctions
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
+from gpaw.wavefunctions.pw import PW
 from gpaw.utilities.memory import MemNode, maxrss
 from gpaw.parameters import InputParameters
 from gpaw.setup import Setups
@@ -395,8 +397,7 @@ class PAW(PAWTextOutput):
         else:
             xcfunc = par.xc
 
-        setups = Setups(Z_a, par.setups, par.basis, nspins, par.lmax, xcfunc,
-                        world)
+        setups = Setups(Z_a, par.setups, par.basis, par.lmax, xcfunc, world)
 
         # Brillouin zone stuff:
         if gamma:
@@ -428,7 +429,7 @@ class PAW(PAWTextOutput):
         M = magmom_a.sum()
         if par.hund:
             f_si = setups[0].calculate_initial_occupation_numbers(
-                magmom=0, hund=True, charge=par.charge)
+                magmom=0, hund=True, charge=par.charge, nspins=nspins)
             Mh = f_si[0].sum() - f_si[1].sum()
             if magnetic and M != Mh:
                 raise RuntimeError('You specified a magmom that does not'
@@ -530,7 +531,7 @@ class PAW(PAWTextOutput):
                                                 timer=self.timer)
 
                 self.wfs = LCAOWaveFunctions(lcaoksl, *args)
-            elif par.mode == 'fd':
+            elif par.mode == 'fd' or isinstance(par.mode, PW):
                 # Layouts used for diagonalizer
                 sl_diagonalize = par.parallel['sl_diagonalize']
                 if sl_diagonalize is None:
@@ -561,8 +562,16 @@ class PAW(PAWTextOutput):
                                                 gd, lcaobd, nao=nao,
                                                 timer=self.timer)
 
-                self.wfs = GridWaveFunctions(par.stencils[0], diagksl,
-                                             orthoksl, initksl, *args)
+                if par.mode == 'fd':
+                    self.wfs = FDWaveFunctions(par.stencils[0], diagksl,
+                                               orthoksl, initksl, *args)
+                else:
+                    # Planewave basis:
+                    self.wfs = par.mode(diagksl, orthoksl, initksl,
+                                        gd, nspins, nvalence, setups, self.bd,
+                                        world, kpt_comm,
+                                        bzk_kc, ibzk_kc, weight_k,
+                                        symmetry, self.timer)
             else:
                 self.wfs = par.mode(self, *args)
         else:
@@ -615,7 +624,7 @@ class PAW(PAWTextOutput):
             xcfunc.initialize_gllb(self)
 
         self.text()
-        self.print_memory_estimate(self.txt, maxdepth=2)
+        self.print_memory_estimate(self.txt, maxdepth=memory_estimate_depth)
         self.txt.flush()
 
         if dry_run:

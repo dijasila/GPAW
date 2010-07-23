@@ -39,19 +39,15 @@ class PhononPerturbation(Perturbation):
         self.gamma = gamma
         self.ibzq_qc = ibzq_qc
         self.poisson = poisson_solver
-        
+
+        # Gamma wrt q-vector
         if gamma:
             self.dtype = float
-            self.phase_cd = None #np.ones((3, 2), dtype=complex)
+            self.phase_cd = None
         else:
             self.dtype = complex
             self.phase_qcd = [kpt.phase_cd for kpt in calc.wfs.kpt_u]
             
-        # dtype for ground-state wave-functions (used for the projectors)
-        self.gs_gamma = calc.wfs.gamma
-        # k-points for the wave-functions also needed for the projectors
-        self.ibzk_qc = calc.get_ibz_k_points()
-
         # Temp solution - should be given as argument to the init method
         if poisson_solver is None:
             
@@ -78,13 +74,16 @@ class PhononPerturbation(Perturbation):
         # Localized functions:
         # core corections
         self.nct = LFC(self.gd, [[setup.nct] for setup in setups],
-                       integral=[setup.Nct for setup in setups])
+                       integral=[setup.Nct for setup in setups], dtype=self.dtype)
         # compensation charges
-        self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups])        
+        #XXX 
         # self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
-        #                 integral=sqrt(4 * pi))
+        #                 dtype=self.dtype)
+        self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
+                        integral=sqrt(4 * pi), dtype=self.dtype)
         # vbar potential
-        self.vbar = LFC(self.finegd, [[setup.vbar] for setup in setups])
+        self.vbar = LFC(self.finegd, [[setup.vbar] for setup in setups],
+                        dtype=self.dtype)
 
         # Expansion coefficients for the compensation charges
         self.Q_aL = calc.density.Q_aL.copy()
@@ -131,7 +130,7 @@ class PhononPerturbation(Perturbation):
                               np.dot(self.ibzq_qc, scoor_cg.swapaxes(0,-2)))
             self.phase_qg = phase_qg.swapaxes(1, -2)
 
-        # To be removed from this class !!
+        #XXX To be removed from this class !!
         # Setup the Poisson solver -- to be used on the fine grid
         self.poisson.set_grid_descriptor(self.finegd)
         self.poisson.initialize()
@@ -140,17 +139,20 @@ class PhononPerturbation(Perturbation):
         self.restrictor.allocate()
 
     def get_phase_cd(self):
-        """Return phases for instances of class ``Transformer`` ."""
+        """Overwrite base class member function."""
 
         return self.phase_cd
     
     def has_q(self):
         """Overwrite base class member function."""
-        return True
+
+        return (not self.gamma)
 
     def get_q(self):
         """Return q-vector."""
 
+        assert not self.gamma, "Gamma-point calculation."
+        
         return self.ibzq_qc[self.q]
     
     def set_perturbation(self, a, v):
@@ -211,7 +213,7 @@ class PhononPerturbation(Perturbation):
         # Gamma point calculation wrt the q-vector
         if self.gamma: 
             # NOTICE: solve_neutral
-            self.poisson.solve_neutral(phi_g, rho_g)  
+            self.poisson.solve_neutral(phi_g, rho_g)
         else:
             # Divide out the phase factor to get the periodic part
             rhot_g = rho_g/self.phase_qg[self.q]
@@ -248,10 +250,11 @@ class PhononPerturbation(Perturbation):
         assert tuple(self.gd.n_c) == psi_nG.shape[-3:]
 
         if psi_nG.ndim == 3:
-            y_nG += psi_nG * self.v1_G
+            y_nG += self.v1_G * psi_nG
         else:
-            for x_G, y_G in zip(psi_nG, y_nG):
-                y_G += x_G * self.v1_G
+            y_nG += self.v1_G[np.newaxis, :] * psi_nG
+            #for psi_G, y_G in zip(psi_nG, y_nG):
+            #    y_G += self.v1_G * psi_G
 
         self.apply_nonlocal_potential(psi_nG, y_nG, wfs, k, kplusq)
 
@@ -295,7 +298,6 @@ class PhononPerturbation(Perturbation):
 
         # Store potential for the evaluation of the energy derivative
         self.v1_g = v1_g.copy()
-        # self.v1_g = ghat1_g.copy()
         
         # Transfer to coarse grid
         v1_G = self.gd.zeros(dtype=self.dtype)
@@ -317,13 +319,13 @@ class PhononPerturbation(Perturbation):
 
         assert self.a is not None
         assert self.v is not None
-        assert psi_nG.ndim in (3,4)
+        assert psi_nG.ndim in (3, 4)
         assert tuple(self.gd.n_c) == psi_nG.shape[-3:]
         
         if psi_nG.ndim == 3:
             n = 1
         else:
-            n = psi_nG.shape[0]
+            n = psi_nG.shape[0] 
             
         a = self.a
         v = self.v

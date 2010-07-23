@@ -155,10 +155,10 @@ class PAWTextOutput:
             t('Spin-Paired Calculation')
         t('Total Charge:      %.6f' % p['charge'])
         t('Fermi Temperature: %.6f' % (self.occupations.width * Hartree))
-        t('Mode:              %s' % p['mode'])
+        self.wfs.summary(self.txt)
         eigensolver = p['eigensolver']
         if eigensolver is None:
-            eigensolver = {'lcao':'lcao (direct)', 'fd':'rmm-diis'}[p['mode']]
+            eigensolver = {'lcao':'lcao (direct)'}.get(p['mode'], 'rmm-diis')
         t('Eigensolver:       %s' % eigensolver)
         if p['mode'] != 'lcao':
             t('                   (%s)' % fd(p['stencils'][0]))
@@ -300,7 +300,11 @@ class PAWTextOutput:
 
         if self.wfs.nspins == 2:
             t()
-            t('Total Magnetic Moment: %f' % self.occupations.magmom)
+            magmom = self.occupations.magmom
+            t('Total Magnetic Moment: %f' % magmom)
+            t('Spin contamination: %f electrons'  % 
+              self.density.get_spin_contamination(self.atoms, 
+                                                  int(magmom < 0)))
             t('Local Magnetic Moments:')
             for a, mom in enumerate(self.get_magnetic_moments()):
                 t(a, mom)
