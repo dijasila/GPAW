@@ -28,7 +28,7 @@ from gpaw.utilities import unpack, pack, hartree, divrl
 from gpaw.rotation import rotation
 
 
-def create_setup(symbol, xcfunc, lmax=0,
+def create_setup(symbol, xc, lmax=0,
                  type='paw', basis=None, setupdata=None, world=None):
     if setupdata is None:
         if type == 'hgh' or type == 'hgh.sc':
@@ -49,12 +49,11 @@ def create_setup(symbol, xcfunc, lmax=0,
             from gpaw.lcao.bsse import GhostSetupData
             setupdata = GhostSetupData(symbol)
         else:
-            zero_reference = xcfunc.hybrid > 0
-            setupdata = SetupData(symbol, xcfunc.get_setup_name(),
-                                  type, True, zero_reference=zero_reference,
+            setupdata = SetupData(symbol, xc.name,
+                                  type, True,
                                   world=world)
     if hasattr(setupdata, 'build'):
-        return LeanSetup(setupdata.build(xcfunc, lmax, basis))
+        return LeanSetup(setupdata.build(xc, lmax, basis))
     else:
         return setupdata
 
@@ -506,14 +505,14 @@ class Setup(BaseSetup):
     ``tauct``  Pseudo core kinetic energy density
     ========== ============================================
     """
-    def __init__(self, data, xcfunc, lmax=0, basis=None):
+    def __init__(self, data, xc, lmax=0, basis=None):
         self.type = data.name
         
         self.HubU = None
         
-        if not data.is_compatible(xcfunc):
+        if not data.is_compatible(xc):
             raise ValueError('Cannot use %s setup with %s functional' %
-                             (data.setupname, xcfunc.get_setup_name()))
+                             (data.setupname, xc.name))
         
         self.symbol = symbol = data.symbol
         self.data = data
@@ -698,7 +697,7 @@ class Setup(BaseSetup):
         self.M_p = M_p
         self.M_pp = M_pp
 
-        if xcfunc.is_gllb():
+        if xc.name == 'GLLB':
             if 'core_f' in self.extra_xc_data:
                 self.wnt_lqg = wnt_lqg
                 self.wn_lqg = wn_lqg
@@ -733,7 +732,7 @@ class Setup(BaseSetup):
         #self.rcutcomp = sqrt(10) * rcgauss # ??? XXX Not used for anything
         
         rgd = RadialGridDescriptor(r_g, dr_g)
-        self.xc_correction = data.get_xc_correction(rgd, xcfunc, gcut2, lcut)
+        self.xc_correction = data.get_xc_correction(rgd, xc, gcut2, lcut)
         self.nabla_iiv = self.get_derivative_integrals(rgd, phi_jg, phit_jg)
 
     def calculate_coulomb_corrections(self, lcut, n_qg, wn_lqg,

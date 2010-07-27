@@ -143,7 +143,7 @@ class PAWTextOutput:
             t()
             
         t('Using the %s Exchange-Correlation Functional.'
-          % self.hamiltonian.xcfunc.xcname)
+          % self.hamiltonian.xc.name)
         if self.wfs.nspins == 2:
             t('Spin-Polarized Calculation.')
             t('Magnetic Moment:   %.6f' % self.density.magmom_a.sum(), end='')

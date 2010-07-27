@@ -104,7 +104,7 @@ class Eigensolver:
             c_ni = (np.dot(P_ni, dH_ii) -
                     np.dot(P_ni * eps_n[:, np.newaxis], dO_ii))
 
-            if hamiltonian.xc.xcfunc.hybrid > 0.0 and hasattr(kpt, 'vxx_ani'):
+            if hamiltonian.xc.hybrid > 0.0 and hasattr(kpt, 'vxx_ani'):
                 if n is None:
                     c_ni += kpt.vxx_ani[a]
                 else:
@@ -153,7 +153,7 @@ class Eigensolver:
                        for a, dH_sp in hamiltonian.dH_asp.items()])
 
         self.timer.start('calc_matrix')
-        if hamiltonian.xc.xcfunc.hybrid == 0.0:
+        if hamiltonian.xc.hybrid == 0.0:
             H_nn = self.operator.calculate_matrix_elements(psit_nG, P_ani,
                                                            H, dH_aii)
         else:
@@ -188,7 +188,7 @@ class Eigensolver:
         self.timer.stop('rotate_psi')
 
         # Rotate EXX related stuff
-        if hamiltonian.xc.xcfunc.hybrid > 0.0:
+        if hamiltonian.xc.hybrid > 0.0:
             hamiltonian.xc.xcfunc.exx.rotate(kpt, U_nn)
 
         self.timer.stop('Subspace diag')

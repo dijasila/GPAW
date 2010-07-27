@@ -40,7 +40,7 @@ class ForceCalculator:
             for a, dF_v in dF_av.items():
                 self.F_av[a] += dF_v[0]
 
-            if hamiltonian.xc.xcfunc.mgga:
+            if hamiltonian.xc.xckernel.type == 'MGGA':
                 dF_av = hamiltonian.xc.tauct.dict(derivative=True)
                 dedtau_G = hamiltonian.xc.dedtau_G
                 hamiltonian.xc.tauct.derivative(dedtau_G, dF_av)
@@ -59,7 +59,7 @@ class ForceCalculator:
         
         # Add non-local contributions:
         for kpt in wfs.kpt_u:
-            self.F_av += hamiltonian.xcfunc.get_non_local_force(kpt)
+            pass#XXXself.F_av += hamiltonian.xcfunc.get_non_local_force(kpt)
     
         if wfs.symmetry:
             self.F_av = wfs.symmetry.symmetrize_forces(self.F_av)

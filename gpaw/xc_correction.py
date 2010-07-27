@@ -358,7 +358,7 @@ class Integrator:
 
 class BaseXCCorrection:
     def __init__(self,
-                 xc,    # radial exchange-correlation object
+                 xckernel,    # radial exchange-correlation object
                  w_jg,  # all-lectron partial waves
                  wt_jg, # pseudo partial waves
                  nc_g,  # core density
@@ -369,19 +369,19 @@ class BaseXCCorrection:
                  Exc0,  # xc energy of reference atom
                  phicorehole_g, # ?
                  fcorehole,     # ?
-                 nspins,        # Number os spins
+                 #nspins,        # Number os spins
                  tauc_g=None,   # kinetic core energy array
                  tauct_g=None,  # pseudo kinetic core energy array
                  ):
 
         self.nc_g = nc_g
         self.nct_g = nct_g
-        self.xc = xc
+        self.xckernel = xckernel
         self.Exc0 = Exc0
         self.Lmax = (lmax + 1)**2
         self.rgd = rgd
         self.dv_g = rgd.dv_g
-        self.nspins = nspins
+        #self.nspins = nspins
         self.Y_nL = Y_nL[:, :self.Lmax].copy()
         self.ng = ng = len(nc_g)
 
@@ -419,24 +419,19 @@ class BaseXCCorrection:
 
         #
         self.ncorehole_g = None
-        if nspins == 2 and fcorehole != 0.0:
-            self.ncorehole_g = fcorehole * phicorehole_g**2 / (4 * pi)
+        #if nspins == 2 and fcorehole != 0.0:
+        if 2 == 2 and fcorehole != 0.0:
+            XXXself.ncorehole_g = fcorehole * phicorehole_g**2 / (4 * pi)
 
     def calculate_energy_and_derivatives(self, D_sp, H_sp, a=None):
-        if self.xc.get_functional().is_gllb():
+        if self.xckernel.name == 'GLLB':
             # The coefficients for GLLB-functional are evaluated elsewhere
             return self.xc.xcfunc.xc.calculate_energy_and_derivatives(
                 D_sp, H_sp, a)
-        if self.xc.get_functional().mgga:
-            if self.xc.get_functional().uses_libxc:
-                return self.MGGA_libxc(D_sp, H_sp)
-            else:
-                return self.MGGA(D_sp, H_sp)
-        if self.xc.get_functional().gga:
-            if self.xc.get_functional().uses_libxc:
-                return self.GGA_libxc(D_sp, H_sp)
-            else:
-                return self.GGA(D_sp, H_sp)
+        if self.xckernel.type == 'MGGA':
+            return self.MGGA_libxc(D_sp, H_sp)
+        if self.xckernel.type == 'GGA':
+            return self.GGA_libxc(D_sp, H_sp)
         return self.LDA(D_sp, H_sp)
 
     def two_phi_integrals(self, D_sp):
@@ -589,14 +584,11 @@ class BaseXCCorrection:
 
 
 class NewXCCorrection(BaseXCCorrection):
-    def set_nspins(self, nspins):
-        self.nspins = nspins
-                
     def expand_density(self, D_sLq, n_qg, nc_g, ncorehole_g=None):
         n_sLg = np.dot(D_sLq, n_qg)
         if nc_g is not None:
-            n_sLg[:, 0] += (sqrt(4 * pi) / self.nspins) * nc_g
-        if self.nspins == 2 and ncorehole_g is not None:
+            n_sLg[:, 0] += (sqrt(4 * pi) / len(D_sLq)) * nc_g
+        if len(D_sLq) == 2 and ncorehole_g is not None:
             axpy(-sqrt(pi), ncorehole_g, n_sLg[0, 0])
             axpy(+sqrt(pi), ncorehole_g, n_sLg[1, 0])
         return DensityExpansion(n_sLg, self.Y_nL, self.rgd)
@@ -620,24 +612,18 @@ class NewXCCorrection(BaseXCCorrection):
         return self.expand_density(D_sLq, self.nt_qg, nc_g)
 
     def get_integrator(self, H_sp):
-        libxc = self.xc.get_functional().uses_libxc
+        libxc = True
         return Integrator(H_sp, self.Y_nL, self.B_pqL, self.rgd, libxc)
 
     def calculate_potential_slice(self, e_g, n_sg, vxc_sg, grad=None):
-        xcfunc = self.xc.get_functional()
         vxc_sg[:] = 0.0
         if grad is None:
-            if self.nspins == 1:
-                xcfunc.calculate_spinpaired(e_g, n_sg[0], vxc_sg[0])
-            else:
-                xcfunc.calculate_spinpolarized(e_g,
-                                               n_sg[0], vxc_sg[0],
-                                               n_sg[1], vxc_sg[1])
+            self.xckernel.calculate(e_g, n_sg, vxc_sg)
         else:
-            if self.nspins == 1:
-                xcfunc.calculate_spinpaired(e_g, n_sg[0], vxc_sg[0],
-                                            grad.square_norm_gradient(),
-                                            grad.energy_gradient())
+            if len(n_sg) == 1:
+                self.xckernel.calculate(e_g, n_sg, vxc_sg,
+                                        grad.square_norm_gradient(),
+                                        grad.energy_gradient())
             else:
                 xcfunc.calculate_spinpolarized(e_g,
                                                n_sg[0], vxc_sg[0],
@@ -651,7 +637,7 @@ class NewXCCorrection(BaseXCCorrection):
 
     def LDA(self, D_sp, H_sp):
         H_sp[:] = 0.0
-        vxc_sg = np.zeros((self.nspins, self.ng))
+        vxc_sg = np.zeros((len(D_sp), self.ng))
         e_g = np.zeros((self.ng,))
         Etot = 0.0
         
@@ -674,7 +660,7 @@ class NewXCCorrection(BaseXCCorrection):
 
     def GGA(self, D_sp, H_sp):
         H_sp[:] = 0.0
-        vxc_sg = np.zeros((self.nspins, self.ng))
+        vxc_sg = np.zeros((len(D_sp), self.ng))
         e_g = np.zeros((self.ng,))
         Etot = 0
 
