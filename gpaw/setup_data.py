@@ -14,7 +14,7 @@ from gpaw import setup_paths
 from gpaw.spline import Spline
 from gpaw.utilities import _fact, divrl
 from gpaw.utilities.tools import md5_new
-from gpaw.xc_correction import NewXCCorrection as XCCorrection
+from gpaw.xc.pawcorrection import PAWXCCorrection
 from gpaw.mpi import broadcast_string
 
 try:
@@ -206,8 +206,8 @@ class SetupData:
         if phicorehole_g is not None:
             phicorehole_g = phicorehole_g[:gcut2].copy()
 
-        xc_correction = XCCorrection(
-            xc.xckernel,
+        xc_correction = PAWXCCorrection(
+            xc,
             [divrl(phi_g[:gcut2].copy(), l, rgd.r_g)
              for l, phi_g in zip(self.l_j, self.phi_jg)],
             [divrl(phit_g[:gcut2].copy(), l, rgd.r_g)

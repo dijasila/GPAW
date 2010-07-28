@@ -293,7 +293,7 @@ class Hamiltonian:
             self.dH_asp[a] = dH_sp = np.zeros_like(D_sp)
             self.timer.start('XC Correction')
             Exc += setup.xc_correction.calculate_energy_and_derivatives(
-                D_sp, dH_sp, a)
+                D_sp, dH_sp)
             self.timer.stop('XC Correction')
 
             if setup.HubU is not None:

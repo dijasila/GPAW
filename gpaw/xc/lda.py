@@ -1,3 +1,6 @@
+import numpy as np
+
+
 class LDA:
     hybrid = 0.0
     def __init__(self, xckernel):
@@ -18,17 +21,15 @@ class LDA:
             e_g = gd.empty()
         if v_sg is None:
             v_sg = np.zeros_like(n_sg)
-        self._calculate(e_g, n_sg, v_sg)
+        self.calculate_lda(e_g, n_sg, v_sg)
         return gd.integrate(e_g)
 
-    def _calculate(self, e_g, n_sg, v_sg):
+    def calculate_lda(self, e_g, n_sg, v_sg):
         self.xckernel.calculate(e_g, n_sg, v_sg)
 
-    def calculate_radial(self, rgd, n_sg, v_sg=None, e_g=None):
-        if e_g is None:
-            e_g = rgd.empty()
-        if v_sg is None:
-            v_sg = np.zeros_like(n_sg)
+    def calculate_radial(self, rgd, n_sLg, Y_L, v_sg):
+        e_g = rgd.empty()
+        n_sg = np.dot(Y_L, n_sLg)
         self.xckernel.calculate(e_g, n_sg, v_sg)
         return rgd.integrate(e_g)
 

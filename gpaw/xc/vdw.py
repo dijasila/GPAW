@@ -81,17 +81,29 @@ def hRPS(x, xc=1.0):
 Zab = -0.8491
 
 
-class VDWFunctional:
+class VDWSemiLocalXC:
+    type = 'GGA'
+    def __init__(self):
+
+    def calculate(self, e_g, n_sg, dedn_sg, sigma_xg=None, dedsigma_xg=None):
+        self.revPBEx.calculate(e_g, n_sg, dedn_sg)
+        nspins = len(n_sg)
+        if nspins == 1:
+            self.eLDAc_g = np.empty_like(e_g)
+            self.vLDAc_sg = np.zeros_like(n_sg)
+            self.LDAc.calculate(self.eLDAc_g, n_sg, self.vLDAc_gdedn_sg)
+        e_g += self.eLDAc_g
+
+
+class VDWFunctional(GGA):
     """Base class for vdW-DF."""
-    def __init__(self, nspins=1, world=None, q0cut=5.0,
+    def __init__(self, world=None, q0cut=5.0,
                  phi0=0.5, ds=1.0, Dmax=20.0, nD=201, ndelta=21,
                  soft_correction=False, verbose=False):
         """vdW-DF.
 
         parameters:
 
-        nspins: int
-            Number of spins.
         world: MPI communicator
             Communicator to parallelize over.  Defaults to gpaw.mpi.world.
         q0cut: float
@@ -112,8 +124,6 @@ class VDWFunctional:
             Print useful information.
         """
 
-        self.nspins = nspins
-        
         if world is None:
             self.world = mpi.world
         else:
@@ -128,12 +138,6 @@ class VDWFunctional:
 
         self.verbose = verbose
         
-        self.revPBEx = XCFunctional('revPBEx', nspins)
-        self.LDAc = XCFunctional('None-C_PW', nspins)
-
-        if nspins == 2:
-            self.LDAc_spinpaired = XCFunctional('None-C_PW', nspins=1)
-
         self.read_table()
 
         self.soft_correction = soft_correction
@@ -141,48 +145,21 @@ class VDWFunctional:
             dD = self.D_j[1]
             self.C_soft = np.dot(self.D_j**2, self.phi_ij[0]) * 4 * pi * dD
             
-        self.gga = True
-        self.mgga = not True
-        self.orbital_dependent = False
-        self.hybrid = 0.0
-        self.uses_libxc = self.revPBEx.uses_libxc
-        self.gllb = False
-        self.xcname = 'vdw-DF'
-
         self.gd = None
         self.energy_only = False
         self.timer = nulltimer
+
+        GGA.__init__(self, LibXC('GGA_X_PBE_R,LDA_C_PW'))
+        self.LDAc = LibXC('LDA_C_PW')
         
     def set_grid_descriptor(self, gd):
         self.gd = gd
 
-    def set_non_local_things(self, density, hamiltonian, wfs, atoms,
-                             energy_only=False):
+    def initialize(self, density, hamiltonian, wfs, energy_only=False):
         self.set_grid_descriptor(density.finegd)
         self.energy_only = energy_only
         self.timer = wfs.timer
-        
-    def is_gllb(self):
-        return False
 
-    def get_name(self):
-        return 'vdW-DF'
-
-    def get_setup_name(self):
-        return 'revPBE'
-
-    def apply_non_local(self, kpt):
-        pass
-
-    def get_non_local_kinetic_corrections(self):
-        return 0.0
-
-    def adjust_non_local_residual(self, pR_G, dR_G, kpt, n):
-        pass
-
-    def get_non_local_force(self, kpt):
-        return 0.0
-    
     def get_non_local_energy(self, n_g=None, a2_g=None, e_LDAc_g=None,
                              v_LDAc_g=None, v_g=None, deda2_g=None):
         """Calculate non-local correlation energy.
@@ -197,29 +174,10 @@ class VDWFunctional:
             LDA correlation energy density.
         """
         
-        if n_g is None:
-            return 0.0
-        
         gd = self.gd
         
-        if a2_g is None:
-            # Calculate square of gradient:
-            a2_g = np.zeros_like(n_g)
-            dndx_g = np.zeros_like(n_g)
-            for c in range(3):
-                Gradient(gd, c).apply(n_g, dndx_g)
-                a2_g += dndx_g**2
-
         n_g = n_g.clip(1e-7, np.inf)
         
-        if e_LDAc_g is None:
-            # Calculate LDA correlation energy density:
-            e_LDAc_g = np.empty_like(n_g)
-            v_g = np.empty_like(n_g)
-            self.LDAc.calculate_spinpaired(e_LDAc_g, n_g, v_g)
-        else:
-            e_LDAc_g.shape = n_g.shape
-
         # Calculate q0 and cut it off smoothly at q0cut:
         kF_g = (3 * pi**2 * n_g)**(1.0 / 3.0)
         q0_g, dhdx_g = hRPS(kF_g -
@@ -246,24 +204,34 @@ class VDWFunctional:
                                           v_g, deda2_g)
         return Ecnl + dEcnl
     
-    def calculate_spinpaired(self, e_g, n_g, v_g, a2_g, deda2_g):
-        """Calculate energy and potential."""
-        # LDA correlation:
-        e_LDAc_g = np.empty_like(e_g)
-        v_LDAc_g = np.zeros_like(v_g)
-        self.LDAc.calculate_spinpaired(e_LDAc_g, n_g, v_LDAc_g)
-        v_g += v_LDAc_g
+    def calculate_gga(self, e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg):
+        GGA.calculate_gga(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
 
-        # revPBE exchange:
-        self.revPBEx.calculate_spinpaired(e_g, n_g, v_g, a2_g, deda2_g)
-        e_g += e_LDAc_g
-        if n_g.ndim == 3:
-            # Non-local part:
-            e = self.get_non_local_energy(n_g, a2_g, e_LDAc_g, v_LDAc_g,
-                                          v_g, deda2_g)
-            if self.gd.comm.rank == 0:
-                assert e_g.ndim == 1
-                e_g[0] += e / self.gd.dv
+        eLDAc_g = np.empty_like(e_g)
+        vLDAc_g = np.zeros_like(va_g)
+
+        if len(n_sg) == 1:
+            self.LDAc.calculate(eLDAc_g, n_sg, vLDAc_g[np.newaxis, ...])
+            e = self.get_non_local_energy(n_sg[0], sigma_xg[0],
+                                          eLDAc_g,
+                                          vLDAc_g,
+                                          dedn_sg[0], dedsigma_xg[0])
+        else:
+            n_g = n_sg.sum(0)
+            self.LDAc.calculate(eLDAc_g, n_sg[np.newaxis, ...],
+                                vLDAc_g[np.newaxis, ...])
+            v_g = np.zeros_like(e_g)
+            deda2nl_g = np.zeros_like(e_g)
+            e = self.get_non_local_energy(n_g, a2_g, eLDAc_g,
+                                          v_LDAc_g,
+                                          v_g, deda2nl_g) 
+            deda2_g += deda2nl_g * 2
+            dedaa2_g += deda2nl_g
+            dedab2_g += deda2nl_g
+            dedn_sg += v_g 
+
+        if self.gd.comm.rank == 0:
+            e_g[0, 0, 0] += e / self.gd.dv
 
     def calculate_spinpolarized(self, e_g, na_g, va_g, nb_g, vb_g,
                                 a2_g, aa2_g, ab2_g,
@@ -489,8 +457,7 @@ class RealSpaceVDWFunctional(VDWFunctional):
 
 class FFTVDWFunctional(VDWFunctional):
     """FFT implementation of vdW-DF."""
-    def __init__(self, nspins=1,
-                 Nalpha=20, lambd=1.2, rcut=125.0, Nr=2048, size=None,
+    def __init__(self, Nalpha=20, lambd=1.2, rcut=125.0, Nr=2048, size=None,
                  **kwargs):
         """FFT vdW-DF.
 
@@ -507,7 +474,7 @@ class FFTVDWFunctional(VDWFunctional):
         size: 3-tuple
             Size of FFT-grid.
         """
-        VDWFunctional.__init__(self, nspins, **kwargs)
+        VDWFunctional.__init__(self, **kwargs)
         self.Nalpha = Nalpha
         self.lambd = lambd
         self.rcut = rcut

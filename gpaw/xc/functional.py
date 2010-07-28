@@ -10,8 +10,12 @@ class XCNull:
         e_g[:] = 0.0
 
 
-def xc(xckernel):
+def XC(xckernel):
     if isinstance(xckernel, str):
+        name = xckernel
+        if name == 'vdW-DF':
+            from gpaw.xc.vdw import FFTVDWFunctional
+            return FFTVDWFunctional()
         xckernel = LibXC(xckernel)
     if xckernel.type == 'LDA':
         return LDA(xckernel)

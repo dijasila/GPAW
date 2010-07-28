@@ -3,7 +3,8 @@ from gpaw import debug
 
 short_names = {
     'LDA': 'LDA_X,LDA_C_PW',
-    'PBE': 'GGA_X_PBE,GGA_C_PBE'}
+    'PBE': 'GGA_X_PBE,GGA_C_PBE',
+    'revPBE': 'GGA_X_PBE_R,GGA_C_PBE'}
 
 
 class LibXC:
@@ -17,9 +18,16 @@ class LibXC:
         self.nspins = nspins
         name = short_names.get(self.name, self.name)
         if name in libxc_functionals:
-            xc = libxc_functionals[name]
+            f = libxc_functionals[name]
+            xc = -1
             x = -1
             c = -1
+            if '_XC_' in name:
+                xc = f
+            if '_C_' in name:
+                c = f
+            else:
+                x = f
         else:
             x, c = name.split(',')
             xc = -1

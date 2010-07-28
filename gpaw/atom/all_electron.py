@@ -16,9 +16,9 @@ from ase.data import atomic_names
 
 from gpaw.atom.configurations import configurations
 from gpaw.grid_descriptor import RadialGridDescriptor
-from gpaw.xc_functional import XCRadialGrid, XCFunctional
+from gpaw.xc.functional import XC
 from gpaw.utilities import hartree, devnull
-from gpaw.exx import atomic_exact_exchange
+from gpaw.xc.exx import atomic_exact_exchange
 from gpaw import ConvergenceError
 
 tempdir = tempfile.gettempdir()

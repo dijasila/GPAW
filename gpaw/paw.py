@@ -23,7 +23,7 @@ from gpaw.grid_descriptor import GridDescriptor
 from gpaw.blacs import get_kohn_sham_layouts
 from gpaw.hamiltonian import Hamiltonian
 from gpaw.utilities.timing import Timer
-from gpaw.xc.functional import xc as xcfunctional
+from gpaw.xc.functional import XC
 from gpaw.brillouin import reduce_kpoints
 from gpaw.wavefunctions.base import EmptyWaveFunctions
 from gpaw.wavefunctions.fd import FDWaveFunctions
@@ -379,7 +379,7 @@ class PAW(PAWTextOutput):
                 dtype = complex
 
         if isinstance(par.xc, str):
-            xc = xcfunctional(par.xc)
+            xc = XC(par.xc)
         else:
             xc = par.xc
 

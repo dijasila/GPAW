@@ -9,7 +9,7 @@ import numpy as np
 from ase.units import Bohr, Hartree
 
 from gpaw.paw import PAW
-from gpaw.xc_functional import XCFunctional
+
 
 class GPAW(PAW):
     """This is the ASE-calculator frontend for doing a PAW calculation.
@@ -105,7 +105,7 @@ class GPAW(PAW):
         
         'LDA', 'PBE', ..."""
         
-        return self.hamiltonian.xc.xcfunc.xcname
+        return self.hamiltonian.xc.xcname
  
     def get_bz_k_points(self):
         """Return the k-points."""
