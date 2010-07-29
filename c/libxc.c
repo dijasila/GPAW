@@ -779,9 +779,9 @@ lxcXCFunctional_CalculateSpinPolarized(lxcXCFunctionalObject *self, PyObject *ar
         ((self->x_functional.family == XC_FAMILY_HYB_GGA) ||
          (self->c_functional.family == XC_FAMILY_HYB_GGA)))
       {
-        sigma0 = aa2_g[g];
-        sigma2 = ab2_g[g];
-        sigma1 = (a2_g[g] - (sigma0 + sigma2))/2.0;
+        sigma0 = a2_g[g];
+        sigma2 = aa2_g[g];
+        sigma1 = ab2_g[g];
       }
     double nb = nb_g[g];
     if (nb < NMIN)
@@ -789,12 +789,9 @@ lxcXCFunctional_CalculateSpinPolarized(lxcXCFunctionalObject *self, PyObject *ar
     if ((self->x_functional.family == XC_FAMILY_MGGA) ||
         (self->c_functional.family == XC_FAMILY_MGGA))
       {
-        double aa2 = aa2_g[g];
-        double ab2 = ab2_g[g];
-        double a2 = a2_g[g];
-        sigma0 = aa2;
-        sigma2 = ab2;
-        sigma1 = (a2 - (sigma0 + sigma2))/2.0;
+        sigma0 = a2_g[g];
+        sigma2 = aa2_g[g];
+        sigma1 = ab2_g[g];
         taua = taua_g[g];
         taub = taub_g[g];
       }
@@ -880,16 +877,16 @@ lxcXCFunctional_CalculateSpinPolarized(lxcXCFunctionalObject *self, PyObject *ar
         ((self->x_functional.family == XC_FAMILY_HYB_GGA) ||
          (self->c_functional.family == XC_FAMILY_HYB_GGA)))
       {
-        dEdaa2_g[g] = dExdsigma0 + dEcdsigma0;
+        dEdaa2_g[g] = dExdsigma1 + dEcdsigma1;
         dEdab2_g[g] = dExdsigma2 + dEcdsigma2;
-        dEda2_g[g] = dExdsigma1 + dEcdsigma1;
+        dEda2_g[g] = dExdsigma0 + dEcdsigma0;
       }
     if ((self->x_functional.family == XC_FAMILY_MGGA) ||
         (self->c_functional.family == XC_FAMILY_MGGA))
       {
-        dEdaa2_g[g] = dExdsigma0 + dEcdsigma0;
+        dEdaa2_g[g] = dExdsigma1 + dEcdsigma1;
         dEdab2_g[g] = dExdsigma2 + dEcdsigma2;
-        dEda2_g[g] = dExdsigma1 + dEcdsigma1;
+        dEda2_g[g] = dExdsigma0 + dEcdsigma0;
         dEdtaua_g[g] = dExdtaua + dEcdtaua;
         dEdtaub_g[g] = dExdtaub + dEcdtaub;
       }

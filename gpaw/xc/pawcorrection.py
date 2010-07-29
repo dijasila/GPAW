@@ -8,7 +8,7 @@ import numpy as np
 from gpaw.utilities.blas import axpy, gemm, gemv, gemmdot
 from gpaw import extra_parameters
 from gpaw.gaunt import gaunt
-from gpaw.spherical_harmonics import nablaYL
+from gpaw.spherical_harmonics import nablarlYL
 
 # load points and weights for the angular integration
 from gpaw.sphere.lebedev import Y_nL, R_nv, weight_n
@@ -32,11 +32,11 @@ from gpaw.sphere.lebedev import Y_nL, R_nv, weight_n
 
 """
 # A_nvL is defined as above, n is an expansion point index (50 Lebedev points).
-A_nvL = np.empty((len(R_nv), 3, 25))
-for A_vL, Y_L, R_v in zip(A_nvL, Y_nL, R_nv):
-    for L, Y in enumerate(Y_L):
-        l = int(sqrt(L))
-        A_vL[:, L] = nablaYL(L, R_v)  - l * R_v * Y
+rnablaY_nLv = np.empty((len(R_nv), 25, 3))
+for rnablaY_Lv, Y_L, R_v in zip(rnablaY_nLv, Y_nL, R_nv):
+    for l in range(5):
+        for L in range(l**2, (l + 1)**2):
+            rnablaY_Lv[L] = nablarlYL(L, R_v)  - l * R_v * Y_L[L]
 
 
 class PAWXCCorrection:
@@ -66,6 +66,7 @@ class PAWXCCorrection:
         self.dv_g = rgd.dv_g
         #self.nspins = nspins
         self.Y_nL = Y_nL[:, :self.Lmax]
+        self.rnablaY_nLv = rnablaY_nLv[:, :self.Lmax]
         self.ng = ng = len(nc_g)
 
         jlL = [(j, l, l**2 + m) for j, l in jl for m in range(2 * l + 1)]
@@ -95,9 +96,9 @@ class PAWXCCorrection:
         q = 0
         for j1, l1 in jl:
             for j2, l2 in jl[j1:]:
-                rl1l2 = rgd.r_g**(l1 + l2)
-                self.n_qg[q] = rl1l2 * w_jg[j1] * w_jg[j2]
-                self.nt_qg[q] = rl1l2 * wt_jg[j1] * wt_jg[j2]
+                #rl1l2 = rgd.r_g**(l1 + l2)
+                self.n_qg[q] = w_jg[j1] * w_jg[j2]
+                self.nt_qg[q] = wt_jg[j1] * wt_jg[j2]
                 q += 1
 
         #
@@ -106,7 +107,7 @@ class PAWXCCorrection:
         if 2 == 2 and fcorehole != 0.0:
             XXXself.ncorehole_g = fcorehole * phicorehole_g**2 / (4 * pi)
 
-    def calculate_energy_and_derivatives(self, D_sp, dH_sp):
+    def calculate(self, D_sp, dH_sp):
         if self.xc.name == 'GLLB':
             # The coefficients for GLLB-functional are evaluated elsewhere
             return self.xc.xcfunc.xc.calculate_energy_and_derivatives(
@@ -116,15 +117,47 @@ class PAWXCCorrection:
         e = 0.0
         D_sLq = np.inner(D_sp, self.B_Lqp)
         v_sg = self.rgd.empty(nspins)
+        type = self.xc.xckernel.type
+        xc = self.xc.calculate_radial
         sign = 1
-        for n_qg, nc_g in [(self.n_qg, self.nc_g), (self.nt_qg, self.nct_g)]:
-            n_sLg = np.dot(D_sLq, n_qg)
-            n_sLg[:, 0] += sqrt(4 * pi) * nc_g
-            for weight, Y_L in zip(weight_n, self.Y_nL):
-                w = sign * weight
-                v_sg[:] = 0.0
-                e += self.xc.calculate_radial(self.rgd, n_sLg, Y_L, v_sg) * w
-                dH_sq = w * np.inner(v_sg * self.dv_g, n_qg)
-                dH_sp += np.inner(dH_sq, np.dot(self.B_pqL, Y_L))
-            sign = -1
+        if type == 'LDA':
+            for n_qg, nc_g in [(self.n_qg, self.nc_g),
+                               (self.nt_qg, self.nct_g)]:
+                n_sLg = np.dot(D_sLq, n_qg)
+                n_sLg[:, 0] += sqrt(4 * pi) / nspins * nc_g
+                for n, Y_L in enumerate(self.Y_nL):
+                    w = sign * weight_n[n]
+                    v_sg[:] = 0.0
+                    e += w * xc(self.rgd, n_sLg, Y_L, v_sg)
+                    dH_sq = w * np.inner(v_sg * self.dv_g, n_qg)
+                    dH_sp += np.inner(dH_sq, np.dot(self.B_pqL, Y_L))
+                sign = -1
+
+        elif type == 'GGA':
+            for n_qg, nc_g in [(self.n_qg, self.nc_g),
+                               (self.nt_qg, self.nct_g)]:
+                n_sLg = np.dot(D_sLq, n_qg)
+                n_sLg[:, 0] += sqrt(4 * pi) / nspins * nc_g
+                dndr_sLg = np.empty_like(n_sLg)
+                for s in range(nspins):
+                    for n_g, dndr_g in zip(n_sLg[s], dndr_sLg[s]):
+                        self.rgd.derivative(n_g, dndr_g)
+                for n, Y_L in enumerate(self.Y_nL):
+                    w = sign * weight_n[n]
+                    v_sg[:] = 0.0
+                    rnablaY_Lv = self.rnablaY_nLv[n]
+                    en, rd_vsg, dedsigma_xg = xc(self.rgd, n_sLg, Y_L, v_sg,
+                                                 dndr_sLg, rnablaY_Lv)
+                    e += w * en
+                    dH_sp[0] += 8 * pi * w * (
+                        np.inner(n_qg,
+                                 rd_vsg * dedsigma_xg[0] *
+                                 self.rgd.dr_g)[:, :, 0] *
+                        np.dot(self.B_pqL, rnablaY_Lv)).sum(2).sum(1)
+                    dH_sq = w * np.inner(v_sg * self.dv_g, n_qg)
+                    dH_sp += np.inner(dH_sq, np.dot(self.B_pqL, Y_L))
+                sign = -1
+        else:
+            dgf
+            
         return e - self.Exc0

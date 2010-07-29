@@ -33,6 +33,9 @@ class LDA:
         self.xckernel.calculate(e_g, n_sg, v_sg)
         return rgd.integrate(e_g)
 
+    def calculate_spherical(self, rgd, n_sg, v_sg):
+        return self.calculate_radial(rgd, n_sg[:, np.newaxis], [1.0], v_sg)
+        
     def add_non_local_terms(self, psit_xG, Htpsit_xG, kpt):
         pass
 

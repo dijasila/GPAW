@@ -208,12 +208,10 @@ class SetupData:
 
         xc_correction = PAWXCCorrection(
             xc,
-            [divrl(phi_g[:gcut2].copy(), l, rgd.r_g)
-             for l, phi_g in zip(self.l_j, self.phi_jg)],
-            [divrl(phit_g[:gcut2].copy(), l, rgd.r_g)
-             for l, phit_g in zip(self.l_j, self.phit_jg)],
-            self.nc_g[:gcut2].copy() / sqrt(4 * pi),
-            self.nct_g[:gcut2].copy() / sqrt(4 * pi),
+            [phi_g[:gcut2] for phi_g in self.phi_jg],
+            [phit_g[:gcut2] for phit_g in self.phit_jg],
+            self.nc_g[:gcut2] / sqrt(4 * pi),
+            self.nct_g[:gcut2] / sqrt(4 * pi),
             rgd,
             list(enumerate(self.l_j)),
             min(2 * lcut, 4),
