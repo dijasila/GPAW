@@ -4,8 +4,8 @@ from gpaw import debug
 short_names = {
     'LDA': 'LDA_X,LDA_C_PW',
     'PBE': 'GGA_X_PBE,GGA_C_PBE',
-    'revPBE': 'GGA_X_PBE_R,GGA_C_PBE'}
-
+    'revPBE': 'GGA_X_PBE_R,GGA_C_PBE',
+    'TPSS': 'MGGA_X_TPSS,MGGA_C_TPSS'}
 
 class LibXC:
     def __init__(self, name, hybrid=0.0):

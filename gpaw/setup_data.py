@@ -207,7 +207,6 @@ class SetupData:
             phicorehole_g = phicorehole_g[:gcut2].copy()
 
         xc_correction = PAWXCCorrection(
-            xc,
             [phi_g[:gcut2] for phi_g in self.phi_jg],
             [phit_g[:gcut2] for phit_g in self.phit_jg],
             self.nc_g[:gcut2] / sqrt(4 * pi),
@@ -218,7 +217,10 @@ class SetupData:
             self.e_xc,
             phicorehole_g,
             self.fcorehole,
-            self.tauc_g[:gcut2].copy())
+            xc.xckernel.type,
+            self.tauc_g[:gcut2].copy(),
+            self.tauct_g[:gcut2].copy())
+
         return xc_correction
 
     def write_xml(self):

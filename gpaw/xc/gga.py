@@ -37,7 +37,8 @@ class GGA(LDA):
         self.xckernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
         
     def calculate_radial(self, rgd, n_sLg, Y_L, v_sg,
-                         dndr_sLg, rnablaY_Lv):
+                         dndr_sLg, rnablaY_Lv,
+                         tau_sg=None, dedtau_sg=None):  # used by MGGA subclass
         nspins = len(n_sLg)
         e_g = rgd.empty()
         n_sg = np.dot(Y_L, n_sLg)
@@ -53,7 +54,8 @@ class GGA(LDA):
         if nspins == 2:
             sigma_xg[1] += d_sg[0] * d_sg[1]
         dedsigma_xg = rgd.zeros(2 * nspins - 1)
-        self.xckernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
+        self.xckernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg,
+                                tau_sg, dedtau_sg)
         vv_sg = sigma_xg[:nspins]  # reuse array
         for s in range(nspins):
             rgd.derivative2(-2 * rgd.dv_g * dedsigma_xg[2 * s] * d_sg[s],

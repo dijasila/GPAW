@@ -354,7 +354,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
                 w.fill(vt_sG, s)
 
     # Write GLLB-releated stuff
-    if hamiltonian.xc.type == 'GLLB':
+    if hamiltonian.xc.name == 'GLLB':
         hamiltonian.xcfunc.xc.write(w)
 
     if mode == 'all':

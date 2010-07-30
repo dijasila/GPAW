@@ -5,15 +5,14 @@ from gpaw.setup import create_setup
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.localized_functions import create_localized_functions
 from gpaw.spline import Spline
-from gpaw.xc_functional import XCFunctional, XC3DGrid
+from gpaw.xc.functional import XC
 from gpaw.utilities import pack
 from gpaw.mpi import serial_comm
 
 ra.seed(8)
-nspins = 1
 for name in ['LDA', 'PBE']:
-    xcfunc = XCFunctional(name, nspins)
-    s = create_setup('N', xcfunc)
+    xc = XC(name)
+    s = create_setup('N', xc)
     ni = s.ni
     niAO = s.niAO
     wt0_j = s.phit_j
@@ -60,19 +59,18 @@ for name in ['LDA', 'PBE']:
 
     p = create_localized_functions([s.nct], gd, (0.5, 0.5, 0.5))
     p.add(n_g, np.ones(1))
-    xc = XC3DGrid(xcfunc, gd, nspins=1)
-    xc.allocate()
-    xc.get_energy_and_potential(n_g, v_g)
+    e_g = gd.zeros()
+    xc.calculate(gd, n_g[None], v_g[None], e_g)
 
     r2_g = np.sum((np.indices((n, n, n)) - n / 2)**2, axis=0)
     dv_g = gd.dv * np.less(r2_g, (rcut / a * n)**2)
 
-    E2 = -np.dot(xc.e_g.ravel(), dv_g.ravel())
+    E2 = -np.dot(e_g.ravel(), dv_g.ravel())
 
     s.xc_correction.n_qg[:] = 0.0
     s.xc_correction.nc_g[:] = 0.0
-    E1 = (s.xc_correction.calculate_energy_and_derivatives(D_p.reshape(1, -1),
-                                                           H_p.reshape(1, -1))
+    E1 = (s.xc_correction.calculate(D_p.reshape(1, -1),
+                                    H_p.reshape(1, -1))
           + s.xc_correction.Exc0)
 
     print name, E1, E2, E1 - E2

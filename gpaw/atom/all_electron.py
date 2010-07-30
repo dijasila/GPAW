@@ -175,11 +175,10 @@ class AllElectron:
         self.n = np.zeros(N)
 
         # Always spinpaired nspins=1
-        self.xcfunc = XCFunctional(self.xcname, 1)
-        self.xc = XCRadialGrid(self.xcfunc, self.rgd)
+        self.xc = XC(self.xcname)
 
         # Initialize for non-local functionals
-        if self.xc.is_non_local():
+        if self.xc.name == 'GLLB':
             self.xcfunc.xc.pass_stuff_1d(self)
             self.xcfunc.xc.initialize_1d()
             
@@ -198,7 +197,7 @@ class AllElectron:
         self.vXC = np.zeros(self.N)
 
         restartfile = '%s/%s.restart' % (tempdir, self.symbol)
-        if self.xc.is_non_local() or not use_restart_file:
+        if self.xc.name == 'GLLB' or not use_restart_file:
             # Do not start from initial guess when doing
             # non local XC!
             # This is because we need wavefunctions as well
@@ -240,14 +239,12 @@ class AllElectron:
             # calculated exchange correlation potential and energy
             self.vXC[:] = 0.0
 
-            if self.xc.is_non_local():
+            if self.xc.name == 'GLLB':
                 # Update the potential to self.vXC an the energy to self.Exc
                 Exc = self.xcfunc.xc.get_xc_potential_and_energy_1d(self.vXC)
             else:
-                tau = None
-                if self.xc.xcfunc.mgga:
-                    tau = self.calculate_kinetic_energy_density()
-                Exc = self.xc.get_energy_and_potential(n, self.vXC)
+                Exc = self.xc.calculate_spherical(self.rgd, n[np.newaxis],
+                                                  self.vXC[np.newaxis])
 
             # calculate new total Kohn-Sham effective potential and
             # admix with old version

@@ -14,7 +14,7 @@ from gpaw.version import version
 from gpaw.atom.all_electron import AllElectron, shoot
 from gpaw.utilities.lapack import general_diagonalize
 from gpaw.utilities import hartree
-from gpaw.exx import constructX, atomic_exact_exchange
+from gpaw.xc.exx import constructX, atomic_exact_exchange
 from gpaw.atom.filter import Filter
 
 
