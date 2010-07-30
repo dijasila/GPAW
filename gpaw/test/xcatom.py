@@ -26,11 +26,12 @@ for xc in ['LDA', 'PBE']:
     D_p -= 2 * dD_p
     Em = s.xc_correction.calculate(D_p.reshape(1, -1),
                                                           H_p.reshape(1, -1))
-    print dE - 0.5 * (Ep - Em) / x
+    print dE, dE - 0.5 * (Ep - Em) / x
     equal(dE, 0.5 * (Ep - Em) / x, 1e-6)
 
     Ems = s.xc_correction.calculate(np.array(
         [0.5 * D_p, 0.5 * D_p]), np.array([H_p, H_p]))
+    print Em - Ems
     equal(Em, Ems, 1.0e-12)
 
     D_sp = 0.1 * ra.random((2, nii)) + 0.2
@@ -43,4 +44,5 @@ for xc in ['LDA', 'PBE']:
     Ep = s.xc_correction.calculate(D_sp, H_sp)
     D_sp -= 2 * dD_sp
     Em = s.xc_correction.calculate(D_sp, H_sp)
+    print dE, dE - 0.5 * (Ep - Em) / x
     equal(dE, 0.5 * (Ep - Em) / x, 1e-9)

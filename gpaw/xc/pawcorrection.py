@@ -149,13 +149,15 @@ class PAWXCCorrection:
                     en, rd_vsg, dedsigma_xg = xc(self.rgd, n_sLg, Y_L, v_sg,
                                                  dndr_sLg, rnablaY_Lv)
                     e += w * en
-                    dH_sp[0] += 8 * pi * w * (
-                        np.inner(n_qg,
-                                 rd_vsg * dedsigma_xg[0] *
-                                 self.rgd.dr_g)[:, :, 0] *
-                        np.dot(self.B_pqL, rnablaY_Lv)).sum(2).sum(1)
                     dH_sq = w * np.inner(v_sg * self.dv_g, n_qg)
                     dH_sp += np.inner(dH_sq, np.dot(self.B_pqL, Y_L))
+                    B_pqv = np.dot(self.B_pqL, 8 * pi * w * rnablaY_Lv)
+                    v_vsg = dedsigma_xg[::2] * rd_vsg
+                    if nspins == 2:
+                        v_vsg += 0.5 * dedsigma_xg[1] * rd_vsg[:, ::-1]
+                    v_qvs = np.inner(n_qg, v_vsg * self.rgd.dr_g)
+                    dH_sp += np.dot(B_pqv.reshape((len(B_pqv), -1)),
+                                    v_qvs.reshape((-1, nspins))).T
                 sign = -1
         else:
             dgf

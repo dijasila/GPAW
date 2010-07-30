@@ -11,7 +11,7 @@ import ase.units as units
 from ase.utils import devnull
 
 from gpaw.atom.configurations import configurations
-from gpaw.xc_functional import XCFunctional
+from gpaw.xc.functional import XC
 from gpaw.utilities.progressbar import ProgressBar
 
 # Velocity of light in atomic units:

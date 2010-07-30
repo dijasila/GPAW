@@ -780,8 +780,8 @@ lxcXCFunctional_CalculateSpinPolarized(lxcXCFunctionalObject *self, PyObject *ar
          (self->c_functional.family == XC_FAMILY_HYB_GGA)))
       {
         sigma0 = a2_g[g];
-        sigma2 = aa2_g[g];
-        sigma1 = ab2_g[g];
+        sigma1 = aa2_g[g];
+        sigma2 = ab2_g[g];
       }
     double nb = nb_g[g];
     if (nb < NMIN)
@@ -790,8 +790,8 @@ lxcXCFunctional_CalculateSpinPolarized(lxcXCFunctionalObject *self, PyObject *ar
         (self->c_functional.family == XC_FAMILY_MGGA))
       {
         sigma0 = a2_g[g];
-        sigma2 = aa2_g[g];
-        sigma1 = ab2_g[g];
+        sigma1 = aa2_g[g];
+        sigma2 = ab2_g[g];
         taua = taua_g[g];
         taub = taub_g[g];
       }
