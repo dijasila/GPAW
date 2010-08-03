@@ -87,9 +87,12 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
             from cmr_io import create_db_filename
             filename = create_db_filename()
 
+    par_kwargs = {}
+    if hdf5:
+        par_kwargs.update({'parallel': True, 'write': master})
+
     timer.start('Meta data')
     if master or hdf5:
-
         w = open(filename, 'w', world)
         
         w['history'] = 'GPAW restart file'
@@ -108,26 +111,25 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         w.dimension('3', 3)
 
         w.add('AtomicNumbers', ('natoms',),
-              atoms.get_atomic_numbers(), units=(0, 0))
+              atoms.get_atomic_numbers(), **par_kwargs)
         w.add('CartesianPositions', ('natoms', '3'),
-              atoms.get_positions() / Bohr, units=(1, 0))
-        w.add('MagneticMoments', ('natoms',), magmom_a, units=(0, 0))
-        w.add('Tags', ('natoms',), tag_a, units=(0, 0))
-        w.add('BoundaryConditions', ('3',), atoms.get_pbc(), units=(0, 0))
-        w.add('UnitCell', ('3', '3'), atoms.get_cell() / Bohr, units=(1, 0))
-
+              atoms.get_positions() / Bohr, **par_kwargs)
+        w.add('MagneticMoments', ('natoms',), magmom_a, **par_kwargs)
+        w.add('Tags', ('natoms',), tag_a, **par_kwargs)
+        w.add('BoundaryConditions', ('3',), atoms.get_pbc(), **par_kwargs)
+        w.add('UnitCell', ('3', '3'), atoms.get_cell() / Bohr, **par_kwargs)
         w.add('PotentialEnergy', (), hamiltonian.Etot + 0.5 * hamiltonian.S,
-              units=(0, 1))
+              **par_kwargs)
         if paw.forces.F_av is not None:
             w.add('CartesianForces', ('natoms', '3'), paw.forces.F_av,
-                  units=(-1, 1))
+                  **par_kwargs)
 
         # Write the k-points:
         w.dimension('nbzkpts', len(wfs.bzk_kc))
         w.dimension('nibzkpts', len(wfs.ibzk_kc))
-        w.add('BZKPoints', ('nbzkpts', '3'), wfs.bzk_kc)
-        w.add('IBZKPoints', ('nibzkpts', '3'), wfs.ibzk_kc)
-        w.add('IBZKPointWeights', ('nibzkpts',), wfs.weight_k)
+        w.add('BZKPoints', ('nbzkpts', '3'), wfs.bzk_kc, **par_kwargs)
+        w.add('IBZKPoints', ('nibzkpts', '3'), wfs.ibzk_kc, **par_kwargs)
+        w.add('IBZKPointWeights', ('nibzkpts',), wfs.weight_k, **par_kwargs)
 
         # Create dimensions for varioius netCDF variables:
         ng = wfs.gd.get_size_of_global_array()
@@ -204,7 +206,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
             if hasattr(paw, attr):
                 value = getattr(paw, attr)
                 if isinstance(value, np.ndarray):
-                    w.add(name, ('3',), value)
+                    w.add(name, ('3',), value, **par_kwargs)
                 else:
                     w[name] = value
 

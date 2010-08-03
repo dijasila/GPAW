@@ -69,7 +69,7 @@ class Writer:
     def __setitem__(self, name, value):
         self.params_grp.attrs[name] = value
 
-    def add(self, name, shape, array=None, dtype=None, units=None, 
+    def add(self, name, shape, array=None, dtype=None,
             parallel=False, write=True):
         if array is not None:
             array = np.asarray(array)

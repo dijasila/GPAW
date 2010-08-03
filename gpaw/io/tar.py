@@ -34,7 +34,7 @@ class Writer:
         self.xml1 += ['  <parameter %-20s value="%s"/>' %
                       ('name="%s"' % name, value)]
         
-    def add(self, name, shape, array=None, dtype=None, units=None):
+    def add(self, name, shape, array=None, dtype=None):
         if array is not None:
             array = np.asarray(array)
 

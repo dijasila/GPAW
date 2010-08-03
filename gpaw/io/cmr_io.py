@@ -94,10 +94,10 @@ class Writer:
         res = np.array(self.split_array[2]).reshape(self.split_array[1])
         self.data[self.split_array[0]] = res
 
-    def add(self, name, shape, array=None, dtype=None, units=None):
+    def add(self, name, shape, array=None, dtype=None):
         self._close_array()
         if self.verbose:
-            print "add:", name, shape, array, dtype, units
+            print "add:", name, shape, array, dtype
         if array is None:
             dimension = []
             for a in shape:

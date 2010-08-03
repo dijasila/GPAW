@@ -16,7 +16,7 @@ class IncrementalWriter(Writer):
         self.partitions = {}
         self.xml3 = []
 
-    def partition(self, name, shape, array=None, dtype=None, units=None):
+    def partition(self, name, shape, array=None, dtype=None):
         if array is not None:
             array = np.asarray(array)
 
