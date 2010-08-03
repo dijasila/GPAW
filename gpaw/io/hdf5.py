@@ -82,7 +82,13 @@ class Writer:
         if array is not None:
             self.fill(array, parallel=parallel, write=write)
 
-    def fill(self, array, *indices, parallel=False, write=True):
+    def fill(self, array, *indices, **kwargs):
+        # Handle ordered keyword argument defaults (after *indices) manually.
+        # They cannot be placed after a variable-length argument indentifier.
+        parallel = kwargs.pop('parallel', False)
+        write = kwargs.pop('write', True)
+        assert not kwargs
+
         if parallel:
             # Create H5P_DATASET_XFER property list
             plist = h5py.h5p.create(h5py.h5p.DATASET_XFER)
@@ -101,17 +107,18 @@ class Writer:
         else:
             mshape_pad = mshape
         mspace = h5py.h5s.create_simple(mshape_pad,
-                                   (h5py.h5s.UNLIMITED,)*len(mshape_pad))
-        if write == False:
+                                        (h5py.h5s.UNLIMITED,)*len(mshape_pad))
+        if not write:
             mspace.select_none()
         
         if indices is None:
-            fspace = h5py.h5s.create_simple(fshape, (h5py.h5s.UNLIMITED,)*len(fshape))
+            fspace = h5py.h5s.create_simple(fshape,
+                                            (h5py.h5s.UNLIMITED,)*len(fshape))
             self.dset.id.write(mspace, fspace, array, mtype, plist)
         else:
             selection = sel.select(fshape, indices, self.dset.id)
             for fspace in selection.broadcast(mshape):
-                if write == False:
+                if not write:
                     fspace.select_none()
                 self.dset.id.write(mspace, fspace, array, mtype, plist)
 
@@ -139,8 +146,8 @@ class Writer:
         self.file.close()
         
 class Reader:
-    def __init__(self, name, comm=False):
-        self.file = File(name, 'r')
+    def __init__(self, name, comm=None):
+        self.file = File(name, 'r', comm)
         self.params_grp = self.file['Parameters']
         self.hdf5_reader = True
 
@@ -161,7 +168,12 @@ class Reader:
     def has_array(self, name):
         return name in self.file.keys()
     
-    def get(self, name, *indices, parallel=False):
+    def get(self, name, *indices, **kwargs):
+        # Handle ordered keyword argument defaults (after *indices) manually.
+        # They cannot be placed after a variable-length argument indentifier.
+        parallel = kwargs.pop('parallel', False)
+        assert not kwargs
+
         if parallel:
             # Create H5P_DATASET_XFER property list
             plist = h5py.h5p.create(h5py.h5p.DATASET_XFER)
