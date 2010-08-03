@@ -246,11 +246,37 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     if master or hdf5:
         w.add('Projections', ('nspins', 'nibzkpts', 'nbands', 'nproj'),
               dtype=dtype)
-    for s in range(wfs.nspins):
-        for k in range(wfs.nibzkpts):
-            all_P_ni = wfs.collect_projections(k, s)
-            if master:
-                w.fill(all_P_ni, s, k)
+    if hdf5:
+        # Domain masters write parallel over spin, kpoints and band groups
+        all_P_ni = np.empty((wfs.mynbands, nproj), dtype=wfs.dtype)
+        cumproj_a = np.cumsum([0] + [setup.ni for setup in wfs.setups])
+        for kpt in wfs.kpt_u:
+            requests = []
+            indices = [kpt.s, kpt.k]
+            indices.append(wfs.bd.get_slice())
+            do_write = (domain_comm.rank == 0)
+            if domain_comm.rank == 0:
+                for a in range(natoms):
+                    ni = wfs.setups[a].ni
+                    if wfs.rank_a[a] == 0:
+                        P_ni = kpt.P_ani[a]
+                    else:
+                        P_ni = np.empty((wfs.mynbands, ni), dtype=wfs.dtype)
+                        requests.append(domain_comm.receive(P_ni, \
+                            wfs.rank_a[a], 1303 + a, block=False))
+                    all_P_ni[:, cumproj_a[a]:cumproj_a[a+1]] = P_ni
+            else:
+                for a, P_ni in kpt.P_ani.items():
+                    requests.append(domain_comm.send(P_ni, 0, 1303 + a,
+                                                     block=False))
+            domain_comm.waitall(requests)
+            w.fill(all_P_ni, parallel=True, write=do_write, *indices)
+    else:
+        for s in range(wfs.nspins):
+            for k in range(wfs.nibzkpts):
+                all_P_ni = wfs.collect_projections(k, s)
+                if master:
+                    w.fill(all_P_ni, s, k)
     timer.stop('Projections')
 
     # Write atomic density matrices and non-local part of hamiltonian:
