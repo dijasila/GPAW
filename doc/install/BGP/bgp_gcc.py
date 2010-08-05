@@ -25,7 +25,7 @@ args2change = {"-fno-strict-aliasing":"",
                "-O2":"",
                "-O1":""}
 
-fragile_files = ["test.c"]
+fragile_files = glob('c/h5py/*.c')
 non_c99files = glob('c/libxc/src/*.c')
 
 cmd = ""
@@ -44,7 +44,7 @@ for arg in sys.argv[1:]:
         cmd += arg
 
 flags_list = {1: "-g -O3 -std=c99 -fPIC",
-              2: "-g -O2 -std=c99 -fPIC",
+              2: "-g -O0 -std=c99 -fPIC",
               3: "-g -O3 -fPIC",
               }
 
