@@ -177,7 +177,7 @@ class Reader:
         if parallel:
             # Create H5P_DATASET_XFER property list
             plist = h5py.h5p.create(h5py.h5p.DATASET_XFER)
-            _gpaw.set_dxpl_mpio(plist.id)
+            _gpaw.h5_set_dxpl_mpio(plist.id)
         else:
             plist = None
 
