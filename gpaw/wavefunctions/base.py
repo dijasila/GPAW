@@ -9,6 +9,9 @@ from gpaw.utilities.timing import nulltimer
 class EmptyWaveFunctions:
     def __nonzero__(self):
         return False
+    
+    def set_eigensolver(self, eigensolver):
+        pass
 
     def set_orthonormalized(self, flag):
         pass
@@ -72,10 +75,19 @@ class WaveFunctions(EmptyWaveFunctions):
         # Total number of k-point/spin combinations:
         nks = self.nibzkpts * nspins
 
-        # Number of k-point/spin combinations on this cpu:
-        mynks = nks // kpt_comm.size
+        # Ranks < self.kpt_rank0 have self.nu k-point/spin
+        # combinations and ranks >= self.kpt_rank0 have self.nu+1
+        # k-point/spin combinations.
+        self.nu, x = divmod(nks, self.kpt_comm.size)
+        self.kpt_rank0 = self.kpt_comm.size - x
 
-        ks0 = kpt_comm.rank * mynks
+        # XXX hide this stuff in a k-point descriptor!
+        ks0 = kpt_comm.rank * self.nu
+        mynks = self.nu  # number of k-point/spin combinations on this cpu
+        if kpt_comm.rank >= self.kpt_rank0:
+            ks0 += kpt_comm.rank - self.kpt_rank0
+            mynks += 1
+            
         self.kpt_u = []
         sdisp_cd = gd.sdisp_cd
         for ks in range(ks0, ks0 + mynks):
@@ -99,6 +111,16 @@ class WaveFunctions(EmptyWaveFunctions):
         self.positions_set = False
 
         self.set_setups(setups)
+
+    def find_kpt(self, k, s):
+        """Find rank and local index."""
+        ks = k + self.nibzkpts * s
+        if ks < self.nu * self.kpt_rank0:
+            kpt_rank, u = divmod(ks, self.nu)
+        else:
+            kpt_rank, u = divmod(ks - self.nu * self.kpt_rank0, self.nu + 1)
+            kpt_rank += self.kpt_rank0
+        return kpt_rank, u
 
     def set_setups(self, setups):
         self.setups = setups
@@ -200,6 +222,7 @@ class WaveFunctions(EmptyWaveFunctions):
                                                     self.symmetry.maps))
 
     def set_positions(self, spos_ac):
+        self.positions_set = False
         rank_a = self.gd.get_ranks_from_positions(spos_ac)
 
         """
@@ -211,34 +234,33 @@ class WaveFunctions(EmptyWaveFunctions):
                 kpt.P_ani = {}
         """
 
-        # Should we use pt.my_atom_indices or basis_functions.my_atom_indices?
-        # Regardless, they are updated after this invocation, so here's a hack:
-        my_atom_indices = np.argwhere(rank_a == self.gd.comm.rank).ravel()
-
         if self.rank_a is not None and self.kpt_u[0].P_ani is not None:
+            self.timer.start('Redistribute')
             requests = []
-            P_auni = {}
-            for a in my_atom_indices:
-                if a in self.kpt_u[0].P_ani:
-                    P_uni = np.array([kpt.P_ani.pop(a) for kpt in self.kpt_u])
-                else:
-                    # Get matrix from old domain:
-                    mynks = len(self.kpt_u)
-                    ni = self.setups[a].ni
-                    P_uni = np.empty((mynks, self.mynbands, ni), self.dtype)
-                    requests.append(self.gd.comm.receive(P_uni, self.rank_a[a],
-                                                         tag=a, block=False))
-                P_auni[a] = P_uni
-            for a in self.kpt_u[0].P_ani.keys():
+            mynks = len(self.kpt_u)
+            flags = (self.rank_a != rank_a)
+            my_incoming_atom_indices = np.argwhere(np.bitwise_and(flags, \
+                rank_a == self.gd.comm.rank)).ravel()
+            my_outgoing_atom_indices = np.argwhere(np.bitwise_and(flags, \
+                self.rank_a == self.gd.comm.rank)).ravel()
+
+            for a in my_incoming_atom_indices:
+                # Get matrix from old domain:
+                ni = self.setups[a].ni
+                P_uni = np.empty((mynks, self.mynbands, ni), self.dtype)
+                requests.append(self.gd.comm.receive(P_uni, self.rank_a[a],
+                                                     tag=a, block=False))
+                for myu, kpt in enumerate(self.kpt_u):
+                    assert a not in kpt.P_ani
+                    kpt.P_ani[a] = P_uni[myu]
+
+            for a in my_outgoing_atom_indices:
                 # Send matrix to new domain:
                 P_uni = np.array([kpt.P_ani.pop(a) for kpt in self.kpt_u])
                 requests.append(self.gd.comm.send(P_uni, rank_a[a],
                                                   tag=a, block=False))
-            for request in requests:
-                self.gd.comm.wait(request)
-            for u, kpt in enumerate(self.kpt_u):
-                assert len(kpt.P_ani.keys()) == 0
-                kpt.P_ani = dict([(a,P_uni[u],) for a,P_uni in P_auni.items()])
+            self.gd.comm.waitall(requests)
+            self.timer.stop('Redistribute')
 
         self.rank_a = rank_a
 
@@ -272,7 +294,7 @@ class WaveFunctions(EmptyWaveFunctions):
         global master."""
 
         kpt_u = self.kpt_u
-        kpt_rank, u = divmod(k + self.nibzkpts * s, len(kpt_u))
+        kpt_rank, u = self.find_kpt(k, s)
 
         if self.kpt_comm.rank == kpt_rank:
             a_nx = getattr(kpt_u[u], name)
@@ -313,7 +335,7 @@ class WaveFunctions(EmptyWaveFunctions):
         global master."""
 
         kpt_u = self.kpt_u
-        kpt_rank, u = divmod(k + self.nibzkpts * s, len(kpt_u))
+        kpt_rank, u = self.find_kpt(k, s)
 
         if self.kpt_comm.rank == kpt_rank:
             if isinstance(value, str):
@@ -346,7 +368,7 @@ class WaveFunctions(EmptyWaveFunctions):
         the (k,s) pair, for this rank, send to the global master."""
 
         kpt_u = self.kpt_u
-        kpt_rank, u = divmod(k + self.nibzkpts * s, len(kpt_u))
+        kpt_rank, u = self.find_kpt(k, s)
         P_ani = kpt_u[u].P_ani
 
         natoms = len(self.rank_a) # it's a hack...
@@ -387,9 +409,7 @@ class WaveFunctions(EmptyWaveFunctions):
         domain a full array on the domain master and send this to the
         global master."""
 
-        nk = len(self.ibzk_kc)
-        mynu = len(self.kpt_u)
-        kpt_rank, u = divmod(k + nk * s, mynu)
+        kpt_rank, u = self.find_kpt(k, s)
         band_rank, myn = self.bd.who_has(n)
 
         psit1_G = self._get_wave_function_array(u, myn)

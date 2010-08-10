@@ -52,6 +52,7 @@ def wrap_pylab(names=[]):
 tests = [
     'ase3k_version.py',
     'numpy_core_multiarray_dot.py',
+    'numpy_zdotc_graphite.py',
     'gemm_complex.py',
     'lapack.py',
     'mpicomm.py',
@@ -96,7 +97,6 @@ tests = [
     'timing.py',
     'ut_h5py.py',
     'lcao_density.py',
-    'numpy_zdotc_graphite.py',
     'gauss_func.py',
     'ah.py',
     'ylexpand.py',
@@ -137,6 +137,7 @@ tests = [
     'degeneracy.py',
     'h2o_xas.py',
     'fermilevel.py',
+    'al_chain.py',
     'bulk.py',
     'si.py',
     'gemm.py',
@@ -156,6 +157,8 @@ tests = [
     'neb.py',
     'diamond_absorption.py',
     'aluminum_EELS.py',
+    'aluminum_testcell.py',
+    'dump_chi0.py',
     'hgh_h2o.py',
     'apmb.py',
     'relax.py',
@@ -199,6 +202,7 @@ tests = [
     'parallel/ut_hsblacs.py',
     'parallel/ut_invops.py',
     'parallel/ut_kptops.py',
+    'parallel/ut_redist.py',
     'parallel/pblas.py',
     'parallel/blacsdist.py',
     'parallel/scalapack.py',
@@ -243,6 +247,7 @@ try:
 except ImportError:
     exclude += ['diamond_absorption.py',
                 'aluminum_EELS.py',
+                'aluminum_testcell.py',
                 'aeatom.py']
 
 for test in exclude:

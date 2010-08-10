@@ -49,6 +49,19 @@ algorithms used <features_and_algorithms>`.
 * `Laboratory of Physics, Helsinki University of Technology <http://www.fyslab.hut.fi>`_
 
 
+.. note::
+
+    |CAMd| Summer School 2010 links:
+
+    * Programme_
+    * :ref:`exercises`
+
+
+.. _Programme:
+   http://www.camd.dtu.dk/English/Events/CAMD_Summer_School_2010.aspx
+.. |CAMd| image:: camd.png
+
+
 
 News
 ====
