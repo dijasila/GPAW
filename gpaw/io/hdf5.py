@@ -98,7 +98,7 @@ class Writer:
 
         mshape = array.shape
         mtype = None
-        fshape = self.dset.shape        
+        fshape = self.dset.shape
 
         # Be careful to pad memory shape with ones to avoid HDF5 chunking
         # glitch, which kicks in for mismatched memory/file selections
@@ -149,7 +149,7 @@ class Reader:
     def __init__(self, name, comm=None):
         self.file = File(name, 'r', comm)
         self.params_grp = self.file['Parameters']
-        self.hdf5_reader = True
+        self.hdf5_reader = True #XXX get rid of this!
 
     def dimension(self, name):
         dims_grp = self.file['Dimensions']
@@ -172,6 +172,7 @@ class Reader:
         # Handle ordered keyword argument defaults (after *indices) manually.
         # They cannot be placed after a variable-length argument indentifier.
         parallel = kwargs.pop('parallel', False)
+        read = kwargs.pop('read', True)
         assert not kwargs
 
         if parallel:
@@ -182,7 +183,33 @@ class Reader:
             plist = None
 
         dset = self.file[name]
-        array = dset[indices]
+        fshape = dset.shape
+        new_dtype = dset.id.dtype
+
+        # Perform the dataspace selection.
+        selection = sel.select(fshape, indices, dset.id)
+
+        if selection.nselect == 0:
+            return numpy.ndarray((0,), dtype=new_dtype)
+
+        mshape = selection.mshape
+
+        # Create the output array using information from the selection.
+        array = np.ndarray(mshape, new_dtype, order='C')
+
+        # This is necessary because in the case of array types, NumPy
+        # discards the array information at the top level.
+        mtype = h5py.h5t.py_create(new_dtype)
+
+        mspace = h5py.h5s.create_simple(mshape)
+        if not read:
+            mspace.select_none()
+
+        fspace = selection._id
+        if not read:
+            fspace.select_none()
+        dset.id.read(mspace, fspace, array, mtype, plist)
+
         if array.shape == ():
             return array.item()
         else:
