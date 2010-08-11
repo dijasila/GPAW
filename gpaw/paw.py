@@ -95,7 +95,8 @@ class PAW(PAWTextOutput):
             self.timer.start('IO')
             self.timer.start('Read')
             self.timer.start('Meta data')
-            reader = gpaw.io.open(filename, 'r')
+            comm = kwargs.get('communicator', mpi.world)
+            reader = gpaw.io.open(filename, 'r', comm)
             self.atoms = gpaw.io.read_atoms(reader)
             par = self.input_parameters
             par.read(reader)
@@ -150,7 +151,7 @@ class PAW(PAWTextOutput):
                 if (len(oldbzk_kc) == len(newbzk_kc) and
                     (oldbzk_kc == newbzk_kc).all()):
                     kwargs.pop('kpts')
-            elif p[key] == value:
+            elif np.all(p[key] == value):
                 kwargs.pop(key)
 
         if (kwargs.get('h') is not None) and (kwargs.get('gpts') is not None):
@@ -654,7 +655,7 @@ class PAW(PAWTextOutput):
         self.density.nct.add(self.density.nct_G, 1.0 / self.density.nspins)
         self.density.interpolate()
         self.density.calculate_pseudo_charge(0)
-        self.hamiltonian.set_positions(spos_ac)
+        self.hamiltonian.set_positions(spos_ac, self.wfs.rank_a)
         self.hamiltonian.update(self.density)
 
 
