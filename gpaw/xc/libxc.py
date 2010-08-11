@@ -3,9 +3,13 @@ from gpaw import debug
 
 short_names = {
     'LDA': 'LDA_X,LDA_C_PW',
-    'PBE': 'GGA_X_PBE,GGA_C_PBE',
-    'revPBE': 'GGA_X_PBE_R,GGA_C_PBE',
-    'TPSS': 'MGGA_X_TPSS,MGGA_C_TPSS'}
+    'PW91':    'GGA_X_PW91,GGA_C_PW91',
+    'PBE':     'GGA_X_PBE,GGA_C_PBE',
+    'revPBE':  'GGA_X_PBE_R,GGA_C_PBE',
+    'RPBE':    'GGA_X_RPBE,GGA_C_PBE',
+#    'HCTH407': 'GGA_XC_HCTH_407',
+    'TPSS': 'MGGA_X_TPSS,MGGA_C_TPSS',
+    'M06L': 'MGGA_X_M06L,MGGA_C_M06L'}
 
 class LibXC:
     def __init__(self, name, hybrid=0.0):

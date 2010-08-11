@@ -433,50 +433,16 @@ class Hamiltonian:
             P_axi[a] = np.dot(P_xi, dH_ii)
         wfs.pt.add(b_xG, P_axi, kpt.q)
 
-    def get_xc_difference(self, xcname, wfs, density, atoms):
+    def get_xc_difference(self, xc):
         """Calculate non-selfconsistent XC-energy difference."""
-        xc = self.xc
-        oldxcfunc = xc.xcfunc
-
-        if isinstance(xcname, str):
-            newxcfunc = XCFunctional(xcname, self.nspins)
-        else:
-            newxcfunc = xcname
-        
-        newxcfunc.set_non_local_things(density, self, wfs, atoms,
-                                       energy_only=True)
-
-        xc.set_functional(newxcfunc)
-        xc.set_positions(atoms.get_scaled_positions() % 1.0)
-        for setup in self.setups.setups.values():
-            setup.xc_correction.xc.set_functional(newxcfunc)
-            if newxcfunc.mgga:
-                setup.xc_correction.initialize_kinetic(setup.data)
-
-        vt_g = self.finegd.empty()  # not used for anything!
         if density.nt_sg is None:
             density.interpolate()
         nt_sg = density.nt_sg
-        if self.nspins == 2:
-            Exc = xc.get_energy_and_potential(nt_sg[0], vt_g, nt_sg[1], vt_g)
-        else:
-            Exc = xc.get_energy_and_potential(nt_sg[0], vt_g)
-
+        Exc = xc.calculate(nt_sg)
         for a, D_sp in density.D_asp.items():
             setup = self.setups[a]
-            Exc += setup.xc_correction.calculate_energy_and_derivatives(
-                D_sp, np.zeros_like(D_sp), a)
-
+            Exc += setup.xc_correction.calculate(xc, D_sp)
         Exc = self.gd.comm.sum(Exc)
-
-        for kpt in wfs.kpt_u:
-            newxcfunc.apply_non_local(kpt)
-        Exc += newxcfunc.get_non_local_energy()
-
-        xc.set_functional(oldxcfunc)
-        for setup in self.setups.setups.values():
-            setup.xc_correction.xc.set_functional(oldxcfunc)
-
         return Exc - self.Exc
 
     def get_vxc(self, density, wfs):

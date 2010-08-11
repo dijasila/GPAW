@@ -17,7 +17,7 @@ from gpaw.transformers import Transformer
 from gpaw.utilities import pack, pack2, packed_index
 from gpaw.utilities.lapack import diagonalize
 from gpaw.utilities.timing import Timer
-from gpaw.xc_functional import XC3DGrid, XCFunctional
+from gpaw.xc.functional import XC
 
 import time
 
@@ -94,8 +94,7 @@ class OmegaMatrix:
         if xc == 'RPA': 
             xc = None # enable RPA as keyword
         if xc is not None:
-            self.xc = XC3DGrid(xc, self.gd, kss.npspins)
-            self.xc.allocate()
+            self.xc = XC(xc)
             # check derivativeLevel
             if derivativeLevel is None:
                 derivativeLevel= \
@@ -109,7 +108,7 @@ class OmegaMatrix:
                 spin_increased = False
             for setup in wfs.setups.setups.values():
                 sxc = setup.xc_correction
-                if spin_increased or sxc.xc.xcfunc.xcname != xc:
+                if spin_increased or sxc.xc.name != xc:
                     sxc.xc.set_functional(XCFunctional(xc, kss.npspins))
                 if spin_increased:
                     sxc.set_nspins(2)

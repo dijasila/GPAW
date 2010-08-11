@@ -8,6 +8,7 @@
 import numpy as np
 from ase.units import Bohr, Hartree
 
+from gpaw.xc.functional import XC
 from gpaw.paw import PAW
 
 
@@ -402,19 +403,13 @@ class GPAW(PAW):
             self.wfs.world.broadcast(f_n, 0)
         return f_n
     
-    def get_xc_difference(self, xcname):
-        if isinstance(xcname, str) or isinstance(xcname, dict):
-            xcfunc = XCFunctional(xcname, self.hamiltonian.nspins)
-        else:
-            xcfunc = xcname
-        if xcfunc.mgga or xcfunc.orbital_dependent:
-            self.converge_wave_functions()
-        return self.hamiltonian.get_xc_difference(xcfunc, self.wfs,
-                                                  self.density,
-                                                  self.atoms) * Hartree
+    def get_xc_difference(self, xc):
+        if isinstance(xc, str):
+            xc = XC(xc)
+        xc.initialize(density, self, wfs, atoms)
+        return self.hamiltonian.get_xc_difference(xc) * Hartree
 
     def get_nonselfconsistent_eigenvalues(self, xcname):
-        from gpaw.xc_functional import XCFunctional
         wfs = self.wfs
         oldxc = self.hamiltonian.xc.xcfunc
 

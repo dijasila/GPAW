@@ -22,7 +22,7 @@ for m in range(20):
     half_integer_gamma.append(half_integer_gamma[m] * (m + 0.5))
 
 class NullXCCorrection:
-    def calculate(self, D_sp, H_sp):
+    def calculate(self, xc, D_sp, H_sp=None):
         return 0.0
 
 null_xc_correction = NullXCCorrection()

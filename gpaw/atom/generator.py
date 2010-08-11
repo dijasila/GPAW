@@ -502,8 +502,8 @@ class Generator(AllElectron):
 
         extra_xc_data = {}
 
-        if not self.xc.is_non_local():
-            Exct = self.xc.get_energy_and_potential(nt, vXCt)
+        if self.xc.name != 'GLLB':
+            Exct = self.xc.calculate(nt[np.newaxis], vXCt[np.newaxis])
         else:
             Exct = self.xcfunc.xc.get_smooth_xc_potential_and_energy_1d(vXCt)
 
@@ -774,7 +774,7 @@ class Generator(AllElectron):
             ExxC = None
 
         sqrt4pi = sqrt(4 * pi)
-        setup = SetupData(self.symbol, self.xcfunc.get_name(), self.name,
+        setup = SetupData(self.symbol, self.xc.name, self.name,
                           readxml=False)
 
         def divide_by_r(x_g, l):
@@ -948,7 +948,7 @@ class Generator(AllElectron):
                   nc, nct, nt, Ekincore, X_p, ExxC, vbar,
                   tauc, tauct, extra_xc_data):
         raise DeprecationWarning('use gpaw/setup_data.py')
-        xcname = self.xcfunc.get_name()
+        xcname = self.xc.name
         if self.name is None:
             xml = open('%s.%s' % (self.symbol, xcname), 'w')
         else:

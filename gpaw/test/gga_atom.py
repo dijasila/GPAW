@@ -43,8 +43,8 @@ for name in ['LDA', 'PBE']:
 
 
     e_g = np.zeros((n, n, n))
-    n_g = np.zeros((n, n, n))
-    v_g = np.zeros((n, n, n))
+    n_g = np.zeros((1, n, n, n))
+    v_g = np.zeros((1, n, n, n))
 
     P_ni = 0.2 * ra.random((20, ni))
     P_ni[:, niAO:] = 0.0
@@ -58,9 +58,9 @@ for name in ['LDA', 'PBE']:
         p += ni - niAO
 
     p = create_localized_functions([s.nct], gd, (0.5, 0.5, 0.5))
-    p.add(n_g, np.ones(1))
+    p.add(n_g[0], np.ones(1))
     e_g = gd.zeros()
-    xc.calculate(gd, n_g[None], v_g[None], e_g)
+    xc.calculate(gd, n_g, v_g, e_g)
 
     r2_g = np.sum((np.indices((n, n, n)) - n / 2)**2, axis=0)
     dv_g = gd.dv * np.less(r2_g, (rcut / a * n)**2)
@@ -69,7 +69,7 @@ for name in ['LDA', 'PBE']:
 
     s.xc_correction.n_qg[:] = 0.0
     s.xc_correction.nc_g[:] = 0.0
-    E1 = (s.xc_correction.calculate(D_p.reshape(1, -1),
+    E1 = (s.xc_correction.calculate(xc, D_p.reshape(1, -1),
                                     H_p.reshape(1, -1))
           + s.xc_correction.Exc0)
 
