@@ -2,7 +2,7 @@ import weakref
 
 import numpy as np
 
-from gpaw.xc.lda import LDA
+from gpaw.xc.gga import GGA
 from gpaw.utilities.blas import axpy
 from gpaw.fd_operators import Gradient
 

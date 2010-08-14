@@ -113,7 +113,7 @@ class PAWXCCorrection:
 
     def calculate(self, xc, D_sp, dH_sp=None):
         if dH_sp is None:
-            dH_p = np.zeros_like(D_sp)
+            dH_sp = np.zeros_like(D_sp)
             
         if xc.name == 'GLLB':
             # The coefficients for GLLB-functional are evaluated elsewhere

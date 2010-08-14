@@ -1,4 +1,5 @@
 import _gpaw
+from gpaw.xc.kernel import XCKernel
 from gpaw import debug
 
 short_names = {
@@ -11,7 +12,8 @@ short_names = {
     'TPSS': 'MGGA_X_TPSS,MGGA_C_TPSS',
     'M06L': 'MGGA_X_M06L,MGGA_C_M06L'}
 
-class LibXC:
+
+class LibXC(XCKernel):
     def __init__(self, name, hybrid=0.0):
         self.name = name
         self.hybrid = hybrid
@@ -49,6 +51,9 @@ class LibXC:
     def calculate(self, e_g, n_sg, dedn_sg,
                   sigma_xg=None, dedsigma_xg=None,
                   tau_sg=None, dedtau_sg=None):
+        if debug:
+            self.check_arguments(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg,
+                                 tau_sg, dedtau_sg)
         nspins = len(n_sg)
         if self.nspins != nspins:
             self.initialize(nspins)
@@ -79,34 +84,6 @@ class LibXC:
                     dedsigma_xg[0], dedsigma_xg[1], dedsigma_xg[2],
                     tau_sg[0], tau_sg[1],
                     dedtau_sg[0], dedtau_sg[1])
-
-
-if debug:
-    _LibXC = LibXC
-    class LibXC(_LibXC):
-        def calculate(self, e_g, n_sg, dedn_sg,
-                      sigma_xg=None, dedsigma_xg=None,
-                      tau_sg=None, dedtau_sg=None):
-            S = n_sg.shape[0]
-            G = n_sg.shape[1:]
-            assert e_g.shape == G
-            assert e_g.flags.contiguous and e_g.dtype == float
-            assert dedn_sg.shape == (S,) + G
-            assert dedn_sg.flags.contiguous and dedn_sg.dtype == float
-            if self.type != 'LDA':
-                assert sigma_xg.shape == (2 * S - 1,) + G
-                assert dedsigma_xg.shape == (2 * S - 1,) + G
-                assert sigma_xg.flags.contiguous and sigma_xg.dtype == float
-                assert (dedsigma_xg.flags.contiguous and
-                        dedsigma_xg.dtype == float)
-                if self.type == 'MGGA':
-                    assert tau_sg.shape == (S,) + G
-                    assert dedtau_sg.shape == (S,) + G
-                    assert tau_sg.flags.contiguous and tau_sg.dtype == float
-                    assert (dedtau_sg.flags.contiguous and
-                            dedtau_sg.dtype == float)
-            _LibXC.calculate(self, e_g, n_sg, dedn_sg,
-                             sigma_xg, dedsigma_xg, tau_sg, dedtau_sg)
 
 
 # libxc: svn version 4179

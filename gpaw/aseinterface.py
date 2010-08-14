@@ -406,8 +406,8 @@ class GPAW(PAW):
     def get_xc_difference(self, xc):
         if isinstance(xc, str):
             xc = XC(xc)
-        xc.initialize(density, self, wfs, atoms)
-        return self.hamiltonian.get_xc_difference(xc) * Hartree
+        xc.initialize(self.density, self.hamiltonian, self.wfs)
+        return self.hamiltonian.get_xc_difference(xc, self.density) * Hartree
 
     def get_nonselfconsistent_eigenvalues(self, xcname):
         wfs = self.wfs

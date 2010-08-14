@@ -433,12 +433,12 @@ class Hamiltonian:
             P_axi[a] = np.dot(P_xi, dH_ii)
         wfs.pt.add(b_xG, P_axi, kpt.q)
 
-    def get_xc_difference(self, xc):
+    def get_xc_difference(self, xc, density):
         """Calculate non-selfconsistent XC-energy difference."""
         if density.nt_sg is None:
             density.interpolate()
         nt_sg = density.nt_sg
-        Exc = xc.calculate(nt_sg)
+        Exc = xc.calculate(density.finegd, nt_sg)
         for a, D_sp in density.D_asp.items():
             setup = self.setups[a]
             Exc += setup.xc_correction.calculate(xc, D_sp)
