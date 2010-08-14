@@ -4,16 +4,11 @@
 Exercises
 =========
 
-These exercises are used in the course `Electronic structure methods
-in materials physics, chemistry and biology
-<http://www.kurser.dtu.dk/10302.aspx>`_.
-
 .. note::
 
-  If you are participating in the CAMd summer school, you should read
-  this :ref:`page <summerschool08>` before you start working on the
+  **CAMd summer school 2010 participants**, please read
+  this :ref:`page <summerschool10>` before you start working on the
   exercises.
-
 
 In order to do the exercises, it helps with a little bit of knowledge
 of :ase:`ASE <>` and Python_.  Here are some useful resources:
@@ -25,18 +20,29 @@ of :ase:`ASE <>` and Python_.  Here are some useful resources:
 
 .. _Python: http://www.python.org
 
-For comments and questions, write to the :ref:`mailing_lists`.
+The exercises are used in the course `Electronic structure methods
+in materials physics, chemistry and biology
+<http://www.kurser.dtu.dk/10302.aspx>`_.
 
+Introductory exercises (do these first):
 
 .. toctree::
    :maxdepth: 1
 
-   aluminium/aluminium
+   gettingstarted/gettingstarted
+   water/water
+   wavefunctions/wavefunctions
+
+Advanced exercises:
+
+.. toctree::
+   :maxdepth: 1
+
+   vibrations/vibrations
    surface/surface
    diffusion/diffusion
-   vibrations/vibrations
+   aluminium/aluminium
    neb/neb
-   wavefunctions/wavefunctions
    wannier/wannier
    iron/iron
    dos/dos
@@ -49,3 +55,4 @@ For comments and questions, write to the :ref:`mailing_lists`.
    
 See also :ref:`timepropagation`.
 
+For comments and questions, write to the :ref:`mailing_lists`.

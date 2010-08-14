@@ -3,15 +3,14 @@ from ase.io import write
 from gpaw import GPAW, Mixer
 
 # Oxygen atom:
-atom = Atoms(['O'], cell=[6.,6.,6.], pbc=False)
+atom = Atoms('O', cell=[6.,6.,6.], pbc=False)
 atom.center()
 
-# GPAW calculator with 2 unonccupied bands:
+# GPAW calculator with 6 Kohn-Sham states (bands):
 calc = GPAW(h=0.2,
-            nbands=-2,
-            hund=True, #assigns the atom its correct magnetic momentum
-            convergence={'bands':'all','eigenstates':1e-5},
-            mixer=Mixer(beta=0.1, nmaxold=5, weight=50.0),
+            nbands=6,
+            hund=True, #assigns the atom its correct magnetic moment
+            mixer=Mixer(beta=0.1, nmaxold=5, weight=50.0), # Pulay mixer
             txt='O.txt')
 
 atom.set_calculator(calc)

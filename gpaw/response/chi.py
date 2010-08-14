@@ -170,10 +170,6 @@ class CHI:
         pt = LFC(gd, [setup.pt_j for setup in setups],
                  calc.wfs.kpt_comm, dtype=calc.wfs.dtype, forces=True)
         spos_ac = calc.atoms.get_scaled_positions()
-        for ia in range(spos_ac.shape[0]):
-            for idim in range(3):
-                if spos_ac[ia,idim] == 1.:
-                    spos_ac[ia,idim] -= 1.
         pt.set_k_points(self.bzk_kc)
         pt.set_positions(spos_ac)
         self.pt = pt
@@ -207,19 +203,13 @@ class CHI:
         # PAW part init
         # calculate <phi_i | e**(-i(q+G).r) | phi_j>
         # G != 0 part
-        phi_Gp = {}
-        phi_aGp = []
-        R_a = calc.atoms.positions / Bohr
-
         kk_Gv = gemmdot(self.q_c + self.Gvec_Gc, self.bcell_cv.copy(), beta=0.0)
+        phi_aGp = {}
         for a, id in enumerate(setups.id_a):
-            Z, type, basis = id
-            if not Z in phi_Gp:
-                phi_Gp[Z] = two_phi_planewave_integrals(kk_Gv, setups[a])
-            phi_aGp.append(phi_Gp[Z])
-
+            phi_aGp[a] = two_phi_planewave_integrals(kk_Gv, setups[a])
             for iG in range(self.npw):
-                phi_aGp[a][iG] *= np.exp(-1j * np.dot(kk_Gv[iG], R_a[a]))
+                phi_aGp[a][iG] *= np.exp(-1j * 2. * pi *
+                                         np.dot(self.q_c + self.Gvec_Gc[iG], spos_ac[a]) )
 
         # For optical limit, G == 0 part should change
         if self.optical_limit:
@@ -274,13 +264,11 @@ class CHI:
 
             for n in range(self.nbands):
 
-                self.kcomm.all_gather(np.array([ibzkpt1]), ibzkpt_kcomm)
-
-                if self.hilbert_trans:
-                    if (f_kn[ibzkpt_kcomm, n] < self.ftol).all():
-                        break
-
                 if calc.wfs.world.size != 1:
+                    self.kcomm.all_gather(np.array([ibzkpt1]), ibzkpt_kcomm)
+                    if self.hilbert_trans:
+                        if (f_kn[ibzkpt_kcomm, n] < self.ftol).all():
+                            break
                     for ikcomm in range(self.kcomm.size):
                         psit_g = self.get_wavefunction(ibzkpt_kcomm[ikcomm], n)
                         if self.kcomm.rank == ikcomm:
@@ -298,16 +286,15 @@ class CHI:
 
                 for m in range(self.nbands):
                     
-                    self.kcomm.all_gather(np.array([ibzkpt2]), ibzkpt_kcomm)
-                    
 		    if self.hilbert_trans:
 			check_focc = (f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]) > self.ftol
                     else:
                         check_focc = np.abs(f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]) > self.ftol 
-                    check_focc_all = np.zeros(self.kcomm.size, dtype=bool)
-                    self.kcomm.all_gather(np.array([check_focc]), check_focc_all) 
 
                     if calc.wfs.world.size != 1:
+                        self.kcomm.all_gather(np.array([ibzkpt2]), ibzkpt_kcomm)
+                        check_focc_all = np.zeros(self.kcomm.size, dtype=bool)
+                        self.kcomm.all_gather(np.array([check_focc]), check_focc_all) 
                         for ikcomm in range(self.kcomm.size):
                             if check_focc_all[ikcomm]:
                                 psit_g = self.get_wavefunction(ibzkpt_kcomm[ikcomm], m)
@@ -377,7 +364,8 @@ class CHI:
 #                                if deltaw[wi + self.wS1] > 1e-8:
 #                                    specfunc_wGG[wi] += tmp_GG * deltaw[wi + self.wS1]
 
-            self.kcomm.barrier()            
+            if calc.wfs.world.size != 1:
+                self.kcomm.barrier()            
             if k == 0:
                 dt = time() - t0
                 totaltime = dt * self.nkpt_local
@@ -387,6 +375,7 @@ class CHI:
                 if k > 0 and k % (self.nkpt_local // 5) == 0:
                     dt =  time() - t0
                     self.printtxt('Finished k %d in %f seconds, estimated %f seconds left.  '%(k, dt, totaltime - dt) )
+        self.printtxt('Finished summation over k')
 
         del rho_GG, rho_G
         # Hilbert Transform
@@ -419,6 +408,9 @@ class CHI:
             del chi0_Wg
 
         self.chi0_wGG = chi0_wGG / self.vol
+
+        self.printtxt('')
+        self.printtxt('Finished chi0 !')
 
         return
 
@@ -567,8 +559,6 @@ class CHI:
         printtxt('     chi0_wGG        : %f M / cpu' %(self.Nw_local * self.npw**2 * 16. / 1024**2) )
         if self.hilbert_trans:
             printtxt('     specfunc_wGG    : %f M / cpu' %(self.NwS_local *self.npw**2 * 16. / 1024**2) )
-
-
 
 
 

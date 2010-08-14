@@ -302,9 +302,13 @@ class PAWTextOutput:
             t()
             magmom = self.occupations.magmom
             t('Total Magnetic Moment: %f' % magmom)
-            t('Spin contamination: %f electrons'  % 
-              self.density.get_spin_contamination(self.atoms, 
-                                                  int(magmom < 0)))
+            try:
+                # XXX This doesn't always work, HGH, SIC, ...
+                sc = self.density.get_spin_contamination(self.atoms, 
+                                                         int(magmom < 0))
+                t('Spin contamination: %f electrons' % sc)
+            except TypeError:
+                pass
             t('Local Magnetic Moments:')
             for a, mom in enumerate(self.get_magnetic_moments()):
                 t(a, mom)

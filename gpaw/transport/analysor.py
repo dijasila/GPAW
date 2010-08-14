@@ -340,15 +340,25 @@ class Transport_Analysor:
             s = kpt.s
             q = kpt.q
             sigma = self.calculate_sigma(s, q, energy)
-            gr = self.calculate_green_function_of_k_point(s, q, energy, sigma)
-            dos_mm = np.dot(gr, self.tp.hsd.S[q].recover())
+
+            self.reset_green_function(s, q)
+            self.tp.hsd.G.reset_from_others(self.tp.hsd.S[q],
+                                            self.tp.hsd.H[s][q],
+                                            energy, -1, init=True)
+            
+            for i in range(self.tp.hsd.G.lead_num):
+                self.tp.hsd.G.diag_h[i][-1].reset_minus(sigma[i])
+            
+            gr = np.linalg.inv(self.tp.hsd.G.recover(True))
+            dos_mm = np.dot(gr, self.tp.hsd.S[q].recover(True))
         
             if wfs.dtype == float:
                 dos_mm = np.real(dos_mm).copy()
             wfs.basis_functions.construct_density(dos_mm, dosg[kpt.s], kpt.q)
         wfs.kpt_comm.sum(dosg)
         wfs.band_comm.sum(dosg)
-        return dosg
+        global_dosg = wfs.gd.collect(dosg)        
+        return global_dosg
        
     def lead_k_matrix(self, l, s, pk, k_vec, hors='S'):
         tp = self.tp
@@ -702,7 +712,7 @@ class Transport_Analysor:
         gd = calc.gd
         finegd = calc.hamiltonian.finegd
 
-        if not tp.use_qzk_boundary:
+        if not tp.use_qzk_boundary and not tp.multi_leads:
             nt_sG = tp.gd.collect(tp.density.nt_sG)
         else:
             nt_sG = gd.collect(calc.density.nt_sG)            
@@ -716,10 +726,11 @@ class Transport_Analysor:
             for s in range(tp.nspins): 
                 nts = aa1d(nt_sG[s]) 
                 vts = aa1d(vt_sG[s]) * Hartree
-                nt1 = aa1d(tp.surround.sides['-'].boundary_nt_sG[s])
-                nt2 = aa1d(tp.surround.sides['+'].boundary_nt_sG[s])
-                nts = np.append(nt1, nts)
-                nts = np.append(nts, nt2)
+                if not tp.multi_leads:
+                    nt1 = aa1d(tp.surround.sides['-'].boundary_nt_sG[s])
+                    nt2 = aa1d(tp.surround.sides['+'].boundary_nt_sG[s])
+                    nts = np.append(nt1, nts)
+                    nts = np.append(nts, nt2)
                 nt.append(nts)
                 vt.append(vts)
             data[flag + 'nt'] = np.array(nt)
@@ -730,7 +741,7 @@ class Transport_Analysor:
             nt = None
             vt = None
         
-        if not tp.use_qzk_boundary: 
+        if not tp.use_qzk_boundary and not tp.multi_leads: 
             gd = tp.finegd
             rhot_g = gd.collect(tp.density.rhot_g)
             if world.rank == 0:
@@ -786,7 +797,7 @@ class Transport_Analysor:
             force = None
             contour = None
         else:
-            if not tp.use_qzk_boundary:
+            if not tp.use_qzk_boundary and not tp.multi_leads:
                 force = tp.calculate_force() * Hartree / Bohr
             else:
                 force = tp.extended_calc.get_forces(tp.extended_atoms
@@ -919,7 +930,7 @@ class Transport_Analysor:
         tp = self.tp
         calc = tp.extended_calc
         gd = calc.gd
-        if not tp.use_qzk_boundary:
+        if not tp.use_qzk_boundary and not tp.multi_leads:
             nt_sG = tp.gd.collect(tp.density.nt_sG)
         else:
             nt_sG = gd.collect(calc.density.nt_sG)            
@@ -957,7 +968,7 @@ class Transport_Analysor:
         current = np.array([0])
         if tp.wfs.kpt_comm.rank == 0:
             intctrl = tp.intctrl
-            kt = intctrl.kt
+            kt = 0.02
             fd = fermidistribution        
             lead_ef1 = intctrl.leadfermi[self.lead_pairs[lead_pair_index][0]]
             lead_ef2 = intctrl.leadfermi[self.lead_pairs[lead_pair_index][1]]
@@ -1036,6 +1047,12 @@ class Transport_Plotter:
             info = data[name]
         return info
 
+    def get_positions(self, ion_step=0):
+        fd = file('analysis_data/ionic_step_' + str(ion_step) + '/positions', 'r')
+        positions = cPickle.load(fd)
+        fd.close()
+        return positions
+
     def process(self, info, s=0, k=None, lp=None):
         if s is None:
             info = np.sum(info, axis=0) / info.shape[0]
@@ -1063,11 +1080,33 @@ class Transport_Plotter:
         return np.sum(info, axis=-2)
  
     def partial_dos(self, bias_step, ion_step=0, s=0, k=None,
-                    atom_indices=None, orbital_type=None):
+                    atom_indices=None, orbital_type=None, direction=None):
         self.read_overhead()
         dos_array = self.dos_array(bias_step, ion_step, s, k)
         orbital_indices = self.basis['orbital_indices']
         orbital_map = {'S': 0, 'P': 1, 'D': 2, 'F': 3}
+        direction_map = {'x': 2, 'y': 0, 'z': 1, 'xy': 0, 'yz': 1,
+                         'z2r2': 2, 'xz': 3, 'x2y2': 4}        
+        if direction is None:
+            direction_index = np.zeros([orbital_indices.shape[0]]) + 1
+        else:
+            directions = []
+            num = -1
+            oio = 0
+            for oi in orbital_indices:
+                if oi[1] != oio:
+                    num = -1
+                oio = oi[1]      
+                if oi[1] != orbital_map[orbital_type]:
+                    directions.append(0)
+                else:
+                    num += 1
+                    if num == direction_map[direction]:
+                        directions.append(1)
+                    else:
+                        directions.append(0)
+            direction_index = np.array(directions)
+            
         if orbital_type is None:
             orbital_index = np.zeros([orbital_indices.shape[0]]) + 1
         else:
@@ -1080,7 +1119,7 @@ class Transport_Plotter:
                 atom_index += orbital_indices[:, 0] - i == 0
         pdos = []
         for i in range(dos_array.shape[1]):
-            pdos.append(np.sum(dos_array[:,i] * orbital_index * atom_index))
+            pdos.append(np.sum(dos_array[:,i] * orbital_index * atom_index * direction_index))
         pdos = np.array(pdos)
         return pdos
 
@@ -1142,7 +1181,7 @@ class Transport_Plotter:
         if not spinpol:
             currents *= 2
         return currents
-    
+           
     def tvs(self, nsteps=16, spinpol=True):
         bias, current = self.iv(nsteps,  spinpol)
         current *= 1e-6 # switch unit to Ampier

@@ -34,7 +34,7 @@ def write(filename, name, data, dimension, dtype=float):
 
 def fermidistribution(energy, kt):
     #fermi level is fixed to zero
-    return 1.0 / (1.0 + np.exp(energy / kt) )
+    return 1.0 / (1.0 + np.exp(energy / kt))
 
 def get_tri_type(mat):
     #mat is lower triangular or upper triangular matrix
@@ -145,7 +145,7 @@ def collect_lead_mat(lead_hsd, lead_couple_hsd, s, pk, flag='S'):
             band_mat, cp_mat = hsd.H[s][pk], c_hsd.H[s][pk]
         else:
             band_mat, cp_mat = hsd.D[s][pk], c_hsd.D[s][pk]
-        diag_h.append(band_mat)
+        diag_h.append(copy.deepcopy(band_mat))
         upc_h.append(cp_mat.recover('c'))
         dwnc_h.append(cp_mat.recover('n'))
     return diag_h, upc_h, dwnc_h        
@@ -161,7 +161,7 @@ def get_hs(atoms):
     S_qMM = wfs.S_qMM.copy()
     for S_MM in S_qMM:
         tri2full(S_MM)
-    H_sqMM = np.empty((wfs.nspins,) + S_qMM.shape, complex)
+    H_sqMM = np.empty((wfs.nspins,) + S_qMM.shape, wfs.dtype)
     for kpt in wfs.kpt_u:
         H_MM = eigensolver.calculate_hamiltonian_matrix(ham, wfs, kpt)
         tri2full(H_MM)
@@ -584,50 +584,72 @@ def cubicing(atoms):
 
 class P_info:
     def __init__(self):
-        P.x = 0
-        P.y = 0
-        P.z = 0
-        P.Pxsign = 1
-        P.Pysign = 1
-        P.Pzsign = 1
-        P.N = 0
+        self.x = 0
+        self.y = 0
+        self.z = 0
+        self.Pxsign = 1
+        self.Pysign = 1
+        self.Pzsign = 1
+        self.N = 0
 class D_info:
     def __init__(self):
-        D.xy = 0
-        D.xz = 0
-        D.yz = 0
-        D.x2y2 = 0
-        D.z2r2 = 0
-        D.N = 0
+        self.xy = 0
+        self.xz = 0
+        self.yz = 0
+        self.x2y2 = 0
+        self.z2r2 = 0
+        self.N = 0
+
+def egodic(nums):
+    if len(nums)==1:
+        return np.array(nums)
+    else:
+        rows = np.product(np.arange(1, len(nums) + 1))
+        cols = len(nums)
+        all = np.zeros([rows, cols])
+        
+        for i, n in enumerate(nums):
+            subrows = np.product(np.arange(1, len(nums)))            
+            all[i*subrows: (i+1)*subrows, 0] = n
+            left_nums = nums[:]
+            left_nums.remove(n)
+            all[i*subrows: (i+1)*subrows, 1:] = egodic(left_nums)
+        return all
+    
+#PPP = egodic(range(3))
 
 def PutP(index, X, P, T):
-    if P.N == 0:
-        P.x = index
-    if P.N == 1:
-        P.y = index
     if P.N == 2:
+        P.x = index
+    if P.N == 0:
+        P.y = index
+    if P.N == 1:
         P.z = index
     P.N += 1
     
     if P.N == 3:
         bs = np.array([P.x, P.y, P.z])
-        c = np.array([P.Pxsign, P.Pysign, P.Pzsign])
-        c = np.resize(c, [3, 3])
-        cf = c / c.T
-        ind = np.resize(bs, [3, 3])
-        T[ind.T, ind] = X * cf 
+        #c = np.array([P.Pxsign, P.Pysign, P.Pzsign])
+        #c = np.resize(c, [3, 3])
+        #cf = c / c.T
+        #ind = np.resize(bs, [3, 3])
+        ind = get_matrix_index(bs)
+        T[ind.T, ind] = X
+        #T[ind.T, ind] = X * cf
         P.__init__()
-        
+
+#DDD = egodic(range(5))
+
 def PutD(index, X, D, T):
     if D.N == 0:
         D.xy = index
-    if D.N == 1:
-        D.xz = index
-    if D.N == 2:
-        D.yz = index
     if D.N == 3:
-        D.x2y2 = index
+        D.xz = index
+    if D.N == 1:
+        D.yz = index
     if D.N == 4:
+        D.x2y2 = index
+    if D.N == 2:
         D.z2r2 = index
         
     D.N += 1
@@ -660,7 +682,7 @@ def PutD(index, X, D, T):
         Dz2r2 = np.array([[-1, 0, 0],
                           [0, -1, 0],
                           [0,  0, 2]]) / sqrt(3)
-        D2z2r2 = np.dot(X, D2z2r2)
+        D2z2r2 = np.dot(X, Dz2r2)
         D2z2r2 = np.dot(D2z2r2, X.T)
         
         T[D.xy, D.xy] = D2xy[0, 1]               
@@ -695,21 +717,63 @@ def PutD(index, X, D, T):
         
         D.__init__()      
         
-def orbital_matrix_rotate_transformation(mat, X, basis_info):
-    nb = len(basis_info)
-    assert len(X) == 3 and nb == len(mat)
+def orbital_matrix_rotate_transformation(X, orbital_indices):
+    nb = orbital_indices.shape[0]
+    assert len(X) == 3 
     T = np.zeros([nb, nb])
     P = P_info()
     D = D_info()
     for i in range(nb):
-        if basis_info[i] == 's':
+        if orbital_indices[i, 1] == 0:
             T[i, i] = 1
-        elif basis_info[i] == 'p':
+        elif orbital_indices[i, 1] == 1:
             PutP(i, X, P, T)
-        elif basis_info[i] == 'd':
+        elif orbital_indices[i, 1] == 2:
             PutD(i, X, D, T)
         else:
             raise NotImplementError('undown shell name')
+    return T
+
+def normalize(r):
+    return r/np.sqrt(np.sum(r*r))
+
+def vector_to_paramid(r):
+    r = normalize(r)
+    x, y, z = r
+    if z!=0:
+        a1, b1, c1 = 0, 1, -y/z
+        a2, b2, c2 = 1, -x*y/(y**2 + z**2), -x*z/(y**2 + z**2)
+    elif y!=0:
+        a1, b1, c1 = 1, -x/y, 0
+        a2, b2, c2 = -x*z/(y**2 + x**2), -y*z/(y**2 + x**2), 1
+    elif x!=0:
+        a1, b1, c1 = -z/x, 0, 1
+        a2, b2, c2 = -y*z/(x**2 + z**2), 1, -x*y/(x**2 + z**2)
+    else:
+        raise RuntimeError('The input vector is zero!')
+    r1 = np.array([a1, b1, c1])
+    r2 = np.array([a2, b2, c2])
+    r1 = normalize(r1)
+    r2 = normalize(r2)
+    R1 = r + r1
+    R2 = r - r1 / 2. + r2 / 2.
+    R3 = r - r1 / 2. - r2 / 2. 
+    return np.array([R1, R2, R3])
+  
+def transform_3d(rs1, rs2):
+    assert rs1.shape == rs2.shape
+    if rs1.shape[0] == 2:
+        r1 = rs1[1] - rs1[0]
+        r2 = rs2[1] - rs2[0]
+        RS1 = vector_to_paramid(r1)
+        RS2 = vector_to_paramid(r2)
+    elif rs1.shape[0] == 4:
+        RS1 = rs1[1:] - rs1[0]
+        RS2 = rs2[1:] - rs2[0]
+    else:
+        raise RuntimeError('Transform atoms indices wrong!')
+    X = np.dot(RS2.T, np.linalg.inv(RS1.T))
+    return X
 
 def interpolate_2d(mat):
     from gpaw.grid_descriptor import GridDescriptor

@@ -46,12 +46,28 @@ algorithms used <features_and_algorithms>`.
 * `Department of Physics, University of Jyväskylä <http://www.phys.jyu.fi>`_
 * `Freiburg Materials Research Center <http://www.fmf.uni-freiburg.de>`_
 * `Institute of Physics, Tampere University of Technology <http://www.tut.fi>`_
-* `Laboratory of Physics, Helsinki University of Technology <http://www.fyslab.hut.fi>`_
+* `Laboratory of Physics, Helsinki University of Technology
+  <http://www.fyslab.hut.fi>`_
 
 
+.. note::
+
+    |CAMd| Summer School 2010 links:
+
+    * Programme_
+    * :ref:`exercises`
+
+
+.. _Programme:
+   http://www.camd.dtu.dk/English/Events/CAMD_Summer_School_2010.aspx
+.. |CAMd| image:: camd.png
+
+.. _news:
 
 News
 ====
+
+* :ref:`GPAW version 0.7.2 <releasenotes>` released (Aug 13 2010)
 
 * :ref:`GPAW version 0.7 <releasenotes>` released (Apr 23 2010)
 

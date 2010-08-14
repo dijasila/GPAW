@@ -42,6 +42,7 @@ class ResponseCalculator:
 
     parameters = {'verbose':               True,
                   'max_iter':              100,
+                  'max_iter_krylov':       100,
                   'tolerance_sc':          1.0e-4,
                   'tolerance_sternheimer': 1e-5,
                   'use_pc':                True,
@@ -129,7 +130,49 @@ class ResponseCalculator:
 
         self.parameters = {}
         self.set(**kwargs)
+
+    def __call__(self):
+        """Calculate density derivative."""
+
+        assert self.initialized, ("Linear response calculator "
+                                  "not initizalized.")
+
+        # Parameters
+        p = self.parameters
+        max_iter = p['max_iter']
+        tolerance = p['tolerance_sc']
         
+        # Reset mixer
+        self.mixer.reset()
+        # Reset wave-functions
+        self.wfs.reset()
+
+        # Set phase attribute for Transformer objects
+        self.phase_cd = self.perturbation.get_phase_cd()
+        
+        for iter in range(max_iter):
+
+            if iter == 0:
+                self.first_iteration()
+            else:
+                print "iter:%3i\t" % iter,
+                norm = self.iteration()
+                print "abs-norm: %6.3e\t" % norm,
+                print ("integrated density response (abs): % 5.2e (%5.2e) "
+                       % (self.gd.integrate(self.nt1_G.real), 
+                          self.gd.integrate(np.absolute(self.nt1_G))))
+                       
+                if norm < tolerance:
+                    print ("self-consistent loop converged in %i iterations"
+                           % iter)
+                    break
+                
+            if iter == max_iter-1:
+                print     ("self-consistent loop did not converge in %i "
+                           "iterations" % (iter+1))
+                
+        return self.nt1_G.copy()
+    
     def set(self, **kwargs):
         """Set parameters for calculation."""
 
@@ -157,7 +200,8 @@ class ResponseCalculator:
         weight = p['weight']
         use_pc = p['use_pc']
         tolerance_sternheimer = p['tolerance_sternheimer']
-
+        max_iter_krylov = p['max_iter_krylov']
+        
         # Initialize WaveFunctions attribute
         self.wfs.initialize(spos_ac)
         
@@ -188,59 +232,20 @@ class ResponseCalculator:
         self.pc = pc
         # Linear solver for the solution of Sternheimer equation            
         self.linear_solver = ScipyLinearSolver(tolerance=tolerance_sternheimer,
-                                               preconditioner=pc)
+                                               preconditioner=pc,
+                                               max_iter=max_iter_krylov)
 
         self.initialized = True
-        
-    def __call__(self):
-        """Calculate density derivative."""
 
-        assert self.initialized, ("Linear response calculator "
-                                  "not initizalized.")
-
-        # Parameters
-        p = self.parameters
-        max_iter = p['max_iter']
-        tolerance = p['tolerance_sc']
-        
-        # Reset mixer
-        self.mixer.reset()
-        # Reset wave-functions
-        self.wfs.reset()
-
-        # Set phase attribute for Transformer objects
-        self.phase_cd = self.perturbation.get_phase_cd()
-        
-        for iter in range(max_iter):
-            print     "iter:%3i\t" % iter,
-            if iter == 0:
-                self.first_iteration()
-                print "\n"
-            else:
-                norm = self.iteration()
-                print "abs-norm: %6.3e\t" % norm,
-                #XXX The density is complex !!!!!!
-                print ("integrated density response: % 5.2e" % 
-                       self.gd.integrate(self.nt1_G).real)
-                
-                if norm < tolerance:
-                    print ("self-consistent loop converged in %i iterations"
-                           % iter)
-                    break
-                
-            if iter == max_iter-1:
-                print     ("self-consistent loop did not converge in %i "
-                           "iterations" % (iter+1))
-                
-        return self.nt1_G.copy()
-    
     def first_iteration(self):
         """Perform first iteration of sc-loop."""
 
         self.wave_function_variations()
         self.density_response()
         self.mixer.mix(self.nt1_G, [], phase_cd=self.phase_cd)
-        #XXX Temp
+        self.interpolate_density()
+
+        #XXX Temp - in order to see the Hartree potential after 1'st iteration
         v1_G = self.effective_potential_variation()
         
     def iteration(self):
@@ -256,8 +261,16 @@ class ResponseCalculator:
         self.mixer.mix(self.nt1_G, [], phase_cd=self.phase_cd)
         norm = self.mixer.get_charge_sloshing()
 
+        self.interpolate_density()
+       
         return norm
 
+    def interpolate_density(self):
+        """Interpolate density derivative onto the fine grid."""
+
+        self.nt1_g = self.finegd.zeros(dtype=self.dtype)
+        self.interpolator.apply(self.nt1_G, self.nt1_g, phases=self.phase_cd)
+        
     def effective_potential_variation(self):
         """Calculate derivative of the effective potential (Hartree + XC)."""
 
@@ -303,6 +316,9 @@ class ResponseCalculator:
             kplusq_k = self.kd.find_k_plus_q(q_c)
         else:
             kplusq_k = None
+
+        # XXX Temp
+        # self.rhs_nG = self.gd.zeros(n=self.nbands, dtype=self.gs_dtype)
             
         # Calculate wave-function variations for all k-points.
         for kpt in self.kpt_u:
@@ -327,12 +343,13 @@ class ResponseCalculator:
             # Update the SternheimerOperator
             self.sternheimer_operator.set_kplusq(kplusq)
             
-            # Right-hand side of Sternheimer equation
+            # Right-hand side of Sternheimer equations
             rhs_nG = self.gd.zeros(n=self.nbands, dtype=self.gs_dtype)
+            
             # k and k+q
             # XXX should only be done once but maybe too cheap to bother ??
             self.perturbation.apply(psit_nG, rhs_nG, self.wfs, k, kplusq)
-
+            
             if self.pc is not None:
                 # k+q
                 self.pc.set_kpt(kplusqpt)
@@ -345,7 +362,7 @@ class ResponseCalculator:
                 psit1_G = psit1_nG[n]
 
                 # Rhs of Sternheimer equation                
-                rhs_G   = -1 * rhs_nG[n]
+                rhs_G = -1 * rhs_nG[n]
 
                 if vHXC1_G is not None:
                     rhs_G -= vHXC1_G * psit_G
@@ -354,21 +371,25 @@ class ResponseCalculator:
                 self.sternheimer_operator.set_blochstate(n, k)
                 self.sternheimer_operator.project(rhs_G)
 
+                # XXX Temp
+                #if k == 0:
+                #    self.rhs_nG[n] = rhs_G.copy()
+                
                 if verbose:
                     print "\tBand %2.1i -" % n,
-                    
+
                 iter, info = self.linear_solver.solve(self.sternheimer_operator,
                                                       psit1_G, rhs_G)
-
+                
                 if info == 0:
                     if verbose: 
                         print "linear solver converged in %i iterations" % iter
                 elif info > 0:
-                    assert info == 0, ("linear solver did not converge in "
-                                       "maximum number (=%i) of iterations"
-                                       % iter)
+                    assert False, ("linear solver did not converge in maximum "
+                                   "number (=%i) of iterations" % iter)
                 else:
-                    assert info == 0, ("linear solver failed to converge")
+                    assert False, ("linear solver failed to converge")
+
                 
     def density_response(self):
         """Calculate density response from variation in the wave-functions."""
@@ -376,13 +397,12 @@ class ResponseCalculator:
         # Note, density might be complex
         self.nt1_G = self.gd.zeros(dtype=self.dtype)
 
-        total = 0
-        
         for kpt in self.kpt_u:
 
             # The occupations includes the weight of the k-points
             f_n = kpt.f_n
-            # Use weight of k-point instead of occupation
+            # Use weight of k-point instead of occupation -- spin degeneracy is
+            # included in the weight
             w = kpt.weight
             # Wave functions
             psit_nG = kpt.psit_nG
@@ -393,12 +413,8 @@ class ResponseCalculator:
                 # NOTICE: this relies on the automatic down-cast of the complex
                 # array on the rhs to a real array when the lhs is real !!
                 # Factor 2 for time-reversal symmetry
-                self.nt1_G += 2 * w * (psit_nG[n].conjugate() * psit1_nG[n])
+                self.nt1_G += 2 * w * psit_nG[n].conjugate() * psit1_nG[n]
                 #XXX
                 ## self.nt1_G += f * (psit_nG[n].conjugate() * psit1_nG[n] +
                 ##                    psit1_nG[n].conjugate() * psit_nG[n])
-
-        # Transfer to fine grid
-        self.nt1_g = self.finegd.zeros(dtype=self.dtype)
-        self.interpolator.apply(self.nt1_G, self.nt1_g, phases=self.phase_cd)
 
