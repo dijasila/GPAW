@@ -173,6 +173,7 @@ class Reader:
         # They cannot be placed after a variable-length argument indentifier.
         parallel = kwargs.pop('parallel', False)
         read = kwargs.pop('read', True)
+        out = kwargs.pop('out', None)
         assert not kwargs
 
         if parallel:
@@ -195,7 +196,13 @@ class Reader:
         mshape = selection.mshape
 
         # Create the output array using information from the selection.
-        array = np.ndarray(mshape, new_dtype, order='C')
+        if out is None:
+            array = np.ndarray(mshape, new_dtype, order='C')
+        else:
+            assert type(out) is np.ndarray
+            assert out.shape == mshape
+            assert out.dtype == new_dtype
+            array = out
 
         # This is necessary because in the case of array types, NumPy
         # discards the array information at the top level.

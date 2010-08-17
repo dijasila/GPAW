@@ -487,6 +487,10 @@ def read(paw, reader):
 
     hdf5 = hasattr(r, 'hdf5_reader')
 
+    par_kwargs = {}
+    if hdf5:
+        par_kwargs.update({'parallel': True, 'read': True}) #XXX read on master only?
+
     for setup in wfs.setups.setups.values():
         try:
             key = atomic_names[setup.Z] + 'Fingerprint'
@@ -509,7 +513,7 @@ def read(paw, reader):
     nt_sG = wfs.gd.empty(density.nspins)
     if hdf5:
         indices = [slice(0, density.nspins),] + wfs.gd.get_slice()
-        nt_sG[:] = r.get('PseudoElectronDensity', *indices)
+        r.get('PseudoElectronDensity', *indices, out=nt_sG, parallel=True) #XXX read=?
     else:
         for s in range(density.nspins):
             wfs.gd.distribute(r.get('PseudoElectronDensity', s),
@@ -520,12 +524,14 @@ def read(paw, reader):
     timer.start('Atomic matrices')
     D_asp = {}
     density.rank_a = np.zeros(natoms, int)
-    if domain_comm.rank == 0:
-        D_asp = read_atomic_matrices(r, 'AtomicDensityMatrices',
-                                     wfs.setups)
+    if hdf5:
+        do_read = (domain_comm.rank == 0)
+        D_asp = read_atomic_matrices(r, 'AtomicDensityMatrices', wfs.setups,
+                                     parallel=True, read=do_read)
+    elif domain_comm.rank == 0:
+        D_asp = read_atomic_matrices(r, 'AtomicDensityMatrices', wfs.setups)
     density.initialize_directly_from_arrays(nt_sG, D_asp)
     timer.stop('Atomic matrices')
-
 
     # Read pseudo potential on the coarse grid
     # and distribute out to nodes:
@@ -534,7 +540,7 @@ def read(paw, reader):
         hamiltonian.vt_sG = wfs.gd.empty(hamiltonian.nspins)
         if hdf5:
             indices = [slice(0, hamiltonian.nspins), ] + wfs.gd.get_slice()
-            hamiltonian.vt_sG[:] = r.get('PseudoPotential', *indices)
+            r.get('PseudoPotential', *indices, out=hamiltonian.vt_sG, parallel=True) #XXX read=?
         else:
             for s in range(hamiltonian.nspins):
                 wfs.gd.distribute(r.get('PseudoPotential', s),
@@ -545,8 +551,12 @@ def read(paw, reader):
     timer.start('Atomic matrices')
     hamiltonian.dH_asp = {}
     hamiltonian.rank_a = np.zeros(natoms, int)
-
-    if domain_comm.rank == 0 and version > 0.3:
+    if hdf5 and version > 0.3:
+        do_read = (domain_comm.rank == 0)
+        hamiltonian.dH_asp = read_atomic_matrices(r, \
+            'NonLocalPartOfHamiltonian', wfs.setups,
+             parallel=True, read=do_read)
+    elif domain_comm.rank == 0 and version > 0.3:
         hamiltonian.dH_asp = read_atomic_matrices(r, \
             'NonLocalPartOfHamiltonian', wfs.setups)
     timer.stop('Atomic matrices')
@@ -560,7 +570,7 @@ def read(paw, reader):
         hamiltonian.Eext = 0.0
     hamiltonian.Exc = r['Exc']
     hamiltonian.S = r['S']
-    hamiltonian.Etot = r.get('PotentialEnergy') - 0.5 * hamiltonian.S
+    hamiltonian.Etot = r.get('PotentialEnergy', **par_kwargs) - 0.5 * hamiltonian.S
 
     wfs.rank_a = np.zeros(natoms, int)
 
@@ -597,7 +607,7 @@ def read(paw, reader):
         if hasattr(paw, attr):
             try:
                 if r.has_array(name):
-                    value = r.get(name)
+                    value = r.get(name, **par_kwargs)
                 else:
                     value = r[name]
                 setattr(paw, attr, value)
@@ -624,8 +634,8 @@ def read(paw, reader):
             timer.start('Band energies')
             k = kpt.k
             s = kpt.s
-            eps_n = r.get('Eigenvalues', s, k)
-            f_n = r.get('OccupationNumbers', s, k)
+            eps_n = r.get('Eigenvalues', s, k, **par_kwargs)
+            f_n = r.get('OccupationNumbers', s, k, **par_kwargs)
             kpt.eps_n = eps_n[nslice].copy()
             kpt.f_n = f_n[nslice].copy()
             timer.stop('Band energies')
@@ -635,8 +645,8 @@ def read(paw, reader):
                 kpt.ne_o = np.empty(norbitals, dtype=float)
                 kpt.c_on = np.empty((norbitals, wfs.mynbands), dtype=complex)
                 for o in range(norbitals):
-                    kpt.ne_o[o] = r.get('LinearExpansionOccupations',  s, k, o)
-                    c_n = r.get('LinearExpansionCoefficients', s, k, o)
+                    kpt.ne_o[o] = r.get('LinearExpansionOccupations',  s, k, o, **par_kwargs)
+                    c_n = r.get('LinearExpansionCoefficients', s, k, o, **par_kwargs)
                     kpt.c_on[o,:] = c_n[nslice]
                 timer.stop('dSCF expansions')
 
@@ -647,7 +657,7 @@ def read(paw, reader):
             paw.input_parameters.mode == 'fd'):
 
             timer.start('Pseudo-wavefunctions')
-            if band_comm.size == 1 and not hdf5:
+            if band_comm.size == 1 and not hdf5: #XXX implement HDF5 mounting
                 # We may not be able to keep all the wave
                 # functions in memory - so psit_nG will be a special type of
                 # array that is really just a reference to a file:
@@ -662,7 +672,7 @@ def read(paw, reader):
                         indices = [kpt.s, kpt.k]
                         indices.append(wfs.bd.get_slice())
                         indices += wfs.gd.get_slice()
-                        kpt.psit_nG[:] = r.get('PseudoWaveFunctions', *indices)
+                        r.get('PseudoWaveFunctions', *indices, out=kpt.psit_nG, parallel=True)
                     else:
                         # Read band by band to save memory
                         for myn, psit_G in enumerate(kpt.psit_nG):
@@ -682,15 +692,35 @@ def read(paw, reader):
             wfs.read_coefficients(r)
 
         timer.start('Projections')
-        for u, kpt in enumerate(wfs.kpt_u):
-            P_ni = r.get('Projections', kpt.s, kpt.k)
-            i1 = 0
-            kpt.P_ani = {}
-            for a, setup in enumerate(wfs.setups):
-                i2 = i1 + setup.ni
+        if hdf5:
+            # Domain masters write parallel over spin, kpoints and band groups
+            cumproj_a = np.cumsum([0] + [setup.ni for setup in wfs.setups])
+            all_P_ni = np.empty((wfs.mynbands, cumproj_a[-1]), dtype=wfs.dtype)
+            for kpt in wfs.kpt_u:
+                requests = []
+                kpt.P_ani = {}
+                indices = [kpt.s, kpt.k]
+                indices.append(wfs.bd.get_slice())
+                do_read = (domain_comm.rank == 0)
+                timer.start('ProjectionsCritical(s=%d,k=%d)' % (kpt.s,kpt.k))
+                r.get('Projections', *indices, out=all_P_ni, parallel=True, read=do_read)
+                timer.stop('ProjectionsCritical(s=%d,k=%d)' % (kpt.s,kpt.k))
                 if domain_comm.rank == 0:
-                    kpt.P_ani[a] = np.array(P_ni[nslice, i1:i2], wfs.dtype)
-                i1 = i2
+                    for a in range(natoms):
+                        ni = wfs.setups[a].ni
+                        P_ni = np.empty((wfs.mynbands, ni), dtype=wfs.dtype)
+                        P_ni[:] = all_P_ni[:, cumproj_a[a]:cumproj_a[a+1]]
+                        kpt.P_ani[a] = P_ni
+        else:
+            for u, kpt in enumerate(wfs.kpt_u):
+                P_ni = r.get('Projections', kpt.s, kpt.k)
+                i1 = 0
+                kpt.P_ani = {}
+                for a, setup in enumerate(wfs.setups):
+                    i2 = i1 + setup.ni
+                    if domain_comm.rank == 0:
+                        kpt.P_ani[a] = np.array(P_ni[nslice, i1:i2], wfs.dtype)
+                    i1 = i2
         timer.stop('Projections')
 
     # Manage mode change:
@@ -710,22 +740,23 @@ def read(paw, reader):
 
     # Get the forces from the old calculation:
     if r.has_array('CartesianForces'):
-        paw.forces.F_av = r.get('CartesianForces')
+        paw.forces.F_av = r.get('CartesianForces', **par_kwargs)
     else:
         paw.forces.reset()
 
     timer.stop('Read')
 
-def read_atoms(reader):
+def read_atoms(reader, **kwargs):
     if isinstance(reader, str):
         reader = open(filename, 'r')
+        assert not hasattr(reader, 'hdf5_reader') #XXX needs a communicator!
 
-    positions = reader.get('CartesianPositions') * Bohr
-    numbers = reader.get('AtomicNumbers')
-    cell = reader.get('UnitCell') * Bohr
-    pbc = reader.get('BoundaryConditions')
-    tags = reader.get('Tags')
-    magmoms = reader.get('MagneticMoments')
+    positions = reader.get('CartesianPositions', **kwargs) * Bohr
+    numbers = reader.get('AtomicNumbers', **kwargs)
+    cell = reader.get('UnitCell', **kwargs) * Bohr
+    pbc = reader.get('BoundaryConditions', **kwargs)
+    tags = reader.get('Tags', **kwargs)
+    magmoms = reader.get('MagneticMoments', **kwargs)
 
     atoms = Atoms(positions=positions,
                   numbers=numbers,
@@ -739,15 +770,16 @@ def read_atoms(reader):
 
     return atoms
 
-def read_atomic_matrices(reader, key, setups):
-    all_M_sp = reader.get(key)
+def read_atomic_matrices(reader, key, setups, **kwargs):
+    all_M_sp = reader.get(key, **kwargs)
     M_asp = {}
-    p1 = 0
-    for a, setup in enumerate(setups):
-        ni = setup.ni
-        p2 = p1 + ni * (ni + 1) // 2
-        M_asp[a] = all_M_sp[:, p1:p2].copy()
-        p1 = p2
+    if kwargs.get('read', True):
+        p1 = 0
+        for a, setup in enumerate(setups):
+            ni = setup.ni
+            p2 = p1 + ni * (ni + 1) // 2
+            M_asp[a] = all_M_sp[:, p1:p2].copy()
+            p1 = p2
     return M_asp
 
 def read_wave_function(gd, s, k, n, mode):
