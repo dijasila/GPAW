@@ -102,6 +102,8 @@ class SIC(XCFunctional):
         self.xc.initialize(density, hamiltonian, wfs)
         self.timer = wfs.timer
         self.eigensolver = wfs.eigensolver
+        self.kpt_comm = wfs.kpt_comm
+
         self.spin_s = {}
         for kpt in wfs.kpt_u:
             self.spin_s[kpt.s] = SICSpin(kpt, float, 1, self.xc,
@@ -110,13 +112,17 @@ class SIC(XCFunctional):
 
     def calculate(self, gd, n_sg, v_sg=None, e_g=None):
         exc = self.xc.calculate(gd, n_sg, v_sg, e_g)
+
+        self.esic = 0.0
         self.ekin = 0.0
         for spin in self.spin_s.values():
             if spin.kpt.psit_nG is not None:
-                dexc, dekin = spin.calculate()
-                exc += dexc
+                desic, dekin = spin.calculate()
+                self.esic += desic
                 self.ekin += dekin
-        return exc
+        self.esic = self.kpt_comm.sum(self.esic)
+        self.ekin = self.kpt_comm.sum(self.ekin)
+        return exc + self.esic
 
     def add_correction(self, kpt, psit_xG, Htpsit_xG, approximate, n_x):
         self.spin_s[kpt.s].add_correction(psit_xG, Htpsit_xG, approximate, n_x)
@@ -155,6 +161,7 @@ class SICSpin:
             Z_mmv[:, :, v] = self.gd.wannier_matrix(self.kpt.psit_nG,
                                                     self.kpt.psit_nG, v, 1,
                                                     self.nocc)
+        self.gd.comm.sum(Z_mmv)
         W_nm = np.identity(self.nocc)
         localization = 0.0
         for iter in range(30):
@@ -181,7 +188,7 @@ class SICSpin:
         K_mm = 0.5 * (V_mm - V_mm.T.conj())
         V_mm = 0.5 * (V_mm + V_mm.T.conj())
 
-        self.ekin = -np.trace(V_mm) * (3 - self.nspins)
+        self.ekin = -np.trace(V_mm) * (3 - self.nspins) / self.gd.comm.size
 
         return V_mm, K_mm, np.vdot(K_mm, K_mm).real
 
@@ -226,7 +233,6 @@ class SICSpin:
             self.timer.stop('Hartree')
 
             self.restrictor.apply(vt_sg[0], self.vt_mG[m])
-            print exc, ecoulomb
         self.timer.stop('ODD-potentials')
         self.esic = (self.exc_m.sum() +
                      self.ecoulomb_m.sum()) * (3 - self.nspins)
@@ -246,8 +252,9 @@ class SICSpin:
                                             self.W_mn).T
 
     def rotate(self, U_nn):
-        self.W_mn = np.dot(self.W_mn, U_nn.T)
-        self.phit_mG = None
+        if self.W_mn is not None:
+            self.W_mn = np.dot(self.W_mn, U_nn[:self.nocc, :self.nocc].T)
+            self.phit_mG = None
 
     def calculate(self):
         if self.W_mn is None:

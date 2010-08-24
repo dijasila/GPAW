@@ -240,6 +240,7 @@ class Hamiltonian:
 
         self.timer.start('XC 3D grid')
         Exc = self.xc.calculate(self.finegd, density.nt_sg, self.vt_sg)
+        Exc /= self.gd.comm.size
         self.timer.stop('XC 3D grid')
 
         self.timer.start('Poisson')

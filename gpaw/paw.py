@@ -80,7 +80,7 @@ class PAW(PAWTextOutput):
         self.hamiltonian = None
         self.atoms = None
         self.bd = None
-
+        
         self.initialized = False
 
         # Possibly read GPAW keyword arguments from file:
@@ -300,7 +300,6 @@ class PAW(PAWTextOutput):
 
     def initialize(self, atoms=None):
         """Inexpensive initialization."""
-
         if atoms is None:
             atoms = self.atoms
         else:
@@ -477,7 +476,7 @@ class PAW(PAWTextOutput):
         if not self.wfs:
             if parsize == 'domain only': #XXX this was silly!
                 parsize = world.size
-
+            
             domain_comm, kpt_comm, band_comm = mpi.distribute_cpus(parsize,
                 parsize_bands, nspins, len(ibzk_kc), world)
 
