@@ -74,7 +74,8 @@ class RMM_DIIS(Eigensolver):
 
             # Calculate the residual of pR_G, dR_G = (H - e S) pR_G:
             wfs.calculate_residuals(hamiltonian, kpt, kpt.eps_n[n1:n2],
-                                     pR_bG, dR_bG, approximate=True)
+                                    pR_bG, dR_bG, approximate=True,
+                                    n_x=range(n1, n2))
             
             # Find lam that minimizes the norm of R'_G = R_G + lam dR_G
             RdR = self.gd.comm.sum(np.vdot(R_bG, dR_bG).real)

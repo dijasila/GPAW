@@ -122,9 +122,6 @@ class Eigensolver:
         wfs.timer.start(diagonalization_string)
         self.ksl.diagonalize(H_nn, kpt.eps_n)
         # H_nn now contains the result of the diagonalization.
-        # Let's call it something different:
-        U_nn = H_nn
-        del H_nn
         wfs.timer.stop(diagonalization_string)
         
         if not rotate:
@@ -132,11 +129,12 @@ class Eigensolver:
             return
 
         self.timer.start('rotate_psi')
-        kpt.psit_nG = self.operator.matrix_multiply(U_nn, psit_nG, P_ani)
+        kpt.psit_nG = self.operator.matrix_multiply(H_nn, psit_nG, P_ani)
         if self.keep_htpsit:
-            self.Htpsit_nG = self.operator.matrix_multiply(U_nn, Htpsit_xG)
+            self.Htpsit_nG = self.operator.matrix_multiply(H_nn, Htpsit_xG)
+
         # Rotate orbital dependent XC stuff:
-        hamiltonian.xc.rotate(U_nn)
+        hamiltonian.xc.rotate(kpt, H_nn)
 
         self.timer.stop('rotate_psi')
 
