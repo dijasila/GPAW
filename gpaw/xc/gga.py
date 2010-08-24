@@ -34,7 +34,7 @@ class GGA(LDA):
                     # TODO: can the number of gradient evaluations be reduced?
 
     def calculate_gga(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
-        self.xckernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
+        self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
         
     def calculate_radial(self, rgd, n_sLg, Y_L, v_sg,
                          dndr_sLg, rnablaY_Lv,
@@ -54,7 +54,7 @@ class GGA(LDA):
         if nspins == 2:
             sigma_xg[1] += d_sg[0] * d_sg[1]
         dedsigma_xg = rgd.zeros(2 * nspins - 1)
-        self.xckernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg,
+        self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg,
                                 tau_sg, dedtau_sg)
         vv_sg = sigma_xg[:nspins]  # reuse array
         for s in range(nspins):

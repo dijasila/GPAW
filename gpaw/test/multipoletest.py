@@ -3,7 +3,7 @@ import numpy as np
 from gpaw.setup import create_setup
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.localized_functions import create_localized_functions
-from gpaw.xc.functional import XC
+from gpaw.xc import XC
 
 n = 60#40 /8 * 10
 a = 10.0

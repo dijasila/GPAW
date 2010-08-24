@@ -1,18 +1,13 @@
 import numpy as np
 
+from gpaw.xc.functional import XCFunctional
 
-class LDA:
+
+class LDA(XCFunctional):
     hybrid = 0.0
-    def __init__(self, xckernel):
-        self.xckernel = xckernel
-        self.name = xckernel.name
-        self.gd = None
-        
-    def initialize(self, density, hamiltonian, wfs):
-        pass
-
-    def set_grid_descriptor(self, gd):
-        self.gd = gd
+    def __init__(self, kernel):
+        self.kernel = kernel
+        XCFunctional.__init__(self, kernel.name)
         
     def calculate(self, gd, n_sg, v_sg=None, e_g=None):
         if gd is not self.gd:
@@ -25,19 +20,13 @@ class LDA:
         return gd.integrate(e_g)
 
     def calculate_lda(self, e_g, n_sg, v_sg):
-        self.xckernel.calculate(e_g, n_sg, v_sg)
+        self.kernel.calculate(e_g, n_sg, v_sg)
 
     def calculate_radial(self, rgd, n_sLg, Y_L, v_sg):
         e_g = rgd.empty()
         n_sg = np.dot(Y_L, n_sLg)
-        self.xckernel.calculate(e_g, n_sg, v_sg)
+        self.kernel.calculate(e_g, n_sg, v_sg)
         return rgd.integrate(e_g)
 
     def calculate_spherical(self, rgd, n_sg, v_sg):
         return self.calculate_radial(rgd, n_sg[:, np.newaxis], [1.0], v_sg)
-        
-    def add_non_local_terms(self, psit_xG, Htpsit_xG, kpt):
-        pass
-
-    def adjust_non_local_residual(self, psit_G, Htpsit_G, kpt, n):
-        pass

@@ -1,9 +1,3 @@
-from gpaw.xc.libxc import LibXC
-from gpaw.xc.lda import LDA
-from gpaw.xc.gga import GGA
-from gpaw.xc.mgga import MGGA
-
-
 class XCNull:
     type = 'LDA'
     name = 'null'
@@ -11,21 +5,23 @@ class XCNull:
         e_g[:] = 0.0
 
 
-def XC(xckernel, parameters=None):
-    if isinstance(xckernel, str):
-        name = xckernel
-        if name == 'vdW-DF':
-            from gpaw.xc.vdw import FFTVDWFunctional
-            return FFTVDWFunctional()
-        if name == 'BEE1':
-            from gpaw.xc.bee import BEE1
-            xckernel = BEE1(parameters)
-        else:
-            xckernel = LibXC(xckernel)
-    if xckernel.type == 'LDA':
-        return LDA(xckernel)
-    elif xckernel.type == 'GGA':
-        return GGA(xckernel)
-    else:
-        return MGGA(xckernel)
+class XCFunctional:
+    hybrid = 0.0
+    def __init__(self, name):
+        self.name = name
+        self.gd = None
+        
+    def initialize(self, density, hamiltonian, wfs):
+        pass
 
+    def set_grid_descriptor(self, gd):
+        self.gd = gd
+
+    def add_correction(self, psit_nG, R_nG, approximate=False):
+        pass
+    
+    def add_paw_correction(self, c_ni, approximate=False):
+        pass
+    
+    def rotate(self, U_nn):
+        pass

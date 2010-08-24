@@ -5,7 +5,7 @@ from gpaw.setup import create_setup
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.localized_functions import create_localized_functions
 from gpaw.spline import Spline
-from gpaw.xc.functional import XC
+from gpaw.xc import XC
 from gpaw.utilities import pack
 from gpaw.mpi import serial_comm
 

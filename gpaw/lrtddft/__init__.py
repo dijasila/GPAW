@@ -20,7 +20,7 @@ from gpaw.lrtddft.apmb import ApmB
 ##from gpaw.lrtddft.transition_density import TransitionDensity
 from gpaw.utilities import packed_index
 from gpaw.utilities.lapack import diagonalize
-from gpaw.xc.functional import XC
+from gpaw.xc import XC
 from gpaw.lrtddft.spectrum import spectrum
 
 __all__ = ['LrTDDFT', 'photoabsorption_spectrum', 'spectrum']

@@ -17,7 +17,7 @@ from gpaw.transformers import Transformer
 from gpaw.utilities import pack, pack2, packed_index
 from gpaw.utilities.lapack import diagonalize
 from gpaw.utilities.timing import Timer
-from gpaw.xc.functional import XC
+from gpaw.xc import XC
 
 import time
 

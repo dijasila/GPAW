@@ -377,8 +377,6 @@ class HGHSetupData:
         return self.rgd.reducedspline(0, self.vbar_g)
 
     def build(self, xcfunc, lmax, basis):
-        if xcfunc.get_setup_name() != 'LDA':
-            raise ValueError('HGH setups support only LDA')
         if lmax != 0:
             raise ValueError('HGH setups support only lmax=0')
         if basis is None:

@@ -1,6 +1,6 @@
 from ase import Atom, Atoms
 from gpaw import GPAW
-from gpaw.xc.functional import XC
+from gpaw.xc import XC
 
 a = 4.0
 atoms = Atoms([Atom('H')], cell=(a, a, a), pbc=True)

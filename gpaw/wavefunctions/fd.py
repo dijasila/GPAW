@@ -50,11 +50,38 @@ class FDWaveFunctions(FDPWWaveFunctions):
     def make_preconditioner(self):
         return Preconditioner(self.gd, self.kin, self.dtype)
     
-    def apply_hamiltonian(self, hamiltonian, kpt, psit_xG, Htpsit_xG):
+    def apply_pseudo_hamiltonian(self, hamiltonian, kpt, psit_xG, Htpsit_xG,
+                                 approximate=False):
         """Apply the non-pseudo Hamiltonian i.e. without PAW corrections."""
         self.kin.apply(psit_xG, Htpsit_xG, kpt.phase_cd)
         hamiltonian.apply_local_potential(psit_xG, Htpsit_xG, kpt.s)
-        hamiltonian.xc.add_non_local_terms(psit_xG, Htpsit_xG, kpt)
+        hamiltonian.xc.add_correction(psit_xG, Htpsit_xG, approximate)
+
+    def calculate_residuals(self, hamiltonian, kpt, eps_n, psit_nG,
+                            R_nG, P_ani=None,
+                            apply_hamiltonian=True, approximate=False):
+        if apply_hamiltonian:
+            self.apply_pseudo_hamiltonian(hamiltonian, kpt, psit_nG, R_nG,
+                                          approximate)
+            
+        for R_G, eps, psit_G in zip(R_nG, eps_n, psit_nG):
+            axpy(-eps, psit_G, R_G)
+
+        # PAW corrections:
+        if P_ani is None:
+            P_ani = self.pt.dict(len(psit_nG))
+            self.pt.integrate(psit_nG, P_ani, kpt.q)
+            
+        c_ani = {}
+        for a, P_ni in P_ani.items():
+            dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
+            dO_ii = hamiltonian.setups[a].dO_ii
+            c_ni = (np.dot(P_ni, dH_ii) -
+                    np.dot(P_ni * eps_n[:, np.newaxis], dO_ii))
+            hamiltonian.xc.add_paw_correction(c_ni, approximate)
+            c_ani[a] = c_ni
+
+        self.pt.add(R_nG, c_ani, kpt.q)
 
     def add_orbital_density(self, nt_G, kpt, n):
         if self.dtype == float:

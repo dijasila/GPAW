@@ -1,6 +1,6 @@
 from math import pi
 from gpaw.grid_descriptor import RadialGridDescriptor, GridDescriptor
-from gpaw.xc.functional import XC
+from gpaw.xc import XC
 import numpy as np
 from gpaw.test import equal
 

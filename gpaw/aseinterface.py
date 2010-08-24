@@ -8,7 +8,7 @@
 import numpy as np
 from ase.units import Bohr, Hartree
 
-from gpaw.xc.functional import XC
+from gpaw.xc import XC
 from gpaw.paw import PAW
 
 

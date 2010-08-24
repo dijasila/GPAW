@@ -25,7 +25,7 @@ class MGGA(GGA):
     def calculate_gga(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
         tau_sg = self.wfs.calculate_kinetic_energy_density(self.tauct)
         dedtau_sg = np.empty_like(tau_sg)
-        self.xckernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg,
+        self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg,
                                 tau_sg, dedtau_sg)
         self.dedtau_sG = self.wfs.gd.empty(self.wfs.nspins)
         for s in range(self.wfs.nspins):

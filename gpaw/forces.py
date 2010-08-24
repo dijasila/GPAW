@@ -40,7 +40,7 @@ class ForceCalculator:
             for a, dF_v in dF_av.items():
                 self.F_av[a] += dF_v[0]
 
-            if hamiltonian.xc.xckernel.type == 'MGGA':
+            if hamiltonian.xc.kernel.type == 'MGGA':
                 dF_av = hamiltonian.xc.tauct.dict(derivative=True)
                 dedtau_G = hamiltonian.xc.dedtau_G
                 hamiltonian.xc.tauct.derivative(dedtau_G, dF_av)

@@ -217,7 +217,7 @@ class SetupData:
             self.e_xc,
             phicorehole_g,
             self.fcorehole,
-            xc.xckernel.type,
+            xc.kernel.type,
             self.tauc_g[:gcut2].copy(),
             self.tauct_g[:gcut2].copy())
 

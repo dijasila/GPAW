@@ -1,7 +1,7 @@
 import numpy as np
 import numpy.random as ra
 from gpaw.setup import create_setup
-from gpaw.xc.functional import XC
+from gpaw.xc import XC
 from gpaw.test import equal
 
 
