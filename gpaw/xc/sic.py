@@ -246,7 +246,8 @@ class SICSpin:
                                             self.W_mn).T
 
     def rotate(self, U_nn):
-        pass
+        self.W_mn = np.dot(self.W_mn, U_nn.T)
+        self.phit_mG = None
 
     def calculate(self):
         if self.W_mn is None:
