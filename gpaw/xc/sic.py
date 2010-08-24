@@ -110,9 +110,12 @@ class SIC(XCFunctional):
 
     def calculate(self, gd, n_sg, v_sg=None, e_g=None):
         exc = self.xc.calculate(gd, n_sg, v_sg, e_g)
+        self.ekin = 0.0
         for spin in self.spin_s.values():
             if spin.kpt.psit_nG is not None:
-                exc += spin.unitary_optimization()
+                dexc, dekin = spin.calculate()
+                exc += dexc
+                self.ekin += dekin
         return exc
 
     def add_correction(self, kpt, psit_xG, Htpsit_xG, approximate, n_x):
@@ -177,6 +180,9 @@ class SICSpin:
         # Symmetrization of V and kappa-matrix:
         K_mm = 0.5 * (V_mm - V_mm.T.conj())
         V_mm = 0.5 * (V_mm + V_mm.T.conj())
+
+        self.ekin = -np.trace(V_mm) * (3 - self.nspins)
+
         return V_mm, K_mm, np.vdot(K_mm, K_mm).real
 
     def update_optimal_states(self):
@@ -222,7 +228,8 @@ class SICSpin:
             self.restrictor.apply(vt_sg[0], self.vt_mG[m])
             print exc, ecoulomb
         self.timer.stop('ODD-potentials')
-        return (self.exc_m.sum() + self.ecoulomb_m.sum()) * (3 - self.nspins)
+        self.esic = (self.exc_m.sum() +
+                     self.ecoulomb_m.sum()) * (3 - self.nspins)
 
     def add_correction(self, psit_xG, Htpsit_xG, approximate, n_x):
         if self.W_mn is None:
@@ -241,14 +248,18 @@ class SICSpin:
     def rotate(self, U_nn):
         pass
 
+    def calculate(self):
+        if self.W_mn is None:
+            self.initialize()
+        self.unitary_optimization()
+        return self.esic, self.ekin
+
     def unitary_optimization(self, maxiter=30):
         ESI_init = 0.0
         ESI      = 0.0
         dE       = 1e-16  
         # compensate the change in the basis functions during subspace
         # diagonalization and update the energy optimal states
-        if self.W_mn is None:
-            self.initialize()
 
         #U_nn  = np.zeros((self.nbands,self.nbands),dtype=self.W_unn.dtype)
         #O_nn  = np.zeros((self.nbands,self.nbands),dtype=self.W_unn.dtype)
@@ -264,12 +275,13 @@ class SICSpin:
         #
         # get the initial ODD potentials/energy/matrixelements
         self.update_optimal_states()
-        ESI = self.update_potentials()
+        self.update_potentials()
+        ESI = self.esic
         V_mm, K_mm, norm = self.calculate_sic_matrixelements()
         ESI_init = ESI
 
         if norm < 1E-10 or self.nocc <= 1:
-            return ESI
+            return
         #
         # optimize the unitary transformation
         # --------------------------------------------------------------
@@ -534,5 +546,3 @@ class SICSpin:
             K  =max(norm, 1.0e-16)
             if K<basiserror*self.uorelres or K<self.uomaxres:
                 break
-
-        return ESI
