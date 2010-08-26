@@ -25,77 +25,13 @@ import _gpaw
 
 
 class SIC(XCFunctional):
-    def __init__(self, xc='LDA', finegrid=True, dtype=float,
-                 coulomb_factor=1.0, xc_factor=1.0,
-                 uominres=1E-1, uomaxres=1E-12, uorelres=1.0E-2,
-                 test=0, txt=None, rattle=-0.1, maxuoiter=30):
-        """Self-Interaction Corrected (SIC) Functionals.
-
-        xc: str
-            Name of LDA functional which acts as
-            a starting point for the construction of
-            the self-interaction corrected functional
-
-        finegrid: boolean
-            Use fine grid for energy functional evaluations?
-
-        coulomb_factor:
-            Scaling factor for Hartree-functional
-
-        xc_factor:
-            Scaling factor for xc-functional
-
-        uominres:
-            Minimum residual before unitary optimization starts
-
-        uomaxres:
-            Target accuracy for unitary optimization
-            (absolute variance)
-
-        uorelres:
-            Target accuracy for unitary optimization
-            (rel. to basis residual)
-
-        maxuoiter:
-            Maximum number of unitary optimization steps
-
-        test:
-            debug level
-
-        txt:
-            log file for unitary optimization
-
-        rattle:
-            perturbation to the initial states
-
-        """
-
-        # parameters
-        self.coulomb_factor = coulomb_factor    
-        self.xc_factor = xc_factor    
-
-        self.finegrid = finegrid
-        self.rattle = rattle    
-        self.uominres = uominres
-        self.uomaxres = uomaxres
-        self.uorelres = uorelres
-        self.maxuoiter = maxuoiter 
-
-        self.dtype = dtype
-
-        self.adderror = False      # add unit-opt. residual to basis-residual
-        self.maxlsiter = 1         # maximum number of line-search steps
-        self.maxcgiter = 2         # maximum number of CG-iterations
-        self.lsinterp = True       # interpolate for minimum during line search
-
-        # initialization         
-        self.basiserror = 1E+20
-
+    def __init__(self, xc='LDA', **parameters):
+        """Self-Interaction Corrected (SIC) Functionals."""
         if isinstance(xc, str):
             xc = XC(xc)
         self.xc = xc
         XCFunctional.__init__(self, xc.name + '-SIC')
-        self.hybrid = 0.0
+        self.parameters = parameters
 
     def initialize(self, density, hamiltonian, wfs):
         assert wfs.gamma
@@ -106,9 +42,9 @@ class SIC(XCFunctional):
 
         self.spin_s = {}
         for kpt in wfs.kpt_u:
-            self.spin_s[kpt.s] = SICSpin(kpt, float, 1, self.xc,
-                                         self.xc_factor, self.coulomb_factor,
-                                         density, hamiltonian, wfs)
+            self.spin_s[kpt.s] = SICSpin(kpt, self.xc,
+                                         density, hamiltonian, wfs,
+                                         **self.parameters)
 
     def calculate(self, gd, n_sg, v_sg=None, e_g=None):
         exc = self.xc.calculate(gd, n_sg, v_sg, e_g)
@@ -132,14 +68,43 @@ class SIC(XCFunctional):
 
 
 class SICSpin:
-    def __init__(self, kpt, dtype, nocc, xc, xc_factor, coulomb_factor,
-                 density, hamiltonian, wfs):
+    def __init__(self, kpt, xc,
+                 density, hamiltonian, wfs,
+                 finegrid=True, dtype=float,
+                 coulomb_factor=1.0, xc_factor=1.0,
+                 uominres=1E-1, uomaxres=1E-12, uorelres=1.0E-2,
+                 rattle=-0.1, maxuoiter=30):
+        """Single spin SIC object.
+        
+        finegrid: boolean
+            Use fine grid for energy functional evaluations?
+
+        coulomb_factor:
+            Scaling factor for Hartree-functional
+
+        xc_factor:
+            Scaling factor for xc-functional
+
+        uominres:
+            Minimum residual before unitary optimization starts
+
+        uomaxres:
+            Target accuracy for unitary optimization
+            (absolute variance)
+
+        uorelres:
+            Target accuracy for unitary optimization
+            (rel. to basis residual)
+
+        maxuoiter:
+            Maximum number of unitary optimization steps
+
+        rattle:
+            perturbation to the initial states
+        """
+
         self.kpt = kpt
-        self.dtype = dtype
-        self.nocc = nocc
         self.xc = xc
-        self.xc_factor = xc_factor
-        self.coulomb_factor = coulomb_factor
 
         self.gd = wfs.gd
         self.finegd = density.finegd
@@ -148,14 +113,39 @@ class SICSpin:
         self.poissonsolver = hamiltonian.poisson
         self.nspins = wfs.nspins
         self.timer = wfs.timer
+        
+        self.dtype = dtype
+        self.coulomb_factor = coulomb_factor    
+        self.xc_factor = xc_factor    
+        self.finegrid = finegrid
+        self.rattle = rattle    
+        self.uominres = uominres
+        self.uomaxres = uomaxres
+        self.uorelres = uorelres
+        self.maxuoiter = maxuoiter 
 
+        self.adderror = False      # add unit-opt. residual to basis-residual
+        self.maxlsiter = 1         # maximum number of line-search steps
+        self.maxcgiter = 2         # maximum number of CG-iterations
+        self.lsinterp = True       # interpolate for minimum during line search
+
+        self.basiserror = 1E+20
+
+        self.nocc = None
         self.W_mn = None
         self.vt_mG = None
         self.exc_m = None
         self.ecoulomb_m = None
 
+        if not finegrid:
+            self.poissonsolver = PoissonSolver(eps=1e-10)
+            self.poissonsolver.set_grid_descriptor(self.gd)
+            self.poissonsolver.initialize()
+
     def initialize(self):
         assert self.gd.orthogonal
+        self.nocc, x = divmod(int(self.kpt.f_n.sum()), 3 - self.nspins)
+        assert x == 0
         Z_mmv = np.empty((self.nocc, self.nocc, 3), complex)
         for v in range(3):
             Z_mmv[:, :, v] = self.gd.wannier_matrix(self.kpt.psit_nG,
@@ -167,7 +157,7 @@ class SICSpin:
         for iter in range(30):
             loc = _gpaw.localize(Z_mmv, W_nm)
             print iter, loc
-            if loc - localization < 1e-4:
+            if loc - localization < 1e-6:
                 break
             localization = loc
 
@@ -175,7 +165,18 @@ class SICSpin:
         self.W_mn = W_nm.T.copy()
 
         spos_mc = -np.angle(Z_mmv.diagonal()).T / (2 * pi)
-        print np.dot(spos_mc % 1.0, self.gd.cell_cv)
+        print np.dot(spos_mc % 1.0, self.gd.cell_cv) * Bohr
+
+    def get_centers(self):
+        assert self.gd.orthogonal
+        Z_mmv = np.empty((self.nocc, self.nocc, 3), complex)
+        for v in range(3):
+            Z_mmv[:, :, v] = self.gd.wannier_matrix(self.phit_mG,
+                                                    self.phit_mG, v, 1,
+                                                    self.nocc)
+        self.gd.comm.sum(Z_mmv)
+        spos_mc = -np.angle(Z_mmv.diagonal()).T / (2 * pi)
+        return np.dot(spos_mc % 1.0, self.gd.cell_cv) * Bohr
 
     def calculate_sic_matrixelements(self):
         Htphit_mG = self.vt_mG * self.phit_mG
@@ -195,45 +196,113 @@ class SICSpin:
     def update_optimal_states(self):
         self.phit_mG = self.gd.zeros(self.nocc)
         gemm(1.0, self.kpt.psit_nG[:self.nocc], self.W_mn, 0.0, self.phit_mG)
+        #print self.get_centers()
         self.P_ami = {}
         for a, P_ni in self.kpt.P_ani.items():
             self.P_ami[a] = np.dot(self.W_mn, P_ni[:self.nocc])
 
     def update_potentials(self):
+        if not self.finegrid:
+            return self.update_potentials2()
+        
         self.timer.start('ODD-potentials')
         nt_G = self.gd.empty()
         nt_sg = self.finegd.empty(2)
         nt_sg[1] = 0.0
         vt_sg = self.finegd.empty(2)
 
+        zero_initial_phi = False
+        
         if self.vt_mG is None:
-            self.vt_mG = self.gd.zeros(self.nocc)
-            self.exc_m = np.empty(self.nocc)
-            self.ecoulomb_m = np.empty(self.nocc)
-            
+            self.vt_mG = self.gd.empty(self.nocc)
+            self.exc_m = np.zeros(self.nocc)
+            self.ecoulomb_m = np.zeros(self.nocc)
+            self.vHt_mg = self.finegd.zeros(self.nocc)
+            zero_initial_phi = True
+
         for m, phit_G in enumerate(self.phit_mG):
             nt_G[:] = phit_G**2
             Nt = self.gd.integrate(nt_G)
             self.interpolator.apply(nt_G, nt_sg[0])
             Ntfine = self.finegd.integrate(nt_sg[0])
+            #print m, Nt, Ntfine
             nt_sg[0]  *= Nt / Ntfine
-            self.timer.start('XC')
+            
             vt_sg[:] = 0.0
-            exc = self.xc.calculate(self.finegd, nt_sg, vt_sg)
-            self.exc_m[m] = -self.xc_factor * exc
-            vt_sg[0] *= -self.xc_factor
+
+            self.timer.start('XC')
+            if self.xc_factor != 0.0:
+                exc = self.xc.calculate(self.finegd, nt_sg, vt_sg)
+                self.exc_m[m] = -self.xc_factor * exc
+                vt_sg[0] *= -self.xc_factor
             self.timer.stop('XC')
 
             self.timer.start('Hartree')
-            vt_sg[1] = 0.0
-            self.poissonsolver.solve(vt_sg[1], nt_sg[0], zero_initial_phi=True)
-            ecoulomb = 0.5 * self.finegd.integrate(nt_sg[0] * vt_sg[1])
-            self.ecoulomb_m[m] = -self.coulomb_factor * ecoulomb
-            vt_sg[0] -= self.coulomb_factor * vt_sg[1]
+            if self.coulomb_factor != 0.0:
+                self.poissonsolver.solve(self.vHt_mg[m], nt_sg[0],
+                                         zero_initial_phi=zero_initial_phi)
+                ecoulomb = 0.5 * self.finegd.integrate(nt_sg[0] *
+                                                       self.vHt_mg[m])
+                self.ecoulomb_m[m] = -self.coulomb_factor * ecoulomb
+                vt_sg[0] -= self.coulomb_factor * self.vHt_mg[m]
             self.timer.stop('Hartree')
 
             self.restrictor.apply(vt_sg[0], self.vt_mG[m])
+            
         self.timer.stop('ODD-potentials')
+        #print self.exc_m, self.ecoulomb_m
+        #print self.W_mn
+        """
+        import pylab as p
+        for m,x in enumerate(self.phit_mG[:,24,24]):
+            p.plot(x, label='%d'%m)
+        p.legend()
+        p.show();dfg
+        """
+        self.esic = (self.exc_m.sum() +
+                     self.ecoulomb_m.sum()) * (3 - self.nspins)
+        
+    def update_potentials2(self):
+        self.timer.start('ODD-potentials')
+        nt_sG = self.gd.empty(2)
+        nt_sG[1] = 0.0
+        vt_sG = self.gd.empty(2)
+
+        zero_initial_phi = False
+        
+        if self.vt_mG is None:
+            self.vt_mG = self.gd.empty(self.nocc)
+            self.exc_m = np.zeros(self.nocc)
+            self.ecoulomb_m = np.zeros(self.nocc)
+            self.vHt_mG = self.gd.zeros(self.nocc)
+            zero_initial_phi = True
+
+        for m, phit_G in enumerate(self.phit_mG):
+            nt_sG[0] = phit_G**2
+            
+            vt_sG[:] = 0.0
+
+            self.timer.start('XC')
+            if self.xc_factor != 0.0:
+                exc = self.xc.calculate(self.gd, nt_sG, vt_sG)
+                self.exc_m[m] = -self.xc_factor * exc
+                vt_sG[0] *= -self.xc_factor
+            self.timer.stop('XC')
+
+            self.timer.start('Hartree')
+            if self.coulomb_factor != 0.0:
+                self.poissonsolver.solve(self.vHt_mG[m], nt_sG[0],
+                                         zero_initial_phi=zero_initial_phi)
+                ecoulomb = 0.5 * self.gd.integrate(nt_sG[0] *
+                                                   self.vHt_mG[m])
+                self.ecoulomb_m[m] = -self.coulomb_factor * ecoulomb
+                vt_sG[0] -= self.coulomb_factor * self.vHt_mG[m]
+            self.timer.stop('Hartree')
+
+            self.vt_mG[m] = vt_sG[0]
+            
+        self.timer.stop('ODD-potentials')
+
         self.esic = (self.exc_m.sum() +
                      self.ecoulomb_m.sum()) * (3 - self.nspins)
 
@@ -248,12 +317,31 @@ class SICSpin:
                 Htpsit_xG += np.dot(self.vt_mG.T,
                                     self.W_mn[:, n]**2).T * psit_xG
         else:
-            Htpsit_xG[:self.nocc] += np.dot((self.vt_mG * self.phit_mG).T,
+            #V_mm = np.zeros((self.nocc, self.nocc), dtype=self.dtype)
+            #gemm(self.gd.dv, self.phit_mG, psit_xG[:self.nocc], 0.0, V_xm, 't')
+            #print V_mm-self.W_mn.T;sdfg
+            Htphit_mG = self.vt_mG * self.phit_mG
+            V_mm = np.zeros((self.nocc, self.nocc), dtype=self.dtype)
+            gemm(self.gd.dv, self.phit_mG, Htphit_mG, 0.0, V_mm, 't')
+            self.gd.comm.sum(V_mm)
+            Htpsit_xG[:self.nocc] += np.dot((Htphit_mG).T,
                                             self.W_mn).T
+            Htpsit_xG[:self.nocc] += 0.5 * np.dot(self.phit_mG.T,
+                                                  np.dot(V_mm - V_mm.T,
+                                                         self.W_mn)).T
+            V_nn = np.zeros((len(psit_xG), len(psit_xG)), dtype=self.dtype)
+            gemm(self.gd.dv, psit_xG, Htpsit_xG, 0.0, V_nn, 't')
+            #print V_nn
+            #print V_nn-V_nn.T
+            print abs(V_nn-V_nn.T)[:5,:5].max()
+            #print np.dot(self.W_mn, self.W_mn.T)
+            gemm(self.gd.dv, psit_xG, psit_xG, 0.0, V_nn, 't')
+            print abs(V_nn-np.eye(len(psit_xG))).max()
 
     def rotate(self, U_nn):
         if self.W_mn is not None:
-            self.W_mn = np.dot(self.W_mn, U_nn[:self.nocc, :self.nocc].T)
+            self.W_mn = ortho(np.dot(self.W_mn,
+                                     U_nn[:self.nocc, :self.nocc].T))
             self.phit_mG = None
 
     def calculate(self):
@@ -299,6 +387,7 @@ class SICSpin:
         D_old_mm = np.zeros_like(self.W_mn)
         #
         for iter in range(maxiter):
+            print iter, ESI, norm
             #
             # copy the initial unitary transformation and orbital
             # dependent energies
@@ -340,7 +429,8 @@ class SICSpin:
                     U_mm = matrix_exponential(D_mm, step)
                     self.W_mn = np.dot(U_mm, W_old_mn)
                     self.update_optimal_states()
-                    E1 = self.update_potentials()
+                    self.update_potentials()
+                    E1 = self.esic
                     V_mm, K_mm, norm = self.calculate_sic_matrixelements()
                     #
                     # projected length of the gradient at the new position
@@ -383,7 +473,8 @@ class SICSpin:
                     U_mm = matrix_exponential(D_mm,optstep)
                     self.W_mn = np.dot(U_mm,W_old_mn)
                     self.update_optimal_states()
-                    E1=self.update_potentials()
+                    self.update_potentials()
+                    E1 = self.esic
                     if (abs(E1-E0)<prec):
                         V_mm, K_mm, norm = self.calculate_sic_matrixelements()
                         ESI       = E1
@@ -436,7 +527,8 @@ class SICSpin:
                 U_mm = matrix_exponential(D_mm,step)
                 self.W_mn = np.dot(U_mm,W_old_mn)
                 self.update_optimal_states()
-                E1 = self.update_potentials()
+                self.update_potentials()
+                E1 = self.esic
                 #
                 #
                 if (abs(E1-E0)<prec):
@@ -483,7 +575,8 @@ class SICSpin:
                     U_mm = matrix_exponential(D_mm,step2)
                     self.W_mn = np.dot(U_mm,W_old_mn)
                     self.update_optimal_states()
-                    E2=self.update_potentials()
+                    self.update_potentials()
+                    E2 = self.esic
                     G  = (E2-E1)/(step2-step1)
                     #
                     #print lsiter,E2,G,step2,step
@@ -526,7 +619,7 @@ class SICSpin:
                 cgiter      = 0
             else:
                 cgiter      = cgiter + 1
-                D_old[:,:]  = D_nn[:,:]
+                D_old_mm[:,:]  = D_mm[:,:]
             #
             # update the energy and matrixelements of V and Kappa
             # and accumulate total residual of unitary optimization
@@ -534,13 +627,15 @@ class SICSpin:
                 if (optstep==0.0):
                     self.W_mn[:] = W_old_mn
                     self.update_optimal_states()
-                    ESI=self.update_potentials()
+                    self.update_potentials()
+                    ESI = self.esic
                     V_mm, K_mm, norm = self.calculate_sic_matrixelements()
                 else:
                     U_mm = matrix_exponential(D_mm,optstep)
                     self.W_mn = np.dot(U_mm,W_old_mn)
                     self.update_optimal_states()
-                    ESI=self.update_potentials()
+                    self.update_potentials()
+                    ESI = self.esic
                     V_mm, K_mm, norm = self.calculate_sic_matrixelements()
 
             if (lsiter==maxlsiter-1):
@@ -552,5 +647,52 @@ class SICSpin:
             # orthonormalize the energy optimal orbitals
             self.W_mn = ortho(self.W_mn)
             K  =max(norm, 1.0e-16)
-            if K<basiserror*self.uorelres or K<self.uomaxres:
+            if K<self.uomaxres:
                 break
+
+def matrix_exponential(G_nn,dlt):
+
+    """Computes the matrix exponential of an antihermitian operator
+
+        U = exp(dlt*G)
+
+    """
+    ndim = G_nn.shape[1]
+    w_n  = np.zeros((ndim),dtype=float)
+
+    V_nn = np.zeros((ndim,ndim),dtype=complex)
+    O_nn = np.zeros((ndim,ndim),dtype=complex)
+    if G_nn.dtype==complex:
+        V_nn =  1j*G_nn.real + G_nn.imag
+    else:
+        V_nn =  1j*G_nn.real
+
+    diagonalize(V_nn,w_n)
+    #
+    O_nn  = np.diag(np.exp(1j*dlt*w_n))
+    #print np.max(np.abs(dlt*w_n))
+    #
+    if G_nn.dtype==complex:
+        U_nn = np.dot(V_nn.T.conj(),np.dot(O_nn,V_nn)).copy()
+    else:
+        U_nn = np.dot(V_nn.T.conj(),np.dot(O_nn,V_nn)).real.copy()
+    #        
+    return U_nn
+
+def ortho(W):
+    ndim = np.shape(W)[1]
+    O = np.dot(W, W.T.conj())
+    err = np.sum(np.abs(O - np.eye(ndim)))
+    #print err
+    if (err<1E-10):
+        X = 1.5*np.eye(ndim) - 0.5*O    
+    else:
+        n = np.zeros(ndim,dtype=float)
+        diagonalize(O,n)
+        U = O.T.conj().copy()
+        nsqrt = np.diag(1.0/np.sqrt(n))
+        X = np.dot(np.dot(U, nsqrt), U.T.conj())
+    O = np.dot(X, W)
+    
+    
+    return O
