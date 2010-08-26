@@ -138,7 +138,7 @@ class SICSpin:
         self.ecoulomb_m = None
 
         if not finegrid:
-            self.poissonsolver = PoissonSolver(eps=1e-10)
+            self.poissonsolver = PoissonSolver(eps=1e-11)
             self.poissonsolver.set_grid_descriptor(self.gd)
             self.poissonsolver.initialize()
 
@@ -184,13 +184,15 @@ class SICSpin:
         gemm(self.gd.dv, self.phit_mG, Htphit_mG, 0.0, V_mm, 't')
         
         self.gd.comm.sum(V_mm)
-
+        self.V_mm = V_mm
+        
         # Symmetrization of V and kappa-matrix:
         K_mm = 0.5 * (V_mm - V_mm.T.conj())
         V_mm = 0.5 * (V_mm + V_mm.T.conj())
 
         self.ekin = -np.trace(V_mm) * (3 - self.nspins) / self.gd.comm.size
 
+        
         return V_mm, K_mm, np.vdot(K_mm, K_mm).real
 
     def update_optimal_states(self):
@@ -250,15 +252,7 @@ class SICSpin:
             self.restrictor.apply(vt_sg[0], self.vt_mG[m])
             
         self.timer.stop('ODD-potentials')
-        #print self.exc_m, self.ecoulomb_m
-        #print self.W_mn
-        """
-        import pylab as p
-        for m,x in enumerate(self.phit_mG[:,24,24]):
-            p.plot(x, label='%d'%m)
-        p.legend()
-        p.show();dfg
-        """
+
         self.esic = (self.exc_m.sum() +
                      self.ecoulomb_m.sum()) * (3 - self.nspins)
         
@@ -317,26 +311,18 @@ class SICSpin:
                 Htpsit_xG += np.dot(self.vt_mG.T,
                                     self.W_mn[:, n]**2).T * psit_xG
         else:
-            #V_mm = np.zeros((self.nocc, self.nocc), dtype=self.dtype)
-            #gemm(self.gd.dv, self.phit_mG, psit_xG[:self.nocc], 0.0, V_xm, 't')
-            #print V_mm-self.W_mn.T;sdfg
             Htphit_mG = self.vt_mG * self.phit_mG
-            V_mm = np.zeros((self.nocc, self.nocc), dtype=self.dtype)
-            gemm(self.gd.dv, self.phit_mG, Htphit_mG, 0.0, V_mm, 't')
-            self.gd.comm.sum(V_mm)
-            Htpsit_xG[:self.nocc] += np.dot((Htphit_mG).T,
-                                            self.W_mn).T
+            Htpsit_xG[:self.nocc] += np.dot((Htphit_mG).T, self.W_mn).T
+
+            K_mm = self.V_mm - self.V_mm.T
             Htpsit_xG[:self.nocc] += 0.5 * np.dot(self.phit_mG.T,
-                                                  np.dot(V_mm - V_mm.T,
-                                                         self.W_mn)).T
-            V_nn = np.zeros((len(psit_xG), len(psit_xG)), dtype=self.dtype)
-            gemm(self.gd.dv, psit_xG, Htpsit_xG, 0.0, V_nn, 't')
-            #print V_nn
-            #print V_nn-V_nn.T
-            print abs(V_nn-V_nn.T)[:5,:5].max()
-            #print np.dot(self.W_mn, self.W_mn.T)
-            gemm(self.gd.dv, psit_xG, psit_xG, 0.0, V_nn, 't')
-            print abs(V_nn-np.eye(len(psit_xG))).max()
+                                                  np.dot(K_mm, self.W_mn)).T
+            
+            V_me = np.zeros((self.nocc, len(psit_xG) - self.nocc),
+                            dtype=self.dtype)
+            gemm(self.gd.dv, psit_xG[self.nocc:], Htphit_mG, 0.0, V_me, 't')
+            self.gd.comm.sum(V_me)
+            Htpsit_xG[self.nocc:] += np.dot(self.phit_mG.T, V_me).T
 
     def rotate(self, U_nn):
         if self.W_mn is not None:
@@ -350,7 +336,7 @@ class SICSpin:
         self.unitary_optimization()
         return self.esic, self.ekin
 
-    def unitary_optimization(self, maxiter=30):
+    def unitary_optimization(self, maxiter=3):
         ESI_init = 0.0
         ESI      = 0.0
         dE       = 1e-16  
