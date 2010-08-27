@@ -285,6 +285,9 @@ class PAWTextOutput:
 
         self.print_eigenvalues()
 
+        if hasattr(self.hamiltonian.xc, 'summary'):
+            self.hamiltonian.xc.summary(self.txt)
+            
         if self.density.rhot_g is None:
             return
         
@@ -313,9 +316,6 @@ class PAWTextOutput:
             for a, mom in enumerate(self.get_magnetic_moments()):
                 t(a, mom)
             t()
-
-##         if self.xcfunc.is_gllb():
-##             self.xcfunc.xc.print_converged(self)
 
     def print_iteration(self, iter):
         # Output from each iteration:
