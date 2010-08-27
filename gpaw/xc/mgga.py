@@ -38,3 +38,10 @@ class MGGA(GGA):
                 self.tgrad[v](psit_G, a_G, kpt.phase_cd)
                 self.tgrad[v](self.dedtau_sG[kpt.s] * a_G, a_G, kpt.phase_cd)
                 axpy(-0.5, a_G, Htpsit_G)
+
+    def forces(self, F_av):
+        dF_av = hamiltonian.xc.tauct.dict(derivative=True)
+        dedtau_G = hamiltonian.xc.dedtau_G
+        hamiltonian.xc.tauct.derivative(dedtau_G, dF_av)
+        for a, dF_v in dF_av.items():
+            self.F_av[a] += dF_v[0]

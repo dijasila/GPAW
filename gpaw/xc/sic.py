@@ -148,17 +148,6 @@ class SICSpin:
         self.coulomb_factor = coulomb_factor    
         self.xc_factor = xc_factor    
         self.finegrid = finegrid
-        self.rattle = rattle    
-        self.uominres = uominres
-        self.uomaxres = uomaxres
-        self.uorelres = uorelres
-        self.maxuoiter = maxuoiter 
-
-        self.maxlsiter = 1         # maximum number of line-search steps
-        self.maxcgiter = 2         # maximum number of CG-iterations
-        self.lsinterp = True       # interpolate for minimum during line search
-
-        self.basiserror = 1E+20
 
         self.nocc = None
         self.W_mn = None
@@ -172,10 +161,21 @@ class SICSpin:
             self.poissonsolver.initialize()
             self.finegd = self.gd
 
+        self.rattle = rattle    
+        self.uominres = uominres
+        self.uomaxres = uomaxres
+        self.uorelres = uorelres
+        self.maxuoiter = maxuoiter 
+        self.maxlsiter = 1         # maximum number of line-search steps
+        self.maxcgiter = 2         # maximum number of CG-iterations
+        self.lsinterp = True       # interpolate for minimum during line search
+        self.basiserror = 1E+20
+
     def initialize(self):
         assert self.gd.orthogonal
         self.nocc, x = divmod(int(self.kpt.f_n.sum()), 3 - self.nspins)
         assert x == 0
+
         Z_mmv = np.empty((self.nocc, self.nocc, 3), complex)
         for v in range(3):
             Z_mmv[:, :, v] = self.gd.wannier_matrix(self.kpt.psit_nG,
@@ -186,6 +186,7 @@ class SICSpin:
         localization = 0.0
         for iter in range(30):
             loc = _gpaw.localize(Z_mmv, W_nm)
+            print '%2d %.6f' % (iter, loc)
             if loc - localization < 1e-6:
                 break
             localization = loc
@@ -223,7 +224,6 @@ class SICSpin:
         V_mm = 0.5 * (V_mm + V_mm.T.conj())
 
         self.ekin = -np.trace(V_mm) * (3 - self.nspins) / self.gd.comm.size
-
         
         return V_mm, K_mm, np.vdot(K_mm, K_mm).real
 

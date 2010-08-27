@@ -285,8 +285,7 @@ class PAWTextOutput:
 
         self.print_eigenvalues()
 
-        if hasattr(self.hamiltonian.xc, 'summary'):
-            self.hamiltonian.xc.summary(self.txt)
+        self.hamiltonian.xc.summary(self.txt)
             
         if self.density.rhot_g is None:
             return

@@ -29,3 +29,9 @@ class XCFunctional:
 
     def get_kinetic_energy_correction(self):
         return self.ekin
+
+    def forces(self, F_av):
+        pass
+
+    def summary(self, fd):
+        pass
