@@ -37,23 +37,27 @@ class RMM_DIIS(Eigensolver):
         self.timer.start('RMM-DIIS')
         if self.keep_htpsit:
             R_nG = self.Htpsit_nG
-            wfs.calculate_residuals(hamiltonian, kpt, kpt.eps_n, kpt.psit_nG,
-                                    R_nG, kpt.P_ani,
-                                    apply_hamiltonian=False)
+            for R_G, eps, psit_G in zip(R_nG, kpt.eps_n, kpt.psit_nG):
+                axpy(-eps, psit_G, R_G)
+            wfs.add_paw_corrections(hamiltonian, kpt, R_nG)
 
         B = 1
-        dR_bG = wfs.gd.empty(B)
+        dR_xG = wfs.gd.empty(B)
         error = 0.0
         assert B == 1
         for n1 in range(0, wfs.bd.mynbands, B):
             n2 = min(n1 + B, wfs.bd.mynbands)
             if self.keep_htpsit:
-                R_bG = R_nG[n1:n2]
+                R_xG = R_nG[n1:n2]
             else:
-                R_bG = wfs.gd.empty(B)
-                wfs.calculate_residuals(hamiltonian, kpt,
-                                        kpt.eps_n[n1:n2], kpt.psit_nG[n1:n2],
-                                        R_bG)
+                R_xG = wfs.gd.empty(n2 - n1)
+                psit_xG = kpt.psit_nG[n1:n2]
+                wfs.apply_kinetic_energy_operator(kpt, psit_xG, R_xG)
+                hamiltonian.apply_local_potential(psit_xG, R_xG, kpt.s)
+                hamiltonian.xc.add_correction(kpt, psit_xG, R_xG)
+                for R_G, eps, psit_G in zip(R_xG, kpt.eps_n[n1:n2], psit_xG):
+                    axpy(-eps, psit_G, R_G)
+                wfs.add_paw_corrections(hamiltonian, kpt, R_xG)
 
             for n in range(n1, n2):
                 if kpt.f_n is None:
@@ -65,29 +69,33 @@ class RMM_DIIS(Eigensolver):
                         weight = kpt.weight
                     else:
                         weight = 0.0
-                error += weight * np.vdot(R_bG[n - n1], R_bG[n - n1]).real
+                error += weight * np.vdot(R_xG[n - n1], R_xG[n - n1]).real
 
             # Precondition the residual:
             self.timer.start('precondition')
-            pR_bG = self.preconditioner(R_bG, kpt)
+            pR_xG = self.preconditioner(R_xG, kpt)
             self.timer.stop('precondition')
 
             # Calculate the residual of pR_G, dR_G = (H - e S) pR_G:
-            wfs.calculate_residuals(hamiltonian, kpt, kpt.eps_n[n1:n2],
-                                    pR_bG, dR_bG, approximate=True,
-                                    n_x=range(n1, n2))
+            wfs.apply_kinetic_energy_operator(kpt, pR_xG, dR_xG)
+            hamiltonian.apply_local_potential(pR_xG, dR_xG, kpt.s)
+            hamiltonian.xc.add_correction2(kpt, pR_xG, dR_xG, range(n1, n2))
+            for dR_G, eps, pR_G in zip(dR_xG, kpt.eps_n[n1:n2], pR_xG):
+                axpy(-eps, pR_G, dR_G)
+            wfs.add_paw_corrections2(hamiltonian, kpt, pR_xG, dR_xG,
+                                     range(n1, n2))
             
             # Find lam that minimizes the norm of R'_G = R_G + lam dR_G
-            RdR = self.gd.comm.sum(np.vdot(R_bG, dR_bG).real)
-            dRdR = self.gd.comm.sum(np.vdot(dR_bG, dR_bG).real)
+            RdR = self.gd.comm.sum(np.vdot(R_xG, dR_xG).real)
+            dRdR = self.gd.comm.sum(np.vdot(dR_xG, dR_xG).real)
 
             lam = -RdR / dRdR
             # Calculate new psi'_G = psi_G + lam pR_G + lam pR'_G
             #                      = psi_G + p(2 lam R_G + lam**2 dR_G)
-            R_bG *= 2.0 * lam
-            axpy(lam**2, dR_bG, R_bG)  # R_G += lam**2 * dR_G
+            R_xG *= 2.0 * lam
+            axpy(lam**2, dR_xG, R_xG)  # R_G += lam**2 * dR_G
             self.timer.start('precondition')
-            kpt.psit_nG[n1:n2] += self.preconditioner(R_bG, kpt)
+            kpt.psit_nG[n1:n2] += self.preconditioner(R_xG, kpt)
             self.timer.stop('precondition')
             
         self.timer.stop('RMM-DIIS')

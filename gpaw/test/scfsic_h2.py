@@ -9,8 +9,8 @@ molecule = Atoms('H2', positions=[(0, 0, 0), (0, 0, 0.737)], cell=(a, a, a))
 atom.center()
 molecule.center()
 
-calc = GPAW(#xc=SIC(),
-            txt='h2.lda.txt',
+calc = GPAW(xc=SIC(),
+            txt='h2.sic.txt',
             setups='hgh')
 
 atom.set_calculator(calc)

@@ -5,7 +5,7 @@ functionals (Perdew-Zunger).
 """
 
 import sys
-from math import pi, cos, sin, log10, exp, atan2
+from math import pi, sqrt, cos, sin, log10, exp, atan2
 
 import numpy as np
 from ase.units import Bohr, Hartree
@@ -15,16 +15,24 @@ from gpaw.utilities.lapack import diagonalize
 from gpaw.xc import XC
 from gpaw.xc.functional import XCFunctional
 from gpaw.poisson import PoissonSolver
+from gpaw.utilities import pack
+from gpaw.lfc import LFC
 import _gpaw
 
 
 class SIC(XCFunctional):
-    def __init__(self, xc='LDA', **parameters):
-        """Self-Interaction Corrected (SIC) Functionals."""
+    def __init__(self, xc='LDA', finegrid=False, **parameters):
+        """Self-Interaction Corrected (SIC) Functionals.
+
+        finegrid: boolean
+            Use fine grid for energy functional evaluations?
+        """
+        
         if isinstance(xc, str):
             xc = XC(xc)
         self.xc = xc
         XCFunctional.__init__(self, xc.name + '-PZ-SIC')
+        self.finegrid = finegrid
         self.parameters = parameters
 
     def initialize(self, density, hamiltonian, wfs):
@@ -32,13 +40,29 @@ class SIC(XCFunctional):
         self.xc.initialize(density, hamiltonian, wfs)
         self.kpt_comm = wfs.kpt_comm
         self.nspins = wfs.nspins
-        
+
+        if self.finegrid:
+            poissonsolver = hamiltonian.poisson
+            self.ghat = density.ghat
+        else:
+            poissonsolver = PoissonSolver(eps=1e-11)
+            poissonsolver.set_grid_descriptor(density.gd)
+            poissonsolver.initialize()
+            self.ghat = LFC(density.gd,
+                            [setup.ghat_l for setup in density.setups],
+                            integral=sqrt(4 * pi), forces=True)
+
         self.spin_s = {}
         for kpt in wfs.kpt_u:
             self.spin_s[kpt.s] = SICSpin(kpt, self.xc,
                                          density, hamiltonian, wfs,
+                                         poissonsolver, self.ghat,
                                          **self.parameters)
 
+    def set_positions(self, spos_ac):
+        if not self.finegrid:
+            self.ghat.set_positions(spos_ac)
+    
     def calculate(self, gd, n_sg, v_sg=None, e_g=None):
         self.gd = gd
         
@@ -57,8 +81,11 @@ class SIC(XCFunctional):
         self.ekin = self.kpt_comm.sum(self.ekin)
         return exc + self.esic
 
-    def add_correction(self, kpt, psit_xG, Htpsit_xG, approximate, n_x):
-        self.spin_s[kpt.s].add_correction(psit_xG, Htpsit_xG, approximate, n_x)
+    def add_correction(self, kpt, psit_xG, Htpsit_xG):
+        self.spin_s[kpt.s].add_correction(psit_xG, Htpsit_xG)
+
+    def add_correction2(self, kpt, psit_xG, Htpsit_xG, n_x):
+        self.spin_s[kpt.s].add_correction2(psit_xG, Htpsit_xG, n_x)
 
     def rotate(self, kpt, U_nn):
         self.spin_s[kpt.s].rotate(U_nn)
@@ -100,14 +127,13 @@ class SIC(XCFunctional):
 class SICSpin:
     def __init__(self, kpt, xc,
                  density, hamiltonian, wfs,
-                 finegrid=False, dtype=float,
+                 poissonsolver, ghat,
+                 dtype=float,
                  coulomb_factor=1.0, xc_factor=1.0,
                  uominres=1E-1, uomaxres=1E-12, uorelres=1.0E-2,
                  rattle=-0.1, maxuoiter=30):
         """Single spin SIC object.
         
-        finegrid: boolean
-            Use fine grid for energy functional evaluations?
 
         coulomb_factor:
             Scaling factor for Hartree-functional
@@ -135,19 +161,19 @@ class SICSpin:
 
         self.kpt = kpt
         self.xc = xc
-
+        self.poissonsolver = poissonsolver
+        self.ghat = ghat
+        
         self.gd = wfs.gd
-        self.finegd = density.finegd
         self.interpolator = density.interpolator
         self.restrictor = hamiltonian.restrictor
-        self.poissonsolver = hamiltonian.poisson
         self.nspins = wfs.nspins
         self.timer = wfs.timer
+        self.setups = wfs.setups
         
         self.dtype = dtype
         self.coulomb_factor = coulomb_factor    
         self.xc_factor = xc_factor    
-        self.finegrid = finegrid
 
         self.nocc = None
         self.W_mn = None
@@ -155,11 +181,7 @@ class SICSpin:
         self.exc_m = None
         self.ecoulomb_m = None
 
-        if not finegrid:
-            self.poissonsolver = PoissonSolver(eps=1e-11)
-            self.poissonsolver.set_grid_descriptor(self.gd)
-            self.poissonsolver.initialize()
-            self.finegd = self.gd
+        self.finegd = ghat.gd
 
         self.rattle = rattle    
         self.uominres = uominres
@@ -171,7 +193,7 @@ class SICSpin:
         self.lsinterp = True       # interpolate for minimum during line search
         self.basiserror = 1E+20
 
-    def initialize(self):
+    def initialize_orbitals(self):
         assert self.gd.orthogonal
         self.nocc, x = divmod(int(self.kpt.f_n.sum()), 3 - self.nspins)
         assert x == 0
@@ -234,11 +256,35 @@ class SICSpin:
         for a, P_ni in self.kpt.P_ani.items():
             self.P_ami[a] = np.dot(self.W_mn, P_ni[:self.nocc])
 
+    def calculate_density(self, m):
+        Q_aL = {}
+        D_ap = {}
+        for a, P_mi in self.P_ami.items():
+            P_i = P_mi[m]
+            D_ii = np.outer(P_i, P_i.conj()).real
+            D_ap[a] = D_p = pack(D_ii)
+            Q_aL[a] = np.dot(D_p, self.setups[a].Delta_pL)
+            
+        nt_G = self.phit_mG[m]**2
+
+        if self.finegd is self.gd:
+            nt_g = nt_G
+        else:
+            nt_g = self.finegd.empty()
+            self.interpolator.apply(nt_G, nt_g)
+
+        self.ghat.add(nt_g, Q_aL)
+
+        nt_g *= 1.0 / self.finegd.integrate(nt_g)
+
+        return nt_g, D_ap
+        
     def update_potentials(self):
         self.timer.start('ODD-potentials')
         nt_sg = self.finegd.empty(2)
         nt_sg[1] = 0.0
         vt_sg = self.finegd.empty(2)
+        W_aL = self.ghat.dict()
 
         zero_initial_phi = False
         
@@ -248,24 +294,28 @@ class SICSpin:
             self.ecoulomb_m = np.zeros(self.nocc)
             self.vHt_mg = self.finegd.zeros(self.nocc)
             zero_initial_phi = True
+            self.dH_amp = {}
+            for a, P_mi in self.P_ami.items():
+                ni = P_mi.shape[1]
+                self.dH_amp[a] = np.empty((self.nocc, ni * (ni + 1) // 2))
 
         for m, phit_G in enumerate(self.phit_mG):
-            nt_G = phit_G**2
-            if self.finegrid:
-                Nt = self.gd.integrate(nt_G)
-                self.interpolator.apply(nt_G, nt_sg[0])
-                Ntfine = self.finegd.integrate(nt_sg[0])
-                nt_sg[0]  *= Nt / Ntfine
-            else:
-                nt_sg[0] = nt_G
-                
+            nt_sg[0], D_ap = self.calculate_density(m)
             vt_sg[:] = 0.0
 
             self.timer.start('XC')
             if self.xc_factor != 0.0:
                 exc = self.xc.calculate(self.finegd, nt_sg, vt_sg)
-                self.exc_m[m] = -self.xc_factor * exc
+                exc /= self.gd.comm.size
                 vt_sg[0] *= -self.xc_factor
+                for a, D_p in D_ap.items():
+                    setup = self.setups[a]
+                    dH_p = self.dH_amp[a][m]
+                    dH_p[:] = 0.0
+                    exc += setup.xc_correction.calculate(D_p, dH_p,
+                                                         addcoredensity=False)
+                    dH_p *= -self.xc_factor
+                self.exc_m[m] = -self.xc_factor * exc
             self.timer.stop('XC')
 
             self.timer.start('Hartree')
@@ -274,47 +324,62 @@ class SICSpin:
                                          zero_initial_phi=zero_initial_phi)
                 ecoulomb = 0.5 * self.finegd.integrate(nt_sg[0] *
                                                        self.vHt_mg[m])
-                self.ecoulomb_m[m] = -self.coulomb_factor * ecoulomb
+                ecoulomb /= self.gd.comm.size
                 vt_sg[0] -= self.coulomb_factor * self.vHt_mg[m]
+                self.ghat.integrate(self.vHt_mg[m], W_aL)
+                for a, D_p in D_ap.items():
+                    setup = self.setups[a]
+                    dH_p = self.dH_amp[a][m]
+                    M_p = np.dot(setup.M_pp, D_p)
+                    ecoulomb += np.dot(D_p, M_p)
+                    dH_p -= self.coulomb_factor * (
+                        2 * M_p + np.dot(setup.Delta_pL, W_aL[a]))
+                self.ecoulomb_m[m] = -self.coulomb_factor * ecoulomb
             self.timer.stop('Hartree')
 
-            if self.finegrid:
-                self.restrictor.apply(vt_sg[0], self.vt_mG[m])
-            else:
+            if self.finegd is self.gd:
                 self.vt_mG[m] = vt_sg[0]
+            else:
+                self.restrictor.apply(vt_sg[0], self.vt_mG[m])
             
         self.timer.stop('ODD-potentials')
 
+        self.gd.comm.sum(self.exc_m)
+        self.gd.comm.sum(self.ecoulomb_m)
+        
         self.esic = (self.exc_m.sum() +
                      self.ecoulomb_m.sum()) * (3 - self.nspins)
 
-    def add_correction(self, psit_xG, Htpsit_xG, approximate, n_x):
+    def add_correction(self, psit_xG, Htpsit_xG):
         if self.W_mn is None:
             return
 
-        if approximate:
-            assert len(n_x) == 1
-            n = n_x[0]
-            if n < self.nocc:
-                Htpsit_xG += np.dot(self.vt_mG.T,
-                                    self.W_mn[:, n]**2).T * psit_xG
-        else:
-            # Apply orbital dependent potentials:
-            Htphit_mG = self.vt_mG * self.phit_mG
-            Htpsit_xG[:self.nocc] += np.dot((Htphit_mG).T, self.W_mn).T
+        # Apply orbital dependent potentials:
+        Htphit_mG = self.vt_mG * self.phit_mG
+        Htpsit_xG[:self.nocc] += np.dot((Htphit_mG).T, self.W_mn).T
 
-            # Make sure <psi_n|H|psi_m> is Hermitian.
-            # Correct occupied states:
-            K_mm = self.V_mm - self.V_mm.T
-            Htpsit_xG[:self.nocc] += 0.5 * np.dot(self.phit_mG.T,
-                                                  np.dot(K_mm, self.W_mn)).T
-            
-            # Correct empty states:
-            V_me = np.zeros((self.nocc, len(psit_xG) - self.nocc),
-                            dtype=self.dtype)
-            gemm(self.gd.dv, psit_xG[self.nocc:], Htphit_mG, 0.0, V_me, 't')
-            self.gd.comm.sum(V_me)
-            Htpsit_xG[self.nocc:] += np.dot(self.phit_mG.T, V_me).T
+        # Make sure <psi_n|H|psi_m> is Hermitian.
+        # Correct occupied states:
+        K_mm = self.V_mm - self.V_mm.T
+        Htpsit_xG[:self.nocc] += 0.5 * np.dot(self.phit_mG.T,
+                                              np.dot(K_mm, self.W_mn)).T
+
+        # Correct empty states:
+        V_me = np.zeros((self.nocc, len(psit_xG) - self.nocc),
+                        dtype=self.dtype)
+        gemm(self.gd.dv, psit_xG[self.nocc:], Htphit_mG, 0.0, V_me, 't')
+        self.gd.comm.sum(V_me)
+        Htpsit_xG[self.nocc:] += np.dot(self.phit_mG.T, V_me).T
+
+    def add_correction2(self, psit_xG, Htpsit_xG, n_x):
+        if self.W_mn is None:
+            return
+
+        assert len(n_x) == 1
+        n = n_x[0]
+        if n < self.nocc:
+            Htpsit_xG += np.dot(self.vt_mG.T,
+                                self.W_mn[:, n]**2).T * psit_xG
 
     def rotate(self, U_nn):
         if self.W_mn is not None:
@@ -324,11 +389,11 @@ class SICSpin:
 
     def calculate(self):
         if self.W_mn is None:
-            self.initialize()
+            self.initialize_orbitals()
         self.unitary_optimization()
         return self.esic, self.ekin
 
-    def unitary_optimization(self, maxiter=3):
+    def unitary_optimization(self, maxiter=2):
         ESI_init = 0.0
         ESI      = 0.0
         dE       = 1e-16  

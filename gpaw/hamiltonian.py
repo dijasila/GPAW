@@ -113,6 +113,8 @@ class Hamiltonian:
         self.vbar_g[:] = 0.0
         self.vbar.add(self.vbar_g)
 
+        self.xc.set_positions(spos_ac)
+        
         # If both old and new atomic ranks are present, start a blank dict if
         # it previously didn't exist but it will needed for the new atoms.
         if (self.rank_a is not None and rank_a is not None and

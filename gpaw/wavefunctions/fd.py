@@ -50,37 +50,32 @@ class FDWaveFunctions(FDPWWaveFunctions):
     def make_preconditioner(self):
         return Preconditioner(self.gd, self.kin, self.dtype)
     
-    def apply_pseudo_hamiltonian(self, hamiltonian, kpt, psit_xG, Htpsit_xG,
-                                 approximate=False, n_x=None):
-        """Apply the non-pseudo Hamiltonian i.e. without PAW corrections."""
+    def apply_kinetic_energy_operator(self, kpt, psit_xG, Htpsit_xG):
         self.kin.apply(psit_xG, Htpsit_xG, kpt.phase_cd)
-        hamiltonian.apply_local_potential(psit_xG, Htpsit_xG, kpt.s)
-        hamiltonian.xc.add_correction(kpt, psit_xG, Htpsit_xG, approximate, n_x)
 
-    def calculate_residuals(self, hamiltonian, kpt, eps_x, psit_xG,
-                            R_xG, P_axi=None,
-                            apply_hamiltonian=True,
-                            approximate=False, n_x=None):
-        if apply_hamiltonian:
-            self.apply_pseudo_hamiltonian(hamiltonian, kpt, psit_xG, R_xG,
-                                          approximate, n_x)
-            
-        for R_G, eps, psit_G in zip(R_xG, eps_x, psit_xG):
-            axpy(-eps, psit_G, R_G)
+    def add_paw_corrections(self, hamiltonian, kpt, R_nG):
+        c_ani = {}
+        for a, P_ni in kpt.P_ani.items():
+            dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
+            dO_ii = hamiltonian.setups[a].dO_ii
+            c_ni = (np.dot(P_ni, dH_ii) -
+                    np.dot(P_ni * kpt.eps_n[:, np.newaxis], dO_ii))
+            c_ani[a] = c_ni
+        hamiltonian.xc.add_paw_correction(kpt, c_ani)
+        self.pt.add(R_nG, c_ani, kpt.q)
 
-        # PAW corrections:
-        if P_axi is None:
-            P_axi = self.pt.dict(len(psit_xG))
-            self.pt.integrate(psit_xG, P_axi, kpt.q)
+    def add_paw_corrections2(self, hamiltonian, kpt, psit_xG, R_xG, n_x):
+        P_axi = self.pt.dict(len(psit_xG))
+        self.pt.integrate(psit_xG, P_axi, kpt.q)
             
         c_axi = {}
         for a, P_xi in P_axi.items():
             dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
             dO_ii = hamiltonian.setups[a].dO_ii
             c_xi = (np.dot(P_xi, dH_ii) -
-                    np.dot(P_xi * eps_x[:, np.newaxis], dO_ii))
-            hamiltonian.xc.add_paw_correction(kpt, c_xi, approximate, n_x)
+                    np.dot(P_xi * kpt.eps_n[n_x][:, np.newaxis], dO_ii))
             c_axi[a] = c_xi
+        hamiltonian.xc.add_paw_correction2(kpt, c_axi, n_x)
 
         self.pt.add(R_xG, c_axi, kpt.q)
 

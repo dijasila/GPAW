@@ -107,7 +107,9 @@ class Eigensolver:
             Htpsit_xG = self.operator.suggest_temporary_buffer(psit_nG.dtype)
 
         def H(psit_xG):
-            wfs.apply_pseudo_hamiltonian(hamiltonian, kpt, psit_xG, Htpsit_xG)
+            wfs.apply_kinetic_energy_operator(kpt, psit_xG, Htpsit_xG)
+            hamiltonian.apply_local_potential(psit_xG, Htpsit_xG, kpt.s)
+            hamiltonian.xc.add_correction(kpt, psit_xG, Htpsit_xG)
             return Htpsit_xG
                 
         dH_aii = dict([(a, unpack(dH_sp[kpt.s]))

@@ -111,7 +111,7 @@ class PAWXCCorrection:
         if 2 == 2 and fcorehole != 0.0:
             XXXself.ncorehole_g = fcorehole * phicorehole_g**2 / (4 * pi)
 
-    def calculate(self, xc, D_sp, dH_sp=None):
+    def calculate(self, xc, D_sp, dH_sp=None, addcoredensity=True):
         if dH_sp is None:
             dH_sp = np.zeros_like(D_sp)
             
@@ -138,7 +138,8 @@ class PAWXCCorrection:
             (self.n_qg, self.nc_g, self.tau_npg, self.tauc_g),
             (self.nt_qg, self.nct_g, self.taut_npg, self.tauct_g)]:
             n_sLg = np.dot(D_sLq, n_qg)
-            n_sLg[:, 0] += sqrt(4 * pi) / nspins * nc_g
+            if addcoredensity:
+                n_sLg[:, 0] += sqrt(4 * pi) / nspins * nc_g
             if type != 'LDA':
                 dndr_sLg = np.empty_like(n_sLg)
                 for s in range(nspins):
