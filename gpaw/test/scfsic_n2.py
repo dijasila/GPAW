@@ -10,7 +10,7 @@ atom.center()
 molecule.center()
 
 calc = GPAW(xc=SIC(),
-            txt='n2.sic.txt',
+            txt='n2.sic.new3b.txt',
             setups='hgh')
 
 atom.set_calculator(calc)

@@ -76,6 +76,26 @@ class Eigensolver:
         """Implemented in subclasses."""
         raise NotImplementedError
 
+    def calculate_residuals(self, kpt, wfs, hamiltonian, psit_xG, P_axi, eps_x,
+                            R_xG, n_x=None, calculate_change=False):
+        """Calculate residual.
+
+        From R=Ht*psit calculate R=H*psit-eps*S*psit."""
+        
+        for R_G, eps, psit_G in zip(R_xG, eps_x, psit_xG):
+            axpy(-eps, psit_G, R_G)
+
+        c_axi = {}
+        for a, P_xi in P_axi.items():
+            dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
+            dO_ii = hamiltonian.setups[a].dO_ii
+            c_xi = (np.dot(P_xi, dH_ii) -
+                    np.dot(P_xi * eps_x[:, np.newaxis], dO_ii))
+            c_axi[a] = c_xi
+        hamiltonian.xc.add_correction(kpt, psit_xG, R_xG, c_axi, n_x,
+                                      calculate_change)
+        wfs.pt.add(R_xG, c_axi, kpt.q)
+        
     def subspace_diagonalize(self, hamiltonian, wfs, kpt, rotate=True):
         """Diagonalize the Hamiltonian in the subspace of kpt.psit_nG
 
@@ -107,9 +127,7 @@ class Eigensolver:
             Htpsit_xG = self.operator.suggest_temporary_buffer(psit_nG.dtype)
 
         def H(psit_xG):
-            wfs.apply_kinetic_energy_operator(kpt, psit_xG, Htpsit_xG)
-            hamiltonian.apply_local_potential(psit_xG, Htpsit_xG, kpt.s)
-            hamiltonian.xc.add_correction(kpt, psit_xG, Htpsit_xG)
+            wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_xG, Htpsit_xG)
             return Htpsit_xG
                 
         dH_aii = dict([(a, unpack(dH_sp[kpt.s]))
@@ -118,6 +136,7 @@ class Eigensolver:
         self.timer.start('calc_matrix')
         H_nn = self.operator.calculate_matrix_elements(psit_nG, P_ani,
                                                        H, dH_aii)
+        hamiltonian.xc.correct_hamiltonian_matrix(kpt, H_nn, psit_nG)
         self.timer.stop('calc_matrix')
 
         diagonalization_string = repr(self.ksl)
@@ -125,7 +144,7 @@ class Eigensolver:
         self.ksl.diagonalize(H_nn, kpt.eps_n)
         # H_nn now contains the result of the diagonalization.
         wfs.timer.stop(diagonalization_string)
-        
+
         if not rotate:
             self.timer.stop('Subspace diag')
             return

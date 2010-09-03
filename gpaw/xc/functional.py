@@ -18,16 +18,11 @@ class XCFunctional:
     def set_grid_descriptor(self, gd):
         self.gd = gd
 
-    def add_correction(self, kpt, psit_nG, R_nG):
+    def correct_hamiltonian_matrix(self, kpt, H_nn, psit_nG):
         pass
-    
-    def add_paw_correction(self, kpt, c_ani):
-        pass
-    
-    def add_correction2(self, kpt, psit_xG, R_xG, n_x=None):
-        pass
-    
-    def add_paw_correction2(self, kpt, c_axi, n_x=None):
+
+    def add_correction(self, kpt, psit_xG, R_xG, c_axi, n_x=None,
+                       calculate_change=False):
         pass
     
     def rotate(self, kpt, U_nn):

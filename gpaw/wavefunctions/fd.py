@@ -50,8 +50,9 @@ class FDWaveFunctions(FDPWWaveFunctions):
     def make_preconditioner(self):
         return Preconditioner(self.gd, self.kin, self.dtype)
     
-    def apply_kinetic_energy_operator(self, kpt, psit_xG, Htpsit_xG):
+    def apply_pseudo_hamiltonian(self, kpt, hamiltonian, psit_xG, Htpsit_xG):
         self.kin.apply(psit_xG, Htpsit_xG, kpt.phase_cd)
+        hamiltonian.apply_local_potential(psit_xG, Htpsit_xG, kpt.s)
 
     def add_paw_corrections(self, hamiltonian, kpt, R_nG):
         c_ani = {}

@@ -81,12 +81,23 @@ class SIC(XCFunctional):
         self.ekin = self.kpt_comm.sum(self.ekin)
         return exc + self.esic
 
-    def add_correction(self, kpt, psit_xG, Htpsit_xG):
-        self.spin_s[kpt.s].add_correction(psit_xG, Htpsit_xG)
+    def correct_hamiltonian_matrix(self, kpt, H_nn, psit_nG):
+        spin = self.spin_s[kpt.s]
+        if spin.W_mn is None:
+            return
+        spin.correct_hamiltonian_matrix(H_nn, psit_nG)
+    
+    def add_correction(self, kpt, psit_xG, Htpsit_xG, c_axi, n_x,
+                       calculate_change=False):
+        spin = self.spin_s[kpt.s]
+        if spin.W_mn is None:
+            return
 
-    def add_correction2(self, kpt, psit_xG, Htpsit_xG, n_x):
-        self.spin_s[kpt.s].add_correction2(psit_xG, Htpsit_xG, n_x)
-
+        if calculate_change:
+            spin.calculate_residual_change(psit_xG, Htpsit_xG, c_axi, n_x)
+        else:
+            spin.calculate_residual(psit_xG, Htpsit_xG, c_axi)
+        
     def rotate(self, kpt, U_nn):
         self.spin_s[kpt.s].rotate(U_nn)
 
@@ -350,31 +361,28 @@ class SICSpin:
         self.esic = (self.exc_m.sum() +
                      self.ecoulomb_m.sum()) * (3 - self.nspins)
 
-    def add_correction(self, psit_xG, Htpsit_xG):
-        if self.W_mn is None:
-            return
+    def correct_hamiltonian_matrix(self, H_nn, psit_nG):
+        H_nn[:self.nocc, :self.nocc] += np.dot(self.W_mn.T,
+                                               np.dot(self.V_mm +
+                                                      self.V_mm.T,
+                                                      self.W_mn)) * 0.5
 
+        H_nn[:self.nocc, self.nocc:] = 0.0
+        H_nn[self.nocc:, :self.nocc] = 0.0
+        
+    def calculate_residual(self, psit_nG, Htpsit_nG, c_ani):
         # Apply orbital dependent potentials:
         Htphit_mG = self.vt_mG * self.phit_mG
-        Htpsit_xG[:self.nocc] += np.dot((Htphit_mG).T, self.W_mn).T
+        Htpsit_nG[:self.nocc] += np.dot((Htphit_mG).T, self.W_mn).T
 
-        # Make sure <psi_n|H|psi_m> is Hermitian.
-        # Correct occupied states:
+        # Make sure <psi_n|H|psi_m> is Hermitian:
         K_mm = self.V_mm - self.V_mm.T
-        Htpsit_xG[:self.nocc] += 0.5 * np.dot(self.phit_mG.T,
+        Htpsit_nG[:self.nocc] += 0.5 * np.dot(self.phit_mG.T,
                                               np.dot(K_mm, self.W_mn)).T
-
-        # Correct empty states:
-        V_me = np.zeros((self.nocc, len(psit_xG) - self.nocc),
-                        dtype=self.dtype)
-        gemm(self.gd.dv, psit_xG[self.nocc:], Htphit_mG, 0.0, V_me, 't')
-        self.gd.comm.sum(V_me)
-        Htpsit_xG[self.nocc:] += np.dot(self.phit_mG.T, V_me).T
-
-    def add_correction2(self, psit_xG, Htpsit_xG, n_x):
-        if self.W_mn is None:
-            return
-
+        
+        # PAW corrections:
+        
+    def calculate_residual_change(self, psit_xG, Htpsit_xG, c_axi, n_x):
         assert len(n_x) == 1
         n = n_x[0]
         if n < self.nocc:
@@ -383,10 +391,8 @@ class SICSpin:
 
     def rotate(self, U_nn):
         if self.W_mn is not None:
-            self.W_mn = ortho(np.dot(self.W_mn,
-                                     U_nn[:self.nocc, :self.nocc].T))
-            self.phit_mG = None
-
+            self.W_mn = np.dot(self.W_mn, U_nn[:self.nocc, :self.nocc].T)
+        
     def calculate(self):
         if self.W_mn is None:
             self.initialize_orbitals()
@@ -397,11 +403,6 @@ class SICSpin:
         ESI_init = 0.0
         ESI      = 0.0
         dE       = 1e-16  
-        # compensate the change in the basis functions during subspace
-        # diagonalization and update the energy optimal states
-
-        #U_nn  = np.zeros((self.nbands,self.nbands),dtype=self.W_unn.dtype)
-        #O_nn  = np.zeros((self.nbands,self.nbands),dtype=self.W_unn.dtype)
 
         optstep  = 0.0
         Gold     = 0.0
@@ -498,7 +499,6 @@ class SICSpin:
                         #if step<1.0:
                         #    eps_works=False
                         #    break
-                        #print 'scaling down steplength', step
                         #continue
                     #
                     # compute the optimal step size
@@ -507,7 +507,6 @@ class SICSpin:
                     if (eps_works):
                         break
                     #
-                #print 'trial step: ',step,optstep,E1-E0,G0,G1
                 #
                 # decide on the method for stepping
                 if (optstep > 0.0):
@@ -566,7 +565,6 @@ class SICSpin:
                 # we are in the concave region or force-only estimate failed,
                 # just follow the (conjugate) gradient
                 step = dltstep * abs(step)
-                #print step
                 U_mm = matrix_exponential(D_mm,step)
                 self.W_mn = np.dot(U_mm,W_old_mn)
                 self.update_optimal_states()
@@ -622,7 +620,6 @@ class SICSpin:
                     E2 = self.esic
                     G  = (E2-E1)/(step2-step1)
                     #
-                    #print lsiter,E2,G,step2,step
                     #
                     if (G>0.0):
                         if self.lsinterp:
@@ -713,7 +710,6 @@ def matrix_exponential(G_nn,dlt):
     diagonalize(V_nn,w_n)
     #
     O_nn  = np.diag(np.exp(1j*dlt*w_n))
-    #print np.max(np.abs(dlt*w_n))
     #
     if G_nn.dtype==complex:
         U_nn = np.dot(V_nn.T.conj(),np.dot(O_nn,V_nn)).copy()
@@ -726,7 +722,6 @@ def ortho(W):
     ndim = np.shape(W)[1]
     O = np.dot(W, W.T.conj())
     err = np.sum(np.abs(O - np.eye(ndim)))
-    #print err
     if (err<1E-10):
         X = 1.5*np.eye(ndim) - 0.5*O    
     else:
