@@ -35,7 +35,8 @@ class XCKernel:
         assert e_g.shape == G
         assert e_g.flags.contiguous and e_g.dtype == float
         assert dedn_sg.shape == (S,) + G
-        assert dedn_sg.flags.contiguous and dedn_sg.dtype == float
+        assert dedn_sg.flags.contiguous
+        assert dedn_sg.dtype == float
         if self.type != 'LDA':
             assert sigma_xg.shape == (2 * S - 1,) + G
             assert dedsigma_xg.shape == (2 * S - 1,) + G

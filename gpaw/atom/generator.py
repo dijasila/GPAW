@@ -503,7 +503,9 @@ class Generator(AllElectron):
         extra_xc_data = {}
 
         if self.xc.name != 'GLLB':
-            Exct = self.xc.calculate(nt[np.newaxis], vXCt[np.newaxis])
+            Exct = self.xc.calculate_spherical(self.rgd,
+                                               nt.reshape((1, -1)),
+                                               vXCt.reshape((1, -1)))
         else:
             Exct = self.xcfunc.xc.get_smooth_xc_potential_and_energy_1d(vXCt)
 

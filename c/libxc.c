@@ -649,8 +649,8 @@ lxcXCFunctional_CalculateSpinPolarized(lxcXCFunctionalObject *self, PyObject *ar
   PyArrayObject* dEdaa2 = 0;
   PyArrayObject* dEdab2 = 0;
   PyArrayObject* taua = 0;          /* taua*/
-  PyArrayObject* dEdtaua = 0;       /* dE/dtaua */
   PyArrayObject* taub = 0 ;         /* taub*/
+  PyArrayObject* dEdtaua = 0;       /* dE/dtaua */
   PyArrayObject* dEdtaub = 0;       /* dE/dtaub */
   if (!PyArg_ParseTuple(args, "OOOOO|OOOOOOOOOOOOOOO", &e, &na, &va, &nb, &vb,
                         &a2, &aa2, &ab2, &dEda2, &dEdaa2, &dEdab2,

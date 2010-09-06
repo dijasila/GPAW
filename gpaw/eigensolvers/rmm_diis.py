@@ -41,7 +41,7 @@ class RMM_DIIS(Eigensolver):
                                      kpt.P_ani, kpt.eps_n, R_nG)
 
         B = 1
-        dR_xG = wfs.gd.empty(B)
+        dR_xG = self.gd.empty(B, wfs.dtype)
         P_axi = wfs.pt.dict(B)
         error = 0.0
         assert B == 1
@@ -51,7 +51,7 @@ class RMM_DIIS(Eigensolver):
             if self.keep_htpsit:
                 R_xG = R_nG[n_x]
             else:
-                R_xG = wfs.gd.empty(n2 - n1)
+                R_xG = self.gd.empty(n2 - n1, wfs.dtype)
                 psit_xG = kpt.psit_nG[n_x]
                 wfs.apply_pseudo_hamiltonian(kpt, psit_xG, R_xG)
                 wfs.pt.integrate(psit_xG, P_axi)
@@ -77,7 +77,7 @@ class RMM_DIIS(Eigensolver):
 
             # Calculate the residual of dpsit_G, dR_G = (H - e S) dpsit_G:
             wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, dpsit_xG, dR_xG)
-            wfs.pt.integrate(dpsit_xG, P_axi)
+            wfs.pt.integrate(dpsit_xG, P_axi, kpt.q)
             self.calculate_residuals(kpt, wfs, hamiltonian, dpsit_xG,
                                      P_axi, kpt.eps_n[n_x], dR_xG, n_x,
                                      calculate_change=True)

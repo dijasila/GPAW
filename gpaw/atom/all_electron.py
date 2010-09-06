@@ -243,8 +243,9 @@ class AllElectron:
                 # Update the potential to self.vXC an the energy to self.Exc
                 Exc = self.xcfunc.xc.get_xc_potential_and_energy_1d(self.vXC)
             else:
-                Exc = self.xc.calculate_spherical(self.rgd, n[np.newaxis],
-                                                  self.vXC[np.newaxis])
+                Exc = self.xc.calculate_spherical(self.rgd,
+                                                  n.reshape((1, -1)),
+                                                  self.vXC.reshape((1, -1)))
 
             # calculate new total Kohn-Sham effective potential and
             # admix with old version

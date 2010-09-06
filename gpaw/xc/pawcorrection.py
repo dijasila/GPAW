@@ -55,8 +55,6 @@ class PAWXCCorrection:
                  tauc_g,   # kinetic core energy array
                  tauct_g   # pseudo kinetic core energy array
                  ):
-        self.nc_g = nc_g
-        self.nct_g = nct_g
         self.Exc0 = Exc0
         self.Lmax = (lmax + 1)**2
         self.rgd = rgd
@@ -105,11 +103,13 @@ class PAWXCCorrection:
                 self.nt_qg[q] = wt_jg[j1] * wt_jg[j2]
                 q += 1
 
-        #
-        self.ncorehole_g = None
-        #if nspins == 2 and fcorehole != 0.0:
-        if 2 == 2 and fcorehole != 0.0:
-            XXXself.ncorehole_g = fcorehole * phicorehole_g**2 / (4 * pi)
+        self.nc_g = nc_g
+        self.nct_g = nct_g
+
+        if fcorehole != 0.0:
+            self.nc_corehole_g = fcorehole * phicorehole_g**2 / (4 * pi)
+        else:
+            self.nc_corehole_g = None
 
     def calculate(self, xc, D_sp, dH_sp=None, addcoredensity=True):
         if dH_sp is None:
@@ -140,6 +140,9 @@ class PAWXCCorrection:
             n_sLg = np.dot(D_sLq, n_qg)
             if addcoredensity:
                 n_sLg[:, 0] += sqrt(4 * pi) / nspins * nc_g
+            if self.nc_corehole_g is not None and nspins == 2:
+                n_sLg[0, 0] += 0.5 * nc_corehole_g
+                n_sLg[1, 0] -= 0.5 * nc_corehole_g
             if type != 'LDA':
                 dndr_sLg = np.empty_like(n_sLg)
                 for s in range(nspins):

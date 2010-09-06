@@ -178,9 +178,9 @@ XCFunctional_calculate(XCFunctionalObject *self, PyObject *args)
               double a2 = sigma0_g[g] + 2 * sigma1_g[g] + sigma2_g[g];
               ec = self->correlation(n, rs, zeta, a2, 1, 1, 
                                      &decdrs, &decdzeta, &decda2);
-              dedsigma0_g[g] = na * dexada2 + 2 * n * decda2;
+              dedsigma0_g[g] = 2 * na * dexada2 + n * decda2;
               dedsigma1_g[g] = 2 * n * decda2;
-              dedsigma2_g[g] = nb * dexbda2 + 2 * n * decda2;
+              dedsigma2_g[g] = 2 * nb * dexbda2 + n * decda2;
             }
           else
             {
@@ -241,7 +241,6 @@ PyObject * NewXCFunctionalObject(PyObject *obj, PyObject *args)
   self->correlation = pbe_correlation;
   self->exchange = pbe_exchange;
 
-  printf("%d\n", code);
   if (code == -1) {
     // LDA
     self->par.gga = 0;
@@ -267,7 +266,6 @@ PyObject * NewXCFunctionalObject(PyObject *obj, PyObject *args)
     assert(code == 18);
     self->exchange = bee1_exchange;
     int n = PyArray_DIM(parameters, 0);
-    printf("%d %d\n", code, n);
     assert(n <= 14);
     double* p = PyArray_BYTES(parameters);
     for (int i = 0; i < n; i++)
