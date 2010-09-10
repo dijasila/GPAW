@@ -7,6 +7,7 @@ class XCNull:
 
 class XCFunctional:
     hybrid = 0.0
+    orbital_dependent = False
     def __init__(self, name):
         self.name = name
         self.gd = None

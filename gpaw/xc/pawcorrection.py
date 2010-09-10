@@ -51,7 +51,6 @@ class PAWXCCorrection:
                  Exc0,  # xc energy of reference atom
                  phicorehole_g, # ?
                  fcorehole,     # ?
-                 xctype,
                  tauc_g,   # kinetic core energy array
                  tauct_g   # pseudo kinetic core energy array
                  ):
@@ -63,26 +62,25 @@ class PAWXCCorrection:
         self.Y_nL = Y_nL[:, :self.Lmax]
         self.rnablaY_nLv = rnablaY_nLv[:, :self.Lmax]
         self.ng = ng = len(nc_g)
-
-        jlL = [(j, l, l**2 + m) for j, l in jl for m in range(2 * l + 1)]
-        self.ni = ni = len(jlL)
+        self.phi_jg = w_jg
+        self.phit_jg = wt_jg
+        
+        self.jlL = [(j, l, l**2 + m) for j, l in jl for m in range(2 * l + 1)]
+        self.ni = ni = len(self.jlL)
         self.nj = nj = len(jl)
         self.nii = nii = ni * (ni + 1) // 2
         njj = nj * (nj + 1) // 2
 
         self.tauc_g = tauc_g
         self.tauct_g = tauct_g
-        if xctype == 'MGGA':
-            self.initialize_kinetic(jlL, jl, nii, phit_jg, phi_jg)
-        else:
-            self.tau_npg = None
-            self.taut_npg = None
-        #
+        self.tau_npg = None
+        self.taut_npg = None
+
         B_Lqp = np.zeros((self.Lmax, njj, nii))
         p = 0
         i1 = 0
-        for j1, l1, L1 in jlL:
-            for j2, l2, L2 in jlL[i1:]:
+        for j1, l1, L1 in self.jlL:
+            for j2, l2, L2 in self.jlL[i1:]:
                 if j1 < j2:
                     q = j2 + j1 * nj - j1 * (j1 + 1) // 2
                 else:
@@ -125,12 +123,12 @@ class PAWXCCorrection:
         D_sLq = np.inner(D_sp, self.B_pqL.T)
         v_sg = self.rgd.empty(nspins)
         type = xc.kernel.type
-        xc = xc.calculate_radial
+        XC = xc.calculate_radial
 
         if type == 'MGGA':
             dedtau_sg = self.rgd.empty(nspins)
-            if self.tau_pg is None:
-                self.initialize_kinetic()
+            if self.tau_npg is None:
+                self.tau_npg, self.taut_npg = xc.initialize_kinetic(self)
                 print 'TODO: tau_ypg is HUGE!  There must be a better way.'
 
         sign = 1
@@ -152,18 +150,20 @@ class PAWXCCorrection:
                 w = sign * weight_n[n]
                 v_sg[:] = 0.0
                 if type == 'LDA':
-                    e = xc(self.rgd, n_sLg, Y_L, v_sg)
+                    e = XC(self.rgd, n_sLg, Y_L, v_sg)
                 else:
                     if type == 'GGA':
                         rnablaY_Lv = self.rnablaY_nLv[n]
-                        e, rd_vsg, dedsigma_xg = xc(self.rgd, n_sLg, Y_L, v_sg,
+                        e, rd_vsg, dedsigma_xg = XC(self.rgd, n_sLg, Y_L, v_sg,
                                                     dndr_sLg, rnablaY_Lv)
                     elif type == 'MGGA':
-                        tau_sg = np.dot(D_sp, tau_ypg[n]) + tauc_g # XXX / ns?
-                        e, rd_vsg, dedsigma_xg = xc(self.rgd, n_sLg, Y_L, v_sg,
+                        rnablaY_Lv = self.rnablaY_nLv[n]
+                        tau_sg = np.dot(D_sp, tau_npg[n]) + tauc_g
+                        # XXX / ns?
+                        e, rd_vsg, dedsigma_xg = XC(self.rgd, n_sLg, Y_L, v_sg,
                                                     dndr_sLg, rnablaY_Lv,
                                                     tau_sg, dedtau_sg)
-                        dH_sp += np.inner(dedtau_sg, tau_pg)
+                        dH_sp += np.inner(dedtau_sg, tau_npg[n])
                     else:
                         NOOOOOOOOOOOOOOOOOOOOOOOOOOO
                     B_pqv = np.dot(self.B_pqL, 8 * pi * w * rnablaY_Lv)
@@ -180,82 +180,6 @@ class PAWXCCorrection:
             sign = -1
             
         return de - self.Exc0
-
-    def create_kinetic(self,jlL,jl,ny,nii,phi_jg,tau_ypg):
-        """Short title here.
-        
-        kinetic expression is::
-
-                                             __         __
-          tau_s = 1/2 Sum_{i1,i2} D(s,i1,i2) \/phi_i1 . \/phi_i2 +tauc_s
-
-        here the orbital dependent part is calculated::
-
-          __         __
-          \/phi_i1 . \/phi_i2 =
-                      __    __
-                      \/YL1.\/YL2 phi_j1 phi_j2 +YL1 YL2 dphi_j1 dphi_j2
-                                                         ------  ------
-                                                           dr     dr
-          __    __
-          \/YL1.\/YL2 [y] = Sum_c A[L1,c,y] A[L2,c,y] / r**2
-          
-        """
-        ng = self.ng
-        Lmax = self.Lmax
-        nj = len(jl)
-        ni = len(jlL)
-        nii = ni * (ni + 1) // 2
-        dphidr_jg = np.zeros(np.shape(phi_jg))
-        for j in range(nj):
-            phi_g = phi_jg[j]
-            self.rgd.derivative(phi_g, dphidr_jg[j])
-        ##second term
-        for y in range(ny):
-            i1 = 0
-            p = 0
-            Y_L = self.Y_nL[y]
-            for j1, l1, L1 in jlL:
-                for j2, l2, L2 in jlL[i1:]:
-                    c = Y_L[L1]*Y_L[L2]
-                    temp = c * dphidr_jg[j1] *  dphidr_jg[j2]
-                    tau_ypg[y,p,:] += temp
-                    p += 1
-                i1 +=1
-        ##first term
-        for y in range(ny):
-            i1 = 0
-            p = 0
-            A_Li = A_Liy[:self.Lmax, :, y]
-            A_Lxg = A_Li[:, 0]
-            A_Lyg = A_Li[:, 1]
-            A_Lzg = A_Li[:, 2]
-            for j1, l1, L1 in jlL:
-                for j2, l2, L2 in jlL[i1:]:
-                    temp = (A_Lxg[L1] * A_Lxg[L2] + A_Lyg[L1] * A_Lyg[L2]
-                            + A_Lzg[L1] * A_Lzg[L2])
-                    temp *=  phi_jg[j1] * phi_jg[j2]
-                    temp[1:] /= self.rgd.r_g[1:]**2
-                    temp[0] = temp[1]
-                    tau_ypg[y, p, :] += temp
-                    p += 1
-                i1 +=1
-        tau_ypg *= 0.5
-                    
-        return
-        
-    def initialize_kinetic(self, jlL, jl, nii, phit_jg, phi_jg):
-        ny = len(R_nv)
-        ng = self.ng
-
-        self.tau_npg = np.zeros((ny, nii, ng))
-        self.taut_npg = np.zeros((ny, nii, ng))
-        self.create_kinetic(jlL,jl,ny, nii,phit_jg, self.taut_npg)
-        self.create_kinetic(jlL,jl,ny, nii,phi_jg, self.tau_npg)
-        tauc_g = data.tauc_g
-        tauct_g = data.tauct_g
-        self.tauc_g = np.array(tauc_g[:ng].copy())
-        self.tauct_g = np.array(tauct_g[:ng].copy())
 
     def four_phi_integrals(self, D_sp, fxc):
         """Calculate four-phi integrals.

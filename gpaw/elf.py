@@ -113,8 +113,8 @@ class ELF:
         d_G = self.gd.empty()
 
         for s in range(self.nspins):
-            for c in range(3):
-                ddr[c](self.density.nt_sG[s], d_G)
+            for v in range(3):
+                ddr_v[v](self.density.nt_sG[s], d_G)
                 self.nt_grad2_sG[s] += d_G**2.0
 
         #TODO are nct from setups usable for nt_grad2_sG ?

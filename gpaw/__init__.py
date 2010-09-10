@@ -206,9 +206,9 @@ if debug:
     def empty(*args, **kwargs):
         a = oldempty(*args, **kwargs)
         try:
-            a[:] = numpy.nan
+            a.fill(numpy.nan)
         except:
-            a[:] = -100000000
+            a.fill(-100000000)
         return a
     numpy.empty = empty
 

@@ -21,6 +21,7 @@ import _gpaw
 
 
 class SIC(XCFunctional):
+    orbital_dependent = True
     def __init__(self, xc='LDA', finegrid=False, **parameters):
         """Self-Interaction Corrected (SIC) Functionals.
 
