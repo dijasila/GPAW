@@ -2,8 +2,9 @@ from math import exp, sin, cos, pi, sqrt, acos, asin
 
 import numpy as np
 
-from ase.units import Bohr, Hartree
+from ase.units import Bohr, Hartree, alpha
 import _gpaw
+from gpaw.pes import ds_prefactor
 
 class State:
     """Electronic state base class."""
@@ -16,7 +17,11 @@ class State:
             self.r_c.append(r_G)
 
     def get_grid(self):
-        return self.grid
+        return self.grid_g
+
+    def set_grid(self, grid_g):
+#        assert(grid_g.shape == self.gd.empty().shape)
+        self.grid_g = grid_g
 
     def get_energy(self):
         """The states energy in [eV]"""
@@ -33,9 +38,9 @@ class BoundState(State):
                  s, n):
         self.gd = calculator.wfs.gd
         self.kpt = calculator.wfs.kpt_u[s]
-        self.grid = self.kpt.psit_nG[n]
+        self.grid_g = self.kpt.psit_nG[n]
         self.energy = self.kpt.eps_n[n]
-    
+
 class H1s(State):
     """Analytic H1s state."""
     def __init__(self, gd=None, center=None, Z=1):
@@ -46,11 +51,11 @@ class H1s(State):
         self.Z = Z
         self.energy = - Z**2 / 2.
         if gd is not None:
-            self.grid = None
+            self.grid_g = None
             State.__init__(self, gd)
 
     def get_grid(self):
-        if self.grid is None:
+        if self.grid_g is None:
             gd = self.gd
             assert(gd.orthogonal)
             wf = gd.zeros(dtype=float)
@@ -64,8 +69,8 @@ class H1s(State):
                         vr = vr0 - self.center
                         r = sqrt(np.dot(vr, vr))
                         wf[i, j, k] = exp(-self.Z * r)
-            self.grid = wf * sqrt(self.Z**3 / pi)
-        return self.grid
+            self.grid_g = wf * sqrt(self.Z**3 / pi)
+        return self.grid_g
                     
     def get_me_c(self, k_c, form='L'):
         """Transition matrix element."""
@@ -78,13 +83,18 @@ class H1s(State):
             raise NonImplementedError
         return  pre * k_c * self.FT(k) 
 
-    def get_ds(self, k, omega, form='L'):
-        """Angular averaged cross section."""
+    def get_ds(self, Ekin, form='L', units='Mb'):
+        """Angular averaged cross section.
+
+        Ekin: photoelectron kinetic energy [eV]"""
+        E = Ekin / Hartree
+        k = sqrt(2 * E)
+        omega = E - self.energy
         k_c = np.array([0., 0., k])
         me_c = self.get_me_c(k_c, form)
         T2 = np.abs(np.dot(me_c, me_c)) / 3.
-        c = 137.03599982170522
-        return (2 * pi)**2 / c * k * 4 * pi / omega * T2
+        pre = ds_prefactor[units]
+        return pre * (2 * pi)**2 * alpha * k * 4 * pi / omega * T2
         
     def FT(self, k):
         return sqrt(8 * self.Z**5) / pi / (k**2 + self.Z**2)**2

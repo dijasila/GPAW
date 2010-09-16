@@ -854,10 +854,10 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         subM, subN = outdescriptor.gshape
         
         C_mm = blockdescriptor.zeros(dtype=dtype)
-        self.timer.start('General diagonalize ex')
+        self.timer.start('General diagonalize')
         blockdescriptor.general_diagonalize_ex(H_mm, S_mm.copy(), C_mm, eps_M,
                                                UL='L', iu=self.bd.nbands)
-        self.timer.stop('General diagonalize ex')
+        self.timer.stop('General diagonalize')
  
        # Make C_nM compatible with the redistributor
         self.timer.start('Redistribute coefs')
@@ -923,9 +923,9 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         nao = self.nao
         
         if rho_mM is None:
-            rho_mM = self.mMdescriptor.zeros()
+            rho_mM = self.mMdescriptor.zeros(dtype=C_nM.dtype)
         
-        Cf_nM = C_nM * f_n[:, None]
+        Cf_nM = (C_nM * f_n[:, None]).conj()
         pblas_simple_gemm(self.nMdescriptor, self.nMdescriptor,
                           self.mMdescriptor, Cf_nM, C_nM, rho_mM, transa='T')
         return rho_mM

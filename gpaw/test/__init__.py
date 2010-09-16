@@ -126,6 +126,7 @@ tests = [
     'nonselfconsistentLDA.py',
     'nonselfconsistent.py',
     'ewald.py',
+    'harmonic.py',
     'spinpol.py',
     'kptpar.py',
     'plt.py',
@@ -192,7 +193,7 @@ tests = [
     'exx.py',
     'h2o_dks.py',
     'nscfsic.py',
-    'scfsic_h2.py',
+    #'scfsic_h2.py',
     #'scfsic_n2.py',
     'vdw/quick.py',
     'vdw/potential.py',
@@ -341,7 +342,10 @@ class TestRunner:
         filename = gpaw.__path__[0] + '/test/' + test
 
         try:
-            execfile(filename, {})
+            loc = {}
+            execfile(filename, loc)
+            loc.clear()
+            del loc
             self.check_garbage()
         except KeyboardInterrupt:
             self.write_result(test, 'STOPPED', t0)

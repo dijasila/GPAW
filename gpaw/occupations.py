@@ -210,8 +210,8 @@ class ZeroKelvin(OccupationNumbers):
     def get_fermi_level(self):
         """This function returns the calculated fermi-level.
 
-        Care: you get two distinct fermi-levels is you do
-        fixed-magmom calculations. Therefor you should use
+        Care: you get two distinct fermi-levels if you do
+        fixed-magmom calculations. Therefore you should use
         "get_fermi_levels" or "get_fermi_levels_mean" in
         conjunction with "get_fermi_splitting" if you do
         fixed-magmom calculations. We will issue an warning
@@ -345,6 +345,7 @@ class ZeroKelvin(OccupationNumbers):
         for kpt in wfs.kpt_u:
             wfs.bd.distribute(f_sn[kpt.s], kpt.f_n)
 
+
 class SmoothDistribution(ZeroKelvin):
     """Base class for Fermi-Dirac and other smooth distributions."""
     def __init__(self, width, fixmagmom, maxiter):
@@ -367,6 +368,13 @@ class SmoothDistribution(ZeroKelvin):
         self.width = width / Hartree
         self.maxiter = maxiter
         
+    def __repr__(self):
+        classname = self.__class__.__name__
+        template = '%s(width=%f, fixmagmom=%r, maxiter=%d)'
+        string = template % (classname, self.width * Hartree, self.fixmagmom,
+                             self.maxiter)
+        return string
+
     def calculate_occupation_numbers(self, wfs):
         if self.width == 0 or self.nvalence == wfs.nbands * 2:
             ZeroKelvin.calculate_occupation_numbers(self, wfs)
@@ -410,8 +418,8 @@ class SmoothDistribution(ZeroKelvin):
         fermilevel = 0.0
 
         # find the maximum length of kpt_u:
-        nu = wfs.nu
-        if wfs.kpt_rank0 < wfs.kpt_comm.size:
+        nu = wfs.kd.mynks0
+        if wfs.kd.rank0 < wfs.kd.comm.size:
             nu += 1
 
         # myeps_un must have same size on all cpu's so we can use gather.

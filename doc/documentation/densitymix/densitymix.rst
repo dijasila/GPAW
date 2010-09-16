@@ -75,7 +75,7 @@ It has been found [#Kresse1996]_ that the metric
   \hat{M} = \sum_q | q \rangle f_q \langle q |, \quad f_q =
   1 + \frac{w}{q^2}
 
-is particularly usefull (`w` is a suitably choosen weight).
+is particularly useful (`w` is a suitably chosen weight).
 
 This is easy to apply in plane wave codes, as it is local in reciprocal space.
 Expressed in real space, this metric is
@@ -86,7 +86,7 @@ Expressed in real space, this metric is
   \sum_q f_q e^{i q R}
 
 As this is fully nonlocal in real space, it would be very costly to apply.
-Instead we use a semilocal stencil with only 3rd nearest neighbors:
+Instead we use a semilocal stencil with only three nearest neighbors:
 
 .. math::
 
@@ -98,7 +98,7 @@ Instead we use a semilocal stencil with only 3rd nearest neighbors:
   0 & \text{otherwise}
   \end{cases}
 
-which correspond to the reciprocal space metric
+which corresponds to the reciprocal space metric
 
 .. math::
 
@@ -131,7 +131,7 @@ The class ``Mixer`` indicates one of the possible mixing schemes.  The
 Pulay mixing can be based on:
 
 1. The spin densities seperately, ``Mixer`` (This will *not* work for
-   spinpolarized system if fixmom=False or width!=0)
+   a spinpolarized system, unless the magnetic moment is fixed)
 2. The total density, ``MixerSum2``
 3. Spin channels seperately for the density matrices, and the summed
    channels for the pseudo electron density, ``MixerSum``

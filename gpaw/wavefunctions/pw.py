@@ -34,7 +34,10 @@ class PWDescriptor:
         self.gd = gd
         self.dv = gd.dv / N_c.prod()
         self.comm = gd.comm
-        
+
+    def bytecount(self, dtype=float):
+        return len(self.Q_G) * np.array(1, dtype).itemsize
+    
     def zeros(self, n=(), dtype=float):
         assert dtype == complex
         if isinstance(n, int):
@@ -64,23 +67,21 @@ class Preconditioner:
 
 class PWWaveFunctions(FDPWWaveFunctions):
     def __init__(self, ecut, diagksl, orthoksl, initksl,
-                 gd, nspins, nvalence, setups, bd,
-                 world, kpt_comm,
-                 bzk_kc, ibzk_kc, weight_k,
-                 symmetry, timer):
+                 gd, nvalence, setups, bd,
+                 world, kd, timer):
         self.ecut =  ecut / units.Hartree
         # Set dtype=complex and gamma=False:
+        kd.gamma = False
         FDPWWaveFunctions.__init__(self, diagksl, orthoksl, initksl,
-                                   gd, nspins, nvalence, setups, bd, complex,
-                                   world, kpt_comm,
-                                   False, bzk_kc, ibzk_kc, weight_k,
-                                   symmetry, timer)
+                                   gd, nvalence, setups, bd, complex,
+                                   world, kd, timer)
         
         self.matrixoperator = MatrixOperator(self.bd, self.pd, orthoksl)
         self.wd = self.pd        
 
     def set_setups(self, setups):
-        self.pd = PWDescriptor(self.ecut, self.gd, self.ibzk_qc)
+
+        self.pd = PWDescriptor(self.ecut, self.gd, self.kd.ibzk_qc)
         pt = LFC(self.gd, [setup.pt_j for setup in setups],
                  self.kpt_comm, dtype=self.dtype, forces=True)
         self.pt = PWLFC(pt, self.pd)
@@ -90,7 +91,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         fd.write('Mode: Plane waves (%d, ecut=%.3f eV)\n' %
                  (len(self.pd.Q_G), self.pd.ecut * units.Hartree))
         
-    def make_preconditioner(self):
+    def make_preconditioner(self, block=1):
         return Preconditioner(self.pd)
 
     def apply_hamiltonian(self, hamiltonian, kpt, psit_xG, Htpsit_xG):

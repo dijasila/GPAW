@@ -1,10 +1,10 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
-version_base = '0.8'
+version_base = '0.8.0'
 
-ase_required_version = '3.2.0'
-ase_required_svnversion = '1158'
+ase_required_version = '3.5.0'
+ase_required_svnversion = '1792'
 
 try:
     from gpaw.svnversion import svnversion

@@ -40,14 +40,16 @@ class ResponseCalculator:
         
     """
 
-    parameters = {'verbose':               True,
+    parameters = {'verbose':               False,
                   'max_iter':              100,
-                  'tolerance_sc':          1.0e-4,
-                  'tolerance_sternheimer': 1e-5,
+                  'max_iter_krylov':       1000,
+                  'krylov_solver':         'cg',
+                  'tolerance_sc':          1.0e-5,
+                  'tolerance_sternheimer': 1.0e-4,
                   'use_pc':                True,
                   'beta':                  0.4,
-                  'nmaxold':               3,
-                  'weight':                50
+                  'nmaxold':               6,
+                  'weight':                1
                   }
     
     def __init__(self, calc, wfs, perturbation, kpointdescriptor,
@@ -81,11 +83,10 @@ class ResponseCalculator:
         self.kd = kpointdescriptor
 
         # Poisson solver
-        if hasattr(perturbation, 'solve_poisson'):
+        if poisson_solver is None:
+            assert hasattr(perturbation, 'solve_poisson')
             self.solve_poisson = perturbation.solve_poisson
         else:
-            assert poisson_solver is not None, "No Poisson solver given"
-
             self.poisson = poisson_solver
             self.solve_poisson = self.poisson.solve_neutral
        
@@ -150,17 +151,17 @@ class ResponseCalculator:
         self.phase_cd = self.perturbation.get_phase_cd()
         
         for iter in range(max_iter):
-            print     "iter:%3i\t" % iter,
+
             if iter == 0:
                 self.first_iteration()
-                print "\n"
             else:
+                print "iter:%3i\t" % iter,
                 norm = self.iteration()
                 print "abs-norm: %6.3e\t" % norm,
-                #XXX The density is complex !!!!!!
-                print ("integrated density response: % 5.2e" % 
-                       self.gd.integrate(self.nt1_G).real)
-                
+                print ("integrated density response (abs): % 5.2e (%5.2e) "
+                       % (self.gd.integrate(self.nt1_G.real),
+                          self.gd.integrate(np.absolute(self.nt1_G))))
+                       
                 if norm < tolerance:
                     print ("self-consistent loop converged in %i iterations"
                            % iter)
@@ -199,7 +200,9 @@ class ResponseCalculator:
         weight = p['weight']
         use_pc = p['use_pc']
         tolerance_sternheimer = p['tolerance_sternheimer']
-
+        max_iter_krylov = p['max_iter_krylov']
+        krylov_solver = p['krylov_solver']
+                
         # Initialize WaveFunctions attribute
         self.wfs.initialize(spos_ac)
         
@@ -226,11 +229,13 @@ class ResponseCalculator:
         else:
             pc = None
 
-        # Temp ??
+        #XXX K-point of the pc must be set in the k-point loop -> store a ref.
         self.pc = pc
         # Linear solver for the solution of Sternheimer equation            
-        self.linear_solver = ScipyLinearSolver(tolerance=tolerance_sternheimer,
-                                               preconditioner=pc)
+        self.linear_solver = ScipyLinearSolver(method=krylov_solver,
+                                               preconditioner=pc,
+                                               tolerance=tolerance_sternheimer,
+                                               max_iter=max_iter_krylov)
 
         self.initialized = True
 
@@ -243,7 +248,7 @@ class ResponseCalculator:
         self.interpolate_density()
 
         #XXX Temp - in order to see the Hartree potential after 1'st iteration
-        # v1_G = self.effective_potential_variation()
+        v1_G = self.effective_potential_variation()
         
     def iteration(self):
         """Perform iteration."""
@@ -313,7 +318,7 @@ class ResponseCalculator:
             kplusq_k = self.kd.find_k_plus_q(q_c)
         else:
             kplusq_k = None
-            
+
         # Calculate wave-function variations for all k-points.
         for kpt in self.kpt_u:
 
@@ -339,6 +344,7 @@ class ResponseCalculator:
             
             # Right-hand side of Sternheimer equations
             rhs_nG = self.gd.zeros(n=self.nbands, dtype=self.gs_dtype)
+            
             # k and k+q
             # XXX should only be done once but maybe too cheap to bother ??
             self.perturbation.apply(psit_nG, rhs_nG, self.wfs, k, kplusq)
@@ -356,10 +362,10 @@ class ResponseCalculator:
 
                 # Rhs of Sternheimer equation                
                 rhs_G = -1 * rhs_nG[n]
-
+                
                 if vHXC1_G is not None:
                     rhs_G -= vHXC1_G * psit_G
-                    
+
                 # Update k-point index and band index in SternheimerOperator
                 self.sternheimer_operator.set_blochstate(n, k)
                 self.sternheimer_operator.project(rhs_G)
@@ -371,16 +377,15 @@ class ResponseCalculator:
                                                       psit1_G, rhs_G)
                 
                 if info == 0:
-                    if verbose: 
+                    if verbose:
                         print "linear solver converged in %i iterations" % iter
                 elif info > 0:
-                    print ("linear solver did not converge in maximum number "
-                           "(=%i) of iterations" % iter)
-                    assert False
+                    assert False, ("linear solver did not converge in maximum "
+                                   "number (=%i) of iterations for "
+                                   "k-point number %d" % (iter, k))
                 else:
-                    print "linear solver failed to converge"
-                    assert False
-                
+                    assert False, ("linear solver failed to converge")
+
     def density_response(self):
         """Calculate density response from variation in the wave-functions."""
 
@@ -403,8 +408,8 @@ class ResponseCalculator:
                 # NOTICE: this relies on the automatic down-cast of the complex
                 # array on the rhs to a real array when the lhs is real !!
                 # Factor 2 for time-reversal symmetry
-                self.nt1_G += 2 * w * psit_nG[n].conjugate() * psit1_nG[n]
+                self.nt1_G += 2 * w * psit_nG[n].conj() * psit1_nG[n]
                 #XXX
-                ## self.nt1_G += f * (psit_nG[n].conjugate() * psit1_nG[n] +
-                ##                    psit1_nG[n].conjugate() * psit_nG[n])
+                ## self.nt1_G += f * (psit_nG[n].conj() * psit1_nG[n] +
+                ##                    psit1_nG[n].conj() * psit_nG[n])
 

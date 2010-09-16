@@ -4,31 +4,28 @@
 CAMd Summer school 2010
 =======================
 
+When you log into the databars, you can select various desktop
+environments.  We recommend CDE or IceWM, but any will do.
+
+Exercises will make use of terminals.  Choose :menuselection:`Terminal
+--> Terminal (mrxvt)` from the GBar menu, accessible by
+right-clicking on the desktop in CDE/IceWM.
+
 Setting up your UNIX environment
 --------------------------------
 
 The first time you use the databar computers, you must configure your
-environment.  Open the ``.bashrc`` file in your favourite editor:
+environment.  Run the commands:
 
 .. highlight:: bash
 
 ::
 
-  $ emacs ~/.bashrc
-
-Scroll down and append this line at the end of the file::
-
-  source ~ashj/summerschool/gbar-gpaw.rc
-
-Run this command to apply the changes:
-
-.. highlight:: bash
-
-::
-
+  $ mv ~/.bashrc ~/old.bashrc
+  $ echo source ~ashj/summerschool-env/gbar-gpaw.rc > ~/.bashrc
   $ source ~/.bashrc
 
-That will set up the environment for you so that you can use ASE,
+This will set up the environment for you so that you can use ASE,
 GPAW, VMD and matplotlib.
 
 Running GPAW calculations
@@ -59,11 +56,14 @@ necessary.
 Notes
 -----
 
-* Useful links: Userguides_ FAQ_ Unix_ USB-sticks_ (is it still valid???)
+* Editor: Several editors are available including emacs, vim and gedit.
 
-* Editors: emacs, vim, gedit (MS Windows/Macintosh-like environment)
-  support python syntax highlighting
+* Printer: ``gps1-308``. Terminal: :samp:`lp -d gps1-308 {filename}`.  The
+  printer is located in databar 15, the middle of the three databars.
 
-* Printer: gps1-308. Terminal: :samp:`lp -d gps1-308 {filename}`
+* To open a pdf-file: :samp:`evince {filename}`
 
-* To open a pdf-file: acroread filename
+* How to `use USB sticks <http://www.gbar.dtu.dk/wiki/USB_Access>`_.
+
+* The normal tilde (~) key combination is not functional on the
+  databar computers.  Use :kbd:`Alt Graph + 5` to type a tilde.

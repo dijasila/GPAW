@@ -26,8 +26,8 @@ class ScipyLinearSolver:
                # 'lgmres': sla.lgmres, # scipy v. 0.8.0
                }
     
-    def __init__(self, method='cg', preconditioner=None, tolerance=1e-5,
-                 max_iter=1000):
+    def __init__(self, method='gmres', preconditioner=None, tolerance=1e-5,
+                 max_iter=100):
         """Initialize the linear solver.
 
         Parameters

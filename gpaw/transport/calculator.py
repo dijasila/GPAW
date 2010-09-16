@@ -65,7 +65,7 @@ class Transport(GPAW):
                        'pl_atoms', 'pl_cells', 'pl_kpts', 'leads',
                         'multi_lead_directions',
                        'use_buffer', 'buffer_atoms', 'edge_atoms', 'bias',
-                       'lead_restart', 'special_datas',
+                       'lead_restart', 'special_datas', 'neutral_steps',
                        'plot_eta', 'plot_energy_range', 'plot_energy_point_num',
                        'vaccs', 'lead_guess', 'neutral','buffer_guess',
                        'lead_atoms', 'nleadlayers', 'mol_atoms', 'la_index',
@@ -145,6 +145,7 @@ class Transport(GPAW):
         self.lead_guess = p['lead_guess']
         self.buffer_guess = p['buffer_guess']
         self.neutral = p['neutral']
+        self.neutral_steps = p['neutral_steps']
         self.total_charge = p['total_charge']
         self.non_sc = p['non_sc']
         self.data_file = p['data_file']
@@ -232,7 +233,7 @@ class Transport(GPAW):
         p['n_bias_step'] = 0
         p['n_ion_step'] = 0
         p['eqinttol'] = 1e-4
-        p['plot_eta'] = 0.005
+        p['plot_eta'] = 0.0001
         p['plot_energy_range'] = [-5.,5.]
         p['plot_energy_point_num'] = 201
         p['alpha'] = 0.0
@@ -243,6 +244,7 @@ class Transport(GPAW):
         p['lead_guess'] = False
         p['buffer_guess'] = False
         p['neutral'] = True
+        p['neutral_steps'] = None
         p['total_charge'] = 0
         p['gate'] = 0
         p['gate_mode'] = 'VG'
@@ -267,7 +269,7 @@ class Transport(GPAW):
         self.adjust_atom_positions(atoms)
         self.atoms = atoms.copy()
         if self.edge_atoms is None:
-            self.edge_atoms = [[0, len(self.pl_atoms[0]) - 1],
+            self.edge_atoms = [[0, len(self.pl_atoms[1]) - 1],
                                 [0, len(self.atoms) -1]]
         if self.mol_atoms is None:
             self.mol_atoms = range(len(self.atoms))
@@ -671,7 +673,8 @@ class Transport(GPAW):
             for i in range(self.lead_num):
                 begin = np.min(self.lead_index[i])
                 newb = tp_mat.nb + sum
-                ex_index.append(self.lead_index[i] - begin + newb)
+                #ex_index.append(self.lead_index[i] - begin + newb)
+                ex_index.append(np.argsort(self.lead_index[i]) + newb)
                 sum += self.nblead[i]
                 #ex_index = [self.lead_index[0] + tp_mat.nb]
                 #ex_index.append(self.lead_index[1] +
@@ -1155,8 +1158,9 @@ class Transport(GPAW):
                 if self.master:
                     self.text('density: diff = %f  tol=%f' % (self.diff_d,
                                             tol))
-                if self.diff_d < tol * self.theta:
-                    if (self.use_qzk_boundary or self.fixed) and \
+                if self.diff_d < tol * self.theta or (self.neutral_steps is
+                                not None and self.step > self.neutral_steps):
+                    if (self.use_qzk_boundary or self.fixed or self.multi_leads) and \
                                   not self.normalize_density and self.neutral:
                         self.neutral = False
                     elif self.diff_d < tol:
@@ -2324,13 +2328,24 @@ class Transport(GPAW):
 
     def get_extended_atoms(self):
         # for LR leads only
-        if self.extended_atoms is None:
+        if self.extended_atoms is None or (self.extended_atoms is not None
+                                           and self.optimize):
             atoms = self.atoms.copy()
             cell = np.diag(atoms.cell)
             ex_cell = cell.copy()
             di = 2
             for i in range(self.lead_num):
-                atoms_l = self.atoms[self.pl_atoms[i]].copy()
+                if self.leads is None:
+                    atoms_l = self.atoms[self.pl_atoms[i]].copy()
+                else:
+                    atoms_l = self.leads[i].copy()
+                    if i == 0:
+                        j = 0
+                    else:
+                        j = 1
+                    atoms_l.positions += self.atoms[self.pl_atoms[i]].positions[j]- \
+                                              self.leads[i].positions[j]                        
+                    
                 cell_l = self.pl_cells[i]
                 assert self.gd.orthogonal
                 ex_cell[di] += self.gd.h_cv[2, 2] * Bohr * self.bnc[i]
@@ -2344,7 +2359,7 @@ class Transport(GPAW):
             atoms.set_pbc(self.atoms._pbc)
             atoms.positions[:, 2] += self.gd.h_cv[2, 2] * Bohr * self.bnc[0]
             self.extended_atoms = atoms
-        
+       
         if not self.optimize:
             p = self.gpw_kwargs.copy()
             if not self.multi_leads:

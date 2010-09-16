@@ -34,7 +34,7 @@ def write(filename, name, data, dimension, dtype=float):
 
 def fermidistribution(energy, kt):
     #fermi level is fixed to zero
-    return 1.0 / (1.0 + np.exp(energy / kt) )
+    return 1.0 / (1.0 + np.exp(energy / kt))
 
 def get_tri_type(mat):
     #mat is lower triangular or upper triangular matrix
