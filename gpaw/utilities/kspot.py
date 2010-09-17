@@ -4,7 +4,7 @@ from gpaw.utilities import hartree
 from gpaw.utilities.blas import gemmdot
 from gpaw.atom.all_electron import AllElectron
 from gpaw import extra_parameters
-from gpaw.sphere import weights, points
+from gpaw.sphere.lebedev import weight_n, R_nv
 
 import numpy as np
 
@@ -54,7 +54,7 @@ class AllElectronPotential:
       radf_g = np.zeros(xccorr.ng)
       target_g = np.zeros(xccorr.ng)
       
-      for w,p in zip(weights, points):
+      for w, p in zip(weight_n, R_nv):
          scaled_nc = []
          # Very inefficient loop
          for i, r in enumerate(xccorr.rgd.r_g):

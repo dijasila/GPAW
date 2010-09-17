@@ -20,7 +20,7 @@ from gpaw.grid_descriptor import GridDescriptor
 from gpaw.blacs import BandLayouts
 from gpaw.hs_operators import MatrixOperator
 from gpaw.parameters import InputParameters
-from gpaw.xc_functional import XCFunctional
+from gpaw.xc import XC
 from gpaw.setup import create_setup, Setups
 from gpaw.lfc import LFC
 
@@ -39,9 +39,9 @@ if memstats:
 # -------------------------------------------------------------------
 
 p = InputParameters(spinpol=False)
-xcfunc = XCFunctional(p.xc, 1+int(p.spinpol))
-p.setups = {'H': create_setup('H', xcfunc, p.lmax, p.setups, None),
-            'O': create_setup('O', xcfunc, p.lmax, p.setups, None)}
+xc = XC(p.xc)
+p.setups = {'H': create_setup('H', xc, p.lmax, p.setups, None),
+            'O': create_setup('O', xc, p.lmax, p.setups, None)}
 
 class UTBandParallelSetup(TestCase):
     """
@@ -51,7 +51,7 @@ class UTBandParallelSetup(TestCase):
     nbands = 36
 
     # Spin-paired, single kpoint
-    nspins = xcfunc.nspins
+    nspins = 1
     nibzkpts = 1
 
     # Strided or blocked groups
@@ -200,7 +200,7 @@ class UTConstantWavefunctionSetup(UTBandParallelSetup):
         # Create setups for atoms
         self.Z_a = self.atoms.get_atomic_numbers()
         self.setups = Setups(self.Z_a, p.setups, p.basis,
-                             p.lmax, xcfunc)
+                             p.lmax, xc)
 
         # Create atomic projector overlaps
         spos_ac = self.atoms.get_scaled_positions() % 1.0

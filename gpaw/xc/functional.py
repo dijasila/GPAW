@@ -19,6 +19,9 @@ class XCFunctional:
     def set_grid_descriptor(self, gd):
         self.gd = gd
 
+    def apply_non_local_potential(self, kpt, psit_xG, Htpsit_xG, dH_asp):
+        pass
+
     def correct_hamiltonian_matrix(self, kpt, H_nn, psit_nG):
         pass
 

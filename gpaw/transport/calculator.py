@@ -2034,13 +2034,7 @@ class Transport(GPAW):
         if ham.nspins == 2:
             ham.vt_sg[1] = vt_g
        
-        if ham.nspins == 2:
-            Exc = ham.xc.get_energy_and_potential(
-                 nt_sg[0], ham.vt_sg[0],
-                 nt_sg[1], ham.vt_sg[1])
-        else:
-            Exc = ham.xc.get_energy_and_potential(
-                 nt_sg[0], ham.vt_sg[0])
+        Exc = ham.xc.calculate(ham.finegd, nt_sg, ham.vt_sg)
 
         self.timer.start('Poisson')
 
@@ -2123,8 +2117,7 @@ class Transport(GPAW):
                     H_p[:] = pack2(Htemp)
 
             ham.dH_asp[a] = dH_sp = np.zeros_like(D_sp)
-            Exc += setup.xc_correction.calculate_energy_and_derivatives(
-                D_sp, dH_sp, a)
+            Exc += setup.xc_correction.calculate(ham.xc, D_sp, dH_sp)
             dH_sp += dH_p
 
             Ekin -= (D_sp * dH_sp).sum()
@@ -2132,8 +2125,8 @@ class Transport(GPAW):
         self.timer.stop('atomic hamiltonian')
 
         xcfunc = ham.xc.xcfunc
-        ham.Enlxc = xcfunc.get_non_local_energy()
-        ham.Enlkin = xcfunc.get_non_local_kinetic_corrections()
+        ham.Enlxc = 0.0#xcfunc.get_non_local_energy()
+        ham.Enlkin = ham.xc.get_kinetic_energy_correction()
         if ham.Enlxc != 0 or ham.Enlkin != 0:
             print 'Where should we do comm.sum() ?'
 

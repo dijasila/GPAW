@@ -990,7 +990,7 @@ class Setups(list):
     ``core_charge`` Core hole charge.
     """
 
-    def __init__(self, Z_a, setup_types, basis_sets, lmax, xcfunc,
+    def __init__(self, Z_a, setup_types, basis_sets, lmax, xc,
                  world=None):
         list.__init__(self)
         symbols = [chemical_symbols[Z] for Z in Z_a]
@@ -1009,7 +1009,7 @@ class Setups(list):
                 setupdata = None
                 if not isinstance(type, str):
                     setupdata = type
-                setup = create_setup(symbol, xcfunc, lmax, type,
+                setup = create_setup(symbol, xc, lmax, type,
                                      basis, setupdata=setupdata, world=world)
                 self.setups[id] = setup
                 natoms[id] = 0

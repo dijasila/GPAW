@@ -18,7 +18,7 @@ from gpaw.band_descriptor import BandDescriptor
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.blacs import BandLayouts
 from gpaw.parameters import InputParameters
-from gpaw.xc_functional import XCFunctional
+from gpaw.xc import XC
 from gpaw.setup import create_setup, Setups
 from gpaw.wavefunctions.base import WaveFunctions
 from gpaw.wavefunctions.fd import FDWaveFunctions
@@ -34,9 +34,9 @@ from gpaw.test.ut_common import ase_svnversion, shapeopt, TestCase, \
 # -------------------------------------------------------------------
 
 p = InputParameters(spinpol=False)
-xcfunc = XCFunctional(p.xc, 1+int(p.spinpol))
-p.setups = {'H': create_setup('H', xcfunc, p.lmax, p.setups, None),
-            'O': create_setup('O', xcfunc, p.lmax, p.setups, None)}
+xc = XC(p.xc)
+p.setups = {'H': create_setup('H', xc, p.lmax, p.setups, None),
+            'O': create_setup('O', xc, p.lmax, p.setups, None)}
 
 class UTDomainParallelSetup(TestCase):
     """
@@ -46,7 +46,7 @@ class UTDomainParallelSetup(TestCase):
     nbands = 1
 
     # Spin-paired, single kpoint
-    nspins = xcfunc.nspins
+    nspins = 1
     nibzkpts = 1
 
     # Mean spacing and number of grid points per axis (G x G x G)

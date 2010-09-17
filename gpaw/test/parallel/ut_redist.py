@@ -8,7 +8,7 @@ from gpaw import debug
 from gpaw.mpi import world, distribute_cpus
 from gpaw.paw import kpts2ndarray
 from gpaw.parameters import InputParameters
-from gpaw.xc_functional import XCFunctional
+from gpaw.xc import XC
 from gpaw.brillouin import reduce_kpoints
 from gpaw.setup import create_setup, Setups
 from gpaw.grid_descriptor import GridDescriptor
@@ -30,9 +30,9 @@ from gpaw.test.ut_common import ase_svnversion, shapeopt, TestCase, \
 # -------------------------------------------------------------------
 
 p = InputParameters(spinpol=True)
-xcfunc = XCFunctional(p.xc, 1+int(p.spinpol))
-p.setups = {'H': create_setup('H', xcfunc, p.lmax, p.setups, None),
-            'O': create_setup('O', xcfunc, p.lmax, p.setups, None)}
+xc = XC(p.xc)
+p.setups = {'H': create_setup('H', xc, p.lmax, p.setups, None),
+            'O': create_setup('O', xc, p.lmax, p.setups, None)}
 
 class UTDomainParallelSetup(TestCase):
     """
@@ -42,7 +42,7 @@ class UTDomainParallelSetup(TestCase):
     nbands = 12
 
     # Spin-polarized
-    nspins = xcfunc.nspins
+    nspins = 1
 
     # Mean spacing and number of grid points per axis (G x G x G)
     h = 0.25 / Bohr
@@ -79,8 +79,8 @@ class UTDomainParallelSetup(TestCase):
 
         # Create setups
         Z_a = self.atoms.get_atomic_numbers()
-        assert xcfunc.nspins == self.nspins
-        self.setups = Setups(Z_a, p.setups, p.basis, p.lmax, xcfunc)
+        assert 1 == self.nspins
+        self.setups = Setups(Z_a, p.setups, p.basis, p.lmax, xc)
         self.natoms = len(self.setups)
 
         # Reduce number of kpoints in the 1st Brillouin Zone
@@ -439,7 +439,7 @@ class UTHamiltonianFunctionSetup(UTLocalizedFunctionSetup):
         self.finegd = self.gd.refine()
         self.hamiltonian = Hamiltonian(self.gd, self.finegd, self.nspins,
                                        self.setups, p.stencils[1], self.timer,
-                                       xcfunc, p.poissonsolver, p.external)
+                                       xc, p.poissonsolver, p.external)
         self.hamiltonian.dH_asp = {}
         self.hamiltonian.rank_a = self.rank0_a
         self.allocate(self.hamiltonian.dH_asp, self.hamiltonian.rank_a)

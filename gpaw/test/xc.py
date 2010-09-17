@@ -5,10 +5,10 @@ from gpaw.xc.bee import BEE1
 
 functionals = [LibXC(name) for name in short_names]
 functionals += [XCKernel(name) for name in codes]
-functionals = [BEE1()]
+#functionals = [BEE1()]
 #name = 'LDA'
 #name = 'PBE'
-#functionals = [LibXC('MGGA_C_TPSS')]
+functionals = [LibXC('MGGA_C_TPSS')]
 #               XCKernel(name)]
 #functionals = [f for f in functionals if f.type=='MGGA'][1:]
 
