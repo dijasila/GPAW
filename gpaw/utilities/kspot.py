@@ -74,7 +74,7 @@ class AllElectronPotential:
    def get_spherical_ks_potential(self,a):
       #self.paw.restore_state()
 
-      print "XC:", self.paw.hamiltonian.xc.xcfunc.xcname
+      print "XC:", self.paw.hamiltonian.xc.name
       if not self.paw.hamiltonian.xc.xcfunc.xcname == 'LDA':
          raise NotImplementedError
 

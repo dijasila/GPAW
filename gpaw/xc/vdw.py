@@ -20,7 +20,8 @@ import numpy as np
 from numpy.fft import fft, rfftn, irfftn
 
 from gpaw.utilities.timing import nulltimer
-from gpaw.xc_functional import XCFunctional
+from gpaw.xc.libxc import LibXC
+from gpaw.xc.gga import GGA
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.utilities.tools import construct_reciprocal
 from gpaw.fd_operators import Gradient
@@ -80,7 +81,7 @@ def hRPS(x, xc=1.0):
 
 Zab = -0.8491
 
-
+"""
 class VDWSemiLocalXC:
     type = 'GGA'
     def __init__(self):
@@ -93,7 +94,7 @@ class VDWSemiLocalXC:
             self.vLDAc_sg = np.zeros_like(n_sg)
             self.LDAc.calculate(self.eLDAc_g, n_sg, self.vLDAc_gdedn_sg)
         e_g += self.eLDAc_g
-
+"""
 
 class VDWFunctional(GGA):
     """Base class for vdW-DF."""
@@ -152,13 +153,39 @@ class VDWFunctional(GGA):
         GGA.__init__(self, LibXC('GGA_X_PBE_R,LDA_C_PW'))
         self.LDAc = LibXC('LDA_C_PW')
         
-    def set_grid_descriptor(self, gd):
-        self.gd = gd
-
     def initialize(self, density, hamiltonian, wfs, energy_only=False):
         self.set_grid_descriptor(density.finegd)
         self.energy_only = energy_only
         self.timer = wfs.timer
+
+    def calculate_gga(self, e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg):
+        GGA.calculate_gga(self, e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
+
+        eLDAc_g = np.empty_like(e_g)
+        vLDAc_g = np.zeros_like(e_g)
+
+        if len(n_sg) == 1:
+            self.LDAc.calculate(eLDAc_g, n_sg, vLDAc_g[np.newaxis, ...])
+            e = self.get_non_local_energy(n_sg[0], sigma_xg[0],
+                                          eLDAc_g,
+                                          vLDAc_g,
+                                          dedn_sg[0], dedsigma_xg[0])
+        else:
+            n_g = n_sg.sum(0)
+            self.LDAc.calculate(eLDAc_g, n_sg[np.newaxis, ...],
+                                vLDAc_g[np.newaxis, ...])
+            v_g = np.zeros_like(e_g)
+            deda2nl_g = np.zeros_like(e_g)
+            e = self.get_non_local_energy(n_g, a2_g, eLDAc_g,
+                                          v_LDAc_g,
+                                          v_g, deda2nl_g) 
+            deda2_g += deda2nl_g * 2
+            dedaa2_g += deda2nl_g
+            dedab2_g += deda2nl_g
+            dedn_sg += v_g 
+
+        if self.gd.comm.rank == 0:
+            e_g[0, 0, 0] += e / self.gd.dv
 
     def get_non_local_energy(self, n_g=None, a2_g=None, e_LDAc_g=None,
                              v_LDAc_g=None, v_g=None, deda2_g=None):
@@ -202,36 +229,7 @@ class VDWFunctional(GGA):
 
         Ecnl = self.calculate_6d_integral(n_g, q0_g, a2_g, e_LDAc_g, v_LDAc_g,
                                           v_g, deda2_g)
-        return Ecnl + dEcnl
-    
-    def calculate_gga(self, e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg):
-        GGA.calculate_gga(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
-
-        eLDAc_g = np.empty_like(e_g)
-        vLDAc_g = np.zeros_like(va_g)
-
-        if len(n_sg) == 1:
-            self.LDAc.calculate(eLDAc_g, n_sg, vLDAc_g[np.newaxis, ...])
-            e = self.get_non_local_energy(n_sg[0], sigma_xg[0],
-                                          eLDAc_g,
-                                          vLDAc_g,
-                                          dedn_sg[0], dedsigma_xg[0])
-        else:
-            n_g = n_sg.sum(0)
-            self.LDAc.calculate(eLDAc_g, n_sg[np.newaxis, ...],
-                                vLDAc_g[np.newaxis, ...])
-            v_g = np.zeros_like(e_g)
-            deda2nl_g = np.zeros_like(e_g)
-            e = self.get_non_local_energy(n_g, a2_g, eLDAc_g,
-                                          v_LDAc_g,
-                                          v_g, deda2nl_g) 
-            deda2_g += deda2nl_g * 2
-            dedaa2_g += deda2nl_g
-            dedab2_g += deda2nl_g
-            dedn_sg += v_g 
-
-        if self.gd.comm.rank == 0:
-            e_g[0, 0, 0] += e / self.gd.dv
+        return Ecnl + dEcnl    
 
     def calculate_spinpolarized(self, e_g, na_g, va_g, nb_g, vb_g,
                                 a2_g, aa2_g, ab2_g,
@@ -789,7 +787,3 @@ def spline(x, y):
         b[i] = (a[i + 1] - a[i]) / h[i] - h[i] * (c[i + 1] + 2 * c[i]) / 3
         d[i] = (c[i + 1] - c[i]) / 3 / h[i]
     return result
-
-
-if __name__ == '__main__':
-    vdw = VDWFunctional()

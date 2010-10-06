@@ -1,7 +1,7 @@
 import os
 from ase import Atoms
 from gpaw import GPAW
-from gpaw.vdw import FFTVDWFunctional
+from gpaw.xc.vdw import FFTVDWFunctional
 
 vdw = FFTVDWFunctional(verbose=1)
 L = 2.5
