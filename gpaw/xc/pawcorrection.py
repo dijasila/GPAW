@@ -138,9 +138,9 @@ class PAWXCCorrection:
             n_sLg = np.dot(D_sLq, n_qg)
             if addcoredensity:
                 n_sLg[:, 0] += sqrt(4 * pi) / nspins * nc_g
-            if self.nc_corehole_g is not None and nspins == 2:
-                n_sLg[0, 0] += 0.5 * nc_corehole_g
-                n_sLg[1, 0] -= 0.5 * nc_corehole_g
+            if self.nc_corehole_g is not None and nspins == 2 and sign == 1:
+                n_sLg[0, 0] += 0.5 * self.nc_corehole_g
+                n_sLg[1, 0] -= 0.5 * self.nc_corehole_g
             if type != 'LDA':
                 dndr_sLg = np.empty_like(n_sLg)
                 for s in range(nspins):

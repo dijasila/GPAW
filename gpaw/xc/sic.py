@@ -82,7 +82,7 @@ class SIC(XCFunctional):
         self.ekin = self.kpt_comm.sum(self.ekin)
         return exc + self.esic
 
-    def correct_hamiltonian_matrix(self, kpt, H_nn, psit_nG):
+    def correct_hamiltonian_matrix(self, kpt, H_nn, psit_nG, Htpsit_nG):
         spin = self.spin_s[kpt.s]
         if spin.W_mn is None:
             return

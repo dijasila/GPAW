@@ -53,8 +53,6 @@ class FDWaveFunctions(FDPWWaveFunctions):
     def apply_pseudo_hamiltonian(self, kpt, hamiltonian, psit_xG, Htpsit_xG):
         self.kin.apply(psit_xG, Htpsit_xG, kpt.phase_cd)
         hamiltonian.apply_local_potential(psit_xG, Htpsit_xG, kpt.s)
-        hamiltonian.xc.apply_non_local_potential(kpt, psit_xG, Htpsit_xG,
-                                                 hamiltonian.dH_asp)
 
     def add_paw_corrections(self, hamiltonian, kpt, R_nG):
         c_ani = {}

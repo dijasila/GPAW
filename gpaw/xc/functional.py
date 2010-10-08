@@ -13,16 +13,16 @@ class XCFunctional:
         self.gd = None
         self.ekin = 0.0
 
+    def get_setup_name(self):
+        return self.name
+    
     def initialize(self, density, hamiltonian, wfs):
         pass
 
     def set_grid_descriptor(self, gd):
         self.gd = gd
 
-    def apply_non_local_potential(self, kpt, psit_xG, Htpsit_xG, dH_asp):
-        pass
-
-    def correct_hamiltonian_matrix(self, kpt, H_nn, psit_nG):
+    def correct_hamiltonian_matrix(self, kpt, H_nn, psit_nG, Htpsit_nG):
         pass
 
     def add_correction(self, kpt, psit_xG, R_xG, c_axi, n_x=None,

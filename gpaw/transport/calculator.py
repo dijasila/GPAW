@@ -2124,7 +2124,6 @@ class Transport(GPAW):
 
         self.timer.stop('atomic hamiltonian')
 
-        xcfunc = ham.xc.xcfunc
         ham.Enlxc = 0.0#xcfunc.get_non_local_energy()
         ham.Enlkin = ham.xc.get_kinetic_energy_correction()
         if ham.Enlxc != 0 or ham.Enlkin != 0:

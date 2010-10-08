@@ -100,7 +100,7 @@ class VDWFunctional(GGA):
     """Base class for vdW-DF."""
     def __init__(self, world=None, q0cut=5.0,
                  phi0=0.5, ds=1.0, Dmax=20.0, nD=201, ndelta=21,
-                 soft_correction=False, verbose=False):
+                 soft_correction=False, verbose=False, energy_only=False):
         """vdW-DF.
 
         parameters:
@@ -147,15 +147,17 @@ class VDWFunctional(GGA):
             self.C_soft = np.dot(self.D_j**2, self.phi_ij[0]) * 4 * pi * dD
             
         self.gd = None
-        self.energy_only = False
+        self.energy_only = energy_only
         self.timer = nulltimer
 
         GGA.__init__(self, LibXC('GGA_X_PBE_R,LDA_C_PW'))
         self.LDAc = LibXC('LDA_C_PW')
-        
-    def initialize(self, density, hamiltonian, wfs, energy_only=False):
-        self.set_grid_descriptor(density.finegd)
-        self.energy_only = energy_only
+
+    def get_setup_name(self):
+        return 'revPBE'
+    
+    def initialize(self, density, hamiltonian, wfs):
+        #self.set_grid_descriptor(density.finegd)
         self.timer = wfs.timer
 
     def calculate_gga(self, e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg):
@@ -172,16 +174,17 @@ class VDWFunctional(GGA):
                                           dedn_sg[0], dedsigma_xg[0])
         else:
             n_g = n_sg.sum(0)
-            self.LDAc.calculate(eLDAc_g, n_sg[np.newaxis, ...],
+            self.LDAc.calculate(eLDAc_g, n_g[np.newaxis, ...],
                                 vLDAc_g[np.newaxis, ...])
             v_g = np.zeros_like(e_g)
             deda2nl_g = np.zeros_like(e_g)
+            a2_g = sigma_xg[0] + 2 * sigma_xg[1] + sigma_xg[2]
             e = self.get_non_local_energy(n_g, a2_g, eLDAc_g,
-                                          v_LDAc_g,
+                                          vLDAc_g,
                                           v_g, deda2nl_g) 
-            deda2_g += deda2nl_g * 2
-            dedaa2_g += deda2nl_g
-            dedab2_g += deda2nl_g
+            dedsigma_xg[0] += deda2nl_g
+            dedsigma_xg[1] += 2 * deda2nl_g
+            dedsigma_xg[2] += deda2nl_g
             dedn_sg += v_g 
 
         if self.gd.comm.rank == 0:
@@ -579,7 +582,6 @@ class FFTVDWFunctional(VDWFunctional):
             return
 
         VDWFunctional.set_grid_descriptor(self, gd)
-
         if self.size is None:
             self.shape = gd.N_c.copy()
             for c, n in enumerate(self.shape):

@@ -6,7 +6,7 @@ from ase.parallel import rank, barrier
 
 from gpaw import GPAW
 from gpaw.test import equal, gen
-from gpaw.vdw import FFTVDWFunctional
+from gpaw.xc.vdw import FFTVDWFunctional
 
 gen('Ar', xcname='revPBE')
 

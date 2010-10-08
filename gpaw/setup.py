@@ -49,7 +49,7 @@ def create_setup(symbol, xc, lmax=0,
             from gpaw.lcao.bsse import GhostSetupData
             setupdata = GhostSetupData(symbol)
         else:
-            setupdata = SetupData(symbol, xc.name,
+            setupdata = SetupData(symbol, xc.get_setup_name(),
                                   type, True,
                                   world=world)
     if hasattr(setupdata, 'build'):
@@ -512,7 +512,7 @@ class Setup(BaseSetup):
         
         if not data.is_compatible(xc):
             raise ValueError('Cannot use %s setup with %s functional' %
-                             (data.setupname, xc.name))
+                             (data.setupname, xc.get_setup_name()))
         
         self.symbol = symbol = data.symbol
         self.data = data

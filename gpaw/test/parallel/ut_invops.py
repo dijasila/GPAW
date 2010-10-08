@@ -178,7 +178,7 @@ class UTGaussianWavefunctionSetup(UTDomainParallelSetup):
         # Create setups for atoms
         self.Z_a = self.atoms.get_atomic_numbers()
         self.setups = Setups(self.Z_a, p.setups, p.basis,
-                             p.lmax, xcfunc)
+                             p.lmax, xc)
 
         # Create gamma-point dummy wavefunctions
         self.wfs = FDWFS(self.gd, self.bd, self.kpt_comm, self.setups,

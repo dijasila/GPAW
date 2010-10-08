@@ -107,7 +107,7 @@ class SetupData:
             self.e_kin_jj.shape = (nj, nj)
 
     def is_compatible(self, xc):
-        return xc.name == self.setupname
+        return xc.get_setup_name() == self.setupname
 
     def print_info(self, text, setup):
         if self.phicorehole_g is None:

@@ -1,4 +1,4 @@
-from gpaw.xc_functional import XCFunctional
+from gpaw.xc import XC
 import numpy as np
 from itertools import izip
 from gpaw.mpi import world
@@ -14,7 +14,7 @@ class NSCFSIC:
         assert world.size == 1 # Not parallelized
 
         ESIC = 0
-        xc = XCFunctional('LDA', 2)
+        xc = XC('LDA')
 
         # Calculate the contribution from the core orbitals
         for a in self.paw.density.D_asp:
