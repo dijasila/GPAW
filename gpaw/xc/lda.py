@@ -17,7 +17,6 @@ class LDA(XCFunctional):
         if v_sg is None:
             v_sg = np.zeros_like(n_sg)
         self.calculate_lda(e_g, n_sg, v_sg)
-
         return gd.integrate(e_g)
 
     def calculate_lda(self, e_g, n_sg, v_sg):

@@ -3,87 +3,65 @@
 
 """This module provides all the classes and functions associated with the
 evaluation of exact exchange.
-
-The eXact-eXchange energy functional is::
-
-                                         *  _       _     * _        _
-           __                /        psi  (r) psi (r) psi (r') psi (r')
-       -1 \                  |  _  _      n       m       m        n
- E   = --  ) delta     f  f  | dr dr' ---------------------------------  (5.1)
-  xx    2 /__     s s   n  m |                    _   _
-           nm      n m       /                   |r - r'|
-         
-The action of the non-local exchange potential on an orbital is::
-
-               /                         __
- ^             | _    _  _        _     \      _       _
- V   psi (r) = |dr' V(r, r') psi (r') =  ) V  (r) psi (r)                (5.3)
-  xx    n      |                n       /__ nm       m
-               /                         m
-
-where::
-
-                          _     * _
-              __     psi (r) psi (r')
-   _  _      \          m       m
- V(r, r') = - )  f   ----------------                                   (5.4a)
-             /__  m       _   _
-              m          |r - r'|
-              
-and::
-
-                        * _       _
-                /    psi (r) psi (r')
-     _          | _     m       n
- V  (r) = -  f  |dr' ----------------                                   (5.4b)
-  nm          m |         _   _
-                /        |r - r'|
-
-Equation numbers as in
-'Exact Exchange in Density Functional Calculations'
-Masters Thesis by Carsten Rostgaard, CAMP 2006.
 """
-
 
 import numpy as np
 
 from gpaw.xc import XC
+from gpaw.xc.kernel import XCNull
 from gpaw.xc.functional import XCFunctional
 from gpaw.poisson import PoissonSolver
 from gpaw.utilities import pack, unpack, unpack2, packed_index
 from gpaw.utilities.tools import core_states, symmetrize
 from gpaw.lfc import LFC
+from gpaw.utilities.blas import gemm
 
 
 class HybridXC(XCFunctional):
     orbital_dependent = True
-    def __init__(self, hybrid=1.0, xc=None, finegrid=False):
-        """XXX
+    def __init__(self, name, hybrid=None, xc=None, finegrid=False):
+        """Mix standard functionals with exact exchange.
 
+        name: str
+            Name of hybrid functional.
+        hybrid: float
+            Fraction of exact exchange.
+        xc: str or XCFunctional object
+            Standard DFT functional with scaled down exchange.
         finegrid: boolean
             Use fine grid for energy functional evaluations?
         """
-        
-        self.hybrid = hybrid
+
+        if name == 'EXX':
+            assert hybrid is None and xc is None
+            hybrid = 1.0
+            xc = XC(XCNull())
+        elif name == 'PBE0':
+            assert hybrid is None and xc is None
+            hybrid = 0.25
+            xc = XC('HYB_GGA_XC_PBEH')
+            
         if isinstance(xc, str):
             xc = XC(xc)
+
+        self.hybrid = hybrid
         self.xc = xc
-        self.type = 'LDA'#XXX xc.type
-        XCFunctional.__init__(self, 'EXX')
+        self.type = xc.type
         self.finegrid = finegrid
 
+        XCFunctional.__init__(self, name)
+
     def get_setup_name(self):
-        return 'LDA'
+        return 'PBE'
 
     def calculate_radial(self, rgd, n_sLg, Y_L, v_sg,
                          dndr_sLg=None, rnablaY_Lv=None,
                          tau_sg=None, dedtau_sg=None):
-        return 0.0
         return self.xc.calculate_radial(rgd, n_sLg, Y_L, v_sg)
     
     def initialize(self, density, hamiltonian, wfs):
         assert wfs.gamma
-        #self.xc.initialize(density, hamiltonian, wfs)
+        self.xc.initialize(density, hamiltonian, wfs)
         self.kpt_comm = wfs.kpt_comm
         self.nspins = wfs.nspins
         self.setups = wfs.setups
@@ -112,7 +90,7 @@ class HybridXC(XCFunctional):
     
     def calculate(self, gd, n_sg, v_sg=None, e_g=None):
         # Normal XC contribution:
-        exc = 0.0#self.xc.calculate(gd, n_sg, v_sg, e_g)
+        exc = self.xc.calculate(gd, n_sg, v_sg, e_g)
         self.kpt_comm.sum(self.exx_s)
         self.kpt_comm.sum(self.ekin_s)
         self.ekin = self.ekin_s.sum()
@@ -293,7 +271,17 @@ class HybridXC(XCFunctional):
                 c_xi[:nocc] += kpt.vxx_ani[a]
         
     def rotate(self, kpt, U_nn):
-        print U_nn
+        if kpt.f_n is None:
+            return
+
+        nocc = len(kpt.vt_nG)
+        U_nn = U_nn[:nocc, :nocc]
+        gemm(1.0, kpt.vt_nG.copy(), U_nn, 0.0, kpt.vt_nG)
+        for v_ni in kpt.vxx_ani.values():
+            gemm(1.0, v_ni.copy(), U_nn, 0.0, v_ni)
+        for v_nii in kpt.vxx_anii.values():
+            gemm(1.0, v_nii.copy(), U_nn, 0.0, v_nii)
+
         
 def atomic_exact_exchange(atom, type = 'all'):
     """Returns the exact exchange energy of the atom defined by the

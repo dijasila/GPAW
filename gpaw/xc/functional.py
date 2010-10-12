@@ -1,10 +1,3 @@
-class XCNull:
-    type = 'LDA'
-    name = 'null'
-    def calculate(self, n_sg, e_g, dedn_sg):
-        e_g[:] = 0.0
-
-
 class XCFunctional:
     hybrid = 0.0
     orbital_dependent = False
@@ -25,7 +18,7 @@ class XCFunctional:
     def correct_hamiltonian_matrix(self, kpt, H_nn, psit_nG, Htpsit_nG):
         pass
 
-    def add_correction(self, kpt, psit_xG, R_xG, c_axi, n_x=None,
+    def add_correction(self, kpt, psit_xG, R_xG, P_axi, c_axi, n_x=None,
                        calculate_change=False):
         pass
     

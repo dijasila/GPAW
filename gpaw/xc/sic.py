@@ -88,7 +88,7 @@ class SIC(XCFunctional):
             return
         spin.correct_hamiltonian_matrix(H_nn, psit_nG)
     
-    def add_correction(self, kpt, psit_xG, Htpsit_xG, c_axi, n_x,
+    def add_correction(self, kpt, psit_xG, Htpsit_xG, P_axi, c_axi, n_x,
                        calculate_change=False):
         spin = self.spin_s[kpt.s]
         if spin.W_mn is None:

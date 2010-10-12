@@ -11,6 +11,13 @@ codes = {
     'PW91': 14}
 
         
+class XCNull:
+    type = 'LDA'
+    name = 'null'
+    def calculate(self, e_g, n_sg, dedn_sg):
+        e_g[:] = 0.0
+
+
 class XCKernel:
     def __init__(self, name):
         self.name = name
