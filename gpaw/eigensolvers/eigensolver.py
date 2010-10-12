@@ -92,7 +92,7 @@ class Eigensolver:
             c_xi = (np.dot(P_xi, dH_ii) -
                     np.dot(P_xi * eps_x[:, np.newaxis], dO_ii))
             c_axi[a] = c_xi
-        hamiltonian.xc.add_correction(kpt, psit_xG, R_xG, c_axi, n_x,
+        hamiltonian.xc.add_correction(kpt, psit_xG, R_xG, P_axi, c_axi, n_x,
                                       calculate_change)
         wfs.pt.add(R_xG, c_axi, kpt.q)
         
@@ -137,7 +137,8 @@ class Eigensolver:
         H_nn = self.operator.calculate_matrix_elements(psit_nG, P_ani,
                                                        H, dH_aii)
         hamiltonian.xc.correct_hamiltonian_matrix(kpt, H_nn, psit_nG,
-                                                  Htpsit_xG)
+                                                  Htpsit_xG,
+                                                  hamiltonian.dH_asp)
         self.timer.stop('calc_matrix')
 
         diagonalization_string = repr(self.ksl)

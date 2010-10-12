@@ -7,7 +7,8 @@ class LDA(XCFunctional):
     def __init__(self, kernel):
         self.kernel = kernel
         XCFunctional.__init__(self, kernel.name)
-        
+        self.type = kernel.type
+
     def calculate(self, gd, n_sg, v_sg=None, e_g=None):
         if gd is not self.gd:
             self.set_grid_descriptor(gd)

@@ -122,7 +122,7 @@ class PAWXCCorrection:
         de = 0.0
         D_sLq = np.inner(D_sp, self.B_pqL.T)
         v_sg = self.rgd.empty(nspins)
-        type = xc.kernel.type
+        type = xc.type
         XC = xc.calculate_radial
 
         if type == 'MGGA':

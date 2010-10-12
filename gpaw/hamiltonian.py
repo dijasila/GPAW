@@ -341,7 +341,9 @@ class Hamiltonian:
 
         #meta-gga correction
         # < tilde_Psi | +1/2*nabla.(dedtau * nabla tilde_Psi)> = -< dedtau * tau>
-        if 0:#self.xc.xckernel.type == 'MGGA':
+        if self.xc.type == 'MGGA':
+            print 'MGGA-contribution here !!!'
+        if 0:
             self.Ekin_mgga = 0.0
             for taut_G, dedtau_g in zip(self.xc.tautnocore_sG, self.xc.dedtau_sg):
                 self.xc.xcfunc.restrictor.apply(dedtau_g, self.xc.dedtau_G)
@@ -371,8 +373,6 @@ class Hamiltonian:
         # Total free energy:
         self.Etot = (self.Ekin + self.Epot + self.Eext +
                      self.Ebar + self.Exc - self.S)
-        #print self.Etot, self.Ekin, self.Epot, self.Eext, self.Ebar, self.Exc,
-        #print self.S, self.Enlxc,self.Enlkin
 
         return self.Etot
 

@@ -17,7 +17,7 @@ The action of the non-local exchange potential on an orbital is::
 
                /                         __
  ^             | _    _  _        _     \      _       _
- V   psi (r) = |dr' V(r, r') psi (r') =  ) V  (r) psi (r)               (5.3)
+ V   psi (r) = |dr' V(r, r') psi (r') =  ) V  (r) psi (r)                (5.3)
   xx    n      |                n       /__ nm       m
                /                         m
 
@@ -41,41 +41,7 @@ and::
 
 Equation numbers as in
 'Exact Exchange in Density Functional Calculations'
-Masters Thesis by Carsten Rostgaard, CAMP 2006
-
-In PAW, equation (5.3) above transforms to::
-
-   ^     ~      --               /
-   v  | psi > = >  f  delta      |
-    xx     n    --  m      s ,s  |
-                m           n  m \
-
-                   ~        ~       -- /
-                   v  (r) |psi  > + >  |
-                    nm        m     -- |
-                                     a \
-
-                            --  ~a    --      a  /    ~a    ~       a
-                            >  |p  >  >  Delta   | dr g (r) v  (r) P
-                            --   i    --      L  /     L     nm     mi
-                            i i   1    L                              2
-                             1 2
-
-                            --     a       a           a
-                       +    >     D     * C         * D
-                            --     i i     i i i i     i i
-                          i i i i   1 2     1 3 2 4     3 4
-                           1 2 3 4
-
-                            --      a      a
-                       +    >      X    * D
-                            --      i i    i i
-                            i i      1 2    1 2
-                             1 2
-
-                             core-core  \ \
-                       +    E           | |
-                             xx         / /
+Masters Thesis by Carsten Rostgaard, CAMP 2006.
 """
 
 
@@ -84,7 +50,9 @@ import numpy as np
 from gpaw.xc import XC
 from gpaw.xc.functional import XCFunctional
 from gpaw.poisson import PoissonSolver
-from gpaw.utilities import pack
+from gpaw.utilities import pack, unpack, unpack2, packed_index
+from gpaw.utilities.tools import core_states, symmetrize
+from gpaw.lfc import LFC
 
 
 class HybridXC(XCFunctional):
@@ -100,17 +68,28 @@ class HybridXC(XCFunctional):
         if isinstance(xc, str):
             xc = XC(xc)
         self.xc = xc
+        self.type = 'LDA'#XXX xc.type
         XCFunctional.__init__(self, 'EXX')
         self.finegrid = finegrid
 
+    def get_setup_name(self):
+        return 'LDA'
+
+    def calculate_radial(self, rgd, n_sLg, Y_L, v_sg,
+                         dndr_sLg=None, rnablaY_Lv=None,
+                         tau_sg=None, dedtau_sg=None):
+        return 0.0
+        return self.xc.calculate_radial(rgd, n_sLg, Y_L, v_sg)
+    
     def initialize(self, density, hamiltonian, wfs):
         assert wfs.gamma
-        self.xc.initialize(density, hamiltonian, wfs)
+        #self.xc.initialize(density, hamiltonian, wfs)
         self.kpt_comm = wfs.kpt_comm
         self.nspins = wfs.nspins
-        self.H_smm = {}
-        self.kpt_u = wfs.kpt_u
-        self.exx = 0.0
+        self.setups = wfs.setups
+        self.density = density
+        self.exx_s = np.empty(self.nspins)
+        self.ekin_s = np.empty(self.nspins)
 
         if self.finegrid:
             self.poissonsolver = hamiltonian.poisson
@@ -123,7 +102,8 @@ class HybridXC(XCFunctional):
             self.poissonsolver.initialize()
             self.ghat = LFC(density.gd,
                             [setup.ghat_l for setup in density.setups],
-                            integral=sqrt(4 * pi), forces=True)
+                            integral=np.sqrt(4 * np.pi), forces=True)
+        self.gd = density.gd
         self.finegd = self.ghat.gd
 
     def set_positions(self, spos_ac):
@@ -131,39 +111,18 @@ class HybridXC(XCFunctional):
             self.ghat.set_positions(spos_ac)
     
     def calculate(self, gd, n_sg, v_sg=None, e_g=None):
-        self.gd = gd
-        
         # Normal XC contribution:
         exc = 0.0#self.xc.calculate(gd, n_sg, v_sg, e_g)
-        self.exx = self.kpt_comm.sum(self.exx)
-        self.ekin = self.kpt_comm.sum(self.ekin)
-        return exc + self.exx
-
-    def calculate_pair_density(self, n1, n2, psit_nG, P_ani):
-        Q_aL = {}
-        D_ap = {}
-        for a, P_mi in self.P_ami.items():
-            P_i = P_mi[m]
-            D_ii = np.outer(P_i, P_i.conj()).real
-            D_ap[a] = D_p = pack(D_ii)
-            Q_aL[a] = np.dot(D_p, self.setups[a].Delta_pL)
-            
-        nt_G = self.phit_mG[m]**2
-
-        if self.finegd is self.gd:
-            nt_g = nt_G
-        else:
-            nt_g = self.finegd.empty()
-            self.interpolator.apply(nt_G, nt_g)
-
-        self.ghat.add(nt_g, Q_aL)
-
-        nt_g *= 1.0 / self.finegd.integrate(nt_g)
-
-        return nt_g, D_ap
+        self.kpt_comm.sum(self.exx_s)
+        self.kpt_comm.sum(self.ekin_s)
+        self.ekin = self.ekin_s.sum()
+        return exc + self.exx_s.sum()
 
     def correct_hamiltonian_matrix(self, kpt, H_nn, psit_nG,
                                    Htpsit_nG, dH_asp):
+        if kpt.f_n is None:
+            return
+        
         deg = 2 // self.nspins   # Spin degeneracy
 
         P_ani = kpt.P_ani
@@ -173,15 +132,30 @@ class HybridXC(XCFunctional):
         if self.gd is not self.finegd:
             vt_G = self.gd.empty()
 
-        nocc = 1
+        nocc = int(kpt.f_n.sum()) // (3 - self.nspins)
+
+        kpt.vt_nG = self.gd.empty(nocc)
+        kpt.vxx_ani = {}
+        kpt.vxx_anii = {}
+        for a, P_ni in P_ani.items():
+            I = P_ni.shape[1]
+            kpt.vxx_ani[a] = np.zeros((nocc, I))
+            kpt.vxx_anii[a] = np.zeros((nocc, I, I))
+
+        exx = 0.0
+        ekin = 0.0
+        
         # Determine pseudo-exchange
         for n1 in range(nocc):
             psit1_G = psit_nG[n1]
             for n2 in range(n1, nocc):
                 psit2_G = psit_nG[n2]
+
+                # Double count factor:
+                dc = (1 + (n1 != n2)) * deg / self.hybrid
                 
-                dc = (1 + (n1 != n2)) * deg / hybrid  # double count factor
-                nt_G, rhot_g = self.get_pair_density(psit1_G, psit2_G)
+                nt_G, rhot_g = self.calculate_pair_density(n1, n2, psit_nG,
+                                                           P_ani)
                 vt_g[:] = 0.0
                 iter = self.poissonsolver.solve(vt_g, -rhot_g,
                                                 charge=-float(n1 == n2),
@@ -196,50 +170,48 @@ class HybridXC(XCFunctional):
                 # Integrate the potential on fine and coarse grids
                 int_fine = self.finegd.integrate(vt_g * rhot_g)
                 int_coarse = self.gd.integrate(vt_G * nt_G)
-                if domain_comm.rank == 0: # Only add to energy on master CPU
-                    Exx += 0.5 * dc * int_fine
-                    Ekin -= dc * int_coarse
+                if self.gd.comm.rank == 0:  # only add to energy on master CPU
+                    exx += 0.5 * dc * int_fine
+                    ekin -= dc * int_coarse
 
                 Htpsit_nG[n1] += vt_G * psit2_G
                 if n1 == n2:
                     kpt.vt_nG[n1] = vt_G
+                    H_nn[n1, n2] += int_coarse
                 else:
                     Htpsit_nG[n2] += vt_G * psit1_G
+                    H_nn[n1, n2] += int_coarse
+                    H_nn[n2, n1] += int_coarse
 
                 # Update the vxx_uni and vxx_unii vectors of the nuclei,
                 # used to determine the atomic hamiltonian, and the 
                 # residuals
-                if self.use_finegrid:
-                    ghat = self.density.ghat
-                else:
-                    ghat = self.density.Ghat
-                v_aL = ghat.dict()
-                ghat.integrate(self.vt_g, v_aL)
+                v_aL = self.ghat.dict()
+                self.ghat.integrate(vt_g, v_aL)
                 for a, v_L in v_aL.items():
                     v_ii = unpack(np.dot(setups[a].Delta_pL, v_L))
-                    v_ni = vxx_ani[a]
-                    v_nii = vxx_anii[a]
+                    v_ni = kpt.vxx_ani[a]
+                    v_nii = kpt.vxx_anii[a]
                     P_ni = P_ani[a]
-                    v_ni[n1] += f2 * np.dot(v_ii, P_ni[n2])
+                    v_ni[n1] += np.dot(v_ii, P_ni[n2])
                     if n1 != n2:
-                        v_ni[n2] += f1 * np.dot(v_ii, P_ni[n1])
+                        v_ni[n2] += np.dot(v_ii, P_ni[n1])
                     else:
                         # XXX Check this:
-                        v_nii[n1] = f2 * v_ii
+                        v_nii[n1] = v_ii
 
         # Apply the atomic corrections to the energy and the Hamiltonian matrix
         for a, P_ni in P_ani.items():
             setup = setups[a]
 
             # Add non-trivial corrections the Hamiltonian matrix
-            if not self.energy_only:
-                h_nn = symmetrize(np.inner(P_ni, vxx_ani[a]))
-                H_nn += h_nn
-                Ekin -= np.dot(f_n, np.diagonal(h_nn))
-                dH_p = dH_asp[a][s]
-
+            h_nn = symmetrize(np.inner(P_ni[:nocc], kpt.vxx_ani[a]))
+            H_nn[:nocc, :nocc] += h_nn
+            ekin -= h_nn.trace()
+            dH_p = np.zeros_like(dH_asp[a][kpt.s])
+            
             # Get atomic density and Hamiltonian matrices
-            D_p  = self.density.D_asp[a][s]
+            D_p  = self.density.D_asp[a][kpt.s]
             D_ii = unpack2(D_p)
             ni = len(D_ii)
             
@@ -255,357 +227,74 @@ class HybridXC(XCFunctional):
                         for i4 in range(ni):
                             p24 = packed_index(i2, i4, ni)
                             A += setup.M_pp[p13, p24] * D_ii[i3, i4]
-                    if not self.energy_only:
-                        p12 = packed_index(i1, i2, ni)
-                        dH_p[p12] -= 2 * hybrid / deg * A / ((i1 != i2) + 1)
-                        Ekin += 2 * hybrid / deg * D_ii[i1, i2] * A
-                    Exx -= hybrid / deg * D_ii[i1, i2] * A
+                    p12 = packed_index(i1, i2, ni)
+                    dH_p[p12] -= 2 * self.hybrid / deg * A / ((i1 != i2) + 1)
+                    ekin += 2 * self.hybrid / deg * D_ii[i1, i2] * A
+                    exx -= self.hybrid / deg * D_ii[i1, i2] * A
             
             # Add valence-core exchange energy
             # --
             # >  X   D
             # --  ii  ii
-            Exx -= hybrid * np.dot(D_p, setup.X_p)
-            if not self.energy_only:
-                dH_p -= hybrid * setup.X_p
-                Ekin += hybrid * np.dot(D_p, setup.X_p)
+            exx -= self.hybrid * np.dot(D_p, setup.X_p)
+            dH_p -= self.hybrid * setup.X_p
+            ekin += self.hybrid * np.dot(D_p, setup.X_p)
+            dH_asp[a][kpt.s] += dH_p
+            dH_ii = unpack(dH_p)
+            H_nn += np.inner(P_ni, np.dot(P_ni, dH_ii))
 
             # Add core-core exchange energy
-            if s == 0:
-                Exx += hybrid * setup.ExxC
+            if kpt.s == 0:
+                exx += self.hybrid * setup.ExxC
 
-        # Update the class attributes
-        if self.qs0 is None:
-            self.qs0 = (kpt.q, kpt.s)
-        if (kpt.q, kpt.s) == self.qs0:
-            self.Exx = 0.0
-            self.Ekin = 0.0
-        self.Exx += self.psum(Exx)
-        self.Ekin += self.psum(Ekin)
-        
-    def correct_hamiltonian_matrix(self, kpt, H_nn, psit_nG):
-        H_nn[:self.nocc, :self.nocc] += self.H_smm[kpt.s]
-        H_nn[:self.nocc, self.nocc:] = 0.0
-        H_nn[self.nocc:, :self.nocc] = 0.0
-    
-    def add_correction(self, kpt, psit_xG, Htpsit_xG, c_axi, n_x,
-                       calculate_change=False):
-        spin = self.spin_s[kpt.s]
-        if spin.W_mn is None:
-            return
+        self.exx_s[kpt.s] = exx
+        self.ekin_s[kpt.s] = ekin
 
-        if calculate_change:
-            spin.calculate_residual_change(psit_xG, Htpsit_xG, c_axi, n_x)
+        H_nn[:nocc, nocc:] = 0.0
+        H_nn[nocc:, :nocc] = 0.0
+
+    def calculate_pair_density(self, n1, n2, psit_nG, P_ani):
+        Q_aL = {}
+        for a, P_ni in P_ani.items():
+            P1_i = P_ni[n1]
+            P2_i = P_ni[n2]
+            D_ii = np.outer(P1_i, P2_i.conj()).real
+            D_p = pack(D_ii, tolerance=1e30)
+            Q_aL[a] = np.dot(D_p, self.setups[a].Delta_pL)
+            
+        nt_G = psit_nG[n1] * psit_nG[n2]
+
+        if self.finegd is self.gd:
+            nt_g = nt_G
         else:
-            spin.calculate_residual(psit_xG, Htpsit_xG, c_axi)
-        
-    def rotate(self, kpt, U_nn):
-        self.spin_s[kpt.s].rotate(U_nn)
+            nt_g = self.finegd.empty()
+            self.interpolator.apply(nt_G, nt_g)
 
-        
-    def update_potentials(self):
-        self.timer.start('ODD-potentials')
-        nt_sg = self.finegd.empty(2)
-        nt_sg[1] = 0.0
-        vt_sg = self.finegd.empty(2)
-        W_aL = self.ghat.dict()
+        rhot_g = nt_g.copy()
+        self.ghat.add(rhot_g, Q_aL)
 
-        zero_initial_phi = False
-        
-        if self.vt_mG is None:
-            self.vt_mG = self.gd.empty(self.nocc)
-            self.exc_m = np.zeros(self.nocc)
-            self.ecoulomb_m = np.zeros(self.nocc)
-            self.vHt_mg = self.finegd.zeros(self.nocc)
-            zero_initial_phi = True
-            self.dH_amp = {}
-            for a, P_mi in self.P_ami.items():
-                ni = P_mi.shape[1]
-                self.dH_amp[a] = np.empty((self.nocc, ni * (ni + 1) // 2))
+        return nt_G, rhot_g
 
-        for m, phit_G in enumerate(self.phit_mG):
-            nt_sg[0], D_ap = self.calculate_density(m)
-            vt_sg[:] = 0.0
-
-            self.timer.start('XC')
-            if self.xc_factor != 0.0:
-                exc = self.xc.calculate(self.finegd, nt_sg, vt_sg)
-                exc /= self.gd.comm.size
-                vt_sg[0] *= -self.xc_factor
-                for a, D_p in D_ap.items():
-                    setup = self.setups[a]
-                    dH_p = self.dH_amp[a][m]
-                    dH_p[:] = 0.0
-                    exc += setup.xc_correction.calculate(D_p, dH_p,
-                                                         addcoredensity=False)
-                    dH_p *= -self.xc_factor
-                self.exc_m[m] = -self.xc_factor * exc
-            self.timer.stop('XC')
-
-            self.timer.start('Hartree')
-            if self.coulomb_factor != 0.0:
-                self.poissonsolver.solve(self.vHt_mg[m], nt_sg[0],
-                                         zero_initial_phi=zero_initial_phi)
-                ecoulomb = 0.5 * self.finegd.integrate(nt_sg[0] *
-                                                       self.vHt_mg[m])
-                ecoulomb /= self.gd.comm.size
-                vt_sg[0] -= self.coulomb_factor * self.vHt_mg[m]
-                self.ghat.integrate(self.vHt_mg[m], W_aL)
-                for a, D_p in D_ap.items():
-                    setup = self.setups[a]
-                    dH_p = self.dH_amp[a][m]
-                    M_p = np.dot(setup.M_pp, D_p)
-                    ecoulomb += np.dot(D_p, M_p)
-                    dH_p -= self.coulomb_factor * (
-                        2 * M_p + np.dot(setup.Delta_pL, W_aL[a]))
-                self.ecoulomb_m[m] = -self.coulomb_factor * ecoulomb
-            self.timer.stop('Hartree')
-
-            if self.finegd is self.gd:
-                self.vt_mG[m] = vt_sg[0]
-            else:
-                self.restrictor.apply(vt_sg[0], self.vt_mG[m])
-            
-        self.timer.stop('ODD-potentials')
-
-        self.gd.comm.sum(self.exc_m)
-        self.gd.comm.sum(self.ecoulomb_m)
-        
-        self.esic = (self.exc_m.sum() +
-                     self.ecoulomb_m.sum()) * (3 - self.nspins)
-
-        
-    def calculate_residual(self, psit_nG, Htpsit_nG, c_ani):
-        # Apply orbital dependent potentials:
-        Htphit_mG = self.vt_mG * self.phit_mG
-        Htpsit_nG[:self.nocc] += np.dot((Htphit_mG).T, self.W_mn).T
-
-        # Make sure <psi_n|H|psi_m> is Hermitian:
-        K_mm = self.V_mm - self.V_mm.T
-        Htpsit_nG[:self.nocc] += 0.5 * np.dot(self.phit_mG.T,
-                                              np.dot(K_mm, self.W_mn)).T
-        
-        # PAW corrections:
-        
-    def calculate_residual_change(self, psit_xG, Htpsit_xG, c_axi, n_x):
-        assert len(n_x) == 1
-        n = n_x[0]
-        if n < self.nocc:
-            Htpsit_xG += np.dot(self.vt_mG.T,
-                                self.W_mn[:, n]**2).T * psit_xG
-
-    def rotate(self, U_nn):
-        if self.W_mn is not None:
-            self.W_mn = np.dot(self.W_mn, U_nn[:self.nocc, :self.nocc].T)
-        
-    def calculate(self):
-        if self.W_mn is None:
-            self.initialize_orbitals()
-        self.unitary_optimization()
-        return self.esic, self.ekin
-
-import numpy as np
-
-from gpaw.utilities.tools import core_states, symmetrize
-from gpaw.gaunt import make_gaunt
-from gpaw.utilities import hartree, packed_index, unpack, unpack2, pack, pack2
-from gpaw.ae import AllElectronSetup
-from gpaw.utilities.blas import gemm, r2k
-from gpaw.pair_density import PairDensity2 as PairDensity
-from gpaw.poisson import PoissonSolver, PoissonFFTSolver
-from gpaw.utilities.tools import apply_subspace_mask
-
-usefft = False
-verbose = False
-
-## for debug
-## from gpaw.mpi.mpiprint import mpiprint
-
-def dummy_interpolate(nt_G, nt_g):
-    nt_g[:] = nt_G
-
-
-class EXX:
-    """EXact eXchange.
-
-    Class offering methods for selfconsistent evaluation of the
-    exchange energy."""
-    
-    def __init__(self, density, hamiltonian, wfs, atoms,
-                 energy_only=False, use_finegrid=True):
-        # Initialize class-attributes
-        self.nspins        = wfs.nspins
-        self.nbands        = wfs.nbands
-        self.interpolate   = density.interpolate
-        self.restrict      = hamiltonian.restrict
-        self.integrate     = wfs.gd.integrate
-        self.fineintegrate = density.finegd.integrate
-        ksum, dsum = wfs.kpt_comm.sum, wfs.gd.comm.sum
-        self.psum          = lambda x: ksum(dsum(x)) # Sum over all processors
-        self.energy_only   = energy_only
-        self.use_finegrid  = use_finegrid
-        self.pair_density  = PairDensity(density, atoms, use_finegrid)
-        self.poisson_solve = hamiltonian.poisson.solve
-        self.density = density
-        self.Exx = 0.0
-        self.Ekin = 0.0
-        self.qs0 = None
-
-        # Set correct Poisson solver
-        if usefft:
-            if use_finegrid:
-                solver = PoissonFFTSolver()
-                solver.set_grid_descriptor(density.finegd)
-                solver.initialize()
-                self.poisson_solve = solver.solve
-            else:
-                solver = PoissonFFTSolver()
-                solver.set_grid_descriptor(wfs.gd)
-                solver.initialize()
-                self.poisson_solve = solver.solve
-        elif not use_finegrid:
-            solver = PoissonSolver(nn=hamiltonian.poisson.nn)
-            solver.set_grid_descriptor(wfs.gd)
-            solver.initialize()
-            self.poisson_solve = solver.solve
-            
-        # Allocate space for matrices
-        self.nt_G = wfs.gd.empty()# Pseudo density on coarse grid
-        self.rhot_g = density.finegd.empty()# Comp. pseudo density on fine grid
-        self.vt_G = wfs.gd.empty()# Pot. of comp. pseudo density on coarse grid
-        self.vt_g =density.finegd.empty()# Pot. of comp. ps. dens. on fine grid
-
-        # Overwrites in case of coarse grid Poisson solver
-        if not use_finegrid:
-            self.fineintegrate = wfs.gd.integrate
-            self.interpolate = dummy_interpolate
-            self.rhot_g = wfs.gd.empty()
-            self.vt_g = self.vt_G
-        
-        # For rotating the residuals we need the diagonal Fock potentials
-        if not energy_only:
-            for kpt in wfs.kpt_u:
-                kpt.vt_nG = wfs.gd.zeros(wfs.nbands)
-
-    def grr(self, wfs, kpt, Htpsit_nG, hamiltonian):
-        nbands = wfs.nbands
-        domain_comm = self.density.gd.comm
-        H_nn = np.zeros((nbands, nbands))
-        wfs.kin.apply(kpt.psit_nG, Htpsit_nG, kpt.phase_cd)
-        hamiltonian.apply_local_potential(kpt.psit_nG, Htpsit_nG, kpt.s)
-        self.apply(kpt, Htpsit_nG, H_nn, hamiltonian.dH_asp,
-                   hamiltonian.xc.xcfunc.hybrid)
-        r2k(0.5 * wfs.gd.dv, kpt.psit_nG, Htpsit_nG, 1.0, H_nn)
-        for a, P_ni in kpt.P_ani.items():
-            dH_p = unpack(hamiltonian.dH_asp[a][kpt.s])
-            gemm(1.0, P_ni, np.dot(P_ni, dH_p), 1.0, H_nn, 'c')
-        domain_comm.sum(H_nn, 0)
-        if kpt.f_n is not None:
-            apply_subspace_mask(H_nn, kpt.f_n)
-        return H_nn
-
-
-    def force_kpoint(self, kpt, hybrid):
-        """Force due to exact exchange operator"""
-        raise NotImplementedError
-
-        deg = 2 / self.nspins
-        u = kpt.u
-        F_ac = np.zeros((self.Na, 3))
-        fmin = 1.e-10
-        pd = self.pair_density
-
-        for n1 in range(self.nbands):
-            psit1_G = kpt.psit_nG[n1]
-            f1 = kpt.f_n[n1] * hybrid / deg
-            for n2 in range(n1, self.nbands):
-                psit2_G = kpt.psit_nG[n2]
-                f2 = kpt.f_n[n2] * hybrid / deg
-                if f1 < fmin and f2 < fmin:
-                    continue
-
-                # Re-determine all of the exhange potentials
-                dc = (1 + (n1 != n2)) * deg / hybrid
-                pd.initialize(kpt, n1, n2)
-                pd.get_coarse(self.nt_G)
-                pd.add_compensation_charges(self.nt_G, self.rhot_g)
-                self.poisson_solve(self.vt_g, -self.rhot_g,
-                                   charge=-float(n1 == n2), eps=1e-12,
-                                   zero_initial_phi=True)
-                if self.use_finegrid:
-                    self.restrict(self.vt_g, self.vt_G)
-                else:
-                    assert self.vt_G is self.vt_g
-
-                # Determine force contribution from exchange potential
-                for nucleus in self.ghat_nuclei:
-                    if self.use_finegrid:
-                        ghat_L = nucleus.ghat_L
-                    else:
-                        ghat_L = nucleus.Ghat_L
-                    
-                    if nucleus.in_this_domain:
-                        lmax = nucleus.setup.lmax
-                        F_Lc = np.zeros(((lmax + 1)**2, 3))
-                        ghat_L.derivative(self.vt_g, F_Lc)
-                        D_ii = np.outer(nucleus.P_uni[u, n1],
-                                         nucleus.P_uni[u, n2])
-                        D_p = pack(D_ii, tolerance=1e30)
-                        Q_L = np.dot(D_p, nucleus.setup.Delta_pL)
-                        F_ac[nucleus.a] -= (f1 * f2 * dc * np.dot(Q_L, F_Lc))
-                    else:
-                        ghat_L.derivative(self.vt_g, None)
-
-                # Add force contribution from the change in projectors
-                for nucleus in self.ghat_nuclei:
-                    v_L = np.zeros((nucleus.setup.lmax + 1)**2)
-                    if self.use_finegrid:
-                        nucleus.ghat_L.integrate(self.vt_g, v_L)
-                    else:
-                        nucleus.Ghat_L.integrate(self.vt_G, v_L)
-                    
-                    if nucleus.in_this_domain:
-                        v_ii = unpack(np.dot(nucleus.setup.Delta_pL, v_L))
-
-                        ni = nucleus.setup.ni
-                        F_ic = np.zeros((ni, 3))
-                        nucleus.pt_i.derivative(psit1_G, F_ic)
-                        F_ic.shape = (ni * 3,)
-                        F_iic = np.dot(v_ii, np.outer(
-                            nucleus.P_uni[u, n2], F_ic))
-
-                        F_ic[:] = 0.0
-                        F_ic.shape =(ni, 3)
-                        nucleus.pt_i.derivative(psit2_G, F_ic)
-                        F_ic.shape = (ni * 3,)
-                        F_iic += np.dot(v_ii, np.outer(
-                            nucleus.P_uni[u, n1], F_ic))
-
-                        # F_iic *= 2.0
-                        F_iic.shape = (ni, ni, 3)
-                        for i in range(ni):
-                            F_ac[nucleus.a] -= f1 * f2 * dc * F_iic[i, i].real
-
-                    else:
-                        nucleus.pt_i.derivative(psit1_G, None)
-                        nucleus.pt_i.derivative(psit2_G, None)
-        return F_ac
-
-    def adjust_residual(self, pR_G, dR_G, kpt, n):
-        dR_G += kpt.vt_nG[n] * pR_G
-
-    def rotate(self, kpt, U_nn):
-        if not hasattr(kpt, 'vxx_anii'):
+    def add_correction(self, kpt, psit_xG, Htpsit_xG, P_axi, c_axi, n_x,
+                       calculate_change=False):
+        if kpt.f_n is None:
             return
-        # Rotate EXX related stuff
-        vt_nG = kpt.vt_nG
-        gemm(1.0, vt_nG.copy(), U_nn, 0.0, vt_nG)
-        for v_ni in kpt.vxx_ani.values():
-            gemm(1.0, v_ni.copy(), U_nn, 0.0, v_ni)
-        for v_nii in kpt.vxx_anii.values():
-            gemm(1.0, v_nii.copy(), U_nn, 0.0, v_nii)
 
-
+        nocc = len(kpt.vt_nG)
+        
+        if calculate_change:
+            for x, n in enumerate(n_x):
+                if n < nocc:
+                    Htpsit_xG[x] += kpt.vt_nG[n] * psit_xG[x]
+                    for a, P_xi in P_axi.items():
+                        c_axi[a][x] += np.dot(kpt.vxx_anii[a][n], P_xi[x])
+        else:
+            for a, c_xi in c_axi.items():
+                c_xi[:nocc] += kpt.vxx_ani[a]
+        
+    def rotate(self, kpt, U_nn):
+        print U_nn
+        
 def atomic_exact_exchange(atom, type = 'all'):
     """Returns the exact exchange energy of the atom defined by the
        instantiated AllElectron object 'atom'
