@@ -90,9 +90,6 @@ XCFunctional_calculate(XCFunctionalObject *self, PyObject *args)
       dedsigma_g = DOUBLEP(dedsigma_array);
     }
 
-  /* h1 is the weight for the exchange part of the energy */
-  double h1 = 1.0 - par->hybrid;
-
   if (PyArray_DIM(n_array, 0) == 1)
     for (int g = 0; g < ng; g++)
       {
@@ -118,8 +115,8 @@ XCFunctional_calculate(XCFunctionalObject *self, PyObject *args)
             ex = self->exchange(par, n, rs, 0.0, &dexdrs, 0);
             ec = self->correlation(n, rs, 0.0, 0.0, 0, 0, &decdrs, 0, 0);
           }
-        e_g[g] = n * (h1 * ex + ec);
-        v_g[g] += h1 * ex + ec - rs * (h1 * dexdrs + decdrs) / 3.0;
+        e_g[g] = n * (ex + ec);
+        v_g[g] += ex + ec - rs * (dexdrs + decdrs) / 3.0;
       }
   else
     {
@@ -189,12 +186,12 @@ XCFunctional_calculate(XCFunctionalObject *self, PyObject *args)
               ec = self->correlation(n, rs, zeta, 0.0, 0, 1, 
                                      &decdrs, &decdzeta, 0);
             }
-          e_g[g] = 0.5 * h1 * (na * exa + nb * exb) + n * ec;
-          va_g[g] += (h1 * exa + ec -
-                      (h1 * rsa * dexadrs + rs * decdrs) / 3.0 -
+          e_g[g] = 0.5 * (na * exa + nb * exb) + n * ec;
+          va_g[g] += (exa + ec -
+                      (rsa * dexadrs + rs * decdrs) / 3.0 -
                       (zeta - 1.0) * decdzeta);
-          vb_g[g] += (h1 * exb + ec -
-                      (h1 * rsb * dexbdrs + rs * decdrs) / 3.0 -
+          vb_g[g] += (exb + ec -
+                      (rsb * dexbdrs + rs * decdrs) / 3.0 -
                       (zeta + 1.0) * decdzeta);
         }
     }
@@ -236,7 +233,6 @@ PyObject * NewXCFunctionalObject(PyObject *obj, PyObject *args)
     return NULL;
 
   self->par.gga = 1;
-  self->par.hybrid = 0.0;
 
   self->correlation = pbe_correlation;
   self->exchange = pbe_exchange;

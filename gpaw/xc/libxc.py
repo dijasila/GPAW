@@ -3,21 +3,19 @@ from gpaw.xc.kernel import XCKernel
 from gpaw import debug
 
 short_names = {
-    'LDA': 'LDA_X,LDA_C_PW',
+    'LDA':     'LDA_X,LDA_C_PW',
     'PW91':    'GGA_X_PW91,GGA_C_PW91',
     'PBE':     'GGA_X_PBE,GGA_C_PBE',
     'revPBE':  'GGA_X_PBE_R,GGA_C_PBE',
     'RPBE':    'GGA_X_RPBE,GGA_C_PBE',
-#    'HCTH407': 'GGA_XC_HCTH_407',
-    'TPSS': 'MGGA_X_TPSS,MGGA_C_TPSS',
-    'M06L': 'MGGA_X_M06L,MGGA_C_M06L'}
+    'HCTH407': 'GGA_XC_HCTH_407',
+    'TPSS':    'MGGA_X_TPSS,MGGA_C_TPSS',
+    'M06L':    'MGGA_X_M06L,MGGA_C_M06L'}
 
 
 class LibXC(XCKernel):
-    def __init__(self, name, hybrid=0.0):
+    def __init__(self, name):
         self.name = name
-        self.hybrid = hybrid
-
         self.initialize(nspins=1)
 
     def initialize(self, nspins):
@@ -30,7 +28,7 @@ class LibXC(XCKernel):
             c = -1
             if '_XC_' in name:
                 xc = f
-            if '_C_' in name:
+            elif '_C_' in name:
                 c = f
             else:
                 x = f
@@ -39,11 +37,17 @@ class LibXC(XCKernel):
             xc = -1
             x = libxc_functionals[x]
             c = libxc_functionals[c]
-        
-        self.xc = _gpaw.lxcXCFunctional(xc, x, c, nspins, self.hybrid)
+
+        if xc != -1:
+            # The C code can't handle this case!
+            c = xc
+            xc = -1
+
+        self.xc = _gpaw.lxcXCFunctional(xc, x, c, nspins)
+
         if self.xc.is_mgga():
             self.type = 'MGGA'
-        elif self.xc.is_gga():
+        elif self.xc.is_gga() or self.xc.is_hyb_gga():
             self.type = 'GGA'
         else:
             self.type = 'LDA'

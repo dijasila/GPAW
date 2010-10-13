@@ -86,7 +86,6 @@ typedef struct
   functionals_type x_functional;
   functionals_type c_functional;
   int nspin; /* must be common to x and c, so declared redundantly here */
-  double hybrid;
 } lxcXCFunctionalObject;
 
 /* a general call for an LDA functional */
@@ -460,15 +459,6 @@ lxcXCFunctional_CalculateSpinPaired(lxcXCFunctionalObject *self, PyObject *args)
 
   assert(nspin == XC_UNPOLARIZED); /* we are spinpaired */
 
-  /* assert (self->hybrid == 0.0); */ /* MDTMP - not implemented yet */
-
-  double h1 = 1.0 - self->hybrid;
-  if ((self->x_functional.family == XC_FAMILY_HYB_GGA) ||
-      (self->c_functional.family == XC_FAMILY_HYB_GGA))
-  {
-       h1 = 0.0; // MDTMP - a hack: HYB_GGA handle h1 internally in c_functional
-  }
-
   int ng = e_array->dimensions[0]; /* number of grid points */
 
   double* e_g = DOUBLEP(e_array); /* e on the grid */
@@ -628,8 +618,8 @@ lxcXCFunctional_CalculateSpinPaired(lxcXCFunctionalObject *self, PyObject *args)
 	  dEda2_g[g] = dExda2 + dEcda2;
 	  dEdtau_g[g] = dExdtau + dEcdtau;
 	}
-      e_g[g] = n* (h1 * ex + ec);
-      v_g[g] += h1 * dExdn + dEcdn;
+      e_g[g] = n * (ex + ec);
+      v_g[g] += dExdn + dEcdn;
     }
   Py_RETURN_NONE;
 }
@@ -661,15 +651,6 @@ lxcXCFunctional_CalculateSpinPolarized(lxcXCFunctionalObject *self, PyObject *ar
   int nspin = self->nspin;
 
   assert(nspin == XC_POLARIZED); /* we are spinpolarized */
-
-  /* assert (self->hybrid == 0.0); */ /* MDTMP - not implemented yet */
-
-  double h1 = 1.0 - self->hybrid;
-  if ((self->x_functional.family == XC_FAMILY_HYB_GGA) ||
-      (self->c_functional.family == XC_FAMILY_HYB_GGA))
-  {
-       h1 = 0.0; // MDTMP - a hack: HYB_GGA handle h1 internally in c_functional
-  }
 
   int ng = e->dimensions[0];  /* number of grid points */
 
@@ -890,9 +871,9 @@ lxcXCFunctional_CalculateSpinPolarized(lxcXCFunctionalObject *self, PyObject *ar
         dEdtaua_g[g] = dExdtaua + dEcdtaua;
         dEdtaub_g[g] = dExdtaub + dEcdtaub;
       }
-    e_g[g] = n* (h1 * ex + ec);
-    va_g[g] += (h1 * dExdna + dEcdna);
-    vb_g[g] += (h1 * dExdnb + dEcdnb);
+    e_g[g] = n* (ex + ec);
+    va_g[g] += dExdna + dEcdna;
+    vb_g[g] += dExdnb + dEcdnb;
   }
   Py_RETURN_NONE;
 }
@@ -913,8 +894,6 @@ lxcXCFunctional_CalculateFXCSpinPaired(lxcXCFunctionalObject *self, PyObject *ar
   int nspin = self->nspin;
 
   assert(nspin == XC_UNPOLARIZED); /* we are spinpaired */
-
-  assert (self->hybrid == 0.0); /* MDTMP - not implemented yet */
 
   int ng = n_array->dimensions[0]; /* number of grid points */
 
@@ -1099,8 +1078,6 @@ lxcXCFunctional_CalculateFXC_FD_SpinPaired(lxcXCFunctionalObject *self, PyObject
 
   assert(nspin == XC_UNPOLARIZED); /* we are spinpaired */
 
-  assert (self->hybrid == 0.0); /* MDTMP - not implemented yet */
-
   int ng = n_array->dimensions[0]; /* number of grid points */
 
   const double* n_g = DOUBLEP(n_array); /* density on the grid */
@@ -1265,8 +1242,6 @@ lxcXCFunctional_XCEnergy(lxcXCFunctionalObject *self, PyObject *args)
 
   /* find nspin */
   // int nspin = self->nspin;
-
-  /* assert (self->hybrid == 0.0); */ /* MDTMP - not implemented yet */
 
   assert (self->xc_functional.family == XC_FAMILY_UNKNOWN); /* MDTMP not implemented */
 
@@ -1455,12 +1430,9 @@ PyObject * NewlxcXCFunctionalObject(PyObject *obj, PyObject *args)
 {
   int xc, x, c; /* functionals identifier number */
   int nspin; /* XC_UNPOLARIZED or XC_POLARIZED  */
-  double hybrid = 0.0;
 
-  if (!PyArg_ParseTuple(args, "iiii|d", &xc, &x, &c, &nspin, &hybrid))
+  if (!PyArg_ParseTuple(args, "iiii", &xc, &x, &c, &nspin))
     return NULL;
-/*   printf("<NewlxcXCFunctionalObject> type=%d %d %d %d %f\n", */
-/*	 xc, x, c, nspin, hybrid); */
 
   /* checking if the numbers xc x c are valid is done at python level */
 
@@ -1472,9 +1444,6 @@ PyObject * NewlxcXCFunctionalObject(PyObject *obj, PyObject *args)
 
   assert(nspin==XC_UNPOLARIZED || nspin==XC_POLARIZED);
   self->nspin = nspin; /* must be common to x and c, so declared redundantly */
-
-  /* assert(hybrid==0.0) */;  /* MDTMP - not implemented yet */
-  self->hybrid = hybrid;
 
   /* initialize xc functional */
   assert (xc == XC_FAMILY_UNKNOWN); /* MDTMP not implemented */

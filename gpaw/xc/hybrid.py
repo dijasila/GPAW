@@ -57,11 +57,12 @@ class HybridXC(XCFunctional):
     def calculate_radial(self, rgd, n_sLg, Y_L, v_sg,
                          dndr_sLg=None, rnablaY_Lv=None,
                          tau_sg=None, dedtau_sg=None):
-        return self.xc.calculate_radial(rgd, n_sLg, Y_L, v_sg)
+        return self.xc.calculate_radial(rgd, n_sLg, Y_L, v_sg,
+                                        dndr_sLg, rnablaY_Lv)
     
-    def initialize(self, density, hamiltonian, wfs):
+    def initialize(self, density, hamiltonian, wfs, occupations):
         assert wfs.gamma
-        self.xc.initialize(density, hamiltonian, wfs)
+        self.xc.initialize(density, hamiltonian, wfs, occupations)
         self.kpt_comm = wfs.kpt_comm
         self.nspins = wfs.nspins
         self.setups = wfs.setups
@@ -102,7 +103,8 @@ class HybridXC(XCFunctional):
             return
         
         deg = 2 // self.nspins   # Spin degeneracy
-
+        hybrid = self.hybrid
+        
         P_ani = kpt.P_ani
         setups = self.setups
 
@@ -130,7 +132,7 @@ class HybridXC(XCFunctional):
                 psit2_G = psit_nG[n2]
 
                 # Double count factor:
-                dc = (1 + (n1 != n2)) * deg / self.hybrid
+                dc = (1 + (n1 != n2)) * deg
                 
                 nt_G, rhot_g = self.calculate_pair_density(n1, n2, psit_nG,
                                                            P_ani)
@@ -139,6 +141,7 @@ class HybridXC(XCFunctional):
                                                 charge=-float(n1 == n2),
                                                 eps=1e-12,
                                                 zero_initial_phi=True)
+                vt_g *= hybrid
 
                 if self.gd is self.finegd:
                     vt_G = vt_g
@@ -206,24 +209,24 @@ class HybridXC(XCFunctional):
                             p24 = packed_index(i2, i4, ni)
                             A += setup.M_pp[p13, p24] * D_ii[i3, i4]
                     p12 = packed_index(i1, i2, ni)
-                    dH_p[p12] -= 2 * self.hybrid / deg * A / ((i1 != i2) + 1)
-                    ekin += 2 * self.hybrid / deg * D_ii[i1, i2] * A
-                    exx -= self.hybrid / deg * D_ii[i1, i2] * A
+                    dH_p[p12] -= 2 * hybrid / deg * A / ((i1 != i2) + 1)
+                    ekin += 2 * hybrid / deg * D_ii[i1, i2] * A
+                    exx -= hybrid / deg * D_ii[i1, i2] * A
             
             # Add valence-core exchange energy
             # --
             # >  X   D
             # --  ii  ii
-            exx -= self.hybrid * np.dot(D_p, setup.X_p)
-            dH_p -= self.hybrid * setup.X_p
-            ekin += self.hybrid * np.dot(D_p, setup.X_p)
+            exx -= hybrid * np.dot(D_p, setup.X_p)
+            dH_p -= hybrid * setup.X_p
+            ekin += hybrid * np.dot(D_p, setup.X_p)
             dH_asp[a][kpt.s] += dH_p
             dH_ii = unpack(dH_p)
             H_nn += np.inner(P_ni, np.dot(P_ni, dH_ii))
 
             # Add core-core exchange energy
             if kpt.s == 0:
-                exx += self.hybrid * setup.ExxC
+                exx += hybrid * setup.ExxC
 
         self.exx_s[kpt.s] = exx
         self.ekin_s[kpt.s] = ekin

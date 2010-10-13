@@ -38,7 +38,6 @@ typedef struct
 {
   bool gga;
   double kappa;
-  double hybrid;
   int nparameters;
   double parameters[14];
 } xc_parameters;
