@@ -9,13 +9,14 @@ class XCFunctional:
     def get_setup_name(self):
         return self.name
     
-    def initialize(self, density, hamiltonian, wfs):
+    def initialize(self, density, hamiltonian, wfs, occupations):
         pass
 
     def set_grid_descriptor(self, gd):
         self.gd = gd
 
-    def correct_hamiltonian_matrix(self, kpt, H_nn, psit_nG, Htpsit_nG):
+    def correct_hamiltonian_matrix(self, kpt, H_nn, psit_nG, Htpsit_nG,
+                                   dH_asp):
         pass
 
     def add_correction(self, kpt, psit_xG, R_xG, P_axi, c_axi, n_x=None,

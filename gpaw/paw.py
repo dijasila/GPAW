@@ -604,7 +604,8 @@ class PAW(PAWTextOutput):
                                            xc, par.poissonsolver,
                                            par.external)
 
-        xc.initialize(self.density, self.hamiltonian, self.wfs)
+        xc.initialize(self.density, self.hamiltonian, self.wfs,
+                      self.occupations)
 
         self.text()
         self.print_memory_estimate(self.txt, maxdepth=memory_estimate_depth)

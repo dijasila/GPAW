@@ -697,7 +697,7 @@ class Setup(BaseSetup):
         self.M_p = M_p
         self.M_pp = M_pp
 
-        if xc.name == 'GLLB':
+        if xc.type == 'GLLB':
             if 'core_f' in self.extra_xc_data:
                 self.wnt_lqg = wnt_lqg
                 self.wn_lqg = wn_lqg

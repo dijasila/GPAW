@@ -1,8 +1,9 @@
-from gpaw.gllb.contributions.contribution import Contribution
-from gpaw.xc_functional import XCRadialGrid, XCFunctional, XC3DGrid
-from gpaw.xc_correction import A_Liy, weights
+from gpaw.xc.gllb.contribution import Contribution
+#from gpaw.xc_functional import XCRadialGrid, XCFunctional, XC3DGrid
+#from gpaw.xc_correction import A_Liy, weights
+from gpaw.sphere.lebedev import weight_n
 from gpaw.utilities import pack
-from gpaw.gllb import safe_sqr
+from gpaw.xc.gllb import safe_sqr
 from math import sqrt, pi
 from gpaw.mpi import world
 import numpy as np
@@ -106,16 +107,16 @@ class C_Response(Contribution):
         Dresp_p = self.Dresp_asp.get(a)[0]
         dEdD_p = H_sp[0][:]
         
-        D_Lq = np.dot(c.B_Lqp, D_p)
+        D_Lq = np.dot(c.B_pqL.T, D_p)
         n_Lg = np.dot(D_Lq, c.n_qg) # Construct density
         n_Lg[0] += c.nc_g * sqrt(4 * pi)
         nt_Lg = np.dot(D_Lq, c.nt_qg) # Construct smooth density (without smooth core)
 
-        Dresp_Lq = np.dot(c.B_Lqp, Dresp_p)
+        Dresp_Lq = np.dot(c.B_pqL.T, Dresp_p)
         nresp_Lg = np.dot(Dresp_Lq, c.n_qg) # Construct 'response density'
         nrespt_Lg = np.dot(Dresp_Lq, c.nt_qg) # Construct smooth 'response density' (w/o smooth core)
 
-        for w, Y_L in zip(weights, c.Y_nL):
+        for w, Y_L in zip(weight_n, c.Y_nL):
             nt_g = np.dot(Y_L, nt_Lg)
             nrespt_g = np.dot(Y_L, nrespt_Lg)
             x_g = nrespt_g / (nt_g + 1e-10)

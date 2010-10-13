@@ -16,6 +16,12 @@ def XC(kernel, parameters=None):
         elif name == 'BEE1':
             from gpaw.xc.bee import BEE1
             kernel = BEE1(parameters)
+        elif name.startswith('GLLB'):
+            from gpaw.xc.gllb.nonlocalfunctionalfactory import \
+                 NonLocalFunctionalFactory
+            xc = NonLocalFunctionalFactory().get_functional_by_name(name)
+            xc.print_functional()
+            return xc
         else:
             kernel = LibXC(kernel)
     if kernel.type == 'LDA':

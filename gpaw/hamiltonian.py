@@ -300,7 +300,7 @@ class Hamiltonian:
 
             self.dH_asp[a] = dH_sp = np.zeros_like(D_sp)
             self.timer.start('XC Correction')
-            Exc += setup.xc_correction.calculate(self.xc, D_sp, dH_sp)
+            Exc += setup.xc_correction.calculate(self.xc, D_sp, dH_sp, a)
             self.timer.stop('XC Correction')
 
             if setup.HubU is not None:

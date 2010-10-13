@@ -109,20 +109,19 @@ class PAWXCCorrection:
         else:
             self.nc_corehole_g = None
 
-    def calculate(self, xc, D_sp, dH_sp=None, addcoredensity=True):
+    def calculate(self, xc, D_sp, dH_sp=None, a=None, addcoredensity=True):
         if dH_sp is None:
             dH_sp = np.zeros_like(D_sp)
             
-        if xc.name == 'GLLB':
-            # The coefficients for GLLB-functional are evaluated elsewhere
-            return self.xc.xcfunc.xc.calculate_energy_and_derivatives(
-                D_sp, H_sp, a)
+        type = xc.type
+
+        if type == 'GLLB':
+            return xc.calculate_energy_and_derivatives(D_sp, dH_sp, a)
 
         nspins = len(D_sp)
         de = 0.0
         D_sLq = np.inner(D_sp, self.B_pqL.T)
         v_sg = self.rgd.empty(nspins)
-        type = xc.type
         XC = xc.calculate_radial
 
         if type == 'MGGA':
