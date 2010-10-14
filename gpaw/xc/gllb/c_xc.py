@@ -24,7 +24,7 @@ class C_XC(Contribution):
 
     def initialize_1d(self):
         self.ae = self.nlfunc.ae
-        self.xc = XCRadialGrid(self.functional, self.ae.rgd) 
+        self.xc = XC(self.functional) 
         self.v_g = np.zeros(self.ae.N)
 
     def calculate_spinpaired(self, e_g, n_g, v_g):
@@ -149,13 +149,17 @@ class C_XC(Contribution):
 
     def add_xc_potential_and_energy_1d(self, v_g):
         self.v_g[:] = 0.0
-        Exc = self.xc.get_energy_and_potential(self.ae.n, self.v_g)
+        Exc = self.xc.calculate_spherical(self.ae.rgd,
+                                          self.ae.n.reshape((1, -1)),
+                                          self.v_g.reshape((1, -1)))
         v_g += self.weight * self.v_g
         return self.weight * Exc
 
     def add_smooth_xc_potential_and_energy_1d(self, vt_g):
         self.v_g[:] = 0.0
-        Exc = self.xc.get_energy_and_potential(self.ae.nt, self.v_g)
+        Exc = self.xc.calculate_spherical(self.ae.rgd,
+                                          self.ae.nt.reshape((1, -1)),
+                                          self.v_g.reshape((1, -1)))
         vt_g += self.weight * self.v_g
         return self.weight * Exc
 

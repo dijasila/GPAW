@@ -502,15 +502,15 @@ class Generator(AllElectron):
 
         extra_xc_data = {}
 
-        if self.xc.name != 'GLLB':
+        if self.xc.type != 'GLLB':
             Exct = self.xc.calculate_spherical(self.rgd,
                                                nt.reshape((1, -1)),
                                                vXCt.reshape((1, -1)))
         else:
-            Exct = self.xcfunc.xc.get_smooth_xc_potential_and_energy_1d(vXCt)
+            Exct = self.xc.get_smooth_xc_potential_and_energy_1d(vXCt)
 
             # Calculate extra-stuff for non-local functionals
-            self.xcfunc.xc.get_extra_setup_data(extra_xc_data)
+            self.xc.get_extra_setup_data(extra_xc_data)
 
         vt = vHt + vXCt
 

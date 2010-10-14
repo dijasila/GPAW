@@ -38,9 +38,11 @@ class GGA(LDA):
         
     def calculate_radial(self, rgd, n_sLg, Y_L, v_sg,
                          dndr_sLg, rnablaY_Lv,
-                         tau_sg=None, dedtau_sg=None):  # used by MGGA subclass
+                         tau_sg=None, dedtau_sg=None,  # used by MGGA subclass
+                         e_g=None):
         nspins = len(n_sLg)
-        e_g = rgd.empty()
+        if e_g is None:
+            e_g = rgd.empty()
         n_sg = np.dot(Y_L, n_sLg)
         rd_vsg = np.dot(rnablaY_Lv.T, n_sLg)
         sigma_xg = rgd.empty(2 * nspins - 1)
@@ -71,10 +73,10 @@ class GGA(LDA):
         v_sg += vv_sg
         return rgd.integrate(e_g), rd_vsg, dedsigma_xg
 
-    def calculate_spherical(self, rgd, n_sg, v_sg):
+    def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
         dndr_sg = np.empty_like(n_sg)
         for n_g, dndr_g in zip(n_sg, dndr_sg):
             rgd.derivative(n_g, dndr_g)
         return self.calculate_radial(rgd, n_sg[:, np.newaxis], [1.0], v_sg,
                                      dndr_sg[:, np.newaxis],
-                                     np.zeros((1, 3)))[0]
+                                     np.zeros((1, 3)), e_g=e_g)[0]

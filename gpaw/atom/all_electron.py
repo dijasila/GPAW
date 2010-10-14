@@ -178,9 +178,9 @@ class AllElectron:
         self.xc = XC(self.xcname)
 
         # Initialize for non-local functionals
-        if self.xc.name == 'GLLB':
-            self.xcfunc.xc.pass_stuff_1d(self)
-            self.xcfunc.xc.initialize_1d()
+        if self.xc.type == 'GLLB':
+            self.xc.pass_stuff_1d(self)
+            self.xc.initialize_1d()
             
         n_j = self.n_j
         l_j = self.l_j
@@ -197,7 +197,7 @@ class AllElectron:
         self.vXC = np.zeros(self.N)
 
         restartfile = '%s/%s.restart' % (tempdir, self.symbol)
-        if self.xc.name == 'GLLB' or not use_restart_file:
+        if self.xc.type == 'GLLB' or not use_restart_file:
             # Do not start from initial guess when doing
             # non local XC!
             # This is because we need wavefunctions as well
@@ -239,9 +239,9 @@ class AllElectron:
             # calculated exchange correlation potential and energy
             self.vXC[:] = 0.0
 
-            if self.xc.name == 'GLLB':
+            if self.xc.type == 'GLLB':
                 # Update the potential to self.vXC an the energy to self.Exc
-                Exc = self.xcfunc.xc.get_xc_potential_and_energy_1d(self.vXC)
+                Exc = self.xc.get_xc_potential_and_energy_1d(self.vXC)
             else:
                 Exc = self.xc.calculate_spherical(self.rgd,
                                                   n.reshape((1, -1)),

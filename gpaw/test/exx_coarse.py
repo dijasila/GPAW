@@ -5,6 +5,7 @@ from ase import Atoms, Atom
 from gpaw import GPAW
 from gpaw.test import equal
 from gpaw.utilities.timing import Timer
+from gpaw.xc.hybrid import HybridXC
 
 timer = Timer()
 
@@ -26,13 +27,14 @@ for fg in fgl:
     else:
         tstr = 'Exx on coarse grid'
     timer.start(tstr)
-    calc = GPAW(h = .3, xc='PBE',
-                      nbands=4,
-                      convergence={'eigenstates': 1e-4},
-                      charge=-1)
+    calc = GPAW(h=0.3,
+                xc='PBE',
+                nbands=4,
+                convergence={'eigenstates': 1e-4},
+                charge=-1)
     loa.set_calculator(calc)
     E[fg] = loa.get_potential_energy()
-    calc.set(xc={'name':'PBE0', 'finegrid': fg})
+    calc.set(xc=HybridXC('PBE0', finegrid=fg))
     E[fg] = loa.get_potential_energy()
     niter[fg] = calc.get_number_of_iterations()
     timer.stop(tstr)

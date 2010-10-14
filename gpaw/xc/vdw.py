@@ -150,7 +150,7 @@ class VDWFunctional(GGA):
         self.energy_only = energy_only
         self.timer = nulltimer
 
-        GGA.__init__(self, LibXC('GGA_X_PBE_R,LDA_C_PW'))
+        GGA.__init__(self, LibXC('GGA_X_PBE_R+LDA_C_PW'))
         self.LDAc = LibXC('LDA_C_PW')
 
     def get_setup_name(self):

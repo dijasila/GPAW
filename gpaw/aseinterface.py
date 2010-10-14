@@ -406,7 +406,8 @@ class GPAW(PAW):
     def get_xc_difference(self, xc):
         if isinstance(xc, str):
             xc = XC(xc)
-        xc.initialize(self.density, self.hamiltonian, self.wfs)
+        xc.initialize(self.density, self.hamiltonian, self.wfs,
+                      self.occupations)
         xc.set_positions(self.atoms.get_scaled_positions() % 1.0)
         if xc.orbital_dependent:
             self.converge_wave_functions()

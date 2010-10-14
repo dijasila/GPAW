@@ -22,11 +22,13 @@ class LDA(XCFunctional):
     def calculate_lda(self, e_g, n_sg, v_sg):
         self.kernel.calculate(e_g, n_sg, v_sg)
 
-    def calculate_radial(self, rgd, n_sLg, Y_L, v_sg, dndr_sLg, rnablaY_Lv):
-        e_g = rgd.empty()
+    def calculate_radial(self, rgd, n_sLg, Y_L, v_sg, e_g=None):
+        if e_g is None:
+            e_g = rgd.empty()
         n_sg = np.dot(Y_L, n_sLg)
         self.kernel.calculate(e_g, n_sg, v_sg)
         return rgd.integrate(e_g)
 
-    def calculate_spherical(self, rgd, n_sg, v_sg):
-        return self.calculate_radial(rgd, n_sg[:, np.newaxis], [1.0], v_sg)
+    def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
+        return self.calculate_radial(rgd, n_sg[:, np.newaxis], [1.0], v_sg,
+                                     e_g)

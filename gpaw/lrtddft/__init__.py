@@ -173,7 +173,7 @@ class LrTDDFT(ExcitationList):
             name = 'LrTDDFT'
             if self.xc:
                 xc = XC(self.xc)
-                if xc.hybrid > 0.0:
+                if hasattr(xc, 'hybrid') and xc.hybrid > 0.0:
                     Om = ApmB
                     name = 'LrTDDFThyb'
         else:

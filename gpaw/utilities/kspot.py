@@ -75,8 +75,7 @@ class AllElectronPotential:
       #self.paw.restore_state()
 
       print "XC:", self.paw.hamiltonian.xc.name
-      if not self.paw.hamiltonian.xc.xcfunc.xcname == 'LDA':
-         raise NotImplementedError
+      assert self.paw.hamiltonian.xc.type == 'LDA'
 
       # If the calculation is just loaded, density needs to be interpolated
       if self.paw.density.nt_sg is None:

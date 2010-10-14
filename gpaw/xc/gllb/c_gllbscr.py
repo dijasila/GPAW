@@ -25,7 +25,7 @@ class C_GLLBScr(Contribution):
     # Initialize GLLBScr functional
     def initialize_1d(self):
         self.ae = self.nlfunc.ae
-        self.xc = XCRadialGrid(self.functional, self.ae.rgd) 
+        self.xc = XC(self.functional)
         self.v_g = np.zeros(self.ae.N)
         self.e_g = np.zeros(self.ae.N)
 
@@ -33,7 +33,8 @@ class C_GLLBScr(Contribution):
     def add_xc_potential_and_energy_1d(self, v_g):
         self.v_g[:] = 0.0
         self.e_g[:] = 0.0
-        self.xc.get_energy_and_potential_spinpaired(self.ae.n, self.v_g, e_g=self.e_g)
+        self.xc.calculate_spherical(self.ae.rgd, self.ae.n.reshape((1, -1)),
+                                    self.v_g.reshape((1, -1)), self.e_g)
         v_g += 2 * self.weight * self.e_g / (self.ae.n + 1e-10)
         Exc = self.weight * np.sum(self.e_g * self.ae.rgd.dv_g)
         return Exc
@@ -204,7 +205,8 @@ class C_GLLBScr(Contribution):
     def add_smooth_xc_potential_and_energy_1d(self, vt_g):
         self.v_g[:] = 0.0
         self.e_g[:] = 0.0
-        self.xc.get_energy_and_potential_spinpaired(self.ae.nt, self.v_g, e_g=self.e_g)
+        self.xc.calculate_spherical(self.ae.rgd, self.ae.nt.reshape((1, -1)),
+                                    self.v_g.reshape((1, -1)), self.e_g)
         vt_g += 2 * self.weight * self.e_g / (self.ae.nt + 1e-10)
         return self.weight * np.sum(self.e_g * self.ae.rgd.dv_g)
 
