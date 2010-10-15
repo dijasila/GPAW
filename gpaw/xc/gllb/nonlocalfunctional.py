@@ -17,7 +17,6 @@ class NonLocalFunctional(XCFunctional):
         self.wfs = wfs
         self.occupations = occupations
         self.density = density
-        #self.atoms = paw.atoms
         self.hamiltonian = hamiltonian
         self.nvalence = wfs.nvalence
 
@@ -112,6 +111,6 @@ class NonLocalFunctional(XCFunctional):
         for contribution in self.contributions:
             contribution.read(reader)
 
-    def write(self, writer):
+    def write(self, writer, natoms):
         for contribution in self.contributions:
-            contribution.write(writer)     
+            contribution.write(writer, natoms)     

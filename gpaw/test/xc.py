@@ -84,16 +84,20 @@ n_xg = np.array(
      [0.1, 0.1, 0.1,  0.15, 0.20, 0.01, 0.05]]).T.copy()
 
 for xc in functionals:
-    e0_g, d0_xg = f2(n_xg, xc)
+    if xc.type == 'MGGA':
+        N_xg = n_xg[:, :1]
+    else:
+        N_xg = n_xg
+    e0_g, d0_xg = f2(N_xg, xc)
     d_xg = np.empty_like(d0_xg)
-    for x, n_g in enumerate(n_xg):
-        m_xg = n_xg.copy()
+    for x, n_g in enumerate(N_xg):
+        m_xg = N_xg.copy()
         m_xg[x] += eps
         d_xg[x] = 0.5 * f2(m_xg, xc)[0] / eps
         m_xg[x] -= 2 * eps
         d_xg[x] -= 0.5 * f2(m_xg, xc)[0] / eps
     print xc.name, abs(d0_xg-d_xg).max()
-    #assert abs(d0_xg-d_xg).max() < 2e-8
+    assert abs(d0_xg-d_xg).max() < 2e-8
     #print d0_xg-d_xg
     #print d_xg
     #print d0_xg

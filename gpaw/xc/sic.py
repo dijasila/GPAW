@@ -32,13 +32,14 @@ class SIC(XCFunctional):
         if isinstance(xc, str):
             xc = XC(xc)
         self.xc = xc
+        self.type = xc.type
         XCFunctional.__init__(self, xc.name + '-PZ-SIC')
         self.finegrid = finegrid
         self.parameters = parameters
 
-    def initialize(self, density, hamiltonian, wfs):
+    def initialize(self, density, hamiltonian, wfs, occupations):
         assert wfs.gamma
-        self.xc.initialize(density, hamiltonian, wfs)
+        self.xc.initialize(density, hamiltonian, wfs, occupations)
         self.kpt_comm = wfs.kpt_comm
         self.nspins = wfs.nspins
 
@@ -82,7 +83,8 @@ class SIC(XCFunctional):
         self.ekin = self.kpt_comm.sum(self.ekin)
         return exc + self.esic
 
-    def correct_hamiltonian_matrix(self, kpt, H_nn, psit_nG, Htpsit_nG):
+    def correct_hamiltonian_matrix(self, kpt, psit_nG,
+                                   H_nn, Htpsit_nG, dH_asp):
         spin = self.spin_s[kpt.s]
         if spin.W_mn is None:
             return

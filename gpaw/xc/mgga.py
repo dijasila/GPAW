@@ -13,7 +13,7 @@ class MGGA(GGA):
     def set_grid_descriptor(self, gd):
         GGA.set_grid_descriptor(self, gd)
         
-    def initialize(self, density, hamiltonian, wfs):
+    def initialize(self, density, hamiltonian, wfs, occupations):
         self.wfs = wfs
         self.tauct = LFC(wfs.gd,
                          [[setup.tauct] for setup in wfs.setups],
@@ -49,7 +49,7 @@ class MGGA(GGA):
                 self.taugrad[v](self.dedtau_sG[kpt.s] * a_G, a_G, kpt.phase_cd)
                 axpy(-0.5, a_G, Htpsit_G)
 
-    def forces(self, F_av):
+    def add_forces(self, F_av):
         dF_av = hamiltonian.xc.tauct.dict(derivative=True)
         dedtau_G = hamiltonian.xc.dedtau_G
         hamiltonian.xc.tauct.derivative(dedtau_G, dF_av)

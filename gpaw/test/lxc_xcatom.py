@@ -4,7 +4,7 @@ from gpaw.setup import create_setup
 from gpaw.xc import XC
 from gpaw.test import equal, gen
 
-if 0:
+if 1:
     for functional in [
         'LDA_X', 'LDA_X+LDA_C_PW', 'LDA_X+LDA_C_VWN', 'LDA_X+LDA_C_PZ',
         'GGA_X_PBE+GGA_C_PBE', 'GGA_X_PBE_R+GGA_C_PBE',

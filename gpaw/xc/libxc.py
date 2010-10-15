@@ -10,7 +10,8 @@ short_names = {
     'RPBE':    'GGA_X_RPBE+GGA_C_PBE',
     'HCTH407': 'GGA_XC_HCTH_407',
     'TPSS':    'MGGA_X_TPSS+MGGA_C_TPSS',
-    'M06L':    'MGGA_X_M06L+MGGA_C_M06L'}
+    'M06L':    'MGGA_X_M06L+MGGA_C_M06L',
+    'revTPSS': 'MGGA_X_REVTPSS+MGGA_C_REVTPSS'}
 
 
 class LibXC(XCKernel):

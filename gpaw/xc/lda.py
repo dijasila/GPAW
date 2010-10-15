@@ -22,7 +22,9 @@ class LDA(XCFunctional):
     def calculate_lda(self, e_g, n_sg, v_sg):
         self.kernel.calculate(e_g, n_sg, v_sg)
 
-    def calculate_radial(self, rgd, n_sLg, Y_L, v_sg, e_g=None):
+    def calculate_radial(self, rgd, n_sLg, Y_L, v_sg,
+                         dndr_sLg=None, rnablaY_Lv=None,
+                         e_g=None):
         if e_g is None:
             e_g = rgd.empty()
         n_sg = np.dot(Y_L, n_sLg)
@@ -31,4 +33,4 @@ class LDA(XCFunctional):
 
     def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
         return self.calculate_radial(rgd, n_sg[:, np.newaxis], [1.0], v_sg,
-                                     e_g)
+                                     e_g=e_g)

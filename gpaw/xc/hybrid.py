@@ -67,8 +67,9 @@ class HybridXC(XCFunctional):
         self.nspins = wfs.nspins
         self.setups = wfs.setups
         self.density = density
-        self.exx_s = np.empty(self.nspins)
-        self.ekin_s = np.empty(self.nspins)
+        self.kpt_u = wfs.kpt_u
+        self.exx_s = np.zeros(self.nspins)
+        self.ekin_s = np.zeros(self.nspins)
 
         if self.finegrid:
             self.poissonsolver = hamiltonian.poisson
@@ -97,8 +98,12 @@ class HybridXC(XCFunctional):
         self.ekin = self.ekin_s.sum()
         return exc + self.exx_s.sum()
 
-    def correct_hamiltonian_matrix(self, kpt, H_nn, psit_nG,
-                                   Htpsit_nG, dH_asp):
+    def calculate_exx(self):
+        for kpt in self.kpt_u:
+            self.correct_hamiltonian_matrix(kpt, kpt.psit_nG)
+
+    def correct_hamiltonian_matrix(self, kpt, psit_nG, H_nn=None,
+                                   Htpsit_nG=None, dH_asp=None):
         if kpt.f_n is None:
             return
         
@@ -114,13 +119,14 @@ class HybridXC(XCFunctional):
 
         nocc = int(kpt.f_n.sum()) // (3 - self.nspins)
 
-        kpt.vt_nG = self.gd.empty(nocc)
-        kpt.vxx_ani = {}
-        kpt.vxx_anii = {}
-        for a, P_ni in P_ani.items():
-            I = P_ni.shape[1]
-            kpt.vxx_ani[a] = np.zeros((nocc, I))
-            kpt.vxx_anii[a] = np.zeros((nocc, I, I))
+        if H_nn is not None:
+            kpt.vt_nG = self.gd.empty(nocc)
+            kpt.vxx_ani = {}
+            kpt.vxx_anii = {}
+            for a, P_ni in P_ani.items():
+                I = P_ni.shape[1]
+                kpt.vxx_ani[a] = np.zeros((nocc, I))
+                kpt.vxx_anii[a] = np.zeros((nocc, I, I))
 
         exx = 0.0
         ekin = 0.0
@@ -155,41 +161,44 @@ class HybridXC(XCFunctional):
                     exx += 0.5 * dc * int_fine
                     ekin -= dc * int_coarse
 
-                Htpsit_nG[n1] += vt_G * psit2_G
-                if n1 == n2:
-                    kpt.vt_nG[n1] = vt_G
-                    H_nn[n1, n2] += int_coarse
-                else:
-                    Htpsit_nG[n2] += vt_G * psit1_G
-                    H_nn[n1, n2] += int_coarse
-                    H_nn[n2, n1] += int_coarse
-
-                # Update the vxx_uni and vxx_unii vectors of the nuclei,
-                # used to determine the atomic hamiltonian, and the 
-                # residuals
-                v_aL = self.ghat.dict()
-                self.ghat.integrate(vt_g, v_aL)
-                for a, v_L in v_aL.items():
-                    v_ii = unpack(np.dot(setups[a].Delta_pL, v_L))
-                    v_ni = kpt.vxx_ani[a]
-                    v_nii = kpt.vxx_anii[a]
-                    P_ni = P_ani[a]
-                    v_ni[n1] += np.dot(v_ii, P_ni[n2])
-                    if n1 != n2:
-                        v_ni[n2] += np.dot(v_ii, P_ni[n1])
+                if H_nn is not None:
+                    Htpsit_nG[n1] += vt_G * psit2_G
+                    if n1 == n2:
+                        kpt.vt_nG[n1] = vt_G
+                        H_nn[n1, n2] += int_coarse
                     else:
-                        # XXX Check this:
-                        v_nii[n1] = v_ii
+                        Htpsit_nG[n2] += vt_G * psit1_G
+                        H_nn[n1, n2] += int_coarse
+                        H_nn[n2, n1] += int_coarse
+
+                    # Update the vxx_uni and vxx_unii vectors of the nuclei,
+                    # used to determine the atomic hamiltonian, and the 
+                    # residuals
+                    v_aL = self.ghat.dict()
+                    self.ghat.integrate(vt_g, v_aL)
+                    for a, v_L in v_aL.items():
+                        v_ii = unpack(np.dot(setups[a].Delta_pL, v_L))
+                        v_ni = kpt.vxx_ani[a]
+                        v_nii = kpt.vxx_anii[a]
+                        P_ni = P_ani[a]
+                        v_ni[n1] += np.dot(v_ii, P_ni[n2])
+                        if n1 != n2:
+                            v_ni[n2] += np.dot(v_ii, P_ni[n1])
+                        else:
+                            # XXX Check this:
+                            v_nii[n1] = v_ii
 
         # Apply the atomic corrections to the energy and the Hamiltonian matrix
         for a, P_ni in P_ani.items():
             setup = setups[a]
 
-            # Add non-trivial corrections the Hamiltonian matrix
-            h_nn = symmetrize(np.inner(P_ni[:nocc], kpt.vxx_ani[a]))
-            H_nn[:nocc, :nocc] += h_nn
-            ekin -= h_nn.trace()
-            dH_p = np.zeros_like(dH_asp[a][kpt.s])
+            if H_nn is not None:
+                # Add non-trivial corrections the Hamiltonian matrix
+                h_nn = symmetrize(np.inner(P_ni[:nocc], kpt.vxx_ani[a]))
+                H_nn[:nocc, :nocc] += h_nn
+                ekin -= h_nn.trace()
+
+                dH_p = np.zeros_like(dH_asp[a][kpt.s])
             
             # Get atomic density and Hamiltonian matrices
             D_p  = self.density.D_asp[a][kpt.s]
@@ -209,7 +218,8 @@ class HybridXC(XCFunctional):
                             p24 = packed_index(i2, i4, ni)
                             A += setup.M_pp[p13, p24] * D_ii[i3, i4]
                     p12 = packed_index(i1, i2, ni)
-                    dH_p[p12] -= 2 * hybrid / deg * A / ((i1 != i2) + 1)
+                    if H_nn is not None:
+                        dH_p[p12] -= 2 * hybrid / deg * A / ((i1 != i2) + 1)
                     ekin += 2 * hybrid / deg * D_ii[i1, i2] * A
                     exx -= hybrid / deg * D_ii[i1, i2] * A
             
@@ -218,11 +228,12 @@ class HybridXC(XCFunctional):
             # >  X   D
             # --  ii  ii
             exx -= hybrid * np.dot(D_p, setup.X_p)
-            dH_p -= hybrid * setup.X_p
-            ekin += hybrid * np.dot(D_p, setup.X_p)
-            dH_asp[a][kpt.s] += dH_p
-            dH_ii = unpack(dH_p)
-            H_nn += np.inner(P_ni, np.dot(P_ni, dH_ii))
+            if H_nn is not None:
+                dH_p -= hybrid * setup.X_p
+                ekin += hybrid * np.dot(D_p, setup.X_p)
+                dH_asp[a][kpt.s] += dH_p
+                dH_ii = unpack(dH_p)
+                H_nn += np.inner(P_ni, np.dot(P_ni, dH_ii))
 
             # Add core-core exchange energy
             if kpt.s == 0:
@@ -231,8 +242,9 @@ class HybridXC(XCFunctional):
         self.exx_s[kpt.s] = exx
         self.ekin_s[kpt.s] = ekin
 
-        H_nn[:nocc, nocc:] = 0.0
-        H_nn[nocc:, :nocc] = 0.0
+        if H_nn is not None:
+            H_nn[:nocc, nocc:] = 0.0
+            H_nn[nocc:, :nocc] = 0.0
 
     def calculate_pair_density(self, n1, n2, psit_nG, P_ani):
         Q_aL = {}

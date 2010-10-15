@@ -171,7 +171,7 @@ class C_XC(Contribution):
         # LDA has not any special data
         pass
 
-    def write(self, writer):
+    def write(self, writer, natoms):
         # LDA has not any special data to be written
         pass
 

@@ -222,7 +222,7 @@ class C_GLLBScr(Contribution):
         # GLLBScr has no special data to be read
         pass
 
-    def write(self, writer):
+    def write(self, writer, natoms):
         # GLLBScr has no special data to be written
         pass
         

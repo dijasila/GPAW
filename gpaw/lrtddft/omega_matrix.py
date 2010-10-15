@@ -95,6 +95,9 @@ class OmegaMatrix:
             xc = None # enable RPA as keyword
         if xc is not None:
             self.xc = XC(xc)
+            self.xc.initialize(self.paw.density, self.paw.hamiltonian,
+                               wfs, self.paw.occupations)
+
             # check derivativeLevel
             if derivativeLevel is None:
                 derivativeLevel= \

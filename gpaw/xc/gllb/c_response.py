@@ -338,7 +338,7 @@ class C_Response(Contribution):
             self.hardness = lumo_2 - homo_e
             print "Hardness predicted: %10.3f eV" % (self.hardness * 27.2107)
             
-    def write(self, w):
+    def write(self, w, natoms):
         """Writes response specific data to disc.
         
         During the writing process, the DeltaXC is calculated (if not yet calculated)
@@ -354,9 +354,6 @@ class C_Response(Contribution):
         band_comm = wfs.band_comm
         
         master = (world.rank == 0)
-
-        atoms = self.nlfunc.atoms
-        natoms = len(atoms)
 
         nadm = 0
         for setup in wfs.setups:

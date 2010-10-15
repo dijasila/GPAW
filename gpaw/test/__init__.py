@@ -177,7 +177,6 @@ tests = [
     'atomize.py',
     'Hubbard_U.py',
     'revPBE_Li.py',
-    'xctest.py',
     'si_xas.py',
     'tpss.py',
     'nsc_MGGA.py',

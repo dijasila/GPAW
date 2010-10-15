@@ -156,8 +156,7 @@ class VDWFunctional(GGA):
     def get_setup_name(self):
         return 'revPBE'
     
-    def initialize(self, density, hamiltonian, wfs):
-        #self.set_grid_descriptor(density.finegd)
+    def initialize(self, density, hamiltonian, wfs, occupations):
         self.timer = wfs.timer
 
     def calculate_gga(self, e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg):

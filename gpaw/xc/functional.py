@@ -14,7 +14,7 @@ class XCFunctional:
     def set_grid_descriptor(self, gd):
         self.gd = gd
 
-    def correct_hamiltonian_matrix(self, kpt, H_nn, psit_nG, Htpsit_nG,
+    def correct_hamiltonian_matrix(self, kpt, psit_nG, H_nn, Htpsit_nG,
                                    dH_asp):
         pass
 
@@ -31,7 +31,7 @@ class XCFunctional:
     def set_positions(self, spos_ac):
         pass
     
-    def forces(self, F_av):
+    def add_forces(self, F_av):
         pass
 
     def summary(self, fd):

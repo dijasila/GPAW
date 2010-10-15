@@ -446,6 +446,8 @@ class Hamiltonian:
         if density.nt_sg is None:
             density.interpolate()
         nt_sg = density.nt_sg
+        if hasattr(xc, 'hybrid'):
+            xc.calculate_exx()
         Exc = xc.calculate(density.finegd, nt_sg)
         for a, D_sp in density.D_asp.items():
             setup = self.setups[a]

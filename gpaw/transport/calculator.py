@@ -1889,8 +1889,7 @@ class Transport(GPAW):
 
         wfs.world.broadcast(self.F_av, 0)
         # Add non-local contributions:
-        for kpt in wfs.kpt_u:
-            self.F_av += hamiltonian.xcfunc.get_non_local_force(kpt)
+        hamiltonian.xc.add_forces(self.F_av)
     
         if wfs.symmetry:
             self.F_av = wfs.symmetry.symmetrize_forces(self.F_av)

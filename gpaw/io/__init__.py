@@ -354,8 +354,8 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
                 w.fill(vt_sG, s)
 
     # Write GLLB-releated stuff
-    if hamiltonian.xc.name == 'GLLB':
-        hamiltonian.xcfunc.xc.write(w)
+    if hamiltonian.xc.type == 'GLLB':
+        hamiltonian.xc.write(w, natoms)
 
     if mode == 'all':
         wfs.write_wave_functions(w)
@@ -646,6 +646,10 @@ def read(paw, reader):
         paw.forces.F_av = r.get('CartesianForces')
     else:
         paw.forces.reset()
+
+    if hamiltonian.xc.type == 'GLLB':
+        hamiltonian.xc.read(r)
+
 
 def read_atoms(reader):
     if isinstance(reader, str):

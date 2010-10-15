@@ -136,7 +136,7 @@ class Eigensolver:
         self.timer.start('calc_matrix')
         H_nn = self.operator.calculate_matrix_elements(psit_nG, P_ani,
                                                        H, dH_aii)
-        hamiltonian.xc.correct_hamiltonian_matrix(kpt, H_nn, psit_nG,
+        hamiltonian.xc.correct_hamiltonian_matrix(kpt, psit_nG, H_nn,
                                                   Htpsit_xG,
                                                   hamiltonian.dH_asp)
         self.timer.stop('calc_matrix')
