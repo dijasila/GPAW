@@ -370,11 +370,9 @@ class PAW(PAWTextOutput):
             xcfunc = par.xc
 
         setups = Setups(Z_a, par.setups, par.basis, par.lmax, xcfunc, world)
-        
-        # Set the scaled k-points:
-        bzk_kc = kpts2ndarray(par.kpts)
 
-        kd = KPointDescriptor(bzk_kc, nspins)
+        # K-point descriptor
+        kd = KPointDescriptor(par.kpts, nspins)
 
         width = par.width
         if width is None:
@@ -515,15 +513,12 @@ class PAW(PAWTextOutput):
             args = (gd, nvalence, setups, self.bd, dtype, world, kd,
                     self.timer)
 
-            from gpaw import extra_parameters
-            use_blacs = bool(extra_parameters.get('blacs'))
-
             if par.mode == 'lcao':
                 # Layouts used for general diagonalizer
                 sl_lcao = par.parallel['sl_lcao']
                 if sl_lcao is None:
                     sl_lcao = par.parallel['sl_default']
-                lcaoksl = get_kohn_sham_layouts(sl_lcao, 'lcao', use_blacs,
+                lcaoksl = get_kohn_sham_layouts(sl_lcao, 'lcao',
                                                 gd, self.bd, nao=nao,
                                                 timer=self.timer)
 
@@ -534,7 +529,7 @@ class PAW(PAWTextOutput):
                 if sl_diagonalize is None:
                     sl_diagonalize = par.parallel['sl_default']
                 diagksl = get_kohn_sham_layouts(sl_diagonalize, 'fd',
-                                                use_blacs, gd, self.bd,
+                                                gd, self.bd,
                                                 timer=self.timer)
 
                 # Layouts used for orthonormalizer
@@ -542,7 +537,7 @@ class PAW(PAWTextOutput):
                 if sl_inverse_cholesky is None:
                     sl_inverse_cholesky = par.parallel['sl_default']
                 orthoksl = get_kohn_sham_layouts(sl_inverse_cholesky, 'fd',
-                                                 use_blacs, gd, self.bd,
+                                                 gd, self.bd,
                                                  timer=self.timer)
 
                 # Use (at most) all available LCAO for initialization
@@ -555,7 +550,7 @@ class PAW(PAWTextOutput):
                 sl_lcao = par.parallel['sl_lcao']
                 if sl_lcao is None:
                     sl_lcao = par.parallel['sl_default']
-                initksl = get_kohn_sham_layouts(sl_lcao, 'lcao', use_blacs,
+                initksl = get_kohn_sham_layouts(sl_lcao, 'lcao',
                                                 gd, lcaobd, nao=nao,
                                                 timer=self.timer)
 

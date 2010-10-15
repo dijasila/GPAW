@@ -269,8 +269,8 @@ class BlacsDescriptor(MatrixDescriptor):
     def __init__(self, blacsgrid, M, N, mb, nb, rsrc, csrc):
         assert M > 0
         assert N > 0
-        assert 1 <= mb <= M
-        assert 1 <= nb <= N
+        assert 1 <= mb <= M, (mb, M)
+        assert 1 <= nb <= N, (nb, N)
         assert 0 <= rsrc < blacsgrid.nprow
         assert 0 <= csrc < blacsgrid.npcol
         
@@ -498,7 +498,7 @@ def parallelprint(comm, obj):
 from gpaw.matrix_descriptor import BandMatrixDescriptor, \
                                    BlacsBandMatrixDescriptor
 
-def get_kohn_sham_layouts(sl, mode, use_blacs, gd, bd, **kwargs):
+def get_kohn_sham_layouts(sl, mode, gd, bd, **kwargs):
     """Create Kohn-Sham layouts object."""
     # Not needed for AtomPAW special mode, as usual we just provide whatever
     # happens to make the code not crash
@@ -506,23 +506,19 @@ def get_kohn_sham_layouts(sl, mode, use_blacs, gd, bd, **kwargs):
         return None #XXX
     name = {'fd': 'BandLayouts', 'lcao': 'OrbitalLayouts'}[mode]
     args = (gd, bd)
-    if use_blacs:
+    if sl is not None:
         name = 'Blacs' + name
         assert len(sl) == 3
         args += tuple(sl)
-    elif sl is not None: #TODO deprecate
-        name = 'SL' + name
     ksl = {'BandLayouts':         BandLayouts,
            'BlacsBandLayouts':    BlacsBandLayouts,
-           'SLBandLayouts':       OldSLBandLayouts, #TODO deprecate
            'BlacsOrbitalLayouts': BlacsOrbitalLayouts,
            'OrbitalLayouts':      OrbitalLayouts,
-           'SLOrbitalLayouts':    OldSLOrbitalLayouts, #TODO deprecate
             }[name](*args, **kwargs)
     if 0: #XXX debug
         print 'USING KSL: %s' % repr(ksl)
     assert isinstance(ksl, KohnShamLayouts)
-    assert isinstance(ksl, BlacsLayouts) == use_blacs, (ksl, use_blacs)
+    assert isinstance(ksl, BlacsLayouts) == (sl is not None)
     return ksl
 
 
@@ -641,6 +637,7 @@ class OldSLBandLayouts(BandLayouts): #old SL before BLACS grids. TODO delete!
     """Original ScaLAPACK diagonalizer using 
     redundantly distributed arrays."""
     def __init__(self, gd, bd, timer=nulltimer, root=0):
+        raise DeprecationWarning
         BandLayouts.__init__(self, gd, bd, timer)
         bcommsize = self.bd.comm.size
         gcommsize = self.gd.comm.size
@@ -931,9 +928,7 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         return rho_mM
 
     def get_transposed_density_matrix(self, f_n, C_nM, rho_mM=None):
-        # XXX for the complex case, find out whether this or the other
-        # method should be changed
-        return self.calculate_density_matrix(f_n, C_nM, rho_mM)
+        return self.calculate_density_matrix(f_n, C_nM, rho_mM).conj()
 
     def get_description(self):
         (title, template) = BlacsLayouts.get_description(self)
@@ -1030,6 +1025,7 @@ class OldSLOrbitalLayouts(OrbitalLayouts): #old SL before BLACS grids. TODO dele
     """Original ScaLAPACK diagonalizer using 
     redundantly distributed arrays."""
     def __init__(self, gd, bd, nao, timer=nulltimer, root=0):
+        raise DeprecationWarning
         OrbitalLayouts.__init__(self, gd, bd, nao, timer)
         bcommsize = self.bd.comm.size
         gcommsize = self.gd.comm.size

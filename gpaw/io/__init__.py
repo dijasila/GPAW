@@ -1,6 +1,12 @@
 import os
 import os.path
 
+try:
+    from ase.units import AUT # requires rev1839 or later
+except ImportError:
+    from ase.units import second, alpha, _hbar, _me, _c
+    AUT = second * _hbar / (alpha**2 * _me * _c**2)
+    del second, alpha, _hbar, _me, _c
 
 from ase.units import Bohr, Hartree
 from ase.data import atomic_names
@@ -118,6 +124,11 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         w.add('Tags', ('natoms',), tag_a, **par_kwargs)
         w.add('BoundaryConditions', ('3',), atoms.get_pbc(), **par_kwargs)
         w.add('UnitCell', ('3', '3'), atoms.get_cell() / Bohr, **par_kwargs)
+
+        if atoms.get_velocities() is not None:
+            w.add('CartesianVelocities', ('natoms', '3'),
+                  atoms.get_velocities() * AUT / Bohr)
+
         w.add('PotentialEnergy', (), hamiltonian.Etot + 0.5 * hamiltonian.S,
               **par_kwargs)
         if paw.forces.F_av is not None:
@@ -142,13 +153,8 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         w.dimension('nfinegptsz', ng[2])
         w.dimension('nspins', wfs.nspins)
         w.dimension('nbands', wfs.nbands)
-
-        nproj = 0
-        nadm = 0
-        for setup in wfs.setups:
-            ni = setup.ni
-            nproj += ni
-            nadm += ni * (ni + 1) // 2
+        nproj = sum([setup.ni for setup in wfs.setups])
+        nadm = sum([setup.ni * (setup.ni + 1) // 2 for setup in wfs.setups])
         w.dimension('nproj', nproj)
         w.dimension('nadm', nadm)
 
@@ -491,22 +497,42 @@ def read(paw, reader):
     if hdf5:
         par_kwargs.update({'parallel': True, 'read': True}) #XXX read on master only?
 
+    # Verify setup fingerprints and count projectors and atomic matrices:
     for setup in wfs.setups.setups.values():
         try:
             key = atomic_names[setup.Z] + 'Fingerprint'
             if setup.type != 'paw':
                 key += '(%s)' % setup.type
-            fp = r[key]
+            if setup.fingerprint != r[key]:
+                str = 'Setup for %s (%s) not compatible with restart file.' \
+                    % (setup.symbol, setup.filename)
+                if paw.input_parameters['idiotproof']:
+                    raise RuntimeError(str)
+                else:
+                    paw.warn(str)
         except (AttributeError, KeyError):
-            break
-        if setup.fingerprint != fp:
-            str = 'Setup for %s (%s) not compatible with restart file.' % \
-                  (setup.symbol, setup.filename)
+            str = 'Fingerprint of setup for %s (%s) not in restart file.' \
+                % (setup.symbol, setup.filename)
             if paw.input_parameters['idiotproof']:
                 raise RuntimeError(str)
             else:
                 paw.warn(str)
-            
+    nproj = sum([setup.ni for setup in wfs.setups])
+    nadm = sum([setup.ni * (setup.ni + 1) // 2 for setup in wfs.setups])
+
+    # Verify dimensions for minimally required netCDF variables:
+    ng = wfs.gd.get_size_of_global_array()
+    nfg = density.finegd.get_size_of_global_array()
+    shapes = {'ngptsx': ng[0],
+              'ngptsy': ng[1],
+              'ngptsz': ng[2],
+              'nspins': wfs.nspins,
+              'nproj' : nproj,
+              'nadm'  : nadm}
+    for name,dim in shapes.items():
+        if r.dimension(name) != dim:
+            raise ValueError('shape mismatch: expected %s=%d' % (name,dim))
+
     # Read pseudoelectron density on the coarse grid
     # and distribute out to nodes:
     timer.start('Pseudo-density')
@@ -516,8 +542,7 @@ def read(paw, reader):
         r.get('PseudoElectronDensity', *indices, out=nt_sG, parallel=True) #XXX read=?
     else:
         for s in range(density.nspins):
-            wfs.gd.distribute(r.get('PseudoElectronDensity', s),
-                              nt_sG[s])
+            wfs.gd.distribute(r.get('PseudoElectronDensity', s), nt_sG[s])
     timer.stop('Pseudo-density')
 
     # Read atomic density matrices
@@ -583,7 +608,7 @@ def read(paw, reader):
         if energy_error is not None:
             paw.scf.energies = [Etot, Etot + energy_error, Etot]
     else:
-        paw.scf.converged = True
+        paw.scf.converged = r['Converged']
 
     if version > 0.6:
         if paw.occupations.fixmagmom:
@@ -628,6 +653,10 @@ def read(paw, reader):
 
     if (nibzkpts == len(wfs.ibzk_kc) and
         nbands == band_comm.size * wfs.mynbands):
+
+        # Verify that symmetries for for k-point reduction hasn't changed:
+        assert np.abs(r.get('IBZKPoints')-wfs.kd.ibzk_kc).max() < 1e-12
+        assert np.abs(r.get('IBZKPointWeights')-wfs.kd.weight_k).max() < 1e-12
 
         for kpt in wfs.kpt_u:
             # Eigenvalues and occupation numbers:
@@ -767,6 +796,10 @@ def read_atoms(reader, **kwargs):
         atoms.set_tags(tags)
     if magmoms.any():
         atoms.set_initial_magnetic_moments(magmoms)
+
+    if reader.has_array('CartesianVelocities'):
+        velocities = reader.get('CartesianVelocities') * Bohr / AUT
+        atoms.set_velocities(velocities)
 
     return atoms
 

@@ -2,112 +2,166 @@
 
 __all__ = ["PhononCalculator"]
 
-from math import sqrt
-
 import pickle
+
 import numpy as np
 
-import ase.units as units
-
-# Temp modules
-from gpaw.utilities import unpack, unpack2
-
+from gpaw import GPAW
+from gpaw.mpi import world, rank, size, serial_comm
+from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.dfpt.poisson import PoissonSolver, FFTPoissonSolver
-from gpaw.dfpt.kpointdescriptor import KPointDescriptor
 from gpaw.dfpt.responsecalculator import ResponseCalculator
 from gpaw.dfpt.phononperturbation import PhononPerturbation
 from gpaw.dfpt.wavefunctions import WaveFunctions
 from gpaw.dfpt.dynamicalmatrix import DynamicalMatrix
-
+from gpaw.dfpt.electronphononcoupling import ElectronPhononCoupling
 
 class PhononCalculator:
     """This class defines the interface for phonon calculations."""
     
-    def __init__(self, calc, gamma=True, **kwargs):
+    def __init__(self, calc, gamma=True, symmetry=False, e_ph=False,
+                 **kwargs):
         """Inititialize class with a list of atoms.
 
         The atoms object must contain a converged ground-state calculation.
 
-        The irreducible set of q-vectors in which the dynamical matrix will be
-        calculated will be the irreducible set of k-vector used in the
-        ground-state calculations.
-        
-        For now the q-points are taken from the ground-state calculation.
+        The set of q-vectors in which the dynamical matrix will be calculated
+        is determined from the ``symmetry``. For now, only time-reversal
+        symmetry is used to generate the irrecducible BZ.
+
+        Parameters
+        ----------
+        calc: str or Calculator
+            Calculator containing a ground-state calculation.
+        gamma: bool
+            Gamma-point calculation with respect to the q-vector of the
+            dynamical matrix. When ``False``, the Monkhorst-Pack grid from the
+            ground-state calculation is used.
+        symmetry: bool
+            Use symmetries to reduce the q-vectors of the dynamcial matrix
+            (None, False or True). The different options are equivalent to the
+            options in a ground-state calculation.
+        e_ph: bool
+            Save the derivative of the effective potential.
 
         """
- 
-        # Store useful objects
-        self.atoms = calc.get_atoms()
-        self.calc = calc
-        
+
+        # XXX
+        assert symmetry in [None, False], "Spatial symmetries not allowed yet"
+
+        self.symmetry = symmetry
+
+        if isinstance(calc, str):
+            self.calc = GPAW(calc, communicator=serial_comm, txt=None)
+        else:
+            self.calc = calc
+
         # Make sure localized functions are initialized
-        calc.set_positions()
+        self.calc.set_positions()
         # Note that this under some circumstances (e.g. when called twice)
         # allocates a new array for the P_ani coefficients !!
-
+        
+        # Store useful objects
+        self.atoms = self.calc.get_atoms()
+        # Get rid of ``calc`` attribute
+        self.atoms.calc = None
+        
         # Boundary conditions
-        pbc_c = calc.atoms.get_pbc()
+        pbc_c = self.calc.atoms.get_pbc()
         
         if np.all(pbc_c == False):
             self.gamma = True
             self.dtype = float
-            self.ibzq_qc = None # np.array((0, 0, 0), dtype=float)
+            kpts = None
             # Multigrid Poisson solver
-            poisson = PoissonSolver()
+            poisson_solver = PoissonSolver()
         else:
             if gamma:
                 self.gamma = True
                 self.dtype = float
-                self.ibzq_qc = None #np.array(((0, 0, 0),), dtype=float)
+                kpts = None
             else:
                 self.gamma = False
                 self.dtype = complex
-                # Get k-points -- only temp, I need q-vectors; maybe the same ???
-                self.ibzq_qc = calc.get_ibz_k_points()
+                # Get k-points from ground-state calculation
+                kpts = self.calc.input_parameters.kpts
                 
             # FFT Poisson solver
-            poisson = FFTPoissonSolver(dtype=self.dtype)
+            poisson_solver = FFTPoissonSolver(dtype=self.dtype)
             
         # Include all atoms and cartesian coordinates by default
         self.atoms_a = dict([ (atom.index, [0, 1, 2]) for atom in self.atoms])
         
-        # Phonon perturbation
-        self.perturbation = PhononPerturbation(calc, self.gamma,
-                                               poisson_solver=poisson,
-                                               dtype=self.dtype)
-
-        # Ground-state k-points
-        ibzk_qc = calc.get_ibz_k_points()
-        bzk_qc = calc.get_ibz_k_points()
-        kd = KPointDescriptor(bzk_qc, ibzk_qc)
+        # K-point descriptor for the q-vectors of the dynamical matrix
+        self.kd = KPointDescriptor(kpts, 1)
+        self.kd.set_symmetry(self.atoms, self.calc.wfs.setups, symmetry)
+        self.kd.set_communicator(world)
 
         # Number of occupied bands
-        nvalence = calc.wfs.nvalence
+        nvalence = self.calc.wfs.nvalence
         nbands = nvalence/2 + nvalence%2
-        assert nbands <= calc.wfs.nbands
+        assert nbands <= self.calc.wfs.nbands
 
-        # My own WaveFunctions object
-        wfs = WaveFunctions(nbands, calc.wfs.kpt_u, calc.wfs.setups,
-                            calc.wfs.gamma, kd, calc.density.gd,
-                            dtype=calc.wfs.dtype)
+        # Ground-state k-point descriptor - used for the k-points in the
+        # ResponseCalculator 
+        kd_gs = self.calc.wfs.kd
+        # Extract other useful objects
+        gd = self.calc.density.gd
+        kpt_u = self.calc.wfs.kpt_u
+        setups = self.calc.wfs.setups
+        dtype_gs = self.calc.wfs.dtype
         
+        #  WaveFunctions
+        wfs = WaveFunctions(nbands, kpt_u, setups, kd_gs, gd, dtype=dtype_gs)
+
         # Linear response calculator
-        self.response_calc = ResponseCalculator(calc, wfs, self.perturbation, kd)
-
-        # Dynamical matrix object - its dtype should be determined by the
-        # presence of inversion symmetry !
-        inversion_symmetry = False
-        if inversion_symmetry:
-            D_dtype = float
-        else:
-            D_dtype = self.dtype
+        self.response_calc = ResponseCalculator(self.calc, wfs, dtype=self.dtype)
         
-        self.D_matrix = DynamicalMatrix(self.atoms, ibzq_qc=self.ibzq_qc,
-                                        dtype=D_dtype)
+        # Phonon perturbation
+        self.perturbation = PhononPerturbation(self.calc, self.kd,
+                                               poisson_solver,
+                                               dtype=self.dtype)
 
+        # Dynamical matrix
+        self.D_matrix = DynamicalMatrix(self.atoms, self.kd, dtype=self.dtype)
+
+        # Electron-phonon couplings
+        if e_ph:
+            self.e_ph = ElectronPhononCoupling(self.atoms, gd, self.kd,
+                                               dtype=self.dtype)
+        else:
+            self.e_ph = None
+                                               
         # Initialization flag
         self.initialized = False
+
+        # Parallel stuff
+        # self.comm = world
+
+    def __getstate__(self): 
+        """Method used to pickle.
+
+        Bound method attributes cannot be pickled and must therefore be deleted
+        before an instance is dumped to file.
+
+        """
+
+        # Get state of object and take care of troublesome attributes
+        state = dict(self.__dict__)
+        state['kd'].__dict__['comm'] = serial_comm
+        state.pop('calc')
+        state.pop('perturbation')
+        state.pop('response_calc')
         
+        return state
+
+    def collect(self):
+        """Collect calculated quantities."""
+
+        self.D_matrix.collect()
+        if self.e_ph is not None:
+            self.e_ph.collect()
+            
     def initialize(self):
         """Initialize response calculator and perturbation."""
 
@@ -142,6 +196,11 @@ class PhononCalculator:
             for a in atoms_a:
                 self.atoms_a = [0, 1, 2]
 
+    def get_dynamical_matrix(self):
+        """Return reference to ``DynamicalMatrix`` object."""
+        
+        return self.D_matrix
+    
     def __call__(self, qpts_q=None):
         """Run calculation for atomic displacements and update matrix.
 
@@ -159,125 +218,45 @@ class PhononCalculator:
         if self.gamma:
             qpts_q = [0]
         elif qpts_q is None:
-            qpts_q = range(len(self.ibzq_qc))
+            qpts_q = range(self.kd.mynks)
         else:
-            assert type(qpts_q) == list
-            
-                        
-        # Calculate linear response wrt displacements of specified atoms
-        for q in qpts_q:
+            assert isinstance(qpts_q, list)
 
+        # Calculate linear response wrt q-vectors and displacements of atoms
+        for q in qpts_q:
+            
             if not self.gamma:
                 self.perturbation.set_q(q)
 
+            # First-order contributions to the force constants
             for a in self.atoms_a:
     
                 for v in self.atoms_a[a]:
     
                     components = ['x', 'y', 'z']
                     symbols = self.atoms.get_chemical_symbols()
-                    print "q-vector index: %i" % q
+                    print "q-vector index: %i" % (self.kd.ks0 + q)
                     print "Atom index: %i" % a
                     print "Atomic symbol: %s" % symbols[a]
                     print "Component: %s" % components[v]
-                    
-                    self.perturbation.set_perturbation(a, v)
-        
-                    output = self.response_calc()
-    
-                    if False: #save:
-                        assert filebase is not None
-                        file_av = "a_%.1i_v_%.1i.pckl" % (a, v)
-                        fname = "_".join([filebase, file_av])
-                        f = open(fname, 'w')
-                        pickle.dump([nt1_G, psit1_unG], f)
-                        f.close()
-                                
+
+                    # Set atom and cartesian component of perturbation
+                    self.perturbation.set_av(a, v)
+                    # Calculate linear response
+                    self.response_calc(self.perturbation)
+
+                    # Calculate corresponding row of dynamical matrix
                     self.D_matrix.update_row(self.perturbation,
                                              self.response_calc)
-                    
+
+                    # Store effective potential derivative
+                    if self.e_ph is not None:
+                        v1_eff_G = self.perturbation.v1_G + \
+                                   self.response_calc.vHXC1_G
+                        self.e_ph.v1_eff_qavG.append(v1_eff_G)
+                        
+        # Ground-state contributions to the force constants
         self.D_matrix.density_ground_state(self.calc)
         # self.D_matrix.wfs_ground_state(self.calc, self.response_calc)
 
-    def get_dynamical_matrix(self):
-        """Return reference to ``DynamicalMatrix`` object."""
-        
-        return self.D_matrix
-        
-    def frequencies(self):
-        """Calculate phonon frequencies from the dynamical matrix."""
-
-        # In Ha/(Bohr^2 * amu)
-        D, D_ = self.D_matrix.assemble()
-        
-        freq2, modes = np.linalg.eigh(D)
-        freq = np.sqrt(freq2)
-        # Convert to eV
-        freq *= sqrt(units.Hartree) / (units.Bohr * 1e-10) / \
-                sqrt(units._amu * units._e) * units._hbar
-
-        print "Calculated frequencies (meV):"
-        for f in freq:
-            print f*1000
-
-        return freq
-
-    def forces(self):
-        """Check for the forces."""
-
-        N_atoms = self.atoms.get_number_of_atoms()
-        nbands = self.calc.wfs.nvalence/2        
-        Q_aL = self.calc.density.Q_aL
-        # Forces
-        F = np.zeros((N_atoms, 3))
-        F_1 = np.zeros((N_atoms, 3))
-        F_2 = np.zeros((N_atoms, 3))
-        F_3 = np.zeros((N_atoms, 3))
-        
-        # Check the force
-        ghat = self.calc.density.ghat
-        vH_g = self.calc.hamiltonian.vHt_g
-        F_ghat_aLv = ghat.dict(derivative=True)
-        ghat.derivative(vH_g,F_ghat_aLv)
-        
-        vbar = self.calc.hamiltonian.vbar
-        nt_g = self.calc.density.nt_g
-        F_vbar_av = vbar.dict(derivative=True)
-        vbar.derivative(nt_g,F_vbar_av)
-
-        pt = self.calc.wfs.pt
-        psit_nG = self.calc.wfs.kpt_u[0].psit_nG[:nbands]        
-        P_ani = pt.dict(nbands)
-        pt.integrate(psit_nG, P_ani)        
-        dP_aniv = pt.dict(nbands, derivative=True)
-        pt.derivative(psit_nG, dP_aniv)
-        dH_asp = self.calc.hamiltonian.dH_asp
-
-        # P_ani = self.calc.wfs.kpt_u[0].P_ani
-        kpt = self.calc.wfs.kpt_u[0]
-        
-        for atom in self.atoms:
-
-            a = atom.index
-            # ghat and vbar contributions
-            F_1[a] += F_ghat_aLv[a][0] * Q_aL[a][0]
-            F_2[a] += F_vbar_av[a][0]
-            # Contribution from projectors
-            dH_ii = unpack(dH_asp[a][0])
-            P_ni = P_ani[a][:nbands]
-            dP_niv = dP_aniv[a]
-            dHP_ni = np.dot(P_ni, dH_ii)
-            # Factor 2 for spin
-            dHP_ni *= kpt.f_n[:nbands, np.newaxis]
-
-            F_3[a] += 2 * (dP_niv * dHP_ni[:, :, np.newaxis]).sum(0).sum(0)
-            #print F_3[a]
-            F[a] += F_1[a] + F_2[a] + F_3[a]
-            
-        # Convert to eV/Ang            
-        F *= units.Hartree/units.Bohr
-        F_1 *= units.Hartree/units.Bohr
-        F_2 *= units.Hartree/units.Bohr
-        F_3 *= units.Hartree/units.Bohr
-        
-        return F, F_1, F_2, F_3
+        self.kd.comm.barrier()

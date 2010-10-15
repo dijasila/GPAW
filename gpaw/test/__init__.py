@@ -158,6 +158,7 @@ tests = [
     'neb.py',
     'diamond_absorption.py',
     'aluminum_EELS.py',
+    'aluminum_EELS_lcao.py',
     'aluminum_testcell.py',
     'dump_chi0.py',
     'hgh_h2o.py',
@@ -250,6 +251,7 @@ try:
 except ImportError:
     exclude += ['diamond_absorption.py',
                 'aluminum_EELS.py',
+                'aluminum_EELS_lcao.py',
                 'aluminum_testcell.py',
                 'aeatom.py']
 
