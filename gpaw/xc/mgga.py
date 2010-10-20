@@ -13,11 +13,15 @@ class MGGA(GGA):
     def set_grid_descriptor(self, gd):
         GGA.set_grid_descriptor(self, gd)
         
+    def get_setup_name(self):
+        return 'PBE'
+
     def initialize(self, density, hamiltonian, wfs, occupations):
         self.wfs = wfs
         self.tauct = LFC(wfs.gd,
                          [[setup.tauct] for setup in wfs.setups],
                          forces=True, cut=True)
+        self.tauct_G = None
         self.restrict = hamiltonian.restrictor.apply
         self.interpolate = density.interpolator.apply
         self.taugrad_v = [Gradient(wfs.gd, v, allocate=not False).apply
@@ -26,27 +30,36 @@ class MGGA(GGA):
 
     def set_positions(self, spos_ac):
         self.tauct.set_positions(spos_ac)
-    
+        if self.tauct_G is None:
+            self.tauct_G = self.wfs.gd.empty()
+        self.tauct_G[:] = 0.0
+        self.tauct.add(self.tauct_G)
+
     def calculate_gga(self, e_g, nt_sg, v_sg, sigma_xg, dedsigma_xg):
         taut_sG = self.wfs.calculate_kinetic_energy_density(self.tauct,
                                                             self.taugrad_v)
         taut_sg = np.empty_like(nt_sg)
         for taut_G, taut_g in zip(taut_sG, taut_sg):
-            self.tauct.add(taut_G, 1.0 / self.wfs.nspins)
+            taut_G += 1.0 / self.wfs.nspins * self.tauct_G
             self.interpolate(taut_G, taut_g)
         dedtaut_sg = np.empty_like(nt_sg)
         self.kernel.calculate(e_g, nt_sg, v_sg, sigma_xg, dedsigma_xg,
                                 taut_sg, dedtaut_sg)
         self.dedtaut_sG = self.wfs.gd.empty(self.wfs.nspins)
+        self.ekin = 0.0
         for s in range(self.wfs.nspins):
             self.restrict(dedtaut_sg[s], self.dedtaut_sG[s])
-
-    def add_non_local_terms(self, psit_nG, Htpsit_nG, kpt):
+            self.ekin -= self.wfs.gd.integrate(
+                self.dedtaut_sG[s] * (taut_G - self.tauct_G / self.wfs.nspins))
+                                               
+    def apply_orbital_dependent_hamiltonian(self, kpt, psit_xG,
+                                            Htpsit_xG, dH_asp):
         a_G = self.wfs.gd.empty()
-        for psit_G, Htpsit_G in zip(psit_nG, Htpsit_nG):
+        for psit_G, Htpsit_G in zip(psit_xG, Htpsit_xG):
             for v in range(3):
-                self.taugrad[v](psit_G, a_G, kpt.phase_cd)
-                self.taugrad[v](self.dedtau_sG[kpt.s] * a_G, a_G, kpt.phase_cd)
+                self.taugrad_v[v](psit_G, a_G, kpt.phase_cd)
+                self.taugrad_v[v](self.dedtaut_sG[kpt.s] * a_G, a_G,
+                                  kpt.phase_cd)
                 axpy(-0.5, a_G, Htpsit_G)
 
     def add_forces(self, F_av):

@@ -157,12 +157,13 @@ class PAWXCCorrection:
                                                     dndr_sLg, rnablaY_Lv)
                     elif type == 'MGGA':
                         rnablaY_Lv = self.rnablaY_nLv[n]
-                        tau_sg = np.dot(D_sp, tau_npg[n]) + tauc_g
-                        # XXX / ns?
+                        tau_sg = (np.dot(D_sp, tau_npg[n]) +
+                                  tauc_g / (sqrt(4 * pi) * nspins))
                         e, rd_vsg, dedsigma_xg = XC(self.rgd, n_sLg, Y_L, v_sg,
                                                     dndr_sLg, rnablaY_Lv,
                                                     tau_sg, dedtau_sg)
-                        dH_sp += np.inner(dedtau_sg, tau_npg[n])
+                        dH_sp += w * np.inner(dedtau_sg * self.rgd.dv_g,
+                                              tau_npg[n])
                     else:
                         NOOOOOOOOOOOOOOOOOOOOOOOOOOO
                     B_pqv = np.dot(self.B_pqL, 8 * pi * w * rnablaY_Lv)
