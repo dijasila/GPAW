@@ -9,8 +9,10 @@ from gpaw.xc.hybrid import HybridXC
 
 timer = Timer()
 
-loa = Atoms([Atom('Be', (0, 0, 0)), Atom('Be', (2.45, 0, 0))],
-            cell= [5.9, 4.8, 5.0])
+loa = Atoms('Be2',
+            [(0, 0, 0), (2.45, 0, 0)],
+            magmoms=[0.5, 0.5],
+            cell=[5.9, 4.8, 5.0])
 loa.center()
 
 fgl = [False, True]
@@ -43,11 +45,10 @@ timer.write(sys.stdout)
 
 print 'Total energy on the fine grid   =', E[True]
 print 'Total energy on the coarse grid =', E[False]
-equal(E[True], E[False], 0.02)
+equal(E[True], E[False], 0.01)
 
 energy_tolerance = 0.0003
-niter_tolerance = 0
-equal(E[False], -788.67538, energy_tolerance)
+equal(E[False], 6.97818, energy_tolerance)
 assert 15 <= niter[False] <= 20, niter[False]
-equal(E[True], -788.68187, energy_tolerance)
+equal(E[True], 6.97153, energy_tolerance)
 assert 16 <= niter[True] <= 22, niter[True]

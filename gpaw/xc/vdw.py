@@ -162,24 +162,24 @@ class VDWFunctional(GGA):
     def calculate_gga(self, e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg):
         GGA.calculate_gga(self, e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
 
-        eLDAc_g = np.empty_like(e_g)
-        vLDAc_g = np.zeros_like(e_g)
+        eLDAc_g = self.gd.empty()
+        vLDAc_sg = self.gd.zeros(1)
 
         if len(n_sg) == 1:
-            self.LDAc.calculate(eLDAc_g, n_sg, vLDAc_g[np.newaxis, ...])
+            self.LDAc.calculate(eLDAc_g, n_sg, vLDAc_sg)
             e = self.get_non_local_energy(n_sg[0], sigma_xg[0],
                                           eLDAc_g,
-                                          vLDAc_g,
+                                          vLDAc_sg[0],
                                           dedn_sg[0], dedsigma_xg[0])
         else:
-            n_g = n_sg.sum(0)
-            self.LDAc.calculate(eLDAc_g, n_g[np.newaxis, ...],
-                                vLDAc_g[np.newaxis, ...])
+            n_sg = n_sg.sum(0)
+            n_sg.shape = (1,) + n_sg.shape
+            self.LDAc.calculate(eLDAc_g, n_sg, vLDAc_sg)
             v_g = np.zeros_like(e_g)
             deda2nl_g = np.zeros_like(e_g)
             a2_g = sigma_xg[0] + 2 * sigma_xg[1] + sigma_xg[2]
-            e = self.get_non_local_energy(n_g, a2_g, eLDAc_g,
-                                          vLDAc_g,
+            e = self.get_non_local_energy(n_sg[0], a2_g, eLDAc_g,
+                                          vLDAc_sg[0],
                                           v_g, deda2nl_g) 
             dedsigma_xg[0] += deda2nl_g
             dedsigma_xg[1] += 2 * deda2nl_g

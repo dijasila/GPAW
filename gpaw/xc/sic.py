@@ -23,7 +23,7 @@ import _gpaw
 class SIC(XCFunctional):
     orbital_dependent = True
     def __init__(self, xc='LDA', finegrid=False, **parameters):
-        """Self-Interaction Corrected (SIC) Functionals.
+        """Self-Interaction Corrected (SIC) Functional.
 
         finegrid: boolean
             Use fine grid for energy functional evaluations?
@@ -83,12 +83,11 @@ class SIC(XCFunctional):
         self.ekin = self.kpt_comm.sum(self.ekin)
         return exc + self.esic
 
-    def correct_hamiltonian_matrix(self, kpt, psit_nG,
-                                   H_nn, Htpsit_nG, dH_asp):
+    def correct_hamiltonian_matrix(self, kpt, H_nn):
         spin = self.spin_s[kpt.s]
         if spin.W_mn is None:
             return
-        spin.correct_hamiltonian_matrix(H_nn, psit_nG)
+        spin.correct_hamiltonian_matrix(H_nn, kpt.psit_nG)
     
     def add_correction(self, kpt, psit_xG, Htpsit_xG, P_axi, c_axi, n_x,
                        calculate_change=False):

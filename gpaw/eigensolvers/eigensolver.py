@@ -128,17 +128,17 @@ class Eigensolver:
 
         def H(psit_xG):
             wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_xG, Htpsit_xG)
+            hamiltonian.xc.apply_orbital_dependent_hamiltonian(
+                kpt, psit_xG, Htpsit_xG, hamiltonian.dH_asp)
             return Htpsit_xG
-                
-        dH_aii = dict([(a, unpack(dH_sp[kpt.s]))
-                       for a, dH_sp in hamiltonian.dH_asp.items()])
+
+        def dH(a, P_ni):
+            return np.dot(P_ni, unpack(hamiltonian.dH_asp[a][kpt.s]))
 
         self.timer.start('calc_matrix')
         H_nn = self.operator.calculate_matrix_elements(psit_nG, P_ani,
-                                                       H, dH_aii)
-        hamiltonian.xc.correct_hamiltonian_matrix(kpt, psit_nG, H_nn,
-                                                  Htpsit_xG,
-                                                  hamiltonian.dH_asp)
+                                                       H, dH)
+        hamiltonian.xc.correct_hamiltonian_matrix(kpt, H_nn)
         self.timer.stop('calc_matrix')
 
         diagonalization_string = repr(self.ksl)

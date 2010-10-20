@@ -14,8 +14,18 @@ class XCFunctional:
     def set_grid_descriptor(self, gd):
         self.gd = gd
 
-    def correct_hamiltonian_matrix(self, kpt, psit_nG, H_nn, Htpsit_nG,
-                                   dH_asp):
+    def set_positions(self, spos_ac):
+        pass
+    
+    def summary(self, fd):
+        pass
+
+    # Orbital dependent stuff:
+    def apply_orbital_dependent_hamiltonian(self, kpt, psit_nG,
+                                            Htpsit_nG, dH_asp):
+        pass
+    
+    def correct_hamiltonian_matrix(self, kpt, H_nn):
         pass
 
     def add_correction(self, kpt, psit_xG, R_xG, P_axi, c_axi, n_x=None,
@@ -28,11 +38,5 @@ class XCFunctional:
     def get_kinetic_energy_correction(self):
         return self.ekin
 
-    def set_positions(self, spos_ac):
-        pass
-    
     def add_forces(self, F_av):
-        pass
-
-    def summary(self, fd):
         pass

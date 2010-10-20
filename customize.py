@@ -37,7 +37,7 @@
 #define_macros = []
 #define_macros += []
 
-mpicompiler = None
+#mpicompiler = None
 #mpilinker = None
 #mpi_libraries = []
 #mpi_libraries += []
