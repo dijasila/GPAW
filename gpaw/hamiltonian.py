@@ -437,7 +437,7 @@ class Hamiltonian:
         nt_sg = density.nt_sg
         if hasattr(xc, 'hybrid'):
             xc.calculate_exx()
-        Exc = xc.calculate(density.finegd, nt_sg)
+        Exc = xc.calculate(density.finegd, nt_sg) / self.gd.comm.size
         for a, D_sp in density.D_asp.items():
             setup = self.setups[a]
             Exc += setup.xc_correction.calculate(xc, D_sp)
