@@ -94,8 +94,6 @@ keyword            type       default value        description
 ``random``         ``bool``   ``False``            Use random numbers for
                                                    :ref:`manual_random`
 ``occupations``    occ. obj.                       :ref:`manual_occ`
-``width``          ``float``  ``0`` or ``0.1`` eV  :ref:`manual_occ`
-``fixmom``         ``bool``   ``False``            :ref:`manual_occ`
 ``lmax``           ``int``    ``2``                Maximum angular momentum
                                                    for expansion of
                                                    :ref:`manual_lmax`
@@ -405,14 +403,15 @@ Accuracy of the self-consistency cycle
 The ``convergence`` keyword is used to set the convergence criteria.
 The default value is this Python dictionary::
 
-  {'energy': 0.001, # eV
+  {'energy': 0.0005, # eV / electron
    'density': 1.0e-4,
    'eigenstates': 1.0e-9,
    'bands': 'occupied'}
 
 In words:
 
-* The energy change (last 3 iterations) should be less than 1 meV.
+* The energy change (last 3 iterations) should be less than 0.5 meV
+  per valence electron.
 
 * The change in density (integrated absolute value of density change) 
   should be less than 0.001 electrons per valence electron.

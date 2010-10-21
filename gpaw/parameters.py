@@ -47,9 +47,9 @@ class InputParameters(dict):
             ('communicator' ,   None),
             ('idiotproof'   ,   True),
             ('mode',            'fd'),
-            ('convergence',     {'energy':      0.001,  # eV / atom
+            ('convergence',     {'energy':      0.0005,  # eV / electron
                                  'density':     1.0e-4,
-                                 'eigenstates': 1.0e-9,
+                                 'eigenstates': 1.0e-9,  # XXX ???
                                  'bands':       'occupied'}),
             ])
         dict.update(self, kwargs)
@@ -97,7 +97,11 @@ class InputParameters(dict):
         self.xc = r['XCFunctional']
         self.nbands = r.dimension('nbands')
         self.spinpol = (r.dimension('nspins') == 2)
-        self.kpts = r.get('BZKPoints')
+
+        if r.has_array('NBZKPoints'):
+            self.kpts = r.get('NBZKPoints')
+        else:
+            self.kpts = r.get('BZKPoints')
         self.usesymm = r['UseSymmetry']
         try:
             self.basis = r['BasisSet']

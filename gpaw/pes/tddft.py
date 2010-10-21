@@ -6,13 +6,15 @@ import numpy as np
 from ase.units import Hartree
 
 from gpaw.pes import BasePES
+from gpaw.pes.state import State
 import gpaw.mpi as mpi
 from gpaw.utilities import packed_index
 
 from numpy import sqrt, pi
 
 class TDDFTPES(BasePES):
-    def __init__(self, mother, excited_daughter, daughter=None, shift=True):
+    def __init__(self, mother, excited_daughter, daughter=None, 
+                 shift=True, occupation_tolerance=0.05):
         if excited_daughter.calculator is not None:
             self.c_d = excited_daughter.calculator
         else:
@@ -26,7 +28,7 @@ class TDDFTPES(BasePES):
         self.c_d.converge_wave_functions()
         self.lr_d.diagonalize()
         
-        self.check_systems()
+        self.check_systems(occupation_tolerance)
         self.lr_d.jend = self.lr_d.kss[-1].j        
         
         # Make good way for initialising these
@@ -45,11 +47,12 @@ class TDDFTPES(BasePES):
 
         def gs_orbitals(calc):
             indicees = []
-            spin = calc.get_number_of_spins() == 2
             nbands = calc.get_number_of_bands()
+            spin = calc.get_number_of_spins() == 2
+            f_tolerance = (1 + spin) *  occupation_tolerance
             for kpt in calc.wfs.kpt_u:
                 for i in range(nbands):
-                    if kpt.f_n[i] != 0:
+                    if kpt.f_n[i] > f_tolerance:
                         indicees.append(i + kpt.s * nbands)
                         if not spin:
                             indicees.append(i + nbands)
@@ -58,7 +61,10 @@ class TDDFTPES(BasePES):
         self.imax = len(self.gs_m)
         self.gs_d = gs_orbitals(self.c_d)
 
-        assert(len(self.gs_m) == len(self.gs_d) + 1)
+        if (len(self.gs_m) != len(self.gs_d) + 1):
+            raise RuntimeError(('Mother valence %d does not correspond ' +
+                                'to daughter valence %d') %
+                               (len(self.gs_m), len(self.gs_d)))
 
     def _calculate(self):
  
@@ -142,18 +148,18 @@ class TDDFTPES(BasePES):
         """Full overlap matrix of mother and daughter many particle states.
 
         """
-        self.g = np.zeros((len(self.lr_d) + 1, self.imax))
-        self.g[0, :] = self.gs_gs_overlaps()
+        self.g_Ii = np.zeros((len(self.lr_d) + 1, self.imax))
+        self.g_Ii[0, :] = self.gs_gs_overlaps()
 
         for I in range(len(self.lr_d)):
             for i in range(self.imax):
                 gi = 0
                 for kl in range(len(self.lr_d)):
                     gi += self.lr_d[I].f[kl] * self.singles[i, kl]
-                self.g[1 + I, i] = (-1.)**(self.imax + i) * gi
+                self.g_Ii[1 + I, i] = (-1.)**(self.imax + i) * gi
 
     def _create_f(self):
-        self.f = (self.g * self.g).sum(axis=1)
+        self.f = (self.g_Ii * self.g_Ii).sum(axis=1)
 
         if self.shift is True:
             shift = (self.c_d.get_potential_energy() -
@@ -182,7 +188,7 @@ class TDDFTPES(BasePES):
         self.gd.comm.sum(ma)
         return sqrt(4 * pi) * ma
         
-    def check_systems(self, occupation_tolerance=0.):
+    def check_systems(self, occupation_tolerance):
         """Check that mother and daughter systems correspond to each other.
 
         """
@@ -195,21 +201,24 @@ class TDDFTPES(BasePES):
         #if np.abs(self.c_m.get_magnetic_moment()-self.c_d.get_magnetic_moment())!=1.:
             #raise RuntimeError('Mother and daughter spin are not compatible')
 
-        # number of electrons check
-        
-        def integerize_occupations(calc):
-            # we need integer occupation numbers to be able to build
-            # the Slater determinants
-            floor_valence = 0
-            float_valence = 0.
-            for kpt in calc.wfs.kpt_u:
-                float_valence += np.sum(kpt.f_n)
-                kpt.f_n = np.floor(kpt.f_n + occupation_tolerance)
-                floor_valence += np.sum(kpt.f_n)
-            float_valence = np.floor(floor_valence + occupation_tolerance)
-            assert(floor_valence == float_valence)
-            return floor_valence
-
-        nvalence_m = integerize_occupations(self.c_m)
-        nvalence_d = integerize_occupations(self.c_d)
-        assert(nvalence_m == nvalence_d + 1)
+    def Dyson_orbital(self, I):
+        """Return the Dyson orbital corresponding to excition I."""
+        if not hasattr(self, 'g'):
+            self._calculate()
+        if not hasattr(self, 'morbitals'):
+            nbands = self.c_m.get_number_of_bands()
+            spin = self.c_m.get_number_of_spins() == 2
+            morbitals_ig = []
+            for i in self.gs_m:
+                k = int(i >= nbands) * spin
+                i -= nbands * int(i >= nbands)
+                morbitals_ig.append(self.c_m.wfs.kpt_u[k].psit_nG[i])
+            self.morbitals_ig = np.array(morbitals_ig)
+               
+        dyson = State(self.gd)
+        gridnn = self.gd.zeros()
+        for i, g in enumerate(self.g_Ii[I]):
+            gridnn += g * self.morbitals_ig[i]
+        dyson.set_grid(gridnn)
+        dyson.set_energy(-self.be[I])
+        return dyson

@@ -18,14 +18,11 @@ from gpaw.preconditioner import Preconditioner
 
 class FDWaveFunctions(FDPWWaveFunctions):
     def __init__(self, stencil, diagksl, orthoksl, initksl,
-                 gd, nspins, nvalence, setups, bd,
-                 dtype, world, kpt_comm,
-                 gamma, bzk_kc, ibzk_kc, weight_k, symmetry, timer=None):
+                 gd, nvalence, setups, bd,
+                 dtype, world, kd, timer=None):
         FDPWWaveFunctions.__init__(self, diagksl, orthoksl, initksl,
-                                   gd, nspins, nvalence, setups, bd,
-                                   dtype, world, kpt_comm,
-                                   gamma, bzk_kc, ibzk_kc, weight_k, symmetry,
-                                   timer)
+                                   gd, nvalence, setups, bd,
+                                   dtype, world, kd, timer)
 
         self.wd = self.gd  # wave function descriptor
         
@@ -47,8 +44,8 @@ class FDWaveFunctions(FDPWWaveFunctions):
     def summary(self, fd):
         fd.write('Mode: Finite-difference\n')
         
-    def make_preconditioner(self):
-        return Preconditioner(self.gd, self.kin, self.dtype)
+    def make_preconditioner(self, block=1):
+        return Preconditioner(self.gd, self.kin, self.dtype, block)
     
     def apply_pseudo_hamiltonian(self, kpt, hamiltonian, psit_xG, Htpsit_xG):
         self.kin.apply(psit_xG, Htpsit_xG, kpt.phase_cd)

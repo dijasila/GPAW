@@ -79,32 +79,20 @@ def hRPS(x, xc=1.0):
     y = np.exp(y)
     return xc * (1.0 - y), z * y
 
-Zab = -0.8491
-
-"""
-class VDWSemiLocalXC:
-    type = 'GGA'
-    def __init__(self):
-
-    def calculate(self, e_g, n_sg, dedn_sg, sigma_xg=None, dedsigma_xg=None):
-        self.revPBEx.calculate(e_g, n_sg, dedn_sg)
-        nspins = len(n_sg)
-        if nspins == 1:
-            self.eLDAc_g = np.empty_like(e_g)
-            self.vLDAc_sg = np.zeros_like(n_sg)
-            self.LDAc.calculate(self.eLDAc_g, n_sg, self.vLDAc_gdedn_sg)
-        e_g += self.eLDAc_g
-"""
 
 class VDWFunctional(GGA):
     """Base class for vdW-DF."""
-    def __init__(self, world=None, q0cut=5.0,
+    def __init__(self, name='vdW-DF', world=None, q0cut=5.0,
                  phi0=0.5, ds=1.0, Dmax=20.0, nD=201, ndelta=21,
-                 soft_correction=False, verbose=False, energy_only=False):
+                 soft_correction=False,
+                 exchange=None, Zab=None,
+                 verbose=False, energy_only=False):
         """vdW-DF.
 
         parameters:
 
+        name: str
+            Name of functional.
         world: MPI communicator
             Communicator to parallelize over.  Defaults to gpaw.mpi.world.
         q0cut: float
@@ -121,10 +109,14 @@ class VDWFunctional(GGA):
             Number of values for delta in kernel-table.
         soft_correction: bool
             Correct for soft kernel.
+        exchange:
+            Which exchange to use.
+        Zab:
+            parameter in nonlocal kernel.
         verbose: bool
             Print useful information.
         """
-
+        
         if world is None:
             self.world = mpi.world
         else:
@@ -150,7 +142,18 @@ class VDWFunctional(GGA):
         self.energy_only = energy_only
         self.timer = nulltimer
 
-        GGA.__init__(self, LibXC('GGA_X_PBE_R+LDA_C_PW'))
+        if name == 'vdW-DF':
+            assert exchange is None and Zab is None
+            exchange = 'GGA_X_PBE_R'
+            Zab = -0.8491
+        elif name == 'vdW-DF2':
+            assert exchange is None and Zab is None
+            exchange = 'GGA_X_PW86'
+            Zab = -1.887
+
+        self.Zab = Zab
+        GGA.__init__(self, LibXC(exchange + '+LDA_C_PW'))
+        self.name = name
         self.LDAc = LibXC('LDA_C_PW')
 
     def get_setup_name(self):
@@ -211,7 +214,7 @@ class VDWFunctional(GGA):
         kF_g = (3 * pi**2 * n_g)**(1.0 / 3.0)
         q0_g, dhdx_g = hRPS(kF_g -
                             4 * pi / 3 * e_LDAc_g / n_g -
-                            Zab / 36 / kF_g * a2_g / n_g**2, self.q0cut)
+                            self.Zab / 36 / kF_g * a2_g / n_g**2, self.q0cut)
 
         if self.verbose:
             print ('VDW: q0 (min, mean, max): (%f, %f, %f)' %
@@ -374,7 +377,7 @@ class VDWFunctional(GGA):
 
 class RealSpaceVDWFunctional(VDWFunctional):
     """Real-space implementation of vdW-DF."""
-    def __init__(self, nspins=1, repeat=None, ncut=0.0005, **kwargs):
+    def __init__(self, name, repeat=None, ncut=0.0005, **kwargs):
         """Real-space vdW-DF.
 
         parameters:
@@ -385,7 +388,7 @@ class RealSpaceVDWFunctional(VDWFunctional):
             Density cutoff.
         """
         
-        VDWFunctional.__init__(self, nspins, **kwargs)
+        VDWFunctional.__init__(self, name, **kwargs)
         self.repeat = repeat
         self.ncut = ncut
         
@@ -457,7 +460,8 @@ class RealSpaceVDWFunctional(VDWFunctional):
 
 class FFTVDWFunctional(VDWFunctional):
     """FFT implementation of vdW-DF."""
-    def __init__(self, Nalpha=20, lambd=1.2, rcut=125.0, Nr=2048, size=None,
+    def __init__(self, name,
+                 Nalpha=20, lambd=1.2, rcut=125.0, Nr=2048, size=None,
                  **kwargs):
         """FFT vdW-DF.
 
@@ -474,7 +478,7 @@ class FFTVDWFunctional(VDWFunctional):
         size: 3-tuple
             Size of FFT-grid.
         """
-        VDWFunctional.__init__(self, **kwargs)
+        VDWFunctional.__init__(self, name, **kwargs)
         self.Nalpha = Nalpha
         self.lambd = lambd
         self.rcut = rcut
@@ -737,9 +741,10 @@ class FFTVDWFunctional(VDWFunctional):
             self.timer.start('p1')
             dq0dn_g = ((pi / 3 / n_g)**(2.0 / 3.0) +
                        4 * pi / 3 * (e_LDAc_g / n_g - v_LDAc_g) / n_g +
-                       7 * Zab / 108 / (3 * pi**2)**(1.0 / 3.0) * a2_g *
+                       7 * self.Zab / 108 / (3 * pi**2)**(1.0 / 3.0) * a2_g *
                        n_g**(-10.0 / 3.0))
-            dq0da2_g = -Zab / 36 / (3 * pi**2)**(1.0 / 3.0) / n_g**(7.0 / 3.0)
+            dq0da2_g = -(self.Zab / 36 / (3 * pi**2)**(1.0 / 3.0) /
+                         n_g**(7.0 / 3.0))
             self.timer.stop('p1')
         
         v0_g = np.zeros_like(n_g)

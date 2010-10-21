@@ -7,7 +7,6 @@ import glob
 import trace
 import tempfile
 
-
 def send_email(subject, filename='/dev/null'):
     assert os.system(
         'mail -s "%s" gpaw-developers@listserv.fysik.dtu.dk < %s' %
@@ -35,37 +34,17 @@ if os.system('svn checkout ' +
     fail('Checkout of gpaw failed!')
 
 if day % 2:
-    d = {}
-    execfile('gpaw/gpaw/version.py', d)
-    asesvnversion = d['ase_required_svnversion']
+    exec([line for line in open('gpaw/gpaw/version.py').readlines()
+          if line.startswith('ase_required_svnversion')][0])
 else:
-    asesvnversion = 'HEAD'
+    ase_required_svnversion = 'HEAD'
 
 if os.system('svn checkout ' +
              'https://svn.fysik.dtu.dk/projects/ase/trunk ase -r %s' %
-             asesvnversion) != 0:
+             ase_required_svnversion) != 0:
     fail('Checkout of ASE failed!')
-try: 
-    # subprocess was introduced with python 2.4
-    from subprocess import Popen, PIPE
-    cmd = Popen('svnversion ase',
-                shell=True, stdout=PIPE, stderr=PIPE, close_fds=True).stdout
-except ImportError:
-    cmd = popen3('svnversion ase')[1] # assert that we are in gpaw project
-aserevision = int(cmd.readline())
-cmd.close()
 
 os.chdir('gpaw')
-
-try: 
-    # subprocess was introduced with python 2.4
-    from subprocess import Popen, PIPE
-    cmd = Popen('svnversion', 
-                shell=True, stdout=PIPE, stderr=PIPE, close_fds=True).stdout
-except ImportError:
-    cmd = popen3('svnversion')[1] # assert that we are in gpaw project
-gpawrevision = int(cmd.readline().strip('M\n'))
-cmd.close()
 
 if os.system('python setup.py install --home=%s ' % tmpdir +
              '2>&1 | grep -v "c/libxc/src"') != 0:
@@ -74,7 +53,7 @@ if os.system('python setup.py install --home=%s ' % tmpdir +
 os.system('mv ../ase/ase ../lib/python')
 
 os.system('wget --no-check-certificate --quiet ' +
-          'http://wiki.fysik.dtu.dk/stuff/gpaw-setups-latest.tar.gz')
+          'http://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-latest.tar.gz')
 
 os.system('tar xvzf gpaw-setups-latest.tar.gz')
 
@@ -92,6 +71,7 @@ from gpaw.test import TestRunner, tests
 os.mkdir('gpaw-test')
 os.chdir('gpaw-test')
 out = open('test.out', 'w')
+#tests = ['ase3k.py', 'jstm.py']
 failed = TestRunner(tests, stream=out).run()
 out.close()
 if failed:
@@ -105,10 +85,6 @@ if failed:
         if n > 2:
             subject += ', ...'
     fail(subject, 'test.out')
-
-open('/home/camp/jensj/gpawrevision.ok', 'w').write('%d %d\n' %
-                                                    (aserevision,
-                                                     gpawrevision))
 
 def count(dir, pattern):
     p = os.popen('wc -l `find %s -name %s` | tail -1' % (dir, pattern), 'r')
@@ -167,4 +143,3 @@ pylab.title('Number of lines')
 pylab.savefig(dir + 'stat.png')
 
 os.system('cd; rm -r ' + tmpdir)
-

@@ -232,7 +232,7 @@ class PAWTextOutput:
         cc = p['convergence']
         t()
         t('Convergence Criteria:')
-        t('Total Energy Change per Atom:           %g eV / atom' %
+        t('Total Energy Change:           %g eV / electron' %
           (cc['energy']))
         t('Integral of Absolute Density Change:    %g electrons' %
           cc['density'])
@@ -320,8 +320,12 @@ class PAWTextOutput:
         # Output from each iteration:
         t = self.text
 
-        nvalence = self.wfs.setups.nvalence
-        eigerr = self.scf.eigenstates_error / nvalence
+        nvalence = self.wfs.setups.nvalence - self.input_parameters.charge
+        if nvalence > 0:
+            eigerr = self.scf.eigenstates_error / nvalence
+        else:
+            eigerr = 0.0
+            
         if self.verbose != 0:
             T = time.localtime()
             t()

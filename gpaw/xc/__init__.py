@@ -7,9 +7,9 @@ from gpaw.xc.mgga import MGGA
 def XC(kernel, parameters=None):
     if isinstance(kernel, str):
         name = kernel
-        if name == 'vdW-DF':
+        if name in ['vdW-DF', 'vdW-DF2']:
             from gpaw.xc.vdw import FFTVDWFunctional
-            return FFTVDWFunctional()
+            return FFTVDWFunctional(name)
         elif name in ['EXX', 'PBE0']:
             from gpaw.xc.hybrid import HybridXC
             return HybridXC(name)

@@ -18,12 +18,15 @@
 #define BLOCK_CYCLIC_2D 1
 
 #ifdef GPAW_NO_UNDERSCORE_CBLACS
+#define Cblacs_barrier_    Cblacs_barrier
 #define Cblacs_gridexit_   Cblacs_gridexit
 #define Cblacs_gridinfo_   Cblacs_gridinfo
 #define Cblacs_gridinit_   Cblacs_gridinit
 #define Cblacs_pinfo_      Cblacs_pinfo
 #define Csys2blacs_handle_ Csys2blacs_handle
 #endif
+
+void Cblacs_barrier_(int ConTxt, char *scope);
 
 void Cblacs_gridexit_(int ConTxt);
 
@@ -463,7 +466,7 @@ PyObject* new_blacs_context(PyObject *self, PyObject *args)
   MPI_Comm_size(comm, &nprocs);
   
   // Create blacs grid on this communicator continued
-  ConTxt = Csys2blacs_handle(comm);
+  ConTxt = Csys2blacs_handle_(comm);
   Cblacs_gridinit_(&ConTxt, &order, nprow, npcol);
   PyObject* returnvalue = Py_BuildValue("i", ConTxt);
   return returnvalue;

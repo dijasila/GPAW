@@ -23,11 +23,10 @@ environment.  Run the commands:
 
   $ mv ~/.bashrc ~/old.bashrc
   $ echo source ~ashj/summerschool-env/gbar-gpaw.rc > ~/.bashrc
+  $ source ~/.bashrc
 
 This will set up the environment for you so that you can use ASE,
-GPAW, VMD and matplotlib.  The changes will take effect for all new
-terminals opened from now on.
-
+GPAW, VMD and matplotlib.
 
 Running GPAW calculations
 -------------------------
@@ -63,6 +62,8 @@ Notes
   printer is located in databar 15, the middle of the three databars.
 
 * To open a pdf-file: :samp:`evince {filename}`
+
+* How to `use USB sticks <http://www.gbar.dtu.dk/wiki/USB_Access>`_.
 
 * The normal tilde (~) key combination is not functional on the
   databar computers.  Use :kbd:`Alt Graph + 5` to type a tilde.

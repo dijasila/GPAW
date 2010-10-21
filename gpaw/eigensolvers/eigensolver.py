@@ -12,11 +12,12 @@ from gpaw import debug, extra_parameters
 
 
 class Eigensolver:
-    def __init__(self, keep_htpsit=True):
+    def __init__(self, keep_htpsit=True, block=1):
         self.keep_htpsit = keep_htpsit
         self.initialized = False
         self.Htpsit_nG = None
         self.error = np.inf
+        self.block = block
         
     def initialize(self, wfs):
         self.timer = wfs.timer
@@ -31,11 +32,15 @@ class Eigensolver:
         self.mynbands = wfs.mynbands
         self.operator = wfs.matrixoperator
 
+        # XXX RMM-DIIS uses matrixoperators's temporary arrays
+        # XXX Safer way to use temporary arrays is needed
+        self.block = min(self.block, self.mynbands // self.operator.nblocks)
+
         if self.mynbands != self.nbands or self.operator.nblocks != 1:
             self.keep_htpsit = False
 
         # Preconditioner for the electronic gradients:
-        self.preconditioner = wfs.make_preconditioner()
+        self.preconditioner = wfs.make_preconditioner(self.block)
 
         if self.keep_htpsit:
             # Soft part of the Hamiltonian times psit:

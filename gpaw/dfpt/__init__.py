@@ -60,7 +60,8 @@ Implementaion notes
    for correcting the sign error, i.e. correct the sign when extracting from
    the dictionary.
 
-2. More to come
+2. Arrays containing first-order derivatives should be suffixed with a ``1``
+   in the variable name, e.g. ``nt1_g`` for the density.
 
 """
 
@@ -70,13 +71,19 @@ Implementaion notes
 from gpaw.dfpt.phononcalculator import *
 from gpaw.dfpt.responsecalculator import *
 from gpaw.dfpt.phononperturbation import *
+from gpaw.dfpt.dynamicalmatrix import *
+from gpaw.dfpt.electronphononcoupling import *
 
 # Set the behavior of from gpaw.dfpt import *
 import gpaw.dfpt.phononcalculator
 import gpaw.dfpt.responsecalculator
 import gpaw.dfpt.phononperturbation
+import gpaw.dfpt.dynamicalmatrix
+import gpaw.dfpt.electronphononcoupling
 
 __all__ = []
 __all__.extend(phononcalculator.__all__)
 __all__.extend(responsecalculator.__all__)
 __all__.extend(phononperturbation.__all__)
+__all__.extend(dynamicalmatrix.__all__)
+__all__.extend(electronphononcoupling.__all__)

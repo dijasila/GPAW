@@ -2,12 +2,16 @@ from math import exp, sin, cos, pi, sqrt, acos, asin
 
 import numpy as np
 
-from ase.units import Bohr, Hartree
+from ase.units import Bohr, Hartree, alpha
 import _gpaw
 from gpaw.fd_operators import Gradient
 from gpaw.utilities.gl_quadrature import GaussLegendre
+from gpaw.pes import ds_prefactor
 from gpaw.pes.state import State, H1s
 from gpaw.pes.continuum import PlaneWave
+
+#debug
+from gpaw.mpi import rank
 
 class CrossSectionBeta:
     def __init__(self, 
@@ -52,7 +56,7 @@ class CrossSectionBeta:
         for angle in ['x', 'phi', 'psi']:
             self.angle[angle] = self.gl[angle].get_x()[0]
         self.T20, self.T2m = self.gi_x()
-#        print self.get_omega(), self.T2m
+
         # we need the average
         self.T20 /= 8 * pi**2
         self.T2m /= 8 * pi**2
@@ -73,7 +77,7 @@ class CrossSectionBeta:
     def get_ds(self, Ekin=None, units='Mb'):
         """Return the total cross section.
 
-        E: photoelectron kinetic energy [eV]
+        Ekin: photoelectron kinetic energy [eV]
         units: 
         'Mb', 1 Mb = 1.e-22 m**2
         'Ang', 1 A**2 = 1.e-20 m**2
@@ -82,14 +86,10 @@ class CrossSectionBeta:
         """
         if Ekin is not None:
             self.calculate(Ekin)
-        if units == 'Mb': 
-            pre = Bohr**2 * 100
-        elif units == 'Ang':
-            pre = Bohr**2
-        elif units == 'a.u.':
-            pre = 1.
-        else:
-            raise NonImplementedError, 'Unknown units: >' + units + '<'
+        try:
+            pre = ds_prefactor[units]
+        except KeyError:
+            raise NotImplementedError, 'Unknown units: >' + units + '<'
 
 #        me_c =  self.initial.get_me_c(np.array([0., 0., self.k]), self.form)
 #        T2mana = np.abs(np.dot(me_c,me_c)) / 3.
@@ -103,7 +103,7 @@ class CrossSectionBeta:
 #        print omega, self.initial.get_ds(self.k, omega, self.form), \
 #            (self.k * 4 * pi * (2 * pi)**2 / 137.0359895 * self.T2m / omega)
 
-        return pre * ((2 * pi)**2 / 137.0359895 * self.T2m / omega)
+        return pre * ((2 * pi)**2 * alpha * self.T2m / omega)
 
     def gauss_integrate(self, angle, function):
         T20 = 0.
@@ -178,13 +178,15 @@ class CrossSectionBeta:
                 me_c += self.r0 * gd.integrate(if_G)
                 me_c *= -omega
         elif self.form == 'V':
-            dtype=final_G.dtype
+            dtype = final_G.dtype
+            phase_cd = np.ones((3, 2), dtype)
             if not hasattr(gd, 'ddr'):
                 gd.ddr = [Gradient(gd, c, dtype=dtype).apply for c in range(3)]
             dfinal_G = gd.empty(dtype=dtype)
             me_c = np.empty(3, dtype=dtype)
             for c in range(3):
-                gd.ddr[c](final_G, dfinal_G, None)
+#                print "rank, c, apply", rank, c, dtype, final_G.shape, dfinal_G.shape
+                gd.ddr[c](final_G, dfinal_G, phase_cd)
                 me_c[c] = gd.integrate(initial_G * dfinal_G)
         else:
             raise NotImplementedError
@@ -197,8 +199,9 @@ class CrossSectionBeta:
             def ds(me):
                 return self.k / omega * me**2
             print omega, ds(me_analyt), ds(me), me_analyt, me
-#        print self.initial.get_me_c(vk, self.form)
-#        print me_c
+#        print 'analyt', self.initial.get_me_c(vk, self.form)
+#        print 'num', me_c
+#        print 'analyt/num', self.initial.get_me_c(vk, self.form) / me_c
 
         # return the squared matrix elements
         T2 = []

@@ -65,7 +65,7 @@ class Transport(GPAW):
                        'pl_atoms', 'pl_cells', 'pl_kpts', 'leads',
                         'multi_lead_directions',
                        'use_buffer', 'buffer_atoms', 'edge_atoms', 'bias',
-                       'lead_restart', 'special_datas',
+                       'lead_restart', 'special_datas', 'neutral_steps',
                        'plot_eta', 'plot_energy_range', 'plot_energy_point_num',
                        'vaccs', 'lead_guess', 'neutral','buffer_guess',
                        'lead_atoms', 'nleadlayers', 'mol_atoms', 'la_index',
@@ -145,6 +145,7 @@ class Transport(GPAW):
         self.lead_guess = p['lead_guess']
         self.buffer_guess = p['buffer_guess']
         self.neutral = p['neutral']
+        self.neutral_steps = p['neutral_steps']
         self.total_charge = p['total_charge']
         self.non_sc = p['non_sc']
         self.data_file = p['data_file']
@@ -232,7 +233,7 @@ class Transport(GPAW):
         p['n_bias_step'] = 0
         p['n_ion_step'] = 0
         p['eqinttol'] = 1e-4
-        p['plot_eta'] = 0.005
+        p['plot_eta'] = 0.0001
         p['plot_energy_range'] = [-5.,5.]
         p['plot_energy_point_num'] = 201
         p['alpha'] = 0.0
@@ -243,6 +244,7 @@ class Transport(GPAW):
         p['lead_guess'] = False
         p['buffer_guess'] = False
         p['neutral'] = True
+        p['neutral_steps'] = None
         p['total_charge'] = 0
         p['gate'] = 0
         p['gate_mode'] = 'VG'
@@ -276,6 +278,9 @@ class Transport(GPAW):
                     self.mol_atoms.remove(ind)            
 
     def adjust_atom_positions(self, atoms):
+        # match the scattering region and the lead region
+        # to get a correct boundary which is used to
+        # solve the Poisson equation
         if self.identical_leads or self.vaccs is None:
             atoms.center()
         else:
@@ -288,6 +293,8 @@ class Transport(GPAW):
             assert abs(np.diag(atoms.cell)[2] - rb - dis -self.vaccs[1]) < 0.005
        
     def initialize_transport(self):
+        # calculate the lead and generate a guess hamiltonian for
+        # scattering region
         if self.use_lead:
             if self.LR_leads:
                 self.dimt_lead = []
@@ -411,12 +418,8 @@ class Transport(GPAW):
             else:
                 self.get_hamiltonian_initial_guess()                
         
-        #if self.analysis_mode > -3:
-            #del self.wfs
-            #self.wfs = self.extended_calc.wfs
         self.initialize_gate()
         self.initialized_transport = True
-        #self.neutral = True
         self.matrix_mode = 'sparse'
         if not hasattr(self, 'plot_option'):
             self.plot_option = None
@@ -449,6 +452,8 @@ class Transport(GPAW):
                     self.lead_couple_hsd[i].reset(s, pk, h_cmm,'H')     
        
     def get_ks_map(self):
+        # ks_map: s, k, rank
+        # my_ks_map: s, q, rank (q is the k index in local processor)
         self.ks_map = np.zeros([self.npk * self.nspins, 3], int)
         self.my_ks_map = np.zeros([self.my_npk * self.my_nspins, 3], int)
         for i, kpt in enumerate(self.wfs.kpt_u):
@@ -483,6 +488,9 @@ class Transport(GPAW):
             self.gate_basis_index = get_atom_indices(self.gate_atoms, setups)
 
     def rotation_prepare(self):
+        #rotate the overlap and hiamltonian matrix for different leads
+        # in multi-terminal mode
+        
         from gpaw.transport.tools import transform_3d, \
                                           orbital_matrix_rotate_transformation
         self.pl_rotation_mats = []
@@ -497,6 +505,7 @@ class Transport(GPAW):
             self.pl_rotation_mats.append(tmat)
         
     def get_hamiltonian_initial_guess2(self):
+        # get a hamiltonian guess for scattering region using buffer layer
         atoms = self.atoms.copy()
         cell = np.diag(atoms.cell)
         cell[2] += 15.0
@@ -539,6 +548,7 @@ class Transport(GPAW):
         self.boundary_align_up()        
             
     def get_hamiltonian_initial_guess(self):
+        # get hamiltonian guess for scattering region using normal DFT
         atoms = self.atoms.copy()
         #atoms.pbc[self.d] = True
         kwargs = self.gpw_kwargs.copy()
@@ -604,6 +614,7 @@ class Transport(GPAW):
         #atoms.get_potential_energy()
 
     def get_hamiltonian_initial_guess3(self):
+        #get hamiltonian_guess from a hamiltonian file
         fd = file(self.restart_file, 'r')
         self.bias, vt_sG, dH_asp = cPickle.load(fd)
         fd.close()
@@ -1156,8 +1167,9 @@ class Transport(GPAW):
                 if self.master:
                     self.text('density: diff = %f  tol=%f' % (self.diff_d,
                                             tol))
-                if self.diff_d < tol * self.theta:
-                    if (self.use_qzk_boundary or self.fixed) and \
+                if self.diff_d < tol * self.theta or (self.neutral_steps is
+                                not None and self.step > self.neutral_steps):
+                    if (self.use_qzk_boundary or self.fixed or self.multi_leads) and \
                                   not self.normalize_density and self.neutral:
                         self.neutral = False
                     elif self.diff_d < tol:
@@ -2316,7 +2328,8 @@ class Transport(GPAW):
 
     def get_extended_atoms(self):
         # for LR leads only
-        if self.extended_atoms is None:
+        if self.extended_atoms is None or (self.extended_atoms is not None
+                                           and self.optimize):
             atoms = self.atoms.copy()
             cell = np.diag(atoms.cell)
             ex_cell = cell.copy()
@@ -2325,7 +2338,14 @@ class Transport(GPAW):
                 if self.leads is None:
                     atoms_l = self.atoms[self.pl_atoms[i]].copy()
                 else:
-                    atoms_l = self.leads[i]
+                    atoms_l = self.leads[i].copy()
+                    if i == 0:
+                        j = 0
+                    else:
+                        j = 1
+                    atoms_l.positions += self.atoms[self.pl_atoms[i]].positions[j]- \
+                                              self.leads[i].positions[j]                        
+                    
                 cell_l = self.pl_cells[i]
                 assert self.gd.orthogonal
                 ex_cell[di] += self.gd.h_cv[2, 2] * Bohr * self.bnc[i]
@@ -2339,7 +2359,7 @@ class Transport(GPAW):
             atoms.set_pbc(self.atoms._pbc)
             atoms.positions[:, 2] += self.gd.h_cv[2, 2] * Bohr * self.bnc[0]
             self.extended_atoms = atoms
-        
+       
         if not self.optimize:
             p = self.gpw_kwargs.copy()
             if not self.multi_leads:

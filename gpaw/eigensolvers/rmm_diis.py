@@ -98,4 +98,3 @@ class RMM_DIIS(Eigensolver):
         self.timer.stop('RMM-DIIS')
         error = self.gd.comm.sum(error)
         return error
-    

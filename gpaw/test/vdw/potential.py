@@ -4,7 +4,7 @@ from math import pi
 from gpaw.grid_descriptor import GridDescriptor
 import numpy as np
 from gpaw.test import equal
-from gpaw.xc.vdw import FFTVDWFunctional
+from gpaw.xc import XC
 from gpaw.mpi import world
 
 N = 8
@@ -13,7 +13,7 @@ gd = GridDescriptor((N, N, N), (a, a, a))
 
 # Spin paired:
 def paired():
-    xc = FFTVDWFunctional(verbose=0)
+    xc = XC('vdW-DF')
     n = 0.3 * np.ones((1, N, N, N))
     n += 0.01 * np.cos(np.arange(N) * 2 * pi / N)
     v = 0.0 * n
@@ -31,7 +31,7 @@ def paired():
 
 # Spin polarized:
 def polarized():
-    xc = FFTVDWFunctional(verbose=0)
+    xc = XC('vdW-DF')
     n = 0.04 * np.ones((2, N, N, N))
     n[1] = 0.3
     n[0] += 0.02 * np.sin(np.arange(N) * 2 * pi / N)
