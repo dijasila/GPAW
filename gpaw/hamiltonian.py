@@ -342,7 +342,7 @@ class Hamiltonian:
         # Make corrections due to non-local xc:
         #xcfunc = self.xc.xcfunc
         self.Enlxc = 0.0#XXXxcfunc.get_non_local_energy()
-        Ekin += self.xc.get_kinetic_energy_correction()
+        Ekin += self.xc.get_kinetic_energy_correction() / self.gd.comm.size
 
         energies = np.array([Ekin, Epot, Ebar, Eext, Exc])
         self.timer.start('Communicate energies')

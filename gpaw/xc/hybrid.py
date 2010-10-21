@@ -94,10 +94,8 @@ class HybridXC(XCFunctional):
     def calculate(self, gd, n_sg, v_sg=None, e_g=None):
         # Normal XC contribution:
         exc = self.xc.calculate(gd, n_sg, v_sg, e_g)
-        self.kpt_comm.sum(self.exx_s)
-        self.kpt_comm.sum(self.ekin_s)
-        self.ekin = self.ekin_s.sum()
-        return exc + self.exx_s.sum()
+        self.ekin = self.kpt_comm.sum(self.ekin_s.sum())
+        return exc + self.kpt_comm.sum(self.exx_s.sum())
 
     def calculate_exx(self):
         for kpt in self.kpt_u:
@@ -234,17 +232,22 @@ class HybridXC(XCFunctional):
             if kpt.s == 0:
                 exx += hybrid * setup.ExxC
 
-        self.exx_s[kpt.s] = exx
-        self.ekin_s[kpt.s] = ekin
+        self.exx_s[kpt.s] = self.gd.comm.sum(exx)
+        self.ekin_s[kpt.s] = self.gd.comm.sum(ekin)
 
     def correct_hamiltonian_matrix(self, kpt, H_nn):
         if not hasattr(kpt, 'vxx_ani'):
             return
-        
+
+        if self.gd.comm.rank > 0:
+            H_nn[:] = 0.0
+            
         nocc = self.nocc_s[kpt.s]
         for a, P_ni in kpt.P_ani.items():
             H_nn[:nocc, :nocc] += symmetrize(np.inner(P_ni[:nocc],
                                                       kpt.vxx_ani[a]))
+        self.gd.comm.sum(H_nn)
+        
         H_nn[:nocc, nocc:] = 0.0
         H_nn[nocc:, :nocc] = 0.0
 
