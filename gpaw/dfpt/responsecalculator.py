@@ -306,7 +306,7 @@ class ResponseCalculator:
         
         # XC part
         nt_sg = self.density.nt_sg
-        fxct_sg = np.empty_like(nt_sg)
+        fxct_sg = np.zeros_like(nt_sg)
         self.hamiltonian.xc.calculate_fxc(self.finegd, nt_sg, fxct_sg)
         vHXC1_g += fxct_sg[0] * self.nt1_g
 
