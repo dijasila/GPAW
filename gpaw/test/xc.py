@@ -85,7 +85,7 @@ n_xg = np.array(
 
 for xc in functionals:
     if xc.type == 'MGGA':
-        N_xg = n_xg[:, :1]
+        N_xg = n_xg[:, :1].copy()
     else:
         N_xg = n_xg
     e0_g, d0_xg = f2(N_xg, xc)
