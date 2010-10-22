@@ -178,8 +178,10 @@ class PAWXCCorrection:
                 dH_sq = w * np.inner(v_sg * self.dv_g, n_qg)
                 dH_sp += np.inner(dH_sq, np.dot(self.B_pqL, Y_L))
             sign = -1
-            
-        return de - self.Exc0
+
+        if addcoredensity:
+            de -= self.Exc0
+        return de
 
     def four_phi_integrals(self, D_sp, fxc):
         """Calculate four-phi integrals.

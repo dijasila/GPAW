@@ -37,7 +37,7 @@ class SIC(XCFunctional):
         self.finegrid = finegrid
         self.parameters = parameters
 
-    def initialize(self, density, hamiltonian, wfs, occupations):
+    def initialize(self, density, hamiltonian, wfs, occupations=None):
         assert wfs.gamma
         self.xc.initialize(density, hamiltonian, wfs, occupations)
         self.kpt_comm = wfs.kpt_comm
@@ -206,10 +206,13 @@ class SICSpin:
         self.lsinterp = True       # interpolate for minimum during line search
         self.basiserror = 1E+20
 
-    def initialize_orbitals(self):
-        assert self.gd.orthogonal
+    def initialize(self):
         self.nocc, x = divmod(int(self.kpt.f_n.sum()), 3 - self.nspins)
         assert x == 0
+        self.W_mn = np.identity(self.nocc)
+        
+    def initialize_to_wannier_orbitals(self):
+        assert self.gd.orthogonal
 
         Z_mmv = np.empty((self.nocc, self.nocc, 3), complex)
         for v in range(3):
@@ -286,11 +289,12 @@ class SICSpin:
             nt_g = self.finegd.empty()
             self.interpolator.apply(nt_G, nt_g)
 
-        self.ghat.add(nt_g, Q_aL)
+        rhot_g = nt_g.copy()
+        self.ghat.add(rhot_g, Q_aL)
 
-        nt_g *= 1.0 / self.finegd.integrate(nt_g)
+        rhot_g *= 1.0 / self.finegd.integrate(rhot_g)
 
-        return nt_g, D_ap
+        return nt_g, rhot_g, D_ap
         
     def update_potentials(self):
         self.timer.start('ODD-potentials')
@@ -313,7 +317,7 @@ class SICSpin:
                 self.dH_amp[a] = np.empty((self.nocc, ni * (ni + 1) // 2))
 
         for m, phit_G in enumerate(self.phit_mG):
-            nt_sg[0], D_ap = self.calculate_density(m)
+            nt_sg[0], rhot_g, D_ap = self.calculate_density(m)
             vt_sg[:] = 0.0
 
             self.timer.start('XC')
@@ -323,9 +327,11 @@ class SICSpin:
                 vt_sg[0] *= -self.xc_factor
                 for a, D_p in D_ap.items():
                     setup = self.setups[a]
+                    D_sp = np.zeros((2, len(D_p)))
+                    D_sp[0] = D_p
                     dH_p = self.dH_amp[a][m]
-                    dH_p[:] = 0.0
-                    exc += setup.xc_correction.calculate(D_p, dH_p,
+                    dH_sp = np.zeros((2, len(D_p)))
+                    exc += setup.xc_correction.calculate(self.xc, D_sp, dH_sp,
                                                          addcoredensity=False)
                     dH_p *= -self.xc_factor
                 self.exc_m[m] = -self.xc_factor * exc
@@ -333,10 +339,9 @@ class SICSpin:
 
             self.timer.start('Hartree')
             if self.coulomb_factor != 0.0:
-                self.poissonsolver.solve(self.vHt_mg[m], nt_sg[0],
+                self.poissonsolver.solve(self.vHt_mg[m], rhot_g,
                                          zero_initial_phi=zero_initial_phi)
-                ecoulomb = 0.5 * self.finegd.integrate(nt_sg[0] *
-                                                       self.vHt_mg[m])
+                ecoulomb = 0.5 * self.finegd.integrate(rhot_g * self.vHt_mg[m])
                 ecoulomb /= self.gd.comm.size
                 vt_sg[0] -= self.coulomb_factor * self.vHt_mg[m]
                 self.ghat.integrate(self.vHt_mg[m], W_aL)
@@ -397,7 +402,8 @@ class SICSpin:
         
     def calculate(self):
         if self.W_mn is None:
-            self.initialize_orbitals()
+            self.initialize()
+            self.initialize_to_wannier_orbitals()
         self.unitary_optimization()
         return self.esic, self.ekin
 
