@@ -82,7 +82,7 @@ def hRPS(x, xc=1.0):
 
 class VDWFunctional(GGA):
     """Base class for vdW-DF."""
-    def __init__(self, name='vdW-DF', world=None, q0cut=5.0,
+    def __init__(self, name, world=None, q0cut=5.0,
                  phi0=0.5, ds=1.0, Dmax=20.0, nD=201, ndelta=21,
                  soft_correction=False,
                  exchange=None, Zab=None,
@@ -377,7 +377,7 @@ class VDWFunctional(GGA):
 
 class RealSpaceVDWFunctional(VDWFunctional):
     """Real-space implementation of vdW-DF."""
-    def __init__(self, name, repeat=None, ncut=0.0005, **kwargs):
+    def __init__(self, name='vdW-DF', repeat=None, ncut=0.0005, **kwargs):
         """Real-space vdW-DF.
 
         parameters:
@@ -460,7 +460,7 @@ class RealSpaceVDWFunctional(VDWFunctional):
 
 class FFTVDWFunctional(VDWFunctional):
     """FFT implementation of vdW-DF."""
-    def __init__(self, name,
+    def __init__(self, name='vdW-DF',
                  Nalpha=20, lambd=1.2, rcut=125.0, Nr=2048, size=None,
                  **kwargs):
         """FFT vdW-DF.
