@@ -8,6 +8,7 @@ short_names = {
     'PBE':     'GGA_X_PBE+GGA_C_PBE',
     'revPBE':  'GGA_X_PBE_R+GGA_C_PBE',
     'RPBE':    'GGA_X_RPBE+GGA_C_PBE',
+    'BLYP':    'GGA_X_B88+GGA_C_LYP',
     'HCTH407': 'GGA_XC_HCTH_407',
     'TPSS':    'MGGA_X_TPSS+MGGA_C_TPSS',
     'M06L':    'MGGA_X_M06L+MGGA_C_M06L',

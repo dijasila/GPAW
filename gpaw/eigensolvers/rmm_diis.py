@@ -53,7 +53,7 @@ class RMM_DIIS(Eigensolver):
             else:
                 R_xG = self.gd.empty(n2 - n1, wfs.dtype)
                 psit_xG = kpt.psit_nG[n_x]
-                wfs.apply_pseudo_hamiltonian(kpt, psit_xG, R_xG)
+                wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_xG, R_xG)
                 wfs.pt.integrate(psit_xG, P_axi)
                 self.calculate_residuals(kpt, wfs, hamiltonian, psit_xG,
                                          P_axi, kpt.eps_n[n_x], R_xG, n_x)

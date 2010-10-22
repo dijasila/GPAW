@@ -40,6 +40,10 @@ class HybridXC(XCFunctional):
             assert hybrid is None and xc is None
             hybrid = 0.25
             xc = XC('HYB_GGA_XC_PBEH')
+        elif name == 'B3LYP':
+            assert hybrid is None and xc is None
+            hybrid = 0.2
+            xc = XC('HYB_GGA_XC_B3LYP')
             
         if isinstance(xc, str):
             xc = XC(xc)
