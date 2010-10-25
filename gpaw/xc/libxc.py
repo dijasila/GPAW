@@ -35,7 +35,10 @@ class LibXC(XCKernel):
             else:
                 x = f
         else:
-            x, c = name.split('+')
+            try:
+                x, c = name.split('+')
+            except ValueError:
+                raise NameError('Unknown functional: "%s".' % name)
             xc = -1
             x = libxc_functionals[x]
             c = libxc_functionals[c]
