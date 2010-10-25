@@ -22,9 +22,10 @@ class MGGA(GGA):
                          [[setup.tauct] for setup in wfs.setups],
                          forces=True, cut=True)
         self.tauct_G = None
+        self.dedtaut_sG = None
         self.restrict = hamiltonian.restrictor.apply
         self.interpolate = density.interpolator.apply
-        self.taugrad_v = [Gradient(wfs.gd, v, allocate=not False).apply
+        self.taugrad_v = [Gradient(wfs.gd, v, allocate=True).apply
                           for v in range(3)]
         print 'TODO: Make transformers use malloc/free.'
 
@@ -69,6 +70,10 @@ class MGGA(GGA):
         for a, dF_v in dF_av.items():
             self.F_av[a] += dF_v[0]
 
+    def estimate_memory(self, mem):
+        bytecount = self.wfs.gd.bytecount()
+        mem.subnode('MGGA arrays', (1 + self.wfs.nspins) * bytecount)
+        
     def initialize_kinetic(self, xccorr):
         nii = xccorr.nii
         nn = len(xccorr.rnablaY_nLv)

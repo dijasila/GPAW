@@ -20,6 +20,9 @@ class XCFunctional:
     def summary(self, fd):
         pass
 
+    def estimate_memory(self, mem):
+        pass
+    
     # Orbital dependent stuff:
     def apply_orbital_dependent_hamiltonian(self, kpt, psit_nG,
                                             Htpsit_nG, dH_asp):
