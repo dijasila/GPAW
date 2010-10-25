@@ -135,18 +135,18 @@ class C_Response(Contribution):
     def integrate_sphere(self, a, Dresp_sp, D_sp, Dwf_p):
         c = self.nlfunc.setups[a].xc_correction
         Dresp_p, D_p = Dresp_sp[0], D_sp[0]
-        D_Lq = np.dot(c.B_Lqp, D_p)
+        D_Lq = np.dot(c.B_pqL.T, D_p)
         n_Lg = np.dot(D_Lq, c.n_qg) # Construct density
         n_Lg[0] += c.nc_g * sqrt(4 * pi)
         nt_Lg = np.dot(D_Lq, c.nt_qg) # Construct smooth density (without smooth core)
-        Dresp_Lq = np.dot(c.B_Lqp, Dresp_p) # Construct response
+        Dresp_Lq = np.dot(c.B_pqL.T, Dresp_p) # Construct response
         nresp_Lg = np.dot(Dresp_Lq, c.n_qg) # Construct 'response density'
         nrespt_Lg = np.dot(Dresp_Lq, c.nt_qg) # Construct smooth 'response density' (w/o smooth core)
-        Dwf_Lq = np.dot(c.B_Lqp, Dwf_p) # Construct lumo wf
+        Dwf_Lq = np.dot(c.B_pqL.T, Dwf_p) # Construct lumo wf
         nwf_Lg = np.dot(Dwf_Lq, c.n_qg)
         nwft_Lg = np.dot(Dwf_Lq, c.nt_qg)
         E = 0.0
-        for w, Y_L in zip(weights, c.Y_nL):
+        for w, Y_L in zip(weight_n, c.Y_nL):
             v = np.dot(Y_L, nwft_Lg) * np.dot(Y_L, nrespt_Lg) / (np.dot(Y_L, nt_Lg) + 1e-10)
             E -= self.weight * w * np.dot(v, c.rgd.dv_g)
             v = np.dot(Y_L, nwf_Lg) * np.dot(Y_L, nresp_Lg) / (np.dot(Y_L, n_Lg) + 1e-10)
