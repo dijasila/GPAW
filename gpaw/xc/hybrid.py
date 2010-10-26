@@ -12,7 +12,8 @@ from gpaw.xc.kernel import XCNull
 from gpaw.xc.functional import XCFunctional
 from gpaw.poisson import PoissonSolver
 from gpaw.utilities import pack, unpack, unpack2, packed_index
-from gpaw.utilities.tools import core_states, symmetrize
+from gpaw.utilities.tools import symmetrize
+from gpaw.atom.configurations import core_states
 from gpaw.lfc import LFC
 from gpaw.utilities.blas import gemm
 
