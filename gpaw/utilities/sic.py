@@ -6,7 +6,8 @@ from ase.units import Hartree
 
 from gpaw.xc import XC
 from gpaw.xc.sic import SIC
-from gpaw.atom.generator import Generator, parameters
+from gpaw.atom.generator import Generator
+from gpaw.atom.configurations import parameters
 from gpaw.utilities import hartree
 
 
