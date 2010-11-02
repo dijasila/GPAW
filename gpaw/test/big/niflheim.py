@@ -41,7 +41,7 @@ class Niflheim(Cluster):
             raise RuntimeError('Installation of GPAW (Opteron) failed!')
         
         os.system('wget --no-check-certificate --quiet ' +
-                  'http://wiki.fysik.dtu.dk/stuff/gpaw-setups-latest.tar.gz')
+                  'http://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-latest.tar.gz')
         os.system('tar xzf gpaw-setups-latest.tar.gz')
         os.system('rm gpaw-setups-latest.tar.gz')
         os.system('mv gpaw-setups-[0-9]* gpaw/gpaw-setups')
@@ -62,7 +62,7 @@ class Niflheim(Cluster):
 
         if job.queueopts is None:
             if job.ncpus == 1:
-                ppn = '1:opteron:ethernet'
+                ppn = '1:opteron2218:ethernet'
                 nodes = 1
                 arch = 'linux-x86_64-opteron-2.4'
             elif job.ncpus % 8 == 0:
@@ -71,7 +71,7 @@ class Niflheim(Cluster):
                 arch = 'linux-x86_64-xeon-2.4'
             else:
                 assert job.ncpus % 4 == 0
-                ppn = '4:opteron:ethernet'
+                ppn = '4:opteron2218:ethernet'
                 nodes = job.ncpus // 4
                 arch = 'linux-x86_64-opteron-2.4'
             queueopts = '-l nodes=%d:ppn=%s' % (nodes, ppn)

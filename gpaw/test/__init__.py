@@ -7,7 +7,8 @@ import traceback
 
 import numpy as np
 
-from gpaw.atom.generator import Generator, parameters
+from gpaw.atom.generator import Generator
+from gpaw.atom.configurations import parameters
 from gpaw.utilities import devnull
 from gpaw import setup_paths
 from gpaw import mpi
@@ -57,9 +58,7 @@ tests = [
     'lapack.py',
     'mpicomm.py',
     'eigh.py',
-    'setups.py',
     'xc.py',
-    'xcfunc.py',
     'gradient.py',
     'pbe_pw91.py',
     'cg2.py',
@@ -70,7 +69,6 @@ tests = [
     'non_periodic.py',
     'erf.py',
     'lf.py',
-    'lxc_xc.py',
     'lxc_fxc.py',
     'Gauss.py',
     'cluster.py',
@@ -83,7 +81,6 @@ tests = [
     'pbc.py',
     'poisson.py',
     'XC2.py',
-    'XC2Spin.py',
     'multipoletest.py',
     'proton.py',
     'parallel/ut_parallel.py',
@@ -110,6 +107,7 @@ tests = [
     'usesymm.py',
 #    'usesymm2.py',
     'eed.py',
+#    'hirshfeld.py',
     'mixer.py',
     'broydenmixer.py',
     'restart.py',
@@ -135,6 +133,7 @@ tests = [
     'hydrogen.py',
     'H_force.py',
     'Cl_minus.py',
+    'blocked_rmm_diis.py',
     'degeneracy.py',
     'h2o_xas.py',
     'fermilevel.py',
@@ -185,7 +184,6 @@ tests = [
     'atomize.py',
     'Hubbard_U.py',
     'revPBE_Li.py',
-    'xctest.py',
     'si_xas.py',
     'tpss.py',
     'nsc_MGGA.py',
@@ -195,8 +193,8 @@ tests = [
     'exx.py',
     'h2o_dks.py',
     'nscfsic.py',
-    #'scfsic_h2.py',
-    #'scfsic_n2.py',
+    'scfsic_h2.py',
+    'scfsic_n2.py',
     'vdw/quick.py',
     'vdw/potential.py',
     'vdw/quick_spin.py',

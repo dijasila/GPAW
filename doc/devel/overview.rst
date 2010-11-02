@@ -187,6 +187,65 @@ Attributes of the wave function object: :attr:`gd`, :attr:`nspins`,
 :attr:`ibzk_qc`, :attr:`eigensolver`, and :attr:`timer`.
         
 
+
+Exchange-correlation functionals
+================================
+
+The ``gpaw.xc`` module contains all the code for XC functionals in
+GPAW::
+
+   +------------+
+   |XCFunctional|
+   +------------+
+       ^     ^
+      /_\   /_\
+       |     |
+     +---+   |    +------------------------+
+     |LDA|    ----|vdW-DF/HybridXC/SIC/GLLB|
+     +---+        +------------------------+
+       ^
+      /_\
+       |
+     +---+
+     |GGA|
+     +---+
+       ^
+      /_\
+       |
+     +----+
+     |MGGA|
+     +----+
+
+An :class:`~gpaw.xc.functional.XCFunctional` object is usually created
+using the :func:`gpaw.xc.XC` function:
+
+.. autofunction:: gpaw.xc.XC
+
+Example::
+
+    from gpaw.xc import XC
+    xc = XC('PBE')
+    # alternative:
+    from gpaw.xc.libxc import LibXC
+    from gpaw.xc.gga import GGA
+    xc = GGA(LibXC('PBE'))
+    # or:
+    xc = GGA(LibXC('GGA_X_PBE+GGA_C_PBE'))
+
+In this example, calling the
+:meth:`~gpaw.xc.gga.XCFunctional.calculate` method of the ``xc``
+object passing in a :class:`~gpaw.grid_descriptor.GridDescriptor`, an
+input density array and an output array for the potential, the
+:class:`~gpaw.xc.gga.GGA` object will calculate the gradient of the
+density and pass that and the density on to the libxc kernel.
+
+GPAW also has a few non-libxc kernels that one can use like this::
+
+    from gpaw.xc.kernel import XCKernel
+    xc = XC(XCKernel('PBE'))
+
+
+
 .. _overview_array_naming:
 
 Naming convention for arrays
