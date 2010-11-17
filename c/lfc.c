@@ -1,5 +1,6 @@
 /*  Copyright (C) 2003-2007  CAMP
  *  Copyright (C) 2007-2009  CAMd
+ *  Copyright (C) 2010       CSC - IT Center for Science Ltd.
  *  Please see the accompanying LICENSE file for further information. */
 
 #include <Python.h>
@@ -11,16 +12,19 @@
 #include "bmgs/spherical_harmonics.h"
 #include "bmgs/bmgs.h"
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 static void lfc_dealloc(LFCObject *self)
 {
   if (self->bloch_boundary_conditions)
     free(self->phase_i);
-  free(self->volume_i);
   free(self->work_gm);
   free(self->ngm_W);
-  free(self->i_W);
+  free(self->volume_i);
   free(self->volume_W);
+  free(self->i_W);
   PyObject_DEL(self);
 }
 
@@ -89,6 +93,7 @@ static PyTypeObject LFCType = {
   lfc_getattr
 };
 
+
 PyObject * NewLFCObject(PyObject *obj, PyObject *args)
 {
   PyObject* A_Wgm_obj;
@@ -97,10 +102,11 @@ PyObject * NewLFCObject(PyObject *obj, PyObject *args)
   const PyArrayObject* W_B_obj;
   double dv;
   const PyArrayObject* phase_kW_obj;
+  // const PyObject* G_wb_obj;
 
   if (!PyArg_ParseTuple(args, "OOOOdO",
                         &A_Wgm_obj, &M_W_obj, &G_B_obj, &W_B_obj, &dv,
-                        &phase_kW_obj))
+                        &phase_kW_obj)) //, &G_wb_obj))
     return NULL; 
 
   LFCObject *self = PyObject_NEW(LFCObject, &LFCType);
@@ -145,29 +151,51 @@ PyObject * NewLFCObject(PyObject *obj, PyObject *args)
     }
     Ga = Gb;
   }
+  self->nimax = nimax;
   assert(ni == 0);
   
-  self->volume_W = GPAW_MALLOC(LFVolume, nW);
-  self->i_W = GPAW_MALLOC(int, nW);
+#ifdef _OPENMP
+  int nthreads;
+  #pragma omp parallel
+  {
+    nthreads = omp_get_num_threads();
+  }
+#else
+  int nthreads = 1;
+#endif
+
+  // we need private volume for each thread. 
+  // (Constant) data is same for all threads
+  self->volume_W = GPAW_MALLOC(LFVolume, nthreads * nW);
+  self->i_W      = GPAW_MALLOC(int, nthreads * nW);
   self->ngm_W = GPAW_MALLOC(int, nW);
 
   int nmmax = 0;
   for (int W = 0; W < nW; W++) {
     const PyArrayObject* A_gm_obj = \
       (const PyArrayObject*)PyList_GetItem(A_Wgm_obj, W);
-    LFVolume* volume = &self->volume_W[W];
-    volume->A_gm = (const double*)A_gm_obj->data;
     self->ngm_W[W] = A_gm_obj->dimensions[0] * A_gm_obj->dimensions[1];
-    volume->nm = A_gm_obj->dimensions[1];
-    volume->M = M_W[W];
-    volume->W = W;
-    if (volume->nm > nmmax)
-      nmmax = volume->nm;
+    for (int i = 0; i < nthreads; i++) {
+      LFVolume* volume = &self->volume_W[W + i * nW];
+      volume->A_gm = (const double*)A_gm_obj->data;
+
+      volume->nm = A_gm_obj->dimensions[1];
+      volume->M = M_W[W];
+      volume->W = W;
+      if (volume->nm > nmmax)
+	nmmax = volume->nm;
+    }
   }
-  self->work_gm = GPAW_MALLOC(double, ngmax * nmmax);
-  self->volume_i = GPAW_MALLOC(LFVolume, nimax);
-  if (self->bloch_boundary_conditions)
-    self->phase_i = GPAW_MALLOC(complex double, nimax);
+
+  self->work_gm  = GPAW_MALLOC(double, ngmax * nmmax);
+  self->volume_i = GPAW_MALLOC(LFVolume *, nthreads * nimax);
+  self->phase_i  = NULL;
+  if (self->bloch_boundary_conditions) {
+    self->phase_i = GPAW_MALLOC(complex double, nthreads * nimax);
+  }
+
+  /* Zero volume_i just in case since it will contain pointers to volume_W. */
+  memset(self->volume_i, 0, sizeof(LFVolume *) * nthreads * nimax);
   
   return (PyObject*)self;
 }
@@ -191,9 +219,9 @@ PyObject* calculate_potential_matrix(LFCObject *lfc, PyObject *args)
   double* work_gm = lfc->work_gm;
   if (!lfc->bloch_boundary_conditions) {
     double* Vt_MM = (double*)Vt_MM_obj->data;
-    GRID_LOOP_START(lfc, -1) { // ORDINARY/GAMMA-POINT
+    GRID_LOOP_START(lfc, -1, 0) { // ORDINARY/GAMMA-POINT
       for (int i1 = 0; i1 < ni; i1++) {
-	LFVolume* v1 = volume_i + i1;
+	LFVolume* v1 = volume_i[i1];
 	int M1 = v1->M;
 	int nm1 = v1->nm;
 	int M1p = MAX(M1, Mstart);
@@ -209,7 +237,7 @@ PyObject* calculate_potential_matrix(LFCObject *lfc, PyObject *args)
 	    work_gm[gm1] = vtdv * A1_gm[gm];
 	}
 	for (int i2 = 0; i2 < ni; i2++) {
-	  LFVolume* v2 = volume_i + i2;
+	  LFVolume* v2 = volume_i[i2];
 	  int M2 = v2->M;
 	  if (M1 >= M2) {
 	    int nm2 = v2->nm;
@@ -228,13 +256,13 @@ PyObject* calculate_potential_matrix(LFCObject *lfc, PyObject *args)
 	}
       }
     }
-    GRID_LOOP_STOP(lfc, -1);
+    GRID_LOOP_STOP(lfc, -1, 0);
   }
   else {
     complex double* Vt_MM = (complex double*)Vt_MM_obj->data;
-    GRID_LOOP_START(lfc, k) {  // KPOINT CALC POT MATRIX
+    GRID_LOOP_START(lfc, k, 0) {  // KPOINT CALC POT MATRIX
       for (int i1 = 0; i1 < ni; i1++) {
-        LFVolume* v1 = volume_i + i1;
+        LFVolume* v1 = volume_i[i1];
         double complex conjphase1 = conj(phase_i[i1]);
         int M1 = v1->M;
         int nm1 = v1->nm;
@@ -251,7 +279,7 @@ PyObject* calculate_potential_matrix(LFCObject *lfc, PyObject *args)
             work_gm[gm1] = vtdv * A1_gm[gm];
         }
         for (int i2 = 0; i2 < ni; i2++) {
-          LFVolume* v2 = volume_i + i2;
+          LFVolume* v2 = volume_i[i2];
           const double* A2_gm = v2->A_gm;
           int M2 = v2->M;
           if (M1 >= M2) {
@@ -273,7 +301,7 @@ PyObject* calculate_potential_matrix(LFCObject *lfc, PyObject *args)
         }
       }
     }
-    GRID_LOOP_STOP(lfc, k);
+    GRID_LOOP_STOP(lfc, k, 0);
   }
   Py_RETURN_NONE;
 }
@@ -294,51 +322,60 @@ PyObject* integrate(LFCObject *lfc, PyObject *args)
   int nM = c_xM_obj->dimensions[c_xM_obj->nd - 1];
   double dv = lfc->dv;
 
-  if (!lfc->bloch_boundary_conditions) {
-    const double* a_G = (const double*)a_xG_obj->data;
-    double* c_M = (double*)c_xM_obj->data;
-    for (int x = 0; x < nx; x++) {
-      GRID_LOOP_START(lfc, -1) {
-        for (int i = 0; i < ni; i++) {
-          LFVolume* v = volume_i + i;
-          const double* A_gm = v->A_gm;
-          int nm = v->nm;
-          double* c_M1 = c_M + v->M;
-          for (int gm = 0, G = Ga; G < Gb; G++){
-            double av = a_G[G] * dv;
-            for (int m = 0; m < nm; m++, gm++){
-              c_M1[m] += av * A_gm[gm];
+  #pragma omp parallel
+  {
+    int thread_id;
+#ifdef _OPENMP    
+    thread_id = omp_get_thread_num();
+#else
+    thread_id = 0;
+#endif
+
+    if (!lfc->bloch_boundary_conditions) {
+      #pragma omp for schedule(static)
+      for (int x = 0; x < nx; x++) {
+        const double* a_G = (const double*)a_xG_obj->data + x * nG;
+        double* c_M = (double*)c_xM_obj->data + x * nM;
+
+        GRID_LOOP_START(lfc, -1, thread_id) {
+          for (int i = 0; i < ni; i++) {
+            LFVolume* v = volume_i[i];
+            const double* A_gm = v->A_gm;
+            int nm = v->nm;
+            double* c_M1 = c_M + v->M;
+            for (int gm = 0, G = Ga; G < Gb; G++){
+              double av = a_G[G] * dv;
+              for (int m = 0; m < nm; m++, gm++){
+                c_M1[m] += av * A_gm[gm];
+              }
             }
           }
         }
+        GRID_LOOP_STOP(lfc, -1, thread_id);
       }
-      GRID_LOOP_STOP(lfc, -1);
-      c_M += nM;
-      a_G += nG;
     }
-  }
-  else {
-    const complex double* a_G = (const complex double*)a_xG_obj->data;
-    complex double* c_M = (complex double*)c_xM_obj->data;
-    for (int x = 0; x < nx; x++) {
-      GRID_LOOP_START(lfc, q) {
-        for (int i = 0; i < ni; i++) {
-          LFVolume* v = volume_i + i;
-          int nm = v->nm;
-          complex double* c_M1 = c_M + v->M;
-          const double* A_gm = v->A_gm;
-          double complex vphase = phase_i[i] * dv;
-          for (int gm = 0, G = Ga; G < Gb; G++){
-            double complex avphase = a_G[G] * vphase;
-            for (int m = 0; m < nm; m++, gm++){
-              c_M1[m] += avphase * A_gm[gm];
+    else {
+      #pragma omp for schedule(static)
+      for (int x = 0; x < nx; x++) {
+        const complex double* a_G = (const complex double*)a_xG_obj->data + x * nG;
+        complex double* c_M = (complex double*)c_xM_obj->data + x * nM;
+        GRID_LOOP_START(lfc, q, thread_id) {
+          for (int i = 0; i < ni; i++) {
+            LFVolume* v = volume_i[i];
+            int nm = v->nm;
+            complex double* c_M1 = c_M + v->M;
+            const double* A_gm = v->A_gm;
+            double complex vphase = phase_i[i] * dv;
+            for (int gm = 0, G = Ga; G < Gb; G++){
+              double complex avphase = a_G[G] * vphase;
+              for (int m = 0; m < nm; m++, gm++){
+                c_M1[m] += avphase * A_gm[gm];
+              }
             }
           }
         }
+        GRID_LOOP_STOP(lfc, q, thread_id);
       }
-      GRID_LOOP_STOP(lfc, q);
-      c_M += nM;
-      a_G += nG;
     }
   }
   Py_RETURN_NONE;
@@ -363,9 +400,9 @@ PyObject* construct_density(LFCObject *lfc, PyObject *args)
 
   if (!lfc->bloch_boundary_conditions) {
     const double* rho_MM = (const double*)rho_MM_obj->data;
-    GRID_LOOP_START(lfc, -1) {
+    GRID_LOOP_START(lfc, -1, 0) {
       for (int i1 = 0; i1 < ni; i1++) {
-        LFVolume* v1 = volume_i + i1;
+        LFVolume* v1 = volume_i[i1];
         int M1 = v1->M;
         int nm1 = v1->nm;
 
@@ -381,7 +418,7 @@ PyObject* construct_density(LFCObject *lfc, PyObject *args)
         int m1start = MAX(0, Mstart - M1);
 
         for (int i2 = i1; i2 < ni; i2++) {
-          LFVolume* v2 = volume_i + i2;
+          LFVolume* v2 = volume_i[i2];
           int M2 = v2->M;
           int nm2 = v2->nm;
           const double* rho_mm = rho_MM + (M1p - Mstart) * nM + M2;
@@ -407,27 +444,27 @@ PyObject* construct_density(LFCObject *lfc, PyObject *args)
         }
       }
     }
-    GRID_LOOP_STOP(lfc, -1);
+    GRID_LOOP_STOP(lfc, -1, 0);
   }
   else {
     const double complex* rho_MM = (const double complex*)rho_MM_obj->data;
-    GRID_LOOP_START(lfc, k) {
+    GRID_LOOP_START(lfc, k, 0) {
       for (int i1 = 0; i1 < ni; i1++) {
-        LFVolume* v1 = volume_i + i1;
+        LFVolume* v1 = volume_i[i1];
         int M1 = v1->M;
         int nm1 = v1->nm;
 
-	int M1p = MAX(M1, Mstart);
-	int nm1p = MIN(M1 + nm1, Mstop) - M1p;
-	if (nm1p <= 0)
-	  continue;
+       int M1p = MAX(M1, Mstart);
+       int nm1p = MIN(M1 + nm1, Mstop) - M1p;
+       if (nm1p <= 0)
+         continue;
 
         memset(work_gm, 0, nG * nm1 * sizeof(double));
         double complex factor = 1.0;
-	
-	int m1end = MIN(nm1, Mstop - M1);
-	int m1start = MAX(0, Mstart - M1);
-	
+
+        int m1end = MIN(nm1, Mstop - M1);
+        int m1start = MAX(0, Mstart - M1);
+
         for (int i2 = i1; i2 < ni; i2++) {
           if (i2 > i1)
             factor = 2.0 * phase_i[i1] * conj(phase_i[i2]);
@@ -435,7 +472,7 @@ PyObject* construct_density(LFCObject *lfc, PyObject *args)
           double rfactor = creal(factor);
           double ifactor = cimag(factor);
           
-          LFVolume* v2 = volume_i + i2;
+          LFVolume* v2 = volume_i[i2];
           const double* A2_gm = v2->A_gm;
           int M2 = v2->M;
           int nm2 = v2->nm;
@@ -477,7 +514,7 @@ PyObject* construct_density(LFCObject *lfc, PyObject *args)
         }
       }
     }
-    GRID_LOOP_STOP(lfc, k);
+    GRID_LOOP_STOP(lfc, k, 0);
   }
   Py_RETURN_NONE;
 }
@@ -493,9 +530,9 @@ PyObject* construct_density1(LFCObject *lfc, PyObject *args)
   const double* f_M = (const double*)f_M_obj->data;
   double* nt_G = (double*)nt_G_obj->data;
 
-  GRID_LOOP_START(lfc, -1) {
+  GRID_LOOP_START(lfc, -1, 0) {
     for (int i = 0; i < ni; i++) {
-      LFVolume* v = volume_i + i;
+      LFVolume* v = volume_i[i];
       for (int gm = 0, G = Ga; G < Gb; G++) {
         for (int m = 0; m < v->nm; m++, gm++) {
           nt_G[G] += v->A_gm[gm] * v->A_gm[gm] * f_M[v->M + m];
@@ -503,7 +540,7 @@ PyObject* construct_density1(LFCObject *lfc, PyObject *args)
       }
     }
   }
-  GRID_LOOP_STOP(lfc, -1);
+  GRID_LOOP_STOP(lfc, -1, 0);
   Py_RETURN_NONE;
 }
 
@@ -519,9 +556,9 @@ PyObject* lcao_to_grid(LFCObject *lfc, PyObject *args)
   if (!lfc->bloch_boundary_conditions) {
     const double* c_M = (const double*)c_M_obj->data;
     double* psit_G = (double*)psit_G_obj->data;
-    GRID_LOOP_START(lfc, -1) {
+    GRID_LOOP_START(lfc, -1, 0) {
       for (int i = 0; i < ni; i++) {
-        LFVolume* v = volume_i + i;
+        LFVolume* v = volume_i[i];
         for (int gm = 0, G = Ga; G < Gb; G++) {
           for (int m = 0; m < v->nm; m++, gm++) {
             psit_G[G] += v->A_gm[gm] * c_M[v->M + m];
@@ -529,14 +566,14 @@ PyObject* lcao_to_grid(LFCObject *lfc, PyObject *args)
         }
       }
     }
-    GRID_LOOP_STOP(lfc, -1);
+    GRID_LOOP_STOP(lfc, -1, 0);
   }
   else {
     const double complex* c_M = (const double complex*)c_M_obj->data;
     double complex* psit_G = (double complex*)psit_G_obj->data;
-    GRID_LOOP_START(lfc, k) {
+    GRID_LOOP_START(lfc, k, 0) {
       for (int i = 0; i < ni; i++) {
-        LFVolume* v = volume_i + i;
+        LFVolume* v = volume_i[i];
         double complex conjphase = conj(phase_i[i]);
         const double* A_gm = v->A_gm;
         const double complex* c_M1 = c_M + v->M;
@@ -549,7 +586,7 @@ PyObject* lcao_to_grid(LFCObject *lfc, PyObject *args)
         }
       }
     }
-    GRID_LOOP_STOP(lfc, k);
+    GRID_LOOP_STOP(lfc, k, 0);
   }
   Py_RETURN_NONE;
 }
@@ -569,47 +606,55 @@ PyObject* add(LFCObject *lfc, PyObject *args)
   int nG = PyArray_MultiplyList(dims + nd - 3, 3);
   int nM = c_xM_obj->dimensions[c_xM_obj->nd - 1];
 
-  if (!lfc->bloch_boundary_conditions) {
-    const double* c_M = (const double*)c_xM_obj->data;
-    double* a_G = (double*)a_xG_obj->data;
-    for (int x = 0; x < nx; x++) {
-      GRID_LOOP_START(lfc, -1) {
-        for (int i = 0; i < ni; i++) {
-          LFVolume* v = volume_i + i;
-          for (int gm = 0, G = Ga; G < Gb; G++) {
-            for (int m = 0; m < v->nm; m++, gm++) {
-              a_G[G] += v->A_gm[gm] * c_M[v->M + m];
+  #pragma omp parallel
+  {
+    int thread_id;
+#ifdef _OPENMP    
+    thread_id = omp_get_thread_num();
+#else
+    thread_id = 0;
+#endif
+
+    if (!lfc->bloch_boundary_conditions) {
+      #pragma omp for schedule(static)
+      for (int x = 0; x < nx; x++) {
+        const double* c_M = (const double*)c_xM_obj->data + x * nM;
+        double* a_G = (double*)a_xG_obj->data + x * nG;
+        GRID_LOOP_START(lfc, -1, thread_id) {
+          for (int i = 0; i < ni; i++) {
+            LFVolume* v = volume_i[i];
+            for (int gm = 0, G = Ga; G < Gb; G++) {
+              for (int m = 0; m < v->nm; m++, gm++) {
+                a_G[G] += v->A_gm[gm] * c_M[v->M + m];
+              }
             }
           }
         }
+        GRID_LOOP_STOP(lfc, -1, thread_id);
       }
-      GRID_LOOP_STOP(lfc, -1);
-      c_M += nM;
-      a_G += nG;
     }
-  }
-  else {
-    const double complex* c_M = (const double complex*)c_xM_obj->data;
-    double complex* a_G = (double complex*)a_xG_obj->data;
-    for (int x = 0; x < nx; x++) {
-      GRID_LOOP_START(lfc, q) {
-        for (int i = 0; i < ni; i++) {
-          double complex conjphase = conj(phase_i[i]);
-          LFVolume* v = volume_i + i;
-          const double complex* c_M1 = c_M + v->M;
-          const double* A_gm = v->A_gm;
-          for (int gm = 0, G = Ga; G < Gb; G++) {
-            double complex a = 0.0;
-            for (int m = 0; m < v->nm; m++, gm++) {
-              a += A_gm[gm] * c_M1[m];
+    else {
+      #pragma omp for schedule(static)
+      for (int x = 0; x < nx; x++) {
+        const double complex* c_M = (const double complex*)c_xM_obj->data + x * nM;
+        double complex* a_G = (double complex*)a_xG_obj->data + x * nG;
+        GRID_LOOP_START(lfc, q, thread_id) {
+          for (int i = 0; i < ni; i++) {
+            double complex conjphase = conj(phase_i[i]);
+            LFVolume* v = volume_i[i];
+            const double complex* c_M1 = c_M + v->M;
+            const double* A_gm = v->A_gm;
+            for (int gm = 0, G = Ga; G < Gb; G++) {
+              double complex a = 0.0;
+              for (int m = 0; m < v->nm; m++, gm++) {
+                a += A_gm[gm] * c_M1[m];
+              }
+              a_G[G] += a * conjphase;
             }
-            a_G[G] += a * conjphase;
           }
         }
+        GRID_LOOP_STOP(lfc, q, thread_id);
       }
-      GRID_LOOP_STOP(lfc, q);
-      c_M += nM;
-      a_G += nG;
     }
   }
   Py_RETURN_NONE;
@@ -744,7 +789,7 @@ PyObject* calculate_potential_matrix_derivative(LFCObject *lfc, PyObject *args)
   if (!lfc->bloch_boundary_conditions) {
     double* DVt_MM = (double*)DVt_MM_obj->data;
     {
-      GRID_LOOP_START(lfc, -1) {
+      GRID_LOOP_START(lfc, -1, 0) {
         // In one grid loop iteration, only z changes.
         int iza = Ga % n_c[2] + beg_c[2];
         int iy = (Ga / n_c[2]) % n_c[1] + beg_c[1];
@@ -756,7 +801,7 @@ PyObject* calculate_potential_matrix_derivative(LFCObject *lfc, PyObject *args)
 
         for (int i1 = 0; i1 < ni; i1++) {
           iz = iza;
-          LFVolume* v1 = volume_i + i1;
+          LFVolume* v1 = volume_i[i1];
           int M1 = v1->M;
           const SplineObject* spline_obj = spline_obj_M[M1];
           const bmgsspline* spline = \
@@ -814,7 +859,7 @@ PyObject* calculate_potential_matrix_derivative(LFCObject *lfc, PyObject *args)
             }            
           } // end loop over G
           for (int i2 = 0; i2 < ni; i2++) {
-            LFVolume* v2 = volume_i + i2;
+            LFVolume* v2 = volume_i[i2];
             int M2 = v2->M;
             const double* A2_start_gm = v2->A_gm;
             const double* A2_gm;
@@ -835,14 +880,14 @@ PyObject* calculate_potential_matrix_derivative(LFCObject *lfc, PyObject *args)
           } // i2 loop
         } // G loop
       } // i1 loop
-      GRID_LOOP_STOP(lfc, -1);
+      GRID_LOOP_STOP(lfc, -1, 0);
     } // c loop
 
   }
   else {
     complex double* DVt_MM = (complex double*)DVt_MM_obj->data;
     {
-      GRID_LOOP_START(lfc, k) {
+      GRID_LOOP_START(lfc, k, 0) {
         // In one grid loop iteration, only z changes.
         int iza = Ga % n_c[2] + beg_c[2];
         int iy = (Ga / n_c[2]) % n_c[1] + beg_c[1];
@@ -851,7 +896,7 @@ PyObject* calculate_potential_matrix_derivative(LFCObject *lfc, PyObject *args)
 
         for (int i1 = 0; i1 < ni; i1++) {
           iz = iza;
-          LFVolume* v1 = volume_i + i1;
+          LFVolume* v1 = volume_i[i1];
           int M1 = v1->M;
           const SplineObject* spline_obj = spline_obj_M[M1];
           const bmgsspline* spline = \
@@ -863,7 +908,6 @@ PyObject* calculate_potential_matrix_derivative(LFCObject *lfc, PyObject *args)
           int nm1p = MIN(M1 + nm1, Mstop) - M1p;
           if (nm1p <= 0)
             continue;
-
 
           double fdYdc_m[nm1];
           double rlYdfdr_m[nm1];
@@ -900,16 +944,16 @@ PyObject* calculate_potential_matrix_derivative(LFCObject *lfc, PyObject *args)
               break;
             }
             spherical_harmonics(l, dfdr * Rc_over_r, x, y, z, r2, rlYdfdr_m);
-	    
+           
             int m1start = M1 < Mstart ? nm1 - nm1p : 0;
             for (int m1 = 0; m1 < nm1p; m1++, gm1++) {
               work_gm[gm1] = vtdv * (fdYdc_m[m1 + m1start] 
-				     + rlYdfdr_m[m1 + m1start]);
+                                    + rlYdfdr_m[m1 + m1start]);
             }            
           } // end loop over G
 
           for (int i2 = 0; i2 < ni; i2++) {
-            LFVolume* v2 = volume_i + i2;
+            LFVolume* v2 = volume_i[i2];
             int M2 = v2->M;
             const double* A2_start_gm = v2->A_gm;
             const double* A2_gm;
@@ -932,7 +976,7 @@ PyObject* calculate_potential_matrix_derivative(LFCObject *lfc, PyObject *args)
           } // i2 loop
         } // G loop
       } // i1 loop
-      GRID_LOOP_STOP(lfc, k);
+      GRID_LOOP_STOP(lfc, k, 0);
     } // c loop
   }
   Py_RETURN_NONE;
@@ -971,7 +1015,7 @@ PyObject* derivative(LFCObject *lfc, PyObject *args)
     const double* a_G = (const double*)a_xG_obj->data;
     double* c_Mv = (double*)c_xMv_obj->data;
     for (int x = 0; x < nx; x++) {
-      GRID_LOOP_START(lfc, -1) {
+      GRID_LOOP_START(lfc, -1, 0) {
         // In one grid loop iteration, only i2 changes.
         int i2 = Ga % n_c[2] + beg_c[2];
         int i1 = (Ga / n_c[2]) % n_c[1] + beg_c[1];
@@ -981,7 +1025,7 @@ PyObject* derivative(LFCObject *lfc, PyObject *args)
         double zG = h_cv[2] * i0 + h_cv[5] * i1 + h_cv[8] * i2;
         for (int G = Ga; G < Gb; G++) {
           for (int i = 0; i < ni; i++) {
-            LFVolume* vol = volume_i + i;
+            LFVolume* vol = volume_i[i];
             int M = vol->M;
             double* c_mv = c_Mv + 3 * M;
             const bmgsspline* spline = (const bmgsspline*) \
@@ -1023,7 +1067,7 @@ PyObject* derivative(LFCObject *lfc, PyObject *args)
           zG += h_cv[8];
         }
       }
-      GRID_LOOP_STOP(lfc, -1);
+      GRID_LOOP_STOP(lfc, -1, 0);
       c_Mv += 3 * nM;
       a_G += nG;
     }
@@ -1032,7 +1076,7 @@ PyObject* derivative(LFCObject *lfc, PyObject *args)
     const complex double* a_G = (const complex double*)a_xG_obj->data;
     complex double* c_Mv = (complex double*)c_xMv_obj->data;
     for (int x = 0; x < nx; x++) {
-      GRID_LOOP_START(lfc, q) {
+      GRID_LOOP_START(lfc, q, 0) {
         // In one grid loop iteration, only i2 changes.
         int i2 = Ga % n_c[2] + beg_c[2];
         int i1 = (Ga / n_c[2]) % n_c[1] + beg_c[1];
@@ -1042,7 +1086,7 @@ PyObject* derivative(LFCObject *lfc, PyObject *args)
         double zG = h_cv[2] * i0 + h_cv[5] * i1 + h_cv[8] * i2;
         for (int G = Ga; G < Gb; G++) {
           for (int i = 0; i < ni; i++) {
-            LFVolume* vol = volume_i + i;
+            LFVolume* vol = volume_i[i];
             int M = vol->M;
             complex double* c_mv = c_Mv + 3 * M;
             const bmgsspline* spline = (const bmgsspline*) \
@@ -1084,7 +1128,7 @@ PyObject* derivative(LFCObject *lfc, PyObject *args)
           zG += h_cv[8];
         }
       }
-      GRID_LOOP_STOP(lfc, q);
+      GRID_LOOP_STOP(lfc, q, 0);
       c_Mv += 3 * nM;
       a_G += nG;
     }
@@ -1114,7 +1158,7 @@ PyObject* normalized_derivative(LFCObject *lfc, PyObject *args)
   long* beg_c = LONGP(beg_c_obj);
   const double* a_G = (const double*)a_G_obj->data;
   double* c_Mv = (double*)c_Mv_obj->data;
-  GRID_LOOP_START(lfc, -1) {
+  GRID_LOOP_START(lfc, -1, 0) {
     int i2 = Ga % n_c[2] + beg_c[2];
     int i1 = (Ga / n_c[2]) % n_c[1] + beg_c[1];
     int i0 = Ga / (n_c[2] * n_c[1]) + beg_c[0];
@@ -1123,7 +1167,7 @@ PyObject* normalized_derivative(LFCObject *lfc, PyObject *args)
     double zG = h_cv[2] * i0 + h_cv[5] * i1 + h_cv[8] * i2;
     for (int G = Ga; G < Gb; G++) {
       for (int i = 0; i < ni; i++) {
-        LFVolume* vol = volume_i + i;
+        LFVolume* vol = volume_i[i];
         int M = vol->M;
         double* c_mv = c_Mv + 7 * M;
         const bmgsspline* spline = (const bmgsspline*)                  \
@@ -1176,7 +1220,7 @@ PyObject* normalized_derivative(LFCObject *lfc, PyObject *args)
       zG += h_cv[8];
     }
   }
-  GRID_LOOP_STOP(lfc, -1);
+  GRID_LOOP_STOP(lfc, -1, 0);
   Py_RETURN_NONE;
 }
 
@@ -1198,9 +1242,9 @@ PyObject* ae_valence_density_correction(LFCObject *lfc, PyObject *args)
 
   int nM = rho_MM_obj->dimensions[0];
 
-  GRID_LOOP_START(lfc, -1) {
+  GRID_LOOP_START(lfc, -1, 0) {
     for (int i = 0; i < ni; i++) {
-      LFVolume* v = volume_i + i;
+      LFVolume* v = volume_i[i];
       int M = v->M;
       int nm = v->nm;
       const double* rho_mm = rho_MM + M * nM + M;
@@ -1217,7 +1261,7 @@ PyObject* ae_valence_density_correction(LFCObject *lfc, PyObject *args)
       I_a[a_W[v->W]] += Ia * lfc->dv;
     }
   }
-  GRID_LOOP_STOP(lfc, -1);
+  GRID_LOOP_STOP(lfc, -1, 0);
   Py_RETURN_NONE;
 }
 
@@ -1236,9 +1280,9 @@ PyObject* ae_core_density_correction(LFCObject *lfc, PyObject *args)
   int* a_W = (int*)a_W_obj->data;
   double* I_a = (double*)I_a_obj->data;
 
-  GRID_LOOP_START(lfc, -1) {
+  GRID_LOOP_START(lfc, -1, 0) {
     for (int i = 0; i < ni; i++) {
-      LFVolume* v = volume_i + i;
+      LFVolume* v = volume_i[i];
       double Ia = 0.0;
       for (int g = 0; g < nG; g++) {
         double density = scale * v->A_gm[g];
@@ -1248,6 +1292,6 @@ PyObject* ae_core_density_correction(LFCObject *lfc, PyObject *args)
       I_a[a_W[v->W]] += Ia * lfc->dv;
     }
   }
-  GRID_LOOP_STOP(lfc, -1);
+  GRID_LOOP_STOP(lfc, -1, 0);
   Py_RETURN_NONE;
 }
