@@ -10,6 +10,10 @@
 #include "extensions.h"
 #include <math.h>
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 #ifdef GPAW_HPM
 void HPM_Start(char *);
 void HPM_Stop(char *);
@@ -57,6 +61,18 @@ PyObject* craypat_region_end(PyObject *self, PyObject *args)
 }
 #endif
 
+  
+PyObject* get_num_threads(PyObject *self, PyObject *args)
+{
+  int nthreads = 1;
+#ifdef _OPENMP
+  #pragma omp parallel
+  {
+    nthreads = omp_get_num_threads();
+  }
+#endif
+  return Py_BuildValue("i", nthreads);
+}
 
 // returns the distance between two 3d double vectors
 double distance(double *a, double *b)

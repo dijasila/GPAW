@@ -114,12 +114,8 @@ PyObject* set_fapl_mpio(PyObject *self, PyObject *args);
 PyObject* set_dxpl_mpio(PyObject *self, PyObject *args);
 #endif
 
-// IO wrappers
-#ifdef IO_WRAPPERS
-void init_io_wrappers();
-#endif
-PyObject* Py_enable_io_wrappers(PyObject *self, PyObject *args);
-PyObject* Py_disable_io_wrappers(PyObject *self, PyObject *args);
+// Threading
+PyObject* get_num_threads(PyObject *self, PyObject *args);
 
 static PyMethodDef functions[] = {
   {"symmetrize", symmetrize, METH_VARARGS, 0},
@@ -219,8 +215,7 @@ static PyMethodDef functions[] = {
   {"h5_set_fapl_mpio", set_fapl_mpio, METH_VARARGS, 0}, 
   {"h5_set_dxpl_mpio", set_dxpl_mpio, METH_VARARGS, 0}, 
 #endif // HDF5
-  {"enable_io_wrappers", Py_enable_io_wrappers, METH_VARARGS, 0},
-  {"disable_io_wrappers", Py_disable_io_wrappers, METH_VARARGS, 0},
+  {"get_num_threads", get_num_threads, METH_VARARGS, 0}, 
   {0, 0, 0, 0}
 };
 
