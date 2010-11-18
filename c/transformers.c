@@ -1,10 +1,12 @@
 /*  Copyright (C) 2003-2007  CAMP
  *  Copyright (C) 2007-2008  CAMd
- *  Copyright (C) 2005-2009  CSC - IT Center for Science Ltd.
+ *  Copyright (C) 2005-2010  CSC - IT Center for Science Ltd.
  *  Please see the accompanying LICENSE file for further information. */
 
 #include <Python.h>
-#include <pthread.h>
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 #define PY_ARRAY_UNIQUE_SYMBOL GPAW_ARRAY_API
 #define NO_IMPORT_ARRAY
 #include <numpy/arrayobject.h>
@@ -38,87 +40,6 @@ static void Transformer_dealloc(TransformerObject *self)
   PyObject_DEL(self);
 }
 
-struct transapply_args{
-  int thread_id;
-  TransformerObject *self;
-  int ng;
-  int ng2;
-  int nin;
-  int nthds;
-  const double* in;
-  double* out;
-  int real;
-  const double_complex* ph;
-};
-
-void *transapply_worker(void *threadarg)
-{
-  struct transapply_args *args = (struct transapply_args *) threadarg;
-  boundary_conditions* bc = args->self->bc;
-  TransformerObject *self = args->self;
-  double* sendbuf = GPAW_MALLOC(double, bc->maxsend * GPAW_ASYNC_D);
-  double* recvbuf = GPAW_MALLOC(double, bc->maxrecv * GPAW_ASYNC_D);
-  double* buf = GPAW_MALLOC(double, args->ng2);
-  double* buf2 = GPAW_MALLOC(double, args->ng2 * 16);
-  MPI_Request recvreq[2 * GPAW_ASYNC_D];
-  MPI_Request sendreq[2 * GPAW_ASYNC_D];
-
-  int chunksize = args->nin / args->nthds;
-  if (!chunksize)
-    chunksize = 1;
-  int nstart = args->thread_id * chunksize;
-  if (nstart >= args->nin)
-    return NULL;
-  int nend = nstart + chunksize;
-  if (nend > args->nin)
-    nend = args->nin;
-
-  int out_ng = bc->ndouble * self->size_out[0] * self->size_out[1]
-               * self->size_out[2];
-
-  for (int n = nstart; n < nend; n++)
-    {
-      const double* in = args->in + n * args->ng;
-      double* out = args->out + n * out_ng;
-      for (int i = 0; i < 3; i++)
-        {
-          bc_unpack1(bc, in, buf, i,
-                     recvreq, sendreq,
-                     recvbuf, sendbuf, args->ph + 2 * i,
-                     args->thread_id, 1);
-          bc_unpack2(bc, buf, i,
-                     recvreq, sendreq, recvbuf, 1);
-        }
-      if (args->real)
-        {
-          if (self->interpolate)
-            bmgs_interpolate(self->k, self->skip, buf, bc->size2,
-                             out, buf2);
-          else
-            bmgs_restrict(self->k, buf, bc->size2,
-                          out, buf2);
-        }
-      else
-        {
-          if (self->interpolate)
-            bmgs_interpolatez(self->k, self->skip, (double_complex*)buf,
-                              bc->size2, (double_complex*)out,
-                              (double_complex*) buf2);
-          else
-            bmgs_restrictz(self->k, (double_complex*) buf,
-                           bc->size2, (double_complex*)out,
-                           (double_complex*) buf2);
-        }
-    }
-  free(buf2);
-  free(buf);
-  free(recvbuf);
-  free(sendbuf);
-  return NULL;
-}
-
-
-
 static PyObject* Transformer_apply(TransformerObject *self, PyObject *args)
 {
   PyArrayObject* input;
@@ -142,40 +63,116 @@ static PyObject* Transformer_apply(TransformerObject *self, PyObject *args)
   bool real = (input->descr->type_num == PyArray_DOUBLE);
   const double_complex* ph = (real ? 0 : COMPLEXP(phases));
 
-  int nthds = 1;
-#ifdef GPAW_OMP
-  if (getenv("OMP_NUM_THREADS") != NULL)
-    nthds = atoi(getenv("OMP_NUM_THREADS"));
-#endif
-  struct transapply_args *wargs = GPAW_MALLOC(struct transapply_args, nthds);
-  pthread_t *thds = GPAW_MALLOC(pthread_t, nthds);
-
-  for(int i=0; i < nthds; i++)
+  int chunksize = 1;
+  if (getenv("GPAW_MPI_OPTIMAL_MSG_SIZE") != NULL)
     {
-      (wargs+i)->thread_id = i;
-      (wargs+i)->nthds = nthds;
-      (wargs+i)->self = self;
-      (wargs+i)->ng = ng;
-      (wargs+i)->ng2 = ng2;
-      (wargs+i)->nin = nin;
-      (wargs+i)->in = in;
-      (wargs+i)->out = out;
-      (wargs+i)->real = real;
-      (wargs+i)->ph = ph;
+      int opt_msg_size = atoi(getenv("GPAW_MPI_OPTIMAL_MSG_SIZE"));
+      if (bc->maxsend > 0 )
+          chunksize = opt_msg_size * 1024 / (bc->maxsend * (2 - (int) real) *
+                                             sizeof(double));
+      chunksize = (chunksize < nin) ? chunksize : nin;
     }
 
-#ifdef GPAW_OMP
-  for(int i=1; i < nthds; i++)
-    pthread_create(thds + i, NULL, transapply_worker, (void*) (wargs+i));
-#endif
-  transapply_worker(wargs);
-#ifdef GPAW_OMP
-  for(int i=1; i < nthds; i++)
-    pthread_join(*(thds+i), NULL);
-#endif
-  free(wargs);
-  free(thds);
+  int nend = (nin / chunksize) * chunksize;
 
+
+  int out_ng = bc->ndouble * self->size_out[0] * self->size_out[1]
+               * self->size_out[2];
+
+#pragma omp parallel
+  {
+  int thread_id = 0;
+#ifdef _OPENMP
+  thread_id = omp_get_thread_num();
+#endif
+
+  double* sendbuf = GPAW_MALLOC(double, bc->maxsend * chunksize);
+  double* recvbuf = GPAW_MALLOC(double, bc->maxrecv * chunksize);
+  double* buf = GPAW_MALLOC(double, ng2 * chunksize);
+  double* buf2 = GPAW_MALLOC(double, (ng2 * 16) * chunksize);
+  MPI_Request recvreq[2];
+  MPI_Request sendreq[2];
+
+#pragma omp for schedule(static)
+  for (int n = 0; n < nend; n += chunksize)
+    {
+      const double* my_in = in + n * ng;
+      double* my_out = out + n * out_ng;
+      for (int i = 0; i < 3; i++)
+        {
+          bc_unpack1(bc, my_in, buf, i,
+                     recvreq, sendreq,
+                     recvbuf, sendbuf, ph + 2 * i,
+                     thread_id, 1);
+          bc_unpack2(bc, buf, i,
+                     recvreq, sendreq, recvbuf, 1);
+        }
+      
+      for (int m = 0; m < chunksize; m++)
+	if (real)
+	  {
+	    if (self->interpolate)
+	      bmgs_interpolate(self->k, self->skip, buf + m * ng2, bc->size2,
+			       my_out + m * out_ng, buf2 + m * (ng2 * 16));
+	    else
+	      bmgs_restrict(self->k, buf + m * ng2, bc->size2,
+			    my_out + m * out_ng, buf2 + m * (ng2 * 16));
+	  }
+	else
+	  {
+	    if (self->interpolate)
+	      bmgs_interpolatez(self->k, self->skip, (double_complex*)(buf + m * ng2),
+				bc->size2, (double_complex*)(my_out + m * out_ng),
+				(double_complex*) (buf2 + m * (ng2 * 16)));
+	    else
+	      bmgs_restrictz(self->k, (double_complex*) (buf + m *ng2),
+			     bc->size2, (double_complex*)(my_out + m * out_ng),
+			     (double_complex*) (buf2 + m * (ng2 * 16)));
+	  }
+    }
+
+  // Remainder loop
+  #pragma omp for schedule(static)  
+  for (int n = nend; n < nin; n++)
+    {
+      const double* my_in = in + n * ng;
+      double* my_out = out + n * out_ng;
+      for (int i = 0; i < 3; i++)
+        {
+          bc_unpack1(bc, my_in, buf, i,
+                     recvreq, sendreq,
+                     recvbuf, sendbuf, ph + 2 * i,
+                     thread_id, 1);
+          bc_unpack2(bc, buf, i,
+                     recvreq, sendreq, recvbuf, 1);
+        }
+      if (real)
+        {
+          if (self->interpolate)
+            bmgs_interpolate(self->k, self->skip, buf, bc->size2,
+                             my_out, buf2);
+          else
+            bmgs_restrict(self->k, buf, bc->size2,
+                          my_out, buf2);
+        }
+      else
+        {
+          if (self->interpolate)
+            bmgs_interpolatez(self->k, self->skip, (double_complex*)buf,
+                              bc->size2, (double_complex*)my_out,
+                              (double_complex*) buf2);
+          else
+            bmgs_restrictz(self->k, (double_complex*) buf,
+                           bc->size2, (double_complex*)my_out,
+                           (double_complex*) buf2);
+        }
+    }
+
+  free(buf2);
+  free(buf);
+  free(recvbuf);
+  free(sendbuf);
+  } // omp parallel for
   Py_RETURN_NONE;
 }
 
