@@ -12,6 +12,7 @@ from ase.units import Bohr, Hartree
 
 from gpaw.utilities import devnull
 from gpaw.mpi import size, parallel
+from _gpaw import get_num_threads
 from gpaw.version import version
 from gpaw.utilities import scalapack
 from gpaw import sl_diagonalize, sl_inverse_cholesky, dry_run, extra_parameters
@@ -185,7 +186,8 @@ class PAWTextOutput:
         nibzkpts = self.wfs.nibzkpts
 
         # Print parallelization details
-        t('Total number of cores used: %d' % self.wfs.world.size)
+        t('Total number of cores used: %d MPI tasks x %d threads' % 
+          (self.wfs.world.size, get_num_threads()))
         if self.wfs.kpt_comm.size > 1: # kpt/spin parallization
             if self.wfs.nspins == 2 and nibzkpts == 1:
                 t('Parallelization over spin')
