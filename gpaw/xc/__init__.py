@@ -13,6 +13,9 @@ def XC(kernel, parameters=None):
         elif name in ['EXX', 'PBE0', 'B3LYP']:
             from gpaw.xc.hybrid import HybridXC
             return HybridXC(name)
+        elif name.endswith('PZ-SIC'):
+            from gpaw.xc.sic import SIC
+            return SIC(xc=name[:-7])
         elif name == 'BEE1':
             from gpaw.xc.bee import BEE1
             kernel = BEE1(parameters)

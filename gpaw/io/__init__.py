@@ -363,6 +363,13 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     if hamiltonian.xc.type == 'GLLB':
         hamiltonian.xc.write(w, natoms)
 
+    # Write energy optimal orbitals in case of ODD-functionals
+    try:
+        if not hamiltonian.xc.unitary_invariant:
+            hamiltonian.xc.write_unitary_transformation(w)
+    except AttributeError:
+        pass
+    
     if mode == 'all':
         wfs.write_wave_functions(w)
     elif mode != '':
@@ -574,6 +581,13 @@ def read(paw, reader):
         paw.occupations.norbitals = norbitals
     except (AttributeError, KeyError):
         norbitals = None
+
+    # Read energy optimal orbitals in case of ODD-functionals
+    try:
+        if not hamiltonian.xc.unitary_invariant:
+            hamiltonian.xc.read_unitary_transformation(r)
+    except AttributeError:
+        pass
 
     # Wave functions and eigenvalues:
     nibzkpts = r.dimension('nibzkpts')
