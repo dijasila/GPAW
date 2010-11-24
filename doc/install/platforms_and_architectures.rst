@@ -58,6 +58,7 @@ Linux:
    Linux/Ubuntu
    Linux/Niflheim/Niflheim
    Linux/akka
+   Linux/armageddon
    Linux/batman
    Linux/bwgrid
    Linux/carbon_cnm
@@ -66,8 +67,10 @@ Linux:
    Linux/juropa
    Linux/monolith
    Linux/murska
+   Linux/nanolab_EL4
    Linux/neolith
    Linux/newcell
+   Linux/ranger_EL4
    Linux/sepeli
    Linux/supernova
    Linux/uranus

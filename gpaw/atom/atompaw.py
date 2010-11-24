@@ -121,9 +121,7 @@ class AtomEigensolver:
                         i2 += 2 * l2 + 1
                     i1 += 2 * l1 + 1
                 H0 = H.copy()#XXX
-                error = general_diagonalize(H, e_n, self.S_l[l].copy())
-                if error != 0:
-                    raise RuntimeError('Diagonalization failed for l=%d.' % l)
+                general_diagonalize(H, e_n, self.S_l[l].copy())
 
                 for n in range(len(self.f_sln[s][l])):
                     N2 = N1 + 2 * l + 1
@@ -218,6 +216,8 @@ class AtomGridDescriptor(EquidistantRadialGridDescriptor):
             return np.dot(a_xg * b_xg, self.dv_g)
     def calculate_dipole_moment(self, rhot_g):
         return np.zeros(3)
+    def symmetrize(self, a_g, op_scc):
+        pass
 
 class AtomOccupations(OccupationNumbers):
     def __init__(self, f_sln):

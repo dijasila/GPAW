@@ -195,11 +195,13 @@ tests = [
     'nscfsic.py',
     'scfsic_h2.py',
     'scfsic_n2.py',
+    'lb94.py',
     'vdw/quick.py',
     'vdw/potential.py',
     'vdw/quick_spin.py',
     'vdw/ar2.py',
     'fd2lcao_restart.py',
+#    'eigh_perf.py', # Requires LAPACK 3.2.1 or later
     'parallel/parallel_eigh.py',
     'parallel/ut_hsops.py',
     'parallel/ut_hsblacs.py',
@@ -217,7 +219,7 @@ tests = [
     'AA_exx_enthalpy.py',
     'transport.py',
     'constant_electric_field.py',
-    #'stark_shift.py',
+    'stark_shift.py',
     ]
 
 exclude = []
@@ -227,7 +229,8 @@ if mpi.size > 1:
                 'coreeig.py',
                 'asewannier.py',
                 'wannier_ethylene.py',
-                'muffintinpot.py']
+                'muffintinpot.py',
+                'stark_shift.py']
 
 if mpi.size > 2:
     exclude += ['neb.py']

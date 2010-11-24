@@ -36,6 +36,12 @@ def XC(kernel, parameters=None):
             xc = NonLocalFunctionalFactory().get_functional_by_name(name)
             xc.print_functional()
             return xc
+        elif name == 'LB94':
+            from gpaw.xc.lb94 import LB94
+            kernel = LB94()
+        elif name.endswith('PZ-SIC'): 
+            from gpaw.xc.sic import SIC 
+            return SIC(xc=name[:-7])
         else:
             kernel = LibXC(kernel)
     if kernel.type == 'LDA':

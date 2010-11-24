@@ -206,10 +206,6 @@ if hdf5:
     #extra_compile_args.append('-UH5_HAVE_PARALLEL') #XXX
 """
 
-# included in mpi.c
-sources2remove.append('c/scalapack.c')
-sources2remove.append('c/sl_inverse_cholesky.c')
-
 for s2r in sources2remove:
     if s2r in sources: sources.remove(s2r)
 

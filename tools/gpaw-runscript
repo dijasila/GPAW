@@ -346,13 +346,10 @@ unset CC CFLAGS LDFLAGS
     def pbs_bwg(self, f, set, env):
         modules_to_load = [
 		'system/python/2.6',
-		'compiler/intel/10.1',
-		'numlib/mkl/10.0-intel-10.1',
-		'compiler/gnu/4.3',
-		'mpi/openmpi/1.2.8_static-gnu-4.3']
+		'mpi/openmpi/1.2.8-gnu-4.1']
         print >> f, '#!/bin/bash'
         print >> f, '#PBS -N '+set['name']
-        # bfg nodes contain 8 cores
+        # bwg nodes contain 8 cores
         cores = set['cores']
         nodes = int((cores + 7) / 8)
         ppn = int((cores + nodes - 1) / nodes)
@@ -370,8 +367,11 @@ unset CC CFLAGS LDFLAGS
         print >> f, 'export PYTHONPATH=$PYTHONPATH:' + env['PYTHONPATH']
         print >> f, 'export GPAW_SETUP_PATH='+env['GPAW_SETUP_PATH']
         print >> f, 'export GPAW_PYTHON='+env['GPAW_PYTHON']
-        print >> f, 'export LD_LIBRARY_PATH='+os.environ['LD_LIBRARY_PATH']
+        print >> f, ('export LD_LIBRARY_PATH=' + os.environ['LD_LIBRARY_PATH']
+                     + ':$LD_LIBRARY_PATH')
         print >> f, 'mpirun -np', cores, '$GPAW_PYTHON', set['script'],
+        if 'parameters' in set:
+            print >> f, set['parameters'],
         print >> f, '>', set['out']+'_$PBS_JOBID',
         print >> f, '2>', set['err']+'_$PBS_JOBID'
 
@@ -402,6 +402,8 @@ ormance.'
         print >> f, '-env PYTHONPATH $PYTHONPATH',
         print >> f, '-env GPAW_SETUP_PATH $GPAW_SETUP_PATH',
         print >> f, '$GPAW_PYTHON', set['script'],
+        if 'parameters' in set:
+            print >> f, set['parameters'],
         print >> f, '>', set['out']+'_$PBS_JOBID',
         print >> f, '2>', set['err']+'_$PBS_JOBID'
 
@@ -471,7 +473,11 @@ echo \"vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\"
         print >> f, 'export PYTHONPATH=$PYTHONPATH:' + env['PYTHONPATH']
         print >> f, 'export GPAW_SETUP_PATH='+env['GPAW_SETUP_PATH']
         print >> f, 'export GPAW_PYTHON='+env['GPAW_PYTHON']
-        print >> f, 'mpirun $GPAW_PYTHON', set['script']
+        print >> f, 'mpirun $GPAW_PYTHON', set['script'],
+        if 'parameters' in set:
+            print >> f, set['parameters']
+        else:
+            print >> f
         f.close()
         os.chmod(f.name, 0755)
         if set['cores'] > 16 or set['mem'] or minutes(set['time']) > 60:
@@ -503,6 +509,8 @@ parser.add_option("-n", "--name", dest='name',
                   help='Name of the job (def: name of parent directory)')
 parser.add_option("-o", "--outfile", dest='outfile',
                   help='Name of the output file (def: script.out)')
+parser.add_option("-p", "--parameters", dest='parameters',
+                  help='Parameters to give to the script (def: empty)')
 parser.add_option("-q", "--qsys", dest='qsys',
                   help='queue system (def: try to guess)')
 parser.add_option("-t", "--time", dest='time',
@@ -522,6 +530,9 @@ if opt.name:
 
 if opt.outfile:
     set['out'] = str(opt.outfile)
+
+if opt.parameters:
+    set['parameters'] = str(opt.parameters)
 
 if opt.time:
     set['time'] = s_from_dhms(opt.time)
@@ -588,7 +599,9 @@ if set['name'] is None:
     # avoid binning with a number
     if name[0].isdigit():
         name = 'j' + name
-    set['name']=name
+    if 'parameters' in set:
+        name += set['parameters'].replace(' ','')
+    set['name'] = name 
 
 RunScript(set,env)
 

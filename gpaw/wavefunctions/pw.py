@@ -13,7 +13,7 @@ class PWDescriptor:
 
         self.ecut = ecut
 
-        assert 0.5 * np.pi**2 / (gd.h_cv**2).sum(1).max() > ecut
+        assert 0.5 * np.pi**2 / (gd.h_cv**2).sum(1).max() >= ecut
         
         # Calculate reciprocal lattice vectors:
         N_c = gd.N_c
@@ -35,6 +35,8 @@ class PWDescriptor:
         self.dv = gd.dv / N_c.prod()
         self.comm = gd.comm
 
+        self.n_c = self.Q_G  # used by hs_operators.py XXX
+        
     def bytecount(self, dtype=float):
         return len(self.Q_G) * np.array(1, dtype).itemsize
     

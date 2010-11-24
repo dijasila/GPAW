@@ -404,9 +404,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
                 w.fill(vt_sG, s)
     timer.stop('Pseudo-potential')
 
-    # Write GLLB-releated stuff
-    if hamiltonian.xc.type == 'GLLB':
-        hamiltonian.xc.write(w, natoms)
+    hamiltonian.xc.write(w, natoms)
 
     if mode == 'all':
         timer.start('Pseudo-wavefunctions')
@@ -775,8 +773,7 @@ def read(paw, reader):
     else:
         paw.forces.reset()
 
-    if hamiltonian.xc.type == 'GLLB':
-        hamiltonian.xc.read(r)
+    hamiltonian.xc.read(r)
 
     timer.stop('Read')
 

@@ -378,10 +378,6 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     for c2r in glob('c/libxc/src/funcs_*.c'):
         cfiles2remove.append(c2r)
 
-    # included in mpi.c
-    cfiles2remove.append('c/scalapack.c')
-    cfiles2remove.append('c/sl_inverse_cholesky.c')
-
     for c2r in cfiles2remove:
         cfiles.remove(c2r)
 

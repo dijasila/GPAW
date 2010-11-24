@@ -90,9 +90,8 @@ from gpaw.mpi import SerialCommunicator, serial_comm
 from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.utilities import uncamelcase
 from gpaw.utilities.blas import gemm, r2k, gemmdot
-from gpaw.utilities.lapack import diagonalize, sldiagonalize, \
-    general_diagonalize, slgeneral_diagonalize, \
-    inverse_cholesky, slinverse_cholesky
+from gpaw.utilities.lapack import diagonalize, general_diagonalize, \
+    inverse_cholesky
 from gpaw.utilities.blacs import scalapack_inverse_cholesky, \
     scalapack_diagonalize_ex, scalapack_general_diagonalize_ex, \
     scalapack_diagonalize_dc, scalapack_general_diagonalize_dc, \
@@ -269,8 +268,12 @@ class BlacsDescriptor(MatrixDescriptor):
     def __init__(self, blacsgrid, M, N, mb, nb, rsrc, csrc):
         assert M > 0
         assert N > 0
-        assert 1 <= mb <= M, (mb, M)
-        assert 1 <= nb <= N, (nb, N)
+        assert 1 <= mb
+        assert 1 <= nb
+        if mb > M:
+            mb = M
+        if nb > N:
+            nb = N
         assert 0 <= rsrc < blacsgrid.nprow
         assert 0 <= csrc < blacsgrid.npcol
         
@@ -284,22 +287,29 @@ class BlacsDescriptor(MatrixDescriptor):
         self.rsrc = rsrc
         self.csrc = csrc
         
-        if 1:#blacsgrid.is_active():
+        if blacsgrid.is_active():
             locN, locM = _gpaw.get_blacs_local_shape(self.blacsgrid.context,
                                                      self.N, self.M,
                                                      self.nb, self.mb, 
                                                      self.csrc, self.rsrc)
             self.lld  = max(1, locN) # max 1 is nonsensical, but appears
                                      # to be required by PBLAS
-        else:
+        else: 
+            # ScaLAPACK has no requirements as to what these values on an
+            # inactive blacsgrid should be. This seemed reasonable to me
+            # at the time.
             locN, locM = 0, 0
             self.lld = 0
         
+        # locM, locN is not allowed to be negative. This will cause the
+        # redistributor to fail. This could happen on active blacsgrid
+        # which does not contain any piece of the distribute matrix.
+        # This is why there is a final check on the value of locM, locN.
         MatrixDescriptor.__init__(self, max(0, locM), max(0, locN))
         
-        self.active = locM > 0 and locN > 0 # inactive descriptor can
-                                            # exist on an active OR
-                                            # inactive blacs grid
+        # This is the definition of inactive descriptor; can occur
+        # on an active or inactive blacs grid.
+        self.active = locM > 0 and locN > 0
         
         self.bshape = (self.mb, self.nb) # Shape of one block
         self.gshape = (M, N) # Global shape of array
@@ -446,8 +456,6 @@ class Redistributor:
         # We should verify this somehow.
         dtype = src_mn.dtype
         assert dtype == dst_mn.dtype
-        
-        isreal = (dtype == float)
         assert dtype == float or dtype == complex
 
         # Check to make sure the submatrix of the source
@@ -469,7 +477,7 @@ class Redistributor:
                                dstdescriptor.asarray(),
                                src_mn, dst_mn,
                                self.supercomm_bg.context,
-                               subN, subM, isreal, uplo)
+                               subN, subM, uplo)
     
     def redistribute(self, src_mn, dst_mn):
         """Redistribute src_mn to dst_mn.
@@ -531,6 +539,18 @@ class KohnShamLayouts:
         self.world = bd.comm.parent
         self.gd = gd
         self.bd = bd
+
+        # Columncomm contains all gd.comm.rank == 0, i.e. "grid-masters"
+        # Blockcomm contains all ranks with the same k-point or spin but different
+        # subdomains and band groups
+        bcommsize = self.bd.comm.size
+        gcommsize = self.gd.comm.size
+        shiftks = self.world.rank - self.world.rank % (bcommsize * gcommsize)
+        column_ranks = shiftks + np.arange(bcommsize) * gcommsize
+        block_ranks = shiftks + np.arange(bcommsize * gcommsize)
+        self.columncomm = self.world.new_communicator(column_ranks)
+        self.blockcomm = self.world.new_communicator(block_ranks)
+
         self.timer = timer
         self._kwargs = {'timer': timer}
 
@@ -562,16 +582,12 @@ class BlacsLayouts(KohnShamLayouts):
     def __init__(self, gd, bd, mcpus, ncpus, blocksize, timer=nulltimer):
         KohnShamLayouts.__init__(self, gd, bd, timer)
         self._kwargs.update({'mcpus': mcpus, 'ncpus': ncpus, 'blocksize': blocksize})
-
         bcommsize = self.bd.comm.size
         gcommsize = self.gd.comm.size
-        shiftks = self.world.rank - self.world.rank % (bcommsize * gcommsize)
-        column_ranks = shiftks + np.arange(bcommsize) * gcommsize
-        block_ranks = shiftks + np.arange(bcommsize * gcommsize)
-        self.columncomm = self.world.new_communicator(column_ranks) #XXX rename?
-        self.blockcomm = self.world.new_communicator(block_ranks)
-
         assert mcpus * ncpus <= bcommsize * gcommsize
+        # WARNING: Do not create the BlacsGrid on a communicator which does not 
+        # contain blockcomm.rank = 0. This will break BlacsBandLayouts which
+        # assume eps_M will be broadcast over blockcomm.
         self.blockgrid = BlacsGrid(self.blockcomm, mcpus, ncpus)
 
     def get_description(self):
@@ -592,18 +608,14 @@ class BandLayouts(KohnShamLayouts):
         mynbands = self.bd.mynbands
         eps_N = np.empty(nbands)
         self.timer.start('Diagonalize')
-        # Broadcast on band communicator first if using
-        # state-parallelization. 
-        if self.bd.comm.size > 1 and self.gd.comm.rank == 0:
-            self.bd.comm.broadcast(H_NN, 0)
-        self.gd.comm.broadcast(H_NN, 0)
-        info = self._diagonalize(H_NN, eps_N)
+        # Broadcast on blockcomm since result
+        # is k-point and spin-dependent only
+        self.blockcomm.broadcast(H_NN, 0)
+        self._diagonalize(H_NN, eps_N)
         self.timer.stop('Diagonalize')
-        if info != 0:
-            raise RuntimeError('Failed to diagonalize: %d' % info)
 
         self.timer.start('Distribute results')
-        # Basically just a copy
+        # Copy the portion that belongs to my band group
         eps_n[:] = eps_N[self.bd.get_slice()]
         self.timer.stop('Distribute results')
 
@@ -611,7 +623,7 @@ class BandLayouts(KohnShamLayouts):
         """Serial diagonalize via LAPACK."""
         # This is replicated computation but ultimately avoids
         # additional communication.
-        return diagonalize(H_NN, eps_N)
+        diagonalize(H_NN, eps_N)
 
     def inverse_cholesky(self, S_NN):
         """Serial inverse Cholesky must handle two cases:
@@ -619,52 +631,20 @@ class BandLayouts(KohnShamLayouts):
         2. Simultaneous parallelization over domains and bands.
         """
         self.timer.start('Inverse Cholesky')
-        # Broadcast on band communicator first if using
-        # state-parallelization. 
-        if self.bd.comm.size > 1 and self.gd.comm.rank == 0:
-            self.bd.comm.broadcast(S_NN, 0)
-        self.gd.comm.broadcast(S_NN, 0)
-        info = self._inverse_cholesky(S_NN)
+        # Broadcast on blockcomm since result
+        # is k-point and spin-dependent only
+        self.blockcomm.broadcast(S_NN, 0)
+        self._inverse_cholesky(S_NN)
         self.timer.stop('Inverse Cholesky')
-        if info != 0:
-            raise RuntimeError('Failed to orthogonalize: %d' % info)
 
     def _inverse_cholesky(self, S_NN):
         """Serial inverse Cholesky via LAPACK."""
         # This is replicated computation but ultimately avoids
         # additional communication.
-        return inverse_cholesky(S_NN)
+        inverse_cholesky(S_NN)
 
     def get_description(self):
         return 'Serial LAPACK'
-
-
-class OldSLBandLayouts(BandLayouts): #old SL before BLACS grids. TODO delete!
-    """Original ScaLAPACK diagonalizer using 
-    redundantly distributed arrays."""
-    def __init__(self, gd, bd, timer=nulltimer, root=0):
-        raise DeprecationWarning
-        BandLayouts.__init__(self, gd, bd, timer)
-        bcommsize = self.bd.comm.size
-        gcommsize = self.gd.comm.size
-        shiftks = self.world.rank - self.world.rank % (bcommsize * gcommsize)
-        block_ranks = shiftks + np.arange(bcommsize * gcommsize)
-        self.blockcomm = self.world.new_communicator(block_ranks)
-        self.root = root
-        # Keep buffers?
-
-    def _diagonalize(self, H_NN, eps_N):
-        # Work is done on BLACS grid, but one processor still collects
-        # all eigenvectors. Only processors on the BLACS grid return
-        # meaningful values of info.
-        return sldiagonalize(H_NN, eps_N, self.blockcomm, root=self.root)
-
-    def _inverse_cholesky(self, S_NN):
-        return slinverse_cholesky(S_NN, self.blockcomm, self.root)
-
-    def get_description(self):
-        return 'Old ScaLAPACK'
-
 
 class BlacsBandLayouts(BlacsLayouts): #XXX should derive from BandLayouts too!
     """ScaLAPACK Dense Linear Algebra.
@@ -737,36 +717,28 @@ class BlacsBandLayouts(BlacsLayouts): #XXX should derive from BandLayouts too!
         nbands = self.bd.nbands
         eps_N = np.empty(nbands)
         self.timer.start('Diagonalize')
-        info = self._diagonalize(H_nn, eps_N)
+        self._diagonalize(H_nn, eps_N)
         self.timer.stop('Diagonalize')
-        if info != 0:
-            raise RuntimeError('Failed to diagonalize: %d' % info)
 
         self.timer.start('Distribute results')
-        if self.gd.comm.rank == 0:
-            # grid master with bd.rank = 0 
-            # scatters to other grid masters
-            # NOTE: If the origin of the blacs grid
-            # ever shifts this will not work
-            self.bd.distribute(eps_N, eps_n)
-        self.gd.comm.broadcast(eps_n, 0)
+        # eps_N is already on blockcomm.rank = 0
+        # easier to broadcast eps_N to all and
+        # get the correct slice afterward.
+        self.blockcomm.broadcast(eps_N, 0)
+        eps_n[:] = eps_N[self.bd.get_slice()]
         self.timer.stop('Distribute results')
 
     def _diagonalize(self, H_nn, eps_N):
         """Parallel diagonalizer."""
         self.nndescriptor.diagonalize_dc(H_nn.copy(), H_nn, eps_N, 'L')
-        return 0 #XXX scalapack_diagonalize_dc doesn't return this info!!!
-
+        
     def inverse_cholesky(self, S_nn):
         self.timer.start('Inverse Cholesky')
-        info = self._inverse_cholesky(S_nn)
+        self._inverse_cholesky(S_nn)
         self.timer.stop('Inverse Cholesky')
-        if info != 0:
-            raise RuntimeError('Failed to orthogonalize: %d' % info)
-
+        
     def _inverse_cholesky(self, S_nn):
         self.nndescriptor.inverse_cholesky(S_nn, 'L')
-        return 0 #XXX scalapack_inverse_cholesky doesn't return this info!!!
 
     def get_description(self):
         (title, template) = BlacsLayouts.get_description(self)
@@ -873,15 +845,11 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         self.timer.stop('Redistribute coefs')
 
         self.timer.start('Send coefs to domains')
-        if outdescriptor: # grid masters only
-            assert self.gd.comm.rank == 0
-            # grid master with bd.rank = 0 
-            # scatters to other grid masters
-            # NOTE: If the origin of the blacs grid
-            # ever shifts this will not work
-            self.bd.distribute(eps_M[:self.bd.nbands], eps_n)
-        else:
-            assert self.gd.comm.rank != 0
+        # eps_M is already on blockcomm.rank = 0
+        # easier to broadcast eps_M to all and
+        # get the correct slice afterward.
+        self.blockcomm.broadcast(eps_M, 0)
+        eps_n[:] = eps_M[self.bd.get_slice()]
 
         self.gd.comm.broadcast(C_nM, 0)
         self.gd.comm.broadcast(eps_n, 0)
@@ -956,27 +924,22 @@ class OrbitalLayouts(KohnShamLayouts):
         self.Mmax = nao
         self.mynao = nao
         self.nao = nao
-        self.orbital_comm = serial_comm
+        self.orbital_comm = serial_comm # why do we do this here?
 
     def diagonalize(self, H_MM, C_nM, eps_n, S_MM):
         eps_M = np.empty(C_nM.shape[-1])
-        info = self._diagonalize(H_MM, S_MM.copy(), eps_M)
-        if info != 0:
-            raise RuntimeError('Failed to diagonalize: %d' % info)
-        
+        self.blockcomm.broadcast(H_MM, 0)
+        self.blockcomm.broadcast(S_MM, 0)
+        self._diagonalize(H_MM, S_MM.copy(), eps_M)
         nbands = self.bd.nbands
-        if self.bd.rank == 0:
-            self.gd.comm.broadcast(H_MM[:nbands], 0)
-            self.gd.comm.broadcast(eps_M[:nbands], 0)
-        self.bd.distribute(H_MM[:nbands], C_nM)
-        self.bd.distribute(eps_M[:nbands], eps_n)
+        eps_n[:] = eps_M[self.bd.get_slice()]
+        C_nM[:] = H_MM[self.bd.get_slice()]
     
     def _diagonalize(self, H_MM, S_MM, eps_M):
-        # Only one processor really does any work.
-        if self.gd.comm.rank == 0 and self.bd.comm.rank == 0:
-            return general_diagonalize(H_MM, eps_M, S_MM)
-        else:
-            return 0
+        """Serial diagonalize via LAPACK."""
+        # This is replicated computation but ultimately avoids
+        # additional communication
+        general_diagonalize(H_MM, eps_M, S_MM)
 
     def estimate_memory(self, mem, dtype):
         nao = self.setups.nao
@@ -1025,30 +988,4 @@ class OrbitalLayouts(KohnShamLayouts):
 
     def get_description(self):
         return 'Serial LAPACK'
-
-
-class OldSLOrbitalLayouts(OrbitalLayouts): #old SL before BLACS grids. TODO delete!
-    """Original ScaLAPACK diagonalizer using 
-    redundantly distributed arrays."""
-    def __init__(self, gd, bd, nao, timer=nulltimer, root=0):
-        raise DeprecationWarning
-        OrbitalLayouts.__init__(self, gd, bd, nao, timer)
-        bcommsize = self.bd.comm.size
-        gcommsize = self.gd.comm.size
-        shiftks = self.world.rank - self.world.rank % (bcommsize * gcommsize)
-        block_ranks = shiftks + np.arange(bcommsize * gcommsize)
-        self.blockcomm = self.world.new_communicator(block_ranks)
-        self.root = root
-        # Keep buffers?
-
-    def _diagonalize(self, H_MM, S_MM, eps_M):
-        # Work is done on BLACS grid, but one processor still collects
-        # all eigenvectors. Only processors on the BLACS grid return
-        # meaningful values of info.
-        return slgeneral_diagonalize(H_MM, eps_M, S_MM, self.blockcomm,
-                                     root=self.root)
-
-    def get_description(self):
-        return 'Old ScaLAPACK'
-
 
