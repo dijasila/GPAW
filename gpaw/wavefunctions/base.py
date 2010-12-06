@@ -47,7 +47,7 @@ class WaveFunctions(EmptyWaveFunctions):
         MPI-communicator for parallelization over **k**-points.
     """
     def __init__(self, gd, nvalence, setups, bd, dtype,
-                 world, kd, timer=None):
+                 world, kd, timer=None, colinear=True):
         if timer is None:
             timer = nulltimer
             
@@ -62,6 +62,7 @@ class WaveFunctions(EmptyWaveFunctions):
         self.kd = kd
         self.band_comm = self.bd.comm #XXX
         self.timer = timer
+        self.colinear = colinear
         self.rank_a = None
 
         # XXX Remember to modify aseinterface when removing the following
@@ -94,10 +95,26 @@ class WaveFunctions(EmptyWaveFunctions):
     def calculate_density_contribution(self, nt_sG):
         """Calculate contribution to pseudo density from wave functions."""
         nt_sG.fill(0.0)
-        for kpt in self.kpt_u:
-            self.add_to_density_from_k_point(nt_sG, kpt)
-        self.band_comm.sum(nt_sG)
-        self.kpt_comm.sum(nt_sG)
+
+        if not self.colinear:
+            nt_ssG = self.gd.zeros((2, 2), dtype=complex)
+            f_n = self.kpt_u[0].f_n
+            for s1 in range(2):
+                for s2 in range(2):
+                    for n in range(self.bd.nbands):
+                        nt_ssG[s1, s2] += f_n[n] * (
+                            self.kpt_u[s1].psit_nG[n] *
+                            self.kpt_u[s1].psit_nG[n].conj())
+            nt_sG[0] = nt_ssG[0, 0] + nt_ssG[1, 1]
+            nt_sG[1] = 0.5 * nt_ssG[0, 1].real
+            nt_sG[2] = 0.5 * nt_ssG[0, 1].imag
+            nt_sG[3] = nt_ssG[0, 0] - nt_ssG[1, 1]
+            print nt_sG[1:4, 8,8,8];sdfg
+        else:
+            for kpt in self.kpt_u:
+                self.add_to_density_from_k_point(nt_sG, kpt)
+            self.band_comm.sum(nt_sG)
+            self.kpt_comm.sum(nt_sG)
         
         if self.symmetry:
             self.timer.start('Symmetrize density')

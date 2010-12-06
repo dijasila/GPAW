@@ -377,10 +377,12 @@ class PAW(PAWTextOutput):
                 h = par.h / Bohr
             N_c = h2gpts(h, cell_cv)
 
+        colinear = (par.noncolinear is None)
+            
         if hasattr(self, 'time'):
             dtype = complex
         else:
-            if kd.gamma:
+            if kd.gamma and colinear:
                 dtype = float
             else:
                 dtype = complex
@@ -495,7 +497,7 @@ class PAW(PAWTextOutput):
 
             # do k-point analysis here? XXX
             args = (gd, nvalence, setups, self.bd, dtype, world, kd,
-                    self.timer)
+                    self.timer, colinear)
 
             if par.mode == 'lcao':
                 # Layouts used for general diagonalizer
