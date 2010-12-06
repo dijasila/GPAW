@@ -187,7 +187,7 @@ class PAW(PAWTextOutput):
                 self.wfs = EmptyWaveFunctions()
                 self.occupations = None
             elif key in ['h', 'gpts', 'setups', 'spinpol', 'usesymm',
-                         'parallel', 'communicator']:
+                         'parallel', 'communicator', 'noncolinear']:
                 self.density = None
                 self.occupations = None
                 self.hamiltonian = None
@@ -576,7 +576,8 @@ class PAW(PAWTextOutput):
                 # Special case (use only coarse grid):
                 finegd = gd
             self.density = Density(gd, finegd, nspins,
-                                   par.charge + setups.core_charge)
+                                   par.charge + setups.core_charge,
+                                   par.noncolinear)
 
         self.density.initialize(setups, par.stencils[1], self.timer,
                                 magmom_a, par.hund)

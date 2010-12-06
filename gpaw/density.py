@@ -38,13 +38,24 @@ class Density:
      ========== =========================================
     """
     
-    def __init__(self, gd, finegd, nspins, charge):
+    def __init__(self, gd, finegd, nspins, charge, direction_av=None):
         """Create the Density object."""
 
         self.gd = gd
         self.finegd = finegd
         self.nspins = nspins
         self.charge = float(charge)
+
+        if direction_av is None:
+            self.colinear = True
+            self.ncomponents = nspins
+        else:
+            self.colinear = False
+            self.ncomponents = 4
+            self.direction_av = np.array(direction_av)
+            # Normalize directions:
+            length_a = (self.direction_av**2).sum(1)**0.5
+            self.direction_av /= length_a[:, np.newaxis]
 
         self.charge_eps = 1e-7
         
@@ -263,7 +274,6 @@ class Density:
         # but is not particularly efficient (not that this is a time
         # consuming step)
 
-        f_sM = np.empty((self.nspins, basis_functions.Mmax))
         self.D_asp = {}
         f_asi = {}
         for a in basis_functions.atom_indices:
@@ -272,9 +282,15 @@ class Density:
                     self.magmom_a[a], self.hund, charge=c, nspins=self.nspins)
             if a in basis_functions.my_atom_indices:
                 self.D_asp[a] = self.setups[a].initialize_density_matrix(f_si)
+            fn_i = f_si.sum(axis=0)
+            fm_i = f_si[0] - f_si[1]
+            f_si = np.empty((4, len(fn_i)))
+            f_si[0] = fn_i
+            f_si[1:4] = np.outer(self.direction_av[a], fm_i)
             f_asi[a] = f_si
-
-        self.nt_sG = self.gd.zeros(self.nspins)
+            assert self.setups[a].Z == 1, 'fix core density!'
+            
+        self.nt_sG = self.gd.zeros(self.ncomponents)
         basis_functions.add_to_density(self.nt_sG, f_asi)
         self.nt_sG += self.nct_G
         self.calculate_normalized_charges_and_mix()
