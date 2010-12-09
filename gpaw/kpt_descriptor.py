@@ -20,7 +20,7 @@ from gpaw.kpoint import KPoint
 class KPointDescriptor:
     """Descriptor-class for k-points."""
 
-    def __init__(self, kpts, nspins):
+    def __init__(self, kpts, nspins, colinear=True):
         """Construct descriptor object for kpoint/spin combinations (ks-pair).
 
         Parameters
@@ -54,6 +54,7 @@ class KPointDescriptor:
             self.bzk_kc = np.array(kpts)
             self.N_c = None
 
+        self.colinear = colinear
         self.nspins = nspins
         self.nbzkpts = len(self.bzk_kc)
         
@@ -133,7 +134,10 @@ class KPointDescriptor:
 
         # Number of irreducible k-points and k-point/spin combinations.
         self.nibzkpts = len(self.ibzk_kc)
-        self.nks = self.nibzkpts * self.nspins
+        if self.colinear:
+            self.nks = self.nibzkpts * self.nspins
+        else:
+            self.nks = self.nibzkpts
         
     def set_communicator(self, comm):
         """Set k-point communicator."""
@@ -147,7 +151,7 @@ class KPointDescriptor:
         # My number and offset of k-point/spin combinations
         self.mynks, self.ks0 = self.get_count(), self.get_offset()
 
-        if self.nspins == 2 and comm.size == 1:
+        if self.nspins == 2 and comm.size == 1:  # NCXXXXXXXX
             # Avoid duplicating k-points in local list of k-points.
             self.ibzk_qc = self.ibzk_kc.copy()
         else:

@@ -346,8 +346,10 @@ class PAW(PAWTextOutput):
             raise ValueError('Non-zero initial magnetic moment for a '
                              'spin-paired calculation!')
 
+        colinear = (par.noncolinear is None)
+
         nspins = 1 + int(spinpol)
-        
+
         if isinstance(par.xc, str):
             xc = XC(par.xc)
         else:
@@ -356,7 +358,7 @@ class PAW(PAWTextOutput):
         setups = Setups(Z_a, par.setups, par.basis, par.lmax, xc, world)
 
         # K-point descriptor
-        kd = KPointDescriptor(par.kpts, nspins)
+        kd = KPointDescriptor(par.kpts, nspins, colinear)
 
         width = par.width
         if width is None:
@@ -377,8 +379,6 @@ class PAW(PAWTextOutput):
                 h = par.h / Bohr
             N_c = h2gpts(h, cell_cv)
 
-        colinear = (par.noncolinear is None)
-            
         if hasattr(self, 'time'):
             dtype = complex
         else:
@@ -497,7 +497,7 @@ class PAW(PAWTextOutput):
 
             # do k-point analysis here? XXX
             args = (gd, nvalence, setups, self.bd, dtype, world, kd,
-                    self.timer, colinear)
+                    self.timer)
 
             if par.mode == 'lcao':
                 # Layouts used for general diagonalizer
@@ -508,7 +508,13 @@ class PAW(PAWTextOutput):
                                                gd, self.bd, nao=nao,
                                                timer=self.timer)
 
-                self.wfs = LCAOWaveFunctions(lcaoksl, *args)
+                if colinear:
+                    self.wfs = LCAOWaveFunctions(lcaoksl, *args)
+                else:
+                    from gpaw.xc.noncolinear import \
+                         NonColinearLCAOWaveFunctions
+                    self.wfs = NonColinearLCAOWaveFunctions(lcaoksl, *args)
+                    
             elif par.mode == 'fd' or isinstance(par.mode, PW):
                 # Layouts used for diagonalizer
                 sl_diagonalize = par.parallel['sl_diagonalize']
@@ -577,6 +583,7 @@ class PAW(PAWTextOutput):
             else:
                 # Special case (use only coarse grid):
                 finegd = gd
+
             self.density = Density(gd, finegd, nspins,
                                    par.charge + setups.core_charge,
                                    par.noncolinear)

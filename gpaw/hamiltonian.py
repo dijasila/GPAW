@@ -217,9 +217,9 @@ class Hamiltonian:
 
         if self.vt_sg is None:
             self.timer.start('Initialize Hamiltonian')
-            self.vt_sg = self.finegd.empty(self.nspins)
+            self.vt_sg = self.finegd.empty(density.ncomponents)
             self.vHt_g = self.finegd.zeros()
-            self.vt_sG = self.gd.empty(self.nspins)
+            self.vt_sG = self.gd.empty(density.ncomponents)
             self.poisson.initialize()
             self.timer.stop('Initialize Hamiltonian')
 
@@ -233,13 +233,17 @@ class Hamiltonian:
 
         Eext = 0.0
         if self.vext_g is not None:
+            assert density.colinear
             vt_g += self.vext_g.get_potential(self.finegd)
             Eext = self.finegd.integrate(vt_g, density.nt_g,
                                          global_integral=False) - Ebar
 
-        if self.nspins == 2:
+        if self.nspins == 2 and density.colinear:
             self.vt_sg[1] = vt_g
 
+        if not density.colinear:
+            self.vt_sg[1:] = 0.0
+            
         self.timer.start('XC 3D grid')
         Exc = self.xc.calculate(self.finegd, density.nt_sg, self.vt_sg)
         Exc /= self.gd.comm.size
@@ -255,11 +259,18 @@ class Hamiltonian:
         Epot = 0.5 * self.finegd.integrate(self.vHt_g, density.rhot_g,
                                            global_integral=False)
         Ekin = 0.0
-        for vt_g, vt_G, nt_G in zip(self.vt_sg, self.vt_sG, density.nt_sG):
-            vt_g += self.vHt_g
-            self.restrict(vt_g, vt_G)
-            Ekin -= self.gd.integrate(vt_G, nt_G - density.nct_G,
-                                      global_integral=False)
+        if density.colinear:
+            for vt_g, vt_G, nt_G in zip(self.vt_sg, self.vt_sG, density.nt_sG):
+                vt_g += self.vHt_g
+                self.restrict(vt_g, vt_G)
+                Ekin -= self.gd.integrate(vt_G, nt_G - density.nct_G,
+                                          global_integral=False)
+        else:
+            self.vt_sg[0] += self.vHt_g
+            for vt_g, vt_G, nt_G in zip(self.vt_sg, self.vt_sG, density.nt_sG):
+                self.restrict(vt_g, vt_G)
+                Ekin -= 0 # XXX
+                
         self.timer.stop('Hartree integrate/restrict')
             
         # Calculate atomic hamiltonians:

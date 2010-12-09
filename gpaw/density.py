@@ -49,9 +49,11 @@ class Density:
         if direction_av is None:
             self.colinear = True
             self.ncomponents = nspins
+            self.ns = nspins
         else:
             self.colinear = False
             self.ncomponents = 4
+            self.ns = 1
             self.direction_av = np.array(direction_av)
             # Normalize directions:
             length_a = (self.direction_av**2).sum(1)**0.5
@@ -164,7 +166,10 @@ class Density:
         wfs.add_to_density().
         """
         wfs.calculate_density_contribution(self.nt_sG)
-        self.nt_sG += self.nct_G
+        if self.colinear:
+            self.nt_sG += self.nct_G
+        else:
+            self.nt_sG[0] += 2 * self.nct_G
 
     def update(self, wfs):
         self.timer.start('Density')
@@ -193,7 +198,7 @@ class Density:
         if comp_charge is None:
             comp_charge = self.calculate_multipole_moments()
         
-        pseudo_charge = self.gd.integrate(self.nt_sG).sum()
+        pseudo_charge = self.gd.integrate(self.nt_sG[:self.ns]).sum()
 
         if pseudo_charge + self.charge + comp_charge != 0:
             if pseudo_charge != 0:
@@ -201,10 +206,10 @@ class Density:
                 self.nt_sG *= x
             else:
                 # Use homogeneous background:
-                self.nt_sG[:] = (self.charge + comp_charge) * self.gd.dv
+                self.nt_sG[:self.ns] = (self.charge + comp_charge) * self.gd.dv  #XXXXX
 
     def calculate_pseudo_charge(self, comp_charge):
-        self.nt_g = self.nt_sg.sum(axis=0)
+        self.nt_g = self.nt_sg[:self.ns].sum(axis=0)
         self.rhot_g = self.nt_g.copy()
         self.ghat.add(self.rhot_g, self.Q_aL)
 
@@ -231,9 +236,9 @@ class Density:
             comp_charge = self.calculate_multipole_moments()
 
         if self.nt_sg is None:
-            self.nt_sg = self.finegd.empty(self.nspins)
+            self.nt_sg = self.finegd.empty(self.ncomponents)
 
-        for s in range(self.nspins):
+        for s in range(self.ncomponents):
             self.interpolator.apply(self.nt_sG[s], self.nt_sg[s])
 
         # With periodic boundary conditions, the interpolation will
@@ -243,7 +248,7 @@ class Density:
             # this is not the case.
             pseudo_charge = -(self.charge + comp_charge)
             if abs(pseudo_charge) > 1.0e-14:
-                x = pseudo_charge / self.finegd.integrate(self.nt_sg).sum()
+                x = pseudo_charge / self.finegd.integrate(self.nt_sg[:self.ns]).sum()
                 self.nt_sg *= x
 
     def calculate_multipole_moments(self):
@@ -282,11 +287,12 @@ class Density:
                     self.magmom_a[a], self.hund, charge=c, nspins=self.nspins)
             if a in basis_functions.my_atom_indices:
                 self.D_asp[a] = self.setups[a].initialize_density_matrix(f_si)
-            fn_i = f_si.sum(axis=0)
-            fm_i = f_si[0] - f_si[1]
-            f_si = np.empty((4, len(fn_i)))
-            f_si[0] = fn_i
-            f_si[1:4] = np.outer(self.direction_av[a], fm_i)
+            if not self.colinear:
+                fn_i = f_si.sum(axis=0)
+                fm_i = f_si[0] - f_si[1]
+                f_si = np.empty((4, len(fn_i)))
+                f_si[0] = fn_i
+                f_si[1:4] = np.outer(self.direction_av[a], fm_i)
             f_asi[a] = f_si
             assert self.setups[a].Z == 1, 'fix core density!'
             
