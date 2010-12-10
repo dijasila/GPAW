@@ -463,7 +463,7 @@ class OrbitalLayouts(KohnShamLayouts):
     def get_overlap_matrix_shape(self):
         return self.nao, self.nao
 
-    def calculate_density_matrix(self, f_n, C_nM, rho_MM=None):
+    def calculate_density_matrix(self, f_n, C_nM, rho_MM=None, C2_nM=None):
         # Only a madman would use a non-transposed density matrix.
         # Maybe we should use the get_transposed_density_matrix instead
         if rho_MM is None:
@@ -471,7 +471,9 @@ class OrbitalLayouts(KohnShamLayouts):
         # XXX Should not conjugate, but call gemm(..., 'c')
         # Although that requires knowing C_Mn and not C_nM.
         # that also conforms better to the usual conventions in literature
-        Cf_Mn = C_nM.T.conj() * f_n
+        if C2_nM is None:
+            C2_nM = C_nM
+        Cf_Mn = C2_nM.T.conj() * f_n
         gemm(1.0, C_nM, Cf_Mn, 0.0, rho_MM, 'n')
         self.bd.comm.sum(rho_MM)
         return rho_MM

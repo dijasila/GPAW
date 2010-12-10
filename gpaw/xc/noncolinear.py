@@ -101,30 +101,52 @@ class NonColinearLCAOEigensolver(LCAO):
 
         if kpt.eps_n is None:
             kpt.eps_n = np.empty(wfs.bd.mynbands)
-            kpt.C_nsM = np.empty((wfs.bd.mynbands, 2 * nao), complex)
 
         diagonalization_string = repr(self.diagonalizer)
         wfs.timer.start(diagonalization_string)
+        kpt.C_nsM.shape = (wfs.bd.mynbands, 2 * nao)
         self.diagonalizer.diagonalize(H_MM, kpt.C_nsM, kpt.eps_n, S_MM)
-        print kpt.eps_n
-        dsfg
-
+        kpt.C_nsM.shape = (wfs.bd.mynbands, 2, nao)
         wfs.timer.stop(diagonalization_string)
-
-        wfs.timer.start('Calculate projections')
-        # P_ani are not strictly necessary as required quantities can be
-        # evaluated directly using P_aMi.  We should probably get rid
-        # of the places in the LCAO code using P_ani directly
-        for a, P_ni in kpt.P_ani.items():
-            # ATLAS can't handle uninitialized output array:
-            P_ni.fill(117)
-            gemm(1.0, kpt.P_aMi[a], kpt.C_nM, 0.0, P_ni, 'n')
-        wfs.timer.stop('Calculate projections')
 
 
 class NonColinearLCAOWaveFunctions(LCAOWaveFunctions):
-    pass
+    def set_positions(self, spos_ac):
+        LCAOWaveFunctions.set_positions(self, spos_ac)
+        for kpt in self.kpt_u:
+            kpt.C_nM = None
+            kpt.C_nsM = np.empty((self.bd.mynbands, 2, self.ksl.nao), complex)
+            
+    def add_to_density_from_k_point_with_occupation(self, nt_sG, kpt, f_n):
+        rho_MM = self.ksl.calculate_density_matrix(f_n, kpt.C_nsM[:, 0])
+        self.basis_functions.construct_density(rho_MM, nt_sG[0], kpt.q)
+        rho_MM = self.ksl.calculate_density_matrix(f_n, kpt.C_nsM[:, 1])
+        self.basis_functions.construct_density(rho_MM, nt_sG[3], kpt.q)
+        nt_sG[0] += nt_sG[3]
+        nt_sG[0] *= 0.5
+        nt_sG[3] -= nt_sG[0]
+        nt_sG[3] = -nt_sG[3]
+        rho_MM = self.ksl.calculate_density_matrix(f_n, kpt.C_nsM[:, 1]
+                                                   C2nM=kpt.C_nsM[:, 0])
+        self.basis_functions.construct_density(rho_MM.real, nt_sG[1], kpt.q)
+        self.basis_functions.construct_density(rho_MM.imag, nt_sG[2], kpt.q)
 
+    def calculate_atomic_density_matrices_k_point(self, D_sii, kpt, a, f_n):
+        ...
+        P_Mi = kpt.P_aMi[a]
+        #P_Mi = kpt.P_aMi_sparse[a]
+        #ind = get_matrix_index(kpt.P_aMi_index[a])
+        #D_sii[kpt.s] += np.dot(np.dot(P_Mi.T.conj(), kpt.rho_MM),
+        #                       P_Mi).real
+        rhoP_Mi = np.zeros_like(P_Mi)
+        D_ii = np.zeros(D_sii[kpt.s].shape, kpt.rho_MM.dtype)
+        #gemm(1.0, P_Mi, kpt.rho_MM[ind.T, ind], 0.0, tmp)
+        gemm(1.0, P_Mi, kpt.rho_MM, 0.0, rhoP_Mi)
+        gemm(1.0, rhoP_Mi, P_Mi.T.conj().copy(), 0.0, D_ii)
+        D_sii[kpt.s] += D_ii.real
+        #D_sii[kpt.s] += dot(dot(P_Mi.T.conj().copy(),
+        #                        kpt.rho_MM[ind.T, ind]), P_Mi).real
+        
 
 class NonColinearMixer(BaseMixer):
     def mix(self, density):

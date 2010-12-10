@@ -63,6 +63,7 @@ class WaveFunctions(EmptyWaveFunctions):
         self.band_comm = self.bd.comm #XXX
         self.timer = timer
         self.colinear = colinear
+        self.ncomp = 2 - int(colinear)
         self.rank_a = None
 
         # XXX Remember to modify aseinterface when removing the following
@@ -95,26 +96,10 @@ class WaveFunctions(EmptyWaveFunctions):
     def calculate_density_contribution(self, nt_sG):
         """Calculate contribution to pseudo density from wave functions."""
         nt_sG.fill(0.0)
-
-        if not self.colinear:
-            nt_ssG = self.gd.zeros((2, 2), dtype=complex)
-            f_n = self.kpt_u[0].f_n
-            for s1 in range(2):
-                for s2 in range(2):
-                    for n in range(self.bd.nbands):
-                        nt_ssG[s1, s2] += f_n[n] * (
-                            self.kpt_u[s1].psit_nG[n] *
-                            self.kpt_u[s1].psit_nG[n].conj())
-            nt_sG[0] = nt_ssG[0, 0] + nt_ssG[1, 1]
-            nt_sG[1] = 0.5 * nt_ssG[0, 1].real
-            nt_sG[2] = 0.5 * nt_ssG[0, 1].imag
-            nt_sG[3] = nt_ssG[0, 0] - nt_ssG[1, 1]
-            print nt_sG[1:4, 8,8,8];sdfg
-        else:
-            for kpt in self.kpt_u:
-                self.add_to_density_from_k_point(nt_sG, kpt)
-            self.band_comm.sum(nt_sG)
-            self.kpt_comm.sum(nt_sG)
+        for kpt in self.kpt_u:
+            self.add_to_density_from_k_point(nt_sG, kpt)
+        self.band_comm.sum(nt_sG)
+        self.kpt_comm.sum(nt_sG)
         
         if self.symmetry:
             self.timer.start('Symmetrize density')
@@ -170,7 +155,7 @@ class WaveFunctions(EmptyWaveFunctions):
         # Varying f_n used in calculation of response part of GLLB-potential
         for a, D_sp in D_asp.items():
             ni = self.setups[a].ni
-            D_sii = np.zeros((self.nspins, ni, ni))
+            D_sii = np.zeros((len(D_sp), ni, ni))
             for f_n, kpt in zip(f_un, self.kpt_u):
                 self.calculate_atomic_density_matrices_k_point(D_sii, kpt, a,
                                                                f_n)
@@ -187,7 +172,8 @@ class WaveFunctions(EmptyWaveFunctions):
                 D_sp = D_asp.get(a)
                 if D_sp is None:
                     ni = setup.ni
-                    D_sp = np.empty((self.nspins, ni * (ni + 1) // 2))
+                    D_sp = np.empty((self.nspins * self.ncomp**2,
+                                     ni * (ni + 1) // 2))
                 self.gd.comm.broadcast(D_sp, self.rank_a[a])
                 all_D_asp.append(D_sp)
 
