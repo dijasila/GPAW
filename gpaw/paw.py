@@ -348,7 +348,12 @@ class PAW(PAWTextOutput):
 
         colinear = (par.noncolinear is None)
 
-        nspins = 1 + int(spinpol)
+        if colinear:
+            nspins = 1 + int(spinpol)
+            ncomp = 1
+        else:
+            nspins = 1
+            ncomp = 2
 
         if isinstance(par.xc, str):
             xc = XC(par.xc)
@@ -405,23 +410,25 @@ class PAW(PAWTextOutput):
                 'Charge %f is not possible - not enough valence electrons' %
                 par.charge)
 
-        M = magmom_a.sum()
-        if par.hund:
-            f_si = setups[0].calculate_initial_occupation_numbers(
-                magmom=0, hund=True, charge=par.charge, nspins=nspins)
-            Mh = f_si[0].sum() - f_si[1].sum()
-            if magnetic and M != Mh:
-                raise RuntimeError('You specified a magmom that does not'
-                                   'agree with hunds rule!')
-            else:
-                M = Mh
-
         if nbands <= 0:
             nbands = int(nvalence + M + 0.5) // 2 + (-nbands)
 
         if nvalence > 2 * nbands:
             raise ValueError('Too few bands!  Electrons: %d, bands: %d'
                              % (nvalence, nbands))
+
+        nbands *= ncomp
+        
+        M = magmom_a.sum()
+        if par.hund:
+            f_si = setups[0].calculate_initial_occupation_numbers(
+                magmom=0, hund=True, charge=par.charge, nspins=2)
+            Mh = f_si[0].sum() - f_si[1].sum()
+            if magnetic and M != Mh:
+                raise RuntimeError('You specified a magmom that does not'
+                                   'agree with hunds rule!')
+            else:
+                M = Mh
 
         if par.width is not None:
             self.text('**NOTE**: please start using '
@@ -597,7 +604,7 @@ class PAW(PAWTextOutput):
             self.hamiltonian = Hamiltonian(gd, finegd, nspins,
                                            setups, par.stencils[1], self.timer,
                                            xc, par.poissonsolver,
-                                           par.external)
+                                           par.external, colinear)
 
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)

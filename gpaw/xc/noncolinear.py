@@ -9,45 +9,66 @@ from gpaw.utilities.blas import gemm
 from gpaw.mixer import BaseMixer
 
 
-class NonColinearLDA(LDA):
+class NonColinearLDAKernel(LibXC):
     def __init__(self):
-        LDA.__init__(self, LibXC('LDA'))
+        LibXC.__init__(self, 'LDA')
         
-    def calculate(self, gd, n_sg, v_sg=None, e_g=None):
+    def calculate(self, e_g, n_sg, dedn_sg,
+                  sigma_xg=None, dedsigma_xg=None,
+                  tau_sg=None, dedtau_sg=None):
         n_g = n_sg[0]
         m_vg = n_sg[1:4]
         m_g = (m_vg**2).sum(0)**0.5
-        nnew_sg = gd.empty(2)
+        nnew_sg = np.empty((2,) + n_g.shape)
         nnew_sg[:] = n_g
         nnew_sg[0] += m_g
         nnew_sg[1] -= m_g
         nnew_sg *= 0.5
-        vnew_sg = gd.zeros(2)
-        e = LDA.calculate(self, gd, nnew_sg, vnew_sg, e_g)
-        v_sg[0] += 0.5 * vnew_sg.sum(0)
+        vnew_sg = np.zeros_like(nnew_sg)
+        LibXC.calculate(self, e_g, nnew_sg, vnew_sg)
+        dedn_sg[0] += 0.5 * vnew_sg.sum(0)
         dir_vg = m_vg / m_g
-        v_sg[1:4] += 0.5 * vnew_sg[0] * dir_vg
-        v_sg[1:4] -= 0.5 * vnew_sg[1] * dir_vg
-        return e
+        dedn_sg[1:4] += 0.5 * vnew_sg[0] * dir_vg
+        dedn_sg[1:4] -= 0.5 * vnew_sg[1] * dir_vg
 
 
 class NonColinearLCAOEigensolver(LCAO):
-    def calculate_hamiltonian_matrix(self, hamiltonian, wfs, kpt, root=-1):
-        assert self.has_initialized
-        vt_sG = hamiltonian.vt_sG
-        H_sMM = np.empty((4, wfs.ksl.mynao, wfs.ksl.nao), wfs.dtype)
+    def calculate_hamiltonian_matrix(self, ham, wfs, kpt, root=-1):
 
+        assert self.has_initialized
+
+        vt_sG = ham.vt_sG
+        dH_asp = ham.dH_asp
+        H_MM = np.empty((wfs.ksl.mynao, wfs.ksl.nao), wfs.dtype)
+        H_sMsM = np.empty((2, wfs.ksl.mynao, 2, wfs.ksl.nao), complex)
+        
         wfs.timer.start('Potential matrix')
-        for s in range(4):
-            wfs.basis_functions.calculate_potential_matrix(vt_sG[s],
-                                                           H_sMM[s], kpt.q)
+        self.get_component(wfs, 0, vt_sG, dH_asp, kpt, H_MM)
+        H_sMsM[0, :, 0] = H_MM
+        H_sMsM[1, :, 1] = H_MM
+        self.get_component(wfs, 1, vt_sG, dH_asp, kpt, H_MM)
+        H_sMsM[0, :, 1] = H_MM
+        H_sMsM[1, :, 0] = H_MM.conj().T
+        self.get_component(wfs, 2, vt_sG, dH_asp, kpt, H_MM)
+        H_sMsM[0, :, 1] += 1j * H_MM
+        H_sMsM[1, :, 0] -= 1j * H_MM.conj().T
+        self.get_component(wfs, 3, vt_sG, dH_asp, kpt, H_MM)
+        H_sMsM[0, :, 0] += H_MM
+        H_sMsM[1, :, 0] -= H_MM
         wfs.timer.stop('Potential matrix')
 
-        H_sMsM = np.empty((2, wfs.ksl.mynao, 2, wfs.ksl.nao), wfs.dtype)
-        H_sMsM[0, :, 0] = H_sMM[0] + H_sMM[3]
-        H_sMsM[0, :, 1] = H_sMM[1] + 1j * H_sMM[2]
-        H_sMsM[1, :, 0] = H_sMM[1] - 1j * H_sMM[2]
-        H_sMsM[1, :, 1] = H_sMM[0] - H_sMM[3]
+        H_sMsM[0, :, 0] += wfs.T_qMM[kpt.q]
+        H_sMsM[1, :, 1] += wfs.T_qMM[kpt.q]
+
+        wfs.timer.start('Distribute overlap matrix')
+        #H_MM = wfs.ksl.distribute_overlap_matrix(H_MM, root)
+        wfs.timer.stop('Distribute overlap matrix')
+        H_sMsM.shape = (2 * wfs.ksl.mynao, 2 * wfs.ksl.nao)
+        return H_sMsM
+
+    def get_component(self, wfs, s, vt_sG, dH_asp, kpt, H_MM):
+        wfs.basis_functions.calculate_potential_matrix(vt_sG[s], H_MM, kpt.q)
+
         # Add atomic contribution
         #
         #           --   a     a  a*
@@ -58,23 +79,14 @@ class NonColinearLCAOEigensolver(LCAO):
         wfs.timer.start('Atomic Hamiltonian')
         Mstart = wfs.basis_functions.Mstart
         Mstop = wfs.basis_functions.Mstop
+        wfs.timer.stop('Atomic Hamiltonian')
         for a, P_Mi in kpt.P_aMi.items():
-            dH_ii = np.asarray(unpack(hamiltonian.dH_asp[a][kpt.s]), wfs.dtype)
+            dH_ii = np.asarray(unpack(dH_asp[a][s]), wfs.dtype)
             dHP_iM = np.zeros((dH_ii.shape[1], P_Mi.shape[0]), wfs.dtype)
             # (ATLAS can't handle uninitialized output array)
             gemm(1.0, P_Mi, dH_ii, 0.0, dHP_iM, 'c')
-            print dHP_iM, P_Mi[Mstart:Mstop]
-            gemm(1.0, dHP_iM, P_Mi[Mstart:Mstop], 1.0, H_sMsM[0, :, 0])
-            gemm(1.0, dHP_iM, P_Mi[Mstart:Mstop], 1.0, H_sMsM[1, :, 1])
-        wfs.timer.stop('Atomic Hamiltonian')
-        wfs.timer.start('Distribute overlap matrix')
-        H_sMsM[0, :, 0] += wfs.T_qMM[kpt.q]
-        H_sMsM[1, :, 1] += wfs.T_qMM[kpt.q]
-        H_sMsM.shape = (2 * wfs.ksl.mynao, 2 * wfs.ksl.nao)
-        #H_MM = wfs.ksl.distribute_overlap_matrix(H_MM, root)
-        wfs.timer.stop('Distribute overlap matrix')
-        return H_sMsM
-    
+            gemm(1.0, dHP_iM, P_Mi[Mstart:Mstop], 1.0, H_MM)
+
     def iterate_one_k_point(self, hamiltonian, wfs, kpt):
         if wfs.bd.comm.size > 1 and wfs.bd.strided:
             raise NotImplementedError
@@ -83,18 +95,19 @@ class NonColinearLCAOEigensolver(LCAO):
         S_MM = np.zeros_like(H_MM)
         nao = wfs.ksl.nao
         S_MM.shape = (2, nao, 2, nao)
-        for s1 in range(2):
-            S_MM[s1, :, s1] = wfs.S_qMM[kpt.q]  # XXX conj?
+        for s in range(2):
+            S_MM[s, :, s] = wfs.S_qMM[kpt.q]
         S_MM.shape = (2 * nao, 2 * nao)
 
         if kpt.eps_n is None:
-            kpt.eps_n = np.empty(2 * wfs.bd.mynbands)
-            
+            kpt.eps_n = np.empty(wfs.bd.mynbands)
+            kpt.C_nsM = np.empty((wfs.bd.mynbands, 2 * nao), complex)
+
         diagonalization_string = repr(self.diagonalizer)
         wfs.timer.start(diagonalization_string)
-        self.diagonalizer._diagonalize(H_MM, S_MM, kpt.eps_n)
+        self.diagonalizer.diagonalize(H_MM, kpt.C_nsM, kpt.eps_n, S_MM)
         print kpt.eps_n
-        print H_MM;sdfg
+        dsfg
 
         wfs.timer.stop(diagonalization_string)
 

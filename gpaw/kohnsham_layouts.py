@@ -441,7 +441,6 @@ class OrbitalLayouts(KohnShamLayouts):
         self.blockcomm.broadcast(H_MM, 0)
         self.blockcomm.broadcast(S_MM, 0)
         self._diagonalize(H_MM, S_MM.copy(), eps_M)
-        nbands = self.bd.nbands
         eps_n[:] = eps_M[self.bd.get_slice()]
         C_nM[:] = H_MM[self.bd.get_slice()]
     

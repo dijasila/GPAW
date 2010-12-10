@@ -1,12 +1,13 @@
 from ase import Atoms
 from gpaw import GPAW
-from gpaw.xc.noncolinear import NonColinearLDA, NonColinearLCAOEigensolver, \
-     NonColinearMixer
+from gpaw.xc.noncolinear import NonColinearLDAKernel, \
+     NonColinearLCAOEigensolver, NonColinearMixer
+from gpaw.xc import XC
 
 h = Atoms('H', magmoms=[1])
 h.center(vacuum=2)
 print h.cell
-xc = NonColinearLDA()
+xc = XC(NonColinearLDAKernel())
 c = GPAW(txt='H.txt',
          mode='lcao',
          #basis='sz',
