@@ -54,7 +54,7 @@ class NonColinearLCAOEigensolver(LCAO):
         H_sMsM[1, :, 0] -= 1j * H_MM.conj().T
         self.get_component(wfs, 3, vt_sG, dH_asp, kpt, H_MM)
         H_sMsM[0, :, 0] += H_MM
-        H_sMsM[1, :, 0] -= H_MM
+        H_sMsM[1, :, 1] -= H_MM
         wfs.timer.stop('Potential matrix')
         print H_sMsM
 
@@ -87,6 +87,7 @@ class NonColinearLCAOEigensolver(LCAO):
             # (ATLAS can't handle uninitialized output array)
             gemm(1.0, P_Mi, dH_ii, 0.0, dHP_iM, 'c')
             gemm(1.0, dHP_iM, P_Mi[Mstart:Mstop], 1.0, H_MM)
+        print s, H_MM[0,0]
 
     def iterate_one_k_point(self, hamiltonian, wfs, kpt):
         if wfs.bd.comm.size > 1 and wfs.bd.strided:

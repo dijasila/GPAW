@@ -3,10 +3,10 @@ from gpaw import GPAW
 #from gpaw.xc.noncolinear import NonColinearLDA, NonColinearLCAOEigensolver, \
 #     NonColinearMixer
 
-h = Atoms('H', magmoms=[0])
+h = Atoms('H', magmoms=[1])
 h.center(vacuum=2)
 xc = 'LDA'
-c = GPAW(#txt='H.txt',
+c = GPAW(txt='c.txt',
          mode='lcao',
          #basis='sz',
          #setups='ncpp',
