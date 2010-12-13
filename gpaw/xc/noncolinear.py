@@ -27,9 +27,9 @@ class NonColinearLDAKernel(LibXC):
         vnew_sg = np.zeros_like(nnew_sg)
         LibXC.calculate(self, e_g, nnew_sg, vnew_sg)
         dedn_sg[0] += 0.5 * vnew_sg.sum(0)
-        dir_vg = m_vg / m_g
-        dedn_sg[1:4] += 0.5 * vnew_sg[0] * dir_vg
-        dedn_sg[1:4] -= 0.5 * vnew_sg[1] * dir_vg
+        m_vg /= np.where(m_g < 1e-9, 1, m_g)
+        dedn_sg[1:4] += 0.5 * vnew_sg[0] * m_vg
+        dedn_sg[1:4] -= 0.5 * vnew_sg[1] * m_vg
 
 
 class NonColinearLCAOEigensolver(LCAO):
@@ -56,6 +56,7 @@ class NonColinearLCAOEigensolver(LCAO):
         H_sMsM[0, :, 0] += H_MM
         H_sMsM[1, :, 0] -= H_MM
         wfs.timer.stop('Potential matrix')
+        print H_sMsM
 
         H_sMsM[0, :, 0] += wfs.T_qMM[kpt.q]
         H_sMsM[1, :, 1] += wfs.T_qMM[kpt.q]
@@ -118,34 +119,30 @@ class NonColinearLCAOWaveFunctions(LCAOWaveFunctions):
             kpt.C_nsM = np.empty((self.bd.mynbands, 2, self.ksl.nao), complex)
             
     def add_to_density_from_k_point_with_occupation(self, nt_sG, kpt, f_n):
-        rho_MM = self.ksl.calculate_density_matrix(f_n, kpt.C_nsM[:, 0])
-        self.basis_functions.construct_density(rho_MM, nt_sG[0], kpt.q)
-        rho_MM = self.ksl.calculate_density_matrix(f_n, kpt.C_nsM[:, 1])
-        self.basis_functions.construct_density(rho_MM, nt_sG[3], kpt.q)
-        nt_sG[0] += nt_sG[3]
-        nt_sG[0] *= 0.5
-        nt_sG[3] -= nt_sG[0]
-        nt_sG[3] = -nt_sG[3]
-        rho_MM = self.ksl.calculate_density_matrix(f_n, kpt.C_nsM[:, 1]
-                                                   C2nM=kpt.C_nsM[:, 0])
-        self.basis_functions.construct_density(rho_MM.real, nt_sG[1], kpt.q)
-        self.basis_functions.construct_density(rho_MM.imag, nt_sG[2], kpt.q)
+        rho00_MM = self.ksl.calculate_density_matrix(f_n,
+                                                     kpt.C_nsM[:, 0].copy())
+        rho01_MM = self.ksl.calculate_density_matrix(
+            f_n,
+            kpt.C_nsM[:, 0].copy(),
+            C2_nM=kpt.C_nsM[:, 1].copy())
+        rho11_MM = self.ksl.calculate_density_matrix(f_n,
+                                                     kpt.C_nsM[:, 1].copy())
+        kpt.rho_sMM = np.empty((4, self.ksl.nao, self.ksl.nao))
+        kpt.rho_sMM[0] = rho00_MM + rho11_MM
+        kpt.rho_sMM[1] = rho01_MM.real  # NCXXX *2?
+        kpt.rho_sMM[2] = rho01_MM.imag  # NCXXX *2?
+        kpt.rho_sMM[3] = rho00_MM - rho11_MM
+        print f_n,kpt.rho_sMM
+        for rho_MM, nt_G in zip(kpt.rho_sMM, nt_sG):
+            self.basis_functions.construct_density(rho_MM, nt_G, kpt.q)
 
     def calculate_atomic_density_matrices_k_point(self, D_sii, kpt, a, f_n):
-        ...
-        P_Mi = kpt.P_aMi[a]
-        #P_Mi = kpt.P_aMi_sparse[a]
-        #ind = get_matrix_index(kpt.P_aMi_index[a])
-        #D_sii[kpt.s] += np.dot(np.dot(P_Mi.T.conj(), kpt.rho_MM),
-        #                       P_Mi).real
+        P_Mi = kpt.P_aMi[a].real.copy()
         rhoP_Mi = np.zeros_like(P_Mi)
-        D_ii = np.zeros(D_sii[kpt.s].shape, kpt.rho_MM.dtype)
-        #gemm(1.0, P_Mi, kpt.rho_MM[ind.T, ind], 0.0, tmp)
-        gemm(1.0, P_Mi, kpt.rho_MM, 0.0, rhoP_Mi)
-        gemm(1.0, rhoP_Mi, P_Mi.T.conj().copy(), 0.0, D_ii)
-        D_sii[kpt.s] += D_ii.real
-        #D_sii[kpt.s] += dot(dot(P_Mi.T.conj().copy(),
-        #                        kpt.rho_MM[ind.T, ind]), P_Mi).real
+        D_ii = np.zeros_like(D_sii[0])
+        for rho_MM, D_ii in zip(kpt.rho_sMM, D_sii):
+            gemm(1.0, P_Mi, rho_MM, 0.0, rhoP_Mi)
+            gemm(1.0, rhoP_Mi, P_Mi.T.conj().copy(), 1.0, D_ii)
         
 
 class NonColinearMixer(BaseMixer):

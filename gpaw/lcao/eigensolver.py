@@ -56,6 +56,7 @@ class LCAO:
         wfs.timer.start('Distribute overlap matrix')
         H_MM = wfs.ksl.distribute_overlap_matrix(H_MM, root)
         wfs.timer.stop('Distribute overlap matrix')
+        print H_MM
         H_MM += wfs.T_qMM[kpt.q]
         return H_MM
 

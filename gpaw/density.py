@@ -292,7 +292,8 @@ class Density:
                 f_si = np.empty((4, len(fn_i)))
                 f_si[0] = fn_i
                 f_si[1:4] = np.outer(self.direction_av[a], fm_i)
-
+            print f_si
+            
             if a in basis_functions.my_atom_indices:
                 self.D_asp[a] = self.setups[a].initialize_density_matrix(f_si)
             
