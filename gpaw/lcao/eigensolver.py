@@ -56,7 +56,6 @@ class LCAO:
         wfs.timer.start('Distribute overlap matrix')
         H_MM = wfs.ksl.distribute_overlap_matrix(H_MM, root)
         wfs.timer.stop('Distribute overlap matrix')
-        print H_MM
         H_MM += wfs.T_qMM[kpt.q]
         return H_MM
 
@@ -82,6 +81,7 @@ class LCAO:
         diagonalization_string = repr(self.diagonalizer)
         wfs.timer.start(diagonalization_string)
         self.diagonalizer.diagonalize(H_MM, kpt.C_nM, kpt.eps_n, S_MM)
+        print kpt.eps_n
         wfs.timer.stop(diagonalization_string)
 
         wfs.timer.start('Calculate projections')

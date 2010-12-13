@@ -15,7 +15,7 @@ c = GPAW(txt='nc.txt',
          #occupations=FermiDirac(0.01),
          xc=xc,
          mixer=NonColinearMixer(),
-         noncolinear=[(0, 0, 1)],
+         noncolinear=[(0, 1, 0)],
          eigensolver=NonColinearLCAOEigensolver())
 c.set(nbands=1)
 h.calc = c

@@ -344,13 +344,16 @@ class Density:
         self.mixer.initialize(self)
         
     def estimate_magnetic_moments(self):
-        assert self.colinear
-        magmom_a = np.zeros_like(self.magmom_a)
-        if self.nspins == 2:
+        magmom_av = np.zeros((len(self.magmom_a), 3))
+        if self.nspins == 2 or not self.colinear:
             for a, D_sp in self.D_asp.items():
-                magmom_a[a] = np.dot(D_sp[0] - D_sp[1], self.setups[a].N0_p)
-            self.gd.comm.sum(magmom_a)
-        return magmom_a
+                if self.colinear:
+                    magmom_av[a, 2] = np.dot(D_sp[0] - D_sp[1],
+                                             self.setups[a].N0_p)
+                else:
+                    magmom_av[a] = np.dot(D_sp[1:4], self.setups[a].N0_p)
+            self.gd.comm.sum(magmom_av)
+        return magmom_av
 
     def get_correction(self, a, spin):
         """Integrated atomic density correction.

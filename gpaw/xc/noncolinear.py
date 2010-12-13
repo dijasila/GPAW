@@ -108,11 +108,14 @@ class NonColinearLCAOEigensolver(LCAO):
         wfs.timer.start(diagonalization_string)
         kpt.C_nsM.shape = (wfs.bd.mynbands, 2 * nao)
         self.diagonalizer.diagonalize(H_MM, kpt.C_nsM, kpt.eps_n, S_MM)
+        print 'EIG', kpt.eps_n
         kpt.C_nsM.shape = (wfs.bd.mynbands, 2, nao)
         wfs.timer.stop(diagonalization_string)
 
 
 class NonColinearLCAOWaveFunctions(LCAOWaveFunctions):
+    colinear = False
+    ncomp = 2
     def set_positions(self, spos_ac):
         LCAOWaveFunctions.set_positions(self, spos_ac)
         for kpt in self.kpt_u:
@@ -130,8 +133,8 @@ class NonColinearLCAOWaveFunctions(LCAOWaveFunctions):
                                                      kpt.C_nsM[:, 1].copy())
         kpt.rho_sMM = np.empty((4, self.ksl.nao, self.ksl.nao))
         kpt.rho_sMM[0] = rho00_MM + rho11_MM
-        kpt.rho_sMM[1] = rho01_MM.real  # NCXXX *2?
-        kpt.rho_sMM[2] = rho01_MM.imag  # NCXXX *2?
+        kpt.rho_sMM[1] = 2 * rho01_MM.real
+        kpt.rho_sMM[2] = 2 * rho01_MM.imag
         kpt.rho_sMM[3] = rho00_MM - rho11_MM
         print f_n,kpt.rho_sMM
         for rho_MM, nt_G in zip(kpt.rho_sMM, nt_sG):

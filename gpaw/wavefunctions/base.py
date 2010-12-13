@@ -46,8 +46,12 @@ class WaveFunctions(EmptyWaveFunctions):
     kpt_comm:
         MPI-communicator for parallelization over **k**-points.
     """
+
+    colinear = True
+    ncomp = 1
+    
     def __init__(self, gd, nvalence, setups, bd, dtype,
-                 world, kd, timer=None, colinear=True):
+                 world, kd, timer=None):
         if timer is None:
             timer = nulltimer
             
@@ -62,8 +66,6 @@ class WaveFunctions(EmptyWaveFunctions):
         self.kd = kd
         self.band_comm = self.bd.comm #XXX
         self.timer = timer
-        self.colinear = colinear
-        self.ncomp = 2 - int(colinear)
         self.rank_a = None
 
         # XXX Remember to modify aseinterface when removing the following
