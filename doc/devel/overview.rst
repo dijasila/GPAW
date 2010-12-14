@@ -194,20 +194,20 @@ Exchange-correlation functionals
 The ``gpaw.xc`` module contains all the code for XC functionals in
 GPAW::
 
-   +------------+
-   |XCFunctional|
-   +------------+
-       ^     ^
-      /_\   /_\
-       |     |
-     +---+   |    +------------------------+
-     |LDA|    ----|vdW-DF/HybridXC/SIC/GLLB|
-     +---+        +------------------------+
-       ^
-      /_\
-       |
-     +---+
-     |GGA|
+   +--------------+
+   | XCFunctional |
+   +--------------+
+       ^         ^
+      /_\       /_\
+       |         |
+     +-------+   |    +------------------------+
+     |  LDA  |    ----|vdW-DF/HybridXC/SIC/GLLB|
+     +-------+        +------------------------+
+       ^   ^
+      /_\ /_\
+       |   |     +------------------------+
+     +---+  -----|NoncolinearLDAFunctional|
+     |GGA|       +------------------------+
      +---+
        ^
       /_\
@@ -248,9 +248,64 @@ GPAW also has a few non-libxc kernels that one can use like this::
 Colinear or not colinear
 ========================
 
-...
+For a noncolinear calculation, we work with a 2x2 density matrix:
 
+.. math::
 
+    n^{\alpha\beta}(\br)=
+    [n(\br)\delta_{\alpha\beta}+
+     \mathbf{m}(\br)\cdot\mathbf{\sigma}^{\alpha\beta}]/2,
+
+with `n(\br)` is the total electron density and the Pauli spin
+matrices given as:
+
+.. math::
+
+   \sigma_x=\begin{pmatrix}0&1\\1&0\end{pmatrix},\,
+   \sigma_y=\begin{pmatrix}0&-i\\i&0\end{pmatrix},\,
+   \sigma_z=\begin{pmatrix}1&0\\0&-1\end{pmatrix}.
+
+Inserting the Pauli matrices, we get:
+
+.. math::
+
+    n^{\alpha\beta}=
+    \frac{1}{2}\begin{pmatrix}
+    n+m_z    & m_x-im_y\\
+    m_x+im_y & n-m_z
+    \end{pmatrix}.
+
+Here is how we abuse the ``s`` index to store both `n(\br)` and
+`\mathbf{m}(\br)` in ``nt_sG``:
+
+.. list-table::
+
+    * - colinear
+      - nspins
+      - ncomp
+      - nspins*ncomp**2
+      - nt_sG
+    * - True
+      - 1
+      - 1
+      - 1
+      - [`n`]
+    * - True
+      - 2
+      - 1
+      - 2
+      - [`n_{\uparrow}`, `n_{\downarrow}`]
+    * - False
+      - 1
+      - 2
+      - 4
+      - [`n`, `m_x`, `m_y`, `m_z`]
+
+Notice that ``nspins=1`` for noncolinear calculations and the wave
+functions have ``ncomp=2`` components and we have twice as many bands
+as in a colinear calculation.
+
+  
 
 .. _overview_array_naming:
 
