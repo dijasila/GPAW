@@ -81,7 +81,6 @@ class LCAO:
         diagonalization_string = repr(self.diagonalizer)
         wfs.timer.start(diagonalization_string)
         self.diagonalizer.diagonalize(H_MM, kpt.C_nM, kpt.eps_n, S_MM)
-        print kpt.eps_n
         wfs.timer.stop(diagonalization_string)
 
         wfs.timer.start('Calculate projections')

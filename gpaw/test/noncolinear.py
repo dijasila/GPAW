@@ -4,7 +4,7 @@ from gpaw.xc.noncolinear import NonColinearLDAKernel, \
      NonColinearLCAOEigensolver, NonColinearMixer
 from gpaw.xc import XC
 
-h = Atoms('H', magmoms=[0])
+h = Atoms('H', magmoms=[1])
 h.center(vacuum=2)
 xc = XC(NonColinearLDAKernel())
 c = GPAW(txt='nc.txt',
@@ -12,10 +12,11 @@ c = GPAW(txt='nc.txt',
          basis='dz(dzp)',
          #setups='ncpp',
          h=0.25,
-         occupations=FermiDirac(0.01),
+         occupations=FermiDirac(0.0),
          xc=xc,
          mixer=NonColinearMixer(),
-         noncolinear=[(0, 0, 1)],
+         noncolinear=[(0, 1, 0)],
+         #noncolinear=[(0, 0, 1)],
          eigensolver=NonColinearLCAOEigensolver())
 c.set(nbands=1)
 h.calc = c

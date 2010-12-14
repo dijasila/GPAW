@@ -7,6 +7,7 @@ from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 from gpaw.utilities import unpack
 from gpaw.utilities.blas import gemm
 from gpaw.mixer import BaseMixer
+from gpaw.utilities.tools import tri2full
 
 
 class NonColinearLDAKernel(LibXC):
@@ -80,6 +81,7 @@ class NonColinearLCAOEigensolver(LCAO):
         Mstart = wfs.basis_functions.Mstart
         Mstop = wfs.basis_functions.Mstop
         wfs.timer.stop('Atomic Hamiltonian')
+        tri2full(H_MM)
         for a, P_Mi in kpt.P_aMi.items():
             dH_ii = np.asarray(unpack(dH_asp[a][s]), wfs.dtype)
             dHP_iM = np.zeros((dH_ii.shape[1], P_Mi.shape[0]), wfs.dtype)
@@ -142,7 +144,6 @@ class NonColinearLCAOWaveFunctions(LCAOWaveFunctions):
         for rho_MM, D_ii in zip(kpt.rho_sMM, D_sii):
             gemm(1.0, P_Mi, rho_MM, 0.0, rhoP_Mi)
             gemm(1.0, rhoP_Mi, P_Mi.T.conj().copy(), 1.0, D_ii)
-        
 
 class NonColinearMixer(BaseMixer):
     def mix(self, density):
