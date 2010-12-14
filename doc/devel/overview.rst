@@ -245,6 +245,12 @@ GPAW also has a few non-libxc kernels that one can use like this::
     xc = XC(XCKernel('PBE'))
 
 
+Colinear or not colinear
+========================
+
+...
+
+
 
 .. _overview_array_naming:
 

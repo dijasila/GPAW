@@ -653,7 +653,7 @@ class GPAW(PAW):
             momsum = magmom_av.sum()
             M = self.occupations.magmom
             if abs(M) > 1e-7 and momsum > 1e-7:
-                magmom_a *= M / momsum
+                magmom_av *= M / momsum
             return magmom_av[:, 2]
         else:
             return magmom_av            

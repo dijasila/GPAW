@@ -185,7 +185,6 @@ class LCAOWaveFunctions(WaveFunctions):
         else:
             rho_MM = kpt.rho_MM
         self.timer.start('Construct density')
-        print rho_MM
         self.basis_functions.construct_density(rho_MM,
                                                nt_sG[kpt.s], kpt.q)
         self.timer.stop('Construct density')

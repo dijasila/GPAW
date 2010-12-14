@@ -56,8 +56,7 @@ class NonColinearLCAOEigensolver(LCAO):
         H_sMsM[0, :, 0] += H_MM
         H_sMsM[1, :, 1] -= H_MM
         wfs.timer.stop('Potential matrix')
-        print H_sMsM
-
+        
         H_sMsM[0, :, 0] += wfs.T_qMM[kpt.q]
         H_sMsM[1, :, 1] += wfs.T_qMM[kpt.q]
 
@@ -87,7 +86,6 @@ class NonColinearLCAOEigensolver(LCAO):
             # (ATLAS can't handle uninitialized output array)
             gemm(1.0, P_Mi, dH_ii, 0.0, dHP_iM, 'c')
             gemm(1.0, dHP_iM, P_Mi[Mstart:Mstop], 1.0, H_MM)
-        print s, H_MM[0,0]
 
     def iterate_one_k_point(self, hamiltonian, wfs, kpt):
         if wfs.bd.comm.size > 1 and wfs.bd.strided:
@@ -108,7 +106,6 @@ class NonColinearLCAOEigensolver(LCAO):
         wfs.timer.start(diagonalization_string)
         kpt.C_nsM.shape = (wfs.bd.mynbands, 2 * nao)
         self.diagonalizer.diagonalize(H_MM, kpt.C_nsM, kpt.eps_n, S_MM)
-        print 'EIG', kpt.eps_n
         kpt.C_nsM.shape = (wfs.bd.mynbands, 2, nao)
         wfs.timer.stop(diagonalization_string)
 
@@ -134,16 +131,14 @@ class NonColinearLCAOWaveFunctions(LCAOWaveFunctions):
         kpt.rho_sMM = np.empty((4, self.ksl.nao, self.ksl.nao))
         kpt.rho_sMM[0] = rho00_MM + rho11_MM
         kpt.rho_sMM[1] = 2 * rho01_MM.real
-        kpt.rho_sMM[2] = 2 * rho01_MM.imag
+        kpt.rho_sMM[2] = -2 * rho01_MM.imag
         kpt.rho_sMM[3] = rho00_MM - rho11_MM
-        print f_n,kpt.rho_sMM
         for rho_MM, nt_G in zip(kpt.rho_sMM, nt_sG):
-            self.basis_functions.construct_density(rho_MM, nt_G, kpt.q)
+            self.basis_functions.construct_density(rho_MM.astype(complex), nt_G, kpt.q)
 
     def calculate_atomic_density_matrices_k_point(self, D_sii, kpt, a, f_n):
         P_Mi = kpt.P_aMi[a].real.copy()
         rhoP_Mi = np.zeros_like(P_Mi)
-        D_ii = np.zeros_like(D_sii[0])
         for rho_MM, D_ii in zip(kpt.rho_sMM, D_sii):
             gemm(1.0, P_Mi, rho_MM, 0.0, rhoP_Mi)
             gemm(1.0, rhoP_Mi, P_Mi.T.conj().copy(), 1.0, D_ii)
@@ -151,8 +146,5 @@ class NonColinearLCAOWaveFunctions(LCAOWaveFunctions):
 
 class NonColinearMixer(BaseMixer):
     def mix(self, density):
-        nt_sG = density.nt_sG
-        D_asp = density.D_asp.values()
-
-        # Mix density
-        BaseMixer.mix(self, nt_sG[0], D_asp)
+        BaseMixer.mix(self, density.nt_sG[0],
+                      [D_sp[0] for D_sp in density.D_asp.values()])
