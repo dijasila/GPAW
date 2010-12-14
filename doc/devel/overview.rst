@@ -203,11 +203,11 @@ GPAW::
      +-------+   |    +------------------------+
      |  LDA  |    ----|vdW-DF/HybridXC/SIC/GLLB|
      +-------+        +------------------------+
-       ^   ^
-      /_\ /_\
-       |   |     +------------------------+
-     +---+  -----|NoncolinearLDAFunctional|
-     |GGA|       +------------------------+
+       ^
+      /_\
+       |
+     +---+
+     |GGA|
      +---+
        ^
       /_\
@@ -256,7 +256,7 @@ For a noncolinear calculation, we work with a 2x2 density matrix:
     [n(\br)\delta_{\alpha\beta}+
      \mathbf{m}(\br)\cdot\mathbf{\sigma}^{\alpha\beta}]/2,
 
-with `n(\br)` is the total electron density and the Pauli spin
+where `n(\br)` is the total electron density and the Pauli spin
 matrices given as:
 
 .. math::
