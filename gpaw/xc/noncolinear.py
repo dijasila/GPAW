@@ -144,6 +144,8 @@ class NonColinearLCAOWaveFunctions(LCAOWaveFunctions):
         for rho_MM, D_ii in zip(kpt.rho_sMM, D_sii):
             gemm(1.0, P_Mi, rho_MM, 0.0, rhoP_Mi)
             gemm(1.0, rhoP_Mi, P_Mi.T.conj().copy(), 1.0, D_ii)
+            D_ii += D_ii.T.copy()
+            D_ii *= 0.5
 
 class NonColinearMixer(BaseMixer):
     def mix(self, density):

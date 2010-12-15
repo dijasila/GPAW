@@ -171,7 +171,10 @@ class KPointDescriptor:
         for ks in range(self.ks0, self.ks0 + self.mynks):
             s, k = divmod(ks, self.nibzkpts)
             q = (ks - self.ks0) % self.nibzkpts
-            weight = self.weight_k[k] * 2 / self.nspins
+            if self.colinear:
+                weight = self.weight_k[k] * 2 / self.nspins
+            else:
+                weight = self.weight_k[k]
             if self.gamma:
                 phase_cd = np.ones((3, 2), complex)
             else:

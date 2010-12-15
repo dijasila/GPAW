@@ -160,6 +160,7 @@ class OccupationNumbers:
         """
         self.split = fermisplit
 
+
 def occupy(f_n, eps_n, ne, weight=1):
     """Fill in occupation numbers.
 
@@ -179,6 +180,7 @@ def occupy(f_n, eps_n, ne, weight=1):
     if f > 0.0:
         return eps_n[n], eps_n[n]
     return eps_n[n - 1], eps_n[n]
+
 
 class ZeroKelvin(OccupationNumbers):
     def __init__(self, fixmagmom):
@@ -294,8 +296,8 @@ class ZeroKelvin(OccupationNumbers):
             if wfs.bd.comm.rank == 0:
                 f_n = np.empty(wfs.nbands)
                 homo, lumo = occupy(f_n, eps_n,
-                                    0.5 * self.nvalence * kpt.weight,
-                                    kpt.weight)
+                                    0.5 * self.nvalence * wfs.ncomp *
+                                    kpt.weight, kpt.weight)
                 self.homo = max(self.homo, homo)
                 self.lumo = min(self.lumo, lumo)
             else:
@@ -376,7 +378,7 @@ class SmoothDistribution(ZeroKelvin):
         return string
 
     def calculate_occupation_numbers(self, wfs):
-        if self.width == 0 or self.nvalence == wfs.nbands * 2:
+        if self.width == 0 or self.nvalence == wfs.nbands * 2 // wfs.ncomp:
             ZeroKelvin.calculate_occupation_numbers(self, wfs)
             return
 
@@ -438,7 +440,8 @@ class SmoothDistribution(ZeroKelvin):
                 wfs.kpt_comm.gather(myeps_n, 0, eps_n)
                 eps_n = eps_n.ravel()
                 eps_n.sort()
-                n, f = divmod(self.nvalence * wfs.nibzkpts, 3 - wfs.nspins)
+                n, f = divmod(self.nvalence * wfs.nibzkpts,
+                              4 - wfs.nspins - wfs.ncomp)
                 n = int(n)
                 if f > 0.0:
                     fermilevel = eps_n[n]

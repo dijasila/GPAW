@@ -124,6 +124,9 @@ class PAWXCCorrection:
         v_sg = self.rgd.empty(nspins)
         XC = xc.calculate_radial
 
+        if nspins == 4:
+            nspins = 1
+            
         if type == 'MGGA':
             dedtau_sg = self.rgd.empty(nspins)
             if self.tau_npg is None:
@@ -136,7 +139,7 @@ class PAWXCCorrection:
             (self.nt_qg, self.nct_g, self.taut_npg, self.tauct_g)]:
             n_sLg = np.dot(D_sLq, n_qg)
             if addcoredensity:
-                n_sLg[:, 0] += sqrt(4 * pi) / nspins * nc_g
+                n_sLg[:nspins, 0] += sqrt(4 * pi) / nspins * nc_g
             if self.nc_corehole_g is not None and nspins == 2 and sign == 1:
                 n_sLg[0, 0] -= 0.5 * sqrt(4 * pi) * self.nc_corehole_g
                 n_sLg[1, 0] += 0.5 * sqrt(4 * pi) * self.nc_corehole_g
