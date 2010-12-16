@@ -265,8 +265,11 @@ class Hamiltonian:
             if s < self.nspins:
                 vt_g += self.vHt_g
             self.restrict(vt_g, vt_G)
-            Ekin -= self.gd.integrate(vt_G, nt_G - density.nct_G,
-                                      global_integral=False)
+            if s < self.nspins:
+                Ekin -= self.gd.integrate(vt_G, nt_G - density.nct_G,
+                                          global_integral=False)
+            else:
+                Ekin -= self.gd.integrate(vt_G, nt_G, global_integral=False)
             s += 1
                 
         self.timer.stop('Hartree integrate/restrict')
