@@ -59,10 +59,7 @@ class KPointDescriptor:
         self.nbzkpts = len(self.bzk_kc)
         
         # Gamma-point calculation?
-        if colinear:
-            self.gamma = self.nbzkpts == 1 and not self.bzk_kc[0].any()
-        else:
-            self.gamma = False
+        self.gamma = self.nbzkpts == 1 and not self.bzk_kc[0].any()
             
         self.symmetry = None
         self.comm = None

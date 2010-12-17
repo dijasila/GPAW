@@ -387,7 +387,7 @@ class PAW(PAWTextOutput):
         if hasattr(self, 'time'):
             dtype = complex
         else:
-            if kd.gamma and colinear:
+            if kd.gamma:
                 dtype = float
             else:
                 dtype = complex

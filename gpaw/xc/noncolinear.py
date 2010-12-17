@@ -136,7 +136,7 @@ class NonColinearLCAOWaveFunctions(LCAOWaveFunctions):
         kpt.rho_sMM[2] = -2 * rho01_MM.imag
         kpt.rho_sMM[3] = rho00_MM - rho11_MM
         for rho_MM, nt_G in zip(kpt.rho_sMM, nt_sG):
-            self.basis_functions.construct_density(rho_MM.astype(complex), nt_G, kpt.q)
+            self.basis_functions.construct_density(rho_MM, nt_G, kpt.q)
 
     def calculate_atomic_density_matrices_k_point(self, D_sii, kpt, a, f_n):
         P_Mi = kpt.P_aMi[a].real.copy()
@@ -146,6 +146,7 @@ class NonColinearLCAOWaveFunctions(LCAOWaveFunctions):
             gemm(1.0, rhoP_Mi, P_Mi.T.conj().copy(), 1.0, D_ii)
             D_ii += D_ii.T.copy()
             D_ii *= 0.5
+
 
 class NonColinearMixer(BaseMixer):
     def mix(self, density):
