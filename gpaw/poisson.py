@@ -10,21 +10,24 @@ from numpy.fft import fftn, ifftn, fft2, ifft2
 from gpaw.transformers import Transformer
 from gpaw.fd_operators import Laplace, LaplaceA, LaplaceB
 from gpaw import PoissonConvergenceError
-from gpaw.utilities.blas import axpy
+from gpaw.utilities.blas import axpy, dotu
 from gpaw.utilities.gauss import Gaussian
 from gpaw.utilities.ewald import madelung
 from gpaw.utilities.tools import construct_reciprocal
 import gpaw.mpi as mpi
 import _gpaw
 
+import pycuda.driver as cuda
+import pycuda.gpuarray as gpuarray
 
 class PoissonSolver:
-    def __init__(self, nn=3, relax='J', eps=2e-10):
+    def __init__(self, nn=3, relax='J', eps=2e-10, cuda=False):
         self.relax = relax
         self.nn = nn
         self.eps = eps
         self.charged_periodic_correction = None
         self.maxiter = 1000
+        self.cuda = cuda
 
         # Relaxation method
         if relax == 'GS':
@@ -49,10 +52,12 @@ class PoissonSolver:
                 raise RuntimeError('Cannot use Mehrstellen stencil with '
                                    'non orthogonal cell.')
 
-            self.operators = [LaplaceA(gd, -scale, allocate=False)]
-            self.B = LaplaceB(gd, allocate=False)
+            self.operators = [LaplaceA(gd, -scale, allocate=False, 
+                                       cuda=self.cuda)]
+            self.B = LaplaceB(gd, allocate=False, cuda=self.cuda)
         else:
-            self.operators = [Laplace(gd, scale, self.nn, allocate=False)]
+            self.operators = [Laplace(gd, scale, self.nn, allocate=False, 
+                                      cuda=self.cuda)]
             self.B = None
 
         self.interpolators = []
@@ -71,9 +76,12 @@ class PoissonSolver:
                 gd2 = gd.coarsen()
             except ValueError:
                 break
-            self.operators.append(Laplace(gd2, scale, 1, allocate=False))
-            self.interpolators.append(Transformer(gd2, gd, allocate=False))
-            self.restrictors.append(Transformer(gd, gd2, allocate=False))
+            self.operators.append(Laplace(gd2, scale, 1, allocate=False, 
+                                          cuda=self.cuda))
+            self.interpolators.append(Transformer(gd2, gd, allocate=False,
+                                                  cuda=self.cuda))
+            self.restrictors.append(Transformer(gd, gd2, allocate=False,
+                                                cuda=self.cuda))
             self.presmooths.append(4)
             self.postsmooths.append(4)
             self.weights.append(1.0)
@@ -85,15 +93,17 @@ class PoissonSolver:
     def initialize(self, load_gauss=False):
         # Should probably be renamed allocate
         gd = self.gd
-        self.rhos = [gd.empty()]
+
+        self.rhos = [gd.empty(cuda=self.cuda)]
         self.phis = [None]
-        self.residuals = [gd.empty()]
+        self.residuals = [gd.empty(cuda=self.cuda)]
         for level in range(self.levels):
             gd2 = gd.coarsen()
-            self.phis.append(gd2.empty())
-            self.rhos.append(gd2.empty())
-            self.residuals.append(gd2.empty())
+            self.phis.append(gd2.empty(cuda=self.cuda))
+            self.rhos.append(gd2.empty(cuda=self.cuda))
+            self.residuals.append(gd2.empty(cuda=self.cuda))
             gd = gd2
+        
         assert len(self.phis) == len(self.rhos)
         level += 1
         assert level == self.levels
@@ -117,6 +127,10 @@ class PoissonSolver:
 
     def solve(self, phi, rho, charge=None, eps=None, maxcharge=1e-6,
               zero_initial_phi=False):
+        """Solve Poisson equation for possibly charged system.
+
+        NOTE: for CUDA implementation input arrays phi and rho are located
+        on CPU"""
 
         if eps is None:
             eps = self.eps
@@ -185,13 +199,24 @@ class PoissonSolver:
             raise NotImplementedError
 
     def solve_neutral(self, phi, rho, eps=2e-10):
-        self.phis[0] = phi
+        """Solve Poisson equation for charge neutral system.
 
-        if self.B is None:
-            self.rhos[0][:] = rho
+        NOTE: for CUDA implementation input arrays phi and rho are located
+        on CPU"""
+
+        if isinstance(self.phis[1], gpuarray.GPUArray):
+            self.phis[0] = gpuarray.to_gpu(phi)
+            if self.B is None:
+                self.rhos[0] = gpuarray.to_gpu(rho)
+            else:
+                self.B.apply(gpuarray.to_gpu(rho), self.rhos[0])
         else:
-            self.B.apply(rho, self.rhos[0])
-
+            self.phis[0] = phi            
+            if self.B is None:
+                self.rhos[0][:] = rho
+            else:
+                self.B.apply(rho, self.rhos[0])
+                
         niter = 1
         maxiter = self.maxiter
         while self.iterate2(self.step) > eps and niter < maxiter:
@@ -201,6 +226,9 @@ class PoissonSolver:
             print 'CHARGE, eps:', charge, eps
             msg = 'Poisson solver did not converge in %d iterations!' % maxiter
             raise PoissonConvergenceError(msg)
+
+        if isinstance(self.phis[0], gpuarray.GPUArray):
+            self.phis[0].get(phi)
 
         # Set the average potential to zero in periodic systems
         if np.alltrue(self.gd.pbc_c):
@@ -238,35 +266,43 @@ class PoissonSolver:
 
     def iterate2(self, step, level=0):
         """Smooths the solution in every multigrid level"""
-
         residual = self.residuals[level]
+        phi=self.phis[level]
+        rho=self.rhos[level]
 
         if level < self.levels:
             self.operators[level].relax(self.relax_method,
-                                        self.phis[level],
-                                        self.rhos[level],
+                                        phi,
+                                        rho,
                                         self.presmooths[level],
                                         self.weights[level])
-
-            self.operators[level].apply(self.phis[level], residual)
-            residual -= self.rhos[level]
+            
+            self.operators[level].apply(phi, residual)            
+            residual -= rho
+                
             self.restrictors[level].apply(residual,
                                           self.rhos[level + 1])
-            self.phis[level + 1][:] = 0.0
+            self.phis[level + 1].fill(0.0)
             self.iterate2(4.0 * step, level + 1)
             self.interpolators[level].apply(self.phis[level + 1], residual)
-            self.phis[level] -= residual
+            phi -= residual
 
         self.operators[level].relax(self.relax_method,
-                                    self.phis[level],
-                                    self.rhos[level],
+                                    phi,
+                                    rho,
                                     self.postsmooths[level],
                                     self.weights[level])
         if level == 0:
-            self.operators[level].apply(self.phis[level], residual)
-            residual -= self.rhos[level]
-            error = self.gd.comm.sum(np.dot(residual.ravel(),
-                                             residual.ravel())) * self.dv
+            self.operators[level].apply(phi, residual)
+            residual -= rho
+            if isinstance(residual, gpuarray.GPUArray):
+                error = self.gd.comm.sum(dotu(residual,residual)) * self.dv
+                #error = self.gd.comm.sum(np.float64(gpuarray.dot(residual,residual).get())) * self.dv
+            else:
+                error = self.gd.comm.sum(np.dot(residual.ravel(),
+                                                residual.ravel())) * self.dv
+                #error = self.gd.comm.sum(np.sum(residual*residual)) * self.dv
+            #print error
             return error
 
     def estimate_memory(self, mem):
@@ -334,6 +370,7 @@ class FFTPoissonSolver(PoissonSolver):
     def __init__(self, eps=2e-10):
         self.charged_periodic_correction = None
         self.eps = eps
+        self.cuda=False
 
     def set_grid_descriptor(self, gd):
         assert gd.pbc_c.all()

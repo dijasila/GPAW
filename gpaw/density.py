@@ -146,19 +146,21 @@ class Density:
 
         self.rank_a = rank_a
 
-    def calculate_pseudo_density(self, wfs):
+    def calculate_pseudo_density(self, wfs, cuda_psit_nG=False):
         """Calculate nt_sG from scratch.
 
         nt_sG will be equal to nct_G plus the contribution from
         wfs.add_to_density().
         """
-        wfs.calculate_density_contribution(self.nt_sG)
+
+        wfs.calculate_density_contribution(self.nt_sG, 
+                                           cuda_psit_nG=cuda_psit_nG)
         self.nt_sG += self.nct_G
 
-    def update(self, wfs):
+    def update(self, wfs, cuda_psit_nG=False):
         self.timer.start('Density')
         self.timer.start('Pseudo density')
-        self.calculate_pseudo_density(wfs)
+        self.calculate_pseudo_density(wfs, cuda_psit_nG=cuda_psit_nG)
         self.timer.stop('Pseudo density')
         self.timer.start('Atomic density matrices')
         wfs.calculate_atomic_density_matrices(self.D_asp)
