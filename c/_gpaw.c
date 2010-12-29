@@ -104,6 +104,15 @@ PyObject* set_fapl_mpio(PyObject *self, PyObject *args);
 PyObject* set_dxpl_mpio(PyObject *self, PyObject *args);
 #endif
 
+#ifdef GPAW_CUDA  
+PyObject* gemm_cuda_gpu(PyObject *self, PyObject *args);
+PyObject* rk_cuda_gpu(PyObject *self, PyObject *args);
+PyObject* axpy_cuda_gpu(PyObject *self, PyObject *args);
+PyObject* r2k_cuda_gpu(PyObject *self, PyObject *args);
+PyObject* dotc_cuda_gpu(PyObject *self, PyObject *args);
+PyObject* dotu_cuda_gpu(PyObject *self, PyObject *args);
+#endif
+
 // IO wrappers
 #ifdef IO_WRAPPERS
 void init_io_wrappers();
@@ -208,6 +217,14 @@ static PyMethodDef functions[] = {
   {"h5_set_fapl_mpio", set_fapl_mpio, METH_VARARGS, 0}, 
   {"h5_set_dxpl_mpio", set_dxpl_mpio, METH_VARARGS, 0}, 
 #endif // HDF5
+#ifdef GPAW_CUDA  
+  {"gemm_cuda_gpu", gemm_cuda_gpu, METH_VARARGS, 0},
+  {"axpy_cuda_gpu", axpy_cuda_gpu, METH_VARARGS, 0},
+  {"rk_cuda_gpu",  rk_cuda_gpu,  METH_VARARGS, 0},
+  {"r2k_cuda_gpu", r2k_cuda_gpu, METH_VARARGS, 0},
+  {"dotc_cuda_gpu", dotc_cuda_gpu, METH_VARARGS, 0},
+  {"dotu_cuda_gpu", dotu_cuda_gpu, METH_VARARGS, 0},
+#endif
   {"enable_io_wrappers", Py_enable_io_wrappers, METH_VARARGS, 0},
   {"disable_io_wrappers", Py_disable_io_wrappers, METH_VARARGS, 0},
   {0, 0, 0, 0}

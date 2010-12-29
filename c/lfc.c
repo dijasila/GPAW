@@ -11,19 +11,6 @@
 #include "bmgs/spherical_harmonics.h"
 #include "bmgs/bmgs.h"
 
-
-static void lfc_dealloc(LFCObject *self)
-{
-  if (self->bloch_boundary_conditions)
-    free(self->phase_i);
-  free(self->volume_i);
-  free(self->work_gm);
-  free(self->ngm_W);
-  free(self->i_W);
-  free(self->volume_W);
-  PyObject_DEL(self);
-}
-
 PyObject* calculate_potential_matrix(LFCObject *self, PyObject *args);
 PyObject* integrate(LFCObject *self, PyObject *args);
 PyObject* derivative(LFCObject *self, PyObject *args);
@@ -38,6 +25,29 @@ PyObject* calculate_potential_matrix_derivative(LFCObject *self,
                                                 PyObject *args);
 PyObject* second_derivative(LFCObject *self, PyObject *args);
 PyObject* add_derivative(LFCObject *self, PyObject *args);
+#ifdef GPAW_CUDA  
+void lfc_dealloc_cuda(LFCObject *self);
+PyObject * NewLFCObject_cuda(LFCObject *self, PyObject *args);
+PyObject* add_cuda_gpu(LFCObject *self, PyObject *args);
+PyObject* integrate_cuda_gpu(LFCObject *self, PyObject *args);
+#endif
+
+static void lfc_dealloc(LFCObject *self)
+{
+  if (self->bloch_boundary_conditions)
+    free(self->phase_i);
+  free(self->volume_i);
+  free(self->work_gm);
+  free(self->ngm_W);
+  free(self->i_W);
+  free(self->volume_W);
+#ifdef GPAW_CUDA  
+  if (self->cuda){
+    lfc_dealloc_cuda(self);
+  }
+#endif
+  PyObject_DEL(self);
+}
 
 static PyMethodDef lfc_methods[] = {
     {"calculate_potential_matrix",
@@ -66,6 +76,12 @@ static PyMethodDef lfc_methods[] = {
      (PyCFunction)second_derivative, METH_VARARGS, 0},
     {"add_derivative",
      (PyCFunction)add_derivative, METH_VARARGS, 0},
+#ifdef GPAW_CUDA  
+    {"integrate_cuda_gpu",
+     (PyCFunction)integrate_cuda_gpu, METH_VARARGS, 0},
+    {"add_cuda_gpu",
+     (PyCFunction)add_cuda_gpu, METH_VARARGS, 0},
+#endif
 #ifdef PARALLEL
     {"broadcast",
      (PyCFunction)localized_functions_broadcast, METH_VARARGS, 0},
@@ -97,15 +113,18 @@ PyObject * NewLFCObject(PyObject *obj, PyObject *args)
   const PyArrayObject* W_B_obj;
   double dv;
   const PyArrayObject* phase_kW_obj;
+  int cuda = 0;
 
-  if (!PyArg_ParseTuple(args, "OOOOdO",
+  if (!PyArg_ParseTuple(args, "OOOOdO|i",
                         &A_Wgm_obj, &M_W_obj, &G_B_obj, &W_B_obj, &dv,
-                        &phase_kW_obj))
+                        &phase_kW_obj, &cuda))
     return NULL; 
 
   LFCObject *self = PyObject_NEW(LFCObject, &LFCType);
   if (self == NULL)
     return NULL;
+
+  self->cuda = cuda;
 
   self->dv = dv;
 
@@ -150,6 +169,7 @@ PyObject * NewLFCObject(PyObject *obj, PyObject *args)
   self->volume_W = GPAW_MALLOC(LFVolume, nW);
   self->i_W = GPAW_MALLOC(int, nW);
   self->ngm_W = GPAW_MALLOC(int, nW);
+  self->nimax = nimax;
 
   int nmmax = 0;
   for (int W = 0; W < nW; W++) {
@@ -168,7 +188,12 @@ PyObject * NewLFCObject(PyObject *obj, PyObject *args)
   self->volume_i = GPAW_MALLOC(LFVolume, nimax);
   if (self->bloch_boundary_conditions)
     self->phase_i = GPAW_MALLOC(complex double, nimax);
-  
+
+#ifdef GPAW_CUDA  
+  if (cuda) {
+    NewLFCObject_cuda(self, args);
+  }
+#endif  
   return (PyObject*)self;
 }
 

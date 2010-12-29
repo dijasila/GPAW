@@ -15,6 +15,20 @@ typedef struct
   int W;               // volume number
 } LFVolume;
 
+#ifdef GPAW_CUDA  
+#include <cuComplex.h>
+
+typedef struct __attribute__((aligned(16)))
+{
+  double *A_gm;
+  void *work1_A_gm;
+  void *work2_A_gm;
+  int len_A_gm;
+  int nm;              // number of functions (2*l+1)
+  int M;               // global number of first function
+  int W;               // volume number
+} LFVolume_gpu;
+#endif
 
 typedef struct 
 {
@@ -32,6 +46,22 @@ typedef struct
   bool bloch_boundary_conditions;  // Gamma-point calculation?
   complex double* phase_kW;  // phase factors: exp(ik.R)
   complex double* phase_i;   // phase factors for current volumes
+
+  int nimax;
+#ifdef GPAW_CUDA  
+  int cuda;
+  LFVolume_gpu *volume_W_gpu;
+  LFVolume_gpu *volume_W_cuda;
+  int nB_gpu;                    // number of boundary points
+  int* G_B_gpu;                  // boundary grid points
+  int max_len_A_gm;
+  int max_nG;
+  cuDoubleComplex *phase_i_gpu;
+  int max_k;
+  LFVolume_gpu **volume_i_gpu;
+  double **A_gm_i_gpu;
+  int *ni_gpu;
+#endif
 } LFCObject;
 
 
