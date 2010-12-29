@@ -8,6 +8,9 @@ from gpaw.grid_descriptor import GridDescriptor
 from gpaw.mpi import serial_comm
 import _gpaw
 
+from gpaw import debug_cuda, debug_cuda_tol
+import pycuda.gpuarray as gpuarray
+
 """
 
 ===  =================================================
@@ -89,6 +92,7 @@ class Sphere:
             for beg_c, end_c, sdisp_c in gd.get_boxes(spos_c, rcut, cut):
                 A_gm, G_b = self.spline_to_grid(spline, gd, beg_c, end_c,
                                                 spos_c - sdisp_c)
+                #print "A_gm ",A_gm.shape,G_b.shape,l
                 if len(G_b) > 0:
                     self.A_wgm.append(A_gm)
                     self.G_wb.append(G_b)
@@ -226,7 +230,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
 
     """
     def __init__(self, gd, spline_aj, kpt_comm=None, cut=False, dtype=float,
-                 integral=None, forces=None):
+                 integral=None, forces=None, cuda=False):
         self.gd = gd
         self.sphere_a = [Sphere(spline_j) for spline_j in spline_aj]
         self.cut = cut
@@ -234,6 +238,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
         self.gamma = True
         self.dtype = dtype
         self.Mmax = None
+        self.cuda = cuda
 
         # Global or local M-indices?
         self.use_global_indices = False
@@ -299,7 +304,10 @@ class NewLocalizedFunctionsCollection(BaseLFC):
         self.M_W = np.empty(nW, np.intc)
         self.G_B = np.empty(nB, np.intc)
         self.W_B = np.empty(nB, np.intc)
+        
         self.A_Wgm = []
+        #G_WB_to_gpu = []
+        
         sdisp_Wc = np.empty((nW, 3), int)
         self.pos_Wv = np.empty((nW, 3))        
         
@@ -308,6 +316,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
         for a in self.atom_indices:
             sphere = self.sphere_a[a]
             self.A_Wgm.extend(sphere.A_wgm)
+            #G_WB_to_gpu.extend(sphere.G_wb)
             nw = len(sphere.M_w)
             self.M_W[W:W + nw] = self.M_a[a] + np.array(sphere.M_w)
             sdisp_Wc[W:W + nw] = sphere.sdisp_wc
@@ -336,8 +345,10 @@ class NewLocalizedFunctionsCollection(BaseLFC):
         self.G_B = self.G_B[indices]
         self.W_B = self.W_B[indices]
 
+        #print "_gpaw.LFC",G_WB_to_gpu[0],type(G_WB_to_gpu),G_WB_to_gpu[0].shape,type(G_WB_to_gpu[0])
+        #print self.phase_qW.dtype,self.phase_qW.shape,self.phase_qW
         self.lfc = _gpaw.LFC(self.A_Wgm, self.M_W, self.G_B, self.W_B,
-                             self.gd.dv, self.phase_qW)
+                             self.gd.dv, self.phase_qW, self.cuda)
 
         # Find out which ranks have a piece of the
         # localized functions:
@@ -399,7 +410,20 @@ class NewLocalizedFunctionsCollection(BaseLFC):
             assert q == -1
             c_xM = np.empty(self.Mmax)
             c_xM.fill(c_axi)
-            self.lfc.add(c_xM, a_xG, q)
+            if isinstance(a_xG, gpuarray.GPUArray):
+                #print "add cuda c_axi float"
+                if debug_cuda:
+                    a_xG_cpu=a_xG.get()
+                    self.lfc.add(c_xM, a_xG_cpu, q)
+                c_xM_gpu=gpuarray.to_gpu(c_xM)
+                self.lfc.add_cuda_gpu(c_xM_gpu.gpudata, c_xM_gpu.shape, 
+                                      a_xG.gpudata,a_xG.shape, q)
+                error=np.max(abs(a_xG_cpu - a_xG.get()))
+                if error > debug_cuda_tol:
+                    print "Debug cuda: lfc add max error: ", error
+            else:
+                #print "add no cuda c_axi float"
+                self.lfc.add(c_xM, a_xG, q)
             return
 
         dtype = a_xG.dtype
@@ -443,7 +467,22 @@ class NewLocalizedFunctionsCollection(BaseLFC):
             c_xM[..., M1:M2] = c_xi
             M1 = M2
 
-        self.lfc.add(c_xM, a_xG, q)
+        if isinstance(a_xG,gpuarray.GPUArray):
+            #print "add cuda"
+            if debug_cuda:
+                a_xG_cpu=a_xG.get()
+                self.lfc.add(c_xM, a_xG_cpu, q)
+            c_xM_gpu=gpuarray.to_gpu(c_xM)
+            self.lfc.add_cuda_gpu(c_xM_gpu.gpudata,c_xM_gpu.shape, a_xG.gpudata,a_xG.shape, q)
+            if debug_cuda:
+                error=np.max(abs(a_xG_cpu-a_xG.get()))
+                if error>debug_cuda_tol:
+                    print "Debug cuda: lfc add max error: ", error
+
+        else:
+            #print "add no cuda"
+            self.lfc.add(c_xM, a_xG, q)
+
 
     def add_derivative(self, a, v, a_xG, c_axi=1.0, q=-1):
         """Add derivative of localized functions on atom to extended arrays.
@@ -545,8 +584,31 @@ class NewLocalizedFunctionsCollection(BaseLFC):
 
         dtype = a_xG.dtype
         
-        c_xM = np.zeros(xshape + (self.Mmax,), dtype)
-        self.lfc.integrate(a_xG, c_xM, q)
+        if isinstance(a_xG, gpuarray.GPUArray):
+            #print "integrate cuda"
+            c_xM_gpu = gpuarray.zeros(xshape + (self.Mmax,), dtype)
+            self.lfc.integrate_cuda_gpu(a_xG.gpudata, a_xG.shape, 
+                                        c_xM_gpu.gpudata, c_xM_gpu.shape, q)
+            c_xM = c_xM_gpu.get()
+            if debug_cuda:
+                c_xM2 = np.zeros(xshape + (self.Mmax,), dtype)
+                self.lfc.integrate(a_xG.get(), c_xM2, q)
+                error=np.max(abs(c_xM-c_xM2))
+                if error > debug_cuda_tol:
+                     # if 1:
+                    print "Debug cuda: lfc integrate max error: ", error
+                    #c_xM=c_xM2
+                    #print "dtype ",dtype
+                    #print "q ",q
+                    #print "c_xM ",c_xM
+                    #print "c_xM2 ",c_xM2
+                    #print "diff ",c_xM-c_xM2,c_xM.shape,c_xM2.shape
+                    #assert 0
+           
+        else:
+            #print "integrate no cuda"
+            c_xM = np.zeros(xshape + (self.Mmax,), dtype)
+            self.lfc.integrate(a_xG, c_xM, q)
 
         comm = self.gd.comm
         rank = comm.rank

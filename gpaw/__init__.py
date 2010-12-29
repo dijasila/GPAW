@@ -55,6 +55,8 @@ class PoissonConvergenceError(ConvergenceError):
 
 # Check for special command line arguments:
 debug = False
+debug_cuda = False
+debug_cuda_tol = 1e-12
 trace = False
 setup_paths = []
 dry_run = 0
@@ -80,6 +82,9 @@ while len(sys.argv) > i:
     elif arg == '--debug':
         debug = True
         sys.stderr.write('gpaw-DEBUG mode\n')
+    elif arg == '--debug-cuda':
+        debug_cuda = True
+        sys.stderr.write('gpaw-cuda-DEBUG mode\n')
     elif arg.startswith('--setups='):
         setup_paths = arg.split('=')[1].split(':')
     elif arg.startswith('--dry-run'):
