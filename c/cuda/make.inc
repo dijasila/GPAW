@@ -45,12 +45,11 @@ CC           = gcc
 CCNOOPT      = $(CUGPAW_DEFS)
 ##CCFLAGS      = $(CUGPAW_DEFS)  -g -mfpmath=sse -msse3 -mtune=native -O3 -funroll-loops -W -Wall -m64
 # CCFLAGS      = $(CUGPAW_DEFS) -fomit-frame-pointer -mfpmath=sse -msse3 -mtune=native -O3 -funroll-loops -W -Wall -m64 -fPIC -std=c99
-# CCFLAGS      = $(CUGPAW_DEFS) -O3 -fPIC -std=c99
-CCFLAGS      = $(CUGPAW_DEFS) -O0 -g -fPIC -std=c99
+CCFLAGS      = $(CUGPAW_DEFS) -O3 -fPIC -std=c99
 
 NVCC           = nvcc
 # NVCCFLAGS      = $(CUGPAW_DEFS) -arch=sm_20 -O3 --compiler-options '-std=c99 -mfpmath=sse -msse3 -fPIC' --ptxas-options=-v 
-NVCCFLAGS      = $(CUGPAW_DEFS) --compiler-options '-std=c99 -g -O0 -fPIC'
+NVCCFLAGS      = $(CUGPAW_DEFS) -arch=sm_13 --compiler-options '-std=c99 -fPIC'
 
 
 ARCH     = ar

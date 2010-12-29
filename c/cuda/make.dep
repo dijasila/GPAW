@@ -74,7 +74,6 @@ blas-cuda.o : blas-cuda.c \
     /usr/include/python2.6/pythonrun.h \
     /usr/include/python2.6/intobject.h \
     /usr/include/python2.6/boolobject.h \
-    /usr/include/bits/string2.h \
     /usr/include/python2.6/pydebug.h \
     /usr/include/python2.6/bytesobject.h \
     /usr/include/python2.6/import.h \
@@ -134,7 +133,6 @@ blas-cuda.o : blas-cuda.c \
     /usr/include/python2.6/rangeobject.h \
     /usr/include/bits/sys_errlist.h \
     /usr/include/math.h \
-    /usr/include/bits/mathinline.h \
     /usr/include/bits/posix2_lim.h \
     /usr/include/assert.h \
     /usr/include/python2.6/dictobject.h \
@@ -142,7 +140,6 @@ blas-cuda.o : blas-cuda.c \
     /usr/include/python2.6/pyerrors.h \
     /usr/include/bits/endian.h \
     /usr/include/bits/byteswap.h \
-    /usr/include/bits/stdio.h \
     /usr/include/python2.6/pyfpe.h \
     /usr/include/python2.6/code.h \
     /usr/lib64/python2.6/site-packages/numpy/core/include/numpy/__multiarray_api.h \
@@ -155,7 +152,6 @@ blas-cuda.o : blas-cuda.c \
     /usr/local/cuda/bin/../include/device_types.h \
     /usr/include/python2.6/pymem.h \
     /usr/include/python2.6/traceback.h \
-    /usr/include/bits/string.h \
     /usr/include/bits/huge_vall.h \
     /usr/lib64/python2.6/site-packages/numpy/core/include/numpy/npy_interrupt.h \
     /usr/include/bits/siginfo.h \
@@ -240,7 +236,6 @@ operators-cuda.o : operators-cuda.c \
     /usr/include/python2.6/intobject.h \
     /usr/include/python2.6/boolobject.h \
     ./../cuda/gpaw-cuda.h \
-    /usr/include/bits/string2.h \
     /usr/include/pthread.h \
     /usr/include/python2.6/pydebug.h \
     /usr/include/python2.6/bytesobject.h \
@@ -305,7 +300,6 @@ operators-cuda.o : operators-cuda.c \
     /usr/include/python2.6/rangeobject.h \
     /usr/include/bits/sys_errlist.h \
     /usr/include/math.h \
-    /usr/include/bits/mathinline.h \
     /usr/include/bits/posix2_lim.h \
     /usr/include/assert.h \
     /usr/include/python2.6/dictobject.h \
@@ -313,7 +307,6 @@ operators-cuda.o : operators-cuda.c \
     /usr/include/python2.6/pyerrors.h \
     /usr/include/bits/endian.h \
     /usr/include/bits/byteswap.h \
-    /usr/include/bits/stdio.h \
     /usr/include/python2.6/pyfpe.h \
     /usr/include/python2.6/code.h \
     /usr/lib64/python2.6/site-packages/numpy/core/include/numpy/__multiarray_api.h \
@@ -327,7 +320,6 @@ operators-cuda.o : operators-cuda.c \
     /usr/local/cuda/bin/../include/device_types.h \
     /usr/include/python2.6/pymem.h \
     /usr/include/python2.6/traceback.h \
-    /usr/include/bits/string.h \
     /usr/include/bits/huge_vall.h \
     /usr/lib64/python2.6/site-packages/numpy/core/include/numpy/npy_interrupt.h \
     /usr/include/bits/siginfo.h \
@@ -407,7 +399,6 @@ bc-cuda.o : bc-cuda.c \
     /usr/include/python2.6/pythonrun.h \
     /usr/include/python2.6/intobject.h \
     /usr/include/python2.6/boolobject.h \
-    /usr/include/bits/string2.h \
     /usr/include/python2.6/pydebug.h \
     /usr/include/python2.6/bytesobject.h \
     /usr/include/python2.6/import.h \
@@ -459,13 +450,11 @@ bc-cuda.o : bc-cuda.c \
     /usr/include/python2.6/rangeobject.h \
     /usr/include/bits/sys_errlist.h \
     /usr/include/math.h \
-    /usr/include/bits/mathinline.h \
     /usr/include/assert.h \
     /usr/include/python2.6/dictobject.h \
     /usr/include/python2.6/sysmodule.h \
     /usr/include/python2.6/pyerrors.h \
     /usr/include/bits/endian.h \
-    /usr/include/bits/stdio.h \
     /usr/include/python2.6/pyfpe.h \
     /usr/include/python2.6/code.h \
     /usr/lib64/python2.6/site-packages/numpy/core/include/numpy/__multiarray_api.h \
@@ -478,7 +467,6 @@ bc-cuda.o : bc-cuda.c \
     /usr/local/cuda/bin/../include/device_types.h \
     /usr/include/python2.6/pymem.h \
     /usr/include/python2.6/traceback.h \
-    /usr/include/bits/string.h \
     /usr/include/bits/huge_vall.h \
     /usr/lib64/python2.6/site-packages/numpy/core/include/numpy/npy_interrupt.h \
     /usr/include/python2.6/pystate.h
@@ -564,7 +552,6 @@ transformers-cuda.o : transformers-cuda.c \
     /usr/include/python2.6/pythonrun.h \
     /usr/include/python2.6/intobject.h \
     /usr/include/python2.6/boolobject.h \
-    /usr/include/bits/string2.h \
     /usr/include/pthread.h \
     /usr/include/python2.6/pydebug.h \
     /usr/include/python2.6/bytesobject.h \
@@ -627,7 +614,6 @@ transformers-cuda.o : transformers-cuda.c \
     /usr/include/python2.6/rangeobject.h \
     /usr/include/bits/sys_errlist.h \
     /usr/include/math.h \
-    /usr/include/bits/mathinline.h \
     /usr/include/bits/posix2_lim.h \
     /usr/include/assert.h \
     /usr/include/python2.6/dictobject.h \
@@ -635,7 +621,6 @@ transformers-cuda.o : transformers-cuda.c \
     /usr/include/python2.6/pyerrors.h \
     /usr/include/bits/endian.h \
     /usr/include/bits/byteswap.h \
-    /usr/include/bits/stdio.h \
     /usr/include/python2.6/pyfpe.h \
     /usr/include/python2.6/code.h \
     /usr/lib64/python2.6/site-packages/numpy/core/include/numpy/__multiarray_api.h \
@@ -648,7 +633,6 @@ transformers-cuda.o : transformers-cuda.c \
     /usr/local/cuda/bin/../include/device_types.h \
     /usr/include/python2.6/pymem.h \
     /usr/include/python2.6/traceback.h \
-    /usr/include/bits/string.h \
     /usr/include/bits/huge_vall.h \
     /usr/lib64/python2.6/site-packages/numpy/core/include/numpy/npy_interrupt.h \
     /usr/include/bits/siginfo.h \
@@ -663,8 +647,8 @@ fd-cuda.o : fd-cuda.cu \
     /usr/include/bits/wordsize.h \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/include/limits.h \
     /usr/include/bits/types.h \
-    /usr/include/sys/sysmacros.h \
     /usr/include/bits/huge_valf.h \
+    /usr/include/sys/sysmacros.h \
     /usr/local/cuda/bin/../include/cuda_texture_types.h \
     /usr/local/cuda/bin/../include/driver_functions.h \
     /usr/local/cuda/bin/../include/sm_20_atomic_functions.h \
@@ -687,8 +671,8 @@ fd-cuda.o : fd-cuda.cu \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/../../../../include/c++/4.4.4/bits/cmath.tcc \
     /usr/include/asm-generic/errno-base.h \
     /usr/include/python2.6/stringobject.h \
-    /usr/local/cuda/bin/../include/math_functions_dbl_ptx3.h \
     /usr/include/python2.6/sliceobject.h \
+    /usr/local/cuda/bin/../include/math_functions_dbl_ptx1.h \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/include/stddef.h \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/../../../../include/c++/4.4.4/cmath \
     /usr/include/python2.6/pyport.h \
@@ -697,8 +681,8 @@ fd-cuda.o : fd-cuda.cu \
     /usr/local/cuda/bin/../include/cuda.h \
     /usr/include/asm-generic/errno.h \
     /usr/include/limits.h \
-    /usr/include/bits/sigset.h \
     /usr/include/bits/inf.h \
+    /usr/include/bits/sigset.h \
     /usr/include/_G_config.h \
     /usr/include/sys/stat.h \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/../../../../include/c++/4.4.4/cstdlib \
@@ -798,9 +782,8 @@ fd-cuda.o : fd-cuda.cu \
     /usr/local/cuda/bin/../include/vector_functions.h \
     /usr/include/linux/errno.h \
     /usr/include/python2.6/rangeobject.h \
-    /usr/include/bits/sys_errlist.h \
     /usr/include/math.h \
-    /usr/include/bits/mathinline.h \
+    /usr/include/bits/sys_errlist.h \
     /usr/include/bits/posix2_lim.h \
     /usr/include/assert.h \
     /usr/include/python2.6/dictobject.h \
@@ -809,7 +792,6 @@ fd-cuda.o : fd-cuda.cu \
     /usr/include/bits/endian.h \
     /usr/include/bits/byteswap.h \
     /usr/local/cuda/bin/../include/cuda_surface_types.h \
-    /usr/include/bits/stdio.h \
     /usr/include/python2.6/pyfpe.h \
     /usr/include/python2.6/code.h \
     /usr/include/features.h \
@@ -831,8 +813,8 @@ interpolate-cuda.o : interpolate-cuda.cu \
     /usr/include/bits/wordsize.h \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/include/limits.h \
     /usr/include/bits/types.h \
-    /usr/include/sys/sysmacros.h \
     /usr/include/bits/huge_valf.h \
+    /usr/include/sys/sysmacros.h \
     /usr/local/cuda/bin/../include/cuda_texture_types.h \
     /usr/local/cuda/bin/../include/driver_functions.h \
     /usr/local/cuda/bin/../include/sm_20_atomic_functions.h \
@@ -855,8 +837,8 @@ interpolate-cuda.o : interpolate-cuda.cu \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/../../../../include/c++/4.4.4/bits/cmath.tcc \
     /usr/include/asm-generic/errno-base.h \
     /usr/include/python2.6/stringobject.h \
-    /usr/local/cuda/bin/../include/math_functions_dbl_ptx3.h \
     /usr/include/python2.6/sliceobject.h \
+    /usr/local/cuda/bin/../include/math_functions_dbl_ptx1.h \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/include/stddef.h \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/../../../../include/c++/4.4.4/cmath \
     /usr/include/python2.6/pyport.h \
@@ -865,8 +847,8 @@ interpolate-cuda.o : interpolate-cuda.cu \
     /usr/local/cuda/bin/../include/cuda.h \
     /usr/include/asm-generic/errno.h \
     /usr/include/limits.h \
-    /usr/include/bits/sigset.h \
     /usr/include/bits/inf.h \
+    /usr/include/bits/sigset.h \
     /usr/include/_G_config.h \
     /usr/include/sys/stat.h \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/../../../../include/c++/4.4.4/cstdlib \
@@ -966,9 +948,8 @@ interpolate-cuda.o : interpolate-cuda.cu \
     /usr/local/cuda/bin/../include/vector_functions.h \
     /usr/include/linux/errno.h \
     /usr/include/python2.6/rangeobject.h \
-    /usr/include/bits/sys_errlist.h \
     /usr/include/math.h \
-    /usr/include/bits/mathinline.h \
+    /usr/include/bits/sys_errlist.h \
     /usr/include/bits/posix2_lim.h \
     /usr/include/assert.h \
     /usr/include/python2.6/dictobject.h \
@@ -977,7 +958,6 @@ interpolate-cuda.o : interpolate-cuda.cu \
     /usr/include/bits/endian.h \
     /usr/include/bits/byteswap.h \
     /usr/local/cuda/bin/../include/cuda_surface_types.h \
-    /usr/include/bits/stdio.h \
     /usr/include/python2.6/pyfpe.h \
     /usr/include/python2.6/code.h \
     /usr/include/features.h \
@@ -999,8 +979,8 @@ paste-cuda.o : paste-cuda.cu \
     /usr/include/bits/wordsize.h \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/include/limits.h \
     /usr/include/bits/types.h \
-    /usr/include/sys/sysmacros.h \
     /usr/include/bits/huge_valf.h \
+    /usr/include/sys/sysmacros.h \
     /usr/local/cuda/bin/../include/cuda_texture_types.h \
     /usr/local/cuda/bin/../include/driver_functions.h \
     /usr/local/cuda/bin/../include/sm_20_atomic_functions.h \
@@ -1023,8 +1003,8 @@ paste-cuda.o : paste-cuda.cu \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/../../../../include/c++/4.4.4/bits/cmath.tcc \
     /usr/include/asm-generic/errno-base.h \
     /usr/include/python2.6/stringobject.h \
-    /usr/local/cuda/bin/../include/math_functions_dbl_ptx3.h \
     /usr/include/python2.6/sliceobject.h \
+    /usr/local/cuda/bin/../include/math_functions_dbl_ptx1.h \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/include/stddef.h \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/../../../../include/c++/4.4.4/cmath \
     /usr/include/python2.6/pyport.h \
@@ -1033,8 +1013,8 @@ paste-cuda.o : paste-cuda.cu \
     /usr/local/cuda/bin/../include/cuda.h \
     /usr/include/asm-generic/errno.h \
     /usr/include/limits.h \
-    /usr/include/bits/sigset.h \
     /usr/include/bits/inf.h \
+    /usr/include/bits/sigset.h \
     /usr/include/_G_config.h \
     /usr/include/sys/stat.h \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/../../../../include/c++/4.4.4/cstdlib \
@@ -1134,9 +1114,8 @@ paste-cuda.o : paste-cuda.cu \
     /usr/local/cuda/bin/../include/vector_functions.h \
     /usr/include/linux/errno.h \
     /usr/include/python2.6/rangeobject.h \
-    /usr/include/bits/sys_errlist.h \
     /usr/include/math.h \
-    /usr/include/bits/mathinline.h \
+    /usr/include/bits/sys_errlist.h \
     /usr/include/bits/posix2_lim.h \
     /usr/include/assert.h \
     /usr/include/python2.6/dictobject.h \
@@ -1145,7 +1124,6 @@ paste-cuda.o : paste-cuda.cu \
     /usr/include/bits/endian.h \
     /usr/include/bits/byteswap.h \
     /usr/local/cuda/bin/../include/cuda_surface_types.h \
-    /usr/include/bits/stdio.h \
     /usr/include/python2.6/pyfpe.h \
     /usr/include/python2.6/code.h \
     /usr/include/features.h \
@@ -1167,8 +1145,8 @@ relax-cuda.o : relax-cuda.cu \
     /usr/include/bits/wordsize.h \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/include/limits.h \
     /usr/include/bits/types.h \
-    /usr/include/sys/sysmacros.h \
     /usr/include/bits/huge_valf.h \
+    /usr/include/sys/sysmacros.h \
     /usr/local/cuda/bin/../include/cuda_texture_types.h \
     /usr/local/cuda/bin/../include/driver_functions.h \
     /usr/local/cuda/bin/../include/sm_20_atomic_functions.h \
@@ -1191,8 +1169,8 @@ relax-cuda.o : relax-cuda.cu \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/../../../../include/c++/4.4.4/bits/cmath.tcc \
     /usr/include/asm-generic/errno-base.h \
     /usr/include/python2.6/stringobject.h \
-    /usr/local/cuda/bin/../include/math_functions_dbl_ptx3.h \
     /usr/include/python2.6/sliceobject.h \
+    /usr/local/cuda/bin/../include/math_functions_dbl_ptx1.h \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/include/stddef.h \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/../../../../include/c++/4.4.4/cmath \
     /usr/include/python2.6/pyport.h \
@@ -1201,8 +1179,8 @@ relax-cuda.o : relax-cuda.cu \
     /usr/local/cuda/bin/../include/cuda.h \
     /usr/include/asm-generic/errno.h \
     /usr/include/limits.h \
-    /usr/include/bits/sigset.h \
     /usr/include/bits/inf.h \
+    /usr/include/bits/sigset.h \
     /usr/include/_G_config.h \
     /usr/include/sys/stat.h \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/../../../../include/c++/4.4.4/cstdlib \
@@ -1302,9 +1280,8 @@ relax-cuda.o : relax-cuda.cu \
     /usr/local/cuda/bin/../include/vector_functions.h \
     /usr/include/linux/errno.h \
     /usr/include/python2.6/rangeobject.h \
-    /usr/include/bits/sys_errlist.h \
     /usr/include/math.h \
-    /usr/include/bits/mathinline.h \
+    /usr/include/bits/sys_errlist.h \
     /usr/include/bits/posix2_lim.h \
     /usr/include/assert.h \
     /usr/include/python2.6/dictobject.h \
@@ -1313,7 +1290,6 @@ relax-cuda.o : relax-cuda.cu \
     /usr/include/bits/endian.h \
     /usr/include/bits/byteswap.h \
     /usr/local/cuda/bin/../include/cuda_surface_types.h \
-    /usr/include/bits/stdio.h \
     /usr/include/python2.6/pyfpe.h \
     /usr/include/python2.6/code.h \
     /usr/include/features.h \
@@ -1335,8 +1311,8 @@ restrict-cuda.o : restrict-cuda.cu \
     /usr/include/bits/wordsize.h \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/include/limits.h \
     /usr/include/bits/types.h \
-    /usr/include/sys/sysmacros.h \
     /usr/include/bits/huge_valf.h \
+    /usr/include/sys/sysmacros.h \
     /usr/local/cuda/bin/../include/cuda_texture_types.h \
     /usr/local/cuda/bin/../include/driver_functions.h \
     /usr/local/cuda/bin/../include/sm_20_atomic_functions.h \
@@ -1359,8 +1335,8 @@ restrict-cuda.o : restrict-cuda.cu \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/../../../../include/c++/4.4.4/bits/cmath.tcc \
     /usr/include/asm-generic/errno-base.h \
     /usr/include/python2.6/stringobject.h \
-    /usr/local/cuda/bin/../include/math_functions_dbl_ptx3.h \
     /usr/include/python2.6/sliceobject.h \
+    /usr/local/cuda/bin/../include/math_functions_dbl_ptx1.h \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/include/stddef.h \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/../../../../include/c++/4.4.4/cmath \
     /usr/include/python2.6/pyport.h \
@@ -1369,8 +1345,8 @@ restrict-cuda.o : restrict-cuda.cu \
     /usr/local/cuda/bin/../include/cuda.h \
     /usr/include/asm-generic/errno.h \
     /usr/include/limits.h \
-    /usr/include/bits/sigset.h \
     /usr/include/bits/inf.h \
+    /usr/include/bits/sigset.h \
     /usr/include/_G_config.h \
     /usr/include/sys/stat.h \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/../../../../include/c++/4.4.4/cstdlib \
@@ -1470,9 +1446,8 @@ restrict-cuda.o : restrict-cuda.cu \
     /usr/local/cuda/bin/../include/vector_functions.h \
     /usr/include/linux/errno.h \
     /usr/include/python2.6/rangeobject.h \
-    /usr/include/bits/sys_errlist.h \
     /usr/include/math.h \
-    /usr/include/bits/mathinline.h \
+    /usr/include/bits/sys_errlist.h \
     /usr/include/bits/posix2_lim.h \
     /usr/include/assert.h \
     /usr/include/python2.6/dictobject.h \
@@ -1481,7 +1456,6 @@ restrict-cuda.o : restrict-cuda.cu \
     /usr/include/bits/endian.h \
     /usr/include/bits/byteswap.h \
     /usr/local/cuda/bin/../include/cuda_surface_types.h \
-    /usr/include/bits/stdio.h \
     /usr/include/python2.6/pyfpe.h \
     /usr/include/python2.6/code.h \
     /usr/include/features.h \
@@ -1503,8 +1477,8 @@ cut-cuda.o : cut-cuda.cu \
     /usr/include/bits/wordsize.h \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/include/limits.h \
     /usr/include/bits/types.h \
-    /usr/include/sys/sysmacros.h \
     /usr/include/bits/huge_valf.h \
+    /usr/include/sys/sysmacros.h \
     /usr/local/cuda/bin/../include/cuda_texture_types.h \
     /usr/local/cuda/bin/../include/driver_functions.h \
     /usr/local/cuda/bin/../include/sm_20_atomic_functions.h \
@@ -1527,8 +1501,8 @@ cut-cuda.o : cut-cuda.cu \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/../../../../include/c++/4.4.4/bits/cmath.tcc \
     /usr/include/asm-generic/errno-base.h \
     /usr/include/python2.6/stringobject.h \
-    /usr/local/cuda/bin/../include/math_functions_dbl_ptx3.h \
     /usr/include/python2.6/sliceobject.h \
+    /usr/local/cuda/bin/../include/math_functions_dbl_ptx1.h \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/include/stddef.h \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/../../../../include/c++/4.4.4/cmath \
     /usr/include/python2.6/pyport.h \
@@ -1537,8 +1511,8 @@ cut-cuda.o : cut-cuda.cu \
     /usr/local/cuda/bin/../include/cuda.h \
     /usr/include/asm-generic/errno.h \
     /usr/include/limits.h \
-    /usr/include/bits/sigset.h \
     /usr/include/bits/inf.h \
+    /usr/include/bits/sigset.h \
     /usr/include/_G_config.h \
     /usr/include/sys/stat.h \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/../../../../include/c++/4.4.4/cstdlib \
@@ -1638,9 +1612,8 @@ cut-cuda.o : cut-cuda.cu \
     /usr/local/cuda/bin/../include/vector_functions.h \
     /usr/include/linux/errno.h \
     /usr/include/python2.6/rangeobject.h \
-    /usr/include/bits/sys_errlist.h \
     /usr/include/math.h \
-    /usr/include/bits/mathinline.h \
+    /usr/include/bits/sys_errlist.h \
     /usr/include/bits/posix2_lim.h \
     /usr/include/assert.h \
     /usr/include/python2.6/dictobject.h \
@@ -1649,7 +1622,6 @@ cut-cuda.o : cut-cuda.cu \
     /usr/include/bits/endian.h \
     /usr/include/bits/byteswap.h \
     /usr/local/cuda/bin/../include/cuda_surface_types.h \
-    /usr/include/bits/stdio.h \
     /usr/include/python2.6/pyfpe.h \
     /usr/include/python2.6/code.h \
     /usr/include/features.h \
@@ -1671,8 +1643,8 @@ translate-cuda.o : translate-cuda.cu \
     /usr/include/bits/wordsize.h \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/include/limits.h \
     /usr/include/bits/types.h \
-    /usr/include/sys/sysmacros.h \
     /usr/include/bits/huge_valf.h \
+    /usr/include/sys/sysmacros.h \
     /usr/local/cuda/bin/../include/cuda_texture_types.h \
     /usr/local/cuda/bin/../include/driver_functions.h \
     /usr/local/cuda/bin/../include/sm_20_atomic_functions.h \
@@ -1695,8 +1667,8 @@ translate-cuda.o : translate-cuda.cu \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/../../../../include/c++/4.4.4/bits/cmath.tcc \
     /usr/include/asm-generic/errno-base.h \
     /usr/include/python2.6/stringobject.h \
-    /usr/local/cuda/bin/../include/math_functions_dbl_ptx3.h \
     /usr/include/python2.6/sliceobject.h \
+    /usr/local/cuda/bin/../include/math_functions_dbl_ptx1.h \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/include/stddef.h \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/../../../../include/c++/4.4.4/cmath \
     /usr/include/python2.6/pyport.h \
@@ -1705,8 +1677,8 @@ translate-cuda.o : translate-cuda.cu \
     /usr/local/cuda/bin/../include/cuda.h \
     /usr/include/asm-generic/errno.h \
     /usr/include/limits.h \
-    /usr/include/bits/sigset.h \
     /usr/include/bits/inf.h \
+    /usr/include/bits/sigset.h \
     /usr/include/_G_config.h \
     /usr/include/sys/stat.h \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/../../../../include/c++/4.4.4/cstdlib \
@@ -1806,9 +1778,8 @@ translate-cuda.o : translate-cuda.cu \
     /usr/local/cuda/bin/../include/vector_functions.h \
     /usr/include/linux/errno.h \
     /usr/include/python2.6/rangeobject.h \
-    /usr/include/bits/sys_errlist.h \
     /usr/include/math.h \
-    /usr/include/bits/mathinline.h \
+    /usr/include/bits/sys_errlist.h \
     /usr/include/bits/posix2_lim.h \
     /usr/include/assert.h \
     /usr/include/python2.6/dictobject.h \
@@ -1817,7 +1788,6 @@ translate-cuda.o : translate-cuda.cu \
     /usr/include/bits/endian.h \
     /usr/include/bits/byteswap.h \
     /usr/local/cuda/bin/../include/cuda_surface_types.h \
-    /usr/include/bits/stdio.h \
     /usr/include/python2.6/pyfpe.h \
     /usr/include/python2.6/code.h \
     /usr/include/features.h \
@@ -1841,8 +1811,8 @@ lfc-cuda.o : lfc-cuda.cu \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/include/limits.h \
     /usr/include/bits/cmathcalls.h \
     /usr/include/bits/types.h \
-    /usr/include/sys/sysmacros.h \
     /usr/include/bits/huge_valf.h \
+    /usr/include/sys/sysmacros.h \
     /usr/local/cuda/bin/../include/cuda_texture_types.h \
     /usr/local/cuda/bin/../include/driver_functions.h \
     /usr/local/cuda/bin/../include/sm_20_atomic_functions.h \
@@ -1872,8 +1842,8 @@ lfc-cuda.o : lfc-cuda.cu \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/../../../../include/c++/4.4.4/bits/cmath.tcc \
     /usr/include/asm-generic/errno-base.h \
     /usr/include/python2.6/stringobject.h \
-    /usr/local/cuda/bin/../include/math_functions_dbl_ptx3.h \
     /usr/include/python2.6/sliceobject.h \
+    /usr/local/cuda/bin/../include/math_functions_dbl_ptx1.h \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/include/stddef.h \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/../../../../include/c++/4.4.4/cmath \
     /usr/include/python2.6/pyport.h \
@@ -1882,8 +1852,8 @@ lfc-cuda.o : lfc-cuda.cu \
     /usr/include/asm-generic/errno.h \
     /usr/local/cuda/bin/../include/cuda.h \
     /usr/include/limits.h \
-    /usr/include/bits/sigset.h \
     /usr/include/bits/inf.h \
+    /usr/include/bits/sigset.h \
     /usr/include/_G_config.h \
     /usr/include/sys/stat.h \
     /usr/lib/gcc/x86_64-redhat-linux/4.4.4/../../../../include/c++/4.4.4/cstdlib \
@@ -1993,9 +1963,8 @@ lfc-cuda.o : lfc-cuda.cu \
     /usr/local/cuda/bin/../include/vector_functions.h \
     /usr/include/linux/errno.h \
     /usr/include/python2.6/rangeobject.h \
-    /usr/include/bits/sys_errlist.h \
     /usr/include/math.h \
-    /usr/include/bits/mathinline.h \
+    /usr/include/bits/sys_errlist.h \
     /usr/include/bits/posix2_lim.h \
     /usr/include/assert.h \
     /usr/include/python2.6/dictobject.h \
@@ -2004,7 +1973,6 @@ lfc-cuda.o : lfc-cuda.cu \
     /usr/include/bits/endian.h \
     /usr/include/bits/byteswap.h \
     /usr/local/cuda/bin/../include/cuda_surface_types.h \
-    /usr/include/bits/stdio.h \
     /usr/include/python2.6/pyfpe.h \
     /usr/include/python2.6/code.h \
     /usr/lib64/python2.6/site-packages/numpy/core/include/numpy/__multiarray_api.h \

@@ -11,8 +11,6 @@
 #include <../extensions.h>
 #include <../operators.h>
 
-
-
 PyObject * Operator_relax_cuda_cpu(OperatorObject *self,
 					  PyObject *args)
 {
@@ -31,20 +29,29 @@ PyObject * Operator_relax_cuda_cpu(OperatorObject *self,
   const double* src = DOUBLEP(source);
   const double_complex* ph;
 
+  const int* size2 = bc->size2;
+  double* buf = GPAW_MALLOC(double, size2[0] * size2[1] * size2[2] *
+                            bc->ndouble);
+  double* sendbuf = GPAW_MALLOC(double, bc->maxsend);
+  double* recvbuf = GPAW_MALLOC(double, bc->maxrecv);
+
   ph = 0;
 
   for (int n = 0; n < nrelax; n++ )
     {
       for (int i = 0; i < 3; i++)
         {
-          bc_unpack1(bc, fun, self->buf, i,
+          bc_unpack1(bc, fun, buf, i,
 		     self->recvreq, self->sendreq,
-		     self->recvbuf, self->sendbuf, ph + 2 * i, 0, 1);
-          bc_unpack2(bc, self->buf, i,
-		     self->recvreq, self->sendreq, self->recvbuf, 1);
+		     recvbuf, sendbuf, ph + 2 * i, 0, 1);
+          bc_unpack2(bc, buf, i,
+		     self->recvreq, self->sendreq, recvbuf, 1);
         }
-      bmgs_relax_cuda_cpu(relax_method, &self->stencil, self->buf, fun, src, w);
+      bmgs_relax_cuda_cpu(relax_method, &self->stencil, buf, fun, src, w);
     }
+  free(recvbuf);
+  free(sendbuf);
+  free(buf);
   Py_RETURN_NONE;
 }
 
@@ -71,6 +78,9 @@ PyObject * Operator_relax_cuda_gpu(OperatorObject *self,
   const double* src = (double*)source_gpu;
   const double_complex* ph;
 
+  double* sendbuf = GPAW_MALLOC(double, bc->maxsend);
+  double* recvbuf = GPAW_MALLOC(double, bc->maxrecv);
+
   ph = 0;
 
   for (int n = 0; n < nrelax; n++ )
@@ -79,12 +89,14 @@ PyObject * Operator_relax_cuda_gpu(OperatorObject *self,
         {
           bc_unpack1_cuda_gpu(bc, fun, self->buf_gpu, i,
 			      self->recvreq, self->sendreq,
-			      self->recvbuf, self->sendbuf, ph + 2 * i, 0, 1);
+			      recvbuf, sendbuf, ph + 2 * i, 0, 1);
           bc_unpack2_cuda_gpu(bc, self->buf_gpu, i,
-			      self->recvreq, self->sendreq, self->recvbuf, 1);
+			      self->recvreq, self->sendreq, recvbuf, 1);
         }
       bmgs_relax_cuda_gpu(relax_method, &self->stencil_gpu, self->buf_gpu, fun, src, w);
     }
+  free(recvbuf);
+  free(sendbuf);
   Py_RETURN_NONE;
 }
 
@@ -134,8 +146,8 @@ PyObject * Operator_apply_cuda_gpu(OperatorObject *self,
   else
     ph = COMPLEXP(phases);
 
-  double* sendbuf = self->sendbuf;
-  double* recvbuf = self->recvbuf;
+  double* sendbuf = GPAW_MALLOC(double, bc->maxsend);
+  double* recvbuf = GPAW_MALLOC(double, bc->maxrecv);
   double* buf = self->buf_gpu;
   MPI_Request recvreq[2];
   MPI_Request sendreq[2];
@@ -160,7 +172,8 @@ PyObject * Operator_apply_cuda_gpu(OperatorObject *self,
 	bmgs_fd_cuda_gpuz(&self->stencil_gpu, (const cuDoubleComplex*)buf,(cuDoubleComplex*)out2);
       }
     }    
-  
+  free(recvbuf);
+  free(sendbuf);
   Py_RETURN_NONE;
 }
 
@@ -183,9 +196,6 @@ void *apply_worker_cuda_cpu(void *threadarg)
 {
   struct apply_args *args = (struct apply_args *) threadarg;
   boundary_conditions* bc = args->self->bc;
-  double* sendbuf = args->self->sendbuf + args->thread_id * bc->maxsend * args->chunksize;
-  double* recvbuf = args->self->recvbuf + args->thread_id * bc->maxrecv * args->chunksize;
-  double* buf = args->self->buf + args->thread_id * args->ng2 * args->chunksize;
   MPI_Request recvreq[2];
   MPI_Request sendreq[2];
 
@@ -200,6 +210,10 @@ void *apply_worker_cuda_cpu(void *threadarg)
     nend = args->nin;
   if (chunksize > args->chunksize)
     chunksize = args->chunksize;
+
+  double* sendbuf = GPAW_MALLOC(double, bc->maxsend * args->chunksize);
+  double* recvbuf = GPAW_MALLOC(double, bc->maxrecv * args->chunksize);
+  double* buf = GPAW_MALLOC(double, args->ng2 * args->chunksize);
 
   for (int n = nstart; n < nend; n += chunksize)
     {
@@ -223,6 +237,9 @@ void *apply_worker_cuda_cpu(void *threadarg)
       /*          bmgs_fdz(&args->self->stencil, (const double_complex*) (buf + m * args->ng2),
 		  (double_complex*) (out + m * args->ng));*/
     }
+  free(buf);
+  free(recvbuf);
+  free(sendbuf);
   return NULL;
 }
 /*

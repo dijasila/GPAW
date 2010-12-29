@@ -13,9 +13,6 @@ typedef struct
   boundary_conditions* bc;
   MPI_Request recvreq[2];
   MPI_Request sendreq[2];
-  double* buf;
-  double* sendbuf;
-  double* recvbuf;
 #ifdef GPAW_CUDA
   int cuda;
   bmgsstencil_gpu stencil_gpu;

@@ -16,10 +16,14 @@ from gpaw import debug, extra_parameters
 from gpaw.utilities import fact
 import _gpaw
 
+import pycuda
+import pycuda.driver as cuda
+import pycuda.gpuarray as gpuarray
+from gpaw import debug_cuda,debug_cuda_tol
 
 class FDOperator:
     def __init__(self, coef_p, offset_pc, gd, dtype=float,
-                 allocate=True):
+                 allocate=True, cuda=False):
         """FDOperator(coefs, offsets, gd, dtype) -> FDOperator object.
         """
 
@@ -56,12 +60,15 @@ class FDOperator:
         self.operator = None
         self.args = [coef_p, offset_p, n_c, mp,
                      neighbor_cd, dtype == float,
-                     comm, cfd]
+                     comm, cfd, cuda]
         self.mp = mp # padding
         self.gd = gd
         self.npoints = len(coef_p)
 
         self.allocated = False
+        
+        self.cuda=cuda
+        
         if allocate:
             self.allocate()
 
@@ -78,10 +85,46 @@ class FDOperator:
         return self.allocated
 
     def apply(self, in_xg, out_xg, phase_cd=None):
-        self.operator.apply(in_xg, out_xg, phase_cd)
-
+        
+        assert (type(in_xg) == type(out_xg))
+         
+        if isinstance(in_xg,gpuarray.GPUArray) and  isinstance(out_xg,gpuarray.GPUArray):
+            #                print "fd_operators_apply_cupa_gpu"
+            if debug_cuda:
+                in_xg_cpu = in_xg.get()
+                out_xg_cpu = out_xg.get()
+                self.operator.apply(in_xg_cpu, out_xg_cpu, phase_cd)
+            self.operator.apply_cuda_gpu(in_xg.gpudata, out_xg.gpudata,
+                                         in_xg.shape, in_xg.dtype, phase_cd)
+            if debug_cuda:
+                error=np.max(abs(out_xg_cpu-out_xg.get()))
+                if error>debug_cuda_tol:
+                    print "Debug cuda: fd_operators apply max error: ", error
+                    #print in_xg_cpu.shape,out_xg_cpu.shape
+                    #print in_xg.shape,out_xg.shape
+                    #print phase_cd
+                    #print out_xg_cpu[1],out_xg.get()[1],out_xg_cpu[1]-out_xg.get()[1]
+                    #assert 0
+        else:
+            #print "fd_operators_apply"
+            self.operator.apply(in_xg, out_xg, phase_cd)
+        
     def relax(self, relax_method, f_g, s_g, n, w=None):
-        self.operator.relax(relax_method, f_g, s_g, n, w)
+
+        if isinstance(f_g,gpuarray.GPUArray) and  isinstance(s_g,gpuarray.GPUArray):
+            #print "fd_operators_relax_cuda_gpu"
+            if debug_cuda:
+                f_g_cpu=f_g.get()
+                s_g_cpu=s_g.get()
+                self.operator.relax(relax_method, f_g_cpu, s_g_cpu, n, w)
+
+            self.operator.relax_cuda_gpu(relax_method, f_g.gpudata, s_g.gpudata, n, w)
+            if debug_cuda:
+                error=np.max(abs(s_g_cpu-s_g.get()))
+                if error>debug_cuda_tol:
+                    print "Debug cuda: fd_operators relax max error: ", error
+        else:
+            self.operator.relax(relax_method, f_g, s_g, n, w)
 
     def get_diagonal_element(self):
         return self.operator.get_diagonal_element()
@@ -109,7 +152,6 @@ if debug:
                     (phase_cd.dtype == complex and
                      phase_cd.shape == (3, 2)))
             _FDOperator.apply(self, in_xg, out_xg, phase_cd)
-
         def relax(self, relax_method, f_g, s_g, n, w=None):
             assert f_g.shape == self.shape
             assert s_g.shape == self.shape
@@ -121,7 +163,7 @@ if debug:
             _FDOperator.relax(self, relax_method, f_g, s_g, n, w)
 
 class Gradient(FDOperator):
-    def __init__(self, gd, v, scale=1.0, n=1, dtype=float, allocate=True):
+    def __init__(self, gd, v, scale=1.0, n=1, dtype=float, allocate=True, cuda=False):
         h = (gd.h_cv**2).sum(1)**0.5
         d = gd.xxxiucell_cv[:,v]
         A=np.zeros((2*n+1,2*n+1))
@@ -141,16 +183,16 @@ class Gradient(FDOperator):
                 offset[:,i]=offs
                 offset_pc.extend(offset)
 
-        FDOperator.__init__(self, coef_p, offset_pc, gd, dtype, allocate)
+        FDOperator.__init__(self, coef_p, offset_pc, gd, dtype, allocate, cuda)
 
 
-def Laplace(gd, scale=1.0, n=1, dtype=float, allocate=True):
+def Laplace(gd, scale=1.0, n=1, dtype=float, allocate=True, cuda=False):
         if n == 9:
             return FTLaplace(gd, scale, dtype)
         if extra_parameters.get('newgucstencil', True):
-            return NewGUCLaplace(gd, scale, n, dtype, allocate)
+            return NewGUCLaplace(gd, scale, n, dtype, allocate, cuda)
         else:
-            return GUCLaplace(gd, scale, n, dtype, allocate)
+            return GUCLaplace(gd, scale, n, dtype, allocate, cuda)
 
 class FTLaplace:
     def __init__(self, gd, scale, dtype):
@@ -190,7 +232,7 @@ class FTLaplace:
 
 
 class LaplaceA(FDOperator):
-    def __init__(self, gd, scale, dtype=float, allocate=True):
+    def __init__(self, gd, scale, dtype=float, allocate=True, cuda=False):
         assert gd.orthogonal
         c = np.divide(-1/12, gd.h_cv.diagonal()**2) * scale  # Why divide? XXX
         c0 = c[1] + c[2]
@@ -213,10 +255,10 @@ class LaplaceA(FDOperator):
                              (0, -1, -1), (0, -1, 1), (0, 1, -1), (0, 1, 1),
                              (-1, 0, -1), (-1, 0, 1), (1, 0, -1), (1, 0, 1),
                              (-1, -1, 0), (-1, 1, 0), (1, -1, 0), (1, 1, 0)],
-                            gd, dtype, allocate=allocate)
+                            gd, dtype, allocate=allocate, cuda=cuda)
 
 class LaplaceB(FDOperator):
-    def __init__(self, gd, dtype=float, allocate=True):
+    def __init__(self, gd, dtype=float, allocate=True, cuda=False):
         a = 0.5
         b = 1.0 / 12.0
         FDOperator.__init__(self,
@@ -226,10 +268,10 @@ class LaplaceB(FDOperator):
                              (-1, 0, 0), (1, 0, 0),
                              (0, -1, 0), (0, 1, 0),
                              (0, 0, -1), (0, 0, 1)],
-                            gd, dtype, allocate=allocate)
+                            gd, dtype, allocate=allocate, cuda=cuda)
 
 class NewGUCLaplace(FDOperator):
-    def __init__(self, gd, scale=1.0, n=1, dtype=float, allocate=True):
+    def __init__(self, gd, scale=1.0, n=1, dtype=float, allocate=True, cuda=False):
         """Laplacian for general non orthorhombic grid.
 
         gd: GridDescriptor
@@ -272,7 +314,7 @@ class NewGUCLaplace(FDOperator):
             offsets.extend(np.arange(-1, -n - 1, -1)[:, np.newaxis] * M_c)
             coefs.extend(a_d[d] * np.array(laplace[n][1:]))
 
-        FDOperator.__init__(self, coefs, offsets, gd, dtype, allocate)
+        FDOperator.__init__(self, coefs, offsets, gd, dtype, allocate, cuda)
         
         self.n = n
 
@@ -315,7 +357,7 @@ if debug:
 
 
 class GUCLaplace(FDOperator):
-    def __init__(self, gd, scale=1.0, n=1, dtype=float, allocate=True):
+    def __init__(self, gd, scale=1.0, n=1, dtype=float, allocate=True, cuda=False):
         """Central finite diference Laplacian.
 
         Uses (max) 12*n**2 + 6*n neighbors."""
@@ -364,5 +406,5 @@ class GUCLaplace(FDOperator):
 
                 ci+=1
 
-        FDOperator.__init__(self, coefs, offsets, gd, dtype, allocate)
+        FDOperator.__init__(self, coefs, offsets, gd, dtype, allocate, cuda)
 

@@ -21,6 +21,7 @@
 #include "extensions.h"
 #include "bc.h"
 #include "mympi.h"
+#include "operators.h"
 
 #ifdef GPAW_ASYNC
   #define GPAW_ASYNC3 3
@@ -30,21 +31,31 @@
   #define GPAW_ASYNC2 1
 #endif
 
-typedef struct
-{
-  PyObject_HEAD
-  bmgsstencil stencil;
-  boundary_conditions* bc;
-  MPI_Request recvreq[2];
-  MPI_Request sendreq[2];
-} OperatorObject;
+#ifdef GPAW_CUDA
+#include <cuda.h>
+#include <cuda_runtime_api.h>
+PyObject * Operator_relax_cuda_cpu(OperatorObject *self,
+				   PyObject *args);
+PyObject * Operator_relax_cuda_gpu(OperatorObject *self,
+				   PyObject *args);
+PyObject * Operator_apply_cuda_gpu(OperatorObject *self,
+				   PyObject *args);
+PyObject * Operator_apply_cuda_cpu(OperatorObject *self,
+				   PyObject *args);
+#endif
 
 static void Operator_dealloc(OperatorObject *self)
 {
   free(self->bc);
+#ifdef GPAW_CUDA
+  if (self->cuda) {
+    //gpaw_cudaSafeCall(cudaFree(self->buf_gpu));    
+    // FIX THIS
+    cudaFree(self->buf_gpu);    
+  }
+#endif
   PyObject_DEL(self);
 }
-
 
 static PyObject * Operator_relax(OperatorObject *self,
                                  PyObject *args)
@@ -404,7 +415,6 @@ static PyObject * Operator_apply(OperatorObject *self,
   Py_RETURN_NONE;
 }
 
-
 static PyObject * Operator_get_diagonal_element(OperatorObject *self,
                                               PyObject *args)
 {
@@ -437,12 +447,21 @@ static PyMethodDef Operator_Methods[] = {
      (PyCFunction)Operator_apply, METH_VARARGS, NULL},
     {"relax",
      (PyCFunction)Operator_relax, METH_VARARGS, NULL},
+#ifdef GPAW_CUDA
+    {"apply_cuda_cpu",
+     (PyCFunction)Operator_apply_cuda_cpu, METH_VARARGS, NULL},
+    {"apply_cuda_gpu",
+     (PyCFunction)Operator_apply_cuda_gpu, METH_VARARGS, NULL},
+    {"relax_cuda_cpu",
+     (PyCFunction)Operator_relax_cuda_cpu, METH_VARARGS, NULL},
+    {"relax_cuda_gpu",
+     (PyCFunction)Operator_relax_cuda_gpu, METH_VARARGS, NULL},
+#endif
     {"get_diagonal_element",
      (PyCFunction)Operator_get_diagonal_element, METH_VARARGS, NULL},
     {"get_async_sizes",
      (PyCFunction)Operator_get_async_sizes, METH_VARARGS, NULL},
     {NULL, NULL, 0, NULL}
-
 };
 
 
@@ -472,9 +491,11 @@ PyObject * NewOperatorObject(PyObject *obj, PyObject *args)
   int real;
   PyObject* comm_obj;
   int cfd;
-  if (!PyArg_ParseTuple(args, "OOOiOiOi",
+  int cuda = 0;
+  
+  if (!PyArg_ParseTuple(args, "OOOiOiOi|i",
                         &coefs, &offsets, &size, &range, &neighbors,
-                        &real, &comm_obj, &cfd))
+                        &real, &comm_obj, &cfd, &cuda))
     return NULL;
 
   OperatorObject *self = PyObject_NEW(OperatorObject, &OperatorType);
@@ -494,5 +515,20 @@ PyObject * NewOperatorObject(PyObject *obj, PyObject *args)
     comm = ((MPIObject*)comm_obj)->comm;
 
   self->bc = bc_init(LONGP(size), padding, padding, nb, comm, real, cfd);
+  const int* size2 = self->bc->size2;
+#ifdef GPAW_CUDA
+  int chunksize = 1;
+  if (getenv("GPAW_CHUNK_SIZE") != NULL)
+    chunksize = atoi(getenv("GPAW_CHUNK_SIZE"));
+  self->cuda = cuda;
+  if (self->cuda) {
+    fprintf(stdout,"NewOp cuda true\n");
+    gpaw_cudaSafeCall(cudaMalloc(&(self->buf_gpu), sizeof(double) 
+				 * size2[0] * size2[1] * size2[2] 
+				 * self->bc->ndouble * chunksize * 
+				 GPAW_ASYNC2));
+    self->stencil_gpu = bmgs_stencil_to_gpu(&(self->stencil));
+  }
+#endif
   return (PyObject*)self;
 }

@@ -20,6 +20,8 @@ from gpaw.domain import Domain
 from gpaw.utilities import divrl, mlsqr
 from gpaw.spline import Spline
 
+import pycuda.driver as cuda
+import pycuda.gpuarray as gpuarray
 
 # Remove this:  XXX
 assert (-1) % 3 == 2
@@ -157,7 +159,7 @@ class GridDescriptor(Domain):
         return [slice(b - 1 + p, e - 1 + p) for b, e, p in
                 zip(self.beg_c, self.end_c, self.pbc_c)]
 
-    def zeros(self, n=(), dtype=float, global_array=False, pad=False):
+    def zeros(self, n=(), dtype=float, global_array=False, pad=False, cuda=False):
         """Return new zeroed 3D array for this domain.
 
         The type can be set with the ``dtype`` keyword (default:
@@ -165,9 +167,9 @@ class GridDescriptor(Domain):
         global array spanning all domains can be allocated with
         ``global_array=True``."""
 
-        return self._new_array(n, dtype, True, global_array, pad)
+        return self._new_array(n, dtype, True, global_array, pad, cuda=cuda)
     
-    def empty(self, n=(), dtype=float, global_array=False, pad=False):
+    def empty(self, n=(), dtype=float, global_array=False, pad=False, cuda=False):
         """Return new uninitialized 3D array for this domain.
 
         The type can be set with the ``dtype`` keyword (default:
@@ -175,10 +177,10 @@ class GridDescriptor(Domain):
         global array spanning all domains can be allocated with
         ``global_array=True``."""
 
-        return self._new_array(n, dtype, False, global_array, pad)
+        return self._new_array(n, dtype, False, global_array, pad, cuda=cuda)
         
     def _new_array(self, n=(), dtype=float, zero=True,
-                  global_array=False, pad=False):
+                  global_array=False, pad=False, cuda=False):
         if global_array:
             shape = self.get_size_of_global_array(pad)
         else:
@@ -188,11 +190,16 @@ class GridDescriptor(Domain):
             n = (n,)
 
         shape = n + tuple(shape)
-
-        if zero:
-            return np.zeros(shape, dtype)
+        if cuda:
+            if zero:
+                return gpuarray.zeros(tuple(int(x) for x in shape), dtype)
+            else:
+                return gpuarray.empty(tuple(int(x) for x in shape), dtype)
         else:
-            return np.empty(shape, dtype)
+            if zero:
+                return np.zeros(shape, dtype)
+            else:
+                return np.empty(shape, dtype)
         
     def integrate(self, a_xg, b_xg=None, global_integral=True):
         """Integrate function(s) in array over domain.

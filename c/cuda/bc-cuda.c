@@ -11,7 +11,7 @@
 
 
 void bc_unpack1_cuda_gpu(const boundary_conditions* bc,
-			 double* aa1, double* aa2, int i,
+			 const double* aa1, double* aa2, int i,
 			 MPI_Request recvreq[2],
 			 MPI_Request sendreq[2],
 			 double* rbuff, double* sbuff,

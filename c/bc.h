@@ -2,6 +2,9 @@
  *  Copyright (C) 2005       CSC - IT Center for Science Ltd.
  *  Please see the accompanying LICENSE file for further information. */
 
+#ifndef BC_H
+#define BC_H
+
 #include "bmgs/bmgs.h"
 #ifdef PARALLEL
 #include <mpi.h>
@@ -54,3 +57,18 @@ void bc_unpack2(const boundary_conditions* bc,
     MPI_Request recvreq[2],
     MPI_Request sendreq[2],
     double* rbuf, int nin);
+#ifdef GPAW_CUDA
+void bc_unpack1_cuda_gpu(const boundary_conditions* bc,
+			 const double* input, double* output, int i,
+			 MPI_Request recvreq[2],
+			 MPI_Request sendreq[2],
+			 double* rbuf, double* sbuf,
+			 const double_complex phases[2], int thd, int nin);
+void bc_unpack2_cuda_gpu(const boundary_conditions* bc,
+    double* a2, int i,
+    MPI_Request recvreq[2],
+    MPI_Request sendreq[2],
+    double* rbuf, int nin);
+#endif
+
+#endif
