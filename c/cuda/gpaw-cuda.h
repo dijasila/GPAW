@@ -1,0 +1,60 @@
+
+#ifndef GPAW_CUDA_H
+#define GPAW_CUDA_H
+
+#include<cuda.h>
+#include<cuda_runtime_api.h>
+#include<cuComplex.h>
+
+#include"gpaw-cuda-common.h"
+
+
+bmgsstencil_gpu bmgs_stencil_to_gpu(bmgsstencil *s);
+
+double bmgs_fd_cuda_cpu(const bmgsstencil* s, const double* a, double* b);
+void bmgs_fd_cuda_gpu(const bmgsstencil_gpu* s, const double* adev, double* bdev);
+
+double bmgs_relax_cuda_cpu(const int relax_method, const bmgsstencil* s, double* a, double* b,const double* src, const double w);
+void bmgs_relax_cuda_gpu(const int relax_method, const bmgsstencil_gpu* s, double* adev, double* bdev,const double* src, const double w);
+
+void bmgs_cut_cuda(const double* a, const int n[3], const int c[3],
+		   double* b, const int m[3],enum cudaMemcpyKind kind);
+void bmgs_paste_cuda(const double* a, const int n[3],
+		     double* b, const int m[3], const int c[3],enum cudaMemcpyKind kind);
+void bmgs_paste_cuda_gpu(const double* a, const int n[3],
+		     double* b, const int m[3], const int c[3]);
+double bmgs_paste_cuda_cpu(const double* a, const int n[3],
+		     double* b, const int m[3], const int c[3]);
+
+void bmgs_translate_cuda(double* a, const int sizea[3], const int size[3],
+			 const int start1[3], const int start2[3],enum cudaMemcpyKind kind);
+
+void bmgs_restrict_cuda_gpu(int k, double* a, const int n[3], double* b, double* w);
+double bmgs_restrict_cuda_cpu(int k, double* a, const int n[3], double* b, double* w);
+void bmgs_interpolate_cuda_gpu(int k, int skip[3][2],
+			       const double* a, const int n[3],
+			       double* b, double* w);
+double bmgs_interpolate_cuda_cpu(int k, int skip[3][2],
+				 const double* a, const int n[3],
+				 double* b, double* w);
+
+// complex routines:
+void bmgs_fd_cuda_gpuz(const bmgsstencil_gpu* s, const cuDoubleComplex* adev, cuDoubleComplex* bdev);
+
+void bmgs_cut_cudaz(const cuDoubleComplex* a, const int n[3], const int c[3],
+		   cuDoubleComplex* b, const int m[3],enum cudaMemcpyKind kind);
+
+void bmgs_paste_cudaz(const cuDoubleComplex* a, const int n[3],
+		     cuDoubleComplex* b, const int m[3], const int c[3],enum cudaMemcpyKind kind);
+void bmgs_paste_cuda_gpuz(const cuDoubleComplex* a, const int n[3],
+		     cuDoubleComplex* b, const int m[3], const int c[3]);
+
+void bmgs_translate_cudaz(cuDoubleComplex* a, const int sizea[3], const int size[3],
+			  const int start1[3], const int start2[3],cuDoubleComplex,enum cudaMemcpyKind kind);
+void bmgs_restrict_cuda_gpuz(int k, cuDoubleComplex* a, const int n[3], cuDoubleComplex* b, cuDoubleComplex* w);
+void bmgs_interpolate_cuda_gpuz(int k, int skip[3][2],
+          const cuDoubleComplex* a, const int n[3],
+          cuDoubleComplex* b, cuDoubleComplex* w);
+
+
+#endif
