@@ -40,18 +40,15 @@ PyObject* Transformer_apply_cuda_gpu(TransformerObject *self, PyObject *args)
   bool real = (type->type_num == PyArray_DOUBLE);
   const double_complex* ph = (real ? 0 : COMPLEXP(phases));
 
-  double* sendbuf = self->sendbuf;
-  double* recvbuf = self->recvbuf;
+  double* sendbuf = GPAW_MALLOC(double, bc->maxsend * GPAW_ASYNC_D);
+  double* recvbuf = GPAW_MALLOC(double, bc->maxrecv * GPAW_ASYNC_D);
   double* buf = self->buf_gpu;
   double* buf2 = self->buf2_gpu;
   MPI_Request recvreq[2];
   MPI_Request sendreq[2];
 
-  int out_ng;
-  if (self->interpolate)
-    out_ng = ng * 8;
-  else
-    out_ng = ng / 8;
+  int out_ng = bc->ndouble * self->size_out[0] * self->size_out[1]
+               * self->size_out[2];
 
   for (int n = 0; n < nin; n++)
     {
@@ -87,7 +84,8 @@ PyObject* Transformer_apply_cuda_gpu(TransformerObject *self, PyObject *args)
 				    (cuDoubleComplex*) buf2);
         }
     }
-
+  free(recvbuf);
+  free(sendbuf);
   Py_RETURN_NONE;
 }
 

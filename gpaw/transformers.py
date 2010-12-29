@@ -15,9 +15,12 @@ from gpaw import debug
 from gpaw.utilities import is_contiguous
 import _gpaw
 
+import pycuda.driver as cuda
+import pycuda.gpuarray as gpuarray
+from gpaw import debug_cuda,debug_cuda_tol
 
 class _Transformer:
-    def __init__(self, gdin, gdout, nn=1, dtype=float, allocate=True):
+    def __init__(self, gdin, gdout, nn=1, dtype=float, allocate=True, cuda=False):
         self.gdin = gdin
         self.gdout = gdout
         self.nn = nn
@@ -57,6 +60,9 @@ class _Transformer:
         self.pad_cd = pad_cd
         self.neighborpad_cd = neighborpad_cd
         self.skip_cd = skip_cd
+
+        self.cuda=cuda
+        
         self.allocated = False
         if allocate:
             self.allocate()
@@ -75,11 +81,27 @@ class _Transformer:
                                              self.neighborpad_cd, self.skip_cd,
                                              gdin.neighbor_cd,
                                              self.dtype == float, comm,
-                                             self.interpolate)
+                                             self.interpolate, self.cuda)
         self.allocated = True
         
     def apply(self, input, output, phases=None):
-        self.transformer.apply(input, output, phases)
+ 
+        if isinstance(input,gpuarray.GPUArray) and  isinstance(output,gpuarray.GPUArray):
+            #print "fd_transformer_apply_cuda_gpu"
+            if debug_cuda:
+                input_cpu = input.get()
+                output_cpu = output.get()
+                self.transformer.apply(input_cpu, output_cpu, phases)
+            
+            self.transformer.apply_cuda_gpu(input.gpudata, output.gpudata,
+                                            input.shape, input.dtype,phases)
+            if debug_cuda:
+                error=np.max(abs(output_cpu-output.get()))
+                if error>debug_cuda_tol:
+                    print "Debug cuda: transformer apply max error: ", error
+                    
+        else:    
+            self.transformer.apply(input, output, phases)
 
     def get_async_sizes(self):
         return self.transformer.get_async_sizes()
@@ -139,9 +161,9 @@ class TransformerWrapper:
         self.transformer.estimate_memory(mem)
 
 
-def Transformer(gdin, gdout, nn=1, dtype=float, allocate=True):
+def Transformer(gdin, gdout, nn=1, dtype=float, allocate=True,cuda=False):
     if nn != 9:
-        t = _Transformer(gdin, gdout, nn, dtype, allocate)
+        t = _Transformer(gdin, gdout, nn, dtype, allocate,cuda)
         if debug:
             t = TransformerWrapper(t)
         return t

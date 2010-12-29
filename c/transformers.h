@@ -3,6 +3,12 @@
 
 #include "bc.h"
 
+#ifdef GPAW_ASYNC
+  #define GPAW_ASYNC_D 3
+#else
+  #define GPAW_ASYNC_D 1
+#endif
+
 typedef struct
 {
   PyObject_HEAD
@@ -13,10 +19,7 @@ typedef struct
   MPI_Request recvreq[2];
   MPI_Request sendreq[2];
   int skip[3][2];
-  double* buf;
-  double* buf2;
-  double* sendbuf;
-  double* recvbuf;
+  int size_out[3];          /* Size of the output grid */
 #ifdef GPAW_CUDA
   int cuda;
   double* buf_gpu;

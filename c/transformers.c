@@ -12,29 +12,29 @@
 #include "bc.h"
 #include "mympi.h"
 #include "bmgs/bmgs.h"
+#include "transformers.h"
 
-#ifdef GPAW_ASYNC
-  #define GPAW_ASYNC_D 3
-#else
-  #define GPAW_ASYNC_D 1
+#ifdef GPAW_CUDA
+#include <cuda.h>
+#include <cuda_runtime_api.h>
+#include "cuda/gpaw-cuda.h"
+
+PyObject* Transformer_apply_cuda_gpu(TransformerObject *self, PyObject *args);
 #endif
-
-typedef struct
-{
-  PyObject_HEAD
-  boundary_conditions* bc;
-  int p;
-  int k;
-  bool interpolate;
-  MPI_Request recvreq[2];
-  MPI_Request sendreq[2];
-  int skip[3][2];
-  int size_out[3];          /* Size of the output grid */
-} TransformerObject;
 
 static void Transformer_dealloc(TransformerObject *self)
 {
   free(self->bc);
+#ifdef GPAW_CUDA
+  if (self->cuda) {
+    /*gpaw_cudaSafeCall(cudaFree(self->buf_gpu));
+      gpaw_cudaSafeCall(cudaFree(self->buf2_gpu));*/
+    // FIX THIS
+    cudaFree(self->buf_gpu);
+    cudaFree(self->buf2_gpu);
+
+  }
+#endif
   PyObject_DEL(self);
 }
 
@@ -117,8 +117,6 @@ void *transapply_worker(void *threadarg)
   return NULL;
 }
 
-
-
 static PyObject* Transformer_apply(TransformerObject *self, PyObject *args)
 {
   PyArrayObject* input;
@@ -179,6 +177,8 @@ static PyObject* Transformer_apply(TransformerObject *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
+
+
 static PyObject * Transformer_get_async_sizes(TransformerObject *self, PyObject *args)
 {
   if (!PyArg_ParseTuple(args, ""))
@@ -193,6 +193,9 @@ static PyObject * Transformer_get_async_sizes(TransformerObject *self, PyObject 
 
 static PyMethodDef Transformer_Methods[] = {
     {"apply", (PyCFunction)Transformer_apply, METH_VARARGS, NULL},
+#ifdef GPAW_CUDA
+    {"apply_cuda_gpu", (PyCFunction)Transformer_apply_cuda_gpu, METH_VARARGS, NULL},
+#endif
     {"get_async_sizes",
      (PyCFunction)Transformer_get_async_sizes, METH_VARARGS, NULL},
     {NULL, NULL, 0, NULL}
@@ -226,10 +229,11 @@ PyObject * NewTransformerObject(PyObject *obj, PyObject *args)
   int real;
   PyObject* comm_obj;
   int interpolate;
-  if (!PyArg_ParseTuple(args, "OOiOOOOiOi",
+  int cuda = 0;
+  if (!PyArg_ParseTuple(args, "OOiOOOOiOi|i",
                         &size_in, &size_out, &k, &paddings, &npaddings, &skip,
                         &neighbors, &real, &comm_obj,
-                        &interpolate))
+                        &interpolate, &cuda))
     return NULL;
 
   TransformerObject* self = PyObject_NEW(TransformerObject, &TransformerType);
@@ -248,6 +252,7 @@ PyObject * NewTransformerObject(PyObject *obj, PyObject *args)
   const long (*npad)[2] = (const long (*)[2])LONGP(npaddings);
   const long (*skp)[2] = (const long (*)[2])LONGP(skip);
   self->bc = bc_init(LONGP(size_in), pad, npad, nb, comm, real, 0);
+  const int* size2 = self->bc->size2;
 
   for (int c = 0; c < 3; c++)
       self->size_out[c] = LONGP(size_out)[c];
@@ -256,5 +261,24 @@ PyObject * NewTransformerObject(PyObject *obj, PyObject *args)
     for (int d = 0; d < 2; d++)
       self->skip[c][d] = (int)skp[c][d];
 
+#ifdef GPAW_CUDA
+  self->cuda = cuda;
+  if (self->cuda) {
+    fprintf(stdout,"NewTrans cuda true\n");
+    gpaw_cudaSafeCall(cudaMalloc(&(self->buf_gpu), sizeof(double) * 
+				 size2[0] * size2[1] * size2[2] * self->bc->ndouble));
+    if (interpolate)
+      // Much larger than necessary!  I don't have the energy right now to
+      // estimate the minimum size of buf2!
+      gpaw_cudaSafeCall(cudaMalloc(&(self->buf2_gpu), sizeof(double) * 
+				   16 * size2[0] * size2[1] * size2[2] * 
+				   self->bc->ndouble));
+    else
+      gpaw_cudaSafeCall(cudaMalloc(&(self->buf2_gpu), sizeof(double) * 
+				   size2[0] * size2[1] *
+				   (size2[2] - 2 * k + 3) / 2 *
+				   self->bc->ndouble));
+  }
+#endif
   return (PyObject*)self;
 }
