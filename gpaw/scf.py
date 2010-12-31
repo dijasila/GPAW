@@ -48,7 +48,10 @@ class SCFLoop:
             wfs.cuda_psit_nG_htod()
             
         for iter in range(1, self.maxiter + 1):
-            wfs.eigensolver.iterate(hamiltonian, wfs, cuda_psit_nG=cuda_psit_nG)
+            if cuda: #XXX At the moment all eigensolvers do not support cuda
+                wfs.eigensolver.iterate(hamiltonian, wfs, cuda_psit_nG=cuda_psit_nG)
+            else:
+                wfs.eigensolver.iterate(hamiltonian, wfs)
             occupations.calculate(wfs)
             # XXX ortho, dens, wfs?
             energy = hamiltonian.get_energy(occupations)

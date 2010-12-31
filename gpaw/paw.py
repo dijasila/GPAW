@@ -103,6 +103,7 @@ class PAW(PAWTextOutput):
         self.set(**kwargs)
 
         self.cuda=self.input_parameters.cuda
+        # self.cuda = True
 
         if filename is not None:
             # Setups are not saved in the file if the setups were not loaded
@@ -372,7 +373,10 @@ class PAW(PAWTextOutput):
         else:
             xc = par.xc
 
-        if isinstance(xc, HybridXC):
+        if self.cuda and isinstance(xc, HybridXC):
+            # Make sure wavefunctions etc. are initialized to non-CUDA
+            self.hamiltonian = None
+            self.wfs = EmptyWaveFunctions()
             self.cuda=False
             print "Cuda disabled: Hybrid functionals not implemented."
 

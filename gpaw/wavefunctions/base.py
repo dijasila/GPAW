@@ -96,8 +96,13 @@ class WaveFunctions(EmptyWaveFunctions):
     def calculate_density_contribution(self, nt_sG, cuda_psit_nG=False):
         """Calculate contribution to pseudo density from wave functions."""
         nt_sG.fill(0.0)
-        for kpt in self.kpt_u:
-            self.add_to_density_from_k_point(nt_sG, kpt, cuda_psit_nG)
+        if self.cuda: # XXX All eigensolvers do not support cuda
+            for kpt in self.kpt_u:
+                self.add_to_density_from_k_point(nt_sG, kpt, cuda_psit_nG)
+        else:
+            for kpt in self.kpt_u:
+                self.add_to_density_from_k_point(nt_sG, kpt)
+
         self.band_comm.sum(nt_sG)
         self.kpt_comm.sum(nt_sG)
         
@@ -107,8 +112,14 @@ class WaveFunctions(EmptyWaveFunctions):
                 self.symmetry.symmetrize(nt_G, self.gd)
             self.timer.stop('Symmetrize density')
 
-    def add_to_density_from_k_point(self, nt_sG, kpt, cuda=False):
-        self.add_to_density_from_k_point_with_occupation(nt_sG, kpt, kpt.f_n, cuda)
+    def add_to_density_from_k_point(self, nt_sG, kpt, cuda_psit_nG=False):
+        if self.cuda:
+            self.add_to_density_from_k_point_with_occupation(nt_sG, kpt, 
+                                                             kpt.f_n, 
+                                                             cuda_psit_nG)
+        else:
+            self.add_to_density_from_k_point_with_occupation(nt_sG, kpt, 
+                                                             kpt.f_n)
     
 
     def get_orbital_density_matrix(self, a, kpt, n):

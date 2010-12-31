@@ -40,14 +40,14 @@ class PWDescriptor:
     def bytecount(self, dtype=float):
         return len(self.Q_G) * np.array(1, dtype).itemsize
     
-    def zeros(self, n=(), dtype=float):
+    def zeros(self, n=(), dtype=float, cuda=False):
         assert dtype == complex
         if isinstance(n, int):
             n = (n,)
         shape = n + self.Q_G.shape
         return np.zeros(shape, complex)
     
-    def empty(self, n=(), dtype=float):
+    def empty(self, n=(), dtype=float, cuda=False):
         assert dtype == complex
         if isinstance(n, int):
             n = (n,)
