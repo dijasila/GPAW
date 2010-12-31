@@ -8,6 +8,8 @@ from gpaw.utilities.blas import rk, r2k, gemm
 from gpaw.matrix_descriptor import BandMatrixDescriptor, \
                                    BlacsBandMatrixDescriptor
 
+import pycuda.gpuarray as gpuarray
+
 class MatrixOperator:
     """Base class for overlap and hamiltonian operators.
 
@@ -26,7 +28,8 @@ class MatrixOperator:
     async = True
     hermitian = True
 
-    def __init__(self, bd, gd, ksl, nblocks=None, async=None, hermitian=None):
+    def __init__(self, bd, gd, ksl, nblocks=None, async=None, hermitian=None,
+                 cuda=False):
         """The constructor now calculates the work array sizes, but does not
         allocate them. Here is a summary of the relevant variables and the
         cases handled.
@@ -63,6 +66,11 @@ class MatrixOperator:
         self.gd = gd
         self.work1_xG = None
         self.work2_xG = None
+        self.cuda = cuda
+        if self.cuda:
+            self.work1_xG_gpu = None
+            self.work2_xG_gpu = None
+
         self.A_qnn = None
         self.A_nn = None
         if nblocks is not None:
@@ -78,6 +86,9 @@ class MatrixOperator:
         self.X = 1 # not used in some cases
         self.Q = 1
         ngroups = self.bd.comm.size
+        if self.cuda and (self.nblocks > 1 or ngroups > 1):
+            err_str = 'CUDA not implemented for blocking/band parallelization'
+            raise NotImplementedError(err_str)
         mynbands = self.bd.mynbands
         nbands = self.bd.nbands
         G = self.gd.n_c.prod()
@@ -101,6 +112,9 @@ class MatrixOperator:
         mynbands = self.bd.mynbands
         if ngroups == 1 and self.nblocks == 1:
             self.work1_xG = self.gd.zeros(mynbands, dtype)
+            if self.cuda:
+                self.work1_xG_gpu = self.gd.zeros(mynbands, dtype,
+                                                  cuda=self.cuda)
         else:
             self.work1_xG = self.gd.zeros(self.X, dtype)
             self.work2_xG = self.gd.zeros(self.X, dtype)
@@ -151,14 +165,13 @@ class MatrixOperator:
 
         if square is None:
             square = (bra_xG.shape[0]==ket_yG.shape[0])
-
         dv = self.gd.dv
         if ket_yG is bra_xG:
-            rk(dv, bra_xG, 0.0, A_yx)
+            rk(dv, bra_xG, 0.0, A_yx, self.cuda)
         elif self.hermitian and square:
-            r2k(0.5 * dv, bra_xG, ket_yG, 0.0, A_yx)
+            r2k(0.5 * dv, bra_xG, ket_yG, 0.0, A_yx, self.cuda)
         else:
-            gemm(dv, bra_xG, ket_yG, 0.0, A_yx, 'c')
+            gemm(dv, bra_xG, ket_yG, 0.0, A_yx, 'c', self.cuda)
 
     def _initialize_cycle(self, sbuf_mG, rbuf_mG, sbuf_In, rbuf_In, auxiliary):
         """Initializes send/receive cycle of pseudo wave functions, as well as
@@ -255,7 +268,7 @@ class MatrixOperator:
 
         return sbuf_mG, rbuf_mG, sbuf_In, rbuf_In
 
-    def suggest_temporary_buffer(self, dtype):
+    def suggest_temporary_buffer(self, dtype, cuda=False):
         """Return a *suggested* buffer for calculating A(psit_nG) during
         a call to calculate_matrix_elements. Work arrays will be allocated
         if they are not already available.
@@ -273,7 +286,12 @@ class MatrixOperator:
         B = self.bd.comm.size
 
         if B == 1 and J == 1:
-            return self.work1_xG
+            if cuda and self.cuda:
+                return self.work1_xG_gpu
+            elif cuda:
+                raise RuntimeError('hs_operators is not initialized for CUDA')
+            else:
+                return self.work1_xG
         else:
             assert N % J == 0, "Can't divide %d bands in %d blocks." % (N,J)
             M = self.M
@@ -324,7 +342,12 @@ class MatrixOperator:
         if B == 1 and J == 1:
             # Simple case:
             Apsit_nG = A(psit_nG)
-            self._pseudo_braket(psit_nG, Apsit_nG, A_NN)
+            if self.cuda and isinstance(psit_nG, gpuarray.GPUArray):
+                A_NN_gpu=gpuarray.to_gpu(A_NN)
+                self._pseudo_braket(psit_nG, Apsit_nG, A_NN_gpu)
+                A_NN_gpu.get(A_NN)
+            else:
+                self._pseudo_braket(psit_nG, Apsit_nG, A_NN)
             for a, P_ni in P_ani.items():
                 gemm(1.0, P_ni, dA(a, P_ni), 1.0, A_NN, 'c')
             domain_comm.sum(A_NN, 0)
@@ -455,17 +478,34 @@ class MatrixOperator:
 
         if B == 1 and J == 1:
             # Simple case:
-            newpsit_nG = self.work1_xG
-            gemm(1.0, psit_nG, C_NN, 0.0, newpsit_nG)
-            self.work1_xG = psit_nG
-            if P_ani:
-                for P_ni in P_ani.values():
-                    gemm(1.0, P_ni.copy(), C_NN, 0.0, P_ni)
+            if self.cuda and  isinstance(psit_nG, gpuarray.GPUArray):
+                newpsit_nG = self.work1_xG_gpu
+                #psit_nG_gpu=gpuarray.to_gpu(psit_nG)
+                #print type(C_NN),C_NN.dtype,C_NN.shape
+                #print type(newpsit_nG),newpsit_nG.dtype,newpsit_nG.shape
+                gemm(1.0, psit_nG, gpuarray.to_gpu(C_NN), 0.0, newpsit_nG)
+                if P_ani:
+                    for P_ni in P_ani.values():
+                        gemm(1.0, P_ni.copy(), C_NN, 0.0, P_ni)
+                self.work1_xG_gpu = psit_nG
+            else:
+                newpsit_nG = self.work1_xG
+                gemm(1.0, psit_nG, C_NN, 0.0, newpsit_nG)
+                if P_ani:
+                    for P_ni in P_ani.values():
+                        gemm(1.0, P_ni.copy(), C_NN, 0.0, P_ni)
+                self.work1_xG = psit_nG
+
+                    #print P_ni.copy().shape,C_NN.shape,P_ni.shape
+#            if self.cuda:
+#                return newpsit_nG.get()
+#            else:
             return newpsit_nG
         
         # Now it gets nasty! We parallelize over B groups of bands and
         # each grid chunk is divided in J smaller slices (less memory).
-
+        print "matrix_multiply: Nasty case"
+            
         Q = B # always non-hermitian XXX
         rank = band_comm.rank
         shape = psit_nG.shape

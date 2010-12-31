@@ -51,6 +51,7 @@ class InputParameters(dict):
                                  'density':     1.0e-4,
                                  'eigenstates': 1.0e-9,  # XXX ???
                                  'bands':       'occupied'}),
+            ('cuda',            False),
             ])
         dict.update(self, kwargs)
 

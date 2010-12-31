@@ -231,7 +231,7 @@ def rk(alpha, a, beta, c, cuda=False):
     assert type(a) == type(c)
     
     if isinstance(a,gpuarray.GPUArray) and isinstance(c,gpuarray.GPUArray):
-        print "rk_gpu"
+        # print "rk_gpu"
         if debug_cuda:
             a_cpu=a.get()
             c_cpu=c.get()
@@ -243,7 +243,7 @@ def rk(alpha, a, beta, c, cuda=False):
             if error>debug_cuda_tol:
                 print "Debug cuda: rk max error: ", error
     elif cuda:
-        print "rk_cuda_cpu"
+        # print "rk_cuda_cpu"
         a_gpu=gpuarray.to_gpu(a)
         c_gpu=gpuarray.to_gpu(c)
 
@@ -294,7 +294,7 @@ def r2k(alpha, a, b, beta, c, cuda=False):
 
 
     if isinstance(a,gpuarray.GPUArray) and  isinstance(b,gpuarray.GPUArray) and isinstance(c,gpuarray.GPUArray):
-        print "r2k_gpu"
+        # print "r2k_gpu"
         if debug_cuda:
             a_cpu=a.get()
             b_cpu=b.get()

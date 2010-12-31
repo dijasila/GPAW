@@ -38,31 +38,38 @@ class SCFLoop:
         self.density_error = None
         self.converged = False
 
-    def run(self, wfs, hamiltonian, density, occupations):
+    def run(self, wfs, hamiltonian, density, occupations, cuda=False):
         if self.converged:
             return
-        
+
+        cuda_psit_nG=cuda
+
+        if cuda_psit_nG:
+            wfs.cuda_psit_nG_htod()
+            
         for iter in range(1, self.maxiter + 1):
-            wfs.eigensolver.iterate(hamiltonian, wfs)
+            wfs.eigensolver.iterate(hamiltonian, wfs, cuda_psit_nG=cuda_psit_nG)
             occupations.calculate(wfs)
             # XXX ortho, dens, wfs?
-
             energy = hamiltonian.get_energy(occupations)
             self.energies.append(energy)
             self.check_convergence(density, wfs.eigensolver)
+
             yield iter
             
             if self.converged:
                 break
 
             if iter > self.niter_fixdensity:
-                density.update(wfs)
+                density.update(wfs,cuda_psit_nG=cuda_psit_nG)
                 hamiltonian.update(density)
             else:
                 hamiltonian.npoisson = 0
-
+                
         # Don't fix the density in the next step:
         self.niter_fixdensity = 0
+        if cuda_psit_nG:
+            wfs.cuda_psit_nG_dtoh()
         
     def check_convergence(self, density, eigensolver):
         """Check convergence of eigenstates, energy and density."""

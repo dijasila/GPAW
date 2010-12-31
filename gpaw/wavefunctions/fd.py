@@ -15,25 +15,30 @@ from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.hs_operators import MatrixOperator
 from gpaw.preconditioner import Preconditioner
 
+import pycuda.gpuarray as gpuarray
 
 class FDWaveFunctions(FDPWWaveFunctions):
     def __init__(self, stencil, diagksl, orthoksl, initksl,
                  gd, nvalence, setups, bd,
-                 dtype, world, kd, timer=None):
+                 dtype, world, kd, timer=None, cuda=False):
+        self.cuda = cuda
         FDPWWaveFunctions.__init__(self, diagksl, orthoksl, initksl,
                                    gd, nvalence, setups, bd,
-                                   dtype, world, kd, timer)
+                                   dtype, world, kd, timer, cuda)
 
         self.wd = self.gd  # wave function descriptor
-        
-        # Kinetic energy operator:
-        self.kin = Laplace(self.gd, -0.5, stencil, self.dtype, allocate=False)
 
-        self.matrixoperator = MatrixOperator(self.bd, self.gd, orthoksl)
+        # Kinetic energy operator:
+        self.kin = Laplace(self.gd, -0.5, stencil, self.dtype, allocate=False,
+                           cuda=self.cuda)
+
+        self.matrixoperator = MatrixOperator(self.bd, self.gd, orthoksl, 
+                                             cuda=self.cuda)
 
     def set_setups(self, setups):
         self.pt = LFC(self.gd, [setup.pt_j for setup in setups],
-                      self.kpt_comm, dtype=self.dtype, forces=True)
+                      self.kpt_comm, dtype=self.dtype, forces=True, 
+                      cuda=self.cuda)
         FDPWWaveFunctions.set_setups(self, setups)
 
     def set_positions(self, spos_ac):
@@ -45,7 +50,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
         fd.write('Mode: Finite-difference\n')
         
     def make_preconditioner(self, block=1):
-        return Preconditioner(self.gd, self.kin, self.dtype, block)
+        return Preconditioner(self.gd, self.kin, self.dtype, block, self.cuda)
     
     def apply_pseudo_hamiltonian(self, kpt, hamiltonian, psit_xG, Htpsit_xG):
         self.kin.apply(psit_xG, Htpsit_xG, kpt.phase_cd)
@@ -58,16 +63,25 @@ class FDWaveFunctions(FDPWWaveFunctions):
             axpy(1.0, kpt.psit_nG[n].real**2, nt_G)
             axpy(1.0, kpt.psit_nG[n].imag**2, nt_G)
 
-    def add_to_density_from_k_point_with_occupation(self, nt_sG, kpt, f_n):
+    def add_to_density_from_k_point_with_occupation(self, nt_sG, kpt, f_n, cuda_psit_nG=False):
         # Used in calculation of response part of GLLB-potential
-        nt_G = nt_sG[kpt.s]
-        if self.dtype == float:
-            for f, psit_G in zip(f_n, kpt.psit_nG):
-                axpy(f, psit_G**2, nt_G)
+        if cuda_psit_nG:
+            nt_G = gpuarray.to_gpu(nt_sG[kpt.s])
+            psit_nG = kpt.psit_nG_gpu
         else:
-            for f, psit_G in zip(f_n, kpt.psit_nG):
-                axpy(f, psit_G.real**2, nt_G)
-                axpy(f, psit_G.imag**2, nt_G)
+            nt_G = nt_sG[kpt.s]
+            psit_nG = kpt.psit_nG
+            
+        if self.dtype == float:
+            for f, psit_G in zip(f_n, psit_nG):
+                axpy(f, psit_G*psit_G, nt_G)  # PyCUDA does not support power?
+                #nt_G+=f*(psit_G**2)
+        else:
+            for f, psit_G in zip(f_n, psit_nG):
+                axpy(f, psit_G.real*psit_G.real, nt_G)
+                axpy(f, psit_G.imag*psit_G.imag, nt_G)
+                #axpy(f, psit_G.real**2, nt_G)
+                #axpy(f, psit_G.imag**2, nt_G)
 
         # Hack used in delta-scf calculations:
         if hasattr(kpt, 'c_on'):
@@ -76,10 +90,13 @@ class FDWaveFunctions(FDPWWaveFunctions):
                             dtype=complex)
             for ne, c_n in zip(kpt.ne_o, kpt.c_on):
                 d_nn += ne * np.outer(c_n.conj(), c_n)
-            for d_n, psi0_G in zip(d_nn, kpt.psit_nG):
-                for d, psi_G in zip(d_n, kpt.psit_nG):
+            for d_n, psi0_G in zip(d_nn, psit_nG):
+                for d, psi_G in zip(d_n, psit_nG):
                     if abs(d) > 1.e-12:
                         nt_G += (psi0_G.conj() * d * psi_G).real
+
+        if cuda_psit_nG:
+            nt_G.get(nt_sG[kpt.s])
 
     def calculate_kinetic_energy_density(self, tauct, grad_v):
         assert not hasattr(self.kpt_u[0], 'c_on')
@@ -137,6 +154,14 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
         if self.bd.comm.rank == 0:
             self.kpt_comm.sum(F_av, 0)
+
+    def cuda_psit_nG_htod(self):
+        for kpt in self.kpt_u:
+            kpt.cuda_psit_nG_htod()
+        
+    def cuda_psit_nG_dtoh(self):
+        for kpt in self.kpt_u:
+            kpt.cuda_psit_nG_dtoh()
 
     def estimate_memory(self, mem):
         FDPWWaveFunctions.estimate_memory(self, mem)

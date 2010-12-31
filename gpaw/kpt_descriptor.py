@@ -158,7 +158,7 @@ class KPointDescriptor:
             self.ibzk_qc = np.vstack((self.ibzk_kc,
                                       self.ibzk_kc))[self.get_slice()]
 
-    def create_k_points(self, gd):
+    def create_k_points(self, gd, cuda=False):
         """Return a list of KPoints."""
  
         sdisp_cd = gd.sdisp_cd
@@ -174,7 +174,7 @@ class KPointDescriptor:
             else:
                 phase_cd = np.exp(2j * np.pi *
                                   sdisp_cd * self.ibzk_kc[k, :, np.newaxis])
-            kpt_u.append(KPoint(weight, s, k, q, phase_cd))
+            kpt_u.append(KPoint(weight, s, k, q, phase_cd, cuda))
 
         return kpt_u
 

@@ -24,6 +24,7 @@ from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.hamiltonian import Hamiltonian
 from gpaw.utilities.timing import Timer
 from gpaw.xc import XC
+from gpaw.xc.hybrid import HybridXC # needed for disabling CUDA
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.brillouin import reduce_kpoints
 from gpaw.wavefunctions.base import EmptyWaveFunctions
@@ -38,6 +39,8 @@ from gpaw.scf import SCFLoop
 from gpaw.forces import ForceCalculator
 from gpaw.utilities import h2gpts
 
+#import pycuda
+#import pycuda.autoinit
 
 class PAW(PAWTextOutput):
     """This is the main calculation object for doing a PAW calculation."""
@@ -99,6 +102,8 @@ class PAW(PAWTextOutput):
 
         self.set(**kwargs)
 
+        self.cuda=self.input_parameters.cuda
+
         if filename is not None:
             # Setups are not saved in the file if the setups were not loaded
             # *from* files in the first place
@@ -121,6 +126,8 @@ class PAW(PAWTextOutput):
             self.print_cell_and_parameters()
 
         self.observers = []
+
+
 
     def read(self, reader):
         gpaw.io.read(self, reader)
@@ -162,7 +169,7 @@ class PAW(PAWTextOutput):
             if key == 'eigensolver':
                 self.wfs.set_eigensolver(None)
             
-            if key in ['fixmom', 'mixer',
+            if key in ['fixmom', 'mixer', 'cuda',
                        'verbose', 'txt', 'hund', 'random',
                        'eigensolver', 'poissonsolver', 'idiotproof', 'notify']:
                 continue
@@ -178,7 +185,7 @@ class PAW(PAWTextOutput):
                        'occupations']:
                 self.hamiltonian = None
                 self.occupations = None
-            elif key in ['charge']:
+            elif key in ['charge']:                
                 self.hamiltonian = None
                 self.density = None
                 self.wfs = EmptyWaveFunctions()
@@ -255,7 +262,7 @@ class PAW(PAWTextOutput):
 
         self.timer.start('SCF-cycle')
         for iter in self.scf.run(self.wfs, self.hamiltonian, self.density,
-                                 self.occupations):
+                                 self.occupations, cuda=self.cuda):
             self.call_observers(iter)
             self.print_iteration(iter)
             self.iter = iter
@@ -308,6 +315,18 @@ class PAW(PAWTextOutput):
 
         par = self.input_parameters
 
+        if self.cuda:
+            self.timer.start('Cuda')
+            if par.eigensolver != None and par.eigensolver != 'rmm-diis':
+                print "Cuda disabled: Eigensolver: '", par.eigensolver,"' not implemented."
+                self.cuda = False
+            if par.mode != 'fd':
+                print "Cuda disabled: Mode: '",par.mode,"' not implemented."
+                self.cuda = False
+            else:
+                import pycuda.autoinit
+            self.timer.stop('Cuda')
+
         world = par.communicator
         if world is None:
             world = mpi.world
@@ -352,6 +371,10 @@ class PAW(PAWTextOutput):
             xc = XC(par.xc)
         else:
             xc = par.xc
+
+        if isinstance(xc, HybridXC):
+            self.cuda=False
+            print "Cuda disabled: Hybrid functionals not implemented."
 
         setups = Setups(Z_a, par.setups, par.basis, par.lmax, xc, world)
 
@@ -543,7 +566,7 @@ class PAW(PAWTextOutput):
 
                 if par.mode == 'fd':
                     self.wfs = FDWaveFunctions(par.stencils[0], diagksl,
-                                               orthoksl, initksl, *args)
+                                               orthoksl, initksl, *args, cuda=self.cuda)
                 else:
                     # Planewave basis:
                     self.wfs = par.mode(diagksl, orthoksl, initksl,
@@ -564,7 +587,7 @@ class PAW(PAWTextOutput):
                 if nbands_converge < 0:
                     nbands_converge += nbands
             eigensolver = get_eigensolver(par.eigensolver, par.mode,
-                                          par.convergence)
+                                          par.convergence, cuda=self.cuda)
             eigensolver.nbands_converge = nbands_converge
             # XXX Eigensolver class doesn't define an nbands_converge property
             self.wfs.set_eigensolver(eigensolver)
@@ -590,7 +613,7 @@ class PAW(PAWTextOutput):
             self.hamiltonian = Hamiltonian(gd, finegd, nspins,
                                            setups, par.stencils[1], self.timer,
                                            xc, par.poissonsolver,
-                                           par.external)
+                                           par.external, self.cuda)
 
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)

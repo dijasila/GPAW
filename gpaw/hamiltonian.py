@@ -14,6 +14,7 @@ from gpaw.lfc import LFC
 from gpaw.utilities import pack2,unpack,unpack2
 from gpaw.utilities.tools import tri2full
 
+import pycuda.gpuarray as gpuarray
 
 class Hamiltonian:
     """Hamiltonian object.
@@ -52,7 +53,7 @@ class Hamiltonian:
     """
 
     def __init__(self, gd, finegd, nspins, setups, stencil, timer, xc,
-                 psolver, vext_g):
+                 psolver, vext_g, cuda=False):
         """Create the Hamiltonian."""
         self.gd = gd
         self.finegd = finegd
@@ -60,10 +61,11 @@ class Hamiltonian:
         self.setups = setups
         self.timer = timer
         self.xc = xc
-        
+        self.cuda = cuda
+
         # Solver for the Poisson equation:
         if psolver is None:
-            psolver = PoissonSolver(nn=3, relax='J')
+            psolver = PoissonSolver(nn=3, relax='J', cuda=self.cuda)
         self.poisson = psolver
         self.poisson.set_grid_descriptor(finegd)
 
@@ -73,6 +75,9 @@ class Hamiltonian:
         self.vext_g = vext_g
 
         self.vt_sG = None
+        if self.cuda:
+            self.vt_sG_gpu = None
+        
         self.vHt_g = None
         self.vt_sg = None
         self.vbar_g = None
@@ -260,6 +265,11 @@ class Hamiltonian:
             self.restrict(vt_g, vt_G)
             Ekin -= self.gd.integrate(vt_G, nt_G - density.nct_G,
                                       global_integral=False)
+
+
+        if self.cuda:
+            self.vt_sG_gpu = gpuarray.to_gpu(self.vt_sG)
+            
         self.timer.stop('Hartree integrate/restrict')
             
         # Calculate atomic hamiltonians:
@@ -387,11 +397,23 @@ class Hamiltonian:
             are not applied and calculate_projections is ignored.
         
         """
-        vt_G = self.vt_sG[s]
-        if psit_nG.ndim == 3:
+
+        if isinstance(psit_nG, gpuarray.GPUArray):
+            if self.cuda:
+                vt_G = self.vt_sG_gpu[s]
+            else:            
+                vt_G = gpuarray.to_gpu(self.vt_sG[s])
+        else:
+            vt_G = self.vt_sG[s]
+        #if psit_nG.ndim == 3:
+        #    print "psit",psit_nG.shape
+        if len(psit_nG.shape) == 3:  # XXX Doesn't GPU arrays have ndim attr?
             Htpsit_nG += psit_nG * vt_G
         else:
             for psit_G, Htpsit_G in zip(psit_nG, Htpsit_nG):
+                #print vt_G.shape,vt_G.dtype,type(vt_G)
+                #print psit_G.shape,psit_G.dtype,type(psit_G)
+                #print Htpsit_G.shape,Htpsit_G.dtype,type(Htpsit_G)
                 Htpsit_G += psit_G * vt_G
 
     def apply(self, a_xG, b_xG, wfs, kpt, calculate_P_ani=True):

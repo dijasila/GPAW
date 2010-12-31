@@ -9,6 +9,7 @@ from gpaw.fd_operators import Gradient
 from gpaw.utilities.blas import axpy
 from gpaw import extra_parameters
 
+import pycuda.gpuarray as gpuarray
 
 class KPoint:
     """Class for a single k-point.
@@ -41,7 +42,7 @@ class KPoint:
         H_nn and the Cholesky decomposition of S_nn.
     """
     
-    def __init__(self, weight, s, k, q, phase_cd):
+    def __init__(self, weight, s, k, q, phase_cd, cuda=False):
         """Construct k-point object.
 
         Parameters:
@@ -90,6 +91,10 @@ class KPoint:
         # Only one of these two will be used:
         self.psit_nG = None  # wave functions on 3D grid
         self.C_nM = None     # LCAO coefficients for wave functions XXX
+
+        self.cuda = cuda
+        if self.cuda:            
+            self.psit_nG_gpu = None  
 
         self.rho_MM = None
         
@@ -160,7 +165,15 @@ class KPoint:
         self.psit_nG = self.gd.zeros(nbands, self.dtype)
         self.random_wave_functions(self.psit_nG)                   
 
-
+    def cuda_psit_nG_htod(self):
+        if self.psit_nG_gpu is None:
+            self.psit_nG_gpu=gpuarray.to_gpu(self.psit_nG)
+        else:
+            self.psit_nG_gpu.set(self.psit_nG)
+    
+    def cuda_psit_nG_dtoh(self):
+        self.psit_nG_gpu.get(self.psit_nG)
+            
 class GlobalKPoint(KPoint):
 
     def update(self, wfs):

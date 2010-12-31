@@ -7,7 +7,7 @@ from gpaw.eigensolvers.davidson import Davidson
 from gpaw.lcao.eigensolver import LCAO
 
 
-def get_eigensolver(name, mode, convergence=None):
+def get_eigensolver(name, mode, convergence=None, cuda=False):
     """Create eigensolver object."""
     if name is None:
         if mode == 'lcao':
@@ -15,12 +15,22 @@ def get_eigensolver(name, mode, convergence=None):
         else:
             name = 'rmm-diis'
     if isinstance(name, str):
-        eigensolver = {'rmm-diis':  RMM_DIIS,
-                       'rmm-diis2': RMM_DIIS2,
-                       'cg':        CG,
-                       'dav':       Davidson,
-                       'lcao':      LCAO
-                       }[name]()
+
+        if cuda:
+            eigensolver = {'rmm-diis':  RMM_DIIS,
+                           'rmm-diis2': RMM_DIIS2,
+                           'cg':        CG,
+                           'dav':       Davidson,
+                           'lcao':      LCAO
+                           }[name](cuda=cuda)
+        else:
+            eigensolver = {'rmm-diis':  RMM_DIIS,
+                           'rmm-diis2': RMM_DIIS2,
+                           'cg':        CG,
+                           'dav':       Davidson,
+                           'lcao':      LCAO
+                           }[name]()
+
     else:
         eigensolver = name
     

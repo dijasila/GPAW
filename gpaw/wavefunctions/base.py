@@ -47,7 +47,7 @@ class WaveFunctions(EmptyWaveFunctions):
         MPI-communicator for parallelization over **k**-points.
     """
     def __init__(self, gd, nvalence, setups, bd, dtype,
-                 world, kd, timer=None):
+                 world, kd, timer=None, cuda=False):
         if timer is None:
             timer = nulltimer
             
@@ -64,6 +64,8 @@ class WaveFunctions(EmptyWaveFunctions):
         self.timer = timer
         self.rank_a = None
 
+        self.cuda = cuda
+
         # XXX Remember to modify aseinterface when removing the following
         # attributes from the wfs object
         self.gamma = kd.gamma
@@ -75,7 +77,7 @@ class WaveFunctions(EmptyWaveFunctions):
         self.symmetry = kd.symmetry
         self.nibzkpts = kd.nibzkpts
             
-        self.kpt_u = kd.create_k_points(self.gd)
+        self.kpt_u = kd.create_k_points(self.gd, self.cuda)
 
         self.eigensolver = None
         self.positions_set = False
@@ -91,11 +93,11 @@ class WaveFunctions(EmptyWaveFunctions):
     def __nonzero__(self):
         return True
 
-    def calculate_density_contribution(self, nt_sG):
+    def calculate_density_contribution(self, nt_sG, cuda_psit_nG=False):
         """Calculate contribution to pseudo density from wave functions."""
         nt_sG.fill(0.0)
         for kpt in self.kpt_u:
-            self.add_to_density_from_k_point(nt_sG, kpt)
+            self.add_to_density_from_k_point(nt_sG, kpt, cuda_psit_nG)
         self.band_comm.sum(nt_sG)
         self.kpt_comm.sum(nt_sG)
         
@@ -105,8 +107,8 @@ class WaveFunctions(EmptyWaveFunctions):
                 self.symmetry.symmetrize(nt_G, self.gd)
             self.timer.stop('Symmetrize density')
 
-    def add_to_density_from_k_point(self, nt_sG, kpt):
-        self.add_to_density_from_k_point_with_occupation(nt_sG, kpt, kpt.f_n)
+    def add_to_density_from_k_point(self, nt_sG, kpt, cuda=False):
+        self.add_to_density_from_k_point_with_occupation(nt_sG, kpt, kpt.f_n, cuda)
     
 
     def get_orbital_density_matrix(self, a, kpt, n):

@@ -10,14 +10,16 @@ from gpaw.utilities.tools import apply_subspace_mask
 from gpaw.utilities import unpack
 from gpaw import debug, extra_parameters
 
+import pycuda.gpuarray as gpuarray
 
 class Eigensolver:
-    def __init__(self, keep_htpsit=True, blocksize=1):
+    def __init__(self, keep_htpsit=True, blocksize=1, cuda=False):
         self.keep_htpsit = keep_htpsit
         self.initialized = False
         self.Htpsit_nG = None
         self.error = np.inf
         self.blocksize = blocksize
+        self.cuda = cuda
         
     def initialize(self, wfs):
         self.timer = wfs.timer
@@ -40,7 +42,7 @@ class Eigensolver:
 
         if self.keep_htpsit:
             # Soft part of the Hamiltonian times psit:
-            self.Htpsit_nG = self.gd.zeros(self.nbands, self.dtype)
+            self.Htpsit_nG = self.gd.zeros(self.nbands, self.dtype, cuda=self.cuda)
 
         for kpt in wfs.kpt_u:
             if kpt.eps_n is None:
@@ -48,7 +50,7 @@ class Eigensolver:
         
         self.initialized = True
 
-    def iterate(self, hamiltonian, wfs):
+    def iterate(self, hamiltonian, wfs, cuda_psit_nG=False):
         """Solves eigenvalue problem iteratively
 
         This method is inherited by the actual eigensolver which should
@@ -63,13 +65,19 @@ class Eigensolver:
             self.preconditioner.allocate()
 
         if not wfs.orthonormalized:
-            wfs.orthonormalize()
+            wfs.orthonormalize(cuda_psit_nG)
             
-        error = 0.0
-        for kpt in wfs.kpt_u:
-            error += self.iterate_one_k_point(hamiltonian, wfs, kpt)
+        if self.cuda:   # XXX Currently only RMM-DIIS has cuda_psit_nG keyword
+            error = 0.0
+            for kpt in wfs.kpt_u:
+                error += self.iterate_one_k_point(hamiltonian, wfs, kpt, cuda_psit_nG)
+        else:
+            error = 0.0
+            for kpt in wfs.kpt_u:
+                error += self.iterate_one_k_point(hamiltonian, wfs, kpt)
 
-        wfs.orthonormalize()
+
+        wfs.orthonormalize(cuda_psit_nG)
 
         self.error = self.band_comm.sum(self.kpt_comm.sum(error))
 
@@ -97,7 +105,7 @@ class Eigensolver:
                                       calculate_change)
         wfs.pt.add(R_xG, c_axi, kpt.q)
         
-    def subspace_diagonalize(self, hamiltonian, wfs, kpt, rotate=True):
+    def subspace_diagonalize(self, hamiltonian, wfs, kpt, rotate=True, cuda_psit_nG=False):
         """Diagonalize the Hamiltonian in the subspace of kpt.psit_nG
 
         *Htpsit_nG* is a work array of same size as psit_nG which contains
@@ -119,13 +127,19 @@ class Eigensolver:
 
         self.timer.start('Subspace diag')
 
-        psit_nG = kpt.psit_nG
+        if self.cuda:
+            if cuda_psit_nG:
+                psit_nG = kpt.psit_nG_gpu
+            else:
+                psit_nG = gpuarray.to_gpu(kpt.psit_nG)
+        else:
+            psit_nG = kpt.psit_nG
         P_ani = kpt.P_ani
 
         if self.keep_htpsit:
             Htpsit_xG = self.Htpsit_nG
         else:
-            Htpsit_xG = self.operator.suggest_temporary_buffer(psit_nG.dtype)
+            Htpsit_xG = self.operator.suggest_temporary_buffer(psit_nG.dtype, self.cuda)
 
         def H(psit_xG):
             wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_xG, Htpsit_xG)
@@ -153,7 +167,15 @@ class Eigensolver:
             return
 
         self.timer.start('rotate_psi')
-        kpt.psit_nG = self.operator.matrix_multiply(H_nn, psit_nG, P_ani)
+        if self.cuda:
+            if cuda_psit_nG:
+                kpt.psit_nG_gpu = self.operator.matrix_multiply(H_nn, psit_nG, P_ani)
+            else:
+                psit_nG = self.operator.matrix_multiply(H_nn, psit_nG, P_ani)
+                kpt.psit_nG = psit_nG.get()
+        else:
+            kpt.psit_nG = self.operator.matrix_multiply(H_nn, psit_nG, P_ani)
+
         if self.keep_htpsit:
             self.Htpsit_nG = self.operator.matrix_multiply(H_nn, Htpsit_xG)
 
