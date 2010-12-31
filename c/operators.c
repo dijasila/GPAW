@@ -522,7 +522,7 @@ PyObject * NewOperatorObject(PyObject *obj, PyObject *args)
     chunksize = atoi(getenv("GPAW_CHUNK_SIZE"));
   self->cuda = cuda;
   if (self->cuda) {
-    fprintf(stdout,"NewOp cuda true\n");
+    // fprintf(stdout,"NewOp cuda true\n");
     gpaw_cudaSafeCall(cudaMalloc(&(self->buf_gpu), sizeof(double) 
 				 * size2[0] * size2[1] * size2[2] 
 				 * self->bc->ndouble * chunksize * 

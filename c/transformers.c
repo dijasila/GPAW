@@ -264,7 +264,7 @@ PyObject * NewTransformerObject(PyObject *obj, PyObject *args)
 #ifdef GPAW_CUDA
   self->cuda = cuda;
   if (self->cuda) {
-    fprintf(stdout,"NewTrans cuda true\n");
+    // fprintf(stdout,"NewTrans cuda true\n");
     gpaw_cudaSafeCall(cudaMalloc(&(self->buf_gpu), sizeof(double) * 
 				 size2[0] * size2[1] * size2[2] * self->bc->ndouble));
     if (interpolate)

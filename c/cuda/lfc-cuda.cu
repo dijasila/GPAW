@@ -392,7 +392,7 @@ extern "C" {
 
     if (!cuda)     return (PyObject*)self;
 
-    printf("New lfc object cuda\n");
+    // printf("New lfc object cuda\n");
 
     self->cuda=cuda;
 
