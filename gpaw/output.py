@@ -18,6 +18,7 @@ from gpaw import sl_diagonalize, sl_inverse_cholesky, dry_run, extra_parameters
 from gpaw.utilities.memory import maxrss
 import gpaw
 
+
 def initialize_text_stream(txt, rank, old_txt=None):
     """Set the stream for text output.
     
@@ -49,6 +50,7 @@ def initialize_text_stream(txt, rank, old_txt=None):
         return txt, firsttime
 
     return old_txt, firsttime
+
 
 class PAWTextOutput:
     """Class for handling all text output."""
@@ -315,7 +317,7 @@ class PAWTextOutput:
             for a, mom in enumerate(self.get_magnetic_moments()):
                 t(a, mom)
             t()
-        elif not self.wfs.colinear:
+        elif not self.wfs.collinear:
             self.txt.write('Local Magnetic Moments:\n')
             for a, mom_v in enumerate(self.get_magnetic_moments()):
                 self.txt.write('%4d  (%.3f, %.3f, %.3f)\n' %

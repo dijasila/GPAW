@@ -79,6 +79,8 @@ class BaseSetup:
         """If f_j is specified, custom occupation numbers will be used.
 
         Hund rules disabled if so."""
+
+        assert magmom >= 0  # XXX simplify code below
         
         niao = self.niAO
         f_si = np.zeros((nspins, niao))
@@ -146,11 +148,9 @@ class BaseSetup:
             i += degeneracy
             j += 1
 
-        #These lines disable the calculation of charged atoms!
-        #Therefore I commented them. -Mikael
-        #if magmom != 0:
-        #    raise RuntimeError('Bad magnetic moment %g for %s atom!'
-        # % (magmom, self.self.symbol))
+        if magmom != 0:
+            raise RuntimeError('Bad magnetic moment %g for %s atom!'
+                               % (magmom, self.symbol))
         assert i == niao
 
         return f_si

@@ -649,7 +649,7 @@ class GPAW(PAW):
     def get_magnetic_moments(self, atoms=None):
         """Return the local magnetic moments within augmentation spheres"""
         magmom_av = self.density.estimate_magnetic_moments()
-        if self.wfs.colinear:
+        if self.wfs.collinear:
             momsum = magmom_av.sum()
             M = self.occupations.magmom
             if abs(M) > 1e-7 and momsum > 1e-7:

@@ -38,7 +38,7 @@ class Density:
      ========== =========================================
     """
     
-    def __init__(self, gd, finegd, nspins, charge, direction_av=None):
+    def __init__(self, gd, finegd, nspins, charge, collinear=True):
         """Create the Density object."""
 
         self.gd = gd
@@ -46,16 +46,8 @@ class Density:
         self.nspins = nspins
         self.charge = float(charge)
 
-        if direction_av is None:
-            self.colinear = True
-            self.ncomp = 1
-        else:
-            self.colinear = False
-            self.ncomp = 2
-            self.direction_av = np.array(direction_av)
-            # Normalize directions:
-            length_a = (self.direction_av**2).sum(1)**0.5
-            self.direction_av /= length_a[:, np.newaxis]
+        self.collinear = collinear
+        self.ncomp = 2 - int(collinear)
 
         self.charge_eps = 1e-7
         
@@ -74,12 +66,12 @@ class Density:
         self.timer = nulltimer
         self.allocated = False
         
-    def initialize(self, setups, stencil, timer, magmom_a, hund):
+    def initialize(self, setups, stencil, timer, magmom_av, hund):
         self.timer = timer
         self.setups = setups
         self.hund = hund
-        self.magmom_a = magmom_a
-        
+        self.magmom_av = magmom_av
+
         # Interpolation function for the density:
         self.interpolator = Transformer(self.gd, self.finegd, stencil,
                                         allocate=False)
@@ -282,16 +274,22 @@ class Density:
         f_asi = {}
         for a in basis_functions.atom_indices:
             c = self.charge / len(self.setups)  # distribute on all atoms
+            M_v = self.magmom_av[a]
+            M = (M_v**2).sum()**0.5
             f_si = self.setups[a].calculate_initial_occupation_numbers(
-                    self.magmom_a[a], self.hund, charge=c,
+                    M, self.hund, charge=c,
                     nspins=self.nspins * self.ncomp)
 
-            if not self.colinear:
-                fn_i = f_si.sum(axis=0)
+            if self.collinear:
+                if M_v[2] < 0:
+                    f_si = f_si[::-1].copy()
+            else:
+                f_i = f_si.sum(axis=0)
                 fm_i = f_si[0] - f_si[1]
-                f_si = np.empty((4, len(fn_i)))
+                f_si = np.zeros((4, len(f_i)))
                 f_si[0] = fn_i
-                f_si[1:4] = np.outer(self.direction_av[a], fm_i)
+                if M > 0:
+                    f_si[1:4] = np.outer(M_v / M, fm_i)
             print f_si
             
             if a in basis_functions.my_atom_indices:
@@ -345,9 +343,9 @@ class Density:
         
     def estimate_magnetic_moments(self):
         magmom_av = np.zeros((len(self.magmom_a), 3))
-        if self.nspins == 2 or not self.colinear:
+        if self.nspins == 2 or not self.collinear:
             for a, D_sp in self.D_asp.items():
-                if self.colinear:
+                if self.collinear:
                     magmom_av[a, 2] = np.dot(D_sp[0] - D_sp[1],
                                              self.setups[a].N0_p)
                 else:

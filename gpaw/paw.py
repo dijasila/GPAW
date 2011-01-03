@@ -187,7 +187,7 @@ class PAW(PAWTextOutput):
                 self.wfs = EmptyWaveFunctions()
                 self.occupations = None
             elif key in ['h', 'gpts', 'setups', 'spinpol', 'usesymm',
-                         'parallel', 'communicator', 'noncolinear']:
+                         'parallel', 'communicator']:
                 self.density = None
                 self.occupations = None
                 self.hamiltonian = None
@@ -330,9 +330,16 @@ class PAW(PAWTextOutput):
         cell_cv = atoms.get_cell() / Bohr
         pbc_c = atoms.get_pbc()
         Z_a = atoms.get_atomic_numbers()
-        magmom_a = atoms.get_initial_magnetic_moments()
+        magmom_av = atoms.get_initial_magnetic_moments()
 
-        magnetic = magmom_a.any()
+        if magmom_av.ndim == 1:
+            collinear = True
+            magmom_av, magmom_a = np.zeros((natoms, 3)), magmom_av
+            magmom_av[:, 2] = magmom_a
+        else:
+            collinear = False
+            
+        magnetic = magmom_av.any()
 
         spinpol = par.spinpol
         if par.hund:
@@ -343,12 +350,10 @@ class PAW(PAWTextOutput):
         if spinpol is None:
             spinpol = magnetic
         elif magnetic and not spinpol:
-            raise ValueError('Non-zero initial magnetic moment for a '
+            raise ValueError('Non-zero initial magnetic moment for a ' +
                              'spin-paired calculation!')
 
-        colinear = (par.noncolinear is None)
-
-        if colinear:
+        if collinear:
             nspins = 1 + int(spinpol)
             ncomp = 1
         else:
@@ -363,7 +368,7 @@ class PAW(PAWTextOutput):
         setups = Setups(Z_a, par.setups, par.basis, par.lmax, xc, world)
 
         # K-point descriptor
-        kd = KPointDescriptor(par.kpts, nspins, colinear)
+        kd = KPointDescriptor(par.kpts, nspins, collinear)
 
         width = par.width
         if width is None:
@@ -515,12 +520,12 @@ class PAW(PAWTextOutput):
                                                gd, self.bd, nao=nao,
                                                timer=self.timer)
 
-                if colinear:
+                if collinear:
                     self.wfs = LCAOWaveFunctions(lcaoksl, *args)
                 else:
-                    from gpaw.xc.noncolinear import \
-                         NonColinearLCAOWaveFunctions
-                    self.wfs = NonColinearLCAOWaveFunctions(lcaoksl, *args)
+                    from gpaw.xc.noncollinear import \
+                         NonCollinearLCAOWaveFunctions
+                    self.wfs = NonCollinearLCAOWaveFunctions(lcaoksl, *args)
                     
             elif par.mode == 'fd' or isinstance(par.mode, PW):
                 # Layouts used for diagonalizer
@@ -592,11 +597,10 @@ class PAW(PAWTextOutput):
                 finegd = gd
 
             self.density = Density(gd, finegd, nspins,
-                                   par.charge + setups.core_charge,
-                                   par.noncolinear)
+                                   par.charge + setups.core_charge, collinear)
 
         self.density.initialize(setups, par.stencils[1], self.timer,
-                                magmom_a, par.hund)
+                                magmom_av, par.hund)
         self.density.set_mixer(par.mixer)
 
         if self.hamiltonian is None:
@@ -604,7 +608,7 @@ class PAW(PAWTextOutput):
             self.hamiltonian = Hamiltonian(gd, finegd, nspins,
                                            setups, par.stencils[1], self.timer,
                                            xc, par.poissonsolver,
-                                           par.external, colinear)
+                                           par.external, collinear)
 
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)

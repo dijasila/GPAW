@@ -51,7 +51,6 @@ class InputParameters(dict):
                                  'density':     1.0e-4,
                                  'eigenstates': 1.0e-9,  # XXX ???
                                  'bands':       'occupied'}),
-            ('noncolinear', None)
             ])
         dict.update(self, kwargs)
 
