@@ -115,9 +115,9 @@ class C_GLLBScr(Contribution):
                                 dedaa2_g=None, dedab2_g=None):
         raise NotImplementedError
 
-    def calculate_energy_and_derivatives(self, D_sp, H_sp, a):
+    def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a):
         # Get the XC-correction instance
-        c = self.nlfunc.setups[a].xc_correction
+        c = setup.xc_correction
 
         assert self.nlfunc.nspins == 1
 

@@ -16,16 +16,16 @@ for xc in ['LDA', 'PBE']:
     D_p = 0.1 * ra.random(nii) + 0.2
     H_p = np.zeros(nii)
 
-    E = s.xc_correction.calculate(xc,D_p.reshape(1, -1),
-                                                         H_p.reshape(1, -1))
+    E = s.xc_correction.calculate(xc, D_p.reshape(1, -1),
+                                  H_p.reshape(1, -1))
     dD_p = x * ra.random(nii)
     dE = np.dot(H_p, dD_p) / x
     D_p += dD_p
-    Ep = s.xc_correction.calculate(xc,D_p.reshape(1, -1),
-                                                          H_p.reshape(1, -1))
+    Ep = s.xc_correction.calculate(xc, D_p.reshape(1, -1),
+                                   H_p.reshape(1, -1))
     D_p -= 2 * dD_p
-    Em = s.xc_correction.calculate(xc,D_p.reshape(1, -1),
-                                                          H_p.reshape(1, -1))
+    Em = s.xc_correction.calculate(xc, D_p.reshape(1, -1),
+                                   H_p.reshape(1, -1))
     print dE, dE - 0.5 * (Ep - Em) / x
     equal(dE, 0.5 * (Ep - Em) / x, 1e-6)
 

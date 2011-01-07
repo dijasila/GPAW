@@ -1,12 +1,12 @@
 from ase import Atoms
 from gpaw import GPAW, FermiDirac
-from gpaw.xc.noncolinear import NonColinearLDAKernel, \
-     NonColinearLCAOEigensolver, NonColinearMixer
+from gpaw.xc.noncollinear import NonCollinearLDAKernel, \
+     NonCollinearLCAOEigensolver, NonCollinearMixer
 from gpaw.xc import XC
 
-h = Atoms('H', magmoms=[1])
+h = Atoms('H', magmoms=[(1, 0, 0)])
 h.center(vacuum=2)
-xc = XC(NonColinearLDAKernel())
+xc = XC(NonCollinearLDAKernel())
 c = GPAW(txt='nc.txt',
          mode='lcao',
          basis='dz(dzp)',
@@ -15,8 +15,6 @@ c = GPAW(txt='nc.txt',
          occupations=FermiDirac(0.0),
          xc=xc,
          mixer=NonColinearMixer(),
-         noncolinear=[(0, 1, 0)],
-         #noncolinear=[(0, 0, 1)],
          eigensolver=NonColinearLCAOEigensolver())
 c.set(nbands=1)
 h.calc = c

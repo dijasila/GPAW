@@ -98,7 +98,81 @@ and
 
 
 
-Radial grid
------------
+PAW correction
+--------------
 
-Same story ...
+Spin-paired case:
+
+.. math::
+
+   \Delta E =
+   \sum_g 4 \pi w r_g^2 \Delta r_g
+   [\epsilon(n_g, \sigma_g) - \epsilon(\tilde n_g, \tilde\sigma_g)],
+
+where `w` is the weight ...
+
+.. math::
+
+    n_g =
+    \sum_{i_ii_2} D_{i_1i_2}
+    \phi_{j_1g} Y_{L_1}
+    \phi_{j_2g} Y_{L_2}
+    + n_c(r_g)
+    = \sum_L n_{Lg} Y_L,
+
+where
+
+.. math::
+
+    n_{Lg} =
+    \sum_q D_{Lq} n_{qg} + \delta_{L,0} \sqrt{4 \pi} n_c(r_g)
+
+and 
+
+.. math::
+
+   D_{Lq} = \sum_p D_p G_{L_1L_2}^L \delta_{q_p,q} = \sum_p D_p B_{Lpq}.
+
+.. math::
+
+    \mathbf{\nabla} n_g =
+    \sum_L Y_L \sum_{g'} D_{gg'} n_{Lg'} \hat{\mathbf{r}} +
+    \sum_L \frac{n_{Lg}}{r_g} r \mathbf{\nabla} Y_L =
+    a_g \hat{\mathbf{r}} + \mathbf{b}_g / r_g.
+
+Notice that `r \mathbf{\nabla} Y_L` is independent of `r` - just as
+`Y_L` is.  From the two contributions, which are orthogonal
+(`\hat{\mathbf{r}} \cdot \mathbf{b}_g = 0`), we get
+
+.. math::
+
+    \sigma_g =
+    a_g^2 + \mathbf b_g \cdot \mathbf b_g / r_g^2.
+
+
+.. math::
+
+    \frac{\partial \Delta E}{\partial n_{Lg}} =
+    4 \pi w \sum_{g'} r_{g'}^2 \Delta r_{g'}
+    \frac{\partial \epsilon}{\partial \sigma_{g'}}
+    \frac{\partial \sigma_{g'}}{\partial n_{Lg}}.
+
+Inserting
+
+.. math::
+
+    \frac{\partial \sigma_{g'}}{\partial n_{Lg}} =
+    2 a_{g'} Y_L D_{g'g} +
+    2 \mathbf b_g \cdot (r \mathbf{\nabla} Y_L) \delta_{gg'} / r_g^2,
+
+we get
+
+.. math::
+
+    \frac{\partial \Delta E}{\partial n_{Lg}} =
+    8 \pi w \sum_{g'} r_{g'}^2 \Delta r_{g'}
+    \frac{\partial \epsilon}{\partial \sigma_{g'}}
+    a_{g'} Y_L D_{g'g} +
+    8 \pi w \Delta r_g
+    \frac{\partial \epsilon}{\partial \sigma_g}
+    \mathbf b_g \cdot (r \mathbf{\nabla} Y_L).

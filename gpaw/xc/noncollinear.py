@@ -1,5 +1,6 @@
 import numpy as np
 
+from gpaw.xc.functional import XCFunctional
 from gpaw.xc.lda import LDA
 from gpaw.xc.libxc import LibXC
 from gpaw.lcao.eigensolver import LCAO
@@ -10,7 +11,7 @@ from gpaw.mixer import BaseMixer
 from gpaw.utilities.tools import tri2full
 
 
-class NonColinearLDAKernel(LibXC):
+class NonCollinearLDAKernel(LibXC):
     def __init__(self):
         LibXC.__init__(self, 'LDA')
         
@@ -28,12 +29,77 @@ class NonColinearLDAKernel(LibXC):
         vnew_sg = np.zeros_like(nnew_sg)
         LibXC.calculate(self, e_g, nnew_sg, vnew_sg)
         dedn_sg[0] += 0.5 * vnew_sg.sum(0)
-        m_vg /= np.where(m_g < 1e-9, 1, m_g)
+        vnew_sg /= np.where(m_g < 1e-9, 1, m_g)
         dedn_sg[1:4] += 0.5 * vnew_sg[0] * m_vg
         dedn_sg[1:4] -= 0.5 * vnew_sg[1] * m_vg
 
 
-class NonColinearLCAOEigensolver(LCAO):
+class NonCollinearFunctional(XCFunctional):
+    def __init__(self, xc):
+        XCFunctional.__init__(self, xc.name)
+        self.xc = xc
+        self.type = xc.type
+        
+    def calculate(self, gd, n_sg, dedn_sg=None, e_g=None):
+        n_g = n_sg[0]
+        m_vg = n_sg[1:4]
+        m_g = (m_vg**2).sum(0)**0.5
+        nnew_sg = gd.empty(2)
+        nnew_sg[:] = n_g
+        nnew_sg[0] += m_g
+        nnew_sg[1] -= m_g
+        nnew_sg *= 0.5
+        vnew_sg = gd.zeros(2)
+        if e_g is None:
+            e_g = gd.empty()
+        exc = self.xc.calculate(gd, nnew_sg, vnew_sg, e_g)
+        if dedn_sg is not None:
+            dedn_sg[0] += 0.5 * vnew_sg.sum(0)
+            vnew_sg /= np.where(m_g < 1e-9, 1, m_g)
+            dedn_sg[1:4] += 0.5 * vnew_sg[0] * m_vg
+            dedn_sg[1:4] -= 0.5 * vnew_sg[1] * m_vg
+        return exc
+    
+    def calculate_radial(self, rgd, n_sLg, Y_L, v_sg,
+                         dndr_sLg=None, rnablaY_Lv=None,
+                         e_g=None):
+        n_sg = np.dot(Y_L, n_sLg)
+        n_g = n_sg[0]
+        m_vg = n_sg[1:4]
+        m_g = (m_vg**2).sum(0)**0.5
+        nnew_sg = rgd.empty(2)
+        nnew_sg[:] = n_g
+        nnew_sg[0] += m_g
+        nnew_sg[1] -= m_g
+        nnew_sg *= 0.5
+        vnew_sg = rgd.zeros(2)
+        dndr_sg = np.empty_like(n_sg)
+        for n_g, dndr_g in zip(n_sg, dndr_sg):
+            rgd.derivative(n_g, dndr_g)
+        rd_vsg = np.dot(rnablaY_Lv.T, n_sLg)
+        sigma_xg = rgd.empty(2 * nspins - 1)
+        sigma_xg[::2] = (rd_vsg**2).sum(0)
+        if nspins == 2:
+            sigma_xg[1] = (rd_vsg[:, 0] * rd_vsg[:, 1]).sum(0)
+        sigma_xg[:, 1:] /= rgd.r_g[1:]**2
+        sigma_xg[:, 0] = sigma_xg[:, 1]
+        d_sg = np.dot(Y_L, dndr_sLg)
+        sigma_xg[::2] += d_sg**2
+        if nspins == 2:
+            sigma_xg[1] += d_sg[0] * d_sg[1]
+        dedsigma_xg = rgd.zeros(2 * nspins - 1)
+        self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg,
+        if e_g is None:
+            e_g = gd.empty()
+        self.xc.kernel.calculate(e_g, nnew_sg, vnew_sg)
+        v_sg[0] += 0.5 * vnew_sg.sum(0)
+        vnew_sg /= np.where(m_g < 1e-9, 1, m_g)
+        v_sg[1:4] += 0.5 * vnew_sg[0] * m_vg
+        v_sg[1:4] -= 0.5 * vnew_sg[1] * m_vg
+        return rgd.integrate(e_g)
+
+
+class NonCollinearLCAOEigensolver(LCAO):
     def calculate_hamiltonian_matrix(self, ham, wfs, kpt, root=-1):
 
         assert self.has_initialized
@@ -112,8 +178,8 @@ class NonColinearLCAOEigensolver(LCAO):
         wfs.timer.stop(diagonalization_string)
 
 
-class NonColinearLCAOWaveFunctions(LCAOWaveFunctions):
-    colinear = False
+class NonCollinearLCAOWaveFunctions(LCAOWaveFunctions):
+    collinear = False
     ncomp = 2
     def set_positions(self, spos_ac):
         LCAOWaveFunctions.set_positions(self, spos_ac)
@@ -148,7 +214,7 @@ class NonColinearLCAOWaveFunctions(LCAOWaveFunctions):
             D_ii *= 0.5
 
 
-class NonColinearMixer(BaseMixer):
+class NonCollinearMixer(BaseMixer):
     def mix(self, density):
         BaseMixer.mix(self, density.nt_sG[0],
                       [D_sp[0] for D_sp in density.D_asp.values()])

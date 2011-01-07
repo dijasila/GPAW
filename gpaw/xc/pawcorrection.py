@@ -109,15 +109,11 @@ class PAWXCCorrection:
         else:
             self.nc_corehole_g = None
 
-    def calculate(self, xc, D_sp, dH_sp=None, a=None, addcoredensity=True):
+    def calculate(self, xc, D_sp, dH_sp=None, addcoredensity=True, a=None):
         if dH_sp is None:
             dH_sp = np.zeros_like(D_sp)
             
         type = xc.type
-
-        if type == 'GLLB':
-            return xc.calculate_energy_and_derivatives(D_sp, dH_sp, a)
-
         nspins = len(D_sp)
         de = 0.0
         D_sLq = np.inner(D_sp, self.B_pqL.T)
