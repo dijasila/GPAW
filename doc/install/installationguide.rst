@@ -37,11 +37,11 @@ GPAW and dependencies will be installed system-wide. This procedure requires roo
 
 The packages are provided for the following RPMS-based systems:
 
-- Fedora 13, 12: :ref:`Fedora`,
+- Fedora: :ref:`Fedora`,
 
-- openSUSE 11.2, :ref:`openSUSE`,
+- openSUSE: :ref:`openSUSE`,
 
-- RedHat Enterprise Linux (or CentOS) 5: :ref:`CentOS`,
+- RedHat Enterprise Linux (or CentOS): :ref:`CentOS`,
 
 - Ubuntu 9.10 or newer: :ref:`Ubuntupackage`.
 
@@ -122,7 +122,7 @@ This will take around 40 minutes.  If you have a multicore CPU, you
 can speed up the test by using ``gpaw-test -j <number-of-cores>``.
 This will run tests simultaneously (**not** employing MPI parallelization)
 on the requested `<number-of-cores>`.
-Please report errors to the ``gridpaw-developer`` mailing list (see
+Please report errors to the ``gpaw-developers`` mailing list (see
 :ref:`mailing_lists`) Send us :file:`test.log`, as well as the
 information about your environment (processor architecture, versions
 of python and numpy, C-compiler, BLAS and LAPACK libraries, MPI

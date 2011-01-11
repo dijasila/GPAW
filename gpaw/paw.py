@@ -327,7 +327,7 @@ class PAW(PAWTextOutput):
         natoms = len(atoms)
 
         pos_av = atoms.get_positions() / Bohr
-        cell_cv = atoms.get_cell() / Bohr
+        cell_cv = atoms.get_cell()
         pbc_c = atoms.get_pbc()
         Z_a = atoms.get_atomic_numbers()
         magmom_av = atoms.get_initial_magnetic_moments()
@@ -385,10 +385,13 @@ class PAW(PAWTextOutput):
         else:
             if par.h is None:
                 self.text('Using default value for grid spacing.')
-                h = 0.2 / Bohr
+                h = 0.2 
             else:
-                h = par.h / Bohr
+                h = par.h
             N_c = h2gpts(h, cell_cv)
+
+        cell_cv /= Bohr
+
 
         if hasattr(self, 'time'):
             dtype = complex
@@ -398,7 +401,7 @@ class PAW(PAWTextOutput):
             else:
                 dtype = complex
 
-        kd.set_symmetry(atoms, setups, par.usesymm)
+        kd.set_symmetry(atoms, setups, par.usesymm, N_c)
 
         nao = setups.nao
         nvalence = setups.nvalence - par.charge
@@ -509,7 +512,8 @@ class PAW(PAWTextOutput):
                 if sl_lcao is None:
                     sl_lcao = par.parallel['sl_default']
                 lcaoksl = get_KohnSham_layouts(sl_lcao, 'lcao',
-                                               gd, self.bd, nao=nao,
+                                               gd, self.bd, dtype,
+                                               nao=nao,
                                                timer=self.timer)
 
                 if collinear:
@@ -520,12 +524,15 @@ class PAW(PAWTextOutput):
                     self.wfs = NonCollinearLCAOWaveFunctions(lcaoksl, *args)
                     
             elif par.mode == 'fd' or isinstance(par.mode, PW):
+                # buffer_size keyword only relevant for fdpw
+                buffer_size = par.parallel['buffer_size']
                 # Layouts used for diagonalizer
                 sl_diagonalize = par.parallel['sl_diagonalize']
                 if sl_diagonalize is None:
                     sl_diagonalize = par.parallel['sl_default']
                 diagksl = get_KohnSham_layouts(sl_diagonalize, 'fd',
-                                               gd, self.bd,
+                                               gd, self.bd, dtype,
+                                               buffer_size=buffer_size,
                                                timer=self.timer)
 
                 # Layouts used for orthonormalizer
@@ -533,7 +540,8 @@ class PAW(PAWTextOutput):
                 if sl_inverse_cholesky is None:
                     sl_inverse_cholesky = par.parallel['sl_default']
                 orthoksl = get_KohnSham_layouts(sl_inverse_cholesky, 'fd',
-                                                gd, self.bd,
+                                                gd, self.bd, dtype,
+                                                buffer_size=buffer_size,
                                                 timer=self.timer)
 
                 # Use (at most) all available LCAO for initialization
@@ -547,7 +555,8 @@ class PAW(PAWTextOutput):
                 if sl_lcao is None:
                     sl_lcao = par.parallel['sl_default']
                 initksl = get_KohnSham_layouts(sl_lcao, 'lcao',
-                                               gd, lcaobd, nao=nao,
+                                               gd, lcaobd, dtype, 
+                                               nao=nao,
                                                timer=self.timer)
 
                 if par.mode == 'fd':

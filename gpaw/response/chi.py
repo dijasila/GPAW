@@ -160,6 +160,8 @@ class CHI:
             self.printtxt('Use eigenvalues from the calculator.')
             self.e_kn = np.array([calc.get_eigenvalues(kpt=k)
                     for k in range(nibzkpt)]) / Hartree
+            self.printtxt('Eigenvalues(k=0) are:')
+            print  >> self.txt, self.e_kn[0] * Hartree
         self.f_kn = np.array([calc.get_occupation_numbers(kpt=k) / kweight_k[k]
                     for k in range(nibzkpt)]) / self.nkpt
 
@@ -411,29 +413,36 @@ class CHI:
             self.kcomm.sum(chi0_wGG)
         else:
             self.kcomm.sum(specfunc_wGG)
-            # redistribute specfunc_wGG to all nodes
-            assert self.NwS % size == 0
-            NwStmp1 = (rank % self.kcomm.size) * self.NwS // size
-            NwStmp2 = (rank % self.kcomm.size + 1) * self.NwS // size 
-            specfuncnew_wGG = specfunc_wGG[NwStmp1:NwStmp2]
-            del specfunc_wGG
-            
-            coords = np.zeros(self.wcomm.size, dtype=int)
-            nG_local = self.npw**2 // self.wcomm.size
-            if self.wcomm.rank == self.wcomm.size - 1:
-                nG_local = self.npw**2 - (self.wcomm.size - 1) * nG_local
-            self.wcomm.all_gather(np.array([nG_local]), coords)
-
-            specfunc_Wg = SliceAlongFrequency(specfuncnew_wGG, coords, self.wcomm)
-            chi0_Wg = hilbert_transform(specfunc_Wg, self.Nw, self.dw, self.eta)[:self.Nw]
-            self.comm.barrier()
-            del specfunc_Wg
-
-            chi0_wGG = SliceAlongOrbitals(chi0_Wg, coords, self.wcomm)
-
-            self.comm.barrier()
-            del chi0_Wg
-
+            if self.wScomm.size == 1:
+                chi0_wGG = hilbert_transform(specfunc_wGG, self.Nw, self.dw, self.eta)[self.wstart:self.wend]
+                self.printtxt('Finished hilbert transform !')
+                del specfunc_wGG
+            else:
+                # redistribute specfunc_wGG to all nodes
+                assert self.NwS % size == 0
+                NwStmp1 = (rank % self.kcomm.size) * self.NwS // size
+                NwStmp2 = (rank % self.kcomm.size + 1) * self.NwS // size 
+                specfuncnew_wGG = specfunc_wGG[NwStmp1:NwStmp2]
+                del specfunc_wGG
+                
+                coords = np.zeros(self.wcomm.size, dtype=int)
+                nG_local = self.npw**2 // self.wcomm.size
+                if self.wcomm.rank == self.wcomm.size - 1:
+                    nG_local = self.npw**2 - (self.wcomm.size - 1) * nG_local
+                self.wcomm.all_gather(np.array([nG_local]), coords)
+        
+                specfunc_Wg = SliceAlongFrequency(specfuncnew_wGG, coords, self.wcomm)
+                self.printtxt('Finished Slice Along Frequency !')
+                chi0_Wg = hilbert_transform(specfunc_Wg, self.Nw, self.dw, self.eta)[:self.Nw]
+                self.printtxt('Finished hilbert transform !')
+                self.comm.barrier()
+                del specfunc_Wg
+        
+                chi0_wGG = SliceAlongOrbitals(chi0_Wg, coords, self.wcomm)
+                self.printtxt('Finished Slice along orbitals !')
+                self.comm.barrier()
+                del chi0_Wg
+        
         self.chi0_wGG = chi0_wGG / self.vol
 
         self.printtxt('')
@@ -573,7 +582,9 @@ class CHI:
             self.Nw, self.Nw_local, self.wstart, self.wend =  parallel_partition(
                                self.Nw, self.wcomm.rank, self.wcomm.size, reshape=True)
         else:
-            if self.Nw // size > 1:
+            if self.Nw > 1:
+                assert self.Nw % (size / self.kcomm.size) == 0
+                self.wcomm = self.wScomm
                 self.Nw, self.Nw_local, self.wstart, self.wend =  parallel_partition(
                                self.Nw, self.wcomm.rank, self.wcomm.size, reshape=False)
             else:
@@ -632,7 +643,8 @@ class CHI:
             printtxt('     nbands parsize  : %d' %(self.kcomm.size))
         else:
             printtxt('     kpoint parsize  : %d' %(self.kcomm.size))
-        printtxt('     specfunc parsize: %d' %(self.wScomm.size))
+        if self.hilbert_trans:
+            printtxt('     specfunc parsize: %d' %(self.wScomm.size))
         printtxt('     w parsize       : %d' %(self.wcomm.size))
         printtxt('')
         printtxt('Memory usage estimation:')

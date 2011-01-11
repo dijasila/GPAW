@@ -46,7 +46,6 @@ class C_Response(Contribution):
         self.grid_comm = self.gd.comm
         self.vt_sg = self.finegd.empty(self.nlfunc.nspins)
         self.vt_sG = self.gd.empty(self.nlfunc.nspins)
-        print "Writing over vt_sG as empty"
         self.nt_sG = self.gd.empty(self.nlfunc.nspins)
         self.Dresp_asp = None
         self.D_asp = None
@@ -57,7 +56,6 @@ class C_Response(Contribution):
         self.Dxc_D_asp = {}
         
     def calculate_spinpaired(self, e_g, n_g, v_g):
-        print "In response::calculate_spinpaired."
         w_kn = self.coefficients.get_coefficients_by_kpt(self.kpt_u)
         f_kn = [ kpt.f_n for kpt in self.kpt_u ]
         if w_kn is not None:
@@ -83,11 +81,11 @@ class C_Response(Contribution):
                 self.D_asp, f_kn)
 
             self.vt_sG /= self.nt_sG +1e-10
-            if world.rank == 0:
-                print "Updating vt_sG"
-        else:
-            if world.rank == 0:
-                print "Reusing potential"
+            #if world.rank == 0:
+            #    print "Updating vt_sG"
+            #else:
+            #if world.rank == 0:
+            #    print "Reusing potential"
         self.density.interpolator.apply(self.vt_sG[0], self.vt_sg[0])
         v_g[:] += self.weight * self.vt_sg[0]
         return 0.0
@@ -98,7 +96,7 @@ class C_Response(Contribution):
         raise NotImplementedError
 
     def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a):
-        print "In response::calculate_energy_and_derivatives"
+        #print "In response::calculate_energy_and_derivatives"
         # Get the XC-correction instance
         c = setup.xc_correction
         ncresp_g = setup.extra_xc_data['core_response']
@@ -165,20 +163,26 @@ class C_Response(Contribution):
         vt_g += self.weight * v_g / (n_g + 1e-10)
         return 0.0 # Response part does not contribute to energy
 
-    def calculate_delta_xc(self):
-        # Calculate band gap
-        homo, lumo = self.occupations.get_homo_lumo(self.wfs)
-        Ksgap = lumo - homo
-        print "KSgap ", Ksgap
+    def calculate_delta_xc(self, homolumo = None):
+        if homolumo == None:
+            # Calculate band gap
+            print "Warning: Calculating KS-gap directly from the k-points, can be inaccurate."
+            homolumo = self.occupations.get_homo_lumo(self.wfs)
 
+
+        homo, lumo = homolumo
+        Ksgap = lumo-homo
+        print "Using KS-gap of ", Ksgap
+
+        
         for a in self.density.D_asp:
             ni = self.setups[a].ni
             self.Dxc_Dresp_asp[a] = np.zeros((self.nlfunc.nspins, ni * (ni + 1) // 2))
             self.Dxc_D_asp[a] = np.zeros((self.nlfunc.nspins, ni * (ni + 1) // 2))
 
         # Calculate new response potential with LUMO reference 
-        w_kn = self.coefficients.get_coefficients_by_kpt(self.kpt_u, lumo_perturbation=True)
-        print "dxc w_kn", w_kn
+        w_kn = self.coefficients.get_coefficients_by_kpt(self.kpt_u, lumo_perturbation=True, homolumo=homolumo)
+        #print "dxc w_kn", w_kn
        
         f_kn = [ kpt.f_n for kpt in self.kpt_u ]
 
@@ -207,13 +211,12 @@ class C_Response(Contribution):
             self.Dxc_D_asp, f_kn)
 
     def calculate_delta_xc_perturbation(self):
-        # Calculate band gap
         homo, lumo = self.occupations.get_homo_lumo(self.wfs)
         Ksgap = lumo - homo
-
+        
         # Calculate average of lumo reference response potential
         method1_dxc = np.average(self.Dxc_vt_sG[0])
-        print self.Dxc_vt_sG[0][0][0]
+        #print self.Dxc_vt_sG[0][0][0]
 
         nt_G = self.gd.empty()
 
@@ -223,7 +226,7 @@ class C_Response(Contribution):
         eps_u =[]
         eps_un = np.zeros((len(self.kpt_u),len(self.kpt_u[0].psit_nG)))
         for u, kpt in enumerate(self.kpt_u):
-            print "K-Point index: ",u
+            #print "K-Point index: ",u
             for n in range(len(kpt.psit_nG)):
                 nt_G[:] = 0.0
                 self.wfs.add_orbital_density(nt_G, kpt, n)
@@ -234,11 +237,11 @@ class C_Response(Contribution):
                     P_ni = kpt.P_ani[a]
                     Dwf_p = pack(np.outer(P_ni[n].T.conj(), P_ni[n]).real)
                     E += self.integrate_sphere(a, Dresp_sp, D_sp, Dwf_p)
-                print "Atom corrections", E*27.21
+                #print "Atom corrections", E*27.21
                 E = self.grid_comm.sum(E)
                 E += self.gd.integrate(nt_G*self.Dxc_vt_sG[0])
                 E += kpt.eps_n[lumo_n]
-                print "Old eigenvalue",  kpt.eps_n[lumo_n]*27.21, " New eigenvalue ", E*27.21, " DXC", E*27.21-kpt.eps_n[lumo_n]*27.21
+                #print "Old eigenvalue",  kpt.eps_n[lumo_n]*27.21, " New eigenvalue ", E*27.21, " DXC", E*27.21-kpt.eps_n[lumo_n]*27.21
                 eps_un[u][n] = E
 
         method2_lumo = min([ eps_n[lumo_n] for eps_n in eps_un])

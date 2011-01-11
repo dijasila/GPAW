@@ -16,14 +16,14 @@ from gpaw.utilities.scalapack import pblas_simple_gemm
 from gpaw.utilities.tools import tri2full
 from gpaw.utilities.timing import nulltimer
 
-def get_KohnSham_layouts(sl, mode, gd, bd, **kwargs):
+def get_KohnSham_layouts(sl, mode, gd, bd, dtype, **kwargs):
     """Create Kohn-Sham layouts object."""
     # Not needed for AtomPAW special mode, as usual we just provide whatever
     # happens to make the code not crash
     if not isinstance(mode, str):
         return None #XXX
     name = {'fd': 'BandLayouts', 'lcao': 'OrbitalLayouts'}[mode]
-    args = (gd, bd)
+    args = (gd, bd, dtype)
     if sl is not None:
         name = 'Blacs' + name
         assert len(sl) == 3
@@ -44,11 +44,12 @@ class KohnShamLayouts:
     using_blacs = False # This is only used by a regression test
     matrix_descriptor_class = None
 
-    def __init__(self, gd, bd, timer=nulltimer):
+    def __init__(self, gd, bd, dtype, timer=nulltimer):
         assert gd.comm.parent is bd.comm.parent # must have same parent comm
         self.world = bd.comm.parent
         self.gd = gd
         self.bd = bd
+        self.dtype = dtype
 
         # Columncomm contains all gd.comm.rank == 0, i.e. "grid-masters"
         # Blockcomm contains all ranks with the same k-point or spin but different
@@ -89,9 +90,8 @@ class KohnShamLayouts:
 class BlacsLayouts(KohnShamLayouts):
     using_blacs = True # This is only used by a regression test
 
-    def __init__(self, gd, bd, mcpus, ncpus, blocksize, timer=nulltimer):
-        KohnShamLayouts.__init__(self, gd, bd, timer)
-        self._kwargs.update({'mcpus': mcpus, 'ncpus': ncpus, 'blocksize': blocksize})
+    def __init__(self, gd, bd, dtype, mcpus, ncpus, blocksize, timer=nulltimer):
+        KohnShamLayouts.__init__(self, gd, bd, dtype, timer)
         # WARNING: Do not create the BlacsGrid on a communicator which does not 
         # contain blockcomm.rank = 0. This will break BlacsBandLayouts which
         # assume eps_M will be broadcast over blockcomm.
@@ -105,6 +105,10 @@ class BlacsLayouts(KohnShamLayouts):
 
 class BandLayouts(KohnShamLayouts):
     matrix_descriptor_class = BandMatrixDescriptor
+
+    def __init__(self, gd, bd, dtype, buffer_size=None, timer=nulltimer):
+        KohnShamLayouts.__init__(self, gd, bd, dtype, timer)
+        self.buffer_size = buffer_size
 
     def diagonalize(self, H_NN, eps_n):
         """Serial diagonalizer must handle two cases:
@@ -190,9 +194,11 @@ class BlacsBandLayouts(BlacsLayouts): #XXX should derive from BandLayouts too!
     matrix_descriptor_class = BlacsBandMatrixDescriptor
 
     # This class 'describes' all the realspace Blacs-related layouts
-    def __init__(self, gd, bd, mcpus, ncpus, blocksize, timer=nulltimer):
-        BlacsLayouts.__init__(self, gd, bd, mcpus, ncpus, blocksize, timer)
-
+    def __init__(self, gd, bd, dtype, mcpus, ncpus, blocksize, buffer_size=None,
+                 timer=nulltimer):
+        BlacsLayouts.__init__(self, gd, bd, dtype, mcpus, ncpus, blocksize,
+                              timer)
+        self.buffer_size = buffer_size
         nbands = bd.nbands
         mynbands = bd.mynbands
 
@@ -272,10 +278,10 @@ class BlacsOrbitalLayouts(BlacsLayouts):
     """ #XXX rewrite this docstring a bit!
 
     # This class 'describes' all the LCAO Blacs-related layouts
-    def __init__(self, gd, bd, mcpus, ncpus, blocksize, nao, timer=nulltimer):
-        BlacsLayouts.__init__(self, gd, bd, mcpus, ncpus, blocksize, timer)
-        self._kwargs.update(nao=nao) #XXX should only be done by OrbitalLayouts!
-
+    def __init__(self, gd, bd, dtype, mcpus, ncpus, blocksize, nao,
+                 timer=nulltimer):
+        BlacsLayouts.__init__(self, gd, bd, dtype, mcpus, ncpus, blocksize,
+                              timer)
         nbands = bd.nbands
         mynbands = bd.mynbands
         self.orbital_comm = self.bd.comm
@@ -294,7 +300,6 @@ class BlacsOrbitalLayouts(BlacsLayouts):
                                                            naoblocksize, nao)
         self.nMdescriptor = self.columngrid.new_descriptor(nbands, nao,
                                                            mynbands, nao)
-        assert self.mMdescriptor.shape == (self.mynao, nao)
 
         #parallelprint(world, (mynao, self.mMdescriptor.shape))
 
@@ -348,7 +353,7 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         else:
             C2_nM = outdescriptor.empty(dtype=dtype)
         assert outdescriptor.check(C2_nM)
-        self.mm2nM.redistribute_submatrix(C_mm, C2_nM, subM, subN) #blocks2cols
+        self.mm2nM.redistribute(C_mm, C2_nM, subM, subN) #blocks2cols
         self.timer.stop('Redistribute coefs')
 
         self.timer.start('Send coefs to domains')
@@ -418,9 +423,8 @@ class BlacsOrbitalLayouts(BlacsLayouts):
 
 
 class OrbitalLayouts(KohnShamLayouts):
-    def __init__(self, gd, bd, nao, timer=nulltimer):
-        KohnShamLayouts.__init__(self, gd, bd, timer)
-        self._kwargs.update({'nao': nao})
+    def __init__(self, gd, bd, dtype, nao, timer=nulltimer):
+        KohnShamLayouts.__init__(self, gd, bd, dtype, timer)
         self.mMdescriptor = MatrixDescriptor(nao, nao)
         self.nMdescriptor = MatrixDescriptor(bd.mynbands, nao)
         
@@ -499,3 +503,21 @@ class OrbitalLayouts(KohnShamLayouts):
 
     def get_description(self):
         return 'Serial LAPACK'
+
+    def calculate_density_matrix_delta(self, d_nn, C_nM, rho_MM=None):
+        # Only a madman would use a non-transposed density matrix.
+        # Maybe we should use the get_transposed_density_matrix instead
+        if rho_MM is None:
+            rho_MM = np.zeros((self.mynao, self.nao), dtype=C_nM.dtype)
+        Cd_Mn = np.zeros((self.nao, self.bd.mynbands), dtype=C_nM.dtype)
+        # XXX Should not conjugate, but call gemm(..., 'c')
+        # Although that requires knowing C_Mn and not C_nM.
+        # that also conforms better to the usual conventions in literature
+        C_Mn = C_nM.T.conj().copy()
+        gemm(1.0, d_nn, C_Mn, 0.0, Cd_Mn, 'n')
+        gemm(1.0, C_nM, Cd_Mn,  0.0, rho_MM, 'n')
+        self.bd.comm.sum(rho_MM)
+        return rho_MM
+
+    def get_transposed_density_matrix_delta(self, d_nn, C_nM, rho_MM=None):
+        return self.calculate_density_matrix_delta(d_nn, C_nM, rho_MM).T.copy()

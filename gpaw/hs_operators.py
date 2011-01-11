@@ -27,34 +27,20 @@ class MatrixOperator:
     hermitian = True
 
     def __init__(self, bd, gd, ksl, nblocks=None, async=None, hermitian=None):
-        self.bd = bd
-        self.gd = gd
-        self.work1_xG = None
-        self.work2_xG = None
-        self.A_qnn = None
-        self.A_nn = None
-        if nblocks is not None:
-            self.nblocks = nblocks
-        if async is not None:
-            self.async = async
-        if hermitian is not None:
-            self.hermitian = hermitian
-        self.bmd = ksl.new_descriptor() #XXX take hermitian as argument?
-        self.M = 1
-        self.Q = bd.comm.size
-
-    def allocate_work_arrays(self, dtype):
-        """This is a little complicated, but let's look at the facts.
+        """The constructor now calculates the work array sizes, but does not
+        allocate them. Here is a summary of the relevant variables and the
+        cases handled.
 
         Given::
 
-          N = mynbands            The number of bands on this core.
+          N = mynbands            The number of bands on this MPI task
           J = nblocks             The number of blocks to divide bands into.
           M = N // J              The number of bands in each block.
-          G = gd.n_c.prod()       The number of grid points on this core.
+          G = gd.n_c.prod()       The number of grid points on this MPI task.
           g = int(np.ceil(G/J))   The number of grid points in a block.
 
-        We allocate work arrays as gd.empty(X) where X is to be determined.
+        Calculate X and Q, the latter is a function of ngroups and the
+        Hermiticity.
 
         Conditions::
 
@@ -73,25 +59,67 @@ class MatrixOperator:
           X * J * G >= N * (G+J) hence X = N//J + int(np.ceil(N/G)) is best.
 
         """
+        self.bd = bd
+        self.gd = gd
+        self.work1_xG = None
+        self.work2_xG = None
+        self.A_qnn = None
+        self.A_nn = None
+        if nblocks is not None:
+            self.nblocks = nblocks
+        if async is not None:
+            self.async = async
+        if hermitian is not None:
+            self.hermitian = hermitian
+        self.bmd = ksl.new_descriptor() #XXX take hermitian as argument?
+        self.dtype = ksl.dtype
+        self.buffer_size = ksl.buffer_size
+
+        # Calculate M, Q, and X for allocating arrays later
+        self.M = 1
+        self.X = 1 # not used in some cases
+        self.Q = 1
         ngroups = self.bd.comm.size
         mynbands = self.bd.mynbands
         nbands = self.bd.nbands
+        G = self.gd.n_c.prod()
+
+        # If buffer_size keyword exist, use it to
+        # calculate closest value of nblocks
+        if self.buffer_size is not None:
+            sizeof_single_wfs = self.gd.bytecount(self.dtype)
+            number_wfs = float(self.nblocks)*1024*1024/sizeof_single_wfs
+            temp_nblocks = int(np.floor(mynbands/multiple_wfs))
+            while (mynbands % temp_nblocks) != 0:
+                temp_nblocks -= temp_nblocks
+            assert temp_nblocks > 0
+            self.nblocks = temp_nblocks
+
         if ngroups == 1 and self.nblocks == 1:
-            self.work1_xG = self.gd.zeros(mynbands, dtype)
+            pass
         else:
             assert mynbands % self.nblocks == 0
-            M = mynbands // self.nblocks
-            self.M = M
-            X = M
-            if self.gd.n_c.prod() % self.nblocks != 0:
-                X += int(np.ceil(mynbands / self.gd.n_c.prod()))
-            self.work1_xG = self.gd.zeros(X, dtype)
-            self.work2_xG = self.gd.zeros(X, dtype)
+            self.M = mynbands // self.nblocks
+            if G % self.nblocks != 0:
+                self.X += int(np.ceil(mynbands / G))
+            else:
+                self.X = self.M
             if ngroups > 1:
                 if self.hermitian:
                     self.Q = ngroups // 2 + 1
                 else:
                     self.Q = ngroups
+
+    def allocate_work_arrays(self):
+        ngroups = self.bd.comm.size
+        mynbands = self.bd.mynbands
+        dtype = self.dtype
+        if ngroups == 1 and self.nblocks == 1:
+            self.work1_xG = self.gd.zeros(mynbands, dtype)
+        else:
+            self.work1_xG = self.gd.zeros(self.X, dtype)
+            self.work2_xG = self.gd.zeros(self.X, dtype)
+            if ngroups > 1:
                 self.A_qnn = np.zeros((self.Q, mynbands, mynbands), dtype)
         self.A_nn = self.bmd.zeros(dtype=dtype)
 
@@ -100,22 +128,17 @@ class MatrixOperator:
         mynbands = self.bd.mynbands
         nbands = self.bd.nbands
         gdbytes = self.gd.bytecount(dtype)
-        # Code semipasted from allocate_work_arrays
+        count = self.Q * mynbands**2
+
+        # Code semipasted from allocate_work_arrays        
         if ngroups == 1 and self.nblocks == 1:
-            mem.subnode('work_xG', mynbands * gdbytes)
+            mem.subnode('work1_xG', mynbands * gdbytes)
         else:
-            X = mynbands // self.nblocks
-            if self.gd.n_c.prod() % self.nblocks != 0:
-                X += int(np.ceil(mynbands/self.gd.n_c.prod()))
-            mem.subnode('2 work_xG', 2 * X * gdbytes)
-            if ngroups > 1:
-                if self.hermitian:
-                    Q = ngroups // 2 + 1
-                else:
-                    Q = ngroups
-                count = Q * mynbands**2
-                mem.subnode('A_qnn', count * mem.itemsize[dtype])
-        mem.subnode('A_nn', np.prod(self.bmd.shape) * mem.itemsize[dtype])
+            mem.subnode('work1_xG', self.X * gdbytes)
+            mem.subnode('work2_xG', self.X * gdbytes)
+            mem.subnode('A_qnn', count * mem.itemsize[dtype])
+
+        self.bmd.estimate_memory(mem.subnode('Band Matrices'), dtype)
 
     def _pseudo_braket(self, bra_xG, ket_yG, A_yx, square=None):
         """Calculate matrix elements of braket pairs of pseudo wave functions.
@@ -247,7 +270,7 @@ class MatrixOperator:
 
         return sbuf_mG, rbuf_mG, sbuf_In, rbuf_In
 
-    def suggest_temporary_buffer(self, dtype):
+    def suggest_temporary_buffer(self):
         """Return a *suggested* buffer for calculating A(psit_nG) during
         a call to calculate_matrix_elements. Work arrays will be allocated
         if they are not already available.
@@ -255,8 +278,9 @@ class MatrixOperator:
         Note that the temporary buffer is merely a reference to (part of) a
         work array, hence data race conditions occur if you're not careful.
         """
+        dtype = self.dtype
         if self.work1_xG is None:
-            self.allocate_work_arrays(dtype)
+            self.allocate_work_arrays()
         else:
             assert self.work1_xG.dtype == dtype
 
@@ -307,7 +331,7 @@ class MatrixOperator:
         N = self.bd.mynbands
         
         if self.work1_xG is None:
-            self.allocate_work_arrays(psit_nG.dtype)
+            self.allocate_work_arrays()
         else:
             assert self.work1_xG.dtype == psit_nG.dtype
 
@@ -439,7 +463,7 @@ class MatrixOperator:
         N = self.bd.mynbands
 
         if self.work1_xG is None:
-            self.allocate_work_arrays(psit_nG.dtype)
+            self.allocate_work_arrays()
         else:
             assert self.work1_xG.dtype == psit_nG.dtype
 

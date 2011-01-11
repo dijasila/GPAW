@@ -145,20 +145,26 @@ class BlacsGrid:
         assert npcol > 0
         assert len(order) == 1
         assert order in 'CcRr'
+        # set a default value for the context leads to fewer
+        # if statements below
+        context = INACTIVE
 
-        if isinstance(comm, SerialCommunicator):
-            raise ValueError('Instance of SerialCommunicator not supported')
-        if comm is None: # if and only if rank is not part of the communicator
-            context = INACTIVE
-        else:
+        # There are three cases to handle:
+        # 1. Comm is None is inactive (default). 
+        # 2. Comm is a legitimate communicator
+        # 3. DryRun Communicator is now handled by subclass
+        if comm is not None: # MPI task is part of the communicator
             if nprow * npcol > comm.size:
                 raise ValueError('Impossible: %dx%d Blacs grid with %d CPUs'
                                  % (nprow, npcol, comm.size))
+
             context = _gpaw.new_blacs_context(comm.get_c_object(),
                                               npcol, nprow, order)
             assert (context != INACTIVE) == (comm.rank < nprow * npcol)
 
-        self.mycol, self.myrow = _gpaw.get_blacs_gridinfo(context, nprow,
+
+        self.mycol, self.myrow = _gpaw.get_blacs_gridinfo(context, 
+                                                          nprow,
                                                           npcol)
         
         self.context = context
@@ -191,6 +197,27 @@ class BlacsGrid:
     def __del__(self):
         if self.is_active():
             _gpaw.blacs_destroy(self.context)
+
+
+class DryRunBlacsGrid(BlacsGrid):
+    def __init__(self, comm, nprow, npcol, order='R'):
+        assert isinstance(comm, SerialCommunicator) #DryRunCommunicator is subclass
+        if nprow * npcol > comm.size:
+            raise ValueError('Impossible: %dx%d Blacs grid with %d CPUs'
+                             % (nprow, npcol, comm.size))
+        self.context = INACTIVE
+        self.comm = comm
+        self.nprow = nprow
+        self.npcol = npcol
+        self.ncpus = nprow * npcol
+        self.mycol, self.myrow = INACTIVE, INACTIVE
+        self.order = order
+
+
+#XXX A MAJOR HACK HERE:
+from gpaw import dry_run
+if dry_run:
+    BlacsGrid = DryRunBlacsGrid
 
 
 class BlacsDescriptor(MatrixDescriptor):
@@ -444,17 +471,28 @@ class Redistributor:
         assert uplo in ['G', 'U', 'L'] 
         self.uplo = uplo
     
-    def redistribute_submatrix(self, src_mn, dst_mn, subM, subN):
-        """Redistribute submatrix into other submatrix.  
+    def redistribute(self, src_mn, dst_mn,
+                     subM=None, subN=None,
+                     ia=0, ja=0, ib=0, jb=0):
+        """Redistribute src_mn into dst_mn.
 
-        A bit more general than redistribute().  See also redistribute()."""
+        src_mn and dst_mn must be compatible with source and
+        destination descriptors of this redistributor.
+
+        If subM and subN are given, distribute only a subM by subN
+        submatrix.
+
+        If any ia, ja, ib and jb are given, they denote the global
+        index (i, j) of the origin of the submatrix inside the source
+        and destination (a, b) matrices."""
+        
         # self.supercomm must be a supercommunicator of the communicators
         # corresponding to the context of srcmatrix as well as dstmatrix.
         # We should verify this somehow.
         dtype = src_mn.dtype
         assert dtype == dst_mn.dtype
         assert dtype == float or dtype == complex
-
+        
         # Check to make sure the submatrix of the source
         # matrix will fit into the destination matrix
         # plus standard BLACS matrix checks.
@@ -462,28 +500,26 @@ class Redistributor:
         dstdescriptor = self.dstdescriptor
         srcdescriptor.checkassert(src_mn)
         dstdescriptor.checkassert(dst_mn)
+
+        if subM is None:
+            subM = srcdescriptor.gshape[0]
+        if subN is None:
+            subN = srcdescriptor.gshape[1]
+
         assert srcdescriptor.gshape[0] >= subM
         assert srcdescriptor.gshape[1] >= subN
         assert dstdescriptor.gshape[0] >= subM
         assert dstdescriptor.gshape[1] >= subN
-
+        
         # Switch to Fortran conventions
         uplo = {'U': 'L', 'L': 'U', 'G': 'G'}[self.uplo]
         
         _gpaw.scalapack_redist(srcdescriptor.asarray(), 
                                dstdescriptor.asarray(),
                                src_mn, dst_mn,
-                               self.supercomm_bg.context,
-                               subN, subM, uplo)
-    
-    def redistribute(self, src_mn, dst_mn):
-        """Redistribute src_mn to dst_mn.
-
-        src_mn must be compatible with the source descriptor of this 
-        redistributor, while dst_mn must be compatible with the 
-        destination descriptor.""" 
-        subM, subN = self.srcdescriptor.gshape 
-        self.redistribute_submatrix(src_mn, dst_mn, subM, subN)
+                               subN, subM,
+                               ja + 1, ia + 1, jb + 1, ib + 1, # 1-indexing
+                               self.supercomm_bg.context, uplo)
 
 
 def parallelprint(comm, obj):
