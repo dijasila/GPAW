@@ -332,6 +332,13 @@ class PAW(PAWTextOutput):
         Z_a = atoms.get_atomic_numbers()
         magmom_av = atoms.get_initial_magnetic_moments()
 
+        if isinstance(par.xc, str):
+            xc = XC(par.xc)
+        else:
+            xc = par.xc
+
+        setups = Setups(Z_a, par.setups, par.basis, par.lmax, xc, world)
+
         if magmom_av.ndim == 1:
             collinear = True
             magmom_av, magmom_a = np.zeros((natoms, 3)), magmom_av
@@ -346,7 +353,8 @@ class PAW(PAWTextOutput):
             if natoms != 1:
                 raise ValueError('hund=True arg only valid for single atoms!')
             spinpol = True
-
+            magmom_av[0] = (0, 0, setups[0].get_hunds_rule_moment(par.charge))
+            
         if spinpol is None:
             spinpol = magnetic
         elif magnetic and not spinpol:
@@ -359,13 +367,6 @@ class PAW(PAWTextOutput):
         else:
             nspins = 1
             ncomp = 2
-
-        if isinstance(par.xc, str):
-            xc = XC(par.xc)
-        else:
-            xc = par.xc
-
-        setups = Setups(Z_a, par.setups, par.basis, par.lmax, xc, world)
 
         # K-point descriptor
         kd = KPointDescriptor(par.kpts, nspins, collinear)
@@ -401,7 +402,9 @@ class PAW(PAWTextOutput):
 
         nao = setups.nao
         nvalence = setups.nvalence - par.charge
-
+        M_v = magmom_av.sum(0)
+        M = np.dot(M_v, M_v)**0.5
+        
         nbands = par.nbands
         if nbands is None:
             nbands = nao
@@ -423,17 +426,6 @@ class PAW(PAWTextOutput):
                              % (nvalence, nbands))
 
         nbands *= ncomp
-        
-        M = magmom_a.sum()
-        if par.hund:
-            f_si = setups[0].calculate_initial_occupation_numbers(
-                magmom=0, hund=True, charge=par.charge, nspins=2)
-            Mh = f_si[0].sum() - f_si[1].sum()
-            if magnetic and M != Mh:
-                raise RuntimeError('You specified a magmom that does not'
-                                   'agree with hunds rule!')
-            else:
-                M = Mh
 
         if par.width is not None:
             self.text('**NOTE**: please start using '
@@ -449,7 +441,7 @@ class PAW(PAWTextOutput):
             else:
                 self.occupations = par.occupations
 
-        self.occupations.magmom = M
+        self.occupations.magmom = M_v[2]
 
         cc = par.convergence
 

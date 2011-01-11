@@ -47,7 +47,7 @@ class WaveFunctions(EmptyWaveFunctions):
         MPI-communicator for parallelization over **k**-points.
     """
 
-    colinear = True
+    collinear = True
     ncomp = 1
     
     def __init__(self, gd, nvalence, setups, bd, dtype,

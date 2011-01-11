@@ -53,7 +53,7 @@ class NonLocalFunctional(XCFunctional):
         return gd.integrate(e_g)
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp, a):
-        return xc.calculate_energy_and_derivatives(setup, D_sp, dEdD_sp, a)
+        return self.calculate_energy_and_derivatives(setup, D_sp, dEdD_sp, a)
     
     def calculate_spinpaired(self, e_g, n_g, v_g):
         e_g[:] = 0.0

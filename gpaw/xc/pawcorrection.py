@@ -110,6 +110,7 @@ class PAWXCCorrection:
             self.nc_corehole_g = None
 
     def calculate(self, xc, D_sp, dH_sp=None, addcoredensity=True, a=None):
+        lkjhdfgkljh
         if dH_sp is None:
             dH_sp = np.zeros_like(D_sp)
             

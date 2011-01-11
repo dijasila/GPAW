@@ -290,7 +290,6 @@ class Density:
                 f_si[0] = fn_i
                 if M > 0:
                     f_si[1:4] = np.outer(M_v / M, fm_i)
-            print f_si
             
             if a in basis_functions.my_atom_indices:
                 self.D_asp[a] = self.setups[a].initialize_density_matrix(f_si)
@@ -342,7 +341,7 @@ class Density:
         self.mixer.initialize(self)
         
     def estimate_magnetic_moments(self):
-        magmom_av = np.zeros((len(self.magmom_a), 3))
+        magmom_av = np.zeros_like(self.magmom_av)
         if self.nspins == 2 or not self.collinear:
             for a, D_sp in self.D_asp.items():
                 if self.collinear:

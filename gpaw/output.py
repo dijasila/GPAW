@@ -148,7 +148,8 @@ class PAWTextOutput:
           % self.hamiltonian.xc.name)
         if self.wfs.nspins == 2:
             t('Spin-Polarized Calculation.')
-            t('Magnetic Moment:   %.6f' % self.density.magmom_a.sum(), end='')
+            t('Magnetic Moment:  (%.6f, %.6f, %.6f)' %
+              tuple(self.density.magmom_av.sum(0)), end='')
             if self.occupations.fixmagmom:
                 t('(fixed)')
             else:

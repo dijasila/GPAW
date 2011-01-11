@@ -52,7 +52,7 @@ class Hamiltonian:
     """
 
     def __init__(self, gd, finegd, nspins, setups, stencil, timer, xc,
-                 psolver, vext_g, colinear=True):
+                 psolver, vext_g, collinear=True):
         """Create the Hamiltonian."""
         self.gd = gd
         self.finegd = finegd
@@ -60,8 +60,8 @@ class Hamiltonian:
         self.setups = setups
         self.timer = timer
         self.xc = xc
-        self.colinear = colinear
-        self.ncomp = 2 - int(colinear)
+        self.collinear = collinear
+        self.ncomp = 2 - int(collinear)
         
         # Solver for the Poisson equation:
         if psolver is None:
@@ -236,7 +236,7 @@ class Hamiltonian:
 
         Eext = 0.0
         if self.vext_g is not None:
-            assert self.colinear
+            assert self.collinear
             vt_g += self.vext_g.get_potential(self.finegd)
             Eext = self.finegd.integrate(vt_g, density.nt_g,
                                          global_integral=False) - Ebar
@@ -316,7 +316,7 @@ class Hamiltonian:
             self.timer.stop('XC Correction')
 
             if setup.HubU is not None:
-                assert self.colinear
+                assert self.collinear
                 nspins = len(D_sp)
                 
                 l_j = setup.l_j
@@ -453,7 +453,7 @@ class Hamiltonian:
         Exc = xc.calculate(density.finegd, nt_sg) / self.gd.comm.size
         for a, D_sp in density.D_asp.items():
             setup = self.setups[a]
-            Exc += setup.xc_correction.calculate(xc, D_sp)
+            Exc += xc.calculate_paw_correction(setup, D_sp)
         Exc = self.gd.comm.sum(Exc)
         return Exc - self.Exc
 
