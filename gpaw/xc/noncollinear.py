@@ -125,7 +125,8 @@ class NonCollinearFunctional(XCFunctional):
                                           m_vLg, dmdr_vLg)
             else:
                 (e_g, dedn_g, dedm_vg,
-                 a_g, b_vg, c_g, d_vg, dedsigma_xg, dcdm_vg, dddm_vLvg) = \
+                 a_g, b_vg, c_g, d_vg, dedsigma_xg, dcdm_vg, dddm_vLvg,
+                 m_vg, m_g) = \
                  self.calculate_radial(rgd, n_Lg, Y_L, dndr_Lg, rnablaY_Lv,
                                        m_vLg, dmdr_vLg)
             dEdD_sqL[0] += np.dot(rgd.dv_g * dedn_g,
@@ -133,22 +134,31 @@ class NonCollinearFunctional(XCFunctional):
             dEdD_sqL[1:] += np.dot(rgd.dv_g * dedm_vg,
                                    n_qg.T)[:, :, X] * (w * Y_L)
             if self.xc.type == 'GGA':
-                x_g =rgd.empty()
-                v_g =rgd.empty()
-                rgd.derivative2(rgd.dv_g * dedsigma_xg[0] * (a_g + c_g),
-                                v_g)
-                rgd.derivative2(rgd.dv_g * dedsigma_xg[1] * a_g, x_g)
-                v_g += x_g
-                rgd.derivative2(rgd.dv_g * dedsigma_xg[2] * (a_g - c_g),
-                                x_g)
-                v_g += x_g
+                v_g = rgd.empty()
+                rgd.derivative2(rgd.dv_g * (dedsigma_xg[0] * (a_g + c_g) +
+                                            dedsigma_xg[1] * a_g +
+                                            dedsigma_xg[2] * (a_g - c_g)), v_g)
                 dEdD_sqL[0] -= np.dot(v_g, n_qg.T)[:, X] * (0.5 * w * Y_L)
-                dedsigma_xg *= rgd.dr_g
                 B_vg = (dedsigma_xg[0] * (b_vg + d_vg) +
                         dedsigma_xg[1] * b_vg +
                         dedsigma_xg[2] * (b_vg - d_vg))
-                B_vq = np.dot(B_vg, n_qg.T)
+                B_vq = np.dot(B_vg * rgd.dr_g, n_qg.T)
                 dEdD_sqL[0] += 2 * pi * w * np.dot(rnablaY_Lv, B_vq).T
+
+                A_g = (dedsigma_xg[0] * (a_g + c_g) -
+                       dedsigma_xg[1] * c_g +
+                       dedsigma_xg[2] * (c_g - a_g)) * rgd.dv_g
+                v_vg = rgd.empty(3)
+                rgd.derivative2(A_g * m_vg / m_g, v_vg)
+                v_vg -= A_g * dcdm_vg
+                dEdD_sqL[1:] -= np.dot(v_vg, n_qg.T)[:, :, X] * (0.5 * w * Y_L)
+
+                dedsigma_xg *= rgd.dr_g
+                B_vg = (dedsigma_xg[0] * (b_vg + d_vg) +
+                        dedsigma_xg[1] * d_vg +
+                        dedsigma_xg[2] * (d_vg - b_vg))
+                B_Lvq = np.dot((B_vg[:, X, X] * dddm_vLvg).sum(0), n_qg.T)
+                dEdD_sqL[1:] += 2 * pi * w * B_Lvq.transpose((1, 2, 0))
                 
             E += w * rgd.integrate(e_g)
 
@@ -198,7 +208,7 @@ class NonCollinearFunctional(XCFunctional):
             self.xc.kernel.calculate(e_g, n_sg, dedn_sg)
 
         dedn_g = 0.5 * dedn_sg.sum(0)
-        dedn_sg /= np.where(m_g < 1e-9, 1, m_g)
+        dedn_sg /= m_g
         dedm_vg = 0.5 * (dedn_sg[0] - dedn_sg[1]) * m_vg
         if self.xc.type == 'GGA':
             dcdm_vg = (dmdr_vg - (m_vg * dmdr_vg).sum(0) * m_vg / m_g**2) / m_g 
@@ -209,7 +219,8 @@ class NonCollinearFunctional(XCFunctional):
             dddm_vLvg /= m_g
 
             return (e_g, dedn_g, dedm_vg,
-                    a_g, b_vg, c_g, d_vg, dedsigma_xg, dcdm_vg, dddm_vLvg)
+                    a_g, b_vg, c_g, d_vg, dedsigma_xg, dcdm_vg, dddm_vLvg,
+                    m_vg, m_g)
 
         return e_g, dedn_g, dedm_vg
 

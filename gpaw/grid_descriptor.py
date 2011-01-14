@@ -577,18 +577,18 @@ class RadialGridDescriptor:
         dndr_xg[..., -1] = n_xg[..., -1] - n_xg[..., -2]
         dndr_xg /= self.dr_g
 
-    def derivative2(self, a_g, b_g):
+    def derivative2(self, a_xg, b_xg):
         """Finite-difference derivative of radial function.
 
         For an infinitely dense grid, this method would be identical
         to the `derivative` method."""
         
-        c_g = a_g / self.dr_g
-        b_g[0] = 0.5 * c_g[1] + c_g[0]
-        b_g[1] = 0.5 * c_g[2] - c_g[0]
-        b_g[1:-1] = 0.5 * (c_g[2:] - c_g[:-2])
-        b_g[-2] = c_g[-1] - 0.5 * c_g[-3]
-        b_g[-1] = -c_g[-1] - 0.5 * c_g[-2]
+        c_xg = a_xg / self.dr_g
+        b_xg[..., 0] = 0.5 * c_xg[..., 1] + c_xg[..., 0]
+        b_xg[..., 1] = 0.5 * c_xg[..., 2] - c_xg[..., 0]
+        b_xg[..., 1:-1] = 0.5 * (c_xg[..., 2:] - c_xg[..., :-2])
+        b_xg[..., -2] = c_xg[..., -1] - 0.5 * c_xg[..., -3]
+        b_xg[..., -1] = -c_xg[..., -1] - 0.5 * c_xg[..., -2]
 
     def integrate(self, f_g):
         """Integrate over a radial grid."""
