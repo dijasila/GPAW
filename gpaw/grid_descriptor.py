@@ -570,12 +570,12 @@ class RadialGridDescriptor:
         self.dr_g = dr_g
         self.dv_g = 4 * pi * r_g**2 * dr_g
 
-    def derivative(self, n_g, dndr_g):
+    def derivative(self, n_xg, dndr_xg):
         """Finite-difference derivative of radial function."""
-        dndr_g[0] = n_g[1] - n_g[0]
-        dndr_g[1:-1] = 0.5 * (n_g[2:] - n_g[:-2])
-        dndr_g[-1] = n_g[-1] - n_g[-2]
-        dndr_g /= self.dr_g
+        dndr_xg[..., 0] = n_xg[..., 1] - n_xg[..., 0]
+        dndr_xg[..., 1:-1] = 0.5 * (n_xg[..., 2:] - n_xg[..., :-2])
+        dndr_xg[..., -1] = n_xg[..., -1] - n_xg[..., -2]
+        dndr_xg /= self.dr_g
 
     def derivative2(self, a_g, b_g):
         """Finite-difference derivative of radial function.
