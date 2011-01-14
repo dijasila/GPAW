@@ -1,3 +1,5 @@
+from math import sqrt, pi
+
 import numpy as np
 
 from gpaw.xc.functional import XCFunctional
@@ -9,6 +11,8 @@ from gpaw.utilities import unpack
 from gpaw.utilities.blas import gemm
 from gpaw.mixer import BaseMixer
 from gpaw.utilities.tools import tri2full
+from gpaw.sphere.lebedev import Y_nL, weight_n
+from gpaw.xc.pawcorrection import rnablaY_nLv
 
 
 class NonCollinearLDAKernel(LibXC):
@@ -60,43 +64,133 @@ class NonCollinearFunctional(XCFunctional):
             dedn_sg[1:4] -= 0.5 * vnew_sg[1] * m_vg
         return exc
     
-    def calculate_radial(self, rgd, n_sLg, Y_L, v_sg,
-                         dndr_sLg=None, rnablaY_Lv=None,
-                         e_g=None):
-        n_sg = np.dot(Y_L, n_sLg)
-        n_g = n_sg[0]
-        m_vg = n_sg[1:4]
+    def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
+                                 addcoredensity=True, a=None):
+        c = setup.xc_correction
+        if c is None:
+            return 0.0
+        
+        assert addcoredensity
+        assert len(D_sp) == 4
+        assert c.nc_corehole_g is None
+        
+        rgd = c.rgd
+        
+        nc0_g = sqrt(4 * pi) * c.nc_g
+        nct0_g = sqrt(4 * pi) * c.nct_g
+        
+        D_sLq = np.inner(D_sp, c.B_pqL.T)
+
+        e, dEdD_sqL = self.calculate_radial_expansion(rgd, D_sLq, c.n_qg,
+                                                      nc0_g)
+        et, dEtdD_sqL = self.calculate_radial_expansion(rgd, D_sLq, c.nt_qg,
+                                                        nct0_g)
+
+        if dEdD_sp is not None:
+            dEdD_sp += np.inner((dEdD_sqL - dEtdD_sqL).reshape((4, -1)),
+                                c.B_pqL.reshape((len(c.B_pqL), -1)))
+
+        return e - et - c.Exc0
+
+    def calculate_radial_expansion(self, rgd, D_sLq, n_qg, nc0_g):
+        D_Lq = D_sLq[0]
+        M_vLq = D_sLq[1:]
+        
+        n_Lg = np.dot(D_Lq, n_qg)
+        n_Lg[0] += nc0_g
+
+        m_vLg = np.dot(M_vLq, n_qg)
+
+        if self.xc.type == 'GGA':
+            dndr_Lg = np.empty_like(n_Lg)
+            rgd.derivative(n_Lg, dndr_Lg)
+            dmdr_vLg = np.empty_like(m_vLg)
+            rgd.derivative(m_vLg, dmdr_vLg)
+        elif self.xc.type == 'LDA':
+            dndr_Lg = None
+            dmdr_vLg = None
+
+        Lmax, nq = D_Lq.shape
+        dEdD_sqL = np.zeros((4, nq, Lmax))
+        
+        E = 0.0
+        for w, Y_L, rnablaY_Lv in zip(weight_n,
+                                      Y_nL[:, :Lmax],
+                                      rnablaY_nLv[:, :Lmax]):
+            e_g, dedn_g, dedm_vg = \
+                 self.calculate_radial(rgd, n_Lg, Y_L, dndr_Lg, rnablaY_Lv,
+                                       m_vLg, dmdr_vLg)
+            dEdD_sqL[0] += np.dot(rgd.dv_g * dedn_g,
+                                  n_qg.T)[:, np.newaxis] * (w * Y_L)
+            dEdD_sqL[1:] += np.dot(rgd.dv_g * dedm_vg,
+                                   n_qg.T)[:, :, np.newaxis] * (w * Y_L)
+            E += w * rgd.integrate(e_g)
+
+        return E, dEdD_sqL
+
+    def calculate_radial(self, rgd, n_Lg, Y_L, dndr_Lg, rnablaY_Lv,
+                         m_vLg, dmdr_vLg):
+        n_g = np.dot(Y_L, n_Lg)
+        m_vg = np.dot(Y_L, m_vLg)
         m_g = (m_vg**2).sum(0)**0.5
-        nnew_sg = rgd.empty(2)
-        nnew_sg[:] = n_g
-        nnew_sg[0] += m_g
-        nnew_sg[1] -= m_g
-        nnew_sg *= 0.5
-        vnew_sg = rgd.zeros(2)
-        dndr_sg = np.empty_like(n_sg)
-        for n_g, dndr_g in zip(n_sg, dndr_sg):
-            rgd.derivative(n_g, dndr_g)
-        rd_vsg = np.dot(rnablaY_Lv.T, n_sLg)
-        sigma_xg = rgd.empty(2 * nspins - 1)
-        sigma_xg[::2] = (rd_vsg**2).sum(0)
-        if nspins == 2:
-            sigma_xg[1] = (rd_vsg[:, 0] * rd_vsg[:, 1]).sum(0)
-        sigma_xg[:, 1:] /= rgd.r_g[1:]**2
-        sigma_xg[:, 0] = sigma_xg[:, 1]
-        d_sg = np.dot(Y_L, dndr_sLg)
-        sigma_xg[::2] += d_sg**2
-        if nspins == 2:
-            sigma_xg[1] += d_sg[0] * d_sg[1]
-        dedsigma_xg = rgd.zeros(2 * nspins - 1)
-        self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg,
-        if e_g is None:
-            e_g = gd.empty()
-        self.xc.kernel.calculate(e_g, nnew_sg, vnew_sg)
-        v_sg[0] += 0.5 * vnew_sg.sum(0)
-        vnew_sg /= np.where(m_g < 1e-9, 1, m_g)
-        v_sg[1:4] += 0.5 * vnew_sg[0] * m_vg
-        v_sg[1:4] -= 0.5 * vnew_sg[1] * m_vg
-        return rgd.integrate(e_g)
+
+        n_sg = rgd.empty(2)
+        n_sg[:] = n_g
+        n_sg[0] += m_g
+        n_sg[1] -= m_g
+        n_sg *= 0.5
+
+        e_g = rgd.empty()
+        dedn_sg = rgd.zeros(2)
+
+        if self.xc.type == 'GGA':
+            dmdr_vg = np.dot(Y_L, dmdr_vLg)
+        
+            a_g = np.dot(Y_L, dndr_Lg)
+            b_vg = np.dot(rnablaY_Lv.T, n_Lg)
+            
+            c_g = (m_vg * dmdr_vg).sum(0) / m_g
+            d_vg = (m_vg * np.dot(rnablaY_Lv.T, m_vLg)).sum(1) / m_g
+
+            sigma_xg = rgd.empty(3)
+            sigma_xg[0] = ((b_vg + d_vg)**2).sum(0)
+            sigma_xg[1] = ((b_vg + d_vg) * (b_vg - d_vg)).sum(0)
+            sigma_xg[2] = ((b_vg - d_vg)**2).sum(0)
+            sigma_xg[:, 1:] /= rgd.r_g[1:]**2
+            sigma_xg[:, 0] = sigma_xg[:, 1]
+            sigma_xg[0] += (a_g + c_g)**2
+            sigma_xg[1] += (a_g + c_g) * (a_g - c_g)
+            sigma_xg[2] += (a_g - c_g)**2
+            sigma_xg *= 0.25
+
+            dedsigma_xg = rgd.zeros(3)
+
+            self.xc.kernel.calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
+        else:
+            self.xc.kernel.calculate(e_g, n_sg, dedn_sg)
+
+        dedn_g = 0.5 * dedn_sg.sum(0)
+        dedn_sg /= np.where(m_g < 1e-9, 1, m_g)
+        dedm_vg = 0.5 * (dedn_sg[0] - dedn_sg[1]) * m_vg
+        if self.xc.type == 'GGA':
+            pass
+        
+        return e_g, dedn_g, dedm_vg
+        vv_sg = sigma_xg[:2]  # reuse array
+        for s in range(2):
+            rgd.derivative2(-2 * rgd.dv_g * dedsigma_xg[2 * s] * a_sg[s],
+                            vv_sg[s])
+        if 2 == 2:
+            v_g = sigma_xg[2]
+            rgd.derivative2(rgd.dv_g * dedsigma_xg[1] * a_sg[1], v_g)
+            vv_sg[0] -= v_g
+            rgd.derivative2(rgd.dv_g * dedsigma_xg[1] * a_sg[0], v_g)
+            vv_sg[1] -= v_g
+
+        vv_sg[:, 1:] /= rgd.dv_g[1:]
+        vv_sg[:, 0] = vv_sg[:, 1]
+        
+        return e_g, dedn_sg + vv_sg, b_vsg, dedsigma_xg
 
 
 class NonCollinearLCAOEigensolver(LCAO):

@@ -20,7 +20,7 @@ for xc in ['LDA', 'PBE']:
 
     nii = ni * (ni + 1) // 2
 
-    E = s.xc_correction.calculate(xc, D_sp)
+    E = xc.calculate_paw_correction(s, D_sp)
 
     xc = NonCollinearFunctional(xc)
     #xc = XC(NonCollinearLDAKernel())
@@ -28,22 +28,22 @@ for xc in ['LDA', 'PBE']:
     Dnc_sp = np.zeros((4, nii))
     Dnc_sp[0] = D_sp.sum(0)
     Dnc_sp[3] = D_sp[0] - D_sp[1]
-    Enc = s.xc_correction.calculate(xc, Dnc_sp)
+    Enc = xc.calculate_paw_correction(s, Dnc_sp)
     print E, E-Enc
 
     Dnc_sp[1] = 0.1 * Dnc_sp[3]
     Dnc_sp[2] = 0.2 * Dnc_sp[3]
     Dnc_sp[3] *= (1 - 0.1**2 - 0.2**2)**0.5
     H_sp = 0 * Dnc_sp
-    Enc = s.xc_correction.calculate(xc, Dnc_sp, H_sp)
+    Enc = xc.calculate_paw_correction(s, Dnc_sp, H_sp)
     print E, E-Enc
 
     dD_sp = x * ra.random((4, nii))
     dE = np.dot(H_sp.ravel(), dD_sp.ravel()) / x
     Dnc_sp += dD_sp
-    Ep = s.xc_correction.calculate(xc, Dnc_sp)
+    Ep = xc.calculate_paw_correction(s, Dnc_sp)
     Dnc_sp -= 2 * dD_sp
-    Em = s.xc_correction.calculate(xc, Dnc_sp)
+    Em = xc.calculate_paw_correction(s, Dnc_sp)
     print dE, dE - 0.5 * (Ep - Em) / x
     #equal(dE, 0.5 * (Ep - Em) / x, 1e-6)
         

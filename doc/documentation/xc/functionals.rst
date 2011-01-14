@@ -37,7 +37,7 @@ In libxc_ we have (see also "Standard subroutine calls" on ccg_dft_design_)
 
 
 Uniform 3D grid
----------------
+===============
 
 We use a finite-difference stencil to calculate the gradients:
 
@@ -99,7 +99,7 @@ and
 
 
 PAW correction
---------------
+==============
 
 Spin-paired case:
 
@@ -176,3 +176,60 @@ we get
     8 \pi w \Delta r_g
     \frac{\partial \epsilon}{\partial \sigma_g}
     \mathbf b_g \cdot (r \mathbf{\nabla} Y_L).
+
+
+Non-collinear case
+------------------
+
+.. math::
+
+    \mathbf{m}_g
+    = \sum_L \mathbf{M}_{Lg} Y_L.
+
+.. math::
+
+    n_{\alpha g} = (n_g + \alpha m_g) / 2.
+
+.. math::
+
+    2 \mathbf{\nabla} n_{\alpha g} =
+    \mathbf{\nabla} n_g +
+    \alpha \sum_L (
+    Y_L \sum_{g'} D_{gg'}
+    \frac{\mathbf{m}_g \cdot \mathbf{M}_{Lg'}}{m_g} \hat{\mathbf{r}} +
+    \frac{\mathbf{m}_g \cdot \mathbf{M}_{Lg}}{m_g r_g}
+    r \mathbf{\nabla} Y_L)
+
+.. math::
+
+    =
+    (a_g + \alpha c_g) \hat{\mathbf{r}} +
+    (\mathbf{b}_g + \alpha \mathbf{d}_g) / r_g.
+
+.. math::
+
+    \sigma_{\alpha \beta g} =
+    (a_g + \alpha c_g) (a_g + \beta c_g)
+    + (\mathbf{b}_g + \alpha \mathbf{d}_g) \cdot
+    (\mathbf{b}_g + \beta \mathbf{d}_g) / r_g^2.
+
+.. math::
+
+    \frac{\partial c_g}{\partial \mathbf{M}_{Lg'}} =
+    \frac{Y_L}{m_g} (
+    D_{gg'} \mathbf{m}_g +
+    \delta_{gg'} \mathbf{m}_g' -
+    \delta_{gg'} \frac{\mathbf{m}_g \cdot \mathbf{m}_g'}{m_g^2}
+    \mathbf{m}_g).
+
+.. math::
+
+    \frac{\partial (\mathbf{d}_g)_\gamma}{\partial \mathbf{M}_{Lg'}} =
+    \frac{Y_L \delta_{gg'}}{m_g r_g} (
+    \mathbf{m}_g r \nabla_\gamma Y_L +
+    \sum_{L'} \mathbf{M}_{L'g} r \nabla_\gamma Y_{L'} -
+    \frac{\mathbf{m}_g}{m_g^2}
+    \sum_{L'} \mathbf{m}_g \cdot \mathbf{M}_{L'g} r \nabla_\gamma
+    Y_{L'}).
+
+
