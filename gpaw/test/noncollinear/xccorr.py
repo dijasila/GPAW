@@ -17,6 +17,7 @@ for xc in ['LDA', 'PBE']:
     D_sp = np.array([pack(np.outer(P_i, P_i))
                      for P_i in 0.2 * ra.random((2, ni)) - 0.1])
     D_sp[1] += D_sp[0]
+    #D_sp[0] = D_sp[1]
 
     nii = ni * (ni + 1) // 2
 
@@ -39,6 +40,7 @@ for xc in ['LDA', 'PBE']:
     print E, E-Enc
 
     dD_sp = x * ra.random((4, nii))
+    dD_sp[1:] = 0
     dE = np.dot(H_sp.ravel(), dD_sp.ravel()) / x
     Dnc_sp += dD_sp
     Ep = xc.calculate_paw_correction(s, Dnc_sp)

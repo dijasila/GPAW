@@ -208,7 +208,7 @@ Non-collinear case
 
 .. math::
 
-    \sigma_{\alpha \beta g} =
+    4 \sigma_{\alpha \beta g} =
     (a_g + \alpha c_g) (a_g + \beta c_g)
     + (\mathbf{b}_g + \alpha \mathbf{d}_g) \cdot
     (\mathbf{b}_g + \beta \mathbf{d}_g) / r_g^2.
@@ -225,11 +225,9 @@ Non-collinear case
 .. math::
 
     \frac{\partial (\mathbf{d}_g)_\gamma}{\partial \mathbf{M}_{Lg'}} =
-    \frac{Y_L \delta_{gg'}}{m_g r_g} (
+    \frac{Y_L \delta_{gg'}}{m_g} (
     \mathbf{m}_g r \nabla_\gamma Y_L +
     \sum_{L'} \mathbf{M}_{L'g} r \nabla_\gamma Y_{L'} -
     \frac{\mathbf{m}_g}{m_g^2}
     \sum_{L'} \mathbf{m}_g \cdot \mathbf{M}_{L'g} r \nabla_\gamma
     Y_{L'}).
-
-

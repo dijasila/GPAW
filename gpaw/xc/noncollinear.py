@@ -14,6 +14,8 @@ from gpaw.utilities.tools import tri2full
 from gpaw.sphere.lebedev import Y_nL, weight_n
 from gpaw.xc.pawcorrection import rnablaY_nLv
 
+X = np.newaxis
+
 
 class NonCollinearLDAKernel(LibXC):
     def __init__(self):
@@ -117,13 +119,37 @@ class NonCollinearFunctional(XCFunctional):
         for w, Y_L, rnablaY_Lv in zip(weight_n,
                                       Y_nL[:, :Lmax],
                                       rnablaY_nLv[:, :Lmax]):
-            e_g, dedn_g, dedm_vg = \
+            if self.xc.type == 'LDA':
+                (e_g, dedn_g, dedm_vg) = \
+                    self.calculate_radial(rgd, n_Lg, Y_L, dndr_Lg, rnablaY_Lv,
+                                          m_vLg, dmdr_vLg)
+            else:
+                (e_g, dedn_g, dedm_vg,
+                 a_g, b_vg, c_g, d_vg, dedsigma_xg, dcdm_vg, dddm_vLvg) = \
                  self.calculate_radial(rgd, n_Lg, Y_L, dndr_Lg, rnablaY_Lv,
                                        m_vLg, dmdr_vLg)
             dEdD_sqL[0] += np.dot(rgd.dv_g * dedn_g,
-                                  n_qg.T)[:, np.newaxis] * (w * Y_L)
+                                  n_qg.T)[:, X] * (w * Y_L)
             dEdD_sqL[1:] += np.dot(rgd.dv_g * dedm_vg,
-                                   n_qg.T)[:, :, np.newaxis] * (w * Y_L)
+                                   n_qg.T)[:, :, X] * (w * Y_L)
+            if self.xc.type == 'GGA':
+                x_g =rgd.empty()
+                v_g =rgd.empty()
+                rgd.derivative2(rgd.dv_g * dedsigma_xg[0] * (a_g + c_g),
+                                v_g)
+                rgd.derivative2(rgd.dv_g * dedsigma_xg[1] * a_g, x_g)
+                v_g += x_g
+                rgd.derivative2(rgd.dv_g * dedsigma_xg[2] * (a_g - c_g),
+                                x_g)
+                v_g += x_g
+                dEdD_sqL[0] -= np.dot(v_g, n_qg.T)[:, X] * (0.5 * w * Y_L)
+                dedsigma_xg *= rgd.dr_g
+                B_vg = (dedsigma_xg[0] * (b_vg + d_vg) +
+                        dedsigma_xg[1] * b_vg +
+                        dedsigma_xg[2] * (b_vg - d_vg))
+                B_vq = np.dot(B_vg, n_qg.T)
+                dEdD_sqL[0] += 2 * pi * w * np.dot(rnablaY_Lv, B_vq).T
+                
             E += w * rgd.integrate(e_g)
 
         return E, dEdD_sqL
@@ -133,7 +159,8 @@ class NonCollinearFunctional(XCFunctional):
         n_g = np.dot(Y_L, n_Lg)
         m_vg = np.dot(Y_L, m_vLg)
         m_g = (m_vg**2).sum(0)**0.5
-
+        eps = 1e-15
+        m_g[m_g < eps] = eps
         n_sg = rgd.empty(2)
         n_sg[:] = n_g
         n_sg[0] += m_g
@@ -150,7 +177,8 @@ class NonCollinearFunctional(XCFunctional):
             b_vg = np.dot(rnablaY_Lv.T, n_Lg)
             
             c_g = (m_vg * dmdr_vg).sum(0) / m_g
-            d_vg = (m_vg * np.dot(rnablaY_Lv.T, m_vLg)).sum(1) / m_g
+            m_vvg = np.dot(rnablaY_Lv.T, m_vLg)
+            d_vg = (m_vg * m_vvg).sum(1) / m_g
 
             sigma_xg = rgd.empty(3)
             sigma_xg[0] = ((b_vg + d_vg)**2).sum(0)
@@ -173,24 +201,17 @@ class NonCollinearFunctional(XCFunctional):
         dedn_sg /= np.where(m_g < 1e-9, 1, m_g)
         dedm_vg = 0.5 * (dedn_sg[0] - dedn_sg[1]) * m_vg
         if self.xc.type == 'GGA':
-            pass
-        
-        return e_g, dedn_g, dedm_vg
-        vv_sg = sigma_xg[:2]  # reuse array
-        for s in range(2):
-            rgd.derivative2(-2 * rgd.dv_g * dedsigma_xg[2 * s] * a_sg[s],
-                            vv_sg[s])
-        if 2 == 2:
-            v_g = sigma_xg[2]
-            rgd.derivative2(rgd.dv_g * dedsigma_xg[1] * a_sg[1], v_g)
-            vv_sg[0] -= v_g
-            rgd.derivative2(rgd.dv_g * dedsigma_xg[1] * a_sg[0], v_g)
-            vv_sg[1] -= v_g
+            dcdm_vg = (dmdr_vg - (m_vg * dmdr_vg).sum(0) * m_vg / m_g**2) / m_g 
+            dddm_vLvg = rnablaY_Lv.T[:, :, X, X] * m_vg
+            dddm_vLvg += m_vvg[:, X]
+            dddm_vLvg -= d_vg[:, X, X, :] * m_vg[X, X] / m_g
+            dddm_vLvg *= Y_L[:, X, X]
+            dddm_vLvg /= m_g
 
-        vv_sg[:, 1:] /= rgd.dv_g[1:]
-        vv_sg[:, 0] = vv_sg[:, 1]
-        
-        return e_g, dedn_sg + vv_sg, b_vsg, dedsigma_xg
+            return (e_g, dedn_g, dedm_vg,
+                    a_g, b_vg, c_g, d_vg, dedsigma_xg, dcdm_vg, dddm_vLvg)
+
+        return e_g, dedn_g, dedm_vg
 
 
 class NonCollinearLCAOEigensolver(LCAO):
