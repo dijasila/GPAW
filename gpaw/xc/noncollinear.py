@@ -154,7 +154,7 @@ class NonCollinearFunctional(XCFunctional):
                 dEdD_sqL[1:] -= np.dot(v_vg, n_qg.T)[:, :, X] * (0.5 * w * Y_L)
 
                 dedsigma_xg *= rgd.dr_g
-                B_vg = (dedsigma_xg[0] * (b_vg + d_vg) +
+                B_vg = (dedsigma_xg[0] * (b_vg + d_vg) -
                         dedsigma_xg[1] * d_vg +
                         dedsigma_xg[2] * (d_vg - b_vg))
                 B_Lvq = np.dot((B_vg[:, X, X] * dddm_vLvg).sum(0), n_qg.T)
@@ -213,9 +213,8 @@ class NonCollinearFunctional(XCFunctional):
         if self.xc.type == 'GGA':
             dcdm_vg = (dmdr_vg - (m_vg * dmdr_vg).sum(0) * m_vg / m_g**2) / m_g 
             dddm_vLvg = rnablaY_Lv.T[:, :, X, X] * m_vg
-            dddm_vLvg += m_vvg[:, X]
-            dddm_vLvg -= d_vg[:, X, X, :] * m_vg[X, X] / m_g
-            dddm_vLvg *= Y_L[:, X, X]
+            dddm_vLvg += m_vvg[:, X] * Y_L[:, X, X]
+            dddm_vLvg -= d_vg[:, X, X, :] * m_vg[X, X] * Y_L[:, X, X] / m_g
             dddm_vLvg /= m_g
 
             return (e_g, dedn_g, dedm_vg,

@@ -7,7 +7,7 @@ from gpaw.test import equal
 from gpaw.utilities import pack
 
 
-x = 0.000001
+x = 0.0000001
 ra.seed(8)
 for xc in ['LDA', 'PBE']:
     print xc
@@ -19,7 +19,6 @@ for xc in ['LDA', 'PBE']:
     D_sp[1] += D_sp[0]
     #D_sp[0] = D_sp[1]
     #D_sp[:,1:] = 0
-    print D_sp[:,0]
 
     nii = ni * (ni + 1) // 2
 
