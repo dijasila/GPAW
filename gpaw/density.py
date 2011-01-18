@@ -287,7 +287,7 @@ class Density:
                 f_i = f_si.sum(axis=0)
                 fm_i = f_si[0] - f_si[1]
                 f_si = np.zeros((4, len(f_i)))
-                f_si[0] = fn_i
+                f_si[0] = f_i
                 if M > 0:
                     f_si[1:4] = np.outer(M_v / M, fm_i)
             
