@@ -45,6 +45,11 @@ class GridDescriptor:
             x = (x,)
         return np.zeros(x + (self.N,))
 
+    def empty(self, x=()):
+        if isinstance(x, int):
+            x = (x,)
+        return np.zeros(x + (self.N,))
+
     def integrate(self, a_xg, n=0):
         assert n > -2
         return np.dot(a_xg[..., 1:],
@@ -296,7 +301,7 @@ class AllElectronAtom:
                 s = 0
             else:
                 self.add(n, l, 0.5 * df, 0)
-                self.add(n, l, 0.6 * df, 1)
+                self.add(n, l, 0.5 * df, 1)
                 return
             
         if l not in self.f_lsn:

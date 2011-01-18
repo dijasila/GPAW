@@ -34,11 +34,14 @@ class HirshfeldDensity(Density):
         # select atoms
         atoms = []
         D_asp = {}
+        rank_a = []
         all_D_asp = self.calculator.density.D_asp
+        all_rank_a = self.calculator.density.rank_a
         for a in atom_indicees:
             if a in all_D_asp:
                 D_asp[len(atoms)] = all_D_asp.get(a)
             atoms.append(all_atoms[a])
+            rank_a.append(all_rank_a[a])
         atoms = Atoms(atoms, cell=all_atoms.get_cell())
         spos_ac = atoms.get_scaled_positions() % 1.0
         Z_a = atoms.get_atomic_numbers()
@@ -55,7 +58,7 @@ class HirshfeldDensity(Density):
                         self.calculator.timer,
                         [0] * len(atoms), False)
         self.set_mixer(None)
-        self.set_positions(spos_ac, self.calculator.wfs.rank_a)
+        self.set_positions(spos_ac, rank_a)
         basis_functions = BasisFunctions(self.gd,
                                          [setup.phit_j
                                           for setup in self.setups],
@@ -78,27 +81,34 @@ class HirshfeldPartitioning:
         self.atoms = calculator.get_atoms()
         self.hdensity = HirshfeldDensity(calculator)
         density_g, gd = self.hdensity.get_density()
-        self.invweight_g = np.where(density_g > density_cutoff, 
-                                    1.0 /  density_g, 0.0)
-        
+        self.invweight_g = 0. * density_g
+        density_ok = np.where(density_g > density_cutoff)
+        self.invweight_g[density_ok] = 1.0 / density_g[density_ok]
+
+    def get_calculator(self):
+        return self.calculator
+    
     def get_effective_volume_ratio(self, atom_index):
         """Effective volume to free volume ratio.
 
         After: Tkatchenko and Scheffler PRL 102 (2009) 073005
         """
         atoms = self.atoms
-        den_g = self.calculator.density.get_all_electron_density(atoms)[0][0]
-        denfree_g, gd = self.hdensity.get_density([atom_index])
-
-        # my r^3 grid
         finegd = self.calculator.density.finegd
+
+        den_g, gd = self.calculator.density.get_all_electron_density(atoms)
+        assert(gd == finegd)
+        denfree_g, gd = self.hdensity.get_density([atom_index])
+        assert(gd == finegd)
+
+        # the atoms r^3 grid
         position = self.atoms[atom_index].position / Bohr
         r_vg, r2_g = coordinates(finegd, origin=position)
         r3_g = r2_g * np.sqrt(r2_g)
 
         weight_g = denfree_g * self.invweight_g
 
-        nom = finegd.integrate(r3_g * den_g * weight_g)
+        nom = finegd.integrate(r3_g * den_g[0] * weight_g)
         denom = finegd.integrate(r3_g * denfree_g)
 
         return nom / denom

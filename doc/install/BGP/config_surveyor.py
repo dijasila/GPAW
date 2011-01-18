@@ -116,7 +116,7 @@ def get_system_config(define_macros, undef_macros,
 
         msg += ['* Using SUN high performance library']
 
-    elif sys.platform == 'aix5':
+    elif sys.platform in ['aix5', 'aix6']:
 
         #
         # o|_  _ _
@@ -124,7 +124,10 @@ def get_system_config(define_macros, undef_macros,
         #
 
         extra_compile_args += ['-qlanglvl=stdc99']
-        extra_link_args += ['-bmaxdata:0x80000000', '-bmaxstack:0x80000000']
+        # setting memory limit is necessary on aix5
+        if sys.platform == 'aix5':
+            extra_link_args += ['-bmaxdata:0x80000000',
+                '-bmaxstack:0x80000000']
 
         libraries += ['f', 'lapack', 'essl']
         define_macros.append(('GPAW_AIX', '1'))
@@ -313,7 +316,6 @@ def check_dependencies(sources):
         # print 'removing', so
         os.remove(so)
 
-
 def test_configuration():
     raise NotImplementedError
 
@@ -372,20 +374,13 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
                      'c/libxc/src/work_gga_x.c',
                      'c/libxc/src/work_lda.c'
                      ]
-    for c2r in glob('c/libxc/src/funcs_*.c'):
-        cfiles2remove.append(c2r)
 
-    # included in mpi.c
-    cfiles2remove.append('c/scalapack.c')
-    cfiles2remove.append('c/sl_inverse_cholesky.c')
-
-    for c2r in cfiles2remove:
-        cfiles.remove(c2r)
-
+    for c2r in glob('c/libxc/src/funcs_*.c'): cfiles2remove.append(c2r)
+    for c2r in cfiles2remove: cfiles.remove(c2r)
     sources = ['c/bc.c', 'c/localized_functions.c', 'c/mpi.c', 'c/_gpaw.c',
                'c/operators.c', 'c/transformers.c', 'c/compiled_WITH_SL.c',
                'c/compiled_WITH_HDF5.c', 'c/blacs.c', 'c/hdf5.c',
-               'c/io_wrappers.c']
+               'c/utilities.c']
     if int(dict(define_macros).get('GPAW_WITH_HDF5', 0)):
         sources += glob('c/h5py/*.c')
         sources += glob('c/h5py/lzf/*.c')
@@ -403,7 +398,8 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
         os.makedirs('build/bin.%s/' % plat)
     exefile = 'build/bin.%s/' % plat + '/gpaw-python'
 
-    #libraries += mpi_libraries
+    # if you want static linked MPI libraries, uncomment the line below
+    libraries += mpi_libraries
     library_dirs += mpi_library_dirs
     define_macros += mpi_define_macros
     include_dirs += mpi_include_dirs
@@ -421,11 +417,13 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     lib_dirs = ' '.join(['-L' + lib for lib in library_dirs])
 
     libs = ' '.join(['-l' + lib for lib in libraries if lib.strip()])
-    # BlueGene/P statically links everything except        
-    # python, runtime and pthread library                  
-    libs += ' -Wl,-dy'                                     
-    libs += ' -lpython%s ' % cfgDict['VERSION']            
-    libs += ' '.join(['-l' + lib for lib in mpi_libraries])
+    # BlueGene/P can statically link everything except
+    # python, runtime and pthread library
+    libs += ' -Wl,-dy'
+    libs += ' -lpython%s ' % cfgDict['VERSION']
+    # if you want dynamic linked MPI libraries, uncomment the line below
+    # only really needed for TAU profiling
+    # libs += ' '.join(['-l' + lib for lib in mpi_libraries])
     libs += ' -lrt -lpthread'
     # libs = ' '.join([libs, cfgDict['LIBS'], cfgDict['LIBM']])
 
@@ -445,7 +443,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     runtime_libs = ' '.join([ runtime_lib_option + lib for lib in runtime_library_dirs])
 
     extra_link_args.append(cfgDict['LDFLAGS'])
-    if sys.platform == 'aix5':
+    if sys.platform in ['aix5', 'aix6']:
         extra_link_args.append(cfgDict['LINKFORSHARED'].replace('Modules', cfgDict['LIBPL']))
     elif sys.platform == 'darwin':
         pass

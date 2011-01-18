@@ -29,7 +29,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
         # Kinetic energy operator:
         self.kin = Laplace(self.gd, -0.5, stencil, self.dtype, allocate=False)
 
-        self.matrixoperator = MatrixOperator(self.bd, self.gd, orthoksl)
+        self.matrixoperator = MatrixOperator(orthoksl)
 
     def set_setups(self, setups):
         self.pt = LFC(self.gd, [setup.pt_j for setup in setups],
@@ -91,7 +91,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
         for kpt in self.kpt_u:
             for f, psit_G in zip(kpt.f_n, kpt.psit_nG):
                 for v in range(3):
-                    grad_v[v](psit_G, dpsit_G)
+                    grad_v[v](psit_G, dpsit_G, kpt.phase_cd)
                     axpy(0.5 * f, abs(dpsit_G)**2, taut_sG[kpt.s])
 
         self.kpt_comm.sum(taut_sG)

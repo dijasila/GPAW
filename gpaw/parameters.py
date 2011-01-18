@@ -4,7 +4,7 @@ from ase.units import Hartree
 from gpaw.poisson import PoissonSolver, FFTPoissonSolver
 from gpaw.occupations import FermiDirac
 from gpaw import parsize, parsize_bands, sl_default, sl_diagonalize, \
-                 sl_inverse_cholesky, sl_lcao
+                 sl_inverse_cholesky, sl_lcao, buffer_size
 
 class InputParameters(dict):
     def __init__(self, **kwargs):
@@ -36,7 +36,8 @@ class InputParameters(dict):
                                  'sl_default':          sl_default,
                                  'sl_diagonalize':      sl_diagonalize,
                                  'sl_inverse_cholesky': sl_inverse_cholesky,
-                                 'sl_lcao':             sl_lcao}),
+                                 'sl_lcao':             sl_lcao,
+                                 'buffer_size':         buffer_size}),
             ('parsize',         None),
             ('parsize_bands',   None),
             ('parstride_bands', False),
@@ -142,6 +143,10 @@ class InputParameters(dict):
                 from gpaw.mixer import Mixer
             elif mixer == 'MixerSum':
                 from gpaw.mixer import MixerSum as Mixer
+            elif mixer == 'MixerSum2':
+                from gpaw.mixer import MixerSum2 as Mixer
+            elif mixer == 'MixerDif':
+                from gpaw.mixer import MixerDif as Mixer
             elif mixer == 'DummyMixer':
                 from gpaw.mixer import DummyMixer as Mixer
             else:

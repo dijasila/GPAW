@@ -125,7 +125,7 @@ class Eigensolver:
         if self.keep_htpsit:
             Htpsit_xG = self.Htpsit_nG
         else:
-            Htpsit_xG = self.operator.suggest_temporary_buffer(psit_nG.dtype)
+            Htpsit_xG = self.operator.suggest_temporary_buffer()
 
         def H(psit_xG):
             wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_xG, Htpsit_xG)
@@ -174,8 +174,9 @@ class Eigensolver:
         else:
             mem.subnode('No Htpsit', 0)
 
-        # mem.subnode('U_nn', nbands*nbands*mem.floatsize)
-        mem.subnode('eps_n', nbands*mem.floatsize)
+        mem.subnode('eps_n', mynbands*mem.floatsize)
+        mem.subnode('eps_N', nbands*mem.floatsize)
         mem.subnode('Preconditioner', 4 * gridmem)
         mem.subnode('Work', gridmem)
+        
 

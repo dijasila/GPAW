@@ -83,6 +83,7 @@ tests = [
     'XC2.py',
     'multipoletest.py',
     'proton.py',
+    'vdwradii.py',
     'parallel/ut_parallel.py',
     'parallel/compare.py',
     'ase3k.py',
@@ -107,7 +108,7 @@ tests = [
     'usesymm.py',
 #    'usesymm2.py',
     'eed.py',
-    'hirshfeld.py',
+    'partitioning.py',
     'mixer.py',
     'broydenmixer.py',
     'restart.py',
@@ -125,6 +126,8 @@ tests = [
     'nonselfconsistent.py',
     'ewald.py',
     'harmonic.py',
+    'ut_csh.py',
+    'ut_rsh.py',
     'spinpol.py',
     'kptpar.py',
     'plt.py',
@@ -152,6 +155,13 @@ tests = [
     'lcao_force.py',
     'parallel/lcao_hamiltonian.py',
     'parallel/lcao_parallel.py',
+    'parallel/lcao_parallel_kpt.py',
+    'parallel/fd_parallel.py',
+    'parallel/fd_parallel_kpt.py',
+    'gllbatomic.py', 
+    'ne_gllb.py',
+    'ne_disc.py', 
+    'diamond_gllb.py',
     'wannier_ethylene.py',
     'CH4.py',
     'neb.py',
@@ -183,11 +193,13 @@ tests = [
     'IP_oxygen.py',
     'atomize.py',
     'Hubbard_U.py',
+    'Hubbard_U_Zn.py',
     'revPBE_Li.py',
     'si_xas.py',
     'tpss.py',
     'nsc_MGGA.py',
     '8Si.py',
+    'dscf_lcao.py',
     'coreeig.py',
     'Cu.py',
     'exx.py',
@@ -213,7 +225,6 @@ tests = [
     'parallel/scalapack.py',
     'parallel/realspace_blacs.py',
     'parallel/lcao_projections.py',
-    'parallel/n2.py',
     #'dscf_forces.py',
     'lrtddft3.py',
     'AA_exx_enthalpy.py',
@@ -239,14 +250,18 @@ if mpi.size < 4:
     exclude += ['parallel/pblas.py',
                 'parallel/scalapack.py',
                 'parallel/realspace_blacs.py',
-                'parallel/n2.py',
                 'AA_exx_enthalpy.py']
 
 if mpi.size != 4:
     exclude += ['parallel/lcao_parallel.py']
+    exclude += ['parallel/fd_parallel.py']
 
 if mpi.size == 8:
     exclude += ['transport.py']
+
+if mpi.size != 8:
+    exclude += ['parallel/lcao_parallel_kpt.py']
+    exclude += ['parallel/fd_parallel_kpt.py']
 
 try:
     import scipy

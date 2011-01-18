@@ -2,7 +2,8 @@ from math import pi, sqrt
 import numpy as np
 from ase.units import Hartree, Bohr
 from ase.parallel import paropen
-from gpaw.utilities import pack, wignerseitz
+from gpaw.utilities import pack
+from gpaw.analyse.wignerseitz import wignerseitz
 from gpaw.setup_data import SetupData
 from gpaw.gauss import Gauss
 from gpaw.io.fmf import FMF
@@ -102,19 +103,27 @@ def raw_orbital_LDOS(paw, a, spin, angular='spdf'):
     weights_xi = np.empty((nb * nk, setup.ni))
     x = 0
     for k, w in enumerate(w_k):
-        energies[x:x + nb] = wfs.collect_eigenvalues(k=k, s=spin)
+        eps = wfs.collect_eigenvalues(k=k, s=spin)
+        print wfs.world.rank, type(eps)
+        if eps is not None:
+            energies[x:x + nb] = eps
         u = spin * nk + k
-        weights_xi[x:x + nb, :] = w * np.absolute(wfs.kpt_u[u].P_ani[a])**2
+        P_ani = wfs.kpt_u[u].P_ani
+        if a in P_ani:
+            weights_xi[x:x + nb, :] = w * np.absolute(P_ani[a])**2
         x += nb
+
+    wfs.world.broadcast(energies, 0)
+    wfs.world.broadcast(weights_xi, wfs.rank_a[a])
 
     if angular is None:
         return energies, weights_xi
     elif type(angular) is int:
-        return energies, weights_xi[angular]
+        return energies, weights_xi[:, angular]
     else:
         projectors = get_angular_projectors(setup, angular, type='bound')
         weights = np.sum(np.take(weights_xi,
-                                   indices=projectors, axis=1), axis=1)
+                                 indices=projectors, axis=1), axis=1)
         return energies, weights
 
 def all_electron_LDOS(paw, mol, spin, lc=None, wf_k=None, P_aui=None):
@@ -231,9 +240,7 @@ def raw_wignerseitz_LDOS(paw, a, spin):
     """Return a list of eigenvalues, and their weight on the specified atom"""
     wfs = paw.wfs
     gd = wfs.gd
-    atom_index = gd.empty(dtype=int)
-    atom_ac = paw.atoms.get_scaled_positions() * gd.N_c
-    wignerseitz(atom_index, atom_ac, gd)
+    atom_index = wignerseitz(gd, paw.atoms)
 
     w_k = wfs.weight_k
     nk = len(w_k)

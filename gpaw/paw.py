@@ -20,7 +20,7 @@ from gpaw.density import Density
 from gpaw.eigensolvers import get_eigensolver
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.grid_descriptor import GridDescriptor
-from gpaw.blacs import get_kohn_sham_layouts
+from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.hamiltonian import Hamiltonian
 from gpaw.utilities.timing import Timer
 from gpaw.xc import XC
@@ -335,7 +335,7 @@ class PAW(PAWTextOutput):
         natoms = len(atoms)
 
         pos_av = atoms.get_positions() / Bohr
-        cell_cv = atoms.get_cell() / Bohr
+        cell_cv = atoms.get_cell()
         pbc_c = atoms.get_pbc()
         Z_a = atoms.get_atomic_numbers()
         magmom_a = atoms.get_initial_magnetic_moments()
@@ -380,10 +380,13 @@ class PAW(PAWTextOutput):
         else:
             if par.h is None:
                 self.text('Using default value for grid spacing.')
-                h = 0.2 / Bohr
+                h = 0.2 
             else:
-                h = par.h / Bohr
+                h = par.h
             N_c = h2gpts(h, cell_cv)
+
+        cell_cv /= Bohr
+
 
         if hasattr(self, 'time'):
             dtype = complex
@@ -393,7 +396,7 @@ class PAW(PAWTextOutput):
             else:
                 dtype = complex
 
-        kd.set_symmetry(atoms, setups, par.usesymm)
+        kd.set_symmetry(atoms, setups, par.usesymm, N_c)
 
         nao = setups.nao
         nvalence = setups.nvalence - par.charge
@@ -510,27 +513,32 @@ class PAW(PAWTextOutput):
                 sl_lcao = par.parallel['sl_lcao']
                 if sl_lcao is None:
                     sl_lcao = par.parallel['sl_default']
-                lcaoksl = get_kohn_sham_layouts(sl_lcao, 'lcao',
-                                                gd, self.bd, nao=nao,
-                                                timer=self.timer)
+                lcaoksl = get_KohnSham_layouts(sl_lcao, 'lcao',
+                                               gd, self.bd, dtype,
+                                               nao=nao,
+                                               timer=self.timer)
 
                 self.wfs = LCAOWaveFunctions(lcaoksl, *args)
             elif par.mode == 'fd' or isinstance(par.mode, PW):
+                # buffer_size keyword only relevant for fdpw
+                buffer_size = par.parallel['buffer_size']
                 # Layouts used for diagonalizer
                 sl_diagonalize = par.parallel['sl_diagonalize']
                 if sl_diagonalize is None:
                     sl_diagonalize = par.parallel['sl_default']
-                diagksl = get_kohn_sham_layouts(sl_diagonalize, 'fd',
-                                                gd, self.bd,
-                                                timer=self.timer)
+                diagksl = get_KohnSham_layouts(sl_diagonalize, 'fd',
+                                               gd, self.bd, dtype,
+                                               buffer_size=buffer_size,
+                                               timer=self.timer)
 
                 # Layouts used for orthonormalizer
                 sl_inverse_cholesky = par.parallel['sl_inverse_cholesky']
                 if sl_inverse_cholesky is None:
                     sl_inverse_cholesky = par.parallel['sl_default']
-                orthoksl = get_kohn_sham_layouts(sl_inverse_cholesky, 'fd',
-                                                 gd, self.bd,
-                                                 timer=self.timer)
+                orthoksl = get_KohnSham_layouts(sl_inverse_cholesky, 'fd',
+                                                gd, self.bd, dtype,
+                                                buffer_size=buffer_size,
+                                                timer=self.timer)
 
                 # Use (at most) all available LCAO for initialization
                 lcaonbands = min(nbands, nao)
@@ -542,9 +550,10 @@ class PAW(PAWTextOutput):
                 sl_lcao = par.parallel['sl_lcao']
                 if sl_lcao is None:
                     sl_lcao = par.parallel['sl_default']
-                initksl = get_kohn_sham_layouts(sl_lcao, 'lcao',
-                                                gd, lcaobd, nao=nao,
-                                                timer=self.timer)
+                initksl = get_KohnSham_layouts(sl_lcao, 'lcao',
+                                               gd, lcaobd, dtype, 
+                                               nao=nao,
+                                               timer=self.timer)
 
                 if par.mode == 'fd':
                     self.wfs = FDWaveFunctions(par.stencils[0], diagksl,

@@ -185,11 +185,11 @@ class ZeroKelvin(OccupationNumbers):
         OccupationNumbers.__init__(self, fixmagmom)
         
     def calculate_occupation_numbers(self, wfs):
-        if self.fixmagmom:
+        if wfs.nspins == 1:
+            self.spin_paired(wfs)
+        elif self.fixmagmom:
             assert wfs.gamma
             self.fixed_moment(wfs)
-        elif wfs.nspins == 1:
-            self.spin_paired(wfs)
         else:
             assert wfs.nibzkpts == 1
             self.spin_polarized(wfs)
@@ -409,6 +409,9 @@ class SmoothDistribution(ZeroKelvin):
         if wfs.nspins == 2:
             raise NotImplementedError
         
+        if self.nvalence is None:
+            self.calculate(wfs)
+
         n = self.nvalence // 2
         homo = wfs.world.max(max([kpt.eps_n[n - 1] for kpt in wfs.kpt_u]))
         lumo = -wfs.world.max(-min([kpt.eps_n[n] for kpt in wfs.kpt_u]))

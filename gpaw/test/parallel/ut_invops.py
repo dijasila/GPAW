@@ -17,7 +17,7 @@ from gpaw.utilities.gauss import gaussian_wave
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.blacs import BandLayouts
+from gpaw.kohnsham_layouts import BandLayouts
 from gpaw.parameters import InputParameters
 from gpaw.xc import XC
 from gpaw.setup import SetupData, Setups
@@ -120,7 +120,7 @@ class FDWFS(FDWaveFunctions):
                                kd, None)
         self.kin = Laplace(gd, -0.5, dtype=dtype, allocate=False)
         self.diagksl = None
-        self.orthoksl = BandLayouts(gd, bd)
+        self.orthoksl = BandLayouts(gd, bd, dtype)
         self.initksl = None
         self.overlap = None
         self.rank_a = None
@@ -183,8 +183,8 @@ class UTGaussianWavefunctionSetup(UTDomainParallelSetup):
         self.setups = Setups(self.Z_a, p.setups, p.basis,
                              p.lmax, xc)
 
-        bzk_kc = np.array([[0, 0, 0],])
         # K-point descriptor
+        bzk_kc = np.array([[0, 0, 0]], dtype=float)
         self.kd = KPointDescriptor(bzk_kc, 1)
         self.kd.set_symmetry(self.atoms, self.setups, True)
         self.kd.set_communicator(self.kpt_comm)

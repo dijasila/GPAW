@@ -316,7 +316,6 @@ def check_dependencies(sources):
         # print 'removing', so
         os.remove(so)
 
-
 def test_configuration():
     raise NotImplementedError
 
@@ -367,24 +366,19 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     plat = distutils.util.get_platform() + '-' + sys.version[0:3]
 
     cfiles = glob('c/[a-zA-Z_]*.c') + ['c/bmgs/bmgs.c']
-
-    # libxc sources
     cfiles += glob('c/libxc/src/*.c')
     cfiles2remove = ['c/libxc/src/test.c',
                      'c/libxc/src/xc_f.c',
                      'c/libxc/src/work_gga_x.c',
                      'c/libxc/src/work_lda.c'
                      ]
-    for c2r in glob('c/libxc/src/funcs_*.c'):
-        cfiles2remove.append(c2r)
 
-    for c2r in cfiles2remove:
-        cfiles.remove(c2r)
-
+    for c2r in glob('c/libxc/src/funcs_*.c'): cfiles2remove.append(c2r)
+    for c2r in cfiles2remove: cfiles.remove(c2r)
     sources = ['c/bc.c', 'c/localized_functions.c', 'c/mpi.c', 'c/_gpaw.c',
                'c/operators.c', 'c/transformers.c', 'c/compiled_WITH_SL.c',
                'c/compiled_WITH_HDF5.c', 'c/blacs.c', 'c/hdf5.c',
-               'c/io_wrappers.c']
+               'c/utilities.c']
     if int(dict(define_macros).get('GPAW_WITH_HDF5', 0)):
         sources += glob('c/h5py/*.c')
         sources += glob('c/h5py/lzf/*.c')

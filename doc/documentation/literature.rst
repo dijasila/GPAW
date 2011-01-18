@@ -420,7 +420,9 @@ Publications using the gpaw code
 
    `Chemical accuracy for the van der Waals density functional`__
 
-   __ http://arxiv.org/abs/0910.0438
+   \J. Phys.: Condens. Matter **22**, 022201 (2010)
+
+   __ http://dx.doi.org/10.1088/0953-8984/22/2/022201
 
    .. 10 December 2009
 
@@ -645,3 +647,14 @@ Publications using the gpaw code
    __ http://dx.doi.org/10.1016/j.cplett.2010.10.040
 
    .. 20 October 2010
+
+#) Dayadeep S. Monder and Kunal Karan
+
+   `Ab Initio Adsorption Thermodynamics of H2S and H2 on Ni(111): The
+   Importance of Thermal Corrections and Multiple Reaction Equilibria`__
+
+   J. Phys. Chem. C, 2010, 114 (51), pp 22597-22602
+
+   __ http://dx.doi.org/10.1021/jp1076774
+
+   .. 6 December 2010

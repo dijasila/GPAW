@@ -35,7 +35,7 @@ from glob import glob
 from os.path import join, isfile
 
 __all__ = ['GPAW', 'Calculator',
-           'Mixer', 'MixerSum', 'MixerDif',
+           'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
            'PoissonSolver',
            'FermiDirac',
            'restart']
@@ -65,6 +65,7 @@ sl_default = None
 sl_diagonalize = None
 sl_inverse_cholesky = None
 sl_lcao = None
+buffer_size = None
 extra_parameters = {}
 profile = False
 i = 1
@@ -170,6 +171,9 @@ while len(sys.argv) > i:
                     sl_lcao.append(int(sl_args[sl_args_index]))
                 else:
                     sl_lcao.append(sl_args[sl_args_index])
+    elif arg.startswith('--buffer_size='):
+        # Buffer size for MatrixOperator in MB
+        buffer_size = int(arg.split('=')[1])
     elif arg.startswith('--gpaw='):
         extra_parameters = eval('dict(%s)' % arg[7:])
     elif arg == '--gpaw':
@@ -237,7 +241,7 @@ if 'setup_path' in extra_parameters:
     setup_paths = extra_parameters['setup_path'].split(':') + setup_paths
 
 from gpaw.aseinterface import GPAW
-from gpaw.mixer import Mixer, MixerSum, MixerDif
+from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
 from gpaw.poisson import PoissonSolver
 from gpaw.occupations import FermiDirac
 

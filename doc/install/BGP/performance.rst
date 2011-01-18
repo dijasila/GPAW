@@ -99,10 +99,10 @@ single-core peak performance.
 
 |mapping1|		|mapping2|
 
-.. |mapping1| image:: ../../_static/bgp_mapping1.png	
+.. |mapping1| image:: bgp_mapping1.png	
    :width: 40 % 
   
-.. |mapping2| image:: ../../_static/bgp_mapping2.png
+.. |mapping2| image:: bgp_mapping2.png
    :width: 40 %
 
 For the mapping on the *(Right)* above image, there are 
@@ -111,7 +111,7 @@ distinguishing.
 
 |intranode|
 
-.. |intranode| image:: ../../_static/bgp_mapping_intranode.png
+.. |intranode| image:: bgp_mapping_intranode.png
    :width: 60 %
 
 The boxes in these images represent a node and the numbers inside
@@ -191,6 +191,12 @@ can be summarized as follows::
 
 Setting the value of nblocks
 ============================
+The documentation below will be partially deprecated in the
+future. Use ``buffer_size=2048`` and nblocks will be automatically
+computed on the fly in the SVN version 7520 and higher. Refer to 
+:ref:`manual_parallel` for more information about the ``buffer_size``
+keyword.
+
 The computation of the hamiltonian and overlap matrix elements, as well as
 the computation of the new wavefunctions, is accomplished by a hand-coded 
 parallel matrix-multiply ``hs_operators.py`` employing a 1D systolic
@@ -220,7 +226,7 @@ There are thus a number of constraints on the value of nbands:
 
 1) ``nbands/B`` must be integer divisible
 
-#) ``nbands/B/K`` must be integer divisible
+#) ``nbands/B/K`` must be integer divisible. No longer applicable in SVN verison 7520 and higher.
 
 #) size of wavefunction block ~ 2 MB
 

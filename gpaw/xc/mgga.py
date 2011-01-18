@@ -10,6 +10,17 @@ from gpaw.lfc import LFC
 
 class MGGA(GGA):
     orbital_dependent = True
+
+    def __init__(self, kernel, nn=1):
+        """Meta GGA functional.
+
+        nn: int
+            Number of neighbor grid points to use for FD stencil for
+            wave function gradient.
+        """
+        self.nn = nn
+        GGA.__init__(self, kernel)
+        
     def set_grid_descriptor(self, gd):
         GGA.set_grid_descriptor(self, gd)
         
@@ -25,7 +36,8 @@ class MGGA(GGA):
         self.dedtaut_sG = None
         self.restrict = hamiltonian.restrictor.apply
         self.interpolate = density.interpolator.apply
-        self.taugrad_v = [Gradient(wfs.gd, v, allocate=True).apply
+        self.taugrad_v = [Gradient(wfs.gd, v, n=self.nn, dtype=wfs.dtype,
+                                   allocate=True).apply
                           for v in range(3)]
 
     def set_positions(self, spos_ac):
@@ -55,7 +67,7 @@ class MGGA(GGA):
                                                
     def apply_orbital_dependent_hamiltonian(self, kpt, psit_xG,
                                             Htpsit_xG, dH_asp):
-        a_G = self.wfs.gd.empty()
+        a_G = self.wfs.gd.empty(dtype=psit_xG.dtype)
         for psit_G, Htpsit_G in zip(psit_xG, Htpsit_xG):
             for v in range(3):
                 self.taugrad_v[v](psit_G, a_G, kpt.phase_cd)

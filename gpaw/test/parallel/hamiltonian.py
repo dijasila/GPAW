@@ -4,7 +4,7 @@ import numpy as np
 from gpaw import parsize, parsize_bands
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.grid_descriptor import GridDescriptor
-from gpaw.blacs import BandLayouts
+from gpaw.kohnsham_layouts import BandLayouts
 from gpaw.mpi import world, distribute_cpus
 from gpaw.utilities import gcd
 from gpaw.utilities.lapack import inverse_cholesky
@@ -53,7 +53,7 @@ if world.rank == 0:
 # Set up band and grid descriptors:
 bd = BandDescriptor(N, band_comm, False)
 gd = GridDescriptor((G, G, G), (a, a, a), True, domain_comm, parsize=D)
-ksl = BandLayouts(gd, bd)
+ksl = BandLayouts(gd, bd, float)
 
 # Random wave functions:
 psit_mG = gd.empty(M)
@@ -70,7 +70,7 @@ vt_G = gd.empty()
 vt_G.fill(0.567)
 
 def run(psit_mG):
-    overlap = MatrixOperator(bd, gd, ksl, J)
+    overlap = MatrixOperator(ksl, J)
     def H(psit_xG):
         kin(psit_xG, overlap.work1_xG[:M // J])
         for psit_G, y_G in zip(psit_xG, overlap.work1_xG):
