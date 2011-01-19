@@ -3,15 +3,34 @@ import numpy as np
 from gpaw.utilities import erf
 
 
-class DipoleCorrectionPoissonSolver:
+class DipoleCorrection:
     """Dipole-correcting wrapper around another PoissonSolver."""
     def __init__(self, poissonsolver, direction):
-        self.corrector = DipoleCorrection(direction)
+        """Construct dipole correction object.
+        
+        poissonsolver is a GPAW Poisson solver.
+        direction is 0, 1 or 2 and specifies x, y or z.
+        """
+        self.corrector = DipoleCorrector(direction)
         self.poissonsolver = poissonsolver
-        self.relax_method = 0
-        self.nn = 17
+
+    def get_method(self):
+        description = self.poissonsolver.get_method()
+        return '%s with %s-axis dipole correction' % (description,
+                                                      'xyz'[self.corrector.c])
+    def get_stencil(self):
+        return self.poissonsolver.get_stencil()
 
     def set_grid_descriptor(self, gd):
+        for c in range(3):
+            if c == self.corrector.c:
+                if gd.pbc_c[c]:
+                    raise ValueError('System must be non-periodic along '
+                                     'dipole correction axis')
+            else:
+                if not gd.pbc_c[c]:
+                    raise ValueError('System must be periodic along axes '
+                                     'perpendicular to dipole correction')
         self.poissonsolver.set_grid_descriptor(gd)
 
     def initialize(self):
@@ -28,7 +47,7 @@ class DipoleCorrectionPoissonSolver:
         self.poissonsolver.estimate_memory(mem)
 
 
-class DipoleCorrection:
+class DipoleCorrector:
     def __init__(self, direction):
         self.c = direction
 
@@ -43,7 +62,10 @@ class DipoleCorrection:
         cell boundaries and beyond.
         """
         # This implementation is not particularly economical memory-wise
-        c = self.c        
+        if not gd.orthogonal:
+            raise ValueError('Dipole correction requires orthorhombic cell')
+        
+        c = self.c
         moment = gd.calculate_dipole_moment(rhot_g)[c]
         if abs(moment) < 1e-12:
             return gd.zeros(), gd.zeros()
