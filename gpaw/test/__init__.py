@@ -79,6 +79,7 @@ tests = [
     'nabla.py',
     'aeatom.py',
     'pbc.py',
+    'atoms_too_close.py',
     'poisson.py',
     'XC2.py',
     'multipoletest.py',
@@ -105,6 +106,7 @@ tests = [
     'symmetry.py',
     'pes.py',
     'elf.py',
+    'lebedev.py',
     'usesymm.py',
 #    'usesymm2.py',
     'eed.py',
@@ -161,16 +163,17 @@ tests = [
     'gllbatomic.py', 
     'ne_gllb.py',
     'ne_disc.py', 
-    'diamond_gllb.py',
     'wannier_ethylene.py',
     'CH4.py',
     'neb.py',
     'diamond_absorption.py',
     'aluminum_EELS.py',
-    'aluminum_EELS_lcao.py',
-    'aluminum_testcell.py',
     'dump_chi0.py',
     'au02_absorption.py',
+    'rpa_energy_N2.py',
+    'bse_aluminum.py',
+    'bse_diamond.py',
+    'bse_vs_lrtddft.py',
     'hgh_h2o.py',
     'apmb.py',
     'relax.py',
@@ -203,12 +206,14 @@ tests = [
     'dscf_lcao.py',
     'coreeig.py',
     'Cu.py',
+    'diamond_gllb.py',
     'exx.py',
     'h2o_dks.py',
     'nscfsic.py',
     'scfsic_h2.py',
     'scfsic_n2.py',
     'lb94.py',
+    'aluminum_EELS_lcao.py',
     'vdw/quick.py',
     'vdw/potential.py',
     'vdw/quick_spin.py',
@@ -232,6 +237,7 @@ tests = [
     'transport.py',
     'constant_electric_field.py',
     'stark_shift.py',
+    'aluminum_testcell.py',
     ]
 
 exclude = []
@@ -251,7 +257,10 @@ if mpi.size < 4:
     exclude += ['parallel/pblas.py',
                 'parallel/scalapack.py',
                 'parallel/realspace_blacs.py',
-                'AA_exx_enthalpy.py']
+                'AA_exx_enthalpy.py',
+                'bse_aluminum.py',
+                'bse_diamond.py',
+                'bse_vs_lrtddft.py']
 
 if mpi.size != 4:
     exclude += ['parallel/lcao_parallel.py']
@@ -272,7 +281,11 @@ except ImportError:
                 'aluminum_EELS_lcao.py',
                 'aluminum_testcell.py',
                 'au02_absorption.py',
-                'aeatom.py']
+                'bse_aluminum.py',
+                'bse_diamond.py',
+                'bse_vs_lrtddft.py',
+                'aeatom.py',
+                'rpa_energy_N2.py']
 
 for test in exclude:
     if test in tests:
