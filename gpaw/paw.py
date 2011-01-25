@@ -401,7 +401,7 @@ class PAW(PAWTextOutput):
             else:
                 dtype = complex
 
-        kd.set_symmetry(atoms, setups, par.usesymm, N_c)
+        kd.set_symmetry(atoms, magmom_av, setups, par.usesymm, N_c)
 
         nao = setups.nao
         nvalence = setups.nvalence - par.charge

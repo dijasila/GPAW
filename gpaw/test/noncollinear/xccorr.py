@@ -1,7 +1,7 @@
 import numpy as np
 import numpy.random as ra
 from gpaw.setup import create_setup
-from gpaw.xc.noncollinear import NonCollinearFunctional, NonCollinearLDAKernel
+from gpaw.xc.noncollinear import NonCollinearFunctional
 from gpaw.xc import XC
 from gpaw.test import equal
 from gpaw.utilities import pack
@@ -25,7 +25,6 @@ for xc in ['LDA', 'PBE']:
     E = xc.calculate_paw_correction(s, D_sp)
 
     xc = NonCollinearFunctional(xc)
-    #xc = XC(NonCollinearLDAKernel())
 
     Dnc_sp = np.zeros((4, nii))
     Dnc_sp[0] = D_sp.sum(0)

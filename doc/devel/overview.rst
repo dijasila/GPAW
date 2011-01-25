@@ -245,10 +245,10 @@ GPAW also has a few non-libxc kernels that one can use like this::
     xc = XC(XCKernel('PBE'))
 
 
-Colinear or not colinear
+Collinear or not collinear
 ========================
 
-For a noncolinear calculation, we work with a 2x2 density matrix:
+For a non-collinear calculation, we work with a 2x2 density matrix:
 
 .. math::
 
@@ -280,7 +280,7 @@ Here is how we abuse the ``s`` index to store both `n(\br)` and
 
 .. list-table::
 
-    * - colinear
+    * - collinear
       - nspins
       - ncomp
       - nspins*ncomp**2
@@ -301,9 +301,9 @@ Here is how we abuse the ``s`` index to store both `n(\br)` and
       - 4
       - [`n`, `m_x`, `m_y`, `m_z`]
 
-Notice that ``nspins=1`` for noncolinear calculations and the wave
+Notice that ``nspins=1`` for non-collinear calculations and the wave
 functions have ``ncomp=2`` components and we have twice as many bands
-as in a colinear calculation.
+as in a collinear calculation.
 
   
 

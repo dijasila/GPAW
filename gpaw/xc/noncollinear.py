@@ -35,7 +35,7 @@ class NonCollinearLDAKernel(LibXC):
         vnew_sg = np.zeros_like(nnew_sg)
         LibXC.calculate(self, e_g, nnew_sg, vnew_sg)
         dedn_sg[0] += 0.5 * vnew_sg.sum(0)
-        vnew_sg /= np.where(m_g < 1e-9, 1, m_g)
+        vnew_sg /= np.where(m_g < 1e-15, 1, m_g)
         dedn_sg[1:4] += 0.5 * vnew_sg[0] * m_vg
         dedn_sg[1:4] -= 0.5 * vnew_sg[1] * m_vg
 
@@ -61,7 +61,7 @@ class NonCollinearFunctional(XCFunctional):
         exc = self.xc.calculate(gd, nnew_sg, vnew_sg, e_g)
         if dedn_sg is not None:
             dedn_sg[0] += 0.5 * vnew_sg.sum(0)
-            vnew_sg /= np.where(m_g < 1e-9, 1, m_g)
+            vnew_sg /= np.where(m_g < 1e-15, 1, m_g)
             dedn_sg[1:4] += 0.5 * vnew_sg[0] * m_vg
             dedn_sg[1:4] -= 0.5 * vnew_sg[1] * m_vg
         return exc
@@ -248,7 +248,7 @@ class NonCollinearLCAOEigensolver(LCAO):
         H_sMsM[0, :, 0] += H_MM
         H_sMsM[1, :, 1] -= H_MM
         wfs.timer.stop('Potential matrix')
-        
+
         H_sMsM[0, :, 0] += wfs.T_qMM[kpt.q]
         H_sMsM[1, :, 1] += wfs.T_qMM[kpt.q]
 
@@ -321,21 +321,22 @@ class NonCollinearLCAOWaveFunctions(LCAOWaveFunctions):
             C2_nM=kpt.C_nsM[:, 1].copy())
         rho11_MM = self.ksl.calculate_density_matrix(f_n,
                                                      kpt.C_nsM[:, 1].copy())
-        kpt.rho_sMM = np.empty((4, self.ksl.nao, self.ksl.nao))
+        kpt.rho_sMM = np.empty((4, self.ksl.nao, self.ksl.nao), self.dtype)
         kpt.rho_sMM[0] = rho00_MM + rho11_MM
-        kpt.rho_sMM[1] = 2 * rho01_MM.real
-        kpt.rho_sMM[2] = -2 * rho01_MM.imag
+        kpt.rho_sMM[1] = rho01_MM + rho01_MM.T.conj()
+        kpt.rho_sMM[2] = 1j * (rho01_MM - rho01_MM.T.conj())
         kpt.rho_sMM[3] = rho00_MM - rho11_MM
         for rho_MM, nt_G in zip(kpt.rho_sMM, nt_sG):
             self.basis_functions.construct_density(rho_MM, nt_G, kpt.q)
 
     def calculate_atomic_density_matrices_k_point(self, D_sii, kpt, a, f_n):
-        P_Mi = kpt.P_aMi[a].real.copy()
+        P_Mi = kpt.P_aMi[a]
         rhoP_Mi = np.zeros_like(P_Mi)
         for rho_MM, D_ii in zip(kpt.rho_sMM, D_sii):
             gemm(1.0, P_Mi, rho_MM, 0.0, rhoP_Mi)
             gemm(1.0, rhoP_Mi, P_Mi.T.conj().copy(), 1.0, D_ii)
-            D_ii += D_ii.T.copy()
+            #is D_ii real?
+            D_ii += D_ii.T.copy()#hmmmmmmmmmmmmmmmmmmmmmmmmmmm
             D_ii *= 0.5
 
 

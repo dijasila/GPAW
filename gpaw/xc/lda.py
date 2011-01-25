@@ -56,7 +56,7 @@ class LDA(XCFunctional):
         if dEdD_sp is not None:
             dEdD_sp += np.inner((dEdD_sqL - dEtdD_sqL).reshape((nspins, -1)),
                                 c.B_pqL.reshape((len(c.B_pqL), -1)))
-
+            
         if addcoredensity:
             return e - et - c.Exc0
         else:

@@ -77,14 +77,14 @@ class KPointDescriptor:
         
         return self.mynks
 
-    def set_symmetry(self, atoms, setups, usesymm, N_c=None):
+    def set_symmetry(self, atoms, magmom_av, setups, usesymm, N_c=None):
         """Create symmetry object and construct irreducible Brillouin zone.
 
-        Parameters
-        ----------
         atoms: Atoms object
             Defines atom positions and types and also unit cell and
             boundary conditions.
+        magmom_av: ndarray
+            Initial magnetic moments.
         setups: instance of class Setups
             PAW setups for the atoms.
         usesymm: bool
@@ -109,14 +109,11 @@ class KPointDescriptor:
             self.ibzk_kc = self.bzk_kc.copy()
 
         else:
-            # Round off
-            magmom_a = atoms.get_initial_magnetic_moments().round(decimals=3)
-            id_a = zip(magmom_a, setups.id_a)
-
+            magmom_av = magmom_av.round(decimals=3)
+            id_a = zip(setups.id_a, *magmom_av.T)
             # Construct a Symmetry instance containing the identity operation
             # only
-            self.symmetry = Symmetry(id_a, atoms.get_cell() / Bohr,
-                                     atoms.get_pbc())
+            self.symmetry = Symmetry(id_a, atoms.get_cell() / Bohr, atoms.pbc)
 
             if usesymm:
                 # Find symmetry operations of atoms
