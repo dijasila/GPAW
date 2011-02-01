@@ -1,7 +1,7 @@
 import os
 import sys
 import time
-from hdf5_highlevel import File, selection_from_list
+from hdf5_highlevel import File, HyperslabSelection
 
 import numpy as np
 
@@ -22,7 +22,7 @@ class Writer:
            if os.path.isfile(name):
                os.rename(name, name[:-5] + '.old'+name[-5:])
 
-        self.file = File(name, 'w', comm)
+        self.file = File(name, 'w', comm.get_c_object())
         self.dims_grp = self.file.create_group("Dimensions")
         self.params_grp = self.file.create_group("Parameters")
         self.file.attrs['title'] = 'gpaw_io version="0.1"'
@@ -37,40 +37,43 @@ class Writer:
     def __setitem__(self, name, value):
         self.params_grp.attrs[name] = value
 
-    def add(self, name, shape, array=None, dtype=None, units=None, 
-            parallel=False):
+    def add(self, name, shape, array=None, dtype=None, 
+            parallel=False, write=True):
         if array is not None:
             array = np.asarray(array)
 
-        self.dtype, type, itemsize = self.get_data_type(array, dtype)
+        if dtype is not None:
+            self.dtype = dtype
+        elif array is not None:
+            self.dtype = array.dtype
+        else:
+            raise TypeError('Datatype is not known')
+
+        # self.dtype, type, itemsize = self.get_data_type(array, dtype)
         shape = [self.dims[dim] for dim in shape]
         if not shape:
             shape = [1,]
-        self.dset = self.file.create_dataset(name, type, shape)
+        self.dset = self.file.create_dataset(name, shape, self.dtype)
         if array is not None:
-            self.fill(array, parallel=parallel)
+            self.fill(array, parallel=parallel, write=write)
 
-    def fill(self, array, indices, **kwargs):
+    def fill(self, array, *indices, **kwargs):
 
-        try:
-            parallel = kwargs['parallel']
-        except KeyError:
-            parallel = False
-
-        try:
-            write = kwargs['write']
-        except KeyError:
-            write = True
+        parallel = kwargs.pop('parallel', False)
+        write = kwargs.pop('write', True)
 
         if parallel:
             collective = True
         else:
             collective = False
 
-        if write:
-            self.dset.write(array, indices, collective)            
+        if not write:
+            selection = None
+        elif indices: 
+            selection = HyperslabSelection(indices, self.dset.shape)
         else:
-            self.dset.write(array, None, collective)            
+            selection = 'all'
+        self.dset.write(array, selection, collective)            
 
     def get_data_type(self, array=None, dtype=None):
         if dtype is None:
@@ -93,11 +96,14 @@ class Writer:
     def close(self):
         mtime = int(time.time())
         self.file.attrs['mtime'] = mtime
+        self.dims_grp.close()
+        self.params_grp.close()
+        self.dset.close()
         self.file.close()
         
 class Reader:
     def __init__(self, name, comm=False):
-        self.file = File(name, 'r')
+        self.file = File(name, 'r', comm.get_c_object())
         self.params_grp = self.file['Parameters']
         self.hdf5_reader = True
 
@@ -116,12 +122,12 @@ class Reader:
     def has_array(self, name):
         return name in self.file.keys()
     
-    def get(self, name, indices, **kwargs):
+    def get(self, name, *indices, **kwargs):
 
-        try:
-            parallel = kwargs['parallel']
-        except KeyError:
-            parallel = False
+        parallel = kwargs.pop('parallel', False)
+        read = kwargs.pop('read', True)
+        out = kwargs.pop('out', None)
+        assert not kwargs
 
         if parallel:
             collective = True
@@ -129,16 +135,33 @@ class Reader:
             collective = False
 
         dset = self.file[name]
-        offset, stride, count = selection_from_list(indices)
-        mshape = tuple(count)
-        array = np.empty(mshape, dset.dtype)
-        dset.read(array, indices, collective)
+        if not read:
+            selection = None
+            mshape = dset.shape
+        elif indices:
+            selection = HyperslabSelection(indices, dset.shape)
+            mshape = selection.mshape
+        else:
+            selection = 'all'
+            mshape = dset.shape
+
+        if out is None:
+            array = np.ndarray(mshape, dset.dtype, order='C')
+        else:
+            assert type(out) is np.ndarray
+            # XXX Check the shapes are compatible
+            # assert out.shape == mshape
+            assert out.dtype == dset.dtype
+            array = out
+
+        dset.read(array, selection, collective)
+
         if array.shape == ():
             return array.item()
         else:
             return array
 
-    def get_reference(self, name, indices):
+    def get_reference(self, name, *indices):
         dset = self.file[name]
         array = dset[indices]
         return array

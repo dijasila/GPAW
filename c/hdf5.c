@@ -1,8 +1,23 @@
 /*
- *  Copyright (C) 2010       CSC - IT Center for Science Ltd.
+ *  Copyright (C) 2010-2011     CSC - IT Center for Science Ltd.
  *  Please see the accompanying LICENSE file for further information. */
 
-/* Light weight Python interface to HDF5 functions needed by GPAW */
+/* Light weight Python interface to HDF5 functions needed by GPAW
+
+   Generally, HDF5 object identifiers are integers and they are
+   passed as such between Python and C. All other data to 
+   HDF5 functions is passed in NumPy arrays. At the moment no checks are 
+   made for ensuring that data actually is NumPy array.
+
+   The Python interface functions return either
+     object identifier as int
+     None
+   with the exceptions
+     tuple from h5s_get_shape
+     string from h5l_get_name_by_idx 
+*/
+
+   
 
 #ifdef GPAW_WITH_HDF5
 
@@ -81,6 +96,19 @@ PyObject* h5g_create(PyObject *self, PyObject *args)
   return Py_BuildValue("i", gid);
 }
 
+PyObject* h5g_get_num_objs(PyObject *self, PyObject *args)
+{
+  int id;
+  if (!PyArg_ParseTuple(args, "i", &id))
+    return NULL;
+
+  H5G_info_t group_info;
+  H5Gget_info(id, &group_info);
+  int nobjs = group_info.nlinks;
+  return Py_BuildValue("i", nobjs);
+}
+  
+
 
 PyObject* h5g_close(PyObject *self, PyObject *args)
 {
@@ -101,6 +129,10 @@ PyObject* h5a_open(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "is", &loc_id, &name))
     return NULL;
 
+  // Check first for the existence
+  if (H5Aexists(loc_id, name) == 0 )
+    return PyErr_Format(PyExc_KeyError, "HDF5 Attribute %s does not  exist",
+                        name);
   int aid = H5Aopen(loc_id, name, H5P_DEFAULT);
   return Py_BuildValue("i", aid);
 }
@@ -172,6 +204,17 @@ PyObject* h5a_get_type(PyObject *self, PyObject *args)
   return Py_BuildValue("i", datatype);
 }
 
+PyObject* h5a_exists_by_name(PyObject *self, PyObject *args)
+{
+  int id;
+  const char* name;
+  if (!PyArg_ParseTuple(args, "is", &id, &name))
+    return NULL;
+
+  int exists = H5Aexists_by_name(id, ".", name, H5P_DEFAULT);
+  return Py_BuildValue("b", exists);
+}
+
 PyObject* h5a_close(PyObject *self, PyObject *args)
 {
   int id;
@@ -218,29 +261,19 @@ PyObject* h5_type_from_numpy(PyObject *self, PyObject *args)
     datatype = H5Tcopy(H5T_NATIVE_DOUBLE);
   } else if (type == NPY_LONG) {
     datatype = H5Tcopy(H5T_NATIVE_LONG);
+  } else if (type == NPY_BOOL) {
+    datatype = H5Tenum_create(H5T_NATIVE_INT8);
+    long value;
+    value = 0;
+    H5Tenum_insert(datatype, "FALSE", &value);
+    value = 1;
+    H5Tenum_insert(datatype, "TRUE", &value);
   } else if (type == NPY_CDOUBLE) {
     datatype = H5Tcreate(H5T_COMPOUND, sizeof(double complex));
     H5Tinsert(datatype, "re", 0, H5T_NATIVE_DOUBLE);
     H5Tinsert(datatype, "im", sizeof(double), H5T_NATIVE_DOUBLE);
   } else {
     return PyErr_Format(PyExc_RuntimeError, "Unsupportted datatype");
-  }
-
-  return Py_BuildValue("i", datatype);
-}
-
-PyObject* numpy_type_from_h5(PyObject *self, PyObject *args)
-{
-  int datatype;
-  if (!PyArg_ParseTuple(args, "i", &datatype))
-    return NULL;
-
-  int type;
-  if (datatype == H5T_NATIVE_DOUBLE) {
-    type = NPY_DOUBLE;
-  } else {
-    printf("WTF\n");
-    PyErr_SetString(PyExc_RuntimeError, "Unsupportted datatype for h5a_write");
   }
 
   return Py_BuildValue("i", datatype);
@@ -277,16 +310,23 @@ PyObject* h5s_select_hyperslab(PyObject *self, PyObject *args)
   PyArrayObject* np_offset;
   PyArrayObject* np_stride;
   PyArrayObject* np_count;
-  // PyArrayObject* np_block;
-  if (!PyArg_ParseTuple(args, "iOOO", &dataspace, &np_offset, &np_stride, 
-			&np_count))
+  PyArrayObject* np_block;
+  if (!PyArg_ParseTuple(args, "iOOOO", &dataspace, &np_offset, &np_stride, 
+			&np_count, &np_block))
     return NULL;
-
+  
+  // None can be passed to indicate use of default values e.g. NULL for
+  // stride and block
   hsize_t* offset = (hsize_t *)  PyArray_DATA(np_offset);
-  hsize_t* stride = (hsize_t *)  PyArray_DATA(np_stride);
+  hsize_t* stride = NULL;
+  if ((PyObject *)np_stride != Py_None) 
+    stride = (hsize_t *)  PyArray_DATA(np_stride);
   hsize_t* count = (hsize_t *)  PyArray_DATA(np_count);
+  hsize_t* block = NULL;
+  if ((PyObject *)np_block != Py_None) 
+    block = (hsize_t *)  PyArray_DATA(np_block);
 
-  H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset, stride, count, NULL);
+  H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset, stride, count, block);
 
   Py_RETURN_NONE;
 }
@@ -310,14 +350,14 @@ PyObject* h5s_get_shape(PyObject *self, PyObject *args)
 
   int rank = H5Sget_simple_extent_ndims(dataspace);
   hsize_t* dims = (hsize_t *) malloc(rank * sizeof(hsize_t));
-  H5Sget_simple_extent_dims(dataspace, dims, NULL);
+  rank = H5Sget_simple_extent_dims(dataspace, dims, NULL);
   PyObject* shape = PyTuple_New(rank);
   int i;
-  for (0; i < rank; i++)
+  for (i=0; i < rank; i++)
     {
       PyTuple_SetItem(shape, i, PyInt_FromLong(dims[i]));
     }
-  // XXX Are reference counts OK?
+  free(dims);
   return shape;
 }
 
@@ -373,10 +413,10 @@ PyObject* h5d_write(PyObject *self, PyObject *args)
     return NULL;
 
   char* buf = PyArray_DATA(data);
-
   H5Dwrite(did, memtype, memspace, filespace, pid, buf);
   
-  Py_RETURN_NONE;
+  return Py_BuildValue("i", err);
+  // Py_RETURN_NONE;
 }
 
 PyObject* h5d_read(PyObject *self, PyObject *args)
@@ -400,7 +440,6 @@ PyObject* h5d_read(PyObject *self, PyObject *args)
 
 PyObject* h5d_get_space(PyObject *self, PyObject *args)
 {
-  // Returns the dataspace as tuple
   int did;  
   if (!PyArg_ParseTuple(args, "i", &did))
     return NULL;
@@ -411,14 +450,12 @@ PyObject* h5d_get_space(PyObject *self, PyObject *args)
 
 PyObject* h5d_get_type(PyObject *self, PyObject *args)
 {
-  // Returns the dataspace as tuple
   int did;  
   if (!PyArg_ParseTuple(args, "i", &did))
     return NULL;
 
   hid_t filetype = H5Dget_type(did); 
   hid_t datatype = H5Tget_native_type(filetype, H5T_DIR_ASCEND);
-  printf("Datatype %d\n", datatype);
   return Py_BuildValue("i", datatype);
 }
 
@@ -456,12 +493,13 @@ PyObject* h5p_set_fapl_mpio(PyObject *self, PyObject *args)
   if (comm_obj != Py_None)
     {
       comm = ((MPIObject*)comm_obj)->comm;
-      int nprocs;
+      // The following was needed at some point due to bug in Cray MPI
+      /* int nprocs;   
       MPI_Comm_size(comm, &nprocs);
       char tmp[20];
       MPI_Info_create(&info);
       sprintf(tmp,"%d", nprocs);
-      MPI_Info_set(info,"cb_nodes",tmp);
+      MPI_Info_set(info,"cb_nodes",tmp); */
     }
   H5Pset_fapl_mpio(plist_id, comm, info);
   Py_RETURN_NONE;
@@ -523,11 +561,36 @@ PyObject* h5o_close(PyObject *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
+// List functions
+PyObject* h5l_get_name_by_idx(PyObject *self, PyObject *args)
+{
+  int id;
+  int idx;
+  if (!PyArg_ParseTuple(args, "ii", &id, &idx))
+    return NULL;
+
+  ssize_t size;
+  char *name;
+  
+  // Get size of the name, add 1 for NULL terminator
+  size = 1 + H5Lget_name_by_idx(id, ".", H5_INDEX_NAME, H5_ITER_INC,
+				idx, NULL, 0, H5P_DEFAULT);
+  name = (char *) malloc(size);
+  H5Lget_name_by_idx(id, ".", H5_INDEX_NAME, H5_ITER_INC, idx, name,
+		     (size_t) size, H5P_DEFAULT);
+
+  PyObject* retval = Py_BuildValue("s", name);
+  free(name);
+  return retval;
+}
+
+
 static PyMethodDef functions[] = {
   {"h5f_open", h5f_open, METH_VARARGS, 0},
   {"h5f_create", h5f_create, METH_VARARGS, 0},
   {"h5f_close", h5f_close, METH_VARARGS, 0},
   {"h5g_open", h5g_open, METH_VARARGS, 0},
+  {"h5g_get_num_objs", h5g_get_num_objs, METH_VARARGS, 0},
   {"h5g_create", h5g_create, METH_VARARGS, 0},
   {"h5g_close", h5g_close, METH_VARARGS, 0},
   {"h5a_open", h5a_open, METH_VARARGS, 0},
@@ -536,6 +599,7 @@ static PyMethodDef functions[] = {
   {"h5a_read", h5a_read, METH_VARARGS, 0},
   {"h5a_get_space", h5a_get_space, METH_VARARGS, 0},
   {"h5a_get_type", h5a_get_type, METH_VARARGS, 0},
+  {"h5a_exists_by_name", h5a_exists_by_name, METH_VARARGS, 0},
   {"h5a_close", h5a_close, METH_VARARGS, 0},
   {"h5_type_from_numpy", h5_type_from_numpy, METH_VARARGS, 0},
   {"h5t_get_class", h5t_get_class, METH_VARARGS, 0},
@@ -553,6 +617,7 @@ static PyMethodDef functions[] = {
   {"h5d_get_space", h5d_get_space, METH_VARARGS, 0},
   {"h5d_get_type", h5d_get_type, METH_VARARGS, 0},
   {"h5d_close", h5d_close, METH_VARARGS, 0}, 
+  {"h5p_create", h5p_create, METH_VARARGS, 0}, 
 #ifdef PARALLEL
   {"h5p_set_fapl_mpio", h5p_set_fapl_mpio, METH_VARARGS, 0}, 
   {"h5p_set_dxpl_mpio", h5p_set_dxpl_mpio, METH_VARARGS, 0}, 
@@ -561,6 +626,7 @@ static PyMethodDef functions[] = {
   {"h5o_open", h5o_open, METH_VARARGS, 0}, 
   {"h5o_close", h5o_close, METH_VARARGS, 0}, 
   {"h5i_get_type", h5i_get_type, METH_VARARGS, 0}, 
+  {"h5l_get_name_by_idx", h5l_get_name_by_idx, METH_VARARGS, 0},
   {0, 0, 0, 0}
 };
 
@@ -572,6 +638,7 @@ PyMODINIT_FUNC init_hdf5(void)
   PyModule_AddIntConstant(m, "H5T_INTEGER", H5T_INTEGER);
   PyModule_AddIntConstant(m, "H5T_COMPOUND", H5T_COMPOUND);
   PyModule_AddIntConstant(m, "H5T_STRING", H5T_STRING);
+  PyModule_AddIntConstant(m, "H5T_ENUM", H5T_ENUM);
   PyModule_AddIntConstant(m, "H5P_DATASET_XFER", H5P_DATASET_XFER);
   PyModule_AddIntConstant(m, "H5P_FILE_ACCESS", H5P_FILE_ACCESS);
   PyModule_AddIntConstant(m, "H5P_DEFAULT", H5P_DEFAULT);
