@@ -415,8 +415,7 @@ PyObject* h5d_write(PyObject *self, PyObject *args)
   char* buf = PyArray_DATA(data);
   H5Dwrite(did, memtype, memspace, filespace, pid, buf);
   
-  return Py_BuildValue("i", err);
-  // Py_RETURN_NONE;
+  Py_RETURN_NONE;
 }
 
 PyObject* h5d_read(PyObject *self, PyObject *args)
