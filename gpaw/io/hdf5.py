@@ -42,14 +42,12 @@ class Writer:
         if array is not None:
             array = np.asarray(array)
 
-        if dtype is not None:
-            self.dtype = dtype
-        elif array is not None:
+        # self.dtype, type, itemsize = self.get_data_type(array, dtype)
+        if dtype is None:
             self.dtype = array.dtype
         else:
-            raise TypeError('Datatype is not known')
+            self.dtype = dtype
 
-        # self.dtype, type, itemsize = self.get_data_type(array, dtype)
         shape = [self.dims[dim] for dim in shape]
         if not shape:
             shape = [1,]
@@ -135,22 +133,22 @@ class Reader:
             collective = False
 
         dset = self.file[name]
-        if not read:
-            selection = None
-            mshape = dset.shape
-        elif indices:
+        if indices:
             selection = HyperslabSelection(indices, dset.shape)
             mshape = selection.mshape
         else:
             selection = 'all'
             mshape = dset.shape
 
+        if not read:
+            selection = None
+
         if out is None:
             array = np.ndarray(mshape, dset.dtype, order='C')
         else:
             assert type(out) is np.ndarray
             # XXX Check the shapes are compatible
-            # assert out.shape == mshape
+            assert out.shape == mshape
             assert out.dtype == dset.dtype
             array = out
 
