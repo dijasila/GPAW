@@ -261,12 +261,17 @@ PyObject* h5_type_from_numpy(PyObject *self, PyObject *args)
     datatype = H5Tcopy(H5T_NATIVE_DOUBLE);
   } else if (type == NPY_LONG) {
     datatype = H5Tcopy(H5T_NATIVE_LONG);
+  } else if (type == NPY_INT) {
+    datatype = H5Tcopy(H5T_NATIVE_INT);
   } else if (type == NPY_BOOL) {
     datatype = H5Tenum_create(H5T_NATIVE_INT8);
-    long value;
+    int value;
     value = 0;
+    // Convert the int value to int8 with HDF5
+    H5Tconvert(H5T_NATIVE_INT, H5T_NATIVE_INT8, 1, &value, NULL, H5P_DEFAULT);
     H5Tenum_insert(datatype, "FALSE", &value);
     value = 1;
+    H5Tconvert(H5T_NATIVE_INT, H5T_NATIVE_INT8, 1, &value, NULL, H5P_DEFAULT);
     H5Tenum_insert(datatype, "TRUE", &value);
   } else if (type == NPY_CDOUBLE) {
     datatype = H5Tcreate(H5T_COMPOUND, sizeof(double complex));
@@ -298,9 +303,14 @@ PyObject* h5s_create(PyObject *self, PyObject *args)
     return NULL;
 
   int rank = shape->dimensions[0];
-  hsize_t* dims = (hsize_t *) PyArray_DATA(shape);
+  int* dims_i = PyArray_DATA(shape);
+  // hsize_t may be larger than int so we need to copy
+  hsize_t* dims = (hsize_t *) malloc(rank * sizeof(hsize_t));
+  for (int i=0; i < rank; i++)
+    dims[i] = dims_i[i];
 
   int sid = H5Screate_simple(rank, dims, NULL);
+  free(dims);
   return Py_BuildValue("i", sid);
 }
 
@@ -317,16 +327,33 @@ PyObject* h5s_select_hyperslab(PyObject *self, PyObject *args)
   
   // None can be passed to indicate use of default values e.g. NULL for
   // stride and block
-  hsize_t* offset = (hsize_t *)  PyArray_DATA(np_offset);
+  int* temp = PyArray_DATA(np_offset);
+  int rank = np_offset->dimensions[0];
+  hsize_t* offset = (hsize_t *) malloc(rank * sizeof(hsize_t));
+  for (int i=0; i < rank; i++)
+    offset[i] = temp[i];
   hsize_t* stride = NULL;
   if ((PyObject *)np_stride != Py_None) 
-    stride = (hsize_t *)  PyArray_DATA(np_stride);
-  hsize_t* count = (hsize_t *)  PyArray_DATA(np_count);
+    {
+      temp = PyArray_DATA(np_stride);
+      stride = (hsize_t *) malloc(rank * sizeof(hsize_t));
+      for (int i=0; i < rank; i++)
+        stride[i] = temp[i];
+    }
+  temp = PyArray_DATA(np_count); 
+  hsize_t* count = (hsize_t *) malloc(rank * sizeof(hsize_t));
+  for (int i=0; i < rank; i++)
+    count[i] = temp[i]; 
   hsize_t* block = NULL;
   if ((PyObject *)np_block != Py_None) 
-    block = (hsize_t *)  PyArray_DATA(np_block);
+    return PyErr_Format(PyExc_NotImplementedError, "Block parameter");
 
   H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset, stride, count, block);
+
+  free(offset);
+  if (stride != NULL) 
+    free(stride);
+  free(count);
 
   Py_RETURN_NONE;
 }
