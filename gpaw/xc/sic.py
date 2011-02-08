@@ -50,9 +50,9 @@ def matrix_exponential(G_nn, dlt):
     O_nn  = np.diag(np.exp(1j*dlt*w_n))
     #
     if G_nn.dtype==complex:
-        U_nn = np.dot(V_nn.T.conj(),np.dot(O_nn, V_nn)).copy()
+        U_nn = np.dot(V_nn.T,np.dot(O_nn, V_nn)).copy()
     else:
-        U_nn = np.dot(V_nn.T.conj(),np.dot(O_nn, V_nn)).real.copy()
+        U_nn = np.dot(V_nn.T,np.dot(O_nn, V_nn)).real.copy()
     #        
     return U_nn
 
@@ -73,7 +73,7 @@ def ortho(W_nn, maxerr=1E-10):
     ndim = np.shape(W_nn)[1]
     #
     # overlap matrix
-    O_nn = np.dot(W_nn, W_nn.T.conj())
+    O_nn = np.dot(W_nn, W_nn.T)
     #
     # check error in orthonormality
     err = np.sum(np.abs(O_nn - np.eye(ndim)))
@@ -86,9 +86,9 @@ def ortho(W_nn, maxerr=1E-10):
         # diagonalization
         n_n = np.zeros(ndim, dtype=float)
         diagonalize(O_nn, n_n)
-        U_nn = O_nn.T.conj().copy()
+        U_nn = O_nn.T.copy()
         nsqrt_n = np.diag(1.0/np.sqrt(n_n))
-        X_nn = np.dot(np.dot(U_nn, nsqrt_n), U_nn.T.conj())
+        X_nn = np.dot(np.dot(U_nn, nsqrt_n), U_nn.T)
     #
     # apply orthonormalizing transformation
     O_nn = np.dot(X_nn, W_nn)
@@ -595,8 +595,8 @@ class SICSpin:
         self.V_mm = V_mm
 
         # Symmetrization of V and kappa-matrix:
-        K_mm = 0.5 * (V_mm - V_mm.T.conj())
-        V_mm = 0.5 * (V_mm + V_mm.T.conj())
+        K_mm = 0.5 * (V_mm - V_mm.T)
+        V_mm = 0.5 * (V_mm + V_mm.T)
 
         # evaluate the kinetic correction
         self.ekin = -np.trace(V_mm) * (3 - self.nspins) 
@@ -635,7 +635,7 @@ class SICSpin:
         D_ap = {}
         for a, P_mi in self.P_ami.items():
             P_i = P_mi[m]
-            D_ii = np.outer(P_i, P_i.conj()).real
+            D_ii = np.outer(P_i, P_i).real
             D_ap[a] = D_p = pack(D_ii)
             Q_aL[a] = np.dot(D_p, self.setups[a].Delta_pL)
 
@@ -975,7 +975,7 @@ class SICSpin:
 
             # Force from projectors
             for a, F_miv in F_amiv.items():
-                F_vi = F_miv[m].T.conj()
+                F_vi = F_miv[m].T
                 dH_ii = unpack(self.dH_amp[a][m])
                 P_i = self.P_ami[a][m]
                 F_v = np.dot(np.dot(F_vi, dH_ii), P_i)
@@ -1059,16 +1059,16 @@ class SICSpin:
             if (Gold!=0.0):
                 #
                 # conjugate gradient
-                G0        = np.sum(K_mm*K_mm.conj()).real
+                G0        = np.sum(K_mm*K_mm).real
                 beta      = G0/Gold
                 Gold      = G0
                 D_mm      = K_mm + beta*D_old_mm
                 #
-                G0        = np.sum(K_mm*D_mm.conj()).real
+                G0        = np.sum(K_mm*D_mm).real
             else:
                 #
                 # steepest-descent
-                G0        = np.sum(K_mm*K_mm.conj()).real
+                G0        = np.sum(K_mm*K_mm).real
                 Gold      = G0
                 D_mm      = K_mm
             #
@@ -1093,7 +1093,7 @@ class SICSpin:
                     V_mm, K_mm, norm = self.calculate_sic_matrixelements()
                     #
                     # projected length of the gradient at the new position
-                    G1 = np.sum(((K_mm-K0_mm)/step)*D_mm.conj()).real
+                    G1 = np.sum(((K_mm-K0_mm)/step)*D_mm).real
                     #
                     if (abs(E1-E0)<prec and E1>=E0):
                         #
