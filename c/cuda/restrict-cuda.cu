@@ -1,10 +1,6 @@
 /*  Copyright (C) 2003-2007  CAMP
  *  Please see the accompanying LICENSE file for further information. */
 
-//#include "bmgs.h"
-//#include <pthread.h>
-//#include "../extensions.h"
-
 #include <stdio.h>
 
 #include <time.h>
@@ -16,31 +12,28 @@
 
 
 #ifdef K
-struct RST1DA{
-  int thread_id;
-  int nthds;
-  const double* a;
-  int n;
-  int m;
-  double* b;
-};
-#ifndef CUGPAWCOMPLEX
-#define BLOCK_SIZEX 16
-#define BLOCK_SIZEY 8
 
-#define GPAW_MALLOC(T, n) (T*)(malloc((n) * sizeof(T)))
+#ifndef CUGPAWCOMPLEX
+#define BLOCK 16
+
 
 #endif
 
+#undef AC_X
+#undef AC_Y
+#undef ACK
+#define ACK (2*(K-1))
+#define AC_X (2*BLOCK+ACK)
+#define AC_Y (BLOCK)
 
+/*
 __global__ void RST1D_kernel(const Tcuda* a, int n, int m, Tcuda* b)
 {
-  a += K - 1;
 
-  int j=blockIdx.x*BLOCK_SIZEX+threadIdx.x;
+  int j=blockIdx.x*BLOCK+threadIdx.x;
   if (j>=m) return;
 
-  int i=blockIdx.y*BLOCK_SIZEY+threadIdx.y;
+  int i=blockIdx.y*BLOCK+threadIdx.y;
   if (i>=n) return;
 
   a += j * (n * 2 + K * 2 - 3) + i * 2;
@@ -69,14 +62,73 @@ __global__ void RST1D_kernel(const Tcuda* a, int n, int m, Tcuda* b)
 				   MULDT(-0.00244140625 , ADD(a[7] , a[-7]))))));
   
 }
+*/
+
+
+__global__ void RST1D_kernel(const Tcuda* a, int n, int m, Tcuda* b)
+{
+  __shared__ Tcuda ac[AC_Y*AC_X];
+  Tcuda *acp;
+
+  int jtid=threadIdx.x;
+  int j=blockIdx.x*BLOCK;
+
+
+  int itid=threadIdx.y;
+  int i=blockIdx.y*BLOCK;
+  int sizex=(n * 2 + K * 2 - 3);
+  
+  a += (j+itid) * sizex + i * 2+jtid;
+  b += (j+jtid) + (i+itid) * m ;
+
+  acp=ac+AC_X*(itid)+jtid+ACK/2;
+
+  acp[0]=a[0];
+  acp[BLOCK]=a[BLOCK];
+  if  (jtid<ACK/2){
+    acp[-ACK/2]=a[-ACK/2];
+    acp[2*BLOCK]=a[2*BLOCK];
+  }
+  acp=ac+AC_X*(jtid)+2*itid+ACK/2;
+  __syncthreads();
+  
+  if (((i+itid)<n) && ((j+jtid)<m)) {
+        
+    if      (K == 2)
+      b[0] = MULDT(0.5 , ADD(acp[0] ,
+			     MULDT(0.5 , ADD(acp[1] , acp[-1]))));
+    
+    else if (K == 4)
+      b[0] = MULDT(0.5 , ADD(acp[0] ,
+			     ADD(MULDT( 0.5625 , ADD(acp[1] , acp[-1])),
+				 MULDT(-0.0625 , ADD(acp[3] , acp[-3])))));
+    
+    else if (K == 6)
+      b[0] = MULDT(0.5 , ADD(ADD(acp[0] ,
+				 MULDT( 0.58593750 , ADD(acp[1] , acp[-1]))) ,
+			     ADD(MULDT(-0.09765625 , ADD(acp[3] , acp[-3])) ,
+				 MULDT( 0.01171875 , ADD(acp[5] , acp[-5])))));
+    
+    else
+      b[0] = MULDT(0.5 , 
+		   ADD(acp[0] ,
+		       ADD(ADD(MULDT( 0.59814453125 , ADD(acp[1] , acp[-1])) ,
+			       MULDT(-0.11962890625 , ADD(acp[3] , acp[-3]))) ,
+			   ADD(MULDT( 0.02392578125 , ADD(acp[5] , acp[-5])) ,
+			       MULDT(-0.00244140625 , ADD(acp[7] , acp[-7]))))));
+    
+  }
+}
 
 void RST1D(const Tcuda* a, int n, int m, Tcuda* b){
 
-  int gridy=(n+BLOCK_SIZEY-1)/BLOCK_SIZEY;
-
-  int gridx=(m+BLOCK_SIZEX-1)/BLOCK_SIZEX;
+  a += K - 1;
   
-  dim3 dimBlock(BLOCK_SIZEX,BLOCK_SIZEY); 
+  int gridy=(n+BLOCK-1)/BLOCK;
+
+  int gridx=(m+BLOCK-1)/BLOCK;
+  
+  dim3 dimBlock(BLOCK,BLOCK); 
   dim3 dimGrid(gridx,gridy);    
 
   RST1D_kernel<<<dimGrid, dimBlock, 0>>>(a,n,m, b);
@@ -88,38 +140,30 @@ void RST1D(const Tcuda* a, int n, int m, Tcuda* b){
 #else
 #  define K 2
 #  define RST1D Zcuda(bmgs_restrict1D2)
-#  define RST1DA Zcuda(bmgs_restrict1D2_args)
 #  define RST1D_kernel Zcuda(bmgs_restrict1D2_kernel)
 #  include "restrict-cuda.cu"
 #  undef RST1D
-#  undef RST1DA
 #  undef RST1D_kernel
 #  undef K
 #  define K 4
 #  define RST1D Zcuda(bmgs_restrict1D4)
-#  define RST1DA Zcuda(bmgs_restrict1D4_args)
 #  define RST1D_kernel Zcuda(bmgs_restrict1D4_kernel)
 #  include "restrict-cuda.cu"
 #  undef RST1D
-#  undef RST1DA
 #  undef RST1D_kernel
 #  undef K
 #  define K 6
 #  define RST1D Zcuda(bmgs_restrict1D6)
-#  define RST1DA Zcuda(bmgs_restrict1D6_args)
 #  define RST1D_kernel Zcuda(bmgs_restrict1D6_kernel)
 #  include "restrict-cuda.cu"
 #  undef RST1D
-#  undef RST1DA
 #  undef RST1D_kernel
 #  undef K
 #  define K 8
 #  define RST1D Zcuda(bmgs_restrict1D8)
-#  define RST1DA Zcuda(bmgs_restrict1D8_args)
 #  define RST1D_kernel Zcuda(bmgs_restrict1D8_kernel)
 #  include "restrict-cuda.cu"
 #  undef RST1D
-#  undef RST1DA
 #  undef RST1D_kernel
 #  undef K
 
@@ -149,7 +193,8 @@ extern "C"{
 #include "restrict-cuda.cu"
 
 extern "C"{
-  double bmgs_restrict_cuda_cpu(int k, double* a, const int n[3], double* b, double* w)
+  double bmgs_restrict_cuda_cpu(int k, double* a, const int n[3], double* b, 
+				double* w)
   {
     double *adev,*bdev,*wdev;
     size_t bsize;

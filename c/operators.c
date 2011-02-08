@@ -52,6 +52,10 @@ static void Operator_dealloc(OperatorObject *self)
     //gpaw_cudaSafeCall(cudaFree(self->buf_gpu));    
     // FIX THIS
     cudaFree(self->buf_gpu);    
+    cudaFreeHost(self->sendbuf);
+    cudaFreeHost(self->recvbuf);
+    cudaFree(self->sendbuf_gpu);
+    cudaFree(self->recvbuf_gpu);
   }
 #endif
   PyObject_DEL(self);
@@ -517,16 +521,15 @@ PyObject * NewOperatorObject(PyObject *obj, PyObject *args)
   self->bc = bc_init(LONGP(size), padding, padding, nb, comm, real, cfd);
   const int* size2 = self->bc->size2;
 #ifdef GPAW_CUDA
-  int chunksize = 1;
-  if (getenv("GPAW_CHUNK_SIZE") != NULL)
-    chunksize = atoi(getenv("GPAW_CHUNK_SIZE"));
   self->cuda = cuda;
   if (self->cuda) {
     // fprintf(stdout,"NewOp cuda true\n");
-    gpaw_cudaSafeCall(cudaMalloc(&(self->buf_gpu), sizeof(double) 
-				 * size2[0] * size2[1] * size2[2] 
-				 * self->bc->ndouble * chunksize * 
-				 GPAW_ASYNC2));
+    self->buf_gpu=NULL;
+    self->recvbuf=NULL;
+    self->sendbuf=NULL;
+    self->recvbuf_gpu=NULL;
+    self->sendbuf_gpu=NULL;
+    self->alloc_blocks=0;
     self->stencil_gpu = bmgs_stencil_to_gpu(&(self->stencil));
   }
 #endif

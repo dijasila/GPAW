@@ -32,7 +32,10 @@ static void Transformer_dealloc(TransformerObject *self)
     // FIX THIS
     cudaFree(self->buf_gpu);
     cudaFree(self->buf2_gpu);
-
+    cudaFreeHost(self->sendbuf);
+    cudaFreeHost(self->recvbuf);
+    cudaFree(self->sendbuf_gpu);
+    cudaFree(self->recvbuf_gpu);
   }
 #endif
   PyObject_DEL(self);
@@ -265,19 +268,14 @@ PyObject * NewTransformerObject(PyObject *obj, PyObject *args)
   self->cuda = cuda;
   if (self->cuda) {
     // fprintf(stdout,"NewTrans cuda true\n");
-    gpaw_cudaSafeCall(cudaMalloc(&(self->buf_gpu), sizeof(double) * 
-				 size2[0] * size2[1] * size2[2] * self->bc->ndouble));
-    if (interpolate)
-      // Much larger than necessary!  I don't have the energy right now to
-      // estimate the minimum size of buf2!
-      gpaw_cudaSafeCall(cudaMalloc(&(self->buf2_gpu), sizeof(double) * 
-				   16 * size2[0] * size2[1] * size2[2] * 
-				   self->bc->ndouble));
-    else
-      gpaw_cudaSafeCall(cudaMalloc(&(self->buf2_gpu), sizeof(double) * 
-				   size2[0] * size2[1] *
-				   (size2[2] - 2 * k + 3) / 2 *
-				   self->bc->ndouble));
+    self->buf_gpu=NULL;
+    self->buf2_gpu=NULL;
+    self->recvbuf=NULL;
+    self->sendbuf=NULL;
+    self->recvbuf_gpu=NULL;
+    self->sendbuf_gpu=NULL;
+    self->alloc_blocks=0;
+
   }
 #endif
   return (PyObject*)self;

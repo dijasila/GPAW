@@ -20,14 +20,16 @@
 int main(void)
 {
   bmgsstencil s,s2;
-   double h[3]={1.0, 1.0, 1.0};
-   //long   n[3]={6,6,6};
-   // long   n[3]={512,512,512};
-  //   long   n[3]={71,75,75};
-  //long   n[3]={143,151,151};
+  double h[3]={1.0, 1.0, 1.0};
+  //long   n[3]={16,16,40};
+  // long   n[3]={512,512,512};
+  //long   n[3]={71/1,71/1,103/1};
+  long   n[3]={71/1,71/1,71/1};
+  // long   n[3]={143,143,143};
+  //long   n[3]={32,32,32};
   int ntimes=1;
-  long   n[3]={256,256,256};
-    double *a,*b,*a_cuda,*b_cuda,error=0,*a_cuda2,*b_cuda2,*src,*src_cuda;
+  //long   n[3]={480,480,400};
+  double *a,*b,*a_cuda,*b_cuda,error=0,*a_cuda2,*b_cuda2,*src,*src_cuda,*a_cuda_small;
   size_t asize,bsize;
 
   struct timeval  t0, t1, t2; 
@@ -44,6 +46,7 @@ int main(void)
   
   a=malloc(asize*sizeof(double));
   a_cuda=malloc(asize*sizeof(double));
+  a_cuda_small=malloc(bsize*sizeof(double));
   a_cuda2=malloc(asize*sizeof(double));
   b=malloc(bsize*sizeof(double));  
   b_cuda=malloc(bsize*sizeof(double));  
@@ -66,16 +69,31 @@ int main(void)
     fprintf(stdout,"(%lf %ld)\t", s.coefs[i], s.offsets[i]);
   fprintf(stdout,"\n%ld %ld %ld %ld %ld %ld\n",s.j[0],s.j[1],s.j[2],s.n[0],s.n[1],s.n[2]);
   
-    cudaSetDevice(2); 
-    srand((unsigned int) time(NULL));
-    //srand(0);
+  cudaSetDevice(1); 
+  // cudaThreadSetCacheConfig(cudaFuncCachePreferL1);
+  //srand((unsigned int) time(NULL));
+  srand(0);
 
-  for (int i=0;i<asize;i++){
-    a[i]=rand()/(double)RAND_MAX;
-    a_cuda[i]=a[i];
-  }
+
+  //  memset(a,0,sizeof(double)*asize);
+  //memset(a_cuda,0,sizeof(double)*asize);
+  for (int i0;i0<s.n[0];i0++)
+    for (int i1;i1<s.n[1];i1++)
+      for (int i2;i2<s.n[2];i2++){
+	int sizez=s.j[2]+s.n[2];  
+	int sizeyz=s.j[1]+s.n[1]*sizez;
+	int i=i0*sizeyz+i1*sizez+i2;
+	i+=(s.j[0]+s.j[1]+s.j[2])/2;
+	a[i]=rand()/(double)RAND_MAX;
+	int ii=i0*s.n[1]*s.n[2]+i1*s.n[2]+i2;
+	a_cuda[i]=a[i];	
+	a_cuda_small[ii]=a[i];	
+      }	
+  
   bmgs_fd_cuda_cpu(&s2,a_cuda2,b_cuda2);
 
+  memset(b,0,bsize*sizeof(double));  
+  memset(b_cuda,0,bsize*sizeof(double));  
   gettimeofday(&t0,NULL);
   
   for (int i=0;i<ntimes;i++) bmgs_fd(&s,a,b);
@@ -83,25 +101,13 @@ int main(void)
   flops3=0;
   for (int i=0;i<ntimes;i++) flops3+=bmgs_fd_cuda_cpu(&s,a_cuda,b_cuda);
   gettimeofday(&t2,NULL);
-  //flops=2*s.ncoefs*bsize/(t1.tv_sec+t1.tv_usec/1000000.0-t0.tv_sec-t0.tv_usec/1000000.0); 
-  //flops2=2*s.ncoefs*bsize/(t2.tv_sec+t2.tv_usec/1000000.0-t1.tv_sec-t1.tv_usec/1000000.0);
 
   flops=(t1.tv_sec+t1.tv_usec/1000000.0-t0.tv_sec-t0.tv_usec/1000000.0); 
   flops2=(t2.tv_sec+t2.tv_usec/1000000.0-t1.tv_sec-t1.tv_usec/1000000.0);
-  //  printf ("%dx%dx%d  \t CPU: %f\t GPU: %f\t GPU NOMEMTR: %f\n",s.n[0],s.n[1],s.n[2], flops/1000000000.0,flops2/1000000000.0,flops3/1000000000.0);
   printf("bmgs_fd %d times:\n",ntimes);
   printf ("%dx%dx%d  \t CPU: %f\t GPU: %f\t GPU NOMEMTR: %f ms\n",s.n[0],s.n[1],s.n[2],1000*flops,1000*flops2,1000*flops3);
-  printf ("%dx%dx%d  \t CPU: %f\t GPU: %f\t GPU NOMEMTR: %f Gflops\n",s.n[0],s.n[1],s.n[2],2*s.ncoefs*bsize/(1000000000.0*flops),s.n[2],2*s.ncoefs*bsize/(1000000000.0*flops2),s.n[2],2*s.ncoefs*bsize/(1000000000.0*flops3));
-  /*  for (int n0=0;n0<n[0];n0++){
-    for (int n1=0;n1<n[1];n1++){
-      fprintf(stdout,"%lf ",b[n[2]*n[1]*n0+n[2]*n1]);
-    }    
-    fprintf(stdout,"\n");
-  }
-  */
-  /*  for (int i=0;i<bsize;i++){
-    error+=(b[i]-b_cuda[i])*(b[i]-b_cuda[i]);
-    }*/
+  printf ("%dx%dx%d  \t CPU: %f\t GPU: %f\t GPU NOMEMTR: %f MPix/s\n",s.n[0],s.n[1],s.n[2],bsize/(1000000.0*flops),s.n[2],bsize/(1000000.0*flops2),s.n[2],bsize/(1000000.0*flops3));
+
   for (int i0=0;i0<s.n[0];i0++){
     for (int i1=0;i1<s.n[1]-0;i1++){
       for (int i2=0;i2<s.n[2]-0;i2++){
@@ -111,22 +117,55 @@ int main(void)
     }
   }
   
-  error=error/(double)bsize;
-  fprintf(stdout,"mean sqr error %lf\n",error);
+  
+  fprintf(stdout,"sum sqr error %lf\n",error);
+  
+  gettimeofday(&t1,NULL);
+  flops3=0;
+  for (int i=0;i<ntimes;i++) flops3+=bmgs_fd_cuda_cpu_bc(&s,a_cuda_small,b_cuda);
+  gettimeofday(&t2,NULL);
+  
+  flops2=(t2.tv_sec+t2.tv_usec/1000000.0-t1.tv_sec-t1.tv_usec/1000000.0);
+  printf("bmgs_fd_bc %d times:\n",ntimes);
+  printf ("%dx%dx%d  \t CPU: %f\t GPU: %f\t GPU NOMEMTR: %f ms\n",s.n[0],s.n[1],s.n[2],1000*flops,1000*flops2,1000*flops3);
+  printf ("%dx%dx%d  \t CPU: %f\t GPU: %f\t GPU NOMEMTR: %f MPix/s\n",s.n[0],s.n[1],s.n[2],bsize/(1000000.0*flops),s.n[2],bsize/(1000000.0*flops2),s.n[2],bsize/(1000000.0*flops3));
 
-  for (int i=0;i<asize;i++){
-    a[i]=rand()/(double)RAND_MAX;
-    a_cuda[i]=a[i];
+  for (int i0=0;i0<s.n[0];i0++){
+    for (int i1=0;i1<s.n[1]-0;i1++){
+      for (int i2=0;i2<s.n[2]-0;i2++){
+	long i=i0*s.n[1]*s.n[2]+i1*s.n[2]+i2; 
+	error+=(b[i]-b_cuda[i])*(b[i]-b_cuda[i]);
+      }
+    }
   }
+  
+
+  fprintf(stdout,"sum sqr error %lf\n",error);
+
+
+
+
+  memset(a,0,sizeof(double)*asize);
+  memset(a_cuda,0,sizeof(double)*asize);
+  for (int i0;i0<s.n[0];i0++)
+    for (int i1;i1<s.n[1];i1++)
+      for (int i2;i2<s.n[2];i2++){
+	int i=s.j[0]/2+s.n[0]*(s.j[1]/2+s.n[1]*(s.n[2]+s.j[2]/2));
+	a[i]=rand()/(double)RAND_MAX;
+	a_cuda[i]=a[i];	
+      }	
+
   int ni[3]={n[0],n[1],n[2]};
   int c[3]={0,0,0};
   
+  memset(b,0,bsize*sizeof(double));  
+  memset(b_cuda,0,bsize*sizeof(double));  
   gettimeofday(&t0,NULL);
   
   for (int i=0;i<ntimes;i++) bmgs_paste(a,ni,b,ni,c);
   gettimeofday(&t1,NULL);
   flops3=0;
-  for (int i=0;i<ntimes;i++) flops3+=bmgs_paste_cuda_cpu(a,ni,b,ni,c);
+  for (int i=0;i<ntimes;i++) flops3+=bmgs_paste_clear_cuda_cpu(a_cuda,ni,b_cuda,ni,c);
   gettimeofday(&t2,NULL);
   //flops=2*s.ncoefs*bsize/(t1.tv_sec+t1.tv_usec/1000000.0-t0.tv_sec-t0.tv_usec/1000000.0); 
   //flops2=2*s.ncoefs*bsize/(t2.tv_sec+t2.tv_usec/1000000.0-t1.tv_sec-t1.tv_usec/1000000.0);
@@ -136,7 +175,7 @@ int main(void)
   //  printf ("%dx%dx%d  \t CPU: %f\t GPU: %f\t GPU NOMEMTR: %f\n",s.n[0],s.n[1],s.n[2], flops/1000000000.0,flops2/1000000000.0,flops3/1000000000.0);
   printf("bmgs_paste %d times:\n",ntimes);
   printf ("%dx%dx%d  \t CPU: %f\t GPU: %f\t GPU NOMEMTR: %f ms\n",s.n[0],s.n[1],s.n[2],1000*flops,1000*flops2,1000*flops3);
-
+  printf ("%dx%dx%d  \t CPU: %f\t GPU: %f\t GPU NOMEMTR: %f MPix/s\n",s.n[0],s.n[1],s.n[2],bsize/(1000000.0*flops),s.n[2],bsize/(1000000.0*flops2),s.n[2],bsize/(1000000.0*flops3));
   /*  for (int n0=0;n0<n[0];n0++){
     for (int n1=0;n1<n[1];n1++){
       fprintf(stdout,"%lf ",b[n[2]*n[1]*n0+n[2]*n1]);
@@ -156,27 +195,52 @@ int main(void)
     }
   }
   
-  error=error/(double)bsize;
-  fprintf(stdout,"mean sqr error %lf\n",error);
+  //error=error/(double)bsize;
+  fprintf(stdout,"sum sqr error %lf\n",error);
 
 
 
 
 
 
-  for (int i=0;i<asize;i++){
+  /*  for (int i=0;i<asize;i++){
     a[i]=rand()/(double)RAND_MAX;
     a_cuda[i]=a[i];
-  }  
+    } */ 
   for (int i=0;i<bsize;i++){
     src[i]=rand()/(double)RAND_MAX;
     b[i]=rand()/(double)RAND_MAX;
     b_cuda[i]=b[i];
+    b_cuda2[i]=b[i];
     src_cuda[i]=src[i];
   }
 
   int relax_method=2;
-  s.offsets[0]=0;
+  for(int i=0;i<s.ncoefs;i++){
+    if (s.offsets[i]==0){
+      long temp=s.offsets[0];
+      s.offsets[0]=s.offsets[i];
+      s.offsets[i]=temp;
+      double ctemp=s.coefs[0];
+      s.coefs[0]=s.coefs[i];
+      s.coefs[i]=ctemp;
+    }
+
+  }
+
+  for (int i0;i0<s.n[0];i0++)
+    for (int i1;i1<s.n[1];i1++)
+      for (int i2;i2<s.n[2];i2++){
+	int sizez=s.j[2]+s.n[2];  
+	int sizeyz=s.j[1]+s.n[1]*sizez;
+	int i=i0*sizeyz+i1*sizez+i2;
+	i+=(s.j[0]+s.j[1]+s.j[2])/2;
+	a[i]=rand()/(double)RAND_MAX;
+	int ii=i0*s.n[1]*s.n[2]+i1*s.n[2]+i2;
+	a_cuda[i]=a[i];	
+	a_cuda_small[ii]=a[i];	
+      }	
+
   
   gettimeofday(&t0,NULL);
   bmgs_relax(relax_method,&s,a,b,src, 0.67);
@@ -189,7 +253,7 @@ int main(void)
   flops2=(t2.tv_sec+t2.tv_usec/1000000.0-t1.tv_sec-t1.tv_usec/1000000.0);
   printf("bmgs_relax:\n");
   printf ("%dx%dx%d  \t CPU: %f\t GPU: %f\t GPU NOMEMTR: %f ms\n",s.n[0],s.n[1],s.n[2],1000*flops,1000*flops2,1000*flops3);
-
+  printf ("%dx%dx%d  \t CPU: %f\t GPU: %f\t GPU NOMEMTR: %f MPix/s\n",s.n[0],s.n[1],s.n[2],bsize/(1000000.0*flops),s.n[2],bsize/(1000000.0*flops2),s.n[2],bsize/(1000000.0*flops3));
   error=0;
   for (int i0=0;i0<s.n[0];i0++){
     for (int i1=0;i1<s.n[1]-0;i1++){
@@ -199,8 +263,30 @@ int main(void)
       }
     }
   }
-  error=error/(double)bsize;
-  fprintf(stdout,"mean sqr error %lf\n",error);
+  //  error=error/(double)bsize;
+  fprintf(stdout,"sum sqr error %lf\n",error);
+
+  
+  gettimeofday(&t1,NULL);
+  //bmgs_relax(2,&s,a_cuda,b_cuda,src_cuda, 0.67);
+  flops3=bmgs_relax_cuda_cpu_bc(relax_method,&s,a_cuda_small,b_cuda2,src_cuda, 0.67);
+  gettimeofday(&t2,NULL);
+
+  flops2=(t2.tv_sec+t2.tv_usec/1000000.0-t1.tv_sec-t1.tv_usec/1000000.0);
+  printf("bmgs_relax_bc:\n");
+  printf ("%dx%dx%d  \t CPU: %f\t GPU: %f\t GPU NOMEMTR: %f ms\n",s.n[0],s.n[1],s.n[2],1000*flops,1000*flops2,1000*flops3);
+  printf ("%dx%dx%d  \t CPU: %f\t GPU: %f\t GPU NOMEMTR: %f MPix/s\n",s.n[0],s.n[1],s.n[2],bsize/(1000000.0*flops),s.n[2],bsize/(1000000.0*flops2),s.n[2],bsize/(1000000.0*flops3));
+  error=0;
+  for (int i0=0;i0<s.n[0];i0++){
+    for (int i1=0;i1<s.n[1]-0;i1++){
+      for (int i2=0;i2<s.n[2]-0;i2++){
+	long i=i0*s.n[1]*s.n[2]+i1*s.n[2]+i2; 
+	error+=(b[i]-b_cuda2[i])*(b[i]-b_cuda2[i]);
+      }
+    }
+  }
+  //  error=error/(double)bsize;
+  fprintf(stdout,"sum sqr error %lf\n",error);
 
 
   for (int i=0;i<bsize;i++){
@@ -227,7 +313,7 @@ int main(void)
   flops2=(t2.tv_sec+t2.tv_usec/1000000.0-t1.tv_sec-t1.tv_usec/1000000.0);
   printf("bmgs_restrict:\n");
   printf ("%dx%dx%d  \t CPU: %f\t GPU: %f\t GPU NOMEMTR: %f ms\n",s.n[0],s.n[1],s.n[2],1000*flops,1000*flops2,1000*flops3);
-
+  printf ("%dx%dx%d  \t CPU: %f\t GPU: %f\t GPU NOMEMTR: %f MPix/s\n",s.n[0],s.n[1],s.n[2],bsize/(1000000.0*flops),s.n[2],bsize/(1000000.0*flops2),s.n[2],bsize/(1000000.0*flops3));
   error=0;
   for (int i0=0;i0<s.n[0];i0++){
     for (int i1=0;i1<s.n[1]-0;i1++){
@@ -239,8 +325,8 @@ int main(void)
       }
     }
   }
-  error=error/3*(double)bsize;
-  fprintf(stdout,"mean sqr error %lf\n",error);
+  // error=error/3*(double)bsize;
+  fprintf(stdout,"sum sqr error %lf\n",error);
   /*  
   for (int i=0;i<bsize;i++){
     a[i]=rand()/(double)RAND_MAX;

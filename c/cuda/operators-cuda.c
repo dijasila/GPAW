@@ -11,6 +11,8 @@
 #include <../extensions.h>
 #include <../operators.h>
 
+
+
 PyObject * Operator_relax_cuda_cpu(OperatorObject *self,
 					  PyObject *args)
 {
@@ -20,7 +22,8 @@ PyObject * Operator_relax_cuda_cpu(OperatorObject *self,
   PyArrayObject* source;
   double w = 1.0;
   int nrelax;
-  if (!PyArg_ParseTuple(args, "iOOi|d", &relax_method, &func, &source, &nrelax, &w))
+  if (!PyArg_ParseTuple(args, "iOOi|d", &relax_method, &func, &source, 
+			&nrelax, &w))
     return NULL;
   
   const boundary_conditions* bc = self->bc;
@@ -60,8 +63,6 @@ PyObject * Operator_relax_cuda_gpu(OperatorObject *self,
 {
   
   int relax_method;
-  /*  PyArrayObject* func;
-      PyArrayObject* source;*/
   CUdeviceptr func_gpu;
   CUdeviceptr source_gpu;
   
@@ -72,16 +73,37 @@ PyObject * Operator_relax_cuda_gpu(OperatorObject *self,
   
   const boundary_conditions* bc = self->bc;
 
-  /*  double* fun = DOUBLEP(func);
-      const double* src = DOUBLEP(source);*/
   double* fun = (double*)func_gpu;
   const double* src = (double*)source_gpu;
   const double_complex* ph;
 
-  double* sendbuf = GPAW_MALLOC(double, bc->maxsend);
-  double* recvbuf = GPAW_MALLOC(double, bc->maxrecv);
-
+  //  double* sendbuf = GPAW_MALLOC(double, bc->maxsend);
+  //double* recvbuf = GPAW_MALLOC(double, bc->maxrecv);
+  const int* size2 = bc->size2;
+  const int* size1 = bc->size1;
+  int ng = bc->ndouble * size1[0] * size1[1] * size1[2];
   ph = 0;
+
+  int blocks=1;
+
+  if (blocks>self->alloc_blocks){
+    if (self->buf_gpu) cudaFree(self->buf_gpu);
+    GPAW_CUDAMALLOC(&(self->buf_gpu), double, 
+		    size2[0] * size2[1] * size2[2] 
+		    * bc->ndouble *  blocks);
+    if (self->sendbuf) cudaFreeHost(self->sendbuf);
+    GPAW_CUDAMALLOC_HOST(&(self->sendbuf),double, bc->maxsend * blocks);
+    if (self->recvbuf) cudaFreeHost(self->recvbuf);
+    GPAW_CUDAMALLOC_HOST(&(self->recvbuf),double, bc->maxrecv * blocks);
+
+    if (self->sendbuf_gpu) cudaFree(self->sendbuf_gpu);
+    GPAW_CUDAMALLOC(&(self->sendbuf_gpu),double, bc->maxsend * blocks);
+    if (self->recvbuf_gpu) cudaFree(self->recvbuf_gpu);
+    GPAW_CUDAMALLOC(&(self->recvbuf_gpu),double, bc->maxrecv * blocks);
+
+    self->alloc_blocks=blocks;
+  }
+
 
   for (int n = 0; n < nrelax; n++ )
     {
@@ -89,14 +111,17 @@ PyObject * Operator_relax_cuda_gpu(OperatorObject *self,
         {
           bc_unpack1_cuda_gpu(bc, fun, self->buf_gpu, i,
 			      self->recvreq, self->sendreq,
-			      recvbuf, sendbuf, ph + 2 * i, 0, 1);
+			      self->recvbuf, self->sendbuf,
+			      self->sendbuf_gpu,
+			      ph + 2 * i, 0, 1);
           bc_unpack2_cuda_gpu(bc, self->buf_gpu, i,
-			      self->recvreq, self->sendreq, recvbuf, 1);
-        }
+			      self->recvreq, self->sendreq, 
+			      self->recvbuf,self->recvbuf_gpu,1);
+	}
       bmgs_relax_cuda_gpu(relax_method, &self->stencil_gpu, self->buf_gpu, fun, src, w);
     }
-  free(recvbuf);
-  free(sendbuf);
+  //free(recvbuf);
+  //free(sendbuf);
   Py_RETURN_NONE;
 }
 
@@ -131,9 +156,9 @@ PyObject * Operator_apply_cuda_gpu(OperatorObject *self,
   
   boundary_conditions* bc = self->bc;
   const int* size1 = bc->size1;
-  //const int* size2 = bc->size2;
+  const int* size2 = bc->size2;
   int ng = bc->ndouble * size1[0] * size1[1] * size1[2];
-  //  int ng2 = bc->ndouble * size2[0] * size2[1] * size2[2];
+  int ng2 = bc->ndouble * size2[0] * size2[1] * size2[2];
 
   const double* in = (double*)input_gpu;
   double* out = (double*)output_gpu;
@@ -146,34 +171,60 @@ PyObject * Operator_apply_cuda_gpu(OperatorObject *self,
   else
     ph = COMPLEXP(phases);
 
-  double* sendbuf = GPAW_MALLOC(double, bc->maxsend);
-  double* recvbuf = GPAW_MALLOC(double, bc->maxrecv);
-  double* buf = self->buf_gpu;
+
+
   MPI_Request recvreq[2];
   MPI_Request sendreq[2];
 
-  for (int n = 0; n < nin; n++)
+  int blocks=MIN(GPAW_CUDA_BLOCKS,nin);
+  
+  //double* sendbuf = GPAW_MALLOC(double, bc->maxsend*blocks);
+  //double* recvbuf = GPAW_MALLOC(double, bc->maxrecv*blocks);
+
+
+  if (blocks>self->alloc_blocks){
+    if (self->buf_gpu) cudaFree(self->buf_gpu);
+    GPAW_CUDAMALLOC(&(self->buf_gpu), sizeof(double), 
+		    size2[0] * size2[1] * size2[2] 
+		    * bc->ndouble *  blocks);
+    if (self->sendbuf) cudaFreeHost(self->sendbuf);
+    GPAW_CUDAMALLOC_HOST(&(self->sendbuf),double, bc->maxsend * blocks);
+    if (self->recvbuf) cudaFreeHost(self->recvbuf);
+    GPAW_CUDAMALLOC_HOST(&(self->recvbuf),double, bc->maxrecv * blocks);
+
+    if (self->sendbuf_gpu) cudaFree(self->sendbuf_gpu);
+    GPAW_CUDAMALLOC(&(self->sendbuf_gpu),double, bc->maxsend * blocks);
+    if (self->recvbuf_gpu) cudaFree(self->recvbuf_gpu);
+    GPAW_CUDAMALLOC(&(self->recvbuf_gpu),double, bc->maxrecv * blocks);
+
+    self->alloc_blocks=blocks;
+  }
+  double* buf = self->buf_gpu;
+  
+  for (int n = 0; n < nin; n+=blocks)
     {
       const double* in2 = in + n * ng;
       double* out2 = out + n * ng;
-      for (int i = 0; i < 3; i++)
-        {
+      int myblocks=MIN(blocks,nin-n);
+      for (int i = 0; i < 3; i++) {
 	  bc_unpack1_cuda_gpu(bc, in2, buf, i,
 			      recvreq, sendreq,
-			      recvbuf, sendbuf, ph + 2 * i,
-			      0, 1);
-	  bc_unpack2_cuda_gpu(bc, buf, i, recvreq, sendreq, recvbuf, 1);
-        }
-      // printf("test 1\n");
-      //Py_RETURN_NONE;
-      if (real)
-	bmgs_fd_cuda_gpu(&self->stencil_gpu, buf, out2);
-      else{
-	bmgs_fd_cuda_gpuz(&self->stencil_gpu, (const cuDoubleComplex*)buf,(cuDoubleComplex*)out2);
+			      self->recvbuf, self->sendbuf, 
+			      self->sendbuf_gpu, 
+			      ph + 2 * i, 0, myblocks);
+	  bc_unpack2_cuda_gpu(bc, buf, i, recvreq, sendreq, 
+			      self->recvbuf, self->recvbuf_gpu, myblocks);
+      }
+      if (real){
+	bmgs_fd_cuda_gpu(&self->stencil_gpu, buf,out2,myblocks);
+	//bmgs_fd_cuda_gpu_bc(&self->stencil_gpu, in2,out2,myblocks);
+      }else{
+	bmgs_fd_cuda_gpuz(&self->stencil_gpu, (const cuDoubleComplex*)buf,
+			  (cuDoubleComplex*)out2,myblocks);
       }
     }    
-  free(recvbuf);
-  free(sendbuf);
+  //free(recvbuf);
+  //free(sendbuf);
   Py_RETURN_NONE;
 }
 

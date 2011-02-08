@@ -16,7 +16,12 @@ typedef struct
 #ifdef GPAW_CUDA
   int cuda;
   bmgsstencil_gpu stencil_gpu;
+  int alloc_blocks;
   double* buf_gpu;
+  double *sendbuf;
+  double *recvbuf;
+  double *sendbuf_gpu;
+  double *recvbuf_gpu;
 #endif
 } OperatorObject;
 

@@ -21,7 +21,8 @@ PyObject* Transformer_apply_cuda_gpu(TransformerObject *self, PyObject *args)
   PyObject *shape;
   PyArray_Descr *type; 
 
-  if (!PyArg_ParseTuple(args, "nnOO|O", &input_gpu, &output_gpu,&shape, &type, &phases))
+  if (!PyArg_ParseTuple(args, "nnOO|O", &input_gpu, &output_gpu,&shape, &type,
+			&phases))
     return NULL;
 
   int nin = 1;
@@ -37,122 +38,100 @@ PyObject* Transformer_apply_cuda_gpu(TransformerObject *self, PyObject *args)
   const double* in = (double*)input_gpu;
   double* out = (double*)output_gpu;
 
+  const int* size2 = self->bc->size2;
   bool real = (type->type_num == PyArray_DOUBLE);
   const double_complex* ph = (real ? 0 : COMPLEXP(phases));
 
-  double* sendbuf = GPAW_MALLOC(double, bc->maxsend * GPAW_ASYNC_D);
-  double* recvbuf = GPAW_MALLOC(double, bc->maxrecv * GPAW_ASYNC_D);
-  double* buf = self->buf_gpu;
-  double* buf2 = self->buf2_gpu;
   MPI_Request recvreq[2];
   MPI_Request sendreq[2];
 
   int out_ng = bc->ndouble * self->size_out[0] * self->size_out[1]
                * self->size_out[2];
 
-  for (int n = 0; n < nin; n++)
+  int blocks=MIN(GPAW_CUDA_BLOCKS,nin);
+
+  /*  
+      double* sendbuf = GPAW_MALLOC(double, bc->maxsend * GPAW_ASYNC_D * blocks);
+      double* recvbuf = GPAW_MALLOC(double, bc->maxrecv * GPAW_ASYNC_D * blocks);
+  */
+  if (blocks>self->alloc_blocks){
+    if (self->buf_gpu) cudaFree(self->buf_gpu);
+    GPAW_CUDAMALLOC(&(self->buf_gpu), double, 
+		    size2[0] * size2[1] * size2[2] * 
+		    self->bc->ndouble * blocks);
+
+    if (self->buf2_gpu) cudaFree(self->buf2_gpu);
+    GPAW_CUDAMALLOC(&(self->buf2_gpu), double,
+		    16 * size2[0] * size2[1] * size2[2] * 
+		    self->bc->ndouble);
+    if (self->sendbuf) cudaFreeHost(self->sendbuf);
+    GPAW_CUDAMALLOC_HOST(&(self->sendbuf),double, 
+			 bc->maxsend * GPAW_ASYNC_D * blocks);
+    if (self->recvbuf) cudaFreeHost(self->recvbuf);
+    GPAW_CUDAMALLOC_HOST(&(self->recvbuf),double, 
+			 bc->maxrecv * GPAW_ASYNC_D * blocks);
+
+    if (self->sendbuf_gpu) cudaFree(self->sendbuf_gpu);
+    GPAW_CUDAMALLOC(&(self->sendbuf_gpu),double, 
+		    bc->maxsend * GPAW_ASYNC_D * blocks);
+    if (self->recvbuf_gpu) cudaFree(self->recvbuf_gpu);
+    GPAW_CUDAMALLOC(&(self->recvbuf_gpu),double, 
+		    bc->maxrecv * GPAW_ASYNC_D * blocks);
+
+    self->alloc_blocks=blocks;
+  }
+  double* buf = self->buf_gpu;
+  double* buf2 = self->buf2_gpu;
+  
+  
+  for (int n = 0; n < nin; n+=blocks)
     {
       const double* in2 = in + n * ng;
       double* out2 = out + n * out_ng;
+      int myblocks=MIN(blocks,nin-n);
       for (int i = 0; i < 3; i++)
         {
           bc_unpack1_cuda_gpu(bc, in2, buf, i,
-                     recvreq, sendreq,
-                     recvbuf, sendbuf, ph + 2 * i,
-                     0, 1);
+			      recvreq, sendreq,
+			      self->recvbuf, self->sendbuf, 
+			      self->sendbuf_gpu, 
+			      ph + 2 * i, 0, myblocks);
           bc_unpack2_cuda_gpu(bc, buf, i,
-                     recvreq, sendreq, recvbuf, 1);
+			      recvreq, sendreq, 
+			      self->recvbuf,self->recvbuf_gpu, myblocks);
         }
-      if (real)
-        {
-          if (self->interpolate)
-            bmgs_interpolate_cuda_gpu(self->k, self->skip, buf, bc->size2,
-                             out2, buf2);
-          else
-            bmgs_restrict_cuda_gpu(self->k, self->buf_gpu, bc->size2,
-                          out2, buf2);
-        }
-      else
-        {
-          if (self->interpolate)
-            bmgs_interpolate_cuda_gpuz(self->k, self->skip, (cuDoubleComplex*)buf,
-				       bc->size2, (cuDoubleComplex*)out2,
-				       (cuDoubleComplex*) buf2);
-          else
-            bmgs_restrict_cuda_gpuz(self->k, (cuDoubleComplex*) buf,
-				    bc->size2, (cuDoubleComplex*)out2,
-				    (cuDoubleComplex*) buf2);
-        }
+      for (int i = 0; i < myblocks; i++){
+	
+	if (real)
+	  {
+	    if (self->interpolate){
+	      bmgs_interpolate_cuda_gpu(self->k, self->skip, buf+i*ng, 
+					bc->size2,out2+i*out_ng, buf2);	      
+	    }
+	    else{
+	      bmgs_restrict_cuda_gpu(self->k, buf+i*ng, bc->size2,
+				     out2+i*out_ng, buf2);
+	    }
+	  }
+	else
+	  {
+	    if (self->interpolate)
+	      bmgs_interpolate_cuda_gpuz(self->k, self->skip, 
+					 (cuDoubleComplex*)(buf+i*ng),
+					 bc->size2, 
+					 (cuDoubleComplex*)(out2+i*out_ng),
+					 (cuDoubleComplex*) buf2);
+	    else
+	      bmgs_restrict_cuda_gpuz(self->k, 
+				      (cuDoubleComplex*)(buf+i*ng),
+				      bc->size2, 
+				      (cuDoubleComplex*)(out2+i*out_ng),
+				      (cuDoubleComplex*) buf2);
+	  }
+      }
     }
-  free(recvbuf);
-  free(sendbuf);
+  //free(recvbuf);
+  //free(sendbuf);
   Py_RETURN_NONE;
 }
 
-
-/*
-void *transapply_worker_cuda_gpu(void *threadarg)
-{
-  struct transapply_args *args = (struct transapply_args *) threadarg;
-  boundary_conditions* bc = args->self->bc;
-  TransformerObject *self = args->self;
-  double* sendbuf = self->sendbuf + args->thread_id * bc->maxsend;
-  double* recvbuf = self->recvbuf + args->thread_id * bc->maxrecv;
-  double* buf = self->buf_gpu + args->thread_id * args->ng2;
-  double* buf2 = self->buf2_gpu + args->thread_id * args->ng2 * 16;
-  MPI_Request recvreq[2];
-  MPI_Request sendreq[2];
-
-  int chunksize = args->nin / args->nthds;
-  if (!chunksize)
-    chunksize = 1;
-  int nstart = args->thread_id * chunksize;
-  if (nstart >= args->nin)
-    return NULL;
-  int nend = nstart + chunksize;
-  if (nend > args->nin)
-    nend = args->nin;
-
-  int out_ng;
-  if (self->interpolate)
-    out_ng = args->ng * 8;
-  else
-    out_ng = args->ng / 8;
-
-  for (int n = nstart; n < nend; n++)
-    {
-      const double* in = args->in + n * args->ng;
-      double* out = args->out + n * out_ng;
-      for (int i = 0; i < 3; i++)
-        {
-          bc_unpack1_cuda_gpu(bc, in, buf, i,
-                     recvreq, sendreq,
-                     recvbuf, sendbuf, args->ph + 2 * i,
-                     args->thread_id, 1);
-          bc_unpack2_cuda_gpu(bc, buf, i,
-                     recvreq, sendreq, recvbuf, 1);
-        }
-      if (args->real)
-        {
-          if (self->interpolate)
-            bmgs_interpolate_cuda_gpu(self->k, self->skip, buf, bc->size2,
-                             out, buf2);
-          else
-            bmgs_restrict_cuda_gpu(self->k, self->buf_gpu, bc->size2,
-                          out, buf2);
-        }
-      else
-        {
-          if (self->interpolate)
-            bmgs_interpolate_cuda_gpuz(self->k, self->skip, (cuDoubleComplex*)buf,
-				       bc->size2, (cuDoubleComplex*)out,
-				       (cuDoubleComplex*) buf2);
-          else
-            bmgs_restrict_cuda_gpuz(self->k, (cuDoubleComplex*) buf,
-				    bc->size2, (cuDoubleComplex*)out,
-				    (cuDoubleComplex*) buf2);
-        }
-    }
-  return NULL;
-}
-*/

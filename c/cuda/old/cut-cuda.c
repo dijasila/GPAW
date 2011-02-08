@@ -21,6 +21,8 @@ void bmgs_cut_cuda(const double* a, const int n[3], const int c[3],
       a += n[2] * (n[1] - m[1]);
     }
   */
+  if (!(m[0] && m[2] && m[3])) return;
+
   cudaMemcpy3DParms myParms = {0};
   
   myParms.srcPtr=make_cudaPitchedPtr((void*)a, n[2]*sizeof(double), n[2], n[1] );

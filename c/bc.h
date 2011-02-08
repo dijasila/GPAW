@@ -63,12 +63,13 @@ void bc_unpack1_cuda_gpu(const boundary_conditions* bc,
 			 MPI_Request recvreq[2],
 			 MPI_Request sendreq[2],
 			 double* rbuf, double* sbuf,
+			 double* sbuf_gpu,
 			 const double_complex phases[2], int thd, int nin);
 void bc_unpack2_cuda_gpu(const boundary_conditions* bc,
-    double* a2, int i,
-    MPI_Request recvreq[2],
-    MPI_Request sendreq[2],
-    double* rbuf, int nin);
+			 double* a2, int i,
+			 MPI_Request recvreq[2],
+			 MPI_Request sendreq[2],
+			 double* rbuf,double* rbuf_gpu, int nin);
 #endif
 
 #endif

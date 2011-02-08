@@ -39,6 +39,20 @@
 
 #include <Python.h>
 
+#define FD_BLOCK_X 16
+#define FD_BLOCK_Y 8
+#define FD_XDIV 4
+
+#define FD_MAXJ      10
+#define FD_MAXCOEFS  32
+
+#define FD_ACACHE_X  (FD_BLOCK_X+16)
+
+
+#define MAX(a,b) (((a)>(b))?(a):(b))
+#define MIN(a,b) (((a)<(b))?(a):(b))
+
+
 typedef struct
 {
   int ncoefs;

@@ -13,11 +13,22 @@
 #ifdef K
 
 #ifndef CUGPAWCOMPLEX
-#define BLOCK_SIZEX 16
-#define BLOCK_SIZEY 8
+
+#define BLOCK 16
+#define BLOCK_SIZEX BLOCK
+#define BLOCK_SIZEY BLOCK
 #endif
 
-__global__ void IP1D_kernel(const Tcuda* a, int n, int m, Tcuda* b, int skip0,int skip1)
+#undef AC_X
+#undef AC_Y
+#undef ACK
+#define ACK (K)
+#define AC_X (BLOCK+ACK)
+#define AC_Y (BLOCK)
+
+
+__global__ void IP1D_kernel(const Tcuda* a, int n, int m, Tcuda* b, int skip0,
+			    int skip1)
 {
   a += K / 2 - 1;
 
@@ -67,6 +78,112 @@ __global__ void IP1D_kernel(const Tcuda* a, int n, int m, Tcuda* b, int skip0,in
     }
   
 }
+/*
+
+__global__ void IP1D_kernel(const Tcuda* a, int n, int m, Tcuda* b, int skip0)
+{
+
+  int j=blockIdx.x*BLOCK+threadIdx.x;
+  if (j>=m) return;
+  
+  int i=blockIdx.y*BLOCK+threadIdx.y;
+  if (i>=n) return;
+  a += j * (K - 1 + n)+i;
+  b += j + 2 * m * i;
+  
+  
+  if (i>0 || !skip0)
+    b[0] = a[0];
+  
+  if (K == 2)
+    b[m] = MULDT(0.5, ADD(a[0] , a[1]) );
+  else if (K == 4)
+    b[m] = ADD( MULDT( 0.5625 ,  ADD(a[ 0] , a[1])) ,
+		MULDT(-0.0625 ,  ADD(a[-1] , a[2])));
+  else if (K == 6)
+    b[m] = ADD(ADD( MULDT( 0.58593750 , ADD(a[ 0] , a[1])),
+		    MULDT(-0.09765625 , ADD(a[-1] , a[2]))) ,
+	       MULDT(0.01171875 , ADD(a[-2] , a[3])));
+  else
+    b[m] = ADD( ADD( MULDT( 0.59814453125 , ADD(a[ 0] , a[1])) ,
+		     MULDT(-0.11962890625 , ADD(a[-1] , a[2]))) ,
+		ADD ( MULDT( 0.02392578125 , ADD(a[-2] , a[3])) ,
+		      MULDT(-0.00244140625 , ADD(a[-3] , a[4]))));
+  
+  
+}
+*/
+/*
+__global__ void IP1D_kernel(const Tcuda* a, int n, int m, Tcuda* b, int skip0)
+{
+  
+  __shared__ Tcuda ac[AC_Y*AC_X];
+  Tcuda *acp;
+  
+  int jtid=threadIdx.x;
+  int j=blockIdx.x*BLOCK;
+  int itid=threadIdx.y;
+  int i=blockIdx.y*BLOCK;
+
+  a += (j+itid) * (K - 1 + n)+(i+jtid);
+  b += (j+jtid) + 2 * m * (i+itid);
+    
+  acp=ac+AC_X*(itid)+jtid+ACK/2-1;
+  
+  acp[0]=a[0];
+
+  if  (jtid<ACK/2-1){
+    acp[-ACK/2+1]=a[-ACK/2+1];
+  }  
+  if  (jtid<ACK/2){
+    acp[BLOCK]=a[BLOCK];
+  }
+  acp=ac+AC_X*(jtid)+itid+ACK/2-1;
+  __syncthreads();
+    
+  if (((i+itid)<n) && ((j+jtid)<m)) {
+
+    if (!skip0 || (i+itid)>0 ) {
+      b[0] = acp[0];
+    }
+    if (K == 2)
+      b[m] = MULDT(0.5, ADD(acp[0] , acp[1]) );
+    else if (K == 4)
+      b[m] = ADD( MULDT( 0.5625 ,  ADD(acp[ 0] , acp[1])) ,
+		  MULDT(-0.0625 ,  ADD(acp[-1] , acp[2])));
+    else if (K == 6)
+      b[m] = ADD(ADD( MULDT( 0.58593750 , ADD(acp[ 0] , acp[1])),
+		      MULDT(-0.09765625 , ADD(acp[-1] , acp[2]))) ,
+		 MULDT(0.01171875 , ADD(acp[-2] , acp[3])));
+    else
+      b[m] = ADD( ADD( MULDT( 0.59814453125 , ADD(acp[ 0] , acp[1])) ,
+		       MULDT(-0.11962890625 , ADD(acp[-1] , acp[2]))) ,
+		  ADD ( MULDT( 0.02392578125 , ADD(acp[-2] , acp[3])) ,
+			MULDT(-0.00244140625 , ADD(acp[-3] , acp[4]))));
+  }
+}
+*/
+ /*
+void IP1D(const Tcuda* a, int n, int m, Tcuda* b, int skip[2])
+{
+  
+  n-=skip[1];
+  a += K / 2 - 1;
+  if (skip[0]) b-=m;
+  
+  int gridy=(n+BLOCK-1)/BLOCK;
+
+  int gridx=(m+BLOCK-1)/BLOCK;
+  
+  dim3 dimBlock(BLOCK,BLOCK); 
+  dim3 dimGrid(gridx,gridy);    
+
+
+  IP1D_kernel<<<dimGrid, dimBlock, 0>>>(a,n,m, b,skip[0]);
+
+  gpaw_cudaSafeCall(cudaGetLastError());
+}
+ */
 
 void IP1D(const Tcuda* a, int n, int m, Tcuda* b, int skip[2])
 {
@@ -84,48 +201,42 @@ void IP1D(const Tcuda* a, int n, int m, Tcuda* b, int skip[2])
   gpaw_cudaSafeCall(cudaGetLastError());
 }
 
+
 #else
 #  define K 2
 #  define IP1D Zcuda(bmgs_interpolate1D2)
-#  define IP1DA Zcuda(bmgs_interpolate1D2_args)
 #  define IP1D_kernel Zcuda(bmgs_interpolate1D2_kernel)
 #  include "interpolate-cuda.cu"
 #  undef IP1D
-#  undef IP1DA
 #  undef IP1D_kernel
 #  undef K
 #  define K 4
 #  define IP1D Zcuda(bmgs_interpolate1D4)
-#  define IP1DA Zcuda(bmgs_interpolate1D4_args)
 #  define IP1D_kernel Zcuda(bmgs_interpolate1D4_kernel)
 #  include "interpolate-cuda.cu"
 #  undef IP1D
-#  undef IP1DA
 #  undef IP1D_kernel
 #  undef K
 #  define K 6
 #  define IP1D Zcuda(bmgs_interpolate1D6)
-#  define IP1DA Zcuda(bmgs_interpolate1D6_args)
 #  define IP1D_kernel Zcuda(bmgs_interpolate1D6_kernel)
 #  include "interpolate-cuda.cu"
 #  undef IP1D
-#  undef IP1DA
 #  undef IP1D_kernel
 #  undef K
 #  define K 8
 #  define IP1D Zcuda(bmgs_interpolate1D8)
-#  define IP1DA Zcuda(bmgs_interpolate1D8_args)
 #  define IP1D_kernel Zcuda(bmgs_interpolate1D8_kernel)
 #  include "interpolate-cuda.cu"
 #  undef IP1D
-#  undef IP1DA
 #  undef IP1D_kernel
 #  undef K
 
 extern "C"{
 
   void Zcuda(bmgs_interpolate_cuda_gpu)(int k, int skip[3][2],
-				 const Tcuda* a, const int size[3], Tcuda* b, Tcuda* w)
+					const Tcuda* a, const int size[3], 
+					Tcuda* b, Tcuda* w)
   {
     void (*ip)(const Tcuda*, int, int, Tcuda*, int[2]);
     if (k == 2)
@@ -136,7 +247,6 @@ extern "C"{
       ip = Zcuda(bmgs_interpolate1D6);
     else
       ip = Zcuda(bmgs_interpolate1D8);
-
     int e = k - 1;
     ip(a, size[2] - e + skip[2][1],
        size[0] *
@@ -158,7 +268,8 @@ extern "C"{
 
 
 extern "C"{
-  double bmgs_interpolate_cuda_cpu(int k, int skip[3][2], const double* a, const int n[3], double* b, double* w)
+  double bmgs_interpolate_cuda_cpu(int k, int skip[3][2], const double* a, 
+				   const int n[3], double* b, double* w)
   {
     double *adev,*bdev,*wdev;
     size_t bsize;

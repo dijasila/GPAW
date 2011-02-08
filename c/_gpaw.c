@@ -106,6 +106,7 @@ PyObject* set_dxpl_mpio(PyObject *self, PyObject *args);
 
 #ifdef GPAW_CUDA  
 PyObject* gemm_cuda_gpu(PyObject *self, PyObject *args);
+PyObject* gemv_cuda_gpu(PyObject *self, PyObject *args);
 PyObject* rk_cuda_gpu(PyObject *self, PyObject *args);
 PyObject* axpy_cuda_gpu(PyObject *self, PyObject *args);
 PyObject* r2k_cuda_gpu(PyObject *self, PyObject *args);
@@ -219,6 +220,7 @@ static PyMethodDef functions[] = {
 #endif // HDF5
 #ifdef GPAW_CUDA  
   {"gemm_cuda_gpu", gemm_cuda_gpu, METH_VARARGS, 0},
+  {"gemv_cuda_gpu", gemv_cuda_gpu, METH_VARARGS, 0},
   {"axpy_cuda_gpu", axpy_cuda_gpu, METH_VARARGS, 0},
   {"rk_cuda_gpu",  rk_cuda_gpu,  METH_VARARGS, 0},
   {"r2k_cuda_gpu", r2k_cuda_gpu, METH_VARARGS, 0},

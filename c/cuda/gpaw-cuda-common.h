@@ -5,14 +5,20 @@
 #include <cuda.h>
 #include <cuda_runtime_api.h>
 #include <cublas.h>
+
+#define GPAW_CUDA_BLOCKS  8
+
 typedef struct
 {
   int ncoefs;
   double* coefs_gpu;
   long* offsets_gpu;
-  int ncoefs1;
-  double* coefs1_gpu;
-  int* offsets1_gpu;
+  int ncoefs0;
+  double* coefs0_gpu;
+  int* offsets0_gpu;
+  int ncoefs12;
+  double* coefs12_gpu;
+  int* offsets12_gpu;
   long n[3];
   long j[3];
 } bmgsstencil_gpu;
@@ -37,9 +43,14 @@ static inline void __gpaw_cublasSafeCall( cublasStatus err ,char *file,int line)
   if( CUBLAS_STATUS_SUCCESS != err) {
     fprintf(stderr, "%s(%i): Cublas error: %X.\n",
 	    file, line, err);
-    // exit(-1);
+    //    exit(-1);
   }
 }
 
+#define GPAW_CUDAMALLOC(pp,T,n) gpaw_cudaSafeCall(cudaMalloc((void**)(pp),sizeof(T)*(n)));
+
+#define GPAW_CUDAMEMCPY(p1,p2,T,n,type) gpaw_cudaSafeCall(cudaMemcpy(p1,p2,sizeof(T)*n,type));
+
+#define GPAW_CUDAMALLOC_HOST(pp,T,n) gpaw_cudaSafeCall(cudaHostAlloc((void**)(pp),sizeof(T)*(n),cudaHostAllocDefault));
 
 #endif
