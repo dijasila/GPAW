@@ -321,11 +321,13 @@ class PAW(PAWTextOutput):
             if par.eigensolver != None and par.eigensolver != 'rmm-diis':
                 print "Cuda disabled: Eigensolver: '", par.eigensolver,"' not implemented."
                 self.cuda = False
-            if par.mode != 'fd':
+            elif par.mode != 'fd':
                 print "Cuda disabled: Mode: '",par.mode,"' not implemented."
                 self.cuda = False
             else:
                 import pycuda.autoinit
+                from pycuda.driver import func_cache
+                pycuda.autoinit.context.set_cache_config(func_cache.PREFER_L1)
             self.timer.stop('Cuda')
 
         world = par.communicator

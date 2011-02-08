@@ -56,7 +56,7 @@ class PoissonConvergenceError(ConvergenceError):
 # Check for special command line arguments:
 debug = False
 debug_cuda = False
-debug_cuda_tol = 1e-12
+debug_cuda_reltol = 1e-12
 trace = False
 setup_paths = []
 dry_run = 0

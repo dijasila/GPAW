@@ -8,7 +8,7 @@ from gpaw.grid_descriptor import GridDescriptor
 from gpaw.mpi import serial_comm
 import _gpaw
 
-from gpaw import debug_cuda, debug_cuda_tol
+from gpaw import debug_cuda, debug_cuda_reltol
 import pycuda.gpuarray as gpuarray
 
 """
@@ -416,11 +416,14 @@ class NewLocalizedFunctionsCollection(BaseLFC):
                     a_xG_cpu=a_xG.get()
                     self.lfc.add(c_xM, a_xG_cpu, q)
                 c_xM_gpu=gpuarray.to_gpu(c_xM)
-                self.lfc.add_cuda_gpu(c_xM_gpu.gpudata, c_xM_gpu.shape, 
-                                      a_xG.gpudata,a_xG.shape, q)
-                error=np.max(abs(a_xG_cpu - a_xG.get()))
-                if error > debug_cuda_tol:
-                    print "Debug cuda: lfc add max error: ", error
+                self.lfc.add_cuda_gpu(c_xM_gpu.gpudata,c_xM_gpu.shape, a_xG.gpudata,a_xG.shape, q)
+                if debug_cuda:
+                    diff = abs(a_xG_cpu - a_xG.get())
+                    error_i = np.unravel_index(np.argmax(diff), diff.shape)
+                    error = diff[error_i]
+                    if error > np.finfo(type(error)).eps and \
+                           error > debug_cuda_reltol * abs(a_xG_cpu[error_i]):
+                        print "Debug cuda: lfc add max rel error: ", error
             else:
                 #print "add no cuda c_axi float"
                 self.lfc.add(c_xM, a_xG, q)
@@ -475,9 +478,13 @@ class NewLocalizedFunctionsCollection(BaseLFC):
             c_xM_gpu=gpuarray.to_gpu(c_xM)
             self.lfc.add_cuda_gpu(c_xM_gpu.gpudata,c_xM_gpu.shape, a_xG.gpudata,a_xG.shape, q)
             if debug_cuda:
-                error=np.max(abs(a_xG_cpu-a_xG.get()))
-                if error>debug_cuda_tol:
-                    print "Debug cuda: lfc add max error: ", error
+                error=0.0
+                diff=abs(a_xG_cpu - a_xG.get())
+                error_i=np.unravel_index(np.argmax(diff),diff.shape)
+                error = diff[error_i]
+                if error > np.finfo(type(error)).eps and \
+                       error > debug_cuda_reltol * abs(a_xG_cpu[error_i]):
+                    print "Debug cuda: lfc add max rel error: ", error
 
         else:
             #print "add no cuda"
@@ -593,11 +600,12 @@ class NewLocalizedFunctionsCollection(BaseLFC):
             if debug_cuda:
                 c_xM2 = np.zeros(xshape + (self.Mmax,), dtype)
                 self.lfc.integrate(a_xG.get(), c_xM2, q)
-                error=np.max(abs(c_xM-c_xM2))
-                if error > debug_cuda_tol:
-                     # if 1:
-                    print "Debug cuda: lfc integrate max error: ", error
-                    #c_xM=c_xM2
+                diff = abs(c_xM - c_xM2)
+                error_i = np.unravel_index(np.argmax(diff), diff.shape)
+                error = diff[error_i]
+                if error > np.finfo(type(error)).eps and \
+                       error > debug_cuda_reltol * abs(c_xM2[error_i]):
+                    print "Debug cuda: lfc integrate max rel error: ", error,c_xM[error_i],c_xM2[error_i]
                     #print "dtype ",dtype
                     #print "q ",q
                     #print "c_xM ",c_xM

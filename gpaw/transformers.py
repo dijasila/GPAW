@@ -17,7 +17,7 @@ import _gpaw
 
 import pycuda.driver as cuda
 import pycuda.gpuarray as gpuarray
-from gpaw import debug_cuda,debug_cuda_tol
+from gpaw import debug_cuda,debug_cuda_reltol
 
 class _Transformer:
     def __init__(self, gdin, gdout, nn=1, dtype=float, allocate=True, cuda=False):
@@ -85,7 +85,9 @@ class _Transformer:
         self.allocated = True
         
     def apply(self, input, output, phases=None):
- 
+
+        assert (type(input) == type(output))
+        
         if isinstance(input,gpuarray.GPUArray) and  isinstance(output,gpuarray.GPUArray):
             #print "fd_transformer_apply_cuda_gpu"
             if debug_cuda:
@@ -96,9 +98,17 @@ class _Transformer:
             self.transformer.apply_cuda_gpu(input.gpudata, output.gpudata,
                                             input.shape, input.dtype,phases)
             if debug_cuda:
-                error=np.max(abs(output_cpu-output.get()))
-                if error>debug_cuda_tol:
+                diff = abs(output_cpu - output.get())
+                error_i = np.unravel_index(np.argmax(diff), diff.shape)
+                error = diff[error_i]
+                if error > np.finfo(type(error)).eps and \
+                       error > debug_cuda_reltol * abs(output_cpu[error_i]):
                     print "Debug cuda: transformer apply max error: ", error
+                    #print input.shape,output.shape
+                    #print input_cpu.shape,output_cpu.shape
+                    #print phase_cd
+                    #print output_cpu[1]-output.get()[1]
+                    #assert 0
                     
         else:    
             self.transformer.apply(input, output, phases)

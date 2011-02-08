@@ -18,7 +18,7 @@ from gpaw import debug
 
 import _gpaw
 
-from gpaw import debug_cuda,debug_cuda_tol
+from gpaw import debug_cuda,debug_cuda_reltol
 import pycuda.driver as cuda
 import pycuda.gpuarray as gpuarray
 
@@ -98,9 +98,12 @@ def gemm(alpha, a, b, beta, c, transa='n', cuda=False):
         _gpaw.gemm_cuda_gpu(alpha, a.gpudata,a.shape, b.gpudata, 
                             b.shape,beta, c.gpudata, c.shape, a.dtype, transa)
         if debug_cuda:
-            error=np.max(abs(c_cpu-c.get()))
-            if error>debug_cuda_tol:
-                print "Debug cuda: gemm max error: ", error
+            diff = abs(c_cpu - c.get())
+            error_i = np.unravel_index(np.argmax(diff), diff.shape)
+            error = diff[error_i]
+            if error > np.finfo(type(error)).eps and \
+                   error > debug_cuda_reltol * abs(c_cpu[error_i]):
+                print "Debug cuda: gemm max rel error: ", error
     elif cuda:
         print "gemm_cuda_cpu"
         a_gpu = gpuarray.to_gpu(a)
@@ -109,11 +112,14 @@ def gemm(alpha, a, b, beta, c, transa='n', cuda=False):
         _gpaw.gemm_cuda_gpu(alpha, a_gpu.gpudata, a.shape, b_gpu.gpudata, 
                             b.shape,beta, c_gpu.gpudata, c.shape, a.dtype, transa)
         c_gpu.get(c)
-        #_gpaw.gemm(alpha, a, b, beta, c, transa)
     else:
         _gpaw.gemm(alpha, a, b, beta, c, transa)
 
-def gemv(alpha, a, x, beta, y, trans='t'):
+
+
+
+
+def gemv(alpha, a, x, beta, y, trans='t', cuda=False):
     """General Matrix Vector product.
 
     Performs the operation::
@@ -136,20 +142,58 @@ def gemv(alpha, a, x, beta, y, trans='t'):
       >>> gemv(1.0, A_mn, x_n, 0.0, y_m)
 
     """
-    assert (a.dtype == float and x.dtype == float and y.dtype == float and
-            isinstance(alpha, float) and isinstance(beta, float) or
-            a.dtype == complex and x.dtype == complex and y.dtype == complex)
-    assert a.flags.contiguous
-    assert y.flags.contiguous
-    assert x.ndim == 1
-    assert y.ndim == a.ndim-1
-    if trans == 'n':
-        assert a.shape[0] == x.shape[0]
-        assert a.shape[1:] == y.shape
+    if debug:
+        assert (a.dtype == float and x.dtype == float and y.dtype == float and
+                isinstance(alpha, float) and isinstance(beta, float) or
+                a.dtype == complex and x.dtype == complex and y.dtype == complex)
+        assert a.flags.contiguous
+        assert y.flags.contiguous
+        assert x.ndim == 1
+        assert y.ndim == a.ndim-1
+        if trans == 'n':
+            assert a.shape[0] == x.shape[0]
+            assert a.shape[1:] == y.shape
+        else:
+            assert a.shape[-1] == x.shape[0]
+            assert a.shape[:-1] == y.shape
+
+                 
+    assert (type(a) == type(x) and type(x) == type(y))
+
+
+    if isinstance(a,gpuarray.GPUArray) and  isinstance(x,gpuarray.GPUArray) and isinstance(y,gpuarray.GPUArray):
+        #print "gemv_cuda_gpu"
+        if debug_cuda:
+            a_cpu = a.get()
+            x_cpu = x.get()
+            y_cpu = y.get()
+            _gpaw.gemv(alpha, a_cpu, x_cpu, beta, y_cpu, trans)
+            
+            
+        _gpaw.gemv_cuda_gpu(alpha, a.gpudata, a.shape, x.gpudata, x.shape, beta,
+                            y.gpudata, a.dtype, trans)
+        
+        if debug_cuda:
+            diff = abs(y_cpu - y.get())
+            error_i = np.unravel_index(np.argmax(diff), diff.shape)
+            error = diff[error_i]
+            if error > np.finfo(type(error)).eps and \
+                   error > debug_cuda_reltol * abs(y_cpu[error_i]):
+                print "Debug cuda: gemv max rel error: ", error
+
+    elif cuda:
+        #print "gemv_cuda_cpu"
+        a_gpu = gpuarray.to_gpu(a)
+        x_gpu = gpuarray.to_gpu(x)
+        y_gpu = gpuarray.to_gpu(y)
+        _gpaw.gemv_cuda_gpu(alpha, a_gpu.gpudata, a.shape, x_gpu.gpudata,
+                            x.shape, beta, y_gpu.gpudata, a.dtype, trans)
+        y_gpu.get(y)
     else:
-        assert a.shape[-1] == x.shape[0]
-        assert a.shape[:-1] == y.shape
-    _gpaw.gemv(alpha, a, x, beta, y, trans)
+        _gpaw.gemv(alpha, a, x, beta, y, trans)
+ 
+
+        
 
 
 def axpy(alpha, x, y, cuda=False):
@@ -182,8 +226,11 @@ def axpy(alpha, x, y, cuda=False):
 
         _gpaw.axpy_cuda_gpu(alpha, x.gpudata, x.shape, y.gpudata, y.shape, x.dtype)
         if debug_cuda:
-            error=np.max(abs(y_cpu-y.get()))
-            if error>debug_cuda_tol:
+            diff = abs(y_cpu - y.get())
+            error_i = np.unravel_index(np.argmax(diff), diff.shape)
+            error = diff[error_i]
+            if error > np.finfo(type(error)).eps and \
+                   error > debug_cuda_reltol * abs(y_cpu[error_i]):
                 print "Debug cuda: axpy max error: ", error
     elif cuda:
         print "axpy_cuda_cpu"
@@ -239,8 +286,11 @@ def rk(alpha, a, beta, c, cuda=False):
 
         _gpaw.rk_cuda_gpu(alpha, a.gpudata, a.shape,beta, c.gpudata, c.shape, a.dtype)
         if debug_cuda:
-            error=np.max(abs(c_cpu-c.get()))
-            if error>debug_cuda_tol:
+            diff = abs(c_cpu - c.get())
+            error_i = np.unravel_index(np.argmax(diff), diff.shape)
+            error = diff[error_i]
+            if error > np.finfo(type(error)).eps and \
+                   error > debug_cuda_reltol * abs(c_cpu[error_i]):
                 print "Debug cuda: rk max error: ", error
     elif cuda:
         # print "rk_cuda_cpu"
@@ -250,7 +300,6 @@ def rk(alpha, a, beta, c, cuda=False):
         _gpaw.rk_cuda_gpu(alpha, a_gpu.gpudata, a.shape,beta, 
                           c_gpu.gpudata, c.shape, a.dtype)
         c_gpu.get(c)
-        #_gpaw.rk(alpha, a, beta, c)
     else:
         _gpaw.rk(alpha, a, beta, c)
 
@@ -304,8 +353,11 @@ def r2k(alpha, a, b, beta, c, cuda=False):
         _gpaw.r2k_cuda_gpu(alpha, a.gpudata, a.shape, b.gpudata,
                            b.shape, beta, c.gpudata, c.shape, a.dtype)
         if debug_cuda:
-            error=np.max(abs(c_cpu-c.get()))
-            if error>debug_cuda_tol:
+            diff = abs(c_cpu - c.get())
+            error_i = np.unravel_index(np.argmax(diff), diff.shape)
+            error = diff[error_i]
+            if error > np.finfo(type(error)).eps and \
+                   error > debug_cuda_reltol * abs(c_cpu[error_i]):
                 print "Debug cuda: rk2 max error: ", error
     elif cuda:
         print "r2k_cuda_cpu"
@@ -344,11 +396,12 @@ def dotc(a, b):
     if isinstance(a,gpuarray.GPUArray) and  isinstance(b,gpuarray.GPUArray):
         if debug_cuda:
             gpu=_gpaw.dotc_cuda_gpu(a.gpudata, a.shape, b.gpudata, a.dtype)
-            a_cpu=a.get()
-            b_cpu=b.get()
-            cpu=_gpaw.dotc(a_cpu, b_cpu)
-            error=abs(gpu-cpu)
-            if error>debug_cuda_tol:
+            a_cpu = a.get()
+            b_cpu = b.get()
+            cpu = _gpaw.dotc(a_cpu, b_cpu)
+            diff = abs(gpu - cpu)
+            if diff > np.finfo(type(diff)).eps and \
+                   diff > debug_cuda_reltol * abs(cpu):
                 print "Debug cuda: dotc max error: ", error
             return gpu
         else:
@@ -378,12 +431,13 @@ def dotu(a, b):
     assert (type(a) == type(b))
     if isinstance(a,gpuarray.GPUArray) and  isinstance(b,gpuarray.GPUArray):
         if debug_cuda:
-            a_cpu=a.get()
-            b_cpu=b.get()
-            cpu=_gpaw.dotu(a_cpu, b_cpu)
-            gpu=_gpaw.dotu_cuda_gpu(a.gpudata, a.shape, b.gpudata, a.dtype)
-            error=abs(gpu-cpu)
-            if error>debug_cuda_tol:
+            a_cpu = a.get()
+            b_cpu = b.get()
+            cpu = _gpaw.dotu(a_cpu, b_cpu)
+            gpu = _gpaw.dotu_cuda_gpu(a.gpudata, a.shape, b.gpudata, a.dtype)
+            diff = abs(gpu - cpu)
+            if diff > np.finfo(type(diff)).eps and \
+                   diff > debug_cuda_reltol * abs(cpu):
                 print "Debug cuda: dotu max error: ", error
             return gpu
         else:
@@ -479,7 +533,7 @@ def _rotate(in_jj, U_ij, a=1., b=0., out_ii=None, work_ij=None):
 if not debug:
     scal = _gpaw.scal
     #gemm = _gpaw.gemm
-    gemv = _gpaw.gemv
+    #gemv = _gpaw.gemv
     #axpy = _gpaw.axpy
     #rk = _gpaw.rk
     #r2k = _gpaw.r2k
