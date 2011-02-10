@@ -26,7 +26,7 @@
 #define AC_X (BLOCK+ACK)
 #define AC_Y (BLOCK)
 
-
+/*
 __global__ void IP1D_kernel(const Tcuda* a, int n, int m, Tcuda* b, int skip0,
 			    int skip1)
 {
@@ -50,12 +50,7 @@ __global__ void IP1D_kernel(const Tcuda* a, int n, int m, Tcuda* b, int skip0,
   if (i>0 || !skip0)
     b[0] = a[0];
   
-  /*
-  if (i == 0 && skip0)
-    b -= m;
-  else
-    b[0] = a[0];
-  */
+
  
   if (i == n - 1 && skip1)
     b -= m;
@@ -78,6 +73,7 @@ __global__ void IP1D_kernel(const Tcuda* a, int n, int m, Tcuda* b, int skip0,
     }
   
 }
+*/
 /*
 
 __global__ void IP1D_kernel(const Tcuda* a, int n, int m, Tcuda* b, int skip0)
@@ -113,8 +109,8 @@ __global__ void IP1D_kernel(const Tcuda* a, int n, int m, Tcuda* b, int skip0)
   
 }
 */
-/*
-__global__ void IP1D_kernel(const Tcuda* a, int n, int m, Tcuda* b, int skip0)
+
+__global__ void IP1D_kernel(const Tcuda* a, int n, int m, Tcuda* b, int skip0, int skip1)
 {
   
   __shared__ Tcuda ac[AC_Y*AC_X];
@@ -125,7 +121,7 @@ __global__ void IP1D_kernel(const Tcuda* a, int n, int m, Tcuda* b, int skip0)
   int itid=threadIdx.y;
   int i=blockIdx.y*BLOCK;
 
-  a += (j+itid) * (K - 1 + n)+(i+jtid);
+  a += (j+itid) * (K - 1 -skip1 + n)+(i+jtid);
   b += (j+jtid) + 2 * m * (i+itid);
     
   acp=ac+AC_X*(itid)+jtid+ACK/2-1;
@@ -146,28 +142,29 @@ __global__ void IP1D_kernel(const Tcuda* a, int n, int m, Tcuda* b, int skip0)
     if (!skip0 || (i+itid)>0 ) {
       b[0] = acp[0];
     }
-    if (K == 2)
-      b[m] = MULDT(0.5, ADD(acp[0] , acp[1]) );
-    else if (K == 4)
-      b[m] = ADD( MULDT( 0.5625 ,  ADD(acp[ 0] , acp[1])) ,
-		  MULDT(-0.0625 ,  ADD(acp[-1] , acp[2])));
-    else if (K == 6)
-      b[m] = ADD(ADD( MULDT( 0.58593750 , ADD(acp[ 0] , acp[1])),
-		      MULDT(-0.09765625 , ADD(acp[-1] , acp[2]))) ,
-		 MULDT(0.01171875 , ADD(acp[-2] , acp[3])));
-    else
-      b[m] = ADD( ADD( MULDT( 0.59814453125 , ADD(acp[ 0] , acp[1])) ,
-		       MULDT(-0.11962890625 , ADD(acp[-1] , acp[2]))) ,
-		  ADD ( MULDT( 0.02392578125 , ADD(acp[-2] , acp[3])) ,
-			MULDT(-0.00244140625 , ADD(acp[-3] , acp[4]))));
+    if (!(i == n - 1 && skip1)) {
+      if (K == 2)
+	b[m] = MULDT(0.5, ADD(acp[0] , acp[1]) );
+      else if (K == 4)
+	b[m] = ADD( MULDT( 0.5625 ,  ADD(acp[ 0] , acp[1])) ,
+		    MULDT(-0.0625 ,  ADD(acp[-1] , acp[2])));
+      else if (K == 6)
+	b[m] = ADD(ADD( MULDT( 0.58593750 , ADD(acp[ 0] , acp[1])),
+			MULDT(-0.09765625 , ADD(acp[-1] , acp[2]))) ,
+		   MULDT(0.01171875 , ADD(acp[-2] , acp[3])));
+      else
+	b[m] = ADD( ADD( MULDT( 0.59814453125 , ADD(acp[ 0] , acp[1])) ,
+			 MULDT(-0.11962890625 , ADD(acp[-1] , acp[2]))) ,
+		    ADD ( MULDT( 0.02392578125 , ADD(acp[-2] , acp[3])) ,
+			  MULDT(-0.00244140625 , ADD(acp[-3] , acp[4]))));
+    }
   }
 }
-*/
- /*
+
+
 void IP1D(const Tcuda* a, int n, int m, Tcuda* b, int skip[2])
 {
   
-  n-=skip[1];
   a += K / 2 - 1;
   if (skip[0]) b-=m;
   
@@ -179,12 +176,12 @@ void IP1D(const Tcuda* a, int n, int m, Tcuda* b, int skip[2])
   dim3 dimGrid(gridx,gridy);    
 
 
-  IP1D_kernel<<<dimGrid, dimBlock, 0>>>(a,n,m, b,skip[0]);
+  IP1D_kernel<<<dimGrid, dimBlock, 0>>>(a,n,m, b,skip[0],skip[1]);
 
   gpaw_cudaSafeCall(cudaGetLastError());
 }
- */
-
+ 
+/*
 void IP1D(const Tcuda* a, int n, int m, Tcuda* b, int skip[2])
 {
 
@@ -200,7 +197,7 @@ void IP1D(const Tcuda* a, int n, int m, Tcuda* b, int skip[2])
 
   gpaw_cudaSafeCall(cudaGetLastError());
 }
-
+*/
 
 #else
 #  define K 2
