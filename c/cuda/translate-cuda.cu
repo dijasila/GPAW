@@ -122,7 +122,7 @@ extern "C" {
 #endif
 				      int blocks)    
   {
-     if (!(size[0] && size[2] && size[3])) return;
+    if (!(size[0] && size[1] && size[2])) return;
     
     int3 hc_sizea,hc_size;    
     hc_sizea.x=sizea[0];    hc_sizea.y=sizea[1];    hc_sizea.z=sizea[2];
