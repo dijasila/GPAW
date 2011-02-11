@@ -32,13 +32,14 @@ PyObject* Transformer_apply_cuda_gpu(TransformerObject *self, PyObject *args)
 
   boundary_conditions* bc = self->bc;
   const int* size1 = bc->size1;
+  const int* size2 = self->bc->size2;
 
   int ng = bc->ndouble * size1[0] * size1[1] * size1[2];
+  int ng2 = bc->ndouble * size2[0] * size2[1] * size2[2];
 
   const double* in = (double*)input_gpu;
   double* out = (double*)output_gpu;
 
-  const int* size2 = self->bc->size2;
   bool real = (type->type_num == PyArray_DOUBLE);
   const double_complex* ph = (real ? 0 : COMPLEXP(phases));
 
@@ -57,13 +58,11 @@ PyObject* Transformer_apply_cuda_gpu(TransformerObject *self, PyObject *args)
   if (blocks>self->alloc_blocks){
     if (self->buf_gpu) cudaFree(self->buf_gpu);
     GPAW_CUDAMALLOC(&(self->buf_gpu), double, 
-		    size2[0] * size2[1] * size2[2] * 
-		    self->bc->ndouble * blocks);
+		    ng2* blocks);
 
     if (self->buf2_gpu) cudaFree(self->buf2_gpu);
     GPAW_CUDAMALLOC(&(self->buf2_gpu), double,
-		    16 * size2[0] * size2[1] * size2[2] * 
-		    self->bc->ndouble);
+		    16 * ng2);
     if (self->sendbuf) cudaFreeHost(self->sendbuf);
     GPAW_CUDAMALLOC_HOST(&(self->sendbuf),double, 
 			 bc->maxsend * GPAW_ASYNC_D * blocks);
@@ -105,11 +104,11 @@ PyObject* Transformer_apply_cuda_gpu(TransformerObject *self, PyObject *args)
 	if (real)
 	  {
 	    if (self->interpolate){
-	      bmgs_interpolate_cuda_gpu(self->k, self->skip, buf+i*ng, 
+	      bmgs_interpolate_cuda_gpu(self->k, self->skip, buf+i*ng2, 
 					bc->size2,out2+i*out_ng, buf2);	      
 	    }
 	    else{
-	      bmgs_restrict_cuda_gpu(self->k, buf+i*ng, bc->size2,
+	      bmgs_restrict_cuda_gpu(self->k, buf+i*ng2, bc->size2,
 				     out2+i*out_ng, buf2);
 	    }
 	  }
@@ -117,13 +116,13 @@ PyObject* Transformer_apply_cuda_gpu(TransformerObject *self, PyObject *args)
 	  {
 	    if (self->interpolate)
 	      bmgs_interpolate_cuda_gpuz(self->k, self->skip, 
-					 (cuDoubleComplex*)(buf+i*ng),
+					 (cuDoubleComplex*)(buf+i*ng2),
 					 bc->size2, 
 					 (cuDoubleComplex*)(out2+i*out_ng),
-					 (cuDoubleComplex*) buf2);
+					 (cuDoubleComplex*)buf2 );
 	    else
 	      bmgs_restrict_cuda_gpuz(self->k, 
-				      (cuDoubleComplex*)(buf+i*ng),
+				      (cuDoubleComplex*)(buf+i*ng2),
 				      bc->size2, 
 				      (cuDoubleComplex*)(out2+i*out_ng),
 				      (cuDoubleComplex*) buf2);

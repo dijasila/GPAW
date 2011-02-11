@@ -22,7 +22,7 @@ class RMM_DIIS(Eigensolver):
     * Improvement of wave functions:  psi' = psi + lambda PR + lambda PR'
     * Orthonormalization"""
 
-    def __init__(self, keep_htpsit=True, blocksize=1, cuda=False):
+    def __init__(self, keep_htpsit=True, blocksize=8, cuda=False):
         Eigensolver.__init__(self, keep_htpsit, blocksize, cuda)
 
     def iterate_one_k_point(self, hamiltonian, wfs, kpt, cuda_psit_nG=False):
@@ -44,9 +44,6 @@ class RMM_DIIS(Eigensolver):
                                      kpt.P_ani, kpt.eps_n, R_nG)
 
         B = self.blocksize
-        # XXX Blocking cannot used bt with CUDA at the moment
-        if cuda_psit_nG:
-            assert B == 1
         dR_xG = self.gd.empty(B, wfs.dtype, cuda=cuda_psit_nG)
         P_axi = wfs.pt.dict(B)
         error = 0.0
@@ -63,8 +60,8 @@ class RMM_DIIS(Eigensolver):
             if self.keep_htpsit:
                 # XXX GPUarray does not support properly multi-d slicing
                 if cuda_psit_nG:
-                    R_xG = R_nG[n1]
-                    R_xG.shape = (1, ) + R_xG.shape
+                    R_xG = R_nG[n1:n2]
+                    #R_xG.shape = (1, ) + R_xG.shape
                 else:
                     R_xG = R_nG[n_x]
             else:
@@ -97,7 +94,9 @@ class RMM_DIIS(Eigensolver):
 
             # Calculate the residual of dpsit_G, dR_G = (H - e S) dpsit_G:
             wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, dpsit_xG, dR_xG)
+            #self.timer.start('LFC integrate')
             wfs.pt.integrate(dpsit_xG, P_axi, kpt.q)
+            #self.timer.stop('LFC integrate')
             self.calculate_residuals(kpt, wfs, hamiltonian, dpsit_xG,
                                      P_axi, kpt.eps_n[n_x], dR_xG, n_x,
                                      calculate_change=True)
@@ -125,8 +124,8 @@ class RMM_DIIS(Eigensolver):
             self.timer.start('precondition')
             # XXX GPUarray does not support properly multi-d slicing
             if cuda_psit_nG:
-                psit_G = psit_nG[n1]
-                psit_G.shape = (1, ) + psit_G.shape
+                psit_G = psit_nG[n1:n2]
+                #psit_G.shape = (1, ) + psit_G.shape
                 psit_G += self.preconditioner(R_xG, kpt)
             else:
                 psit_nG[n1:n2] += self.preconditioner(R_xG, kpt)

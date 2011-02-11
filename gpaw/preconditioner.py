@@ -24,23 +24,9 @@ class Preconditioner:
         self.kin1 = Laplace(gd1, -0.5, 1, dtype, cuda=self.cuda)
         self.kin2 = Laplace(gd2, -0.5, 1, dtype, cuda=self.cuda)
 
-#        self.scratch0_0 = gd0.zeros((),dtype, False,cuda=self.cuda)
-#        self.scratch0_1 = gd0.zeros((),dtype, False,cuda=self.cuda)
-
-
-#        self.scratch1_0 = gd1.zeros((),dtype, False,cuda=self.cuda)
-#        self.scratch1_1 = gd1.zeros((),dtype, False,cuda=self.cuda)
-#        self.scratch1_2 = gd1.zeros((),dtype, False,cuda=self.cuda)
-
-#        self.scratch2_0 = gd2.zeros((),dtype, False,cuda=self.cuda)
-#        self.scratch2_1 = gd2.zeros((),dtype, False,cuda=self.cuda)
-#        self.scratch2_2 = gd2.zeros((),dtype, False,cuda=self.cuda)
-        
         self.scratch0 = gd0.zeros((2, block), dtype, False,cuda=self.cuda)
         self.scratch1 = gd1.zeros((3, block),dtype, False,cuda=self.cuda)
         self.scratch2 = gd2.zeros((3, block), dtype, False,cuda=self.cuda)
-
-#        self.residuals = gd0.empty((),dtype, False,cuda=self.cuda)
 
         self.step = 0.66666666 / kin0.get_diagonal_element()
 
@@ -74,9 +60,28 @@ class Preconditioner:
 
         if self.cuda:
             # XXX GPUarray does not support properly multi-d slicing
-            d0, q0 = self.scratch0
-            r1, d1, q1 = self.scratch1
-            r2, d2, q2 = self.scratch2
+            d0, q0 = gpuarray.GPUArray(shape=(self.scratch0.shape[0],)+
+                                       (nb,)+self.scratch0.shape[2:],
+                                       dtype=self.scratch0.dtype,
+                                       allocator=self.scratch0.allocator,
+                                       base=self.scratch0,
+                                       gpudata=self.scratch0.gpudata)
+            r1, d1, q1 = gpuarray.GPUArray(shape=(self.scratch1.shape[0],)+
+                                           (nb,)+self.scratch1.shape[2:],
+                                           dtype=self.scratch1.dtype,
+                                           allocator=self.scratch1.allocator,
+                                           base=self.scratch1,
+                                           gpudata=self.scratch1.gpudata)
+            
+            r2, d2, q2 = gpuarray.GPUArray(shape=(self.scratch2.shape[0],)+
+                                           (nb,)+self.scratch2.shape[2:],
+                                           dtype=self.scratch2.dtype,
+                                           allocator=self.scratch2.allocator,
+                                           base=self.scratch2,
+                                           gpudata=self.scratch2.gpudata)
+            #d0, q0 = self.scratch0
+            #r1, d1, q1 = self.scratch1
+            #r2, d2, q2 = self.scratch2
         else:
             d0, q0 = self.scratch0[:,:nb]
             r1, d1, q1 = self.scratch1[:, :nb]
