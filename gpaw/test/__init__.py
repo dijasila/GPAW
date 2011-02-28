@@ -176,6 +176,7 @@ tests = [
     'bse_aluminum.py',
     'bse_diamond.py',
     'bse_vs_lrtddft.py',
+    'diamond_eps_alda.py',
     'hgh_h2o.py',
     'apmb.py',
     'relax.py',

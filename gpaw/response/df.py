@@ -64,6 +64,28 @@ class DF(CHI):
         return dm_wGG
 
 
+    def get_ALDA_dielectric_matrix(self):
+        if self.chi0_wGG is None:
+            self.initialize(do_Kxc=True)
+            self.calculate()
+
+        assert self.nspins==1
+        tmp_GG = np.eye(self.npw, self.npw)
+        dm_wGG = np.zeros((self.Nw_local, self.npw, self.npw), dtype = complex)
+
+        # E_LDA = 1 - v_c chi0 (1-fxc chi0)^-1
+        # http://prb.aps.org/pdf/PRB/v33/i10/p7017_1 eq. 4
+        A_wGG = self.chi0_wGG.copy()
+        for iw in range(self.Nw_local): 
+            A_wGG[iw] = np.dot(self.chi0_wGG[iw], np.linalg.inv(tmp_GG - np.dot(self.Kxc_GG, self.chi0_wGG[iw])))
+
+        for iw in range(self.Nw_local):
+            for iG in range(self.npw):
+                qG = np.dot(self.q_c + self.Gvec_Gc[iG], self.bcell_cv)
+                dm_wGG[iw,iG] = tmp_GG[iG] - 4 * pi / np.dot(qG, qG) * A_wGG[iw,iG]
+
+        return dm_wGG
+
     def get_chi(self, xc='RPA'):
         """Solve Dyson's equation."""
 
@@ -91,7 +113,7 @@ class DF(CHI):
         return chi_wGG
 
 
-    def get_dielectric_function(self):
+    def get_dielectric_function(self, xc='RPA'):
         """Calculate the dielectric function. Returns df1_w and df2_w.
 
         Parameters:
@@ -103,7 +125,13 @@ class DF(CHI):
         """
 
         if self.df1_w is None:
-            dm_wGG = self.get_RPA_dielectric_matrix()
+            if xc == 'RPA':
+                dm_wGG = self.get_RPA_dielectric_matrix()
+            elif xc == 'ALDA':
+                dm_wGG = self.get_ALDA_dielectric_matrix()
+            else:
+                raise NotImplementedError(xc)
+            
 
             Nw_local = dm_wGG.shape[0]
             dfNLF_w = np.zeros(Nw_local, dtype = complex)

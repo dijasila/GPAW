@@ -61,7 +61,7 @@ class CHI(BASECHI):
         self.chi0_wGG = None
 
 
-    def initialize(self):
+    def initialize(self, do_Kxc=False):
 
         self.printtxt('')
         self.printtxt('-----------------------------------------')
@@ -127,7 +127,7 @@ class CHI(BASECHI):
 
         # Calculate ALDA kernel for EELS spectrum
         # Use RPA kernel for Optical spectrum and rpa correlation energy
-        if not self.optical_limit and np.dtype(self.w_w[0]) == float:
+        if do_Kxc or (not self.optical_limit and np.dtype(self.w_w[0]) == float):
             R_av = calc.atoms.positions / Bohr
             self.Kxc_GG = calculate_Kxc(self.gd, # global grid
                                     calc.density.nt_sG,
