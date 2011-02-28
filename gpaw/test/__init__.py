@@ -282,6 +282,7 @@ try:
     import scipy
 except ImportError:
     exclude += ['diamond_absorption.py',
+                'diamond_eps_alda.py',
                 'aluminum_EELS.py',
                 'aluminum_EELS_lcao.py',
                 'aluminum_testcell.py',
