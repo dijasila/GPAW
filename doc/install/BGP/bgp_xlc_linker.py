@@ -54,7 +54,7 @@ flags_list = {1: "-g -O3 -qlanglvl=extc99 -qflag=w:w -qpic",
               }
 
 flags = flags_list[opt]  
-cmd = "/soft/apps/ibmcmp-jan2010/vac/bg/9.0/bin/bgxlc_r %s %s"%(flags, cmd)
+cmd = "/soft/apps/ibmcmp-dec2010/vac/bg/9.0/bin/bgxlc_r %s %s"%(flags, cmd)
 
 print "\nexecmd: %s\n"%cmd
 call(cmd, shell=True)
