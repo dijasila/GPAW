@@ -764,19 +764,33 @@ def run(iterators):
         except StopIteration:
             return results
 
-# Shut down all processes if one of them fails.
-if parallel and not (dry_run_size > 1):
-    # This is a true parallel calculation
-    def cleanup(sys=sys, time=time, world=world):
-        error = getattr(sys, 'last_type', None)
-        if error:
+def cleanup():
+    error = getattr(sys, 'last_type', None)
+    if error is not None: # else: Python script completed or raise SystemExit
+        if parallel and not (dry_run_size > 1):
             sys.stdout.flush()
             sys.stderr.write(('GPAW CLEANUP (node %d): %s occurred.  ' +
-                              'Calling MPI_Abort!\n') % (world.rank, error))
+                          'Calling MPI_Abort!\n') % (world.rank, error))
             sys.stderr.flush()
             # Give other nodes a moment to crash by themselves (perhaps
             # producing helpful error messages)
-            time.sleep(3)
+            time.sleep(10)
             world.abort(42)
+        else:
+            sys.stderr.write(('GPAW CLEANUP for serial binary: %s occured. ' +
+                              'Calling sys.exit()\n') % error)
 
-    atexit.register(cleanup)
+def exit(error='Manual exit'):
+    # Note that exit must be called on *all* MPI tasks
+    atexit._exithandlers = [] # not needed because we are intentially exiting
+    if parallel and not (dry_run_size > 1):
+        sys.stdout.flush()
+        sys.stderr.write(('GPAW CLEANUP (node %d): %s occurred.  ' +
+                          'Calling MPI_Finalize!\n') % (world.rank, error))
+        sys.stderr.flush()
+    else:
+        cleanup(error)
+    world.barrier() # sync up before exiting
+    sys.exit() # quit for serial case, return to _gpaw.c for parallel case
+
+atexit.register(cleanup)
