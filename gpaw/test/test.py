@@ -63,9 +63,16 @@ if opt.after_test:
     tests = tests[index:]
 
 if opt.range:
+    # default start(stop) index is first(last) test
     indices = opt.range.split(',')
-    start_index = tests.index(indices[0])
-    stop_index = tests.index(indices[1])
+    try:
+        start_index = tests.index(indices[0])
+    except IndexError:
+        start_index = tests.index(0)
+    try:
+        stop_index = tests.index(indices[1])
+    except IndexError:
+        stop_index = tests.index(-1)
     tests = tests[start_index:stop_index]
 
 for test in exclude:
