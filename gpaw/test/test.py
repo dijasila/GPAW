@@ -67,12 +67,12 @@ if opt.range:
     indices = opt.range.split(',')
     try:
         start_index = tests.index(indices[0])
-    except IndexError:
-        start_index = tests.index(0)
+    except ValueError:
+        start_index = 0
     try:
         stop_index = tests.index(indices[1])
-    except IndexError:
-        stop_index = tests.index(-1)
+    except ValueError:
+        stop_index = -1
     tests = tests[start_index:stop_index]
 
 for test in exclude:
