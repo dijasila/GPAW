@@ -4,6 +4,7 @@ import gc
 import sys
 import time
 import tempfile
+import warnings
 from optparse import OptionParser
 
 import gpaw.mpi as mpi
@@ -80,6 +81,14 @@ for test in exclude:
         tests.remove(test)
 
 from gpaw.test import TestRunner
+
+if mpi.world.size > 8:
+    if mpi.rank == 0:
+        message = '!!!!!!!\n' \
+            'GPAW regression test suite was not designed to run on more\n'  \
+            'than 8 MPI tasks. Re-run test suite using 1, 2, 4 or 8 MPI\n' \
+            'tasks instead.'
+        warnings.warn(message, RuntimeWarning)
 
 old_hooks = hooks.copy()
 hooks.clear()
