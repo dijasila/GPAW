@@ -26,7 +26,7 @@ if rank == 0:
     for f in ['gpaw-restart', 'gpaw-result']:
         os.system('rm -rf %s; mkdir %s; cd %s; tar xf ../%s.gpw' %
                   (f, f, f, f))
-    assert os.system('diff -r gpaw-restart gpaw-result > /dev/null') == 0
+    assert os.system('diff -r gpaw-restart gpaw-result') == 0
     os.system('rm -rf gpaw-restart gpaw-result')
 
 energy_tolerance = 0.00006
