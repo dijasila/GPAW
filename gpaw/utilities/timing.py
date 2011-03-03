@@ -246,7 +246,7 @@ class TAUTimer(Timer):
         Timer.__init__(self)
         self.tau_timers = {}
         pytau.setNode(mpi.rank)
-        self.start('PAW_calc') 
+        self.start('GPAW.calculator') 
 
     def start(self, name):
         Timer.start(self, name)
@@ -258,7 +258,7 @@ class TAUTimer(Timer):
         pytau.stop(self.tau_timers[name])
 
     def write(self, out=sys.stdout):
-        self.stop('PAW_calc')
+        self.stop('GPAW.calculator')
         Timer.write(self, out)
 
 
