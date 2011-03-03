@@ -686,7 +686,7 @@ class GPAW(PAW):
         return self.occupations.width * Hartree
 
     def get_number_of_electrons(self):
-        return self.wfs.setups.nvalence
+        return self.wfs.setups.nvalence - self.density.charge
 
     def get_electrostatic_corrections(self):
         """Calculate PAW correction to average electrostatic potential."""
