@@ -682,8 +682,11 @@ class GPAW(PAW):
         return np.array(coefs)
 
     def get_electronic_temperature(self):
-        # XXX do we need this?
+        # XXX do we need this - yes we do!
         return self.occupations.width * Hartree
+
+    def get_number_of_electrons(self):
+        return self.wfs.setups.nvalence
 
     def get_electrostatic_corrections(self):
         """Calculate PAW correction to average electrostatic potential."""
