@@ -241,12 +241,16 @@ class TAUTimer(Timer):
 
     The TAU Python API will not output any data if there are any
     unmatched starts/stops in the code."""
-    
+
+    top_level = 'GPAW.calculator' # TAU needs top level timer 
+    merge = True # Requires TAU 2.19.2 or later
+
     def __init__(self):
         Timer.__init__(self)
         self.tau_timers = {}
         pytau.setNode(mpi.rank)
-        self.start('GPAW.calculator') 
+        self.tau_timers[self.top_level] = pytau.profileTimer(self.top_level)
+        pytau.start(self.tau_timers[self.top_level])
 
     def start(self, name):
         Timer.start(self, name)
@@ -258,10 +262,13 @@ class TAUTimer(Timer):
         pytau.stop(self.tau_timers[name])
 
     def write(self, out=sys.stdout):
-        self.stop('GPAW.calculator')
         Timer.write(self, out)
+        if self.merge:
+            pytau.dbMergeDump()
+        else:
+            pytau.stop(self.tau_timers[self.top_level])
 
-
+        
 class HPMTimer(Timer):
     """HPMTimer requires installation of the IBM BlueGene/P HPM
     middleware interface to the low-level UPC library. This will
