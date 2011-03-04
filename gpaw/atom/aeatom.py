@@ -5,13 +5,15 @@ import sys
 from math import pi, log
 
 import numpy as np
-from scipy.special import gamma
 from numpy.linalg import eigh
-from scipy.interpolate import splrep, splev
-from ase.data import atomic_numbers, atomic_names, chemical_symbols
+
+from scipy.special import gamma
 from scipy.integrate import odeint
-import ase.units as units
+from scipy.interpolate import interp1d
+
+from ase.data import atomic_numbers, atomic_names, chemical_symbols
 from ase.utils import devnull
+import ase.units as units
 
 from gpaw.atom.configurations import configurations
 from gpaw.xc import XC
@@ -55,7 +57,7 @@ class GridDescriptor:
         return np.zeros(x + (self.N,))
 
     def integrate(self, a_xg, n=0):
-        assert n > -2
+        assert n >= -2
         return np.dot(a_xg[..., 1:],
                       (self.r_g**(2 + n) * self.dr_g)[1:]) * (4 * pi)
 
@@ -206,6 +208,13 @@ class Channel:
         f_n = self.f_n
         return np.dot(f_n, self.e_n[:len(f_n)])
 
+    def integrate_outwards(self, vr, r_g, e, p=lambda x: 0.0):
+        def f(y, r):
+            if r == 0:
+                return [y[1], -2.0]
+            return [y[1], 2 * (vr(r) / r - e) * y[0] - 2 * p(r) * r]
+        return odeint(f, [0, 1], r_g)
+    
 
 class DiracChannel(Channel):
     def __init__(self, k, f_n, basis):
@@ -537,19 +546,11 @@ class AllElectronAtom:
         plt.show()
 
     def logarithmic_derivative(self, l, energies, rcut):
-        vr = splrep(self.gd.r_g, self.vr_sg[0])
-
-        def v(r):
-            return splev(r, vr) / r
-        
-        def f(y, r, e):
-            if r == 0:
-                return [y[1], -2.0]
-            return [y[1], 2 * (v(r) - e) * y[0]]
-
+        vr = interp1d(self.gd.r_g, self.vr_sg[0])
+        ch = self.get_channel(l)
         logderivs = []
         for e in energies:
-            u, dudr = odeint(f, [0, 1], [0, rcut], (e,))[1, :]
+            u, dudr = ch.integrate_outwards(vr, [0, rcut], e)[1, :]
             logderivs.append(dudr / u)
         return logderivs
             
