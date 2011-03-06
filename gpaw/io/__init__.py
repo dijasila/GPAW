@@ -266,25 +266,23 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
             indices.append(wfs.bd.get_slice())
             do_write = (domain_comm.rank == 0)
             if domain_comm.rank == 0:
+                P_ani = {}
                 for a in range(natoms):
                     ni = wfs.setups[a].ni
                     if wfs.rank_a[a] == 0:
-                        P_ni = kpt.P_ani[a]
+                        P_ani[a] = kpt.P_ani[a]
                     else:
-                        P_ni = np.empty((wfs.mynbands, ni), dtype=wfs.dtype)
-                        # XXX Use blocking comm for a while
-                        # requests.append(domain_comm.receive(P_ni, \
-                        #     wfs.rank_a[a], 1303 + a, block=False))
-                        domain_comm.receive(P_ni, \
-                             wfs.rank_a[a], 1303 + a, block=True)
-                    all_P_ni[:, cumproj_a[a]:cumproj_a[a+1]] = P_ni
+                        P_ani[a] = np.empty((wfs.mynbands, ni), dtype=wfs.dtype)
+                        requests.append(domain_comm.receive(P_ani[a], \
+                            wfs.rank_a[a], 1303 + a, block=False))
             else:
                 for a, P_ni in kpt.P_ani.items():
-                    # requests.append(domain_comm.send(P_ni, 0, 1303 + a,
-                    #                                  block=False))
-                    domain_comm.send(P_ni, 0, 1303 + a,
-                                                     block=True)
-            # domain_comm.waitall(requests)
+                    requests.append(domain_comm.send(P_ni, 0, 1303 + a,
+                                                      block=False))
+            domain_comm.waitall(requests)
+            if domain_comm.rank == 0:
+                for a in range(natoms):
+                    all_P_ni[:, cumproj_a[a]:cumproj_a[a+1]] = P_ani[a]
             w.fill(all_P_ni, parallel=True, write=do_write, *indices)
     else:
         for s in range(wfs.nspins):
