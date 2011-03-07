@@ -5,10 +5,15 @@ import sys
 from math import pi, log
 
 import numpy as np
+from numpy.linalg import eigh
+
 from scipy.special import gamma
+from scipy.integrate import odeint
+from scipy.interpolate import interp1d
+
 from ase.data import atomic_numbers, atomic_names, chemical_symbols
-import ase.units as units
 from ase.utils import devnull
+import ase.units as units
 
 from gpaw.atom.configurations import configurations
 from gpaw.xc import XC
@@ -36,6 +41,7 @@ class GridDescriptor:
         g_g = np.arange(N)
         self.r_g = self.a * g_g / (1 - self.b * g_g)
         self.dr_g = (self.b * self.r_g + self.a)**2 / self.a
+        self.dv_g = 4 * pi * self.r_g**2 * self.dr_g
 
     def get_index(self, r):
         return int(1 / (self.b + self.a / r) + 0.5)
@@ -51,9 +57,29 @@ class GridDescriptor:
         return np.zeros(x + (self.N,))
 
     def integrate(self, a_xg, n=0):
-        assert n > -2
+        assert n >= -2
         return np.dot(a_xg[..., 1:],
                       (self.r_g**(2 + n) * self.dr_g)[1:]) * (4 * pi)
+
+    def derivative(self, n_g, dndr_g):
+        """Finite-difference derivative of radial function."""
+        dndr_g[0] = n_g[1] - n_g[0]
+        dndr_g[1:-1] = 0.5 * (n_g[2:] - n_g[:-2])
+        dndr_g[-1] = n_g[-1] - n_g[-2]
+        dndr_g /= self.dr_g
+
+    def derivative2(self, a_g, b_g):
+        """Finite-difference derivative of radial function.
+
+        For an infinitely dense grid, this method would be identical
+        to the `derivative` method."""
+        
+        c_g = a_g / self.dr_g
+        b_g[0] = 0.5 * c_g[1] + c_g[0]
+        b_g[1] = 0.5 * c_g[2] - c_g[0]
+        b_g[1:-1] = 0.5 * (c_g[2:] - c_g[:-2])
+        b_g[-2] = c_g[-1] - 0.5 * c_g[-3]
+        b_g[-1] = -c_g[-1] - 0.5 * c_g[-2]
 
     def poisson(self, n_g):
         a_g = -4 * pi * n_g * self.r_g * self.dr_g
@@ -113,15 +139,15 @@ class GaussianBasis:
         K_BB = 2**(l + 2.5) * M_BB**(0.5 * l + 0.75) / gamma(l + 1.5) * (
             0.5 * gamma(l + 1) / A_BB**(l + 1))
 
-        # Find set of liearly independent functions.
+        # Find set of linearly independent functions.
         # We have len(alpha_B) gaussians (index B) and self.nbasis
         # linearly independent functions (index b).
-        s_B, U_BB = np.linalg.eigh(S_BB)
+        s_B, U_BB = eigh(S_BB)
         self.nbasis = int((s_B > eps).sum())
 
         Q_Bb = np.dot(U_BB[:, -self.nbasis:],
                       np.diag(s_B[-self.nbasis:]**-0.5))
-
+        
         self.T_bb = np.dot(np.dot(Q_Bb.T, T_BB), Q_Bb)
         self.D_bb = np.dot(np.dot(Q_Bb.T, D_BB), Q_Bb)
         self.K_bb = np.dot(np.dot(Q_Bb.T, K_BB), Q_Bb)
@@ -165,7 +191,7 @@ class Channel:
         """Diagonalize Schrödinger equation in basis set."""
         H_bb = self.basis.calculate_potential_matrix(vr_g)
         H_bb += self.basis.T_bb
-        self.e_n, C_bn = np.linalg.eigh(H_bb)
+        self.e_n, C_bn = eigh(H_bb)
         self.C_nb = C_bn.T
     
     def calculate_density(self, n=None):
@@ -182,6 +208,13 @@ class Channel:
         f_n = self.f_n
         return np.dot(f_n, self.e_n[:len(f_n)])
 
+    def integrate_outwards(self, vr, r_g, e, p=lambda x: 0.0):
+        def f(y, r):
+            if r == 0:
+                return [y[1], -2.0]
+            return [y[1], 2 * (vr(r) / r - e) * y[0] - 2 * p(r) * r]
+        return odeint(f, [0, 1], r_g)
+    
 
 class DiracChannel(Channel):
     def __init__(self, k, f_n, basis):
@@ -201,7 +234,7 @@ class DiracChannel(Channel):
         H_bb[:nb, :nb] = V_bb
         H_bb[nb:, nb:] = V_bb - 2 * c**2 * np.eye(nb)
         H_bb[nb:, :nb] = -c * (-self.basis.D_bb.T + self.k * self.basis.K_bb)
-        e_n, C_bn = np.linalg.eigh(H_bb)
+        e_n, C_bn = eigh(H_bb)
         if self.k < 0:
             n0 = nb
         else:
@@ -352,7 +385,8 @@ class AllElectronAtom:
                 basis = GaussianBasis(l, alpha_B, self.gd, eps)
                 nb_l.append(len(basis))
                 for s in range(self.nspins):
-                    self.channels.append(Channel(l, s, self.f_lsn[l][s], basis))
+                    self.channels.append(Channel(l, s, self.f_lsn[l][s],
+                                                 basis))
         else:
             for K in range(1, lmax + 2):
                 leff = (K**2 - (self.Z / c)**2)**0.5 - 1
@@ -460,15 +494,16 @@ class AllElectronAtom:
         self.log('=====================================================')
 
     def write_energies(self):
-        self.log('\nEnergies [Hartree]:')
-        self.log('=============================')
-        self.log(' kinetic       %+13.6f' % self.ekin)
-        self.log(' coulomb (e-e) %+13.6f' % self.eH)
-        self.log(' coulomb (e-n) %+13.6f' % self.eZ)
-        self.log(' xc            %+13.6f' % self.exc)
-        self.log(' total         %+13.6f' %
-                 (self.ekin + self.eH + self.eZ + self.exc))
-        self.log('=============================')
+        self.log('\nEnergies:          [Hartree]           [eV]')
+        self.log('============================================')
+        for text, e in [('kinetic      ', self.ekin),
+                        ('coulomb (e-e)', self.eH),
+                        ('coulomb (e-n)', self.eZ),
+                        ('xc           ', self.exc),
+                        ('total        ',
+                         self.ekin + self.eH + self.eZ + self.exc)]:
+            self.log(' %s %+13.6f  %+13.5f' % (text, e, units.Hartree * e))
+        self.log('============================================')
 
     def get_channel(self, l=None, s=0, k=None):
         if self.dirac:
@@ -510,6 +545,15 @@ class AllElectronAtom:
         plt.axis(xmax=rc)
         plt.show()
 
+    def logarithmic_derivative(self, l, energies, rcut):
+        vr = interp1d(self.gd.r_g, self.vr_sg[0])
+        ch = self.get_channel(l)
+        logderivs = []
+        for e in energies:
+            u, dudr = ch.integrate_outwards(vr, [0, rcut], e)[1, :]
+            logderivs.append(dudr / u)
+        return logderivs
+            
 
 def build_parser(): 
     from optparse import OptionParser
@@ -531,6 +575,8 @@ def build_parser():
     parser.add_option('-e', '--exponents',
                       help='Exponents a: exp(-a*r^2).  Use "-e 0.1:20.0:30" ' +
                       'to get 30 exponents from 0.1 to 20.0.')
+    parser.add_option('-l', '--logarithmic-derivatives',
+                      help='-l 1.3,spdf,-2,2,100')
     return parser
 
 
@@ -548,7 +594,7 @@ def main():
             n = int(x[0])
             l = 'spdfg'.find(x[1])
             x = x[2:]
-            if x[-1] in 'ab':
+            if x and x[-1] in 'ab':
                 s = int(x[-1] == 'b')
                 opt.spin_polarized = True
                 x = x[:-1]
@@ -580,6 +626,21 @@ def main():
 
     aea.run()
 
+    if opt.logarithmic_derivatives:
+        rcut, lvalues, emin, emax, npoints = \
+              opt.logarithmic_derivatives.split(',')
+        rcut = float(rcut)
+        lvalues = ['spdfg'.find(x) for x in lvalues]
+        emin = float(emin)
+        emax = float(emax)
+        npoints = int(npoints)
+        energies = np.linspace(emin, emax, npoints)
+        import matplotlib.pyplot as plt
+        for l in lvalues:
+            ld = aea.logarithmic_derivative(l, energies, rcut)
+            plt.plot(energies, ld)
+        plt.show()
+        
     if opt.plot:
         aea.plot_wave_functions()
 

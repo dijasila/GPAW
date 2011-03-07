@@ -4,6 +4,7 @@ import gc
 import sys
 import time
 import tempfile
+import warnings
 from optparse import OptionParser
 
 import gpaw.mpi as mpi
@@ -23,6 +24,10 @@ parser.add_option('--from', metavar='TESTFILE', dest='from_test',
                   help='Run remaining tests, starting from TESTFILE')
 parser.add_option('--after', metavar='TESTFILE', dest='after_test',
                   help='Run remaining tests, starting after TESTFILE')
+parser.add_option('--range', 
+                  type='string', default=None,
+                  help='Run tests in range test_i.py to test_j.py (inclusive)',
+                  metavar='test_i.py,test_j.py')
 parser.add_option('-j', '--jobs', type='int', default=1,
                   help='Run JOBS threads.')
 parser.add_option('--reverse', action='store_true',
@@ -31,6 +36,8 @@ parser.add_option('--reverse', action='store_true',
 parser.add_option('-k', '--keep-temp-dir', action='store_true',
                   dest='keep_tmpdir', help='Do not delete temporary files.')
 parser.add_option('-d', '--directory', help='Run test in this directory')
+parser.add_option('-s', '--show-output', action='store_true',
+                  help='Show standard output from tests.')
 
 opt, tests = parser.parse_args()
 
@@ -56,11 +63,32 @@ if opt.after_test:
     index = tests.index(opt.after_test) + 1
     tests = tests[index:]
 
+if opt.range:
+    # default start(stop) index is first(last) test
+    indices = opt.range.split(',')
+    try:
+        start_index = tests.index(indices[0])
+    except ValueError:
+        start_index = 0
+    try:
+        stop_index = tests.index(indices[1])
+    except ValueError:
+        stop_index = -1
+    tests = tests[start_index:stop_index]
+
 for test in exclude:
     if test in tests:
         tests.remove(test)
 
 from gpaw.test import TestRunner
+
+if mpi.world.size > 8:
+    if mpi.rank == 0:
+        message = '!!!!!!!\n' \
+            'GPAW regression test suite was not designed to run on more\n'  \
+            'than 8 MPI tasks. Re-run test suite using 1, 2, 4 or 8 MPI\n' \
+            'tasks instead.'
+        warnings.warn(message, RuntimeWarning)
 
 old_hooks = hooks.copy()
 hooks.clear()
@@ -80,7 +108,7 @@ cwd = os.getcwd()
 os.chdir(tmpdir)
 if mpi.rank == 0:
     print 'Running tests in', tmpdir
-failed = TestRunner(tests, jobs=opt.jobs).run()
+failed = TestRunner(tests, jobs=opt.jobs, show_output=opt.show_output).run()
 os.chdir(cwd)
 if mpi.rank == 0:
     if len(failed) > 0:

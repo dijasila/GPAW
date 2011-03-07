@@ -185,7 +185,7 @@ class PAW(PAWTextOutput):
                 self.wfs = EmptyWaveFunctions()
                 self.occupations = None
             elif key in ['h', 'gpts', 'setups', 'spinpol', 'usesymm',
-                         'parallel', 'communicator']:
+                         'parallel', 'communicator', 'dtype']:
                 self.density = None
                 self.occupations = None
                 self.hamiltonian = None
@@ -378,7 +378,7 @@ class PAW(PAWTextOutput):
         cell_cv /= Bohr
 
 
-        if hasattr(self, 'time'):
+        if hasattr(self, 'time') or par.dtype==complex:
             dtype = complex
         else:
             if kd.gamma:
@@ -518,6 +518,10 @@ class PAW(PAWTextOutput):
                 sl_inverse_cholesky = par.parallel['sl_inverse_cholesky']
                 if sl_inverse_cholesky is None:
                     sl_inverse_cholesky = par.parallel['sl_default']
+                if sl_inverse_cholesky != sl_diagonalize:
+                    message = 'sl_inverse_cholesky != sl_diagonalize ' \
+                        'is not implemented.'
+                    raise NotImplementedError(message)
                 orthoksl = get_KohnSham_layouts(sl_inverse_cholesky, 'fd',
                                                 gd, bd, dtype,
                                                 buffer_size=buffer_size,

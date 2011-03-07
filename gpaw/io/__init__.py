@@ -88,11 +88,6 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
 
     hdf5 = filename.endswith('.hdf5')
 
-    if master:
-        if filename == '.db':
-            from cmr_io import create_db_filename
-            filename = create_db_filename()
-
     par_kwargs = {}
     if hdf5:
         par_kwargs.update({'parallel': True, 'write': master})
@@ -657,6 +652,12 @@ def read(paw, reader):
         norbitals = None
 
     # Wave functions and eigenvalues:
+    dtype = r['DataType']
+    if dtype == 'Float' and paw.input_parameters['dtype']!=complex:
+        wfs.dtype = float
+    else:
+        wfs.dtype = complex
+        
     nibzkpts = r.dimension('nibzkpts')
     nbands = r.dimension('nbands')
     nslice = wfs.bd.get_slice()

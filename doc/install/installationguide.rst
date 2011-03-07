@@ -251,12 +251,12 @@ If tests pass, and the parallel version is built, test the parallel code::
 
 Try also::
 
-  [test]$ cd ~/gpaw/examples
-  [examples]$ mpirun -np 2 gpaw-python H.py
+  [gpaw]$ mpirun -np 2 gpaw-python gpaw/test/spinpol.py
 
-This will perform a calculation for a single hydrogen atom parallelized
-with spin up on one processor and spin down on the other.  If you run
-the example on 4 processors, you should get parallelization over both
+This will perform a calculation for a single hydrogen atom.
+First spin-paired then spin-polarized case, the latter parallelized
+over spin up on one processor and spin down on the other.  If you run
+the example on 4 processors, you get parallelization over both
 spins and the domain.
 
 If you enabled ScaLAPACK, do::

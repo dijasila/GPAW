@@ -95,45 +95,35 @@ class KPointDescriptor:
         if (~atoms.pbc & self.bzk_kc.any(0)).any():
             raise ValueError('K-points can only be used with PBCs!')
 
-        if self.gamma:
-            self.symmetry = None
-            self.weight_k = np.array([1.0])
-            self.ibzk_kc = np.zeros((1, 3))
-
-        elif usesymm is None:
+        # Construct a Symmetry instance containing the identity operation
+        # only
+        # Round off
+        magmom_a = atoms.get_initial_magnetic_moments().round(decimals=3)
+        id_a = zip(magmom_a, setups.id_a)
+        self.symmetry = Symmetry(id_a, atoms.cell / Bohr, atoms.pbc)
+        
+        if self.gamma or usesymm is None:
             # Point group and time-reversal symmetry neglected
             nkpts = len(self.bzk_kc)
-            self.symmetry = None
             self.weight_k = np.ones(nkpts) / nkpts
             self.ibzk_kc = self.bzk_kc.copy()
-
+            self.sym_k = np.zeros(nkpts)
+            self.time_reversal_k = np.zeros(nkpts, bool)
+            self.kibz_k = np.arange(nkpts)
         else:
-            # Round off
-            magmom_a = atoms.get_initial_magnetic_moments().round(decimals=3)
-            id_a = zip(magmom_a, setups.id_a)
-
-            # Construct a Symmetry instance containing the identity operation
-            # only
-            self.symmetry = Symmetry(id_a, atoms.get_cell() / Bohr,
-                                     atoms.get_pbc())
-
             if usesymm:
                 # Find symmetry operations of atoms
                 self.symmetry.analyze(atoms.get_scaled_positions())
-            else:
-                self.symmetry.prune_symmetries(atoms.get_scaled_positions())
+                
+                if N_c is not None:
+                    self.symmetry.prune_symmetries_grid(N_c)
 
-            if N_c is not None:
-                self.symmetry.prune_symmetries_grid(N_c)
+            (self.ibzk_kc, self.weight_k,
+             self.sym_k,
+             self.time_reversal_k,
+             self.kibz_k) = self.symmetry.reduce(self.bzk_kc)
 
-            # Reduce the set of k-points and add inversion if not already
-            # detected
-            self.ibzk_kc, self.weight_k = self.symmetry.reduce(self.bzk_kc)
-
-            if usesymm:
-                setups.set_symmetry(self.symmetry)
-            else:
-                self.symmetry = None
+        setups.set_symmetry(self.symmetry)
 
         # Number of irreducible k-points and k-point/spin combinations.
         self.nibzkpts = len(self.ibzk_kc)
@@ -177,6 +167,42 @@ class KPointDescriptor:
             kpt_u.append(KPoint(weight, s, k, q, phase_cd))
 
         return kpt_u
+
+    def transform_wave_function(self, psit_G, k):
+        """Transform wave function from IBZ to BZ.
+
+        k is the index of the desired k-point in the full BZ."""
+        
+        s = self.sym_k[k]
+        time_reversal = self.time_reversal_k[k]
+        op_cc = np.linalg.inv(self.symmetry.op_scc[s]).round().astype(int)
+
+        # Identity
+        if (np.abs(op_cc - np.eye(3, dtype=int)) < 1e-10).all():
+            if time_reversal:
+                return psit_G.conj()
+            else:
+                return psit_G
+        # Inversion symmetry
+        elif (np.abs(op_cc + np.eye(3, dtype=int)) < 1e-10).all():
+            return psit_G.conj()
+        # General point group symmetry
+        else:
+            ik = self.kibz_k[k]
+            kibz_c = self.ibzk_kc[ik]
+            kbz_c = self.bzk_kc[k]            
+            import _gpaw
+            b_g = np.zeros_like(psit_G)
+            if time_reversal:
+                # assert abs(np.dot(op_cc, kibz_c) - -kbz_c) < tol
+                _gpaw.symmetrize_wavefunction(psit_G, b_g, op_cc.copy(),
+                                              kibz_c, -kbz_c)
+                return b_g.conj()
+            else:
+                # assert abs(np.dot(op_cc, kibz_c) - kbz_c) < tol
+                _gpaw.symmetrize_wavefunction(psit_G, b_g, op_cc.copy(),
+                                              kibz_c, kbz_c)
+                return b_g
 
     def find_k_plus_q(self, q_c):
         """Find the indices of k+q for all kpoints in the Brillouin zone.
@@ -227,6 +253,54 @@ class KPointDescriptor:
             assert abs(kplusq_c - k_c).sum() < 1e-8, "Could not find k+q!"
         
         return kplusq_k
+
+    def get_bz_q_points(self):
+        """Return the q=k1-k2."""
+
+        bzk_kc = self.bzk_kc
+        # Get all q-points
+        all_qs = []
+        for k1 in bzk_kc:
+            for k2 in bzk_kc:
+                all_qs.append(k1-k2)
+        all_qs = np.array(all_qs)
+
+        # Fold q-points into Brillouin zone
+        all_qs[np.where(all_qs > 0.501)] -= 1.
+        all_qs[np.where(all_qs < -0.499)] += 1.
+
+        # Make list of non-identical q-points in full BZ
+        bz_qs = [all_qs[0]]
+        for q_a in all_qs:
+            q_in_list = False
+            for q_b in bz_qs:
+                if (abs(q_a[0]-q_b[0]) < 0.01 and
+                    abs(q_a[1]-q_b[1]) < 0.01 and
+                    abs(q_a[2]-q_b[2]) < 0.01):
+                    q_in_list = True
+                    break
+            if q_in_list == False:
+                bz_qs.append(q_a)
+        self.bzq_kc = bz_qs
+
+        return
+
+    def where_is_q(self, q_c):
+        """Find the index of q points."""
+        q_c[np.where(q_c>0.499)] -= 1
+        q_c[np.where(q_c<-0.499)] += 1
+
+        found = False
+        for ik in range(self.nbzkpts):
+            if (np.abs(self.bzq_kc[ik] - q_c) < 1e-8).all():
+                found = True
+                return ik
+                break
+            
+        if found is False:
+            print self.bzq_kc, q_c
+            raise ValueError('q-points can not be found!')
+        
 
     def get_count(self, rank=None):
         """Return the number of ks-pairs which belong to a given rank."""

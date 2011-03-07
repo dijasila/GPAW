@@ -85,9 +85,14 @@ def build_parser():
     return parser
 
 
-def run():
+def run(argv=None):
+    if argv is None:
+        argv = sys.argv[1:]
+    elif isinstance(argv, str):
+        argv = argv.split()
+        
     parser = build_parser()
-    opt, args = parser.parse_args()
+    opt, args = parser.parse_args(argv)
     
     if len(args) != 1:
         parser.error("incorrect number of arguments")
@@ -171,7 +176,7 @@ def run():
     if not opt.effective_medium_theory:
         # Import stuff that eval() may need to know:
         from gpaw.wavefunctions.pw import PW
-        from gpaw.occupations import FermiDirac
+        from gpaw.occupations import FermiDirac, MethfesselPaxton
             
         if opt.parameters:
             input_parameters = eval(open(opt.parameters).read())
@@ -193,9 +198,11 @@ def run():
 
     runner.summary(plot=opt.plot, a0=a)
 
+    return runner
+
 def main():
     try:
-        run()
+        run(sys.argv[1:])
     except KeyboardInterrupt:
         print 'Killed!'
         raise SystemExit(1)

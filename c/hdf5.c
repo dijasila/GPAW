@@ -302,12 +302,13 @@ PyObject* h5s_create(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "O", &shape))
     return NULL;
 
-  int rank = shape->dimensions[0];
-  int* dims_i = PyArray_DATA(shape);
-  // hsize_t may be larger than int so we need to copy
+  int rank = PyArray_DIM(shape, 0);
+  long* dims_i = PyArray_DATA(shape);
+  // hsize_t may be larger than long so we need to copy
   hsize_t* dims = (hsize_t *) malloc(rank * sizeof(hsize_t));
   for (int i=0; i < rank; i++)
     dims[i] = dims_i[i];
+   
 
   int sid = H5Screate_simple(rank, dims, NULL);
   free(dims);
@@ -327,7 +328,7 @@ PyObject* h5s_select_hyperslab(PyObject *self, PyObject *args)
   
   // None can be passed to indicate use of default values e.g. NULL for
   // stride and block
-  int* temp = PyArray_DATA(np_offset);
+  long* temp = PyArray_DATA(np_offset);
   int rank = np_offset->dimensions[0];
   hsize_t* offset = (hsize_t *) malloc(rank * sizeof(hsize_t));
   for (int i=0; i < rank; i++)

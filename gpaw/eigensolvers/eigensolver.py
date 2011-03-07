@@ -8,7 +8,6 @@ from gpaw.fd_operators import Laplace
 from gpaw.utilities.blas import axpy, r2k, gemm
 from gpaw.utilities.tools import apply_subspace_mask
 from gpaw.utilities import unpack
-from gpaw import debug, extra_parameters
 
 
 class Eigensolver:
@@ -128,7 +127,8 @@ class Eigensolver:
             Htpsit_xG = self.operator.suggest_temporary_buffer()
 
         def H(psit_xG):
-            wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_xG, Htpsit_xG)
+            wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_xG,
+                                         Htpsit_xG[:len(psit_xG)])
             hamiltonian.xc.apply_orbital_dependent_hamiltonian(
                 kpt, psit_xG, Htpsit_xG, hamiltonian.dH_asp)
             return Htpsit_xG

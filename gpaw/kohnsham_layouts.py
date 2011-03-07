@@ -248,6 +248,7 @@ class BlacsBandLayouts(BlacsLayouts): #XXX should derive from BandLayouts too!
     def inverse_cholesky(self, S_nn):
         self.timer.start('Inverse Cholesky')
         self._inverse_cholesky(S_nn)
+        self.blockcomm.barrier() # removing barrier may lead to race condition
         self.timer.stop('Inverse Cholesky')
         
     def _inverse_cholesky(self, S_nn):
@@ -342,11 +343,15 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         
         C_mm = blockdescriptor.zeros(dtype=dtype)
         self.timer.start('General diagonalize')
-        blockdescriptor.general_diagonalize_ex(H_mm, S_mm.copy(), C_mm, eps_M,
-                                               UL='L', iu=self.bd.nbands)
+        # general_diagonalize_ex may have a buffer overflow, so
+        # we no longer use it
+        # blockdescriptor.general_diagonalize_ex(H_mm, S_mm.copy(), C_mm, eps_M,
+        #                                        UL='L', iu=self.bd.nbands)
+        blockdescriptor.general_diagonalize_dc(H_mm, S_mm.copy(), C_mm, eps_M,
+                                               UL='L')
         self.timer.stop('General diagonalize')
  
-       # Make C_nM compatible with the redistributor
+        # Make C_nM compatible with the redistributor
         self.timer.start('Redistribute coefs')
         if outdescriptor:
             C2_nM = C_nM

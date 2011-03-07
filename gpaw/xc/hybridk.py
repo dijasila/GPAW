@@ -7,6 +7,7 @@ evaluation of exact exchange with k-point sampling."""
 from math import pi, sqrt
 
 import numpy as np
+from ase import Atoms
 
 from gpaw.xc import XC
 from gpaw.xc.kernel import XCNull
@@ -14,6 +15,9 @@ from gpaw.xc.functional import XCFunctional
 from gpaw.utilities import hartree, pack, unpack2, packed_index
 from gpaw.lfc import LFC
 from gpaw.wavefunctions.pw import PWDescriptor
+from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.kpoint import KPoint as KPoint0
+from gpaw.mpi import world
 
 
 class KPoint:
@@ -136,12 +140,9 @@ class HybridXC(XCFunctional):
         self.density = density
         self.kpt_u = wfs.kpt_u
         
-        self.ghat = LFC(density.gd,
-                        [setup.ghat_l for setup in density.setups],
-                        integral=np.sqrt(4 * pi), forces=True)
-
         self.gd = density.gd
         self.kd = wfs.kd
+        self.bd = wfs.bd
 
         N_c = self.gd.N_c
         N = self.gd.N_c.prod()
@@ -156,6 +157,7 @@ class HybridXC(XCFunctional):
 
         if self.kd.N_c is None:
             self.bzk_kc = np.zeros((1, 3))
+            dfghdfgh
         else:
             n = self.kd.N_c * 2 - 1
             bzk_kc = np.indices(n).transpose((1, 2, 3, 0))
@@ -178,8 +180,28 @@ class HybridXC(XCFunctional):
 
         assert n == self.kd.N_c.prod()
         
+        self.ghat = LFC(self.gd,
+                        [setup.ghat_l for setup in density.setups],
+                        dtype=complex
+                        )
+        self.ghat.set_k_points(self.bzk_kc)
+        
+        self.fullkd = KPointDescriptor(self.kd.bzk_kc, nspins=1)
+        class S:
+            id_a = []
+            def set_symmetry(self, s): pass
+            
+        self.fullkd.set_symmetry(Atoms(pbc=True), S(), False)
+        self.fullkd.set_communicator(world)
+        self.pt = LFC(self.gd, [setup.pt_j for setup in density.setups],
+                      dtype=complex)
+        self.pt.set_k_points(self.fullkd.ibzk_kc)
+
+        self.interpolator = density.interpolator
+
     def set_positions(self, spos_ac):
         self.ghat.set_positions(spos_ac)
+        self.pt.set_positions(spos_ac)
     
     def calculate(self, gd, n_sg, v_sg=None, e_g=None):
         # Normal XC contribution:
@@ -191,19 +213,54 @@ class HybridXC(XCFunctional):
     def calculate_exx(self):
         """Non-selfconsistent calculation."""
 
-        self.exx = 0.0
-        K = self.kd.nibzkpts
-        parallel = (self.kd.comm.size > self.nspins)
+        kd = self.kd
+        K = self.fullkd.nibzkpts
+        assert self.nspins == 1
+        Q = K // world.size
+        assert Q * world.size == K
+        parallel = (world.size > self.nspins)
         
+        self.exx = 0.0
+        self.exx_skn = np.zeros((self.nspins, K, self.bd.nbands))
+
+        kpt_u = []
+        for k in range(world.rank * Q, (world.rank + 1) * Q):
+            k_c = self.fullkd.ibzk_kc[k]
+            for k1, k1_c in enumerate(kd.bzk_kc):
+                if abs(k1_c - k_c).max() < 1e-10:
+                    break
+                
+            # Index of symmetry related point in the irreducible BZ
+            ik = kd.kibz_k[k1]
+            kpt = self.kpt_u[ik]
+
+            # KPoint from ground-state calculation
+            phase_cd = np.exp(2j * pi * self.gd.sdisp_cd * k_c[:, np.newaxis])
+            kpt2 = KPoint0(kpt.weight, kpt.s, k, None, phase_cd)
+            kpt2.psit_nG = np.empty_like(kpt.psit_nG)
+            kpt2.f_n = kpt.f_n / kpt.weight / K * 2
+            for n, psit_G in enumerate(kpt2.psit_nG):
+                psit_G[:] = kd.transform_wave_function(kpt.psit_nG[n], k1)
+
+            kpt2.P_ani = self.pt.dict(len(kpt.psit_nG))
+            self.pt.integrate(kpt2.psit_nG, kpt2.P_ani, k)
+            kpt_u.append(kpt2)
+
         for s in range(self.nspins):
-            kpt1_q = [KPoint(self.kd, kpt) for kpt in self.kpt_u if kpt.s == s]
+            kpt1_q = [KPoint(self.fullkd, kpt) for kpt in kpt_u if kpt.s == s]
             kpt2_q = kpt1_q[:]
 
-            k = (kpt1_q[-1].k + 1) % K
-            rrank = self.kd.get_rank_and_index(s, k)[0]
-            k = (kpt1_q[0].k - 1) % K
-            srank = self.kd.get_rank_and_index(s, k)[0]
-            
+            if len(kpt1_q) == 0:
+                # No s-spins on this CPU:
+                continue
+
+            # Send rank:
+            srank = self.fullkd.get_rank_and_index(s, (kpt1_q[0].k - 1) % K)[0]
+
+            # Receive rank:
+            rrank = self.fullkd.get_rank_and_index(s, (kpt1_q[-1].k + 1) % K)[0]
+
+            # Shift k-points K // 2 times:
             for i in range(K // 2 + 1):
                 if i < K // 2:
                     if parallel:
@@ -226,35 +283,35 @@ class HybridXC(XCFunctional):
                         kpt2_q[0].wait()
                     kpt2_q.pop(0)
                     kpt2_q.append(kpt)
-
-        self.exx = self.kd.comm.sum(self.exx)
-
+            
+        self.exx = world.sum(self.exx)
+        world.sum(self.exx_skn)
         self.exx += self.calculate_paw_correction()
         
-    def apply(self, kpt1, kpt2, invert=False):        
-        k1_c = self.kd.ibzk_kc[kpt1.k]
-        k2_c = self.kd.ibzk_kc[kpt2.k]
+    def apply(self, kpt1, kpt2, invert=False):
+        #print world.rank,kpt1.k,kpt2.k,invert
+        k1_c = self.fullkd.ibzk_kc[kpt1.k]
+        k2_c = self.fullkd.ibzk_kc[kpt2.k]
         if invert:
             k2_c = -k2_c
         k12_c = k1_c - k2_c
-
         N_c = self.gd.N_c
-        expikr_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k12_c / N_c).T)
+        eikr_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k12_c / N_c).T)
 
         for q, k_c in enumerate(self.bzk_kc):
             if abs(k_c + k12_c).max() < 1e-9:
                 q0 = q
                 break
-            
+
+        for q, k_c in enumerate(self.bzk_kc):
+            if abs(k_c - k12_c).max() < 1e-9:
+                q00 = q
+                break
+
         Gpk2_G = self.pwd.G2_qG[q0]
         if Gpk2_G[0] == 0:
             Gpk2_G = Gpk2_G.copy()
             Gpk2_G[0] = 1.0 / self.gamma
-
-        P1_ani = kpt1.P_ani
-        P2_ani = kpt2.P_ani
-        if invert:
-            P2_ani = dict([(a, P_ni.conj()) for a, P_ni in P2_ani.items()])
 
         N = N_c.prod()
         vol = self.gd.dv * N
@@ -270,26 +327,33 @@ class HybridXC(XCFunctional):
                 
                 f2 = kpt2.f_n[n2]
 
-                if invert:
-                    psit2_R = psit2_R.conj()
-
-                nt_R = self.calculate_pair_density(n1, n2, psit1_R, psit2_R,
-                                                   P1_ani, P2_ani)
-                nt_G = self.pwd.fft(nt_R * expikr_R / N)
+                nt_R = self.calculate_pair_density(n1, n2, kpt1, kpt2, q0,
+                                                   invert)
+                                                   
+                nt_G = self.pwd.fft(nt_R * eikr_R) / N
                 vt_G = nt_G.copy()
                 vt_G *= -pi * vol / Gpk2_G
-                e = f1 * f2 * np.vdot(nt_G, vt_G).real * nspins * self.hybrid
+                e = np.vdot(nt_G, vt_G).real * nspins * self.hybrid
                 if same and n1 == n2:
                     e /= 2
-                self.exx += e
-                self.ekin -= 2 * e
+                    
+                self.exx += e * f1 * f2
+                self.ekin -= 2 * e * f1 * f2
+                self.exx_skn[kpt1.s, kpt1.k, n1] += f2 * e
+                self.exx_skn[kpt2.s, kpt2.k, n2] += f1 * e
 
-                calculate_potential = not not not not not not not not not True
+                calculate_potential = not True
                 if calculate_potential:
-                    vt_R = self.pwd.ifft(vt_G).conj() * expikr_R * N / vol
+                    vt_R = self.pwd.ifft(vt_G).conj() * eikr_R * N / vol
                     if kpt1 is kpt2 and not invert and n1 == n2:
                         kpt1.vt_nG[n1] = 0.5 * f1 * vt_R
-                    kpt1.Htpsit_nG[n1] += f2 * nspins * psit2_R * vt_R
+
+                    if invert:
+                        kpt1.Htpsit_nG[n1] += \
+                                           f2 * nspins * psit2_R.conj() * vt_R
+                    else:
+                        kpt1.Htpsit_nG[n1] += f2 * nspins * psit2_R * vt_R
+
                     if kpt1 is not kpt2:
                         if invert:
                             kpt2.Htpsit_nG[n2] += (f1 * nspins *
@@ -323,17 +387,35 @@ class HybridXC(XCFunctional):
             exx += self.hybrid * setup.ExxC
         return exx
     
-    def calculate_pair_density(self, n1, n2, psit1_G, psit2_G, P1_ani, P2_ani):
+    def calculate_pair_density(self, n1, n2, kpt1, kpt2, q, invert):
+        if invert:
+            nt_G = kpt1.psit_nG[n1].conj() * kpt2.psit_nG[n2].conj()
+        else:
+            nt_G = kpt1.psit_nG[n1].conj() * kpt2.psit_nG[n2]
+
         Q_aL = {}
-        for a, P1_ni in P1_ani.items():
+        for a, P1_ni in kpt1.P_ani.items():
             P1_i = P1_ni[n1]
-            P2_i = P2_ani[a][n2]
-            D_ii = np.outer(P1_i, P2_i.conj()).real
-            D_p = pack(D_ii, tolerance=1e30)
+            P2_i = kpt2.P_ani[a][n2]
+            if invert:
+                D_ii = np.outer(P1_i.conj(), P2_i.conj())
+            else:
+                D_ii = np.outer(P1_i.conj(), P2_i)
+            D_p = pack(D_ii)
             Q_aL[a] = np.dot(D_p, self.setups[a].Delta_pL)
-            
-        nt_G = psit1_G.conj() * psit2_G
 
-        self.ghat.add(nt_G, Q_aL)
-
+        self.ghat.add(nt_G, Q_aL, q)
         return nt_G
+
+
+if __name__ == '__main__':
+    import sys
+    from gpaw import GPAW
+    from gpaw.mpi import serial_comm
+    calc = GPAW(sys.argv[1], txt=None, communicator=serial_comm)
+
+    alpha = 5.0
+    e = calc.get_potential_energy()
+    exx = HybridXC('EXX', alpha=alpha)
+    e2 = calc.get_xc_difference(exx)
+    print e, e + e2, exx.exx

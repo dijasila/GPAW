@@ -10,7 +10,6 @@ from gpaw.mpi import world, rank, size, serial_comm
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.fd_operators import Gradient
 from gpaw.response.cell import get_primitive_cell, set_Gvectors
-from gpaw.response.symmetrize import find_kq, find_ibzkpt, symmetrize_wavefunction
 from gpaw.response.math_func import delta_function, hilbert_transform, \
      two_phi_planewave_integrals
 from gpaw.response.parallel import set_communicator, \
@@ -75,9 +74,10 @@ class BASECHI:
         calc = self.calc
         
         # kpoint init
-        self.bzk_kc = calc.get_bz_k_points()
-        self.ibzk_kc = calc.get_ibz_k_points()
-        self.nkpt = self.bzk_kc.shape[0]
+        self.kd = kd = calc.wfs.kd
+        self.bzk_kc = kd.bzk_kc
+        self.ibzk_kc = kd.ibzk_kc
+        self.nkpt = kd.nbzkpts
         self.ftol /= self.nkpt
 
         # band init
@@ -97,8 +97,8 @@ class BASECHI:
         self.h_cv = gd.h_cv
 
         # obtain eigenvalues, occupations
-        nibzkpt = self.ibzk_kc.shape[0]
-        kweight_k = calc.get_k_point_weights()
+        nibzkpt = kd.nibzkpts
+        kweight_k = kd.weight_k
 
         try:
             self.e_kn
@@ -124,7 +124,7 @@ class BASECHI:
             qr_g = gemmdot(self.qq_v, r_vg, beta=0.0)
             self.expqr_g = np.exp(-1j * qr_g)
             del r_vg, qr_g
-            kq_k = find_kq(self.bzk_kc, self.q_c)
+            kq_k = kd.find_k_plus_q(self.q_c)
         self.kq_k = kq_k
 
         # Plane wave init
@@ -133,21 +133,11 @@ class BASECHI:
         # Projectors init
         setups = calc.wfs.setups
         pt = LFC(gd, [setup.pt_j for setup in setups],
-                 calc.wfs.kpt_comm, dtype=calc.wfs.dtype, forces=True)
+                 dtype=calc.wfs.dtype, forces=True)
         spos_ac = calc.atoms.get_scaled_positions()
         pt.set_k_points(self.bzk_kc)
         pt.set_positions(spos_ac)
         self.pt = pt
-
-        # Symmetry operations init
-        usesymm = calc.input_parameters.get('usesymm')
-        if usesymm == None or self.nkpt == 1:
-            op_scc = (np.eye(3, dtype=int),)
-        elif usesymm == False:
-            op_scc = (np.eye(3, dtype=int), -np.eye(3, dtype=int))
-        else:
-            op_scc = calc.wfs.symmetry.op_scc
-        self.op_scc = op_scc
 
         # Printing calculation information
         self.print_stuff()
@@ -231,7 +221,7 @@ class BASECHI:
         return
 
 
-    def get_wavefunction(self, ibzk, n, k, check_focc=True, spin=0):
+    def get_wavefunction(self, ibzk, n, check_focc=True, spin=0):
 
         if self.calc.wfs.kpt_comm.size != world.size or world.size == 1:
 
@@ -255,86 +245,89 @@ class BASECHI:
 
             # support ground state calculation with only kpoint parallelization
             kpt_rank, u = self.calc.wfs.kd.get_rank_and_index(0, ibzk)
-            bzkpt_rank = k // self.nkpt_local
+            bzkpt_rank = rank
             
-            klist = np.array([kpt_rank, u, bzkpt_rank])
-            klist_kcomm = np.zeros((self.kcomm.size, 3), dtype=int)            
+            klist = np.array([kpt_rank, u, bzkpt_rank, n])
+            klist_kcomm = np.zeros((self.kcomm.size, 4), dtype=int)            
             self.kcomm.all_gather(klist, klist_kcomm)
 
             check_focc_global = np.zeros(self.kcomm.size, dtype=bool)
             self.kcomm.all_gather(np.array([check_focc]), check_focc_global)
 
             psit_G = self.calc.wfs.gd.empty(dtype=self.calc.wfs.dtype)
-            
+
 	    for i in range(self.kcomm.size):
                 if check_focc_global[i] == True:
-                    kpt_rank, u, bzkpt_rank = klist_kcomm[i]
+                    kpt_rank, u, bzkpt_rank, nlocal = klist_kcomm[i]
                     if kpt_rank == bzkpt_rank:
                         if rank == kpt_rank:
-                            psit_G = self.calc.wfs.kpt_u[u].psit_nG[n]
+                            psit_G = self.calc.wfs.kpt_u[u].psit_nG[nlocal]
                     else:
                         if rank == kpt_rank:
-                            world.send(self.calc.wfs.kpt_u[u].psit_nG[n],
+                            world.send(self.calc.wfs.kpt_u[u].psit_nG[nlocal],
                                        bzkpt_rank, 1300+bzkpt_rank)
                         if rank == bzkpt_rank:
                             psit_G = self.calc.wfs.gd.empty(dtype=self.calc.wfs.dtype)
                             world.receive(psit_G, kpt_rank, 1300+bzkpt_rank)
                     
             self.wScomm.broadcast(psit_G, 0)
+
             return psit_G
 
 
-    def density_matrix_Gspace(self,n,m,k):
+    def density_matrix(self,n,m,k,Gspace=True):
 
         ibzk_kc = self.ibzk_kc
         bzk_kc = self.bzk_kc
         kq_k = self.kq_k
         gd = self.gd
+        kd = self.kd
 
-        ibzkpt1, iop1, timerev1 = find_ibzkpt(self.op_scc, ibzk_kc, bzk_kc[k])
-        ibzkpt2, iop2, timerev2 = find_ibzkpt(self.op_scc, ibzk_kc, bzk_kc[kq_k[k]])
+        ibzkpt1 = kd.kibz_k[k]
+        ibzkpt2 = kd.kibz_k[kq_k[k]]
         
-        psitold_g = self.get_wavefunction(ibzkpt1, n, k, True)
-        psit1_g = symmetrize_wavefunction(psitold_g, self.op_scc[iop1], ibzk_kc[ibzkpt1],
-                                                      bzk_kc[k], timerev1)
+        psitold_g = self.get_wavefunction(ibzkpt1, n, True)
+        psit1_g = kd.transform_wave_function(psitold_g, k)
         
-        psitold_g = self.get_wavefunction(ibzkpt2, m, kq_k[k], True)
-        psit2_g = symmetrize_wavefunction(psitold_g, self.op_scc[iop2], ibzk_kc[ibzkpt2],
-                                          bzk_kc[kq_k[k]], timerev2)
+        psitold_g = self.get_wavefunction(ibzkpt2, m, True)
+        psit2_g = kd.transform_wave_function(psitold_g, kq_k[k])
 
-        # FFT
-        tmp_g = psit1_g.conj()* psit2_g * self.expqr_g
-        rho_g = np.fft.fftn(tmp_g) * self.vol / self.nG0
-
-        # Here, planewave cutoff is applied
-        rho_G = np.zeros(self.npw, dtype=complex)
-        for iG in range(self.npw):
-            index = self.Gindex_G[iG]
-            rho_G[iG] = rho_g[index[0], index[1], index[2]]
-
-        if self.optical_limit:
-            d_c = [Gradient(gd, i, n=4, dtype=complex).apply for i in range(3)]
-            dpsit_g = gd.empty(dtype=complex)
-            tmp = np.zeros((3), dtype=complex)
-
-            phase_cd = np.exp(2j * pi * gd.sdisp_cd * bzk_kc[kq_k[k], :, np.newaxis])
-            for ix in range(3):
-                d_c[ix](psit2_g, dpsit_g, phase_cd)
-                tmp[ix] = gd.integrate(psit1_g.conj() * dpsit_g)
-            rho_G[0] = -1j * np.dot(self.qq_v, tmp)
-
-        # PAW correction
-        pt = self.pt
-        P1_ai = pt.dict()
-        pt.integrate(psit1_g, P1_ai, k)
-        P2_ai = pt.dict()
-        pt.integrate(psit2_g, P2_ai, kq_k[k])
-                        
-        for a, id in enumerate(self.calc.wfs.setups.id_a):
-            P_p = np.outer(P1_ai[a].conj(), P2_ai[a]).ravel()
-            gemv(1.0, self.phi_aGp[a], P_p, 1.0, rho_G)
-
-        if self.optical_limit:
-            rho_G[0] /= self.e_kn[ibzkpt2, m] - self.e_kn[ibzkpt1, n]
-
-        return rho_G
+        if Gspace is False:
+            return psit1_g, psit2_g
+        else:
+            # FFT
+            tmp_g = psit1_g.conj()* psit2_g * self.expqr_g
+            rho_g = np.fft.fftn(tmp_g) * self.vol / self.nG0
+    
+            # Here, planewave cutoff is applied
+            rho_G = np.zeros(self.npw, dtype=complex)
+            for iG in range(self.npw):
+                index = self.Gindex_G[iG]
+                rho_G[iG] = rho_g[index[0], index[1], index[2]]
+    
+            if self.optical_limit:
+                d_c = [Gradient(gd, i, n=4, dtype=complex).apply for i in range(3)]
+                dpsit_g = gd.empty(dtype=complex)
+                tmp = np.zeros((3), dtype=complex)
+    
+                phase_cd = np.exp(2j * pi * gd.sdisp_cd * bzk_kc[kq_k[k], :, np.newaxis])
+                for ix in range(3):
+                    d_c[ix](psit2_g, dpsit_g, phase_cd)
+                    tmp[ix] = gd.integrate(psit1_g.conj() * dpsit_g)
+                rho_G[0] = -1j * np.dot(self.qq_v, tmp)
+    
+            # PAW correction
+            pt = self.pt
+            P1_ai = pt.dict()
+            pt.integrate(psit1_g, P1_ai, k)
+            P2_ai = pt.dict()
+            pt.integrate(psit2_g, P2_ai, kq_k[k])
+                            
+            for a, id in enumerate(self.calc.wfs.setups.id_a):
+                P_p = np.outer(P1_ai[a].conj(), P2_ai[a]).ravel()
+                gemv(1.0, self.phi_aGp[a], P_p, 1.0, rho_G)
+    
+            if self.optical_limit:
+                rho_G[0] /= self.e_kn[ibzkpt2, m] - self.e_kn[ibzkpt1, n]
+    
+            return rho_G

@@ -75,6 +75,13 @@ Linux:
    Linux/supernova
    Linux/uranus
 
+MacOSX:
+
+.. toctree::
+   :maxdepth: 1
+
+   MacOSX/snowleopard
+
 Solaris:
 
 .. toctree::
@@ -82,3 +89,6 @@ Solaris:
 
    Solaris/corona
    Solaris/bohr
+
+
+

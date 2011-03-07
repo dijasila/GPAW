@@ -23,6 +23,7 @@ class Symmetry:
         self.tol = tolerance
 
         self.op_scc = np.identity(3, int).reshape((1, 3, 3))
+        self.a_sa = np.arange(len(id_a)).reshape((1, -1))
         
     def analyze(self, spos_ac):
         """Determine list of symmetry operations.
@@ -92,10 +93,11 @@ class Symmetry:
                 species[id] = [(a, spos_c)]
 
         opok = []
-        maps = []
+        a_sa = []
         # Reduce point group using operation matrices
         for op_cc in self.op_scc:
             map = np.zeros(len(spos_ac), int)
+            ok = True
             for specie in species.values():
                 for a1, spos1_c in specie:
                     spos1_c = np.dot(spos1_c, op_cc)
@@ -113,10 +115,10 @@ class Symmetry:
                     break
             if ok:
                 opok.append(op_cc)
-                maps.append(map)
+                a_sa.append(map)
 
         if debug:
-            for op_cc, map_a in zip(opok, maps):
+            for op_cc, map_a in zip(opok, a_sa):
                 for a1, id1 in enumerate(self.id_a):
                     a2 = map_a[a1]
                     assert id1 == self.id_a[a2]
@@ -126,7 +128,7 @@ class Symmetry:
                     sdiff -= np.floor(sdiff + 0.5)
                     assert np.dot(sdiff, sdiff) < self.tol
 
-        self.maps = maps
+        self.a_sa = a_sa
         self.op_scc = np.array(opok)
 
     def check(self, spos_ac):
@@ -143,79 +145,73 @@ class Symmetry:
         Returns the irreducible k-points and the weights.
         
         """
-        
-        op_scc = self.op_scc
-        inv_cc = -np.identity(3, int)
-        have_inversion_symmetry = False
-        
-        for op_cc in op_scc:
-            if (op_cc == inv_cc).all():
-                have_inversion_symmetry = True
-                break
-
-        # Use time-reversal symmetry when inversion symmetry is absent
-        if not have_inversion_symmetry:
-            op_scc = np.concatenate((op_scc, -op_scc))
-            
         nbzkpts = len(bzk_kc)
         ibzk0_kc = np.empty((nbzkpts, 3))
         ibzk_kc = ibzk0_kc[:0]
         weight_k = np.ones(nbzkpts)
         nibzkpts = 0
-        kbz = nbzkpts
         
         # Mapping between k and symmetry related point in the irreducible BZ
         kibz_k = np.empty(nbzkpts, int)
         # Symmetry operation mapping the k-point in the irreducible BZ to k
         sym_k = np.empty(nbzkpts, int)
         # Time-reversal symmetry used on top of the point group operation
-        time_reversal_k = np.array(nbzkpts * [False])
+        time_reversal_k = np.zeros(nbzkpts, dtype=bool)
+
+        for i, op_cc in enumerate(self.op_scc):
+            if (np.abs(op_cc - np.eye(3,dtype=int)) < 1e-8).all():
+                opI = i
+                break
         
+        kbz = nbzkpts
         for k_c in bzk_kc[::-1]:
             kbz -= 1
             found = False
             
-            for s, op_cc in enumerate(op_scc):
+            for s, op_cc in enumerate(self.op_scc):
                 if len(ibzk_kc) == 0:
                     break
                 diff_kc = np.dot(ibzk_kc, op_cc.T) - k_c
                 b_k = ((diff_kc - diff_kc.round())**2).sum(1) < self.tol
-                if b_k.any():
-                    found = True
-                    kibz = np.where(b_k)[0][0]
-                    weight_k[kibz] += 1.0
-                    kibz_k[kbz] = kibz
-                    sym_k[kbz] = s
-                    # Time-reversal symmetry combined with point group symmetry
-                    if s >= len(self.op_scc):
-                        sym_k[kbz] = s - len(self.op_scc)
+                if not b_k.any():
+                    # Try with time reversal:
+                    diff_kc += 2 * k_c
+                    b_k = ((diff_kc - diff_kc.round())**2).sum(1) < self.tol
+                    if not b_k.any():
+                        continue
+                    else:
                         time_reversal_k[kbz] = True
-                    break
+
+                found = True
+                kibz = np.where(b_k)[0][0]
+                weight_k[kibz] += 1.0
+                kibz_k[kbz] = kibz
+                sym_k[kbz] = s
+                break
+
             if not found:
                 kibz_k[kbz] = nibzkpts
-                sym_k[kbz] = 0
+                sym_k[kbz] = opI
                 nibzkpts += 1
                 ibzk_kc = ibzk0_kc[:nibzkpts]
                 ibzk_kc[-1] = k_c
 
-        self.sym_k = sym_k
-        self.time_reversal_k = time_reversal_k
         # Reverse order (looks more natural)
-        self.kibz_k = nibzkpts - 1 - kibz_k
-        
-        return ibzk_kc[::-1].copy(), weight_k[:nibzkpts][::-1] / nbzkpts
+        return (ibzk_kc[::-1].copy(),
+                weight_k[:nibzkpts][::-1] / nbzkpts,
+                sym_k, time_reversal_k, nibzkpts - 1 - kibz_k)
 
     def prune_symmetries_grid(self, N_c):
         """Remove symmetries that are not satisfied by the grid."""
 
         U_scc = []
         a_sa = []
-        for U_cc, a_a in zip(self.op_scc, self.maps):
+        for U_cc, a_a in zip(self.op_scc, self.a_sa):
             if not (U_cc * N_c - (U_cc.T * N_c).T).any():
                 U_scc.append(U_cc)
                 a_sa.append(a_a)
                 
-        self.maps = np.array(a_sa)
+        self.a_sa = np.array(a_sa)
         self.op_scc = np.array(U_scc)
 
     def symmetrize(self, a, gd):
@@ -223,7 +219,8 @@ class Symmetry:
         
         gd.symmetrize(a, self.op_scc)
 
-    def symmetrize_wavefunction(self, a_g, kibz_c, kbz_c, op_cc, time_reversal):
+    def symmetrize_wavefunction(self, a_g, kibz_c, kbz_c, op_cc,
+                                time_reversal):
         """Generate Bloch function from symmetry related function in the IBZ.
 
         a_g: ndarray
@@ -254,17 +251,21 @@ class Symmetry:
             import _gpaw
             b_g = np.zeros_like(a_g)
             if time_reversal:
-                _gpaw.symmetrize_wavefunction(a_g, b_g, op_cc, kibz_c, -kbz_c)
+                # assert abs(np.dot(op_cc, kibz_c) - -kbz_c) < tol
+                _gpaw.symmetrize_wavefunction(a_g, b_g, op_cc.T.copy(),
+                                              kibz_c, -kbz_c)
                 return b_g.conj()
             else:
-                _gpaw.symmetrize_wavefunction(a_g, b_g, op_cc, kibz_c, kbz_c)
+                # assert abs(np.dot(op_cc, kibz_c) - kbz_c) < tol
+                _gpaw.symmetrize_wavefunction(a_g, b_g, op_cc.T.copy(),
+                                              kibz_c, kbz_c)
                 return b_g
         
     def symmetrize_forces(self, F0_av):
         """Symmetrice forces."""
         
         F_ac = np.zeros_like(F0_av)
-        for map_a, op_cc in zip(self.maps, self.op_scc):
+        for map_a, op_cc in zip(self.a_sa, self.op_scc):
             op_vv = np.dot(np.linalg.inv(self.cell_cv),
                            np.dot(op_cc, self.cell_cv))
             for a1, a2 in enumerate(map_a):

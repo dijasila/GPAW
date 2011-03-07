@@ -76,6 +76,7 @@ tests = [
     'second_derivative.py',
     'integral4.py',
     'transformations.py',
+    'occupations.py',
     'nabla.py',
     'aeatom.py',
     'pbc.py',
@@ -116,6 +117,7 @@ tests = [
     'mgga_restart.py',
     'gga_atom.py',
     'bee1.py',
+    'external_potential.py',
     'refine.py',
     'revPBE.py',
     'lcao_largecellforce.py',
@@ -165,6 +167,7 @@ tests = [
     'wannier_ethylene.py',
     'CH4.py',
     'neb.py',
+    'complex.py',
     'diamond_absorption.py',
     'aluminum_EELS.py',
     'dump_chi0.py',
@@ -173,6 +176,7 @@ tests = [
     'bse_aluminum.py',
     'bse_diamond.py',
     'bse_vs_lrtddft.py',
+    'diamond_eps_alda.py',
     'hgh_h2o.py',
     'apmb.py',
     'relax.py',
@@ -228,6 +232,7 @@ tests = [
     'parallel/pblas.py',
     'parallel/blacsdist.py',
     'parallel/scalapack.py',
+    'parallel/scalapack_diag_simple.py',
     'parallel/realspace_blacs.py',
     'parallel/lcao_projections.py',
     #'dscf_forces.py',
@@ -255,6 +260,7 @@ if mpi.size > 2:
 if mpi.size < 4:
     exclude += ['parallel/pblas.py',
                 'parallel/scalapack.py',
+                'parallel/scalapack_diag_simple.py',
                 'parallel/realspace_blacs.py',
                 'AA_exx_enthalpy.py',
                 'bse_aluminum.py',
@@ -276,6 +282,7 @@ try:
     import scipy
 except ImportError:
     exclude += ['diamond_absorption.py',
+                'diamond_eps_alda.py',
                 'aluminum_EELS.py',
                 'aluminum_EELS_lcao.py',
                 'aluminum_testcell.py',
@@ -284,7 +291,7 @@ except ImportError:
                 'bse_diamond.py',
                 'bse_vs_lrtddft.py',
                 'aeatom.py',
-                'rpa_energy_N2.py']
+                'rpa_energy_Kr.py']
 
 for test in exclude:
     if test in tests:
@@ -292,10 +299,12 @@ for test in exclude:
 
 
 class TestRunner:
-    def __init__(self, tests, stream=sys.__stdout__, jobs=1):
+    def __init__(self, tests, stream=sys.__stdout__, jobs=1,
+                 show_output=False):
         if mpi.size > 1:
             assert jobs == 1
         self.jobs = jobs
+        self.show_output = show_output
         self.tests = tests
         self.failed = []
         self.garbage = []
@@ -307,7 +316,8 @@ class TestRunner:
 
     def run(self):
         self.log.write('=' * 77 + '\n')
-        sys.stdout = devnull
+        if not self.show_output:
+            sys.stdout = devnull
         ntests = len(self.tests)
         t0 = time.time()
         if self.jobs == 1:

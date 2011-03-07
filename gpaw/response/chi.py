@@ -7,8 +7,7 @@ from gpaw import extra_parameters
 from gpaw.utilities.blas import gemv, scal, axpy
 from gpaw.mpi import world, rank, size, serial_comm
 from gpaw.fd_operators import Gradient
-from gpaw.response.symmetrize import find_ibzkpt, symmetrize_wavefunction
-from gpaw.response.math_func import hilbert_transform
+from gpaw.response.math_func import hilbert_transform, full_hilbert_transform
 from gpaw.response.parallel import set_communicator, \
      parallel_partition, SliceAlongFrequency, SliceAlongOrbitals
 from gpaw.response.kernel import calculate_Kxc
@@ -48,6 +47,7 @@ class CHI(BASECHI):
                  ftol=1e-5,
                  txt=None,
                  hilbert_trans=True,
+                 full_response=False,
                  optical_limit=False,
                  kcommsize=None):
 
@@ -55,12 +55,13 @@ class CHI(BASECHI):
                      eta, ftol, txt, optical_limit)
 
         self.hilbert_trans = hilbert_trans
+        self.full_hilbert_trans = full_response
         self.kcommsize = kcommsize
         self.comm = world
         self.chi0_wGG = None
 
 
-    def initialize(self):
+    def initialize(self, do_Kxc=False):
 
         self.printtxt('')
         self.printtxt('-----------------------------------------')
@@ -71,6 +72,7 @@ class CHI(BASECHI):
         BASECHI.initialize(self)
 
         # Frequency init
+        self.dw = None
         if len(self.w_w) == 1:
             self.HilberTrans = False
 
@@ -125,7 +127,7 @@ class CHI(BASECHI):
 
         # Calculate ALDA kernel for EELS spectrum
         # Use RPA kernel for Optical spectrum and rpa correlation energy
-        if not self.optical_limit and np.dtype(self.w_w[0]) == float:
+        if do_Kxc or (not self.optical_limit and np.dtype(self.w_w[0]) == float):
             R_av = calc.atoms.positions / Bohr
             self.Kxc_GG = calculate_Kxc(self.gd, # global grid
                                     calc.density.nt_sG,
@@ -148,6 +150,7 @@ class CHI(BASECHI):
         """Calculate the non-interacting density response function. """
 
         calc = self.calc
+        kd = self.kd
         gd = self.gd
         sdisp_cd = gd.sdisp_cd
         ibzk_kc = self.ibzk_kc
@@ -159,9 +162,10 @@ class CHI(BASECHI):
 
         # Matrix init
         chi0_wGG = np.zeros((self.Nw_local, self.npw, self.npw), dtype=complex)
-        if not (f_kn > 0.001).any():
+        if not (f_kn > self.ftol).any():
             self.chi0_wGG = chi0_wGG
             return
+
         if self.hilbert_trans:
             specfunc_wGG = np.zeros((self.NwS_local, self.npw, self.npw), dtype = complex)
 
@@ -177,19 +181,19 @@ class CHI(BASECHI):
         for k in range(self.kstart, self.kend):
 
             # Find corresponding kpoint in IBZ
-            ibzkpt1, iop1, timerev1 = find_ibzkpt(self.op_scc, ibzk_kc, bzk_kc[k])
+            ibzkpt1 = kd.kibz_k[k]
             if self.optical_limit:
-                ibzkpt2, iop2, timerev2 = ibzkpt1, iop1, timerev1
+                ibzkpt2 = ibzkpt1
             else:
-                ibzkpt2, iop2, timerev2 = find_ibzkpt(self.op_scc, ibzk_kc, bzk_kc[kq_k[k]])
-
+                ibzkpt2 = kd.kibz_k[kq_k[k]]
+            
             for n in range(self.nstart, self.nend):
 #                print >> self.txt, k, n, t_get_wfs, time() - t0
                 t1 = time()
-                psitold_g = self.get_wavefunction(ibzkpt1, n, k, True, spin=spin)
+                psitold_g = self.get_wavefunction(ibzkpt1, n, True, spin=spin)
                 t_get_wfs += time() - t1
-                psit1new_g = symmetrize_wavefunction(psitold_g, self.op_scc[iop1], ibzk_kc[ibzkpt1],
-                                                      bzk_kc[k], timerev1)
+                psit1new_g = kd.transform_wave_function(psitold_g, k)
+
                 P1_ai = pt.dict()
                 pt.integrate(psit1new_g, P1_ai, k)
 
@@ -203,13 +207,11 @@ class CHI(BASECHI):
                         check_focc = np.abs(f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]) > self.ftol
 
                     t1 = time()
-                    psitold_g = self.get_wavefunction(ibzkpt2, m, k, check_focc, spin=spin)
+                    psitold_g = self.get_wavefunction(ibzkpt2, m, check_focc, spin=spin)
                     t_get_wfs += time() - t1
 
                     if check_focc:
-                        psit2_g = symmetrize_wavefunction(psitold_g, self.op_scc[iop2], ibzk_kc[ibzkpt2],
-                                                           bzk_kc[kq_k[k]], timerev2)
-
+                        psit2_g = kd.transform_wave_function(psitold_g, kq_k[k])
                         P2_ai = pt.dict()
                         pt.integrate(psit2_g, P2_ai, kq_k[k])
 
@@ -294,7 +296,10 @@ class CHI(BASECHI):
         else:
             self.kcomm.sum(specfunc_wGG)
             if self.wScomm.size == 1:
-                chi0_wGG = hilbert_transform(specfunc_wGG, self.Nw, self.dw, self.eta)[self.wstart:self.wend]
+                if not self.full_hilbert_trans:
+                    chi0_wGG = hilbert_transform(specfunc_wGG, self.Nw, self.dw, self.eta)[self.wstart:self.wend]
+                else:
+                    chi0_wGG = full_hilbert_transform(specfunc_wGG, self.Nw, self.dw, self.eta)[self.wstart:self.wend]                
                 self.printtxt('Finished hilbert transform !')
                 del specfunc_wGG
             else:
@@ -313,7 +318,10 @@ class CHI(BASECHI):
         
                 specfunc_Wg = SliceAlongFrequency(specfuncnew_wGG, coords, self.wcomm)
                 self.printtxt('Finished Slice Along Frequency !')
-                chi0_Wg = hilbert_transform(specfunc_Wg, self.Nw, self.dw, self.eta)[:self.Nw]
+                if not self.full_hilbert_trans:
+                    chi0_Wg = hilbert_transform(specfunc_Wg, self.Nw, self.dw, self.eta)[:self.Nw]
+                else:
+                    chi0_Wg = full_hilbert_transform(specfunc_Wg, self.Nw, self.dw, self.eta)[:self.Nw]
                 self.printtxt('Finished hilbert transform !')
                 self.comm.barrier()
                 del specfunc_Wg
@@ -416,6 +424,7 @@ class CHI(BASECHI):
 
         printtxt = self.printtxt
         printtxt('Use Hilbert Transform: %s' %(self.hilbert_trans) )
+        printtxt('Calculate full Response Function: %s' %(self.full_hilbert_trans) )
         printtxt('')
         printtxt('Number of frequency points   : %d' %(self.Nw) )
         if self.hilbert_trans:
@@ -435,6 +444,3 @@ class CHI(BASECHI):
         printtxt('     chi0_wGG        : %f M / cpu' %(self.Nw_local * self.npw**2 * 16. / 1024**2) )
         if self.hilbert_trans:
             printtxt('     specfunc_wGG    : %f M / cpu' %(self.NwS_local *self.npw**2 * 16. / 1024**2) )
-
-
-
