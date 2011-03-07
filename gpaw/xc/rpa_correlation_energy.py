@@ -122,7 +122,7 @@ class RPACorrelation:
         else:
             print >> self.txt, 'Q = %s' % q 
             
-        e_wGG = df.get_RPA_dielectric_matrix()
+        e_wGG = df.get_dielectric_matrix(xc='RPA')
 
         Nw_local = len(e_wGG)
         local_E_q_w = np.zeros(Nw_local, dtype=complex)

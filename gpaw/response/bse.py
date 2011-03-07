@@ -149,6 +149,32 @@ class BSE(BASECHI):
         
         return 
 
+
+    def screened_interaction_kernel(self):
+        """Calcuate W_GG(q)"""
+        
+        for iq, q in enumerate(self.kd.bzq_kc):
+            print 'finish iq', iq
+            optical_limit=False
+            if (np.abs(q) < self.ftol).all():
+                optical_limit=True
+                q = np.array([0.0001, 0, 0])
+            df = DF(calc=calc, q=q, w=(0.,),
+                    optical_limit=optical_limit,
+                    hilbert_trans=False,
+                    eta=0., ecut=self.ecut*Hartree, txt='no_output')
+            dfinv_qGG[iq] = df.get_inverse_RPA_dielectric_matrix()[0]
+
+            for iG in range(self.npw):
+                for jG in range(self.npw):
+                    qG1 = np.dot(q + self.Gvec_Gc[iG], self.bcell_cv)
+                    qG2 = np.dot(q + self.Gvec_Gc[jG], self.bcell_cv)
+                    kc_qGG[iq,iG,jG] = 1. / np.sqrt(np.dot(qG1, qG1) * np.dot(qG2,qG2))
+
+            assert df.npw == self.npw
+
+        return
+    
     
     def print_bse(self):
 
@@ -274,7 +300,7 @@ class BSE(BASECHI):
         return 
 
     def get_excitation_wavefunction(self, lamda=None,filename=None, re_c=None, rh_c=None):
-
+        """ garbage at the moment. come back later"""
         if filename is not None:
             self.load(filename)
             self.initialize()
@@ -286,20 +312,27 @@ class BSE(BASECHI):
         kq_k = self.kq_k
         kd = self.kd
 
+        nx, ny, nz = self.nG[0], self.nG[1], self.nG[2]
+        nR = 9
+        nR2 = (nR - 1 ) // 2
         if re_c is not None:
             psith_R = gd.zeros(dtype=complex)
+            psith2_R = np.zeros((nR*nx, nR*ny, nz), dtype=complex)
+            
         elif rh_c is not None:
             psite_R = gd.zeros(dtype=complex)
+            psite2_R = np.zeros((nR*nx, ny, nR*nz), dtype=complex)
         else:
             self.printtxt('No wavefunction output !')
             return
             
         for iS in range(self.nS_start, self.nS_end):
-            print 'hole wavefunction', iS
+
             k, n, m = self.Sindex_S3[iS]
             ibzkpt1 = kd.kibz_k[k]
             ibzkpt2 = kd.kibz_k[kq_k[k]]
-
+            print 'hole wavefunction', iS, (k,n,m),A_S[iS]
+            
             psitold_g = self.get_wavefunction(ibzkpt1, n)
             psit1_g = kd.transform_wave_function(psitold_g, k)
 
@@ -308,21 +341,61 @@ class BSE(BASECHI):
 
             if re_c is not None:
                 # given electron position, plot hole wavefunction
-                psith_R += A_S[iS] * psit1_g[re_c].conj() * psit2_g
+                tmp = A_S[iS] * psit1_g[re_c].conj() * psit2_g
+                psith_R += tmp
+
+                k_c = self.bzk_kc[k] + self.q_c
+                for i in range(nR):
+                    for j in range(nR):
+                        R_c = np.array([i-nR2, j-nR2, 0])
+                        psith2_R[i*nx:(i+1)*nx, j*ny:(j+1)*ny, 0:nz] += \
+                                                tmp * np.exp(1j*2*pi*np.dot(k_c,R_c))
+                
             elif rh_c is not None:
                 # given hole position, plot electron wavefunction
-                psite_R += A_S[iS] * psit1_g.conj() * psit2_g[rh_c]
+                tmp = A_S[iS] * psit1_g.conj() * psit2_g[rh_c] * self.expqr_g
+                psite_R += tmp
+
+                k_c = self.bzk_kc[k]
+                k_v = np.dot(k_c, self.bcell_cv)
+                for i in range(nR):
+                    for j in range(nR):
+                        R_c = np.array([i-nR2, 0, j-nR2])
+                        R_v = np.dot(R_c, self.acell_cv)
+                        assert np.abs(np.dot(k_v, R_v) - np.dot(k_c, R_c) * 2*pi).sum() < 1e-5
+                        psite2_R[i*nx:(i+1)*nx, 0:ny, j*nz:(j+1)*nz] += \
+                                                tmp * np.exp(-1j*np.dot(k_v,R_v))
+                
             else:
                 pass
 
         if re_c is not None:
             self.Scomm.sum(psith_R)
+            self.Scomm.sum(psith2_R)
             if rank == 0:
                 write('psit_h.cube',self.calc.atoms, format='cube', data=psith_R)
+
+                atoms = self.calc.atoms
+                shift = atoms.cell[0:2].copy()
+                positions = atoms.positions
+                atoms.cell[0:2] *= nR2
+                atoms.positions += shift * (nR2 - 1)
+                
+                write('psit_bigcell_h.cube',atoms, format='cube', data=psith2_R)
         elif rh_c is not None:
             self.Scomm.sum(psite_R)
+            self.Scomm.sum(psite2_R)
             if rank == 0:
                 write('psit_e.cube',self.calc.atoms, format='cube', data=psite_R)
+
+                atoms = self.calc.atoms
+#                shift = atoms.cell[0:2].copy()
+                positions = atoms.positions
+                atoms.cell[0:2] *= nR2
+#                atoms.positions += shift * (nR2 - 1)
+                
+                write('psit_bigcell_e.cube',atoms, format='cube', data=psite2_R)
+                
         else:
             pass
 

@@ -7,7 +7,7 @@ from gpaw import extra_parameters
 from gpaw.utilities.blas import gemv, scal, axpy
 from gpaw.mpi import world, rank, size, serial_comm
 from gpaw.fd_operators import Gradient
-from gpaw.response.math_func import hilbert_transform, full_hilbert_transform
+from gpaw.response.math_func import hilbert_transform
 from gpaw.response.parallel import set_communicator, \
      parallel_partition, SliceAlongFrequency, SliceAlongOrbitals
 from gpaw.response.kernel import calculate_Kxc
@@ -125,23 +125,17 @@ class CHI(BASECHI):
         # G != 0 part
         self.get_phi_aGp()
 
-        # Calculate ALDA kernel for EELS spectrum
-        # Use RPA kernel for Optical spectrum and rpa correlation energy
-        if do_Kxc or (not self.optical_limit and np.dtype(self.w_w[0]) == float):
-            R_av = calc.atoms.positions / Bohr
-            self.Kxc_GG = calculate_Kxc(self.gd, # global grid
-                                    calc.density.nt_sG,
-                                    self.npw, self.Gvec_Gc,
-                                    self.nG, self.vol,
-                                    self.bcell_cv, R_av,
-                                    calc.wfs.setups,
-                                    calc.density.D_asp)
+        # Calculate ALDA kernel (not used in chi0)
+        R_av = calc.atoms.positions / Bohr
+        self.Kxc_GG = calculate_Kxc(self.gd, # global grid
+                                calc.density.nt_sG,
+                                self.npw, self.Gvec_Gc,
+                                self.nG, self.vol,
+                                self.bcell_cv, R_av,
+                                calc.wfs.setups,
+                                calc.density.D_asp)
 
-            self.printtxt('Finished ALDA kernel ! ')
-        else:
-            self.Kxc_GG = np.zeros((self.npw, self.npw))
-            self.printtxt('Use RPA for optical spectrum ! ')
-            self.printtxt('')
+        self.printtxt('Finished ALDA kernel ! ')
             
         return
 
@@ -296,10 +290,8 @@ class CHI(BASECHI):
         else:
             self.kcomm.sum(specfunc_wGG)
             if self.wScomm.size == 1:
-                if not self.full_hilbert_trans:
-                    chi0_wGG = hilbert_transform(specfunc_wGG, self.Nw, self.dw, self.eta)[self.wstart:self.wend]
-                else:
-                    chi0_wGG = full_hilbert_transform(specfunc_wGG, self.Nw, self.dw, self.eta)[self.wstart:self.wend]                
+                chi0_wGG = hilbert_transform(specfunc_wGG, self.Nw, self.dw, self.eta,
+                                             self.full_hilbert_trans)[self.wstart:self.wend]
                 self.printtxt('Finished hilbert transform !')
                 del specfunc_wGG
             else:
@@ -318,10 +310,8 @@ class CHI(BASECHI):
         
                 specfunc_Wg = SliceAlongFrequency(specfuncnew_wGG, coords, self.wcomm)
                 self.printtxt('Finished Slice Along Frequency !')
-                if not self.full_hilbert_trans:
-                    chi0_Wg = hilbert_transform(specfunc_Wg, self.Nw, self.dw, self.eta)[:self.Nw]
-                else:
-                    chi0_Wg = full_hilbert_transform(specfunc_Wg, self.Nw, self.dw, self.eta)[:self.Nw]
+                chi0_Wg = hilbert_transform(specfunc_Wg, self.Nw, self.dw, self.eta,
+                                            self.full_hilbert_trans)[:self.Nw]
                 self.printtxt('Finished hilbert transform !')
                 self.comm.barrier()
                 del specfunc_Wg

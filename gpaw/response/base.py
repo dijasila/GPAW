@@ -52,7 +52,6 @@ class BASECHI:
             self.calc = calc
 
         self.nbands = nbands
-        self.nspins = self.calc.wfs.nspins
         self.q_c = q
 
         self.w_w = w
@@ -72,7 +71,8 @@ class BASECHI:
         self.ecut /= Hartree
 
         calc = self.calc
-        
+        self.nspins = self.calc.wfs.nspins
+
         # kpoint init
         self.kd = kd = calc.wfs.kd
         self.bzk_kc = kd.bzk_kc
