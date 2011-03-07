@@ -19,6 +19,29 @@ from gpaw.utilities import devnull, divrl
 from gpaw.basis_data import Basis, BasisFunction, parse_basis_name
 from gpaw.version import version
 
+def get_basis_l(f_j,l_j,Nv):
+    N = 0
+    lvalues = []
+    j_l = [] 
+    Nl_j = len(l_j)
+    while N < Nv:
+        Nl_j -= 1
+        if f_j[Nl_j] > 0:
+            lvalues.append(l_j[Nl_j])
+            N += f_j[Nl_j]
+            j_l.append(Nl_j)
+    assert N == Nv
+
+    if min(lvalues) != 0: # Always include s-orbital !
+        lvalues = lvalues + [0]
+        reversed_l_j = list(l_j)
+        reversed_l_j.reverse()
+        j = len(reversed_l_j) - reversed_l_j.index(0) - 1
+        j_l.append(j)
+
+    return [j_l, lvalues]
+
+
 
 def get_gaussianlike_basis_function(rgd, l, rchar, gcut):
     rcut = rgd.r_g[gcut]
@@ -330,16 +353,13 @@ class BasisMaker:
         #
         # Get (only) one occupied valence state for each l
         # Not including polarization in this list
-        if lvalues is None:
-            lvalues = np.unique([l for l, f in zip(g.l_j[g.njcore:], 
-                                                    g.f_j[g.njcore:])
-                                  if f > 0])
-            if lvalues[0] != 0: # Always include s-orbital !
-                lvalues = np.array([0] + list(lvalues))
+        j_l = []
+        lvalues = []
+        [j_l, lvalues] = get_basis_l(g.f_j, g.l_j, g.Nv)
+        lvalues = np.array(lvalues)
 
-        #print energysplit
         if isinstance(energysplit,float):
-            energysplit=[energysplit]*(max(lvalues)+1)
+            energysplit=[energysplit]*(len(lvalues))
             #print energysplit,'~~~~~~~~'
             
             
@@ -347,13 +367,6 @@ class BasisMaker:
         print >> txt, title
         print >> txt, '=' * len(title)
         
-        j_l = {} # index j by l rather than the other way around
-        reversed_l_j = list(g.l_j)
-        reversed_l_j.reverse() # the values we want are stored last
-        for l in lvalues:
-            j = len(reversed_l_j) - reversed_l_j.index(l) - 1
-            j_l[l] = j
-
         singlezetas = []
         energy_derivative_functions = []
         multizetas = [[] for i in range(zetacount - 1)]
@@ -362,9 +375,10 @@ class BasisMaker:
         splitvalencedescr = 'split-valence wave, fixed tail norm'
         derivativedescr = 'derivative of sz wrt. (ri/rc) of potential'
 
-        for l in lvalues:
+
+        for indexl, l in enumerate(lvalues):
             # Get one unmodified pseudo-orbital basis vector for each l
-            j = j_l[l]
+            j = j_l[indexl]
             n = g.n_j[j]
             orbitaltype = str(n) + 'spdf'[l]
             msg = 'Basis functions for l=%d, n=%d' % (l, n)
@@ -377,7 +391,7 @@ class BasisMaker:
                 adverb = 'softly'
             print >> txt, 'Zeta 1: %s confined pseudo wave,' % adverb,
 
-            u, e, de, vconf, rc = self.rcut_by_energy(j, energysplit[l],
+            u, e, de, vconf, rc = self.rcut_by_energy(j, energysplit[indexl],
                                                       tolerance,
                                                       vconf_args=vconf_args)
             if rc > rcutmax:
@@ -440,12 +454,12 @@ class BasisMaker:
             rcut = max([bf.rc for bf in singlezetas]) * rcutpol_rel
             rcut = min(rcut, rcutmax)
             # Find 'missing' values in lvalues
-            for i, l in enumerate(lvalues):
-                if i != l:
+            for i in range(max(lvalues) + 1):
+                if list(lvalues).count(i) == 0:
                     l_pol = i
                     break
             else:
-                l_pol = lvalues[-1] + 1
+                    l_pol = max(lvalues) + 1
             msg = 'Polarization function: l=%d, rc=%.02f' % (l_pol, rcut)
             print >> txt, '\n' + msg
             print >> txt, '-' * len(msg)
@@ -462,7 +476,7 @@ class BasisMaker:
             # these value for other energies, we just find the energy
             # shift at .3 eV now
 
-            j = max(j_l.values())
+            j = max(j_l)
             u, e, de, vconf, rc_fixed = self.rcut_by_energy(j, .3, 1e-2,
                                                             6., (12., .6))
 
