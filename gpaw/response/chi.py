@@ -126,14 +126,16 @@ class CHI(BASECHI):
         self.get_phi_aGp()
 
         # Calculate ALDA kernel (not used in chi0)
+        # if frequencies are real (not the case for RPA correlation energies)
         R_av = calc.atoms.positions / Bohr
-        self.Kxc_GG = calculate_Kxc(self.gd, # global grid
-                                calc.density.nt_sG,
-                                self.npw, self.Gvec_Gc,
-                                self.nG, self.vol,
-                                self.bcell_cv, R_av,
-                                calc.wfs.setups,
-                                calc.density.D_asp)
+        if type(self.w_w[0]) is float:
+            self.Kxc_GG = calculate_Kxc(self.gd, # global grid
+                                        calc.density.nt_sG,
+                                        self.npw, self.Gvec_Gc,
+                                        self.nG, self.vol,
+                                        self.bcell_cv, R_av,
+                                        calc.wfs.setups,
+                                        calc.density.D_asp)
 
         self.printtxt('Finished ALDA kernel ! ')
             
