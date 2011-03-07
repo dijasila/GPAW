@@ -13,55 +13,28 @@ C = lambda l,m: ((2.*l+1.)/(4*np.pi*lmfact(l,m)))**0.5
 
 def Y(l,m,theta,phi):
     if m == 0:
-        #return _Y(l,m,theta,phi)
         return C(l,m)*legendre(l,abs(m),np.cos(theta))
     elif m > 0:
-        #return (-1)**m*np.real(_Y(l,abs(m),theta,phi))*2**0.5
-        #return (-1)**m*(_Y(l,m,theta,phi)+_Y(l,m,theta,phi).conj())/2**0.5
-        #return (-1)**m*(_Y(l,m,theta,phi)+(-1)**m*_Y(l,-m,theta,phi))/2**0.5
-        #return (-1)**m*_C(l,m)*legendre(l,abs(m),np.cos(theta))*np.cos(m*phi)*2**0.5
         return C(l,m)*legendre(l,abs(m),np.cos(theta))*np.cos(m*phi)*2**0.5
     else:
-        #return (-1)**m*np.imag(_Y(l,abs(m),theta,phi))*2**0.5
-        #return (-1)**m*(_Y(l,abs(m),theta,phi)-_Y(l,abs(m),theta,phi).conj())/(2**0.5*1j)
-        #return (-1)**m*(_Y(l,abs(m),theta,phi)-(-1)**abs(m)*_Y(l,-abs(m),theta,phi))/(2**0.5*1j)
-        #return -_C(l,m)*legendre(l,abs(m),np.cos(theta))*np.sin(m*phi)*2**0.5
-        return -C(l,m)*legendre(l,abs(m),np.cos(theta))*np.sin(m*phi)*2**0.5
+        return C(l,m)*legendre(l,abs(m),np.cos(theta))*np.sin(abs(m)*phi)*2**0.5
 
 # Define theta-derivative of spherical harmoncics
 def dYdtheta(l,m,theta,phi):
     if m == 0:
-        #return _dYdtheta(l,m,theta,phi)
         return C(l,m)*dlegendre(l,abs(m),np.cos(theta))
     elif m > 0:
-        #return (-1)**m*np.real(_dYdtheta(l,abs(m),theta,phi))*2**0.5
-        #return (-1)**m*(_dYdtheta(l,m,theta,phi)+_dYdtheta(l,m,theta,phi).conj())/2**0.5
-        #return (-1)**m*(_dYdtheta(l,m,theta,phi)+(-1)**m*_dYdtheta(l,-m,theta,phi))/2**0.5
-        #return (-1)**m*_C(l,m)*dlegendre(l,abs(m),np.cos(theta))*np.cos(m*phi)*2**0.5
         return C(l,m)*dlegendre(l,abs(m),np.cos(theta))*np.cos(m*phi)*2**0.5
     else:
-        #return (-1)**m*np.imag(_dYdtheta(l,abs(m),theta,phi))*2**0.5
-        #return (-1)**m*(_dYdtheta(l,abs(m),theta,phi)-_dYdtheta(l,abs(m),theta,phi).conj())/(2**0.5*1j)
-        #return (-1)**m*(_dYdtheta(l,abs(m),theta,phi)-(-1)**abs(m)*_dYdtheta(l,-abs(m),theta,phi))/(2**0.5*1j)
-        #return -_C(l,m)*dlegendre(l,abs(m),np.cos(theta))*np.sin(m*phi)*2**0.5
-        return -C(l,m)*dlegendre(l,abs(m),np.cos(theta))*np.sin(m*phi)*2**0.5
+        return C(l,m)*dlegendre(l,abs(m),np.cos(theta))*np.sin(abs(m)*phi)*2**0.5
 
 # Define phi-derivative of spherical harmoncics
 def dYdphi(l,m,theta,phi):
     if m == 0:
-        #return _dYdphi(l,m,theta,phi)
         return np.zeros_like(theta)
     elif m > 0:
-        #return (-1)**m*np.real(_dYdphi(l,abs(m),theta,phi))*2**0.5
-        #return (-1)**m*(_dYdphi(l,m,theta,phi)+_dYdphi(l,m,theta,phi).conj())/2**0.5
-        #return (-1)**m*(_dYdphi(l,m,theta,phi)+(-1)**m*_dYdphi(l,-m,theta,phi))/2**0.5
-        #return -(-1)**m*m*_C(l,m)*legendre(l,abs(m),np.cos(theta))*np.sin(m*phi)*2**0.5
         return -m*C(l,m)*legendre(l,abs(m),np.cos(theta))*np.sin(m*phi)*2**0.5
     else:
-        #return (-1)**m*np.imag(_dYdphi(l,abs(m),theta,phi))*2**0.5
-        #return (-1)**m*(_dYdphi(l,abs(m),theta,phi)-_dYdphi(l,abs(m),theta,phi).conj())/(2**0.5*1j)
-        #return (-1)**m*(_dYdphi(l,abs(m),theta,phi)-(-1)**abs(m)*_dYdphi(l,-abs(m),theta,phi))/(2**0.5*1j)
-        #return (-1)**m*m*_C(l,m)*legendre(l,abs(m),np.cos(theta))*np.cos(abs(m)*phi)*2**0.5
         return -m*C(l,m)*legendre(l,abs(m),np.cos(theta))*np.cos(m*phi)*2**0.5
 
 # -------------------------------------------------------------------
