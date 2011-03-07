@@ -20,7 +20,7 @@ from gpaw.utilities import devnull
 if rank != 0:
     sys.stdout = devnull 
 
-GS = 1
+GS = 0
 EELS = 1
 
 nband = 60
@@ -64,7 +64,7 @@ if EELS:
                 
     f = paropen('graphite_q_list', 'w')
 
-    for i in range(1,8):
+    for i in range(1,2):
        
         w = np.linspace(0, 40, 401)
         q = np.array([i/20., 0., 0.]) # Gamma-M excitation
@@ -74,15 +74,13 @@ if EELS:
         df = DF(calc='graphite.gpw', nbands=nband, q=q, w=w,
                 eta=0.2,ecut=ecut)
 
-        df1, df2 = df.get_dielectric_function()
-
-        df.get_EELS_spectrum(df1, df2,filename='graphite_EELS_' + str(i))
-        df.check_sum_rule(df1, df2)
+        df.get_EELS_spectrum(filename='graphite_EELS_' + str(i))
+        df.check_sum_rule()
 
         print >> f, sqrt(np.inner(df.qq_v / Bohr, df.qq_v / Bohr)), ecut
 
-    if rank == 0:
-        os.remove('graphite.gpw')
+#    if rank == 0:
+#        os.remove('graphite.gpw')
 
 
 

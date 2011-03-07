@@ -38,8 +38,7 @@ if df:
     w = np.linspace(0, 24, 241)
     
     df = DF(calc='Al.gpw', q=q, w=w, eta=0.2, ecut=50,hilbert_trans=False)
-    df1, df2 = df.get_dielectric_function()
-    df.get_EELS_spectrum(df1, df2,filename='Al_df.dat')
+    df.get_EELS_spectrum(filename='Al_df.dat')
     df.write('Al.pckl')
     df.check_sum_rule()
 
