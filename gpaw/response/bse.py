@@ -7,7 +7,7 @@ from ase.io import write
 from gpaw.mpi import world, size, rank, serial_comm
 from gpaw.response.base import BASECHI
 from gpaw.response.parallel import parallel_partition
-
+from gpaw.response.df import DF
 
 class BSE(BASECHI):
     """This class defines Belth-Selpether equations."""
@@ -63,7 +63,8 @@ class BSE(BASECHI):
             for n1 in range(self.nbands):
                 for m1 in range(self.nbands):
                     focc = self.f_kn[ibzkpt1,n1] - self.f_kn[ibzkpt2,m1]
-                    if np.abs(focc) > self.ftol:
+#                    if np.abs(focc) > self.ftol:
+                    if focc > self.ftol:                        
                         self.e_S[iS] =self.e_kn[ibzkpt2,m1] - self.e_kn[ibzkpt1,n1]
                         focc_s[iS] = focc
                         self.Sindex_S3[iS] = (k1, n1, m1)
@@ -109,8 +110,10 @@ class BSE(BASECHI):
         focc_S = self.focc_S
         e_S = self.e_S
 
+        W_qG = self.screened_interaction_kernel()
         # calculate kernel
         K_SS = np.zeros((self.nS, self.nS), dtype=complex)
+        W_SS = np.zeros_like(K_SS)
         self.rhoG0_S = np.zeros((self.nS), dtype=complex)
 
         t0 = time()
@@ -123,7 +126,18 @@ class BSE(BASECHI):
                 k2, n2, m2 = self.Sindex_S3[jS]
                 rho2_G = self.density_matrix(n2,m2,k2)
                 K_SS[iS, jS] = np.sum(rho1_G.conj() * rho2_G * self.kc_G)
-
+                
+                rho3_G = self.density_matrix(n1,n2,k1,k2)
+                rho4_G = self.density_matrix(m1,m2,k1,k2)
+                q_c = bzk_kc[k2] - bzk_kc[k1]
+                iq = self.kd.where_is_q(q_c)
+                if n1 == n2 and m1==m2 and k1 == k2 :
+                    W_qG[iq, 0] = 0 
+#                tmp_GG = np.outer(rho3_G.conj(), rho4_G) * W_qGG[iq]
+#                W_SS[iS, jS] = np.sum(tmp_GG)
+                W_SS[iS, jS] = np.sum(rho3_G.conj()*rho4_G*W_qG[iq])
+                if iS == jS:
+                    W_SS[iS, jS] += 0#1.*(6*pi**2/self.vol)**(1./3.) * 4*pi *self.dfinv_q0*self.vol
             if iS == 0:
                 dt = time() - t0
                 totaltime = dt * self.nS_local
@@ -135,6 +149,7 @@ class BSE(BASECHI):
                     self.printtxt('Finished pair orbital %d in %f seconds, estimated %f seconds left.  '%(iS, dt, totaltime - dt) )
                     
         K_SS *= 4 * pi / self.vol
+        K_SS -= 0.5 * W_SS / self.vol
         self.Scomm.sum(K_SS)
         self.Scomm.sum(self.rhoG0_S)
 
@@ -152,28 +167,42 @@ class BSE(BASECHI):
 
     def screened_interaction_kernel(self):
         """Calcuate W_GG(q)"""
-        
+
+        self.kd.get_bz_q_points()
+        dfinv_qGG = np.zeros((self.nkpt, self.npw, self.npw))
+        kc_qGG = np.zeros((self.nkpt, self.npw, self.npw))
+                
         for iq, q in enumerate(self.kd.bzq_kc):
             print 'finish iq', iq
             optical_limit=False
             if (np.abs(q) < self.ftol).all():
                 optical_limit=True
                 q = np.array([0.0001, 0, 0])
-            df = DF(calc=calc, q=q, w=(0.,),
+            df = DF(calc=self.calc, q=q, w=(0.,),
                     optical_limit=optical_limit,
                     hilbert_trans=False,
                     eta=0., ecut=self.ecut*Hartree, txt='no_output')
-            dfinv_qGG[iq] = df.get_inverse_RPA_dielectric_matrix()[0]
-
+            dfinv_qGG[iq] = df.get_inverse_dielectric_matrix(xc='RPA')[0]
+            
             for iG in range(self.npw):
-                for jG in range(self.npw):
+                if 1:
+                    jG = iG
+#                for jG in range(self.npw):
                     qG1 = np.dot(q + self.Gvec_Gc[iG], self.bcell_cv)
                     qG2 = np.dot(q + self.Gvec_Gc[jG], self.bcell_cv)
                     kc_qGG[iq,iG,jG] = 1. / np.sqrt(np.dot(qG1, qG1) * np.dot(qG2,qG2))
 
             assert df.npw == self.npw
-
-        return
+            if optical_limit:
+                self.dfinv_q0 = dfinv_qGG[iq, 0,0]
+                
+        W_qG = np.zeros((self.nkpt, self.npw))
+        for iq in range(self.nkpt):
+            for iG in range(self.npw):
+                W_qG[iq, iG] = 4 * pi * dfinv_qGG[iq, iG, iG] * kc_qGG[iq, iG, iG]
+        return W_qG
+                                          
+#        return 4 * pi * dfinv_qGG * kc_qGG
     
     
     def print_bse(self):

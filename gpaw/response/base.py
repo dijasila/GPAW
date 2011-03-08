@@ -274,60 +274,80 @@ class BASECHI:
 
             return psit_G
 
-
-    def density_matrix(self,n,m,k,Gspace=True):
+    def density_matrix(self,n,m,k,kq=None,Gspace=True):
 
         ibzk_kc = self.ibzk_kc
         bzk_kc = self.bzk_kc
-        kq_k = self.kq_k
         gd = self.gd
         kd = self.kd
+        optical_limit=False
 
+        if kq is None:
+            kq = self.kq_k[k]
+            expqr_g = self.expqr_g
+            q_v = self.qq_v
+            optical_limit = self.optical_limit
+        else:
+            q_c = bzk_kc[kq] - bzk_kc[k]
+            if (np.abs(q_c) < self.ftol).all():
+                optical_limit=True
+                q_c = np.array([0.0001, 0, 0])
+
+            q_v = np.dot(q_c, self.bcell_cv) #
+            r_vg = gd.get_grid_point_coordinates() # (3, nG)
+            qr_g = gemmdot(q_v, r_vg, beta=0.0)
+            expqr_g = np.exp(-1j * qr_g)
+            
         ibzkpt1 = kd.kibz_k[k]
-        ibzkpt2 = kd.kibz_k[kq_k[k]]
+        ibzkpt2 = kd.kibz_k[kq]
         
         psitold_g = self.get_wavefunction(ibzkpt1, n, True)
         psit1_g = kd.transform_wave_function(psitold_g, k)
         
         psitold_g = self.get_wavefunction(ibzkpt2, m, True)
-        psit2_g = kd.transform_wave_function(psitold_g, kq_k[k])
+        psit2_g = kd.transform_wave_function(psitold_g, kq)
 
         if Gspace is False:
             return psit1_g, psit2_g
         else:
             # FFT
-            tmp_g = psit1_g.conj()* psit2_g * self.expqr_g
+            tmp_g = psit1_g.conj()* psit2_g * expqr_g
             rho_g = np.fft.fftn(tmp_g) * self.vol / self.nG0
-    
+
             # Here, planewave cutoff is applied
             rho_G = np.zeros(self.npw, dtype=complex)
             for iG in range(self.npw):
                 index = self.Gindex_G[iG]
                 rho_G[iG] = rho_g[index[0], index[1], index[2]]
     
-            if self.optical_limit:
+            if optical_limit:
                 d_c = [Gradient(gd, i, n=4, dtype=complex).apply for i in range(3)]
                 dpsit_g = gd.empty(dtype=complex)
                 tmp = np.zeros((3), dtype=complex)
     
-                phase_cd = np.exp(2j * pi * gd.sdisp_cd * bzk_kc[kq_k[k], :, np.newaxis])
+                phase_cd = np.exp(2j * pi * gd.sdisp_cd * bzk_kc[kq, :, np.newaxis])
                 for ix in range(3):
                     d_c[ix](psit2_g, dpsit_g, phase_cd)
                     tmp[ix] = gd.integrate(psit1_g.conj() * dpsit_g)
-                rho_G[0] = -1j * np.dot(self.qq_v, tmp)
+                rho_G[0] = -1j * np.dot(q_v, tmp)
     
             # PAW correction
             pt = self.pt
             P1_ai = pt.dict()
             pt.integrate(psit1_g, P1_ai, k)
             P2_ai = pt.dict()
-            pt.integrate(psit2_g, P2_ai, kq_k[k])
+            pt.integrate(psit2_g, P2_ai, kq)
                             
             for a, id in enumerate(self.calc.wfs.setups.id_a):
                 P_p = np.outer(P1_ai[a].conj(), P2_ai[a]).ravel()
                 gemv(1.0, self.phi_aGp[a], P_p, 1.0, rho_G)
     
-            if self.optical_limit:
-                rho_G[0] /= self.e_kn[ibzkpt2, m] - self.e_kn[ibzkpt1, n]
+            if optical_limit:
+                if n==m:
+                    rho_G[0] = 1
+                else:
+                    rho_G[0] /= self.e_kn[ibzkpt2, m] - self.e_kn[ibzkpt1, n]
     
             return rho_G
+
+
