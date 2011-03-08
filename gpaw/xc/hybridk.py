@@ -182,11 +182,11 @@ class HybridXC(XCFunctional):
         
         self.ghat = LFC(self.gd,
                         [setup.ghat_l for setup in density.setups],
-                        dtype=complex
-                        )
+                        dtype=complex)
+
         self.ghat.set_k_points(self.bzk_kc)
         
-        self.fullkd = KPointDescriptor(self.kd.bzk_kc, nspins=1)
+        self.fullkd = KPointDescriptor(self.kd.bzk_kc, nspins=wfs.nspins)
         class S:
             id_a = []
             def set_symmetry(self, s): pass
@@ -215,16 +215,18 @@ class HybridXC(XCFunctional):
 
         kd = self.kd
         K = self.fullkd.nibzkpts
-        assert self.nspins == 1
-        Q = K // world.size
-        assert Q * world.size == K
-        parallel = (world.size > self.nspins)
+        W = world.size // self.nspins
+        Q = K // W
+        assert Q * W == K
+        parallel = (W > 1)
         
         self.exx = 0.0
         self.exx_skn = np.zeros((self.nspins, K, self.bd.nbands))
 
+        mys, myr = divmod(world.rank, W)
+
         kpt_u = []
-        for k in range(world.rank * Q, (world.rank + 1) * Q):
+        for k in range(myr * Q, (myr + 1) * Q):
             k_c = self.fullkd.ibzk_kc[k]
             for k1, k1_c in enumerate(kd.bzk_kc):
                 if abs(k1_c - k_c).max() < 1e-10:
@@ -232,8 +234,10 @@ class HybridXC(XCFunctional):
                 
             # Index of symmetry related point in the irreducible BZ
             ik = kd.kibz_k[k1]
-            kpt = self.kpt_u[ik]
-
+            r, u = self.kd.get_rank_and_index(mys, ik)
+            kpt = self.kpt_u[u]
+            assert kpt.s == mys and r == 0
+            
             # KPoint from ground-state calculation
             phase_cd = np.exp(2j * pi * self.gd.sdisp_cd * k_c[:, np.newaxis])
             kpt2 = KPoint0(kpt.weight, kpt.s, k, None, phase_cd)
@@ -255,10 +259,11 @@ class HybridXC(XCFunctional):
                 continue
 
             # Send rank:
-            srank = self.fullkd.get_rank_and_index(s, (kpt1_q[0].k - 1) % K)[0]
-
+            srank = self.fullkd.get_rank_and_index(s,
+                                                   (kpt1_q[0].k - 1) % K)[0]
             # Receive rank:
-            rrank = self.fullkd.get_rank_and_index(s, (kpt1_q[-1].k + 1) % K)[0]
+            rrank = self.fullkd.get_rank_and_index(s,
+                                                   (kpt1_q[-1].k + 1) % K)[0]
 
             # Shift k-points K // 2 times:
             for i in range(K // 2 + 1):
