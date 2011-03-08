@@ -149,11 +149,14 @@ class HybridXC(XCFunctional):
         vol = self.gd.dv * N
         
         if self.alpha is None:
+            # XXX ?
             self.alpha = 6 * vol**(2 / 3.0) / pi**2
             
         self.gamma = (vol / (2 * pi)**2 * sqrt(pi / self.alpha) *
                       self.kd.nbzkpts)
         ecut = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
+        print('alpha=%f' % self.alpha)
+        print('ecut=%f Hartree' % ecut)
 
         if self.kd.N_c is None:
             self.bzk_kc = np.zeros((1, 3))
@@ -242,7 +245,7 @@ class HybridXC(XCFunctional):
             phase_cd = np.exp(2j * pi * self.gd.sdisp_cd * k_c[:, np.newaxis])
             kpt2 = KPoint0(kpt.weight, kpt.s, k, None, phase_cd)
             kpt2.psit_nG = np.empty_like(kpt.psit_nG)
-            kpt2.f_n = kpt.f_n / kpt.weight / K * 2
+            kpt2.f_n = kpt.f_n / kpt.weight / K * 2 / self.nspins
             for n, psit_G in enumerate(kpt2.psit_nG):
                 psit_G[:] = kd.transform_wave_function(kpt.psit_nG[n], k1)
 
@@ -294,7 +297,6 @@ class HybridXC(XCFunctional):
         self.exx += self.calculate_paw_correction()
         
     def apply(self, kpt1, kpt2, invert=False):
-        #print world.rank,kpt1.k,kpt2.k,invert
         k1_c = self.fullkd.ibzk_kc[kpt1.k]
         k2_c = self.fullkd.ibzk_kc[kpt2.k]
         if invert:
@@ -341,7 +343,7 @@ class HybridXC(XCFunctional):
                 e = np.vdot(nt_G, vt_G).real * nspins * self.hybrid
                 if same and n1 == n2:
                     e /= 2
-                    
+
                 self.exx += e * f1 * f2
                 self.ekin -= 2 * e * f1 * f2
                 self.exx_skn[kpt1.s, kpt1.k, n1] += f2 * e
