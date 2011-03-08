@@ -21,13 +21,15 @@ class BSE(BASECHI):
                  eta=0.2,
                  ftol=1e-5,
                  txt=None,
-                 optical_limit=False):
+                 optical_limit=False,
+                 positive_w=False): # Tamm-Dancoff Approx
 
         BASECHI.__init__(self, calc, nbands, w, q, ecut,
                      eta, ftol, txt, optical_limit)
 
 
         self.epsilon_w = None
+        self.positive_w = positive_w
 
     def initialize(self):
 
@@ -63,8 +65,11 @@ class BSE(BASECHI):
             for n1 in range(self.nbands):
                 for m1 in range(self.nbands):
                     focc = self.f_kn[ibzkpt1,n1] - self.f_kn[ibzkpt2,m1]
-#                    if np.abs(focc) > self.ftol:
-                    if focc > self.ftol:                        
+                    if not self.positive_w: # Dont use Tamm-Dancoff Approx.
+                        check_ftol = np.abs(focc) > self.ftol
+                    else:
+                        check_ftol = focc > self.ftol
+                    if check_ftol:           
                         self.e_S[iS] =self.e_kn[ibzkpt2,m1] - self.e_kn[ibzkpt1,n1]
                         focc_s[iS] = focc
                         self.Sindex_S3[iS] = (k1, n1, m1)

@@ -173,9 +173,9 @@ tests = [
     'dump_chi0.py',
     'au02_absorption.py',
     'rpa_energy_Kr.py',
-    'bse_aluminum.py',
-    'bse_diamond.py',
-    'bse_vs_lrtddft.py',
+#    'bse_aluminum.py',
+#    'bse_diamond.py',
+#    'bse_vs_lrtddft.py',
     'diamond_eps_alda.py',
     'hgh_h2o.py',
     'apmb.py',
@@ -262,10 +262,11 @@ if mpi.size < 4:
                 'parallel/scalapack.py',
                 'parallel/scalapack_diag_simple.py',
                 'parallel/realspace_blacs.py',
-                'AA_exx_enthalpy.py',
-                'bse_aluminum.py',
-                'bse_diamond.py',
-                'bse_vs_lrtddft.py']
+                'AA_exx_enthalpy.py']#,
+#                'bse_aluminum.py',
+#                'bse_diamond.py',
+#                'bse_vs_lrtddft.py'
+#                ]
 
 if mpi.size != 4:
     exclude += ['parallel/lcao_parallel.py']
@@ -287,9 +288,9 @@ except ImportError:
                 'aluminum_EELS_lcao.py',
                 'aluminum_testcell.py',
                 'au02_absorption.py',
-                'bse_aluminum.py',
-                'bse_diamond.py',
-                'bse_vs_lrtddft.py',
+#                'bse_aluminum.py',
+#                'bse_diamond.py',
+#                'bse_vs_lrtddft.py',
                 'aeatom.py',
                 'rpa_energy_Kr.py']
 
