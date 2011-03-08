@@ -177,6 +177,8 @@ def run(argv=None):
         # Import stuff that eval() may need to know:
         from gpaw.wavefunctions.pw import PW
         from gpaw.occupations import FermiDirac, MethfesselPaxton
+        from gpaw.mixer import Mixer
+        from gpaw.poisson import PoissonSolver
             
         if opt.parameters:
             input_parameters = eval(open(opt.parameters).read())
