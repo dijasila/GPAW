@@ -36,10 +36,9 @@ q = np.array([0.0, 0.00001, 0.])
 
 df = DF(calc='C2.gpw', q=q, w=(0.,), eta=0.001, nbands=nbands,
         ecut=50, hilbert_trans=False, optical_limit=True)
-df1, df2 = df.get_dielectric_function(xc='ALDA')
-eM1, eM2 = df.get_macroscopic_dielectric_constant(df1, df2)
+eM1, eM2 = df.get_macroscopic_dielectric_constant()
 
-if np.abs(eM2-7.914302)>1e-3:
+if np.abs(eM2[1]-7.914302)>1e-3:
     raise ValueError("Incorrect value from Diamond dielectric constant with ALDA Kernel %.4f" % (eM2))
 
 # RPA:
