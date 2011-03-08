@@ -128,7 +128,7 @@ class CHI(BASECHI):
         # Calculate ALDA kernel (not used in chi0)
         # if frequencies are real (not the case for RPA correlation energies)
         R_av = calc.atoms.positions / Bohr
-        if type(self.w_w[0]) is float:
+        if type(self.w_w[0]) is not float:
             self.Kxc_GG = calculate_Kxc(self.gd, # global grid
                                         calc.density.nt_sG,
                                         self.npw, self.Gvec_Gc,
