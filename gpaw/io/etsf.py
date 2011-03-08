@@ -140,8 +140,7 @@ class ETSFWriter:
                        for k in range(kd.nibzkpts)]
                       for s in range(wfs.nspins)]))
         var('reduced_coordinates_of_kpoints',
-            ('number_of_kpoints', 'number_of_reduced_dimensions'),
-            kd.ibzk_kc)
+            ('number_of_kpoints', 'number_of_reduced_dimensions'), kd.ibzk_kc)
         var('kpoint_weights', ('number_of_kpoints',), kd.weight_k)
         var('basis_set', ('character_string_length',), 'plane_waves')
         var('kinetic_energy_cutoff', (), 1.0 * ecut, units='atomic units')
@@ -170,7 +169,8 @@ class ETSFWriter:
         for s in range(wfs.nspins):
             for k in range(kd.nibzkpts):
                 for n in range(bd.nbands):
-                    psit_G = pwd.fft(calc.get_pseudo_wave_function(n, k, s))[np.argsort(G2_Q)]
+                    psit_R = calc.get_pseudo_wave_function(n, k, s)
+                    psit_G = pwd.fft(psit_R)[np.argsort(G2_Q)]
                     psit_G *= x
                     psit_Gx[:, 0] = psit_G.real
                     psit_Gx[:, 1] = psit_G.imag
