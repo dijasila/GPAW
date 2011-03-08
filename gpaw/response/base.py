@@ -102,6 +102,7 @@ class BASECHI:
 
         try:
             self.e_kn
+            self.printtxt('Use eigenvalues from user.')
         except:
             self.printtxt('Use eigenvalues from the calculator.')
             self.e_kn = np.array([calc.get_eigenvalues(kpt=k)
