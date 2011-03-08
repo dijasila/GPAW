@@ -1,6 +1,6 @@
 type=Au_bulk3x3x3
 cwd=`pwd`
-acct=Performance
+acct=Gpaw
 queue=default
 time=60
 nodes=64
