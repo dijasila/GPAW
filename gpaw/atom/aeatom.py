@@ -93,6 +93,19 @@ class GridDescriptor:
         vr_g[1:] -= A_g[:-1] + 0.5 * a_g[1:]
         return vr_g
 
+    def pseudize(self, a_g, gc, n=0):
+        assert isinstance(gc, int) and gc > 10
+        r_g = self.r_g
+        g = range(gc - 1, gc + 3)
+        poly = np.polyfit([0] + list(r_g[g]**2),
+                          [0] + list(a_g[g] * r_g[g]**(2 - n)), 4)
+        at_g = a_g.copy()
+        at_g[:gc] = np.polyval(poly, r_g[:gc]**2)
+        at_g[1:gc] *= r_g[1:gc]**(n - 2)
+        if n == 0:
+            at_g[0] = poly[-2]
+        return at_g, poly[:-1]
+
     def plot(self, a_g, n=0, rc=4.0, show=False):
         import matplotlib.pyplot as plt
         plt.plot(self.r_g, a_g * self.r_g**n)
@@ -184,6 +197,7 @@ class Channel:
         self.C_nb = None                       # eigenvectors
         self.e_n = None                        # eigenvalues
         self.f_n = np.array(f_n, dtype=float)  # occupation numbers
+        self.phi_ng = None                     # wave functions
         
         self.name = 'spdf'[l]
 
@@ -193,7 +207,34 @@ class Channel:
         H_bb += self.basis.T_bb
         self.e_n, C_bn = eigh(H_bb)
         self.C_nb = C_bn.T
-    
+        self.phi_ng = self.basis.expand(self.C_nb[:len(self.f_n)])
+
+    def solve2(self, vr_g):
+        gd = self.basis.gd
+        r_g = gd.r_g
+        vr = interp1d(r_g, vr_g)
+        u_g = gd.empty()
+        for n in range(len(self.f_n)):
+            e = self.e_n[n]
+            # Find classical turning point:
+            g = (vr_g < e * r_g).sum()
+            r1_g = r_g[:g + 1]
+            r2_g = -r_g[:g - 1:-1]
+            while True:
+                u1_g, du1dr_g = self.integrate_outwards(vr, r1_g, e).T
+                u2_g, du2dr_g = self.integrate_inwards(vr, r2_g, e).T
+                A = du1dr_g[-1] / u1_g[-1] + du2dr_g[-1] / u2_g[-1]
+                u_g[:g + 1] = u1_g
+                u_g[g:] = u2_g[::-1] * u1_g[-1] / u2_g[-1]
+                u_g /= (gd.integrate(u_g**2, -2) / (4 * pi))**0.5
+                if abs(A) < 1e-7:
+                    break
+                e += 0.5 * A * u_g[g]**2
+            self.e_n[n] = e
+            self.phi_ng[n, 1:] = u_g[1:] / r_g[1:]
+            if self.l == 0:
+                self.phi_ng[n, 0] = self.phi_ng[n, 1]
+            
     def calculate_density(self, n=None):
         """Calculate density."""
         if n is None:
@@ -201,7 +242,7 @@ class Channel:
             for n, f in enumerate(self.f_n):
                 n_g += f * self.calculate_density(n)
         else:
-            n_g = self.basis.expand(self.C_nb[n])**2 / (4 * pi)
+            n_g = self.phi_ng[n]**2 / (4 * pi)
         return n_g
 
     def get_eigenvalue_sum(self):
@@ -211,9 +252,24 @@ class Channel:
     def integrate_outwards(self, vr, r_g, e, p=lambda x: 0.0):
         def f(y, r):
             if r == 0:
-                return [y[1], -2.0]
+                return [y[1], 2 * vr(0)]
             return [y[1], 2 * (vr(r) / r - e) * y[0] - 2 * p(r) * r]
+        if self.l == 1:
+            def f(y, r):
+                if r == 0:
+                    return [y[1], 2.0]
+                return [y[1],
+                        2 * (vr(r) / r + 1.0 / r**2 - e) * y[0] - 2 * p(r) * r]
+            return odeint(f, [0, 0], r_g)
         return odeint(f, [0, 1], r_g)
+    
+    def integrate_inwards(self, vr, r_g, e, p=lambda x: 0.0):
+        def f(y, r):
+            r = -r
+            return [y[1], 2 * (vr(r) / r - e) * y[0] - 2 * p(r) * r]
+        a = np.sqrt(-2*e)
+        u=np.exp(a*r_g[0])
+        return odeint(f, [u, a*u], r_g, hmax=1)
     
 
 class DiracChannel(Channel):
@@ -308,6 +364,8 @@ class AllElectronAtom:
         self.log('Symbol:         ', symbol)
         self.log('XC-functional:  ', self.xc.name)
         self.log('Equation:       ', ['Schrödinger', 'Dirac'][self.dirac])
+
+        self.mode = 'gaussians'
 
     def log(self, *args, **kwargs):
         self.fd.write(kwargs.get('sep', ' ').join([str(arg) for arg in args]) +
@@ -411,7 +469,10 @@ class AllElectronAtom:
         """Diagonalize Schrödinger equation."""
         self.eeig = 0.0
         for channel in self.channels:
-            channel.solve(self.vr_sg[channel.s])
+            if self.mode == 'gaussians':
+                channel.solve(self.vr_sg[channel.s])
+            else:
+                channel.solve2(self.vr_sg[channel.s])
             self.eeig += channel.get_eigenvalue_sum()
 
     def calculate_density(self):
@@ -467,6 +528,10 @@ class AllElectronAtom:
         if dn > dnmax:
             raise RuntimeError('Did not converge!')
 
+    def refine(self):
+        self.mode = 'ode'
+        self.run()
+        
     def summary(self):
         self.write_states()
         self.write_energies()
@@ -564,7 +629,7 @@ def build_parser():
                       help='Exchange-Correlation functional ' +
                       '(default value LDA)',
                       metavar='<XC>')
-    parser.add_option('--add', metavar='states',
+    parser.add_option('-a', '--add', metavar='states',
                       help='Add electron(s). Use "1s0.5a" to add 0.5 1s ' +
                       'electrons to the alpha-spin channel (use "b" for ' +
                       'beta-spin).  The number of electrons defaults to ' +
@@ -577,6 +642,7 @@ def build_parser():
                       'to get 30 exponents from 0.1 to 20.0.')
     parser.add_option('-l', '--logarithmic-derivatives',
                       help='-l 1.3,spdf,-2,2,100')
+    parser.add_option('-r', '--refine', action='store_true')
     return parser
 
 
@@ -611,20 +677,23 @@ def main():
                           spinpol=opt.spin_polarized,
                           dirac=opt.dirac)
 
+    kwargs = {}
     if opt.exponents:
         parts = opt.exponents.split(':')
-        kwargs = {}
         kwargs['alpha1'] = float(parts[0])
         if len(parts) > 1:
             kwargs['alpha2'] = float(parts[1])
             if len(parts) > 2:
                 kwargs['ngauss'] = int(parts[2])
-        aea.initialize(**kwargs)
 
     for n, l, f, s in nlfs:
         aea.add(n, l, f, s)
 
+    aea.initialize(**kwargs)
     aea.run()
+
+    if opt.refine:
+        aea.refine()
 
     if opt.logarithmic_derivatives:
         rcut, lvalues, emin, emax, npoints = \
