@@ -51,7 +51,7 @@ class KPointDescriptor:
             self.bzk_kc = monkhorst_pack(kpts)
             self.N_c = np.array(kpts, dtype=int)
         else:
-            self.bzk_kc = np.array(kpts)
+            self.bzk_kc = np.array(kpts, float)
             self.N_c = None
 
         self.nspins = nspins
