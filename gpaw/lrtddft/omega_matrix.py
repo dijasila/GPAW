@@ -37,6 +37,7 @@ class OmegaMatrix:
       - txt: output stream or file name
       - finegrid: level of fine grid to use. 0: nothing, 1 for poisson only,
         2 everything on the fine grid
+      - comm: MPI communicator object for parallelization over eh-pairs.
     """
     def __init__(self,
                  calculator=None,
@@ -119,11 +120,18 @@ class OmegaMatrix:
              # this will be a singlet to singlet calculation only
              self.singletsinglet=True
 
-        nij = len(kss)
-        self.Om = np.zeros((nij,nij))
-        self.get_full()
+        nkss = len(kss)
+        self.ij = range(selh.eh_comm.rank, nkss, self.eh_comm.size)
+        self.nij = len(self.ij)
+        self.nkq = len(kss)
+        self.Om = np.zeros((self.nij,self.nkq))
+        # self.get_full()
+        self.calculate()
 
-    def get_full(self):
+    def calculate(self):
+        """Calculate the full Omega matrix.
+           With parallelization over eh-pairs, the full matrix is not
+           collected."""
 
         self.paw.timer.start('Omega RPA')
         self.get_rpa()
@@ -134,8 +142,14 @@ class OmegaMatrix:
             self.get_xc()
             self.paw.timer.stop()
 
-        self.eh_comm.sum(self.Om)
-        self.full = self.Om
+    def get_full(self):
+        """Collect the full Omega matrix within the eh-communicator."""
+
+        self.paw.timer.start('Collect Omega')
+        if self.eh_comm.size == 1:
+            self.full = self.Om
+        else:
+            print "To be impl"
 
     def get_xc(self):
         """Add xc part of the coupling matrix"""
@@ -149,7 +163,7 @@ class OmegaMatrix:
         
         fg = self.finegrid is 2
         kss = self.fullkss
-        nij = len(kss)
+        # nij = len(kss)
 
         Om_xc = self.Om
         # initialize densities
@@ -207,8 +221,8 @@ class OmegaMatrix:
 
         ns=self.numscale
         xc=self.xc
-        print >> self.txt, 'XC',nij,'transitions'
-        for ij in range(eh_comm.rank, nij, eh_comm.size):
+        print >> self.txt, 'XC',self.nij,'transitions'
+        for my_ij, ij in enumerate(self.ij):
             print >> self.txt,'XC kss['+'%d'%ij+']' 
 
             timer = Timer()
@@ -249,7 +263,7 @@ class OmegaMatrix:
                     Pj_i = P_ni[kss[ij].j]
                     P_ii = np.outer(Pi_i, Pj_i)
                     # we need the symmetric form, hence we can pack
-                    P_p = pack(P_ii)
+                    P_p = pack(P_ii, tolerance=1e30)
                     D_sp = self.paw.density.D_asp[a].copy()
                     D_sp[kss[ij].pspin] -= ns * P_p
                     setup = wfs.setups[a]
@@ -267,7 +281,7 @@ class OmegaMatrix:
             t0 = timer.get_time('init')
             timer.start(ij)
             
-            for kq in range(ij,nij):
+            for kq in range(ij,self.nkq):
                 weight = self.weight_Kijkq(ij, kq)
                 
                 if self.derivativeLevel == 0:
@@ -316,14 +330,14 @@ class OmegaMatrix:
                               - ns*kss[kq].get(fg)
                         Excmm = xc.get_energy_and_potential(nv_g,v_g)
 
-                    Om_xc[ij,kq] += weight *\
+                    Om_xc[my_ij,kq] += weight *\
                                 0.25*(Excpp-Excmp-Excpm+Excmm)/(ns*ns)
                               
                 elif self.derivativeLevel == 1:
                     # vxc is available
 
                     timer2.start('integrate')
-                    Om_xc[ij,kq] += weight*\
+                    Om_xc[my_ij,kq] += weight*\
                                  self.gd.integrate(kss[kq].get(fg)*
                                                    vvt_s[kss[kq].pspin])
                     timer2.stop()
@@ -337,25 +351,26 @@ class OmegaMatrix:
                         P_ii = np.outer(Pk_i, Pq_i)
                         # we need the symmetric form, hence we can pack
                         # use pack as I_sp used pack2
-                        P_p = pack(P_ii)
+                        P_p = pack(P_ii, tolerance=1e30)
                         Exc += np.dot(I_asp[a][kss[kq].pspin], P_p)
-                    Om_xc[ij, kq] += weight * self.gd.comm.sum(Exc)
+                    Om_xc[my_ij, kq] += weight * self.gd.comm.sum(Exc)
                     timer2.stop()
 
                 elif self.derivativeLevel == 2:
                     # fxc is available
                     if kss.npspins==2: # spin polarised
-                        Om_xc[ij,kq] += weight *\
+                        Om_xc[my_ij,kq] += weight *\
                             gd.integrate(kss[ij].get(fg)*
                                          kss[kq].get(fg)*
                                          fxc[kss[ij].pspin,kss[kq].pspin])
                     else: # spin unpolarised
-                        Om_xc[ij,kq] += weight *\
+                        Om_xc[my_ij,kq] += weight *\
                             gd.integrate(kss[ij].get(fg)*
                                          kss[kq].get(fg)*
                                          fxc)
-                if ij != kq:
-                    Om_xc[kq,ij] = Om_xc[ij,kq]
+                # XXX Is this needed?
+                # if ij != kq:
+                #    Om_xc[kq,ij] = Om_xc[ij,kq]
                 
             timer.stop()
 ##            timer2.write()
@@ -376,12 +391,12 @@ class OmegaMatrix:
         eh_comm = self.eh_comm
         
         # calculate omega matrix
-        nij = len(kss)
-        print >> self.txt,'RPA',nij,'transitions'
+        # nij = len(kss)
+        print >> self.txt,'RPA',self.nij,'transitions'
         
         Om = self.Om
         
-        for ij in range(eh_comm.rank, nij, eh_comm.size):
+        for my_ij, ij in enumerate(self.ij):
             print >> self.txt,'RPA kss['+'%d'%ij+']=', kss[ij]
 
             timer = Timer()
@@ -424,7 +439,7 @@ class OmegaMatrix:
                 timer2.start('integrate')
                 pre = 2.*sqrt(kss[ij].get_energy()*kss[kq].get_energy()*
                                   kss[ij].get_weight()*kss[kq].get_weight())
-                Om[ij,kq]= pre * self.gd.integrate(rhot*phit)
+                Om[my_ij,kq]= pre * self.gd.integrate(rhot*phit)
 ##                print "int=",Om[ij,kq]
                 timer2.stop()
 
@@ -435,12 +450,12 @@ class OmegaMatrix:
                     Pi_i = P_ni[kss[ij].i]
                     Pj_i = P_ni[kss[ij].j]
                     Dij_ii = np.outer(Pi_i, Pj_i)
-                    Dij_p = pack(Dij_ii)
+                    Dij_p = pack(Dij_ii, tolerance=1e3)
                     Pkq_ni = wfs.kpt_u[kss[kq].spin].P_ani[a]
                     Pk_i = Pkq_ni[kss[kq].i]
                     Pq_i = Pkq_ni[kss[kq].j]
                     Dkq_ii = np.outer(Pk_i, Pq_i)
-                    Dkq_p = pack(Dkq_ii)
+                    Dkq_p = pack(Dkq_ii, tolerance=1e3)
                     C_pp = wfs.setups[a].M_pp
                     #   ----
                     # 2 >      P   P  C    P  P
@@ -449,12 +464,12 @@ class OmegaMatrix:
                     Ia += 2.0*np.dot(Dkq_p,np.dot(C_pp,Dij_p))
                 timer2.stop()
                 
-                Om[ij,kq] += pre * self.gd.comm.sum(Ia)
+                Om[my_ij,kq] += pre * self.gd.comm.sum(Ia)
                     
                 if ij == kq:
-                    Om[ij,kq] += kss[ij].get_energy()**2
-                else:
-                    Om[kq,ij]=Om[ij,kq]
+                    Om[my_ij,kq] += kss[ij].get_energy()**2
+                # else:
+                #     Om[kq,ij]=Om[ij,kq]
 
             timer.stop()
 ##            timer2.write()
@@ -608,6 +623,45 @@ class OmegaMatrix:
             f.close()
 
     def write(self, filename=None, fh=None):
+        """Write current state to a file."""
+        if mpi.rank == mpi.MASTER:
+            if fh is None:
+                f = open(filename, 'w')
+            else:
+                f = fh
+
+            f.write('# OmegaMatrix\n')
+            nij = len(self.fullkss)
+            f.write('%d\n' % nij)
+            for ij in range(nij):
+                for kq in range(ij,nij):
+                    f.write(' %g' % self.full[ij,kq])
+                f.write('\n')
+            
+            if fh is None:
+                f.close()
+
+    def read_hdf5(self, filename=None, fh=None):
+        """Read myself from a file"""
+        if fh is None:
+            f = open(filename, 'r')
+        else:
+            f = fh
+
+        f.readline()
+        nij = int(f.readline())
+        full = np.zeros((nij,nij))
+        for ij in range(nij):
+            l = f.readline().split()
+            for kq in range(ij,nij):
+                full[ij,kq] = float(l[kq-ij])
+                full[kq,ij] = full[ij,kq]
+        self.full = full
+
+        if fh is None:
+            f.close()
+
+    def write_hdf5(self, filename=None, fh=None):
         """Write current state to a file."""
         if mpi.rank == mpi.MASTER:
             if fh is None:
