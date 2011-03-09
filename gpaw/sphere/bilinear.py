@@ -12,10 +12,9 @@ def bilinear_concentric_potential(r_g, dr_g, f_g, ft_g, l1, l2, alpha, rfilt=Non
                  /     _   _a    _   _a    ~   _   _a  ~ _   _a   _
         v      = | f  (r - R ) V(r - R ) - f  (r - R ) V(r - R ) dr
          m1,m2   /  L1,L2                    L1,L2
-
             _      ~ _
     where f(r) and f(r) are bilinear product of two localized functions which
-    are radial splines times a real spherical harmonic (l1,m1) and (l2,m2).
+    are radial splines times real spherical harmonics (l1,m1) or (l2,m2) and::
 
           _       1       _ -1              ~ _    erf(alpha*r)  _ -1
         V(r) = --------- |r|        ^       V(r) = ------------ |r|
@@ -47,10 +46,9 @@ def bilinear_concentric_force(r_g, dr_g, f_g, ft_g, l1, l2, alpha, rfilt=None):
         _        /     _   _a  __    _   _a    ~   _   _a  __  ~ _   _a   _
         F      = | f  (r - R ) \/_ V(r - R ) - f  (r - R ) \/_ V(r - R ) dr
          m1,m2   /  L1,L2        r               L1,L2       r
-
             _      ~ _
     where f(r) and f(r) are bilinear product of two localized functions which
-    are radial splines times a real spherical harmonic (l1,m1) and (l2,m2).
+    are radial splines times real spherical harmonics (l1,m1) or (l2,m2) and::
 
           _       1       _ -1              ~ _    erf(alpha*r)  _ -1
         V(r) = --------- |r|        ^       V(r) = ------------ |r|
@@ -90,7 +88,7 @@ def bilinear_expansion_potential(r_g, dr_g, f_g, l1, l2, dR_v, lmax=4):
          m1,m2   /  L1,L2                                4 pi eps0
             _
     where f(r) is a bilinear product of two localized functions which are
-    radial splines times a real spherical harmonic (l1,m1) and (l2,m2).
+    radial splines times real spherical harmonics (l1,m1) or (l2,m2).
 
     The seperation between atoms a and a' is specified in atomic units as::
          _   _a  _a'
@@ -122,7 +120,7 @@ def bilinear_expansion_force(r_g, dr_g, f_g, l1, l2, dR_v, lmax=4):
          m1,m2   /  L1,L2        r                          4 pi eps0
             _
     where f(r) is a bilinear product of two localized functions which are
-    radial splines times a real spherical harmonic (l1,m1) and (l2,m2).
+    radial splines times real spherical harmonics (l1,m1) or (l2,m2).
 
     The seperation between atoms a and a' is specified in atomic units as::
          _   _a  _a'
