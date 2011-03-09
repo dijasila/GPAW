@@ -10,6 +10,7 @@ from numpy.linalg import eigh
 from scipy.special import gamma
 from scipy.integrate import odeint
 from scipy.interpolate import interp1d
+from scipy.optimize import fsolve
 
 from ase.data import atomic_numbers, atomic_names, chemical_symbols
 from ase.utils import devnull
@@ -93,19 +94,34 @@ class GridDescriptor:
         vr_g[1:] -= A_g[:-1] + 0.5 * a_g[1:]
         return vr_g
 
-    def pseudize(self, a_g, gc, n=0):
+    def pseudize(self, a_g, gc, l=0, points=4):
         assert isinstance(gc, int) and gc > 10
+        
         r_g = self.r_g
-        g = range(gc - 1, gc + 3)
-        poly = np.polyfit([0] + list(r_g[g]**2),
-                          [0] + list(a_g[g] * r_g[g]**(2 - n)), 4)
-        at_g = a_g.copy()
-        at_g[:gc] = np.polyval(poly, r_g[:gc]**2)
-        at_g[1:gc] *= r_g[1:gc]**(n - 2)
-        if n == 0:
-            at_g[0] = poly[-2]
-        return at_g, poly[:-1]
+        g = [0] + range(gc - 1, gc + points - 1)
+        c_x = np.polyfit(r_g[g]**2,
+                         a_g[g] * r_g[g]**(2 - l), points)[:-1]
+        b_g = a_g.copy()
+        b_g[:gc] = np.polyval(c_x, r_g[:gc]**2) * r_g[:gc]**l
+        return b_g, c_x
 
+    def pseudize_normalized(self, a_g, gc, l=0, points=3):
+        b_g, c_x = self.pseudize(a_g, gc, l, points + 1)
+        gc0 = gc // 2
+        x0 = b_g[gc0]
+        r_g = self.r_g
+        g = [0, gc0] + range(gc - 1, gc + points - 1)
+        norm = self.integrate(a_g**2)
+        def f(x):
+            b_g[gc0] = x
+            y=np.polyfit(r_g[g]**2,
+                                b_g[g] * r_g[g]**(2 - l), points + 1)
+            c_x[:] = y[:-1]
+            b_g[:gc] = np.polyval(c_x, r_g[:gc]**2) * r_g[:gc]**l
+            return self.integrate(b_g**2) - norm
+        fsolve(f, x0)
+        return b_g, c_x
+        
     def plot(self, a_g, n=0, rc=4.0, show=False):
         import matplotlib.pyplot as plt
         plt.plot(self.r_g, a_g * self.r_g**n)
@@ -189,7 +205,7 @@ class GaussianBasis:
 
 
 class Channel:
-    def __init__(self, l, s, f_n, basis):
+    def __init__(self, l, s=0, f_n=(), basis=None):
         self.l = l
         self.s = s
         self.basis = basis
@@ -612,7 +628,7 @@ class AllElectronAtom:
 
     def logarithmic_derivative(self, l, energies, rcut):
         vr = interp1d(self.gd.r_g, self.vr_sg[0])
-        ch = self.get_channel(l)
+        ch = Channel(l)
         logderivs = []
         for e in energies:
             u, dudr = ch.integrate_outwards(vr, [0, rcut], e)[1, :]
@@ -641,10 +657,26 @@ def build_parser():
                       help='Exponents a: exp(-a*r^2).  Use "-e 0.1:20.0:30" ' +
                       'to get 30 exponents from 0.1 to 20.0.')
     parser.add_option('-l', '--logarithmic-derivatives',
-                      help='-l 1.3,spdf,-2,2,100')
+                      metavar='spdfg,e1:e2:de,radius',
+                      help='Plot logarithmic derivatives. ' +
+                      'Example: -l spdf,-1:1:0.05,1.3. ' +
+                      'Energy range and/or radius can be left out.')
     parser.add_option('-r', '--refine', action='store_true')
     return parser
 
+def parse_ld_str(s):
+        parts = s.split(',')
+        lvalues = ['spdfg'.find(x) for x in parts.pop(0)]
+        if parts:
+            e1, e2, de = (float(x) for x in parts.pop(0).split(':'))
+        else:
+            e1, e2, de = -1, 1, 0.05
+        if parts:
+            r = float(parts.pop())
+        else:
+            r = 1.1 * max(radii)
+        energies = np.linspace(e1, e2, int((e2 - e1) / de) + 1)
+        return lvalues, energies, r
 
 def main():
     parser = build_parser()
@@ -696,17 +728,10 @@ def main():
         aea.refine()
 
     if opt.logarithmic_derivatives:
-        rcut, lvalues, emin, emax, npoints = \
-              opt.logarithmic_derivatives.split(',')
-        rcut = float(rcut)
-        lvalues = ['spdfg'.find(x) for x in lvalues]
-        emin = float(emin)
-        emax = float(emax)
-        npoints = int(npoints)
-        energies = np.linspace(emin, emax, npoints)
+        lvalues, energies, r = parse_ld_str(opt.logarithmic_derivatives)
         import matplotlib.pyplot as plt
         for l in lvalues:
-            ld = aea.logarithmic_derivative(l, energies, rcut)
+            ld = aea.logarithmic_derivative(l, energies, r)
             plt.plot(energies, ld)
         plt.show()
         
