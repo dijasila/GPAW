@@ -331,7 +331,7 @@ class BASECHI:
                     d_c[ix](psit2_g, dpsit_g, phase_cd)
                     tmp[ix] = gd.integrate(psit1_g.conj() * dpsit_g)
                 rho_G[0] = -1j * np.dot(q_v, tmp)
-    
+
             # PAW correction
             pt = self.pt
             P1_ai = pt.dict()
@@ -344,11 +344,11 @@ class BASECHI:
                 gemv(1.0, self.phi_aGp[a], P_p, 1.0, rho_G)
     
             if optical_limit:
-                if n==m:
+                if n==m or np.abs(self.e_kn[ibzkpt2, m] - self.e_kn[ibzkpt1, n]) < 1e-4:
                     rho_G[0] = 1
                 else:
                     rho_G[0] /= self.e_kn[ibzkpt2, m] - self.e_kn[ibzkpt1, n]
-    
+
             return rho_G
 
 

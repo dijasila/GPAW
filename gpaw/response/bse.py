@@ -63,14 +63,14 @@ class BSE(BASECHI):
             self.nv = np.array([nv, nv+1]) # conduction band start / end
             self.nc = np.array([nv+1, nv+2]) # valence band start / end
             self.printtxt('Number of electrons: %d' %(self.nvalence))
-            self.printtxt('Valence band included: (band %d to band %d)' %(self.nv[0],self.nv[1]-1))
-            self.printtxt('Conduction band included: (band %d to band %d)' %(self.nc[0],self.nc[1]-1))
+            self.printtxt('Valence band included        : (band %d to band %d)' %(self.nv[0],self.nv[1]-1))
+            self.printtxt('Conduction band included     : (band %d to band %d)' %(self.nc[0],self.nc[1]-1))
         elif self.nc == 'all' or self.positive_w is False: # applied to metals
             self.nv = np.array([0, self.nbands])
             self.nc = np.array([0, self.nbands])
             self.printtxt('All the bands are included')
         else:
-            self.printtxt('User defined bands.')
+            self.printtxt('User defined bands for BSE.')
             self.printtxt('Valence band included: (band %d to band %d)' %(self.nv[0],self.nv[1]-1))
             self.printtxt('Conduction band included: (band %d to band %d)' %(self.nc[0],self.nc[1]-1))            
 
@@ -83,8 +83,8 @@ class BSE(BASECHI):
         for k1 in range(self.nkpt):
             ibzkpt1 = kd.kibz_k[k1]
             ibzkpt2 = kd.kibz_k[kq_k[k1]]
-            for n1 in range(self.nv[0], self.nv[1]): #self.nbands):
-                for m1 in range(self.nc[0], self.nc[1]): #self.nbands):
+            for n1 in range(self.nv[0], self.nv[1]): 
+                for m1 in range(self.nc[0], self.nc[1]): 
                     focc = self.f_kn[ibzkpt1,n1] - self.f_kn[ibzkpt2,m1]
                     if not self.positive_w: # Dont use Tamm-Dancoff Approx.
                         check_ftol = np.abs(focc) > self.ftol
@@ -139,7 +139,7 @@ class BSE(BASECHI):
         e_S = self.e_S
 
         self.printtxt('Calculating screening interaction kernel.')
-        W_qG = self.screened_interaction_kernel()
+        W_qGG = self.screened_interaction_kernel()
         # calculate kernel
         K_SS = np.zeros((self.nS, self.nS), dtype=complex)
         W_SS = np.zeros_like(K_SS)
@@ -147,6 +147,7 @@ class BSE(BASECHI):
 
         t0 = time()
         self.printtxt('Calculating BSE matrix elements.')
+        
         for iS in range(self.nS_start, self.nS_end):
             k1, n1, m1 = self.Sindex_S3[iS]
             rho1_G = self.density_matrix(n1,m1,k1)
@@ -161,16 +162,35 @@ class BSE(BASECHI):
                 rho4_G = self.density_matrix(m1,m2,k1,k2)
                 q_c = bzk_kc[k2] - bzk_kc[k1]
                 iq = self.kd.where_is_q(q_c)
-                if n1 == n2 and m1==m2 and k1 == k2 :
-                    W_qG[iq, 0] = 0 
-#                tmp_GG = np.outer(rho3_G.conj(), rho4_G) * W_qGG[iq]
-#                W_SS[iS, jS] = np.sum(tmp_GG)
-                W_SS[iS, jS] = np.sum(rho3_G.conj()*rho4_G*W_qG[iq])
-                if iS == jS:
-                    W_SS[iS, jS] += 2./pi*(6*pi**2/self.vol)**(1./3.) * self.dfinv_q0*self.vol
+                W_GG = W_qGG[iq].copy()
+
+                if k1 == k2:
+                    ik = self.kd.kibz_k[k1]
+                    deg_bands1 = np.abs(self.e_kn[ik, n1] - self.e_kn[ik, n2]) < 1e-4
+                    deg_bands2 = np.abs(self.e_kn[ik, m1] - self.e_kn[ik, m2]) < 1e-4
+                
+                    if (deg_bands1 or deg_bands2):
+                        tmp_G = np.zeros(self.npw)
+                        const = 2.*self.vol*(6*pi**2/self.vol)**(2./3.)*self.dfinv_q0
+                        q = np.array([0.0001,0,0])
+                        for jG in range(self.npw):
+                            qG = np.dot(q+self.Gvec_Gc[jG], self.bcell_cv)
+                            tmp_G[jG] = 1./np.sqrt(np.inner(qG,qG))
+                        tmp_G *= const
+                        if deg_bands1 and not deg_bands2:
+                            W_GG[0,:] = tmp_G
+                        elif not deg_bands1 and deg_bands2:
+                            W_GG[:,0] = tmp_G
+                        elif deg_bands1 and deg_bands2:
+                            W_GG[:,0] = tmp_G
+                            W_GG[0,:] = tmp_G
+                            W_GG[0,0] =  2./pi*(6*pi**2/self.vol)**(1./3.) * self.dfinv_q0*self.vol
+
+                tmp_GG = np.outer(rho3_G.conj(), rho4_G) * W_GG
+                W_SS[iS, jS] = np.sum(tmp_GG)
 
             self.timing(iS, t0, self.nS_local, 'pair orbital') 
-                    
+
         K_SS *= 4 * pi / self.vol
         K_SS -= 0.5 * W_SS / self.vol
         world.sum(K_SS)
@@ -195,7 +215,8 @@ class BSE(BASECHI):
         dfinv_qGG = np.zeros((self.nkpt, self.npw, self.npw))
         kc_qGG = np.zeros((self.nkpt, self.npw, self.npw))
         dfinv_q0 = np.zeros(1)
-                
+
+        t0 = time()
         for iq in range(self.q_start, self.q_end):
             q = self.kd.bzq_kc[iq]
             optical_limit=False
@@ -209,9 +230,7 @@ class BSE(BASECHI):
             dfinv_qGG[iq] = df.get_inverse_dielectric_matrix(xc='RPA')[0]
             
             for iG in range(self.npw):
-                if 1:
-                    jG = iG
-#                for jG in range(self.npw):
+                for jG in range(self.npw):
                     qG1 = np.dot(q + self.Gvec_Gc[iG], self.bcell_cv)
                     qG2 = np.dot(q + self.Gvec_Gc[jG], self.bcell_cv)
                     kc_qGG[iq,iG,jG] = 1. / np.sqrt(np.dot(qG1, qG1) * np.dot(qG2,qG2))
@@ -223,18 +242,13 @@ class BSE(BASECHI):
                 dfinv_q0[0] = dfinv_qGG[iq, 0,0]
                 assert rank == 0
                 
-        W_qG = np.zeros((self.nkpt, self.npw))
-        for iq in range(self.q_start, self.q_end):
-            for iG in range(self.npw):
-                W_qG[iq, iG] = 4 * pi * dfinv_qGG[iq, iG, iG] * kc_qGG[iq, iG, iG]
-        world.sum(W_qG)
+        W_qGG = 4 * pi * dfinv_qGG * kc_qGG
+        world.sum(W_qGG)
         world.broadcast(dfinv_q0, 0)
         self.dfinv_q0 = dfinv_q0[0]
-        return W_qG
+
+        return W_qGG
                                           
-#        return 4 * pi * dfinv_qGG * kc_qGG
-    
-    
     def print_bse(self):
 
         printtxt = self.printtxt
@@ -313,7 +327,7 @@ class BSE(BASECHI):
         if rank == 0 and n_local // 5 > 0:            
             if i > 0 and i % (n_local // 5) == 0:
                 dt =  time() - t0
-                self.printtxt('  Finished %s %d in %f seconds, estimated %f seconds left.  '%(txt, iS, dt, self.totaltime - dt) )
+                self.printtxt('  Finished %s %d in %f seconds, estimated %f seconds left.  '%(txt, i, dt, self.totaltime - dt) )
 
         return
     
