@@ -262,7 +262,7 @@ class BSE(BASECHI):
         return
 
 
-    def get_dielectric_function(self, filename='df.dat'):
+    def get_dielectric_function(self, filename='df.dat', overlap=False):
 
         if self.epsilon_w is None:
             self.initialize()
@@ -273,28 +273,33 @@ class BSE(BASECHI):
             v_SS = self.v_SS
             rhoG0_S = self.rhoG0_S
             focc_S = self.focc_S
-            
-            # get overlap matrix
-            tmp = np.zeros((self.nS, self.nS), dtype=complex)
-            for iS in range(self.nS):
-                for jS in range(self.nS):
-                    tmp[iS, jS] = (v_SS[:, iS].conj() * v_SS[:, jS]).sum()
-            overlap_SS = np.linalg.inv(tmp)
+
+            if overlap:
+                # get overlap matrix
+                tmp = np.zeros((self.nS, self.nS), dtype=complex)
+                for iS in range(self.nS):
+                    for jS in range(self.nS):
+                        tmp[iS, jS] = (v_SS[:, iS].conj() * v_SS[:, jS]).sum()
+                overlap_SS = np.linalg.inv(tmp)
     
             # get chi
             epsilon_w = np.zeros(self.Nw, dtype=complex)
             tmp_w = np.zeros(self.Nw, dtype=complex)
             t0 = time()
-            
+
             for iS in range(self.nS_start, self.nS_end):
                 tmp_iS = v_SS[:,iS] * rhoG0_S 
                 for iw in range(self.Nw):
                     tmp_w[iw] = 1. / (iw*self.dw - w_S[iS] + 1j * self.eta)
 
-                for jS in range(self.nS):
-                    tmp_jS = v_SS[:,jS] * rhoG0_S * focc_S
-                    tmp = np.outer(tmp_iS, tmp_jS.conj()).sum() * overlap_SS[iS, jS]
+                if not overlap:
+                    tmp = np.outer(tmp_iS*focc_S, tmp_iS.conj()).sum()
                     epsilon_w += tmp * tmp_w
+                else:
+                    for jS in range(self.nS):
+                        tmp_jS = v_SS[:,jS] * rhoG0_S * focc_S
+                        tmp = np.outer(tmp_iS, tmp_jS.conj()).sum() * overlap_SS[iS, jS]
+                        epsilon_w += tmp * tmp_w
 
                 self.timing(iS, t0, self.nS_local, 'pair orbital') 
 
