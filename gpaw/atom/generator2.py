@@ -45,7 +45,7 @@ class PAWWaves:
         self.nt_g = 0
         self.c_np = []
         for n in range(N):
-            phit_ng[n], c_p = gd.pseudize(phi_ng[n], gcut)
+            phit_ng[n], c_p = gd.pseudize(phi_ng[n], gcut, self.l, points=6)
             self.c_np.append(c_p)
             self.nt_g += self.f_n[n] / 4 / pi * phit_ng[n]**2
             
