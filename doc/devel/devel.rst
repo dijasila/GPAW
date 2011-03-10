@@ -111,6 +111,7 @@ the `ASE project`_.  Here is the list of current committers:
 id         real name
 =========  =========================  ========================================
 anpet      Andrew Peterson            andy,peterson:stanford,edu
+aoj        Ari Ojanperä               ari,ojanpera:tkk,fi
 askhl      Ask Hjorth Larsen          askhl:fysik,dtu,dk
 dlandis    David Landis               dlandis:fysik,dtu,dk
 dulak      Marcin Dulak               dulak:fysik,dtu,dk
