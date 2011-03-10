@@ -46,6 +46,7 @@ class CHI(BASECHI):
                  eta=0.2,
                  ftol=1e-5,
                  txt=None,
+                 xc='ALDA',
                  hilbert_trans=True,
                  full_response=False,
                  optical_limit=False,
@@ -55,6 +56,7 @@ class CHI(BASECHI):
         BASECHI.__init__(self, calc, nbands, w, q, ecut,
                      eta, ftol, txt, optical_limit)
 
+        self.xc = xc
         self.hilbert_trans = hilbert_trans
         self.full_hilbert_trans = full_response
         self.kcommsize = kcommsize
@@ -131,7 +133,10 @@ class CHI(BASECHI):
         # Calculate ALDA kernel (not used in chi0)
         # if frequencies are real (not the case for RPA correlation energies)
         R_av = calc.atoms.positions / Bohr
-        if 1: #type(self.w_w[0]) is float:
+        if self.xc == 'RPA': #type(self.w_w[0]) is float:
+            self.Kxc_GG = np.zeros((self.npw, self.npw))
+            self.printtxt('RPA calculation.')
+        elif self.xc == 'ALDA':
             self.Kxc_GG = calculate_Kxc(self.gd, # global grid
                                         calc.density.nt_sG,
                                         self.npw, self.Gvec_Gc,
@@ -140,8 +145,10 @@ class CHI(BASECHI):
                                         calc.wfs.setups,
                                         calc.density.D_asp)
 
-        self.printtxt('Finished ALDA kernel ! ')
-            
+            self.printtxt('Finished ALDA kernel ! ')
+        else:
+            raise ValueError('%s Not implemented !' %(self.xc))
+        
         return
 
 

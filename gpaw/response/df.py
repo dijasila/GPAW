@@ -18,6 +18,7 @@ class DF(CHI):
                  eta=0.2,
                  ftol=1e-7,
                  txt=None,
+                 xc='ALDA',
                  hilbert_trans=True,
                  full_response=False,
                  optical_limit=False,
@@ -25,7 +26,7 @@ class DF(CHI):
                  kcommsize=None):
 
         CHI.__init__(self, calc, nbands, w, q, ecut,
-                     eta, ftol, txt, hilbert_trans, full_response, optical_limit, comm, kcommsize)
+                     eta, ftol, txt, xc, hilbert_trans, full_response, optical_limit, comm, kcommsize)
 
         self.df_flag = False
         self.df1_w = None # NLF RPA

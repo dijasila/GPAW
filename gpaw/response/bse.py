@@ -237,7 +237,7 @@ class BSE(BASECHI):
                 q = np.array([0.00001, 0, 0])
             df = DF(calc=self.calc, q=q, w=(0.,), nbands=self.nbands,
                     optical_limit=optical_limit,
-                    hilbert_trans=False,
+                    hilbert_trans=False, xc='RPA',
                     eta=0., ecut=self.ecut*Hartree, txt='no_output', comm=serial_comm)
             dfinv_qGG[iq] = df.get_inverse_dielectric_matrix(xc='RPA')[0]
 
