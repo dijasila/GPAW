@@ -49,6 +49,7 @@ class CHI(BASECHI):
                  hilbert_trans=True,
                  full_response=False,
                  optical_limit=False,
+                 comm=None,
                  kcommsize=None):
 
         BASECHI.__init__(self, calc, nbands, w, q, ecut,
@@ -57,7 +58,9 @@ class CHI(BASECHI):
         self.hilbert_trans = hilbert_trans
         self.full_hilbert_trans = full_response
         self.kcommsize = kcommsize
-        self.comm = world
+        self.comm = comm
+        if self.comm is None:
+            self.comm = world
         self.chi0_wGG = None
 
 
@@ -351,7 +354,9 @@ class CHI(BASECHI):
             rank = world.rank
             self.comm = world
         else:
-            from gpaw.mpi import world, rank, size
+            world = self.comm
+            rank = self.comm.rank
+            size = self.comm.size
 
         wcommsize = int(self.NwS * self.npw**2 * 16. / 1024**2) // 1500 # megabyte
         wcommsize += 1

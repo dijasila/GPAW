@@ -238,9 +238,9 @@ class BSE(BASECHI):
             df = DF(calc=self.calc, q=q, w=(0.,), nbands=self.nbands,
                     optical_limit=optical_limit,
                     hilbert_trans=False,
-                    eta=0., ecut=self.ecut*Hartree, txt=devnull)
+                    eta=0., ecut=self.ecut*Hartree, txt='no_output', comm=serial_comm)
             dfinv_qGG[iq] = df.get_inverse_dielectric_matrix(xc='RPA')[0]
-            
+
             for iG in range(self.npw):
                 for jG in range(self.npw):
                     qG1 = np.dot(q + self.Gvec_Gc[iG], self.bcell_cv)
@@ -252,7 +252,6 @@ class BSE(BASECHI):
             assert df.npw == self.npw
             if optical_limit:
                 dfinv_q0[0] = dfinv_qGG[iq, 0,0]
-                assert rank == 0
                 
         W_qGG = 4 * pi * dfinv_qGG * kc_qGG
         world.sum(W_qGG)
