@@ -30,7 +30,7 @@ if bse:
     
     bse = BSE('C_kpt8.gpw',w=np.linspace(0,20,201),
               q=np.array([0,0,0.5]),optical_limit=True,ecut=50.,
-              nbands=8)
+              nbands=8,use_W=False)
 
     bse.get_dielectric_function('C_bse.dat')
 

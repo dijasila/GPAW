@@ -27,7 +27,7 @@ if GS:
 if bse:
     
     bse = BSE('Al.gpw',w=np.linspace(0,24,241),
-              q=np.array([0.25, 0, 0]),ecut=50., eta=0.2)
+              q=np.array([0.25, 0, 0]),ecut=50., eta=0.2,use_W=False)
 
     bse.get_dielectric_function('Al_bse.dat')
     
