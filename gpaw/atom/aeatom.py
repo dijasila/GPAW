@@ -23,6 +23,9 @@ from gpaw.utilities.progressbar import ProgressBar
 # Velocity of light in atomic units:
 c = 2 * units._hplanck / (units._mu0 * units._c * units._e**2)
 
+# Colors for s, p, d, f, g:
+colors = 'bgrky'
+
 
 class GridDescriptor:
     def __init__(self, r1, rN=50.0, N=1000):
@@ -95,17 +98,33 @@ class GridDescriptor:
         return vr_g
 
     def pseudize(self, a_g, gc, l=0, points=4):
+        """Construct smooth continuation of a_g for g<gc.
+        
+        Returns (b_g, c_p) such that b_g=a_g for g >= gc::
+        
+                   P-1      2(P-1-p)+l
+            b(r) = Sum c_p r 
+                   p=0
+        """
         assert isinstance(gc, int) and gc > 10
         
         r_g = self.r_g
         g = [0] + range(gc - 1, gc + points - 1)
-        c_x = np.polyfit(r_g[g]**2,
+        c_p = np.polyfit(r_g[g]**2,
                          a_g[g] * r_g[g]**(2 - l), points)[:-1]
         b_g = a_g.copy()
-        b_g[:gc] = np.polyval(c_x, r_g[:gc]**2) * r_g[:gc]**l
-        return b_g, c_x
+        b_g[:gc] = np.polyval(c_p, r_g[:gc]**2) * r_g[:gc]**l
+        return b_g, c_p
 
     def pseudize_normalized(self, a_g, gc, l=0, points=3):
+        """Construct normalized smooth continuation of a_g for g<gc.
+        
+        Returns (b_g, c_p) such that b_g=a_g for g >= gc and::
+        
+            /        2  /        2
+            | dr b(r) = | dr a(r)
+            /           /
+        """
         b_g, c_x = self.pseudize(a_g, gc, l, points + 1)
         gc0 = gc // 2
         x0 = b_g[gc0]
@@ -215,7 +234,7 @@ class Channel:
         self.f_n = np.array(f_n, dtype=float)  # occupation numbers
         self.phi_ng = None                     # wave functions
         
-        self.name = 'spdf'[l]
+        self.name = 'spdfg'[l]
 
     def solve(self, vr_g):
         """Diagonalize Schrödinger equation in basis set."""
@@ -228,24 +247,30 @@ class Channel:
     def solve2(self, vr_g):
         gd = self.basis.gd
         r_g = gd.r_g
+        l = self.l
         vr = interp1d(r_g, vr_g)
         u_g = gd.empty()
         for n in range(len(self.f_n)):
             e = self.e_n[n]
             # Find classical turning point:
-            g = (vr_g < e * r_g).sum()
+            g = (vr_g * r_g + 0.5 * l * (l + 1) < e * r_g**2).sum()
             r1_g = r_g[:g + 1]
             r2_g = -r_g[:g - 1:-1]
+            #print g, r_g[g], e
+            iter = 0
             while True:
-                u1_g, du1dr_g = self.integrate_outwards(vr, r1_g, e).T
-                u2_g, du2dr_g = self.integrate_inwards(vr, r2_g, e).T
+                u1_g, du1dr_g = self.integrate_outwards(vr, r1_g, e)
+                u2_g, du2dr_g = self.integrate_inwards(vr, r2_g, e)
                 A = du1dr_g[-1] / u1_g[-1] + du2dr_g[-1] / u2_g[-1]
                 u_g[:g + 1] = u1_g
                 u_g[g:] = u2_g[::-1] * u1_g[-1] / u2_g[-1]
                 u_g /= (gd.integrate(u_g**2, -2) / (4 * pi))**0.5
-                if abs(A) < 1e-7:
+                if abs(A) < 1e-5:
                     break
                 e += 0.5 * A * u_g[g]**2
+                iter += 1
+                #print iter,e,A
+                assert iter < 20, (n,l,e)
             self.e_n[n] = e
             self.phi_ng[n, 1:] = u_g[1:] / r_g[1:]
             if self.l == 0:
@@ -266,26 +291,43 @@ class Channel:
         return np.dot(f_n, self.e_n[:len(f_n)])
 
     def integrate_outwards(self, vr, r_g, e, p=lambda x: 0.0):
-        def f(y, r):
-            if r == 0:
-                return [y[1], 2 * vr(0)]
-            return [y[1], 2 * (vr(r) / r - e) * y[0] - 2 * p(r) * r]
-        if self.l == 1:
+        l = self.l
+        if l == 0:
             def f(y, r):
                 if r == 0:
-                    return [y[1], 2.0]
+                    return [y[1], 2 * vr(0)]
+                return [y[1], 2 * (vr(r) / r - e) * y[0] - 2 * p(r) * r]
+            return odeint(f, [0, 1], r_g)
+        else:
+            def f(y, r):
+                if r == 0:
+                    return [y[1], l * (l + 1) * 0**(l - 1)]
                 return [y[1],
-                        2 * (vr(r) / r + 1.0 / r**2 - e) * y[0] - 2 * p(r) * r]
+                        2 * (vr(r) / r + 0.5 * l * (l + 1) / r**2 - e) * y[0] -
+                        2 * p(r) * r]
             return odeint(f, [0, 0], r_g)
-        return odeint(f, [0, 1], r_g)
+
+    def integrate_outwards(self, vr, r_g, e, p=lambda x: 0.0):
+        l = self.l
+        def f(y, r):
+            return [y[1],
+                    2 * (vr(r) / r + 0.5 * l * (l + 1) / r**2 - e) * y[0] -
+                    2 * p(r) * r]
+        u_g = np.zeros_like(r_g)
+        dudr_g = np.zeros_like(r_g)
+        r1 = r_g[1]
+        u_g[1:], dudr_g[1:] = odeint(f, [r1**(l + 1), (l + 1) * r1**l],
+                                     r_g[1:]).T
+        return u_g, dudr_g
     
-    def integrate_inwards(self, vr, r_g, e, p=lambda x: 0.0):
+    def integrate_inwards(self, vr, r_g, e):
+        l = self.l
         def f(y, r):
             r = -r
-            return [y[1], 2 * (vr(r) / r - e) * y[0] - 2 * p(r) * r]
-        a = np.sqrt(-2*e)
-        u=np.exp(a*r_g[0])
-        return odeint(f, [u, a*u], r_g, hmax=1)
+            return [y[1], 2 * (vr(r) / r + 0.5 * l * (l + 1) / r**2 - e) * y[0]]
+        a = np.sqrt(-2 * e)
+        u = np.exp(a * r_g[0])
+        return odeint(f, [u, a * u], r_g, hmax=0.2).T
     
 
 class DiracChannel(Channel):
@@ -546,7 +588,8 @@ class AllElectronAtom:
 
     def refine(self):
         self.mode = 'ode'
-        self.run()
+        #self.step()
+        self.run(dnmax=1e-6, mix=0.7)
         
     def summary(self):
         self.write_states()
@@ -629,10 +672,11 @@ class AllElectronAtom:
     def logarithmic_derivative(self, l, energies, rcut):
         vr = interp1d(self.gd.r_g, self.vr_sg[0])
         ch = Channel(l)
+        gcut = self.gd.get_index(rcut)
         logderivs = []
         for e in energies:
-            u, dudr = ch.integrate_outwards(vr, [0, rcut], e)[1, :]
-            logderivs.append(dudr / u)
+            u, dudr = ch.integrate_outwards(vr, self.gd.r_g[:gcut + 1], e)
+            logderivs.append(dudr[-1] / u[-1])
         return logderivs
             
 
@@ -664,19 +708,17 @@ def build_parser():
     parser.add_option('-r', '--refine', action='store_true')
     return parser
 
-def parse_ld_str(s):
-        parts = s.split(',')
-        lvalues = ['spdfg'.find(x) for x in parts.pop(0)]
-        if parts:
-            e1, e2, de = (float(x) for x in parts.pop(0).split(':'))
-        else:
-            e1, e2, de = -1, 1, 0.05
-        if parts:
-            r = float(parts.pop())
-        else:
-            r = 1.1 * max(radii)
-        energies = np.linspace(e1, e2, int((e2 - e1) / de) + 1)
-        return lvalues, energies, r
+def parse_ld_str(s, r=2.0):
+    parts = s.split(',')
+    lvalues = ['spdfg'.find(x) for x in parts.pop(0)]
+    if parts:
+        e1, e2, de = (float(x) for x in parts.pop(0).split(':'))
+    else:
+        e1, e2, de = -1, 1, 0.05
+    if parts:
+        r = float(parts.pop())
+    energies = np.linspace(e1, e2, int((e2 - e1) / de) + 1)
+    return lvalues, energies, r
 
 def main():
     parser = build_parser()
@@ -732,7 +774,7 @@ def main():
         import matplotlib.pyplot as plt
         for l in lvalues:
             ld = aea.logarithmic_derivative(l, energies, r)
-            plt.plot(energies, ld)
+            plt.plot(energies, ld, colors[l])
         plt.show()
         
     if opt.plot:
