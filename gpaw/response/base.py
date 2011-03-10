@@ -155,7 +155,8 @@ class BASECHI:
             else:
                 sys.stdout = devnull
                 self.txt = devnull
-
+        elif self.txtname == devnull:
+            self.txt = devnull
         else:
             assert type(self.txtname) is str
             from ase.parallel import paropen

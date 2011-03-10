@@ -5,6 +5,7 @@ from math import pi
 from ase.units import Hartree
 from ase.io import write
 from gpaw.mpi import world, size, rank, serial_comm
+from gpaw.utilities import devnull
 from gpaw.response.base import BASECHI
 from gpaw.response.parallel import parallel_partition
 from gpaw.response.df import DF
@@ -19,12 +20,14 @@ class BSE(BASECHI):
                  nv=None,
                  w=None,
                  q=None,
+                 eshift=None,
                  ecut=10.,
                  eta=0.2,
                  ftol=1e-5,
                  txt=None,
                  optical_limit=False,
-                 positive_w=False): # Tamm-Dancoff Approx
+                 positive_w=False, # True : use Tamm-Dancoff Approx
+                 use_W=True): # True: include screened interaction kernel
 
         BASECHI.__init__(self, calc, nbands, w, q, ecut,
                      eta, ftol, txt, optical_limit)
@@ -34,6 +37,8 @@ class BSE(BASECHI):
         self.positive_w = positive_w
         self.nc = nc # conduction band index
         self.nv = nv # valence band index
+        self.use_W = use_W
+        self.eshift = eshift
 
     def initialize(self):
 
@@ -43,6 +48,9 @@ class BSE(BASECHI):
         self.printtxt(ctime())
 
         BASECHI.initialize(self)
+
+        if self.eshift is not None:
+            self.add_discontinuity(self.eshift)
         
         calc = self.calc
         self.kd = kd = calc.wfs.kd
@@ -138,8 +146,10 @@ class BSE(BASECHI):
         focc_S = self.focc_S
         e_S = self.e_S
 
-        self.printtxt('Calculating screening interaction kernel.')
-        W_qGG = self.screened_interaction_kernel()
+        if self.use_W:
+            self.printtxt('Calculating screening interaction kernel.')
+            W_qGG = self.screened_interaction_kernel()
+            
         # calculate kernel
         K_SS = np.zeros((self.nS, self.nS), dtype=complex)
         W_SS = np.zeros_like(K_SS)
@@ -157,42 +167,44 @@ class BSE(BASECHI):
                 k2, n2, m2 = self.Sindex_S3[jS]
                 rho2_G = self.density_matrix(n2,m2,k2)
                 K_SS[iS, jS] = np.sum(rho1_G.conj() * rho2_G * self.kc_G)
-                
-                rho3_G = self.density_matrix(n1,n2,k1,k2)
-                rho4_G = self.density_matrix(m1,m2,k1,k2)
-                q_c = bzk_kc[k2] - bzk_kc[k1]
-                iq = self.kd.where_is_q(q_c)
-                W_GG = W_qGG[iq].copy()
 
-                if k1 == k2:
-                    ik = self.kd.kibz_k[k1]
-                    deg_bands1 = np.abs(self.e_kn[ik, n1] - self.e_kn[ik, n2]) < 1e-4
-                    deg_bands2 = np.abs(self.e_kn[ik, m1] - self.e_kn[ik, m2]) < 1e-4
-                
-                    if (deg_bands1 or deg_bands2):
-                        tmp_G = np.zeros(self.npw)
-                        const = 2.*self.vol*(6*pi**2/self.vol)**(2./3.)*self.dfinv_q0
-                        q = np.array([0.0001,0,0])
-                        for jG in range(self.npw):
-                            qG = np.dot(q+self.Gvec_Gc[jG], self.bcell_cv)
-                            tmp_G[jG] = 1./np.sqrt(np.inner(qG,qG))
-                        tmp_G *= const
-                        if deg_bands1 and not deg_bands2:
-                            W_GG[0,:] = tmp_G
-                        elif not deg_bands1 and deg_bands2:
-                            W_GG[:,0] = tmp_G
-                        elif deg_bands1 and deg_bands2:
-                            W_GG[:,0] = tmp_G
-                            W_GG[0,:] = tmp_G
-                            W_GG[0,0] =  2./pi*(6*pi**2/self.vol)**(1./3.) * self.dfinv_q0*self.vol
-
-                tmp_GG = np.outer(rho3_G.conj(), rho4_G) * W_GG
-                W_SS[iS, jS] = np.sum(tmp_GG)
+                if self.use_W:
+                    rho3_G = self.density_matrix(n1,n2,k1,k2)
+                    rho4_G = self.density_matrix(m1,m2,k1,k2)
+                    q_c = bzk_kc[k2] - bzk_kc[k1]
+                    iq = self.kd.where_is_q(q_c)
+                    W_GG = W_qGG[iq].copy()
+    
+                    if k1 == k2:
+                        ik = self.kd.kibz_k[k1]
+                        deg_bands1 = np.abs(self.e_kn[ik, n1] - self.e_kn[ik, n2]) < 1e-4
+                        deg_bands2 = np.abs(self.e_kn[ik, m1] - self.e_kn[ik, m2]) < 1e-4
+                    
+                        if (deg_bands1 or deg_bands2):
+                            tmp_G = np.zeros(self.npw)
+                            const = 2.*self.vol*(6*pi**2/self.vol)**(2./3.)*self.dfinv_q0
+                            q = np.array([0.0001,0,0])
+                            for jG in range(self.npw):
+                                qG = np.dot(q+self.Gvec_Gc[jG], self.bcell_cv)
+                                tmp_G[jG] = 1./np.sqrt(np.inner(qG,qG))
+                            tmp_G *= const
+                            if deg_bands1 and not deg_bands2:
+                                W_GG[0,:] = tmp_G
+                            elif not deg_bands1 and deg_bands2:
+                                W_GG[:,0] = tmp_G
+                            elif deg_bands1 and deg_bands2:
+                                W_GG[:,0] = tmp_G
+                                W_GG[0,:] = tmp_G
+                                W_GG[0,0] =  2./pi*(6*pi**2/self.vol)**(1./3.) * self.dfinv_q0*self.vol
+    
+                    tmp_GG = np.outer(rho3_G.conj(), rho4_G) * W_GG
+                    W_SS[iS, jS] = np.sum(tmp_GG)
 
             self.timing(iS, t0, self.nS_local, 'pair orbital') 
 
         K_SS *= 4 * pi / self.vol
-        K_SS -= 0.5 * W_SS / self.vol
+        if self.use_W:
+            K_SS -= 0.5 * W_SS / self.vol
         world.sum(K_SS)
         world.sum(self.rhoG0_S)
 
@@ -226,7 +238,7 @@ class BSE(BASECHI):
             df = DF(calc=self.calc, q=q, w=(0.,), nbands=self.nbands,
                     optical_limit=optical_limit,
                     hilbert_trans=False,
-                    eta=0., ecut=self.ecut*Hartree, txt='no_output')
+                    eta=0., ecut=self.ecut*Hartree, txt=devnull)
             dfinv_qGG[iq] = df.get_inverse_dielectric_matrix(xc='RPA')[0]
             
             for iG in range(self.npw):
@@ -262,7 +274,7 @@ class BSE(BASECHI):
         return
 
 
-    def get_dielectric_function(self, filename='df.dat', overlap=False):
+    def get_dielectric_function(self, filename='df.dat', overlap=True):
 
         if self.epsilon_w is None:
             self.initialize()
@@ -270,40 +282,25 @@ class BSE(BASECHI):
             self.printtxt('Calculating dielectric function.')
 
             w_S = self.w_S
-            v_SS = self.v_SS
+            v_SS = self.v_SS # v_SS[:,lamda]
             rhoG0_S = self.rhoG0_S
             focc_S = self.focc_S
 
-            if overlap:
-                # get overlap matrix
-                tmp = np.zeros((self.nS, self.nS), dtype=complex)
-                for iS in range(self.nS):
-                    for jS in range(self.nS):
-                        tmp[iS, jS] = (v_SS[:, iS].conj() * v_SS[:, jS]).sum()
-                overlap_SS = np.linalg.inv(tmp)
+            # get overlap matrix
+            tmp = np.dot(v_SS.conj().T, v_SS )
+            overlap_SS = np.linalg.inv(tmp)
     
             # get chi
             epsilon_w = np.zeros(self.Nw, dtype=complex)
-            tmp_w = np.zeros(self.Nw, dtype=complex)
             t0 = time()
 
-            for iS in range(self.nS_start, self.nS_end):
-                tmp_iS = v_SS[:,iS] * rhoG0_S 
-                for iw in range(self.Nw):
-                    tmp_w[iw] = 1. / (iw*self.dw - w_S[iS] + 1j * self.eta)
+            A_S = np.dot(rhoG0_S, v_SS)
+            B_S = np.dot(rhoG0_S*focc_S, v_SS)
+            C_S = np.dot(B_S.conj(), overlap_SS.T) * A_S
 
-                if not overlap:
-                    tmp = np.outer(tmp_iS*focc_S, tmp_iS.conj()).sum()
-                    epsilon_w += tmp * tmp_w
-                else:
-                    for jS in range(self.nS):
-                        tmp_jS = v_SS[:,jS] * rhoG0_S * focc_S
-                        tmp = np.outer(tmp_iS, tmp_jS.conj()).sum() * overlap_SS[iS, jS]
-                        epsilon_w += tmp * tmp_w
-
-                self.timing(iS, t0, self.nS_local, 'pair orbital') 
-
-            self.Scomm.sum(epsilon_w)
+            for iw in range(self.Nw):
+                tmp_S = 1. / (iw*self.dw - w_S + 1j*self.eta)
+                epsilon_w[iw] += np.dot(tmp_S, C_S)
     
             epsilon_w *=  - 4 * pi / np.inner(self.qq_v, self.qq_v) / self.vol
             epsilon_w += 1        
@@ -319,7 +316,7 @@ class BSE(BASECHI):
         # Wait for I/O to finish
         world.barrier()
 
-        return
+        return epsilon_w
 
 
     def timing(self, i, t0, n_local, txt):
@@ -333,6 +330,17 @@ class BSE(BASECHI):
             if i > 0 and i % (n_local // 5) == 0:
                 dt =  time() - t0
                 self.printtxt('  Finished %s %d in %f seconds, estimated %f seconds left.  '%(txt, i, dt, self.totaltime - dt) )
+
+        return
+
+
+    def add_discontinuity(self, shift):
+
+        eFermi = self.calc.occupations.get_fermi_level()
+        for i in range(self.e_kn.shape[1]):
+            for k in range(self.e_kn.shape[0]):
+                if self.e_kn[k,i] > eFermi:
+                    self.e_kn[k,i] += shift / Hartree
 
         return
     
