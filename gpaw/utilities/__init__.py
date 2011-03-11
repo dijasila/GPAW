@@ -5,6 +5,7 @@
 
 import os
 import re
+import sys
 from operator import mul
 from math import sqrt, exp
 
@@ -59,6 +60,13 @@ def gcd(a, b):
     while b != 0:
         a, b = b, a % b
     return a
+
+
+def prnt(*args, **kwargs):
+    "Python 3 style print function."
+    kwargs.get('file', sys.stdout).write(
+        kwargs.get('sep', ' ').join([str(arg) for arg in args]) +
+        kwargs.get('end', '\n'))
 
 
 def is_contiguous(array, dtype=None):

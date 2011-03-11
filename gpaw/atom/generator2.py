@@ -7,12 +7,15 @@ import numpy as np
 from scipy.special import gamma
 from scipy.interpolate import interp1d
 
+from ase.units import Hartree
+
 from gpaw.atom.configurations import configurations
 from gpaw.atom.aeatom import AllElectronAtom, Channel, parse_ld_str, colors
 from gpaw.setup import BaseSetup
 from gpaw.spline import Spline
 from gpaw.basis_data import Basis
 from gpaw.hgh import null_xc_correction
+from gpaw.utilities import prnt
 
 
 class PAWWaves:
@@ -40,7 +43,7 @@ class PAWWaves:
         phi_ng = self.phi_ng
         N = len(phi_ng)
         phit_ng = self.phit_ng = gd.empty(N)
-        gcut = gd.get_index(self.rcut)
+        gcut = gd.ceil(self.rcut)
 
         self.nt_g = 0
         self.c_np = []
@@ -61,7 +64,7 @@ class PAWWaves:
         gd = self.gd
         phit_ng = self.phit_ng
         N = len(phit_ng)
-        gcut = gd.get_index(self.rcut)
+        gcut = gd.ceil(self.rcut)
         r_g = gd.r_g
         l = self.l
         P = len(self.c_np[0]) - 1
@@ -81,7 +84,6 @@ class PAWWaves:
         self.pt_ng[:, 1:] /= r_g[1:]
         self.pt_ng[:, 0] = self.pt_ng[:, 1]
         self.dH_nn = self.e_n * self.dS_nn - A_nn.T
-        print self.dS_nn,self.dH_nn
 
     def solve(self, vtr_g, s_g):
         gd = self.gd
@@ -140,13 +142,19 @@ class PAWWaves:
 
 
 class PAWSetupGenerator:
-    def __init__(self, aea, states, radii):
+    def __init__(self, aea, states, radii, fd=sys.stdout):
+        """fd: stream
+            Text output."""
+        
         self.aea = aea
         self.gd = aea.gd
         
+        if fd is None:
+            fd = devnull
+        self.fd = fd
+
         self.rcmax = max(radii)
-        print states, radii, self.rcmax
-        self.gcmax = self.gd.get_index(self.rcmax)
+        self.gcmax = self.gd.ceil(self.rcmax)
 
         self.waves_l = []
         vr = interp1d(self.gd.r_g, aea.vr_sg[0])
@@ -170,7 +178,6 @@ class PAWSetupGenerator:
                     phi_g[1:gc] = u_g[1:] / self.gd.r_g[1:gc]
                     if l == 0:
                         phi_g[0] = phi_g[1]
-                print n,l,e,f
                 waves.add(phi_g, n, e, f)
             self.waves_l.append(waves)
 
@@ -180,6 +187,9 @@ class PAWSetupGenerator:
                        (self.alpha / pi)**1.5)
         
         self.vtr_g = None
+
+    def log(self, *args, **kwargs):
+        prnt(file=self.fd, *args, **kwargs)
 
     def calculate_core_density(self):
         self.nc_g = self.gd.zeros()
@@ -194,21 +204,38 @@ class PAWSetupGenerator:
         
         self.nct_g = self.gd.pseudize(self.nc_g, self.gcmax)[0]
         self.npseudocore = self.gd.integrate(self.nct_g)
-        print self.gd.integrate(self.nc_g)
+        self.log('Core electrons:', self.ncore)
+        self.log('Pseudo core electrons: %.3f' % self.gd.integrate(self.nct_g))
         
     def generate(self):
+        self.log('Generating PAW setup.')
+        
         self.calculate_core_density()
 
         self.nt_g = self.nct_g.copy()
         self.Q = -self.aea.Z + self.ncore - self.npseudocore
 
         self.vtr_g = self.find_local_potential()
-        
+
+        self.log('Projectors:')
+        self.log('=====================================================')
+        self.log(' state  occupation             energy        norm')
+        self.log(' nl                    [Hartree]    [eV]  [electrons]')
+        self.log('=====================================================')
         for waves in self.waves_l:
             waves.pseudize()
             self.nt_g += waves.nt_g
             self.Q += waves.Q
-            
+            for n, e, f, ds in zip(waves.n_n, waves.e_n, waves.f_n,
+                                  waves.dS_nn.diagonal()):
+                if n is None:
+                    self.log('  %s                 %10.6f  %10.5f' %
+                             ('spdf'[waves.l], e, e * Hartree))
+                else:
+                    self.log(' %d%s       %2d       %10.6f  %10.5f   %5.3f' %
+                             (n, 'spdf'[waves.l], f, e, e * Hartree, 1 - ds))
+        self.log('=====================================================')
+                    
         self.rhot_g = self.nt_g + self.Q * self.ghat_g
         self.vHtr_g = self.gd.poisson(self.rhot_g)
 
@@ -238,6 +265,9 @@ class PAWSetupGenerator:
         l = len(self.waves_l)
         e = 0.0
 
+        self.log('Local potential matching %s-state at %.3f eV' %
+                 ('spdf'[l], e * Hartree))
+        
         vr = interp1d(self.gd.r_g, self.aea.vr_sg[0])
         gc = self.gcmax + 20
         ch = Channel(l)
@@ -289,7 +319,7 @@ class PAWSetupGenerator:
     def logarithmic_derivative(self, l, energies, rcut):
         vtr = interp1d(self.gd.r_g, self.vtr_g)
         ch = Channel(l)
-        gcut = self.gd.get_index(rcut)
+        gcut = self.gd.round(rcut)
         r_g = self.gd.r_g[:gcut + 1]
 
         if l < len(self.waves_l):

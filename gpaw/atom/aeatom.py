@@ -10,143 +10,22 @@ from numpy.linalg import eigh
 from scipy.special import gamma
 from scipy.integrate import odeint
 from scipy.interpolate import interp1d
-from scipy.optimize import fsolve
 
 from ase.data import atomic_numbers, atomic_names, chemical_symbols
 from ase.utils import devnull
 import ase.units as units
 
 from gpaw.atom.configurations import configurations
+from gpaw.atom.radialgd import RGDNew
 from gpaw.xc import XC
 from gpaw.utilities.progressbar import ProgressBar
+from gpaw.utilities import prnt
 
 # Velocity of light in atomic units:
 c = 2 * units._hplanck / (units._mu0 * units._c * units._e**2)
 
 # Colors for s, p, d, f, g:
-colors = 'bgrky'
-
-
-class GridDescriptor:
-    def __init__(self, r1, rN=50.0, N=1000):
-        """Grid descriptor for radial grid.
-
-        The radial grid is::
-
-                     a g
-            r(g) = -------,  g = 0, 1, ..., N - 1
-                   1 - b g
-        
-        so that r(0)=0, r(1)=r1 and r(N)=rN."""
-
-        self.N = N
-        self.a = (1 - 1.0 / N) / (1.0 / r1 - 1.0 / rN)
-        self.b = 1.0 - self.a / r1
-        g_g = np.arange(N)
-        self.r_g = self.a * g_g / (1 - self.b * g_g)
-        self.dr_g = (self.b * self.r_g + self.a)**2 / self.a
-        self.dv_g = 4 * pi * self.r_g**2 * self.dr_g
-
-    def get_index(self, r):
-        return int(1 / (self.b + self.a / r) + 0.5)
-
-    def zeros(self, x=()):
-        if isinstance(x, int):
-            x = (x,)
-        return np.zeros(x + (self.N,))
-
-    def empty(self, x=()):
-        if isinstance(x, int):
-            x = (x,)
-        return np.zeros(x + (self.N,))
-
-    def integrate(self, a_xg, n=0):
-        assert n >= -2
-        return np.dot(a_xg[..., 1:],
-                      (self.r_g**(2 + n) * self.dr_g)[1:]) * (4 * pi)
-
-    def derivative(self, n_g, dndr_g):
-        """Finite-difference derivative of radial function."""
-        dndr_g[0] = n_g[1] - n_g[0]
-        dndr_g[1:-1] = 0.5 * (n_g[2:] - n_g[:-2])
-        dndr_g[-1] = n_g[-1] - n_g[-2]
-        dndr_g /= self.dr_g
-
-    def derivative2(self, a_g, b_g):
-        """Finite-difference derivative of radial function.
-
-        For an infinitely dense grid, this method would be identical
-        to the `derivative` method."""
-        
-        c_g = a_g / self.dr_g
-        b_g[0] = 0.5 * c_g[1] + c_g[0]
-        b_g[1] = 0.5 * c_g[2] - c_g[0]
-        b_g[1:-1] = 0.5 * (c_g[2:] - c_g[:-2])
-        b_g[-2] = c_g[-1] - 0.5 * c_g[-3]
-        b_g[-1] = -c_g[-1] - 0.5 * c_g[-2]
-
-    def poisson(self, n_g):
-        a_g = -4 * pi * n_g * self.r_g * self.dr_g
-        A_g = np.add.accumulate(a_g)
-        vr_g = self.zeros()
-        vr_g[1:] = A_g[:-1] + 0.5 * a_g[1:]
-        vr_g -= A_g[-1]
-        vr_g *= self.r_g
-        a_g *= self.r_g
-        A_g = np.add.accumulate(a_g)
-        vr_g[1:] -= A_g[:-1] + 0.5 * a_g[1:]
-        return vr_g
-
-    def pseudize(self, a_g, gc, l=0, points=4):
-        """Construct smooth continuation of a_g for g<gc.
-        
-        Returns (b_g, c_p) such that b_g=a_g for g >= gc::
-        
-                   P-1      2(P-1-p)+l
-            b(r) = Sum c_p r 
-                   p=0
-        """
-        assert isinstance(gc, int) and gc > 10
-        
-        r_g = self.r_g
-        g = [0] + range(gc - 1, gc + points - 1)
-        c_p = np.polyfit(r_g[g]**2,
-                         a_g[g] * r_g[g]**(2 - l), points)[:-1]
-        b_g = a_g.copy()
-        b_g[:gc] = np.polyval(c_p, r_g[:gc]**2) * r_g[:gc]**l
-        return b_g, c_p
-
-    def pseudize_normalized(self, a_g, gc, l=0, points=3):
-        """Construct normalized smooth continuation of a_g for g<gc.
-        
-        Returns (b_g, c_p) such that b_g=a_g for g >= gc and::
-        
-            /        2  /        2
-            | dr b(r) = | dr a(r)
-            /           /
-        """
-        b_g, c_x = self.pseudize(a_g, gc, l, points + 1)
-        gc0 = gc // 2
-        x0 = b_g[gc0]
-        r_g = self.r_g
-        g = [0, gc0] + range(gc - 1, gc + points - 1)
-        norm = self.integrate(a_g**2)
-        def f(x):
-            b_g[gc0] = x
-            y=np.polyfit(r_g[g]**2,
-                                b_g[g] * r_g[g]**(2 - l), points + 1)
-            c_x[:] = y[:-1]
-            b_g[:gc] = np.polyval(c_x, r_g[:gc]**2) * r_g[:gc]**l
-            return self.integrate(b_g**2) - norm
-        fsolve(f, x0)
-        return b_g, c_x
-        
-    def plot(self, a_g, n=0, rc=4.0, show=False):
-        import matplotlib.pyplot as plt
-        plt.plot(self.r_g, a_g * self.r_g**n)
-        plt.axis(xmax=rc)
-        if show:
-            plt.show()
+colors = 'rgbky'
 
 
 class GaussianBasis:
@@ -292,23 +171,6 @@ class Channel:
 
     def integrate_outwards(self, vr, r_g, e, p=lambda x: 0.0):
         l = self.l
-        if l == 0:
-            def f(y, r):
-                if r == 0:
-                    return [y[1], 2 * vr(0)]
-                return [y[1], 2 * (vr(r) / r - e) * y[0] - 2 * p(r) * r]
-            return odeint(f, [0, 1], r_g)
-        else:
-            def f(y, r):
-                if r == 0:
-                    return [y[1], l * (l + 1) * 0**(l - 1)]
-                return [y[1],
-                        2 * (vr(r) / r + 0.5 * l * (l + 1) / r**2 - e) * y[0] -
-                        2 * p(r) * r]
-            return odeint(f, [0, 0], r_g)
-
-    def integrate_outwards(self, vr, r_g, e, p=lambda x: 0.0):
-        l = self.l
         def f(y, r):
             return [y[1],
                     2 * (vr(r) / r + 0.5 * l * (l + 1) / r**2 - e) * y[0] -
@@ -324,7 +186,8 @@ class Channel:
         l = self.l
         def f(y, r):
             r = -r
-            return [y[1], 2 * (vr(r) / r + 0.5 * l * (l + 1) / r**2 - e) * y[0]]
+            return [y[1],
+                    2 * (vr(r) / r + 0.5 * l * (l + 1) / r**2 - e) * y[0]]
         a = np.sqrt(-2 * e)
         u = np.exp(a * r_g[0])
         return odeint(f, [u, a * u], r_g, hmax=0.2).T
@@ -426,8 +289,7 @@ class AllElectronAtom:
         self.mode = 'gaussians'
 
     def log(self, *args, **kwargs):
-        self.fd.write(kwargs.get('sep', ' ').join([str(arg) for arg in args]) +
-                      kwargs.get('end', '\n'))
+        prnt(file=self.fd, *args, **kwargs)
 
     def initialize_configuration(self):
         self.f_lsn = {}
@@ -482,7 +344,7 @@ class AllElectronAtom:
         if alpha2 is None:
             alpha2 = 50.0 * self.Z**2
 
-        self.gd = GridDescriptor(r1=1 / alpha2**0.5 / 50, rN=rcut, N=ngpts)
+        self.gd = RGDNew(r1=1 / alpha2**0.5 / 50, rN=rcut, N=ngpts)
         self.log('Grid points:     %d (%.5f, %.5f, %.5f, ..., %.3f, %.3f)' %
                  ((self.gd.N,) + tuple(self.gd.r_g[[0, 1, 2, -2, -1]])))
 
@@ -661,7 +523,7 @@ class AllElectronAtom:
                 ls = ['-', '--', '-.', ':'][ch.l]
                 n_g = ch.calculate_density(n)
                 rave = self.gd.integrate(n_g, 1)
-                gave = self.gd.get_index(rave)
+                gave = self.gd.round(rave)
                 fr_g *= cmp(fr_g[gave], 0)
                 plt.plot(self.gd.r_g, fr_g,
                          ls=ls, lw=lw, color=colors[n + ch.l], label=name)
@@ -672,7 +534,7 @@ class AllElectronAtom:
     def logarithmic_derivative(self, l, energies, rcut):
         vr = interp1d(self.gd.r_g, self.vr_sg[0])
         ch = Channel(l)
-        gcut = self.gd.get_index(rcut)
+        gcut = self.gd.round(rcut)
         logderivs = []
         for e in energies:
             u, dudr = ch.integrate_outwards(vr, self.gd.r_g[:gcut + 1], e)
