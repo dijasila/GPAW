@@ -408,7 +408,8 @@ Publications using the gpaw code
 
 #) Thomas Olsen and Jakob Schiøtz
 
-   `Origin of Power Laws for Reactions at Metal Surfaces Mediated by Hot Electrons`__  
+   `Origin of Power Laws for Reactions at Metal Surfaces Mediated by
+   Hot Electrons`__  
 
    Physical Review Letters, Vol. **103**, 238301 (2009)
 
@@ -447,7 +448,8 @@ Publications using the gpaw code
 
    .. 3 February 2010
 
-#) \J. Wellendorff, A. Kelkkanen, J. J. Mortensen, B. Lundqvist, and T. Bligaard
+#) \J. Wellendorff, A. Kelkkanen, J. J. Mortensen, B. Lundqvist,
+   and T. Bligaard
 
    `RPBE-vdW Description of Benzene Adsorption on Au(111)`__
 
@@ -522,7 +524,7 @@ Publications using the gpaw code
    `Thiolate-protected Au25 superatoms as building blocks: Dimers and
    crystals`__ 
 
-   J. Phys. Chem C **114**, 15986 (2010)
+   \J. Phys. Chem C **114**, 15986 (2010)
 
    __ http://dx.doi.org/10.1021/jp1015438
 
@@ -638,9 +640,11 @@ Publications using the gpaw code
 
    .. 5 October 2010
 
-#) B. Siemer, T. Olsen, T. Hoger, M. Rutkowski, C. Thewes, S. Düsterer, J. Schiøtz and H. Zacharias
+#) \B. Siemer, T. Olsen, T. Hoger, M. Rutkowski, C. Thewes,
+   S. Düsterer, J. Schiøtz and H. Zacharias
 
-   `Desorption of H atoms from graphite (0001) using XUV free electron laser pulses`__  
+   `Desorption of H atoms from graphite (0001) using XUV free electron
+   laser pulses`__  
 
    Chemical Physics Letters **500**, 291 (2010)
 
@@ -653,7 +657,7 @@ Publications using the gpaw code
    `Ab Initio Adsorption Thermodynamics of H2S and H2 on Ni(111): The
    Importance of Thermal Corrections and Multiple Reaction Equilibria`__
 
-   J. Phys. Chem. C, 2010, 114 (51), pp 22597-22602
+   \J. Phys. Chem. C, 2010, 114 (51), pp 22597-22602
 
    __ http://dx.doi.org/10.1021/jp1076774
 
@@ -665,7 +669,7 @@ Publications using the gpaw code
    `Low O2 dissociation barrier on Pt(111) due to
    adsorbate-adsorbate interactions`__
 
-   J. Chem. Phys. 133, 224701 (2010)
+   \J. Chem. Phys. 133, 224701 (2010)
 
    __ http://dx.doi.org/10.1063/1.3512618
 
