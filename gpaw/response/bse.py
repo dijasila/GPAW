@@ -182,11 +182,11 @@ class BSE(BASECHI):
                     
                         if (deg_bands1 or deg_bands2):
                             tmp_G = np.zeros(self.npw)
-                            const = 2.*self.vol*(6*pi**2/self.vol)**(2./3.)*self.dfinv_q0
+                            const = 2.*self.vol*(6*pi**2/self.vol)**(2./3.)
                             q = np.array([0.0001,0,0])
                             for jG in range(self.npw):
                                 qG = np.dot(q+self.Gvec_Gc[jG], self.bcell_cv)
-                                tmp_G[jG] = 1./np.sqrt(np.inner(qG,qG))
+                                tmp_G[jG] = self.dfinvG0_G[jG] / np.sqrt(np.inner(qG,qG))
                             tmp_G *= const
                             if deg_bands1 and not deg_bands2:
                                 W_GG[0,:] = tmp_G
@@ -195,8 +195,9 @@ class BSE(BASECHI):
                             elif deg_bands1 and deg_bands2:
                                 W_GG[:,0] = tmp_G
                                 W_GG[0,:] = tmp_G
-                                W_GG[0,0] =  2./pi*(6*pi**2/self.vol)**(1./3.) * self.dfinv_q0*self.vol
-    
+                                W_GG[0,0] =  2./pi*(6*pi**2/self.vol)**(1./3.) \
+                                            * self.dfinvG0_G[0] *self.vol
+
                     tmp_GG = np.outer(rho3_G.conj(), rho4_G) * W_GG
                     W_SS[iS, jS] = np.sum(tmp_GG)
 
@@ -226,7 +227,7 @@ class BSE(BASECHI):
         self.kd.get_bz_q_points()
         dfinv_qGG = np.zeros((self.nkpt, self.npw, self.npw))
         kc_qGG = np.zeros((self.nkpt, self.npw, self.npw))
-        dfinv_q0 = np.zeros(1)
+        dfinvG0_G = np.zeros(self.npw) # save the wing elements
 
         t0 = time()
         for iq in range(self.q_start, self.q_end):
@@ -234,7 +235,7 @@ class BSE(BASECHI):
             optical_limit=False
             if (np.abs(q) < self.ftol).all():
                 optical_limit=True
-                q = np.array([0.00001, 0, 0])
+                q = np.array([0.0001, 0, 0])
             df = DF(calc=self.calc, q=q, w=(0.,), nbands=self.nbands,
                     optical_limit=optical_limit,
                     hilbert_trans=False, xc='RPA',
@@ -251,12 +252,15 @@ class BSE(BASECHI):
 
             assert df.npw == self.npw
             if optical_limit:
-                dfinv_q0[0] = dfinv_qGG[iq, 0,0]
+                # make sure epsilon_matrix is hermitian.
+                # Here, the dielectric matrix is real for w = 0
+                assert np.abs(dfinv_qGG[iq,0,:] - dfinv_qGG[iq,:,0]).sum() < 1e-6
+                dfinvG0_G = dfinv_qGG[iq,0,:]
                 
         W_qGG = 4 * pi * dfinv_qGG * kc_qGG
         world.sum(W_qGG)
-        world.broadcast(dfinv_q0, 0)
-        self.dfinv_q0 = dfinv_q0[0]
+        world.broadcast(dfinvG0_G, 0)
+        self.dfinvG0_G = dfinvG0_G
 
         return W_qGG
                                           
