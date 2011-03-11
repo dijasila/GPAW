@@ -49,9 +49,7 @@ class DF(CHI):
         if xc == 'RPA':
             self.printtxt('Use RPA.')
             for iw in range(self.Nw_local):
-                for iG in range(self.npw):
-                    qG = np.dot(self.q_c + self.Gvec_Gc[iG], self.bcell_cv)
-                    dm_wGG[iw,iG] = tmp_GG[iG] - 4 * pi / np.dot(qG, qG) * self.chi0_wGG[iw,iG]
+                dm_wGG[iw] = tmp_GG - self.Kc_GG * self.chi0_wGG[iw]
         elif xc == 'ALDA':
             self.printtxt('Use ALDA kernel.')
             # E_LDA = 1 - v_c chi0 (1-fxc chi0)^-1
@@ -61,10 +59,7 @@ class DF(CHI):
                 A_wGG[iw] = np.dot(self.chi0_wGG[iw], np.linalg.inv(tmp_GG - np.dot(self.Kxc_GG, self.chi0_wGG[iw])))
     
             for iw in range(self.Nw_local):
-                for iG in range(self.npw):
-                    qG = np.dot(self.q_c + self.Gvec_Gc[iG], self.bcell_cv)
-                    dm_wGG[iw,iG] = tmp_GG[iG] - 4 * pi / np.dot(qG, qG) * A_wGG[iw,iG]
-
+                dm_wGG[iw] = tmp_GG - self.Kc_GG * A_wGG[iw]                
 
         if self.nspins == 2:
             nibzkpt = self.ibzk_kc.shape[0]
@@ -77,28 +72,17 @@ class DF(CHI):
             self.calculate(spin=1)
 
             for iw in range(self.Nw_local):
-                for iG in range(self.npw):
-                    qG = np.dot(self.q_c + self.Gvec_Gc[iG], self.bcell_cv)
-                    dm_wGG[iw,iG] -=  4 * pi / np.dot(qG, qG) * self.chi0_wGG[iw,iG]
+                dm_wGG[iw] -= self.Kc_GG * self.chi0_wGG[iw]
         
         return dm_wGG
 
 
     def get_inverse_dielectric_matrix(self,xc='RPA'):
-        """ Experimental"""
-        chi_wGG = self.get_chi(xc=xc)
-        dminv_wGG = np.zeros((self.Nw_local, self.npw, self.npw), dtype = complex)
-        tmp_GG = np.eye(self.npw, self.npw)
-        kc_GG = np.eye(self.npw, self.npw)
-        for iG in range(self.npw):
-            for jG in range(self.npw):
-                qG1 = np.dot(self.q_c + self.Gvec_Gc[iG], self.bcell_cv)
-                qG2 = np.dot(self.q_c + self.Gvec_Gc[jG], self.bcell_cv)
-                kc_GG[iG, jG] = 4 * pi / np.sqrt(np.dot(qG1, qG1) * np.dot(qG2,qG2))
-        
-        for iw in range(self.Nw_local):
-            dminv_wGG[iw] = tmp_GG + kc_GG * chi_wGG[iw]
 
+        dm_wGG = self.get_dielectric_matrix(xc=xc)
+        dminv_wGG = np.zeros_like(dm_wGG)
+        for iw in range(self.Nw_local):
+            dminv_wGG[iw] = np.linalg.inv(dm_wGG[iw])
         return dminv_wGG
 
 

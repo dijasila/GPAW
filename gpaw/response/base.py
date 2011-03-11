@@ -112,7 +112,6 @@ class BASECHI:
         self.f_kn = np.array([calc.get_occupation_numbers(kpt=k) / kweight_k[k]
                     for k in range(nibzkpt)]) / self.nkpt
 
-
         # k + q init
         assert self.q_c is not None
         self.qq_v = np.dot(self.q_c, self.bcell_cv) # summation over c
@@ -130,6 +129,14 @@ class BASECHI:
 
         # Plane wave init
         self.npw, self.Gvec_Gc, self.Gindex_G = set_Gvectors(self.acell_cv, self.bcell_cv, self.nG, self.ecut)
+
+        # Coulomb kernel init
+        self.Kc_GG = np.zeros((self.npw, self.npw))
+        for iG in range(self.npw):
+            for jG in range(self.npw):
+                qG1 = np.dot(self.q_c + self.Gvec_Gc[iG], self.bcell_cv)
+                qG2 = np.dot(self.q_c + self.Gvec_Gc[jG], self.bcell_cv)
+                self.Kc_GG[iG, jG] = 4 * pi / np.sqrt(np.dot(qG1, qG1) * np.dot(qG2,qG2))
 
         # Projectors init
         setups = calc.wfs.setups
