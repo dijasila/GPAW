@@ -12,6 +12,7 @@ from gpaw.fd_operators import FDOperator
 from gpaw.utilities.blas import axpy
 
 import pycuda.gpuarray as gpuarray
+import pycuda.driver as cuda
 
 class Preconditioner:
     def __init__(self, gd0, kin0, dtype=float, block=1, cuda=False):
@@ -88,11 +89,21 @@ class Preconditioner:
             r2, d2, q2 = self.scratch2[:, :nb]
 
         self.restrictor0(-local_residuals, r1, phases)
-        d1 = 4 * step * r1  # XXX Unnecessary array creation? (GPUarray does not support [:])
+
+        if self.cuda:
+            cuda.memcpy_dtod(d1.gpudata, r1.gpudata, r1.nbytes)
+            d1 *= 4 * step
+        else:
+            d1 = 4 * step * r1  # XXX Unnecessary array creation? (GPUarray does not support [:])
         self.kin1.apply(d1, q1, phases)
         q1 -= r1
         self.restrictor1(q1, r2, phases)
-        d2 = 16 * step * r2 # XXX Unnecessary array creation?
+
+        if self.cuda:
+            cuda.memcpy_dtod(d2.gpudata, r2.gpudata, r2.nbytes)
+            d2 *= 16 * step
+        else:
+            d2 = 16 * step * r2 # XXX Unnecessary array creation?
         self.kin2.apply(d2, q2, phases)
         q2 -= r2
         # d2 -= 16 * step * q2
