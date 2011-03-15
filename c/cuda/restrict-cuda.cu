@@ -65,35 +65,44 @@ __global__ void RST1D_kernel(const Tcuda* a, int n, int m, Tcuda* b)
 */
 
 
-__global__ void RST1D_kernel(const Tcuda* a, int n, int m, Tcuda* b)
+__global__ void RST1D_kernel(const Tcuda* a, int n, int m, Tcuda* b,int ang,int bng, int blocks)
 {
   __shared__ Tcuda ac[AC_Y*AC_X];
   Tcuda *acp;
-
+  
   int jtid=threadIdx.x;
   int j=blockIdx.x*BLOCK;
-
-
-  int itid=threadIdx.y;
-  int i=blockIdx.y*BLOCK;
-  int sizex=(n * 2 + K * 2 - 3);
   
-  a += (j+itid) * sizex + i * 2+jtid;
-  b += (j+jtid) + (i+itid) * m ;
+  
+  int itid=threadIdx.y;
+  int ibl=blockIdx.y/blocks;
+  int blocksi=blockIdx.y-blocks*ibl;
+  
+  int i=ibl*BLOCK;
+  
+  int sizex=(n * 2 + K * 2 - 3);
 
+  int aind=(j+itid) * sizex + i * 2+jtid + K -1;
+
+  a +=blocksi*ang+aind;
+  b +=blocksi*bng+(j+jtid) + (i+itid) * m;
+  
   acp=ac+AC_X*(itid)+jtid+ACK/2;
-
-  acp[0]=a[0];
-  acp[BLOCK]=a[BLOCK];
+  if (aind<ang)
+    acp[0]=a[0]; 
+  if ((aind+BLOCK)<ang)  
+    acp[BLOCK]=a[BLOCK];
   if  (jtid<ACK/2){
-    acp[-ACK/2]=a[-ACK/2];
-    acp[2*BLOCK]=a[2*BLOCK];
+    if (aind-ACK/2<ang)
+      acp[-ACK/2]=a[-ACK/2];
+    if (aind+2*BLOCK<ang)
+      acp[2*BLOCK]=a[2*BLOCK];
   }
   acp=ac+AC_X*(jtid)+2*itid+ACK/2;
   __syncthreads();
   
   if (((i+itid)<n) && ((j+jtid)<m)) {
-        
+    
     if      (K == 2)
       b[0] = MULDT(0.5 , ADD(acp[0] ,
 			     MULDT(0.5 , ADD(acp[1] , acp[-1]))));
@@ -120,18 +129,18 @@ __global__ void RST1D_kernel(const Tcuda* a, int n, int m, Tcuda* b)
   }
 }
 
-void RST1D(const Tcuda* a, int n, int m, Tcuda* b){
+void RST1D(const Tcuda* a, int n, int m, Tcuda* b,int ang,int bng, int blocks){
+  
 
-  a += K - 1;
   
   int gridy=(n+BLOCK-1)/BLOCK;
 
   int gridx=(m+BLOCK-1)/BLOCK;
   
   dim3 dimBlock(BLOCK,BLOCK); 
-  dim3 dimGrid(gridx,gridy);    
+  dim3 dimGrid(gridx,gridy*blocks);    
 
-  RST1D_kernel<<<dimGrid, dimBlock, 0>>>(a,n,m, b);
+  RST1D_kernel<<<dimGrid, dimBlock, 0>>>(a,n,m, b, ang, bng, blocks);
   
   gpaw_cudaSafeCall(cudaGetLastError());
 
@@ -169,9 +178,14 @@ void RST1D(const Tcuda* a, int n, int m, Tcuda* b){
 
 extern "C"{
   
-  void Zcuda(bmgs_restrict_cuda_gpu)(int k, Tcuda* a, const int n[3], Tcuda* b, Tcuda* w)
+  void Zcuda(bmgs_restrict_cuda_gpu)(int k, Tcuda* a, const int n[3], 
+				     Tcuda* b, const int nb[3], Tcuda* w,
+				     int blocks)
   {
-    void (*plg)(const Tcuda*, int, int, Tcuda*);
+    void (*plg)(const Tcuda*, int, int, Tcuda*,int,int,int);
+    int ang=n[0]*n[1]*n[2];
+    int bng=nb[0]*nb[1]*nb[2];
+    //printf("ang %d  bng %d\n",ang,bng);
     
     if (k == 2)
       plg = Zcuda(bmgs_restrict1D2);
@@ -183,9 +197,15 @@ extern "C"{
       plg = Zcuda(bmgs_restrict1D8);
     
     int e = k * 2 - 3;
-    plg(a, (n[2] - e) / 2, n[0] * n[1], w);
-    plg(w, (n[1] - e) / 2, n[0] * (n[2] - e) / 2, a);
-    plg(a, (n[0] - e) / 2, (n[1] - e) * (n[2] - e) / 4, b);
+    //    for (int i = 0; i < blocks; i++){
+    plg(a, (n[2] - e) / 2, n[0] * n[1], w, ang, ang, blocks);
+    plg(w, (n[1] - e) / 2, n[0] * (n[2] - e) / 2, a, ang, ang, blocks);
+    plg(a, (n[0] - e) / 2, (n[1] - e) * (n[2] - e) / 4, b, ang, bng, blocks);
+
+    /*   a+=n[0]*n[1]*n[2];
+	 w+=n[0]*n[1]*n[2];
+	 b+=nb[0]*nb[1]*nb[2];
+	 }*/
   }
 }
 #ifndef CUGPAWCOMPLEX
@@ -217,7 +237,7 @@ extern "C"{
 				 cudaMemcpyHostToDevice));
   
     gettimeofday(&t0,NULL);
-    bmgs_restrict_cuda_gpu(k, adev, n, bdev, wdev);
+    bmgs_restrict_cuda_gpu(k, adev, n, bdev,n, wdev,1);
   
   
     cudaThreadSynchronize();  

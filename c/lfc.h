@@ -32,9 +32,11 @@ typedef struct
 typedef struct ALIGN(16)
 {
   double *A_gm;
-  void *work_A_gm;
+  void *work1_A_gm;
+  void *work2_A_gm;
   int len_A_gm;
-  int len_work;
+  int len_work1;
+  int len_work2;
   int nm;              // number of functions (2*l+1)
   int M;               // global number of first function
   int W;               // volume number

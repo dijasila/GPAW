@@ -58,24 +58,24 @@ PyObject* Transformer_apply_cuda_gpu(TransformerObject *self, PyObject *args)
   if (blocks>self->alloc_blocks){
     if (self->buf_gpu) cudaFree(self->buf_gpu);
     GPAW_CUDAMALLOC(&(self->buf_gpu), double, 
-		    ng2* blocks);
+		    ng2 * blocks);
 
     if (self->buf2_gpu) cudaFree(self->buf2_gpu);
     GPAW_CUDAMALLOC(&(self->buf2_gpu), double,
-		    16 * ng2);
+		    MAX(out_ng, ng2) * blocks);
     if (self->sendbuf) cudaFreeHost(self->sendbuf);
     GPAW_CUDAMALLOC_HOST(&(self->sendbuf),double, 
-			 bc->maxsend * GPAW_ASYNC_D * blocks);
+			 bc->maxsend * blocks);
     if (self->recvbuf) cudaFreeHost(self->recvbuf);
     GPAW_CUDAMALLOC_HOST(&(self->recvbuf),double, 
-			 bc->maxrecv * GPAW_ASYNC_D * blocks);
+			 bc->maxrecv * blocks);
 
     if (self->sendbuf_gpu) cudaFree(self->sendbuf_gpu);
     GPAW_CUDAMALLOC(&(self->sendbuf_gpu),double, 
-		    bc->maxsend * GPAW_ASYNC_D * blocks);
+		    bc->maxsend * blocks);
     if (self->recvbuf_gpu) cudaFree(self->recvbuf_gpu);
     GPAW_CUDAMALLOC(&(self->recvbuf_gpu),double, 
-		    bc->maxrecv * GPAW_ASYNC_D * blocks);
+		    bc->maxrecv * blocks);
 
     self->alloc_blocks=blocks;
   }
@@ -99,34 +99,31 @@ PyObject* Transformer_apply_cuda_gpu(TransformerObject *self, PyObject *args)
 			      recvreq, sendreq, 
 			      self->recvbuf,self->recvbuf_gpu, myblocks);
         }
-      for (int i = 0; i < myblocks; i++){
-	
-	if (real)
-	  {
-	    if (self->interpolate){
-	      bmgs_interpolate_cuda_gpu(self->k, self->skip, buf+i*ng2, 
-					bc->size2,out2+i*out_ng, buf2);	      
-	    }
-	    else{
-	      bmgs_restrict_cuda_gpu(self->k, buf+i*ng2, bc->size2,
-				     out2+i*out_ng, buf2);
-	    }
-	  }
+      if (real)  {
+	if (self->interpolate){
+	  bmgs_interpolate_cuda_gpu(self->k, self->skip, buf, 
+				    bc->size2, out2, self->size_out,
+				    buf2, myblocks);
+	} else {
+	  bmgs_restrict_cuda_gpu(self->k, buf, bc->size2,
+				 out2, self->size_out, 
+				 buf2, myblocks);
+	}
+      }else	  {
+	if (self->interpolate)
+	  bmgs_interpolate_cuda_gpuz(self->k, self->skip, 
+				     (cuDoubleComplex*)(buf),
+				     bc->size2, 
+				     (cuDoubleComplex*)(out2),
+				     self->size_out,
+				     (cuDoubleComplex*)buf2, myblocks);
 	else
-	  {
-	    if (self->interpolate)
-	      bmgs_interpolate_cuda_gpuz(self->k, self->skip, 
-					 (cuDoubleComplex*)(buf+i*ng2),
-					 bc->size2, 
-					 (cuDoubleComplex*)(out2+i*out_ng),
-					 (cuDoubleComplex*)buf2 );
-	    else
-	      bmgs_restrict_cuda_gpuz(self->k, 
-				      (cuDoubleComplex*)(buf+i*ng2),
-				      bc->size2, 
-				      (cuDoubleComplex*)(out2+i*out_ng),
-				      (cuDoubleComplex*) buf2);
-	  }
+	  bmgs_restrict_cuda_gpuz(self->k, 
+				  (cuDoubleComplex*)(buf),
+				  bc->size2, 
+				  (cuDoubleComplex*)(out2),
+				  self->size_out,
+				  (cuDoubleComplex*) buf2, myblocks);
       }
     }
   //free(recvbuf);

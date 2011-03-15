@@ -37,8 +37,8 @@ void bc_unpack1_cuda_gpu(const boundary_conditions* bc,
 			  bc->size2, bc->sendstart[0][0],nin);
     else
       bmgs_paste_zero_cuda_gpuz((const cuDoubleComplex*)(aa1), 
-			   bc->size1, (cuDoubleComplex*)aa2,
-			   bc->size2, bc->sendstart[0][0],nin);
+				bc->size1, (cuDoubleComplex*)aa2,
+				bc->size2, bc->sendstart[0][0],nin);
     
   }
 
@@ -82,11 +82,13 @@ void bc_unpack1_cuda_gpu(const boundary_conditions* bc,
 	    bmgs_cut_cuda_gpu(aa2, bc->size2, start,
 			      sbuf_gpu,
 			      size,nin);
-	  else	      
+	  else {
+	    cuDoubleComplex phase={creal(phases[d]),cimag(phases[d])};
 	    bmgs_cut_cuda_gpuz((cuDoubleComplex*)(aa2), bc->size2, 
 			       start,
 			       (cuDoubleComplex*)(sbuf_gpu),
-			       size,nin);
+			       size, phase, nin);
+	  }
 	  sbuf_gpu += bc->nsend[i][d] * nin;
         }
     } 
@@ -130,12 +132,12 @@ void bc_unpack1_cuda_gpu(const boundary_conditions* bc,
 #endif // Parallel
   // Copy data for periodic boundary conditions:
   for (int d = 0; d < 2; d++)
-    if (bc->sendproc[i][d] == COPY_DATA)  {
-      if (real)
+    if (bc->sendproc[i][d] == COPY_DATA)  {      
+      if (real) {
 	bmgs_translate_cuda_gpu(aa2 + 0 * ng2, bc->size2, bc->sendsize[i][d],
 				bc->sendstart[i][d], bc->recvstart[i][1 - d],
 				nin);
-      else {
+      } else {
 	cuDoubleComplex phase={creal(phases[d]),cimag(phases[d])};
 	bmgs_translate_cuda_gpuz((cuDoubleComplex*)(aa2 + 0 * ng2), 
 				 bc->size2,bc->sendsize[i][d],
@@ -143,8 +145,6 @@ void bc_unpack1_cuda_gpu(const boundary_conditions* bc,
 				 phase,nin);
       }
     }
-
-
 }
 
 

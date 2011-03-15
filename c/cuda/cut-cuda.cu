@@ -41,6 +41,9 @@ extern "C" {
 __global__ void Zcuda(bmgs_cut_cuda_kernel)(const Tcuda* a,
 					    const int3 c_sizea,
 					    Tcuda* b,const int3 c_sizeb,
+#ifdef CUGPAWCOMPLEX
+					    cuDoubleComplex phase,
+#endif		
 					    int blocks)
 {
   
@@ -69,7 +72,11 @@ __global__ void Zcuda(bmgs_cut_cuda_kernel)(const Tcuda* a,
   a+=i2+i1*c_sizea.z+xstart*c_sizea.y*c_sizea.z;
   for (int i0=xstart;i0<xend;i0++) {	
     if ((i2<c_sizeb.z)&&(i1<c_sizeb.y)){
+#ifndef CUGPAWCOMPLEX
       b[0] = a[0];
+#else
+      b[0] = MULTT(phase,a[0]);
+#endif
     }
     b+=c_sizeb.y*c_sizeb.z;
     a+=c_sizea.y*c_sizea.z;        
@@ -81,7 +88,11 @@ extern "C" {
   
   void Zcuda(bmgs_cut_cuda_gpu)(const Tcuda* a, const int sizea[3],
 				const int starta[3],
-				Tcuda* b, const int sizeb[3],int blocks)
+				Tcuda* b, const int sizeb[3],
+#ifdef CUGPAWCOMPLEX
+				cuDoubleComplex phase, 
+#endif
+				int blocks)
   {
     if (!(sizea[0] && sizea[1] && sizea[2])) return;    
 
@@ -98,7 +109,12 @@ extern "C" {
     dim3 dimGrid(gridx,gridy);    
 
     a+=starta[2]+(starta[1]+starta[0]*hc_sizea.y)*hc_sizea.z;
-    Zcuda(bmgs_cut_cuda_kernel)<<<dimGrid, dimBlock, 0>>>((Tcuda*)a,hc_sizea,(Tcuda*)b,hc_sizeb,blocks);
+    Zcuda(bmgs_cut_cuda_kernel)<<<dimGrid, dimBlock, 0>>>
+      ((Tcuda*)a,hc_sizea,(Tcuda*)b,hc_sizeb,
+#ifdef CUGPAWCOMPLEX
+       phase,
+#endif    
+       blocks);
     
     gpaw_cudaSafeCall(cudaGetLastError());
     

@@ -58,7 +58,7 @@ __constant__ double c_coefs0[FD_MAXJ+1];
   __syncthreads();							\
 
 
-
+/*
 __global__ void RELAX_kernel_bc(const int relax_method,const int ncoefs,
 				const int ncoefs12,double* a,double* b,
 				const double* src,const long3  c_n,
@@ -99,8 +99,8 @@ __global__ void RELAX_kernel_bc(const int relax_method,const int ncoefs,
 	
   if (relax_method == 1)
     {			
-      /* Weighted Gauss-Seidel relaxation for the equation "operator" b = src
-	 a contains the temporary array holding also the boundary values. */
+    // Weighted Gauss-Seidel relaxation for the equation "operator" b = src
+    // a contains the temporary array holding also the boundary values. 
       
       // Coefficient needed multiple times later
       //      const double coef = 1.0/c_coefs[0];
@@ -110,47 +110,14 @@ __global__ void RELAX_kernel_bc(const int relax_method,const int ncoefs,
       
       //  a += (c_j.x + c_j.y + c_j.z) / 2;
       
-      /*NOT WORKIN ATM*/
+//
       return;
-      /*      for (i2=0; i2 < c_n.z; i2+=BLOCK_SIZEX) {    
-	if ((i2+threadIdx.x<c_n.z)  && (i1+threadIdx.y<c_n.y)){    
-	  aa=a+i2;
-	  x = 0.0;
-	  for (c = 1; c < ncoefs; c++)
-	    x += aa[c_offsets[c]] * c_coefs[c];
-	  x = (src[i2] - x) * coef;
-	  b[i2] = x;
-	  *aa = x;
-	}
-	}*/
-      /*
-	for (int i0 = 0; i0 < c_n.x; i0++)
-        {
-      
-	for (int i1 = 0; i1 < c_n.y; i1++)
-	{
-
-	for (int i2 = 0; i2 < c_n.z; i2++)
-	{
-	x = 0.0;
-	for (int c = 1; c < ncoefs; c++)
-	x += a[c_offsets[c]] * c_coefs[c];
-	x = (*src - x) * coef;
-	*b++ = x;
-	*a++ = x;
-	src++;
-	}
-	a += c_j.z;
-	}
-	a += c_j.y;
-	}
-      */
 
     }
   else
     {
-      /* Weighted Jacobi relaxation for the equation "operator" b = src
-	 a contains the temporariry array holding also the boundary values. */
+      // Weighted Jacobi relaxation for the equation "operator" b = src
+      //	 a contains the temporariry array holding also the boundary values. 
       
       for (c=1;c<MYJ+1;c++)
 	acache0[c]=MAKED(0);
@@ -302,10 +269,11 @@ __global__ void RELAX_kernel_bc(const int relax_method,const int ncoefs,
     }
   
 }
+*/
 
 
-
-__global__ void RELAX_kernel(const int relax_method,const int ncoefs,
+__global__ void RELAX_kernel(const int relax_method,double coef_relax,
+			     const int ncoefs,
 			     const int ncoefs12,double* a,double* b,
 			     const double* src,const long3  c_n,
 			     const long3 c_j,const int3 c_jb,const double w)
@@ -441,7 +409,7 @@ __global__ void RELAX_kernel(const int relax_method,const int ncoefs,
 	}	
 	
 	if ((i1<c_n.y) && (i2<c_n.z)) {
-	  b[0] = (1.0 - w) * b[0] + w * (src[0] - x)/c_coefs0[MYJ/2];
+	  b[0] = (1.0 - w) * b[0] + w * (src[0] - x)/coef_relax;
 	  
 	}
 	b+=c_n.y*c_n.z;
@@ -516,26 +484,26 @@ extern "C" {
     hc_j.x=s_gpu->j[0];    hc_j.y=s_gpu->j[1];    hc_j.z=s_gpu->j[2];
     
     if (s_gpu->ncoefs>0){
-      gpaw_cudaSafeCall(cudaMemcpyToSymbolAsync(c_offsets,s_gpu->offsets_gpu,
+      gpaw_cudaSafeCall(cudaMemcpyToSymbol(c_offsets,s_gpu->offsets_gpu,
 					   sizeof(long)*s_gpu->ncoefs,0,
-					   cudaMemcpyDeviceToDevice,0));
-      gpaw_cudaSafeCall(cudaMemcpyToSymbolAsync(c_coefs,s_gpu->coefs_gpu,
+					   cudaMemcpyDeviceToDevice));
+      gpaw_cudaSafeCall(cudaMemcpyToSymbol(c_coefs,s_gpu->coefs_gpu,
 					   sizeof(double)*s_gpu->ncoefs,0,
-					   cudaMemcpyDeviceToDevice,0));
+					   cudaMemcpyDeviceToDevice));
     }
-    gpaw_cudaSafeCall(cudaMemcpyToSymbolAsync(c_offsets12,s_gpu->offsets12_gpu,
+    gpaw_cudaSafeCall(cudaMemcpyToSymbol(c_offsets12,s_gpu->offsets12_gpu,
 					  sizeof(int)*s_gpu->ncoefs12,0,
-					  cudaMemcpyDeviceToDevice,0));
-    gpaw_cudaSafeCall(cudaMemcpyToSymbolAsync(c_coefs12,s_gpu->coefs12_gpu,
+					  cudaMemcpyDeviceToDevice));
+    gpaw_cudaSafeCall(cudaMemcpyToSymbol(c_coefs12,s_gpu->coefs12_gpu,
 					 sizeof(double)*s_gpu->ncoefs12,0,
-					 cudaMemcpyDeviceToDevice,0));
+					 cudaMemcpyDeviceToDevice));
 
-    /*    gpaw_cudaSafeCall(cudaMemcpyToSymbolAsync(c_offsets0,s_gpu->offsets0_gpu,
+    /*    gpaw_cudaSafeCall(cudaMemcpyToSymbol(c_offsets0,s_gpu->offsets0_gpu,
 					 sizeof(int)*s_gpu->ncoefs0,0,
-					 cudaMemcpyDeviceToDevice,0));*/
-    gpaw_cudaSafeCall(cudaMemcpyToSymbolAsync(c_coefs0,s_gpu->coefs0_gpu,
+					 cudaMemcpyDeviceToDevice));*/
+    gpaw_cudaSafeCall(cudaMemcpyToSymbol(c_coefs0,s_gpu->coefs0_gpu,
 					 sizeof(double)*s_gpu->ncoefs0,0,
-					 cudaMemcpyDeviceToDevice,0));
+					 cudaMemcpyDeviceToDevice));
 
     adev+=(s_gpu->j[0]+s_gpu->j[1]+s_gpu->j[2])/2;
     
@@ -546,28 +514,28 @@ extern "C" {
     dim3 dimGrid(gridx,gridy);    
     if (s_gpu->ncoefs0<=3)
       relax_kernel2<<<dimGrid, dimBlock, 0>>>
-	(relax_method,s_gpu->ncoefs,s_gpu->ncoefs12,adev,bdev,src,hc_n,hc_j,
-	 jb,w);    
+	(relax_method,s_gpu->coef_relax,s_gpu->ncoefs,s_gpu->ncoefs12,
+	 adev,bdev,src,hc_n,hc_j, jb,w);    
     else if (s_gpu->ncoefs0<=5)
       relax_kernel4<<<dimGrid, dimBlock, 0>>>
-	(relax_method,s_gpu->ncoefs,s_gpu->ncoefs12,adev,bdev,src,hc_n,hc_j,
+	(relax_method,s_gpu->coef_relax,s_gpu->ncoefs,s_gpu->ncoefs12,adev,bdev,src,hc_n,hc_j,
 	 jb,w);    
     else if (s_gpu->ncoefs0<=7)
       relax_kernel6<<<dimGrid, dimBlock, 0>>>
-	(relax_method,s_gpu->ncoefs,s_gpu->ncoefs12,adev,bdev,src,hc_n,hc_j,
+	(relax_method,s_gpu->coef_relax,s_gpu->ncoefs,s_gpu->ncoefs12,adev,bdev,src,hc_n,hc_j,
 	 jb,w);    
     else if (s_gpu->ncoefs0<=9)
       relax_kernel8<<<dimGrid, dimBlock, 0>>>
-	(relax_method,s_gpu->ncoefs,s_gpu->ncoefs12,adev,bdev,src,hc_n,hc_j,
+	(relax_method,s_gpu->coef_relax,s_gpu->ncoefs,s_gpu->ncoefs12,adev,bdev,src,hc_n,hc_j,
 	 jb,w);    
     else if (s_gpu->ncoefs0<=11)
       relax_kernel10<<<dimGrid, dimBlock, 0>>>
-	(relax_method,s_gpu->ncoefs,s_gpu->ncoefs12,adev,bdev,src,hc_n,hc_j,
+	(relax_method,s_gpu->coef_relax,s_gpu->ncoefs,s_gpu->ncoefs12,adev,bdev,src,hc_n,hc_j,
 	 jb,w);    
     
     gpaw_cudaSafeCall(cudaGetLastError());
   }
-
+  /*
   void bmgs_relax_cuda_gpu_bc(const int relax_method,
 			      const bmgsstencil_gpu* s_gpu, double* adev, 
 			      double* bdev,const double* src, const double w)
@@ -584,26 +552,23 @@ extern "C" {
     jb.y=hc_j.y/(hc_j.z+hc_n.z);
 
     if (s_gpu->ncoefs>0){
-      gpaw_cudaSafeCall(cudaMemcpyToSymbolAsync(c_offsets,s_gpu->offsets_gpu,
+      gpaw_cudaSafeCall(cudaMemcpyToSymbol(c_offsets,s_gpu->offsets_gpu,
 						sizeof(long)*s_gpu->ncoefs,0,
-						cudaMemcpyDeviceToDevice,0));
-      gpaw_cudaSafeCall(cudaMemcpyToSymbolAsync(c_coefs,s_gpu->coefs_gpu,
+						cudaMemcpyDeviceToDevice));
+      gpaw_cudaSafeCall(cudaMemcpyToSymbol(c_coefs,s_gpu->coefs_gpu,
 						sizeof(double)*s_gpu->ncoefs,0,
-						cudaMemcpyDeviceToDevice,0));
+						cudaMemcpyDeviceToDevice));
     }
-    gpaw_cudaSafeCall(cudaMemcpyToSymbolAsync(c_offsets12,s_gpu->offsets12_gpu,
+    gpaw_cudaSafeCall(cudaMemcpyToSymbol(c_offsets12,s_gpu->offsets12_gpu,
 					      sizeof(int)*s_gpu->ncoefs12,0,
-					      cudaMemcpyDeviceToDevice,0));
-    gpaw_cudaSafeCall(cudaMemcpyToSymbolAsync(c_coefs12,s_gpu->coefs12_gpu,
+					      cudaMemcpyDeviceToDevice));
+    gpaw_cudaSafeCall(cudaMemcpyToSymbol(c_coefs12,s_gpu->coefs12_gpu,
 					      sizeof(double)*s_gpu->ncoefs12,0,
-					      cudaMemcpyDeviceToDevice,0));
+					      cudaMemcpyDeviceToDevice));
     
-    /*    gpaw_cudaSafeCall(cudaMemcpyToSymbolAsync(c_offsets0,s_gpu->offsets0_gpu,
-	  sizeof(int)*s_gpu->ncoefs0,0,
-	  cudaMemcpyDeviceToDevice,0));*/
-    gpaw_cudaSafeCall(cudaMemcpyToSymbolAsync(c_coefs0,s_gpu->coefs0_gpu,
+    gpaw_cudaSafeCall(cudaMemcpyToSymbol(c_coefs0,s_gpu->coefs0_gpu,
 					      sizeof(double)*s_gpu->ncoefs0,0,
-					      cudaMemcpyDeviceToDevice,0));
+					      cudaMemcpyDeviceToDevice));
     
     adev+=(hc_j.x+hc_j.y+hc_j.z)/2;
     
@@ -614,28 +579,28 @@ extern "C" {
     dim3 dimGrid(gridx,gridy);    
     if (s_gpu->ncoefs0<=3)
       relax_kernel2_bc<<<dimGrid, dimBlock, 0>>>
-	(relax_method,s_gpu->ncoefs,s_gpu->ncoefs12,adev,bdev,src,hc_n,hc_j,
+	(relax_method,s_gpu->coef_relax,s_gpu->ncoefs,s_gpu->ncoefs12,adev,bdev,src,hc_n,hc_j,
 	 jb,w);    
     else if (s_gpu->ncoefs0<=5)
       relax_kernel4_bc<<<dimGrid, dimBlock, 0>>>
-	(relax_method,s_gpu->ncoefs,s_gpu->ncoefs12,adev,bdev,src,hc_n,hc_j,
+	(relax_method,s_gpu->coef_relax,s_gpu->ncoefs,s_gpu->ncoefs12,adev,bdev,src,hc_n,hc_j,
 	 jb,w);    
     else if (s_gpu->ncoefs0<=7)
       relax_kernel6_bc<<<dimGrid, dimBlock, 0>>>
-	(relax_method,s_gpu->ncoefs,s_gpu->ncoefs12,adev,bdev,src,hc_n,hc_j,
+	(relax_method,s_gpu->coef_relax,s_gpu->ncoefs,s_gpu->ncoefs12,adev,bdev,src,hc_n,hc_j,
 	 jb,w);    
     else if (s_gpu->ncoefs0<=9)
       relax_kernel8_bc<<<dimGrid, dimBlock, 0>>>
-	(relax_method,s_gpu->ncoefs,s_gpu->ncoefs12,adev,bdev,src,hc_n,hc_j,
+	(relax_method,s_gpu->coef_relax,s_gpu->ncoefs,s_gpu->ncoefs12,adev,bdev,src,hc_n,hc_j,
 	 jb,w);    
     else if (s_gpu->ncoefs0<=11)
       relax_kernel10_bc<<<dimGrid, dimBlock, 0>>>
-	(relax_method,s_gpu->ncoefs,s_gpu->ncoefs12,adev,bdev,src,hc_n,hc_j,
+	(relax_method,s_gpu->coef_relax,s_gpu->ncoefs,s_gpu->ncoefs12,adev,bdev,src,hc_n,hc_j,
 	 jb,w);    
     
     gpaw_cudaSafeCall(cudaGetLastError());
   }
-
+  */
   double bmgs_relax_cuda_cpu(const int relax_method, const bmgsstencil* s,
 			     double* a, double* b,const double* src, 
 			     const double w)
@@ -681,7 +646,7 @@ extern "C" {
     return flops;
   
   }
-
+  /*
   double bmgs_relax_cuda_cpu_bc(const int relax_method, const bmgsstencil* s,
 				double* a, double* b,const double* src, 
 				const double w)
@@ -726,6 +691,6 @@ extern "C" {
     return flops;
   
   }
-
+  */
 }
 #endif

@@ -21,10 +21,10 @@ int main(void)
 {
   bmgsstencil s,s2;
   double h[3]={1.0, 1.0, 1.0};
-  //long   n[3]={16,16,40};
+  long   n[3]={32,32,32};
   // long   n[3]={512,512,512};
   //long   n[3]={71/1,71/1,103/1};
-  long   n[3]={71/1,71/1,71/1};
+  //long   n[3]={71/1,71/1,71/1};
   // long   n[3]={143,143,143};
   //long   n[3]={32,32,32};
   int ntimes=1;
@@ -37,8 +37,25 @@ int main(void)
 
   printf("double complex %d  cuDoubleComplex %d\n",sizeof(double complex),sizeof(cuDoubleComplex));
 
-  s=bmgs_laplace(7,1.0,h,n);
-  s2=bmgs_laplace(7,1.0,h,n);
+  //s=bmgs_laplace(7,1.0,h,n);
+  //s2=bmgs_laplace(7,1.0,h,n);
+
+  //s=bmgs_mslaplaceA(1.0,h,n);
+  //s2=bmgs_mslaplaceA(1.0,h,n);
+
+  double coefs[19]={5.10119225, -0.42509935, -0.42509935, -0.42509935, 
+		    -0.42509935,-0.42509935, -0.42509935, -0.21254968, 
+		    -0.21254968, -0.21254968, -0.21254968, -0.21254968, 
+		    -0.21254968, -0.21254968, -0.21254968,
+		    -0.21254968, -0.21254968, -0.21254968, -0.21254968};
+
+  long offs[19]={ 0, -1156,  1156,   -34,    34,    -1,     1,   -35,   -33,
+		 33,    35, -1157, -1155,  1155,  1157, -1190, -1122,  
+		 1122,  1190};
+
+  s=bmgs_stencil(19,coefs, offs,1,n);
+  s2=bmgs_stencil(19,coefs, offs,1,n);
+  
 
   asize=s.j[0]+s.n[0]*(s.j[1]+s.n[1]*(s.n[2]+s.j[2]));
   bsize=s.n[0]*s.n[1]*s.n[2];
@@ -51,8 +68,8 @@ int main(void)
   b=malloc(bsize*sizeof(double));  
   b_cuda=malloc(bsize*sizeof(double));  
   b_cuda2=malloc(bsize*sizeof(double)); 
-  src=malloc(bsize*sizeof(double));  
-  src_cuda=malloc(bsize*sizeof(double));   
+  src=malloc(asize*sizeof(double));  
+  src_cuda=malloc(asize*sizeof(double));   
 
 
   /*  
@@ -69,10 +86,10 @@ int main(void)
     fprintf(stdout,"(%lf %ld)\t", s.coefs[i], s.offsets[i]);
   fprintf(stdout,"\n%ld %ld %ld %ld %ld %ld\n",s.j[0],s.j[1],s.j[2],s.n[0],s.n[1],s.n[2]);
   
-  cudaSetDevice(1); 
+  //  cudaSetDevice(1); 
   // cudaThreadSetCacheConfig(cudaFuncCachePreferL1);
-  //srand((unsigned int) time(NULL));
-  srand(0);
+  srand((unsigned int) time(NULL));
+  //srand(0);
 
 
   //  memset(a,0,sizeof(double)*asize);
@@ -120,7 +137,7 @@ int main(void)
   
   fprintf(stdout,"sum sqr error %lf\n",error);
   
-  gettimeofday(&t1,NULL);
+  /*  gettimeofday(&t1,NULL);
   flops3=0;
   for (int i=0;i<ntimes;i++) flops3+=bmgs_fd_cuda_cpu_bc(&s,a_cuda_small,b_cuda);
   gettimeofday(&t2,NULL);
@@ -141,7 +158,7 @@ int main(void)
   
 
   fprintf(stdout,"sum sqr error %lf\n",error);
-
+  */
 
 
 
@@ -165,7 +182,7 @@ int main(void)
   for (int i=0;i<ntimes;i++) bmgs_paste(a,ni,b,ni,c);
   gettimeofday(&t1,NULL);
   flops3=0;
-  for (int i=0;i<ntimes;i++) flops3+=bmgs_paste_clear_cuda_cpu(a_cuda,ni,b_cuda,ni,c);
+  for (int i=0;i<ntimes;i++) flops3+=bmgs_paste_zero_cuda_cpu(a_cuda,ni,b_cuda,ni,c);
   gettimeofday(&t2,NULL);
   //flops=2*s.ncoefs*bsize/(t1.tv_sec+t1.tv_usec/1000000.0-t0.tv_sec-t0.tv_usec/1000000.0); 
   //flops2=2*s.ncoefs*bsize/(t2.tv_sec+t2.tv_usec/1000000.0-t1.tv_sec-t1.tv_usec/1000000.0);
@@ -242,16 +259,21 @@ int main(void)
       }	
 
   
+  double w=2/3;
+  int nrelax=2;
+  flops3=0;
   gettimeofday(&t0,NULL);
-  bmgs_relax(relax_method,&s,a,b,src, 0.67);
+  for (int i=0;i<nrelax;i++)
+    bmgs_relax(relax_method,&s,a,b,src,w);
   gettimeofday(&t1,NULL);
   //bmgs_relax(2,&s,a_cuda,b_cuda,src_cuda, 0.67);
-  flops3=bmgs_relax_cuda_cpu(relax_method,&s,a_cuda,b_cuda,src_cuda, 0.67);
+  for (int i=0;i<nrelax;i++)
+    flops3=+bmgs_relax_cuda_cpu(relax_method,&s,a_cuda,b_cuda,src_cuda,w);
   gettimeofday(&t2,NULL);
 
   flops=(t1.tv_sec+t1.tv_usec/1000000.0-t0.tv_sec-t0.tv_usec/1000000.0); 
   flops2=(t2.tv_sec+t2.tv_usec/1000000.0-t1.tv_sec-t1.tv_usec/1000000.0);
-  printf("bmgs_relax:\n");
+  printf("bmgs_relax (n: %d):\n",nrelax);
   printf ("%dx%dx%d  \t CPU: %f\t GPU: %f\t GPU NOMEMTR: %f ms\n",s.n[0],s.n[1],s.n[2],1000*flops,1000*flops2,1000*flops3);
   printf ("%dx%dx%d  \t CPU: %f\t GPU: %f\t GPU NOMEMTR: %f MPix/s\n",s.n[0],s.n[1],s.n[2],bsize/(1000000.0*flops),s.n[2],bsize/(1000000.0*flops2),s.n[2],bsize/(1000000.0*flops3));
   error=0;
@@ -266,7 +288,7 @@ int main(void)
   //  error=error/(double)bsize;
   fprintf(stdout,"sum sqr error %lf\n",error);
 
-  
+  /*
   gettimeofday(&t1,NULL);
   //bmgs_relax(2,&s,a_cuda,b_cuda,src_cuda, 0.67);
   flops3=bmgs_relax_cuda_cpu_bc(relax_method,&s,a_cuda_small,b_cuda2,src_cuda, 0.67);
@@ -287,7 +309,7 @@ int main(void)
   }
   //  error=error/(double)bsize;
   fprintf(stdout,"sum sqr error %lf\n",error);
-
+  */
 
   for (int i=0;i<bsize;i++){
     a[i]=rand()/(double)RAND_MAX;

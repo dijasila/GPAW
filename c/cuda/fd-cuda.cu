@@ -4,6 +4,7 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#include <float.h>
 
 #include <sys/types.h>
 #include <sys/time.h>
@@ -61,7 +62,7 @@ __constant__ double c_coefs0[FD_MAXJ+1];
   a+=sizeyz;								\
   __syncthreads();							\
 
-
+/*
 __global__ void FD_kernel_bc(int ncoefs,int ncoefs12,int ncoefs0,
 			     const Tcuda* a,Tcuda* b,const long3 c_n,
 			     const long3 c_j,const int3 c_jb,int blocks)
@@ -247,6 +248,7 @@ __global__ void FD_kernel_bc(int ncoefs,int ncoefs12,int ncoefs0,
     break;
   }
 }
+*/
 
 __global__ void FD_kernel(int ncoefs,int ncoefs12,int ncoefs0,const Tcuda* a,
 			  Tcuda* b,const long3 c_n,const long3 c_j,
@@ -390,25 +392,25 @@ extern "C" {
 
 
     if (s_gpu->ncoefs>0){
-      gpaw_cudaSafeCall(cudaMemcpyToSymbolAsync(c_offsets,s_gpu->offsets_gpu,
+      gpaw_cudaSafeCall(cudaMemcpyToSymbol(c_offsets,s_gpu->offsets_gpu,
 					   sizeof(long)*s_gpu->ncoefs,0,
-					   cudaMemcpyDeviceToDevice,0));
-      gpaw_cudaSafeCall(cudaMemcpyToSymbolAsync(c_coefs,s_gpu->coefs_gpu,
+					   cudaMemcpyDeviceToDevice));
+      gpaw_cudaSafeCall(cudaMemcpyToSymbol(c_coefs,s_gpu->coefs_gpu,
 					   sizeof(double)*s_gpu->ncoefs,0,
-					   cudaMemcpyDeviceToDevice,0));
+					   cudaMemcpyDeviceToDevice));
     }
-    gpaw_cudaSafeCall(cudaMemcpyToSymbolAsync(c_offsets12,s_gpu->offsets12_gpu,
+    gpaw_cudaSafeCall(cudaMemcpyToSymbol(c_offsets12,s_gpu->offsets12_gpu,
 					 sizeof(int)*s_gpu->ncoefs12,0,
-					 cudaMemcpyDeviceToDevice,0));
-    gpaw_cudaSafeCall(cudaMemcpyToSymbolAsync(c_coefs12,s_gpu->coefs12_gpu,
+					 cudaMemcpyDeviceToDevice));
+    gpaw_cudaSafeCall(cudaMemcpyToSymbol(c_coefs12,s_gpu->coefs12_gpu,
 					 sizeof(double)*s_gpu->ncoefs12,0,
-					 cudaMemcpyDeviceToDevice,0));
-    /*gpaw_cudaSafeCall(cudaMemcpyToSymbolAsync(c_offsets0,s_gpu->offsets0_gpu,
+					 cudaMemcpyDeviceToDevice));
+    /*gpaw_cudaSafeCall(cudaMemcpyToSymbol(c_offsets0,s_gpu->offsets0_gpu,
 					 sizeof(int)*s_gpu->ncoefs0,0,
-					 cudaMemcpyDeviceToDevice,0));*/
-    gpaw_cudaSafeCall(cudaMemcpyToSymbolAsync(c_coefs0,s_gpu->coefs0_gpu,
+					 cudaMemcpyDeviceToDevice));*/
+    gpaw_cudaSafeCall(cudaMemcpyToSymbol(c_coefs0,s_gpu->coefs0_gpu,
 					 sizeof(double)*s_gpu->ncoefs0,0,
-					 cudaMemcpyDeviceToDevice,0));
+					 cudaMemcpyDeviceToDevice));
 
 
     int gridx=FD_XDIV*MAX((s_gpu->n[2]+FD_BLOCK_X-1)/FD_BLOCK_X,1);
@@ -421,21 +423,31 @@ extern "C" {
 
 
     if (s_gpu->ncoefs0<=3)
-      Zcuda(fd_kernel2)<<<dimGrid, dimBlock, 0>>>(s_gpu->ncoefs,s_gpu->ncoefs12,s_gpu->ncoefs0,adev,bdev,hc_n,hc_j,jb,blocks);    
+      Zcuda(fd_kernel2)<<<dimGrid, dimBlock, 0>>>
+	(s_gpu->ncoefs,s_gpu->ncoefs12,s_gpu->ncoefs0,adev,bdev,
+	 hc_n,hc_j,jb,blocks);    
     else if (s_gpu->ncoefs0<=5)
-      Zcuda(fd_kernel4)<<<dimGrid, dimBlock, 0>>>(s_gpu->ncoefs,s_gpu->ncoefs12,s_gpu->ncoefs0,adev,bdev,hc_n,hc_j,jb,blocks);    
+      Zcuda(fd_kernel4)<<<dimGrid, dimBlock, 0>>>
+	(s_gpu->ncoefs,s_gpu->ncoefs12,s_gpu->ncoefs0,adev,bdev,
+	 hc_n,hc_j,jb,blocks);    
     else if (s_gpu->ncoefs0<=7)
-      Zcuda(fd_kernel6)<<<dimGrid, dimBlock, 0>>>(s_gpu->ncoefs,s_gpu->ncoefs12,s_gpu->ncoefs0,adev,bdev,hc_n,hc_j,jb,blocks);    
+      Zcuda(fd_kernel6)<<<dimGrid, dimBlock, 0>>>
+	(s_gpu->ncoefs,s_gpu->ncoefs12,s_gpu->ncoefs0,adev,bdev,
+	 hc_n,hc_j,jb,blocks);    
     else if (s_gpu->ncoefs0<=9)
-      Zcuda(fd_kernel8)<<<dimGrid, dimBlock, 0>>>(s_gpu->ncoefs,s_gpu->ncoefs12,s_gpu->ncoefs0,adev,bdev,hc_n,hc_j,jb,blocks);    
+      Zcuda(fd_kernel8)<<<dimGrid, dimBlock, 0>>>
+	(s_gpu->ncoefs,s_gpu->ncoefs12,s_gpu->ncoefs0,adev,bdev,
+	 hc_n,hc_j,jb,blocks);    
     else if (s_gpu->ncoefs0<=11)
-      Zcuda(fd_kernel10)<<<dimGrid, dimBlock, 0>>>(s_gpu->ncoefs,s_gpu->ncoefs12,s_gpu->ncoefs0,adev,bdev,hc_n,hc_j,jb,blocks);    
+      Zcuda(fd_kernel10)<<<dimGrid, dimBlock, 0>>>
+	(s_gpu->ncoefs,s_gpu->ncoefs12,s_gpu->ncoefs0,adev,bdev,
+	 hc_n,hc_j,jb,blocks);    
     gpaw_cudaSafeCall(cudaGetLastError());
 
   }
 
 
-
+  /*
   void Zcuda(bmgs_fd_cuda_gpu_bc)(const bmgsstencil_gpu* s_gpu, 
 				  const Tcuda* adev, Tcuda* bdev,int blocks)  
   {
@@ -454,25 +466,22 @@ extern "C" {
 
 
     if (s_gpu->ncoefs>0){
-      gpaw_cudaSafeCall(cudaMemcpyToSymbolAsync(c_offsets,s_gpu->offsets_gpu,
+      gpaw_cudaSafeCall(cudaMemcpyToSymbol(c_offsets,s_gpu->offsets_gpu,
 					   sizeof(long)*s_gpu->ncoefs,0,
-					   cudaMemcpyDeviceToDevice,0));
-      gpaw_cudaSafeCall(cudaMemcpyToSymbolAsync(c_coefs,s_gpu->coefs_gpu,
+					   cudaMemcpyDeviceToDevice));
+      gpaw_cudaSafeCall(cudaMemcpyToSymbol(c_coefs,s_gpu->coefs_gpu,
 					   sizeof(double)*s_gpu->ncoefs,0,
-					   cudaMemcpyDeviceToDevice,0));
+					   cudaMemcpyDeviceToDevice));
     }
-    gpaw_cudaSafeCall(cudaMemcpyToSymbolAsync(c_offsets12,s_gpu->offsets12_gpu,
+    gpaw_cudaSafeCall(cudaMemcpyToSymbol(c_offsets12,s_gpu->offsets12_gpu,
 					 sizeof(int)*s_gpu->ncoefs12,0,
-					 cudaMemcpyDeviceToDevice,0));
-    gpaw_cudaSafeCall(cudaMemcpyToSymbolAsync(c_coefs12,s_gpu->coefs12_gpu,
+					 cudaMemcpyDeviceToDevice));
+    gpaw_cudaSafeCall(cudaMemcpyToSymbol(c_coefs12,s_gpu->coefs12_gpu,
 					 sizeof(double)*s_gpu->ncoefs12,0,
-					 cudaMemcpyDeviceToDevice,0));
-    /*gpaw_cudaSafeCall(cudaMemcpyToSymbolAsync(c_offsets0,s_gpu->offsets0_gpu,
-					 sizeof(int)*s_gpu->ncoefs0,0,
-					 cudaMemcpyDeviceToDevice,0));*/
-    gpaw_cudaSafeCall(cudaMemcpyToSymbolAsync(c_coefs0,s_gpu->coefs0_gpu,
+					 cudaMemcpyDeviceToDevice));
+    gpaw_cudaSafeCall(cudaMemcpyToSymbol(c_coefs0,s_gpu->coefs0_gpu,
 					 sizeof(double)*s_gpu->ncoefs0,0,
-					 cudaMemcpyDeviceToDevice,0));
+					 cudaMemcpyDeviceToDevice));
 
 
     int gridx=FD_XDIV*MAX((s_gpu->n[2]+FD_BLOCK_X-1)/FD_BLOCK_X,1);
@@ -484,19 +493,29 @@ extern "C" {
     adev+=(hc_j.x+hc_j.y+hc_j.z)/2;
 
     if (s_gpu->ncoefs0<=3)
-      Zcuda(fd_kernel2_bc)<<<dimGrid, dimBlock, 0>>>(s_gpu->ncoefs,s_gpu->ncoefs12,s_gpu->ncoefs0,adev,bdev,hc_n,hc_j,jb,blocks);    
+      Zcuda(fd_kernel2_bc)<<<dimGrid, dimBlock, 0>>>
+	(s_gpu->ncoefs,s_gpu->ncoefs12,s_gpu->ncoefs0,adev,bdev,
+	 hc_n,hc_j,jb,blocks);    
     else if (s_gpu->ncoefs0<=5)
-      Zcuda(fd_kernel4_bc)<<<dimGrid, dimBlock, 0>>>(s_gpu->ncoefs,s_gpu->ncoefs12,s_gpu->ncoefs0,adev,bdev,hc_n,hc_j,jb,blocks);    
+      Zcuda(fd_kernel4_bc)<<<dimGrid, dimBlock, 0>>>
+	(s_gpu->ncoefs,s_gpu->ncoefs12,s_gpu->ncoefs0,adev,bdev,
+	 hc_n,hc_j,jb,blocks);    
     else if (s_gpu->ncoefs0<=7)
-      Zcuda(fd_kernel6_bc)<<<dimGrid, dimBlock, 0>>>(s_gpu->ncoefs,s_gpu->ncoefs12,s_gpu->ncoefs0,adev,bdev,hc_n,hc_j,jb,blocks);    
+      Zcuda(fd_kernel6_bc)<<<dimGrid, dimBlock, 0>>>
+	(s_gpu->ncoefs,s_gpu->ncoefs12,s_gpu->ncoefs0,adev,bdev,
+	 hc_n,hc_j,jb,blocks);    
     else if (s_gpu->ncoefs0<=9)
-      Zcuda(fd_kernel8_bc)<<<dimGrid, dimBlock, 0>>>(s_gpu->ncoefs,s_gpu->ncoefs12,s_gpu->ncoefs0,adev,bdev,hc_n,hc_j,jb,blocks);    
+      Zcuda(fd_kernel8_bc)<<<dimGrid, dimBlock, 0>>>
+	(s_gpu->ncoefs,s_gpu->ncoefs12,s_gpu->ncoefs0,adev,bdev,
+	 hc_n,hc_j,jb,blocks);    
     else if (s_gpu->ncoefs0<=11)
-      Zcuda(fd_kernel10_bc)<<<dimGrid, dimBlock, 0>>>(s_gpu->ncoefs,s_gpu->ncoefs12,s_gpu->ncoefs0,adev,bdev,hc_n,hc_j,jb,blocks);    
+      Zcuda(fd_kernel10_bc)<<<dimGrid, dimBlock, 0>>>
+	(s_gpu->ncoefs,s_gpu->ncoefs12,s_gpu->ncoefs0,adev,bdev,
+	 hc_n,hc_j,jb,blocks);    
     gpaw_cudaSafeCall(cudaGetLastError());
 
   }
-
+*/
 }
 
 #ifndef CUGPAWCOMPLEX
@@ -537,25 +556,36 @@ extern "C" {
     
     memset(coefs0,0,sizeof(double)*(FD_MAXJ+1));
     memset(offsets0,0,sizeof(int)*(FD_MAXJ+1));
-    /*
-    fprintf(stdout,"%ld\t", s->ncoefs);
+    
+    /*    fprintf(stdout,"%ld\t", s->ncoefs);
     for(int i = 0; i < s->ncoefs; ++i)
-      fprintf(stdout,"(%lf %ld)\t", s->coefs[i], s->offsets[i]);
-    fprintf(stdout,"\n%ld %ld %ld %ld %ld %ld\n",s->j[0],s->j[1],s->j[2],s->n[0],s->n[1],s->n[2]);
+      fprintf(stdout,"(%d %lf %d)\t",i, s->coefs[i], s->offsets[i]);
+      fprintf(stdout,"\n");
+    fprintf(stdout,"\n%d %d %d %d %d %d\n",jb[0],jb[1],jb[2],s->n[0],s->n[1],s->n[2]);
     */
     
     
     for(int i = 0; i < s->ncoefs; i++){
-      int i0=s->offsets[i]/n1;
-      int i1=(s->offsets[i]-i0*n1)/n2;
-      int i2=(s->offsets[i]-i0*n1-i1*n2);
-      if (i1==0 && i2==0 && abs(i0)<=jb[0]){
+      int offpoint=s->offsets[i]+(s->j[0]+s->j[1]+s->j[2])/2;
+      int i0=offpoint/n1;
+      int i1=(offpoint-i0*n1)/n2;
+      int i2=(offpoint-i0*n1-i1*n2);
+      i0-=jb[0]/2;
+      i1-=jb[1]/2;
+      i2-=jb[2]/2;
+      //printf("%d %d i0 %d %d i1 %d  %d i2 %d %d\n",i,s->offsets[i],i0,jb[0],i1,jb[1],i2,jb[2]);
+      if (i1==0 && i2==0 && abs(i0)<=jb[0]/2){
+	//printf("of0 %d i0 %d %d i1 %d  %d i2 %d %d\n",i,i0,jb[0],i1,jb[1],i2,jb[2]);
 	int offset=FD_MAXJ/2+i0;
-	offsets0[offset]=offset;
-	coefs0[offset]=s->coefs[i];
-	ncoefs0=MAX(ncoefs0,2*abs(i0)+1);	
-      } else if (i0==0 && abs(i1)<=jb[1] && abs(i2)<=jb[2]){
+	if (fabs(s->coefs[i]) > DBL_EPSILON){
+	  offsets0[offset]=offset;
+	  coefs0[offset]=s->coefs[i];
+	  ncoefs0=MAX(ncoefs0,2*abs(i0)+1);	
+	}
+      } else if (i0==0 && abs(i1)<=jb[1]/2 && abs(i2)<=jb[2]/2 && (i1==0 || i2==0)){
+	//printf("n12 %d i0 %d %d i1 %d  %d i2 %d %d\n",i,i0,jb[0],i1,jb[1],i2,jb[2]);
 	offsets12[ncoefs12]=i2+cache_x*i1;
+      
 	coefs12[ncoefs12]=s->coefs[i];
 	ncoefs12++;	
       } else{
@@ -564,14 +594,30 @@ extern "C" {
 	ncoefs++;
       }
     }
+    ncoefs0=jb[0]+1;
     for(int i = 0; i < ncoefs0; i++){
       offsets0[i]=i;
       coefs0[i]=coefs0[i+(FD_MAXJ-ncoefs0+1)/2];
     }
-
+    /*
+    fprintf(stdout,"ncoefs %d\t", ncoefs);
+    for(int i = 0; i < ncoefs; ++i)
+      fprintf(stdout,"(%lf %d)\t", coefs[i], offsets[i]);
+    fprintf(stdout,"\n");
+    fprintf(stdout,"ncoefs0 %d\t", ncoefs0);
+    for(int i = 0; i < ncoefs0; ++i)
+      fprintf(stdout,"(%lf %d)\t", coefs0[i], offsets0[i]);
+    fprintf(stdout,"\n");
+    fprintf(stdout,"ncoefs12 %d\t", ncoefs12);
+    for(int i = 0; i < ncoefs12; ++i)
+      fprintf(stdout,"(%lf %d)\t", coefs12[i], offsets12[i]);
+    fprintf(stdout,"\n");
+    */
     s_gpu.ncoefs=ncoefs;
     s_gpu.ncoefs12=ncoefs12;
     s_gpu.ncoefs0=ncoefs0;
+
+    s_gpu.coef_relax=s->coefs[0];
 
     if (ncoefs>0){
       gpaw_cudaSafeCall(cudaMalloc(&(s_gpu.coefs_gpu),sizeof(double)*ncoefs));
@@ -650,7 +696,7 @@ extern "C" {
   
   
   }
-
+  /*
   double bmgs_fd_cuda_cpu_bc(const bmgsstencil* s, const double* a, double* b)
   {
   
@@ -693,7 +739,7 @@ extern "C" {
   
   
   }
-
+  */
 
 }
 

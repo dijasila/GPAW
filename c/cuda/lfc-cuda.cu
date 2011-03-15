@@ -37,7 +37,7 @@ static INLINE void* gpaw_malloc(int n)
 }
 #define GPAW_MALLOC(T, n) (T*)(gpaw_malloc((n) * sizeof(T)))
 
-#define GPAW_CUDA_INT_BLOCKS GPAW_CUDA_BLOCKS
+#define GPAW_CUDA_INT_BLOCKS (GPAW_CUDA_BLOCKS)
 //#define GPAW_CUDA_INT_BLOCKS 1
 
 #define BLOCK_Y 16
@@ -105,24 +105,30 @@ __global__ void Zcuda(integrate_reduce_kernel)(LFVolume_gpu* volume_W,
   
   
   LFVolume_gpu *v_gpu;
-  int nm,len;
+  int nm,len1,len2;
   Tcuda  *work1,*work2;
   
   v_gpu=&volume_W[w]; 
   nm=v_gpu->nm;
-  len=v_gpu->len_work;
+
   if (!swap) {
-    work1=(Tcuda*)v_gpu->work_A_gm;
-    work2=(Tcuda*)v_gpu->work_A_gm+len*nm;
+    len1=v_gpu->len_work1;
+    len2=v_gpu->len_work2;
+    work1=(Tcuda*)v_gpu->work1_A_gm;
+    work2=(Tcuda*)v_gpu->work2_A_gm;//+len*nm;
   } else {
-    work1=(Tcuda*)v_gpu->work_A_gm+len*nm;
-    work2=(Tcuda*)v_gpu->work_A_gm;
+    len1=v_gpu->len_work2;
+    len2=v_gpu->len_work1;
+    work1=(Tcuda*)v_gpu->work2_A_gm;//+len*nm;
+    work2=(Tcuda*)v_gpu->work1_A_gm;
   }
-  work1+=2*x*len*nm;
-  work2+=2*x*len*nm;
+  //  work1+=2*x*len*nm;
+  //work2+=2*x*len*nm;
+  work1+=x*len1*nm;
+  work2+=x*len2*nm;
 
   unsigned int i = blockIdx.x*(blockDim.x*2) + threadIdx.x;     
-  int n=min(len,max_n);
+  int n=min(len1,max_n);
   Tcuda * g_idata=work1;
   Tcuda * g_odata=work2;
   for (int m=0;m<nm;m++){
@@ -180,8 +186,8 @@ __global__ void Zcuda(integrate_reduce_kernel)(LFVolume_gpu* volume_W,
     if ((tid == 0) && (blockIdx.x<n)){
       g_odata[blockIdx.x] = Zcuda(sdata)[0];
     }
-    g_idata+=len;
-    g_odata+=len;
+    g_idata+=len1;
+    g_odata+=len2;
      __syncthreads();
   }
   
@@ -196,29 +202,33 @@ __global__ void Zcuda(integrate_reduce_kernel)(LFVolume_gpu* volume_W,
     if ((amLast) ) {
       Tcuda *c_M;
       Tcuda *work;	
+      int len;
       //c_xM+=x*nM;
-      for (int w=0;w<nW;w++){
-	v_gpu=&volume_W[w]; 
-	len=v_gpu->len_work;
+      for (int ww=0;ww<nW;ww++){
+	v_gpu=&volume_W[ww]; 
+
 	nm=v_gpu->nm; 	
-	if (!swap) {	  
-	  work=(Tcuda*)v_gpu->work_A_gm+len*nm;
+	if (!swap) {	 
+	  len=v_gpu->len_work2;
+	  work=(Tcuda*)v_gpu->work2_A_gm;
 	} else {
-	  work=(Tcuda*)v_gpu->work_A_gm;
+	  len=v_gpu->len_work1;
+	  work=(Tcuda*)v_gpu->work1_A_gm;
 	}
 	c_M=c_xM+v_gpu->M;
 	for (int xx=0;xx<blocks;xx++){
-	  if (tid<nm)
+	  if (tid<nm){
 	    IADD(c_M[tid],MULTD(work[tid*len] , dv));
+	  }
 	  c_M+=nM;
-	  work+=2*len*nm;
+	  work+=len*nm;
 	  __syncthreads();    
 	}
       }
       retirementCount=0;
     }
     
-  }
+    }
   
 }
 
@@ -234,16 +244,22 @@ __global__ void Zcuda(integrate_get_c_xM)(LFVolume_gpu* volume_W,int swap,
 
   for (int w=0;w<nW;w++){
     v_gpu=&volume_W[w]; 
-    len=v_gpu->len_work;
+    len=v_gpu->len_work1;
     nm=v_gpu->nm;    
     if (!swap) {
-      work=(Tcuda*)v_gpu->work_A_gm+len*nm+2*x*len*nm;
+      len=v_gpu->len_work2;
+      //      work=(Tcuda*)v_gpu->work_A_gm+len*nm+2*x*len*nm;
+      work=(Tcuda*)v_gpu->work2_A_gm+x*len*nm;
     } else {
-      work=(Tcuda*)v_gpu->work_A_gm+2*x*len*nm;
+      len=v_gpu->len_work1;
+      work=(Tcuda*)v_gpu->work1_A_gm+x*len*nm;
+      //work=(Tcuda*)v_gpu->work1_A_gm+2*x*len*nm;
+
     }
     c_M=c_xM+v_gpu->M+x*nM;
     for(int m=0;m<nm;m++){
       IADD(c_M[m],MULTD(work[0] , dv));
+      //IADD(c_M[m],MAKED(dv));
       work+=len;
     }
   }
@@ -297,8 +313,8 @@ __global__ void Zcuda(integrate_mul_kernel)(const Tcuda *a_G,int *G_B1,
       nm = v->nm;
 
       len=v->len_A_gm;
-      len_w=v->len_work;
-      work = (Tcuda*)v->work_A_gm+work_i[B+i*nB_gpu]+2*x*len_w*nm;
+      len_w=v->len_work1;
+      work = (Tcuda*)v->work1_A_gm+work_i[B+i*nB_gpu]+x*len_w*nm;
 #ifdef CUGPAWCOMPLEX
       avv=MULTT(avv, phase_i[max_k*nimax*B+q*nimax+i]);
       avv2=MULTT(avv2, phase_i[max_k*nimax*B+q*nimax+i]);
@@ -400,7 +416,8 @@ extern "C" {
       for (int W = 0; W < self->nW; W++){
 	LFVolume_gpu* volume_gpu = &self->volume_W_cuda[W];
 	cudaFree(volume_gpu->A_gm);
-	cudaFree(volume_gpu->work_A_gm);	
+	cudaFree(volume_gpu->work1_A_gm);	
+	cudaFree(volume_gpu->work2_A_gm);	
 	/*
 	gpaw_cudaSafeCall(cudaFree(volume_gpu->A_gm));
 	gpaw_cudaSafeCall(cudaFree(volume_gpu->work_A_gm));
@@ -527,7 +544,7 @@ extern "C" {
       v_gpu->nm=v->nm;
       v_gpu->M=v->M;
       v_gpu->W=v->W;
-      v_gpu->len_work=0;
+      v_gpu->len_work1=0;
       v_gpu->len_A_gm=0;
     }
     
@@ -565,14 +582,14 @@ extern "C" {
 	  LFVolume_gpu* v = volume_i[i];
 	  volume_i_gpu[nB_gpu*nimax+i]=self->volume_W_gpu+(v-volume_W_gpu);
 	  A_gm_i_gpu[nB_gpu*nimax+i]=v->len_A_gm;
-	  work_i_gpu[nB_gpu*nimax+i]=v->len_work;
+	  work_i_gpu[nB_gpu*nimax+i]=v->len_work1;
 	  if (self->bloch_boundary_conditions){
 	    for (int kk=0;kk<max_k;kk++){	      
 	      phase_i_gpu[i+nB_gpu*nimax*max_k+kk*nimax]=phase_i[i+kk*nimax];
 	    }
 	  }	  
 	  int wnG=(nG+1)/2;
- 	  v->len_work+=wnG;
+ 	  v->len_work1+=wnG;
 	  v->len_A_gm+=nG;
 	}
 	self->max_nG=MAX(self->max_nG,nG);	  	  
@@ -599,7 +616,7 @@ extern "C" {
 	int Wold = -1 - Wnew;
 	int iold = i_W[Wold];
 	volume_W_gpu[Wold].len_A_gm = volume_i[iold]->len_A_gm;
-	volume_W_gpu[Wold].len_work = volume_i[iold]->len_work;
+	volume_W_gpu[Wold].len_work1 = volume_i[iold]->len_work1;
 	ni--;
 	volume_i[iold] = volume_i[ni];
 	if (self->bloch_boundary_conditions){
@@ -615,16 +632,28 @@ extern "C" {
     } 
     for (int W = 0; W < self->nW; W++){
       LFVolume_gpu* v = &volume_W_gpu[W];
-      self->max_len_work=MAX(self->max_len_work,v->len_work);
+      self->max_len_work=MAX(self->max_len_work,v->len_work1);
       self->max_len_A_gm=MAX(self->max_len_A_gm,v->len_A_gm);
-      int wsize=2*v->len_work*v->nm*GPAW_CUDA_INT_BLOCKS;
+      int wsize1=v->len_work1*v->nm*GPAW_CUDA_INT_BLOCKS;
       if (self->bloch_boundary_conditions){
-	GPAW_CUDAMALLOC(&(v->work_A_gm),cuDoubleComplex,wsize);
+	GPAW_CUDAMALLOC(&(v->work1_A_gm),cuDoubleComplex,wsize1);
       } else {
-	GPAW_CUDAMALLOC(&(v->work_A_gm),double,wsize);
+	GPAW_CUDAMALLOC(&(v->work1_A_gm),double,wsize1);
       }
+    }
+    for (int W = 0; W < self->nW; W++){
+      LFVolume_gpu* v = &volume_W_gpu[W];
 
-
+      v->len_work2=MAX(1,MIN(v->len_work1,
+			   (nextPow2(self->max_len_work)/(REDUCE_THREADS))));
+      //printf("len_W %d %d\n",v->len_work1,v->len_work2);
+      //v->len_work2=v->len_work1;
+      int wsize2=v->len_work2*v->nm*GPAW_CUDA_INT_BLOCKS;
+      if (self->bloch_boundary_conditions){
+	GPAW_CUDAMALLOC(&(v->work2_A_gm),cuDoubleComplex,wsize2);
+      } else {
+	GPAW_CUDAMALLOC(&(v->work2_A_gm),double,wsize2);
+      }
     }
     self->nB_gpu=nB_gpu;
     
@@ -692,9 +721,10 @@ extern "C" {
   
     int q;
   
-    if (!PyArg_ParseTuple(args, "nOnOi", &a_xG_gpu,&shape, &c_xM_gpu,&c_shape, &q))
+    if (!PyArg_ParseTuple(args, "nOnOi", &a_xG_gpu,&shape, &c_xM_gpu,&c_shape,
+			  &q))
       return NULL; 
-
+    
        
     int nd = PyTuple_Size(shape);
 
@@ -721,6 +751,7 @@ extern "C" {
       
       for (int x = 0; x < nx; x+=GPAW_CUDA_INT_BLOCKS) {
 	int int_blocks=MIN(GPAW_CUDA_INT_BLOCKS,nx-x);
+	//printf("int _blcoks %d\n",int_blocks);
 	//int blockx=nextPow2(MAX((lfc->max_nG+1)/2,1));
 	int blockx=MAX((lfc->max_nG+1)/2,1);
 	int gridx=(lfc->nB_gpu+BLOCK_Y-1)/BLOCK_Y;

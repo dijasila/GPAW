@@ -110,7 +110,7 @@ __global__ void IP1D_kernel(const Tcuda* a, int n, int m, Tcuda* b, int skip0)
 }
 */
 
-__global__ void IP1D_kernel(const Tcuda* a, int n, int m, Tcuda* b, int skip0, int skip1)
+__global__ void IP1D_kernel(const Tcuda* a, int n, int m, Tcuda* b, int skip0, int skip1, int ang, int bng, int blocks)
 {
   
   __shared__ Tcuda ac[AC_Y*AC_X];
@@ -118,11 +118,14 @@ __global__ void IP1D_kernel(const Tcuda* a, int n, int m, Tcuda* b, int skip0, i
   
   int jtid=threadIdx.x;
   int j=blockIdx.x*BLOCK;
-  int itid=threadIdx.y;
-  int i=blockIdx.y*BLOCK;
 
-  a += (j+itid) * (K - 1 -skip1 + n)+(i+jtid);
-  b += (j+jtid) + 2 * m * (i+itid);
+  int itid=threadIdx.y;
+  int ibl=blockIdx.y/blocks;
+  int blocksi=blockIdx.y-blocks*ibl;
+  int i=ibl*BLOCK;
+
+  a += blocksi*ang + (j+itid) * (K - 1 -skip1 + n)+(i+jtid);
+  b += blocksi*bng + (j+jtid) + 2 * m * (i+itid);
     
   acp=ac+AC_X*(itid)+jtid+ACK/2-1;
   
@@ -162,7 +165,8 @@ __global__ void IP1D_kernel(const Tcuda* a, int n, int m, Tcuda* b, int skip0, i
 }
 
 
-void IP1D(const Tcuda* a, int n, int m, Tcuda* b, int skip[2])
+void IP1D(const Tcuda* a, int n, int m, Tcuda* b, int skip[2],int ang, int bng,
+	  int blocks)
 {
   
   a += K / 2 - 1;
@@ -173,10 +177,10 @@ void IP1D(const Tcuda* a, int n, int m, Tcuda* b, int skip[2])
   int gridx=(m+BLOCK-1)/BLOCK;
   
   dim3 dimBlock(BLOCK,BLOCK); 
-  dim3 dimGrid(gridx,gridy);    
+  dim3 dimGrid(gridx,gridy*blocks);    
 
 
-  IP1D_kernel<<<dimGrid, dimBlock, 0>>>(a,n,m, b,skip[0],skip[1]);
+  IP1D_kernel<<<dimGrid, dimBlock, 0>>>(a,n,m, b,skip[0],skip[1],ang,bng,blocks);
 
   gpaw_cudaSafeCall(cudaGetLastError());
 }
@@ -233,9 +237,12 @@ extern "C"{
 
   void Zcuda(bmgs_interpolate_cuda_gpu)(int k, int skip[3][2],
 					const Tcuda* a, const int size[3], 
-					Tcuda* b, Tcuda* w)
+					Tcuda* b, const int sizeb[3], Tcuda* w,
+					int blocks)
   {
-    void (*ip)(const Tcuda*, int, int, Tcuda*, int[2]);
+    void (*ip)(const Tcuda*, int, int, Tcuda*, int[2],int,int,int);
+    int ang=size[0]*size[1]*size[2];
+    int bng=sizeb[0]*sizeb[1]*sizeb[2];
     if (k == 2)
       ip = Zcuda(bmgs_interpolate1D2);
     else if (k == 4)
@@ -245,18 +252,22 @@ extern "C"{
     else
       ip = Zcuda(bmgs_interpolate1D8);
     int e = k - 1;
-    ip(a, size[2] - e + skip[2][1],
-       size[0] *
-       size[1],
-       b, skip[2]);
-    ip(b, size[1] - e + skip[1][1],
-       size[0] *
-       ((size[2] - e) * 2 - skip[2][0] + skip[2][1]),
-       w, skip[1]);
-    ip(w, size[0] - e + skip[0][1],
-       ((size[1] - e) * 2 - skip[1][0] + skip[1][1]) *
-       ((size[2] - e) * 2 - skip[2][0] + skip[2][1]),
-       b, skip[0]);
+    //    for (int i = 0; i < blocks; i++){
+      ip(a, size[2] - e + skip[2][1],
+	 size[0] *
+	 size[1],
+	 b, skip[2],ang,bng,blocks);
+      ip(b, size[1] - e + skip[1][1],
+	 size[0] *
+	 ((size[2] - e) * 2 - skip[2][0] + skip[2][1]),
+	 w, skip[1],bng,bng,blocks);
+      ip(w, size[0] - e + skip[0][1],
+	 ((size[1] - e) * 2 - skip[1][0] + skip[1][1]) *
+	 ((size[2] - e) * 2 - skip[2][0] + skip[2][1]),
+	 b, skip[0],bng,bng,blocks);
+      /*      a+=size[0]*size[1]*size[2];
+      b+=sizeb[0]*sizeb[1]*sizeb[2];
+      }*/
   }
 }
 #ifndef CUGPAWCOMPLEX
@@ -290,7 +301,7 @@ extern "C"{
   
     gettimeofday(&t0,NULL);
 
-    bmgs_interpolate_cuda_gpu(k,skip, adev, n, bdev, wdev);
+    bmgs_interpolate_cuda_gpu(k,skip, adev, n, bdev,n, wdev,1);
   
   
     cudaThreadSynchronize();  
