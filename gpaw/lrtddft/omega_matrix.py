@@ -121,7 +121,7 @@ class OmegaMatrix:
              self.singletsinglet=True
 
         nkss = len(kss)
-        self.ij = range(selh.eh_comm.rank, nkss, self.eh_comm.size)
+        self.ij = range(self.eh_comm.rank, nkss, self.eh_comm.size)
         self.nij = len(self.ij)
         self.nkq = len(kss)
         self.Om = np.zeros((self.nij,self.nkq))
@@ -149,7 +149,19 @@ class OmegaMatrix:
         if self.eh_comm.size == 1:
             self.full = self.Om
         else:
-            print "To be impl"
+            if self.eh_comm.rank == 0:
+                self.full = np.zeros((self.nkq,self.nkq))
+                self.full[0::self.eh_comm.size, :] = self.Om[:]
+                for eh_rank in range(1, self.eh_comm.size):
+                    ij = range(rank, self.nkq, self.eh_comm.size)
+                    Om = np.zeros(len(nij), self.nkq)
+                    self.eh_comm.receive(Om, rank, 222 + rank)
+                    self.full[ij, :] = Om[:]
+            else:
+                self.eh_comm.ssend(self.Om, self.eh_comm.rank, 222 + self.eh_comm.rank)
+                    
+                
+        self.paw.timer.stop('Collect Omega')
 
     def get_xc(self):
         """Add xc part of the coupling matrix"""
@@ -263,7 +275,7 @@ class OmegaMatrix:
                     Pj_i = P_ni[kss[ij].j]
                     P_ii = np.outer(Pi_i, Pj_i)
                     # we need the symmetric form, hence we can pack
-                    P_p = pack(P_ii, tolerance=1e30)
+                    P_p = pack(P_ii)
                     D_sp = self.paw.density.D_asp[a].copy()
                     D_sp[kss[ij].pspin] -= ns * P_p
                     setup = wfs.setups[a]
@@ -281,7 +293,7 @@ class OmegaMatrix:
             t0 = timer.get_time('init')
             timer.start(ij)
             
-            for kq in range(ij,self.nkq):
+            for kq in range(ij, self.nkq):
                 weight = self.weight_Kijkq(ij, kq)
                 
                 if self.derivativeLevel == 0:
@@ -351,7 +363,7 @@ class OmegaMatrix:
                         P_ii = np.outer(Pk_i, Pq_i)
                         # we need the symmetric form, hence we can pack
                         # use pack as I_sp used pack2
-                        P_p = pack(P_ii, tolerance=1e30)
+                        P_p = pack(P_ii)
                         Exc += np.dot(I_asp[a][kss[kq].pspin], P_p)
                     Om_xc[my_ij, kq] += weight * self.gd.comm.sum(Exc)
                     timer2.stop()
@@ -374,6 +386,7 @@ class OmegaMatrix:
                 
             timer.stop()
 ##            timer2.write()
+            nij = self.nij
             if ij < (nij-1):
                 t = timer.get_time(ij) # time for nij-ij calculations
                 t = .5*t*(nij-ij)  # estimated time for n*(n+1)/2, n=nij-(ij+1)
@@ -428,7 +441,7 @@ class OmegaMatrix:
                 phit = phit_p
                 rhot = rhot_p
 
-            for kq in range(ij,nij):
+            for kq in range(ij, self.nkq):
                 if kq != ij:
                     # smooth density including compensation charges
                     timer2.start('kq with_compensation_charges')
@@ -450,12 +463,12 @@ class OmegaMatrix:
                     Pi_i = P_ni[kss[ij].i]
                     Pj_i = P_ni[kss[ij].j]
                     Dij_ii = np.outer(Pi_i, Pj_i)
-                    Dij_p = pack(Dij_ii, tolerance=1e3)
+                    Dij_p = pack(Dij_ii)
                     Pkq_ni = wfs.kpt_u[kss[kq].spin].P_ani[a]
                     Pk_i = Pkq_ni[kss[kq].i]
                     Pq_i = Pkq_ni[kss[kq].j]
                     Dkq_ii = np.outer(Pk_i, Pq_i)
-                    Dkq_p = pack(Dkq_ii, tolerance=1e3)
+                    Dkq_p = pack(Dkq_ii)
                     C_pp = wfs.setups[a].M_pp
                     #   ----
                     # 2 >      P   P  C    P  P
@@ -473,6 +486,7 @@ class OmegaMatrix:
 
             timer.stop()
 ##            timer2.write()
+            nij = self.nij
             if ij < (nij-1):
                 t = timer.get_time(ij) # time for nij-ij calculations
                 t = .5*t*(nij-ij)  # estimated time for n*(n+1)/2, n=nij-(ij+1)
@@ -481,6 +495,9 @@ class OmegaMatrix:
 
     def singlets_triplets(self):
         """Split yourself into singlet and triplet transitions"""
+
+        if self.eh_comm is not None:
+            raise NotImplementedError('Singlet triplet splitting with eh-parallelization')
 
         assert(self.fullkss.npspins == 2)
         assert(self.fullkss.nvspins == 1)
@@ -624,6 +641,8 @@ class OmegaMatrix:
 
     def write(self, filename=None, fh=None):
         """Write current state to a file."""
+
+        self.get_full()
         if mpi.rank == mpi.MASTER:
             if fh is None:
                 f = open(filename, 'w')
@@ -663,22 +682,24 @@ class OmegaMatrix:
 
     def write_hdf5(self, filename=None, fh=None):
         """Write current state to a file."""
-        if mpi.rank == mpi.MASTER:
-            if fh is None:
-                f = open(filename, 'w')
-            else:
-                f = fh
+        from gpaw.io.hdf5_highlevel import File, HyperslabSelection
+        if fh is None:
+            f = File(filename, 'w', mpi.world.get_c_object())
+        else:
+            f = fh
 
-            f.write('# OmegaMatrix\n')
-            nij = len(self.fullkss)
-            f.write('%d\n' % nij)
-            for ij in range(nij):
-                for kq in range(ij,nij):
-                    f.write(' %g' % self.full[ij,kq])
-                f.write('\n')
-            
-            if fh is None:
-                f.close()
+        dset = f.create_dataset('OmegaMatrix', (self.nij, self.nij), float)
+        indices = (slice(self.eh_comm.rank, self.nij, self.eh_comm.size),
+                   slice(self.nij))
+        comm = self.paw.density.finegd.comm
+        if comm.rank == 0:
+            selection = HyperslabSelection(indices, dset.shape)
+        else:
+            selection = None
+        dset.write(self.Om, selection, collective=True)
+        
+        if fh is None:
+            f.close()
 
     def weight_Kijkq(self, ij, kq):
         """weight for the coupling matrix terms"""

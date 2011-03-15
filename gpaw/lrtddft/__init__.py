@@ -295,6 +295,13 @@ class LrTDDFT(ExcitationList):
         return string
 
     def write(self, filename=None, fh=None):
+
+        if fh is None and filename.endswith('.hdf5'):
+            self.write_hdf5(filename, fh)
+        else:
+            self.write_gz(filename, fh)
+
+    def write_gz(self, filename=None, fh=None):
         """Write current state to a file.
 
         'filename' is the filename. If the filename ends in .gz,
@@ -346,6 +353,48 @@ class LrTDDFT(ExcitationList):
 
             if fh is None:
                 f.close()
+
+    def write_hdf5(self, filename=None, fh=None):
+
+        from gpaw.io.hdf5_highlevel import File 
+        fh = File(filename, 'w', mpi.world.get_c_object())
+        fh.attrs['Title'] = self.name
+        xc = self.xc
+        if xc is None: xc = 'RPA'
+        if self.calculator is not None:
+            xc += ' ' + self.calculator.get_xc_functional()
+        xc_group = fh.create_group('XC')
+        xc_group.attrs['XC'] = xc
+        xc_group.attrs['eps'] = self.eps
+        xc_group.attrs['derivative_level'] = int(self.derivative_level)
+        xc_group.attrs['numscale'] = self.numscale
+        xc_group.attrs['finegrid'] = int(self.finegrid)
+        xc_group.close()
+
+        self.kss.write_hdf5(fh=fh)
+        self.Om.write_hdf5(fh=fh)
+
+        # XXX To be worked out
+        # if len(self):
+        #     f.write('# Eigenvalues\n')
+        #     istart = self.istart
+        #     if istart is None:
+        #         istart = self.kss.istart
+        #     jend = self.jend
+        #     if jend is None:
+        #         jend = self.kss.jend
+        #    fh.attrs['nkss'] = np.array((len(self), istart, jend))
+        #    eps_n = np.array
+        #     f.write('%d %d %d'%(len(self), istart, jend) + '\n')
+        #     for ex in self:
+        #         f.write(ex.outstring())
+        #     f.write('# Eigenvectors\n')
+        #     for ex in self:
+        #         for w in ex.f:
+        #             f.write('%g '%w)
+        #         f.write('\n')
+
+        fh.close()
 
 def d2Excdnsdnt(dup, ddn):
     """Second derivative of Exc polarised"""

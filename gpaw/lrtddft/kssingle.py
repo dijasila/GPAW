@@ -209,6 +209,60 @@ class KSSingles(ExcitationList):
             if fh is None:
                 f.close()
 
+    def write_hdf5(self, filename=None, fh=None):
+        """Write current state to a HDF5 file.
+
+        'filename' is the filename. If the filename ends in .gz,
+        the file is automatically saved in compressed gzip format.
+
+        'fh' is a filehandle. This can be used to write into already
+        opened files.
+        """
+
+        from gpaw.io.hdf5_highlevel import File, HyperslabSelection
+        if fh is None:
+            f = File(filename, 'w', mpi.world.get_c_object())
+        else:
+            f = fh
+
+        kss_group = f.create_group('KSSingles')
+        nkss = len(self)
+        kss_i = np.array([kss.i for kss in self])
+        kss_j = np.array([kss.j for kss in self])
+        kss_pspin = np.array([kss.pspin for kss in self])
+        kss_spin = np.array([kss.spin for kss in self])
+        kss_energy = np.array([kss.energy for kss in self])
+        kss_fij = np.array([kss.fij for kss in self])
+        kss_mur = np.array([kss.mur for kss in self])
+        kss_muv = np.array([kss.muv for kss in self])
+
+        if mpi.world.rank == 0:
+            selection = 'all'
+        else:
+            selection = None
+            
+        dset = kss_group.create_dataset('i', (nkss,), int)
+        dset.write(kss_i, selection)
+        dset = kss_group.create_dataset('j', (nkss,), int)
+        dset.write(kss_j, selection)
+        dset = kss_group.create_dataset('pspin', (nkss,), int)
+        dset.write(kss_pspin, selection)
+        dset = kss_group.create_dataset('spin', (nkss,), int)
+        dset.write(kss_spin, selection)
+        dset = kss_group.create_dataset('energy', (nkss,), float)
+        dset.write(kss_energy, selection)
+        dset = kss_group.create_dataset('fij', (nkss,), float)
+        dset.write(kss_fij, selection)
+        dset = kss_group.create_dataset('mur', (nkss,3), float)
+        dset.write(kss_mur, selection)
+        dset = kss_group.create_dataset('muv', (nkss,3), float)
+        dset.write(kss_muv, selection)
+        dset.close()
+        kss_group.close()
+        
+        if fh is None:
+            f.close()
+
  
 class KSSingle(Excitation, PairDensity):
     """Single Kohn-Sham transition containing all it's indicees
