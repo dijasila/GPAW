@@ -544,7 +544,7 @@ def read(paw, reader):
     nt_sG = wfs.gd.empty(density.nspins)
     if hdf5:
         indices = [slice(0, density.nspins),] + wfs.gd.get_slice()
-        r.get('PseudoElectronDensity', *indices, out=nt_sG, parallel=True) #XXX read=?
+        r.get('PseudoElectronDensity', out=nt_sG, parallel=True, *indices) #XXX read=?
     else:
         for s in range(density.nspins):
             wfs.gd.distribute(r.get('PseudoElectronDensity', s), nt_sG[s])
@@ -570,7 +570,7 @@ def read(paw, reader):
         hamiltonian.vt_sG = wfs.gd.empty(hamiltonian.nspins)
         if hdf5:
             indices = [slice(0, hamiltonian.nspins), ] + wfs.gd.get_slice()
-            r.get('PseudoPotential', *indices, out=hamiltonian.vt_sG, parallel=True) #XXX read=?
+            r.get('PseudoPotential', out=hamiltonian.vt_sG, parallel=True, *indices) #XXX read=?
         else:
             for s in range(hamiltonian.nspins):
                 wfs.gd.distribute(r.get('PseudoPotential', s),
@@ -718,7 +718,7 @@ def read(paw, reader):
                         indices = [kpt.s, kpt.k]
                         indices.append(wfs.bd.get_slice())
                         indices += wfs.gd.get_slice()
-                        r.get('PseudoWaveFunctions', *indices, out=kpt.psit_nG, parallel=True)
+                        r.get('PseudoWaveFunctions', out=kpt.psit_nG, parallel=True, *indices)
                     else:
                         # Read band by band to save memory
                         for myn, psit_G in enumerate(kpt.psit_nG):
@@ -749,7 +749,7 @@ def read(paw, reader):
                 indices.append(wfs.bd.get_slice())
                 do_read = (domain_comm.rank == 0)
                 timer.start('ProjectionsCritical(s=%d,k=%d)' % (kpt.s,kpt.k))
-                r.get('Projections', *indices, out=all_P_ni, parallel=True, read=do_read)
+                r.get('Projections', out=all_P_ni, parallel=True, read=do_read, *indices)
                 timer.stop('ProjectionsCritical(s=%d,k=%d)' % (kpt.s,kpt.k))
                 if domain_comm.rank == 0:
                     for a in range(natoms):
