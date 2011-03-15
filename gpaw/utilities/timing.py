@@ -20,6 +20,10 @@ avoided by calling the ``update()`` function at intervals smaller than
 import time
 import math
 import sys
+
+import pycuda as cuda
+from gpaw import debug_cuda_sync
+
 try:
     import pytau
 except ImportError:
@@ -92,6 +96,11 @@ class Timer:
         
     def start(self, name):
         names = tuple(self.running + [name])
+        if debug_cuda_sync:
+            try:
+                cuda.autoinit.context.synchronize()
+            except AttributeError:
+                pass
         self.timers[names] = self.timers.get(names, 0.0) - time.time()
         self.running.append(name)
         
@@ -103,6 +112,11 @@ class Timer:
             raise RuntimeError('Must stop timers by stack order.  '
                                'Requested stopping of %s but topmost is %s'
                                % (name, running))
+        if debug_cuda_sync:
+            try:
+                cuda.autoinit.context.synchronize()
+            except AttributeError:
+                pass
         self.timers[names] += time.time()
             
     def get_time(self, *names):
