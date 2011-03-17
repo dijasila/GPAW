@@ -7,7 +7,7 @@ import numpy as np
 
 modes = ['gpw']
 try:
-    import h5py
+    import _hdf5
     modes.append('hdf5')
 except ImportError:
     pass
