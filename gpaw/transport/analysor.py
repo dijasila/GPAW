@@ -803,6 +803,8 @@ class Transport_Analysor:
             lead_pairs = np.array(self.lead_pairs)
             bias = np.array(tp.bias)
             gate = np.array(tp.gate)
+            magmom = np.array(magmom)
+            local_magmom = np.array(local_magmom)
             for name in ['lead_fermi', 'lead_pairs', 'bias', 'gate', 
                                       'charge', 'magmom', 'local_magmom']:
                 self.data[name] = eval(name)
@@ -953,8 +955,8 @@ class Transport_Analysor:
             vty = np.array(vty)
         return nt, vt, ntx, vtx, nty, vty
     
-    def calculate_current(self, tp, tc_array, lead_pair_index=0, s=0):             
-        current = np.array([0])
+    def calculate_current(self, tp, tc_array, lead_pair_index=0):             
+        current = np.array([0, 0], complex)
         if tp.wfs.kpt_comm.rank == 0:
             contour = tp.contour
             kt = 0.02
@@ -967,7 +969,8 @@ class Transport_Analysor:
             tc_all = np.sum(tc_array, axis=1) / tp.npk 
             fermi_factor = fd(self.my_energies - lead_ef1, kt) - fd(
                                              self.my_energies - lead_ef2, kt)
-            current = np.sum(tc_all[s, lead_pair_index] * fermi_factor *
+            for s in range(tp.nspins):
+                current[s] = np.sum(tc_all[s, lead_pair_index] * fermi_factor *
                                                               self.my_weights)
             current = np.array(current)
             tp.contour.comm.sum(current)
