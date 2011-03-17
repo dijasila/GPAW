@@ -617,7 +617,7 @@ class GPAW(PAW):
             f_g = (_fact[l] * (4 * alpha)**(l + 3 / 2.) *
                    np.exp(-alpha * r**2) /
                    (np.sqrt(4 * np.pi) * _fact[2 * l + 1]))
-            splines_x.append([Spline(l, rmax=r[-1], f_g=f_g, points=61)])
+            splines_x.append([Spline(l, rmax=r[-1], f_g=f_g)])
             
         lf = LFC(wfs.gd, splines_x, wfs.kpt_comm, dtype=wfs.dtype)
         if not wfs.gamma:

@@ -8,7 +8,7 @@ import numpy as np
 
 from gpaw import setup_paths
 from gpaw.setup_data import search_for_file
-from gpaw.grid_descriptor import EquidistantRadialGridDescriptor
+from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 
 try:
     import gzip
@@ -69,7 +69,7 @@ class Basis:
 
     def tosplines(self):
         gd = self.get_grid_descriptor()
-        return [gd.reducedspline(bf.l, bf.phit_g) for bf in self.bf_j]
+        return [gd.spline(bf.phit_g, bf.l) for bf in self.bf_j]
 
     def read_xml(self, filename=None, world=None):
         parser = BasisSetXMLParser(self)

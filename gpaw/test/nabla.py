@@ -1,6 +1,7 @@
 import numpy as np
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
-from gpaw.grid_descriptor import GridDescriptor, RadialGridDescriptor
+from gpaw.grid_descriptor import GridDescriptor
+from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 from gpaw.spline import Spline
 from gpaw.setup import Setup
 
@@ -29,7 +30,7 @@ class TestSetup(Setup):
     ni = m
     def __init__(self):
         pass
-rgd = RadialGridDescriptor(r, np.ones_like(r) * r[1])
+rgd = EquidistantRadialGridDescriptor(r[1], len(r))
 g = [np.exp(-(r / rc * b)**2) * r**l for l in range(lmax + 1)]
 d2 = TestSetup().get_derivative_integrals(rgd, g, np.zeros_like(g))
 if 0 in d1:

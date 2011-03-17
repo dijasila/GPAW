@@ -722,8 +722,9 @@ class Generator(AllElectron):
         setup.e_xc = self.Exc
         setup.e_electrostatic = self.Epot
         setup.e_total = self.Epot + self.Exc + self.Ekin
-        setup.beta = self.beta
-        setup.ng = self.N
+
+        setup.rgd = self.rgd
+        
         setup.rcgauss = self.rcutcomp / sqrt(self.gamma)
         setup.e_kin_jj = self.dK_jj
         setup.ExxC = ExxC

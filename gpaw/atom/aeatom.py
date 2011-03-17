@@ -16,7 +16,7 @@ from ase.utils import devnull
 import ase.units as units
 
 from gpaw.atom.configurations import configurations
-from gpaw.atom.radialgd import RGDNew
+from gpaw.atom.radialgd import AERadialGridDescriptor
 from gpaw.xc import XC
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.utilities import prnt
@@ -29,21 +29,21 @@ colors = 'rgbky'
 
 
 class GaussianBasis:
-    def __init__(self, l, alpha_B, gd, eps=1.0e-7):
+    def __init__(self, l, alpha_B, rgd, eps=1.0e-7):
         """Guassian basis set for spherically symmetric atom.
 
         l: int
             Angular momentum quantum number.
         alpha_B: ndarray
             Exponents.
-        gd: GridDescriptor
+        rgd: GridDescriptor
             Grid descriptor.
         eps: float
             Cutoff for eigenvalues of overlap matrix."""
         
         self.l = l
         self.alpha_B = alpha_B
-        self.gd = gd
+        self.rgd = rgd
 
         A_BB = np.add.outer(alpha_B, alpha_B)
         M_BB = np.multiply.outer(alpha_B, alpha_B)
@@ -79,7 +79,7 @@ class GaussianBasis:
         self.D_bb = np.dot(np.dot(Q_Bb.T, D_BB), Q_Bb)
         self.K_bb = np.dot(np.dot(Q_Bb.T, K_BB), Q_Bb)
 
-        r_g = gd.r_g
+        r_g = rgd.r_g
         # Avoid errors in debug mode from division by zero:
         old_settings = np.seterr(divide='ignore')
         self.basis_bg = (np.dot(
@@ -96,7 +96,7 @@ class GaussianBasis:
         return np.dot(C_xb, self.basis_bg)
 
     def calculate_potential_matrix(self, vr_g):
-        vr2dr_g = vr_g * self.gd.r_g * self.gd.dr_g
+        vr2dr_g = vr_g * self.rgd.r_g * self.rgd.dr_g
         V_bb = np.inner(self.basis_bg[:, 1:],
                         self.basis_bg[:, 1:] * vr2dr_g[1:])
         return V_bb
@@ -124,11 +124,11 @@ class Channel:
         self.phi_ng = self.basis.expand(self.C_nb[:len(self.f_n)])
 
     def solve2(self, vr_g):
-        gd = self.basis.gd
-        r_g = gd.r_g
+        rgd = self.basis.rgd
+        r_g = rgd.r_g
         l = self.l
-        vr = interp1d(r_g, vr_g)
-        u_g = gd.empty()
+        vr = interp1d(r_g, vr_g, 'cubic')
+        u_g = rgd.empty()
         for n in range(len(self.f_n)):
             e = self.e_n[n]
             # Find classical turning point:
@@ -143,7 +143,7 @@ class Channel:
                 A = du1dr_g[-1] / u1_g[-1] + du2dr_g[-1] / u2_g[-1]
                 u_g[:g + 1] = u1_g
                 u_g[g:] = u2_g[::-1] * u1_g[-1] / u2_g[-1]
-                u_g /= (gd.integrate(u_g**2, -2) / (4 * pi))**0.5
+                u_g /= (rgd.integrate(u_g**2, -2) / (4 * pi))**0.5
                 if abs(A) < 1e-5:
                     break
                 e += 0.5 * A * u_g[g]**2
@@ -268,7 +268,7 @@ class AllElectronAtom:
 
         self.vr_sg = None  # potential * r
         self.n_sg = 0.0    # density
-        self.gd = None     # radial grid descriptor
+        self.rgd = None     # radial grid descriptor
 
         # Energies:
         self.ekin = None
@@ -344,9 +344,13 @@ class AllElectronAtom:
         if alpha2 is None:
             alpha2 = 50.0 * self.Z**2
 
-        self.gd = RGDNew(r1=1 / alpha2**0.5 / 50, rN=rcut, N=ngpts)
+        # Use grid with r(0)=0, r(1)=a and r(ngpts)=rcut:
+        a = 1 / alpha2**0.5 / 50        
+        b = (rcut - a * ngpts) / (rcut * ngpts)
+        self.rgd = AERadialGridDescriptor(a, b, ngpts)
+        
         self.log('Grid points:     %d (%.5f, %.5f, %.5f, ..., %.3f, %.3f)' %
-                 ((self.gd.N,) + tuple(self.gd.r_g[[0, 1, 2, -2, -1]])))
+                 ((self.rgd.N,) + tuple(self.rgd.r_g[[0, 1, 2, -2, -1]])))
 
         # Distribute exponents between alpha1 and alpha2:
         alpha_B = alpha1 * (alpha2 / alpha1)**np.linspace(0, 1, ngauss)
@@ -360,7 +364,7 @@ class AllElectronAtom:
         nb_l = []
         if not self.dirac:
             for l in range(lmax + 1):
-                basis = GaussianBasis(l, alpha_B, self.gd, eps)
+                basis = GaussianBasis(l, alpha_B, self.rgd, eps)
                 nb_l.append(len(basis))
                 for s in range(self.nspins):
                     self.channels.append(Channel(l, s, self.f_lsn[l][s],
@@ -368,7 +372,7 @@ class AllElectronAtom:
         else:
             for K in range(1, lmax + 2):
                 leff = (K**2 - (self.Z / c)**2)**0.5 - 1
-                basis = GaussianBasis(leff, alpha_B, self.gd, eps)
+                basis = GaussianBasis(leff, alpha_B, self.rgd, eps)
                 nb_l.append(len(basis))
                 for k, l in [(-K, K - 1), (K, K)]:
                     if l > lmax:
@@ -382,7 +386,7 @@ class AllElectronAtom:
                  (', '.join([str(nb) for nb in nb_l]),
                   ', '.join('spdf'[:lmax + 1])))
 
-        self.vr_sg = self.gd.zeros(self.nspins)
+        self.vr_sg = self.rgd.zeros(self.nspins)
         self.vr_sg[:] = -self.Z
 
     def solve(self):
@@ -397,31 +401,31 @@ class AllElectronAtom:
 
     def calculate_density(self):
         """Calculate elctron density and kinetic energy."""
-        self.n_sg = self.gd.zeros(self.nspins)
+        self.n_sg = self.rgd.zeros(self.nspins)
         for channel in self.channels:
             self.n_sg[channel.s] += channel.calculate_density()
 
     def calculate_electrostatic_potential(self):
         """Calculate electrostatic potential and energy."""
         n_g = self.n_sg.sum(0)
-        self.vHr_g = self.gd.poisson(n_g)        
-        self.eH = 0.5 * self.gd.integrate(n_g * self.vHr_g, -1)
-        self.eZ = -self.Z * self.gd.integrate(n_g, -1)
+        self.vHr_g = self.rgd.poisson(n_g)        
+        self.eH = 0.5 * self.rgd.integrate(n_g * self.vHr_g, -1)
+        self.eZ = -self.Z * self.rgd.integrate(n_g, -1)
         
     def calculate_xc_potential(self):
-        self.vxc_sg = self.gd.zeros(self.nspins)
-        self.exc = self.xc.calculate_spherical(self.gd, self.n_sg, self.vxc_sg)
+        self.vxc_sg = self.rgd.zeros(self.nspins)
+        self.exc = self.xc.calculate_spherical(self.rgd, self.n_sg, self.vxc_sg)
 
     def step(self):
         self.solve()
         self.calculate_density()
         self.calculate_electrostatic_potential()
         self.calculate_xc_potential()
-        self.vr_sg = self.vxc_sg * self.gd.r_g
+        self.vr_sg = self.vxc_sg * self.rgd.r_g
         self.vr_sg += self.vHr_g
         self.vr_sg -= self.Z
         self.ekin = (self.eeig -
-                     self.gd.integrate((self.vr_sg * self.n_sg).sum(0), -1))
+                     self.rgd.integrate((self.vr_sg * self.n_sg).sum(0), -1))
         
     def run(self, mix=0.4, maxiter=117, dnmax=1e-9):
         if self.channels is None:
@@ -435,7 +439,7 @@ class AllElectronAtom:
             if iter > 1:
                 self.vr_sg *= mix
                 self.vr_sg += (1 - mix) * vr_old_sg
-                dn = self.gd.integrate(abs(self.n_sg - n_old_sg).sum(0))
+                dn = self.rgd.integrate(abs(self.n_sg - n_old_sg).sum(0))
                 pb(log(dnmax / dn))
                 if dn <= dnmax:
                     break
@@ -444,7 +448,7 @@ class AllElectronAtom:
             n_old_sg = self.n_sg
             self.step()
 
-        self.summary()
+        self.summary(iter)
         if dn > dnmax:
             raise RuntimeError('Did not converge!')
 
@@ -453,10 +457,12 @@ class AllElectronAtom:
         #self.step()
         self.run(dnmax=1e-6, mix=0.7)
         
-    def summary(self):
+    def summary(self, iter=0):
         self.write_states()
         self.write_energies()
-
+        if iter > 0:
+            self.log('Converged in', iter, 'steps')
+            
     def write_states(self):
         self.log('\n state  occupation         eigenvalue          <r>')
         if self.dirac:
@@ -474,7 +480,7 @@ class AllElectronAtom:
             if self.nspins == 2:
                 name += '(%s)' % '+-'[ch.s]    
             n_g = ch.calculate_density(n)
-            rave = self.gd.integrate(n_g, 1)
+            rave = self.rgd.integrate(n_g, 1)
             self.log(' %-7s  %6.3f %13.6f  %13.5f %6.3f' %
                      (name, ch.f_n[n], e, e * units.Hartree, rave))
         self.log('=====================================================')
@@ -511,7 +517,7 @@ class AllElectronAtom:
         colors = 'krgbycm'
         for ch in self.channels:
             for n in range(len(ch.f_n)):
-                fr_g = ch.basis.expand(ch.C_nb[n]) * self.gd.r_g
+                fr_g = ch.basis.expand(ch.C_nb[n]) * self.rgd.r_g
                 name = str(n + ch.l + 1) + ch.name
                 lw = 2
                 if self.nspins == 2:
@@ -522,22 +528,22 @@ class AllElectronAtom:
                     lw = 1
                 ls = ['-', '--', '-.', ':'][ch.l]
                 n_g = ch.calculate_density(n)
-                rave = self.gd.integrate(n_g, 1)
-                gave = self.gd.round(rave)
+                rave = self.rgd.integrate(n_g, 1)
+                gave = self.rgd.round(rave)
                 fr_g *= cmp(fr_g[gave], 0)
-                plt.plot(self.gd.r_g, fr_g,
+                plt.plot(self.rgd.r_g, fr_g,
                          ls=ls, lw=lw, color=colors[n + ch.l], label=name)
         plt.legend(loc='best')
         plt.axis(xmax=rc)
         plt.show()
 
     def logarithmic_derivative(self, l, energies, rcut):
-        vr = interp1d(self.gd.r_g, self.vr_sg[0])
+        vr = interp1d(self.rgd.r_g, self.vr_sg[0], 'cubic')
         ch = Channel(l)
-        gcut = self.gd.round(rcut)
+        gcut = self.rgd.round(rcut)
         logderivs = []
         for e in energies:
-            u, dudr = ch.integrate_outwards(vr, self.gd.r_g[:gcut + 1], e)
+            u, dudr = ch.integrate_outwards(vr, self.rgd.r_g[:gcut + 1], e)
             logderivs.append(dudr[-1] / u[-1])
         return logderivs
             

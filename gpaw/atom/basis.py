@@ -12,7 +12,7 @@ from gpaw.spline import Spline
 from gpaw.atom.all_electron import AllElectron, ConvergenceError
 from gpaw.atom.generator import Generator
 from gpaw.atom.configurations import parameters
-from gpaw.grid_descriptor import AERadialGridDescriptor
+from gpaw.atom.radialgd import AERadialGridDescriptor
 #from gpaw.atom.polarization import PolarizationOrbitalGenerator, Reference,\
 #     QuasiGaussian, default_rchar_rel, rchar_rels
 from gpaw.utilities import devnull, divrl
@@ -95,7 +95,7 @@ def rsplit_by_norm(rgd, l, u, tailnorm_squared, txt):
     msg = ('Tail norm %.03f :: rsplit=%.02f Bohr' %
            ((partial_norm_squared / norm_squared)**0.5, rsplit))
     print >> txt, msg
-    gsplit = rgd.r2g_floor(rsplit)
+    gsplit = rgd.floor(rsplit)
     splitwave = make_split_valence_basis_function(rgd.r_g, u, l, gsplit)
     return rsplit, partial_norm_squared, splitwave
 
@@ -110,7 +110,8 @@ class BasisMaker:
                                   nofiles=True)
             generator.N *= 4
         self.generator = generator
-        self.rgd = AERadialGridDescriptor(generator.beta, generator.N,
+        self.rgd = AERadialGridDescriptor(generator.beta / generator.N,
+                                          1.0 / generator.N, generator.N,
                                           default_spline_points=100)
         self.name = name
         if run:
@@ -551,11 +552,10 @@ class BasisMaker:
             # not here
             
             # Quick hack to change to equidistant coordinates
-            spline = Spline(bf.l, rgd.r_g[rgd.r2g_floor(bf.rc)],
-                            bf.phit_g,
-                            rgd.r_g, beta=rgd.beta, points=100)
+            spline = rgd.spline(bf.phit_g, rgd.r_g[rgd.floor(bf.rc)], bf.l, 
+                                points=100)
             bf.phit_g = np.array([spline(r) * r**bf.l
-                                   for r in equidistant_grid[:bf.ng]])
+                                  for r in equidistant_grid[:bf.ng]])
             bf.phit_g[-1] = 0.
 
         basis = Basis(g.symbol, self.name, False)
@@ -563,7 +563,7 @@ class BasisMaker:
         basis.d = d
         basis.bf_j = bf_j
         basis.generatordata = textbuffer.getvalue().strip()
-        basis.generatorattrs = {'version' : version}
+        basis.generatorattrs = {'version': version}
         textbuffer.close()
 
         return basis

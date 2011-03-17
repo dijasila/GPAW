@@ -319,7 +319,7 @@ class PAWTextOutput:
                 sc = self.density.get_spin_contamination(self.atoms, 
                                                          int(magmom < 0))
                 t('Spin contamination: %f electrons' % sc)
-            except TypeError:
+            except (TypeError, AttributeError):
                 pass
             t('Local Magnetic Moments:')
             for a, mom in enumerate(self.get_magnetic_moments()):

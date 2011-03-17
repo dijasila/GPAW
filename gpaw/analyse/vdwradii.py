@@ -38,10 +38,7 @@ def vdWradii(symbols, xc):
         n_g = setup.nc_g.copy()
         for f, phi_g in zip(setup.f_j, setup.phi_jg):
             n_g += f * phi_g**2
-        beta = setup.beta
-        g = np.arange(setup.ng, dtype=float)
-        r_g = beta * g / (setup.ng - g)
-        return n_g, r_g
+        return n_g, setup.rgd.r_g
 
     radii = []
     radius = {}

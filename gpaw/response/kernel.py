@@ -82,7 +82,7 @@ def calculate_Kxc(gd, nt_sG, npw, Gvec_Gc, nG, vol,
                 xc.calculate_fxc(rgd, nt_sg, ft_sg)
         
                 coef_GGg = np.exp(-1j * np.outer(np.inner(dG_GGv, R_nv[n]),
-                                                 rgd.r_g)).reshape(npw,npw,rgd.ng)
+                                                 rgd.r_g)).reshape(npw,npw,rgd.N)
                 KxcPAW_GG += w * np.dot(coef_GGg, (f_sg[0]-ft_sg[0]) * dv_g) * coefatoms_GG
     world.sum(KxcPAW_GG)
     Kxc_GG += KxcPAW_GG

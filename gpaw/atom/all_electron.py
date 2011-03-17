@@ -15,7 +15,7 @@ import numpy as np
 from ase.data import atomic_names
 
 from gpaw.atom.configurations import configurations
-from gpaw.grid_descriptor import RadialGridDescriptor
+from gpaw.atom.radialgd import AERadialGridDescriptor
 from gpaw.xc import XC
 from gpaw.utilities import hartree, devnull
 from gpaw import ConvergenceError
@@ -155,11 +155,11 @@ class AllElectron:
         N = self.N
         beta = self.beta
         t(N, 'radial gridpoints.')
+        self.rgd = AERadialGridDescriptor(beta / N, 1.0 / N, N)
         g = np.arange(N, dtype=float)
-        self.r = beta * g / (N - g)
-        self.dr = beta * N / (N - g)**2
-        self.rgd = RadialGridDescriptor(self.r, self.dr)
-        self.d2gdr2 = -2 * N * beta / (beta + self.r)**3
+        self.r = self.rgd.r_g
+        self.dr = self.rgd.dr_g
+        self.d2gdr2 = self.rgd.d2gdr2()
 
         # Number of orbitals:
         nj = len(self.n_j)

@@ -132,8 +132,7 @@ class AllElectronPotential:
       dn_g -= Y0 * self.paw.density.Q_aL[a][0] * setup.g_lg[0]
       
       # Calculate the Hartree potential for this
-      vHr = np.zeros((xccorr.ng,))
-      hartree(0, dn_g * xccorr.rgd.r_g * xccorr.rgd.dr_g, setup.beta, setup.ng, vHr)
+      vHr = xccorr.rgd.poisson(dn_g)
 
       # Add the core potential contribution
       vHr -= setup.Z

@@ -16,6 +16,7 @@ from gpaw.utilities import _fact, divrl
 from gpaw.utilities.tools import md5_new
 from gpaw.xc.pawcorrection import PAWXCCorrection
 from gpaw.mpi import broadcast_string
+from gpaw.atom.radialgd import AERadialGridDescriptor
 
 try:
     import gzip
@@ -54,8 +55,7 @@ class SetupData:
         self.eps_j = []
         self.e_kin_jj = None # <phi | T | phi> - <phit | T | phit>
         
-        self.beta = None
-        self.ng = None
+        self.rgd = None
         self.rcgauss = None # For compensation charge expansion functions
         
         # State identifier, like "X-2s" or "X-p1", where X is chemical symbol,
@@ -104,6 +104,16 @@ class SetupData:
         if readxml:
             self.read_xml(world=world)
 
+    def append(self, n, l, f, e, rcut, phi_g, phit_g, pt_g):
+        self.n_j.append(n)
+        self.l_j.append(l)
+        self.f_j.append(f)
+        self.eps_j.append(e)
+        self.rcut_j.append(rcut)
+        self.phi_jg.append(phi_g)
+        self.phit_jg.append(phit_g)
+        self.pt_jg.append(pt_g)
+        
     def read_xml(self, source=None, world=None):
         PAWXMLParser(self).parse(source=source, world=world)
         nj = len(self.l_j)
@@ -148,16 +158,17 @@ class SetupData:
             j += 1
         text()
 
-    def create_compensation_charge_functions(self, lmax, r_g, dr_g):
+    def create_compensation_charge_functions(self, lmax):
         """Create Gaussians used to expand compensation charges."""
         rcgauss = self.rcgauss
-        g_lg = np.zeros((lmax + 1, len(r_g)))
+        g_lg = self.rgd.zeros(lmax + 1)
+        r_g = self.rgd.r_g
         g_lg[0] = 4 / rcgauss**3 / sqrt(pi) * np.exp(-(r_g / rcgauss)**2)
         for l in range(1, lmax + 1):
             g_lg[l] = 2.0 / (2 * l + 1) / rcgauss**2 * r_g * g_lg[l - 1]
 
         for l in range(lmax + 1):
-            g_lg[l] /= np.dot(r_g**(l + 2) * dr_g, g_lg[l])
+            g_lg[l] /= self.rgd.integrate(g_lg[l], l) / (4 * pi)
         return g_lg
 
     def get_smooth_core_density_integral(self, Delta0):
@@ -185,19 +196,20 @@ class SetupData:
                   for l in range(lmax + 1)]
         return ghat_l
 
-    def find_core_density_cutoff(self, r_g, dr_g, nc_g):
+    def find_core_density_cutoff(self, nc_g):
         if self.Nc == 0:
             return 1.0
         else:
+            rgd = self.rgd
             N = 0.0
-            g = self.ng - 1
+            g = self.rgd.N - 1
             while N < 1e-7:
-                N += sqrt(4 * pi) * nc_g[g] * r_g[g]**2 * dr_g[g]
+                N += sqrt(4 * pi) * nc_g[g] * rgd.r_g[g]**2 * rgd.dr_g[g]
                 g -= 1
-            return r_g[g]
+            return rgd.r_g[g]
 
     def get_max_projector_cutoff(self):
-        g = self.ng - 1
+        g = self.rgd.N - 1
         pt_g = self.pt_jg[0]
         while pt_g[g] == 0.0:
             g -= 1
@@ -271,9 +283,7 @@ class SetupData:
                 print >> xml, line2 % (l, rc, e, id)
         print >> xml, '  </valence_states>'
 
-        print >> xml, ('  <radial_grid eq="r=a*i/(n-i)" a="%f" n="%d" ' +
-                       'istart="0" iend="%d" id="g1"/>') % \
-                       (self.beta, self.ng, self.ng - 1)
+        print >> xml, self.rgd.xml('g1')
 
         print >> xml, ('  <shape_function type="gauss" rc="%.12e"/>' %
                        self.rcgauss)
@@ -290,7 +300,6 @@ class SetupData:
 
         for name, a in [('ae_core_density', self.nc_g),
                         ('pseudo_core_density', self.nct_g),
-                        ('pseudo_valence_density', self.nvt_g),
                         ('zero_potential', self.vbar_g),
                         ('ae_core_kinetic_energy_density', self.tauc_g),
                         ('pseudo_core_kinetic_energy_density', self.tauct_g)]:
@@ -456,10 +465,18 @@ http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details."""
             # Compatibility with old setups:
             if setup.version < '0.6' and setup.f_j[-1] == 0:
                 setup.n_j[-1] = -1
-        elif name in ['grid', 'radial_grid']:  # XXX
-            assert attrs['eq'] == 'r=a*i/(n-i)'
-            setup.ng = int(attrs['n'])
-            setup.beta = float(attrs['a'])
+        elif name == 'radial_grid':
+            if attrs['eq'] == 'r=a*i/(n-i)':
+                beta = float(attrs['a'])
+                ng = int(attrs['n'])
+                setup.rgd = AERadialGridDescriptor(beta / ng, 1.0 / ng, ng)
+            elif attrs['eq'] == 'r=a*i/(1-b*i)':
+                a = float(attrs['a'])
+                b = float(attrs['b'])
+                N = int(attrs['n'])
+                setup.rgd = AERadialGridDescriptor(a, b, N)
+            else:
+                raise ValueError('Unknown grid:' + attrs['eq'])
         elif name == 'shape_function':
             if attrs.has_key('rc'):
                 assert attrs['type'] == 'gauss'
