@@ -628,7 +628,7 @@ class PAW(PAWTextOutput):
         self.hamiltonian.update(self.density)
 
 
-    def attach(self, function, n, *args, **kwargs):
+    def attach(self, function, n=1, *args, **kwargs):
         """Register observer function.
 
         Call *function* every *n* iterations using *args* and
