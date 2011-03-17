@@ -14,6 +14,8 @@ from ase.atoms import Atoms
 import numpy as np
 
 import gpaw.mpi as mpi
+# from gpaw.mpi import broadcast
+
 import os,time,tempfile
 
 def open(filename, mode='r', comm=mpi.world):
@@ -499,6 +501,7 @@ def read(paw, reader):
     hdf5 = hasattr(r, 'hdf5_reader')
 
     par_kwargs = {}
+    
     if hdf5:
         par_kwargs.update({'parallel': True, 'read': True}) #XXX read on master only?
 
@@ -539,12 +542,15 @@ def read(paw, reader):
             raise ValueError('shape mismatch: expected %s=%d' % (name,dim))
 
     # Read pseudoelectron density on the coarse grid
-    # and distribute out to nodes:
+    # and broadcast on band_comm:
     timer.start('Pseudo-density')
     nt_sG = wfs.gd.empty(density.nspins)
     if hdf5:
         indices = [slice(0, density.nspins),] + wfs.gd.get_slice()
-        r.get('PseudoElectronDensity', out=nt_sG, parallel=True, *indices) #XXX read=?
+        do_read = (band_comm.rank == 0)
+        r.get('PseudoElectronDensity', out=nt_sG, parallel=True, read=do_read, 
+              *indices) #XXX read=?
+        band_comm.broadcast(nt_sG, 0)
     else:
         for s in range(density.nspins):
             wfs.gd.distribute(r.get('PseudoElectronDensity', s), nt_sG[s])
@@ -558,19 +564,27 @@ def read(paw, reader):
         do_read = (domain_comm.rank == 0)
         D_asp = read_atomic_matrices(r, 'AtomicDensityMatrices', wfs.setups,
                                      parallel=True, read=do_read)
+        # if not do_read:
+        #     obj = None
+        # D_asp {} needs to be broadcasted on domain_comm ?
+        # but it is not a NumPy array, how do we do this for a dictionary
+        # D_asp = broadcast(obj, 0, domain_comm)
     elif domain_comm.rank == 0:
         D_asp = read_atomic_matrices(r, 'AtomicDensityMatrices', wfs.setups)
     density.initialize_directly_from_arrays(nt_sG, D_asp)
     timer.stop('Atomic matrices')
 
     # Read pseudo potential on the coarse grid
-    # and distribute out to nodes:
+    # and broadcast on band_comm:
     timer.start('Pseudo-potential')
     if version > 0.3:
         hamiltonian.vt_sG = wfs.gd.empty(hamiltonian.nspins)
         if hdf5:
             indices = [slice(0, hamiltonian.nspins), ] + wfs.gd.get_slice()
-            r.get('PseudoPotential', out=hamiltonian.vt_sG, parallel=True, *indices) #XXX read=?
+            do_read = (band_comm.rank == 0)
+            r.get('PseudoPotential', out=hamiltonian.vt_sG, parallel=True, read=do_read, 
+                  *indices) #XXX read=?
+            band_comm.broadcast(hamiltonian.vt_sG, 0)
         else:
             for s in range(hamiltonian.nspins):
                 wfs.gd.distribute(r.get('PseudoPotential', s),
@@ -583,9 +597,13 @@ def read(paw, reader):
     hamiltonian.rank_a = np.zeros(natoms, int)
     if hdf5 and version > 0.3:
         do_read = (domain_comm.rank == 0)
-        hamiltonian.dH_asp = read_atomic_matrices(r, \
-            'NonLocalPartOfHamiltonian', wfs.setups,
-             parallel=True, read=do_read)
+        hamiltonian.dH_asp = read_atomic_matrices(r, 'NonLocalPartOfHamiltonian', 
+                                                  wfs.setups, parallel=True, read=do_read)
+        # if not do_read:
+        #     obj = None
+        # dD_asp {} needs to be broadcasted on domain_comm ?
+        # but it is not a NumPy array, how do we do this for a dictionary
+        # hamiltonian.dH_asp = broadcast(obj, 0, domain_comm)
     elif domain_comm.rank == 0 and version > 0.3:
         hamiltonian.dH_asp = read_atomic_matrices(r, \
             'NonLocalPartOfHamiltonian', wfs.setups)
@@ -666,19 +684,35 @@ def read(paw, reader):
         nbands == band_comm.size * wfs.mynbands):
 
         # Verify that symmetries for for k-point reduction hasn't changed:
-        assert np.abs(r.get('IBZKPoints')-wfs.kd.ibzk_kc).max() < 1e-12
-        assert np.abs(r.get('IBZKPointWeights')-wfs.kd.weight_k).max() < 1e-12
+        tol = 1e-12
+
+        if hdf5:
+            do_read = (world.rank == 0)
+            ibzk_kc = r.get('IBZKPoints', parallel=True, read=do_read)
+            weight_k = r.get('IBZKPointWeights', parallel=True, read=do_read)
+            if world.rank == 0:
+                assert np.abs(ibzk_kc - wfs.kd.ibzk_kc).max() < tol
+                assert np.abs(weight_k - wfs.kd.weight_k).max() < tol
+        else:
+            assert np.abs(r.get('IBZKPoints')-wfs.kd.ibzk_kc).max() < tol
+            assert np.abs(r.get('IBZKPointWeights')-wfs.kd.weight_k).max() < tol
 
         for kpt in wfs.kpt_u:
             # Eigenvalues and occupation numbers:
             timer.start('Band energies')
             k = kpt.k
             s = kpt.s
-            if hdf5:
+            if hdf5: # XXX will this work for simultaneous parallelization \
+                    # on bands and spins and k-points
+                do_read = (domain_comm.rank == 0)
                 indices = [s, k] 
                 indices.append(nslice)
-                kpt.eps_n = r.get('Eigenvalues', *indices, **par_kwargs)
-                kpt.f_n = r.get('OccupationNumbers', *indices, **par_kwargs)
+                kpt.eps_n = r.get('Eigenvalues', parallel=True, read=do_read,
+                                  *indices)
+                domain_comm.broadcast(kpt.eps_n, 0)
+                kpt.f_n = r.get('OccupationNumbers', parallel=True, read=do_read,
+                                *indices)
+                domain_comm.broadcast(kpt.f_n, 0)
             else:
                 eps_n = r.get('Eigenvalues', s, k, **par_kwargs)
                 f_n = r.get('OccupationNumbers', s, k, **par_kwargs)
@@ -686,7 +720,7 @@ def read(paw, reader):
                 kpt.f_n = f_n[nslice].copy()
             timer.stop('Band energies')
 
-            if norbitals is not None:
+            if norbitals is not None: # XXX will probably fail for hdf5
                 timer.start('dSCF expansions')
                 kpt.ne_o = np.empty(norbitals, dtype=float)
                 kpt.c_on = np.empty((norbitals, wfs.mynbands), dtype=complex)
@@ -799,12 +833,32 @@ def read_atoms(reader, **kwargs):
         reader = open(filename, 'r')
         assert not hasattr(reader, 'hdf5_reader') #XXX needs a communicator!
 
+    if hasattr(reader, 'hdf5_reader'): # horrible hack
+        hdf5_reader = True
+        assert reader.hdf5_reader == hdf5_reader 
+    else:
+        hdf5_reader = False
+
+    if hdf5_reader:
+        do_read = (reader.comm.rank == 0) # read only on root
+        kwargs.update({'parallel': False, 'read': do_read})
+
     positions = reader.get('CartesianPositions', **kwargs) * Bohr
     numbers = reader.get('AtomicNumbers', **kwargs)
     cell = reader.get('UnitCell', **kwargs) * Bohr
     pbc = reader.get('BoundaryConditions', **kwargs)
     tags = reader.get('Tags', **kwargs)
     magmoms = reader.get('MagneticMoments', **kwargs)
+
+    # we need to broadcast this information from root
+    # for the hdf5_reader, but we should probably always do this
+    if hdf5_reader: 
+        reader.comm.broadcast(positions, 0)
+        reader.comm.broadcast(numbers, 0)
+        reader.comm.broadcast(cell, 0)
+        reader.comm.broadcast(pbc, 0)
+        reader.comm.broadcast(tags, 0)
+        reader.comm.broadcast(magmoms, 0)
 
     atoms = Atoms(positions=positions,
                   numbers=numbers,
@@ -817,7 +871,9 @@ def read_atoms(reader, **kwargs):
         atoms.set_initial_magnetic_moments(magmoms)
 
     if reader.has_array('CartesianVelocities'):
-        velocities = reader.get('CartesianVelocities') * Bohr / AUT
+        velocities = reader.get('CartesianVelocities', **kwargs) * Bohr / AUT
+        if hdf5_reader:
+            reader.comm.broadcast(velocities, 0)
         atoms.set_velocities(velocities)
 
     return atoms

@@ -10,19 +10,23 @@ floatsize = np.array([1], float).itemsize
 complexsize = np.array([1], complex).itemsize
 itemsizes = {'int': intsize, 'float': floatsize, 'complex': complexsize}
 
+from gpaw.mpi import broadcast
+
 class Writer:
     def __init__(self, name, comm=None):
+        self.comm = comm # used for broadcasting replicated data, not \
+            # really used in the Writer
         self.dims = {}        
         try:
-           if comm.rank == 0:
+           if self.comm.rank == 0:
                if os.path.isfile(name):
                    os.rename(name, name[:-5] + '.old'+name[-5:])
-           comm.barrier()
+           self.comm.barrier()
         except AttributeError:
            if os.path.isfile(name):
                os.rename(name, name[:-5] + '.old'+name[-5:])
 
-        self.file = File(name, 'w', comm.get_c_object())
+        self.file = File(name, 'w', self.comm.get_c_object())
         self.dims_grp = self.file.create_group("Dimensions")
         self.params_grp = self.file.create_group("Parameters")
         self.file.attrs['title'] = 'gpaw_io version="0.1"'
@@ -100,8 +104,9 @@ class Writer:
         self.file.close()
         
 class Reader:
-    def __init__(self, name, comm=False):
-        self.file = File(name, 'r', comm.get_c_object())
+    def __init__(self, name, comm=None):
+        self.comm = comm # used for broadcasting replicated data 
+        self.file = File(name, 'r', self.comm.get_c_object())
         self.params_grp = self.file['Parameters']
         self.hdf5_reader = True
 
@@ -110,7 +115,13 @@ class Reader:
         return dims_grp.attrs[name]
     
     def __getitem__(self, name):
-        value = self.params_grp.attrs[name]
+        obj = None
+        if self.comm.rank == 0:
+            obj = self.params_grp.attrs[name]
+              
+        value = broadcast(obj, 0, self.comm)
+
+        # print self.comm.rank, value
         try:
             value = eval(value, {})
         except (SyntaxError, NameError, TypeError):
