@@ -50,22 +50,18 @@ algorithms used <features_and_algorithms>`.
   <http://www.fyslab.hut.fi>`_
 
 
-.. note::
-
-    |CAMd| Summer School 2010 links:
-
-    * Programme_
-    * :ref:`exercises`
-
-
-.. _Programme:
-   http://www.camd.dtu.dk/English/Events/CAMD_Summer_School_2010.aspx
-.. |CAMd| image:: camd.png
-
 .. _news:
 
 News
 ====
+
+* New features: Calculation of the linear :ref:`dielectric response
+  <df_theory>` of an extended system (RPA and ALDA kernels) and
+  calculation of :ref:`rpa` (Mar 18 2011)
+
+* Massively parallel GPAW calculations presented at `PyCon 2011`_.
+  See William Scullin's talk here: `Python for High Performance
+  Computing`_ (Mar 12 2011)
 
 * :ref:`GPAW version 0.7.2 <releasenotes>` released (Aug 13 2010)
 
@@ -122,3 +118,5 @@ News
 .. _code sprint 2007: http://www.dtu.dk/Nyheder/Nyt_fra_Institutterne.aspx?guid={38B92D63-FB09-4DFA-A074-504146A2D678}
 .. _Virtual NanoLab: http://www.quantumwise.com/products/12-products/28-atk-se-200906#GPAW
 .. _scientific highlight of the month: http://www.psi-k.org/newsletters/News_98/Highlight_98.pdf
+.. _pycon 2011: http://us.pycon.org/2011/schedule/presentations/226/
+.. _Python for High Performance Computing: http://vodpod.com/watch/5761227-pycon-2011-python-for-high-performance-computing
