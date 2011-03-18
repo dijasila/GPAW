@@ -14,7 +14,6 @@ from ase.atoms import Atoms
 import numpy as np
 
 import gpaw.mpi as mpi
-# from gpaw.mpi import broadcast
 
 import os,time,tempfile
 
@@ -252,7 +251,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     timer.start('Projections')
     if master or hdf5:
         w.add('Projections', ('nspins', 'nibzkpts', 'nbands', 'nproj'),
-              dtype=dtype)
+              dtype=dtype, **par_kwargs)
     if hdf5:
         # Domain masters write parallel over spin, kpoints and band groups
         all_P_ni = np.empty((wfs.mynbands, nproj), dtype=wfs.dtype)
@@ -317,11 +316,13 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
                 domain_comm.send(density.D_asp[a], 0, 207)
                 domain_comm.send(hamiltonian.dH_asp[a], 0, 2071)
     if master or hdf5:
-        w.add('AtomicDensityMatrices', ('nspins', 'nadm'), dtype=float)
+        w.add('AtomicDensityMatrices', ('nspins', 'nadm'), dtype=float, \
+                  **par_kwargs)
     if master:
         w.fill(all_D_sp)
     if master or hdf5:
-        w.add('NonLocalPartOfHamiltonian', ('nspins', 'nadm'), dtype=float)
+        w.add('NonLocalPartOfHamiltonian', ('nspins', 'nadm'), dtype=float, \
+                  **par_kwargs)
     if master:
         w.fill(all_H_sp)
     timer.stop('Atomic matrices')
@@ -330,7 +331,8 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     timer.start('Band energies')
     for name, var in [('Eigenvalues', 'eps_n'), ('OccupationNumbers', 'f_n')]:
         if master or hdf5:
-            w.add(name, ('nspins', 'nibzkpts', 'nbands'), dtype=float)
+            w.add(name, ('nspins', 'nibzkpts', 'nbands'), dtype=float, \
+                      **par_kwargs)
         for s in range(wfs.nspins):
             for k in range(wfs.nibzkpts):
                 # if hdf5:  XXX Figure this out later
@@ -356,8 +358,8 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         timer.start('dSCF expansions')
         if master or hdf5:
             w.dimension('norbitals', norbitals)
-            w.add('LinearExpansionOccupations', ('nspins',
-                  'nibzkpts', 'norbitals'), dtype=float)
+            w.add('LinearExpansionOccupations', ('nspins', \
+                  'nibzkpts', 'norbitals'), dtype=float, **par_kwargs)
         for s in range(wfs.nspins):
             for k in range(wfs.nibzkpts):
                 ne_o = wfs.collect_auxiliary('ne_o', k, s, shape=norbitals)
@@ -365,8 +367,9 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
                     w.fill(ne_o, s, k)
 
         if master or hdf5:
-            w.add('LinearExpansionCoefficients', ('nspins',
-                  'nibzkpts', 'norbitals', 'nbands'), dtype=complex)
+            w.add('LinearExpansionCoefficients', ('nspins', \
+                  'nibzkpts', 'norbitals', 'nbands'), dtype=complex, \
+                      **par_kwargs)
         for s in range(wfs.nspins):
             for k in range(wfs.nibzkpts):
                 for o in range(norbitals):
@@ -378,8 +381,9 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     # Write the pseudodensity on the coarse grid:
     timer.start('Pseudo-density')
     if master or hdf5:
-        w.add('PseudoElectronDensity',
-              ('nspins', 'ngptsx', 'ngptsy', 'ngptsz'), dtype=float)
+        w.add('PseudoElectronDensity', \
+              ('nspins', 'ngptsx', 'ngptsy', 'ngptsz'), dtype=float, \
+                  **par_kwargs)
 
     for s in range(wfs.nspins):
         if hdf5:
@@ -396,8 +400,9 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     # Write the pseudopotential on the coarse grid:
     timer.start('Pseudo-potential')
     if master or hdf5:
-        w.add('PseudoPotential',
-              ('nspins', 'ngptsx', 'ngptsy', 'ngptsz'), dtype=float)
+        w.add('PseudoPotential', \
+              ('nspins', 'ngptsx', 'ngptsy', 'ngptsz'), dtype=float, \
+                  **par_kwargs)
 
     for s in range(wfs.nspins):
         if hdf5:

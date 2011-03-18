@@ -14,8 +14,7 @@ from gpaw.mpi import broadcast
 
 class Writer:
     def __init__(self, name, comm=None):
-        self.comm = comm # used for broadcasting replicated data, not \
-            # really used in the Writer
+        self.comm = comm # not used much in writer
         self.dims = {}        
         try:
            if self.comm.rank == 0:
@@ -39,6 +38,7 @@ class Writer:
         self.dims_grp.attrs[name] = value
 
     def __setitem__(self, name, value):
+        # if self.comm.rank == 0: writing on master leads to hang
         self.params_grp.attrs[name] = value
 
     def add(self, name, shape, array=None, dtype=None, 
@@ -116,12 +116,11 @@ class Reader:
     
     def __getitem__(self, name):
         obj = None
-        if self.comm.rank == 0:
+        if self.comm.rank == 0: # not sure that this is necessary
             obj = self.params_grp.attrs[name]
               
         value = broadcast(obj, 0, self.comm)
 
-        # print self.comm.rank, value
         try:
             value = eval(value, {})
         except (SyntaxError, NameError, TypeError):
