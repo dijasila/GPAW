@@ -418,53 +418,6 @@ class GPAW(PAW):
             self.converge_wave_functions()
         return self.hamiltonian.get_xc_difference(xc, self.density) * Hartree
 
-    def get_nonselfconsistent_eigenvalues(self, xcname):
-        wfs = self.wfs
-        oldxc = self.hamiltonian.xc.xcfunc
-
-        def shiftxc(calc, xc, energy_only=False):
-            if isinstance(xc, str):
-                xc = XCFunctional(xc, calc.wfs.nspins)
-            elif isinstance(xc, dict):
-                xc = XCFunctional(xc.copy(), calc.wfs.nspins)
-            xc.set_non_local_things(calc.density, calc.hamiltonian, calc.wfs,
-                                    calc.atoms, energy_only=energy_only)
-            calc.hamiltonian.xc.set_functional(xc)
-            calc.hamiltonian.xc.set_positions(
-                calc.atoms.get_scaled_positions() % 1.0)
-            for setup in calc.wfs.setups:
-                setup.xc_correction.xc.set_functional(xc)
-                if xc.mgga:
-                    setup.xc_correction.initialize_kinetic(setup.data)
-
-        # Read in stuff from the file
-        assert wfs.kpt_u[0].psit_nG is not None, 'gpw file must contain wfs!'
-        wfs.initialize_wave_functions_from_restart_file()
-        self.set_positions()
-        for kpt in wfs.kpt_u:
-            wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-
-        # Change the xc functional
-        shiftxc(self, xcname)
-
-        # Recalculate the effective potential
-        self.hamiltonian.update(self.density)
-        if not wfs.eigensolver.initialized:
-            wfs.eigensolver.initialize(wfs)
-
-        # Apply Hamiltonian and get new eigenvalues, occupation, and energy
-        for kpt in wfs.kpt_u:
-            wfs.eigensolver.subspace_diagonalize(
-                self.hamiltonian, wfs, kpt, rotate=False)
-
-        # Change xc functional back to the original
-        shiftxc(self, oldxc)
-
-        eig_skn = np.array([[self.get_eigenvalues(kpt=k, spin=s)
-                             for k in range(wfs.nibzkpts)]
-                            for s in range(wfs.nspins)])
-        return eig_skn
-
     def initial_wannier(self, initialwannier, kpointgrid, fixedstates,
                         edf, spin):
         """Initial guess for the shape of wannier functions.

@@ -447,56 +447,6 @@ class Hamiltonian:
         Exc = self.gd.comm.sum(Exc)
         return Exc - self.Exc
 
-    def get_vxc(self, density, wfs):
-        """Calculate matrix elements of the xc-potential."""
-        dtype = wfs.dtype
-        nbands = wfs.nbands
-        nu = len(wfs.kpt_u)
-        if density.nt_sg is None:
-            density.interpolate()
-
-        # Allocate space for result matrix
-        Vxc_unn = np.empty((nu, nbands, nbands), dtype=dtype)
-
-        # Get pseudo xc potential on the coarse grid
-        Vxct_sG = self.gd.empty(self.nspins)
-        Vxct_sg = self.finegd.zeros(self.nspins)
-        if nspins == 1:
-            self.xc.get_energy_and_potential(density.nt_sg[0], Vxct_sg[0])
-        else:
-            self.xc.get_energy_and_potential(density.nt_sg[0], Vxct_sg[0],
-                                             density.nt_sg[1], Vxct_sg[1])
-        for Vxct_G, Vxct_g in zip(Vxct_sG, Vxct_sg):
-            self.restrict(Vxct_g, Vxct_G)
-        del Vxct_sg
-
-        # Get atomic corrections to the xc potential
-        Vxc_asp = {}
-        for a, D_sp in density.D_asp.items():
-            Vxc_asp[a] = np.zeros_like(D_sp)
-            self.setups[a].xc_correction.calculate_energy_and_derivatives(
-                D_sp, Vxc_asp[a])
-
-        # Project potential onto the eigenstates
-        for kpt, Vxc_nn in xip(wfs.kpt_u, Vxc_unn):
-            s, q = kpt.s, kpt.q
-            psit_nG = kpt.psit_nG
-
-            # Project pseudo part
-            r2k(.5 * self.gd.dv, psit_nG, Vxct_sG[s] * psit_nG, 0.0, Vxc_nn)
-            tri2full(Vxc_nn, 'L')
-            self.gd.comm.sum(Vxc_nn)
-
-            # Add atomic corrections
-            # H_ij = \int dr phi_i(r) Ĥ phi_j^*(r)
-            # P_ni = \int dr psi_n(r) pt_i^*(r)
-            # Vxc_nm = \int dr phi_n(r) vxc(r) phi_m^*(r)
-            #      + sum_ij P_ni H_ij P_mj^*
-            for a, P_ni in kpt.P_ani.items():
-                Vxc_ii = unpack(Vxc_asp[a][s])
-                Vxc_nn += np.dot(P_ni, np.inner(H_ii, P_ni).conj())
-        return Vxc_unn
-
     def estimate_memory(self, mem):
         nbytes = self.gd.bytecount()
         nfinebytes = self.finegd.bytecount()
