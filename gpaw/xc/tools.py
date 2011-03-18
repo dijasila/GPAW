@@ -1,4 +1,5 @@
 import numpy as np
+from ase.units import Hartree
 
 from gpaw.xc import XC
 from gpaw.utilities import unpack
@@ -52,4 +53,4 @@ def vxc(paw, xc=None):
 
     wfs.gd.comm.sum(vxc_un)
 
-    return vxc_un
+    return vxc_un * Hartree
