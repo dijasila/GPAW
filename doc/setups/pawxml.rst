@@ -241,7 +241,7 @@ and each numerical function must refer to one of these ids::
 In this example, the ``function`` element should contain 100 numbers
 (`i = 0, ..., 99`).  Each number must be separated by a ``<newline>``
 character or by one or more ``<tab>``'s or ``<space>``'s (no commas).
-For numbers with scientific nutation, use this format: ``1.23456e-5``
+For numbers with scientific notation, use this format: ``1.23456e-5``
 or ``1.23456E-5`` and not ``1.23456D-5``.
 
 There are currently five types of radial grids:
@@ -249,7 +249,8 @@ There are currently five types of radial grids:
   =====================  ========================
   ``eq``                 parameters
   =====================  ========================
-  ``r=a*exp(d*i))``      ``a`` and ``d``
+  ``r=a*exp(d*i)``       ``a`` and ``d``
+  ``r=a*i/(1-b*i)``      ``a`` and ``b``
   ``r=a*i/(n-i)``        ``a`` and ``n``
   ``r=a*(exp(d*i)-1)``   ``a`` and ``d``
   ``r=d*i``              ``d``
@@ -506,6 +507,12 @@ Examples::
   [~]$ pawxml.py -x pseudo_partial_wave -s N2p N.LDA > N.ps.2p 
   [~]$ xmgrace N.??.2p
 
+
+----
+TODO
+----
+
+* Meta-GGA needs the kinetic energy-density of the core electrons.
 
 
 
