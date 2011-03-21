@@ -210,6 +210,7 @@ tests = [
     'coreeig.py',
     'Cu.py',
     'diamond_gllb.py',
+    'wannierk.py',
     'exx.py',
     'h2o_dks.py',
     'nscfsic.py',
