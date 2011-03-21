@@ -113,7 +113,7 @@ class GPAW(PAW):
  
     def get_bz_k_points(self):
         """Return the k-points."""
-        return self.wfs.bzk_kc
+        return self.wfs.kd.bzk_kc
  
     def get_number_of_spins(self):
         return self.wfs.nspins
@@ -124,7 +124,7 @@ class GPAW(PAW):
     
     def get_ibz_k_points(self):
         """Return k-points in the irreducible part of the Brillouin zone."""
-        return self.wfs.ibzk_kc
+        return self.wfs.kd.ibzk_kc
 
     def get_k_point_weights(self):
         """Weights of the k-points.
@@ -440,7 +440,7 @@ class GPAW(PAW):
 
         # Due to orthorhombic cells, only one component of dirG is non-zero.
         c = dirG.tolist().index(1)
-        k_kc = self.wfs.bzk_kc
+        k_kc = self.wfs.kd.bzk_kc
         G = k_kc[nextkpoint, c] - k_kc[kpoint, c] - G_I[c]
 
         return self.get_wannier_integrals(c, spin, kpoint,
@@ -450,9 +450,9 @@ class GPAW(PAW):
         """Calculate integrals for maximally localized Wannier functions."""
 
         assert s <= self.wfs.nspins
-        kpt_rank, u = divmod(k + len(self.wfs.ibzk_kc) * s,
+        kpt_rank, u = divmod(k + len(self.wfs.kd.ibzk_kc) * s,
                              len(self.wfs.kpt_u))
-        kpt_rank1, u1 = divmod(k1 + len(self.wfs.ibzk_kc) * s,
+        kpt_rank1, u1 = divmod(k1 + len(self.wfs.kd.ibzk_kc) * s,
                                len(self.wfs.kpt_u))
         kpt_u = self.wfs.kpt_u
 
@@ -469,7 +469,7 @@ class GPAW(PAW):
         # Add corrections
         self.add_wannier_correction(Z_nn, G, c, u, u1, nbands)
 
-        self.wfs.gd.comm.sum(Z_nn, 0)
+        self.wfs.gd.comm.sum(Z_nn)
             
         return Z_nn
 
