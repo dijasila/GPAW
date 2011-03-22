@@ -119,4 +119,4 @@ News
 .. _Virtual NanoLab: http://www.quantumwise.com/products/12-products/28-atk-se-200906#GPAW
 .. _scientific highlight of the month: http://www.psi-k.org/newsletters/News_98/Highlight_98.pdf
 .. _pycon 2011: http://us.pycon.org/2011/schedule/presentations/226/
-.. _Python for High Performance Computing: http://vodpod.com/watch/5761227-pycon-2011-python-for-high-performance-computing
+.. _Python for High Performance Computing: http://pycon.blip.tv/file/4881240/
