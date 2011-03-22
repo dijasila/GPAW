@@ -441,7 +441,7 @@ class GridDescriptor(Domain):
         self.comm.sum(d_c)
         return d_c
 
-    def wannier_matrix(self, psit_nG, psit_nG1, c, G, nbands=None):
+    def wannier_matrix(self, psit_nG, psit_nG1, G_c, nbands=None):
         """Wannier localization integrals
 
         The soft part of Z is given by (Eq. 27 ref1)::
@@ -450,42 +450,17 @@ class GridDescriptor(Domain):
             Z   = <psi | e      |psi >
              nm       n             m
                     
-        G is 1/N_c (plus 1 if k-points distances should be wrapped over
-        the Brillouin zone), where N_c is the number of k-points along
-        axis c, psit_nG and psit_nG1 are the set of wave functions for
-        the two different spin/kpoints in question.
+        psit_nG and psit_nG1 are the set of wave functions for the two
+        different spin/kpoints in question.
 
         ref1: Thygesen et al, Phys. Rev. B 72, 125119 (2005) 
         """
-        same_wave = False
-        if psit_nG is psit_nG1:
-            same_wave = True
 
-        if nbands is None:
-            nbands = len(psit_nG)
-        
-        def get_slice(c, g, psit_nG):
-            if c == 0:
-                slice_nG = psit_nG[:nbands, g].copy()
-            elif c == 1:
-                slice_nG = psit_nG[:nbands, :, g].copy()
-            else:
-                slice_nG = psit_nG[:nbands, :, :, g].copy()
-            return slice_nG.reshape((nbands, np.prod(slice_nG.shape[1:])))
-        
-        Z_nn = np.zeros((nbands, nbands), complex)
-        for g in range(self.n_c[c]):
-            A_nG = get_slice(c, g, psit_nG)
-                
-            if same_wave:
-                B_nG = A_nG
-            else:
-                B_nG = get_slice(c, g, psit_nG1)
-                
-            e = exp(-2.j * pi * G * (g + self.beg_c[c]) / self.N_c[c])
-            Z_nn += e * np.dot(A_nG.conj(), B_nG.T) * self.dv
-            
-        return Z_nn
+        e_G = np.exp(-2j * pi * np.dot(np.indices(self.n_c).T +
+                                       self.beg_c, G_c / self.N_c).T)
+        a_nG = (e_G * psit_nG[:nbands].conj()).reshape((nbands, -1))
+        return np.inner(a_nG,
+                        psit_nG1[:nbands].reshape((nbands, -1))) * self.dv
 
     def bytecount(self, dtype=float):
         """Get the number of bytes used by a grid of specified dtype."""

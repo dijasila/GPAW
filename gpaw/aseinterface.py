@@ -439,14 +439,13 @@ class GPAW(PAW):
         """Calculate integrals for maximally localized Wannier functions."""
 
         # Due to orthorhombic cells, only one component of dirG is non-zero.
-        c = dirG.tolist().index(1)
         k_kc = self.wfs.kd.bzk_kc
-        G = k_kc[nextkpoint, c] - k_kc[kpoint, c] - G_I[c]
+        G_c = k_kc[nextkpoint] - k_kc[kpoint] - G_I
 
-        return self.get_wannier_integrals(c, spin, kpoint,
-                                          nextkpoint, G, nbands)
+        return self.get_wannier_integrals(spin, kpoint,
+                                          nextkpoint, G_c, nbands)
 
-    def get_wannier_integrals(self, c, s, k, k1, G, nbands=None):
+    def get_wannier_integrals(self, s, k, k1, G_c, nbands=None):
         """Calculate integrals for maximally localized Wannier functions."""
 
         assert s <= self.wfs.nspins
@@ -464,16 +463,16 @@ class GPAW(PAW):
         
         # Get pseudo part
         Z_nn = self.wfs.gd.wannier_matrix(kpt_u[u].psit_nG,
-                                          kpt_u[u1].psit_nG, c, G, nbands)
+                                          kpt_u[u1].psit_nG, G_c, nbands)
 
         # Add corrections
-        self.add_wannier_correction(Z_nn, G, c, u, u1, nbands)
+        self.add_wannier_correction(Z_nn, G_c, u, u1, nbands)
 
         self.wfs.gd.comm.sum(Z_nn)
             
         return Z_nn
 
-    def add_wannier_correction(self, Z_nn, G, c, u, u1, nbands=None):
+    def add_wannier_correction(self, Z_nn, G_c, u, u1, nbands=None):
         """
         Calculate the correction to the wannier integrals Z,
         given by (Eq. 27 ref1)::
@@ -500,14 +499,14 @@ class GPAW(PAW):
             
         P_ani = self.wfs.kpt_u[u].P_ani
         P1_ani = self.wfs.kpt_u[u1].P_ani
-        spos_av = self.atoms.get_scaled_positions()
+        spos_ac = self.atoms.get_scaled_positions()
         for a, P_ni in P_ani.items():
             P_ni = P_ani[a][:nbands]
             P1_ni = P1_ani[a][:nbands]
             dO_ii = self.wfs.setups[a].dO_ii
-            e = np.exp(-2.j * np.pi * G * spos_av[a, c])
+            e = np.exp(-2.j * np.pi * np.dot(G_c, spos_ac[a]))
             Z_nn += e * np.dot(np.dot(P_ni.conj(), dO_ii), P1_ni.T)
-
+            
     def get_projections(self, locfun, spin=0):
         """Project wave functions onto localized functions
 
