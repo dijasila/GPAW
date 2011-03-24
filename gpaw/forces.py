@@ -9,7 +9,7 @@ class ForceCalculator:
     def reset(self):
         self.F_av = None
 
-    def calculate(self, wfs, density, hamiltonian):
+    def calculate(self, wfs, density, hamiltonian, td_correction = None):
         """Return the atomic forces."""
 
         if self.F_av is not None:
@@ -25,7 +25,7 @@ class ForceCalculator:
             vt_G = vt_sG[0]
 
         # Force from projector functions (and basis set):
-        wfs.calculate_forces(hamiltonian, self.F_av)
+        wfs.calculate_forces(hamiltonian, self.F_av, td_correction=td_correction)
         
         try:
             # ODD functionals need force corrections for each spin
