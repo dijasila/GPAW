@@ -24,6 +24,8 @@ from gpaw.tddft.cscg import CSCG
 from gpaw.tddft.propagators import \
     ExplicitCrankNicolson, \
     SemiImplicitCrankNicolson, \
+    EhrenfestPAWSICN,\
+    EhrenfestHGHSICN,\
     EnforcedTimeReversalSymmetryCrankNicolson, \
     SemiImplicitTaylorExponential, \
     SemiImplicitKrylovExponential, \
@@ -192,6 +194,14 @@ class TDDFT(GPAW):
                 self.preconditioner, wfs.gd, self.timer)
         elif propagator is 'SICN':
             self.propagator = SemiImplicitCrankNicolson(self.td_density,
+                self.td_hamiltonian, self.td_overlap, self.solver,
+                self.preconditioner, wfs.gd, self.timer)
+        elif propagator is 'EFSICN':
+            self.propagator = EhrenfestPAWSICN(self.td_density,
+                self.td_hamiltonian, self.td_overlap, self.solver,
+                self.preconditioner, wfs.gd, self.timer)
+        elif propagator is 'EFSICN_HGH':
+            self.propagator = EhrenfestHGHSICN(self.td_density,
                 self.td_hamiltonian, self.td_overlap, self.solver,
                 self.preconditioner, wfs.gd, self.timer)
         elif propagator is 'ETRSCN':

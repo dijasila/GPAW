@@ -258,6 +258,58 @@ class TimeDependentHamiltonian:
                                        Gradient(gd,2, n=2, dtype=complex)))
             self.lpsit=None
 
+    def calculate_paw_correction(self, psit_nG, hpsit, wfs, kpt, v_atom, calculate_P_ani=True):
+        """ Operates on psit_nG with the P-term that is present in PAW based Ehrenfest dynamics
+
+        Parameters
+        ---------
+        psit_nG: list of coarse grid wavefunctions
+
+        hpsit: array to which P psit_nG is added
+
+        wfs: Wavefunctions object
+
+        kpt: Kpoint object
+
+        v_atom: atomic velocities
+
+        """
+
+        shape = psit_nG.shape[:-3]
+        P_axi = wfs.pt.dict(shape)
+        wfs.pt.integrate(psit_nG, P_axi, kpt.q)
+        
+        #G_LLL = gaunt # G_LLL[L1,L2,L3] = \int Y_L1 Y_L2 Y_L3
+            
+        #Coefficients for calculating P \psi_n
+        # P = -i sum_a v_a P^a, P^a = T^{\dagger} \nabla_{R_a} T
+        w_ani = wfs.pt.dict(wfs.bd.mynbands, zero=True)
+        #projector derivatives < nabla pt_i^a | psit_n >
+        dpt_aniv = wfs.pt.dict(wfs.bd.mynbands, derivative=True)     
+        wfs.pt.derivative(psit_nG, dpt_aniv, kpt.q)
+        #wfs.calculate_forces(paw.hamiltonian, F_av)
+        for a in dpt_aniv.keys():
+            #ni = wfs.pt.get_function_count(a)
+            for c in range(3):
+
+                P_xi = P_axi[a]
+                #nabla_iiv contains terms < \phi_i1^a | d / d v phi_i2^a >
+                #- < phit_i1^a | d / dv phit_i2^a>, where v is either x,y or z              
+                nabla_ii = wfs.setups[a].nabla_iiv[:,:,c]
+                dpt_ni = dpt_aniv[a][:,:,c]
+                dO_ii = wfs.setups[a].dO_ii
+                #dphi_aniv[a] = np.dot(P_xi, nabla_ii.transpose())
+                dphi_ni = np.dot(P_xi, nabla_ii.transpose())
+                pt_ni = np.dot(dpt_ni, dO_ii)
+                #pt_aniv[a] = np.dot(Dpt_ni, dO_ii)
+                w_ani[a] += (dphi_ni + pt_ni) * v_atom[a,c]
+                        
+            w_ani[a] *= complex(0,1)
+            #dO_ani[a] *= complex(0,1)
+
+        #wfs.pt.add(ppsit, W_ani, kpt.q)
+        wfs.pt.add(hpsit, w_ani, kpt.q)
+
 
 # AbsorptionKickHamiltonian
 class AbsorptionKickHamiltonian:
