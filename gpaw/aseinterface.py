@@ -419,20 +419,29 @@ class GPAW(PAW):
         return self.hamiltonian.get_xc_difference(xc, self.density) * Hartree
 
     def initial_wannier(self, initialwannier, kpointgrid, fixedstates,
-                        edf, spin):
+                        edf, spin, nbands):
         """Initial guess for the shape of wannier functions.
 
         Use initial guess for wannier orbitals to determine rotation
         matrices U and C.
         """
-        if not self.wfs.gamma:
-            raise NotImplementedError
+        #if not self.wfs.gamma:
+        #    raise NotImplementedError
         from ase.dft.wannier import rotation_from_projection
         proj_knw = self.get_projections(initialwannier, spin)
-        U_ww, C_ul = rotation_from_projection(proj_knw[0],
-                                              fixedstates[0],
-                                              ortho=True)
-        return [C_ul], U_ww[np.newaxis]
+        U_kww = []
+        C_kul = []
+        for fixed, proj_nw in zip(fixedstates, proj_knw):
+            U_ww, C_ul = rotation_from_projection(proj_nw[:nbands],
+                                                  fixed,
+                                                  ortho=True)
+            U_kww.append(U_ww)
+            C_kul.append(C_ul)
+
+        U_kww = np.asarray(U_kww)
+        return C_kul, U_kww 
+
+
 
     def get_wannier_localization_matrix(self, nbands, dirG, kpoint,
                                         nextkpoint, G_I, spin):
@@ -565,7 +574,7 @@ class GPAW(PAW):
                 spos_c = spos_ac[spos_c]
             spos_xc.append(spos_c)
             alpha = .5 * Bohr**2 / sigma**2
-            r = np.linspace(0, 6. * sigma, 500)
+            r = np.linspace(0, 10. * sigma, 500)
             f_g = (_fact[l] * (4 * alpha)**(l + 3 / 2.) *
                    np.exp(-alpha * r**2) /
                    (np.sqrt(4 * np.pi) * _fact[2 * l + 1]))
