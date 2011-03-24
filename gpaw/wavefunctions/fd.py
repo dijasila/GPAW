@@ -14,9 +14,6 @@ from gpaw import extra_parameters
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.hs_operators import MatrixOperator
 from gpaw.preconditioner import Preconditioner
-from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.kpoint import KPoint
-from gpaw.mpi import serial_comm
 
 
 class FDWaveFunctions(FDPWWaveFunctions):
@@ -101,21 +98,65 @@ class FDWaveFunctions(FDPWWaveFunctions):
         self.band_comm.sum(taut_sG)
         return taut_sG
         
-    def calculate_forces(self, hamiltonian, F_av):
+    def calculate_forces(self, hamiltonian, F_av, td_correction=None):
+        """ Calculate wavefunction forces with optional corrections for
+            Ehrenfest dynamics
+        """  
+
+            
+        #If td_correction is not none, we replace the overlap part of the
+        #force, sum_n f_n eps_n < psit_n | dO / dR_a | psit_n>, with
+        #sum_n f_n <psit_n | H S^-1 D^a + c.c. | psit_n >, with D^a
+        #defined as D^a = sum_{i1,i2} | pt_i1^a > [O_{i1,i2} < d pt_i2^a / dR_a |
+        #+ (< phi_i1^a | d phi_i2^a / dR_a > - < phit_i1^a | d phit_i2^a / dR_a >) < pt_i1^a|].
+        #This is required in order to conserve the total energy also when electronic
+        #excitations start to play a significant role.
+
+        #TODO: move the corrections into the tddft directory
+        
         # Calculate force-contribution from k-points:
         F_av.fill(0.0)
         F_aniv = self.pt.dict(self.bd.mynbands, derivative=True)
+        #print 'self.dtype =', self.dtype
         for kpt in self.kpt_u:
+            #self.overlap.update_k_point_projections(kpt)
+            self.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+            hpsit = self.gd.zeros(len(kpt.psit_nG), dtype=self.dtype)
+            #eps_psit = self.gd.zeros(len(kpt.psit_nG), dtype=self.dtype)
+            sinvhpsit = self.gd.zeros(len(kpt.psit_nG), dtype=self.dtype)
+            hamiltonian.apply(kpt.psit_nG, hpsit, self, kpt, calculate_P_ani = True)
+            if(td_correction is 'sinvcg'):
+                self.overlap.apply_inverse_cg(hpsit, sinvhpsit, self, kpt, calculate_P_ani=True)
+            elif(td_correction is 'sinvapr'):
+                self.overlap.apply_inverse(hpsit, sinvhpsit, self, kpt, calculate_P_ani=True)
+            #print 'sinvhpsit_0_cg - epspsit_0.max', abs(sinvhpsit[0]-eps_psit[0]).max()
+            #print 'sinvhpsit_0 - epspsit_0.max', abs(sinvhpsit2[0]-eps_psit[0]).max()
             self.pt.derivative(kpt.psit_nG, F_aniv, kpt.q)
+            if(td_correction is not None):
+                G_axi = self.pt.dict(self.bd.mynbands)
+                self.pt.integrate(sinvhpsit, G_axi, kpt.q)
+            
             for a, F_niv in F_aniv.items():
                 F_niv = F_niv.conj()
                 F_niv *= kpt.f_n[:, np.newaxis, np.newaxis]
+                FdH1_niv = F_niv.copy()
                 dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
                 P_ni = kpt.P_ani[a]
-                F_vii = np.dot(np.dot(F_niv.transpose(), P_ni), dH_ii)
-                F_niv *= kpt.eps_n[:, np.newaxis, np.newaxis]
                 dO_ii = hamiltonian.setups[a].dO_ii
-                F_vii -= np.dot(np.dot(F_niv.transpose(), P_ni), dO_ii)
+                F_vii = np.dot(np.dot(F_niv.transpose(), P_ni), dH_ii)
+                if(td_correction is not None):
+                    fP_ni = P_ni * kpt.f_n[:,np.newaxis]
+                    G_ni = G_axi[a]
+                    nabla_iiv = hamiltonian.setups[a].nabla_iiv
+                    F_vii_sinvh_dpt = -np.dot(np.dot(FdH1_niv.transpose(), G_ni), dO_ii)
+                    F_vii_sinvh_dphi = -np.dot(nabla_iiv.transpose(2,0,1), np.dot(fP_ni.conj().transpose(), G_ni))
+                    F_vii += F_vii_sinvh_dpt + F_vii_sinvh_dphi
+                else:
+                    F_niv *= kpt.eps_n[:, np.newaxis, np.newaxis]
+                    F_vii -= np.dot(np.dot(F_niv.transpose(), P_ni), dO_ii)
+                                    
+                #F_av_dO[a] += 2 * F_vii_dO.real.trace(0,1,2)
+                #F_av_dH[a] += 2 * F_vii_dH.real.trace(0,1,2)
                 F_av[a] += 2 * F_vii.real.trace(0, 1, 2)
 
             # Hack used in delta-scf calculations:
@@ -140,58 +181,6 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
         if self.bd.comm.rank == 0:
             self.kpt_comm.sum(F_av, 0)
-
-    def ibz2bz(self, atoms):
-        """Transform wave functions in IBZ to the full BZ."""
-
-        assert self.kd.comm.size == 1
-
-        # New k-point descriptor for full BZ:
-        kd = KPointDescriptor(self.kd.bzk_kc, nspins=self.nspins)
-        kd.set_symmetry(atoms, self.setups, None)
-        kd.set_communicator(serial_comm)
-
-        self.pt = LFC(self.gd, [setup.pt_j for setup in self.setups],
-                      dtype=self.dtype)
-        self.pt.set_k_points(kd.ibzk_kc)
-        self.pt.set_positions(atoms.get_scaled_positions())
-
-        self.initialize_wave_functions_from_restart_file()
-
-        # Build new list of k-points:
-        kpt_u = []
-        for s in range(self.nspins):
-            for k in range(kd.nbzkpts):
-                # Index of symmetry related point in the IBZ
-                ik = self.kd.kibz_k[k]
-                r, u = self.kd.get_rank_and_index(s, ik)
-                assert r == 0
-                kpt = self.kpt_u[u]
-            
-                phase_cd = np.exp(2j * np.pi * self.gd.sdisp_cd *
-                                  kd.bzk_kc[k, :, np.newaxis])
-
-                # New k-point:
-                kpt2 = KPoint(kpt.weight, s, k, None, phase_cd)
-                kpt2.f_n = kpt.f_n / kpt.weight / kd.nbzkpts * 2 / self.nspins
-
-                # Transform wave functions using symmetry operation:
-                Psit_nG = self.gd.collect(kpt.psit_nG)
-                if Psit_nG is not None:
-                    Psit_nG = Psit_nG.copy()
-                    for Psit_G in Psit_nG:
-                        Psit_G[:] = self.kd.transform_wave_function(Psit_G, k)
-                kpt2.psit_nG = self.gd.empty(self.bd.nbands, dtype=self.dtype)
-                self.gd.distribute(Psit_nG, kpt2.psit_nG)
-
-                # Calculate PAW projections:
-                kpt2.P_ani = self.pt.dict(len(kpt.psit_nG))
-                self.pt.integrate(kpt2.psit_nG, kpt2.P_ani, k)
-                
-                kpt_u.append(kpt2)
-
-        self.kd = kd
-        self.kpt_u = kpt_u
 
     def estimate_memory(self, mem):
         FDPWWaveFunctions.estimate_memory(self, mem)
