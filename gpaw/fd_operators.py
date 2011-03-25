@@ -19,7 +19,7 @@ import _gpaw
 import pycuda
 import pycuda.driver as cuda
 import pycuda.gpuarray as gpuarray
-from gpaw import debug_cuda,debug_cuda_reltol
+from gpaw import debug_cuda,debug_cuda_reltol,debug_cuda_abstol
 
 class FDOperator:
     def __init__(self, coef_p, offset_pc, gd, dtype=float,
@@ -90,6 +90,7 @@ class FDOperator:
          
         if isinstance(in_xg,gpuarray.GPUArray) and  isinstance(out_xg,gpuarray.GPUArray):
             #print "fd_operators_apply_cuda_gpu",in_xg.shape
+            assert self.cuda
             if debug_cuda:
                 in_xg_cpu = in_xg.get()
                 out_xg_cpu = out_xg.get()
@@ -97,17 +98,13 @@ class FDOperator:
             self.operator.apply_cuda_gpu(in_xg.gpudata, out_xg.gpudata,
                                          in_xg.shape, in_xg.dtype, phase_cd)
             if debug_cuda:                
-                diff=abs(out_xg_cpu-out_xg.get())
-                error_i=np.unravel_index(np.argmax(diff),diff.shape)
-                error=diff[error_i]
-                if error > np.finfo(type(error)).eps and \
-                       error > debug_cuda_reltol * abs(out_xg_cpu[error_i]): 
-                    print "Debug cuda: fd_operators apply max rel error: ", error
-                    #print in_xg_cpu.shape,out_xg_cpu.shape
-                    #print in_xg.shape,out_xg.shape
-                    #print phase_cd
-                    #print out_xg_cpu[1],out_xg.get()[1],out_xg_cpu[1]-out_xg.get()[1]
-                    #assert 0
+                if not  np.allclose(out_xg_cpu,out_xg.get(),
+                                    debug_cuda_reltol,debug_cuda_abstol):
+                    diff=abs(out_xg_cpu-out_xg.get())
+                    error_i=np.unravel_index(np.argmax(diff - debug_cuda_reltol * abs(out_xg_cpu)),diff.shape)
+                    print "Debug cuda: fd_operators apply max rel error: ",error_i,out_xg_cpu[error_i],out_xg.get()[error_i],abs(out_xg_cpu[error_i]-out_xg.get()[error_i])
+                    error_i=np.unravel_index(np.argmax(diff),diff.shape)
+                    print "Debug cuda: fd_operators apply max abs error: ",error_i, out_xg_cpu[error_i],out_xg.get()[error_i],abs(out_xg_cpu[error_i]-out_xg.get()[error_i])
         else:
             #print "fd_operators_apply"
             self.operator.apply(in_xg, out_xg, phase_cd)
@@ -118,6 +115,7 @@ class FDOperator:
 
         if isinstance(f_g,gpuarray.GPUArray) and  isinstance(s_g,gpuarray.GPUArray):
             #print "fd_operators_relax_cuda_gpu"
+            assert self.cuda
             if debug_cuda:
                 f_g_cpu=f_g.get()
                 s_g_cpu=s_g.get()
@@ -125,17 +123,13 @@ class FDOperator:
 
             self.operator.relax_cuda_gpu(relax_method, f_g.gpudata, s_g.gpudata, n, w)
             if debug_cuda:
-                diff = abs(f_g_cpu - f_g.get())
-                error_i = np.unravel_index(np.argmax(diff), diff.shape)
-                error = diff[error_i]
-                if error > np.finfo(type(error)).eps and \
-                       error > debug_cuda_reltol * abs(f_g_cpu[error_i]):
-                    #print s_g_cpu.shape,f_g_cpu.shape
-                    #print s_g.shape,f_g.shape
-                    #print phase_cd
-                    #print f_g_cpu[1],f_g.get()[1],f_g_cpu[1]-f_g.get()[1]
-                    print "Debug cuda: fd_operators relax max rel error: ", error
-                    #assert 0
+                if not  np.allclose(f_g_cpu,f_g.get(),
+                                    debug_cuda_reltol,debug_cuda_abstol):
+                    diff=abs(f_g_cpu-f_g.get())
+                    error_i=np.unravel_index(np.argmax(diff - debug_cuda_reltol * abs(f_g_cpu)),diff.shape)
+                    print "Debug cuda: fd_operators relax max rel error: ",error_i,f_g_cpu[error_i],f_g.get()[error_i],abs(f_g_cpu[error_i]-f_g.get()[error_i])
+                    error_i=np.unravel_index(np.argmax(diff),diff.shape)
+                    print "Debug cuda: fd_operators relax max abs error: ",error_i, f_g_cpu[error_i],f_g.get()[error_i],abs(f_g_cpu[error_i]-f_g.get()[error_i])
         else:
             self.operator.relax(relax_method, f_g, s_g, n, w)
 

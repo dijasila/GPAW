@@ -1,6 +1,6 @@
 include make.inc
 
-CUSRC = fd-cuda.cu  interpolate-cuda.cu paste-cuda.cu  relax-cuda.cu  restrict-cuda.cu cut-cuda.cu translate-cuda.cu lfc-cuda.cu
+CUSRC = fd-cuda.cu  interpolate-cuda.cu paste-cuda.cu  relax-cuda.cu  restrict-cuda.cu cut-cuda.cu translate-cuda.cu lfc-cuda.cu ext-pot-cuda.cu
 
 CSRC  = blas-cuda.c operators-cuda.c bc-cuda.c transformers-cuda.c
 

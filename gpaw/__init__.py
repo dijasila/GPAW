@@ -58,6 +58,7 @@ debug = False
 debug_cuda = False
 debug_cuda_sync = False
 debug_cuda_reltol = 1e-12
+debug_cuda_abstol = 1e-14
 trace = False
 setup_paths = []
 dry_run = 0

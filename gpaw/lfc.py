@@ -8,8 +8,9 @@ from gpaw.grid_descriptor import GridDescriptor
 from gpaw.mpi import serial_comm
 import _gpaw
 
-from gpaw import debug_cuda, debug_cuda_reltol
+from gpaw import debug_cuda, debug_cuda_reltol, debug_cuda_abstol
 import pycuda.gpuarray as gpuarray
+import pycuda as cuda
 
 """
 
@@ -411,21 +412,23 @@ class NewLocalizedFunctionsCollection(BaseLFC):
             c_xM = np.empty(self.Mmax)
             c_xM.fill(c_axi)
             if isinstance(a_xG, gpuarray.GPUArray):
-                #print "add cuda c_axi float"
+                #print "add cuda c_axi float", self.cuda
+                assert self.cuda
                 if debug_cuda:
                     a_xG_cpu=a_xG.get()
                     self.lfc.add(c_xM, a_xG_cpu, q)
                 c_xM_gpu=gpuarray.to_gpu(c_xM)
                 self.lfc.add_cuda_gpu(c_xM_gpu.gpudata,c_xM_gpu.shape, a_xG.gpudata,a_xG.shape, q)
                 if debug_cuda:
-                    diff = abs(a_xG_cpu - a_xG.get())
-                    error_i = np.unravel_index(np.argmax(diff), diff.shape)
-                    error = diff[error_i]
-                    if error > np.finfo(type(error)).eps and \
-                           error > debug_cuda_reltol * abs(a_xG_cpu[error_i]):
-                        print "Debug cuda: lfc add max rel error: ", error
+                    if not  np.allclose(a_xG_cpu,a_xG.get(),
+                                        debug_cuda_reltol,debug_cuda_abstol):
+                        diff = abs(a_xG_cpu - a_xG.get())
+                        error_i = np.unravel_index(np.argmax(diff-debug_cuda_reltol * abs(a_xG_cpu)), diff.shape)
+                        print "Debug cuda: lfc add max rel error: ", error_i, a_xG_cpu[error_i],a_xG.get()[error_i]
+                        error_i = np.unravel_index(np.argmax(diff), diff.shape)
+                        print "Debug cuda: lfc add max abs error: ", error_i, a_xG_cpu[error_i],a_xG.get()[error_i]
             else:
-                #print "add no cuda c_axi float"
+                #print "add no cuda c_axi float", self.cuda
                 self.lfc.add(c_xM, a_xG, q)
             return
 
@@ -471,23 +474,24 @@ class NewLocalizedFunctionsCollection(BaseLFC):
             M1 = M2
 
         if isinstance(a_xG,gpuarray.GPUArray):
-            #print "add cuda"
+            #print "add cuda", self.cuda
+            assert self.cuda
             if debug_cuda:
                 a_xG_cpu=a_xG.get()
                 self.lfc.add(c_xM, a_xG_cpu, q)
             c_xM_gpu=gpuarray.to_gpu(c_xM)
             self.lfc.add_cuda_gpu(c_xM_gpu.gpudata,c_xM_gpu.shape, a_xG.gpudata,a_xG.shape, q)
             if debug_cuda:
-                error=0.0
-                diff=abs(a_xG_cpu - a_xG.get())
-                error_i=np.unravel_index(np.argmax(diff),diff.shape)
-                error = diff[error_i]
-                if error > np.finfo(type(error)).eps and \
-                       error > debug_cuda_reltol * abs(a_xG_cpu[error_i]):
-                    print "Debug cuda: lfc add max rel error: ", error
+                if not  np.allclose(a_xG_cpu,a_xG.get(),
+                                    debug_cuda_reltol,debug_cuda_abstol):
+                    diff = abs(a_xG_cpu - a_xG.get())
+                    error_i = np.unravel_index(np.argmax(diff-debug_cuda_reltol * abs(a_xG_cpu)), diff.shape)
+                    print "Debug cuda: lfc add max rel error: ", error_i, a_xG_cpu[error_i],a_xG.get()[error_i]
+                    error_i = np.unravel_index(np.argmax(diff), diff.shape)
+                    print "Debug cuda: lfc add max abs error: ", error_i, a_xG_cpu[error_i],a_xG.get()[error_i]
 
         else:
-            #print "add no cuda"
+            #print "add no cuda", self.cuda
             self.lfc.add(c_xM, a_xG, q)
 
 
@@ -591,33 +595,32 @@ class NewLocalizedFunctionsCollection(BaseLFC):
 
         dtype = a_xG.dtype
         
+               
         if isinstance(a_xG, gpuarray.GPUArray):
-            #print "integrate cuda"
+            #print "integrate cuda", self.cuda
+            assert self.cuda
             c_xM_gpu = gpuarray.zeros(xshape + (self.Mmax,), dtype)
             self.lfc.integrate_cuda_gpu(a_xG.gpudata, a_xG.shape, 
                                         c_xM_gpu.gpudata, c_xM_gpu.shape, q)
-            c_xM = c_xM_gpu.get()
+            #c_xM = np.zeros(xshape + (self.Mmax,), dtype)
+            #self.lfc.integrate(a_xG.get(), c_xM, q)
+            c_xM=c_xM_gpu.get()
+            #self.lfc.integrate(a_xG.get(), c_xM, q)
             if debug_cuda:
+                assert not np.isnan(c_xM).any()
                 c_xM2 = np.zeros(xshape + (self.Mmax,), dtype)
-                self.lfc.integrate(a_xG.get(), c_xM2, q)
-                diff = abs(c_xM - c_xM2)
-                error_i = np.unravel_index(np.argmax(diff), diff.shape)
-                error = diff[error_i]
-                if error > np.finfo(type(error)).eps and \
-                       error > debug_cuda_reltol * abs(c_xM2[error_i]):
-                    print "Debug cuda: lfc integrate max rel error: ", error,c_xM[error_i],c_xM2[error_i]
-                    #print "dtype ",dtype
-                    #print "q ",q
-                    #print "c_xM ",c_xM
-                    #print "c_xM2 ",c_xM2
-                    #print "diff ",c_xM-c_xM2,c_xM.shape,c_xM2.shape
-                    #assert 0
-           
+                self.lfc.integrate(a_xG.get(), c_xM2, q)                
+                if not  np.allclose(c_xM2,c_xM,
+                                    debug_cuda_reltol,debug_cuda_abstol):
+                    diff = abs(c_xM2 - c_xM)
+                    error_i = np.unravel_index(np.argmax(diff-debug_cuda_reltol * abs(c_xM2)), diff.shape)
+                    print "Debug cuda: lfc integrate max rel error: ", error_i, c_xM2[error_i],c_xM[error_i]
+                    error_i = np.unravel_index(np.argmax(diff), diff.shape)
+                    print "Debug cuda: lfc integrate max abs error: ", error_i, c_xM2[error_i],c_xM[error_i]                           
         else:
-            #print "integrate no cuda"
+            #print "integrate no cuda", self.cuda
             c_xM = np.zeros(xshape + (self.Mmax,), dtype)
             self.lfc.integrate(a_xG, c_xM, q)
-
         comm = self.gd.comm
         rank = comm.rank
         srequests = []
@@ -656,9 +659,10 @@ class NewLocalizedFunctionsCollection(BaseLFC):
                 else:
                     c_xi[:] = c_xM[..., M1:M2]
             M1 = M2
-
+        
         for request in srequests:
             comm.wait(request)
+
 
     def derivative(self, a_xG, c_axiv, q=-1):
         """Calculate x-, y-, and z-derivatives of localized function integrals.

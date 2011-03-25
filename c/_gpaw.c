@@ -112,6 +112,7 @@ PyObject* axpy_cuda_gpu(PyObject *self, PyObject *args);
 PyObject* r2k_cuda_gpu(PyObject *self, PyObject *args);
 PyObject* dotc_cuda_gpu(PyObject *self, PyObject *args);
 PyObject* dotu_cuda_gpu(PyObject *self, PyObject *args);
+PyObject* add_linear_field_cuda_gpu(PyObject *self, PyObject *args);
 #endif
 
 // IO wrappers
@@ -226,6 +227,7 @@ static PyMethodDef functions[] = {
   {"r2k_cuda_gpu", r2k_cuda_gpu, METH_VARARGS, 0},
   {"dotc_cuda_gpu", dotc_cuda_gpu, METH_VARARGS, 0},
   {"dotu_cuda_gpu", dotu_cuda_gpu, METH_VARARGS, 0},
+  {"add_linear_field_cuda_gpu", add_linear_field_cuda_gpu, METH_VARARGS, 0},
 #endif
   {"enable_io_wrappers", Py_enable_io_wrappers, METH_VARARGS, 0},
   {"disable_io_wrappers", Py_disable_io_wrappers, METH_VARARGS, 0},

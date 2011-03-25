@@ -2,6 +2,12 @@ import numpy as np
 
 from ase.units import Bohr
 
+import _gpaw
+
+import pycuda.gpuarray as gpuarray
+from gpaw import debug_cuda,debug_cuda_reltol,debug_cuda_abstol
+
+
 """This module defines different external potentials to be used in 
 time-independent and time-dependent calculations."""
 
@@ -56,6 +62,8 @@ class ExternalPotential:
         """Return the energy contribution of the bare nucleus."""
         return 0. # don't assume anything about the nucleus
 
+    
+
     def add_linear_field(self, wfs, spos_ac, a_nG, b_nG, strength, kpt):
         """Adds (does NOT apply) linear field 
         f(x,y,z) = str_x * x + str_y * y + str_z * z to wavefunctions.
@@ -74,26 +82,47 @@ class ExternalPotential:
             K-point
         """
 
+        def add_linear_field_cpu(a_nG, b_nG, gd, strength):
+            # apply local part of x to smooth wavefunctions psit_n
+            for i in range(gd.n_c[0]):
+                x = (i + gd.beg_c[0]) * gd.h_cv[0, 0]
+                b_nG[:,i,:,:] += (strength[0] * x) * a_nG[:,i,:,:]
+                
+            # FIXME: combine y and z to one vectorized operation,
+            # i.e., make yz-array and take its product with a_nG
+                
+            # apply local part of y to smooth wavefunctions psit_n
+            for i in range(gd.n_c[1]):
+                y = (i + gd.beg_c[1]) * gd.h_cv[1, 1]
+                b_nG[:,:,i,:] += (strength[1] * y) * a_nG[:,:,i,:]
+                
+            # apply local part of z to smooth wavefunctions psit_n
+            for i in range(gd.n_c[2]):
+                z = (i + gd.beg_c[2]) * gd.h_cv[2, 2]
+                b_nG[:,:,:,i] += (strength[2] * z) * a_nG[:,:,:,i]
+
+
+
         gd = wfs.gd
-        
-        # apply local part of x to smooth wavefunctions psit_n
-        for i in range(gd.n_c[0]):
-            x = (i + gd.beg_c[0]) * gd.h_cv[0, 0]
-            b_nG[:,i,:,:] += (strength[0] * x) * a_nG[:,i,:,:]
 
-        # FIXME: combine y and z to one vectorized operation,
-        # i.e., make yz-array and take its product with a_nG
-
-        # apply local part of y to smooth wavefunctions psit_n
-        for i in range(gd.n_c[1]):
-            y = (i + gd.beg_c[1]) * gd.h_cv[1, 1]
-            b_nG[:,:,i,:] += (strength[1] * y) * a_nG[:,:,i,:]
-
-        # apply local part of z to smooth wavefunctions psit_n
-        for i in range(gd.n_c[2]):
-            z = (i + gd.beg_c[2]) * gd.h_cv[2, 2]
-            b_nG[:,:,:,i] += (strength[2] * z) * a_nG[:,:,:,i]
-
+        if isinstance(a_nG, gpuarray.GPUArray):
+            if debug_cuda:
+                a_nG_cpu=a_nG.get()
+                b_nG_cpu=b_nG.get()
+                add_linear_field_cpu(a_nG_cpu, b_nG_cpu, gd, strength)
+            _gpaw.add_linear_field_cuda_gpu(a_nG.gpudata, a_nG.shape,
+                                            a_nG.dtype, b_nG.gpudata, gd.n_c,
+                                            gd.beg_c, gd.h_cv, strength)
+            if debug_cuda:
+                if not  np.allclose(b_nG_cpu,b_nG.get(),
+                                    debug_cuda_reltol,debug_cuda_abstol):
+                    diff=abs(b_nG_cpu-b_nG.get())
+                    error_i=np.unravel_index(np.argmax(diff - debug_cuda_reltol * abs(b_nG_cpu)),diff.shape)
+                    print "Debug cuda: add_linear_field max rel error: ",error_i,b_nG_cpu[error_i],b_nG.get()[error_i],abs(b_nG_cpu[error_i]-b_nG.get()[error_i])
+                    error_i=np.unravel_index(np.argmax(diff),diff.shape)
+                    print "Debug cuda: add_linear_field max abs error: ",error_i, b_nG_cpu[error_i],b_nG.get()[error_i],abs(b_nG_cpu[error_i]-b_nG.get()[error_i])
+        else:
+            add_linear_field_cpu(a_nG, b_nG, gd, strength)
 
         # apply the non-local part for each nucleus
 
