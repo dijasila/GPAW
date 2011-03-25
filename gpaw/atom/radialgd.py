@@ -216,6 +216,10 @@ class AERadialGridDescriptor(RadialGridDescriptor):
         return ng * r / (beta + r)
 
     def xml(self, id='grid1'):
+        if abs(self.N - 1 / self.b) < 1e-5:
+            return (('<radial_grid eq="r=a*i/(n-i)" a="%r" n="%d" ' +
+                     'istart="0" iend="%d" id="%s"/>') % 
+                    (self.a * self.N, self.N, self.N - 1, id))
         return (('<radial_grid eq="r=a*i/(1-b*i)" a="%r" b="%r" n="%d" ' +
                  'istart="0" iend="%d" id="%s"/>') % 
                 (self.a, self.b, self.N, self.N - 1, id))
