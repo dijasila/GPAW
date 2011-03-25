@@ -28,7 +28,7 @@ def numpy_type_from_h5(datatype):
 
     return dtype
 
-class Iterator():
+class Iterator:
     """Iterator over the datasets and subgroups in a File or in a Group."""
 
     def __init__(self, obj):
@@ -362,9 +362,18 @@ def _translate_slice(exp, length):
         for use with the hyperslab selection routines
     """
     start, stop, step = exp.start, exp.stop, exp.step
-    start = 0 if start is None else int(start)
-    stop = length if stop is None else int(stop)
-    step = 1 if step is None else int(step)
+    if start is None:
+        start = 0
+    else:
+        start = int(start)
+    if stop is None:
+        stop = length
+    else:
+        stop = int(stop)
+    if step is None:
+        step = 1
+    else:
+        step = int(step)
     if step < 1:
         raise ValueError("Step must be >= 1 (got %d)" % step)
     if stop == start:
