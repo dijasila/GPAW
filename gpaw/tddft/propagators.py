@@ -15,6 +15,9 @@ from gpaw.mpi import rank, run
 from gpaw.tddft.utils import MultiBlas
 from gpaw.tddft.tdopers import DummyDensity
 
+import pycuda.driver as cuda
+import pycuda.gpuarray as gpuarray
+
 ###############################################################################
 # DummyKPoint
 ###############################################################################
@@ -79,7 +82,11 @@ class DummyPropagator:
         if self.preconditioner is not None:
             self.preconditioner.apply(self.kpt, psi, psin)
         else:
-            psin[:] = psi
+            if  isinstance(psi,gpuarray.GPUArray):
+                cuda.memcpy_dtod(psin.gpudata, psi.gpudata,
+                                 psi.nbytes)
+            else:
+                psin[:] = psi
         self.timer.stop('Solve TDDFT preconditioner')
 
 
@@ -114,7 +121,7 @@ class ExplicitCrankNicolson(DummyPropagator):
     """
     
     def __init__(self, td_density, td_hamiltonian, td_overlap,
-                 solver, preconditioner, gd, timer):
+                 solver, preconditioner, gd, timer, cuda=False):
         """Create ExplicitCrankNicolson-object.
         
         Parameters
@@ -135,14 +142,20 @@ class ExplicitCrankNicolson(DummyPropagator):
             timer
         
         """
+        
         DummyPropagator.__init__(self, td_density, td_hamiltonian, td_overlap,
                                  solver, preconditioner, gd, timer)
 
+        self.cuda=cuda        
         self.wfs = td_density.get_wavefunctions()
 
         self.tmp_kpt_u = None
         self.hpsit = None
         self.spsit = None
+        if self.cuda:
+            self.hpsit_gpu = None
+            self.spsit_gpu = None
+        
         self.sinvhpsit = None
         
     # ( S + i H dt/2 ) psit(t+dt) = ( S - i H dt/2 ) psit(t)
@@ -249,7 +262,7 @@ class ExplicitCrankNicolson(DummyPropagator):
         self.niter += self.solver.solve(self, kpt.psit_nG, rhs_kpt.psit_nG)
 
     # ( S + i H dt/2 ) psi
-    def dot(self, psi, psin):
+    def dot(self, psi, psin, cuda_psit=False):
         """Applies the propagator matrix to the given wavefunctions.
 
         Parameters
@@ -261,16 +274,54 @@ class ExplicitCrankNicolson(DummyPropagator):
 
         """
         self.timer.start('Apply time-dependent operators')
+        if cuda_psit:
+            hpsit=self.hpsit_gpu
+            spsit=self.spsit_gpu
+        elif  isinstance(psi,gpuarray.GPUArray):
+            hpsit=gpuarray.to_gpu(self.hpsit)
+            spsit=gpuarray.to_gpu(self.spsit)
+        else:
+            hpsit=self.hpsit
+            spsit=self.spsit
+
+        #print "hpsit:", hpsit.shape
+        #print "spsit:", spsit.shape
+        
         self.td_overlap.update_k_point_projections(self.kpt, psi)
-        self.td_hamiltonian.apply(self.kpt, psi, self.hpsit,
+        self.td_hamiltonian.apply(self.kpt, psi, hpsit,
                                   calculate_P_ani=False)
-        self.td_overlap.apply(self.kpt, psi, self.spsit, calculate_P_ani=False)
+        self.td_overlap.apply(self.kpt, psi, spsit, calculate_P_ani=False)
         self.timer.stop('Apply time-dependent operators')
 
         # psin[:] = self.spsit + .5J * self.time_step * self.hpsit
-        psin[:] = self.spsit
-        self.mblas.multi_zaxpy(.5j*self.time_step, self.hpsit, psin, len(psi))
+        if  isinstance(spsit,gpuarray.GPUArray):
+            cuda.memcpy_dtod(psin.gpudata, spsit.gpudata,
+                             spsit.nbytes)
+        else:        
+            psin[:] = self.spsit
 
+        self.mblas.multi_zaxpy(.5j*self.time_step, hpsit, psin, len(psi))
+
+        if isinstance(psi,gpuarray.GPUArray) and not cuda_psit:
+            hpsit.get(self.hpsit)
+            spsit.get(self.spsit)
+            
+    def cuda_psit_htod(self):
+        assert self.cuda
+        if self.hpsit_gpu is None:
+            self.hpsit_gpu=gpuarray.to_gpu(self.hpsit)
+        else:
+            self.hpsit_gpu.set(self.hpsit)
+            
+        if self.spsit_gpu is None:
+            self.spsit_gpu=gpuarray.to_gpu(self.spsit)
+        else:
+            self.spsit_gpu.set(self.spsit)
+    
+    def cuda_psit_dtoh(self):
+        assert self.cuda
+        self.hpsit_gpu.get(self.hpsit)
+        self.spsit_gpu.get(self.spsit)
 
 
 ###############################################################################
@@ -291,7 +342,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
     """
     
     def __init__(self, td_density, td_hamiltonian, td_overlap, 
-                 solver, preconditioner, gd, timer):
+                 solver, preconditioner, gd, timer, cuda=False):
         """Create SemiImplicitCrankNicolson-object.
         
         Parameters
@@ -313,7 +364,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         
         """
         ExplicitCrankNicolson.__init__(self, td_density, td_hamiltonian,
-                          td_overlap, solver, preconditioner, gd, timer)
+                          td_overlap, solver, preconditioner, gd, timer, cuda=cuda)
 
         self.old_kpt_u = None
 
@@ -382,6 +433,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         # Overwrite psit_nG in tmp_kpt_u by (1 - i S^(-1)(t) H(t) dt) psit_nG
         # from corresponding kpt_u in a Euler step before predicting psit(t+dt)
         for [kpt, rhs_kpt] in zip(kpt_u, self.tmp_kpt_u):
+            print "predictor step  solve_propagation_equation"
             self.solve_propagation_equation(kpt, rhs_kpt, time_step, guess=True)
 
         self.timer.start('Update time-dependent operators')
@@ -415,7 +467,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
             # Update kpt.psit_nG to reflect psit(t+dt) - i S^(-1) dH(t+dt/2) dt/2 psit(t+dt/2)
             #kpt.psit_nG[:] = kpt.psit_nG - .5J * self.sinvhpsit * time_step
             self.mblas.multi_zaxpy(-.5j*time_step, self.sinvhpsit, kpt.psit_nG, nvec)
-
+            print "corrector step solve_propagation_equation"
             self.solve_propagation_equation(kpt, rhs_kpt, time_step)
  
         # update projections before exiting
@@ -476,7 +528,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         #self.mblas.multi_scale(self.phase_shift, kpt.psit_nG, nvec)
 
     # ( S + i H dt/2 ) psi
-    def dot(self, psi, psin):
+    def dot(self, psi, psin, cuda_psit=False):
         """Applies the propagator matrix to the given wavefunctions.
 
         Parameters
@@ -487,7 +539,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
             the result ( S + i H dt/2 ) psi
 
         """
-        ExplicitCrankNicolson.dot(self, psi, psin)
+        ExplicitCrankNicolson.dot(self, psi, psin, cuda_psit)
         # Apply shift -i eps S t/2 
         #self.mblas.multi_zaxpy(.5j * self.time_step * (-self.shift), self.spsit, psin, len(psi))
 
@@ -714,7 +766,7 @@ class AbsorptionKick(ExplicitCrankNicolson):
     """
     
     def __init__(self, wfs, abs_kick_hamiltonian, td_overlap,
-                 solver, preconditioner, gd, timer):
+                 solver, preconditioner, gd, timer, cuda=False):
         """Create AbsorptionKick-object.
         
         Parameters
@@ -737,7 +789,7 @@ class AbsorptionKick(ExplicitCrankNicolson):
         """
         ExplicitCrankNicolson.__init__(self, DummyDensity(wfs),
                         abs_kick_hamiltonian, td_overlap, solver,
-                        preconditioner, gd, timer)
+                        preconditioner, gd, timer, cuda=cuda)
 
 
     def kick(self, kpt_u):
@@ -754,6 +806,7 @@ class AbsorptionKick(ExplicitCrankNicolson):
         #     self.text('Kick iterations = ', self.td_hamiltonian.iterations)
 
         for l in range(self.td_hamiltonian.iterations):
+            print "kick propagate =",l
             self.propagate(kpt_u, 0, 1.0)
             # if rank == 0:
             #     self.text('.')

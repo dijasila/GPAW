@@ -67,8 +67,13 @@ class Hamiltonian:
         if psolver is None:
             psolver = PoissonSolver(nn=3, relax='J', cuda=self.cuda)
         self.poisson = psolver
-        self.poisson.set_grid_descriptor(finegd)
 
+        try:
+            self.poisson.set_grid_descriptor(finegd, cuda=self.cuda)
+        except TypeError:
+            self.poisson.set_grid_descriptor(finegd)
+        print "ham.cuda ",self.cuda
+        #print "ham.psolver.cuda ",self.poisson.cuda 
         self.dH_asp = None
 
         # The external potential
@@ -507,7 +512,7 @@ class Hamiltonian:
             self.gd.comm.sum(Vxc_nn)
 
             # Add atomic corrections
-            # H_ij = \int dr phi_i(r) Ĥ phi_j^*(r)
+            # H_ij = \int dr phi_i(r) Ä€ phi_j^*(r)
             # P_ni = \int dr psi_n(r) pt_i^*(r)
             # Vxc_nm = \int dr phi_n(r) vxc(r) phi_m^*(r)
             #      + sum_ij P_ni H_ij P_mj^*

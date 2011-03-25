@@ -33,16 +33,21 @@ class PoissonSolver:
         if relax == 'GS':
             # Gauss-Seidel
             self.relax_method = 1
+            if cuda:
+                raise NotImplementedError('Cuda relaxation method %s' % relax)
         elif relax == 'J':
             # Jacobi
             self.relax_method = 2
         else:
             raise NotImplementedError('Relaxation method %s' % relax)
 
-    def set_grid_descriptor(self, gd):
+    def set_grid_descriptor(self, gd, cuda=False):
         # Should probably be renamed initialize
         self.gd = gd
         self.dv = gd.dv
+
+        if not self.cuda:
+            self.cuda=cuda
 
         gd = self.gd
         scale = -0.25 / pi

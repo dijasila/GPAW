@@ -12,6 +12,7 @@ from gpaw.mpi import run
 from gpaw.fd_operators import Laplace, Gradient
 from gpaw.tddft.abc import *
 
+import pycuda.gpuarray as gpuarray
 # Hamiltonian
 class TimeDependentHamiltonian:
     """Time-dependent Hamiltonian, H(t)
@@ -20,7 +21,7 @@ class TimeDependentHamiltonian:
     Hamiltonian to a wavefunction.
     """
     
-    def __init__(self, wfs, atoms, hamiltonian, td_potential):
+    def __init__(self, wfs, atoms, hamiltonian, td_potential, cuda=False):
         """Create the TimeDependentHamiltonian-object.
         
         The time-dependent potential object must (be None or) have a member
@@ -39,11 +40,20 @@ class TimeDependentHamiltonian:
 
         self.wfs = wfs
         self.hamiltonian = hamiltonian
+
+        print "wfs.cuda ",wfs.cuda
+        print "hamiltonian.cuda ",hamiltonian.cuda
+        
         self.td_potential = td_potential
+
+        self.cuda = cuda
+        
         self.time = self.old_time = 0
         
         # internal smooth potential
         self.vt_sG = hamiltonian.gd.zeros(hamiltonian.nspins)
+
+        self.vt_sG_gpu = hamiltonian.gd.zeros(hamiltonian.nspins, cuda=self.cuda)
 
         # Increase the accuracy of Poisson solver
         self.hamiltonian.poisson.eps = 1e-12
@@ -105,6 +115,11 @@ class TimeDependentHamiltonian:
         self.hamiltonian.vt_sG[:], self.vt_sG[:] = \
             0.5*(self.hamiltonian.vt_sG + self.vt_sG), \
             self.hamiltonian.vt_sG - self.vt_sG
+
+        if self.cuda:
+            self.vt_sG_gpu = gpuarray.to_gpu(self.vt_sG)
+        if self.hamiltonian.cuda:
+            self.hamiltonian.vt_sG_gpu = gpuarray.to_gpu(self.hamiltonian.vt_sG)
         for a, dH_sp in self.hamiltonian.dH_asp.items():
             dH_sp[:], self.dH_asp[a][:] = 0.5*(dH_sp + self.dH_asp[a]), \
                 dH_sp - self.dH_asp[a] #pack/unpack is linear for real values
@@ -124,6 +139,10 @@ class TimeDependentHamiltonian:
         """
         # Does exactly the same as Hamiltonian.apply_local_potential
         # but uses the difference between vt_sG at time t and t+dt.
+
+        if isinstance(psit_nG, gpuarray.GPUArray):
+            assert 0
+        
         vt_G = self.vt_sG[s]
         if psit_nG.ndim == 3:
             Htpsit_nG += psit_nG * vt_G
@@ -345,7 +364,7 @@ class AbsorptionKickHamiltonian:
             When False, existing P_uni are used
 
         """
-        hpsit[:] = 0.0
+        hpsit.fill(0.0)
 
         #TODO on shaky ground here...
         ExternalPotential().add_linear_field(self.wfs, self.spos_ac,

@@ -15,6 +15,9 @@ from gpaw.utilities.tools import lowdin, tri2full
 from gpaw import extra_parameters
 from gpaw.utilities.lapack import diagonalize
 
+import pycuda.gpuarray as gpuarray
+import pycuda.driver as cuda
+
 class Overlap:
     """Overlap operator class.
 
@@ -65,8 +68,10 @@ class Overlap:
         else:
             psit_nG = kpt.psit_nG
         P_ani = kpt.P_ani
+        #self.timer.start('LFC integrate')
         wfs.pt.integrate(psit_nG, P_ani, kpt.q)
 
+        #self.timer.stop('LFC integrate')
         # Construct the overlap matrix:
         operator = wfs.matrixoperator
 
@@ -127,7 +132,10 @@ class Overlap:
 
         """
         self.timer.start('Apply overlap')
-        b_xG[:] = a_xG
+        if isinstance(a_xG,gpuarray.GPUArray):
+            cuda.memcpy_dtod(b_xG.gpudata, a_xG.gpudata, a_xG.nbytes)
+        else:
+            b_xG[:] = a_xG
         shape = a_xG.shape[:-3]
         P_axi = wfs.pt.dict(shape)
 

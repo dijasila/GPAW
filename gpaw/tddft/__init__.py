@@ -74,7 +74,7 @@ class TDDFT(GPAW):
     def __init__(self, ground_state_file=None, txt='-', td_potential=None,
                  propagator='SICN', solver='CSCG', tolerance=1e-8,
                  parsize=None, parsize_bands=1, parstride_bands=True,
-                 communicator=None):
+                 communicator=None, cuda=False):
         """Create TDDFT-object.
         
         Parameters:
@@ -107,16 +107,20 @@ class TDDFT(GPAW):
         # Set initial value of iteration counter
         self.niter = 0
 
+        self.cuda=cuda
+
         # Initialize paw-object without density mixing
         # NB: TDDFT restart files contain additional information which
         #     will override the initial settings for time/kick/niter.
         GPAW.__init__(self, ground_state_file, txt=txt, mixer=DummyMixer(),
                       parallel={'domain': parsize, 'band': parsize_bands, 
                                 'stridebands': parstride_bands},
-                      communicator=communicator)
+                      communicator=communicator, cuda=self.cuda)
 
         # Prepare for dipole moment file handle
         self.dm_file = None
+
+        print "hamiltonian.cuda ",self.hamiltonian.cuda 
 
         # Initialize wavefunctions and density 
         # (necessary after restarting from file)
@@ -135,9 +139,9 @@ class TDDFT(GPAW):
             wfs.dtype = complex
             from gpaw.fd_operators import Laplace
             nn = self.input_parameters.stencils[0]
-            wfs.kin = Laplace(wfs.gd, -0.5, nn, complex)
+            wfs.kin = Laplace(wfs.gd, -0.5, nn, complex, cuda=self.cuda )
             wfs.pt = LFC(wfs.gd, [setup.pt_j for setup in wfs.setups],
-                         self.kpt_comm, dtype=complex)
+                         self.kpt_comm, dtype=complex, cuda=self.cuda)
 
             for kpt in wfs.kpt_u:
                 for a,P_ni in kpt.P_ani.items():
@@ -173,7 +177,7 @@ class TDDFT(GPAW):
                                    tolerance=tolerance)
         elif solver is 'CSCG':
             self.solver = CSCG(gd=wfs.gd, timer=self.timer,
-                               tolerance=tolerance)
+                               tolerance=tolerance, cuda=self.cuda)
         else:
             raise RuntimeError('Solver %s not supported.' % solver)
 
@@ -189,11 +193,11 @@ class TDDFT(GPAW):
         if propagator is 'ECN':
             self.propagator = ExplicitCrankNicolson(self.td_density,
                 self.td_hamiltonian, self.td_overlap, self.solver,
-                self.preconditioner, wfs.gd, self.timer)
+                self.preconditioner, wfs.gd, self.timer, cuda=self.cuda)
         elif propagator is 'SICN':
             self.propagator = SemiImplicitCrankNicolson(self.td_density,
                 self.td_hamiltonian, self.td_overlap, self.solver,
-                self.preconditioner, wfs.gd, self.timer)
+                self.preconditioner, wfs.gd, self.timer, cuda=self.cuda)
         elif propagator is 'ETRSCN':
             self.propagator = EnforcedTimeReversalSymmetryCrankNicolson(
                 self.td_density,
@@ -283,6 +287,7 @@ class TDDFT(GPAW):
 
         self.timer.start('Propagate')
         while self.niter < maxiter:
+            print "Propagate iter = ",self.niter
             norm = self.density.finegd.integrate(self.density.rhot_g)
 
             # Write dipole moment at every iteration
@@ -445,7 +450,7 @@ class TDDFT(GPAW):
                                    np.array(kick_strength, float))
         abs_kick = AbsorptionKick(self.wfs, abs_kick_hamiltonian,
                                   self.td_overlap, self.solver,
-                                  self.preconditioner, self.wfs.gd, self.timer)
+                                  self.preconditioner, self.wfs.gd, self.timer, cuda=self.cuda)
         abs_kick.kick(self.wfs.kpt_u)
 
     def __del__(self):

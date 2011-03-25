@@ -10,6 +10,9 @@ from gpaw.utilities.blas import dotu
 from gpaw.utilities.blas import dotc
 from gpaw.mpi import rank
 
+
+import pycuda.gpuarray as gpuarray
+
 class CSCG:
     """Conjugate gradient for complex symmetric matrices
     
@@ -25,7 +28,7 @@ class CSCG:
     """
     
     def __init__( self, gd, timer = None,
-                  tolerance = 1e-15, max_iterations = 1000, eps=1e-15 ):
+                  tolerance = 1e-15, max_iterations = 1000, eps=1e-15, cuda=False ):
         """Create the CSCG-object.
         
         Tolerance should not be smaller than attainable accuracy, which is 
@@ -59,12 +62,14 @@ class CSCG:
             raise RuntimeError("CSCG method got invalid tolerance (tol = %le < eps = %le)." % (tolerance,eps))
 
         self.iterations = -1
+
+        self.cuda = cuda
         
         self.gd = gd
         self.timer = timer
         
 
-    def solve(self, A, x, b):
+    def solve(self, A, xx, bb):
         """Solve a set of linear equations A.x = b.
         
         Parameters:
@@ -76,18 +81,28 @@ class CSCG:
         if self.timer is not None:
             self.timer.start('CSCG')
 
+        #print type(A)
+        if self.cuda:
+            b=gpuarray.to_gpu(bb)
+            x=gpuarray.to_gpu(xx)
+            A.cuda_psit_htod()
+        else:
+            b=bb
+            x=xx
+
+        #print x.shape,len(x)
         # number of vectors
         nvec = len(x)
 
         # r_0 = b - A x_0
-        r = self.gd.zeros(nvec, dtype=complex)
-        A.dot(-x,r)
+        r = self.gd.zeros(nvec, dtype=complex, cuda=self.cuda)
+        A.dot(-x,r,self.cuda)
         r += b
 
-        p = self.gd.zeros(nvec, dtype=complex)
-        q = self.gd.zeros(nvec, dtype=complex)
-        z = self.gd.zeros(nvec, dtype=complex)
-
+        p = self.gd.zeros(nvec, dtype=complex, cuda=self.cuda)
+        q = self.gd.zeros(nvec, dtype=complex, cuda=self.cuda)
+        z = self.gd.zeros(nvec, dtype=complex, cuda=self.cuda)
+        
         alpha = np.zeros((nvec,), dtype=complex) 
         beta = np.zeros((nvec,), dtype=complex) 
         rho  = np.zeros((nvec,), dtype=complex) 
@@ -95,7 +110,7 @@ class CSCG:
         scale = np.zeros((nvec,), dtype=complex) 
         tmp = np.zeros((nvec,), dtype=complex) 
 
-        rhop[:] = 1.
+        rhop.fill(1.0)
 
         # Multivector dot product, a^T b, where ^T is transpose
         def multi_zdotu(s, x,y, nvec):
@@ -110,7 +125,8 @@ class CSCG:
         # Multiscale: a x => x
         def multi_scale(a,x, nvec):
             for i in range(nvec):
-                x[i] *= a[i]
+                xi=x[i]
+                xi *= a[i]
 
         # scale = square of the norm of b
         multi_zdotu(scale, b,b, nvec)
@@ -131,15 +147,15 @@ class CSCG:
             # rho_i-1 = r^T z_i-1
             multi_zdotu(rho, r, z, nvec)
 
-            #print 'Rho = ', rho
+            #print 'Rho = ', max(abs(rho))
 
             # if i=1, p_i = r_i-1
             # else beta = (rho_i-1 / rho_i-2) (alpha_i-1 / omega_i-1)
             #      p_i = r_i-1 + b_i-1 (p_i-1 - omega_i-1 v_i-1)
             beta = rho / rhop
 
-            #print 'Beta = ', beta
-
+            #print 'Beta = ', max(abs(beta))
+            
             # if abs(beta) / scale < eps, then CSCG breaks down
             if ( (i > 0) and
                  ((np.abs(beta) / scale) < self.eps).any() ):
@@ -152,13 +168,13 @@ class CSCG:
 
 
             # q = A.p
-            A.dot(p,q)
+            A.dot(p,q,self.cuda)
 
             # alpha_i = rho_i-1 / (p^T q_i)
             multi_zdotu(alpha, p, q, nvec)
             alpha = rho / alpha
 
-            #print 'Alpha = ', alpha
+            #print 'Alpha = ', max(abs(alpha))
 
             # x_i = x_i-1 + alpha_i p_i
             multi_zaxpy(alpha, p, x, nvec)
@@ -190,6 +206,11 @@ class CSCG:
         # done
         self.iterations = i+1
         #print 'CSCG iterations = ', self.iterations
+        if  self.cuda:
+            x.get(xx)
+            b.get(bb)
+            A.cuda_psit_dtoh()
+
 
         if self.timer is not None:
             self.timer.stop('CSCG')
