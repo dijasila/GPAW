@@ -456,6 +456,12 @@ class GridDescriptor(Domain):
         ref1: Thygesen et al, Phys. Rev. B 72, 125119 (2005) 
         """
 
+        if nbands is None:
+            nbands = len(psit_nG)
+
+        if nbands == 0:
+            return np.zeros((0, 0), complex)
+
         e_G = np.exp(-2j * pi * np.dot(np.indices(self.n_c).T +
                                        self.beg_c, G_c / self.N_c).T)
         a_nG = (e_G * psit_nG[:nbands].conj()).reshape((nbands, -1))
