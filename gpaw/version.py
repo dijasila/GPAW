@@ -4,7 +4,7 @@
 version_base = '0.8.0'
 
 ase_required_version = '3.5.0'
-ase_required_svnversion = '2068'
+ase_required_svnversion = '2082'
 
 try:
     from gpaw.svnversion import svnversion
