@@ -20,7 +20,7 @@ from gpaw.kpoint import KPoint
 class KPointDescriptor:
     """Descriptor-class for k-points."""
 
-    def __init__(self, kpts, nspins):
+    def __init__(self, kpts, nspins=1):
         """Construct descriptor object for kpoint/spin combinations (ks-pair).
 
         Parameters
