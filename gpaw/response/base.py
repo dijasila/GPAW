@@ -130,14 +130,6 @@ class BASECHI:
         # Plane wave init
         self.npw, self.Gvec_Gc, self.Gindex_G = set_Gvectors(self.acell_cv, self.bcell_cv, self.nG, self.ecut)
 
-        # Coulomb kernel init
-        self.Kc_GG = np.zeros((self.npw, self.npw))
-        for iG in range(self.npw):
-            for jG in range(self.npw):
-                qG1 = np.dot(self.q_c + self.Gvec_Gc[iG], self.bcell_cv)
-                qG2 = np.dot(self.q_c + self.Gvec_Gc[jG], self.bcell_cv)
-                self.Kc_GG[iG, jG] = 4 * pi / np.sqrt(np.dot(qG1, qG1) * np.dot(qG2,qG2))
-
         # Projectors init
         setups = calc.wfs.setups
         pt = LFC(gd, [setup.pt_j for setup in setups],
@@ -298,6 +290,8 @@ class BASECHI:
             optical_limit = self.optical_limit
         else:
             q_c = bzk_kc[kq] - bzk_kc[k]
+            q_c[np.where(q_c>0.499)] -= 1
+            q_c[np.where(q_c<-0.499)] += 1            
             if (np.abs(q_c) < self.ftol).all():
                 optical_limit=True
                 q_c = np.array([0.0001, 0, 0])
@@ -352,8 +346,10 @@ class BASECHI:
                 gemv(1.0, self.phi_aGp[a], P_p, 1.0, rho_G)
     
             if optical_limit:
-                if n==m or np.abs(self.e_kn[ibzkpt2, m] - self.e_kn[ibzkpt1, n]) < 1e-4:
-                    rho_G[0] = 1
+                if n==m:
+                    rho_G[0] = 1.
+                elif np.abs(self.e_kn[ibzkpt2, m] - self.e_kn[ibzkpt1, n]) < 1e-5:
+                    rho_G[0] = 0.
                 else:
                     rho_G[0] /= self.e_kn[ibzkpt2, m] - self.e_kn[ibzkpt1, n]
 

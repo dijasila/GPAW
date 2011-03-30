@@ -5,6 +5,20 @@ from gpaw.xc import XC
 from gpaw.sphere.lebedev import weight_n, R_nv
 from gpaw.mpi import world, rank, size
 
+
+def calculate_Kc(q_c, Gvec_Gc, bcell_cv):
+    """Symmetric Coulomb kernel"""
+    npw = len(Gvec_Gc)
+    Kc_GG = np.zeros((npw, npw))
+    
+    for iG in range(npw):
+        for jG in range(npw):
+            qG1 = np.dot(q_c + Gvec_Gc[iG], bcell_cv)
+            qG2 = np.dot(q_c + Gvec_Gc[jG], bcell_cv)
+            Kc_GG[iG, jG] = 4 * pi / np.sqrt(np.dot(qG1, qG1) * np.dot(qG2,qG2))
+    return Kc_GG
+
+
 def calculate_Kxc(gd, nt_sG, npw, Gvec_Gc, nG, vol,
                   bcell_cv, R_av, setups, D_asp):
     """LDA kernel"""

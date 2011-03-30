@@ -10,7 +10,7 @@ from gpaw.fd_operators import Gradient
 from gpaw.response.math_func import hilbert_transform
 from gpaw.response.parallel import set_communicator, \
      parallel_partition, SliceAlongFrequency, SliceAlongOrbitals
-from gpaw.response.kernel import calculate_Kxc
+from gpaw.response.kernel import calculate_Kxc, calculate_Kc
 from gpaw.utilities.memory import maxrss
 from gpaw.response.base import BASECHI
 
@@ -129,6 +129,9 @@ class CHI(BASECHI):
         # calculate <phi_i | e**(-i(q+G).r) | phi_j>
         # G != 0 part
         self.get_phi_aGp()
+
+        # Calculate Coulomb kernel
+        self.Kc_GG = calculate_Kc(self.q_c, self.Gvec_Gc, self.bcell_cv)
 
         # Calculate ALDA kernel (not used in chi0)
         # if frequencies are real (not the case for RPA correlation energies)

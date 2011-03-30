@@ -493,7 +493,7 @@ class DF(CHI):
 
         if all == True:
             from gpaw.response.parallel import par_write
-            par_write('chi0','chi0_wGG',self.wcomm,self.chi0_wGG)
+            par_write('chi0' + filename,'chi0_wGG',self.wcomm,self.chi0_wGG)
         
         if rank == 0:
             pickle.dump(data, open(filename, 'w'), -1)

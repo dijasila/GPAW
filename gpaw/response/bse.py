@@ -174,28 +174,22 @@ class BSE(BASECHI):
                     q_c = bzk_kc[k2] - bzk_kc[k1]
                     iq = self.kd.where_is_q(q_c)
                     W_GG = W_qGG[iq].copy()
-    
+
                     if k1 == k2:
-                        ik = self.kd.kibz_k[k1]
-                        deg_bands1 = np.abs(self.e_kn[ik, n1] - self.e_kn[ik, n2]) < 1e-4
-                        deg_bands2 = np.abs(self.e_kn[ik, m1] - self.e_kn[ik, m2]) < 1e-4
-                    
+                        deg_bands1 = (n1==n2)
+                        deg_bands2 = (m1==m2)
+
                         if (deg_bands1 or deg_bands2):
                             tmp_G = np.zeros(self.npw)
-                            const = 2.*self.vol*(6*pi**2/self.vol)**(2./3.)
+                            const = 1./pi*self.vol*(6*pi**2/self.vol)**(2./3.)
                             q = np.array([0.0001,0,0])
-                            for jG in range(self.npw):
+                            for jG in range(1, self.npw):
                                 qG = np.dot(q+self.Gvec_Gc[jG], self.bcell_cv)
                                 tmp_G[jG] = self.dfinvG0_G[jG] / np.sqrt(np.inner(qG,qG))
                             tmp_G *= const
-                            if deg_bands1 and not deg_bands2:
-                                W_GG[0,:] = tmp_G
-                            elif not deg_bands1 and deg_bands2:
-                                W_GG[:,0] = tmp_G
-                            elif deg_bands1 and deg_bands2:
-                                W_GG[:,0] = tmp_G
-                                W_GG[0,:] = tmp_G
-                                W_GG[0,0] =  2./pi*(6*pi**2/self.vol)**(1./3.) \
+                            W_GG[:,0] = tmp_G
+                            W_GG[0,:] = tmp_G
+                            W_GG[0,0] = 2./pi*(6*pi**2/self.vol)**(1./3.) \
                                             * self.dfinvG0_G[0] *self.vol
 
                     tmp_GG = np.outer(rho3_G.conj(), rho4_G) * W_GG
@@ -230,16 +224,19 @@ class BSE(BASECHI):
         dfinvG0_G = np.zeros(self.npw) # save the wing elements
 
         t0 = time()
-        for iq in range(self.q_start, self.q_end):
+        for iq in range(self.nq):#self.q_start, self.q_end):
             q = self.kd.bzq_kc[iq]
             optical_limit=False
             if (np.abs(q) < self.ftol).all():
                 optical_limit=True
                 q = np.array([0.0001, 0, 0])
+
             df = DF(calc=self.calc, q=q, w=(0.,), nbands=self.nbands,
                     optical_limit=optical_limit,
                     hilbert_trans=False, xc='RPA',
-                    eta=0., ecut=self.ecut*Hartree, txt='no_output', comm=serial_comm)
+                    eta=0., ecut=self.ecut*Hartree, txt='no_output')#, comm=serial_comm)
+
+            df.e_kn = self.e_kn
             dfinv_qGG[iq] = df.get_inverse_dielectric_matrix(xc='RPA')[0]
 
             for iG in range(self.npw):
@@ -256,10 +253,10 @@ class BSE(BASECHI):
                 # Here, the dielectric matrix is real for w = 0
                 assert np.abs(dfinv_qGG[iq,0,:] - dfinv_qGG[iq,:,0]).sum() < 1e-6
                 dfinvG0_G = dfinv_qGG[iq,0,:]
-                
+            del df
         W_qGG = 4 * pi * dfinv_qGG * kc_qGG
-        world.sum(W_qGG)
-        world.broadcast(dfinvG0_G, 0)
+#        world.sum(W_qGG)
+#        world.broadcast(dfinvG0_G, 0)
         self.dfinvG0_G = dfinvG0_G
 
         return W_qGG
