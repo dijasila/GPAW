@@ -13,7 +13,6 @@ def f(name, dist, k, g):
     r.set_parameters(xc='PBE',
                      occupations=dist,
                      basis='dzp',
-                     nbands=9,
                      kpts=(k, k, k),
                      gpts=(g, g, g))
     r.run()
