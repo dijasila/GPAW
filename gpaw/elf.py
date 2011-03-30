@@ -7,39 +7,43 @@ from ase.units import Bohr, Hartree
 from gpaw.fd_operators import Gradient
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 
-def _elf(nt, nt_grad2, taut, ncut, spinpol, elf):
+def _elf(nt_s, nt_grad2_s, taut_s, ncut, spinpol, elf):
     """Pseudo electron localisation function (ELF) as defined in
     Becke and Edgecombe, J. Chem. Phys., vol 92 (1990) 5397
 
+    More comprehensive definition in
+    M. Kohout and A. Savin, Int. J. Quantum Chem., vol 60 (1996) 875-882
+
     Arguments:
      =============== =====================================================
-     ``nt``          Pseudo valence density.
-     ``nt_grad2``    Squared norm of the density gradient.
-     ``tau``         Kinetic energy density.
+     ``nt_s``        Pseudo valence density.
+     ``nt_grad2_s``  Squared norm of the density gradient.
+     ``tau_s``       Kinetic energy density.
      ``ncut``        Minimum density cutoff parameter.
      ``spinpol``     Boolean indicator for spin polarization.
      ``elf``         Empty grid to storing ELF values in.
      =============== =====================================================
     """
 
-    # Uniform electron gas value of D, Becke eq. (13). TODO! explain 3/10 not 3/5!!!
+    # Fermi constant
+    cF = 3.0 / 10 * (3*pi**2)**(2.0/3.0)
+
     if spinpol:
-        D0 = 3.0/10.0*(6*pi**2)**(2.0/3.0)*nt**(5.0/3.0)
+        # Kouhut eq. (9)
+        D0 = 2**(2.0/3.0) * cF * (nt_s[0]**(5.0/3.0) + nt_s[1]**(5.0/3.0))
+        taut = taut_s.sum(axis=0)
+        D = taut - (nt_grad2_s[0] / nt_s[0] + nt_grad2_s[1] / nt_s[1]) / 8
     else:
-        D0 = 3.0/10.0*(3*pi**2)**(2.0/3.0)*nt**(5.0/3.0)
+        # Kouhut eq. (7)
+        D0 = cF * nt_s[0]**(5.0/3.0)
+        taut = taut_s[0]
+        D = taut - nt_grad2_s[0] / nt_s[0] / 8
 
-    # Note: The definition of tau in Becke eq. (9) misses the
-    # factor 1/2, hence it is twice that of the GPAW implementation.
-
-    #TODO! Weizsacker correction factor - extra 0.5 factor appended!!!
-    D = taut - 0.125*nt_grad2/nt*0.5
-
-    elf[:] = 1.0/(1.0+(D/D0)**2.0)
+    elf[:] = 1.0 / (1.0 + (D / D0)**2)
 
     if ncut is not None:
-        elf[nt<ncut] = 0.0
-
-    return None
+        nt = nt_s.sum(axis=0)
+        elf[nt < ncut] = 0.0
 
 class ELF:
     """ELF object for calculating the electronic localization function.
@@ -68,6 +72,7 @@ class ELF:
 
         if not paw.initialized:
             raise RuntimeError('PAW instance is not initialized')
+        paw.converge_wave_functions()
 
         self.tauct = LFC(self.gd,
                          [[setup.tauct] for setup in self.density.setups],
@@ -97,7 +102,7 @@ class ELF:
 
     def update(self, wfs):
         ddr_v = [Gradient(self.gd, v).apply for v in range(3)]
-        assert self.nspins == 1
+
         self.taut_sG[:] = wfs.calculate_kinetic_energy_density(
             self.taut_sG[:1], ddr_v)
 
@@ -125,8 +130,8 @@ class ELF:
         # Returns dimensionless electronic localization function
         if gridrefinement == 1:
             elf_G = self.gd.empty()
-            _elf(self.density.nt_sG[spin], self.nt_grad2_sG[spin],
-                 self.taut_sG[spin], self.ncut, self.spinpol, elf_G)
+            _elf(self.density.nt_sG, self.nt_grad2_sG,
+                 self.taut_sG, self.ncut, self.spinpol, elf_G)
             elf_G = self.gd.collect(elf_G, broadcast)
             if pad:
                 elf_G = self.gd.zero_pad(elf_G)
@@ -136,8 +141,8 @@ class ELF:
                 self.interpolate()
 
             elf_g = self.finegd.empty()
-            _elf(self.density.nt_sg[spin], self.nt_grad2_sg[spin],
-                 self.taut_sg[spin], self.ncut, self.spinpol, elf_g)
+            _elf(self.density.nt_sg, self.nt_grad2_sg,
+                 self.taut_sg, self.ncut, self.spinpol, elf_g)
             elf_g = self.finegd.collect(elf_g, broadcast)
             if pad:
                 elf_g = self.finegd.zero_pad(elf_g)
