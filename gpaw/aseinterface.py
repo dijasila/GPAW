@@ -562,7 +562,7 @@ class GPAW(PAW):
         from gpaw.spline import Spline
         from gpaw.utilities import _fact
 
-        nkpts = len(wfs.ibzk_kc)
+        nkpts = len(wfs.kd.ibzk_kc)
         nbf = np.sum([2 * l + 1 for pos, l, a in locfun])
         f_kni = np.zeros((nkpts, wfs.nbands, nbf), wfs.dtype)
 
@@ -582,9 +582,10 @@ class GPAW(PAW):
             
         lf = LFC(wfs.gd, splines_x, wfs.kpt_comm, dtype=wfs.dtype)
         if not wfs.gamma:
-            lf.set_k_points(wfs.ibzk_qc)
+            lf.set_k_points(wfs.kd.ibzk_qc)
         lf.set_positions(spos_xc)
 
+        assert wfs.gd.comm.size == 1
         k = 0
         f_ani = lf.dict(wfs.nbands)
         for kpt in wfs.kpt_u:
