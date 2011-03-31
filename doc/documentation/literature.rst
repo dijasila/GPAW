@@ -695,3 +695,15 @@ Publications using the gpaw code
    structure from mainly tetrahedral to high-density-like`__
 
    __ http://arxiv.org/abs/1101.5666
+
+#) Mikkel Strange, Carsten Rostgaard, Hannu Häkkinen, and Kristian S. Thygesen
+
+   `Self-consistent GW calculations of electronic transport in thiol-
+   and amine-linked molecular junctions`__
+
+   \Phys. Rev. B 83, 115108 (2011)
+
+   __ http://link.aps.org/doi/10.1103/PhysRevB.83.115108
+
+   .. 4 March 2011
+  
