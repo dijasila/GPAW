@@ -81,7 +81,6 @@ class ELF:
         spos_ac = paw.atoms.get_scaled_positions() % 1.0
         self.tauct.set_positions(spos_ac)
 
-        self.taut_sG = self.gd.empty(self.nspins)
         self.taut_sg = None
         self.nt_grad2_sG = self.gd.empty(self.nspins)
         self.nt_grad2_sg = None
@@ -107,7 +106,8 @@ class ELF:
         self.taut_sG = wfs.calculate_kinetic_energy_density(ddr_v)
 
         # Add the pseudo core kinetic array
-        self.tauct.add(self.taut_sG[0])
+        # XXX this does not seem to have an effect
+        self.tauct.add(self.taut_sG)
 
         # For periodic boundary conditions
         if wfs.symmetry is not None:
