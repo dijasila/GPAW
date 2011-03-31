@@ -7,7 +7,7 @@ from ase.units import Bohr, Hartree
 from gpaw.fd_operators import Gradient
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 
-def _elf(nt_sg, nt_grad2_sg, taut_sg, ncut, spinpol, elf_g):
+def _elf(nt_sg, nt_grad2_sg, taut_sg, ncut, spinpol):
     """Pseudo electron localisation function (ELF) as defined in
     Becke and Edgecombe, J. Chem. Phys., vol 92 (1990) 5397
 
@@ -21,7 +21,6 @@ def _elf(nt_sg, nt_grad2_sg, taut_sg, ncut, spinpol, elf_g):
      ``tau_sg``      Kinetic energy density.
      ``ncut``        Minimum density cutoff parameter.
      ``spinpol``     Boolean indicator for spin polarization.
-     ``elf_g``       Empty grid to storing ELF values in.
      =============== =====================================================
     """
 
@@ -39,11 +38,13 @@ def _elf(nt_sg, nt_grad2_sg, taut_sg, ncut, spinpol, elf_g):
         taut = taut_sg[0]
         D = taut - nt_grad2_sg[0] / nt_sg[0] / 8
 
-    elf_g[:] = 1.0 / (1.0 + (D / D0)**2)
+    elf_g = 1.0 / (1.0 + (D / D0)**2)
 
     if ncut is not None:
         nt = nt_sg.sum(axis=0)
         elf_g[nt < ncut] = 0.0
+
+    return elf_g
 
 class ELF:
     """ELF object for calculating the electronic localization function.
@@ -129,9 +130,8 @@ class ELF:
 
         # Returns dimensionless electronic localization function
         if gridrefinement == 1:
-            elf_G = self.gd.empty()
-            _elf(self.density.nt_sG, self.nt_grad2_sG,
-                 self.taut_sG, self.ncut, self.spinpol, elf_G)
+            elf_G = _elf(self.density.nt_sG, self.nt_grad2_sG,
+                         self.taut_sG, self.ncut, self.spinpol)
             elf_G = self.gd.collect(elf_G, broadcast)
             if pad:
                 elf_G = self.gd.zero_pad(elf_G)
@@ -140,27 +140,11 @@ class ELF:
             if self.nt_grad2_sg is None:
                 self.interpolate()
 
-            elf_g = self.finegd.empty()
-            _elf(self.density.nt_sg, self.nt_grad2_sg,
-                 self.taut_sg, self.ncut, self.spinpol, elf_g)
+            elf_g = _elf(self.density.nt_sg, self.nt_grad2_sg,
+                         self.taut_sg, self.ncut, self.spinpol)
             elf_g = self.finegd.collect(elf_g, broadcast)
             if pad:
                 elf_g = self.finegd.zero_pad(elf_g)
             return elf_g
         else:
             raise NotImplementedError('Arbitrary refinement not implemented')
-
-    def get_kinetic_energy_density(self, spin=0, gridrefinement=1):
-
-        # Returns kinetic energy density in eV / Ang^3
-        if gridrefinement == 1:
-            return self.taut_sG[spin] / (Hartree / Bohr**3.0)
-        elif gridrefinement == 2:
-            if self.taut_sg is None:
-                self.density.interpolator.apply(self.taut_sG[spin],
-                                                    self.taut_sg[spin])
-
-            return self.taut_sg[spin] / (Hartree / Bohr**3.0)
-        else:
-            raise NotImplementedError('Arbitrary refinement not implemented')
-
