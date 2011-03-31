@@ -7,7 +7,7 @@ from ase.units import Bohr, Hartree
 from gpaw.fd_operators import Gradient
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 
-def _elf(nt_s, nt_grad2_s, taut_s, ncut, spinpol, elf):
+def _elf(nt_sg, nt_grad2_sg, taut_sg, ncut, spinpol, elf_g):
     """Pseudo electron localisation function (ELF) as defined in
     Becke and Edgecombe, J. Chem. Phys., vol 92 (1990) 5397
 
@@ -16,12 +16,12 @@ def _elf(nt_s, nt_grad2_s, taut_s, ncut, spinpol, elf):
 
     Arguments:
      =============== =====================================================
-     ``nt_s``        Pseudo valence density.
-     ``nt_grad2_s``  Squared norm of the density gradient.
-     ``tau_s``       Kinetic energy density.
+     ``nt_sg``       Pseudo valence density.
+     ``nt_grad2_sg`` Squared norm of the density gradient.
+     ``tau_sg``      Kinetic energy density.
      ``ncut``        Minimum density cutoff parameter.
      ``spinpol``     Boolean indicator for spin polarization.
-     ``elf``         Empty grid to storing ELF values in.
+     ``elf_g``       Empty grid to storing ELF values in.
      =============== =====================================================
     """
 
@@ -30,20 +30,20 @@ def _elf(nt_s, nt_grad2_s, taut_s, ncut, spinpol, elf):
 
     if spinpol:
         # Kouhut eq. (9)
-        D0 = 2**(2.0/3.0) * cF * (nt_s[0]**(5.0/3.0) + nt_s[1]**(5.0/3.0))
-        taut = taut_s.sum(axis=0)
-        D = taut - (nt_grad2_s[0] / nt_s[0] + nt_grad2_s[1] / nt_s[1]) / 8
+        D0 = 2**(2.0/3.0) * cF * (nt_sg[0]**(5.0/3.0) + nt_sg[1]**(5.0/3.0))
+        taut = taut_sg.sum(axis=0)
+        D = taut - (nt_grad2_sg[0] / nt_sg[0] + nt_grad2_sg[1] / nt_sg[1]) / 8
     else:
         # Kouhut eq. (7)
-        D0 = cF * nt_s[0]**(5.0/3.0)
-        taut = taut_s[0]
-        D = taut - nt_grad2_s[0] / nt_s[0] / 8
+        D0 = cF * nt_sg[0]**(5.0/3.0)
+        taut = taut_sg[0]
+        D = taut - nt_grad2_sg[0] / nt_sg[0] / 8
 
-    elf[:] = 1.0 / (1.0 + (D / D0)**2)
+    elf_g[:] = 1.0 / (1.0 + (D / D0)**2)
 
     if ncut is not None:
-        nt = nt_s.sum(axis=0)
-        elf[nt < ncut] = 0.0
+        nt = nt_sg.sum(axis=0)
+        elf_g[nt < ncut] = 0.0
 
 class ELF:
     """ELF object for calculating the electronic localization function.
@@ -124,7 +124,7 @@ class ELF:
 
         #TODO are nct from setups usable for nt_grad2_sG ?
 
-    def get_electronic_localization_function(self, spin=0, gridrefinement=1,
+    def get_electronic_localization_function(self, gridrefinement=1,
                                              pad=True, broadcast=True):
 
         # Returns dimensionless electronic localization function

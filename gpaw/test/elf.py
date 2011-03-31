@@ -1,10 +1,11 @@
 import numpy as np
 from ase.data.molecules import molecule
 from ase.io import write
+from ase.parallel import parprint
 from gpaw import GPAW, restart
 from gpaw.elf import ELF
 from gpaw.test import equal
-from gpaw.mpi import rank
+from gpaw.mpi import rank, world
 
 atoms = molecule('CO')
 atoms.center(2.0)
@@ -20,8 +21,8 @@ except:
 
 elf = ELF(calc)
 elf.update(calc.wfs)
-elf_G = elf.get_electronic_localization_function(spin=0,gridrefinement=1)
-elf_g = elf.get_electronic_localization_function(spin=0,gridrefinement=2)
+elf_G = elf.get_electronic_localization_function(gridrefinement=1)
+elf_g = elf.get_electronic_localization_function(gridrefinement=2)
 
 dt_g = calc.get_pseudo_density()
 taut_G = elf.taut_sG[0]
@@ -47,27 +48,32 @@ if rank == 0:
     gz0, gz1 = finegd.N_c[2]*z0, finegd.N_c[2] * z1
     int1 = elf_G[Gx0:Gx1,Gy0:Gy1,Gz0:Gz1].sum() * gd.dv
     int2 = elf_g[gx0:gx1,gy0:gy1,gz0:gz1].sum() * finegd.dv
-    print "Ints", int1, int2
-    print "Min, max G", np.min(elf_G), np.max(elf_G)
-    print "Min, max g", np.min(elf_g), np.max(elf_g)
+    parprint("Ints", int1, int2)
+    parprint("Min, max G", np.min(elf_G), np.max(elf_G))
+    parprint("Min, max g", np.min(elf_g), np.max(elf_g))
 #   The tested values (< r7887) do not seem to be correct  
 #    equal(int1, 14.8078, 0.0001)
 #    equal(int2, 13.0331, 0.0001)
 
+write('CO.xyz', atoms)
+write('elf_G.plt', atoms, data=elf_G)
+
 # check spin-polarized version
 try:
-    atoms, calc = restart('COspin.gpw', txt=None)
+    atoms, calc = restart('COspin.gpw', txt=None,
+                          parallel={'domain': world.size})
     energy_spinpol = atoms.get_potential_energy()
 except:
     calc.set(spinpol=True)
     energy_spinpol = atoms.get_potential_energy()
-    calc.write('COspin.gpw', 'all')
+    calc.write('COspin.gpw', 'all',
+               parallel={'domain': world.size})
 
 def check_diff(g1, g2, gd, txt):
     intd = gd.integrate(np.abs(g1 - g2))
-    print txt, 'integrated diff=', intd,
+    parprint(txt, 'integrated diff=', intd, end='')
     maxd = np.max(np.abs(g1 - g2))
-    print 'max diff=', maxd
+    parprint('max diff=', maxd)
     equal(intd, 0, 1.e-10) 
     equal(maxd, 0, 1.e-10) 
 
@@ -78,10 +84,8 @@ equal(energy, energy_spinpol, 0.0001)
 
 elf_spinpol = ELF(calc)
 elf_spinpol.update(calc.wfs)
-elf_spinpol_G = elf_spinpol.get_electronic_localization_function(spin=0,
-                                                                 gridrefinement=1)
-elf_spinpol_g = elf_spinpol.get_electronic_localization_function(spin=0,
-                                                                 gridrefinement=2)
+elf_spinpol_G = elf_spinpol.get_electronic_localization_function(gridrefinement=1)
+elf_spinpol_g = elf_spinpol.get_electronic_localization_function(gridrefinement=2)
 taut_spinpol_G = elf_spinpol.taut_sG.sum(axis=0)
 check_diff(taut_G, taut_spinpol_G, elf.gd, 'taut_G')
 
