@@ -1,6 +1,7 @@
 import numpy as np
 from ase.structure import bulk
-from gpaw import FermiDirac, MethfesselPaxton, MixerSum
+from gpaw import FermiDirac, MethfesselPaxton, MixerSum, \
+         KohnShamConvergenceError
 from gpaw.utilities.bulk2 import GPAWRunner
 
 strains = np.linspace(0.98, 1.02, 9)
@@ -13,9 +14,14 @@ def f(name, dist, k, g):
     r.set_parameters(xc='PBE',
                      occupations=dist,
                      basis='dzp',
+                     mixer=MixerSum(0.05, 5, 100),
+                     eigensolver='cg',
                      kpts=(k, k, k),
                      gpts=(g, g, g))
-    r.run()
+    try:
+        r.run()
+    except KohnShamConvergenceError:
+        pass
 
 for width in [0.05, 0.1, 0.15, 0.2]:
     for k in [4, 6, 8, 10, 12]:
