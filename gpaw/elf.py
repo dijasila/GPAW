@@ -104,8 +104,7 @@ class ELF:
     def update(self, wfs):
         ddr_v = [Gradient(self.gd, v).apply for v in range(3)]
 
-        self.taut_sG[:] = wfs.calculate_kinetic_energy_density(
-            self.taut_sG[:1], ddr_v)
+        self.taut_sG = wfs.calculate_kinetic_energy_density(ddr_v)
 
         # Add the pseudo core kinetic array
         self.tauct.add(self.taut_sG[0])

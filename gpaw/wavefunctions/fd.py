@@ -84,7 +84,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                     if abs(d) > 1.e-12:
                         nt_G += (psi0_G.conj() * d * psi_G).real
 
-    def calculate_kinetic_energy_density(self, tauct, grad_v):
+    def calculate_kinetic_energy_density(self, grad_v):
         assert not hasattr(self.kpt_u[0], 'c_on')
         if isinstance(self.kpt_u[0].psit_nG, TarFileReference):
             raise RuntimeError('Wavefunctions have not been initialized.')
