@@ -171,7 +171,9 @@ class KPointDescriptor:
     def transform_wave_function(self, psit_G, k):
         """Transform wave function from IBZ to BZ.
 
-        k is the index of the desired k-point in the full BZ."""
+        k is the index of the desired k-point in the full BZ.
+
+        """
         
         s = self.sym_k[k]
         time_reversal = self.time_reversal_k[k]
@@ -204,7 +206,7 @@ class KPointDescriptor:
                                               kibz_c, kbz_c)
                 return b_g
 
-    def find_k_plus_q(self, q_c):
+    def find_k_plus_q(self, q_c, kpts_k=None):
         """Find the indices of k+q for all kpoints in the Brillouin zone.
 
         In case that k+q is outside the BZ, the k-point inside the BZ
@@ -215,6 +217,8 @@ class KPointDescriptor:
         q_c: ndarray
             Coordinates for the q-vector in units of the reciprocal
             lattice vectors.
+        kpts_k: list of ints
+            Restrict search to specified k-points.
 
         """
 
@@ -224,18 +228,23 @@ class KPointDescriptor:
             dk_c = 1. / N_c
             kmax_c = (N_c - 1) * dk_c / 2.
 
-        N = np.zeros(3, dtype=int)
-
+        if kpts_k is None:
+            kpts_kc = self.bzk_kc
+        else:
+            kpts_kc = self.bzk_kc[kpts_k]
+            
         # k+q vectors
-        kplusq_kc = self.bzk_kc + q_c
+        kplusq_kc = kpts_kc + q_c
         # Translate back into the first BZ
         kplusq_kc[np.where(kplusq_kc > 0.5)] -= 1.
         kplusq_kc[np.where(kplusq_kc <= -0.5)] += 1.
 
         # List of k+q indices
         kplusq_k = []
+
+        N = np.zeros(3, dtype=int)
         
-        # Find index of k+q vector in the bzk_kc attribute
+        # Find index of k+q vector 
         for kplusq, kplusq_c in enumerate(kplusq_kc):
 
             # Calculate index for Monkhorst-Pack grids
