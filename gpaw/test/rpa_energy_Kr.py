@@ -6,7 +6,7 @@ from gpaw.mpi import serial_comm
 from gpaw.test import equal
 from gpaw.xc.rpa_correlation_energy import RPACorrelation
 
-calc = GPAW(h=0.18, xc='LDA', kpts=(4,4,4), #usesymm=None,
+calc = GPAW(h=0.18, xc='LDA', kpts=(2,2,2),
             nbands=15, eigensolver='cg', 
             convergence={'bands': -5},
             communicator=serial_comm)
@@ -19,8 +19,10 @@ Kr.set_calculator(calc)
 Kr.get_potential_energy()
 
 ecut = 30.
-w = np.linspace(0.0, 50., 8)
 rpa = RPACorrelation(calc)
-E_rpa = rpa.get_rpa_correlation_energy(ecut=ecut, w=w)
+E_rpa = rpa.get_rpa_correlation_energy(ecut=ecut,
+                                       directions=[[0, 1.0]],
+                                       gauss_legendre=8)
 
 equal(E_rpa, -3.2, 0.1)
+
