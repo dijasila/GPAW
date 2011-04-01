@@ -244,7 +244,7 @@ class KPointDescriptor:
         # List of k+q indices
         kplusq_k = []
 
-        N = np.zeros(3, dtype=int)
+        # N = np.zeros(3, dtype=int)
         
         # Find index of k+q vector
         for kplusq, kplusq_c in enumerate(kplusq_kc):
@@ -261,7 +261,6 @@ class KPointDescriptor:
 
             # Check the k+q vector index
             k_c = self.bzk_kc[kplusq_k[kplusq]]
-            print abs(kplusq_c - k_c).sum()
             assert abs(kplusq_c - k_c).sum() < 1e-8, "Could not find k+q!"
         
         return kplusq_k
