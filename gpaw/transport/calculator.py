@@ -60,7 +60,8 @@ class Transport(GPAW):
                        'use_buffer', 'buffer_atoms', 'edge_atoms', 'bias',
                        'lead_restart', 'special_datas', 'neutral_steps',
                        'plot_eta', 'plot_energy_range', 'plot_energy_point_num',
-                       'vaccs', 'lead_guess', 'neutral','buffer_guess',
+                       'vaccs', 'lead_guess', 'neutral','buffer_guess','fill_guess',
+		       'cell_atoms', 'sf', 'lead_sf',  
                        'lead_atoms', 'nleadlayers', 'mol_atoms', 'la_index',
                        'total_charge', 'alpha', 'beta_guess','theta',
                        'LR_leads', 'gate', 'gate_mode', 'gate_atoms', 'gate_fun',                 
@@ -138,6 +139,10 @@ class Transport(GPAW):
         self.fix_contour = p['fix_contour']
         self.vaccs = p['vaccs']
         self.lead_guess = p['lead_guess']
+	self.fill_guess = p['fill_guess']
+	self.cell_atoms = p['cell_atoms']
+        self.sf = p['sf']
+	self.lead_sf = p['lead_sf']
         self.buffer_guess = p['buffer_guess']
         self.neutral = p['neutral']
         self.neutral_steps = p['neutral_steps']
@@ -243,6 +248,10 @@ class Transport(GPAW):
         p['LR_leads'] = True
         p['lead_guess'] = False
         p['buffer_guess'] = False
+	p['fill_guess'] = False
+	p['cell_atoms'] = None
+	p['sf'] = None
+	p['lead_sf'] = None
         p['neutral'] = True
         p['neutral_steps'] = None
         p['total_charge'] = 0
@@ -421,6 +430,8 @@ class Transport(GPAW):
                 self.get_hamiltonian_initial_guess3()
             elif self.buffer_guess:
                 self.get_hamiltonian_initial_guess2()
+	    elif self.fill_guess:
+	        self.get_hamiltonian_initial_guess4()
             else:
                 self.get_hamiltonian_initial_guess()                
         
@@ -634,7 +645,104 @@ class Transport(GPAW):
             for s in range(self.my_nspins):
                 self.hsd.reset(s, q, h_spkmm[s, q], 'H', True)
                 self.hsd.reset(s, q, np.zeros([nb, nb], dtype), 'D', True)
-                
+
+    def get_hamiltonian_initial_guess4(self):
+        #get hamiltonian_guess from some separate calculation and combine them.
+	wfs = self.wfs
+        self.gd.comm.broadcast(wfs.S_qMM, 0)
+        self.gd.comm.broadcast(wfs.T_qMM, 0)        
+        s_pkmm = wfs.S_qMM.copy()
+        for S_MM in s_pkmm:
+            tri2full(S_MM)
+        h_spkmm = self.scale_and_combine_hamiltonian()  	
+        nb = s_pkmm.shape[-1]
+        dtype = s_pkmm.dtype
+        for q in range(self.my_npk):
+            self.hsd.reset(0, q, s_pkmm[q], 'S', True)                
+            for s in range(self.my_nspins):
+                self.hsd.reset(s, q, h_spkmm[s, q], 'H', True)
+                self.hsd.reset(s, q, np.zeros([nb, nb], dtype), 'D', True)
+
+    def scale_and_combine_hamiltonian(self):
+ 	#assert self.cell_ham_file is not None
+        #fd = file(self.cell_ham_file, 'r')
+	#cell_ham_data = cPickle.load(fd)
+        #cell_s_pkmm, cell_cs_pkmm, cell_h_spkmm, cell_ch_spkmm, fermi = cell_ham_data[self.wfs.kpt_comm.rank]
+        #fd.close()
+        self.cell_atoms.get_potential_energy()
+	cell_h_skmm, cell_s_kmm = self.get_hs(self.cell_atoms.calc)
+        cell_d_skmm = get_lcao_density_matrix(self.cell_atoms.calc)
+
+        cell_h_spkmm, cell_s_pkmm, cell_d_spkmm,  \
+        cell_ch_spkmm, cell_cs_pkmm, cell_cd_spkmm = get_pk_hsd(self.d, self.ntklead,
+                                                self.cell_atoms.calc.wfs.ibzk_qc,
+                                                cell_h_skmm, cell_s_kmm, cell_d_skmm,
+                                                self.text, self.wfs.dtype,
+                                                direction=0)
+        fermi = self.cell_atoms.calc.get_fermi_level()
+
+	efloat = fermi - self.lead_fermi[0]
+	cell_h_spkmm -= cell_s_pkmm * efloat
+        cell_ch_spkmm -= cell_cs_pkmm * efloat
+
+	nn, nbp = self.sf #nn is the scaling factor, nbp is the fractional part, - means in front, + means at the end
+        dtype = cell_h_spkmm.dtype
+	nbc = cell_h_spkmm.shape[-1]
+	nbp = int(nbp * nbc)
+
+	ns, npk = self.my_nspins, self.my_npk
+	nb0, nb1 = self.nblead
+        nbp0, nbp1 = self.lead_sf #nbp0, nbp1 are both positive
+	nbp0 = int(nbp0 * self.nblead[0])
+	nbp1 = int(nbp1 * self.nblead[1])
+	assert dtype == self.wfs.dtype
+	nb = nbc * nn + abs(nbp) + nb0 + nb1 + abs(nbp0) + abs(nbp1)
+	h_spkmm = np.zeros([ns, npk, nb, nb], dtype=dtype)
+        for s in range(ns):
+	    for pk in range(npk):
+	        h_spkmm[s, pk, :nb0, :nb0] = self.lead_hsd[0].H[s][pk].recover()
+	        h_spkmm[s, pk, nb0:nb0+nbp0, nb0:nb0+nbp0] = self.lead_hsd[0].H[s][pk].recover()[:nbp0,:nbp0]
+	        h_spkmm[s, pk, nb0:nb0+nbp0, :nb0] = self.lead_couple_hsd[0].H[s][pk].recover()[:,:nbp0].T.conj()
+	        h_spkmm[s, pk, :nb0, nb0:nb0+nbp0] = self.lead_couple_hsd[0].H[s][pk].recover()[:,:nbp0]
+                if nbp < 0:
+		    a, b = nb0+nbp0, nb0+nbp0-nbp 
+	            h_spkmm[s, pk, a:b, a:b] = cell_h_spkmm[s, pk, nbp:,nbp:]
+	            h_spkmm[s, pk, a:b, b:b+nbc] = cell_ch_spkmm[s, pk, nbp:,:]            
+	            h_spkmm[s, pk, b:b+nbc, a:b] = cell_ch_spkmm[s, pk, nbp:,:].T.conj()            
+		    a, b = nb0+nbp0-nbp, nb0+nbp0-nbp+nbc
+                    for i in range(nn):
+  		        h_spkmm[s, pk, a:b, a:b] = cell_h_spkmm[s, pk]
+		        a += nbc
+			b += nbc
+		    a, b = nb0+nbp0-nbp, nb0+nbp0-nbp+nbc
+		    for i in range(nn-1):
+  		        h_spkmm[s, pk, a:b, a+nbc:b+nbc] = cell_ch_spkmm[s, pk]
+  		        h_spkmm[s, pk, a+nbc:b+nbc, a:b] = cell_ch_spkmm[s, pk].T.conj()
+			a += nbc
+			b += nbc
+		else:
+		    a, b = nb0+nbp0, nb0+nbp0+nbc
+                    for i in range(nn):
+  		        h_spkmm[s, pk, a:b, a:b] = cell_h_spkmm[s, pk]
+		        a += nbc
+			b += nbc
+		    a, b = nb0+nbp0, nb0+nbp0+nbc
+		    for i in range(nn-1):
+  		        h_spkmm[s, pk, a:b, a+nbc:b+nbc] = cell_ch_spkmm[s, pk]
+  		        h_spkmm[s, pk, a+nbc:b+nbc, a:b] = cell_ch_spkmm[s, pk].T.conj()
+                        a += nbc
+			b += nbc
+                    a, b = nb0 + nbp0 + nn *nbc, nb0 + nbp0 + nn *nbc +nbp
+	            h_spkmm[s, pk, a:b, a:b] = cell_h_spkmm[s, pk, :nbp, :nbp]
+	            h_spkmm[s, pk, a:b, a-nbc:a] = cell_ch_spkmm[s, pk, :, :nbp].T.conj()
+	            h_spkmm[s, pk, a-nbc:a, a:b] = cell_ch_spkmm[s, pk, :, :nbp]
+              
+                h_spkmm[s, pk, b:b+nbp1, b:b+nbp1] = self.lead_hsd[1].H[s][pk].recover()[-nbp1:, -nbp1:]
+	        h_spkmm[s, pk, b+nbp1:b+nbp1+nb1, b+nbp1:b+nbp1+nb1] = self.lead_hsd[1].H[s][pk].recover()
+		h_spkmm[s, pk, b:b+nbp1, b+nbp1:b+nbp1+nb1] = self.lead_couple_hsd[1].H[s][pk].recover()[:, -nbp1:].T.conj()
+		h_spkmm[s, pk, b+nbp1:b+nbp1+nb1, b:b+nbp1] = self.lead_couple_hsd[1].H[s][pk].recover()[:, -nbp1:]
+        return h_spkmm 
+
     def initialize_hamiltonian_matrix(self, calc):    
         h_skmm, s_kmm =  self.get_hs(calc)
         d_skmm = get_lcao_density_matrix(calc)
