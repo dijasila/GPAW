@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 from ase.data.molecules import molecule
 from ase.io import write
@@ -10,11 +11,14 @@ from gpaw.mpi import rank, world
 atoms = molecule('CO')
 atoms.center(2.0)
 
+txt=sys.stdout
+txt=None
+
 try:
-    atoms, calc = restart('CO.gpw', txt=None)
+    atoms, calc = restart('CO.gpw', txt=txt)
     energy = atoms.get_potential_energy()
 except:
-    calc = GPAW(h=0.24, txt=None)
+    calc = GPAW(h=0.24, txt=txt)
     atoms.set_calculator(calc)
     energy = atoms.get_potential_energy()
     calc.write('CO.gpw', 'all')
@@ -24,7 +28,7 @@ elf.update(calc.wfs)
 elf_G = elf.get_electronic_localization_function(gridrefinement=1)
 elf_g = elf.get_electronic_localization_function(gridrefinement=2)
 
-dt_g = calc.get_pseudo_density()
+nt_G = calc.density.nt_sG[0]
 taut_G = elf.taut_sG[0]
 nt_grad2_G = elf.nt_grad2_sG[0]
 nt_grad2_g = elf.nt_grad2_sg[0]
@@ -55,21 +59,19 @@ if rank == 0:
 #    equal(int1, 14.8078, 0.0001)
 #    equal(int2, 13.0331, 0.0001)
 
-write('CO.xyz', atoms)
-write('elf_G.plt', atoms, data=elf_G)
-
 # check spin-polarized version
 try:
     atoms, calc = restart('COspin.gpw', txt=None,
                           parallel={'domain': world.size})
     energy_spinpol = atoms.get_potential_energy()
 except:
-    calc.set(spinpol=True)
+    calc.set(spinpol=True,
+             parallel={'domain': world.size})
     energy_spinpol = atoms.get_potential_energy()
-    calc.write('COspin.gpw', 'all',
-               parallel={'domain': world.size})
+    calc.write('COspin.gpw', 'all')
 
 def check_diff(g1, g2, gd, txt):
+#    print rank, txt, "shapes", g1.shape, g2.shape
     intd = gd.integrate(np.abs(g1 - g2))
     parprint(txt, 'integrated diff=', intd, end='')
     maxd = np.max(np.abs(g1 - g2))
@@ -77,8 +79,8 @@ def check_diff(g1, g2, gd, txt):
     equal(intd, 0, 1.e-10) 
     equal(maxd, 0, 1.e-10) 
 
-dt_spinpol_g = calc.get_pseudo_density()
-check_diff(dt_g, dt_spinpol_g, elf.finegd, 'dt_g')
+nt_spinpol_G = calc.density.nt_sG.sum(axis=0)
+check_diff(nt_G, nt_spinpol_G, elf.finegd, 'nt_G')
    
 equal(energy, energy_spinpol, 0.0001)
 
