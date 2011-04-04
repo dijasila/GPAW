@@ -72,6 +72,7 @@ class Transport(GPAW):
                        'data_file', 'extended_atoms','restart_lead_hamiltonian',
                         'analysis_data_list', 'save_bias_data',
                         'perturbation_steps', 'perturbation_magmom', 'perturbation_charge',
+                        'perturbation_atoms',
                         'analysis_mode', 'normalize_density', 'se_data_path',                     
                         'neintmethod', 'neintstep', 'eqinttol', 'extra_density']:
                 
@@ -163,6 +164,8 @@ class Transport(GPAW):
         self.perturbation_steps = p['perturbation_steps']
         self.perturbation_charge = p['perturbation_charge']
         self.perturbation_magmom = p['perturbation_magmom']
+        self.perturbation_atoms = p['perturbation_atoms']
+
         self.verbose = p['verbose']
         self.d = p['d']
        
@@ -258,6 +261,8 @@ class Transport(GPAW):
         p['perturbation_steps'] = []
         p['perturbation_magmom'] = None
         p['perturbation_charge'] = 0
+        p['perturbation_atoms'] = []
+
         p['gate'] = 0
         p['gate_mode'] = 'VG'
         p['gate_fun'] = None
@@ -400,12 +405,14 @@ class Transport(GPAW):
         if not self.multi_leads:
             self.surround = Surrounding(self)  
         self.timer.stop('init surround')
-        
         # save memory
-        del self.atoms_l
+
+        ########avoid some unpredictable errro##########
+        #del self.atoms_l
 
         self.get_inner_setups()
         self.extended_D_asp = None        
+
         if not self.non_sc:
             self.timer.start('surround set_position')
             if not self.fixed:
@@ -417,14 +424,16 @@ class Transport(GPAW):
                                             self.input_parameters.stencils[1],
                                             allocate=False)
             self.interpolator.allocate()
+
             if not self.multi_leads:
                 self.surround.combine(self)
+
             if self.use_qzk_boundary or self.multi_leads:
                 self.extended_calc.set_positions()
             else:
                 self.set_extended_positions()
             self.timer.stop('surround set_position')
-        
+       
         if not self.analysis_mode:
             if self.scat_restart:
                 self.get_hamiltonian_initial_guess3()
@@ -434,7 +443,7 @@ class Transport(GPAW):
 	        self.get_hamiltonian_initial_guess4()
             else:
                 self.get_hamiltonian_initial_guess()                
-        
+       
         self.initialize_gate()
         self.initialized_transport = True
         self.matrix_mode = 'sparse'
@@ -1230,6 +1239,7 @@ class Transport(GPAW):
         ##temp
  
         if self.analysor.n_bias_step in self.perturbation_steps:
+            #self.density.mixer.reset()
             self.induce_density_perturbation()
      
         while not self.cvgflag and self.step < self.max_steps:
@@ -1242,9 +1252,11 @@ class Transport(GPAW):
             magmom = self.occupations.magmom
             self.text('Total Magnetic Moment: %f' % magmom)
             self.text('Local Magnetic Moments:')
-            for a, mom in enumerate(self.get_magnetic_moments()):
-                self.text(a, mom)
-       
+            try:
+                for a, mom in enumerate(self.get_magnetic_moments()):
+                    self.text(a, mom)
+            except:
+                pass
         self.scf.converged = self.cvgflag
    
         if self.save_bias_data:
@@ -1952,24 +1964,32 @@ class Transport(GPAW):
         D_asp = {}
         f_asi = {}
         for a in basis_functions.atom_indices:
-            c = self.perturbation_charge / len(wfs.setups)  # distribute on all atoms
-            f_si = wfs.setups[a].calculate_initial_occupation_numbers(
-                    self.perturbation_magmom[a], True, charge=c, nspins=self.nspins)
-            if a in basis_functions.my_atom_indices:
-                D_asp[a] = wfs.setups[a].initialize_density_matrix(f_si)
-            f_asi[a] = f_si
+            if a in self.perturbation_atoms:
+                c = self.perturbation_charge / len(wfs.setups)  # distribute on all atoms
+                f_si = wfs.setups[a].calculate_initial_occupation_numbers(
+                        self.perturbation_magmom[a], True, charge=c, nspins=self.nspins)
+                if a in basis_functions.my_atom_indices:
+                    D_asp[a] = wfs.setups[a].initialize_density_matrix(f_si)
+                f_asi[a] = f_si
+            else:
+                c = self.perturbation_charge / len(wfs.setups)
+                f_si = wfs.setups[a].calculate_initial_occupation_numbers(
+                        self.perturbation_magmom[a], True, charge=c, nspins=self.nspins)
+                if a in basis_functions.my_atom_indices:
+                    D_asp[a] = np.zeros_like(self.extended_D_asp[a])
+                f_asi[a] = np.zeros_like(f_si)
 
         nt_sG = self.gd1.zeros(self.nspins)
         basis_functions.add_to_density(nt_sG, f_asi)
         nn = self.surround.nn
-        density.nt_sG = self.surround.uncapsule(self, nn, nt_sG, self.gd1,
+        self.perturbation_nt_sG = self.surround.uncapsule(self, nn, nt_sG, self.gd1,
                                                     self.gd)
         all_D_asp = collect_atomic_matrices(D_asp, wfs.setups, self.nspins,
                                             self.gd.comm, wfs.rank_a)
         D_asp = all_D_asp[:len(self.atoms)]
-        distribute_atomic_matrices(D_asp, density.D_asp, density.setups)
-        comp_charge = density.calculate_multipole_moments()
-        density.mix(comp_charge)
+        self.perturbation_D_asp = D_asp
+        #comp_charge = density.calculate_multipole_moments()
+        #density.mix(comp_charge)
   
     def update_density(self):
         self.timer.start('dmm recover')
@@ -2001,6 +2021,7 @@ class Transport(GPAW):
             
         density.nt_sG += density.nct_G
 
+
         self.timer.stop('construct density')
         self.timer.start('atomic density')
         
@@ -2026,6 +2047,13 @@ class Transport(GPAW):
         if self.neutral:
             self.normalize(comp_charge)
         density.mix(comp_charge)
+
+        if self.step == 0 and self.analysor.n_bias_step in self.perturbation_steps:
+            density.nt_sG += self.perturbation_nt_sG
+            for a in range(len(density.setups)):
+                if density.D_asp.get(a) is not None:
+                    density.D_asp[a] += self.perturbation_D_asp[a]
+
 
     def normalize(self, comp_charge):
         if not self.use_qzk_boundary and not self.multi_leads:
