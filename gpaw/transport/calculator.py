@@ -669,26 +669,31 @@ class Transport(GPAW):
 	#cell_ham_data = cPickle.load(fd)
         #cell_s_pkmm, cell_cs_pkmm, cell_h_spkmm, cell_ch_spkmm, fermi = cell_ham_data[self.wfs.kpt_comm.rank]
         #fd.close()
-        self.cell_atoms.get_potential_energy()
-	cell_h_skmm, cell_s_kmm = self.get_hs(self.cell_atoms.calc)
-        cell_d_skmm = get_lcao_density_matrix(self.cell_atoms.calc)
 
-        cell_h_spkmm, cell_s_pkmm, cell_d_spkmm,  \
-        cell_ch_spkmm, cell_cs_pkmm, cell_cd_spkmm = get_pk_hsd(self.d, self.ntklead,
-                                                self.cell_atoms.calc.wfs.ibzk_qc,
-                                                cell_h_skmm, cell_s_kmm, cell_d_skmm,
-                                                self.text, self.wfs.dtype,
-                                                direction=0)
-        fermi = self.cell_atoms.calc.get_fermi_level()
+	if self.cell_atoms is not None:
+            self.cell_atoms.get_potential_energy()
+	    cell_h_skmm, cell_s_kmm = self.get_hs(self.cell_atoms.calc)
+            cell_d_skmm = get_lcao_density_matrix(self.cell_atoms.calc)
 
-	efloat = fermi - self.lead_fermi[0]
-	cell_h_spkmm -= cell_s_pkmm * efloat
-        cell_ch_spkmm -= cell_cs_pkmm * efloat
+            cell_h_spkmm, cell_s_pkmm, cell_d_spkmm,  \
+            cell_ch_spkmm, cell_cs_pkmm, cell_cd_spkmm = get_pk_hsd(self.d, self.ntklead,
+                                                    self.cell_atoms.calc.wfs.ibzk_qc,
+                                                    cell_h_skmm, cell_s_kmm, cell_d_skmm,
+                                                    self.text, self.wfs.dtype,
+                                                    direction=0)
+            fermi = self.cell_atoms.calc.get_fermi_level()
 
-	nn, nbp = self.sf #nn is the scaling factor, nbp is the fractional part, - means in front, + means at the end
-        dtype = cell_h_spkmm.dtype
-	nbc = cell_h_spkmm.shape[-1]
-	nbp = int(nbp * nbc)
+	    efloat = fermi - self.lead_fermi[0]
+	    cell_h_spkmm -= cell_s_pkmm * efloat
+            cell_ch_spkmm -= cell_cs_pkmm * efloat
+
+	    nn, nbp = self.sf #nn is the scaling factor, nbp is the fractional part, - means in front, + means at the end
+            dtype = cell_h_spkmm.dtype
+	    nbc = cell_h_spkmm.shape[-1]
+	    nbp = int(nbp * nbc)
+	else:
+	    nbc = 0
+	    nbp = 0
 
 	ns, npk = self.my_nspins, self.my_npk
 	nb0, nb1 = self.nblead
@@ -704,39 +709,41 @@ class Transport(GPAW):
 	        h_spkmm[s, pk, nb0:nb0+nbp0, nb0:nb0+nbp0] = self.lead_hsd[0].H[s][pk].recover()[:nbp0,:nbp0]
 	        h_spkmm[s, pk, nb0:nb0+nbp0, :nb0] = self.lead_couple_hsd[0].H[s][pk].recover()[:,:nbp0].T.conj()
 	        h_spkmm[s, pk, :nb0, nb0:nb0+nbp0] = self.lead_couple_hsd[0].H[s][pk].recover()[:,:nbp0]
-                if nbp < 0:
-		    a, b = nb0+nbp0, nb0+nbp0-nbp 
-	            h_spkmm[s, pk, a:b, a:b] = cell_h_spkmm[s, pk, nbp:,nbp:]
-	            h_spkmm[s, pk, a:b, b:b+nbc] = cell_ch_spkmm[s, pk, nbp:,:]            
-	            h_spkmm[s, pk, b:b+nbc, a:b] = cell_ch_spkmm[s, pk, nbp:,:].T.conj()            
-		    a, b = nb0+nbp0-nbp, nb0+nbp0-nbp+nbc
-                    for i in range(nn):
-  		        h_spkmm[s, pk, a:b, a:b] = cell_h_spkmm[s, pk]
-		        a += nbc
-			b += nbc
-		    a, b = nb0+nbp0-nbp, nb0+nbp0-nbp+nbc
-		    for i in range(nn-1):
-  		        h_spkmm[s, pk, a:b, a+nbc:b+nbc] = cell_ch_spkmm[s, pk]
-  		        h_spkmm[s, pk, a+nbc:b+nbc, a:b] = cell_ch_spkmm[s, pk].T.conj()
-			a += nbc
-			b += nbc
+		if nbc != 0:
+                    if nbp < 0:
+		        a, b = nb0+nbp0, nb0+nbp0-nbp 
+	                h_spkmm[s, pk, a:b, a:b] = cell_h_spkmm[s, pk, nbp:,nbp:]
+	                h_spkmm[s, pk, a:b, b:b+nbc] = cell_ch_spkmm[s, pk, nbp:,:]            
+	                h_spkmm[s, pk, b:b+nbc, a:b] = cell_ch_spkmm[s, pk, nbp:,:].T.conj()            
+		        a, b = nb0+nbp0-nbp, nb0+nbp0-nbp+nbc
+                        for i in range(nn):
+  		            h_spkmm[s, pk, a:b, a:b] = cell_h_spkmm[s, pk]
+		            a += nbc
+		    	b += nbc
+		        a, b = nb0+nbp0-nbp, nb0+nbp0-nbp+nbc
+		        for i in range(nn-1):
+  		            h_spkmm[s, pk, a:b, a+nbc:b+nbc] = cell_ch_spkmm[s, pk]
+  		            h_spkmm[s, pk, a+nbc:b+nbc, a:b] = cell_ch_spkmm[s, pk].T.conj()
+		    	a += nbc
+		    	b += nbc
+		    else:
+		        a, b = nb0+nbp0, nb0+nbp0+nbc
+                        for i in range(nn):
+  		            h_spkmm[s, pk, a:b, a:b] = cell_h_spkmm[s, pk]
+		            a += nbc
+		    	b += nbc
+		        a, b = nb0+nbp0, nb0+nbp0+nbc
+		        for i in range(nn-1):
+  		            h_spkmm[s, pk, a:b, a+nbc:b+nbc] = cell_ch_spkmm[s, pk]
+  		            h_spkmm[s, pk, a+nbc:b+nbc, a:b] = cell_ch_spkmm[s, pk].T.conj()
+                            a += nbc
+		    	b += nbc
+                        a, b = nb0 + nbp0 + nn *nbc, nb0 + nbp0 + nn *nbc +nbp
+	                h_spkmm[s, pk, a:b, a:b] = cell_h_spkmm[s, pk, :nbp, :nbp]
+	                h_spkmm[s, pk, a:b, a-nbc:a] = cell_ch_spkmm[s, pk, :, :nbp].T.conj()
+	                h_spkmm[s, pk, a-nbc:a, a:b] = cell_ch_spkmm[s, pk, :, :nbp]
 		else:
-		    a, b = nb0+nbp0, nb0+nbp0+nbc
-                    for i in range(nn):
-  		        h_spkmm[s, pk, a:b, a:b] = cell_h_spkmm[s, pk]
-		        a += nbc
-			b += nbc
-		    a, b = nb0+nbp0, nb0+nbp0+nbc
-		    for i in range(nn-1):
-  		        h_spkmm[s, pk, a:b, a+nbc:b+nbc] = cell_ch_spkmm[s, pk]
-  		        h_spkmm[s, pk, a+nbc:b+nbc, a:b] = cell_ch_spkmm[s, pk].T.conj()
-                        a += nbc
-			b += nbc
-                    a, b = nb0 + nbp0 + nn *nbc, nb0 + nbp0 + nn *nbc +nbp
-	            h_spkmm[s, pk, a:b, a:b] = cell_h_spkmm[s, pk, :nbp, :nbp]
-	            h_spkmm[s, pk, a:b, a-nbc:a] = cell_ch_spkmm[s, pk, :, :nbp].T.conj()
-	            h_spkmm[s, pk, a-nbc:a, a:b] = cell_ch_spkmm[s, pk, :, :nbp]
-              
+                    pass
                 h_spkmm[s, pk, b:b+nbp1, b:b+nbp1] = self.lead_hsd[1].H[s][pk].recover()[-nbp1:, -nbp1:]
 	        h_spkmm[s, pk, b+nbp1:b+nbp1+nb1, b+nbp1:b+nbp1+nb1] = self.lead_hsd[1].H[s][pk].recover()
 		h_spkmm[s, pk, b:b+nbp1, b+nbp1:b+nbp1+nb1] = self.lead_couple_hsd[1].H[s][pk].recover()[:, -nbp1:].T.conj()
