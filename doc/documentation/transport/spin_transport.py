@@ -12,7 +12,7 @@ from gpaw.transport.calculator import Transport
 from ase.lattice.surface import fcc100
 from gpaw.transport.tools import sort_atoms
 
-system = read('model.traj')
+system = read('NiC8.traj')
 system.set_pbc([1,1,1])
 sort_atoms(system)
 system.center()
