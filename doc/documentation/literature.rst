@@ -706,4 +706,14 @@ Publications using the gpaw code
    __ http://link.aps.org/doi/10.1103/PhysRevB.83.115108
 
    .. 4 March 2011
-  
+ 
+#) Jun Yan, Kristian S. Thygesen, and Karsten W. Jacobsen 
+
+   `Nonlocal Screening of Plasmons in Graphene by Semiconducting and Metallic Substrates: First-Principles Calculations`__
+
+   \Phys. Rev. Lett. 106, 146803 (2011) 
+
+   __ http://link.aps.org/doi/10.1103/PhysRevLett.106.146803  
+
+   .. 6 April 2011
+ 
