@@ -324,7 +324,7 @@ class HybridXC(XCFunctional):
         vol = self.gd.dv * N
         nspins = self.nspins
 
-        same = (kpt1.k == kpt2.k)
+        same = (kpt1.k == kpt2.k) and not invert
         
         for n1, psit1_R in enumerate(kpt1.psit_nG):
             f1 = kpt1.f_n[n1]
