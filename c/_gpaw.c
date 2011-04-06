@@ -307,10 +307,6 @@ main(int argc, char **argv)
   MPI_Errhandler_set(MPI_COMM_WORLD, MPI_ERRORS_RETURN);
 #endif
 
-#ifdef HDF5
-  init_h5py();
-#endif
-
   Py_Initialize();
 
 #ifdef NO_SOCKET
