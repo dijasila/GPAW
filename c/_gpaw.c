@@ -101,13 +101,6 @@ PyObject* pblas_rk(PyObject *self, PyObject *args);
 // Moving least squares interpolation
 PyObject* mlsqr(PyObject *self, PyObject *args); 
 
-// Parallel HDF5
-#ifdef HDF5
-void init_h5py();
-PyObject* set_fapl_mpio(PyObject *self, PyObject *args);
-PyObject* set_dxpl_mpio(PyObject *self, PyObject *args);
-#endif
-
 // IO wrappers
 #ifdef IO_WRAPPERS
 void init_io_wrappers();
