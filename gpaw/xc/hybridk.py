@@ -324,12 +324,12 @@ class HybridXC(XCFunctional):
         vol = self.gd.dv * N
         nspins = self.nspins
 
-        same = (kpt1.k == kpt2.k) and not invert
+        same = (kpt1.k == kpt2.k)
         
         for n1, psit1_R in enumerate(kpt1.psit_nG):
             f1 = kpt1.f_n[n1]
             for n2, psit2_R in enumerate(kpt2.psit_nG):
-                if same and n2 > n1:
+                if same and not invert and n2 > n1:
                     continue
                 
                 f2 = kpt2.f_n[n2]
@@ -341,7 +341,10 @@ class HybridXC(XCFunctional):
                 vt_G = nt_G.copy()
                 vt_G *= -pi * vol / Gpk2_G
                 e = np.vdot(nt_G, vt_G).real * nspins * self.hybrid
-                if same and n1 == n2:
+                if same and not invert and n1 == n2:
+                    e /= 2
+
+                if same and invert:
                     e /= 2
 
                 self.exx += e * f1 * f2
