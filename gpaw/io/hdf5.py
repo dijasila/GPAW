@@ -92,8 +92,7 @@ class Writer:
         return dtype, type, dtype.itemsize
 
     def append(self, name):
-        self.file = h5py.File(name, 'a')
-
+        raise NotImplementedError('Append with HDF5 not available.')
 
     def close(self):
         mtime = int(time.time())

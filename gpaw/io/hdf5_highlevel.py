@@ -321,7 +321,7 @@ class Attributes:
 # are direct copy-paste from h5py
 # Copyright (C) 2008 Andrew Collette
 # http://h5py.alfven.org
-# License: BSD
+# License: New BSD
 def _expand_ellipsis(args, rank):
     """ Expand ellipsis objects and fill in missing axes.
     """
