@@ -289,14 +289,19 @@ class DF(CHI):
         """
 
         df1, df2 = self.get_dielectric_function(xc='RPA')
-        df3, df4 = self.get_dielectric_function(xc='ALDA')
+        if self.xc is 'ALDA':
+            df3, df4 = self.get_dielectric_function(xc='ALDA')
         Nw = df1.shape[0]
 
         if rank == 0:
             f = open(filename,'w')
             for iw in range(Nw):
                 energy = iw * self.dw * Hartree
-                print >> f, energy, np.real(df1[iw]), np.imag(df1[iw]), \
+                if self.xc is 'RPA':
+                    print >> f, energy, np.real(df1[iw]), np.imag(df1[iw]), \
+                          np.real(df2[iw]), np.imag(df2[iw])
+                elif self.xc is 'ALDA':
+                    print >> f, energy, np.real(df1[iw]), np.imag(df1[iw]), \
                       np.real(df2[iw]), np.imag(df2[iw]), \
                       np.real(df3[iw]), np.imag(df3[iw]), \
                       np.real(df4[iw]), np.imag(df4[iw])
@@ -314,14 +319,18 @@ class DF(CHI):
 
         # calculate RPA dielectric function
         df1, df2 = self.get_dielectric_function(xc='RPA')
-        df3, df4 = self.get_dielectric_function(xc='ALDA')
+        if self.xc is 'ALDA':
+            df3, df4 = self.get_dielectric_function(xc='ALDA')
         Nw = df1.shape[0]
 
         if rank == 0:
             f = open(filename,'w')
             for iw in range(self.Nw):
                 energy = iw * self.dw * Hartree
-                print >> f, energy, -np.imag(1./df1[iw]), -np.imag(1./df2[iw]), \
+                if self.xc is 'RPA':
+                    print >> f, energy, -np.imag(1./df1[iw]), -np.imag(1./df2[iw])
+                elif self.xc is 'ALDA':
+                    print >> f, energy, -np.imag(1./df1[iw]), -np.imag(1./df2[iw]), \
                        -np.imag(1./df3[iw]), -np.imag(1./df4[iw])
             f.close()
 
