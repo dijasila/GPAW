@@ -90,11 +90,10 @@ def main(N=73, seed=42, mprocs=2, nprocs=2, dtype=float):
     W_g_dc = np.empty((N), dtype=float)
     W_g_mr3 = np.empty((N), dtype=float)
 
-    Glob2dist = Redistributor(world, glob, dist, uplo='L')
-    Glob2dist.redistribute(H0, H)
-    Glob2dist.redistribute(S0, S)
-    Glob2dist.redistribute(S0, C) # C0 was previously \
-        # overwritten
+    Glob2dist = Redistributor(world, glob, dist)
+    Glob2dist.redistribute(H0, H, uplo='L')
+    Glob2dist.redistribute(S0, S, uplo='L')
+    Glob2dist.redistribute(S0, C, uplo='L') # C0 was previously overwritten
 
     # we don't test the expert drivers anymore since there
     # might be a buffer overflow error

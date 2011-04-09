@@ -57,6 +57,7 @@ tests = [
     'gemm_complex.py',
     'lapack.py',
     'mpicomm.py',
+    'parallel/submatrix_redist.py',
     'eigh.py',
     'xc.py',
     'gradient.py',
@@ -90,7 +91,6 @@ tests = [
     'parallel/compare.py',
     'ase3k.py',
     'laplace.py',
-    'ds_beta.py',
     'gauss_wave.py',
     'planewavebasis.py',
     'coulomb.py',
@@ -102,6 +102,7 @@ tests = [
     'wfs_io.py',
     'wfs_auto.py',
     'xcatom.py',
+    'ds_beta.py',
     'parallel/overlap.py',
     'symmetry.py',
     'pes.py',
@@ -246,6 +247,10 @@ tests = [
     ]
 
 exclude = []
+
+if mpi.size ==1:
+    exclude += ['parallel/submatrix_redist.py']
+
 if mpi.size > 1:
     exclude += ['pes.py',
                 'nscfsic.py',
