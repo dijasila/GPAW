@@ -9,7 +9,7 @@ import numpy as np
 
 from gpaw.atom.generator import Generator
 from gpaw.atom.configurations import parameters
-from gpaw.utilities import devnull
+from gpaw.utilities import devnull, compiled_with_sl
 from gpaw import setup_paths
 from gpaw import mpi
 import gpaw
@@ -248,8 +248,6 @@ tests = [
 
 exclude = []
 
-if mpi.size ==1:
-    exclude += ['parallel/submatrix_redist.py']
 
 if mpi.size > 1:
     exclude += ['pes.py',
@@ -277,6 +275,9 @@ if mpi.size < 4:
 if mpi.size != 4:
     exclude += ['parallel/lcao_parallel.py']
     exclude += ['parallel/fd_parallel.py']
+
+if mpi.size == 1 or not compiled_with_sl:
+    exclude += ['parallel/submatrix_redist.py']
 
 if mpi.size == 8:
     exclude += ['transport.py']
