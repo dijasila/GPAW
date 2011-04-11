@@ -174,7 +174,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 # New k-point:
                 kpt2 = KPoint(kpt.weight, s, k, k, phase_cd)
                 kpt2.f_n = kpt.f_n / kpt.weight / kd.nbzkpts * 2 / self.nspins
-                kpt2.eps_n = kpt.eps_n
+                kpt2.eps_n = kpt.eps_n.copy()
                 
                 # Transform wave functions using symmetry operation:
                 Psit_nG = self.gd.collect(kpt.psit_nG)
