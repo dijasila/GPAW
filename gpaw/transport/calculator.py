@@ -728,35 +728,36 @@ class Transport(GPAW):
                         for i in range(nn):
   		            h_spkmm[s, pk, a:b, a:b] = cell_h_spkmm[s, pk]
 		            a += nbc
-		    	b += nbc
+		    	    b += nbc
 		        a, b = nb0+nbp0-nbp, nb0+nbp0-nbp+nbc
 		        for i in range(nn-1):
   		            h_spkmm[s, pk, a:b, a+nbc:b+nbc] = cell_ch_spkmm[s, pk]
   		            h_spkmm[s, pk, a+nbc:b+nbc, a:b] = cell_ch_spkmm[s, pk].T.conj()
-		    	a += nbc
-		    	b += nbc
+		    	    a += nbc
+		    	    b += nbc
 		    else:
 		        a, b = nb0+nbp0, nb0+nbp0+nbc
                         for i in range(nn):
   		            h_spkmm[s, pk, a:b, a:b] = cell_h_spkmm[s, pk]
 		            a += nbc
-		    	b += nbc
+		    	    b += nbc
 		        a, b = nb0+nbp0, nb0+nbp0+nbc
 		        for i in range(nn-1):
   		            h_spkmm[s, pk, a:b, a+nbc:b+nbc] = cell_ch_spkmm[s, pk]
   		            h_spkmm[s, pk, a+nbc:b+nbc, a:b] = cell_ch_spkmm[s, pk].T.conj()
                             a += nbc
-		    	b += nbc
+		    	    b += nbc
                         a, b = nb0 + nbp0 + nn *nbc, nb0 + nbp0 + nn *nbc +nbp
 	                h_spkmm[s, pk, a:b, a:b] = cell_h_spkmm[s, pk, :nbp, :nbp]
 	                h_spkmm[s, pk, a:b, a-nbc:a] = cell_ch_spkmm[s, pk, :, :nbp].T.conj()
 	                h_spkmm[s, pk, a-nbc:a, a:b] = cell_ch_spkmm[s, pk, :, :nbp]
 		else:
                     pass
-                h_spkmm[s, pk, b:b+nbp1, b:b+nbp1] = self.lead_hsd[1].H[s][pk].recover()[-nbp1:, -nbp1:]
 	        h_spkmm[s, pk, b+nbp1:b+nbp1+nb1, b+nbp1:b+nbp1+nb1] = self.lead_hsd[1].H[s][pk].recover()
-		h_spkmm[s, pk, b:b+nbp1, b+nbp1:b+nbp1+nb1] = self.lead_couple_hsd[1].H[s][pk].recover()[:, -nbp1:].T.conj()
-		h_spkmm[s, pk, b+nbp1:b+nbp1+nb1, b:b+nbp1] = self.lead_couple_hsd[1].H[s][pk].recover()[:, -nbp1:]
+		if nbp1 != 0:    
+                    h_spkmm[s, pk, b:b+nbp1, b:b+nbp1] = self.lead_hsd[1].H[s][pk].recover()[-nbp1:, -nbp1:]
+ 		    h_spkmm[s, pk, b:b+nbp1, b+nbp1:b+nbp1+nb1] = self.lead_couple_hsd[1].H[s][pk].recover()[:, -nbp1:].T.conj()
+ 		    h_spkmm[s, pk, b+nbp1:b+nbp1+nb1, b:b+nbp1] = self.lead_couple_hsd[1].H[s][pk].recover()[:, -nbp1:]
         return h_spkmm 
 
     def initialize_hamiltonian_matrix(self, calc):    
