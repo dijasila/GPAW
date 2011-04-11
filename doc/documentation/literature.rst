@@ -717,3 +717,12 @@ Publications using the gpaw code
 
    .. 6 April 2011
  
+#) Kurt Baarman, Timo Eirola, and Ville Havu
+
+   `Robust acceleration of self consistent field calculations for density functional theory`__
+
+   \J. Chem. Phys. 134, 134109 (2011)
+
+   __ http://link.aip.org/link/doi/10.1063/1.3574836
+
+   .. 6 April 2011
