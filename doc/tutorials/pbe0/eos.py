@@ -3,7 +3,7 @@ import pickle
 import numpy as np
 from gpaw.xc.hybridk import HybridXC
 from gpaw import GPAW
-from si_pbe_grr import groundstate
+from si_pbe import groundstate
 a0 = 5.43
 A = np.linspace(a0 - 0.06, a0 + 0.06, 5)
 k = int(sys.argv[1])
