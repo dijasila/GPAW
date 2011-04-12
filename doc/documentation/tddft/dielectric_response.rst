@@ -109,6 +109,8 @@ Note, the coulomb kernel becomes diagonal in reciprocal space
 
    Exchange-correlation has not been implemented yet !  
 
+.. _macroscopic_dielectric_function:
+
 Dielectric function and its relation to spectra
 ===============================================
 
