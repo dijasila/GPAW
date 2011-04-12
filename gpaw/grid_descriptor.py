@@ -136,12 +136,15 @@ class GridDescriptor(Domain):
                                np.diag(self.cell_cv.diagonal())).any()
 
         # Sanity check for grid spacings:
-        L_c = (np.linalg.inv(self.cell_cv)**2).sum(0)**-0.5
-        h_c = L_c / N_c
+        h_c = self.get_grid_spacings()
         if max(h_c) / min(h_c) > 1.3:
             raise ValueError('Very anisotropic grid spacings: %s' % h_c)
 
         self.use_fixed_bc = False
+
+    def get_grid_spacings(self):
+        L_c = (np.linalg.inv(self.cell_cv)**2).sum(0)**-0.5
+        return L_c / N_c
 
     def get_size_of_global_array(self, pad=False):
         if pad:

@@ -659,10 +659,6 @@ class GPAW(PAW):
         self.wfs.gd.comm.sum(dEH_a)
         return dEH_a * Hartree * Bohr**3
 
-    def get_grid_spacings(self):
-        assert self.wfs.gd.orthogonal
-        return Bohr * self.wfs.gd.h_cv.diagonal()
-
     def read_wave_functions(self, mode='gpw'):
         """Read wave functions one by one from separate files"""
 

@@ -115,7 +115,7 @@ class PAWTextOutput:
         self.text('  -----------------------------------------------' +
                   '---------------------')
         gd = self.wfs.gd
-        h_c = (gd.h_cv**2).sum(1)**0.5
+        h_c = gd.get_grid_spacings()
         for c in range(3):
             self.text('  %d. axis:    %s  %10.6f  %10.6f  %10.6f   %3d   %8.4f'
                       % ((c + 1, ['no ', 'yes'][int(gd.pbc_c[c])]) +
