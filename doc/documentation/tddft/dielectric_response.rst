@@ -101,13 +101,23 @@ Note, the coulomb kernel becomes diagonal in reciprocal space
 
 .. math::
 
-  K^{\mathrm{Coulomb}}_{\mathbf G_1 \mathbf G_2}(\mathbf q) = 
-  \frac{4\pi}{|\mathbf q+\mathbf G_1|^2} \delta_{\mathbf G_1 \mathbf G_2}
+   K^{\mathrm{Coulomb}}_{\mathbf G_1 \mathbf G_2}(\mathbf q) = 
+   \frac{4\pi}{|\mathbf q+\mathbf G_1|^2} \delta_{\mathbf G_1 \mathbf G_2}
 
 
-.. Note::
+The exchange-correlation (xc) is obtained using adiabatic local density approximation (ALDA):
 
-   Exchange-correlation has not been implemented yet !  
+.. math::
+
+   K^{xc.ALDA}_{\mathbf G_1 \mathbf G_2}(\mathbf q) = 
+   \frac{1}{\Omega} \int d\mathbf{r} f_{xc}[n(\mathbf{r})] e^{-i(\mathbf{G}_1-\mathbf{G}_2)\cdot \mathbf{r}}
+
+with 
+
+.. math::
+
+   f_{xc}[n(\mathbf{r})] = \left. \frac{\partial^2 E_{xc}[n]}{\partial n^2} \right|_{n_0(\mathbf{r})}. 
+
 
 .. _macroscopic_dielectric_function:
 
