@@ -90,10 +90,13 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     hdf5 = filename.endswith('.hdf5')
 
     par_kwargs = {}
-    if hdf5:
-        par_kwargs.update({'parallel': True, 'write': master})
+    if hdf5: # defaults for replicated writes with HDF5
+        par_kwargs.update({'parallel': False, 'write': master})
 
     timer.start('Meta data')
+
+    # Replicated writes should create the dataset on all MPI tasks, but
+    # only write the actual data on the master.
     if master or hdf5:
         w = open(filename, 'w', world)
         
