@@ -2,8 +2,10 @@ import pickle
 import matplotlib.pyplot as plt
 point_names = ['W', 'L', '\Gamma', 'X', 'W', 'K']
 x, X, e_kn, e0_kn = pickle.load(open('eigenvalues0.pckl'))
+e_kn -= e_kn[:, :4].max()
+e0_kn -= e0_kn[:, :4].max()
 emin = e0_kn.min() - 1
-emax = e0_kn[:, :4].max() + 1
+emax = 1
 plt.figure(figsize=(6, 4))
 for n in range(4):
     plt.plot(x, e_kn[:, n], '--')

@@ -18,24 +18,6 @@ for k in K:
 
 results = np.array(results).reshape((5, 3, 2))
 
-plt.figure(figsize=(6, 4))
-plt.plot(K, results[:, 0, 0], label='PBE')
-plt.plot(K, results[:, 1, 0], label='LDA')
-plt.plot(K, results[:, 2, 0], label='PBE0')
-plt.legend(loc='upper right')
-plt.xlabel('number of k-points')
-plt.ylabel('lattice constant [Ang]')
-plt.savefig('a.png')
-
-plt.figure(figsize=(6, 4))
-plt.plot(K, results[:, 0, 1], label='PBE')
-plt.plot(K, results[:, 1, 1], label='LDA')
-plt.plot(K, results[:, 2, 1], label='PBE0')
-plt.legend(loc='upper right')
-plt.xlabel('number of k-points')
-plt.ylabel('bulk modulus [GPa]')
-plt.savefig('B.png')
-
 LDA = dict(
     a=5.4037,
     B=95.1,
@@ -56,3 +38,28 @@ PBE0 = dict(
     eGL=2.87,
     eI=1.74,
     ea=4.555)
+
+plt.figure(figsize=(6, 4))
+plt.plot(K, results[:, 0, 0], label='PBE')
+plt.plot(K, results[:, 1, 0], label='LDA')
+plt.plot(K, results[:, 2, 0], label='PBE0')
+plt.plot([12], [PBE['a']], 'b*', label='_nolegend_')
+plt.plot([12], [LDA['a']], 'g*', label='_nolegend_')
+plt.plot([12], [PBE0['a']], 'r*', label='_nolegend_')
+plt.legend(loc='upper right')
+plt.xlabel('number of k-points')
+plt.ylabel('lattice constant [Ang]')
+plt.savefig('a.png')
+
+plt.figure(figsize=(6, 4))
+plt.plot(K, results[:, 0, 1], label='PBE')
+plt.plot(K, results[:, 1, 1], label='LDA')
+plt.plot(K, results[:, 2, 1], label='PBE0')
+plt.plot([12], [PBE['B']], 'b*', label='_nolegend_')
+plt.plot([12], [LDA['B']], 'g*', label='_nolegend_')
+plt.plot([12], [PBE0['B']], 'r*', label='_nolegend_')
+plt.legend(loc='upper right')
+plt.xlabel('number of k-points')
+plt.ylabel('bulk modulus [GPa]')
+plt.savefig('B.png')
+
