@@ -42,12 +42,16 @@ class AGTSJob:
         self.queueopts = queueopts
         self.ncpus = ncpus
         self.walltime = walltime
+
         if deps:
             if not isinstance(deps, (list, tuple)):
                 deps = [deps]
             self.deps = deps
         else:
             self.deps = []
+
+        if creates and not isinstance(creates, (list, tuple)):
+            creates = [creates]
         self.creates = creates
 
         # Filenames to use for pylab.savefig() replacement of pylab.show():

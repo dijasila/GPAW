@@ -20,11 +20,13 @@ perform some of the most common tasks:
    bandstructures/bandstructures
    all-electron/all_electron_density
    neb/neb
+   pbe0/pbe0
    xas/xas
    negfstm/negfstm
-   ensembles/ensembles
    dielectric_response/dielectric_response
    rpa/rpa	
+   ensembles/ensembles
+
 
 =========
 Exercises
