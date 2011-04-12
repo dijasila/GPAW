@@ -532,7 +532,7 @@ class MethfesselPaxton(SmoothDistribution):
         kpt.f_n[:] = kpt.weight * z
         n = kpt.f_n.sum()
 
-        dnde = 1. / np.sqrt(pi) * np.exp(-x**2)
+        dnde = kpt.weight / np.sqrt(pi) * np.exp(-x**2)
         for i in range(self.iter):
             dnde += self.coff_function(i + 1) * self.hermite_poly(2 * i + 2, x) * np.exp(-x**2)
         dnde = dnde.sum()
