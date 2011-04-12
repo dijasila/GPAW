@@ -15,4 +15,4 @@ for i, a in enumerate(A):
     pbe0 = HybridXC('PBE0', alpha=5.0)
     epbe0 = epbe + si.calc.get_xc_difference(pbe0)
     eos[:, i] = epbe, elda, epbe0
-pickle.dump((A, eos), open('eos-grr-%d.pckl' % k, 'w'))
+pickle.dump((A, eos), open('eos-%d.pckl' % k, 'w'))
