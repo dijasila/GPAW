@@ -144,7 +144,7 @@ class GridDescriptor(Domain):
 
     def get_grid_spacings(self):
         L_c = (np.linalg.inv(self.cell_cv)**2).sum(0)**-0.5
-        return L_c / N_c
+        return L_c / self.N_c
 
     def get_size_of_global_array(self, pad=False):
         if pad:
