@@ -100,6 +100,7 @@ class HirshfeldPartitioning:
         finegd = self.calculator.density.finegd
 
         den_g, gd = self.calculator.density.get_all_electron_density(atoms)
+        den_g = den_g.sum(axis=0)
         assert(gd == finegd)
         denfree_g, gd = self.hdensity.get_density([atom_index])
         assert(gd == finegd)
@@ -111,10 +112,33 @@ class HirshfeldPartitioning:
 
         weight_g = denfree_g * self.invweight_g
 
-        nom = finegd.integrate(r3_g * den_g[0] * weight_g)
+        nom = finegd.integrate(r3_g * den_g * weight_g)
         denom = finegd.integrate(r3_g * denfree_g)
 
         return nom / denom
+
+    def get_weight(self, atom_index):
+        denfree_g, gd = self.hdensity.get_density([atom_index])
+        weight_g = denfree_g * self.invweight_g
+        return weight_g
+
+    def get_charges(self):
+        """Charge on the atom according to the Hirshfeld partitioning"""
+        self.initialize()
+        finegd = self.calculator.density.finegd
+        
+        den_g, gd = self.calculator.density.get_all_electron_density(self.atoms)
+        den_g = den_g.sum(axis=0)
+
+        charges = []
+        sumZ = 0
+        for ia, atom in enumerate(self.atoms):
+            weight_g = self.get_weight(ia)
+            charge = atom.number - finegd.integrate(weight_g * den_g)
+            charges.append(atom.number - finegd.integrate(weight_g * den_g))
+            sumZ += atom.number
+        print 'integrated density', finegd.integrate(den_g), sumZ
+        return charges
 
     def get_effective_volume_ratios(self):
         """Return the list of effective volume to free volume ratios."""
