@@ -215,6 +215,9 @@ class AtomGridDescriptor(EquidistantRadialGridDescriptor):
         return np.zeros(3)
     def symmetrize(self, a_g, op_scc):
         pass
+    def get_grid_spacings(self):
+        return self.h_cv.diagonal()
+    
 
 class AtomOccupations(OccupationNumbers):
     def __init__(self, f_sln):
