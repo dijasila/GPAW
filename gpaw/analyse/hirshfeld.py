@@ -131,13 +131,10 @@ class HirshfeldPartitioning:
         den_g = den_g.sum(axis=0)
 
         charges = []
-        sumZ = 0
         for ia, atom in enumerate(self.atoms):
             weight_g = self.get_weight(ia)
             charge = atom.number - finegd.integrate(weight_g * den_g)
             charges.append(atom.number - finegd.integrate(weight_g * den_g))
-            sumZ += atom.number
-        print 'integrated density', finegd.integrate(den_g), sumZ
         return charges
 
     def get_effective_volume_ratios(self):
