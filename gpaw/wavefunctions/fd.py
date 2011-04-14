@@ -158,6 +158,8 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
         self.initialize_wave_functions_from_restart_file()
 
+        weight = 2.0 / kd.nspins / kd.nbzkpts
+        
         # Build new list of k-points:
         kpt_u = []
         for s in range(self.nspins):
@@ -172,7 +174,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                                   kd.bzk_kc[k, :, np.newaxis])
 
                 # New k-point:
-                kpt2 = KPoint(kpt.weight, s, k, k, phase_cd)
+                kpt2 = KPoint(weight, s, k, k, phase_cd)
                 kpt2.f_n = kpt.f_n / kpt.weight / kd.nbzkpts * 2 / self.nspins
                 kpt2.eps_n = kpt.eps_n.copy()
                 
