@@ -170,7 +170,7 @@ class BSE(BASECHI):
 
                 if self.use_W:
                     rho3_G = self.density_matrix(n1,n2,k1,k2)
-                    rho4_G = self.density_matrix(m1,m2,self.kq[k1],self.kq[k2])
+                    rho4_G = self.density_matrix(m1,m2,self.kq_k[k1],self.kq_k[k2])
                     q_c = bzk_kc[k2] - bzk_kc[k1]
                     iq = self.kd.where_is_q(q_c)
                     W_GG = W_qGG[iq].copy()
@@ -245,7 +245,7 @@ class BSE(BASECHI):
                     qG2 = np.dot(q + self.Gvec_Gc[jG], self.bcell_cv)
                     kc_qGG[iq,iG,jG] = 1. / np.sqrt(np.dot(qG1, qG1) * np.dot(qG2,qG2))
 
-            self.timing(iq, t0, self.nq_local, 'iq')
+            self.timing(iq, t0, self.nq, 'iq')
 
             assert df.npw == self.npw
             if optical_limit:
