@@ -224,7 +224,7 @@ class BASECHI:
 
     def get_wavefunction(self, ibzk, n, check_focc=True, spin=0):
 
-        if self.calc.wfs.kpt_comm.size != world.size or world.size == 1:
+        if world.size == 1:
 
             if check_focc == False:
                 return
@@ -244,11 +244,16 @@ class BASECHI:
             if self.nkpt % size != 0:
                 raise ValueError('The number of kpoints should be divided by the number of cpus for no wfs dumping mode ! ')
 
-            # support ground state calculation with only kpoint parallelization
+            # support ground state calculation with kpoint and band parallelization
+            # but domain decomposition must = 1
             kpt_rank, u = self.calc.wfs.kd.get_rank_and_index(0, ibzk)
             bzkpt_rank = rank
-            
-            klist = np.array([kpt_rank, u, bzkpt_rank, n])
+            band_rank, myn = self.calc.wfs.bd.who_has(n)
+            assert self.calc.wfs.gd.comm.size == 1
+            world_rank = (kpt_rank * self.calc.wfs.band_comm.size + band_rank)
+
+            # in the following, kpt_rank is assigned to world_rank
+            klist = np.array([world_rank, u, bzkpt_rank, myn])
             klist_kcomm = np.zeros((self.kcomm.size, 4), dtype=int)            
             self.kcomm.all_gather(klist, klist_kcomm)
 

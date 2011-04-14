@@ -170,7 +170,7 @@ class BSE(BASECHI):
 
                 if self.use_W:
                     rho3_G = self.density_matrix(n1,n2,k1,k2)
-                    rho4_G = self.density_matrix(m1,m2,k1,k2)
+                    rho4_G = self.density_matrix(m1,m2,self.kq[k1],self.kq[k2])
                     q_c = bzk_kc[k2] - bzk_kc[k1]
                     iq = self.kd.where_is_q(q_c)
                     W_GG = W_qGG[iq].copy()
@@ -234,7 +234,7 @@ class BSE(BASECHI):
             df = DF(calc=self.calc, q=q, w=(0.,), nbands=self.nbands,
                     optical_limit=optical_limit,
                     hilbert_trans=False, xc='RPA',
-                    eta=0., ecut=self.ecut*Hartree, txt='no_output')#, comm=serial_comm)
+                    eta=0.0001, ecut=self.ecut*Hartree, txt='no_output')#, comm=serial_comm)
 
             df.e_kn = self.e_kn
             dfinv_qGG[iq] = df.get_inverse_dielectric_matrix(xc='RPA')[0]
