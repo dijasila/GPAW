@@ -8,6 +8,7 @@ from gpaw.response.bse import BSE
 
 GS = 1
 bse = 1
+check = 1
 
 if GS:
 
@@ -33,4 +34,21 @@ if bse:
               nbands=8,positive_w=True)
     
     bse.get_dielectric_function('Si_bse.dat')
+
+if check:
+    
+    d = np.loadtxt('Si_bse.dat')
+
+    Nw1 = 37
+    Nw2 = 47
+    if d[Nw1, 2] > d[Nw1-1, 2] and d[Nw1, 2] > d[Nw1+1, 2] \
+            and d[Nw2, 2] > d[Nw2-1, 2] and d[Nw2, 2] > d[Nw2+1, 2]:
+        pass
+    else:
+        raise ValueError('Absorption peak not correct ! ')
+
+    if (np.abs(d[Nw1, 2] - 70.1307082035) > 1e-5
+        or np.abs(d[Nw2, 2] -  50.958188969) > 1e-5):
+        print d[Nw1, 2], d[Nw2, 2]
+        raise ValueError('Please check spectrum strength ! ')
 
