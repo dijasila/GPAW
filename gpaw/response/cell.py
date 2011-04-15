@@ -1,19 +1,19 @@
 import numpy as np
 from math import sqrt, pi
 
-def get_primitive_cell(a):
+def get_primitive_cell(a,rpad):
     """From the unit cell, calculate primitive cell and volume. """
 
+    a = (a.T * rpad).T
     vol = np.abs(np.dot(a[0],np.cross(a[1],a[2])))
     BZvol = (2. * pi)**3 / vol
-
     b = np.linalg.inv(a.T)
-
+    
     b *= 2 * pi
 
     assert np.abs((np.dot(b.T, a) - 2.*pi*np.eye(3)).sum()) < 1e-10
 
-    return b, vol, BZvol
+    return a, b, vol, BZvol
 
 
 def set_Gvectors(acell, bcell, nG, Ecut):

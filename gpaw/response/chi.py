@@ -44,6 +44,7 @@ class CHI(BASECHI):
                  q=None,
                  ecut=10.,
                  eta=0.2,
+                 rpad=np.array([1,1,1]),
                  ftol=1e-5,
                  txt=None,
                  xc='ALDA',
@@ -54,7 +55,7 @@ class CHI(BASECHI):
                  kcommsize=None):
 
         BASECHI.__init__(self, calc, nbands, w, q, ecut,
-                     eta, ftol, txt, optical_limit)
+                     eta, rpad,ftol, txt, optical_limit)
 
         self.xc = xc
         self.hilbert_trans = hilbert_trans
@@ -140,8 +141,17 @@ class CHI(BASECHI):
             self.Kxc_GG = np.zeros((self.npw, self.npw))
             self.printtxt('RPA calculation.')
         elif self.xc == 'ALDA':
+            nt_sg = calc.density.nt_sG
+            if (self.rpad > 1).any():
+                nt_sG = np.zeros([self.nspins, self.nG[0], self.nG[1], self.nG[2]])
+                for s in range(self.nspins):
+                    nt_G = self.pad(nt_sg[s])
+                    nt_sG[s] = nt_G
+            else:
+                nt_sG = nt_sg
+            
             self.Kxc_GG = calculate_Kxc(self.gd, # global grid
-                                        calc.density.nt_sG,
+                                        nt_sG,
                                         self.npw, self.Gvec_Gc,
                                         self.nG, self.vol,
                                         self.bcell_cv, R_av,
@@ -205,7 +215,12 @@ class CHI(BASECHI):
                 t1 = time()
                 psitold_g = self.get_wavefunction(ibzkpt1, n, True, spin=spin)
                 t_get_wfs += time() - t1
-                psit1new_g = kd.transform_wave_function(psitold_g, k)
+                psit1new_g_tmp = kd.transform_wave_function(psitold_g, k)
+
+                if (self.rpad > 1).any():
+                    psit1new_g = self.pad(psit1new_g_tmp)
+                else:
+                    psit1new_g = psit1new_g_tmp
 
                 P1_ai = pt.dict()
                 pt.integrate(psit1new_g, P1_ai, k)
@@ -224,7 +239,12 @@ class CHI(BASECHI):
                     t_get_wfs += time() - t1
 
                     if check_focc:
-                        psit2_g = kd.transform_wave_function(psitold_g, kq_k[k])
+                        psit2_g_tmp = kd.transform_wave_function(psitold_g, kq_k[k])
+                        if (self.rpad > 1).any():
+                            psit2_g = self.pad(psit2_g_tmp)
+                        else:
+                            psit2_g = psit2_g_tmp
+
                         P2_ai = pt.dict()
                         pt.integrate(psit2_g, P2_ai, kq_k[k])
 

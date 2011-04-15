@@ -28,6 +28,7 @@ class BASECHI:
                  q=None,
                  ecut=10.,
                  eta=0.2,
+                 rpad=np.array([1,1,1]),
                  ftol=1e-5,
                  txt=None,
                  optical_limit=False):
@@ -62,6 +63,7 @@ class BASECHI:
         else:
             assert len(ecut) == 3
             self.ecut = np.array(ecut, dtype=float)
+        self.rpad = rpad
         self.optical_limit = optical_limit
 
 
@@ -86,14 +88,16 @@ class BASECHI:
         self.nvalence = calc.wfs.nvalence
 
         # cell init
-        self.acell_cv = calc.atoms.cell / Bohr
-        self.bcell_cv, self.vol, self.BZvol = get_primitive_cell(self.acell_cv)
+        self.acell_cv = calc.atoms.cell / Bohr 
+        self.acell_cv, self.bcell_cv, self.vol, self.BZvol = \
+                       get_primitive_cell(self.acell_cv,rpad=self.rpad)
 
         # grid init
-        self.nG = calc.get_number_of_grid_points()
+        self.pbc = calc.atoms.get_pbc()
+        gd = GridDescriptor(calc.wfs.gd.N_c*self.rpad, self.acell_cv, pbc_c=True, comm=serial_comm)
+        self.gd = gd
+        self.nG = gd.N_c
         self.nG0 = self.nG[0] * self.nG[1] * self.nG[2]
-        gd = GridDescriptor(self.nG, calc.wfs.gd.cell_cv, pbc_c=True, comm=serial_comm)
-        self.gd = gd        
         self.h_cv = gd.h_cv
 
         # obtain eigenvalues, occupations
@@ -225,12 +229,12 @@ class BASECHI:
     def get_wavefunction(self, ibzk, n, check_focc=True, spin=0):
 
         if self.calc.wfs.world.size == 1 or self.calc.wfs.gd.comm.size != 1:
-            # the latter are only supported in LCAO mode
             if check_focc == False:
                 return
             else:
                 psit_G = self.calc.wfs.get_wave_function_array(n, ibzk, spin)
-        
+                return np.complex128(psit_G)
+            
                 if self.calc.wfs.world.size == 1:
                     return np.complex128(psit_G)
                 
@@ -276,6 +280,20 @@ class BASECHI:
             self.wScomm.broadcast(psit_G, 0)
 
             return psit_G
+
+
+    def pad(self,psit_g):
+        
+
+        N_c = self.calc.wfs.gd.N_c
+        shift = np.zeros(3,int)
+        shift[np.where(self.pbc == False)] = 1
+        psit_G = self.gd.zeros(dtype=complex)
+        psit_G[shift[0]:N_c[0], shift[1]:N_c[1], shift[2]:N_c[2]] = \
+                                 psit_g[:N_c[0]-shift[0], :N_c[1]-shift[1], :N_c[2]-shift[2]]
+
+        return psit_G
+            
 
     def density_matrix(self,n,m,k,kq=None,Gspace=True):
 
