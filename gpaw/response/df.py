@@ -338,24 +338,29 @@ class DF(CHI):
         self.comm.barrier()
 
 
-    def get_jdos(self, f_kn, e_kn, kq, dw, Nw, sigma):
+    def get_jdos(self, f_kn, e_kn, kd, kq, dw, Nw, sigma):
         """Calculate Joint density of states"""
 
         JDOS_w = np.zeros(Nw)
-        nkpt = f_kn.shape[0]
+        nkpt = kd.nbzkpts
         nbands = f_kn.shape[1]
 
         for k in range(nkpt):
+            print k
+            ibzkpt1 = kd.kibz_k[k]
+            ibzkpt2 = kd.kibz_k[kq[k]]
             for n in range(nbands):
                 for m in range(nbands):
-                    focc = f_kn[k, n] - f_kn[kq[k], m]
-                    w0 = e_kn[kq[k], m] - e_kn[k, n]
+                    focc = f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]
+                    w0 = e_kn[ibzkpt2, m] - e_kn[ibzkpt1, n]
                     if focc > 0 and w0 >= 0:
-                        deltaw = delta_function(w0, dw, Nw, sigma)
-                        for iw in range(Nw):
-                            if deltaw[iw] > 1e-8:
-                                JDOS_w[iw] += focc * deltaw[iw]
-
+                        w0_id = int(w0 / dw)
+                        if w0_id + 1 < Nw:
+                            alpha = (w0_id + 1 - w0/dw) / dw
+                            JDOS_w[w0_id] += focc * alpha
+                            alpha = (w0/dw-w0_id) / dw
+                            JDOS_w[w0_id+1] += focc * alpha
+                            
         w = np.arange(Nw) * dw * Hartree
 
         return w, JDOS_w

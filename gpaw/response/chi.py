@@ -188,6 +188,10 @@ class CHI(BASECHI):
         t0 = time()
         t_get_wfs = 0
         for k in range(self.kstart, self.kend):
+            k_pad = False
+            if k >= self.nkpt:
+                k = 0
+                k_pad = True
 
             # Find corresponding kpoint in IBZ
             ibzkpt1 = kd.kibz_k[k]
@@ -246,6 +250,8 @@ class CHI(BASECHI):
                         if self.optical_limit:
                             rho_G[0] /= e_kn[ibzkpt2, m] - e_kn[ibzkpt1, n]
 
+                        if k_pad:
+                            rho_G[:] = 0.
                         rho_GG = np.outer(rho_G, rho_G.conj())
                         
                         if not self.hilbert_trans:
@@ -386,8 +392,9 @@ class CHI(BASECHI):
         self.kcomm, self.wScomm, self.wcomm = set_communicator(world, rank, size, self.kcommsize)
 
         if self.nkpt != 1:
-            self.nkpt, self.nkpt_local, self.kstart, self.kend = parallel_partition(
-                               self.nkpt, self.kcomm.rank, self.kcomm.size, reshape=False)
+            self.nkpt_reshape = self.nkpt
+            self.nkpt_reshape, self.nkpt_local, self.kstart, self.kend = parallel_partition(
+                               self.nkpt_reshape, self.kcomm.rank, self.kcomm.size, reshape=True, positive=True)
             self.nband_local = self.nbands
             self.nstart = 0
             if self.hilbert_trans:
@@ -443,6 +450,9 @@ class CHI(BASECHI):
             printtxt('     nbands parsize  : %d' %(self.kcomm.size))
         else:
             printtxt('     kpoint parsize  : %d' %(self.kcomm.size))
+            if self.nkpt_reshape > self.nkpt:
+                self.printtxt('        kpoints (%d-%d) are padded with zeros' %(self.nkpt,self.nkpt_reshape))
+
         if self.hilbert_trans:
             printtxt('     specfunc parsize: %d' %(self.wScomm.size))
         printtxt('     w parsize       : %d' %(self.wcomm.size))
