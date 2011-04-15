@@ -16,6 +16,8 @@ from ase.dft import monkhorst_pack
 
 from gpaw.symmetry import Symmetry
 from gpaw.kpoint import KPoint
+import _gpaw
+
 
 class KPointDescriptor:
     """Descriptor-class for k-points."""
@@ -172,7 +174,6 @@ class KPointDescriptor:
         """Transform wave function from IBZ to BZ.
 
         k is the index of the desired k-point in the full BZ.
-
         """
         
         s = self.sym_k[k]
@@ -192,16 +193,14 @@ class KPointDescriptor:
         else:
             ik = self.kibz_k[k]
             kibz_c = self.ibzk_kc[ik]
-            kbz_c = self.bzk_kc[k]            
-            import _gpaw
             b_g = np.zeros_like(psit_G)
             if time_reversal:
-                # assert abs(np.dot(op_cc, kibz_c) - -kbz_c) < tol
+                kbz_c = -np.dot(self.symmetry.op_scc[s], kibz_c)
                 _gpaw.symmetrize_wavefunction(psit_G, b_g, op_cc.copy(),
                                               kibz_c, -kbz_c)
                 return b_g.conj()
             else:
-                # assert abs(np.dot(op_cc, kibz_c) - kbz_c) < tol
+                kbz_c = np.dot(self.symmetry.op_scc[s], kibz_c)
                 _gpaw.symmetrize_wavefunction(psit_G, b_g, op_cc.copy(),
                                               kibz_c, kbz_c)
                 return b_g
