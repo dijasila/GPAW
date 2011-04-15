@@ -5,7 +5,7 @@ from ase.utils.eos import EquationOfState
 import ase.units as units
 
 results = []
-K = range(4, 13, 2)
+K = range(3, 13)
 for k in K:
     A, data = pickle.load(open('eos-%d.pckl' % k))
     for energies, xcname in zip(data, ['PBE', 'LDA', 'PBE0']):
@@ -16,7 +16,7 @@ for k in K:
         print('%-4s %2d %.3f %.3f %.2f' % (xcname, k, a, e0, B))
         results.append((a, B))
 
-results = np.array(results).reshape((5, 3, 2))
+results = np.array(results).reshape((-1, 3, 2))
 
 LDA = dict(
     a=5.4037,
