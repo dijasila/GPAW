@@ -555,7 +555,7 @@ def read(paw, reader):
     nt_sG = wfs.gd.empty(density.nspins)
     if hdf5:
         indices = [slice(0, density.nspins),] + wfs.gd.get_slice()
-        do_read = (band_comm.rank == 0)
+        do_read = (kpt_comm.rank == 0) and (band_comm.rank == 0)
         r.get('PseudoElectronDensity', out=nt_sG, parallel=True, read=do_read, 
               *indices) #XXX read=?
         band_comm.broadcast(nt_sG, 0)
@@ -589,7 +589,7 @@ def read(paw, reader):
         hamiltonian.vt_sG = wfs.gd.empty(hamiltonian.nspins)
         if hdf5:
             indices = [slice(0, hamiltonian.nspins), ] + wfs.gd.get_slice()
-            do_read = (band_comm.rank == 0)
+            do_read = (kpt_comm.rank == 0) and (band_comm.rank == 0)
             r.get('PseudoPotential', out=hamiltonian.vt_sG, parallel=True, read=do_read, 
                   *indices) #XXX read=?
             band_comm.broadcast(hamiltonian.vt_sG, 0)
