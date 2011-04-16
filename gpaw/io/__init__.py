@@ -127,7 +127,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
 
         if atoms.get_velocities() is not None:
             w.add('CartesianVelocities', ('natoms', '3'),
-                  atoms.get_velocities() * AUT / Bohr)
+                  atoms.get_velocities() * AUT / Bohr, **par_kwargs)
 
         w.add('PotentialEnergy', (), hamiltonian.Etot + 0.5 * hamiltonian.S,
               **par_kwargs)
@@ -137,7 +137,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
 
         # Write the k-points:
         if wfs.kd.N_c is not None:
-            w.add('NBZKPoints', ('3'), wfs.kd.N_c)
+            w.add('NBZKPoints', ('3'), wfs.kd.N_c, **par_kwargs)
         w.dimension('nbzkpts', len(wfs.bzk_kc))
         w.dimension('nibzkpts', len(wfs.ibzk_kc))
         w.add('BZKPoints', ('nbzkpts', '3'), wfs.bzk_kc, **par_kwargs)
@@ -213,7 +213,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
                            ('kick_strength', 'AbsorptionKick')]:
             if hasattr(paw, attr):
                 value = getattr(paw, attr)
-                if isinstance(value, np.ndarray):
+                if isinstance(value, np.ndarray): # replicated write here
                     w.add(name, ('3',), value, **par_kwargs)
                 else:
                     w[name] = value
@@ -255,7 +255,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     timer.start('Projections')
     if master or hdf5:
         w.add('Projections', ('nspins', 'nibzkpts', 'nbands', 'nproj'),
-              dtype=dtype, **par_kwargs)
+              dtype=dtype)
     if hdf5:
         # Domain masters write parallel over spin, kpoints and band groups
         all_P_ni = np.empty((wfs.mynbands, nproj), dtype=wfs.dtype)
@@ -320,13 +320,11 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
                 domain_comm.send(density.D_asp[a], 0, 207)
                 domain_comm.send(hamiltonian.dH_asp[a], 0, 2071)
     if master or hdf5:
-        w.add('AtomicDensityMatrices', ('nspins', 'nadm'), dtype=float, \
-                  **par_kwargs)
+        w.add('AtomicDensityMatrices', ('nspins', 'nadm'), dtype=float)
     if master:
         w.fill(all_D_sp)
     if master or hdf5:
-        w.add('NonLocalPartOfHamiltonian', ('nspins', 'nadm'), dtype=float, \
-                  **par_kwargs)
+        w.add('NonLocalPartOfHamiltonian', ('nspins', 'nadm'), dtype=float)
     if master:
         w.fill(all_H_sp)
     timer.stop('Atomic matrices')
@@ -335,8 +333,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     timer.start('Band energies')
     for name, var in [('Eigenvalues', 'eps_n'), ('OccupationNumbers', 'f_n')]:
         if master or hdf5:
-            w.add(name, ('nspins', 'nibzkpts', 'nbands'), dtype=float, \
-                      **par_kwargs)
+            w.add(name, ('nspins', 'nibzkpts', 'nbands'), dtype=float)
         for s in range(wfs.nspins):
             for k in range(wfs.nibzkpts):
                 # if hdf5:  XXX Figure this out later
@@ -363,7 +360,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         if master or hdf5:
             w.dimension('norbitals', norbitals)
             w.add('LinearExpansionOccupations', ('nspins', \
-                  'nibzkpts', 'norbitals'), dtype=float, **par_kwargs)
+                  'nibzkpts', 'norbitals'), dtype=float)
         for s in range(wfs.nspins):
             for k in range(wfs.nibzkpts):
                 ne_o = wfs.collect_auxiliary('ne_o', k, s, shape=norbitals)
@@ -386,8 +383,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     timer.start('Pseudo-density')
     if master or hdf5:
         w.add('PseudoElectronDensity', \
-              ('nspins', 'ngptsx', 'ngptsy', 'ngptsz'), dtype=float, \
-                  **par_kwargs)
+              ('nspins', 'ngptsx', 'ngptsy', 'ngptsz'), dtype=float)
 
     for s in range(wfs.nspins):
         if hdf5:
@@ -405,8 +401,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     timer.start('Pseudo-potential')
     if master or hdf5:
         w.add('PseudoPotential', \
-              ('nspins', 'ngptsx', 'ngptsy', 'ngptsz'), dtype=float, \
-                  **par_kwargs)
+              ('nspins', 'ngptsx', 'ngptsy', 'ngptsz'), dtype=float)
 
     for s in range(wfs.nspins):
         if hdf5:

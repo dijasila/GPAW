@@ -38,7 +38,7 @@ class Writer:
         self.dims_grp.attrs[name] = value
 
     def __setitem__(self, name, value):
-        # if self.comm.rank == 0: writing on master leads to hang
+        # attributes must be writte collectively
         self.params_grp.attrs[name] = value
 
     def add(self, name, shape, array=None, dtype=None, 
