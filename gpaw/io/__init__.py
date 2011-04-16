@@ -14,6 +14,7 @@ from ase.atoms import Atoms
 import numpy as np
 
 import gpaw.mpi as mpi
+from gpaw.mpi import broadcast
 
 import os,time,tempfile
 
@@ -79,13 +80,14 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     domain_comm = wfs.gd.comm
     kpt_comm = wfs.kpt_comm
     band_comm = wfs.band_comm
-
+    
     master = (world.rank == 0)
 
     atoms = paw.atoms
     natoms = len(atoms)
 
     magmom_a = paw.get_magnetic_moments()
+    print 'magmom_a', magmom_a
 
     hdf5 = filename.endswith('.hdf5')
 
@@ -504,14 +506,16 @@ def read(paw, reader):
     kpt_comm = wfs.kpt_comm
     band_comm = wfs.band_comm
 
+    master = (world.rank == 0)
+
     version = r['version']
 
     hdf5 = hasattr(r, 'hdf5_reader')
 
     par_kwargs = {}
     
-    if hdf5:
-        par_kwargs.update({'parallel': True, 'read': True}) #XXX read on master only?
+    if hdf5: # defaults for replicated reads with HDF5
+        par_kwargs.update({'parallel': False, 'read': master}) 
 
     # Verify setup fingerprints and count projectors and atomic matrices:
     for setup in wfs.setups.setups.values():
@@ -568,17 +572,14 @@ def read(paw, reader):
     timer.start('Atomic matrices')
     D_asp = {}
     density.rank_a = np.zeros(natoms, int)
-    if hdf5:
-        do_read = (domain_comm.rank == 0)
-        D_asp = read_atomic_matrices(r, 'AtomicDensityMatrices', wfs.setups,
-                                     parallel=True, read=do_read)
-        # if not do_read:
-        #     obj = None
-        # D_asp {} needs to be broadcasted on domain_comm ?
-        # but it is not a NumPy array, how do we do this for a dictionary
-        # D_asp = broadcast(obj, 0, domain_comm)
-    elif domain_comm.rank == 0:
-        D_asp = read_atomic_matrices(r, 'AtomicDensityMatrices', wfs.setups)
+    all_D_sp = np.empty((wfs.nspins, nadm))
+    if master:
+        all_D_sp = r.get('AtomicDensityMatrices', **par_kwargs)
+
+    world.broadcast(all_D_sp, 0)
+    if domain_comm.rank == 0:
+        D_asp = read_atomic_matrices(all_D_sp, wfs.setups)
+
     density.initialize_directly_from_arrays(nt_sG, D_asp)
     timer.stop('Atomic matrices')
 
@@ -603,18 +604,16 @@ def read(paw, reader):
     timer.start('Atomic matrices')
     hamiltonian.dH_asp = {}
     hamiltonian.rank_a = np.zeros(natoms, int)
-    if hdf5 and version > 0.3:
-        do_read = (domain_comm.rank == 0)
-        hamiltonian.dH_asp = read_atomic_matrices(r, 'NonLocalPartOfHamiltonian', 
-                                                  wfs.setups, parallel=True, read=do_read)
-        # if not do_read:
-        #     obj = None
-        # dD_asp {} needs to be broadcasted on domain_comm ?
-        # but it is not a NumPy array, how do we do this for a dictionary
-        # hamiltonian.dH_asp = broadcast(obj, 0, domain_comm)
-    elif domain_comm.rank == 0 and version > 0.3:
-        hamiltonian.dH_asp = read_atomic_matrices(r, \
-            'NonLocalPartOfHamiltonian', wfs.setups)
+    all_H_sp = np.empty((wfs.nspins, nadm))
+    if master and version > 0.3:
+        all_H_sp = r.get('NonLocalPartOfHamiltonian',**par_kwargs)
+
+    world.broadcast(all_H_sp, 0)
+    
+    if master:
+        hamiltonian.dH_asp = read_atomic_matrices(all_H_sp, wfs.setups)
+        print 'dH_asp', hamiltonian.dH_asp
+ 
     timer.stop('Atomic matrices')
 
     hamiltonian.Ekin = r['Ekin']
@@ -626,9 +625,15 @@ def read(paw, reader):
         hamiltonian.Eext = 0.0
     hamiltonian.Exc = r['Exc']
     hamiltonian.S = r['S']
-    hamiltonian.Etot = r.get('PotentialEnergy', **par_kwargs) - 0.5 * hamiltonian.S
 
     wfs.rank_a = np.zeros(natoms, int)
+
+    if master: 
+        Etot = r.get('PotentialEnergy', **par_kwargs) - 0.5 * hamiltonian.S
+    else:
+        Etot = None
+    
+    hamiltonian.Etot = broadcast(Etot, 0, world)
 
     if version > 0.3:
         density_error = r['DensityError']
@@ -693,25 +698,19 @@ def read(paw, reader):
 
         # Verify that symmetries for for k-point reduction hasn't changed:
         tol = 1e-12
-
-        if hdf5:
-            do_read = (world.rank == 0)
-            ibzk_kc = r.get('IBZKPoints', parallel=True, read=do_read)
-            weight_k = r.get('IBZKPointWeights', parallel=True, read=do_read)
-            if world.rank == 0:
-                assert np.abs(ibzk_kc - wfs.kd.ibzk_kc).max() < tol
-                assert np.abs(weight_k - wfs.kd.weight_k).max() < tol
-        else:
-            assert np.abs(r.get('IBZKPoints')-wfs.kd.ibzk_kc).max() < tol
-            assert np.abs(r.get('IBZKPointWeights')-wfs.kd.weight_k).max() < tol
+        
+        if master:
+            ibzk_kc = r.get('IBZKPoints', **par_kwargs)
+            weight_k = r.get('IBZKPointWeights', **par_kwargs)
+            assert np.abs(ibzk_kc - wfs.kd.ibzk_kc).max() < tol
+            assert np.abs(weight_k - wfs.kd.weight_k).max() < tol
 
         for kpt in wfs.kpt_u:
             # Eigenvalues and occupation numbers:
             timer.start('Band energies')
             k = kpt.k
             s = kpt.s
-            if hdf5: # XXX will this work for simultaneous parallelization \
-                    # on bands and spins and k-points
+            if hdf5: # fully parallelized over spins, k-points
                 do_read = (domain_comm.rank == 0)
                 indices = [s, k] 
                 indices.append(nslice)
@@ -829,6 +828,8 @@ def read(paw, reader):
     # Get the forces from the old calculation:
     if r.has_array('CartesianForces'):
         paw.forces.F_av = r.get('CartesianForces', **par_kwargs)
+        if hdf5:
+            world.broadcast(paw.forces.F_av, 0)
     else:
         paw.forces.reset()
 
@@ -886,16 +887,14 @@ def read_atoms(reader, **kwargs):
 
     return atoms
 
-def read_atomic_matrices(reader, key, setups, **kwargs):
-    all_M_sp = reader.get(key, **kwargs)
+def read_atomic_matrices(all_M_sp, setups):
     M_asp = {}
-    if kwargs.get('read', True):
-        p1 = 0
-        for a, setup in enumerate(setups):
-            ni = setup.ni
-            p2 = p1 + ni * (ni + 1) // 2
-            M_asp[a] = all_M_sp[:, p1:p2].copy()
-            p1 = p2
+    p1 = 0
+    for a, setup in enumerate(setups):
+        ni = setup.ni
+        p2 = p1 + ni * (ni + 1) // 2
+        M_asp[a] = all_M_sp[:, p1:p2].copy()
+        p1 = p2
     return M_asp
 
 def read_wave_function(gd, s, k, n, mode):

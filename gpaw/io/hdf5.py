@@ -114,9 +114,10 @@ class Reader:
         return dims_grp.attrs[name]
     
     def __getitem__(self, name):
-        obj = None
         if self.comm.rank == 0: # not sure that this is necessary
             obj = self.params_grp.attrs[name]
+        else:
+            obj = None
               
         value = broadcast(obj, 0, self.comm)
 
