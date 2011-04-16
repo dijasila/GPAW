@@ -87,7 +87,6 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     natoms = len(atoms)
 
     magmom_a = paw.get_magnetic_moments()
-    print 'magmom_a', magmom_a
 
     hdf5 = filename.endswith('.hdf5')
 
@@ -610,9 +609,8 @@ def read(paw, reader):
 
     world.broadcast(all_H_sp, 0)
     
-    if master:
+    if domain_comm.rank == 0 and version > 0.3:
         hamiltonian.dH_asp = read_atomic_matrices(all_H_sp, wfs.setups)
-        print 'dH_asp', hamiltonian.dH_asp
  
     timer.stop('Atomic matrices')
 
