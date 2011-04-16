@@ -23,6 +23,7 @@ class BSE(BASECHI):
                  eshift=None,
                  ecut=10.,
                  eta=0.2,
+                 rpad=np.array([1,1,1]),
                  ftol=1e-5,
                  txt=None,
                  optical_limit=False,
@@ -30,7 +31,7 @@ class BSE(BASECHI):
                  use_W=True): # True: include screened interaction kernel
 
         BASECHI.__init__(self, calc, nbands, w, q, ecut,
-                     eta, ftol, txt, optical_limit)
+                     eta, rpad, ftol, txt, optical_limit)
 
 
         self.epsilon_w = None
