@@ -250,15 +250,11 @@ class FDPWWaveFunctions(WaveFunctions):
         
         master = (self.world.rank == 0)
     
-        par_kwargs = {}
-        if hdf5:
-            par_kwargs.update({'parallel': True, 'write': master})
-
         if master or hdf5:
             writer.add('PseudoWaveFunctions',
                        ('nspins', 'nibzkpts', 'nbands',
                         'ngptsx', 'ngptsy', 'ngptsz'),
-                       dtype=self.dtype, **par_kwargs)
+                       dtype=self.dtype)
 
         if hdf5:
             for kpt in self.kpt_u:
