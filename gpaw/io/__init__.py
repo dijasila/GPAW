@@ -284,6 +284,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
                 for a in range(natoms):
                     all_P_ni[:, cumproj_a[a]:cumproj_a[a+1]] = P_ani[a]
             w.fill(all_P_ni, parallel=True, write=do_write, *indices)
+            del all_P_ni # delete a potentially large matrix 
     else:
         for s in range(wfs.nspins):
             for k in range(wfs.nibzkpts):
@@ -791,6 +792,7 @@ def read(paw, reader):
                         P_ni = np.empty((wfs.mynbands, ni), dtype=wfs.dtype)
                         P_ni[:] = all_P_ni[:, cumproj_a[a]:cumproj_a[a+1]]
                         kpt.P_ani[a] = P_ni
+                del all_P_ni # delete a potentially large matrix
         else:
             for u, kpt in enumerate(wfs.kpt_u):
                 P_ni = r.get('Projections', kpt.s, kpt.k)
