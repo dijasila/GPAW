@@ -1,7 +1,7 @@
 import numpy as np
 from math import sqrt, pi
 
-def get_primitive_cell(a,rpad):
+def get_primitive_cell(a,rpad=np.array([1,1,1])):
     """From the unit cell, calculate primitive cell and volume. """
 
     a = (a.T * rpad).T
