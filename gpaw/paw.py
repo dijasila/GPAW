@@ -608,6 +608,7 @@ class PAW(PAWTextOutput):
     def dry_run(self):
         # Can be overridden like in gpaw.atom.atompaw
         self.print_cell_and_parameters()
+        self.print_positions()
         self.txt.flush()
         raise SystemExit
 
