@@ -55,6 +55,9 @@ algorithms used <features_and_algorithms>`.
 News
 ====
 
+* GPAW is part of benchmark suite for `CSC's supercomputer procurement`_ 
+  (Apr 19 2011)
+
 * New features: Calculation of the linear :ref:`dielectric response
   <df_theory>` of an extended system (RPA and ALDA kernels) and
   calculation of :ref:`rpa` (Mar 18 2011)
@@ -120,3 +123,4 @@ News
 .. _scientific highlight of the month: http://www.psi-k.org/newsletters/News_98/Highlight_98.pdf
 .. _pycon 2011: http://us.pycon.org/2011/schedule/presentations/226/
 .. _Python for High Performance Computing: http://pycon.blip.tv/file/4881240/
+.. _CSC's supercomputer procurement: http://www.csc.fi/english/pages/hpc2011
