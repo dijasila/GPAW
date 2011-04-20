@@ -148,6 +148,11 @@ class PAW(PAWTextOutput):
         for name in ['convergence', 'parallel']:
             if kwargs.get(name) is not None:
                 tmp = p[name]
+                for key in kwargs[name]:
+                    if not key in tmp:
+                        raise KeyError('Unknown subparameter "%s" in '
+                                       'dictionary parameter "%s"' % (key,
+                                                                      name))
                 tmp.update(kwargs[name])
                 kwargs[name] = tmp
 
