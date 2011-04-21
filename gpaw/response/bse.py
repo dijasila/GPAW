@@ -148,8 +148,19 @@ class BSE(BASECHI):
         e_S = self.e_S
 
         if self.use_W:
-            self.printtxt('Calculating screening interaction kernel.')
-            W_qGG = self.screened_interaction_kernel()
+            self.kd.get_bz_q_points()
+            if type(self.use_W) is str:
+                # read 
+                data = pickle.load(open(self.use_W))
+                self.dfinvG0_G = data['dfinvG0_G']
+                W_qGG = data['W_qGG']
+                self.printtxt('Finished reading screening interaction kernel')
+            elif type(self.use_W) is bool:
+                # calculate from scratch
+                W_qGG = self.screened_interaction_kernel()
+                self.printtxt('Calculating screening interaction kernel.')
+            else:
+                raise ValueError('use_W can only be string or bool ')
             
         # calculate kernel
         K_SS = np.zeros((self.nS, self.nS), dtype=complex)
@@ -175,23 +186,51 @@ class BSE(BASECHI):
                     q_c = bzk_kc[k2] - bzk_kc[k1]
                     iq = self.kd.where_is_q(q_c)
                     W_GG = W_qGG[iq].copy()
-
                     if k1 == k2:
                         deg_bands1 = (n1==n2)
                         deg_bands2 = (m1==m2)
 
                         if (deg_bands1 or deg_bands2):
+
+                            # method 1:                            
+#                            tmp = 0
+#                            alpha = 10.#6 * self.vol**(2 / 3.0) / pi**2
+#                            for jq in range(self.nq):
+#                                for jG in range(self.npw):
+#                                    qG = np.dot(self.kd.bzq_kc[jq] + self.Gvec_Gc[jG], self.bcell_cv)
+#                                    if (np.abs(qG) > 1e-4).all():
+#                                        qG2 = np.dot(qG, qG)
+#                                        tmp += np.exp(-alpha*qG2) / qG2                
+#
+#                            coef = self.nkpt * self.vol / (2*pi)**2 * np.sqrt(pi/alpha) - tmp
+#                            W_GG[:,0] = np.sqrt(coef) * 4 * pi
+
                             tmp_G = np.zeros(self.npw)
-                            const = 1./pi*self.vol*(6*pi**2/self.vol)**(2./3.)
                             q = np.array([0.0001,0,0])
                             for jG in range(1, self.npw):
                                 qG = np.dot(q+self.Gvec_Gc[jG], self.bcell_cv)
                                 tmp_G[jG] = self.dfinvG0_G[jG] / np.sqrt(np.inner(qG,qG))
+#                            W_GG[:,0] *= tmp_G
+#                            W_GG[0,:] = W_GG[:,0]
+#                            W_GG[0, 0] = coef * 4 * pi * self.dfinvG0_G[0]
+
+                            # method 2:
+                            const = 1./pi*self.vol*(6*pi**2/self.vol)**(2./3.)                            
                             tmp_G *= const
                             W_GG[:,0] = tmp_G
                             W_GG[0,:] = tmp_G
                             W_GG[0,0] = 2./pi*(6*pi**2/self.vol)**(1./3.) \
                                             * self.dfinvG0_G[0] *self.vol
+
+
+                            # method 3
+#                            R = max(self.acell[0,0], self.acell[1,1], self.acell[2,2]) / 2.
+#                            W_GG[0,0] = 2 * pi * R**2 * self.dfinvG0_G[0]
+#                            for jG in range(1,self.npw):
+#                                G_c = np.dot(self.Gvec_Gc[jG], self.bcell_cv)
+#                                G = np.sqrt(np.inner(G_c,G_c))
+#                                tmp_G[jG] = self.dfinvG0_G[jG] * np.sqrt(1-np.cos(G*R))/ G**2
+#                            W_GG[:,0] = 4*pi * tmp_G
 
                     tmp_GG = np.outer(rho3_G.conj(), rho4_G) * W_GG
                     W_SS[iS, jS] = np.sum(tmp_GG)
@@ -219,9 +258,9 @@ class BSE(BASECHI):
     def screened_interaction_kernel(self):
         """Calcuate W_GG(q)"""
 
-        self.kd.get_bz_q_points()
         dfinv_qGG = np.zeros((self.nkpt, self.npw, self.npw))
         kc_qGG = np.zeros((self.nkpt, self.npw, self.npw))
+        kc_G = np.zeros(self.npw)
         dfinvG0_G = np.zeros(self.npw) # save the wing elements
 
         t0 = time()
@@ -241,24 +280,28 @@ class BSE(BASECHI):
             dfinv_qGG[iq] = df.get_inverse_dielectric_matrix(xc='RPA')[0]
 
             for iG in range(self.npw):
-                for jG in range(self.npw):
-                    qG1 = np.dot(q + self.Gvec_Gc[iG], self.bcell_cv)
-                    qG2 = np.dot(q + self.Gvec_Gc[jG], self.bcell_cv)
-                    kc_qGG[iq,iG,jG] = 1. / np.sqrt(np.dot(qG1, qG1) * np.dot(qG2,qG2))
+                qG1 = np.dot(q + self.Gvec_Gc[iG], self.bcell_cv)
+                kc_G[iG] = 1. / np.sqrt(np.dot(qG1, qG1))
+            kc_qGG[iq] = np.outer(kc_G, kc_G)
 
             self.timing(iq, t0, self.nq, 'iq')
-
             assert df.npw == self.npw
+
             if optical_limit:
+                dfinvG0_G = dfinv_qGG[iq,:,0]
                 # make sure epsilon_matrix is hermitian.
                 # Here, the dielectric matrix is real for w = 0
                 assert np.abs(dfinv_qGG[iq,0,:] - dfinv_qGG[iq,:,0]).sum() < 1e-6
-                dfinvG0_G = dfinv_qGG[iq,0,:]
             del df
         W_qGG = 4 * pi * dfinv_qGG * kc_qGG
 #        world.sum(W_qGG)
 #        world.broadcast(dfinvG0_G, 0)
         self.dfinvG0_G = dfinvG0_G
+
+        data = {'W_qGG': W_qGG,
+                'dfinvG0_G': dfinvG0_G}
+        if rank == 0:
+            pickle.dump(data, open('W_qGG.pckl', 'w'), -1)
 
         return W_qGG
                                           

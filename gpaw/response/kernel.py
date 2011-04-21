@@ -9,13 +9,14 @@ from gpaw.mpi import world, rank, size
 def calculate_Kc(q_c, Gvec_Gc, bcell_cv):
     """Symmetric Coulomb kernel"""
     npw = len(Gvec_Gc)
-    Kc_GG = np.zeros((npw, npw))
+    Kc_G = np.zeros(npw)
     
     for iG in range(npw):
-        for jG in range(npw):
-            qG1 = np.dot(q_c + Gvec_Gc[iG], bcell_cv)
-            qG2 = np.dot(q_c + Gvec_Gc[jG], bcell_cv)
-            Kc_GG[iG, jG] = 4 * pi / np.sqrt(np.dot(qG1, qG1) * np.dot(qG2,qG2))
+        qG1 = np.dot(q_c + Gvec_Gc[iG], bcell_cv)
+        Kc_G[iG] = 1. / sqrt(np.dot(qG1, qG1))
+
+    Kc_GG = 4 * pi * np.outer(Kc_G, Kc_G)
+
     return Kc_GG
 
 

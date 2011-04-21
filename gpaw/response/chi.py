@@ -142,7 +142,7 @@ class CHI(BASECHI):
             self.printtxt('RPA calculation.')
         elif self.xc == 'ALDA':
             nt_sg = calc.density.nt_sG
-            if (self.rpad > 1).any():
+            if (self.rpad > 1).any() or (self.pbc - True).any():
                 nt_sG = np.zeros([self.nspins, self.nG[0], self.nG[1], self.nG[2]])
                 for s in range(self.nspins):
                     nt_G = self.pad(nt_sg[s])
@@ -217,7 +217,7 @@ class CHI(BASECHI):
                 t_get_wfs += time() - t1
                 psit1new_g_tmp = kd.transform_wave_function(psitold_g, k)
 
-                if (self.rpad > 1).any():
+                if (self.rpad > 1).any() or (self.pbc - True).any():
                     psit1new_g = self.pad(psit1new_g_tmp)
                 else:
                     psit1new_g = psit1new_g_tmp
@@ -240,7 +240,7 @@ class CHI(BASECHI):
 
                     if check_focc:
                         psit2_g_tmp = kd.transform_wave_function(psitold_g, kq_k[k])
-                        if (self.rpad > 1).any():
+                        if (self.rpad > 1).any() or (self.pbc - True).any():
                             psit2_g = self.pad(psit2_g_tmp)
                         else:
                             psit2_g = psit2_g_tmp
