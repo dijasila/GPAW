@@ -3,7 +3,8 @@ import numpy as np
 from ase.units import Hartree
 from gpaw.transport.tools import aa1d, interpolate_array, \
                           collect_atomic_matrices, distribute_atomic_matrices
-
+from gpaw.transport.io import Transport_IO
+from gpaw.grid_descriptor import GridDescriptor
 
 
 #       ---------------------------------------
@@ -24,36 +25,41 @@ from gpaw.transport.tools import aa1d, interpolate_array, \
 
 class Side:
     #Describe the electrode boundary
-    def __init__(self, type, atoms, direction, h=None):
+    def __init__(self, type, direction, kpt_comm, domain_comm, h):
     #direction: '-' for the left electrode, '+' for the right electrode
         self.type = type
-        self.atoms = atoms
         self.direction = direction
-        self.n_atoms = len(atoms)
-        calc = atoms.calc
-        self.N_c = calc.gd.N_c.copy()
-        self.h_cz = h
+	self.kpt_comm = kpt_comm
+	self.domain_comm = domain_comm
+	self.tio = Transport_IO(kpt_comm, domain_comm)
+	self.h_cz = h
 
     def abstract_boundary(self):
     #abtract the effective potential, hartree potential, and average density
     #out from the electrode calculation.
-        calc = self.atoms.calc
-        gd = calc.gd
-        finegd = calc.finegd
-        nn = finegd.N_c[2]
-        ns = calc.wfs.nspins
-
-        dim = gd.N_c
-        d1 = dim[0] // 2
-        d2 = dim[1] // 2
-
-        vHt_g = finegd.collect(calc.hamiltonian.vHt_g)
-        vt_sg = finegd.collect(calc.hamiltonian.vt_sg)
-        nt_sg = finegd.collect(calc.density.nt_sg)
-        rhot_g = finegd.collect(calc.density.rhot_g)
-        vt_sG = gd.collect(calc.hamiltonian.vt_sG)
-        nt_sG = gd.collect(calc.density.nt_sG)
-
+        map = {'-': '0', '+': '1'}
+	data = self.tio.read_data(filename='Lead_' + 
+	                          map[self.direction], option='Lead')
+        nn = data['fine_N_c'][2]
+	ns = data['nspins']
+        N_c = data['N_c']
+	cell_cv = data['cell_cv']
+	pbc_c = data['pbc_c']
+	parsize_c = data['parsize_c']
+        d1 = N_c[0] // 2
+        d2 = N_c[1] // 2
+       
+        vHt_g = data['vHt_g']
+        vt_sg = data['vt_sg']
+        nt_sg = data['nt_sg']
+        rhot_g = data['rhot_g']
+        vt_sG = data['vt_sG']
+        nt_sG = data['nt_sG']
+        self.D_asp = data['D_asp']
+	self.dH_asp = data['dH_asp']
+        gd = GridDescriptor(N_c, cell_cv, pbc_c, self.domain_comm, parsize_c)
+	finegd = gd.refine()
+	
         self.boundary_vHt_g = None
         self.boundary_vHt_g1 = None
         self.boundary_vt_sg_line = None
@@ -62,7 +68,7 @@ class Side:
         self.boundary_vt_sG = None
         self.boundary_nt_sG = None
 
-        if gd.comm.rank == 0:
+        if self.tio.domain_comm.rank == 0:
             self.boundary_vHt_g = self.slice(nn, vHt_g)
             self.boundary_nt_sg = self.slice(nn, nt_sg)
             if self.direction == '-':
@@ -74,11 +80,13 @@ class Side:
             b_vHt_g1 = self.boundary_vHt_g.copy()
 
             self.boundary_vHt_g = interpolate_array(b_vHt_g0,
-                                                    finegd, h, self.direction)
+                                                    finegd, h, 
+						    self.direction)
             self.boundary_vHt_g1 = interpolate_array(b_vHt_g1,
-                                                   finegd, h, other_direction)
-
-            vt_sg = interpolate_array(vt_sg, finegd, h, self.direction)
+                                                     finegd, h, 
+						     other_direction)
+            vt_sg = interpolate_array(vt_sg, finegd, 
+	                              h, self.direction)
             self.boundary_vt_sg_line =  aa1d(vt_sg)
             self.boundary_nt_sg = interpolate_array(self.boundary_nt_sg,
                                                     finegd, h, self.direction)
@@ -93,16 +101,6 @@ class Side:
                                                     gd, h, self.direction)
             self.boundary_nt_sG = interpolate_array(self.boundary_nt_sG,
                                                     gd, h, self.direction)
-
-        den, ham = calc.density, calc.hamiltonian
-        self.D_asp = collect_atomic_matrices(den.D_asp, den.setups,
-                                             den.nspins, den.gd.comm,
-                                             den.rank_a)
-        self.dH_asp = collect_atomic_matrices(ham.dH_asp, ham.setups,
-                                              ham.nspins, ham.gd.comm,
-                                              ham.rank_a)
-
-        del self.atoms
 
     def slice(self, nn, in_array):
         if self.type == 'LR':
@@ -128,16 +126,17 @@ class Surrounding:
             self.sides = {}
             self.bias_index = {}
             self.side_basis_index = {}
-            self.nn = []
             self.directions = ['-', '+']
             for i in range(self.lead_num):
                 direction = self.directions[i]
-                side = Side('LR', tp.atoms_l[i], direction,
-                            tp.gd.h_cv[2, 2])
+		kpt_comm = tp.wfs.kpt_comm
+		gd_comm = tp.gd.comm
+                side = Side('LR', direction, kpt_comm, 
+		                  gd_comm, tp.gd.h_cv[2,2])
                 self.sides[direction] = side
                 self.bias_index[direction] = tp.bias[i]
                 self.side_basis_index[direction] = tp.lead_index[i]
-                self.nn.append(side.N_c[2])
+            self.nn = tp.bnc[:]
             self.nn = np.array(self.nn)
             self.operator = \
                         tp.extended_calc.hamiltonian.poisson.operators[0]
@@ -294,8 +293,8 @@ class Surrounding:
         for i in range(self.lead_num):
             direction = self.directions[i]
             side = self.sides[direction]
-            for n in range(side.n_atoms):
-                all_dH_asp.append(side.dH_asp[n])
+            for dH_ap in side.dH_asp:
+                all_dH_asp.append(dH_ap)
         ham.dH_asp = {}
         for a, D_sp in tp.extended_D_asp.items():
             ham.dH_asp[a] = np.zeros_like(D_sp)
