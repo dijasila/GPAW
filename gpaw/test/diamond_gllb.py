@@ -41,7 +41,7 @@ X = points['X']
 #[W, L, G, X, W, K]
 
 kpts, x, X = get_bandpath([G, X], atoms.cell, npoints=12)
-calc = GPAW('Cgs.gpw', kpts=kpts, fixdensity=True, usesymm=None, convergence=dict(nbands=6))
+calc = GPAW('Cgs.gpw', kpts=kpts, fixdensity=True, usesymm=None, convergence=dict(bands=6))
 calc.get_atoms().get_potential_energy()
 # Get the accurate KS-band gap
 homolumo = calc.occupations.get_homo_lumo(calc.wfs)

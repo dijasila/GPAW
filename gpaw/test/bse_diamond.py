@@ -20,7 +20,7 @@ if GS:
                 kpts=(2,2,2),
                 occupations=FermiDirac(0.001),
                 nbands=8,
-                convergence={'band':'all'})
+                convergence={'bands':'all'})
 
     atoms.set_calculator(calc)
     atoms.get_potential_energy()

@@ -18,7 +18,7 @@ if GS:
                 kpts=(4,2,2),
                 xc='LDA',
                 nbands=4,
-                convergence={'band':'all'})
+                convergence={'bands':'all'})
     
     atoms.set_calculator(calc)
     atoms.get_potential_energy()
