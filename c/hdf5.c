@@ -200,7 +200,9 @@ PyObject* h5a_get_type(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "i", &aid))
     return NULL;
 
-  hid_t datatype = H5Aget_type(aid); 
+  hid_t filetype = H5Aget_type(aid); 
+  hid_t datatype = H5Tget_native_type(filetype, H5T_DIR_ASCEND);
+  H5Tclose(filetype);
   return Py_BuildValue("i", datatype);
 }
 
@@ -483,6 +485,7 @@ PyObject* h5d_get_type(PyObject *self, PyObject *args)
 
   hid_t filetype = H5Dget_type(did); 
   hid_t datatype = H5Tget_native_type(filetype, H5T_DIR_ASCEND);
+  H5Tclose(filetype);
   return Py_BuildValue("i", datatype);
 }
 
