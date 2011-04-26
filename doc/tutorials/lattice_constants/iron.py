@@ -1,7 +1,7 @@
 import numpy as np
 from ase.structure import bulk
 from gpaw import FermiDirac, MethfesselPaxton, MixerSum, \
-         KohnShamConvergenceError
+         KohnShamConvergenceError, PoissonSolver
 from gpaw.utilities.bulk2 import GPAWRunner
 
 strains = np.linspace(0.98, 1.02, 9)
@@ -14,8 +14,10 @@ def f(name, dist, k, g):
     r.set_parameters(xc='PBE',
                      occupations=dist,
                      basis='dzp',
-                     mixer=MixerSum(0.05, 5, 100),
+                     mixer=MixerSum(0.05, 5, 1),
                      eigensolver='cg',
+                     maxiter=500,
+                     poissonsolver=PoissonSolver(eps=1e-12), 
                      kpts=(k, k, k),
                      gpts=(g, g, g))
     try:
