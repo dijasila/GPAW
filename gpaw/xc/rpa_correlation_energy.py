@@ -301,8 +301,9 @@ class RPACorrelation:
                    xc='RPA',
                    eta=0.0,
                    w=self.w * 1j,
-                   q=[0.,0.,0.],
+                   q=[0.,0.,0.0001],
                    ecut=ecut,
+                   optical_limit=True,
                    hilbert_trans=False,
                    kcommsize=kcommsize)
         dummy.txt = devnull
