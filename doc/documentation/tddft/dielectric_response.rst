@@ -10,7 +10,7 @@ Introduction
 ============
 
 The DF (dielectric function) object calculates optical and dielectric properties of extended systems. It computes the linear response function of an interacting many-body system from its ground state electronic structure, which are obtained from GPAW in the real-space grids scheme. 
-The frequency and wave-vector dependent density response function are calculated within Time-Dependent Density-Functional Theory formalism using the projector-augmented wave method. Random phase approximation and adiabatic local density approximation (not implemented yet) are used for exchange-correlation functional. Local field, which indicate the inhomogeneity of the system, are included by constructing the density response matrix in reciprocal space. Fast Fourier Transform (FFT) are utilized to transform between real and reciprocal spaces. 
+The frequency and wave-vector dependent density response function are calculated within Time-Dependent Density-Functional Theory formalism using the projector-augmented wave method. Random phase approximation and adiabatic local density approximation are used for exchange-correlation functional. Local field, which indicate the inhomogeneity of the system, are included by constructing the density response matrix in reciprocal space. Fast Fourier Transform (FFT) are utilized to transform between real and reciprocal spaces. 
 
 
 Refer to :ref:`df_tutorial` for getting started with examples. 
