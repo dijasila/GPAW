@@ -1,5 +1,5 @@
 def agts(queue):
-    si = queue.add('agts.py', ncpus=4, walltime=60)
+    si = queue.add('submit.agts.py', ncpus=4, walltime=60)
     bs = queue.add('bs.py', deps=si, ncpus=4, walltime=60)
     queue.add('bs_plot.py', deps=bs, creates='bs-PBE.png')
 
@@ -9,9 +9,9 @@ def agts(queue):
 
     deps = []
     for k in range(3, 7):
-        deps.append(queue.add('eos.py %d' % k, ncpus=4))
+        deps.append(queue.add('eos.py %d' % k, ncpus=4, walltime=10 * 60))
     for k in range(7, 13):
-        deps.append(queue.add('eos.py %d' % k, ncpus=16))
+        deps.append(queue.add('eos.py %d' % k, ncpus=16, walltime=10 * 60))
     queue.add('results.py', deps=deps, creates=['a.png', 'B.png'])
 
 
