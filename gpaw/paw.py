@@ -689,8 +689,6 @@ class PAW(PAWTextOutput):
 
     def estimate_memory(self, mem):
         """Estimate memory use of this object."""
-        mem_init = maxrss() # XXX initial overhead includes part of Hamiltonian
-        mem.subnode('Initial overhead', mem_init)
         for name, obj in [('Density', self.density),
                           ('Hamiltonian', self.hamiltonian),
                           ('Wavefunctions', self.wfs),
@@ -712,6 +710,10 @@ class PAW(PAWTextOutput):
             txt = self.txt
         print >> txt, 'Memory estimate'
         print >> txt, '---------------'
+        
+        mem_init = maxrss() # XXX initial overhead includes part of Hamiltonian
+        print >> txt, 'Process memory now: %.2f MiB' % (mem_init / 1024.0**2)
+        
         mem = MemNode('Calculator', 0)
         try:
             self.estimate_memory(mem)
