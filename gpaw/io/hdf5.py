@@ -38,7 +38,7 @@ class Writer:
         self.dims_grp.attrs[name] = value
 
     def __setitem__(self, name, value):
-        # attributes must be writte collectively
+        # attributes must be written collectively
         self.params_grp.attrs[name] = value
 
     def add(self, name, shape, array=None, dtype=None, 
@@ -106,21 +106,16 @@ class Reader:
     def __init__(self, name, comm=None):
         self.comm = comm # used for broadcasting replicated data 
         self.file = File(name, 'r', self.comm.get_c_object())
+        self.dims_grp = self.file['Dimensions']
         self.params_grp = self.file['Parameters']
         self.hdf5_reader = True
 
     def dimension(self, name):
-        dims_grp = self.file['Dimensions']
-        return dims_grp.attrs[name]
-    
-    def __getitem__(self, name):
-        if self.comm.rank == 0: # not sure that this is necessary
-            obj = self.params_grp.attrs[name]
-        else:
-            obj = None
-              
-        value = broadcast(obj, 0, self.comm)
+        value = self.dims_grp.attrs[name]
+        return value
 
+    def __getitem__(self, name):
+        value = self.params_grp.attrs[name]
         try:
             value = eval(value, {})
         except (SyntaxError, NameError, TypeError):
