@@ -284,13 +284,14 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
                 for a in range(natoms):
                     all_P_ni[:, cumproj_a[a]:cumproj_a[a+1]] = P_ani[a]
             w.fill(all_P_ni, parallel=True, write=do_write, *indices)
-            del all_P_ni # delete a potentially large matrix 
     else:
         for s in range(wfs.nspins):
             for k in range(wfs.nibzkpts):
                 all_P_ni = wfs.collect_projections(k, s)
                 if master:
                     w.fill(all_P_ni, s, k)
+    
+    del all_P_ni # delete a potentially large matrix      
     timer.stop('Projections')
 
     # Write atomic density matrices and non-local part of hamiltonian:
@@ -774,7 +775,7 @@ def read(paw, reader):
 
         timer.start('Projections')
         if hdf5:
-            # Domain masters write parallel over spin, kpoints and band groups
+            # Domain masters read parallel over spin, kpoints and band groups
             cumproj_a = np.cumsum([0] + [setup.ni for setup in wfs.setups])
             all_P_ni = np.empty((wfs.mynbands, cumproj_a[-1]), dtype=wfs.dtype)
             for kpt in wfs.kpt_u:
@@ -792,7 +793,8 @@ def read(paw, reader):
                         P_ni = np.empty((wfs.mynbands, ni), dtype=wfs.dtype)
                         P_ni[:] = all_P_ni[:, cumproj_a[a]:cumproj_a[a+1]]
                         kpt.P_ani[a] = P_ni
-                del all_P_ni # delete a potentially large matrix
+
+            del all_P_ni # delete a potentially large matrix
         else:
             for u, kpt in enumerate(wfs.kpt_u):
                 P_ni = r.get('Projections', kpt.s, kpt.k)
@@ -832,38 +834,46 @@ def read(paw, reader):
 
     timer.stop('Read')
 
-def read_atoms(reader, **kwargs):
-    if isinstance(reader, str):
-        reader = open(filename, 'r')
-        assert not hasattr(reader, 'hdf5_reader') #XXX needs a communicator!
+def read_atoms(reader):
+    master = (reader.comm.rank == 0) # read only on root of reader.comm
 
-    if hasattr(reader, 'hdf5_reader'): # horrible hack
-        hdf5_reader = True
-        assert reader.hdf5_reader == hdf5_reader 
+    if hasattr(reader, 'hdf5_reader'): 
+        hdf5 = True
     else:
-        hdf5_reader = False
+        hdf5 = False
 
-    if hdf5_reader:
-        do_read = (reader.comm.rank == 0) # read only on root
-        kwargs.update({'parallel': False, 'read': do_read})
+    par_kwargs = {}
+    if hdf5:
+        par_kwargs.update({'parallel': False, 'read': master})
 
-    positions = reader.get('CartesianPositions', **kwargs) * Bohr
-    numbers = reader.get('AtomicNumbers', **kwargs)
-    cell = reader.get('UnitCell', **kwargs) * Bohr
-    pbc = reader.get('BoundaryConditions', **kwargs)
-    tags = reader.get('Tags', **kwargs)
-    magmoms = reader.get('MagneticMoments', **kwargs)
+    dims = 3 # presently hard-coded to '3' in Class Writer
+    natoms = reader.dimension('natoms')
 
-    # we need to broadcast this information from root
-    # for the hdf5_reader, but we should probably always do this
-    if hdf5_reader: 
-        reader.comm.broadcast(positions, 0)
-        reader.comm.broadcast(numbers, 0)
-        reader.comm.broadcast(cell, 0)
-        reader.comm.broadcast(pbc, 0)
-        reader.comm.broadcast(tags, 0)
-        reader.comm.broadcast(magmoms, 0)
+    # Create empty arrays 
+    positions = np.empty((natoms, dims), float)
+    numbers = np.empty(natoms, int)
+    cell = np.empty((dims, dims), float)
+    pbc = np.empty(dims, int)
+    tags = np.empty(natoms, int)
+    magmoms = np.empty(natoms, float)
 
+    # Read on master, then broadcast
+    if master:
+        positions = reader.get('CartesianPositions', **par_kwargs) * Bohr
+        numbers = reader.get('AtomicNumbers', **par_kwargs)
+        cell = reader.get('UnitCell', **par_kwargs) * Bohr
+        pbc = reader.get('BoundaryConditions', **par_kwargs)
+        tags = reader.get('Tags', **par_kwargs)
+        magmoms = reader.get('MagneticMoments', **par_kwargs)
+    
+    reader.comm.broadcast(positions, 0)
+    reader.comm.broadcast(numbers, 0)
+    reader.comm.broadcast(cell, 0)
+    reader.comm.broadcast(pbc, 0)
+    reader.comm.broadcast(tags, 0)
+    reader.comm.broadcast(magmoms, 0)
+
+    # Create instance of Atoms object, and set_tags and magnetic moments
     atoms = Atoms(positions=positions,
                   numbers=numbers,
                   cell=cell,
@@ -875,9 +885,14 @@ def read_atoms(reader, **kwargs):
         atoms.set_initial_magnetic_moments(magmoms)
 
     if reader.has_array('CartesianVelocities'):
-        velocities = reader.get('CartesianVelocities', **kwargs) * Bohr / AUT
-        if hdf5_reader:
-            reader.comm.broadcast(velocities, 0)
+        # Create empty array 
+        velocities = np.empty((natoms, dims), float)
+        
+        # Read on master, broadcast, then set velocities
+        if master:
+            velocities = reader.get('CartesianVelocities', **kwargs) * Bohr / AUT
+        
+        reader.comm.broadcast(velocities, 0)
         atoms.set_velocities(velocities)
 
     return atoms
