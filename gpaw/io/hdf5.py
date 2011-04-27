@@ -29,7 +29,8 @@ class Writer:
         self.dims_grp = self.file.create_group("Dimensions")
         self.params_grp = self.file.create_group("Parameters")
         self.file.attrs['title'] = 'gpaw_io version="0.1"'
-        
+        self.hdf5 = True
+
     def dimension(self, name, value):
         if name in self.dims.keys() and self.dims[name] != value:
             raise Warning('Dimension %s changed from %s to %s' % \
@@ -108,7 +109,7 @@ class Reader:
         self.file = File(name, 'r', self.comm.get_c_object())
         self.dims_grp = self.file['Dimensions']
         self.params_grp = self.file['Parameters']
-        self.hdf5_reader = True
+        self.hdf5 = True
 
     def dimension(self, name):
         value = self.dims_grp.attrs[name]

@@ -824,9 +824,16 @@ def read(paw, reader):
 
     # Get the forces from the old calculation:
     if r.has_array('CartesianForces'):
-        paw.forces.F_av = r.get('CartesianForces', **par_kwargs)
-        if hdf5:
-            world.broadcast(paw.forces.F_av, 0)
+        # Create empty array
+        F_av = np.empty((natoms, 3), float)
+        
+        # Read on master, broadcast, the set forces
+        if master:
+            F_av = r.get('CartesianForces', **par_kwargs)
+ 
+        world.broadcast(F_av, 0)
+        paw.forces.F_av = F_av
+
     else:
         paw.forces.reset()
 
@@ -837,7 +844,7 @@ def read(paw, reader):
 def read_atoms(reader):
     master = (reader.comm.rank == 0) # read only on root of reader.comm
 
-    if hasattr(reader, 'hdf5_reader'): 
+    if hasattr(reader, 'hdf5'): 
         hdf5 = True
     else:
         hdf5 = False

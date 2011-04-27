@@ -241,15 +241,13 @@ class FDPWWaveFunctions(WaveFunctions):
         return psit_nG[n][:] # dereference possible tar-file content
 
     def write_wave_functions(self, writer):
-        try:
-            from gpaw.io.hdf5 import Writer as HDF5Writer
-        except ImportError:
-            hdf5 = False
+        master = (writer.comm.rank == 0)
+
+        if hasttr(writer, 'hdf5'):
+            hdf5 = True
         else:
-            hdf5 = isinstance(writer, HDF5Writer)
-        
-        master = (self.world.rank == 0)
-    
+            hdf5 = False
+
         if master or hdf5:
             writer.add('PseudoWaveFunctions',
                        ('nspins', 'nibzkpts', 'nbands',
