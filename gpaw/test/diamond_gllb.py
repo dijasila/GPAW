@@ -58,7 +58,7 @@ response.calculate_delta_xc(homolumo=homolumo)
 calc.write('CGLLBSC.gpw')
 
 # Redo the band structure calculation
-atoms, calc = restart('CGLLBSC.gpw', kpts=kpts, fixdensity=True, usesymm=None, convergence=dict(nbands=6))
+atoms, calc = restart('CGLLBSC.gpw', kpts=kpts, fixdensity=True, usesymm=None, convergence=dict(bands=6))
 atoms.get_potential_energy()
 response = calc.hamiltonian.xc.xcs['RESPONSE']
 KS, dxc = response.calculate_delta_xc_perturbation()

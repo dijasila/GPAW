@@ -51,9 +51,9 @@ if check_spectrum:
         pass
     else:
         raise ValueError('Absorption peak not correct ! ')
-    
-    if np.abs(d[Nw1] - 68.8295454438) > 1e-5 or \
-       np.abs(d[Nw2] - 90.2424318491) > 1e-5 :
+
+    if np.abs(d[Nw1] - 68.8284615059) > 1e-5 or \
+       np.abs(d[Nw2] - 90.2445209202) > 1e-5 :
         print d[Nw1], d[Nw2]
         raise ValueError('Please check spectrum strength ! ')
 

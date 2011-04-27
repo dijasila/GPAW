@@ -53,7 +53,7 @@ if check_spectrum:
     else:
         raise ValueError('Plasmon peak not correct ! ')
     
-    if np.abs(d[Nw] - 27.5317730322) > 1e-5:
+    if np.abs(d[Nw] - 27.4958893542) > 1e-5:
         print d[Nw]
         raise ValueError('Please check spectrum strength ! ')
 
