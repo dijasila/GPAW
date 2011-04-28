@@ -150,7 +150,7 @@ class File(Group):
         h5f_close(self.id)
         self.opened = False
 
-class Dataset:
+class Dataset(object):
     """This class defines a HDF5 dataset.
 
        Attributes:
@@ -303,10 +303,12 @@ class Attributes:
         datatype = h5a_get_type(id)
         shape = h5s_get_shape(dataspace)
         dtype = numpy_type_from_h5(datatype)
+        memtype = h5_type_from_numpy(np.ndarray((1,), dtype))
         data = np.empty(shape, dtype)
-        h5a_read(id, datatype, data)
+        h5a_read(id, memtype, data)
         h5s_close(dataspace)
         h5t_close(datatype)
+        h5t_close(memtype)
         h5a_close(id)
 
         if len(shape) == 0:
