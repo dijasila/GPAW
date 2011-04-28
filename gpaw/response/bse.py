@@ -30,7 +30,7 @@ class BSE(BASECHI):
                  positive_w=False, # True : use Tamm-Dancoff Approx
                  use_W=True): # True: include screened interaction kernel
 
-        BASECHI.__init__(self, calc, nbands, w, q, ecut,
+        BASECHI.__init__(self, calc, nbands, w, q, eshift, ecut,
                      eta, rpad, ftol, txt, optical_limit)
 
 
@@ -39,7 +39,6 @@ class BSE(BASECHI):
         self.nc = nc # conduction band index
         self.nv = nv # valence band index
         self.use_W = use_W
-        self.eshift = eshift
 
     def initialize(self):
 
@@ -49,9 +48,6 @@ class BSE(BASECHI):
         self.printtxt(ctime())
 
         BASECHI.initialize(self)
-
-        if self.eshift is not None:
-            self.add_discontinuity(self.eshift)
         
         calc = self.calc
         self.kd = kd = calc.wfs.kd
@@ -157,8 +153,8 @@ class BSE(BASECHI):
                 self.printtxt('Finished reading screening interaction kernel')
             elif type(self.use_W) is bool:
                 # calculate from scratch
+                self.printtxt('Calculating screening interaction kernel.')                
                 W_qGG = self.screened_interaction_kernel()
-                self.printtxt('Calculating screening interaction kernel.')
             else:
                 raise ValueError('use_W can only be string or bool ')
             
@@ -218,7 +214,7 @@ class BSE(BASECHI):
                             const = 1./pi*self.vol*(6*pi**2/self.vol)**(2./3.)                            
                             tmp_G *= const
                             W_GG[:,0] = tmp_G
-                            W_GG[0,:] = tmp_G
+                            W_GG[0,:] = tmp_G.conj()
                             W_GG[0,0] = 2./pi*(6*pi**2/self.vol)**(1./3.) \
                                             * self.dfinvG0_G[0] *self.vol
 
@@ -234,7 +230,7 @@ class BSE(BASECHI):
 
                     tmp_GG = np.outer(rho3_G.conj(), rho4_G) * W_GG
                     W_SS[iS, jS] = np.sum(tmp_GG)
-
+#                    self.printtxt('%d %d %f %f' %(iS, jS, K_SS[iS,jS], W_SS[iS,jS]))
             self.timing(iS, t0, self.nS_local, 'pair orbital') 
 
         K_SS *= 4 * pi / self.vol
@@ -251,6 +247,15 @@ class BSE(BASECHI):
                 H_SS[iS,jS] += focc_S[iS] * K_SS[iS,jS]
 
         self.w_S, self.v_SS = np.linalg.eig(H_SS)
+
+        data = {'H_SS': H_SS,
+                'w_S': self.w_S,
+                'v_SS':self.v_SS,
+                'rhoG0_S':self.rhoG0_S
+                }
+        if rank == 0:
+            pickle.dump(data, open('H_SS.pckl', 'w'), -1)
+
         
         return 
 
@@ -258,10 +263,10 @@ class BSE(BASECHI):
     def screened_interaction_kernel(self):
         """Calcuate W_GG(q)"""
 
-        dfinv_qGG = np.zeros((self.nkpt, self.npw, self.npw))
+        dfinv_qGG = np.zeros((self.nkpt, self.npw, self.npw),dtype=complex)
         kc_qGG = np.zeros((self.nkpt, self.npw, self.npw))
         kc_G = np.zeros(self.npw)
-        dfinvG0_G = np.zeros(self.npw) # save the wing elements
+        dfinvG0_G = np.zeros(self.npw,dtype=complex) # save the wing elements
 
         t0 = time()
         for iq in range(self.nq):#self.q_start, self.q_end):
@@ -276,7 +281,7 @@ class BSE(BASECHI):
                     hilbert_trans=False, xc='RPA',
                     eta=0.0001, ecut=self.ecut*Hartree, txt='no_output')#, comm=serial_comm)
 
-            df.e_kn = self.e_kn
+#            df.e_kn = self.e_kn
             dfinv_qGG[iq] = df.get_inverse_dielectric_matrix(xc='RPA')[0]
 
             for iG in range(self.npw):
@@ -290,8 +295,7 @@ class BSE(BASECHI):
             if optical_limit:
                 dfinvG0_G = dfinv_qGG[iq,:,0]
                 # make sure epsilon_matrix is hermitian.
-                # Here, the dielectric matrix is real for w = 0
-                assert np.abs(dfinv_qGG[iq,0,:] - dfinv_qGG[iq,:,0]).sum() < 1e-6
+                assert np.abs(dfinv_qGG[iq,0,:] - dfinv_qGG[iq,:,0].conj()).sum() < 1e-6
             del df
         W_qGG = 4 * pi * dfinv_qGG * kc_qGG
 #        world.sum(W_qGG)
@@ -375,19 +379,7 @@ class BSE(BASECHI):
                 dt =  time() - t0
                 self.printtxt('  Finished %s %d in %f seconds, estimated %f seconds left.  '%(txt, i, dt, self.totaltime - dt) )
 
-        return
-
-
-    def add_discontinuity(self, shift):
-
-        eFermi = self.calc.occupations.get_fermi_level()
-        for i in range(self.e_kn.shape[1]):
-            for k in range(self.e_kn.shape[0]):
-                if self.e_kn[k,i] > eFermi:
-                    self.e_kn[k,i] += shift / Hartree
-
-        return
-    
+        return    
 
     def get_e_h_density(self, lamda=None, filename=None):
 

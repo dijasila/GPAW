@@ -14,6 +14,7 @@ class DF(CHI):
                  nbands=None,
                  w=None,
                  q=None,
+                 eshift=None,
                  ecut=10.,
                  eta=0.2,
                  rpad=np.array([1,1,1]),
@@ -26,7 +27,7 @@ class DF(CHI):
                  comm=None,
                  kcommsize=None):
 
-        CHI.__init__(self, calc, nbands, w, q, ecut, eta, rpad,
+        CHI.__init__(self, calc, nbands, w, q, eshift, ecut, eta, rpad,
                      ftol, txt, xc, hilbert_trans, full_response, optical_limit, comm, kcommsize)
 
         self.df_flag = False

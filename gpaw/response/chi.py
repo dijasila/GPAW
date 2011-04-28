@@ -42,6 +42,7 @@ class CHI(BASECHI):
                  nbands=None,
                  w=None,
                  q=None,
+                 eshift=None,
                  ecut=10.,
                  eta=0.2,
                  rpad=np.array([1,1,1]),
@@ -54,9 +55,9 @@ class CHI(BASECHI):
                  comm=None,
                  kcommsize=None):
 
-        BASECHI.__init__(self, calc, nbands, w, q, ecut,
+        BASECHI.__init__(self, calc, nbands, w, q, eshift, ecut,
                      eta, rpad,ftol, txt, optical_limit)
-
+        
         self.xc = xc
         self.hilbert_trans = hilbert_trans
         self.full_hilbert_trans = full_response
@@ -268,7 +269,7 @@ class CHI(BASECHI):
                             gemv(1.0, self.phi_aGp[a], P_p, 1.0, rho_G)
 
                         if self.optical_limit:
-                            rho_G[0] /= e_kn[ibzkpt2, m] - e_kn[ibzkpt1, n]
+                            rho_G[0] /= self.enoshift_kn[ibzkpt2, m] - self.enoshift_kn[ibzkpt1, n]
 
                         if k_pad:
                             rho_G[:] = 0.

@@ -26,6 +26,7 @@ class BASECHI:
                  nbands=None,
                  w=None,
                  q=None,
+                 eshift=None,
                  ecut=10.,
                  eta=0.2,
                  rpad=np.array([1,1,1]),
@@ -65,7 +66,7 @@ class BASECHI:
             self.ecut = np.array(ecut, dtype=float)
         self.rpad = rpad
         self.optical_limit = optical_limit
-
+        self.eshift = eshift
 
     def initialize(self):
                         
@@ -115,6 +116,10 @@ class BASECHI:
             print  >> self.txt, self.e_kn[0] * Hartree
         self.f_kn = np.array([calc.get_occupation_numbers(kpt=k) / kweight_k[k]
                     for k in range(nibzkpt)]) / self.nkpt
+
+        self.enoshift_kn = self.e_kn.copy()
+        if self.eshift is not None:
+            self.add_discontinuity(self.eshift)
 
         # k + q init
         assert self.q_c is not None
@@ -371,8 +376,17 @@ class BASECHI:
                 elif np.abs(self.e_kn[ibzkpt2, m] - self.e_kn[ibzkpt1, n]) < 1e-5:
                     rho_G[0] = 0.
                 else:
-                    rho_G[0] /= self.e_kn[ibzkpt2, m] - self.e_kn[ibzkpt1, n]
+                    rho_G[0] /= self.enoshift_kn[ibzkpt2, m] - self.enoshift_kn[ibzkpt1, n]
 
             return rho_G
 
 
+    def add_discontinuity(self, shift):
+
+        eFermi = self.calc.occupations.get_fermi_level()
+        for i in range(self.e_kn.shape[1]):
+            for k in range(self.e_kn.shape[0]):
+                if self.e_kn[k,i] > eFermi:
+                    self.e_kn[k,i] += shift / Hartree
+
+        return
