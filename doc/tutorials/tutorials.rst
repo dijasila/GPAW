@@ -24,7 +24,7 @@ perform some of the most common tasks:
    xas/xas
    negfstm/negfstm
    dielectric_response/dielectric_response
-   rpa/rpa	
+   rpa/rpa_tut
    ensembles/ensembles
 
 
