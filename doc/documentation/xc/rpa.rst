@@ -18,10 +18,57 @@ The RPA correlation energy is obtained by::
     
     from gpaw.xc.rpa_correlation_energy import RPACorrelation
     rpa = RPACorrelation(calc, txt='rpa_correlation.txt')   
-    E_rpa = rpa.get_rpa_correlation_energy(ecut=ecut, w=ws, kcommsize=size)
+    E_rpa = rpa.get_rpa_correlation_energy()
 
-where calc is a calculator object containing converged wavefunctions from a ground state calculation, txt denotes the output file, ecut (eV) determines the plane wave cutoff used to represent the response function, w is an equidistant array of frequencies (eV) on which the response function is calculated and  kcommsize is the number of k-point domains used for parallelization. Default parallelization is over frequency points, but unless memory requirements becomes an issue, it is usually more efficient to parallelize over k-points. See :ref:`rpa_tutorial` for an example with kpoint parallelization.
-For an example with kpoint parallelization. 
+where calc is a calculator object containing converged wavefunctions from a ground state calculation and txt denotes the output file. The function get_rpa_correlation_energy() takes a number of keyword arguments specified below.
+
+
+Parameters
+==========
+
+=================== ================== =================== ============================================================
+keyword             type               default value       description
+=================== ================== =================== ============================================================
+``ecut``            ``float``          100.		   Sets the number of plane waves
+							   and bands (if nbands is None) included in 
+ 							   the response function
+``nbands``	    ``int``	       None		   Sets the number of bands included in the 
+							   response function. If None, nbands is set 
+							   equal to the number of plave waves, which is determined by 
+ 							   ecut
+``gauss_legendre``  ``int``            16                  Number of Gauss-legendre points used in the 
+							   integration. Presently one can choose between
+							   8, 16, 24 or 32
+``frequency_cut``   ``float``	       800. (eV)           The frequency cut is the largest frequency 
+							   included in the Gauss-Legendre integration.
+``frequency_scale`` ``float``	       2.0 (eV)		   The frequency scale sets the density of frequency 
+							   points near :math:`\omega = 0`. 
+``w``               ``numpy.ndarray``  None                Specifies frequency points used to integrate the 
+							   correlation integrand. A simple trapezoid integration is 
+							   performed on the specified points. 
+							   Ex: numpy.linspace(0,20,201). If None, the Gauss-legendre 
+							   method is used.
+``direction``	    ``int``	       [[0, 1/3.],	   List of directions and corresponding weights 
+				       [1, 1/3.],	   for the :math:`\mathbf{q} = 0` point. 
+				       [2, 1/3.]]	   This point essentially needs to be evaluated
+				                 	   as an average over values close to zero in the three 
+				                 	   directions. If the system has symmetry
+							   one may save time by specifying the directions needed.
+							   Ex: for a diatomic molecule with the molecular axis in 
+							   the z direction, one may use [[0, 2/3.], [2, 1/3.]], since
+							   x and y (0 and 1 directions are equivalent).
+``extrapolate``     ``bool``	       False		   If w is not None, the specified frequency points are 
+							   extrapolated to infinity by assuming a squared Lorentzian 
+							   decay of the integrand.
+``kcommsize``       ``int``            None                The parsize for parallelization
+                                                           over kpoints.
+=================== ================== =================== ============================================================
+
+In addition to the usual kpoint and grid sampling, the RPA correlation energy needs to be converged with respect to the plane wave cutoff (set by ecut) and the frequency integration. As it turns out, the integrand is usually  rather smooth and one can perform the integration with 8-16 (special!) Gauss-Legendre frequency points, but see the tutorial :ref:`rpa_tut` for an example of converging the frequency integration.
+	
+Convergence
+===========
+
 A major complication with the RPA correlation energy is that it converges very slowly with the number of unoccupied bands included in the evaluation of `\chi^0(i\omega)`. However, as described in Ref. \ [#Harl]_ the high energy part of the response function resembles the Lindhard function, which for high energies gives a correlation energy converging as
 
 .. math::
@@ -36,16 +83,7 @@ where `G^{\chi}_{cut}` is the largest reciprocal lattice vector used in the eval
 
 * Use that `n\propto (G^{\chi}_{cut})^3` and fit the list of obtained correlation energies to `E_c^{RPA}(n) = E_c^{\infty}+A/n` to obtain `E_c^{\infty}=E_c^{RPA}`.
 
-It is possible to specify the number of bands used to calculate the response function by the keyword "nbands" in get_rpa_correlation_energy(). The default value of nbands is the number of bands, which correspond to ecut and is saved in the variable rpa.nbands after the calculation. This value needs to be smaller than the total number of (converged) bands from the ground state calculation. 
-
-A detailed example of this procedure can be followed in :ref:`rpa_tutorial`. Below is shown an example of a calculation of the correlation part of the atomization energy of an N2 molecule represented in a unit cell of side length 6 Å. 
-
-.. image:: E_rpa.png
-	   :height: 400 px
-
-The calculated points were generated with the script :svn:`~doc/documentation/xc/rpa_n2.py`, where N2_4000.gpw and N_4000.gpw contain ground state calculations with 4000 converged bands of N2 and N respectively. The number of bands used for the six points correspond to cutoff energies of 150, 200, 250, 300, 350 and 400 eV and the green line is the best fit to `E(n)=E_c+A/n` using the last 4 points. The script takes 16 hours on 32 Intel Xeon X5570 2.93GHz CPUs. 
-
-The extrapolated value at infinity of 4.98 eV exactly match the value found in Ref. \ [#Harl]_. However, it should be noted that since the RPA functional contains long range correlation effects, one needs to carefully converge the result with respect to the unit cell volume. Typically, van der Waals interaction behave as `V^{-2}` and one can extrapolate to infinite volume using a few different super cells.
+If one is not interested in the total correlation energy, but only energy differences between similar systems, it is sometimes possible to avoid the extrapolation procedure.
 
 .. [#Harl] J. Harl and G. Kresse,
            *Phys. Rev. B* **77**, 045136 (2008)
