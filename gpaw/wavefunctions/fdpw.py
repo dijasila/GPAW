@@ -241,9 +241,10 @@ class FDPWWaveFunctions(WaveFunctions):
         return psit_nG[n][:] # dereference possible tar-file content
 
     def write_wave_functions(self, writer):
-        master = (writer.comm.rank == 0)
+        master = (self.world.rank == 0) # cannot use reader.comm here due to \
+            # hack for GPW-writer in io/__init__.py
 
-        if hasttr(writer, 'hdf5'):
+        if hasattr(writer, 'hdf5'):
             hdf5 = True
         else:
             hdf5 = False
@@ -265,7 +266,7 @@ class FDPWWaveFunctions(WaveFunctions):
                 for k in range(self.nibzkpts):
                     for n in range(self.nbands):
                         psit_G = self.get_wave_function_array(n, k, s)
-                        if self.world.rank == 0:
+                        if master:
                             writer.fill(psit_G, s, k, n)
 
     def estimate_memory(self, mem):

@@ -61,6 +61,7 @@ class Writer:
     and intended to be used with gpaw
     """
     def __init__(self, filename, comm=None):
+        self.comm = comm # for possible future use
         self.verbose = False
         self.data = get_writer()
         self.split_array = None #used when array is not filled at once

@@ -30,7 +30,12 @@ def open(filename, mode='r', comm=mpi.world):
             filename += '.gpw'
         import gpaw.io.tar as io
 
+    # comm is used to eliminate replicated reads, hence it should never be None
+    # it is not required for writes at the moment, but this is likely to change
+    # in the future
     if mode == 'r':
+        if comm is None:
+            raise RuntimeError('Warning: Communicator needed for reads/writes')
         return io.Reader(filename, comm)
     elif mode == 'w':
         return io.Writer(filename, comm)
@@ -96,11 +101,18 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
 
     timer.start('Meta data')
 
-    # Replicated writes should create the dataset on all MPI tasks, but
-    # only write the actual data on the master.
+    # Note that HDF5 and GPW-writers behave very differently here.
+    # - GPW-writer created only on the master task, while HDF5 writer is created on
+    #   all MPI tasks.
+    # - GPW-writer always writes from master
+    # - HDF-writer writes full distributed data from all task, replicated data
+    #   from master, and partially replicated-data from domain_comm.rank == 0.
+    #   These types of writes are call Datasets.
+    # - HDF-writer writes parameters and dimensions as Attributes, not Datasets.
+    #   Attributes must be written by all MPI tasks.
+    
     if master or hdf5:
         w = open(filename, 'w', world)
-        
         w['history'] = 'GPAW restart file'
         w['version'] = '0.8'
         w['lengthunit'] = 'Bohr'
@@ -247,7 +259,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         w['BasisSet'] = repr(basis)
 
         dtype = {float: float, complex: complex}[wfs.dtype]
-    else:
+    else: # GPW-writer only exists on master task
         w = None
     timer.stop('Meta data')
 

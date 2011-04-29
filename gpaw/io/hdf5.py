@@ -14,7 +14,7 @@ from gpaw.mpi import broadcast
 
 class Writer:
     def __init__(self, name, comm=None):
-        self.comm = comm # not used much in writer
+        self.comm = comm # for possible future use
         self.dims = {}        
         try:
            if self.comm.rank == 0:
@@ -104,7 +104,7 @@ class Writer:
         self.file.close()
         
 class Reader:
-    def __init__(self, name, comm=None):
+    def __init__(self, name, comm):
         self.comm = comm # used for broadcasting replicated data 
         self.file = File(name, 'r', self.comm.get_c_object())
         self.dims_grp = self.file['Dimensions']
