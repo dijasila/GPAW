@@ -29,7 +29,7 @@ We will start by making a single RPA calculation with extremely fine frequency s
 
 .. literalinclude:: frequency.py
 
-The correlation energy is obtained as the integral of this function divided by :math:`2\pi` and yields -6.20128806301. The frequency sampling is dense enough so that this value can be regarded as "exact". We can now test the Gauss-Legendre integration method with different number of points using the same script but now specifying the gauss_legendre parameters instead of a frequency list:: 
+The correlation energy is obtained as the integral of this function divided by :math:`2\pi` and yields -6.23738879181 eV. The frequency sampling is dense enough so that this value can be regarded as "exact". We can now test the Gauss-Legendre integration method with different number of points using the same script but now specifying the gauss_legendre parameters instead of a frequency list:: 
 
     Es = rpa.get_E_q(ecut=ecut, 
                      gauss_legendre=16,
@@ -49,25 +49,31 @@ and the value of the integral for a range of parameters is shown below (all valu
 ========================  =========================  ===================   =================
 Gauss-Legendre points     Frequency cutoff           Frequency scale       Integral
 ========================  =========================  ===================   =================
- 16	          		200	 	        1.2		   -6.20096472755
- 16	          		400	 	        1.0		   -6.20098397539
- 16	          		800	 	        1.0		   -6.20142141865
- 16	          		800	 	        1.5		   -6.20230759884
- 16	          		800	 	        2.0		   -6.20128258259
- 16	          		800	 	        2.5		   -6.20128752831
- 8	          		800	 	        1.5		   -6.20320052778
- 8	          		800	 	        2.0		   -6.19060172312
- 8	          		800	 	        2.5		   -6.19746309627
+ 8	          		100	 	        2.0		   -6.23695229669
+ 8	          		200	 	        2.0		   -6.23729041603
+ 8	          		400	 	        2.0		   -6.24096953919
+ 8	          		800	 	        2.0		   -6.22671709039
+ 8	          	 	1600	 	        2.0		   -6.26677707702
+ 8	          		800	 	        1.0		   -6.36563675431		   
+ 8	          		800	 	        1.5		   -6.23973197929
+ 8	          		800	 	        2.5		   -6.23421988399
+ 16	          		100	 	        2.0		   -6.23479287788
+ 16	          		200	 	        2.0		   -6.23713047805
+ 16	          		400	 	        2.0		   -6.2374055733
+ 16	          		800	 	        2.0		   -6.23743850193
+ 16	          		1600	 	        2.0		   -6.23743853397
+ 16	          		800	 	        1.0		   -6.23759331385
+ 16	          		800	 	        1.5		   -6.23847568048
+ 16	          		800	 	        2.5		   -6.23744377698
 ========================  =========================  ===================   =================
 
 ======================== =
 Exact
 ======================== =
--6.20128806301	          		
+-6.23738879181	          		
 ======================== = 
 
-It is seen that using the default values gives a result which is extremely well converged. Below we will simply use the default values allthough we could perhaps use 8 points instead of 16, which would half the total CPU time for the calculations. In this particular case the result is not very sensitive to the frequency scale, but if the there is a non-vanishing density of states near the Fermi level, there may be much more structure in the integrand near :math:`\omega=0` and it is important to sample this region well.
-
+It is seen that using the default values gives a result which is extremely well converged (to 0.1 meV). Below we will simply use the default values allthough we could perhaps use 8 points instead of 16, which would half the total CPU time for the calculations. In this particular case the result is not very sensitive to the frequency scale, but if the there is a non-vanishing density of states near the Fermi level, there may be much more structure in the integrand near :math:`\omega=0` and it is important to sample this region well. It should of course be remembered that these values are not converged with respect to the number of unoccupied bands and plane waves, which were determined by a rather low cutoff at 50 eV.
 
 Extrapolating to infinite number of bands
 -----------------------------------------

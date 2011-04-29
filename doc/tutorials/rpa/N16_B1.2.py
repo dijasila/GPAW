@@ -7,7 +7,7 @@ import numpy as np
 
 ecut = 50
 
-calc = GPAW('../N2.gpw', communicator=serial_comm, txt=None)
+calc = GPAW('N2.gpw', communicator=serial_comm, txt=None)
 
 rpa = RPACorrelation(calc, txt='frequency_N16_B1.2.txt')
 
@@ -18,6 +18,6 @@ Es = rpa.get_E_q(ecut=ecut,
                  direction=0)
 
 f = paropen('frequency_N16_B1.2.dat', 'w')
-for w, E in zip(ws, Es):
+for w, E in zip(rpa.w, Es):
     print >> f, w, E.real
 f.close()

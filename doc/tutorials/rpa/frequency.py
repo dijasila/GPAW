@@ -8,7 +8,7 @@ import numpy as np
 ws = np.array([0.5*i for i in range(2001)])
 ecut = 50
 
-calc = GPAW('../N2.gpw', communicator=serial_comm, txt=None)
+calc = GPAW('N2.gpw', communicator=serial_comm, txt=None)
 
 rpa = RPACorrelation(calc, txt='frequency_equidistant.txt')
 
