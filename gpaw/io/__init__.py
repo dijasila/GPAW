@@ -518,7 +518,7 @@ def read(paw, reader):
 
     version = r['version']
 
-    hdf5 = hasattr(r, 'hdf5_reader')
+    hdf5 = hasattr(r, 'hdf5')
 
     par_kwargs = {}
     
