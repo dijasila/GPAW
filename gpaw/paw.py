@@ -90,8 +90,6 @@ class PAW(PAWTextOutput):
 
         if filename is not None:
             comm = kwargs.get('communicator', mpi.world)
-            if comm is None:
-                comm = mpi.world
             reader = gpaw.io.open(filename, 'r', comm)
             self.atoms = gpaw.io.read_atoms(reader)
             par = self.input_parameters
