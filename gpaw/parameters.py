@@ -1,6 +1,7 @@
 import numpy as np
 from ase.units import Hartree
 
+import gpaw.mpi as mpi
 from gpaw.poisson import PoissonSolver, FFTPoissonSolver
 from gpaw.occupations import FermiDirac
 from gpaw import parsize, parsize_bands, sl_default, sl_diagonalize, \
@@ -46,7 +47,7 @@ class InputParameters(dict):
             ('verbose',         0),
             ('eigensolver',     None),
             ('poissonsolver',   None),
-            ('communicator' ,   None),
+            ('communicator' ,   mpi.world),
             ('idiotproof'   ,   True),
             ('mode',            'fd'),
             ('convergence',     {'energy':      0.0005,  # eV / electron
@@ -86,9 +87,16 @@ class InputParameters(dict):
 
     def read(self, reader):
         """Read state from file."""
+        master = (reader.comm.rank == 0) # read only on root of reader.comm
 
-        if isinstance(reader, str):
-            reader = gpaw.io.open(reader, 'r')
+        if hasattr(reader, 'hdf5'): 
+            hdf5 = True
+        else:
+            hdf5 = False
+
+        par_kwargs = {}
+        if hdf5:
+            par_kwargs.update({'parallel': False, 'read': master})
 
         r = reader
 
@@ -100,15 +108,27 @@ class InputParameters(dict):
         self.nbands = r.dimension('nbands')
         self.spinpol = (r.dimension('nspins') == 2)
 
+        dim = 3 # k-point grid dimensions
+        nbzkpts = r.dimension('nbzkpts')
+ 
         if r.has_array('NBZKPoints'):
-            self.kpts = r.get('NBZKPoints')
+            self.kpts = np.empty(dim, int)
+            # Read on master, then broadcast
+            if master:
+                self.kpts = r.get('NBZKPoints', **par_kwargs)
         else:
-            self.kpts = r.get('BZKPoints')
+            self.kpts = np.empty((nbzkpts, dim), float)
+            # Read on master, then broadcast
+            if master:
+                self.kpts = r.get('BZKPoints', **par_kwargs)
+        r.comm.broadcast(self.kpts, 0)
+
         self.usesymm = r['UseSymmetry']
         try:
             self.basis = r['BasisSet']
         except KeyError:
             pass
+        ## gpts modified to account for boundary condition in non-PBC
         self.gpts = ((r.dimension('ngptsx') + 1) // 2 * 2,
                      (r.dimension('ngptsy') + 1) // 2 * 2,
                      (r.dimension('ngptsz') + 1) // 2 * 2)
