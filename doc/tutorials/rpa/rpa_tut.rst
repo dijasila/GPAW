@@ -16,107 +16,18 @@ The atomization energy of :mol:`N2` is overestimated by typical GGA functionals,
 Ground state calculation
 --------------------------
 
-First we set up a ground state calculation with lots of unoccupied bands. This is done with the script::
+First we set up a ground state calculation with lots of unoccupied bands. This is done with the script:
 
-    from ase import *
-    from ase.units import Ha, Bohr
-    from ase.parallel import paropen
-    from gpaw import *
-    from gpaw.xc.hybrid import HybridXC
-    from gpaw.response.cell import get_primitive_cell, set_Gvectors
-
-    d = 6.
-    max_cut = 400.
-
-    # N -------------------------------------------
-
-    N = molecule('N')
-    N.set_pbc(True)
-    N.set_cell((d, d, d))
-    N.center()
-    calc = GPAW(h=0.18,
-                maxiter=300,
-                xc='PBE',
-                hund=True,
-                txt='N.txt',
-                convergence={'density': 1.e-6})
-
-    N.set_calculator(calc)
-    N.set_calculator(calc)
-    E1_pbe = N.get_potential_energy()
-    E1_hf = E1_pbe + calc.get_xc_difference(HybridXC('EXX'))
-
-    acell = N.cell / Bohr
-    bcell = get_primitive_cell(acell)[1]
-    gpts = calc.get_number_of_grid_points()
-    max_bands = set_Gvectors(acell, bcell, gpts, [max_cut/Ha, max_cut/Ha,max_cut/Ha])[0]
-
-    calc.set(nbands=max_bands+500,
-             fixdensity=True,
-             eigensolver='cg',
-             convergence={'bands': -500})
-    N.get_potential_energy()
-
-    calc.write('N.gpw', mode='all')
-
-    # N2 ------------------------------------------
-
-    N2 = molecule('N2')
-    N2.set_pbc(True)
-    N2.set_cell((d, d, d))
-    N2.center()
-    calc = GPAW(h=0.18,
-                maxiter=300,
-                xc='PBE',
-                txt='N2.txt',
-                convergence={'density': 1.e-6})
-
-    N2.set_calculator(calc)
-    dyn = BFGS(N2)
-    dyn.run(fmax=0.05)
-    E2_pbe = N2.get_potential_energy()
-    E2_hf = E2_pbe + calc.get_xc_difference(HybridXC('EXX'))
-    f = paropen('PBE_HF.dat', 'w')
-    print >> f, 'PBE: ', E2_pbe - 2*E1_pbe
-    print >> f, 'HF: ', E2_hf - 2*E1_hf
-    f.close()
-
-    calc.set(nbands=max_bands+500,
-             fixdensity=True,
-             eigensolver='cg',
-             convergence={'bands': -500})
-    N2.get_potential_energy()
-
-    calc.write('N2.gpw', mode='all')
+.. literalinclude:: gs_N2.py
 
 which takes on the order of 1000 CPU hours. The function set_Gvectors() determines how many bands one should converge in order include everything below 400 eV. The script generates N.gpw and N2.gpw which are the input to the RPA calculation. The PBE and non-selfconsistent Hartree-Fock energy is also calculated and written to the file PBE_HF.dat.
 
 Converging the frequency integration
 -------------------------------------
 
-We will start by making a single RPA calculation with extremely fine frequency sampling. The following script returns the integrand at 2001 frequency points from 0 to 1000 eV at a particular q-point and a low cutoff energy (since there is no k-point sampling, only q=[0,0,0] is possible here and one therefore needs to specify a direction as well)::
+We will start by making a single RPA calculation with extremely fine frequency sampling. The following script returns the integrand at 2001 frequency points from 0 to 1000 eV at a particular q-point and a low cutoff energy (since there is no k-point sampling, only q=[0,0,0] is possible here and one therefore needs to specify a direction as well):
 
-    from ase import *
-    from ase.parallel import paropen
-    from gpaw import *
-    from gpaw.mpi import serial_comm
-    from gpaw.xc.rpa_correlation_energy import RPACorrelation
-    import numpy as np
-
-    ws = np.array([0.5*i for i in range(2001)])
-    ecut = 50
-
-    calc = GPAW('../N2.gpw', communicator=serial_comm, txt=None)
-
-    rpa = RPACorrelation(calc, txt='frequency_equidistant.txt')
-
-    Es = rpa.get_E_q(ecut=ecut, w=ws, integrated=False,
-                     q=[0,0,0], direction=0)
-
-    f = paropen('frequency_equidistant.dat', 'w')
-    for w, E in zip(ws, Es):
-        print >> f, w, E.real
-    f.close()
+.. literalinclude:: frequency.py
 
 The correlation energy is obtained as the integral of this function divided by :math:`2\pi` and yields -6.20128806301. The frequency sampling is dense enough so that this value can be regarded as "exact". We can now test the Gauss-Legendre integration method with different number of points using the same script but now specifying the gauss_legendre parameters instead of a frequency list:: 
 
@@ -125,7 +36,8 @@ The correlation energy is obtained as the integral of this function divided by :
                      frequency_cut=800, 
                      frequency_scale=2.0, 
                      integrated=False,
-                     q=[0,0,0], direction=0)
+                     q=[0,0,0], 
+                     direction=0)
 
 This is the default parameters for Gauss-legendre integration. The gauss_legendre keyword specifies the number of points, the frequency_cut keyword sets the value of the highest frequency (but the integration is always an approximation for the infinite integral) and the frequency_scale keyword determines how dense the frequencies are sampled close to :math:`\omega=0`. The integrands for a few values of these parameters are shown below
 
@@ -160,36 +72,16 @@ It is seen that using the default values gives a result which is extremely well 
 Extrapolating to infinite number of bands
 -----------------------------------------
 
-To calculate the atomization energy we need to obtain the correlation energy as a function of number of bands and extrapolate to infinity as explained in :ref:`rpa`. This is accomplished with the script::
+To calculate the atomization energy we need to obtain the correlation energy as a function of number of bands and extrapolate to infinity as explained in :ref:`rpa`. This is accomplished with the script:
 
-    from ase import *
-    from ase.parallel import paropen
-    from gpaw import *
-    from gpaw.mpi import serial_comm
-    from gpaw.xc.rpa_correlation_energy import RPACorrelation
+.. literalinclude:: rpa_N2.py
 
-    calc1 = GPAW('N.gpw', communicator=serial_comm, txt=None)
-    calc2 = GPAW('N2.gpw', communicator=serial_comm, txt=None)
-
-    rpa1 = RPACorrelation(calc1, txt='rpa_N.txt')    
-    rpa2 = RPACorrelation(calc2, txt='rpa_N2.txt')
-
-    for ecut in [100, 150, 200, 250, 300, 350, 400]:
-        E1 = rpa1.get_rpa_correlation_energy(ecut=ecut,
-                                             directions=[[0, 1.0]])
-        E2 = rpa2.get_rpa_correlation_energy(ecut=ecut,
-                                             directions=[[0, 2/3.], [2, 1/3.]])
-
-        f = paropen('rpa.dat', 'a')
-        print >> f, ecut, rpa1.nbands, E2 - 2*E1
-        f.close()
-
-which calculates the correlation part of the atomization energy with the bands and plane waved corresponding to the list of cutoff energies. Note that the default value of frequencies (16 Gauss-Legendre points) is used and the calculation parallelizes efficiently over the frequencies. The result is written to rpa.dat and can be visualized with the script::
+which calculates the correlation part of the atomization energy with the bands and plane waved corresponding to the list of cutoff energies. Note that the default value of frequencies (16 Gauss-Legendre points) is used and the calculation parallelizes efficiently over the frequencies. The result is written to rpa_N2.dat and can be visualized with the script::
 
     import numpy as np
     from pylab import *
 
-    A = np.loadtxt('rpa.dat').transpose()
+    A = np.loadtxt('rpa_N2.dat').transpose()
     plot(A[1]**(-1.), A[2], 'o', label='Calculated points')
 
     xs = np.array([A[1,0]+i*100000. for i in range(50000)])
@@ -227,36 +119,9 @@ As an example involving k-point sampling, we calculate the correlation energy of
 Ground state calculation
 --------------------------
 
-The following script performs a ground state calculation with the number of bands corresponding to 300 eV::
+The following script performs a ground state calculation with the number of bands corresponding to 300 eV:
 
-    from ase import *
-    from ase.structure import bulk
-    from ase.units import Ha, Bohr
-    from gpaw import *
-    from gpaw.response.cell import get_primitive_cell, set_Gvectors
-
-    V = 40
-    a0 = (4.*V)**(1/3.)
-    Kr = bulk('Kr', 'fcc', a=a0)
-
-    calc = GPAW(h=0.18, xc='PBE', kpts=(6, 6, 6), nbands=8,
-                txt='Kr_gs.txt')
-    Kr.set_calculator(calc)
-    Kr.get_potential_energy()
-
-    acell = Kr.cell / Bohr
-    bcell = get_primitive_cell(acell)[1]
-    gpts = calc.get_number_of_grid_points()
-    ecut = 300    
-    max_bands = set_Gvectors(acell, bcell, gpts, [ecut/Ha,ecut/Ha,ecut/Ha])[0]
-
-    calc.set(nbands=max_bands+50, 
-             eigensolver='cg', 
-             fixdensity=True,
-             convergence={'bands': -50})
-    Kr.get_potential_energy()
-
-    calc.write('Kr_gs.gpw', mode='all')
+.. literalinclude:: gs_Kr.py
 
 Note that for the large non-selfconsistent calculation, we use the conjugate gradient eigensolver, which is better suited for converging many unoccupied states. It also helps the eigensolver to include the 50 extra states, which are not converged.
 
@@ -265,26 +130,9 @@ Obtaining the RPA correlation energy
 
 In principle on should start by converging the frequency sampling as in Example 1. However, the integrand is extremly flat for a wide gap system as Kr and the default frequency sampling is expected to be good enough. In fact it is properly enough to use less frequency points than the default value of 16 points and one could most likely save some time by examining this, but below we just use the default value.
 
-It is not possible to fully converge the RPA correlation energy with respect to the energy and number of unoccupied bands, but as in Example 1, the results of a few calculations are easily extrapolated to the value corresponding to infinite cutoff. The following script calculates the RPA correlation energy for a few cutoff energies (the number of bands in the calculation is equal to the number of plane waves defined by the cutoff)::
+It is not possible to fully converge the RPA correlation energy with respect to the energy and number of unoccupied bands, but as in Example 1, the results of a few calculations are easily extrapolated to the value corresponding to infinite cutoff. The following script calculates the RPA correlation energy for a few cutoff energies (the number of bands in the calculation is equal to the number of plane waves defined by the cutoff):
 
-    from ase import *
-    from ase.parallel import paropen
-    from gpaw import *
-    from gpaw.mpi import serial_comm
-    from gpaw.xc.rpa_correlation_energy import RPACorrelation
-    import numpy as np
-
-    calc = GPAW('Kr_gs.gpw', communicator=serial_comm, txt=None)
-    rpa = RPACorrelation(calc, txt='extrapolate.txt')
-
-    for ecut in [150, 175, 200, 225, 250, 275, 300]:
-        E_rpa = rpa.get_rpa_correlation_energy(ecut=ecut, 
-                                               kcommsize=8, 
-                                               directions=[[0, 1.]])
-
-        f = paropen('extrapolate.dat', 'a')
-        print >> f, ecut, rpa.nbands, E_rpa
-        f.close()
+.. literalinclude:: rpa_Kr.py
 
 The kcommsize=8 keyword tells the calculator to use 8 k-point domains and the calculation is thus fully parallelized over k-points. If the number of cpus is larger than kcommsize, parallelization over freqency points will be initiated, which is much less efficient than k-point parallelization. However, the memory consumption may sometimes be exceedingly high since the full response function is stored in all frequency points and parallelizing over frequencies may then be useful. When choosing a parallelization scheme, it should be noted that the response function involves a sum over all k-points and not just those in the irreducible part of reciprocal space. The total number of cpus should be equal to the number of frequency domains (divisible in frequency points) times the number of k-point domains (specified by kcommsize). The directions keyword tells the calculator to only consider the x direction when doing the optical limit for q=[0,0,0].
 
@@ -293,7 +141,7 @@ The result can be plotted with the script::
     import numpy as np
     from pylab import *
 
-    A = np.loadtxt('extrapolate.dat').transpose()
+    A = np.loadtxt('rpa_Kr.dat').transpose()
     xs = np.array([170 +i*100. for i in range(500)])
 
     plot(A[1]**(-1.), A[2], 'o', markersize=8, label='Calculated points')
@@ -318,21 +166,9 @@ One can proceed like this for a range of different unit cell volumes and obtain 
 .. image:: volume.png
 	   :height: 400 px
 
-In order to obtain the total energy, the correlation energy should be added to the Hartree-fock energy, which can be obtained (non-selfconsistently) by::
+In order to obtain the total energy, the correlation energy should be added to the Hartree-fock energy, which can be obtained (non-selfconsistently) by:
     
-    from ase.parallel import paropen
-    from gpaw import *
-    from gpaw.xc.hybridk import HybridXC
-
-    calc = GPAW('Kr_gs.gpw', txt=None)
-    E = calc.get_potential_energy()
-    exx = HybridXC('EXX')
-    E_hf = E + calc.get_xc_difference(exx)
-	
-    f = paropen('hf_energy.dat', 'a')
-    print >> f, E_hf
-    f.close()
-  
+.. literalinclude:: hf_Kr.py  
 
 .. [#Furche] F. Furche,
              *Phys. Rev. B* **64**, 195120 (2001)
