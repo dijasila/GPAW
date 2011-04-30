@@ -872,7 +872,6 @@ def read_atoms(reader):
     positions = np.empty((natoms, dims), float)
     numbers = np.empty(natoms, int)
     cell = np.empty((dims, dims), float)
-    pbc = np.empty(dims, int)
     tags = np.empty(natoms, int)
     magmoms = np.empty(natoms, float)
 
@@ -881,14 +880,16 @@ def read_atoms(reader):
         positions = reader.get('CartesianPositions', **par_kwargs) * Bohr
         numbers = reader.get('AtomicNumbers', **par_kwargs)
         cell = reader.get('UnitCell', **par_kwargs) * Bohr
-        pbc = reader.get('BoundaryConditions', **par_kwargs)
+        temp_pbc = reader.get('BoundaryConditions', **par_kwargs)
         tags = reader.get('Tags', **par_kwargs)
         magmoms = reader.get('MagneticMoments', **par_kwargs)
+    else: # pbc is Bool and must be handled with the broadcast_string method
+        temp_pbc = None
     
     reader.comm.broadcast(positions, 0)
     reader.comm.broadcast(numbers, 0)
     reader.comm.broadcast(cell, 0)
-    reader.comm.broadcast(pbc, 0)
+    pbc = broadcast(temp_pbc, 0, reader.comm)
     reader.comm.broadcast(tags, 0)
     reader.comm.broadcast(magmoms, 0)
 
