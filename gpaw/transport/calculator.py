@@ -348,7 +348,7 @@ class Transport(GPAW):
     def parameters_test(self):
         for i in range(self.lead_num):
             atoms = self.get_lead_atoms(i)
-            atoms.calc.initialize()
+            atoms.calc.initialize(atoms)
 	self.initialize()    
 
     def define_leads_related_variables(self):
@@ -1847,6 +1847,7 @@ class Transport(GPAW):
                 self.gate = gate[i]
                 self.get_selfconsistent_hamiltonian()
             start = 0
+        self.n_bias_step = start
         for i in range(start, num_v):
             v = bias[i]
             self.bias = [v/2., -v /2.]
