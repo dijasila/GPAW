@@ -396,7 +396,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
             assert self.dtype == float
         
         if isinstance(c_axi, float):
-            assert q == -1
+            assert q == -1 and a_xG.ndim == 3
             c_xM = np.empty(self.Mmax)
             c_xM.fill(c_axi)
             self.lfc.add(c_xM, a_xG, q)

@@ -106,8 +106,8 @@ class ELF:
         self.taut_sG = wfs.calculate_kinetic_energy_density(ddr_v)
 
         # Add the pseudo core kinetic array
-        # XXX this does not seem to have an effect
-        self.tauct.add(self.taut_sG)
+        for taut_G in self.taut_sG:
+            self.tauct.add(taut_G, 1.0 / wfs.nspins)
 
         # For periodic boundary conditions
         if wfs.symmetry is not None:
