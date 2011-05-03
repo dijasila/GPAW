@@ -304,7 +304,16 @@ class HybridXC(XCFunctional):
                             continue
                         
                 f2 = kpt2.f_n[n2]
-                if 0:#abs(f1) < fcut and abs(f2) < fcut:
+
+                x = 1.0
+                if same and n1 == n2:
+                    x = 0.5
+                    
+                self.debug_skn[kpt1.s, kpt1.k, n1] += x
+                if is_ibz2:
+                    self.debug_skn[kpt2.s, kpt2.k, n2] += x
+
+                if abs(f1) < fcut and abs(f2) < fcut:
                     continue
                 
                 nt_R = self.calculate_pair_density(n1, n2, kpt1, kpt2, q0,
@@ -313,17 +322,11 @@ class HybridXC(XCFunctional):
                 nt_G = self.pwd.fft(nt_R * eikr_R) / N
                 vt_G = nt_G.copy()
                 vt_G *= -pi * vol / Gpk2_G
-                e = np.vdot(nt_G, vt_G).real * nspins * self.hybrid
-                x = 1.0
-                if same and n1 == n2:
-                    e /= 2
-                    x = 0.5
+                e = np.vdot(nt_G, vt_G).real * nspins * self.hybrid * x
                     
                 self.exx_skn[kpt1.s, kpt1.k, n1] += f2 * e
-                self.debug_skn[kpt1.s, kpt1.k, n1] += x
                 if is_ibz2:
                     self.exx_skn[kpt2.s, kpt2.k, n2] += f1 * e
-                    self.debug_skn[kpt2.s, kpt2.k, n2] += x
 
     def calculate_paw_correction(self):
         exx = 0
