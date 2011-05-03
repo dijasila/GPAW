@@ -190,16 +190,12 @@ class HybridXC(XCFunctional):
 
         self.ghat.set_k_points(self.bzk_kc)
         
-        self.pt = LFC(self.gd, [setup.pt_j for setup in density.setups],
-                      dtype=complex)
-        self.pt.set_k_points(self.kd.bzk_kc)
-
         self.interpolator = density.interpolator
 
     def set_positions(self, spos_ac):
         self.ghat.set_positions(spos_ac)
-        self.pt.set_positions(spos_ac)
-    
+        self.spos_ac = spos_ac
+
     def calculate(self, gd, n_sg, v_sg=None, e_g=None):
         # Normal XC contribution:
         exc = self.xc.calculate(gd, n_sg, v_sg, e_g)
@@ -357,43 +353,26 @@ class HybridXC(XCFunctional):
         psit2_G = self.kd.transform_wave_function(kpt2.psit_nG[n2], k)
         nt_G = kpt1.psit_nG[n1].conj() * psit2_G
 
-        P2_ai = self.pt.dict()
-        self.pt.integrate(psit2_G, P2_ai, k)
-
-        if 0:
-            s = self.kd.sym_k[k]
-            time_reversal = self.kd.time_reversal_k[k]
-
-            for a, P2_i in P2_ai.items():
-                b = self.kd.symmetry.a_sa[s, a]
-                P2b_i = np.dot(self.setups[a].R_sii[s], kpt2.P_ani[b][n2])
-                if time_reversal:
-                    P2b_i = P2b_i.conj()
-                if abs(P2b_i-P2_i).max() > 1e-13:
-                    print a,s,time_reversal,self.kd.symmetry.op_scc[s]
-                    print P2_i
-                    print P2b_i
+        s = self.kd.sym_k[k]
+        time_reversal = self.kd.time_reversal_k[k]
+        k2_c = self.kd.ibzk_kc[kpt2.k]
 
         Q_aL = {}
         for a, P1_ni in kpt1.P_ani.items():
             P1_i = P1_ni[n1]
-            P2_i = P2_ai[a]
+
+            b = self.kd.symmetry.a_sa[s, a]
+            S_c = (np.dot(self.spos_ac[a], self.kd.symmetry.op_scc[s]) -
+                   self.spos_ac[b])
+            assert abs(S_c.round() - S_c).max() < 1e-13
+            x = np.exp(2j * pi * np.dot(k2_c, S_c))
+            P2_i = np.dot(self.setups[a].R_sii[s], kpt2.P_ani[b][n2]) * x
+            if time_reversal:
+                P2_i = P2_i.conj()
+
             D_ii = np.outer(P1_i.conj(), P2_i)
             D_p = pack(D_ii)
             Q_aL[a] = np.dot(D_p, self.setups[a].Delta_pL)
 
         self.ghat.add(nt_G, Q_aL, q)
         return nt_G
-
-
-if __name__ == '__main__':
-    import sys
-    from gpaw import GPAW
-    from gpaw.mpi import serial_comm
-    calc = GPAW(sys.argv[1], txt=None, communicator=serial_comm)
-
-    alpha = 5.0
-    e = calc.get_potential_energy()
-    exx = HybridXC('EXX', alpha=alpha)
-    e2 = calc.get_xc_difference(exx)
-    print e, e + e2, exx.exx
