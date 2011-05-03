@@ -360,6 +360,20 @@ class HybridXC(XCFunctional):
         P2_ai = self.pt.dict()
         self.pt.integrate(psit2_G, P2_ai, k)
 
+        if 0:
+            s = self.kd.sym_k[k]
+            time_reversal = self.kd.time_reversal_k[k]
+
+            for a, P2_i in P2_ai.items():
+                b = self.kd.symmetry.a_sa[s, a]
+                P2b_i = np.dot(self.setups[a].R_sii[s], kpt2.P_ani[b][n2])
+                if time_reversal:
+                    P2b_i = P2b_i.conj()
+                if abs(P2b_i-P2_i).max() > 1e-13:
+                    print a,s,time_reversal,self.kd.symmetry.op_scc[s]
+                    print P2_i
+                    print P2b_i
+
         Q_aL = {}
         for a, P1_ni in kpt1.P_ani.items():
             P1_i = P1_ni[n1]
