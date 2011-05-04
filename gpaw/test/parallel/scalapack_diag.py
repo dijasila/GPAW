@@ -28,14 +28,14 @@ def scal_diagonalize(A, nodes='master'):
 
     # distribute A to blacs grid A_
     if rank != 0:
-        A = nndesc1.zeros()
-    A_ = nndesc2.empty(dtype=float)
+        A = nndesc1.zeros(dtype=A.dtype)
+    A_ = nndesc2.empty(dtype=A.dtype)
     redistributor = Redistributor(world, nndesc1, nndesc2)
     redistributor.redistribute(A, A_)
 
     # diagonalize
-    B_ = nndesc2.zeros()
-    eps = np.zeros(N)
+    B_ = nndesc2.zeros(dtype=A.dtype)
+    eps = np.zeros(N,dtype=A.dtype)
     nndesc2.diagonalize_dc(A_, B_, eps, 'L')
 
     # distribute the eigenvectors to master
