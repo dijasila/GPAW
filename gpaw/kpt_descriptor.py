@@ -186,9 +186,6 @@ class KPointDescriptor:
                 return psit_G.conj()
             else:
                 return psit_G
-        # Inversion symmetry
-        elif (np.abs(op_cc + np.eye(3, dtype=int)) < 1e-10).all():
-            return psit_G.conj()
         # General point group symmetry
         else:
             ik = self.kibz_k[k]
