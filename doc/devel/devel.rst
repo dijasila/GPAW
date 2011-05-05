@@ -56,7 +56,7 @@ Keep this picture under your pillow:
 .. _the_big_picture:
 
 .. image:: bigpicture.png
-   :target: ../bigpicture.pdf
+   :target: ../bigpicture.svg
 
 The developer guide provides an overview of the PAW quantities and how
 the corresponding objects are defined in the code:
