@@ -54,3 +54,5 @@ if world.rank == 0:
     print x1,x2
     assert abs(x1 - x2) < 0.001
     assert abs(x1 - 9.71) < 0.01
+
+world.barrier()
