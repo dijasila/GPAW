@@ -16,7 +16,7 @@ def get_primitive_cell(a,rpad=np.array([1,1,1])):
     return a, b, vol, BZvol
 
 
-def set_Gvectors(acell, bcell, nG, Ecut):
+def set_Gvectors(acell, bcell, nG, Ecut, q=[0., 0., 0.]):
     """Calculate the number of planewaves with a certain cutoff, their reduced coordinates and index."""
 
     # Refer to R.Martin P85
@@ -43,7 +43,7 @@ def set_Gvectors(acell, bcell, nG, Ecut):
         for j in range(Nmax[1]):
             for k in range(Nmax[2]):
                 tmp = np.array([m[0][i], m[1][j], m[2][k]])
-                tmpG = np.dot(tmp, bcell)
+                tmpG = np.dot(tmp+np.array(q), bcell)
                 Gmod = sqrt(tmpG[0]**2 + tmpG[1]**2 + tmpG[2]**2)
                 if Gmod < Gcut:
                     G[n] = tmp
@@ -64,3 +64,4 @@ def set_Gvectors(acell, bcell, nG, Ecut):
         Gindex[iG] = np.array(id)
     
     return npw, Gvec, Gindex
+

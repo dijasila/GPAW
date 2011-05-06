@@ -44,6 +44,7 @@ class CHI(BASECHI):
                  q=None,
                  eshift=None,
                  ecut=10.,
+                 G_plus_q=False,
                  eta=0.2,
                  rpad=np.array([1,1,1]),
                  ftol=1e-5,
@@ -55,8 +56,8 @@ class CHI(BASECHI):
                  comm=None,
                  kcommsize=None):
 
-        BASECHI.__init__(self, calc, nbands, w, q, eshift, ecut,
-                     eta, rpad,ftol, txt, optical_limit)
+        BASECHI.__init__(self, calc, nbands, w, q, eshift, ecut, G_plus_q,
+                         eta, rpad,ftol, txt, optical_limit)
         
         self.xc = xc
         self.hilbert_trans = hilbert_trans
@@ -136,7 +137,6 @@ class CHI(BASECHI):
         self.Kc_GG = calculate_Kc(self.q_c, self.Gvec_Gc, self.bcell_cv)
 
         # Calculate ALDA kernel (not used in chi0)
-        # if frequencies are real (not the case for RPA correlation energies)
         R_av = calc.atoms.positions / Bohr
         if self.xc == 'RPA': #type(self.w_w[0]) is float:
             self.Kxc_GG = np.zeros((self.npw, self.npw))

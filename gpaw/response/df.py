@@ -16,6 +16,7 @@ class DF(CHI):
                  q=None,
                  eshift=None,
                  ecut=10.,
+                 G_plus_q=False,
                  eta=0.2,
                  rpad=np.array([1,1,1]),
                  ftol=1e-7,
@@ -27,8 +28,9 @@ class DF(CHI):
                  comm=None,
                  kcommsize=None):
 
-        CHI.__init__(self, calc, nbands, w, q, eshift, ecut, eta, rpad,
-                     ftol, txt, xc, hilbert_trans, full_response, optical_limit, comm, kcommsize)
+        CHI.__init__(self, calc, nbands, w, q, eshift, ecut, G_plus_q, eta,
+                     rpad, ftol, txt, xc, hilbert_trans,
+                     full_response, optical_limit, comm, kcommsize)
 
         self.df_flag = False
         self.df1_w = None # NLF RPA
@@ -37,7 +39,7 @@ class DF(CHI):
         self.df4_w = None # LF ALDA
 
 
-    def get_dielectric_matrix(self,xc='RPA'):
+    def get_dielectric_matrix(self, xc='RPA'):
 
 	if self.chi0_wGG is None:
             self.initialize()

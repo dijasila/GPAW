@@ -70,27 +70,11 @@ class RPACorrelation:
                 if directions is None:
                     directions = [[0, 1/3.], [1, 1/3.], [2, 1/3.]]
                 for d in directions:                                   
-                    E_q0 += self.get_E_q(kcommsize=kcommsize,
-                                         index=index,
-                                         q=q,
-                                         direction=d[0],
-                                         ecut=ecut,
-                                         nbands=self.nbands,
-                                         gauss_legendre=self.gauss_legendre,
-                                         frequency_scale=self.frequency_scale,
-                                         w=self.w,
-                                         extrapolate=extrapolate) * d[1]
+                    E_q0 += self.E_q(q, index=index, direction=d[0]) * d[1]
                 E_q.append(E_q0)
             else:
-                E_q.append(self.get_E_q(kcommsize=kcommsize,
-                                        index=index,
-                                        q=q,
-                                        ecut=ecut,
-                                        nbands=self.nbands,
-                                        gauss_legendre=self.gauss_legendre,
-                                        frequency_scale=self.frequency_scale,
-                                        w=self.w,
-                                        extrapolate=extrapolate))
+                E_q.append(self.E_q(q, index=index))
+                
             if restart is not None:
                 f = paropen(restart, 'a')
                 print >> f, E_q[-1]
@@ -121,41 +105,76 @@ class RPACorrelation:
                 w=None,
                 extrapolate=False):
 
-        if index is None:
-            self.initialize_calculation(w, ecut, nbands, kcommsize, extrapolate,
-                                        gauss_legendre, frequency_cut, frequency_scale)
-            
+        self.initialize_calculation(w, ecut, nbands, kcommsize, extrapolate,
+                                    gauss_legendre, frequency_cut,
+                                    frequency_scale)
+
+        E_q = self.E_q(q, direction=direction, integrated=integrated)
+        
+        print >> self.txt, 'Calculation completed at:  ', ctime()
+        print >> self.txt
+        print >> self.txt, '------------------------------------------------------'
+
+        return E_q
+
+    def E_q(self,
+            q,
+            index=None,
+            direction=0,
+            integrated=True):
+        
         if abs(q[0]) < 0.001 and abs(q[1]) < 0.001 and abs(q[2]) < 0.001:
             q = [0.,0.,0.]
             q[direction] = 1.e-5
             optical_limit = True
         else:
             optical_limit = False
-            
+
+        dummy = DF(calc=self.calc,
+                   xc='RPA',
+                   eta=0.0,
+                   q=q,
+                   w=self.w * 1j,
+                   ecut=self.ecut,
+                   G_plus_q=True,
+                   kcommsize=self.kcommsize,
+                   optical_limit=optical_limit,
+                   hilbert_trans=False)
+
+        dummy.txt = devnull
+        dummy.initialize()
+        npw = dummy.npw
+        del dummy
+        if self.nbands is None:
+            nbands = npw
+        else:
+            nbands = self.nbands
+ 
+
         df = DF(calc=self.calc,
                 xc='RPA',
-                nbands=self.nbands,
+                nbands=nbands,
                 eta=0.0,
                 q=q,
                 w=self.w * 1j,
-                ecut=ecut,
-                kcommsize=kcommsize,
+                ecut=self.ecut,
+                G_plus_q=True,
+                kcommsize=self.kcommsize,
                 optical_limit=optical_limit,
                 hilbert_trans=False)
         df.txt = devnull
-
+        
         if index is None:
             print >> self.txt, 'Calculating RPA dielectric matrix at:'
         else:
             print >> self.txt, '#', index, '- Calculating RPA dielectric matrix at:'
         
         if optical_limit:
-            print >> self.txt, 'Q = [0 0 0] -', 'Polarization: ', direction
+            print >> self.txt, 'q = [0 0 0] -', 'Polarization: ', direction
         else:
-            print >> self.txt, 'Q = %s' % q 
+            print >> self.txt, 'q = %s -' % q, '%s planewaves' % npw
             
         e_wGG = df.get_dielectric_matrix(xc='RPA')
-
         Nw_local = len(e_wGG)
         local_E_q_w = np.zeros(Nw_local, dtype=complex)
         
@@ -198,16 +217,12 @@ class RPACorrelation:
 
         print >> self.txt, 'E_c(Q) = %s eV' % E_q.real
         print >> self.txt
-        if index is None:
-            print >> self.txt, 'Calculation completed at:  ', ctime()
-            print >> self.txt
-            print >> self.txt, '------------------------------------------------------'
-        if integrated:
-            return E_q
-        else:
-            return E_q_w
-       
 
+        if integrated:
+            return E_q.real
+        else:
+            return E_q_w.real
+       
     def get_ibz_q_points(self, bz_k_points):
 
         # Get all q-points
@@ -256,13 +271,13 @@ class RPACorrelation:
         print >> self.txt, 'Number of Bands                :   %s' % self.calc.wfs.nbands
         print >> self.txt, 'Number of Converged Bands      :   %s' % self.calc.input_parameters['convergence']['bands']
         print >> self.txt, 'Number of Spins                :   %s' % self.nspins
-        print >> self.txt, 'Number of K-points             :   %s' % len(self.calc.wfs.bzk_kc)
-        print >> self.txt, 'Number of Q-points             :   %s' % len(self.bz_q_points)
-        print >> self.txt, 'Number of Irreducible K-points :   %s' % len(self.calc.wfs.ibzk_kc)
-        print >> self.txt, 'Number of Irreducible Q-points :   %s' % len(self.ibz_q_points)
+        print >> self.txt, 'Number of k-points             :   %s' % len(self.calc.wfs.bzk_kc)
+        print >> self.txt, 'Number of q-points             :   %s' % len(self.bz_q_points)
+        print >> self.txt, 'Number of Irreducible k-points :   %s' % len(self.calc.wfs.ibzk_kc)
+        print >> self.txt, 'Number of Irreducible q-points :   %s' % len(self.ibz_q_points)
         print >> self.txt
         for q, weight in zip(self.ibz_q_points, self.q_weights):
-            print >> self.txt, 'Q: [%1.3f %1.3f %1.3f] - weight: %1.3f' % (q[0],q[1],q[2],
+            print >> self.txt, 'q: [%1.3f %1.3f %1.3f] - weight: %1.3f' % (q[0],q[1],q[2],
                                                                            weight)
         print >> self.txt
         print >> self.txt, '------------------------------------------------------'
@@ -291,16 +306,12 @@ class RPACorrelation:
             w *= frequency_cut/w[-1]
             alpha = (-np.log(1-ys[-1]))**frequency_scale/frequency_cut
             transform = (-np.log(1-ys))**(frequency_scale-1)/(1-ys)*frequency_scale/alpha
-            self.frequency_scale = frequency_scale
-            self.transform = transform
-
-        self.gauss_legendre = gauss_legendre
-        self.w = w
+        
 
         dummy = DF(calc=self.calc,
                    xc='RPA',
                    eta=0.0,
-                   w=self.w * 1j,
+                   w=w * 1j,
                    q=[0.,0.,0.0001],
                    ecut=ecut,
                    optical_limit=True,
@@ -310,13 +321,22 @@ class RPACorrelation:
         dummy.spin = 0
         dummy.initialize()
 
-        if nbands is None:
-            nbands = dummy.npw
+        self.ecut = ecut
+        self.w = w
+        self.gauss_legendre = gauss_legendre
+        self.frequency_cut = frequency_cut
+        self.frequency_scale = frequency_scale
+        self.transform = transform
+        self.extrapolate = extrapolate
+        self.kcommsize = kcommsize
         self.nbands = nbands
         
-        print >> self.txt, 'Planewave cut off            : %s eV' % ecut
-        print >> self.txt, 'Number of Planewaves         : %s' % dummy.npw
-        print >> self.txt, 'Response function bands      : %s' % self.nbands
+        print >> self.txt, 'Planewave cut off             : %s eV' % ecut
+        print >> self.txt, 'Number of Planewaves at Gamma : %s' % dummy.npw
+        if self.nbands is None:
+            print >> self.txt, 'Response function bands       : Equal to number of Planewaves'
+        else:
+            print >> self.txt, 'Response function bands       : %s' % self.nbands
         print >> self.txt, 'Frequencies'
         if self.gauss_legendre is not None:
             print >> self.txt, '    Gauss-Legendre integration with %s frequency points' % len(self.w)

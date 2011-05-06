@@ -28,6 +28,7 @@ class BASECHI:
                  q=None,
                  eshift=None,
                  ecut=10.,
+                 G_plus_q=False,
                  eta=0.2,
                  rpad=np.array([1,1,1]),
                  ftol=1e-5,
@@ -64,6 +65,7 @@ class BASECHI:
         else:
             assert len(ecut) == 3
             self.ecut = np.array(ecut, dtype=float)
+        self.G_plus_q = G_plus_q
         self.rpad = rpad
         self.optical_limit = optical_limit
         self.eshift = eshift
@@ -137,8 +139,18 @@ class BASECHI:
         self.kq_k = kq_k
 
         # Plane wave init
-        self.npw, self.Gvec_Gc, self.Gindex_G = set_Gvectors(self.acell_cv, self.bcell_cv, self.nG, self.ecut)
-
+        if self.G_plus_q:
+            self.npw, self.Gvec_Gc, self.Gindex_G = set_Gvectors(self.acell_cv,
+                                                                 self.bcell_cv,
+                                                                 self.nG,
+                                                                 self.ecut,
+                                                                 q=self.q_c)
+        else:
+            self.npw, self.Gvec_Gc, self.Gindex_G = set_Gvectors(self.acell_cv,
+                                                                 self.bcell_cv,
+                                                                 self.nG,
+                                                                 self.ecut)
+            
         # Projectors init
         setups = calc.wfs.setups
         pt = LFC(gd, [setup.pt_j for setup in setups],
