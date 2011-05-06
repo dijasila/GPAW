@@ -1,4 +1,5 @@
-# creates: bigpicture.svg bigpicture.png
+"""creates: bigpicture.svg bigpicture.png"""
+
 import os
 from math import pi, cos, sin
 
