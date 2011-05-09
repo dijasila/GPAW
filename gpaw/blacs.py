@@ -347,7 +347,7 @@ class BlacsDescriptor(MatrixDescriptor):
         generally be passed to BLACS functions in the C code."""
         arr = np.array([BLOCK_CYCLIC_2D, self.blacsgrid.context, 
                         self.N, self.M, self.nb, self.mb, self.csrc, self.rsrc,
-                        self.lld], np.int32)
+                        self.lld], np.intc)
         return arr
 
     def __repr__(self):

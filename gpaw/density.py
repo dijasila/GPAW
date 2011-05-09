@@ -497,7 +497,7 @@ class Density:
         nct.set_positions(spos_ac)
 
         I_sa = np.zeros((self.nspins, len(atoms)))
-        a_W =  np.empty(len(phi.M_W), np.int32)
+        a_W =  np.empty(len(phi.M_W), np.intc)
         W = 0
         for a in phi.atom_indices:
             nw = len(phi.sphere_a[a].M_w)
@@ -524,7 +524,7 @@ class Density:
             phi.lfc.ae_valence_density_correction(rho_MM, n_sg[s], a_W, I_a)
             phit.lfc.ae_valence_density_correction(-rho_MM, n_sg[s], a_W, I_a)
 
-        a_W =  np.empty(len(nc.M_W), np.int32)
+        a_W =  np.empty(len(nc.M_W), np.intc)
         W = 0
         for a in nc.atom_indices:
             nw = len(nc.sphere_a[a].M_w)
