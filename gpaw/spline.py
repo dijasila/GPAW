@@ -74,7 +74,7 @@ class Spline:
 
         if debug:
             assert G_b.ndim == 1 and G_b.shape[0] % 2 == 0
-            assert is_contiguous(G_b, np.int32)
+            assert is_contiguous(G_b, np.intc)
             assert A_gm.shape[:-1] == np.sum(G_b[1::2]-G_b[::2])
 
         indices_gm, ng, nm = self.spline.get_indices_from_zranges(start_c,
