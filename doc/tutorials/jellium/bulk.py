@@ -1,18 +1,15 @@
-from math import pi
-
 import numpy as np
-from math import pi
 from ase import Atoms
 from ase.units import Bohr
 from gpaw.jellium import JelliumPoissonSolver
 from gpaw import GPAW
 
-rs = 5.0    # Wigner-Seitz radius
-h = 0.2     # grid-spacing
-a = 8 * h
-k = 12      # number of k-points (k*k*k)
+rs = 5.0 * Bohr  # Wigner-Seitz radius
+h = 0.2          # grid-spacing
+a = 8 * h        # lattice constant
+k = 12           # number of k-points (k*k*k)
 
-ne = a**3 / (4 * pi / 3 * (rs * Bohr)**3)
+ne = a**3 / (4 * np.pi / 3 * rs**3)
 
 bulk = Atoms(pbc=True, cell=(a, a, a))
 bulk.calc = GPAW(poissonsolver=JelliumPoissonSolver(),
