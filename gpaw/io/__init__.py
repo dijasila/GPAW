@@ -252,6 +252,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         all_D_sp = np.empty((wfs.nspins, nadm))
         all_H_sp = np.empty((wfs.nspins, nadm))
         p1 = 0
+        p2 = 0
         for a in range(natoms):
             ni = wfs.setups[a].ni
             nii = ni * (ni + 1) // 2
