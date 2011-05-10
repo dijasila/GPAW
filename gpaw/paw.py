@@ -424,7 +424,7 @@ class PAW(PAWTextOutput):
             nbands = int(nvalence + M + 0.5) // 2 + (-nbands)
 
         if nvalence > 2 * nbands:
-            raise ValueError('Too few bands!  Electrons: %d, bands: %d'
+            raise ValueError('Too few bands!  Electrons: %f, bands: %d'
                              % (nvalence, nbands))
 
         if par.width is not None:
