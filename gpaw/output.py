@@ -255,7 +255,7 @@ class PAWTextOutput:
             t('All')
         else:
             t('%d Lowest Bands' % cc['bands'])
-        t('Number of Valence Electrons:            %i'
+        t('Number of Valence Electrons:            %g'
           % (self.wfs.setups.nvalence - p.charge))
 
     def print_converged(self, iter):

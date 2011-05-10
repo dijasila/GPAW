@@ -102,7 +102,7 @@ class BaseSetup:
                 c = min(2 * (2 * l + 1) - f, -charge)
                 f_j[j] += c
                 charge += c
-        assert charge == 0.0
+        assert charge == 0.0, charge
 
         i = 0
         j = 0
