@@ -726,3 +726,14 @@ Publications using the gpaw code
    __ http://link.aip.org/link/doi/10.1063/1.3574836
 
    .. 6 April 2011
+
+#) Giorgio Lanzani, Toma Susi, Paola Ayala, Tao Jiang, Albert G. Nasibulin, 
+   Thomas Bligaard, Thomas Pichler, Kari Laasonen, Esko I. Kauppinen
+
+   `Mechanism study of floating catalyst CVD synthesis of SWCNTs`__
+
+   \Physica Status Solidi B 247, 2708 (2010)
+
+   __ http://dx.doi.org/10.1002/pssb.201000226
+
+   .. 10 May 2011
