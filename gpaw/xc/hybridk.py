@@ -88,7 +88,7 @@ class KPoint:
 class HybridXC(XCFunctional):
     orbital_dependent = True
     def __init__(self, name, hybrid=None, xc=None, finegrid=False,
-                 alpha=None):
+                 alpha=None, skip_gamma=False):
         """Mix standard functionals with exact exchange.
 
         name: str
@@ -121,6 +121,7 @@ class HybridXC(XCFunctional):
         self.xc = xc
         self.type = xc.type
         self.alpha = alpha
+        self.skip_gamma = skip_gamma
         self.exx = None
         
         XCFunctional.__init__(self, name)
@@ -311,9 +312,11 @@ class HybridXC(XCFunctional):
 
                 if abs(f1) < fcut and abs(f2) < fcut:
                     continue
+
+                if self.skip_gamma and same:
+                    continue
                 
-                nt_R = self.calculate_pair_density(n1, n2, kpt1, kpt2, q0,
-                                                   k)
+                nt_R = self.calculate_pair_density(n1, n2, kpt1, kpt2, q0, k)
                                                    
                 nt_G = self.pwd.fft(nt_R * eikr_R) / N
                 vt_G = nt_G.copy()

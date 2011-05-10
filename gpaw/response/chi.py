@@ -56,8 +56,10 @@ class CHI(BASECHI):
                  comm=None,
                  kcommsize=None):
 
-        BASECHI.__init__(self, calc, nbands, w, q, eshift, ecut, G_plus_q,
-                         eta, rpad,ftol, txt, optical_limit)
+        BASECHI.__init__(self, calc=calc, nbands=nbands, w=w, q=q,
+                         eshift=eshift, ecut=ecut, G_plus_q=G_plus_q, eta=eta,
+                         rpad=rpad, ftol=ftol, txt=txt,
+                         optical_limit=optical_limit)
         
         self.xc = xc
         self.hilbert_trans = hilbert_trans

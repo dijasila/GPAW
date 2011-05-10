@@ -28,9 +28,11 @@ class DF(CHI):
                  comm=None,
                  kcommsize=None):
 
-        CHI.__init__(self, calc, nbands, w, q, eshift, ecut, G_plus_q, eta,
-                     rpad, ftol, txt, xc, hilbert_trans,
-                     full_response, optical_limit, comm, kcommsize)
+        CHI.__init__(self, calc=calc, nbands=nbands, w=w, q=q, eshift=eshift,
+                     ecut=ecut, G_plus_q=G_plus_q, eta=eta, rpad=rpad,
+                     ftol=ftol, txt=txt, xc=xc, hilbert_trans=hilbert_trans,
+                     full_response=full_response, optical_limit=optical_limit,
+                     comm=comm, kcommsize=kcommsize)
 
         self.df_flag = False
         self.df1_w = None # NLF RPA

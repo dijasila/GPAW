@@ -30,9 +30,9 @@ class BSE(BASECHI):
                  positive_w=False, # True : use Tamm-Dancoff Approx
                  use_W=True): # True: include screened interaction kernel
 
-        BASECHI.__init__(self, calc, nbands, w, q, eshift, ecut,
-                     eta, rpad, ftol, txt, optical_limit)
-
+        BASECHI.__init__(self, calc=calc, nbands=nbands, w=w, q=q,
+                         eshift=eshift, ecut=ecut, eta=eta, rpad=rpad,
+                         ftol=ftol, txt=txt, optical_limit=optical_limit)
 
         self.epsilon_w = None
         self.positive_w = positive_w
