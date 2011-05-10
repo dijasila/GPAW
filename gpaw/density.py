@@ -190,7 +190,7 @@ class Density:
                 self.nt_sG *= x
             else:
                 # Use homogeneous background:
-                volume = self.gd.N_c.prod() * self.gd.dv
+                volume = self.gd.get_size_of_global_array().prod() * self.gd.dv
                 self.nt_sG[:] = -self.charge / volume
 
     def calculate_pseudo_charge(self, comp_charge):
