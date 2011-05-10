@@ -19,7 +19,7 @@ Here is a little function that will calculate the PBE groundstate:
 
 .. literalinclude:: si_pbe.py
 
-We do a calculation for a lattice constant og 5.43 Å and a k-point
+We do a calculation for a lattice constant of 5.43 Å and a k-point
 sampling of 8*8*8 points::
 
     si = groundstate(5.43, 8)

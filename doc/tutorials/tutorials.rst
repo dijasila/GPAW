@@ -18,6 +18,7 @@ perform some of the most common tasks:
    optimization/optimization
    plotting/plot_wave_functions
    bandstructures/bandstructures
+   jellium/jellium
    all-electron/all_electron_density
    neb/neb
    pbe0/pbe0
