@@ -432,6 +432,29 @@ Publications using the gpaw code
 
    .. 28 December 2009
 
+#) \Michael Walter and Michael Moseler
+
+   `How to observe the oxidation of magnesia-supported Pd clusters 
+   by scanning tunnelling microscopy`__
+
+   Physica Status Solidi **247**, 1016-1022 (2010)
+
+   __ http://dx.doi.org/10.1002/pssb.200945474
+
+   .. 4 January 2010
+
+#) \Engelbert Redel, Michael Walter, Ralf Thomann, Laith Hussein, 
+   Michael Krüger and Christoph Janiak
+
+   `Stop-and-go, stepwise and “ligand-free” nucleation, 
+   nanocrystal growth and formation of Au-NPs in ionic liquids (ILs)`__
+
+   Chem. Commun. **46**, 1159-1161 (2010)
+
+   __ http://dx.doi.org/10.1039/B921744D
+
+   .. 4 January 2010
+
 #) Carsten Rostgaard, Karsten W. Jacobsen, and Kristian S. Thygesen
 
    `Fully self-consistent GW calculations for molecules`__
@@ -466,6 +489,16 @@ Publications using the gpaw code
 
    .. 16 February 2010
 
+#) \De-en Jiang, Michael Walter and Jaakko Akola
+
+   `On the Structure of a Thiolated Gold Cluster: Au44(SR)282−`__
+
+   J. Phys. Chem. C **114**, 15883–15889 (2010)
+
+   __ http://dx.doi.org/10.1021/jp9097342
+
+   .. 19 February 2010
+
 #) Thomas Olsen and Jakob Schiøtz
 
    `Vibrationally mediated control of single-electron transmission in
@@ -488,6 +521,16 @@ Publications using the gpaw code
    __ http://dx.doi.org/10.1038/nchem.589
 
    .. 24 March 2010
+
+#) \De-en Jiang, Michael Walter and Sheng Dai
+
+   `Gold Sulfide Nanoclusters: A Unique Core-In-Cage Structure`__
+
+   Chem. Eur. J. **16**, 4999-5003 (2010) 
+
+   __ http://dx.doi.org/10.1002/chem.201000327
+   
+   .. 26 March 2010
 
 #) \J. F. Parker, K. A. Kacprzak, O. Lopez-Acevedo, H. Häkkinen,
    R. W. Murray
