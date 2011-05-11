@@ -105,12 +105,6 @@ Publications using the gpaw code
 .. image:: publications.png
    :width: 750
 
-.. If the first author is A. Einstein, then remember to use
-   \A. Einstein so that we don't start an enumerated list (A, B, C,
-   ...).
-
-   The date should be the publication date
-
 
 1) The first article introducing the gpaw project:
    
@@ -609,6 +603,17 @@ Publications using the gpaw code
 
    .. 20 July 2010
 
+#) Giorgio Lanzani, Toma Susi, Paola Ayala, Tao Jiang, Albert G. Nasibulin, 
+   Thomas Bligaard, Thomas Pichler, Kari Laasonen, Esko I. Kauppinen
+
+   `Mechanism study of floating catalyst CVD synthesis of SWCNTs`__
+
+   Physica Status Solidi B 247, 2708 (2010)
+
+   __ http://dx.doi.org/10.1002/pssb.201000226
+
+   .. 31 August 2001
+
 #) M. Kuisma, J. Ojanen, J. Enkovaara, and T. T. Rantala
 
    `Kohn-Sham potential with discontinuity for band gap materials`__
@@ -709,7 +714,8 @@ Publications using the gpaw code
  
 #) Jun Yan, Kristian S. Thygesen, and Karsten W. Jacobsen 
 
-   `Nonlocal Screening of Plasmons in Graphene by Semiconducting and Metallic Substrates: First-Principles Calculations`__
+   `Nonlocal Screening of Plasmons in Graphene by Semiconducting and
+   Metallic Substrates: First-Principles Calculations`__
 
    \Phys. Rev. Lett. 106, 146803 (2011) 
 
@@ -719,7 +725,8 @@ Publications using the gpaw code
  
 #) Kurt Baarman, Timo Eirola, and Ville Havu
 
-   `Robust acceleration of self consistent field calculations for density functional theory`__
+   `Robust acceleration of self consistent field calculations for
+   density functional theory`__
 
    \J. Chem. Phys. 134, 134109 (2011)
 
@@ -727,13 +734,10 @@ Publications using the gpaw code
 
    .. 6 April 2011
 
-#) Giorgio Lanzani, Toma Susi, Paola Ayala, Tao Jiang, Albert G. Nasibulin, 
-   Thomas Bligaard, Thomas Pichler, Kari Laasonen, Esko I. Kauppinen
 
-   `Mechanism study of floating catalyst CVD synthesis of SWCNTs`__
+.. If the first author is A. Einstein, then remember to use
+   \A. Einstein so that we don't start an enumerated list (A, B, C,
+   ...).
 
-   \Physica Status Solidi B 247, 2708 (2010)
+   The date should be the publication date
 
-   __ http://dx.doi.org/10.1002/pssb.201000226
-
-   .. 10 May 2011
