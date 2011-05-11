@@ -29,9 +29,9 @@ if bse:
     eshift = 1.224
     
     bse = BSE('Si.gpw',w=np.linspace(0,20,201),
-              q=np.array([0,0,0.0001]),optical_limit=True,ecut=10.,
+              q=np.array([0.0001,0,0.0]),optical_limit=True,ecut=10.,
               nc=np.array([4,6]), nv=np.array([2,4]), eshift=eshift,
-              nbands=8,positive_w=True)
+              nbands=8,positive_w=True,use_W=True)
     
     bse.get_dielectric_function('Si_bse.dat')
 
@@ -39,16 +39,16 @@ if check:
     
     d = np.loadtxt('Si_bse.dat')
 
-    Nw1 = 37
-    Nw2 = 47
+    Nw1 = 38
+    Nw2 = 48
     if d[Nw1, 2] > d[Nw1-1, 2] and d[Nw1, 2] > d[Nw1+1, 2] \
             and d[Nw2, 2] > d[Nw2-1, 2] and d[Nw2, 2] > d[Nw2+1, 2]:
         pass
     else:
         raise ValueError('Absorption peak not correct ! ')
 
-    if np.abs(d[Nw1, 2] - 138.564674268) > 1e-1:
-#        or np.abs(d[Nw2, 2] -  92.9165852289) > 1e-2):
+    if np.abs(d[Nw1, 2] - 131.943708689) > 1e-1 \
+        or np.abs(d[Nw2, 2] -  97.7435222692) > 1e-1:
         print d[Nw1, 2], d[Nw2, 2]
         raise ValueError('Please check spectrum strength ! ')
 
