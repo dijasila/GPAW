@@ -281,9 +281,9 @@ class HybridXC(XCFunctional):
         vol = self.gd.dv * N
         nspins = self.nspins
 
-        same = (k1_c == k2_c).all()
+        same = abs(k1_c - k2_c).max() < 1e-9
         fcut = 1e-10
-        is_ibz2 = (k2_c == self.kd.ibzk_kc[kpt2.k]).all()
+        is_ibz2 = abs(k2_c - self.kd.ibzk_kc[kpt2.k]).max() < 1e-9
         
         for n1, psit1_R in enumerate(kpt1.psit_nG):
             f1 = kpt1.f_n[n1]
@@ -317,7 +317,6 @@ class HybridXC(XCFunctional):
                     continue
                 
                 nt_R = self.calculate_pair_density(n1, n2, kpt1, kpt2, q0, k)
-                                                   
                 nt_G = self.pwd.fft(nt_R * eikr_R) / N
                 vt_G = nt_G.copy()
                 vt_G *= -pi * vol / Gpk2_G
