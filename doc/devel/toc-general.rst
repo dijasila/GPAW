@@ -3,6 +3,7 @@
    codingstandard
    c_extension
    writing_documentation
+   adding_publications
    formulas
    debugging
    profiling
