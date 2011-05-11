@@ -4,7 +4,9 @@ import pickle
 from math import pi
 from ase.units import Hartree
 from ase.io import write
+from gpaw.fd_operators import Gradient
 from gpaw.mpi import world, size, rank, serial_comm
+from gpaw.utilities.blas import gemmdot, gemm, gemv
 from gpaw.utilities import devnull
 from gpaw.response.base import BASECHI
 from gpaw.response.parallel import parallel_partition
@@ -105,6 +107,11 @@ class BSE(BASECHI):
         for iS in range(self.nS):
             self.focc_S[iS] = focc_s[iS]
 
+        if self.use_W:
+            # q points init
+            self.kd.get_bz_q_points(folding=False)
+            self.nq = len(self.kd.bzq_kc)
+
         # parallel init
         self.Scomm = world
         # kcomm and wScomm is only to be used when wavefunctions r parallelly distributed.
@@ -113,11 +120,9 @@ class BSE(BASECHI):
         
         self.nS, self.nS_local, self.nS_start, self.nS_end = parallel_partition(
                                self.nS, world.rank, world.size, reshape=False)
-        self.nq, self.nq_local, self.q_start, self.q_end = parallel_partition(
-                               self.nkpt, world.rank, world.size, reshape=False)
+#        self.nq, self.nq_local, self.q_start, self.q_end = parallel_partition(
+#                               self.nkpt, world.rank, world.size, reshape=False)
         self.print_bse()
-
-        self.get_phi_aGp()
 
         # Coulomb kernel init
         self.kc_G = np.zeros(self.npw)
@@ -127,6 +132,7 @@ class BSE(BASECHI):
             self.kc_G[iG] = 1. / np.inner(qG, qG)
         if self.optical_limit:
             self.kc_G[0] = 0.
+            
         self.printtxt('')
         
         return
@@ -144,12 +150,12 @@ class BSE(BASECHI):
         e_S = self.e_S
 
         if self.use_W:
-            self.kd.get_bz_q_points()
             if type(self.use_W) is str:
                 # read 
                 data = pickle.load(open(self.use_W))
                 self.dfinvG0_G = data['dfinvG0_G']
                 W_qGG = data['W_qGG']
+                self.phi_qaGp = data['phi_qaGp']
                 self.printtxt('Finished reading screening interaction kernel')
             elif type(self.use_W) is bool:
                 # calculate from scratch
@@ -157,8 +163,11 @@ class BSE(BASECHI):
                 W_qGG = self.screened_interaction_kernel()
             else:
                 raise ValueError('use_W can only be string or bool ')
-            
-        # calculate kernel
+        else:
+            self.get_phi_aGp()
+
+        
+       # calculate kernel
         K_SS = np.zeros((self.nS, self.nS), dtype=complex)
         W_SS = np.zeros_like(K_SS)
         self.rhoG0_S = np.zeros((self.nS), dtype=complex)
@@ -177,16 +186,16 @@ class BSE(BASECHI):
                 K_SS[iS, jS] = np.sum(rho1_G.conj() * rho2_G * self.kc_G)
 
                 if self.use_W:
+                    
                     rho3_G = self.density_matrix(n1,n2,k1,k2)
                     rho4_G = self.density_matrix(m1,m2,self.kq_k[k1],self.kq_k[k2])
+                    
                     q_c = bzk_kc[k2] - bzk_kc[k1]
-                    iq = self.kd.where_is_q(q_c)
+                    iq = self.kd.where_is_q(q_c,folding=False)
                     W_GG = W_qGG[iq].copy()
+                    
                     if k1 == k2:
-                        deg_bands1 = (n1==n2)
-                        deg_bands2 = (m1==m2)
-
-                        if (deg_bands1 or deg_bands2):
+                        if (n1==n2) or (m1==m2):
 
                             # method 1:                            
 #                            tmp = 0
@@ -230,7 +239,8 @@ class BSE(BASECHI):
 
                     tmp_GG = np.outer(rho3_G.conj(), rho4_G) * W_GG
                     W_SS[iS, jS] = np.sum(tmp_GG)
-#                    self.printtxt('%d %d %f %f' %(iS, jS, K_SS[iS,jS], W_SS[iS,jS]))
+
+#                    self.printtxt('%d %d %s %s' %(iS, jS, K_SS[iS,jS], W_SS[iS,jS]))
             self.timing(iS, t0, self.nS_local, 'pair orbital') 
 
         K_SS *= 4 * pi / self.vol
@@ -246,9 +256,22 @@ class BSE(BASECHI):
             for jS in range(self.nS):
                 H_SS[iS,jS] += focc_S[iS] * K_SS[iS,jS]
 
-        self.w_S, self.v_SS = np.linalg.eig(H_SS)
+        if self.positive_w is True: # matrix should be Hermitian
+            for iS in range(self.nS):
+                for jS in range(self.nS):
+                    if np.abs(H_SS[iS,jS]- H_SS[jS,iS].conj()) > 1e-6:
+                        print H_SS[iS,jS]- H_SS[jS,iS].conj()
+                    assert H_SS[iS,jS]- H_SS[jS,iS].conj() < 1e-6
 
-        data = {'H_SS': H_SS,
+#        if not self.positive_w:
+        self.w_S, self.v_SS = np.linalg.eig(H_SS)
+#        else:
+#        from gpaw.utilities.lapack import diagonalize
+#        self.w_S = np.zeros(self.nS)
+#        diagonalize(H_SS, self.w_S)
+#        self.v_SS = H_SS.copy() # eigenvectors in the rows
+
+        data = {
                 'w_S': self.w_S,
                 'v_SS':self.v_SS,
                 'rhoG0_S':self.rhoG0_S
@@ -263,12 +286,14 @@ class BSE(BASECHI):
     def screened_interaction_kernel(self):
         """Calcuate W_GG(q)"""
 
-        dfinv_qGG = np.zeros((self.nkpt, self.npw, self.npw),dtype=complex)
-        kc_qGG = np.zeros((self.nkpt, self.npw, self.npw))
+        dfinv_qGG = np.zeros((self.nq, self.npw, self.npw),dtype=complex)
+        kc_qGG = np.zeros((self.nq, self.npw, self.npw))
         kc_G = np.zeros(self.npw)
         dfinvG0_G = np.zeros(self.npw,dtype=complex) # save the wing elements
 
         t0 = time()
+        self.phi_qaGp = {}
+        
         for iq in range(self.nq):#self.q_start, self.q_end):
             q = self.kd.bzq_kc[iq]
             optical_limit=False
@@ -283,6 +308,7 @@ class BSE(BASECHI):
 
 #            df.e_kn = self.e_kn
             dfinv_qGG[iq] = df.get_inverse_dielectric_matrix(xc='RPA')[0]
+            self.phi_qaGp[iq] = df.phi_aGp 
 
             for iG in range(self.npw):
                 qG1 = np.dot(q + self.Gvec_Gc[iG], self.bcell_cv)
@@ -296,6 +322,7 @@ class BSE(BASECHI):
                 dfinvG0_G = dfinv_qGG[iq,:,0]
                 # make sure epsilon_matrix is hermitian.
                 assert np.abs(dfinv_qGG[iq,0,:] - dfinv_qGG[iq,:,0].conj()).sum() < 1e-6
+                dfinv_qGG[iq,0,0] = np.real(dfinv_qGG[iq,0,0])
             del df
         W_qGG = 4 * pi * dfinv_qGG * kc_qGG
 #        world.sum(W_qGG)
@@ -303,16 +330,20 @@ class BSE(BASECHI):
         self.dfinvG0_G = dfinvG0_G
 
         data = {'W_qGG': W_qGG,
-                'dfinvG0_G': dfinvG0_G}
+                'dfinvG0_G': dfinvG0_G,
+                'phi_qaGp':self.phi_qaGp}
         if rank == 0:
             pickle.dump(data, open('W_qGG.pckl', 'w'), -1)
 
         return W_qGG
+
                                           
     def print_bse(self):
 
         printtxt = self.printtxt
 
+        if self.use_W:
+            printtxt('Numberof q points            : %d' %(self.nq))
         printtxt('Number of frequency points   : %d' %(self.Nw) )
         printtxt('Number of pair orbitals      : %d' %(self.nS) )
         printtxt('Parallelization scheme:')
@@ -322,12 +353,111 @@ class BSE(BASECHI):
         return
 
 
-    def get_dielectric_function(self, filename='df.dat', overlap=True):
+    def density_matrix(self,n,m,k,kq=None,Gspace=True):
+
+        ibzk_kc = self.ibzk_kc
+        bzk_kc = self.bzk_kc
+        gd = self.gd
+        kd = self.kd
+        optical_limit=False
+
+        if kq is None:
+            kq = self.kq_k[k]
+            expqr_g = self.expqr_g
+            q_v = self.qq_v
+            optical_limit = self.optical_limit
+            q_c = self.q_c
+        else:
+            q_c = bzk_kc[kq] - bzk_kc[k]
+            if (np.abs(q_c) < self.ftol).all():
+                optical_limit=True
+                q_c = np.array([0.0001, 0, 0])
+
+            q_v = np.dot(q_c, self.bcell_cv) #
+            r_vg = gd.get_grid_point_coordinates() # (3, nG)
+            qr_g = gemmdot(q_v, r_vg, beta=0.0)
+            expqr_g = np.exp(-1j * qr_g)
+            if optical_limit:
+                expqr_g = 1
+
+        ibzkpt1 = kd.kibz_k[k]
+        ibzkpt2 = kd.kibz_k[kq]
+        
+        psitold_g = self.get_wavefunction(ibzkpt1, n, True)
+        psit1_g = kd.transform_wave_function(psitold_g, k)
+        
+        psitold_g = self.get_wavefunction(ibzkpt2, m, True)
+        psit2_g = kd.transform_wave_function(psitold_g, kq)
+
+        if Gspace is False:
+            return psit1_g.conj() * psit2_g * expqr_g
+        else:
+            # FFT
+            tmp_g = psit1_g.conj()* psit2_g * expqr_g
+            rho_g = np.fft.fftn(tmp_g) * self.vol / self.nG0
+
+            # Here, planewave cutoff is applied
+            rho_G = np.zeros(self.npw, dtype=complex)
+            for iG in range(self.npw):
+                index = self.Gindex_G[iG]
+                rho_G[iG] = rho_g[index[0], index[1], index[2]]
+    
+            if optical_limit:
+                d_c = [Gradient(gd, i, n=4, dtype=complex).apply for i in range(3)]
+                dpsit_g = gd.empty(dtype=complex)
+                tmp = np.zeros((3), dtype=complex)
+                phase_cd = np.exp(2j * pi * gd.sdisp_cd * bzk_kc[kq, :, np.newaxis])
+                for ix in range(3):
+                    d_c[ix](psit2_g, dpsit_g, phase_cd)
+                    tmp[ix] = gd.integrate(psit1_g.conj() * dpsit_g)
+                rho_G[0] = -1j * np.dot(q_v, tmp)
+
+
+            pt = self.pt
+            P1_ai = pt.dict()
+            pt.integrate(psit1_g, P1_ai, k)
+            P2_ai = pt.dict()
+            pt.integrate(psit2_g, P2_ai, kq)
+
+            if self.use_W:
+                if optical_limit:
+                    iq = kd.where_is_q(np.zeros(3))
+                else:
+                    iq = kd.where_is_q(q_c,folding=False)
+                    
+                phi_aGp = self.phi_qaGp[iq]
+            else:
+                phi_aGp = self.phi_aGp
+                
+            for a, id in enumerate(self.calc.wfs.setups.id_a):
+                P_p = np.outer(P1_ai[a].conj(), P2_ai[a]).ravel()
+                gemv(1.0, phi_aGp[a], P_p, 1.0, rho_G)
+
+            if optical_limit:
+                if n==m:
+                    rho_G[0] = 1.
+                elif np.abs(self.e_kn[ibzkpt2, m] - self.e_kn[ibzkpt1, n]) < 1e-5:
+                    rho_G[0] = 0.
+                else:
+                    rho_G[0] /= (self.enoshift_kn[ibzkpt2, m] - self.enoshift_kn[ibzkpt1, n])
+
+            return rho_G
+
+
+    def get_dielectric_function(self, filename='df.dat', readfile=None, overlap=True):
 
         if self.epsilon_w is None:
             self.initialize()
-            self.calculate()
-            self.printtxt('Calculating dielectric function.')
+
+            if readfile is None:
+                self.calculate()
+                self.printtxt('Calculating dielectric function.')
+            else:
+                data = pickle.load(open(readfile))
+                self.w_S  = data['w_S']
+                self.v_SS = data['v_SS']
+                self.rhoG0_S = data['rhoG0_S']
+                self.printtxt('Finished reading H_SS.pckl')
 
             w_S = self.w_S
             v_SS = self.v_SS # v_SS[:,lamda]
@@ -335,8 +465,9 @@ class BSE(BASECHI):
             focc_S = self.focc_S
 
             # get overlap matrix
-            tmp = np.dot(v_SS.conj().T, v_SS )
-            overlap_SS = np.linalg.inv(tmp)
+            if not self.positive_w:
+                tmp = np.dot(v_SS.conj().T, v_SS )
+                overlap_SS = np.linalg.inv(tmp)
     
             # get chi
             epsilon_w = np.zeros(self.Nw, dtype=complex)
@@ -344,7 +475,10 @@ class BSE(BASECHI):
 
             A_S = np.dot(rhoG0_S, v_SS)
             B_S = np.dot(rhoG0_S*focc_S, v_SS)
-            C_S = np.dot(B_S.conj(), overlap_SS.T) * A_S
+            if not self.positive_w:
+                C_S = np.dot(B_S.conj(), overlap_SS.T) * A_S
+            else:
+                C_S = B_S.conj() * A_S
 
             for iw in range(self.Nw):
                 tmp_S = 1. / (iw*self.dw - w_S + 1j*self.eta)
