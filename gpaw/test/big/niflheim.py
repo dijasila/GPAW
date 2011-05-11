@@ -118,14 +118,14 @@ class Niflheim(Cluster):
              job.name],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE)
 
-        p.stdin.write(
+        out, err = p.communicate(
             'touch %s.start\n' % job.name +
             run_command +
             ' %s %s.py %s > %s.output\n' %
             (gpaw_python, job.script, job.args, job.name) +
             'echo $? > %s.done\n' % job.name)
-        p.stdin.close()
-        id = p.stdout.readline().split('.')[0]
+        assert p.returncode == 0
+        id = out.split('.')[0]
         job.pbsid = id
         os.chdir(dir)
 
