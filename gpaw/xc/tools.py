@@ -14,7 +14,7 @@ def vxc(paw, xc=None):
 
     if xc is None:
         xc = ham.xc
-    else:
+    elif isinstance(xc, str):
         xc = XC(xc)
 
     if dens.nt_sg is None:
@@ -22,6 +22,9 @@ def vxc(paw, xc=None):
 
     thisisatest = not True
     
+    if xc.orbital_dependent:
+        paw.get_xc_difference(xc)
+
     # Calculate XC-potential:
     vxct_sg = ham.finegd.zeros(wfs.nspins)
     xc.calculate(dens.finegd, dens.nt_sg, vxct_sg)
@@ -52,5 +55,8 @@ def vxc(paw, xc=None):
                       P_ni.conj()).sum(1).real
 
     wfs.gd.comm.sum(vxc_un)
+
+    if xc.orbital_dependent:
+        vxc_un += xc.exx_skn[0]
 
     return vxc_un * Hartree

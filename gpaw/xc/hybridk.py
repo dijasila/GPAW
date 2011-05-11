@@ -254,7 +254,7 @@ class HybridXC(XCFunctional):
         self.exx = 0.0
         world.sum(self.exx_skn)
         for kpt in self.kpt_u:
-            self.exx += np.dot(kpt.f_n, self.exx_skn[kpt.s, kpt.k])
+            self.exx += 0.5 * np.dot(kpt.f_n, self.exx_skn[kpt.s, kpt.k])
         self.exx = world.sum(self.exx)
         world.sum(self.debug_skn)
         assert (self.debug_skn == self.kd.nbzkpts * self.bd.nbands).all()
@@ -323,9 +323,9 @@ class HybridXC(XCFunctional):
                 vt_G *= -pi * vol / Gpk2_G
                 e = np.vdot(nt_G, vt_G).real * nspins * self.hybrid * x
                     
-                self.exx_skn[kpt1.s, kpt1.k, n1] += f2 * e
+                self.exx_skn[kpt1.s, kpt1.k, n1] += 2 * f2 * e
                 if is_ibz2:
-                    self.exx_skn[kpt2.s, kpt2.k, n2] += f1 * e
+                    self.exx_skn[kpt2.s, kpt2.k, n2] += 2 * f1 * e
 
     def calculate_paw_correction(self):
         exx = 0

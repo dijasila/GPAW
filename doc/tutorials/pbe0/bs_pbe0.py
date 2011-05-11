@@ -10,11 +10,7 @@ from gpaw.xc.hybridk import HybridXC
 calc = GPAW('Si-PBE.gpw', txt=None)
 
 pbe0 = HybridXC('PBE0', alpha=5.0)
-depbe0 = calc.get_xc_difference(pbe0)
-de_kn = (2 * pbe0.exx_skn[0] * Hartree +
-         0.75 * vxc(calc, 'GGA_X_PBE') +
-         vxc(calc, 'GGA_C_PBE') -
-         vxc(calc, 'PBE'))
+de_kn = vxc(calc, pbe0) - vxc(calc, 'PBE')
 de_kn = de_kn[calc.wfs.kd.kibz_k]
 
 calc.wfs.ibz2bz(calc.atoms)
