@@ -432,7 +432,7 @@ Publications using the gpaw code
 
    .. 28 December 2009
 
-#) \Michael Walter and Michael Moseler
+#) Michael Walter and Michael Moseler
 
    `How to observe the oxidation of magnesia-supported Pd clusters 
    by scanning tunnelling microscopy`__
@@ -443,7 +443,7 @@ Publications using the gpaw code
 
    .. 4 January 2010
 
-#) \Engelbert Redel, Michael Walter, Ralf Thomann, Laith Hussein, 
+#) Engelbert Redel, Michael Walter, Ralf Thomann, Laith Hussein, 
    Michael Krüger and Christoph Janiak
 
    `Stop-and-go, stepwise and “ligand-free” nucleation, 
@@ -489,7 +489,7 @@ Publications using the gpaw code
 
    .. 16 February 2010
 
-#) \De-en Jiang, Michael Walter and Jaakko Akola
+#) De-en Jiang, Michael Walter and Jaakko Akola
 
    `On the Structure of a Thiolated Gold Cluster: Au44(SR)282−`__
 
@@ -655,7 +655,7 @@ Publications using the gpaw code
 
    __ http://dx.doi.org/10.1002/pssb.201000226
 
-   .. 31 August 2001
+   .. 31 August 2010
 
 #) M. Kuisma, J. Ojanen, J. Enkovaara, and T. T. Rantala
 
