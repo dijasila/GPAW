@@ -740,6 +740,8 @@ class Transport(GPAW):
 	else:
 	    nbc = 0
 	    nbp = 0
+	    nn = 0
+	    dtype = self.wfs.dtype
 
 	ns, npk = self.my_nspins, self.my_npk
 	nb0, nb1 = self.nblead
@@ -789,7 +791,7 @@ class Transport(GPAW):
 	                h_spkmm[s, pk, a:b, a-nbc:a] = cell_ch_spkmm[s, pk, :, :nbp].T.conj()
 	                h_spkmm[s, pk, a-nbc:a, a:b] = cell_ch_spkmm[s, pk, :, :nbp]
 		else:
-                    pass
+                    b= nb0 + nbp0
 	        h_spkmm[s, pk, b+nbp1:b+nbp1+nb1, b+nbp1:b+nbp1+nb1] = self.lead_hsd[1].H[s][pk].recover()
 		if nbp1 != 0:    
                     h_spkmm[s, pk, b:b+nbp1, b:b+nbp1] = self.lead_hsd[1].H[s][pk].recover()[-nbp1:, -nbp1:]
