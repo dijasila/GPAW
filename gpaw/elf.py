@@ -60,6 +60,7 @@ class ELF:
         """Create the ELF object."""
 
         self.gd = paw.wfs.gd
+        self.paw = paw
         self.finegd = paw.density.finegd
         self.nspins = paw.density.nspins
         self.density = paw.density
@@ -93,25 +94,32 @@ class ELF:
             self.taut_sg = self.finegd.empty(self.nspins)
             self.nt_grad2_sg = self.finegd.empty(self.nspins)
 
+        ddr_v = [Gradient(self.finegd, v, n=3).apply for v in range(3)]
+        self.nt_grad2_sg[:] = 0.0
+        d_g = self.finegd.empty()
+
         # Transfer the densities from the coarse to the fine grid
         for s in range(self.nspins):
             self.density.interpolator.apply(self.taut_sG[s],
                                             self.taut_sg[s])
-            self.density.interpolator.apply(self.nt_grad2_sG[s],
-                                            self.nt_grad2_sg[s])
+            #self.density.interpolator.apply(self.nt_grad2_sG[s],
+            #                                self.nt_grad2_sg[s])
+            for v in range(3):
+                ddr_v[v](self.density.nt_sg[s], d_g)
+                self.nt_grad2_sg[s] += d_g**2.0
 
-    def update(self, wfs):
-        ddr_v = [Gradient(self.gd, v).apply for v in range(3)]
+    def update(self):
+        ddr_v = [Gradient(self.gd, v, n=3).apply for v in range(3)]
 
-        self.taut_sG = wfs.calculate_kinetic_energy_density(ddr_v)
+        self.taut_sG = self.paw.wfs.calculate_kinetic_energy_density(ddr_v)
 
         # Add the pseudo core kinetic array
         for taut_G in self.taut_sG:
-            self.tauct.add(taut_G, 1.0 / wfs.nspins)
+            self.tauct.add(taut_G, 1.0 / self.paw.wfs.nspins)
 
         # For periodic boundary conditions
-        if wfs.symmetry is not None:
-            wfs.symmetry.symmetrize(self.taut_sG[0], wfs.gd)
+        if self.paw.wfs.symmetry is not None:
+            self.paw.wfs.symmetry.symmetrize(self.taut_sG[0], self.paw.wfs.gd)
 
         self.nt_grad2_sG[:] = 0.0
 

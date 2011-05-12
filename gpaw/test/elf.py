@@ -24,7 +24,7 @@ except:
     calc.write('CO.gpw', 'all')
 
 elf = ELF(calc)
-elf.update(calc.wfs)
+elf.update()
 elf_G = elf.get_electronic_localization_function(gridrefinement=1)
 elf_g = elf.get_electronic_localization_function(gridrefinement=2)
 
@@ -85,7 +85,7 @@ check_diff(nt_G, nt_spinpol_G, elf.finegd, 'nt_G')
 equal(energy, energy_spinpol, 0.0001)
 
 elf_spinpol = ELF(calc)
-elf_spinpol.update(calc.wfs)
+elf_spinpol.update()
 elf_spinpol_G = elf_spinpol.get_electronic_localization_function(gridrefinement=1)
 elf_spinpol_g = elf_spinpol.get_electronic_localization_function(gridrefinement=2)
 taut_spinpol_G = elf_spinpol.taut_sG.sum(axis=0)
