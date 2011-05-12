@@ -323,6 +323,7 @@ class Transport(GPAW):
 		    shift = self.lead_fermi[0] - fermi
 		    fermi += shift
 		    atoms.calc.hamiltonian.vt_sG += shift / Hartree
+		    atoms.calc.hamiltonian.vHt_g += shift / Hartree
 		self.lead_fermi.append(fermi)    
 		self.setups_lead.append(atoms.calc.wfs.setups)
 	        self.collect_leads_matrices(atoms.calc, i)
