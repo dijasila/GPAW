@@ -205,7 +205,8 @@ class LCAOWaveFunctions(WaveFunctions):
                 assert self.bd.comm.size == 1
                 d_nn = np.zeros((self.bd.mynbands, self.bd.mynbands), dtype=kpt.C_nM.dtype)
                 for ne, c_n in zip(kpt.ne_o, kpt.c_on):
-                    d_nn += ne * np.outer(c_n.conj(), c_n)
+                    assert abs(c_n.imag).max() < 1e-14
+                    d_nn += ne * np.outer(c_n.conj(), c_n).real
                 rho_MM += self.calculate_density_matrix_delta(d_nn, kpt.C_nM)
         else:
             rho_MM = kpt.rho_MM
