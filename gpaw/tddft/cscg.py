@@ -10,7 +10,11 @@ from gpaw.utilities.blas import dotu
 from gpaw.utilities.blas import dotc
 from gpaw.mpi import rank
 
+from gpaw.tddft.utils import MultiBlas
 
+import _gpaw
+
+from gpaw import debug_cuda,debug_cuda_reltol,debug_cuda_abstol
 import pycuda.gpuarray as gpuarray
 
 class CSCG:
@@ -67,6 +71,7 @@ class CSCG:
         
         self.gd = gd
         self.timer = timer
+        self.mblas = MultiBlas(gd,timer)
         
 
     def solve(self, A, xx, bb):
@@ -82,7 +87,7 @@ class CSCG:
             self.timer.start('CSCG')
 
         #print type(A)
-        if self.cuda:
+        if self.cuda and not isinstance(xx,gpuarray.GPUArray):
             b=gpuarray.to_gpu(bb)
             x=gpuarray.to_gpu(xx)
             A.cuda_psit_htod()
@@ -96,7 +101,7 @@ class CSCG:
 
         # r_0 = b - A x_0
         r = self.gd.zeros(nvec, dtype=complex, cuda=self.cuda)
-        A.dot(-x,r,self.cuda)
+        A.dot(-x,r)
         r += b
 
         p = self.gd.zeros(nvec, dtype=complex, cuda=self.cuda)
@@ -112,24 +117,8 @@ class CSCG:
 
         rhop.fill(1.0)
 
-        # Multivector dot product, a^T b, where ^T is transpose
-        def multi_zdotu(s, x,y, nvec):
-            for i in range(nvec):
-                s[i] = dotu(x[i],y[i])
-            self.gd.comm.sum(s)
-            return s
-        # Multivector ZAXPY: a x + y => y
-        def multi_zaxpy(a,x,y, nvec):
-            for i in range(nvec):
-                axpy(a[i]*(1+0J), x[i], y[i])
-        # Multiscale: a x => x
-        def multi_scale(a,x, nvec):
-            for i in range(nvec):
-                xi=x[i]
-                xi *= a[i]
-
         # scale = square of the norm of b
-        multi_zdotu(scale, b,b, nvec)
+        self.mblas.multi_zdotu(scale, b,b, nvec)
         scale = np.abs( scale )
 
         # if scale < eps, then convergence check breaks down
@@ -139,13 +128,15 @@ class CSCG:
         #print 'Scale = ', scale
 
         slow_convergence_iters = 100
+        if self.timer is not None:
+            self.timer.start('Iteration')
 
         for i in range(self.max_iter):
             # z_i = (M^-1.r)
             A.apply_preconditioner(r,z)
 
             # rho_i-1 = r^T z_i-1
-            multi_zdotu(rho, r, z, nvec)
+            self.mblas.multi_zdotu(rho, r, z, nvec)
 
             #print 'Rho = ', max(abs(rho))
 
@@ -163,27 +154,27 @@ class CSCG:
 
 
             # p = z + beta p
-            multi_scale(beta, p, nvec)
+            self.mblas.multi_scale(beta, p, nvec)
             p += z
 
 
             # q = A.p
-            A.dot(p,q,self.cuda)
+            A.dot(p,q)
 
             # alpha_i = rho_i-1 / (p^T q_i)
-            multi_zdotu(alpha, p, q, nvec)
+            self.mblas.multi_zdotu(alpha, p, q, nvec)
             alpha = rho / alpha
 
             #print 'Alpha = ', max(abs(alpha))
 
             # x_i = x_i-1 + alpha_i p_i
-            multi_zaxpy(alpha, p, x, nvec)
+            self.mblas.multi_zaxpy(alpha, p, x, nvec)
             # r_i = r_i-1 - alpha_i q_i
-            multi_zaxpy(-alpha, q, r, nvec)
+            self.mblas.multi_zaxpy(-alpha, q, r, nvec)
 
 
             # if ( |r|^2 < tol^2 ) done
-            multi_zdotu(tmp, r,r, nvec)
+            self.mblas.multi_zdotu(tmp, r,r, nvec)
             if ( (np.abs(tmp) / scale) < self.tol*self.tol ).all():
                 #print 'R2 of proc #', rank, '  = ' , tmp, \
                 #    ' after ', i+1, ' iterations'
@@ -198,6 +189,8 @@ class CSCG:
             rhop[:] = rho
 
 
+        if self.timer is not None:
+            self.timer.stop('Iteration')
         # if max iters reached, raise error
         if (i >= self.max_iter-1):
             raise RuntimeError("Conjugate gradient method failed to converged within given number of iterations (= %d)." % self.max_iter)
@@ -206,7 +199,7 @@ class CSCG:
         # done
         self.iterations = i+1
         #print 'CSCG iterations = ', self.iterations
-        if  self.cuda:
+        if self.cuda and not isinstance(xx,gpuarray.GPUArray):
             x.get(xx)
             b.get(bb)
             A.cuda_psit_dtoh()

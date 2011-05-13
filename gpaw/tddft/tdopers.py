@@ -12,6 +12,8 @@ from gpaw.mpi import run
 from gpaw.fd_operators import Laplace, Gradient
 from gpaw.tddft.abc import *
 
+import _gpaw
+from gpaw import debug_cuda,debug_cuda_reltol,debug_cuda_abstol
 import pycuda.gpuarray as gpuarray
 # Hamiltonian
 class TimeDependentHamiltonian:
@@ -140,15 +142,29 @@ class TimeDependentHamiltonian:
         # Does exactly the same as Hamiltonian.apply_local_potential
         # but uses the difference between vt_sG at time t and t+dt.
 
-        if isinstance(psit_nG, gpuarray.GPUArray):
-            assert 0
         
-        vt_G = self.vt_sG[s]
-        if psit_nG.ndim == 3:
-            Htpsit_nG += psit_nG * vt_G
+        if isinstance(psit_nG, gpuarray.GPUArray):
+            if self.cuda:
+                vt_G = self.vt_sG_gpu[s]
+            else:            
+                vt_G = gpuarray.to_gpu(self.vt_sG[s])
+            if len(psit_nG.shape) == 3:  # XXX Doesn't GPU arrays have ndim attr?
+                _gpaw.elementwise_multiply_add_gpu(psit_nG.gpudata,psit_nG.shape,psit_nG.dtype,
+                                                   vt_G.gpudata,vt_G.dtype,Htpsit_nG.gpudata);
+                #Htpsit_nG += psit_nG * vt_G
+            else:
+                for psit_G, Htpsit_G in zip(psit_nG, Htpsit_nG):
+                    #print psit_nG.dtype,vt_G.dtype
+                    _gpaw.elementwise_multiply_add_gpu(psit_G.gpudata,psit_G.shape,psit_G.dtype,
+                                                       vt_G.gpudata,vt_G.dtype,Htpsit_G.gpudata);
+                    #Htpsit_G += psit_G * vt_G
         else:
-            for psit_G, Htpsit_G in zip(psit_nG, Htpsit_nG):
-                Htpsit_G += psit_G * vt_G
+            vt_G = self.vt_sG[s]
+            if psit_nG.ndim == 3:
+                Htpsit_nG += psit_nG * vt_G
+            else:
+                for psit_G, Htpsit_G in zip(psit_nG, Htpsit_nG):
+                    Htpsit_G += psit_G * vt_G
 
 
     def half_apply(self, kpt, psit, hpsit, calculate_P_ani=True):
@@ -217,6 +233,20 @@ class TimeDependentHamiltonian:
 
         """
 
+        self.hamiltonian.timer.start('Apply time-dependent Hamiltonian')
+        if debug_cuda and self.cuda:                
+            if not  np.allclose(self.vt_sG,self.vt_sG_gpu.get(),
+                                debug_cuda_reltol,debug_cuda_abstol):
+                diff=abs(self.vt_sG-self.vt_sG_gpu.get())
+                error_i=np.unravel_index(np.argmax(diff - debug_cuda_reltol * abs(self.vt_sG)),diff.shape)
+                print "Debug cuda: TDHamiltonian vt_sG max rel error: ",error_i,\
+                      self.vt_sG[error_i],self.vt_sG_gpu.get()[error_i], \
+                      abs(self.vt_sG[error_i]-self.vt_sG_gpu.get()[error_i])
+                error_i=np.unravel_index(np.argmax(diff),diff.shape)
+                print "Debug cuda: TDHamiltonian vt_sG max abs error: ",error_i,\
+                      self.vt_sG[error_i],self.vt_sG_gpu.get()[error_i],\
+                      abs(self.vt_sG[error_i]-self.vt_sG_gpu.get()[error_i])
+        
         self.hamiltonian.apply(psit, hpsit, self.wfs, kpt, calculate_P_ani)
 
         # PAW correction
@@ -260,6 +290,7 @@ class TimeDependentHamiltonian:
                                                  0.5 * strength(self.time) +
                                                  0.5 * strength(self.old_time),
                                                  kpt)
+        self.hamiltonian.timer.stop('Apply time-dependent Hamiltonian')
 
             
     def set_absorbing_boundary(self, absorbing_boundary):
@@ -392,7 +423,7 @@ class TimeDependentOverlap:
         self.wfs = wfs
         self.overlap = wfs.overlap
 
-    def update_k_point_projections(self, kpt, psit=None):
+    def update_k_point_projections(self, kpt, psit=None, cuda_psit_nG=False):
         """Updates the projector function overlap integrals
         with the wavefunctions of a given k-point.
         
@@ -405,12 +436,18 @@ class TimeDependentOverlap:
             (kpt_u[index_of_k-point].psit_nG[indices_of_wavefunc])
 
         """
+        self.overlap.timer.start('Update k-point projections')
+        
         if psit is not None:
             self.wfs.pt.integrate(psit, kpt.P_ani, kpt.q)
         else:
-            self.wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+            if cuda_psit_nG:
+                self.wfs.pt.integrate(kpt.psit_nG_gpu, kpt.P_ani, kpt.q)
+            else:
+                self.wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+        self.overlap.timer.stop('Update k-point projections')
 
-    def update(self):
+    def update(self, cuda_psit_nG=False):
         """Updates the time-dependent overlap operator.
         
         Parameters
@@ -419,7 +456,7 @@ class TimeDependentOverlap:
 
         """
         for kpt in self.wfs.kpt_u:
-            self.update_k_point_projections(kpt)
+            self.update_k_point_projections(kpt,cuda_psit_nG=cuda_psit_nG)
     
     def half_update(self):
         """Updates the time-dependent overlap operator, in such a way,
@@ -505,7 +542,7 @@ class DummyDensity:
         """
         self.wfs = wfs
 
-    def update(self):
+    def update(self, cuda_psit_nG=False):
         pass
 
     def get_wavefunctions(self):
@@ -534,7 +571,7 @@ class TimeDependentDensity(DummyDensity):
         DummyDensity.__init__(self, paw.wfs)
         self.density = paw.density
 
-    def update(self):
+    def update(self, cuda_psit_nG=False):
         """Updates the time-dependent density.
         
         Parameters
@@ -544,7 +581,7 @@ class TimeDependentDensity(DummyDensity):
         """
         #for kpt in self.wfs.kpt_u:
         #    self.wfs.pt.integrate(kpt.psit_nG, kpt.P_ani)
-        self.density.update(self.wfs)
+        self.density.update(self.wfs, cuda_psit_nG=cuda_psit_nG)
        
     def get_density(self):
         """Returns the current density.

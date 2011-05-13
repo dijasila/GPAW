@@ -238,7 +238,7 @@ class TDDFT(GPAW):
 
         self.hpsit = None
         self.eps_tmp = None
-        self.mblas = MultiBlas(wfs.gd)
+        self.mblas = MultiBlas(wfs.gd,self.timer)
 
     def read(self, reader):
         assert reader.has_array('PseudoWaveFunctions')
@@ -286,6 +286,11 @@ class TDDFT(GPAW):
         maxiter = self.niter + iterations
 
         self.timer.start('Propagate')
+        
+        if self.cuda:
+            for kpt in self.wfs.kpt_u:
+                kpt.cuda_psit_nG_htod() 
+        
         while self.niter < maxiter:
             print "Propagate iter = ",self.niter
             norm = self.density.finegd.integrate(self.density.rhot_g)
@@ -327,6 +332,10 @@ class TDDFT(GPAW):
                     print 'Wrote restart file.'
                     print self.niter, ' iterations done. Current time is ', \
                         self.time * autime_to_attosec, ' as.' 
+
+        if self.cuda:
+            for kpt in self.wfs.kpt_u:
+                kpt.cuda_psit_nG_dtoh() 
 
         self.timer.stop('Propagate')
 
@@ -451,7 +460,16 @@ class TDDFT(GPAW):
         abs_kick = AbsorptionKick(self.wfs, abs_kick_hamiltonian,
                                   self.td_overlap, self.solver,
                                   self.preconditioner, self.wfs.gd, self.timer, cuda=self.cuda)
+
+        if self.cuda:
+            for kpt in self.wfs.kpt_u:
+                kpt.cuda_psit_nG_htod() 
+        
         abs_kick.kick(self.wfs.kpt_u)
+
+        if self.cuda:
+            for kpt in self.wfs.kpt_u:
+                kpt.cuda_psit_nG_dtoh() 
 
     def __del__(self):
         """Destructor"""
