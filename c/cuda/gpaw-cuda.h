@@ -74,6 +74,7 @@ double bmgs_interpolate_cuda_cpu(int k, int skip[3][2],
 				 double* b, double* w);
 
 // complex routines:
+double bmgs_fd_cuda_cpuz(const bmgsstencil* s, const cuDoubleComplex* a, cuDoubleComplex* b);
 void bmgs_fd_cuda_gpuz(const bmgsstencil_gpu* s, const cuDoubleComplex* adev, 
 		       cuDoubleComplex* bdev,int blocks);
 

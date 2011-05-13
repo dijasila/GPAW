@@ -13,12 +13,14 @@ typedef struct
   int ncoefs;
   double* coefs_gpu;
   long* offsets_gpu;
+  long* offsets_gpuz;
   int ncoefs0;
   double* coefs0_gpu;
   int* offsets0_gpu;
   int ncoefs12;
   double* coefs12_gpu;
   int* offsets12_gpu;
+  int* offsets12_gpuz;
   double coef_relax;
   long n[3];
   long j[3];

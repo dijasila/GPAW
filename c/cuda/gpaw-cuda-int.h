@@ -40,13 +40,15 @@
 #include <Python.h>
 
 #define FD_BLOCK_X 16
+#define FD_BLOCK_Xz (2*(FD_BLOCK_X))
 #define FD_BLOCK_Y 8
 #define FD_XDIV 4
 
 #define FD_MAXJ      10
 #define FD_MAXCOEFS  32
 
-#define FD_ACACHE_X  (FD_BLOCK_X+16)
+#define FD_ACACHE_X  ((FD_BLOCK_X)+16)
+#define FD_ACACHE_Xz  ((FD_BLOCK_Xz)+2*16)
 
 
 #define MAX(a,b) (((a)>(b))?(a):(b))
