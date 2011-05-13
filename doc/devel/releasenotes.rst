@@ -10,10 +10,17 @@ Development version in trunk
 
 :trac:`trunk <>`.
 
-* Corresponding ASE release: ...
+* Corresponding ASE release: 3.5.0.
 * Energy convergence criterion changed from 1 meV/atom to 0.5
-  meV/electron.
-
+  meV/electron.  This was change in order to allow having no atoms like
+  for jellium calculations.
+* Linear :ref:`dielectric response <df_theory>` of an extended system
+  (RPA and ALDA kernels) can now be calculated.
+* :ref:`rpa`.
+* Non-selfconsistent calculations with k-points for hybrid functionals.
+* Methfessel-Paxton distribution added.
+* Text output now shows the distance between planes of grid-points as
+  this is what will be close to the grid-spacing parameter *h*.
 
 
 Version 0.7.2
