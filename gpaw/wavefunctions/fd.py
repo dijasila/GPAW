@@ -35,6 +35,18 @@ class FDWaveFunctions(FDPWWaveFunctions):
         self.matrixoperator = MatrixOperator(self.bd, self.gd, orthoksl, 
                                              cuda=self.cuda)
 
+        if self.cuda:
+            from pycuda.elementwise import ElementwiseKernel
+            self.axpysquarez = ElementwiseKernel(
+                "double f, pycuda::complex<double> *a, double *b",
+                "b[i] += f*a[i]._M_re*a[i]._M_re+ f*a[i]._M_im*a[i]._M_im",
+                "axpy_squarez",preamble="#include <pycuda-complex.hpp>")
+            self.axpysquare = ElementwiseKernel(
+                "double f, double *a, double *b",
+                "b[i] += f*a[i]*a[i]",
+                "axpy_square")          
+            
+
     def set_setups(self, setups):
         self.pt = LFC(self.gd, [setup.pt_j for setup in setups],
                       self.kpt_comm, dtype=self.dtype, forces=True, 
@@ -65,23 +77,32 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
     def add_to_density_from_k_point_with_occupation(self, nt_sG, kpt, f_n, cuda_psit_nG=False):
         # Used in calculation of response part of GLLB-potential
+
+        
         if cuda_psit_nG:
+            assert self.cuda
             nt_G = gpuarray.to_gpu(nt_sG[kpt.s])
             psit_nG = kpt.psit_nG_gpu
+            if self.dtype == float:
+                for f, psit_G in zip(f_n, psit_nG):
+                    self.axpysquare(f,psit_G,nt_G)
+            else:
+                for f, psit_G in zip(f_n, psit_nG):
+                    self.axpysquarez(f,psit_G,nt_G)
         else:
             nt_G = nt_sG[kpt.s]
             psit_nG = kpt.psit_nG
             
-        if self.dtype == float:
-            for f, psit_G in zip(f_n, psit_nG):
-                axpy(f, psit_G*psit_G, nt_G)  # PyCUDA does not support power?
-                #nt_G+=f*(psit_G**2)
-        else:
-            for f, psit_G in zip(f_n, psit_nG):
-                axpy(f, psit_G.real*psit_G.real, nt_G)
-                axpy(f, psit_G.imag*psit_G.imag, nt_G)
-                #axpy(f, psit_G.real**2, nt_G)
-                #axpy(f, psit_G.imag**2, nt_G)
+            if self.dtype == float:
+                for f, psit_G in zip(f_n, psit_nG):
+                    axpy(f, psit_G*psit_G, nt_G)  # PyCUDA does not support power?
+                    #nt_G+=f*(psit_G**2)
+            else:
+                for f, psit_G in zip(f_n, psit_nG):
+                    axpy(f, psit_G.real*psit_G.real, nt_G)
+                    axpy(f, psit_G.imag*psit_G.imag, nt_G)
+                    #axpy(f, psit_G.real**2, nt_G)
+                    #axpy(f, psit_G.imag**2, nt_G)
 
         # Hack used in delta-scf calculations:
         if hasattr(kpt, 'c_on'):
