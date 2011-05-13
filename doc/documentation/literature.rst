@@ -777,6 +777,17 @@ Publications using the gpaw code
 
    .. 6 April 2011
 
+#) Toma Susi, Giorgio Lanzani, Albert G. Nasibulin, Paola Ayala,
+   Tao Jiang, Thomas Bligaard, Kari Laasonen, and Esko I. Kauppinen
+
+   `Mechanism of the initial stages of nitrogen-doped single-walled
+   carbon nanotube growth`__
+
+   \Phys. Chem. Chem. Phys. Advance Article (2011)
+
+   __ http://dx.doi.org/10.1039/C1CP20454H
+
+   .. 13 May 2011
 
 .. If the first author is A. Einstein, then remember to use
    \A. Einstein so that we don't start an enumerated list (A, B, C,
