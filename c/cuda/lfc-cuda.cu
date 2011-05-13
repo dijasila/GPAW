@@ -720,6 +720,8 @@ extern "C" {
     PyObject *shape,*c_shape;
   
     int q;
+    
+    assert(lfc->cuda);
   
     if (!PyArg_ParseTuple(args, "nOnOi", &a_xG_gpu,&shape, &c_xM_gpu,&c_shape,
 			  &q))
@@ -837,7 +839,8 @@ extern "C" {
   
     int q;
   
-
+    assert(lfc->cuda);
+    
     if (!PyArg_ParseTuple(args, "nOnOi", &c_xM_gpu,&c_shape, &a_xG_gpu,&shape, 
 			  &q))
       return NULL; 

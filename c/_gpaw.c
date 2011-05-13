@@ -105,14 +105,20 @@ PyObject* set_dxpl_mpio(PyObject *self, PyObject *args);
 #endif
 
 #ifdef GPAW_CUDA  
+PyObject* scal_cuda_gpu(PyObject *self, PyObject *args);
+PyObject* multi_scal_cuda_gpu(PyObject *self, PyObject *args);
 PyObject* gemm_cuda_gpu(PyObject *self, PyObject *args);
 PyObject* gemv_cuda_gpu(PyObject *self, PyObject *args);
 PyObject* rk_cuda_gpu(PyObject *self, PyObject *args);
 PyObject* axpy_cuda_gpu(PyObject *self, PyObject *args);
+PyObject* multi_axpy_cuda_gpu(PyObject *self, PyObject *args);
 PyObject* r2k_cuda_gpu(PyObject *self, PyObject *args);
 PyObject* dotc_cuda_gpu(PyObject *self, PyObject *args);
 PyObject* dotu_cuda_gpu(PyObject *self, PyObject *args);
+PyObject* multi_dotu_cuda_gpu(PyObject *self, PyObject *args);
+PyObject* multi_dotc_cuda_gpu(PyObject *self, PyObject *args);
 PyObject* add_linear_field_cuda_gpu(PyObject *self, PyObject *args);
+PyObject* elementwise_multiply_add_gpu(PyObject *self, PyObject *args);
 #endif
 
 // IO wrappers
@@ -220,14 +226,20 @@ static PyMethodDef functions[] = {
   {"h5_set_dxpl_mpio", set_dxpl_mpio, METH_VARARGS, 0}, 
 #endif // HDF5
 #ifdef GPAW_CUDA  
+  {"scal_cuda_gpu", scal_cuda_gpu, METH_VARARGS, 0},
+  {"multi_scal_cuda_gpu", multi_scal_cuda_gpu, METH_VARARGS, 0},
   {"gemm_cuda_gpu", gemm_cuda_gpu, METH_VARARGS, 0},
   {"gemv_cuda_gpu", gemv_cuda_gpu, METH_VARARGS, 0},
   {"axpy_cuda_gpu", axpy_cuda_gpu, METH_VARARGS, 0},
+  {"multi_axpy_cuda_gpu", multi_axpy_cuda_gpu, METH_VARARGS, 0},
   {"rk_cuda_gpu",  rk_cuda_gpu,  METH_VARARGS, 0},
   {"r2k_cuda_gpu", r2k_cuda_gpu, METH_VARARGS, 0},
   {"dotc_cuda_gpu", dotc_cuda_gpu, METH_VARARGS, 0},
   {"dotu_cuda_gpu", dotu_cuda_gpu, METH_VARARGS, 0},
+  {"multi_dotu_cuda_gpu", multi_dotu_cuda_gpu, METH_VARARGS, 0},
+  {"multi_dotc_cuda_gpu", multi_dotc_cuda_gpu, METH_VARARGS, 0},
   {"add_linear_field_cuda_gpu", add_linear_field_cuda_gpu, METH_VARARGS, 0},
+  {"elementwise_multiply_add_gpu", elementwise_multiply_add_gpu, METH_VARARGS, 0},
 #endif
   {"enable_io_wrappers", Py_enable_io_wrappers, METH_VARARGS, 0},
   {"disable_io_wrappers", Py_disable_io_wrappers, METH_VARARGS, 0},
