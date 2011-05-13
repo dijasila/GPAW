@@ -1625,11 +1625,11 @@ class Transport(GPAW):
         if not self.ground:
             denloc = self.eq_fock2den(s, k, el='loc')
             weight_mm = self.integral_diff_weight(denocc, denvir,
-                                                                 'transiesta')
+                                                  'transiesta')
             diff = (denloc - (denocc + denvir)) * weight_mm
             den += diff
-            percents = np.sum( diff * diff ) / np.sum( denocc * denocc )
-            self.text('local percents %f' % percents)
+            percents = np.sum(diff * diff) / np.sum(denocc * denocc)
+            self.text('local percents %s' % percents)
         
         den = (den + den.T.conj()) / 2
         if self.wfs.dtype == float:
