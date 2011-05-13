@@ -177,7 +177,7 @@ tests = [
     'bse_aluminum.py',
     'bse_diamond.py',
     'bse_vs_lrtddft.py',
-    'bse_silicon.py',
+#    'bse_silicon.py',
     'diamond_eps_alda.py',
     'hgh_h2o.py',
     'apmb.py',
@@ -299,7 +299,7 @@ except ImportError:
                 'bse_aluminum.py',
                 'bse_diamond.py',
                 'bse_vs_lrtddft.py',
-                'bse_silicon.py',
+#                'bse_silicon.py',
                 'aeatom.py',
                 'rpa_energy_Kr.py']
 
