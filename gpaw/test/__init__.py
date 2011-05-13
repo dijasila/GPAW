@@ -277,7 +277,7 @@ if mpi.size != 4:
     exclude += ['parallel/lcao_parallel.py']
     exclude += ['parallel/fd_parallel.py']
 
-if mpi.size == 1 or not compiled_with_sl:
+if mpi.size == 1 or not compiled_with_sl():
     exclude += ['parallel/submatrix_redist.py']
 
 if mpi.size == 8:
