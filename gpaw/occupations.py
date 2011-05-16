@@ -520,6 +520,7 @@ class FermiDirac(SmoothDistribution):
 class MethfesselPaxton(SmoothDistribution):
     def __init__(self, width, iter=0, fixmagmom=False, maxiter=1000):
         SmoothDistribution.__init__(self, width, fixmagmom, maxiter)
+        assert iter == 0
         self.iter = iter
 
     def distribution(self, kpt, fermilevel):

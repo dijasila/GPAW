@@ -29,6 +29,6 @@ for width in [0.05, 0.1, 0.15, 0.2]:
     for k in [4, 6, 8, 10, 12]:
         f('FD-%.2f' % width, FermiDirac(width), k, 12)
         f('MP-%.2f' % width, MethfesselPaxton(width), k, 12)
-        f('MP1-%.2f' % width, MethfesselPaxton(width, 1), k, 12)
+        #f('MP1-%.2f' % width, MethfesselPaxton(width, 1), k, 12)
 for g in range(16, 32, 4):
     f('FD-%.2f' % 0.1, FermiDirac(0.1), 8, g)
