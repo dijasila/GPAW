@@ -9,12 +9,12 @@ by Tkachenko and Scheffler [#TS09]_. While nearly all parameters
 are obtained from ab-initio calculations, the method requires
 nearly no additional computational cost and performs very well:
 
-============== ===  ===== ====== ====
-?              PBE  TPSS  vdW-DF TS09
-============== ===  ===== ====== ====
-Mean deviation 116  155   83     16
-RMS deviation  111  131   64     18
-============== ===  ===== ====== ====
+============== ===  ===== ====== ======= ====
+.              PBE  TPSS  vdW-DF vdW-DF2 TS09
+============== ===  ===== ====== ======= ====
+Mean deviation 115  154   76     115     15
+RMS deviation  108  128   60     108     16
+============== ===  ===== ====== ======= ====
 
 Error in energies compared to CCSD results of the S26 test set.
 All values in meV.
