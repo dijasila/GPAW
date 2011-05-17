@@ -230,6 +230,8 @@ for any missing elements::
 
 Currently all the hybrid functionals use the PBE setup as a *base* setup.
 
+For more information about ``gpaw-setup`` see :ref:`generation_of_setups`.
+
 Set the location of setups as decribed on :ref:`installationguide_setup_files`.
 
 The details of the implementation of the exchange-correlation

@@ -58,9 +58,10 @@ name               description              example
                    compensation charges
 =================  =======================  =================
 
-A sodium setup can be generated with the command ``gpaw-setup Na``,
+The default (LDA) sodium setup can be generated with the command ``gpaw-setup Na``,
 which will use default parameters from the file
 ``gpaw/atom/generator.py``.
+See :ref:`manual_xc` for other functionals.
 
 
 .. _using_your_own_setups:
