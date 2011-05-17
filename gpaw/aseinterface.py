@@ -10,6 +10,7 @@ from ase.units import Bohr, Hartree
 
 from gpaw.xc import XC
 from gpaw.paw import PAW
+from gpaw.occupations import MethfesselPaxton
 
 
 class GPAW(PAW):
@@ -40,6 +41,11 @@ class GPAW(PAW):
             return Hartree * self.hamiltonian.Etot
         else:
             # Energy extrapolated to zero Kelvin:
+            if (isinstance(self.occupations, MethfesselPaxton) and
+                self.occupations.iter > 0):
+                raise NotImplementedError(
+                    'Extrapolation to zero width not implemeted for ' +
+                    'Methfessel-Paxton distribution with order > 0.')
             return Hartree * (self.hamiltonian.Etot + 0.5 * self.hamiltonian.S)
 
     def get_reference_energy(self):
