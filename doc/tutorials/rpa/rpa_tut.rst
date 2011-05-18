@@ -88,16 +88,15 @@ which calculates the correlation part of the atomization energy with the bands a
     from pylab import *
 
     A = np.loadtxt('rpa_N2.dat').transpose()
-    plot(A[1]**(-1.), A[2], 'o', label='Calculated points')
+    plot(A[0]**(-1.5), A[1], 'o', label='Calculated points')
 
-    xs = np.array([A[1,0]+i*100000. for i in range(50000)])
-    plot(xs**(-1.), -4.963+958.7*xs**(-1), label='-4.963+959/n')
+    xs = np.array([A[0,0]+i*100000. for i in range(50000)])
+    plot(xs**(-1.5), -4.969+1993*xs**(-1.5), label='-4.969+1993*E^(-1.5)')
 
-    t = [int(A[1,i]) for i in range(len(A[0]))]
-    t[-2] = ''
-    xticks(A[1]**(-1.0), t, fontsize=12)
-    axis([0.,None, None, -4.])
-    xlabel('Bands', fontsize=18)
+    t = [int(A[0,i]) for i in range(len(A[0]))]
+    xticks(A[0]**(-1.5), t, fontsize=12)
+    axis([0.,150**(-1.5), None, -4.])
+    xlabel('Cutoff energy [eV]', fontsize=18)
     ylabel('RPA correlation energy [eV]', fontsize=18)
     legend(loc='lower right')
     show()
@@ -107,12 +106,12 @@ The result is shown below
 .. image:: extrapolate.png
 	   :height: 400 px
 
-The fit is seen to be very good at the last three points and we find an extrapolated value of -4.96 eV for the correlation part of the atomization energy. The results are summarized below (all values in eV	)
+The fit is seen to be very good at the last three points and we find an extrapolated value of -4.97 eV for the correlation part of the atomization energy. The results are summarized below (all values in eV	)
 
 ======   =====   =====   ======       ============
 PBE      HF      RPA     HF+RPA       Experimental
 ======   =====   =====   ======       ============
-10.668	 4.821   4.963   9.774  	9.887
+10.668	 4.821   4.969   9.777  	9.887
 ======   =====   =====   ======       ============
 
 The RPA result seems to be much better than the PBE result. However, one should also be aware that due to the non-local nature of the RPA functional, very large supercells are needed to avoid spurious interactions between repeated images and the calculation done for the 6x6x6 cell used here is not expected to be fully converged with respect to super cell size. See ref. \ [#Harl]_ for more details on this.
@@ -150,19 +149,18 @@ The result can be plotted with the script::
     A = np.loadtxt('rpa_Kr.dat').transpose()
     xs = np.array([170 +i*100. for i in range(500)])
 
-    plot(A[1]**(-1.), A[2], 'o', markersize=8, label='Calculated points')
-    plot(xs**(-1), -10.08+281.705/xs, label='Fit: -10.08+282/bands')
-    t = [int(A[1,i]) for i in range(len(A[1]))]
-    t[3] = ''
-    xticks(A[1]**(-1.), t)
-    xlabel('bands', fontsize=16)
+    plot(A[0]**(-1.5), A[1], 'o', markersize=8, label='Calculated points')
+    plot(xs**(-1), -10.4805+4080.97*xs**(-1.5), label='Fit: -10.48+4081*E^(-1.5)')
+    t = [int(A[0,i]) for i in range(len(A[0]))]
+    xticks(A[0]**(-1.5), t)
+    xlabel('Cutoff energy [eV]', fontsize=16)
     ylabel('Correlation energy', fontsize=16)
     axis([0.,None,None,None])
     title('RPA correlation energy of fcc Kr lattice at $V=40\,\AA^3$')
     legend(loc='upper left')
     show()
 
-and is shown below. The calculated points are very well fitted by the function: :math:`E_c(n)=E_c^{RPA}+A/n` where :math:`n` is the number of bands (defined by the cutoff values) and we can read off an RPA correlation energy of -10.08 eV. 
+and is shown below. The calculated points are very well fitted by the function: :math:`E_c(n)=E_c^{RPA}+A/n` where :math:`n` is the number of bands (defined by the cutoff values) and we can read off an RPA correlation energy of -10.48 eV. 
 
 .. image:: extrapolate_Kr.png
 	   :height: 400 px
