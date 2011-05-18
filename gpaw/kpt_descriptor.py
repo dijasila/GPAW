@@ -170,6 +170,29 @@ class KPointDescriptor:
 
         return kpt_u
 
+    def collect(self, a_ux):
+        """Collect distributed data to all."""
+        a_skx = np.empty((self.nspins, self.nibzkpts) + a_ux.shape[1:],
+                         a_ux.dtype)
+        a_Ux = a_skx.reshape((self.nspins * self.nibzkpts,) + a_ux.shape[1:])
+
+        if self.comm.rank > 0:
+            self.comm.send(a_ux, 0)
+        else:
+            u1 = self.get_count(0)
+            a_Ux[0:u1] = a_ux
+            requests = []
+            for rank in range(1, self.comm.size):
+                u2 = u1 + self.get_count(rank)
+                requests.append(self.comm.receive(a_Ux[u1:u2], rank,
+                                                  block=False))
+                u1 = u2
+            assert u1 == len(a_Ux)
+            self.comm.waitall(requests)
+        
+        self.comm.broadcast(a_Ux, 0)
+        return a_skx
+
     def transform_wave_function(self, psit_G, k):
         """Transform wave function from IBZ to BZ.
 

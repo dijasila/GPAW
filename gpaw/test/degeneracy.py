@@ -31,7 +31,7 @@ assert 33 <= niter <= 36, niter
 
 # Calculate non-selfconsistent PBE eigenvalues:
 from gpaw.xc.tools import vxc
-epbe0 = e - vxc(calc)[0] + vxc(calc, 'PBE')[0]
+epbe0 = e - vxc(calc)[0, 0] + vxc(calc, 'PBE')[0, 0]
 
 # Calculate selfconsistent PBE eigenvalues:
 calc.set(xc='PBE')

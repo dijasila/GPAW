@@ -55,8 +55,9 @@ def vxc(paw, xc=None):
                       P_ni.conj()).sum(1).real
 
     wfs.gd.comm.sum(vxc_un)
+    vxc_skn = wfs.kd.collect(vxc_un)
 
     if xc.orbital_dependent:
-        vxc_un += xc.exx_skn[0]
+        vxc_skn += xc.exx_skn
 
-    return vxc_un * Hartree
+    return vxc_skn * Hartree
