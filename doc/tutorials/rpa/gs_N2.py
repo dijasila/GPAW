@@ -10,7 +10,7 @@ max_cut = 400.
 
 # N -------------------------------------------
 
-N = molecule('N')
+N = data.molecules.molecule('N')
 N.set_pbc(True)
 N.set_cell((d, d, d))
 N.center()
@@ -41,7 +41,7 @@ calc.write('N.gpw', mode='all')
 
 # N2 ------------------------------------------
 
-N2 = molecule('N2')
+N2 = data.molecules.molecule('N2')
 N2.set_pbc(True)
 N2.set_cell((d, d, d))
 N2.center()
@@ -52,7 +52,7 @@ calc = GPAW(h=0.18,
             convergence={'density': 1.e-6})
 
 N2.set_calculator(calc)
-dyn = BFGS(N2)
+dyn = optimize.BFGS(N2)
 dyn.run(fmax=0.05)
 E2_pbe = N2.get_potential_energy()
 E2_hf = E2_pbe + calc.get_xc_difference(HybridXC('EXX'))

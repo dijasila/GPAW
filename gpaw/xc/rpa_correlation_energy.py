@@ -38,6 +38,7 @@ class RPACorrelation:
     def get_rpa_correlation_energy(self,
                                    kcommsize=1,
                                    directions=None,
+                                   skip_gamma=False,
                                    ecut=10,
                                    nbands=None,
                                    gauss_legendre=None,
@@ -67,10 +68,14 @@ class RPACorrelation:
         for index, q in enumerate(self.ibz_q_points[len(E_q):]):
             if abs(q[0]) < 0.001 and abs(q[1]) < 0.001 and abs(q[2]) < 0.001:
                 E_q0 = 0.
-                if directions is None:
-                    directions = [[0, 1/3.], [1, 1/3.], [2, 1/3.]]
-                for d in directions:                                   
-                    E_q0 += self.E_q(q, index=index, direction=d[0]) * d[1]
+                if skip_gamma:
+                    print >> self.txt, 'Not calculating q at the Gamma point'
+                    print >> self.txt
+                else:
+                    if directions is None:
+                        directions = [[0, 1/3.], [1, 1/3.], [2, 1/3.]]
+                    for d in directions:                                   
+                        E_q0 += self.E_q(q, index=index, direction=d[0]) * d[1]
                 E_q.append(E_q0)
             else:
                 E_q.append(self.E_q(q, index=index))
@@ -306,7 +311,7 @@ class RPACorrelation:
             w *= frequency_cut/w[-1]
             alpha = (-np.log(1-ys[-1]))**frequency_scale/frequency_cut
             transform = (-np.log(1-ys))**(frequency_scale-1)/(1-ys)*frequency_scale/alpha
-        
+            self.transform = transform
 
         dummy = DF(calc=self.calc,
                    xc='RPA',
@@ -326,7 +331,6 @@ class RPACorrelation:
         self.gauss_legendre = gauss_legendre
         self.frequency_cut = frequency_cut
         self.frequency_scale = frequency_scale
-        self.transform = transform
         self.extrapolate = extrapolate
         self.kcommsize = kcommsize
         self.nbands = nbands
