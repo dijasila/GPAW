@@ -431,22 +431,9 @@ class SmoothDistribution(ZeroKelvin):
             myeps_un[u] = wfs.bd.collect(kpt.eps_n)
         
         if wfs.bd.comm.rank == 0:
-            if wfs.kpt_comm.rank > 0:
-                kd.comm.send(myeps_un, 0)
-            else:
-                eps_un = np.empty((kd.nspins * kd.nibzkpts, wfs.nbands))
-                u1 = kd.get_count(0)
-                eps_un[0:u1] = myeps_un
-                requests = []
-                for rank in range(1, kd.comm.size):
-                    u2 = u1 + kd.get_count(rank)
-                    requests.append(kd.comm.receive(eps_un[u1:u2], rank,
-                                                    block=False))
-                    u1 = u2
-                assert u1 == len(eps_un)
-                kd.comm.waitall(requests)
-
-                eps_n = eps_un.ravel()
+            eps_skn = kd.collect(myeps_un, broadcast=False)
+            if kd.comm.rank == 0:
+                eps_n = eps_skn.ravel()
                 w_skn = np.empty((kd.nspins, kd.nibzkpts, wfs.nbands))
                 w_skn[:] = 2.0 / wfs.nspins * kd.weight_k[:, np.newaxis]
                 w_n = w_skn.ravel()
