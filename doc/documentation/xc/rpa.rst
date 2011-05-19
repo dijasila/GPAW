@@ -26,9 +26,9 @@ where calc is a calculator object containing converged wavefunctions from a grou
 Parameters
 ==========
 
-=================== ================== =================== ============================================================
+=================== ================== =================== ==================================================================
 keyword             type               default value       description
-=================== ================== =================== ============================================================
+=================== ================== =================== ==================================================================
 ``ecut``            ``float``          100.		   Sets the number of plane waves
 							   and bands (if nbands is None) included in 
  							   the response function
@@ -57,7 +57,7 @@ keyword             type               default value       description
 							   Ex: for a diatomic molecule with the molecular axis in 
 							   the z direction, one may use [[0, 2/3.], [2, 1/3.]], since
 							   x and y (0 and 1 directions are equivalent).
-``skip_gamma``     ``bool``	       False		   For metals the :math:`\mathbf{q} = 0` point can give rise
+``skip_gamma``      ``bool``	       False		   For metals the :math:`\mathbf{q} = 0` point can give rise
                                                            to divergent contributions and it may be faster to converge 
 							   the k-point sampling if this point is excluded. This should be 
                                                            then also be done for the HF energy which also has this keyword.
@@ -67,7 +67,7 @@ keyword             type               default value       description
 							   decay of the integrand.
 ``kcommsize``       ``int``            None                The parsize for parallelization
                                                            over kpoints.
-=================== ================== =================== ============================================================
+=================== ================== =================== ==================================================================
 
 In addition to the usual kpoint and grid sampling, the RPA correlation energy needs to be converged with respect to the plane wave cutoff (set by ecut) and the frequency integration. As it turns out, the integrand is usually  rather smooth and one can perform the integration with 8-16 (special!) Gauss-Legendre frequency points, but see the tutorial :ref:`rpa_tut` for an example of converging the frequency integration.
 	

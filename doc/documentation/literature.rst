@@ -789,6 +789,9 @@ Publications using the gpaw code
 
    .. 13 May 2011
 
+
+:ref:`adding_publications`
+
 .. If the first author is A. Einstein, then remember to use
    \A. Einstein so that we don't start an enumerated list (A, B, C,
    ...).
