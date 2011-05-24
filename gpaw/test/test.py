@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import os
 import gc
+import platform
 import sys
 import time
 import tempfile
@@ -24,7 +25,7 @@ parser.add_option('--from', metavar='TESTFILE', dest='from_test',
                   help='Run remaining tests, starting from TESTFILE')
 parser.add_option('--after', metavar='TESTFILE', dest='after_test',
                   help='Run remaining tests, starting after TESTFILE')
-parser.add_option('--range', 
+parser.add_option('--range',
                   type='string', default=None,
                   help='Run tests in range test_i.py to test_j.py (inclusive)',
                   metavar='test_i.py,test_j.py')
@@ -106,8 +107,13 @@ else:
 tmpdir = mpi.broadcast_string(tmpdir)
 cwd = os.getcwd()
 os.chdir(tmpdir)
+operating_system = platform.system() + ' ' + platform.machine()
+operating_system += ' ' + ' '.join(platform.dist())
+python = platform.python_version() + ' ' + platform.python_compiler()
+python += ' ' + ' '.join(platform.architecture())
 if mpi.rank == 0:
-    print 'Running tests in', tmpdir
+    print 'python %s on %s' % (python, operating_system)
+    print 'Running tests in %s' % tmpdir
 failed = TestRunner(tests, jobs=opt.jobs, show_output=opt.show_output).run()
 os.chdir(cwd)
 if mpi.rank == 0:
@@ -116,4 +122,3 @@ if mpi.rank == 0:
     elif not opt.keep_tmpdir:
         os.system('rm -rf ' + tmpdir)
 hooks.update(old_hooks.items())
-
