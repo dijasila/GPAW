@@ -9,7 +9,8 @@ import tempfile
 
 def send_email(subject, filename='/dev/null'):
     assert os.system(
-        'mail -s "%s" gpaw-developers@listserv.fysik.dtu.dk < %s' %
+        #'mail -s "%s" gpaw-developers@listserv.fysik.dtu.dk < %s' %
+        'mail -s "%s" jensj@fysik.dtu.dk < %s' %
         (subject, filename)) == 0
 
 def fail(msg, filename='/dev/null'):
@@ -71,7 +72,7 @@ from gpaw.test import TestRunner, tests
 os.mkdir('gpaw-test')
 os.chdir('gpaw-test')
 out = open('test.out', 'w')
-#tests = ['ase3k.py', 'jstm.py']
+#tests = ['ase3k.py']
 failed = TestRunner(tests, stream=out).run()
 out.close()
 if failed:
@@ -96,6 +97,7 @@ ch = count('c', '\\*.[ch]') - libxc
 test = count('gpaw/test', '\\*.py')
 py = count('gpaw', '\\*.py') - test
 
+"""
 import pylab
 # Update the stat.dat file:
 dir = '/scratch/jensj/nightly-test/'
@@ -141,5 +143,6 @@ pylab.axis('tight')
 pylab.legend(loc='upper left')
 pylab.title('Number of lines')
 pylab.savefig(dir + 'stat.png')
+"""
 
-os.system('cd; rm -r ' + tmpdir)
+#os.system('cd; rm -r ' + tmpdir)

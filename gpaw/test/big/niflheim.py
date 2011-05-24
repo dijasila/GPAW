@@ -5,57 +5,7 @@ import subprocess
 from gpaw.test.big.agts import Cluster
 
 
-class Niflheim(Cluster):
-
-    gpawrepo = 'https://svn.fysik.dtu.dk/projects/gpaw/trunk'
-    aserepo = 'https://svn.fysik.dtu.dk/projects/ase/trunk'
-
-    def __init__(self):
-        self.dir = os.getcwd()
-        self.revision = None
-
-    def install_gpaw(self):
-        if os.system('svn checkout %s gpaw' % self.gpawrepo) != 0:
-            raise RuntimeError('Checkout of GPAW failed!')
-
-        p = subprocess.Popen(['svnversion', 'gpaw'], stdout=subprocess.PIPE)
-        self.revision = int(p.stdout.read())
-
-        thul_install = ('cd weekend-tests/gpaw&& ' +
-                        'source /home/camp/modulefiles.sh&& ' +
-                        'module load NUMPY&& '+
-                        'module load open64/4.2.3-0 && ' +
-                        'python setup.py --remove-default-flags ' +
-                        '--customize=doc/install/Linux/Niflheim/' +
-                        'el5-xeon-open64-goto2-1.13-acml-4.4.0.py ' +
-                        'build_ext')
-        if os.system('echo "'+thul_install+'" | ssh thul bash') != 0:
-            raise RuntimeError('Installation of GPAW (Xeon) failed!')
-        fjorm_install = ('cd weekend-tests/gpaw&& ' +
-                         'source /home/camp/modulefiles.sh&& ' +
-                         'module load NUMPY&& '+
-                         'module load open64/4.2.3-0 && ' +
-                         'python setup.py --remove-default-flags ' +
-                         '--customize=doc/install/Linux/Niflheim/' +
-                         'el5-opteron-open64-goto2-1.13-acml-4.4.0.py ' +
-                         'build_ext')
-        if os.system('echo "'+fjorm_install+'" | ssh fjorm bash') != 0:
-            raise RuntimeError('Installation of GPAW (Opteron) failed!')
-
-        os.system('wget --no-check-certificate --quiet ' +
-                  'http://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-latest.tar.gz')
-        os.system('tar xzf gpaw-setups-latest.tar.gz')
-        os.system('rm gpaw-setups-latest.tar.gz')
-        os.system('mv gpaw-setups-[0-9]* gpaw/gpaw-setups')
-
-    def install_ase(self):
-        if os.system('svn checkout %s ase' % self.aserepo) != 0:
-            raise RuntimeError('Checkout of ASE failed!')
-
-    def install(self):
-        self.install_gpaw()
-        self.install_ase()
-
+class NiflheimCluster(Cluster):
     def submit(self, job):
         dir = os.getcwd()
         os.chdir(job.dir)
@@ -92,7 +42,7 @@ class Niflheim(Cluster):
         submit_gpaw_setup_path = '%s/gpaw/gpaw-setups' % self.dir
 
         run_command = '. /home/camp/modulefiles.sh&& '
-        run_command += 'module load MATPLOTLIB&& ' # loads numpy, mpl, ...
+        run_command += 'module load MATPLOTLIB&& '  # loads numpy, mpl, ...
 
         if job.ncpus == 1:
             # don't use mpi here,
@@ -128,60 +78,3 @@ class Niflheim(Cluster):
         id = out.split('.')[0]
         job.pbsid = id
         os.chdir(dir)
-
-
-if __name__ == '__main__':
-    from gpaw.test.big.agts import AGTSQueue
-
-    os.chdir(os.path.join(os.environ['HOME'], 'weekend-tests'))
-
-    niflheim = Niflheim()
-    if 1:
-        niflheim.install()
-
-    os.chdir('gpaw')
-    queue = AGTSQueue()
-    queue.collect()
-
-    # examples of selecting jobs
-    #
-    # **Note** that this script searches the directories
-    # created during the niflheim.install() step above!
-    #
-    #queue.jobs = [j for j in queue.jobs if j.script == 'testsuite.agts.py']
-    #queue.jobs = [j for j in queue.jobs if j.script == 'neb.agts.py']
-    #queue.jobs = [j for j in queue.jobs if j.dir.startswith('doc')]
-    #queue.jobs = [j for j in queue.jobs
-    #              if j.dir.startswith('gpaw/test/big/bader_water')]
-    #queue.jobs = [j for j in queue.jobs
-    #              if j.dir.startswith('doc/devel/memory_bandwidth')]
-
-    nfailed = queue.run(niflheim)
-
-    queue.copy_created_files('/home/camp2/jensj/WWW/gpaw-files')
-
-    # Analysis:
-    import matplotlib
-    matplotlib.use('Agg')
-    from gpaw.test.big.analysis import analyse
-    user = os.environ['USER']
-    analyse(queue,
-            '../analysis/analyse.pickle',  # file keeping history
-            '../analysis',                 # Where to dump figures
-            rev=niflheim.revision,
-            #mailto='gpaw-developers@listserv.fysik.dtu.dk',
-            mailto='jensj@fysik.dtu.dk',
-            mailserver='servfys.fysik.dtu.dk',
-            attachment='status.log')
-
-    if nfailed == 0:
-        tag = 'success'
-    else:
-        tag = 'failed'
-
-    os.chdir('..')
-    dir = os.path.join('/scratch', user, 'gpaw-' + tag)
-    os.system('rm -rf %s-old' % dir)
-    os.system('mv %s %s-old' % (dir, dir))
-    os.system('mv gpaw %s' % dir)
-    os.system('rm -rf ase')
