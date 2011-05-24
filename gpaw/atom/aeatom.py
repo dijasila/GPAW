@@ -12,14 +12,14 @@ from scipy.integrate import odeint
 from scipy.interpolate import interp1d
 
 from ase.data import atomic_numbers, atomic_names, chemical_symbols
-from ase.utils import devnull
+from ase.utils import devnull, prnt
 import ase.units as units
 
 from gpaw.atom.configurations import configurations
 from gpaw.atom.radialgd import AERadialGridDescriptor
 from gpaw.xc import XC
 from gpaw.utilities.progressbar import ProgressBar
-from gpaw.utilities import prnt
+
 
 # Velocity of light in atomic units:
 c = 2 * units._hplanck / (units._mu0 * units._c * units._e**2)

@@ -8,6 +8,7 @@ from scipy.special import gamma
 from scipy.interpolate import interp1d
 
 from ase.units import Hartree
+from ase.utils import prnt
 
 from gpaw.atom.configurations import configurations
 from gpaw.atom.aeatom import AllElectronAtom, Channel, parse_ld_str, colors
@@ -15,7 +16,6 @@ from gpaw.setup import BaseSetup
 from gpaw.spline import Spline
 from gpaw.basis_data import Basis
 from gpaw.hgh import null_xc_correction
-from gpaw.utilities import prnt
 from gpaw.setup_data import SetupData
 from gpaw.version import version
 
