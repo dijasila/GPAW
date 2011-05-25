@@ -21,7 +21,7 @@ if __name__ == '__main__':
 
     kk = [4, 6, 8, 10, 12]
 
-    for dist in ['FD', 'MP', 'MP1']:
+    for dist in ['FD', 'MP']:
         plt.figure(figsize=(6, 4))
         for width in [0.05, 0.1, 0.15, 0.2]:
             a = []
