@@ -46,6 +46,7 @@ to become the next release.
 .. _PyLint: http://www.logilab.org/857
 
 
+.. _the_big_picture:
 .. _code_overview:
 
 Code Overview
@@ -53,7 +54,6 @@ Code Overview
 
 Keep this picture under your pillow:
 
-.. _the_big_picture:
 
 .. image:: bigpicture.png
    :target: ../bigpicture.svg

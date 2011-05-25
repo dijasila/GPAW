@@ -55,6 +55,9 @@ algorithms used <features_and_algorithms>`.
 News
 ====
 
+* Help!  The :ref:`todolist` has been updated.  Maybe there is
+  something you can do (May 25 2011)
+ 
 * GPAW is part of benchmark suite for `CSC's supercomputer procurement`_ 
   (Apr 19 2011)
 
