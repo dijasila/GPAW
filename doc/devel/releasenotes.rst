@@ -10,7 +10,13 @@ Development version in trunk
 
 :trac:`trunk <>`.
 
-* Corresponding ASE release: 3.5.0.
+
+Version 0.8
+===========
+
+25 May 2011: :trac:`tags/0.8.0 <../tags/0.8.0>`.
+
+* Corresponding ASE release: ase-3.5.1_
 * Energy convergence criterion changed from 1 meV/atom to 0.5
   meV/electron.  This was changed in order to allow having no atoms like
   for jellium calculations.
@@ -25,6 +31,8 @@ Development version in trunk
 * Exchange-correlation code restructured.  Naming convention for
   explicitely specifying libxc functionals has changed: :ref:`manual_xc`.
 * New PAW setups for Rb, Ti, Ba, La, Sr, K, Sc, Ca, Zr and Cs.
+
+.. _ase-3.5.1: https://svn.fysik.dtu.dk/projects/ase/tags/3.5.1
 
 
 Version 0.7.2
