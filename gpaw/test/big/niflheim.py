@@ -1,11 +1,14 @@
 import os
-import glob
 import subprocess
 
 from gpaw.test.big.agts import Cluster
 
 
 class NiflheimCluster(Cluster):
+    def __init__(self, asepath='', setuppath='$GPAW_SETUP_PATH'):
+        self.asepath = asepath
+        self.setuppath = setuppath
+        
     def submit(self, job):
         dir = os.getcwd()
         os.chdir(job.dir)
@@ -31,15 +34,14 @@ class NiflheimCluster(Cluster):
             queueopts = job.queueopts
             arch = 'linux-x86_64-xeon-2.4'
 
-        gpaw_python = os.path.join(self.dir, 'gpaw', 'build',
+        gpaw_python = os.path.join(dir, 'gpaw', 'build',
                                    'bin.' + arch, 'gpaw-python')
 
         submit_pythonpath = ':'.join([
-            '%s/ase' % self.dir,
-            '%s/gpaw' % self.dir,
-            '%s/gpaw/build/lib.%s' % (self.dir, arch),
+            self.asepath,
+            dir + '/gpaw',
+            '%s/gpaw/build/lib.%s' % (dir, arch),
             '$PYTHONPATH'])
-        submit_gpaw_setup_path = '%s/gpaw/gpaw-setups' % self.dir
 
         run_command = '. /home/camp/modulefiles.sh&& '
         run_command += 'module load MATPLOTLIB&& '  # loads numpy, mpl, ...
@@ -48,13 +50,13 @@ class NiflheimCluster(Cluster):
             # don't use mpi here,
             # this allows one to start mpi inside the *.agts.py script
             run_command += ' PYTHONPATH=' + submit_pythonpath
-            run_command += ' GPAW_SETUP_PATH=' + submit_gpaw_setup_path
+            run_command += ' GPAW_SETUP_PATH=' + self.setuppath
         else:
             run_command += 'module load '
             run_command += 'openmpi/1.3.3-1.el5.fys.gfortran43.4.3.2&& '
-            run_command += 'mpiexec --mca mpi_paffinity_alone 1 '
-            run_command += '-x PYTHONPATH=' + submit_pythonpath
-            run_command += ' -x GPAW_SETUP_PATH=' + submit_gpaw_setup_path
+            run_command += 'mpiexec --mca mpi_paffinity_alone 1'
+            run_command += ' -x PYTHONPATH=' + submit_pythonpath
+            run_command += ' -x GPAW_SETUP_PATH=' + self.setuppath
             run_command += ' -x OMP_NUM_THREADS=1'
 
         p = subprocess.Popen(
