@@ -240,7 +240,7 @@ class FDPWWaveFunctions(WaveFunctions):
             raise RuntimeError('This calculator has no wave functions!')
         return psit_nG[n][:] # dereference possible tar-file content
 
-    def write_wave_functions(self, writer, timer):
+    def write_wave_functions(self, writer):
         master = (self.world.rank == 0) # cannot use reader.comm here due to \
             # hack for GPW-writer in io/__init__.py
 
@@ -249,22 +249,18 @@ class FDPWWaveFunctions(WaveFunctions):
         else:
             hdf5 = False
 
-        timer.start('psi-add')
         if master or hdf5:
             writer.add('PseudoWaveFunctions',
                        ('nspins', 'nibzkpts', 'nbands',
                         'ngptsx', 'ngptsy', 'ngptsz'),
                        dtype=self.dtype)
-        timer.stop('psi-add')
-        
+
         if hdf5:
-            timer.start('psi-fill')
             for kpt in self.kpt_u:
                 indices = [kpt.s, kpt.k]
                 indices.append(self.bd.get_slice())
                 indices += self.gd.get_slice()
                 writer.fill(kpt.psit_nG, parallel=True, *indices)
-            timer.stop('psi-fill')
         else:
             for s in range(self.nspins):
                 for k in range(self.nibzkpts):
