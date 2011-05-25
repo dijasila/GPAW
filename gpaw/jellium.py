@@ -30,9 +30,9 @@ class JelliumPoissonSolver(PoissonSolver):
     def initialize(self):
         PoissonSolver.initialize(self)
         r_gv = self.gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
-        self.mask_g = self.get_mask(r_gv) * self.gd.dv
-        self.volume = self.gd.comm.sum(self.mask_g.sum())
-        
+        self.mask_g = self.get_mask(r_gv).astype(float)
+        self.volume = self.gd.comm.sum(self.mask_g.sum()) * self.gd.dv
+
     def solve(self, phi, rho, eps=2e-10, charge=0, maxcharge=1e-6,
               zero_initial_phi=False):
         self.rs = (3 / pi / 4 * self.volume / charge)**(1 / 3.0)
