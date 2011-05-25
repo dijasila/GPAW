@@ -22,6 +22,9 @@ Development version in trunk
 * Text output now shows the distance between planes of grid-points as
   this is what will be close to the grid-spacing parameter *h* also for
   non-orthorhombic cells.
+* Exchange-correlation code restructured.  Naming convention for
+  explicitely specifying libxc functionals has changed: :ref:`manual_xc`.
+* New PAW setups for Rb, Ti, Ba, La, Sr, K, Sc, Ca, Zr and Cs.
 
 
 Version 0.7.2
