@@ -433,7 +433,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
 
     if mode == 'all':
         timer.start('Pseudo-wavefunctions')
-        wfs.write_wave_functions(w)
+        wfs.write_wave_functions(w, timer)
         timer.stop('Pseudo-wavefunctions')
     elif mode != '':
         # Write the wave functions as seperate files

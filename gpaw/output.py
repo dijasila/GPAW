@@ -539,7 +539,7 @@ def plot(atoms):
 
 class Grid:
     def __init__(self, i, j):
-        self.grid = np.zeros((i, j), np.intc)
+        self.grid = np.zeros((i, j), np.int8)
         self.grid[:] = ord(' ')
         self.depth = np.zeros((i, j))
         self.depth[:] = 1e10

@@ -5,12 +5,12 @@ from gpaw.test import equal
 from math import sqrt
 import numpy as np
 
-modes = ['gpw']
-try:
-    import _hdf5
-    modes.append('hdf5')
-except ImportError:
-    pass
+modes = ['hdf5']
+# try:
+#     import _hdf5
+#     modes.append('hdf5')
+# except ImportError:
+#     pass
 
 d = 3.0
 atoms = Atoms('Na3', positions=[( 0, 0, 0),
@@ -32,7 +32,7 @@ eig00 = calc.get_eigenvalues(spin=0)
 eig01 = calc.get_eigenvalues(spin=1)
 # Write the restart file(s)
 for mode in modes:
-    calc.write('tmp.%s' % mode)
+    calc.write('tmp.%s' % mode, 'all')
 
 del atoms, calc
 # Try restarting from all the files
