@@ -223,7 +223,7 @@ using the :func:`gpaw.xc.XC` function:
 
 Example::
 
-    # the default implementation of PBE from LiBXC:
+    # the default implementation of PBE from LibXC:
     from gpaw.xc import XC
     xc = XC('PBE')
     # alternative call:
@@ -251,7 +251,7 @@ GPAW also has a few non-libxc kernels that one can use like this::
 
 
 Collinear or not collinear
-========================
+==========================
 
 For a non-collinear calculation, we work with a 2x2 density matrix:
 
