@@ -7,7 +7,7 @@ from gpaw.xc import XC
 h = Atoms('H', magmoms=[(1, 0, 0)])
 h.center(vacuum=2)
 xc = XC(NonCollinearLDAKernel())
-xc = NonCollinearFunctional(XC('PBE'))
+#xc = NonCollinearFunctional(XC('PBE'))
 c = GPAW(txt='nc.txt',
          mode='lcao',
          basis='dz(dzp)',

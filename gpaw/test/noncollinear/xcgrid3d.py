@@ -66,4 +66,3 @@ for xc in [XC('LDA'), XC('PBE')]:
             print i, x, x2, x - x2
             equal(x, x2, 1e-11)
             n2[i, 1, 2, 3] += 0.000001
-    
