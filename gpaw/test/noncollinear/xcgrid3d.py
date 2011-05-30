@@ -1,5 +1,5 @@
 from math import pi
-from gpaw.grid_descriptor import RadialGridDescriptor, GridDescriptor
+from gpaw.grid_descriptor import GridDescriptor
 from gpaw.xc import XC
 from gpaw.xc.noncollinear import NonCollinearLDAKernel, NonCollinearFunctional
 import numpy as np
