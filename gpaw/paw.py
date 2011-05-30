@@ -40,7 +40,9 @@ from gpaw.utilities import h2gpts
 
 class PAW(PAWTextOutput):
     """This is the main calculation object for doing a PAW calculation."""
+
     timer_class = Timer
+
     def __init__(self, filename=None, **kwargs):
         """ASE-calculator interface.
 
@@ -86,7 +88,7 @@ class PAW(PAWTextOutput):
             parameters = load(filename)
             parameters.update(kwargs)
             kwargs = parameters
-            filename = None # XXX
+            filename = None  # XXX
 
         if filename is not None:
             comm = kwargs.get('communicator', mpi.world)
@@ -105,7 +107,7 @@ class PAW(PAWTextOutput):
                     raise RuntimeError('Setups not specified in file. Use '
                                        'idiotproof=False to proceed anyway.')
                 else:
-                    par.setups = {None : 'paw'}
+                    par.setups = {None: 'paw'}
             if par.basis is None:
                 if par.idiotproof:
                     raise RuntimeError('Basis not specified in file. Use '
@@ -201,7 +203,8 @@ class PAW(PAWTextOutput):
                 name = {'parsize': 'domain',
                         'parsize_bands': 'band',
                         'parstride_bands': 'stridebands'}[key]
-                raise DeprecationWarning("Keyword argument has been moved " \
+                raise DeprecationWarning(
+                    'Keyword argument has been moved ' +
                     "to the 'parallel' dictionary keyword under '%s'." % name)
             else:
                 raise TypeError("Unknown keyword argument: '%s'" % key)
@@ -388,15 +391,14 @@ class PAW(PAWTextOutput):
         else:
             if par.h is None:
                 self.text('Using default value for grid spacing.')
-                h = 0.2 
+                h = 0.2
             else:
                 h = par.h
             N_c = h2gpts(h, cell_cv)
 
         cell_cv /= Bohr
 
-
-        if hasattr(self, 'time') or par.dtype==complex:
+        if hasattr(self, 'time') or par.dtype == complex:
             dtype = complex
         else:
             if kd.gamma:
@@ -404,7 +406,7 @@ class PAW(PAWTextOutput):
             else:
                 dtype = complex
 
-        kd.set_symmetry(atoms, magmom_av, setups, par.usesymm, N_c)
+        kd.set_symmetry(atoms, setups, magmom_av, par.usesymm, N_c)
 
         nao = setups.nao
         nvalence = setups.nvalence - par.charge
@@ -475,7 +477,7 @@ class PAW(PAWTextOutput):
                                (nbands, parsize_bands))
 
         if not self.wfs:
-            if parsize == 'domain only': #XXX this was silly!
+            if parsize == 'domain only':  # XXX this was silly!
                 parsize = world.size
 
             domain_comm, kpt_comm, band_comm = mpi.distribute_cpus(parsize,
@@ -518,7 +520,7 @@ class PAW(PAWTextOutput):
                     from gpaw.xc.noncollinear import \
                          NonCollinearLCAOWaveFunctions
                     self.wfs = NonCollinearLCAOWaveFunctions(lcaoksl, *args)
-                    
+
             elif par.mode == 'fd' or isinstance(par.mode, PW):
                 # buffer_size keyword only relevant for fdpw
                 buffer_size = par.parallel['buffer_size']
@@ -548,14 +550,14 @@ class PAW(PAWTextOutput):
                 lcaonbands = min(nbands, nao)
                 lcaobd = BandDescriptor(lcaonbands, band_comm, parstride_bands)
                 assert nbands <= nao or bd.comm.size == 1
-                assert lcaobd.mynbands == min(bd.mynbands, nao) #XXX
+                assert lcaobd.mynbands == min(bd.mynbands, nao)  # XXX
 
                 # Layouts used for general diagonalizer (LCAO initialization)
                 sl_lcao = par.parallel['sl_lcao']
                 if sl_lcao is None:
                     sl_lcao = par.parallel['sl_default']
                 initksl = get_KohnSham_layouts(sl_lcao, 'lcao',
-                                               gd, lcaobd, dtype, 
+                                               gd, lcaobd, dtype,
                                                nao=nao,
                                                timer=self.timer)
 
@@ -646,7 +648,6 @@ class PAW(PAWTextOutput):
         self.hamiltonian.set_positions(spos_ac, self.wfs.rank_a)
         self.hamiltonian.update(self.density)
 
-
     def attach(self, function, n=1, *args, **kwargs):
         """Register observer function.
 
@@ -721,19 +722,19 @@ class PAW(PAWTextOutput):
         # is called within a real mpirun/gpaw-python context.
         if txt is None:
             txt = self.txt
-        print >> txt, 'Memory estimate'
-        print >> txt, '---------------'
-        
-        mem_init = maxrss() # XXX initial overhead includes part of Hamiltonian
-        print >> txt, 'Process memory now: %.2f MiB' % (mem_init / 1024.0**2)
-        
+        txt.write('Memory estimate\n')
+        txt.write('---------------\n')
+
+        mem_init = maxrss()  # initial overhead includes part of Hamiltonian!
+        txt.write('Process memory now: %.2f MiB' % (mem_init / 1024.0**2))
+
         mem = MemNode('Calculator', 0)
         try:
             self.estimate_memory(mem)
         except AttributeError, m:
-            print >> txt, 'Attribute error:', m
-            print >> txt, 'Some object probably lacks estimate_memory() method'
-            print >> txt, 'Memory breakdown may be incomplete'
+            txt.write('Attribute error: %r' % m)
+            txt.write('Some object probably lacks estimate_memory() method')
+            txt.write('Memory breakdown may be incomplete')
         totalsize = mem.calculate_size()
         mem.write(txt, maxdepth=maxdepth)
 
