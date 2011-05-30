@@ -1,6 +1,6 @@
 import sys
 import traceback
-from optparse import OptionParser, OptionGroup
+import optparse
 
 import numpy as np
 from ase.structure import bulk, estimate_lattice_constant
@@ -18,15 +18,15 @@ from gpaw.mpi import world
 
 defaults = InputParameters()
 
-
 def build_parser():
     description = ('Run GPAW calculation for simple atoms, molecules or '
                    'bulk systems.')
+    epilog = 'GPAW options: --%s.  ' % ', --'.join(defaults.keys())
+    parser = optparse.OptionParser(usage='%prog [options] formula or filename',
+                                   version='%prog 0.1',
+                                   description=description + ' ' + epilog)
 
-    parser = OptionParser(usage='%prog [options] formula or filename',
-                          version='%prog 0.1', description=description)
-
-    struct = OptionGroup(parser, 'Structure')
+    struct = optparse.OptionGroup(parser, 'Structure')
     struct.add_option('-i', '--identifier',
                       help='String identifier added to filenames.')
     struct.add_option('-x', '--crystal-structure',
@@ -50,7 +50,7 @@ def build_parser():
                       help='Magnetic moment(s).  Use "-M 1" or "-M 2.3,-2.3".')
     parser.add_option_group(struct)
 
-    behavior = OptionGroup(parser, 'Behavior')
+    behavior = optparse.OptionGroup(parser, 'Behavior')
     behavior.add_option('--read', action='store_true',
                         help="Don't alculate anything - read from file.")
     behavior.add_option('-p', '--plot', action='store_true',
@@ -73,49 +73,26 @@ def build_parser():
                         help='Use EMT calculator.')
     parser.add_option_group(behavior)
 
-    # Calculator:
-    calc_opts = OptionGroup(parser, 'Calculator')
+    calc_opts = optparse.OptionGroup(parser, 'Calculator')
     for key in defaults:
         calc_opts.add_option('--%s' % key, type=str,
-                             help='default=%default')
+                             help=optparse.SUPPRESS_HELP)
 
     calc_opts.add_option('--write-gpw-file', metavar='MODE',
                          help='Write gpw file.')
     parser.add_option_group(calc_opts)
 
-    if 0:
-        calc_opts.add_option('-e', '--eigensolver', default='rmm-diis',
-                             choices=['rmm-diis', 'cg'],
-                             help='Eigensolver.')
-        calc_opts.add_option('-m', '--mode', default='fd', choices=['fd', 'lcao'],
-                             help='Mode of calculation.')
-        calc_opts.add_option('-b', '--basis',
-                             help='Basis set.')
-        calc_opts.add_option('-k', '--brillouin-zone-sampling',
-                             default='1,1,1', metavar='K1,K2,K3',
-                             help='Number of k-points.  Example: -k 4,4,1.')
-        calc_opts.add_option('-g', '--grid-spacing', type='float', default=0.2,
-                             help='Grid spacing in Angstrom.  Deafault is 0.2.')
-        calc_opts.add_option('-T', '--smearing-width', type='float', default=0.1,
-                             metavar='WIDTH',
-                             help='Occupation number smearing width in eV.  Default '
-                             'is 0.1 eV.')
-        calc_opts.add_option('-s', '--finite-difference-stencils', default='3,3',
-                             metavar='K,I',
-                             help='Range of stencils for kinetic energy and '
-                             'interpolation.  Deafault is -s 3,3.')
-        calc_opts.add_option('-f', '--xc-functional', default='LDA',
-                             help='Exchange-Correlation functional (default value LDA).')
-        calc_opts.add_option('-N', '--number-of-bands', type='int',
-                             help='Number of bands / states.')
-        parser.add_option_group(calc_opts)
-
     return parser
 
 
-def run():
+def run(argv=None):
+    if argv is None:
+        argv = sys.argv[1:]
+    elif isinstance(argv, str):
+        argv = argv.split()
+        
     parser = build_parser()
-    opt, args = parser.parse_args()
+    opt, args = parser.parse_args(argv)
     
     if len(args) != 1:
         parser.error("incorrect number of arguments")
@@ -199,7 +176,9 @@ def run():
     if not opt.effective_medium_theory:
         # Import stuff that eval() may need to know:
         from gpaw.wavefunctions.pw import PW
-        from gpaw.occupations import FermiDirac
+        from gpaw.occupations import FermiDirac, MethfesselPaxton
+        from gpaw.mixer import Mixer, MixerSum
+        from gpaw.poisson import PoissonSolver
             
         if opt.parameters:
             input_parameters = eval(open(opt.parameters).read())
@@ -221,9 +200,11 @@ def run():
 
     runner.summary(plot=opt.plot, a0=a)
 
+    return runner
+
 def main():
     try:
-        run()
+        run(sys.argv[1:])
     except KeyboardInterrupt:
         print 'Killed!'
         raise SystemExit(1)

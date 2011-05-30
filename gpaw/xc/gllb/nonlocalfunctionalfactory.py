@@ -36,6 +36,13 @@ class NonLocalFunctionalFactory:
             C_Response(functional, 1.0,
                        C_GLLBScr(functional, 1.0).get_coefficient_calculator())
             return functional
+        elif name == 'GLLBM':
+            from gpaw.xc.gllb.c_gllbscr import C_GLLBScr
+            from gpaw.xc.gllb.c_response import C_Response
+            from gpaw.xc.gllb.c_xc import C_XC
+            C_Response(functional, 1.0, C_GLLBScr(
+                functional, 1.0, metallic=True).get_coefficient_calculator())
+            return functional
         elif name == 'GLLBSC':
             from gpaw.xc.gllb.c_gllbscr import C_GLLBScr
             from gpaw.xc.gllb.c_response import C_Response
@@ -46,6 +53,17 @@ class NonLocalFunctionalFactory:
                 'GGA_X_PBE_SOL').get_coefficient_calculator())
             C_XC(functional, 1.0, 'GGA_C_PBE_SOL')
             return functional
+        elif name == 'GLLBSCM':
+            from gpaw.xc.gllb.c_gllbscr import C_GLLBScr
+            from gpaw.xc.gllb.c_response import C_Response
+            from gpaw.xc.gllb.c_xc import C_XC
+            C_Response(functional, 1.0, C_GLLBScr(
+                functional,
+                1.0,
+                'GGA_X_PBE_SOL', metallic=True).get_coefficient_calculator())
+            C_XC(functional, 1.0, 'GGA_C_PBE_SOL')
+            return functional
+        
         elif name == 'GLLBC':
             from gpaw.xc.gllb.c_gllbscr import C_GLLBScr
             from gpaw.xc.gllb.c_response import C_Response

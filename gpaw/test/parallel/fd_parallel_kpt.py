@@ -1,7 +1,7 @@
 import sys
 
 from ase import Atoms
-from gpaw import GPAW
+from gpaw import GPAW, FermiDirac
 from gpaw import KohnShamConvergenceError
 from gpaw.utilities import devnull, compiled_with_sl
 
@@ -117,7 +117,8 @@ basekwargs = dict(mode='fd',
 Eref = None
 Fref_av = None
 
-OH_kwargs = dict(formula='NH2', vacuum=1.5, pbc=1, spinpol=1, width=0.1)
+OH_kwargs = dict(formula='NH2', vacuum=1.5, pbc=1, spinpol=1,
+                 occupations=FermiDirac(width=0.1))
 
 # reference:
 # kpt-parallelization = 4, spin-polarization = 2,
@@ -135,11 +136,16 @@ del parallel['domain']
 parallel['band'] = 2
 run(**OH_kwargs) 
 
+# do last test plus buffer_size keyword
+parallel['buffer_size'] = 150
+run(**OH_kwargs)
+
 if compiled_with_sl():
     # kpt-parallelization=2, spin-polarization=2,
     # state-parallelization = 2
     # domain-decomposition=(1, 2, 1)
     # with blacs
+    del parallel['buffer_size']
     parallel['domain'] = (1, 2, 1)
     parallel['sl_default'] = (2, 1, 2)
     run(**OH_kwargs)
@@ -148,5 +154,9 @@ if compiled_with_sl():
     # domain-decomposition = (1, 2, 1)
     # with blacs
     parallel['sl_default'] = (2, 2, 2)
+    run(**OH_kwargs)
+
+    # do last test plus buffer_size keyword
+    parallel['buffer_size'] = 150
     run(**OH_kwargs)
 

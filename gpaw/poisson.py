@@ -7,6 +7,8 @@ import sys
 import numpy as np
 from numpy.fft import fftn, ifftn, fft2, ifft2
 
+from ase.parallel import parprint
+
 from gpaw.transformers import Transformer
 from gpaw.fd_operators import Laplace, LaplaceA, LaplaceB
 from gpaw import PoissonConvergenceError
@@ -35,7 +37,13 @@ class PoissonSolver:
             self.relax_method = 2
         else:
             raise NotImplementedError('Relaxation method %s' % relax)
+    
+    def get_method(self):
+        return ['Gauss-Seidel', 'Jacobi'][self.relax_method - 1]
 
+    def get_stencil(self):
+        return self.nn
+    
     def set_grid_descriptor(self, gd):
         # Should probably be renamed initialize
         self.gd = gd
@@ -135,14 +143,14 @@ class PoissonSolver:
             # System is charged and periodic. Subtract a homogeneous
             # background charge
             if self.charged_periodic_correction is None:
-                print "+-----------------------------------------------------+"
-                print "| Calculating charged periodic correction using the   |"
-                print "| Ewald potential from a lattice of probe charges in  |"
-                print "| a homogenous background density                     |"
-                print "+-----------------------------------------------------+"
+                parprint("""+-----------------------------------------------------+
+| Calculating charged periodic correction using the   |
+| Ewald potential from a lattice of probe charges in  |
+| a homogenous background density                     |
++-----------------------------------------------------+""")
                 self.charged_periodic_correction = madelung(self.gd.cell_cv)
-                print "Potential shift will be ", \
-                      self.charged_periodic_correction , "Ha."
+                parprint("Potential shift will be ",
+                         self.charged_periodic_correction , "Ha.")
 
             # Set initial guess for potential
             if zero_initial_phi:
@@ -304,6 +312,9 @@ class PoissonFFTSolver(PoissonSolver):
     def __init__(self):
         self.charged_periodic_correction = None
 
+    def get_method(self):
+        return 'FFT solver of the first kind'
+
     def initialize(self, gd, load_gauss=False):
         # XXX this won't work now, but supposedly this class will be deprecated
         # in favour of FFTPoissonSolver, no?
@@ -335,6 +346,9 @@ class FFTPoissonSolver(PoissonSolver):
         self.charged_periodic_correction = None
         self.eps = eps
 
+    def get_method(self):
+        return 'FFT solver of the second kind'
+
     def set_grid_descriptor(self, gd):
         assert gd.pbc_c.all()
         self.gd = gd
@@ -365,6 +379,9 @@ class FixedBoundaryPoissonSolver(PoissonSolver):
         self.charged_periodic_correction = None
         assert self.nn == 1
 
+    def get_method(self):
+        return 'Fixed-boundary %s' % PoissonSolver.get_method(self)
+        
     def set_grid_descriptor(self, gd):
         assert gd.pbc_c.all()
         assert gd.orthogonal

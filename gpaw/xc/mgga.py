@@ -11,6 +11,17 @@ from gpaw.sphere.lebedev import weight_n
 
 class MGGA(GGA):
     orbital_dependent = True
+
+    def __init__(self, kernel, nn=1):
+        """Meta GGA functional.
+
+        nn: int
+            Number of neighbor grid points to use for FD stencil for
+            wave function gradient.
+        """
+        self.nn = nn
+        GGA.__init__(self, kernel)
+        
     def set_grid_descriptor(self, gd):
         GGA.set_grid_descriptor(self, gd)
         
@@ -26,7 +37,8 @@ class MGGA(GGA):
         self.dedtaut_sG = None
         self.restrict = hamiltonian.restrictor.apply
         self.interpolate = density.interpolator.apply
-        self.taugrad_v = [Gradient(wfs.gd, v, allocate=True).apply
+        self.taugrad_v = [Gradient(wfs.gd, v, n=self.nn, dtype=wfs.dtype,
+                                   allocate=True).apply
                           for v in range(3)]
 
     def set_positions(self, spos_ac):
@@ -37,8 +49,7 @@ class MGGA(GGA):
         self.tauct.add(self.tauct_G)
 
     def calculate_gga(self, e_g, nt_sg, v_sg, sigma_xg, dedsigma_xg):
-        taut_sG = self.wfs.calculate_kinetic_energy_density(self.tauct,
-                                                            self.taugrad_v)
+        taut_sG = self.wfs.calculate_kinetic_energy_density(self.taugrad_v)
         taut_sg = np.empty_like(nt_sg)
         for taut_G, taut_g in zip(taut_sG, taut_sg):
             taut_G += 1.0 / self.wfs.nspins * self.tauct_G
@@ -56,7 +67,7 @@ class MGGA(GGA):
                                                
     def apply_orbital_dependent_hamiltonian(self, kpt, psit_xG,
                                             Htpsit_xG, dH_asp):
-        a_G = self.wfs.gd.empty()
+        a_G = self.wfs.gd.empty(dtype=psit_xG.dtype)
         for psit_G, Htpsit_G in zip(psit_xG, Htpsit_xG):
             for v in range(3):
                 self.taugrad_v[v](psit_G, a_G, kpt.phase_cd)

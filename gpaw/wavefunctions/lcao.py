@@ -9,6 +9,22 @@ from gpaw.utilities.blas import gemm, gemmdot
 from gpaw.wavefunctions.base import WaveFunctions
 
 
+def add_paw_correction_to_overlap(setups, P_aqMi, S_qMM, Mstart=0,
+                                  Mstop=None):
+    if Mstop is None:
+        Mstop = setups.nao
+    for a, P_qMi in P_aqMi.items():
+        dO_ii = np.asarray(setups[a].dO_ii, S_qMM.dtype)
+        for S_MM, P_Mi in zip(S_qMM, P_qMi):
+            dOP_iM = np.zeros((dO_ii.shape[1], setups.nao),
+                              P_Mi.dtype)
+            # (ATLAS can't handle uninitialized output array)
+            gemm(1.0, P_Mi, dO_ii, 0.0, dOP_iM, 'c')
+            gemm(1.0, dOP_iM, P_Mi[Mstart:Mstop],
+                 1.0, S_MM, 'n')
+
+
+
 class LCAOWaveFunctions(WaveFunctions):
     def __init__(self, ksl, gd, nvalence, setups, bd,
                  dtype, world, kd, timer=None):
@@ -96,16 +112,10 @@ class LCAOWaveFunctions(WaveFunctions):
                               for a, P_qMi in self.P_aqMi.items()])
 
         self.timer.start('TCI: Calculate S, T, P')
+        # Calculate lower triangle of S and T matrices:
         self.tci.calculate(spos_ac, S_qMM, T_qMM, self.P_aqMi)
-        nao = self.setups.nao
-        for a, P_qMi in self.P_aqMi.items():
-            dO_ii = np.asarray(self.setups[a].dO_ii, P_qMi.dtype)
-            for S_MM, P_Mi in zip(S_qMM, P_qMi):
-                dOP_iM = np.zeros((dO_ii.shape[1], nao), P_Mi.dtype)
-                # (ATLAS can't handle uninitialized output array)
-                gemm(1.0, P_Mi, dO_ii, 0.0, dOP_iM, 'c')
-                gemm(1.0, dOP_iM, P_Mi[Mstart:Mstop], 1.0, S_MM, 'n')
-
+        add_paw_correction_to_overlap(self.setups, self.P_aqMi, S_qMM,
+                                      self.ksl.Mstart, self.ksl.Mstop)
         self.timer.stop('TCI: Calculate S, T, P')
 
         S_MM = None # allow garbage collection of old S_qMM after redist
@@ -124,7 +134,7 @@ class LCAOWaveFunctions(WaveFunctions):
             from numpy.linalg import eigvalsh
             self.timer.start('Check positive definiteness')
             for S_MM in S_qMM:
-                tri2full(S_MM, UL='U')
+                tri2full(S_MM, UL='L')
                 smin = eigvalsh(S_MM).real.min()
                 if smin < 0:
                     raise RuntimeError('Overlap matrix has negative '
@@ -195,7 +205,8 @@ class LCAOWaveFunctions(WaveFunctions):
                 assert self.bd.comm.size == 1
                 d_nn = np.zeros((self.bd.mynbands, self.bd.mynbands), dtype=kpt.C_nM.dtype)
                 for ne, c_n in zip(kpt.ne_o, kpt.c_on):
-                    d_nn += ne * np.outer(c_n.conj(), c_n)
+                    assert abs(c_n.imag).max() < 1e-14
+                    d_nn += ne * np.outer(c_n.conj(), c_n).real
                 rho_MM += self.calculate_density_matrix_delta(d_nn, kpt.C_nM)
         else:
             rho_MM = kpt.rho_MM

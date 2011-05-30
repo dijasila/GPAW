@@ -38,6 +38,15 @@ If you are using the time-dependent DFT part of the code, please cite also:
 
    __ http://link.aip.org/link/?JCP/128/244101
 
+If you use the :ref:`localized basis set <lcao>`, please cite also:
+
+   | A. H. Larsen, M. Vanin, J. J. Mortensen, K. S. Thygesen, and K. W. Jacobsen
+   | `Localized atomic basis set in the projector augmented wave method`__
+   | Physical Review B, Vol. **80**, 195112, 2009
+
+   __ http://dx.doi.org/10.1103/PhysRevB.80.195112
+   
+
 BibTex (:svn:`doc/GPAW.bib`):
 
 .. literalinclude:: GPAW.bib

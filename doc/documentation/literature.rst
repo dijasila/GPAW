@@ -105,12 +105,6 @@ Publications using the gpaw code
 .. image:: publications.png
    :width: 750
 
-.. If the first author is A. Einstein, then remember to use
-   \A. Einstein so that we don't start an enumerated list (A, B, C,
-   ...).
-
-   The date should be the publication date
-
 
 1) The first article introducing the gpaw project:
    
@@ -408,7 +402,8 @@ Publications using the gpaw code
 
 #) Thomas Olsen and Jakob Schiøtz
 
-   `Origin of Power Laws for Reactions at Metal Surfaces Mediated by Hot Electrons`__  
+   `Origin of Power Laws for Reactions at Metal Surfaces Mediated by
+   Hot Electrons`__  
 
    Physical Review Letters, Vol. **103**, 238301 (2009)
 
@@ -437,6 +432,29 @@ Publications using the gpaw code
 
    .. 28 December 2009
 
+#) Michael Walter and Michael Moseler
+
+   `How to observe the oxidation of magnesia-supported Pd clusters 
+   by scanning tunnelling microscopy`__
+
+   Physica Status Solidi **247**, 1016-1022 (2010)
+
+   __ http://dx.doi.org/10.1002/pssb.200945474
+
+   .. 4 January 2010
+
+#) Engelbert Redel, Michael Walter, Ralf Thomann, Laith Hussein, 
+   Michael Krüger and Christoph Janiak
+
+   `Stop-and-go, stepwise and “ligand-free” nucleation, 
+   nanocrystal growth and formation of Au-NPs in ionic liquids (ILs)`__
+
+   Chem. Commun. **46**, 1159-1161 (2010)
+
+   __ http://dx.doi.org/10.1039/B921744D
+
+   .. 4 January 2010
+
 #) Carsten Rostgaard, Karsten W. Jacobsen, and Kristian S. Thygesen
 
    `Fully self-consistent GW calculations for molecules`__
@@ -447,7 +465,8 @@ Publications using the gpaw code
 
    .. 3 February 2010
 
-#) \J. Wellendorff, A. Kelkkanen, J. J. Mortensen, B. Lundqvist, and T. Bligaard
+#) \J. Wellendorff, A. Kelkkanen, J. J. Mortensen, B. Lundqvist,
+   and T. Bligaard
 
    `RPBE-vdW Description of Benzene Adsorption on Au(111)`__
 
@@ -469,6 +488,16 @@ Publications using the gpaw code
    __ http://dx.doi.org/10.1016/j.elspec.2010.02.004
 
    .. 16 February 2010
+
+#) De-en Jiang, Michael Walter and Jaakko Akola
+
+   `On the Structure of a Thiolated Gold Cluster: Au44(SR)282−`__
+
+   J. Phys. Chem. C **114**, 15883–15889 (2010)
+
+   __ http://dx.doi.org/10.1021/jp9097342
+
+   .. 19 February 2010
 
 #) Thomas Olsen and Jakob Schiøtz
 
@@ -492,6 +521,16 @@ Publications using the gpaw code
    __ http://dx.doi.org/10.1038/nchem.589
 
    .. 24 March 2010
+
+#) \De-en Jiang, Michael Walter and Sheng Dai
+
+   `Gold Sulfide Nanoclusters: A Unique Core-In-Cage Structure`__
+
+   Chem. Eur. J. **16**, 4999-5003 (2010) 
+
+   __ http://dx.doi.org/10.1002/chem.201000327
+   
+   .. 26 March 2010
 
 #) \J. F. Parker, K. A. Kacprzak, O. Lopez-Acevedo, H. Häkkinen,
    R. W. Murray
@@ -522,7 +561,7 @@ Publications using the gpaw code
    `Thiolate-protected Au25 superatoms as building blocks: Dimers and
    crystals`__ 
 
-   J. Phys. Chem C **114**, 15986 (2010)
+   \J. Phys. Chem C **114**, 15986 (2010)
 
    __ http://dx.doi.org/10.1021/jp1015438
 
@@ -607,6 +646,17 @@ Publications using the gpaw code
 
    .. 20 July 2010
 
+#) Giorgio Lanzani, Toma Susi, Paola Ayala, Tao Jiang, Albert G. Nasibulin, 
+   Thomas Bligaard, Thomas Pichler, Kari Laasonen, Esko I. Kauppinen
+
+   `Mechanism study of floating catalyst CVD synthesis of SWCNTs`__
+
+   Physica Status Solidi B 247, 2708 (2010)
+
+   __ http://dx.doi.org/10.1002/pssb.201000226
+
+   .. 31 August 2010
+
 #) M. Kuisma, J. Ojanen, J. Enkovaara, and T. T. Rantala
 
    `Kohn-Sham potential with discontinuity for band gap materials`__
@@ -638,12 +688,113 @@ Publications using the gpaw code
 
    .. 5 October 2010
 
-#) B. Siemer, T. Olsen, T. Hoger, M. Rutkowski, C. Thewes, S. Düsterer, J. Schiøtz and H. Zacharias
+#) \B. Siemer, T. Olsen, T. Hoger, M. Rutkowski, C. Thewes,
+   S. Düsterer, J. Schiøtz and H. Zacharias
 
-   `Desorption of H atoms from graphite (0001) using XUV free electron laser pulses`__  
+   `Desorption of H atoms from graphite (0001) using XUV free electron
+   laser pulses`__  
 
    Chemical Physics Letters **500**, 291 (2010)
 
    __ http://dx.doi.org/10.1016/j.cplett.2010.10.040
 
    .. 20 October 2010
+
+#) Dayadeep S. Monder and Kunal Karan
+
+   `Ab Initio Adsorption Thermodynamics of H2S and H2 on Ni(111): The
+   Importance of Thermal Corrections and Multiple Reaction Equilibria`__
+
+   \J. Phys. Chem. C, 2010, 114 (51), pp 22597-22602
+
+   __ http://dx.doi.org/10.1021/jp1076774
+
+   .. 6 December 2010
+
+#) \D. J. Miller, H. Öberg, L.-Å. Näslund, T. Anniyev, H. Ogasawara,
+   L. G. M. Pettersson, and A. Nilsson
+ 
+   `Low O2 dissociation barrier on Pt(111) due to
+   adsorbate-adsorbate interactions`__
+
+   \J. Chem. Phys. 133, 224701 (2010)
+
+   __ http://dx.doi.org/10.1063/1.3512618
+
+   .. 10 December 2010
+
+#) Eero Hulkko, Olga Lopez-Acevedo, Jaakko Koivisto, Yael
+   Levi-Kalisman, Roger D. Kornberg, Mika Pettersson and Hannu Hkkinen
+
+   `Electronic and Vibrational Signatures of the Au102(p-MBA)44
+   Cluster`__
+
+   \J. Am. Chem. Soc. ASAP article
+
+   __ http://dx.doi.org/10.1021/ja111077e
+
+   .. 24 February 2011
+
+#) Andreas Møgelhøj, André Kelkkanen, K. Thor Wikfeldt, Jakob Schiøtz,
+   Jens Jørgen Mortensen, Lars G.M. Pettersson, Bengt I. Lundqvist,
+   Karsten W. Jacobsen, Anders Nilsson and Jens K. Nørskov
+
+   `Ab initio van der Waals interactions in simulations of water alter
+   structure from mainly tetrahedral to high-density-like`__
+
+   __ http://arxiv.org/abs/1101.5666
+
+#) Mikkel Strange, Carsten Rostgaard, Hannu Häkkinen, and Kristian S. Thygesen
+
+   `Self-consistent GW calculations of electronic transport in thiol-
+   and amine-linked molecular junctions`__
+
+   \Phys. Rev. B 83, 115108 (2011)
+
+   __ http://link.aps.org/doi/10.1103/PhysRevB.83.115108
+
+   .. 4 March 2011
+ 
+#) Jun Yan, Kristian S. Thygesen, and Karsten W. Jacobsen 
+
+   `Nonlocal Screening of Plasmons in Graphene by Semiconducting and
+   Metallic Substrates: First-Principles Calculations`__
+
+   \Phys. Rev. Lett. 106, 146803 (2011) 
+
+   __ http://link.aps.org/doi/10.1103/PhysRevLett.106.146803  
+
+   .. 6 April 2011
+ 
+#) Kurt Baarman, Timo Eirola, and Ville Havu
+
+   `Robust acceleration of self consistent field calculations for
+   density functional theory`__
+
+   \J. Chem. Phys. 134, 134109 (2011)
+
+   __ http://link.aip.org/link/doi/10.1063/1.3574836
+
+   .. 6 April 2011
+
+#) Toma Susi, Giorgio Lanzani, Albert G. Nasibulin, Paola Ayala,
+   Tao Jiang, Thomas Bligaard, Kari Laasonen, and Esko I. Kauppinen
+
+   `Mechanism of the initial stages of nitrogen-doped single-walled
+   carbon nanotube growth`__
+
+   \Phys. Chem. Chem. Phys. Advance Article (2011)
+
+   __ http://dx.doi.org/10.1039/C1CP20454H
+
+   .. 13 May 2011
+
+
+:ref:`adding_publications`
+
+.. If the first author is A. Einstein, then remember to use
+   \A. Einstein so that we don't start an enumerated list (A, B, C,
+   ...).
+
+   The date should be the publication date
+

@@ -2,7 +2,7 @@ import numpy as np
 
 from ase import Hartree
 from gpaw.aseinterface import GPAW
-from gpaw.lcao.overlap import TwoCenterIntegrals
+from gpaw.lcao.overlap import NewTwoCenterIntegrals
 from gpaw.utilities import unpack
 from gpaw.utilities.tools import tri2full, lowdin
 from gpaw.lcao.tools import basis_subset2, get_bfi2
@@ -432,8 +432,9 @@ class LCAOwrap:
         else:
             Fcore_ww = np.zeros((len(indices), len(indices)))
         for a, P_wi in self.get_projections(q, indices).items():
-            X_ii = unpack(self.calc.wfs.setups[a].X_p)
-            Fcore_ww -= dots(P_wi, X_ii, P_wi.T.conj())
+            if self.calc.wfs.setups[a].type != 'ghost':
+                X_ii = unpack(self.calc.wfs.setups[a].X_p)
+                Fcore_ww -= dots(P_wi, X_ii, P_wi.T.conj())
         return Fcore_ww * Hartree
 
     def get_xc(self, q=0, indices=None):

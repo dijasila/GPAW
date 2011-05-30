@@ -25,7 +25,6 @@ from gpaw.hamiltonian import Hamiltonian
 from gpaw.utilities.timing import Timer
 from gpaw.xc import XC
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.brillouin import reduce_kpoints
 from gpaw.wavefunctions.base import EmptyWaveFunctions
 from gpaw.wavefunctions.fd import FDWaveFunctions
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
@@ -78,7 +77,6 @@ class PAW(PAWTextOutput):
         self.density = None
         self.hamiltonian = None
         self.atoms = None
-        self.bd = None
 
         self.initialized = False
 
@@ -150,6 +148,11 @@ class PAW(PAWTextOutput):
         for name in ['convergence', 'parallel']:
             if kwargs.get(name) is not None:
                 tmp = p[name]
+                for key in kwargs[name]:
+                    if not key in tmp:
+                        raise KeyError('Unknown subparameter "%s" in '
+                                       'dictionary parameter "%s"' % (key,
+                                                                      name))
                 tmp.update(kwargs[name])
                 kwargs[name] = tmp
 
@@ -187,7 +190,7 @@ class PAW(PAWTextOutput):
                 self.wfs = EmptyWaveFunctions()
                 self.occupations = None
             elif key in ['h', 'gpts', 'setups', 'spinpol', 'usesymm',
-                         'parallel', 'communicator']:
+                         'parallel', 'communicator', 'dtype']:
                 self.density = None
                 self.occupations = None
                 self.hamiltonian = None
@@ -393,7 +396,7 @@ class PAW(PAWTextOutput):
         cell_cv /= Bohr
 
 
-        if hasattr(self, 'time'):
+        if hasattr(self, 'time') or par.dtype==complex:
             dtype = complex
         else:
             if kd.gamma:
@@ -425,7 +428,7 @@ class PAW(PAWTextOutput):
             nbands = int(nvalence + M + 0.5) // 2 + (-nbands)
 
         if nvalence > 2 * nbands:
-            raise ValueError('Too few bands!  Electrons: %d, bands: %d'
+            raise ValueError('Too few bands!  Electrons: %f, bands: %d'
                              % (nvalence, nbands))
 
         nbands *= ncomp
@@ -480,13 +483,8 @@ class PAW(PAWTextOutput):
 
             kd.set_communicator(kpt_comm)
 
-            if self.bd is not None and self.bd.comm.size != band_comm.size:
-                # Band grouping has changed, so we need to
-                # reinitialize - err what exactly? WaveFunctions? XXX
-                raise NotImplementedError('Band communicator size changed.')
-
             parstride_bands = par.parallel['stridebands']
-            self.bd = BandDescriptor(nbands, band_comm, parstride_bands)
+            bd = BandDescriptor(nbands, band_comm, parstride_bands)
 
             if (self.density is not None and
                 self.density.gd.comm.size != domain_comm.size):
@@ -503,8 +501,7 @@ class PAW(PAWTextOutput):
                                             domain_comm, parsize)
 
             # do k-point analysis here? XXX
-            args = (gd, nvalence, setups, self.bd, dtype, world, kd,
-                    self.timer)
+            args = (gd, nvalence, setups, bd, dtype, world, kd, self.timer)
 
             if par.mode == 'lcao':
                 # Layouts used for general diagonalizer
@@ -512,9 +509,8 @@ class PAW(PAWTextOutput):
                 if sl_lcao is None:
                     sl_lcao = par.parallel['sl_default']
                 lcaoksl = get_KohnSham_layouts(sl_lcao, 'lcao',
-                                               gd, self.bd, dtype,
-                                               nao=nao,
-                                               timer=self.timer)
+                                               gd, bd, dtype,
+                                               nao=nao, timer=self.timer)
 
                 if collinear:
                     self.wfs = LCAOWaveFunctions(lcaoksl, *args)
@@ -531,7 +527,7 @@ class PAW(PAWTextOutput):
                 if sl_diagonalize is None:
                     sl_diagonalize = par.parallel['sl_default']
                 diagksl = get_KohnSham_layouts(sl_diagonalize, 'fd',
-                                               gd, self.bd, dtype,
+                                               gd, bd, dtype,
                                                buffer_size=buffer_size,
                                                timer=self.timer)
 
@@ -539,16 +535,20 @@ class PAW(PAWTextOutput):
                 sl_inverse_cholesky = par.parallel['sl_inverse_cholesky']
                 if sl_inverse_cholesky is None:
                     sl_inverse_cholesky = par.parallel['sl_default']
+                if sl_inverse_cholesky != sl_diagonalize:
+                    message = 'sl_inverse_cholesky != sl_diagonalize ' \
+                        'is not implemented.'
+                    raise NotImplementedError(message)
                 orthoksl = get_KohnSham_layouts(sl_inverse_cholesky, 'fd',
-                                                gd, self.bd, dtype,
+                                                gd, bd, dtype,
                                                 buffer_size=buffer_size,
                                                 timer=self.timer)
 
                 # Use (at most) all available LCAO for initialization
                 lcaonbands = min(nbands, nao)
                 lcaobd = BandDescriptor(lcaonbands, band_comm, parstride_bands)
-                assert nbands <= nao or self.bd.comm.size == 1
-                assert lcaobd.mynbands == min(self.bd.mynbands, nao) #XXX
+                assert nbands <= nao or bd.comm.size == 1
+                assert lcaobd.mynbands == min(bd.mynbands, nao) #XXX
 
                 # Layouts used for general diagonalizer (LCAO initialization)
                 sl_lcao = par.parallel['sl_lcao']
@@ -565,7 +565,7 @@ class PAW(PAWTextOutput):
                 else:
                     # Planewave basis:
                     self.wfs = par.mode(diagksl, orthoksl, initksl,
-                                        gd, nvalence, setups, self.bd,
+                                        gd, nvalence, setups, bd,
                                         world, kd, self.timer)
             else:
                 self.wfs = par.mode(self, *args)
@@ -626,6 +626,7 @@ class PAW(PAWTextOutput):
     def dry_run(self):
         # Can be overridden like in gpaw.atom.atompaw
         self.print_cell_and_parameters()
+        self.print_positions()
         self.txt.flush()
         raise SystemExit
 
@@ -646,7 +647,7 @@ class PAW(PAWTextOutput):
         self.hamiltonian.update(self.density)
 
 
-    def attach(self, function, n, *args, **kwargs):
+    def attach(self, function, n=1, *args, **kwargs):
         """Register observer function.
 
         Call *function* every *n* iterations using *args* and
@@ -701,8 +702,6 @@ class PAW(PAWTextOutput):
 
     def estimate_memory(self, mem):
         """Estimate memory use of this object."""
-        mem_init = maxrss() # XXX initial overhead includes part of Hamiltonian
-        mem.subnode('Initial overhead', mem_init)
         for name, obj in [('Density', self.density),
                           ('Hamiltonian', self.hamiltonian),
                           ('Wavefunctions', self.wfs),
@@ -724,6 +723,10 @@ class PAW(PAWTextOutput):
             txt = self.txt
         print >> txt, 'Memory estimate'
         print >> txt, '---------------'
+        
+        mem_init = maxrss() # XXX initial overhead includes part of Hamiltonian
+        print >> txt, 'Process memory now: %.2f MiB' % (mem_init / 1024.0**2)
+        
         mem = MemNode('Calculator', 0)
         try:
             self.estimate_memory(mem)

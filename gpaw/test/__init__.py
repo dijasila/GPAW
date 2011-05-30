@@ -9,7 +9,7 @@ import numpy as np
 
 from gpaw.atom.generator import Generator
 from gpaw.atom.configurations import parameters
-from gpaw.utilities import devnull
+from gpaw.utilities import devnull, compiled_with_sl
 from gpaw import setup_paths
 from gpaw import mpi
 import gpaw
@@ -57,12 +57,12 @@ tests = [
     'gemm_complex.py',
     'lapack.py',
     'mpicomm.py',
+    'parallel/submatrix_redist.py',
     'eigh.py',
     'xc.py',
     'gradient.py',
     'pbe_pw91.py',
     'cg2.py',
-    'd2Excdn2.py',
     'dot.py',
     'blas.py',
     'gp2.py',
@@ -76,9 +76,11 @@ tests = [
     'second_derivative.py',
     'integral4.py',
     'transformations.py',
+    'occupations.py',
     'nabla.py',
     'aeatom.py',
     'pbc.py',
+    'atoms_too_close.py',
     'poisson.py',
     'XC2.py',
     'multipoletest.py',
@@ -88,7 +90,6 @@ tests = [
     'parallel/compare.py',
     'ase3k.py',
     'laplace.py',
-    'ds_beta.py',
     'gauss_wave.py',
     'planewavebasis.py',
     'coulomb.py',
@@ -100,10 +101,12 @@ tests = [
     'wfs_io.py',
     'wfs_auto.py',
     'xcatom.py',
+    'ds_beta.py',
     'parallel/overlap.py',
     'symmetry.py',
     'pes.py',
     'elf.py',
+    'lebedev.py',
     'usesymm.py',
 #    'usesymm2.py',
     'eed.py',
@@ -114,6 +117,7 @@ tests = [
     'mgga_restart.py',
     'gga_atom.py',
     'bee1.py',
+    'external_potential.py',
     'refine.py',
     'revPBE.py',
     'lcao_largecellforce.py',
@@ -125,6 +129,8 @@ tests = [
     'nonselfconsistent.py',
     'ewald.py',
     'harmonic.py',
+    'ut_csh.py',
+    'ut_rsh.py',
     'spinpol.py',
     'kptpar.py',
     'plt.py',
@@ -158,16 +164,20 @@ tests = [
     'gllbatomic.py', 
     'ne_gllb.py',
     'ne_disc.py', 
-    'diamond_gllb.py',
     'wannier_ethylene.py',
     'CH4.py',
     'neb.py',
+    'complex.py',
     'diamond_absorption.py',
     'aluminum_EELS.py',
-    'aluminum_EELS_lcao.py',
-    'aluminum_testcell.py',
     'dump_chi0.py',
     'au02_absorption.py',
+    'rpa_energy_Kr.py',
+    'bse_aluminum.py',
+    'bse_diamond.py',
+    'bse_vs_lrtddft.py',
+#    'bse_silicon.py',
+    'diamond_eps_alda.py',
     'hgh_h2o.py',
     'apmb.py',
     'relax.py',
@@ -189,7 +199,9 @@ tests = [
     'restart_band_structure.py',
     'IP_oxygen.py',
     'atomize.py',
+    'dipole.py',
     'Hubbard_U.py',
+    'Hubbard_U_Zn.py',
     'revPBE_Li.py',
     'si_xas.py',
     'tpss.py',
@@ -198,12 +210,15 @@ tests = [
     'dscf_lcao.py',
     'coreeig.py',
     'Cu.py',
+    'diamond_gllb.py',
+    'wannierk.py',
     'exx.py',
     'h2o_dks.py',
     'nscfsic.py',
     'scfsic_h2.py',
     'scfsic_n2.py',
     'lb94.py',
+    'aluminum_EELS_lcao.py',
     'vdw/quick.py',
     'vdw/potential.py',
     'vdw/quick_spin.py',
@@ -219,6 +234,7 @@ tests = [
     'parallel/pblas.py',
     'parallel/blacsdist.py',
     'parallel/scalapack.py',
+    'parallel/scalapack_diag_simple.py',
     'parallel/realspace_blacs.py',
     'parallel/lcao_projections.py',
     #'dscf_forces.py',
@@ -227,9 +243,12 @@ tests = [
     'transport.py',
     'constant_electric_field.py',
     'stark_shift.py',
+    'aluminum_testcell.py',
     ]
 
 exclude = []
+
+
 if mpi.size > 1:
     exclude += ['pes.py',
                 'nscfsic.py',
@@ -245,12 +264,20 @@ if mpi.size > 2:
 if mpi.size < 4:
     exclude += ['parallel/pblas.py',
                 'parallel/scalapack.py',
+                'parallel/scalapack_diag_simple.py',
                 'parallel/realspace_blacs.py',
-                'AA_exx_enthalpy.py']
+                'AA_exx_enthalpy.py',
+                'bse_aluminum.py',
+                'bse_diamond.py',
+                'bse_vs_lrtddft.py'
+                ]
 
 if mpi.size != 4:
     exclude += ['parallel/lcao_parallel.py']
     exclude += ['parallel/fd_parallel.py']
+
+if mpi.size == 1 or not compiled_with_sl():
+    exclude += ['parallel/submatrix_redist.py']
 
 if mpi.size == 8:
     exclude += ['transport.py']
@@ -263,11 +290,17 @@ try:
     import scipy
 except ImportError:
     exclude += ['diamond_absorption.py',
+                'diamond_eps_alda.py',
                 'aluminum_EELS.py',
                 'aluminum_EELS_lcao.py',
                 'aluminum_testcell.py',
                 'au02_absorption.py',
-                'aeatom.py']
+                'bse_aluminum.py',
+                'bse_diamond.py',
+                'bse_vs_lrtddft.py',
+#                'bse_silicon.py',
+                'aeatom.py',
+                'rpa_energy_Kr.py']
 
 for test in exclude:
     if test in tests:
@@ -275,10 +308,12 @@ for test in exclude:
 
 
 class TestRunner:
-    def __init__(self, tests, stream=sys.__stdout__, jobs=1):
+    def __init__(self, tests, stream=sys.__stdout__, jobs=1,
+                 show_output=False):
         if mpi.size > 1:
             assert jobs == 1
         self.jobs = jobs
+        self.show_output = show_output
         self.tests = tests
         self.failed = []
         self.garbage = []
@@ -290,7 +325,8 @@ class TestRunner:
 
     def run(self):
         self.log.write('=' * 77 + '\n')
-        sys.stdout = devnull
+        if not self.show_output:
+            sys.stdout = devnull
         ntests = len(self.tests)
         t0 = time.time()
         if self.jobs == 1:

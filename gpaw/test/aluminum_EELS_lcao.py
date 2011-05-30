@@ -40,10 +40,9 @@ q = np.array([1/4.,0.,0.])
 w = np.linspace(0, 24, 241)
     
 df = DF(calc='Al.gpw', q=q, w=w, eta=0.2, ecut=50)
-df1, df2 = df.get_dielectric_function()
 #df.write('Al.pckl')
-df.get_EELS_spectrum(df1, df2,filename='EELS_Al_lcao')
-df.check_sum_rule(df1, df2)
+df.get_EELS_spectrum(filename='EELS_Al_lcao')
+df.check_sum_rule()
     
 t3 = time.time()
 

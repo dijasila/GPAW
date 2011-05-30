@@ -1,5 +1,6 @@
 /*  Copyright (C) 2003-2007  CAMP
  *  Copyright (C) 2007-2009  CAMd
+ *  Copyright (C) 2010  Argonne National Laboratory
  *  Please see the accompanying LICENSE file for further information. */
 
 #ifdef PARALLEL
@@ -550,10 +551,8 @@ PyObject* scalapack_redist(PyObject *self, PyObject *args)
   char uplo;
   char diag='N'; // copy the diagonal
   int c_ConTxt;
-  int isreal;
   int m;
   int n;
-  int one = 1;
 
   int ia, ja, ib, jb;
 
@@ -762,8 +761,8 @@ PyObject* scalapack_diagonalize_ex(PyObject *self, PyObject *args)
   int querywork = -1;
   int* iwork;
   int liwork;
-  int lwork;
-  int lrwork;
+  int lwork;  // workspace size must be at least 3
+  int lrwork; // workspace size must be at least 3
   int i_work;
   double d_work[3];
   double_complex c_work;
@@ -777,7 +776,7 @@ PyObject* scalapack_diagonalize_ex(PyObject *self, PyObject *args)
 	       DOUBLEP(z), &one, &one, INTP(desca),
 	       d_work, &querywork,  &i_work, &querywork,
 	       ifail, iclustr, gap, &info);
-      lwork = (int)(d_work[0]);
+      lwork = MAX(3, (int)(d_work[0]));
     }
   else
     {
@@ -789,8 +788,8 @@ PyObject* scalapack_diagonalize_ex(PyObject *self, PyObject *args)
                (void*)&c_work, &querywork, d_work, &querywork,
                &i_work, &querywork,
                ifail, iclustr, gap, &info);
-      lwork = (int)(c_work);
-      lrwork = (int)(d_work[0]);
+      lwork = MAX(3, (int)(c_work));
+      lrwork = MAX(3, (int)(d_work[0]));
     }
 
   if (info != 0) {
@@ -1223,8 +1222,8 @@ PyObject* scalapack_general_diagonalize_ex(PyObject *self, PyObject *args)
   int querywork = -1;
   int* iwork;
   int liwork;
-  int lwork;
-  int lrwork;
+  int lwork;  // workspace size must be at least 3
+  int lrwork; // workspace size must be at least 3 
   int i_work;
   double d_work[3];
   double_complex c_work;
@@ -1239,7 +1238,7 @@ PyObject* scalapack_general_diagonalize_ex(PyObject *self, PyObject *args)
 	       DOUBLEP(z),  &one, &one, INTP(desca),
 	       d_work, &querywork, &i_work, &querywork,
 	       ifail, iclustr, gap, &info);
-      lwork = (int)(d_work[0]);
+      lwork = MAX(3, (int)(d_work[0])); 
     } 
   else
     {
@@ -1252,8 +1251,8 @@ PyObject* scalapack_general_diagonalize_ex(PyObject *self, PyObject *args)
                (void*)&c_work, &querywork, d_work, &querywork,
                &i_work, &querywork,
                ifail, iclustr, gap, &info);
-      lwork = (int)(c_work);
-      lrwork = (int)(d_work[0]);
+      lwork = MAX(3, (int)(c_work));
+      lrwork = MAX(3, (int)(d_work[0]));
     }
   if (info != 0) {
     PyErr_SetString(PyExc_RuntimeError,
@@ -1281,11 +1280,7 @@ PyObject* scalapack_general_diagonalize_ex(PyObject *self, PyObject *args)
   else 
     {
       double_complex* work = GPAW_MALLOC(double_complex, lwork);
-      int nrwork = lrwork;
-      if (nrwork < 3)
-	nrwork = 3;
-      double* rwork = GPAW_MALLOC(double, nrwork);
-      // rwork must always be larger than or equal to 3
+      double* rwork = GPAW_MALLOC(double, lrwork);
       pzhegvx_(&ibtype, &jobz, &range, &uplo, &n,
                (void*)COMPLEXP(a), &one, &one, INTP(desca),
                (void*)COMPLEXP(b), &one, &one, INTP(desca),

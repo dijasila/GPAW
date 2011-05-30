@@ -25,8 +25,6 @@ class GhostSetup(BaseSetup):
     def __init__(self, basis, data):
         self.symbol = data.symbol
         self.data = data
-        if isinstance(basis, str):
-            basis = Basis(data.chemsymbol, basis)
         self.phit_j = basis.tosplines()
         self.basis = basis
         self.niAO = sum([2 * phit.get_angular_momentum_number() + 1
@@ -76,9 +74,8 @@ class GhostSetup(BaseSetup):
         self.N0_p = np.zeros(1)
         self.nabla_iiv = None
         self.phicorehole_g = None
-        self.beta = None
+        self.rgd = None
         self.rcut_j = [0.5]
-        self.ng = None
         self.tauct = None
         self.Delta_Lii = None
         self.B_ii = None

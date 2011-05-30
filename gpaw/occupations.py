@@ -6,6 +6,8 @@
 import warnings
 import numpy as np
 from ase.units import Hartree
+from gpaw.utilities import erf
+from math import pi
 
 class OccupationNumbers:
     """Base class for all occupation number objects."""
@@ -187,11 +189,11 @@ class ZeroKelvin(OccupationNumbers):
         OccupationNumbers.__init__(self, fixmagmom)
         
     def calculate_occupation_numbers(self, wfs):
-        if self.fixmagmom:
+        if wfs.nspins == 1:
+            self.spin_paired(wfs)
+        elif self.fixmagmom:
             assert wfs.gamma
             self.fixed_moment(wfs)
-        elif wfs.nspins == 1:
-            self.spin_paired(wfs)
         else:
             assert wfs.nibzkpts == 1
             self.spin_polarized(wfs)
@@ -378,7 +380,9 @@ class SmoothDistribution(ZeroKelvin):
         return string
 
     def calculate_occupation_numbers(self, wfs):
-        if self.width == 0 or self.nvalence == wfs.nbands * 2 // wfs.ncomp:
+        if self.width != 0 and self.nvalence == wfs.nbands * 2 // wfs.ncomp:
+            raise ValueError('Not enough bands for non-zero width.')
+        elif self.width == 0 or self.nvalence == wfs.nbands * 2 // wfs.ncomp:
             ZeroKelvin.calculate_occupation_numbers(self, wfs)
             return
 
@@ -422,34 +426,32 @@ class SmoothDistribution(ZeroKelvin):
     def guess_fermi_level(self, wfs):
         fermilevel = 0.0
 
-        # find the maximum length of kpt_u:
-        nu = wfs.kd.nks // wfs.kd.comm.size
-        if wfs.kd.rank0 < wfs.kd.comm.size:
-            nu += 1
-
-        # myeps_un must have same size on all cpu's so we can use gather.
-        myeps_un = np.empty((nu, wfs.nbands))
+        kd = wfs.kd
+        
+        myeps_un = np.empty((kd.mynks, wfs.nbands))
         for u, kpt in enumerate(wfs.kpt_u):
             myeps_un[u] = wfs.bd.collect(kpt.eps_n)
-        if len(wfs.kpt_u) < nu:
-            myeps_un[-1] = 1.0e10  # fill in large dummy values
-        myeps_n = myeps_un.ravel()
         
         if wfs.bd.comm.rank == 0:
-            if wfs.kpt_comm.rank > 0:
-                wfs.kpt_comm.gather(myeps_n, 0)
-            else:
-                eps_n = np.empty(nu * wfs.kpt_comm.size * wfs.nbands)
-                wfs.kpt_comm.gather(myeps_n, 0, eps_n)
-                eps_n = eps_n.ravel()
-                eps_n.sort()
-                n, f = divmod(self.nvalence * wfs.nibzkpts,
-                              4 - wfs.nspins - wfs.ncomp)
-                n = int(n)
-                if f > 0.0:
-                    fermilevel = eps_n[n]
+            eps_skn = kd.collect(myeps_un, broadcast=False)
+            if kd.comm.rank == 0:
+                eps_n = eps_skn.ravel()
+                w_skn = np.empty((kd.nspins, kd.nibzkpts, wfs.nbands))
+                w_skn[:] = 2.0 / wfs.nspins * kd.weight_k[:, np.newaxis]
+                # XXX ??? 4 - wfs.nspins - wfs.ncomp)
+                w_n = w_skn.ravel()
+                n_i = eps_n.argsort()
+                w_i = w_n[n_i]
+                f_i = np.add.accumulate(w_i) - 0.5 * w_i
+                i = np.nonzero(f_i >= self.nvalence)[0][0]
+                if i == 0:
+                    fermilevel = eps_n[n_i[0]]
                 else:
-                    fermilevel = 0.5 * (eps_n[n - 1] + eps_n[n])
+                    fermilevel = ((eps_n[n_i[i]] *
+                                   (self.nvalence - f_i[i - 1]) +
+                                   eps_n[n_i[i - 1]] *
+                                   (f_i[i] - self.nvalence)) /
+                                  (f_i[i] - f_i[i - 1]))
 
         # XXX broadcast would be better!
         return wfs.bd.comm.sum(wfs.kpt_comm.sum(fermilevel))
@@ -485,6 +487,7 @@ class SmoothDistribution(ZeroKelvin):
         self.niter = niter
         return fermilevel, magmom, e_entropy
 
+
 class FermiDirac(SmoothDistribution):
     def __init__(self, width, fixmagmom=False, maxiter=1000):
         SmoothDistribution.__init__(self, width, fixmagmom, maxiter)
@@ -503,3 +506,41 @@ class FermiDirac(SmoothDistribution):
         e_entropy = -kpt.weight * y.sum() * self.width
         sign = 1 - kpt.s * 2
         return np.array([n, dnde, n * sign, e_entropy])
+
+class MethfesselPaxton(SmoothDistribution):
+    def __init__(self, width, iter=0, fixmagmom=False, maxiter=1000):
+        SmoothDistribution.__init__(self, width, fixmagmom, maxiter)
+        self.iter = iter
+
+    def distribution(self, kpt, fermilevel):
+        x = (kpt.eps_n - fermilevel) / self.width
+        x = x.clip(-100, 100)
+
+        z = 0.5 * (1 - erf(x))
+        for i in range(self.iter):
+            z += self.coff_function(i + 1) * self.hermite_poly(2 * i + 1, x) * np.exp(-x**2)
+        kpt.f_n[:] = kpt.weight * z
+        n = kpt.f_n.sum()
+
+        dnde = kpt.weight / np.sqrt(pi) * np.exp(-x**2)
+        for i in range(self.iter):
+            dnde += self.coff_function(i + 1) * self.hermite_poly(2 * i + 2, x) * np.exp(-x**2)
+        dnde = dnde.sum()
+        dnde /= self.width
+        e_entropy = 0.5 * self.coff_function(self.iter) * self.hermite_poly(2 * self.iter, x)* np.exp(-x**2)
+        e_entropy = kpt.weight * e_entropy.sum() * self.width
+
+        sign = 1 - kpt.s * 2
+        return np.array([n, dnde, n * sign, e_entropy])
+
+    def coff_function(self, n):
+        return (-1)**n / (np.product(np.arange(1, n + 1)) * 4.** n * np.sqrt(np.pi))
+
+    def hermite_poly(self, n, x):
+        if n == 0:
+            return 1
+        elif n == 1:
+            return 2 * x
+        else:
+            return 2 * x * self.hermite_poly(n - 1, x) \
+                            - 2 * (n - 1) * self.hermite_poly(n - 2 , x)

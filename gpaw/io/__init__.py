@@ -85,11 +85,6 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
 
     hdf5 = filename.endswith('.hdf5')
 
-    if master:
-        if filename == '.db':
-            from cmr_io import create_db_filename
-            filename = create_db_filename()
-
     if master or hdf5:
         w = open(filename, 'w', world)
         
@@ -156,7 +151,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         # Write various parameters:
         (w['KohnShamStencil'],
          w['InterpolationStencil']) = p['stencils']
-        w['PoissonStencil'] = paw.hamiltonian.poisson.nn
+        w['PoissonStencil'] = paw.hamiltonian.poisson.get_stencil()
         w['XCFunctional'] = paw.hamiltonian.xc.name
         w['Charge'] = p['charge']
         w['FixMagneticMoment'] = paw.occupations.fixmagmom
@@ -257,6 +252,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         all_D_sp = np.empty((wfs.nspins, nadm))
         all_H_sp = np.empty((wfs.nspins, nadm))
         p1 = 0
+        p2 = 0
         for a in range(natoms):
             ni = wfs.setups[a].ni
             nii = ni * (ni + 1) // 2
@@ -574,6 +570,12 @@ def read(paw, reader):
         norbitals = None
 
     # Wave functions and eigenvalues:
+    dtype = r['DataType']
+    if dtype == 'Float' and paw.input_parameters['dtype']!=complex:
+        wfs.dtype = float
+    else:
+        wfs.dtype = complex
+        
     nibzkpts = r.dimension('nibzkpts')
     nbands = r.dimension('nbands')
     nslice = wfs.bd.get_slice()

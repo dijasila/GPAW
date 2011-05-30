@@ -136,12 +136,15 @@ class GridDescriptor(Domain):
                                np.diag(self.cell_cv.diagonal())).any()
 
         # Sanity check for grid spacings:
-        L_c = (np.linalg.inv(self.cell_cv)**2).sum(0)**-0.5
-        h_c = L_c / N_c
+        h_c = self.get_grid_spacings()
         if max(h_c) / min(h_c) > 1.3:
             raise ValueError('Very anisotropic grid spacings: %s' % h_c)
 
         self.use_fixed_bc = False
+
+    def get_grid_spacings(self):
+        L_c = (np.linalg.inv(self.cell_cv)**2).sum(0)**-0.5
+        return L_c / self.N_c
 
     def get_size_of_global_array(self, pad=False):
         if pad:
@@ -324,6 +327,9 @@ class GridDescriptor(Domain):
 
 
     def symmetrize(self, a_g, op_scc):
+        if len(op_scc) == 1:
+            return
+        
         A_g = self.collect(a_g)
         if self.comm.rank == 0:
             B_g = np.zeros_like(A_g)
@@ -438,7 +444,7 @@ class GridDescriptor(Domain):
         self.comm.sum(d_c)
         return d_c
 
-    def wannier_matrix(self, psit_nG, psit_nG1, c, G, nbands=None):
+    def wannier_matrix(self, psit_nG, psit_nG1, G_c, nbands=None):
         """Wannier localization integrals
 
         The soft part of Z is given by (Eq. 27 ref1)::
@@ -447,42 +453,23 @@ class GridDescriptor(Domain):
             Z   = <psi | e      |psi >
              nm       n             m
                     
-        G is 1/N_c (plus 1 if k-points distances should be wrapped over
-        the Brillouin zone), where N_c is the number of k-points along
-        axis c, psit_nG and psit_nG1 are the set of wave functions for
-        the two different spin/kpoints in question.
+        psit_nG and psit_nG1 are the set of wave functions for the two
+        different spin/kpoints in question.
 
         ref1: Thygesen et al, Phys. Rev. B 72, 125119 (2005) 
         """
-        same_wave = False
-        if psit_nG is psit_nG1:
-            same_wave = True
 
         if nbands is None:
             nbands = len(psit_nG)
-        
-        def get_slice(c, g, psit_nG):
-            if c == 0:
-                slice_nG = psit_nG[:nbands, g].copy()
-            elif c == 1:
-                slice_nG = psit_nG[:nbands, :, g].copy()
-            else:
-                slice_nG = psit_nG[:nbands, :, :, g].copy()
-            return slice_nG.reshape((nbands, np.prod(slice_nG.shape[1:])))
-        
-        Z_nn = np.zeros((nbands, nbands), complex)
-        for g in range(self.n_c[c]):
-            A_nG = get_slice(c, g, psit_nG)
-                
-            if same_wave:
-                B_nG = A_nG
-            else:
-                B_nG = get_slice(c, g, psit_nG1)
-                
-            e = exp(-2.j * pi * G * (g + self.beg_c[c]) / self.N_c[c])
-            Z_nn += e * np.dot(A_nG.conj(), B_nG.T) * self.dv
-            
-        return Z_nn
+
+        if nbands == 0:
+            return np.zeros((0, 0), complex)
+
+        e_G = np.exp(-2j * pi * np.dot(np.indices(self.n_c).T +
+                                       self.beg_c, G_c / self.N_c).T)
+        a_nG = (e_G * psit_nG[:nbands].conj()).reshape((nbands, -1))
+        return np.inner(a_nG,
+                        psit_nG1[:nbands].reshape((nbands, -1))) * self.dv
 
     def bytecount(self, dtype=float):
         """Get the number of bytes used by a grid of specified dtype."""
@@ -550,8 +537,8 @@ class GridDescriptor(Domain):
                 (self.N_c == other.N_c).all() and
                 (self.n_c == other.n_c).all() and
                 (self.beg_c == other.beg_c).all() and
-                (self.end_c == other.end_c).all()
-                )
+                (self.end_c == other.end_c).all())
+
                
 class RadialGridDescriptor:
     """Descriptor-class for radial grid."""

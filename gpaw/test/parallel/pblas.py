@@ -20,7 +20,7 @@ from gpaw.utilities.scalapack import pblas_simple_gemm, pblas_simple_gemv, \
 
 import _gpaw
 
-tol = 3.0e-13 # may need to be be increased if the mprocs-by-nprocs \
+tol = 4.0e-13 # may need to be be increased if the mprocs-by-nprocs \
     # BLACS grid becomes larger
 
 def main(M=160, N=120, K=140, seed=42, mprocs=2, nprocs=2, dtype=float):

@@ -14,10 +14,10 @@ def XC(kernel, parameters=None):
 
     Recognized names are: LDA, PW91, PBE, revPBE, RPBE, BLYP, HCTH407,
     TPSS, M06L, revTPSS, vdW-DF, vdW-DF2, EXX, PBE0, B3LYP, BEE,
-    GLLBSC.  One can also use libxc names like this:
-    GGA_X_PBE+GGA_C_PBE would be equivalent to PBE, and LDA_X would
-    give LDA exchange.  See gpaw.xc.libxc.py for a list of libxc
-    names.  """
+    GLLBSC.  One can also use equivalent libxc names, for example
+    GGA_X_PBE+GGA_C_PBE is equivalent to PBE, and LDA_X to the LDA exchange.
+    In this way one has access to all the functionals defined in libxc.
+    See gpaw.xc.libxc_functionals.py for the complete list.  """
     
     if isinstance(kernel, str):
         name = kernel
@@ -39,9 +39,16 @@ def XC(kernel, parameters=None):
         elif name == 'LB94':
             from gpaw.xc.lb94 import LB94
             kernel = LB94()
-        elif name.endswith('PZ-SIC'): 
-            from gpaw.xc.sic import SIC 
-            return SIC(xc=name[:-7])
+        elif name.startswith('ODD_'):
+            from ODD import ODDFunctional
+            return ODDFunctional(name[4:])
+        elif name.endswith('PZ-SIC'):
+            try:
+                from ODD import PerdewZungerSIC as SIC 
+                return SIC(xc=name[:-7])
+            except:
+                from gpaw.xc.sic import SIC 
+                return SIC(xc=name[:-7])
         elif name.startswith('old'): 
             from gpaw.xc.kernel import XCKernel
             kernel = XCKernel(name[3:])

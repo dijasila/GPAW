@@ -74,10 +74,8 @@ if EELS:
         df = DF(calc='graphite.gpw', nbands=nband, q=q, w=w,
                 eta=0.2,ecut=ecut)
 
-        df1, df2 = df.get_dielectric_function()
-
-        df.get_EELS_spectrum(df1, df2,filename='graphite_EELS_' + str(i))
-        df.check_sum_rule(df1, df2)
+        df.get_EELS_spectrum(filename='graphite_EELS_' + str(i))
+        df.check_sum_rule()
 
         print >> f, sqrt(np.inner(df.qq_v / Bohr, df.qq_v / Bohr)), ecut
 

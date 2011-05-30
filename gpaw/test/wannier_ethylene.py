@@ -54,6 +54,14 @@ check(calc)
 calc.write('ethylene.gpw', 'all')
 check(GPAW('ethylene.gpw', txt=None))
 
+try:
+    from gpaw.io.etsf import ETSFWriter
+except ImportError:
+    pass  # Scientific.IO.NetCDF was not installed
+else:
+    if calc.wfs.world.size == 1:
+        ETSFWriter().write(calc, ecut=150)
+
 ## for i in range(6):
 ##     wannier.write_cube(i, 'ethylene%s.cube' % i, real=True)
 

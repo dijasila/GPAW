@@ -14,6 +14,9 @@ from gpaw import extra_parameters
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.hs_operators import MatrixOperator
 from gpaw.preconditioner import Preconditioner
+from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.kpoint import KPoint
+from gpaw.mpi import serial_comm
 
 
 class FDWaveFunctions(FDPWWaveFunctions):
@@ -29,7 +32,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
         # Kinetic energy operator:
         self.kin = Laplace(self.gd, -0.5, stencil, self.dtype, allocate=False)
 
-        self.matrixoperator = MatrixOperator(self.bd, self.gd, orthoksl)
+        self.matrixoperator = MatrixOperator(orthoksl)
 
     def set_setups(self, setups):
         self.pt = LFC(self.gd, [setup.pt_j for setup in setups],
@@ -81,7 +84,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                     if abs(d) > 1.e-12:
                         nt_G += (psi0_G.conj() * d * psi_G).real
 
-    def calculate_kinetic_energy_density(self, tauct, grad_v):
+    def calculate_kinetic_energy_density(self, grad_v):
         assert not hasattr(self.kpt_u[0], 'c_on')
         if isinstance(self.kpt_u[0].psit_nG, TarFileReference):
             raise RuntimeError('Wavefunctions have not been initialized.')
@@ -91,7 +94,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
         for kpt in self.kpt_u:
             for f, psit_G in zip(kpt.f_n, kpt.psit_nG):
                 for v in range(3):
-                    grad_v[v](psit_G, dpsit_G)
+                    grad_v[v](psit_G, dpsit_G, kpt.phase_cd)
                     axpy(0.5 * f, abs(dpsit_G)**2, taut_sG[kpt.s])
 
         self.kpt_comm.sum(taut_sG)
@@ -137,6 +140,61 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
         if self.bd.comm.rank == 0:
             self.kpt_comm.sum(F_av, 0)
+
+    def ibz2bz(self, atoms):
+        """Transform wave functions in IBZ to the full BZ."""
+
+        assert self.kd.comm.size == 1
+
+        # New k-point descriptor for full BZ:
+        kd = KPointDescriptor(self.kd.bzk_kc, nspins=self.nspins)
+        kd.set_symmetry(atoms, self.setups, None)
+        kd.set_communicator(serial_comm)
+
+        self.pt = LFC(self.gd, [setup.pt_j for setup in self.setups],
+                      dtype=self.dtype)
+        self.pt.set_k_points(kd.ibzk_kc)
+        self.pt.set_positions(atoms.get_scaled_positions())
+
+        self.initialize_wave_functions_from_restart_file()
+
+        weight = 2.0 / kd.nspins / kd.nbzkpts
+        
+        # Build new list of k-points:
+        kpt_u = []
+        for s in range(self.nspins):
+            for k in range(kd.nbzkpts):
+                # Index of symmetry related point in the IBZ
+                ik = self.kd.kibz_k[k]
+                r, u = self.kd.get_rank_and_index(s, ik)
+                assert r == 0
+                kpt = self.kpt_u[u]
+            
+                phase_cd = np.exp(2j * np.pi * self.gd.sdisp_cd *
+                                  kd.bzk_kc[k, :, np.newaxis])
+
+                # New k-point:
+                kpt2 = KPoint(weight, s, k, k, phase_cd)
+                kpt2.f_n = kpt.f_n / kpt.weight / kd.nbzkpts * 2 / self.nspins
+                kpt2.eps_n = kpt.eps_n.copy()
+                
+                # Transform wave functions using symmetry operation:
+                Psit_nG = self.gd.collect(kpt.psit_nG)
+                if Psit_nG is not None:
+                    Psit_nG = Psit_nG.copy()
+                    for Psit_G in Psit_nG:
+                        Psit_G[:] = self.kd.transform_wave_function(Psit_G, k)
+                kpt2.psit_nG = self.gd.empty(self.bd.nbands, dtype=self.dtype)
+                self.gd.distribute(Psit_nG, kpt2.psit_nG)
+
+                # Calculate PAW projections:
+                kpt2.P_ani = self.pt.dict(len(kpt.psit_nG))
+                self.pt.integrate(kpt2.psit_nG, kpt2.P_ani, k)
+                
+                kpt_u.append(kpt2)
+
+        self.kd = kd
+        self.kpt_u = kpt_u
 
     def estimate_memory(self, mem):
         FDPWWaveFunctions.estimate_memory(self, mem)

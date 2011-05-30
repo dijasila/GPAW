@@ -2,6 +2,7 @@ import numpy as np
 from gpaw.xc.libxc import LibXC, short_names
 from gpaw.xc.kernel import XCKernel, codes
 from gpaw.xc.bee import BEE1
+from gpaw.test import equal
 
 functionals = [LibXC(name) for name in short_names]
 functionals += [XCKernel(name) for name in codes]
@@ -62,7 +63,7 @@ for xc in functionals:
             abs(ds_xg[2:5].sum(0) / 4 - d0_xg[1]).max() +
             abs(ds_xg[5:] - d0_xg[2]).max())
     print xc.name, error
-    assert error < 6e-9
+    equal(error, 0, 6e-9)
     
 
 # Numbers from old lxc_xc.py test:
@@ -97,7 +98,7 @@ for xc in functionals:
         m_xg[x] -= 2 * eps
         d_xg[x] -= 0.5 * f2(m_xg, xc)[0] / eps
     print xc.name, abs(d0_xg-d_xg).max()
-    assert abs(d0_xg-d_xg).max() < 2e-8
+    equal(abs(d0_xg-d_xg).max(), 0, 2e-8)
     #print d0_xg-d_xg
     #print d_xg
     #print d0_xg

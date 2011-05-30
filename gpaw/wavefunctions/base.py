@@ -103,11 +103,10 @@ class WaveFunctions(EmptyWaveFunctions):
         self.band_comm.sum(nt_sG)
         self.kpt_comm.sum(nt_sG)
         
-        if self.symmetry:
-            self.timer.start('Symmetrize density')
-            for nt_G in nt_sG:
-                self.symmetry.symmetrize(nt_G, self.gd)
-            self.timer.stop('Symmetrize density')
+        self.timer.start('Symmetrize density')
+        for nt_G in nt_sG:
+            self.symmetry.symmetrize(nt_G, self.gd)
+        self.timer.stop('Symmetrize density')
 
     def add_to_density_from_k_point(self, nt_sG, kpt):
         self.add_to_density_from_k_point_with_occupation(nt_sG, kpt, kpt.f_n)
@@ -168,7 +167,7 @@ class WaveFunctions(EmptyWaveFunctions):
         self.symmetrize_atomic_density_matrices(D_asp)
 
     def symmetrize_atomic_density_matrices(self, D_asp):
-        if self.symmetry:
+        if len(self.symmetry.op_scc) > 1:
             all_D_asp = []
             for a, setup in enumerate(self.setups):
                 D_sp = D_asp.get(a)
@@ -184,7 +183,7 @@ class WaveFunctions(EmptyWaveFunctions):
                 for a, D_sp in D_asp.items():
                     setup = self.setups[a]
                     D_sp[s] = pack(setup.symmetrize(a, D_aii,
-                                                    self.symmetry.maps))
+                                                    self.symmetry.a_sa))
 
     def set_positions(self, spos_ac):
         self.positions_set = False
@@ -332,15 +331,15 @@ class WaveFunctions(EmptyWaveFunctions):
         For the parallel case find the rank in kpt_comm that contains
         the (k,s) pair, for this rank, send to the global master."""
 
-        kpt_u = self.kpt_u
         kpt_rank, u = self.kd.get_rank_and_index(s, k)
-        P_ani = kpt_u[u].P_ani
 
         natoms = len(self.rank_a) # it's a hack...
         nproj = sum([setup.ni for setup in self.setups])
 
         if self.world.rank == 0:
-            mynu = len(kpt_u)
+            if kpt_rank == 0:
+                P_ani = self.kpt_u[u].P_ani
+            mynu = len(self.kpt_u)
             all_P_ni = np.empty((self.nbands, nproj), self.dtype)
             for band_rank in range(self.band_comm.size):
                 nslice = self.bd.get_slice(band_rank)
@@ -362,6 +361,7 @@ class WaveFunctions(EmptyWaveFunctions):
             return all_P_ni
 
         elif self.kpt_comm.rank == kpt_rank: # plain else works too...
+            P_ani = self.kpt_u[u].P_ani
             for a in range(natoms):
                 if a in P_ani:
                     self.world.ssend(P_ani[a], 0, 1303 + a)
@@ -377,13 +377,13 @@ class WaveFunctions(EmptyWaveFunctions):
         kpt_rank, u = self.kd.get_rank_and_index(s, k)
         band_rank, myn = self.bd.who_has(n)
 
-        psit1_G = self._get_wave_function_array(u, myn)
         size = self.world.size
         rank = self.world.rank
-        if size == 1:
-            return psit1_G
 
         if self.kpt_comm.rank == kpt_rank:
+            psit1_G = self._get_wave_function_array(u, myn)
+            if size == 1:
+                return psit1_G
             if self.band_comm.rank == band_rank:
                 psit_G = self.gd.collect(psit1_G)
 

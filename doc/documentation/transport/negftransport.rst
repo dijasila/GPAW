@@ -147,6 +147,10 @@ Calculate transmission using hamiltonian from normal DFT
 Get an iv curve using NEGF:
 
 .. literalinclude:: transport.py
+
+A spin transport example (anti-parallel junction):
+
+.. literalinclude:: spin_transport.py
  
 Optimize a system under bias voltage:
 

@@ -476,8 +476,10 @@ class SICSpin:
 
         Z_mmv = np.empty((self.nocc, self.nocc, 3), complex)
         for v in range(3):
+            G_v = np.zeros(3)
+            G_v[v] = 1
             Z_mmv[:, :, v] = self.gd.wannier_matrix(self.kpt.psit_nG,
-                                                    self.kpt.psit_nG, v, 1,
+                                                    self.kpt.psit_nG, G_v,
                                                     self.nocc)
         self.gd.comm.sum(Z_mmv)
 
@@ -516,8 +518,10 @@ class SICSpin:
         # calculate wannier matrixelements 
         Z_mmv = np.empty((self.nocc, self.nocc, 3), complex)
         for v in range(3):
+            G_v = np.zeros(3)
+            G_v[v] = 1
             Z_mmv[:, :, v] = self.gd.wannier_matrix(self.kpt.psit_nG,
-                                                    self.kpt.psit_nG, v, 1,
+                                                    self.kpt.psit_nG, G_v,
                                                     self.nocc)
         self.gd.comm.sum(Z_mmv)
         #
@@ -564,8 +568,10 @@ class SICSpin:
         # calculate wannier matrixelements
         Z_mmv = np.empty((self.nocc, self.nocc, 3), complex)
         for v in range(3):
+            G_v = np.zeros(3)
+            G_v[v] = 1
             Z_mmv[:, :, v] = self.gd.wannier_matrix(self.phit_mG,
-                                                    self.phit_mG, v, 1,
+                                                    self.phit_mG, G_v,
                                                     self.nocc)
         self.gd.comm.sum(Z_mmv)
         #

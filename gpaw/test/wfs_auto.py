@@ -10,7 +10,7 @@ from ase.parallel import rank, barrier, size
 
 txt=None
 ending = 'gpw'
-restart = 'gpaw-restart.' + ending
+restart = 'gpaw-restart-wfs_auto.' + ending
 
 # H2
 H = Atoms([Atom('H', (0, 0, 0)), Atom('H', (0, 0, 1))])
