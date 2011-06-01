@@ -1,5 +1,5 @@
 import numpy as np
-from ase.units import Hartree
+from ase.units import Hartree, Bohr
 
 import gpaw.mpi as mpi
 from gpaw.poisson import PoissonSolver, FFTPoissonSolver
@@ -87,6 +87,12 @@ class InputParameters(dict):
 
     def read(self, reader):
         """Read state from file."""
+
+        if isinstance(reader, str):
+            reader = gpaw.io.open(reader, 'r')
+
+        r = reader
+
         master = (reader.comm.rank == 0) # read only on root of reader.comm
 
         if hasattr(reader, 'hdf5'): 
@@ -97,8 +103,6 @@ class InputParameters(dict):
         par_kwargs = {}
         if hdf5:
             par_kwargs.update({'parallel': False, 'read': master})
-
-        r = reader
 
         version = r['version']
         
@@ -128,10 +132,20 @@ class InputParameters(dict):
             self.basis = r['BasisSet']
         except KeyError:
             pass
+
+        if version >= '0.9':
+            h = r['GridSpacing']
+        else:
+            h = None
+
+        if h is None:
         ## gpts modified to account for boundary condition in non-PBC
-        self.gpts = ((r.dimension('ngptsx') + 1) // 2 * 2,
-                     (r.dimension('ngptsy') + 1) // 2 * 2,
-                     (r.dimension('ngptsz') + 1) // 2 * 2)
+            self.gpts = ((r.dimension('ngptsx') + 1) // 2 * 2,
+                         (r.dimension('ngptsy') + 1) // 2 * 2,
+                         (r.dimension('ngptsz') + 1) // 2 * 2)
+        else:
+            self.h = Bohr * h
+
         self.lmax = r['MaximumAngularMomentum']
         self.setups = r['SetupTypes']
         self.fixdensity = r['FixDensity']
@@ -141,12 +155,16 @@ class InputParameters(dict):
                   'will be disabled some day in the future!')
             self.convergence['eigenstates'] = r['Tolerance']
         else:
+            nbtc = r['NumberOfBandsToConverge']
+            if not isinstance(nbtc, (int, str)):
+                # The string 'all' was eval'ed to the all() function!
+                nbtc = 'all'
             self.convergence = {'density': r['DensityConvergenceCriterion'],
                                 'energy':
                                 r['EnergyConvergenceCriterion'] * Hartree,
                                 'eigenstates':
                                 r['EigenstatesConvergenceCriterion'],
-                                'bands': r['NumberOfBandsToConverge']}
+                                'bands': nbtc}
             if version <= 0.6:
                 mixer = 'Mixer'
                 weight = r['MixMetric']
