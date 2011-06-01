@@ -29,7 +29,7 @@ if bse:
     
     bse = BSE('Na2.gpw',w=np.linspace(0,15,151),
               q=np.array([0,0,0.0001]),optical_limit=True,ecut=50.,
-              nbands=8)
+              nbands=8,use_W=False)
     bse.initialize()
     bse.calculate()
     

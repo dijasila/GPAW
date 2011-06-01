@@ -128,7 +128,7 @@ class Symmetry:
                     sdiff -= np.floor(sdiff + 0.5)
                     assert np.dot(sdiff, sdiff) < self.tol
 
-        self.a_sa = a_sa
+        self.a_sa = np.array(a_sa)
         self.op_scc = np.array(opok)
 
     def check(self, spos_ac):

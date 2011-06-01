@@ -71,7 +71,9 @@ smearing width of 0.2 eV, one will get quick convergence of the
 lattice constant with respect to the number of **k**-points, but
 convergence to a value that is a bit too large.
 
-.. image:: Fe_conv_k.png
+.. image:: Fe_conv_k_FD.png
+
+.. image:: Fe_conv_k_MP.png
 
 Convergence with respect to grid-spacing looks like this (6x6x6
 **k**-points and width=0.1 eV):

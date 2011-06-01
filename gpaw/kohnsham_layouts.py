@@ -404,6 +404,84 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         return self.mmdescriptor.shape
 
     def calculate_density_matrix(self, f_n, C_nM, rho_mM=None):
+        """Calculate density matrix from occupations and coefficients.
+
+        Presently this function performs the usual scalapack 3-step trick:
+        redistribute-numbercrunching-backdistribute.
+        
+        
+        Notes on future performance improvement.
+        
+        As per the current framework, C_nM exists as copies on each
+        domain, i.e. this is not parallel over domains.  We'd like to
+        correct this and have an efficient distribution using e.g. the
+        block communicator.
+
+        The diagonalization routine and other parts of the code should
+        however be changed to accommodate the following scheme:
+        
+        Keep coefficients in C_mm form after the diagonalization.
+        rho_mm can then be directly calculated from C_mm without
+        redistribution, after which we only need to redistribute
+        rho_mm across domains.
+        
+        """
+        #rho_ref = self.oldcalculate_density_matrix(f_n, C_nM, rho_mM)
+        #return rho_ref
+        
+        nbands = self.bd.nbands
+        mynbands = self.bd.mynbands
+        nao = self.nao
+        dtype=C_nM.dtype
+        
+        self.nMdescriptor.checkassert(C_nM)
+        if self.gd.rank == 0:
+            Cf_nM = (C_nM * f_n[:, None]).conj()
+        else:
+            C_nM = self.nM_unique_descriptor.zeros(dtype=dtype)
+            Cf_nM = self.nM_unique_descriptor.zeros(dtype=dtype)
+
+        r = Redistributor(self.block_comm, self.nM_unique_descriptor,
+                          self.mmdescriptor)
+
+        Cf_mm = self.mmdescriptor.zeros(dtype=dtype)
+        r.redistribute(Cf_nM, Cf_mm, nbands, nao)
+        del Cf_nM
+        
+        C_mm = self.mmdescriptor.zeros(dtype=dtype)
+        r.redistribute(C_nM, C_mm, nbands, nao)
+        # no use to delete C_nM as it's in the input...
+
+        rho_mm = self.mmdescriptor.zeros(dtype=dtype)
+        
+        pblas_simple_gemm(self.mmdescriptor,
+                          self.mmdescriptor,
+                          self.mmdescriptor,
+                          Cf_mm, C_mm, rho_mm, transa='T')
+        del C_mm, Cf_mm
+        
+        rback = Redistributor(self.block_comm, self.mmdescriptor,
+                              self.mM_unique_descriptor)
+        rho1_mM = self.mM_unique_descriptor.zeros(dtype=dtype)
+        rback.redistribute(rho_mm, rho1_mM)
+        del rho_mm
+
+        if rho_mM is None:
+            if self.gd.rank == 0:
+                rho_mM = rho1_mM
+            else:
+                rho_mM = self.mMdescriptor.zeros(dtype=dtype)
+
+        self.gd.comm.broadcast(rho_mM, 0)
+        
+        #print 'maxerr', np.abs(rho_mM - rho_ref).max()
+        return rho_mM
+
+
+    def oldcalculate_density_matrix(self, f_n, C_nM, rho_mM=None):
+        # This version is parallel over the band descriptor only.
+        # This is inefficient, but let's keep it for a while in case
+        # there's trouble with the more efficient version
         nbands = self.bd.nbands
         mynbands = self.bd.mynbands
         nao = self.nao
@@ -450,7 +528,6 @@ class OrbitalLayouts(KohnShamLayouts):
         self.block_comm.broadcast(H_MM, 0)
         self.block_comm.broadcast(S_MM, 0)
         self._diagonalize(H_MM, S_MM.copy(), eps_M)
-        nbands = self.bd.nbands
         eps_n[:] = eps_M[self.bd.get_slice()]
         C_nM[:] = H_MM[self.bd.get_slice()]
     
@@ -473,7 +550,7 @@ class OrbitalLayouts(KohnShamLayouts):
     def get_overlap_matrix_shape(self):
         return self.nao, self.nao
 
-    def calculate_density_matrix(self, f_n, C_nM, rho_MM=None):
+    def calculate_density_matrix(self, f_n, C_nM, rho_MM=None, C2_nM=None):
         # Only a madman would use a non-transposed density matrix.
         # Maybe we should use the get_transposed_density_matrix instead
         if rho_MM is None:
@@ -481,7 +558,9 @@ class OrbitalLayouts(KohnShamLayouts):
         # XXX Should not conjugate, but call gemm(..., 'c')
         # Although that requires knowing C_Mn and not C_nM.
         # that also conforms better to the usual conventions in literature
-        Cf_Mn = C_nM.T.conj() * f_n
+        if C2_nM is None:
+            C2_nM = C_nM
+        Cf_Mn = C2_nM.T.conj() * f_n
         gemm(1.0, C_nM, Cf_Mn, 0.0, rho_MM, 'n')
         self.bd.comm.sum(rho_MM)
         return rho_MM

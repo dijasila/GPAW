@@ -136,12 +136,15 @@ class GridDescriptor(Domain):
                                np.diag(self.cell_cv.diagonal())).any()
 
         # Sanity check for grid spacings:
-        L_c = (np.linalg.inv(self.cell_cv)**2).sum(0)**-0.5
-        h_c = L_c / N_c
+        h_c = self.get_grid_spacings()
         if max(h_c) / min(h_c) > 1.3:
             raise ValueError('Very anisotropic grid spacings: %s' % h_c)
 
         self.use_fixed_bc = False
+
+    def get_grid_spacings(self):
+        L_c = (np.linalg.inv(self.cell_cv)**2).sum(0)**-0.5
+        return L_c / self.N_c
 
     def get_size_of_global_array(self, pad=False):
         if pad:
@@ -441,7 +444,7 @@ class GridDescriptor(Domain):
         self.comm.sum(d_c)
         return d_c
 
-    def wannier_matrix(self, psit_nG, psit_nG1, c, G, nbands=None):
+    def wannier_matrix(self, psit_nG, psit_nG1, G_c, nbands=None):
         """Wannier localization integrals
 
         The soft part of Z is given by (Eq. 27 ref1)::
@@ -450,42 +453,23 @@ class GridDescriptor(Domain):
             Z   = <psi | e      |psi >
              nm       n             m
                     
-        G is 1/N_c (plus 1 if k-points distances should be wrapped over
-        the Brillouin zone), where N_c is the number of k-points along
-        axis c, psit_nG and psit_nG1 are the set of wave functions for
-        the two different spin/kpoints in question.
+        psit_nG and psit_nG1 are the set of wave functions for the two
+        different spin/kpoints in question.
 
         ref1: Thygesen et al, Phys. Rev. B 72, 125119 (2005) 
         """
-        same_wave = False
-        if psit_nG is psit_nG1:
-            same_wave = True
 
         if nbands is None:
             nbands = len(psit_nG)
-        
-        def get_slice(c, g, psit_nG):
-            if c == 0:
-                slice_nG = psit_nG[:nbands, g].copy()
-            elif c == 1:
-                slice_nG = psit_nG[:nbands, :, g].copy()
-            else:
-                slice_nG = psit_nG[:nbands, :, :, g].copy()
-            return slice_nG.reshape((nbands, np.prod(slice_nG.shape[1:])))
-        
-        Z_nn = np.zeros((nbands, nbands), complex)
-        for g in range(self.n_c[c]):
-            A_nG = get_slice(c, g, psit_nG)
-                
-            if same_wave:
-                B_nG = A_nG
-            else:
-                B_nG = get_slice(c, g, psit_nG1)
-                
-            e = exp(-2.j * pi * G * (g + self.beg_c[c]) / self.N_c[c])
-            Z_nn += e * np.dot(A_nG.conj(), B_nG.T) * self.dv
-            
-        return Z_nn
+
+        if nbands == 0:
+            return np.zeros((0, 0), complex)
+
+        e_G = np.exp(-2j * pi * np.dot(np.indices(self.n_c).T +
+                                       self.beg_c, G_c / self.N_c).T)
+        a_nG = (e_G * psit_nG[:nbands].conj()).reshape((nbands, -1))
+        return np.inner(a_nG,
+                        psit_nG1[:nbands].reshape((nbands, -1))) * self.dv
 
     def bytecount(self, dtype=float):
         """Get the number of bytes used by a grid of specified dtype."""
@@ -553,175 +537,4 @@ class GridDescriptor(Domain):
                 (self.N_c == other.N_c).all() and
                 (self.n_c == other.n_c).all() and
                 (self.beg_c == other.beg_c).all() and
-                (self.end_c == other.end_c).all()
-                )
-               
-class RadialGridDescriptor:
-    """Descriptor-class for radial grid."""
-    def __init__(self, r_g, dr_g):
-        """Construct `RadialGridDescriptor`.
-
-        The one-dimensional array ``r_g`` gives the radii of the grid
-        points according to some possibly non-linear function:
-        ``r_g[g]`` = *f(g)*.  The array ``dr_g[g]`` = *f'(g)* is used
-        for forming derivatives."""
-
-        self.rcut = r_g[-1]
-        self.ng = len(r_g)
-        
-        self.r_g = r_g
-        self.dr_g = dr_g
-        self.dv_g = 4 * pi * r_g**2 * dr_g
-
-    def derivative(self, n_g, dndr_g):
-        """Finite-difference derivative of radial function."""
-        dndr_g[0] = n_g[1] - n_g[0]
-        dndr_g[1:-1] = 0.5 * (n_g[2:] - n_g[:-2])
-        dndr_g[-1] = n_g[-1] - n_g[-2]
-        dndr_g /= self.dr_g
-
-    def derivative2(self, a_g, b_g):
-        """Finite-difference derivative of radial function.
-
-        For an infinitely dense grid, this method would be identical
-        to the `derivative` method."""
-        
-        c_g = a_g / self.dr_g
-        b_g[0] = 0.5 * c_g[1] + c_g[0]
-        b_g[1] = 0.5 * c_g[2] - c_g[0]
-        b_g[1:-1] = 0.5 * (c_g[2:] - c_g[:-2])
-        b_g[-2] = c_g[-1] - 0.5 * c_g[-3]
-        b_g[-1] = -c_g[-1] - 0.5 * c_g[-2]
-
-    def integrate(self, f_g):
-        """Integrate over a radial grid."""
-        
-        return np.dot(self.dv_g, f_g)
-
-    def spline(self, l, f_g):
-        raise NotImplementedError
-
-    def reducedspline(self, l, r_g):
-        raise NotImplementedError
-
-    def zeros(self, shape=()):
-        if isinstance(shape, int):
-            shape = (shape,)
-        return np.zeros(shape + self.r_g.shape)
-
-    def empty(self, shape=()):
-        if isinstance(shape, int):
-            shape = (shape,)
-        return np.empty(shape + self.r_g.shape)
-
-    def equidistant(self, f_g, points):
-        ng = len(f_g)
-        r_g = self.r_g[:ng]
-        rmax = r_g[-1]
-        r = 1.0 * rmax / points * np.arange(points + 1)
-        g = (self.N * r / (self.beta + r) + 0.5).astype(int)
-        g = np.clip(g, 1, ng - 2)
-        r1 = np.take(r_g, g - 1)
-        r2 = np.take(r_g, g)
-        r3 = np.take(r_g, g + 1)
-        x1 = (r - r2) * (r - r3) / (r1 - r2) / (r1 - r3)
-        x2 = (r - r1) * (r - r3) / (r2 - r1) / (r2 - r3)
-        x3 = (r - r1) * (r - r2) / (r3 - r1) / (r3 - r2)
-        f1 = np.take(f_g, g - 1)
-        f2 = np.take(f_g, g)
-        f3 = np.take(f_g, g + 1)
-        f_g = f1 * x1 + f2 * x2 + f3 * x3
-        return f_g
-
-
-class EquidistantRadialGridDescriptor(RadialGridDescriptor):
-    def __init__(self, h, ng):
-        self.h = h
-        r_g = self._get_position_array(h, ng)
-        RadialGridDescriptor.__init__(self, r_g, np.ones(ng) * h)
-
-    def _get_position_array(self, h, ng):
-        # AtomGridDescriptor overrides this to use r_g = [h, 2h, ... ng h]
-        # In this class it is [0, h, ... (ng - 1) h]
-        return h * np.arange(ng)
-
-    def r2g_ceil(self, r):
-        return int(ceil(r / self.h))
-
-    def r2g_floor(self, r):
-        return int(floor(r / self.h))
-
-    def truncate(self, gmax):
-        return EquidistantRadialGridDescriptor(self.h, gmax)
-
-    def spline(self, l, f_g):
-        ng = len(f_g)
-        rmax = self.r_g[ng - 1]
-        return Spline(l, rmax, f_g)
-
-    def reducedspline(self, l, f_g):
-        f_g = divrl(f_g, l, self.r_g[:len(f_g)])
-        return self.spline(l, f_g)
-
-
-class AERadialGridDescriptor(RadialGridDescriptor):
-    """Descriptor-class for non-uniform grid used by setups, all-electron.
-
-    The grid is defined by::
-    
-          beta g
-      r = ------,  g = 0, 1, ..., N - 1
-           N - g
-      
-            r N
-      g = --------
-          beta + r
-    """
-    def __init__(self, beta, N, default_spline_points=25, _noarrays=False):
-        self.beta = beta
-        self.N = N
-        self.default_spline_points = default_spline_points
-        if _noarrays:
-            return
-
-        self.ng = N # different from N only if using truncate()
-        g = np.arange(N, dtype=float)
-        r_g = beta * g / (N - g)
-        dr_g = beta * N / (N - g)**2
-        RadialGridDescriptor.__init__(self, r_g, dr_g)
-        d2gdr2 = -2 * N * beta / (beta + r_g)**3
-        self.d2gdr2 = d2gdr2
-
-    def r2g_ceil(self, r):
-        return int(ceil(r * self.N / (self.beta + r)))
-
-    def r2g_floor(self, r):
-        return int(floor(r * self.N / (self.beta + r)))
-
-    def truncate(self, gcut):
-        """Return a descriptor for a subset of this grid."""
-        # Hack to make it possible to create subgrids with smaller arrays
-        other = AERadialGridDescriptor(self.beta, self.N, _noarrays=True)
-        other.ng = gcut
-        other.r_g = self.r_g[:gcut]
-        other.dr_g = self.dr_g[:gcut]
-        RadialGridDescriptor.__init__(other, other.r_g, other.dr_g)
-        other.d2gdr2 = self.d2gdr2[:gcut]
-        other.rcut = other.r_g[-1]
-        return other
-
-    def spline(self, l, f_g, points=None):
-        ng = len(f_g)
-        rmax = self.r_g[ng - 1]
-        r_g = self.r_g[:ng]
-        f_g = self.equidistant(f_g, points=points)
-        return Spline(l, rmax, f_g)
-
-    def reducedspline(self, l, f_g, points=None):
-        ng = len(f_g)
-        return self.spline(l, divrl(f_g, l, self.r_g[:ng]), points=points)
-
-    def equidistant(self, f_g, points=None):
-        if points is None:
-            points = self.default_spline_points
-        return RadialGridDescriptor.equidistant(self, f_g, points)
+                (self.end_c == other.end_c).all())

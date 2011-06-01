@@ -18,7 +18,7 @@ if GS:
                 kpts=(4,2,2),
                 xc='LDA',
                 nbands=4,
-                convergence={'band':'all'})
+                convergence={'bands':'all'})
     
     atoms.set_calculator(calc)
     atoms.get_potential_energy()
@@ -27,7 +27,7 @@ if GS:
 if bse:
     
     bse = BSE('Al.gpw',w=np.linspace(0,24,241),
-              q=np.array([0.25, 0, 0]),ecut=50., eta=0.2)
+              q=np.array([0.25, 0, 0]),ecut=50., eta=0.2,use_W=False)
 
     bse.get_dielectric_function('Al_bse.dat')
     
@@ -38,8 +38,7 @@ if df:
     w = np.linspace(0, 24, 241)
     
     df = DF(calc='Al.gpw', q=q, w=w, eta=0.2, ecut=50,hilbert_trans=False)
-    df1, df2 = df.get_dielectric_function()
-    df.get_EELS_spectrum(df1, df2,filename='Al_df.dat')
+    df.get_EELS_spectrum(filename='Al_df.dat')
     df.write('Al.pckl')
     df.check_sum_rule()
 
@@ -54,7 +53,7 @@ if check_spectrum:
     else:
         raise ValueError('Plasmon peak not correct ! ')
     
-    if np.abs(d[Nw] - 27.5317730322) > 1e-5:
+    if np.abs(d[Nw] - 27.4958893542) > 1e-5:
         print d[Nw]
         raise ValueError('Please check spectrum strength ! ')
 

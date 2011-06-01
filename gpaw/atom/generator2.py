@@ -1,53 +1,127 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import sys
-from math import pi, log
+from math import pi, log, sqrt
 
 import numpy as np
 from scipy.special import gamma
 from scipy.interpolate import interp1d
 
+from ase.units import Hartree
+from ase.utils import prnt
+
 from gpaw.atom.configurations import configurations
-from gpaw.atom.aeatom import AllElectronAtom, Channel
+from gpaw.atom.aeatom import AllElectronAtom, Channel, parse_ld_str, colors
 from gpaw.setup import BaseSetup
 from gpaw.spline import Spline
 from gpaw.basis_data import Basis
 from gpaw.hgh import null_xc_correction
+from gpaw.setup_data import SetupData
+from gpaw.version import version
 
 
 class PAWWaves:
-    def __init__(self, ch, rcut):
-        self.ch = ch
+    def __init__(self, rgd, l, rcut):
+        self.rgd = rgd
+        self.l = l
         self.rcut = rcut
-        self.l = ch.l
-        self.basis = ch.basis
+
+        self.n_n = []
         self.e_n = []
         self.f_n = []
         self.phi_ng = []
         self.phit_ng = None
         self.pt_ng = None
-        
-    def add(self, phi_g, e, f):
+
+    def __len__(self):
+        return len(self.n_n)
+    
+    def add(self, phi_g, n, e, f):
         self.phi_ng.append(phi_g)
+        self.n_n.append(n)
         self.e_n.append(e)
         self.f_n.append(f)
 
+    def pseudize(self):
+        rgd = self.rgd
+
+        phi_ng = self.phi_ng = np.array(self.phi_ng)
+        N = len(phi_ng)
+        phit_ng = self.phit_ng = rgd.empty(N)
+        gcut = rgd.ceil(self.rcut)
+
+        self.nt_g = 0
+        self.c_np = []
+        for n in range(N):
+            phit_ng[n], c_p = rgd.pseudize(phi_ng[n], gcut, self.l, points=6)
+            self.c_np.append(c_p)
+            self.nt_g += self.f_n[n] / 4 / pi * phit_ng[n]**2
+            
+        self.dS_nn = np.empty((N, N))
+        for n1 in range(N):
+            for n2 in range(N):
+                self.dS_nn[n1, n2] = rgd.integrate(
+                    phi_ng[n1] * phi_ng[n2] -
+                    phit_ng[n1] * phit_ng[n2]) / (4 * pi)
+        self.Q = np.dot(self.f_n, self.dS_nn.diagonal())
+
+    def construct_projectors(self, vtr_g):
+        rgd = self.rgd
+        phit_ng = self.phit_ng
+        N = len(phit_ng)
+        gcut = rgd.ceil(self.rcut)
+        r_g = rgd.r_g
+        l = self.l
+        P = len(self.c_np[0]) - 1
+        p = np.arange(2 * P, 0, -2) + l
+        A_nn = np.empty((N, N))
+        q_ng = rgd.zeros(N)
+        for n in range(N):
+            q_g = ((vtr_g - self.e_n[n] * r_g) * self.phit_ng[n] +
+                   np.polyval(-0.5 * self.c_np[n][:P] *
+                               (p * (p + 1) - l * (l + 1)), r_g**2) *
+                   r_g**(1 + l))
+            q_g[gcut:] = 0
+            q_ng[n] = q_g
+            A_nn[n] = rgd.integrate(q_g * phit_ng, -1) / (4 * pi)
+
+        self.pt_ng = np.dot(np.linalg.inv(A_nn), q_ng)
+        self.pt_ng[:, 1:] /= r_g[1:]
+        self.pt_ng[:, 0] = self.pt_ng[:, 1]
+        self.dH_nn = self.e_n * self.dS_nn - A_nn.T
+
+    def calculate_kinetic_energy_correction(self, vr_g, vtr_g):
+        self.dekin_nn = (self.rgd.integrate(self.phi_ng[:, np.newaxis] *
+                                           self.phi_ng *
+                                           vr_g, -1) / (4 * pi) -
+                         self.rgd.integrate(self.phit_ng[:, np.newaxis] *
+                                           self.phit_ng *
+                                           vtr_g, -1) / (4 * pi) -
+                        self.dH_nn)
+
     def solve(self, vtr_g, s_g):
-        gd = self.basis.gd
-        r_g = gd.r_g
+        rgd = self.rgd
+        r_g = rgd.r_g
 
         phi_ng = self.phi_ng
         N = len(phi_ng)
-        phit_ng = self.phit_ng = gd.empty(N)
-        pt_ng = self.pt_ng = gd.empty(N)
+        phit_ng = self.phit_ng = rgd.empty(N)
+        pt_ng = self.pt_ng = rgd.empty(N)
         
         s_kg = [s_g, s_g * r_g**2]
-        s_kb = [gd.integrate(self.basis.basis_bg * s_g) for s_g in s_kg]
 
         
-        gcut = gd.get_index(self.rcut)
-        A_bb = self.basis.T_bb + self.basis.calculate_potential_matrix(vtr_g)
-
+        gcut = rgd.get_index(self.rcut)
+        
+        vtr = interp1d(r_g, vtr_g, 'cubic')
+        
+        #self.e_n[1] = 1.5
+        for n in range(N):
+            u[:gcut+29] = self.ch.integrate_outwards(vr, r_g[:gcut + 10],
+                                                     self.e_n[n])[:,0]
+            u[1:]/=r_g[1:]
+        a_nb = []
+        s_nb = []
         for n in range(N):
             e = self.e_n[n]
             a_kb = [np.linalg.solve(A_bb - e * np.eye(len(A_bb)), s_b)
@@ -55,77 +129,154 @@ class PAWWaves:
             phit_kg = np.array([self.basis.expand(a_b) for a_b in a_kb])
             b_k = np.linalg.solve(phit_kg[:, gcut:gcut + 2].T,
                                   phi_ng[n][gcut:gcut + 2])
-            a_b = np.dot(b_k, a_kb)
+            a_nb.append(np.dot(b_k, a_kb))
+            s_nb.append(np.dot(b_k, s_kb))
             phit_ng[n] = np.dot(b_k, phit_kg)
-            d_k = np.dot(s_kb, a_b)
-            x = np.dot(b_k, d_k)
-            c_k = b_k / x
-            pt_ng[n] = 4 * pi * np.dot(c_k, s_kg)
-
+            phit_ng[n, gcut + 2:] = phi_ng[n][gcut + 2:]
+        
+        A_nn = np.inner(s_nb, a_nb)
+        C_nn = np.linalg.inv(A_nn)
+        
+        pt_ng[:] = np.array([self.basis.expand(s_b)
+                             for s_b in np.dot(C_nn, s_nb)])
+        
         self.dS_nn = np.empty((N, N))
         for n1 in range(N):
             for n2 in range(N):
-                self.dS_nn[n1, n2] = gd.integrate(
+                self.dS_nn[n1, n2] = rgd.integrate(
                     phi_ng[n1] * phi_ng[n2] -
                     phit_ng[n1] * phit_ng[n2]) / (4 * pi)
+                #print rgd.integrate(phit_ng[n1] * pt_ng[n2]) / (4 * pi)
 
         self.nt_g = self.phit_ng[0]**2 / (4 * pi)
 
-        self.dH_nn = e * self.dS_nn - x
+        self.dH_nn = np.dot(self.dS_nn, np.diag(self.e_n[:N])) - A_nn.T
         self.Q = self.dS_nn[0, 0]
+        print A_nn,C_nn, pt_ng[0,0],self.dS_nn,self.dH_nn
 
 
 class PAWSetupGenerator:
-    def __init__(self, aea, states, radii):
-        self.aea = aea
-        self.gd = aea.gd
+    def __init__(self, aea, states, radii, fd=sys.stdout):
+        """fd: stream
+            Text output."""
         
+        self.aea = aea
+        self.rgd = aea.rgd
+        
+        if fd is None:
+            fd = devnull
+        self.fd = fd
+
         self.rcmax = max(radii)
-        self.gcmax = self.gd.get_index(self.rcmax)
+        self.gcmax = self.rgd.ceil(self.rcmax)
 
         self.waves_l = []
+        vr = interp1d(self.rgd.r_g, aea.vr_sg[0], 'cubic')
         for l, nn in enumerate(states):
-            ch = aea.channels[l]
-            waves = PAWWaves(ch, radii[l])
+            waves = PAWWaves(self.rgd, l, radii[l])
             for n in nn:
-                e = ch.e_n[n - l - 1]
-                f = ch.f_n[n - l - 1]
-                print n,l,e,f
-                phi_g = ch.basis.expand(ch.C_nb[0])
-                waves.add(phi_g, e, f)
+                if isinstance(n, int):
+                    # Bound state:
+                    ch = aea.channels[l]
+                    e = ch.e_n[n - l - 1]
+                    f = ch.f_n[n - l - 1]
+                    phi_g = ch.phi_ng[n - l - 1]
+                else:
+                    e = n
+                    n = -1
+                    f = 0.0
+                    phi_g = self.rgd.zeros()
+                    gc = self.gcmax + 10
+                    ch = Channel(l)
+                    u_g = ch.integrate_outwards(vr, self.rgd.r_g[:gc], e)[0]
+                    phi_g[1:gc] = u_g[1:] / self.rgd.r_g[1:gc]
+                    if l == 0:
+                        phi_g[0] = phi_g[1]
+                waves.add(phi_g, n, e, f)
             self.waves_l.append(waves)
 
         self.alpha = log(1.0e4) / self.rcmax**2  # exp(-alpha*rcmax^2)=1.0e-4
         self.alpha = round(self.alpha, 2)
-        self.ghat_g = (np.exp(-self.alpha * self.gd.r_g**2) *
+        self.ghat_g = (np.exp(-self.alpha * self.rgd.r_g**2) *
                        (self.alpha / pi)**1.5)
-
-        l0 = len(states)
-        ch0 = aea.get_channel(l0)
-        self.zeropot = Channel(l0, 0, ch0.f_n, ch0.basis)
-        self.zeropot.e_n = [ch0.e_n[0]]
-
+        
         self.vtr_g = None
 
-    def pseudize(self, a_g, gc, n=1):
-        assert isinstance(gc, int) and gc > 10 and n == 1
-        r_g = self.gd.r_g
-        poly = np.polyfit([0, r_g[gc - 1], r_g[gc], r_g[gc + 1]],
-                          [0, a_g[gc - 1], a_g[gc], a_g[gc + 1]], 3)
-        at_g = a_g.copy()
-        at_g[:gc] = np.polyval(poly, r_g[:gc])
-        return at_g
+    def log(self, *args, **kwargs):
+        prnt(file=self.fd, *args, **kwargs)
 
-    def generate(self):
-        gd = self.gd
+    def calculate_core_density(self):
+        self.nc_g = self.rgd.zeros()
+        self.ncore = 0
+        self.nvalence = 0
+        self.ekincore = 0.0
+        for l, ch in enumerate(self.aea.channels):
+            for n, f in enumerate(ch.f_n):
+                if (l >= len(self.waves_l) or
+                    (l < len(self.waves_l) and
+                    n + l + 1 not in self.waves_l[l].n_n)):
+                    self.nc_g += f * ch.calculate_density(n)
+                    self.ncore += f
+                    self.ekincore += f * e
+                else:
+                    self.nvalence += f
         
-        self.vtr_g = self.pseudize(self.aea.vr_sg[0], self.gcmax)
-        self.v0_g = 0.0
+        self.ekincore -= self.rgd.integrate(self.nc_g * self.aea.vr_sg[0], -1)
+        self.nct_g = self.rgd.pseudize(self.nc_g, self.gcmax)[0]
+        self.npseudocore = self.rgd.integrate(self.nct_g)
 
+        self.log('Core electrons:', self.ncore)
+        self.log('Pseudo core electrons: %.3f' % self.rgd.integrate(self.nct_g))
+        
+    def generate(self):
+        self.log('Generating PAW setup.')
+        
+        self.calculate_core_density()
+
+        self.nt_g = self.nct_g.copy()
+        self.Q = -self.aea.Z + self.ncore - self.npseudocore
+
+        self.vtr_g = self.find_local_potential()
+
+        self.log('Projectors:')
+        self.log('=====================================================')
+        self.log(' state  occupation             energy        norm')
+        self.log(' nl                  [Hartree]  [eV]      [electrons]')
+        self.log('=====================================================')
+        for waves in self.waves_l:
+            waves.pseudize()
+            self.nt_g += waves.nt_g
+            self.Q += waves.Q
+            for n, e, f, ds in zip(waves.n_n, waves.e_n, waves.f_n,
+                                  waves.dS_nn.diagonal()):
+                if n == -1:
+                    self.log('  %s                 %10.6f %10.5f' %
+                             ('spdf'[waves.l], e, e * Hartree))
+                else:
+                    self.log(' %d%s        %2d       %10.6f %10.5f    %5.3f' %
+                             (n, 'spdf'[waves.l], f, e, e * Hartree, 1 - ds))
+        self.log('=====================================================')
+                    
+        self.rhot_g = self.nt_g + self.Q * self.ghat_g
+        self.vHtr_g = self.rgd.poisson(self.rhot_g)
+
+        self.vxct_g = self.rgd.zeros()
+        exct_g = self.rgd.zeros()
+        self.exct = self.aea.xc.calculate_spherical(
+            self.rgd, self.nt_g.reshape((1, -1)), self.vxct_g.reshape((1, -1)))
+
+        self.v0r_g = self.vtr_g - self.vHtr_g - self.vxct_g * self.rgd.r_g
+
+        for waves in self.waves_l:
+            waves.construct_projectors(self.vtr_g)
+            waves.calculate_kinetic_energy_correction(self.aea.vr_sg[0],
+                                                      self.vtr_g)
+
+    def generate2(self):
         ntold_g = 0.0
         while True:
             self.update()
-            dn = self.gd.integrate(abs(self.nt_g - ntold_g))
+            dn = self.rgd.integrate(abs(self.nt_g - ntold_g))
             sys.stdout.write('.')
             sys.stdout.flush()
             if dn < 1.0e-7:
@@ -133,116 +284,148 @@ class PAWSetupGenerator:
             ntold_g = self.nt_g
         print
 
-    def update(self):
-        self.nt_g = 0.0
-        self.Q = -1.0
+    def find_local_potential(self):
+        l = len(self.waves_l)
+        e = 0.0
 
-        self.find_zero_potential()
-
-        for waves in self.waves_l:
-            waves.solve(self.vtr_g, self.ghat_g)
-            self.nt_g += waves.nt_g
-            self.Q += waves.Q
-            
-        self.rhot_g = self.nt_g + self.Q * self.ghat_g
-        self.vHtr_g = self.gd.poisson(self.rhot_g)
-        self.vxct_g = self.gd.zeros()
-        exct_g = self.gd.zeros()
-        self.exct = self.aea.xc.calculate_spherical(
-            self.gd, self.nt_g.reshape((1, -1)), self.vxct_g.reshape((1, -1)))
-        self.vtr_g = self.vHtr_g + (self.vxct_g + self.v0_g) * self.gd.r_g
+        self.log('Local potential matching %s-state at %.3f eV' %
+                 ('spdf'[l], e * Hartree))
         
-    def find_zero_potential(self):
-        dv0_g = self.ghat_g
-        r_g = self.gd.r_g
-        pot0 = self.zeropot
-        e0 = pot0.e_n[0]
-        V_bb = pot0.basis.calculate_potential_matrix(dv0_g * r_g)
-        while True:
-            pot0.solve(self.vtr_g)
-            e = pot0.e_n[0]
-            if abs(e - e0) < 1.0e-8:
-                break
-
-            c_b = pot0.C_nb[0]
-            v = np.dot(np.dot(c_b, V_bb), c_b)
-            a = (e0 - e) / v
-            self.vtr_g += a * dv0_g * r_g
-            self.v0_g += a * dv0_g
-
-        self.nt_g += pot0.calculate_density()
+        vr = interp1d(self.rgd.r_g, self.aea.vr_sg[0], 'cubic')
+        gc = self.gcmax + 20
+        ch = Channel(l)
+        u_g = ch.integrate_outwards(vr, self.rgd.r_g[:gc], e)[0]
+        phi_g = self.rgd.zeros()
+        phi_g[1:gc] = u_g[1:] / self.rgd.r_g[1:gc]
+        if l == 0:
+            phi_g[0] = phi_g[1]
+        P = 6
+        phit_g, c_p = self.rgd.pseudize_normalized(phi_g, self.gcmax, l=l,
+                                                  points=P)
+        r_g = self.rgd.r_g[1:self.gcmax]
+        p = np.arange(2 * P, 0, -2) + l
+        t_g = np.polyval(-0.5 * c_p[:P] * (p * (p + 1) - l * (l + 1)), r_g**2) 
+        vr_g = self.aea.vr_sg[0].copy()
+        vr_g[0] = 0.0
+        vr_g[1:self.gcmax] = (e * r_g -
+                              t_g * r_g**(l + 1) / phit_g[1:self.gcmax])
+        return vr_g
 
     def plot(self):
         import matplotlib.pyplot as plt
-        r_g = self.gd.r_g
+        r_g = self.rgd.r_g
+
+        plt.figure()
         plt.plot(r_g, self.vxct_g, label='xc')
-        plt.plot(r_g, self.v0_g, label='0')
+        plt.plot(r_g[1:], self.v0r_g[1:] / r_g[1:], label='0')
         plt.plot(r_g[1:], self.vHtr_g[1:] / r_g[1:], label='H')
         plt.plot(r_g[1:], self.vtr_g[1:] / r_g[1:], label='ps')
         plt.plot(r_g[1:], self.aea.vr_sg[0, 1:] / r_g[1:], label='ae')
         plt.axis(xmax=2 * self.rcmax,
                  ymin=self.vtr_g[1] / r_g[1],
-                 ymax=max(0, self.v0_g[0]))
+                 ymax=max(0, (self.v0r_g[1:] / r_g[1:]).max()))
         plt.legend()
         
         plt.figure()
-
-        if len(self.waves_l) == 0:
-            phit_g = self.zeropot.basis.expand(self.zeropot.C_nb[0])
-            ch = self.aea.channels[0]
-            phi_g = ch.basis.expand(ch.C_nb[0])
-            plt.plot(r_g, phi_g * r_g)
-            plt.plot(r_g, phit_g * r_g)
-
         for waves in self.waves_l:
-            plt.plot(r_g, waves.phi_ng[0] * r_g)
-            plt.plot(r_g, waves.phit_ng[0] * r_g)
-        plt.axis(xmax=2 * self.rcmax)
+            for phi_g, phit_g in zip(waves.phi_ng, waves.phit_ng):
+                plt.plot(r_g, phi_g * r_g)
+                plt.plot(r_g, phit_g * r_g, '--')
+        plt.axis(xmax=3 * self.rcmax)
 
         plt.figure()
         for waves in self.waves_l:
-            plt.plot(r_g, waves.pt_ng[0] * r_g)
-        plt.axis(xmax=2 * self.rcmax)
-
-        plt.show()
+            for pt_g in waves.pt_ng:
+                plt.plot(r_g, pt_g * r_g)
+        plt.axis(xmax=3 * self.rcmax)
 
     def logarithmic_derivative(self, l, energies, rcut):
-        vtr = interp1d(self.gd.r_g, self.vtr_g)
-        ch = self.aea.get_channel(l)
-        gcut = self.gd.get_index(rcut)
-        r_g = self.gd.r_g[:gcut + 1]
+        vtr = interp1d(self.rgd.r_g, self.vtr_g, 'cubic')
+        ch = Channel(l)
+        gcut = self.rgd.round(rcut)
+        r_g = self.rgd.r_g[:gcut + 1]
 
-        # Nonlocal PAW stuff:
-        nl_l = {}
-        for l, waves in enumerate(self.waves_l):
-            pt_n = [interp1d(self.gd.r_g, -pt_g) for pt_g in waves.pt_ng]
-            nl_l[l] = (waves.dH_nn, waves.dS_nn, pt_n)
+        if l < len(self.waves_l):
+            # Nonlocal PAW stuff:
+            waves = self.waves_l[l]
+            pt_n = [interp1d(self.rgd.r_g, -pt_g, 'cubic')
+                    for pt_g in waves.pt_ng]
+            dH_nn = waves.dH_nn
+            dS_nn = waves.dS_nn
+            N = len(pt_n)
+        else:
+            N = 0
 
-        u_xg = self.gd.zeros(2)
+        u_xg = self.rgd.zeros(2)
+        u_nxg = self.rgd.zeros((N, 2))
         logderivs = []
         for e in energies:
-            u_xg[:, :gcut + 1] = ch.integrate_outwards(vtr, r_g, e).T
-            if l in nl_l:
-                dH_nn, dS_nn, pt_n = nl_l[l]
-                N = len(pt_n)
-                u_nxg = self.gd.zeros((N, 2))
+            u_xg[:, :gcut + 1] = ch.integrate_outwards(vtr, r_g, e)
+            if N:
                 u_nxg[:, :, :gcut + 1] = [ch.integrate_outwards(vtr, r_g,
-                                                                e, pt).T
+                                                                e, pt)
                                           for pt in pt_n]
                 A_nn = dH_nn - e * dS_nn
                 pt_ng = -self.waves_l[l].pt_ng
-                B_nn = self.gd.integrate(pt_ng * u_nxg[:, :1], -1) / (4 * pi)
-                c_n  = self.gd.integrate(pt_ng * u_xg[0], -1) / (4 * pi)
+                B_nn = self.rgd.integrate(pt_ng * u_nxg[:, :1], -1) / (4 * pi)
+                c_n  = self.rgd.integrate(pt_ng * u_xg[0], -1) / (4 * pi)
                 d_n = np.linalg.solve(np.dot(A_nn, B_nn) + np.eye(N),
                                       np.dot(A_nn, c_n))
                 u_xg -= np.dot(u_nxg.T, d_n).T
             logderivs.append(u_xg[1, gcut] / u_xg[0, gcut])
         return logderivs
-        
+    
     def make_paw_setup(self):
-        phit_g = self.zeropot.basis.expand(self.zeropot.C_nb[0])
-        return PAWSetup(self.alpha, self.gd.r_g, phit_g, self.v0_g)
+        aea = self.aea
+        
+        setup = SetupData(aea.symbol, aea.xc.name, 'paw', readxml=False)
 
+        nj = sum(len(waves) for waves in self.waves_l)
+        setup.e_kin_jj = np.zeros((nj, nj))
+        setup.id_j = []
+        j1 = 0
+        for l, waves in enumerate(self.waves_l):
+            ne = 0
+            for n, f, e, phi_g, phit_g, pt_g in zip(waves.n_n, waves.f_n,
+                                                    waves.e_n, waves.phi_ng,
+                                                    waves.phit_ng,
+                                                    waves.pt_ng):
+                setup.append(n, l, f, e, waves.rcut, phi_g, phit_g, pt_g)
+                if n == -1:
+                    ne += 1
+                    id = '%s-%s%d' % (aea.symbol, 'spdf'[l], ne)
+                else:
+                    id = '%s-%d%s' % (aea.symbol, n, 'spdf'[l])
+                setup.id_j.append(id)
+            j2 = j1 + len(waves)
+            setup.e_kin_jj[j1:j2, j1:j2] = waves.dekin_nn
+            j1 = j2
+
+        setup.nc_g = self.nc_g * sqrt(4 * pi)
+        setup.nct_g = self.nct_g * sqrt(4 * pi)
+        setup.e_kinetic_core = self.ekincore
+        setup.vbar_g = self.v0r_g * sqrt(4 * pi)
+        setup.vbar_g[1:] /= self.rgd.r_g[1:]
+        setup.vbar_g[0] = setup.vbar_g[1]
+        setup.Z = aea.Z
+        setup.Nc = self.ncore
+        setup.Nv = self.nvalence
+        setup.e_kinetic = aea.ekin
+        setup.e_xc = aea.exc
+        setup.e_electrostatic = aea.eH + aea.eZ
+        setup.e_total = aea.exc + aea.ekin + aea.eH + aea.eZ
+        setup.rgd = self.rgd
+        setup.rcgauss = 1 / sqrt(self.alpha)
+
+        setup.tauc_g = self.rgd.zeros()
+        setup.tauct_g = self.rgd.zeros()
+        print 'no tau!!!!!!!!!!!'
+        
+        reltype = 'non-relativistic'
+        attrs = [('type', reltype), ('name', 'gpaw-%s' % version)]
+        setup.generatorattrs = attrs
+
+        return setup
 
      
 def build_parser(): 
@@ -255,12 +438,19 @@ def build_parser():
                       '(default value LDA)',
                       metavar='<XC>')
     parser.add_option('-P', '--projectors',
-                      help='2s3s2p3p3d')
+                      help='Projector functions - use comma-separated - ' +
+                      'nl values, where n can be pricipal quantum number ' +
+                      '(integer) or energy (floating point number). ' +
+                      'Example: 2s,0.5s,2p,0.5p,0.0d.')
     parser.add_option('-r', '--radius',
                       help='1.2 or 1.2,1.1,1.1')
     parser.add_option('-p', '--plot', action='store_true')
     parser.add_option('-l', '--logarithmic-derivatives',
-                      help='-l 1.3,spdf,-2,2,100')
+                      metavar='spdfg,e1:e2:de,radius',
+                      help='Plot logarithmic derivatives. ' +
+                      'Example: -l spdf,-1:1:0.05,1.3. ' +
+                      'Energy range and/or radius can be left out.')
+    parser.add_option('-w', '--write', action='store_true')
     return parser
 
 
@@ -279,59 +469,58 @@ def main(AEA=AllElectronAtom):
     lmax = -1
     states = {}
     if opt.projectors:
-        s = opt.projectors
-        while s:
-            n = int(s[0])
-            l = 'spdf'.find(s[1])
+        for s in opt.projectors.split(','):
+            l = 'spdf'.find(s[-1])
+            n = eval(s[:-1])
             if l in states:
                 states[l].append(n)
             else:
                 states[l] = [n]
-            s = s[2:]
             if l > lmax:
                 lmax = l
-                
+
+    # Add empty bound states:
     for l, nn in states.items():
         for n in nn:
-            if l not in aea.f_lsn or n - l > len(aea.f_lsn[l][0]):
+            if (isinstance(n, int) and
+                (l not in aea.f_lsn or n - l > len(aea.f_lsn[l][0]))):
                 aea.add(n, l, 0)
-
-    aea.add(lmax + 2, lmax + 1, 0)
 
     aea.initialize()
     aea.run()
-
+    aea.refine()
+                
     if opt.radius:
         radii = [float(r) for r in opt.radius.split(',')]
     else:
-        rave = aea.gd.integrate(aea.n_sg[0], 1) / aea.Z
-        radii = [2 * rave]
+        rave = aea.rgd.integrate(aea.n_sg[0], 1) / aea.Z
+        radii = [0.5 * rave]
     if lmax >= 0:
         radii += [radii[-1]] * (lmax + 1 - len(radii))
 
     projectors = [states[l] for l in range(lmax + 1)]
     gen = PAWSetupGenerator(aea, projectors, radii)
     gen.generate()
-    
-    if opt.logarithmic_derivatives:
-        rcut, lvalues, emin, emax, npoints = \
-              opt.logarithmic_derivatives.split(',')
-        rcut = float(rcut)
-        lvalues = ['spdfg'.find(x) for x in lvalues]
-        emin = float(emin)
-        emax = float(emax)
-        npoints = int(npoints)
-        energies = np.linspace(emin, emax, npoints)
+
+    if opt.write:
+        gen.make_paw_setup().write_xml()
+        
+    if opt.logarithmic_derivatives or opt.plot:
         import matplotlib.pyplot as plt
-        for l in lvalues:
-            ld = gen.logarithmic_derivative(l, energies, rcut)
-            plt.plot(energies, ld)
-            ld = aea.logarithmic_derivative(l, energies, rcut)
-            plt.plot(energies, ld)
+        if opt.logarithmic_derivatives:
+            r = 1.1 * max(radii)
+            lvalues, energies, r = parse_ld_str(opt.logarithmic_derivatives, r)
+            for l in lvalues:
+                ld = aea.logarithmic_derivative(l, energies, r)
+                plt.plot(energies, ld, colors[l])
+                ld = gen.logarithmic_derivative(l, energies, r)
+                plt.plot(energies, ld, '--' + colors[l])
+
+        if opt.plot:
+            gen.plot()
+
         plt.show()
 
-    if opt.plot:
-        gen.plot()
 
 if __name__ == '__main__':
     main()

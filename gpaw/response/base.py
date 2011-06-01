@@ -8,7 +8,6 @@ from gpaw.utilities import unpack, devnull
 from gpaw.utilities.blas import gemmdot, gemv, scal, axpy
 from gpaw.mpi import world, rank, size, serial_comm
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
-from gpaw.fd_operators import Gradient
 from gpaw.response.cell import get_primitive_cell, set_Gvectors
 from gpaw.response.math_func import delta_function, hilbert_transform, \
      two_phi_planewave_integrals
@@ -26,13 +25,14 @@ class BASECHI:
                  nbands=None,
                  w=None,
                  q=None,
+                 eshift=None,
                  ecut=10.,
+                 G_plus_q=False,
                  eta=0.2,
+                 rpad=np.array([1,1,1]),
                  ftol=1e-5,
                  txt=None,
                  optical_limit=False):
-
-        self.xc = 'LDA'
 
         self.txtname = txt
         self.output_init()
@@ -52,7 +52,6 @@ class BASECHI:
             self.calc = calc
 
         self.nbands = nbands
-        self.nspins = self.calc.wfs.nspins
         self.q_c = q
 
         self.w_w = w
@@ -63,8 +62,10 @@ class BASECHI:
         else:
             assert len(ecut) == 3
             self.ecut = np.array(ecut, dtype=float)
+        self.G_plus_q = G_plus_q
+        self.rpad = rpad
         self.optical_limit = optical_limit
-
+        self.eshift = eshift
 
     def initialize(self):
                         
@@ -72,7 +73,8 @@ class BASECHI:
         self.ecut /= Hartree
 
         calc = self.calc
-        
+        self.nspins = self.calc.wfs.nspins
+
         # kpoint init
         self.kd = kd = calc.wfs.kd
         self.bzk_kc = kd.bzk_kc
@@ -86,14 +88,16 @@ class BASECHI:
         self.nvalence = calc.wfs.nvalence
 
         # cell init
-        self.acell_cv = calc.atoms.cell / Bohr
-        self.bcell_cv, self.vol, self.BZvol = get_primitive_cell(self.acell_cv)
+        self.acell_cv = calc.atoms.cell / Bohr 
+        self.acell_cv, self.bcell_cv, self.vol, self.BZvol = \
+                       get_primitive_cell(self.acell_cv,rpad=self.rpad)
 
         # grid init
-        self.nG = calc.get_number_of_grid_points()
+        self.pbc = calc.atoms.get_pbc()
+        gd = GridDescriptor(calc.wfs.gd.N_c*self.rpad, self.acell_cv, pbc_c=True, comm=serial_comm)
+        self.gd = gd
+        self.nG = gd.N_c
         self.nG0 = self.nG[0] * self.nG[1] * self.nG[2]
-        gd = GridDescriptor(self.nG, calc.wfs.gd.cell_cv, pbc_c=True, comm=serial_comm)
-        self.gd = gd        
         self.h_cv = gd.h_cv
 
         # obtain eigenvalues, occupations
@@ -102,6 +106,7 @@ class BASECHI:
 
         try:
             self.e_kn
+            self.printtxt('Use eigenvalues from user.')
         except:
             self.printtxt('Use eigenvalues from the calculator.')
             self.e_kn = np.array([calc.get_eigenvalues(kpt=k)
@@ -111,6 +116,9 @@ class BASECHI:
         self.f_kn = np.array([calc.get_occupation_numbers(kpt=k) / kweight_k[k]
                     for k in range(nibzkpt)]) / self.nkpt
 
+        self.enoshift_kn = self.e_kn.copy()
+        if self.eshift is not None:
+            self.add_discontinuity(self.eshift)
 
         # k + q init
         assert self.q_c is not None
@@ -128,8 +136,18 @@ class BASECHI:
         self.kq_k = kq_k
 
         # Plane wave init
-        self.npw, self.Gvec_Gc, self.Gindex_G = set_Gvectors(self.acell_cv, self.bcell_cv, self.nG, self.ecut)
-
+        if self.G_plus_q:
+            self.npw, self.Gvec_Gc, self.Gindex_G = set_Gvectors(self.acell_cv,
+                                                                 self.bcell_cv,
+                                                                 self.nG,
+                                                                 self.ecut,
+                                                                 q=self.q_c)
+        else:
+            self.npw, self.Gvec_Gc, self.Gindex_G = set_Gvectors(self.acell_cv,
+                                                                 self.bcell_cv,
+                                                                 self.nG,
+                                                                 self.ecut)
+            
         # Projectors init
         setups = calc.wfs.setups
         pt = LFC(gd, [setup.pt_j for setup in setups],
@@ -154,7 +172,8 @@ class BASECHI:
             else:
                 sys.stdout = devnull
                 self.txt = devnull
-
+        elif self.txtname == devnull:
+            self.txt = devnull
         else:
             assert type(self.txtname) is str
             from ase.parallel import paropen
@@ -223,13 +242,13 @@ class BASECHI:
 
     def get_wavefunction(self, ibzk, n, check_focc=True, spin=0):
 
-        if self.calc.wfs.kpt_comm.size != world.size or world.size == 1:
-
+        if self.calc.wfs.world.size == 1 or self.calc.wfs.gd.comm.size != 1:
             if check_focc == False:
                 return
             else:
                 psit_G = self.calc.wfs.get_wave_function_array(n, ibzk, spin)
-        
+                return np.complex128(psit_G)
+            
                 if self.calc.wfs.world.size == 1:
                     return np.complex128(psit_G)
                 
@@ -240,14 +259,16 @@ class BASECHI:
         
                 return np.complex128(psit_G)
         else:
-            if self.nkpt % size != 0:
-                raise ValueError('The number of kpoints should be divided by the number of cpus for no wfs dumping mode ! ')
-
-            # support ground state calculation with only kpoint parallelization
+            # support ground state calculation with kpoint and band parallelization
+            # but domain decomposition must = 1
             kpt_rank, u = self.calc.wfs.kd.get_rank_and_index(0, ibzk)
-            bzkpt_rank = rank
-            
-            klist = np.array([kpt_rank, u, bzkpt_rank, n])
+            bzkpt_rank = self.kcomm.rank
+            band_rank, myn = self.calc.wfs.bd.who_has(n)
+            assert self.calc.wfs.gd.comm.size == 1
+            world_rank = (kpt_rank * self.calc.wfs.band_comm.size + band_rank)
+
+            # in the following, kpt_rank is assigned to world_rank
+            klist = np.array([world_rank, u, bzkpt_rank, myn])
             klist_kcomm = np.zeros((self.kcomm.size, 4), dtype=int)            
             self.kcomm.all_gather(klist, klist_kcomm)
 
@@ -275,59 +296,26 @@ class BASECHI:
             return psit_G
 
 
-    def density_matrix(self,n,m,k,Gspace=True):
-
-        ibzk_kc = self.ibzk_kc
-        bzk_kc = self.bzk_kc
-        kq_k = self.kq_k
-        gd = self.gd
-        kd = self.kd
-
-        ibzkpt1 = kd.kibz_k[k]
-        ibzkpt2 = kd.kibz_k[kq_k[k]]
+    def pad(self,psit_g):
         
-        psitold_g = self.get_wavefunction(ibzkpt1, n, True)
-        psit1_g = kd.transform_wave_function(psitold_g, k)
-        
-        psitold_g = self.get_wavefunction(ibzkpt2, m, True)
-        psit2_g = kd.transform_wave_function(psitold_g, kq_k[k])
 
-        if Gspace is False:
-            return psit1_g, psit2_g
-        else:
-            # FFT
-            tmp_g = psit1_g.conj()* psit2_g * self.expqr_g
-            rho_g = np.fft.fftn(tmp_g) * self.vol / self.nG0
-    
-            # Here, planewave cutoff is applied
-            rho_G = np.zeros(self.npw, dtype=complex)
-            for iG in range(self.npw):
-                index = self.Gindex_G[iG]
-                rho_G[iG] = rho_g[index[0], index[1], index[2]]
-    
-            if self.optical_limit:
-                d_c = [Gradient(gd, i, n=4, dtype=complex).apply for i in range(3)]
-                dpsit_g = gd.empty(dtype=complex)
-                tmp = np.zeros((3), dtype=complex)
-    
-                phase_cd = np.exp(2j * pi * gd.sdisp_cd * bzk_kc[kq_k[k], :, np.newaxis])
-                for ix in range(3):
-                    d_c[ix](psit2_g, dpsit_g, phase_cd)
-                    tmp[ix] = gd.integrate(psit1_g.conj() * dpsit_g)
-                rho_G[0] = -1j * np.dot(self.qq_v, tmp)
-    
-            # PAW correction
-            pt = self.pt
-            P1_ai = pt.dict()
-            pt.integrate(psit1_g, P1_ai, k)
-            P2_ai = pt.dict()
-            pt.integrate(psit2_g, P2_ai, kq_k[k])
-                            
-            for a, id in enumerate(self.calc.wfs.setups.id_a):
-                P_p = np.outer(P1_ai[a].conj(), P2_ai[a]).ravel()
-                gemv(1.0, self.phi_aGp[a], P_p, 1.0, rho_G)
-    
-            if self.optical_limit:
-                rho_G[0] /= self.e_kn[ibzkpt2, m] - self.e_kn[ibzkpt1, n]
-    
-            return rho_G
+        N_c = self.calc.wfs.gd.N_c
+        shift = np.zeros(3,int)
+        shift[np.where(self.pbc == False)] = 1
+        psit_G = self.gd.zeros(dtype=complex)
+        psit_G[shift[0]:N_c[0], shift[1]:N_c[1], shift[2]:N_c[2]] = \
+                                 psit_g[:N_c[0]-shift[0], :N_c[1]-shift[1], :N_c[2]-shift[2]]
+
+        return psit_G
+            
+
+
+    def add_discontinuity(self, shift):
+
+        eFermi = self.calc.occupations.get_fermi_level()
+        for i in range(self.e_kn.shape[1]):
+            for k in range(self.e_kn.shape[0]):
+                if self.e_kn[k,i] > eFermi:
+                    self.e_kn[k,i] += shift / Hartree
+
+        return

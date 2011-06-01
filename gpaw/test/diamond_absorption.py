@@ -32,22 +32,21 @@ w = np.linspace(0, 24., 241)
 
 df = DF(calc='C.gpw', q=q, w=(0.,), eta=0.001,
         ecut=50, hilbert_trans=False, optical_limit=True)
-df1, df2 = df.get_dielectric_function()
-eM1, eM2 = df.get_macroscopic_dielectric_constant(df1, df2)
+eM1, eM2 = df.get_macroscopic_dielectric_constant()
 
 eM1_ = 6.15185095143
 eM2_ = 6.04815084635
 
-if (np.abs(eM1 - eM1_) > 1e-5 or
-    np.abs(eM2 - eM2_) > 1e-5):
+if (np.abs(eM1[0] - eM1_) > 1e-5 or
+    np.abs(eM2[0] - eM2_) > 1e-5):
     print eM1, eM2
     raise ValueError('Macroscopic dielectric constant not correct ! ')
 
 
 # Absorption spectrum calculation
+del df
 df = DF(calc='C.gpw', q=q, w=w, eta=0.25,
         ecut=50, optical_limit=True, txt='C_df.out')
-df1, df2 = df.get_dielectric_function()
-df.get_absorption_spectrum(df1, df2)
-df.check_sum_rule(df1, df2)
+df.get_absorption_spectrum()
+df.check_sum_rule()
 df.write('C_df.pckl')

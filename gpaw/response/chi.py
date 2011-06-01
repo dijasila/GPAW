@@ -7,10 +7,10 @@ from gpaw import extra_parameters
 from gpaw.utilities.blas import gemv, scal, axpy
 from gpaw.mpi import world, rank, size, serial_comm
 from gpaw.fd_operators import Gradient
-from gpaw.response.math_func import hilbert_transform, full_hilbert_transform
+from gpaw.response.math_func import hilbert_transform
 from gpaw.response.parallel import set_communicator, \
      parallel_partition, SliceAlongFrequency, SliceAlongOrbitals
-from gpaw.response.kernel import calculate_Kxc
+from gpaw.response.kernel import calculate_Kxc, calculate_Kc
 from gpaw.utilities.memory import maxrss
 from gpaw.response.base import BASECHI
 
@@ -42,22 +42,32 @@ class CHI(BASECHI):
                  nbands=None,
                  w=None,
                  q=None,
+                 eshift=None,
                  ecut=10.,
+                 G_plus_q=False,
                  eta=0.2,
+                 rpad=np.array([1,1,1]),
                  ftol=1e-5,
                  txt=None,
+                 xc='ALDA',
                  hilbert_trans=True,
                  full_response=False,
                  optical_limit=False,
+                 comm=None,
                  kcommsize=None):
 
-        BASECHI.__init__(self, calc, nbands, w, q, ecut,
-                     eta, ftol, txt, optical_limit)
-
+        BASECHI.__init__(self, calc=calc, nbands=nbands, w=w, q=q,
+                         eshift=eshift, ecut=ecut, G_plus_q=G_plus_q, eta=eta,
+                         rpad=rpad, ftol=ftol, txt=txt,
+                         optical_limit=optical_limit)
+        
+        self.xc = xc
         self.hilbert_trans = hilbert_trans
         self.full_hilbert_trans = full_response
         self.kcommsize = kcommsize
-        self.comm = world
+        self.comm = comm
+        if self.comm is None:
+            self.comm = world
         self.chi0_wGG = None
 
 
@@ -125,24 +135,36 @@ class CHI(BASECHI):
         # G != 0 part
         self.get_phi_aGp()
 
-        # Calculate ALDA kernel for EELS spectrum
-        # Use RPA kernel for Optical spectrum and rpa correlation energy
-        if do_Kxc or (not self.optical_limit and np.dtype(self.w_w[0]) == float):
-            R_av = calc.atoms.positions / Bohr
+        # Calculate Coulomb kernel
+        self.Kc_GG = calculate_Kc(self.q_c, self.Gvec_Gc, self.bcell_cv)
+
+        # Calculate ALDA kernel (not used in chi0)
+        R_av = calc.atoms.positions / Bohr
+        if self.xc == 'RPA': #type(self.w_w[0]) is float:
+            self.Kxc_GG = np.zeros((self.npw, self.npw))
+            self.printtxt('RPA calculation.')
+        elif self.xc == 'ALDA':
+            nt_sg = calc.density.nt_sG
+            if (self.rpad > 1).any() or (self.pbc - True).any():
+                nt_sG = np.zeros([self.nspins, self.nG[0], self.nG[1], self.nG[2]])
+                for s in range(self.nspins):
+                    nt_G = self.pad(nt_sg[s])
+                    nt_sG[s] = nt_G
+            else:
+                nt_sG = nt_sg
+            
             self.Kxc_GG = calculate_Kxc(self.gd, # global grid
-                                    calc.density.nt_sG,
-                                    self.npw, self.Gvec_Gc,
-                                    self.nG, self.vol,
-                                    self.bcell_cv, R_av,
-                                    calc.wfs.setups,
-                                    calc.density.D_asp)
+                                        nt_sG,
+                                        self.npw, self.Gvec_Gc,
+                                        self.nG, self.vol,
+                                        self.bcell_cv, R_av,
+                                        calc.wfs.setups,
+                                        calc.density.D_asp)
 
             self.printtxt('Finished ALDA kernel ! ')
         else:
-            self.Kxc_GG = np.zeros((self.npw, self.npw))
-            self.printtxt('Use RPA for optical spectrum ! ')
-            self.printtxt('')
-            
+            raise ValueError('%s Not implemented !' %(self.xc))
+        
         return
 
 
@@ -179,6 +201,10 @@ class CHI(BASECHI):
         t0 = time()
         t_get_wfs = 0
         for k in range(self.kstart, self.kend):
+            k_pad = False
+            if k >= self.nkpt:
+                k = 0
+                k_pad = True
 
             # Find corresponding kpoint in IBZ
             ibzkpt1 = kd.kibz_k[k]
@@ -192,7 +218,12 @@ class CHI(BASECHI):
                 t1 = time()
                 psitold_g = self.get_wavefunction(ibzkpt1, n, True, spin=spin)
                 t_get_wfs += time() - t1
-                psit1new_g = kd.transform_wave_function(psitold_g, k)
+                psit1new_g_tmp = kd.transform_wave_function(psitold_g, k)
+
+                if (self.rpad > 1).any() or (self.pbc - True).any():
+                    psit1new_g = self.pad(psit1new_g_tmp)
+                else:
+                    psit1new_g = psit1new_g_tmp
 
                 P1_ai = pt.dict()
                 pt.integrate(psit1new_g, P1_ai, k)
@@ -211,7 +242,12 @@ class CHI(BASECHI):
                     t_get_wfs += time() - t1
 
                     if check_focc:
-                        psit2_g = kd.transform_wave_function(psitold_g, kq_k[k])
+                        psit2_g_tmp = kd.transform_wave_function(psitold_g, kq_k[k])
+                        if (self.rpad > 1).any() or (self.pbc - True).any():
+                            psit2_g = self.pad(psit2_g_tmp)
+                        else:
+                            psit2_g = psit2_g_tmp
+
                         P2_ai = pt.dict()
                         pt.integrate(psit2_g, P2_ai, kq_k[k])
 
@@ -235,8 +271,10 @@ class CHI(BASECHI):
                             gemv(1.0, self.phi_aGp[a], P_p, 1.0, rho_G)
 
                         if self.optical_limit:
-                            rho_G[0] /= e_kn[ibzkpt2, m] - e_kn[ibzkpt1, n]
+                            rho_G[0] /= self.enoshift_kn[ibzkpt2, m] - self.enoshift_kn[ibzkpt1, n]
 
+                        if k_pad:
+                            rho_G[:] = 0.
                         rho_GG = np.outer(rho_G, rho_G.conj())
                         
                         if not self.hilbert_trans:
@@ -296,10 +334,8 @@ class CHI(BASECHI):
         else:
             self.kcomm.sum(specfunc_wGG)
             if self.wScomm.size == 1:
-                if not self.full_hilbert_trans:
-                    chi0_wGG = hilbert_transform(specfunc_wGG, self.Nw, self.dw, self.eta)[self.wstart:self.wend]
-                else:
-                    chi0_wGG = full_hilbert_transform(specfunc_wGG, self.Nw, self.dw, self.eta)[self.wstart:self.wend]                
+                chi0_wGG = hilbert_transform(specfunc_wGG, self.Nw, self.dw, self.eta,
+                                             self.full_hilbert_trans)[self.wstart:self.wend]
                 self.printtxt('Finished hilbert transform !')
                 del specfunc_wGG
             else:
@@ -318,10 +354,8 @@ class CHI(BASECHI):
         
                 specfunc_Wg = SliceAlongFrequency(specfuncnew_wGG, coords, self.wcomm)
                 self.printtxt('Finished Slice Along Frequency !')
-                if not self.full_hilbert_trans:
-                    chi0_Wg = hilbert_transform(specfunc_Wg, self.Nw, self.dw, self.eta)[:self.Nw]
-                else:
-                    chi0_Wg = full_hilbert_transform(specfunc_Wg, self.Nw, self.dw, self.eta)[:self.Nw]
+                chi0_Wg = hilbert_transform(specfunc_Wg, self.Nw, self.dw, self.eta,
+                                            self.full_hilbert_trans)[:self.Nw]
                 self.printtxt('Finished hilbert transform !')
                 self.comm.barrier()
                 del specfunc_Wg
@@ -359,7 +393,9 @@ class CHI(BASECHI):
             rank = world.rank
             self.comm = world
         else:
-            from gpaw.mpi import world, rank, size
+            world = self.comm
+            rank = self.comm.rank
+            size = self.comm.size
 
         wcommsize = int(self.NwS * self.npw**2 * 16. / 1024**2) // 1500 # megabyte
         wcommsize += 1
@@ -379,8 +415,9 @@ class CHI(BASECHI):
         self.kcomm, self.wScomm, self.wcomm = set_communicator(world, rank, size, self.kcommsize)
 
         if self.nkpt != 1:
-            self.nkpt, self.nkpt_local, self.kstart, self.kend = parallel_partition(
-                               self.nkpt, self.kcomm.rank, self.kcomm.size, reshape=False)
+            self.nkpt_reshape = self.nkpt
+            self.nkpt_reshape, self.nkpt_local, self.kstart, self.kend = parallel_partition(
+                               self.nkpt_reshape, self.kcomm.rank, self.kcomm.size, reshape=True, positive=True)
             self.nband_local = self.nbands
             self.nstart = 0
             if self.hilbert_trans:
@@ -436,6 +473,9 @@ class CHI(BASECHI):
             printtxt('     nbands parsize  : %d' %(self.kcomm.size))
         else:
             printtxt('     kpoint parsize  : %d' %(self.kcomm.size))
+            if self.nkpt_reshape > self.nkpt:
+                self.printtxt('        kpoints (%d-%d) are padded with zeros' %(self.nkpt,self.nkpt_reshape))
+
         if self.hilbert_trans:
             printtxt('     specfunc parsize: %d' %(self.wScomm.size))
         printtxt('     w parsize       : %d' %(self.wcomm.size))

@@ -5,7 +5,7 @@ from ase.atoms import Atoms
 
 from gpaw.aseinterface import GPAW
 from gpaw.wavefunctions.base import WaveFunctions
-from gpaw.grid_descriptor import EquidistantRadialGridDescriptor
+from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 from gpaw.utilities import unpack
 from gpaw.utilities.lapack import general_diagonalize
 from gpaw.occupations import OccupationNumbers
@@ -190,7 +190,7 @@ class AtomGridDescriptor(EquidistantRadialGridDescriptor):
     def __init__(self, h, rcut):
         ng = int(float(rcut) / h + 0.5) - 1
         rcut = ng * h
-        EquidistantRadialGridDescriptor.__init__(self, h, ng)
+        EquidistantRadialGridDescriptor.__init__(self, h, ng, h0=h)
         self.sdisp_cd = np.empty((3, 2))
         self.comm = mpi.serial_comm
         self.pbc_c = np.zeros(3, bool)
@@ -199,16 +199,6 @@ class AtomGridDescriptor(EquidistantRadialGridDescriptor):
         self.h_cv = self.cell_cv / self.N_c
         self.dv = (rcut / 2 / ng)**3
         self.orthogonal = False
-    def _get_position_array(self, h, ng):
-        return np.linspace(h, ng * h, ng)
-    def r2g_ceil(self, r):
-        return EquidistantRadialGridDescriptor.r2g_ceil(self, r + self.h)
-    def r2g_floor(self, r):
-        return EquidistantRadialGridDescriptor.r2g_floor(self, r + self.h)
-    def spline(self, l, f_g):
-        raise NotImplementedError
-    def reducedspline(self, l, f_g):
-        raise NotImplementedError
     def get_ranks_from_positions(self, spos_ac):
         return np.array([0])
     def refine(self):
@@ -225,6 +215,9 @@ class AtomGridDescriptor(EquidistantRadialGridDescriptor):
         return np.zeros(3)
     def symmetrize(self, a_g, op_scc):
         pass
+    def get_grid_spacings(self):
+        return self.h_cv.diagonal()
+    
 
 class AtomOccupations(OccupationNumbers):
     def __init__(self, f_sln):
@@ -292,8 +285,8 @@ class AtomPAW(GPAW):
         assert self.wfs.nspins == 1
 
         basis = Basis(self.symbol, basis_name, readxml=False)
-        basis.d = self.wfs.gd.h
-        basis.ng = self.wfs.gd.ng + 1
+        basis.d = self.wfs.gd.r_g[0]
+        basis.ng = self.wfs.gd.N + 1
         basis.generatorattrs = {} # attrs of the setup maybe
         basis.generatordata = 'AtomPAW' # version info too?
 
@@ -308,7 +301,7 @@ class AtomPAW(GPAW):
             # We'll make an ugly hack
             if abs(phit_g[1]) > 3.0 * abs(phit_g[2] - phit_g[1]):
                 phit_g[0] = phit_g[1]
-            bf = BasisFunction(l, self.wfs.gd.rcut, phit_g,
+            bf = BasisFunction(l, self.wfs.gd.r_g[-1], phit_g,
                                '%s%d e=%.3f f=%.3f' % ('spdfgh'[l], n, eps, f))
             bf_j.append(bf)
         return basis

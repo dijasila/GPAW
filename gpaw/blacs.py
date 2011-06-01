@@ -429,28 +429,29 @@ class BlacsDescriptor(MatrixDescriptor):
     def as_serial(self):
         return self.blacsgrid.new_descriptor(self.M, self.N, self.M, self.N)
 
-    def redistribute(self, otherdesc, src_mn, dst_mn=None):
+    def redistribute(self, otherdesc, src_mn, dst_mn=None,
+                     subM=None, subN=None, ia=0, ja=0, ib=0, jb=0, uplo='G'):
         if self.blacsgrid != otherdesc.blacsgrid:
             raise ValueError('Cannot redistribute to other BLACS grid.  '
                              'Requires using Redistributor class explicitly')
         if dst_mn is None:
             dst_mn = otherdesc.empty(dtype=src_mn.dtype)
         r = Redistributor(self.blacsgrid.comm, self, otherdesc)
-        r.redistribute(src_mn, dst_mn)
+        r.redistribute(src_mn, dst_mn, subM, subN, ia, ja, ib, jb, uplo)
         return dst_mn
 
-    def collect_on_master(self, src_mn, dst_mn=None):
+    def collect_on_master(self, src_mn, dst_mn=None, uplo='G'):
         desc = self.as_serial()
-        return self.redistribute(desc, src_mn, dst_mn)
+        return self.redistribute(desc, src_mn, dst_mn, uplo=uplo)
 
-    def distribute_from_master(self, src_mn, dst_mn=None):
+    def distribute_from_master(self, src_mn, dst_mn=None, uplo='G'):
         desc = self.as_serial()
-        return desc.redistribute(self, src_mn, dst_mn)
+        return desc.redistribute(self, src_mn, dst_mn, uplo=uplo)
 
 
 class Redistributor:
     """Class for redistributing BLACS matrices on different contexts."""
-    def __init__(self, supercomm, srcdescriptor, dstdescriptor, uplo='G'):
+    def __init__(self, supercomm, srcdescriptor, dstdescriptor):
         """Create redistributor.
 
         Source and destination descriptors may reside on different
@@ -468,12 +469,10 @@ class Redistributor:
         self.supercomm_bg = BlacsGrid(self.supercomm, self.supercomm.size, 1)
         self.srcdescriptor = srcdescriptor
         self.dstdescriptor = dstdescriptor
-        assert uplo in ['G', 'U', 'L'] 
-        self.uplo = uplo
     
     def redistribute(self, src_mn, dst_mn,
                      subM=None, subN=None,
-                     ia=0, ja=0, ib=0, jb=0):
+                     ia=0, ja=0, ib=0, jb=0, uplo='G'):
         """Redistribute src_mn into dst_mn.
 
         src_mn and dst_mn must be compatible with source and
@@ -512,8 +511,7 @@ class Redistributor:
         assert dstdescriptor.gshape[1] >= subN
         
         # Switch to Fortran conventions
-        uplo = {'U': 'L', 'L': 'U', 'G': 'G'}[self.uplo]
-        
+        uplo = {'U': 'L', 'L': 'U', 'G': 'G'}[uplo]
         _gpaw.scalapack_redist(srcdescriptor.asarray(), 
                                dstdescriptor.asarray(),
                                src_mn, dst_mn,

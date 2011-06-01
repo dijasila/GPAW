@@ -9,7 +9,7 @@ import numpy as np
 
 from gpaw.atom.generator import Generator
 from gpaw.atom.configurations import parameters
-from gpaw.utilities import devnull
+from gpaw.utilities import devnull, compiled_with_sl
 from gpaw import setup_paths
 from gpaw import mpi
 import gpaw
@@ -57,12 +57,12 @@ tests = [
     'gemm_complex.py',
     'lapack.py',
     'mpicomm.py',
+    'parallel/submatrix_redist.py',
     'eigh.py',
     'xc.py',
     'gradient.py',
     'pbe_pw91.py',
     'cg2.py',
-    'd2Excdn2.py',
     'dot.py',
     'blas.py',
     'gp2.py',
@@ -90,7 +90,6 @@ tests = [
     'parallel/compare.py',
     'ase3k.py',
     'laplace.py',
-    'ds_beta.py',
     'gauss_wave.py',
     'planewavebasis.py',
     'coulomb.py',
@@ -102,8 +101,12 @@ tests = [
     'wfs_io.py',
     'wfs_auto.py',
     'xcatom.py',
+    'ds_beta.py',
     'parallel/overlap.py',
     'symmetry.py',
+    'noncollinerar/h.py',
+    'noncollinerar/xccorr.py',
+    'noncollinerar/xcgrid3d.py',
     'pes.py',
     'elf.py',
     'lebedev.py',
@@ -176,6 +179,7 @@ tests = [
     'bse_aluminum.py',
     'bse_diamond.py',
     'bse_vs_lrtddft.py',
+#    'bse_silicon.py',
     'diamond_eps_alda.py',
     'hgh_h2o.py',
     'apmb.py',
@@ -210,6 +214,7 @@ tests = [
     'coreeig.py',
     'Cu.py',
     'diamond_gllb.py',
+    'wannierk.py',
     'exx.py',
     'h2o_dks.py',
     'nscfsic.py',
@@ -245,6 +250,8 @@ tests = [
     ]
 
 exclude = []
+
+
 if mpi.size > 1:
     exclude += ['pes.py',
                 'nscfsic.py',
@@ -265,11 +272,15 @@ if mpi.size < 4:
                 'AA_exx_enthalpy.py',
                 'bse_aluminum.py',
                 'bse_diamond.py',
-                'bse_vs_lrtddft.py']
+                'bse_vs_lrtddft.py'
+                ]
 
 if mpi.size != 4:
     exclude += ['parallel/lcao_parallel.py']
     exclude += ['parallel/fd_parallel.py']
+
+if mpi.size == 1 or not compiled_with_sl():
+    exclude += ['parallel/submatrix_redist.py']
 
 if mpi.size == 8:
     exclude += ['transport.py']
@@ -290,6 +301,7 @@ except ImportError:
                 'bse_aluminum.py',
                 'bse_diamond.py',
                 'bse_vs_lrtddft.py',
+#                'bse_silicon.py',
                 'aeatom.py',
                 'rpa_energy_Kr.py']
 

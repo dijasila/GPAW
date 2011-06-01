@@ -173,8 +173,6 @@ class Writer:
         if self.verbose:
             print "close()"
         self._close_array()
-        print self.cmr_params.keys()
-        print self.filename
         if self.filename==".db":
             self.cmr_params["output"]=create_db_filename(self.data)
         else:

@@ -46,6 +46,7 @@ to become the next release.
 .. _PyLint: http://www.logilab.org/857
 
 
+.. _the_big_picture:
 .. _code_overview:
 
 Code Overview
@@ -53,10 +54,9 @@ Code Overview
 
 Keep this picture under your pillow:
 
-.. _the_big_picture:
 
 .. image:: bigpicture.png
-   :target: ../bigpicture.pdf
+   :target: ../bigpicture.svg
 
 The developer guide provides an overview of the PAW quantities and how
 the corresponding objects are defined in the code:
@@ -111,6 +111,7 @@ the `ASE project`_.  Here is the list of current committers:
 id         real name
 =========  =========================  ========================================
 anpet      Andrew Peterson            andy,peterson:stanford,edu
+aoj        Ari Ojanperä               ari,ojanpera:tkk,fi
 askhl      Ask Hjorth Larsen          askhl:fysik,dtu,dk
 dlandis    David Landis               dlandis:fysik,dtu,dk
 dulak      Marcin Dulak               dulak:fysik,dtu,dk

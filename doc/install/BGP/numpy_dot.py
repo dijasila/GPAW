@@ -19,7 +19,7 @@ for item in Al:
     for n,value in enumerate(item):
         if (n % 2) == 0:
             item[n] = random.random()
-Anew = num.array([Al])
+Anew = num.array(Al)
 
 t = time()
 num.dot(Anew, Anew)

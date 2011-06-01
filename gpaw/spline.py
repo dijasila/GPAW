@@ -4,44 +4,24 @@
 import numpy as np
 
 from gpaw import debug
-from gpaw.utilities import divrl, is_contiguous
+from gpaw.utilities import is_contiguous
 import _gpaw
 
 
 class Spline:
-    def __init__(self, l, rmax, f_g, r_g=None, beta=None, points=25):
+    def __init__(self, l, rmax, f_g):
         """Spline(l, rcut, list) -> Spline object
 
         The integer l gives the angular momentum quantum number and
         the list contains the spline values from r=0 to r=rcut.
 
-        The array f_g gives the radial part of the function on the grid
-        specified by r_g (if any). The radial function is multiplied by
-        real solid spherical harmonics (r^l * Y_lm).
+        The array f_g gives the radial part of the function on the grid.
+        The radial function is multiplied by a real solid spherical harmonics
+        (r^l * Y_lm).
         """
         assert 0.0 < rmax
-
-        if beta is None:
-            f_g = np.ascontiguousarray(f_g, float)
-        else:
-            f_g = divrl(f_g, l, r_g)
-            r = 1.0 * rmax / points * np.arange(points + 1)
-            ng = len(f_g)
-            g = (ng * r / (beta + r) + 0.5).astype(int)
-            g = np.clip(g, 1, ng - 2)
-            r1 = np.take(r_g, g - 1)
-            r2 = np.take(r_g, g)
-            r3 = np.take(r_g, g + 1)
-            x1 = (r - r2) * (r - r3) / (r1 - r2) / (r1 - r3)
-            x2 = (r - r1) * (r - r3) / (r2 - r1) / (r2 - r3)
-            x3 = (r - r1) * (r - r2) / (r3 - r1) / (r3 - r2)
-            f1 = np.take(f_g, g - 1)
-            f2 = np.take(f_g, g)
-            f3 = np.take(f_g, g + 1)
-            f_g = f1 * x1 + f2 * x2 + f3 * x3
-
+        f_g = np.array(f_g, float)
         # Copy so we don't change the values of the input array
-        f_g = f_g.copy()
         f_g[-1] = 0.0
         self.spline = _gpaw.Spline(l, rmax, f_g)
 
@@ -85,3 +65,11 @@ class Spline:
         return work_mB
 
 
+## class rspline:
+##     def __init__(self, r_g, f_g, l=0):
+##         self.rcut = r_g[-1]
+##         self.l = l
+##         ...
+        
+##     def __call__(self, r):
+##         return self.spline(r)*r**l

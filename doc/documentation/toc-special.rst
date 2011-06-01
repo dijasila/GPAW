@@ -12,6 +12,7 @@
    xc/rpa
    transport/negftransport
    tddft/tddft
+   bse/bse
    dscf/dscf
    pdos/pdos
    xas/xas

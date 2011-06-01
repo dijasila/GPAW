@@ -14,23 +14,34 @@ class DF(CHI):
                  nbands=None,
                  w=None,
                  q=None,
+                 eshift=None,
                  ecut=10.,
+                 G_plus_q=False,
                  eta=0.2,
+                 rpad=np.array([1,1,1]),
                  ftol=1e-7,
                  txt=None,
+                 xc='ALDA',
                  hilbert_trans=True,
                  full_response=False,
                  optical_limit=False,
+                 comm=None,
                  kcommsize=None):
 
-        CHI.__init__(self, calc, nbands, w, q, ecut,
-                     eta, ftol, txt, hilbert_trans, full_response, optical_limit, kcommsize)
+        CHI.__init__(self, calc=calc, nbands=nbands, w=w, q=q, eshift=eshift,
+                     ecut=ecut, G_plus_q=G_plus_q, eta=eta, rpad=rpad,
+                     ftol=ftol, txt=txt, xc=xc, hilbert_trans=hilbert_trans,
+                     full_response=full_response, optical_limit=optical_limit,
+                     comm=comm, kcommsize=kcommsize)
 
-        self.df1_w = None
-        self.df2_w = None
+        self.df_flag = False
+        self.df1_w = None # NLF RPA
+        self.df2_w = None # LF RPA
+        self.df3_w = None # NLF ALDA
+        self.df4_w = None # LF ALDA
 
 
-    def get_RPA_dielectric_matrix(self):
+    def get_dielectric_matrix(self, xc='RPA'):
 
 	if self.chi0_wGG is None:
             self.initialize()
@@ -41,10 +52,20 @@ class DF(CHI):
         tmp_GG = np.eye(self.npw, self.npw)
         dm_wGG = np.zeros((self.Nw_local, self.npw, self.npw), dtype = complex)
 
-        for iw in range(self.Nw_local):
-            for iG in range(self.npw):
-                qG = np.dot(self.q_c + self.Gvec_Gc[iG], self.bcell_cv)
-                dm_wGG[iw,iG] = tmp_GG[iG] - 4 * pi / np.dot(qG, qG) * self.chi0_wGG[iw,iG]
+        if xc == 'RPA':
+            self.printtxt('Use RPA.')
+            for iw in range(self.Nw_local):
+                dm_wGG[iw] = tmp_GG - self.Kc_GG * self.chi0_wGG[iw]
+        elif xc == 'ALDA':
+            self.printtxt('Use ALDA kernel.')
+            # E_LDA = 1 - v_c chi0 (1-fxc chi0)^-1
+            # http://prb.aps.org/pdf/PRB/v33/i10/p7017_1 eq. 4
+            A_wGG = self.chi0_wGG.copy()
+            for iw in range(self.Nw_local): 
+                A_wGG[iw] = np.dot(self.chi0_wGG[iw], np.linalg.inv(tmp_GG - np.dot(self.Kxc_GG, self.chi0_wGG[iw])))
+    
+            for iw in range(self.Nw_local):
+                dm_wGG[iw] = tmp_GG - self.Kc_GG * A_wGG[iw]                
 
         if self.nspins == 2:
             nibzkpt = self.ibzk_kc.shape[0]
@@ -57,34 +78,19 @@ class DF(CHI):
             self.calculate(spin=1)
 
             for iw in range(self.Nw_local):
-                for iG in range(self.npw):
-                    qG = np.dot(self.q_c + self.Gvec_Gc[iG], self.bcell_cv)
-                    dm_wGG[iw,iG] -=  4 * pi / np.dot(qG, qG) * self.chi0_wGG[iw,iG]
+                dm_wGG[iw] -= self.Kc_GG * self.chi0_wGG[iw]
         
         return dm_wGG
 
 
-    def get_ALDA_dielectric_matrix(self):
-        if self.chi0_wGG is None:
-            self.initialize(do_Kxc=True)
-            self.calculate()
+    def get_inverse_dielectric_matrix(self,xc='RPA'):
 
-        assert self.nspins==1
-        tmp_GG = np.eye(self.npw, self.npw)
-        dm_wGG = np.zeros((self.Nw_local, self.npw, self.npw), dtype = complex)
-
-        # E_LDA = 1 - v_c chi0 (1-fxc chi0)^-1
-        # http://prb.aps.org/pdf/PRB/v33/i10/p7017_1 eq. 4
-        A_wGG = self.chi0_wGG.copy()
-        for iw in range(self.Nw_local): 
-            A_wGG[iw] = np.dot(self.chi0_wGG[iw], np.linalg.inv(tmp_GG - np.dot(self.Kxc_GG, self.chi0_wGG[iw])))
-
+        dm_wGG = self.get_dielectric_matrix(xc=xc)
+        dminv_wGG = np.zeros_like(dm_wGG)
         for iw in range(self.Nw_local):
-            for iG in range(self.npw):
-                qG = np.dot(self.q_c + self.Gvec_Gc[iG], self.bcell_cv)
-                dm_wGG[iw,iG] = tmp_GG[iG] - 4 * pi / np.dot(qG, qG) * A_wGG[iw,iG]
+            dminv_wGG[iw] = np.linalg.inv(dm_wGG[iw])
+        return dminv_wGG
 
-        return dm_wGG
 
     def get_chi(self, xc='RPA'):
         """Solve Dyson's equation."""
@@ -111,7 +117,7 @@ class DF(CHI):
             chi_wGG[iw] = np.dot(np.linalg.inv(tmp_GG) , self.chi0_wGG[iw])
 
         return chi_wGG
-
+    
 
     def get_dielectric_function(self, xc='RPA'):
         """Calculate the dielectric function. Returns df1_w and df2_w.
@@ -124,14 +130,8 @@ class DF(CHI):
             Dielectric function with local field correction.
         """
 
-        if self.df1_w is None:
-            if xc == 'RPA':
-                dm_wGG = self.get_RPA_dielectric_matrix()
-            elif xc == 'ALDA':
-                dm_wGG = self.get_ALDA_dielectric_matrix()
-            else:
-                raise NotImplementedError(xc)
-            
+        if self.df_flag is False:
+            dm_wGG = self.get_dielectric_matrix(xc=xc)
 
             Nw_local = dm_wGG.shape[0]
             dfNLF_w = np.zeros(Nw_local, dtype = complex)
@@ -147,10 +147,17 @@ class DF(CHI):
             self.wcomm.all_gather(dfNLF_w, df1_w)
             self.wcomm.all_gather(dfLFC_w, df2_w)
 
-            self.df1_w = df1_w
-            self.df2_w = df2_w
+            if xc == 'RPA':
+                self.df1_w = df1_w
+                self.df2_w = df2_w
+            elif xc=='ALDA':
+                self.df3_w = df1_w
+                self.df4_w = df2_w                
 
-        return self.df1_w, self.df2_w
+        if xc == 'RPA':
+            return self.df1_w, self.df2_w
+        elif xc == 'ALDA':
+            return self.df3_w, self.df4_w
 
 
     def get_surface_response_function(self, z0=0., filename='surf_EELS'):
@@ -254,7 +261,7 @@ class DF(CHI):
         self.printtxt('Include local field: N2 = %f, %f  %% error' %(N2, (N2 - nv) / nv * 100) )
 
 
-    def get_macroscopic_dielectric_constant(self, df1=None, df2=None):
+    def get_macroscopic_dielectric_constant(self):
         """Calculate macroscopic dielectric constant. Returns eM1 and eM2
 
         Macroscopic dielectric constant is defined as the real part of dielectric function at w=0.
@@ -262,94 +269,104 @@ class DF(CHI):
         Parameters:
 
         eM1: float
-            Dielectric constant without local field correction.
+            Dielectric constant without local field correction. (RPA, ALDA)
         eM2: float
             Dielectric constant with local field correction.
 
         """
 
-        if df1 is None:
-            df1, df2 = self.get_dielectric_function()
-        eM1, eM2 = np.real(df1[0]), np.real(df2[0])
-
+        eM1 = np.zeros(2)
+        eM2 = np.zeros(2)
+        for id, xc in enumerate(['RPA', 'ALDA']):
+            df1, df2 = self.get_dielectric_function(xc=xc)
+            eM1[id], eM2[id] = np.real(df1[0]), np.real(df2[0])
         self.printtxt('')
         self.printtxt('Macroscopic dielectric constant:')
-        self.printtxt('    Without local field : %f' %(eM1) )
-        self.printtxt('    Include local field : %f' %(eM2) )        
+        self.printtxt('    Without local field (RPA, ALDA): %f, %f' %(eM1[0], eM1[1]) )
+        self.printtxt('    Include local field (RPA, ALDA): %f, %f' %(eM2[0], eM2[1]) )        
             
         return eM1, eM2
 
 
-    def get_absorption_spectrum(self, df1=None, df2=None, filename='Absorption.dat'):
+    def get_absorption_spectrum(self, filename='Absorption.dat'):
         """Calculate optical absorption spectrum. By default, generate a file 'Absorption.dat'.
 
         Optical absorption spectrum is obtained from the imaginary part of dielectric function.
         """
 
-        if df1 is None:
-            df1, df2 = self.get_dielectric_function()
+        df1, df2 = self.get_dielectric_function(xc='RPA')
+        if self.xc is 'ALDA':
+            df3, df4 = self.get_dielectric_function(xc='ALDA')
         Nw = df1.shape[0]
 
         if rank == 0:
             f = open(filename,'w')
             for iw in range(Nw):
                 energy = iw * self.dw * Hartree
-                print >> f, energy, np.real(df1[iw]), np.imag(df1[iw]), \
-                      np.real(df2[iw]), np.imag(df2[iw])
+                if self.xc is 'RPA':
+                    print >> f, energy, np.real(df1[iw]), np.imag(df1[iw]), \
+                          np.real(df2[iw]), np.imag(df2[iw])
+                elif self.xc is 'ALDA':
+                    print >> f, energy, np.real(df1[iw]), np.imag(df1[iw]), \
+                      np.real(df2[iw]), np.imag(df2[iw]), \
+                      np.real(df3[iw]), np.imag(df3[iw]), \
+                      np.real(df4[iw]), np.imag(df4[iw])
             f.close()
 
         # Wait for I/O to finish
         self.comm.barrier()
 
 
-    def get_EELS_spectrum(self, df1=None, df2=None, filename='EELS.dat'):
+    def get_EELS_spectrum(self, filename='EELS.dat'):
         """Calculate EELS spectrum. By default, generate a file 'EELS.dat'.
 
         EELS spectrum is obtained from the imaginary part of the inverse of dielectric function.
         """
 
         # calculate RPA dielectric function
-        if df1 is None:
-            df1, df2 = self.get_dielectric_function()
+        df1, df2 = self.get_dielectric_function(xc='RPA')
+        if self.xc is 'ALDA':
+            df3, df4 = self.get_dielectric_function(xc='ALDA')
         Nw = df1.shape[0]
 
-        # calculate LDA chi
-        q_v = np.dot(self.q_c, self.bcell_cv)
-        coef = 4 * pi / np.inner(q_v, q_v)
-        chi_wGG = self.get_chi(xc='ALDA')
-        chi_w = np.zeros(self.Nw, dtype=complex)
-        self.wcomm.all_gather(chi_wGG[:,0,0].copy(), chi_w)
-        chi_w *= coef
-        
         if rank == 0:
             f = open(filename,'w')
             for iw in range(self.Nw):
                 energy = iw * self.dw * Hartree
-                print >> f, energy, -np.imag(1./df1[iw]), -np.imag(1./df2[iw]), -np.imag(chi_w[iw])
+                if self.xc is 'RPA':
+                    print >> f, energy, -np.imag(1./df1[iw]), -np.imag(1./df2[iw])
+                elif self.xc is 'ALDA':
+                    print >> f, energy, -np.imag(1./df1[iw]), -np.imag(1./df2[iw]), \
+                       -np.imag(1./df3[iw]), -np.imag(1./df4[iw])
             f.close()
 
         # Wait for I/O to finish
         self.comm.barrier()
 
 
-    def get_jdos(self, f_kn, e_kn, kq, dw, Nw, sigma):
+    def get_jdos(self, f_kn, e_kn, kd, kq, dw, Nw, sigma):
         """Calculate Joint density of states"""
 
         JDOS_w = np.zeros(Nw)
-        nkpt = f_kn.shape[0]
+        nkpt = kd.nbzkpts
         nbands = f_kn.shape[1]
 
         for k in range(nkpt):
+            print k
+            ibzkpt1 = kd.kibz_k[k]
+            ibzkpt2 = kd.kibz_k[kq[k]]
             for n in range(nbands):
                 for m in range(nbands):
-                    focc = f_kn[k, n] - f_kn[kq[k], m]
-                    w0 = e_kn[kq[k], m] - e_kn[k, n]
+                    focc = f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]
+                    w0 = e_kn[ibzkpt2, m] - e_kn[ibzkpt1, n]
                     if focc > 0 and w0 >= 0:
-                        deltaw = delta_function(w0, dw, Nw, sigma)
-                        for iw in range(Nw):
-                            if deltaw[iw] > 1e-8:
-                                JDOS_w[iw] += focc * deltaw[iw]
-
+                        w0_id = int(w0 / dw)
+                        if w0_id + 1 < Nw:
+                            alpha = (w0_id + 1 - w0/dw) / dw
+                            JDOS_w[w0_id] += focc * alpha
+                            alpha = (w0/dw-w0_id) / dw
+                            JDOS_w[w0_id+1] += focc * alpha
+                            
         w = np.arange(Nw) * dw * Hartree
 
         return w, JDOS_w
@@ -487,13 +504,16 @@ class DF(CHI):
                 'bzk_kc'       : self.bzk_kc,
                 'ibzk_kc'      : self.ibzk_kc,
                 'kq_k'         : self.kq_k,
-                'Gvec_Gc'       : self.Gvec_Gc,
-                'dfNLF_w'      : self.df1_w,
-                'dfLFC_w'      : self.df2_w}
+                'Gvec_Gc'      : self.Gvec_Gc,
+                'dfNLFRPA_w'   : self.df1_w,
+                'dfLFCRPA_w'   : self.df2_w,
+                'dfNLFALDA_w'  : self.df3_w,
+                'dfLFCALDA_w'  : self.df4_w,
+                'df_flag'      : True}
 
         if all == True:
             from gpaw.response.parallel import par_write
-            par_write('chi0','chi0_wGG',self.wcomm,self.chi0_wGG)
+            par_write('chi0' + filename,'chi0_wGG',self.wcomm,self.chi0_wGG)
         
         if rank == 0:
             pickle.dump(data, open(filename, 'w'), -1)
@@ -535,7 +555,10 @@ class DF(CHI):
         self.ibzk_kc = data['ibzk_kc']
         self.kq_k    = data['kq_k']
         self.Gvec_Gc  = data['Gvec_Gc']
-        self.df1_w   = data['dfNLF_w']
-        self.df2_w   = data['dfLFC_w']
-
+        self.df1_w   = data['dfNLFRPA_w']
+        self.df2_w   = data['dfLFCRPA_w']
+        self.df3_w   = data['dfNLFALDA_w']
+        self.df4_w   = data['dfLFCALDA_w']
+        self.df_flag = data['df_flag']
+        
         self.printtxt('Read succesfully !')

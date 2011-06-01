@@ -18,13 +18,16 @@ perform some of the most common tasks:
    optimization/optimization
    plotting/plot_wave_functions
    bandstructures/bandstructures
+   jellium/jellium
    all-electron/all_electron_density
    neb/neb
+   pbe0/pbe0
    xas/xas
    negfstm/negfstm
-   ensembles/ensembles
    dielectric_response/dielectric_response
-   rpa/rpa	
+   rpa/rpa_tut
+   ensembles/ensembles
+
 
 =========
 Exercises

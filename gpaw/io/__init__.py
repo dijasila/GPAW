@@ -114,7 +114,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     if master or hdf5:
         w = open(filename, 'w', world)
         w['history'] = 'GPAW restart file'
-        w['version'] = '0.8'
+        w['version'] = '0.9'
         w['lengthunit'] = 'Bohr'
         w['energyunit'] = 'Hartree'
 
@@ -173,6 +173,17 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         w.dimension('nadm', nadm)
 
         p = paw.input_parameters
+
+        # Write grid-spacing or None if gpts was specified:
+        if p.gpts is None:
+            if p.h is None:
+                h = 0.2 / Bohr
+            else:
+                h = p.h / Bohr
+        else:
+            h = None
+        w['GridSpacing'] = h
+
         # Write various parameters:
         (w['KohnShamStencil'],
          w['InterpolationStencil']) = p['stencils']
@@ -238,6 +249,9 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
             if setup.type != 'paw':
                 key += '(%s)' % setup.type
             w[key] = setup.fingerprint
+            
+            #key = key.replace('Fingerprint', '')
+            #w[key] = setup.parameter_string
 
         setup_types = p['setups']
         if isinstance(setup_types, str):
@@ -312,6 +326,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         all_D_sp = np.empty((wfs.nspins, nadm))
         all_H_sp = np.empty((wfs.nspins, nadm))
         p1 = 0
+        p2 = 0
         for a in range(natoms):
             ni = wfs.setups[a].ni
             nii = ni * (ni + 1) // 2

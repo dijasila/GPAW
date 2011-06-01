@@ -21,6 +21,7 @@ from gpaw.transport.contour import Contour, EnergyNode
 from gpaw.transport.surrounding import Surrounding
 from gpaw.transport.selfenergy import LeadSelfEnergy
 from gpaw.transport.analysor import Transport_Analysor, Transport_Plotter
+from gpaw.transport.io import Transport_IO
 
 import gpaw
 import numpy as np
@@ -50,6 +51,13 @@ class Transport(GPAW):
         self.finegd = self.density.finegd
             
     def set_transport_kwargs(self, **transport_kwargs):
+        '''illustration of keywords:
+
+                 o  o  o  o  o  o  o  o  o  o  o  o  o 
+                 0  1  2  3  4  5  6  7  8  9  10 11 12
+                             | mol_atoms |    
+                 |pl_atoms1|                |pl_atoms2|
+        '''
         kw = transport_kwargs  
         p =  self.set_default_transport_parameters()
         self.gpw_kwargs = kw.copy()
@@ -60,7 +68,8 @@ class Transport(GPAW):
                        'use_buffer', 'buffer_atoms', 'edge_atoms', 'bias',
                        'lead_restart', 'special_datas', 'neutral_steps',
                        'plot_eta', 'plot_energy_range', 'plot_energy_point_num',
-                       'vaccs', 'lead_guess', 'neutral','buffer_guess',
+                       'vaccs', 'lead_guess', 'neutral','buffer_guess','fill_guess',
+		       'cell_atoms', 'sf', 'lead_sf',  
                        'lead_atoms', 'nleadlayers', 'mol_atoms', 'la_index',
                        'total_charge', 'alpha', 'beta_guess','theta',
                        'LR_leads', 'gate', 'gate_mode', 'gate_atoms', 'gate_fun',                 
@@ -71,6 +80,7 @@ class Transport(GPAW):
                        'data_file', 'extended_atoms','restart_lead_hamiltonian',
                         'analysis_data_list', 'save_bias_data',
                         'perturbation_steps', 'perturbation_magmom', 'perturbation_charge',
+                        'perturbation_atoms',
                         'analysis_mode', 'normalize_density', 'se_data_path',                     
                         'neintmethod', 'neintstep', 'eqinttol', 'extra_density']:
                 
@@ -138,6 +148,10 @@ class Transport(GPAW):
         self.fix_contour = p['fix_contour']
         self.vaccs = p['vaccs']
         self.lead_guess = p['lead_guess']
+	self.fill_guess = p['fill_guess']
+	self.cell_atoms = p['cell_atoms']
+        self.sf = p['sf']
+	self.lead_sf = p['lead_sf']
         self.buffer_guess = p['buffer_guess']
         self.neutral = p['neutral']
         self.neutral_steps = p['neutral_steps']
@@ -158,6 +172,8 @@ class Transport(GPAW):
         self.perturbation_steps = p['perturbation_steps']
         self.perturbation_charge = p['perturbation_charge']
         self.perturbation_magmom = p['perturbation_magmom']
+        self.perturbation_atoms = p['perturbation_atoms']
+
         self.verbose = p['verbose']
         self.d = p['d']
        
@@ -173,7 +189,6 @@ class Transport(GPAW):
        
         self.initialized_transport = False
         self.analysis_parameters = []
-        self.atoms_l = [None] * self.lead_num
         self.optimize = False
         self.multi_leads = self.multi_lead_directions != None
         kpts = kw['kpts']
@@ -221,7 +236,7 @@ class Transport(GPAW):
         p['nleadlayers'] = [1, 1]
         p['la_index'] = None
         p['data_file'] = None
-        p['analysis_data_list'] = ['tc']
+        p['analysis_data_list'] = ['tc', 'force']
         p['special_datas'] = []
         p['save_bias_data'] = True
         p['analysis_mode'] = False
@@ -243,12 +258,18 @@ class Transport(GPAW):
         p['LR_leads'] = True
         p['lead_guess'] = False
         p['buffer_guess'] = False
+	p['fill_guess'] = False
+	p['cell_atoms'] = None
+	p['sf'] = None
+	p['lead_sf'] = None
         p['neutral'] = True
         p['neutral_steps'] = None
         p['total_charge'] = 0
         p['perturbation_steps'] = []
         p['perturbation_magmom'] = None
         p['perturbation_charge'] = 0
+        p['perturbation_atoms'] = []
+
         p['gate'] = 0
         p['gate_mode'] = 'VG'
         p['gate_fun'] = None
@@ -295,34 +316,89 @@ class Transport(GPAW):
             dis = self.vaccs[0] - lb
             atoms.positions[:,2] += dis
             assert abs(np.diag(atoms.cell)[2] - rb - dis -self.vaccs[1]) < 0.005
-       
+
+    def calculate_leads(self):
+        self.setups_lead = []
+	self.lead_fermi = []
+        for i in range(self.lead_num):
+	    if not (self.identical_leads and i > 0):
+                atoms = self.get_lead_atoms(i)
+ 	        atoms.get_potential_energy()
+		fermi = atoms.calc.get_fermi_level()
+		if i > 0:
+		    shift = self.lead_fermi[0] - fermi
+		    fermi += shift
+		    atoms.calc.hamiltonian.vt_sG += shift / Hartree
+		self.lead_fermi.append(fermi)    
+		self.setups_lead.append(atoms.calc.wfs.setups)
+	        self.collect_leads_matrices(atoms.calc, i)
+	    self.tio.save_data(atoms.calc, option='Lead',
+	                       filename='Lead_'+ str(i))
+
+    def restart_leads(self):
+        self.setups_lead = []
+	for i in range(self.lead_num):
+	    atoms = self.get_lead_atoms(i)
+	    calc = atoms.calc
+	    calc.initialize(atoms)
+	    self.setups_lead.append(atoms.calc.wfs.setups)
+	    data = self.tio.read_data(filename='Lead_' + str(i),
+	                                          option='Lead')
+            vt_sG = data['vt_sG']
+	    dH_asp = data['dH_asp']
+	    calc.hamiltonian.dH_asp = {}
+            for i, dH_p in enumerate(dH_asp):
+                calc.hamiltonian.dH_asp[i] = dH_p
+            calc.gd.distribute(vt_sG, calc.hamiltonian.vt_sG) 
+	    self.collect_leads_matrices(calc, i)
+	    
+    def parameters_test(self):
+        for i in range(self.lead_num):
+            atoms = self.get_lead_atoms(i)
+            atoms.calc.initialize(atoms)
+	self.initialize()    
+
+    def define_leads_related_variables(self):
+        self.nblead = []  # numer of basis in lead
+        self.bnc = []    # boundary N_c, gd.N_c[self.d] in lead
+	self.bzk_kc_lead = [] 
+	self.ibzk_kc_lead = []
+	self.ibzk_qc_lead = []
+        self.edge_index = [[None] * self.lead_num, 
+	                   [None] * self.lead_num] #index of edge atom
+	world.barrier()
+	for i in range(self.lead_num):
+	    data = self.tio.read_data(filename='Lead_' + str(i),
+	                                          option='Lead')
+            self.nblead.append(data['nao'])
+	    self.bnc.append(data['N_c'][self.d])
+	    self.bzk_kc_lead.append(data['bzk_kc'])
+	    self.ibzk_kc_lead.append(data['ibzk_kc'])
+	    self.ibzk_qc_lead.append(data['ibzk_qc'])
+        
     def initialize_transport(self):
         # calculate the lead and generate a guess hamiltonian for
         # scattering region
-        if self.use_lead:
-            if self.LR_leads:
-                self.dimt_lead = []
-                self.dimt_buffer = []
-            self.nblead = []
-            self.bnc = []
-            self.edge_index = [[None] * self.lead_num, [None] * self.lead_num]
+        if dry_run:
+	    self.parameters_test()
+	self.initialize()
+        self.nspins = self.wfs.nspins
+        self.npk = len(self.wfs.ibzk_kc)
+        self.my_npk = len(self.wfs.ibzk_qc)
+        self.my_nspins = len(self.wfs.kpt_u) // self.my_npk
+        self.ntklead = self.pl_kpts[self.d]
+        self.initialize_lead_matrix()
 
-        for i in range(self.lead_num):
-            self.atoms_l[i] = self.get_lead_atoms(i)
-            calc = self.atoms_l[i].calc
-            atoms = self.atoms_l[i]
-            if not calc.initialized:
-                calc.initialize(atoms)
-                if not dry_run:
-                    calc.set_positions(atoms)
-            self.nblead.append(calc.wfs.setups.nao)
-            self.bnc.append(calc.gd.N_c[2])
-            if self.LR_leads:
-                self.dimt_lead.append(calc.gd.N_c[self.d])
-        
-        self.initialize()
+	self.tio = Transport_IO(self.wfs.kpt_comm, self.gd.comm)
+	if not self.restart_lead_hamiltonian:
+            self.calculate_leads()
+	else:
+	    self.restart_leads()
+	self.define_leads_related_variables()
+        self.get_basis_indices()
+        self.initialize_matrix()
+
         self.get_extended_atoms()
-      
         calc = self.extended_atoms.calc
         calc.initialize(self.extended_atoms)
         if not self.use_qzk_boundary and not self.multi_leads:
@@ -330,13 +406,6 @@ class Transport(GPAW):
         self.extended_calc = calc
         self.gd1, self.finegd1 = calc.gd, calc.finegd
   
-        self.nspins = self.wfs.nspins
-        self.npk = len(self.wfs.ibzk_kc)
-        self.my_npk = len(self.wfs.ibzk_qc)
-        self.my_nspins = len(self.wfs.kpt_u) // self.my_npk
-
-        self.ntklead = self.pl_kpts[self.d]
- 
         bzk_kc = self.wfs.bzk_kc 
         self.gamma = len(bzk_kc) == 1 and not bzk_kc[0].any()
         self.nbmol = self.wfs.setups.nao
@@ -344,59 +413,45 @@ class Transport(GPAW):
         self.get_ks_map()
         self.set_local_spin_index(self.wfs)
         self.set_local_spin_index(self.extended_calc.wfs)
+
+        if self.npk == 1:
+            self.lead_kpts = self.bzk_kc_lead[0]
+        else:
+            self.lead_kpts = self.ibzk_kc_lead[0]                
         
-        if self.use_lead:
-            if self.npk == 1:
-                self.lead_kpts = self.atoms_l[0].calc.wfs.bzk_kc
-            else:
-                self.lead_kpts = self.atoms_l[0].calc.wfs.ibzk_kc                
-        
-        self.initialize_matrix()
         if self.multi_lead_directions is not None:
             self.rotation_prepare()
             
-        if self.use_lead:
-            if self.nbmol <= np.sum(self.nblead):
-                self.use_buffer = False
-                if self.master:
-                    self.text('Moleucle is too small, force not to use buffer')
+        if self.nbmol <= np.sum(self.nblead):
+            self.use_buffer = False
+            if self.master:
+                self.text('Moleucle is too small, force not to use buffer')
            
-        if self.use_lead:
-            if self.use_buffer: 
-                self.buffer = [len(self.buffer_index[i])
-                                                   for i in range(self.lead_num)]
-                self.print_index = self.buffer_index
-            else:
-                self.buffer = [0] * self.lead_num
-                self.print_index = self.lead_index
+        if self.use_buffer: 
+            self.buffer = [len(self.buffer_index[i])
+                                               for i in range(self.lead_num)]
+            self.print_index = self.buffer_index
+        else:
+            self.buffer = [0] * self.lead_num
+            self.print_index = self.lead_index
             
         self.set_buffer()
             
         self.current = 0
         self.linear_mm = None
 
-        for i in range(self.lead_num):
-            if self.identical_leads and i > 0:
-                self.update_lead_hamiltonian(i, 'lead0')    
-            elif not self.restart_lead_hamiltonian:
-                self.update_lead_hamiltonian(i)
-            else:
-                self.update_lead_hamiltonian2(i)
-
         self.fermi = self.lead_fermi[0]
-        self.leads_fermi_lineup()
+        #self.leads_fermi_lineup()
         world.barrier()
         
         self.timer.start('init surround')
         if not self.multi_leads:
             self.surround = Surrounding(self)  
         self.timer.stop('init surround')
-        
-        # save memory
-        del self.atoms_l
 
         self.get_inner_setups()
         self.extended_D_asp = None        
+
         if not self.non_sc:
             self.timer.start('surround set_position')
             if not self.fixed:
@@ -408,22 +463,26 @@ class Transport(GPAW):
                                             self.input_parameters.stencils[1],
                                             allocate=False)
             self.interpolator.allocate()
+
             if not self.multi_leads:
                 self.surround.combine(self)
+
             if self.use_qzk_boundary or self.multi_leads:
                 self.extended_calc.set_positions()
             else:
                 self.set_extended_positions()
             self.timer.stop('surround set_position')
-        
+       
         if not self.analysis_mode:
             if self.scat_restart:
                 self.get_hamiltonian_initial_guess3()
             elif self.buffer_guess:
                 self.get_hamiltonian_initial_guess2()
+	    elif self.fill_guess:
+	        self.get_hamiltonian_initial_guess4()
             else:
                 self.get_hamiltonian_initial_guess()                
-        
+       
         self.initialize_gate()
         self.initialized_transport = True
         self.matrix_mode = 'sparse'
@@ -440,22 +499,22 @@ class Transport(GPAW):
         p['energies'] = energies
         self.set_analysis_parameters(**p)
 
-    def leads_fermi_lineup(self):
-        for i in range(1, self.lead_num):
-            shift = self.lead_fermi[0] - self.lead_fermi[i]
-            self.lead_fermi[i] = self.lead_fermi[0]
-            self.atoms_l[i].calc.hamiltonian.vt_sG += shift / Hartree
-            self.atoms_l[i].calc.hamiltonian.vHt_g += shift / Hartree
-            for pk in range(self.my_npk):
-                for s in range(self.my_nspins):
-                    h_mm = self.lead_hsd[i].H[s][pk].recover()
-                    h_cmm = self.lead_couple_hsd[i].H[s][pk].recover()
-                    s_mm = self.lead_hsd[i].S[pk].recover()
-                    s_cmm = self.lead_couple_hsd[i].S[pk].recover()
-                    h_mm += shift * s_mm
-                    h_cmm += shift * s_cmm
-                    self.lead_hsd[i].reset(s, pk, h_mm, 'H')     
-                    self.lead_couple_hsd[i].reset(s, pk, h_cmm,'H')     
+    #def leads_fermi_lineup(self):
+    #    for i in range(1, self.lead_num):
+    #        shift = self.lead_fermi[0] - self.lead_fermi[i]
+    #        self.lead_fermi[i] = self.lead_fermi[0]
+    #        self.atoms_l[i].calc.hamiltonian.vt_sG += shift / Hartree
+    #        self.atoms_l[i].calc.hamiltonian.vHt_g += shift / Hartree
+    #        for pk in range(self.my_npk):
+    #            for s in range(self.my_nspins):
+    #                h_mm = self.lead_hsd[i].H[s][pk].recover()
+    #                h_cmm = self.lead_couple_hsd[i].H[s][pk].recover()
+    #                s_mm = self.lead_hsd[i].S[pk].recover()
+    #                s_cmm = self.lead_couple_hsd[i].S[pk].recover()
+    #                h_mm += shift * s_mm
+    #                h_cmm += shift * s_cmm
+    #                self.lead_hsd[i].reset(s, pk, h_mm, 'H')     
+    #                self.lead_couple_hsd[i].reset(s, pk, h_cmm,'H')     
        
     def get_ks_map(self):
         # ks_map: s, k, rank
@@ -634,7 +693,114 @@ class Transport(GPAW):
             for s in range(self.my_nspins):
                 self.hsd.reset(s, q, h_spkmm[s, q], 'H', True)
                 self.hsd.reset(s, q, np.zeros([nb, nb], dtype), 'D', True)
-                
+
+    def get_hamiltonian_initial_guess4(self):
+        #get hamiltonian_guess from some separate calculation and combine them.
+	wfs = self.wfs
+        self.gd.comm.broadcast(wfs.S_qMM, 0)
+        self.gd.comm.broadcast(wfs.T_qMM, 0)        
+        s_pkmm = wfs.S_qMM.copy()
+        for S_MM in s_pkmm:
+            tri2full(S_MM)
+        h_spkmm = self.scale_and_combine_hamiltonian()  	
+        nb = s_pkmm.shape[-1]
+        dtype = s_pkmm.dtype
+        for q in range(self.my_npk):
+            self.hsd.reset(0, q, s_pkmm[q], 'S', True)                
+            for s in range(self.my_nspins):
+                self.hsd.reset(s, q, h_spkmm[s, q], 'H', True)
+                self.hsd.reset(s, q, np.zeros([nb, nb], dtype), 'D', True)
+
+    def scale_and_combine_hamiltonian(self):
+ 	#assert self.cell_ham_file is not None
+        #fd = file(self.cell_ham_file, 'r')
+	#cell_ham_data = cPickle.load(fd)
+        #cell_s_pkmm, cell_cs_pkmm, cell_h_spkmm, cell_ch_spkmm, fermi = cell_ham_data[self.wfs.kpt_comm.rank]
+        #fd.close()
+
+	if self.cell_atoms is not None:
+            self.cell_atoms.get_potential_energy()
+	    cell_h_skmm, cell_s_kmm = self.get_hs(self.cell_atoms.calc)
+            cell_d_skmm = get_lcao_density_matrix(self.cell_atoms.calc)
+
+            cell_h_spkmm, cell_s_pkmm, cell_d_spkmm,  \
+            cell_ch_spkmm, cell_cs_pkmm, cell_cd_spkmm = get_pk_hsd(self.d, self.ntklead,
+                                                    self.cell_atoms.calc.wfs.ibzk_qc,
+                                                    cell_h_skmm, cell_s_kmm, cell_d_skmm,
+                                                    self.text, self.wfs.dtype,
+                                                    direction=0)
+            fermi = self.cell_atoms.calc.get_fermi_level()
+
+	    efloat = fermi - self.lead_fermi[0]
+	    cell_h_spkmm -= cell_s_pkmm * efloat
+            cell_ch_spkmm -= cell_cs_pkmm * efloat
+
+	    nn, nbp = self.sf #nn is the scaling factor, nbp is the fractional part, - means in front, + means at the end
+            dtype = cell_h_spkmm.dtype
+	    nbc = cell_h_spkmm.shape[-1]
+	    nbp = int(nbp * nbc)
+	else:
+	    nbc = 0
+	    nbp = 0
+	    nn = 0
+	    dtype = self.wfs.dtype
+
+	ns, npk = self.my_nspins, self.my_npk
+	nb0, nb1 = self.nblead
+        nbp0, nbp1 = self.lead_sf #nbp0, nbp1 are both positive
+	nbp0 = int(nbp0 * self.nblead[0])
+	nbp1 = int(nbp1 * self.nblead[1])
+	assert dtype == self.wfs.dtype
+	nb = nbc * nn + abs(nbp) + nb0 + nb1 + abs(nbp0) + abs(nbp1)
+	h_spkmm = np.zeros([ns, npk, nb, nb], dtype=dtype)
+        for s in range(ns):
+	    for pk in range(npk):
+	        h_spkmm[s, pk, :nb0, :nb0] = self.lead_hsd[0].H[s][pk].recover()
+	        h_spkmm[s, pk, nb0:nb0+nbp0, nb0:nb0+nbp0] = self.lead_hsd[0].H[s][pk].recover()[:nbp0,:nbp0]
+	        h_spkmm[s, pk, nb0:nb0+nbp0, :nb0] = self.lead_couple_hsd[0].H[s][pk].recover()[:,:nbp0].T.conj()
+	        h_spkmm[s, pk, :nb0, nb0:nb0+nbp0] = self.lead_couple_hsd[0].H[s][pk].recover()[:,:nbp0]
+		if nbc != 0:
+                    if nbp < 0:
+		        a, b = nb0+nbp0, nb0+nbp0-nbp 
+	                h_spkmm[s, pk, a:b, a:b] = cell_h_spkmm[s, pk, nbp:,nbp:]
+	                h_spkmm[s, pk, a:b, b:b+nbc] = cell_ch_spkmm[s, pk, nbp:,:]            
+	                h_spkmm[s, pk, b:b+nbc, a:b] = cell_ch_spkmm[s, pk, nbp:,:].T.conj()            
+		        a, b = nb0+nbp0-nbp, nb0+nbp0-nbp+nbc
+                        for i in range(nn):
+  		            h_spkmm[s, pk, a:b, a:b] = cell_h_spkmm[s, pk]
+		            a += nbc
+		    	    b += nbc
+		        a, b = nb0+nbp0-nbp, nb0+nbp0-nbp+nbc
+		        for i in range(nn-1):
+  		            h_spkmm[s, pk, a:b, a+nbc:b+nbc] = cell_ch_spkmm[s, pk]
+  		            h_spkmm[s, pk, a+nbc:b+nbc, a:b] = cell_ch_spkmm[s, pk].T.conj()
+		    	    a += nbc
+		    	    b += nbc
+		    else:
+		        a, b = nb0+nbp0, nb0+nbp0+nbc
+                        for i in range(nn):
+  		            h_spkmm[s, pk, a:b, a:b] = cell_h_spkmm[s, pk]
+		            a += nbc
+		    	    b += nbc
+		        a, b = nb0+nbp0, nb0+nbp0+nbc
+		        for i in range(nn-1):
+  		            h_spkmm[s, pk, a:b, a+nbc:b+nbc] = cell_ch_spkmm[s, pk]
+  		            h_spkmm[s, pk, a+nbc:b+nbc, a:b] = cell_ch_spkmm[s, pk].T.conj()
+                            a += nbc
+		    	    b += nbc
+                        a, b = nb0 + nbp0 + nn *nbc, nb0 + nbp0 + nn *nbc +nbp
+	                h_spkmm[s, pk, a:b, a:b] = cell_h_spkmm[s, pk, :nbp, :nbp]
+	                h_spkmm[s, pk, a:b, a-nbc:a] = cell_ch_spkmm[s, pk, :, :nbp].T.conj()
+	                h_spkmm[s, pk, a-nbc:a, a:b] = cell_ch_spkmm[s, pk, :, :nbp]
+		else:
+                    b = nb0 + nbp0
+	        h_spkmm[s, pk, b+nbp1:b+nbp1+nb1, b+nbp1:b+nbp1+nb1] = self.lead_hsd[1].H[s][pk].recover()
+		if nbp1 != 0:    
+                    h_spkmm[s, pk, b:b+nbp1, b:b+nbp1] = self.lead_hsd[1].H[s][pk].recover()[-nbp1:, -nbp1:]
+ 		    h_spkmm[s, pk, b:b+nbp1, b+nbp1:b+nbp1+nb1] = self.lead_couple_hsd[1].H[s][pk].recover()[:, -nbp1:].T.conj()
+ 		    h_spkmm[s, pk, b+nbp1:b+nbp1+nb1, b:b+nbp1] = self.lead_couple_hsd[1].H[s][pk].recover()[:, -nbp1:]
+        return h_spkmm 
+
     def initialize_hamiltonian_matrix(self, calc):    
         h_skmm, s_kmm =  self.get_hs(calc)
         d_skmm = get_lcao_density_matrix(calc)
@@ -705,7 +871,7 @@ class Transport(GPAW):
         lead_edge_index = []
         
         for i in range(self.lead_num):
-            lead_setups = self.atoms_l[i].calc.wfs.setups
+            lead_setups = self.setups_lead[i]
             self.lead_index[i] = get_atom_indices(self.pl_atoms[i], setups)
             edge_index.append(get_atom_indices([self.edge_atoms[1][i]], setups))
             lead_edge_index.append(get_atom_indices([self.edge_atoms[0][i]],
@@ -724,7 +890,7 @@ class Transport(GPAW):
         self.lead_orbital_indices = []
         for i in range(self.lead_num):
             self.lead_orbital_indices.append([])
-            for n, setup in enumerate(self.atoms_l[i].calc.wfs.setups):
+            for n, setup in enumerate(self.setups_lead[i]):
                 for phit in setup.phit_j:
                     l = phit.get_angular_momentum_number()
                     for j in range(2 * l  + 1):
@@ -745,7 +911,7 @@ class Transport(GPAW):
                 for j in range(1, self.nleadlayers[i] + 1):
                     self.lead_layer_index[i][j] = get_atom_indices(self.la_index[i][j - 1], setups)
       
-    def initialize_matrix(self):
+    def initialize_lead_matrix(self):
         if self.use_lead:
             self.lead_hsd = []
             self.lead_couple_hsd = []
@@ -760,7 +926,6 @@ class Transport(GPAW):
         dtype = self.wfs.dtype
        
         for i in range(self.lead_num):
-            nb = self.nblead[i]
             self.lead_hsd.append(Banded_Sparse_HSD(dtype, ns, npk))
             self.lead_couple_hsd.append(CP_Sparse_HSD(dtype, ns, npk))
             self.lead_index.append([])
@@ -772,8 +937,9 @@ class Transport(GPAW):
       
         if self.use_lead:
             self.ec = np.zeros([self.lead_num, ns])
-        self.get_basis_indices()
-        
+
+    def initialize_matrix(self):
+        dtype = self.wfs.dtype
         extended = True
         self.hsd = Tp_Sparse_HSD(dtype, self.my_nspins, self.my_npk,
                                               self.lead_layer_index, extended)              
@@ -814,130 +980,19 @@ class Transport(GPAW):
                 ne_ind = np.array_split(np.arange(nene), size)
                 self.ne_par_energy_index[s][k] = ne_ind[rank]
 
-    def update_lead_hamiltonian(self, l, restart_file=None):
-        self.timer.start('update lead hamiltonian' + str(l))
-        
-        if not self.lead_restart and restart_file==None:
-            atoms = self.atoms_l[l]
-            atoms.get_potential_energy()
-            if self.save_file:
-                atoms.calc.write('lead' + str(l) + '.gpw') 
-        else:
-            if restart_file == None:
-                restart_file = 'lead' + str(l)
-            p = self.gpw_kwargs.copy()
-            p['nbands'] = None
-            p['kpts'] = self.pl_kpts
-            if 'mixer' in p:
-                if not self.spinpol:
-                    p['mixer'] = Mixer(0.1, 5, weight=100.0)
-                else:
-                    p['mixer'] = MixerDif(0.1, 5, weight=100.0)
-            p['poissonsolver'] = PoissonSolver(nn=2)
-            if 'txt' in p and p['txt'] != '-':
-                p['txt'] = 'lead%i_' % (l + 1) + p['txt']                
-            atoms, calc = restart_gpaw(restart_file +'.gpw', **p)
-            calc.set_positions()
-            self.recover_kpts(calc)
-            self.atoms_l[l] = atoms
-            
-        hl_skmm, sl_kmm = self.get_hs(atoms.calc)
-        self.lead_fermi[l] = atoms.calc.get_fermi_level()
-        dl_skmm = get_lcao_density_matrix(atoms.calc)
-
-
-        if self.multi_leads:
-            lead_direction = 1
-        else:
-            lead_direction = l
-        hl_spkmm, sl_pkmm, dl_spkmm,  \
-        hl_spkcmm, sl_pkcmm, dl_spkcmm = get_pk_hsd(self.d, self.ntklead,
-                                                atoms.calc.wfs.ibzk_qc,
-                                                hl_skmm, sl_kmm, dl_skmm,
-                                                self.text, self.wfs.dtype,
-                                                direction=lead_direction)
-        
-        self.timer.stop('update lead hamiltonian' + str(l))
-
-        if self.multi_leads:
-            tmat = self.pl_rotation_mats[l]
-            for pk in range(self.my_npk):
-                sl_pkmm[pk] = np.dot(tmat, sl_pkmm[pk])
-                sl_pkmm[pk] = np.dot(sl_pkmm[pk], tmat.T)
-                sl_pkcmm[pk] = np.dot(tmat, sl_pkcmm[pk])
-                sl_pkcmm[pk] = np.dot(sl_pkcmm[pk], tmat.T)                
-                for s in range(self.my_nspins):
-                    dl_spkmm[s, pk] = np.dot(tmat, dl_spkmm[s, pk])
-                    dl_spkmm[s, pk] = np.dot(dl_spkmm[s, pk], tmat.T)
-
-                    dl_spkcmm[s, pk] = np.dot(tmat, dl_spkcmm[s, pk])
-                    dl_spkcmm[s, pk] = np.dot(dl_spkcmm[s, pk], tmat.T)                    
-
-                    hl_spkmm[s, pk] = np.dot(tmat, hl_spkmm[s, pk])
-                    hl_spkmm[s, pk] = np.dot(hl_spkmm[s, pk], tmat.T)
-
-                    hl_spkcmm[s, pk] = np.dot(tmat, hl_spkcmm[s, pk])
-                    hl_spkcmm[s, pk] = np.dot(hl_spkcmm[s, pk], tmat.T)
-            
-        self.timer.start('init lead' + str(l))
-        for pk in range(self.my_npk):
-            self.lead_hsd[l].reset(0, pk, sl_pkmm[pk], 'S', init=True)
-            self.lead_couple_hsd[l].reset(0, pk, sl_pkcmm[pk], 'S',
-                                                              init=True)
-            for s in range(self.my_nspins):
-                self.lead_hsd[l].reset(s, pk, hl_spkmm[s, pk], 'H', init=True)     
-                self.lead_hsd[l].reset(s, pk, dl_spkmm[s, pk], 'D', init=True)
-                
-                self.lead_couple_hsd[l].reset(s, pk, hl_spkcmm[s, pk],
-                                                               'H', init=True)     
-                self.lead_couple_hsd[l].reset(s, pk, dl_spkcmm[s, pk],
-                                                               'D', init=True)                    
-        self.timer.stop('init lead' + str(l))
-
-        if self.save_lead_hamiltonian:
-            calc = atoms.calc
-            vt_sG = calc.gd.collect(calc.hamiltonian.vt_sG)
-            density = calc.density
-            ham = calc.hamiltonian
-            dH_asp = collect_atomic_matrices(ham.dH_asp, ham.setups,
-                                             ham.nspins, ham.gd.comm,
-                                             density.rank_a)
-            if self.master:
-                fd = file('lead_hamiltonian_data' + str(l), 'wb')
-                cPickle.dump((self.lead_fermi[l], vt_sG, dH_asp), fd, 2)
-                fd.close()
-
-    def update_lead_hamiltonian2(self, l):
-        self.timer.start('update lead hamiltonian' + str(l))
-        restart_file = 'lead_hamiltonian_data' + str(l)
-        atoms = self.atoms_l[l]
-        fd = file(restart_file, 'r')
-        lead_fermi, vt_sG, dH_asp = cPickle.load(fd)
-        fd.close()
-        calc = atoms.calc
-        for i, dH_p in enumerate(dH_asp):
-             calc.hamiltonian.dH_asp[i] = dH_p
-        calc.gd.distribute(vt_sG, calc.hamiltonian.vt_sG) 
+    def collect_leads_matrices(self, calc, l):
         hl_skmm, sl_kmm = self.get_hs(calc)
-        nb = sl_kmm.shape[-1]
-        dtype = sl_kmm.dtype
-      
-        self.lead_fermi[l] = lead_fermi
-        dl_skmm = np.zeros_like(hl_skmm)
-
+        dl_skmm = get_lcao_density_matrix(calc)
         if self.multi_leads:
-            lead_direction = 1
+            lead_direction = 1 # num 1
         else:
-            lead_direction = l
+            lead_direction = l # character l
         hl_spkmm, sl_pkmm, dl_spkmm,  \
         hl_spkcmm, sl_pkcmm, dl_spkcmm = get_pk_hsd(self.d, self.ntklead,
                                                 calc.wfs.ibzk_qc,
                                                 hl_skmm, sl_kmm, dl_skmm,
                                                 self.text, self.wfs.dtype,
                                                 direction=lead_direction)
-        
-        self.timer.stop('update lead hamiltonian' + str(l))
-
         if self.multi_leads:
             tmat = self.pl_rotation_mats[l]
             for pk in range(self.my_npk):
@@ -958,7 +1013,6 @@ class Transport(GPAW):
                     hl_spkcmm[s, pk] = np.dot(tmat, hl_spkcmm[s, pk])
                     hl_spkcmm[s, pk] = np.dot(hl_spkcmm[s, pk], tmat.T)
             
-        self.timer.start('init lead' + str(l))
         for pk in range(self.my_npk):
             self.lead_hsd[l].reset(0, pk, sl_pkmm[pk], 'S', init=True)
             self.lead_couple_hsd[l].reset(0, pk, sl_pkcmm[pk], 'S',
@@ -971,8 +1025,6 @@ class Transport(GPAW):
                                                                'H', init=True)     
                 self.lead_couple_hsd[l].reset(s, pk, dl_spkcmm[s, pk],
                                                                'D', init=True)                    
-        self.timer.stop('init lead' + str(l))
-
 
     def recover_lead_info(self, s00, s01, h00, h01, fermi):
         for pk in range(self.npk):
@@ -997,9 +1049,6 @@ class Transport(GPAW):
         else:
             self.atoms = atoms.copy()
             #self.initialize()
-            self.atoms_l = []
-            for i in range(self.lead_num):
-                self.atoms_l.append(self.get_lead_atoms(i))
             self.get_extended_atoms()
             self.density.reset()
             if self.multi_leads:
@@ -1115,6 +1164,7 @@ class Transport(GPAW):
         ##temp
  
         if self.analysor.n_bias_step in self.perturbation_steps:
+            #self.density.mixer.reset()
             self.induce_density_perturbation()
      
         while not self.cvgflag and self.step < self.max_steps:
@@ -1127,9 +1177,11 @@ class Transport(GPAW):
             magmom = self.occupations.magmom
             self.text('Total Magnetic Moment: %f' % magmom)
             self.text('Local Magnetic Moments:')
-            for a, mom in enumerate(self.get_magnetic_moments()):
-                self.text(a, mom)
-       
+            try:
+                for a, mom in enumerate(self.get_magnetic_moments()):
+                    self.text(a, mom)
+            except:
+                pass
         self.scf.converged = self.cvgflag
    
         if self.save_bias_data:
@@ -1579,7 +1631,7 @@ class Transport(GPAW):
             diff = (denloc - (denocc + denvir)) * weight_mm
             den += diff
             percents = np.sum( diff * diff ) / np.sum( denocc * denocc )
-            self.text('local percents %f' % percents)
+            self.text('local percents %f' % np.real(percents))
         
         den = (den + den.T.conj()) / 2
         if self.wfs.dtype == float:
@@ -1800,6 +1852,7 @@ class Transport(GPAW):
                 self.gate = gate[i]
                 self.get_selfconsistent_hamiltonian()
             start = 0
+	self.n_bias_step = start    
         for i in range(start, num_v):
             v = bias[i]
             self.bias = [v/2., -v /2.]
@@ -1837,24 +1890,32 @@ class Transport(GPAW):
         D_asp = {}
         f_asi = {}
         for a in basis_functions.atom_indices:
-            c = self.perturbation_charge / len(wfs.setups)  # distribute on all atoms
-            f_si = wfs.setups[a].calculate_initial_occupation_numbers(
-                    self.perturbation_magmom[a], True, charge=c, nspins=self.nspins)
-            if a in basis_functions.my_atom_indices:
-                D_asp[a] = wfs.setups[a].initialize_density_matrix(f_si)
-            f_asi[a] = f_si
+            if a in self.perturbation_atoms:
+                c = self.perturbation_charge / len(wfs.setups)  # distribute on all atoms
+                f_si = wfs.setups[a].calculate_initial_occupation_numbers(
+                        self.perturbation_magmom[a], True, charge=c, nspins=self.nspins)
+                if a in basis_functions.my_atom_indices:
+                    D_asp[a] = wfs.setups[a].initialize_density_matrix(f_si)
+                f_asi[a] = f_si
+            else:
+                c = self.perturbation_charge / len(wfs.setups)
+                f_si = wfs.setups[a].calculate_initial_occupation_numbers(
+                        self.perturbation_magmom[a], True, charge=c, nspins=self.nspins)
+                if a in basis_functions.my_atom_indices:
+                    D_asp[a] = np.zeros_like(self.extended_D_asp[a])
+                f_asi[a] = np.zeros_like(f_si)
 
         nt_sG = self.gd1.zeros(self.nspins)
         basis_functions.add_to_density(nt_sG, f_asi)
         nn = self.surround.nn
-        density.nt_sG = self.surround.uncapsule(self, nn, nt_sG, self.gd1,
+        self.perturbation_nt_sG = self.surround.uncapsule(self, nn, nt_sG, self.gd1,
                                                     self.gd)
         all_D_asp = collect_atomic_matrices(D_asp, wfs.setups, self.nspins,
                                             self.gd.comm, wfs.rank_a)
         D_asp = all_D_asp[:len(self.atoms)]
-        distribute_atomic_matrices(D_asp, density.D_asp, density.setups)
-        comp_charge = density.calculate_multipole_moments()
-        density.mix(comp_charge)
+        self.perturbation_D_asp = D_asp
+        #comp_charge = density.calculate_multipole_moments()
+        #density.mix(comp_charge)
   
     def update_density(self):
         self.timer.start('dmm recover')
@@ -1886,6 +1947,7 @@ class Transport(GPAW):
             
         density.nt_sG += density.nct_G
 
+
         self.timer.stop('construct density')
         self.timer.start('atomic density')
         
@@ -1911,6 +1973,13 @@ class Transport(GPAW):
         if self.neutral:
             self.normalize(comp_charge)
         density.mix(comp_charge)
+
+        if self.step == 0 and self.analysor.n_bias_step in self.perturbation_steps:
+            density.nt_sG += self.perturbation_nt_sG
+            for a in range(len(density.setups)):
+                if density.D_asp.get(a) is not None:
+                    density.D_asp[a] += self.perturbation_D_asp[a]
+
 
     def normalize(self, comp_charge):
         if not self.use_qzk_boundary and not self.multi_leads:
@@ -2036,9 +2105,8 @@ class Transport(GPAW):
                     H_p[:] = pack2(Htemp)
 
             ham.dH_asp[a] = dH_sp = np.zeros_like(D_sp)
-            Exc += setup.xc_correction.calculate(ham.xc, D_sp, dH_sp)
-            dH_sp += dH_p
-
+            Exc += ham.xc.calculate_paw_correction(setup, D_sp, dH_sp)
+	    dH_sp += dH_p
             Ekin -= (D_sp * dH_sp).sum()
 
         self.timer.stop('atomic hamiltonian')
@@ -2081,13 +2149,13 @@ class Transport(GPAW):
                 for pk in range(self.my_npk):
                     D = self.hsd.D[s][pk]
                     S = self.hsd.S[pk]
-                    qr_mm+= dot(D.diag_h[i][n].recover(),
-                                                     S.diag_h[i][n].recover())
-                    qr_mm += dot(D.dwnc_h[i][n], S.upc_h[i][n])
+                    qr_mm+= np.real(dot(D.diag_h[i][n].recover(),
+                                                     S.diag_h[i][n].recover()))
+                    qr_mm += np.real(dot(D.dwnc_h[i][n], S.upc_h[i][n]))
                     if S.extended:
-                        qr_mm += dot(D.dwnc_h[i][n + 1], S.upc_h[i][n + 1])
+                        qr_mm += np.real(dot(D.dwnc_h[i][n + 1], S.upc_h[i][n + 1]))
                     else:
-                        qr_mm += dot(D.dwnc_h[i][n], S.upc_h[i][n])                        
+                        qr_mm += np.real(dot(D.dwnc_h[i][n], S.upc_h[i][n]))
             self.wfs.kpt_comm.sum(qr_mm)
             boundary_charge.append(np.real(np.trace(qr_mm)))
             if i != 0:
@@ -2144,7 +2212,7 @@ class Transport(GPAW):
         sum = 0
         ns = self.wfs.nspins
         if self.use_lead:
-            nk = len(self.atoms_l[0].calc.wfs.ibzk_qc)
+            nk = len(self.ibzk_qc_lead[0])
             nb = max(self.nblead)
             npk = len(self.wfs.ibzk_qc)
             unit_real = np.array(1,float).itemsize
@@ -2225,10 +2293,10 @@ class Transport(GPAW):
                           ('Hamiltonian', self.hamiltonian),
                           ('Wavefunctions', self.wfs)]:
             obj.estimate_memory(mem.subnode(name))
-        for i, atoms in enumerate(self.atoms_l):
-            atoms.calc.estimate_memory(mem.subnode('Leads' + str(i), 0))
+        #for i in range(self.lead_num):
+	#    atoms = self.get_lead_atoms(i)
+        #    atoms.calc.estimate_memory(mem.subnode('Leads' + str(i), 0))
         se_mem, mat_mem = self.estimate_transport_matrix_memory()
-        
         mem.subnode('Matrix', mat_mem)
         mem.subnode('Selfenergy', se_mem)
 
@@ -2274,8 +2342,6 @@ class Transport(GPAW):
                 for i in range(self.lead_num):
                     N_c[2] += self.bnc[i]
                 p['gpts'] = N_c
-            if 'txt' in p:
-                p['txt'] = 'extended_' + p['txt']
             if 'mixer' in p:
                 if not self.spinpol:
                     p['mixer'] = Mixer(self.density.mixer.beta, 5, weight=100.0)
@@ -2370,7 +2436,7 @@ class Transport(GPAW):
                 for a in self.wfs.basis_functions.atom_indices:
                     setup = self.wfs.setups[a]
                     f_si = setup.calculate_initial_occupation_numbers(
-                        density.magmom_a[a], density.hund, charge=c,
+                        density.magmom_av[a, 2], density.hund, charge=c,
                         nspins=self.nspins)
                     if a in self.wfs.basis_functions.my_atom_indices:
                         density.D_asp[a] = setup.initialize_density_matrix(

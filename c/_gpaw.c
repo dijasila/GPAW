@@ -7,10 +7,6 @@
 #define PY_ARRAY_UNIQUE_SYMBOL GPAW_ARRAY_API
 #include <numpy/arrayobject.h>
 
-#ifdef GPAW_WITH_HDF5
-PyMODINIT_FUNC init_hdf5(void);
-#endif
-
 #ifdef GPAW_HPM
 PyObject* ibm_hpm_start(PyObject *self, PyObject *args);
 PyObject* ibm_hpm_stop(PyObject *self, PyObject *args);
@@ -29,8 +25,6 @@ PyObject* scal(PyObject *self, PyObject *args);
 PyObject* gemm(PyObject *self, PyObject *args);
 PyObject* gemv(PyObject *self, PyObject *args);
 PyObject* axpy(PyObject *self, PyObject *args);
-PyObject* d2Excdnsdnt(PyObject *self, PyObject *args);
-PyObject* d2Excdn2(PyObject *self, PyObject *args);
 PyObject* rk(PyObject *self, PyObject *args);
 PyObject* r2k(PyObject *self, PyObject *args);
 PyObject* dotc(PyObject *self, PyObject *args);
@@ -115,8 +109,6 @@ static PyMethodDef functions[] = {
   {"gemm", gemm, METH_VARARGS, 0},
   {"gemv", gemv, METH_VARARGS, 0},
   {"axpy", axpy, METH_VARARGS, 0},
-  {"d2Excdnsdnt", d2Excdnsdnt, METH_VARARGS, 0},
-  {"d2Excdn2", d2Excdn2, METH_VARARGS, 0},
   {"rk",  rk,  METH_VARARGS, 0},
   {"r2k", r2k, METH_VARARGS, 0},
   {"dotc", dotc, METH_VARARGS, 0},
@@ -319,9 +311,6 @@ main(int argc, char **argv)
 
   Py_INCREF(&MPIType);
   PyModule_AddObject(m, "Communicator", (PyObject *)&MPIType);
-#ifdef GPAW_WITH_HDF5
-  init_hdf5();
-#endif
   import_array1(-1);
   MPI_Barrier(MPI_COMM_WORLD);
 #ifdef GPAW_CRAYPAT

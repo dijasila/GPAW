@@ -99,7 +99,7 @@ def get_orbitals_by_energy_shift(opts, setup, **kwargs):
         for orbital_bf in bfs.bf_j:
             rsplit, normsqr, phit_g = get_rsplit(orbital_bf, splitnorm)
             phit_g[1:] /= rgd.r_g[1:]
-            gcut = rgd.r2g_ceil(rsplit)
+            gcut = rgd.ceil(rsplit)
             #tailnorm = np.dot(rgd.dr_g[gcut:],
             #                  (rgd.r_g[gcut:] * orbital_bf.phit_g[gcut:])**2)**0.5
             #print 'tailnorm', tailnorm
@@ -123,7 +123,7 @@ def get_orbitals_by_energy_shift(opts, setup, **kwargs):
     for splitnorm in opts.polarization:
         splitnorm = float(splitnorm)
         rchar, normsqr, phit_g = get_rsplit(source_bf, splitnorm)
-        gcut = rgd.r2g_ceil(3.5 * rchar)
+        gcut = rgd.ceil(3.5 * rchar)
         rcut = rgd.r_g[gcut]
         phit_g = get_gaussianlike_basis_function(rgd, lpol, rchar, gcut)
         N = len(phit_g)
