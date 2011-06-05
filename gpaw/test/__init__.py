@@ -116,6 +116,8 @@ tests = [
     'partitioning.py',
     'mixer.py',
     'broydenmixer.py',
+    'io/hdf5_simple.py',
+    'io/hdf5_noncontiguous.py',
     'restart.py',
     'mgga_restart.py',
     'gga_atom.py',
@@ -304,6 +306,12 @@ except ImportError:
 #                'bse_silicon.py',
                 'aeatom.py',
                 'rpa_energy_Kr.py']
+
+try:
+    import _hdf5
+except ImportError:
+    exclude += ['io/hdf5_simple.py',
+                'io/hdf5_noncontiguous.py']
 
 for test in exclude:
     if test in tests:

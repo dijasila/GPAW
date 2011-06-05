@@ -209,6 +209,9 @@ class Dataset(object):
         if isinstance(selection, HyperslabSelection):
             selection.select(self)
 
+        # data array has to be contiguous, if not make a copy
+        if not data.flags.contiguous:
+            data = data.copy()
         h5d_write(self.id, memtype, memspace, filespace, data, plist)
         
         h5s_close(memspace)
@@ -240,7 +243,16 @@ class Dataset(object):
         if isinstance(selection, HyperslabSelection):
             selection.select(self)
 
-        h5d_read(self.id, memtype, memspace, filespace, data, plist)
+        # data array has to be contiguous, if not, create a 
+        # temporary array 
+        if not data.flags.contiguous:
+            data_buf = data.copy()
+        else:
+            data_buf = data 
+        h5d_read(self.id, memtype, memspace, filespace, data_buf, plist)
+
+        if not data.flags.contiguous:
+            data[:] = data_buf[:]
         
         h5s_close(memspace)
         h5t_close(memtype)
@@ -292,6 +304,8 @@ class Attributes:
         dataspace = h5s_create(np.asarray(data.shape))
         datatype = h5_type_from_numpy(np.ndarray((1, ), data.dtype))
         id = h5a_create(self.loc_id, key, datatype, dataspace)
+        # ensure that data is contiguous
+        data = data.copy()
         h5a_write(id, datatype, data)
         h5s_close(dataspace)
         h5t_close(datatype)
