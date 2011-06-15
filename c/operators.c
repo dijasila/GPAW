@@ -136,7 +136,7 @@ static PyObject * Operator_apply(OperatorObject *self,
   int nend = (nin / chunksize) * chunksize;
   
 #pragma omp parallel
-  {
+{
   MPI_Request recvreq[2];
   MPI_Request sendreq[2];
 
@@ -149,7 +149,7 @@ static PyObject * Operator_apply(OperatorObject *self,
     thread_id = omp_get_thread_num();
 #endif
 
-  #pragma omp for schedule(dynamic)  
+  #pragma omp for schedule(static)  
   for (int n = 0; n < nend; n += chunksize)
     {
       const double* my_in = in + n * ng;
@@ -198,9 +198,7 @@ static PyObject * Operator_apply(OperatorObject *self,
   free(recvbuf);
   free(sendbuf);
 
-  
-  }
-
+} // end #omp parallel
 
   Py_RETURN_NONE;
 }

@@ -268,7 +268,7 @@ main(int argc, char **argv)
   PAT_region_begin(1, "C-Initializations");
 #endif
 
-#ifndef GPAW_OMP
+#ifndef _OPENMP
   MPI_Init(&argc, &argv);
 #else
   int granted;
