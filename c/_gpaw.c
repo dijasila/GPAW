@@ -273,7 +273,10 @@ main(int argc, char **argv)
 #else
   int granted;
   MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &granted);
-  if(granted != MPI_THREAD_MULTIPLE) exit(1);
+  if(granted != MPI_THREAD_MULTIPLE) {
+      printf("Thread level MPI_THREAD_MULTIPLE not supported\n");
+      exit(1);
+  }
 #endif // GPAW_OMP
 
 #ifdef GPAW_PAPI
