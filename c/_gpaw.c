@@ -50,6 +50,7 @@ PyObject* NewSplineObject(PyObject *self, PyObject *args);
 PyObject* NewTransformerObject(PyObject *self, PyObject *args);
 PyObject* pc_potential(PyObject *self, PyObject *args);
 PyObject* pc_potential_value(PyObject *self, PyObject *args);
+PyObject* heap_mallinfo(PyObject *self);
 PyObject* elementwise_multiply_add(PyObject *self, PyObject *args);
 PyObject* utilities_gaussian_wave(PyObject *self, PyObject *args);
 PyObject* utilities_vdot(PyObject *self, PyObject *args);
@@ -132,6 +133,7 @@ static PyMethodDef functions[] = {
   {"Operator", NewOperatorObject, METH_VARARGS, 0},
   {"Spline", NewSplineObject, METH_VARARGS, 0},
   {"Transformer", NewTransformerObject, METH_VARARGS, 0},
+  {"heap_mallinfo", heap_mallinfo, METH_NOARGS, 0},
   {"elementwise_multiply_add", elementwise_multiply_add, METH_VARARGS, 0},
   {"utilities_gaussian_wave", utilities_gaussian_wave, METH_VARARGS, 0},
   {"utilities_vdot", utilities_vdot, METH_VARARGS, 0},
