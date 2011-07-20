@@ -264,7 +264,8 @@ PyObject* heap_mallinfo(PyObject *self)
   small = mi.usmblks;
   heap = ((double)(mmap + arena + small))/1024.0; /* convert to KB */
 #else 
-  struct malloc_statistics_t mi;
+  struct malloc_statistics_t mi; /* structure in bytes */
+
   malloc_zone_statistics(NULL, &mi);
   heap = ((double)(mi.size_in_use))/1024.0; /* convert to KB */
 #endif
