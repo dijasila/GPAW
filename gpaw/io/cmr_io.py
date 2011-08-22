@@ -10,6 +10,7 @@ import numpy as np
 import ase
 from ase.version import version as ase_version
 import gpaw
+from gpaw.version import version as gpaw_version
 
 try:
     #new style cmr io
@@ -73,12 +74,12 @@ class Writer:
         self.data['user']=os.getenv('USER', '???')
         self.data['date']=time.asctime()
 
-        self.data['arch']=uname[4]
+        self.data['architecture']=uname[4]
         self.data['ase_dir']=os.path.dirname(ase.__file__)
         self.data['ase_version']=ase_version
         self.data['numpy_dir']=os.path.dirname(np.__file__)
         self.data['gpaw_dir']=os.path.dirname(gpaw.__file__)
-        #self.data['calculator_version']=gversion
+        self.data["db_calculator_version"] = gpaw_version
         self.data['calculator']="gpaw"
         self.data['location']=uname[1]
 
@@ -173,6 +174,11 @@ class Writer:
         if self.verbose:
             print "close()"
         self._close_array()
+        if self.cmr_params.has_key("ase_atoms_var"):
+            ase_vars = self.cmr_params["ase_atoms_var"]
+            for key in ase_vars:
+                self.data.set_user_variable(key, ase_vars[key])
+            self.cmr_params.pop("ase_atoms_var")
         if self.filename==".db":
             self.cmr_params["output"]=create_db_filename(self.data)
         else:
@@ -183,7 +189,7 @@ class Reader:
     """ This class allows gpaw to access
     to read a db-file
     """
-    def __init__(self, name):
+    def __init__(self, name, comm):
         self.verbose = False
         self.reader = self.parameters = get_reader(name)
 
@@ -191,6 +197,9 @@ class Reader:
         return self.reader[name]
     
     def __getitem__(self, name):
+        if name=='version' and not self.reader.has_key('version') \
+            and self.reader.has_key('db_calculator_version'):
+                return self.reader['db_calculator_version']
         return self.reader[name]
 
     def has_array(self, name):

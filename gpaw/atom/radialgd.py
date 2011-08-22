@@ -14,7 +14,10 @@ class RadialGridDescriptor:
         self.N = len(r_g)
         self.dv_g = 4 * pi * r_g**2 * dr_g
         self.default_spline_points = default_spline_points
-        
+
+    def __len__(self):
+        return self.N
+
     def zeros(self, x=()):
         a_xg = self.empty(x)
         a_xg[:] = 0
@@ -73,18 +76,20 @@ class RadialGridDescriptor:
         ng = int(round(1.0 / self.b))
         assert abs(ng - 1 / self.b) < 1e-5
         hartree(l, nrdr_g, beta, ng, vr_g)
-        #vrp_g = self.ppoisson(n_g,l)
-        #print l,len(n_g),vr_g[[0,1,-1]],abs(vr_g-vrp_g).sum()
+        #vrp_g = self.purepythonpoisson(n_g,l)
+        #assert abs(vr_g-vrp_g).max() < 1e-12
         return vr_g
 
     def pseudize(self, a_g, gc, l=0, points=4):
         """Construct smooth continuation of a_g for g<gc.
         
-        Returns (b_g, c_p) such that b_g=a_g for g >= gc::
+        Returns (b_g, c_p) such that b_g=a_g for g >= gc and::
         
-                   P-1      2(P-1-p)+l
-            b(r) = Sum c_p r 
-                   p=0
+                P-1      2(P-1-p)+l
+            b = Sum c_p r 
+             g  p=0      g
+
+        for g < gc+P.
         """
         assert isinstance(gc, int) and gc > 10
         
@@ -123,7 +128,11 @@ class RadialGridDescriptor:
         
     def plot(self, a_g, n=0, rc=4.0, show=False):
         import matplotlib.pyplot as plt
-        plt.plot(self.r_g, a_g * self.r_g**n)
+        r_g = self.r_g[:len(a_g)]
+        if n < 0:
+            r_g = r_g[1:]
+            a_g = a_g[1:]
+        plt.plot(r_g, a_g * r_g**n)
         plt.axis(xmax=rc)
         if show:
             plt.show()

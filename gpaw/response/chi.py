@@ -47,6 +47,7 @@ class CHI(BASECHI):
                  G_plus_q=False,
                  eta=0.2,
                  rpad=np.array([1,1,1]),
+                 vcut=None,
                  ftol=1e-5,
                  txt=None,
                  xc='ALDA',
@@ -64,6 +65,7 @@ class CHI(BASECHI):
         self.xc = xc
         self.hilbert_trans = hilbert_trans
         self.full_hilbert_trans = full_response
+        self.vcut = vcut
         self.kcommsize = kcommsize
         self.comm = comm
         if self.comm is None:
@@ -71,7 +73,7 @@ class CHI(BASECHI):
         self.chi0_wGG = None
 
 
-    def initialize(self, do_Kxc=False):
+    def initialize(self, do_Kxc=False, simple_version=False):
 
         self.printtxt('')
         self.printtxt('-----------------------------------------')
@@ -130,13 +132,18 @@ class CHI(BASECHI):
         if calc.input_parameters['mode'] == 'lcao':
             calc.initialize_positions()        
         self.printtxt('     GS calculator   : %f M / cpu' %(maxrss() / 1024**2))
+
+        if simple_version is True:
+            return
         # PAW part init
         # calculate <phi_i | e**(-i(q+G).r) | phi_j>
         # G != 0 part
-        self.get_phi_aGp()
+        self.phi_aGp = self.get_phi_aGp()
+        self.printtxt('Finished phi_aGp !')
 
         # Calculate Coulomb kernel
-        self.Kc_GG = calculate_Kc(self.q_c, self.Gvec_Gc, self.bcell_cv)
+        self.Kc_GG = calculate_Kc(self.q_c, self.Gvec_Gc, self.acell_cv,
+                                  self.bcell_cv, self.calc.atoms.pbc, self.optical_limit, self.vcut)
 
         # Calculate ALDA kernel (not used in chi0)
         R_av = calc.atoms.positions / Bohr
@@ -207,11 +214,11 @@ class CHI(BASECHI):
                 k_pad = True
 
             # Find corresponding kpoint in IBZ
-            ibzkpt1 = kd.kibz_k[k]
+            ibzkpt1 = kd.bz2ibz_k[k]
             if self.optical_limit:
                 ibzkpt2 = ibzkpt1
             else:
-                ibzkpt2 = kd.kibz_k[kq_k[k]]
+                ibzkpt2 = kd.bz2ibz_k[kq_k[k]]
             
             for n in range(self.nstart, self.nend):
 #                print >> self.txt, k, n, t_get_wfs, time() - t0

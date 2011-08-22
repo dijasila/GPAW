@@ -1,32 +1,33 @@
 import numpy as np
-
 from ase.units import Hartree
 from gpaw.transport.tools import aa1d, interpolate_array, \
                           collect_atomic_matrices, distribute_atomic_matrices
 from gpaw.transport.io import Transport_IO
 from gpaw.grid_descriptor import GridDescriptor
+from gpaw import parsize
+from gpaw.domain import decompose_domain
+''' 
+     ---------------------------------------
+      side    |                     |  side
+          o  o| o  o  o  o  o  o  o |o  o
+       -      |                     |     +
+          o  o| o  o  o  o  o  o  o |o  o
+              |                     |
+       ---------------------------------------
+         Left |                     |Right
+         Lead | <-- Scattering -->  |Lead
+              |       Region        |
 
-
-#       ---------------------------------------
-#      side    |                     |  side
-#          o  o| o  o  o  o  o  o  o |o  o
-#       -      |                     |     +
-#          o  o| o  o  o  o  o  o  o |o  o
-#              |                     |
-#       ---------------------------------------
-#         Left |                     |Right
-#         Lead | <-- Scattering -->  |Lead
-#              |       Region        |
-#
-# class Surrounding is used to deal with the projection close to the
-# boundary and combine the potential or density information of the
-# scattering region and leads.
-
+ class Surrounding is used to deal with the projection close to the
+ boundary and combine the potential or density information of the
+ scattering region and leads.
+'''
 
 class Side:
     #Describe the electrode boundary
     def __init__(self, type, direction, kpt_comm, domain_comm, h):
-    #direction: '-' for the left electrode, '+' for the right electrode
+        # Direction: '-' for the left electrode, '+' for the right electrode
+
         self.type = type
         self.direction = direction
 	self.kpt_comm = kpt_comm
@@ -35,8 +36,8 @@ class Side:
 	self.h_cz = h
 
     def abstract_boundary(self):
-    #abtract the effective potential, hartree potential, and average density
-    #out from the electrode calculation.
+        # Abtract the effective potential, hartree potential, and average density
+        #out from the electrode calculation.
         map = {'-': '0', '+': '1'}
 	data = self.tio.read_data(filename='Lead_' + 
 	                          map[self.direction], option='Lead')
@@ -45,7 +46,15 @@ class Side:
         N_c = data['N_c']
 	cell_cv = data['cell_cv']
 	pbc_c = data['pbc_c']
-	parsize_c = data['parsize_c']
+	#parsize_c = data['parsize_c']
+        if type(parsize) is int:
+            parsize_c = None
+            assert parsize == self.domain_comm.size
+        else:
+            parsize_c = parsize
+        if parsize_c is None:
+            parsize_c = decompose_domain(N_c, self.domain_comm.size)
+        parsize_c = np.array(parsize_c)
         d1 = N_c[0] // 2
         d2 = N_c[1] // 2
        

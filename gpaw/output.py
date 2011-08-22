@@ -11,10 +11,9 @@ from ase.data import chemical_symbols
 from ase.units import Bohr, Hartree
 
 from gpaw.utilities import devnull
-from gpaw.mpi import size, parallel
 from gpaw.version import version
 from gpaw.utilities import scalapack
-from gpaw import sl_diagonalize, sl_inverse_cholesky, dry_run, extra_parameters
+from gpaw import dry_run, extra_parameters
 from gpaw.utilities.memory import maxrss
 import gpaw
 
@@ -90,15 +89,17 @@ class PAWTextOutput:
         self.text()
 
         uname = os.uname()
-        self.text('User:', os.getenv('USER', '???') + '@' + uname[1])
-        self.text('Date:', time.asctime())
-        self.text('Arch:', uname[4])
-        self.text('Pid: ', os.getpid())
-        self.text('Dir: ', os.path.dirname(gpaw.__file__))
-        self.text('ase:  ', os.path.dirname(ase.__file__),
-                  ' version: ', ase_version)
-        self.text('numpy:', os.path.dirname(np.__file__))
+        self.text('User: ', os.getenv('USER', '???') + '@' + uname[1])
+        self.text('Date: ', time.asctime())
+        self.text('Arch: ', uname[4])
+        self.text('Pid:  ', os.getpid())
+        self.text('Dir:  ', os.path.dirname(gpaw.__file__))
+        self.text('ase:   %s (version %s)' %
+                  (os.path.dirname(ase.__file__), ase_version))
+        self.text('numpy: %s (version %s)' %
+                  (os.path.dirname(np.__file__), np.version.version))
         self.text('units: Angstrom and eV')
+        self.text('cores:', self.wfs.world.size)
 
         if gpaw.debug:
             self.text('DEBUG MODE')
@@ -250,7 +251,8 @@ class PAWTextOutput:
           (cc['energy']))
         t('Integral of Absolute Density Change:    %g electrons' %
           cc['density'])
-        t('Integral of Absolute Eigenstate Change: %g' % cc['eigenstates'])
+        t('Integral of Absolute Eigenstate Change: %g eV^2' %
+          cc['eigenstates'])
         t('Number of Bands in Calculation:         %i' % self.wfs.nbands)
         t('Bands to Converge:                      ', end='')
         if cc['bands'] == 'occupied':
@@ -341,7 +343,7 @@ class PAWTextOutput:
 
         nvalence = self.wfs.setups.nvalence - self.input_parameters.charge
         if nvalence > 0:
-            eigerr = self.scf.eigenstates_error / nvalence
+            eigerr = self.scf.eigenstates_error * Hartree**2 / nvalence
         else:
             eigerr = 0.0
 

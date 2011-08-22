@@ -3,7 +3,6 @@ from math import sqrt, pi
 import pickle
 from ase.units import Hartree, Bohr
 from gpaw.mpi import rank
-from gpaw.response.math_func import delta_function
 from gpaw.response.chi import CHI
 
 class DF(CHI):
@@ -19,6 +18,7 @@ class DF(CHI):
                  G_plus_q=False,
                  eta=0.2,
                  rpad=np.array([1,1,1]),
+                 vcut=None,
                  ftol=1e-7,
                  txt=None,
                  xc='ALDA',
@@ -29,7 +29,7 @@ class DF(CHI):
                  kcommsize=None):
 
         CHI.__init__(self, calc=calc, nbands=nbands, w=w, q=q, eshift=eshift,
-                     ecut=ecut, G_plus_q=G_plus_q, eta=eta, rpad=rpad,
+                     ecut=ecut, G_plus_q=G_plus_q, eta=eta, rpad=rpad, vcut=vcut,
                      ftol=ftol, txt=txt, xc=xc, hilbert_trans=hilbert_trans,
                      full_response=full_response, optical_limit=optical_limit,
                      comm=comm, kcommsize=kcommsize)
@@ -353,8 +353,8 @@ class DF(CHI):
 
         for k in range(nkpt):
             print k
-            ibzkpt1 = kd.kibz_k[k]
-            ibzkpt2 = kd.kibz_k[kq[k]]
+            ibzkpt1 = kd.bz2ibz_k[k]
+            ibzkpt2 = kd.bz2ibz_k[kq[k]]
             for n in range(nbands):
                 for m in range(nbands):
                     focc = f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]
