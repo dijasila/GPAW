@@ -63,3 +63,5 @@ for mode in modes:
         equal(eig0, eig1, 1e-10)
 
     equal(niter0, 6, 0)
+    # Check that after restart everythnig is writable
+    calc.write('tmp2.%s' % mode)
