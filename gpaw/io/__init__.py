@@ -181,7 +181,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
             else:
                 h = p.h / Bohr
         else:
-            h = None
+            h = repr(None)
         w['GridSpacing'] = h
 
         # Write various parameters:
