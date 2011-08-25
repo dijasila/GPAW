@@ -585,6 +585,7 @@ def read(paw, reader):
         do_read = (kpt_comm.rank == 0) and (band_comm.rank == 0)
         r.get('PseudoElectronDensity', out=nt_sG, parallel=True, read=do_read, 
               *indices) #XXX read=?
+        kpt_comm.broadcast(nt_sG, 0)
         band_comm.broadcast(nt_sG, 0)
     else:
         for s in range(density.nspins):
