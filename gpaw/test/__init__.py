@@ -125,6 +125,8 @@ tests = [
     'io/hdf5_simple.py',
     'io/hdf5_noncontiguous.py',
     'restart.py',
+    'io/restart_density.py',
+    'io/parallel.py',
     'mgga_restart.py',
     'gga_atom.py',
     'bee1.py',
@@ -282,7 +284,8 @@ if mpi.size < 4:
                 'bse_aluminum.py',
                 'bse_diamond.py',
                 'bse_silicon.py',
-                'bse_vs_lrtddft.py'
+                'bse_vs_lrtddft.py',
+                'io/parallel.py', 
                 ]
 
 if mpi.size != 4:
