@@ -114,7 +114,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     if master or hdf5:
         w = open(filename, 'w', world)
         w['history'] = 'GPAW restart file'
-        w['version'] = '0.9'
+        w['version'] = 1
         w['lengthunit'] = 'Bohr'
         w['energyunit'] = 'Hartree'
 
@@ -150,6 +150,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         # Write the k-points:
         if wfs.kd.N_c is not None:
             w.add('NBZKPoints', ('3'), wfs.kd.N_c, **par_kwargs)
+            w.add('MonkhorstPackOffset', ('3'), wfs.kd.offset_c, **par_kwargs)
         w.dimension('nbzkpts', len(wfs.bzk_kc))
         w.dimension('nibzkpts', len(wfs.ibzk_kc))
         w.add('BZKPoints', ('nbzkpts', '3'), wfs.bzk_kc, **par_kwargs)
@@ -666,6 +667,9 @@ def read(paw, reader):
         energy_error = r['EnergyError']
         if energy_error is not None:
             paw.scf.energies = [Etot, Etot + energy_error, Etot]
+        wfs.eigensolver.error = r['EigenstateError']
+        if version < 1:
+            wfs.eigensolver.error *= wfs.gd.dv
     else:
         paw.scf.converged = r['Converged']
 
@@ -716,9 +720,10 @@ def read(paw, reader):
     nbands = r.dimension('nbands')
     nslice = wfs.bd.get_slice()
 
-    if (nibzkpts == len(wfs.ibzk_kc) and
-        nbands == band_comm.size * wfs.mynbands):
-
+    if (nibzkpts != len(wfs.ibzk_kc) or
+        nbands != band_comm.size * wfs.mynbands):
+        wfs.eigensolver.error = np.inf
+    else:
         # Verify that symmetries for for k-point reduction hasn't changed:
         tol = 1e-12
         
@@ -759,9 +764,6 @@ def read(paw, reader):
                     c_n = r.get('LinearExpansionCoefficients', s, k, o, **par_kwargs)
                     kpt.c_on[o,:] = c_n[nslice]
                 timer.stop('dSCF expansions')
-
-        if version > 0.3:
-            wfs.eigensolver.error = r['EigenstateError']
 
         if (r.has_array('PseudoWaveFunctions') and
             paw.input_parameters.mode == 'fd'):

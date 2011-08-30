@@ -99,7 +99,7 @@ class Writer:
 
 
 class Reader(xml.sax.handler.ContentHandler):
-    def __init__(self, name, comm):
+    def __init__(self, name, comm=None):
         self.comm = comm # used for broadcasting replicated data
         self.dims = {}
         self.shapes = {}

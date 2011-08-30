@@ -1,11 +1,14 @@
 import numpy as np
+
 from ase.units import Hartree, Bohr
+from ase.dft.kpoints import monkhorst_pack
 
 import gpaw.mpi as mpi
 from gpaw.poisson import PoissonSolver, FFTPoissonSolver
 from gpaw.occupations import FermiDirac
 from gpaw import parsize, parsize_bands, sl_default, sl_diagonalize, \
                  sl_inverse_cholesky, sl_lcao, buffer_size
+
 
 class InputParameters(dict):
     def __init__(self, **kwargs):
@@ -47,12 +50,12 @@ class InputParameters(dict):
             ('verbose',         0),
             ('eigensolver',     None),
             ('poissonsolver',   None),
-            ('communicator' ,   mpi.world),
-            ('idiotproof'   ,   True),
+            ('communicator',    mpi.world),
+            ('idiotproof',     True),
             ('mode',            'fd'),
             ('convergence',     {'energy':      0.0005,  # eV / electron
                                  'density':     1.0e-4,
-                                 'eigenstates': 1.0e-9,  # XXX ???
+                                 'eigenstates': 4.0e-8,  # eV^2
                                  'bands':       'occupied'}),
             ])
         dict.update(self, kwargs)
@@ -120,6 +123,10 @@ class InputParameters(dict):
             # Read on master, then broadcast
             if master:
                 self.kpts = r.get('NBZKPoints', **par_kwargs)
+                if r.has_array('MonkhorstPackOffset'):
+                    offset_c = r.get('MonkhorstPackOffset')
+                    if offset_c.any():
+                        self.kpts = monkhorst_pack(self.kpts) + offset_c
         else:
             self.kpts = np.empty((nbzkpts, dim), float)
             # Read on master, then broadcast
@@ -133,16 +140,17 @@ class InputParameters(dict):
         except KeyError:
             pass
 
-        if version >= '0.9':
+        if version >= 0.9:
             h = r['GridSpacing']
         else:
             h = None
 
+        gpts = ((r.dimension('ngptsx') + 1) // 2 * 2,
+                (r.dimension('ngptsy') + 1) // 2 * 2,
+                (r.dimension('ngptsz') + 1) // 2 * 2)
+
         if h is None:
-        ## gpts modified to account for boundary condition in non-PBC
-            self.gpts = ((r.dimension('ngptsx') + 1) // 2 * 2,
-                         (r.dimension('ngptsy') + 1) // 2 * 2,
-                         (r.dimension('ngptsz') + 1) // 2 * 2)
+            self.gpts = gpts
         else:
             self.h = Bohr * h
 
@@ -165,6 +173,13 @@ class InputParameters(dict):
                                 'eigenstates':
                                 r['EigenstatesConvergenceCriterion'],
                                 'bands': nbtc}
+
+            if version < 1:
+                # Volume per grid-point:
+                dv = (abs(np.linalg.det(r.get('UnitCell'))) /
+                      (gpts[0] * gpts[1] * gpts[2]))
+                self.convergence['eigenstates'] *= Hartree**2 * dv
+
             if version <= 0.6:
                 mixer = 'Mixer'
                 weight = r['MixMetric']
@@ -223,7 +238,7 @@ class InputParameters(dict):
 
         try:
             dtype = r['DataType']
-            if dtype=='Float':
+            if dtype == 'Float':
                 self.dtype = float
             else:
                 self.dtype = complex
