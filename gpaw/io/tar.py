@@ -15,7 +15,6 @@ itemsizes = {'int': intsize, 'float': floatsize, 'complex': complexsize}
 class Writer:
     def __init__(self, name, comm=None):
         self.comm = comm # for possible future use
-        self.master = (self.comm == 0)
         self.dims = {}
         self.files = {}
         self.xml1 = ['<gpaw_io version="0.1" endianness="%s">' %

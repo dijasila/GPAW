@@ -15,16 +15,19 @@ import numpy as np
 
 import gpaw.mpi as mpi
 from gpaw.mpi import broadcast
+from gpaw.io.dummy import DummyWriter
 
 import os,time,tempfile
 
 def open(filename, mode='r', comm=mpi.world):
+    parallel_io = False
     if filename.endswith('.nc'):
         import gpaw.io.netcdf as io
     elif filename.endswith('.db'):
         import gpaw.io.cmr_io as io
     elif filename.endswith('.hdf5'):
         import gpaw.io.hdf5 as io
+        parallel_io = True
     else:
         if not filename.endswith('.gpw'):
             filename += '.gpw'
@@ -38,7 +41,10 @@ def open(filename, mode='r', comm=mpi.world):
             raise RuntimeError('Warning: Communicator needed for reads/writes')
         return io.Reader(filename, comm)
     elif mode == 'w':
-        return io.Writer(filename, comm)
+        if parallel_io or comm.rank == 0:
+            return io.Writer(filename, comm)
+        else:
+            return DummyWriter(filename, comm)
     else:
         raise ValueError("Illegal mode!  Use 'r' or 'w'.")
 
@@ -110,178 +116,175 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     # - HDF-writer writes parameters and dimensions as Attributes, not Datasets.
     #   Attributes must be written by all MPI tasks.
     
-    if master or hdf5:
-        w = open(filename, 'w', world)
-        w['history'] = 'GPAW restart file'
-        w['version'] = 1
-        w['lengthunit'] = 'Bohr'
-        w['energyunit'] = 'Hartree'
+    w = open(filename, 'w', world)
+    w['history'] = 'GPAW restart file'
+    w['version'] = 1
+    w['lengthunit'] = 'Bohr'
+    w['energyunit'] = 'Hartree'
 
-        try:
-            tag_a = atoms.get_tags()
-            if tag_a is None:
-                raise KeyError
-        except KeyError:
-            tag_a = np.zeros(natoms, int)
+    try:
+        tag_a = atoms.get_tags()
+        if tag_a is None:
+            raise KeyError
+    except KeyError:
+        tag_a = np.zeros(natoms, int)
 
-        w.dimension('natoms', natoms)
-        w.dimension('3', 3)
+    w.dimension('natoms', natoms)
+    w.dimension('3', 3)
 
-        w.add('AtomicNumbers', ('natoms',),
-              atoms.get_atomic_numbers(), **par_kwargs)
-        w.add('CartesianPositions', ('natoms', '3'),
-              atoms.get_positions() / Bohr, **par_kwargs)
-        w.add('MagneticMoments', ('natoms',), magmom_a, **par_kwargs)
-        w.add('Tags', ('natoms',), tag_a, **par_kwargs)
-        w.add('BoundaryConditions', ('3',), atoms.get_pbc(), **par_kwargs)
-        w.add('UnitCell', ('3', '3'), atoms.get_cell() / Bohr, **par_kwargs)
+    w.add('AtomicNumbers', ('natoms',),
+          atoms.get_atomic_numbers(), **par_kwargs)
+    w.add('CartesianPositions', ('natoms', '3'),
+          atoms.get_positions() / Bohr, **par_kwargs)
+    w.add('MagneticMoments', ('natoms',), magmom_a, **par_kwargs)
+    w.add('Tags', ('natoms',), tag_a, **par_kwargs)
+    w.add('BoundaryConditions', ('3',), atoms.get_pbc(), **par_kwargs)
+    w.add('UnitCell', ('3', '3'), atoms.get_cell() / Bohr, **par_kwargs)
 
-        if atoms.get_velocities() is not None:
-            w.add('CartesianVelocities', ('natoms', '3'),
-                  atoms.get_velocities() * AUT / Bohr, **par_kwargs)
+    if atoms.get_velocities() is not None:
+        w.add('CartesianVelocities', ('natoms', '3'),
+              atoms.get_velocities() * AUT / Bohr, **par_kwargs)
 
-        w.add('PotentialEnergy', (), hamiltonian.Etot + 0.5 * hamiltonian.S,
+    w.add('PotentialEnergy', (), hamiltonian.Etot + 0.5 * hamiltonian.S,
+          **par_kwargs)
+    if paw.forces.F_av is not None:
+        w.add('CartesianForces', ('natoms', '3'), paw.forces.F_av,
               **par_kwargs)
-        if paw.forces.F_av is not None:
-            w.add('CartesianForces', ('natoms', '3'), paw.forces.F_av,
-                  **par_kwargs)
 
-        # Write the k-points:
-        if wfs.kd.N_c is not None:
-            w.add('NBZKPoints', ('3'), wfs.kd.N_c, **par_kwargs)
-            w.add('MonkhorstPackOffset', ('3'), wfs.kd.offset_c, **par_kwargs)
-        w.dimension('nbzkpts', len(wfs.bzk_kc))
-        w.dimension('nibzkpts', len(wfs.ibzk_kc))
-        w.add('BZKPoints', ('nbzkpts', '3'), wfs.bzk_kc, **par_kwargs)
-        w.add('IBZKPoints', ('nibzkpts', '3'), wfs.ibzk_kc, **par_kwargs)
-        w.add('IBZKPointWeights', ('nibzkpts',), wfs.weight_k, **par_kwargs)
+    # Write the k-points:
+    if wfs.kd.N_c is not None:
+        w.add('NBZKPoints', ('3'), wfs.kd.N_c, **par_kwargs)
+        w.add('MonkhorstPackOffset', ('3'), wfs.kd.offset_c, **par_kwargs)
+    w.dimension('nbzkpts', len(wfs.bzk_kc))
+    w.dimension('nibzkpts', len(wfs.ibzk_kc))
+    w.add('BZKPoints', ('nbzkpts', '3'), wfs.bzk_kc, **par_kwargs)
+    w.add('IBZKPoints', ('nibzkpts', '3'), wfs.ibzk_kc, **par_kwargs)
+    w.add('IBZKPointWeights', ('nibzkpts',), wfs.weight_k, **par_kwargs)
 
-        # Create dimensions for varioius netCDF variables:
-        ng = wfs.gd.get_size_of_global_array()
-        w.dimension('ngptsx', ng[0])
-        w.dimension('ngptsy', ng[1])
-        w.dimension('ngptsz', ng[2])
-        ng = density.finegd.get_size_of_global_array()
-        w.dimension('nfinegptsx', ng[0])
-        w.dimension('nfinegptsy', ng[1])
-        w.dimension('nfinegptsz', ng[2])
-        w.dimension('nspins', wfs.nspins)
-        w.dimension('nbands', wfs.nbands)
-        nproj = sum([setup.ni for setup in wfs.setups])
-        nadm = sum([setup.ni * (setup.ni + 1) // 2 for setup in wfs.setups])
-        w.dimension('nproj', nproj)
-        w.dimension('nadm', nadm)
+    # Create dimensions for varioius netCDF variables:
+    ng = wfs.gd.get_size_of_global_array()
+    w.dimension('ngptsx', ng[0])
+    w.dimension('ngptsy', ng[1])
+    w.dimension('ngptsz', ng[2])
+    ng = density.finegd.get_size_of_global_array()
+    w.dimension('nfinegptsx', ng[0])
+    w.dimension('nfinegptsy', ng[1])
+    w.dimension('nfinegptsz', ng[2])
+    w.dimension('nspins', wfs.nspins)
+    w.dimension('nbands', wfs.nbands)
+    nproj = sum([setup.ni for setup in wfs.setups])
+    nadm = sum([setup.ni * (setup.ni + 1) // 2 for setup in wfs.setups])
+    w.dimension('nproj', nproj)
+    w.dimension('nadm', nadm)
 
-        p = paw.input_parameters
+    p = paw.input_parameters
 
-        # Write grid-spacing or None if gpts was specified:
-        if p.gpts is None:
-            if p.h is None:
-                h = 0.2 / Bohr
-            else:
-                h = p.h / Bohr
+    # Write grid-spacing or None if gpts was specified:
+    if p.gpts is None:
+        if p.h is None:
+            h = 0.2 / Bohr
         else:
-            h = repr(None)
-        w['GridSpacing'] = h
+            h = p.h / Bohr
+    else:
+        h = repr(None)
+    w['GridSpacing'] = h
 
-        # Write various parameters:
-        (w['KohnShamStencil'],
-         w['InterpolationStencil']) = p['stencils']
-        w['PoissonStencil'] = paw.hamiltonian.poisson.get_stencil()
-        w['XCFunctional'] = paw.hamiltonian.xc.name
-        w['Charge'] = p['charge']
-        w['FixMagneticMoment'] = paw.occupations.fixmagmom
-        w['UseSymmetry'] = p['usesymm']
-        w['Converged'] = scf.converged
-        w['FermiWidth'] = paw.occupations.width
-        w['MixClass'] = density.mixer.__class__.__name__
-        w['MixBeta'] = density.mixer.beta
-        w['MixOld'] = density.mixer.nmaxold
-        w['MixWeight'] = density.mixer.weight
-        w['MaximumAngularMomentum'] = p.lmax
-        w['SoftGauss'] = False
-        w['FixDensity'] = p.fixdensity
-        w['DensityConvergenceCriterion'] = p['convergence']['density']
-        w['EnergyConvergenceCriterion'] = p['convergence']['energy'] / Hartree
-        w['EigenstatesConvergenceCriterion'] = p['convergence']['eigenstates']
-        w['NumberOfBandsToConverge'] = p['convergence']['bands']
-        w['Ekin'] = hamiltonian.Ekin
-        w['Epot'] = hamiltonian.Epot
-        w['Ebar'] = hamiltonian.Ebar
-        w['Eext'] = hamiltonian.Eext
-        w['Exc'] = hamiltonian.Exc
-        w['S'] = hamiltonian.S
-        try:
-            if paw.occupations.fixmagmom:
-                w['FermiLevel'] = paw.occupations.get_fermi_levels_mean()
-                w['FermiSplit'] = paw.occupations.get_fermi_splitting()
-            else:
-                w['FermiLevel'] = paw.occupations.get_fermi_level()
-        except ValueError:
-            # Zero temperature calculation - don't write Fermi level:
-            pass
-
-        # write errors
-        w['DensityError'] = scf.density_error
-        w['EnergyError'] = scf.energy_error
-        w['EigenstateError'] = scf.eigenstates_error
-
-        if wfs.dtype == float:
-            w['DataType'] = 'Float'
+    # Write various parameters:
+    (w['KohnShamStencil'],
+     w['InterpolationStencil']) = p['stencils']
+    w['PoissonStencil'] = paw.hamiltonian.poisson.get_stencil()
+    w['XCFunctional'] = paw.hamiltonian.xc.name
+    w['Charge'] = p['charge']
+    w['FixMagneticMoment'] = paw.occupations.fixmagmom
+    w['UseSymmetry'] = p['usesymm']
+    w['Converged'] = scf.converged
+    w['FermiWidth'] = paw.occupations.width
+    w['MixClass'] = density.mixer.__class__.__name__
+    w['MixBeta'] = density.mixer.beta
+    w['MixOld'] = density.mixer.nmaxold
+    w['MixWeight'] = density.mixer.weight
+    w['MaximumAngularMomentum'] = p.lmax
+    w['SoftGauss'] = False
+    w['FixDensity'] = p.fixdensity
+    w['DensityConvergenceCriterion'] = p['convergence']['density']
+    w['EnergyConvergenceCriterion'] = p['convergence']['energy'] / Hartree
+    w['EigenstatesConvergenceCriterion'] = p['convergence']['eigenstates']
+    w['NumberOfBandsToConverge'] = p['convergence']['bands']
+    w['Ekin'] = hamiltonian.Ekin
+    w['Epot'] = hamiltonian.Epot
+    w['Ebar'] = hamiltonian.Ebar
+    w['Eext'] = hamiltonian.Eext
+    w['Exc'] = hamiltonian.Exc
+    w['S'] = hamiltonian.S
+    try:
+        if paw.occupations.fixmagmom:
+            w['FermiLevel'] = paw.occupations.get_fermi_levels_mean()
+            w['FermiSplit'] = paw.occupations.get_fermi_splitting()
         else:
-            w['DataType'] = 'Complex'
+            w['FermiLevel'] = paw.occupations.get_fermi_level()
+    except ValueError:
+        # Zero temperature calculation - don't write Fermi level:
+        pass
 
-        # Try to write time and kick strength in time-propagation TDDFT:
-        for attr, name in [('time', 'Time'), ('niter', 'TimeSteps'), 
-                           ('kick_strength', 'AbsorptionKick')]:
-            if hasattr(paw, attr):
-                value = getattr(paw, attr)
-                if isinstance(value, np.ndarray): # replicated write here
-                    w.add(name, ('3',), value, **par_kwargs)
-                else:
-                    w[name] = value
+    # write errors
+    w['DensityError'] = scf.density_error
+    w['EnergyError'] = scf.energy_error
+    w['EigenstateError'] = scf.eigenstates_error
 
-        w['Mode'] = p.mode
+    if wfs.dtype == float:
+        w['DataType'] = 'Float'
+    else:
+        w['DataType'] = 'Complex'
+
+    # Try to write time and kick strength in time-propagation TDDFT:
+    for attr, name in [('time', 'Time'), ('niter', 'TimeSteps'), 
+                       ('kick_strength', 'AbsorptionKick')]:
+        if hasattr(paw, attr):
+            value = getattr(paw, attr)
+            if isinstance(value, np.ndarray): # replicated write here
+                w.add(name, ('3',), value, **par_kwargs)
+            else:
+                w[name] = value
+
+    w['Mode'] = p.mode
+    
+    # Write fingerprint (md5-digest) for all setups:
+    for setup in wfs.setups.setups.values():
+        key = atomic_names[setup.Z] + 'Fingerprint'
+        if setup.type != 'paw':
+            key += '(%s)' % setup.type
+        w[key] = setup.fingerprint
         
-        # Write fingerprint (md5-digest) for all setups:
-        for setup in wfs.setups.setups.values():
-            key = atomic_names[setup.Z] + 'Fingerprint'
-            if setup.type != 'paw':
-                key += '(%s)' % setup.type
-            w[key] = setup.fingerprint
-            
-            #key = key.replace('Fingerprint', '')
-            #w[key] = setup.parameter_string
+        #key = key.replace('Fingerprint', '')
+        #w[key] = setup.parameter_string
 
-        setup_types = p['setups']
-        if isinstance(setup_types, str):
-            setup_types = {None: setup_types}
-        for key, value in setup_types.items():
+    setup_types = p['setups']
+    if isinstance(setup_types, str):
+        setup_types = {None: setup_types}
+    for key, value in setup_types.items():
+        if not isinstance(value, str):
+            # Setups which are not strings are assumed to be
+            # runtime-dependent and should *not* be saved.  We'll
+            # just discard the whole dictionary
+            setup_types = None
+            break
+    w['SetupTypes'] = repr(setup_types)
+
+    basis = p['basis'] # And similarly for basis sets
+    if isinstance(basis, dict):
+        for key, value in basis.items():
             if not isinstance(value, str):
-                # Setups which are not strings are assumed to be
-                # runtime-dependent and should *not* be saved.  We'll
-                # just discard the whole dictionary
-                setup_types = None
-                break
-        w['SetupTypes'] = repr(setup_types)
+                basis = None
+    w['BasisSet'] = repr(basis)
 
-        basis = p['basis'] # And similarly for basis sets
-        if isinstance(basis, dict):
-            for key, value in basis.items():
-                if not isinstance(value, str):
-                    basis = None
-        w['BasisSet'] = repr(basis)
+    dtype = {float: float, complex: complex}[wfs.dtype]
 
-        dtype = {float: float, complex: complex}[wfs.dtype]
-    else: # GPW-writer only exists on master task
-        w = None
     timer.stop('Meta data')
 
     # Write projections:
     timer.start('Projections')
-    if master or hdf5:
-        w.add('Projections', ('nspins', 'nibzkpts', 'nbands', 'nproj'),
-              dtype=dtype)
+    w.add('Projections', ('nspins', 'nibzkpts', 'nbands', 'nproj'),
+          dtype=dtype)
     if hdf5:
         # Domain masters write parallel over spin, kpoints and band groups
         all_P_ni = np.empty((wfs.mynbands, nproj), dtype=wfs.dtype)
@@ -348,12 +351,10 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
             if a in density.D_asp:
                 domain_comm.send(density.D_asp[a], 0, 207)
                 domain_comm.send(hamiltonian.dH_asp[a], 0, 2071)
-    if master or hdf5:
-        w.add('AtomicDensityMatrices', ('nspins', 'nadm'), dtype=float)
+    w.add('AtomicDensityMatrices', ('nspins', 'nadm'), dtype=float)
     if master:
         w.fill(all_D_sp)
-    if master or hdf5:
-        w.add('NonLocalPartOfHamiltonian', ('nspins', 'nadm'), dtype=float)
+    w.add('NonLocalPartOfHamiltonian', ('nspins', 'nadm'), dtype=float)
     if master:
         w.fill(all_H_sp)
     timer.stop('Atomic matrices')
@@ -361,8 +362,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     # Write the eigenvalues and occupation numbers:
     timer.start('Band energies')
     for name, var in [('Eigenvalues', 'eps_n'), ('OccupationNumbers', 'f_n')]:
-        if master or hdf5:
-            w.add(name, ('nspins', 'nibzkpts', 'nbands'), dtype=float)
+        w.add(name, ('nspins', 'nibzkpts', 'nbands'), dtype=float)
         for s in range(wfs.nspins):
             for k in range(wfs.nibzkpts):
                 # if hdf5:  XXX Figure this out later
@@ -386,20 +386,18 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     # Write the linear expansion coefficients for Delta SCF:
     if mode == 'all' and norbitals is not None:
         timer.start('dSCF expansions')
-        if master or hdf5:
-            w.dimension('norbitals', norbitals)
-            w.add('LinearExpansionOccupations', ('nspins', 
-                  'nibzkpts', 'norbitals'), dtype=float)
+        w.dimension('norbitals', norbitals)
+        w.add('LinearExpansionOccupations', ('nspins', 
+              'nibzkpts', 'norbitals'), dtype=float)
         for s in range(wfs.nspins):
             for k in range(wfs.nibzkpts):
                 ne_o = wfs.collect_auxiliary('ne_o', k, s, shape=norbitals)
                 if master:
                     w.fill(ne_o, s, k)
 
-        if master or hdf5:
-            w.add('LinearExpansionCoefficients', ('nspins',
-                  'nibzkpts', 'norbitals', 'nbands'), dtype=complex,
-                      **par_kwargs)
+        w.add('LinearExpansionCoefficients', ('nspins',
+              'nibzkpts', 'norbitals', 'nbands'), dtype=complex,
+                  **par_kwargs)
         for s in range(wfs.nspins):
             for k in range(wfs.nibzkpts):
                 for o in range(norbitals):
@@ -410,9 +408,8 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
 
     # Write the pseudodensity on the coarse grid:
     timer.start('Pseudo-density')
-    if master or hdf5:
-        w.add('PseudoElectronDensity',
-              ('nspins', 'ngptsx', 'ngptsy', 'ngptsz'), dtype=float)
+    w.add('PseudoElectronDensity',
+          ('nspins', 'ngptsx', 'ngptsy', 'ngptsz'), dtype=float)
 
     for s in range(wfs.nspins):
         if hdf5:
@@ -428,9 +425,8 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
 
     # Write the pseudopotential on the coarse grid:
     timer.start('Pseudo-potential')
-    if master or hdf5:
-        w.add('PseudoPotential', 
-              ('nspins', 'ngptsx', 'ngptsy', 'ngptsz'), dtype=float)
+    w.add('PseudoPotential', 
+          ('nspins', 'ngptsx', 'ngptsy', 'ngptsz'), dtype=float)
 
     for s in range(wfs.nspins):
         if hdf5:
@@ -495,10 +491,9 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         db = cmr_params['db']
 
     timer.start('Close')
-    if master or hdf5:
-        # Close the file here to ensure that the last wave function is
-        # written to disk:
-        w.close()
+    # Close the file here to ensure that the last wave function is
+    # written to disk:
+    w.close()
 
     # We don't want the slaves to start reading before the master has
     # finished writing:
@@ -574,11 +569,11 @@ def read(paw, reader):
         if r.dimension(name) != dim:
             raise ValueError('shape mismatch: expected %s=%d' % (name,dim))
 
-    # Read pseudoelectron density on the coarse grid
-    # and broadcast on kpt_comm and band_comm:
     timer.start('Pseudo-density')
     nt_sG = wfs.gd.empty(density.nspins)
     if hdf5:
+        # Read pseudoelectron density on the coarse grid
+        # and broadcast on kpt_comm and band_comm:
         indices = [slice(0, density.nspins),] + wfs.gd.get_slice()
         do_read = (kpt_comm.rank == 0) and (band_comm.rank == 0)
         r.get('PseudoElectronDensity', out=nt_sG, parallel=True, read=do_read, 
