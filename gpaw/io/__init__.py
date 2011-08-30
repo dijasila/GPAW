@@ -95,9 +95,8 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
 
     hdf5 = filename.endswith('.hdf5')
 
-    par_kwargs = {}
-    if hdf5: # defaults for replicated writes with HDF5
-        par_kwargs.update({'parallel': False, 'write': master})
+    # defaults for replicated writes with HDF5
+    par_kwargs = {'parallel': False, 'write': master}
 
     timer.start('Meta data')
 
@@ -536,10 +535,8 @@ def read(paw, reader):
 
     hdf5 = hasattr(r, 'hdf5')
 
-    par_kwargs = {}
-    
-    if hdf5: # defaults for replicated reads with HDF5
-        par_kwargs.update({'parallel': False, 'read': master}) 
+    # defaults for replicated reads with HDF5
+    par_kwargs = {'parallel': False, 'read': master} 
 
     # Verify setup fingerprints and count projectors and atomic matrices:
     for setup in wfs.setups.setups.values():

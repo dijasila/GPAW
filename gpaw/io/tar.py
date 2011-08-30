@@ -15,6 +15,7 @@ itemsizes = {'int': intsize, 'float': floatsize, 'complex': complexsize}
 class Writer:
     def __init__(self, name, comm=None):
         self.comm = comm # for possible future use
+        self.master = (self.comm == 0)
         self.dims = {}
         self.files = {}
         self.xml1 = ['<gpaw_io version="0.1" endianness="%s">' %
@@ -37,7 +38,8 @@ class Writer:
         self.xml1 += ['  <parameter %-20s value="%s"/>' %
                       ('name="%s"' % name, value)]
         
-    def add(self, name, shape, array=None, dtype=None, units=None):
+    def add(self, name, shape, array=None, dtype=None, units=None,
+            parallel=False, write=True):
         if array is not None:
             array = np.asarray(array)
 
@@ -67,7 +69,7 @@ class Writer:
 
         return dtype, type, dtype.itemsize
 
-    def fill(self, array, *indices):
+    def fill(self, array, *indices, **kwargs):
         self.write(np.asarray(array, self.dtype).tostring())
 
     def write_header(self, name, size):
@@ -140,7 +142,7 @@ class Reader(xml.sax.handler.ContentHandler):
     def has_array(self, name):
         return name in self.shapes
     
-    def get(self, name, *indices):
+    def get(self, name, *indices, **kwargs):
         fileobj, shape, size, dtype = self.get_file_object(name, indices)
         array = np.fromstring(fileobj.read(size), dtype)
         if self.byteswap:

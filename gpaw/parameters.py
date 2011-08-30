@@ -98,14 +98,8 @@ class InputParameters(dict):
 
         master = (reader.comm.rank == 0) # read only on root of reader.comm
 
-        if hasattr(reader, 'hdf5'): 
-            hdf5 = True
-        else:
-            hdf5 = False
-
-        par_kwargs = {}
-        if hdf5:
-            par_kwargs.update({'parallel': False, 'read': master})
+        # Defaults for parallel read arguments
+        par_kwargs = {'parallel': False, 'read': master}
 
         version = r['version']
         
