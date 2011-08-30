@@ -21,7 +21,7 @@ atoms = Atoms('Na3', positions=[( 0, 0, 0),
                    pbc=True)
 
 # Only a short, non-converged calcuation
-conv = {'eigenstates': 1.e-4, 'energy':1e-3, 'density':1e-1}
+conv = {'eigenstates': 1.e-3, 'energy':1e-2, 'density':1e-1}
 calc = GPAW(h=0.30, nbands=3, convergence=conv)
 atoms.set_calculator(calc)
 e0 = atoms.get_potential_energy()
@@ -63,6 +63,6 @@ for mode in modes:
         equal(eig0, eig1, 2e-3)
 
     niter1 = calc.get_number_of_iterations()
-    equal(niter1, 8, 0)
+    equal(niter1, 7, 0)
     # Check that after restart everythnig is writable
     calc.write('tmp2.%s' % mode)
