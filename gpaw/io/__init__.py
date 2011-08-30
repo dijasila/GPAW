@@ -188,7 +188,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         # Write various parameters:
         (w['KohnShamStencil'],
          w['InterpolationStencil']) = p['stencils']
-        w['PoissonStencil'] = paw.hamiltonian.poisson.nn
+        w['PoissonStencil'] = paw.hamiltonian.poisson.get_stencil()
         w['XCFunctional'] = paw.hamiltonian.xc.name
         w['Charge'] = p['charge']
         w['FixMagneticMoment'] = paw.occupations.fixmagmom
@@ -233,7 +233,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
             w['DataType'] = 'Complex'
 
         # Try to write time and kick strength in time-propagation TDDFT:
-        for attr, name in [('time', 'Time'), ('niter', 'TimeSteps'), \
+        for attr, name in [('time', 'Time'), ('niter', 'TimeSteps'), 
                            ('kick_strength', 'AbsorptionKick')]:
             if hasattr(paw, attr):
                 value = getattr(paw, attr)
@@ -300,7 +300,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
                         P_ani[a] = kpt.P_ani[a]
                     else:
                         P_ani[a] = np.empty((wfs.mynbands, ni), dtype=wfs.dtype)
-                        requests.append(domain_comm.receive(P_ani[a], \
+                        requests.append(domain_comm.receive(P_ani[a], 
                             wfs.rank_a[a], 1303 + a, block=False))
             else:
                 for a, P_ni in kpt.P_ani.items():
@@ -389,7 +389,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         timer.start('dSCF expansions')
         if master or hdf5:
             w.dimension('norbitals', norbitals)
-            w.add('LinearExpansionOccupations', ('nspins', \
+            w.add('LinearExpansionOccupations', ('nspins', 
                   'nibzkpts', 'norbitals'), dtype=float)
         for s in range(wfs.nspins):
             for k in range(wfs.nibzkpts):
@@ -398,8 +398,8 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
                     w.fill(ne_o, s, k)
 
         if master or hdf5:
-            w.add('LinearExpansionCoefficients', ('nspins', \
-                  'nibzkpts', 'norbitals', 'nbands'), dtype=complex, \
+            w.add('LinearExpansionCoefficients', ('nspins',
+                  'nibzkpts', 'norbitals', 'nbands'), dtype=complex,
                       **par_kwargs)
         for s in range(wfs.nspins):
             for k in range(wfs.nibzkpts):
@@ -412,7 +412,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     # Write the pseudodensity on the coarse grid:
     timer.start('Pseudo-density')
     if master or hdf5:
-        w.add('PseudoElectronDensity', \
+        w.add('PseudoElectronDensity',
               ('nspins', 'ngptsx', 'ngptsy', 'ngptsz'), dtype=float)
 
     for s in range(wfs.nspins):
@@ -430,7 +430,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     # Write the pseudopotential on the coarse grid:
     timer.start('Pseudo-potential')
     if master or hdf5:
-        w.add('PseudoPotential', \
+        w.add('PseudoPotential', 
               ('nspins', 'ngptsx', 'ngptsy', 'ngptsz'), dtype=float)
 
     for s in range(wfs.nspins):
@@ -467,7 +467,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
             dirname = '.'
         # the slaves have to wait until the directory is created
         world.barrier()
-        print >> paw.txt, 'Writing wave functions to', dirname,\
+        print >> paw.txt, 'Writing wave functions to', dirname, \
               'using mode=', mode
 
         ngd = wfs.gd.get_size_of_global_array()
@@ -578,7 +578,7 @@ def read(paw, reader):
             raise ValueError('shape mismatch: expected %s=%d' % (name,dim))
 
     # Read pseudoelectron density on the coarse grid
-    # and broadcast on band_comm:
+    # and broadcast on kpt_comm and band_comm:
     timer.start('Pseudo-density')
     nt_sG = wfs.gd.empty(density.nspins)
     if hdf5:
@@ -690,7 +690,7 @@ def read(paw, reader):
     #paw.occupations.magmom = paw.atoms.get_initial_magnetic_moments().sum()
     
     # Try to read the current time and kick strength in time-propagation TDDFT:
-    for attr, name in [('time', 'Time'), ('niter', 'TimeSteps'), \
+    for attr, name in [('time', 'Time'), ('niter', 'TimeSteps'), 
                        ('kick_strength', 'AbsorptionKick')]:
         if hasattr(paw, attr):
             try:
@@ -711,7 +711,7 @@ def read(paw, reader):
 
     # Wave functions and eigenvalues:
     dtype = r['DataType']
-    if dtype == 'Float' and paw.input_parameters['dtype']!=complex:
+    if dtype == 'Float' and paw.input_parameters['dtype'] != complex:
         wfs.dtype = float
     else:
         wfs.dtype = complex
