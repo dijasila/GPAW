@@ -102,13 +102,13 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     hdf5 = filename.endswith('.hdf5')
 
     # defaults for replicated writes with HDF5
-    par_kwargs = {'parallel': False, 'write': master}
 
     timer.start('Meta data')
 
     # Note that HDF5 and GPW-writers behave very differently here.
-    # - GPW-writer created only on the master task, while HDF5 writer is created on
-    #   all MPI tasks.
+    # - real GPW-writer is created only on the master task, other
+    #   tasks use dummy writer
+    # - HDF5 writer is created on all MPI tasks.
     # - GPW-writer always writes from master
     # - HDF-writer writes full distributed data from all task, replicated data
     #   from master, and partially replicated-data from domain_comm.rank == 0.
@@ -133,33 +133,33 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     w.dimension('3', 3)
 
     w.add('AtomicNumbers', ('natoms',),
-          atoms.get_atomic_numbers(), **par_kwargs)
+          atoms.get_atomic_numbers(), write=master)
     w.add('CartesianPositions', ('natoms', '3'),
-          atoms.get_positions() / Bohr, **par_kwargs)
-    w.add('MagneticMoments', ('natoms',), magmom_a, **par_kwargs)
-    w.add('Tags', ('natoms',), tag_a, **par_kwargs)
-    w.add('BoundaryConditions', ('3',), atoms.get_pbc(), **par_kwargs)
-    w.add('UnitCell', ('3', '3'), atoms.get_cell() / Bohr, **par_kwargs)
+          atoms.get_positions() / Bohr, write=master)
+    w.add('MagneticMoments', ('natoms',), magmom_a, write=master)
+    w.add('Tags', ('natoms',), tag_a, write=master)
+    w.add('BoundaryConditions', ('3',), atoms.get_pbc(), write=master)
+    w.add('UnitCell', ('3', '3'), atoms.get_cell() / Bohr, write=master)
 
     if atoms.get_velocities() is not None:
         w.add('CartesianVelocities', ('natoms', '3'),
-              atoms.get_velocities() * AUT / Bohr, **par_kwargs)
+              atoms.get_velocities() * AUT / Bohr, write=master)
 
     w.add('PotentialEnergy', (), hamiltonian.Etot + 0.5 * hamiltonian.S,
-          **par_kwargs)
+          write=master)
     if paw.forces.F_av is not None:
         w.add('CartesianForces', ('natoms', '3'), paw.forces.F_av,
-              **par_kwargs)
+              write=master)
 
     # Write the k-points:
     if wfs.kd.N_c is not None:
-        w.add('NBZKPoints', ('3'), wfs.kd.N_c, **par_kwargs)
-        w.add('MonkhorstPackOffset', ('3'), wfs.kd.offset_c, **par_kwargs)
+        w.add('NBZKPoints', ('3'), wfs.kd.N_c, write=master)
+        w.add('MonkhorstPackOffset', ('3'), wfs.kd.offset_c, write=master)
     w.dimension('nbzkpts', len(wfs.bzk_kc))
     w.dimension('nibzkpts', len(wfs.ibzk_kc))
-    w.add('BZKPoints', ('nbzkpts', '3'), wfs.bzk_kc, **par_kwargs)
-    w.add('IBZKPoints', ('nibzkpts', '3'), wfs.ibzk_kc, **par_kwargs)
-    w.add('IBZKPointWeights', ('nibzkpts',), wfs.weight_k, **par_kwargs)
+    w.add('BZKPoints', ('nbzkpts', '3'), wfs.bzk_kc, write=master)
+    w.add('IBZKPoints', ('nibzkpts', '3'), wfs.ibzk_kc, write=master)
+    w.add('IBZKPointWeights', ('nibzkpts',), wfs.weight_k, write=master)
 
     # Create dimensions for varioius netCDF variables:
     ng = wfs.gd.get_size_of_global_array()
@@ -242,7 +242,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         if hasattr(paw, attr):
             value = getattr(paw, attr)
             if isinstance(value, np.ndarray): # replicated write here
-                w.add(name, ('3',), value, **par_kwargs)
+                w.add(name, ('3',), value, write=master)
             else:
                 w[name] = value
 
@@ -397,7 +397,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
 
         w.add('LinearExpansionCoefficients', ('nspins',
               'nibzkpts', 'norbitals', 'nbands'), dtype=complex,
-                  **par_kwargs)
+                  write=master)
         for s in range(wfs.nspins):
             for k in range(wfs.nibzkpts):
                 for o in range(norbitals):
@@ -591,7 +591,7 @@ def read(paw, reader):
     density.rank_a = np.zeros(natoms, int)
     all_D_sp = np.empty((wfs.nspins, nadm))
     if master:
-        all_D_sp = r.get('AtomicDensityMatrices', **par_kwargs)
+        all_D_sp = r.get('AtomicDensityMatrices', read=master)
 
     world.broadcast(all_D_sp, 0)
     if domain_comm.rank == 0:
@@ -608,8 +608,8 @@ def read(paw, reader):
         if hdf5:
             indices = [slice(0, hamiltonian.nspins), ] + wfs.gd.get_slice()
             do_read = (kpt_comm.rank == 0) and (band_comm.rank == 0)
-            r.get('PseudoPotential', out=hamiltonian.vt_sG, parallel=True, read=do_read, 
-                  *indices) #XXX read=?
+            r.get('PseudoPotential', out=hamiltonian.vt_sG, parallel=True,
+                  read=do_read, *indices) #XXX read=?
             band_comm.broadcast(hamiltonian.vt_sG, 0)
         else:
             for s in range(hamiltonian.nspins):
@@ -623,7 +623,7 @@ def read(paw, reader):
     hamiltonian.rank_a = np.zeros(natoms, int)
     all_H_sp = np.empty((wfs.nspins, nadm))
     if master and version > 0.3:
-        all_H_sp = r.get('NonLocalPartOfHamiltonian',**par_kwargs)
+        all_H_sp = r.get('NonLocalPartOfHamiltonian',read=master)
 
     world.broadcast(all_H_sp, 0)
     
@@ -645,7 +645,7 @@ def read(paw, reader):
     wfs.rank_a = np.zeros(natoms, int)
 
     if master: 
-        Etot = r.get('PotentialEnergy', **par_kwargs) - 0.5 * hamiltonian.S
+        Etot = r.get('PotentialEnergy', read=master) - 0.5 * hamiltonian.S
     else:
         Etot = None
     
@@ -687,7 +687,7 @@ def read(paw, reader):
         if hasattr(paw, attr):
             try:
                 if r.has_array(name):
-                    value = r.get(name, **par_kwargs)
+                    value = r.get(name, read=master)
                 else:
                     value = r[name]
                 setattr(paw, attr, value)
@@ -720,8 +720,8 @@ def read(paw, reader):
         tol = 1e-12
         
         if master:
-            ibzk_kc = r.get('IBZKPoints', **par_kwargs)
-            weight_k = r.get('IBZKPointWeights', **par_kwargs)
+            ibzk_kc = r.get('IBZKPoints', read=master)
+            weight_k = r.get('IBZKPointWeights', read=master)
             assert np.abs(ibzk_kc - wfs.kd.ibzk_kc).max() < tol
             assert np.abs(weight_k - wfs.kd.weight_k).max() < tol
 
@@ -741,8 +741,8 @@ def read(paw, reader):
                                 *indices)
                 domain_comm.broadcast(kpt.f_n, 0)
             else:
-                eps_n = r.get('Eigenvalues', s, k, **par_kwargs)
-                f_n = r.get('OccupationNumbers', s, k, **par_kwargs)
+                eps_n = r.get('Eigenvalues', s, k, read=master)
+                f_n = r.get('OccupationNumbers', s, k, read=master)
                 kpt.eps_n = eps_n[nslice].copy()
                 kpt.f_n = f_n[nslice].copy()
             timer.stop('Band energies')
@@ -752,8 +752,10 @@ def read(paw, reader):
                 kpt.ne_o = np.empty(norbitals, dtype=float)
                 kpt.c_on = np.empty((norbitals, wfs.mynbands), dtype=complex)
                 for o in range(norbitals):
-                    kpt.ne_o[o] = r.get('LinearExpansionOccupations',  s, k, o, **par_kwargs)
-                    c_n = r.get('LinearExpansionCoefficients', s, k, o, **par_kwargs)
+                    kpt.ne_o[o] = r.get('LinearExpansionOccupations',  s, k, o,
+                                        read=master)
+                    c_n = r.get('LinearExpansionCoefficients', s, k, o,
+                                read=master)
                     kpt.c_on[o,:] = c_n[nslice]
                 timer.stop('dSCF expansions')
 
@@ -776,7 +778,8 @@ def read(paw, reader):
                         indices = [kpt.s, kpt.k]
                         indices.append(wfs.bd.get_slice())
                         indices += wfs.gd.get_slice()
-                        r.get('PseudoWaveFunctions', out=kpt.psit_nG, parallel=True, *indices)
+                        r.get('PseudoWaveFunctions', out=kpt.psit_nG,
+                              parallel=True, *indices)
                     else:
                         # Read band by band to save memory
                         for myn, psit_G in enumerate(kpt.psit_nG):
@@ -806,9 +809,10 @@ def read(paw, reader):
                 indices = [kpt.s, kpt.k]
                 indices.append(wfs.bd.get_slice())
                 do_read = (domain_comm.rank == 0)
-                timer.start('ProjectionsCritical(s=%d,k=%d)' % (kpt.s,kpt.k))
-                r.get('Projections', out=all_P_ni, parallel=True, read=do_read, *indices)
-                timer.stop('ProjectionsCritical(s=%d,k=%d)' % (kpt.s,kpt.k))
+                # timer.start('ProjectionsCritical(s=%d,k=%d)' % (kpt.s,kpt.k))
+                r.get('Projections', out=all_P_ni, parallel=True,
+                      read=do_read, *indices)
+                # timer.stop('ProjectionsCritical(s=%d,k=%d)' % (kpt.s,kpt.k))
                 if domain_comm.rank == 0:
                     for a in range(natoms):
                         ni = wfs.setups[a].ni
@@ -851,7 +855,7 @@ def read(paw, reader):
         
         # Read on master, broadcast, the set forces
         if master:
-            F_av = r.get('CartesianForces', **par_kwargs)
+            F_av = r.get('CartesianForces', read=master)
  
         world.broadcast(F_av, 0)
         paw.forces.F_av = F_av
@@ -887,12 +891,12 @@ def read_atoms(reader):
 
     # Read on master, then broadcast
     if master:
-        positions = reader.get('CartesianPositions', **par_kwargs) * Bohr
-        numbers = reader.get('AtomicNumbers', **par_kwargs)
-        cell = reader.get('UnitCell', **par_kwargs) * Bohr
-        temp_pbc = reader.get('BoundaryConditions', **par_kwargs)
-        tags = reader.get('Tags', **par_kwargs)
-        magmoms = reader.get('MagneticMoments', **par_kwargs)
+        positions = reader.get('CartesianPositions', read=master) * Bohr
+        numbers = reader.get('AtomicNumbers', read=master)
+        cell = reader.get('UnitCell', read=master) * Bohr
+        temp_pbc = reader.get('BoundaryConditions', read=master)
+        tags = reader.get('Tags', read=master)
+        magmoms = reader.get('MagneticMoments', read=master)
     else: # pbc is Bool and must be handled with the broadcast_string method
         temp_pbc = None
     
@@ -920,7 +924,8 @@ def read_atoms(reader):
         
         # Read on master, broadcast, then set velocities
         if master:
-            velocities = reader.get('CartesianVelocities', **kwargs) * Bohr / AUT
+            velocities = reader.get('CartesianVelocities',
+                                    read=master) * Bohr / AUT
         
         reader.comm.broadcast(velocities, 0)
         atoms.set_velocities(velocities)

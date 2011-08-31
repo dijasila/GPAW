@@ -98,9 +98,6 @@ class InputParameters(dict):
 
         master = (reader.comm.rank == 0) # read only on root of reader.comm
 
-        # Defaults for parallel read arguments
-        par_kwargs = {'parallel': False, 'read': master}
-
         version = r['version']
         
         assert version >= 0.3
@@ -116,7 +113,7 @@ class InputParameters(dict):
             self.kpts = np.empty(dim, int)
             # Read on master, then broadcast
             if master:
-                self.kpts = r.get('NBZKPoints', **par_kwargs)
+                self.kpts = r.get('NBZKPoints', read=master)
                 if r.has_array('MonkhorstPackOffset'):
                     offset_c = r.get('MonkhorstPackOffset')
                     if offset_c.any():
@@ -125,7 +122,7 @@ class InputParameters(dict):
             self.kpts = np.empty((nbzkpts, dim), float)
             # Read on master, then broadcast
             if master:
-                self.kpts = r.get('BZKPoints', **par_kwargs)
+                self.kpts = r.get('BZKPoints', read=master)
         r.comm.broadcast(self.kpts, 0)
 
         self.usesymm = r['UseSymmetry']

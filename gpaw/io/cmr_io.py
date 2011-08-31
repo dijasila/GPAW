@@ -128,7 +128,8 @@ class Writer:
         res = np.array(self.split_array[2]).reshape(self.split_array[1])
         self.data[self.split_array[0]] = res
 
-    def add(self, name, shape, array=None, dtype=None, units=None):
+    def add(self, name, shape, array=None, dtype=None, units=None,
+            parallel=False, write=True):
         self._close_array()
         if self.verbose:
             print "add:", name, shape, array, dtype, units
@@ -140,7 +141,7 @@ class Writer:
         else:
             self.data[name]=array
 
-    def fill(self, array, *indices):
+    def fill(self, array, *indices, **kwargs):
         if self.verbose:
             print "fill (", len(array),"):", array
         self.split_array[2].append(array)
@@ -205,7 +206,7 @@ class Reader:
     def has_array(self, name):
         return self.reader.has_key(name)
     
-    def get(self, name, *indices):
+    def get(self, name, *indices, **kwargs):
         if self.verbose:
             print "incides", indices
         result = self.reader[name]
