@@ -92,6 +92,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     band_comm = wfs.band_comm
     
     master = (world.rank == 0)
+    parallel = (world.size > 1)
 
     atoms = paw.atoms
     natoms = len(atoms)
@@ -311,7 +312,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
             if domain_comm.rank == 0:
                 for a in range(natoms):
                     all_P_ni[:, cumproj_a[a]:cumproj_a[a+1]] = P_ani[a]
-            w.fill(all_P_ni, parallel=True, write=do_write, *indices)
+            w.fill(all_P_ni, parallel=parallel, write=do_write, *indices)
     else:
         for s in range(wfs.nspins):
             for k in range(wfs.nibzkpts):
@@ -414,7 +415,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         if hdf5:
             do_write = (kpt_comm.rank == 0) and (band_comm.rank == 0)
             indices = [s,] +  wfs.gd.get_slice()
-            w.fill(density.nt_sG[s], parallel=True, write=do_write,
+            w.fill(density.nt_sG[s], parallel=parallel, write=do_write,
                    *indices)
         elif kpt_comm.rank == 0:
             nt_sG = wfs.gd.collect(density.nt_sG[s])
@@ -431,7 +432,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         if hdf5:
             do_write = (kpt_comm.rank == 0) and (band_comm.rank == 0)
             indices = [s,] + wfs.gd.get_slice()
-            w.fill(hamiltonian.vt_sG[s], parallel=True, write=do_write, 
+            w.fill(hamiltonian.vt_sG[s], parallel=parallel, write=do_write, 
                    *indices)
         elif kpt_comm.rank == 0:
             vt_sG = wfs.gd.collect(hamiltonian.vt_sG[s])
@@ -524,13 +525,11 @@ def read(paw, reader):
     band_comm = wfs.band_comm
 
     master = (world.rank == 0)
+    parallel = (world.size > 1)
 
     version = r['version']
 
     hdf5 = hasattr(r, 'hdf5')
-
-    # defaults for replicated reads with HDF5
-    par_kwargs = {'parallel': False, 'read': master} 
 
     # Verify setup fingerprints and count projectors and atomic matrices:
     for setup in wfs.setups.setups.values():
@@ -575,8 +574,8 @@ def read(paw, reader):
         # and broadcast on kpt_comm and band_comm:
         indices = [slice(0, density.nspins),] + wfs.gd.get_slice()
         do_read = (kpt_comm.rank == 0) and (band_comm.rank == 0)
-        r.get('PseudoElectronDensity', out=nt_sG, parallel=True, read=do_read, 
-              *indices) #XXX read=?
+        r.get('PseudoElectronDensity', out=nt_sG, parallel=parallel, 
+              read=do_read, *indices) #XXX read=?
         kpt_comm.broadcast(nt_sG, 0)
         band_comm.broadcast(nt_sG, 0)
     else:
@@ -603,7 +602,7 @@ def read(paw, reader):
         if hdf5:
             indices = [slice(0, hamiltonian.nspins), ] + wfs.gd.get_slice()
             do_read = (kpt_comm.rank == 0) and (band_comm.rank == 0)
-            r.get('PseudoPotential', out=hamiltonian.vt_sG, parallel=True,
+            r.get('PseudoPotential', out=hamiltonian.vt_sG, parallel=parallel,
                   read=do_read, *indices) #XXX read=?
             kpt_comm.broadcast(hamiltonian.vt_sG, 0)
             band_comm.broadcast(hamiltonian.vt_sG, 0)
@@ -721,11 +720,11 @@ def read(paw, reader):
                 do_read = (domain_comm.rank == 0)
                 indices = [s, k] 
                 indices.append(nslice)
-                kpt.eps_n = r.get('Eigenvalues', parallel=True, read=do_read,
-                                  *indices)
+                kpt.eps_n = r.get('Eigenvalues', parallel=parallel, 
+                                  read=do_read, *indices)
                 domain_comm.broadcast(kpt.eps_n, 0)
-                kpt.f_n = r.get('OccupationNumbers', parallel=True, read=do_read,
-                                *indices)
+                kpt.f_n = r.get('OccupationNumbers', parallel=parallel, 
+                                read=do_read, *indices)
                 domain_comm.broadcast(kpt.f_n, 0)
             else:
                 eps_n = r.get('Eigenvalues', s, k, read=master)
@@ -766,7 +765,7 @@ def read(paw, reader):
                         indices.append(wfs.bd.get_slice())
                         indices += wfs.gd.get_slice()
                         r.get('PseudoWaveFunctions', out=kpt.psit_nG,
-                              parallel=True, *indices)
+                              parallel=parallel, *indices)
                     else:
                         # Read band by band to save memory
                         for myn, psit_G in enumerate(kpt.psit_nG):
@@ -797,7 +796,7 @@ def read(paw, reader):
                 indices.append(wfs.bd.get_slice())
                 do_read = (domain_comm.rank == 0)
                 # timer.start('ProjectionsCritical(s=%d,k=%d)' % (kpt.s,kpt.k))
-                r.get('Projections', out=all_P_ni, parallel=True,
+                r.get('Projections', out=all_P_ni, parallel=parallel,
                       read=do_read, *indices)
                 # timer.stop('ProjectionsCritical(s=%d,k=%d)' % (kpt.s,kpt.k))
                 if domain_comm.rank == 0:

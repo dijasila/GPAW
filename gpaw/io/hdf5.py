@@ -23,7 +23,11 @@ class Writer:
            if os.path.isfile(name):
                os.rename(name, name[:-5] + '.old'+name[-5:])
 
-        self.file = File(name, 'w', self.comm.get_c_object())
+        if self.comm.size > 1:
+            comm = self.comm.get_c_object()
+        else:
+            comm = None
+        self.file = File(name, 'w', comm)
         self.dims_grp = self.file.create_group("Dimensions")
         self.params_grp = self.file.create_group("Parameters")
         self.file.attrs['title'] = 'gpaw_io version="0.1"'
@@ -104,7 +108,11 @@ class Writer:
 class Reader:
     def __init__(self, name, comm):
         self.comm = comm # used for broadcasting replicated data 
-        self.file = File(name, 'r', self.comm.get_c_object())
+        if self.comm.size > 1:
+            comm = self.comm.get_c_object()
+        else:
+            comm = None
+        self.file = File(name, 'r', comm)
         self.dims_grp = self.file['Dimensions']
         self.params_grp = self.file['Parameters']
         self.hdf5 = True
