@@ -6,6 +6,7 @@ import xml.sax
 import numpy as np
 
 from gpaw.mpi import broadcast as mpi_broadcast
+from gpaw.mpi import world
 
 
 intsize = 4
@@ -15,7 +16,7 @@ itemsizes = {'int': intsize, 'float': floatsize, 'complex': complexsize}
 
     
 class Writer:
-    def __init__(self, name, comm=None):
+    def __init__(self, name, comm=world):
         self.comm = comm # for possible future use
         self.dims = {}
         self.files = {}
@@ -102,7 +103,7 @@ class Writer:
 
 
 class Reader(xml.sax.handler.ContentHandler):
-    def __init__(self, name, comm=None):
+    def __init__(self, name, comm=world):
         self.comm = comm # used for broadcasting replicated data
         self.master = (self.comm.rank == 0)
         self.dims = {}
