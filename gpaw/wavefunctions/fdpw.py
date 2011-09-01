@@ -282,6 +282,7 @@ class FDPWWaveFunctions(WaveFunctions):
 
     def write_wave_functions(self, writer):
         master = (self.world.rank == 0) 
+        parallel = (self.world.size > 1)
 
         if hasattr(writer, 'hdf5'):
             hdf5 = True
@@ -299,7 +300,7 @@ class FDPWWaveFunctions(WaveFunctions):
                 indices = [kpt.s, kpt.k]
                 indices.append(self.bd.get_slice())
                 indices += self.gd.get_slice()
-                writer.fill(kpt.psit_nG, parallel=True, *indices)
+                writer.fill(kpt.psit_nG, parallel=parallel, *indices)
         else:
             for s in range(self.nspins):
                 for k in range(self.nibzkpts):
