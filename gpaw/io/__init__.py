@@ -14,7 +14,6 @@ from ase.atoms import Atoms
 import numpy as np
 
 import gpaw.mpi as mpi
-from gpaw.mpi import broadcast
 from gpaw.io.dummy import DummyWriter
 
 import os,time,tempfile
@@ -589,11 +588,7 @@ def read(paw, reader):
     timer.start('Atomic matrices')
     D_asp = {}
     density.rank_a = np.zeros(natoms, int)
-    all_D_sp = np.empty((wfs.nspins, nadm))
-    if master:
-        all_D_sp = r.get('AtomicDensityMatrices', read=master)
-
-    world.broadcast(all_D_sp, 0)
+    all_D_sp = r.get('AtomicDensityMatrices', broadcast=True)
     if domain_comm.rank == 0:
         D_asp = read_atomic_matrices(all_D_sp, wfs.setups)
 
@@ -610,6 +605,7 @@ def read(paw, reader):
             do_read = (kpt_comm.rank == 0) and (band_comm.rank == 0)
             r.get('PseudoPotential', out=hamiltonian.vt_sG, parallel=True,
                   read=do_read, *indices) #XXX read=?
+            kpt_comm.broadcast(hamiltonian.vt_sG, 0)
             band_comm.broadcast(hamiltonian.vt_sG, 0)
         else:
             for s in range(hamiltonian.nspins):
@@ -621,12 +617,9 @@ def read(paw, reader):
     timer.start('Atomic matrices')
     hamiltonian.dH_asp = {}
     hamiltonian.rank_a = np.zeros(natoms, int)
-    all_H_sp = np.empty((wfs.nspins, nadm))
-    if master and version > 0.3:
-        all_H_sp = r.get('NonLocalPartOfHamiltonian',read=master)
+    if version > 0.3:
+        all_H_sp = r.get('NonLocalPartOfHamiltonian', broadcast=True)
 
-    world.broadcast(all_H_sp, 0)
-    
     if domain_comm.rank == 0 and version > 0.3:
         hamiltonian.dH_asp = read_atomic_matrices(all_H_sp, wfs.setups)
  
@@ -641,15 +634,9 @@ def read(paw, reader):
         hamiltonian.Eext = 0.0
     hamiltonian.Exc = r['Exc']
     hamiltonian.S = r['S']
+    hamiltonian.Etot = r.get('PotentialEnergy', broadcast=True) - 0.5 * hamiltonian.S
 
     wfs.rank_a = np.zeros(natoms, int)
-
-    if master: 
-        Etot = r.get('PotentialEnergy', read=master) - 0.5 * hamiltonian.S
-    else:
-        Etot = None
-    
-    hamiltonian.Etot = broadcast(Etot, 0, world)
 
     if version > 0.3:
         density_error = r['DensityError']
@@ -850,16 +837,7 @@ def read(paw, reader):
 
     # Get the forces from the old calculation:
     if r.has_array('CartesianForces'):
-        # Create empty array
-        F_av = np.empty((natoms, 3), float)
-        
-        # Read on master, broadcast, the set forces
-        if master:
-            F_av = r.get('CartesianForces', read=master)
- 
-        world.broadcast(F_av, 0)
-        paw.forces.F_av = F_av
-
+        paw.forces.F_av = r.get('CartesianForces', broadcast=True)
     else:
         paw.forces.reset()
 
@@ -868,44 +846,13 @@ def read(paw, reader):
     timer.stop('Read')
 
 def read_atoms(reader):
-    master = (reader.comm.rank == 0) # read only on root of reader.comm
 
-    if hasattr(reader, 'hdf5'): 
-        hdf5 = True
-    else:
-        hdf5 = False
-
-    par_kwargs = {}
-    if hdf5:
-        par_kwargs.update({'parallel': False, 'read': master})
-
-    dims = 3 # presently hard-coded to '3' in Class Writer
-    natoms = reader.dimension('natoms')
-
-    # Create empty arrays 
-    positions = np.empty((natoms, dims), float)
-    numbers = np.empty(natoms, int)
-    cell = np.empty((dims, dims), float)
-    tags = np.empty(natoms, int)
-    magmoms = np.empty(natoms, float)
-
-    # Read on master, then broadcast
-    if master:
-        positions = reader.get('CartesianPositions', read=master) * Bohr
-        numbers = reader.get('AtomicNumbers', read=master)
-        cell = reader.get('UnitCell', read=master) * Bohr
-        temp_pbc = reader.get('BoundaryConditions', read=master)
-        tags = reader.get('Tags', read=master)
-        magmoms = reader.get('MagneticMoments', read=master)
-    else: # pbc is Bool and must be handled with the broadcast_string method
-        temp_pbc = None
-    
-    reader.comm.broadcast(positions, 0)
-    reader.comm.broadcast(numbers, 0)
-    reader.comm.broadcast(cell, 0)
-    pbc = broadcast(temp_pbc, 0, reader.comm)
-    reader.comm.broadcast(tags, 0)
-    reader.comm.broadcast(magmoms, 0)
+    positions = reader.get('CartesianPositions', broadcast=True) * Bohr
+    numbers = reader.get('AtomicNumbers', broadcast=True)
+    cell = reader.get('UnitCell', broadcast=True) * Bohr
+    pbc = reader.get('BoundaryConditions', broadcast=True)
+    tags = reader.get('Tags', broadcast=True)
+    magmoms = reader.get('MagneticMoments', broadcast=True)
 
     # Create instance of Atoms object, and set_tags and magnetic moments
     atoms = Atoms(positions=positions,
@@ -919,15 +866,7 @@ def read_atoms(reader):
         atoms.set_initial_magnetic_moments(magmoms)
 
     if reader.has_array('CartesianVelocities'):
-        # Create empty array 
-        velocities = np.empty((natoms, dims), float)
-        
-        # Read on master, broadcast, then set velocities
-        if master:
-            velocities = reader.get('CartesianVelocities',
-                                    read=master) * Bohr / AUT
-        
-        reader.comm.broadcast(velocities, 0)
+        velocities = reader.get('CartesianVelocities', broadcast=True) * Bohr / AUT
         atoms.set_velocities(velocities)
 
     return atoms

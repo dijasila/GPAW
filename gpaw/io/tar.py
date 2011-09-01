@@ -5,6 +5,8 @@ import xml.sax
 
 import numpy as np
 
+from gpaw.mpi import broadcast as mpi_broadcast
+
 
 intsize = 4
 floatsize = np.array([1], float).itemsize
@@ -102,6 +104,7 @@ class Writer:
 class Reader(xml.sax.handler.ContentHandler):
     def __init__(self, name, comm=None):
         self.comm = comm # used for broadcasting replicated data
+        self.master = (self.comm.rank == 0)
         self.dims = {}
         self.shapes = {}
         self.dtypes = {}
@@ -142,17 +145,23 @@ class Reader(xml.sax.handler.ContentHandler):
         return name in self.shapes
     
     def get(self, name, *indices, **kwargs):
-        fileobj, shape, size, dtype = self.get_file_object(name, indices)
-        array = np.fromstring(fileobj.read(size), dtype)
-        if self.byteswap:
-            array = array.byteswap()
-        if dtype == np.int32:
-            array = np.asarray(array, int)
-        array.shape = shape
-        if shape == ():
-            return array.item()
+        broadcast = kwargs.pop('broadcast', False)
+        if self.master or not broadcast:
+            fileobj, shape, size, dtype = self.get_file_object(name, indices)
+            array = np.fromstring(fileobj.read(size), dtype)
+            if self.byteswap:
+                array = array.byteswap()
+            if dtype == np.int32:
+                array = np.asarray(array, int)
+            array.shape = shape
+            if shape == ():
+                array = array.item()
         else:
-            return array
+            array = None
+
+        if broadcast:
+            array = mpi_broadcast(array, 0, self.comm)
+        return array
     
     def get_reference(self, name, *indices):
         fileobj, shape, size, dtype = self.get_file_object(name, indices)

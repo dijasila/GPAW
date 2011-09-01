@@ -10,8 +10,6 @@ floatsize = np.array([1], float).itemsize
 complexsize = np.array([1], complex).itemsize
 itemsizes = {'int': intsize, 'float': floatsize, 'complex': complexsize}
 
-from gpaw.mpi import broadcast
-
 class Writer:
     def __init__(self, name, comm=None):
         self.comm = comm # for possible future use
@@ -131,6 +129,7 @@ class Reader:
         parallel = kwargs.pop('parallel', False)
         read = kwargs.pop('read', True)
         out = kwargs.pop('out', None)
+        broadcast = kwargs.pop('broadcast', False)
         assert not kwargs
 
         if parallel:
@@ -159,6 +158,9 @@ class Reader:
             array = out
 
         dset.read(array, selection, collective)
+
+        if broadcast:
+            self.comm.broadcast(array, 0)
 
         if array.shape == ():
             return array.item()

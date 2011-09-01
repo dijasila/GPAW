@@ -106,25 +106,15 @@ class InputParameters(dict):
         self.nbands = r.dimension('nbands')
         self.spinpol = (r.dimension('nspins') == 2)
 
-        dim = 3 # k-point grid dimensions
-        nbzkpts = r.dimension('nbzkpts')
  
         if r.has_array('NBZKPoints'):
-            self.kpts = np.empty(dim, int)
-            # Read on master, then broadcast
-            if master:
-                self.kpts = r.get('NBZKPoints', read=master)
-                if r.has_array('MonkhorstPackOffset'):
-                    offset_c = r.get('MonkhorstPackOffset')
-                    if offset_c.any():
-                        self.kpts = monkhorst_pack(self.kpts) + offset_c
+            self.kpts = r.get('NBZKPoints', broadcast=True)
+            if r.has_array('MonkhorstPackOffset'):
+                offset_c = r.get('MonkhorstPackOffset', broadcast=True)
+                if offset_c.any():
+                    self.kpts = monkhorst_pack(self.kpts) + offset_c
         else:
-            self.kpts = np.empty((nbzkpts, dim), float)
-            # Read on master, then broadcast
-            if master:
-                self.kpts = r.get('BZKPoints', read=master)
-        r.comm.broadcast(self.kpts, 0)
-
+            self.kpts = r.get('BZKPoints', broadcast=True)
         self.usesymm = r['UseSymmetry']
         try:
             self.basis = r['BasisSet']
