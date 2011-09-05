@@ -13,7 +13,7 @@ for dtype in ['int', 'float', 'complex']:
                             dtype = dtype)
 data['bool'] = np.array([True, False, False, True])
 
-def write(attrs, data, file):
+def write(attrs, data, file, parallel):
     file_title = 'test file'
     file.attrs['title'] = file_title
     grp = file.create_group('group1')
@@ -26,9 +26,9 @@ def write(attrs, data, file):
         dset = grp.create_dataset(key, shape, val.dtype) 
         indices = slice(rank * datasize, (rank + 1) * datasize)
         selection = HyperslabSelection(indices, dset.shape)
-        dset.write(val, selection, collective=True)
+        dset.write(val, selection, collective=parallel)
 
-def read(attrs, data, file):
+def read(attrs, data, file, parallel):
     file_title = file.attrs['title']
     assert(file_title == 'test file')
     grp = file['group1']
@@ -46,7 +46,7 @@ def read(attrs, data, file):
                         (size - rank) * datasize)
         selection = HyperslabSelection(indices, dset.shape)
         new_val = np.ndarray(selection.mshape, dset.dtype, order='C')
-        dset.read(new_val, selection, collective=True)
+        dset.read(new_val, selection, collective=parallel)
         assert((new_val == val).all)
     # read data in reversed order
     for key in data:
@@ -57,17 +57,25 @@ def read(attrs, data, file):
                         (size - rank) * datasize)
         selection = HyperslabSelection(indices, dset.shape)
         new_val = np.ndarray(selection.mshape, dset.dtype, order='C')
-        dset.read(new_val, selection, collective=True)
+        dset.read(new_val, selection, collective=parallel)
         ref_val = np.arange((size - rank - 1) * datasize, 
                             (size - rank) * datasize, dtype=key)
         assert((new_val == ref_val).all)
 
-file = File('tmp.hdf5', 'w', comm=world)
-write(attrs, data, file)
+if world.size > 1:
+    comm = world
+    parallel = True
+else:
+    comm = None
+    parallel = False
+
+file = File('tmp.hdf5', 'w', comm=comm)
+write(attrs, data, file, parallel)
 file.close()
 
-file = File('tmp.hdf5', 'r', comm=world)
-read(attrs, data, file)
+file = File('tmp.hdf5', 'r', comm=comm)
+read(attrs, data, file, parallel)
 file.close()
 
-# os.remove('tmp.hdf5')
+if rank == 0:
+    os.remove('tmp.hdf5')

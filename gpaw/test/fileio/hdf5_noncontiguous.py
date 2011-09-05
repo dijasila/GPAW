@@ -7,7 +7,12 @@ from gpaw.mpi import world, rank
 data = np.arange(10, dtype=float)
 sub = data[::2]
 
-file = File('tmp.hdf5', 'w', comm=world)
+if world.size > 1:
+    comm = world
+else:
+    comm = None
+
+file = File('tmp.hdf5', 'w', comm=comm)
 
 dset = file.create_dataset('noncont', sub.shape, sub.dtype) 
 if rank == 0:
@@ -19,7 +24,7 @@ dset.close()
 file.close()
 
 # read data back
-file = File('tmp.hdf5', 'r', comm=world)
+file = File('tmp.hdf5', 'r', comm=comm)
 dset = file['noncont']
 new_data = np.ndarray(dset.shape, dset.dtype, order='C')
 dset.read(new_data)
@@ -32,4 +37,5 @@ assert((new_sub == sub).all)
 
 dset.close()
 file.close()
-# os.remove('tmp.hdf5')
+if rank == 0:
+    os.remove('tmp.hdf5')
