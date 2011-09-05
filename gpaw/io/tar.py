@@ -8,6 +8,8 @@ import numpy as np
 from gpaw.mpi import broadcast as mpi_broadcast
 from gpaw.mpi import world
 
+from gpaw.io import FileReference
+
 
 intsize = 4
 floatsize = np.array([1], float).itemsize
@@ -196,7 +198,7 @@ class Reader(xml.sax.handler.ContentHandler):
     def close(self):
         self.tar.close()
 
-class TarFileReference:
+class TarFileReference(FileReference):
     def __init__(self, fileobj, shape, dtype, byteswap):
         self.fileobj = fileobj
         self.shape = tuple(shape)
@@ -207,10 +209,6 @@ class TarFileReference:
 
     def __len__(self):
         return self.shape[0]
-
-    def __iter__(self):
-        for i in range(len(self)):
-            yield self[i]
 
     def __getitem__(self, indices):
         if isinstance(indices, slice):
@@ -241,5 +239,3 @@ class TarFileReference:
         array.shape = self.shape[n:]
         return array
 
-    def __array__(self):
-        return self[::]

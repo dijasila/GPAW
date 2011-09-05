@@ -749,7 +749,7 @@ def read(paw, reader):
             paw.input_parameters.mode == 'fd'):
 
             timer.start('Pseudo-wavefunctions')
-            if band_comm.size == 1 and not hdf5: #XXX implement HDF5 mounting
+            if (not hdf5 and band_comm.size == 1) or (hdf5 and world.size == 1):
                 # We may not be able to keep all the wave
                 # functions in memory - so psit_nG will be a special type of
                 # array that is really just a reference to a file:
@@ -894,3 +894,24 @@ def read_wave_function(gd, s, k, n, mode):
     psit_G = r.get('PseudoWaveFunction', 0)[i]
     r.close()
     return psit_G
+
+class FileReference:
+    """Common base class for having reference to a file. The actual I/O
+       classes implementing the referencing should be inherited from
+       this class."""
+
+    def __init__(self):
+        raise NotImplementedError('Should be implemented in derived classes')
+
+    def __len__(self):
+        raise NotImplementedError('Should be implemented in derived classes')
+
+    def __iter__(self):
+        for i in range(len(self)):
+            yield self[i]
+
+    def __getitem__(self):
+        raise NotImplementedError('Should be implemented in derived classes')
+
+    def __array__(self):
+        return self[::]

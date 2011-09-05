@@ -5,7 +5,7 @@ from gpaw.overlap import Overlap
 from gpaw.fd_operators import Laplace
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.utilities import unpack
-from gpaw.io.tar import TarFileReference
+from gpaw.io import FileReference
 from gpaw.lfc import BasisFunctions
 from gpaw.utilities.blas import axpy
 from gpaw.transformers import Transformer
@@ -53,7 +53,7 @@ class FDPWWaveFunctions(WaveFunctions):
             if not self.gamma:
                 basis_functions.set_k_points(self.kd.ibzk_qc)
             basis_functions.set_positions(spos_ac)
-        elif isinstance(self.kpt_u[0].psit_nG, TarFileReference):
+        elif isinstance(self.kpt_u[0].psit_nG, FileReference):
             self.initialize_wave_functions_from_restart_file()
 
         if self.kpt_u[0].psit_nG is not None:
@@ -133,7 +133,7 @@ class FDPWWaveFunctions(WaveFunctions):
         self.timer.stop('LCAO initialization')
 
     def initialize_wave_functions_from_restart_file(self):
-        if not isinstance(self.kpt_u[0].psit_nG, TarFileReference):
+        if not isinstance(self.kpt_u[0].psit_nG, FileReference):
             return
 
         # Calculation started from a restart file.  Copy data

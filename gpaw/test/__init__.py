@@ -127,6 +127,7 @@ tests = [
     'restart.py',
     'fileio/restart_density.py',
     'fileio/parallel.py',
+    'fileio/file_reference.py',
     'mgga_restart.py',
     'gga_atom.py',
     'bee1.py',

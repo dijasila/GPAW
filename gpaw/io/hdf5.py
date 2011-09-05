@@ -3,6 +3,8 @@ import sys
 import time
 from hdf5_highlevel import File, HyperslabSelection
 
+from gpaw.io import FileReference
+
 import numpy as np
 
 intsize = 4
@@ -176,12 +178,29 @@ class Reader:
             return array
 
     def get_reference(self, name, *indices):
-        dset = self.file[name]
-        array = dset[indices]
-        return array
+        return HDF5FileReference(self.file, name, indices)
 
     def get_parameters(self):
         return self.params_grp.attrs
-    
+   
     def close(self):
         self.file.close()
+
+class HDF5FileReference(FileReference):
+    def __init__(self, file, name, indices):
+        self.file = file
+        self.name = name
+        self.dset = self.file[name]
+        self.dtype = self.dset.dtype
+        self.shape = self.dset.shape
+        self.indices = indices
+
+    def __len__(self):
+        """Length of the first dimension"""
+        return self.shape[0]
+
+    def __getitem__(self, indices):
+        if not isinstance(indices, tuple):
+            indices = (indices,)
+        ind = self.indices + indices
+        return self.dset[ind]
