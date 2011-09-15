@@ -31,6 +31,13 @@ BSD:
 
    BSD/FreeBSD
 
+Bull:
+
+.. toctree::
+   :maxdepth: 1
+
+   Bull/curie
+
 Cray:
 
 .. toctree::
@@ -70,10 +77,12 @@ Linux:
    Linux/nanolab_EL4
    Linux/neolith
    Linux/newcell
+   Linux/r410_psmn.ens-lyon
    Linux/ranger_EL4
    Linux/sepeli
    Linux/supernova
    Linux/uranus
+   Linux/vsc.univie
 
 MacOSX:
 

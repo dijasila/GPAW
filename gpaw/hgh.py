@@ -3,11 +3,10 @@ from math import sqrt, pi
 import numpy as np
 from ase.data import atomic_numbers
 
-from gpaw.utilities import pack2, divrl
+from gpaw.utilities import pack2
 from gpaw.setup import BaseSetup
 from gpaw.spline import Spline
-from gpaw.grid_descriptor import AERadialGridDescriptor
-from gpaw.grid_descriptor import EquidistantRadialGridDescriptor
+from gpaw.atom.radialgd import AERadialGridDescriptor
 from gpaw.atom.atompaw import AtomPAW
 from gpaw.atom.configurations import configurations
 from gpaw.basis_data import Basis, BasisFunction
@@ -20,12 +19,6 @@ sc_setups = {} # Semicore
 half_integer_gamma = [sqrt(pi)]
 for m in range(20):
     half_integer_gamma.append(half_integer_gamma[m] * (m + 0.5))
-
-class NullXCCorrection:
-    def calculate(self, xc, D_sp, H_sp=None, addcoredensity=True):
-        return 0.0
-
-null_xc_correction = NullXCCorrection()
 
 
 class HGHSetup(BaseSetup):
@@ -58,7 +51,7 @@ class HGHSetup(BaseSetup):
 
         self.lmax = 0
 
-        self.xc_correction = null_xc_correction
+        self.xc_correction = None
 
         r, g = data.get_compensation_charge_function()
         self.ghat_l = [Spline(0, r[-1], g)]
@@ -94,9 +87,8 @@ class HGHSetup(BaseSetup):
         self.N0_p = np.zeros(_np) # not really implemented
         self.nabla_iiv = None
         self.phicorehole_g = None
-        self.beta = None
+        self.rgd = data.rgd
         self.rcut_j = data.rcut_j
-        self.ng = None
         self.tauct = None
         self.Delta_Lii = None
         self.B_ii = None
@@ -109,6 +101,7 @@ class HGHSetup(BaseSetup):
 
         self.wg_lg = None
         self.g_lg = None
+
 
 class HGHSetupData:
     """Setup-compatible class implementing HGH pseudopotential.
@@ -179,7 +172,10 @@ class HGHSetupData:
 
     def initialize_setup_data(self):
         hghdata = self.hghdata
-        rgd = AERadialGridDescriptor(0.1, 450, default_spline_points=100)
+        beta = 0.1
+        N = 450
+        rgd = AERadialGridDescriptor(beta / N, 1.0 / N, N,
+                                     default_spline_points=100)
         #rgd = EquidistantRadialGridDescriptor(0.001, 10000)
         self.rgd = rgd
 
@@ -197,7 +193,7 @@ class HGHSetupData:
             self.vbar_g = sqrt(4.0 * pi) * vloc_g[:gcutvbar]
         else:
             rcutvbar = 0.5
-            gcutvbar = rgd.r2g_ceil(rcutvbar)
+            gcutvbar = rgd.ceil(rcutvbar)
             self.vbar_g = np.zeros(gcutvbar)
 
         nj = sum([v.nn for v in hghdata.v_l])
@@ -234,7 +230,7 @@ class HGHSetupData:
             gcut, rcut = self.find_cutoff(rgd.r_g, rgd.dr_g, pt_g, threshold)
             if rcut < 0.5:
                 rcut = 0.5
-                gcut = rgd.r2g_ceil(rcut)
+                gcut = rgd.ceil(rcut)
             pt_g = pt_g[:gcut].copy()
             rcut = max(rcut, 0.5)
             self.rcut_j.append(rcut)
@@ -306,7 +302,7 @@ class HGHSetupData:
 
         pl.subplot(211) # vbar, compensation charge
         rloc = self.hghdata.rloc
-        gloc = self.rgd.r2g_ceil(rloc)
+        gloc = self.rgd.ceil(rloc)
         gcutvbar = len(self.vbar_g)
         pl.plot(rgd.r_g[:gcutvbar], self.vbar_g, 'r', label='vloc',
                 linewidth=3)
@@ -324,20 +320,17 @@ class HGHSetupData:
             r_g = rgd.r_g[:ng]
             pl.plot(r_g, pt_g, label=label)
             r0 = self.hghdata.v_l[self.l_j[j]].r0
-            g0 = self.rgd.r2g_ceil(r0)
+            g0 = self.rgd.ceil(r0)
         pl.legend()
 
     def get_projectors(self):
         # XXX equal-range projectors still required for some reason
         maxlen = max([len(pt_g) for pt_g in self.pt_jg])
-        pt_jg = []
-        for pt1_g in self.pt_jg:
-            pt2_g = np.zeros(maxlen)
+        pt_j = []
+        for l, pt1_g in zip(self.l_j, self.pt_jg):
+            pt2_g = self.rgd.zeros()[:maxlen]
             pt2_g[:len(pt1_g)] = pt1_g
-            pt_jg.append(pt2_g)
-
-        pt_j = [self.rgd.reducedspline(l, pt_g)
-                for l, pt_g, in zip(self.l_j, pt_jg)]
+            pt_j.append(self.rgd.spline(pt2_g, self.rgd.r_g[maxlen - 1], l))
         return pt_j
 
     def create_basis_functions(self):
@@ -349,13 +342,13 @@ class HGHSetupData:
                 self.ng = 160
                 rgd = self.get_grid_descriptor()
                 bf_j = self.bf_j
-                rcgauss = rgd.rcut / 3.0
+                rcgauss = rgd.r_g[-1] / 3.0
                 gauss_g = np.exp(-(rgd.r_g / rcgauss)**2.0)
                 for l in l_j:
                     phit_g = rgd.r_g**l * gauss_g
-                    norm = np.dot((rgd.r_g * phit_g)**2, rgd.dr_g)**.5
+                    norm = (rgd.integrate(phit_g**2) / (4 * pi))**0.5
                     phit_g /= norm
-                    bf = BasisFunction(l, rgd.rcut, phit_g, 'gaussian')
+                    bf = BasisFunction(l, rgd.r_g[-1], phit_g, 'gaussian')
                     bf_j.append(bf)
         b1 = SimpleBasis(self.symbol, range(max(self.l_j) + 1))
         apaw = AtomPAW(self.symbol, [self.f_ln], h=0.05, rcut=9.0,
@@ -374,7 +367,8 @@ class HGHSetupData:
         return r, g
 
     def get_local_potential(self):
-        return self.rgd.reducedspline(0, self.vbar_g)
+        n = len(self.vbar_g)
+        return self.rgd.spline(self.vbar_g, self.rgd.r_g[n - 1])
 
     def build(self, xcfunc, lmax, basis):
         if basis is None:

@@ -4,6 +4,10 @@ import time
 import random
 
 
+jobstates = ['waiting', 'submitted', 'running', 'success', 'FAILED',
+             'disabled', 'TIMEOUT']
+
+
 class AGTSJob:
     def __init__(self, dir, script, queueopts=None,
                  ncpus=1, walltime=10 * 60, deps=None, creates=None,
@@ -42,12 +46,16 @@ class AGTSJob:
         self.queueopts = queueopts
         self.ncpus = ncpus
         self.walltime = walltime
+
         if deps:
             if not isinstance(deps, (list, tuple)):
                 deps = [deps]
             self.deps = deps
         else:
             self.deps = []
+
+        if creates and not isinstance(creates, (list, tuple)):
+            creates = [creates]
         self.creates = creates
 
         # Filenames to use for pylab.savefig() replacement of pylab.show():
@@ -55,43 +63,60 @@ class AGTSJob:
             show = []
         self.show = show
 
-        self.status = 'waiting'
+        if os.path.exists('%s.status' % self.absname):
+            self.status = open('%s.status' % self.absname).readline().strip()
+        else:
+            self.status = 'waiting'
+
         self.tstart = None
         self.tstop = None
         self.exitcode = None
         self.pbsid = None
 
+    def set_status(self, status):
+        self.status = status
+        open('%s.status' % self.absname, 'w').write(status + '\n')
 
-class Cluster:
-    def check_status(self, job):
-        name = job.absname
-        if job.status == 'running':
-            if time.time() - job.tstart > job.walltime:
-                job.status = 'TIMEOUT'
+    def check_status(self):
+        name = self.absname
+        if self.status == 'running':
+            if time.time() - self.tstart > self.walltime:
+                self.set_status('TIMEOUT')
                 return 'TIMEOUT'
             if os.path.exists('%s.done' % name):
-                job.tstop = os.stat('%s.done' % name).st_mtime
-                job.exitcode = int(open('%s.done' % name).readlines()[-1])
-                if job.exitcode:
-                    job.status = 'FAILED'
+                self.tstop = os.stat('%s.done' % name).st_mtime
+                self.exitcode = int(open('%s.done' % name).readlines()[-1])
+                if self.exitcode:
+                    self.set_status('FAILED')
                 else:
-                    job.status = 'success'
-                    if job.creates:
-                        for filename in job.creates:
-                            path = os.path.join(job.dir, filename)
+                    self.set_status('success')
+                    if self.creates:
+                        for filename in self.creates:
+                            path = os.path.join(self.dir, filename)
                             if not os.path.isfile(path):
-                                job.status = 'FAILED'
+                                self.set_status('FAILED')
                                 break
-                return job.status
+                return self.status
 
-        elif job.status == 'submitted' and os.path.exists('%s.start' % name):
-            job.tstart = os.stat('%s.start' % name).st_mtime
-            job.status = 'running'
+        elif self.status == 'submitted' and os.path.exists('%s.start' % name):
+            self.tstart = os.stat('%s.start' % name).st_mtime
+            self.set_status('running')
             return 'running'
 
         # Nothing happened:
         return None
 
+    def clean(self):
+        for name in ['start', 'done', 'status']:
+            try:
+                os.remove(self.absname + '.' + name)
+            except OSError:
+                pass
+
+        self.status = 'waiting'
+
+
+class Cluster:
     def write_pylab_wrapper(self, job):
         """Use Agg backend and prevent windows from popping up."""
         fd = open(job.script + '.py', 'w')
@@ -100,20 +125,10 @@ class Cluster:
         fd.write('execfile(%r)\n' % job.script)
         fd.close()
 
-    def clean(self, job):
-        try:
-            os.remove('%s.start' % job.absname)
-        except OSError:
-            pass
-        try:
-            os.remove('%s.done' % job.absname)
-        except OSError:
-            pass
-
 
 class TestCluster(Cluster):
     def submit(self, job):
-        if random.random() < 0.2:
+        if random.random() < 0.05:
             # randomly fail some of the jobs
             exitcode = 1
         else:
@@ -122,7 +137,7 @@ class TestCluster(Cluster):
         wait = random.randint(1, 12)
         cmd = 'sleep %s; touch %s.start; ' % (wait, job.absname)
 
-        if random.random() < 0.1:
+        if random.random() < 0.05:
             # randomly time out some of the jobs
             pass
         else:
@@ -136,28 +151,29 @@ class TestCluster(Cluster):
 
 
 class AGTSQueue:
-    def __init__(self, sleeptime=60, log=sys.stdout):
+    def __init__(self, sleeptime=60, fd=sys.stdout):
         self.sleeptime = sleeptime
         self.jobs = []
 
-        if isinstance(log, str):
-            self.fd = open(log, 'w')
+        if isinstance(fd, str):
+            self.fd = open(fd, 'w')
         else:
-            self.fd = log
+            self.fd = fd
 
         # used by add() method:
         self._dir = None
 
-    def log(self, job):
-        N = dict(waiting=0, submitted=0, running=0,
-                 success=0, FAILED=0, disabled=0, TIMEOUT=0)
+    def count(self):
+        self.N = dict([(state, 0) for state in jobstates])
         for j in self.jobs:
-            N[j.status] += 1
-        self.fd.write('%s %2d %2d %2d %2d %2d %2d %2d %-49s %s\n' %
-                      (time.strftime('%H:%M:%S'),
-                       N['waiting'], N['submitted'], N['running'],
-                       N['success'], N['FAILED'], N['disabled'], N['TIMEOUT'],
-                       job.absname, job.status))
+            self.N[j.status] += 1
+
+    def log(self, job):
+        self.count()
+        self.fd.write('%s %3d %3d %3d %3d %3d %3d %3d %-49s %s\n' %
+                      ((time.strftime('%H:%M:%S'),) +
+                       tuple([self.N[state] for state in jobstates]) +
+                       (job.absname, job.status)))
         self.fd.flush()
         self.status()
 
@@ -205,10 +221,23 @@ class AGTSQueue:
                 return job
         raise ValueError
 
+    def find_job_and_dependencies(self, job):
+        if isinstance(job, str):
+            for j in self.jobs:
+                if j.script == job:
+                    job = j
+                    break
+            else:
+                raise ValueError
+
+        jobs = [job]
+        for dep in job.deps:
+            jobs += self.find_job_and_dependencies(dep)
+        return jobs
+
     def run(self, cluster):
         """Run jobs and return the number of unsuccessful jobs."""
-        self.clean(cluster)
-        self.fd.write('time      W  S  R  +  -  .  T job\n')
+        self.fd.write('time       W   S   R   +   -   .   T job\n')
         jobs = self.jobs
         while True:
             done = True
@@ -222,7 +251,7 @@ class AGTSQueue:
                             break
                     if ready:
                         cluster.submit(job)
-                        job.status = 'submitted'
+                        job.set_status('submitted')
                         self.log(job)
                 elif job.status in ['running', 'submitted']:
                     done = False
@@ -233,7 +262,7 @@ class AGTSQueue:
             time.sleep(self.sleeptime)
 
             for job in jobs:
-                newstatus = cluster.check_status(job)
+                newstatus = job.check_status()
                 if newstatus:
                     self.log(job)
                     if newstatus in ['TIMEOUT', 'FAILED']:
@@ -271,13 +300,13 @@ class AGTSQueue:
         """Recursively disable jobs depending on failed job."""
         for job in self.jobs:
             if dep in job.deps:
-                job.status = 'disabled'
+                job.set_status('disabled')
                 self.log(job)
                 self.fail(job)
 
-    def clean(self, cluster):
+    def clean(self):
         for job in self.jobs:
-            cluster.clean(job)
+            job.clean()
 
     def copy_created_files(self, dir):
         for job in self.jobs:
@@ -297,22 +326,60 @@ class AGTSQueue:
         return t
 
 
-if __name__ == '__main__':
-    # Quick test using dummy cluster and timeout after only 10 seconds:
-    c = TestCluster()
-    queue = AGTSQueue(sleeptime=2)
+def main():
+    from optparse import OptionParser
+
+    parser = OptionParser(usage='%prog [options] [jobs]',
+                          version='%prog 0.1')
+    parser.add_option('-c', '--clean', action='store_true')
+    parser.add_option('-r', '--run')
+
+    opt, args = parser.parse_args()
+
+    queue = AGTSQueue()
+
+    # Find all jobs:
     queue.collect()
+
+    if args:
+        # Select specific job(s) and dependencies:
+        newjobs = set()
+        for arg in args:
+            jobs = queue.find_job_and_dependencies(arg)
+            for job in jobs:
+                newjobs.add(job)
+        queue.jobs = list(newjobs)
+
+    if opt.clean:
+        queue.clean()
+
     for job in queue.jobs:
-        job.walltime = 10
+        job.check_status()
 
-    queue.run(c)
-    queue.copy_created_files('.')
+    queue.count()
+    for state in jobstates:
+        print('%9s %d' % (state, queue.N[state]))
 
-    # Analysis:
-    from gpaw.test.big.analysis import analyse
-    mailto = None # None => print to stdout, or email address
-    analyse(queue,
-            'analyse.pickle',  # file keeping history
-            '/tmp',            # Where to dump figures!
-            rev=None,          # gpaw revision
-            mailto=mailto)
+    if opt.run:
+        for job in queue.jobs:
+            if job.status in ['FAILED', 'TIMEOUT', 'disabled']:
+                job.clean()
+                job.set_status('waiting')
+
+        if opt.run == 'test':
+            # Quick test using dummy cluster and timeout after only 20 seconds:
+            queue.sleeptime = 2.0
+            for job in queue.jobs:
+                job.walltime = 20
+            cluster = TestCluster()
+        elif opt.run == 'niflheim':
+            from gpaw.test.big.niflheim import NiflheimCluster
+            cluster = NiflheimCluster()
+        else:
+            bad
+
+        queue.run(cluster)
+
+
+if __name__ == '__main__':
+    main()

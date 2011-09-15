@@ -3,6 +3,8 @@ import sys
 import time
 from hdf5_highlevel import File, HyperslabSelection
 
+from gpaw.io import FileReference
+
 import numpy as np
 
 intsize = 4
@@ -12,21 +14,27 @@ itemsizes = {'int': intsize, 'float': floatsize, 'complex': complexsize}
 
 class Writer:
     def __init__(self, name, comm=None):
+        self.comm = comm # for possible future use
         self.dims = {}        
         try:
-           if comm.rank == 0:
+           if self.comm.rank == 0:
                if os.path.isfile(name):
                    os.rename(name, name[:-5] + '.old'+name[-5:])
-           comm.barrier()
+           self.comm.barrier()
         except AttributeError:
            if os.path.isfile(name):
                os.rename(name, name[:-5] + '.old'+name[-5:])
 
-        self.file = File(name, 'w', comm.get_c_object())
+        if self.comm.size > 1:
+            comm = self.comm.get_c_object()
+        else:
+            comm = None
+        self.file = File(name, 'w', comm)
         self.dims_grp = self.file.create_group("Dimensions")
         self.params_grp = self.file.create_group("Parameters")
         self.file.attrs['title'] = 'gpaw_io version="0.1"'
-        
+        self.hdf5 = True
+
     def dimension(self, name, value):
         if name in self.dims.keys() and self.dims[name] != value:
             raise Warning('Dimension %s changed from %s to %s' % \
@@ -35,6 +43,7 @@ class Writer:
         self.dims_grp.attrs[name] = value
 
     def __setitem__(self, name, value):
+        # attributes must be written collectively
         self.params_grp.attrs[name] = value
 
     def add(self, name, shape, array=None, dtype=None, 
@@ -88,8 +97,7 @@ class Writer:
         return dtype, type, dtype.itemsize
 
     def append(self, name):
-        self.file = h5py.File(name, 'a')
-
+        raise NotImplementedError('Append with HDF5 not available.')
 
     def close(self):
         mtime = int(time.time())
@@ -100,15 +108,21 @@ class Writer:
         self.file.close()
         
 class Reader:
-    def __init__(self, name, comm=False):
-        self.file = File(name, 'r', comm.get_c_object())
+    def __init__(self, name, comm):
+        self.comm = comm # used for broadcasting replicated data 
+        if self.comm.size > 1:
+            comm = self.comm.get_c_object()
+        else:
+            comm = None
+        self.file = File(name, 'r', comm)
+        self.dims_grp = self.file['Dimensions']
         self.params_grp = self.file['Parameters']
-        self.hdf5_reader = True
+        self.hdf5 = True
 
     def dimension(self, name):
-        dims_grp = self.file['Dimensions']
-        return dims_grp.attrs[name]
-    
+        value = self.dims_grp.attrs[name]
+        return value
+
     def __getitem__(self, name):
         value = self.params_grp.attrs[name]
         try:
@@ -125,6 +139,7 @@ class Reader:
         parallel = kwargs.pop('parallel', False)
         read = kwargs.pop('read', True)
         out = kwargs.pop('out', None)
+        broadcast = kwargs.pop('broadcast', False)
         assert not kwargs
 
         if parallel:
@@ -154,18 +169,38 @@ class Reader:
 
         dset.read(array, selection, collective)
 
+        if broadcast:
+            self.comm.broadcast(array, 0)
+
         if array.shape == ():
             return array.item()
         else:
             return array
 
     def get_reference(self, name, *indices):
-        dset = self.file[name]
-        array = dset[indices]
-        return array
+        return HDF5FileReference(self.file, name, indices)
 
     def get_parameters(self):
         return self.params_grp.attrs
-    
+   
     def close(self):
         self.file.close()
+
+class HDF5FileReference(FileReference):
+    def __init__(self, file, name, indices):
+        self.file = file
+        self.name = name
+        self.dset = self.file[name]
+        self.dtype = self.dset.dtype
+        self.shape = self.dset.shape
+        self.indices = indices
+
+    def __len__(self):
+        """Length of the first dimension"""
+        return self.shape[0]
+
+    def __getitem__(self, indices):
+        if not isinstance(indices, tuple):
+            indices = (indices,)
+        ind = self.indices + indices
+        return self.dset[ind]

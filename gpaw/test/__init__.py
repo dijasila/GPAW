@@ -9,7 +9,7 @@ import numpy as np
 
 from gpaw.atom.generator import Generator
 from gpaw.atom.configurations import parameters
-from gpaw.utilities import devnull
+from gpaw.utilities import devnull, compiled_with_sl
 from gpaw import setup_paths
 from gpaw import mpi
 import gpaw
@@ -57,17 +57,18 @@ tests = [
     'gemm_complex.py',
     'lapack.py',
     'mpicomm.py',
+    'parallel/submatrix_redist.py',
     'eigh.py',
     'xc.py',
     'gradient.py',
     'pbe_pw91.py',
     'cg2.py',
-    'd2Excdn2.py',
     'dot.py',
     'blas.py',
     'gp2.py',
     'non_periodic.py',
     'erf.py',
+    'kpt.py',
     'lf.py',
     'lxc_fxc.py',
     'Gauss.py',
@@ -90,11 +91,14 @@ tests = [
     'parallel/compare.py',
     'ase3k.py',
     'laplace.py',
-    'ds_beta.py',
     'gauss_wave.py',
-    'planewavebasis.py',
+    'pw/h.py',
+    'pw/lfc.py',
+    'pw/bulk.py',
+    'pw/slab.py',
     'coulomb.py',
     'timing.py',
+    'maxrss.py',
     'lcao_density.py',
     'gauss_func.py',
     'ah.py',
@@ -102,8 +106,12 @@ tests = [
     'wfs_io.py',
     'wfs_auto.py',
     'xcatom.py',
+    'ds_beta.py',
     'parallel/overlap.py',
     'symmetry.py',
+    'noncollinear/h.py',
+    'noncollinear/xccorr.py',
+    'noncollinear/xcgrid3d.py',
     'pes.py',
     'elf.py',
     'lebedev.py',
@@ -111,9 +119,15 @@ tests = [
 #    'usesymm2.py',
     'eed.py',
     'partitioning.py',
+    'fixdensity.py',
     'mixer.py',
     'broydenmixer.py',
+    'fileio/hdf5_simple.py',
+    'fileio/hdf5_noncontiguous.py',
     'restart.py',
+    'fileio/restart_density.py',
+    'fileio/parallel.py',
+    'fileio/file_reference.py',
     'mgga_restart.py',
     'gga_atom.py',
     'bee1.py',
@@ -168,6 +182,7 @@ tests = [
     'CH4.py',
     'neb.py',
     'complex.py',
+    'test_ibzqpt.py',
     'diamond_absorption.py',
     'aluminum_EELS.py',
     'dump_chi0.py',
@@ -176,6 +191,8 @@ tests = [
     'bse_aluminum.py',
     'bse_diamond.py',
     'bse_vs_lrtddft.py',
+    'bse_sym.py',
+    'bse_silicon.py',
     'diamond_eps_alda.py',
     'hgh_h2o.py',
     'apmb.py',
@@ -210,6 +227,7 @@ tests = [
     'coreeig.py',
     'Cu.py',
     'diamond_gllb.py',
+    'wannierk.py',
     'exx.py',
     'h2o_dks.py',
     'nscfsic.py',
@@ -242,11 +260,21 @@ tests = [
     'constant_electric_field.py',
     'stark_shift.py',
     'aluminum_testcell.py',
+    'cmr_test2.py',
     ]
 
+try:
+    import cmr
+    tests.append('cmr_test.py')    
+except:
+    pass
+
 exclude = []
+
+
 if mpi.size > 1:
-    exclude += ['pes.py',
+    exclude += ['maxrss.py',
+                'pes.py',
                 'nscfsic.py',
                 'coreeig.py',
                 'asewannier.py',
@@ -265,11 +293,17 @@ if mpi.size < 4:
                 'AA_exx_enthalpy.py',
                 'bse_aluminum.py',
                 'bse_diamond.py',
-                'bse_vs_lrtddft.py']
+                'bse_silicon.py',
+                'bse_vs_lrtddft.py',
+                'fileio/parallel.py', 
+                ]
 
 if mpi.size != 4:
     exclude += ['parallel/lcao_parallel.py']
     exclude += ['parallel/fd_parallel.py']
+
+if mpi.size == 1 or not compiled_with_sl():
+    exclude += ['parallel/submatrix_redist.py']
 
 if mpi.size == 8:
     exclude += ['transport.py']
@@ -290,8 +324,16 @@ except ImportError:
                 'bse_aluminum.py',
                 'bse_diamond.py',
                 'bse_vs_lrtddft.py',
+                'bse_sym.py',
+                'bse_silicon.py',
                 'aeatom.py',
                 'rpa_energy_Kr.py']
+
+try:
+    import _hdf5
+except ImportError:
+    exclude += ['fileio/hdf5_simple.py',
+                'fileio/hdf5_noncontiguous.py']
 
 for test in exclude:
     if test in tests:

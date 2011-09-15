@@ -28,7 +28,7 @@ def numpy_type_from_h5(datatype):
 
     return dtype
 
-class Iterator():
+class Iterator:
     """Iterator over the datasets and subgroups in a File or in a Group."""
 
     def __init__(self, obj):
@@ -150,7 +150,7 @@ class File(Group):
         h5f_close(self.id)
         self.opened = False
 
-class Dataset:
+class Dataset(object):
     """This class defines a HDF5 dataset.
 
        Attributes:
@@ -209,6 +209,9 @@ class Dataset:
         if isinstance(selection, HyperslabSelection):
             selection.select(self)
 
+        # data array has to be contiguous, if not make a copy
+        if not data.flags.contiguous:
+            data = data.copy()
         h5d_write(self.id, memtype, memspace, filespace, data, plist)
         
         h5s_close(memspace)
@@ -240,7 +243,16 @@ class Dataset:
         if isinstance(selection, HyperslabSelection):
             selection.select(self)
 
-        h5d_read(self.id, memtype, memspace, filespace, data, plist)
+        # data array has to be contiguous, if not, create a 
+        # temporary array 
+        if not data.flags.contiguous:
+            data_buf = data.copy()
+        else:
+            data_buf = data 
+        h5d_read(self.id, memtype, memspace, filespace, data_buf, plist)
+
+        if not data.flags.contiguous:
+            data[:] = data_buf[:]
         
         h5s_close(memspace)
         h5t_close(memtype)
@@ -292,6 +304,8 @@ class Attributes:
         dataspace = h5s_create(np.asarray(data.shape))
         datatype = h5_type_from_numpy(np.ndarray((1, ), data.dtype))
         id = h5a_create(self.loc_id, key, datatype, dataspace)
+        # ensure that data is contiguous
+        data = data.copy()
         h5a_write(id, datatype, data)
         h5s_close(dataspace)
         h5t_close(datatype)
@@ -303,10 +317,12 @@ class Attributes:
         datatype = h5a_get_type(id)
         shape = h5s_get_shape(dataspace)
         dtype = numpy_type_from_h5(datatype)
+        memtype = h5_type_from_numpy(np.ndarray((1,), dtype))
         data = np.empty(shape, dtype)
-        h5a_read(id, datatype, data)
+        h5a_read(id, memtype, data)
         h5s_close(dataspace)
         h5t_close(datatype)
+        h5t_close(memtype)
         h5a_close(id)
 
         if len(shape) == 0:
@@ -321,7 +337,7 @@ class Attributes:
 # are direct copy-paste from h5py
 # Copyright (C) 2008 Andrew Collette
 # http://h5py.alfven.org
-# License: BSD
+# License: New BSD
 def _expand_ellipsis(args, rank):
     """ Expand ellipsis objects and fill in missing axes.
     """
@@ -362,9 +378,18 @@ def _translate_slice(exp, length):
         for use with the hyperslab selection routines
     """
     start, stop, step = exp.start, exp.stop, exp.step
-    start = 0 if start is None else int(start)
-    stop = length if stop is None else int(stop)
-    step = 1 if step is None else int(step)
+    if start is None:
+        start = 0
+    else:
+        start = int(start)
+    if stop is None:
+        stop = length
+    else:
+        stop = int(stop)
+    if step is None:
+        step = 1
+    else:
+        step = int(step)
     if step < 1:
         raise ValueError("Step must be >= 1 (got %d)" % step)
     if stop == start:

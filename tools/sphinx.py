@@ -39,7 +39,7 @@ def build():
     if os.system('epydoc --docformat restructuredtext --parse-only ' +
                  '--name GPAW ' +
                  '--url http://wiki.fysik.dtu.dk/gpaw ' +
-                 '--show-imports --no-frames -v gpaw >& epydoc.out') != 0:
+                 '--show-imports --no-frames -v gpaw &> epydoc.out') != 0:
         raise RuntimeError('Epydoc failed!')
 
     epydoc_output = open('epydoc.out').readlines()
@@ -52,6 +52,7 @@ def build():
         fd.write(''.join(errors))
         fd.close()
         email = 'gpaw-developers@listserv.fysik.dtu.dk'
+        email = 'jensj@fysik.dtu.dk'
         x = os.system('mail -s "EpyDoc errors" %s < epydoc.errors' % email)
         assert x == 0
 

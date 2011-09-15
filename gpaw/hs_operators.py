@@ -71,7 +71,7 @@ class MatrixOperator:
         """
         self.bd = ksl.bd
         self.gd = ksl.gd
-        self.blockcomm = ksl.blockcomm
+        self.block_comm = ksl.block_comm
         self.bmd = ksl.new_descriptor() #XXX take hermitian as argument?
         self.dtype = ksl.dtype
         self.buffer_size = ksl.buffer_size
@@ -346,7 +346,7 @@ class MatrixOperator:
         """
         band_comm = self.bd.comm
         domain_comm = self.gd.comm
-        block_comm = self.blockcomm
+        block_comm = self.block_comm
 
         B = band_comm.size
         J = self.nblocks
@@ -391,8 +391,9 @@ class MatrixOperator:
         # be syncronized up to this point but only on the 1D band_comm
         # communication ring
         band_comm.barrier()
-        if J*M == N + M: # remove extra slice
+        while M*J >= N + M: # remove extra slice(s)
             J -= 1
+        assert 0 < J*M < N + M
 
         for j in range(J):
             n1 = j * M
@@ -532,8 +533,9 @@ class MatrixOperator:
         # be syncronized up to this point but only on the 1D band_comm
         # communication ring
         band_comm.barrier()
-        if g*J == G + g: # remove extra slice
+        while g*J >= G + g: # remove extra slice(s)
             J -= 1
+        assert 0 < g*J < G + g
 
         for j in range(J):
             G1 = j * g

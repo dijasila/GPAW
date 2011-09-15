@@ -26,7 +26,7 @@ for formula in ('Na', 'Cl', 'NaCl',):
     n = calc.get_all_electron_density(gridrefinement=gridrefinement)
 
     # Get integrated values
-    dv = np.product(calc.get_grid_spacings())
+    dv = sys.get_volume() / calc.get_number_of_grid_points().prod()
     It = nt.sum() * dv
     I = n.sum() * dv / gridrefinement**3
 

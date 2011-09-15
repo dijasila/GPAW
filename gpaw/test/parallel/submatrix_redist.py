@@ -14,7 +14,7 @@ a[:] = world.rank
 subdesc = grid.new_descriptor(7, 7, 2, 2)
 b = subdesc.zeros()
 
-r = Redistributor(grid.comm, desc, subdesc, uplo='G')
+r = Redistributor(grid.comm, desc, subdesc)
 
 ia = 3
 ja = 2

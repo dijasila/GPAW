@@ -1,7 +1,5 @@
 from math import sqrt, pi
-
 import numpy as np
-
 from gpaw.utilities.blas import gemmdot
 from gpaw.gaunt import gaunt as G_LLL
 from gpaw.spherical_harmonics import Y
@@ -15,23 +13,7 @@ def delta_function(x0, dx, Nx, sigma):
     return deltax / (2. * sqrt(pi * sigma))
 
 
-def hilbert_transform(specfunc_wGG, Nw, dw, eta):
-
-    NwS = specfunc_wGG.shape[0]
-    tmp_ww = np.zeros((Nw, NwS), dtype=complex)
-
-    for iw in range(Nw):
-        w = iw * dw
-        for jw in range(NwS):
-            ww = jw * dw 
-            tmp_ww[iw, jw] = 1. / (w - ww + 1j*eta) - 1. / (w + ww + 1j*eta)
-
-    chi0_wGG = gemmdot(tmp_ww, specfunc_wGG, beta = 0.)
-
-    return chi0_wGG * dw
-
-
-def full_hilbert_transform(specfunc_wGG, Nw, dw, eta):
+def hilbert_transform(specfunc_wGG, Nw, dw, eta, fullresponse=False):
 
     NwS = specfunc_wGG.shape[0]
     tmp_ww = np.zeros((Nw, NwS), dtype=complex)
@@ -40,7 +22,10 @@ def full_hilbert_transform(specfunc_wGG, Nw, dw, eta):
         w = iw * dw
         for jw in range(NwS):
             ww = jw * dw
-            tmp_ww[iw, jw] = 1. / (w - ww - 1j*eta) - 1. / (w + ww + 1j*eta)
+            if fullresponse is False:
+                tmp_ww[iw, jw] = 1. / (w - ww + 1j*eta) - 1. / (w + ww + 1j*eta)
+            else:
+                tmp_ww[iw, jw] = 1. / (w - ww + 1j*eta) - 1. / (w + ww - 1j*eta)
 
     chi0_wGG = gemmdot(tmp_ww, specfunc_wGG, beta = 0.)
 
@@ -70,17 +55,14 @@ def two_phi_planewave_integrals(k_Gv, setup=None, rgd=None, phi_jg=None,
     from scipy.special import sph_jn
 
     if setup is not None:
-        ng = setup.ng
-        g = np.arange(ng, dtype=float)
-        r_g = setup.beta * g / (ng - g)
-        dr_g = setup.beta * ng / (ng - g)**2
+        rgd = setup.rgd
         l_j = setup.l_j
         # Obtain the phi_j and phit_j
         phi_jg = []
         phit_jg = []
         rcut2 = 2 * max(setup.rcut_j)
-        gcut2 = 1 + int(rcut2 * setup.ng / (rcut2 + setup.beta))
-        for (phi_g, phit_g) in zip(setup.data.phi_jg, setup.data.phit_jg):
+        gcut2 = rgd.ceil(rcut2)
+        for phi_g, phit_g in zip(setup.data.phi_jg, setup.data.phit_jg):
             phi_g = phi_g.copy()
             phit_g = phit_g.copy()
             phi_g[gcut2:] = phit_g[gcut2:] = 0.
@@ -90,9 +72,10 @@ def two_phi_planewave_integrals(k_Gv, setup=None, rgd=None, phi_jg=None,
         assert rgd is not None
         assert phi_jg is not None
         assert l_j is not None
-        ng = rgd.ng
-        r_g = rgd.r_g
-        dr_g = rgd.dr_g
+
+    ng = rgd.N
+    r_g = rgd.r_g
+    dr_g = rgd.dr_g
 
     # Construct L (l**2 + m) and j (nl) index
     L_i = []

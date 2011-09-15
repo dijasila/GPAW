@@ -268,6 +268,10 @@ def get_scalapack_config(define_macros):
     # check ScaLapack settings
     define_macros.append(('GPAW_WITH_SL', '1'))
 
+def get_hdf5_config(define_macros):
+    # check ScaLapack settings
+    define_macros.append(('GPAW_WITH_HDF5', '1'))
+
 
 def mtime(path, name, mtimes):
     """Return modification time.
@@ -364,9 +368,6 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
 
     cfiles = glob('c/[a-zA-Z_]*.c') + ['c/bmgs/bmgs.c']
     cfiles += glob('c/libxc/src/*.c')
-    if ('HDF5', 1) in define_macros:
-        cfiles += glob('h5py/c/*.c')
-        cfiles += glob('h5py/c/lzf/*.c')
 
     cfiles2remove = ['c/libxc/src/test.c',
                      'c/libxc/src/xc_f.c',

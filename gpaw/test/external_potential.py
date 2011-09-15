@@ -10,6 +10,7 @@ from gpaw.test import equal
 from gpaw.cluster import Cluster
 from gpaw.point_charges import PointCharges
 from gpaw.external_potential import ConstantPotential
+from gpaw.mpi import world
 
 cp = ConstantPotential()
 
@@ -30,16 +31,19 @@ txt = None
 
 # load point charges
 fname = 'pc.xyz'
-f = open('i' + fname, 'w')
-print >> f, """1
+if world.rank == 0:
+    f = open('i' + fname, 'w')
+    print >> f, """1
 
 X 0 0 100 -0.5"""
-f.close()
+    f.close()
+world.barrier()
+
 ex = PointCharges()
 ex.read('i' + fname)
 ex.write('o' + fname)
 
-convergence = {'eigenstates':1.e-4, 'density':1.e-2, 'energy':0.1}
+convergence = {'eigenstates':1.e-4*40*1.5**3, 'density':1.e-2, 'energy':0.1}
 
 # without potential
 if True:

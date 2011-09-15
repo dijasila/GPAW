@@ -52,7 +52,7 @@ class Hamiltonian:
     """
 
     def __init__(self, gd, finegd, nspins, setups, stencil, timer, xc,
-                 psolver, vext_g):
+                 psolver, vext_g, collinear=True):
         """Create the Hamiltonian."""
         self.gd = gd
         self.finegd = finegd
@@ -60,6 +60,8 @@ class Hamiltonian:
         self.setups = setups
         self.timer = timer
         self.xc = xc
+        self.collinear = collinear
+        self.ncomp = 2 - int(collinear)
         
         # Solver for the Poisson equation:
         if psolver is None:
@@ -133,7 +135,8 @@ class Hamiltonian:
             for a in my_incoming_atom_indices:
                 # Get matrix from old domain:
                 ni = self.setups[a].ni
-                dH_sp = np.empty((self.nspins, ni * (ni + 1) // 2))
+                dH_sp = np.empty((self.nspins * self.ncomp**2,
+                                  ni * (ni + 1) // 2))
                 requests.append(self.gd.comm.receive(dH_sp, self.rank_a[a],
                                                      tag=a, block=False))
                 assert a not in self.dH_asp
@@ -217,9 +220,9 @@ class Hamiltonian:
 
         if self.vt_sg is None:
             self.timer.start('Initialize Hamiltonian')
-            self.vt_sg = self.finegd.empty(self.nspins)
+            self.vt_sg = self.finegd.empty(self.nspins * self.ncomp**2)
             self.vHt_g = self.finegd.zeros()
-            self.vt_sG = self.gd.empty(self.nspins)
+            self.vt_sG = self.gd.empty(self.nspins * self.ncomp**2)
             self.poisson.initialize()
             self.timer.stop('Initialize Hamiltonian')
 
@@ -233,13 +236,15 @@ class Hamiltonian:
 
         Eext = 0.0
         if self.vext_g is not None:
+            assert self.collinear
             vt_g += self.vext_g.get_potential(self.finegd)
             Eext = self.finegd.integrate(vt_g, density.nt_g,
                                          global_integral=False) - Ebar
 
-        if self.nspins == 2:
-            self.vt_sg[1] = vt_g
+        self.vt_sg[1:self.nspins] = vt_g
 
+        self.vt_sg[self.nspins:] = 0.0
+            
         self.timer.start('XC 3D grid')
         Exc = self.xc.calculate(self.finegd, density.nt_sg, self.vt_sg)
         Exc /= self.gd.comm.size
@@ -255,11 +260,18 @@ class Hamiltonian:
         Epot = 0.5 * self.finegd.integrate(self.vHt_g, density.rhot_g,
                                            global_integral=False)
         Ekin = 0.0
+        s = 0
         for vt_g, vt_G, nt_G in zip(self.vt_sg, self.vt_sG, density.nt_sG):
-            vt_g += self.vHt_g
+            if s < self.nspins:
+                vt_g += self.vHt_g
             self.restrict(vt_g, vt_G)
-            Ekin -= self.gd.integrate(vt_G, nt_G - density.nct_G,
-                                      global_integral=False)
+            if s < self.nspins:
+                Ekin -= self.gd.integrate(vt_G, nt_G - density.nct_G,
+                                          global_integral=False)
+            else:
+                Ekin -= self.gd.integrate(vt_G, nt_G, global_integral=False)
+            s += 1
+                
         self.timer.stop('Hartree integrate/restrict')
             
         # Calculate atomic hamiltonians:
@@ -273,7 +285,7 @@ class Hamiltonian:
             W_L = W_aL[a]
             setup = self.setups[a]
 
-            D_p = D_sp.sum(0)
+            D_p = D_sp[:self.nspins].sum(0)
             dH_p = (setup.K_p + setup.M_p +
                     setup.MB_p + 2.0 * np.dot(setup.M_pp, D_p) +
                     np.dot(setup.Delta_pL, W_L))
@@ -300,10 +312,11 @@ class Hamiltonian:
 
             self.dH_asp[a] = dH_sp = np.zeros_like(D_sp)
             self.timer.start('XC Correction')
-            Exc += setup.xc_correction.calculate(self.xc, D_sp, dH_sp, a)
+            Exc += self.xc.calculate_paw_correction(setup, D_sp, dH_sp, a=a)
             self.timer.stop('XC Correction')
 
             if setup.HubU is not None:
+                assert self.collinear
                 nspins = len(D_sp)
                 
                 l_j = setup.l_j
@@ -336,9 +349,9 @@ class Hamiltonian:
                     Htemp += V
                     H_p[:] = pack2(Htemp)
 
-            dH_sp += dH_p
+            dH_sp[:self.nspins] += dH_p
 
-            Ekin -= (D_sp * dH_sp).sum()
+            Ekin -= (D_sp * dH_sp).sum()  # NCXXX
 
         self.timer.stop('Atomic')
 
@@ -443,59 +456,9 @@ class Hamiltonian:
         Exc = xc.calculate(density.finegd, nt_sg) / self.gd.comm.size
         for a, D_sp in density.D_asp.items():
             setup = self.setups[a]
-            Exc += setup.xc_correction.calculate(xc, D_sp)
+            Exc += xc.calculate_paw_correction(setup, D_sp)
         Exc = self.gd.comm.sum(Exc)
         return Exc - self.Exc
-
-    def get_vxc(self, density, wfs):
-        """Calculate matrix elements of the xc-potential."""
-        dtype = wfs.dtype
-        nbands = wfs.nbands
-        nu = len(wfs.kpt_u)
-        if density.nt_sg is None:
-            density.interpolate()
-
-        # Allocate space for result matrix
-        Vxc_unn = np.empty((nu, nbands, nbands), dtype=dtype)
-
-        # Get pseudo xc potential on the coarse grid
-        Vxct_sG = self.gd.empty(self.nspins)
-        Vxct_sg = self.finegd.zeros(self.nspins)
-        if nspins == 1:
-            self.xc.get_energy_and_potential(density.nt_sg[0], Vxct_sg[0])
-        else:
-            self.xc.get_energy_and_potential(density.nt_sg[0], Vxct_sg[0],
-                                             density.nt_sg[1], Vxct_sg[1])
-        for Vxct_G, Vxct_g in zip(Vxct_sG, Vxct_sg):
-            self.restrict(Vxct_g, Vxct_G)
-        del Vxct_sg
-
-        # Get atomic corrections to the xc potential
-        Vxc_asp = {}
-        for a, D_sp in density.D_asp.items():
-            Vxc_asp[a] = np.zeros_like(D_sp)
-            self.setups[a].xc_correction.calculate_energy_and_derivatives(
-                D_sp, Vxc_asp[a])
-
-        # Project potential onto the eigenstates
-        for kpt, Vxc_nn in xip(wfs.kpt_u, Vxc_unn):
-            s, q = kpt.s, kpt.q
-            psit_nG = kpt.psit_nG
-
-            # Project pseudo part
-            r2k(.5 * self.gd.dv, psit_nG, Vxct_sG[s] * psit_nG, 0.0, Vxc_nn)
-            tri2full(Vxc_nn, 'L')
-            self.gd.comm.sum(Vxc_nn)
-
-            # Add atomic corrections
-            # H_ij = \int dr phi_i(r) Ĥ phi_j^*(r)
-            # P_ni = \int dr psi_n(r) pt_i^*(r)
-            # Vxc_nm = \int dr phi_n(r) vxc(r) phi_m^*(r)
-            #      + sum_ij P_ni H_ij P_mj^*
-            for a, P_ni in kpt.P_ani.items():
-                Vxc_ii = unpack(Vxc_asp[a][s])
-                Vxc_nn += np.dot(P_ni, np.inner(H_ii, P_ni).conj())
-        return Vxc_unn
 
     def estimate_memory(self, mem):
         nbytes = self.gd.bytecount()

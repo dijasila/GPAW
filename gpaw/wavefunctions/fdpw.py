@@ -5,7 +5,7 @@ from gpaw.overlap import Overlap
 from gpaw.fd_operators import Laplace
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.utilities import unpack
-from gpaw.io.tar import TarFileReference
+from gpaw.io import FileReference
 from gpaw.lfc import BasisFunctions
 from gpaw.utilities.blas import axpy
 from gpaw.transformers import Transformer
@@ -53,7 +53,7 @@ class FDPWWaveFunctions(WaveFunctions):
             if not self.gamma:
                 basis_functions.set_k_points(self.kd.ibzk_qc)
             basis_functions.set_positions(spos_ac)
-        elif isinstance(self.kpt_u[0].psit_nG, TarFileReference):
+        elif isinstance(self.kpt_u[0].psit_nG, FileReference):
             self.initialize_wave_functions_from_restart_file()
 
         if self.kpt_u[0].psit_nG is not None:
@@ -133,7 +133,7 @@ class FDPWWaveFunctions(WaveFunctions):
         self.timer.stop('LCAO initialization')
 
     def initialize_wave_functions_from_restart_file(self):
-        if not isinstance(self.kpt_u[0].psit_nG, TarFileReference):
+        if not isinstance(self.kpt_u[0].psit_nG, FileReference):
             return
 
         # Calculation started from a restart file.  Copy data
@@ -234,6 +234,46 @@ class FDPWWaveFunctions(WaveFunctions):
             self.overlap.orthonormalize(self, kpt)
         self.set_orthonormalized(True)
 
+    def calculate_forces(self, hamiltonian, F_av):
+        # Calculate force-contribution from k-points:
+        F_av.fill(0.0)
+        F_aniv = self.pt.dict(self.bd.mynbands, derivative=True)
+        for kpt in self.kpt_u:
+            self.pt.derivative(kpt.psit_nG, F_aniv, kpt.q)
+            for a, F_niv in F_aniv.items():
+                F_niv = F_niv.conj()
+                F_niv *= kpt.f_n[:, np.newaxis, np.newaxis]
+                dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
+                P_ni = kpt.P_ani[a]
+                F_vii = np.dot(np.dot(F_niv.transpose(), P_ni), dH_ii)
+                F_niv *= kpt.eps_n[:, np.newaxis, np.newaxis]
+                dO_ii = hamiltonian.setups[a].dO_ii
+                F_vii -= np.dot(np.dot(F_niv.transpose(), P_ni), dO_ii)
+                F_av[a] += 2 * F_vii.real.trace(0, 1, 2)
+
+            # Hack used in delta-scf calculations:
+            if hasattr(kpt, 'c_on'):
+                assert self.bd.comm.size == 1
+                self.pt.derivative(kpt.psit_nG, F_aniv, kpt.q)  #XXX again
+                d_nn = np.zeros((self.bd.mynbands, self.bd.mynbands),
+                                dtype=complex)
+                for ne, c_n in zip(kpt.ne_o, kpt.c_on):
+                    d_nn += ne * np.outer(c_n.conj(), c_n)
+                for a, F_niv in F_aniv.items():
+                    F_niv = F_niv.conj()
+                    dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
+                    Q_ni = np.dot(d_nn, kpt.P_ani[a])
+                    F_vii = np.dot(np.dot(F_niv.transpose(), Q_ni), dH_ii)
+                    F_niv *= kpt.eps_n[:, np.newaxis, np.newaxis]
+                    dO_ii = hamiltonian.setups[a].dO_ii
+                    F_vii -= np.dot(np.dot(F_niv.transpose(), Q_ni), dO_ii)
+                    F_av[a] += 2 * F_vii.real.trace(0, 1, 2)
+
+        self.bd.comm.sum(F_av, 0)
+
+        if self.bd.comm.rank == 0:
+            self.kpt_comm.sum(F_av, 0)
+
     def _get_wave_function_array(self, u, n):
         psit_nG = self.kpt_u[u].psit_nG
         if psit_nG is None:
@@ -241,14 +281,15 @@ class FDPWWaveFunctions(WaveFunctions):
         return psit_nG[n][:] # dereference possible tar-file content
 
     def write_wave_functions(self, writer):
-        try:
-            from gpaw.io.hdf5 import Writer as HDF5Writer
-        except ImportError:
-            hdf5 = False
+        master = (self.world.rank == 0) 
+        parallel = (self.world.size > 1)
+
+        if hasattr(writer, 'hdf5'):
+            hdf5 = True
         else:
-            hdf5 = isinstance(writer, HDF5Writer)
-            
-        if self.world.rank == 0 or hdf5:
+            hdf5 = False
+
+        if master or hdf5:
             writer.add('PseudoWaveFunctions',
                        ('nspins', 'nibzkpts', 'nbands',
                         'ngptsx', 'ngptsy', 'ngptsz'),
@@ -259,20 +300,20 @@ class FDPWWaveFunctions(WaveFunctions):
                 indices = [kpt.s, kpt.k]
                 indices.append(self.bd.get_slice())
                 indices += self.gd.get_slice()
-                writer.fill(kpt.psit_nG, parallel=True, *indices)
+                writer.fill(kpt.psit_nG, parallel=parallel, *indices)
         else:
             for s in range(self.nspins):
                 for k in range(self.nibzkpts):
                     for n in range(self.nbands):
                         psit_G = self.get_wave_function_array(n, k, s)
-                        if self.world.rank == 0:
+                        if master:
                             writer.fill(psit_G, s, k, n)
 
     def estimate_memory(self, mem):
-        gridbytes = self.gd.bytecount(self.dtype)
+        gridbytes = self.wd.bytecount(self.dtype)
         mem.subnode('Arrays psit_nG', 
                     len(self.kpt_u) * self.mynbands * gridbytes)
-        self.eigensolver.estimate_memory(mem.subnode('Eigensolver'), self.gd,
+        self.eigensolver.estimate_memory(mem.subnode('Eigensolver'), self.wd,
                                          self.dtype, self.mynbands,
                                          self.nbands)
         self.pt.estimate_memory(mem.subnode('Projectors'))

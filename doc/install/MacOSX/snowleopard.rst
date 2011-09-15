@@ -5,7 +5,7 @@ Snow Leopard
 ========================
 
 Follow the instructions here for installing MacPorts and all supporting packages:
-`<http://wiki.alcf.anl.gov/naromero>`_
+`<https://sites.google.com/site/naromero/code-development-on-mac-os-x>`_
 
 This build of GPAW will use MPICH2 1.2, Python 2.7.x and NumPy 1.5.x.
 

@@ -20,7 +20,7 @@ if GS:
                 kpts=(2,2,2),
                 occupations=FermiDirac(0.001),
                 nbands=8,
-                convergence={'band':'all'})
+                convergence={'bands':'all'})
 
     atoms.set_calculator(calc)
     atoms.get_potential_energy()
@@ -30,7 +30,7 @@ if bse:
     
     bse = BSE('C_kpt8.gpw',w=np.linspace(0,20,201),
               q=np.array([0,0,0.5]),optical_limit=True,ecut=50.,
-              nbands=8)
+              nbands=8,use_W=False)
 
     bse.get_dielectric_function('C_bse.dat')
 
@@ -51,9 +51,9 @@ if check_spectrum:
         pass
     else:
         raise ValueError('Absorption peak not correct ! ')
-    
-    if np.abs(d[Nw1] - 68.8295454438) > 1e-5 or \
-       np.abs(d[Nw2] - 90.2424318491) > 1e-5 :
+
+    if np.abs(d[Nw1] - 68.8284615059) > 1e-5 or \
+       np.abs(d[Nw2] - 90.2445209202) > 1e-5 :
         print d[Nw1], d[Nw2]
         raise ValueError('Please check spectrum strength ! ')
 

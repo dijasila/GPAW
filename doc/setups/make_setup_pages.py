@@ -178,7 +178,10 @@ def make_page(symbol):
             root = roots[0]
         else:
             root = roots[1]
-        d0 = 1.0 / root
+        if isinstance(root, complex):
+            print '??????'
+            root = root.real
+        d0 = 1.0 / root.real
         E0 = np.polyval(energy, root)
         Edimer0[i] = E0
         ddimer0[i] = d0

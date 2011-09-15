@@ -10,10 +10,36 @@ Development version in trunk
 
 :trac:`trunk <>`.
 
-* Corresponding ASE release: ...
-* Energy convergence criterion changed from 1 meV/atom to 0.5
-  meV/electron.
+* Convergence criteria for eigenstates changed: The missing volume per
+  grid-point factor is now included and the units are now eV**2. The
+  new default value is 4.0e-8 eV**2 which is equivalent to the old
+  default for a grid spacing of 0.2 Å.
 
+* GPAW should now work also with NumPy 1.6.
+
+
+Version 0.8
+===========
+
+25 May 2011: :trac:`tags/0.8.0 <../tags/0.8.0>`.
+
+* Corresponding ASE release: ase-3.5.1_
+* Energy convergence criterion changed from 1 meV/atom to 0.5
+  meV/electron.  This was changed in order to allow having no atoms like
+  for jellium calculations.
+* Linear :ref:`dielectric response <df_theory>` of an extended system
+  (RPA and ALDA kernels) can now be calculated.
+* :ref:`rpa`.
+* Non-selfconsistent calculations with k-points for hybrid functionals.
+* Methfessel-Paxton distribution added.
+* Text output now shows the distance between planes of grid-points as
+  this is what will be close to the grid-spacing parameter *h* also for
+  non-orthorhombic cells.
+* Exchange-correlation code restructured.  Naming convention for
+  explicitely specifying libxc functionals has changed: :ref:`manual_xc`.
+* New PAW setups for Rb, Ti, Ba, La, Sr, K, Sc, Ca, Zr and Cs.
+
+.. _ase-3.5.1: https://svn.fysik.dtu.dk/projects/ase/tags/3.5.1
 
 
 Version 0.7.2
