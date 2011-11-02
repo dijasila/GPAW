@@ -35,7 +35,7 @@ void cuda_mblas_init()
 {
   if  (!mblas_initialized){
     for (int i=0;i<MBLAS_BLOCKS;i++){
-      gpaw_cublasSafeCall(cudaStreamCreate(&(mblas_streams[i])));
+      cudaStreamCreate(&(mblas_streams[i]));
     }
     mblas_initialized=1;
   }

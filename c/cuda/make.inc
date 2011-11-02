@@ -10,8 +10,9 @@ SHELL = /bin/sh
 #
 TOPdir       = .
 INCdir       = $(TOPdir)
-PYTHONINCdir = /v/linux26_x86_64/opt/python/2.6.5-gcc/include/python2.6
-NUMPYINCdir  = /v/linux26_x86_64/opt/python/2.6.5-gcc/lib/python2.6/site-packages/numpy/core/include
+PYTHONINCdir = /usr/include/python2.6
+NUMPYINCdir  = /usr/lib/python2.6/dist-packages/numpy/core/include/
+MPIINCdir    = /usr/lib/openmpi/include
 LIBdir       = $(TOPdir)
 CUGPAWLIB    = $(LIBdir)/libgpaw-cuda.a 
 
@@ -19,7 +20,7 @@ CUGPAWLIB    = $(LIBdir)/libgpaw-cuda.a
 # ----------------------------------------------------------------------
 # - NVIDIA CUDA includes / libraries / specifics -----------------------
 # ----------------------------------------------------------------------
-CUDAdir       = /opt/cuda-3.2.16/cuda
+CUDAdir       = /usr/local/cuda
 CUDAinc       = -I$(CUDAdir)/include
 CUDA_OPTS     = 
 
@@ -28,7 +29,7 @@ CUDA_OPTS     =
 # ----------------------------------------------------------------------
 #
 
-CUGPAW_INCLUDES = -I$(INCdir) $(CUDAinc) -I$(NUMPYINCdir)  -I$(PYTHONINCdir)
+CUGPAW_INCLUDES =  -I$(INCdir) $(CUDAinc)-I$(MPIINCdir) -I$(NUMPYINCdir)  -I$(PYTHONINCdir)
 # CUGPAW_OPTS     = -DPARALLEL=0 -DGPAW_CUDA=1
 CUGPAW_OPTS     = -DPARALLEL=1 -DGPAW_CUDA=1
 #CUGPAW_OPTS     = -DGPAW_CUDA=1
