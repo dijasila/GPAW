@@ -29,7 +29,7 @@ CUDA_OPTS     =
 # ----------------------------------------------------------------------
 #
 
-CUGPAW_INCLUDES =  -I$(INCdir) $(CUDAinc)-I$(MPIINCdir) -I$(NUMPYINCdir)  -I$(PYTHONINCdir)
+CUGPAW_INCLUDES =  -I$(INCdir) $(CUDAinc) -I$(MPIINCdir) -I$(NUMPYINCdir)  -I$(PYTHONINCdir)
 # CUGPAW_OPTS     = -DPARALLEL=0 -DGPAW_CUDA=1
 CUGPAW_OPTS     = -DPARALLEL=1 -DGPAW_CUDA=1
 #CUGPAW_OPTS     = -DGPAW_CUDA=1
