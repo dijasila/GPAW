@@ -46,10 +46,14 @@ class KSSingles(ExcitationList):
                  jend=None,
                  energy_range=None,
                  filehandle=None,
+                 hdf5=False,
                  txt=None):
 
         if filehandle is not None:
-            self.read(fh=filehandle)
+            if hdf5:
+                self.read_hdf5(fh=filehandle)
+            else:
+                self.read_gz(fh=filehandle)
             return None
 
         ExcitationList.__init__(self, calculator, txt=txt)
@@ -145,6 +149,13 @@ class KSSingles(ExcitationList):
             self.jend = jend
 
     def read(self, filename=None, fh=None):
+
+        if fh is None and filename.endswith('.hdf5'):
+            self.read_hdf5(filename, fh)
+        else:
+            self.read_gz(filename, fh)
+
+    def read_gz(self, filename=None, fh=None):
         """Read myself from a file"""
         if fh is None:
             if filename.endswith('.gz'):
@@ -164,6 +175,42 @@ class KSSingles(ExcitationList):
 
         if fh is None:
             f.close()
+
+    def read_hdf5(self, filename=None, fh=None):
+        """Read from a HDF5 file"""
+        from gpaw.io.hdf5_highlevel import File, HyperslabSelection
+        if fh is None:
+            f = File(filename, 'r', mpi.world.get_c_object())
+        else:
+            f = fh
+
+        kss_group = f['KSSingles']
+        kss_energy = kss_group['energy'][:]
+        kss_i = kss_group['i'][:]
+        kss_j = kss_group['j'][:]
+        kss_spin = kss_group['spin'][:]
+        kss_pspin = kss_group['pspin'][:]
+        kss_fij = kss_group['fij'][:]
+        kss_mur = kss_group['mur'][:]
+        kss_muv = kss_group['muv'][:]
+
+        # XXX This is quite "ugly", constructing the KSSingle via a string,
+        # Should fix in future
+        for i in range(len(kss_i)):
+            str = '%d %d   %d %d   %g %g' % \
+                  (kss_i[i], kss_j[i], kss_pspin[i], kss_spin[i], kss_energy[i], kss_fij[i])
+            str += '  '
+            for m in kss_mur[i]: str += '%12.4e' % m
+            str += '  '
+            for m in kss_muv[i]: str += '%12.4e' % m
+            str += '\n'
+            kss = KSSingle(string = str)
+            self.append(kss)
+
+        self.update()
+        if fh is None:
+            f.close()
+
 
     def update(self):
         istart = self[0].i

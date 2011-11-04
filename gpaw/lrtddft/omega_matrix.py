@@ -16,8 +16,11 @@ from gpaw.lrtddft.kssingle import KSSingles
 from gpaw.transformers import Transformer
 from gpaw.utilities import pack, pack2, packed_index
 from gpaw.utilities.lapack import diagonalize
+from gpaw.kohnsham_layouts import LrTDDFTLayouts
 from gpaw.utilities.timing import Timer
 from gpaw.xc import XC
+from gpaw.parameters import InputParameters
+
 
 import time
 
@@ -46,6 +49,7 @@ class OmegaMatrix:
                  derivativeLevel=None,
                  numscale=0.001,
                  filehandle=None,
+                 hdf5 = False,
                  txt=None,
                  finegrid=2,
                  eh_comm=None,
@@ -62,7 +66,10 @@ class OmegaMatrix:
 
         if filehandle is not None:
             self.kss = kss
-            self.read(fh=filehandle)
+            if hdf5:
+                self.read_hdf5(fh=filehandle)
+            else:
+                self.read_gz(fh=filehandle)
             return None
 
         self.fullkss = kss
@@ -233,7 +240,7 @@ class OmegaMatrix:
 
         ns=self.numscale
         xc=self.xc
-        print >> self.txt, 'XC',self.nij,'transitions'
+        print >> self.txt, 'XC',self.nkq,'transitions'
         for my_ij, ij in enumerate(self.ij):
             print >> self.txt,'XC kss['+'%d'%ij+']' 
 
@@ -383,11 +390,11 @@ class OmegaMatrix:
             timer.stop()
 ##            timer2.write()
             nij = self.nij
-            if ij < (nij-1):
+            if ij < (self.nkq-1):
                 t = timer.get_time(ij) # time for nij-ij calculations
-                t = .5*t*(nij-ij)  # estimated time for n*(n+1)/2, n=nij-(ij+1)
+                t = .5*t*(nij-my_ij)  # estimated time for n*(n+1)/2, n=nij-(ij+1)
                 print >> self.txt,'XC estimated time left',\
-                      self.timestring(t0*(nij-ij-1)+t)
+                      self.timestring(t0*(nij-my_ij-1)+t)
 
 
     def get_rpa(self):
@@ -401,7 +408,7 @@ class OmegaMatrix:
         
         # calculate omega matrix
         # nij = len(kss)
-        print >> self.txt,'RPA',self.nij,'transitions'
+        print >> self.txt,'RPA',self.nkq,'transitions'
         
         Om = self.Om
         
@@ -483,11 +490,11 @@ class OmegaMatrix:
             timer.stop()
 ##            timer2.write()
             nij = self.nij
-            if ij < (nij-1):
+            if ij < (self.nkq-1):
                 t = timer.get_time(ij) # time for nij-ij calculations
-                t = .5*t*(nij-ij)  # estimated time for n*(n+1)/2, n=nij-(ij+1)
+                t = .5*t*(nij-my_ij)  # estimated time for n*(n+1)/2, n=nij-(ij+1)
                 print >> self.txt,'RPA estimated time left',\
-                      self.timestring(t0*(nij-ij-1)+t)
+                      self.timestring(t0*(nij-my_ij-1)+t)
 
     def singlets_triplets(self):
         """Split yourself into singlet and triplet transitions"""
@@ -591,20 +598,39 @@ class OmegaMatrix:
     def diagonalize(self, istart=None, jend=None, energy_range=None):
         """Evaluate Eigenvectors and Eigenvalues:"""
 
-        map, kss = self.get_map(istart, jend, energy_range)
-        nij = len(kss)
-        if map is None:
-            evec = self.full.copy()
+        eh_comm = self.eh_comm
+        if eh_comm.size > 1:
+            if istart is not None or jend is not None \
+               or energy_range is not None:
+                raise NotImplementedError('Submatrix mapping not implemented for eh-parallelization')
+            par = InputParameters()  # We need ScaLAPACK parameters
+            sl_omega = par.parallel['sl_diagonalize']
+            if sl_omega is None:
+                sl_omega = par.parallel['sl_default']
+            nkq = self.Om.shape[1]
+            ksl = LrTDDFTLayouts(sl_omega, nkq, eh_comm)
+            self.eigenvectors = self.Om.copy()  # Should duplicate be avoided
+                                                # for memory?
+            self.eigenvalues = np.zeros(nkq, dtype=float)
+            ksl.diagonalize(self.eigenvectors, self.eigenvalues)
+            # print "Shapes", self.Om.shape, self.eigenvectors.shape
+            shape = self.eigenvectors.shape
+            self.eigenvectors = self.eigenvectors.reshape((shape[1], shape[0]))
         else:
-            evec = np.zeros((nij,nij))
-            for ij in range(nij):
-                for kq in range(nij):
-                    evec[ij,kq] = self.full[map[ij],map[kq]]
+            map, kss = self.get_map(istart, jend, energy_range)
+            nij = len(kss)
+            if map is None:
+                evec = self.Om.copy()
+            else:
+                evec = np.zeros((nij,nij))
+                for ij in range(nij):
+                    for kq in range(nij):
+                        evec[ij,kq] = self.Om[map[ij],map[kq]]
 
-        self.eigenvectors = evec        
-        self.eigenvalues = np.zeros((len(kss)))
-        self.kss = kss
-        diagonalize(self.eigenvectors, self.eigenvalues)
+            self.eigenvectors = evec        
+            self.eigenvalues = np.zeros((len(kss)))
+            self.kss = kss
+            diagonalize(self.eigenvectors, self.eigenvalues)
 
     def Kss(self, kss=None):
         """Set and get own Kohn-Sham singles"""
@@ -615,7 +641,7 @@ class OmegaMatrix:
         else:
             return None
  
-    def read(self, filename=None, fh=None):
+    def read_gz(self, filename=None, fh=None):
         """Read myself from a file"""
         if fh is None:
             f = open(filename, 'r')
@@ -658,20 +684,21 @@ class OmegaMatrix:
 
     def read_hdf5(self, filename=None, fh=None):
         """Read myself from a file"""
+        from gpaw.io.hdf5_highlevel import File, HyperslabSelection
         if fh is None:
-            f = open(filename, 'r')
+            f = File(filename, 'r', mpi.world.get_c_object())
         else:
             f = fh
 
-        f.readline()
-        nij = int(f.readline())
-        full = np.zeros((nij,nij))
-        for ij in range(nij):
-            l = f.readline().split()
-            for kq in range(ij,nij):
-                full[ij,kq] = float(l[kq-ij])
-                full[kq,ij] = full[ij,kq]
-        self.full = full
+        dset = f['OmegaMatrix']
+        full_shape = dset.shape
+        nkq = full_shape[0]
+        indices = (slice(self.eh_comm.rank, nkq, self.eh_comm.size),
+                   slice(nkq))
+        selection = HyperslabSelection(indices, dset.shape)
+        mshape = selection.mshape
+        self.Om = np.ndarray(mshape, dset.dtype)
+        dset.read(self.Om, selection, collective=True)
 
         if fh is None:
             f.close()
@@ -684,9 +711,9 @@ class OmegaMatrix:
         else:
             f = fh
 
-        dset = f.create_dataset('OmegaMatrix', (self.nij, self.nij), float)
-        indices = (slice(self.eh_comm.rank, self.nij, self.eh_comm.size),
-                   slice(self.nij))
+        dset = f.create_dataset('OmegaMatrix', (self.nkq, self.nkq), float)
+        indices = (slice(self.eh_comm.rank, self.nkq, self.eh_comm.size),
+                   slice(self.nkq))
         comm = self.paw.density.finegd.comm
         if comm.rank == 0:
             selection = HyperslabSelection(indices, dset.shape)
@@ -711,6 +738,5 @@ class OmegaMatrix:
             for ev in self.eigenvalues:
                 str += ' ' + ('%f'%(sqrt(ev) * Hartree))
         return str
-    
-
+            
 

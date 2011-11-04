@@ -74,6 +74,18 @@ class LrTDDFT(ExcitationList):
         self.istart = None
         self.jend = None
 
+        if eh_comm is None:
+            eh_comm = mpi.serial_comm
+        elif isinstance(eh_comm, (mpi.world.__class__,
+                                mpi.serial_comm.__class__)):
+            # Correct type already.
+            pass
+        else:
+            # world should be a list of ranks:
+            eh_comm = mpi.world.new_communicator(np.asarray(eh_comm))
+
+        self.eh_comm = eh_comm
+
         if isinstance(calculator, str):
             ExcitationList.__init__(self, None, txt)
             return self.read(calculator)
@@ -91,18 +103,6 @@ class LrTDDFT(ExcitationList):
         self.numscale = numscale
         self.finegrid = finegrid
         self.force_ApmB = force_ApmB
-
-        if eh_comm is None:
-            eh_comm = mpi.serial_comm
-        elif isinstance(eh_comm, (mpi.world.__class__,
-                                mpi.serial_comm.__class__)):
-            # Correct type already.
-            pass
-        else:
-            # world should be a list of ranks:
-            eh_comm = mpi.world.new_communicator(np.asarray(eh_comm))
-
-        self.eh_comm = eh_comm
  
         if calculator is not None:
             calculator.converge_wave_functions()
@@ -201,6 +201,13 @@ class LrTDDFT(ExcitationList):
         return self.Om
 
     def read(self, filename=None, fh=None):
+
+        if fh is None and filename.endswith('.hdf5'):
+            self.read_hdf5(filename, fh)
+        else:
+            self.read_gz(filename, fh)
+
+    def read_gz(self, filename=None, fh=None):
         """Read myself from a file"""
 
         if fh is None:
@@ -263,7 +270,39 @@ class LrTDDFT(ExcitationList):
         self.istart = self.Om.fullkss.istart
         self.jend = self.Om.fullkss.jend
 
+    def read_hdf5(self, filename=None, fh=None):
+        """Read from a HDF5 file"""
+        from gpaw.io.hdf5_highlevel import File
+        if fh is None:
+            f = File(filename, 'r', mpi.world.get_c_object())
+        else:
+            f = fh
 
+        self.name = f.attrs['Title']
+        xc_group = f['XC']
+        self.xc = xc_group.attrs['XC']
+        self.eps = xc_group.attrs['eps']
+        self.derivative_level = xc_group.attrs['derivative_level']
+        self.numscale = xc_group.attrs['numscale']
+        self.finegrid = xc_group.attrs['finegrid']
+        xc_group.close()
+
+        self.kss = KSSingles(filehandle=f, hdf5=True)
+        self.Om = OmegaMatrix(kss=self.kss, filehandle=f, hdf5=True,
+                                  txt=self.txt, eh_comm=self.eh_comm)
+
+        self.Om.Kss(self.kss)
+
+        # XXX Eigenvalues and vectors to be implemented
+
+        if fh is None:
+            f.close()
+
+        # update own variables
+        self.istart = self.Om.fullkss.istart
+        self.jend = self.Om.fullkss.jend
+
+        
     def singlets_triplets(self):
         """Split yourself into a singlet and triplet object"""
 
@@ -356,14 +395,18 @@ class LrTDDFT(ExcitationList):
 
     def write_hdf5(self, filename=None, fh=None):
 
-        from gpaw.io.hdf5_highlevel import File 
-        fh = File(filename, 'w', mpi.world.get_c_object())
-        fh.attrs['Title'] = self.name
+        from gpaw.io.hdf5_highlevel import File
+        if fh is None:
+            f = File(filename, 'w', mpi.world.get_c_object())
+        else:
+            f = fh
+
+        f.attrs['Title'] = self.name
         xc = self.xc
         if xc is None: xc = 'RPA'
         if self.calculator is not None:
             xc += ' ' + self.calculator.get_xc_functional()
-        xc_group = fh.create_group('XC')
+        xc_group = f.create_group('XC')
         xc_group.attrs['XC'] = xc
         xc_group.attrs['eps'] = self.eps
         xc_group.attrs['derivative_level'] = int(self.derivative_level)
@@ -371,8 +414,8 @@ class LrTDDFT(ExcitationList):
         xc_group.attrs['finegrid'] = int(self.finegrid)
         xc_group.close()
 
-        self.kss.write_hdf5(fh=fh)
-        self.Om.write_hdf5(fh=fh)
+        self.kss.write_hdf5(fh=f)
+        self.Om.write_hdf5(fh=f)
 
         # XXX To be worked out
         # if len(self):
@@ -394,7 +437,8 @@ class LrTDDFT(ExcitationList):
         #             f.write('%g '%w)
         #         f.write('\n')
 
-        fh.close()
+        if fh is None:
+            f.close()
 
 def d2Excdnsdnt(dup, ddn):
     """Second derivative of Exc polarised"""
@@ -426,10 +470,12 @@ class LrTDDFTExcitation(Excitation):
             else:
                 self.energy = sqrt(ev)
             self.f = Om.eigenvectors[i]
-            self.kss = Om.kss
-            self.me = 0.
+            nkss = len(Om.kss)
+            self.kss = Om.kss[Om.eh_comm.rank:nkss:Om.eh_comm.size]
+            self.me = np.zeros(3, float)
             for f,k in zip(self.f, self.kss):
                 self.me += f * k.me
+            Om.eh_comm.sum(self.me)
 
             return
 
