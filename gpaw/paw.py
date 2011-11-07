@@ -570,7 +570,13 @@ class PAW(PAWTextOutput):
                                                timer=self.timer)
 
                 if mode == 'fd':
-                    self.wfs = FDWaveFunctions(par.stencils[0], diagksl,
+                    if hasattr(self, 'time'):
+                        from gpaw.tddft import TDFDWaveFunctions #XXX
+                        self.wfs = TDFDWaveFunctions(par.stencils[0], diagksl,
+                                        orthoksl, initksl, gd, nvalence,
+                                        setups, bd, world, kd, self.timer)
+                    else:
+                        self.wfs = FDWaveFunctions(par.stencils[0], diagksl,
                                                orthoksl, initksl, *args)
                 else:
                     # Planewave basis:

@@ -17,6 +17,8 @@ from gpaw.mixer import DummyMixer
 from gpaw.version import version
 from gpaw.preconditioner import Preconditioner
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
+from gpaw.wavefunctions.fd import FDWaveFunctions
+from gpaw.utilities import unpack
 from gpaw.tddft.units import attosec_to_autime, autime_to_attosec, \
                              eV_to_aufrequency, aufrequency_to_eV
 from gpaw.tddft.utils import MultiBlas
@@ -63,6 +65,111 @@ class InverseOverlapPreconditioner:
         self.overlap.apply_inverse(psi, psin, kpt)
 # ^^^^^^^^^^
 
+class TDFDWaveFunctions(FDWaveFunctions):
+    def __init__(self, stencil, diagksl, orthoksl, initksl, gd, nvalence, setups,
+                 bd, world, kd, timer=None, td_correction=None): #XXX par.stencils?
+        FDWaveFunctions.__init__(self, stencil, diagksl, orthoksl, initksl,
+                                 gd, nvalence, setups, bd, complex, world,
+                                 kd, timer)
+        self.td_correction = td_correction
+
+    def calculate_forces(self, hamiltonian, F_av):
+        """ Calculate wavefunction forces with optional corrections for
+            Ehrenfest dynamics
+        """  
+
+            
+        #If td_correction is not none, we replace the overlap part of the
+        #force, sum_n f_n eps_n < psit_n | dO / dR_a | psit_n>, with
+        #sum_n f_n <psit_n | H S^-1 D^a + c.c. | psit_n >, with D^a
+        #defined as D^a = sum_{i1,i2} | pt_i1^a > [O_{i1,i2} < d pt_i2^a / dR_a |
+        #+ (< phi_i1^a | d phi_i2^a / dR_a > - < phit_i1^a | d phit_i2^a / dR_a >) < pt_i1^a|].
+        #This is required in order to conserve the total energy also when electronic
+        #excitations start to play a significant role.
+
+        #TODO: move the corrections into the tddft directory
+
+        # Calculate force-contribution from k-points:
+        F_av.fill(0.0)
+        F_aniv = self.pt.dict(self.bd.mynbands, derivative=True)
+        #print 'self.dtype =', self.dtype
+        for kpt in self.kpt_u:
+            self.pt.derivative(kpt.psit_nG, F_aniv, kpt.q)
+
+            #self.overlap.update_k_point_projections(kpt)
+            self.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+            hpsit = self.gd.zeros(len(kpt.psit_nG), dtype=self.dtype)
+            #eps_psit = self.gd.zeros(len(kpt.psit_nG), dtype=self.dtype)
+            sinvhpsit = self.gd.zeros(len(kpt.psit_nG), dtype=self.dtype)
+            hamiltonian.apply(kpt.psit_nG, hpsit, self, kpt, calculate_P_ani=True)
+            if self.td_correction is 'sinvcg':
+                self.overlap.apply_inverse_cg(hpsit, sinvhpsit, self, kpt, calculate_P_ani=True)
+            elif self.td_correction is 'sinvapr':
+                self.overlap.apply_inverse(hpsit, sinvhpsit, self, kpt, calculate_P_ani=True)
+            else:
+                raise ValueError('Unrecognized TD correction %s' % self.td_correction)
+            #print 'sinvhpsit_0_cg - epspsit_0.max', abs(sinvhpsit[0]-eps_psit[0]).max()
+            #print 'sinvhpsit_0 - epspsit_0.max', abs(sinvhpsit2[0]-eps_psit[0]).max()
+
+            G_axi = self.pt.dict(self.bd.mynbands)
+            self.pt.integrate(sinvhpsit, G_axi, kpt.q)
+
+            for a, F_niv in F_aniv.items():
+                F_niv = F_niv.conj()
+                F_niv *= kpt.f_n[:, np.newaxis, np.newaxis]
+                FdH1_niv = F_niv.copy()
+                dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
+                P_ni = kpt.P_ani[a]
+                dO_ii = hamiltonian.setups[a].dO_ii
+                F_vii = np.dot(np.dot(F_niv.transpose(), P_ni), dH_ii)
+
+                fP_ni = P_ni * kpt.f_n[:,np.newaxis]
+                G_ni = G_axi[a]
+                nabla_iiv = hamiltonian.setups[a].nabla_iiv
+                F_vii_sinvh_dpt = -np.dot(np.dot(FdH1_niv.transpose(), G_ni), dO_ii)
+                F_vii_sinvh_dphi = -np.dot(nabla_iiv.transpose(2,0,1), np.dot(fP_ni.conj().transpose(), G_ni))
+                F_vii += F_vii_sinvh_dpt + F_vii_sinvh_dphi
+                                    
+                #F_av_dO[a] += 2 * F_vii_dO.real.trace(0,1,2)
+                #F_av_dH[a] += 2 * F_vii_dH.real.trace(0,1,2)
+                F_av[a] += 2 * F_vii.real.trace(0, 1, 2)
+
+            # Hack used in delta-scf calculations:
+            if hasattr(kpt, 'c_on'):
+                assert self.bd.comm.size == 1
+                self.pt.derivative(kpt.psit_nG, F_aniv, kpt.q)  #XXX again
+                d_nn = np.zeros((self.bd.mynbands, self.bd.mynbands),
+                                dtype=complex)
+                for ne, c_n in zip(kpt.ne_o, kpt.c_on):
+                    d_nn += ne * np.outer(c_n.conj(), c_n)
+                for a, F_niv in F_aniv.items():
+                    F_niv = F_niv.conj()
+                    dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
+                    Q_ni = np.dot(d_nn, kpt.P_ani[a])
+                    F_vii = np.dot(np.dot(F_niv.transpose(), Q_ni), dH_ii)
+                    F_niv *= kpt.eps_n[:, np.newaxis, np.newaxis]
+                    dO_ii = hamiltonian.setups[a].dO_ii
+                    F_vii -= np.dot(np.dot(F_niv.transpose(), Q_ni), dO_ii)
+                    F_av[a] += 2 * F_vii.real.trace(0, 1, 2)
+
+        self.bd.comm.sum(F_av, 0)
+
+        if self.bd.comm.rank == 0:
+            self.kpt_comm.sum(F_av, 0)
+
+"""
+class SinvCGWFS(TDFDWaveFunctions):
+    def __init__(self, stencil, diagksl, orthoksl, initksl, gd, nvalence, setups,
+                 bd, world, kd, timer=None): #XXX par.stencils?
+        TDFDWaveFunctions.__init__(self, stencil, diagksl, orthoksl, initksl, gd,
+                 nvalence, setups, bd, world, kd, timer, td_correction='sinvcg')
+
+class SinvAprWFS(TDFDWaveFunctions):
+    def __init__(self, stencil, diagksl, orthoksl, initksl, gd, nvalence, setups,
+                 bd, world, kd, timer=None): #XXX par.stencils?
+        TDFDWaveFunctions.__init__(self, stencil, diagksl, orthoksl, initksl, gd,
+                 nvalence, setups, bd, world, kd, timer, td_correction='sinvapr')
+"""
 
 ###########################
 # Main class
@@ -77,7 +184,7 @@ class TDDFT(GPAW):
     def __init__(self, ground_state_file=None, txt='-', td_potential=None,
                  propagator='SICN', solver='CSCG', tolerance=1e-8,
                  parsize=None, parsize_bands=1, parstride_bands=True,
-                 communicator=mpi.world):
+                 communicator=mpi.world, td_correction=None):
         """Create TDDFT-object.
         
         Parameters:
@@ -92,6 +199,8 @@ class TDDFT(GPAW):
             Name of the time propagator for the Kohn-Sham wavefunctions
         solver: {'CSCG','BiCGStab'}
             Name of the iterative linear equations solver for time propagation
+        td_correction: {'sinvcg','sinvapr'}
+            Name of the iterative linear equations solver for time correction XXX TODO
         tolerance: float
             Tolerance for the linear solver
 
@@ -117,6 +226,16 @@ class TDDFT(GPAW):
                       parallel={'domain': parsize, 'band': parsize_bands, 
                                 'stridebands': parstride_bands},
                       communicator=communicator, dtype=complex)
+
+        assert hasattr(self.wfs, 'td_correction') #XXX should be None
+        self.wfs.td_correction = td_correction
+        ## Solver for linear equations
+        #if td_correction is 'sinvcg':
+        #    mode = SinvCGWFS
+        #elif td_correction is 'sinvapr':
+        #    mode = SinvAprWFS
+        #else:
+        #    raise RuntimeError('TD correction %s not supported.' % td_correction)
 
         # Prepare for dipole moment file handle
         self.dm_file = None
@@ -179,6 +298,8 @@ class TDDFT(GPAW):
                                tolerance=tolerance)
         else:
             raise RuntimeError('Solver %s not supported.' % solver)
+
+        self.text('TD correction: ', td_correction) #XXX
 
         # Preconditioner
         # No preconditioner as none good found

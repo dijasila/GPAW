@@ -30,7 +30,7 @@ from gpaw.mpi import world
 
 class EhrenfestVelocityVerlet:
     
-    def __init__(self, calc, mass_scale = 1.0, setups='paw', td_force_correction='sinvcg'):
+    def __init__(self, calc, mass_scale = 1.0, setups='paw'):
         """Initializes the Ehrenfest MD calculator.
 
         Parameters
@@ -44,13 +44,6 @@ class EhrenfestVelocityVerlet:
         setups: {'paw', 'hgh'}
             Type of setups to use for the calculation
 
-        td_force_correction: {'sinvcg', 'sinvapr', None}
-            Type of force correction to use for the calculation
-            None -- no correction (not recommended)
-            'sinvapr' -- use correction and calculate the inverse of S approximatively (fast)
-            'sinvcg' -- use correction and calculate the inverse of S iteratively
-            (slower but in some cases more accurate)
-
         Note
         ------
 
@@ -61,7 +54,6 @@ class EhrenfestVelocityVerlet:
         #print '--- EhrenfestVelocityVerlet is NOT READY FOR PRODUCTION USE ---'
         self.calc = calc
         self.setups = setups
-        self.force_correction = td_force_correction
         self.x  = self.calc.atoms.positions.copy() / Bohr
         self.xn = self.x.copy()
         self.v  = self.x.copy()
@@ -115,8 +107,7 @@ class EhrenfestVelocityVerlet:
         self.calc.forces.reset()
         self.F = self.calc.forces.calculate(self.calc.wfs,
                                             self.calc.td_density.get_density(),
-                                            self.calc.td_hamiltonian.hamiltonian,
-                                            self.force_correction)
+                                            self.calc.td_hamiltonian.hamiltonian)
 
         for i in range(len(self.F)):
             self.a[i] = self.F[i] / self.M[i]
@@ -133,8 +124,7 @@ class EhrenfestVelocityVerlet:
         self.calc.forces.reset()
         self.F = self.calc.forces.calculate(self.calc.wfs,
                                             self.calc.td_density.get_density(),
-                                            self.calc.td_hamiltonian.hamiltonian,
-                                            self.force_correction)
+                                            self.calc.td_hamiltonian.hamiltonian)
 
         for i in range(len(self.F)):
             self.ah[i] = self.F[i] / self.M[i]
@@ -158,8 +148,7 @@ class EhrenfestVelocityVerlet:
         self.calc.forces.reset()
         self.F = self.calc.forces.calculate(self.calc.wfs,
                                             self.calc.td_density.get_density(),
-                                            self.calc.td_hamiltonian.hamiltonian,
-                                            self.force_correction)
+                                            self.calc.td_hamiltonian.hamiltonian)
 
         for i in range(len(self.F)):
             self.ah[i] = self.F[i] / self.M[i]
@@ -176,8 +165,7 @@ class EhrenfestVelocityVerlet:
         self.calc.forces.reset()
         self.F = self.calc.forces.calculate(self.calc.wfs,
                                             self.calc.td_density.get_density(),
-                                            self.calc.td_hamiltonian.hamiltonian,
-                                            self.force_correction)
+                                            self.calc.td_hamiltonian.hamiltonian)
 
         for i in range(len(self.F)):
             self.an[i] = self.F[i] / self.M[i]
