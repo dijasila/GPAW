@@ -1,6 +1,7 @@
-from ase.units import Bohr, fs, _me, _amu
+from ase.units import Bohr, AUT, _me, _amu
 from gpaw import *
 from gpaw.tddft import *
+from gpaw.tddft.units import attosec_to_autime
 from gpaw.mpi import world
 
 ###############################################################################
@@ -64,21 +65,18 @@ class EhrenfestVelocityVerlet:
         self.x  = self.calc.atoms.positions.copy() / Bohr
         self.xn = self.x.copy()
         self.v  = self.x.copy()
-        fs_to_autime = 1000/24.18884326505
         amu_to_aumass = _amu / _me
         if self.calc.atoms.get_velocities() is not None:
-            self.v = self.calc.atoms.get_velocities().copy()
-            self.v *= (1/Bohr) * (1/(1/fs) * fs_to_autime)
+            self.v = self.calc.atoms.get_velocities() / (Bohr / AUT)
         else:
-            self.v[:][:] = 0.0            
+            self.v[:] = 0.0
             self.calc.atoms.set_velocities(self.v)
         
         self.vt = self.v.copy()
         self.vh = self.v.copy()
         self.time = 0.0
         
-        self.M = calc.atoms.get_masses().copy()
-        self.M = self.M * amu_to_aumass * mass_scale
+        self.M = calc.atoms.get_masses() * amu_to_aumass * mass_scale
 
         self.a  = self.v.copy()
         self.ah = self.a.copy()
@@ -105,12 +103,10 @@ class EhrenfestVelocityVerlet:
             Time step (in attoseconds) used for the Ehrenfest MD step
 
         """
-        fs_to_autime = 1000/24.18884326505
         self.x  = self.calc.atoms.positions.copy() / Bohr
-        self.v  = self.calc.atoms.get_velocities().copy()
-        self.v *= (1/Bohr) * (1/(1/fs) * fs_to_autime)
+        self.v  = self.calc.atoms.get_velocities() / (Bohr / AUT)
 
-        dt = dt * fs_to_autime/1000
+        dt = dt * attosec_to_autime
 
         # m a(t+dt)   = F[psi(t),x(t)] 
         self.calc.atoms.positions = self.x * Bohr
@@ -210,10 +206,8 @@ class EhrenfestVelocityVerlet:
         self.a[:] = self.an
 
         # update atoms
-        fs_to_autime = 1000/24.18884326505
         self.calc.atoms.set_positions(self.x * Bohr)
-        self.calc.atoms.set_velocities(self.v * Bohr
-                                          / fs_to_autime / fs)
+        self.calc.atoms.set_velocities(self.v * Bohr / AUT)
 
     def get_energy(self):
         """Updates kinetic, electronic and total energies"""
@@ -236,6 +230,4 @@ class EhrenfestVelocityVerlet:
 
     def set_velocities_in_au(self, v):
         self.v[:] = v
-        fs_to_autime = 1000/24.18884326505
-        va = v / ((1/Bohr) * (1/(1/fs) * fs_to_autime))
-        self.calc.atoms.set_velocities(va)
+        self.calc.atoms.set_velocities(v * Bohr / AUT)
