@@ -1,5 +1,5 @@
 from gpaw import GPAW, restart
-from ase.data.molecules import molecule
+from ase.structure import molecule
 from gpaw.test import equal
 Eini0 = -17.6122060535
 Iini0 = 12
@@ -12,8 +12,8 @@ I0 = {'cg': 6, 'rmm-diis': 7, 'dav': 8}
 
 calc = GPAW(xc='LDA',
             eigensolver='cg',
-            convergence={'eigenstates': 1E-6},
-            txt=None,
+            convergence={'eigenstates': 3.5e-5},
+            #txt=None,
             dtype=complex)
 
 
@@ -43,7 +43,7 @@ for esolver in esolvers:
         raise AssertionError('ERROR: restart failed to read complex WFS')
     
     calc.scf.reset()
-    calc.set(convergence={'eigenstates': 1E-10})
+    calc.set(convergence={'eigenstates': 3.5e-9})
     calc.set(eigensolver=esolver)
 
     E[esolver]=mol.get_potential_energy()

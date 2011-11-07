@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-#PBS -q medium -l nodes=1:ppn=8:xeon5570 -m abe -V
 # Takes 30 mins with 8 cores in domain-parallel (memory ~500mb, max 1.5gb)
 
 import numpy as np
@@ -45,6 +43,6 @@ d_lr.diagonalize()
 pes = TDDFTPES(m_c, d_lr, d_c)
 pes.save_folded_pes('CO-td.dat', folding=None)
 
-pes = DOSPES(m_c, d_c)
+pes = DOSPES(m_c, d_c, shift=True)
 pes.save_folded_pes('CO-dos.dat', folding=None)
 

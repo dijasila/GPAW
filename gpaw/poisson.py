@@ -7,6 +7,8 @@ import sys
 import numpy as np
 from numpy.fft import fftn, ifftn, fft2, ifft2
 
+from ase.parallel import parprint
+
 from gpaw.transformers import Transformer
 from gpaw.fd_operators import Laplace, LaplaceA, LaplaceB
 from gpaw import PoissonConvergenceError
@@ -141,14 +143,14 @@ class PoissonSolver:
             # System is charged and periodic. Subtract a homogeneous
             # background charge
             if self.charged_periodic_correction is None:
-                print "+-----------------------------------------------------+"
-                print "| Calculating charged periodic correction using the   |"
-                print "| Ewald potential from a lattice of probe charges in  |"
-                print "| a homogenous background density                     |"
-                print "+-----------------------------------------------------+"
+                parprint("""+-----------------------------------------------------+
+| Calculating charged periodic correction using the   |
+| Ewald potential from a lattice of probe charges in  |
+| a homogenous background density                     |
++-----------------------------------------------------+""")
                 self.charged_periodic_correction = madelung(self.gd.cell_cv)
-                print "Potential shift will be ", \
-                      self.charged_periodic_correction , "Ha."
+                parprint("Potential shift will be ",
+                         self.charged_periodic_correction , "Ha.")
 
             # Set initial guess for potential
             if zero_initial_phi:

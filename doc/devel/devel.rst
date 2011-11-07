@@ -5,7 +5,7 @@ Development
 ===========
 
 GPAW development can be done by anyone! Just take a look at the
-:ref:`todo` list and find something that suits your talents!
+:ref:`todolist` list and find something that suits your talents!
 
 The primary source of information is still the :ref:`manual` and
 :ref:`documentation`, but as a developer you might need additional
@@ -46,6 +46,7 @@ to become the next release.
 .. _PyLint: http://www.logilab.org/857
 
 
+.. _the_big_picture:
 .. _code_overview:
 
 Code Overview
@@ -53,10 +54,9 @@ Code Overview
 
 Keep this picture under your pillow:
 
-.. _the_big_picture:
 
 .. image:: bigpicture.png
-   :target: ../bigpicture.pdf
+   :target: ../bigpicture.svg
 
 The developer guide provides an overview of the PAW quantities and how
 the corresponding objects are defined in the code:

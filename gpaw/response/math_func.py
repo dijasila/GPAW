@@ -1,7 +1,5 @@
 from math import sqrt, pi
-
 import numpy as np
-
 from gpaw.utilities.blas import gemmdot
 from gpaw.gaunt import gaunt as G_LLL
 from gpaw.spherical_harmonics import Y
@@ -27,7 +25,7 @@ def hilbert_transform(specfunc_wGG, Nw, dw, eta, fullresponse=False):
             if fullresponse is False:
                 tmp_ww[iw, jw] = 1. / (w - ww + 1j*eta) - 1. / (w + ww + 1j*eta)
             else:
-                tmp_ww[iw, jw] = 1. / (w - ww - 1j*eta) - 1. / (w + ww + 1j*eta)
+                tmp_ww[iw, jw] = 1. / (w - ww + 1j*eta) - 1. / (w + ww - 1j*eta)
 
     chi0_wGG = gemmdot(tmp_ww, specfunc_wGG, beta = 0.)
 

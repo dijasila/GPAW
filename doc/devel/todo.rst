@@ -1,8 +1,86 @@
-.. _todo:
+.. _todolist:
 
-=====
-To do
-=====
+=========
+Todo list
+=========
+
+.. seealso::
+
+   * GPAW's `issue tracker <http://trac.fysik.dtu.dk/projects/gpaw/report/1>`__
+   * ASE's `issue tracker <http://trac.fysik.dtu.dk/projects/ase/report/1>`__
+
+
+Simple tasks
+============
+
+* Remove this nonsense from GPAW's text output: "Bands to Converge:
+  -20 Lowest Bands".
+
+* Merge ``Domain`` and ``GridDescriptor`` classes into one class and
+  remove ``xxxucell_cv`` and ``xxxiucell_cv`` members.
+
+* Remove ``get_scaled_positions() % 1`` statements.  Should not be
+  needed since ASE version 3.4.
+
+* The :ref:`pawxml` needs to be extended to include MGGA quantities
+  like the core kinetic energy density.
+
+* Evaluate the effect of using default RMMDIIS blocksize=10.
+
+* Write dipole moment to trajectory files.
+
+* "Broken symmetry": We need a better error message.  This happens
+  often when ASE's vibration module tries to move atoms.
+
+* Calculate a memory estimate for vdW-DF calculations.
+
+* Stop using ``wfs.ibzk_qc`` and other things that are in ``wfs.kd``.
+
+* Use :meth:`ase.Atoms.get_charges` instead of the ``charge`` keyword.
+
+
+Questions
+=========
+
+* ``DeprecationWarning``'s have been silenced in Python 2.7.  What do we do?
+
+* Should we warn users if they use a ridiculously slow BLAS library?
+
+* Can we use ctypes to link to MPI, libxc, and GPAW's own C-code?
+  Would this work on BlueGene and Cray?
+
+
+Larger projects
+===============
+
+* Allow the number of grid points to be multiples of 3, 5, 7, 11 and so on.
+
+* Rename gpaw.utilities to gpaw.utils as in ASE and clean up!
+
+* Invent more flexible specification of setups using file names or
+  directories: ``setups={'La': '~/mysetups'}``.
+
+* Finish dipole layer implementation.
+
+* Update our copy of the libxc source code and integrate our MGGA changes.
+
+* Implement the HSE03 hybrid functional.
+
+* Calculate the stress tensor.
+
+
+Documentation
+=============
+
+* Write a Sphinx-role that can convert a `DOI number
+  <http://dx.doi.org>`_ to title, authers and journal.
+
+* Remove png's from svn-repository.
+
+* Update :ref:`The big picture <the_big_picture>`: remove the two
+  ``gd`` boxes and the ``kpt_comm`` box.
+
+* Write a C-style guide.
 
 
 Important setup problems to fix
@@ -15,33 +93,3 @@ Important setup problems to fix
   AFM-II MnO.
 * Fine-tune Fourier filtering of projector functions.  There is still
   room for improvements.
-
-
-Ideas for new features
-======================
-
-* Implement Hybrid functionals for systems with **k**-point sampling.
-* Add possibility to use a plane wave basis.
-* Calculate stress tensor.
-* Linear scaling for LCAO or FD mode.
-* Implement simple tight-binding mode.
-
-
-Documentation
-=============
-
-* Major overhaul of web-page.
-* Improve documentation for developers.
-
-
-Other stuff
-===========
-
-* Refactor IO code and restart code.
-* Optimize IO for calculations running on 1000+ cores.
-* Switch from SVN to some DVCS.  This should make it easier for
-  everyone to work with the code.
-* Linking to BLAS library from both GPAW and NumPy can cause problems
-  on some architectures and for some BLAS libraries.
-
-

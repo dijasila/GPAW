@@ -6,9 +6,10 @@ Atomic PAW Setups
 
 A setup is to the PAW method what a pseudo-potential is to the
 pseudo-potential method.  All available setups are contained in this
-tar-file: gpaw-setups-0.6.6300.tar.gz_.  Install them as described in the
-:ref:`installationguide_setup_files`.
-The setups are stored as compressed :ref:`pawxml` files.
+tar-file: gpaw-setups-0.8.7929.tar.gz_.  There are setups for the LDA,
+PBE, revPBE, RPBE and GLLBSC functionals.  Install them as described
+in the :ref:`installationguide_setup_files`.  The setups are stored as
+compressed :ref:`pawxml` files.
 
 
 Periodic table
@@ -27,7 +28,7 @@ See also `NIST Atomic Reference Data`_, `Computational Chemistry
 Comparison and Benchmark DataBase`_, `Dacapo pseudo potentials`_, and
 `Vasp pseudo potentials`_.
 
-.. _gpaw-setups-0.6.6300.tar.gz: http://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-0.6.6300.tar.gz
+.. _gpaw-setups-0.8.7929.tar.gz: http://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-0.8.7929.tar.gz
 .. _NIST Atomic Reference Data: http://physics.nist.gov/PhysRefData/DFTdata/Tables/ptable.html
 .. _Computational Chemistry Comparison and Benchmark DataBase: http://srdata.nist.gov/cccbdb/
 .. _Dacapo pseudo potentials: https://wiki.fysik.dtu.dk/dacapo/Pseudopotential_Library

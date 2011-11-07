@@ -1,8 +1,8 @@
 .. _pawxml:
 
-==================================
-Atomic setups for PAW calculations
-==================================
+=======================================
+XML specification for atomic PAW setups
+=======================================
 
 .. default-role:: math
 

@@ -3,13 +3,14 @@ Grid-based projector-augmented wave method
 ==========================================
 
 GPAW is a density-functional theory (DFT) Python_ code based on the
-projector-augmented wave (:ref:`PAW <literature>`) method.  It uses
-real-space uniform grids and multigrid methods or atom-centered
-basis-functions.  Read more about :ref:`its features and the
-algorithms used <features_and_algorithms>`.
+projector-augmented wave (:ref:`PAW <literature>`) method and the
+atomic simulation environment (ASE_).  It uses real-space uniform
+grids and multigrid methods or atom-centered basis-functions.  Read
+more about :ref:`its features and the algorithms used
+<features_and_algorithms>`.
 
 .. _Python: http://www.python.org
-
+.. _ASE: https://wiki.fysik.dtu.dk/ase
 
 .. |i0| image:: _static/logo-anl.png
         :height: 44 px
@@ -54,6 +55,14 @@ algorithms used <features_and_algorithms>`.
 
 News
 ====
+
+* Help!  The :ref:`todolist` has been updated.  Maybe there is
+  something you can do (May 25 2011)
+ 
+* :ref:`GPAW version 0.8 <releasenotes>` released (May 25 2011)
+
+* GPAW is part of benchmark suite for `CSC's supercomputer procurement`_ 
+  (Apr 19 2011)
 
 * New features: Calculation of the linear :ref:`dielectric response
   <df_theory>` of an extended system (RPA and ALDA kernels) and
@@ -120,3 +129,4 @@ News
 .. _scientific highlight of the month: http://www.psi-k.org/newsletters/News_98/Highlight_98.pdf
 .. _pycon 2011: http://us.pycon.org/2011/schedule/presentations/226/
 .. _Python for High Performance Computing: http://pycon.blip.tv/file/4881240/
+.. _CSC's supercomputer procurement: http://www.csc.fi/english/pages/hpc2011

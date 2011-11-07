@@ -14,7 +14,7 @@ def vxc(paw, xc=None):
 
     if xc is None:
         xc = ham.xc
-    else:
+    elif isinstance(xc, str):
         xc = XC(xc)
 
     if dens.nt_sg is None:
@@ -22,6 +22,9 @@ def vxc(paw, xc=None):
 
     thisisatest = not True
     
+    if xc.orbital_dependent:
+        paw.get_xc_difference(xc)
+
     # Calculate XC-potential:
     vxct_sg = ham.finegd.zeros(wfs.nspins)
     xc.calculate(dens.finegd, dens.nt_sg, vxct_sg)
@@ -34,7 +37,7 @@ def vxc(paw, xc=None):
     dvxc_asii = {}
     for a, D_sp in dens.D_asp.items():
         dvxc_sp = np.zeros_like(D_sp)
-        wfs.setups[a].xc_correction.calculate(xc, D_sp, dvxc_sp)
+        xc.calculate_paw_correction(wfs.setups[a], D_sp, dvxc_sp)
         dvxc_asii[a] = [unpack(dvxc_p) for dvxc_p in dvxc_sp]
         if thisisatest:
             dvxc_asii[a] = [wfs.setups[a].dO_ii]
@@ -52,5 +55,9 @@ def vxc(paw, xc=None):
                       P_ni.conj()).sum(1).real
 
     wfs.gd.comm.sum(vxc_un)
+    vxc_skn = wfs.kd.collect(vxc_un)
 
-    return vxc_un * Hartree
+    if xc.orbital_dependent:
+        vxc_skn += xc.exx_skn
+
+    return vxc_skn * Hartree

@@ -195,11 +195,10 @@ class SIC(XCFunctional):
     def get_setup_name(self):
         return self.xc.get_setup_name()
 
-    def calculate_radial(self, rgd, n_sLg, Y_L, v_sg,
-                         dndr_sLg=None, rnablaY_Lv=None,
-                         tau_sg=None, dedtau_sg=None):
-        return self.xc.calculate_radial(rgd, n_sLg, Y_L, v_sg,
-                                        dndr_sLg, rnablaY_Lv)
+    def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
+                                 addcoredensity=True, a=None):
+        return self.xc.calculate_paw_correction(setup, D_sp, dEdD_sp,
+                                 addcoredensity, a)
     
     def set_positions(self, spos_ac):
         if not self.finegrid:
@@ -519,8 +518,10 @@ class SICSpin:
         # calculate wannier matrixelements 
         Z_mmv = np.empty((self.nocc, self.nocc, 3), complex)
         for v in range(3):
+            G_v = np.zeros(3)
+            G_v[v] = 1
             Z_mmv[:, :, v] = self.gd.wannier_matrix(self.kpt.psit_nG,
-                                                    self.kpt.psit_nG, v, 1,
+                                                    self.kpt.psit_nG, G_v,
                                                     self.nocc)
         self.gd.comm.sum(Z_mmv)
         #
@@ -567,8 +568,10 @@ class SICSpin:
         # calculate wannier matrixelements
         Z_mmv = np.empty((self.nocc, self.nocc, 3), complex)
         for v in range(3):
+            G_v = np.zeros(3)
+            G_v[v] = 1
             Z_mmv[:, :, v] = self.gd.wannier_matrix(self.phit_mG,
-                                                    self.phit_mG, v, 1,
+                                                    self.phit_mG, G_v,
                                                     self.nocc)
         self.gd.comm.sum(Z_mmv)
         #
@@ -700,8 +703,8 @@ class SICSpin:
                     dH_sp = np.zeros((2, len(dH_p)))
                     #
                     D_sp = np.array([D_p, np.zeros_like(D_p)])
-                    exc += setup.xc_correction.calculate(self.xc, D_sp, dH_sp,
-                                                         addcoredensity=False)
+                    exc += self.xc.calculate_paw_correction(
+                        setup, D_sp, dH_sp, addcoredensity=False)
                     dH_p[:] = -dH_sp[0] * self.xc_factor
                 
                 self.exc_m[m] = -self.xc_factor * exc

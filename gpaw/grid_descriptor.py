@@ -136,12 +136,15 @@ class GridDescriptor(Domain):
                                np.diag(self.cell_cv.diagonal())).any()
 
         # Sanity check for grid spacings:
-        L_c = (np.linalg.inv(self.cell_cv)**2).sum(0)**-0.5
-        h_c = L_c / N_c
+        h_c = self.get_grid_spacings()
         if max(h_c) / min(h_c) > 1.3:
             raise ValueError('Very anisotropic grid spacings: %s' % h_c)
 
         self.use_fixed_bc = False
+
+    def get_grid_spacings(self):
+        L_c = (np.linalg.inv(self.cell_cv)**2).sum(0)**-0.5
+        return L_c / self.N_c
 
     def get_size_of_global_array(self, pad=False):
         if pad:
@@ -456,6 +459,12 @@ class GridDescriptor(Domain):
         ref1: Thygesen et al, Phys. Rev. B 72, 125119 (2005) 
         """
 
+        if nbands is None:
+            nbands = len(psit_nG)
+
+        if nbands == 0:
+            return np.zeros((0, 0), complex)
+
         e_G = np.exp(-2j * pi * np.dot(np.indices(self.n_c).T +
                                        self.beg_c, G_c / self.N_c).T)
         a_nG = (e_G * psit_nG[:nbands].conj()).reshape((nbands, -1))
@@ -528,5 +537,4 @@ class GridDescriptor(Domain):
                 (self.N_c == other.N_c).all() and
                 (self.n_c == other.n_c).all() and
                 (self.beg_c == other.beg_c).all() and
-                (self.end_c == other.end_c).all()
-                )
+                (self.end_c == other.end_c).all())

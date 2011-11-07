@@ -41,8 +41,8 @@ class Spline:
         assert r >= 0.0
         return self.spline(r)
 
-    def map(self, r_g):
-        return np.array(map(self, r_g))
+    def map(self, r_x):
+        return np.vectorize(self, [float])(r_x)
 
     def get_functions(self, gd, start_c, end_c, spos_c):
         h_cv = gd.h_cv
@@ -54,7 +54,7 @@ class Spline:
 
         if debug:
             assert G_b.ndim == 1 and G_b.shape[0] % 2 == 0
-            assert is_contiguous(G_b, np.int32)
+            assert is_contiguous(G_b, np.intc)
             assert A_gm.shape[:-1] == np.sum(G_b[1::2]-G_b[::2])
 
         indices_gm, ng, nm = self.spline.get_indices_from_zranges(start_c,

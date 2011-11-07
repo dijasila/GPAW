@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import os
 import gc
+import platform
 import sys
 import time
 import tempfile
@@ -9,6 +10,7 @@ from optparse import OptionParser
 
 import gpaw.mpi as mpi
 from gpaw.hooks import hooks
+from gpaw import debug
 
 
 parser = OptionParser(usage='%prog [options] [tests]',
@@ -24,7 +26,7 @@ parser.add_option('--from', metavar='TESTFILE', dest='from_test',
                   help='Run remaining tests, starting from TESTFILE')
 parser.add_option('--after', metavar='TESTFILE', dest='after_test',
                   help='Run remaining tests, starting after TESTFILE')
-parser.add_option('--range', 
+parser.add_option('--range',
                   type='string', default=None,
                   help='Run tests in range test_i.py to test_j.py (inclusive)',
                   metavar='test_i.py,test_j.py')
@@ -71,9 +73,9 @@ if opt.range:
     except ValueError:
         start_index = 0
     try:
-        stop_index = tests.index(indices[1])
+        stop_index = tests.index(indices[1]) + 1
     except ValueError:
-        stop_index = -1
+        stop_index = len(tests)
     tests = tests[start_index:stop_index]
 
 for test in exclude:
@@ -106,8 +108,14 @@ else:
 tmpdir = mpi.broadcast_string(tmpdir)
 cwd = os.getcwd()
 os.chdir(tmpdir)
+operating_system = platform.system() + ' ' + platform.machine()
+operating_system += ' ' + ' '.join(platform.dist())
+python = platform.python_version() + ' ' + platform.python_compiler()
+python += ' ' + ' '.join(platform.architecture())
 if mpi.rank == 0:
-    print 'Running tests in', tmpdir
+    print('python %s on %s' % (python, operating_system))
+    print('Running tests in %s' % tmpdir)
+    print('Jobs: %d, Cores: %d, debug-mode: %r' % (opt.jobs, mpi.size, debug))
 failed = TestRunner(tests, jobs=opt.jobs, show_output=opt.show_output).run()
 os.chdir(cwd)
 if mpi.rank == 0:
@@ -116,4 +124,3 @@ if mpi.rank == 0:
     elif not opt.keep_tmpdir:
         os.system('rm -rf ' + tmpdir)
 hooks.update(old_hooks.items())
-

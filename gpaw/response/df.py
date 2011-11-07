@@ -3,7 +3,6 @@ from math import sqrt, pi
 import pickle
 from ase.units import Hartree, Bohr
 from gpaw.mpi import rank
-from gpaw.response.math_func import delta_function
 from gpaw.response.chi import CHI
 
 class DF(CHI):
@@ -14,28 +13,37 @@ class DF(CHI):
                  nbands=None,
                  w=None,
                  q=None,
+                 eshift=None,
                  ecut=10.,
+                 G_plus_q=False,
                  eta=0.2,
+                 rpad=np.array([1,1,1]),
+                 vcut=None,
                  ftol=1e-7,
                  txt=None,
                  xc='ALDA',
+                 print_xc_scf=False,
                  hilbert_trans=True,
                  full_response=False,
                  optical_limit=False,
                  comm=None,
                  kcommsize=None):
 
-        CHI.__init__(self, calc, nbands, w, q, ecut,
-                     eta, ftol, txt, xc, hilbert_trans, full_response, optical_limit, comm, kcommsize)
+        CHI.__init__(self, calc=calc, nbands=nbands, w=w, q=q, eshift=eshift,
+                     ecut=ecut, G_plus_q=G_plus_q, eta=eta, rpad=rpad, vcut=vcut,
+                     ftol=ftol, txt=txt, xc=xc, hilbert_trans=hilbert_trans,
+                     full_response=full_response, optical_limit=optical_limit,
+                     comm=comm, kcommsize=kcommsize)
 
         self.df_flag = False
+        self.print_bootstrap = print_xc_scf
         self.df1_w = None # NLF RPA
         self.df2_w = None # LF RPA
         self.df3_w = None # NLF ALDA
         self.df4_w = None # LF ALDA
 
 
-    def get_dielectric_matrix(self,xc='RPA'):
+    def get_dielectric_matrix(self, xc='RPA'):
 
 	if self.chi0_wGG is None:
             self.initialize()
@@ -289,17 +297,37 @@ class DF(CHI):
         """
 
         df1, df2 = self.get_dielectric_function(xc='RPA')
-        df3, df4 = self.get_dielectric_function(xc='ALDA')
+        if self.xc is 'ALDA':
+            df3, df4 = self.get_dielectric_function(xc='ALDA')
         Nw = df1.shape[0]
+
+        if self.xc == 'Bootstrap':
+            from gpaw.response.fxc import Bootstrap
+            Kc_GG = np.zeros((self.npw, self.npw))
+            for iG in range(self.npw):
+                qG = np.dot(self.q_c + self.Gvec_Gc[iG], self.bcell_cv)
+                Kc_GG[iG,iG] = 4 * pi / np.dot(qG, qG)
+
+            from gpaw.mpi import world
+            assert self.wcomm.size == world.size
+            df3 = Bootstrap(self.chi0_wGG, Nw, Kc_GG, self.printtxt, self.print_bootstrap)
 
         if rank == 0:
             f = open(filename,'w')
             for iw in range(Nw):
                 energy = iw * self.dw * Hartree
-                print >> f, energy, np.real(df1[iw]), np.imag(df1[iw]), \
+                if self.xc is 'RPA':
+                    print >> f, energy, np.real(df1[iw]), np.imag(df1[iw]), \
+                          np.real(df2[iw]), np.imag(df2[iw])
+                elif self.xc is 'ALDA':
+                    print >> f, energy, np.real(df1[iw]), np.imag(df1[iw]), \
                       np.real(df2[iw]), np.imag(df2[iw]), \
                       np.real(df3[iw]), np.imag(df3[iw]), \
                       np.real(df4[iw]), np.imag(df4[iw])
+                elif self.xc is 'Bootstrap':
+                    print >> f, energy, np.real(df1[iw]), np.imag(df1[iw]), \
+                      np.real(df2[iw]), np.imag(df2[iw]), \
+                      np.real(df3[iw]), np.imag(df3[iw])
             f.close()
 
         # Wait for I/O to finish
@@ -314,14 +342,18 @@ class DF(CHI):
 
         # calculate RPA dielectric function
         df1, df2 = self.get_dielectric_function(xc='RPA')
-        df3, df4 = self.get_dielectric_function(xc='ALDA')
+        if self.xc is 'ALDA':
+            df3, df4 = self.get_dielectric_function(xc='ALDA')
         Nw = df1.shape[0]
 
         if rank == 0:
             f = open(filename,'w')
             for iw in range(self.Nw):
                 energy = iw * self.dw * Hartree
-                print >> f, energy, -np.imag(1./df1[iw]), -np.imag(1./df2[iw]), \
+                if self.xc is 'RPA':
+                    print >> f, energy, -np.imag(1./df1[iw]), -np.imag(1./df2[iw])
+                elif self.xc is 'ALDA':
+                    print >> f, energy, -np.imag(1./df1[iw]), -np.imag(1./df2[iw]), \
                        -np.imag(1./df3[iw]), -np.imag(1./df4[iw])
             f.close()
 
@@ -329,24 +361,29 @@ class DF(CHI):
         self.comm.barrier()
 
 
-    def get_jdos(self, f_kn, e_kn, kq, dw, Nw, sigma):
+    def get_jdos(self, f_kn, e_kn, kd, kq, dw, Nw, sigma):
         """Calculate Joint density of states"""
 
         JDOS_w = np.zeros(Nw)
-        nkpt = f_kn.shape[0]
+        nkpt = kd.nbzkpts
         nbands = f_kn.shape[1]
 
         for k in range(nkpt):
+            print k
+            ibzkpt1 = kd.bz2ibz_k[k]
+            ibzkpt2 = kd.bz2ibz_k[kq[k]]
             for n in range(nbands):
                 for m in range(nbands):
-                    focc = f_kn[k, n] - f_kn[kq[k], m]
-                    w0 = e_kn[kq[k], m] - e_kn[k, n]
+                    focc = f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]
+                    w0 = e_kn[ibzkpt2, m] - e_kn[ibzkpt1, n]
                     if focc > 0 and w0 >= 0:
-                        deltaw = delta_function(w0, dw, Nw, sigma)
-                        for iw in range(Nw):
-                            if deltaw[iw] > 1e-8:
-                                JDOS_w[iw] += focc * deltaw[iw]
-
+                        w0_id = int(w0 / dw)
+                        if w0_id + 1 < Nw:
+                            alpha = (w0_id + 1 - w0/dw) / dw
+                            JDOS_w[w0_id] += focc * alpha
+                            alpha = (w0/dw-w0_id) / dw
+                            JDOS_w[w0_id+1] += focc * alpha
+                            
         w = np.arange(Nw) * dw * Hartree
 
         return w, JDOS_w
@@ -493,7 +530,7 @@ class DF(CHI):
 
         if all == True:
             from gpaw.response.parallel import par_write
-            par_write('chi0','chi0_wGG',self.wcomm,self.chi0_wGG)
+            par_write('chi0' + filename,'chi0_wGG',self.wcomm,self.chi0_wGG)
         
         if rank == 0:
             pickle.dump(data, open(filename, 'w'), -1)

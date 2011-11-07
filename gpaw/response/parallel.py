@@ -32,20 +32,26 @@ def set_communicator(world, rank, size, kcommsize=None):
     return kcomm, wScomm, wcomm
 
 
-def parallel_partition(N, commrank, commsize, reshape=True):
+def parallel_partition(N, commrank, commsize, reshape=True, positive=False):
     
     if reshape is True:
         if N % commsize != 0:
             N -= N % commsize
+            if positive:
+                N += commsize
         assert N % commsize == 0
 
     N_local = N // commsize
-    N_start = commrank * N_local
-    N_end = (commrank + 1) * N_local
-
-    if commrank == commsize - 1:
-        N_end = N
-
+    N_residual = N - N_local * commsize
+    if commrank < N_residual:
+        N_local += 1
+        N_start = commrank * N_local
+        N_end = (commrank + 1) * N_local
+    else:
+        offset =  N_residual * (N_local + 1)
+        N_start = offset + (commrank - N_residual) * N_local
+        N_end = offset + (commrank + 1 - N_residual) * N_local
+    
     return N, N_local, N_start, N_end
 
 

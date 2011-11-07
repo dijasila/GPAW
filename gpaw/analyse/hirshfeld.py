@@ -56,7 +56,7 @@ class HirshfeldDensity(Density):
         self.initialize(setups, 
                         par.stencils[1], 
                         self.calculator.timer,
-                        [0] * len(atoms), False)
+                        np.zeros((len(atoms), 3)), False)
         self.set_mixer(None)
         self.set_positions(spos_ac, rank_a)
         basis_functions = BasisFunctions(self.gd,
@@ -100,6 +100,7 @@ class HirshfeldPartitioning:
         finegd = self.calculator.density.finegd
 
         den_g, gd = self.calculator.density.get_all_electron_density(atoms)
+        den_g = den_g.sum(axis=0)
         assert(gd == finegd)
         denfree_g, gd = self.hdensity.get_density([atom_index])
         assert(gd == finegd)
@@ -111,10 +112,30 @@ class HirshfeldPartitioning:
 
         weight_g = denfree_g * self.invweight_g
 
-        nom = finegd.integrate(r3_g * den_g[0] * weight_g)
+        nom = finegd.integrate(r3_g * den_g * weight_g)
         denom = finegd.integrate(r3_g * denfree_g)
 
         return nom / denom
+
+    def get_weight(self, atom_index):
+        denfree_g, gd = self.hdensity.get_density([atom_index])
+        weight_g = denfree_g * self.invweight_g
+        return weight_g
+
+    def get_charges(self):
+        """Charge on the atom according to the Hirshfeld partitioning"""
+        self.initialize()
+        finegd = self.calculator.density.finegd
+        
+        den_g, gd = self.calculator.density.get_all_electron_density(self.atoms)
+        den_g = den_g.sum(axis=0)
+
+        charges = []
+        for ia, atom in enumerate(self.atoms):
+            weight_g = self.get_weight(ia)
+            charge = atom.number - finegd.integrate(weight_g * den_g)
+            charges.append(atom.number - finegd.integrate(weight_g * den_g))
+        return charges
 
     def get_effective_volume_ratios(self):
         """Return the list of effective volume to free volume ratios."""

@@ -25,10 +25,14 @@ from gpaw.utilities import unpack, pack
 from gpaw.rotation import rotation
 from gpaw import extra_parameters
 from gpaw.atom.radialgd import AERadialGridDescriptor
+from gpaw.xc import XC
 
 
-def create_setup(symbol, xc, lmax=0,
+def create_setup(symbol, xc='LDA', lmax=0,
                  type='paw', basis=None, setupdata=None, world=None):
+    if isinstance(xc, str):
+        xc = XC(xc)
+
     if setupdata is None:
         if type == 'hgh' or type == 'hgh.sc':
             lmax = 0
@@ -77,33 +81,59 @@ class BaseSetup:
         """If f_j is specified, custom occupation numbers will be used.
 
         Hund rules disabled if so."""
-        
+
         niao = self.niAO
         f_si = np.zeros((nspins, niao))
 
         assert (not hund) or f_j is None
-        if f_j == None:
+        if f_j is None:
             f_j = self.f_j
+        f_j = np.array(f_j, float)
+        l_j = np.array(self.l_j)
 
+        def correct_for_charge(f_j, charge, degeneracy_j, use_complete=True):
+            nj = len(f_j)
+            # correct for the charge
+            if charge >= 0:
+                # reduce the higher levels first
+                for j in range(nj - 1, -1, -1):
+                    f = f_j[j]
+                    if use_complete or f < degeneracy_j[j]:
+                        c = min(f, charge)
+                        f_j[j] -= c
+                        charge -= c
+            else:
+                # add to the lower levels first
+                for j in range(nj):
+                    f = f_j[j]
+                    l = self.l_j[j]
+                    if use_complete or f > 0:
+                        c = min(degeneracy_j[j] - f, -charge)
+                        f_j[j] += c
+                        charge += c
+            if charge != 0:
+                correct_for_charge(f_j, charge, degeneracy_j, True)
+
+        # distribute the charge to the radial orbitals
+        if nspins == 1:
+            assert magmom == 0.0
+            f_sj = np.array([f_j])
+            correct_for_charge(f_sj[0], charge, 
+                               2 * (2 * l_j + 1))
+        else:
+            nval = f_j.sum() - charge
+            f_sj = 0.5 * np.array([f_j, f_j])
+            nup = 0.5 * (nval + magmom)
+            ndown = 0.5 * (nval - magmom)
+            correct_for_charge(f_sj[0], f_sj[0].sum() - nup,
+                               2 * l_j + 1, False)
+            correct_for_charge(f_sj[1], f_sj[1].sum() - ndown,
+                               2 * l_j + 1, False)
+        
         # Projector function indices:
         nj = len(self.n_j)
 
-        f_j = np.array(f_j, float)
-        if charge >= 0:
-            for j in range(nj - 1, -1, -1):
-                f = f_j[j]
-                c = min(f, charge)
-                f_j[j] -= c
-                charge -= c
-        else:
-            for j in range(nj):
-                f = f_j[j]
-                l = self.l_j[j]
-                c = min(2 * (2 * l + 1) - f, -charge)
-                f_j[j] += c
-                charge += c
-        assert charge == 0.0
-
+        # distribute to the atomic wave functions
         i = 0
         j = 0
         for phit in self.phit_j:
@@ -114,8 +144,10 @@ class BaseSetup:
                 j += 1
             if j < nj:
                 f = f_j[j]
+                f_s = f_sj[:, j]
             else:
                 f = 0
+                f_s = np.array([0, 0])
 
             degeneracy = 2 * l + 1
 
@@ -130,28 +162,29 @@ class BaseSetup:
                 else:
                     magmom -= 2 * degeneracy - f
             else:
-                if nspins == 1:
-                    f_si[0, i:i + degeneracy] = 1.0 * f / degeneracy
-                else:
-                    maxmom = min(f, 2 * degeneracy - f)
-                    mag = magmom
-                    if abs(mag) > maxmom:
-                        mag = cmp(mag, 0) * maxmom
-                    f_si[0, i:i + degeneracy] = 0.5 * (f + mag) / degeneracy
-                    f_si[1, i:i + degeneracy] = 0.5 * (f - mag) / degeneracy
-                    magmom -= mag
-                
+                for s in range(nspins):
+                    f_si[s, i:i + degeneracy] = f_s[s] / degeneracy
+
             i += degeneracy
             j += 1
 
-        #These lines disable the calculation of charged atoms!
-        #Therefore I commented them. -Mikael
-        #if magmom != 0:
-        #    raise RuntimeError('Bad magnetic moment %g for %s atom!'
-        # % (magmom, self.self.symbol))
+        if hund and magmom != 0:
+            raise ValueError('Bad magnetic moment %g for %s atom!'
+                             % (magmom, self.symbol))
         assert i == niao
 
+#        print "fsi=", f_si
         return f_si
+
+    def get_hunds_rule_moment(self, charge=0):
+        for M in range(10):
+            try:
+                self.calculate_initial_occupation_numbers(M, True, charge, 2)
+            except ValueError:
+                pass
+            else:
+                return M
+        raise RuntimeError
     
     def initialize_density_matrix(self, f_si):
         nspins, niao = f_si.shape
@@ -686,7 +719,6 @@ class Setup(BaseSetup):
                 self.fc_j = self.extra_xc_data['core_f']
                 self.lc_j = self.extra_xc_data['core_l']
                 self.njcore = len(self.lc_j)
-                print self.extra_xc_data['core_states'].shape
                 if self.njcore > 0:
                     self.uc_jg = self.extra_xc_data['core_states'].reshape(
                         (self.njcore, -1))

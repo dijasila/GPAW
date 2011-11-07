@@ -10,11 +10,12 @@ import numpy as np
 K_G = 0.382106112167171
 
 class C_GLLBScr(Contribution):
-    def __init__(self, nlfunc, weight, functional='GGA_X_B88'):
+    def __init__(self, nlfunc, weight, functional='GGA_X_B88', metallic=False):
         Contribution.__init__(self, nlfunc, weight)
         self.functional = functional
         self.old_coeffs = None
         self.iter = 0
+        self.metallic = metallic
         
     def get_name(self):
         return 'SCREENING'
@@ -73,7 +74,10 @@ class C_GLLBScr(Contribution):
             return None
 
         if homolumo == None:
-            e_ref, e_ref_lumo = self.occupations.get_homo_lumo(self.nlfunc.wfs)
+            if self.metallic:
+                e_ref = self.occupations.get_fermi_level()
+            else:
+                e_ref, e_ref_lumo = self.occupations.get_homo_lumo(self.nlfunc.wfs)
         else:
             e_ref, e_ref_lumo = homolumo
 
@@ -82,7 +86,7 @@ class C_GLLBScr(Contribution):
         if len(kpt_u) > 1:
             ee = 0.0
         else:
-            ee = 0.1 / 27.21
+            ee = 0.05 / 27.21
 
         if lumo_perturbation:
             return [np.array([
@@ -110,6 +114,7 @@ class C_GLLBScr(Contribution):
         self.vt_sg[:] = 0.0
         self.xc.calculate(self.nlfunc.finegd, n_g[None, ...], self.vt_sg,
                           self.e_g)
+        self.e_g[:] = np.where(n_g<1e-10, 0, self.e_g)
         v_g += self.weight * 2 * self.e_g / (n_g + 1e-10)
         e_g += self.weight * self.e_g
 
@@ -118,9 +123,9 @@ class C_GLLBScr(Contribution):
                                 dedaa2_g=None, dedab2_g=None):
         raise NotImplementedError
 
-    def calculate_energy_and_derivatives(self, D_sp, H_sp, a):
+    def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a):
         # Get the XC-correction instance
-        c = self.nlfunc.setups[a].xc_correction
+        c = setup.xc_correction
 
         assert self.nlfunc.nspins == 1
 

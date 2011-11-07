@@ -10,6 +10,7 @@ from ase.units import Bohr, Hartree
 
 from gpaw.xc import XC
 from gpaw.paw import PAW
+from gpaw.occupations import MethfesselPaxton
 
 
 class GPAW(PAW):
@@ -40,6 +41,11 @@ class GPAW(PAW):
             return Hartree * self.hamiltonian.Etot
         else:
             # Energy extrapolated to zero Kelvin:
+            if (isinstance(self.occupations, MethfesselPaxton) and
+                self.occupations.iter > 0):
+                raise NotImplementedError(
+                    'Extrapolation to zero width not implemeted for ' +
+                    'Methfessel-Paxton distribution with order > 0.')
             return Hartree * (self.hamiltonian.Etot + 0.5 * self.hamiltonian.S)
 
     def get_reference_energy(self):
@@ -419,20 +425,29 @@ class GPAW(PAW):
         return self.hamiltonian.get_xc_difference(xc, self.density) * Hartree
 
     def initial_wannier(self, initialwannier, kpointgrid, fixedstates,
-                        edf, spin):
+                        edf, spin, nbands):
         """Initial guess for the shape of wannier functions.
 
         Use initial guess for wannier orbitals to determine rotation
         matrices U and C.
         """
-        if not self.wfs.gamma:
-            raise NotImplementedError
+        #if not self.wfs.gamma:
+        #    raise NotImplementedError
         from ase.dft.wannier import rotation_from_projection
         proj_knw = self.get_projections(initialwannier, spin)
-        U_ww, C_ul = rotation_from_projection(proj_knw[0],
-                                              fixedstates[0],
-                                              ortho=True)
-        return [C_ul], U_ww[np.newaxis]
+        U_kww = []
+        C_kul = []
+        for fixed, proj_nw in zip(fixedstates, proj_knw):
+            U_ww, C_ul = rotation_from_projection(proj_nw[:nbands],
+                                                  fixed,
+                                                  ortho=True)
+            U_kww.append(U_ww)
+            C_kul.append(C_ul)
+
+        U_kww = np.asarray(U_kww)
+        return C_kul, U_kww 
+
+
 
     def get_wannier_localization_matrix(self, nbands, dirG, kpoint,
                                         nextkpoint, G_I, spin):
@@ -553,7 +568,7 @@ class GPAW(PAW):
         from gpaw.spline import Spline
         from gpaw.utilities import _fact
 
-        nkpts = len(wfs.ibzk_kc)
+        nkpts = len(wfs.kd.ibzk_kc)
         nbf = np.sum([2 * l + 1 for pos, l, a in locfun])
         f_kni = np.zeros((nkpts, wfs.nbands, nbf), wfs.dtype)
 
@@ -565,7 +580,7 @@ class GPAW(PAW):
                 spos_c = spos_ac[spos_c]
             spos_xc.append(spos_c)
             alpha = .5 * Bohr**2 / sigma**2
-            r = np.linspace(0, 6. * sigma, 500)
+            r = np.linspace(0, 10. * sigma, 500)
             f_g = (_fact[l] * (4 * alpha)**(l + 3 / 2.) *
                    np.exp(-alpha * r**2) /
                    (np.sqrt(4 * np.pi) * _fact[2 * l + 1]))
@@ -573,9 +588,10 @@ class GPAW(PAW):
             
         lf = LFC(wfs.gd, splines_x, wfs.kpt_comm, dtype=wfs.dtype)
         if not wfs.gamma:
-            lf.set_k_points(wfs.ibzk_qc)
+            lf.set_k_points(wfs.kd.ibzk_qc)
         lf.set_positions(spos_xc)
 
+        assert wfs.gd.comm.size == 1
         k = 0
         f_ani = lf.dict(wfs.nbands)
         for kpt in wfs.kpt_u:
@@ -602,12 +618,16 @@ class GPAW(PAW):
 
     def get_magnetic_moments(self, atoms=None):
         """Return the local magnetic moments within augmentation spheres"""
-        magmom_a = self.density.estimate_magnetic_moments()
-        momsum = magmom_a.sum()
-        M = self.occupations.magmom
-        if abs(M) > 1e-7 and momsum > 1e-7:
-            magmom_a *= M / momsum
-        return magmom_a
+        magmom_av = self.density.estimate_magnetic_moments()
+        if self.wfs.collinear:
+            momsum = magmom_av.sum()
+            M = self.occupations.magmom
+            if abs(M) > 1e-7 and momsum > 1e-7:
+                magmom_av *= M / momsum
+            # return a contiguous array
+            return magmom_av[:, 2].copy()
+        else:
+            return magmom_av            
         
     def get_number_of_grid_points(self):
         return self.wfs.gd.N_c
@@ -648,10 +668,6 @@ class GPAW(PAW):
             dEH_a[a] = setup.dEH0 + np.dot(setup.dEH_p, D_sp.sum(0))
         self.wfs.gd.comm.sum(dEH_a)
         return dEH_a * Hartree * Bohr**3
-
-    def get_grid_spacings(self):
-        assert self.wfs.gd.orthogonal
-        return Bohr * self.wfs.gd.h_cv.diagonal()
 
     def read_wave_functions(self, mode='gpw'):
         """Read wave functions one by one from separate files"""

@@ -1,3 +1,5 @@
+.. _band_exercise:
+
 ==============
 Band structure
 ==============

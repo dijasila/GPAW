@@ -5,7 +5,7 @@ from gpaw.overlap import Overlap
 from gpaw.fd_operators import Laplace
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.utilities import unpack
-from gpaw.io.tar import TarFileReference
+from gpaw.io import FileReference
 from gpaw.lfc import BasisFunctions
 from gpaw.utilities.blas import axpy
 from gpaw.transformers import Transformer
@@ -53,7 +53,7 @@ class FDPWWaveFunctions(WaveFunctions):
             if not self.gamma:
                 basis_functions.set_k_points(self.kd.ibzk_qc)
             basis_functions.set_positions(spos_ac)
-        elif isinstance(self.kpt_u[0].psit_nG, TarFileReference):
+        elif isinstance(self.kpt_u[0].psit_nG, FileReference):
             self.initialize_wave_functions_from_restart_file()
 
         if self.kpt_u[0].psit_nG is not None:
@@ -133,7 +133,7 @@ class FDPWWaveFunctions(WaveFunctions):
         self.timer.stop('LCAO initialization')
 
     def initialize_wave_functions_from_restart_file(self):
-        if not isinstance(self.kpt_u[0].psit_nG, TarFileReference):
+        if not isinstance(self.kpt_u[0].psit_nG, FileReference):
             return
 
         # Calculation started from a restart file.  Copy data
@@ -234,6 +234,90 @@ class FDPWWaveFunctions(WaveFunctions):
             self.overlap.orthonormalize(self, kpt)
         self.set_orthonormalized(True)
 
+    def calculate_forces(self, hamiltonian, F_av, td_correction=None):
+        """ Calculate wavefunction forces with optional corrections for
+            Ehrenfest dynamics
+        """  
+
+            
+        #If td_correction is not none, we replace the overlap part of the
+        #force, sum_n f_n eps_n < psit_n | dO / dR_a | psit_n>, with
+        #sum_n f_n <psit_n | H S^-1 D^a + c.c. | psit_n >, with D^a
+        #defined as D^a = sum_{i1,i2} | pt_i1^a > [O_{i1,i2} < d pt_i2^a / dR_a |
+        #+ (< phi_i1^a | d phi_i2^a / dR_a > - < phit_i1^a | d phit_i2^a / dR_a >) < pt_i1^a|].
+        #This is required in order to conserve the total energy also when electronic
+        #excitations start to play a significant role.
+
+        #TODO: move the corrections into the tddft directory
+
+        # Calculate force-contribution from k-points:
+        F_av.fill(0.0)
+        F_aniv = self.pt.dict(self.bd.mynbands, derivative=True)
+        #print 'self.dtype =', self.dtype
+        for kpt in self.kpt_u:
+            #self.overlap.update_k_point_projections(kpt)
+            self.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+            hpsit = self.gd.zeros(len(kpt.psit_nG), dtype=self.dtype)
+            #eps_psit = self.gd.zeros(len(kpt.psit_nG), dtype=self.dtype)
+            sinvhpsit = self.gd.zeros(len(kpt.psit_nG), dtype=self.dtype)
+            hamiltonian.apply(kpt.psit_nG, hpsit, self, kpt, calculate_P_ani = True)
+            if(td_correction is 'sinvcg'):
+                self.overlap.apply_inverse_cg(hpsit, sinvhpsit, self, kpt, calculate_P_ani=True)
+            elif(td_correction is 'sinvapr'):
+                self.overlap.apply_inverse(hpsit, sinvhpsit, self, kpt, calculate_P_ani=True)
+            #print 'sinvhpsit_0_cg - epspsit_0.max', abs(sinvhpsit[0]-eps_psit[0]).max()
+            #print 'sinvhpsit_0 - epspsit_0.max', abs(sinvhpsit2[0]-eps_psit[0]).max()
+            self.pt.derivative(kpt.psit_nG, F_aniv, kpt.q)
+            if(td_correction is not None):
+                G_axi = self.pt.dict(self.bd.mynbands)
+                self.pt.integrate(sinvhpsit, G_axi, kpt.q)
+            
+            for a, F_niv in F_aniv.items():
+                F_niv = F_niv.conj()
+                F_niv *= kpt.f_n[:, np.newaxis, np.newaxis]
+                FdH1_niv = F_niv.copy()
+                dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
+                P_ni = kpt.P_ani[a]
+                dO_ii = hamiltonian.setups[a].dO_ii
+                F_vii = np.dot(np.dot(F_niv.transpose(), P_ni), dH_ii)
+                if(td_correction is not None):
+                    fP_ni = P_ni * kpt.f_n[:,np.newaxis]
+                    G_ni = G_axi[a]
+                    nabla_iiv = hamiltonian.setups[a].nabla_iiv
+                    F_vii_sinvh_dpt = -np.dot(np.dot(FdH1_niv.transpose(), G_ni), dO_ii)
+                    F_vii_sinvh_dphi = -np.dot(nabla_iiv.transpose(2,0,1), np.dot(fP_ni.conj().transpose(), G_ni))
+                    F_vii += F_vii_sinvh_dpt + F_vii_sinvh_dphi
+                else:
+                    F_niv *= kpt.eps_n[:, np.newaxis, np.newaxis]
+                    F_vii -= np.dot(np.dot(F_niv.transpose(), P_ni), dO_ii)
+                                    
+                #F_av_dO[a] += 2 * F_vii_dO.real.trace(0,1,2)
+                #F_av_dH[a] += 2 * F_vii_dH.real.trace(0,1,2)
+                F_av[a] += 2 * F_vii.real.trace(0, 1, 2)
+
+            # Hack used in delta-scf calculations:
+            if hasattr(kpt, 'c_on'):
+                assert self.bd.comm.size == 1
+                self.pt.derivative(kpt.psit_nG, F_aniv, kpt.q)  #XXX again
+                d_nn = np.zeros((self.bd.mynbands, self.bd.mynbands),
+                                dtype=complex)
+                for ne, c_n in zip(kpt.ne_o, kpt.c_on):
+                    d_nn += ne * np.outer(c_n.conj(), c_n)
+                for a, F_niv in F_aniv.items():
+                    F_niv = F_niv.conj()
+                    dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
+                    Q_ni = np.dot(d_nn, kpt.P_ani[a])
+                    F_vii = np.dot(np.dot(F_niv.transpose(), Q_ni), dH_ii)
+                    F_niv *= kpt.eps_n[:, np.newaxis, np.newaxis]
+                    dO_ii = hamiltonian.setups[a].dO_ii
+                    F_vii -= np.dot(np.dot(F_niv.transpose(), Q_ni), dO_ii)
+                    F_av[a] += 2 * F_vii.real.trace(0, 1, 2)
+
+        self.bd.comm.sum(F_av, 0)
+
+        if self.bd.comm.rank == 0:
+            self.kpt_comm.sum(F_av, 0)
+
     def _get_wave_function_array(self, u, n):
         psit_nG = self.kpt_u[u].psit_nG
         if psit_nG is None:
@@ -241,14 +325,15 @@ class FDPWWaveFunctions(WaveFunctions):
         return psit_nG[n][:] # dereference possible tar-file content
 
     def write_wave_functions(self, writer):
-        try:
-            from gpaw.io.hdf5 import Writer as HDF5Writer
-        except ImportError:
-            hdf5 = False
+        master = (self.world.rank == 0) 
+        parallel = (self.world.size > 1)
+
+        if hasattr(writer, 'hdf5'):
+            hdf5 = True
         else:
-            hdf5 = isinstance(writer, HDF5Writer)
-            
-        if self.world.rank == 0 or hdf5:
+            hdf5 = False
+
+        if master or hdf5:
             writer.add('PseudoWaveFunctions',
                        ('nspins', 'nibzkpts', 'nbands',
                         'ngptsx', 'ngptsy', 'ngptsz'),
@@ -259,20 +344,20 @@ class FDPWWaveFunctions(WaveFunctions):
                 indices = [kpt.s, kpt.k]
                 indices.append(self.bd.get_slice())
                 indices += self.gd.get_slice()
-                writer.fill(kpt.psit_nG, parallel=True, *indices)
+                writer.fill(kpt.psit_nG, parallel=parallel, *indices)
         else:
             for s in range(self.nspins):
                 for k in range(self.nibzkpts):
                     for n in range(self.nbands):
                         psit_G = self.get_wave_function_array(n, k, s)
-                        if self.world.rank == 0:
+                        if master:
                             writer.fill(psit_G, s, k, n)
 
     def estimate_memory(self, mem):
-        gridbytes = self.gd.bytecount(self.dtype)
+        gridbytes = self.wd.bytecount(self.dtype)
         mem.subnode('Arrays psit_nG', 
                     len(self.kpt_u) * self.mynbands * gridbytes)
-        self.eigensolver.estimate_memory(mem.subnode('Eigensolver'), self.gd,
+        self.eigensolver.estimate_memory(mem.subnode('Eigensolver'), self.wd,
                                          self.dtype, self.mynbands,
                                          self.nbands)
         self.pt.estimate_memory(mem.subnode('Projectors'))

@@ -6,26 +6,23 @@ from math import pi, log
 
 import numpy as np
 from numpy.linalg import eigh
-
 from scipy.special import gamma
-from scipy.integrate import odeint
-from scipy.interpolate import interp1d
-
-from ase.data import atomic_numbers, atomic_names, chemical_symbols
-from ase.utils import devnull
+from scipy.linalg import solve_banded
 import ase.units as units
+from ase.utils import devnull, prnt
+from ase.data import atomic_numbers, atomic_names, chemical_symbols
 
+from gpaw.xc import XC
+from gpaw.utilities import _fact as fac
 from gpaw.atom.configurations import configurations
 from gpaw.atom.radialgd import AERadialGridDescriptor
-from gpaw.xc import XC
-from gpaw.utilities.progressbar import ProgressBar
-from gpaw.utilities import prnt
+
 
 # Velocity of light in atomic units:
 c = 2 * units._hplanck / (units._mu0 * units._c * units._e**2)
 
 # Colors for s, p, d, f, g:
-colors = 'rgbky'
+colors = 'krgbycmmmmm'
 
 
 class GaussianBasis:
@@ -44,6 +41,7 @@ class GaussianBasis:
         self.l = l
         self.alpha_B = alpha_B
         self.rgd = rgd
+        self.eps = eps
 
         A_BB = np.add.outer(alpha_B, alpha_B)
         M_BB = np.multiply.outer(alpha_B, alpha_B)
@@ -84,7 +82,7 @@ class GaussianBasis:
         old_settings = np.seterr(divide='ignore')
         self.basis_bg = (np.dot(
                 Q_Bb.T,
-                (2 * (2 * alpha_B[:, np.newaxis])**(l + 1.5) /
+                (2 * (2 * alpha_B[:, None])**(l + 1.5) /
                  gamma(l + 1.5))**0.5 *
                 np.exp(-np.multiply.outer(alpha_B, r_g**2))) * r_g**l)
         np.seterr(**old_settings)
@@ -101,6 +99,31 @@ class GaussianBasis:
                         self.basis_bg[:, 1:] * vr2dr_g[1:])
         return V_bb
 
+
+def coefs(rgd, l, vr_g, e, scalar_relativistic):
+    d2gdr2_g = rgd.d2gdr2()
+    r_g = rgd.r_g
+
+    x0_g = 2 * (e * r_g - vr_g)
+    x1_g = 2 * (l + 1) / rgd.dr_g + r_g * rgd.d2gdr2()
+    x2_g = r_g / rgd.dr_g**2
+
+    if scalar_relativistic:
+        r_g = r_g.copy()
+        r_g[0] = 1.0
+        v_g = vr_g / r_g
+        M_g = 1 + (e - v_g) / (2 * c**2)
+        kappa_g = (rgd.derivative(vr_g) - v_g) / r_g / (2 * c**2 * M_g)
+        x0_g *= M_g
+        x0_g += l * kappa_g
+        x1_g += r_g * kappa_g / rgd.dr_g
+
+    cm1_g = x2_g - x1_g / 2
+    c0_g = x0_g - 2 * x2_g
+    cp1_g = x2_g + x1_g / 2
+    
+    return cm1_g, c0_g, cp1_g
+    
 
 class Channel:
     def __init__(self, l, s=0, f_n=(), basis=None):
@@ -123,37 +146,49 @@ class Channel:
         self.C_nb = C_bn.T
         self.phi_ng = self.basis.expand(self.C_nb[:len(self.f_n)])
 
-    def solve2(self, vr_g):
+    def solve2(self, vr_g, scalar_relativistic=False):
         rgd = self.basis.rgd
         r_g = rgd.r_g
         l = self.l
-        vr = interp1d(r_g, vr_g, 'cubic')
         u_g = rgd.empty()
         for n in range(len(self.f_n)):
             e = self.e_n[n]
+
             # Find classical turning point:
-            g = (vr_g * r_g + 0.5 * l * (l + 1) < e * r_g**2).sum()
-            r1_g = r_g[:g + 1]
-            r2_g = -r_g[:g - 1:-1]
-            #print g, r_g[g], e
+            x = vr_g * r_g + 0.5 * l * (l + 1) - e * r_g**2
+            g0 = rgd.round(4.0)
+            while x[g0] > 0:
+                g0 -= 1
+
             iter = 0
+            ok = False
             while True:
-                u1_g, du1dr_g = self.integrate_outwards(vr, r1_g, e)
-                u2_g, du2dr_g = self.integrate_inwards(vr, r2_g, e)
-                A = du1dr_g[-1] / u1_g[-1] + du2dr_g[-1] / u2_g[-1]
-                u_g[:g + 1] = u1_g
-                u_g[g:] = u2_g[::-1] * u1_g[-1] / u2_g[-1]
+                du1dr = self.integrate_outwards(u_g, rgd, vr_g, g0, e,
+                                                scalar_relativistic)
+                u1 = u_g[g0]
+                du2dr = self.integrate_inwards(u_g, rgd, vr_g, g0, e,
+                                               scalar_relativistic)
+                u2 = u_g[g0]
+                A = du1dr / u1 - du2dr / u2
+                u_g[g0:] *= u1 / u2
                 u_g /= (rgd.integrate(u_g**2, -2) / (4 * pi))**0.5
+
                 if abs(A) < 1e-5:
+                    ok = True
                     break
-                e += 0.5 * A * u_g[g]**2
+
+                e += 0.5 * A * u_g[g0]**2
+                if e > 0:
+                    break
+                
                 iter += 1
-                #print iter,e,A
-                assert iter < 20, (n,l,e)
-            self.e_n[n] = e
-            self.phi_ng[n, 1:] = u_g[1:] / r_g[1:]
-            if self.l == 0:
-                self.phi_ng[n, 0] = self.phi_ng[n, 1]
+                assert iter < 400, (n, l, e)
+            
+            if ok:
+                self.e_n[n] = e
+                self.phi_ng[n, 1:] = u_g[1:] / r_g[1:]
+                if self.l == 0:
+                    self.phi_ng[n, 0] = self.phi_ng[n, 1]
             
     def calculate_density(self, n=None):
         """Calculate density."""
@@ -169,29 +204,77 @@ class Channel:
         f_n = self.f_n
         return np.dot(f_n, self.e_n[:len(f_n)])
 
-    def integrate_outwards(self, vr, r_g, e, p=lambda x: 0.0):
+    def integrate_outwards(self, u_g, rgd, vr_g, g0, e,
+                           scalar_relativistic=False, pt_g=None):
         l = self.l
-        def f(y, r):
-            return [y[1],
-                    2 * (vr(r) / r + 0.5 * l * (l + 1) / r**2 - e) * y[0] -
-                    2 * p(r) * r]
-        u_g = np.zeros_like(r_g)
-        dudr_g = np.zeros_like(r_g)
-        r1 = r_g[1]
-        u_g[1:], dudr_g[1:] = odeint(f, [r1**(l + 1), (l + 1) * r1**l],
-                                     r_g[1:]).T
-        return u_g, dudr_g
-    
-    def integrate_inwards(self, vr, r_g, e):
+        r_g = rgd.r_g
+
+        cm1_g, c0_g, cp1_g = coefs(rgd, l, vr_g, e, scalar_relativistic)
+
+        c_xg = np.zeros((3, g0 + 2))
+        c_xg[0, :2] = 1.0
+        c_xg[0, 2:] = cp1_g[1:g0 + 1]
+        c_xg[1, 1:-1] = c0_g[1:g0 + 1]
+        c_xg[2, :-2] = cm1_g[1:g0 + 1]
+
+        b_g = np.zeros(g0 + 2)
+        if pt_g is not None:
+            b_g[2:] = -2 * pt_g[1:g0 + 1] * r_g[1:g0 + 1]**(1 - l)
+            a0 = pt_g[1] / r_g[1]**l / (vr_g[1] / r_g[1] - e)
+        else:
+            a0 = 1
+
+        a1 = a0 + vr_g[0] * rgd.dr_g[0]
+        b_g[:2] = [a0, a1]
+
+        a_g = solve_banded((2, 0), c_xg, b_g,
+                           overwrite_ab=True, overwrite_b=True)
+
+        r = r_g[g0]
+        dr = rgd.dr_g[g0]
+        da = 0.5 * (a_g[g0 + 1] - a_g[g0 - 1])
+        dudr = (l + 1) * r**l * a_g[g0] + r**(l + 1) * da / dr
+
+        u_g[:g0 + 2] = a_g * r_g[:g0 + 2]**(l + 1)
+
+        return dudr
+
+    def integrate_inwards(self, u_g, rgd, vr_g, g0, e,
+                          scalar_relativistic=False):
         l = self.l
-        def f(y, r):
-            r = -r
-            return [y[1],
-                    2 * (vr(r) / r + 0.5 * l * (l + 1) / r**2 - e) * y[0]]
-        a = np.sqrt(-2 * e)
-        u = np.exp(a * r_g[0])
-        return odeint(f, [u, a * u], r_g, hmax=0.2).T
-    
+        r_g = rgd.r_g
+
+        cm1_g, c0_g, cp1_g = coefs(rgd, l, vr_g, e, scalar_relativistic)
+
+        cm1_g[:g0] = 1.0  # prevent division by zero
+        c0_g /= -cm1_g
+        cp1_g /= -cm1_g
+
+        g = len(u_g) - 2
+        agp1 = 1.0
+        u_g[-1] = agp1 * r_g[-1]**(l + 1)
+        ag = np.exp(-(-2 * e)**0.5 * (rgd.r_g[-2] - rgd.r_g[-1]))
+
+        while True:
+            u_g[g] = ag * r_g[g]**(l + 1)
+            if ag > 1e50:
+                u_g[g:] /= 1e50
+                ag = ag / 1e50
+                agp1 = agp1 / 1e50
+            agm1 = agp1 * cp1_g[g] + ag * c0_g[g]
+            if g == g0:
+                break
+            g -= 1
+            agp1 = ag
+            ag = agm1
+
+        r = r_g[g]
+        dr = rgd.dr_g[g]
+        da = 0.5 * (agp1 - agm1)
+        dudr = (l + 1) * r**l * ag + r**(l + 1) * da / dr
+
+        return dudr
+
 
 class DiracChannel(Channel):
     def __init__(self, k, f_n, basis):
@@ -256,6 +339,8 @@ class AllElectronAtom:
         self.nspins = 1 + int(bool(spinpol))
 
         self.dirac = bool(dirac)
+        
+        self.scalar_relativistic = False
 
         if isinstance(xc, str):
             self.xc = XC(xc)
@@ -286,7 +371,7 @@ class AllElectronAtom:
         self.log('XC-functional:  ', self.xc.name)
         self.log('Equation:       ', ['Schrödinger', 'Dirac'][self.dirac])
 
-        self.mode = 'gaussians'
+        self.method = 'Gaussian basis-set'
 
     def log(self, *args, **kwargs):
         prnt(file=self.fd, *args, **kwargs)
@@ -323,7 +408,7 @@ class AllElectronAtom:
             f_n.extend([0] * (n - l - len(f_n)))
         f_n[n - l - 1] += df
 
-    def initialize(self, ngpts=1000, rcut=50.0,
+    def initialize(self, ngpts=2000, rcut=50.0,
                    alpha1=0.01, alpha2=None, ngauss=50,
                    eps=1.0e-7):
         """Initialize basis sets and radial grid.
@@ -345,8 +430,9 @@ class AllElectronAtom:
             alpha2 = 50.0 * self.Z**2
 
         # Use grid with r(0)=0, r(1)=a and r(ngpts)=rcut:
-        a = 1 / alpha2**0.5 / 50        
+        a = 1 / alpha2**0.5 / 20
         b = (rcut - a * ngpts) / (rcut * ngpts)
+        b = 1 / round(1 / b)
         self.rgd = AERadialGridDescriptor(a, b, ngpts)
         
         self.log('Grid points:     %d (%.5f, %.5f, %.5f, ..., %.3f, %.3f)' %
@@ -393,10 +479,10 @@ class AllElectronAtom:
         """Diagonalize Schrödinger equation."""
         self.eeig = 0.0
         for channel in self.channels:
-            if self.mode == 'gaussians':
+            if self.method == 'Gaussian basis-set':
                 channel.solve(self.vr_sg[channel.s])
             else:
-                channel.solve2(self.vr_sg[channel.s])
+                channel.solve2(self.vr_sg[channel.s], self.scalar_relativistic)
             self.eeig += channel.get_eigenvalue_sum()
 
     def calculate_density(self):
@@ -431,37 +517,42 @@ class AllElectronAtom:
         if self.channels is None:
             self.initialize()
 
+        if self.dirac:
+            equation = 'Dirac'
+        elif self.scalar_relativistic:
+            equation = 'scalar-relativistic Schrödinger'
+        else:
+            equation = 'non-relativistic Schrödinger'
+        self.log('\nSolving %s equation using %s:' % (equation, self.method))
+
         dn = self.Z
-        pb = ProgressBar(log(dnmax / dn), 0, 53, self.fd)
-        self.log()
         
         for iter in range(maxiter):
-            if iter > 1:
+            self.log('.', end='')
+            self.fd.flush()
+            if iter > 0:
                 self.vr_sg *= mix
                 self.vr_sg += (1 - mix) * vr_old_sg
                 dn = self.rgd.integrate(abs(self.n_sg - n_old_sg).sum(0))
-                pb(log(dnmax / dn))
                 if dn <= dnmax:
+                    self.log('\nConverged in', iter, 'steps')
                     break
 
             vr_old_sg = self.vr_sg
             n_old_sg = self.n_sg
             self.step()
 
-        self.summary(iter)
+        self.summary()
         if dn > dnmax:
             raise RuntimeError('Did not converge!')
 
     def refine(self):
-        self.mode = 'ode'
-        #self.step()
-        self.run(dnmax=1e-6, mix=0.7)
+        self.method = 'finite difference'
+        self.run(dnmax=1e-6, mix=0.14, maxiter=200)
         
-    def summary(self, iter=0):
+    def summary(self):
         self.write_states()
         self.write_energies()
-        if iter > 0:
-            self.log('Converged in', iter, 'steps')
             
     def write_states(self):
         self.log('\n state  occupation         eigenvalue          <r>')
@@ -469,7 +560,7 @@ class AllElectronAtom:
             self.log(' nl(j)               [Hartree]        [eV]    [Bohr]')
         else:
             self.log(' nl                  [Hartree]        [eV]    [Bohr]')
-        self.log('=====================================================')
+        self.log('-----------------------------------------------------')
         states = []
         for ch in self.channels:
             for n, f in enumerate(ch.f_n):
@@ -483,11 +574,10 @@ class AllElectronAtom:
             rave = self.rgd.integrate(n_g, 1)
             self.log(' %-7s  %6.3f %13.6f  %13.5f %6.3f' %
                      (name, ch.f_n[n], e, e * units.Hartree, rave))
-        self.log('=====================================================')
 
     def write_energies(self):
         self.log('\nEnergies:          [Hartree]           [eV]')
-        self.log('============================================')
+        self.log('--------------------------------------------')
         for text, e in [('kinetic      ', self.ekin),
                         ('coulomb (e-e)', self.eH),
                         ('coulomb (e-n)', self.eZ),
@@ -495,7 +585,6 @@ class AllElectronAtom:
                         ('total        ',
                          self.ekin + self.eH + self.eZ + self.exc)]:
             self.log(' %s %+13.6f  %+13.5f' % (text, e, units.Hartree * e))
-        self.log('============================================')
 
     def get_channel(self, l=None, s=0, k=None):
         if self.dirac:
@@ -514,7 +603,6 @@ class AllElectronAtom:
 
     def plot_wave_functions(self, rc=4.0):
         import matplotlib.pyplot as plt
-        colors = 'krgbycm'
         for ch in self.channels:
             for n in range(len(ch.f_n)):
                 fr_g = ch.basis.expand(ch.C_nb[n]) * self.rgd.r_g
@@ -538,13 +626,14 @@ class AllElectronAtom:
         plt.show()
 
     def logarithmic_derivative(self, l, energies, rcut):
-        vr = interp1d(self.rgd.r_g, self.vr_sg[0], 'cubic')
         ch = Channel(l)
         gcut = self.rgd.round(rcut)
+        u_g = self.rgd.empty()
         logderivs = []
         for e in energies:
-            u, dudr = ch.integrate_outwards(vr, self.rgd.r_g[:gcut + 1], e)
-            logderivs.append(dudr[-1] / u[-1])
+            dudr = ch.integrate_outwards(u_g, self.rgd, self.vr_sg[0],
+                                         gcut, e, self.scalar_relativistic)
+            logderivs.append(dudr / u_g[gcut])
         return logderivs
             
 
@@ -562,7 +651,7 @@ def build_parser():
                       'electrons to the alpha-spin channel (use "b" for ' +
                       'beta-spin).  The number of electrons defaults to ' +
                       'one. Examples: "1s", "2p2b", "4f0.1b,3d-0.1a".')
-    parser.add_option('-s', '--spin-polarized', action='store_true')
+    parser.add_option('--spin-polarized', action='store_true')
     parser.add_option('-d', '--dirac', action='store_true')
     parser.add_option('-p', '--plot', action='store_true')
     parser.add_option('-e', '--exponents',
@@ -574,19 +663,22 @@ def build_parser():
                       'Example: -l spdf,-1:1:0.05,1.3. ' +
                       'Energy range and/or radius can be left out.')
     parser.add_option('-r', '--refine', action='store_true')
+    parser.add_option('-s', '--scalar-relativistic', action='store_true')
     return parser
 
-def parse_ld_str(s, r=2.0):
+
+def parse_ld_str(s, energies=None, r=2.0):
     parts = s.split(',')
     lvalues = ['spdfg'.find(x) for x in parts.pop(0)]
     if parts:
         e1, e2, de = (float(x) for x in parts.pop(0).split(':'))
     else:
-        e1, e2, de = -1, 1, 0.05
+        e1, e2, de = energies
     if parts:
         r = float(parts.pop())
     energies = np.linspace(e1, e2, int((e2 - e1) / de) + 1)
     return lvalues, energies, r
+
 
 def main():
     parser = build_parser()
@@ -637,8 +729,13 @@ def main():
     if opt.refine:
         aea.refine()
 
+    if opt.scalar_relativistic:
+        aea.scalar_relativistic = True
+        aea.refine()
+
     if opt.logarithmic_derivatives:
-        lvalues, energies, r = parse_ld_str(opt.logarithmic_derivatives)
+        lvalues, energies, r = parse_ld_str(opt.logarithmic_derivatives,
+                                            (-1, 1, 0.05))
         import matplotlib.pyplot as plt
         for l in lvalues:
             ld = aea.logarithmic_derivative(l, energies, r)

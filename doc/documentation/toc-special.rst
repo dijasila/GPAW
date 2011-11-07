@@ -5,6 +5,7 @@
    parallel_runs/parallel_runs
    convergence/convergence	
    restart_files
+   cmdline
    rmm-diis
    orthogonalization
    xc/xc
@@ -12,6 +13,7 @@
    xc/rpa
    transport/negftransport
    tddft/tddft
+   bse/bse
    dscf/dscf
    pdos/pdos
    xas/xas

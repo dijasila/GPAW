@@ -1,6 +1,6 @@
 import numpy as np
 
-from ase.data.molecules import molecule
+from ase.structure import molecule
 from gpaw import GPAW
 
 unitcell = np.array([6.5, 6.6, 9.])
@@ -13,10 +13,10 @@ for formula in ('Na', 'Cl', 'NaCl',):
                 h=0.18,
                 convergence={'eigenstates':1E-8},
                 txt=formula + '.txt')
-    
+
     if formula == 'Cl':
         calc.set(hund=True)
-        
+
     sys = molecule(formula, cell=unitcell, calculator=calc)
     sys.center()
     sys.get_potential_energy()
@@ -26,7 +26,7 @@ for formula in ('Na', 'Cl', 'NaCl',):
     n = calc.get_all_electron_density(gridrefinement=gridrefinement)
 
     # Get integrated values
-    dv = np.product(calc.get_grid_spacings())
+    dv = sys.get_volume() / calc.get_number_of_grid_points().prod()
     It = nt.sum() * dv
     I = n.sum() * dv / gridrefinement**3
 

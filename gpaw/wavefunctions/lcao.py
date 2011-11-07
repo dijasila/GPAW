@@ -205,7 +205,8 @@ class LCAOWaveFunctions(WaveFunctions):
                 assert self.bd.comm.size == 1
                 d_nn = np.zeros((self.bd.mynbands, self.bd.mynbands), dtype=kpt.C_nM.dtype)
                 for ne, c_n in zip(kpt.ne_o, kpt.c_on):
-                    d_nn += ne * np.outer(c_n.conj(), c_n)
+                    assert abs(c_n.imag).max() < 1e-14
+                    d_nn += ne * np.outer(c_n.conj(), c_n).real
                 rho_MM += self.calculate_density_matrix_delta(d_nn, kpt.C_nM)
         else:
             rho_MM = kpt.rho_MM
@@ -213,10 +214,6 @@ class LCAOWaveFunctions(WaveFunctions):
         self.basis_functions.construct_density(rho_MM,
                                                nt_sG[kpt.s], kpt.q)
         self.timer.stop('Construct density')
-
-    def add_to_density_from_k_point(self, nt_sG, kpt):
-        """Add contribution to pseudo electron-density. """
-        self.add_to_density_from_k_point_with_occupation(nt_sG, kpt, kpt.f_n)
 
     def add_to_kinetic_density_from_k_point(self, taut_G, kpt):
         raise NotImplementedError('Kinetic density calculation for LCAO '
@@ -442,7 +439,8 @@ class LCAOWaveFunctions(WaveFunctions):
         Fatom_av = np.zeros_like(F_av)
         for b in my_atom_indices:
             H_ii = np.asarray(unpack(hamiltonian.dH_asp[b][kpt.s]), dtype)
-            HP_iM = gemmdot(H_ii, np.conj(self.P_aqMi[b][q].T))
+            HP_iM = gemmdot(H_ii,
+                            np.ascontiguousarray(self.P_aqMi[b][q].T.conj()))
             for v in range(3):
                 dPdR_Mi = dPdR_avMi[b][v][Mstart:Mstop]
                 ArhoT_MM = (gemmdot(dPdR_Mi, HP_iM) * rhoT_MM).real
