@@ -136,9 +136,9 @@ class EhrenfestVelocityVerlet:
         # Propagate wf
         # psi(t+dt)   = U(t,t+dt) psi(t)
         if(self.setups == 'paw'):
-            niters = self.calc.propagator.propagate(self.calc.wfs.kpt_u, self.time, dt, self.vh)
+            niters = self.calc.propagator.propagate(self.time, dt, self.vh)
         else:
-            niters = self.calc.propagator.propagate(self.calc.wfs.kpt_u, self.time, dt)
+            niters = self.calc.propagator.propagate(self.time, dt)
         #print 'Propagation took = ', niters
 
         # m a(t+dt/2) = F[psi(t+dt),x(t+dt/2)] 

@@ -16,14 +16,10 @@ from gpaw import extra_parameters
 from gpaw.utilities.lapack import diagonalize
 
 class Overlap:
-    """Overlap operator class.
+    """Overlap operator S
 
-    Attributes
-    ==========
-
-    dtype: type object
-        Numerical type of operator (float/complex)
-
+    This class contains information required to apply the
+    overlap operator to a set of wavefunctions.
     """
 
     def __init__(self, ksl, timer):
@@ -154,82 +150,4 @@ class Overlap:
         for a, P_xi in P_axi.items():
             P_axi[a] = np.dot(P_xi, wfs.setups[a].dC_ii)
         wfs.pt.add(b_xG, P_axi, kpt.q)
-
-    def apply_inverse_cg(self, a_nG, x, wfs, kpt, calculate_P_ani = True):
-        """ Apply the inverse overlap operator using the conjugate gradient method"""
-        
-        from gpaw.utilities.blas import dotu, axpy, dotc
-        #from gpaw.tddft.cscg import multi_zdotu, multi_scale, multi_zaxpy
-        #initialization
-          # Multivector dot product, a^T b, where ^T is transpose
-        def multi_zdotu(s, x,y, nvec):
-            for i in range(nvec):
-                s[i] = dotu(x[i],y[i])
-            wfs.gd.comm.sum(s)
-            return s
-        # Multivector ZAXPY: a x + y => y
-        def multi_zaxpy(a,x,y, nvec):
-            for i in range(nvec):
-                axpy(a[i]*(1+0J), x[i], y[i])
-        # Multiscale: a x => x
-        def multi_scale(a,x, nvec):
-            for i in range(nvec):
-                x[i] *= a[i]
-        nvec = len(a_nG)
-        r = wfs.gd.zeros(nvec, dtype=wfs.dtype)
-        z  = wfs.gd.zeros((nvec,), dtype=wfs.dtype)
-        sx = wfs.gd.zeros(nvec, dtype=wfs.dtype)
-        p = wfs.gd.zeros(nvec, dtype=wfs.dtype)
-        q = wfs.gd.zeros(nvec, dtype=wfs.dtype)
-        alpha = np.zeros((nvec,), dtype=wfs.dtype) 
-        beta = np.zeros((nvec,), dtype=wfs.dtype)
-        scale = np.zeros((nvec,), dtype=wfs.dtype)
-        normr2 = np.zeros((nvec,), dtype=wfs.dtype)
-        rho  = np.zeros((nvec,), dtype=wfs.dtype) 
-        rho_prev  = np.zeros((nvec,), dtype=wfs.dtype)
-        rho_prev[:] = 1.0
-        tol_cg = 1e-14
-        multi_zdotu(scale, a_nG, a_nG, nvec)
-        scale = np.abs(scale)
-        #x0 = S^-1_approx a_nG
-        self.apply_inverse(a_nG, x, wfs, kpt, calculate_P_ani)
-        #r0 = a_nG - S x_0
-        self.apply(-x, r, wfs, kpt, calculate_P_ani)
-        r += a_nG
-        #print 'r.max() =', abs(r).max()
-
-        max_iter = 50
-
-        for i in range(max_iter):
-
-            #print 'iter =', i
-
-            self.apply_inverse(r, z, wfs, kpt, calculate_P_ani)
-
-            multi_zdotu(rho, r, z, nvec)
-
-            beta = rho / rho_prev
-            multi_scale(beta, p, nvec)
-            p += z
-
-            self.apply(p,q,wfs,kpt, calculate_P_ani)
-
-            multi_zdotu(alpha, p, q, nvec)
-            alpha = rho/alpha
-
-            multi_zaxpy(alpha, p, x, nvec)
-            multi_zaxpy(-alpha, q, r, nvec)
-
-            multi_zdotu(normr2, r,r, nvec)
-
-            #rhoc = rho.copy()
-            rho_prev[:] = rho.copy()
-            #rho.copy()
-            #rho_prev = rho.copy()
-            
-            #print '||r|| =', np.sqrt(np.abs(normr2/scale))
-            if ( (np.sqrt(np.abs(normr2) / scale)) < tol_cg ).all():
-                break
-        
-            
 
