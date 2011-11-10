@@ -26,7 +26,7 @@
 #define AC_X (BLOCK+ACK)
 #define AC_Y (BLOCK)
 
-/*
+
 __global__ void IP1D_kernel(const Tcuda* a, int n, int m, Tcuda* b, int skip0,
 			    int skip1)
 {
@@ -73,8 +73,8 @@ __global__ void IP1D_kernel(const Tcuda* a, int n, int m, Tcuda* b, int skip0,
     }
   
 }
-*/
 /*
+
 
 __global__ void IP1D_kernel(const Tcuda* a, int n, int m, Tcuda* b, int skip0)
 {
@@ -109,7 +109,7 @@ __global__ void IP1D_kernel(const Tcuda* a, int n, int m, Tcuda* b, int skip0)
   
 }
 */
-
+ /*
 __global__ void IP1D_kernel(const Tcuda* a, int n, int m, Tcuda* b, int skip0, int skip1, int ang, int bng, int blocks)
 {
   
@@ -163,8 +163,8 @@ __global__ void IP1D_kernel(const Tcuda* a, int n, int m, Tcuda* b, int skip0, i
     }
   }
 }
-
-
+ */
+/*
 void IP1D(const Tcuda* a, int n, int m, Tcuda* b, int skip[2],int ang, int bng,
 	  int blocks)
 {
@@ -184,8 +184,8 @@ void IP1D(const Tcuda* a, int n, int m, Tcuda* b, int skip[2],int ang, int bng,
 
   gpaw_cudaSafeCall(cudaGetLastError());
 }
- 
-/*
+*/
+
 void IP1D(const Tcuda* a, int n, int m, Tcuda* b, int skip[2])
 {
 
@@ -199,9 +199,10 @@ void IP1D(const Tcuda* a, int n, int m, Tcuda* b, int skip[2])
 
   IP1D_kernel<<<dimGrid, dimBlock, 0>>>(a,n,m, b,skip[0],skip[1]);
 
+
   gpaw_cudaSafeCall(cudaGetLastError());
 }
-*/
+
 
 #else
 #  define K 2
@@ -240,7 +241,8 @@ extern "C"{
 					Tcuda* b, const int sizeb[3], Tcuda* w,
 					int blocks)
   {
-    void (*ip)(const Tcuda*, int, int, Tcuda*, int[2],int,int,int);
+    void (*ip)(const Tcuda*, int, int, Tcuda*, int[2]);
+    //    void (*ip)(const Tcuda*, int, int, Tcuda*, int[2],int,int,int);
     int ang=size[0]*size[1]*size[2];
     int bng=sizeb[0]*sizeb[1]*sizeb[2];
     if (k == 2)
@@ -252,22 +254,37 @@ extern "C"{
     else
       ip = Zcuda(bmgs_interpolate1D8);
     int e = k - 1;
-    //    for (int i = 0; i < blocks; i++){
+    for (int i = 0; i < blocks; i++){
       ip(a, size[2] - e + skip[2][1],
 	 size[0] *
 	 size[1],
-	 b, skip[2],ang,bng,blocks);
+	 b, skip[2]);
       ip(b, size[1] - e + skip[1][1],
 	 size[0] *
 	 ((size[2] - e) * 2 - skip[2][0] + skip[2][1]),
-	 w, skip[1],bng,bng,blocks);
+	 w, skip[1]);
       ip(w, size[0] - e + skip[0][1],
 	 ((size[1] - e) * 2 - skip[1][0] + skip[1][1]) *
 	 ((size[2] - e) * 2 - skip[2][0] + skip[2][1]),
-	 b, skip[0],bng,bng,blocks);
-      /*      a+=size[0]*size[1]*size[2];
+	 b, skip[0]);
+      /*
+	ip(a, size[2] - e + skip[2][1],
+	size[0] *
+	size[1],
+	b, skip[2],ang,bng,blocks);
+    ip(b, size[1] - e + skip[1][1],
+    size[0] *
+    ((size[2] - e) * 2 - skip[2][0] + skip[2][1]),
+    w, skip[1],bng,bng,blocks);
+    ip(w, size[0] - e + skip[0][1],
+    ((size[1] - e) * 2 - skip[1][0] + skip[1][1]) *
+    ((size[2] - e) * 2 - skip[2][0] + skip[2][1]),
+       b, skip[0],bng,bng,blocks);
+      */
+      
+      a+=size[0]*size[1]*size[2];
       b+=sizeb[0]*sizeb[1]*sizeb[2];
-      }*/
+    }
   }
 }
 #ifndef CUGPAWCOMPLEX
