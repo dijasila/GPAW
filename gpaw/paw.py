@@ -49,7 +49,7 @@ class PAW(PAWTextOutput):
         The following parameters can be used: `nbands`, `xc`, `kpts`,
         `spinpol`, `gpts`, `h`, `charge`, `usesymm`, `width`, `mixer`,
         `hund`, `lmax`, `fixdensity`, `convergence`, `txt`, `parallel`,
-        `softgauss` and `stencils`.
+        `communicator`, `dtype`, `softgauss` and `stencils`.
 
         If you don't specify any parameters, you will get:
 
@@ -482,7 +482,6 @@ class PAW(PAWTextOutput):
             
         if isinstance(mode, PW):
             pbc_c = np.ones(3, bool)
-            dtype = complex
 
         if not self.wfs:
             if parsize == 'domain only':  # XXX this was silly!
@@ -580,9 +579,7 @@ class PAW(PAWTextOutput):
                                                orthoksl, initksl, *args)
                 else:
                     # Planewave basis:
-                    self.wfs = mode(diagksl, orthoksl, initksl,
-                                    gd, nvalence, setups, bd,
-                                    world, kd, self.timer)
+                    self.wfs = mode(diagksl, orthoksl, initksl, *args)
             else:
                 self.wfs = mode(self, *args)
         else:

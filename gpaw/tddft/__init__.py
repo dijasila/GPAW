@@ -75,16 +75,14 @@ class TDDFT(GPAW):
     theory implementation and is the only class which a user has to use.
     """
     
-    def __init__(self, ground_state_file=None, txt='-', td_potential=None,
-                 propagator='SICN', solver='CSCG', tolerance=1e-8,
-                 parsize=None, parsize_bands=1, parstride_bands=True,
-                 communicator=mpi.world):
+    def __init__(self, filename, td_potential=None, propagator='SICN',
+                 solver='CSCG', tolerance=1e-8, **kwargs):
         """Create TDDFT-object.
         
         Parameters:
         -----------
-        ground_state_file: string
-            File name for the ground state data
+        filename: string
+            File containing ground state or time-dependent state to propagate
         td_potential: class, optional
             Function class for the time-dependent potential. Must have a method
             'strength(time)' which returns the strength of the linear potential
@@ -96,11 +94,10 @@ class TDDFT(GPAW):
         tolerance: float
             Tolerance for the linear solver
 
+        The following parameters can be used: `txt`, `parallel`, `communicator`
+        `mixer` and `dtype`. The internal parameters `mixer` and `dtype` are
+        strictly used to specify a dummy mixer and complex type respectively.
         """
-
-        if ground_state_file is None:
-            raise RuntimeError('TDDFT calculation has to start from converged '
-                               'ground or excited state restart file')
 
         # Set initial time
         self.time = 0.0
@@ -111,13 +108,18 @@ class TDDFT(GPAW):
         # Set initial value of iteration counter
         self.niter = 0
 
+        # Override default `mixer` and `dtype` given in InputParameters
+        kwargs.setdefault('mixer', DummyMixer())
+        kwargs.setdefault('dtype', complex)
+
+        # Parallelization dictionary should also default to strided bands
+        parallel = kwargs.setdefault('parallel', {})
+        parallel.setdefault('stridebands', True)
+
         # Initialize paw-object without density mixing
         # NB: TDDFT restart files contain additional information which
         #     will override the initial settings for time/kick/niter.
-        GPAW.__init__(self, ground_state_file, txt=txt, mixer=DummyMixer(),
-                      parallel={'domain': parsize, 'band': parsize_bands, 
-                                'stridebands': parstride_bands},
-                      communicator=communicator, dtype=complex)
+        GPAW.__init__(self, filename, **kwargs)
 
         assert isinstance(self.wfs, TimeDependentWaveFunctions)
         assert isinstance(self.wfs.overlap, TimeDependentOverlap)
@@ -228,6 +230,46 @@ class TDDFT(GPAW):
         self.hpsit = None
         self.eps_tmp = None
         self.mblas = MultiBlas(wfs.gd)
+
+    def set(self, **kwargs):
+        p = self.input_parameters
+
+        # Special treatment for dictionary parameters:
+        for name in ['parallel']:
+            if kwargs.get(name) is not None:
+                tmp = p[name]
+                for key in kwargs[name]:
+                    if not key in tmp:
+                        raise KeyError('Unknown subparameter "%s" in '
+                                       'dictionary parameter "%s"' % (key,
+                                                                      name))
+                tmp.update(kwargs[name])
+                kwargs[name] = tmp
+
+        for key in kwargs:
+            # Only whitelisted arguments can be changed after initialization
+            if self.initialized and key not in ['txt']:
+                raise TypeError("Keyword argument '%s' is immutable." % key)
+
+            if key in ['txt', 'parallel', 'communicator']:
+                continue
+            elif key == 'mixer':
+                if not isinstance(kwargs[key], DummyMixer):
+                    raise ValueError("Mixer must be of type DummyMixer.")
+            elif key == 'dtype':
+                if kwargs[key] is not complex:
+                    raise ValueError("TDDFT calculation must be complex.")
+            elif key in ['parsize', 'parsize_bands', 'parstride_bands']:
+                name = {'parsize': 'domain',
+                        'parsize_bands': 'band',
+                        'parstride_bands': 'stridebands'}[key]
+                raise DeprecationWarning(
+                    'Keyword argument has been moved ' +
+                    "to the 'parallel' dictionary keyword under '%s'." % name)
+            else:
+                raise TypeError("Unknown keyword argument: '%s'" % key)
+
+        p.update(kwargs)
 
     def read(self, reader):
         assert reader.has_array('PseudoWaveFunctions')
