@@ -4,6 +4,7 @@ import os, time
 import numpy as np
 
 from ase import Atoms
+from ase.parallel import paropen
 from ase.units import Hartree, Bohr
 from ase.io.trajectory import PickleTrajectory
 from ase.calculators.singlepoint import SinglePointCalculator
@@ -17,17 +18,15 @@ from gpaw.tddft.ehrenfest import EhrenfestVelocityVerlet
 name = 'h2_osc'
 
 # Equilibrium distance in Ang cf. setups page for H dimer
-d_bond = 0.754
-d_disp = 0.1
+d_bond = 0.754 # ~0.766 during oscillation
+d_disp = 0.03
 
 # Timestep and expected oscillatory period in attoseconds
 timestep = 5.0
-period = 1.31e4 # ~315.7 meV cf. CRC Handbook of Phys. & Chem. #09_08_91 XXX!?!?
-#XXX http://www.hbcpnetbase.com.globalproxy.cvt.dk/pdf/default.asp?id=09_08_91
-#XXX http://mccammon.ucsd.edu/~dzhang/energy-unit-conv-table.html
+period = 7.58e3 # ~545.7 meV cf. CRC Handbook of Phys. & Chem. #09_08_91
 
-ndiv = 1 #int(0.1e3 / timestep) # update stats every 0.1 fs
-niter = int(period / timestep)
+ndiv = int(np.ceil(0.1e3 / timestep)) # update stats every 0.1 fs
+niter = ndiv * int(np.ceil(2 * period / (ndiv * timestep)))
 
 if __name__ == '__main__':
     if not os.path.isfile(name + '_gs.gpw'):
@@ -47,6 +46,7 @@ if __name__ == '__main__':
     traj = PickleTrajectory(name + '_td.traj', 'w', tdcalc.get_atoms())
 
     t0 = time.time()
+    f = paropen(name + '_td.log', 'w')
     for i in range(1, niter+1):
         ehrenfest.propagate(timestep)
 
@@ -55,8 +55,7 @@ if __name__ == '__main__':
             ekin = tdcalc.atoms.get_kinetic_energy()
             epot = tdcalc.get_td_energy() * Hartree
             F_av = ehrenfest.F * Hartree / Bohr
-            if world.rank == 0:
-                print 'i=%06d (%6.2f min^-1), ekin=%13.9f, epot=%13.9f, etot=%13.9f' % (i, rate, ekin, epot, ekin+epot)
+            print >>f, 'i=%06d (%6.2f min^-1), ekin=%13.9f, epot=%13.9f, etot=%13.9f' % (i, rate, ekin, epot, ekin+epot)
             t0 = time.time()
 
             # Hack to prevent calls to GPAW::get_potential_energy when saving
@@ -64,5 +63,5 @@ if __name__ == '__main__':
             spc = SinglePointCalculator(epot, F_av, None, None, spa)
             spa.set_calculator(spc)
             traj.write(spa)
+    f.close()
     traj.close()
-
