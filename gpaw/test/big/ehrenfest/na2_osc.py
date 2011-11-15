@@ -18,7 +18,7 @@ from gpaw.tddft.ehrenfest import EhrenfestVelocityVerlet
 name = 'na2_osc'
 
 # Equilibrium distance in Ang cf. setups page for Na dimer
-d_bond = 3.29
+d_bond = 3.29 # ~3.0 during oscillation
 d_disp = 0.1
 
 # Timestep and expected oscillatory period in attoseconds
@@ -30,11 +30,11 @@ niter = ndiv * int(np.ceil(2 * period / (ndiv * timestep)))
 
 if __name__ == '__main__':
     if not os.path.isfile(name + '_gs.gpw'):
-        atoms = Atoms('Na2', positions=[(0,0,0),(0,0,d_bond+d_disp)])
+        atoms = Atoms('Na2', positions=[(0, 0, 0), (0, 0, d_bond + d_disp)])
         atoms.set_pbc(False)
-        atoms.center(vacuum=4.0)
+        atoms.center(vacuum=6.0)
         cell_c = np.sum(atoms.get_cell()**2, axis=1)**0.5
-        N_c = 8 * np.round(cell_c / (0.2 * 8))
+        N_c = 16 * np.round(cell_c / (0.25 * 16))
         calc = GPAW(gpts=N_c, nbands=1, basis='dzp', txt=name + '_gs.txt')
         atoms.set_calculator(calc)
         atoms.get_potential_energy()

@@ -30,7 +30,7 @@ niter = ndiv * int(np.ceil(2 * period / (ndiv * timestep)))
 
 if __name__ == '__main__':
     if not os.path.isfile(name + '_gs.gpw'):
-        atoms = Atoms('H2', positions=[(0,0,0),(0,0,d_bond+d_disp)])
+        atoms = Atoms('H2', positions=[(0, 0, 0), (0, 0, d_bond + d_disp)])
         atoms.set_pbc(False)
         atoms.center(vacuum=4.0)
         cell_c = np.sum(atoms.get_cell()**2, axis=1)**0.5

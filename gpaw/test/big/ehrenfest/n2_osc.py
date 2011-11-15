@@ -19,7 +19,7 @@ name = 'n2_osc'
 
 # Equilibrium distance in Ang cf. setups page for N dimer
 d_bond = 1.1
-d_disp = 0.1
+d_disp = 0.04
 
 # Timestep and expected oscillatory period in attoseconds
 timestep = 5.0
@@ -30,7 +30,7 @@ niter = ndiv * int(np.ceil(2 * period / (ndiv * timestep)))
 
 if __name__ == '__main__':
     if not os.path.isfile(name + '_gs.gpw'):
-        atoms = Atoms('N2', positions=[(0,0,0),(0,0,d_bond+d_disp)])
+        atoms = Atoms('N2', positions=[(0, 0, 0), (0, 0, d_bond + d_disp)])
         atoms.set_pbc(False)
         atoms.center(vacuum=6.0)
         cell_c = np.sum(atoms.get_cell()**2, axis=1)**0.5
