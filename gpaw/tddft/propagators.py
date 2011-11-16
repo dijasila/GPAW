@@ -1588,7 +1588,7 @@ class SemiImplicitKrylovExponential(DummyPropagator):
                 self.mblas.multi_zaxpy(-tmp, qm[j], qm[i], nvec)
 
             # S q_i
-            s.apply(kpt, qm[i], Sqm[i])
+            s.apply(qm[i], Sqm[i], self.wfs, kpt)
             self.mblas.multi_zdotc(tmp, qm[i], Sqm[i], nvec)
             tmp *= self.gd.dv
             self.mblas.multi_scale(1./np.sqrt(tmp), qm[i], nvec)
