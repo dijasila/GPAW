@@ -42,6 +42,11 @@ if __name__ == '__main__':
         del atoms, calc
         time.sleep(10)
 
+    while not os.path.isfile(name + '_gs.gpw'):
+        print 'Node %d waiting for file...' % world.rank
+        time.sleep(10)
+    world.barrier()
+
     tdcalc = TDDFT(name + '_gs.gpw', txt=name + '_td.txt', propagator='EFSICN')
     ehrenfest = EhrenfestVelocityVerlet(tdcalc)
     traj = PickleTrajectory(name + '_td.traj', 'w', tdcalc.get_atoms())
