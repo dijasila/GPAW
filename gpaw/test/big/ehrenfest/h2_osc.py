@@ -40,6 +40,7 @@ if __name__ == '__main__':
         atoms.get_potential_energy()
         calc.write(name + '_gs.gpw', mode='all')
         del atoms, calc
+        time.sleep(10)
 
     tdcalc = TDDFT(name + '_gs.gpw', txt=name + '_td.txt', propagator='EFSICN')
     ehrenfest = EhrenfestVelocityVerlet(tdcalc)
