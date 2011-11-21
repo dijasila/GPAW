@@ -26,7 +26,7 @@ timestep = 5.0
 period = 2.1e5 # ~19.7 meV cf. CRC Handbook of Phys. & Chem. #09_08_91
 
 ndiv = int(np.ceil(0.1e3 / timestep)) # update stats every 0.1 fs
-niter = ndiv * int(np.ceil(2 * period / (ndiv * timestep)))
+niter = ndiv * int(np.ceil(period / (ndiv * timestep)))
 
 if __name__ == '__main__':
     if not os.path.isfile(name + '_gs.gpw'):
