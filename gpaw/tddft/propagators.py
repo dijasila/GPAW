@@ -404,7 +404,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
             # Average of psit(t) and predicted psit(t+dt)
             mean_psit_nG = 0.5*(kpt.psit_nG + rhs_kpt.psit_nG)
             self.td_hamiltonian.half_apply(kpt, mean_psit_nG, self.hpsit)
-            self.td_overlap.apply_inverse(self.hpsit, self.sinvhpsit, self.wfs, kpt)
+            self.td_overlap.apply_inverse(self.hpsit, self.sinvhpsit, self.wfs, kpt, use_cg=False)
 
             # Update kpt.psit_nG to reflect psit(t+dt) - i S^(-1) dH(t+dt/2) dt/2 psit(t+dt/2)
             #kpt.psit_nG[:] = kpt.psit_nG - .5J * self.sinvhpsit * time_step
