@@ -22,7 +22,7 @@ def f(p, t):
 # Jacobian of model with respect to its four parameters
 def Df(p, t):
     return np.array([
-        np.cos(p[1] * t),
+        np.cos(p[1] * (t - p[2])),
         -p[0] * np.sin(p[1] * (t - p[2])) * (t - p[2]),
         p[0] * np.sin(p[1] * (t - p[2])) * p[1],
         np.ones_like(t)])
