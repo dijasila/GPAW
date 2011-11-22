@@ -115,9 +115,9 @@ compiler = None
 
 scalapack = False
 hdf5 = False
-#User provided customizations
-if os.path.isfile(customize):
-    execfile(customize)
+
+# User provided customizations:
+execfile(customize)
 
 if platform_id != '':
     my_platform = distutils.util.get_platform() + '-' + platform_id

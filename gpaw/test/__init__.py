@@ -95,6 +95,7 @@ tests = [
     'gauss_wave.py',
     'pw/h.py',
     'pw/lfc.py',
+    'pw/reallfc.py',
     'pw/bulk.py',
     'pw/slab.py',
     'coulomb.py',
@@ -190,7 +191,7 @@ tests = [
     'dump_chi0.py',
     'au02_absorption.py',
     'exx_q.py',
-    'rpa_energy_Kr.py',
+    'rpa_energy.py',
     'bse_aluminum.py',
     'bse_diamond.py',
     'bse_vs_lrtddft.py',
@@ -284,7 +285,8 @@ if mpi.size > 1:
                 'asewannier.py',
                 'wannier_ethylene.py',
                 'muffintinpot.py',
-                'stark_shift.py']
+                'stark_shift.py',
+                'exx_q.py']
 
 if mpi.size > 2:
     exclude += ['neb.py']
