@@ -25,7 +25,7 @@ d_disp = 0.04 #XXX purely to get same cell as n2_osc
 
 # Timestep and expected oscillatory period in attoseconds
 timestep = 5.0
-period = 1.414e4 # ~292.4 meV cf. CRC Handbook of Phys. & Chem. #09_08_91
+period = 1.924e4 # ~214.9 meV for $B^3 \Pi_g$ cf. Lofthus and Krupenie, 1977
 
 ndiv = int(np.ceil(0.1e3 / timestep)) # update stats every 0.1 fs
 niter = ndiv * int(np.ceil(2 * period / (ndiv * timestep)))
