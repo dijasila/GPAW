@@ -155,10 +155,10 @@ class TDDFT(GPAW):
 
         # Solver for linear equations
         self.text('Solver: ', solver)
-        if solver is 'BiCGStab':
+        if solver == 'BiCGStab':
             self.solver = BiCGStab(gd=wfs.gd, timer=self.timer,
                                    tolerance=tolerance)
-        elif solver is 'CSCG':
+        elif solver == 'CSCG':
             self.solver = CSCG(gd=wfs.gd, timer=self.timer,
                                tolerance=tolerance)
         else:
@@ -173,23 +173,23 @@ class TDDFT(GPAW):
 
         # Time propagator
         self.text('Propagator: ', propagator)
-        if propagator is 'ECN':
+        if propagator == 'ECN':
             self.propagator = ExplicitCrankNicolson(self.td_density,
                 self.td_hamiltonian, self.td_overlap, self.solver,
                 self.preconditioner, wfs.gd, self.timer)
-        elif propagator is 'SICN':
+        elif propagator == 'SICN':
             self.propagator = SemiImplicitCrankNicolson(self.td_density,
                 self.td_hamiltonian, self.td_overlap, self.solver,
                 self.preconditioner, wfs.gd, self.timer)
-        elif propagator is 'EFSICN':
+        elif propagator == 'EFSICN':
             self.propagator = EhrenfestPAWSICN(self.td_density,
                 self.td_hamiltonian, self.td_overlap, self.solver,
                 self.preconditioner, wfs.gd, self.timer)
-        elif propagator is 'EFSICN_HGH':
+        elif propagator == 'EFSICN_HGH':
             self.propagator = EhrenfestHGHSICN(self.td_density,
                 self.td_hamiltonian, self.td_overlap, self.solver,
                 self.preconditioner, wfs.gd, self.timer)
-        elif propagator is 'ETRSCN':
+        elif propagator == 'ETRSCN':
             self.propagator = EnforcedTimeReversalSymmetryCrankNicolson(
                 self.td_density,
                 self.td_hamiltonian, self.td_overlap, self.solver,
@@ -202,11 +202,11 @@ class TDDFT(GPAW):
             self.propagator = SemiImplicitKrylovExponential(self.td_density,
                 self.td_hamiltonian, self.td_overlap, self.solver,
                 self.preconditioner, wfs.gd, self.timer, degree = 4)
-        elif propagator is 'SIKE5':
+        elif propagator == 'SIKE5':
             self.propagator = SemiImplicitKrylovExponential(self.td_density,
                 self.td_hamiltonian, self.td_overlap, self.solver,
                 self.preconditioner, wfs.gd, self.timer, degree = 5)
-        elif propagator is 'SIKE6':
+        elif propagator == 'SIKE6':
             self.propagator = SemiImplicitKrylovExponential(self.td_density,
                 self.td_hamiltonian, self.td_overlap, self.solver, 
                 self.preconditioner, wfs.gd, self.timer, degree = 6)
