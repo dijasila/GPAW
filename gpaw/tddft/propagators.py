@@ -193,10 +193,6 @@ class ExplicitCrankNicolson(DummyPropagator):
         if self.spsit is None:
             self.spsit = self.gd.zeros(nvec, dtype=complex, cuda=self.cuda)
 
-        #if self.cuda:
-        #    for kpt in kpt_u:
-        #        kpt.cuda_psit_nG_htod() 
-        
 
         self.timer.start('Update time-dependent operators')
 
@@ -241,7 +237,7 @@ class ExplicitCrankNicolson(DummyPropagator):
     # ( S + i H dt/2 ) psit(t+dt) = ( S - i H dt/2 ) psit(t)
     def solve_propagation_equation(self, kpt, rhs_kpt, time_step, guess=False):
 
-        print "spe ExplicitCrankNicolson"
+        #print "spe ExplicitCrankNicolson"
         if self.cuda:
             psit_nG=kpt.psit_nG_gpu
         else:
@@ -300,7 +296,7 @@ class ExplicitCrankNicolson(DummyPropagator):
             the result ( S + i H dt/2 ) psi
 
         """
-        self.timer.start('dot')
+        #self.timer.start('dot')
         self.timer.start('Apply time-dependent operators')
 
         
@@ -319,7 +315,7 @@ class ExplicitCrankNicolson(DummyPropagator):
 
         self.mblas.multi_zaxpy(.5j*self.time_step, self.hpsit, psin, len(psi))
 
-        self.timer.stop('dot')
+        #self.timer.stop('dot')
             
     #def cuda_psit_htod(self):
     #    assert self.cuda
@@ -466,7 +462,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         # Overwrite psit_nG in tmp_kpt_u by (1 - i S^(-1)(t) H(t) dt) psit_nG
         # from corresponding kpt_u in a Euler step before predicting psit(t+dt)
         for [kpt, rhs_kpt] in zip(kpt_u, self.tmp_kpt_u):
-            print "predictor step  solve_propagation_equation"
+            #print "predictor step  solve_propagation_equation"
             self.solve_propagation_equation(kpt, rhs_kpt, time_step, guess=True)
 
         self.timer.start('Update time-dependent operators')
@@ -505,7 +501,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
             #kpt.psit_nG[:] = kpt.psit_nG - .5J * self.sinvhpsit * time_step
             self.mblas.multi_zaxpy(-.5j*time_step, self.sinvhpsit, psit_nG, nvec)                
             
-            print "corrector step solve_propagation_equation"
+            #print "corrector step solve_propagation_equation"
             self.solve_propagation_equation(kpt, rhs_kpt, time_step)
  
         # update projections before exiting
@@ -521,7 +517,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
 
     # ( S + i H dt/2 ) psit(t+dt) = ( S - i H dt/2 ) psit(t)
     def solve_propagation_equation(self, kpt, rhs_kpt, time_step, guess=False):
-        print "spe SemiImplicitCrankNicolson"
+        #print "spe SemiImplicitCrankNicolson"
         if self.cuda:
             psit_nG=kpt.psit_nG_gpu
         else:

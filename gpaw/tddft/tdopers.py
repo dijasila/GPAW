@@ -43,8 +43,8 @@ class TimeDependentHamiltonian:
         self.wfs = wfs
         self.hamiltonian = hamiltonian
 
-        print "wfs.cuda ",wfs.cuda
-        print "hamiltonian.cuda ",hamiltonian.cuda
+        #print "wfs.cuda ",wfs.cuda
+        #print "hamiltonian.cuda ",hamiltonian.cuda
         
         self.td_potential = td_potential
 

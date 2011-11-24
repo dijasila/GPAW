@@ -120,7 +120,7 @@ class TDDFT(GPAW):
         # Prepare for dipole moment file handle
         self.dm_file = None
 
-        print "hamiltonian.cuda ",self.hamiltonian.cuda 
+        #print "hamiltonian.cuda ",self.hamiltonian.cuda 
 
         # Initialize wavefunctions and density 
         # (necessary after restarting from file)

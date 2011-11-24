@@ -106,7 +106,7 @@ class _Transformer:
                     print "Debug cuda: transformer apply max rel error: ",error_i,output_cpu[error_i],output.get()[error_i],abs(output_cpu[error_i]-output.get()[error_i])
                     error_i=np.unravel_index(np.argmax(diff),diff.shape)
                     print "Debug cuda: transformer apply max abs error: ",error_i, output_cpu[error_i],output.get()[error_i],abs(output_cpu[error_i]-output.get()[error_i])
-                    
+                    print "interpolate ",self.interpolate                    
         else:    
             self.transformer.apply(input, output, phases)
 

@@ -75,7 +75,7 @@ class Hamiltonian:
             self.poisson.set_grid_descriptor(finegd, cuda=self.cuda)
         except TypeError:
             self.poisson.set_grid_descriptor(finegd)
-        print "ham.cuda ",self.cuda
+        #print "ham.cuda ",self.cuda
         #print "ham.psolver.cuda ",self.poisson.cuda 
         self.dH_asp = None
 
@@ -463,7 +463,7 @@ class Hamiltonian:
             When False, existing P_ani are used
         
         """
-        self.timer.start('Apply Hamiltonian cuda: '+str(self.cuda))
+        #self.timer.start('Apply Hamiltonian cuda: '+str(self.cuda))
         if debug_cuda and self.cuda:                
             if not  np.allclose(self.vt_sG,self.vt_sG_gpu.get(),
                                 debug_cuda_reltol,debug_cuda_abstol):

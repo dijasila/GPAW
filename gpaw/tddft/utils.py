@@ -12,8 +12,8 @@ import pycuda.gpuarray as gpuarray
 class MultiBlas:
     def __init__(self, gd, timer = None):
         self.gd = gd
-        #self.timer = None
-        self.timer = timer
+        self.timer = None
+        #self.timer = timer
 
     # Multivector ZAXPY: a x + y => y
     #def multi_zaxpy(self, a,x,y, nvec):
