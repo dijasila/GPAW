@@ -13,81 +13,48 @@ from gpaw.transformers import Transformer
 from gpaw.lfc import LFC
 from gpaw.utilities import pack2,unpack,unpack2
 from gpaw.utilities.tools import tri2full
+from gpaw import debug
 
 
 class Hamiltonian:
-    """Hamiltonian object.
+    def __init__(self, gd, nspins, xc, setups, collinear=True,
+                 vext_G=None, timer=None):
+        """Hamiltonian object.
+    
+        gd: GridDescriptor object
+            Grid descriptor for real-space grids.
+        xc: XC object
+            Exchange-correlation object.
 
-    Attributes:
-     =============== =====================================================
-     ``xc``          ``XC3DGrid`` object.
-     ``poisson``     ``PoissonSolver``.
-     ``gd``          Grid descriptor for coarse grids.
-     ``finegd``      Grid descriptor for fine grids.
-     ``restrict``    Function for restricting the effective potential.
-     =============== =====================================================
+        Energy contributions:
+    
+        :Ekin:    Kinetic energy.
+        :Epot:    Potential energy.
+        :Etot:    Total energy.
+        :Exc:     Exchange-Correlation energy.
+        :Eext:    Energy of external potential
+        :Eref:    Reference energy for all-electron atoms.
+        :S:       Entropy.
+        :Ebar:    Should be close to zero!
+        """
 
-    Soft and smooth pseudo functions on uniform 3D grids:
-     ========== =========================================
-     ``vHt_g``  Hartree potential on the fine grid.
-     ``vt_sG``  Effective potential on the coarse grid.
-     ``vt_sg``  Effective potential on the fine grid.
-     ========== =========================================
-
-    Energy contributions and forces:
-
-    =========== ==========================================
-                Description
-    =========== ==========================================
-    ``Ekin``    Kinetic energy.
-    ``Epot``    Potential energy.
-    ``Etot``    Total energy.
-    ``Exc``     Exchange-Correlation energy.
-    ``Eext``    Energy of external potential
-    ``Eref``    Reference energy for all-electron atoms.
-    ``S``       Entropy.
-    ``Ebar``    Should be close to zero!
-    =========== ==========================================
-
-    """
-
-    def __init__(self, gd, finegd, nspins, setups, stencil, timer, xc,
-                 psolver, vext_g, collinear=True):
-        """Create the Hamiltonian."""
         self.gd = gd
-        self.finegd = finegd
         self.nspins = nspins
         self.setups = setups
         self.timer = timer
         self.xc = xc
         self.collinear = collinear
         self.ncomp = 2 - int(collinear)
-        
-        # Solver for the Poisson equation:
-        if psolver is None:
-            psolver = PoissonSolver(nn=3, relax='J')
-        self.poisson = psolver
-        self.poisson.set_grid_descriptor(finegd)
 
         self.dH_asp = None
 
         # The external potential
-        self.vext_g = vext_g
+        self.vext_G = vext_G
 
         self.vt_sG = None
-        self.vHt_g = None
-        self.vt_sg = None
-        self.vbar_g = None
+        self.vbar_G = None
 
         self.rank_a = None
-
-        # Restrictor function for the potential:
-        self.restrictor = Transformer(self.finegd, self.gd, stencil,
-                                      allocate=False)
-        self.restrict = self.restrictor.apply
-
-        self.vbar = LFC(self.finegd, [[setup.vbar] for setup in setups],
-                        forces=True)
 
         self.Ekin0 = None
         self.Ekin = None
@@ -97,23 +64,19 @@ class Hamiltonian:
         self.Exc = None
         self.Etot = None
         self.S = None
-        self.allocated = False
 
-    def allocate(self):
-        # TODO We should move most of the gd.empty() calls here
-        assert not self.allocated
-        self.restrictor.allocate()
-        self.allocated = True
+        print 'ALLOCATE!'
 
     def set_positions(self, spos_ac, rank_a=None):
         self.spos_ac = spos_ac
-        if not self.allocated:
-            self.allocate()
+
+        self.ghat.set_positions(spos_ac)
+
         self.vbar.set_positions(spos_ac)
-        if self.vbar_g is None:
-            self.vbar_g = self.finegd.empty()
-        self.vbar_g[:] = 0.0
-        self.vbar.add(self.vbar_g)
+        if self.vbar_G is None:
+            self.vbar_G = self.finegd.empty()
+        self.vbar_G[:] = 0.0
+        self.vbar.add(self.vbar_G)
 
         self.xc.set_positions(spos_ac)
         
@@ -152,63 +115,6 @@ class Hamiltonian:
 
         self.rank_a = rank_a
 
-    def aoom(self, DM, a, l, scale=1):
-        """Atomic Orbital Occupation Matrix.
-        
-        Determine the Atomic Orbital Occupation Matrix (aoom) for a
-        given l-quantum number.
-        
-        This operation, takes the density matrix (DM), which for
-        example is given by unpack2(D_asq[i][spin]), and corrects for
-        the overlap between the selected orbitals (l) upon which the
-        the density is expanded (ex <p|p*>,<p|p>,<p*|p*> ).
-
-        Returned is only the "corrected" part of the density matrix,
-        which represents the orbital occupation matrix for l=2 this is
-        a 5x5 matrix.
-        """
-        S=self.setups[a]
-        l_j = S.l_j
-        n_j = S.n_j
-        lq  = S.lq
-        nl  = np.where(np.equal(l_j, l))[0]
-        V = np.zeros(np.shape(DM))
-        if len(nl) == 2:
-            aa = (nl[0])*len(l_j)-((nl[0]-1)*(nl[0])/2)
-            bb = (nl[1])*len(l_j)-((nl[1]-1)*(nl[1])/2)
-            ab = aa+nl[1]-nl[0]
-            
-            if(scale==0 or scale=='False' or scale =='false'):
-                lq_a  = lq[aa]
-                lq_ab = lq[ab]
-                lq_b  = lq[bb]
-            else:
-                lq_a  = 1
-                lq_ab = lq[ab]/lq[aa]
-                lq_b  = lq[bb]/lq[aa]
- 
-            # and the correct entrances in the DM
-            nn = (2*np.array(l_j)+1)[0:nl[0]].sum()
-            mm = (2*np.array(l_j)+1)[0:nl[1]].sum()
-            
-            # finally correct and add the four submatrices of NC_DM
-            A = DM[nn:nn+2*l+1,nn:nn+2*l+1]*(lq_a)
-            B = DM[nn:nn+2*l+1,mm:mm+2*l+1]*(lq_ab)
-            C = DM[mm:mm+2*l+1,nn:nn+2*l+1]*(lq_ab)
-            D = DM[mm:mm+2*l+1,mm:mm+2*l+1]*(lq_b)
-            
-            V[nn:nn+2*l+1,nn:nn+2*l+1]=+(lq_a)
-            V[nn:nn+2*l+1,mm:mm+2*l+1]=+(lq_ab)
-            V[mm:mm+2*l+1,nn:nn+2*l+1]=+(lq_ab)
-            V[mm:mm+2*l+1,mm:mm+2*l+1]=+(lq_b)
- 
-            return  A+B+C+D, V
-        else:
-            nn =(2*np.array(l_j)+1)[0:nl[0]].sum()
-            A=DM[nn:nn+2*l+1,nn:nn+2*l+1]*lq[-1]
-            V[nn:nn+2*l+1,nn:nn+2*l+1]=+lq[-1]
-            return A,V
-
     def update(self, density):
         """Calculate effective potential.
 
@@ -218,68 +124,18 @@ class Hamiltonian:
 
         self.timer.start('Hamiltonian')
 
-        if self.vt_sg is None:
+        if self.vt_sG is None:
             self.timer.start('Initialize Hamiltonian')
-            self.vt_sg = self.finegd.empty(self.nspins * self.ncomp**2)
-            self.vHt_g = self.finegd.zeros()
             self.vt_sG = self.gd.empty(self.nspins * self.ncomp**2)
-            self.poisson.initialize()
+            self.poissonsolver.initialize()
             self.timer.stop('Initialize Hamiltonian')
 
-        self.timer.start('vbar')
-        Ebar = self.finegd.integrate(self.vbar_g, density.nt_g,
-                                     global_integral=False)
-
-        vt_g = self.vt_sg[0]
-        vt_g[:] = self.vbar_g
-        self.timer.stop('vbar')
+        Ebar, Exc, Epot, Ekin, W_aL = self.calculate_effective_potential(density)
 
         Eext = 0.0
-        if self.vext_g is not None:
-            assert self.collinear
-            vt_g += self.vext_g.get_potential(self.finegd)
-            Eext = self.finegd.integrate(vt_g, density.nt_g,
-                                         global_integral=False) - Ebar
-
-        self.vt_sg[1:self.nspins] = vt_g
-
-        self.vt_sg[self.nspins:] = 0.0
-            
-        self.timer.start('XC 3D grid')
-        Exc = self.xc.calculate(self.finegd, density.nt_sg, self.vt_sg)
-        Exc /= self.gd.comm.size
-        self.timer.stop('XC 3D grid')
-
-        self.timer.start('Poisson')
-        # npoisson is the number of iterations:
-        self.npoisson = self.poisson.solve(self.vHt_g, density.rhot_g,
-                                           charge=-density.charge)
-        self.timer.stop('Poisson')
-
-        self.timer.start('Hartree integrate/restrict')
-        Epot = 0.5 * self.finegd.integrate(self.vHt_g, density.rhot_g,
-                                           global_integral=False)
-        Ekin = 0.0
-        s = 0
-        for vt_g, vt_G, nt_G in zip(self.vt_sg, self.vt_sG, density.nt_sG):
-            if s < self.nspins:
-                vt_g += self.vHt_g
-            self.restrict(vt_g, vt_G)
-            if s < self.nspins:
-                Ekin -= self.gd.integrate(vt_G, nt_G - density.nct_G,
-                                          global_integral=False)
-            else:
-                Ekin -= self.gd.integrate(vt_G, nt_G, global_integral=False)
-            s += 1
                 
-        self.timer.stop('Hartree integrate/restrict')
-            
         # Calculate atomic hamiltonians:
         self.timer.start('Atomic')
-        W_aL = {}
-        for a in density.D_asp:
-            W_aL[a] = np.empty((self.setups[a].lmax + 1)**2)
-        density.ghat.integrate(self.vHt_g, W_aL)
         self.dH_asp = {}
         for a, D_sp in density.D_asp.items():
             W_L = W_aL[a]
@@ -294,60 +150,10 @@ class Hamiltonian:
             Epot += setup.M + np.dot(D_p, (setup.M_p +
                                            np.dot(setup.M_pp, D_p)))
 
-            if self.vext_g is not None:
-                vext = self.vext_g.get_taylor(spos_c=self.spos_ac[a, :])
-                # Tailor expansion to the zeroth order
-                Eext += vext[0][0] * (sqrt(4 * pi) * density.Q_aL[a][0]
-                                      + setup.Z)
-                dH_p += vext[0][0] * sqrt(4 * pi) * setup.Delta_pL[:, 0]
-                if len(vext) > 1:
-                    # Tailor expansion to the first order
-                    Eext += sqrt(4 * pi / 3) * np.dot(vext[1],
-                                                      density.Q_aL[a][1:4])
-                    # there must be a better way XXXX
-                    Delta_p1 = np.array([setup.Delta_pL[:, 1],
-                                          setup.Delta_pL[:, 2],
-                                          setup.Delta_pL[:, 3]])
-                    dH_p += sqrt(4 * pi / 3) * np.dot(vext[1], Delta_p1)
-
             self.dH_asp[a] = dH_sp = np.zeros_like(D_sp)
             self.timer.start('XC Correction')
             Exc += self.xc.calculate_paw_correction(setup, D_sp, dH_sp, a=a)
             self.timer.stop('XC Correction')
-
-            if setup.HubU is not None:
-                assert self.collinear
-                nspins = len(D_sp)
-                
-                l_j = setup.l_j
-                l   = setup.Hubl
-                nl  = np.where(np.equal(l_j,l))[0]
-                nn  = (2*np.array(l_j)+1)[0:nl[0]].sum()
-                
-                for D_p, H_p in zip(D_sp, self.dH_asp[a]):
-                    [N_mm,V] =self.aoom(unpack2(D_p),a,l)
-                    N_mm = N_mm / 2 * nspins
-                     
-                    Eorb = setup.HubU / 2. * (N_mm - np.dot(N_mm,N_mm)).trace()
-                    Vorb = setup.HubU * (0.5 * np.eye(2*l+1) - N_mm)
-                    Exc += Eorb
-                    if nspins == 1:
-                        # add contribution of other spin manyfold
-                        Exc += Eorb
-                    
-                    if len(nl)==2:
-                        mm  = (2*np.array(l_j)+1)[0:nl[1]].sum()
-                        
-                        V[nn:nn+2*l+1,nn:nn+2*l+1] *= Vorb
-                        V[mm:mm+2*l+1,nn:nn+2*l+1] *= Vorb
-                        V[nn:nn+2*l+1,mm:mm+2*l+1] *= Vorb
-                        V[mm:mm+2*l+1,mm:mm+2*l+1] *= Vorb
-                    else:
-                        V[nn:nn+2*l+1,nn:nn+2*l+1] *= Vorb
-                    
-                    Htemp = unpack(H_p)
-                    Htemp += V
-                    H_p[:] = pack2(Htemp)
 
             dH_sp[:self.nspins] += dH_p
 
@@ -380,6 +186,58 @@ class Hamiltonian:
                      self.Ebar + self.Exc - self.S)
 
         return self.Etot
+
+    def external(self):
+        if self.vext_G is not None:
+                vext = self.vext_G.get_taylor(spos_c=self.spos_ac[a, :])
+                # Tailor expansion to the zeroth order
+                Eext += vext[0][0] * (sqrt(4 * pi) * density.Q_aL[a][0]
+                                      + setup.Z)
+                dH_p += vext[0][0] * sqrt(4 * pi) * setup.Delta_pL[:, 0]
+                if len(vext) > 1:
+                    # Tailor expansion to the first order
+                    Eext += sqrt(4 * pi / 3) * np.dot(vext[1],
+                                                      density.Q_aL[a][1:4])
+                    # there must be a better way XXXX
+                    Delta_p1 = np.array([setup.Delta_pL[:, 1],
+                                          setup.Delta_pL[:, 2],
+                                          setup.Delta_pL[:, 3]])
+                    dH_p += sqrt(4 * pi / 3) * np.dot(vext[1], Delta_p1)
+
+    def hubbardu(self):
+        if setup.HubU is not None:
+                assert self.collinear
+                nspins = len(D_sp)
+                
+                l_j = setup.l_j
+                l   = setup.Hubl
+                nl  = np.where(np.equal(l_j,l))[0]
+                nn  = (2*np.array(l_j)+1)[0:nl[0]].sum()
+                
+                for D_p, H_p in zip(D_sp, self.dH_asp[a]):
+                    [N_mm,V] = aoom(setup, unpack2(D_p),a,l)
+                    N_mm = N_mm / 2 * nspins
+                     
+                    Eorb = setup.HubU / 2. * (N_mm - np.dot(N_mm,N_mm)).trace()
+                    Vorb = setup.HubU * (0.5 * np.eye(2*l+1) - N_mm)
+                    Exc += Eorb
+                    if nspins == 1:
+                        # add contribution of other spin manyfold
+                        Exc += Eorb
+                    
+                    if len(nl)==2:
+                        mm  = (2*np.array(l_j)+1)[0:nl[1]].sum()
+                        
+                        V[nn:nn+2*l+1,nn:nn+2*l+1] *= Vorb
+                        V[mm:mm+2*l+1,nn:nn+2*l+1] *= Vorb
+                        V[nn:nn+2*l+1,mm:mm+2*l+1] *= Vorb
+                        V[mm:mm+2*l+1,mm:mm+2*l+1] *= Vorb
+                    else:
+                        V[nn:nn+2*l+1,nn:nn+2*l+1] *= Vorb
+                    
+                    Htemp = unpack(H_p)
+                    Htemp += V
+                    H_p[:] = pack2(Htemp)
 
     def apply_local_potential(self, psit_nG, Htpsit_nG, s):
         """Apply the Hamiltonian operator to a set of vectors.
@@ -464,10 +322,130 @@ class Hamiltonian:
         nbytes = self.gd.bytecount()
         nfinebytes = self.finegd.bytecount()
         arrays = mem.subnode('Arrays', 0)
-        arrays.subnode('vHt_g', nfinebytes)
+        arrays.subnode('vHt_G', nfinebytes)
         arrays.subnode('vt_sG', self.nspins * nbytes)
-        arrays.subnode('vt_sg', self.nspins * nfinebytes)
         self.restrictor.estimate_memory(mem.subnode('Restrictor'))
         self.xc.estimate_memory(mem.subnode('XC'))
         self.poisson.estimate_memory(mem.subnode('Poisson'))
         self.vbar.estimate_memory(mem.subnode('vbar'))
+
+
+class RealSpaceHamiltonian(Hamiltonian):
+    def __init__(self, gd, nspins, xc, setups, collinear=True,
+                 vext_G=None, timer=None, poissonsolver=None, stencil=3):
+        Hamiltonian.__init__(self, gd, nspins, xc, setups, collinear,
+                             vext_G, timer)
+
+        self.finegd = self.gd.refine()
+
+        # Solver for the Poisson equation:
+        if poissonsolver is None:
+            poissonsolver = PoissonSolver(nn=3, relax='J')
+        self.poissonsolver = poissonsolver
+        poissonsolver.set_grid_descriptor(self.finegd)
+
+        # Restrictor function for the potential:
+        self.restrictor = Transformer(self.finegd, self.gd, stencil)
+
+        # Interpolation function for the density:
+        self.interpolator = Transformer(self.gd, self.finegd, stencil)
+
+        self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
+                        integral=sqrt(4 * pi), forces=True)
+
+        self.vbar = LFC(self.finegd, [[setup.vbar] for setup in self.setups],
+                        forces=True)
+
+        self.vHt_g = None
+
+    def calculate_effective_potential(self, density):
+        self.timer.start('vbar')
+        
+        Ebar = self.finegd.integrate(self.vbar_G,
+                                 self.interpolator.apply(density.nt_sG),
+                                 global_integral=False).sum()
+
+        vt_G = self.vt_sG[0]
+        vt_G[:] = self.restrictor.apply(self.vbar_G)
+        self.timer.stop('vbar')
+
+
+        self.vt_sG[1:self.nspins] = vt_G
+
+        self.vt_sG[self.nspins:] = 0.0
+            
+        self.timer.start('XC 3D grid')
+        if 0:
+            Exc = self.xc.calculate(self.gd, density.nt_sG, self.vt_sG)
+        else:
+            nt_sg = self.finegd.empty(self.nspins * self.ncomp**2)
+            self.interpolator.apply(density.nt_sG, nt_sg)
+            vxct_sg = self.finegd.zeros(self.nspins * self.ncomp**2)
+            Exc = self.xc.calculate(self.finegd, nt_sg, vxct_sg)
+            vxct_sG = self.gd.zeros(self.nspins * self.ncomp**2)
+            self.restrictor.apply(vxct_sg, vxct_sG)
+            self.vt_sG += vxct_sG
+        Exc /= self.gd.comm.size
+        self.timer.stop('XC 3D grid')
+
+        self.timer.start('Poisson')
+
+        """Interpolate pseudo density to fine grid."""
+        rhot_g = self.finegd.empty()
+        nt_G = density.nt_sG[:self.nspins].sum(0)
+        self.interpolator.apply(nt_G, rhot_g)
+
+        # With periodic boundary conditions, the interpolation will
+        # conserve the number of electrons.
+        if not self.gd.pbc_c.all():
+            # With zero-boundary conditions in one or more directions,
+            # this is not the case.
+
+            comp_charge = density.calculate_multipole_moments()
+
+            pseudo_charge = -(density.charge + comp_charge)
+            x = pseudo_charge / self.finegd.integrate(rhot_g)
+            rhot_g *= x
+
+        self.ghat.add(rhot_g, density.Q_aL)
+
+        if debug:
+            charge = self.finegd.integrate(rhot_g) + density.charge
+            if abs(charge) > 1e-7:
+                raise RuntimeError('Charge not conserved: excess=%.9f' %
+                                   charge)
+
+        if self.vHt_g is None:
+            self.vHt_g = self.finegd.zeros()
+
+        # npoisson is the number of iterations:
+        self.npoisson = self.poissonsolver.solve(self.vHt_g, rhot_g,
+                                                 charge=-density.charge)
+        self.timer.stop('Poisson')
+
+        self.timer.start('Hartree integrate/restrict')
+        Epot = 0.5 * self.finegd.integrate(self.vHt_g, rhot_g,
+                                           global_integral=False)
+
+        vHt_G = self.gd.empty()
+        self.restrictor.apply(self.vHt_g, vHt_G)
+        
+        W_aL = {}
+        for a in density.D_asp:
+            W_aL[a] = np.empty((self.setups[a].lmax + 1)**2)
+        self.ghat.integrate(self.vHt_g, W_aL)
+
+        self.timer.stop('Hartree integrate/restrict')
+            
+        self.vt_sG[:self.nspins] += vHt_G
+
+        Ekin = 0.0
+        s = 0
+        for vt_G, nt_G in zip(self.vt_sG, density.nt_sG):
+            Ekin -= self.gd.integrate(vt_G, nt_G, global_integral=False)
+            if s < self.nspins:
+                Ekin += self.gd.integrate(vt_G, density.nct_G,
+                                          global_integral=False)
+            s += 1
+
+        return Ebar, Exc, Epot, Ekin, W_aL

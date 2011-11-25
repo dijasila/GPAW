@@ -49,7 +49,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
         
     def make_preconditioner(self, block=1):
         return Preconditioner(self.gd, self.kin, self.dtype, block)
-    
+
     def apply_pseudo_hamiltonian(self, kpt, hamiltonian, psit_xG, Htpsit_xG):
         self.timer.start('Apply hamiltonian')
         self.kin.apply(psit_xG, Htpsit_xG, kpt.phase_cd)

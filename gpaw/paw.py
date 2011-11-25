@@ -21,7 +21,7 @@ from gpaw.eigensolvers import get_eigensolver
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
-from gpaw.hamiltonian import Hamiltonian
+from gpaw.hamiltonian import RealSpaceHamiltonian
 from gpaw.utilities.timing import Timer
 from gpaw.xc import XC
 from gpaw.kpt_descriptor import KPointDescriptor
@@ -596,27 +596,18 @@ class PAW(PAWTextOutput):
 
         if self.density is None:
             gd = self.wfs.gd
-            if par.stencils[1] != 9:
-                # Construct grid descriptor for fine grids for densities
-                # and potentials:
-                finegd = gd.refine()
-            else:
-                # Special case (use only coarse grid):
-                finegd = gd
-
-            self.density = Density(gd, finegd, nspins,
+            self.density = Density(gd, nspins,
                                    par.charge + setups.core_charge, collinear)
 
-        self.density.initialize(setups, par.stencils[1], self.timer,
-                                magmom_av, par.hund)
+        self.density.initialize(setups, magmom_av, par.hund, self.timer)
         self.density.set_mixer(par.mixer)
 
         if self.hamiltonian is None:
-            gd, finegd = self.density.gd, self.density.finegd
-            self.hamiltonian = Hamiltonian(gd, finegd, nspins,
-                                           setups, par.stencils[1], self.timer,
-                                           xc, par.poissonsolver,
-                                           par.external, collinear)
+            gd = self.density.gd
+            self.hamiltonian = RealSpaceHamiltonian(
+                gd, nspins, xc, setups, collinear,
+                par.external, self.timer,
+                par.poissonsolver, par.stencils[1])
 
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)

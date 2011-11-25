@@ -170,7 +170,7 @@ class PAWTextOutput:
         if p['mode'] != 'lcao':
             t('                   (%s)' % fd(p['stencils'][0]))
 
-        poisson = self.hamiltonian.poisson
+        poisson = self.hamiltonian.poissonsolver
         t('Poisson Solver:    %s' % poisson.get_method())
         description = fd(poisson.get_stencil())
         t('                   (%s)\n' % description)
@@ -303,18 +303,21 @@ class PAWTextOutput:
 
         self.hamiltonian.xc.summary(self.txt)
 
-        if self.density.rhot_g is None:
-            return
+        #if self.density.rhot_g is None:
+        #    return
 
         t()
-        charge = self.density.finegd.integrate(self.density.rhot_g)
-        t('Total Charge:  %f electrons' % charge)
+        charge = self.density.charge
+        t('Total Charge:  %f ????????????' % charge)
 
+        
+        """
         dipole = self.get_dipole_moment()
         if self.density.charge == 0:
             t('Dipole Moment: %s' % dipole)
         else:
             t('Center of Charge: %s' % (dipole / abs(charge)))
+        """
 
         if self.wfs.nspins == 2:
             t()
