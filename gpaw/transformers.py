@@ -78,8 +78,11 @@ class _Transformer:
                                              self.interpolate)
         self.allocated = True
         
-    def apply(self, input, output, phases=None):
+    def apply(self, input, output=None, phases=None):
+        if output is None:
+            output = self.gdout.empty(input.shape[:-3], dtype=self.dtype)
         self.transformer.apply(input, output, phases)
+        return output
 
     def get_async_sizes(self):
         return self.transformer.get_async_sizes()
@@ -120,18 +123,19 @@ class TransformerWrapper:
         self.transformer.allocate()
         self.allocated = True
 
-    def apply(self, input, output, phases=None):
+    def apply(self, input, output=None, phases=None):
         assert is_contiguous(input, self.dtype)
-        assert is_contiguous(output, self.dtype)
         assert input.shape[-3:] == self.ngpin
-        assert output.shape[-3:] == self.ngpout
+        if output is not None:
+            assert is_contiguous(output, self.dtype)
+            assert output.shape[-3:] == self.ngpout
         assert (self.dtype == float or
                 (phases.dtype == complex and
                  phases.shape == (3, 2)))
 
         assert self.allocated
-        self.transformer.apply(input, output, phases)
-
+        return self.transformer.apply(input, output, phases)
+        
     def get_async_sizes(self):
         return self.transformer.get_async_sizes()
 
