@@ -407,7 +407,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
             self.td_overlap.apply_inverse(self.hpsit, self.sinvhpsit, self.wfs, kpt, use_cg=False)
 
             # Update kpt.psit_nG to reflect psit(t+dt) - i S^(-1) dH(t+dt/2) dt/2 psit(t+dt/2)
-            #kpt.psit_nG[:] = kpt.psit_nG - .5J * self.sinvhpsit * time_step
+            kpt.psit_nG[:] = kpt.psit_nG - .5J * self.sinvhpsit * time_step
             self.mblas.multi_zaxpy(-.5j*time_step, self.sinvhpsit, kpt.psit_nG, nvec)
 
             self.solve_propagation_equation(kpt, rhs_kpt, time_step)
@@ -490,7 +490,8 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
        TODO: merge this with the ordinary SICN
     """
     def __init__(self, td_density, td_hamiltonian, td_overlap, 
-                 solver, preconditioner, gd, timer):
+                 solver, preconditioner, gd, timer, corrector_guess = True,
+                 predictor_guess = (True,False), use_cg = (False,False)):
         """Create SemiImplicitCrankNicolson-object.
         
         Parameters
@@ -509,12 +510,26 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
             coarse (wavefunction) grid descriptor
         timer: Timer
             timer
+        corrector_guess: Bool
+            use initial guess for the corrector step (default is True)
+        predictor_guess: (Bool, Bool)
+            use (first, second) order initial guesses for the predictor step
+            default is (True, False)
+        use_cg: (Bool, Bool)
+            use CG for calculating the inverse overlap (predictor, corrector)
+            default is (False, False)
         
         """
         ExplicitCrankNicolson.__init__(self, td_density, td_hamiltonian,
                           td_overlap, solver, preconditioner, gd, timer)
 
         self.old_kpt_u = None
+        self.corrector_guess = corrector_guess
+        self.predictor_guess = predictor_guess
+        self.use_cg = use_cg
+
+        #self.hsinvhpsit = None
+        self.sinvh2psit = None
 
     def update_velocities(self, v_at_new, v_at_old = None):
         self.v_at = v_at_new.copy()
@@ -591,7 +606,8 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
         # from corresponding kpt_u in a Euler step before predicting psit(t+dt)
         #self.v_at = self.v_at_old.copy() #v(t) for predictor step
         for [kpt, rhs_kpt] in zip(self.wfs.kpt_u, self.tmp_kpt_u):
-            self.solve_propagation_equation(kpt, rhs_kpt, time_step, guess=False)
+            #print 'self.predictor_guess[0]', self.predictor_guess[0]
+            self.solve_propagation_equation(kpt, rhs_kpt, time_step, guess=self.predictor_guess[0])
 
         self.timer.start('Update time-dependent operators')
 
@@ -617,13 +633,14 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
         # wavefunction in old_kpt_u are used to calculate rhs based on psit(t)
         for [kpt, rhs_kpt] in zip(self.wfs.kpt_u, self.old_kpt_u):
             # Average of psit(t) and predicted psit(t+dt)
-            #mean_psit_nG = 0.5*(kpt.psit_nG + rhs_kpt.psit_nG)
-            #self.td_hamiltonian.half_apply(kpt, mean_psit_nG, self.hpsit)
-            #self.td_overlap.apply_inverse(self.hpsit, self.sinvhpsit, self.wfs, kpt)
+            if(self.corrector_guess):
+                mean_psit_nG = 0.5*(kpt.psit_nG + rhs_kpt.psit_nG)
+                self.td_hamiltonian.half_apply(kpt, mean_psit_nG, self.hpsit)
+                self.td_overlap.apply_inverse(self.hpsit, self.sinvhpsit, self.wfs, kpt, use_cg=self.use_cg[1])
 
-            # Update kpt.psit_nG to reflect psit(t+dt) - i S^(-1) dH(t+dt/2) dt/2 psit(t+dt/2)
-            #kpt.psit_nG[:] = kpt.psit_nG - .5J * self.sinvhpsit * time_step
-            #self.mblas.multi_zaxpy(-.5j*time_step, self.sinvhpsit, kpt.psit_nG, nvec)
+                # Update kpt.psit_nG to reflect psit(t+dt) - i S^(-1) dH(t+dt/2) dt/2 psit(t+dt/2)
+                kpt.psit_nG[:] = kpt.psit_nG - .5J * self.sinvhpsit * time_step
+                self.mblas.multi_zaxpy(-.5j*time_step, self.sinvhpsit, kpt.psit_nG, nvec)
 
             self.solve_propagation_equation(kpt, rhs_kpt, time_step)
  
@@ -670,10 +687,28 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
             if self.sinvhpsit is None:
                 self.sinvhpsit = self.gd.zeros(len(kpt.psit_nG), dtype=complex)
 
+            if self.predictor_guess[1]:
+                if self.sinvh2psit is None:
+                    self.sinvh2psit = self.gd.zeros(len(kpt.psit_nG), dtype=complex)
+
             # Update estimate of psit(t+dt) to ( 1 - i S^(-1) H dt ) psit(t)
-            self.td_overlap.apply_inverse(self.hpsit, self.sinvhpsit, self.wfs, kpt, use_cg=False)
+            #print 'self.use_cg[0]', self.use_cg[0]
+            self.td_overlap.apply_inverse(self.hpsit, self.sinvhpsit, self.wfs, kpt, use_cg=self.use_cg[0])
+            #assert self.use_cg[0] is False
+            #self.td_overlap.apply_inverse(self.hpsit, self.sinvhpsit, self.wfs, kpt, use_cg=False)
+            
             self.mblas.multi_zaxpy(-1.0j*time_step, self.sinvhpsit,
                                    kpt.psit_nG, nvec)
+            #print 'using guess for P step'
+            if(self.predictor_guess[1]):
+                #print 'using 2nd order guess for P step'
+                self.td_hamiltonian.apply(kpt, self.sinvhpsit, self.sinvh2psit,
+                                  calculate_P_ani=False)
+                self.td_hamiltonian.calculate_paw_correction(self.sinvhpsit, self.sinvh2psit, self.wfs, kpt, self.v_at, calculate_P_ani=False)
+                self.td_overlap.apply_inverse(self.sinvh2psit, self.sinvh2psit, self.wfs, kpt, use_cg=self.use_cg[0])
+                self.mblas.multi_zaxpy(-.5 * time_step*time_step, self.sinvh2psit,
+                                   kpt.psit_nG, nvec)
+                
 
         # Information needed by solver.solve -> self.dot
         self.kpt = kpt
