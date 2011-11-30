@@ -1171,7 +1171,7 @@ class SemiImplicitTaylorExponential(DummyPropagator):
     """
     
     def __init__(self, td_density, td_hamiltonian, td_overlap, solver,
-                 preconditioner, gd, timer, degree):
+                 preconditioner, gd, timer, degree=4):
         """Create SemiImplicitTaylorExponential-object.
         
         Parameters
@@ -1191,7 +1191,7 @@ class SemiImplicitTaylorExponential(DummyPropagator):
         timer: Timer
             timer
         degree: integer
-            Degree of the Taylor polynomial
+            Degree of the Taylor polynomial (default is 4)
         
         """
         DummyPropagator.__init__(self, td_density, td_hamiltonian, td_overlap,
@@ -1331,7 +1331,7 @@ class SemiImplicitKrylovExponential(DummyPropagator):
     """
     
     def __init__(self, td_density, td_hamiltonian, td_overlap, solver,
-                 preconditioner, gd, timer, degree):
+                 preconditioner, gd, timer, degree=4):
         """Create SemiImplicitKrylovExponential-object.
         
         Parameters
@@ -1351,7 +1351,7 @@ class SemiImplicitKrylovExponential(DummyPropagator):
         timer: Timer
             timer
         degree: integer
-            Degree of the Krylov subspace
+            Degree of the Krylov subspace (default is 4)
         
         """
         DummyPropagator.__init__(self, td_density, td_hamiltonian, td_overlap,

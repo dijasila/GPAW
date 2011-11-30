@@ -76,7 +76,8 @@ class TDDFT(GPAW):
     """
     
     def __init__(self, filename, td_potential=None, propagator='SICN',
-                 solver='CSCG', tolerance=1e-8, **kwargs):
+                 propagator_kwargs=None, solver='CSCG', tolerance=1e-8,
+                 **kwargs):
         """Create TDDFT-object.
         
         Parameters:
@@ -173,43 +174,39 @@ class TDDFT(GPAW):
 
         # Time propagator
         self.text('Propagator: ', propagator)
+        if propagator_kwargs is None:
+            propagator_kwargs = {}
         if propagator == 'ECN':
             self.propagator = ExplicitCrankNicolson(self.td_density,
                 self.td_hamiltonian, self.td_overlap, self.solver,
-                self.preconditioner, wfs.gd, self.timer)
+                self.preconditioner, wfs.gd, self.timer, **propagator_kwargs)
         elif propagator == 'SICN':
             self.propagator = SemiImplicitCrankNicolson(self.td_density,
                 self.td_hamiltonian, self.td_overlap, self.solver,
-                self.preconditioner, wfs.gd, self.timer)
+                self.preconditioner, wfs.gd, self.timer, **propagator_kwargs)
         elif propagator == 'EFSICN':
             self.propagator = EhrenfestPAWSICN(self.td_density,
                 self.td_hamiltonian, self.td_overlap, self.solver,
-                self.preconditioner, wfs.gd, self.timer)
+                self.preconditioner, wfs.gd, self.timer, **propagator_kwargs)
         elif propagator == 'EFSICN_HGH':
             self.propagator = EhrenfestHGHSICN(self.td_density,
                 self.td_hamiltonian, self.td_overlap, self.solver,
-                self.preconditioner, wfs.gd, self.timer)
+                self.preconditioner, wfs.gd, self.timer, **propagator_kwargs)
         elif propagator == 'ETRSCN':
             self.propagator = EnforcedTimeReversalSymmetryCrankNicolson(
                 self.td_density,
                 self.td_hamiltonian, self.td_overlap, self.solver,
-                self.preconditioner, wfs.gd, self.timer)
-        elif propagator in ['SITE4', 'SITE']:
+                self.preconditioner, wfs.gd, self.timer, **propagator_kwargs)
+        elif propagator == 'SITE':
             self.propagator = SemiImplicitTaylorExponential(self.td_density,
                 self.td_hamiltonian, self.td_overlap, self.solver,
-                self.preconditioner, wfs.gd, self.timer, degree = 4)
-        elif propagator in ['SIKE4', 'SIKE']:
+                self.preconditioner, wfs.gd, self.timer, **propagator_kwargs)
+        elif propagator == 'SIKE':
             self.propagator = SemiImplicitKrylovExponential(self.td_density,
                 self.td_hamiltonian, self.td_overlap, self.solver,
-                self.preconditioner, wfs.gd, self.timer, degree = 4)
-        elif propagator == 'SIKE5':
-            self.propagator = SemiImplicitKrylovExponential(self.td_density,
-                self.td_hamiltonian, self.td_overlap, self.solver,
-                self.preconditioner, wfs.gd, self.timer, degree = 5)
-        elif propagator == 'SIKE6':
-            self.propagator = SemiImplicitKrylovExponential(self.td_density,
-                self.td_hamiltonian, self.td_overlap, self.solver, 
-                self.preconditioner, wfs.gd, self.timer, degree = 6)
+                self.preconditioner, wfs.gd, self.timer, **propagator_kwargs)
+        elif propagator.startswith('SITE') or propagator.startswith('SIKE'):
+            raise DeprecationWarning('Use propagator_kwargs to specify degree.')
         else:
             raise RuntimeError('Time propagator %s not supported.' % propagator)
 
