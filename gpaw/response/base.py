@@ -17,6 +17,8 @@ from gpaw.response.math_func import delta_function,  \
 from gpaw.response.parallel import set_communicator, \
      parallel_partition, SliceAlongFrequency, SliceAlongOrbitals
 from gpaw.response.kernel import calculate_Kxc
+from gpaw.kpt_descriptor import KPointDescriptor
+
 
 class BASECHI:
     """This class is to store the basic common stuff for chi and bse."""
@@ -155,9 +157,9 @@ class BASECHI:
         # Projectors init
         setups = calc.wfs.setups
         pt = LFC(gd, [setup.pt_j for setup in setups],
-                 dtype=calc.wfs.dtype, forces=True)
+                 KPointDescriptor(self.bzk_kc),
+                 dtype=complex, forces=True)
         spos_ac = calc.atoms.get_scaled_positions()
-        pt.set_k_points(self.bzk_kc)
         pt.set_positions(spos_ac)
         self.pt = pt
 
@@ -322,15 +324,16 @@ class BASECHI:
             return psit_G
 
 
-    def pad(self,psit_g):
-        
-
+    def pad(self, psit_g):
         N_c = self.calc.wfs.gd.N_c
-        shift = np.zeros(3,int)
+        shift = np.zeros(3, int)
         shift[np.where(self.pbc == False)] = 1
-        psit_G = self.gd.zeros(dtype=complex)
-        psit_G[shift[0]:N_c[0], shift[1]:N_c[1], shift[2]:N_c[2]] = \
-                                 psit_g[:N_c[0]-shift[0], :N_c[1]-shift[1], :N_c[2]-shift[2]]
+        psit_G = self.gd.zeros(dtype=psit_g.dtype)
+        psit_G[shift[0]:N_c[0],
+               shift[1]:N_c[1],
+               shift[2]:N_c[2]] = psit_g[:N_c[0]-shift[0],
+                                          :N_c[1]-shift[1],
+                                          :N_c[2]-shift[2]]
 
         return psit_G
             
