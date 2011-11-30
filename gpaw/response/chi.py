@@ -4,7 +4,7 @@ import numpy as np
 from math import sqrt, pi
 from ase.units import Hartree, Bohr
 from gpaw import extra_parameters
-from gpaw.utilities.blas import gemv, scal, axpy
+from gpaw.utilities.blas import gemv, scal, axpy, gemmdot
 from gpaw.mpi import world, rank, size, serial_comm
 from gpaw.fd_operators import Gradient
 from gpaw.response.math_func import hilbert_transform
@@ -54,6 +54,8 @@ class CHI(BASECHI):
                  hilbert_trans=True,
                  full_response=False,
                  optical_limit=False,
+                 add_correction=False,
+                 e_eff=None,
                  comm=None,
                  kcommsize=None):
 
@@ -66,6 +68,10 @@ class CHI(BASECHI):
         self.hilbert_trans = hilbert_trans
         self.full_hilbert_trans = full_response
         self.vcut = vcut
+        self.add_correction = add_correction
+        if self.add_correction:
+            assert e_eff is not None
+            self.e_eff = e_eff / Hartree
         self.kcommsize = kcommsize
         self.comm = comm
         if self.comm is None:
@@ -82,6 +88,9 @@ class CHI(BASECHI):
         self.printtxt(ctime())
 
         BASECHI.initialize(self)
+
+        if self.add_correction:
+            self.e_eff += self.e_kn[0,self.nbands] # a few eV about the highest bands
 
         # Frequency init
         self.dw = None
@@ -206,6 +215,7 @@ class CHI(BASECHI):
             tmp = np.zeros((3), dtype=complex)
 
         rho_G = np.zeros(self.npw, dtype=complex)
+        r_vg = gd.get_grid_point_coordinates()
         t0 = time()
         t_get_wfs = 0
         for k in range(self.kstart, self.kend):
@@ -222,6 +232,10 @@ class CHI(BASECHI):
                 ibzkpt2 = kd.bz2ibz_k[kq_k[k]]
             
             for n in range(self.nstart, self.nend):
+                if self.add_correction:
+                    if self.f_kn[ibzkpt1, n] < self.ftol:
+                        continue
+
                 print >> self.txt, k, n, time() - t0
                 t1 = time()
                 psitold_g = self.get_wavefunction(ibzkpt1, n, True, spin=spin)
@@ -238,6 +252,35 @@ class CHI(BASECHI):
 
                 psit1_g = psit1new_g.conj() * self.expqr_g
 
+                # start correction to chi0
+                if self.add_correction:
+                    if k == 0 and n == self.nstart:
+                        print >> self.txt, 'add_correction'
+                    n_g = psit1new_g * psit1new_g.conj()    
+                    tmp_g = np.fft.fftn(n_g) * self.vol / self.nG0
+                    rho_GG = np.zeros((self.npw, self.npw), dtype=complex)
+                    for iG in range(self.npw):
+                        rho_GG[iG, iG] = 1.
+                        for jG in range(iG+1,self.npw):
+                            dG_c = self.Gvec_Gc[iG] - self.Gvec_Gc[jG]
+                            if (self.nG / 2 - np.abs(dG_c) > 0).all():
+                                index = (dG_c + self.nG) % self.nG
+                                rho_GG[iG, jG] = tmp_g[index[0], index[1], index[2]]
+                            else: # not in the fft index
+                                dG_v = np.dot(dG_c, self.bcell_cv)
+                                dGr_g = gemmdot(dG_v, r_vg, beta=0.0) 
+                                rho_GG[iG, jG] = gd.integrate(np.exp(-1j*dGr_g)*n_g)
+                            rho_GG[jG, iG] = rho_GG[iG, jG].conj()
+
+                    for iw in range(self.Nw_local):
+                        w = self.w_w[iw + self.wstart] / Hartree
+                        C = f_kn[ibzkpt1, n] * (
+                                  1. / (w + e_kn[ibzkpt1, n] - self.e_eff + 1j * self.eta)
+                                - 1. / (w - e_kn[ibzkpt1, n] + self.e_eff + 1j * self.eta) )
+                        
+                        axpy(C, rho_GG, chi0_wGG[iw])
+                # end correction to chi0
+
                 for m in range(self.nbands):
                     if m % 100 == 0:
                         print >> self.txt, '    ', k, n, m, time() - t0
@@ -248,6 +291,8 @@ class CHI(BASECHI):
                             check_focc = np.abs(f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]) > self.ftol
                         else:
                             check_focc = (f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]) > self.ftol
+                        if self.add_correction:
+                            check_focc = True
 
                     t1 = time()
                     psitold_g = self.get_wavefunction(ibzkpt2, m, check_focc, spin=spin)
@@ -299,7 +344,13 @@ class CHI(BASECHI):
                                 if not self.optical_limit:
                                     coef -= 1. / (w - e_kn[ibzkpt1, n] + e_kn[ibzkpt2, m] + 1j * self.eta)
                                 C =  (f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]) * coef 
+                                
+                                if self.add_correction:
+                                    C -= f_kn[ibzkpt1, n] * (
+                                          1. / (w + e_kn[ibzkpt1, n] - self.e_eff + 1j * self.eta)
+                                        - 1. / (w - e_kn[ibzkpt1, n] + self.e_eff + 1j * self.eta) )
                                 axpy(C, rho_GG, chi0_wGG[iw])
+                                
                         else:
                             focc = f_kn[ibzkpt1,n] - f_kn[ibzkpt2,m]
                             w0 = e_kn[ibzkpt2,m] - e_kn[ibzkpt1,n]

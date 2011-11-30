@@ -26,6 +26,8 @@ class DF(CHI):
                  hilbert_trans=True,
                  full_response=False,
                  optical_limit=False,
+                 add_correction=False,
+                 e_eff=None,
                  comm=None,
                  kcommsize=None):
 
@@ -33,6 +35,7 @@ class DF(CHI):
                      ecut=ecut, G_plus_q=G_plus_q, eta=eta, rpad=rpad, vcut=vcut,
                      ftol=ftol, txt=txt, xc=xc, hilbert_trans=hilbert_trans,
                      full_response=full_response, optical_limit=optical_limit,
+                     add_correction=add_correction, e_eff=e_eff,
                      comm=comm, kcommsize=kcommsize)
 
         self.df_flag = False
