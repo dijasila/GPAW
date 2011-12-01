@@ -14,6 +14,9 @@ from gpaw import extra_parameters
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.hs_operators import MatrixOperator
 from gpaw.preconditioner import Preconditioner
+from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.kpoint import KPoint
+from gpaw.mpi import serial_comm
 
 
 class FDWaveFunctions(FDPWWaveFunctions):
