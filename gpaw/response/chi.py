@@ -117,15 +117,10 @@ class CHI(BASECHI):
                 self.dw /= Hartree
 
         self.nvalbands = self.nbands
-        if self.hilbert_trans or (not self.hilbert_trans and not self.optical_limit):
-            # for band parallelization.
-            for n in range(self.nbands):
-                if (self.f_kn[:, n] - self.ftol < 0).all():
-                    self.nvalbands = n
-                    break
-#        else:
-            # if not hilbert transform, all the bands should be used.
-#            self.nvalbands = self.nbands
+        for n in range(self.nbands):
+            if (self.f_kn[:, n] - self.ftol < 0).all():
+                self.nvalbands = n
+                break
 
         # Parallelization initialize
         self.parallel_init()
@@ -232,10 +227,6 @@ class CHI(BASECHI):
                 ibzkpt2 = kd.bz2ibz_k[kq_k[k]]
             
             for n in range(self.nstart, self.nend):
-                if self.add_correction:
-                    if self.f_kn[ibzkpt1, n] < self.ftol:
-                        continue
-
                 print >> self.txt, k, n, time() - t0
                 t1 = time()
                 psitold_g = self.get_wavefunction(ibzkpt1, n, True, spin=spin)
@@ -284,16 +275,9 @@ class CHI(BASECHI):
                 for m in range(self.nbands):
                     if m % 100 == 0:
                         print >> self.txt, '    ', k, n, m, time() - t0
-		    if self.hilbert_trans:
-			check_focc = (f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]) > self.ftol
-                    else:
-                        if self.optical_limit:
-                            check_focc = np.abs(f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]) > self.ftol
-                        else:
-                            check_focc = (f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]) > self.ftol
-                        if self.add_correction:
-                            check_focc = True
-
+		    
+                    check_focc = (f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]) > self.ftol
+                    
                     t1 = time()
                     psitold_g = self.get_wavefunction(ibzkpt2, m, check_focc, spin=spin)
                     t_get_wfs += time() - t1
@@ -328,7 +312,7 @@ class CHI(BASECHI):
                             gemv(1.0, self.phi_aGp[a], P_p, 1.0, rho_G)
 
                         if self.optical_limit:
-                            if self.enoshift_kn[ibzkpt2, m] - self.enoshift_kn[ibzkpt1, n] > 0.1/Hartree:
+                            if np.abs(self.enoshift_kn[ibzkpt2, m] - self.enoshift_kn[ibzkpt1, n]) > 0.1/Hartree:
                                 rho_G[0] /= self.enoshift_kn[ibzkpt2, m] - self.enoshift_kn[ibzkpt1, n]
                             else:
                                 rho_G[0] = 0.
@@ -340,9 +324,8 @@ class CHI(BASECHI):
                         if not self.hilbert_trans:
                             for iw in range(self.Nw_local):
                                 w = self.w_w[iw + self.wstart] / Hartree
-                                coef = 1. / (w + e_kn[ibzkpt1, n] - e_kn[ibzkpt2, m] + 1j * self.eta) 
-                                if not self.optical_limit:
-                                    coef -= 1. / (w - e_kn[ibzkpt1, n] + e_kn[ibzkpt2, m] + 1j * self.eta)
+                                coef = ( 1. / (w + e_kn[ibzkpt1, n] - e_kn[ibzkpt2, m] + 1j * self.eta) 
+                                       - 1. / (w - e_kn[ibzkpt1, n] + e_kn[ibzkpt2, m] + 1j * self.eta) )
                                 C =  (f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]) * coef 
                                 
                                 if self.add_correction:
@@ -486,15 +469,9 @@ class CHI(BASECHI):
             self.nkpt_reshape = self.nkpt
             self.nkpt_reshape, self.nkpt_local, self.kstart, self.kend = parallel_partition(
                                self.nkpt_reshape, self.kcomm.rank, self.kcomm.size, reshape=True, positive=True)
-            self.nband_local = self.nbands
+            self.nband_local = self.nvalbands
             self.nstart = 0
-            if self.hilbert_trans:
-                self.nend = self.nvalbands
-            else:
-                if not self.optical_limit:
-                    self.nend = self.nvalbands
-                else:
-                    self.nend = self.nbands
+            self.nend = self.nvalbands
         else:
             # if number of kpoints == 1, use band parallelization
             self.nkpt_local = 1
