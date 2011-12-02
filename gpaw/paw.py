@@ -16,19 +16,17 @@ import gpaw.mpi as mpi
 import gpaw.occupations as occupations
 from gpaw import dry_run, memory_estimate_depth, KohnShamConvergenceError
 from gpaw.hooks import hooks
-from gpaw.density import Density
 from gpaw.eigensolvers import get_eigensolver
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
-from gpaw.hamiltonian import RealSpaceHamiltonian
 from gpaw.utilities.timing import Timer
 from gpaw.xc import XC
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.base import EmptyWaveFunctions
 from gpaw.wavefunctions.fd import FDWaveFunctions
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
-from gpaw.wavefunctions.pw import PW
+from gpaw.wavefunctions.pw import PW, ReciprocalSpaceHamiltonian
 from gpaw.utilities.memory import MemNode, maxrss
 from gpaw.parameters import InputParameters
 from gpaw.setup import Setups
@@ -36,6 +34,8 @@ from gpaw.output import PAWTextOutput
 from gpaw.scf import SCFLoop
 from gpaw.forces import ForceCalculator
 from gpaw.utilities import h2gpts
+from gpaw.hamiltonian import RealSpaceHamiltonian
+from gpaw.density import RealSpaceDensity
 
 
 class PAW(PAWTextOutput):
@@ -594,20 +594,28 @@ class PAW(PAWTextOutput):
             # XXX Eigensolver class doesn't define an nbands_converge property
             self.wfs.set_eigensolver(eigensolver)
 
+        real_space = not isinstance(mode, PW)
+            
         if self.density is None:
-            gd = self.wfs.gd
-            self.density = Density(gd, nspins,
-                                   par.charge + setups.core_charge, collinear)
+            if real_space:
+                self.density = RealSpaceDensity(gd, nspins,
+                                                par.charge +
+                                                setups.core_charge, collinear)
+            else:
+                pass
 
         self.density.initialize(setups, magmom_av, par.hund, self.timer)
         self.density.set_mixer(par.mixer)
 
         if self.hamiltonian is None:
-            gd = self.density.gd
-            self.hamiltonian = RealSpaceHamiltonian(
-                gd, nspins, xc, setups, collinear,
-                par.external, self.timer,
-                par.poissonsolver, par.stencils[1])
+            if real_space:
+                self.hamiltonian = RealSpaceHamiltonian(
+                    gd, nspins, xc, setups, collinear, par.external,
+                    self.timer, par.poissonsolver, par.stencils[1])
+            else:
+                self.hamiltonuian = ReciprocalSpaceHamiltonian(
+                    gd, nspins, xc, setups, collinear, par.external,
+                    self.timer)
 
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)

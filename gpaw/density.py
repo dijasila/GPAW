@@ -52,8 +52,8 @@ class Density:
         self.D_asp = None
         self.Q_aL = None
 
-        self.nct_G = None
         self.nt_sG = None
+        self.nt_sg = None
 
         self.rank_a = None
 
@@ -72,9 +72,8 @@ class Density:
                 spline_aj.append([])
             else:
                 spline_aj.append([setup.nct])
-        self.nct = LFC(self.gd, spline_aj,
-                       integral=[setup.Nct for setup in setups],
-                       forces=True, cut=True)
+
+        self.initialize_pseudo_core_density(spline_aj)
 
     def reset(self):
         # TODO: reset other parameters?
@@ -84,8 +83,6 @@ class Density:
         self.nct.set_positions(spos_ac)
         self.mixer.reset()
 
-        self.nct_G = self.gd.zeros()
-        self.nct.add(self.nct_G, 1.0 / self.nspins)
         self.Q_aL = None
 
         # If both old and new atomic ranks are present, start a blank dict if
@@ -129,33 +126,31 @@ class Density:
         nt_sG will be equal to nct_G plus the contribution from
         wfs.add_to_density().
         """
+        self.timer.start('Pseudo density')
         wfs.calculate_density_contribution(self.nt_sG)
         self.nt_sG[:self.nspins] += self.nct_G
+        self.timer.stop('Pseudo density')
 
     def update(self, wfs):
         self.timer.start('Density')
-        self.timer.start('Pseudo density')
         self.calculate_pseudo_density(wfs)
-        self.timer.stop('Pseudo density')
+
         self.timer.start('Atomic density matrices')
         wfs.calculate_atomic_density_matrices(self.D_asp)
         self.timer.stop('Atomic density matrices')
-        self.timer.start('Multipole moments')
+
         comp_charge = self.calculate_multipole_moments()
-        self.timer.stop('Multipole moments')
         
         if isinstance(wfs, LCAOWaveFunctions):
-            self.timer.start('Normalize')
             self.normalize(comp_charge)
-            self.timer.stop('Normalize')
 
-        self.timer.start('Mix')
         self.mix(comp_charge)
-        self.timer.stop('Mix')
+
         self.timer.stop('Density')
 
     def normalize(self, comp_charge=None):
         """Normalize pseudo density."""
+        self.timer.start('Normalize')
         if comp_charge is None:
             comp_charge = self.calculate_multipole_moments()
             print 'AAAA'
@@ -174,7 +169,11 @@ class Density:
                 self.nt_sG[:self.nspins] = -(self.charge +
                                              comp_charge) / volume
 
+        self.timer.stop('Normalize')
+
     def mix(self, comp_charge):
+        self.timer.start('Mix')
+
         if not self.mixer.mix_rho:
             self.mixer.mix(self)
             comp_charge = None
@@ -185,12 +184,16 @@ class Density:
             hmmmmmmmmmmmm
             self.mixer.mix(self)
 
+        self.timer.stop('Mix')
+
     def calculate_multipole_moments(self):
         """Calculate multipole moments of compensation charges.
 
         Returns the total compensation charge in units of electron
         charge, so the number will be negative because of the
         dominating contribution from the nuclear charge."""
+
+        self.timer.start('Multipole moments')
 
         comp_charge = 0.0
         self.Q_aL = {}
@@ -199,7 +202,12 @@ class Density:
                                         self.setups[a].Delta_pL)
             Q_L[0] += self.setups[a].Delta0
             comp_charge += Q_L[0]
-        return self.gd.comm.sum(comp_charge) * sqrt(4 * pi)
+
+        comp_charge = self.gd.comm.sum(comp_charge) * sqrt(4 * pi)
+
+        self.timer.stop('Multipole moments')
+
+        return comp_charge
 
     def initialize_from_atomic_densities(self, basis_functions):
         """Initialize D_asp, nt_sG and Q_aL from atomic densities.
@@ -312,15 +320,6 @@ class Density:
         return sqrt(4 * pi) * (
             np.dot(self.D_asp[a][spin], setup.Delta_pL[:, 0])
             + setup.Delta0 / self.nspins)
-
-    def get_density_array(self):
-        XXX
-        # XXX why not replace with get_spin_density and get_total_density?
-        """Return pseudo-density array."""
-        if self.nspins == 2:
-            return self.nt_sG
-        else:
-            return self.nt_sG[0]
     
     def get_all_electron_density(self, atoms, gridrefinement=2):
         """Return real all-electron density array."""
@@ -559,3 +558,16 @@ class Density:
         dt_sg = nt_sg[smin] - nt_sg[smaj]
         dt_sg = np.where(dt_sg > 0, dt_sg, 0.0)
         return gd.integrate(dt_sg)
+
+
+class RealSpaceDensity(Density):
+    def set_positions(self, spos_ac, rank_a=None):
+        Density.set_positions(self, spos_ac, rank_a)
+        self.nct_G = self.gd.zeros()
+        self.nct.add(self.nct_G, 1.0 / self.nspins)
+
+    def initialize_pseudo_core_density(self, spline_aj):
+        self.nct = LFC(self.gd, spline_aj,
+                       integral=[setup.Nct for setup in self.setups],
+                       forces=True, cut=True)
+

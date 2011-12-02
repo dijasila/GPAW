@@ -37,7 +37,9 @@ class PoissonSolver:
             self.relax_method = 2
         else:
             raise NotImplementedError('Relaxation method %s' % relax)
-    
+
+        self.initialized = False
+
     def get_method(self):
         return ['Gauss-Seidel', 'Jacobi'][self.relax_method - 1]
 
@@ -116,6 +118,8 @@ class PoissonSolver:
 
         if load_gauss:
             self.load_gauss()
+        
+        self.initialized = True
 
     def load_gauss(self):
         if not hasattr(self, 'rho_gauss'):
@@ -125,6 +129,9 @@ class PoissonSolver:
 
     def solve(self, phi, rho, charge=None, eps=None, maxcharge=1e-6,
               zero_initial_phi=False):
+
+        if not self.initialized:
+            self.initialize()
 
         if eps is None:
             eps = self.eps

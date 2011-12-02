@@ -19,7 +19,7 @@ class InputParameters(dict):
             ('kpts',            [(0, 0, 0)]),
             ('lmax',            2),
             ('charge',          0),
-            ('fixmom',          False),      # don't use this
+            ('fixmom',          False),  # don't use this
             ('nbands',          None),
             ('setups',          'paw'),
             ('basis',           {}),

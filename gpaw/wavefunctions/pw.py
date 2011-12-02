@@ -12,6 +12,7 @@ from gpaw.spline import Spline
 from gpaw.spherical_harmonics import Y
 from gpaw.utilities import _fact as fac
 from gpaw.utilities.blas import rk, r2k, gemm
+from gpaw.hamiltonian import Hamiltonian
 
 
 class PWDescriptor:
@@ -466,3 +467,107 @@ class PW:
         wfs = PWWaveFunctions(self.ecut, self.fftwflags,
                               diagksl, orthoksl, initksl, *args)
         return wfs
+
+
+class ReciprocalSpaceHamiltonian(Hamiltonian):
+    def __init__(self, gd, nspins, xc, setups, collinear=True,
+                 vext_G=None, timer=None):
+        Hamiltonian.__init__(self, gd, nspins, xc, setups, collinear,
+                             vext_G, timer)
+
+        ecut2 = 0.5 * pi**2 / (gd.h_cv**2).sum(1).min()
+        pd2 = PWDescriptor(ecut2, gd)
+        self.ghat = PWLFC([setup.ghat_l for setup in setups], pd2)
+        self.vbar = PWLFC([[setup.vbar] for setup in self.setups], pd2)
+
+    def calculate_effective_potential(self, density):
+        self.timer.start('vbar')
+        
+        Ebar = self.finegd.integrate(self.vbar_G,
+                                 self.interpolator.apply(density.nt_sG),
+                                 global_integral=False).sum()
+
+        vt_G = self.vt_sG[0]
+        vt_G[:] = self.restrictor.apply(self.vbar_G)
+        self.timer.stop('vbar')
+
+
+        self.vt_sG[1:self.nspins] = vt_G
+
+        self.vt_sG[self.nspins:] = 0.0
+            
+        self.timer.start('XC 3D grid')
+        if 0:
+            Exc = self.xc.calculate(self.gd, density.nt_sG, self.vt_sG)
+        else:
+            nt_sg = self.finegd.empty(self.nspins * self.ncomp**2)
+            self.interpolator.apply(density.nt_sG, nt_sg)
+            vxct_sg = self.finegd.zeros(self.nspins * self.ncomp**2)
+            Exc = self.xc.calculate(self.finegd, nt_sg, vxct_sg)
+            vxct_sG = self.gd.zeros(self.nspins * self.ncomp**2)
+            self.restrictor.apply(vxct_sg, vxct_sG)
+            self.vt_sG += vxct_sG
+        Exc /= self.gd.comm.size
+        self.timer.stop('XC 3D grid')
+
+        self.timer.start('Poisson')
+
+        """Interpolate pseudo density to fine grid."""
+        rhot_g = self.finegd.empty()
+        nt_G = density.nt_sG[:self.nspins].sum(0)
+        self.interpolator.apply(nt_G, rhot_g)
+
+        # With periodic boundary conditions, the interpolation will
+        # conserve the number of electrons.
+        if not self.gd.pbc_c.all():
+            # With zero-boundary conditions in one or more directions,
+            # this is not the case.
+
+            comp_charge = density.calculate_multipole_moments()
+
+            pseudo_charge = -(density.charge + comp_charge)
+            x = pseudo_charge / self.finegd.integrate(rhot_g)
+            rhot_g *= x
+
+        self.ghat.add(rhot_g, density.Q_aL)
+
+        if debug:
+            charge = self.finegd.integrate(rhot_g) + density.charge
+            if abs(charge) > 1e-7:
+                raise RuntimeError('Charge not conserved: excess=%.9f' %
+                                   charge)
+
+        if self.vHt_g is None:
+            self.vHt_g = self.finegd.zeros()
+
+        # npoisson is the number of iterations:
+        self.npoisson = self.poissonsolver.solve(self.vHt_g, rhot_g,
+                                                 charge=-density.charge)
+        self.timer.stop('Poisson')
+
+        self.timer.start('Hartree integrate/restrict')
+        Epot = 0.5 * self.finegd.integrate(self.vHt_g, rhot_g,
+                                           global_integral=False)
+
+        vHt_G = self.gd.empty()
+        self.restrictor.apply(self.vHt_g, vHt_G)
+        
+        W_aL = {}
+        for a in density.D_asp:
+            W_aL[a] = np.empty((self.setups[a].lmax + 1)**2)
+        self.ghat.integrate(self.vHt_g, W_aL)
+
+        self.timer.stop('Hartree integrate/restrict')
+            
+        self.vt_sG[:self.nspins] += vHt_G
+
+        Ekin = 0.0
+        s = 0
+        for vt_G, nt_G in zip(self.vt_sG, density.nt_sG):
+            Ekin -= self.gd.integrate(vt_G, nt_G, global_integral=False)
+            if s < self.nspins:
+                Ekin += self.gd.integrate(vt_G, density.nct_G,
+                                          global_integral=False)
+            s += 1
+
+        return Ebar, Exc, Epot, Ekin, W_aL

@@ -362,8 +362,9 @@ class RealSpaceHamiltonian(Hamiltonian):
         self.timer.start('vbar')
         
         Ebar = self.finegd.integrate(self.vbar_G,
-                                 self.interpolator.apply(density.nt_sG),
-                                 global_integral=False).sum()
+                                     self.interpolator.apply(
+                density.nt_sG[:self.nspins].sum(0)),
+                                     global_integral=False)
 
         vt_G = self.vt_sG[0]
         vt_G[:] = self.restrictor.apply(self.vbar_G)

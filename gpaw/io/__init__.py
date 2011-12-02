@@ -192,7 +192,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     # Write various parameters:
     (w['KohnShamStencil'],
      w['InterpolationStencil']) = p['stencils']
-    w['PoissonStencil'] = paw.hamiltonian.poisson.get_stencil()
+    w['PoissonStencil'] = paw.hamiltonian.poissonsolver.get_stencil()
     w['XCFunctional'] = paw.hamiltonian.xc.name
     w['Charge'] = p['charge']
     w['FixMagneticMoment'] = paw.occupations.fixmagmom
@@ -514,9 +514,7 @@ def read(paw, reader):
 
     wfs = paw.wfs
     density = paw.density
-    density.allocate()
     hamiltonian = paw.hamiltonian
-    hamiltonian.allocate()
     natoms = len(paw.atoms)
 
     world = paw.wfs.world

@@ -75,17 +75,16 @@ class OmegaMatrix:
         
         # handle different grid possibilities
         self.restrict = None
-        self.poisson = PoissonSolver(nn=self.paw.hamiltonian.poisson.nn)
+        self.poissonsolver = PoissonSolver(
+            nn=self.paw.hamiltonian.poissonsolver.nn)
         if finegrid:
-            self.poisson.set_grid_descriptor(self.paw.density.finegd)
-            self.poisson.initialize()
+            self.poissonsolver.set_grid_descriptor(self.paw.density.finegd)
             
             self.gd = self.paw.density.finegd
             if finegrid == 1:
                 self.gd = wfs.gd
         else:
-            self.poisson.set_grid_descriptor(wfs.gd)
-            self.poisson.initialize()
+            self.poissonsolver.set_grid_descriptor(wfs.gd)
             self.gd = wfs.gd
         self.restrict = Transformer(self.paw.density.finegd, wfs.gd,
                                     self.paw.input_parameters.stencils[0]
@@ -393,7 +392,7 @@ class OmegaMatrix:
             # integrate with 1/|r_1-r_2|
             timer2.start('poisson')
             phit_p = np.zeros(rhot_p.shape, rhot_p.dtype.char)
-            self.poisson.solve(phit_p, rhot_p, charge=None)
+            self.poissonsolver.solve(phit_p, rhot_p, charge=None)
             timer2.stop()
 
             timer.stop()
