@@ -225,8 +225,11 @@ class CHI(BASECHI):
                 ibzkpt2 = ibzkpt1
             else:
                 ibzkpt2 = kd.bz2ibz_k[kq_k[k]]
-            
+
             for n in range(self.nstart, self.nend):
+                if self.add_correction:
+                    if self.f_kn[ibzkpt1, n] < self.ftol:
+                        continue
                 print >> self.txt, k, n, time() - t0
                 t1 = time()
                 psitold_g = self.get_wavefunction(ibzkpt1, n, True, spin=spin)
@@ -275,8 +278,11 @@ class CHI(BASECHI):
                 for m in range(self.nbands):
                     if m % 100 == 0:
                         print >> self.txt, '    ', k, n, m, time() - t0
-		    
-                    check_focc = (f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]) > self.ftol
+
+		    if self.add_correction:
+                        check_focc = True # 0 <= m <= nbands
+                    else:
+                        check_focc = (f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]) > self.ftol # c-band <=m 
                     
                     t1 = time()
                     psitold_g = self.get_wavefunction(ibzkpt2, m, check_focc, spin=spin)
