@@ -37,8 +37,8 @@ class ForceCalculator:
         
         if wfs.band_comm.rank == 0 and wfs.kpt_comm.rank == 0:
             # Force from compensation charges:
-            dF_aLv = hamiltonian.ghat.dict(derivative=True)
-            hamiltonian.ghat.derivative(hamiltonian.vHt_g, dF_aLv)
+            dF_aLv = density.ghat.dict(derivative=True)
+            density.ghat.derivative(hamiltonian.vHt_g, dF_aLv)
             for a, dF_Lv in dF_aLv.items():
                 self.F_av[a] += np.dot(density.Q_aL[a], dF_Lv)
 
@@ -52,7 +52,7 @@ class ForceCalculator:
 
             # Force from zero potential:
             dF_av = hamiltonian.vbar.dict(derivative=True)
-            hamiltonian.vbar.derivative(density.nt_sG[:density.nspins].sum(0),
+            hamiltonian.vbar.derivative(density.nt_sg[:density.nspins].sum(0),
                                         dF_av)
             for a, dF_v in dF_av.items():
                 self.F_av[a] += dF_v[0]

@@ -35,7 +35,7 @@ class MGGA(GGA):
                          forces=True, cut=True)
         self.tauct_G = None
         self.dedtaut_sG = None
-        self.restrict = hamiltonian.restrictor.apply
+        self.restrict = density.restrictor.apply
         self.interpolate = density.interpolator.apply
         self.taugrad_v = [Gradient(wfs.gd, v, n=self.nn, dtype=wfs.dtype,
                                    allocate=True).apply

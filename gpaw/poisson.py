@@ -59,10 +59,10 @@ class PoissonSolver:
                 raise RuntimeError('Cannot use Mehrstellen stencil with '
                                    'non orthogonal cell.')
 
-            self.operators = [LaplaceA(gd, -scale, allocate=False)]
-            self.B = LaplaceB(gd, allocate=False)
+            self.operators = [LaplaceA(gd, -scale, allocate=not False)]
+            self.B = LaplaceB(gd, allocate=not False)
         else:
-            self.operators = [Laplace(gd, scale, self.nn, allocate=False)]
+            self.operators = [Laplace(gd, scale, self.nn, allocate=not False)]
             self.B = None
 
         self.interpolators = []
@@ -81,9 +81,9 @@ class PoissonSolver:
                 gd2 = gd.coarsen()
             except ValueError:
                 break
-            self.operators.append(Laplace(gd2, scale, 1, allocate=False))
-            self.interpolators.append(Transformer(gd2, gd, allocate=False))
-            self.restrictors.append(Transformer(gd, gd2, allocate=False))
+            self.operators.append(Laplace(gd2, scale, 1, allocate=not False))
+            self.interpolators.append(Transformer(gd2, gd, allocate=not False))
+            self.restrictors.append(Transformer(gd, gd2, allocate=not False))
             self.presmooths.append(4)
             self.postsmooths.append(4)
             self.weights.append(1.0)
@@ -108,10 +108,11 @@ class PoissonSolver:
         level += 1
         assert level == self.levels
 
-        for obj in self.operators + self.interpolators + self.restrictors:
-            obj.allocate()
-        if self.B is not None:
-            self.B.allocate()
+        #for obj in self.operators + self.interpolators + self.restrictors:
+        #    obj.allocate()
+        #if self.B is not None:
+        #    self.B.allocate()
+        
         self.step = 0.66666666 / self.operators[0].get_diagonal_element()
         self.presmooths[level] = 8
         self.postsmooths[level] = 8
@@ -119,8 +120,6 @@ class PoissonSolver:
         if load_gauss:
             self.load_gauss()
         
-        self.initialized = True
-
     def load_gauss(self):
         if not hasattr(self, 'rho_gauss'):
             gauss = Gaussian(self.gd)
@@ -132,6 +131,7 @@ class PoissonSolver:
 
         if not self.initialized:
             self.initialize()
+            self.initialized = True
 
         if eps is None:
             eps = self.eps
@@ -352,6 +352,7 @@ class FFTPoissonSolver(PoissonSolver):
     def __init__(self, eps=2e-10):
         self.charged_periodic_correction = None
         self.eps = eps
+        self.initialized = False
 
     def get_method(self):
         return 'FFT solver of the second kind'

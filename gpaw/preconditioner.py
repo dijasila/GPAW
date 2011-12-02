@@ -33,6 +33,7 @@ class Preconditioner:
         self.allocated = False
 
     def allocate(self):
+        return
         assert not self.allocated
         for transformer in [self.restrictor_object0,
                             self.restrictor_object1,

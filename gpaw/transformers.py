@@ -58,7 +58,7 @@ class _Transformer:
         self.neighborpad_cd = neighborpad_cd
         self.skip_cd = skip_cd
         self.allocated = False
-        if allocate:
+        if 1:#allocate:
             self.allocate()
 
     def allocate(self):

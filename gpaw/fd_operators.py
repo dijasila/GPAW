@@ -63,7 +63,7 @@ class FDOperator:
         self.npoints = len(coef_p)
 
         self.allocated = False
-        if allocate:
+        if 1:#allocate:
             self.allocate()
 
     def __str__(self):

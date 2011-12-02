@@ -578,6 +578,7 @@ class PAW(PAWTextOutput):
                 self.wfs = mode(self, *args)
         else:
             self.wfs.set_setups(setups)
+            gd = self.wfs.gd
 
         if not self.wfs.eigensolver:
             # Number of bands to converge:
@@ -594,13 +595,14 @@ class PAW(PAWTextOutput):
             # XXX Eigensolver class doesn't define an nbands_converge property
             self.wfs.set_eigensolver(eigensolver)
 
-        real_space = not isinstance(mode, PW)
+        real_space = True#not isinstance(mode, PW)
             
         if self.density is None:
             if real_space:
                 self.density = RealSpaceDensity(gd, nspins,
                                                 par.charge +
-                                                setups.core_charge, collinear)
+                                                setups.core_charge, collinear,
+                                                par.stencils[1])
             else:
                 pass
 
@@ -608,13 +610,14 @@ class PAW(PAWTextOutput):
         self.density.set_mixer(par.mixer)
 
         if self.hamiltonian is None:
+            finegd = self.density.finegd
             if real_space:
                 self.hamiltonian = RealSpaceHamiltonian(
-                    gd, nspins, xc, setups, collinear, par.external,
-                    self.timer, par.poissonsolver, par.stencils[1])
+                    gd, finegd, nspins, xc, setups, collinear, par.external,
+                    self.timer, par.poissonsolver)
             else:
                 self.hamiltonuian = ReciprocalSpaceHamiltonian(
-                    gd, nspins, xc, setups, collinear, par.external,
+                    gd, finegd, nspins, xc, setups, collinear, par.external,
                     self.timer)
 
         xc.initialize(self.density, self.hamiltonian, self.wfs,

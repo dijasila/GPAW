@@ -54,6 +54,7 @@ class Density:
 
         self.nt_sG = None
         self.nt_sg = None
+        self.nct_G = None
 
         self.rank_a = None
 
@@ -61,26 +62,19 @@ class Density:
         self.timer = nulltimer
         
     def initialize(self, setups, magmom_av, hund, timer):
-        self.timer = timer
         self.setups = setups
+        self.timer = timer
         self.hund = hund
         self.magmom_av = magmom_av
-
-        spline_aj = []
-        for setup in setups:
-            if setup.nct is None:
-                spline_aj.append([])
-            else:
-                spline_aj.append([setup.nct])
-
-        self.initialize_pseudo_core_density(spline_aj)
 
     def reset(self):
         # TODO: reset other parameters?
         self.nt_sG = None
 
     def set_positions(self, spos_ac, rank_a=None):
+        self.ghat.set_positions(spos_ac)
         self.nct.set_positions(spos_ac)
+
         self.mixer.reset()
 
         self.Q_aL = None
@@ -178,13 +172,36 @@ class Density:
             self.mixer.mix(self)
             comp_charge = None
         
-        self.calculate_multipole_moments()
+        self.interpolate()
+        #self.calculate_multipole_moments()
 
         if self.mixer.mix_rho:
             hmmmmmmmmmmmm
             self.mixer.mix(self)
 
         self.timer.stop('Mix')
+
+    def interpolate(self, comp_charge=None):
+        """Interpolate pseudo density to fine grid."""
+        if comp_charge is None:
+            comp_charge = self.calculate_multipole_moments()
+
+        if self.nt_sg is None:
+            self.nt_sg = self.finegd.empty(self.nspins * self.ncomp**2)
+
+        for nt_G, nt_g in zip(self.nt_sG, self.nt_sg):
+            self.interpolator.apply(nt_G, nt_g)
+
+        # With periodic boundary conditions, the interpolation will
+        # conserve the number of electrons.
+        if not self.gd.pbc_c.all():
+            # With zero-boundary conditions in one or more directions,
+            # this is not the case.
+            pseudo_charge = -(self.charge + comp_charge)
+            if abs(pseudo_charge) > 1.0e-14:
+                x = (pseudo_charge /
+                     self.finegd.integrate(self.nt_sg[:self.nspins]).sum())
+                self.nt_sg *= x
 
     def calculate_multipole_moments(self):
         """Calculate multipole moments of compensation charges.
@@ -561,13 +578,33 @@ class Density:
 
 
 class RealSpaceDensity(Density):
-    def set_positions(self, spos_ac, rank_a=None):
-        Density.set_positions(self, spos_ac, rank_a)
-        self.nct_G = self.gd.zeros()
-        self.nct.add(self.nct_G, 1.0 / self.nspins)
+    def __init__(self, gd, nspins, charge, collinear=True, stencil=3):
+        Density.__init__(self, gd, nspins, charge, collinear)
 
-    def initialize_pseudo_core_density(self, spline_aj):
+        self.finegd = self.gd.refine()
+
+        # Interpolation function for the density:
+        self.interpolator = Transformer(self.gd, self.finegd, stencil)
+        self.restrictor = Transformer(self.finegd, self.gd, stencil)
+
+    def initialize(self, setups, magmom_av, hund, timer):
+        Density.initialize(self, setups, magmom_av, hund, timer)
+
+        spline_aj = []
+        for setup in setups:
+            if setup.nct is None:
+                spline_aj.append([])
+            else:
+                spline_aj.append([setup.nct])
+
         self.nct = LFC(self.gd, spline_aj,
                        integral=[setup.Nct for setup in self.setups],
                        forces=True, cut=True)
 
+        self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
+                        integral=sqrt(4 * pi), forces=True)
+
+    def set_positions(self, spos_ac, rank_a=None):
+        Density.set_positions(self, spos_ac, rank_a)
+        self.nct_G = self.gd.zeros()
+        self.nct.add(self.nct_G, 1.0 / self.nspins)

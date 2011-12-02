@@ -28,8 +28,7 @@ def vxc(paw, xc=None):
     # Calculate XC-potential:
     vxct_sg = ham.finegd.zeros(wfs.nspins)
     xc.calculate(dens.finegd, dens.nt_sg, vxct_sg)
-    vxct_sG = ham.gd.empty(wfs.nspins)
-    ham.restrict(vxct_sg, vxct_sG)
+    vxct_sG = dens.restrictor.apply(vxct_sg)
     if thisisatest:
         vxct_G[:] = 1
         

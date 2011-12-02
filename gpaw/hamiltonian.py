@@ -17,8 +17,8 @@ from gpaw import debug
 
 
 class Hamiltonian:
-    def __init__(self, gd, nspins, xc, setups, collinear=True,
-                 vext_G=None, timer=None):
+    def __init__(self, gd, finegd, nspins, xc, setups, collinear=True,
+                 vext=None, timer=None):
         """Hamiltonian object.
     
         gd: GridDescriptor object
@@ -39,6 +39,7 @@ class Hamiltonian:
         """
 
         self.gd = gd
+        self.finegd = finegd
         self.nspins = nspins
         self.setups = setups
         self.timer = timer
@@ -49,10 +50,11 @@ class Hamiltonian:
         self.dH_asp = None
 
         # The external potential
-        self.vext_G = vext_G
+        self.vext = vext
 
         self.vt_sG = None
-        self.vbar_G = None
+        self.vt_sg = None
+        self.vbar_g = None
 
         self.rank_a = None
 
@@ -70,13 +72,11 @@ class Hamiltonian:
     def set_positions(self, spos_ac, rank_a=None):
         self.spos_ac = spos_ac
 
-        self.ghat.set_positions(spos_ac)
-
         self.vbar.set_positions(spos_ac)
-        if self.vbar_G is None:
-            self.vbar_G = self.finegd.empty()
-        self.vbar_G[:] = 0.0
-        self.vbar.add(self.vbar_G)
+        if self.vbar_g is None:
+            self.vbar_g = self.finegd.empty()
+        self.vbar_g[:] = 0.0
+        self.vbar.add(self.vbar_g)
 
         self.xc.set_positions(spos_ac)
         
@@ -124,15 +124,15 @@ class Hamiltonian:
 
         self.timer.start('Hamiltonian')
 
-        if self.vt_sG is None:
+        if self.vt_sg is None:
             self.timer.start('Initialize Hamiltonian')
             self.vt_sG = self.gd.empty(self.nspins * self.ncomp**2)
+            self.vt_sg = self.finegd.empty(self.nspins * self.ncomp**2)
             self.poissonsolver.initialize()
             self.timer.stop('Initialize Hamiltonian')
 
-        Ebar, Exc, Epot, Ekin, W_aL = self.calculate_effective_potential(density)
-
-        Eext = 0.0
+        Ebar, Exc, Epot, Ekin, Eext, W_aL = \
+            self.calculate_effective_potential(density)
                 
         # Calculate atomic hamiltonians:
         self.timer.start('Atomic')
@@ -149,6 +149,22 @@ class Hamiltonian:
             Ebar += setup.MB + np.dot(setup.MB_p, D_p)
             Epot += setup.M + np.dot(D_p, (setup.M_p +
                                            np.dot(setup.M_pp, D_p)))
+
+            if self.vext is not None:
+                vext = self.vext.get_taylor(spos_c=self.spos_ac[a])
+                # Tailor expansion to the zeroth order
+                Eext += vext[0][0] * (sqrt(4 * pi) * density.Q_aL[a][0] +
+                                      setup.Z)
+                dH_p += vext[0][0] * sqrt(4 * pi) * setup.Delta_pL[:, 0]
+                if len(vext) > 1:
+                    # Tailor expansion to the first order
+                    Eext += sqrt(4 * pi / 3) * np.dot(vext[1],
+                                                      density.Q_aL[a][1:4])
+                    # there must be a better way XXXX
+                    Delta_p1 = np.array([setup.Delta_pL[:, 1],
+                                         setup.Delta_pL[:, 2],
+                                         setup.Delta_pL[:, 3]])
+                    dH_p += sqrt(4 * pi / 3) * np.dot(vext[1], Delta_p1)
 
             self.dH_asp[a] = dH_sp = np.zeros_like(D_sp)
             self.timer.start('XC Correction')
@@ -186,23 +202,6 @@ class Hamiltonian:
                      self.Ebar + self.Exc - self.S)
 
         return self.Etot
-
-    def external(self):
-        if self.vext_G is not None:
-                vext = self.vext_G.get_taylor(spos_c=self.spos_ac[a, :])
-                # Tailor expansion to the zeroth order
-                Eext += vext[0][0] * (sqrt(4 * pi) * density.Q_aL[a][0]
-                                      + setup.Z)
-                dH_p += vext[0][0] * sqrt(4 * pi) * setup.Delta_pL[:, 0]
-                if len(vext) > 1:
-                    # Tailor expansion to the first order
-                    Eext += sqrt(4 * pi / 3) * np.dot(vext[1],
-                                                      density.Q_aL[a][1:4])
-                    # there must be a better way XXXX
-                    Delta_p1 = np.array([setup.Delta_pL[:, 1],
-                                          setup.Delta_pL[:, 2],
-                                          setup.Delta_pL[:, 3]])
-                    dH_p += sqrt(4 * pi / 3) * np.dot(vext[1], Delta_p1)
 
     def hubbardu(self):
         if setup.HubU is not None:
@@ -331,12 +330,10 @@ class Hamiltonian:
 
 
 class RealSpaceHamiltonian(Hamiltonian):
-    def __init__(self, gd, nspins, xc, setups, collinear=True,
-                 vext_G=None, timer=None, poissonsolver=None, stencil=3):
-        Hamiltonian.__init__(self, gd, nspins, xc, setups, collinear,
-                             vext_G, timer)
-
-        self.finegd = self.gd.refine()
+    def __init__(self, gd, finegd, nspins, xc, setups, collinear=True,
+                 vext=None, timer=None, poissonsolver=None):
+        Hamiltonian.__init__(self, gd, finegd, nspins, xc, setups, collinear,
+                             vext, timer)
 
         # Solver for the Poisson equation:
         if poissonsolver is None:
@@ -344,16 +341,7 @@ class RealSpaceHamiltonian(Hamiltonian):
         self.poissonsolver = poissonsolver
         poissonsolver.set_grid_descriptor(self.finegd)
 
-        # Restrictor function for the potential:
-        self.restrictor = Transformer(self.finegd, self.gd, stencil)
-
-        # Interpolation function for the density:
-        self.interpolator = Transformer(self.gd, self.finegd, stencil)
-
-        self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
-                        integral=sqrt(4 * pi), forces=True)
-
-        self.vbar = LFC(self.finegd, [[setup.vbar] for setup in self.setups],
+        self.vbar = LFC(finegd, [[setup.vbar] for setup in self.setups],
                         forces=True)
 
         self.vHt_g = None
@@ -361,54 +349,36 @@ class RealSpaceHamiltonian(Hamiltonian):
     def calculate_effective_potential(self, density):
         self.timer.start('vbar')
         
-        Ebar = self.finegd.integrate(self.vbar_G,
-                                     self.interpolator.apply(
-                density.nt_sG[:self.nspins].sum(0)),
-                                     global_integral=False)
+        nt_g = density.nt_sg[:self.nspins].sum(0)
 
-        vt_G = self.vt_sG[0]
-        vt_G[:] = self.restrictor.apply(self.vbar_G)
+        Ebar = self.finegd.integrate(self.vbar_g, nt_g, global_integral=False)
+
+        vt_g = self.vt_sg[0]
+        vt_g[:] = self.vbar_g
         self.timer.stop('vbar')
 
+        Eext = 0.0
+        if self.vext is not None:
+            assert self.collinear
+            vt_g += self.vext.get_potential(self.finegd)
+            Eext = self.finegd.integrate(vt_g, nt_g,
+                                         global_integral=False) - Ebar
 
-        self.vt_sG[1:self.nspins] = vt_G
-
-        self.vt_sG[self.nspins:] = 0.0
+        self.vt_sg[1:self.nspins] = vt_g
+        self.vt_sg[self.nspins:] = 0.0
             
         self.timer.start('XC 3D grid')
-        if 0:
-            Exc = self.xc.calculate(self.gd, density.nt_sG, self.vt_sG)
-        else:
-            nt_sg = self.finegd.empty(self.nspins * self.ncomp**2)
-            self.interpolator.apply(density.nt_sG, nt_sg)
-            vxct_sg = self.finegd.zeros(self.nspins * self.ncomp**2)
-            Exc = self.xc.calculate(self.finegd, nt_sg, vxct_sg)
-            vxct_sG = self.gd.zeros(self.nspins * self.ncomp**2)
-            self.restrictor.apply(vxct_sg, vxct_sG)
-            self.vt_sG += vxct_sG
+        Exc = self.xc.calculate(self.finegd, density.nt_sg, self.vt_sg)
         Exc /= self.gd.comm.size
         self.timer.stop('XC 3D grid')
 
         self.timer.start('Poisson')
 
         """Interpolate pseudo density to fine grid."""
-        rhot_g = self.finegd.empty()
-        nt_G = density.nt_sG[:self.nspins].sum(0)
-        self.interpolator.apply(nt_G, rhot_g)
+        rhot_g = nt_g
+        del nt_g
 
-        # With periodic boundary conditions, the interpolation will
-        # conserve the number of electrons.
-        if not self.gd.pbc_c.all():
-            # With zero-boundary conditions in one or more directions,
-            # this is not the case.
-
-            comp_charge = density.calculate_multipole_moments()
-
-            pseudo_charge = -(density.charge + comp_charge)
-            x = pseudo_charge / self.finegd.integrate(rhot_g)
-            rhot_g *= x
-
-        self.ghat.add(rhot_g, density.Q_aL)
+        density.ghat.add(rhot_g, density.Q_aL)
 
         if debug:
             charge = self.finegd.integrate(rhot_g) + density.charge
@@ -429,17 +399,18 @@ class RealSpaceHamiltonian(Hamiltonian):
                                            global_integral=False)
 
         vHt_G = self.gd.empty()
-        self.restrictor.apply(self.vHt_g, vHt_G)
         
         W_aL = {}
         for a in density.D_asp:
             W_aL[a] = np.empty((self.setups[a].lmax + 1)**2)
-        self.ghat.integrate(self.vHt_g, W_aL)
+        density.ghat.integrate(self.vHt_g, W_aL)
+
+        self.vt_sg[:self.nspins] += self.vHt_g
+
+        density.restrictor.apply(self.vt_sg, self.vt_sG)
 
         self.timer.stop('Hartree integrate/restrict')
             
-        self.vt_sG[:self.nspins] += vHt_G
-
         Ekin = 0.0
         s = 0
         for vt_G, nt_G in zip(self.vt_sG, density.nt_sG):
@@ -449,4 +420,4 @@ class RealSpaceHamiltonian(Hamiltonian):
                                           global_integral=False)
             s += 1
 
-        return Ebar, Exc, Epot, Ekin, W_aL
+        return Ebar, Exc, Epot, Ekin, Eext, W_aL
