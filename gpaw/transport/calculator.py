@@ -465,9 +465,7 @@ class Transport(GPAW):
                 self.inner_poisson = FixedBoundaryPoissonSolver(nn=1)
             self.inner_poisson.set_grid_descriptor(self.finegd)
             self.interpolator = Transformer(self.gd1, self.finegd1,
-                                            self.input_parameters.stencils[1],
-                                            allocate=False)
-            self.interpolator.allocate()
+                                            self.input_parameters.stencils[1])
 
             if not self.multi_leads:
                 self.surround.combine(self)
@@ -2070,8 +2068,8 @@ class Transport(GPAW):
         vt_g[:] = ham.vbar_g
         Eext = 0.0
 
-        if ham.vext_g is not None:
-            vt_g += ham.vext_g.get_potential(ham.finegd)
+        if ham.vext is not None:
+            vt_g += ham.vext.get_potential(ham.finegd)
             Eext = np.vdot(vt_g, np.sum(nt_sg, axis=0)) * ham.finegd.dv - Ebar
 
         if ham.nspins == 2:

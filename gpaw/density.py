@@ -64,45 +64,18 @@ class Density:
 
         self.mixer = BaseMixer()
         self.timer = nulltimer
-        self.allocated = False
         
-    def initialize(self, setups, stencil, timer, magmom_av, hund):
+    def initialize(self, setups, timer, magmom_av, hund):
         self.timer = timer
         self.setups = setups
         self.hund = hund
         self.magmom_av = magmom_av
-
-        # Interpolation function for the density:
-        self.interpolator = Transformer(self.gd, self.finegd, stencil,
-                                        allocate=False)
-        
-        spline_aj = []
-        for setup in setups:
-            if setup.nct is None:
-                spline_aj.append([])
-            else:
-                spline_aj.append([setup.nct])
-        self.nct = LFC(self.gd, spline_aj,
-                       integral=[setup.Nct for setup in setups],
-                       forces=True, cut=True)
-        self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
-                        integral=sqrt(4 * pi), forces=True)
-        if self.allocated:
-            self.allocated = False
-            self.allocate()
-
-    def allocate(self):
-        assert not self.allocated
-        self.interpolator.allocate()
-        self.allocated = True
 
     def reset(self):
         # TODO: reset other parameters?
         self.nt_sG = None
 
     def set_positions(self, spos_ac, rank_a=None):
-        if not self.allocated:
-            self.allocate()
         self.nct.set_positions(spos_ac)
         self.ghat.set_positions(spos_ac)
         self.mixer.reset()
@@ -595,8 +568,6 @@ class Density:
         # The implementation of interpolator memory use is not very
         # accurate; 20 MiB vs 13 MiB estimated in one example, probably
         # worse for parallel calculations.
-        
-        self.interpolator.estimate_memory(mem.subnode('Interpolator'))
 
     def get_spin_contamination(self, atoms, majority_spin=0):
         """Calculate the spin contamination.
@@ -616,3 +587,28 @@ class Density:
         dt_sg = nt_sg[smin] - nt_sg[smaj]
         dt_sg = np.where(dt_sg > 0, dt_sg, 0.0)
         return gd.integrate(dt_sg)
+
+
+class RealSpaceDensity(Density):
+    def __init__(self, gd, finegd, nspins, charge, collinear=True,
+                 stencil=3):
+        Density.__init__(self, gd, finegd, nspins, charge, collinear)
+        self.stencil = stencil
+
+    def initialize(self, setups, timer, magmom_av, hund):
+        Density.initialize(self, setups, timer, magmom_av, hund)
+
+        # Interpolation function for the density:
+        self.interpolator = Transformer(self.gd, self.finegd, self.stencil)
+        
+        spline_aj = []
+        for setup in setups:
+            if setup.nct is None:
+                spline_aj.append([])
+            else:
+                spline_aj.append([setup.nct])
+        self.nct = LFC(self.gd, spline_aj,
+                       integral=[setup.Nct for setup in setups],
+                       forces=True, cut=True)
+        self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
+                        integral=sqrt(4 * pi), forces=True)
