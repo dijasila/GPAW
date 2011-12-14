@@ -5,33 +5,35 @@ for complex symmetric matrices. Requires Numpy and GPAW's own BLAS."""
 
 import numpy as np
 
+from gpaw import debug #XXX
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.blas import dotu
 from gpaw.utilities.blas import dotc
 from gpaw.mpi import rank
+from gpaw.tddft.linsolver import LinearSolver
 
-class CSCG:
+class CSCG(LinearSolver):
     """Conjugate gradient for complex symmetric matrices
     
-    This class solves a set of linear equations A.x = b using conjugate 
-    gradient for complex symmetric matrices. The matrix A is a complex, 
-    symmetric, and non-singular matrix. The method requires only access 
-    to matrix-vector product A.x = b, which is called A.dot(x). Thus A 
-    must provide the member function dot(self,x,b), where x and b are 
-    complex arrays (numpy.array([], complex), and x is the known vector, 
+    This class solves a set of linear equations A.x = b using conjugate
+    gradient for complex symmetric matrices. The matrix A is a complex,
+    symmetric, and non-singular matrix. The method requires only access
+    to matrix-vector product A.x = b, which is called A.dot(x). Thus A
+    must provide the member function dot(self,x,b), where x and b are
+    complex arrays (numpy.array([], complex), and x is the known vector,
     and b is the result.
 
     Now x and b are multivectors, i.e., list of vectors.
     """
     
-    def __init__(self, gd, bd, allocate=False, timer=None,
+    def __init__(self, gd, bd, timer, allocate=False, sort_bands=True,
                  tolerance=1e-15, max_iterations=1000, eps=1e-15):
         """Create the CSCG-object.
         
-        Tolerance should not be smaller than attainable accuracy, which is 
-        order of kappa(A) * eps, where kappa(A) is the (spectral) condition 
-        number of the matrix. The maximum number of iterations should be 
-        significantly less than matrix size, approximately 
+        Tolerance should not be smaller than attainable accuracy, which is
+        order of kappa(A) * eps, where kappa(A) is the (spectral) condition
+        number of the matrix. The maximum number of iterations should be
+        significantly less than matrix size, approximately
         .5 sqrt(kappa) ln(2/tolerance). A small number is treated as zero
         if it's magnitude is smaller than argument eps.
         
@@ -41,43 +43,40 @@ class CSCG:
             grid descriptor for coarse (pseudowavefunction) grid
         bd: BandDescriptor
             band descriptor for state parallelization
-        allocate: bool
-            determines whether the constructor should allocate arrays
         timer: Timer
             timer
+        allocate: bool
+            determines whether the constructor should allocate arrays
+        sort_bands: bool
+            determines whether to allow sorting of band by convergence
         tolerance: float
             tolerance for the norm of the residual ||b - A.x||^2
         max_iterations: integer
             maximum number of iterations
         eps: float
-            if abs(rho) or omega < eps, it's regarded as zero 
+            if abs(rho) or omega < eps, it's regarded as zero
             and the method breaks down
 
         """
 
-        self.gd = gd
-        self.bd = bd
-        self.timer = timer        
-        self.tol = tolerance
-        self.maxiter = max_iterations
-        self.niter = -1
-        self.allocated = False
+        self.scale_n = None
+        self.rhop_n = None
+        self.p_nG = None
+        self.r_nG = None
+        self.work_nG = None
 
-        if eps <= tolerance:
-            self.eps = eps
-        else:
-            raise RuntimeError('CSCG method got invalid tolerance (tol = %le '
-                               '< eps = %le).' % (tolerance, eps))
+        LinearSolver.__init__(self, gd, bd, timer, allocate, sort_bands,
+                              tolerance, max_iterations, eps)
 
-        if allocate:
-            self.allocate()
+        self.internals += ('scale_n', 'rhop_n')
 
     def allocate(self):
         if self.allocated:
             return
 
-        nvec = self.bd.mynbands
+        LinearSolver.allocate(self)
 
+        nvec = self.bd.mynbands
         self.scale_n = np.empty(nvec, dtype=complex)
         self.rhop_n = np.empty(nvec, dtype=complex)
         self.p_nG = self.gd.empty(nvec, dtype=complex)
@@ -103,8 +102,7 @@ class CSCG:
         b_nG        right-hand side (multi)vector
 
         """
-        if self.timer is not None:
-            self.timer.start('CSCG')
+        self.timer.start('CSCG')
 
         # Multivector dot product, a^T b, where ^T is transpose
         def multi_zdotu(s, x,y, nvec):
@@ -125,8 +123,12 @@ class CSCG:
             self.allocate()
 
         # Number of vectors to iterate on
-        nvec = len(x_nG)
+        nvec = len(x_nG) #TODO ignore unoccupied bands
         assert nvec == self.bd.mynbands
+
+        # Reset convergence flags and permutation
+        self.conv_n[:] = False
+        self.perm_n[:] = np.arange(nvec)
 
         # Use squared norm of b as scale
         multi_zdotu(self.scale_n, b_nG, b_nG, nvec)
@@ -139,7 +141,7 @@ class CSCG:
                                'eps = %le).' % (self.scale_n.min(), self.eps))
 
         # rho[-1] = 1 i.e. rhop[0] = 1
-        self.rhop_n[:]  = 1.0
+        self.rhop_n[:] = 1.0
 
         # p[-1] = 0 i.e. p[0] = z
         self.p_nG[:] = 0.0
@@ -149,81 +151,93 @@ class CSCG:
         self.r_nG += b_nG
         del b_nG
 
-        for i in range(self.maxiter):
+        if debug:
+            import time
+            t = time.time()
+
+        for i in range(1, self.maxiter+1):
             # z = M^(-1) r[i-1]
-            z_nG = self.work_nG
-            A.apply_preconditioner(self.r_nG, z_nG)
+            z_xG = self.work_nG[:nvec]
+            A.apply_preconditioner(self.r_nG[:nvec], z_xG)
 
             # rho[i] = r[i-1]^T z
-            rho_n  = np.empty(nvec, dtype=complex)
-            multi_zdotu(rho_n, self.r_nG, z_nG, nvec)
-
-            ##NB: beta=0 for i=0 if rho[0]=0 and rho[-1]=1 i.e. rhop[0]=1
-            #if i == 0:
-            #    # p[0] = z
-            #    self.p_nG[:] = z_nG
-            #else:
-            #    # beta = rho[i] / rho[i-1]
-            #    beta_n[:] = rho_n / rhop_n
-            #    
-            #    # p[i] = z + beta p[i-1]
-            #    multi_scale(beta_n, self.p_nG, nvec)
-            #    self.p_nG += z_nG
+            rho_x  = np.empty(nvec, dtype=complex)
+            multi_zdotu(rho_x, self.r_nG[:nvec], z_xG, nvec)
 
             # beta = rho[i] / rho[i-1]
-            beta_n = rho_n / self.rhop_n
+            beta_x = rho_x / self.rhop_n[:nvec]
 
             # CSCG breaks down if abs(beta) / scale < eps
-            if i > 0 and np.any(np.abs(beta_n) / self.scale_n < self.eps):
-                raise RuntimeError('Conjugate gradient method failed '
+            if i > 1 and np.any(np.abs(beta_x) / self.scale_n[:nvec] < self.eps):
+                raise RuntimeError('Conjugate gradient method underflowed '
                                    '(|beta| = %le < eps = %le).'
-                                    % (np.abs(beta_n).min(), self.eps))
+                                    % (np.abs(beta_x).min(), self.eps))
 
             # p[i] = z + beta p[i-1]
-            multi_scale(beta_n, self.p_nG, nvec)
-            self.p_nG += z_nG
-            del z_nG, beta_n
+            multi_scale(beta_x, self.p_nG[:nvec], nvec)
+            self.p_nG[:nvec] += z_xG
+            del z_xG, beta_x
 
             # q = A p[i]
-            q_nG = self.work_nG
-            A.dot(self.p_nG, q_nG)
+            q_xG = self.work_nG[:nvec]
+            A.dot(self.p_nG[:nvec], q_xG)
 
             # alpha = rho[i] / (p[i]^T q)
-            alpha_n = np.empty(nvec, dtype=complex)
-            multi_zdotu(alpha_n, self.p_nG, q_nG, nvec)
-            alpha_n = rho_n / alpha_n
+            alpha_x = np.empty(nvec, dtype=complex)
+            multi_zdotu(alpha_x, self.p_nG[:nvec], q_xG, nvec)
+            alpha_x = rho_x / alpha_x
 
             # x[i] = x[i-1] + alpha p[i]
-            multi_zaxpy(alpha_n, self.p_nG, x_nG, nvec)
+            multi_zaxpy(alpha_x, self.p_nG[:nvec], x_nG[:nvec], nvec)
 
             # r[i] = r[i-1] - alpha q
-            multi_zaxpy(-alpha_n, q_nG, self.r_nG, nvec)
-            del alpha_n, q_nG
+            multi_zaxpy(-alpha_x, q_xG, self.r_nG[:nvec], nvec)
+            del alpha_x, q_xG
 
             # Check convergence criteria |r|^2 < tol^2
-            r2_n = np.empty(nvec, dtype=complex)
-            multi_zdotu(r2_n, self.r_nG, self.r_nG, nvec)
-            if np.all(np.abs(r2_n) / self.scale_n < self.tol**2):
+            r2_x = np.empty(nvec, dtype=complex)
+            multi_zdotu(r2_x, self.r_nG[:nvec], self.r_nG[:nvec], nvec)
+            self.conv_n[:nvec] = np.abs(r2_x) / self.scale_n[:nvec] < self.tol**2
+            if np.all(self.conv_n):
                 break
 
             # Print residuals if convergence is slow
-            if (i+1) % slow_convergence_iters == 0:
-                print 'R2 of proc #', rank, '  = ' , r2_n, \
-                    ' after ', i+1, ' iterations'
+            if i % slow_convergence_iters == 0:
+                print 'R2 of proc #', rank, '  = ' , r2_x, \
+                    ' after ', i, ' iterations'
+
+            if debug and self.gd.comm.rank == 0:
+                print '----', '-' * self.bd.mynbands, 't=', time.time()-t
+                print '%04d' % nvec, ''.join('1' if b else '0' for b in self.conv_n), self.perm_n
+                t = time.time()
 
             # Store rho for next iteration (rho[i-2] -> rho[i-1] etc.)
-            self.rhop_n[:] = rho_n
-            del rho_n, r2_n
+            self.rhop_n[:nvec] = rho_x
+            del rho_x, r2_x
 
-        self.niter = i+1
+            if self.sort_bands:
+                # Move converged bands into one contiguous block at the end
+                self.sort(self.p_nG, self.r_nG, x_nG)
+                nvec = np.sum(~self.conv_n)
+
+            if debug and self.gd.comm.rank == 0:
+                print '%04d' % nvec, ''.join('1' if b else '0' for b in self.conv_n), self.perm_n
+
+        self.niter = i
+
+        if debug and self.gd.comm.rank == 0:
+            print '----', '-' * self.bd.mynbands, 't=', time.time()-t
+
+        if self.sort_bands:
+            # Undo all permutations
+            self.restore(x_nG)
 
         # Raise error if maximum number of iterations was reached
-        if i >= self.maxiter-1:
+        if self.niter >= self.maxiter:
             raise RuntimeError('Conjugate gradient stabilized method failed '
                                'to converge in %d iterations.' % self.maxiter)
 
-        if self.timer is not None:
-            self.timer.stop('CSCG')
+        self.timer.stop('CSCG')
 
         return self.niter
 

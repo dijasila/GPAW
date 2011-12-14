@@ -65,6 +65,10 @@ class DummyPropagator:
 
         self.mblas = MultiBlas(gd)
 
+    def estimate_memory(self, mem):
+        """Estimate memory use of this object."""
+        pass
+
     # Solve M psin = psi
     def apply_preconditioner(self, psi, psin):
         """Solves preconditioner equation.
@@ -83,7 +87,6 @@ class DummyPropagator:
         else:
             psin[:] = psi
         self.timer.stop('Solve TDDFT preconditioner')
-
 
     def propagate(self, time, time_step):
         """Propagate wavefunctions once. 
@@ -142,7 +145,18 @@ class ExplicitCrankNicolson(DummyPropagator):
         self.hpsit = None
         self.spsit = None
         self.sinvhpsit = None
-        
+
+    def estimate_memory(self, mem):
+        """Estimate memory use of this object."""
+        mynks = self.wfs.kd.mynks
+        nvec = self.wfs.bd.mynbands
+        gdbytes = self.gd.bytecount(complex)
+
+        mem.subnode('tmp_kpt_u', mynks * nvec * gdbytes)
+        mem.subnode('hpsit', nvec * gdbytes)
+        mem.subnode('spsit', nvec * gdbytes)
+        mem.subnode('sinvhpsit', nvec * gdbytes)
+
     # ( S + i H dt/2 ) psit(t+dt) = ( S - i H dt/2 ) psit(t)
     def propagate(self, time, time_step):
         """Propagate wavefunctions. 
@@ -256,16 +270,25 @@ class ExplicitCrankNicolson(DummyPropagator):
             the result ( S + i H dt/2 ) psi
 
         """
+        assert psi.shape[-3:] == self.hpsit.shape[-3:]
+        assert psi.shape == psin.shape
+
+        nvec = len(psi) #XXX HACK!!!
+        P0_ani = self.kpt.P_ani #XXX HACK!!!
+        self.kpt.P_ani = self.wfs.pt.dict(nvec) #XXX HACK!!!
+
         self.timer.start('Apply time-dependent operators')
         self.td_overlap.update_k_point_projections(self.wfs, self.kpt, psi)
-        self.td_hamiltonian.apply(self.kpt, psi, self.hpsit,
+        self.td_hamiltonian.apply(self.kpt, psi, self.hpsit[:nvec],
                                   calculate_P_ani=False)
-        self.td_overlap.apply(psi, self.spsit, self.wfs, self.kpt, calculate_P_ani=False)
+        self.td_overlap.apply(psi, self.spsit[:nvec], self.wfs, self.kpt, calculate_P_ani=False)
         self.timer.stop('Apply time-dependent operators')
 
         # psin[:] = self.spsit + .5J * self.time_step * self.hpsit
-        psin[:] = self.spsit
-        self.mblas.multi_zaxpy(.5j*self.time_step, self.hpsit, psin, len(psi))
+        psin[:] = self.spsit[:nvec]
+        self.mblas.multi_zaxpy(.5j*self.time_step, self.hpsit[:nvec], psin, nvec)
+
+        self.kpt.P_ani = P0_ani #XXX HACK!!!
 
 
 
@@ -313,6 +336,15 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
 
         self.old_kpt_u = None
 
+    def estimate_memory(self, mem):
+        """Estimate memory use of this object."""
+        ExplicitCrankNicolson.estimate_memory(self, mem)
+
+        mynks = self.wfs.kd.mynks
+        nvec = self.wfs.bd.mynbands
+        gdbytes = self.gd.bytecount(complex)
+
+        mem.subnode('old_kpt_u', mynks * nvec * gdbytes)
 
     def propagate(self, time, time_step):
         """Propagate wavefunctions once.
@@ -531,6 +563,19 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
         #self.hsinvhpsit = None
         self.sinvh2psit = None
 
+    def estimate_memory(self, mem):
+        """Estimate memory use of this object."""
+        ExplicitCrankNicolson.estimate_memory(self, mem)
+
+        mynks = self.wfs.kd.mynks
+        nvec = self.wfs.bd.mynbands
+        gdbytes = self.gd.bytecount(complex)
+
+        mem.subnode('old_kpt_u', mynks * nvec * gdbytes)
+
+        if self.predictor_guess[0] and self.predictor_guess[1]:
+            mem.subnode('sinvh2psit', nvec * gdbytes)
+
     def update_velocities(self, v_at_new, v_at_old = None):
         self.v_at = v_at_new.copy()
         if(v_at_old is not None):
@@ -733,19 +778,30 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
             the result ( S + i H dt/2 ) psi
 
         """
+        assert psi.shape[-3:] == self.hpsit.shape[-3:]
+        assert psi.shape == psin.shape
+
+        nvec = len(psi) #XXX HACK!!!
+        P0_ani = self.kpt.P_ani #XXX HACK!!!
+        self.kpt.P_ani = self.wfs.pt.dict(nvec) #XXX HACK!!!
+
         self.timer.start('Apply time-dependent operators')
         self.td_overlap.update_k_point_projections(self.wfs, self.kpt, psi)
-        self.td_hamiltonian.apply(self.kpt, psi, self.hpsit,
+        self.td_hamiltonian.apply(self.kpt, psi, self.hpsit[:nvec],
                                   calculate_P_ani=False)
-        self.td_hamiltonian.calculate_paw_correction(psi, self.hpsit, self.wfs, self.kpt, self.v_at, calculate_P_ani=False)
-        self.td_overlap.apply(psi, self.spsit, self.wfs, self.kpt, calculate_P_ani=False)
+        self.td_hamiltonian.calculate_paw_correction(psi, self.hpsit[:nvec],
+            self.wfs, self.kpt, self.v_at, calculate_P_ani=False)
+        self.td_overlap.apply(psi, self.spsit[:nvec], self.wfs, self.kpt, calculate_P_ani=False)
         self.timer.stop('Apply time-dependent operators')
 
         # psin[:] = self.spsit + .5J * self.time_step * self.hpsit
-        psin[:] = self.spsit
-        self.mblas.multi_zaxpy(.5j*self.time_step, self.hpsit, psin, len(psi))
+        psin[:] = self.spsit[:nvec]
+        self.mblas.multi_zaxpy(.5j*self.time_step, self.hpsit[:nvec], psin, nvec)
         # Apply shift -i eps S t/2 
         #self.mblas.multi_zaxpy(.5j * self.time_step * (-self.shift), self.spsit, psin, len(psi))
+
+        self.kpt.P_ani = P0_ani #XXX HACK!!!
+
 
 class EhrenfestHGHSICN(ExplicitCrankNicolson):
     """Semi-implicit Crank-Nicolson propagator for Ehrenfest dynamics
@@ -1351,9 +1407,27 @@ class SemiImplicitTaylorExponential(DummyPropagator):
         kpt.psit_nG[:] = self.psin
 
     def dot(self, psit, spsit):
+        """Applies the propagator matrix to the given wavefunctions.
+
+        Parameters
+        ----------
+        psi: List of coarse grids
+            the known wavefunctions
+        psin: List of coarse grids
+            the result ( S + i H dt/2 ) psi
+
+        """
+        assert psit.shape == spsit.shape
+
+        nvec = len(psit) #XXX HACK!!!
+        P0_ani = self.kpt.P_ani #XXX HACK!!!
+        self.kpt.P_ani = self.wfs.pt.dict(nvec) #XXX HACK!!!
+
+        self.timer.start('Apply time-dependent operators')
         self.td_overlap.apply(psit, spsit, self.wfs, self.kpt)
+        self.timer.stop('Apply time-dependent operators')
 
-
+        self.kpt.P_ani = P0_ani #XXX HACK!!!
 
 
 ###############################################################################
@@ -1645,7 +1719,27 @@ class SemiImplicitKrylovExponential(DummyPropagator):
         return scale
 
     def dot(self, psit, spsit):
+        """Applies the propagator matrix to the given wavefunctions.
+
+        Parameters
+        ----------
+        psi: List of coarse grids
+            the known wavefunctions
+        psin: List of coarse grids
+            the result ( S + i H dt/2 ) psi
+
+        """
+        assert psit.shape == spsit.shape
+
+        nvec = len(psit) #XXX HACK!!!
+        P0_ani = self.kpt.P_ani #XXX HACK!!!
+        self.kpt.P_ani = self.wfs.pt.dict(nvec) #XXX HACK!!!
+
+        self.timer.start('Apply time-dependent operators')
         self.td_overlap.apply(psit, spsit, self.wfs, self.kpt)
+        self.timer.stop('Apply time-dependent operators')
+
+        self.kpt.P_ani = P0_ani #XXX HACK!!!
 
     ### Below this, just for testing & debug
     def Sdot(self, psit, spsit):

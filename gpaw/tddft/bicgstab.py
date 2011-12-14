@@ -5,33 +5,35 @@ gradient stabilized method. Requires Numpy and GPAW's own BLAS."""
 
 import numpy as np
 
+from gpaw import debug #XXX
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.blas import dotc
 from gpaw.mpi import rank
+from gpaw.tddft.linsolver import LinearSolver
 
-class BiCGStab:
+class BiCGStab(LinearSolver):
     """Biconjugate gradient stabilized method
     
-    This class solves a set of linear equations A.x = b using biconjugate 
-    gradient stabilized method (BiCGStab). The matrix A is a general, 
-    non-singular matrix, e.g., it can be nonsymmetric, complex, and 
-    indefinite. The method requires only access to matrix-vector product 
-    A.x = b, which is called A.dot(x). Thus A must provide the member 
-    function dot(self,x,b), where x and b are complex arrays 
-    (numpy.array([], complex), and x is the known vector, and 
+    This class solves a set of linear equations A.x = b using biconjugate
+    gradient stabilized method (BiCGStab). The matrix A is a general,
+    non-singular matrix, e.g., it can be nonsymmetric, complex, and
+    indefinite. The method requires only access to matrix-vector product
+    A.x = b, which is called A.dot(x). Thus A must provide the member
+    function dot(self,x,b), where x and b are complex arrays
+    (numpy.array([], complex), and x is the known vector, and
     b is the result.
 
     Now x and b are multivectors, i.e., list of vectors.
     """ 
     
-    def __init__(self, gd, bd, allocate=False, timer=None,
+    def __init__(self, gd, bd, timer, allocate=False, sort_bands=True,
                  tolerance=1e-15, max_iterations=1000, eps=1e-15):
         """Create the BiCGStab-object.
         
-        Tolerance should not be smaller than attainable accuracy, which is 
-        order of kappa(A) * eps, where kappa(A) is the (spectral) condition 
-        number of the matrix. The maximum number of iterations should be 
-        significantly less than matrix size, approximately 
+        Tolerance should not be smaller than attainable accuracy, which is
+        order of kappa(A) * eps, where kappa(A) is the (spectral) condition
+        number of the matrix. The maximum number of iterations should be
+        significantly less than matrix size, approximately
         .5 sqrt(kappa) ln(2/tolerance). A small number is treated as zero
         if it's magnitude is smaller than argument eps.
         
@@ -41,26 +43,21 @@ class BiCGStab:
             grid descriptor for coarse (pseudowavefunction) grid
         bd: BandDescriptor
             band descriptor for state parallelization
-        allocate: bool
-            determines whether the constructor should allocate arrays
         timer: Timer
             timer
+        allocate: bool
+            determines whether the constructor should allocate arrays
+        sort_bands: bool
+            determines whether to allow sorting of band by convergence
         tolerance: float
             tolerance for the norm of the residual ||b - A.x||^2
         max_iterations: integer
             maximum number of iterations
         eps: float
-            if abs(rho) or omega < eps, it's regarded as zero 
+            if abs(rho) or omega < eps, it's regarded as zero
             and the method breaks down
 
         """
-
-        self.gd = gd
-        self.bd = bd
-        self.timer = timer
-        self.tol = tolerance
-        self.maxiter = max_iterations
-        self.niter = -1
 
         self.scale_n = None
         self.rhop_n = None
@@ -73,23 +70,18 @@ class BiCGStab:
         self.work1_nG = None
         self.work2_nG = None
 
-        self.allocated = False
+        LinearSolver.__init__(self, gd, bd, timer, allocate, sort_bands,
+                              tolerance, max_iterations, eps)
 
-        if eps <= tolerance:
-            self.eps = eps
-        else:
-            raise RuntimeError('BiCGStab method got invalid tolerance (tol '
-                               '= %le < eps = %le).' % (tolerance, eps))
-
-        if allocate:
-            self.allocate()
+        self.internals += ('scale_n', 'rhop_n', 'alpha_n', 'omega_n')
 
     def allocate(self):
         if self.allocated:
             return
 
-        nvec = self.bd.mynbands
+        LinearSolver.allocate(self)
 
+        nvec = self.bd.mynbands
         self.scale_n = np.empty(nvec, dtype=complex)
         self.rhop_n = np.empty(nvec, dtype=complex)
         self.alpha_n = np.empty(nvec, dtype=complex)
@@ -123,8 +115,7 @@ class BiCGStab:
         b_nG        right-hand side (multi)vector
 
         """
-        if self.timer is not None:
-            self.timer.start('BiCGStab')
+        self.timer.start('BiCGStab')
 
         # Multivector dot product, a^H b, where ^H is conjugate transpose
         def multi_zdotc(s, x,y, nvec):
@@ -147,6 +138,10 @@ class BiCGStab:
         # Number of vectors to iterate on
         nvec = len(x_nG) #TODO ignore unoccupied bands
         assert nvec == self.bd.mynbands
+
+        # Reset convergence flags and permutation
+        self.conv_n[:] = False
+        self.perm_n[:] = np.arange(nvec)
 
         # Use squared norm of b as scale
         multi_zdotc(self.scale_n, b_nG, b_nG, nvec)
@@ -175,111 +170,135 @@ class BiCGStab:
         self.p_nG[:] = 0.0
         self.v_nG[:] = 0.0
 
-        tmp_n = np.empty(nvec, dtype=complex)
+        if debug:
+            import time
+            t = time.time()
 
         for i in range(1, self.maxiter+1):
             # rho[i] = q^H r[i-1]
-            rho_n = np.empty(nvec, dtype=complex)
-            multi_zdotc(rho_n, self.q_nG, self.r_nG, nvec)
+            rho_x = np.empty(nvec, dtype=complex)
+            multi_zdotc(rho_x, self.q_nG[:nvec], self.r_nG[:nvec], nvec)
 
             # beta = (rho[i] / rho[i-1]) (alpha[i-1] / omega[i-1])
-            beta_n = (rho_n / self.rhop_n) * (self.alpha_n / self.omega_n)
+            beta_x = (rho_x / self.rhop_n[:nvec]) * (self.alpha_n[:nvec] / self.omega_n[:nvec])
 
             # BiCGStab breaks down if abs(beta) / scale < eps
-            if i > 1 and np.any(np.abs(beta_n) / self.scale_n < self.eps):
+            if i > 1 and np.any(np.abs(beta_x) / self.scale_n[:nvec] < self.eps):
                 raise RuntimeError('Biconjugate gradient stabilized method '
                                    'underflowed (|beta| = %le < eps = %le).'
-                                    % (np.abs(beta_n).min(), self.eps))
+                                    % (np.abs(beta_x).min(), self.eps))
 
             # p[i] = r[i-1] + beta * (p[i-1] - omega[i-1] * v[i-1])
-            multi_zaxpy(-self.omega_n, self.v_nG, self.p_nG, nvec)
-            multi_scale(beta_n, self.p_nG, nvec)
-            self.p_nG += self.r_nG
-            del beta_n
+            multi_zaxpy(-self.omega_n[:nvec], self.v_nG[:nvec], self.p_nG[:nvec], nvec)
+            multi_scale(beta_x, self.p_nG[:nvec], nvec)
+            self.p_nG[:nvec] += self.r_nG[:nvec]
+            del beta_x
 
             # y = M^(-1) p[i]
-            y_nG = self.work1_nG
-            A.apply_preconditioner(self.p_nG, y_nG)
+            y_xG = self.work1_nG[:nvec]
+            A.apply_preconditioner(self.p_nG[:nvec], y_xG)
 
             # v[i] = A y
-            A.dot(y_nG, self.v_nG)
+            A.dot(y_xG, self.v_nG[:nvec])
 
             # alpha[i] = rho[i] / (q^H v[i])
-            multi_zdotc(self.alpha_n, self.q_nG, self.v_nG, nvec)
-            self.alpha_n[:] = rho_n / self.alpha_n
+            multi_zdotc(self.alpha_n[:nvec], self.q_nG[:nvec], self.v_nG[:nvec], nvec)
+            self.alpha_n[:nvec] = rho_x / self.alpha_n[:nvec]
 
             # x[i] = x[i-1] + alpha[i] (M^(-1) p[i]) + omega[i] (M^(-1) s)
             # next line is the x[i] = x[i-1] + alpha[i] (M^(-1) p[i]) part
-            multi_zaxpy(self.alpha_n, y_nG, x_nG, nvec)
-            del y_nG
+            multi_zaxpy(self.alpha_n[:nvec], y_xG, x_nG[:nvec], nvec)
+            del y_xG
 
             # s = r[i-1] - alpha v[i]
             s_nG, self.r_nG = self.r_nG, None #XXX s now buffered in r
-            multi_zaxpy(-self.alpha_n, self.v_nG, s_nG, nvec)
+            multi_zaxpy(-self.alpha_n[:nvec], self.v_nG[:nvec], s_nG[:nvec], nvec)
 
             # Check convergence criteria |s|^2 < tol^2
-            multi_zdotc(tmp_n, s_nG, s_nG, nvec)
-            if np.all(np.abs(tmp_n) / self.scale_n < self.tol**2):
+            tmp_x = np.empty(nvec, dtype=complex)
+            multi_zdotc(tmp_x, s_nG[:nvec], s_nG[:nvec], nvec)
+            self.conv_n[:nvec] = np.abs(tmp_x) / self.scale_n[:nvec] < self.tol**2
+            if np.all(self.conv_n):
                 self.r_nG, s_nG = s_nG, None #XXX s no longer buffered in r
                 break
 
             # Print residuals if convergence is slow
             if i % slow_convergence_iters == 0:
-                print 'Log10 S2 of proc #', rank, '  = ' , np.round(np.log10(np.abs(tmp_n)),1), \
+                print 'Log10 S2 of proc #', rank, '  = ' , np.round(np.log10(np.abs(tmp_x)),1), \
                       ' after ', i, ' iterations'
 
             # z = M^(-1) s
-            z_nG = self.work1_nG
-            A.apply_preconditioner(s_nG, z_nG)
+            z_xG = self.work1_nG[:nvec]
+            A.apply_preconditioner(s_nG[:nvec], z_xG)
 
             # t = A z
-            t_nG = self.work2_nG
-            A.dot(z_nG, t_nG)
+            t_xG = self.work2_nG[:nvec]
+            A.dot(z_xG, t_xG)
 
             # omega[i] = t^H s / (t^H t)
-            multi_zdotc(self.omega_n, t_nG, s_nG, nvec)
-            multi_zdotc(tmp_n, t_nG, t_nG, nvec)
-            self.omega_n /= tmp_n
+            multi_zdotc(self.omega_n[:nvec], t_xG, s_nG[:nvec], nvec)
+            multi_zdotc(tmp_x, t_xG, t_xG, nvec)
+            self.omega_n[:nvec] /= tmp_x
 
             # x[i] = x[i-1] + alpha[i] (M^(-1) p[i]) + omega[i] (M^(-1) s)
             # next line is the x[i] = ... + omega[i] (M^-1 s) part
-            multi_zaxpy(self.omega_n, z_nG, x_nG, nvec)
-            del z_nG
+            multi_zaxpy(self.omega_n[:nvec], z_xG, x_nG[:nvec], nvec)
+            del z_xG
 
             # r[i] = s - omega[i] * t
             self.r_nG, s_nG = s_nG, None #XXX s no longer buffered in r
-            multi_zaxpy(-self.omega_n, t_nG, self.r_nG, nvec)
-            del s_nG, t_nG
+            multi_zaxpy(-self.omega_n[:nvec], t_xG, self.r_nG[:nvec], nvec)
+            del s_nG, t_xG
 
             # Check convergence criteria |r|^2 < tol^2
-            multi_zdotc(tmp_n, self.r_nG, self.r_nG, nvec)
-            if np.all(np.abs(tmp_n) / self.scale_n < self.tol**2):
+            multi_zdotc(tmp_x, self.r_nG[:nvec], self.r_nG[:nvec], nvec)
+            self.conv_n[:nvec] = np.abs(tmp_x) / self.scale_n[:nvec] < self.tol**2
+            if np.all(self.conv_n):
                 break
 
             # Print residuals if convergence is slow
             if i % slow_convergence_iters == 0:
-                print 'Log10 R2 of proc #', rank, '  = ' , np.round(np.log10(np.abs(tmp_n)),1), \
+                print 'Log10 R2 of proc #', rank, '  = ' , np.round(np.log10(np.abs(tmp_x)),1), \
                       ' after ', i, ' iterations'
 
             # BiCGStab breaks down if abs(omega) / scale < eps
-            if np.any(np.abs(self.omega_n) / self.scale_n < self.eps):
+            if np.any(np.abs(self.omega_n[:nvec]) / self.scale_n[:nvec] < self.eps):
                 raise RuntimeError('Biconjugate gradient stabilized method '
                                    'underflowed (|omega| = %le < eps = %le).'
                                     % (np.abs(self.omega_n).min(), self.eps))
 
+            if debug and self.gd.comm.rank == 0:
+                print '----', '-' * self.bd.mynbands, 't=', time.time()-t
+                print '%04d' % nvec, ''.join('1' if b else '0' for b in self.conv_n), self.perm_n
+                t = time.time()
+
             # Store rho for next iteration (rho[i-2] -> rho[i-1] etc.)
-            self.rhop_n[:] = rho_n
-            del rho_n
+            self.rhop_n[:nvec] = rho_x
+            del rho_x, tmp_x
+
+            if self.sort_bands:
+                # Move converged bands into one contiguous block at the end
+                self.sort(self.p_nG, self.v_nG, self.q_nG, self.r_nG, x_nG)
+                nvec = np.sum(~self.conv_n)
+
+            if debug and self.gd.comm.rank == 0:
+                print '%04d' % nvec, ''.join('1' if b else '0' for b in self.conv_n), self.perm_n
 
         self.niter = i
+
+        if debug and self.gd.comm.rank == 0:
+            print '----', '-' * self.bd.mynbands, 't=', time.time()-t
+
+        if self.sort_bands:
+            # Undo all permutations
+            self.restore(x_nG)
 
         # Raise error if maximum number of iterations was reached
         if self.niter >= self.maxiter:
             raise RuntimeError('Biconjugate gradient stabilized method failed '
                                'to converge in %d iterations.' % self.maxiter)
 
-        if self.timer is not None:
-            self.timer.stop('BiCGStab')
+        self.timer.stop('BiCGStab')
 
         return self.niter
 
