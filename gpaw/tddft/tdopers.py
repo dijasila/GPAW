@@ -44,7 +44,7 @@ class TimeDependentHamiltonian:
         self.time = self.old_time = 0
         
         # internal smooth potential
-        self.vt_sG = hamiltonian.gd.zeros(hamiltonian.nspins)
+        self.vt_sG = self.hamiltonian.gd.zeros(self.hamiltonian.nspins)
 
         # Increase the accuracy of Poisson solver
         self.hamiltonian.poisson.eps = 1e-12
@@ -60,7 +60,18 @@ class TimeDependentHamiltonian:
 
         self.spos_ac = atoms.get_scaled_positions() % 1.0
         self.absorbing_boundary = None
-        
+
+    def estimate_memory(self, mem):
+        """Estimate memory use of this object."""
+        nspins = self.hamiltonian.nspins
+        gdbytes = self.hamiltonian.gd.bytecount()
+
+        mem.subnode('vt_sG', nspins * gdbytes)
+
+        self.hamiltonian.estimate_memory(mem.subnode('Hamiltonian'))
+
+        if self.P is not None:
+            self.P.estimate_memory(mem.subnode('P-term'))
 
     def update(self, density, time):
         """Updates the time-dependent Hamiltonian.
@@ -279,15 +290,20 @@ class TimeDependentHamiltonian:
 
         shape = psit_nG.shape[:-3]
         P_axi = wfs.pt.dict(shape)
-        wfs.pt.integrate(psit_nG, P_axi, kpt.q)
+
+        if calculate_P_ani:
+            wfs.pt.integrate(psit_nG, P_axi, kpt.q)
+        else:
+            for a, P_ni in kpt.P_ani.items():
+                P_axi[a][:] = P_ni
         
         #G_LLL = gaunt # G_LLL[L1,L2,L3] = \int Y_L1 Y_L2 Y_L3
             
         #Coefficients for calculating P \psi_n
         # P = -i sum_a v_a P^a, P^a = T^{\dagger} \nabla_{R_a} T
-        w_ani = wfs.pt.dict(wfs.bd.mynbands, zero=True)
+        w_ani = wfs.pt.dict(shape, zero=True)
         #projector derivatives < nabla pt_i^a | psit_n >
-        dpt_aniv = wfs.pt.dict(wfs.bd.mynbands, derivative=True)     
+        dpt_aniv = wfs.pt.dict(shape, derivative=True)     
         wfs.pt.derivative(psit_nG, dpt_aniv, kpt.q)
         #wfs.calculate_forces(paw.hamiltonian, F_av)
         for a in dpt_aniv.keys():
@@ -352,6 +368,9 @@ class AbsorptionKickHamiltonian:
         # hamiltonian
         self.abs_hamiltonian = np.array([self.dp[0], self.dp[1], self.dp[2]])
         
+    def estimate_memory(self, mem):
+        """Estimate memory use of this object."""
+        pass
 
     def update(self, density, time):
         """Dummy function = does nothing. Required to have correct interface.
@@ -532,7 +551,7 @@ class TimeDependentOverlap(Overlap):
             self.timer.start('Apply approximate inverse overlap')
             Overlap.apply_inverse(self, a_nG, b_nG, wfs, kpt, calculate_P_ani)
             self.timer.stop('Apply approximate inverse overlap')
-            return            
+            return
 
         self.timer.start('Apply exact inverse overlap')
         from gpaw.utilities.blas import dotu, axpy, dotc
@@ -614,15 +633,35 @@ class TimeDependentOverlap(Overlap):
         self.timer.stop('Apply exact inverse overlap')
 
 
+class DummyEigensolver:
+    def __init__(self, error=np.inf):
+        self.initialized = False
+        self.error = error
+
+
 class TimeDependentWaveFunctions(FDWaveFunctions):
-    def __init__(self, stencil, diagksl, orthoksl, initksl, gd, nvalence, setups,
-                 bd, world, kd, timer=None):
-        FDWaveFunctions.__init__(self, stencil, diagksl, orthoksl, initksl,
-                                 gd, nvalence, setups, bd, complex, world,
+    def __init__(self, stencil, diagksl, orthoksl, gd, nvalence, setups, bd, 
+                 dtype, world, kd, timer=None):
+        if dtype != complex:
+            raise ValueError('Time dependent wavefunctions must be complex!')
+
+        FDWaveFunctions.__init__(self, stencil, diagksl, orthoksl, None,
+                                 gd, nvalence, setups, bd, dtype, world,
                                  kd, timer)
 
     def make_overlap(self):
         return TimeDependentOverlap(self.orthoksl, self.timer)
+
+    def set_eigensolver(self, eigensolver):
+        self.eigensolver = DummyEigensolver(error=eigensolver.error) #XXX
+
+    def estimate_memory(self, mem): #XXX excludes eigensolver
+        gridbytes = self.wd.bytecount(self.dtype)
+        mem.subnode('Arrays psit_nG', 
+                    len(self.kpt_u) * self.mynbands * gridbytes)
+        self.pt.estimate_memory(mem.subnode('Projectors'))
+        self.matrixoperator.estimate_memory(mem.subnode('Matrix op'),
+                                            self.dtype)
 
     def calculate_forces(self, hamiltonian, F_av):
         """ Calculate wavefunction forces with optional corrections for
@@ -719,6 +758,10 @@ class DummyDensity:
         """
         self.wfs = wfs
 
+    def estimate_memory(self, mem):
+        """Estimate memory use of this object."""
+        pass
+
     def update(self):
         pass
 
@@ -747,6 +790,10 @@ class TimeDependentDensity(DummyDensity):
         """
         DummyDensity.__init__(self, paw.wfs)
         self.density = paw.density
+
+    def estimate_memory(self, mem):
+        """Estimate memory use of this object."""
+        self.density.estimate_memory(mem.subnode('Density'))
 
     def update(self):
         """Updates the time-dependent density.

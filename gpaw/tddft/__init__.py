@@ -54,6 +54,10 @@ class KineticEnergyPreconditioner:
         for i in range(len(psi)):
             psin[i][:] = self.preconditioner(psi[i], kpt.phase_cd, None, None)
 
+    def estimate_memory(self, mem):
+        """Estimate memory use of this object."""
+        pass #TODO
+
 # S^-1
 class InverseOverlapPreconditioner:
     """Preconditioner for TDDFT."""
@@ -62,6 +66,11 @@ class InverseOverlapPreconditioner:
 
     def apply(self, kpt, psi, psin):
         self.overlap.apply_inverse(psi, psin, kpt)
+
+    def estimate_memory(self, mem):
+        """Estimate memory use of this object."""
+        pass #TODO
+
 # ^^^^^^^^^^
 
 
@@ -88,8 +97,10 @@ class TDDFT(GPAW):
             Function class for the time-dependent potential. Must have a method
             'strength(time)' which returns the strength of the linear potential
             to each direction as a vector of three floats.
-        propagator:  {'SICN','ETRSCN','ECN','SITE','SIKE4','SIKE5','SIKE6'}
+        propagator: {'SICN','ETRSCN','ECN','SITE','SIKE'}
             Name of the time propagator for the Kohn-Sham wavefunctions
+        propagator_kwargs: dict
+            Optional keyword arguments to give when creating the propagator
         solver: {'CSCG','BiCGStab'}
             Name of the iterative linear equations solver for time propagation
         tolerance: float
@@ -99,6 +110,14 @@ class TDDFT(GPAW):
         `mixer` and `dtype`. The internal parameters `mixer` and `dtype` are
         strictly used to specify a dummy mixer and complex type respectively.
         """
+
+        self.td_potential = None
+        self.td_hamiltonian = None
+        self.td_overlap = None
+        self.td_density = None
+        self.solver = None
+        self.preconditioner = None
+        self.propagator = None
 
         # Set initial time
         self.time = 0.0
@@ -116,6 +135,13 @@ class TDDFT(GPAW):
         # Parallelization dictionary should also default to strided bands
         parallel = kwargs.setdefault('parallel', {})
         parallel.setdefault('stridebands', True)
+
+        # XXX this is a hack to pass TDDFT-specific parameters to initialize
+        self.extra_parameters = {}
+        self.extra_parameters['td_potential'] = td_potential
+        self.extra_parameters['propagator'] = (propagator, propagator_kwargs)
+        self.extra_parameters['solver'] = solver
+        self.extra_parameters['tolerance'] = tolerance
 
         # Initialize paw-object without density mixing
         # NB: TDDFT restart files contain additional information which
@@ -135,9 +161,6 @@ class TDDFT(GPAW):
         # Don't be too strict
         self.density.charge_eps = 1e-5
 
-        wfs = self.wfs
-        self.rank = wfs.world.rank
-
         self.text('')
         self.text('')
         self.text('------------------------------------------')
@@ -146,87 +169,100 @@ class TDDFT(GPAW):
         self.text('')
 
         self.text('Charge epsilon: ', self.density.charge_eps)
+        self.text('Solver: ', solver)
+        self.text('Preconditioner: ', 'None')
+        self.text('Propagator: ', propagator)
+
+        self.rank = self.wfs.world.rank #TODO get rid of this
+ 
+        if self.rank == 0:
+            if self.wfs.kpt_comm.size > 1:
+                if self.wfs.nspins == 2:
+                    self.text('Parallelization Over Spin')
+
+                if self.wfs.gd.comm.size > 1:
+                    self.text('Using Domain Decomposition: %d x %d x %d' %
+                              tuple(self.wfs.gd.parsize_c))
+
+                if self.wfs.bd.comm.size > 1:
+                    self.text('Parallelization Over bands on %d Processors' %
+                              self.wfs.bd.comm.size)
+            self.text('States per processor = ', self.wfs.bd.mynbands)
+
+    def create_objects(self, atoms):
+        if not self.initialized:
+            GPAW.create_objects(self, atoms)
 
         # Time-dependent variables and operators
-        self.td_potential = td_potential
-        self.td_hamiltonian = TimeDependentHamiltonian(self.wfs, self.atoms,
-                                  self.hamiltonian, td_potential)
+        if self.td_potential is None:
+            td_potential = self.extra_parameters['td_potential']
+            self.td_potential = td_potential
+
+        if self.td_hamiltonian is None:
+            self.td_hamiltonian = TimeDependentHamiltonian(self.wfs,
+                 self.atoms, self.hamiltonian, td_potential)
+
         self.td_overlap = self.wfs.overlap #TODO remove this property
-        self.td_density = TimeDependentDensity(self)
+
+        if self.td_density is None:
+            self.td_density = TimeDependentDensity(self)
 
         # Solver for linear equations
-        self.text('Solver: ', solver)
-        if solver == 'BiCGStab':
-            self.solver = BiCGStab(self.wfs.gd, self.wfs.bd,
-                                   timer=self.timer, tolerance=tolerance)
-        elif solver == 'CSCG':
-            self.solver = CSCG(self.wfs.gd, self.wfs.bd,
-                               timer=self.timer, tolerance=tolerance)
-        else:
-            raise RuntimeError('Solver %s not supported.' % solver)
+        if self.solver is None:
+            solver = self.extra_parameters['solver']
+            tolerance = self.extra_parameters['tolerance']
+
+            #if isinstance(solver, BaseCG) #TODO
+            #    self.solver = solver
+            if solver == 'BiCGStab':
+                self.solver = BiCGStab(self.wfs.gd, self.wfs.bd,
+                                       self.timer, tolerance=tolerance)
+            elif solver == 'CSCG':
+                self.solver = CSCG(self.wfs.gd, self.wfs.bd,
+                                   self.timer, tolerance=tolerance)
+            else:
+                raise RuntimeError('Solver %s not supported.' % solver)
 
         # Preconditioner
         # No preconditioner as none good found
-        self.text('Preconditioner: ', 'None')
         self.preconditioner = None #TODO! check out SSOR preconditioning
         #self.preconditioner = InverseOverlapPreconditioner(self.overlap)
-        #self.preconditioner = KineticEnergyPreconditioner(wfs.gd, self.td_hamiltonian.hamiltonian.kin, np.complex)
+        #self.preconditioner = KineticEnergyPreconditioner(self.wfs.gd, self.td_hamiltonian.hamiltonian.kin, np.complex)
 
-        # Time propagator
-        self.text('Propagator: ', propagator)
+        # XXX hack to get TDDFT-specific extra parameters from constructor
+        propagator, propagator_kwargs = self.extra_parameters['propagator']
         if propagator_kwargs is None:
             propagator_kwargs = {}
+
+        # Time propagator
+        args = (self.td_density, self.td_hamiltonian, self.td_overlap,
+                self.solver, self.preconditioner, self.wfs.gd, self.timer)
         if propagator == 'ECN':
-            self.propagator = ExplicitCrankNicolson(self.td_density,
-                self.td_hamiltonian, self.td_overlap, self.solver,
-                self.preconditioner, wfs.gd, self.timer, **propagator_kwargs)
+            self.propagator = ExplicitCrankNicolson(*args, **propagator_kwargs)
         elif propagator == 'SICN':
-            self.propagator = SemiImplicitCrankNicolson(self.td_density,
-                self.td_hamiltonian, self.td_overlap, self.solver,
-                self.preconditioner, wfs.gd, self.timer, **propagator_kwargs)
+            self.propagator = SemiImplicitCrankNicolson(*args,
+                **propagator_kwargs)
         elif propagator == 'EFSICN':
-            self.propagator = EhrenfestPAWSICN(self.td_density,
-                self.td_hamiltonian, self.td_overlap, self.solver,
-                self.preconditioner, wfs.gd, self.timer, **propagator_kwargs)
+            self.propagator = EhrenfestPAWSICN(*args, **propagator_kwargs)
         elif propagator == 'EFSICN_HGH':
-            self.propagator = EhrenfestHGHSICN(self.td_density,
-                self.td_hamiltonian, self.td_overlap, self.solver,
-                self.preconditioner, wfs.gd, self.timer, **propagator_kwargs)
+            self.propagator = EhrenfestHGHSICN(*args, **propagator_kwargs)
         elif propagator == 'ETRSCN':
             self.propagator = EnforcedTimeReversalSymmetryCrankNicolson(
-                self.td_density,
-                self.td_hamiltonian, self.td_overlap, self.solver,
-                self.preconditioner, wfs.gd, self.timer, **propagator_kwargs)
+                *args, **propagator_kwargs)
         elif propagator == 'SITE':
-            self.propagator = SemiImplicitTaylorExponential(self.td_density,
-                self.td_hamiltonian, self.td_overlap, self.solver,
-                self.preconditioner, wfs.gd, self.timer, **propagator_kwargs)
+            self.propagator = SemiImplicitTaylorExponential(*args,
+                **propagator_kwargs)
         elif propagator == 'SIKE':
-            self.propagator = SemiImplicitKrylovExponential(self.td_density,
-                self.td_hamiltonian, self.td_overlap, self.solver,
-                self.preconditioner, wfs.gd, self.timer, **propagator_kwargs)
+            self.propagator = SemiImplicitKrylovExponential(*args,
+                **propagator_kwargs)
         elif propagator.startswith('SITE') or propagator.startswith('SIKE'):
             raise DeprecationWarning('Use propagator_kwargs to specify degree.')
         else:
             raise RuntimeError('Time propagator %s not supported.' % propagator)
 
-        if self.rank == 0:
-            if wfs.kpt_comm.size > 1:
-                if wfs.nspins == 2:
-                    self.text('Parallelization Over Spin')
-
-                if wfs.gd.comm.size > 1:
-                    self.text('Using Domain Decomposition: %d x %d x %d' %
-                              tuple(wfs.gd.parsize_c))
-
-                if wfs.band_comm.size > 1:
-                    self.text('Parallelization Over bands on %d Processors' %
-                              wfs.band_comm.size)
-            self.text('States per processor = ', wfs.mynbands)
-
         self.hpsit = None
         self.eps_tmp = None
-        self.mblas = MultiBlas(wfs.gd)
+        self.mblas = MultiBlas(self.wfs.gd)
 
     def set(self, **kwargs):
         p = self.input_parameters
@@ -248,7 +284,7 @@ class TDDFT(GPAW):
             if self.initialized and key not in ['txt']:
                 raise TypeError("Keyword argument '%s' is immutable." % key)
 
-            if key in ['txt', 'parallel', 'communicator']:
+            if key in ['txt', 'parallel', 'communicator', 'idiotproof']:
                 continue
             elif key == 'mixer':
                 if not isinstance(kwargs[key], DummyMixer):
@@ -268,9 +304,26 @@ class TDDFT(GPAW):
 
         p.update(kwargs)
 
+    def calculate(self, atoms=None, converge=False,
+                  force_call_to_set_positions=False):
+        raise RuntimeError('Ground state calculation makes no sense for TDDFT')
+
     def read(self, reader):
         assert reader.has_array('PseudoWaveFunctions')
         GPAW.read(self, reader)
+
+    def estimate_memory(self, mem):
+        """Estimate memory use of this object."""
+        for name, obj in [('TimeDependentPotential', self.td_potential),
+                          ('TimeDependentDensity', self.td_density),
+                          ('TimeDependentHamiltonian', self.td_hamiltonian),
+                          ('TimeDependentWavefunctions', self.wfs),
+                          ('Solver', self.solver),
+                          ('Preconditioner', self.preconditioner),
+                          ('Propagator', self.propagator),
+                          ]:
+            if obj is not None and hasattr(obj, 'estimate_memory'):
+                obj.estimate_memory(mem.subnode(name))
 
     def propagate(self, time_step, iterations, dipole_moment_file=None,
                   restart_file=None, dump_interval=100):

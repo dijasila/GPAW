@@ -304,15 +304,8 @@ class PAW(PAWTextOutput):
         self.forces.reset()
         self.print_positions()
 
-    def initialize(self, atoms=None):
-        """Inexpensive initialization."""
-
-        if atoms is None:
-            atoms = self.atoms
-        else:
-            # Save the state of the atoms:
-            self.atoms = atoms.copy()
-
+    def create_objects(self, atoms):
+        """Create internal PAW objects as needed."""
         par = self.input_parameters
 
         world = par.communicator
@@ -573,8 +566,7 @@ class PAW(PAWTextOutput):
                     assert mode == 'fd'
                     from gpaw.tddft import TimeDependentWaveFunctions #XXX
                     self.wfs = TimeDependentWaveFunctions(par.stencils[0],
-                        diagksl, orthoksl, initksl, gd, nvalence, setups,
-                        bd, world, kd, self.timer)
+                        diagksl, orthoksl, *args)
                 elif mode == 'fd':
                     self.wfs = FDWaveFunctions(par.stencils[0], diagksl,
                                                orthoksl, initksl, *args)
@@ -635,9 +627,20 @@ class PAW(PAWTextOutput):
                 self.hamiltonian = ReciprocalSpaceHamiltonian(
                     gd, finegd, nspins, setups, self.timer, xc, par.external,
                     collinear)
-            
+
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)
+
+    def initialize(self, atoms=None):
+        """Inexpensive initialization."""
+
+        if atoms is None:
+            atoms = self.atoms
+        else:
+            # Save the state of the atoms:
+            self.atoms = atoms.copy()
+
+        self.create_objects(atoms)
 
         self.text()
         self.print_memory_estimate(self.txt, maxdepth=memory_estimate_depth)
