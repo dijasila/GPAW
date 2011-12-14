@@ -157,11 +157,11 @@ class TDDFT(GPAW):
         # Solver for linear equations
         self.text('Solver: ', solver)
         if solver == 'BiCGStab':
-            self.solver = BiCGStab(gd=wfs.gd, timer=self.timer,
-                                   tolerance=tolerance)
+            self.solver = BiCGStab(self.wfs.gd, self.wfs.bd,
+                                   timer=self.timer, tolerance=tolerance)
         elif solver == 'CSCG':
-            self.solver = CSCG(gd=wfs.gd, bd=wfs.bd, timer=self.timer,
-                               tolerance=tolerance)
+            self.solver = CSCG(self.wfs.gd, self.wfs.bd,
+                               timer=self.timer, tolerance=tolerance)
         else:
             raise RuntimeError('Solver %s not supported.' % solver)
 

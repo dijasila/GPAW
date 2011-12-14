@@ -77,6 +77,9 @@ class CSCG:
             return
 
         nvec = self.bd.mynbands
+
+        self.scale_n = np.empty(nvec, dtype=complex)
+        self.rhop_n = np.empty(nvec, dtype=complex)
         self.p_nG = self.gd.empty(nvec, dtype=complex)
         self.r_nG = self.gd.empty(nvec, dtype=complex)
         self.work_nG = self.gd.empty(nvec, dtype=complex)
@@ -91,7 +94,7 @@ class CSCG:
         mem.subnode('r_nG', nvec * gdbytes)
         mem.subnode('work_nG', nvec * gdbytes)
 
-    def solve(self, A, x_nG, b_nG):
+    def solve(self, A, x_nG, b_nG, slow_convergence_iters=100):
         """Solve a set of linear equations A.x = b.
         
         Parameters:
@@ -121,40 +124,38 @@ class CSCG:
         if not self.allocated:
             self.allocate()
 
-        # number of vectors
+        # Number of vectors to iterate on
         nvec = len(x_nG)
         assert nvec == self.bd.mynbands
 
-        slow_convergence_iters = 100
+        # Use squared norm of b as scale
+        multi_zdotu(self.scale_n, b_nG, b_nG, nvec)
+        self.scale_n[:] = np.abs(self.scale_n)
 
-        # scale = square of the norm of b
-        scale_n = np.empty((nvec,), dtype=complex)
-        multi_zdotu(scale_n, b_nG, b_nG, nvec)
-        scale_n = np.abs(scale_n)
-
-        # if scale < eps, then convergence check breaks down
-        if (scale_n < self.eps).any():
-            raise RuntimeError('CSCG method detected underflow for squared '
+        # Convergence check breaks down if scale < eps
+        if np.any(self.scale_n < self.eps):
+            raise RuntimeError('CSCG method detected underflow of squared '
                                'norm of right-hand side (scale = %le < '
-                               'eps = %le).' % (scale_n, self.eps))
+                               'eps = %le).' % (self.scale_n.min(), self.eps))
 
         # rho[-1] = 1 i.e. rhop[0] = 1
-        rhop_n  = np.ones((nvec,), dtype=complex)
+        self.rhop_n[:]  = 1.0
 
         # p[-1] = 0 i.e. p[0] = z
-        self.p_nG.fill(0.0)
+        self.p_nG[:] = 0.0
 
         # r[0] = b - A x[0]
         A.dot(-x_nG, self.r_nG)
         self.r_nG += b_nG
+        del b_nG
 
         for i in range(self.maxiter):
-            # z = M^(-1) r[i]
+            # z = M^(-1) r[i-1]
             z_nG = self.work_nG
             A.apply_preconditioner(self.r_nG, z_nG)
 
-            # rho[i] = r[i]^T z
-            rho_n  = np.empty((nvec,), dtype=complex)
+            # rho[i] = r[i-1]^T z
+            rho_n  = np.empty(nvec, dtype=complex)
             multi_zdotu(rho_n, self.r_nG, z_nG, nvec)
 
             ##NB: beta=0 for i=0 if rho[0]=0 and rho[-1]=1 i.e. rhop[0]=1
@@ -170,13 +171,13 @@ class CSCG:
             #    self.p_nG += z_nG
 
             # beta = rho[i] / rho[i-1]
-            beta_n = rho_n / rhop_n
+            beta_n = rho_n / self.rhop_n
 
-            # if abs(beta) / scale < eps, then CSCG breaks down
-            if i > 0 and np.any(np.abs(beta_n) / scale_n < self.eps):
+            # CSCG breaks down if abs(beta) / scale < eps
+            if i > 0 and np.any(np.abs(beta_n) / self.scale_n < self.eps):
                 raise RuntimeError('Conjugate gradient method failed '
                                    '(|beta| = %le < eps = %le).'
-                                    % (np.min(np.abs(beta_n)), self.eps))
+                                    % (np.abs(beta_n).min(), self.eps))
 
             # p[i] = z + beta p[i-1]
             multi_scale(beta_n, self.p_nG, nvec)
@@ -188,7 +189,7 @@ class CSCG:
             A.dot(self.p_nG, q_nG)
 
             # alpha = rho[i] / (p[i]^T q)
-            alpha_n = np.empty((nvec,), dtype=complex)
+            alpha_n = np.empty(nvec, dtype=complex)
             multi_zdotu(alpha_n, self.p_nG, q_nG, nvec)
             alpha_n = rho_n / alpha_n
 
@@ -199,20 +200,27 @@ class CSCG:
             multi_zaxpy(-alpha_n, q_nG, self.r_nG, nvec)
             del alpha_n, q_nG
 
-            # if |r|^2 < tol^2: done
-            r2_n = np.empty((nvec,), dtype=complex)
+            # Check convergence criteria |r|^2 < tol^2
+            r2_n = np.empty(nvec, dtype=complex)
             multi_zdotu(r2_n, self.r_nG, self.r_nG, nvec)
-            if np.all(np.abs(r2_n) / scale_n < self.tol**2):
+            if np.all(np.abs(r2_n) / self.scale_n < self.tol**2):
                 break
 
-            # print if slow convergence
+            # Print residuals if convergence is slow
             if (i+1) % slow_convergence_iters == 0:
                 print 'R2 of proc #', rank, '  = ' , r2_n, \
                     ' after ', i+1, ' iterations'
 
-            # finally update rho (rho[i-2] -> rho[i-1] etc.)
-            rhop_n[:] = rho_n
+            # Store rho for next iteration (rho[i-2] -> rho[i-1] etc.)
+            self.rhop_n[:] = rho_n
             del rho_n, r2_n
+
+        self.niter = i+1
+
+        # Raise error if maximum number of iterations was reached
+        if i >= self.maxiter-1:
+            raise RuntimeError('Conjugate gradient stabilized method failed '
+                               'to converge in %d iterations.' % self.maxiter)
 
         if self.timer is not None:
             self.timer.stop('CSCG')
