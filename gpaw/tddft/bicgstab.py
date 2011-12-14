@@ -5,7 +5,6 @@ gradient stabilized method. Requires Numpy and GPAW's own BLAS."""
 
 import numpy as np
 
-from gpaw import debug #XXX
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.blas import dotc
 from gpaw.mpi import rank
@@ -170,10 +169,6 @@ class BiCGStab(LinearSolver):
         self.p_nG[:] = 0.0
         self.v_nG[:] = 0.0
 
-        if debug:
-            import time
-            t = time.time()
-
         for i in range(1, self.maxiter+1):
             # rho[i] = q^H r[i-1]
             rho_x = np.empty(nvec, dtype=complex)
@@ -267,11 +262,6 @@ class BiCGStab(LinearSolver):
                                    'underflowed (|omega| = %le < eps = %le).'
                                     % (np.abs(self.omega_n).min(), self.eps))
 
-            if debug and self.gd.comm.rank == 0:
-                print '----', '-' * self.bd.mynbands, 't=', time.time()-t
-                print '%04d' % nvec, ''.join('1' if b else '0' for b in self.conv_n), self.perm_n
-                t = time.time()
-
             # Store rho for next iteration (rho[i-2] -> rho[i-1] etc.)
             self.rhop_n[:nvec] = rho_x
             del rho_x, tmp_x
@@ -281,13 +271,7 @@ class BiCGStab(LinearSolver):
                 self.sort(self.p_nG, self.v_nG, self.q_nG, self.r_nG, x_nG)
                 nvec = np.sum(~self.conv_n)
 
-            if debug and self.gd.comm.rank == 0:
-                print '%04d' % nvec, ''.join('1' if b else '0' for b in self.conv_n), self.perm_n
-
         self.niter = i
-
-        if debug and self.gd.comm.rank == 0:
-            print '----', '-' * self.bd.mynbands, 't=', time.time()-t
 
         if self.sort_bands:
             # Undo all permutations

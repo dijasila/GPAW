@@ -5,7 +5,6 @@ for complex symmetric matrices. Requires Numpy and GPAW's own BLAS."""
 
 import numpy as np
 
-from gpaw import debug #XXX
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.blas import dotu
 from gpaw.utilities.blas import dotc
@@ -151,10 +150,6 @@ class CSCG(LinearSolver):
         self.r_nG += b_nG
         del b_nG
 
-        if debug:
-            import time
-            t = time.time()
-
         for i in range(1, self.maxiter+1):
             # z = M^(-1) r[i-1]
             z_xG = self.work_nG[:nvec]
@@ -206,11 +201,6 @@ class CSCG(LinearSolver):
                 print 'R2 of proc #', rank, '  = ' , r2_x, \
                     ' after ', i, ' iterations'
 
-            if debug and self.gd.comm.rank == 0:
-                print '----', '-' * self.bd.mynbands, 't=', time.time()-t
-                print '%04d' % nvec, ''.join('1' if b else '0' for b in self.conv_n), self.perm_n
-                t = time.time()
-
             # Store rho for next iteration (rho[i-2] -> rho[i-1] etc.)
             self.rhop_n[:nvec] = rho_x
             del rho_x, r2_x
@@ -220,13 +210,7 @@ class CSCG(LinearSolver):
                 self.sort(self.p_nG, self.r_nG, x_nG)
                 nvec = np.sum(~self.conv_n)
 
-            if debug and self.gd.comm.rank == 0:
-                print '%04d' % nvec, ''.join('1' if b else '0' for b in self.conv_n), self.perm_n
-
         self.niter = i
-
-        if debug and self.gd.comm.rank == 0:
-            print '----', '-' * self.bd.mynbands, 't=', time.time()-t
 
         if self.sort_bands:
             # Undo all permutations
