@@ -10,7 +10,7 @@ import gpaw.fftw as fftw
 from gpaw.lcao.overlap import fbt
 from gpaw.spline import Spline
 from gpaw.spherical_harmonics import Y
-from gpaw.utilities import _fact as fac
+from gpaw.utilities import unpack, _fact as fac
 from gpaw.utilities.blas import rk, r2k, gemm
 from gpaw.density import Density
 from gpaw.hamiltonian import Hamiltonian
@@ -27,7 +27,7 @@ class PWDescriptor:
         N_c = gd.N_c
         self.comm = gd.comm
 
-        assert 0.5 * pi**2 / (gd.h_cv**2).sum(1).max() > ecut
+        assert 0.5 * pi**2 / (gd.h_cv**2).sum(1).max() >= ecut
 
         self.dtype = dtype
 
@@ -108,14 +108,36 @@ class PWDescriptor:
         shape = x + self.Q_G.shape
         return np.empty(shape, complex)
     
-    def fft(self, a_R):
-        self.tmp_R[:] = a_R
+    def fft(self, f_R):
+        """Fast Fourier transform.
+
+        Returns c(G) for G<Gc::
+  
+                   __
+                  \        -iG.R
+            c(G) = ) f(R) e
+                  /__
+                   R
+        """
+
+        self.tmp_R[:] = f_R
         self.fftplan.execute()
         return self.tmp_Q.ravel()[self.Q_G]
 
-    def ifft(self, a_G):
+    def ifft(self, c_G):
+        """Inverse fast Fourier transform.
+
+        Returns::
+  
+                      __
+                   1 \        iG.R
+            f(R) = -  ) c(G) e
+                   N /__
+                      G
+        """
+
         self.tmp_Q[:] = 0.0
-        self.tmp_Q.ravel()[self.Q_G] = a_G
+        self.tmp_Q.ravel()[self.Q_G] = c_G
         if self.dtype == float:
             t = self.tmp_Q[:, :, 0]
             n, m = self.gd.N_c[:2] // 2 - 1
@@ -145,17 +167,15 @@ class PWDescriptor:
             Long story.  Don't use this unless you are a method of the
             MatrixOperator class ..."""
         
-        xshape = a_xg.shape[:-1]
-        
-        alpha = self.gd.dv / self.gd.N_c.prod()
-
         if b_yg is None:
             # Only one array:
             assert self.dtype == float
-            return a_xg[..., 0].real * alpha
+            return a_xg[..., 0].real * self.gd.dv
 
         A_xg = a_xg.reshape((-1, len(self)))
         B_yg = b_yg.reshape((-1, len(self)))
+
+        alpha = self.gd.dv / self.gd.N_c.prod()
 
         if self.dtype == float:
             alpha *= 2
@@ -175,8 +195,13 @@ class PWDescriptor:
             gemm(alpha, A_xg, B_yg, 0.0, result_yx, 'c')
         
         if self.dtype == float:
-            result_yx -= 0.5 * alpha * np.outer(B_yg[:, 0], A_xg[:, 0])
+            correction_yx = np.outer(B_yg[:, 0], A_xg[:, 0])
+            if hermitian:
+                result_yx -= 0.25 * alpha * (correction_yx + correction_yx.T)
+            else:
+                result_yx -= 0.5 * alpha * correction_yx
 
+        xshape = a_xg.shape[:-1]
         yshape = b_yg.shape[:-1]
         result = result_yx.T.reshape(xshape + yshape)
         
@@ -184,6 +209,59 @@ class PWDescriptor:
             return result.item()
         else:
             return result
+
+    def interpolate(self, a_G, pd):
+        a_Q = self.tmp_Q
+        b_Q = pd.tmp_Q
+        n0, n1, n2 = a_Q.shape
+        n0 //= 2
+        n1 //= 2
+        self.tmp_R[:] = a_G
+        self.fftplan.execute()
+        b_Q[:] = 0.0
+        b_Q[n0:-n0, n1:-n1, :n2] = np.fft.fftshift(a_Q, axes=(0, 1))
+        b_Q[-n0, n1:-n1, :n2] = b_Q[n0, n1:-n1, :n2]
+        b_Q[n0:-n0 + 1, -n1, :n2] = b_Q[n0:-n0 + 1, n1, :n2]
+        b_Q[n0::2 * n0] *= 0.5
+        b_Q[:, n1::2 * n1] *= 0.5
+        b_Q[:, :, n2 - 1] *= 0.5
+        b_Q[:] = np.fft.ifftshift(b_Q, axes=(0, 1))
+        pd.ifftplan.execute()
+        return pd.tmp_R * (8.0 / pd.tmp_R.size), a_Q.ravel()[self.Q_G]
+
+    def restrict(self, a_g, pd):
+        a_Q = pd.tmp_Q
+        b_Q = self.tmp_Q
+        n0, n1, n2 = a_Q.shape
+        n0 //= 2
+        n1 //= 2
+        self.tmp_R[:] = a_g
+        self.fftplan.execute()
+        b_Q[:] = np.fft.fftshift(b_Q, axes=(0, 1))
+        b_Q[n0, n1:-n1 + 1, :n2] += b_Q[-n0, n1:-n1 + 1, :n2]
+        b_Q[n0:-n0, n1, :n2] += b_Q[n0:-n0, -n1, :n2]
+        a_Q[:] = b_Q[n0:-n0, n1:-n1, :n2]
+        a_Q[:, :, n2 - 1] *= 2.0
+        a_Q[:] = np.fft.ifftshift(a_Q, axes=(0, 1))
+        a_G = a_Q.ravel()[pd.Q_G] / 8
+        pd.ifftplan.execute()
+        return pd.tmp_R * (1.0 / self.tmp_R.size), a_G
+
+    def map(self, pd):
+        N_c = np.array(self.tmp_Q.shape)
+        N3_c = pd.tmp_Q.shape
+        Q2_G = self.Q_G
+        Q2_Gc = np.empty((len(Q2_G), 3), int)
+        Q2_Gc[:, 0], r_G = divmod(Q2_G, N_c[1] * N_c[2])
+        Q2_Gc.T[1:] = divmod(r_G, N_c[2])
+        Q2_Gc[:, :2] += N_c[:2] // 2
+        Q2_Gc[:, :2] %= N_c[:2]
+        Q2_Gc[:, :2] -= N_c[:2] // 2
+        Q2_Gc[:, :2] %= N3_c[:2]
+        Q3_G = Q2_Gc[:, 2] + N3_c[2] * (Q2_Gc[:, 1] + N3_c[1] * Q2_Gc[:, 0])
+        G3_Q = np.empty(N3_c, int).ravel()
+        G3_Q[pd.Q_G] = np.arange(len(pd))
+        return G3_Q[Q3_G]
 
     def gemm(self, alpha, psit_nG, C_mn, beta, newpsit_mG):
         """Helper function for MatrixOperator class."""
@@ -260,6 +338,45 @@ class PWWaveFunctions(FDPWWaveFunctions):
             for n, psit_R in enumerate(kpt.psit_nG):
                 psit_nG[n] = self.pd.fft(psit_R)
             kpt.psit_nG = psit_nG
+
+    def s(self):
+        n = len(self.pd)
+        N = self.pd.tmp_R.size
+        S_GG = np.zeros((n, n), complex)
+        S_GG.ravel()[::n + 1] = self.pd.gd.dv / N
+        f_IG = self.pt.expand()
+        nI = len(f_IG)
+        dS_II = np.zeros((nI, nI))
+        I1 = 0
+        for a in self.pt.my_atom_indices:
+            dS_ii = self.setups[a].dO_ii
+            I2 = I1 + len(dS_ii)
+            dS_II[I1:I2, I1:I2] = dS_ii / N**2
+            I1 = I2
+        S_GG += np.dot(f_IG.T.conj(), np.dot(dS_II, f_IG))
+        return S_GG
+        
+    def h(self, ham):
+        n = len(self.pd)
+        N = self.pd.tmp_R.size
+        H_GG = np.zeros((n, n), complex)
+        H_GG.ravel()[::n + 1] = 0.5 * self.pd.gd.dv / N * self.pd.G2_qG[0]
+        for G in range(len(self.pd)):
+            x_G = self.pd.zeros(dtype=complex)
+            x_G[G] = 1.0
+            H_GG[G] += (self.pd.gd.dv  / N *
+                        self.pd.fft(ham.vt_sG[0] * self.pd.ifft(x_G)))
+        f_IG = self.pt.expand()
+        nI = len(f_IG)
+        dH_II = np.zeros((nI, nI))
+        I1 = 0
+        for a in self.pt.my_atom_indices:
+            dH_ii = unpack(ham.dH_asp[a][0])
+            I2 = I1 + len(dH_ii)
+            dH_II[I1:I2, I1:I2] = dH_ii / N**2
+            I1 = I2
+        H_GG += np.dot(f_IG.T.conj(), np.dot(dH_II, f_IG))
+        return H_GG
 
     def estimate_memory(self, mem):
         FDPWWaveFunctions.estimate_memory(self, mem)
@@ -374,7 +491,7 @@ class PWLFC(BaseLFC):
         self.emiGR_Ga = np.exp(-1j * np.dot(self.pd.G_Gv, pos_av.T))
         self.my_atom_indices = np.arange(len(spos_ac))
 
-    def expand(self, q):
+    def expand(self, q=-1):
         nI = sum(self.get_function_count(a) for a in self.my_atom_indices)
         f_IG = self.pd.empty(nI, self.pd.dtype)
         for a, j, i1, i2, I1, I2 in self:
@@ -383,12 +500,17 @@ class PWLFC(BaseLFC):
                            self.Y_qLG[q, l**2:(l + 1)**2])
         return f_IG
 
-    def add(self, a_xG, c_axi, q=-1):
+    def add(self, a_xG, c_axi=1.0, q=-1):
+        if isinstance(c_axi, float):
+            assert q == -1, a_xG.dims == 1
+            a_xG += (1.0 / self.pd.gd.dv) * self.expand(-1).sum(0)
+            return
+
         nI = sum(self.get_function_count(a) for a in self.my_atom_indices)
         c_xI = np.empty(a_xG.shape[:-1] + (nI,), self.pd.dtype)
         f_IG = self.expand(q)
         for a, j, i1, i2, I1, I2 in self:
-            l = self.lf_aj[a][j][0]
+            # XXX Do complete atoms (no l-dependence) !!!
             c_xI[..., I1:I2] = c_axi[a][..., i1:i2] * self.eikR_qa[q][a].conj()
 
         c_xI = c_xI.reshape((-1, nI))
@@ -417,7 +539,6 @@ class PWLFC(BaseLFC):
             
         gemm(alpha, f_IG, a_xG, 0.0, b_xI, 'c')
         for a, j, i1, i2, I1, I2 in self:
-            l = self.lf_aj[a][j][0]
             c_axi[a][..., i1:i2] = self.eikR_qa[q][a] * c_xI[..., I1:I2]
 
     def derivative(self, a_xG, c_axiv, q=-1):
@@ -438,7 +559,6 @@ class PWLFC(BaseLFC):
                       a_xG.view(float),
                       0.0, b_xI, 'c')
                 for a, j, i1, i2, I1, I2 in self:
-                    l = self.lf_aj[a][j][0]
                     c_axiv[a][..., i1:i2, v] = c_xI[..., I1:I2]
         else:
             for v in range(3):
@@ -447,7 +567,6 @@ class PWLFC(BaseLFC):
                       a_xG,
                       0.0, b_xI, 'c')
                 for a, j, i1, i2, I1, I2 in self:
-                    l = self.lf_aj[a][j][0]
                     c_axiv[a][..., i1:i2, v] = (1.0j * self.eikR_qa[q][a] *
                                                 c_xI[..., I1:I2])
 
@@ -471,6 +590,16 @@ class PW:
 
 
 class ReciprocalSpaceDensity(Density):
+    def __init__(self, gd, finegd, nspins, charge, collinear=True):
+        Density.__init__(self, gd, finegd, nspins, charge, collinear)
+
+        self.ecut2 = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
+        self.pd2 = PWDescriptor(self.ecut2, self.gd)
+        self.ecut3 = 0.5 * pi**2 / (self.finegd.h_cv**2).sum(1).max()
+        self.pd3 = PWDescriptor(self.ecut3, self.finegd)
+
+        self.G3_G = self.pd2.map(self.pd3)
+
     def initialize(self, setups, timer, magmom_av, hund):
         Density.initialize(self, setups, timer, magmom_av, hund)
 
@@ -480,82 +609,101 @@ class ReciprocalSpaceDensity(Density):
                 spline_aj.append([])
             else:
                 spline_aj.append([setup.nct])
-        self.nct = PWLFC(self.gd, spline_aj,
-                         integral=[setup.Nct for setup in setups],
-                         forces=True, cut=True)
-        self.ghat = PWLFC(self.finegd, [setup.ghat_l for setup in setups],
-                          integral=sqrt(4 * pi), forces=True)
+        self.nct = PWLFC(spline_aj, self.pd2)
+
+        self.ghat = PWLFC([setup.ghat_l for setup in setups], self.pd3)
+
+    def set_positions(self, spos_ac, rank_a=None):
+        Density.set_positions(self, spos_ac, rank_a)
+        self.nct_q = self.pd2.zeros()
+        self.nct.add(self.nct_q, 1.0 / self.nspins)
+        self.nct_G = self.pd2.ifft(self.nct_q)
+
+    def interpolate(self, comp_charge=None):
+        """Interpolate pseudo density to fine grid."""
+        #if comp_charge is None:
+        #    comp_charge = self.calculate_multipole_moments()
+
+        if self.nt_sg is None:
+            self.nt_sg = self.finegd.empty(self.nspins * self.ncomp**2)
+            self.nt_sQ = self.pd2.empty(self.nspins * self.ncomp**2)
+
+        for nt_G, nt_Q, nt_g in zip(self.nt_sG, self.nt_sQ, self.nt_sg):
+            nt_g[:], nt_Q[:] = self.pd2.interpolate(nt_G, self.pd3)
+
+    def calculate_pseudo_charge(self):
+        self.nt_Q = self.nt_sQ[:self.nspins].sum(axis=0)
+        self.rhot_q = self.pd3.zeros()
+        self.rhot_q[self.G3_G] = self.nt_Q * 8
+        self.ghat.add(self.rhot_q, self.Q_aL)
+        self.rhot_q[0] = 0.0
 
 
 class ReciprocalSpaceHamiltonian(Hamiltonian):
-    def __init__(self, gd, finegd, nspins, setups, timer, xc,
+    def __init__(self, gd, finegd, pd2, pd3, nspins, setups, timer, xc,
                  vext=None, collinear=True):
         Hamiltonian.__init__(self, gd, finegd, nspins, setups, timer, xc,
                              vext, collinear)
 
-        self.vbar = PWLFC(self.finegd, [[setup.vbar] for setup in setups])
+        self.vbar = PWLFC([[setup.vbar] for setup in setups], pd2)
+        self.pd2 = pd2
+        self.pd3 = pd3
+
+        class PS:
+            def initialize(self):
+                pass
+            def get_method(self):
+                return 'FFT'
+            def get_stencil(self):
+                return '????'
+        self.poisson = PS()
+        self.npoisson = 0
 
     def set_positions(self, spos_ac, rank_a=None):
         Hamiltonian.set_positions(self, spos_ac, rank_a)
-        if self.vbar_g is None:
-            self.vbar_g = self.finegd.empty()
-        self.vbar_g[:] = 0.0
-        self.vbar.add(self.vbar_g)
+        self.vbar_Q = self.pd2.zeros()
+        self.vbar.add(self.vbar_Q)
 
     def update_pseudo_potential(self, density):
-        self.timer.start('vbar')
-        Ebar = self.finegd.integrate(self.vbar_g, density.nt_g,
-                                     global_integral=False)
-
-        vt_g = self.vt_sg[0]
-        vt_g[:] = self.vbar_g
-        self.timer.stop('vbar')
-
-        Eext = 0.0
-        if self.vext is not None:
-            assert self.collinear
-            vt_g += self.vext.get_potential(self.finegd)
-            Eext = self.finegd.integrate(vt_g, density.nt_g,
-                                         global_integral=False) - Ebar
-
-        self.vt_sg[1:self.nspins] = vt_g
-
-        self.vt_sg[self.nspins:] = 0.0
-            
-        self.timer.start('XC 3D grid')
-        Exc = self.xc.calculate(self.finegd, density.nt_sg, self.vt_sg)
-        Exc /= self.gd.comm.size
-        self.timer.stop('XC 3D grid')
+        ebar = self.pd2.integrate(self.vbar_Q, density.nt_sQ.sum(0))
 
         self.timer.start('Poisson')
         # npoisson is the number of iterations:
-        self.npoisson = self.poisson.solve(self.vHt_g, density.rhot_g,
-                                           charge=-density.charge)
+        #self.npoisson = 0
+        self.vHt_q = 4 * pi * density.rhot_q.copy()
+        self.vHt_q[1:] /= self.pd3.G2_qG[0, 1:]
+        epot = 0.5 * self.pd3.integrate(self.vHt_q, density.rhot_q)
         self.timer.stop('Poisson')
 
-        self.timer.start('Hartree integrate/restrict')
-        Epot = 0.5 * self.finegd.integrate(self.vHt_g, density.rhot_g,
-                                           global_integral=False)
-        Ekin = 0.0
-        s = 0
-        for vt_g, vt_G, nt_G in zip(self.vt_sg, self.vt_sG, density.nt_sG):
-            if s < self.nspins:
-                vt_g += self.vHt_g
-            self.restrict(vt_g, vt_G)
-            if s < self.nspins:
-                Ekin -= self.gd.integrate(vt_G, nt_G - density.nct_G,
-                                          global_integral=False)
-            else:
-                Ekin -= self.gd.integrate(vt_G, nt_G, global_integral=False)
-            s += 1
-                
-        self.timer.stop('Hartree integrate/restrict')
-            
         # Calculate atomic hamiltonians:
-        self.timer.start('Atomic')
         W_aL = {}
         for a in density.D_asp:
             W_aL[a] = np.empty((self.setups[a].lmax + 1)**2)
-        density.ghat.integrate(self.vHt_g, W_aL)
+        density.ghat.integrate(self.vHt_q, W_aL)
 
-        return Ekin, Epot, Ebar, Eext, Exc, W_aL
+        self.vt_Q = self.vbar_Q + self.vHt_q[density.G3_G] / 8
+        self.vt_sG[:] = self.pd2.ifft(self.vt_Q)
+        
+        self.timer.start('XC 3D grid')
+        vxct_sg = self.finegd.zeros(self.nspins)
+        exc = self.xc.calculate(self.finegd, density.nt_sg, vxct_sg)
+
+        for vt_G, vxct_g in zip(self.vt_sG, vxct_sg):
+            vxc_G, vxc_Q = self.pd3.restrict(vxct_g, self.pd2)
+            vt_G += vxc_G
+            self.vt_Q += vxc_Q / self.nspins
+        self.timer.stop('XC 3D grid')
+
+        ekin = 0.0
+        for vt_G, nt_G in zip(self.vt_sG, density.nt_sG):
+            ekin -= self.gd.integrate(vt_G, nt_G)
+        ekin += self.gd.integrate(self.vt_sG, density.nct_G).sum()
+
+        eext = 0.0
+
+        return ekin, epot, ebar, eext, exc, W_aL
+
+    def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):
+        dens.ghat.derivative(self.vHt_q, ghat_aLv)
+        dens.nct.derivative(self.vt_Q, nct_av)
+        self.vbar.derivative(dens.nt_sQ.sum(0), vbar_av)

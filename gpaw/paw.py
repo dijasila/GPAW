@@ -593,7 +593,7 @@ class PAW(PAWTextOutput):
             # XXX Eigensolver class doesn't define an nbands_converge property
             self.wfs.set_eigensolver(eigensolver)
 
-        real_space = True  #not isinstance(mode, PW)
+        real_space = not isinstance(mode, PW)
 
         if self.density is None:
             gd = self.wfs.gd
@@ -625,7 +625,9 @@ class PAW(PAWTextOutput):
                     collinear, par.poissonsolver, par.stencils[1])
             else:
                 self.hamiltonian = ReciprocalSpaceHamiltonian(
-                    gd, finegd, nspins, setups, self.timer, xc, par.external,
+                    gd, finegd,
+                    self.density.pd2, self.density.pd3,
+                    nspins, setups, self.timer, xc, par.external,
                     collinear)
 
         xc.initialize(self.density, self.hamiltonian, self.wfs,
@@ -670,7 +672,7 @@ class PAW(PAWTextOutput):
         self.density.nct_G = self.density.gd.zeros()
         self.density.nct.add(self.density.nct_G, 1.0 / self.density.nspins)
         self.density.interpolate()
-        self.density.calculate_pseudo_charge(0)
+        self.density.calculate_pseudo_charge()
         self.hamiltonian.set_positions(spos_ac, self.wfs.rank_a)
         self.hamiltonian.update(self.density)
 
