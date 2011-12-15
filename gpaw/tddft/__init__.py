@@ -20,6 +20,7 @@ from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.tddft.units import attosec_to_autime, autime_to_attosec, \
                              eV_to_aufrequency, aufrequency_to_eV
 from gpaw.tddft.utils import MultiBlas
+from gpaw.tddft.linsolver import LinearSolver
 from gpaw.tddft.bicgstab import BiCGStab
 from gpaw.tddft.cscg import CSCG
 from gpaw.tddft.propagators import \
@@ -85,8 +86,7 @@ class TDDFT(GPAW):
     """
     
     def __init__(self, filename, td_potential=None, propagator='SICN',
-                 propagator_kwargs=None, solver='CSCG', tolerance=1e-8,
-                 **kwargs):
+                 propagator_kwargs=None, solver='CSCG', **kwargs):
         """Create TDDFT-object.
         
         Parameters:
@@ -101,7 +101,7 @@ class TDDFT(GPAW):
             Name of the time propagator for the Kohn-Sham wavefunctions
         propagator_kwargs: dict
             Optional keyword arguments to give when creating the propagator
-        solver: {'CSCG','BiCGStab'}
+        solver: str {'CSCG','BiCGStab'} or an instance of LinearSolver
             Name of the iterative linear equations solver for time propagation
         tolerance: float
             Tolerance for the linear solver
@@ -141,7 +141,6 @@ class TDDFT(GPAW):
         self.extra_parameters['td_potential'] = td_potential
         self.extra_parameters['propagator'] = (propagator, propagator_kwargs)
         self.extra_parameters['solver'] = solver
-        self.extra_parameters['tolerance'] = tolerance
 
         # Initialize paw-object without density mixing
         # NB: TDDFT restart files contain additional information which
@@ -210,18 +209,17 @@ class TDDFT(GPAW):
         # Solver for linear equations
         if self.solver is None:
             solver = self.extra_parameters['solver']
-            tolerance = self.extra_parameters['tolerance']
 
-            #if isinstance(solver, BaseCG) #TODO
-            #    self.solver = solver
-            if solver == 'BiCGStab':
-                self.solver = BiCGStab(self.wfs.gd, self.wfs.bd,
-                                       self.timer, tolerance=tolerance)
+            if isinstance(solver, LinearSolver):
+                self.solver = solver
+            elif solver == 'BiCGStab':
+                self.solver = BiCGStab()
             elif solver == 'CSCG':
-                self.solver = CSCG(self.wfs.gd, self.wfs.bd,
-                                   self.timer, tolerance=tolerance)
+                self.solver = CSCG()
             else:
                 raise RuntimeError('Solver %s not supported.' % solver)
+
+            self.solver.initialize(self.wfs)
 
         # Preconditioner
         # No preconditioner as none good found
@@ -292,13 +290,15 @@ class TDDFT(GPAW):
             elif key == 'dtype':
                 if kwargs[key] is not complex:
                     raise ValueError("TDDFT calculation must be complex.")
+            elif key in ['tolerance']:
+                raise DeprecationWarning("Keyword argument '%s' was removed"
+                    "in favor of accepting custom 'solver' instances." % key)
             elif key in ['parsize', 'parsize_bands', 'parstride_bands']:
                 name = {'parsize': 'domain',
                         'parsize_bands': 'band',
                         'parstride_bands': 'stridebands'}[key]
-                raise DeprecationWarning(
-                    'Keyword argument has been moved ' +
-                    "to the 'parallel' dictionary keyword under '%s'." % name)
+                raise DeprecationWarning("Keyword argument '%s' moved to the"
+                    "'parallel' dictionary keyword under '%s'." % (key, name))
             else:
                 raise TypeError("Unknown keyword argument: '%s'" % key)
 
