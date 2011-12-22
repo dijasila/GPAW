@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from math import pi
 
 import numpy as np
@@ -272,12 +273,34 @@ class PWDescriptor:
 
 
 class Preconditioner:
-    def __init__(self, G2_qG):
-        self.G2_qG = G2_qG
-        self.allocated = True
+    """Preconditioner for KS equation.
 
-    def __call__(self, R_G, kpt):
-        return R_G / (1.0 + self.G2_qG[kpt.q])
+    From:
+
+      Teter, Payne and Allen, Phys. Rev. B 40, 12255 (1989)
+
+    as modified by:
+
+      Kresse and Furthmüller, Phys. Rev. B 54, 11169 (1996)
+    """
+
+    def __init__(self, G2_qG, pd):
+        self.G2_qG = G2_qG
+        self.pd = pd
+
+    def calculate_kinetic_energy(self, psit_xG, kpt):
+        G2_G = self.G2_qG[kpt.q]
+        return [self.pd.integrate(0.5 * G2_G * psit_G, psit_G)
+                for psit_G in psit_xG]
+
+    def __call__(self, R_xG, kpt, ekin_x):
+        G2_G = self.G2_qG[kpt.q]
+        PR_xG = np.empty_like(R_xG)
+        for PR_G, R_G, ekin in zip(PR_xG, R_xG, ekin_x):
+            x_G = 1 / ekin / 3 * G2_G
+            a_G = 27.0 + x_G * (18.0 + x_G * (12.0 + x_G * 8.0))
+            PR_G[:] = 4.0 / 3 / ekin * R_G * a_G / (a_G + 16.0 * x_G**4)
+        return PR_xG
 
 
 class PWWaveFunctions(FDPWWaveFunctions):
@@ -288,7 +311,6 @@ class PWWaveFunctions(FDPWWaveFunctions):
         self.ecut =  ecut / units.Hartree
         self.fftwflags = fftwflags
 
-        #kd.gamma = False
         FDPWWaveFunctions.__init__(self, diagksl, orthoksl, initksl,
                                    gd, nvalence, setups, bd, dtype,
                                    world, kd, timer)
@@ -313,7 +335,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                  (len(self.pd), self.pd.ecut * units.Hartree))
         
     def make_preconditioner(self, block=1):
-        return Preconditioner(self.G2_qG)
+        return Preconditioner(self.G2_qG, self.pd)
 
     def apply_pseudo_hamiltonian(self, kpt, hamiltonian, psit_xG, Htpsit_xG):
         """Apply the non-pseudo Hamiltonian i.e. without PAW corrections."""
@@ -333,10 +355,19 @@ class PWWaveFunctions(FDPWWaveFunctions):
         FDPWWaveFunctions.initialize_wave_functions_from_basis_functions(
             self, basis_functions, density, hamiltonian, spos_ac)
 
+        N_c = self.gd.N_c
+
         for kpt in self.kpt_u:
+            if self.kd.gamma:
+                emikr_R = 1.0
+            else:
+                k_c = self.kd.ibzk_kc[kpt.k]
+                emikr_R = np.exp(-2j * pi *
+                                  np.dot(np.indices(N_c).T, k_c / N_c).T)
+
             psit_nG = self.pd.empty(self.bd.mynbands, self.dtype)
             for n, psit_R in enumerate(kpt.psit_nG):
-                psit_nG[n] = self.pd.fft(psit_R)
+                psit_nG[n] = self.pd.fft(psit_R * emikr_R)
             kpt.psit_nG = psit_nG
 
     def s(self):
@@ -460,6 +491,7 @@ class PWLFC(BaseLFC):
         self.eikR_qa = None
         self.emiGR_Ga = None
         self.my_atom_indices = None
+        self.indices = None
 
         self.nbytes += self.G2_qG.size * (lmax + 1)**2 * 8  # self.Y_qLG
 
@@ -490,10 +522,16 @@ class PWLFC(BaseLFC):
         pos_av = np.dot(spos_ac, self.pd.gd.cell_cv)
         self.emiGR_Ga = np.exp(-1j * np.dot(self.pd.G_Gv, pos_av.T))
         self.my_atom_indices = np.arange(len(spos_ac))
+        self.indices = []
+        I1 = 0
+        for a in self.my_atom_indices:
+            I2 = I1 + self.get_function_count(a)
+            self.indices.append((a, I1, I2))
+            I1 = I2
+        self.nI = I2
 
     def expand(self, q=-1):
-        nI = sum(self.get_function_count(a) for a in self.my_atom_indices)
-        f_IG = self.pd.empty(nI, self.pd.dtype)
+        f_IG = self.pd.empty(self.nI, self.pd.dtype)
         for a, j, i1, i2, I1, I2 in self:
             l, f_qG = self.lf_aj[a][j]
             f_IG[I1:I2] = (self.emiGR_Ga[:, a] * f_qG[q] * (-1.0j)**l *
@@ -506,14 +544,12 @@ class PWLFC(BaseLFC):
             a_xG += (1.0 / self.pd.gd.dv) * self.expand(-1).sum(0)
             return
 
-        nI = sum(self.get_function_count(a) for a in self.my_atom_indices)
-        c_xI = np.empty(a_xG.shape[:-1] + (nI,), self.pd.dtype)
+        c_xI = np.empty(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
         f_IG = self.expand(q)
-        for a, j, i1, i2, I1, I2 in self:
-            # XXX Do complete atoms (no l-dependence) !!!
-            c_xI[..., I1:I2] = c_axi[a][..., i1:i2] * self.eikR_qa[q][a].conj()
+        for a, I1, I2 in self.indices:
+            c_xI[..., I1:I2] = c_axi[a] * self.eikR_qa[q][a].conj()
 
-        c_xI = c_xI.reshape((-1, nI))
+        c_xI = c_xI.reshape((-1, self.nI))
         a_xG = a_xG.reshape((-1, len(self.pd)))
 
         if self.pd.dtype == float:
@@ -523,11 +559,10 @@ class PWLFC(BaseLFC):
         gemm(1.0 / self.pd.gd.dv, f_IG, c_xI, 1.0, a_xG)
 
     def integrate(self, a_xG, c_axi, q=-1):
-        nI = sum(self.get_function_count(a) for a in self.my_atom_indices)
-        c_xI = np.zeros(a_xG.shape[:-1] + (nI,), self.pd.dtype)
+        c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
         f_IG = self.expand(q)
 
-        b_xI = c_xI.reshape((-1, nI))
+        b_xI = c_xI.reshape((-1, self.nI))
         a_xG = a_xG.reshape((-1, len(self.pd)))
 
         alpha = 1.0 / self.pd.gd.N_c.prod()
@@ -538,17 +573,16 @@ class PWLFC(BaseLFC):
             a_xG = a_xG.view(float)
             
         gemm(alpha, f_IG, a_xG, 0.0, b_xI, 'c')
-        for a, j, i1, i2, I1, I2 in self:
-            c_axi[a][..., i1:i2] = self.eikR_qa[q][a] * c_xI[..., I1:I2]
+        for a, I1, I2 in self.indices:
+            c_axi[a][:] = self.eikR_qa[q][a] * c_xI[..., I1:I2]
 
     def derivative(self, a_xG, c_axiv, q=-1):
-        nI = sum(self.get_function_count(a) for a in self.my_atom_indices)
-        c_xI = np.zeros(a_xG.shape[:-1] + (nI,), self.pd.dtype)
+        c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
         f_IG = self.expand(q)
 
         K_v = self.K_qv[q]
 
-        b_xI = c_xI.reshape((-1, nI))
+        b_xI = c_xI.reshape((-1, self.nI))
         a_xG = a_xG.reshape((-1, len(self.pd)))
 
         alpha = 1.0 / self.pd.gd.N_c.prod()
@@ -558,17 +592,17 @@ class PWLFC(BaseLFC):
                       (f_IG * 1.0j * self.pd.G_Gv[:, v]).view(float),
                       a_xG.view(float),
                       0.0, b_xI, 'c')
-                for a, j, i1, i2, I1, I2 in self:
-                    c_axiv[a][..., i1:i2, v] = c_xI[..., I1:I2]
+                for a, I1, I2 in self.indices:
+                    c_axiv[a][..., v] = c_xI[..., I1:I2]
         else:
             for v in range(3):
                 gemm(-alpha,
                       f_IG * (self.pd.G_Gv[:, v] + K_v[v]),
                       a_xG,
                       0.0, b_xI, 'c')
-                for a, j, i1, i2, I1, I2 in self:
-                    c_axiv[a][..., i1:i2, v] = (1.0j * self.eikR_qa[q][a] *
-                                                c_xI[..., I1:I2])
+                for a, I1, I2 in self.indices:
+                    c_axiv[a][..., v] = (1.0j * self.eikR_qa[q][a] *
+                                         c_xI[..., I1:I2])
 
 
 class PW:
@@ -621,8 +655,8 @@ class ReciprocalSpaceDensity(Density):
 
     def interpolate(self, comp_charge=None):
         """Interpolate pseudo density to fine grid."""
-        #if comp_charge is None:
-        #    comp_charge = self.calculate_multipole_moments()
+        if comp_charge is None:
+            comp_charge = self.calculate_multipole_moments()
 
         if self.nt_sg is None:
             self.nt_sg = self.finegd.empty(self.nspins * self.ncomp**2)

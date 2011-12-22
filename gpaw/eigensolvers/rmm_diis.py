@@ -26,7 +26,7 @@ class RMM_DIIS(Eigensolver):
     * Improvement of wave functions:  psi' = psi + lambda PR + lambda PR'
     * Orthonormalization"""
 
-    def __init__(self, keep_htpsit=True, blocksize=1):
+    def __init__(self, keep_htpsit=True, blocksize=10):
         Eigensolver.__init__(self, keep_htpsit, blocksize)
 
     def iterate_one_k_point(self, hamiltonian, wfs, kpt):
@@ -80,7 +80,9 @@ class RMM_DIIS(Eigensolver):
 
             # Precondition the residual:
             self.timer.start('precondition')
-            dpsit_xG = self.preconditioner(R_xG, kpt)
+            ekin_x = self.preconditioner.calculate_kinetic_energy(
+                kpt.psit_nG[n_x], kpt)
+            dpsit_xG = self.preconditioner(R_xG, kpt, ekin_x)
             self.timer.stop('precondition')
 
             # Calculate the residual of dpsit_G, dR_G = (H - e S) dpsit_G:
@@ -107,7 +109,7 @@ class RMM_DIIS(Eigensolver):
                 axpy(lam**2, dR_G, R_G)  # R_G += lam**2 * dR_G
                 
             self.timer.start('precondition')
-            kpt.psit_nG[n1:n2] += self.preconditioner(R_xG, kpt)
+            kpt.psit_nG[n1:n2] += self.preconditioner(R_xG, kpt, ekin_x)
             self.timer.stop('precondition')
             
         self.timer.stop('RMM-DIIS')
