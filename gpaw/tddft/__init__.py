@@ -279,10 +279,11 @@ class TDDFT(GPAW):
 
         for key in kwargs:
             # Only whitelisted arguments can be changed after initialization
-            if self.initialized and key not in ['txt']:
+            if self.initialized and key not in []: #TODO 'txt'
                 raise TypeError("Keyword argument '%s' is immutable." % key)
 
-            if key in ['txt', 'parallel', 'communicator', 'idiotproof']:
+            if key in ['txt', 'verbose', 'parallel', 'communicator',
+                       'idiotproof', 'poissonsolver']:
                 continue
             elif key == 'mixer':
                 if not isinstance(kwargs[key], DummyMixer):
