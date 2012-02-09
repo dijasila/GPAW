@@ -8,12 +8,14 @@
 
 #include"gpaw-cuda-common.h"
 
-
+int bmgs_fd_boundary_test(const bmgsstencil_gpu* s);
 bmgsstencil_gpu bmgs_stencil_to_gpu(bmgsstencil *s);
 
-double bmgs_fd_cuda_cpu(const bmgsstencil* s, const double* a, double* b);
+double bmgs_fd_cuda_cpu(const bmgsstencil* s, const double* a, double* b,
+			int boundary);
 void bmgs_fd_cuda_gpu(const bmgsstencil_gpu* s, const double* adev, 
-		      double* bdev,int blocks);
+		      double* bdev,int boundary,int blocks,cudaStream_t stream);
+
 
 double bmgs_fd_cuda_cpu_bc(const bmgsstencil* s, const double* a, double* b);
 void bmgs_fd_cuda_gpu_bc(const bmgsstencil_gpu* s, const double* adev, 
@@ -24,7 +26,10 @@ double bmgs_relax_cuda_cpu(const int relax_method, const bmgsstencil* s,
 			   const double w);
 void bmgs_relax_cuda_gpu(const int relax_method, const bmgsstencil_gpu* s,
 			 double* adev, double* bdev,const double* src, 
-			 const double w);
+			 const double w,int boundary,cudaStream_t stream);
+/*void bmgs_relax_cuda_gpu(const int relax_method, const bmgsstencil_gpu* s,
+			 double* adev, double* bdev,const double* src, 
+			 const double w,int boundary,cudaStream_t stream);*/
 
 double bmgs_relax_cuda_cpu_bc(const int relax_method, const bmgsstencil* s,
 			      double* a, double* b,const double* src, 
@@ -37,16 +42,18 @@ void bmgs_cut_cuda(const double* a, const int n[3], const int c[3],
 		   double* b, const int m[3],enum cudaMemcpyKind kind);
 
 void bmgs_cut_cuda_gpu(const double* a, const int n[3], const int c[3],
-		   double* b, const int m[3],int blocks);
+		       double* b, const int m[3],int blocks,cudaStream_t stream);
 
 void bmgs_paste_cuda(const double* a, const int n[3],
 		     double* b, const int m[3], const int c[3],
 		     enum cudaMemcpyKind kind);
 void bmgs_paste_cuda_gpu(const double* a, const int n[3],
-			 double* b, const int m[3], const int c[3],int blocks);
+			 double* b, const int m[3], const int c[3],
+			 int blocks,cudaStream_t stream);
 
 void bmgs_paste_zero_cuda_gpu(const double* a, const int n[3],
-			 double* b, const int m[3], const int c[3],int blocks);
+			      double* b, const int m[3], const int c[3],
+			      int blocks,cudaStream_t stream);
 
 double bmgs_paste_cuda_cpu(const double* a, const int n[3],
 		     double* b, const int m[3], const int c[3]);
@@ -59,7 +66,7 @@ void bmgs_translate_cuda(double* a, const int sizea[3], const int size[3],
 
 void bmgs_translate_cuda_gpu(double* a, const int sizea[3], const int size[3],
 			     const int start1[3], const int start2[3],
-			     int blocks);
+			     int blocks,cudaStream_t stream);
 
 void bmgs_restrict_cuda_gpu(int k, double* a, const int n[3], double* b, 
 			    const int nb[3], double* w,int blocks);
@@ -74,9 +81,9 @@ double bmgs_interpolate_cuda_cpu(int k, int skip[3][2],
 				 double* b, double* w);
 
 // complex routines:
-double bmgs_fd_cuda_cpuz(const bmgsstencil* s, const cuDoubleComplex* a, cuDoubleComplex* b);
+double bmgs_fd_cuda_cpuz(const bmgsstencil* s, const cuDoubleComplex* a, cuDoubleComplex* b,int boundary);
 void bmgs_fd_cuda_gpuz(const bmgsstencil_gpu* s, const cuDoubleComplex* adev, 
-		       cuDoubleComplex* bdev,int blocks);
+		       cuDoubleComplex* bdev,int boundary,int blocks,cudaStream_t stream);
 
 void bmgs_fd_cuda_gpu_bcz(const bmgsstencil_gpu* s,
 			  const cuDoubleComplex* adev,
@@ -87,18 +94,18 @@ void bmgs_cut_cudaz(const cuDoubleComplex* a, const int n[3], const int c[3],
 		    enum cudaMemcpyKind kind);
 void bmgs_cut_cuda_gpuz(const cuDoubleComplex* a, const int n[3],
 			const int c[3], cuDoubleComplex* b, const int m[3],
-			cuDoubleComplex,int blocks);
+			cuDoubleComplex,int blocks,cudaStream_t stream);
 
 void bmgs_paste_cudaz(const cuDoubleComplex* a, const int n[3],
 		     cuDoubleComplex* b, const int m[3], const int c[3],
 		      enum cudaMemcpyKind kind);
 void bmgs_paste_cuda_gpuz(const cuDoubleComplex* a, const int n[3],
 			  cuDoubleComplex* b, const int m[3], const int c[3],
-			  int blocks);
+			  int blocks,cudaStream_t stream);
 
 void bmgs_paste_zero_cuda_gpuz(const cuDoubleComplex* a, const int n[3],
 			  cuDoubleComplex* b, const int m[3], const int c[3],
-			       int blocks);
+			       int blocks,cudaStream_t stream);
 
 void bmgs_translate_cudaz(cuDoubleComplex* a, const int sizea[3], 
 			  const int size[3],  const int start1[3], 
@@ -107,7 +114,7 @@ void bmgs_translate_cudaz(cuDoubleComplex* a, const int sizea[3],
 
 void bmgs_translate_cuda_gpuz(cuDoubleComplex* a, const int sizea[3],
 			      const int size[3], const int start1[3], 
-			      const int start2[3],cuDoubleComplex, int blocks);
+			      const int start2[3],cuDoubleComplex, int blocks,cudaStream_t stream);
 
 void bmgs_restrict_cuda_gpuz(int k, cuDoubleComplex* a, const int n[3], 
 			     cuDoubleComplex* b, const int nb[3], 

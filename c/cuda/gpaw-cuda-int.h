@@ -41,8 +41,14 @@
 
 #define FD_BLOCK_X 16
 #define FD_BLOCK_Xz (2*(FD_BLOCK_X))
+
+#define FD_BLOCK_X_B FD_BLOCK_X
+#define FD_BLOCK_X_Bz FD_BLOCK_Xz
+
 #define FD_BLOCK_Y 8
+#define FD_BLOCK_Y_B FD_BLOCK_Y
 #define FD_XDIV 4
+#define FD_XDIV_B FD_XDIV 
 
 #define FD_MAXJ      10
 #define FD_MAXCOEFS  32
@@ -50,9 +56,16 @@
 #define FD_ACACHE_X  ((FD_BLOCK_X)+16)
 #define FD_ACACHE_Xz  ((FD_BLOCK_Xz)+2*16)
 
-
+#ifndef MAX
 #define MAX(a,b) (((a)>(b))?(a):(b))
+#endif
+#ifndef MIN
 #define MIN(a,b) (((a)<(b))?(a):(b))
+#endif
+
+
+
+
 
 
 typedef struct

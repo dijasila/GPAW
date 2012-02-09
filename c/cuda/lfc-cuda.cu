@@ -37,7 +37,7 @@ static INLINE void* gpaw_malloc(int n)
 }
 #define GPAW_MALLOC(T, n) (T*)(gpaw_malloc((n) * sizeof(T)))
 
-#define GPAW_CUDA_INT_BLOCKS (GPAW_CUDA_BLOCKS)
+
 //#define GPAW_CUDA_INT_BLOCKS 1
 
 #define BLOCK_Y 16
