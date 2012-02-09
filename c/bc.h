@@ -58,18 +58,42 @@ void bc_unpack2(const boundary_conditions* bc,
     MPI_Request sendreq[2],
     double* rbuf, int nin);
 #ifdef GPAW_CUDA
-void bc_unpack1_cuda_gpu(const boundary_conditions* bc,
-			 const double* input, double* output, int i,
-			 MPI_Request recvreq[2],
-			 MPI_Request sendreq[2],
-			 double* rbuf, double* sbuf,
-			 double* sbuf_gpu,
-			 const double_complex phases[2], int thd, int nin);
-void bc_unpack2_cuda_gpu(const boundary_conditions* bc,
-			 double* a2, int i,
-			 MPI_Request recvreq[2],
-			 MPI_Request sendreq[2],
-			 double* rbuf,double* rbuf_gpu, int nin);
+
+#include <cuda_runtime_api.h>
+
+
+void bc_init_cuda(boundary_conditions* bc);
+
+void bc_unpack_cuda_gpu(const boundary_conditions* bc,
+			const double* aa1, double* aa2, int i,
+			MPI_Request recvreq[2],
+			MPI_Request sendreq[2],
+			const double_complex phases[2], int thd, int nin);
+
+void bc_unpack_cuda_gpu_all(const boundary_conditions* bc,
+			    const double* aa1, double* aa2, 
+			    MPI_Request recvreq[3][2],
+			    MPI_Request sendreq[3][2],
+			    const double_complex *phases,
+			    cudaStream_t thd, int nin);
+  
+
+void bc_unpack1_cuda_gpu_async_all(const boundary_conditions* bc,
+				   const double* aa1, double* aa2,
+				   MPI_Request recvreq[3][2],
+				   MPI_Request sendreq[3][2],
+				   const double_complex *phases, 
+				   cudaStream_t thd, int nin);
+
+void bc_unpack2_cuda_gpu_async_all(const boundary_conditions* bc,
+				   const double* aa1, double* aa2,
+				   MPI_Request recvreq[3][2],
+				   MPI_Request sendreq[3][2],
+				   const double_complex *phases, 
+				   cudaStream_t thd, int nin);
+
+
+
 #endif
 
 #endif
