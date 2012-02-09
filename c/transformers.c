@@ -27,15 +27,7 @@ static void Transformer_dealloc(TransformerObject *self)
   free(self->bc);
 #ifdef GPAW_CUDA
   if (self->cuda) {
-    /*gpaw_cudaSafeCall(cudaFree(self->buf_gpu));
-      gpaw_cudaSafeCall(cudaFree(self->buf2_gpu));*/
-    // FIX THIS
-    cudaFree(self->buf_gpu);
-    cudaFree(self->buf2_gpu);
-    cudaFreeHost(self->sendbuf);
-    cudaFreeHost(self->recvbuf);
-    cudaFree(self->sendbuf_gpu);
-    cudaFree(self->recvbuf_gpu);
+    //
   }
 #endif
   PyObject_DEL(self);
@@ -267,15 +259,7 @@ PyObject * NewTransformerObject(PyObject *obj, PyObject *args)
 #ifdef GPAW_CUDA
   self->cuda = cuda;
   if (self->cuda) {
-    // fprintf(stdout,"NewTrans cuda true\n");
-    self->buf_gpu=NULL;
-    self->buf2_gpu=NULL;
-    self->recvbuf=NULL;
-    self->sendbuf=NULL;
-    self->recvbuf_gpu=NULL;
-    self->sendbuf_gpu=NULL;
-    self->alloc_blocks=0;
-
+    transformer_init_cuda(self);
   }
 #endif
   return (PyObject*)self;

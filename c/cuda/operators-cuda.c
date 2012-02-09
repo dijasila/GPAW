@@ -8,60 +8,66 @@
 #include <cuda.h>
 #include <cuda_runtime_api.h>
 
+
 #include <../extensions.h>
 #include <../operators.h>
 
 
+#include "gpaw-cuda.h"
 
-PyObject * Operator_relax_cuda_cpu(OperatorObject *self,
-					  PyObject *args)
+
+#ifdef DEBUG_CUDA
+#define DEBUG_CUDA_OPERATOR 
+#endif //DEBUG_CUDA
+
+static cudaStream_t operator_stream[2];
+static int operator_streams = 0;
+
+static double *operator_buf_gpu=NULL;
+static int operator_buf_size=0;
+static int operator_buf_max=0;
+
+
+void operator_init_cuda(OperatorObject *self)
 {
-  
-  int relax_method;
-  PyArrayObject* func;
-  PyArrayObject* source;
-  double w = 1.0;
-  int nrelax;
-  if (!PyArg_ParseTuple(args, "iOOi|d", &relax_method, &func, &source, 
-			&nrelax, &w))
-    return NULL;
-  
   const boundary_conditions* bc = self->bc;
+  const int* size2 = bc->size2;  
+  int ng2 = bc->ndouble * size2[0] * size2[1] * size2[2];
 
-  double* fun = DOUBLEP(func);
-  const double* src = DOUBLEP(source);
-  const double_complex* ph;
+  operator_buf_max=MAX(ng2,operator_buf_max);
 
-  const int* size2 = bc->size2;
-  double* buf = GPAW_MALLOC(double, size2[0] * size2[1] * size2[2] *
-                            bc->ndouble);
-  double* sendbuf = GPAW_MALLOC(double, bc->maxsend);
-  double* recvbuf = GPAW_MALLOC(double, bc->maxrecv);
+  self->stencil_gpu = bmgs_stencil_to_gpu(&(self->stencil));
+}
 
-  ph = 0;
 
-  for (int n = 0; n < nrelax; n++ )
-    {
-      for (int i = 0; i < 3; i++)
-        {
-          bc_unpack1(bc, fun, buf, i,
-		     self->recvreq, self->sendreq,
-		     recvbuf, sendbuf, ph + 2 * i, 0, 1);
-          bc_unpack2(bc, buf, i,
-		     self->recvreq, self->sendreq, recvbuf, 1);
-        }
-      bmgs_relax_cuda_cpu(relax_method, &self->stencil, buf, fun, src, w);
+void operator_init_buffers(OperatorObject *self,int blocks,int async)
+{
+  const boundary_conditions* bc = self->bc;
+  const int* size2 = bc->size2;  
+  int ng2 = (bc->ndouble * size2[0] * size2[1] * size2[2])*blocks;
+  
+  operator_buf_max=MAX(ng2,operator_buf_max);
+  if (operator_buf_max>operator_buf_size){
+    if (operator_buf_gpu) cudaFree(operator_buf_gpu);
+    GPAW_CUDAMALLOC(&operator_buf_gpu, double,operator_buf_max);    
+    operator_buf_size=operator_buf_max;
+  }
+  if  (async && (!operator_streams)){
+    for (int i=0;i<2;i++){
+      cudaStreamCreate(&(operator_stream[i]));
     }
-  free(recvbuf);
-  free(sendbuf);
-  free(buf);
-  Py_RETURN_NONE;
+    operator_streams=2;
+  }
+}
+
+void operator_delete_cuda(OperatorObject *self)
+{
+  if (operator_buf_gpu) cudaFree(operator_buf_gpu);
 }
 
 PyObject * Operator_relax_cuda_gpu(OperatorObject *self,
 				   PyObject *args)
 {
-  
   int relax_method;
   CUdeviceptr func_gpu;
   CUdeviceptr source_gpu;
@@ -77,51 +83,160 @@ PyObject * Operator_relax_cuda_gpu(OperatorObject *self,
   const double* src = (double*)source_gpu;
   const double_complex* ph;
 
-  //  double* sendbuf = GPAW_MALLOC(double, bc->maxsend);
-  //double* recvbuf = GPAW_MALLOC(double, bc->maxrecv);
   const int* size2 = bc->size2;
   const int* size1 = bc->size1;
   int ng = bc->ndouble * size1[0] * size1[1] * size1[2];
   int ng2 = bc->ndouble * size2[0] * size2[1] * size2[2];
+
+  MPI_Request recvreq[3][2];
+  MPI_Request sendreq[3][2];
+
+
+#ifdef DEBUG_CUDA_OPERATOR
+  MPI_Request recvreq_cpu[2];
+  MPI_Request sendreq_cpu[2];
+
+  double* sendbuf_cpu = GPAW_MALLOC(double, bc->maxsend);
+  double* recvbuf_cpu = GPAW_MALLOC(double, bc->maxrecv);
+  double* buf_cpu=GPAW_MALLOC(double, ng2);
+  double* fun_cpu=GPAW_MALLOC(double, ng);
+  double* src_cpu=GPAW_MALLOC(double, ng);
+
+  double* buf_cpu2=GPAW_MALLOC(double, ng2);
+  double* fun_cpu2=GPAW_MALLOC(double, ng);
+  
+#endif //DEBUG_CUDA_OPERATOR
+
   ph = 0;
 
   int blocks=1;
-  gpaw_cudaSafeCall(cudaGetLastError());
-  if (blocks>self->alloc_blocks){
-    if (self->buf_gpu) cudaFree(self->buf_gpu);
 
-    GPAW_CUDAMALLOC(&(self->buf_gpu), double,  ng2 *  blocks);
-    if (self->sendbuf) cudaFreeHost(self->sendbuf);
-    GPAW_CUDAMALLOC_HOST(&(self->sendbuf),double, bc->maxsend * blocks);
-    if (self->recvbuf) cudaFreeHost(self->recvbuf);
-    GPAW_CUDAMALLOC_HOST(&(self->recvbuf),double, bc->maxrecv * blocks);
+  int nsends=(bc->nsend[0][0]+bc->nsend[0][1]+bc->nsend[1][0]+bc->nsend[1][1]+
+	      bc->nsend[2][0]+bc->nsend[2][1])*blocks;
+  
+  int nrecvs=(bc->nrecv[0][0]+bc->nrecv[0][1]+bc->nrecv[1][0]+bc->nrecv[1][1]+
+	       bc->nrecv[2][0]+bc->nrecv[2][1])*blocks;
 
-    if (self->sendbuf_gpu) cudaFree(self->sendbuf_gpu);
-    GPAW_CUDAMALLOC(&(self->sendbuf_gpu),double, bc->maxsend * blocks);
-    if (self->recvbuf_gpu) cudaFree(self->recvbuf_gpu);
-    GPAW_CUDAMALLOC(&(self->recvbuf_gpu),double, bc->maxrecv * blocks);
-
-    self->alloc_blocks=blocks;
+  int cuda_split_boundary=0;
+  int cuda_async=0;
+  if (MAX(nsends,nrecvs)*sizeof(double)>GPAW_CUDA_ASYNC_SIZE) {
+    cuda_async=1;
+    cuda_split_boundary=bmgs_fd_boundary_test(&self->stencil_gpu);
   }
 
-  // printf("nrelax %d w %f\n",nrelax,w);
-  for (int n = 0; n < nrelax; n++ )
-    {
-      for (int i = 0; i < 3; i++)
-        {
-          bc_unpack1_cuda_gpu(bc, fun, self->buf_gpu, i,
-			      self->recvreq, self->sendreq,
-			      self->recvbuf, self->sendbuf,
-			      self->sendbuf_gpu,
-			      ph + 2 * i, 0, 1);
-          bc_unpack2_cuda_gpu(bc, self->buf_gpu, i,
-			      self->recvreq, self->sendreq, 
-			      self->recvbuf,self->recvbuf_gpu,1);
-	}
-      bmgs_relax_cuda_gpu(relax_method, &self->stencil_gpu, self->buf_gpu, fun, src, w);
+  gpaw_cudaSafeCall(cudaGetLastError());
+  operator_init_buffers(self,blocks,cuda_async);
+
+  int boundary=0;
+  
+  if (bc->sendproc[0][0]!= DO_NOTHING)
+    boundary|=GPAW_BOUNDARY_X0;
+  if (bc->sendproc[0][1]!= DO_NOTHING)
+    boundary|=GPAW_BOUNDARY_X1;
+  if (bc->sendproc[1][0]!= DO_NOTHING)
+    boundary|=GPAW_BOUNDARY_Y0;
+  if (bc->sendproc[1][1]!= DO_NOTHING)
+    boundary|=GPAW_BOUNDARY_Y1;
+  if (bc->sendproc[2][0]!= DO_NOTHING)
+    boundary|=GPAW_BOUNDARY_Z0;
+  if (bc->sendproc[2][1]!= DO_NOTHING)
+    boundary|=GPAW_BOUNDARY_Z1;
+
+  cudaStreamSynchronize(0);     
+
+  for (int n = 0; n < nrelax; n++ )    {
+#ifdef DEBUG_CUDA_OPERATOR
+  GPAW_CUDAMEMCPY(fun_cpu,fun,double, ng, cudaMemcpyDeviceToHost);
+  GPAW_CUDAMEMCPY(src_cpu,src,double, ng, cudaMemcpyDeviceToHost);
+#endif //DEBUG_CUDA_OPERATOR
+    if (!cuda_async){/*
+      for (int i = 0; i < 3; i++){
+	  bc_unpack1_cuda_gpu(bc, fun, operator_buf_gpu, i,
+			      recvreq[0], sendreq[0],
+			      self->recvbuf, self->sendbuf, 
+			      self->sendbuf_gpu, 
+			      ph+2*i, 0, 1);
+	  bc_unpack2_cuda_gpu(bc, operator_buf_gpu, i,
+			      recvreq[0], sendreq[0], 
+			      self->recvbuf,self->recvbuf_gpu, 1);
+			      }*/
+      bc_unpack_cuda_gpu_all(bc, fun, operator_buf_gpu,recvreq,sendreq,
+			 ph, 0, 1);
+      bmgs_relax_cuda_gpu(relax_method, &self->stencil_gpu, operator_buf_gpu, 
+			  fun, src, w,GPAW_BOUNDARY_NORMAL,0);
+    }else if  (cuda_split_boundary) {	
+      cudaStreamSynchronize(operator_stream[1]);      
+      bc_unpack1_cuda_gpu_async_all(bc, fun, operator_buf_gpu,recvreq,sendreq,
+				    ph, operator_stream[0], 1);
+      bmgs_relax_cuda_gpu(relax_method, &self->stencil_gpu, operator_buf_gpu, fun,
+			  src, w,boundary|GPAW_BOUNDARY_SKIP,
+			  operator_stream[0]);
+      
+      bc_unpack2_cuda_gpu_async_all(bc, fun, operator_buf_gpu,recvreq,sendreq,
+				    ph, operator_stream[1], 1);
+      bmgs_relax_cuda_gpu(relax_method, &self->stencil_gpu, operator_buf_gpu, fun,
+			  src, w,boundary|GPAW_BOUNDARY_ONLY,
+			  operator_stream[1]);	
+    } else {
+      bc_unpack1_cuda_gpu_async_all(bc, fun, operator_buf_gpu,recvreq,sendreq,
+				    ph, 0, 1);
+      bc_unpack2_cuda_gpu_async_all(bc, fun, operator_buf_gpu,recvreq,sendreq,
+				    ph, 0, 1);
+      bmgs_relax_cuda_gpu(relax_method, &self->stencil_gpu, operator_buf_gpu, 
+			  fun, src, w,GPAW_BOUNDARY_NORMAL,0);
+      
     }
-  //free(recvbuf);
-  //free(sendbuf);
+#ifdef DEBUG_CUDA_OPERATOR
+    for (int i = 0; i < 3; i++)   {
+      bc_unpack1(bc, fun_cpu, buf_cpu, i,
+		 recvreq_cpu, sendreq_cpu,
+		 recvbuf_cpu, sendbuf_cpu, ph + 2 * i, 0, 1);
+      bc_unpack2(bc, buf_cpu, i,
+		 recvreq_cpu, sendreq_cpu, recvbuf_cpu, 1);	  
+    }
+    GPAW_CUDAMEMCPY(buf_cpu2,operator_buf_gpu,double, ng2, cudaMemcpyDeviceToHost);
+    bmgs_relax(relax_method, &self->stencil, buf_cpu2, fun_cpu, src_cpu, w);
+    cudaDeviceSynchronize();
+    GPAW_CUDAMEMCPY(fun_cpu2,fun,double, ng, cudaMemcpyDeviceToHost);    
+
+    double fun_err=0;
+    double buf_err=0;
+    for (int i=0;i<ng2;i++) {      
+      buf_err=MAX(buf_err,fabs(buf_cpu[i]-buf_cpu2[i]));
+      if (i<ng){
+	fun_err=MAX(fun_err,fabs(fun_cpu[i]-fun_cpu2[i]));
+      }
+    } 
+    int rank=0;
+    if (bc->comm != MPI_COMM_NULL)
+      MPI_Comm_rank(bc->comm,&rank);
+    if (buf_err>GPAW_CUDA_ABS_TOL) {
+      fprintf(stderr,
+	      "Debug cuda operator relax bc (n:%d rank:%d) errors: buf %g\n",
+	      n, rank,buf_err);
+    }
+    if (fun_err>GPAW_CUDA_ABS_TOL) {
+      fprintf(stderr,
+	      "Debug cuda operator relax (n:%d rank:%d) errors: fun %g\n",
+	      n,rank,fun_err);
+    }
+    
+#endif //DEBUG_CUDA_OPERATOR
+      
+  }
+#ifdef DEBUG_CUDA_OPERATOR
+
+  free(sendbuf_cpu);
+  free(recvbuf_cpu);
+  free(buf_cpu);
+  free(fun_cpu);
+  free(src_cpu);
+  free(buf_cpu2);
+  free(fun_cpu2);
+  
+#endif //DEBUG_CUDA_OPERATOR
+  cudaStreamSynchronize(operator_stream[0]);      
+  cudaStreamSynchronize(operator_stream[1]);      
   Py_RETURN_NONE;
 }
 
@@ -134,6 +249,7 @@ PyObject * Operator_relax_cuda_gpu(OperatorObject *self,
   DOUBLEP(output); ((double*)((a)->data))
 
  */
+
 
 
 PyObject * Operator_apply_cuda_gpu(OperatorObject *self,
@@ -166,251 +282,249 @@ PyObject * Operator_apply_cuda_gpu(OperatorObject *self,
   
   bool real = (type->type_num == PyArray_DOUBLE);
 
+  MPI_Request recvreq[3][2];
+  MPI_Request sendreq[3][2];
+  /*
+  double *sendbuf[3][2];
+  double *recvbuf[3][2];
+  double *sendbuf_gpu[3][2];
+  double *recvbuf_gpu[3][2];
+  */
+
+
+
   if (real)
     ph = 0;
   else
     ph = COMPLEXP(phases);
 
+  int mpi_size=1;
+  if (bc->comm != MPI_COMM_NULL)
+    MPI_Comm_size(bc->comm, &mpi_size); 
+  int blocks=MAX(MIN(MIN(mpi_size*(GPAW_CUDA_BLOCKS_MIN),GPAW_CUDA_BLOCKS_MAX),
+		     nin),1);
 
+#ifdef DEBUG_CUDA_OPERATOR
+  MPI_Request recvreq_cpu[2];
+  MPI_Request sendreq_cpu[2];
 
-  MPI_Request recvreq[2];
-  MPI_Request sendreq[2];
+  double* sendbuf_cpu = GPAW_MALLOC(double, bc->maxsend * blocks);
+  double* recvbuf_cpu = GPAW_MALLOC(double, bc->maxrecv * blocks);
+  double* buf_cpu=GPAW_MALLOC(double, ng2 * blocks);
+  double* in_cpu=GPAW_MALLOC(double, ng * blocks);
+  double* out_cpu=GPAW_MALLOC(double, ng * blocks);
+  double* buf_cpu2=GPAW_MALLOC(double, ng2 * blocks);
+  double* out_cpu2=GPAW_MALLOC(double, ng * blocks);  
+#endif //DEBUG_CUDA_OPERATOR
 
-  int blocks=MIN(GPAW_CUDA_BLOCKS,nin);
+  int nsends=(bc->nsend[0][0]+bc->nsend[0][1]+bc->nsend[1][0]+bc->nsend[1][1]+
+	      bc->nsend[2][0]+bc->nsend[2][1])*blocks;
   
-  //double* sendbuf = GPAW_MALLOC(double, bc->maxsend*blocks);
-  //double* recvbuf = GPAW_MALLOC(double, bc->maxrecv*blocks);
-
-
-  if (blocks>self->alloc_blocks){
-    if (self->buf_gpu) cudaFree(self->buf_gpu);
-    GPAW_CUDAMALLOC(&(self->buf_gpu), sizeof(double), ng2 *  blocks);
-    if (self->sendbuf) cudaFreeHost(self->sendbuf);
-    GPAW_CUDAMALLOC_HOST(&(self->sendbuf),double, bc->maxsend * blocks);
-    if (self->recvbuf) cudaFreeHost(self->recvbuf);
-    GPAW_CUDAMALLOC_HOST(&(self->recvbuf),double, bc->maxrecv * blocks);
-
-    if (self->sendbuf_gpu) cudaFree(self->sendbuf_gpu);
-    GPAW_CUDAMALLOC(&(self->sendbuf_gpu),double, bc->maxsend * blocks);
-    if (self->recvbuf_gpu) cudaFree(self->recvbuf_gpu);
-    GPAW_CUDAMALLOC(&(self->recvbuf_gpu),double, bc->maxrecv * blocks);
-
-    self->alloc_blocks=blocks;
+  int nrecvs=(bc->nrecv[0][0]+bc->nrecv[0][1]+bc->nrecv[1][0]+bc->nrecv[1][1]+
+	      bc->nrecv[2][0]+bc->nrecv[2][1])*blocks;
+  
+  int cuda_split_boundary=0;
+  int cuda_async=0;
+  if ((MAX(nsends,nrecvs)*sizeof(double)>GPAW_CUDA_ASYNC_SIZE) ) {
+    /*    if (blocks>1) {
+      printf("oper async blocks %d cal size %d %d %d nin %d\n",blocks,size1[0],size1[1],size1[2],nin);
+      if (!bmgs_fd_async_test(&self->stencil_gpu))
+	printf("oper no async blocks %d cal size %d %d %d nin %d\n",blocks,size1[0],size1[1],size1[2],nin);
+	}*/
+     cuda_async=1;
+    /*    if  (!operator_streams){
+      for (int i=0;i<2;i++){
+	cudaStreamCreate(&(operator_stream[i]));
+	}
+      operator_streams=2;
+      }*/
+     cuda_split_boundary=bmgs_fd_boundary_test(&self->stencil_gpu);
   }
-  double* buf = self->buf_gpu;
+
+  /*
+  if (cuda_async && !cuda_split_boundary)
+    printf("async no split blocks %d cal size %d %d %d nin %d nsends %d\n",blocks,size1[0],size1[1],size1[2],nin,nsends);
+  else if (cuda_async)
+    printf("async split blocks %d cal size %d %d %d nin %d nsends %d\n",blocks,size1[0],size1[1],size1[2],nin,nsends);
+  */
+  operator_init_buffers(self,blocks,cuda_async);
+  //  if (blocks>self->alloc_blocks){
+    //printf("blocks %d cal %d %d %d %d\n",blocks,(160*160*160)/(size1[0]*size1[1]*size1[2]),size1[0],size1[1],size1[2]);
+    /*    if (self->buf_gpu) cudaFree(self->buf_gpu);
+	  GPAW_CUDAMALLOC(&(self->buf_gpu), double,  ng2 *  blocks);*/
+    /*
+    if (nsends>0) {
+      if (self->sendbuf) cudaFreeHost(self->sendbuf);
+      GPAW_CUDAMALLOC_HOST(&(self->sendbuf),double, nsends);
+      if (self->sendbuf_gpu) cudaFree(self->sendbuf_gpu);
+      GPAW_CUDAMALLOC(&(self->sendbuf_gpu),double, nsends);
+    }
+    if (nrecvs>0) {
+      if (self->recvbuf) cudaFreeHost(self->recvbuf);
+      GPAW_CUDAMALLOC_HOST(&(self->recvbuf),double, nrecvs);
+      if (self->recvbuf_gpu) cudaFree(self->recvbuf_gpu);
+      GPAW_CUDAMALLOC(&(self->recvbuf_gpu),double, nrecvs);
+    }
+    */
+  /*  self->alloc_blocks=blocks;
+      }*/
+  int boundary=0;
   
-  for (int n = 0; n < nin; n+=blocks)
-    {
-      const double* in2 = in + n * ng;
-      double* out2 = out + n * ng;
-      int myblocks=MIN(blocks,nin-n);
-      for (int i = 0; i < 3; i++) {
-	  bc_unpack1_cuda_gpu(bc, in2, buf, i,
-			      recvreq, sendreq,
-			      self->recvbuf, self->sendbuf, 
-			      self->sendbuf_gpu, 
-			      ph + 2 * i, 0, myblocks);
-	  bc_unpack2_cuda_gpu(bc, buf, i, recvreq, sendreq, 
-			      self->recvbuf, self->recvbuf_gpu, myblocks);
+  if (bc->sendproc[0][0]!= DO_NOTHING)
+    boundary|=GPAW_BOUNDARY_X0;
+  if (bc->sendproc[0][1]!= DO_NOTHING)
+    boundary|=GPAW_BOUNDARY_X1;
+  if (bc->sendproc[1][0]!= DO_NOTHING)
+    boundary|=GPAW_BOUNDARY_Y0;
+  if (bc->sendproc[1][1]!= DO_NOTHING)
+    boundary|=GPAW_BOUNDARY_Y1;
+  if (bc->sendproc[2][0]!= DO_NOTHING)
+    boundary|=GPAW_BOUNDARY_Z0;
+  if (bc->sendproc[2][1]!= DO_NOTHING)
+    boundary|=GPAW_BOUNDARY_Z1;  
+
+  cudaStreamSynchronize(0);        
+
+  //printf("apply %d %d %d\n",blocks,self->alloc_blocks,ng2);  fflush(stdout);
+  for (int n = 0; n < nin; n+=blocks)    {
+    const double* in2 = in + n * ng;
+    double* out2 = out + n * ng;
+    int myblocks=MIN(blocks,nin-n);
+#ifdef DEBUG_CUDA_OPERATOR
+    GPAW_CUDAMEMCPY(in_cpu,in2,double, ng * myblocks, cudaMemcpyDeviceToHost); 
+    GPAW_CUDAMEMCPY(out_cpu,out2,double, ng * myblocks, cudaMemcpyDeviceToHost);
+#endif //DEBUG_CUDA_OPERATOR
+    if (!cuda_async){
+      /*
+      for (int i = 0; i < 3; i++){
+	bc_unpack1_cuda_gpu(bc, in2, operator_buf_gpu, i,
+			    recvreq[0], sendreq[0],
+			    self->recvbuf, self->sendbuf, 
+			    self->sendbuf_gpu, 
+			    ph+2*i, 0, myblocks);
+	bc_unpack2_cuda_gpu(bc, operator_buf_gpu, i,
+			    recvreq[0], sendreq[0], 
+			    self->recvbuf,self->recvbuf_gpu, myblocks);
       }
+      */
+      bc_unpack_cuda_gpu_all(bc, in2, operator_buf_gpu,recvreq,sendreq,
+			 ph,0, myblocks);
       if (real){
-	bmgs_fd_cuda_gpu(&self->stencil_gpu, buf,out2,myblocks);
-	//bmgs_fd_cuda_gpu_bc(&self->stencil_gpu, in2,out2,myblocks);
+	bmgs_fd_cuda_gpu(&self->stencil_gpu, operator_buf_gpu,out2,
+			 GPAW_BOUNDARY_NORMAL,
+			 myblocks,0);
       }else{
-	bmgs_fd_cuda_gpuz(&self->stencil_gpu, (const cuDoubleComplex*)buf,
-			  (cuDoubleComplex*)out2,myblocks);
+	bmgs_fd_cuda_gpuz(&self->stencil_gpu, 
+			  (const cuDoubleComplex*)operator_buf_gpu,
+			  (cuDoubleComplex*)out2,GPAW_BOUNDARY_NORMAL,myblocks,0);
       }
-    }    
+      
+    } else if (cuda_split_boundary) {      
+      
+      cudaStreamSynchronize(operator_stream[1]);      
+      bc_unpack1_cuda_gpu_async_all(bc, in2, operator_buf_gpu,recvreq,sendreq,
+				    ph,operator_stream[0], myblocks);
+      if (real){
+	bmgs_fd_cuda_gpu(&self->stencil_gpu, operator_buf_gpu,out2,
+			 boundary|GPAW_BOUNDARY_SKIP,
+			 myblocks,
+			 operator_stream[0]);
+      } else {
+	bmgs_fd_cuda_gpuz(&self->stencil_gpu, 
+			  (const cuDoubleComplex*)operator_buf_gpu,
+			  (cuDoubleComplex*)out2,boundary|GPAW_BOUNDARY_SKIP,
+			  myblocks,
+			  operator_stream[0]);
+      }
+      bc_unpack2_cuda_gpu_async_all(bc, in2, operator_buf_gpu,recvreq,sendreq,
+				    ph,operator_stream[1], myblocks);
+      if (real){
+	bmgs_fd_cuda_gpu(&self->stencil_gpu, operator_buf_gpu,out2,
+			 boundary|GPAW_BOUNDARY_ONLY,
+			 myblocks,operator_stream[1]);
+      }else{
+	bmgs_fd_cuda_gpuz(&self->stencil_gpu, 
+			  (const cuDoubleComplex*)operator_buf_gpu,
+			  (cuDoubleComplex*)out2,boundary|GPAW_BOUNDARY_ONLY,
+			  myblocks,operator_stream[1]);
+      }
+    } else {
+      bc_unpack1_cuda_gpu_async_all(bc, in2, operator_buf_gpu,recvreq,sendreq,
+				    ph,0, myblocks);
+      bc_unpack2_cuda_gpu_async_all(bc, in2, operator_buf_gpu,recvreq,sendreq,
+				    ph,0, myblocks);
+      
+      if (real){
+	bmgs_fd_cuda_gpu(&self->stencil_gpu, operator_buf_gpu,out2,
+			 GPAW_BOUNDARY_NORMAL,
+			 myblocks,0);
+      }else{
+	bmgs_fd_cuda_gpuz(&self->stencil_gpu, 
+			  (const cuDoubleComplex*)operator_buf_gpu,
+			  (cuDoubleComplex*)out2,GPAW_BOUNDARY_NORMAL,myblocks,0);
+      }
+    }
+    
+#ifdef DEBUG_CUDA_OPERATOR
+    for (int i = 0; i < 3; i++)   {
+      bc_unpack1(bc, in_cpu, buf_cpu, i,
+		 recvreq_cpu, sendreq_cpu,
+		 recvbuf_cpu, sendbuf_cpu, ph + 2 * i, 0, myblocks);
+      bc_unpack2(bc, buf_cpu, i,
+		 recvreq_cpu, sendreq_cpu, recvbuf_cpu, myblocks);	  
+    }
+    GPAW_CUDAMEMCPY(buf_cpu2,operator_buf_gpu,double, ng2 * myblocks, 
+		    cudaMemcpyDeviceToHost);
+    for (int m = 0; m < myblocks; m++)
+      if (real)
+	bmgs_fd(&self->stencil, buf_cpu2 + m * ng2, out_cpu + m * ng);
+      else
+	bmgs_fdz(&self->stencil, (const double_complex*) (buf_cpu2 + m * ng2),
+		 (double_complex*) (out_cpu + m * ng));
+    cudaDeviceSynchronize();
+    GPAW_CUDAMEMCPY(out_cpu2,out2,double, ng * myblocks, 
+		    cudaMemcpyDeviceToHost);    
+    double out_err=0;
+    double buf_err=0;
+    for (int i=0;i<ng2*myblocks;i++) {      
+      buf_err=MAX(buf_err,fabs(buf_cpu[i]-buf_cpu2[i]));
+      if (i<ng*myblocks){
+	out_err=MAX(out_err,fabs(out_cpu[i]-out_cpu2[i]));
+      }
+    }
+    int rank;
+    MPI_Comm_rank(bc->comm,&rank);      
+    if (buf_err>GPAW_CUDA_ABS_TOL) {      
+      printf("Debug cuda operator fd bc (n:%d rank:%d) errors: buf %g\n",n,
+	     rank,buf_err);
+      fflush(stdout);
+    } 
+    if (out_err>GPAW_CUDA_ABS_TOL) {      
+      printf("Debug cuda operator fd (n:%d rank:%d) errors: out %g\n",n,
+	     rank,out_err);
+      fflush(stdout);
+    }
+#endif //DEBUG_CUDA_OPERATOR
+  }    
+  
   //free(recvbuf);
   //free(sendbuf);
-  Py_RETURN_NONE;
-}
-
-struct apply_args{
-  int thread_id;
-  OperatorObject *self;
-  int ng;
-  int ng2;
-  int nin;
-  int nthds;
-  int chunksize;
-  int chunkinc;
-  const double* in;
-  double* out;
-  int real;
-  const double_complex* ph;
-};
-
-void *apply_worker_cuda_cpu(void *threadarg)
-{
-  struct apply_args *args = (struct apply_args *) threadarg;
-  boundary_conditions* bc = args->self->bc;
-  MPI_Request recvreq[2];
-  MPI_Request sendreq[2];
-
-  int chunksize = args->nin / args->nthds;
-  if (!chunksize)
-    chunksize = 1;
-  int nstart = args->thread_id * chunksize;
-  if (nstart >= args->nin)
-    return NULL;
-  int nend = nstart + chunksize;
-  if (nend > args->nin)
-    nend = args->nin;
-  if (chunksize > args->chunksize)
-    chunksize = args->chunksize;
-
-  double* sendbuf = GPAW_MALLOC(double, bc->maxsend * args->chunksize);
-  double* recvbuf = GPAW_MALLOC(double, bc->maxrecv * args->chunksize);
-  double* buf = GPAW_MALLOC(double, args->ng2 * args->chunksize);
-
-  for (int n = nstart; n < nend; n += chunksize)
-    {
-      if (n + chunksize >= nend && chunksize > 1)
-        chunksize = nend - n;
-      const double* in = args->in + n * args->ng;
-      double* out = args->out + n * args->ng;
-      for (int i = 0; i < 3; i++)
-        {
-          bc_unpack1(bc, in, buf, i,
-                     recvreq, sendreq,
-                     recvbuf, sendbuf, args->ph + 2 * i,
-                     args->thread_id, chunksize);
-          bc_unpack2(bc, buf, i, recvreq, sendreq, recvbuf, chunksize);
-        }
-      for (int m = 0; m < chunksize; m++)
-        if (args->real)
-          bmgs_fd_cuda_cpu(&args->self->stencil, buf + m * args->ng2, out + m * args->ng);
-        else
-	  assert(0);
-      /*          bmgs_fdz(&args->self->stencil, (const double_complex*) (buf + m * args->ng2),
-		  (double_complex*) (out + m * args->ng));*/
-    }
-  free(buf);
-  free(recvbuf);
-  free(sendbuf);
-  return NULL;
-}
-/*
-void *apply_worker_cuda_gpu(void *threadarg)
-{
-  struct apply_args *args = (struct apply_args *) threadarg;
-  boundary_conditions* bc = args->self->bc;
-  double* sendbuf = args->self->sendbuf;
-  double* recvbuf = args->self->recvbuf;
-  double* buf = args->self->buf_gpu;
-  MPI_Request recvreq[2];
-  MPI_Request sendreq[2];
-
-  int chunksize = args->nin;
-  if (!chunksize)
-    chunksize = 1;
-  int nstart = 0;
-  if (nstart >= args->nin)
-    return NULL;
-  int nend = nstart + chunksize;
-  if (nend > args->nin)
-    nend = args->nin;
-  if (chunksize > args->chunksize)
-    chunksize = args->chunksize;
-
-  for (int n = nstart; n < nend; n += chunksize)
-    {
-      if (n + chunksize >= nend && chunksize > 1)
-        chunksize = nend - n;
-      const double* in = args->in + n * args->ng;
-      double* out = args->out + n * args->ng;
-      for (int i = 0; i < 3; i++)
-        {
-          bc_unpack1_cuda_gpu(bc, in, buf, i,
-                     recvreq, sendreq,
-                     recvbuf, sendbuf, args->ph + 2 * i,
-                     args->thread_id, chunksize);
-          bc_unpack2_cuda_gpu(bc, buf, i, recvreq, sendreq, recvbuf, chunksize);
-        }
-      for (int m = 0; m < chunksize; m++)
-        if (args->real)
-          bmgs_fd_cuda_gpu(&args->self->stencil, buf + m * args->ng2, out + m * args->ng);
-        else
-	  assert(0);
-    }
-  return NULL;
-}
-*/
-
-PyObject * Operator_apply_cuda_cpu(OperatorObject *self,
-                                 PyObject *args)
-{
-  PyArrayObject* input;
-  PyArrayObject* output;
-  PyArrayObject* phases = 0;
-  if (!PyArg_ParseTuple(args, "OO|O", &input, &output, &phases))
-    return NULL;
-
-  int nin = 1;
-  if (input->nd == 4)
-    nin = input->dimensions[0];
-
-  boundary_conditions* bc = self->bc;
-  const int* size1 = bc->size1;
-  const int* size2 = bc->size2;
-  int ng = bc->ndouble * size1[0] * size1[1] * size1[2];
-  int ng2 = bc->ndouble * size2[0] * size2[1] * size2[2];
-
-  const double* in = DOUBLEP(input);
-  double* out = DOUBLEP(output);
-  const double_complex* ph;
-
-  bool real = (input->descr->type_num == PyArray_DOUBLE);
-
-  //  fprintf(stdout,"Operator_apply_cuda_cpu\n");
-
-  if (real)
-    ph = 0;
-  else
-    ph = COMPLEXP(phases);
-
-  int chunksize = 1;
-  if (getenv("GPAW_CHUNK_SIZE") != NULL)
-    chunksize = atoi(getenv("GPAW_CHUNK_SIZE"));
-
-  int chunkinc = chunksize;
-  if (getenv("GPAW_CHUNK_INC") != NULL)
-    chunkinc = atoi(getenv("GPAW_CHUNK_INC"));
-
-  int nthds = 1;
-#ifdef GPAW_OMP
-  if (getenv("OMP_NUM_THREADS") != NULL)
-    nthds = atoi(getenv("OMP_NUM_THREADS"));
-#endif
-  struct apply_args *wargs = GPAW_MALLOC(struct apply_args, nthds);
-  pthread_t *thds = GPAW_MALLOC(pthread_t, nthds);
-
-  for(int i=0; i < nthds; i++)
-    {
-      (wargs+i)->thread_id = i;
-      (wargs+i)->nthds = nthds;
-      (wargs+i)->chunksize = chunksize;
-      (wargs+i)->chunkinc = chunkinc;
-      (wargs+i)->self = self;
-      (wargs+i)->ng = ng;
-      (wargs+i)->ng2 = ng2;
-      (wargs+i)->nin = nin;
-      (wargs+i)->in = in;
-      (wargs+i)->out = out;
-      (wargs+i)->real = real;
-      (wargs+i)->ph = ph;
-    }
+#ifdef DEBUG_CUDA_OPERATOR
   
-  apply_worker_cuda_cpu(wargs);
-#ifdef GPAW_OMP
-  for(int i=1; i < nthds; i++)
-    pthread_join(*(thds+i), NULL);
-#endif
-  free(wargs);
-  free(thds);
-
+  free(sendbuf_cpu);
+  free(recvbuf_cpu);
+  free(buf_cpu);
+  free(in_cpu);
+  free(out_cpu);
+  free(buf_cpu2);
+  free(out_cpu2);
+  
+#endif //DEBUG_CUDA_OPERATOR
+  cudaStreamSynchronize(operator_stream[0]);      
+  cudaStreamSynchronize(operator_stream[1]);      
   Py_RETURN_NONE;
 }
+
+
 
 

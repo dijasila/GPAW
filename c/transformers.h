@@ -22,14 +22,11 @@ typedef struct
   int size_out[3];          /* Size of the output grid */
 #ifdef GPAW_CUDA
   int cuda;
-  int alloc_blocks;
-  double* buf_gpu;
-  double* buf2_gpu;
-  double *sendbuf;
-  double *recvbuf;
-  double *sendbuf_gpu;
-  double *recvbuf_gpu;
 #endif
 } TransformerObject;
 
+#ifdef GPAW_CUDA
+void transformer_init_cuda(TransformerObject *self);
+void transformer_delete_cuda(TransformerObject *self);
+#endif
 #endif

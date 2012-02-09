@@ -34,13 +34,9 @@
 #ifdef GPAW_CUDA
 #include <cuda.h>
 #include <cuda_runtime_api.h>
-PyObject * Operator_relax_cuda_cpu(OperatorObject *self,
-				   PyObject *args);
 PyObject * Operator_relax_cuda_gpu(OperatorObject *self,
 				   PyObject *args);
 PyObject * Operator_apply_cuda_gpu(OperatorObject *self,
-				   PyObject *args);
-PyObject * Operator_apply_cuda_cpu(OperatorObject *self,
 				   PyObject *args);
 #endif
 
@@ -49,13 +45,7 @@ static void Operator_dealloc(OperatorObject *self)
   free(self->bc);
 #ifdef GPAW_CUDA
   if (self->cuda) {
-    //gpaw_cudaSafeCall(cudaFree(self->buf_gpu));    
-    // FIX THIS
-    cudaFree(self->buf_gpu);    
-    cudaFreeHost(self->sendbuf);
-    cudaFreeHost(self->recvbuf);
-    cudaFree(self->sendbuf_gpu);
-    cudaFree(self->recvbuf_gpu);
+    //
   }
 #endif
   PyObject_DEL(self);
@@ -452,12 +442,8 @@ static PyMethodDef Operator_Methods[] = {
     {"relax",
      (PyCFunction)Operator_relax, METH_VARARGS, NULL},
 #ifdef GPAW_CUDA
-    {"apply_cuda_cpu",
-     (PyCFunction)Operator_apply_cuda_cpu, METH_VARARGS, NULL},
     {"apply_cuda_gpu",
      (PyCFunction)Operator_apply_cuda_gpu, METH_VARARGS, NULL},
-    {"relax_cuda_cpu",
-     (PyCFunction)Operator_relax_cuda_cpu, METH_VARARGS, NULL},
     {"relax_cuda_gpu",
      (PyCFunction)Operator_relax_cuda_gpu, METH_VARARGS, NULL},
 #endif
@@ -523,14 +509,7 @@ PyObject * NewOperatorObject(PyObject *obj, PyObject *args)
 #ifdef GPAW_CUDA
   self->cuda = cuda;
   if (self->cuda) {
-    // fprintf(stdout,"NewOp cuda true\n");
-    self->buf_gpu=NULL;
-    self->recvbuf=NULL;
-    self->sendbuf=NULL;
-    self->recvbuf_gpu=NULL;
-    self->sendbuf_gpu=NULL;
-    self->alloc_blocks=0;
-    self->stencil_gpu = bmgs_stencil_to_gpu(&(self->stencil));
+    operator_init_cuda(self);
   }
 #endif
   return (PyObject*)self;
