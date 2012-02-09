@@ -29,16 +29,17 @@ __global__ void Zcuda(add_linear_field_cuda_kernel)
   (const Tcuda* a, const int3 c_sizea, Tcuda* b, const int3 c_n,
    const int3 c_beg,const double3 strength,int blocks)
 {
-  
-  int i1bl=blockIdx.y/blocks;
-  int blocksi=blockIdx.y-blocks*i1bl;
-  
+
+  int xx=gridDim.x/XDIV;
+  int yy=gridDim.y/blocks;
+
+  int blocksi=blockIdx.y/yy;
+  int i1bl=blockIdx.y-yy*blocksi;
   int i1tid=threadIdx.y;
   int i1=i1bl*BLOCK_SIZEY+i1tid;
 
-
-  int i2bl=blockIdx.x/XDIV;
-  int xind=blockIdx.x-XDIV*i2bl;
+  int xind=blockIdx.x/xx;
+  int i2bl=blockIdx.x-xind*xx;
   int i2=i2bl*BLOCK_SIZEX+threadIdx.x;
   
   int xlen=(c_n.x+XDIV-1)/XDIV;
@@ -102,7 +103,7 @@ extern "C" {
     h_strength.y=((double*)strengthi->data)[1]*((double*)c_vi->data)[1+1*3]; 
     h_strength.z=((double*)strengthi->data)[2]*((double*)c_vi->data)[2+2*3];     
     
-    int gridy=blocks*(hc_n.y+BLOCK_SIZEY-1)/BLOCK_SIZEY;
+    int gridy=blocks*((hc_n.y+BLOCK_SIZEY-1)/BLOCK_SIZEY);
     
     int gridx=XDIV*((hc_n.z+BLOCK_SIZEX-1)/BLOCK_SIZEX);
     

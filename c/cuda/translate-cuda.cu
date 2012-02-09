@@ -76,16 +76,19 @@ __global__ void Zcuda(bmgs_translate_cuda_kernel)(const Tcuda* a,
 					   int blocks)
 
 {
+  int xx=gridDim.x/XDIV;
+  int yy=gridDim.y/blocks;
+
   
-  int i1bl=blockIdx.y/blocks;
-  int blocksi=blockIdx.y-blocks*i1bl;
+  int blocksi=blockIdx.y/yy;
+  int i1bl=blockIdx.y-yy*blocksi;
 
   int i1tid=threadIdx.y;
   int i1=i1bl*BLOCK_SIZEY+i1tid;
+  
+  int xind=blockIdx.x/xx;
+  int i2bl=blockIdx.x-xind*xx;
 
-
-  int i2bl=blockIdx.x/XDIV;
-  int xind=blockIdx.x-XDIV*i2bl;
   int i2=i2bl*BLOCK_SIZEX+threadIdx.x;
   
   int xlen=(c_size.x+XDIV-1)/XDIV;
@@ -120,7 +123,7 @@ extern "C" {
 #ifdef CUGPAWCOMPLEX
 				      cuDoubleComplex phase, 
 #endif
-				      int blocks)    
+				      int blocks,cudaStream_t stream)    
   {
     if (!(size[0] && size[1] && size[2])) return;
     
@@ -128,7 +131,7 @@ extern "C" {
     hc_sizea.x=sizea[0];    hc_sizea.y=sizea[1];    hc_sizea.z=sizea[2];
     hc_size.x=size[0];    hc_size.y=size[1];    hc_size.z=size[2];
     
-    int gridy=blocks*(size[1]+BLOCK_SIZEY-1)/BLOCK_SIZEY;
+    int gridy=blocks*((size[1]+BLOCK_SIZEY-1)/BLOCK_SIZEY);
     
     int gridx=XDIV*((size[2]+BLOCK_SIZEX-1)/BLOCK_SIZEX);
     
@@ -141,7 +144,7 @@ extern "C" {
     a+=start1[2]+(start1[1]+start1[0]*hc_sizea.y)*hc_sizea.z;
     
 
-    Zcuda(bmgs_translate_cuda_kernel)<<<dimGrid, dimBlock, 0>>>
+    Zcuda(bmgs_translate_cuda_kernel)<<<dimGrid, dimBlock, 0, stream>>>
       ((Tcuda*)a,hc_sizea,(Tcuda*)b,hc_size,
 #ifdef CUGPAWCOMPLEX
        phase,

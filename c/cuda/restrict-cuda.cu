@@ -75,9 +75,11 @@ __global__ void RST1D_kernel(const Tcuda* a, int n, int m, Tcuda* b,int ang,int 
   
   
   int itid=threadIdx.y;
-  int ibl=blockIdx.y/blocks;
-  int blocksi=blockIdx.y-blocks*ibl;
-  
+
+  int yy=gridDim.y/blocks;
+  int blocksi=blockIdx.y/yy;
+  int ibl=blockIdx.y-yy*blocksi;
+
   int i=ibl*BLOCK;
   
   int sizex=(n * 2 + K * 2 - 3);

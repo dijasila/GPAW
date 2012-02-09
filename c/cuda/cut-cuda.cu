@@ -6,6 +6,24 @@
 
 #include "gpaw-cuda-int.h"
 
+#ifdef DEBUG_CUDA
+#define DEBUG_CUDA_CUT
+#endif //DEBUG_CUDA
+
+#ifdef DEBUG_CUDA_CUT
+extern "C" {
+#include <complex.h>
+  typedef double complex double_complex;
+#define GPAW_MALLOC(T, n) (T*)(malloc((n) * sizeof(T)))
+  void bmgs_cut(const double* a, const int n[3], const int c[3],
+		double* b, const int m[3]);
+  void bmgs_cutz(const double_complex* a, const int n[3],
+		 const int c[3],
+		 double_complex* b, const int m[3]);
+}
+#endif //DEBUG_CUDA_CUT
+
+
 #ifndef CUGPAWCOMPLEX
 
 #define BLOCK_SIZEX 32
@@ -46,20 +64,19 @@ __global__ void Zcuda(bmgs_cut_cuda_kernel)(const Tcuda* a,
 #endif		
 					    int blocks)
 {
+  int xx=gridDim.x/XDIV;
+  int yy=gridDim.y/blocks;
   
-  int i1bl=blockIdx.y/blocks;
-  int blocksi=blockIdx.y-blocks*i1bl;
-
+  int blocksi=blockIdx.y/yy;
+  int i1bl=blockIdx.y-blocksi*yy;
+  
   int i1tid=threadIdx.y;
   int i1=i1bl*BLOCK_SIZEY+i1tid;
 
-  //  int i1=blockIdx.y*BLOCK_SIZEY+threadIdx.y;
-  
+  int xind=blockIdx.x/xx;
+  int i2bl=blockIdx.x-xind*xx;
 
-  int i2bl=blockIdx.x/XDIV;
-  int xind=blockIdx.x-XDIV*i2bl;
   int i2=i2bl*BLOCK_SIZEX+threadIdx.x;
-  //  int i2=blockIdx.x*BLOCK_SIZEX+threadIdx.x;
   
   int xlen=(c_sizeb.x+XDIV-1)/XDIV;
   int xstart=xind*xlen;
@@ -92,24 +109,43 @@ extern "C" {
 #ifdef CUGPAWCOMPLEX
 				cuDoubleComplex phase, 
 #endif
-				int blocks)
+				int blocks,cudaStream_t stream)
   {
     if (!(sizea[0] && sizea[1] && sizea[2])) return;    
 
     int3 hc_sizea,hc_sizeb;    
     hc_sizea.x=sizea[0];    hc_sizea.y=sizea[1];    hc_sizea.z=sizea[2];
     hc_sizeb.x=sizeb[0];    hc_sizeb.y=sizeb[1];    hc_sizeb.z=sizeb[2];
+
+        
+#ifdef DEBUG_CUDA_CUT
+#ifndef CUGPAWCOMPLEX      
+    int ng2 = sizeb[0] * sizeb[1] * sizeb[2];
+    int ng = sizea[0] * sizea[1] * sizea[2];
+#else
+    int ng2 = sizeb[0] * sizeb[1] * sizeb[2] * 2;
+    int ng = sizea[0] * sizea[1] * sizea[2] * 2;
+#endif //CUGPAWCOMPLEX      
+    double* b_cpu=GPAW_MALLOC(double, ng2*blocks);
+    double* a_cpu=GPAW_MALLOC(double, ng*blocks);
+    double* b_cpu2=GPAW_MALLOC(double, ng2*blocks);
+    double* a_cpu2=GPAW_MALLOC(double, ng*blocks);
+    const Tcuda* a2=a;
+
+    GPAW_CUDAMEMCPY(a_cpu,a,double, ng*blocks, cudaMemcpyDeviceToHost);
+    GPAW_CUDAMEMCPY(b_cpu,b,double, ng2*blocks, cudaMemcpyDeviceToHost);
+#endif //DEBUG_CUDA_CUT
+
     
-    int gridy=blocks*(sizeb[1]+BLOCK_SIZEY-1)/BLOCK_SIZEY;
+    int gridy=blocks*((sizeb[1]+BLOCK_SIZEY-1)/BLOCK_SIZEY);
     
     int gridx=XDIV*((sizeb[2]+BLOCK_SIZEX-1)/BLOCK_SIZEX);
-    
-    
+
     dim3 dimBlock(BLOCK_SIZEX,BLOCK_SIZEY); 
     dim3 dimGrid(gridx,gridy);    
 
     a+=starta[2]+(starta[1]+starta[0]*hc_sizea.y)*hc_sizea.z;
-    Zcuda(bmgs_cut_cuda_kernel)<<<dimGrid, dimBlock, 0>>>
+    Zcuda(bmgs_cut_cuda_kernel)<<<dimGrid, dimBlock, 0, stream>>>
       ((Tcuda*)a,hc_sizea,(Tcuda*)b,hc_sizeb,
 #ifdef CUGPAWCOMPLEX
        phase,
@@ -117,6 +153,37 @@ extern "C" {
        blocks);
     
     gpaw_cudaSafeCall(cudaGetLastError());
+    
+#ifdef DEBUG_CUDA_CUT
+    for (int m = 0; m < blocks; m++){            
+#ifndef CUGPAWCOMPLEX      
+      bmgs_cut(a_cpu + m * ng, sizea, starta, b_cpu + m * ng2,
+		 sizeb);
+#else
+      bmgs_cutz((const double_complex*)(a_cpu + m * ng), sizea, starta,
+		  (double_complex*)(b_cpu + m * ng2),
+		  sizeb);
+#endif //CUGPAWCOMPLEX
+    }
+    cudaDeviceSynchronize();
+    GPAW_CUDAMEMCPY(a_cpu2,a2,double, ng*blocks, cudaMemcpyDeviceToHost);
+    GPAW_CUDAMEMCPY(b_cpu2,b,double, ng2*blocks, cudaMemcpyDeviceToHost);
+    double a_err=0;
+    double b_err=0;
+    for (int i=0;i<ng2*blocks;i++) {      
+      b_err=MAX(b_err,fabs(b_cpu[i]-b_cpu2[i]));
+      if (i<ng*blocks){
+	a_err=MAX(a_err,fabs(a_cpu[i]-a_cpu2[i]));
+      }
+    }
+    if ((b_err>GPAW_CUDA_ABS_TOL_EXCT) || (a_err>GPAW_CUDA_ABS_TOL_EXCT)){
+      fprintf(stderr,"Debug cuda cut errors: a %g b %g\n",a_err,b_err);
+    }
+    free(a_cpu);
+    free(b_cpu);
+    free(a_cpu2);
+    free(b_cpu2);
+#endif //DEBUG_CUDA_CUT
     
   }
 }
