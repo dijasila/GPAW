@@ -1,3 +1,8 @@
+#include <Python.h>
+//#define PY_ARRAY_UNIQUE_SYMBOL GPAW_ARRAY_API
+//#define NO_IMPORT_ARRAY
+#include <numpy/arrayobject.h>
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -12,10 +17,6 @@
 #include <cuComplex.h>
 
 
-#include <Python.h>
-#define PY_ARRAY_UNIQUE_SYMBOL GPAW_ARRAY_API
-#define NO_IMPORT_ARRAY
-#include <numpy/arrayobject.h>
 
 #include "gpaw-cuda-int.h"
 #ifndef CUGPAWCOMPLEX
@@ -441,6 +442,9 @@ PyObject* multi_dotu_cuda_gpu(PyObject *self, PyObject *args)
   }
   gpaw_cublasSafeCall(cublasGetError());
   cublasSetKernelStream(NULL);
+  for (int i=0;i<MBLAS_BLOCKS;i++){
+    cudaStreamSynchronize(mblas_streams[i]);
+  }
   Py_RETURN_NONE;
 }
 
@@ -489,6 +493,9 @@ PyObject* multi_dotc_cuda_gpu(PyObject *self, PyObject *args)
   }
   gpaw_cublasSafeCall(cublasGetError());
   cublasSetKernelStream(NULL);
+  for (int i=0;i<MBLAS_BLOCKS;i++){
+    cudaStreamSynchronize(mblas_streams[i]);
+  }
   Py_RETURN_NONE;
 }
 
