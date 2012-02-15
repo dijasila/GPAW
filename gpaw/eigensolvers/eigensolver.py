@@ -2,6 +2,8 @@
 
 from math import ceil
 
+import _gpaw
+
 import numpy as np
 
 from gpaw.fd_operators import Laplace
@@ -36,7 +38,7 @@ class Eigensolver:
 
         if self.cuda:
             cuda_blocks_min=16
-            cuda_blocks_max=72
+            cuda_blocks_max=64
             self.blocksize=min(cuda_blocks_max,self.mynbands,
                                self.gd.comm.size*cuda_blocks_min,
                                max((192*192*192)*self.gd.comm.size/
@@ -97,10 +99,11 @@ class Eigensolver:
         """Calculate residual.
 
         From R=Ht*psit calculate R=H*psit-eps*S*psit."""
-        
-        for R_G, eps, psit_G in zip(R_xG, eps_x, psit_xG):
-            axpy(-eps, psit_G, R_G)
-
+        if isinstance(psit_xG,gpuarray.GPUArray):
+            _gpaw.multi_axpy_cuda_gpu(-eps_x, psit_xG.gpudata, psit_xG.shape, R_xG.gpudata, R_xG.shape, psit_xG.dtype,eps_x.size)
+        else:
+            for R_G, eps, psit_G in zip(R_xG, eps_x, psit_xG):
+                axpy(-eps, psit_G, R_G)
         c_axi = {}
         for a, P_xi in P_axi.items():
             dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])

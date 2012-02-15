@@ -762,10 +762,10 @@ extern "C" {
 
 extern "C" {
 
-  int bmgs_fd_boundary_test(const bmgsstencil_gpu* s)
+  int bmgs_fd_boundary_test(const bmgsstencil_gpu* s,int boundary)
   {
     int3 jb;
-
+    int3 bjb;
     long3 hc_n;
     long3 hc_j; 
 
@@ -774,10 +774,44 @@ extern "C" {
     jb.z=hc_j.z;
     jb.y=hc_j.y/(hc_j.z+hc_n.z);
     jb.x=hc_j.x/((hc_j.z+hc_n.z)*hc_n.y+hc_j.y);
-    if (hc_n.x<(jb.x+1) || hc_n.y<(3*FD_BLOCK_Y_B) || 
-	hc_n.z<(3*FD_BLOCK_X_B))
-      return 0;
 
+    int3 bjb1,bjb2;
+    bjb1.x=0;    bjb1.y=0;    bjb1.z=0;
+    bjb2.x=0;    bjb2.y=0;    bjb2.z=0;      
+
+    if ((boundary & GPAW_BOUNDARY_X0) != 0) {
+      bjb1.x+=jb.x/2;
+    }
+    if ((boundary & GPAW_BOUNDARY_X1) != 0) {
+      bjb2.x+=jb.x/2;
+    }
+    if ((boundary & GPAW_BOUNDARY_Y0) != 0) {
+      bjb1.y+=BLOCK_Y_B;
+      //bjb1.y+=jb.y/2;
+    }
+    if ((boundary & GPAW_BOUNDARY_Y1) != 0) {
+      bjb2.y+=BLOCK_Y_B;
+      //bjb2.y+=jb.y/2;
+    }
+    if ((boundary & GPAW_BOUNDARY_Z0) != 0) {
+      bjb1.z+=BLOCK_X_B;
+      //bjb1.z+=jb.z/2;
+    }
+    if ((boundary & GPAW_BOUNDARY_Z1) != 0) {
+      bjb2.z+=BLOCK_X_B;
+      //bjb2.z+=jb.z/2;
+    }
+    bjb.x=bjb1.x+bjb2.x;
+    bjb.y=bjb1.y+bjb2.y;
+    bjb.z=bjb1.z+bjb2.z;
+    
+    hc_n.x-=bjb.x;    hc_n.y-=bjb.y;    hc_n.z-=bjb.z;
+    
+    
+    if (hc_n.x<1 || hc_n.y<(FD_BLOCK_Y_B) || 
+	hc_n.z<(FD_BLOCK_X_B))
+      return 0;
+    
     return 1;        
   }
 
