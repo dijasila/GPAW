@@ -10,7 +10,7 @@
 //#define DEBUG_CUDA 
 
 #define GPAW_CUDA_BLOCKS_MIN  (16)
-#define GPAW_CUDA_BLOCKS_MAX  (72)
+#define GPAW_CUDA_BLOCKS_MAX  (64)
 #define GPAW_CUDA_INT_BLOCKS (16)
 #define GPAW_CUDA_ASYNC_SIZE  (128*1024)
 #define GPAW_CUDA_ABS_TOL       (1e-13)

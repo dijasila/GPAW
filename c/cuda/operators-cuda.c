@@ -121,7 +121,6 @@ PyObject * Operator_relax_cuda_gpu(OperatorObject *self,
   int cuda_async=0;
   if (MAX(nsends,nrecvs)*sizeof(double)>GPAW_CUDA_ASYNC_SIZE) {
     cuda_async=1;
-    cuda_split_boundary=bmgs_fd_boundary_test(&self->stencil_gpu);
   }
 
   gpaw_cudaSafeCall(cudaGetLastError());
@@ -142,6 +141,7 @@ PyObject * Operator_relax_cuda_gpu(OperatorObject *self,
   if (bc->sendproc[2][1]!= DO_NOTHING)
     boundary|=GPAW_BOUNDARY_Z1;
 
+  cuda_split_boundary=bmgs_fd_boundary_test(&self->stencil_gpu,boundary);
   cudaStreamSynchronize(0);     
 
   for (int n = 0; n < nrelax; n++ )    {
@@ -338,7 +338,7 @@ PyObject * Operator_apply_cuda_gpu(OperatorObject *self,
 	}
       operator_streams=2;
       }*/
-     cuda_split_boundary=bmgs_fd_boundary_test(&self->stencil_gpu);
+
   }
 
   /*
@@ -382,6 +382,8 @@ PyObject * Operator_apply_cuda_gpu(OperatorObject *self,
     boundary|=GPAW_BOUNDARY_Z0;
   if (bc->sendproc[2][1]!= DO_NOTHING)
     boundary|=GPAW_BOUNDARY_Z1;  
+  
+  cuda_split_boundary=bmgs_fd_boundary_test(&self->stencil_gpu,boundary);
 
   cudaStreamSynchronize(0);        
 
