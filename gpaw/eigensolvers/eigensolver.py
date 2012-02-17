@@ -99,11 +99,11 @@ class Eigensolver:
         """Calculate residual.
 
         From R=Ht*psit calculate R=H*psit-eps*S*psit."""
-        if isinstance(psit_xG,gpuarray.GPUArray):
-            _gpaw.multi_axpy_cuda_gpu(-eps_x, psit_xG.gpudata, psit_xG.shape, R_xG.gpudata, R_xG.shape, psit_xG.dtype,eps_x.size)
-        else:
-            for R_G, eps, psit_G in zip(R_xG, eps_x, psit_xG):
-                axpy(-eps, psit_G, R_G)
+        #if isinstance(psit_xG,gpuarray.GPUArray):
+        #    _gpaw.multi_axpy_cuda_gpu(-eps_x, psit_xG.gpudata, psit_xG.shape, R_xG.gpudata, R_xG.shape, psit_xG.dtype,eps_x.size)
+        #else:
+        for R_G, eps, psit_G in zip(R_xG, eps_x, psit_xG):
+            axpy(-eps, psit_G, R_G)
         c_axi = {}
         for a, P_xi in P_axi.items():
             dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
