@@ -5,7 +5,7 @@ from gpaw.mpi import serial_comm
 from gpaw.xc.rpa_correlation_energy import RPACorrelation
 import numpy as np
 
-ws = np.array([0.5*i for i in range(2001)])
+ws = np.array([0.5*i for i in range(2000)])
 ecut = 50
 
 calc = GPAW('N2.gpw', communicator=serial_comm, txt=None)

@@ -20,12 +20,12 @@ First we set up a ground state calculation with lots of unoccupied bands. This i
 
 .. literalinclude:: gs_N2.py
 
-which takes on the order of 1000 CPU hours. The function set_Gvectors() determines how many bands one should converge in order include everything below 400 eV. The script generates N.gpw and N2.gpw which are the input to the RPA calculation. The PBE and non-selfconsistent Hartree-Fock energy is also calculated and written to the file PBE_HF.dat.
+which takes on the order of 20 CPU hours. The script generates N.gpw and N2.gpw which are the input to the RPA calculation. The PBE and non-selfconsistent Hartree-Fock energy is also calculated and written to the file PBE_HF.dat.
 
 Converging the frequency integration
 -------------------------------------
 
-We will start by making a single RPA calculation with extremely fine frequency sampling. The following script returns the integrand at 2001 frequency points from 0 to 1000 eV at a particular q-point and a low cutoff energy (since there is no k-point sampling, only q=[0,0,0] is possible here and one therefore needs to specify a direction as well):
+We will start by making a single RPA calculation with extremely fine frequency sampling. The following script returns the integrand at 2001 frequency points from 0 to 1000 eV at a particular q-point (since there is no k-point sampling, only q=[0,0,0] is possible here and one therefore needs to specify a direction as well):
 
 .. literalinclude:: frequency.py
 
@@ -39,41 +39,15 @@ The correlation energy is obtained as the integral of this function divided by :
                      q=[0,0,0], 
                      direction=0)
 
-This is the default parameters for Gauss-legendre integration. The gauss_legendre keyword specifies the number of points, the frequency_cut keyword sets the value of the highest frequency (but the integration is always an approximation for the infinite integral) and the frequency_scale keyword determines how dense the frequencies are sampled close to :math:`\omega=0`. The integrands for a few values of these parameters are shown below
+This is the default parameters for Gauss-legendre integration. The gauss_legendre keyword specifies the number of points, the frequency_cut keyword sets the value of the highest frequency (but the integration is always an approximation for the infinite integral) and the frequency_scale keyword determines how dense the frequencies are sampled close to :math:`\omega=0`. The integrals for different number of Gauss-Legendre points is shown below as well as the integrand evaluated at the fine equidistant frequency grid
 
-.. image:: integration.png
+.. image:: con_freq.png
 	   :height: 400 px
 
 and the value of the integral for a range of parameters is shown below (all values in eV)
 
-========================  =========================  ===================   =================
-Gauss-Legendre points     Frequency cutoff           Frequency scale       Integral
-========================  =========================  ===================   =================
- 8	          		100	 	        2.0		   -6.23695229669
- 8	          		200	 	        2.0		   -6.23729041603
- 8	          		400	 	        2.0		   -6.24096953919
- 8	          		800	 	        2.0		   -6.22671709039
- 8	          	 	1600	 	        2.0		   -6.26677707702
- 8	          		800	 	        1.0		   -6.36563675431
- 8	          		800	 	        1.5		   -6.23973197929
- 8	          		800	 	        2.5		   -6.23421988399
- 16	          		100	 	        2.0		   -6.23479287788
- 16	          		200	 	        2.0		   -6.23713047805
- 16	          		400	 	        2.0		   -6.2374055733
- 16	          		800	 	        2.0		   -6.23743850193
- 16	          		1600	 	        2.0		   -6.23743853397
- 16	          		800	 	        1.0		   -6.23759331385
- 16	          		800	 	        1.5		   -6.23847568048
- 16	          		800	 	        2.5		   -6.23744377698
-========================  =========================  ===================   =================
 
-======================== =
-Exact
-======================== =
--6.23738879181	          		
-======================== = 
-
-It is seen that using the default values gives a result which is extremely well converged (to 0.1 meV). Below we will simply use the default values allthough we could perhaps use 8 points instead of 16, which would half the total CPU time for the calculations. In this particular case the result is not very sensitive to the frequency scale, but if the there is a non-vanishing density of states near the Fermi level, there may be much more structure in the integrand near :math:`\omega=0` and it is important to sample this region well. It should of course be remembered that these values are not converged with respect to the number of unoccupied bands and plane waves, which were determined by a rather low cutoff at 50 eV.
+It is seen that using the default value of 16 frequency points gives a result which is very well converged (to 0.1 meV). Below we will simply use the default values allthough we could perhaps use 8 points instead of 16, which would half the total CPU time for the calculations. In this particular case the result is not very sensitive to the frequency scale, but if the there is a non-vanishing density of states near the Fermi level, there may be much more structure in the integrand near :math:`\omega=0` and it is important to sample this region well. It should of course be remembered that these values are not converged with respect to the number of unoccupied bands and plane waves, which were calculated with a cutoff at 200 eV.
 
 Extrapolating to infinite number of bands
 -----------------------------------------
@@ -111,10 +85,10 @@ The fit is seen to be very good at the last three points and we find an extrapol
 ======   =====   =====   ======       ============
 PBE      HF      RPA     HF+RPA       Experimental
 ======   =====   =====   ======       ============
-10.668	 4.821   4.969   9.777  	9.887
+10.59	 4.68    4.97    9.65	  	9.89
 ======   =====   =====   ======       ============
 
-The RPA result seems to be much better than the PBE result. However, one should also be aware that due to the non-local nature of the RPA functional, very large supercells are needed to avoid spurious interactions between repeated images and the calculation done for the 6x6x6 cell used here is not expected to be fully converged with respect to super cell size. See ref. \ [#Harl]_ for more details on this.
+The RPA result seems to be much better than the PBE result. However, one should also be aware that due to the non-local nature of the RPA functional, very large supercells are needed to avoid spurious interactions between repeated images and the calculation done for the 6x6x7 cell used here is not expected to be fully converged with respect to super cell size. See ref. \ [#Harl]_ for more details on this.
 
 Example 2: Interlayer separation in graphite
 ============================================
