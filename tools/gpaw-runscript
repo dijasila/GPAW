@@ -39,7 +39,6 @@ hosts = { 'batman'                   : 'pbs_batman',
 platforms = { 'aix5' : 'loadleveler' }
 
 env = {'PYTHONPATH'      : None,
-       'GPAW_PYTHON'     : None, 
        'GPAW_SETUP_PATH' : None,
        'GPAW_MAIL'       : None
        }
@@ -582,7 +581,7 @@ else:
         set['qsys'] = platforms[sys.platform]
         print 'platform', sys.platform, 'found,',
     else:
-        print "Host "+str(host)+" unknown, try -q option."
+        print "Host " + str(host) + " unknown, try -q option."
         list_systems(RunScript)
         sys.exit()
 
@@ -595,6 +594,18 @@ for key in env:
     if key in os.environ.keys():
         env[key] = os.environ[key]
 ##print "env=",env
+
+# ............................................................
+# check necessary environment variables
+
+helptxt = {
+    'GPAW_PYTHON': 'to the parallel custom interpreter (gpaw-python)'
+    }
+
+for variable in helptxt.keys():
+    if not (variable in env):
+        raise RuntimeError('Please set the environment variable ' +
+                           variable + ' ' + helptxt[variable] + ' !')
 
 # ............................................................
 
