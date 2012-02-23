@@ -207,7 +207,7 @@ tests = [
     'bse_vs_lrtddft.py',
     'bse_sym.py',
     'bse_silicon.py',
-    'diamond_eps_alda.py',
+    'diamond_eps.py',
     'hgh_h2o.py',
     'apmb.py',
     'relax.py',

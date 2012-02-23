@@ -33,13 +33,25 @@ calc.write('C2.gpw','all')
 
 # Macroscopic dielectric constant calculation
 q = np.array([0.0, 0.00001, 0.])
+w = np.linspace(0,15,150)
 
 df = DF(calc='C2.gpw', q=q, w=(0.,), eta=0.001, nbands=nbands,
         ecut=50, hilbert_trans=False, optical_limit=True)
 eM1, eM2 = df.get_macroscopic_dielectric_constant()
 
 if np.abs(eM2[1]-7.914302)>1e-3:
-    raise ValueError("Incorrect value from Diamond dielectric constant with ALDA Kernel %.4f" % (eM2))
+    raise ValueError("Incorrect value for Diamond dielectric constant with ALDA Kernel %.4f" % (eM2))
+
+# Dielectric function
+df = DF(calc='C2.gpw', q=q, w=w, eta=0.40, nbands=nbands, xc='Bootstrap',
+        ecut=100, hilbert_trans=False, optical_limit=True)
+df.get_absorption_spectrum(filename='C2.dat')
+
+spect = np.loadtxt('C2.dat')
+eps2_max = spect[0][spect[6].argmax()]
+
+if np.abs(eps2_max-8.92972)>1e-3:
+    raise ValueError("Incorrect position for Diamond dielectric function peak with Bootstrap Kernel %.4f" % (eps2_max))
 
 # RPA:
 # With kpts=(12,12,12) and bands=64, ecut=250eV, this script gives 5.56
