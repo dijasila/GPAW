@@ -145,7 +145,7 @@ as well as an ensemble estimate of the binding energy error (dE_bind)
 The default number of ensemble XC functionals is 2000,
 for which well-converged error estimates should be ensured.
 Therefore, "de_h2" and "de_h" in the example
-are both arrays of 25000 pertubations of a BEEF-vdW total energy.
+are both arrays of 2000 pertubations of a BEEF-vdW total energy.
 The syntax "ens.get_ensemble_energies(N)" changes this number to N.
 The calculator object input to the BEEF_Ensemble class could of course
 stem from a restarted GPAW calculation.
