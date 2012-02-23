@@ -40,6 +40,7 @@ hosts = { 'batman'                   : 'pbs_batman',
 platforms = { 'aix5' : 'loadleveler' }
 
 env = {'PYTHONPATH'      : None,
+       'GPAW_PYTHON'     : None,
        'GPAW_SETUP_PATH' : None,
        'GPAW_MAIL'       : None
        }
@@ -589,14 +590,6 @@ else:
 print 'using',set['qsys']
 
 # ............................................................
-# get environment variables
-
-for key in env:
-    if key in os.environ.keys():
-        env[key] = os.environ[key]
-##print "env=",env
-
-# ............................................................
 # check necessary environment variables
 
 helptxt = {
@@ -604,9 +597,17 @@ helptxt = {
     }
 
 for variable in helptxt.keys():
-    if not (variable in env):
+    if not (variable in os.environ):
         raise RuntimeError('Please set the environment variable ' +
                            variable + ' ' + helptxt[variable] + ' !')
+
+# ............................................................
+# get environment variables
+
+for key in env:
+    if key in os.environ.keys():
+        env[key] = os.environ[key]
+##print "env=",env
 
 # ............................................................
 
