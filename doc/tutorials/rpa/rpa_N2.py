@@ -12,7 +12,7 @@ rpa2 = RPACorrelation(calc2, txt='rpa_N2.txt')
 
 f = paropen('rpa_N2.dat', 'w')
 
-for ecut in [100, 150, 200, 250, 300, 350, 400, 500]:
+for ecut in [100, 150, 200, 250, 300, 350, 400]:
     E1 = rpa1.get_rpa_correlation_energy(ecut=ecut,
                                          directions=[[0, 1.0]])
     E2 = rpa2.get_rpa_correlation_energy(ecut=ecut,

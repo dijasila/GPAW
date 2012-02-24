@@ -6,7 +6,7 @@ from gpaw.xc.rpa_correlation_energy import RPACorrelation
 
 calc = GPAW('N2.gpw', communicator=serial_comm, txt=None)
 
-rpa = RPACorrelation(calc2, txt='rpa_N2_frequencies.txt')
+rpa = RPACorrelation(calc, txt='rpa_N2_frequencies.txt')
 
 f = paropen('con_freq.dat', 'w')
 for N in [2, 4, 6, 8, 12, 16, 24, 32]:
