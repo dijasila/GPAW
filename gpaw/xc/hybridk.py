@@ -371,10 +371,12 @@ class HybridXC(XCFunctional):
     
     def apply(self, kpt1, kpt2, k):
         k1_c = self.kd.ibzk_kc[kpt1.k]
+        k20_c = self.kd.ibzk_kc[kpt2.k]
         k2_c = self.kd.bzk_kc[k]
         k12_c = k1_c - k2_c
         N_c = self.gd.N_c
         eik1r_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k1_c / N_c).T)
+        eik20r_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k20_c / N_c).T)
         eik2r_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k2_c / N_c).T)
 
         for q, k_c in enumerate(self.bzk_kc):
@@ -439,7 +441,7 @@ class HybridXC(XCFunctional):
                 
                 t0 = time()
                 nt_R = self.calculate_pair_density(n1, n2, kpt1, kpt2, q0, k,
-                                                   eik1r_R, eik2r_R)
+                                                   eik1r_R, eik20r_R, eik2r_R)
                 nt_G = self.pwd.fft(nt_R) / N
                 vt_G = nt_G.copy()
                 vt_G *= -pi * vol / Gpk2_G
@@ -500,10 +502,10 @@ class HybridXC(XCFunctional):
         return exx
 
     def calculate_pair_density(self, n1, n2, kpt1, kpt2, q, k,
-                               eik1r_R, eik2r_R):
+                               eik1r_R, eik20r_R, eik2r_R):
         if isinstance(self.wfs, PWWaveFunctions):
             psit1_R = self.wfs.pd.ifft(kpt1.psit_nG[n1]) * eik1r_R
-            psit2_R = self.wfs.pd.ifft(kpt2.psit_nG[n2]) * eik2r_R
+            psit2_R = self.wfs.pd.ifft(kpt2.psit_nG[n2]) * eik20r_R
         else:
             psit1_R = kpt1.psit_nG[n1]
             psit2_R = kpt2.psit_nG[n2]
