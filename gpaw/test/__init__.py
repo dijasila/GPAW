@@ -293,6 +293,7 @@ exclude = []
 if mpi.size > 1:
     exclude += ['maxrss.py',
                 'pes.py',
+                'diamond_eps.py',
                 'nscfsic.py',
                 'coreeig.py',
                 'asewannier.py',
@@ -341,7 +342,7 @@ try:
     import scipy
 except ImportError:
     exclude += ['diamond_absorption.py',
-                'diamond_eps_alda.py',
+                'diamond_eps.py',
                 'aluminum_EELS.py',
                 'aluminum_EELS_lcao.py',
                 'aluminum_testcell.py',
