@@ -53,6 +53,7 @@ if 1: # not used in this example
 # write the information 'as in' corresponding trajectory file into cmr file
 write(cmrfile, system2, cmr_params=cmr_params)
 
+barrier()
 # add the xc tag to the cmrfile
 assert os.path.exists(cmrfile)
 data = cmr.read(cmrfile)
@@ -62,6 +63,7 @@ data.write(cmrfile)
 # peform PBE calculation on LDA density
 ediff = calc2.get_xc_difference('PBE')
 
+barrier()
 # add new results to the cmrfile
 assert os.path.exists(cmrfile)
 data = cmr.read(cmrfile)
