@@ -44,6 +44,8 @@ class PWDescriptor:
             i_Qc[..., :2] -= N_c[:2] // 2
             self.tmp_Q = fftw.empty(Nr_c, complex)
             self.tmp_R = self.tmp_Q.view(float)[:, :, :N_c[2]]
+            self.fftplan = fftw.FFTPlanB(self.tmp_R, self.tmp_Q, -1, fftwflags)
+            self.ifftplan = fftw.FFTPlanB(self.tmp_Q, self.tmp_R, 1, fftwflags)
         else:
             i_Qc = np.indices(N_c).transpose((1, 2, 3, 0))
             i_Qc += N_c // 2
@@ -52,8 +54,8 @@ class PWDescriptor:
             self.tmp_Q = fftw.empty(N_c, complex)
             self.tmp_R = self.tmp_Q
 
-        self.fftplan = fftw.FFTPlan(self.tmp_R, self.tmp_Q, -1, fftwflags)
-        self.ifftplan = fftw.FFTPlan(self.tmp_Q, self.tmp_R, 1, fftwflags)
+            self.fftplan = fftw.FFTPlan(self.tmp_R, self.tmp_Q, -1, fftwflags)
+            self.ifftplan = fftw.FFTPlan(self.tmp_Q, self.tmp_R, 1, fftwflags)
 
         # Calculate reciprocal lattice vectors:
         B_cv = 2.0 * pi * gd.icell_cv
