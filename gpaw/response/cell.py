@@ -21,11 +21,12 @@ def set_Gvectors(acell, bcell, nG, Ecut, q=[0., 0., 0.]):
 
     # Refer to R.Martin P85
     Gmax = np.zeros(3, dtype=int)
+    Gcut = np.zeros(3, dtype=float)
     for i in range(3):
         a = acell[i]
-        Gcut = sqrt(2*Ecut[i])
-        if Gcut > 0:
-            Gmax[i] = sqrt(a[0]**2 + a[1]**2 + a[2]**2) * Gcut/ (2*pi) + 1
+        Gcut[i] = sqrt(2*Ecut[i])
+        if Gcut[i] > 0:
+            Gmax[i] = sqrt(a[0]**2 + a[1]**2 + a[2]**2) * Gcut[i] / (2*pi) + 1
      
     Nmax = 2 * Gmax + 2
     #assert (nG - Nmax >=0).all() # to prevent too many planewaves
@@ -36,7 +37,7 @@ def set_Gvectors(acell, bcell, nG, Ecut, q=[0., 0., 0.]):
         for i in range(Nmax[dim]):
             m[dim][i] = i
             if m[dim][i] > np.int(Gmax[dim]):
-                m[dim][i] = i- Nmax[dim]       
+                m[dim][i] = i - Nmax[dim]
 
     G = np.zeros((Nmax[0]*Nmax[1]*Nmax[2],3),dtype=int)
     n = 0
@@ -45,8 +46,8 @@ def set_Gvectors(acell, bcell, nG, Ecut, q=[0., 0., 0.]):
             for k in range(Nmax[2]):
                 tmp = np.array([m[0][i], m[1][j], m[2][k]])
                 tmpG = np.dot(tmp+np.array(q), bcell)
-                Gmod = sqrt(tmpG[0]**2 + tmpG[1]**2 + tmpG[2]**2)
-                if Gmod < Gcut:
+                Gmod = tmpG[0]**2/Gcut[0]**2 + tmpG[1]**2/Gcut[1]**2 + tmpG[2]**2/Gcut[2]**2
+                if Gmod < 1:
                     G[n] = tmp
                     n += 1
     npw = n
@@ -65,4 +66,3 @@ def set_Gvectors(acell, bcell, nG, Ecut, q=[0., 0., 0.]):
         Gindex[iG] = np.array(id)
     
     return npw, Gvec, Gindex
-
