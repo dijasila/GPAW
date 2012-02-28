@@ -19,7 +19,7 @@ def equal(x, y, tolerance=0, fail=True, msg=''):
     """Compare x and y."""
 
     if not np.isfinite(x - y) or abs(x - y) > tolerance:
-        msg = (msg + '%.9g != %.9g (error: |%.9g| > %.9g)' %
+        msg = (msg + '%s != %s (error: |%s| > %.9g)' %
                (x, y, x - y, tolerance))
         if fail:
             raise AssertionError(msg)
@@ -57,6 +57,7 @@ tests = [
     'numpy_zdotc_graphite.py',
     'gemm_complex.py',
     'lapack.py',
+    'zher.py',
     'mpicomm.py',
     'parallel/submatrix_redist.py',
     'eigh.py',
@@ -95,11 +96,14 @@ tests = [
     'ase3k.py',
     'laplace.py',
     'gauss_wave.py',
+    'pw/interpol.py',
     'pw/h.py',
     'pw/lfc.py',
     'pw/reallfc.py',
     'pw/bulk.py',
     'pw/slab.py',
+    'pw/fulldiag.py',
+    'pw/fulldiagk.py',
     'coulomb.py',
     'timing.py',
     'maxrss.py',
@@ -135,6 +139,7 @@ tests = [
     'mgga_restart.py',
     'gga_atom.py',
     'bee1.py',
+    'beefvdw.py',
     'external_potential.py',
     'refine.py',
     'revPBE.py',
@@ -194,13 +199,15 @@ tests = [
     'dump_chi0.py',
     'au02_absorption.py',
     'exx_q.py',
-    'rpa_energy.py',
+    'exx_acdf.py',
+    'rpa_energy_Si.py',
+    'rpa_energy_N2.py',
     'bse_aluminum.py',
     'bse_diamond.py',
     'bse_vs_lrtddft.py',
     'bse_sym.py',
     'bse_silicon.py',
-    'diamond_eps_alda.py',
+    'diamond_eps.py',
     'hgh_h2o.py',
     'apmb.py',
     'relax.py',
@@ -258,6 +265,8 @@ tests = [
     'parallel/blacsdist.py',
     'parallel/scalapack.py',
     'parallel/scalapack_diag_simple.py',
+    'parallel/scalapack_mpirecv_crash.py',
+    #'parallel/scalapack_pdlasrt_hang.py',
     'parallel/realspace_blacs.py',
     'parallel/lcao_projections.py',
     #'dscf_forces.py',
@@ -273,7 +282,8 @@ tests = [
 
 try:
     import cmr
-    tests.append('cmr_test.py')    
+    tests.append('cmr_append.py')
+    tests.append('cmr_test.py')
 except:
     pass
 
@@ -283,6 +293,7 @@ exclude = []
 if mpi.size > 1:
     exclude += ['maxrss.py',
                 'pes.py',
+                'diamond_eps.py',
                 'nscfsic.py',
                 'coreeig.py',
                 'asewannier.py',
@@ -310,9 +321,15 @@ if mpi.size < 4:
 if mpi.size != 4:
     exclude += ['parallel/lcao_parallel.py']
     exclude += ['parallel/fd_parallel.py']
+    exclude += ['parallel/scalapack_mpirecv_crash.py']
+    exclude += ['parallel/scalapack_pdlasrt_hang.py']
 
 if mpi.size == 1 or not compiled_with_sl():
     exclude += ['parallel/submatrix_redist.py']
+
+if not compiled_with_sl():
+    exclude += ['pw/fulldiag.py',
+                'pw/fulldiagk.py']
 
 if mpi.size == 8:
     exclude += ['transport.py']
@@ -325,7 +342,7 @@ try:
     import scipy
 except ImportError:
     exclude += ['diamond_absorption.py',
-                'diamond_eps_alda.py',
+                'diamond_eps.py',
                 'aluminum_EELS.py',
                 'aluminum_EELS_lcao.py',
                 'aluminum_testcell.py',
@@ -336,7 +353,9 @@ except ImportError:
                 'bse_sym.py',
                 'bse_silicon.py',
                 'aeatom.py',
-                'rpa_energy.py']
+                'rpa_energy_Si.py',
+                'rpa_energy_N2.py',
+                'gw_test.py']
 
 try:
     import _hdf5

@@ -38,6 +38,7 @@ from gpaw.output import PAWTextOutput
 from gpaw.scf import SCFLoop
 from gpaw.forces import ForceCalculator
 from gpaw.utilities import h2gpts
+from gpaw.fftw import get_efficient_fft_size
 
 
 class PAW(PAWTextOutput):
@@ -171,7 +172,7 @@ class PAW(PAWTextOutput):
             
             if key in ['fixmom', 'mixer',
                        'verbose', 'txt', 'hund', 'random',
-                       'eigensolver', 'poissonsolver', 'idiotproof', 'notify']:
+                       'eigensolver', 'idiotproof', 'notify']:
                 continue
 
             if key in ['convergence', 'fixdensity', 'maxiter']:
@@ -182,7 +183,7 @@ class PAW(PAWTextOutput):
             self.scf = None
             self.wfs.set_orthonormalized(False)
             if key in ['lmax', 'width', 'stencils', 'external', 'xc',
-                       'occupations']:
+                       'poissonsolver', 'occupations']:
                 self.hamiltonian = None
                 self.occupations = None
             elif key in ['charge']:
@@ -327,8 +328,7 @@ class PAW(PAWTextOutput):
 
         natoms = len(atoms)
 
-        pos_av = atoms.get_positions() / Bohr
-        cell_cv = atoms.get_cell()
+        cell_cv = atoms.get_cell() / Bohr
         pbc_c = atoms.get_pbc()
         Z_a = atoms.get_atomic_numbers()
         magmom_av = atoms.get_initial_magnetic_moments()
@@ -381,17 +381,31 @@ class PAW(PAWTextOutput):
         else:
             assert par.occupations is None
       
+        mode = par.mode
+
+        if mode == 'pw':
+            mode = PW()
+
+        real_space = not isinstance(mode, PW)
+
         if par.gpts is not None and par.h is None:
             N_c = np.array(par.gpts)
         else:
             if par.h is None:
-                self.text('Using default value for grid spacing.')
-                h = 0.2
+                if real_space:
+                    self.text('Using default value for grid spacing.')
+                    h = 0.2 / Bohr
+                else:
+                    h = np.pi / (4 * mode.ecut)**0.5
             else:
-                h = par.h
-            N_c = h2gpts(h, cell_cv)
+                h = par.h / Bohr
 
-        cell_cv /= Bohr
+            if real_space:
+                N_c = h2gpts(h, cell_cv, 4)
+            else:
+                # Need to test this a bit more ...
+                N_c = h2gpts(h, cell_cv, 1)
+                N_c = np.array([get_efficient_fft_size(N) for N in N_c])
 
         if hasattr(self, 'time') or par.dtype == complex:
             dtype = complex
@@ -411,7 +425,7 @@ class PAW(PAWTextOutput):
         nbands = par.nbands
         if nbands is None:
             nbands = nao
-        elif nbands > nao and par.mode == 'lcao':
+        elif nbands > nao and mode == 'lcao':
             raise ValueError('Too many bands for LCAO calculation: ' +
                              '%d bands and only %d atomic orbitals!' %
                              (nbands, nao))
@@ -448,7 +462,7 @@ class PAW(PAWTextOutput):
 
         cc = par.convergence
 
-        if par.mode == 'lcao':
+        if mode == 'lcao':
             niter_fixdensity = 0
         else:
             niter_fixdensity = None
@@ -461,29 +475,19 @@ class PAW(PAWTextOutput):
                 par.maxiter, par.fixdensity,
                 niter_fixdensity)
 
-        parsize, parsize_bands = par.parallel['domain'], par.parallel['band']
+        parsize_domain = par.parallel['domain']
+        parsize_bands = par.parallel['band']
 
-        if parsize_bands is None:
-            parsize_bands = 1
-
-        # TODO delete/restructure so all checks are in BandDescriptor
-        if nbands % parsize_bands != 0:
-            raise RuntimeError('Cannot distribute %d bands to %d processors' %
-                               (nbands, parsize_bands))
-
-        mode = par.mode
-        if mode == 'pw':
-            mode = PW()
-            
         if isinstance(mode, PW):
             pbc_c = np.ones(3, bool)
 
         if not self.wfs:
-            if parsize == 'domain only':  # XXX this was silly!
-                parsize = world.size
+            if parsize_domain == 'domain only':  # XXX this was silly!
+                parsize_domain = world.size
 
-            domain_comm, kpt_comm, band_comm = mpi.distribute_cpus(parsize,
-                parsize_bands, nspins, kd.nibzkpts, world, par.idiotproof)
+            domain_comm, kpt_comm, band_comm = mpi.distribute_cpus(
+                parsize_domain, parsize_bands,
+                nspins, kd.nibzkpts, world, par.idiotproof, mode)
 
             kd.set_communicator(kpt_comm)
 
@@ -495,23 +499,51 @@ class PAW(PAWTextOutput):
                 # Domain decomposition has changed, so we need to
                 # reinitialize density and hamiltonian:
                 if par.fixdensity:
-                    raise RuntimeError("I'm confused - please specify parsize."
-                                       )
+                    raise RuntimeError("Density reinitialization conflict "
+                        "with 'fixdensity' - specify domain decomposition.")
                 self.density = None
                 self.hamiltonian = None
 
             # Construct grid descriptor for coarse grids for wave functions:
             gd = self.grid_descriptor_class(N_c, cell_cv, pbc_c,
-                                            domain_comm, parsize)
+                                            domain_comm, parsize_domain)
 
             # do k-point analysis here? XXX
             args = (gd, nvalence, setups, bd, dtype, world, kd, self.timer)
+
+            if par.parallel['sl_auto']:
+                # Choose scalapack parallelization automatically
+                
+                for key, val in par.parallel.items():
+                    if (key.startswith('sl_') and key != 'sl_auto'
+                        and val is not None):
+                        raise ValueError("Cannot use 'sl_auto' together "
+                                         "with '%s'" % key)
+                max_scalapack_cpus = bd.comm.size * gd.comm.size
+                nprow = max_scalapack_cpus
+                npcol = 1
+                
+                # Get a sort of reasonable number of columns/rows
+                while npcol < nprow and nprow % 2 == 0:
+                    npcol *= 2
+                    nprow //= 2
+                assert npcol * nprow == max_scalapack_cpus
+
+                # ScaLAPACK creates trouble if there aren't at least a few
+                # whole blocks; choose block size so there will always be
+                # several blocks.  This will crash for small test systems,
+                # but so will ScaLAPACK in any case
+                blocksize = min(-(-nbands // 4), 64)
+                sl_default = (nprow, npcol, blocksize)
+                par.parallel['sl_default'] = sl_default
+            else:
+                sl_default = par.parallel['sl_default']
 
             if mode == 'lcao':
                 # Layouts used for general diagonalizer
                 sl_lcao = par.parallel['sl_lcao']
                 if sl_lcao is None:
-                    sl_lcao = par.parallel['sl_default']
+                    sl_lcao = sl_default
                 lcaoksl = get_KohnSham_layouts(sl_lcao, 'lcao',
                                                gd, bd, dtype,
                                                nao=nao, timer=self.timer)
@@ -529,7 +561,7 @@ class PAW(PAWTextOutput):
                 # Layouts used for diagonalizer
                 sl_diagonalize = par.parallel['sl_diagonalize']
                 if sl_diagonalize is None:
-                    sl_diagonalize = par.parallel['sl_default']
+                    sl_diagonalize = sl_default
                 diagksl = get_KohnSham_layouts(sl_diagonalize, 'fd',
                                                gd, bd, dtype,
                                                buffer_size=buffer_size,
@@ -538,7 +570,7 @@ class PAW(PAWTextOutput):
                 # Layouts used for orthonormalizer
                 sl_inverse_cholesky = par.parallel['sl_inverse_cholesky']
                 if sl_inverse_cholesky is None:
-                    sl_inverse_cholesky = par.parallel['sl_default']
+                    sl_inverse_cholesky = sl_default
                 if sl_inverse_cholesky != sl_diagonalize:
                     message = 'sl_inverse_cholesky != sl_diagonalize ' \
                         'is not implemented.'
@@ -557,7 +589,7 @@ class PAW(PAWTextOutput):
                 # Layouts used for general diagonalizer (LCAO initialization)
                 sl_lcao = par.parallel['sl_lcao']
                 if sl_lcao is None:
-                    sl_lcao = par.parallel['sl_default']
+                    sl_lcao = sl_default
                 initksl = get_KohnSham_layouts(sl_lcao, 'lcao',
                                                gd, lcaobd, dtype,
                                                nao=nao,
@@ -596,8 +628,6 @@ class PAW(PAWTextOutput):
             if isinstance(xc, SIC):
                 eigensolver.blocksize = 1
             self.wfs.set_eigensolver(eigensolver)
-
-        real_space = not isinstance(mode, PW)
 
         if self.density is None:
             gd = self.wfs.gd
@@ -793,6 +823,11 @@ class PAW(PAWTextOutput):
                 self.scf.fix_density()
 
             self.calculate()
+
+    def diagonalize_full_hamiltonian(self, nbands=None, scalapack=None):
+        self.wfs.diagonalize_full_hamiltonian(self.hamiltonian, self.atoms,
+                                              self.occupations, self.txt,
+                                              nbands, scalapack)
 
     def check_atoms(self):
         """Check that atoms objects are identical on all processors."""

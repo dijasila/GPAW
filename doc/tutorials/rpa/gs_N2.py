@@ -1,21 +1,19 @@
 from ase import *
 from ase.structure import molecule
-from ase.units import Ha, Bohr
 from ase.parallel import paropen
 from gpaw import *
-from gpaw.xc.hybrid import HybridXC
-from gpaw.response.cell import get_primitive_cell, set_Gvectors
-
-d = 6.
-max_cut = 400.
+from gpaw.wavefunctions.pw import PW
+from gpaw.xc.hybridk import HybridXC
 
 # N -------------------------------------------
 
 N = molecule('N')
 N.set_pbc(True)
-N.set_cell((d, d, d))
+N.set_cell((6., 6., 7.))
 N.center()
-calc = GPAW(h=0.18,
+calc = GPAW(mode=PW(500),
+            dtype=complex,
+            nbands=8,
             maxiter=300,
             xc='PBE',
             hund=True,
@@ -27,26 +25,17 @@ N.set_calculator(calc)
 E1_pbe = N.get_potential_energy()
 E1_hf = E1_pbe + calc.get_xc_difference(HybridXC('EXX'))
 
-acell = N.cell / Bohr
-bcell = get_primitive_cell(acell)[1]
-gpts = calc.get_number_of_grid_points()
-max_bands = set_Gvectors(acell, bcell, gpts, [max_cut/Ha, max_cut/Ha,max_cut/Ha])[0]
-
-calc.set(nbands=max_bands+500,
-         fixdensity=True,
-         eigensolver='cg',
-         convergence={'bands': -500})
-N.get_potential_energy()
-
+calc.diagonalize_full_hamiltonian(nbands=4800)
 calc.write('N.gpw', mode='all')
 
 # N2 ------------------------------------------
 
 N2 = molecule('N2')
 N2.set_pbc(True)
-N2.set_cell((d, d, d))
+N2.set_cell((6., 6., 7.))
 N2.center()
-calc = GPAW(h=0.18,
+calc = GPAW(mode=PW(500),
+            dtype=complex,
             maxiter=300,
             xc='PBE',
             txt='N2.txt',
@@ -62,10 +51,5 @@ print >> f, 'PBE: ', E2_pbe - 2*E1_pbe
 print >> f, 'HF: ', E2_hf - 2*E1_hf
 f.close()
 
-calc.set(nbands=max_bands+500,
-         fixdensity=True,
-         eigensolver='cg',
-         convergence={'bands': -500})
-N2.get_potential_energy()
-
+calc.diagonalize_full_hamiltonian(nbands=4800)
 calc.write('N2.gpw', mode='all')

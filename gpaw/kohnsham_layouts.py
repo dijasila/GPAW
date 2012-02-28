@@ -12,7 +12,7 @@ from gpaw.utilities import uncamelcase
 from gpaw.utilities.blas import gemm, r2k, gemmdot
 from gpaw.utilities.lapack import diagonalize, general_diagonalize, \
     inverse_cholesky
-from gpaw.utilities.scalapack import pblas_simple_gemm
+from gpaw.utilities.scalapack import pblas_simple_gemm, pblas_tran
 from gpaw.utilities.tools import tri2full
 from gpaw.utilities.timing import nulltimer
 
@@ -374,7 +374,8 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         self.gd.comm.broadcast(C_nM, 0)
         self.timer.stop('Send coefs to domains')
 
-    def distribute_overlap_matrix(self, S_qmM, root=0):
+    def distribute_overlap_matrix(self, S_qmM, root=0,
+                                  add_hermitian_conjugate=False):
         # Some MPI implementations need a lot of memory to do large
         # reductions.  To avoid trouble, we do comm.sum on smaller blocks
         # of S (this code is also safe for arrays smaller than blocksize)
@@ -383,7 +384,7 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         nblocks = -(-len(Sflat_x) // blocksize)
         Mstart = 0
         for i in range(nblocks):
-            self.gd.comm.sum(Sflat_x[Mstart:Mstart + blocksize])
+            self.gd.comm.sum(Sflat_x[Mstart:Mstart + blocksize], root=root)
             Mstart += blocksize
         assert Mstart + blocksize >= len(Sflat_x)
 
@@ -401,38 +402,18 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         self.timer.start('Distribute overlap matrix')
         for S_mM, S_mm in zip(S_qmM, S_qmm):
             self.mM2mm.redistribute(S_mM, S_mm)
+            if add_hermitian_conjugate:
+                if blockdesc.active:
+                    pblas_tran(1.0, S_mm.copy(), 1.0, S_mm,
+                               blockdesc, blockdesc)
+                
         self.timer.stop('Distribute overlap matrix')
         return S_qmm.reshape(xshape + blockdesc.shape)
 
     def get_overlap_matrix_shape(self):
         return self.mmdescriptor.shape
 
-    def calculate_density_matrix(self, f_n, C_nM, rho_mM=None):
-        """Calculate density matrix from occupations and coefficients.
-
-        Presently this function performs the usual scalapack 3-step trick:
-        redistribute-numbercrunching-backdistribute.
-        
-        
-        Notes on future performance improvement.
-        
-        As per the current framework, C_nM exists as copies on each
-        domain, i.e. this is not parallel over domains.  We'd like to
-        correct this and have an efficient distribution using e.g. the
-        block communicator.
-
-        The diagonalization routine and other parts of the code should
-        however be changed to accommodate the following scheme:
-        
-        Keep coefficients in C_mm form after the diagonalization.
-        rho_mm can then be directly calculated from C_mm without
-        redistribution, after which we only need to redistribute
-        rho_mm across domains.
-        
-        """
-        #rho_ref = self.oldcalculate_density_matrix(f_n, C_nM, rho_mM)
-        #return rho_ref
-        
+    def calculate_blocked_density_matrix(self, f_n, C_nM):
         nbands = self.bd.nbands
         mynbands = self.bd.mynbands
         nao = self.nao
@@ -462,8 +443,33 @@ class BlacsOrbitalLayouts(BlacsLayouts):
                           self.mmdescriptor,
                           self.mmdescriptor,
                           Cf_mm, C_mm, rho_mm, transa='T')
-        del C_mm, Cf_mm
+        return rho_mm
+
+    def calculate_density_matrix(self, f_n, C_nM, rho_mM=None):
+        """Calculate density matrix from occupations and coefficients.
+
+        Presently this function performs the usual scalapack 3-step trick:
+        redistribute-numbercrunching-backdistribute.
         
+        
+        Notes on future performance improvement.
+        
+        As per the current framework, C_nM exists as copies on each
+        domain, i.e. this is not parallel over domains.  We'd like to
+        correct this and have an efficient distribution using e.g. the
+        block communicator.
+
+        The diagonalization routine and other parts of the code should
+        however be changed to accommodate the following scheme:
+        
+        Keep coefficients in C_mm form after the diagonalization.
+        rho_mm can then be directly calculated from C_mm without
+        redistribution, after which we only need to redistribute
+        rho_mm across domains.
+        
+        """
+        dtype = C_nM.dtype
+        rho_mm = self.calculate_blocked_density_matrix(f_n, C_nM)
         rback = Redistributor(self.block_comm, self.mmdescriptor,
                               self.mM_unique_descriptor)
         rho1_mM = self.mM_unique_descriptor.zeros(dtype=dtype)
@@ -477,8 +483,16 @@ class BlacsOrbitalLayouts(BlacsLayouts):
                 rho_mM = self.mMdescriptor.zeros(dtype=dtype)
 
         self.gd.comm.broadcast(rho_mM, 0)
-        
-        #print 'maxerr', np.abs(rho_mM - rho_ref).max()
+        return rho_mM
+
+    def distribute_to_columns(self, rho_mm, srcdescriptor):
+        redistributor = Redistributor(self.block_comm, # XXX
+                                      srcdescriptor,
+                                      self.mM_unique_descriptor)
+        rho_mM = redistributor.redistribute(rho_mm)
+        if self.gd.rank != 0:
+            rho_mM = self.mMdescriptor.zeros(dtype=rho_mm.dtype)
+        self.gd.comm.broadcast(rho_mM, 0)
         return rho_mM
 
     def oldcalculate_density_matrix(self, f_n, C_nM, rho_mM=None):
@@ -541,8 +555,11 @@ class OrbitalLayouts(KohnShamLayouts):
         mem.subnode('eps [M]', self.nao * mem.floatsize)
         mem.subnode('H [MM]', self.nao * self.nao * itemsize)
 
-    def distribute_overlap_matrix(self, S_qMM, root=0):
+    def distribute_overlap_matrix(self, S_qMM, root=0,
+                                  add_hermitian_conjugate=False):
         self.gd.comm.sum(S_qMM, root)
+        if add_hermitian_conjugate:
+            S_qMM += S_qMM.swapaxes(-1, -2).conj()
         return S_qMM
 
     def get_overlap_matrix_shape(self):

@@ -12,7 +12,7 @@ from gpaw.test import equal
 ## top of the valence band.
 def band_gab(calc):
     ef = calc.get_fermi_level()
-    Nb = calc.wfs.nbands
+    Nb = calc.wfs.bd.nbands
     w_k = calc.wfs.weight_k
     x = 0
     nspin=calc.get_number_of_spins()
@@ -70,7 +70,7 @@ niter1 = calc.get_number_of_iterations()
 Eg_non_Hub=band_gab(calc)
 
 ##############################################################################
-## Setup 5eV Hubbard U on the d-orbitals (l=2) of Ni atoms (atom nr 0 and 1)
+## Setup 6eV Hubbard U on the d-orbitals (l=2) of Ni atoms (atom 0 and 1)
 ## arg 3 and 4 :scaling =1 (yes scale) and store=0 (no do not store)
 
 l=2                         # d-orbitals

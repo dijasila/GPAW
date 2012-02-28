@@ -76,6 +76,7 @@ def hRPS(x, xc=1.0):
         y -= xm / m
         if m < 12:
             z += xm
+    np.clip(y, -1e10, 1e10, y)
     y = np.exp(y)
     return xc * (1.0 - y), z * y
 
@@ -153,6 +154,20 @@ class VDWFunctional(GGA):
             assert kernel is None and Zab is None
             kernel = LibXC('GGA_X_PW86+LDA_C_PW')
             Zab = -1.887
+        elif name == 'optPBE-vdW':
+            assert kernel is None and Zab is None
+            kernel = LibXC('GGA_X_OPTPBE+LDA_C_PW')
+            Zab = -0.8491
+        elif name == 'optB88-vdW':
+            assert kernel is None and Zab is None
+            kernel = LibXC('GGA_X_OPTB88+LDA_C_PW')
+            Zab = -0.8491
+        elif name == 'C09-vdW':
+            assert kernel is None and Zab is None
+            kernel = LibXC('GGA_X_C09+LDA_C_PW')
+            Zab = -0.8491
+        else:
+            assert kernel is not None and Zab is not None
 
         self.Zab = Zab
         GGA.__init__(self, kernel)
@@ -165,6 +180,9 @@ class VDWFunctional(GGA):
     
     def initialize(self, density, hamiltonian, wfs, occupations):
         self.timer = wfs.timer
+
+    def get_Ecnl(self):
+        return self.Ecnl
 
     def calculate_gga(self, e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg):
         GGA.calculate_gga(self, e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
@@ -241,7 +259,9 @@ class VDWFunctional(GGA):
 
         Ecnl = self.calculate_6d_integral(n_g, q0_g, a2_g, e_LDAc_g, v_LDAc_g,
                                           v_g, deda2_g)
-        return Ecnl + dEcnl    
+        Ecnl += dEcnl
+        self.Ecnl = Ecnl
+        return Ecnl
 
     def read_table(self):
         name = ('phi-%.3f-%.3f-%.3f-%d-%d.pckl' %

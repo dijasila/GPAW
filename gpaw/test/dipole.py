@@ -1,3 +1,4 @@
+import numpy as np
 from gpaw import GPAW
 from gpaw.dipole_correction import DipoleCorrection
 from gpaw.poisson import PoissonSolver
@@ -45,7 +46,8 @@ Enable if-statement in the bottom for nice plots
 
 system1 = molecule('H2O')
 system1.set_pbc((True, True, False))
-system1.center(vacuum=3.0)
+system1.cell = 4.0 * np.array([[1.0, -1.5, 0.0], [1.0, 1.0, 0.0],
+                               [0., 0., 1.]])
 system1.center(vacuum=10.0, axis=2)
 
 system2 = system1.copy()
@@ -53,7 +55,10 @@ system2.positions *= [1.0, 1.0, -1.0]
 system2 += system1
 system2.center(vacuum=6.0, axis=2)
 
+convergence = dict(density=1e-5)
+
 calc1 = GPAW(mode='lcao',
+             convergence=convergence,
              gpts=h2gpts(0.3, system1.cell, idiv=8),
              poissonsolver=DipoleCorrection(PoissonSolver(relax='GS',
                                                           eps=1e-11), 2))
@@ -65,6 +70,7 @@ v1 = calc1.get_effective_potential(pad=False)
 
 
 calc2 = GPAW(mode='lcao',
+             convergence=convergence,
              gpts=h2gpts(0.3, system2.cell, idiv=8),
              poissonsolver=PoissonSolver(relax='GS', eps=1e-11))
 
@@ -91,13 +97,9 @@ if rank == 0:
     
     err1 = abs(dvz1 - dvz2)
     
-    # Comparison to what the values were when this test was written:
-    ref_value = 1.84637542487
+    # Comparison to what the values were when this test was last modified:
+    ref_value = 2.10081719137
     err2 = abs(dvz1 - ref_value)
-    
-    print 'Error', err1, err2
-    assert err1 < 4e-3
-    assert err2 < 5e-5
 
     if 0:
         import pylab as pl
@@ -108,3 +110,10 @@ if rank == 0:
         pl.plot(vz1)
         pl.plot(vz2)
         pl.show()
+
+    print 'Ref value of previous calculation', ref_value
+    print 'Value in this calculation', dvz1
+    
+    print 'Error', err1, err2
+    assert err1 < 4e-3
+    assert err2 < 2e-4

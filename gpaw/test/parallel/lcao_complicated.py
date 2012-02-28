@@ -13,7 +13,7 @@ from gpaw.utilities import compiled_with_sl
 # enough CPUs are available), both with and without scalapack
 # (if scalapack is available).
 #
-# Run with 2, 4 or 8 (best) CPUs.
+# Run with 1, 2, 4 or 8 (best) CPUs.
 #
 # This test covers many cases not caught by lcao_parallel or
 # lcao_parallel_kpt
@@ -21,6 +21,7 @@ from gpaw.utilities import compiled_with_sl
 # Written November 24, 2011, r8567
 
 system = fcc111('Au', size=(1, 3, 1))
+system.numbers[0] = 8
 # It is important that the number of atoms is uneven; this
 # tests the case where the band parallelization does not match
 # the partitioning of orbitals between atoms (the middle atom has orbitals
@@ -31,16 +32,21 @@ system.rattle(stdev=0.2, seed=17)
 #from ase.visualize import view
 #view(system)
 
+#system.set_pbc(0)
+#system.center(vacuum=3.5)
+from gpaw import FermiDirac
 
 def calculate(parallel, comm=world, Eref=None, Fref=None):
-    calc = GPAW(mode='lcao', basis='sz(dzp)',
+    calc = GPAW(mode='lcao',
+                basis=dict(O='dzp', Au='sz(dzp)'),
+                occupations=FermiDirac(0.1),
                 kpts=(4, 1, 1),
                 #txt=None,
                 communicator=comm,
                 poissonsolver=PoissonSolver(relax='J', eps=1e-8),
-                nbands=18,
+                nbands=16,
                 parallel=parallel,
-                h=0.3)
+                h=0.35)
     system.set_calculator(calc)
     E = system.get_potential_energy()
     F = system.get_forces()
@@ -98,6 +104,6 @@ if world.size == 8:
 if world.size > 1:
     check(parallel)
 
-    if compiled_with_sl():
-        parallel['sl_default'] = (sl_cpus // 2, 2, 5)
-        check(parallel)
+if compiled_with_sl():
+    parallel['sl_auto'] = True
+    check(parallel)

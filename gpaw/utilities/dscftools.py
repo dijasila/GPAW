@@ -1,7 +1,7 @@
 
 import numpy as np
 
-from gpaw import debug, parsize, parsize_bands
+from gpaw import debug, parsize_domain, parsize_bands
 from gpaw import mpi
 from gpaw.utilities.blas import axpy
 
@@ -576,8 +576,6 @@ def dscf_collapse_orbitals(paw, nbands_max='occupied', f_tol=1e-4,
 
     # Change various parameters related to new number of bands
     paw.wfs.bd = BandDescriptor(nbands_max, bd.comm, bd.strided)
-    paw.wfs.mynbands = paw.wfs.bd.mynbands
-    paw.wfs.nbands = paw.wfs.bd.nbands
     if paw.wfs.eigensolver:
         paw.wfs.eigensolver.initialized = False
     del bd

@@ -4,7 +4,7 @@ import numpy as np
 from math import sqrt, pi
 from ase.units import Hartree, Bohr
 from gpaw import extra_parameters
-from gpaw.utilities.blas import gemv, scal, axpy
+from gpaw.utilities.blas import gemv, scal, axpy, czher
 from gpaw.mpi import world, rank, size, serial_comm
 from gpaw.fd_operators import Gradient
 from gpaw.response.math_func import hilbert_transform
@@ -21,7 +21,7 @@ class CHI(BASECHI):
 
         nband: int
             Number of bands.
-        wmax: float
+        wmax: floadent
             Maximum energy for spectrum.
         dw: float
             Frequency interval.
@@ -44,6 +44,8 @@ class CHI(BASECHI):
                  q=None,
                  eshift=None,
                  ecut=10.,
+                 smooth_cut=None,
+                 density_cut=None,
                  G_plus_q=False,
                  eta=0.2,
                  rpad=np.array([1,1,1]),
@@ -58,7 +60,8 @@ class CHI(BASECHI):
                  kcommsize=None):
 
         BASECHI.__init__(self, calc=calc, nbands=nbands, w=w, q=q,
-                         eshift=eshift, ecut=ecut, G_plus_q=G_plus_q, eta=eta,
+                         eshift=eshift, ecut=ecut, smooth_cut=smooth_cut,
+                         density_cut=density_cut, G_plus_q=G_plus_q, eta=eta,
                          rpad=rpad, ftol=ftol, txt=txt,
                          optical_limit=optical_limit)
         
@@ -72,8 +75,8 @@ class CHI(BASECHI):
             self.comm = world
         self.chi0_wGG = None
 
-
-    def initialize(self, do_Kxc=False, simple_version=False):
+        
+    def initialize(self, do_Kxc=False, simple_version=False, spin=0):
 
         self.printtxt('')
         self.printtxt('-----------------------------------------')
@@ -81,23 +84,24 @@ class CHI(BASECHI):
         self.starttime = time()
         self.printtxt(ctime())
 
-        BASECHI.initialize(self)
+        BASECHI.initialize(self, spin=spin)
 
         # Frequency init
         self.dw = None
         if len(self.w_w) == 1:
-            self.HilberTrans = False
+            self.hilbert_trans = False
 
         if self.hilbert_trans:
             self.dw = self.w_w[1] - self.w_w[0]
-            assert ((self.w_w[1:] - self.w_w[:-1] - self.dw) < 1e-10).all() # make sure its linear w grid
+#            assert ((self.w_w[1:] - self.w_w[:-1] - self.dw) < 1e-10).all() # make sure its linear w grid
             assert self.w_w.max() == self.w_w[-1]
             
             self.dw /= Hartree
             self.w_w  /= Hartree
             self.wmax = self.w_w[-1] 
             self.wcut = self.wmax + 5. / Hartree
-            self.Nw  = int(self.wmax / self.dw) + 1
+#            self.Nw  = int(self.wmax / self.dw) + 1
+            self.Nw = len(self.w_w)
             self.NwS = int(self.wcut / self.dw) + 1
         else:
             self.Nw = len(self.w_w)
@@ -140,13 +144,13 @@ class CHI(BASECHI):
         # Calculate Coulomb kernel
         self.Kc_GG = calculate_Kc(self.q_c, self.Gvec_Gc, self.acell_cv,
                                   self.bcell_cv, self.calc.atoms.pbc, self.optical_limit, self.vcut)
-
+            
         # Calculate ALDA kernel (not used in chi0)
         R_av = calc.atoms.positions / Bohr
         if self.xc == 'RPA': #type(self.w_w[0]) is float:
-            self.Kxc_GG = np.zeros((self.npw, self.npw))
+            self.Kxc_sGG = np.zeros((self.nspins, self.npw, self.npw))
             self.printtxt('RPA calculation.')
-        elif self.xc == 'ALDA':
+        elif self.xc == 'ALDA' or self.xc == 'ALDA_X':
             nt_sg = calc.density.nt_sG
             if (self.rpad > 1).any() or (self.pbc - True).any():
                 nt_sG = np.zeros([self.nspins, self.nG[0], self.nG[1], self.nG[2]])
@@ -156,18 +160,22 @@ class CHI(BASECHI):
             else:
                 nt_sG = nt_sg
             
-            self.Kxc_GG = calculate_Kxc(self.gd, # global grid
-                                        nt_sG,
-                                        self.npw, self.Gvec_Gc,
-                                        self.nG, self.vol,
-                                        self.bcell_cv, R_av,
-                                        calc.wfs.setups,
-                                        calc.density.D_asp)
+            self.Kxc_sGG = calculate_Kxc(self.gd, # global grid
+                                         nt_sG,
+                                         self.npw, self.Gvec_Gc,
+                                         self.nG, self.vol,
+                                         self.bcell_cv, R_av,
+                                         calc.wfs.setups,
+                                         calc.density.D_asp,
+                                         functional=self.xc,
+                                         density_cut=self.density_cut)
+            
+            self.printtxt('Finished %s kernel ! ' % self.xc)
 
-            self.printtxt('Finished ALDA kernel ! ')
+
 #        else:
 #            raise ValueError('%s Not implemented !' %(self.xc))
-        
+                
         return
 
 
@@ -199,6 +207,10 @@ class CHI(BASECHI):
             d_c = [Gradient(gd, i, n=4, dtype=complex).apply for i in range(3)]
             dpsit_g = gd.empty(dtype=complex)
             tmp = np.zeros((3), dtype=complex)
+
+        use_zher = False
+        if self.eta < 1e-3:
+            use_zher = True
 
         rho_G = np.zeros(self.npw, dtype=complex)
         t0 = time()
@@ -234,8 +246,8 @@ class CHI(BASECHI):
                 psit1_g = psit1new_g.conj() * self.expqr_g
 
                 for m in range(self.nbands):
-#                    if m % 100 == 0:
-#                        print >> self.txt, '    ', k, n, m, time() - t0
+                    if self.nbands > 1000 and m % 200 == 0:
+                        print >> self.txt, '    ', k, n, m, time() - t0
 		    
                     check_focc = (f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]) > self.ftol
                     
@@ -243,7 +255,7 @@ class CHI(BASECHI):
                     psitold_g = self.get_wavefunction(ibzkpt2, m, check_focc, spin=spin)
                     t_get_wfs += time() - t1
 
-                    if check_focc:
+                    if check_focc:                            
                         psit2_g_tmp = kd.transform_wave_function(psitold_g, kq_k[k])
                         if (self.rpad > 1).any() or (self.pbc - True).any():
                             psit2_g = self.pad(psit2_g_tmp)
@@ -280,16 +292,23 @@ class CHI(BASECHI):
 
                         if k_pad:
                             rho_G[:] = 0.
-                        rho_GG = np.outer(rho_G, rho_G.conj())
-                        
+
                         if not self.hilbert_trans:
+                            if not use_zher:
+                                rho_GG = np.outer(rho_G, rho_G.conj())
                             for iw in range(self.Nw_local):
                                 w = self.w_w[iw + self.wstart] / Hartree
                                 coef = ( 1. / (w + e_kn[ibzkpt1, n] - e_kn[ibzkpt2, m] + 1j * self.eta) 
                                        - 1. / (w - e_kn[ibzkpt1, n] + e_kn[ibzkpt2, m] + 1j * self.eta) )
-                                C =  (f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]) * coef 
-                                axpy(C, rho_GG, chi0_wGG[iw])
+                                C =  (f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]) * coef
+
+                                if use_zher:
+                                    czher(C.real, rho_G.conj(), chi0_wGG[iw])
+                                else:
+                                    axpy(C, rho_GG, chi0_wGG[iw])
+
                         else:
+                            rho_GG = np.outer(rho_G, rho_G.conj())
                             focc = f_kn[ibzkpt1,n] - f_kn[ibzkpt2,m]
                             w0 = e_kn[ibzkpt2,m] - e_kn[ibzkpt1,n]
                             scal(focc, rho_GG)
@@ -333,14 +352,22 @@ class CHI(BASECHI):
         self.printtxt('Finished summation over k')
 
         self.kcomm.barrier()
-        del rho_GG, rho_G
+        if self.hilbert_trans:
+            del rho_GG, rho_G
         # Hilbert Transform
         if not self.hilbert_trans:
             self.kcomm.sum(chi0_wGG)
+            if use_zher:
+                assert (np.abs(chi0_wGG[0,1:,0]) < 1e-10).all()
+                for iw in range(self.Nw_local):
+                    chi0_wGG[iw] += chi0_wGG[iw].conj().T
+                    for iG in range(self.npw):
+                        chi0_wGG[iw, iG, iG] /= 2.
+                        assert np.abs(np.imag(chi0_wGG[iw, iG, iG])) < 1e-10 
         else:
             self.kcomm.sum(specfunc_wGG)
             if self.wScomm.size == 1:
-                chi0_wGG = hilbert_transform(specfunc_wGG, self.Nw, self.dw, self.eta,
+                chi0_wGG = hilbert_transform(specfunc_wGG, self.w_w, self.Nw, self.dw, self.eta,
                                              self.full_hilbert_trans)[self.wstart:self.wend]
                 self.printtxt('Finished hilbert transform !')
                 del specfunc_wGG
@@ -361,7 +388,7 @@ class CHI(BASECHI):
         
                 specfunc_Wg = SliceAlongFrequency(specfuncnew_wGG, coords, self.wcomm)
                 self.printtxt('Finished Slice Along Frequency !')
-                chi0_Wg = hilbert_transform(specfunc_Wg, self.Nw, self.dw, self.eta,
+                chi0_Wg = hilbert_transform(specfunc_Wg, self.w_w, self.Nw, self.dw, self.eta,
                                             self.full_hilbert_trans)[:self.Nw]
                 self.printtxt('Finished hilbert transform !')
                 self.comm.barrier()
@@ -374,6 +401,10 @@ class CHI(BASECHI):
         
         self.chi0_wGG = chi0_wGG / self.vol
 
+        if self.smooth_cut is not None:
+            for iw in range(self.Nw_local):
+                self.chi0_wGG[iw] *= np.outer(self.G_weights, self.G_weights)
+            
         self.printtxt('')
         self.printtxt('Finished chi0 !')
 

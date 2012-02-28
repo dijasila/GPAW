@@ -174,6 +174,21 @@ class BlacsGrid:
         self.ncpus = nprow * npcol
         self.order = order
 
+    @property
+    def coords(self):
+        return self.myrow, self.mycol
+
+    @property
+    def shape(self):
+        return self.nprow, self.npcol
+
+    def coords2rank(self, row, col):
+        return self.nprow * col + row
+
+    def rank2coords(self, rank):
+        col, row = divmod(rank, self.nprow)
+        return row, col
+
     def new_descriptor(self, M, N, mb, nb, rsrc=0, csrc=0):
         """Create a new descriptor from this BLACS grid.
 
@@ -289,7 +304,7 @@ class BlacsDescriptor(MatrixDescriptor):
     implementation probably works.
 
     """
-    def __init__(self, blacsgrid, M, N, mb, nb, rsrc, csrc):
+    def __init__(self, blacsgrid, M, N, mb, nb, rsrc=0, csrc=0):
         assert M > 0
         assert N > 0
         assert 1 <= mb
@@ -358,6 +373,18 @@ class BlacsDescriptor(MatrixDescriptor):
                              self.bshape, self.lld, self.shape)
         return string
 
+    def index2grid(self, row, col):
+        """Get the BLACS grid coordinates storing global index (row, col)."""
+        assert row < self.gshape[0], (row, col, self.gshape)
+        assert col < self.gshape[1], (row, col, self.gshape)
+        gridx = (row // self.bshape[0]) % self.blacsgrid.nprow
+        gridy = (col // self.bshape[1]) % self.blacsgrid.npcol
+        return gridx, gridy
+
+    def index2rank(self, row, col):
+        """Get the rank where global index (row, col) is stored."""
+        return self.blacsgrid.coords2rank(*self.index2grid(row, col))
+
     def diagonalize_dc(self, H_nn, C_nn, eps_N, UL='L'):
         """See documentation in gpaw/utilities/blacs.py."""
         scalapack_diagonalize_dc(self, H_nn, C_nn, eps_N, UL)
@@ -422,7 +449,7 @@ class BlacsDescriptor(MatrixDescriptor):
                 Mstop = min(Mstart + mb, M)
                 Nstop = min(Nstart + nb, N)
                 block = array_mn[myMstart:myMstart + mb,
-                                 myNstart:myNstart + mb]
+                                 myNstart:myNstart + nb]
                 
                 yield Mstart, Mstop, Nstart, Nstop, block
 
@@ -470,7 +497,7 @@ class Redistributor:
         self.srcdescriptor = srcdescriptor
         self.dstdescriptor = dstdescriptor
     
-    def redistribute(self, src_mn, dst_mn,
+    def redistribute(self, src_mn, dst_mn=None,
                      subM=None, subN=None,
                      ia=0, ja=0, ib=0, jb=0, uplo='G'):
         """Redistribute src_mn into dst_mn.
@@ -485,18 +512,29 @@ class Redistributor:
         index (i, j) of the origin of the submatrix inside the source
         and destination (a, b) matrices."""
         
+        srcdescriptor = self.srcdescriptor
+        dstdescriptor = self.dstdescriptor
+        dtype = src_mn.dtype
+
+        if dst_mn is None:
+            dst_mn = dstdescriptor.empty(dtype=dtype)
+
         # self.supercomm must be a supercommunicator of the communicators
         # corresponding to the context of srcmatrix as well as dstmatrix.
         # We should verify this somehow.
+        srcdescriptor = self.srcdescriptor
+        dstdescriptor = self.dstdescriptor
+
         dtype = src_mn.dtype
+        if dst_mn is None:
+            dst_mn = dstdescriptor.zeros(dtype=dtype)
+
         assert dtype == dst_mn.dtype
         assert dtype == float or dtype == complex
         
         # Check to make sure the submatrix of the source
         # matrix will fit into the destination matrix
         # plus standard BLACS matrix checks.
-        srcdescriptor = self.srcdescriptor
-        dstdescriptor = self.dstdescriptor
         srcdescriptor.checkassert(src_mn)
         dstdescriptor.checkassert(dst_mn)
 
@@ -518,6 +556,7 @@ class Redistributor:
                                subN, subM,
                                ja + 1, ia + 1, jb + 1, ib + 1, # 1-indexing
                                self.supercomm_bg.context, uplo)
+        return dst_mn
 
 
 def parallelprint(comm, obj):

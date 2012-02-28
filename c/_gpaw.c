@@ -30,6 +30,7 @@ PyObject* scal(PyObject *self, PyObject *args);
 PyObject* gemm(PyObject *self, PyObject *args);
 PyObject* gemv(PyObject *self, PyObject *args);
 PyObject* axpy(PyObject *self, PyObject *args);
+PyObject* czher(PyObject *self, PyObject *args);
 PyObject* rk(PyObject *self, PyObject *args);
 PyObject* r2k(PyObject *self, PyObject *args);
 PyObject* dotc(PyObject *self, PyObject *args);
@@ -73,7 +74,6 @@ PyObject* swap_arrays(PyObject *self, PyObject *args);
 PyObject* spherical_harmonics(PyObject *self, PyObject *args);
 PyObject* spline_to_grid(PyObject *self, PyObject *args);
 PyObject* NewLFCObject(PyObject *self, PyObject *args);
-PyObject* compiled_WITH_SL(PyObject *self, PyObject *args);
 #if defined(GPAW_WITH_SL) && defined(PARALLEL)
 PyObject* new_blacs_context(PyObject *self, PyObject *args);
 PyObject* get_blacs_gridinfo(PyObject* self, PyObject *args);
@@ -92,6 +92,7 @@ PyObject* scalapack_general_diagonalize_ex(PyObject *self, PyObject *args);
 PyObject* scalapack_general_diagonalize_mr3(PyObject *self, PyObject *args);
 #endif 
 PyObject* scalapack_inverse_cholesky(PyObject *self, PyObject *args);
+PyObject* pblas_tran(PyObject *self, PyObject *args);
 PyObject* pblas_gemm(PyObject *self, PyObject *args);
 PyObject* pblas_gemv(PyObject *self, PyObject *args);
 PyObject* pblas_r2k(PyObject *self, PyObject *args);
@@ -101,13 +102,6 @@ PyObject* pblas_rk(PyObject *self, PyObject *args);
 // Moving least squares interpolation
 PyObject* mlsqr(PyObject *self, PyObject *args); 
 
-// IO wrappers
-#ifdef IO_WRAPPERS
-void init_io_wrappers();
-#endif
-PyObject* Py_enable_io_wrappers(PyObject *self, PyObject *args);
-PyObject* Py_disable_io_wrappers(PyObject *self, PyObject *args);
-
 static PyMethodDef functions[] = {
   {"symmetrize", symmetrize, METH_VARARGS, 0},
   {"symmetrize_wavefunction", symmetrize_wavefunction, METH_VARARGS, 0},
@@ -115,7 +109,8 @@ static PyMethodDef functions[] = {
   {"scal", scal, METH_VARARGS, 0},
   {"gemm", gemm, METH_VARARGS, 0},
   {"gemv", gemv, METH_VARARGS, 0},
-  {"axpy", axpy, METH_VARARGS, 0},
+  {"axpy", axpy, METH_VARARGS, 0}, 
+  {"czher", czher, METH_VARARGS, 0},
   {"rk",  rk,  METH_VARARGS, 0},
   {"r2k", r2k, METH_VARARGS, 0},
   {"dotc", dotc, METH_VARARGS, 0},
@@ -156,7 +151,6 @@ static PyMethodDef functions[] = {
   {"vdw2", vdw2, METH_VARARGS, 0},
   {"swap", swap_arrays, METH_VARARGS, 0},
   {"spherical_harmonics", spherical_harmonics, METH_VARARGS, 0},
-  {"compiled_with_sl", compiled_WITH_SL, METH_VARARGS, 0},
   {"pc_potential", pc_potential, METH_VARARGS, 0},
   {"pc_potential_value", pc_potential_value, METH_VARARGS, 0},
   {"spline_to_grid", spline_to_grid, METH_VARARGS, 0},
@@ -187,6 +181,7 @@ static PyMethodDef functions[] = {
    scalapack_general_diagonalize_mr3, METH_VARARGS, 0},
 #endif // GPAW_MR3
   {"scalapack_inverse_cholesky", scalapack_inverse_cholesky, METH_VARARGS, 0},
+  {"pblas_tran", pblas_tran, METH_VARARGS, 0},
   {"pblas_gemm", pblas_gemm, METH_VARARGS, 0},
   {"pblas_gemv", pblas_gemv, METH_VARARGS, 0},
   {"pblas_r2k", pblas_r2k, METH_VARARGS, 0},
@@ -201,13 +196,12 @@ static PyMethodDef functions[] = {
   {"craypat_region_end", craypat_region_end, METH_VARARGS, 0},
 #endif // GPAW_CRAYPAT
   {"mlsqr", mlsqr, METH_VARARGS, 0}, 
-  {"enable_io_wrappers", Py_enable_io_wrappers, METH_VARARGS, 0},
-  {"disable_io_wrappers", Py_disable_io_wrappers, METH_VARARGS, 0},
   {0, 0, 0, 0}
 };
 
 #ifdef PARALLEL
 extern PyTypeObject MPIType;
+extern PyTypeObject GPAW_MPI_Request_type;
 #endif
 
 #ifndef GPAW_INTERPRETER
@@ -215,6 +209,8 @@ PyMODINIT_FUNC init_gpaw(void)
 {
 #ifdef PARALLEL
   if (PyType_Ready(&MPIType) < 0)
+    return;
+  if (PyType_Ready(&GPAW_MPI_Request_type) < 0)
     return;
 #endif
 
@@ -225,6 +221,7 @@ PyMODINIT_FUNC init_gpaw(void)
 
 #ifdef PARALLEL
   Py_INCREF(&MPIType);
+  Py_INCREF(&GPAW_MPI_Request_type);
   PyModule_AddObject(m, "Communicator", (PyObject *)&MPIType);
 #endif
 
@@ -269,10 +266,6 @@ main(int argc, char **argv)
 
 #ifdef GPAW_PERFORMANCE_REPORT
   gpaw_perf_init();
-#endif
-
-#ifdef IO_WRAPPERS
-  init_io_wrappers();
 #endif
 
 #ifdef GPAW_MPI_MAP

@@ -36,6 +36,8 @@ class AtomWaveFunctions(WaveFunctions):
 
 
 class AtomPoissonSolver:
+    description = 'Radial equidistant'
+
     def set_grid_descriptor(self, gd):
         self.gd = gd
         self.relax_method = 0
@@ -43,9 +45,6 @@ class AtomPoissonSolver:
         
     def initialize(self):
         pass
-
-    def get_method(self):
-        return 'Radial equidistant'
 
     def get_stencil(self):
         return 'Exact'
@@ -95,9 +94,9 @@ class AtomEigensolver:
             i1 += 2 * l1 + 1
 
         for kpt in wfs.kpt_u:
-            kpt.eps_n = np.empty(wfs.nbands)
-            kpt.psit_nG = self.gd.empty(wfs.nbands)
-            kpt.P_ani = {0: np.zeros((wfs.nbands, len(dS_ii)))}
+            kpt.eps_n = np.empty(wfs.bd.nbands)
+            kpt.psit_nG = self.gd.empty(wfs.bd.nbands)
+            kpt.P_ani = {0: np.zeros((wfs.bd.nbands, len(dS_ii)))}
         
         self.initialized = True
 

@@ -27,8 +27,8 @@ try:
     def get_writer():
         return Converter.get_xml_writer(CALCULATOR_GPAW)
     
-    def create_db_filename(param):
-        return cdbfn(param)
+    def create_db_filename(param, ext=".db"):
+        return cdbfn(param, ext=ext)
     
 except:    
     #old style cmr io
@@ -41,7 +41,7 @@ except:
     from cmr.io import CONVERTION_ORIGINAL
     from cmr.static import CALCULATOR_GPAW
     
-    def create_db_filename(param):
+    def create_db_filename(param, ext="ignored"):
         return cdbfn()
 
     def get_reader(name):
@@ -91,9 +91,17 @@ class Writer:
             print "dimension: ", name, value
 
     def __setitem__(self, name, value):
+        """ sets the value of a variable in the db-file. Note that only
+        values that were defined in the cmr-schema are written.
+        (User defined values have to be added with set_user_variable(name, value)
+        IMPORTANT: CMR does not support None values for numbers, therefore all variables
+        with value None are ignored."""
         if self.verbose:
             print "name value:", name, value
-        self.data[name]=value
+        if name == "GridSpacing" and value == "None":
+            return
+        if not value is None:
+            self.data[name]=value
         
     def _get_dimension(self, array):
         """retrieves the dimension of a multidimensional array
@@ -180,11 +188,18 @@ class Writer:
             for key in ase_vars:
                 self.data.set_user_variable(key, ase_vars[key])
             self.cmr_params.pop("ase_atoms_var")
-        if self.filename==".db":
-            self.cmr_params["output"]=create_db_filename(self.data)
+        if self.filename==".db" or self.filename==".cmr":
+            # Note: 
+            #      .cmr files can currently not be uploaded to the database therefore 
+            #      it defaults to .db until supported
+            self.cmr_params["output"]=create_db_filename(self.data, ext=".db")
         else:
             self.cmr_params["output"]=self.filename
-        self.data.write(self.cmr_params)
+        try:
+            self.data.write(self.cmr_params, ase_barrier=False)
+        except TypeError:
+            # for compatibility with older CMR versions:
+            self.data.write(self.cmr_params)
 
 class Reader:
     """ This class allows gpaw to access

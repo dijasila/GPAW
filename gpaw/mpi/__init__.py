@@ -57,15 +57,7 @@ class _Communicator:
             correspond to their respective index in the subset.
 
         """
-        assert is_contiguous(ranks, int)
-        sranks = np.sort(ranks)
-        # Are all ranks in range?
-        assert 0 <= sranks[0] and sranks[-1] < self.size
-        # No duplicates:
-        for i in range(len(sranks) - 1):
-            assert sranks[i] != sranks[i + 1]
-        assert len(ranks) > 0
-        
+
         comm = self.comm.new_communicator(ranks)
         if comm is None:
             # This cpu is not in the new communicator:
@@ -602,8 +594,9 @@ rank = world.rank
 parallel = (size > 1)
 
 
-def distribute_cpus(parsize, parsize_bands, nspins, nibzkpts, comm=world,
-                    idiotproof=True):
+def distribute_cpus(parsize_domain, parsize_bands,
+                    nspins, nibzkpts, comm=world,
+                    idiotproof=True, mode='fd'):
     """Distribute k-points/spins to processors.
 
     Construct communicators for parallelization over
@@ -613,23 +606,35 @@ def distribute_cpus(parsize, parsize_bands, nspins, nibzkpts, comm=world,
     size = comm.size
     rank = comm.rank
 
-    assert size % parsize_bands == 0
-    
     nsk = nspins * nibzkpts
 
-    if parsize is not None:
-        if type(parsize) is int:
-            ndomains = parsize
-        else:
-            ndomains = parsize[0] * parsize[1] * parsize[2]
-        assert (size // parsize_bands) % ndomains == 0
+    if mode in ['fd', 'lcao']:
+        if parsize_bands is None:
+            parsize_bands = 1
 
-        # How many spin/k-point combinations do we get per node:
-        nu, x = divmod(nsk, size // parsize_bands // ndomains)
-        assert x == 0 or nu >= 2 or not idiotproof, 'load imbalance!'
+        if parsize_domain is not None:
+            if type(parsize_domain) is int:
+                ndomains = parsize_domain
+            else:
+                ndomains = (parsize_domain[0] *
+                            parsize_domain[1] *
+                            parsize_domain[2])
+            assert (size // parsize_bands) % ndomains == 0
+
+        else:
+            ntot = nsk * parsize_bands
+            ndomains = size // gcd(ntot, size)
     else:
-        ntot = nsk * parsize_bands
-        ndomains = size // gcd(ntot, size)
+        # Plane wave mode:
+        ndomains = 1
+        if parsize_bands is None:
+            parsize_bands = size // gcd(nsk, size)
+
+    assert size % parsize_bands == 0
+        
+    # How many spin/k-point combinations do we get per node:
+    nu, x = divmod(nsk, size // parsize_bands // ndomains)
+    assert x == 0 or nu >= 2 or not idiotproof, 'load imbalance!'
 
     r0 = (rank // ndomains) * ndomains
     ranks = np.arange(r0, r0 + ndomains)

@@ -33,14 +33,14 @@ class CG(Eigensolver):
         Eigensolver.initialize(self, wfs)
         self.overlap = wfs.overlap
         # Allocate arrays
-        self.phi_G = self.gd.empty(dtype=self.dtype)
-        self.phi_old_G = self.gd.empty(dtype=self.dtype)
+        self.phi_G = wfs.empty(dtype=self.dtype)
+        self.phi_old_G = wfs.empty(dtype=self.dtype)
 
         # self.f = open('CG_debug','w')
 
-    def estimate_memory(self, mem, gd, dtype, mynbands, nbands):
-        Eigensolver.estimate_memory(self, mem, gd, dtype, mynbands, nbands)
-        gridmem = gd.bytecount(dtype)
+    def estimate_memory(self, mem, wfs):
+        Eigensolver.estimate_memory(self, mem, wfs)
+        gridmem = wfs.bytes_per_wave_function()
         mem.subnode('phi_G', gridmem)
         mem.subnode('phi_old_G', gridmem)
 
@@ -50,6 +50,8 @@ class CG(Eigensolver):
         niter = self.niter
         phi_G = self.phi_G
         phi_old_G = self.phi_old_G
+
+        comm = wfs.gd.comm
 
         self.subspace_diagonalize(hamiltonian, wfs, kpt)
 
@@ -71,17 +73,18 @@ class CG(Eigensolver):
             Htpsit_G = self.Htpsit_nG[n]
             gamma_old = 1.0
             phi_old_G[:] = 0.0
-            error = self.gd.comm.sum(np.vdot(R_G, R_G).real)
+            error = np.real(wfs.integrate(R_G, R_G))
             for nit in range(niter):
-                if (error * self.gd.dv * Hartree**2 <
-                    self.tolerance / self.nbands):
-                    # print >> self.f, "cg:iters", n, nit
+                if (error * Hartree**2 < self.tolerance / self.nbands):
                     break
 
-                pR_G = self.preconditioner(R_G, kpt)
+                ekin = self.preconditioner.calculate_kinetic_energy(
+                    kpt.psit_nG[n:n + 1], kpt)
+
+                pR_G = self.preconditioner(R_nG[n:n + 1], kpt, ekin)
 
                 # New search direction
-                gamma = self.gd.comm.sum(np.vdot(pR_G, R_G).real)
+                gamma = comm.sum(np.vdot(pR_G, R_G).real)
                 phi_G[:] = -pR_G - gamma / gamma_old * phi_old_G
                 gamma_old = gamma
                 phi_old_G[:] = phi_G[:]
@@ -94,7 +97,8 @@ class CG(Eigensolver):
                 self.timer.start('CG: orthonormalize')
                 for nn in range(self.nbands):
                     self.timer.start('CG: overlap')
-                    overlap = dotc(kpt.psit_nG[nn], phi_G) * self.gd.dv
+                    overlap = wfs.integrate(kpt.psit_nG[nn], phi_G,
+                                            global_integral=False)
                     self.timer.stop('CG: overlap')
                     self.timer.start('CG: overlap2')
                     for a, P2_i in P2_ai.items():
@@ -102,18 +106,18 @@ class CG(Eigensolver):
                         dO_ii = wfs.setups[a].dO_ii
                         overlap += dotc(P_i, np.inner(dO_ii, P2_i))
                     self.timer.stop('CG: overlap2')
-                    overlap = self.gd.comm.sum(overlap)
+                    overlap = comm.sum(overlap)
                     # phi_G -= overlap * kpt.psit_nG[nn]
                     axpy(-overlap, kpt.psit_nG[nn], phi_G)
                     for a, P2_i in P2_ai.items():
                         P_i = kpt.P_ani[a][nn]
                         P2_i -= P_i * overlap
 
-                norm = np.vdot(phi_G, phi_G) * self.gd.dv
+                norm = wfs.integrate(phi_G, phi_G, global_integral=False)
                 for a, P2_i in P2_ai.items():
                     dO_ii = wfs.setups[a].dO_ii
                     norm += np.vdot(P2_i, np.inner(dO_ii, P2_i))
-                norm = self.gd.comm.sum(norm.real)
+                norm = comm.sum(np.real(norm).item())
                 phi_G /= sqrt(norm)
                 for P2_i in P2_ai.values():
                     P2_i /= sqrt(norm)
@@ -121,17 +125,19 @@ class CG(Eigensolver):
 
                 # find optimum linear combination of psit_G and phi_G
                 an = kpt.eps_n[n]
-                wfs.kin.apply(phi_G, Htphi_G, kpt.phase_cd)
-                Htphi_G += phi_G * vt_G
-                b = np.vdot(phi_G, Htpsit_G) * self.gd.dv
-                c = np.vdot(phi_G, Htphi_G) * self.gd.dv
+                wfs.apply_pseudo_hamiltonian(kpt, hamiltonian,
+                                             phi_G.reshape((1,) + phi_G.shape),
+                                             Htphi_G.reshape((1,) +
+                                                             Htphi_G.shape))
+                b = wfs.integrate(phi_G, Htpsit_G, global_integral=False)
+                c = wfs.integrate(phi_G, Htphi_G, global_integral=False)
                 for a, P2_i in P2_ai.items():
                     P_i = kpt.P_ani[a][n]
                     dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
                     b += dot(P2_i, dot(dH_ii, P_i.conj()))
                     c += dot(P2_i, dot(dH_ii, P2_i.conj()))
-                b = self.gd.comm.sum(b.real)
-                c = self.gd.comm.sum(c.real)
+                b = comm.sum(np.real(b).item())
+                c = comm.sum(np.real(c).item())
 
                 theta = 0.5 * atan2(2 * b, an - c)
                 enew = (an * cos(theta)**2 +
@@ -168,7 +174,7 @@ class CG(Eigensolver):
                         coef_i[:] = (dot(P_i, dH_ii) -
                                      dot(P_i * kpt.eps_n[n], dO_ii))
                     wfs.pt.add(R_G, coef_ai, kpt.q)
-                    error_new = self.gd.comm.sum(np.vdot(R_G, R_G).real)
+                    error_new = np.real(wfs.integrate(R_G, R_G))
                     if error_new / error < 0.30:
                         # print >> self.f, "cg:iters", n, nit+1
                         break
@@ -189,4 +195,4 @@ class CG(Eigensolver):
             #   print >> self.f, "cg:iters", n, nit+1
 
         self.timer.stop('CG')
-        return total_error * self.gd.dv
+        return total_error

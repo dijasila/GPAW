@@ -77,17 +77,6 @@ class FDPWWaveFunctions(WaveFunctions):
                                                        basis_functions,
                                                        density, hamiltonian,
                                                        spos_ac):
-        if 0:
-            self.timer.start('Random wavefunction initialization')
-            for kpt in self.kpt_u:
-                kpt.psit_nG = self.gd.zeros(self.mynbands, self.dtype)
-                if extra_parameters.get('sic'):
-                    kpt.W_nn = np.zeros((self.nbands, self.nbands),
-                                        dtype=self.dtype)
-            self.random_wave_functions(0)
-            self.timer.stop('Random wavefunction initialization')
-            return
-
         self.timer.start('LCAO initialization')
         lcaoksl, lcaobd = self.initksl, self.initksl.bd
         lcaowfs = LCAOWaveFunctions(lcaoksl, self.gd, self.nvalence,
@@ -114,17 +103,11 @@ class FDPWWaveFunctions(WaveFunctions):
         del eigensolver, lcaowfs
 
         self.timer.start('LCAO to grid')
-        for kpt in self.kpt_u:
-            kpt.psit_nG = self.gd.zeros(self.mynbands, self.dtype)
-            if extra_parameters.get('sic'):
-                kpt.W_nn = np.zeros((self.nbands, self.nbands),
-                                    dtype=self.dtype)
-            basis_functions.lcao_to_grid(kpt.C_nM, 
-                                         kpt.psit_nG[:lcaobd.mynbands], kpt.q)
-            kpt.C_nM = None
+        self.initialize_from_lcao_coefficients(basis_functions,
+                                               lcaobd.mynbands)
         self.timer.stop('LCAO to grid')
 
-        if self.mynbands > lcaobd.mynbands:
+        if self.bd.mynbands > lcaobd.mynbands:
             # Add extra states.  If the number of atomic orbitals is
             # less than the desired number of bands, then extra random
             # wave functions are added.
@@ -139,95 +122,18 @@ class FDPWWaveFunctions(WaveFunctions):
         # from the file to memory:
         for kpt in self.kpt_u:
             file_nG = kpt.psit_nG
-            kpt.psit_nG = self.gd.empty(self.mynbands, self.dtype)
+            kpt.psit_nG = self.empty(self.bd.mynbands, self.dtype)
             if extra_parameters.get('sic'):
-                kpt.W_nn = np.zeros((self.nbands, self.nbands),
+                kpt.W_nn = np.zeros((self.bd.nbands, self.bd.nbands),
                                     dtype=self.dtype)
             # Read band by band to save memory
             for n, psit_G in enumerate(kpt.psit_nG):
                 if self.gd.comm.rank == 0:
-                    big_psit_G = np.array(file_nG[n][:], self.dtype)
+                    big_psit_G = file_nG[n][:].astype(psit_G.dtype)
                 else:
                     big_psit_G = None
                 self.gd.distribute(big_psit_G, psit_G)
         
-    def random_wave_functions(self, nao):
-        """Generate random wave functions."""
-
-        gpts = self.gd.N_c[0]*self.gd.N_c[1]*self.gd.N_c[2]
-        
-        if self.nbands < gpts/64:
-            gd1 = self.gd.coarsen()
-            gd2 = gd1.coarsen()
-
-            psit_G1 = gd1.empty(dtype=self.dtype)
-            psit_G2 = gd2.empty(dtype=self.dtype)
-
-            interpolate2 = Transformer(gd2, gd1, 1, self.dtype).apply
-            interpolate1 = Transformer(gd1, self.gd, 1, self.dtype).apply
-
-            shape = tuple(gd2.n_c)
-            scale = np.sqrt(12 / abs(np.linalg.det(gd2.cell_cv)))
-
-            old_state = np.random.get_state()
-
-            np.random.seed(4 + self.world.rank)
-
-            for kpt in self.kpt_u:
-                for psit_G in kpt.psit_nG[nao:]:
-                    if self.dtype == float:
-                        psit_G2[:] = (np.random.random(shape) - 0.5) * scale
-                    else:
-                        psit_G2.real = (np.random.random(shape) - 0.5) * scale
-                        psit_G2.imag = (np.random.random(shape) - 0.5) * scale
-
-                    interpolate2(psit_G2, psit_G1, kpt.phase_cd)
-                    interpolate1(psit_G1, psit_G, kpt.phase_cd)
-            np.random.set_state(old_state)
-        
-        elif gpts/64 <= self.nbands < gpts/8:
-            gd1 = self.gd.coarsen()
-
-            psit_G1 = gd1.empty(dtype=self.dtype)
-
-            interpolate1 = Transformer(gd1, self.gd, 1, self.dtype).apply
-
-            shape = tuple(gd1.n_c)
-            scale = np.sqrt(12 / abs(np.linalg.det(gd1.cell_cv)))
-
-            old_state = np.random.get_state()
-
-            np.random.seed(4 + self.world.rank)
-
-            for kpt in self.kpt_u:
-                for psit_G in kpt.psit_nG[nao:]:
-                    if self.dtype == float:
-                        psit_G1[:] = (np.random.random(shape) - 0.5) * scale
-                    else:
-                        psit_G1.real = (np.random.random(shape) - 0.5) * scale
-                        psit_G1.imag = (np.random.random(shape) - 0.5) * scale
-
-                    interpolate1(psit_G1, psit_G, kpt.phase_cd)
-            np.random.set_state(old_state)
-               
-        else:
-            shape = tuple(self.gd.n_c)
-            scale = np.sqrt(12 / abs(np.linalg.det(self.gd.cell_cv)))
-
-            old_state = np.random.get_state()
-
-            np.random.seed(4 + self.world.rank)
-
-            for kpt in self.kpt_u:
-                for psit_G in kpt.psit_nG[nao:]:
-                    if self.dtype == float:
-                        psit_G[:] = (np.random.random(shape) - 0.5) * scale
-                    else:
-                        psit_G.real = (np.random.random(shape) - 0.5) * scale
-                        psit_G.imag = (np.random.random(shape) - 0.5) * scale
-
-            np.random.set_state(old_state)        
-
     def orthonormalize(self):
         for kpt in self.kpt_u:
             self.overlap.orthonormalize(self, kpt)
@@ -273,48 +179,17 @@ class FDPWWaveFunctions(WaveFunctions):
         if self.bd.comm.rank == 0:
             self.kpt_comm.sum(F_av, 0)
 
-    def _get_wave_function_array(self, u, n):
+    def _get_wave_function_array(self, u, n, realspace=True):
         psit_nG = self.kpt_u[u].psit_nG
         if psit_nG is None:
             raise RuntimeError('This calculator has no wave functions!')
         return psit_nG[n][:] # dereference possible tar-file content
 
-    def write_wave_functions(self, writer):
-        master = (self.world.rank == 0) 
-        parallel = (self.world.size > 1)
-
-        if hasattr(writer, 'hdf5'):
-            hdf5 = True
-        else:
-            hdf5 = False
-
-        if master or hdf5:
-            writer.add('PseudoWaveFunctions',
-                       ('nspins', 'nibzkpts', 'nbands',
-                        'ngptsx', 'ngptsy', 'ngptsz'),
-                       dtype=self.dtype)
-
-        if hdf5:
-            for kpt in self.kpt_u:
-                indices = [kpt.s, kpt.k]
-                indices.append(self.bd.get_slice())
-                indices += self.gd.get_slice()
-                writer.fill(kpt.psit_nG, parallel=parallel, *indices)
-        else:
-            for s in range(self.nspins):
-                for k in range(self.nibzkpts):
-                    for n in range(self.nbands):
-                        psit_G = self.get_wave_function_array(n, k, s)
-                        if master:
-                            writer.fill(psit_G, s, k, n)
-
     def estimate_memory(self, mem):
-        gridbytes = self.wd.bytecount(self.dtype)
+        gridbytes = self.bytes_per_wave_function()
         mem.subnode('Arrays psit_nG', 
-                    len(self.kpt_u) * self.mynbands * gridbytes)
-        self.eigensolver.estimate_memory(mem.subnode('Eigensolver'), self.wd,
-                                         self.dtype, self.mynbands,
-                                         self.nbands)
+                    len(self.kpt_u) * self.bd.mynbands * gridbytes)
+        self.eigensolver.estimate_memory(mem.subnode('Eigensolver'), self)
         self.pt.estimate_memory(mem.subnode('Projectors'))
         self.matrixoperator.estimate_memory(mem.subnode('Overlap op'),
                                             self.dtype)

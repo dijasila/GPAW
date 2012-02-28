@@ -6,7 +6,8 @@ from ase.dft.kpoints import monkhorst_pack
 import gpaw.mpi as mpi
 from gpaw.poisson import PoissonSolver, FFTPoissonSolver
 from gpaw.occupations import FermiDirac
-from gpaw import parsize, parsize_bands, sl_default, sl_diagonalize, \
+from gpaw.wavefunctions.pw import PW
+from gpaw import parsize_domain, parsize_bands, sl_default, sl_diagonalize, \
                  sl_inverse_cholesky, sl_lcao, buffer_size
 
 
@@ -33,19 +34,20 @@ class InputParameters(dict):
             ('txt',             '-'),
             ('hund',            False),
             ('random',          False),
-            ('dtype',           float),
+            ('dtype',           None),
             ('maxiter',         120),
-            ('parallel',        {'domain':              parsize,
+            ('parallel',        {'domain':              parsize_domain,
                                  'band':                parsize_bands,
                                  'stridebands':         False,
+                                 'sl_auto':             False,
                                  'sl_default':          sl_default,
                                  'sl_diagonalize':      sl_diagonalize,
                                  'sl_inverse_cholesky': sl_inverse_cholesky,
                                  'sl_lcao':             sl_lcao,
                                  'buffer_size':         buffer_size}),
-            ('parsize',         None),
-            ('parsize_bands',   None),
-            ('parstride_bands', False),
+            ('parsize',         None), #don't use this
+            ('parsize_bands',   None), #don't use this
+            ('parstride_bands', False), #don't use this
             ('external',        None),  # eV
             ('verbose',         0),
             ('eigensolver',     None),
@@ -96,8 +98,6 @@ class InputParameters(dict):
 
         r = reader
 
-        master = (reader.comm.rank == 0) # read only on root of reader.comm
-
         version = r['version']
         
         assert version >= 0.3
@@ -106,7 +106,7 @@ class InputParameters(dict):
         self.nbands = r.dimension('nbands')
         self.spinpol = (r.dimension('nspins') == 2)
 
- 
+        bzk_kc = r.get('BZKPoints', broadcast=True) 
         if r.has_array('NBZKPoints'):
             self.kpts = r.get('NBZKPoints', broadcast=True)
             if r.has_array('MonkhorstPackOffset'):
@@ -114,26 +114,34 @@ class InputParameters(dict):
                 if offset_c.any():
                     self.kpts = monkhorst_pack(self.kpts) + offset_c
         else:
-            self.kpts = r.get('BZKPoints', broadcast=True)
+            self.kpts = bzk_kc
+
         self.usesymm = r['UseSymmetry']
         try:
             self.basis = r['BasisSet']
         except KeyError:
             pass
 
-        if version >= 0.9:
+        if version >= 2:
             h = r['GridSpacing']
+            if h is not None:
+                self.h = Bohr * h
+            if r.has_array('GridPoints'):
+                self.gpts = r.get('GridPoints')
         else:
-            h = None
+            if version >= 0.9:
+                h = r['GridSpacing']
+            else:
+                h = None
 
-        gpts = ((r.dimension('ngptsx') + 1) // 2 * 2,
-                (r.dimension('ngptsy') + 1) // 2 * 2,
-                (r.dimension('ngptsz') + 1) // 2 * 2)
+            gpts = ((r.dimension('ngptsx') + 1) // 2 * 2,
+                    (r.dimension('ngptsy') + 1) // 2 * 2,
+                    (r.dimension('ngptsz') + 1) // 2 * 2)
 
-        if h is None:
-            self.gpts = gpts
-        else:
-            self.h = Bohr * h
+            if h is None:
+                self.gpts = gpts
+            else:
+                self.h = Bohr * h
 
         self.lmax = r['MaximumAngularMomentum']
         self.setups = r['SetupTypes']
@@ -217,11 +225,10 @@ class InputParameters(dict):
         except KeyError:
             self.mode = 'fd'
 
-        try:
-            dtype = r['DataType']
-            if dtype == 'Float':
-                self.dtype = float
-            else:
+        if self.mode == 'pw':
+            self.mode = PW(ecut=r['PlaneWaveCutoff'] * Hartree)
+            
+        if len(bzk_kc) == 1 and not bzk_kc[0].any():
+            # Gamma point only:
+            if r['DataType'] == 'Complex':
                 self.dtype = complex
-        except KeyError:
-            self.dtype = float

@@ -142,7 +142,13 @@ class PAWTextOutput:
         t = self.text
         p = self.input_parameters
 
-        for setup in self.wfs.setups.setups.values():
+        # Write PAW setup information in order of appearance:
+        ids = set()
+        for id in self.wfs.setups.id_a:
+            if id in ids:
+                continue
+            ids.add(id)
+            setup = self.wfs.setups.setups[id]
             setup.print_info(self.text)
             basis_descr = setup.get_basis_description()
             t(basis_descr)
@@ -165,31 +171,16 @@ class PAWTextOutput:
         self.wfs.summary(self.txt)
         eigensolver = p['eigensolver']
         if eigensolver is None:
-            eigensolver = {'lcao': 'lcao (direct)'}.get(p['mode'], 'rmm-diis')
+            if p.mode == 'lcao':
+                eigensolver = 'lcao (direct)'
+            else:
+                eigensolver = 'rmm-diis'
         t('Eigensolver:       %s' % eigensolver)
-        if p['mode'] != 'lcao':
-            t('                   (%s)' % fd(p['stencils'][0]))
 
-        poisson = self.hamiltonian.poisson
-        t('Poisson Solver:    %s' % poisson.get_method())
-        description = fd(poisson.get_stencil())
-        t('                   (%s)\n' % description)
+        self.hamiltonian.summary(self.txt)
 
-        order = str((2 * p['stencils'][1]))
-        if order[-1] == '1':
-            order = order + 'st'
-        elif order[-1] == '2':
-            order = order + 'nd'
-        elif order[-1] == '3':
-            order = order + 'rd'
-        else:
-            order = order + 'th'
-
-        t('Interpolation:     ' + order + ' Order')
         t('Reference Energy:  %.6f' % (self.wfs.setups.Eref * Hartree))
         t()
-        if self.wfs.gamma:
-            t('Gamma Point Calculation')
 
         nibzkpts = self.wfs.nibzkpts
 
@@ -229,9 +220,9 @@ class PAWTextOutput:
 
         self.wfs.symmetry.print_symmetries(t)
 
-        t(('%d k-point%s in the Irreducible Part of the ' +
-           'Brillouin Zone (total: %d)') %
-          (nibzkpts, ' s'[1:nibzkpts], len(self.wfs.bzk_kc)))
+        t(self.wfs.kd.description)
+        t(('%d k-point%s in the Irreducible Part of the Brillouin Zone') %
+          (nibzkpts, ' s'[1:nibzkpts]))
 
         if self.scf.fixdensity > self.scf.maxiter:
             t('Fixing the initial density')
@@ -253,7 +244,9 @@ class PAWTextOutput:
           cc['density'])
         t('Integral of Absolute Eigenstate Change: %g eV^2' %
           cc['eigenstates'])
-        t('Number of Bands in Calculation:         %i' % self.wfs.nbands)
+        t('Number of Atoms: %d' % len(self.wfs.setups))
+        t('Number of Atomic Orbitals: %d' % self.wfs.setups.nao)
+        t('Number of Bands in Calculation:         %i' % self.wfs.bd.nbands)
         t('Bands to Converge:                      ', end='')
         if cc['bands'] == 'occupied':
             t('Occupied States Only')
@@ -315,6 +308,17 @@ class PAWTextOutput:
             t('Dipole Moment: %s' % dipole)
         else:
             t('Center of Charge: %s' % (dipole / abs(charge)))
+
+        try:
+            get_boundary_vHt = self.hamiltonian.poisson.get_boundary_potential
+            epsF = self.occupations.fermilevel
+        except AttributeError:
+            pass
+        else:
+            v0, v1 = get_boundary_vHt(self.hamiltonian.vHt_g)
+            wf0 = (v0 - epsF) * Hartree
+            wf1 = (v1 - epsF) * Hartree
+            t('Dipole-corrected work function: %f, %f' % (wf0, wf1))
 
         if self.wfs.nspins == 2:
             t()
@@ -464,7 +468,7 @@ def eigenvalue_string(paw, comment=None):
         eps_n = paw.get_eigenvalues(kpt=0, spin=0)
         f_n = paw.get_occupation_numbers(kpt=0, spin=0)
         if paw.wfs.world.rank == 0:
-            for n in range(paw.wfs.nbands):
+            for n in range(paw.wfs.bd.nbands):
                 s += ('%4d   %10.5f  %10.5f\n' % (n, eps_n[n], f_n[n]))
     else:
         s += comment + '                 Up                     Down\n'
@@ -474,7 +478,7 @@ def eigenvalue_string(paw, comment=None):
         fa_n = paw.get_occupation_numbers(kpt=0, spin=0, broadcast=False)
         fb_n = paw.get_occupation_numbers(kpt=0, spin=1, broadcast=False)
         if paw.wfs.world.rank == 0:
-            for n in range(paw.wfs.nbands):
+            for n in range(paw.wfs.bd.nbands):
                 s += (' %4d  %11.5f  %9.5f  %11.5f  %9.5f\n' %
                       (n, epsa_n[n], fa_n[n], epsb_n[n], fb_n[n]))
     return s
@@ -554,13 +558,3 @@ class Grid:
         if depth < self.depth[i, j]:
             self.grid[i, j] = ord(c)
             self.depth[i, j] = depth
-
-
-def fd(n):
-    if n == 'M':
-        return 'Mehrstellen finite-difference stencil'
-    if n == 1:
-        return 'Nearest neighbor central finite-difference stencil'
-    if isinstance(n, str):
-        return n
-    return '%d nearest neighbors central finite-difference stencil' % n

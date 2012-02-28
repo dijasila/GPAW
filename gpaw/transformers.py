@@ -85,6 +85,7 @@ class TransformerWrapper:
         self.dtype = transformer.dtype
         self.ngpin = transformer.ngpin
         self.ngpout = transformer.ngpout
+        self.nn = transformer.nn
 
     def apply(self, input, output=None, phases=None):
         assert is_contiguous(input, self.dtype)
@@ -109,6 +110,7 @@ def Transformer(gdin, gdout, nn=1, dtype=float):
             t = TransformerWrapper(t)
         return t
     class T:
+        nn = 1
         def apply(self, input, output, phases=None):
             output[:] = input
     return T()

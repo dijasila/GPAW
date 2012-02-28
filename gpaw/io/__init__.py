@@ -1,5 +1,12 @@
+"""GPAW I/O
+
+Change log:
+
+Version 2:
+    GridPoints array added when gpts is used.
+"""
+
 import os
-import os.path
 
 try:
     from ase.units import AUT # requires rev1839 or later
@@ -16,13 +23,12 @@ import numpy as np
 import gpaw.mpi as mpi
 from gpaw.io.dummy import DummyWriter
 
-import os,time,tempfile
 
 def open(filename, mode='r', comm=mpi.world):
     parallel_io = False
     if filename.endswith('.nc'):
         import gpaw.io.netcdf as io
-    elif filename.endswith('.db'):
+    elif filename.endswith('.db') or filename.endswith('.cmr'):
         import gpaw.io.cmr_io as io
     elif filename.endswith('.hdf5'):
         import gpaw.io.hdf5 as io
@@ -118,7 +124,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     
     w = open(filename, 'w', world)
     w['history'] = 'GPAW restart file'
-    w['version'] = 1
+    w['version'] = 2
     w['lengthunit'] = 'Bohr'
     w['energyunit'] = 'Hartree'
 
@@ -171,23 +177,26 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     w.dimension('nfinegptsy', ng[1])
     w.dimension('nfinegptsz', ng[2])
     w.dimension('nspins', wfs.nspins)
-    w.dimension('nbands', wfs.nbands)
+    w.dimension('nbands', wfs.bd.nbands)
     nproj = sum([setup.ni for setup in wfs.setups])
     nadm = sum([setup.ni * (setup.ni + 1) // 2 for setup in wfs.setups])
     w.dimension('nproj', nproj)
     w.dimension('nadm', nadm)
 
+    if wfs.dtype == float:
+        w['DataType'] = 'Float'
+    else:
+        w['DataType'] = 'Complex'
+
     p = paw.input_parameters
 
-    # Write grid-spacing or None if gpts was specified:
-    if p.gpts is None:
-        if p.h is None:
-            h = 0.2 / Bohr
-        else:
-            h = p.h / Bohr
+    if p.gpts is not None:
+        w.add('GridPoints', ('3'), p.gpts, write=master)
+
+    if p.h is None:
+        w['GridSpacing'] = repr(None)
     else:
-        h = repr(None)
-    w['GridSpacing'] = h
+        w['GridSpacing'] = p.h / Bohr
 
     # Write various parameters:
     (w['KohnShamStencil'],
@@ -231,11 +240,6 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     w['EnergyError'] = scf.energy_error
     w['EigenstateError'] = scf.eigenstates_error
 
-    if wfs.dtype == float:
-        w['DataType'] = 'Float'
-    else:
-        w['DataType'] = 'Complex'
-
     # Try to write time and kick strength in time-propagation TDDFT:
     for attr, name in [('time', 'Time'), ('niter', 'TimeSteps'), 
                        ('kick_strength', 'AbsorptionKick')]:
@@ -246,8 +250,6 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
             else:
                 w[name] = value
 
-    w['Mode'] = p.mode
-    
     # Write fingerprint (md5-digest) for all setups:
     for setup in wfs.setups.setups.values():
         key = atomic_names[setup.Z] + 'Fingerprint'
@@ -287,7 +289,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
           dtype=dtype)
     if hdf5:
         # Domain masters write parallel over spin, kpoints and band groups
-        all_P_ni = np.empty((wfs.mynbands, nproj), dtype=wfs.dtype)
+        all_P_ni = np.empty((wfs.bd.mynbands, nproj), dtype=wfs.dtype)
         cumproj_a = np.cumsum([0] + [setup.ni for setup in wfs.setups])
         for kpt in wfs.kpt_u:
             requests = []
@@ -301,7 +303,8 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
                     if wfs.rank_a[a] == 0:
                         P_ani[a] = kpt.P_ani[a]
                     else:
-                        P_ani[a] = np.empty((wfs.mynbands, ni), dtype=wfs.dtype)
+                        P_ani[a] = np.empty((wfs.bd.mynbands, ni),
+                                            dtype=wfs.dtype)
                         requests.append(domain_comm.receive(P_ani[a], 
                             wfs.rank_a[a], 1303 + a, block=False))
             else:
@@ -441,11 +444,12 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
 
     hamiltonian.xc.write(w, natoms)
 
-    if mode == 'all':
+    if mode in ['', 'all']:
         timer.start('Pseudo-wavefunctions')
-        wfs.write_wave_functions(w)
+        wfs.write(w, write_wave_functions=(mode == 'all'))
         timer.stop('Pseudo-wavefunctions')
     elif mode != '':
+        w['Mode'] = 'fd'
         # Write the wave functions as seperate files
 
         # check if we need subdirs and have to create them
@@ -467,7 +471,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         ngd = wfs.gd.get_size_of_global_array()
         for s in range(wfs.nspins):
             for k in range(wfs.nibzkpts):
-                for n in range(wfs.nbands):
+                for n in range(wfs.bd.nbands):
                     psit_G = wfs.get_wave_function_array(n, k, s)
                     if master:
                         fname = template % (s, k, n) + '.' + ftype
@@ -483,7 +487,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
                         wpsi.close()
 
     db = False
-    if filename.endswith('.db'):
+    if filename.endswith('.db') or filename.endswith('.cmr'):
         if master:
             w.write_additional_db_params(cmr_params=cmr_params)
     elif cmr_params is not None and 'db' in cmr_params:
@@ -502,7 +506,10 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
 
    # Creates a db file for CMR, if requested
     if db and not filename.endswith('.db'):
-        #Write a db copy to the database
+        # Write a db copy to the database
+        write(paw, '.db', mode='', cmr_params=cmr_params, **kwargs)
+    elif db and not filename.endswith('.cmr'):
+        # Write a db copy to the database (Note currently only *.db are accepted for a check-in)
         write(paw, '.db', mode='', cmr_params=cmr_params, **kwargs)
 
 
@@ -684,19 +691,12 @@ def read(paw, reader):
     except (AttributeError, KeyError):
         norbitals = None
 
-    # Wave functions and eigenvalues:
-    dtype = r['DataType']
-    if dtype == 'Float' and paw.input_parameters['dtype'] != complex:
-        wfs.dtype = float
-    else:
-        wfs.dtype = complex
-        
     nibzkpts = r.dimension('nibzkpts')
     nbands = r.dimension('nbands')
     nslice = wfs.bd.get_slice()
 
     if (nibzkpts != len(wfs.ibzk_kc) or
-        nbands != band_comm.size * wfs.mynbands):
+        nbands != band_comm.size * wfs.bd.mynbands):
         paw.scf.reset()
     else:
         # Verify that symmetries for for k-point reduction hasn't changed:
@@ -733,7 +733,7 @@ def read(paw, reader):
             if norbitals is not None: # XXX will probably fail for hdf5
                 timer.start('dSCF expansions')
                 kpt.ne_o = np.empty(norbitals, dtype=float)
-                kpt.c_on = np.empty((norbitals, wfs.mynbands), dtype=complex)
+                kpt.c_on = np.empty((norbitals, wfs.bd.mynbands), dtype=complex)
                 for o in range(norbitals):
                     kpt.ne_o[o] = r.get('LinearExpansionOccupations',  s, k, o,
                                         read=master)
@@ -743,7 +743,7 @@ def read(paw, reader):
                 timer.stop('dSCF expansions')
 
         if (r.has_array('PseudoWaveFunctions') and
-            paw.input_parameters.mode == 'fd'):
+            paw.input_parameters.mode != 'lcao'):
 
             timer.start('Pseudo-wavefunctions')
             if (not hdf5 and band_comm.size == 1) or (hdf5 and world.size == 1):
@@ -756,7 +756,7 @@ def read(paw, reader):
 
             else:
                 for kpt in wfs.kpt_u:
-                    kpt.psit_nG = wfs.gd.empty(wfs.mynbands, wfs.dtype)
+                    kpt.psit_nG = wfs.empty(wfs.bd.mynbands, wfs.dtype)
                     if hdf5:
                         indices = [kpt.s, kpt.k]
                         indices.append(wfs.bd.get_slice())
@@ -785,7 +785,8 @@ def read(paw, reader):
         if hdf5:
             # Domain masters read parallel over spin, kpoints and band groups
             cumproj_a = np.cumsum([0] + [setup.ni for setup in wfs.setups])
-            all_P_ni = np.empty((wfs.mynbands, cumproj_a[-1]), dtype=wfs.dtype)
+            all_P_ni = np.empty((wfs.bd.mynbands, cumproj_a[-1]),
+                                dtype=wfs.dtype)
             for kpt in wfs.kpt_u:
                 requests = []
                 kpt.P_ani = {}
@@ -799,7 +800,7 @@ def read(paw, reader):
                 if domain_comm.rank == 0:
                     for a in range(natoms):
                         ni = wfs.setups[a].ni
-                        P_ni = np.empty((wfs.mynbands, ni), dtype=wfs.dtype)
+                        P_ni = np.empty((wfs.bd.mynbands, ni), dtype=wfs.dtype)
                         P_ni[:] = all_P_ni[:, cumproj_a[a]:cumproj_a[a+1]]
                         kpt.P_ani[a] = P_ni
 
@@ -821,6 +822,9 @@ def read(paw, reader):
     newmode =  paw.input_parameters.mode
     try:
         oldmode = r['Mode']
+        if oldmode == 'pw':
+            from gpaw.wavefunctions.pw import PW
+            oldmode = PW(ecut=r['PlaneWaveCutoff'] * Hartree)
     except (AttributeError, KeyError):
         oldmode = 'fd' # This is an old gpw file from before lcao existed
         

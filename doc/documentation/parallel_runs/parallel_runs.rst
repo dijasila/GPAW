@@ -149,11 +149,13 @@ or simply a list of ranks. Thus, you may write::
 
   from gpaw import GPAW
   import gpaw.mpi as mpi
-  import numpy as np
 
   # Create a calculator using ranks 0, 3 and 4 from the mpi world communicator
-  comm = mpi.world.new_communicator(np.array([0, 3, 4]))
-  calc = GPAW(communicator=comm)
+  ranks = [0, 3, 4]
+  comm = mpi.world.new_communicator(ranks)
+  if mpi.world.rank in ranks:
+      calc = GPAW(communicator=comm)
+      ...
 
 Be sure to specify different output files to each calculator,
 otherwise their outputs will be mixed up.
@@ -181,16 +183,17 @@ The default value corresponds to this Python dictionary::
   {'domain':              None,
    'band':                1,
    'stridebands':         False,
+   'sl_auto':             False,
    'sl_default':          None,
    'sl_diagonalize':      None,
    'sl_inverse_cholesky': None,
-   'sl_lcao':              None
-   'buffer_size':       None}
+   'sl_lcao':             None,
+   'buffer_size':         None}
 
 In words:
 
 * The ``'domain'`` value specifies either an integer ``n``, or specifically a tuple
-  ``(nx,ny,nz)`` of 3 integers, for :ref:`domain decomposition <manual_parsize>`.
+  ``(nx,ny,nz)`` of 3 integers, for :ref:`domain decomposition <manual_parsize_domain>`.
   If not specified (i.e. ``None``), the calculator will try to determine the best
   domain parallelization size based on number of kpoints, spins etc.
 
@@ -201,11 +204,16 @@ In words:
 * The ``'stridebands'`` value only applies when band parallelization is used, and
   can be used to toggle between grouped and strided band distribution.
 
-* The four ``'sl_...'`` values are for specifying ScaLAPACK parameters, which
-  must be a tuple ``(m,n,mb)`` of 3 integers to indicate a ``m*n`` grid of CPUs
-  and a blocking factor of ``mb``. If either of the three latter are not
+* If ``'sl_auto'`` is ``True``, ScaLAPACK will be enabled with automatically chosen
+  parameters and using all available CPUs.
+
+* The four other ``'sl_...'`` values are for enabling ScaLAPACK with custom parameters.
+  Each can be specified as a tuple ``(m,n,mb)`` of 3 integers to
+  indicate an ``m*n`` grid of CPUs and a block size of ``mb``.
+  If any of the three latter keywords are not
   specified (i.e. ``None``), they default to the value of
-  ``'sl_default'``. Presently, ``'sl_inverse_cholesky'`` must equal ``'sl_diagonalize'``.
+  ``'sl_default'``. Presently, ``'sl_inverse_cholesky'`` must equal
+  ``'sl_diagonalize'``.
 
 * The ``'buffer_size'``  is specified as an integer and corresponds to
   the size of the buffer in KiB used in the 1D systolic parallel
@@ -226,7 +234,7 @@ In words:
    specifically state otherwise.
 
 
-.. _manual_parsize:
+.. _manual_parsize_domain:
 
 Domain decomposition
 --------------------

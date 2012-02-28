@@ -50,7 +50,7 @@ debug = False
 trace = False
 dry_run = 0
 memory_estimate_depth = 2
-parsize = None
+parsize_domain = None
 parsize_bands = None
 sl_default = None
 sl_diagonalize = None
@@ -80,11 +80,11 @@ while len(sys.argv) > i:
         if len(arg.split('=')) == 2:
             memory_estimate_depth = int(arg.split('=')[1])
     elif arg.startswith('--domain-decomposition='):
-        parsize = [int(n) for n in arg.split('=')[1].split(',')]
-        if len(parsize) == 1:
-            parsize = parsize[0]
+        parsize_domain = [int(n) for n in arg.split('=')[1].split(',')]
+        if len(parsize_domain) == 1:
+            parsize_domain = parsize_domain[0]
         else:
-            assert len(parsize) == 3
+            assert len(parsize_domain) == 3
     elif arg.startswith('--state-parallelization='):
         parsize_bands = int(arg.split('=')[1])
     elif arg.startswith('--sl_default='):
@@ -206,12 +206,13 @@ def get_gpaw_python_path():
     raise RuntimeError('Could not find gpaw-python!')
 
 
-setup_paths = os.environ.get('GPAW_SETUP_PATH', '').split(':')
+setup_paths = os.environ.get('GPAW_SETUP_PATH', '/usr/share/gpaw-setups').split(':')
 
 from gpaw.aseinterface import GPAW
 from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
 from gpaw.poisson import PoissonSolver
 from gpaw.occupations import FermiDirac, MethfesselPaxton
+from gpaw.wavefunctions.pw import PW
 
 
 class Calculator(GPAW):
