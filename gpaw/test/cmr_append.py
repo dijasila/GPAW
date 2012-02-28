@@ -53,7 +53,6 @@ if 1: # not used in this example
 # write the information 'as in' corresponding trajectory file into cmr file
 write(cmrfile, system2, cmr_params=cmr_params)
 
-barrier()
 # add the xc tag to the cmrfile
 assert os.path.exists(cmrfile)
 data = cmr.read(cmrfile)
@@ -63,7 +62,6 @@ data.write(cmrfile)
 # peform PBE calculation on LDA density
 ediff = calc2.get_xc_difference('PBE')
 
-barrier()
 # add new results to the cmrfile
 assert os.path.exists(cmrfile)
 data = cmr.read(cmrfile)
@@ -76,14 +74,15 @@ data.write(cmrfile)
 
 from cmr.ui import DirectoryReader
 
-if rank == 0:
+if True:
     reader = DirectoryReader(directory='.', ext='.cmr')
     # read all compounds in the project with lcao
     all = reader.find(name_value_list=[('mode', 'lcao')],
                       keyword_list=[project_id])
     results = all.get('formula', formula)
 
-    print results['formula'], results['xc'], results['ase_potential_energy']
+    if rank == 0:
+        print results['formula'], results['xc'], results['ase_potential_energy']
 
     # column_length=0 aligns data in the table (-1 : data unaligned is default)
     all.print_table(column_length=0,
