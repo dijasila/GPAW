@@ -70,23 +70,20 @@ data.write(cmrfile)
 
 # analyse the results with CMR
 
-# cmr readers work only in serial!
-
 from cmr.ui import DirectoryReader
 
-if True:
-    reader = DirectoryReader(directory='.', ext='.cmr')
-    # read all compounds in the project with lcao
-    all = reader.find(name_value_list=[('mode', 'lcao')],
-                      keyword_list=[project_id])
-    results = all.get('formula', formula)
+reader = DirectoryReader(directory='.', ext='.cmr')
+# read all compounds in the project with lcao
+all = reader.find(name_value_list=[('mode', 'lcao')],
+                  keyword_list=[project_id])
+results = all.get('formula', formula)
 
-    if rank == 0:
-        print results['formula'], results['xc'], results['ase_potential_energy']
+if rank == 0:
+    print results['formula'], results['xc'], results['ase_potential_energy']
 
-    # column_length=0 aligns data in the table (-1 : data unaligned is default)
-    all.print_table(column_length=0,
-                    columns=['formula', 'xc', 'h', 'ase_potential_energy', 'PBE'])
+# column_length=0 aligns data in the table (-1 : data unaligned is default)
+all.print_table(column_length=0,
+                columns=['formula', 'xc', 'h', 'ase_potential_energy', 'PBE'])
 
 if rank == 0:
     equal(results['PBE'], e + ediff, 1e-6)
