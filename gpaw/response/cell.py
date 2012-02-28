@@ -46,7 +46,10 @@ def set_Gvectors(acell, bcell, nG, Ecut, q=[0., 0., 0.]):
             for k in range(Nmax[2]):
                 tmp = np.array([m[0][i], m[1][j], m[2][k]])
                 tmpG = np.dot(tmp+np.array(q), bcell)
-                Gmod = tmpG[0]**2/Gcut[0]**2 + tmpG[1]**2/Gcut[1]**2 + tmpG[2]**2/Gcut[2]**2
+                Gmod = 0
+                for dim in range(3):
+                    if Gcut[dim] > 0:
+                        Gmod += tmpG[dim]**2/Gcut[dim]**2
                 if Gmod < 1:
                     G[n] = tmp
                     n += 1
