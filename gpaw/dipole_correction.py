@@ -46,6 +46,20 @@ class DipoleCorrection:
         phi += dphi
         return iters
 
+    def get_boundary_potential(self, vHa_g):
+        c = self.corrector.c
+        if c == 0:
+            v0 = vHa_g[0, :, :].mean()
+            v1 = vHa_g[-1, :, :].mean()
+        elif c == 1: 
+            v0 = vHa_g[:, 0, :].mean()
+            v1 = vHa_g[:, -1, :].mean()
+        elif c == 2:
+            v0 = vHa_g[:, :, 0].mean()
+            v1 = vHa_g[:, :, -1].mean()
+        return v0, v1
+    
+
     def estimate_memory(self, mem):
         self.poissonsolver.estimate_memory(mem)
 
