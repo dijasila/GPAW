@@ -48,6 +48,9 @@ class WaveFunctions(EmptyWaveFunctions):
     """
 
     collinear = True
+    # ncomp is a number of array components necessary to hold
+    # information about non-collinear spins.  With collinear spin
+    # it is always 1; else it is 2.
     ncomp = 1
     
     def __init__(self, gd, nvalence, setups, bd, dtype,
