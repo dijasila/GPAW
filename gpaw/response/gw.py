@@ -96,7 +96,7 @@ class GW(BASECHI):
         self.dw = self.w_w[1] - self.w_w[0]
         self.Nw = len(self.w_w)
 
-        emaxdiff = self.e_kn[:, self.nbands].max() - self.e_kn[:,0].min()
+        emaxdiff = self.e_kn[:, self.nbands-1].max() - self.e_kn[:,0].min()
         assert (self.wmax > emaxdiff), 'Maximum frequency must be larger than %f' %(emaxdiff*Hartree)
 
         # GW kpoints init
@@ -124,7 +124,7 @@ class GW(BASECHI):
         assert (len(self.w_w) - 1) % self.wpar == 0
         self.wcommsize = self.wpar
         self.qcommsize = size // self.wpar
-        assert self.qcommsize * self.wcommsize == size
+        assert self.qcommsize * self.wcommsize == size, 'wpar must be integer divisor of number of requested cores'
         self.wcomm, self.qcomm, self.worldcomm = set_communicator(world, rank, size, self.wpar)
         nq, self.nq_local, self.q_start, self.q_end = parallel_partition(
                                   self.nqpt, self.qcomm.rank, self.qcomm.size, reshape=False)
