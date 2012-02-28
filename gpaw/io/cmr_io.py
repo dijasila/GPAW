@@ -197,7 +197,7 @@ class Writer:
             self.cmr_params["output"]=self.filename
         try:
             self.data.write(self.cmr_params, ase_barrier=False)
-        except NameError:
+        except TypeError:
             # for compatibility with older CMR versions:
             self.data.write(self.cmr_params)
 
