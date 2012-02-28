@@ -195,7 +195,11 @@ class Writer:
             self.cmr_params["output"]=create_db_filename(self.data, ext=".db")
         else:
             self.cmr_params["output"]=self.filename
-        self.data.write(self.cmr_params)
+        try:
+            self.data.write(self.cmr_params, ase_barrier=False)
+        except NameError:
+            # for compatibility with older CMR versions:
+            self.data.write(self.cmr_params)
 
 class Reader:
     """ This class allows gpaw to access
