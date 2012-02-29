@@ -8,13 +8,13 @@ try:
     import ctypes
     lib = ctypes.CDLL('libfftw3.so')
 except (ImportError, OSError):
-    lib = None  # Use plan B
+    lib = None  # Use Numpy's fft
 
 
-FFTW_ESTIMATE = 64
-FFTW_MEASURE = 0
-FFTW_PATIENT = 32
-FFTW_EXHAUSTIVE = 8
+ESTIMATE = 64
+MEASURE = 0
+PATIENT = 32
+EXHAUSTIVE = 8
 
 
 def check_fft_size(n):
@@ -37,9 +37,9 @@ def get_efficient_fft_size(n):
     return n
 
 
-class FFTPlan:
+class FFTWPlan:
     """FFTW3 3d transform."""
-    def __init__(self, in_R, out_R, sign, flags=FFTW_MEASURE):
+    def __init__(self, in_R, out_R, sign, flags=MEASURE):
         if in_R.dtype == float:
             assert sign == -1
             n0, n1, n2 = in_R.shape
@@ -62,7 +62,7 @@ class FFTPlan:
         lib.fftw_destroy_plan(self.plan)
 
 
-class FFTPlanB:
+class NumpyFFTPlan:
     """Numpy fallback."""
     def __init__(self, in_R, out_R, sign, flags=None):
         self.in_R = in_R
@@ -94,8 +94,9 @@ def empty(shape, dtype=float):
 
 
 if lib is None:
-    FFTPlan = FFTPlanB
+    FFTPlan = NumpyFFTPlan
 else:
+    FFTPlan = FFTWPlan
     lib.fftw_plan_dft_3d.argtypes = [
         ctypes.c_int, ctypes.c_int, ctypes.c_int,
         np.ctypeslib.ndpointer(dtype=complex, ndim=3, flags='C_CONTIGUOUS'),
@@ -103,48 +104,11 @@ else:
         ctypes.c_int, ctypes.c_uint]
     lib.fftw_plan_dft_r2c_3d.argtypes = [
         ctypes.c_int, ctypes.c_int, ctypes.c_int,
-        np.ctypeslib.ndpointer(dtype=float, ndim=3),#, flags='C_CONTIGUOUS'),
+        np.ctypeslib.ndpointer(dtype=float, ndim=3),
         np.ctypeslib.ndpointer(dtype=complex, ndim=3, flags='C_CONTIGUOUS'),
         ctypes.c_uint]
     lib.fftw_plan_dft_c2r_3d.argtypes = [
         ctypes.c_int, ctypes.c_int, ctypes.c_int,
         np.ctypeslib.ndpointer(dtype=complex, ndim=3, flags='C_CONTIGUOUS'),
-        np.ctypeslib.ndpointer(dtype=float, ndim=3),#, flags='C_CONTIGUOUS'),
+        np.ctypeslib.ndpointer(dtype=float, ndim=3),
         ctypes.c_uint]
-
-
-if __name__ == '__main__':
-    shape = (32, 28, 124)
-    a = empty(shape, complex)
-    for Plan in [FFTPlan, FFTPlanB]:
-        t0 = time.time()
-        plan = Plan(a, a, -1)
-        t1 = time.time()
-        for i in range(50):
-            a[:] = 1.3
-            plan.execute()
-        t2 = time.time()
-        print(Plan.__name__, t1 - t0, t2 - t1)
-
-    a = empty((32, 28, 63), complex)
-    b = a.view(dtype=float)[:, :, :-2]
-    for Plan in [FFTPlan, FFTPlanB]:
-        t0 = time.time()
-        plan = Plan(b, a, -1)
-        t1 = time.time()
-        for i in range(50):
-            b[:] = 1.3
-            plan.execute()
-        t2 = time.time()
-        print(Plan.__name__, t1 - t0, t2 - t1)
-
-    c = a.copy()
-    for Plan in [FFTPlan, FFTPlanB]:
-        t0 = time.time()
-        plan = Plan(a, b, 1)
-        t1 = time.time()
-        for i in range(50):
-            a[:] = c
-            plan.execute()
-        t2 = time.time()
-        print(Plan.__name__, t1 - t0, t2 - t1)
