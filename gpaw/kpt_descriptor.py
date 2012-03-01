@@ -21,6 +21,25 @@ import gpaw.mpi as mpi
 import _gpaw
 
 
+def to1bz(bzk_kc, cell_cv):
+    """Wrap k-points to 1. BZ.
+
+    bzk_kc: (n,3) ndarray
+        Array of k-points in units of the reciprocal lattice vectors.
+        The array will be wrapped in-place to the 1. BZ.
+    cell_cv: (3,3) ndarray
+        Unit cell.
+    """
+
+    B_cv = 2.0 * np.pi * np.linalg.inv(cell_cv).T
+    K_kv = np.dot(bzk_kc, B_cv)
+    N_xc = np.indices((3, 3, 3)).reshape((3, 27)).T - 1
+    G_xv = np.dot(N_xc, B_cv)
+    for k, K_v in enumerate(K_kv):
+        x = ((G_xv - K_v)**2).sum(1).argmin()
+        bzk_kc[k] -= N_xc[x]
+
+
 class KPointDescriptor:
     """Descriptor-class for k-points."""
 
@@ -81,7 +100,7 @@ class KPointDescriptor:
         else:
             self.description = '%d k-points' % self.nbzkpts
             if self.N_c is not None:
-                self.description += (' (%d x %d x %d Monkhorst-Pack grid' %
+                self.description += (': %d x %d x %d Monkhorst-Pack grid' %
                                      tuple(self.N_c))
                 if self.offset_c.any():
                     self.description += ' + ['
@@ -91,7 +110,6 @@ class KPointDescriptor:
                         else:
                             self.description += '%f,' % x
                     self.description = self.description[:-1] + ']'
-                self.description += ')'
 
     def __len__(self):
         """Return number of k-point/spin combinations of local CPU."""
@@ -117,20 +135,14 @@ class KPointDescriptor:
 
         self.bz1k_kc = self.bzk_kc.copy()
 
-        # Wrap k-points to 1. BZ:
-        if atoms is not None:
-            B_cv = 2.0 * np.pi * np.linalg.inv(atoms.cell / Bohr).T
-            K_kv = np.dot(self.bzk_kc, B_cv)
-            N_xc = np.indices((3, 3, 3)).reshape((3, 27)).T - 1
-            G_xv = np.dot(N_xc, B_cv)
-            for k, K_v in enumerate(K_kv):
-                x = ((G_xv - K_v)**2).sum(1).argmin()
-                self.bz1k_kc[k] -= N_xc[x]
-        
         if atoms is not None:
             if (~atoms.pbc & self.bz1k_kc.any(0)).any():
                 raise ValueError('K-points can only be used with PBCs!')
 
+            self.cell_cv = atoms.cell / Bohr
+            # Wrap k-points to 1. BZ:
+            to1bz(self.bz1k_kc, self.cell_cv)
+     
             if magmom_av is None:
                 magmom_av = np.zeros((len(atoms), 3))
                 magmom_av[:, 2] = atoms.get_initial_magnetic_moments()
@@ -318,7 +330,9 @@ class KPointDescriptor:
     def get_bz_q_points(self):
         """Return the q=k1-k2. q-mesh is always Gamma-centered."""
         shift_c = 0.5 * ((self.N_c + 1) % 2) / self.N_c
-        return monkhorst_pack(self.N_c) + shift_c
+        bzq_qc = monkhorst_pack(self.N_c) + shift_c
+        to1bz(bzq_qc, self.cell_cv)
+        return bzq_qc
 
     def get_ibz_q_points(self, bzq_qc, op_scc):
         """Return ibz q points and the corresponding symmetry operations that
@@ -404,20 +418,12 @@ class KPointDescriptor:
 
     def where_is_q(self, q_c, bzq_qc):
         """Find the index of q points in BZ."""
-
-        q_c[np.where(q_c > 0.501)] -= 1
-        q_c[np.where(q_c < -0.499)] += 1
-
-        found = False
-        for ik in range(len(bzq_qc)):
-            if (np.abs(bzq_qc[ik] - q_c) < 1e-8).all():
-                found = True
-                return ik
-                break
-            
-        if found is False:
-            raise ValueError('q-points can not be found!')
-
+        d_qc = q_c - bzq_qc
+        d_q = abs(d_qc - d_qc.round()).sum(1)
+        q = d_q.argmin()
+        if d_q[q] > 1e-8:
+            raise RuntimeError('Could not find q!')
+        return q
 
     def get_count(self, rank=None):
         """Return the number of ks-pairs which belong to a given rank."""
