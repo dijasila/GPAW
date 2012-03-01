@@ -203,33 +203,31 @@ class HybridXC(XCFunctional):
             ecutmax = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
             self.ecut = 0.5 * ecutmax
             
-        assert self.kd.N_c is not None
-        n = self.kd.N_c * 2 - 1
-        bzk_kc = np.indices(n).transpose((1, 2, 3, 0))
-        bzk_kc.shape = (-1, 3)
-        bzk_kc -= self.kd.N_c - 1
-        self.bzk_kc = bzk_kc.astype(float) / self.kd.N_c
+        self.bzq_qc = self.kd.get_bz_q_points()
         
         self.pwd = PWDescriptor(self.ecut, self.gd, complex)
-        self.G2_qG = self.pwd.g2(self.bzk_kc)
+        self.G2_qG = self.pwd.g2(self.bzq_qc)
 
-        n = 0
-        for k_c, Gpk2_G in zip(self.bzk_kc[:], self.G2_qG):
-            if (k_c > -0.5).all() and (k_c <= 0.5).all(): #XXX???
-                if k_c.any():
-                    self.gamma -= np.dot(np.exp(-self.alpha * Gpk2_G),
-                                         Gpk2_G**-1)
-                else:
-                    self.gamma -= np.dot(np.exp(-self.alpha * Gpk2_G[1:]),
-                                         Gpk2_G[1:]**-1)
-                n += 1
-        assert n == self.kd.N_c.prod()
+        q0 = self.kd.where_is_q(np.zeros(3), self.bzq_qc)
+
+        q = 0
+        for q_c, Gpq2_G in zip(self.bzq_qc, self.G2_qG):
+            if q != q0:
+                self.gamma -= np.dot(np.exp(-self.alpha * Gpq2_G),
+                                     Gpq2_G**-1)
+            else:
+                self.gamma -= np.dot(np.exp(-self.alpha * Gpq2_G[1:]),
+                                     Gpq2_G[1:]**-1)
+            q += 1
+
+        assert q == self.kd.N_c.prod()
         
         self.ghat = LFC(self.gd,
                         [setup.ghat_l for setup in density.setups],
-                        KPointDescriptor(self.bzk_kc), dtype=complex)
+                        KPointDescriptor(self.bzq_qc), dtype=complex)
         
         self.log('Value of alpha parameter:', self.alpha)
+        self.log('Value of gamma parameter:', self.gamma)
         self.log('Cutoff energy:', self.ecut, 'Hartree')
         self.log('%d x %d x %d k-points' % tuple(self.kd.N_c))
 
@@ -372,28 +370,43 @@ class HybridXC(XCFunctional):
     def apply(self, kpt1, kpt2, k):
         k1_c = self.kd.ibzk_kc[kpt1.k]
         k20_c = self.kd.ibzk_kc[kpt2.k]
-        k2_c = self.kd.bzk_kc[k]
+        k2_c = self.kd.bz1k_kc[k]
         k12_c = k1_c - k2_c
         N_c = self.gd.N_c
-        eik1r_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k1_c / N_c).T)
-        eik20r_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k20_c / N_c).T)
-        eik2r_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k2_c / N_c).T)
 
-        for q, k_c in enumerate(self.bzk_kc):
-            if abs(k_c + k12_c).max() < 1e-9:
-                q0 = q
-                break
+        if 0:
+            eik1r_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k1_c / N_c).T)
+            eik20r_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k20_c / N_c).T)
+            eik2r_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k2_c / N_c).T)
 
-        Gpk2_G = self.G2_qG[q0]
-        if Gpk2_G[0] == 0:
-            Gpk2_G = Gpk2_G.copy()
-            Gpk2_G[0] = 1.0 / self.gamma
+            q0 = self.kd.where_is_q(-k12_c, self.bzq_qc)
+
+
+            same = abs(k1_c - k2_c).max() < 1e-9
+
+            Gpk2_G = self.pwd.g2(-k12_c.reshape((1, 3)))[0]
+            if same:
+                Gpk2_G[0] = 1.0 / self.gamma
+        else:
+            q0 = self.kd.where_is_q(-k12_c, self.bzq_qc)
+
+            q_c = self.bzq_qc[q0]
+            eik1r_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k1_c / N_c).T)
+            eik2r_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k20_c / N_c).T)
+            eiqr_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, q_c / N_c).T)
+
+
+
+            same = abs(k1_c - k2_c).max() < 1e-9
+
+            Gpk2_G = self.pwd.g2(q_c.reshape((1, 3)))[0]
+            if same:
+                Gpk2_G[0] = 1.0 / self.gamma
 
         N = N_c.prod()
         vol = self.gd.dv * N
         nspins = self.nspins
 
-        same = abs(k1_c - k2_c).max() < 1e-9
         fcut = 1e-10
         is_ibz2 = abs(k2_c - self.kd.ibzk_kc[kpt2.k]).max() < 1e-9
         
@@ -441,7 +454,7 @@ class HybridXC(XCFunctional):
                 
                 t0 = time()
                 nt_R = self.calculate_pair_density(n1, n2, kpt1, kpt2, q0, k,
-                                                   eik1r_R, eik20r_R, eik2r_R)
+                                                   eik1r_R, eik2r_R, eiqr_R)
                 nt_G = self.pwd.fft(nt_R) / N
                 vt_G = nt_G.copy()
                 vt_G *= -pi * vol / Gpk2_G
@@ -473,39 +486,11 @@ class HybridXC(XCFunctional):
                              t * self.npairs / self.world.size, 'seconds')
                     self.write_timing_information = False
 
-
-    def calculate_exx_paw_correction(self):
-        exx = 0
-        deg = 2 // self.nspins  # spin degeneracy
-        for a, D_sp in self.density.D_asp.items():
-            setup = self.setups[a]
-            for D_p in D_sp:
-                D_ii = unpack2(D_p)
-                ni = len(D_ii)
-
-                for i1 in range(ni):
-                    for i2 in range(ni):
-                        A = 0.0
-                        for i3 in range(ni):
-                            p13 = packed_index(i1, i3, ni)
-                            for i4 in range(ni):
-                                p24 = packed_index(i2, i4, ni)
-                                A += setup.M_pp[p13, p24] * D_ii[i3, i4]
-                        p12 = packed_index(i1, i2, ni)
-                        exx -= self.hybrid / deg * D_ii[i1, i2] * A
-
-                if self.coredensity:
-                    if setup.X_p is not None:
-                        exx -= self.hybrid * np.dot(D_p, setup.X_p)
-            if self.coredensity:
-                exx += self.hybrid * setup.ExxC
-        return exx
-
     def calculate_pair_density(self, n1, n2, kpt1, kpt2, q, k,
-                               eik1r_R, eik20r_R, eik2r_R):
+                               eik1r_R, eik2r_R, eiqr_R):
         if isinstance(self.wfs, PWWaveFunctions):
             psit1_R = self.wfs.pd.ifft(kpt1.psit_nG[n1]) * eik1r_R
-            psit2_R = self.wfs.pd.ifft(kpt2.psit_nG[n2]) * eik20r_R
+            psit2_R = self.wfs.pd.ifft(kpt2.psit_nG[n2]) * eik2r_R
         else:
             psit1_R = kpt1.psit_nG[n1]
             psit2_R = kpt2.psit_nG[n2]
@@ -535,4 +520,31 @@ class HybridXC(XCFunctional):
             Q_aL[a] = np.dot(D_p, self.setups[a].Delta_pL)
 
         self.ghat.add(nt_R, Q_aL, q)
-        return nt_R * eik1r_R / eik2r_R
+        return nt_R / eiqr_R
+
+    def calculate_exx_paw_correction(self):
+        exx = 0
+        deg = 2 // self.nspins  # spin degeneracy
+        for a, D_sp in self.density.D_asp.items():
+            setup = self.setups[a]
+            for D_p in D_sp:
+                D_ii = unpack2(D_p)
+                ni = len(D_ii)
+
+                for i1 in range(ni):
+                    for i2 in range(ni):
+                        A = 0.0
+                        for i3 in range(ni):
+                            p13 = packed_index(i1, i3, ni)
+                            for i4 in range(ni):
+                                p24 = packed_index(i2, i4, ni)
+                                A += setup.M_pp[p13, p24] * D_ii[i3, i4]
+                        p12 = packed_index(i1, i2, ni)
+                        exx -= self.hybrid / deg * D_ii[i1, i2] * A
+
+                if self.coredensity:
+                    if setup.X_p is not None:
+                        exx -= self.hybrid * np.dot(D_p, setup.X_p)
+            if self.coredensity:
+                exx += self.hybrid * setup.ExxC
+        return exx
