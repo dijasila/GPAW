@@ -622,6 +622,7 @@ class Setup(BaseSetup):
         tauct_g = data.tauct_g
         if tauct_g is None:
             tauct_g = np.zeros(ng)
+            # FIXME: ng is not defined! 
         self.tauct = rgd.spline(tauct_g, self.rcore)
 
         self.pt_j = self.create_projectors(rcutfilter)

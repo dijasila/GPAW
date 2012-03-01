@@ -21,7 +21,7 @@ from gpaw.band_descriptor import BandDescriptor
 
 
 class PWDescriptor:
-    def __init__(self, ecut, gd, dtype=float, fftwflags=fftw.FFTW_MEASURE):
+    def __init__(self, ecut, gd, dtype=float, fftwflags=fftw.ESTIMATE):
 
         assert gd.pbc_c.all() and gd.comm.size == 1
 
@@ -44,8 +44,6 @@ class PWDescriptor:
             i_Qc[..., :2] -= N_c[:2] // 2
             self.tmp_Q = fftw.empty(Nr_c, complex)
             self.tmp_R = self.tmp_Q.view(float)[:, :, :N_c[2]]
-            self.fftplan = fftw.FFTPlanB(self.tmp_R, self.tmp_Q, -1, fftwflags)
-            self.ifftplan = fftw.FFTPlanB(self.tmp_Q, self.tmp_R, 1, fftwflags)
         else:
             i_Qc = np.indices(N_c).transpose((1, 2, 3, 0))
             i_Qc += N_c // 2
@@ -54,8 +52,8 @@ class PWDescriptor:
             self.tmp_Q = fftw.empty(N_c, complex)
             self.tmp_R = self.tmp_Q
 
-            self.fftplan = fftw.FFTPlan(self.tmp_R, self.tmp_Q, -1, fftwflags)
-            self.ifftplan = fftw.FFTPlan(self.tmp_Q, self.tmp_R, 1, fftwflags)
+        self.fftplan = fftw.FFTPlan(self.tmp_R, self.tmp_Q, -1, fftwflags)
+        self.ifftplan = fftw.FFTPlan(self.tmp_Q, self.tmp_R, 1, fftwflags)
 
         # Calculate reciprocal lattice vectors:
         B_cv = 2.0 * pi * gd.icell_cv
@@ -397,7 +395,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                      (len(self.pd) * 2 + 1, len(self.pd)))
         else:
             fd.write('      Number of coefficients: %d\n' % len(self.pd))
-        if fftw.FFTPlan is fftw.FFTPlanB:
+        if fftw.FFTPlan is fftw.NumpyFFTPlan:
             fd.write("      Using Numpy's FFT\n")
         else:
             fd.write("      Using FFTW library\n")
@@ -783,13 +781,13 @@ class PWLFC(BaseLFC):
 
 
 class PW:
-    def __init__(self, ecut=340, fftwflags=fftw.FFTW_MEASURE):
+    def __init__(self, ecut=340, fftwflags=fftw.ESTIMATE):
         """Plane-wave basis mode.
 
         ecut: float
             Plane-wave cutoff in eV.
         fftwflags: int
-            Flags for making FFTW plan (default is FFTW_MEASURE)."""
+            Flags for making FFTW plan (default is ESTIMATE)."""
 
         self.ecut = ecut / units.Hartree
         self.fftwflags = fftwflags

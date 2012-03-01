@@ -492,7 +492,7 @@ class BASECHI:
         assert df.ecut[0] == self.ecut[0]
         if not static:
             assert df.eta == self.eta
-#            assert df.Nw == self.Nw
+            assert df.Nw == self.Nw
             assert df.dw == self.dw
 
         if static:

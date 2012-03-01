@@ -309,6 +309,17 @@ class PAWTextOutput:
         else:
             t('Center of Charge: %s' % (dipole / abs(charge)))
 
+        try:
+            get_boundary_vHt = self.hamiltonian.poisson.get_boundary_potential
+            epsF = self.occupations.fermilevel
+        except AttributeError:
+            pass
+        else:
+            v0, v1 = get_boundary_vHt(self.hamiltonian.vHt_g)
+            wf0 = (v0 - epsF) * Hartree
+            wf1 = (v1 - epsF) * Hartree
+            t('Dipole-corrected work function: %f, %f' % (wf0, wf1))
+
         if self.wfs.nspins == 2:
             t()
             magmom = self.occupations.magmom

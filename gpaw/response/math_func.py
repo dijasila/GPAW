@@ -16,16 +16,14 @@ def delta_function(x0, dx, Nx, sigma):
 def hilbert_transform(specfunc_wGG, w_w, Nw, dw, eta, fullresponse=False):
 
     NwS = specfunc_wGG.shape[0]
-    tmp_ww = np.zeros((Nw, NwS), dtype=complex)
+    tmp_ww = np.zeros((Nw, NwS+1), dtype=complex)
+    ww_w = np.linspace(0., NwS*dw, NwS+1)
 
     for iw in range(Nw):
-        w = w_w[iw]
-        for jw in range(NwS):
-            ww = jw * dw
-            if fullresponse is False:
-                tmp_ww[iw, jw] = 1. / (w - ww + 1j*eta) - 1. / (w + ww + 1j*eta)
-            else:
-                tmp_ww[iw, jw] = 1. / (w - ww + 1j*eta) - 1. / (w + ww - 1j*eta)
+        if fullresponse is False:
+            tmp_ww[iw] = 1. / (w_w[iw] - ww_w + 1j*eta) - 1. / (w_w[iw] + ww_w + 1j*eta)
+        else:
+            tmp_ww[iw] = 1. / (w_w[iw] - ww_w + 1j*eta) - 1. / (w_w[iw] + ww_w - 1j*eta)
 
     chi0_wGG = gemmdot(tmp_ww, specfunc_wGG, beta = 0.)
 

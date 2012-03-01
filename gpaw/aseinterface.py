@@ -114,10 +114,6 @@ class GPAW(PAW):
         
         return self.hamiltonian.xc.name
  
-    def get_bz_k_points(self):
-        """Return the k-points."""
-        return self.wfs.kd.bzk_kc
- 
     def get_number_of_spins(self):
         return self.wfs.nspins
 
@@ -125,9 +121,13 @@ class GPAW(PAW):
         """Is it a spin-polarized calculation?"""
         return self.wfs.nspins == 2
     
+    def get_bz_k_points(self):
+        """Return the k-points."""
+        return self.wfs.kd.bzk_kc.copy()
+ 
     def get_ibz_k_points(self):
         """Return k-points in the irreducible part of the Brillouin zone."""
-        return self.wfs.kd.ibzk_kc
+        return self.wfs.kd.ibzk_kc.copy()
 
     def get_k_point_weights(self):
         """Weights of the k-points.

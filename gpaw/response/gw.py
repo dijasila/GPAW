@@ -46,7 +46,7 @@ class GW(BASECHI):
             wi += i*dw
             w_w = np.append(w_w, wi)
             i+=1
-        while ((len(w_w) - 1) % wpar) != 0:
+        while len(w_w) % wpar != 0:
             wi += i*dw
             w_w = np.append(w_w, wi)
             i+=1
@@ -96,7 +96,7 @@ class GW(BASECHI):
         self.dw = self.w_w[1] - self.w_w[0]
         self.Nw = len(self.w_w)
 
-        emaxdiff = self.e_kn[:, self.nbands].max() - self.e_kn[:,0].min()
+        emaxdiff = self.e_kn[:, self.nbands-1].max() - self.e_kn[:,0].min()
         assert (self.wmax > emaxdiff), 'Maximum frequency must be larger than %f' %(emaxdiff*Hartree)
 
         # GW kpoints init
@@ -121,10 +121,10 @@ class GW(BASECHI):
         self.print_gw_init()
         
         # parallel init
-        assert (len(self.w_w) - 1) % self.wpar == 0
+        assert len(self.w_w) % self.wpar == 0
         self.wcommsize = self.wpar
         self.qcommsize = size // self.wpar
-        assert self.qcommsize * self.wcommsize == size
+        assert self.qcommsize * self.wcommsize == size, 'wpar must be integer divisor of number of requested cores'
         self.wcomm, self.qcomm, self.worldcomm = set_communicator(world, rank, size, self.wpar)
         nq, self.nq_local, self.q_start, self.q_end = parallel_partition(
                                   self.nqpt, self.qcomm.rank, self.qcomm.size, reshape=False)
@@ -245,19 +245,19 @@ class GW(BASECHI):
                 wcomm.all_gather(tmp_w, tmp_W)
                 del tmp_w
 
+            w1_ww = np.zeros((Nw, df.Nw), dtype=complex)
             for iw in range(Nw):
                 w1 = iw * self.dw
-                w1_w = 1. / (w1 + self.w_w + 1j*self.eta_w) + 1. / (w1 - self.w_w + 1j*self.eta_w)
-                w1_w *= self.dw_w
-                Cplus_Wg[iw] = gemmdot(w1_w, W_Wg, beta=0.0)
-                Cminus_Wg[iw] = gemmdot(w1_w.conj(), W_Wg, beta=0.0)
-                # special Hilbert transform optical limit:
-                if df.optical_limit:
-                    if iw < 2:
-                        Cplus_wG0[iw] = gemmdot(w1_w, tmp_WG, beta=0.0)
-                        Cminus_wG0[iw] = gemmdot(w1_w.conj(), tmp_WG, beta=0.0)
-                        Cplus_wG0[iw,0] = gemmdot(w1_w, tmp_W, beta=0.0)
-                        Cminus_wG0[iw,0] = gemmdot(w1_w.conj(), tmp_W, beta=0.0)
+                w1_ww[iw] = 1. / (w1 + self.w_w + 1j*self.eta_w) + 1. / (w1 - self.w_w + 1j*self.eta_w)
+                w1_ww[iw] *= self.dw_w
+            Cplus_Wg = gemmdot(w1_ww, W_Wg, beta=0.0)
+            Cminus_Wg = gemmdot(w1_ww.conj(), W_Wg, beta=0.0)
+            # special Hilbert transform optical limit:
+            if df.optical_limit:
+                Cplus_wG0 = gemmdot(w1_ww[0:2], tmp_WG, beta=0.0)
+                Cminus_wG0 = gemmdot(w1_ww[0:2].conj(), tmp_WG, beta=0.0)
+                Cplus_wG0[:,0] = gemmdot(w1_ww[0:2], tmp_W, beta=0.0)
+                Cminus_wG0[:,0] = gemmdot(w1_ww[0:2].conj(), tmp_W, beta=0.0)
 
         for i, k in enumerate(self.gwkpt_k): # k is bzk index
             if df.optical_limit:
