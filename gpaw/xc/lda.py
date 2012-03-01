@@ -119,33 +119,91 @@ class PurePythonLDAKernel:
     def calculate(self, e_g, n_sg, dedn_sg,
                   sigma_xg=None, dedsigma_xg=None,
                   tau_sg=None, dedtau_sg=None):
-        assert len(n_sg) == 1
-        lda(e_g, n_sg[0], dedn_sg[0])
 
+        e_g[:] = 0.
+        if len(n_sg) == 1:
+            n = n_sg[0]
+            n[n < 1e-20] = 1e-40
 
-def lda(e, n, v):
+            # exchange
+            lda_x(0, e_g, n, dedn_sg[0])
+            # correlation
+            lda_c(0, e_g, n, dedn_sg[0], 0)
+
+        else:
+            na = 2.*n_sg[0]
+            na[na < 1e-20] = 1e-40
+            nb = 2.*n_sg[1]
+            nb[nb < 1e-20] = 1e-40
+            n = 0.5*(na + nb)
+            zeta = 0.5 * (na - nb) / n
+
+            # exchange
+            lda_x(1, e_g, na, dedn_sg[0])
+            lda_x(1, e_g, nb, dedn_sg[1])
+            # correlation
+            lda_c(1, e_g, n, dedn_sg, zeta)
+
+def lda_x(spin, e, n, v):
+    assert spin in [0,1]
     C0I = 0.238732414637843
     C1 = -0.45816529328314287  
-    n[n < 1e-20] = 1e-40
-    rs = (C0I / n)**(1 / 3.0)
-    ex = C1 / rs
-    dexdrs = -ex / rs;
-    ec, decdrs = G(rs**0.5)
-    e[:] = n * (ex + ec)
-    v += ex + ec - rs * (dexdrs + decdrs) / 3.0
-    
 
-def G(rtrs):
-    A = 0.031091
-    alpha1 = 0.21370
-    beta1, beta2, beta3, beta4 = 7.5957, 3.5876, 1.6382, 0.49294
-    Q0 = -2.0 * A * (1.0 + alpha1 * rtrs * rtrs)
-    Q1 = 2.0 * A * rtrs * (beta1 + 
+    rs = (C0I / n)**(1 / 3.)
+    ex = C1 / rs
+    dexdrs = -ex / rs
+    if spin == 0:
+        e[:] += n * ex
+    else:
+        e[:] += 0.5 * n * ex
+    v += ex - rs * dexdrs / 3.
+    
+def lda_c(spin, e, n, v, zeta):
+    assert spin in [0,1]
+    C0I = 0.238732414637843
+    CC1 = 1.9236610509315362
+    CC2 = 2.5648814012420482
+    IF2 = 0.58482236226346462
+
+    rs = (C0I / n)**(1 / 3.)
+    ec, decdrs_0 = G(rs**0.5, 0.031091, 0.21370, 7.5957, 3.5876, 1.6382, 0.49294)
+    
+    if spin == 0:
+        e[:] += n * ec
+        v += ec - rs * decdrs_0 / 3.
+    else:
+        e1, decdrs_1 = G(rs**0.5, 0.015545, 0.20548, 14.1189, 6.1977, 3.3662, 0.62517)
+        alpha, dalphadrs = G(rs**0.5, 0.016887, 0.11125, 10.357, 3.6231, 0.88026, 0.49671)
+        alpha *= -1.
+        dalphadrs *= -1.
+        zp = 1.0 + zeta
+        zm = 1.0 - zeta
+        xp = zp**(1/3.)
+        xm = zm**(1/3.)
+        f = CC1 * (zp * xp + zm * xm - 2.0)
+        f1 = CC2 * (xp - xm)
+        zeta3 = zeta * zeta * zeta
+        zeta4 = zeta * zeta * zeta * zeta
+        x = 1.0 - zeta4
+        decdrs = (decdrs_0 * (1.0 - f * zeta4) +
+                  decdrs_1 * f * zeta4 +
+                  dalphadrs * f * x * IF2)
+        decdzeta = (4.0 * zeta3 * f * (e1 - ec - alpha * IF2) +
+                   f1 * (zeta4 * e1 - zeta4 * ec + x * alpha * IF2))
+        ec += alpha * IF2 * f * x + (e1 - ec) * f * zeta4
+        e[:] += n * ec
+        v[0] += ec - rs * decdrs / 3.0 - (zeta - 1.0) * decdzeta
+        v[1] += ec - rs * decdrs / 3.0 - (zeta + 1.0) * decdzeta
+
+def G(rtrs, gamma, alpha1, beta1, beta2, beta3, beta4):
+
+    Q0 = -2.0 * gamma * (1.0 + alpha1 * rtrs * rtrs)
+    Q1 = 2.0 * gamma * rtrs * (beta1 + 
                            rtrs * (beta2 + 
                                    rtrs * (beta3 + 
                                            rtrs * beta4)))
     G1 = Q0 * np.log(1.0 + 1.0 / Q1)
-    dQ1drs = A * (beta1 / rtrs + 2.0 * beta2 +
+    dQ1drs = gamma * (beta1 / rtrs + 2.0 * beta2 +
                   rtrs * (3.0 * beta3 + 4.0 * beta4 * rtrs))
-    dGdrs = -2.0 * A * alpha1 * G1 / Q0 - Q0 * dQ1drs / (Q1 * (Q1 + 1.0))
+    dGdrs = -2.0 * gamma * alpha1 * G1 / Q0 - Q0 * dQ1drs / (Q1 * (Q1 + 1.0))
     return G1, dGdrs
