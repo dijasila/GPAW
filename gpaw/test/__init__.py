@@ -140,6 +140,7 @@ tests = [
     'gga_atom.py',
     'bee1.py',
     'beefvdw.py',
+    'pplda.py',
     'external_potential.py',
     'refine.py',
     'revPBE.py',
