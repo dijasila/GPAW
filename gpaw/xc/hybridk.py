@@ -196,31 +196,28 @@ class HybridXC(XCFunctional):
             # XXX ?
             self.alpha = 6 * vol**(2 / 3.0) / pi**2
             
-        self.gamma = (vol / (2 * pi)**2 * sqrt(pi / self.alpha) *
-                      self.kd.nbzkpts)
-
         if self.ecut is None:
             ecutmax = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
             self.ecut = 0.5 * ecutmax
             
         self.bzq_qc = self.kd.get_bz_q_points()
+        q0 = self.kd.where_is_q(np.zeros(3), self.bzq_qc)
         
         self.pwd = PWDescriptor(self.ecut, self.gd, complex)
-        self.G2_qG = self.pwd.g2(self.bzq_qc)
 
-        q0 = self.kd.where_is_q(np.zeros(3), self.bzq_qc)
+        G2_qG = self.pwd.g2(self.bzq_qc)
+        G2_qG[q0, 0] = 117.0
+        self.iG2_qG = 1.0 / G2_qG
+        self.iG2_qG[q0, 0] = 0.0
 
-        q = 0
-        for q_c, Gpq2_G in zip(self.bzq_qc, self.G2_qG):
-            if q != q0:
-                self.gamma -= np.dot(np.exp(-self.alpha * Gpq2_G),
-                                     Gpq2_G**-1)
-            else:
-                self.gamma -= np.dot(np.exp(-self.alpha * Gpq2_G[1:]),
-                                     Gpq2_G[1:]**-1)
-            q += 1
+        self.gamma = (vol / (2 * pi)**2 * sqrt(pi / self.alpha) *
+                      self.kd.nbzkpts)
 
-        assert q == self.kd.N_c.prod()
+        for q in range(self.kd.nbzkpts):
+            self.gamma -= np.dot(np.exp(-self.alpha * G2_qG[q]),
+                                 self.iG2_qG[q])
+
+        self.iG2_qG[q0, 0] = self.gamma
         
         self.ghat = LFC(self.gd,
                         [setup.ghat_l for setup in density.setups],
@@ -374,18 +371,16 @@ class HybridXC(XCFunctional):
         q_c = k2_c - k1_c
         N_c = self.gd.N_c
 
-        q0 = self.kd.where_is_q(q_c, self.bzq_qc)
+        q = self.kd.where_is_q(q_c, self.bzq_qc)
         
-        q_c = self.bzq_qc[q0]
+        q_c = self.bzq_qc[q]
         eik1r_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k1_c / N_c).T)
         eik2r_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k20_c / N_c).T)
         eiqr_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, q_c / N_c).T)
 
         same = abs(k1_c - k2_c).max() < 1e-9
 
-        Gpk2_G = self.pwd.g2(q_c.reshape((1, 3)))[0]
-        if same:
-            Gpk2_G[0] = 1.0 / self.gamma
+        iG2_G = self.iG2_qG[q]
             
         N = N_c.prod()
         vol = self.gd.dv * N
@@ -437,11 +432,11 @@ class HybridXC(XCFunctional):
                     continue
                 
                 t0 = time()
-                nt_R = self.calculate_pair_density(n1, n2, kpt1, kpt2, q0, k,
+                nt_R = self.calculate_pair_density(n1, n2, kpt1, kpt2, q, k,
                                                    eik1r_R, eik2r_R, eiqr_R)
                 nt_G = self.pwd.fft(nt_R) / N
                 vt_G = nt_G.copy()
-                vt_G *= -pi * vol / Gpk2_G
+                vt_G *= -pi * vol * iG2_G
                 e = np.vdot(nt_G, vt_G).real * nspins * self.hybrid * x
 
                 if self.etotflag:
