@@ -371,38 +371,22 @@ class HybridXC(XCFunctional):
         k1_c = self.kd.ibzk_kc[kpt1.k]
         k20_c = self.kd.ibzk_kc[kpt2.k]
         k2_c = self.kd.bz1k_kc[k]
-        k12_c = k1_c - k2_c
+        q_c = k2_c - k1_c
         N_c = self.gd.N_c
 
-        if 0:
-            eik1r_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k1_c / N_c).T)
-            eik20r_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k20_c / N_c).T)
-            eik2r_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k2_c / N_c).T)
+        q0 = self.kd.where_is_q(q_c, self.bzq_qc)
+        
+        q_c = self.bzq_qc[q0]
+        eik1r_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k1_c / N_c).T)
+        eik2r_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k20_c / N_c).T)
+        eiqr_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, q_c / N_c).T)
 
-            q0 = self.kd.where_is_q(-k12_c, self.bzq_qc)
+        same = abs(k1_c - k2_c).max() < 1e-9
 
-
-            same = abs(k1_c - k2_c).max() < 1e-9
-
-            Gpk2_G = self.pwd.g2(-k12_c.reshape((1, 3)))[0]
-            if same:
-                Gpk2_G[0] = 1.0 / self.gamma
-        else:
-            q0 = self.kd.where_is_q(-k12_c, self.bzq_qc)
-
-            q_c = self.bzq_qc[q0]
-            eik1r_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k1_c / N_c).T)
-            eik2r_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k20_c / N_c).T)
-            eiqr_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, q_c / N_c).T)
-
-
-
-            same = abs(k1_c - k2_c).max() < 1e-9
-
-            Gpk2_G = self.pwd.g2(q_c.reshape((1, 3)))[0]
-            if same:
-                Gpk2_G[0] = 1.0 / self.gamma
-
+        Gpk2_G = self.pwd.g2(q_c.reshape((1, 3)))[0]
+        if same:
+            Gpk2_G[0] = 1.0 / self.gamma
+            
         N = N_c.prod()
         vol = self.gd.dv * N
         nspins = self.nspins
