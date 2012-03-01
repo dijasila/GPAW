@@ -8,7 +8,6 @@ from math import pi, sqrt
 from time import time
 
 import numpy as np
-from ase import Atoms
 from ase.utils import prnt
 
 from gpaw.xc import XC
@@ -18,7 +17,6 @@ from gpaw.utilities import hartree, pack, unpack2, packed_index, logfile
 from gpaw.lfc import LFC
 from gpaw.wavefunctions.pw import PWDescriptor, PWWaveFunctions
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.kpoint import KPoint as KPoint0
 
 
 class KPoint:

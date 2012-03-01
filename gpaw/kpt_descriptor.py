@@ -178,8 +178,6 @@ class KPointDescriptor:
         else:
             self.nks = self.nibzkpts
 
-        self.i1bzk_kc = self.ibzk_kc.copy()
-
     def set_communicator(self, comm):
         """Set k-point communicator."""
 
