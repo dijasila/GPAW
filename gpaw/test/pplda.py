@@ -11,7 +11,7 @@ e = np.array([])
 f = np.array([])
 
 for xc in ['LDA', 'PPLDA']:
-    calc = GPAW(nbands=-1, xc=xc) #, txt=None)
+    calc = GPAW(nbands=-1, xc=xc, txt=None)
     h2.set_calculator(calc)
     e = np.append(e, h2.get_potential_energy())
     f = np.append(f, h2.get_forces())
@@ -30,7 +30,7 @@ e = np.array([])
 f = np.array([])
 
 for xc in ['LDA', 'PPLDA']:
-    calc = GPAW(nbands=-2, xc=xc) #, txt=None)
+    calc = GPAW(nbands=-2, xc=xc, txt=None)
     o2.set_calculator(calc)
     e = np.append(e, o2.get_potential_energy())
     f = np.append(f, o2.get_forces())
