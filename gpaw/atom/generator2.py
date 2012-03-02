@@ -4,18 +4,17 @@ import sys
 from math import pi, exp, sqrt, log
 
 import numpy as np
-from scipy.interpolate import interp1d
 from scipy.optimize import fsolve
 from scipy import __version__ as scipy_version
 from ase.utils import prnt
 from ase.units import Hartree, Bohr
 from ase.data import atomic_numbers, chemical_symbols
 
-from gpaw.utilities import erf
 from gpaw.spline import Spline
 from gpaw.setup import BaseSetup
 from gpaw.version import version
 from gpaw.basis_data import Basis
+from gpaw.utilities import erf, pack2
 from gpaw.setup_data import SetupData
 from gpaw.gaunt import gaunt as G_LLL
 from gpaw.atom.configurations import configurations
@@ -732,7 +731,6 @@ class PAWSetupGenerator:
         return logderivs
     
     def make_paw_setup(self, tag=None):
-        self.calculate_core_core_exx()
         aea = self.aea
         
         setup = SetupData(aea.symbol, aea.xc.name, tag, readxml=False)
@@ -774,7 +772,9 @@ class PAWSetupGenerator:
         setup.rgd = self.rgd
         setup.rcgauss = 1 / sqrt(self.alpha)
 
+        self.calculate_exx_integrals()
         setup.ExxC = self.exxcc
+        setup.X_p = pack2(self.exxcv_ii)
 
         setup.tauc_g = self.rgd.zeros()
         setup.tauct_g = self.rgd.zeros()
@@ -789,7 +789,8 @@ class PAWSetupGenerator:
 
         return setup
 
-    def calculate_core_core_exx(self):
+    def calculate_exx_integrals(self):
+        # Find core states:
         core = []
         for l, ch in enumerate(self.aea.channels):
             for n, phi_g in enumerate(ch.phi_ng):
@@ -798,6 +799,7 @@ class PAWSetupGenerator:
                      n + l + 1 not in self.waves_l[l].n_n)):
                     core.append((l, phi_g))
 
+        # Calculate core contribution to EXX energy:
         self.exxcc = 0.0
         j1 = 0
         for l1, phi1_g in core:
@@ -806,7 +808,7 @@ class PAWSetupGenerator:
                 n_g = phi1_g * phi2_g
                 for l in range((l1 + l2) % 2, l1 + l2 + 1, 2):
                     G = (G_LLL[l1**2:(l1 + 1)**2,
-                                  l2**2:(l2 + 1)**2,
+                               l2**2:(l2 + 1)**2,
                                l**2:(l + 1)**2]**2).sum()
                     vr_g = self.rgd.poisson(n_g, l)
                     e = f * self.rgd.integrate(vr_g * n_g, -1) / 4 / pi
@@ -815,6 +817,40 @@ class PAWSetupGenerator:
             j1 += 1
         
         self.log('EXX (core-core):', self.exxcc, 'Hartree')
+
+        # Calculate core-valence contribution to EXX energy:
+        nj = sum(len(waves) for waves in self.waves_l)
+        ni = sum(len(waves) * (2 * l + 1)
+                 for l, waves in enumerate(self.waves_l))
+
+        self.exxcv_ii = np.zeros((ni, ni))
+        
+        i1 = 0
+        for l1, waves1 in enumerate(self.waves_l):
+            for phi1_g in waves1.phi_ng:
+                i2 = 0
+                for l2, waves2 in enumerate(self.waves_l):
+                    for phi2_g in waves2.phi_ng:
+                        X_mm = self.exxcv_ii[i1:i1 + 2 * l1 + 1,
+                                             i2:i2 + 2 * l2 + 1]
+                        if (l1 + l2) % 2 == 0:
+                            for lc, phi_g in core:
+                                n_g = phi1_g * phi_g
+                                for l in range((l1 + lc) % 2,
+                                               max(l1, l2) + lc + 1, 2):
+                                    vr_g = self.rgd.poisson(phi2_g * phi_g, l)
+                                    e = (self.rgd.integrate(vr_g * n_g, -1) /
+                                         (4 * pi))
+                                    for mc in range(2 * lc + 1):
+                                        for m in range(2 * l + 1):
+                                            G_L = G_LLL[:,
+                                                lc**2 + mc,
+                                                l**2 + m]
+                                            X_mm += np.outer(
+                                                G_L[l1**2:(l1 + 1)**2],
+                                                G_L[l2**2:(l2 + 1)**2]) * e
+                        i2 += 2 * l2 + 1
+                i1 += 2 * l1 + 1
 
 
 def str2z(x):
