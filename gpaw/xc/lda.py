@@ -146,8 +146,7 @@ class PurePythonLDAKernel:
 
 def lda_x(spin, e, n, v):
     assert spin in [0,1]
-    C0I = 0.238732414637843
-    C1 = -0.45816529328314287  
+    C0I, C1, CC1, CC2, IF2 = lda_constants()
 
     rs = (C0I / n)**(1 / 3.)
     ex = C1 / rs
@@ -160,10 +159,7 @@ def lda_x(spin, e, n, v):
     
 def lda_c(spin, e, n, v, zeta):
     assert spin in [0,1]
-    C0I = 0.238732414637843
-    CC1 = 1.9236610509315362
-    CC2 = 2.5648814012420482
-    IF2 = 0.58482236226346462
+    C0I, C1, CC1, CC2, IF2 = lda_constants()
 
     rs = (C0I / n)**(1 / 3.)
     ec, decdrs_0 = G(rs**0.5, 0.031091, 0.21370, 7.5957, 3.5876, 1.6382, 0.49294)
@@ -207,3 +203,11 @@ def G(rtrs, gamma, alpha1, beta1, beta2, beta3, beta4):
                   rtrs * (3.0 * beta3 + 4.0 * beta4 * rtrs))
     dGdrs = -2.0 * gamma * alpha1 * G1 / Q0 - Q0 * dQ1drs / (Q1 * (Q1 + 1.0))
     return G1, dGdrs
+
+def lda_constants():
+    C0I = 0.238732414637843
+    C1 = -0.45816529328314287  
+    CC1 = 1.9236610509315362
+    CC2 = 2.5648814012420482
+    IF2 = 0.58482236226346462
+    return C0I, C1, CC1, CC2, IF2
