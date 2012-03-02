@@ -26,7 +26,8 @@ class KPoint:
     eps_n: float ndarray
         Eigenvalues.
     f_n: float ndarray
-        Occupation numbers.
+        Occupation numbers.  The occupation numbers already include the
+        k-point weight in supercell calculations.
     psit_nG: ndarray
         Wave functions.
     nbands: int

@@ -589,6 +589,30 @@ class PWWaveFunctions(FDPWWaveFunctions):
         self.pd.estimate_memory(mem.subnode('PW-descriptor'))
         mem.subnode('G2', self.G2_qG.nbytes)
 
+    def get_kinetic_stress(self):
+        sigma_cv = np.zeros((3, 3), dtype=complex)
+        pd = self.pd
+        dOmega = pd.gd.dv / pd.gd.N_c.prod()
+        G_Gv = pd.G_Gv
+        K_qv = self.pt.K_qv
+        for kpt in self.kpt_u:
+            for n, f in enumerate(kpt.f_n):
+                psit2_G = np.abs(kpt.psit_nG[n])**2
+                for alpha in range(3):
+                    Ga_G = G_Gv[:, alpha] + K_qv[kpt.q, alpha]
+                    for beta in range(3):
+                        Gb_G = G_Gv[:, beta] + K_qv[kpt.q, beta]
+                        s = (psit2_G * Ga_G * Gb_G).sum()
+                        sigma_cv[alpha, beta] += f * s
+        sigma_cv *= -dOmega
+
+        def symmetrize(x): # XXXXXXX
+            return x
+        
+        self.bd.comm.sum(sigma_cv)
+        self.kd.comm.sum(sigma_cv)
+        return symmetrize(sigma_cv)
+
 
 def ft(spline):
     l = spline.get_angular_momentum_number()
@@ -891,7 +915,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.timer.start('Poisson')
         # npoisson is the number of iterations:
         #self.npoisson = 0
-        self.vHt_q = 4 * pi * density.rhot_q.copy()
+        self.vHt_q = 4 * pi * density.rhot_q
         self.vHt_q[1:] /= self.pd3.G2_qG[0, 1:]
         epot = 0.5 * self.pd3.integrate(self.vHt_q, density.rhot_q)
         self.timer.stop('Poisson')
