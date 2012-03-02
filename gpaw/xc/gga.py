@@ -22,7 +22,7 @@ class GGA(LDA):
         for v in range(3):
             for s in range(nspins):
                 self.grad_v[v](n_sg[s], gradn_svg[s, v])
-                axpy(1.0, gradn_svg[s, v]**2, sigma_xg[2 * s])
+                axpy(1.0, gradn_svg[s, v] ** 2, sigma_xg[2 * s])
             if nspins == 2:
                 axpy(1.0, gradn_svg[0, v] * gradn_svg[1, v], sigma_xg[1])
         self.calculate_gga(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
@@ -38,7 +38,7 @@ class GGA(LDA):
 
     def calculate_gga(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
         self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
-        
+
     def calculate_radial_expansion(self, rgd, D_sLq, n_qg, nc0_sg):
         n_sLg = np.dot(D_sLq, n_qg)
         n_sLg[:, 0] += nc0_sg
@@ -50,7 +50,7 @@ class GGA(LDA):
 
         nspins, Lmax, nq = D_sLq.shape
         dEdD_sqL = np.zeros((nspins, nq, Lmax))
-        
+
         E = 0.0
         for n, Y_L in enumerate(Y_nL[:, :Lmax]):
             w = weight_n[n]
@@ -78,12 +78,12 @@ class GGA(LDA):
         b_vsg = np.dot(rnablaY_Lv.T, n_sLg)
 
         sigma_xg = rgd.empty(2 * nspins - 1)
-        sigma_xg[::2] = (b_vsg**2).sum(0)
+        sigma_xg[::2] = (b_vsg ** 2).sum(0)
         if nspins == 2:
             sigma_xg[1] = (b_vsg[:, 0] * b_vsg[:, 1]).sum(0)
-        sigma_xg[:, 1:] /= rgd.r_g[1:]**2
+        sigma_xg[:, 1:] /= rgd.r_g[1:] ** 2
         sigma_xg[:, 0] = sigma_xg[:, 1]
-        sigma_xg[::2] += a_sg**2
+        sigma_xg[::2] += a_sg ** 2
         if nspins == 2:
             sigma_xg[1] += a_sg[0] * a_sg[1]
 
@@ -92,7 +92,7 @@ class GGA(LDA):
         dedsigma_xg = rgd.zeros(2 * nspins - 1)
 
         self.calculate_gga_radial(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
-        
+
         vv_sg = sigma_xg[:nspins]  # reuse array
         for s in range(nspins):
             rgd.derivative2(-2 * rgd.dv_g * dedsigma_xg[2 * s] * a_sg[s],
@@ -106,7 +106,7 @@ class GGA(LDA):
 
         vv_sg[:, 1:] /= rgd.dv_g[1:]
         vv_sg[:, 0] = vv_sg[:, 1]
-        
+
         return e_g, dedn_sg + vv_sg, b_vsg, dedsigma_xg
 
     calculate_gga_radial = calculate_gga
@@ -137,7 +137,7 @@ class PurePythonGGAKernel:
             self.name = 'PBEsol'
             self.x = 'PBE'
             self.kappa = 0.804
-            self.mu = 10./81.
+            self.mu = 10. / 81.
             self.beta = 0.046
         elif name == 'pyRPBE':
             self.name = 'RPBE'
@@ -162,9 +162,11 @@ class PurePythonGGAKernel:
             n[n < 1e-20] = 1e-40
 
             # exchange
-            ex, rs, dexdrs, dexda2 = gga_x(self.name, 0, n, sigma_xg[0], self.kappa, self.mu)
+            res = gga_x(self.name, 0, n, sigma_xg[0], self.kappa, self.mu)
+            ex, rs, dexdrs, dexda2 = res
             # correlation
-            ec, rs_, decdrs, decda2, decdzeta = gga_c(0, n, sigma_xg[0], 0, self.beta)
+            res = gga_c(0, n, sigma_xg[0], 0, self.beta)
+            ec, rs_, decdrs, decda2, decdzeta = res
 
             e_g[:] += n * (ex + ec)
             dedn_sg[:] += ex + ec - rs * (dexdrs + decdrs) / 3.
@@ -172,47 +174,52 @@ class PurePythonGGAKernel:
 
         # spin-polarized:
         else:
-            na = 2.0*n_sg[0]
+            na = 2. * n_sg[0]
             na[na < 1e-20] = 1e-40
 
-            nb = 2.0*n_sg[1]
+            nb = 2. * n_sg[1]
             nb[nb < 1e-20] = 1e-40
 
             n = 0.5 * (na + nb)
             zeta = 0.5 * (na - nb) / n
 
             # exchange
-            exa, rsa, dexadrs, dexada2 = gga_x(self.name, 1, na, 4.0*sigma_xg[0], self.kappa, self.mu)
-            exb, rsb, dexbdrs, dexbda2 = gga_x(self.name, 1, nb, 4.0*sigma_xg[2], self.kappa, self.mu)
+            exa, rsa, dexadrs, dexada2 = gga_x(
+                   self.name, 1, na, 4.0 * sigma_xg[0], self.kappa, self.mu)
+            exb, rsb, dexbdrs, dexbda2 = gga_x(
+                   self.name, 1, nb, 4.0 * sigma_xg[2], self.kappa, self.mu)
             a2 = sigma_xg[0] + 2.0 * sigma_xg[1] + sigma_xg[2]
             # correlation
             ec, rs, decdrs, decda2, decdzeta = gga_c(1, n, a2, zeta, self.beta)
 
             e_g[:] += 0.5 * (na * exa + nb * exb) + n * ec
-            dedn_sg[0][:] += exa + ec - (rsa * dexadrs + rs * decdrs)/3.0 - (zeta - 1.0) * decdzeta
-            dedn_sg[1][:] += exb + ec - (rsb * dexbdrs + rs * decdrs)/3.0 - (zeta + 1.0) * decdzeta
+            dedn_sg[0][:] += (exa + ec - (rsa * dexadrs + rs * decdrs) / 3.0
+                            - (zeta - 1.0) * decdzeta)
+            dedn_sg[1][:] += (exb + ec - (rsb * dexbdrs + rs * decdrs) / 3.0
+                            - (zeta + 1.0) * decdzeta)
             dedsigma_xg[0][:] += 2.0 * na * dexada2 + n * decda2
             dedsigma_xg[1][:] += 2.0 * n * decda2
             dedsigma_xg[2][:] += 2.0 * nb * dexbda2 + n * decda2
 
+
 def gga_x(name, spin, n, a2, kappa, mu):
-    assert spin in [0,1]
+    assert spin in [0, 1]
 
     C0I, C1, C2, C3, CC1, CC2, IF2, GAMMA = gga_constants()
-    rs = (C0I / n)**(1 / 3.)
+    rs = (C0I / n) ** (1 / 3.)
 
     # lda part
     ex = C1 / rs
     dexdrs = -ex / rs
 
     # gga part
-    c = (C2 * rs / n)**2.
+    c = (C2 * rs / n) ** 2.
     s2 = a2 * c
 
     if name in ['PBE', 'PBEsol']:
         x = 1.0 + mu * s2 / kappa
         Fx = 1.0 + kappa - kappa / x
-        dFxds2 = mu / x**2.
+        dFxds2 = mu / (x ** 2.)
     elif name == 'RPBE':
         x = np.exp(-mu * s2 / kappa)
         Fx = 1.0 + kappa * (1.0 - x)
@@ -225,28 +232,32 @@ def gga_x(name, spin, n, a2, kappa, mu):
 
     return ex, rs, dexdrs, dexda2
 
+
 def gga_c(spin, n, a2, zeta, BETA):
-    assert spin in [0,1]
+    assert spin in [0, 1]
     from gpaw.xc.lda import G
-    
+
     C0I, C1, C2, C3, CC1, CC2, IF2, GAMMA = gga_constants()
-    rs = (C0I / n)**(1 / 3.)
-    
+    rs = (C0I / n) ** (1 / 3.)
+
     # lda part
-    ec, decdrs_0 = G(rs**0.5, 0.031091, 0.21370, 7.5957, 3.5876, 1.6382, 0.49294)
+    ec, decdrs_0 = G(rs ** 0.5, 0.031091, 0.21370, 7.5957,
+                     3.5876, 1.6382, 0.49294)
 
     if spin == 0:
         decdrs = decdrs_0
-        decdzeta = 0. # dummy
+        decdzeta = 0.  # dummy
     else:
-        e1, decdrs_1 = G(rs**0.5, 0.015545, 0.20548, 14.1189, 6.1977, 3.3662, 0.62517)
-        alpha, dalphadrs = G(rs**0.5, 0.016887, 0.11125, 10.357, 3.6231, 0.88026, 0.49671)
+        e1, decdrs_1 = G(rs ** 0.5, 0.015545, 0.20548, 14.1189,
+                         6.1977, 3.3662, 0.62517)
+        alpha, dalphadrs = G(rs ** 0.5, 0.016887, 0.11125, 10.357,
+                         3.6231, 0.88026, 0.49671)
         alpha *= -1.
         dalphadrs *= -1.
         zp = 1.0 + zeta
         zm = 1.0 - zeta
-        xp = zp**(1/3.)
-        xm = zm**(1/3.)
+        xp = zp ** (1 / 3.)
+        xm = zm ** (1 / 3.)
         f = CC1 * (zp * xp + zm * xm - 2.0)
         f1 = CC2 * (xp - xm)
         zeta3 = zeta * zeta * zeta
@@ -280,7 +291,7 @@ def gga_c(spin, n, a2, zeta, BETA):
     At2 = A * t2
     nom = 1.0 + At2
     denom = nom + At2 * At2
-    H = GAMMA * np.log( 1.0 + BETA * t2 * nom / (denom * GAMMA))
+    H = GAMMA * np.log(1.0 + BETA * t2 * nom / (denom * GAMMA))
     tmp = (GAMMA * BETA / (denom * (BETA * t2 * nom + GAMMA * denom)))
     tmp2 = A * A * x / BETA
     dAdrs = tmp2 * decdrs
@@ -299,12 +310,13 @@ def gga_c(spin, n, a2, zeta, BETA):
         dphidzeta[ind1] += 1.0 / (3.0 * xp[ind1])
         dphidzeta[ind2] -= 1.0 / (3.0 * xm[ind2])
         dAdzeta = tmp2 * (decdzeta - 3.0 * ec * dphidzeta / phi) / phi3
-        decdzeta += ((3.0 * H / phi - dHdt2 * 2.0 * t2 / phi ) * dphidzeta
+        decdzeta += ((3.0 * H / phi - dHdt2 * 2.0 * t2 / phi) * dphidzeta
                       + dHdA * dAdzeta)
         decda2 /= phi2
     ec += H
 
     return ec, rs, decdrs, decda2, decdzeta
+
 
 def gga_constants():
     from gpaw.xc.lda import lda_constants
