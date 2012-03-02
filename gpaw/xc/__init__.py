@@ -61,6 +61,9 @@ def XC(kernel, parameters=None):
         elif name == 'PPLDA':
             from gpaw.xc.lda import PurePythonLDAKernel
             kernel = PurePythonLDAKernel()
+        elif name in ['pyPBE', 'pyPBEsol', 'pyRPBE']:
+            from gpaw.xc.gga import PurePythonGGAKernel
+            kernel = PurePythonGGAKernel(name)
         else:
             kernel = LibXC(kernel)
     if kernel.type == 'LDA':

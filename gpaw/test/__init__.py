@@ -141,6 +141,7 @@ tests = [
     'bee1.py',
     'beefvdw.py',
     'pplda.py',
+    'pygga.py',
     'external_potential.py',
     'refine.py',
     'revPBE.py',
