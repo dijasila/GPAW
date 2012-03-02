@@ -17,6 +17,7 @@ from gpaw.setup import BaseSetup
 from gpaw.version import version
 from gpaw.basis_data import Basis
 from gpaw.setup_data import SetupData
+from gpaw.gaunt import gaunt as G_LLL
 from gpaw.atom.configurations import configurations
 from gpaw.utilities.lapack import general_diagonalize
 from gpaw.atom.aeatom import AllElectronAtom, Channel, parse_ld_str, colors, \
@@ -731,6 +732,7 @@ class PAWSetupGenerator:
         return logderivs
     
     def make_paw_setup(self, tag=None):
+        self.calculate_core_core_exx()
         aea = self.aea
         
         setup = SetupData(aea.symbol, aea.xc.name, tag, readxml=False)
@@ -772,6 +774,8 @@ class PAWSetupGenerator:
         setup.rgd = self.rgd
         setup.rcgauss = 1 / sqrt(self.alpha)
 
+        setup.ExxC = self.exxcc
+
         setup.tauc_g = self.rgd.zeros()
         setup.tauct_g = self.rgd.zeros()
         print 'no tau!!!!!!!!!!!'
@@ -784,6 +788,33 @@ class PAWSetupGenerator:
         setup.generatorattrs = attrs
 
         return setup
+
+    def calculate_core_core_exx(self):
+        core = []
+        for l, ch in enumerate(self.aea.channels):
+            for n, phi_g in enumerate(ch.phi_ng):
+                if (l >= len(self.waves_l) or
+                    (l < len(self.waves_l) and
+                     n + l + 1 not in self.waves_l[l].n_n)):
+                    core.append((l, phi_g))
+
+        self.exxcc = 0.0
+        j1 = 0
+        for l1, phi1_g in core:
+            f = 1.0
+            for l2, phi2_g in core[j1:]:
+                n_g = phi1_g * phi2_g
+                for l in range((l1 + l2) % 2, l1 + l2 + 1, 2):
+                    G = (G_LLL[l1**2:(l1 + 1)**2,
+                                  l2**2:(l2 + 1)**2,
+                               l**2:(l + 1)**2]**2).sum()
+                    vr_g = self.rgd.poisson(n_g, l)
+                    e = f * self.rgd.integrate(vr_g * n_g, -1) / 4 / pi
+                    self.exxcc -= e * G
+                f = 2.0
+            j1 += 1
+        
+        self.log('EXX (core-core):', self.exxcc, 'Hartree')
 
 
 def str2z(x):
