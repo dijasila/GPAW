@@ -128,19 +128,11 @@ class GGA(LDA):
 class PurePythonGGAKernel:
     def __init__(self, name):
         self.type = 'GGA'
-        if name == 'pyPBE':
-            self.name = 'PBE'
-        elif name == 'pyPBEsol':
-            self.name = 'PBEsol'
-        elif name == 'pyRPBE':
-            self.name = 'RPBE'
-        else:
-            raise NotImplementedError(name)
+        self.name, self.kappa, self.mu, self.beta = pbe_constants(name)
 
     def calculate(self, e_g, n_sg, dedn_sg,
                   sigma_xg, dedsigma_xg,
                   tau_sg=None, dedtau_sg=None):
-        self.x, self.kappa, self.mu, self.beta = pbe_constants(self.name)
         e_g[:] = 0.
         dedsigma_xg[:] = 0.
 
@@ -191,25 +183,25 @@ class PurePythonGGAKernel:
 
 
 def pbe_constants(name):
-    if name == 'PBE':
-        x = 'PBE'
+    if name == 'pyPBE':
+        name = 'PBE'
         kappa = 0.804
         mu = 0.2195149727645171
         beta = 0.06672455060314922
-    elif name == 'PBEsol':
-        x = 'PBE'
+    elif name == 'pyPBEsol':
+        name = 'PBEsol'
         kappa = 0.804
         mu = 10. / 81.
         beta = 0.046
-    elif name == 'RPBE':
-        x = 'RPBE'
+    elif name == 'pyRPBE':
+        name = 'RPBE'
         kappa = 0.804
         mu = 0.2195149727645171
         beta = 0.06672455060314922
     else:
         raise NotImplementedError(name)
 
-    return x, kappa, mu, beta
+    return name, kappa, mu, beta
 
 
 def gga_x(name, spin, n, a2, kappa, mu):
