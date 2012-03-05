@@ -137,7 +137,6 @@ class PurePythonGGAKernel:
         else:
             raise NotImplementedError(name)
 
-
     def calculate(self, e_g, n_sg, dedn_sg,
                   sigma_xg, dedsigma_xg,
                   tau_sg=None, dedtau_sg=None):
@@ -208,7 +207,7 @@ def pbe_constants(name):
         mu = 0.2195149727645171
         beta = 0.06672455060314922
     else:
-        raise NotImplementedError(name) 
+        raise NotImplementedError(name)
 
     return x, kappa, mu, beta
 
