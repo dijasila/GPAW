@@ -100,7 +100,7 @@ class HybridXC(XCFunctional):
     def __init__(self, name, hybrid=None, xc=None, finegrid=False,
                  alpha=None, skip_gamma=False, ecut=None, etotflag = False, acdf=False, coredensity=True,
                  logfilename='-', bands=None):
-        """Mix scalculate_exx_paw_cotandard functionals with exact exchange.
+        """Mix standard functionals with exact exchange.
 
         name: str
             Name of hybrid functional.
@@ -266,6 +266,9 @@ class HybridXC(XCFunctional):
                         if np.abs(f_n) < 1e-10:
                             self.nbandstmp = max(self.nbandstmp, n1)
                             break
+                    else:
+                        self.nbandstmp = self.bd.nbands
+
             tmp = np.zeros(kd.comm.size, dtype=int)
             kd.comm.all_gather(np.array([self.nbandstmp]), tmp)
             self.nbands = tmp.max()
@@ -472,7 +475,6 @@ class HybridXC(XCFunctional):
                     self.log('Estimated total time',
                              t * self.npairs / self.world.size, 'seconds')
                     self.write_timing_information = False
-
 
     def calculate_exx_paw_correction(self):
         exx = 0
