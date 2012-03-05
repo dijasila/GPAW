@@ -21,10 +21,10 @@ class MGGA(GGA):
         """
         self.nn = nn
         GGA.__init__(self, kernel)
-        
+
     def set_grid_descriptor(self, gd):
         GGA.set_grid_descriptor(self, gd)
-        
+
     def get_setup_name(self):
         return 'PBE'
 
@@ -63,7 +63,7 @@ class MGGA(GGA):
             self.ekin -= self.wfs.gd.integrate(
                 self.dedtaut_sG[s] * (taut_sG[s] -
                                       self.tauct_G / self.wfs.nspins))
-                                               
+
     def apply_orbital_dependent_hamiltonian(self, kpt, psit_xG,
                                             Htpsit_xG, dH_asp):
         a_G = self.wfs.gd.empty(dtype=psit_xG.dtype)
@@ -85,8 +85,8 @@ class MGGA(GGA):
 
         if self.c.tau_npg is None:
             self.c.tau_npg, self.c.taut_npg = self.initialize_kinetic(self.c)
-            print 'TODO: tau_ypg is HUGE!  There must be a better way.'
-            
+            print('TODO: tau_ypg is HUGE!  There must be a better way.')
+
         E = GGA.calculate_paw_correction(self, setup, D_sp, dEdD_sp,
                                          addcoredensity, a)
         del self.D_sp, self.n, self.ae, self.c, self.dEdD_sp
@@ -126,7 +126,7 @@ class MGGA(GGA):
     def estimate_memory(self, mem):
         bytecount = self.wfs.gd.bytecount()
         mem.subnode('MGGA arrays', (1 + self.wfs.nspins) * bytecount)
-        
+
     def initialize_kinetic(self, xccorr):
         nii = xccorr.nii
         nn = len(xccorr.rnablaY_nLv)
@@ -140,7 +140,7 @@ class MGGA(GGA):
 
     def create_kinetic(self, x, ny, phi_jg, tau_ypg):
         """Short title here.
-        
+
         kinetic expression is::
 
                                              __         __
@@ -156,7 +156,7 @@ class MGGA(GGA):
                                                            dr     dr
           __    __
           \/YL1.\/YL2 [y] = Sum_c A[L1,c,y] A[L2,c,y] / r**2
-          
+
         """
         nj = len(phi_jg)
         ni = len(x.jlL)
@@ -173,11 +173,11 @@ class MGGA(GGA):
             Y_L = x.Y_nL[y]
             for j1, l1, L1 in x.jlL:
                 for j2, l2, L2 in x.jlL[i1:]:
-                    c = Y_L[L1]*Y_L[L2]
-                    temp = c * dphidr_jg[j1] *  dphidr_jg[j2]
-                    tau_ypg[y,p,:] += temp
+                    c = Y_L[L1] * Y_L[L2]
+                    temp = c * dphidr_jg[j1] * dphidr_jg[j2]
+                    tau_ypg[y, p, :] += temp
                     p += 1
-                i1 +=1
+                i1 += 1
         ##first term
         for y in range(ny):
             i1 = 0
@@ -190,13 +190,12 @@ class MGGA(GGA):
                 for j2, l2, L2 in x.jlL[i1:]:
                     temp = (Ax_L[L1] * Ax_L[L2] + Ay_L[L1] * Ay_L[L2]
                             + Az_L[L1] * Az_L[L2])
-                    temp *=  phi_jg[j1] * phi_jg[j2]
-                    temp[1:] /= x.rgd.r_g[1:]**2
+                    temp *= phi_jg[j1] * phi_jg[j2]
+                    temp[1:] /= x.rgd.r_g[1:] ** 2
                     temp[0] = temp[1]
                     tau_ypg[y, p, :] += temp
                     p += 1
-                i1 +=1
+                i1 += 1
         tau_ypg *= 0.5
-                    
+
         return
-        
