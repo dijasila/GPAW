@@ -10,7 +10,7 @@ h2.center(vacuum=2.)
 e = np.array([])
 f = np.array([])
 
-for XC in ['pyPBE', 'pyPBEsol', 'pyRPBE']:
+for XC in ['pyPBE', 'pyRPBE']:
     e = np.array([])
     f = np.array([])
     for i in [2, 0]:
@@ -30,7 +30,7 @@ d = 1.2
 o2 = Atoms('O2', [[0, 0, 0], [0, 0, d]], magmoms=[1., 1.])
 o2.center(vacuum=2.)
 
-for XC in ['pyPBE', 'pyPBEsol', 'pyRPBE']:
+for XC in ['pyPBE', 'pyRPBE']:
     e = np.array([])
     f = np.array([])
     for i in [2, 0]:
