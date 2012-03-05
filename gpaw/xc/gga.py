@@ -127,32 +127,21 @@ class GGA(LDA):
 
 class PurePythonGGAKernel:
     def __init__(self, name):
+        self.type = 'GGA'
         if name == 'pyPBE':
             self.name = 'PBE'
-            self.x = 'PBE'
-            self.kappa = 0.804
-            self.mu = 0.2195149727645171
-            self.beta = 0.06672455060314922
         elif name == 'pyPBEsol':
             self.name = 'PBEsol'
-            self.x = 'PBE'
-            self.kappa = 0.804
-            self.mu = 10. / 81.
-            self.beta = 0.046
         elif name == 'pyRPBE':
             self.name = 'RPBE'
-            self.x = 'RPBE'
-            self.kappa = 0.804
-            self.mu = 0.2195149727645171
-            self.beta = 0.06672455060314922
         else:
-            kgkg
-        self.type = 'GGA'
+            raise NotImplementedError(name)
+
 
     def calculate(self, e_g, n_sg, dedn_sg,
                   sigma_xg, dedsigma_xg,
                   tau_sg=None, dedtau_sg=None):
-
+        self.x, self.kappa, self.mu, self.beta = pbe_constants(self.name)
         e_g[:] = 0.
         dedsigma_xg[:] = 0.
 
@@ -200,6 +189,28 @@ class PurePythonGGAKernel:
             dedsigma_xg[0][:] += 2.0 * na * dexada2 + n * decda2
             dedsigma_xg[1][:] += 2.0 * n * decda2
             dedsigma_xg[2][:] += 2.0 * nb * dexbda2 + n * decda2
+
+
+def pbe_constants(name):
+    if name == 'PBE':
+        x = 'PBE'
+        kappa = 0.804
+        mu = 0.2195149727645171
+        beta = 0.06672455060314922
+    elif name == 'PBEsol':
+        x = 'PBE'
+        kappa = 0.804
+        mu = 10. / 81.
+        beta = 0.046
+    elif name == 'RPBE':
+        x = 'RPBE'
+        kappa = 0.804
+        mu = 0.2195149727645171
+        beta = 0.06672455060314922
+    else:
+        raise NotImplementedError(name) 
+
+    return x, kappa, mu, beta
 
 
 def gga_x(name, spin, n, a2, kappa, mu):
@@ -324,4 +335,5 @@ def gga_constants():
     C2 = 0.26053088059892404
     C3 = 0.10231023756535741
     GAMMA = 0.0310906908697
+
     return C0I, C1, C2, C3, CC1, CC2, IF2, GAMMA
