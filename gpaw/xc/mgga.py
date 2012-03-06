@@ -199,3 +199,190 @@ class MGGA(GGA):
         tau_ypg *= 0.5
 
         return
+
+
+class PurePythonMGGAKernel:
+    def __init__(self, name='pyTPSSx'):
+        assert name in ['pyTPSSx', 'pyrevTPSSx']
+        self.name = name
+        self.type = 'MGGA'
+
+    def calculate(self, e_g, n_sg, dedn_sg,
+                  sigma_xg, dedsigma_xg,
+                  tau_sg, dedtau_sg):
+
+        e_g[:] = 0.
+        dedsigma_xg[:] = 0.
+        dedtau_sg[:] = 0.
+
+        # spin-paired:
+        if len(n_sg) == 1:
+            n = n_sg[0]
+            n[n < 1e-20] = 1e-40
+            sigma = sigma_xg[0]
+            sigma[sigma < 1e-20] = 1e-40
+            tau = tau_sg[0]
+            tau[tau < 1e-20] = 1e-40
+
+            # exchange
+            e_x = x_tpss_para(n, sigma, tau, self.name)
+            e_g[:] += e_x * n
+
+        # spin-polarized:
+        else:
+            n = n_sg
+            n[n < 1e-20] = 1e-40
+            sigma = sigma_xg
+            sigma[sigma < 1e-20] = 1e-40
+            tau = tau_sg
+            tau[tau < 1e-20] = 1e-40
+
+            # The spin polarized version is handle using the exact spin scaling
+            # Ex[n1, n2] = (Ex[2*n1] + Ex[2*n2])/2
+            na = 2.0 * n[0]
+            nb = 2.0 * n[1]
+
+            e2na = x_tpss_para(na, 4. * sigma[0], 2. * tau[0], self.name)
+            e2nb = x_tpss_para(nb, 4. * sigma[2], 2. * tau[1], self.name)
+
+            ea = e2na * na
+            eb = e2nb * nb
+
+            e_x = (ea + eb) / 2.0
+            e_g[:] += e_x
+
+
+def x_tpss_7(p, alpha):
+    b = 0.40
+    h = 9.0 / 20.0
+    a = np.sqrt(1.0 + b * alpha * (alpha - 1.0))
+    qb = np.divide(h * (alpha - 1.0), a) + np.divide(2.0 * p, 3.0)
+    return qb
+
+
+def x_tpss_10(p, alpha, name):
+    if name is 'pyTPSSx':
+        c = 1.59096
+        e = 1.537
+        mu = 0.21951
+    elif name in ['pyrevTPSSx', 'pyBEErevTPSSx']:
+        c = 2.35204
+        e = 2.1677
+        mu = 0.14
+    else:
+        raise NotImplementedError('unknown MGGA exchange: %s' % name)
+
+    kappa = 0.804
+
+    # TPSS equation 7:
+    qb = x_tpss_7(p, alpha)
+
+    # TPSS equation 10:
+    p2 = p * p
+    p2 = np.minimum(p2, 1e10)
+    aux1 = 10.0 / 81.0
+    ap = (3.0 * alpha + 5.0 * p) * (3.0 * alpha + 5.0 * p)
+    apsr = (3.0 * alpha + 5.0 * p)
+
+    # first the numerator
+    x1 = np.zeros((np.shape(p)))
+
+    # first term
+    a = 9.0 * alpha * alpha + 30.0 * alpha * p + 50.0 * p2
+    a2 = a * a
+    ind = (a2 != 0.).nonzero()
+    x1 += aux1 * p
+    if name is 'pyTPSSx':
+        x1[ind] += np.divide(25.0 * c
+            * p2[ind] * p[ind] * ap[ind], a2[ind])
+    elif name in ['pyrevTPSSx', 'pyBEErevTPSSx']:
+        x1[ind] += np.divide(125.0 * c
+            * p2[ind] * p2[ind] * apsr[ind], a2[ind])
+    else:
+        raise NotImplementedError('unknown MGGA exchange: %s' % name)
+
+    # second term
+    a = 146.0 / 2025.0 * qb
+    x1 += a * qb
+
+    # third term
+    h = 73.0 / (405.0 * np.sqrt(2.0))
+    ind = (ap != 0.).nonzero()
+    x1[ind] -= np.divide(h * qb[ind] * p[ind],
+        apsr[ind]) * np.sqrt(ap[ind] + 9.0)
+
+    # forth term
+    a = aux1 * aux1 / kappa
+    x1 += a * p2
+
+    # fifth term
+    x1[ind] += np.divide(20.0 * np.sqrt(e) * p2[ind], 9.0 * ap[ind])
+
+    # sixth term
+    a = e * mu
+    x1 += a * p * p2
+
+    # then the denominator
+    a = 1.0 + np.sqrt(e) * p
+    a2 = a * a
+    ind = (a2 != 0.).nonzero()
+    x = np.zeros((np.shape(x1)))
+    x[ind] = x1[ind] / a2[ind]
+    return x
+
+
+def x_tpss_para(n, sigma, tau_, name):
+    C1 = -0.45816529328314287
+    C2 = 0.26053088059892404
+    kappa = 0.804
+
+    aux = (3. / 10.) * (3.0 * pi * pi) ** (2. / 3.)
+
+    # uniform gas energy and potential
+    exunif = lda_x(n)
+
+    # calculate |nabla rho|^2
+    gdms = np.maximum(1e-40, sigma)
+
+    # Eq. (4)
+    ind = (n != 0.).nonzero()
+    p = np.zeros((np.shape(n)))
+    p[ind] = np.divide(gdms[ind], (4.0 * (3.0 * pi * pi) ** (2.0 / 3.0)
+        * n[ind] ** (8.0 / 3.0)))
+
+    # von Weisaecker kinetic energy density
+    tauw = np.zeros((np.shape(n)))
+    tauw[ind] = np.maximum(np.divide(gdms[ind], 8.0 * n[ind]), 1e-20)
+    tau = np.maximum(tau_, tauw)
+
+    tau_lsda = aux * n ** (5. / 3.)
+    dtau_lsdadd = aux * 5. / 3. * n ** (2. / 3.)
+
+    ind = (tau_lsda != 0.).nonzero()
+    alpha = np.zeros((np.shape(n)))
+    alpha[ind] = np.divide(tau[ind] - tauw[ind], tau_lsda[ind])
+
+    # TPSS equation 10:
+    x = x_tpss_10(p, alpha, name)
+
+    # TPSS equation 5:
+    Fx = get_Fx(kappa, x, name)
+
+    energy = exunif * Fx
+    return energy
+
+
+def get_Fx(kappa, x, name):
+
+    a = np.divide(kappa, kappa + x)
+    Fx = 1.0 + kappa * (1.0 - a)
+    return Fx
+
+
+def lda_x(n):
+    C0I = 0.238732414637843
+    C1 = -0.45816529328314287
+
+    rs = (C0I / n) ** (1 / 3.)
+    ex = C1 / rs
+    return ex
