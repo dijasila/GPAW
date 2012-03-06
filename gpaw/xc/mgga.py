@@ -202,9 +202,10 @@ class MGGA(GGA):
 
 
 class PurePythonMGGAKernel:
-    def __init__(self, name='pyTPSSx'):
-        assert name in ['pyTPSSx', 'pyrevTPSSx']
+    def __init__(self, name='pyTPSSx', pars=None):
+        assert name in ['pyTPSSx', 'pyrevTPSSx', 'pyBEErevTPSSx']
         self.name = name
+        self.pars = pars
         self.type = 'MGGA'
 
     def calculate(self, e_g, n_sg, dedn_sg,
@@ -225,7 +226,7 @@ class PurePythonMGGAKernel:
             tau[tau < 1e-20] = 1e-40
 
             # exchange
-            e_x = x_tpss_para(n, sigma, tau, self.name)
+            e_x = x_tpss_para(n, sigma, tau, self.name, self.pars)
             e_g[:] += e_x * n
 
         # spin-polarized:
@@ -242,9 +243,10 @@ class PurePythonMGGAKernel:
             na = 2.0 * n[0]
             nb = 2.0 * n[1]
 
-            e2na = x_tpss_para(na, 4. * sigma[0], 2. * tau[0], self.name)
-            e2nb = x_tpss_para(nb, 4. * sigma[2], 2. * tau[1], self.name)
-
+            e2na = x_tpss_para(na, 4. * sigma[0], 2. * tau[0],
+                self.name, self.pars)
+            e2nb = x_tpss_para(nb, 4. * sigma[2], 2. * tau[1],
+                self.name, self.pars)
             ea = e2na * na
             eb = e2nb * nb
 
@@ -331,7 +333,7 @@ def x_tpss_10(p, alpha, name):
     return x
 
 
-def x_tpss_para(n, sigma, tau_, name):
+def x_tpss_para(n, sigma, tau_, name, pars):
     C1 = -0.45816529328314287
     C2 = 0.26053088059892404
     kappa = 0.804
@@ -366,16 +368,67 @@ def x_tpss_para(n, sigma, tau_, name):
     x = x_tpss_10(p, alpha, name)
 
     # TPSS equation 5:
-    Fx = get_Fx(kappa, x, name)
+    Fx = get_Fx(kappa, x, name, pars)
 
     energy = exunif * Fx
     return energy
 
 
-def get_Fx(kappa, x, name):
+def get_Fx(kappa, x, name, pars):
+    if 'pyBEE' not in name:
+        a = np.divide(kappa, kappa + x)
+        Fx = 1.0 + kappa * (1.0 - a)
+    else:
+        # Legendre polynomial basis expansion
+        t = pars[0]  # transformation
+        parlen = (len(pars) - 2) / 2
+        orders = pars[2:parlen+2]
+        max_order = int(orders[-1])
+        coefs = pars[(2+parlen):]
+        assert len(orders) == len(coefs)
 
-    a = np.divide(kappa, kappa + x)
-    Fx = 1.0 + kappa * (1.0 - a)
+        tmp = x + t
+        y = 2.0 * np.divide(x, tmp) - 1.0
+        Fx = np.zeros_like(x)
+        sh = np.shape(Fx)
+        sh_ = np.append(sh,max_order + 2)
+        L = np.empty(sh_)
+
+        # initializing
+        if len(sh) == 1:
+            L[:,0] = 1.0
+            L[:,1] = y
+        else:
+            L[:,:,:,0] = 1.0
+            L[:,:,:,1] = y
+
+        # recursively building polynomium
+        if len(sh) == 1:
+            for i in range(max_order):
+                i += 2
+                L[:, i] = (2.0 * y[:] * L[:, i-1] - L[:, i-2]
+                    - (y[:] * L[:, i-1] - L[:, i-2]) / i)
+        else:
+            for i in range(max_order):
+                i += 2
+                L[:, :, :, i] = (2.0 * y[:] * L[:, :, :, i-1] - L[:, :, :, i-2]
+                    - (y[:] * L[:, :, :, i-1] - L[:, :, :, i-2]) / i)
+
+        # building enhancement factor Fx
+        coefs_ = np.empty(max_order+1)
+        k = 0
+        for i in range(len(coefs_)):
+            order = orders[k]
+            if orders[k] == i:
+                coefs_[i] = coefs[k]
+                k += 1
+            else:
+                coefs_[i] = 0.0
+        if len(sh) == 1:
+            Fx += np.dot(L[:, :-1], coefs_)
+        else:
+            Fx += np.dot(L[:, :, :, :-1], coefs_)
+
     return Fx
 
 
