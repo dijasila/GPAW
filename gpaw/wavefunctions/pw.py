@@ -547,7 +547,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             kpt.psit_nG = psit_nG[:bd.mynbands].copy()
             del psit_nG
 
-            self.pt.integrate(kpt.psit_nG, kpt.P_ani)
+            self.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
             f_n = np.zeros_like(kpt.eps_n)
             f_n[:len(kpt.f_n)] = kpt.f_n
