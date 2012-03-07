@@ -16,8 +16,8 @@ def delta_function(x0, dx, Nx, sigma):
 def hilbert_transform(specfunc_wGG, w_w, Nw, dw, eta, fullresponse=False):
 
     NwS = specfunc_wGG.shape[0]
-    tmp_ww = np.zeros((Nw, NwS+1), dtype=complex)
-    ww_w = np.linspace(0., NwS*dw, NwS+1)
+    tmp_ww = np.zeros((Nw, NwS), dtype=complex)
+    ww_w = np.linspace(0., (NwS-1)*dw, NwS)
 
     for iw in range(Nw):
         if fullresponse is False:

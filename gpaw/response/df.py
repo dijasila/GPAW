@@ -459,7 +459,137 @@ class DF(CHI):
 
         return drho_z
 
+    def get_eigenmodes(self,filename = None, chi0 = None, calc = None, dm = None, sum_xy = False, method = 'cross'):
+        """
+        Calculate the plasmonic eigenmodes by finding eigenvectors of the dielectric matrix.
+        If chi0_wGG is given, the RPA dielectric matrix is calculated.  
 
+        Parameters:
+
+        q:  ndarray
+            Momentum tranfer at reduced coordinate.
+
+        filename:  pckl. file
+                   output from response calculation.
+         
+        chi0:  gpw file
+               chi0_wGG from response calculation. 
+
+        dm:  gpw file
+             dm_wGG from response calculation  
+        
+        calc:  gpaw calculator instance
+               ground state calculator used in response calculation.
+               Wavefunctions only needed if chi0 is calculated from scratch
+
+        sum_xy:  Bool
+                 Return the induced potential and density in the z-direction only. Relevant for slabs
+        sum_z:  ndarray
+                Sum over one specified direction in the induced density. Relevant for wires.
+                
+        method:  str
+                 'cross': calculate position of eigenmodes from where the real part crosses zero.
+                 'eels': correct the energy of the eigenmodes by using the imaginary part of the eigenvalue.       
+        """
+
+        from gpaw import GPAW
+        self.read(filename)
+        self.calc = GPAW(calc,txt=None)
+        self.w_w = np.linspace(0,self.dw*(self.Nw-1)*Hartree,self.Nw)
+        
+        if chi0 is None and dm is None: # calculate chi0 from scratch            
+            self.initialize()
+            self.calculate()    
+            self.w_w = self.w_w*Hartree
+            self.dm_wGG = self.get_dielectric_matrix()        
+        else:                           # read from file and reinitialize
+            from gpaw.response.parallel import par_read          
+            from gpaw.response.kernel import calculate_Kc
+            self.Nw_local = self.Nw
+            self.nspins = 1
+            self.gd = self.calc.wfs.gd
+            if dm is not None:
+                self.dm_wGG = par_read(dm,'dm')
+            else:
+                self.chi0_wGG = par_read(chi0,'chi0_wGG')
+                self.Kc_GG = calculate_Kc(self.q_c, self.Gvec_Gc, self.acell_cv,self.bcell_cv, self.calc.atoms.pbc, self.optical_limit, self.vcut)
+                self.dm_wGG = self.get_dielectric_matrix()
+            self.pbc = self.calc.atoms.pbc
+            
+        q = self.q_c
+        gd = self.gd
+        r = gd.get_grid_point_coordinates()
+        R = r*Bohr 
+
+        Eig1 = np.array([], dtype = 'complex')
+        Eig2 = np.array([], dtype = 'complex')
+        Eig0 = np.array([], dtype = 'complex')
+        W = np.array([])
+        Vind = np.zeros([1,r.shape[1],r.shape[2],r.shape[3]],dtype = 'complex')
+        Nind = np.zeros([1,r.shape[1],r.shape[2],r.shape[3]],dtype = 'complex')
+
+        dm_wGG = self.dm_wGG
+        eigstat = np.zeros([1,self.npw], dtype = 'complex')
+        eigg = np.zeros([1,self.npw], dtype = 'complex')
+        Veig = np.zeros([1,self.npw], dtype = 'complex')
+        eps_GGp = dm_wGG[0]
+        eigp,vecp = np.linalg.eig(eps_GGp)
+        # sum over frequencies, where the eigenvalues for the 2D matrix in G,G' are found. 
+        for i in np.array(range(self.Nw-1))+1: 
+            eig,vec = eigp,vecp   #find eigenvalues and eigenvectors
+            eps_GGp = dm_wGG[i] #epsilon_GG'(omega - d-omega)
+            eigp,vecp = np.linalg.eig(eps_GGp)
+            eigg[0,:] = eig
+            eigstat = np.append(eigstat, eigg, axis=0) # append all eigenvalues to array         
+            # loop to check whether the eigenvalue crosses zero from negative to positive values:
+            for k in range(self.npw):
+                for j in range(self.npw):
+                    if eig[k]< 0 and 0 < eigp[j]:
+                        #check it's the same mode - Overlap between eigenvectors should be large:
+                        if abs(np.inner(vec[:,k], np.conjugate(vecp[:,j]))) > 0.95:
+                            self.printtxt('crossing found at w = %1.1f eV'%self.w_w[i-1])
+                            #self.printtxt(str(abs(np.inner(vec[:,k], np.conjugate(vecp[:,j])))))
+                            #Eig1 = np.append(Eig1,eig[k])   
+                            #Eig2 = np.append(Eig2,eigp[j])
+                            w1 = self.w_w[i-1]
+                            w2 = self.w_w[i]
+                            a = (eigp[j]-eig[k])/(w2-w1)
+                            b =  eigp[j]-a*w2
+                            w0 = -np.real(b)/np.real(a)
+                            c = (w0-w1)/(w2-w1)
+                            eig0 = (1-c)*eig[k]+ c*eigp[j]
+                            if method == 'eels':
+                                w0 = w0*(np.imag(eig0)**2+1)**0.5
+                            W = np.append(W,w0)
+                            Eig0 = np.append(Eig0,eig0)
+                            Vdum = np.zeros([1,r.shape[1],r.shape[2],r.shape[3]])
+                            Ndum = np.zeros([1,r.shape[1],r.shape[2],r.shape[3]])
+                            for iG in range(self.npw):
+                                qG = np.dot((q + self.Gvec_Gc[iG]), self.bcell_cv)
+                                coef_G = np.dot(qG,qG)/(4*pi)  
+                                qGr_R = np.inner(qG, r.T).T
+                                Vdum +=  vec[iG,k]*np.cos(qGr_R)
+                                Ndum +=  vec[iG,k]*np.cos(qGr_R)*coef_G                             
+                            Vind = np.append(Vind,Vdum, axis=0) 
+                            Nind = np.append(Nind,Ndum, axis=0)
+                            del Vdum,Ndum
+  
+        if sum_xy == True: # Sum over x- and y- directions (relevant for slabs)
+            Vind_z = np.zeros([Vind.shape[0],Vind.shape[-1]], dtype = 'complex')
+            Nind_z = np.zeros([Nind.shape[0],Nind.shape[-1]], dtype = 'complex')
+            for n in range(Nind.shape[0]):            
+                for iz in range(Nind.shape[-1]):
+                    Vind_z[n,iz] = Vind[n,:,:,iz].sum()
+                    Nind_z[n,iz] = Nind[n,:,:,iz].sum()
+
+            return R, self.w_w, eigstat[1:],W,Eig0, Nind_z[1:], Vind_z[1:] 
+
+        #elif sum_z == True:
+            # Sum over z direction - relevant for 1D geometries
+
+        else:
+            return R, self.w_w, eigstat[1:], W, Eig0, Nind[1:], Vind[1:] 
+    
     def project_chi_to_LCAO_pair_orbital(self, orb_MG):
 
         nLCAO = orb_MG.shape[0]

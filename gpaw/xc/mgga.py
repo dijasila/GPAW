@@ -21,10 +21,10 @@ class MGGA(GGA):
         """
         self.nn = nn
         GGA.__init__(self, kernel)
-        
+
     def set_grid_descriptor(self, gd):
         GGA.set_grid_descriptor(self, gd)
-        
+
     def get_setup_name(self):
         return 'PBE'
 
@@ -63,7 +63,7 @@ class MGGA(GGA):
             self.ekin -= self.wfs.gd.integrate(
                 self.dedtaut_sG[s] * (taut_sG[s] -
                                       self.tauct_G / self.wfs.nspins))
-                                               
+
     def apply_orbital_dependent_hamiltonian(self, kpt, psit_xG,
                                             Htpsit_xG, dH_asp):
         a_G = self.wfs.gd.empty(dtype=psit_xG.dtype)
@@ -85,8 +85,8 @@ class MGGA(GGA):
 
         if self.c.tau_npg is None:
             self.c.tau_npg, self.c.taut_npg = self.initialize_kinetic(self.c)
-            print 'TODO: tau_ypg is HUGE!  There must be a better way.'
-            
+            print('TODO: tau_ypg is HUGE!  There must be a better way.')
+
         E = GGA.calculate_paw_correction(self, setup, D_sp, dEdD_sp,
                                          addcoredensity, a)
         del self.D_sp, self.n, self.ae, self.c, self.dEdD_sp
@@ -126,7 +126,7 @@ class MGGA(GGA):
     def estimate_memory(self, mem):
         bytecount = self.wfs.gd.bytecount()
         mem.subnode('MGGA arrays', (1 + self.wfs.nspins) * bytecount)
-        
+
     def initialize_kinetic(self, xccorr):
         nii = xccorr.nii
         nn = len(xccorr.rnablaY_nLv)
@@ -140,7 +140,7 @@ class MGGA(GGA):
 
     def create_kinetic(self, x, ny, phi_jg, tau_ypg):
         """Short title here.
-        
+
         kinetic expression is::
 
                                              __         __
@@ -156,7 +156,7 @@ class MGGA(GGA):
                                                            dr     dr
           __    __
           \/YL1.\/YL2 [y] = Sum_c A[L1,c,y] A[L2,c,y] / r**2
-          
+
         """
         nj = len(phi_jg)
         ni = len(x.jlL)
@@ -173,11 +173,11 @@ class MGGA(GGA):
             Y_L = x.Y_nL[y]
             for j1, l1, L1 in x.jlL:
                 for j2, l2, L2 in x.jlL[i1:]:
-                    c = Y_L[L1]*Y_L[L2]
-                    temp = c * dphidr_jg[j1] *  dphidr_jg[j2]
-                    tau_ypg[y,p,:] += temp
+                    c = Y_L[L1] * Y_L[L2]
+                    temp = c * dphidr_jg[j1] * dphidr_jg[j2]
+                    tau_ypg[y, p, :] += temp
                     p += 1
-                i1 +=1
+                i1 += 1
         ##first term
         for y in range(ny):
             i1 = 0
@@ -190,13 +190,252 @@ class MGGA(GGA):
                 for j2, l2, L2 in x.jlL[i1:]:
                     temp = (Ax_L[L1] * Ax_L[L2] + Ay_L[L1] * Ay_L[L2]
                             + Az_L[L1] * Az_L[L2])
-                    temp *=  phi_jg[j1] * phi_jg[j2]
-                    temp[1:] /= x.rgd.r_g[1:]**2
+                    temp *= phi_jg[j1] * phi_jg[j2]
+                    temp[1:] /= x.rgd.r_g[1:] ** 2
                     temp[0] = temp[1]
                     tau_ypg[y, p, :] += temp
                     p += 1
-                i1 +=1
+                i1 += 1
         tau_ypg *= 0.5
-                    
+
         return
-        
+
+
+class PurePythonMGGAKernel:
+    def __init__(self, name='pyTPSSx', pars=None):
+        assert name in ['pyTPSSx', 'pyrevTPSSx', 'pyBEErevTPSSx']
+        self.name = name
+        self.pars = pars
+        self.type = 'MGGA'
+
+    def calculate(self, e_g, n_sg, dedn_sg,
+                  sigma_xg, dedsigma_xg,
+                  tau_sg, dedtau_sg):
+
+        e_g[:] = 0.
+        dedsigma_xg[:] = 0.
+        dedtau_sg[:] = 0.
+
+        # spin-paired:
+        if len(n_sg) == 1:
+            n = n_sg[0]
+            n[n < 1e-20] = 1e-40
+            sigma = sigma_xg[0]
+            sigma[sigma < 1e-20] = 1e-40
+            tau = tau_sg[0]
+            tau[tau < 1e-20] = 1e-40
+
+            # exchange
+            e_x = x_tpss_para(n, sigma, tau, self.name, self.pars)
+            e_g[:] += e_x * n
+
+        # spin-polarized:
+        else:
+            n = n_sg
+            n[n < 1e-20] = 1e-40
+            sigma = sigma_xg
+            sigma[sigma < 1e-20] = 1e-40
+            tau = tau_sg
+            tau[tau < 1e-20] = 1e-40
+
+            # The spin polarized version is handle using the exact spin scaling
+            # Ex[n1, n2] = (Ex[2*n1] + Ex[2*n2])/2
+            na = 2.0 * n[0]
+            nb = 2.0 * n[1]
+
+            e2na = x_tpss_para(na, 4. * sigma[0], 2. * tau[0],
+                self.name, self.pars)
+            e2nb = x_tpss_para(nb, 4. * sigma[2], 2. * tau[1],
+                self.name, self.pars)
+            ea = e2na * na
+            eb = e2nb * nb
+
+            e_x = (ea + eb) / 2.0
+            e_g[:] += e_x
+
+
+def x_tpss_7(p, alpha):
+    b = 0.40
+    h = 9.0 / 20.0
+    a = np.sqrt(1.0 + b * alpha * (alpha - 1.0))
+    qb = np.divide(h * (alpha - 1.0), a) + np.divide(2.0 * p, 3.0)
+    return qb
+
+
+def x_tpss_10(p, alpha, name):
+    if name is 'pyTPSSx':
+        c = 1.59096
+        e = 1.537
+        mu = 0.21951
+    elif name in ['pyrevTPSSx', 'pyBEErevTPSSx']:
+        c = 2.35204
+        e = 2.1677
+        mu = 0.14
+    else:
+        raise NotImplementedError('unknown MGGA exchange: %s' % name)
+
+    kappa = 0.804
+
+    # TPSS equation 7:
+    qb = x_tpss_7(p, alpha)
+
+    # TPSS equation 10:
+    p2 = p * p
+    p2 = np.minimum(p2, 1e10)
+    aux1 = 10.0 / 81.0
+    ap = (3.0 * alpha + 5.0 * p) * (3.0 * alpha + 5.0 * p)
+    apsr = (3.0 * alpha + 5.0 * p)
+
+    # first the numerator
+    x1 = np.zeros((np.shape(p)))
+
+    # first term
+    a = 9.0 * alpha * alpha + 30.0 * alpha * p + 50.0 * p2
+    a2 = a * a
+    ind = (a2 != 0.).nonzero()
+    x1 += aux1 * p
+    if name is 'pyTPSSx':
+        x1[ind] += np.divide(25.0 * c
+            * p2[ind] * p[ind] * ap[ind], a2[ind])
+    elif name in ['pyrevTPSSx', 'pyBEErevTPSSx']:
+        x1[ind] += np.divide(125.0 * c
+            * p2[ind] * p2[ind] * apsr[ind], a2[ind])
+    else:
+        raise NotImplementedError('unknown MGGA exchange: %s' % name)
+
+    # second term
+    a = 146.0 / 2025.0 * qb
+    x1 += a * qb
+
+    # third term
+    h = 73.0 / (405.0 * np.sqrt(2.0))
+    ind = (ap != 0.).nonzero()
+    x1[ind] -= np.divide(h * qb[ind] * p[ind],
+        apsr[ind]) * np.sqrt(ap[ind] + 9.0)
+
+    # forth term
+    a = aux1 * aux1 / kappa
+    x1 += a * p2
+
+    # fifth term
+    x1[ind] += np.divide(20.0 * np.sqrt(e) * p2[ind], 9.0 * ap[ind])
+
+    # sixth term
+    a = e * mu
+    x1 += a * p * p2
+
+    # then the denominator
+    a = 1.0 + np.sqrt(e) * p
+    a2 = a * a
+    ind = (a2 != 0.).nonzero()
+    x = np.zeros((np.shape(x1)))
+    x[ind] = x1[ind] / a2[ind]
+    return x
+
+
+def x_tpss_para(n, sigma, tau_, name, pars):
+    C1 = -0.45816529328314287
+    C2 = 0.26053088059892404
+    kappa = 0.804
+
+    aux = (3. / 10.) * (3.0 * pi * pi) ** (2. / 3.)
+
+    # uniform gas energy and potential
+    exunif = lda_x(n)
+
+    # calculate |nabla rho|^2
+    gdms = np.maximum(1e-40, sigma)
+
+    # Eq. (4)
+    ind = (n != 0.).nonzero()
+    p = np.zeros((np.shape(n)))
+    p[ind] = np.divide(gdms[ind], (4.0 * (3.0 * pi * pi) ** (2.0 / 3.0)
+        * n[ind] ** (8.0 / 3.0)))
+
+    # von Weisaecker kinetic energy density
+    tauw = np.zeros((np.shape(n)))
+    tauw[ind] = np.maximum(np.divide(gdms[ind], 8.0 * n[ind]), 1e-20)
+    tau = np.maximum(tau_, tauw)
+
+    tau_lsda = aux * n ** (5. / 3.)
+    dtau_lsdadd = aux * 5. / 3. * n ** (2. / 3.)
+
+    ind = (tau_lsda != 0.).nonzero()
+    alpha = np.zeros((np.shape(n)))
+    alpha[ind] = np.divide(tau[ind] - tauw[ind], tau_lsda[ind])
+
+    # TPSS equation 10:
+    x = x_tpss_10(p, alpha, name)
+
+    # TPSS equation 5:
+    Fx = get_Fx(kappa, x, name, pars)
+
+    energy = exunif * Fx
+    return energy
+
+
+def get_Fx(kappa, x, name, pars):
+    if 'pyBEE' not in name:
+        a = np.divide(kappa, kappa + x)
+        Fx = 1.0 + kappa * (1.0 - a)
+    else:
+        # Legendre polynomial basis expansion
+        t = pars[0]  # transformation
+        parlen = (len(pars) - 2) / 2
+        orders = pars[2:parlen+2]
+        max_order = int(orders[-1])
+        coefs = pars[(2+parlen):]
+        assert len(orders) == len(coefs)
+
+        tmp = x + t
+        y = 2.0 * np.divide(x, tmp) - 1.0
+        Fx = np.zeros_like(x)
+        sh = np.shape(Fx)
+        sh_ = np.append(sh,max_order + 2)
+        L = np.empty(sh_)
+
+        # initializing
+        if len(sh) == 1:
+            L[:,0] = 1.0
+            L[:,1] = y
+        else:
+            L[:,:,:,0] = 1.0
+            L[:,:,:,1] = y
+
+        # recursively building polynomium
+        if len(sh) == 1:
+            for i in range(max_order):
+                i += 2
+                L[:, i] = (2.0 * y[:] * L[:, i-1] - L[:, i-2]
+                    - (y[:] * L[:, i-1] - L[:, i-2]) / i)
+        else:
+            for i in range(max_order):
+                i += 2
+                L[:, :, :, i] = (2.0 * y[:] * L[:, :, :, i-1] - L[:, :, :, i-2]
+                    - (y[:] * L[:, :, :, i-1] - L[:, :, :, i-2]) / i)
+
+        # building enhancement factor Fx
+        coefs_ = np.empty(max_order+1)
+        k = 0
+        for i in range(len(coefs_)):
+            order = orders[k]
+            if orders[k] == i:
+                coefs_[i] = coefs[k]
+                k += 1
+            else:
+                coefs_[i] = 0.0
+        if len(sh) == 1:
+            Fx += np.dot(L[:, :-1], coefs_)
+        else:
+            Fx += np.dot(L[:, :, :, :-1], coefs_)
+
+    return Fx
+
+
+def lda_x(n):
+    C0I = 0.238732414637843
+    C1 = -0.45816529328314287
+
+    rs = (C0I / n) ** (1 / 3.)
+    ex = C1 / rs
+    return ex

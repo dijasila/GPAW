@@ -98,7 +98,7 @@ class HybridXC(XCFunctional):
     def __init__(self, name, hybrid=None, xc=None, finegrid=False,
                  alpha=None, skip_gamma=False, ecut=None, etotflag = False, acdf=False, coredensity=True,
                  logfilename='-', bands=None):
-        """Mix scalculate_exx_paw_cotandard functionals with exact exchange.
+        """Mix standard functionals with exact exchange.
 
         name: str
             Name of hybrid functional.
@@ -259,6 +259,9 @@ class HybridXC(XCFunctional):
                         if np.abs(f_n) < 1e-10:
                             self.nbandstmp = max(self.nbandstmp, n1)
                             break
+                    else:
+                        self.nbandstmp = self.bd.nbands
+
             tmp = np.zeros(kd.comm.size, dtype=int)
             kd.comm.all_gather(np.array([self.nbandstmp]), tmp)
             self.nbands = tmp.max()
@@ -463,6 +466,33 @@ class HybridXC(XCFunctional):
                              t * self.npairs / self.world.size, 'seconds')
                     self.write_timing_information = False
 
+    def calculate_exx_paw_correction(self):
+        exx = 0
+        deg = 2 // self.nspins  # spin degeneracy
+        for a, D_sp in self.density.D_asp.items():
+            setup = self.setups[a]
+            for D_p in D_sp:
+                D_ii = unpack2(D_p)
+                ni = len(D_ii)
+
+                for i1 in range(ni):
+                    for i2 in range(ni):
+                        A = 0.0
+                        for i3 in range(ni):
+                            p13 = packed_index(i1, i3, ni)
+                            for i4 in range(ni):
+                                p24 = packed_index(i2, i4, ni)
+                                A += setup.M_pp[p13, p24] * D_ii[i3, i4]
+                        p12 = packed_index(i1, i2, ni)
+                        exx -= self.hybrid / deg * D_ii[i1, i2] * A
+
+                if self.coredensity:
+                    if setup.X_p is not None:
+                        exx -= self.hybrid * np.dot(D_p, setup.X_p)
+            if self.coredensity:
+                exx += self.hybrid * setup.ExxC
+        return exx
+
     def calculate_pair_density(self, n1, n2, kpt1, kpt2, q, k,
                                eik1r_R, eik2r_R, eiqr_R):
         if isinstance(self.wfs, PWWaveFunctions):
@@ -498,30 +528,3 @@ class HybridXC(XCFunctional):
 
         self.ghat.add(nt_R, Q_aL, q)
         return nt_R / eiqr_R
-
-    def calculate_exx_paw_correction(self):
-        exx = 0
-        deg = 2 // self.nspins  # spin degeneracy
-        for a, D_sp in self.density.D_asp.items():
-            setup = self.setups[a]
-            for D_p in D_sp:
-                D_ii = unpack2(D_p)
-                ni = len(D_ii)
-
-                for i1 in range(ni):
-                    for i2 in range(ni):
-                        A = 0.0
-                        for i3 in range(ni):
-                            p13 = packed_index(i1, i3, ni)
-                            for i4 in range(ni):
-                                p24 = packed_index(i2, i4, ni)
-                                A += setup.M_pp[p13, p24] * D_ii[i3, i4]
-                        p12 = packed_index(i1, i2, ni)
-                        exx -= self.hybrid / deg * D_ii[i1, i2] * A
-
-                if self.coredensity:
-                    if setup.X_p is not None:
-                        exx -= self.hybrid * np.dot(D_p, setup.X_p)
-            if self.coredensity:
-                exx += self.hybrid * setup.ExxC
-        return exx
