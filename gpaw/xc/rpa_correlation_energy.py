@@ -220,16 +220,14 @@ class RPACorrelation:
             optical_limit = False
 
         dummy = DF(calc=self.calc,
+                   xc='RPA',
                    eta=0.0,
-                   q=q,
                    w=self.w * 1j,
+                   q=q,
                    ecut=self.ecut,
                    G_plus_q=True,
-                   kcommsize=self.kcommsize,
-                   comm=self.dfcomm,
                    optical_limit=optical_limit,
                    hilbert_trans=False)
-
         dummy.txt = devnull
         dummy.initialize(simple_version=True)
         npw = dummy.npw
@@ -357,6 +355,7 @@ class RPACorrelation:
         dummy.spin = 0
         dummy.initialize(simple_version=True)
 
+        self.npw = dummy.npw
         self.ecut = ecut
         self.smooth_cut = smooth_cut
         self.w = w
@@ -372,13 +371,10 @@ class RPACorrelation:
         if self.smooth_cut is not None:
             print >> self.txt, 'Smooth cutoff from            : %s x cutoff' \
                   % self.smooth_cut
-        print >> self.txt, 'Number of Planewaves at Gamma : %s' % dummy.npw
+        print >> self.txt, 'Number of Planewaves at Gamma : %s' % self.npw
         if self.nbands is None:
             print >> self.txt, 'Response function bands       :'\
                   + ' Equal to number of Planewaves'
-        elif type(self.nbands) is float:
-            print >> self.txt, 'Response function bands       : %s' \
-                  % int(dummy.npw * self.nbands)
         else:
             print >> self.txt, 'Response function bands       : %s' \
                   % self.nbands
@@ -407,7 +403,7 @@ class RPACorrelation:
         print >> self.txt, '     Frequency parsize : %d' % dummy.wScomm.size
         print >> self.txt, 'Memory usage estimate'
         print >> self.txt, '     chi0_wGG(Q)       : %f M / cpu' \
-              % (dummy.Nw_local * dummy.npw**2 * 16. / 1024**2)
+              % (dummy.Nw_local * self.npw**2 * 16. / 1024**2)
         print >> self.txt
         del dummy
 
