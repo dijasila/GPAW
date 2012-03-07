@@ -1,5 +1,5 @@
 import numpy as np
-from pylab import *
+#from pylab import *
 
 A = np.loadtxt('rpa_N2.dat').transpose()
 plot(A[0]**(-1.5), A[1], 'o', label='Calculated points')
@@ -13,5 +13,5 @@ axis([0.,150**(-1.5), None, -4.])
 xlabel('Cutoff energy [eV]', fontsize=18)
 ylabel('RPA correlation energy [eV]', fontsize=18)
 legend(loc='lower right')
-show()
+#show()
 savefig('extrapolate.png')

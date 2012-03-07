@@ -41,8 +41,11 @@ The correlation energy is obtained as the integral of this function divided by :
 
 This is the default parameters for Gauss-legendre integration. The gauss_legendre keyword specifies the number of points, the frequency_cut keyword sets the value of the highest frequency (but the integration is always an approximation for the infinite integral) and the frequency_scale keyword determines how dense the frequencies are sampled close to :math:`\omega=0`. The integrals for different number of Gauss-Legendre points is shown below as well as the integrand evaluated at the fine equidistant frequency grid
 
+.. image:: E_w.png
+	   :height: 200 px
+
 .. image:: con_freq.png
-	   :height: 400 px
+	   :height: 200 px
 
 and the value of the integral for a range of parameters is shown below (all values in eV)
 
@@ -89,45 +92,6 @@ PBE      HF      RPA     HF+RPA       Experimental
 ======   =====   =====   ======       ============
 
 The RPA result seems to be much better than the PBE result. However, one should also be aware that due to the non-local nature of the RPA functional, very large supercells are needed to avoid spurious interactions between repeated images and the calculation done for the 6x6x7 cell used here is not expected to be fully converged with respect to super cell size. See ref. \ [#Harl]_ for more details on this.
-
-Example 2: Interlayer separation in graphite
-============================================
-
-As an example involving k-point sampling, we calculate the interlayer separation of graphite.
-
-Ground state calculation
---------------------------
-
-The following script performs a ground state calculation at various distances with the number of bands corresponding to 250 eV:
-
-.. literalinclude:: gs_graph.py
-
-Note that we define a Gamma-centered k-point grid in order to use the q-point symmetry in the response function calculation below.
-For the large non-selfconsistent calculation, we use the conjugate gradient eigensolver, which is better suited for converging many unoccupied states. It also helps the eigensolver to include the 200 extra states, which are not converged. In the end, the RPA calculation needs to be converged with respect to the cutoff energy and it is often an advantage to set the cutoff at a higher level. Then one does not have to redo the ground state calculations to check if the RPA result changes when going to 300 eV.
-
-Obtaining the RPA correlation energy
-------------------------------------
-
-In principle one should start by converging the frequency sampling as in Example 1, but in this tutorial we will just assume that the default sampling with 16 Gauss-Legendre points is sufficient.
-
-It is not possible to fully converge the RPA correlation energy with respect to the energy and number of unoccupied bands, but as in Example 1, the results of a few calculations can be extrapolated to the value corresponding to infinite cutoff. However, when taken as a function of cutoff energy, the slope of the extrapolated function is often nearly independent of the unit cell volume. Therefore, energy differences often converge much faster and instead of extrapolating the correlation energy at all interlayer separations, we just compare a few energy differences as a function of cutoff energy and check for convergence. Below we assume that our cutoff energy is converged, but one should check this by a reference calculation at 300 eV. The following script calculates the RPA correlation energy at 250 eV at various interlayer separations.
-
-.. literalinclude:: rpa_graph.py
-
-The kcommsize=64 keyword tells the calculator to use 64 k-point domains and the calculation is thus parallelized with 9 k-points on each CPU. If the number of cpus is larger than kcommsize, parallelization over freqency points will be initiated, which is much less efficient than k-point parallelization. However, the memory consumption may sometimes be exceedingly high since the full response function is stored in all frequency points and parallelizing over frequencies may then be useful. When choosing a parallelization scheme, it should be noted that the response function involves a sum over all k-points and not just those in the irreducible part of reciprocal space. The total number of cpus should be equal to the number of frequency domains (divisible in frequency points) times the number of k-point domains (specified by kcommsize). The directions keyword tells the calculator to consider one direction paralle to the graphene layers weighted by 2/3 and one direction orthogonal to the layers weighted by 1/3 when doing the optical limit for q=[0,0,0]. Finally, the keyword restart defines a file to which the contributions from each irreducible q-point is written. These contributions are calculated in serial and when a calculation is initialized, the calculator checks the restart file for contributions from calculated q-points.
-
-The result can be plotted with the script
-
-.. literalinclude:: plot_graph.py
-
-and is shown below along with the results obtained from LDA, PBE, vdW-DF, experiments, and Quantum Monte Carlo (QMC) calculations.
-
-.. image:: graphite.png
-	   :height: 400 px
-
-The RPA potential energy surface was obtained by adding the RPA correlation energy to the Hartree-Fock energy which is calculated by
-    
-.. literalinclude:: hf_graph.py  
 
 .. [#Furche] F. Furche,
              *Phys. Rev. B* **64**, 195120 (2001)
