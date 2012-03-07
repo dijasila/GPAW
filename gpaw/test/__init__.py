@@ -204,6 +204,7 @@ tests = [
     'exx_acdf.py',
     'rpa_energy_Si.py',
     'rpa_energy_N2.py',
+    'rpa_Na.py',
     'bse_aluminum.py',
     'bse_diamond.py',
     'bse_vs_lrtddft.py',
@@ -317,6 +318,7 @@ if mpi.size < 4:
                 'bse_aluminum.py',
                 'bse_diamond.py',
                 'bse_silicon.py',
+                'rpa_Na.py',
                 'bse_vs_lrtddft.py',
                 'fileio/parallel.py']
 
@@ -357,6 +359,7 @@ except ImportError:
                 'aeatom.py',
                 'rpa_energy_Si.py',
                 'rpa_energy_N2.py',
+                'rpa_Na.py',
                 'gw_test.py']
 
 try:
