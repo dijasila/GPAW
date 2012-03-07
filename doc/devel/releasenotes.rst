@@ -10,6 +10,14 @@ Development version in trunk
 
 :trac:`trunk <>`.
 
+
+Version 0.9
+===========
+
+7 March 2012: :trac:`tags/0.9.0 <../tags/0.9.0>`.
+
+* Corresponding ASE release: ase-3.6_
+
 * Convergence criteria for eigenstates changed: The missing volume per
   grid-point factor is now included and the units are now eV**2. The
   new default value is 4.0e-8 eV**2 which is equivalent to the old
@@ -22,6 +30,7 @@ Development version in trunk
 
 
 .. _new tool: https://wiki.fysik.dtu.dk/ase/ase/cmdline.html
+.. _ase-3.6: https://svn.fysik.dtu.dk/projects/ase/tags/3.6.0
 
 
 Version 0.8

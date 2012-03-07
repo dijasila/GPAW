@@ -56,6 +56,8 @@ more about :ref:`its features and the algorithms used
 News
 ====
 
+* :ref:`GPAW version 0.9 <releasenotes>` released (March 7 2012)
+
 * Help!  The :ref:`todolist` has been updated.  Maybe there is
   something you can do (May 25 2011)
  
