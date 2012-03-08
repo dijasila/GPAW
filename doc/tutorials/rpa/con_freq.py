@@ -10,8 +10,8 @@ rpa = RPACorrelation(calc, txt='rpa_N2_frequencies.txt')
 
 f = paropen('con_freq.dat', 'w')
 for N in [2, 4, 6, 8, 12, 16, 24, 32]:
-    E2 = rpa.get_rpa_correlation_energy(ecut=200,
-                                        gauss_legendre=N,
-                                        directions=[[0, 2/3.], [2, 1/3.]])
-    print >> f, N, E2 - 2*E1
+    E = rpa.get_rpa_correlation_energy(ecut=200,
+                                       gauss_legendre=N,
+                                       directions=[[0, 2/3.], [2, 1/3.]])
+    print >> f, N, E
 f.close()

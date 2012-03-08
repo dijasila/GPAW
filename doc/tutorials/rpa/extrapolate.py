@@ -1,5 +1,5 @@
 import numpy as np
-#from pylab import *
+from pylab import *
 
 A = np.loadtxt('rpa_N2.dat').transpose()
 plot(A[0]**(-1.5), A[1], 'o', label='Calculated points')

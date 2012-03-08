@@ -417,7 +417,7 @@ class RPACorrelation:
         print >> self.txt, 'Started at:  ', ctime()
         print >> self.txt
         print >> self.txt, 'Atoms                          :   %s' \
-              % self.atoms.get_name()
+              % self.atoms.get_chemical_formula(mode="hill")
         print >> self.txt, 'Ground state XC functional     :   %s' \
               % self.calc.hamiltonian.xc.name
         print >> self.txt, 'Valence electrons              :   %s' \
