@@ -1,1 +1,0 @@
-/home/strange/keldyshgf/PPP/image_charge_wire/2side/1.00/0.01/GW_eq.py
