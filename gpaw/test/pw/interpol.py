@@ -53,6 +53,6 @@ if world.size == 1:
         a1 = pd2r.restrict(a2, pd1r)[0]
         c1 = pd2.restrict(a2 + 0.0j, pd1)[0]
         d1 = pd2.restrict(a2 * 1.0j, pd1)[0]
-        equal(gd1.integrate(a1), gd2.integrate(a2), 1e-14)
+        equal(gd1.integrate(a1), gd2.integrate(a2), 1e-13)
         equal(abs(c1 - a1).max(), 0, 1e-14)
         equal(abs(d1 - a1 * 1.0j).max(), 0, 1e-14)
