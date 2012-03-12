@@ -16,7 +16,7 @@ from gpaw.version import version
 from gpaw.basis_data import Basis
 from gpaw.utilities import erf, pack2
 from gpaw.setup_data import SetupData
-from gpaw.gaunt import gaunt as G_LLL, make_gaunt
+from gpaw.gaunt import make_gaunt
 from gpaw.atom.configurations import configurations
 from gpaw.utilities.lapack import general_diagonalize
 from gpaw.atom.aeatom import AllElectronAtom, Channel, parse_ld_str, colors, \
@@ -800,8 +800,7 @@ class PAWSetupGenerator:
                     core.append((l, phi_g))
 
         lmax = max(l for l, phi_g in core)
-        if lmax > 2:
-            G_LLL = make_gaunt(lmax)
+        G_LLL = make_gaunt(lmax)
 
         # Calculate core contribution to EXX energy:
         self.exxcc = 0.0
