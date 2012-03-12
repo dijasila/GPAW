@@ -2,7 +2,7 @@ New PAW setups
 ==============
 
 :Who:
-    Marcin and Jens Jørgen.
+    Marcin and Jens Jørgen
 
 The goal is to produce new PAW setup for all elements.  Compared to our
 old collection of PAW setups we will focus on:
