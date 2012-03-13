@@ -240,9 +240,24 @@ class CHI(BASECHI):
                 else:
                     psit1new_g = psit1new_g_tmp
 
-                P1_ai = pt.dict()
-                pt.integrate(psit1new_g, P1_ai, k)
-
+                # PAW part
+                kpt1 = calc.wfs.kpt_u[ibzkpt1]
+                s = kd.sym_k[k]
+                time_reversal = kd.time_reversal_k[k]
+                P1_ai = {}
+                for a, id in enumerate(calc.wfs.setups.id_a):
+                    b = kd.symmetry.a_sa[s, a]
+                    S_c = (np.dot(self.spos_ac[a], kd.symmetry.op_scc[s]) - self.spos_ac[b])
+                
+                    assert abs(S_c.round() - S_c).max() < 1e-10
+                    k1_c = kd.ibzk_kc[kpt1.k]
+                
+                    x = np.exp(2j * pi * np.dot(k1_c, S_c))
+                    P1_i = np.dot(calc.wfs.setups[a].R_sii[s], kpt1.P_ani[b][n]) * x
+                    if time_reversal:
+                        P1_i = P1_i.conj()
+                    P1_ai[a] = P1_i
+                    
                 psit1_g = psit1new_g.conj() * self.expqr_g
 
                 for m in range(self.nbands):
@@ -262,9 +277,6 @@ class CHI(BASECHI):
                         else:
                             psit2_g = psit2_g_tmp
 
-                        P2_ai = pt.dict()
-                        pt.integrate(psit2_g, P2_ai, kq_k[k])
-
                         # fft
                         tmp_g = np.fft.fftn(psit2_g*psit1_g) * self.vol / self.nG0
 
@@ -278,8 +290,23 @@ class CHI(BASECHI):
                             rho_G[0] = -1j * np.dot(self.qq_v, tmp)
 
                         # PAW correction
+                        kpt2 = calc.wfs.kpt_u[ibzkpt2]
+                        s = kd.sym_k[kq_k[k]]
+                        time_reversal = kd.time_reversal_k[kq_k[k]]
                         for a, id in enumerate(calc.wfs.setups.id_a):
-                            P_p = np.outer(P1_ai[a].conj(), P2_ai[a]).ravel()
+                            b = kd.symmetry.a_sa[s, a]
+                            S_c = (np.dot(self.spos_ac[a], kd.symmetry.op_scc[s]) -
+                                   self.spos_ac[b])
+                        
+                            assert abs(S_c.round() - S_c).max() < 1e-10
+                            k2_c = kd.ibzk_kc[kpt2.k]
+                        
+                            x = np.exp(2j * pi * np.dot(k2_c, S_c))
+                            P2_i = np.dot(calc.wfs.setups[a].R_sii[s], kpt2.P_ani[b][m]) * x
+                            if time_reversal:
+                                P2_i = P2_i.conj()
+
+                            P_p = np.outer(P1_ai[a].conj(), P2_i).ravel()
                             gemv(1.0, self.phi_aGp[a], P_p, 1.0, rho_G)
 
                         if self.optical_limit:

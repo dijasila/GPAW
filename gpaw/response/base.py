@@ -170,8 +170,8 @@ class BASECHI:
         pt = LFC(gd, [setup.pt_j for setup in setups],
                  KPointDescriptor(self.bzk_kc),
                  dtype=complex, forces=True)
-        spos_ac = calc.atoms.get_scaled_positions()
-        pt.set_positions(spos_ac)
+        self.spos_ac = calc.atoms.get_scaled_positions()
+        pt.set_positions(self.spos_ac)
         self.pt = pt
 
         # Printing calculation information
@@ -412,10 +412,7 @@ class BASECHI:
             rho_g = np.fft.fftn(tmp_g) * self.vol / self.nG0
 
             # Here, planewave cutoff is applied
-            rho_G = np.zeros(self.npw, dtype=complex)
-            for iG in range(self.npw):
-                index = self.Gindex_G[iG]
-                rho_G[iG] = rho_g[index[0], index[1], index[2]]
+            rho_G = rho_g.ravel()[self.Gindex_G]
 
             if optical_limit:
                 d_c = [Gradient(gd, i, n=4, dtype=complex).apply for i in range(3)]

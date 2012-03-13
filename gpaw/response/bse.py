@@ -289,11 +289,9 @@ class BSE(BASECHI):
         # get and solve hamiltonian
         H_sS = np.zeros_like(K_SS)
         for iS in range(self.nS_start, self.nS_end):
+            H_sS[iS-self.nS_start,iS] = e_S[iS]
             for jS in range(self.nS):
-                if iS == jS:
-                    H_sS[iS-self.nS_start,iS] = e_S[iS]
-                else:
-                    H_sS[iS-self.nS_start,jS] += focc_S[iS] * K_SS[iS-self.nS_start,jS]
+                H_sS[iS-self.nS_start,jS] += focc_S[iS] * K_SS[iS-self.nS_start,jS]
   
 #        if self.positive_w is True: # matrix should be Hermitian
 #            for iS in range(self.nS):
@@ -310,6 +308,8 @@ class BSE(BASECHI):
             H_sS = (np.real(H_sS) + np.real(H_Ss.T)) / 2. + 1j * (np.imag(H_sS) - np.imag(H_Ss.T)) /2.
 
         if not self.positive_w:
+            H_SS = np.zeros((self.nS, self.nS), dtype=complex)
+            world.all_gather(H_sS, H_SS)
             self.w_S, self.v_SS = np.linalg.eig(H_SS)
         else:
             if world.size == 1:
