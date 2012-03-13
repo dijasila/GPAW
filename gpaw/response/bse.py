@@ -304,13 +304,13 @@ class BSE(BASECHI):
         if self.use_W:
             H_SS = (np.real(H_SS) + np.real(H_SS.T)) / 2. + 1j * (np.imag(H_SS) - np.imag(H_SS.T)) /2.
 
-#        if not self.positive_w:
-        self.w_S, self.v_SS = np.linalg.eig(H_SS)
-#        else:
-#            from gpaw.utilities.lapack import diagonalize
-#            self.w_S = np.zeros(self.nS, dtype=complex)
-#            diagonalize(H_SS, self.w_S)
-#            self.v_SS = H_SS.T.copy() # eigenvectors in the rows
+        if not self.positive_w:
+            self.w_S, self.v_SS = np.linalg.eig(H_SS)
+        else:
+            from gpaw.utilities.lapack import diagonalize
+            self.w_S = np.zeros(self.nS)
+            diagonalize(H_SS, self.w_S)
+            self.v_SS = H_SS.T.conj().copy() # eigenvectors in the rows
 
         data = {
                 'w_S': self.w_S,
