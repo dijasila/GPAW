@@ -268,9 +268,7 @@ class CHI(BASECHI):
                         # fft
                         tmp_g = np.fft.fftn(psit2_g*psit1_g) * self.vol / self.nG0
 
-                        for iG in range(self.npw):
-                            index = self.Gindex_G[iG]
-                            rho_G[iG] = tmp_g[index[0], index[1], index[2]]
+                        rho_G = tmp_g.ravel()[self.Gindex_G]
 
                         if self.optical_limit:
                             phase_cd = np.exp(2j * pi * sdisp_cd * bzk_kc[kq_k[k], :, np.newaxis])

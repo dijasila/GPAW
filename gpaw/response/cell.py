@@ -56,7 +56,7 @@ def set_Gvectors(acell, bcell, nG, Ecut, q=[0., 0., 0.]):
     npw = n
     Gvec = G[:n]
 
-    Gindex = {}
+    Gindex = np.zeros(npw, dtype=int) 
     id = np.zeros(3, dtype=int)
 
     for iG in range(npw):
@@ -66,6 +66,6 @@ def set_Gvectors(acell, bcell, nG, Ecut, q=[0., 0., 0.]):
                 id[dim] = G[dim]
             else:
                 id[dim] = nG[dim] - np.abs(G[dim])
-        Gindex[iG] = np.array(id)
+        Gindex[iG] = id[0]*nG[1]*nG[2] + id[1]*nG[2] + id[2] 
     
     return npw, Gvec, Gindex
