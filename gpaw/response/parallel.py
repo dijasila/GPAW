@@ -247,3 +247,34 @@ def par_read(filename, name, Nw=None):
     r.close()
     
     return chi0_wGG
+
+def gatherv(A_nN):
+
+    from gpaw.mpi import world, size, rank
+
+    n, N = A_nN.shape
+    if world.size == 1:
+        return A_nN
+
+    assert n < N
+    A_NN = np.zeros((N, N), dtype=complex)
+    n_index = np.zeros(size, dtype=int)
+    world.all_gather(np.array([n]), n_index)
+
+    root = 0
+    if rank != root:
+        world.ssend(A_nN, root, 112+rank)
+    else:
+        for irank, n in enumerate(n_index):
+            if irank == root:
+                A_NN[:n_index[0] :] = A_nN
+            else:
+                tmp_nN = np.zeros((n, N), dtype=complex)
+                world.receive(tmp_nN, irank, 112+irank)
+                n_start = n_index[0:irank].sum()
+                n_end = n_index[0:irank+1].sum()
+                A_NN[n_start:n_end, :] = tmp_nN
+    world.broadcast(A_NN, root)
+    
+    return A_NN
+        

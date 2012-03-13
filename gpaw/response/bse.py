@@ -309,7 +309,12 @@ class BSE(BASECHI):
 
         if not self.positive_w:
             H_SS = np.zeros((self.nS, self.nS), dtype=complex)
-            world.all_gather(H_sS, H_SS)
+            if self.nS % world.size == 0:
+                world.all_gather(H_sS, H_SS)
+            else:
+                from gpaw.response.parallel import gatherv
+                H_SS = gatherv(H_sS)
+
             self.w_S, self.v_SS = np.linalg.eig(H_SS)
         else:
             if world.size == 1:
