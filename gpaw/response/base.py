@@ -424,11 +424,15 @@ class BASECHI:
                     tmp[ix] = gd.integrate(psit1_g.conj() * dpsit_g)
                 rho_G[0] = -1j * np.dot(q_v, tmp)
 
-            pt = self.pt
-            P1_ai = pt.dict()
-            pt.integrate(psit1_g, P1_ai, k)
-            P2_ai = pt.dict()
-            pt.integrate(psit2_g, P2_ai, kq)
+            if self.calc.wfs.world.size > 1:
+                pt = self.pt
+                P1_ai = pt.dict()
+                pt.integrate(psit1_g, P1_ai, k)
+                P2_ai = pt.dict()
+                pt.integrate(psit2_g, P2_ai, kq)
+            else:
+                P1_ai = self.get_P_ai(k, n)
+                P2_ai = self.get_P_ai(kq,m)
 
             if phi_aGp is None:
                 try:
@@ -457,6 +461,30 @@ class BASECHI:
                     rho_G[0] /= (self.enoshift_kn[ibzkpt2, m] - self.enoshift_kn[ibzkpt1, n])
 
             return rho_G
+
+    def get_P_ai(self, k, n):
+
+        kd = self.kd
+        calc = self.calc
+        
+        ibzkpt = kd.bz2ibz_k[k]
+        kpt = calc.wfs.kpt_u[ibzkpt]
+        s = kd.sym_k[k]
+        time_reversal = kd.time_reversal_k[k]
+        P_ai = {}
+        for a, id in enumerate(calc.wfs.setups.id_a):
+            b = kd.symmetry.a_sa[s, a]
+            S_c = (np.dot(self.spos_ac[a], kd.symmetry.op_scc[s]) - self.spos_ac[b])
+        
+            assert abs(S_c.round() - S_c).max() < 1e-10
+            k_c = kd.ibzk_kc[kpt.k]
+        
+            x = np.exp(2j * pi * np.dot(k_c, S_c))
+            P_i = np.dot(calc.wfs.setups[a].R_sii[s], kpt.P_ani[b][n]) * x
+            if time_reversal:
+                P_i = P_i.conj()
+            P_ai[a] = P_i
+        return P_ai
 
 
     def screened_interaction_kernel(self, iq, static=True, comm=None, kcommsize=None):
