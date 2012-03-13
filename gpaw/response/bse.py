@@ -4,6 +4,7 @@ import pickle
 from math import pi
 from ase.units import Hartree
 from ase.io import write
+from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.io.tar import Writer, Reader
 from gpaw.mpi import world, size, rank, serial_comm
 from gpaw.utilities.blas import gemmdot, gemm, gemv
@@ -195,7 +196,7 @@ class BSE(BASECHI):
             self.phi_aGp = self.get_phi_aGp()
 
        # calculate kernel
-        K_SS = np.zeros((self.nS, self.nS), dtype=complex)
+        K_SS = np.zeros((self.nS_local, self.nS), dtype=complex)
         W_SS = np.zeros_like(K_SS)
         self.rhoG0_S = np.zeros((self.nS), dtype=complex)
 
@@ -211,7 +212,7 @@ class BSE(BASECHI):
             for jS in range(self.nS):
                 k2, n2, m2 = self.Sindex_S3[jS]
                 rho2_G = self.density_matrix(n2,m2,k2)
-                K_SS[iS, jS] = np.sum(rho1_G.conj() * rho2_G * self.kc_G)
+                K_SS[iS-self.nS_start, jS] = np.sum(rho1_G.conj() * rho2_G * self.kc_G)
 
                 if self.use_W:
                     
@@ -274,7 +275,7 @@ class BSE(BASECHI):
                                             * self.dfinvG0_G[0] *self.vol 
 
                     tmp_GG = np.outer(rho3_G.conj(), rho4_G) * W_GG
-                    W_SS[iS, jS] = np.sum(tmp_GG)
+                    W_SS[iS-self.nS_start, jS] = np.sum(tmp_GG)
 #                    self.printtxt('%d %d %s %s' %(iS, jS, K_SS[iS,jS], W_SS[iS,jS]))
             self.timing(iS, t0, self.nS_local, 'pair orbital') 
 
@@ -282,35 +283,44 @@ class BSE(BASECHI):
 
         if self.use_W:
             K_SS -= 0.5 * W_SS / self.vol
-        world.sum(K_SS)
         world.sum(self.rhoG0_S)
-
         self.printtxt('The number of G index outside the Gvec_Gc: %d'%(noGmap))
-        # get and solve hamiltonian
-        H_SS = np.zeros_like(K_SS)
-        for iS in range(self.nS):
-            H_SS[iS,iS] = e_S[iS]
-            for jS in range(self.nS):
-                H_SS[iS,jS] += focc_S[iS] * K_SS[iS,jS]
 
-        if self.positive_w is True: # matrix should be Hermitian
-            for iS in range(self.nS):
-                for jS in range(self.nS):
-                    if np.abs(H_SS[iS,jS]- H_SS[jS,iS].conj()) > 1e-4:
-                        print iS, jS, H_SS[iS,jS]- H_SS[jS,iS].conj()
+        # get and solve hamiltonian
+        H_sS = np.zeros_like(K_SS)
+        for iS in range(self.nS_start, self.nS_end):
+            for jS in range(self.nS):
+                if iS == jS:
+                    H_sS[iS-self.nS_start,iS] = e_S[iS]
+                else:
+                    H_sS[iS-self.nS_start,jS] += focc_S[iS] * K_SS[iS-self.nS_start,jS]
+  
+#        if self.positive_w is True: # matrix should be Hermitian
+#            for iS in range(self.nS):
+#                for jS in range(self.nS):
+#                    if np.abs(H_SS[iS,jS]- H_SS[jS,iS].conj()) > 1e-4:
+#                        print iS, jS, H_SS[iS,jS]- H_SS[jS,iS].conj()
 #                    assert np.abs(H_SS[iS,jS]- H_SS[jS,iS].conj()) < 1e-4
 
-        # make the matrix hermitian
-        if self.use_W:
-            H_SS = (np.real(H_SS) + np.real(H_SS.T)) / 2. + 1j * (np.imag(H_SS) - np.imag(H_SS.T)) /2.
+        if self.positive_w: # force the matrix Hermitian
+            if world.size > 1:
+                H_Ss = self.transpose_H(H_sS)
+            else:
+                H_Ss = H_sS
+            H_sS = (np.real(H_sS) + np.real(H_Ss.T)) / 2. + 1j * (np.imag(H_sS) - np.imag(H_Ss.T)) /2.
 
         if not self.positive_w:
             self.w_S, self.v_SS = np.linalg.eig(H_SS)
         else:
-            from gpaw.utilities.lapack import diagonalize
-            self.w_S = np.zeros(self.nS)
-            diagonalize(H_SS, self.w_S)
-            self.v_SS = H_SS.T.conj().copy() # eigenvectors in the rows
+            if world.size == 1:
+                from gpaw.utilities.lapack import diagonalize
+                self.w_S = np.zeros(self.nS)
+                H_SS = H_sS
+                diagonalize(H_SS, self.w_S)
+                self.v_SS = H_SS.T.conj() # eigenvectors in the rows
+            else:
+                self.w_S, self.v_SS = self.scalapack_diagonalize(H_sS)
+
 
         data = {
                 'w_S': self.w_S,
@@ -323,6 +333,45 @@ class BSE(BASECHI):
         
         return 
 
+
+#    def par_write(filename, name, comm, H_SS):
+#        from gpaw.io import open 
+#        assert comm == world
+#    
+#        nS_local, nS = H_SS.shape
+#        
+#        if rank == 0:
+#            w = open(filename, 'w', comm)
+#            w.dimension('nS', nS)
+#            w.add(name, ('nS', 'nS'), dtype=complex)
+#            tmp = np.zeros_like(H_SS)
+#
+#        # assumes that H_SS is written in order from rank 0 - rank N
+#        for irank in range(size):
+#            if irank == 0:
+#                if rank == 0:
+#                    w.fill(H_SS)
+#            else:
+#                if rank == irank:
+#                    world.send(H_SS, 0, irank+100)
+#                if rank == 0:
+#                    world.receive(tmp, irank, irank+100)
+#                    w.fill(tmp)
+#        if rank == 0:
+#            w.close()
+#        world.barrier()
+#
+#    def par_read(filename, name, nS=None):
+#        from gpaw.io import open 
+#        r = open(filename, 'r')
+#        nS = r.dimension('nS')
+#
+#        #H_SS = r.get(name, self.nS_start:self.ns_end)
+#
+#        r.close()
+#        
+#        return chi0_wGG
+#    
 
     def full_static_screened_interaction(self):
         """Calcuate W_GG(q)"""
@@ -689,3 +738,45 @@ class BSE(BASECHI):
 
         world.barrier()
 
+    def transpose_H(self, H_sS):
+
+        g1 = BlacsGrid(world, size, 1)
+        g2 = BlacsGrid(world, 1, size)
+        N = self.nS
+        nndesc1 = g1.new_descriptor(N, N, self.nS_local,  N) 
+        nndesc2 = g2.new_descriptor(N, N, N, self.nS_local)
+        
+        H_Ss = nndesc2.empty(dtype=H_sS.dtype)
+        redistributor = Redistributor(world, nndesc1, nndesc2)
+        redistributor.redistribute(H_sS, H_Ss)
+
+        return H_Ss
+
+    def scalapack_diagonalize(self, H_sS):
+
+        mb = 32
+        N = self.nS
+        
+        g1 = BlacsGrid(world, size,    1)
+        g2 = BlacsGrid(world, size//2, 2)
+        nndesc1 = g1.new_descriptor(N, N, self.nS_local,  N) 
+        nndesc2 = g2.new_descriptor(N, N, mb, mb)
+        
+        A_ss = nndesc2.empty(dtype=H_sS.dtype)
+        redistributor = Redistributor(world, nndesc1, nndesc2)
+        redistributor.redistribute(H_sS, A_ss)
+        
+        # diagonalize
+        v_ss = nndesc2.zeros(dtype=A_ss.dtype)
+        w_S = np.zeros(N,dtype=float)
+        nndesc2.diagonalize_dc(A_ss, v_ss, w_S, 'L')
+        
+        # distribute the eigenvectors to master
+        v_sS = np.zeros_like(H_sS)
+        redistributor = Redistributor(world, nndesc2, nndesc1)
+        redistributor.redistribute(v_ss, v_sS)
+
+        v_SS = np.zeros((self.nS, self.nS), dtype=complex)
+        world.all_gather(v_sS, v_SS)
+
+        return w_S, v_SS.T.conj()
