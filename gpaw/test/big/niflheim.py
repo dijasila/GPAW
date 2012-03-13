@@ -47,9 +47,11 @@ class NiflheimCluster(Cluster):
         run_command += 'module load MATPLOTLIB&& '  # loads numpy, mpl, ...
 
         if job.ncpus == 1:
-            # don't use mpi here,
+            # don't use mpiexec here,
             # this allows one to start mpi inside the *.agts.py script
-            run_command += ' PYTHONPATH=' + submit_pythonpath
+            run_command += 'module load '
+            run_command += 'openmpi/1.3.3-1.el5.fys.gfortran43.4.3.2&& '
+            run_command += ' PYTHONPATH=' + submit_pythonpath + '&&'
             run_command += ' GPAW_SETUP_PATH=' + self.setuppath
         else:
             run_command += 'module load '
