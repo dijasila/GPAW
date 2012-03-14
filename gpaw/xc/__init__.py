@@ -64,9 +64,9 @@ def XC(kernel, parameters=None):
         elif name in ['pyPBE', 'pyPBEsol', 'pyRPBE']:
             from gpaw.xc.gga import PurePythonGGAKernel
             kernel = PurePythonGGAKernel(name)
-        elif name in ['pyTPSSx', 'pyrevTPSSx', 'pyBEErevTPSSx']:
-            from gpaw.xc.mgga import PurePythonMGGAKernel
-            kernel = PurePythonMGGAKernel(name, parameters)
+        elif name == '2D-MGGA':
+            from gpaw.xc.mgga import PurePython2DMGGAKernel
+            kernel = PurePython2DMGGAKernel(name, parameters)
         else:
             kernel = LibXC(kernel)
     if kernel.type == 'LDA':
