@@ -13,6 +13,7 @@ from ase.utils import devnull, prnt
 from ase.data import atomic_numbers, atomic_names, chemical_symbols
 
 from gpaw.xc import XC
+from gpaw.gaunt import make_gaunt
 from gpaw.utilities import _fact as fac
 from gpaw.atom.configurations import configurations
 from gpaw.atom.radialgd import AERadialGridDescriptor
@@ -586,6 +587,10 @@ class AllElectronAtom:
                          self.ekin + self.eH + self.eZ + self.exc)]:
             self.log(' %s %+13.6f  %+13.5f' % (text, e, units.Hartree * e))
 
+        self.calculate_exx()
+        self.log('\nExact exchange energy: %.6f Hartree, %.5f eV' %
+                 (self.exx, self.exx * units.Hartree))
+
     def get_channel(self, l=None, s=0, k=None):
         if self.dirac:
             for channel in self.channels:
@@ -636,6 +641,44 @@ class AllElectronAtom:
             logderivs.append(dudr / u_g[gcut])
         return logderivs
             
+    def calculate_exx(self, s=None):
+        if s is None:
+            self.exx = sum(self.calculate_exx(s)
+                           for s in range(self.nspins)) / self.nspins
+            return self.exx
+
+        states = []
+        lmax = 0
+        for ch in self.channels:
+            l = ch.l
+            for n, phi_g in enumerate(ch.phi_ng):
+                f = ch.f_n[n]
+                if f > 0 and ch.s == s:
+                    states.append((l, f * self.nspins / 2.0 / (2 * l + 1),
+                                   phi_g))
+                    if l > lmax:
+                        lmax = l
+
+        G_LLL = make_gaunt(lmax)
+
+        exx = 0.0
+        j1 = 0
+        for l1, f1, phi1_g in states:
+            f = 1.0
+            for l2, f2, phi2_g in states[j1:]:
+                n_g = phi1_g * phi2_g
+                for l in range((l1 + l2) % 2, l1 + l2 + 1, 2):
+                    G = (G_LLL[l1**2:(l1 + 1)**2,
+                               l2**2:(l2 + 1)**2,
+                               l**2:(l + 1)**2]**2).sum()
+                    vr_g = self.rgd.poisson(n_g, l)
+                    e = f * self.rgd.integrate(vr_g * n_g, -1) / 4 / pi
+                    exx -= e * G * f1 * f2
+                f = 2.0
+            j1 += 1
+
+        return exx
+
 
 def build_parser(): 
     from optparse import OptionParser
