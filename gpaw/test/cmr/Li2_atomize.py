@@ -15,7 +15,7 @@ calculate = True
 recalculate = True
 analyse = True
 create_group = True
-upload2db = False
+upload2db = True
 analyze_from_db = False
 
 clean = False
@@ -178,7 +178,7 @@ if analyse:
         ea_PBE = 2 * r1['U_potential_energy_PBE'] - r2['U_potential_energy_PBE']
         print 'atomization energy [eV] PBE = ' + str(ea_PBE)
 
-if create_group:
+if create_group and analyse:
     if rank == 0:
         # ea_LDA and ea_PBE define a group
         group = cmr.create_group();
@@ -224,8 +224,21 @@ if analyze_from_db:
         ea_PBE = 2 * r1['U_potential_energy_PBE'] - r2['U_potential_energy_PBE']
         print 'atomization energy [eV] PBE = ' + str(ea_PBE)
 
+        # ea_LDA and ea_PBE define a group
+        group = cmr.create_group();
+        group.add(r1['db_hash']);
+        group.add(r2['db_hash']);
+        group.set_user_variable('ea_LDA', ea_LDA)
+        group.set_user_variable('ea_PBE', ea_PBE)
+        group.set_user_variable('description', 'atomization energy [eV] (created directly from database)')
+        group.set_user_variable('db_keywords', [project_id])
+        group.set_user_variable('project_id', project_id)
+        group.write("Li_atomization_from_db.cmr");    
+        group.write(".cmr"); # write directly to database (from cmr-revision 579) 
+        #group.write(".db");  
+
 if clean:
 
     if rank == 0:
-        for file in ['Li.cmr', 'Li.gpw', 'Li.txt', 'Li2.cmr', 'Li2.gpw', 'Li2.txt', "Li_atomization.cmr"]:
+        for file in ['Li.cmr', 'Li.gpw', 'Li.txt', 'Li2.cmr', 'Li2.gpw', 'Li2.txt', "Li_atomization.cmr", "Li_atomization_from_db.cmr"]:
             if os.path.exists(file): os.unlink(file)
