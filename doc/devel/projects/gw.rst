@@ -1,5 +1,5 @@
-GW
-===
+GW approximation
+================
 
 :Who:
     Falco

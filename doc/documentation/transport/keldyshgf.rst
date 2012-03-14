@@ -45,9 +45,8 @@ A KGF calculatoin normally involves the following steps:
 - Setting up various self-energies to handle Hartree, exchange and correlation
 - Runnig the calculation 
 
-XXX.::
+XXX.
 
-s
 
 
 Example: Pariser-Parr-Model Hamiltonian
