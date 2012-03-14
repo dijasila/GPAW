@@ -241,7 +241,7 @@ class CHI(BASECHI):
                     psit1new_g = psit1new_g_tmp
 
                 # PAW part
-                if self.calc.wfs.world.size > 1:
+                if self.calc.wfs.world.size > 1 or self.nkpt == 1:
                     P1_ai = pt.dict()
                     pt.integrate(psit1new_g, P1_ai, k)
                 else:
@@ -279,7 +279,7 @@ class CHI(BASECHI):
                             rho_G[0] = -1j * np.dot(self.qq_v, tmp)
 
                         # PAW correction
-                        if self.calc.wfs.world.size > 1:
+                        if self.calc.wfs.world.size > 1 or self.nkpt == 1:
                             P2_ai = pt.dict()
                             pt.integrate(psit2_g, P2_ai, kq_k[k])
                         else:
