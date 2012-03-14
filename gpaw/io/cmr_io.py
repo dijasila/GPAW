@@ -196,10 +196,12 @@ class Writer:
         else:
             self.cmr_params["output"]=self.filename
         try:
+            cmr.runtime.pause_ase_barriers(True)
             self.data.write(self.cmr_params, ase_barrier=False)
         except TypeError:
             # for compatibility with older CMR versions:
             self.data.write(self.cmr_params)
+        cmr.runtime.pause_ase_barriers(False)
 
 class Reader:
     """ This class allows gpaw to access
