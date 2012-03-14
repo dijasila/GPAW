@@ -15,9 +15,10 @@ calculate = True
 recalculate = True
 analyse = True
 create_group = True
-upload2db = True
+upload2db = False
+analyze_from_db = False
 
-clean = True
+clean = False
 
 if create_group: assert analyse
 
@@ -178,14 +179,53 @@ if analyse:
         print 'atomization energy [eV] PBE = ' + str(ea_PBE)
 
 if create_group:
-    # ea_LDA and ea_PBE define a group
-    pass
+    if rank == 0:
+        # ea_LDA and ea_PBE define a group
+        group = cmr.create_group();
+        group.add(r1['db_hash']);
+        group.add(r2['db_hash']);
+        group.set_user_variable('ea_LDA', ea_LDA)
+        group.set_user_variable('ea_PBE', ea_PBE)
+        group.set_user_variable('description', 'atomization energy [eV]')
+        group.set_user_variable('db_keywords', [project_id])
+        group.set_user_variable('project_id', project_id)
+        group.write("Li_atomization.cmr");
 
 if upload2db:
-    pass
+    os.system("cmr --commit Li.cmr Li2.cmr Li_atomization.cmr")
+
+if analyze_from_db:
+    from cmr.ui import DBReader
+    reader = DBReader()
+    all = reader.find(name_value_list=[('U_mode', 'lcao'), 
+                                       ('U_xc', 'LDA'),
+                                       #('db_user', '')
+                                      ],
+                      keyword_list=[project_id])
+
+    # print requested results
+    # column_length=0 aligns data in the table (-1 : data unaligned is default)
+    print "Analysis directly from the database: "
+    all.print_table(column_length=0,
+                    columns=['U_formula', 'U_vacuum',
+                             'U_xc', 'U_h', 'U_hund',
+                             'U_potential_energy', 'U_potential_energy_PBE',
+                             'ase_temperature'])
+
+    # access the results directly and calculate atomization energies
+    f2 = 'Li2'
+    r2 = all.get('U_formula', f2)
+    f1 = 'Li'
+    r1 = all.get('U_formula', f1)
+
+    if rank == 0:
+        ea_LDA = 2 * r1['U_potential_energy'] - r2['U_potential_energy']
+        print 'atomization energy [eV] ' + xc + ' = ' + str(ea_LDA)
+        ea_PBE = 2 * r1['U_potential_energy_PBE'] - r2['U_potential_energy_PBE']
+        print 'atomization energy [eV] PBE = ' + str(ea_PBE)
 
 if clean:
 
     if rank == 0:
-        for file in ['Li.cmr', 'Li.gpw', 'Li.txt', 'Li2.cmr', 'Li2.gpw', 'Li2.txt']:
+        for file in ['Li.cmr', 'Li.gpw', 'Li.txt', 'Li2.cmr', 'Li2.gpw', 'Li2.txt', "Li_atomization.cmr"]:
             if os.path.exists(file): os.unlink(file)
