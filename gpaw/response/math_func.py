@@ -30,7 +30,7 @@ def hilbert_transform(specfunc_wGG, w_w, Nw, dw, eta, fullresponse=False):
     return chi0_wGG * dw
 
 
-def two_phi_planewave_integrals(k_Gv, setup=None, rgd=None, phi_jg=None,
+def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=None, Gend=None, rgd=None, phi_jg=None,
                                 phit_jg=None,l_j=None):
     """Calculate PAW-correction matrix elements with planewaves.
 
@@ -104,7 +104,7 @@ def two_phi_planewave_integrals(k_Gv, setup=None, rgd=None, phi_jg=None,
                                phit_jg[j1] * phit_jg[j2])
 
     # Loop over G vectors
-    for iG in range(npw):
+    for iG in range(Gstart, Gend):
         kk = k_Gv[iG] 
         k = np.sqrt(np.dot(kk, kk)) # calculate length of q+G
 
