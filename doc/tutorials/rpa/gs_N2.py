@@ -10,7 +10,7 @@ N = molecule('N')
 N.pbc = True
 N.cell = (6., 6., 7.)
 N.center()
-calc = GPAW(mode=PW(500),
+calc = GPAW(mode=PW(600),
             dtype=complex,
             nbands=8,
             maxiter=300,
@@ -32,7 +32,7 @@ N2 = molecule('N2')
 N2.pbc = True
 N2.cell = (6., 6., 7.)
 N2.center()
-calc = GPAW(mode=PW(500),
+calc = GPAW(mode=PW(600),
             dtype=complex,
             maxiter=300,
             xc='PBE',
