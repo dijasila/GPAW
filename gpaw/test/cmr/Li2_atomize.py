@@ -241,25 +241,32 @@ if analyse_from_db:
         r2 = all.get('U_formula', f2)
         r1 = all.get('U_formula', f1)
 
-        ea_LDA = 2 * r1['U_potential_energy'] - r2['U_potential_energy']
-        ea_PBE = 2 * r1['U_potential_energy_PBE'] - r2['U_potential_energy_PBE']
 
-        print 'atomization energy [eV] ' + xc + ' = ' + str(ea_LDA)
-        print 'atomization energy [eV] PBE = ' + str(ea_PBE)
+        try: # the upload of the results may not yet be finished
 
-        if create_group:
-            # ea_LDA and ea_PBE define a group
-            group = cmr.create_group();
-            group.add(r1['db_hash']);
-            group.add(r2['db_hash']);
-            group.set_user_variable('U_ea_LDA', ea_LDA)
-            group.set_user_variable('U_ea_PBE', ea_PBE)
-            group.set_user_variable('U_description', 'atomization energy [eV] (created directly from database)')
-            group.set_user_variable('U_reaction', '2 * Li - Li2')
-            group.set_user_variable('db_keywords', [project_id])
-            group.set_user_variable('project_id', project_id)
-            group.write("Li2_atomize_from_db.cmr");
-            group.write(".cmr");
+            ea_LDA = 2 * r1['U_potential_energy'] - r2['U_potential_energy']
+            ea_PBE = 2 * r1['U_potential_energy_PBE'] - r2['U_potential_energy_PBE']
+
+            print 'atomization energy [eV] ' + xc + ' = ' + str(ea_LDA)
+            print 'atomization energy [eV] PBE = ' + str(ea_PBE)
+
+            if create_group:
+                # ea_LDA and ea_PBE define a group
+                group = cmr.create_group();
+                group.add(r1['db_hash']);
+                group.add(r2['db_hash']);
+                group.set_user_variable('U_ea_LDA', ea_LDA)
+                group.set_user_variable('U_ea_PBE', ea_PBE)
+                group.set_user_variable('U_description', 'atomization energy [eV] (from database)')
+                group.set_user_variable('U_reaction', '2 * Li - Li2')
+                group.set_user_variable('db_keywords', [project_id])
+                group.set_user_variable('project_id', project_id)
+                group.write("Li2_atomize_from_db.cmr");
+                group.write(".cmr");
+
+        except TypeError:
+            print "Results are not yet in the database. Wait, and try again."
+            pass
 
 if clean:
 
