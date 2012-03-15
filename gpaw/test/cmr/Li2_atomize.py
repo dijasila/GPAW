@@ -6,21 +6,24 @@ cmr.set_ase_parallel(enable=True)
 
 from ase.structure import molecule
 from ase.io import read, write
-from ase.parallel import barrier, rank
+from ase.parallel import rank
 
 from gpaw import GPAW, restart
-from gpaw.test import equal
 
 calculate = True
 recalculate = True
-analyse = True
-create_group = True
-upload2db = True
-analyze_from_db = False
+analyse_from_dir = True # analyse local cmr files
 
-clean = False
+upload_to_db = False  # upload cmr files to the database
+analyse_from_db = False # analyse database
 
-if create_group: assert analyse
+create_group = True # group calculations beloging to a given reaction
+
+clean = True
+
+if create_group: assert analyse_from_dir or analyse_from_db
+
+if analyse_from_db: assert upload_to_db
 
 # define the project in order to find it in the database!
 project_id = 'my first project: Li2 atomize'
@@ -147,9 +150,9 @@ if recalculate:
 
     del calc
 
-if analyse:
+if analyse_from_dir:
 
-    # analyse the results with CMR
+    # analyse the results from cmr files in the local directory
 
     from cmr.ui import DirectoryReader
 
@@ -158,6 +161,8 @@ if analyse:
     all = reader.find(name_value_list=[('U_mode', 'lcao'), ('U_xc', 'LDA')],
                       keyword_list=[project_id])
 
+    if rank == 0:
+        print 'results from cmr files in the local directory'
     # print requested results
     # column_length=0 aligns data in the table (-1 : data unaligned is default)
     all.print_table(column_length=0,
@@ -168,44 +173,57 @@ if analyse:
 
     # access the results directly and calculate atomization energies
     f2 = 'Li2'
-    r2 = all.get('U_formula', f2)
     f1 = 'Li'
-    r1 = all.get('U_formula', f1)
 
     if rank == 0:
+
+        # results are accesible only on master rank
+
+        r2 = all.get('U_formula', f2)
+        r1 = all.get('U_formula', f1)
+
         ea_LDA = 2 * r1['U_potential_energy'] - r2['U_potential_energy']
-        print 'atomization energy [eV] ' + xc + ' = ' + str(ea_LDA)
         ea_PBE = 2 * r1['U_potential_energy_PBE'] - r2['U_potential_energy_PBE']
+
+        print 'atomization energy [eV] ' + xc + ' = ' + str(ea_LDA)
         print 'atomization energy [eV] PBE = ' + str(ea_PBE)
 
-if create_group and analyse:
+        if create_group:
+            # ea_LDA and ea_PBE define a group
+            group = cmr.create_group();
+            group.add(r1['db_hash']);
+            group.add(r2['db_hash']);
+            group.set_user_variable('U_ea_LDA', ea_LDA)
+            group.set_user_variable('U_ea_PBE', ea_PBE)
+            group.set_user_variable('U_description', 'atomization energy [eV]')
+            group.set_user_variable('U_reaction', '2 * Li - Li2')
+            group.set_user_variable('db_keywords', [project_id])
+            group.set_user_variable('project_id', project_id)
+            group.write("Li2_atomize_from_dir.cmr");
+
+if upload_to_db:
+
+    # upload cmr files to the database
+
     if rank == 0:
-        # ea_LDA and ea_PBE define a group
-        group = cmr.create_group();
-        group.add(r1['db_hash']);
-        group.add(r2['db_hash']);
-        group.set_user_variable('ea_LDA', ea_LDA)
-        group.set_user_variable('ea_PBE', ea_PBE)
-        group.set_user_variable('description', 'atomization energy [eV]')
-        group.set_user_variable('db_keywords', [project_id])
-        group.set_user_variable('project_id', project_id)
-        group.write("Li_atomization.cmr");
+        os.system("cmr --commit Li*.cmr")
 
-if upload2db:
-    os.system("cmr --commit Li.cmr Li2.cmr Li_atomization.cmr")
+if analyse_from_db:
 
-if analyze_from_db:
+    # analyse the results from the database
+
     from cmr.ui import DBReader
     reader = DBReader()
-    all = reader.find(name_value_list=[('U_mode', 'lcao'), 
+    all = reader.find(name_value_list=[('U_mode', 'lcao'),
                                        ('U_xc', 'LDA'),
                                        #('db_user', '')
-                                      ],
+                                       ],
                       keyword_list=[project_id])
 
+    if rank == 0:
+        print 'results from the database'
     # print requested results
     # column_length=0 aligns data in the table (-1 : data unaligned is default)
-    print "Analysis directly from the database: "
     all.print_table(column_length=0,
                     columns=['U_formula', 'U_vacuum',
                              'U_xc', 'U_h', 'U_hund',
@@ -214,31 +232,38 @@ if analyze_from_db:
 
     # access the results directly and calculate atomization energies
     f2 = 'Li2'
-    r2 = all.get('U_formula', f2)
     f1 = 'Li'
-    r1 = all.get('U_formula', f1)
 
     if rank == 0:
+
+        # results are accesible only on master rank
+
+        r2 = all.get('U_formula', f2)
+        r1 = all.get('U_formula', f1)
+
         ea_LDA = 2 * r1['U_potential_energy'] - r2['U_potential_energy']
-        print 'atomization energy [eV] ' + xc + ' = ' + str(ea_LDA)
         ea_PBE = 2 * r1['U_potential_energy_PBE'] - r2['U_potential_energy_PBE']
+
+        print 'atomization energy [eV] ' + xc + ' = ' + str(ea_LDA)
         print 'atomization energy [eV] PBE = ' + str(ea_PBE)
 
-        # ea_LDA and ea_PBE define a group
-        group = cmr.create_group();
-        group.add(r1['db_hash']);
-        group.add(r2['db_hash']);
-        group.set_user_variable('ea_LDA', ea_LDA)
-        group.set_user_variable('ea_PBE', ea_PBE)
-        group.set_user_variable('description', 'atomization energy [eV] (created directly from database)')
-        group.set_user_variable('db_keywords', [project_id])
-        group.set_user_variable('project_id', project_id)
-        group.write("Li_atomization_from_db.cmr");    
-        group.write(".cmr"); # write directly to database (from cmr-revision 579) 
-        #group.write(".db");  
+        if create_group:
+            # ea_LDA and ea_PBE define a group
+            group = cmr.create_group();
+            group.add(r1['db_hash']);
+            group.add(r2['db_hash']);
+            group.set_user_variable('U_ea_LDA', ea_LDA)
+            group.set_user_variable('U_ea_PBE', ea_PBE)
+            group.set_user_variable('U_description', 'atomization energy [eV] (created directly from database)')
+            group.set_user_variable('U_reaction', '2 * Li - Li2')
+            group.set_user_variable('db_keywords', [project_id])
+            group.set_user_variable('project_id', project_id)
+            group.write("Li2_atomize_from_db.cmr");
+            group.write(".cmr");
 
 if clean:
 
     if rank == 0:
-        for file in ['Li.cmr', 'Li.gpw', 'Li.txt', 'Li2.cmr', 'Li2.gpw', 'Li2.txt', "Li_atomization.cmr", "Li_atomization_from_db.cmr"]:
+        for file in ['Li.cmr', 'Li.gpw', 'Li.txt', 'Li2.cmr', 'Li2.gpw', 'Li2.txt',
+                     "Li2_atomize_from_dir.cmr", "Li2_atomize_from_db.cmr"]:
             if os.path.exists(file): os.unlink(file)
