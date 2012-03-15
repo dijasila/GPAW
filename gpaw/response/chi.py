@@ -227,13 +227,17 @@ class CHI(BASECHI):
                 ibzkpt2 = ibzkpt1
             else:
                 ibzkpt2 = kd.bz2ibz_k[kq_k[k]]
-            
+
+            index1_g, phase1_g = kd.get_transform_wavefunction_index(self.nG, k)
+            index2_g, phase2_g = kd.get_transform_wavefunction_index(self.nG, kq_k[k])
+
             for n in range(self.nstart, self.nend):
 #                print >> self.txt, k, n, time() - t0
                 t1 = time()
                 psitold_g = self.get_wavefunction(ibzkpt1, n, True, spin=spin)
                 t_get_wfs += time() - t1
-                psit1new_g_tmp = kd.transform_wave_function(psitold_g, k)
+
+                psit1new_g_tmp = kd.transform_wave_function(psitold_g,k,index1_g,phase1_g)
 
                 if (self.rpad > 1).any() or (self.pbc - True).any():
                     psit1new_g = self.pad(psit1new_g_tmp)
@@ -260,7 +264,8 @@ class CHI(BASECHI):
                     t_get_wfs += time() - t1
 
                     if check_focc:                            
-                        psit2_g_tmp = kd.transform_wave_function(psitold_g, kq_k[k])
+                        psit2_g_tmp = kd.transform_wave_function(psitold_g, kq_k[k], index2_g, phase2_g)
+
                         if (self.rpad > 1).any() or (self.pbc - True).any():
                             psit2_g = self.pad(psit2_g_tmp)
                         else:
@@ -524,3 +529,4 @@ class CHI(BASECHI):
         printtxt('     chi0_wGG        : %f M / cpu' %(self.Nw_local * self.npw**2 * 16. / 1024**2) )
         if self.hilbert_trans:
             printtxt('     specfunc_wGG    : %f M / cpu' %(self.NwS_local *self.npw**2 * 16. / 1024**2) )
+

@@ -237,7 +237,7 @@ class KPointDescriptor:
 
         return a_skx
 
-    def transform_wave_function(self, psit_G, k):
+    def transform_wave_function(self, psit_G, k, index_G=None, phase_G=None):
         """Transform wave function from IBZ to BZ.
 
         k is the index of the desired k-point in the full BZ.
@@ -258,18 +258,43 @@ class KPointDescriptor:
             ik = self.bz2ibz_k[k]
             kibz_c = self.ibzk_kc[ik]
             b_g = np.zeros_like(psit_G)
-            if time_reversal:
-                kbz_c = -np.dot(self.symmetry.op_scc[s], kibz_c)
-                _gpaw.symmetrize_wavefunction(psit_G, b_g, op_cc.copy(),
-                                              np.ascontiguousarray(kibz_c),
-                                              -kbz_c)
-                return b_g.conj()
+            kbz_c = np.dot(self.symmetry.op_scc[s], kibz_c)
+            if index_G is not None:
+                _gpaw.symmetrize_with_index(psit_G, b_g, index_G, phase_G)
             else:
-                kbz_c = np.dot(self.symmetry.op_scc[s], kibz_c)
                 _gpaw.symmetrize_wavefunction(psit_G, b_g, op_cc.copy(),
                                               np.ascontiguousarray(kibz_c),
                                               kbz_c)
+
+            if time_reversal:
+                return b_g.conj()
+            else:
                 return b_g
+
+
+    def get_transform_wavefunction_index(self, nG, k):
+        
+        s = self.sym_k[k]
+        time_reversal = self.time_reversal_k[k]
+        op_cc = np.linalg.inv(self.symmetry.op_scc[s]).round().astype(int)
+
+        # General point group symmetry
+        nG0 = nG[0]*nG[1]*nG[2]
+        if (np.abs(op_cc - np.eye(3, dtype=int)) < 1e-10).all():
+            index_G = np.arange(nG0)
+            phase_G = np.ones(nG0)
+            return index_G, phase_G
+        else:
+            ik = self.bz2ibz_k[k]
+            kibz_c = self.ibzk_kc[ik]
+            index_G = np.zeros(nG, dtype=int)
+            phase_G = np.zeros(nG, dtype=complex)
+
+            kbz_c = np.dot(self.symmetry.op_scc[s], kibz_c)
+            _gpaw.symmetrize_return_index(index_G, phase_G, op_cc.copy(),
+                                              np.ascontiguousarray(kibz_c),
+                                              kbz_c)
+            return index_G, phase_G
 
 
     def find_k_plus_q(self, q_c, kpts_k=None):
