@@ -237,13 +237,13 @@ if analyse_from_db:
     if rank == 0:
 
         # results are accesible only on master rank
-
-        r2 = all.get('U_formula', f2)
         r1 = all.get('U_formula', f1)
+        r2 = all.get('U_formula', f2)
 
-
-        try: # the upload of the results may not yet be finished
-
+        # check if results were successfully retrieved, otherwise we have to wait
+        if r1 is None or r2 is None:
+            print "Results are not yet in the database. Wait, and try again."
+        else:
             ea_LDA = 2 * r1['U_potential_energy'] - r2['U_potential_energy']
             ea_PBE = 2 * r1['U_potential_energy_PBE'] - r2['U_potential_energy_PBE']
 
@@ -263,10 +263,6 @@ if analyse_from_db:
                 group.set_user_variable('project_id', project_id)
                 group.write("Li2_atomize_from_db.cmr");
                 group.write(".cmr");
-
-        except TypeError:
-            print "Results are not yet in the database. Wait, and try again."
-            pass
 
 if clean:
 
