@@ -1,8 +1,11 @@
+===
 GPU
 ===
 
-:Who:
-    Samuli, Chris
+CSC Effort
+==========
+
+(Samuli Hakala)
 
 Stanford/SUNCAT Effort
 ======================
