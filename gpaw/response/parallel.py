@@ -248,33 +248,51 @@ def par_read(filename, name, Nw=None):
     
     return chi0_wGG
 
-def gatherv(A_nN):
+def gatherv(m, N=None):
 
     from gpaw.mpi import world, size, rank
 
-    n, N = A_nN.shape
     if world.size == 1:
-        return A_nN
+        return m
 
-    assert n < N
-    A_NN = np.zeros((N, N), dtype=complex)
+    ndim = m.ndim
+
+    if  ndim == 2:
+        n, N = m.shape
+        assert n < N 
+        M  = np.zeros((N, N), dtype=complex)
+    elif ndim == 1:
+        n = m.shape[0]
+        M = np.zeros(N, dtype=complex)
+    else:
+        print 'Not Implemented'
+        XX
+        
     n_index = np.zeros(size, dtype=int)
     world.all_gather(np.array([n]), n_index)
 
     root = 0
     if rank != root:
-        world.ssend(A_nN, root, 112+rank)
+        world.ssend(m, root, 112+rank)
     else:
         for irank, n in enumerate(n_index):
             if irank == root:
-                A_NN[:n_index[0] :] = A_nN
+                if ndim == 2:
+                    M[:n_index[0] :] = m
+                else:
+                    M[:n_index[0]] = m
             else:
-                tmp_nN = np.zeros((n, N), dtype=complex)
-                world.receive(tmp_nN, irank, 112+irank)
                 n_start = n_index[0:irank].sum()
                 n_end = n_index[0:irank+1].sum()
-                A_NN[n_start:n_end, :] = tmp_nN
-    world.broadcast(A_NN, root)
+                if ndim == 2:
+                    tmp_nN = np.zeros((n, N), dtype=complex)
+                    world.receive(tmp_nN, irank, 112+irank)
+                    M[n_start:n_end, :] = tmp_nN
+                else:
+                    tmp_n = np.zeros(n, dtype=complex)
+                    world.receive(tmp_n, irank, 112+irank)
+                    M[n_start:n_end] = tmp_n
+    world.broadcast(M, root)
     
-    return A_NN
+    return M
         

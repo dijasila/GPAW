@@ -13,6 +13,7 @@ from gpaw.utilities.memory import maxrss
 from gpaw.response.base import BASECHI
 from gpaw.response.parallel import parallel_partition
 from gpaw.response.df import DF
+from gpaw.response.parallel import gatherv
 
 class BSE(BASECHI):
     """This class defines Belth-Selpether equations."""
@@ -302,81 +303,96 @@ class BSE(BASECHI):
 
         if self.positive_w: # force the matrix Hermitian
             if world.size > 1:
-                H_Ss = self.transpose_H(H_sS)
+                H_Ss = self.redistribute_H(H_sS)
             else:
                 H_Ss = H_sS
             H_sS = (np.real(H_sS) + np.real(H_Ss.T)) / 2. + 1j * (np.imag(H_sS) - np.imag(H_Ss.T)) /2.
 
-        if not self.positive_w:
+        # save H_sS matrix
+        self.par_save('H_SS','H_SS', H_sS)
+
+        return H_sS
+
+    def diagonalize(self, H_sS):
+        if not self.positive_w: # none Hemitian matrix can only use linalg.eig
+            self.printtxt('Use numpy.linalg.eig')
             H_SS = np.zeros((self.nS, self.nS), dtype=complex)
             if self.nS % world.size == 0:
                 world.all_gather(H_sS, H_SS)
             else:
-                from gpaw.response.parallel import gatherv
                 H_SS = gatherv(H_sS)
 
             self.w_S, self.v_SS = np.linalg.eig(H_SS)
+            self.par_save('v_SS', 'v_SS', self.v_SS[self.nS_start:self.nS_end, :].copy())
         else:
             if world.size == 1:
+                self.printtxt('Use lapack.')
                 from gpaw.utilities.lapack import diagonalize
                 self.w_S = np.zeros(self.nS)
                 H_SS = H_sS
                 diagonalize(H_SS, self.w_S)
-                self.v_SS = H_SS.T.conj() # eigenvectors in the rows
+                self.v_SS = H_SS.conj() # eigenvectors in the rows, transposed later
             else:
-                self.w_S, self.v_SS = self.scalapack_diagonalize(H_sS)
-
-
-        data = {
-                'w_S': self.w_S,
-                'v_SS':self.v_SS,
-                'rhoG0_S':self.rhoG0_S
-                }
-        if rank == 0:
-            pickle.dump(data, open('H_SS.pckl', 'w'), -1)
-
+                self.printtxt('Use scalapack')
+                self.w_S, self.v_sS = self.scalapack_diagonalize(H_sS)
+                self.v_SS = self.v_sS # just use the same name
+            self.par_save('v_SS', 'v_SS', self.v_SS)
         
         return 
 
 
-#    def par_write(filename, name, comm, H_SS):
-#        from gpaw.io import open 
-#        assert comm == world
-#    
-#        nS_local, nS = H_SS.shape
-#        
-#        if rank == 0:
-#            w = open(filename, 'w', comm)
-#            w.dimension('nS', nS)
-#            w.add(name, ('nS', 'nS'), dtype=complex)
-#            tmp = np.zeros_like(H_SS)
-#
-#        # assumes that H_SS is written in order from rank 0 - rank N
-#        for irank in range(size):
-#            if irank == 0:
-#                if rank == 0:
-#                    w.fill(H_SS)
-#            else:
-#                if rank == irank:
-#                    world.send(H_SS, 0, irank+100)
-#                if rank == 0:
-#                    world.receive(tmp, irank, irank+100)
-#                    w.fill(tmp)
-#        if rank == 0:
-#            w.close()
-#        world.barrier()
-#
-#    def par_read(filename, name, nS=None):
-#        from gpaw.io import open 
-#        r = open(filename, 'r')
-#        nS = r.dimension('nS')
-#
-#        #H_SS = r.get(name, self.nS_start:self.ns_end)
-#
-#        r.close()
-#        
-#        return chi0_wGG
-#    
+    def par_save(self,filename, name, A_sS):
+        from gpaw.io import open 
+
+        nS_local = self.nS_local
+        nS = self.nS
+        
+        if rank == 0:
+            w = open(filename, 'w', world)
+            w.dimension('nS', nS)
+            
+            if name == 'v_SS':
+                w.add('w_S', ('nS',), dtype=self.w_S.dtype)
+                w.fill(self.w_S)
+            w.add('rhoG0_S', ('nS',), dtype=complex)
+            w.fill(self.rhoG0_S)
+            w.add(name, ('nS', 'nS'), dtype=complex)
+
+            tmp = np.zeros_like(A_sS)
+
+        # assumes that H_SS is written in order from rank 0 - rank N
+        for irank in range(size):
+            if irank == 0:
+                if rank == 0:
+                    w.fill(A_sS)
+            else:
+                if rank == irank:
+                    world.send(A_sS, 0, irank+100)
+                if rank == 0:
+                    world.receive(tmp, irank, irank+100)
+                    w.fill(tmp)
+        if rank == 0:
+            w.close()
+        world.barrier()
+
+    def par_load(self,filename, name):
+        from gpaw.io import open 
+        r = open(filename, 'r')
+        nS = r.dimension('nS')
+
+        if name == 'v_SS':
+            self.w_S = r.get('w_S')
+
+        A_SS = np.zeros((self.nS_local, nS), dtype=complex)
+        for iS in range(self.nS_start, self.nS_end):   
+            A_SS[iS-self.nS_start,:] = r.get(name, iS)
+
+        self.rhoG0_S = r.get('rhoG0_S')
+
+        r.close()
+        
+        return A_SS
+    
 
     def full_static_screened_interaction(self):
         """Calcuate W_GG(q)"""
@@ -488,23 +504,32 @@ class BSE(BASECHI):
         return phi_aGp
 
 
-    def get_dielectric_function(self, filename='df.dat', readfile=None, overlap=True):
+    def get_dielectric_function(self, filename='df.dat', readfile=None):
 
         if self.epsilon_w is None:
             self.initialize()
 
             if readfile is None:
-                self.calculate()
+                H_sS = self.calculate()
+                self.printtxt('Diagonalizing BSE matrix.')
+                self.diagonalize(H_sS)
                 self.printtxt('Calculating dielectric function.')
+            elif readfile == 'H_SS':
+                H_sS = self.par_load('H_SS', 'H_SS')
+                self.printtxt('Finished reading H_SS.gpw')
+                self.diagonalize(H_sS)
+                self.printtxt('Finished diagonalizing BSE matrix')
+            elif readfile == 'v_SS':
+                self.v_SS = self.par_load('v_SS', 'v_SS')
+                self.printtxt('Finished reading v_SS.gpw')
             else:
-                data = pickle.load(open(readfile))
-                self.w_S  = data['w_S']
-                self.v_SS = data['v_SS']
-                self.rhoG0_S = data['rhoG0_S']
-                self.printtxt('Finished reading H_SS.pckl')
+                XX
 
             w_S = self.w_S
-            v_SS = self.v_SS # v_SS[:,lamda]
+            if self.positive_w:
+                v_SS = self.v_SS.T # v_SS[:,lamda]
+            else:
+                v_SS = self.v_SS
             rhoG0_S = self.rhoG0_S
             focc_S = self.focc_S
 
@@ -522,7 +547,11 @@ class BSE(BASECHI):
             if not self.positive_w:
                 C_S = np.dot(B_S.conj(), overlap_SS.T) * A_S
             else:
-                C_S = B_S.conj() * A_S
+                if world.size == 1:
+                    C_S = B_S.conj() * A_S
+                else:
+                    tmp = B_S.conj() * A_S
+                    C_S = gatherv(tmp, self.nS)
 
             for iw in range(self.Nw):
                 tmp_S = 1. / (iw*self.dw - w_S + 1j*self.eta)
@@ -743,7 +772,7 @@ class BSE(BASECHI):
 
         world.barrier()
 
-    def transpose_H(self, H_sS):
+    def redistribute_H(self, H_sS):
 
         g1 = BlacsGrid(world, size, 1)
         g2 = BlacsGrid(world, 1, size)
@@ -781,7 +810,7 @@ class BSE(BASECHI):
         redistributor = Redistributor(world, nndesc2, nndesc1)
         redistributor.redistribute(v_ss, v_sS)
 
-        v_SS = np.zeros((self.nS, self.nS), dtype=complex)
-        world.all_gather(v_sS, v_SS)
-
-        return w_S, v_SS.T.conj()
+#        v2_SS = np.zeros((self.nS, self.nS), dtype=complex)
+#        world.all_gather(v_sS, v2_SS)
+        
+        return w_S, v_sS.conj()
