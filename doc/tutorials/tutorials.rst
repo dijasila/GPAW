@@ -15,6 +15,7 @@ perform some of the most common tasks:
 
    lattice_constants/lattice_constants
    atomization/atomization
+   atomization_cmr/atomization_cmr
    optimization/optimization
    plotting/plot_wave_functions
    bandstructures/bandstructures

@@ -25,8 +25,10 @@ if create_group: assert analyse_from_dir or analyse_from_db
 
 if analyse_from_db: assert upload_to_db
 
+symbol = 'Li'
+
 # define the project in order to find it in the database!
-project_id = 'my first project: Li2 atomize'
+project_id = 'my first project: atomize'
 
 vacuum = 3.5
 
@@ -49,7 +51,7 @@ cmr_params_template = {
 if calculate:
 
     # molecule
-    formula = 'Li2'
+    formula = symbol + '2'
     # set formula name to be written into the cmr file
     cmr_params = cmr_params_template.copy()
     cmr_params['U_formula'] = formula
@@ -82,7 +84,7 @@ if calculate:
     del calc
 
     # atom
-    formula = 'Li'
+    formula = symbol
     # set formula name to be written into the cmr file
     cmr_params = cmr_params_template.copy()
     cmr_params['U_formula'] = formula
@@ -119,7 +121,7 @@ if recalculate:
     # now calculate PBE energies on LDA orbitals
 
     # molecule
-    formula = 'Li2'
+    formula = symbol + '2'
     system, calc = restart(formula, txt=None)
 
     ediff = calc.get_xc_difference('PBE')
@@ -135,7 +137,7 @@ if recalculate:
     del calc
 
     # atom
-    formula = 'Li'
+    formula = symbol
     system, calc = restart(formula, txt=None)
 
     ediff = calc.get_xc_difference('PBE')
@@ -156,11 +158,10 @@ if analyse_from_dir:
 
     from cmr.ui import DirectoryReader
 
-    reader = DirectoryReader(directory='.', ext='.cmr')
     # read all compounds in the project with lcao and LDA orbitals
+    reader = DirectoryReader(directory='.', ext='.cmr')
     all = reader.find(name_value_list=[('U_mode', 'lcao'), ('U_xc', 'LDA')],
                       keyword_list=[project_id])
-
     if rank == 0:
         print 'results from cmr files in the local directory'
     # print requested results
@@ -172,8 +173,8 @@ if analyse_from_dir:
                              'ase_temperature'])
 
     # access the results directly and calculate atomization energies
-    f2 = 'Li2'
-    f1 = 'Li'
+    f2 = symbol + '2'
+    f1 = symbol
 
     if rank == 0:
 
@@ -182,9 +183,9 @@ if analyse_from_dir:
         r2 = all.get('U_formula', f2)
         r1 = all.get('U_formula', f1)
 
+        # calculate atomization energies (ea)
         ea_LDA = 2 * r1['U_potential_energy'] - r2['U_potential_energy']
         ea_PBE = 2 * r1['U_potential_energy_PBE'] - r2['U_potential_energy_PBE']
-
         print 'atomization energy [eV] ' + xc + ' = ' + str(ea_LDA)
         print 'atomization energy [eV] PBE = ' + str(ea_PBE)
 
@@ -196,17 +197,17 @@ if analyse_from_dir:
             group.set_user_variable('U_ea_LDA', ea_LDA)
             group.set_user_variable('U_ea_PBE', ea_PBE)
             group.set_user_variable('U_description', 'atomization energy [eV]')
-            group.set_user_variable('U_reaction', '2 * Li - Li2')
+            group.set_user_variable('U_reaction', '2 * ' + symbol + ' - ' + symbol + '2')
             group.set_user_variable('db_keywords', [project_id])
             group.set_user_variable('project_id', project_id)
-            group.write("Li2_atomize_from_dir.cmr");
+            group.write(symbol + '2_atomize_from_dir.cmr');
 
 if upload_to_db:
 
     # upload cmr files to the database
 
     if rank == 0:
-        os.system("cmr --commit Li*.cmr")
+        os.system('cmr --commit ' + symbol + '*.cmr')
 
 if analyse_from_db:
 
@@ -219,7 +220,6 @@ if analyse_from_db:
                                        #('db_user', '')
                                        ],
                       keyword_list=[project_id])
-
     if rank == 0:
         print 'results from the database'
     # print requested results
@@ -231,8 +231,8 @@ if analyse_from_db:
                              'ase_temperature'])
 
     # access the results directly and calculate atomization energies
-    f2 = 'Li2'
-    f1 = 'Li'
+    f2 = symbol + '2'
+    f1 = symbol
 
     if rank == 0:
 
@@ -244,9 +244,9 @@ if analyse_from_db:
         if r1 is None or r2 is None:
             print "Results are not yet in the database. Wait, and try again."
         else:
+            # calculate atomization energies (ea)
             ea_LDA = 2 * r1['U_potential_energy'] - r2['U_potential_energy']
             ea_PBE = 2 * r1['U_potential_energy_PBE'] - r2['U_potential_energy_PBE']
-
             print 'atomization energy [eV] ' + xc + ' = ' + str(ea_LDA)
             print 'atomization energy [eV] PBE = ' + str(ea_PBE)
 
@@ -258,15 +258,17 @@ if analyse_from_db:
                 group.set_user_variable('U_ea_LDA', ea_LDA)
                 group.set_user_variable('U_ea_PBE', ea_PBE)
                 group.set_user_variable('U_description', 'atomization energy [eV] (from database)')
-                group.set_user_variable('U_reaction', '2 * Li - Li2')
+                group.set_user_variable('U_reaction', '2 * ' + symbol + ' - ' + symbol + '2')
                 group.set_user_variable('db_keywords', [project_id])
                 group.set_user_variable('project_id', project_id)
-                group.write("Li2_atomize_from_db.cmr");
+                group.write(symbol + '2_atomize_from_db.cmr');
                 group.write(".cmr");
 
 if clean:
 
     if rank == 0:
-        for file in ['Li.cmr', 'Li.gpw', 'Li.txt', 'Li2.cmr', 'Li2.gpw', 'Li2.txt',
-                     "Li2_atomize_from_dir.cmr", "Li2_atomize_from_db.cmr"]:
+        for file in [symbol + '.cmr', symbol + '.gpw', symbol + '.txt',
+                     symbol + '2.cmr', symbol + '2.gpw', symbol + '2.txt',
+                     symbol + '2_atomize_from_dir.cmr',
+                     symbol + '2_atomize_from_db.cmr']:
             if os.path.exists(file): os.unlink(file)
