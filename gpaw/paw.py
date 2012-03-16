@@ -9,7 +9,7 @@ The central object that glues everything together!"""
 
 import numpy as np
 from ase.units import Bohr, Hartree
-from ase.dft import monkhorst_pack
+from ase.dft.kpoints import monkhorst_pack
 
 import gpaw.io
 import gpaw.mpi as mpi
