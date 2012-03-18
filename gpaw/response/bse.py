@@ -129,7 +129,7 @@ class BSE(BASECHI):
             self.nibzq = len(self.ibzq_qc)
 
         # parallel init
-        self.Scomm = world
+        self.comm = self.Scomm = world
         # kcomm and wScomm is only to be used when wavefunctions r parallelly distributed.
         self.kcomm = world
         self.wScomm = serial_comm

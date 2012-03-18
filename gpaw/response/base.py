@@ -264,16 +264,16 @@ class BASECHI:
         phi_aGp = {}
 
         from gpaw.response.parallel import parallel_partition
-        
+
         npw, npw_local, Gstart, Gend = parallel_partition(
-                               self.npw, world.rank, world.size, reshape=False)
+                               self.npw, self.comm.rank, self.comm.size, reshape=False)
+
         for a, id in enumerate(setups.id_a):
             phi_aGp[a] = two_phi_planewave_integrals(kk_Gv, setups[a], Gstart, Gend)
             for iG in range(Gstart, Gend):
                 phi_aGp[a][iG] *= np.exp(-1j * 2. * pi *
                                          np.dot(q_c + self.Gvec_Gc[iG], spos_ac[a]) )
-
-            world.sum(phi_aGp[a])
+            self.comm.sum(phi_aGp[a])
         # For optical limit, G == 0 part should change
         if optical_limit:
             for a, id in enumerate(setups.id_a):
