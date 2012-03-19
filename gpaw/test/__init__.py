@@ -280,14 +280,14 @@ tests = [
     'constant_electric_field.py',
     'stark_shift.py',
     'aluminum_testcell.py',
-    'cmr/cmr_test2.py',
+    'cmrtest/cmr_test2.py',
     'gw_test.py']
 
 try:
     import cmr
-    tests.append('cmr/Li2_atomize.py')
-    tests.append('cmr/cmr_append.py')
-    tests.append('cmr/cmr_test.py')
+    tests.append('cmrtest/Li2_atomize.py')
+    tests.append('cmrtest/cmr_append.py')
+    tests.append('cmrtest/cmr_test.py')
 except:
     pass
 
@@ -306,7 +306,7 @@ if mpi.size > 1:
                 'stark_shift.py',
                 'exx_q.py',
                 'potential.py',
-                'cmr/Li2_atomize.py']
+                'cmrtest/Li2_atomize.py']
 
 if mpi.size > 2:
     exclude += ['neb.py']
