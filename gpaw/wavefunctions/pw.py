@@ -51,7 +51,7 @@ class PWDescriptor:
             i_Qc -= N_c // 2
             self.tmp_Q = fftw.empty(N_c, complex)
             self.tmp_R = self.tmp_Q
-
+        
         self.fftplan = fftw.FFTPlan(self.tmp_R, self.tmp_Q, -1, fftwflags)
         self.ifftplan = fftw.FFTPlan(self.tmp_Q, self.tmp_R, 1, fftwflags)
 
@@ -501,6 +501,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         if nbands is None:
             nbands = npw
+
+        assert nbands <= npw
 
         self.bd = bd = BandDescriptor(nbands, self.bd.comm)
 
