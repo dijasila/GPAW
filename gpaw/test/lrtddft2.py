@@ -9,6 +9,7 @@ txt = '-'
 txt = None
 load = True
 load = False
+xc = 'LDA'
 
 R = 0.7  # approx. experimental bond length
 a = 4.0
@@ -17,17 +18,15 @@ H2 = Atoms([Atom('H', (a / 2, a / 2, (c - R) / 2)),
             Atom('H', (a / 2, a / 2, (c + R) / 2))],
            cell=(a, a, c))
 
-calc = GPAW(xc='PBE', nbands=2, spinpol=False, txt=txt)
+calc = GPAW(xc=xc, nbands=2, spinpol=False, txt=txt)
 H2.set_calculator(calc)
 H2.get_potential_energy()
 calc.write('H2saved_wfs.gpw', 'all')
 calc.write('H2saved.gpw')
 wfs_error = calc.wfs.eigensolver.error
 
-xc = 'LDA'
-
 #print "-> starting directly after a gs calculation"
-lr = LrTDDFT(calc, xc=xc, txt='-')
+lr = LrTDDFT(calc, txt='-')
 lr.diagonalize()
 
 #print "-> reading gs with wfs"
@@ -45,7 +44,7 @@ assert (abs(lr1[0].get_oscillator_strength()[0] /
 #print "-> reading gs without wfs"
 gs = GPAW('H2saved.gpw', txt=None)
 
-lr2 = LrTDDFT(gs, xc=xc, txt='-')
+lr2 = LrTDDFT(gs, txt='-')
 lr2.diagonalize()
 # check the oscillator strrength
 assert (abs(lr2[0].get_oscillator_strength()[0] /
