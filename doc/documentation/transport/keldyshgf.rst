@@ -22,7 +22,7 @@ The KGF code is currently beeing merged into the development version of
 GPAW and is expected to be part of the GPAW package in the near future.
 The latest revision can be obtained from svn::
 
-  $ svn checkout https://svn.fysik.dtu.dk/projects/KeldyshGF/trunk/KeldyshGF KeldyshGF
+  $ svn checkout https://svn.fysik.dtu.dk/projects/KeldyshGF/trunk KeldyshGF
  
 
 Installation is completed by adding the path of KeldyshGF to the PYTHONPATH 
