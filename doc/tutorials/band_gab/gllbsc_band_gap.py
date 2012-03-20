@@ -40,4 +40,4 @@ EKs, Dxc = response.calculate_delta_xc_perturbation()
 # Dxc = derivative discontinuity
 Gap = EKs+Dxc
 
-print "Calculated bandgab:", Gap
+print "Calculated band gap:", Gap

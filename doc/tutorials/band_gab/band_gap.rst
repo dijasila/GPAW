@@ -1,20 +1,20 @@
 .. _bandgab:
 
 =========================
-Calculating band gab using the GLLB-sc functional
+Calculating band gap using the GLLB-sc functional
 =========================
 
-In this tutorial, we use the GLLB-sc to calculate the band gab of KTaO3 using the 
+In this tutorial, we use the GLLB-sc to calculate the band gap of KTaO3 using the 
 XC functional GLLB-sc. This functional uses the GLLB response potential to 
 replace the PBEsol response potential of the exchange. [GLLB-sc]
-This has been shown to improve the band gab description as shown in the figure 
+This has been shown to improve the band gap description as shown in the figure 
 below taken from [Castilli2012].
 
 .. figure:: sodium_bands.png
 
-A GLLB-sc band gab calculation is performed as given here: 
+A GLLB-sc band gap calculation is performed as given here: 
 
-.. literalinclude:: gllbsc_band_gab.py
+.. literalinclude:: gllbsc_band_gap.py
 
 -------------
 
