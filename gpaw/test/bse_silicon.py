@@ -8,8 +8,8 @@ from gpaw.response.bse import BSE
 from ase.dft import monkhorst_pack
 from gpaw.mpi import rank
 
-GS = 1
-bse = 1
+GS = 0
+bse = 0
 check = 1
 
 if GS:
@@ -54,7 +54,7 @@ if check:
     else:
         raise ValueError('Absorption peak not correct ! ')
 
-    if np.abs(d[Nw1, 2] - 53.3382894891) > 0.6 \
+    if np.abs(d[Nw1, 2] - 53.3382894891) > 1. \
         or np.abs(d[Nw2, 2] - 62.7667801949 ) > 2.:
         print d[Nw1, 2], d[Nw2, 2]
         raise ValueError('Please check spectrum strength ! ')
