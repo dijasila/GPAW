@@ -12,20 +12,20 @@ with :ref:`atomization_energy`.
 .. _CMR:
     https://wiki.fysik.dtu.dk/cmr/
 
-The full script :svn:`gpaw/test/cmr/Li2_atomize.py`
+The full script :svn:`gpaw/test/cmrtest/Li2_atomize.py`
 is divided into several parts:
 
 1. the preliminary part contains important settings relevant for CMR:
 
   - configuration of CMR in order to work in jobs executed in parallel:
 
-    .. literalinclude:: ../../../gpaw/test/cmr/Li2_atomize.py
+    .. literalinclude:: ../../../gpaw/test/cmrtest/Li2_atomize.py
        :start-after: import
        :end-before: from
 
   - setting a **unique** project identifier:
 
-    .. literalinclude:: ../../../gpaw/test/cmr/Li2_atomize.py
+    .. literalinclude:: ../../../gpaw/test/cmrtest/Li2_atomize.py
        :start-after: project
        :end-before: vacuum
 
@@ -36,7 +36,7 @@ is divided into several parts:
 
   - defining the parameters of the calculation to be stored in CMR:
 
-    .. literalinclude:: ../../../gpaw/test/cmr/Li2_atomize.py
+    .. literalinclude:: ../../../gpaw/test/cmrtest/Li2_atomize.py
        :start-after: template
        :end-before: }
 
@@ -64,7 +64,7 @@ is divided into several parts:
    The orbitals are read from the :file:`.gpw` files saved in the :envvar:`calculate` step.
    The results are appended to the corresponding cmr files:
 
-   .. literalinclude:: ../../../gpaw/test/cmr/Li2_atomize.py
+   .. literalinclude:: ../../../gpaw/test/cmrtest/Li2_atomize.py
       :start-after: exists
       :end-before: del
 
@@ -115,14 +115,14 @@ the cmr files saved in the current directory.
    In this part the contents of all cmr files in the current directory is read,
    and restricted to our :envvar:`project_id`:
 
-   .. literalinclude:: ../../../gpaw/test/cmr/Li2_atomize.py
+   .. literalinclude:: ../../../gpaw/test/cmrtest/Li2_atomize.py
       :start-after: DirectoryReader
       :end-before: rank
 
    The ``LDA`` and ``PBE`` (on ``LDA`` orbitals) atomization energies are
    calculated with, respectively:
 
-   .. literalinclude:: ../../../gpaw/test/cmr/Li2_atomize.py
+   .. literalinclude:: ../../../gpaw/test/cmrtest/Li2_atomize.py
       :start-after: (ea)
       :end-before: print
 
