@@ -1,8 +1,8 @@
 .. _bandgab:
 
-=========================
+==================================================
 Calculating band gap using the GLLB-sc functional
-=========================
+==================================================
 
 In this tutorial, we use the GLLB-sc to calculate the band gap of KTaO3 using the 
 XC functional GLLB-sc. This functional uses the GLLB response potential to 
