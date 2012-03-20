@@ -1,6 +1,7 @@
 import sys
 from time import time, ctime
 import numpy as np
+import gpaw.fftw as fftw
 from math import sqrt, pi
 from ase.units import Hartree, Bohr
 from gpaw import extra_parameters
@@ -208,6 +209,11 @@ class CHI(BASECHI):
             dpsit_g = gd.empty(dtype=complex)
             tmp = np.zeros((3), dtype=complex)
 
+        # fftw init
+        fft_R = fftw.empty(self.nG, complex)
+        fft_G = fft_R
+        fftplan = fftw.FFTPlan(fft_R, fft_G, -1, fftw.ESTIMATE)
+
         use_zher = False
         if self.eta < 1e-3:
             use_zher = True
@@ -272,9 +278,12 @@ class CHI(BASECHI):
                             psit2_g = psit2_g_tmp
 
                         # fft
-                        tmp_g = np.fft.fftn(psit2_g*psit1_g) * self.vol / self.nG0
+                        fft_R[:] = psit2_g * psit1_g
+                        fftplan.execute()
+                        fft_G *= self.vol / self.nG0
+#                        tmp_g = np.fft.fftn(psit2_g*psit1_g) * self.vol / self.nG0
 
-                        rho_G = tmp_g.ravel()[self.Gindex_G]
+                        rho_G = fft_G.ravel()[self.Gindex_G]
 
                         if self.optical_limit:
                             phase_cd = np.exp(2j * pi * sdisp_cd * bzk_kc[kq_k[k], :, np.newaxis])
