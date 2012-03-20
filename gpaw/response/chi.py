@@ -2,6 +2,7 @@ import sys
 from time import time, ctime
 import numpy as np
 import gpaw.fftw as fftw
+import gpaw.wavefunctions.pw as pw
 from math import sqrt, pi
 from ase.units import Hartree, Bohr
 from gpaw import extra_parameters
@@ -129,6 +130,10 @@ class CHI(BASECHI):
 
         calc = self.calc
 
+        self.pwmode = isinstance(calc.input_parameters['mode'], pw.PW)
+        if self.pwmode:
+            assert self.calc.wfs.world.size == 1
+
         # For LCAO wfs
         if calc.input_parameters['mode'] == 'lcao':
             calc.initialize_positions()        
@@ -220,7 +225,7 @@ class CHI(BASECHI):
 
         rho_G = np.zeros(self.npw, dtype=complex)
         t0 = time()
-        t_get_wfs = 0
+
         for k in range(self.kstart, self.kend):
             k_pad = False
             if k >= self.nkpt:
@@ -234,14 +239,24 @@ class CHI(BASECHI):
             else:
                 ibzkpt2 = kd.bz2ibz_k[kq_k[k]]
 
+            if self.pwmode:
+                N_c = self.gd.N_c
+                k_c = self.kd.ibzk_kc[ibzkpt1]
+                eikr1_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k_c / N_c).T)
+                k_c = self.kd.ibzk_kc[ibzkpt2]
+                eikr2_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k_c / N_c).T)
+                
             index1_g, phase1_g = kd.get_transform_wavefunction_index(self.nG, k)
             index2_g, phase2_g = kd.get_transform_wavefunction_index(self.nG, kq_k[k])
 
             for n in range(self.nstart, self.nend):
 #                print >> self.txt, k, n, time() - t0
                 t1 = time()
-                psitold_g = self.get_wavefunction(ibzkpt1, n, True, spin=spin)
-                t_get_wfs += time() - t1
+                if not self.pwmode:
+                    psitold_g = self.get_wavefunction(ibzkpt1, n, True, spin=spin)
+                else:
+                    u = self.kd.get_rank_and_index(spin, ibzkpt1)[1]
+                    psitold_g = calc.wfs._get_wave_function_array(u, n, realspace=True, phase=eikr1_R)
 
                 psit1new_g_tmp = kd.transform_wave_function(psitold_g,k,index1_g,phase1_g)
 
@@ -264,12 +279,15 @@ class CHI(BASECHI):
                         print >> self.txt, '    ', k, n, m, time() - t0
 		    
                     check_focc = (f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]) > self.ftol
-                    
-                    t1 = time()
-                    psitold_g = self.get_wavefunction(ibzkpt2, m, check_focc, spin=spin)
-                    t_get_wfs += time() - t1
+
+                    if not self.pwmode:
+                        psitold_g = self.get_wavefunction(ibzkpt2, m, check_focc, spin=spin)
 
                     if check_focc:                            
+                        if self.pwmode:
+                            u = self.kd.get_rank_and_index(spin, ibzkpt2)[1]
+                            psitold_g = calc.wfs._get_wave_function_array(u, m, realspace=True, phase=eikr2_R)
+
                         psit2_g_tmp = kd.transform_wave_function(psitold_g, kq_k[k], index2_g, phase2_g)
 
                         if (self.rpad > 1).any() or (self.pbc - True).any():

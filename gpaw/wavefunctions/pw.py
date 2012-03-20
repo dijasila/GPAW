@@ -126,6 +126,7 @@ class PWDescriptor:
         """
 
         self.tmp_R[:] = f_R
+
         self.fftplan.execute()
         return self.tmp_Q.ravel()[self.Q_G]
 
@@ -415,7 +416,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         for f, psit_G in zip(f_n, kpt.psit_nG):
             nt_R += f * abs(self.pd.ifft(psit_G))**2
 
-    def _get_wave_function_array(self, u, n, realspace=True):
+    def _get_wave_function_array(self, u, n, realspace=True, phase=None):
         psit_G = FDPWWaveFunctions._get_wave_function_array(self, u, n,
                                                             realspace)
         if not realspace:
@@ -425,9 +426,12 @@ class PWWaveFunctions(FDPWWaveFunctions):
         if self.kd.gamma:
             return self.pd.ifft(psit_G)
         else:
-            N_c = self.gd.N_c
-            k_c = self.kd.ibzk_kc[kpt.k]
-            eikr_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k_c / N_c).T)
+            if phase is None:
+                N_c = self.gd.N_c
+                k_c = self.kd.ibzk_kc[kpt.k]
+                eikr_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k_c / N_c).T)
+            else:
+                eikr_R = phase
             return self.pd.ifft(psit_G) * eikr_R
 
     def write(self, writer, write_wave_functions=False):
