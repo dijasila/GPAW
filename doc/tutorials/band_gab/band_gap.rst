@@ -10,7 +10,7 @@ replace the PBEsol response potential of the exchange. [GLLB-sc]
 This has been shown to improve the band gap description as shown in the figure 
 below taken from [Castilli2012].
 
-.. figure:: sodium_bands.png
+.. figure:: GLLB-SC_gap.png
 
 A GLLB-sc band gap calculation is performed as given here: 
 
@@ -23,7 +23,7 @@ A GLLB-sc band gap calculation is performed as given here:
    *Kohn-Sham potential with discontinuity for band gap materials*,
    DOI: 10.1103/PhysRevB.82.115106
 
-   [Castilli2012] Ivano E. Castelli, Thomas Olsen, Soumendu Datta, David D. Landis, Søren Dahl, Kristian S. Thygesena
+.. [Castilli2012] Ivano E. Castelli, Thomas Olsen, Soumendu Datta, David D. Landis, Søren Dahl, Kristian S. Thygesena
 and Karsten W. Jacobsen
    Energy Environ. Sci., 2012, 5, 5814
    *Computational screening of perovskite metal oxides for optimal solar light
