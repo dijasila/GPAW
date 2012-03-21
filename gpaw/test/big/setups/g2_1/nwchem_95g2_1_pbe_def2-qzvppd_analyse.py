@@ -24,7 +24,7 @@ for p in ['ae', 'energy']:
         try:
             calc[p][m] = task.results[m][prop2index[p]]
         except KeyError:
-            calc[m] = None
+            calc[p][m] = None
             print 'Missing: ' + m + ' for property ' + p
             pass
 
