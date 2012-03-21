@@ -512,7 +512,8 @@ class HybridXC(XCFunctional):
             psit1_R = kpt1.psit_nG[n1]
             psit2_R = kpt2.psit_nG[n2]
 
-        psit2_R = self.kd.transform_wave_function(psit2_R, k)
+        psit2_R = np.asarray(self.kd.transform_wave_function(psit2_R, k),
+                             complex)
         nt_R = psit1_R.conj() * psit2_R
 
         s = self.kd.sym_k[k]
