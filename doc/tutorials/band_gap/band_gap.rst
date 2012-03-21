@@ -19,14 +19,14 @@ A GLLB-sc band gap calculation is performed as given here:
 -------------
 
 .. [GLLB-sc] M. Kuisma, J. Ojanen, J. Enkovaara, and T. T. Rantala1,
-   PHYSICAL REVIEW B 82, 115106 (2010)
+   PHYSICAL REVIEW B 82, 115106 (2010),
    *Kohn-Sham potential with discontinuity for band gap materials*,
    DOI: 10.1103/PhysRevB.82.115106
 
-.. [Castilli2012] Ivano E. Castelli, Thomas Olsen, Soumendu Datta, David D. Landis, Søren Dahl, Kristian S. Thygesena
-and Karsten W. Jacobsen
-   Energy Environ. Sci., 2012, 5, 5814
+.. [Castilli2012] Ivano E. Castelli, Thomas Olsen, Soumendu Datta,
+   David D. Landis, Søren Dahl, Kristian S. Thygesena
+   and Karsten W. Jacobsen,
+   Energy Environ. Sci., 2012, 5, 5814,
    *Computational screening of perovskite metal oxides for optimal solar light
-capture*
+   capture*,
    DOI: 10.1039/c1ee02717d
-

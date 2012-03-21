@@ -19,6 +19,7 @@ perform some of the most common tasks:
    optimization/optimization
    plotting/plot_wave_functions
    bandstructures/bandstructures
+   band_gap/band_gap
    dipole_correction/dipole
    jellium/jellium
    all-electron/all_electron_density
