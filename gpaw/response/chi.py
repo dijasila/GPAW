@@ -219,6 +219,11 @@ class CHI(BASECHI):
         fft_G = fft_R
         fftplan = fftw.FFTPlan(fft_R, fft_G, -1, fftw.ESTIMATE)
 
+        if fftw.FFTPlan is fftw.NumpyFFTPlan:
+            self.printtxt('Using Numpy FFT.')
+        else:
+            self.printtxt('Using FFTW Library.')
+                                        
         use_zher = False
         if self.eta < 1e-3:
             use_zher = True
