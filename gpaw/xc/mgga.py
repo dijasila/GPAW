@@ -226,7 +226,7 @@ class PurePython2DMGGAKernel:
             tau[tau < 1e-20] = 1e-40
 
             # exchange
-            e_x = twoDexchange(n, sigma, tau, self.pars)
+            e_x = twodexchange(n, sigma, tau, self.pars)
             e_g[:] += e_x * n
 
         # spin-polarized:
