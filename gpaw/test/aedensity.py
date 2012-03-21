@@ -29,7 +29,7 @@ except IOError:
     niter = calc.get_number_of_iterations()
     calc.write('NaCl.gpw')
 
-dv = calc.get_grid_spacings().prod()
+dv = NaCl.get_volume() / calc.get_number_of_grid_points().prod()
 nt1 = calc.get_pseudo_density(gridrefinement=1)
 Zt1 = nt1.sum() * dv
 nt2 = calc.get_pseudo_density(gridrefinement=2)

@@ -9,7 +9,7 @@ import numpy as np
 
 from gpaw.atom.generator import Generator
 from gpaw.atom.configurations import parameters
-from gpaw.utilities import devnull
+from gpaw.utilities import devnull, compiled_with_sl
 from gpaw import setup_paths
 from gpaw import mpi
 import gpaw
@@ -19,7 +19,7 @@ def equal(x, y, tolerance=0, fail=True, msg=''):
     """Compare x and y."""
 
     if not np.isfinite(x - y) or abs(x - y) > tolerance:
-        msg = (msg + '%.9g != %.9g (error: |%.9g| > %.9g)' %
+        msg = (msg + '%s != %s (error: |%s| > %.9g)' %
                (x, y, x - y, tolerance))
         if fail:
             raise AssertionError(msg)
@@ -51,24 +51,28 @@ def wrap_pylab(names=[]):
 
 
 tests = [
+    'gd.py',
     'ase3k_version.py',
     'numpy_core_multiarray_dot.py',
     'numpy_zdotc_graphite.py',
     'gemm_complex.py',
     'lapack.py',
+    'zher.py',
     'mpicomm.py',
+    'parallel/submatrix_redist.py',
     'eigh.py',
     'xc.py',
     'gradient.py',
     'pbe_pw91.py',
     'cg2.py',
-    'd2Excdn2.py',
     'dot.py',
     'blas.py',
     'gp2.py',
     'non_periodic.py',
     'erf.py',
+    'kpt.py',
     'lf.py',
+    'fsbt.py',
     'lxc_fxc.py',
     'Gauss.py',
     'cluster.py',
@@ -76,22 +80,33 @@ tests = [
     'second_derivative.py',
     'integral4.py',
     'transformations.py',
+    'occupations.py',
     'nabla.py',
     'aeatom.py',
     'pbc.py',
+    'potential.py',
+    'atoms_too_close.py',
     'poisson.py',
     'XC2.py',
     'multipoletest.py',
     'proton.py',
+    'vdwradii.py',
     'parallel/ut_parallel.py',
     'parallel/compare.py',
     'ase3k.py',
     'laplace.py',
-    'ds_beta.py',
     'gauss_wave.py',
-    'planewavebasis.py',
+    'pw/interpol.py',
+    'pw/h.py',
+    'pw/lfc.py',
+    'pw/reallfc.py',
+    'pw/bulk.py',
+    'pw/slab.py',
+    'pw/fulldiag.py',
+    'pw/fulldiagk.py',
     'coulomb.py',
     'timing.py',
+    'maxrss.py',
     'lcao_density.py',
     'gauss_func.py',
     'ah.py',
@@ -99,24 +114,40 @@ tests = [
     'wfs_io.py',
     'wfs_auto.py',
     'xcatom.py',
+    'ds_beta.py',
     'parallel/overlap.py',
     'symmetry.py',
+    'noncollinear/h.py',
+    'noncollinear/xccorr.py',
+    'noncollinear/xcgrid3d.py',
     'pes.py',
     'elf.py',
+    'lebedev.py',
     'usesymm.py',
 #    'usesymm2.py',
     'eed.py',
-#    'hirshfeld.py',
+    'partitioning.py',
+    'fixdensity.py',
     'mixer.py',
     'broydenmixer.py',
+    'fileio/hdf5_simple.py',
+    'fileio/hdf5_noncontiguous.py',
     'restart.py',
+    'fileio/restart_density.py',
+    'fileio/parallel.py',
+    'fileio/file_reference.py',
     'mgga_restart.py',
     'gga_atom.py',
     'bee1.py',
+    'beefvdw.py',
+    'pplda.py',
+    'pygga.py',
+    'external_potential.py',
     'refine.py',
     'revPBE.py',
     'lcao_largecellforce.py',
     'lcao_h2o.py',
+    'spinFe3plus.py',
     'spin_contamination.py',
     'lrtddft2.py',
     'stdout.py',
@@ -124,6 +155,8 @@ tests = [
     'nonselfconsistent.py',
     'ewald.py',
     'harmonic.py',
+    'ut_csh.py',
+    'ut_rsh.py',
     'spinpol.py',
     'kptpar.py',
     'plt.py',
@@ -150,16 +183,34 @@ tests = [
     'lcao_bsse.py',
     'lcao_force.py',
     'parallel/lcao_hamiltonian.py',
+    'parallel/lcao_complicated.py',
     'parallel/lcao_parallel.py',
+    'parallel/lcao_parallel_kpt.py',
+    'parallel/fd_parallel.py',
+    'parallel/fd_parallel_kpt.py',
+    'gllbatomic.py', 
+    'ne_gllb.py',
+    'ne_disc.py', 
     'wannier_ethylene.py',
     'CH4.py',
     'neb.py',
+    'complex.py',
+    'test_ibzqpt.py',
     'diamond_absorption.py',
     'aluminum_EELS.py',
-    'aluminum_EELS_lcao.py',
-    'aluminum_testcell.py',
     'dump_chi0.py',
-    #'au02_absorption.py',
+    'au02_absorption.py',
+    'exx_q.py',
+    'exx_acdf.py',
+    'rpa_energy_Si.py',
+    'rpa_energy_N2.py',
+    'rpa_Na.py',
+    'bse_aluminum.py',
+    'bse_diamond.py',
+    'bse_vs_lrtddft.py',
+    'bse_sym.py',
+    'bse_silicon.py',
+    'diamond_eps.py',
     'hgh_h2o.py',
     'apmb.py',
     'relax.py',
@@ -181,24 +232,32 @@ tests = [
     'restart_band_structure.py',
     'IP_oxygen.py',
     'atomize.py',
+    'dipole.py',
     'Hubbard_U.py',
+    'Hubbard_U_Zn.py',
     'revPBE_Li.py',
     'si_xas.py',
     'tpss.py',
     'nsc_MGGA.py',
     '8Si.py',
+    'dscf_lcao.py',
     'coreeig.py',
     'Cu.py',
+    'diamond_gllb.py',
+    'wannierk.py',
     'exx.py',
     'h2o_dks.py',
     'nscfsic.py',
     'scfsic_h2.py',
     'scfsic_n2.py',
+    'lb94.py',
+    'aluminum_EELS_lcao.py',
     'vdw/quick.py',
     'vdw/potential.py',
     'vdw/quick_spin.py',
     'vdw/ar2.py',
     'fd2lcao_restart.py',
+#    'eigh_perf.py', # Requires LAPACK 3.2.1 or later
     'parallel/parallel_eigh.py',
     'parallel/ut_hsops.py',
     'parallel/ut_hsblacs.py',
@@ -208,26 +267,46 @@ tests = [
     'parallel/pblas.py',
     'parallel/blacsdist.py',
     'parallel/scalapack.py',
+    'parallel/scalapack_diag_simple.py',
+    'parallel/scalapack_mpirecv_crash.py',
+    #'parallel/scalapack_pdlasrt_hang.py',
     'parallel/realspace_blacs.py',
     'parallel/lcao_projections.py',
-    'parallel/n2.py',
     #'dscf_forces.py',
     'lrtddft3.py',
+    'ut_tddft.py',
     'AA_exx_enthalpy.py',
     'transport.py',
     'constant_electric_field.py',
     'stark_shift.py',
-    ]
+    'aluminum_testcell.py',
+    'cmrtest/cmr_test2.py',
+    'gw_test.py']
+
+try:
+    import cmr
+    tests.append('cmrtest/Li2_atomize.py')
+    tests.append('cmrtest/cmr_append.py')
+    tests.append('cmrtest/cmr_test.py')
+except:
+    pass
 
 exclude = []
+
+
 if mpi.size > 1:
-    exclude += ['pes.py',
+    exclude += ['maxrss.py',
+                'pes.py',
+                'diamond_eps.py',
                 'nscfsic.py',
                 'coreeig.py',
                 'asewannier.py',
                 'wannier_ethylene.py',
                 'muffintinpot.py',
-                'stark_shift.py']
+                'stark_shift.py',
+                'exx_q.py',
+                'potential.py',
+                'cmrtest/Li2_atomize.py']
 
 if mpi.size > 2:
     exclude += ['neb.py']
@@ -235,25 +314,61 @@ if mpi.size > 2:
 if mpi.size < 4:
     exclude += ['parallel/pblas.py',
                 'parallel/scalapack.py',
+                'parallel/scalapack_diag_simple.py',
                 'parallel/realspace_blacs.py',
-                'parallel/n2.py',
-                'AA_exx_enthalpy.py']
+                'AA_exx_enthalpy.py',
+                'bse_aluminum.py',
+                'bse_diamond.py',
+                'bse_silicon.py',
+                'rpa_Na.py',
+                'bse_vs_lrtddft.py',
+                'fileio/parallel.py']
 
 if mpi.size != 4:
     exclude += ['parallel/lcao_parallel.py']
+    exclude += ['parallel/fd_parallel.py']
+    exclude += ['parallel/scalapack_mpirecv_crash.py']
+    exclude += ['parallel/scalapack_pdlasrt_hang.py']
+
+if mpi.size == 1 or not compiled_with_sl():
+    exclude += ['parallel/submatrix_redist.py']
+
+if not compiled_with_sl():
+    exclude += ['pw/fulldiag.py',
+                'pw/fulldiagk.py']
 
 if mpi.size == 8:
     exclude += ['transport.py']
+
+if mpi.size != 8:
+    exclude += ['parallel/lcao_parallel_kpt.py']
+    exclude += ['parallel/fd_parallel_kpt.py']
 
 try:
     import scipy
 except ImportError:
     exclude += ['diamond_absorption.py',
+                'diamond_eps.py',
                 'aluminum_EELS.py',
                 'aluminum_EELS_lcao.py',
                 'aluminum_testcell.py',
                 'au02_absorption.py',
-                'aeatom.py']
+                'bse_aluminum.py',
+                'bse_diamond.py',
+                'bse_vs_lrtddft.py',
+                'bse_sym.py',
+                'bse_silicon.py',
+                'aeatom.py',
+                'rpa_energy_Si.py',
+                'rpa_energy_N2.py',
+                'rpa_Na.py',
+                'gw_test.py']
+
+try:
+    import _hdf5
+except ImportError:
+    exclude += ['fileio/hdf5_simple.py',
+                'fileio/hdf5_noncontiguous.py']
 
 for test in exclude:
     if test in tests:
@@ -261,10 +376,12 @@ for test in exclude:
 
 
 class TestRunner:
-    def __init__(self, tests, stream=sys.__stdout__, jobs=1):
+    def __init__(self, tests, stream=sys.__stdout__, jobs=1,
+                 show_output=False):
         if mpi.size > 1:
             assert jobs == 1
         self.jobs = jobs
+        self.show_output = show_output
         self.tests = tests
         self.failed = []
         self.garbage = []
@@ -276,7 +393,8 @@ class TestRunner:
 
     def run(self):
         self.log.write('=' * 77 + '\n')
-        sys.stdout = devnull
+        if not self.show_output:
+            sys.stdout = devnull
         ntests = len(self.tests)
         t0 = time.time()
         if self.jobs == 1:

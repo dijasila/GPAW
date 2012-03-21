@@ -60,7 +60,7 @@ class LrTDDFT(ExcitationList):
                  istart=0,
                  jend=None,
                  energy_range=None,
-                 xc=None,
+                 xc='GS',
                  derivative_level=1,
                  numscale=0.00001,
                  txt=None,
@@ -105,10 +105,12 @@ class LrTDDFT(ExcitationList):
         self.eh_comm = eh_comm
  
         if calculator is not None:
+            if xc == 'GS':
+                xc = calculator.hamiltonian.xc.name
             calculator.converge_wave_functions()
             if calculator.density.nct_G is None:
                 calculator.set_positions()
-                
+
             self.update(calculator, nspins, eps, 
                         istart, jend, energy_range,
                         xc, derivative_level, numscale)
@@ -158,16 +160,23 @@ class LrTDDFT(ExcitationList):
         self.eps = eps
         self.istart = istart
         self.jend = jend
+        self.energy_range = energy_range
         self.xc = xc
         self.derivative_level = derivative_level
         self.numscale = numscale
-        self.kss = KSSingles(calculator=calculator,
-                             nspins=nspins,
-                             eps=eps,
-                             istart=istart,
-                             jend=jend,
-                             energy_range=energy_range,
+
+        self.forced_update()
+
+    def forced_update(self):
+        """Recalc yourself."""
+        self.kss = KSSingles(calculator=self.calculator,
+                             nspins=self.nspins,
+                             eps=self.eps,
+                             istart=self.istart,
+                             jend=self.jend,
+                             energy_range=self.energy_range,
                              txt=self.txt)
+
         if not self.force_ApmB:
             Om = OmegaMatrix
             name = 'LrTDDFT'
@@ -184,18 +193,18 @@ class LrTDDFT(ExcitationList):
                      finegrid=self.finegrid, eh_comm=self.eh_comm,
                      txt=self.txt)
         self.name = name
-##        self.diagonalize()
 
     def diagonalize(self, istart=None, jend=None, energy_range=None):
-        self.istart = istart
-        self.jend = jend
         self.Om.diagonalize(istart, jend, energy_range)
         
         # remove old stuff
         while len(self): self.pop()
 
+        print >> self.txt, 'LrTDDFT digonalized:'
         for j in range(len(self.Om.kss)):
             self.append(LrTDDFTExcitation(self.Om,j))
+            print >> self.txt, ' ', str(self[-1])
+            
 
     def get_Om(self):
         return self.Om

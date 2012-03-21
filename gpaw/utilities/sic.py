@@ -51,7 +51,7 @@ class NSCFSIC:
                                                -f*(EHa+Exc) * Hartree))
                 ESIC += -f*(EHa+Exc)
                 
-        sic = SIC(finegrid=True)
+        sic = SIC(finegrid=True, coulomb_factor=1, xc_factor=1)
         sic.initialize(self.paw.density, self.paw.hamiltonian, self.paw.wfs)
         sic.set_positions(self.paw.atoms.get_scaled_positions())
         
@@ -61,7 +61,7 @@ class NSCFSIC:
         assert len(self.paw.wfs.kpt_u)==1, ('Not tested for bulk calculations')
         
         for s, spin in sic.spin_s.items():
-            spin.initialize()
+            spin.initialize_orbitals()
             spin.update_optimal_states()
             spin.update_potentials()
 

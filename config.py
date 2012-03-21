@@ -268,6 +268,10 @@ def get_scalapack_config(define_macros):
     # check ScaLapack settings
     define_macros.append(('GPAW_WITH_SL', '1'))
 
+def get_hdf5_config(define_macros):
+    # check ScaLapack settings
+    define_macros.append(('GPAW_WITH_HDF5', '1'))
+
 
 def mtime(path, name, mtimes):
     """Return modification time.
@@ -364,23 +368,18 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
 
     cfiles = glob('c/[a-zA-Z_]*.c') + ['c/bmgs/bmgs.c']
     cfiles += glob('c/libxc/src/*.c')
-    if ('HDF5', 1) in define_macros:
-        cfiles += glob('h5py/c/*.c')
-        cfiles += glob('h5py/c/lzf/*.c')
 
     cfiles2remove = ['c/libxc/src/test.c',
                      'c/libxc/src/xc_f.c',
                      'c/libxc/src/work_gga_x.c',
                      'c/libxc/src/work_lda.c'
                      ]
-    cfiles2remove.append('c/scalapack.c')
-    cfiles2remove.append('c/sl_inverse_cholesky.c')
 
     for c2r in glob('c/libxc/src/funcs_*.c'): cfiles2remove.append(c2r)
     for c2r in cfiles2remove: cfiles.remove(c2r)
     sources = ['c/bc.c', 'c/localized_functions.c', 'c/mpi.c', 'c/_gpaw.c',
-               'c/operators.c', 'c/transformers.c', 'c/compiled_WITH_SL.c',
-               'c/blacs.c', 'c/io_wrappers.c']
+               'c/operators.c', 'c/transformers.c',
+               'c/blacs.c', 'c/utilities.c', 'c/hdf5.c']
     objects = ' '.join(['build/temp.%s/' % plat + x[:-1] + 'o'
                         for x in cfiles])
 
@@ -431,38 +430,6 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
         pass
     else:
         extra_link_args.append(cfgDict['LINKFORSHARED'])
-
-    if ('IO_WRAPPERS', 1) in define_macros:
-        extra_link_args += ['-Wl,-wrap,fread',
-                            '-Wl,-wrap,_IO_getc',
-                            '-Wl,-wrap,getc_unlocked',
-                            '-Wl,-wrap,fgets',
-                            '-Wl,-wrap,ungetc',
-                            '-Wl,-wrap,feof',
-                            '-Wl,-wrap,ferror',
-                            '-Wl,-wrap,fflush',
-                            '-Wl,-wrap,fseek',
-                            '-Wl,-wrap,rewind',
-                            # '-Wl,-wrap,fileno',
-                            '-Wl,-wrap,flockfile',
-                            '-Wl,-wrap,funlockfile',
-                            '-Wl,-wrap,clearerr',
-                            '-Wl,-wrap,fgetpos',
-                            '-Wl,-wrap,fsetpos',
-                            '-Wl,-wrap,setbuf',
-                            '-Wl,-wrap,setvbuf',
-                            '-Wl,-wrap,ftell',
-                            '-Wl,-wrap,fstat',
-                            '-Wl,-wrap,fstat64',
-                            '-Wl,-wrap,fgetc',
-                            # '-Wl,-wrap,fputc',
-                            # '-Wl,-wrap,fputs',
-                            # '-Wl,-wrap,fwrite',
-                            # '-Wl,-wrap,_IO_putc',
-                            '-Wl,-wrap,fopen',
-                            '-Wl,-wrap,fopen64',
-                            '-Wl,-wrap,fclose',
-                           ]
 
     # Compile the parallel sources
     for src in sources:

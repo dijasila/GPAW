@@ -7,18 +7,13 @@
 #define PY_ARRAY_UNIQUE_SYMBOL GPAW_ARRAY_API
 #include <numpy/arrayobject.h>
 
+#ifdef GPAW_WITH_HDF5 
+PyMODINIT_FUNC init_hdf5(void); 
+#endif 
+
 #ifdef GPAW_HPM
-void HPM_Init(void);
-void HPM_Start(char *);
-void HPM_Stop(char *);
-void HPM_Print(void);
-void HPM_Print_Flops(void);
 PyObject* ibm_hpm_start(PyObject *self, PyObject *args);
 PyObject* ibm_hpm_stop(PyObject *self, PyObject *args);
-#endif
-
-#ifdef GPAW_PAPI
-#include <papi.h>
 #endif
 
 #ifdef GPAW_CRAYPAT
@@ -30,12 +25,14 @@ PyObject* craypat_region_end(PyObject *self, PyObject *args);
 
 PyObject* symmetrize(PyObject *self, PyObject *args);
 PyObject* symmetrize_wavefunction(PyObject *self, PyObject *args);
+PyObject* symmetrize_return_index(PyObject *self, PyObject *args);
+PyObject* symmetrize_with_index(PyObject *self, PyObject *args);
+PyObject* map_k_points(PyObject *self, PyObject *args);
 PyObject* scal(PyObject *self, PyObject *args);
 PyObject* gemm(PyObject *self, PyObject *args);
 PyObject* gemv(PyObject *self, PyObject *args);
 PyObject* axpy(PyObject *self, PyObject *args);
-PyObject* d2Excdnsdnt(PyObject *self, PyObject *args);
-PyObject* d2Excdn2(PyObject *self, PyObject *args);
+PyObject* czher(PyObject *self, PyObject *args);
 PyObject* rk(PyObject *self, PyObject *args);
 PyObject* r2k(PyObject *self, PyObject *args);
 PyObject* dotc(PyObject *self, PyObject *args);
@@ -57,6 +54,7 @@ PyObject* NewSplineObject(PyObject *self, PyObject *args);
 PyObject* NewTransformerObject(PyObject *self, PyObject *args);
 PyObject* pc_potential(PyObject *self, PyObject *args);
 PyObject* pc_potential_value(PyObject *self, PyObject *args);
+PyObject* heap_mallinfo(PyObject *self);
 PyObject* elementwise_multiply_add(PyObject *self, PyObject *args);
 PyObject* utilities_gaussian_wave(PyObject *self, PyObject *args);
 PyObject* utilities_vdot(PyObject *self, PyObject *args);
@@ -72,14 +70,12 @@ PyObject* NewlxcXCFunctionalObject(PyObject *self, PyObject *args);
 PyObject* exterior_electron_density_region(PyObject *self, PyObject *args);
 PyObject* plane_wave_grid(PyObject *self, PyObject *args);
 PyObject* overlap(PyObject *self, PyObject *args);
-PyObject* wigner_seitz_grid(PyObject *self, PyObject *args);
 PyObject* vdw(PyObject *self, PyObject *args);
 PyObject* vdw2(PyObject *self, PyObject *args);
 PyObject* swap_arrays(PyObject *self, PyObject *args);
 PyObject* spherical_harmonics(PyObject *self, PyObject *args);
 PyObject* spline_to_grid(PyObject *self, PyObject *args);
 PyObject* NewLFCObject(PyObject *self, PyObject *args);
-PyObject* compiled_WITH_SL(PyObject *self, PyObject *args);
 #if defined(GPAW_WITH_SL) && defined(PARALLEL)
 PyObject* new_blacs_context(PyObject *self, PyObject *args);
 PyObject* get_blacs_gridinfo(PyObject* self, PyObject *args);
@@ -98,6 +94,7 @@ PyObject* scalapack_general_diagonalize_ex(PyObject *self, PyObject *args);
 PyObject* scalapack_general_diagonalize_mr3(PyObject *self, PyObject *args);
 #endif 
 PyObject* scalapack_inverse_cholesky(PyObject *self, PyObject *args);
+PyObject* pblas_tran(PyObject *self, PyObject *args);
 PyObject* pblas_gemm(PyObject *self, PyObject *args);
 PyObject* pblas_gemv(PyObject *self, PyObject *args);
 PyObject* pblas_r2k(PyObject *self, PyObject *args);
@@ -107,25 +104,20 @@ PyObject* pblas_rk(PyObject *self, PyObject *args);
 // Moving least squares interpolation
 PyObject* mlsqr(PyObject *self, PyObject *args); 
 
-// Parallel HDF5
-#ifdef HDF5
-void init_h5py();
-PyObject* set_fapl_mpio(PyObject *self, PyObject *args);
-PyObject* set_dxpl_mpio(PyObject *self, PyObject *args);
-#endif
-
 // Threading
 PyObject* get_num_threads(PyObject *self, PyObject *args);
 
 static PyMethodDef functions[] = {
   {"symmetrize", symmetrize, METH_VARARGS, 0},
   {"symmetrize_wavefunction", symmetrize_wavefunction, METH_VARARGS, 0},
+  {"symmetrize_return_index", symmetrize_return_index, METH_VARARGS, 0},
+  {"symmetrize_with_index", symmetrize_with_index, METH_VARARGS, 0},
+  {"map_k_points", map_k_points, METH_VARARGS, 0},
   {"scal", scal, METH_VARARGS, 0},
   {"gemm", gemm, METH_VARARGS, 0},
   {"gemv", gemv, METH_VARARGS, 0},
-  {"axpy", axpy, METH_VARARGS, 0},
-  {"d2Excdnsdnt", d2Excdnsdnt, METH_VARARGS, 0},
-  {"d2Excdn2", d2Excdn2, METH_VARARGS, 0},
+  {"axpy", axpy, METH_VARARGS, 0}, 
+  {"czher", czher, METH_VARARGS, 0},
   {"rk",  rk,  METH_VARARGS, 0},
   {"r2k", r2k, METH_VARARGS, 0},
   {"dotc", dotc, METH_VARARGS, 0},
@@ -145,6 +137,7 @@ static PyMethodDef functions[] = {
   {"Operator", NewOperatorObject, METH_VARARGS, 0},
   {"Spline", NewSplineObject, METH_VARARGS, 0},
   {"Transformer", NewTransformerObject, METH_VARARGS, 0},
+  {"heap_mallinfo", (PyCFunction) heap_mallinfo, METH_NOARGS, 0},
   {"elementwise_multiply_add", elementwise_multiply_add, METH_VARARGS, 0},
   {"utilities_gaussian_wave", utilities_gaussian_wave, METH_VARARGS, 0},
   {"utilities_vdot", utilities_vdot, METH_VARARGS, 0},
@@ -161,12 +154,10 @@ static PyMethodDef functions[] = {
   /*  {"MGGAFunctional",    NewMGGAFunctionalObject,    METH_VARARGS, 0},*/
   {"lxcXCFunctional",    NewlxcXCFunctionalObject,    METH_VARARGS, 0},
   {"overlap",       overlap,        METH_VARARGS, 0},
-  {"wigner_seitz_grid", wigner_seitz_grid, METH_VARARGS, 0},
   {"vdw", vdw, METH_VARARGS, 0},
   {"vdw2", vdw2, METH_VARARGS, 0},
   {"swap", swap_arrays, METH_VARARGS, 0},
   {"spherical_harmonics", spherical_harmonics, METH_VARARGS, 0},
-  {"compiled_with_sl", compiled_WITH_SL, METH_VARARGS, 0},
   {"pc_potential", pc_potential, METH_VARARGS, 0},
   {"pc_potential_value", pc_potential_value, METH_VARARGS, 0},
   {"spline_to_grid", spline_to_grid, METH_VARARGS, 0},
@@ -197,6 +188,7 @@ static PyMethodDef functions[] = {
    scalapack_general_diagonalize_mr3, METH_VARARGS, 0},
 #endif // GPAW_MR3
   {"scalapack_inverse_cholesky", scalapack_inverse_cholesky, METH_VARARGS, 0},
+  {"pblas_tran", pblas_tran, METH_VARARGS, 0},
   {"pblas_gemm", pblas_gemm, METH_VARARGS, 0},
   {"pblas_gemv", pblas_gemv, METH_VARARGS, 0},
   {"pblas_r2k", pblas_r2k, METH_VARARGS, 0},
@@ -211,16 +203,13 @@ static PyMethodDef functions[] = {
   {"craypat_region_end", craypat_region_end, METH_VARARGS, 0},
 #endif // GPAW_CRAYPAT
   {"mlsqr", mlsqr, METH_VARARGS, 0}, 
-#ifdef HDF5
-  {"h5_set_fapl_mpio", set_fapl_mpio, METH_VARARGS, 0}, 
-  {"h5_set_dxpl_mpio", set_dxpl_mpio, METH_VARARGS, 0}, 
-#endif // HDF5
   {"get_num_threads", get_num_threads, METH_VARARGS, 0}, 
   {0, 0, 0, 0}
 };
 
 #ifdef PARALLEL
 extern PyTypeObject MPIType;
+extern PyTypeObject GPAW_MPI_Request_type;
 #endif
 
 #ifndef GPAW_INTERPRETER
@@ -228,6 +217,8 @@ PyMODINIT_FUNC init_gpaw(void)
 {
 #ifdef PARALLEL
   if (PyType_Ready(&MPIType) < 0)
+    return;
+  if (PyType_Ready(&GPAW_MPI_Request_type) < 0)
     return;
 #endif
 
@@ -238,6 +229,7 @@ PyMODINIT_FUNC init_gpaw(void)
 
 #ifdef PARALLEL
   Py_INCREF(&MPIType);
+  Py_INCREF(&GPAW_MPI_Request_type);
   PyModule_AddObject(m, "Communicator", (PyObject *)&MPIType);
 #endif
 
@@ -256,6 +248,10 @@ PyMODINIT_FUNC initsocket(void)
 
 #ifdef GPAW_INTERPRETER
 extern DL_EXPORT(int) Py_Main(int, char **);
+
+// Performance measurement
+int gpaw_perf_init();
+void gpaw_perf_finalize();
 
 #include <mpi.h>
 
@@ -279,14 +275,8 @@ main(int argc, char **argv)
   }
 #endif // GPAW_OMP
 
-#ifdef GPAW_PAPI
-  float rtime, ptime, mflops;
-  long_long flpops;
-  PAPI_flops( &rtime, &ptime, &flpops, &mflops );
-#endif
-
-#ifdef IO_WRAPPERS
-  init_io_wrappers();
+#ifdef GPAW_PERFORMANCE_REPORT
+  gpaw_perf_init();
 #endif
 
 #ifdef GPAW_MPI_MAP
@@ -312,19 +302,9 @@ main(int argc, char **argv)
   }
 #endif // GPAW_MPI_MAP
 
-#ifdef GPAW_HPM
-  HPM_Init();
-  HPM_Start("GPAW");
-#endif 
-
-
 #ifdef GPAW_MPI_DEBUG
   // Default Errhandler is MPI_ERRORS_ARE_FATAL
   MPI_Errhandler_set(MPI_COMM_WORLD, MPI_ERRORS_RETURN);
-#endif
-
-#ifdef HDF5
-  init_h5py();
 #endif
 
   Py_Initialize();
@@ -343,39 +323,20 @@ main(int argc, char **argv)
 
   Py_INCREF(&MPIType);
   PyModule_AddObject(m, "Communicator", (PyObject *)&MPIType);
+#ifdef GPAW_WITH_HDF5 
+  init_hdf5(); 
+#endif 
   import_array1(-1);
   MPI_Barrier(MPI_COMM_WORLD);
 #ifdef GPAW_CRAYPAT
   PAT_region_end(1);
 #endif
   status = Py_Main(argc, argv);
-#ifdef GPAW_HPM
-  HPM_Stop("GPAW");
-  HPM_Print();
-  HPM_Print_Flops();
+
+#ifdef GPAW_PERFORMANCE_REPORT
+  gpaw_perf_finalize();
 #endif
-#ifdef GPAW_PAPI
-  // print out some statistics
-  int myid, numprocs;
-  long_long sum_flpops;
-  float ave_mflops;
-  MPI_Comm_size(MPI_COMM_WORLD, &numprocs );
-  MPI_Comm_rank(MPI_COMM_WORLD, &myid );
-  PAPI_flops( &rtime, &ptime, &flpops, &mflops );
-  MPI_Reduce(&mflops, &ave_mflops, 1, MPI_FLOAT, MPI_SUM, 0, 
-	     MPI_COMM_WORLD);
-  ave_mflops /= numprocs;
-  MPI_Reduce(&flpops, &sum_flpops, 1, MPI_LONG_LONG, MPI_SUM, 0, 
-	     MPI_COMM_WORLD);
-  if (myid == 0)
-    {
-      printf("GPAW: Information from PAPI counters\n");
-      printf("GPAW: Total time: %10.2f s\n", rtime);
-      printf("GPAW: Floating point operations: %lld \n", sum_flpops);
-      printf("GPAW: FLOP rate (GFLOP/s):  ave %10.3f  total %10.3f\n",
-	     ave_mflops / 1000.0 , sum_flpops / rtime / 1.e9);
-    }
-#endif      
+
   MPI_Finalize();
   return status;
 }

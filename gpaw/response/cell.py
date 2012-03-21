@@ -1,33 +1,35 @@
 import numpy as np
 from math import sqrt, pi
 
-def get_primitive_cell(a):
+def get_primitive_cell(a,rpad=np.array([1,1,1])):
     """From the unit cell, calculate primitive cell and volume. """
 
+    a = (a.T * rpad).T
     vol = np.abs(np.dot(a[0],np.cross(a[1],a[2])))
     BZvol = (2. * pi)**3 / vol
-
     b = np.linalg.inv(a.T)
-
+    
     b *= 2 * pi
 
     assert np.abs((np.dot(b.T, a) - 2.*pi*np.eye(3)).sum()) < 1e-10
 
-    return b, vol, BZvol
+    return a, b, vol, BZvol
 
 
-def set_Gvectors(acell, bcell, nG, Ecut):
+def set_Gvectors(acell, bcell, nG, Ecut, q=[0., 0., 0.]):
     """Calculate the number of planewaves with a certain cutoff, their reduced coordinates and index."""
 
     # Refer to R.Martin P85
     Gmax = np.zeros(3, dtype=int)
+    Gcut = np.zeros(3, dtype=float)
     for i in range(3):
         a = acell[i]
-        Gcut = sqrt(2*Ecut[i])
-        Gmax[i] = sqrt(a[0]**2 + a[1]**2 + a[2]**2) * Gcut/ (2*pi)
+        Gcut[i] = sqrt(2*Ecut[i])
+        if Gcut[i] > 0:
+            Gmax[i] = sqrt(a[0]**2 + a[1]**2 + a[2]**2) * Gcut[i] / (2*pi) + 1
      
-    Nmax = 2 * Gmax + 1
-    assert (nG - Nmax >=0).all() # to prevent too many planewaves
+    Nmax = 2 * Gmax + 2
+    #assert (nG - Nmax >=0).all() # to prevent too many planewaves
 
     m = {}
     for dim in range(3):
@@ -35,7 +37,7 @@ def set_Gvectors(acell, bcell, nG, Ecut):
         for i in range(Nmax[dim]):
             m[dim][i] = i
             if m[dim][i] > np.int(Gmax[dim]):
-                m[dim][i] = i- Nmax[dim]       
+                m[dim][i] = i - Nmax[dim]
 
     G = np.zeros((Nmax[0]*Nmax[1]*Nmax[2],3),dtype=int)
     n = 0
@@ -43,15 +45,18 @@ def set_Gvectors(acell, bcell, nG, Ecut):
         for j in range(Nmax[1]):
             for k in range(Nmax[2]):
                 tmp = np.array([m[0][i], m[1][j], m[2][k]])
-                tmpG = np.dot(tmp, bcell)
-                Gmod = sqrt(tmpG[0]**2 + tmpG[1]**2 + tmpG[2]**2)
-                if Gmod < Gcut:
+                tmpG = np.dot(tmp+np.array(q), bcell)
+                Gmod = 0
+                for dim in range(3):
+                    if Gcut[dim] > 0:
+                        Gmod += tmpG[dim]**2/Gcut[dim]**2
+                if Gmod < 1:
                     G[n] = tmp
                     n += 1
     npw = n
     Gvec = G[:n]
 
-    Gindex = {}
+    Gindex = np.zeros(npw, dtype=int) 
     id = np.zeros(3, dtype=int)
 
     for iG in range(npw):
@@ -61,6 +66,6 @@ def set_Gvectors(acell, bcell, nG, Ecut):
                 id[dim] = G[dim]
             else:
                 id[dim] = nG[dim] - np.abs(G[dim])
-        Gindex[iG] = np.array(id)
+        Gindex[iG] = id[0]*nG[1]*nG[2] + id[1]*nG[2] + id[2] 
     
     return npw, Gvec, Gindex

@@ -38,7 +38,8 @@ class WaveFunctions:
         # Number of occupied bands
         self.nbands = nbands
         # Projectors
-        self.pt = LFC(gd, [setup.pt_j for setup in setups], dtype=self.dtype)
+        self.pt = LFC(gd, [setup.pt_j for setup in setups], kd,
+                      dtype=self.dtype)
         # Store grid
         self.gd = gd
 
@@ -83,11 +84,11 @@ class WaveFunctions:
             for k, k_c in enumerate(kd.bzk_kc):
 
                 # Index of symmetry related point in the irreducible BZ
-                ik = kd.symmetry.kibz_k[k]
+                ik = kd.bz2ibz_k[k]
                 # Index of point group operation
-                s = kd.symmetry.sym_k[k]
+                s = kd.sym_k[k]
                 # Time-reversal symmetry used
-                time_reversal = kd.symmetry.time_reversal_k[k]
+                time_reversal = kd.time_reversal_k[k]
 
                 # Coordinates of symmetry related point in the irreducible BZ
                 ik_c = kd.ibzk_kc[ik]
@@ -127,11 +128,6 @@ class WaveFunctions:
         # Set positions on LFC's
         self.pt.set_positions(spos_ac)
         
-        if not self.kd.gamma:
-            # Set k-vectors and update
-            self.pt.set_k_points(self.kd.ibzk_kc)
-            self.pt._update(spos_ac)
-
         # Calculate projector coefficients for the GS wave-functions
         self.calculate_projector_coef()
 

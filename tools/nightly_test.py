@@ -10,6 +10,7 @@ import tempfile
 def send_email(subject, filename='/dev/null'):
     assert os.system(
         'mail -s "%s" gpaw-developers@listserv.fysik.dtu.dk < %s' %
+        #'mail -s "%s" jensj@fysik.dtu.dk < %s' %
         (subject, filename)) == 0
 
 def fail(msg, filename='/dev/null'):
@@ -26,22 +27,13 @@ else:
 tmpdir = tempfile.mkdtemp(prefix='gpaw-', dir=dir)
 os.chdir(tmpdir)
 
-day = time.localtime()[6]
-
 # Checkout a fresh version and install:
 if os.system('svn checkout ' +
              'https://svn.fysik.dtu.dk/projects/gpaw/trunk gpaw') != 0:
     fail('Checkout of gpaw failed!')
 
-if day % 2:
-    exec([line for line in open('gpaw/gpaw/version.py').readlines()
-          if line.startswith('ase_required_svnversion')][0])
-else:
-    ase_required_svnversion = 'HEAD'
-
 if os.system('svn checkout ' +
-             'https://svn.fysik.dtu.dk/projects/ase/trunk ase -r %s' %
-             ase_required_svnversion) != 0:
+             'https://svn.fysik.dtu.dk/projects/ase/trunk ase') != 0:
     fail('Checkout of ASE failed!')
 
 os.chdir('gpaw')
@@ -60,7 +52,8 @@ os.system('tar xvzf gpaw-setups-latest.tar.gz')
 setups = tmpdir + '/gpaw/' + glob.glob('gpaw-setups-[0-9]*')[0]
 sys.path.insert(0, '%s/lib/python' % tmpdir)
 
-if day % 4 < 2:
+day = time.localtime()[6]
+if day % 2:
     sys.argv.append('--debug')
 
 from gpaw import setup_paths
@@ -71,7 +64,7 @@ from gpaw.test import TestRunner, tests
 os.mkdir('gpaw-test')
 os.chdir('gpaw-test')
 out = open('test.out', 'w')
-#tests = ['ase3k.py', 'jstm.py']
+#tests = ['ase3k.py']
 failed = TestRunner(tests, stream=out).run()
 out.close()
 if failed:
@@ -96,6 +89,7 @@ ch = count('c', '\\*.[ch]') - libxc
 test = count('gpaw/test', '\\*.py')
 py = count('gpaw', '\\*.py') - test
 
+"""
 import pylab
 # Update the stat.dat file:
 dir = '/scratch/jensj/nightly-test/'
@@ -141,5 +135,6 @@ pylab.axis('tight')
 pylab.legend(loc='upper left')
 pylab.title('Number of lines')
 pylab.savefig(dir + 'stat.png')
+"""
 
-os.system('cd; rm -r ' + tmpdir)
+#os.system('cd; rm -r ' + tmpdir)

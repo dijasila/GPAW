@@ -567,7 +567,9 @@ class STM:
                 kin = (s | t_kin)
                 if kin is None:
                     kin = 0
-                V_ij[j1:j2, i1:i2] += V + kin
+                vk = np.asarray(V + kin)
+                assert abs(vk.imag).max() < 1e-14
+                V_ij[j1:j2, i1:i2] += vk.real
             s.f_iG = None
         self.bfs_comm.sum(V_ij)
         return V_ij * Hartree 

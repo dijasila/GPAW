@@ -2,7 +2,7 @@ import numpy as np
 
 from ase import Hartree
 from gpaw.aseinterface import GPAW
-from gpaw.lcao.overlap import TwoCenterIntegrals
+from gpaw.lcao.overlap import NewTwoCenterIntegrals
 from gpaw.utilities import unpack
 from gpaw.utilities.tools import tri2full, lowdin
 from gpaw.lcao.tools import basis_subset2, get_bfi2
@@ -50,8 +50,8 @@ def get_lcao_xc(calc, P_aqMi, bfs=None, spin=0):
     for a, P_qMi in P_aqMi.items():
         D_sp = calc.density.D_asp[a][:]
         H_sp = np.zeros_like(D_sp)
-        calc.wfs.setups[a].xc_correction.calculate(calc.hamiltonian.xc,
-            D_sp, H_sp)
+        calc.hamiltonian.xc.calculate_paw_correction(calc.wfs.setups[a],
+                                                     D_sp, H_sp) 
         H_ii = unpack(H_sp[spin])
         for Vxc_MM, P_Mi in zip(Vxc_qMM, P_qMi):
             Vxc_MM += dots(P_Mi, H_ii, P_Mi.T.conj())
@@ -432,8 +432,9 @@ class LCAOwrap:
         else:
             Fcore_ww = np.zeros((len(indices), len(indices)))
         for a, P_wi in self.get_projections(q, indices).items():
-            X_ii = unpack(self.calc.wfs.setups[a].X_p)
-            Fcore_ww -= dots(P_wi, X_ii, P_wi.T.conj())
+            if self.calc.wfs.setups[a].type != 'ghost':
+                X_ii = unpack(self.calc.wfs.setups[a].X_p)
+                Fcore_ww -= dots(P_wi, X_ii, P_wi.T.conj())
         return Fcore_ww * Hartree
 
     def get_xc(self, q=0, indices=None):

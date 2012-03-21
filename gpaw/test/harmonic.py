@@ -11,8 +11,11 @@ from gpaw.test import equal
 
 
 class NoInteractionPoissonSolver:
+    description = 'No interaction'
     relax_method = 0
     nn = 1
+    def get_stencil(self):
+        return self.nn
     def solve(self, phi, rho, charge):
         return 0
     def set_grid_descriptor(self, gd):

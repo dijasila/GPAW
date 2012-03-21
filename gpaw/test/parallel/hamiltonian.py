@@ -1,10 +1,10 @@
 from time import time
 import sys
 import numpy as np
-from gpaw import parsize, parsize_bands
+from gpaw import parsize_domain, parsize_bands
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.grid_descriptor import GridDescriptor
-from gpaw.blacs import BandLayouts
+from gpaw.kohnsham_layouts import BandLayouts
 from gpaw.mpi import world, distribute_cpus
 from gpaw.utilities import gcd
 from gpaw.utilities.lapack import inverse_cholesky
@@ -13,7 +13,7 @@ from gpaw.fd_operators import Laplace
 
 G = 120  # number of grid points (G x G x G)
 N = 2000  # number of bands
-repeats = 20
+repeats = 1
 
 try:
     N = int(sys.argv[1])
@@ -26,12 +26,12 @@ except (IndexError, ValueError):
 # B: number of band groups
 # D: number of domains
 if parsize_bands is None:
-    if parsize is None:
+    if parsize_domain is None:
         B = gcd(N, world.size)
         D = world.size // B
     else:
-        B = world.size // np.prod(parsize)
-        D = parsize
+        B = world.size // np.prod(parsize_domain)
+        D = parsize_domain
 else:
     B = parsize_bands
     D = world.size // B
@@ -44,7 +44,8 @@ a = h * G      # side length of box
 assert np.prod(D) * B == world.size, 'D=%s, B=%d, W=%d' % (D,B,world.size)
 
 # Set up communicators:
-domain_comm, kpt_comm, band_comm = distribute_cpus(parsize=D, parsize_bands=B, \
+domain_comm, kpt_comm, band_comm = distribute_cpus(parsize_domain=D,
+                                                   parsize_bands=B,
                                                    nspins=1, nibzkpts=1)
 assert kpt_comm.size == 1
 if world.rank == 0:
@@ -53,7 +54,7 @@ if world.rank == 0:
 # Set up band and grid descriptors:
 bd = BandDescriptor(N, band_comm, False)
 gd = GridDescriptor((G, G, G), (a, a, a), True, domain_comm, parsize=D)
-ksl = BandLayouts(gd, bd)
+ksl = BandLayouts(gd, bd, float)
 
 # Random wave functions:
 psit_mG = gd.empty(M)
@@ -70,12 +71,12 @@ vt_G = gd.empty()
 vt_G.fill(0.567)
 
 def run(psit_mG):
-    overlap = MatrixOperator(bd, gd, ksl, J)
+    overlap = MatrixOperator(ksl, J)
     def H(psit_xG):
-        kin(psit_xG, overlap.work1_xG[:M // J])
+        kin(psit_xG, overlap.work1_xG)
         for psit_G, y_G in zip(psit_xG, overlap.work1_xG):
             y_G += vt_G * psit_G
-        return overlap.work1_xG[:M // J]
+        return overlap.work1_xG
     dH_aii = {0: np.ones((2, 2)) * 0.123, 1: np.ones((3, 3)) * 0.321}
     def dH(a, P_ni):
         return np.dot(P_ni, dH_aii[a])

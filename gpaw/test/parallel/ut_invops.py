@@ -17,7 +17,7 @@ from gpaw.utilities.gauss import gaussian_wave
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.blacs import BandLayouts
+from gpaw.kohnsham_layouts import BandLayouts
 from gpaw.parameters import InputParameters
 from gpaw.xc import XC
 from gpaw.setup import SetupData, Setups
@@ -60,9 +60,9 @@ class UTDomainParallelSetup(TestCase):
         for virtvar in ['boundaries']:
             assert getattr(self,virtvar) is not None, 'Virtual "%s"!' % virtvar
 
-        parsize, parsize_bands = create_parsize_minbands(self.nbands, world.size)
+        parsize_domain, parsize_bands = create_parsize_minbands(self.nbands, world.size)
         assert self.nbands % np.prod(parsize_bands) == 0
-        domain_comm, kpt_comm, band_comm = distribute_cpus(parsize,
+        domain_comm, kpt_comm, band_comm = distribute_cpus(parsize_domain,
             parsize_bands, self.nspins, self.nibzkpts)
 
         # Set up band descriptor:
@@ -74,7 +74,7 @@ class UTDomainParallelSetup(TestCase):
         pbc_c = {'zero'    : False, \
                  'periodic': True, \
                  'mixed'   : (True, False, True)}[self.boundaries]
-        self.gd = GridDescriptor(ngpts, cell_c, pbc_c, domain_comm, parsize)
+        self.gd = GridDescriptor(ngpts, cell_c, pbc_c, domain_comm, parsize_domain)
 
         # What to do about kpoints?
         self.kpt_comm = kpt_comm
@@ -118,9 +118,9 @@ class FDWFS(FDWaveFunctions):
 
         WaveFunctions.__init__(self, gd, 1, setups, bd, dtype, world,
                                kd, None)
-        self.kin = Laplace(gd, -0.5, dtype=dtype, allocate=False)
+        self.kin = Laplace(gd, -0.5, dtype=dtype)
         self.diagksl = None
-        self.orthoksl = BandLayouts(gd, bd)
+        self.orthoksl = BandLayouts(gd, bd, dtype)
         self.initksl = None
         self.overlap = None
         self.rank_a = None
@@ -139,7 +139,7 @@ class FDWFS(FDWaveFunctions):
             P_In = all_P_ni.T.copy()
         else:
             nproj = sum([setup.ni for setup in self.setups])
-            P_In = np.empty((nproj, self.nbands), self.pt.dtype)
+            P_In = np.empty((nproj, self.bd.nbands), self.pt.dtype)
         self.world.broadcast(P_In, 0)
         return P_In
         
@@ -183,10 +183,10 @@ class UTGaussianWavefunctionSetup(UTDomainParallelSetup):
         self.setups = Setups(self.Z_a, p.setups, p.basis,
                              p.lmax, xc)
 
-        bzk_kc = np.array([[0, 0, 0],])
         # K-point descriptor
+        bzk_kc = np.array([[0, 0, 0]], dtype=float)
         self.kd = KPointDescriptor(bzk_kc, 1)
-        self.kd.set_symmetry(self.atoms, self.setups, True)
+        self.kd.set_symmetry(self.atoms, self.setups, usesymm=True)
         self.kd.set_communicator(self.kpt_comm)
         
         # Create gamma-point dummy wavefunctions

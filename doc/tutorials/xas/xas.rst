@@ -24,15 +24,7 @@ or you can write a small script to do it:
 
 .. literalinclude:: setups.py
 
-Put the setups in a directory which is included in
-:envvar:`GPAW_SETUP_PATH`. If you want the setups in your local
-directory, add the following lines to your scripts
-
-::
-
-    from gpaw import setup_paths
-    setup_paths.insert(0, '.')
-
+Set the location of setups as decribed on :ref:`installationguide_setup_files`.
 
 Spectrum calculation using unoccupied states
 ============================================

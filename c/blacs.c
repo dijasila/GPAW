@@ -1,5 +1,6 @@
 /*  Copyright (C) 2003-2007  CAMP
  *  Copyright (C) 2007-2009  CAMd
+ *  Copyright (C) 2010  Argonne National Laboratory
  *  Please see the accompanying LICENSE file for further information. */
 
 #ifdef PARALLEL
@@ -65,6 +66,8 @@ int Csys2blacs_handle_(MPI_Comm SysCtxt);
 #define   pzheevr_  pzheevr
 #endif // GPAW_MR3
 
+#define   pdtran_  pdtran
+#define   pztranc_ pztranc
 #define   pdgemm_  pdgemm
 #define   pzgemm_  pzgemm
 #define   pdgemv_  pdgemv
@@ -219,6 +222,18 @@ void pzheevr_(char* jobz, char* range,
 #endif // GPAW_MR3
 
 // pblas
+void pdtran_(int* m, int* n,
+             double* alpha,
+             double* a, int* ia, int* ja, int* desca,
+             double* beta,
+             double* c, int* ic, int* jc, int* descc);
+
+void pztranc_(int* m, int* n,
+	      void* alpha,
+	      void* a, int* ia, int* ja, int* desca,
+	      void* beta,
+	      void* c, int* ic, int* jc, int* descc);
+
 void pdgemm_(char* transa, char* transb, int* m, int* n, int* k,
              double* alpha,
              double* a, int* ia, int* ja, int* desca,
@@ -280,6 +295,36 @@ void pztrsm_(char* side, char* uplo, char* trans, char* diag,
 	     int* m, int *n, void* alpha,
 	     void* a, int* ia, int* ja, int* desca,
 	     void* b, int* ib, int* jb, int* descb);
+
+
+PyObject* pblas_tran(PyObject *self, PyObject *args)
+{
+    int m, n;
+    Py_complex alpha;
+    Py_complex beta;
+    PyArrayObject *a, *c;
+    PyArrayObject *desca, *descc;
+  
+    if (!PyArg_ParseTuple(args, "iiDODOOO", &m, &n, &alpha,
+			  &a, &beta, &c,
+			  &desca, &descc))
+        return NULL;
+ 
+    int one = 1;
+    if (c->descr->type_num == PyArray_DOUBLE)
+        pdtran_(&m, &n,
+		&(alpha.real), 
+		DOUBLEP(a), &one, &one, INTP(desca), 
+		&(beta.real),
+		DOUBLEP(c), &one, &one, INTP(descc));
+    else
+        pztranc_(&m, &n,
+		 &alpha, 
+		 (void*)a->data, &one, &one, INTP(desca), 
+		 &beta,
+		 (void*)c->data, &one, &one, INTP(descc));
+    Py_RETURN_NONE;
+}
 
 PyObject* pblas_gemm(PyObject *self, PyObject *args)
 {
@@ -550,32 +595,46 @@ PyObject* scalapack_redist(PyObject *self, PyObject *args)
   char uplo;
   char diag='N'; // copy the diagonal
   int c_ConTxt;
-  int isreal;
   int m;
   int n;
-  int one = 1;
 
-  if (!PyArg_ParseTuple(args, "OOOOiiiic", &desca, &descb, &a, &b,
-                        &c_ConTxt, &m, &n, &isreal, &uplo))
+  int ia, ja, ib, jb;
+
+  if (!PyArg_ParseTuple(args, "OOOOiiiiiiic",
+                        &desca, &descb, 
+                        &a, &b,
+                        &m, &n, 
+                        &ia, &ja,
+                        &ib, &jb,
+                        &c_ConTxt,
+			&uplo))
     return NULL;
 
   if (uplo == 'G') // General matrix
     {
-      if(isreal)
-	Cpdgemr2d_(m, n, DOUBLEP(a), one, one, INTP(desca),
-		   DOUBLEP(b), one, one, INTP(descb), c_ConTxt);
+      if (a->descr->type_num == PyArray_DOUBLE)
+	Cpdgemr2d_(m, n,
+                   DOUBLEP(a), ia, ja, INTP(desca),
+		   DOUBLEP(b), ib, jb, INTP(descb),
+                   c_ConTxt);
       else
-	Cpzgemr2d_(m, n, (void*)COMPLEXP(a), one, one, INTP(desca),
-		   (void*)COMPLEXP(b), one, one, INTP(descb), c_ConTxt);
+	Cpzgemr2d_(m, n,
+                   (void*)COMPLEXP(a), ia, ja, INTP(desca),
+		   (void*)COMPLEXP(b), ib, jb, INTP(descb),
+                   c_ConTxt);
     }
   else // Trapezoidal matrix
     {
-      if(isreal)
-	Cpdtrmr2d_(&uplo, &diag, m, n, DOUBLEP(a), one, one, INTP(desca),
-		   DOUBLEP(b), one, one, INTP(descb), c_ConTxt);
+      if (a->descr->type_num == PyArray_DOUBLE)
+	Cpdtrmr2d_(&uplo, &diag, m, n,
+                   DOUBLEP(a), ia, ja, INTP(desca),
+		   DOUBLEP(b), ib, jb, INTP(descb),
+                   c_ConTxt);
       else
-	Cpztrmr2d_(&uplo, &diag, m, n, (void*)COMPLEXP(a), one, one, INTP(desca),
-		   (void*)COMPLEXP(b), one, one, INTP(descb), c_ConTxt);      
+	Cpztrmr2d_(&uplo, &diag, m, n, 
+                   (void*)COMPLEXP(a), ia, ja, INTP(desca),
+		   (void*)COMPLEXP(b), ib, jb, INTP(descb),
+                   c_ConTxt);
     }
     
   Py_RETURN_NONE;
@@ -746,8 +805,8 @@ PyObject* scalapack_diagonalize_ex(PyObject *self, PyObject *args)
   int querywork = -1;
   int* iwork;
   int liwork;
-  int lwork;
-  int lrwork;
+  int lwork;  // workspace size must be at least 3
+  int lrwork; // workspace size must be at least 3
   int i_work;
   double d_work[3];
   double_complex c_work;
@@ -761,7 +820,7 @@ PyObject* scalapack_diagonalize_ex(PyObject *self, PyObject *args)
 	       DOUBLEP(z), &one, &one, INTP(desca),
 	       d_work, &querywork,  &i_work, &querywork,
 	       ifail, iclustr, gap, &info);
-      lwork = (int)(d_work[0]);
+      lwork = MAX(3, (int)(d_work[0]));
     }
   else
     {
@@ -773,8 +832,8 @@ PyObject* scalapack_diagonalize_ex(PyObject *self, PyObject *args)
                (void*)&c_work, &querywork, d_work, &querywork,
                &i_work, &querywork,
                ifail, iclustr, gap, &info);
-      lwork = (int)(c_work);
-      lrwork = (int)(d_work[0]);
+      lwork = MAX(3, (int)(c_work));
+      lrwork = MAX(3, (int)(d_work[0]));
     }
 
   if (info != 0) {
@@ -1207,8 +1266,8 @@ PyObject* scalapack_general_diagonalize_ex(PyObject *self, PyObject *args)
   int querywork = -1;
   int* iwork;
   int liwork;
-  int lwork;
-  int lrwork;
+  int lwork;  // workspace size must be at least 3
+  int lrwork; // workspace size must be at least 3 
   int i_work;
   double d_work[3];
   double_complex c_work;
@@ -1223,7 +1282,7 @@ PyObject* scalapack_general_diagonalize_ex(PyObject *self, PyObject *args)
 	       DOUBLEP(z),  &one, &one, INTP(desca),
 	       d_work, &querywork, &i_work, &querywork,
 	       ifail, iclustr, gap, &info);
-      lwork = (int)(d_work[0]);
+      lwork = MAX(3, (int)(d_work[0])); 
     } 
   else
     {
@@ -1236,8 +1295,8 @@ PyObject* scalapack_general_diagonalize_ex(PyObject *self, PyObject *args)
                (void*)&c_work, &querywork, d_work, &querywork,
                &i_work, &querywork,
                ifail, iclustr, gap, &info);
-      lwork = (int)(c_work);
-      lrwork = (int)(d_work[0]);
+      lwork = MAX(3, (int)(c_work));
+      lrwork = MAX(3, (int)(d_work[0]));
     }
   if (info != 0) {
     PyErr_SetString(PyExc_RuntimeError,

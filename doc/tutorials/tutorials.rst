@@ -15,15 +15,21 @@ perform some of the most common tasks:
 
    lattice_constants/lattice_constants
    atomization/atomization
+   atomization_cmr/atomization_cmr
    optimization/optimization
    plotting/plot_wave_functions
    bandstructures/bandstructures
+   band_gap/band_gap
+   dipole_correction/dipole
+   jellium/jellium
    all-electron/all_electron_density
    neb/neb
+   pbe0/pbe0
    xas/xas
    negfstm/negfstm
-   ensembles/ensembles
    dielectric_response/dielectric_response
+   rpa/rpa_tut
+   ensembles/ensembles
 
 
 =========

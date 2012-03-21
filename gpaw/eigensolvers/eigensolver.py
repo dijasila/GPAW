@@ -8,7 +8,6 @@ from gpaw.fd_operators import Laplace
 from gpaw.utilities.blas import axpy, r2k, gemm
 from gpaw.utilities.tools import apply_subspace_mask
 from gpaw.utilities import unpack
-from gpaw import debug, extra_parameters
 
 
 class Eigensolver:
@@ -26,10 +25,9 @@ class Eigensolver:
         self.band_comm = wfs.band_comm
         self.dtype = wfs.dtype
         self.bd = wfs.bd
-        self.gd = wfs.wd
         self.ksl = wfs.diagksl
-        self.nbands = wfs.nbands
-        self.mynbands = wfs.mynbands
+        self.nbands = wfs.bd.nbands
+        self.mynbands = wfs.bd.mynbands
         self.operator = wfs.matrixoperator
 
         if self.mynbands != self.nbands or self.operator.nblocks != 1:
@@ -40,7 +38,7 @@ class Eigensolver:
 
         if self.keep_htpsit:
             # Soft part of the Hamiltonian times psit:
-            self.Htpsit_nG = self.gd.zeros(self.nbands, self.dtype)
+            self.Htpsit_nG = wfs.empty(self.nbands, self.dtype)
 
         for kpt in wfs.kpt_u:
             if kpt.eps_n is None:
@@ -59,15 +57,13 @@ class Eigensolver:
         if not self.initialized:
             self.initialize(wfs)
 
-        if not self.preconditioner.allocated:
-            self.preconditioner.allocate()
-
         if not wfs.orthonormalized:
             wfs.orthonormalize()
             
         error = 0.0
         for kpt in wfs.kpt_u:
             error += self.iterate_one_k_point(hamiltonian, wfs, kpt)
+        #error *= self.gd.dv
 
         wfs.orthonormalize()
 
@@ -125,10 +121,11 @@ class Eigensolver:
         if self.keep_htpsit:
             Htpsit_xG = self.Htpsit_nG
         else:
-            Htpsit_xG = self.operator.suggest_temporary_buffer(psit_nG.dtype)
+            Htpsit_xG = self.operator.suggest_temporary_buffer()
 
         def H(psit_xG):
-            wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_xG, Htpsit_xG)
+            wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_xG,
+                                         Htpsit_xG[:len(psit_xG)])
             hamiltonian.xc.apply_orbital_dependent_hamiltonian(
                 kpt, psit_xG, Htpsit_xG, hamiltonian.dH_asp)
             return Htpsit_xG
@@ -136,11 +133,11 @@ class Eigensolver:
         def dH(a, P_ni):
             return np.dot(P_ni, unpack(hamiltonian.dH_asp[a][kpt.s]))
 
-        self.timer.start('calc_matrix')
+        self.timer.start('calc_h_matrix')
         H_nn = self.operator.calculate_matrix_elements(psit_nG, P_ani,
                                                        H, dH)
         hamiltonian.xc.correct_hamiltonian_matrix(kpt, H_nn)
-        self.timer.stop('calc_matrix')
+        self.timer.stop('calc_h_matrix')
 
         diagonalization_string = repr(self.ksl)
         wfs.timer.start(diagonalization_string)
@@ -164,18 +161,19 @@ class Eigensolver:
 
         self.timer.stop('Subspace diag')
 
-    def estimate_memory(self, mem, gd, dtype, mynbands, nbands):
-        gridmem = gd.bytecount(dtype)
+    def estimate_memory(self, mem, wfs):
+        gridmem = wfs.bytes_per_wave_function()
 
-        keep_htpsit = self.keep_htpsit and (mynbands == nbands)
+        keep_htpsit = self.keep_htpsit and (wfs.bd.mynbands == wfs.bd.nbands)
 
         if keep_htpsit:
-            mem.subnode('Htpsit', nbands * gridmem)
+            mem.subnode('Htpsit', wfs.bd.nbands * gridmem)
         else:
             mem.subnode('No Htpsit', 0)
 
-        # mem.subnode('U_nn', nbands*nbands*mem.floatsize)
-        mem.subnode('eps_n', nbands*mem.floatsize)
+        mem.subnode('eps_n', wfs.bd.mynbands * mem.floatsize)
+        mem.subnode('eps_N', wfs.bd.nbands * mem.floatsize)
         mem.subnode('Preconditioner', 4 * gridmem)
         mem.subnode('Work', gridmem)
+        
 

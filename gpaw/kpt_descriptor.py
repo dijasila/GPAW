@@ -11,21 +11,25 @@ This module contains classes for defining combinations of two indices:
 """
 
 import numpy as np
+
 from ase.units import Bohr
-from ase.dft import monkhorst_pack
+from ase.dft.kpoints import monkhorst_pack, get_monkhorst_pack_size_and_offset
 
 from gpaw.symmetry import Symmetry
 from gpaw.kpoint import KPoint
+import gpaw.mpi as mpi
+import _gpaw
+
 
 class KPointDescriptor:
     """Descriptor-class for k-points."""
 
-    def __init__(self, kpts, nspins):
+    def __init__(self, kpts, nspins=1, collinear=True):
         """Construct descriptor object for kpoint/spin combinations (ks-pair).
 
         Parameters
         ----------
-        kpts: None, list of ints, or ndarray
+        kpts: None, sequence of 3 ints, or (n,3)-shaped array
             Specification of the k-point grid. None=Gamma, list of
             ints=Monkhorst-Pack, ndarray=user specified.
         nspins: int
@@ -34,7 +38,8 @@ class KPointDescriptor:
         Attributes
         ============  ======================================================
         ``N_c``       Number of k-points in the different directions.
-        ``nspins``    Number of spins.
+        ``nspins``    Number of spins in total.
+        ``mynspins``  Number of spins on this CPU.
         ``nibzkpts``  Number of irreducible kpoints in 1st Brillouin zone.
         ``nks``       Number of k-point/spin combinations in total.
         ``mynks``     Number of k-point/spin combinations on this CPU.
@@ -47,93 +52,119 @@ class KPointDescriptor:
         if kpts is None:
             self.bzk_kc = np.zeros((1, 3))
             self.N_c = np.array((1, 1, 1), dtype=int)
+            self.offset_c = np.zeros(3)
         elif isinstance(kpts[0], int):
             self.bzk_kc = monkhorst_pack(kpts)
             self.N_c = np.array(kpts, dtype=int)
+            self.offset_c = np.zeros(3)
         else:
-            self.bzk_kc = np.array(kpts)
-            self.N_c = None
+            self.bzk_kc = np.array(kpts, float)
+            try:
+                self.N_c, self.offset_c = \
+                          get_monkhorst_pack_size_and_offset(self.bzk_kc)
+            except ValueError:
+                self.N_c = None
+                self.offset_c = None
 
+        self.collinear = collinear
         self.nspins = nspins
         self.nbzkpts = len(self.bzk_kc)
         
-        # Gamma-point calculation
+        # Gamma-point calculation?
         self.gamma = self.nbzkpts == 1 and not self.bzk_kc[0].any()
+            
+        self.set_symmetry(None, None, usesymm=None)
+        self.set_communicator(mpi.serial_comm)
 
-        self.symmetry = None
-        self.comm = None
-        self.ibzk_kc = None
-        self.weight_k = None
-        self.nibzkpts = None
-
-        self.rank0 = None
-        self.mynks = None
-        self.ks0 = None
-        self.ibzk_qc = None
+        if self.gamma:
+            self.description = '1 k-point (Gamma)'
+        else:
+            self.description = '%d k-points' % self.nbzkpts
+            if self.N_c is not None:
+                self.description += (' (%d x %d x %d Monkhorst-Pack grid' %
+                                     tuple(self.N_c))
+                if self.offset_c.any():
+                    self.description += ' + ['
+                    for x in self.offset_c:
+                        if x != 0 and abs(round(1 / x) - 1 / x) < 1e-12:
+                            self.description += '1/%d,' % (1 / x)
+                        else:
+                            self.description += '%f,' % x
+                    self.description = self.description[:-1] + ']'
+                self.description += ')'
 
     def __len__(self):
         """Return number of k-point/spin combinations of local CPU."""
         
         return self.mynks
 
-    def set_symmetry(self, atoms, setups, usesymm):
+    def set_symmetry(self, atoms, setups, magmom_av=None,
+                     usesymm=False, N_c=None, comm=None):
         """Create symmetry object and construct irreducible Brillouin zone.
 
-        Parameters
-        ----------
         atoms: Atoms object
             Defines atom positions and types and also unit cell and
             boundary conditions.
         setups: instance of class Setups
             PAW setups for the atoms.
+        magmom_av: ndarray
+            Initial magnetic moments.
         usesymm: bool
             Symmetry flag.
-
+        N_c: three int's or None
+            If not None:  Check also symmetry of grid.
         """
 
-        if (~atoms.pbc & self.bzk_kc.any(0)).any():
-            raise ValueError('K-points can only be used with PBCs!')
+        if atoms is not None:
+            if (~atoms.pbc & self.bzk_kc.any(0)).any():
+                raise ValueError('K-points can only be used with PBCs!')
 
-        if self.gamma:
-            self.symmetry = None
-            self.weight_k = np.array([1.0])
-            self.ibzk_kc = np.zeros((1, 3))
+            if magmom_av is None:
+                magmom_av = np.zeros((len(atoms), 3))
+                magmom_av[:, 2] = atoms.get_initial_magnetic_moments()
 
-        elif usesymm is None:
-            # Point group and time-reversal symmetry neglected
-            nkpts = len(self.bzk_kc)
-            self.symmetry = None
-            self.weight_k = np.ones(nkpts) / nkpts
-            self.ibzk_kc = self.bzk_kc.copy()
-
-        else:
-            # Round off
-            magmom_a = atoms.get_initial_magnetic_moments().round(decimals=3)
-            id_a = zip(magmom_a, setups.id_a)
+            magmom_av = magmom_av.round(decimals=3)  # round off
+            id_a = zip(setups.id_a, *magmom_av.T)
 
             # Construct a Symmetry instance containing the identity operation
             # only
-            self.symmetry = Symmetry(id_a, atoms.get_cell() / Bohr,
-                                     atoms.get_pbc())
-
+            self.symmetry = Symmetry(id_a, atoms.cell / Bohr, atoms.pbc)
+        else:
+            self.symmetry = None
+        
+        if self.gamma or usesymm is None:
+            # Point group and time-reversal symmetry neglected
+            self.weight_k = np.ones(self.nbzkpts) / self.nbzkpts
+            self.ibzk_kc = self.bzk_kc.copy()
+            self.sym_k = np.zeros(self.nbzkpts, int)
+            self.time_reversal_k = np.zeros(self.nbzkpts, bool)
+            self.bz2ibz_k = np.arange(self.nbzkpts)
+            self.ibz2bz_k = np.arange(self.nbzkpts)
+            self.bz2bz_ks = np.arange(self.nbzkpts)[:, np.newaxis]
+        else:
             if usesymm:
                 # Find symmetry operations of atoms
                 self.symmetry.analyze(atoms.get_scaled_positions())
-            else:
-                self.symmetry.prune_symmetries(atoms.get_scaled_positions())
+                
+                if N_c is not None:
+                    self.symmetry.prune_symmetries_grid(N_c)
 
-            # Reduce the set of k-points and add inversion if not already
-            # detected
-            self.ibzk_kc, self.weight_k = self.symmetry.reduce(self.bzk_kc)
+            (self.ibzk_kc, self.weight_k,
+             self.sym_k,
+             self.time_reversal_k,
+             self.bz2ibz_k,
+             self.ibz2bz_k,
+             self.bz2bz_ks) = self.symmetry.reduce(self.bzk_kc, comm)
 
-            if usesymm:
-                setups.set_symmetry(self.symmetry)
-            else:
-                self.symmetry = None
+        if setups is not None:
+            setups.set_symmetry(self.symmetry)
 
         # Number of irreducible k-points and k-point/spin combinations.
         self.nibzkpts = len(self.ibzk_kc)
-        self.nks = self.nibzkpts * self.nspins
+        if self.collinear:
+            self.nks = self.nibzkpts * self.nspins
+        else:
+            self.nks = self.nibzkpts
         
     def set_communicator(self, comm):
         """Set k-point communicator."""
@@ -147,7 +178,7 @@ class KPointDescriptor:
         # My number and offset of k-point/spin combinations
         self.mynks, self.ks0 = self.get_count(), self.get_offset()
 
-        if self.nspins == 2 and comm.size == 1:
+        if self.nspins == 2 and comm.size == 1:  # NCXXXXXXXX
             # Avoid duplicating k-points in local list of k-points.
             self.ibzk_qc = self.ibzk_kc.copy()
         else:
@@ -156,7 +187,7 @@ class KPointDescriptor:
 
     def create_k_points(self, gd):
         """Return a list of KPoints."""
- 
+
         sdisp_cd = gd.sdisp_cd
 
         kpt_u = []
@@ -164,7 +195,10 @@ class KPointDescriptor:
         for ks in range(self.ks0, self.ks0 + self.mynks):
             s, k = divmod(ks, self.nibzkpts)
             q = (ks - self.ks0) % self.nibzkpts
-            weight = self.weight_k[k] * 2 / self.nspins
+            if self.collinear:
+                weight = self.weight_k[k] * 2 / self.nspins
+            else:
+                weight = self.weight_k[k]
             if self.gamma:
                 phase_cd = np.ones((3, 2), complex)
             else:
@@ -174,9 +208,98 @@ class KPointDescriptor:
 
         return kpt_u
 
-    def find_k_plus_q(self, q_c):
-        """Find the indices of k+q for all kpoints in the Brillouin zone.
+    def collect(self, a_ux, broadcast=True):
+        """Collect distributed data to all."""
 
+        if self.comm.rank == 0 or broadcast:
+            xshape = a_ux.shape[1:]
+            a_skx = np.empty((self.nspins, self.nibzkpts) + xshape, a_ux.dtype)
+            a_Ux = a_skx.reshape((-1,) + xshape)
+        else:
+            a_skx = None
+
+        if self.comm.rank > 0:
+            self.comm.send(a_ux, 0)
+        else:
+            u1 = self.get_count(0)
+            a_Ux[0:u1] = a_ux
+            requests = []
+            for rank in range(1, self.comm.size):
+                u2 = u1 + self.get_count(rank)
+                requests.append(self.comm.receive(a_Ux[u1:u2], rank,
+                                                  block=False))
+                u1 = u2
+            assert u1 == len(a_Ux)
+            self.comm.waitall(requests)
+        
+        if broadcast:
+            self.comm.broadcast(a_Ux, 0)
+
+        return a_skx
+
+    def transform_wave_function(self, psit_G, k, index_G=None, phase_G=None):
+        """Transform wave function from IBZ to BZ.
+
+        k is the index of the desired k-point in the full BZ.
+        """
+        
+        s = self.sym_k[k]
+        time_reversal = self.time_reversal_k[k]
+        op_cc = np.linalg.inv(self.symmetry.op_scc[s]).round().astype(int)
+
+        # Identity
+        if (np.abs(op_cc - np.eye(3, dtype=int)) < 1e-10).all():
+            if time_reversal:
+                return psit_G.conj()
+            else:
+                return psit_G
+        # General point group symmetry
+        else:
+            ik = self.bz2ibz_k[k]
+            kibz_c = self.ibzk_kc[ik]
+            b_g = np.zeros_like(psit_G)
+            kbz_c = np.dot(self.symmetry.op_scc[s], kibz_c)
+            if index_G is not None:
+                _gpaw.symmetrize_with_index(psit_G, b_g, index_G, phase_G)
+            else:
+                _gpaw.symmetrize_wavefunction(psit_G, b_g, op_cc.copy(),
+                                              np.ascontiguousarray(kibz_c),
+                                              kbz_c)
+
+            if time_reversal:
+                return b_g.conj()
+            else:
+                return b_g
+
+
+    def get_transform_wavefunction_index(self, nG, k):
+        
+        s = self.sym_k[k]
+        time_reversal = self.time_reversal_k[k]
+        op_cc = np.linalg.inv(self.symmetry.op_scc[s]).round().astype(int)
+
+        # General point group symmetry
+        nG0 = nG[0]*nG[1]*nG[2]
+        if (np.abs(op_cc - np.eye(3, dtype=int)) < 1e-10).all():
+            index_G = np.arange(nG0)
+            phase_G = np.ones(nG0)
+            return index_G, phase_G
+        else:
+            ik = self.bz2ibz_k[k]
+            kibz_c = self.ibzk_kc[ik]
+            index_G = np.zeros(nG, dtype=int)
+            phase_G = np.zeros(nG, dtype=complex)
+
+            kbz_c = np.dot(self.symmetry.op_scc[s], kibz_c)
+            _gpaw.symmetrize_return_index(index_G, phase_G, op_cc.copy(),
+                                              np.ascontiguousarray(kibz_c),
+                                              kbz_c)
+            return index_G, phase_G
+
+
+    def find_k_plus_q(self, q_c, kpts_k=None):
+        """Find the indices of k+q for all kpoints in the Brillouin zone.
+        
         In case that k+q is outside the BZ, the k-point inside the BZ
         corresponding to k+q is given.
         
@@ -185,31 +308,44 @@ class KPointDescriptor:
         q_c: ndarray
             Coordinates for the q-vector in units of the reciprocal
             lattice vectors.
+        kpts_k: list of ints
+            Restrict search to specified k-points.
 
         """
 
         # Monkhorst-pack grid
         if self.N_c is not None:
-            N_c = self.N_c
-            dk_c = 1. / N_c
-            kmax_c = (N_c - 1) * dk_c / 2.
+            N_c, offset_c = get_monkhorst_pack_size_and_offset(self.bzk_kc)
 
-        N = np.zeros(3, dtype=int)
+            offset = True
+            if np.abs(offset_c).sum() < 1e-8:
+                offset = False
+                N_c = self.N_c
+                dk_c = 1. / N_c
+                kmax_c = (N_c - 1) * dk_c / 2.
+        else:
+            offset = True
+            
+        if kpts_k is None:
+            kpts_kc = self.bzk_kc
+        else:
+            kpts_kc = self.bzk_kc[kpts_k]
 
         # k+q vectors
-        kplusq_kc = self.bzk_kc + q_c
+        kplusq_kc = kpts_kc + q_c
+
         # Translate back into the first BZ
-        kplusq_kc[np.where(kplusq_kc > 0.5)] -= 1.
-        kplusq_kc[np.where(kplusq_kc <= -0.5)] += 1.
+        kplusq_kc[np.where(kplusq_kc > 0.501)] -= 1.
+        kplusq_kc[np.where(kplusq_kc < -0.499)] += 1.
 
         # List of k+q indices
         kplusq_k = []
-        
-        # Find index of k+q vector in the bzk_kc attribute
+
+        # Find index of k+q vector
         for kplusq, kplusq_c in enumerate(kplusq_kc):
 
             # Calculate index for Monkhorst-Pack grids
-            if self.N_c is not None:
+            if not offset:
                 N = np.asarray(np.round((kplusq_c + kmax_c) / dk_c),
                                dtype=int)
                 kplusq_k.append(N[2] + N[1] * N_c[2] +
@@ -220,9 +356,135 @@ class KPointDescriptor:
 
             # Check the k+q vector index
             k_c = self.bzk_kc[kplusq_k[kplusq]]
-            assert abs(kplusq_c - k_c).sum() < 1e-8, "Could not find k+q!"
-        
+            assert abs(kplusq_c - k_c).sum() < 1e-8, 'Could not find k+q!'
+
         return kplusq_k
+
+
+    def get_bz_q_points(self):
+        """Return the q=k1-k2. q-mesh is always Gamma-centered."""
+        try:
+            # Regular k-point grid
+            Nk_c = get_monkhorst_pack_size_and_offset(self.bzk_kc)[0]
+            bzq_qc = monkhorst_pack(Nk_c)
+
+            shift_c = []
+            for Nk in Nk_c:
+                if Nk % 2 == 0:
+                    shift_c.append(0.5 / Nk)
+                else:
+                    shift_c.append(0.)
+
+            bzq_qc += shift_c
+            return bzq_qc
+        except:
+            # Not regular k-point grid
+            bzq_qc = []
+            for k1 in self.bzk_kc:
+                for k2 in self.bzk_kc:
+                    q = k1 - k2
+                    if not (q > 0.5).any() and not (q <= -0.5).any():
+                        bzq_qc.append(q)
+            return bzq_qc
+
+    def get_ibz_q_points(self, bzq_qc, op_scc):
+        """Return ibz q points and the corresponding symmetry operations that
+        work for k-mesh as well."""
+
+        ibzq_qc_tmp = []
+        ibzq_qc_tmp.append(bzq_qc[-1])
+        weight_tmp = [0]
+        
+        for i, op_cc in enumerate(op_scc):
+            if np.abs(op_cc - np.eye(3)).sum() < 1e-8:
+                identity_iop = i
+                break
+
+        ibzq_q_tmp ={}
+        iop_q = {}
+        timerev_q = {}
+        diff_qc = {}
+
+        for i in range(len(bzq_qc)-1,-1,-1): #  loop opposite to kpoint
+            try:
+                ibzk, iop, timerev, diff_c = self.find_ibzkpt(op_scc, ibzq_qc_tmp, bzq_qc[i])
+                find = False
+                for ii, iop1 in enumerate(self.sym_k):
+                    if iop1 == iop and self.time_reversal_k[ii] == timerev:
+                        find = True
+                        break
+                if find is False:
+                    raise ValueError('cant find k!')
+                    
+                ibzq_q_tmp[i] = ibzk
+                weight_tmp[ibzk] += 1.
+                iop_q[i] = iop
+                timerev_q[i] = timerev
+                diff_qc[i] = diff_c                
+            except ValueError:
+                ibzq_qc_tmp.append(bzq_qc[i])
+                weight_tmp.append(1.)
+                ibzq_q_tmp[i] = len(ibzq_qc_tmp) - 1
+                iop_q[i] = identity_iop
+                timerev_q[i] = False
+                diff_qc[i] = np.zeros(3)
+
+        # reverse the order.
+        nq = len(ibzq_qc_tmp)
+        ibzq_qc = np.zeros((nq,3))
+        ibzq_q = np.zeros(len(bzq_qc),dtype=int)
+        for i in range(nq):
+            ibzq_qc[i] = ibzq_qc_tmp[nq-i-1]
+        for i in range(len(bzq_qc)):
+            ibzq_q[i] = nq - ibzq_q_tmp[i] - 1
+        self.q_weights = np.array(weight_tmp[::-1]) / len(bzq_qc)
+        return ibzq_qc, ibzq_q, iop_q, timerev_q, diff_qc
+
+
+    def find_ibzkpt(self, symrel, ibzk_kc, bzk_c):
+        """Given a certain kpoint, find its index in IBZ and related symmetry operations."""
+        find = False
+        ibzkpt = 0
+        iop = 0
+        timerev = False
+
+        for sign in (1, -1):
+            for ioptmp, op in enumerate(symrel):
+                for i, ibzk in enumerate(ibzk_kc):
+                    diff_c = bzk_c - sign * np.dot(op, ibzk)
+                    if (np.abs(diff_c - diff_c.round()) < 1e-8).all():
+                        ibzkpt = i
+                        iop = ioptmp
+                        find = True
+                        if sign == -1:
+                            timerev = True
+                        break
+                if find == True:
+                    break
+            if find == True:
+                break
+
+        if find == False:        
+            raise ValueError('Cant find corresponding IBZ kpoint!')    
+        return ibzkpt, iop, timerev, diff_c.round()
+
+
+    def where_is_q(self, q_c, bzq_qc):
+        """Find the index of q points in BZ."""
+
+        q_c[np.where(q_c > 0.501)] -= 1
+        q_c[np.where(q_c < -0.499)] += 1
+
+        found = False
+        for ik in range(len(bzq_qc)):
+            if (np.abs(bzq_qc[ik] - q_c) < 1e-8).all():
+                found = True
+                return ik
+                break
+            
+        if found is False:
+            raise ValueError('q-points can not be found!')
+
 
     def get_count(self, rank=None):
         """Return the number of ks-pairs which belong to a given rank."""
@@ -320,12 +582,11 @@ class KPointDescriptor:
     #def ...
 
 
-
 class KPointDescriptorOld:
     """Descriptor-class for ordered lists of kpoint/spin combinations
 
     TODO
-    """ #XXX
+    """
 
     def __init__(self, nspins, nibzkpts, comm=None, gamma=True, dtype=float):
         """Construct descriptor object for kpoint/spin combinations (ks-pair).
@@ -447,5 +708,3 @@ class KPointDescriptorOld:
     #    return (self.nspins*self.nibzkpts,)
     #
     #def ...
-
-

@@ -1,4 +1,5 @@
-from ase.data.molecules import molecule
+from ase import Atoms
+from ase.structure import molecule
 from ase.parallel import paropen
 from gpaw import GPAW, Mixer, MixerDif
 from gpaw.utilities.tools import split_formula
@@ -37,7 +38,7 @@ exp_bonds_dE = [
 ('F2' , 1.412,38.5),
 ('P2' , 1.893,117.3),
 ('Cl2', 1.988,58.0)
-] 
+]
 
 systems = [ a[0] for a in tpss_de ]
 ref = [ a[1] for a in tpss_de ]
@@ -53,7 +54,10 @@ energies = {}
 # Calculate energies
 i = 0
 for formula in systems:
-    loa = molecule(formula)
+    if formula == 'Be2':
+        loa = Atoms('Be2', [(0, 0, 0), (0, 0, 2.0212)])
+    else:
+        loa = molecule(formula)
     loa.set_cell(cell)
     loa.center()
     width = 0.0
@@ -86,7 +90,7 @@ for formula in systems:
     i += 1
 
 #calculate atomization energies
-ii =0 
+ii =0
 file = paropen('atom_en.dat', 'a')
 print >>file, "# formula \t PBE \t TPSS \t revTPSS \t M06L \t Exp"
 for formula in systems[:13]:

@@ -56,7 +56,7 @@ class DensityFourierTransform(Observer):
         self.stencil = paw.input_parameters.stencils[1] # i.e. tar['InterpolationStencil']
         self.interpolator = paw.density.interpolator
         self.cinterpolator = Transformer(self.gd, self.finegd, self.stencil, \
-                                        dtype=self.dtype, allocate=False)
+                                        dtype=self.dtype)
         self.phase_cd = np.ones((3, 2), dtype=complex)
 
         self.Ant_sG = paw.density.nt_sG.copy() # TODO in allocate instead?
@@ -75,7 +75,6 @@ class DensityFourierTransform(Observer):
             #self.Ant_sG = ...
             self.Ant_sg = None
             self.gamma_w = np.ones(self.nw, dtype=complex) * self.timestep
-            self.cinterpolator.allocate()
             self.allocated = True
 
         if debug:
@@ -155,18 +154,21 @@ class DensityFourierTransform(Observer):
         else:
             raise NotImplementedError('Arbitrary refinement not implemented')
 
-    def read(self, filename):
-        assert filename.endswith('.ftd'), 'Filename must end with `.ftd`.'
+    def read(self, filename, idiotproof=True):
+        if idiotproof and not filename.endswith('.ftd'):
+            raise IOError('Filename must end with `.ftd`.')
 
         tar = Reader(filename)
 
         # Test data type
         dtype = {'Float':float, 'Complex':complex}[tar['DataType']]
-        assert dtype == self.dtype, 'Data is an incompatible type.'
+        if dtype != self.dtype:
+            raise IOError('Data is an incompatible type.')
 
         # Test time
         time = tar['Time']
-        assert abs(time-self.time)<1e-9, 'Time is incompatible.' #TODO
+        if idiotproof and abs(time-self.time) >= 1e-9:
+            raise IOError('Timestamp is incompatible with calculator.')
 
         # Test timestep (non-critical)
         timestep = tar['TimeStep']
@@ -214,8 +216,9 @@ class DensityFourierTransform(Observer):
         # Close for good measure
         tar.close()
 
-    def write(self, filename):
-        assert filename.endswith('.ftd'), 'Filename must end with `.ftd`.'
+    def write(self, filename, idiotproof=True):
+        if idiotproof and not filename.endswith('.ftd'):
+            raise IOError('Filename must end with `.ftd`.')
 
         master = self.world.rank == 0
 

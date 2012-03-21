@@ -16,6 +16,15 @@
 #include <omp.h>
 #endif
 
+#ifdef GPAW_NO_UNDERSCORE_BLAS
+#  define zgemm_  zgemm
+#endif
+void zgemm_(char *transa, char *transb, int *m, int * n,
+	    int *k, void *alpha, void *a, int *lda,
+	    const void *b, int *ldb, void *beta,
+	    void *c, int *ldc);
+
+
 static void lfc_dealloc(LFCObject *self)
 {
   if (self->bloch_boundary_conditions)
@@ -28,7 +37,9 @@ static void lfc_dealloc(LFCObject *self)
   PyObject_DEL(self);
 }
 
+
 PyObject* calculate_potential_matrix(LFCObject *self, PyObject *args);
+PyObject* calculate_potential_matrices(LFCObject *self, PyObject *args);
 PyObject* integrate(LFCObject *self, PyObject *args);
 PyObject* derivative(LFCObject *self, PyObject *args);
 PyObject* normalized_derivative(LFCObject *self, PyObject *args);
@@ -37,15 +48,21 @@ PyObject* construct_density1(LFCObject *self, PyObject *args);
 PyObject* ae_valence_density_correction(LFCObject *self, PyObject *args);
 PyObject* ae_core_density_correction(LFCObject *self, PyObject *args);
 PyObject* lcao_to_grid(LFCObject *self, PyObject *args);
+PyObject* lcao_to_grid_k(LFCObject *self, PyObject *args);
 PyObject* add(LFCObject *self, PyObject *args);
 PyObject* calculate_potential_matrix_derivative(LFCObject *self, 
                                                 PyObject *args);
+PyObject* calculate_potential_matrix_force_contribution(LFCObject *self, 
+							PyObject *args);
 PyObject* second_derivative(LFCObject *self, PyObject *args);
 PyObject* add_derivative(LFCObject *self, PyObject *args);
+
 
 static PyMethodDef lfc_methods[] = {
     {"calculate_potential_matrix",
      (PyCFunction)calculate_potential_matrix, METH_VARARGS, 0},
+    {"calculate_potential_matrices",
+     (PyCFunction)calculate_potential_matrices, METH_VARARGS, 0},
     {"integrate",
      (PyCFunction)integrate, METH_VARARGS, 0},
     {"derivative",
@@ -62,10 +79,14 @@ static PyMethodDef lfc_methods[] = {
      (PyCFunction)ae_core_density_correction, METH_VARARGS, 0},
     {"lcao_to_grid",
      (PyCFunction)lcao_to_grid, METH_VARARGS, 0},
+    {"lcao_to_grid_k",
+     (PyCFunction)lcao_to_grid_k, METH_VARARGS, 0},
     {"add",
      (PyCFunction)add, METH_VARARGS, 0},
     {"calculate_potential_matrix_derivative",
      (PyCFunction)calculate_potential_matrix_derivative, METH_VARARGS, 0},
+    {"calculate_potential_matrix_force_contribution",
+     (PyCFunction)calculate_potential_matrix_force_contribution, METH_VARARGS, 0},
     {"second_derivative",
      (PyCFunction)second_derivative, METH_VARARGS, 0},
     {"add_derivative",
@@ -304,6 +325,73 @@ PyObject* calculate_potential_matrix(LFCObject *lfc, PyObject *args)
     GRID_LOOP_STOP(lfc, k, 0);
   }
   Py_RETURN_NONE;
+}
+
+PyObject* calculate_potential_matrices(LFCObject *lfc, PyObject *args)
+{
+    const PyArrayObject* vt_G_obj;
+    PyArrayObject* Vt_xMM_obj;
+    PyArrayObject* x_W_obj;
+    int Mstart;
+    int Mstop;
+    
+    if (!PyArg_ParseTuple(args, "OOOii", &vt_G_obj, &Vt_xMM_obj, &x_W_obj,
+			  &Mstart, &Mstop))
+        return NULL; 
+
+    const double* vt_G = (const double*)vt_G_obj->data;
+
+    int nM = Vt_xMM_obj->dimensions[2];
+    double dv = lfc->dv;
+    double* work_gm = lfc->work_gm;
+    double* Vt_xMM = (double*)Vt_xMM_obj->data;
+    int* x_W = (int*)x_W_obj->data;
+
+    GRID_LOOP_START(lfc, -1, 0) {
+        for (int i1 = 0; i1 < ni; i1++) {
+	    LFVolume* v1 = volume_i[i1];
+	    int M1 = v1->M;
+	    int nm1 = v1->nm;
+	    int M1p = MAX(M1, Mstart);
+	    int nm1p = MIN(M1 + nm1, Mstop) - M1p;
+	    if (nm1p <= 0)
+	        continue;
+
+	    int x1 = x_W[v1->W];
+	    int gm = M1p - M1;
+	    int gm1 = 0;
+	    const double* A1_gm = v1->A_gm;
+	    for (int G = Ga; G < Gb; G++, gm += nm1 - nm1p) {
+	        double vtdv = vt_G[G] * dv;
+		for (int m1 = 0; m1 < nm1p; m1++, gm1++, gm++)
+		    work_gm[gm1] = vtdv * A1_gm[gm];
+	    }
+	    for (int i2 = 0; i2 < ni; i2++) {
+	        LFVolume* v2 = volume_i[i2];
+		int x = x_W[v2->W] - x1;
+		if (x >= 0) {
+		    int M2 = v2->M;
+		    int nm2 = v2->nm;
+		    const double* A2_gm = v2->A_gm;
+		    double* Vt_mm = (Vt_xMM +
+				     (M1p - Mstart) * nM + M2 +
+				     x * (Mstop - Mstart) * nM);
+		    for (int g = 0; g < nG; g++) {
+		        int gnm1 = g * nm1p;
+			int gnm2 = g * nm2;
+			for (int m1 = 0; m1 < nm1p; m1++) {
+			    int m1nM = m1 * nM;
+			    for (int m2 = 0; m2 < nm2; m2++)
+			        Vt_mm[m2 + m1nM] += (A2_gm[gnm2 + m2] *
+						     work_gm[gnm1 + m1]);
+			}
+		    }
+		}
+	    }
+	}
+    }
+    GRID_LOOP_STOP(lfc, -1, 0);
+    Py_RETURN_NONE;
 }
 
 PyObject* integrate(LFCObject *lfc, PyObject *args)
@@ -554,19 +642,36 @@ PyObject* lcao_to_grid(LFCObject *lfc, PyObject *args)
     return NULL; 
   
   if (!lfc->bloch_boundary_conditions) {
-    const double* c_M = (const double*)c_M_obj->data;
-    double* psit_G = (double*)psit_G_obj->data;
-    GRID_LOOP_START(lfc, -1, 0) {
-      for (int i = 0; i < ni; i++) {
-        LFVolume* v = volume_i[i];
-        for (int gm = 0, G = Ga; G < Gb; G++) {
-          for (int m = 0; m < v->nm; m++, gm++) {
-            psit_G[G] += v->A_gm[gm] * c_M[v->M + m];
+    if (c_M_obj->descr->type_num == PyArray_DOUBLE) {
+      const double* c_M = (const double*)c_M_obj->data;
+      double* psit_G = (double*)psit_G_obj->data;
+      GRID_LOOP_START(lfc, -1, 0) {
+        for (int i = 0; i < ni; i++) {
+          LFVolume* v = volume_i[i];
+          for (int gm = 0, G = Ga; G < Gb; G++) {
+            for (int m = 0; m < v->nm; m++, gm++) {
+              psit_G[G] += v->A_gm[gm] * c_M[v->M + m];
+            }
           }
         }
       }
+      GRID_LOOP_STOP(lfc, -1, 0);
     }
-    GRID_LOOP_STOP(lfc, -1, 0);
+    else {
+      const double complex* c_M = (const double complex*)c_M_obj->data;
+      double complex* psit_G = (double complex*)psit_G_obj->data;
+      GRID_LOOP_START(lfc, -1, 0) {
+        for (int i = 0; i < ni; i++) {
+          LFVolume* v = volume_i[i];
+          for (int gm = 0, G = Ga; G < Gb; G++) {
+            for (int m = 0; m < v->nm; m++, gm++) {
+              psit_G[G] += v->A_gm[gm] * c_M[v->M + m];
+            }
+          }
+        }
+      }
+      GRID_LOOP_STOP(lfc, -1, 0);
+    }
   }
   else {
     const double complex* c_M = (const double complex*)c_M_obj->data;
@@ -589,6 +694,76 @@ PyObject* lcao_to_grid(LFCObject *lfc, PyObject *args)
     GRID_LOOP_STOP(lfc, k, 0);
   }
   Py_RETURN_NONE;
+}
+
+// Faster implementation of lcao_to_grid() function specialized
+// for k-points
+PyObject* lcao_to_grid_k(LFCObject *lfc, PyObject *args)
+{
+    const PyArrayObject* c_xM_obj;
+    PyArrayObject* psit_xG_obj;
+    int k;
+    int Mblock;
+
+    if (!PyArg_ParseTuple(args, "OOii", &c_xM_obj, &psit_xG_obj, &k,
+			  &Mblock))
+        return NULL; 
+  
+    const double complex* c_xM = (const double complex*)c_xM_obj->data;
+    double complex* psit_xG = (double complex*)psit_xG_obj->data;
+
+    int nd = psit_xG_obj->nd;
+    npy_intp* dims = psit_xG_obj->dimensions;
+    int nx = PyArray_MultiplyList(dims, nd - 3);
+    int Gmax = PyArray_MultiplyList(dims + nd - 3, 3);
+    int Mmax = c_xM_obj->dimensions[c_xM_obj->nd - 1];
+
+    double complex* tmp_GM = 0;
+
+    for (int Mstart = 0; Mstart < Mmax; Mstart += Mblock) {
+        int Mstop = Mstart + Mblock;
+        if (Mstop > Mmax) {
+            Mstop = Mmax;
+	    Mblock = Mstop - Mstart;
+	}
+
+	if (tmp_GM == 0)
+	    tmp_GM = GPAW_MALLOC(double complex, Mblock * Gmax);
+	
+	for (int GM = 0; GM < Gmax * Mblock; GM++)
+	    tmp_GM[GM] = 0.0;
+
+	GRID_LOOP_START(lfc, k, 0) {
+	    for (int i = 0; i < ni; i++) {
+	        LFVolume* v = volume_i[i];
+		int M1 = v->M;
+		if (M1 >= Mstop)
+		    continue;
+		int nm = v->nm;
+		int M2 = M1 + nm;
+		if (M2 <= Mstart)
+		    continue;
+		int M1p = MAX(M1, Mstart);
+		int M2p = MIN(M2, Mstop);
+		if (M1p == M2p)
+		    continue;
+		
+		double complex phase = phase_i[i];
+		const double* A_gm = v->A_gm;
+		for (int G = Ga; G < Gb; G++)
+		    for (int M = M1p; M < M2p; M++)
+		        tmp_GM[G * Mblock + M - Mstart] += \
+			  A_gm[(G - Ga) * nm + M - M1] * phase;
+	    }
+	}
+	GRID_LOOP_STOP(lfc, k, 0);
+
+	double complex one = 1.0;
+	zgemm_("C", "N", &Gmax, &nx, &Mblock, &one, tmp_GM, &Mblock,
+	       c_xM + Mstart, &Mmax, &one, psit_xG, &Gmax);
+    }
+    free(tmp_GM);
+    Py_RETURN_NONE;
 }
 
 PyObject* add(LFCObject *lfc, PyObject *args)
@@ -981,6 +1156,246 @@ PyObject* calculate_potential_matrix_derivative(LFCObject *lfc, PyObject *args)
   }
   Py_RETURN_NONE;
 }
+
+
+// Horrible copy-paste of calculate_potential_matrix
+// Surely it must be possible to find a way to actually reuse code
+// Maybe some kind of preprocessor thing
+PyObject* calculate_potential_matrix_force_contribution(LFCObject *lfc, PyObject *args)
+{
+  const PyArrayObject* vt_G_obj;
+  PyArrayObject* rho_MM_obj;
+  PyArrayObject* F_M_obj;
+  PyArrayObject* h_cv_obj;
+  PyArrayObject* n_c_obj;
+  int k, c;
+  PyArrayObject* spline_obj_M_obj;
+  PyArrayObject* beg_c_obj;
+  PyArrayObject* pos_Wc_obj;
+  int Mstart, Mstop;
+
+  if (!PyArg_ParseTuple(args, "OOOOOiiOOOii", &vt_G_obj, &rho_MM_obj, 
+			&F_M_obj,
+                        &h_cv_obj, &n_c_obj, &k, &c,
+                        &spline_obj_M_obj, &beg_c_obj,
+                        &pos_Wc_obj, &Mstart, &Mstop))
+    return NULL;
+
+  const double* vt_G = (const double*)vt_G_obj->data;
+  const double* h_cv = (const double*)h_cv_obj->data;
+  const long* n_c = (const long*)n_c_obj->data;
+  const SplineObject** spline_obj_M = \
+    (const SplineObject**)spline_obj_M_obj->data;
+  const double (*pos_Wc)[3] = (const double (*)[3])pos_Wc_obj->data;
+  double* F_M = (double*)F_M_obj->data;
+
+  long* beg_c = LONGP(beg_c_obj);
+  int nM = rho_MM_obj->dimensions[1];
+  double* work_gm = lfc->work_gm;
+  double dv = lfc->dv;
+
+  if (!lfc->bloch_boundary_conditions) {
+    double* rho_MM = (double*)rho_MM_obj->data;
+    {
+      GRID_LOOP_START(lfc, -1, 0) {
+        // In one grid loop iteration, only z changes.
+        int iza = Ga % n_c[2] + beg_c[2];
+        int iy = (Ga / n_c[2]) % n_c[1] + beg_c[1];
+        int ix = Ga / (n_c[2] * n_c[1]) + beg_c[0];
+        int iz = iza;
+
+        //assert(Ga == ((ix - beg_c[0]) * n_c[1] + (iy - beg_c[1])) 
+        //       * n_c[2] + iza - beg_c[2]);
+
+        for (int i1 = 0; i1 < ni; i1++) {
+          iz = iza;
+          LFVolume* v1 = volume_i[i1];
+          int M1 = v1->M;
+          const SplineObject* spline_obj = spline_obj_M[M1];
+          const bmgsspline* spline = \
+            (const bmgsspline*)(&(spline_obj->spline));
+          
+          int nm1 = v1->nm;
+
+          int M1p = MAX(M1, Mstart);
+          int nm1p = MIN(M1 + nm1, Mstop) - M1p;
+          if (nm1p <= 0)
+            continue;
+
+          int m1start = M1 < Mstart ? nm1 - nm1p : 0;
+
+          double fdYdc_m[nm1];
+          double rlYdfdr_m[nm1];
+          double f, dfdr;
+          int l = (nm1 - 1) / 2;
+          const double* pos_c = pos_Wc[v1->W];
+          //assert(2 * l + 1 == nm1);
+          //assert(spline_obj->spline.l == l);
+          int gm1 = 0;
+          for (int G = Ga; G < Gb; G++, iz++) {
+            double x = h_cv[0] * ix + h_cv[3] * iy + h_cv[6] * iz - pos_c[0];
+            double y = h_cv[1] * ix + h_cv[4] * iy + h_cv[7] * iz - pos_c[1];
+            double z = h_cv[2] * ix + h_cv[5] * iy + h_cv[8] * iz - pos_c[2];
+            double vtdv = vt_G[G] * dv;
+
+            double R_c[] = {x, y, z};
+            
+            double r2 = x * x + y * y + z * z;
+            double r = sqrt(r2);
+            double Rcinvr = r > 1e-15 ? R_c[c] / r : 0.0;
+            //assert(G == ((ix - beg_c[0]) * n_c[1] + 
+            //             (iy - beg_c[1])) * n_c[2] + iz - beg_c[2]);
+
+            bmgs_get_value_and_derivative(spline, r, &f, &dfdr);
+            //assert (r <= spline->dr * spline->nbins); // important
+
+            switch(c) {
+            case 0:
+              spherical_harmonics_derivative_x(l, f, x, y, z, r2, fdYdc_m);
+              break;
+            case 1:
+              spherical_harmonics_derivative_y(l, f, x, y, z, r2, fdYdc_m);
+              break;
+            case 2:
+              spherical_harmonics_derivative_z(l, f, x, y, z, r2, fdYdc_m);
+              break;
+            }
+            spherical_harmonics(l, dfdr * Rcinvr, x, y, z, r2, rlYdfdr_m);
+
+            for (int m1 = 0; m1 < nm1p; m1++, gm1++) {
+              work_gm[gm1] = vtdv * (fdYdc_m[m1 + m1start] 
+                                     + rlYdfdr_m[m1 + m1start]);
+            }            
+          } // end loop over G
+          for (int i2 = 0; i2 < ni; i2++) {
+            LFVolume* v2 = volume_i[i2];
+            int M2 = v2->M;
+            const double* A2_start_gm = v2->A_gm;
+            const double* A2_gm;
+            int nm2 = v2->nm;
+	    double* rho_start_mm = rho_MM + (M1p - Mstart) * nM + M2;
+	    double* rho_mm;
+            double work;
+            for (int g = 0; g < nG; g++) {
+              A2_gm = A2_start_gm + g * nm2;
+              for (int m1 = 0; m1 < nm1p; m1++) {
+                rho_mm = rho_start_mm + m1 * nM;
+                work = 0.0;
+                for (int m2 = 0; m2 < nm2; m2++) {
+                  work += A2_gm[m2] * rho_mm[m2];
+                }
+                F_M[M1p - Mstart + m1] += work * work_gm[g * nm1p + m1];
+              }
+            }
+          } // i2 loop
+        } // G loop
+      } // i1 loop
+      GRID_LOOP_STOP(lfc, -1, 0);
+    } // c loop
+
+  }
+  else {
+    complex double* rho_MM = (complex double*)rho_MM_obj->data;
+    {
+      GRID_LOOP_START(lfc, k, 0) {
+        // In one grid loop iteration, only z changes.
+        int iza = Ga % n_c[2] + beg_c[2];
+        int iy = (Ga / n_c[2]) % n_c[1] + beg_c[1];
+        int ix = Ga / (n_c[2] * n_c[1]) + beg_c[0];
+        int iz = iza;
+
+        for (int i1 = 0; i1 < ni; i1++) {
+          iz = iza;
+          LFVolume* v1 = volume_i[i1];
+          int M1 = v1->M;
+          const SplineObject* spline_obj = spline_obj_M[M1];
+          const bmgsspline* spline = \
+            (const bmgsspline*)(&(spline_obj->spline));
+          
+          int nm1 = v1->nm;
+
+          int M1p = MAX(M1, Mstart);
+          int nm1p = MIN(M1 + nm1, Mstop) - M1p;
+          if (nm1p <= 0)
+            continue;
+
+          int m1start = M1 < Mstart ? nm1 - nm1p : 0;
+
+          double fdYdc_m[nm1];
+          double rlYdfdr_m[nm1];
+          double f, dfdr;
+          int l = (nm1 - 1) / 2;
+          //assert(2 * l + 1 == nm1);
+          //assert(spline_obj->spline.l == l);
+          const double* pos_c = pos_Wc[v1->W];
+
+          int gm1 = 0;
+          for (int G = Ga; G < Gb; G++, iz++) {
+            double x = h_cv[0] * ix + h_cv[3] * iy + h_cv[6] * iz - pos_c[0];
+            double y = h_cv[1] * ix + h_cv[4] * iy + h_cv[7] * iz - pos_c[1];
+            double z = h_cv[2] * ix + h_cv[5] * iy + h_cv[8] * iz - pos_c[2];
+            double vtdv = vt_G[G] * dv;
+
+            double R_c[] = {x, y, z};
+            
+            double r2 = x * x + y * y + z * z;
+            double r = sqrt(r2);
+            double Rc_over_r = r > 1e-15 ? R_c[c] / r : 0.0;
+            bmgs_get_value_and_derivative(spline, r, &f, &dfdr);
+            //assert (r <= spline->dr * spline->nbins);
+
+            switch(c) {
+            case 0:
+              spherical_harmonics_derivative_x(l, f, x, y, z, r2, fdYdc_m);
+              break;
+            case 1:
+              spherical_harmonics_derivative_y(l, f, x, y, z, r2, fdYdc_m);
+              break;
+            case 2:
+              spherical_harmonics_derivative_z(l, f, x, y, z, r2, fdYdc_m);
+              break;
+            }
+            spherical_harmonics(l, dfdr * Rc_over_r, x, y, z, r2, rlYdfdr_m);
+	    
+            for (int m1 = 0; m1 < nm1p; m1++, gm1++) {
+              work_gm[gm1] = vtdv * (fdYdc_m[m1 + m1start] 
+				     + rlYdfdr_m[m1 + m1start]);
+            }            
+          } // end loop over G
+
+          for (int i2 = 0; i2 < ni; i2++) {
+            LFVolume* v2 = volume_i[i2];
+            int M2 = v2->M;
+            const double* A2_start_gm = v2->A_gm;
+            const double* A2_gm;
+            int nm2 = v2->nm;
+            double complex* rho_start_mm = rho_MM + (M1p - Mstart) * nM + M2;
+            double complex* rho_mm;
+            double complex phase = conj(phase_i[i1]) * phase_i[i2];
+            double complex work;
+            for (int g = 0; g < nG; g++) {
+              A2_gm = A2_start_gm + g * nm2;
+              for (int m1 = 0; m1 < nm1p; m1++) {
+                rho_mm = rho_start_mm + m1 * nM;
+                work = 0.0;
+                for (int m2 = 0; m2 < nm2; m2++) {
+                  work += A2_gm[m2] * rho_mm[m2];
+                }
+                F_M[M1p - Mstart + m1] += creal(work * work_gm[g * nm1p + m1] 
+                                                * phase);
+              }
+            }
+          } // i2 loop
+        } // G loop
+      } // i1 loop
+      GRID_LOOP_STOP(lfc, k, 0);
+    } // c loop
+  }
+  Py_RETURN_NONE;
+}
+
+
+
 
 PyObject* derivative(LFCObject *lfc, PyObject *args)
 {

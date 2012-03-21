@@ -1,8 +1,8 @@
 .. _louhi:
 
-============
-louhi.csc.fi
-============
+============================
+louhi.csc.fi  (Cray XT4/XT5) 
+============================
 
 Here you find information about the the system
 `<http://www.csc.fi/english/research/Computing_services/computing/servers/louhi>`_.
@@ -20,7 +20,8 @@ compiling Python.
 First, load the Python module and set ``XTPE_LINK_TYPE`` environment
 variable for dynamic linking::
 
-  module load python/2.6.4
+  module load python
+  module load hdf5-parallel
   setenv XTPE_LINK_TYPE dynamic
 
 GPAW can now be build with a minimal ``customize.py``

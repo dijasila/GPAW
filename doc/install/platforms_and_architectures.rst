@@ -31,6 +31,13 @@ BSD:
 
    BSD/FreeBSD
 
+Bull:
+
+.. toctree::
+   :maxdepth: 1
+
+   Bull/curie
+
 Cray:
 
 .. toctree::
@@ -57,7 +64,9 @@ Linux:
    Linux/Ubuntu_ppa
    Linux/Ubuntu
    Linux/Niflheim/Niflheim
+   Linux/SUNCAT/SUNCAT
    Linux/akka
+   Linux/armageddon
    Linux/batman
    Linux/bwgrid
    Linux/carbon_cnm
@@ -69,9 +78,20 @@ Linux:
    Linux/nanolab_EL4
    Linux/neolith
    Linux/newcell
+   Linux/r410_psmn.ens-lyon
+   Linux/ranger_EL4
    Linux/sepeli
    Linux/supernova
    Linux/uranus
+   Linux/vsc.univie
+   Linux/odyssey
+
+MacOSX:
+
+.. toctree::
+   :maxdepth: 1
+
+   MacOSX/snowleopard
 
 Solaris:
 
@@ -80,3 +100,6 @@ Solaris:
 
    Solaris/corona
    Solaris/bohr
+
+
+

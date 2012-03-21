@@ -23,12 +23,13 @@ class ApmB(OmegaMatrix):
     def get_full(self):
 
         self.paw.timer.start('ApmB RPA')
-        self.ApB, self.AmB = self.get_rpa()
+        self.ApB = self.Om
+        self.AmB = self.get_rpa()
         self.paw.timer.stop()
 
         if self.xc is not None:
             self.paw.timer.start('ApmB XC')
-            self.ApB = self.get_xc(self.ApB) # inherited from OmegaMatrix
+            self.get_xc() # inherited from OmegaMatrix
             self.paw.timer.stop()
         
     def get_rpa(self):
@@ -43,7 +44,7 @@ class ApmB(OmegaMatrix):
         print >> self.txt, 'RPAhyb', nij, 'transitions'
         
         AmB = np.zeros((nij, nij))
-        ApB = np.zeros((nij, nij))
+        ApB = self.ApB
 
         # storage place for Coulomb integrals
         integrals = {}
@@ -134,7 +135,7 @@ class ApmB(OmegaMatrix):
                 AmB[kq,ij] = AmB[ij,kq]
         timer.stop()
         
-        return ApB, AmB
+        return AmB
     
     def Coulomb_integral_name(self, i, j, k, l, spin):
         """return a unique name considering the Coulomb integral
@@ -193,11 +194,11 @@ class ApmB(OmegaMatrix):
             Pi_i = Pij_ni[kss_ij.i]
             Pj_i = Pij_ni[kss_ij.j]
             Dij_ii = np.outer(Pi_i, Pj_i)
-            Dij_p = pack(Dij_ii, tolerance=1e3)
+            Dij_p = pack(Dij_ii)
             Pk_i = Pkq_ani[a][kss_kq.i]
             Pq_i = Pkq_ani[a][kss_kq.j]
             Dkq_ii = np.outer(Pk_i, Pq_i)
-            Dkq_p = pack(Dkq_ii, tolerance=1e3)
+            Dkq_p = pack(Dkq_ii)
             C_pp = wfs.setups[a].M_pp
             #   ----
             # 2 >      P   P  C    P  P
@@ -259,10 +260,8 @@ class ApmB(OmegaMatrix):
         
         self.eigenvalues = np.zeros((len(kss)))
         self.kss = kss
-        info = diagonalize(self.eigenvectors, self.eigenvalues)
-        if info != 0:
-            raise RuntimeError('Diagonalisation error in ApmB')
-
+        diagonalize(self.eigenvectors, self.eigenvalues)
+        
     def read(self, filename=None, fh=None):
         """Read myself from a file"""
         if mpi.rank == mpi.MASTER:

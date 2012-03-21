@@ -2,6 +2,23 @@ import numpy as np
 from scipy.optimize import leastsq
 import pylab as pl
 
+def check_degenerate_bands(filename, etol):
+
+    from gpaw import GPAW
+    calc = GPAW(filename,txt=None)
+    print 'Number of Electrons   :', calc.get_number_of_electrons()
+    nibzkpt = calc.get_ibz_k_points().shape[0]
+    nbands = calc.get_number_of_bands()
+    print 'Number of Bands       :', nbands
+    print 'Number of ibz-kpoints :', nibzkpt
+    e_kn = np.array([calc.get_eigenvalues(k) for k in range(nibzkpt)])
+    f_kn = np.array([calc.get_occupation_numbers(k) for k in range(nibzkpt)])
+    for k in range(nibzkpt):
+        for n in range(1,nbands):
+            if (f_kn[k,n-1] - f_kn[k,n] > 1e-5) and (np.abs(e_kn[k,n] - e_kn[k,n-1]) < etol):
+                print k, n, e_kn[k,n], e_kn[k, n-1]
+    return
+    
 
 def get_orbitals(calc):
     """Get LCAO orbitals on 3D grid by lcao_to_grid method."""
@@ -118,6 +135,24 @@ def lorz_fit(x,y, npeak=1, initpara = None):
     result = leastsq(residual, p0, args=(x, y), maxfev=2000)
 
     yfit = lorz(x, result[0],npeak)
+
+    return yfit, result[0]
+
+def linear_fit(x,y, initpara = None):
+    
+    def residual(p, x, y):
+        err = y - linear(x, p)
+        return err
+
+    def linear(x, p):
+        return p[0]*x + p[1]
+
+    if initpara is None:
+        initpara = np.array([1.0,1.0])
+
+    p0 = initpara
+    result = leastsq(residual, p0, args=(x, y), maxfev=2000)
+    yfit = linear(x, result[0])
 
     return yfit, result[0]
 

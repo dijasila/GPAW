@@ -52,12 +52,11 @@ if ABS:
         hilbert_trans=False, txt='df_1.out',
         ecut=150, optical_limit=True)
 
-    df1, df2 = df.get_dielectric_function()
-    eM1, eM2 = df.get_macroscopic_dielectric_constant(df1, df2)
+    eM1, eM2 = df.get_macroscopic_dielectric_constant()
 
     df.write('df_1.pckl')
 
-    if np.abs(eM1 - 13.992277) > 1e-4 or np.abs(eM2 - 12.589596) > 1e-4:
+    if np.abs(eM1[0] - 13.991793) > 1e-4 or np.abs(eM2[0] - 12.589129) > 1e-4:
         print eM1, eM2
         raise ValueError('Pls check dielectric constant !')
 
@@ -65,9 +64,8 @@ if ABS:
     df = DF(calc='si.gpw', q=q, w=w, eta=0.1,
         ecut=150, optical_limit=True, txt='df_2.out')
 
-    df1, df2 = df.get_dielectric_function()
-    df.get_absorption_spectrum(df1, df2, filename='si_abs')
-    df.check_sum_rule(df1, df2)
+    df.get_absorption_spectrum(filename='si_abs')
+    df.check_sum_rule()
     
     df.write('df_2.pckl')
 

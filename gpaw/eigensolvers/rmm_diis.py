@@ -22,7 +22,7 @@ class RMM_DIIS(Eigensolver):
     * Improvement of wave functions:  psi' = psi + lambda PR + lambda PR'
     * Orthonormalization"""
 
-    def __init__(self, keep_htpsit=True, blocksize=1):
+    def __init__(self, keep_htpsit=True, blocksize=10):
         Eigensolver.__init__(self, keep_htpsit, blocksize)
 
     def iterate_one_k_point(self, hamiltonian, wfs, kpt):
@@ -36,8 +36,12 @@ class RMM_DIIS(Eigensolver):
             self.calculate_residuals(kpt, wfs, hamiltonian, kpt.psit_nG,
                                      kpt.P_ani, kpt.eps_n, R_nG)
 
+        def integrate(a_G, b_G):
+            return np.real(wfs.integrate(a_G, b_G, global_integral=False))
+
+        comm = wfs.gd.comm
         B = self.blocksize
-        dR_xG = self.gd.empty(B, wfs.dtype)
+        dR_xG = wfs.empty(B, wfs.dtype)
         P_axi = wfs.pt.dict(B)
         error = 0.0
         for n1 in range(0, wfs.bd.mynbands, B):
@@ -53,7 +57,7 @@ class RMM_DIIS(Eigensolver):
             if self.keep_htpsit:
                 R_xG = R_nG[n_x]
             else:
-                R_xG = self.gd.empty(B, wfs.dtype)
+                R_xG = wfs.empty(B, wfs.dtype)
                 psit_xG = kpt.psit_nG[n_x]
                 wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_xG, R_xG)
                 wfs.pt.integrate(psit_xG, P_axi, kpt.q)
@@ -70,26 +74,30 @@ class RMM_DIIS(Eigensolver):
                         weight = kpt.weight
                     else:
                         weight = 0.0
-                error += weight * np.vdot(R_xG[n - n1], R_xG[n - n1]).real
+                error += weight * integrate(R_xG[n - n1], R_xG[n - n1])
 
             # Precondition the residual:
             self.timer.start('precondition')
-            dpsit_xG = self.preconditioner(R_xG, kpt)
+            ekin_x = self.preconditioner.calculate_kinetic_energy(
+                kpt.psit_nG[n_x], kpt)
+            dpsit_xG = self.preconditioner(R_xG, kpt, ekin_x)
             self.timer.stop('precondition')
 
             # Calculate the residual of dpsit_G, dR_G = (H - e S) dpsit_G:
             wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, dpsit_xG, dR_xG)
+            self.timer.start('projections')
             wfs.pt.integrate(dpsit_xG, P_axi, kpt.q)
+            self.timer.stop('projections')
             self.calculate_residuals(kpt, wfs, hamiltonian, dpsit_xG,
                                      P_axi, kpt.eps_n[n_x], dR_xG, n_x,
                                      calculate_change=True)
             
             # Find lam that minimizes the norm of R'_G = R_G + lam dR_G
-            RdR_x = np.array([np.vdot(R_G, dR_G).real
+            RdR_x = np.array([integrate(dR_G, R_G)
                               for R_G, dR_G in zip(R_xG, dR_xG)])
-            dRdR_x = np.array([np.vdot(dR_G, dR_G).real for dR_G in dR_xG])
-            self.gd.comm.sum(RdR_x)
-            self.gd.comm.sum(dRdR_x)
+            dRdR_x = np.array([integrate(dR_G, dR_G) for dR_G in dR_xG])
+            comm.sum(RdR_x)
+            comm.sum(dRdR_x)
 
             lam_x = -RdR_x / dRdR_x
             # Calculate new psi'_G = psi_G + lam pR_G + lam pR'_G
@@ -99,9 +107,9 @@ class RMM_DIIS(Eigensolver):
                 axpy(lam**2, dR_G, R_G)  # R_G += lam**2 * dR_G
                 
             self.timer.start('precondition')
-            kpt.psit_nG[n1:n2] += self.preconditioner(R_xG, kpt)
+            kpt.psit_nG[n1:n2] += self.preconditioner(R_xG, kpt, ekin_x)
             self.timer.stop('precondition')
             
         self.timer.stop('RMM-DIIS')
-        error = self.gd.comm.sum(error)
+        error = comm.sum(error)
         return error

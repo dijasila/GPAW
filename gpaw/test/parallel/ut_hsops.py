@@ -17,7 +17,7 @@ from gpaw.mpi import world, distribute_cpus
 from gpaw.utilities.tools import tri2full, md5_array, gram_schmidt
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.grid_descriptor import GridDescriptor
-from gpaw.blacs import BandLayouts
+from gpaw.kohnsham_layouts import BandLayouts
 from gpaw.hs_operators import MatrixOperator
 from gpaw.parameters import InputParameters
 from gpaw.xc import XC
@@ -60,13 +60,16 @@ class UTBandParallelSetup(TestCase):
     h = 1.0 / Bohr
     G = 20
 
+    # Wavefunction data type
+    dtype = None
+
     def setUp(self):
-        for virtvar in ['parstride_bands']:
+        for virtvar in ['dtype','parstride_bands']:
             assert getattr(self,virtvar) is not None, 'Virtual "%s"!' % virtvar
 
-        parsize, parsize_bands = create_parsize_maxbands(self.nbands, world.size)
-        assert self.nbands % np.prod(parsize_bands) == 0
-        domain_comm, kpt_comm, band_comm = distribute_cpus(parsize,
+        parsize_domain, parsize_bands = create_parsize_maxbands(self.nbands, world.size)
+        assert self.nbands % parsize_bands == 0
+        domain_comm, kpt_comm, band_comm = distribute_cpus(parsize_domain,
             parsize_bands, self.nspins, self.nibzkpts)
 
         # Set up band descriptor:
@@ -76,7 +79,7 @@ class UTBandParallelSetup(TestCase):
         res, ngpts = shapeopt(100, self.G**3, 3, 0.2)
         cell_c = self.h * np.array(ngpts)
         pbc_c = (True, False, True)
-        self.gd = GridDescriptor(ngpts, cell_c, pbc_c, domain_comm, parsize)
+        self.gd = GridDescriptor(ngpts, cell_c, pbc_c, domain_comm, parsize_domain)
 
         # Create Kohn-Sham layouts for these band and grid descriptors:
         self.ksl = self.create_kohn_sham_layouts()
@@ -88,7 +91,7 @@ class UTBandParallelSetup(TestCase):
         del self.bd, self.gd, self.ksl, self.kpt_comm
 
     def create_kohn_sham_layouts(self):
-        return BandLayouts(self.gd, self.bd)
+        return BandLayouts(self.gd, self.bd, self.dtype)
 
     # =================================
 
@@ -148,11 +151,12 @@ class UTBandParallelSetup(TestCase):
 class UTBandParallelSetup_Blocked(UTBandParallelSetup):
     __doc__ = UTBandParallelSetup.__doc__
     parstride_bands = False
+    dtype = float
 
 class UTBandParallelSetup_Strided(UTBandParallelSetup):
     __doc__ = UTBandParallelSetup.__doc__
     parstride_bands = True
-
+    dtype = float
 # -------------------------------------------------------------------
 
 def record_memory(wait=0.1):
@@ -177,13 +181,11 @@ class UTConstantWavefunctionSetup(UTBandParallelSetup):
     The pseudo wavefunctions are constants normalized to their band index."""
 
     allocated = False
-    dtype = None
     blocking = None
     async = None
-
+    
     def setUp(self):
         UTBandParallelSetup.setUp(self)
-
         for virtvar in ['dtype','blocking','async']:
             assert getattr(self,virtvar) is not None, 'Virtual "%s"!' % virtvar
 
@@ -206,7 +208,7 @@ class UTConstantWavefunctionSetup(UTBandParallelSetup):
         spos_ac = self.atoms.get_scaled_positions() % 1.0
         self.rank_a = self.gd.get_ranks_from_positions(spos_ac)
         self.pt = LFC(self.gd, [setup.pt_j for setup in self.setups],
-                      self.kpt_comm, dtype=self.dtype)
+                      dtype=self.dtype)
         self.pt.set_positions(spos_ac)
 
         if memstats:
@@ -414,17 +416,16 @@ class UTConstantWavefunctionSetup(UTBandParallelSetup):
     def get_optimal_number_of_blocks(self, blocking='fast'):
         """Estimate the optimal number of blocks for band parallelization.
 
-        The local number of bands ``mynbands`` must be divisible by the
-        number of blocks ``nblocks``. The number of blocks determines how
-        many parallel send/receive operations are performed, as well as
-        the added memory footprint of the required send/receive buffers.
+        The number of blocks determines how many parallel send/receive 
+        operations are performed, as well as the added memory footprint 
+        of the required send/receive buffers.
 
         ``blocking``  ``nblocks``      Description
         ============  =============    ========================================
         'fast'        ``1``            Heavy on memory, more accurate and fast.
         'light'       ``mynbands``     Light on memory, less accurate and slow.
-        'best'        ``...``          Algorithmically balanced middle ground.
-        ``int``       [1;mynbands]     Optional
+        'intdiv'      ``...``          First integer divisible value 
+        'nonintdiv'   ``...``          Some non-integer divisible cases
         """
 
         #if self.bd.comm.size == 1:
@@ -434,19 +435,35 @@ class UTConstantWavefunctionSetup(UTBandParallelSetup):
             return 1
         elif blocking == 'light':
             return self.bd.mynbands
-        elif blocking == 'best':
-            # Estimated number of my bands per block (mynbands/nblocks)
-            blocksize_bands = 5
-
-            # Find all divisors of mynbands and pick the closest match
-            js = np.array([j for j in range(1,self.bd.mynbands+1) \
-                           if self.bd.mynbands%j==0], dtype=int)
-            jselect = np.argmin(abs(blocksize_bands-self.bd.mynbands/js))
-            return js[jselect]
+        elif blocking == 'intdiv':
+            # Find first value of nblocks that leads to integer
+            # divisible mybands / nblock. This is very like to be 
+            # 2 but coded here for the general case
+            nblocks = 2
+            while self.bd.mynbands % nblocks != 0:
+                nblocks +=1
+            return nblocks
+        elif blocking == 'nonintdiv1':
+            # Find first value of nblocks that leads to non-integer
+            # divisible mynbands / nblock that is less than M
+            nblocks = 2
+            M = self.bd.mynbands // nblocks
+            while self.bd.mynbands % nblocks < M:
+                nblocks += 1
+                M = self.bd.mynbands // nblocks
+            return nblocks
+        elif blocking == 'nonintdiv2':
+            # Find first value of nblocks that leads to non-integer
+            # divisible mynbands / nblock that is less than M
+            nblocks = 2
+            M = self.bd.mynbands // nblocks
+            while self.bd.mynbands % nblocks > M:
+                nblocks += 1
+                M = self.mynbands // nblocks
+            return nblocks
         else:
             nblocks = blocking
-            assert nblocks in range(1,self.bd.mynbands+1)
-            assert self.bd.mynbands % nblocks == 0
+            assert self.bd.mynbands // nblocks > 0
             return nblocks
 
     # =================================
@@ -499,8 +516,7 @@ class UTConstantWavefunctionSetup(UTBandParallelSetup):
         S = lambda x: x
         dS = lambda a, P_ni: np.dot(P_ni, self.setups[a].dO_ii)
         nblocks = self.get_optimal_number_of_blocks(self.blocking)
-        overlap = MatrixOperator(self.bd, self.gd, self.ksl,
-                                 nblocks, self.async, True)
+        overlap = MatrixOperator(self.ksl, nblocks, self.async, True)
         S_nn = overlap.calculate_matrix_elements(self.psit_nG, \
             self.P_ani, S, dS).T.copy() # transpose to get <psit_m|A|psit_n>
         tri2full(S_nn, 'U') # upper to lower...
@@ -524,8 +540,7 @@ class UTConstantWavefunctionSetup(UTBandParallelSetup):
         S = lambda x: alpha*x
         dS = lambda a, P_ni: np.dot(alpha*P_ni, self.setups[a].dO_ii)
         nblocks = self.get_optimal_number_of_blocks(self.blocking)
-        overlap = MatrixOperator(self.bd, self.gd, self.ksl,
-                                 nblocks, self.async, False)
+        overlap = MatrixOperator(self.ksl, nblocks, self.async, False)
         S_nn = overlap.calculate_matrix_elements(self.psit_nG, \
             self.P_ani, S, dS).T.copy() # transpose to get <psit_m|A|psit_n>
 
@@ -554,8 +569,7 @@ class UTConstantWavefunctionSetup(UTBandParallelSetup):
         S = lambda x: x
         dS = lambda a, P_ni: np.dot(P_ni, self.setups[a].dO_ii)
         nblocks = self.get_optimal_number_of_blocks(self.blocking)
-        overlap = MatrixOperator(self.bd, self.gd, self.ksl,
-                                 nblocks, self.async, True)
+        overlap = MatrixOperator(self.ksl, nblocks, self.async, True)
         self.psit_nG = overlap.matrix_multiply(C_nn.T.copy(), self.psit_nG, self.P_ani)
         D_nn = overlap.calculate_matrix_elements(self.psit_nG, \
             self.P_ani, S, dS).T.copy() # transpose to get <psit_m|A|psit_n>
@@ -613,8 +627,7 @@ class UTConstantWavefunctionSetup(UTBandParallelSetup):
         S = lambda x: x
         dS = lambda a, P_ni: np.dot(P_ni, self.setups[a].dO_ii)
         nblocks = self.get_optimal_number_of_blocks(self.blocking)
-        overlap = MatrixOperator(self.bd, self.gd, self.ksl,
-                                 nblocks, self.async, True)
+        overlap = MatrixOperator(self.ksl, nblocks, self.async, True)
         self.psit_nG = overlap.matrix_multiply(C_nn.T.copy(), self.psit_nG, self.P_ani)
         D_nn = overlap.calculate_matrix_elements(self.psit_nG, \
             self.P_ani, S, dS).T.copy() # transpose to get <psit_m|A|psit_n>
@@ -648,8 +661,7 @@ class UTConstantWavefunctionSetup(UTBandParallelSetup):
         S = lambda x: x
         dS = lambda a, P_ni: np.dot(P_ni, self.setups[a].dO_ii)
         nblocks = self.get_optimal_number_of_blocks(self.blocking)
-        overlap = MatrixOperator(self.bd, self.gd, self.ksl,
-                                 nblocks, self.async, True)
+        overlap = MatrixOperator(self.ksl, nblocks, self.async, True)
         self.psit_nG = overlap.matrix_multiply(C_nn.T.copy(), self.psit_nG, self.P_ani)
         D_nn = overlap.calculate_matrix_elements(self.psit_nG, \
             self.P_ani, S, dS).T.copy() # transpose to get <psit_m|A|psit_n>
@@ -687,8 +699,7 @@ class UTConstantWavefunctionSetup(UTBandParallelSetup):
         S = lambda x: alpha*x
         dS = lambda a, P_ni: np.dot(alpha*P_ni, self.setups[a].dO_ii)
         nblocks = self.get_optimal_number_of_blocks(self.blocking)
-        overlap = MatrixOperator(self.bd, self.gd, self.ksl,
-                                 nblocks, self.async, False)
+        overlap = MatrixOperator(self.ksl, nblocks, self.async, False)
         self.psit_nG = overlap.matrix_multiply(C_nn.T.copy(), self.psit_nG, self.P_ani)
         D_nn = overlap.calculate_matrix_elements(self.psit_nG, \
             self.P_ani, S, dS).T.copy() # transpose to get <psit_m|A|psit_n>
@@ -712,7 +723,9 @@ def UTConstantWavefunctionFactory(dtype, parstride_bands, blocking, async):
     classname = 'UTConstantWavefunctionSetup' \
     + sep + {float:'Float', complex:'Complex'}[dtype] \
     + sep + {False:'Blocked', True:'Strided'}[parstride_bands] \
-    + sep + {'fast':'Fast', 'light':'Light', 'best':'Best'}[blocking] \
+    + sep + {'fast':'Fast', 'light':'Light', 
+             'intdiv':'Intdiv', 'nonintdiv1':'Nonintdiv1',
+             'nonintdiv2':'Nonintdiv2'}[blocking] \
     + sep + {False:'Synchronous', True:'Asynchronous'}[async]
     class MetaPrototype(UTConstantWavefunctionSetup, object):
         __doc__ = UTConstantWavefunctionSetup.__doc__
@@ -735,6 +748,7 @@ if __name__ in ['__main__', '__builtin__']:
         testrunner = TextTestRunner(stream=stream, verbosity=2)
 
     parinfo = []
+    # Initial Verification only tests case : dtype = float
     for test in [UTBandParallelSetup_Blocked, UTBandParallelSetup_Strided]:
         info = ['', test.__name__, test.__doc__.strip('\n'), '']
         testsuite = initialTestLoader.loadTestsFromTestCase(test)
@@ -748,7 +762,8 @@ if __name__ in ['__main__', '__builtin__']:
     testcases = []
     for dtype in [float, complex]:
         for parstride_bands in [False, True]:
-            for blocking in ['fast', 'best']: # 'light'
+            for blocking in ['fast', 'light', 'intdiv',   
+                             'nonintdiv1', 'nonintdiv2']: 
                 for async in [False, True]:
                     testcases.append(UTConstantWavefunctionFactory(dtype, \
                         parstride_bands, blocking, async))

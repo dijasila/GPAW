@@ -1,10 +1,3 @@
-#!/usr/bin/env python
-
-#PBS -m ae
-#PBS -q verylong
-#PBS -l nodes=2:ppn=8
-#!/usr/bin/env python
-
 from ase import Atom, Atoms
 from ase.optimize.bfgslinesearch import BFGSLineSearch
 from ase.io import read
@@ -54,8 +47,8 @@ CO_bond = CO.get_positions()[1][2] - CO.get_positions()[0][2]
 
 #Attach CO molecule onto the Au cluster
 pos=[]
-pos.append(cluster[34].get_position())
-pos.append(cluster[34].get_position())
+pos.append(cluster[34].position.copy())
+pos.append(cluster[34].position.copy())
 pos[0][2] += 1.8
 pos[1][2] += 1.8 + CO_bond
 CO = Atoms([Atom('C', pos[0]),

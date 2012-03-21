@@ -13,14 +13,14 @@ import numpy as np
 from gpaw.mpi import world, rank
 from gpaw.test import equal
 from gpaw.blacs import BlacsGrid, Redistributor, parallelprint
-from gpaw.utilities import scalapack
+from gpaw.utilities import compiled_with_sl
 from gpaw.utilities.blas import gemm, gemv, r2k, rk
-from gpaw.utilities.blacs import pblas_simple_gemm, pblas_simple_gemv, \
+from gpaw.utilities.scalapack import pblas_simple_gemm, pblas_simple_gemv, \
     pblas_simple_r2k, pblas_simple_rk
 
 import _gpaw
 
-tol = 3.0e-13 # may need to be be increased if the mprocs-by-nprocs \
+tol = 4.0e-13 # may need to be be increased if the mprocs-by-nprocs \
     # BLACS grid becomes larger
 
 def main(M=160, N=120, K=140, seed=42, mprocs=2, nprocs=2, dtype=float):
@@ -142,7 +142,7 @@ def main(M=160, N=120, K=140, seed=42, mprocs=2, nprocs=2, dtype=float):
     equal(rk_err,0, tol)
 
 if __name__ in ['__main__', '__builtin__']:
-    if not scalapack(True):
+    if not compiled_with_sl():
         print('Not built with ScaLAPACK. Test does not apply.')
     else:
         main(dtype=float)

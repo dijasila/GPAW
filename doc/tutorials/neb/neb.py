@@ -1,7 +1,7 @@
 from ase.io import read, PickleTrajectory
 from ase.constraints import FixAtoms
 from ase.neb import NEB
-from ase.optimize import QuasiNewton
+from ase.optimize import BFGS
 from ase.parallel import rank, size
 
 from gpaw import GPAW
@@ -19,7 +19,7 @@ images = [initial]
 
 for i in range(3):
 
-    ranks = np.arange(i * n, (i + 1) * n)
+    ranks = range(i * n, (i + 1) * n)
     image = initial.copy()
 
     if rank in ranks:
@@ -39,7 +39,7 @@ images.append(final)
 neb = NEB(images, parallel=True)
 neb.interpolate()
 
-qn = QuasiNewton(neb, logfile='qn.log')
+qn = BFGS(neb, logfile='qn.log')
 
 traj = PickleTrajectory('neb%d.traj' % j, 'w', images[j],
                         master=(rank % n == 0))

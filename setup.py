@@ -59,10 +59,15 @@ packages = ['gpaw',
             'gpaw.pes',
             'gpaw.response',
             'gpaw.sphere',
+            'gpaw.tasks',
             'gpaw.tddft',
             'gpaw.test',
             'gpaw.test.big',
+            'gpaw.test.cmrtest',
+            'gpaw.test.noncollinear',
             'gpaw.test.parallel',
+            'gpaw.test.fileio',
+            'gpaw.test.pw',
             'gpaw.test.vdw',
             'gpaw.testing',
             'gpaw.transport',
@@ -110,9 +115,10 @@ mpilinker = mpicompiler
 compiler = None
 
 scalapack = False
-#User provided customizations
-if os.path.isfile(customize):
-    execfile(customize)
+hdf5 = False
+
+# User provided customizations:
+execfile(customize)
 
 if platform_id != '':
     my_platform = distutils.util.get_platform() + '-' + platform_id
@@ -175,8 +181,7 @@ sources2remove = ['c/libxc/src/test.c',
                   'c/libxc/src/work_gga_x.c',
                   'c/libxc/src/work_lda.c'
                   ]
-sources2remove.append('c/scalapack.c')
-sources2remove.append('c/sl_inverse_cholesky.c')
+
 for s2r in glob('c/libxc/src/funcs_*.c'): sources2remove.append(s2r)
 for s2r in sources2remove:
     if s2r in sources: sources.remove(s2r)
@@ -194,6 +199,26 @@ extension = Extension('_gpaw',
                       extra_compile_args=extra_compile_args,
                       runtime_library_dirs=runtime_library_dirs,
                       extra_objects=extra_objects)
+
+extensions = [extension,]
+
+if hdf5:
+    hdf5_sources = ['c/hdf5.c']
+    get_hdf5_config(define_macros)
+    msg.append('* Compiling with HDF5')
+
+    hdf5_extension = Extension('_hdf5',
+                               hdf5_sources,
+                               libraries=libraries,
+                               library_dirs=library_dirs,
+                               include_dirs=include_dirs,
+                               define_macros=define_macros,
+                               undef_macros=undef_macros,
+                               extra_link_args=extra_link_args,
+                               extra_compile_args=extra_compile_args,
+                               runtime_library_dirs=runtime_library_dirs,
+                               extra_objects=extra_objects)
+    extensions.append(hdf5_extension)
 
 scripts = [join('tools', script)
            for script in ('gpaw', 'gpaw-test', 'gpaw-setup', 'gpaw-basis',
@@ -214,7 +239,7 @@ setup(name = 'gpaw',
       license='GPLv3+',
       platforms=['unix'],
       packages=packages,
-      ext_modules=[extension],
+      ext_modules=extensions,
       scripts=scripts,
       long_description=long_description,
       )

@@ -16,14 +16,10 @@ from gpaw import extra_parameters
 from gpaw.utilities.lapack import diagonalize
 
 class Overlap:
-    """Overlap operator class.
+    """Overlap operator S
 
-    Attributes
-    ==========
-
-    dtype: type object
-        Numerical type of operator (float/complex)
-
+    This class contains information required to apply the
+    overlap operator to a set of wavefunctions.
     """
 
     def __init__(self, ksl, timer):
@@ -62,7 +58,9 @@ class Overlap:
         self.timer.start('Orthonormalize')
         psit_nG = kpt.psit_nG
         P_ani = kpt.P_ani
+        self.timer.start('projections')
         wfs.pt.integrate(psit_nG, P_ani, kpt.q)
+        self.timer.stop('projections')
 
         # Construct the overlap matrix:
         operator = wfs.matrixoperator
@@ -73,10 +71,9 @@ class Overlap:
         def dS(a, P_ni):
             return np.dot(P_ni, wfs.setups[a].dO_ii)
 
-        self.timer.start('calc_matrix')
-
+        self.timer.start('calc_s_matrix')
         S_nn = operator.calculate_matrix_elements(psit_nG, P_ani, S, dS)
-        self.timer.stop('calc_matrix')
+        self.timer.stop('calc_s_matrix')
 
         orthonormalization_string = repr(self.ksl)
         self.timer.start(orthonormalization_string)

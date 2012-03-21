@@ -12,11 +12,92 @@ from gpaw.spline import Spline
 from gpaw.atom.all_electron import AllElectron, ConvergenceError
 from gpaw.atom.generator import Generator
 from gpaw.atom.configurations import parameters
+from gpaw.atom.radialgd import AERadialGridDescriptor
 #from gpaw.atom.polarization import PolarizationOrbitalGenerator, Reference,\
 #     QuasiGaussian, default_rchar_rel, rchar_rels
 from gpaw.utilities import devnull, divrl
 from gpaw.basis_data import Basis, BasisFunction, parse_basis_name
 from gpaw.version import version
+
+def get_basis_l(f_j,l_j,Nv):
+    N = 0
+    lvalues = []
+    j_l = [] 
+    Nl_j = len(l_j)
+    while N < Nv:
+        Nl_j -= 1
+        if f_j[Nl_j] > 0:
+            lvalues.append(l_j[Nl_j])
+            N += f_j[Nl_j]
+            j_l.append(Nl_j)
+    assert N == Nv
+
+    if min(lvalues) != 0: # Always include s-orbital !
+        lvalues = lvalues + [0]
+        reversed_l_j = list(l_j)
+        reversed_l_j.reverse()
+        j = len(reversed_l_j) - reversed_l_j.index(0) - 1
+        j_l.append(j)
+
+    return [j_l, lvalues]
+
+
+
+def get_gaussianlike_basis_function(rgd, l, rchar, gcut):
+    rcut = rgd.r_g[gcut]
+    gaussian = QuasiGaussian(1.0 / rchar**2, rcut)
+    r_g = rgd.r_g[:gcut + 1]
+    phit_g = gaussian(r_g) * r_g**l
+    phit_g[-1] = 0.0
+    norm = np.dot(rgd.dr_g[:gcut + 1], (r_g * phit_g)**2)**0.5
+    phit_g /= norm
+    norm2 = np.dot(rgd.dr_g[:gcut + 1], (r_g * phit_g)**2)**0.5
+    assert abs(1.0 - norm2) < 1e-10
+    return phit_g
+
+
+def make_split_valence_basis_function(r_g, psi_g, l, gcut):
+    """Get polynomial which joins psi smoothly at rcut.
+
+    Returns an array of function values f(r) * r, where::
+
+              l           2
+      f(r) = r  * (a - b r ),  r < rcut
+      f(r) = psi(r),           r >= rcut
+
+    where a and b are determined such that f(r) is continuous and
+    differentiable at rcut.  The parameter psi should be an atomic
+    orbital.
+    """
+    r1 = r_g[gcut] # ensure that rcut is moved to a grid point
+    r2 = r_g[gcut + 1]
+    y1 = psi_g[gcut] / r_g[gcut]
+    y2 = psi_g[gcut + 1] / r_g[gcut + 1]
+    b = - (y2 / r2**l - y1 / r1**l)/(r2**2 - r1**2)
+    a = (y1 / r1**l + b * r1**2)
+    psi_g2 = r_g**(l + 1) * (a - b * r_g**2)
+    psi_g2[gcut:] = psi_g[gcut:]
+    return psi_g2
+
+
+def rsplit_by_norm(rgd, l, u, tailnorm_squared, txt):
+    """Find radius outside which remaining tail has a particular norm."""
+    norm_squared = np.dot(rgd.dr_g, u * u)
+    partial_norm_squared = 0.
+    i = len(u) - 1
+    absolute_tailnorm_squared = tailnorm_squared * norm_squared
+    while partial_norm_squared < absolute_tailnorm_squared:
+        # Integrate backwards.  This is important since the pseudo
+        # wave functions have strange behaviour near the core.
+        partial_norm_squared += rgd.dr_g[i] * u[i]**2
+        i -= 1
+    rsplit = rgd.r_g[i + 1]
+    msg = ('Tail norm %.03f :: rsplit=%.02f Bohr' %
+           ((partial_norm_squared / norm_squared)**0.5, rsplit))
+    print >> txt, msg
+    gsplit = rgd.floor(rsplit)
+    splitwave = make_split_valence_basis_function(rgd.r_g, u, l, gsplit)
+    return rsplit, partial_norm_squared, splitwave
 
 
 class BasisMaker:
@@ -29,6 +110,9 @@ class BasisMaker:
                                   nofiles=True)
             generator.N *= 4
         self.generator = generator
+        self.rgd = AERadialGridDescriptor(generator.beta / generator.N,
+                                          1.0 / generator.N, generator.N,
+                                          default_spline_points=100)
         self.name = name
         if run:
             if non_relativistic_guess:
@@ -95,107 +179,6 @@ class BasisMaker:
         psit_mg = psi_mg * w_g + np.dot(Qt_nm.T, s_ng - u_ng * w_g)
         return psit_mg
 
-    def get_unsmoothed_projector_coefficients(self, psi_jg, l):
-        """Calculates scalar products of psi with non-smoothed projectors.
-
-        Returns a matrix with (i,j)'th element equal to::
-
-            < p  | psi  > ,
-               i      j
-
-        where the argument psi is the coefficient matrix for a system of
-        vectors, and where p_i are determined by::
-
-                            -----
-               ~             \      ~
-             < p  | psi  > =  )   < p  | phi  > < p  | psi  > ,
-                i      j     /       i      k      k      j
-                            -----
-                              k
-
-        where p_i-tilde are the projectors and phi_k the AE partial waves.
-        """
-        raise DeprecationWarning
-        if np.rank(psi_jg) == 1:
-            # vector/matrix polymorphism hack
-            return self.get_unsmoothed_projector_coefficients([psi_jg], l)[0]
-
-        g = self.generator
-        u = g.u_ln[l]
-        q = g.q_ln[l]
-
-        m = len(q)
-        n = len(u)
-
-        A = np.zeros((m, n))
-        b = np.zeros((m, len(psi_jg)))
-
-        # This can probably be done in the constructor once and for all
-        # Not to mention that it can be replaced by a matrix multiplication
-        for i in range(m):
-            for j in range(n):
-                A[i, j] = np.dot(g.dr, q[i] * u[j])
-
-        for i in range(m):
-            for j in range(len(psi_jg)):
-                b[i, j] = np.dot(g.dr, q[i] * psi_jg[j])
-
-        p = solve(A, b)
-        return p
-
-    def unsmoothify(self, psit_jg, l):
-        """Given smooth functions psit, return non-smooth ones.
-        
-        Converts each column of psit, interpreted as a pseudo wave
-        function, to original wave functions using the formula::
-
-                                  -----
-                          ~        \    /             ~    \    ~     ~
-            | psi  > = | psi  > +   )  ( | phi > - | phi  > ) < p  | psi  >
-                 i          i      /    \     j         j  /     j      i
-                                  -----
-                                    j
-        """
-        raise DeprecationWarning
-        if np.rank(psit_jg) == 1:
-            # vector/matrix polymorphism hack
-            return self.unsmoothify([psit_jg], l)[0]
-        g = self.generator
-        (q, u, s) = (g.q_ln[l], g.u_ln[l], g.s_ln[l])
-        
-        psi_jg = [psit_jg[j] + sum([(u[i] - s[i]) * q[i, j]
-                                    for i in range(len(s))])
-               for j in range(len(psit_jg))]
-        return psi_jg
-
-    def old_smoothify(self, psi_jg, l):
-        """Given non-smooth functions psi, return smooth ones.
-        
-        Converts each column of psi, interpreted as an all-electron
-        wave function, to pseudo wave functions using the formula::
-
-                                  -----
-               ~                   \    /   ~              \           
-            | psi  > = | psi  > +   )  ( | phi > - | phi  > ) < p  | psi  >
-                 i          i      /    \     j         j  /     j      i
-                                  -----
-                                    j
-
-        """
-        raise DeprecationWarning
-        if np.rank(psi_jg) == 1:
-            # vector/matrix polymorphism hack
-            return self.old_smoothify([psi_jg], l)[0]
-        
-        p = self.get_unsmoothed_projector_coefficients(psi_jg, l)
-        g = self.generator
-        (q, u, s) = (g.q_ln[l], g.u_ln[l], g.s_ln[l])
-        
-        psit_jg = [psi_jg[j] + sum([(s[i] - u[i]) * p[i, j]
-                                    for i in range(len(s))])
-                for j in range(len(psi_jg))]
-        return psit_jg
-
     def make_orbital_vector(self, j, rcut, vconf=None):
         """Returns a smooth basis vector given an all-electron one."""
         l = self.generator.l_j[j]
@@ -203,30 +186,9 @@ class BasisMaker:
         psit_g = self.smoothify(psi_g, l)
         return psit_g
 
-    def make_split_valence_vector(self, psi_g, l, rcut):
-        """Get polynomial which joins psi smoothly at rcut.
-
-        Returns an array of function values f(r) * r, where::
-        
-                  l           2
-          f(r) = r  * (a - b r ),  r < rcut
-          f(r) = psi(r),           r >= rcut
-
-        where a and b are determined such that f(r) is continuous and
-        differentiable at rcut.  The parameter psi should be an atomic
-        orbital.
-        """
-        g = self.generator
-        icut = g.r2g(rcut)
-        r1 = g.r[icut] # ensure that rcut is moved to a grid point
-        r2 = g.r[icut + 1]
-        y1 = psi_g[icut] / g.r[icut]
-        y2 = psi_g[icut + 1] / g.r[icut + 1]
-        b = - (y2 / r2**l - y1 / r1**l)/(r2**2 - r1**2)
-        a = (y1 / r1**l + b * r1**2)
-        psi_g2 = g.r**(l + 1) * (a - b * g.r**2)
-        psi_g2[icut:] = psi_g[icut:]
-        return psi_g2
+    #def make_split_valence_basis_function(self, psi_g, l, rcut):
+    #    gcut = self.generator.r2g(rcut)
+    #    return make_split_valence_basis_function(psi_g, l, gcut)
 
     def make_polarization_function(self, rcut, l, referencefile=None, 
                                    index=None, ngaussians=None, txt=devnull):
@@ -269,14 +231,6 @@ class BasisMaker:
         psi = r**l * y(r)
         return psi * r # Recall that wave functions are represented as psi*r
 
-    def make_mock_vector(self, rcut, l):
-        """Return orbital-like polynomial."""
-        r = self.generator.r
-        x = r / rcut
-        y = (1 - 3 * x**2 + 2 * x**3) * x**l
-        icut = self.generator.r2g(rcut)
-        y[icut:] *= 0
-        return y * r # Recall that wave functions are represented as psi*r
 
     def rcut_by_energy(self, j, esplit=.1, tolerance=.1, rguess=6.,
                        vconf_args=None):
@@ -326,24 +280,6 @@ class BasisMaker:
         #print 'Done!'
         return psi_g, e, de, vconf, rc
 
-    def rsplit_by_norm(self, l, u, tailnorm_squared, txt):
-        """Find radius outside which remaining tail has a particular norm."""
-        g = self.generator
-        norm_squared = np.dot(g.dr, u*u)
-        partial_norm_squared = 0.
-        i = len(u) - 1
-        absolute_tailnorm_squared = tailnorm_squared * norm_squared
-        while partial_norm_squared < absolute_tailnorm_squared:
-            # Integrate backwards.  This is important since the pseudo
-            # wave functions have strange behaviour near the core.
-            partial_norm_squared += g.dr[i] * u[i]**2
-            i -= 1
-        rsplit = g.r[i+1]
-        msg = ('Tail norm %.03f :: rsplit=%.02f Bohr' %
-               ((partial_norm_squared / norm_squared)**.5, rsplit))
-        print >> txt, msg
-        splitwave = self.make_split_valence_vector(u, l, rsplit)
-        return rsplit, partial_norm_squared, splitwave
 
     def generate(self, zetacount=2, polarizationcount=1,
                  tailnorm=(0.16, 0.3, 0.6), energysplit=0.1, tolerance=1.0e-3,
@@ -352,7 +288,10 @@ class BasisMaker:
                  rcharpol_rel=None,
                  vconf_args=(12.0, 0.6), txt='-',
                  include_energy_derivatives=False,
-                 lvalues=None):
+                 #lvalues=None, # XXX clean up some of these!
+                 jvalues=None,
+                 l_pol=None
+                 ):
         """Generate an entire basis set.
 
         This is a high-level method which will return a basis set
@@ -402,45 +341,38 @@ class BasisMaker:
             amplitude, ri_rel = vconf_args
 
         g = self.generator
+        rgd = self.rgd
 
-        # Find out all relevant orbitals
-        # We'll probably need: s, p and d.
-        # The orbitals we want are stored in u_j.
-        # Thus we must find the j corresponding to the highest energy of
-        # each orbital-type.
-        #
-        # However not all orbitals in l_j are actually occupied, so we
-        # will check the occupations in the generator object's lists
-        #
-        # ASSUMPTION: The last index of a given value in l_j corresponds
-        # exactly to the orbital we want, except those which are not occupied
-        #
-        # Get (only) one occupied valence state for each l
-        # Not including polarization in this list
-        if lvalues is None:
-            lvalues = np.unique([l for l, f in zip(g.l_j[g.njcore:], 
-                                                    g.f_j[g.njcore:])
-                                  if f > 0])
-            if lvalues[0] != 0: # Always include s-orbital !
-                lvalues = np.array([0] + list(lvalues))
+        njcore = g.njcore
+        n_j = g.n_j[njcore:]
+        l_j = g.l_j[njcore:]
+        f_j = g.f_j[njcore:]
 
-        #print energysplit
-        if isinstance(energysplit,float):
-            energysplit=[energysplit]*(max(lvalues)+1)
-            #print energysplit,'~~~~~~~~'
+        if jvalues is None:
+            jvalues = []
+            sortkeys = []
+            for j in range(len(n_j)):
+                if f_j[j] == 0 and l_j[j] != 0:
+                    continue
+                jvalues.append(j)
+                sortkeys.append(l_j[j])
             
-            
+            # Now order jvalues by l
+            #
+            # Use a stable sort so the energy ordering within each
+            # angular momentum is guaranteed to be preserved
+            args = np.argsort(sortkeys, kind='mergesort')
+            jvalues = np.array(jvalues)[args]
+
+        fulljvalues = [njcore + j for j in jvalues]
+        
+        if isinstance(energysplit, float):
+            energysplit = [energysplit] * len(jvalues)
+        
         title = '%s Basis functions for %s' % (g.xcname, g.symbol)
         print >> txt, title
         print >> txt, '=' * len(title)
         
-        j_l = {} # index j by l rather than the other way around
-        reversed_l_j = list(g.l_j)
-        reversed_l_j.reverse() # the values we want are stored last
-        for l in lvalues:
-            j = len(reversed_l_j) - reversed_l_j.index(l) - 1
-            j_l[l] = j
-
         singlezetas = []
         energy_derivative_functions = []
         multizetas = [[] for i in range(zetacount - 1)]
@@ -449,10 +381,11 @@ class BasisMaker:
         splitvalencedescr = 'split-valence wave, fixed tail norm'
         derivativedescr = 'derivative of sz wrt. (ri/rc) of potential'
 
-        for l in lvalues:
-            # Get one unmodified pseudo-orbital basis vector for each l
-            j = j_l[l]
-            n = g.n_j[j]
+
+        for vj, fullj, esplit in zip(jvalues, fulljvalues, energysplit):
+            l = l_j[vj]
+            n = n_j[vj]
+            assert n > 0
             orbitaltype = str(n) + 'spdf'[l]
             msg = 'Basis functions for l=%d, n=%d' % (l, n)
             print >> txt
@@ -464,7 +397,7 @@ class BasisMaker:
                 adverb = 'softly'
             print >> txt, 'Zeta 1: %s confined pseudo wave,' % adverb,
 
-            u, e, de, vconf, rc = self.rcut_by_energy(j, energysplit[l],
+            u, e, de, vconf, rc = self.rcut_by_energy(fullj, esplit,
                                                       tolerance,
                                                       vconf_args=vconf_args)
             if rc > rcutmax:
@@ -472,7 +405,7 @@ class BasisMaker:
                 if vconf is not None:
                     vconf = g.get_confinement_potential(amplitude, ri_rel * rc,
                                                         rc)
-                u, e = g.solve_confined(j, rc, vconf)
+                u, e = g.solve_confined(fullj, rc, vconf)
                 print >> txt, 'using maximum cutoff'
                 print >> txt, 'rc=%.02f Bohr' % rc
             else:
@@ -497,11 +430,11 @@ class BasisMaker:
                 print >> txt, '\nZeta %d: %s' % (zeta, derivativedescr)
                 vconf2 = g.get_confinement_potential(amplitude,
                                                      ri_rel * rc * .99, rc)
-                u2, e2 = g.solve_confined(j, rc, vconf2)
+                u2, e2 = g.solve_confined(fullj, rc, vconf2)
                 
                 phit2_g = self.smoothify(u2, l)
                 dphit_g = phit2_g - phit_g
-                dphit_norm = np.dot(g.dr, dphit_g * dphit_g) ** .5
+                dphit_norm = np.dot(rgd.dr_g, dphit_g * dphit_g) ** .5
                 dphit_g /= dphit_norm
                 descr = '%s-dz E-derivative of sz' % orbitaltype
                 bf = BasisFunction(l, rc, dphit_g, descr)
@@ -513,26 +446,40 @@ class BasisMaker:
                 # of the first function impact the tail norm scheme?
                 # Presumably not much, since most interesting stuff happens
                 # close to the core.
-                rsplit, norm, splitwave = self.rsplit_by_norm(l, phit_g,
-                                                              tailnorm[i]**2.0,
-                                                              txt)
+                rsplit, norm, splitwave = rsplit_by_norm(rgd, l, phit_g,
+                                                         tailnorm[i]**2.0,
+                                                         txt)
                 descr = '%s-%sz split-valence wave' % (orbitaltype,
                                                        '0sdtq56789'[zeta])
                 bf = BasisFunction(l, rsplit, phit_g - splitwave, descr)
                 multizetas[i].append(bf)
             
-        if polarizationcount > 0:
-            # Now make up some properties for the polarization orbital
-            # We just use the cutoffs from the previous one times a factor
-            rcut = max([bf.rc for bf in singlezetas]) * rcutpol_rel
-            rcut = min(rcut, rcutmax)
-            # Find 'missing' values in lvalues
-            for i, l in enumerate(lvalues):
-                if i != l:
-                    l_pol = i
+        if polarizationcount > 0 or l_pol is not None:
+            if l_pol is None:
+                # Now make up some properties for the polarization orbital
+                # We just use the cutoffs from the previous one times a factor
+                # Find 'missing' values in lvalues
+                lvalues = [l_j[vj] for vj in jvalues]
+                for i in range(max(lvalues) + 1):
+                    if list(lvalues).count(i) == 0:
+                        l_pol = i
+                        break
+                else:
+                        l_pol = max(lvalues) + 1
+
+            # Find the last state with l=l_pol - 1, which will be the state we
+            # base the polarization function on
+            for vj, fullj, bf in zip(jvalues[::-1], fulljvalues[::-1],
+                              singlezetas[::-1]):
+                if bf.l == l_pol - 1:
+                    vj_pol = vj # index of the state *which* we polarize
+                    fullj_pol = fullj
+                    rcut = bf.rc * rcutpol_rel
                     break
             else:
-                l_pol = lvalues[-1] + 1
+                raise ValueError('The requested value l_pol=%d requires l=%d '
+                                 'among valence states' % (l_pol, l_pol - 1))
+            rcut = min(rcut, rcutmax)
             msg = 'Polarization function: l=%d, rc=%.02f' % (l_pol, rcut)
             print >> txt, '\n' + msg
             print >> txt, '-' * len(msg)
@@ -549,8 +496,8 @@ class BasisMaker:
             # these value for other energies, we just find the energy
             # shift at .3 eV now
 
-            j = max(j_l.values())
-            u, e, de, vconf, rc_fixed = self.rcut_by_energy(j, .3, 1e-2,
+            u, e, de, vconf, rc_fixed = self.rcut_by_energy(fullj_pol,
+                                                            .3, 1e-2,
                                                             6., (12., .6))
 
             default_rchar_rel = .25
@@ -561,20 +508,13 @@ class BasisMaker:
                 rcharpol_rel = rchar_rels.get(l_pol, default_rchar_rel)
             rchar = rcharpol_rel * rc_fixed
             gaussian = QuasiGaussian(1./rchar**2, rcut)
-            psi_pol = gaussian(g.r) * g.r**(l_pol + 1)
-            norm = np.dot(g.dr, psi_pol * psi_pol) ** .5
+            psi_pol = gaussian(rgd.r_g) * rgd.r_g**(l_pol + 1)
+            norm = np.dot(rgd.dr_g, psi_pol * psi_pol) ** .5
             psi_pol /= norm
             print >> txt, 'Single quasi Gaussian'
             msg = 'Rchar = %.03f*rcut = %.03f Bohr' % (rcharpol_rel, rchar)
             adjective = 'Gaussian'
             print >> txt, msg
-            #else:
-            #    psi_pol = self.make_polarization_function(rcut, l_pol,
-            #                                              referencefile,
-            #                                              referenceindex,
-            #                                              ngaussians, txt)
-            #    adjective = 'interpolated'
-
             type = '%s-type %s polarization' % ('spdfg'[l_pol], adjective)
             bf_pol = BasisFunction(l_pol, rcut, psi_pol, type)
                                    
@@ -585,9 +525,9 @@ class BasisMaker:
                                      'Quintary', 'Sextary', 'Septenary'][i],
                                     splitvalencedescr)
                 print >> txt, msg
-                rsplit, norm, splitwave = self.rsplit_by_norm(l_pol, psi_pol,
-                                                              tailnorm[i],
-                                                              txt)
+                rsplit, norm, splitwave = rsplit_by_norm(rgd, l_pol, psi_pol,
+                                                         tailnorm[i],
+                                                         txt)
                 descr = ('%s-type split-valence polarization %d'
                          % ('spdfg'[l_pol], npol))
                 bf_pol = BasisFunction(l_pol, rsplit, psi_pol - splitwave,
@@ -610,7 +550,7 @@ class BasisMaker:
 
         for bf in bf_j:
             # We have been storing phit_g * r, but we just want phit_g
-            bf.phit_g = divrl(bf.phit_g, 1, g.r)
+            bf.phit_g = divrl(bf.phit_g, 1, rgd.r_g)
             
             gcut = min(int(1 + bf.rc / d), ng - 1)
             
@@ -624,11 +564,10 @@ class BasisMaker:
             # not here
             
             # Quick hack to change to equidistant coordinates
-            spline = Spline(bf.l, g.r[g.r2g(bf.rc)],
-                            bf.phit_g,
-                            g.r, beta=g.beta, points=100)
+            spline = rgd.spline(bf.phit_g, rgd.r_g[rgd.floor(bf.rc)], bf.l, 
+                                points=100)
             bf.phit_g = np.array([spline(r) * r**bf.l
-                                   for r in equidistant_grid[:bf.ng]])
+                                  for r in equidistant_grid[:bf.ng]])
             bf.phit_g[-1] = 0.
 
         basis = Basis(g.symbol, self.name, False)
@@ -636,7 +575,7 @@ class BasisMaker:
         basis.d = d
         basis.bf_j = bf_j
         basis.generatordata = textbuffer.getvalue().strip()
-        basis.generatorattrs = {'version' : version}
+        basis.generatorattrs = {'version': version}
         textbuffer.close()
 
         return basis

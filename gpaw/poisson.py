@@ -7,6 +7,8 @@ import sys
 import numpy as np
 from numpy.fft import fftn, ifftn, fft2, ifft2
 
+from ase.parallel import parprint
+
 from gpaw.transformers import Transformer
 from gpaw.fd_operators import Laplace, LaplaceA, LaplaceB
 from gpaw import PoissonConvergenceError
@@ -30,11 +32,16 @@ class PoissonSolver:
         if relax == 'GS':
             # Gauss-Seidel
             self.relax_method = 1
+            self.description = 'Gauss-Seidel'
         elif relax == 'J':
             # Jacobi
             self.relax_method = 2
+            self.description = 'Jacobi'
         else:
             raise NotImplementedError('Relaxation method %s' % relax)
+        
+    def get_stencil(self):
+        return self.nn
 
     def set_grid_descriptor(self, gd):
         # Should probably be renamed initialize
@@ -49,10 +56,10 @@ class PoissonSolver:
                 raise RuntimeError('Cannot use Mehrstellen stencil with '
                                    'non orthogonal cell.')
 
-            self.operators = [LaplaceA(gd, -scale, allocate=False)]
-            self.B = LaplaceB(gd, allocate=False)
+            self.operators = [LaplaceA(gd, -scale)]
+            self.B = LaplaceB(gd)
         else:
-            self.operators = [Laplace(gd, scale, self.nn, allocate=False)]
+            self.operators = [Laplace(gd, scale, self.nn)]
             self.B = None
 
         self.interpolators = []
@@ -71,9 +78,9 @@ class PoissonSolver:
                 gd2 = gd.coarsen()
             except ValueError:
                 break
-            self.operators.append(Laplace(gd2, scale, 1, allocate=False))
-            self.interpolators.append(Transformer(gd2, gd, allocate=False))
-            self.restrictors.append(Transformer(gd, gd2, allocate=False))
+            self.operators.append(Laplace(gd2, scale, 1))
+            self.interpolators.append(Transformer(gd2, gd))
+            self.restrictors.append(Transformer(gd, gd2))
             self.presmooths.append(4)
             self.postsmooths.append(4)
             self.weights.append(1.0)
@@ -81,6 +88,9 @@ class PoissonSolver:
             gd = gd2
 
         self.levels = level
+
+        self.description += ' solver with %d multi-grid levels' % (level + 1)
+        self.description += '\nStencil: ' + self.operators[0].description
 
     def initialize(self, load_gauss=False):
         # Should probably be renamed allocate
@@ -98,10 +108,6 @@ class PoissonSolver:
         level += 1
         assert level == self.levels
 
-        for obj in self.operators + self.interpolators + self.restrictors:
-            obj.allocate()
-        if self.B is not None:
-            self.B.allocate()
         self.step = 0.66666666 / self.operators[0].get_diagonal_element()
         self.presmooths[level] = 8
         self.postsmooths[level] = 8
@@ -135,14 +141,14 @@ class PoissonSolver:
             # System is charged and periodic. Subtract a homogeneous
             # background charge
             if self.charged_periodic_correction is None:
-                print "+-----------------------------------------------------+"
-                print "| Calculating charged periodic correction using the   |"
-                print "| Ewald potential from a lattice of probe charges in  |"
-                print "| a homogenous background density                     |"
-                print "+-----------------------------------------------------+"
+                parprint("""+-----------------------------------------------------+
+| Calculating charged periodic correction using the   |
+| Ewald potential from a lattice of probe charges in  |
+| a homogenous background density                     |
++-----------------------------------------------------+""")
                 self.charged_periodic_correction = madelung(self.gd.cell_cv)
-                print "Potential shift will be ", \
-                      self.charged_periodic_correction , "Ha."
+                parprint("Potential shift will be ",
+                         self.charged_periodic_correction , "Ha.")
 
             # Set initial guess for potential
             if zero_initial_phi:
@@ -281,17 +287,6 @@ class PoissonSolver:
             gdbytes //= 8
         mem.subnode('rho, phi, residual [%d levels]' % self.levels, nbytes)
 
-        for i, obj in enumerate(self.restrictors + self.interpolators):
-            obj.estimate_memory(mem.subnode('Transformer %d' % i))
-
-        for i, operator in enumerate(self.operators):
-            name = operator.__class__.__name__
-            operator.estimate_memory(mem.subnode('Operator %d [%s]' % (i,
-                                                                       name)))
-        if self.B is not None:
-            name = self.B.__class__.__name__
-            self.B.estimate_memory(mem.subnode('B [%s]' % name))
-
     def __repr__(self):
         template = 'PoissonSolver(relax=\'%s\', nn=%s, eps=%e)'
         representation = template % (self.relax, repr(self.nn), self.eps)
@@ -300,6 +295,8 @@ class PoissonSolver:
 
 class PoissonFFTSolver(PoissonSolver):
     """FFT implementation of the Poisson solver."""
+
+    description = 'FFT solver of the first kind'
 
     def __init__(self):
         self.charged_periodic_correction = None
@@ -330,6 +327,7 @@ class FFTPoissonSolver(PoissonSolver):
 
     relax_method = 0
     nn = 999
+    description = 'FFT solver of the second kind'
 
     def __init__(self, eps=2e-10):
         self.charged_periodic_correction = None

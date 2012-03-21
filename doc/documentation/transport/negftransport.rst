@@ -147,12 +147,24 @@ Calculate transmission using hamiltonian from normal DFT
 Get an iv curve using NEGF:
 
 .. literalinclude:: transport.py
+
+A spin transport example (anti-parallel junction):
+
+.. literalinclude:: spin_transport.py
  
 Optimize a system under bias voltage:
 
 .. literalinclude:: transport_optimize.py
 
- 
+Do a multi_terminal calculation:
+
+.. literalinclude:: transport_multi_terminal.py
+
+Calculate transmission and DOS based on separate DFT results for electrodes and scattering region(for example
+one may want to carry out a PBE+U calculation for the scattering region):
+
+.. literalinclude:: transport_from_dft.py
+
 Analysis:
 
 >>> from gpaw.transport.analysor import Transport_Plotter
@@ -280,6 +292,8 @@ Principle Layer Cells
 
 ``pl_cells`` is a list of leads' cells, also has the same length
 with the leads number. [[10., 10., 30], [10., 10., 30.]] for example.
+For two-probe system, the lead cell should have the same size with that of 
+scattering region in x, y directions.
 
 .. _manual_pl_kpts:
 
@@ -320,7 +334,7 @@ Fixed Boundary Condition
 ``fixed_boundary`` is a bool option. If set True, we solve the
 Poisson equation for the scattering region with fixed boundary
 condition. It workes when ``pbc`` in the transport direction
-for the scattering region is False and ``poissonsolver=PoissonSolver(nn=X)``. 
+for the scattering region is True and ``poissonsolver=PoissonSolver(nn=X)``. 
 If set False, Transport object will deal with a 
 regular gpaw option which depends on ``pbc``.
 

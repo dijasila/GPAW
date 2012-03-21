@@ -10,6 +10,7 @@ from gpaw.fd_operators import Laplace
 
 from gpaw.utilities.blas import axpy
 
+
 class Preconditioner:
     def __init__(self, gd0, kin0, dtype=float, block=1):
         gd1 = gd0.coarsen()
@@ -22,26 +23,19 @@ class Preconditioner:
         self.scratch2 = gd2.zeros((3, block), dtype, False)
         self.step = 0.66666666 / kin0.get_diagonal_element()
 
-        self.restrictor_object0 = Transformer(gd0, gd1, 1,dtype, False)
-        self.restrictor_object1 = Transformer(gd1, gd2, 1, dtype, False)
-        self.interpolator_object2 = Transformer(gd2, gd1, 1, dtype, False)
-        self.interpolator_object1 = Transformer(gd1, gd0, 1, dtype, False)
+        self.restrictor_object0 = Transformer(gd0, gd1, 1,dtype)
+        self.restrictor_object1 = Transformer(gd1, gd2, 1, dtype)
+        self.interpolator_object2 = Transformer(gd2, gd1, 1, dtype)
+        self.interpolator_object1 = Transformer(gd1, gd0, 1, dtype)
         self.restrictor0 = self.restrictor_object0.apply
         self.restrictor1 = self.restrictor_object1.apply
         self.interpolator2 = self.interpolator_object2.apply
         self.interpolator1 = self.interpolator_object1.apply
-        self.allocated = False
 
-    def allocate(self):
-        assert not self.allocated
-        for transformer in [self.restrictor_object0,
-                            self.restrictor_object1,
-                            self.interpolator_object2,
-                            self.interpolator_object1]:
-            transformer.allocate()
-        self.allocated = True
+    def calculate_kinetic_energy(self, psit_xG, kpt):
+        return None
         
-    def __call__(self, residuals, kpt):
+    def __call__(self, residuals, kpt, ekin=None):
         nb = len(residuals) # number of bands
         phases = kpt.phase_cd
         step = self.step

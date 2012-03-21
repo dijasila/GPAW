@@ -60,11 +60,10 @@ class HybridXC(XCFunctional):
     def get_setup_name(self):
         return 'PBE'
 
-    def calculate_radial(self, rgd, n_sLg, Y_L, v_sg,
-                         dndr_sLg=None, rnablaY_Lv=None,
-                         tau_sg=None, dedtau_sg=None):
-        return self.xc.calculate_radial(rgd, n_sLg, Y_L, v_sg,
-                                        dndr_sLg, rnablaY_Lv)
+    def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
+                                 addcoredensity=True, a=None):
+        return self.xc.calculate_paw_correction(setup, D_sp, dEdD_sp,
+                                 addcoredensity, a)
     
     def initialize(self, density, hamiltonian, wfs, occupations):
         assert wfs.gamma
@@ -166,7 +165,6 @@ class HybridXC(XCFunctional):
                 if self.gd.comm.rank == 0:  # only add to energy on master CPU
                     exx += 0.5 * dc * int_fine
                     ekin -= dc * int_coarse
-
                 if Htpsit_nG is not None:
                     Htpsit_nG[n1] += vt_G * psit2_G
                     if n1 == n2:
@@ -229,14 +227,15 @@ class HybridXC(XCFunctional):
             # --
             # >  X   D
             # --  ii  ii
-            exx -= hybrid * np.dot(D_p, setup.X_p)
-            if Htpsit_nG is not None:
-                dH_p -= hybrid * setup.X_p
-                ekin += hybrid * np.dot(D_p, setup.X_p)
+            if setup.X_p is not None:
+                exx -= hybrid * np.dot(D_p, setup.X_p)
+                if Htpsit_nG is not None:
+                    dH_p -= hybrid * setup.X_p
+                    ekin += hybrid * np.dot(D_p, setup.X_p)
 
-            # Add core-core exchange energy
-            if kpt.s == 0:
-                exx += hybrid * setup.ExxC
+                # Add core-core exchange energy
+                if kpt.s == 0:
+                    exx += hybrid * setup.ExxC
 
         self.exx_s[kpt.s] = self.gd.comm.sum(exx)
         self.ekin_s[kpt.s] = self.gd.comm.sum(ekin)
@@ -263,7 +262,7 @@ class HybridXC(XCFunctional):
             P1_i = P_ni[n1]
             P2_i = P_ni[n2]
             D_ii = np.outer(P1_i, P2_i.conj()).real
-            D_p = pack(D_ii, tolerance=1e30)
+            D_p = pack(D_ii)
             Q_aL[a] = np.dot(D_p, self.setups[a].Delta_pL)
             
         nt_G = psit_nG[n1] * psit_nG[n2]
@@ -450,7 +449,7 @@ def constructX(gen):
             i1 += 2 * lv1 + 1
 
     # pack X_ii matrix
-    X_p = pack2(X_ii, tolerance=1e-8)
+    X_p = pack2(X_ii)
     return X_p
 
 
@@ -465,7 +464,7 @@ def H_coulomb_val_core(paw, u=0):
         ij   //       --          |r - r'|
                       k
     """
-    H_nn = np.zeros((paw.wfs.nbands, paw.wfs.nbands), dtype=paw.wfs.dtype)
+    H_nn = np.zeros((paw.wfs.bd.nbands, paw.wfs.bd.nbands), dtype=paw.wfs.dtype)
     for a, P_ni in paw.wfs.kpt_u[u].P_ani.items():
         X_ii = unpack(paw.wfs.setups[a].X_p)
         H_nn += np.dot(P_ni.conj(), np.dot(X_ii, P_ni.T))

@@ -71,12 +71,12 @@ class PhononPerturbation(Perturbation):
                        integral=[setup.Nct for setup in setups], dtype=self.dtype)
         # compensation charges
         #XXX what is the consequence of numerical errors in the integral ??
-        self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
+        self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups], kd,
                         dtype=self.dtype)
         ## self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
         ##                 integral=sqrt(4 * pi), dtype=self.dtype)
         # vbar potential
-        self.vbar = LFC(self.finegd, [[setup.vbar] for setup in setups],
+        self.vbar = LFC(self.finegd, [[setup.vbar] for setup in setups], kd,
                         dtype=self.dtype)
 
         # Expansion coefficients for the compensation charges
@@ -84,7 +84,7 @@ class PhononPerturbation(Perturbation):
         
         # Grid transformer -- convert array from fine to coarse grid
         self.restrictor = Transformer(self.finegd, self.gd, nn=3,
-                                      dtype=self.dtype, allocate=False)
+                                      dtype=self.dtype)
 
         # Atom, cartesian coordinate and q-vector of the perturbation
         self.a = None
@@ -105,14 +105,6 @@ class PhononPerturbation(Perturbation):
         self.vbar.set_positions(spos_ac)
 
         if not self.kd.gamma:
-            
-            # Set q-vectors and update
-            self.ghat.set_k_points(self.kd.ibzk_qc)
-            self.ghat._update(spos_ac)
-            # Set q-vectors and update
-            self.vbar.set_k_points(self.kd.ibzk_qc)
-            self.vbar._update(spos_ac)
-
             # Phase factor exp(iq.r) needed to obtian the periodic part of lfcs
             coor_vg = self.finegd.get_grid_point_coordinates()
             cell_cv = self.finegd.cell_cv
@@ -128,9 +120,6 @@ class PhononPerturbation(Perturbation):
         # Setup the Poisson solver -- to be used on the fine grid
         self.poisson.set_grid_descriptor(self.finegd)
         self.poisson.initialize()
-
-        # Grid transformer
-        self.restrictor.allocate()
 
     def set_q(self, q):
         """Set the index of the q-vector of the perturbation."""

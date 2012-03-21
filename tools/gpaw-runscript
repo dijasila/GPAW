@@ -16,7 +16,8 @@ defaults = { 'err'   : None,
              'qsys'  : 'pbs',
              'script': 'run.py',
              'time'  : 86400, # one day in seconds
-             'wd'    : None
+             'wd'    : None,
+             'smt'   : False,
              }
 
 hosts = { 'batman'                   : 'pbs_batman',
@@ -27,7 +28,8 @@ hosts = { 'batman'                   : 'pbs_batman',
           'louhi'                    : 'louhi',
           'opaali.phys.jyu.fi'       : 'sge',
           'sepeli.csc.fi'            : 'sepeli',
-          'bwui.bfg.uni-freiburg.de' : 'pbs_bwg',
+          'bwui.bfg.uni-freiburg.de' : 'bwg',
+          'globus'                   : 'bwg',
           'ui.bfg.uni'               : 'pbs_bfg',
           'xc2n992'                  : 'xc2',
           'xc2n993'                  : 'xc2',
@@ -38,7 +40,7 @@ hosts = { 'batman'                   : 'pbs_batman',
 platforms = { 'aix5' : 'loadleveler' }
 
 env = {'PYTHONPATH'      : None,
-       'GPAW_PYTHON'     : None, 
+       'GPAW_PYTHON'     : None,
        'GPAW_SETUP_PATH' : None,
        'GPAW_MAIL'       : None
        }
@@ -343,10 +345,14 @@ unset CC CFLAGS LDFLAGS
         print >> f, '>', set['out']+'_$PBS_JOBID',
         print >> f, '2>', set['err']+'_$PBS_JOBID'
 
-    def pbs_bwg(self, f, set, env):
+    def bwg(self, f, set, env):
         modules_to_load = [
-		'system/python/2.6',
-		'mpi/openmpi/1.2.8-gnu-4.1']
+            'devel/python/2.7.2',
+            'compiler/intel/12.0',
+            'mpi/impi/4.0.2-intel-12.0',
+            'numlib/mkl/10.3.5',
+            'numlib/python_numpy/1.6.1-python-2.7.2',
+                ]
         print >> f, '#!/bin/bash'
         print >> f, '#PBS -N '+set['name']
         # bwg nodes contain 8 cores
@@ -360,15 +366,19 @@ unset CC CFLAGS LDFLAGS
         print >> f, '#PBS -l walltime=' + hms_string(set['time'])
         print >> f, '#PBS -m bea'
         if set['mail'] is not None:
-            print >> f, '#PBS -M',set['mail']
+            print >> f, '#PBS -M', set['mail']
 	for module in modules_to_load:
         	print >> f, 'module load ' + module
         print >> f, 'cd', set['wd']
         print >> f, 'export PYTHONPATH=$PYTHONPATH:' + env['PYTHONPATH']
         print >> f, 'export GPAW_SETUP_PATH='+env['GPAW_SETUP_PATH']
         print >> f, 'export GPAW_PYTHON='+env['GPAW_PYTHON']
-        print >> f, ('export LD_LIBRARY_PATH=' + os.environ['LD_LIBRARY_PATH']
-                     + ':$LD_LIBRARY_PATH')
+        try:       
+            LD_LIBRARY_PATH = os.environ['LD_LIBRARY_PATH'] + ':'
+        except:
+            LD_LIBRARY_PATH = ''
+        print >> f, ('export LD_LIBRARY_PATH=' + LD_LIBRARY_PATH
+                     + '$LD_LIBRARY_PATH')
         print >> f, 'mpirun -np', cores, '$GPAW_PYTHON', set['script'],
         if 'parameters' in set:
             print >> f, set['parameters'],
@@ -380,7 +390,10 @@ unset CC CFLAGS LDFLAGS
         print >> f, '#MSUB -N '+set['name']
         # nodes contain 8 cores                                             
         cores = set['cores']
-        nodes = int((cores + 7) / 8)
+        cores_per_node = 8
+        if set['smt']:
+            cores_per_node = 16
+        nodes = int((cores + (cores_per_node - 1)) / cores_per_node)
         ppn = int((cores + nodes - 1) / nodes)
         if cores != nodes * ppn:
             print 'Note:', nodes * ppn, 'cores reserved but only', cores, 'core\
@@ -398,10 +411,11 @@ ormance.'
         print >> f, 'export PYTHONPATH=$PYTHONPATH:' + env['PYTHONPATH']
         print >> f, 'export GPAW_SETUP_PATH='+env['GPAW_SETUP_PATH']
         print >> f, 'export GPAW_PYTHON='+env['GPAW_PYTHON']
-        print >> f, 'mpiexec -np', cores, 
-        print >> f, '-env PYTHONPATH $PYTHONPATH',
-        print >> f, '-env GPAW_SETUP_PATH $GPAW_SETUP_PATH',
+        print >> f, 'export PSP_ONDEMAND=1'
+        print >> f, 'mpiexec -np', cores, '-x', 
         print >> f, '$GPAW_PYTHON', set['script'],
+        if 'parameters' in set:
+            print >> f, set['parameters'],
         print >> f, '>', set['out']+'_$PBS_JOBID',
         print >> f, '2>', set['err']+'_$PBS_JOBID'
 
@@ -471,7 +485,11 @@ echo \"vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\"
         print >> f, 'export PYTHONPATH=$PYTHONPATH:' + env['PYTHONPATH']
         print >> f, 'export GPAW_SETUP_PATH='+env['GPAW_SETUP_PATH']
         print >> f, 'export GPAW_PYTHON='+env['GPAW_PYTHON']
-        print >> f, 'mpirun $GPAW_PYTHON', set['script']
+        print >> f, 'mpirun $GPAW_PYTHON', set['script'],
+        if 'parameters' in set:
+            print >> f, set['parameters']
+        else:
+            print >> f
         f.close()
         os.chmod(f.name, 0755)
         if set['cores'] > 16 or set['mem'] or minutes(set['time']) > 60:
@@ -509,6 +527,8 @@ parser.add_option("-q", "--qsys", dest='qsys',
                   help='queue system (def: try to guess)')
 parser.add_option("-t", "--time", dest='time',
                   help='Time (def: 86400=1140m=24h=1d=one day)')
+parser.add_option("-s", "--smt", dest='smt', action='count',
+                  help='Simultaneous Multi-Threading (host specific)')
 opt, args = parser.parse_args()
 ##print "opt=",opt
 ##print "args=",args
@@ -530,6 +550,9 @@ if opt.parameters:
 
 if opt.time:
     set['time'] = s_from_dhms(opt.time)
+
+if opt.smt:
+    set['smt'] = True
 
 if len(args):
     set['script'] = args[0]
@@ -560,11 +583,23 @@ else:
         set['qsys'] = platforms[sys.platform]
         print 'platform', sys.platform, 'found,',
     else:
-        print "Host "+str(host)+" unknown, try -q option."
+        print "Host " + str(host) + " unknown, try -q option."
         list_systems(RunScript)
         sys.exit()
 
 print 'using',set['qsys']
+
+# ............................................................
+# check necessary environment variables
+
+helptxt = {
+    'GPAW_PYTHON': 'to the parallel custom interpreter (gpaw-python)'
+    }
+
+for variable in helptxt.keys():
+    if not (variable in os.environ):
+        raise RuntimeError('Please set the environment variable ' +
+                           variable + ' ' + helptxt[variable] + ' !')
 
 # ............................................................
 # get environment variables
@@ -579,23 +614,25 @@ for key in env:
 if set['mail'] is None and os.environ.has_key('GPAW_MAIL'):
     set['mail'] = str(os.environ['GPAW_MAIL'])
 
+parameter_ext = ''
+if 'parameters' in set:
+     parameter_ext += '_' + set['parameters'].replace(' ','')
+
 # set output files
 if set['out'] is None:
-    set['out'] = set['script']+".out"
+    set['out'] = set['script'] + parameter_ext + ".out"
 if set['err'] is None:
-    set['err'] = set['script']+".err"
+    set['err'] = set['script'] + parameter_ext + ".err"
 
 # get the name from current working directory
 if set['wd'] is None:
     set['wd'] = os.getcwd()
 if set['name'] is None:
     name = os.getcwd().split('/')[-1]
-    # avoid binning with a number
+    # avoid beginning with a number
     if name[0].isdigit():
-        name = 'j' + name
-    if 'parameters' in set:
-        name += set['parameters'].replace(' ','')
-    set['name'] = name 
+        name = 'j' + name 
+    set['name'] = name + parameter_ext 
 
 RunScript(set,env)
 

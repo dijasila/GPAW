@@ -9,16 +9,15 @@ from gpaw.mpi import world, distribute_cpus
 from gpaw.paw import kpts2ndarray
 from gpaw.parameters import InputParameters
 from gpaw.xc import XC
-from gpaw.brillouin import reduce_kpoints
 from gpaw.setup import SetupData, Setups
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.kpt_descriptor import KPointDescriptorOld
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.fd import FDWaveFunctions
-from gpaw.density import Density
-from gpaw.hamiltonian import Hamiltonian
-from gpaw.blacs import get_kohn_sham_layouts
+from gpaw.density import RealSpaceDensity
+from gpaw.hamiltonian import RealSpaceHamiltonian
+from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.utilities.tools import md5_array
 from gpaw.utilities.timing import nulltimer
 
@@ -84,7 +83,7 @@ class UTDomainParallelSetup(TestCase):
 
         # Set up k-point descriptor
         self.kd = KPointDescriptor(self.bzk_kc, self.nspins)
-        self.kd.set_symmetry(self.atoms, self.setups, p.usesymm)
+        self.kd.set_symmetry(self.atoms, self.setups, usesymm=p.usesymm)
 
         # Set the dtype
         if self.kd.gamma:
@@ -93,9 +92,9 @@ class UTDomainParallelSetup(TestCase):
             self.dtype = complex
             
         # Create communicators
-        parsize, parsize_bands = self.get_parsizes()
+        parsize_domain, parsize_bands = self.get_parsizes()
         assert self.nbands % np.prod(parsize_bands) == 0
-        domain_comm, kpt_comm, band_comm = distribute_cpus(parsize,
+        domain_comm, kpt_comm, band_comm = distribute_cpus(parsize_domain,
             parsize_bands, self.nspins, self.kd.nibzkpts)
 
         self.kd.set_communicator(kpt_comm)
@@ -104,7 +103,7 @@ class UTDomainParallelSetup(TestCase):
         self.bd = BandDescriptor(self.nbands, band_comm)
 
         # Set up grid descriptor:
-        self.gd = GridDescriptor(N_c, cell_cv, pbc_c, domain_comm, parsize)
+        self.gd = GridDescriptor(N_c, cell_cv, pbc_c, domain_comm, parsize_domain)
 
         # Set up kpoint/spin descriptor (to be removed):
         self.kd_old = KPointDescriptorOld(self.nspins, self.kd.nibzkpts,
@@ -116,14 +115,14 @@ class UTDomainParallelSetup(TestCase):
 
     def get_parsizes(self):
         # Careful, overwriting imported GPAW params may cause amnesia in Python.
-        from gpaw import parsize, parsize_bands
+        from gpaw import parsize_domain, parsize_bands
 
         # D: number of domains
         # B: number of band groups
-        if parsize is None:
+        if parsize_domain is None:
             D = min(world.size, 2)
         else:
-            D = parsize
+            D = parsize_domain
         assert world.size % D == 0
         if parsize_bands is None:
             B = world.size // D
@@ -246,9 +245,10 @@ class UTProjectorFunctionSetup(UTLocalizedFunctionSetup):
     def setUp(self):
         UTLocalizedFunctionSetup.setUp(self)
 
-        fdksl = get_kohn_sham_layouts(None, 'fd', self.gd, self.bd)
-        lcaoksl = get_kohn_sham_layouts(None, 'lcao', self.gd, self.bd,
-                                        nao=self.setups.nao)
+        fdksl = get_KohnSham_layouts(None, 'fd', self.gd, self.bd, 
+                                     self.dtype)
+        lcaoksl = get_KohnSham_layouts(None, 'lcao', self.gd, self.bd,
+                                       self.dtype, nao=self.setups.nao)
         args = (self.gd, self.setups.nvalence, self.setups,
                 self.bd, self.dtype, world, self.kd)
         self.wfs = FDWaveFunctions(p.stencils[0], fdksl, fdksl, lcaoksl, *args)
@@ -371,8 +371,9 @@ class UTDensityFunctionSetup(UTLocalizedFunctionSetup):
         UTLocalizedFunctionSetup.setUp(self)
 
         self.finegd = self.gd.refine()
-        self.density = Density(self.gd, self.finegd, self.nspins, p.charge)
-        self.density.initialize(self.setups, p.stencils[1], self.timer, \
+        self.density = RealSpaceDensity(self.gd, self.finegd, self.nspins,
+                                        p.charge, stencil=p.stencils[1])
+        self.density.initialize(self.setups, self.timer, \
             self.atoms.get_initial_magnetic_moments(), p.hund)
         self.density.D_asp = {}
         self.density.rank_a = self.rank0_a
@@ -434,9 +435,11 @@ class UTHamiltonianFunctionSetup(UTLocalizedFunctionSetup):
         UTLocalizedFunctionSetup.setUp(self)
 
         self.finegd = self.gd.refine()
-        self.hamiltonian = Hamiltonian(self.gd, self.finegd, self.nspins,
-                                       self.setups, p.stencils[1], self.timer,
-                                       xc, p.poissonsolver, p.external)
+        self.hamiltonian = RealSpaceHamiltonian(
+            self.gd, self.finegd, self.nspins,
+            self.setups, self.timer,
+            xc, p.external, True,
+            p.poissonsolver, p.stencils[1])
         self.hamiltonian.dH_asp = {}
         self.hamiltonian.rank_a = self.rank0_a
         self.allocate(self.hamiltonian.dH_asp, self.hamiltonian.rank_a)

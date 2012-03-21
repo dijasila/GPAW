@@ -11,7 +11,7 @@ import numpy as np
 from gpaw import debug
 from gpaw import dry_run as dry_run_size
 from gpaw.utilities import is_contiguous
-from gpaw.utilities import scalapack, gcd
+from gpaw.utilities import gcd
 from gpaw.utilities.tools import md5_array
 
 import _gpaw
@@ -57,15 +57,7 @@ class _Communicator:
             correspond to their respective index in the subset.
 
         """
-        assert is_contiguous(ranks, int)
-        sranks = np.sort(ranks)
-        # Are all ranks in range?
-        assert 0 <= sranks[0] and sranks[-1] < self.size
-        # No duplicates:
-        for i in range(len(sranks) - 1):
-            assert sranks[i] != sranks[i + 1]
-        assert len(ranks) > 0
-        
+
         comm = self.comm.new_communicator(ranks)
         if comm is None:
             # This cpu is not in the new communicator:
@@ -470,18 +462,6 @@ class _Communicator:
         """Block execution until all process have reached this point."""
         self.comm.barrier()
 
-    def diagonalize(self, a, w,
-                    nprow=1, npcol=1, mb=32, root=0,
-                    b=None):
-        if b is None:
-            return self.comm.diagonalize(a, w, nprow, npcol, mb, root)
-        else:
-            return self.comm.diagonalize(a, w, nprow, npcol, mb, root, b)
-
-    def inverse_cholesky(self, a,
-                         nprow=1, npcol=1, mb=32, root=0):
-        return self.comm.inverse_cholesky(a, nprow, npcol, mb, root)
-
     def get_members(self):
         """Return the subset of processes which are members of this MPI group
         in terms of the ranks they are assigned on the parent communicator.
@@ -614,8 +594,9 @@ rank = world.rank
 parallel = (size > 1)
 
 
-def distribute_cpus(parsize, parsize_bands, nspins, nibzkpts, comm=world,
-                    idiotproof=True):
+def distribute_cpus(parsize_domain, parsize_bands,
+                    nspins, nibzkpts, comm=world,
+                    idiotproof=True, mode='fd'):
     """Distribute k-points/spins to processors.
 
     Construct communicators for parallelization over
@@ -625,23 +606,35 @@ def distribute_cpus(parsize, parsize_bands, nspins, nibzkpts, comm=world,
     size = comm.size
     rank = comm.rank
 
-    assert size % parsize_bands == 0
-    
     nsk = nspins * nibzkpts
 
-    if parsize is not None:
-        if type(parsize) is int:
-            ndomains = parsize
-        else:
-            ndomains = parsize[0] * parsize[1] * parsize[2]
-        assert (size // parsize_bands) % ndomains == 0
+    if mode in ['fd', 'lcao']:
+        if parsize_bands is None:
+            parsize_bands = 1
 
-        # How many spin/k-point combinations do we get per node:
-        nu, x = divmod(nsk, size // parsize_bands // ndomains)
-        assert x == 0 or nu >= 2 or not idiotproof, 'load imbalance!'
+        if parsize_domain is not None:
+            if type(parsize_domain) is int:
+                ndomains = parsize_domain
+            else:
+                ndomains = (parsize_domain[0] *
+                            parsize_domain[1] *
+                            parsize_domain[2])
+            assert (size // parsize_bands) % ndomains == 0
+
+        else:
+            ntot = nsk * parsize_bands
+            ndomains = size // gcd(ntot, size)
     else:
-        ntot = nsk * parsize_bands
-        ndomains = size // gcd(ntot, size)
+        # Plane wave mode:
+        ndomains = 1
+        if parsize_bands is None:
+            parsize_bands = size // gcd(nsk, size)
+
+    assert size % parsize_bands == 0
+        
+    # How many spin/k-point combinations do we get per node:
+    nu, x = divmod(nsk, size // parsize_bands // ndomains)
+    assert x == 0 or nu >= 2 or not idiotproof, 'load imbalance!'
 
     r0 = (rank // ndomains) * ndomains
     ranks = np.arange(r0, r0 + ndomains)
@@ -776,19 +769,33 @@ def run(iterators):
         except StopIteration:
             return results
 
-# Shut down all processes if one of them fails.
-if parallel and not (dry_run_size > 1):
-    # This is a true parallel calculation
-    def cleanup(sys=sys, time=time, world=world):
-        error = getattr(sys, 'last_type', None)
-        if error:
+def cleanup():
+    error = getattr(sys, 'last_type', None)
+    if error is not None: # else: Python script completed or raise SystemExit
+        if parallel and not (dry_run_size > 1):
             sys.stdout.flush()
             sys.stderr.write(('GPAW CLEANUP (node %d): %s occurred.  ' +
-                              'Calling MPI_Abort!\n') % (world.rank, error))
+                          'Calling MPI_Abort!\n') % (world.rank, error))
             sys.stderr.flush()
             # Give other nodes a moment to crash by themselves (perhaps
             # producing helpful error messages)
-            time.sleep(3)
+            time.sleep(10)
             world.abort(42)
+        else:
+            sys.stderr.write(('GPAW CLEANUP for serial binary: %s occured. ' +
+                              'Calling sys.exit()\n') % error)
 
-    atexit.register(cleanup)
+def exit(error='Manual exit'):
+    # Note that exit must be called on *all* MPI tasks
+    atexit._exithandlers = [] # not needed because we are intentially exiting
+    if parallel and not (dry_run_size > 1):
+        sys.stdout.flush()
+        sys.stderr.write(('GPAW CLEANUP (node %d): %s occurred.  ' +
+                          'Calling MPI_Finalize!\n') % (world.rank, error))
+        sys.stderr.flush()
+    else:
+        cleanup(error)
+    world.barrier() # sync up before exiting
+    sys.exit() # quit for serial case, return to _gpaw.c for parallel case
+
+atexit.register(cleanup)
