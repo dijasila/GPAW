@@ -98,7 +98,7 @@ class PWDescriptor:
         return len(self.Q_G)
 
     def bytecount(self, dtype=float):
-        return self.Q_G.nbytes
+        return len(self) * 16
     
     def zeros(self, x=(), dtype=None):
         a_xG = self.empty(x, dtype)
@@ -374,7 +374,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         return self.pd.integrate(a_xg, b_yg, global_integral)
 
     def bytes_per_wave_function(self):
-        return self.gd.bytecount(self.dtype)
+        return 16 * len(self.pd)
 
     def set_setups(self, setups):
         self.timer.start('PWDescriptor')
