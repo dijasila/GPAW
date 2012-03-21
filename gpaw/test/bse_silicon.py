@@ -8,8 +8,8 @@ from gpaw.response.bse import BSE
 from ase.dft import monkhorst_pack
 from gpaw.mpi import rank
 
-GS = 0
-bse = 0
+GS = 1
+bse = 1
 check = 1
 
 if GS:
