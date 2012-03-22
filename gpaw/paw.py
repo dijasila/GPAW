@@ -194,7 +194,7 @@ class PAW(PAWTextOutput):
             elif key in ['kpts', 'nbands', 'usesymm']:
                 self.wfs = EmptyWaveFunctions()
                 self.occupations = None
-            elif key in ['h', 'gpts', 'setups', 'spinpol',
+            elif key in ['h', 'gpts', 'setups', 'spinpol', 'realspace',
                          'parallel', 'communicator', 'dtype']:
                 self.density = None
                 self.occupations = None
@@ -393,24 +393,30 @@ class PAW(PAWTextOutput):
         if mode == 'pw':
             mode = PW()
 
-        real_space = not isinstance(mode, PW)
+        if par.realspace is None:
+            realspace = not isinstance(mode, PW)
+        else:
+            realspace = par.realspace
+            if isinstance(mode, PW):
+                assert not realspace
 
         if par.gpts is not None and par.h is None:
             N_c = np.array(par.gpts)
         else:
             if par.h is None:
-                if real_space:
+                if isinstance(mode, PW):
+                    h = np.pi / (4 * mode.ecut)**0.5
+                elif mode == 'lcao' and not realspace:
+                    h = np.pi / (4 * 340 / Hartree)**0.5
+                else:
                     self.text('Using default value for grid spacing.')
                     h = 0.2 / Bohr
-                else:
-                    h = np.pi / (4 * mode.ecut)**0.5
             else:
                 h = par.h / Bohr
 
-            if real_space:
+            if realspace or mode == 'fd':
                 N_c = h2gpts(h, cell_cv, 4)
             else:
-                # Need to test this a bit more ...
                 N_c = h2gpts(h, cell_cv, 1)
                 N_c = np.array([get_efficient_fft_size(N) for N in N_c])
 
@@ -485,7 +491,7 @@ class PAW(PAWTextOutput):
         parsize_domain = par.parallel['domain']
         parsize_bands = par.parallel['band']
 
-        if isinstance(mode, PW):
+        if not realspace:
             pbc_c = np.ones(3, bool)
 
         if not self.wfs:
@@ -647,7 +653,7 @@ class PAW(PAWTextOutput):
                 # Special case (use only coarse grid):
                 finegd = gd
 
-            if real_space:
+            if realspace:
                 self.density = RealSpaceDensity(
                     gd, finegd, nspins, par.charge + setups.core_charge,
                     collinear, par.stencils[1])
@@ -661,7 +667,7 @@ class PAW(PAWTextOutput):
 
         if self.hamiltonian is None:
             gd, finegd = self.density.gd, self.density.finegd
-            if real_space:
+            if realspace:
                 self.hamiltonian = RealSpaceHamiltonian(
                     gd, finegd, nspins, setups, self.timer, xc, par.external,
                     collinear, par.poissonsolver, par.stencils[1])
