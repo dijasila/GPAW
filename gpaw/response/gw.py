@@ -96,7 +96,14 @@ class GW(BASECHI):
         self.dw = self.w_w[1] - self.w_w[0]
         self.Nw = len(self.w_w)
 
-        emaxdiff = self.e_kn[:, self.nbands-1].max() - self.e_kn[:,0].min()
+        # eigenvalues and occupations init
+        self.e_skn = np.zeros((self.nspins, self.nikpt, calc.wfs.bd.nbands), dtype=float)
+        self.f_skn = np.zeros((self.nspins, self.nikpt, calc.wfs.bd.nbands), dtype=float)
+        for s in range(self.nspins):
+            for k in range(self.nikpt):
+                self.e_skn[s,k] = calc.get_eigenvalues(kpt=k, spin=s) / Hartree
+                self.f_skn[s,k] = calc.get_occupation_numbers(kpt=k, spin=s) / kd.weight_k[k]
+        emaxdiff = self.e_skn[:,:,self.nbands-1].max() - self.e_skn[:,:,0].min()
         assert (self.wmax > emaxdiff), 'Maximum frequency must be larger than %f' %(emaxdiff*Hartree)
 
         # GW kpoints init
@@ -110,7 +117,7 @@ class GW(BASECHI):
         # GW bands init
         if (self.bands == None):
             self.gwnband = self.nbands
-            self.gwbands_n = range(self.nbands)
+            self.bands = self.gwbands_n = range(self.nbands)
         else:
             self.gwnband = np.shape(self.bands)[0]
             self.gwbands_n = self.bands
@@ -136,9 +143,9 @@ class GW(BASECHI):
         
         self.printtxt("calculating Sigma")
 
-        Sigma_kn = np.zeros((self.gwnkpt, self.gwnband), dtype=float)
-        dSigma_kn = np.zeros((self.gwnkpt, self.gwnband), dtype=float)
-        Z_kn = np.zeros((self.gwnkpt, self.gwnband), dtype=float)
+        Sigma_skn = np.zeros((self.nspins, self.gwnkpt, self.gwnband), dtype=float)
+        dSigma_skn = np.zeros((self.nspins, self.gwnkpt, self.gwnband), dtype=float)
+        Z_skn = np.zeros((self.nspins, self.gwnkpt, self.gwnband), dtype=float)
 
         t0 = time()
         t_w = 0
@@ -157,8 +164,8 @@ class GW(BASECHI):
             t3 = time() - t2
             t_selfenergy += t3
             
-            Sigma_kn += S
-            dSigma_kn += dS
+            Sigma_skn += S
+            dSigma_skn += dS
 
             del df, W_wGG
             self.timing(iq, t0, self.nq_local, 'iq')
@@ -167,30 +174,30 @@ class GW(BASECHI):
         self.printtxt('Self energy takes %f  seconds' %(t_selfenergy))
 
         self.qcomm.barrier()
-        self.qcomm.sum(Sigma_kn)
-        self.qcomm.sum(dSigma_kn)
+        self.qcomm.sum(Sigma_skn)
+        self.qcomm.sum(dSigma_skn)
 
-        Z_kn = 1. / (1. - dSigma_kn)
+        Z_skn = 1. / (1. - dSigma_skn)
 
         # exact exchange
         t0 = time()
-        e_kn, v_kn, e_xx = self.get_exx() # note, e_kn is different from self.e_kn
+        e_skn, vxc_skn, exx_skn = self.get_exx() # note, e_kn is different from self.e_kn
         self.printtxt('EXX takes %f seconds' %(time()-t0))
 
-        QP_kn = e_kn + Z_kn * (Sigma_kn + e_xx - v_kn)
-        self.QP_kn = QP_kn
+        QP_skn = e_skn + Z_skn * (Sigma_skn + exx_skn - vxc_skn)
+        self.QP_skn = QP_skn
 
         # finish
-        self.print_gw_finish(e_kn, v_kn, e_xx, Sigma_kn, Z_kn, QP_kn)
+        self.print_gw_finish(e_skn, vxc_skn, exx_skn, Sigma_skn, Z_skn, QP_skn)
         data = {
                 'gwkpt_k': self.gwkpt_k,
                 'gwbands_n': self.gwbands_n,
-                'e_kn': e_kn,         # in Hartree
-                'v_kn': v_kn,         # in Hartree
-                'e_xx': e_xx,         # in Hartree
-                'Sigma_kn': Sigma_kn, # in Hartree
-                'Z_kn': Z_kn,         # dimensionless
-                'QP_kn': QP_kn        # in Hartree
+                'e_skn': e_skn,         # in Hartree
+                'vxc_skn': vxc_skn,     # in Hartree
+                'exx_skn': exx_skn,     # in Hartree
+                'Sigma_skn': Sigma_skn, # in Hartree
+                'Z_skn': Z_skn,         # dimensionless
+                'QP_skn': QP_skn        # in Hartree
                }
         if rank == 0:
             pickle.dump(data, open('GW.pckl', 'w'), -1)
@@ -198,9 +205,8 @@ class GW(BASECHI):
 
     def get_self_energy(self, df, W_wGG):
 
-        Sigma_kn = np.zeros((self.gwnkpt, self.gwnband), dtype=float)
-        dSigma_kn = np.zeros((self.gwnkpt, self.gwnband), dtype=float)
-        E_f = self.calc.get_fermi_level() / Hartree
+        Sigma_skn = np.zeros((self.nspins, self.gwnkpt, self.gwnband), dtype=float)
+        dSigma_skn = np.zeros((self.nspins, self.gwnkpt, self.gwnband), dtype=float)
 
         wcomm = df.wcomm
 
@@ -259,134 +265,135 @@ class GW(BASECHI):
                 Cplus_wG0[:,0] = gemmdot(w1_ww[0:2], tmp_W, beta=0.0)
                 Cminus_wG0[:,0] = gemmdot(w1_ww[0:2].conj(), tmp_W, beta=0.0)
 
-        for i, k in enumerate(self.gwkpt_k): # k is bzk index
-            if df.optical_limit:
-                kq_c = df.kd.bzk_kc[k]
-            else:
-                kq_c = df.kd.bzk_kc[k] - df.q_c  # k - q
+        for s in range(self.nspins):
+            for i, k in enumerate(self.gwkpt_k): # k is bzk index
+                if df.optical_limit:
+                    kq_c = df.kd.bzk_kc[k]
+                else:
+                   kq_c = df.kd.bzk_kc[k] - df.q_c  # k - q
             
-            kq = df.kd.where_is_q(kq_c, df.kd.bzk_kc)            
-            assert df.kq_k[kq] == k
-            ibzkpt1 = df.kd.bz2ibz_k[k]
-            ibzkpt2 = df.kd.bz2ibz_k[kq]
+                kq = df.kd.where_is_q(kq_c, df.kd.bzk_kc)            
+                assert df.kq_k[kq] == k
+                ibzkpt1 = df.kd.bz2ibz_k[k]
+                ibzkpt2 = df.kd.bz2ibz_k[kq]
 
-            for j, n in enumerate(self.bands):
-                for m in range(self.nbands):
+                for j, n in enumerate(self.bands):
+                    for m in range(self.nbands):
 
-                    if self.f_kn[ibzkpt2,m] < self.ftol: #self.e_kn[ibzkpt2, m] > E_f :
-                        sign = 1.
-                    else:
-                        sign = -1.
+                        if self.f_skn[s,ibzkpt2,m] < self.ftol: #self.e_kn[s,ibzkpt2, m] > E_f :
+                            sign = 1.
+                        else:
+                            sign = -1.
 
-                    rho_G = df.density_matrix(m, n, kq)
+                        rho_G = df.density_matrix(m, n, kq, spin=s)
 
-                    if not self.hilbert_trans: #method 1
-                        W_wGG[:,:,0] = Wbackup_wG0
-                        W_wGG[:,0,:] = Wbackup_w0G
+                        if not self.hilbert_trans: #method 1
+                            W_wGG[:,:,0] = Wbackup_wG0
+                            W_wGG[:,0,:] = Wbackup_w0G
 
-                        if df.optical_limit:
-                            if n==m:
-                                W_wGG[:,:,0] = tmp_wG
-                                W_wGG[:,0,:] = tmp_wG.conj()
-                                W_wGG[:,0,0] = tmp_w
-                            else:
-                                # to be checked.
-                                W_wGG[:,0,0:] = 0.
-                                W_wGG[:,0:,0] = 0.
-
-                        # perform W_wGG * np.outer(rho_G.conj(), rho_G).sum(GG)
-                        W_wG = gemmdot(W_wGG, rho_G, beta=0.0)
-                        C_wlocal = gemmdot(W_wG, rho_G, alpha=self.alpha, beta=0.0,trans='c')
-                        del W_wG, rho_G
-
-                        C_w = np.zeros(df.Nw, dtype=complex)
-                        wcomm.all_gather(C_wlocal, C_w)
-                        del C_wlocal
-
-                        # w1 = w - epsilon_m,k-q
-                        w1 = self.e_kn[ibzkpt1, n] - self.e_kn[ibzkpt2,m]
-
-                        # calculate self energy
-                        w1_w = 1./(w1 - self.w_w + 1j*self.eta_w*sign) + 1./(w1 + self.w_w + 1j*self.eta_w*sign)
-                        w1_w *= self.dw_w
-                        Sigma_kn[i,j] += np.real(gemmdot(C_w, w1_w, beta=0.0))
-
-                        # calculate derivate of self energy with respect to w
-                        w1_w = 1./(w1 - self.w_w + 1j*self.eta_w*sign)**2 + 1./(w1 + self.w_w + 1j*self.eta_w*sign)**2
-                        w1_w *= self.dw_w
-                        dSigma_kn[i,j] -= np.real(gemmdot(C_w, w1_w, beta=0.0))
-
-                    else: #method 2
-                        if not self.e_kn[ibzkpt2,m] - self.e_kn[ibzkpt1,n] < 1e-10:
-                            sign *= np.sign(self.e_kn[ibzkpt1,n] - self.e_kn[ibzkpt2,m])
-
-                        # find points on frequency grid
-                        w0 = self.e_kn[ibzkpt1,n] - self.e_kn[ibzkpt2,m]
-                        w0_id = np.abs(int(w0 / self.dw))
-                        w1 = w0_id * self.dw
-                        w2 = (w0_id + 1) * self.dw
-
-                        # choose plus or minus, treat optical limit:
-                        if sign == 1:
-                            C_Wg = Cplus_Wg[w0_id:w0_id+2] # only two grid points needed for each w0
-                        if sign == -1:
-                            C_Wg = Cminus_Wg[w0_id:w0_id+2] # only two grid points needed for each w0
-
-                        C_wGG = GatherOrbitals(C_Wg, coords, wcomm)
-                        del C_Wg
-
-                        if df.optical_limit:
-                            if n==m:
-                                if sign == 1:
-                                    C_wGG[:,0,:] = Cminus_wG0.conj()
-                                    C_wGG[:,:,0] = Cplus_wG0
-                                if sign == -1:
-                                    C_wGG[:,0,:] = Cplus_wG0.conj()
-                                    C_wGG[:,:,0] = Cminus_wG0
-                            else:
-                                C_wGG[:,0,0:] = 0.
-                                C_wGG[:,0:,0] = 0.
-
-                        # special treat of w0 = 0 (degenerate states):
-                        if w0_id == 0:
-                            Cplustmp_GG = GatherOrbitals(Cplus_Wg[1], coords, wcomm)
-                            Cminustmp_GG = GatherOrbitals(Cminus_Wg[1], coords, wcomm)
                             if df.optical_limit:
                                 if n==m:
-                                    Cplustmp_GG[0,:] = Cminus_wG0.conj()[1]
-                                    Cplustmp_GG[:,0] = Cplus_wG0[1]
-                                    Cminustmp_GG[0,:] = Cplus_wG0.conj()[1]
-                                    Cminustmp_GG[:,0] = Cminus_wG0[1]
+                                    W_wGG[:,:,0] = tmp_wG
+                                    W_wGG[:,0,:] = tmp_wG.conj()
+                                    W_wGG[:,0,0] = tmp_w
                                 else:
-                                    Cplustmp_GG[0,:] = 0.
-                                    Cplustmp_GG[:,0] = 0.
-                                    Cminustmp_GG[0,:] = 0.
-                                    Cminustmp_GG[:,0] = 0.
+                                    # to be checked.
+                                    W_wGG[:,0,0:] = 0.
+                                    W_wGG[:,0:,0] = 0.
 
-                        # perform C_wGG * np.outer(rho_G.conj(), rho_G).sum(GG)
+                            # perform W_wGG * np.outer(rho_G.conj(), rho_G).sum(GG)
+                            W_wG = gemmdot(W_wGG, rho_G, beta=0.0)
+                            C_wlocal = gemmdot(W_wG, rho_G, alpha=self.alpha, beta=0.0,trans='c')
+                            del W_wG, rho_G
 
-                        if w0_id == 0:
-                            Sw0_G = gemmdot(C_wGG[0], rho_G, beta=0.0)
-                            Sw0 = np.real(gemmdot(Sw0_G, rho_G, alpha=self.alpha, beta=0.0, trans='c'))
-                            Sw1_G = gemmdot(Cplustmp_GG, rho_G, beta=0.0)
-                            Sw1 = np.real(gemmdot(Sw1_G, rho_G, alpha=self.alpha, beta=0.0, trans='c'))
-                            Sw2_G = gemmdot(Cminustmp_GG, rho_G, beta=0.0)
-                            Sw2 = np.real(gemmdot(Sw2_G, rho_G, alpha=self.alpha, beta=0.0, trans='c'))
+                            C_w = np.zeros(df.Nw, dtype=complex)
+                            wcomm.all_gather(C_wlocal, C_w)
+                            del C_wlocal
 
-                            Sigma_kn[i,j] += Sw0
-                            dSigma_kn[i,j] += (Sw1 + Sw2)/(2*self.dw)
+                            # w1 = w - epsilon_m,k-q
+                            w1 = self.e_skn[s,ibzkpt1, n] - self.e_skn[s,ibzkpt2,m]
 
-                        else:                        
-                            Sw1_G = gemmdot(C_wGG[0], rho_G, beta=0.0)
-                            Sw1 = np.real(gemmdot(Sw1_G, rho_G, alpha=self.alpha, beta=0.0, trans='c'))
-                            Sw2_G = gemmdot(C_wGG[1], rho_G, beta=0.0)
-                            Sw2 = np.real(gemmdot(Sw2_G, rho_G, alpha=self.alpha, beta=0.0, trans='c'))
+                            # calculate self energy
+                            w1_w = 1./(w1 - self.w_w + 1j*self.eta_w*sign) + 1./(w1 + self.w_w + 1j*self.eta_w*sign)
+                            w1_w *= self.dw_w
+                            Sigma_skn[s,i,j] += np.real(gemmdot(C_w, w1_w, beta=0.0))
 
-                            Sw0 = (w2-np.abs(w0))/self.dw * Sw1 + (np.abs(w0)-w1)/self.dw * Sw2
-                            Sigma_kn[i,j] += np.sign(self.e_kn[ibzkpt1,n] - self.e_kn[ibzkpt2,m]) * Sw0
-                            dSigma_kn[i,j] += (Sw2 - Sw1)/self.dw
+                            # calculate derivate of self energy with respect to w
+                            w1_w = 1./(w1 - self.w_w + 1j*self.eta_w*sign)**2 + 1./(w1 + self.w_w + 1j*self.eta_w*sign)**2
+                            w1_w *= self.dw_w
+                            dSigma_skn[s,i,j] -= np.real(gemmdot(C_w, w1_w, beta=0.0))
 
-        return Sigma_kn, dSigma_kn 
+                        else: #method 2
+                            if not np.abs(self.e_skn[s,ibzkpt2,m] - self.e_skn[s,ibzkpt1,n]) < 1e-10:
+                                sign *= np.sign(self.e_skn[s,ibzkpt1,n] - self.e_skn[s,ibzkpt2,m])
+
+                            # find points on frequency grid
+                            w0 = self.e_skn[s,ibzkpt1,n] - self.e_skn[s,ibzkpt2,m]
+                            w0_id = np.abs(int(w0 / self.dw))
+                            w1 = w0_id * self.dw
+                            w2 = (w0_id + 1) * self.dw
+
+                            # choose plus or minus, treat optical limit:
+                            if sign == 1:
+                                C_Wg = Cplus_Wg[w0_id:w0_id+2] # only two grid points needed for each w0
+                            if sign == -1:
+                                C_Wg = Cminus_Wg[w0_id:w0_id+2] # only two grid points needed for each w0
+
+                            C_wGG = GatherOrbitals(C_Wg, coords, wcomm)
+                            del C_Wg
+
+                            if df.optical_limit:
+                                if n==m:
+                                    if sign == 1:
+                                        C_wGG[:,0,:] = Cminus_wG0.conj()
+                                        C_wGG[:,:,0] = Cplus_wG0
+                                    if sign == -1:
+                                        C_wGG[:,0,:] = Cplus_wG0.conj()
+                                        C_wGG[:,:,0] = Cminus_wG0
+                                else:
+                                    C_wGG[:,0,0:] = 0.
+                                    C_wGG[:,0:,0] = 0.
+
+                            # special treat of w0 = 0 (degenerate states):
+                            if w0_id == 0:
+                                Cplustmp_GG = GatherOrbitals(Cplus_Wg[1], coords, wcomm)
+                                Cminustmp_GG = GatherOrbitals(Cminus_Wg[1], coords, wcomm)
+                                if df.optical_limit:
+                                    if n==m:
+                                        Cplustmp_GG[0,:] = Cminus_wG0.conj()[1]
+                                        Cplustmp_GG[:,0] = Cplus_wG0[1]
+                                        Cminustmp_GG[0,:] = Cplus_wG0.conj()[1]
+                                        Cminustmp_GG[:,0] = Cminus_wG0[1]
+                                    else:
+                                        Cplustmp_GG[0,:] = 0.
+                                        Cplustmp_GG[:,0] = 0.
+                                        Cminustmp_GG[0,:] = 0.
+                                        Cminustmp_GG[:,0] = 0.
+
+                            # perform C_wGG * np.outer(rho_G.conj(), rho_G).sum(GG)
+
+                            if w0_id == 0:
+                                Sw0_G = gemmdot(C_wGG[0], rho_G, beta=0.0)
+                                Sw0 = np.real(gemmdot(Sw0_G, rho_G, alpha=self.alpha, beta=0.0, trans='c'))
+                                Sw1_G = gemmdot(Cplustmp_GG, rho_G, beta=0.0)
+                                Sw1 = np.real(gemmdot(Sw1_G, rho_G, alpha=self.alpha, beta=0.0, trans='c'))
+                                Sw2_G = gemmdot(Cminustmp_GG, rho_G, beta=0.0)
+                                Sw2 = np.real(gemmdot(Sw2_G, rho_G, alpha=self.alpha, beta=0.0, trans='c'))
+
+                                Sigma_skn[s,i,j] += Sw0
+                                dSigma_skn[s,i,j] += (Sw1 + Sw2)/(2*self.dw)
+
+                            else:                        
+                                Sw1_G = gemmdot(C_wGG[0], rho_G, beta=0.0)
+                                Sw1 = np.real(gemmdot(Sw1_G, rho_G, alpha=self.alpha, beta=0.0, trans='c'))
+                                Sw2_G = gemmdot(C_wGG[1], rho_G, beta=0.0)
+                                Sw2 = np.real(gemmdot(Sw2_G, rho_G, alpha=self.alpha, beta=0.0, trans='c'))
+
+                                Sw0 = (w2-np.abs(w0))/self.dw * Sw1 + (np.abs(w0)-w1)/self.dw * Sw2
+                                Sigma_skn[s,i,j] += np.sign(self.e_skn[s,ibzkpt1,n] - self.e_skn[s,ibzkpt2,m]) * Sw0
+                                dSigma_skn[s,i,j] += (Sw2 - Sw1)/self.dw
+
+        return Sigma_skn, dSigma_skn 
 
 
     def get_exx(self):
@@ -395,9 +402,9 @@ class GW(BASECHI):
             self.printtxt("reading Exact exchange and E_XC from file")
 
             data = pickle.load(open(self.exxfile))
-            e_kn = data['e_kn'] # in Hartree
-            v_kn = data['v_kn'] # in Hartree
-            e_xx = data['e_xx'] # in Hartree
+            e_skn = data['e_skn'] # in Hartree
+            vxc_skn = data['vxc_skn'] # in Hartree
+            exx_skn = data['exx_skn'] # in Hartree
             gwkpt_k = data['gwkpt_k']
             gwbands_n = data['gwbands_n']
             assert (gwkpt_k == self.gwkpt_k).all(), 'exxfile inconsistent with input parameters'
@@ -413,27 +420,25 @@ class GW(BASECHI):
             exx = HybridXC('EXX', alpha=alpha, ecut=self.ecut.max(), bands=self.bands)
             calc.get_xc_difference(exx)
 
-            e_xx = np.zeros((self.gwnkpt, self.gwnband), dtype=float)
-            e_kn = np.zeros((self.gwnkpt, self.gwnband), dtype=float)
-            v_kn = np.zeros((self.gwnkpt, self.gwnband), dtype=float)
+            e_skn = np.zeros((self.nspins, self.gwnkpt, self.gwnband), dtype=float)
+            vxc_skn = np.zeros((self.nspins, self.gwnkpt, self.gwnband), dtype=float)
+            exx_skn = np.zeros((self.nspins, self.gwnkpt, self.gwnband), dtype=float)
 
-            i = 0
-            for k in self.gwkpt_k:
-                j = 0
-                ik = self.kd.bz2ibz_k[k]
-                for n in self.gwbands_n:
-                    e_kn[i][j] = calc.get_eigenvalues(kpt=ik)[n] / Hartree
-                    v_kn[i][j] = v_xc[0][ik][n] / Hartree
-                    e_xx[i][j] = exx.exx_skn[0][ik][n]
-                    j += 1
-                i += 1
+            for s in range(self.nspins):
+                for i, k in enumerate(self.gwkpt_k):
+                    ik = self.kd.bz2ibz_k[k]
+                    for j, n in enumerate(self.gwbands_n):
+                        e_skn[s][i][j] = calc.get_eigenvalues(kpt=ik, spin=s)[n] / Hartree
+                        vxc_skn[s][i][j] = v_xc[s][ik][n] / Hartree
+                        exx_skn[s][i][j] = exx.exx_skn[s][ik][n]
 
-        return e_kn, v_kn, e_xx
+        return e_skn, vxc_skn, exx_skn
 
 
     def print_gw_init(self):
 
         self.printtxt("Number of IBZ k-points       : %d" %(self.kd.nibzkpts))
+        self.printtxt("Number of spins              : %d" %(self.nspins))
         self.printtxt("Linear frequency grid (eV)   : %.2f - %.2f in %.2f" %(self.wmin*Hartree, self.wcut, self.dw*Hartree))
         self.printtxt("Maximum frequency (eV)       : %.2f" %(self.wmax*Hartree))
         self.printtxt("Number of frequency points   : %d" %(self.Nw))
@@ -445,22 +450,22 @@ class GW(BASECHI):
         self.printtxt('Calculate matrix elements for n = %s' %(self.gwbands_n))
 
 
-    def print_gw_finish(self, e_kn, v_kn, e_xx, Sigma_kn, Z_kn, QP_kn):
+    def print_gw_finish(self, e_skn, vxc_skn, exx_skn, Sigma_skn, Z_skn, QP_skn):
 
         self.printtxt("------------------------------------------------")
         self.printtxt("LDA eigenvalues are (eV): ")
-        self.printtxt("%s \n" %(e_kn*Hartree))
+        self.printtxt("%s \n" %(e_skn*Hartree))
         self.printtxt("LDA exchange-correlation contributions are (eV): ")
-        self.printtxt("%s \n" %(v_kn*Hartree))
+        self.printtxt("%s \n" %(vxc_skn*Hartree))
         self.printtxt("Exact exchange contributions are (eV): ")
-        self.printtxt("%s \n" %(e_xx*Hartree))
+        self.printtxt("%s \n" %(exx_skn*Hartree))
         self.printtxt("Self energy contributions are (eV):")
-        self.printtxt("%s \n" %(Sigma_kn*Hartree))
+        self.printtxt("%s \n" %(Sigma_skn*Hartree))
         self.printtxt("Renormalization factors are:")
-        self.printtxt("%s \n" %(Z_kn))
+        self.printtxt("%s \n" %(Z_skn))
 
         totaltime = round(time() - self.starttime)
         self.printtxt("GW calculation finished in %s " %(timedelta(seconds=totaltime)))
         self.printtxt("------------------------------------------------")
         self.printtxt("Quasi-particle energies are (eV): ")
-        self.printtxt(QP_kn*Hartree)
+        self.printtxt(QP_skn*Hartree)

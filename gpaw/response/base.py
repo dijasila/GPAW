@@ -365,7 +365,7 @@ class BASECHI:
         return
 
 
-    def density_matrix(self,n,m,k,kq=None,phi_aGp=None,Gspace=True):
+    def density_matrix(self,n,m,k,kq=None,spin=0,phi_aGp=None,Gspace=True):
 
         ibzk_kc = self.ibzk_kc
         bzk_kc = self.bzk_kc
@@ -398,10 +398,10 @@ class BASECHI:
         ibzkpt1 = kd.bz2ibz_k[k]
         ibzkpt2 = kd.bz2ibz_k[kq]
         
-        psitold_g = self.get_wavefunction(ibzkpt1, n, True)
+        psitold_g = self.get_wavefunction(ibzkpt1, n, True, spin=spin)
         psit1_g = kd.transform_wave_function(psitold_g, k)
         
-        psitold_g = self.get_wavefunction(ibzkpt2, m, True)
+        psitold_g = self.get_wavefunction(ibzkpt2, m, True, spin=spin)
         psit2_g = kd.transform_wave_function(psitold_g, kq)
 
         if (self.rpad > 1).any() or (self.pbc - True).any():
@@ -509,9 +509,10 @@ class BASECHI:
             
         if static:
             df = DF(calc=self.calc, q=q.copy(), w=(0.,), nbands=self.nbands,
-                    optical_limit=optical_limit,
-                    hilbert_trans=False, xc='RPA', rpad=self.rpad, vcut=self.vcut,
-                    eta=0.0001, ecut=self.ecut*Hartree, txt='no_output')#, comm=serial_comm)
+                    optical_limit=optical_limit, hilbert_trans=False, xc='RPA',
+                    rpad=self.rpad, vcut=self.vcut,
+                    eta=0.0001, ecut=self.ecut*Hartree,
+                    txt='df.out', comm=comm, kcommsize=kcommsize)
         else:
             df = DF(calc=self.calc, q=q.copy(), w=self.w_w.copy()*Hartree, nbands=self.nbands,
                     optical_limit=optical_limit, hilbert_trans=True, xc='RPA', full_response=True,
@@ -529,10 +530,11 @@ class BASECHI:
         if static:
             assert len(dfinv_wGG) == 1
             W_GG = dfinv_wGG[0] * df.Kc_GG
+            self.dfinv_wGG = dfinv_wGG[0]
             if optical_limit:
                 self.dfinvG0_G = dfinv_wGG[0,:,0]
 
-            return W_GG
+            return df, W_GG
         else:
             Nw = np.shape(dfinv_wGG)[0]
             W_wGG = np.zeros_like(dfinv_wGG)
