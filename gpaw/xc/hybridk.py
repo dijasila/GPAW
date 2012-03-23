@@ -19,7 +19,7 @@ from gpaw.lfc import LFC
 from gpaw.wavefunctions.pw import PWDescriptor, PWWaveFunctions
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.kpoint import KPoint as KPoint0
-
+from gpaw.xc.hybrid import HybridXCBase
 
 class KPoint:
     def __init__(self, kd, kpt=None):
@@ -95,45 +95,19 @@ class KPoint:
         self.requests = []
         
 
-class HybridXC(XCFunctional):
+class HybridXC(HybridXCBase):
     orbital_dependent = True
-    def __init__(self, name, hybrid=None, xc=None, finegrid=False,
-                 alpha=None, skip_gamma=False, ecut=None, etotflag = False, acdf=False, coredensity=True,
+    def __init__(self, name, hybrid=None, xc=None,
+                 alpha=None, skip_gamma=False, ecut=None, 
+                 etotflag = False, acdf=False, coredensity=True,
                  logfilename='-', bands=None):
         """Mix standard functionals with exact exchange.
 
-        name: str
-            Name of hybrid functional.
-        hybrid: float
-            Fraction of exact exchange.
-        xc: str or XCFunctional object
-            Standard DFT functional with scaled down exchange.
-        finegrid: boolean
-            Use fine grid for energy functional evaluations?
         bands: list or None
             List of bands to calculate energy for.  Default is None
             meaning do all bands.
         """
 
-        if name == 'EXX':
-            assert hybrid is None and xc is None
-            hybrid = 1.0
-            xc = XC(XCNull())
-        elif name == 'PBE0':
-            assert hybrid is None and xc is None
-            hybrid = 0.25
-            xc = XC('HYB_GGA_XC_PBEH')
-        elif name == 'B3LYP':
-            assert hybrid is None and xc is None
-            hybrid = 0.2
-            xc = XC('HYB_GGA_XC_B3LYP')
-            
-        if isinstance(xc, str):
-            xc = XC(xc)
-
-        self.hybrid = hybrid
-        self.xc = xc
-        self.type = xc.type
         self.alpha = alpha
         self.skip_gamma = skip_gamma
 
@@ -150,14 +124,11 @@ class HybridXC(XCFunctional):
             self.etotflag = True
             print 'etotflag is True'
 
-        XCFunctional.__init__(self, name)
+        HybridXCBase.__init__(self, name, hybrid, xc)
 
     def log(self, *args, **kwargs):
         prnt(file=self.fd, *args, **kwargs)
         self.fd.flush()
-
-    def get_setup_name(self):
-        return 'PBE'
 
     def calculate_radial(self, rgd, n_sLg, Y_L, v_sg,
                          dndr_sLg=None, rnablaY_Lv=None,
@@ -167,7 +138,7 @@ class HybridXC(XCFunctional):
     
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):
-        addcoredensity = self.coredensity
+        addcoredensity = self.coredensity # XXX overwrites input
 
         return self.xc.calculate_paw_correction(setup, D_sp, dEdD_sp,
                                  addcoredensity, a)
