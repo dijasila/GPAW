@@ -145,7 +145,7 @@ class HybridXC(XCFunctional):
         self.bands = bands
         self.acdf = acdf  # adiabatic-connection dissipation fluctuation for RPA correlation energy
         self.coredensity = coredensity
-        if self.acdf is True:
+        if self.acdf:
             self.exxacdf = 0.0
             self.etotflag = True
             print 'etotflag is True'
@@ -328,7 +328,7 @@ class HybridXC(XCFunctional):
                 self.exxacdf = self.world.sum(self.exxacdf[0])
                 self.exx = self.exxacdf
             else:
-                self.exx = self.world.sum(self.exx[0])
+                self.exx = self.world.sum(self.exx)
             self.exx += self.calculate_exx_paw_correction()
                 
         else:
@@ -449,13 +449,13 @@ class HybridXC(XCFunctional):
                 vt_G = nt_G.copy()
                 vt_G *= -pi * vol / Gpk2_G
                 e = np.vdot(nt_G, vt_G).real * nspins * self.hybrid * x
-
+                
                 if self.etotflag:
                     if self.acdf:
                         self.exxacdf += 0.5 * (f1 * (1-np.sign(e2-e1)) * e + 
                                    f2 * (1-np.sign(e1-e2)) * e ) * kpt1.weight
                     else:
-                        self.exx += f2 * e * kpt1.weight
+                        self.exx += f2 * e * f1 * kpt1.weight[0] * self.kd.nbzkpts / 2
                 else:
                     self.exx_skn[kpt1.s, kpt1.k, n1] += 2 * f2 * e
 
@@ -465,7 +465,7 @@ class HybridXC(XCFunctional):
                             self.exxacdf += 0.5 * (f1 * (1-np.sign(e2-e1)) * e +
                                         f2 * (1-np.sign(e1-e2)) * e ) * kpt2.weight
                         else:
-                            self.exx += f1 * e * kpt2.weight
+                            self.exx += f1 * e * f2 * kpt2.weight[0] * self.kd.nbzkpts / 2
                     else:
                         self.exx_skn[kpt2.s, kpt2.k, n2] += 2 * f1 * e
                     
