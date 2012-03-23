@@ -703,9 +703,9 @@ def read(paw, reader):
         tol = 1e-12
         
         if master:
-            ibzk_kc = r.get('IBZKPoints', read=master)
+            bzk_kc = r.get('BZKPoints', read=master)
             weight_k = r.get('IBZKPointWeights', read=master)
-            assert np.abs(ibzk_kc - wfs.kd.ibzk_kc).max() < tol
+            assert np.abs(bzk_kc - wfs.kd.bzk_kc).max() < tol
             assert np.abs(weight_k - wfs.kd.weight_k).max() < tol
 
         for kpt in wfs.kpt_u:
