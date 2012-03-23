@@ -3,7 +3,7 @@ GPU
 ===
 
 Aalto Effort
-==========
+============
 
 (Samuli Hakala, Ville Havu, Jussi Enkovaara (CSC) )
 We have been implementing the most performance critical C-kernels
