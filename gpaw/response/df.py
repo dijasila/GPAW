@@ -76,7 +76,7 @@ class DF(CHI):
             del self.e_kn
             self.ecut *= Hartree
             self.eta *= Hartree
-            self.w_w *= Hartree
+#            self.w_w *= Hartree
             self.initialize(spin=1)
             self.calculate(spin=1)
 

@@ -512,7 +512,7 @@ class BASECHI:
                     optical_limit=optical_limit, hilbert_trans=False, xc='RPA',
                     rpad=self.rpad, vcut=self.vcut,
                     eta=0.0001, ecut=self.ecut*Hartree,
-                    txt='df.out', comm=comm, kcommsize=kcommsize)
+                    txt='df.out')
         else:
             df = DF(calc=self.calc, q=q.copy(), w=self.w_w.copy()*Hartree, nbands=self.nbands,
                     optical_limit=optical_limit, hilbert_trans=True, xc='RPA', full_response=True,
@@ -534,7 +534,7 @@ class BASECHI:
             if optical_limit:
                 self.dfinvG0_G = dfinv_wGG[0,:,0]
 
-            return df, W_GG
+            return W_GG
         else:
             Nw = np.shape(dfinv_wGG)[0]
             W_wGG = np.zeros_like(dfinv_wGG)
