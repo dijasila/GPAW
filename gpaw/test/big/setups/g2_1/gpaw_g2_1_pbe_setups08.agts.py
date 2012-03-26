@@ -1,6 +1,6 @@
 def agts(queue):
     run_special = queue.add('gpaw_g2_1_pbe_setups08_run_special.py',
-                            queueopts='-l nodes=1:ppn=1:ethernet',
+                            queueopts='-l nodes=1:ppn=4:ethernet',
                             ncpus=1,walltime=6*60, deps=[])
     run1 = queue.add('gpaw_g2_1_pbe_setups08_run.py',
                      queueopts='-l nodes=1:ppn=4:opteron:ethernet',
