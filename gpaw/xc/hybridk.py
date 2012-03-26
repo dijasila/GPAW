@@ -426,7 +426,7 @@ class HybridXC(HybridXCBase):
                         self.exxacdf += 0.5 * (f1 * (1-np.sign(e2-e1)) * e + 
                                    f2 * (1-np.sign(e1-e2)) * e ) * kpt1.weight
                     else:
-                        self.exx += f2 * e * f1 * kpt1.weight[0] * self.kd.nbzkpts / 2
+                        self.exx += f2 * e * f1 * kpt1.weight[0] * self.kd.nbzkpts * nspins / 2
                 else:
                     self.exx_skn[kpt1.s, kpt1.k, n1] += 2 * f2 * e
 
@@ -436,7 +436,7 @@ class HybridXC(HybridXCBase):
                             self.exxacdf += 0.5 * (f1 * (1-np.sign(e2-e1)) * e +
                                         f2 * (1-np.sign(e1-e2)) * e ) * kpt2.weight
                         else:
-                            self.exx += f1 * e * f2 * kpt2.weight[0] * self.kd.nbzkpts / 2
+                            self.exx += f1 * e * f2 * kpt2.weight[0] * self.kd.nbzkpts * nspins / 2
                     else:
                         self.exx_skn[kpt2.s, kpt2.k, n2] += 2 * f1 * e
                     
