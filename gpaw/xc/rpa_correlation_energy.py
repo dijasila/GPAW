@@ -15,9 +15,11 @@ class RPACorrelation:
     def __init__(self,
                  calc,
                  txt=None,
+                 tag=None,
                  qsym=True):
         
         self.calc = calc
+        self.tag = tag
         
         if txt is None:
             if rank == 0:
@@ -152,16 +154,28 @@ class RPACorrelation:
                                                               reshape=False)
     
             E_q = np.zeros(nq)
+            
             for iq in range(q_start, q_end):
-                E_q[iq] = self.E_q(qlist[iq][1],
+                try:
+                    ff = open('E_q_%s_%s.dat' %(self.tag,iq), 'r')
+                    E_q[iq] = ff.readline().split()[-2]
+                    print >> self.txt, 'Reading E_q[%s] '%(iq), E_q[iq] 
+                except:
+                    E_q[iq] = self.E_q(qlist[iq][1],
                                    index=iq,
                                    direction=qlist[iq][2]) * qlist[iq][3]
+
+                    if self.tag is not None and self.dfcomm.rank == 0:
+                        ff = open('E_q_%s_%s.dat' %(self.tag,iq), 'a')
+                        print >> ff, qlist[iq][1:4], E_q[iq], qweight[iq]
+                        ff.close()
+                    
             qcomm.sum(E_q)
-    
+
             print >> self.txt, '(q, direction, weight), E_q, qweight'
             for iq in range(nq):
                 print >> self.txt, qlist[iq][1:4], E_q[iq], qweight[iq]
-    
+                
             E = np.dot(np.array(qweight), np.array(E_q))
 
         print >> self.txt, 'RPA correlation energy:'
@@ -416,8 +430,8 @@ class RPACorrelation:
               '------------------------------------------------------'
         print >> self.txt, 'Started at:  ', ctime()
         print >> self.txt
-        print >> self.txt, 'Atoms                          :   %s' \
-              % self.atoms.get_chemical_formula(mode="hill")
+#        print >> self.txt, 'Atoms                          :   %s' \
+#              % self.atoms.get_chemical_formula(mode="hill")
         print >> self.txt, 'Ground state XC functional     :   %s' \
               % self.calc.hamiltonian.xc.name
         print >> self.txt, 'Valence electrons              :   %s' \
