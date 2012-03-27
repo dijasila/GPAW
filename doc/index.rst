@@ -33,12 +33,14 @@ more about :ref:`its features and the algorithms used
 .. |i6| image:: _static/logo-hut.png
         :height: 44 px
         :target: http://www.fyslab.hut.fi
-.. |i7| image:: _static/logo-tree.png
-        :height: 44 px
+.. |i7| image:: _static/logo-suncat.png
+        :height: 22 px
+        :align: middle
+        :target: http://suncat.stanford.edu
 
 
 
-|i0| |i1| |i2| |i3| |i4| |i5| |i6|
+|i0| |i1| |i2| |i3| |i4| |i5| |i6| |i7|
 
  
 * `Argonne National Laboratory <http://www.anl.gov>`_
@@ -49,6 +51,7 @@ more about :ref:`its features and the algorithms used
 * `Institute of Physics, Tampere University of Technology <http://www.tut.fi>`_
 * `Laboratory of Physics, Helsinki University of Technology
   <http://www.fyslab.hut.fi>`_
+* `SUNCAT Center, Stanford University/SLAC <http://suncat.stanford.edu>`_
 
 
 .. _news:
