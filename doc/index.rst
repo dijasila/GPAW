@@ -40,7 +40,7 @@ more about :ref:`its features and the algorithms used
 
 
 
-|i0| |i1| |i2| |i3| |i4| |i5| |i6| |i7|
+|i0| |i1| |i2| |i3| |i4| |i5| |i6|
 
  
 * `Argonne National Laboratory <http://www.anl.gov>`_
