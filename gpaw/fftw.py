@@ -4,12 +4,16 @@ import time
 
 import numpy as np
 
-try:
-    import ctypes
-    lib = ctypes.CDLL('libfftw3.so')
-except (ImportError, OSError):
-    lib = None  # Use Numpy's fft
+fftwlibnames = ['libfftw3.so','libmkl_intel_lp64.so','libmkl_rt.so']
 
+lib = None
+for libname in fftwlibnames:
+    try:
+        import ctypes
+        lib = ctypes.CDLL(libname)
+        break
+    except (ImportError, OSError):
+        pass
 
 ESTIMATE = 64
 MEASURE = 0
