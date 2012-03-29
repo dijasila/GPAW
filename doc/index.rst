@@ -37,10 +37,13 @@ more about :ref:`its features and the algorithms used
         :height: 22 px
         :align: middle
         :target: http://suncat.stanford.edu
+.. |i8| image:: _static/logo-slac-center.png
+        :height: 38 px
+        :target: http://suncat.stanford.edu
 
 
 
-|i0| |i1| |i2| |i3| |i4| |i5| |i6|
+|i0| |i1| |i2| |i3| |i4| |i5| |i6| |i8|
 
  
 * `Argonne National Laboratory <http://www.anl.gov>`_
