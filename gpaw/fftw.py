@@ -4,7 +4,7 @@ import time
 
 import numpy as np
 
-fftwlibnames = ['libfftw3.so','libmkl_intel_lp64.so','libmkl_rt.so']
+fftwlibnames = ['libfftw3.so', 'libmkl_intel_lp64.so', 'libmkl_rt.so']
 
 lib = None
 for libname in fftwlibnames:
@@ -58,7 +58,7 @@ class FFTWPlan:
             n0, n1, n2 = in_R.shape
             self.plan = lib.fftw_plan_dft_3d(n0, n1, n2,
                                              in_R, out_R, sign, flags)
-        
+
     def execute(self):
         lib.fftw_execute(self.plan)
 
