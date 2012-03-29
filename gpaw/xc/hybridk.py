@@ -8,7 +8,6 @@ from math import pi, sqrt
 from time import time
 
 import numpy as np
-from ase import Atoms
 from ase.utils import prnt
 
 from gpaw.xc import XC
@@ -18,7 +17,6 @@ from gpaw.utilities import hartree, pack, unpack2, packed_index, logfile
 from gpaw.lfc import LFC
 from gpaw.wavefunctions.pw import PWDescriptor, PWWaveFunctions
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.kpoint import KPoint as KPoint0
 from gpaw.xc.hybrid import HybridXCBase
 
 class KPoint:
@@ -167,40 +165,35 @@ class HybridXC(HybridXCBase):
             # XXX ?
             self.alpha = 6 * vol**(2 / 3.0) / pi**2
             
-        self.gamma = (vol / (2 * pi)**2 * sqrt(pi / self.alpha) *
-                      self.kd.nbzkpts)
-
         if self.ecut is None:
             ecutmax = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
             self.ecut = 0.5 * ecutmax
             
-        assert self.kd.N_c is not None
-        n = self.kd.N_c * 2 - 1
-        bzk_kc = np.indices(n).transpose((1, 2, 3, 0))
-        bzk_kc.shape = (-1, 3)
-        bzk_kc -= self.kd.N_c - 1
-        self.bzk_kc = bzk_kc.astype(float) / self.kd.N_c
+        self.bzq_qc = self.kd.get_bz_q_points()
+        q0 = self.kd.where_is_q(np.zeros(3), self.bzq_qc)
         
         self.pwd = PWDescriptor(self.ecut, self.gd, complex)
-        self.G2_qG = self.pwd.g2(self.bzk_kc)
 
-        n = 0
-        for k_c, Gpk2_G in zip(self.bzk_kc[:], self.G2_qG):
-            if (k_c > -0.5).all() and (k_c <= 0.5).all(): #XXX???
-                if k_c.any():
-                    self.gamma -= np.dot(np.exp(-self.alpha * Gpk2_G),
-                                         Gpk2_G**-1)
-                else:
-                    self.gamma -= np.dot(np.exp(-self.alpha * Gpk2_G[1:]),
-                                         Gpk2_G[1:]**-1)
-                n += 1
-        assert n == self.kd.N_c.prod()
+        G2_qG = self.pwd.g2(self.bzq_qc)
+        G2_qG[q0, 0] = 117.0
+        self.iG2_qG = 1.0 / G2_qG
+        self.iG2_qG[q0, 0] = 0.0
+
+        self.gamma = (vol / (2 * pi)**2 * sqrt(pi / self.alpha) *
+                      self.kd.nbzkpts)
+
+        for q in range(self.kd.nbzkpts):
+            self.gamma -= np.dot(np.exp(-self.alpha * G2_qG[q]),
+                                 self.iG2_qG[q])
+
+        self.iG2_qG[q0, 0] = self.gamma
         
         self.ghat = LFC(self.gd,
                         [setup.ghat_l for setup in density.setups],
-                        KPointDescriptor(self.bzk_kc), dtype=complex)
+                        KPointDescriptor(self.bzq_qc), dtype=complex)
         
         self.log('Value of alpha parameter:', self.alpha)
+        self.log('Value of gamma parameter:', self.gamma)
         self.log('Cutoff energy:', self.ecut, 'Hartree')
         self.log('%d x %d x %d k-points' % tuple(self.kd.N_c))
 
@@ -346,28 +339,25 @@ class HybridXC(HybridXCBase):
     def apply(self, kpt1, kpt2, k):
         k1_c = self.kd.ibzk_kc[kpt1.k]
         k20_c = self.kd.ibzk_kc[kpt2.k]
-        k2_c = self.kd.bzk_kc[k]
-        k12_c = k1_c - k2_c
+        k2_c = self.kd.bz1k_kc[k]
+        q_c = k2_c - k1_c
         N_c = self.gd.N_c
+
+        q = self.kd.where_is_q(q_c, self.bzq_qc)
+        
+        q_c = self.bzq_qc[q]
         eik1r_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k1_c / N_c).T)
-        eik20r_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k20_c / N_c).T)
-        eik2r_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k2_c / N_c).T)
+        eik2r_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k20_c / N_c).T)
+        eiqr_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, q_c / N_c).T)
 
-        for q, k_c in enumerate(self.bzk_kc):
-            if abs(k_c + k12_c).max() < 1e-9:
-                q0 = q
-                break
+        same = abs(k1_c - k2_c).max() < 1e-9
 
-        Gpk2_G = self.G2_qG[q0]
-        if Gpk2_G[0] == 0:
-            Gpk2_G = Gpk2_G.copy()
-            Gpk2_G[0] = 1.0 / self.gamma
-
+        iG2_G = self.iG2_qG[q]
+            
         N = N_c.prod()
         vol = self.gd.dv * N
         nspins = self.nspins
 
-        same = abs(k1_c - k2_c).max() < 1e-9
         fcut = 1e-10
         is_ibz2 = abs(k2_c - self.kd.ibzk_kc[kpt2.k]).max() < 1e-9
         
@@ -414,11 +404,11 @@ class HybridXC(HybridXCBase):
                     continue
                 
                 t0 = time()
-                nt_R = self.calculate_pair_density(n1, n2, kpt1, kpt2, q0, k,
-                                                   eik1r_R, eik20r_R, eik2r_R)
+                nt_R = self.calculate_pair_density(n1, n2, kpt1, kpt2, q, k,
+                                                   eik1r_R, eik2r_R, eiqr_R)
                 nt_G = self.pwd.fft(nt_R) / N
                 vt_G = nt_G.copy()
-                vt_G *= -pi * vol / Gpk2_G
+                vt_G *= -pi * vol * iG2_G
                 e = np.vdot(nt_G, vt_G).real * nspins * self.hybrid * x
                 
                 if self.etotflag:
@@ -426,7 +416,7 @@ class HybridXC(HybridXCBase):
                         self.exxacdf += 0.5 * (f1 * (1-np.sign(e2-e1)) * e + 
                                    f2 * (1-np.sign(e1-e2)) * e ) * kpt1.weight
                     else:
-                        self.exx += f2 * e * f1 * kpt1.weight[0] * self.kd.nbzkpts * nspins / 2
+                        self.exx += f2 * e * kpt1.weight[0] * f1 * self.kd.nbzkpts * nspins / 2
                 else:
                     self.exx_skn[kpt1.s, kpt1.k, n1] += 2 * f2 * e
 
@@ -436,7 +426,7 @@ class HybridXC(HybridXCBase):
                             self.exxacdf += 0.5 * (f1 * (1-np.sign(e2-e1)) * e +
                                         f2 * (1-np.sign(e1-e2)) * e ) * kpt2.weight
                         else:
-                            self.exx += f1 * e * f2 * kpt2.weight[0] * self.kd.nbzkpts * nspins / 2
+                            self.exx += f1 * e * kpt2.weight[0] * f2 * self.kd.nbzkpts * nspins / 2
                     else:
                         self.exx_skn[kpt2.s, kpt2.k, n2] += 2 * f1 * e
                     
@@ -475,10 +465,10 @@ class HybridXC(HybridXCBase):
         return exx
 
     def calculate_pair_density(self, n1, n2, kpt1, kpt2, q, k,
-                               eik1r_R, eik20r_R, eik2r_R):
+                               eik1r_R, eik2r_R, eiqr_R):
         if isinstance(self.wfs, PWWaveFunctions):
             psit1_R = self.wfs.pd.ifft(kpt1.psit_nG[n1]) * eik1r_R
-            psit2_R = self.wfs.pd.ifft(kpt2.psit_nG[n2]) * eik20r_R
+            psit2_R = self.wfs.pd.ifft(kpt2.psit_nG[n2]) * eik2r_R
         else:
             psit1_R = kpt1.psit_nG[n1]
             psit2_R = kpt2.psit_nG[n2]
@@ -509,4 +499,4 @@ class HybridXC(HybridXCBase):
             Q_aL[a] = np.dot(D_p, self.setups[a].Delta_pL)
 
         self.ghat.add(nt_R, Q_aL, q)
-        return nt_R * eik1r_R / eik2r_R
+        return nt_R / eiqr_R
