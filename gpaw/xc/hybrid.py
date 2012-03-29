@@ -19,9 +19,9 @@ from gpaw.utilities.blas import gemm
 from gpaw.gaunt import make_gaunt
 
 
-class HybridXC(XCFunctional):
+class HybridXCBase(XCFunctional):
     orbital_dependent = True
-    def __init__(self, name, hybrid=None, xc=None, finegrid=False):
+    def __init__(self, name, hybrid=None, xc=None):
         """Mix standard functionals with exact exchange.
 
         name: str
@@ -53,13 +53,22 @@ class HybridXC(XCFunctional):
         self.hybrid = hybrid
         self.xc = xc
         self.type = xc.type
-        self.finegrid = finegrid
 
         XCFunctional.__init__(self, name)
 
     def get_setup_name(self):
         return 'PBE'
 
+class HybridXC(HybridXCBase):
+    def __init__(self, name, hybrid=None, xc=None, finegrid=False):
+        """Mix standard functionals with exact exchange.
+
+        finegrid: boolean
+            Use fine grid for energy functional evaluations?
+        """
+        self.finegrid = finegrid
+        HybridXCBase.__init__(self, name, hybrid, xc)
+        
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):
         return self.xc.calculate_paw_correction(setup, D_sp, dEdD_sp,

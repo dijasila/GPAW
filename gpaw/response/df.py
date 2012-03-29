@@ -75,6 +75,9 @@ class DF(CHI):
         if self.nspins == 2:
             del self.e_kn
             self.ecut *= Hartree
+            self.eta *= Hartree
+            if self.hilbert_trans:
+                self.w_w *= Hartree
             self.initialize(spin=1)
             self.calculate(spin=1)
 

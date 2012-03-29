@@ -80,6 +80,10 @@ class KSSingles(ExcitationList):
         """Select KSSingles according to the given criterium."""
 
         paw = self.calculator
+        gsxc = paw.hamiltonian.xc
+        hybrid = hasattr(gsxc, 'hybrid') and gsxc.hybrid > 0.0
+        assert(not hybrid) # empty states are wrong for hybrids
+
         wfs = paw.wfs
         self.kpt_u = wfs.kpt_u
 

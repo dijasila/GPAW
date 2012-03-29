@@ -1,6 +1,8 @@
 import sys
 from time import time, ctime
 import numpy as np
+import gpaw.fftw as fftw
+import gpaw.wavefunctions.pw as pw
 from math import sqrt, pi
 from ase.units import Hartree, Bohr
 from gpaw import extra_parameters
@@ -128,6 +130,10 @@ class CHI(BASECHI):
 
         calc = self.calc
 
+        self.pwmode = isinstance(calc.input_parameters['mode'], pw.PW)
+        if self.pwmode:
+            assert self.calc.wfs.world.size == 1
+
         # For LCAO wfs
         if calc.input_parameters['mode'] == 'lcao':
             calc.initialize_positions()        
@@ -208,13 +214,23 @@ class CHI(BASECHI):
             dpsit_g = gd.empty(dtype=complex)
             tmp = np.zeros((3), dtype=complex)
 
+        # fftw init
+        fft_R = fftw.empty(self.nG, complex)
+        fft_G = fft_R
+        fftplan = fftw.FFTPlan(fft_R, fft_G, -1, fftw.ESTIMATE)
+
+        if fftw.FFTPlan is fftw.NumpyFFTPlan:
+            self.printtxt('Using Numpy FFT.')
+        else:
+            self.printtxt('Using FFTW Library.')
+                                        
         use_zher = False
         if self.eta < 1e-3:
             use_zher = True
 
         rho_G = np.zeros(self.npw, dtype=complex)
         t0 = time()
-        t_get_wfs = 0
+
         for k in range(self.kstart, self.kend):
             k_pad = False
             if k >= self.nkpt:
@@ -227,21 +243,39 @@ class CHI(BASECHI):
                 ibzkpt2 = ibzkpt1
             else:
                 ibzkpt2 = kd.bz2ibz_k[kq_k[k]]
-            
+
+            if self.pwmode:
+                N_c = self.gd.N_c
+                k_c = self.kd.ibzk_kc[ibzkpt1]
+                eikr1_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k_c / N_c).T)
+                k_c = self.kd.ibzk_kc[ibzkpt2]
+                eikr2_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k_c / N_c).T)
+                
+            index1_g, phase1_g = kd.get_transform_wavefunction_index(self.nG, k)
+            index2_g, phase2_g = kd.get_transform_wavefunction_index(self.nG, kq_k[k])
+
             for n in range(self.nstart, self.nend):
 #                print >> self.txt, k, n, time() - t0
                 t1 = time()
-                psitold_g = self.get_wavefunction(ibzkpt1, n, True, spin=spin)
-                t_get_wfs += time() - t1
-                psit1new_g_tmp = kd.transform_wave_function(psitold_g, k)
+                if not self.pwmode:
+                    psitold_g = self.get_wavefunction(ibzkpt1, n, True, spin=spin)
+                else:
+                    u = self.kd.get_rank_and_index(spin, ibzkpt1)[1]
+                    psitold_g = calc.wfs._get_wave_function_array(u, n, realspace=True, phase=eikr1_R)
+
+                psit1new_g_tmp = kd.transform_wave_function(psitold_g,k,index1_g,phase1_g)
 
                 if (self.rpad > 1).any() or (self.pbc - True).any():
                     psit1new_g = self.pad(psit1new_g_tmp)
                 else:
                     psit1new_g = psit1new_g_tmp
 
-                P1_ai = pt.dict()
-                pt.integrate(psit1new_g, P1_ai, k)
+                # PAW part
+                if self.calc.wfs.world.size > 1 or self.nkpt == 1:
+                    P1_ai = pt.dict()
+                    pt.integrate(psit1new_g, P1_ai, k)
+                else:
+                    P1_ai = self.get_P_ai(k, n)
 
                 psit1_g = psit1new_g.conj() * self.expqr_g
 
@@ -250,27 +284,29 @@ class CHI(BASECHI):
                         print >> self.txt, '    ', k, n, m, time() - t0
 		    
                     check_focc = (f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]) > self.ftol
-                    
-                    t1 = time()
-                    psitold_g = self.get_wavefunction(ibzkpt2, m, check_focc, spin=spin)
-                    t_get_wfs += time() - t1
+
+                    if not self.pwmode:
+                        psitold_g = self.get_wavefunction(ibzkpt2, m, check_focc, spin=spin)
 
                     if check_focc:                            
-                        psit2_g_tmp = kd.transform_wave_function(psitold_g, kq_k[k])
+                        if self.pwmode:
+                            u = self.kd.get_rank_and_index(spin, ibzkpt2)[1]
+                            psitold_g = calc.wfs._get_wave_function_array(u, m, realspace=True, phase=eikr2_R)
+
+                        psit2_g_tmp = kd.transform_wave_function(psitold_g, kq_k[k], index2_g, phase2_g)
+
                         if (self.rpad > 1).any() or (self.pbc - True).any():
                             psit2_g = self.pad(psit2_g_tmp)
                         else:
                             psit2_g = psit2_g_tmp
 
-                        P2_ai = pt.dict()
-                        pt.integrate(psit2_g, P2_ai, kq_k[k])
-
                         # fft
-                        tmp_g = np.fft.fftn(psit2_g*psit1_g) * self.vol / self.nG0
+                        fft_R[:] = psit2_g * psit1_g
+                        fftplan.execute()
+                        fft_G *= self.vol / self.nG0
+#                        tmp_g = np.fft.fftn(psit2_g*psit1_g) * self.vol / self.nG0
 
-                        for iG in range(self.npw):
-                            index = self.Gindex_G[iG]
-                            rho_G[iG] = tmp_g[index[0], index[1], index[2]]
+                        rho_G = fft_G.ravel()[self.Gindex_G]
 
                         if self.optical_limit:
                             phase_cd = np.exp(2j * pi * sdisp_cd * bzk_kc[kq_k[k], :, np.newaxis])
@@ -280,6 +316,12 @@ class CHI(BASECHI):
                             rho_G[0] = -1j * np.dot(self.qq_v, tmp)
 
                         # PAW correction
+                        if self.calc.wfs.world.size > 1 or self.nkpt == 1:
+                            P2_ai = pt.dict()
+                            pt.integrate(psit2_g, P2_ai, kq_k[k])
+                        else:
+                            P2_ai = self.get_P_ai(kq_k[k], m)
+
                         for a, id in enumerate(calc.wfs.setups.id_a):
                             P_p = np.outer(P1_ai[a].conj(), P2_ai[a]).ravel()
                             gemv(1.0, self.phi_aGp[a], P_p, 1.0, rho_G)
@@ -519,3 +561,4 @@ class CHI(BASECHI):
         printtxt('     chi0_wGG        : %f M / cpu' %(self.Nw_local * self.npw**2 * 16. / 1024**2) )
         if self.hilbert_trans:
             printtxt('     specfunc_wGG    : %f M / cpu' %(self.NwS_local *self.npw**2 * 16. / 1024**2) )
+

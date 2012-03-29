@@ -33,8 +33,10 @@ more about :ref:`its features and the algorithms used
 .. |i6| image:: _static/logo-hut.png
         :height: 44 px
         :target: http://www.fyslab.hut.fi
-.. |i7| image:: _static/logo-tree.png
-        :height: 44 px
+.. |i7| image:: _static/logo-suncat.png
+        :height: 22 px
+        :align: middle
+        :target: http://suncat.stanford.edu
 
 
 
@@ -49,12 +51,15 @@ more about :ref:`its features and the algorithms used
 * `Institute of Physics, Tampere University of Technology <http://www.tut.fi>`_
 * `Laboratory of Physics, Helsinki University of Technology
   <http://www.fyslab.hut.fi>`_
+* `SUNCAT Center, Stanford University/SLAC <http://suncat.stanford.edu>`_
 
 
 .. _news:
 
 News
 ====
+
+* :ref:`GPAW version 0.9 <releasenotes>` released (March 7 2012)
 
 * Help!  The :ref:`todolist` has been updated.  Maybe there is
   something you can do (May 25 2011)

@@ -51,7 +51,7 @@ class PWDescriptor:
             i_Qc -= N_c // 2
             self.tmp_Q = fftw.empty(N_c, complex)
             self.tmp_R = self.tmp_Q
-
+        
         self.fftplan = fftw.FFTPlan(self.tmp_R, self.tmp_Q, -1, fftwflags)
         self.ifftplan = fftw.FFTPlan(self.tmp_Q, self.tmp_R, 1, fftwflags)
 
@@ -98,7 +98,7 @@ class PWDescriptor:
         return len(self.Q_G)
 
     def bytecount(self, dtype=float):
-        return self.Q_G.nbytes
+        return len(self) * 16
     
     def zeros(self, x=(), dtype=None):
         a_xG = self.empty(x, dtype)
@@ -126,6 +126,7 @@ class PWDescriptor:
         """
 
         self.tmp_R[:] = f_R
+
         self.fftplan.execute()
         return self.tmp_Q.ravel()[self.Q_G]
 
@@ -373,7 +374,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         return self.pd.integrate(a_xg, b_yg, global_integral)
 
     def bytes_per_wave_function(self):
-        return self.gd.bytecount(self.dtype)
+        return 16 * len(self.pd)
 
     def set_setups(self, setups):
         self.timer.start('PWDescriptor')
@@ -415,7 +416,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         for f, psit_G in zip(f_n, kpt.psit_nG):
             nt_R += f * abs(self.pd.ifft(psit_G))**2
 
-    def _get_wave_function_array(self, u, n, realspace=True):
+    def _get_wave_function_array(self, u, n, realspace=True, phase=None):
         psit_G = FDPWWaveFunctions._get_wave_function_array(self, u, n,
                                                             realspace)
         if not realspace:
@@ -425,9 +426,12 @@ class PWWaveFunctions(FDPWWaveFunctions):
         if self.kd.gamma:
             return self.pd.ifft(psit_G)
         else:
-            N_c = self.gd.N_c
-            k_c = self.kd.ibzk_kc[kpt.k]
-            eikr_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k_c / N_c).T)
+            if phase is None:
+                N_c = self.gd.N_c
+                k_c = self.kd.ibzk_kc[kpt.k]
+                eikr_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k_c / N_c).T)
+            else:
+                eikr_R = phase
             return self.pd.ifft(psit_G) * eikr_R
 
     def write(self, writer, write_wave_functions=False):
@@ -501,6 +505,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         if nbands is None:
             nbands = npw
+
+        assert nbands <= npw
 
         self.bd = bd = BandDescriptor(nbands, self.bd.comm)
 

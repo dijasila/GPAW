@@ -60,7 +60,7 @@ class LrTDDFT(ExcitationList):
                  istart=0,
                  jend=None,
                  energy_range=None,
-                 xc=None,
+                 xc='GS',
                  derivative_level=1,
                  numscale=0.00001,
                  txt=None,
@@ -105,10 +105,12 @@ class LrTDDFT(ExcitationList):
         self.eh_comm = eh_comm
  
         if calculator is not None:
+            if xc == 'GS':
+                xc = calculator.hamiltonian.xc.name
             calculator.converge_wave_functions()
             if calculator.density.nct_G is None:
                 calculator.set_positions()
-                
+
             self.update(calculator, nspins, eps, 
                         istart, jend, energy_range,
                         xc, derivative_level, numscale)

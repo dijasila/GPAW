@@ -25,6 +25,8 @@ PyObject* craypat_region_end(PyObject *self, PyObject *args);
 
 PyObject* symmetrize(PyObject *self, PyObject *args);
 PyObject* symmetrize_wavefunction(PyObject *self, PyObject *args);
+PyObject* symmetrize_return_index(PyObject *self, PyObject *args);
+PyObject* symmetrize_with_index(PyObject *self, PyObject *args);
 PyObject* map_k_points(PyObject *self, PyObject *args);
 PyObject* scal(PyObject *self, PyObject *args);
 PyObject* gemm(PyObject *self, PyObject *args);
@@ -105,6 +107,8 @@ PyObject* mlsqr(PyObject *self, PyObject *args);
 static PyMethodDef functions[] = {
   {"symmetrize", symmetrize, METH_VARARGS, 0},
   {"symmetrize_wavefunction", symmetrize_wavefunction, METH_VARARGS, 0},
+  {"symmetrize_return_index", symmetrize_return_index, METH_VARARGS, 0},
+  {"symmetrize_with_index", symmetrize_with_index, METH_VARARGS, 0},
   {"map_k_points", map_k_points, METH_VARARGS, 0},
   {"scal", scal, METH_VARARGS, 0},
   {"gemm", gemm, METH_VARARGS, 0},

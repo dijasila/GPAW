@@ -22,7 +22,7 @@ The KGF code is currently beeing merged into the development version of
 GPAW and is expected to be part of the GPAW package in the near future.
 The latest revision can be obtained from svn::
 
-  $ svn checkout https://svn.fysik.dtu.dk/projects/KeldyshGF/trunk/KeldyshGF KeldyshGF
+  $ svn checkout https://svn.fysik.dtu.dk/projects/KeldyshGF/trunk KeldyshGF
  
 
 Installation is completed by adding the path of KeldyshGF to the PYTHONPATH 
@@ -31,10 +31,26 @@ environment variable.
 -----------------------
 Doing a KGF calculation
 -----------------------
+The KGF code can perform finite bias non-equilibrium calculation 
+of a molecular junction using various electron exchange and 
+correlation approximations. 
+It is assumed that interactions are only included in a central region.
+The KGF code can handle both model Hamiltonians of the the Pariser-Parr-Pople
+(extended Hubbard) as well as abinitio calculated Hamiltonians.
+
+A KGF calculatoin normally involves the following steps:
+
+- Setting up the non-interacting lead and scattering Hamiltonian.
+- Setting up a non-interacting GF
+- Setting up various self-energies to handle Hartree, exchange and correlation
+- Runnig the calculation 
+
+XXX.
 
 
-Pariser-Parr-Model Hamiltonian
-------------------------------
+
+Example: Pariser-Parr-Model Hamiltonian
+---------------------------------------
 
 To do an electron transport calculation using a model Hamiltonian
 the parameters of both the non-interacting
@@ -104,8 +120,15 @@ Self-consistency
 -----------------
 The self-consistent solution is obtained by mixing Green's function
 using a pulay mixing scheme, which is controllod by three parameters
-(convergence criteria , mixing weight : float, history length : int).
-The Hartree-Fock and GW self-consistent iterations is written to the
-logfiles files HF.log and GW.log, respectively. is written to a NetCDFFile
+(tol:float , mix:float : float, history:int). The self-consistent
+cycles is initianted by the GF method ``selfconsistent``.
+The self-consistent iterations can be monited if written to the
+logfiles files.
+
+Saving calculated data to a NetCDFFile
+--------------------------------------
+The GF method ``WriteSpectralInfoToNetCDFFile`` is used to save all
+the calculated data such as spectral functions, transmission function etc.
+to a NetCDFFile. 
 
 .. default-role::

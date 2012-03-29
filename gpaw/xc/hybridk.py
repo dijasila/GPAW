@@ -17,7 +17,7 @@ from gpaw.utilities import hartree, pack, unpack2, packed_index, logfile
 from gpaw.lfc import LFC
 from gpaw.wavefunctions.pw import PWDescriptor, PWWaveFunctions
 from gpaw.kpt_descriptor import KPointDescriptor
-
+from gpaw.xc.hybrid import HybridXCBase
 
 class KPoint:
     def __init__(self, kd, kpt=None):
@@ -93,45 +93,19 @@ class KPoint:
         self.requests = []
         
 
-class HybridXC(XCFunctional):
+class HybridXC(HybridXCBase):
     orbital_dependent = True
-    def __init__(self, name, hybrid=None, xc=None, finegrid=False,
-                 alpha=None, skip_gamma=False, ecut=None, etotflag = False, acdf=False, coredensity=True,
+    def __init__(self, name, hybrid=None, xc=None,
+                 alpha=None, skip_gamma=False, ecut=None, 
+                 etotflag = False, acdf=False, coredensity=True,
                  logfilename='-', bands=None):
         """Mix standard functionals with exact exchange.
 
-        name: str
-            Name of hybrid functional.
-        hybrid: float
-            Fraction of exact exchange.
-        xc: str or XCFunctional object
-            Standard DFT functional with scaled down exchange.
-        finegrid: boolean
-            Use fine grid for energy functional evaluations?
         bands: list or None
             List of bands to calculate energy for.  Default is None
             meaning do all bands.
         """
 
-        if name == 'EXX':
-            assert hybrid is None and xc is None
-            hybrid = 1.0
-            xc = XC(XCNull())
-        elif name == 'PBE0':
-            assert hybrid is None and xc is None
-            hybrid = 0.25
-            xc = XC('HYB_GGA_XC_PBEH')
-        elif name == 'B3LYP':
-            assert hybrid is None and xc is None
-            hybrid = 0.2
-            xc = XC('HYB_GGA_XC_B3LYP')
-            
-        if isinstance(xc, str):
-            xc = XC(xc)
-
-        self.hybrid = hybrid
-        self.xc = xc
-        self.type = xc.type
         self.alpha = alpha
         self.skip_gamma = skip_gamma
 
@@ -148,14 +122,11 @@ class HybridXC(XCFunctional):
             self.etotflag = True
             print 'etotflag is True'
 
-        XCFunctional.__init__(self, name)
+        HybridXCBase.__init__(self, name, hybrid, xc)
 
     def log(self, *args, **kwargs):
         prnt(file=self.fd, *args, **kwargs)
         self.fd.flush()
-
-    def get_setup_name(self):
-        return 'PBE'
 
     def calculate_radial(self, rgd, n_sLg, Y_L, v_sg,
                          dndr_sLg=None, rnablaY_Lv=None,
@@ -165,7 +136,7 @@ class HybridXC(XCFunctional):
     
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):
-        addcoredensity = self.coredensity
+        addcoredensity = self.coredensity # XXX overwrites input
 
         return self.xc.calculate_paw_correction(setup, D_sp, dEdD_sp,
                                  addcoredensity, a)
@@ -321,7 +292,7 @@ class HybridXC(XCFunctional):
                 self.exxacdf = self.world.sum(self.exxacdf[0])
                 self.exx = self.exxacdf
             else:
-                self.exx = self.world.sum(self.exx[0])
+                self.exx = self.world.sum(self.exx)
             self.exx += self.calculate_exx_paw_correction()
                 
         else:
@@ -439,13 +410,13 @@ class HybridXC(XCFunctional):
                 vt_G = nt_G.copy()
                 vt_G *= -pi * vol * iG2_G
                 e = np.vdot(nt_G, vt_G).real * nspins * self.hybrid * x
-
+                
                 if self.etotflag:
                     if self.acdf:
                         self.exxacdf += 0.5 * (f1 * (1-np.sign(e2-e1)) * e + 
                                    f2 * (1-np.sign(e1-e2)) * e ) * kpt1.weight
                     else:
-                        self.exx += f2 * e * kpt1.weight * f1 * self.kd.nbzkpts * nspins / 2
+                        self.exx += f2 * e * kpt1.weight[0] * f1 * self.kd.nbzkpts * nspins / 2
                 else:
                     self.exx_skn[kpt1.s, kpt1.k, n1] += 2 * f2 * e
 
@@ -455,7 +426,7 @@ class HybridXC(XCFunctional):
                             self.exxacdf += 0.5 * (f1 * (1-np.sign(e2-e1)) * e +
                                         f2 * (1-np.sign(e1-e2)) * e ) * kpt2.weight
                         else:
-                            self.exx += f1 * e * kpt2.weight * f2 * self.kd.nbzkpts * nspins / 2
+                            self.exx += f1 * e * kpt2.weight[0] * f2 * self.kd.nbzkpts * nspins / 2
                     else:
                         self.exx_skn[kpt2.s, kpt2.k, n2] += 2 * f1 * e
                     
@@ -502,7 +473,8 @@ class HybridXC(XCFunctional):
             psit1_R = kpt1.psit_nG[n1]
             psit2_R = kpt2.psit_nG[n2]
 
-        psit2_R = self.kd.transform_wave_function(psit2_R, k)
+        psit2_R = np.asarray(self.kd.transform_wave_function(psit2_R, k),
+                             complex)
         nt_R = psit1_R.conj() * psit2_R
 
         s = self.kd.sym_k[k]

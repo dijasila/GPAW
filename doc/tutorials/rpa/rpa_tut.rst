@@ -42,13 +42,10 @@ The correlation energy is obtained as the integral of this function divided by :
 This is the default parameters for Gauss-legendre integration. The gauss_legendre keyword specifies the number of points, the frequency_cut keyword sets the value of the highest frequency (but the integration is always an approximation for the infinite integral) and the frequency_scale keyword determines how dense the frequencies are sampled close to :math:`\omega=0`. The integrals for different number of Gauss-Legendre points is shown below as well as the integrand evaluated at the fine equidistant frequency grid
 
 .. image:: E_w.png
-	   :height: 200 px
+	   :height: 400 px
 
 .. image:: con_freq.png
-	   :height: 200 px
-
-and the value of the integral for a range of parameters is shown below (all values in eV)
-
+	   :height: 400 px
 
 It is seen that using the default value of 16 frequency points gives a result which is very well converged (to 0.1 meV). Below we will simply use the default values allthough we could perhaps use 8 points instead of 16, which would half the total CPU time for the calculations. In this particular case the result is not very sensitive to the frequency scale, but if the there is a non-vanishing density of states near the Fermi level, there may be much more structure in the integrand near :math:`\omega=0` and it is important to sample this region well. It should of course be remembered that these values are not converged with respect to the number of unoccupied bands and plane waves, which were calculated with a cutoff at 200 eV.
 
@@ -88,10 +85,10 @@ The fit is seen to be very good at the last three points and we find an extrapol
 ======   =====   =====   ======       ============
 PBE      HF      RPA     HF+RPA       Experimental
 ======   =====   =====   ======       ============
-10.59	 4.68    4.97    9.65	  	9.89
+10.59	 4.68    4.91    9.59	  	9.89
 ======   =====   =====   ======       ============
 
-The RPA result seems to be much better than the PBE result. However, one should also be aware that due to the non-local nature of the RPA functional, very large supercells are needed to avoid spurious interactions between repeated images and the calculation done for the 6x6x7 cell used here is not expected to be fully converged with respect to super cell size. See ref. \ [#Harl]_ for more details on this.
+One should also be aware that due to the non-local nature of the RPA functional, very large supercells are needed to avoid spurious interactions between repeated images and the calculation done for the 6x6x7 cell used here is not expected to be fully converged with respect to super cell size. In fact, the present super cell is not even large enough for the PBE and HF calculations to be converged. See ref. \ [#Harl]_ for more details on this. It should be noted that in general, the accuaracy of RPA is comparable to that of PBE calculations \ [#Furche]_ and N2 is just a special case where RPA performs better than PBE. The major advantage of RPA is the non-locality, which results in a good description of van der Waals forces. The true power of RPA thus only comes into play for systems where dispersive interaction dominate.
 
 .. [#Furche] F. Furche,
              *Phys. Rev. B* **64**, 195120 (2001)

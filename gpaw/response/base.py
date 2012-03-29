@@ -170,8 +170,8 @@ class BASECHI:
         pt = LFC(gd, [setup.pt_j for setup in setups],
                  KPointDescriptor(self.bzk_kc),
                  dtype=complex, forces=True)
-        spos_ac = calc.atoms.get_scaled_positions()
-        pt.set_positions(spos_ac)
+        self.spos_ac = calc.atoms.get_scaled_positions()
+        pt.set_positions(self.spos_ac)
         self.pt = pt
 
         # Printing calculation information
@@ -262,12 +262,18 @@ class BASECHI:
         
         kk_Gv = gemmdot(q_c + self.Gvec_Gc, self.bcell_cv.copy(), beta=0.0)
         phi_aGp = {}
+
+        from gpaw.response.parallel import parallel_partition
+
+        npw, npw_local, Gstart, Gend = parallel_partition(
+                               self.npw, self.comm.rank, self.comm.size, reshape=False)
+
         for a, id in enumerate(setups.id_a):
-            phi_aGp[a] = two_phi_planewave_integrals(kk_Gv, setups[a])
-            for iG in range(self.npw):
+            phi_aGp[a] = two_phi_planewave_integrals(kk_Gv, setups[a], Gstart, Gend)
+            for iG in range(Gstart, Gend):
                 phi_aGp[a][iG] *= np.exp(-1j * 2. * pi *
                                          np.dot(q_c + self.Gvec_Gc[iG], spos_ac[a]) )
-
+            self.comm.sum(phi_aGp[a])
         # For optical limit, G == 0 part should change
         if optical_limit:
             for a, id in enumerate(setups.id_a):
@@ -359,7 +365,7 @@ class BASECHI:
         return
 
 
-    def density_matrix(self,n,m,k,kq=None,phi_aGp=None,Gspace=True):
+    def density_matrix(self,n,m,k,kq=None,spin=0,phi_aGp=None,Gspace=True):
 
         ibzk_kc = self.ibzk_kc
         bzk_kc = self.bzk_kc
@@ -392,10 +398,10 @@ class BASECHI:
         ibzkpt1 = kd.bz2ibz_k[k]
         ibzkpt2 = kd.bz2ibz_k[kq]
         
-        psitold_g = self.get_wavefunction(ibzkpt1, n, True)
+        psitold_g = self.get_wavefunction(ibzkpt1, n, True, spin=spin)
         psit1_g = kd.transform_wave_function(psitold_g, k)
         
-        psitold_g = self.get_wavefunction(ibzkpt2, m, True)
+        psitold_g = self.get_wavefunction(ibzkpt2, m, True, spin=spin)
         psit2_g = kd.transform_wave_function(psitold_g, kq)
 
         if (self.rpad > 1).any() or (self.pbc - True).any():
@@ -412,10 +418,7 @@ class BASECHI:
             rho_g = np.fft.fftn(tmp_g) * self.vol / self.nG0
 
             # Here, planewave cutoff is applied
-            rho_G = np.zeros(self.npw, dtype=complex)
-            for iG in range(self.npw):
-                index = self.Gindex_G[iG]
-                rho_G[iG] = rho_g[index[0], index[1], index[2]]
+            rho_G = rho_g.ravel()[self.Gindex_G]
 
             if optical_limit:
                 d_c = [Gradient(gd, i, n=4, dtype=complex).apply for i in range(3)]
@@ -427,11 +430,15 @@ class BASECHI:
                     tmp[ix] = gd.integrate(psit1_g.conj() * dpsit_g)
                 rho_G[0] = -1j * np.dot(q_v, tmp)
 
-            pt = self.pt
-            P1_ai = pt.dict()
-            pt.integrate(psit1_g, P1_ai, k)
-            P2_ai = pt.dict()
-            pt.integrate(psit2_g, P2_ai, kq)
+            if self.calc.wfs.world.size > 1:
+                pt = self.pt
+                P1_ai = pt.dict()
+                pt.integrate(psit1_g, P1_ai, k)
+                P2_ai = pt.dict()
+                pt.integrate(psit2_g, P2_ai, kq)
+            else:
+                P1_ai = self.get_P_ai(k, n)
+                P2_ai = self.get_P_ai(kq,m)
 
             if phi_aGp is None:
                 try:
@@ -461,6 +468,30 @@ class BASECHI:
 
             return rho_G
 
+    def get_P_ai(self, k, n):
+
+        kd = self.kd
+        calc = self.calc
+        
+        ibzkpt = kd.bz2ibz_k[k]
+        kpt = calc.wfs.kpt_u[ibzkpt]
+        s = kd.sym_k[k]
+        time_reversal = kd.time_reversal_k[k]
+        P_ai = {}
+        for a, id in enumerate(calc.wfs.setups.id_a):
+            b = kd.symmetry.a_sa[s, a]
+            S_c = (np.dot(self.spos_ac[a], kd.symmetry.op_scc[s]) - self.spos_ac[b])
+        
+            assert abs(S_c.round() - S_c).max() < 1e-10
+            k_c = kd.ibzk_kc[kpt.k]
+        
+            x = np.exp(2j * pi * np.dot(k_c, S_c))
+            P_i = np.dot(calc.wfs.setups[a].R_sii[s], kpt.P_ani[b][n]) * x
+            if time_reversal:
+                P_i = P_i.conj()
+            P_ai[a] = P_i
+        return P_ai
+
 
     def screened_interaction_kernel(self, iq, static=True, comm=None, kcommsize=None):
         """Calcuate W_GG(w) for a given q.
@@ -478,9 +509,10 @@ class BASECHI:
             
         if static:
             df = DF(calc=self.calc, q=q.copy(), w=(0.,), nbands=self.nbands,
-                    optical_limit=optical_limit,
-                    hilbert_trans=False, xc='RPA', rpad=self.rpad, vcut=self.vcut,
-                    eta=0.0001, ecut=self.ecut*Hartree, txt='no_output')#, comm=serial_comm)
+                    optical_limit=optical_limit, hilbert_trans=False, xc='RPA',
+                    rpad=self.rpad, vcut=self.vcut,
+                    eta=0.0001, ecut=self.ecut*Hartree,
+                    txt='df.out')
         else:
             df = DF(calc=self.calc, q=q.copy(), w=self.w_w.copy()*Hartree, nbands=self.nbands,
                     optical_limit=optical_limit, hilbert_trans=True, xc='RPA', full_response=True,
@@ -498,6 +530,7 @@ class BASECHI:
         if static:
             assert len(dfinv_wGG) == 1
             W_GG = dfinv_wGG[0] * df.Kc_GG
+            self.dfinv_wGG = dfinv_wGG[0]
             if optical_limit:
                 self.dfinvG0_G = dfinv_wGG[0,:,0]
 

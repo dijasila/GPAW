@@ -1,5 +1,5 @@
 import numpy as np
-#from pylab import *
+from pylab import *
 
 A = loadtxt('frequency_equidistant.dat').transpose()
 plot(A[0], A[1], label='Equidistant')

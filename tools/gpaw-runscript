@@ -616,7 +616,7 @@ if set['mail'] is None and os.environ.has_key('GPAW_MAIL'):
 
 parameter_ext = ''
 if 'parameters' in set:
-     parameter_ext += '_' + set['parameters'].replace(' ','')
+     parameter_ext += '_' + set['parameters'].replace(' ','_')
 
 # set output files
 if set['out'] is None:
