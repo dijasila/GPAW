@@ -1,15 +1,9 @@
-from ase.data.g2_1_ref import diatomic, ex_atomization, atomization
+from ase.data.g2_1_ref import ex_atomization, atomization
 from ase.tasks.io import read_json
 from ase.atoms import string2symbols
 from ase.units import kcal, mol
 
-atoms = set()
-for name in ex_atomization:
-    atoms.update(string2symbols(name))
-
-data = {}
-for name in ex_atomization.keys() + list(atoms):
-    data[name] = read_json(name + '-molecule-gpaw-pw2')
+data = read_json('molecule-pw.json')
 
 maepbe = 0.0
 maeexx = 0.0
