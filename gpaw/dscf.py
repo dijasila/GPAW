@@ -93,7 +93,7 @@ class OccupationsDSCF(FermiDirac):
         for orb in self.orbitals:
             ef = self.fermilevel
             if self.fixmagmom:
-                femilevels = [ef + 0.5 * self.split, ef - 0.5 * self.split]
+                fermilevels = [ef + 0.5 * self.split, ef - 0.5 * self.split]
             else:
                 fermilevels = ef
             c_oun.append(orb[1].expand(fermilevels, wfs))
