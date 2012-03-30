@@ -6,8 +6,8 @@ from gpaw import PW
 from gpaw.factory import GPAWFactory
 
 
-for ecut in [340]:
-    for k in [6]:
+for ecut in [400, 500, 600]:
+    for k in [10, 12, 14]:
         kpts = monkhorst_pack((k, k, k)) + 0.5 / k
         task = EXXBulkTask(
             calcfactory=GPAWFactory(xc='PBE', 
