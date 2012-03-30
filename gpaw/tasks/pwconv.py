@@ -56,6 +56,8 @@ class ConvergenceTestTask(Task):
         self.summary_keys = []
 
         for name, data in self.data.items():
+            if not data:
+                continue
             cutoffs = data['cutoffs']
             E1 = data['e1']
             E2 = data['e2']
