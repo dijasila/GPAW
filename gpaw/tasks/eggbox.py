@@ -4,7 +4,7 @@ import numpy as np
 from ase.atoms import Atoms
 
 from gpaw import FermiDirac
-from gpaw.tasks.convergence import ConvergenceTestTask
+from gpaw.tasks.fdconv import ConvergenceTestTask
 
 
 class EggboxTestTask(ConvergenceTestTask):
