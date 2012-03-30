@@ -10,7 +10,7 @@ from gpaw import FermiDirac, PW
 
 
 class ConvergenceTestTask(Task):
-    taskname = 'convergence'
+    taskname = 'pwconv'
 
     def __init__(self, L=4.0, cutoffs=(300, 400, 500), **kwargs):
         """Calculate convergence of energy.
@@ -56,8 +56,6 @@ class ConvergenceTestTask(Task):
         self.summary_keys = []
 
         for name, data in self.data.items():
-            if not data:
-                continue
             cutoffs = data['cutoffs']
             E1 = data['e1']
             E2 = data['e2']

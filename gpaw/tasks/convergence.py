@@ -10,7 +10,7 @@ from gpaw import FermiDirac
 
 
 class ConvergenceTestTask(Task):
-    taskname = 'convergence'
+    taskname = 'fdconv'
 
     def __init__(self, g1=20, g2=40, L=4.0, **kwargs):
         """Calculate convergence of energy.
@@ -18,7 +18,7 @@ class ConvergenceTestTask(Task):
         The energy of a single atom and a dimer molecule is calculated
         for a range of grid-spacings."""
 
-        self.gs = range(g1, g2 + 1, 4)
+        self.grid_points = range(g1, g2 + 1, 4)
         
         self.L = L
 
@@ -32,7 +32,7 @@ class ConvergenceTestTask(Task):
                        kpts=[1, 1, 1])
 
         e1 = []
-        for g in self.gs:
+        for g in self.grid_points:
             atoms.calc.set(gpts=(g, g, g))
             e1.append(atoms.get_potential_energy())
         
@@ -42,20 +42,28 @@ class ConvergenceTestTask(Task):
         atoms.set_distance(0, 1, 2 * r, 0)
 
         e2 = []
-        for g in self.gs:
+        for g in self.grid_points:
             atoms.calc.set(gpts=(g, g, g))
             e2.append(atoms.get_potential_energy())
         
-        return {'e1': e1, 'e2': e2, 'g': self.gs}
+        return {'e1': e1, 'e2': e2, 'grid points': self.grid_points}
 
     def analyse(self):
-        self.summary_header = [('name', '')] + [
-            ('%.2f Ang' % (self.L / g), 'meV') for g in self.gs]
+        self.summary_keys = []
 
         for name, data in self.data.items():
-            ea = 2 * data['e1'] - data['e2']
-            ea[:-1] -= ea[-1]
-            self.results[name] = ea * 1000
+            if not data:
+                continue
+            grid_points = data['grid points']
+            E1 = data['e1']
+            E2 = data['e2']
+            for g, e1, e2 in zip(grid_points, E1, E2)[:-1]:
+                data['e%d' % g] = e1 - E1[-1]
+                data['de%d' % g] = e1 - 0.5 * e2 - (E1[-1] -0.5 * E2[-1])
+
+            if len(self.summary_keys) == 0:
+                for g in grid_points[:-1]:
+                    self.summary_keys.append('e%d' % g)
             
     def add_options(self, parser):
         Task.add_options(self, parser)
@@ -68,10 +76,9 @@ class ConvergenceTestTask(Task):
     def parse(self, opts, args):
         Task.parse(self, opts, args)
 
-        self.gs = range(100)[string2index(opts.grid_point_range)]
+        self.grid_points = range(100)[string2index(opts.grid_point_range)]
 
 
 if __name__ == '__main__':
-    task = ConvergenceTestTask()
-    args = task.parse_args()
-    task.run(args)
+    from ase.tasks.main import run
+    run(calcname='gpaw', task=ConvergenceTestTask())
