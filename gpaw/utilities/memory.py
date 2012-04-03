@@ -24,7 +24,7 @@ def _VmB(VmKey):
         t.close()
         # get VmKey line e.g. 'VmRSS:  9999  kB\n ...'
         i = v.index(VmKey)
-    except (IOError, KeyError):
+    except (IOError, KeyError, ValueError):
         return 0.0  # non-Linux?
 
     v = v[i:].split(None, 3)  # whitespace
