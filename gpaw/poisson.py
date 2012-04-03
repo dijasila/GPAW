@@ -188,7 +188,9 @@ class PoissonSolver:
             return niter
         else:
             # System is charged with mixed boundaryconditions
-            raise NotImplementedError
+            msg = 'Charged systems with mixed periodic/zero' 
+            msg += ' boundary conditions'
+            raise NotImplementedError(msg)
 
     def solve_neutral(self, phi, rho, eps=2e-10):
         self.phis[0] = phi
