@@ -277,6 +277,7 @@ tests = [
     'ut_tddft.py',
     'AA_exx_enthalpy.py',
     'transport.py',
+    'mgga_sc.py',
     'constant_electric_field.py',
     'stark_shift.py',
     'aluminum_testcell.py',
