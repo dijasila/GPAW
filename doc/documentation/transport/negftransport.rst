@@ -305,7 +305,10 @@ We just let all the leads have the same K number. Attention here that
 the k number in the transport direction should bigger than 3, 
 in principle we should have enough k points in this direction, an
 experenced rule is nK * L(Å) ~ 50. L is the length of unit cell
-in this direction.
+in this direction. Note that pl_kpts should match the K sampling of 
+scattering region kpts in the x and y direction and in the parallel
+case, the local K sampling should match as well. So a safe way is to use
+a prime number for the pl_kpts in the z axis.
 
 .. _manual_bias:
 
