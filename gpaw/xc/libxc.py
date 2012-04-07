@@ -12,6 +12,8 @@ short_names = {
     'RPBE':    'GGA_X_RPBE+GGA_C_PBE',
     'BLYP':    'GGA_X_B88+GGA_C_LYP',
     'HCTH407': 'GGA_XC_HCTH_407',
+    'WC':      'GGA_X_WC+GGA_C_PBE',
+    'AM05':    'GGA_X_AM05+GGA_C_AM05',
     'TPSS':    'MGGA_X_TPSS+MGGA_C_TPSS',
     'M06L':    'MGGA_X_M06L+MGGA_C_M06L',
     'revTPSS': 'MGGA_X_REVTPSS+MGGA_C_REVTPSS'}
