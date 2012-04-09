@@ -113,7 +113,7 @@ class BEEVDWKernel(XCKernel):
 class BEEVDWFunctional(FFTVDWFunctional):
     """Base class for BEEVDW functionals."""
     def __init__(self, bee='BEE1', xcoefs=(0.0, 1.0),
-                 ccoefs=(0.0, 1.0, 0.0), t=4.0, orders=None,
+                 ccoefs=(0.0, 1.0, 0.0), t=4.0, orders=None, Nr=None,
                  **kwargs):
         """BEEVDW functionals.
 
@@ -129,6 +129,8 @@ class BEEVDWFunctional(FFTVDWFunctional):
             transformation for BEE2 exchange
         orders : array
             orders of Legendre polynomials for BEE2 exchange
+        Nr : int
+            Nr for FFT evaluation of vdW
 
         """
 
@@ -155,10 +157,16 @@ class BEEVDWFunctional(FFTVDWFunctional):
         else:
             raise KeyError('Unknown BEEVDW functional: %s', bee)
 
+        if Nr == None:
+            Nr = 2048
+        else:
+            assert type(Nr) is int
+            assert np.mod(Nr, 512) == 0
+
         ldac, pbec, vdw = ccoefs
         kernel = BEEVDWKernel(bee, xcoefs, ldac, pbec)
         FFTVDWFunctional.__init__(self, name=name, soft_correction=soft_corr,
-                                  kernel=kernel, Zab=Zab, vdwcoef=vdw,
+                                  kernel=kernel, Zab=Zab, vdwcoef=vdw, Nr=Nr,
                                   **kwargs)
 
     def get_setup_name(self):
