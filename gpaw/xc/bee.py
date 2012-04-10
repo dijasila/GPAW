@@ -113,7 +113,7 @@ class BEEVDWKernel(XCKernel):
 class BEEVDWFunctional(FFTVDWFunctional):
     """Base class for BEEVDW functionals."""
     def __init__(self, bee='BEE1', xcoefs=(0.0, 1.0),
-                 ccoefs=(0.0, 1.0, 0.0), t=4.0, orders=None, Nr=None,
+                 ccoefs=(0.0, 1.0, 0.0), t=4.0, orders=None, Nr=2048,
                  **kwargs):
         """BEEVDW functionals.
 
@@ -157,11 +157,8 @@ class BEEVDWFunctional(FFTVDWFunctional):
         else:
             raise KeyError('Unknown BEEVDW functional: %s', bee)
 
-        if Nr == None:
-            Nr = 2048
-        else:
-            assert type(Nr) is int
-            assert np.mod(Nr, 512) == 0
+        assert isinstance(Nr, int)
+        assert Nr % 512 == 0
 
         ldac, pbec, vdw = ccoefs
         kernel = BEEVDWKernel(bee, xcoefs, ldac, pbec)
