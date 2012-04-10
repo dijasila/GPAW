@@ -68,7 +68,7 @@ if os.system('source /home/camp/modulefiles.sh; ' +
              'export OMP_NUM_THREADS=1; ' +
              'mpiexec -np %d ' % cpus +
              tmpdir + '/bin/gpaw-python ' +
-             'tools/gpaw-test %s >& test.out' % args) != 0:
+             'tools/gpaw-test --directory=. %s >& test.out' % args) != 0:
     fail('Testsuite crashed!', 'test.out')
 
 try:
