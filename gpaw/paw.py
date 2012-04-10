@@ -595,18 +595,25 @@ class PAW(PAWTextOutput):
 
                 # Use (at most) all available LCAO for initialization
                 lcaonbands = min(nbands, nao)
-                lcaobd = BandDescriptor(lcaonbands, band_comm, parstride_bands)
-                assert nbands <= nao or bd.comm.size == 1
-                assert lcaobd.mynbands == min(bd.mynbands, nao)  # XXX
 
-                # Layouts used for general diagonalizer (LCAO initialization)
-                sl_lcao = par.parallel['sl_lcao']
-                if sl_lcao is None:
-                    sl_lcao = sl_default
-                initksl = get_KohnSham_layouts(sl_lcao, 'lcao',
-                                               gd, lcaobd, dtype,
-                                               nao=nao,
-                                               timer=self.timer)
+                try:
+                    lcaobd = BandDescriptor(lcaonbands, band_comm,
+                                            parstride_bands)
+                except RuntimeError:
+                    initksl = None
+                else:
+                    assert nbands <= nao or bd.comm.size == 1
+                    assert lcaobd.mynbands == min(bd.mynbands, nao)  # XXX
+
+                    # Layouts used for general diagonalizer
+                    # (LCAO initialization)
+                    sl_lcao = par.parallel['sl_lcao']
+                    if sl_lcao is None:
+                        sl_lcao = sl_default
+                    initksl = get_KohnSham_layouts(sl_lcao, 'lcao',
+                                                   gd, lcaobd, dtype,
+                                                   nao=nao,
+                                                   timer=self.timer)
 
                 if hasattr(self, 'time'):
                     assert mode == 'fd'
