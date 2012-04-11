@@ -180,8 +180,7 @@ class HybridXC(XCFunctional):
                       self.kd.nbzkpts)
 
         if self.ecut is None:
-            ecutmax = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
-            self.ecut = 0.5 * ecutmax
+            self.ecut = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
 
         assert self.kd.N_c is not None
         n = self.kd.N_c * 2 - 1

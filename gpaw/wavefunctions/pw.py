@@ -31,7 +31,7 @@ class PWDescriptor:
         N_c = gd.N_c
         self.comm = gd.comm
 
-        assert 0.5 * pi**2 / (gd.h_cv**2).sum(1).max() >= ecut
+        assert ((gd.h_cv**2).sum(1) <= 0.5 * pi**2 / ecut).all()
 
         self.dtype = dtype
 

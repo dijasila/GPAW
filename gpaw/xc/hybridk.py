@@ -166,8 +166,7 @@ class HybridXC(HybridXCBase):
             self.alpha = 6 * vol**(2 / 3.0) / pi**2
             
         if self.ecut is None:
-            ecutmax = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
-            self.ecut = 0.5 * ecutmax
+            self.ecut = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
             
         self.bzq_qc = self.kd.get_bz_q_points()
         q0 = self.kd.where_is_q(np.zeros(3), self.bzq_qc)
