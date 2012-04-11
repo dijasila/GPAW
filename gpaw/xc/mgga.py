@@ -258,7 +258,7 @@ class PurePython2DMGGAKernel:
             nb = 2.0 * n[1]
 
             e2na_x = twodexchange(na, 4. * sigma[0], 2. * tau[0], self.pars)
-            e2nb_x = twodexchange(nb, 4. * sigma[1], 2. * tau[1], self.pars)
+            e2nb_x = twodexchange(nb, 4. * sigma[2], 2. * tau[1], self.pars)
             ea_x = e2na_x * na
             eb_x = e2nb_x * nb
 
