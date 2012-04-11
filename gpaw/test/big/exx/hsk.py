@@ -87,11 +87,23 @@ class HarlSchimkaKresseBulkCollection:
         return self.names
 
 
-class HarlSchimkaKresseBulkTask(BulkTask):
+class HarlSchimkaKressePBEBulkTask(BulkTask):
     def __init__(self, **kwargs):
         BulkTask.__init__(self,
                           collection=HarlSchimkaKresseBulkCollection('PBE'),
                           **kwargs)
+
+        self.summary_keys = ['energy', 'relaxed energy', 'volume',
+                             'volume error [%]', 'B']
+
+    def analyse(self):
+        BulkTask.analyse(self)
+
+        for name, data in self.data.items():
+            if 'strains' in data:
+                atoms = self.create_system(name)
+                volume = atoms.get_volume()
+                data['volume error [%]'] = (data['volume'] / volume - 1) * 100
 
 
 class HarlSchimkaKresseEXXBulkTask(BulkTask):
@@ -110,4 +122,4 @@ class HarlSchimkaKresseEXXBulkTask(BulkTask):
 
 if __name__ == '__main__':
     from ase.tasks.main import run
-    run(calcname='gpaw', task=HarlSchimkaKresseEXXBulkTask())
+    run(calcname='gpaw', task=HarlSchimkaKressePBEBulkTask())
