@@ -94,7 +94,10 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
     def calculate_kinetic_energy_density(self, grad_v):
         assert not hasattr(self.kpt_u[0], 'c_on')
+        if self.kpt_u[0].psit_nG is None:
+            raise RuntimeError('No wavefunctions yet')
         if isinstance(self.kpt_u[0].psit_nG, FileReference):
+            # XXX initialize
             raise RuntimeError('Wavefunctions have not been initialized.')
 
         taut_sG = self.gd.zeros(self.nspins)

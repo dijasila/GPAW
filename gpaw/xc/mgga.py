@@ -50,9 +50,19 @@ class MGGA(GGA):
     def calculate_gga(self, e_g, nt_sg, v_sg, sigma_xg, dedsigma_xg):
         try:
             taut_sG = self.wfs.calculate_kinetic_energy_density(self.taugrad_v)
-        except:
-            # XXX perhaps initialize with von Weizsaecker density
-            taut_sG = self.wfs.gd.zeros((self.wfs.nspins))
+        except RuntimeError:
+            nspins = self.wfs.nspins
+            # Initialize with von Weizsaecker density
+            taut_sG = self.wfs.gd.empty((nspins))
+            gradn_g = self.gd.empty()
+            for s in range(nspins):
+                taut_g = self.gd.zeros()
+                for v in range(3):
+                    self.grad_v[v](nt_sg[s], gradn_g)
+                    axpy(0.125, gradn_g**2, taut_g)
+                taut_g *= np.where(nt_sg[s] > 1e-7, 1. / nt_sg[s], 0.0)
+                self.restrict(taut_g, taut_sG[s])
+            
         taut_sg = np.empty_like(nt_sg)
         for taut_G, taut_g in zip(taut_sG, taut_sg):
             taut_G += 1.0 / self.wfs.nspins * self.tauct_G
