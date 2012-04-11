@@ -811,7 +811,7 @@ class PWLFC(BaseLFC):
 
 
 class PW:
-    def __init__(self, ecut=340, fftwflags=fftw.ESTIMATE):
+    def __init__(self, ecut=340, fftwflags=fftw.ESTIMATE, fix=False):
         """Plane-wave basis mode.
 
         ecut: float
@@ -821,10 +821,21 @@ class PW:
 
         self.ecut = ecut / units.Hartree
         self.fftwflags = fftwflags
+        self.fix = fix
+        self.dv = None
 
-    def __call__(self, diagksl, orthoksl, initksl, *args):
-        wfs = PWWaveFunctions(self.ecut, self.fftwflags,
-                              diagksl, orthoksl, initksl, *args)
+    def __call__(self, diagksl, orthoksl, initksl, gd, *args):
+        if self.fix:
+            if self.dv is None:
+                ecut = self.ecut
+                self.dv = gd.dv
+            else:
+                ecut = self.ecut * (self.dv / gd.dv)**(2 / 3.0)
+        else:
+            ecut = self.ecut
+
+        wfs = PWWaveFunctions(ecut, self.fftwflags,
+                              diagksl, orthoksl, initksl, gd, *args)
         return wfs
 
     def __eq__(self, other):
@@ -838,9 +849,9 @@ class ReciprocalSpaceDensity(Density):
     def __init__(self, gd, finegd, nspins, charge, collinear=True):
         Density.__init__(self, gd, finegd, nspins, charge, collinear)
 
-        self.ecut2 = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
+        self.ecut2 = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max() * 0.9999
         self.pd2 = PWDescriptor(self.ecut2, self.gd)
-        self.ecut3 = 0.5 * pi**2 / (self.finegd.h_cv**2).sum(1).max()
+        self.ecut3 = 0.5 * pi**2 / (self.finegd.h_cv**2).sum(1).max() * 0.9999
         self.pd3 = PWDescriptor(self.ecut3, self.finegd)
 
         self.G3_G = self.pd2.map(self.pd3)
