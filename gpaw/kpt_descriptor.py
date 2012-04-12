@@ -39,6 +39,9 @@ def to1bz(bzk_kc, cell_cv):
         x = ((G_xv - K_v)**2).sum(1).argmin()
         bzk_kc[k] -= N_xc[x]
 
+    bzk_kc[np.where(bzk_kc>0.501)] -= 1
+    bzk_kc[np.where(bzk_kc<-0.499)] += 1
+
 
 class KPointDescriptor:
     """Descriptor-class for k-points."""
@@ -357,9 +360,7 @@ class KPointDescriptor:
         shift_c = 0.5 * ((self.N_c + 1) % 2) / self.N_c
         bzq_qc = monkhorst_pack(self.N_c) + shift_c
         to1bz(bzq_qc, self.cell_cv)
-        bzq_qc[np.where(bzq_qc>0.501)] -= 1
-        bzq_qc[np.where(bzq_qc<-0.499)] += 1
-        
+
         return bzq_qc
 
     def get_ibz_q_points(self, bzq_qc, op_scc):
