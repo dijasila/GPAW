@@ -12,6 +12,7 @@ From this paper:
 
 import ase.units as units
 from ase.lattice import bulk
+from ase.tasks.io import read_json
 from ase.tasks.bulk import BulkTask
 
 from gpaw.xc.hybridk import HybridXC
@@ -113,13 +114,22 @@ class HarlSchimkaKressePBEBulkTask(BulkTask):
                     data['B error [%]'] = (data['B'] / B - 1) * 100
 
         if atomsfile:
-            atomdata = json_read(atomsfile)
+            atomdata = read_json(atomsfile)
             for name, data in self.data.items():
                 atoms = self.create_system(name)
                 e = -data['energy']
                 for atom in atoms:
-                    e += atomsdata[atom.symbol][energy]
+                    e += atomdata[atom.symbol]['energy']
+                e /= len(atoms)
                 data['cohesive energy'] = e
+                if self.collection.xc == 'PBE':
+                    eref = self.collection.data[name][7]
+                else:
+                    eref = self.collection.data[name][9]
+                data['cohesive energy error [%]'] = (e / eref - 1) * 100
+
+            self.summary_keys += ['cohesive energy',
+                                  'cohesive energy error [%]']
 
 
 class HarlSchimkaKresseEXXBulkTask(BulkTask):
