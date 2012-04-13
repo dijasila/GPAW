@@ -827,7 +827,7 @@ class PW:
         if cell is None:
             self.cell_cv = None
         else:
-            self.cell_cv = cell / Bohr
+            self.cell_cv = cell / units.Bohr
 
     def __call__(self, diagksl, orthoksl, initksl, gd, *args):
         if self.cell_cv is None:
