@@ -1,8 +1,10 @@
 import optparse
 
+from ase.units import Bohr, Hartree
 from ase.tasks.calcfactory import CalculatorFactory, str2dict
 
-from gpaw.utilities import h2gpts
+from gpaw.utilities.gpts import get_number_of_grid_points
+from gpaw.wavefunctions.pw import PW
 
 
 class GPAWFactory(CalculatorFactory):
@@ -25,10 +27,25 @@ class GPAWFactory(CalculatorFactory):
 
         if atoms.pbc.any() and 'gpts' not in kwargs:
             # Use fixed number of gpts:
-            h = kwargs.get('h', 0.2)
-            gpts = h2gpts(h, atoms.cell)
+            h = kwargs.get('h')
+            if h is not None:
+                h /= Bohr
+
+            cell_cv = atoms.cell / Bohr
+
+            mode = kwargs.get('mode')
+            if mode == 'pw':
+                mode = PW()
+
+            gpts = get_number_of_grid_points(cell_cv, h, mode,
+                                             kwargs.get('realspace'))
             kwargs['h'] = None
             kwargs['gpts'] = gpts
+            
+            if isinstance(mode, PW):
+                kwargs['mode'] = PW(mode.ecut * Hartree,
+                                    mode.fftwflags,
+                                    atoms.cell)
 
         if self.show_text_output:
             txt = '-'

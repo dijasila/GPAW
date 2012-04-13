@@ -811,28 +811,31 @@ class PWLFC(BaseLFC):
 
 
 class PW:
-    def __init__(self, ecut=340, fftwflags=fftw.ESTIMATE, fix=False):
+    def __init__(self, ecut=340, fftwflags=fftw.ESTIMATE, cell=None):
         """Plane-wave basis mode.
 
         ecut: float
             Plane-wave cutoff in eV.
         fftwflags: int
-            Flags for making FFTW plan (default is ESTIMATE)."""
+            Flags for making FFTW plan (default is ESTIMATE).
+        cell: 3x3 ndarray
+            Use this unit cell to chose the planewaves."""
 
         self.ecut = ecut / units.Hartree
         self.fftwflags = fftwflags
-        self.fix = fix
-        self.dv = None
+        
+        if cell is None:
+            self.cell_cv = None
+        else:
+            self.cell_cv = cell / Bohr
 
     def __call__(self, diagksl, orthoksl, initksl, gd, *args):
-        if self.fix:
-            if self.dv is None:
-                ecut = self.ecut
-                self.dv = gd.dv
-            else:
-                ecut = self.ecut * (self.dv / gd.dv)**(2 / 3.0)
-        else:
+        if self.cell_cv is None:
             ecut = self.ecut
+        else:
+            volume = abs(np.linalg.det(gd.cell_cv))
+            volume0 = abs(np.linalg.det(self.cell_cv))
+            ecut = self.ecut * (volume0 / volume)**(2 / 3.0)
 
         wfs = PWWaveFunctions(ecut, self.fftwflags,
                               diagksl, orthoksl, initksl, gd, *args)

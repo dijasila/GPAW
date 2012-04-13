@@ -37,8 +37,7 @@ from gpaw.setup import Setups
 from gpaw.output import PAWTextOutput
 from gpaw.scf import SCFLoop
 from gpaw.forces import ForceCalculator
-from gpaw.utilities import h2gpts
-from gpaw.fftw import get_efficient_fft_size
+from gpaw.utilities.gpts import get_number_of_grid_points
 
 
 class PAW(PAWTextOutput):
@@ -400,25 +399,13 @@ class PAW(PAWTextOutput):
             if isinstance(mode, PW):
                 assert not realspace
 
-        if par.gpts is not None and par.h is None:
+        if par.gpts is not None:
             N_c = np.array(par.gpts)
         else:
-            if par.h is None:
-                if isinstance(mode, PW):
-                    h = np.pi / (4 * mode.ecut)**0.5
-                elif mode == 'lcao' and not realspace:
-                    h = np.pi / (4 * 340 / Hartree)**0.5
-                else:
-                    self.text('Using default value for grid spacing.')
-                    h = 0.2 / Bohr
-            else:
-                h = par.h / Bohr
-
-            if realspace or mode == 'fd':
-                N_c = h2gpts(h, cell_cv, 4)
-            else:
-                N_c = h2gpts(h, cell_cv, 1)
-                N_c = np.array([get_efficient_fft_size(N) for N in N_c])
+            h = par.h
+            if h is not None:
+                h /= Bohr
+            N_c = get_number_of_grid_points(cell_cv, h, mode, realspace)
 
         if hasattr(self, 'time') or par.dtype == complex:
             dtype = complex
