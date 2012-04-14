@@ -20,8 +20,8 @@ from ase.data.g2_1 import data
 
 from gpaw.test.big.setups.g2_1.fix.pbe_nwchem_def2_qzvppd_analyse import ref
 
-from gpaw.test.big.setups.g2_1.fix.pbe_gpaw_setups08_analyse import ref as calc
-from gpaw.test.big.setups.g2_1.fix.pbe_gpaw_setups08_analyse import tag
+from gpaw.test.big.setups.g2_1.fix.pbe_gpaw_nrel08_analyse import ref as calc
+from gpaw.test.big.setups.g2_1.fix.pbe_gpaw_nrel08_analyse import tag
 
 formulas = ref['ea'].keys()
 formulas.sort()

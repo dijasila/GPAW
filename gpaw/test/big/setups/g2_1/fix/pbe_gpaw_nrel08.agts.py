@@ -1,4 +1,4 @@
-from gpaw.test.big.setups.g2_1.fix.pbe_gpaw_setups08_analyse import tag
+from gpaw.test.big.setups.g2_1.fix.pbe_gpaw_nrel08_analyse import tag
 def agts(queue):
     run_generate = queue.add(tag + '_generate.py',
                              queueopts='-l nodes=1:ppn=4:ethernet',
