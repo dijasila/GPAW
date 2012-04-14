@@ -14,7 +14,17 @@ The steps described below require root access and assume bash shell:
 
 - `configure fys yum repository <https://wiki.fysik.dtu.dk/niflheim/Cluster_software_-_RPMS#configure-fys-yum-repository>`_
 
-- on EL/CentOS 5 or newer i386 or x86_64, as root:
+- on EL/CentOS 6 i386 or x86_64, as root:
+
+  - install gpaw and dependencies::
+
+      yum -y install --enablerepo=fys_el campos-gpaw
+
+  - install optional packages::
+
+      yum -y install --enablerepo=fys_el scipy ScientificPython
+
+- on EL/CentOS 5 i386 or x86_64, as root:
 
   - install gpaw and dependencies::
 
