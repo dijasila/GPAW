@@ -297,12 +297,12 @@ def LegendreFx2(n, rs, sigma, tau,
     # reduced density gradient in transformation t1(s)
     C2 = 0.26053088059892404
     s2 = sigma * (C2 * np.divide(rs, n))**2.
-    x_i = transformation('type1', s2, trans_i)
+    x_i = transformation(s2, trans_i)
     assert(x_i.all() >= -1.0 and x_i.all() <= 1.0)
 
     # kinetic energy density parameter alpha in transformation t2(s)
     alpha = get_alpha(n, sigma, tau)
-    x_j = transformation('type1', alpha, trans_j)
+    x_j = transformation(alpha, trans_j)
     assert(x_j.all() >= -1.0 and x_j.all() <= 1.0)
 
     # product exchange enhancement factor
@@ -312,17 +312,16 @@ def LegendreFx2(n, rs, sigma, tau,
     return Fx
 
 
-def transformation(which, x, t=None):
-    if which == 'type1':
-        assert t != None
+def transformation(x, t):
+    if t > 0:
         tmp = t + x
         x = 2.0 * np.divide(x, tmp) - 1.0
-    elif which == 'type2':
+    elif int(t) == -1:
         tmp1 = (1.0 - x**2.0)**3.0
         tmp2 = (1.0 + x**3.0 + x**6.0)
         x = np.divide(tmp1, tmp2)
     else:
-    	raise KeyError('transformation %s unknown!' % which)
+    	raise KeyError('transformation %i unknown!' % t)
     return x
 
 
