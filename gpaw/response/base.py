@@ -437,8 +437,8 @@ class BASECHI:
                 P2_ai = pt.dict()
                 pt.integrate(psit2_g, P2_ai, kq)
             else:
-                P1_ai = self.get_P_ai(k, n)
-                P2_ai = self.get_P_ai(kq,m)
+                P1_ai = self.get_P_ai(k, n, spin)
+                P2_ai = self.get_P_ai(kq,m, spin)
 
             if phi_aGp is None:
                 try:
@@ -468,13 +468,14 @@ class BASECHI:
 
             return rho_G
 
-    def get_P_ai(self, k, n):
+    def get_P_ai(self, k, n, spin=0):
 
         kd = self.kd
         calc = self.calc
         
         ibzkpt = kd.bz2ibz_k[k]
-        kpt = calc.wfs.kpt_u[ibzkpt]
+        u = ibzkpt + kd.nibzkpts * spin
+        kpt = calc.wfs.kpt_u[u]
         s = kd.sym_k[k]
         time_reversal = kd.time_reversal_k[k]
         P_ai = {}

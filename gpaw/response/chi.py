@@ -275,7 +275,7 @@ class CHI(BASECHI):
                     P1_ai = pt.dict()
                     pt.integrate(psit1new_g, P1_ai, k)
                 else:
-                    P1_ai = self.get_P_ai(k, n)
+                    P1_ai = self.get_P_ai(k, n, spin)
 
                 psit1_g = psit1new_g.conj() * self.expqr_g
 
@@ -320,7 +320,7 @@ class CHI(BASECHI):
                             P2_ai = pt.dict()
                             pt.integrate(psit2_g, P2_ai, kq_k[k])
                         else:
-                            P2_ai = self.get_P_ai(kq_k[k], m)
+                            P2_ai = self.get_P_ai(kq_k[k], m, spin)
 
                         for a, id in enumerate(calc.wfs.setups.id_a):
                             P_p = np.outer(P1_ai[a].conj(), P2_ai[a]).ravel()
