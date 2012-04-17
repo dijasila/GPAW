@@ -251,6 +251,9 @@ for n in range(len(no)):
 for n, l in enumerate(largest):
     for n1, (c, e) in enumerate(l):
         name = latex(c) + '\n'
+        # matplotlib.pyparsing.ParseFatalException: Expected end of math '$'
+        # $\rm{SiH}2_\rm{s}3\rm{B}1\rm{d}$ (at char 0), (line:1, col:1)
+        name = name.replace('\\rm', '')
         label = name + ' ' + str(round(e, 2))
         pylab.annotate(label,
                        xy=(n + 0.05, e),

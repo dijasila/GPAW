@@ -34,7 +34,7 @@ def main():
                     # atomization energy
                     calc[p][m] = - calc['energy'][m]
                     calc[p][m] += task.data[m][prop2index[p]] # energy of atoms
-            except KeyError:
+            except (KeyError, TypeError):
                 calc[p][m] = None
                 print 'Missing: ' + m + ' for property ' + p
                 pass
