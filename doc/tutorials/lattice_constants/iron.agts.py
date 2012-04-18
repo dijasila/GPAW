@@ -10,7 +10,7 @@ if __name__ == '__main__':
     from ase.utils.eos import EquationOfState
     from ase.io import read
     def f(width, k, g, dist):
-        filename = 'Fe-bulk-gpaw-%s-%.2f-%02d-%2d-fit.traj' % (
+        filename = 'Fe-bulk-%s-%.2f-%02d-%2d.fit.traj' % (
             dist, width, k, g)
         configs = read(filename + '@:')
         # Extract volumes and energies:
