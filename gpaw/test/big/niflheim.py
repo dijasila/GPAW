@@ -16,8 +16,8 @@ class NiflheimCluster(Cluster):
         self.write_pylab_wrapper(job)
 
         if job.queueopts is None:
-            if job.ncpus == 1:
-                ppn = '1:opteron2218:ethernet'
+            if job.ncpus < 4:
+                ppn = '%d:opteron2218:ethernet' % job.ncpus
                 nodes = 1
                 arch = 'linux-x86_64-opteron-2.4'
             elif job.ncpus % 8 == 0:
