@@ -65,9 +65,9 @@ class ALDACorrelation:
             raise 'Choose either perturbative calcalution or lambda points' 
         self.perturbative = perturbative
         self.lambda_points = lambda_points
-        if self.nspins == 2 and lambda_points is None:
-            self.lambda_points = 8
-            self.perturbative = None
+        #if self.nspins == 2 and lambda_points is None:
+        #    self.lambda_points = 8
+        #    self.perturbative = None
         self.density_cut = density_cut
         if self.density_cut is None:
             self.density_cut = 1.e-6
@@ -386,9 +386,8 @@ class ALDACorrelation:
             for i in range(Nw_local):
                 chi0_fhxc = np.dot(chi0[i], fhxc_sGsG)
                 for l, l_w in zip(ls, l_ws):
-                    #if l == ls[-1]:
-                    #    print self.w[i], np.linalg.cond(np.eye(nG*ns, nG*ns)
-                    #                                    - l * chi0_fhxc).real
+                    #print self.w[i], l, np.linalg.cond(np.eye(npw*ns, npw*ns)
+                    #                                   - l * chi0_fhxc).real
                     try:
                         chi_l = np.linalg.solve(np.eye(npw*ns, npw*ns)
                                                 - l*chi0_fhxc, chi0[i]).real
