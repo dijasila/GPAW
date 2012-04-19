@@ -32,7 +32,7 @@ t = Transport(h=0.3,
               pl_atoms=[pl_atoms1, pl_atoms2],
               pl_cells=[pl_cell1, pl_cell2],
               pl_kpts=(2,2,15),
-              analysis_data_list=['tc'],
+              analysis_data_list=['tc', 'force'],
               edge_atoms=[[0, 3], [0, 11]],
               mol_atoms=range(4, 8))
 atoms.set_calculator(t)
