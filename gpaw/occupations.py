@@ -186,6 +186,7 @@ def occupy(f_n, eps_n, ne, weight=1):
 
 class ZeroKelvin(OccupationNumbers):
     def __init__(self, fixmagmom):
+        self.width = 0.0
         OccupationNumbers.__init__(self, fixmagmom)
         
     def calculate_occupation_numbers(self, wfs):
@@ -565,3 +566,16 @@ class MethfesselPaxton(SmoothDistribution):
         else:
             return 2 * x * self.hermite_poly(n - 1, x) \
                             - 2 * (n - 1) * self.hermite_poly(n - 2, x)
+
+class FixedOccupations(ZeroKelvin):
+    def __init__(self, occupation):
+        self.occupation = np.array(occupation)
+        ZeroKelvin.__init__(self, True)
+
+    def spin_paired(self, wfs):
+        return self.fixed_moment(wfs)
+
+    def fixed_moment(self, wfs):
+        for kpt in wfs.kpt_u:
+            wfs.bd.distribute(self.occupation[kpt.s], kpt.f_n)
+        

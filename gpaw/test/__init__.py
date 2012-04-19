@@ -114,6 +114,7 @@ tests = [
     'wfs_io.py',
     'wfs_auto.py',
     'xcatom.py',
+    'fixocc.py',
     'ds_beta.py',
     'parallel/overlap.py',
     'symmetry.py',
