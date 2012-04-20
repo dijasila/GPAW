@@ -405,10 +405,10 @@ Buffer Atoms Indices
 Edge Atoms
 ----------
 
-``edge_atoms`` If ``align`` is True, you need to point which atom
+``edge_atoms`` One needs to point which atom
 is used to align the energy levels, that means in ground
 state calculation, the hamiltonian matrix should have the same 
-number in the orbitals of that atom. It is a list includes 
+value in the orbitals of that atom. It is a list includes 
 two sub lists. For example, [[0,3],[0,9]] means the atom 0 in
 lead1, atom 3 in lead2 are equal to atom 0, atom 9 in scattering 
 region respectively.
