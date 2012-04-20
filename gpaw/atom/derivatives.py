@@ -39,19 +39,19 @@ def derivatives(atoms):
 
     
     for symbol, p in parameters.items():
-        if atoms.calc.world.rank == 0:
+        if atoms.calc.wfs.world.rank == 0:
             gen = _generate(**p)
             gen.make_paw_setup('derivative0').write_xml()
-        atoms.calc.world.barrier()
+        atoms.calc.wfs.world.barrier()
         
     atoms.calc.set(setups='derivative0')
     e0 = atoms.get_potential_energy()
     
     def f(p, name):
-        if atoms.calc.world.rank == 0:
+        if atoms.calc.wfs.world.rank == 0:
             gen = _generate(**p)
             gen.make_paw_setup(name).write_xml()
-        atoms.calc.world.barrier()
+        atoms.calc.wfs.world.barrier()
         atoms.calc.set(setups={None: 'derivative0', p['symbol']: name})
         e = atoms.get_potential_energy()
         return e
