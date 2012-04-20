@@ -12,7 +12,7 @@ from gpaw import FermiDirac
 class ConvergenceTestTask(Task):
     taskname = 'fdconv'
 
-    def __init__(self, g1=20, g2=40, L=4.0, **kwargs):
+    def __init__(self, g1=32, g2=40, L=6.4, **kwargs):
         """Calculate convergence of energy.
 
         The energy of a single atom and a dimer molecule is calculated
@@ -69,7 +69,7 @@ class ConvergenceTestTask(Task):
         Task.add_options(self, parser)
 
         grp = optparse.OptionGroup(parser, self.taskname.title())
-        grp.add_option('-g', '--grid-point-range', default='20:41:4',
+        grp.add_option('-g', '--grid-point-range', default='32:41:4',
                        help='...')
         parser.add_option_group(grp)
 

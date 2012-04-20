@@ -12,11 +12,11 @@ from gpaw import FermiDirac, PW
 class ConvergenceTestTask(Task):
     taskname = 'pwconv'
 
-    def __init__(self, L=4.0, cutoffs=(300, 400, 500), **kwargs):
+    def __init__(self, L=6.0, cutoffs=(300, 400, 500), **kwargs):
         """Calculate convergence of energy.
 
         The energy of a single atom and a dimer molecule is calculated
-        for a range of grid-spacings."""
+        for a range of plane-wave cutoffs."""
 
         self.cutoffs = cutoffs
         self.L = L
@@ -71,7 +71,7 @@ class ConvergenceTestTask(Task):
         Task.add_options(self, parser)
 
         grp = optparse.OptionGroup(parser, self.taskname.title())
-        grp.add_option('--ecut', default='200:700:50',
+        grp.add_option('--ecut', default='300:700:100',
                        help='...')
         parser.add_option_group(grp)
 
