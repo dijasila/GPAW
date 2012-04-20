@@ -227,6 +227,10 @@ class PAWSetupGenerator:
         
         self.aea = aea
 
+        # Filtering parameters:
+        self.gamma = gamma
+        self.h = h
+
         if fd is None:
             fd = devnull
         self.fd = fd
@@ -441,6 +445,8 @@ class PAWSetupGenerator:
 
         self.l0 = None
         self.e0 = None
+        self.r0 = r0
+        self.nderiv0 = P
 
         self.filter_zero_potential()
 
@@ -489,6 +495,8 @@ class PAWSetupGenerator:
 
         self.l0 = l0
         self.e0 = e0
+        self.r0 = r0
+        self.nderiv0 = P
 
         self.filter_zero_potential()
 
@@ -784,8 +792,16 @@ class PAWSetupGenerator:
             reltype = 'scalar-relativistic'
         else:
             reltype = 'non-relativistic'
-        attrs = [('type', reltype), ('name', 'gpaw-%s' % version)]
+        attrs = [('type', reltype),
+                 ('gamma', self.gamma),
+                 ('h', self.h),
+                 ('name', 'gpaw-%s' % version)]
         setup.generatorattrs = attrs
+
+        setup.l0 = self.l0
+        setup.e0 = self.e0
+        setup.r0 = self.r0
+        setup.nderiv0 = self.nderiv0
 
         return setup
 
@@ -802,6 +818,7 @@ class PAWSetupGenerator:
                     if l > lmax:
                         lmax = l
 
+        lmax = max(lmax, len(self.waves_l) - 1)
         G_LLL = make_gaunt(lmax)
 
         # Calculate core contribution to EXX energy:
@@ -922,14 +939,67 @@ def generate(argv=None):
         Z = str2z(symbol)
         symbol = chemical_symbols[Z]
 
-        gen = _generate(symbol, opt)
+        kwargs = get_parameters(symbol, opt)
+        print kwargs
+        gen = _generate(**kwargs)
+
+        if opt.no_check:
+            ok = True
+        else:
+            ok = gen.check()
+
+        if opt.convergence:
+            gen.test_convergence()
+
+        if opt.write or opt.tag:
+            gen.make_paw_setup(opt.tag).write_xml()
+
+        if opt.logarithmic_derivatives or opt.plot:
+            import matplotlib.pyplot as plt
+            if opt.logarithmic_derivatives:
+                r = 1.1 * gen.rcmax
+                emin = min(min(wave.e_n) for wave in gen.waves_l) - 0.8
+                emax = max(max(wave.e_n) for wave in gen.waves_l) + 0.8
+                lvalues, energies, r = parse_ld_str(opt.logarithmic_derivatives,
+                                                    (emin, emax, 0.05), r)
+                ldmax = 0.0
+                for l in lvalues:
+                    ld = gen.aea.logarithmic_derivative(l, energies, r)
+                    plt.plot(energies, ld, colors[l], label='spdfg'[l])
+                    ld = gen.logarithmic_derivative(l, energies, r)
+                    plt.plot(energies, ld, '--' + colors[l])
+
+                    # Fixed points:
+                    if l < len(gen.waves_l):
+                        efix = gen.waves_l[l].e_n
+                        ldfix = gen.logarithmic_derivative(l, efix, r)
+                        plt.plot(efix, ldfix, 'x' + colors[l])
+                        ldmax = max(ldmax, max(abs(ld) for ld in ldfix))
+
+                    if l == gen.l0:
+                        efix = [gen.e0]
+                        ldfix = gen.logarithmic_derivative(l, efix, r)
+                        plt.plot(efix, ldfix, 'x' + colors[l])
+                        ldmax = max(ldmax, max(abs(ld) for ld in ldfix))
+
+
+                if ldmax != 0.0:
+                    plt.axis(ymin=-3 * ldmax, ymax=3 * ldmax)
+                plt.xlabel('energy [Ha]')
+                plt.ylabel(r'$d\phi_{\ell\epsilon}(r)/dr/\phi_{\ell\epsilon}' +
+                           r'(r)|_{r=r_c}$')
+                plt.legend(loc='best')
+
+
+            if opt.plot:
+                gen.plot()
+
+            plt.show()
 
     return gen
 
 
-def _generate(symbol, opt):
-    aea = AllElectronAtom(symbol, xc=opt.xc_functional)
-
+def get_parameters(symbol, opt):
     if symbol in parameters:
         projectors, radii, extra = parameters[symbol]
     else:
@@ -947,23 +1017,20 @@ def _generate(symbol, opt):
     if opt.filter:
         gamma, h = (float(x) for x in opt.filter.split(','))
 
-    gen = PAWSetupGenerator(aea, projectors, radii,
-                            opt.scalar_relativistic,
-                            opt.alpha, gamma, h / Bohr)
+    if isinstance(radii, float):
+        radii = [radii]
 
-    gen.calculate_core_density()
-    gen.pseudize()
-
+    l0 = None
     if opt.zero_potential:
         x = opt.zero_potential.split(',')
         type = x[0]
         if len(x) == 1:
             # select only zero_potential type (with defaults)
             # i.e. on the command line: -0 {f,poly}
-            nderiv = 6
-            r0 = gen.rcmax
+            nderiv0 = 6
+            r0 = max(radii)
         else:
-            nderiv = int(x[1])
+            nderiv0 = int(x[1])
             r0 = float(x[2])
         if len(x) == 4:
             e0 = float(x[3])
@@ -972,71 +1039,43 @@ def _generate(symbol, opt):
         else:
             e0 = 0.0
 
-        if type == 'poly':
-            gen.find_polynomial_potential(r0, nderiv, e0)
-        else:
+        if type != 'poly':
             l0 = 'spdfg'.find(type)
-            gen.find_local_potential(l0, r0, nderiv, e0)
     else:
+        r0 = max(radii)
+        nderiv0 = 6
         if 'local' not in extra:
-            gen.find_polynomial_potential(gen.rcmax, 6)
+            e0 = None
         else:
             l0 = 'spdfg'.find(extra['local'])
-            gen.find_local_potential(l0, gen.rcmax, 6, 0.0)
+            e0 = 0.0
         
-    gen.construct_projectors()
+    return dict(symbol=symbol,
+                xc=opt.xc_functional,
+                projectors=projectors,
+                radii=radii,
+                scalar_relativistic=opt.scalar_relativistic, alpha=opt.alpha,
+                gamma=gamma, h=h,
+                l0=l0, r0=r0, nderiv0=nderiv0, e0=e0)
 
-    if opt.no_check:
-        ok = True
+
+def _generate(symbol, xc, projectors, radii,
+              scalar_relativistic, alpha,
+              gamma, h,
+              l0, r0, nderiv0, e0):
+    aea = AllElectronAtom(symbol, xc)
+    gen = PAWSetupGenerator(aea, projectors, radii,
+                            scalar_relativistic,
+                            alpha, gamma, h)
+    gen.calculate_core_density()
+    gen.pseudize()
+
+    if l0 is None:
+        gen.find_polynomial_potential(r0, nderiv0, e0)
     else:
-        ok = gen.check()
+        gen.find_local_potential(l0, r0, nderiv0, e0)
 
-    if opt.convergence:
-        gen.test_convergence()
-        
-    if opt.write:
-        gen.make_paw_setup(opt.tag).write_xml()
-        
-    if opt.logarithmic_derivatives or opt.plot:
-        import matplotlib.pyplot as plt
-        if opt.logarithmic_derivatives:
-            r = 1.1 * gen.rcmax
-            emin = min(min(wave.e_n) for wave in gen.waves_l) - 0.8
-            emax = max(max(wave.e_n) for wave in gen.waves_l) + 0.8
-            lvalues, energies, r = parse_ld_str(opt.logarithmic_derivatives,
-                                                (emin, emax, 0.05), r)
-            ldmax = 0.0
-            for l in lvalues:
-                ld = aea.logarithmic_derivative(l, energies, r)
-                plt.plot(energies, ld, colors[l], label='spdfg'[l])
-                ld = gen.logarithmic_derivative(l, energies, r)
-                plt.plot(energies, ld, '--' + colors[l])
-
-                # Fixed points:
-                if l < len(gen.waves_l):
-                    efix = gen.waves_l[l].e_n
-                    ldfix = gen.logarithmic_derivative(l, efix, r)
-                    plt.plot(efix, ldfix, 'x' + colors[l])
-                    ldmax = max(ldmax, max(abs(ld) for ld in ldfix))
-
-                if l == gen.l0:
-                    efix = [gen.e0]
-                    ldfix = gen.logarithmic_derivative(l, efix, r)
-                    plt.plot(efix, ldfix, 'x' + colors[l])
-                    ldmax = max(ldmax, max(abs(ld) for ld in ldfix))
-
-
-            if ldmax != 0.0:
-                plt.axis(ymin=-3 * ldmax, ymax=3 * ldmax)
-            plt.xlabel('energy [Ha]')
-            plt.ylabel(r'$d\phi_{\ell\epsilon}(r)/dr/\phi_{\ell\epsilon}(r)|_{r=r_c}$')
-            plt.legend(loc='best')
-            
-
-        if opt.plot:
-            gen.plot()
-
-        plt.show()
+    gen.construct_projectors()
     
     return gen
 
