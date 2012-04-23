@@ -250,11 +250,11 @@ class LCAOWaveFunctions(WaveFunctions):
         self.timer.start('LCAO forces')
 
         spos_ac = self.tci.atoms.get_scaled_positions() % 1.0
-        nao = self.ksl.nao
-        mynao = self.ksl.mynao
+        ksl = self.ksl
+        nao = ksl.nao
+        mynao = ksl.mynao
         nq = len(self.kd.ibzk_qc)
         dtype = self.dtype
-        ksl = self.ksl
         tci = self.tci
         gd = self.gd
         bd = self.bd
@@ -318,12 +318,12 @@ class LCAOWaveFunctions(WaveFunctions):
             if self.kpt_u[0].rho_MM is None:
                 self.timer.start('Get density matrix')
                 for kpt in self.kpt_u:
-                    rhoT_MM = self.ksl.get_transposed_density_matrix(kpt.f_n,
-                                                                     kpt.C_nM)
+                    rhoT_MM = ksl.get_transposed_density_matrix(kpt.f_n,
+                                                                kpt.C_nM)
                     rhoT_uMM.append(rhoT_MM)
-                    ET_MM = self.ksl.get_transposed_density_matrix(kpt.f_n
-                                                                   * kpt.eps_n,
-                                                                   kpt.C_nM)
+                    ET_MM = ksl.get_transposed_density_matrix(kpt.f_n
+                                                              * kpt.eps_n,
+                                                              kpt.C_nM)
                     ET_uMM.append(ET_MM)
 
                     if hasattr(kpt, 'c_on'):
@@ -332,20 +332,23 @@ class LCAOWaveFunctions(WaveFunctions):
                         d_nn = np.zeros((self.bd.mynbands, self.bd.mynbands), dtype=kpt.C_nM.dtype)
                         for ne, c_n in zip(kpt.ne_o, kpt.c_on):
                                 d_nn += ne * np.outer(c_n.conj(), c_n)
-                        rhoT_MM += self.ksl.get_transposed_density_matrix_delta(d_nn, kpt.C_nM)
-                        ET_MM += self.ksl.get_transposed_density_matrix_delta(d_nn * kpt.eps_n, kpt.C_nM)
+                        rhoT_MM += ksl.get_transposed_density_matrix_delta(d_nn, kpt.C_nM)
+                        ET_MM += ksl.get_transposed_density_matrix_delta(d_nn * kpt.eps_n, kpt.C_nM)
                 self.timer.stop('Get density matrix')
             else:
-                # XXX wont work now
-                H_MM = self.eigensolver.calculate_hamiltonian_matrix(hamiltonian,
-                                                                     self,
-                                                                     kpt)
-                tri2full(H_MM)
-                S_MM = self.S_qMM[q].copy()
-                tri2full(S_MM)
-                ET_MM = np.linalg.solve(S_MM, gemmdot(H_MM, kpt.rho_MM)).T.copy()
-                del S_MM, H_MM
-                rhoT_MM = kpt.rho_MM.T.copy()
+                rhoT_uMM = []
+                ET_uMM = []
+                for kpt in self.kpt_u:
+                    H_MM = self.eigensolver.calculate_hamiltonian_matrix(hamiltonian, self, kpt)
+                    tri2full(H_MM)
+                    S_MM = kpt.S_MM.copy()
+                    tri2full(S_MM)
+                    ET_MM = np.linalg.solve(S_MM, gemmdot(H_MM, 
+                                                          kpt.rho_MM)).T.copy()
+                    del S_MM, H_MM
+                    rhoT_MM = kpt.rho_MM.T.copy()
+                    rhoT_uMM.append(rhoT_MM)
+                    ET_uMM.append(ET_MM)
         self.timer.stop('Initial')
 
         if isblacs: # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -954,7 +957,7 @@ class LCAOWaveFunctions(WaveFunctions):
 
         F_av += Fkin_av + Fpot_av + Ftheta_av + Frho_av + Fatom_av
         self.timer.start('Wait for sum')
-        self.ksl.orbital_comm.sum(F_av)
+        ksl.orbital_comm.sum(F_av)
         if self.bd.comm.rank == 0:
             self.kpt_comm.sum(F_av, 0)
         self.timer.stop('Wait for sum')
