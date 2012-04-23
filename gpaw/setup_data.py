@@ -529,7 +529,7 @@ http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details."""
             setup.core_hole_e_kin = float(attrs['ekin'])
             self.data = []
         elif name == 'zero_potential':
-            if 'type' in attrs:
+            if attrs.has_key('type'):
                 setup.r0 = float(attrs['r0'])
                 setup.nderiv0 = int(attrs['nderiv'])
                 if attrs['type'] == 'polynomial':
