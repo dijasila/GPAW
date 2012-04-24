@@ -28,6 +28,10 @@ for ext in [".db", ".cmr"]:
     data = cmr.read("test2"+ext)
     assert data["value"] == 1
     assert len(data["db_keywords"]) == 2
-    #if rank == 0:
-    #    os.unlink("test1"+ext)
-    #    os.unlink("test2"+ext)
+
+# test the restart ability
+if 0:
+    calc = GPAW("test.db")
+    calc.get_total_energy()
+    calc = GPAW("test2.cmr")
+    calc.get_total_energy()
