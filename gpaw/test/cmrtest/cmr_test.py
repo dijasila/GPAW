@@ -28,5 +28,6 @@ for ext in [".db", ".cmr"]:
     data = cmr.read("test2"+ext)
     assert data["value"] == 1
     assert len(data["db_keywords"]) == 2
-    os.unlink("test1"+ext)
-    os.unlink("test2"+ext)
+    #if rank == 0:
+    #    os.unlink("test1"+ext)
+    #    os.unlink("test2"+ext)
