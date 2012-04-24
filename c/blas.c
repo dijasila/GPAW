@@ -110,8 +110,8 @@ PyObject* gemm(PyObject *self, PyObject *args)
 	m *= a->dimensions[i];
       k = a->dimensions[0];
       lda = MAX(1, m);
-      ldb = b->strides[0] / b->strides[1];
-      ldc = c->strides[0] / c->strides[c->nd - 1];
+      ldb = MAX(1, b->strides[0] / b->strides[1]);
+      ldc = MAX(1, c->strides[0] / c->strides[c->nd - 1]);
     }
   else
     {
@@ -120,8 +120,8 @@ PyObject* gemm(PyObject *self, PyObject *args)
 	k *= a->dimensions[i];
       m = a->dimensions[0];
       lda = MAX(1, k);
-      ldb = lda;
-      ldc = c->strides[0] / c->strides[1];
+      ldb = MAX(1, lda);
+      ldc = MAX(1, c->strides[0] / c->strides[1]);
     }
   int n = b->dimensions[0];
   if (a->descr->type_num == PyArray_DOUBLE)

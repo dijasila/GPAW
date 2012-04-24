@@ -733,7 +733,7 @@ class PWLFC(BaseLFC):
             I2 = I1 + self.get_function_count(a)
             self.indices.append((a, I1, I2))
             I1 = I2
-        self.nI = I2
+        self.nI = I1
 
     def expand(self, q=-1):
         f_IG = self.pd.empty(self.nI)
@@ -754,7 +754,7 @@ class PWLFC(BaseLFC):
         for a, I1, I2 in self.indices:
             c_xI[..., I1:I2] = c_axi[a] * self.eikR_qa[q][a].conj()
 
-        c_xI = c_xI.reshape((-1, self.nI))
+        c_xI = c_xI.reshape((np.prod(c_xI.shape[:-1]), self.nI))
         a_xG = a_xG.reshape((-1, len(self.pd)))
 
         if self.pd.dtype == float:
@@ -767,7 +767,7 @@ class PWLFC(BaseLFC):
         c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
         f_IG = self.expand(q)
 
-        b_xI = c_xI.reshape((-1, self.nI))
+        b_xI = c_xI.reshape((np.prod(c_xI.shape[:-1]), self.nI))
         a_xG = a_xG.reshape((-1, len(self.pd)))
 
         alpha = 1.0 / self.pd.gd.N_c.prod()
