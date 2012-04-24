@@ -4,6 +4,8 @@ from gpaw import GPAW
 from gpaw.test import equal
 
 import cmr
+cmr.set_ase_parallel(True)
+
 a = 4.05
 d = a / 2 ** 0.5
 bulk = Atoms([Atom('Al', (0, 0, 0)),
