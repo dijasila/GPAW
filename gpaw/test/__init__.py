@@ -308,8 +308,7 @@ if mpi.size > 1:
                 'stark_shift.py',
                 'exx_q.py',
                 'potential.py',
-                'cmrtest/Li2_atomize.py',
-                'cmrtest/cmr_append.py']
+                'cmrtest/Li2_atomize.py']
 
 if mpi.size > 2:
     exclude += ['neb.py']
