@@ -763,7 +763,7 @@ class PWLFC(BaseLFC):
 
         gemm(1.0 / self.pd.gd.dv, f_IG, c_xI, 1.0, a_xG)
 
-    def integrate(self, a_xG, c_axi, q=-1):
+    def integrate(self, a_xG, c_axi=None, q=-1):
         c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
         f_IG = self.expand(q)
 
@@ -776,10 +776,15 @@ class PWLFC(BaseLFC):
             f_IG[:, 0] *= 0.5
             f_IG = f_IG.view(float)
             a_xG = a_xG.view(float)
-            
+        
+        if c_axi is None:
+            c_axi = self.dict(a_xG.shape[:-1])
+
         gemm(alpha, f_IG, a_xG, 0.0, b_xI, 'c')
         for a, I1, I2 in self.indices:
             c_axi[a][:] = self.eikR_qa[q][a] * c_xI[..., I1:I2]
+
+        return c_axi
 
     def derivative(self, a_xG, c_axiv, q=-1):
         c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
@@ -930,14 +935,14 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.vbar.add(self.vbar_Q)
 
     def update_pseudo_potential(self, density):
-        ebar = self.pd2.integrate(self.vbar_Q, density.nt_sQ.sum(0))
+        self.ebar = self.pd2.integrate(self.vbar_Q, density.nt_sQ.sum(0))
 
         self.timer.start('Poisson')
         # npoisson is the number of iterations:
         #self.npoisson = 0
         self.vHt_q = 4 * pi * density.rhot_q
         self.vHt_q[1:] /= self.pd3.G2_qG[0, 1:]
-        epot = 0.5 * self.pd3.integrate(self.vHt_q, density.rhot_q)
+        self.epot = 0.5 * self.pd3.integrate(self.vHt_q, density.rhot_q)
         self.timer.stop('Poisson')
 
         # Calculate atomic hamiltonians:
@@ -952,6 +957,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.timer.start('XC 3D grid')
         vxct_sg = self.finegd.zeros(self.nspins)
         exc = self.xc.calculate(self.finegd, density.nt_sg, vxct_sg)
+        self.stress = exc - self.finegd.integrate(density.nt_sg, vxct_sg)
 
         for vt_G, vxct_g in zip(self.vt_sG, vxct_sg):
             vxc_G, vxc_Q = self.pd3.restrict(vxct_g, self.pd2)
@@ -966,7 +972,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
         eext = 0.0
 
-        return ekin, epot, ebar, eext, exc, W_aL
+        return ekin, self.epot, self.ebar, eext, exc, W_aL
 
     def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):
         dens.ghat.derivative(self.vHt_q, ghat_aLv)
