@@ -35,12 +35,17 @@ def to1bz(bzk_kc, cell_cv):
     K_kv = np.dot(bzk_kc, B_cv)
     N_xc = np.indices((3, 3, 3)).reshape((3, 27)).T - 1
     G_xv = np.dot(N_xc, B_cv)
-    for k, K_v in enumerate(K_kv):
-        x = ((G_xv - K_v)**2).sum(1).argmin()
-        bzk_kc[k] -= N_xc[x]
 
-    bzk_kc[np.where(bzk_kc>0.501)] -= 1
-    bzk_kc[np.where(bzk_kc<-0.499)] += 1
+    # Find the closest reciprocal lattice vector:
+    for k, K_v in enumerate(K_kv):
+        # If a k-point has the same distance to several reciprocal
+        # lattice vectors, we don't want to pick a random one on the
+        # basis of numerical noise, so we round off the differences
+        # between the shortest distances to 6 decimals and chose the
+        # one with the lowest index.
+        d = ((G_xv - K_v)**2).sum(1)
+        x = (d - d.min()).round(6).argmin()
+        bzk_kc[k] -= N_xc[x]
 
 
 class KPointDescriptor:
