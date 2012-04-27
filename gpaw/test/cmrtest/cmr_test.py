@@ -3,6 +3,11 @@ from ase import Atom, Atoms
 from gpaw import GPAW
 from gpaw.test import equal
 
+import warnings
+# cmr calls all available methods in ase.atoms detected by the module inspect.
+# Therefore also deprecated methods are called - and we choose to silence those warnings.
+warnings.filterwarnings('ignore', 'ase.atoms.*deprecated',)
+
 import cmr
 cmr.set_ase_parallel(True)
 

@@ -10,6 +10,11 @@ from ase.parallel import rank
 
 from gpaw import GPAW, restart
 
+import warnings
+# cmr calls all available methods in ase.atoms detected by the module inspect.
+# Therefore also deprecated methods are called - and we choose to silence those warnings.
+warnings.filterwarnings('ignore', 'ase.atoms.*deprecated',)
+
 calculate = True
 recalculate = True
 analyse_from_dir = True # analyse local cmr files

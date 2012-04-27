@@ -14,6 +14,11 @@ from ase.parallel import barrier, rank
 from gpaw import GPAW, restart
 from gpaw.test import equal
 
+import warnings
+# cmr calls all available methods in ase.atoms detected by the module inspect.
+# Therefore also deprecated methods are called - and we choose to silence those warnings.
+warnings.filterwarnings('ignore', 'ase.atoms.*deprecated',)
+
 # define the project in order to find it in the database!
 project_id = 'modify cmr file after gpw restart'
 
