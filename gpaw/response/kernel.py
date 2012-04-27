@@ -49,7 +49,8 @@ def calculate_Kc(q_c,
                  pbc,
                  optical_limit,
                  vcut=None,
-                 density_cut=None):
+                 density_cut=None,
+                 nonsymmetric = False):
     """Symmetric Coulomb kernel"""
     npw = len(Gvec_Gc)
     Kc_G = np.zeros(npw)
@@ -99,11 +100,12 @@ def calculate_Kc(q_c,
     if optical_limit:
         q_v = np.dot(q_c, bcell_cv)
         Kc_G[0] = sqrt(1. / np.dot(q_v,q_v))
-            
+
     Kc_GG = 4 * pi * np.outer(Kc_G, Kc_G)
-
+    
+    if nonsymmetric == True:
+        Kc_GG = 4 * pi * (Kc_G**2*np.ones([npw,npw])).T 
     return Kc_GG
-
 
 def calculate_Kxc(gd, nt_sG, npw, Gvec_Gc, nG, vol,
                   bcell_cv, R_av, setups, D_asp, functional='ALDA',
