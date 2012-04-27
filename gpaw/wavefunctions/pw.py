@@ -677,6 +677,8 @@ class PWLFC(BaseLFC):
                 lmax = max(lmax, l)
             self.nbytes += len(pd) * 8  # self.emiGR_Ga
         
+        self.spline_aj = spline_aj
+
         self.dtype = pd.dtype
 
         B_cv = 2.0 * pi * self.pd.gd.icell_cv
@@ -813,6 +815,45 @@ class PWLFC(BaseLFC):
                 for a, I1, I2 in self.indices:
                     c_axiv[a][..., v] = (1.0j * self.eikR_qa[q][a] *
                                          c_xI[..., I1:I2])
+
+    def stress_tensor_contribution(self, a_xG, c_axi=None, q=-1):
+        f_IG = self.pd.empty(self.nI)
+        cache = {}
+        for a, j, i1, i2, I1, I2 in self:
+            l = self.lf_aj[a][j][0]
+            spline = self.spline_aj[a][j]
+            if spline not in cache:
+                f = ft(spline)
+                G_G = self.G2_qG[q]**0.5
+                f_G =  np.array([-f.get_value_and_derivative(G)[1] * G
+                                 for G in G_G])#f.map(G_qG) * G_qG**l
+                cache[spline] = f_G
+            else:
+                f_G = cache[spline]
+                
+            f_IG[I1:I2] = (self.emiGR_Ga[:, a] * f_G * (-1.0j)**l *
+                           self.Y_qLG[q, l**2:(l + 1)**2])
+        
+        c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
+
+        b_xI = c_xI.reshape((np.prod(c_xI.shape[:-1]), self.nI))
+        a_xG = a_xG.reshape((-1, len(self.pd)))
+
+        alpha = 1.0 / self.pd.gd.N_c.prod()
+        if self.pd.dtype == float:
+            alpha *= 2
+            f_IG[:, 0] *= 0.5
+            f_IG = f_IG.view(float)
+            a_xG = a_xG.view(float)
+        
+        if c_axi is None:
+            c_axi = self.dict(a_xG.shape[:-1])
+
+        gemm(alpha, f_IG, a_xG, 0.0, b_xI, 'c')
+        for a, I1, I2 in self.indices:
+            c_axi[a][:] = self.eikR_qa[q][a] * c_xI[..., I1:I2]
+
+        return c_axi
 
 
 class PW:

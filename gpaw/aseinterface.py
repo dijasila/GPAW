@@ -78,7 +78,11 @@ class GPAW(PAW):
       
     def get_stress(self, atoms):
         """Return the stress for the current state of the ListOfAtoms."""
-        raise NotImplementedError
+        self.calculate(atoms, converge=True)
+        if self.stress_vv is None:
+            from gpaw.stress import stress
+            self.stress_vv = stress(self)
+        return self.stress_vv * (Hartree / Bohr**3)
 
     def calculation_required(self, atoms, quantities):
         if 'stress' in quantities:
