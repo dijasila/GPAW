@@ -18,13 +18,36 @@ def stress(calc):
 
     p += 3 * calc.hamiltonian.stress[0, 0]
 
-    ppot_a = dens.ghat.stress_tensor_contribution(ham.vHt_q)
     p -= ham.epot
+    p_a = dens.ghat.stress_tensor_contribution(ham.vHt_q)
     for a, Q_L in dens.Q_aL.items():
-        p += Q_L[0] * ppot_a[a][0, 0]
+        p += Q_L[0] * p_a[a][0, 0]
 
-    pbar_a = ham.vbar.stress_tensor_contribution(dens.nt_sQ[0])
-    p += sum(pbar_a.values())[0, 0] - 3 * ham.ebar
+    p_a = ham.vbar.stress_tensor_contribution(dens.nt_sQ[0])
+    p += sum(p_a.values())[0, 0] - 3 * ham.ebar
+
+    #p_a = dens.nct.stress_tensor_contribution(ham.vt_Q)
+    #p += sum(p_a.values())[0, 0]
+
+    s = 0.0
+    s0 = 0.0
+    for kpt in wfs.kpt_u:
+        p_ani = wfs.pt.stress_tensor_contribution(kpt.psit_nG, q=kpt.q)
+        #print p_ani
+        #print kpt.P_ani
+        s += (p_ani[0][0,0] * kpt.P_ani[0][0,0] * (
+                ham.dH_asp[0][0,0]
+                - ham.setups[0].dO_ii[0,0] * kpt.eps_n[0]
+                ) *
+              kpt.f_n[0])
+        s0 += (kpt.P_ani[0][0,0] * kpt.P_ani[0][0,0] * (
+                ham.dH_asp[0][0,0]
+                - ham.setups[0].dO_ii[0,0] * kpt.eps_n[0]
+                ) *
+              kpt.f_n[0])
+
+    #print 2*(s-1.5*s0) / vol * units.Hartree / units.Bohr**3
+    p +=2*(s-1.5*s0).real
 
     vol = calc.atoms.get_volume() / units.Bohr**3
     sigma_vv = np.eye(3) * p / 3 / vol
