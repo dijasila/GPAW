@@ -482,9 +482,18 @@ class FFTVDWFunctional(VDWFunctional):
         self.C_aip = None
         self.phi_aajp = None
 
-        if Nalpha < self.world.size:
-            rstride = self.world.size // Nalpha
-            newranks = range(0, self.world.size, rstride)[:Nalpha]
+        self.get_alphas()
+        
+    def initialize(self, density, hamiltonian, wfs, occupations):
+        self.timer = wfs.timer # would be neater to do this with super()
+
+        self.world = wfs.world
+        self.get_alphas()
+
+    def get_alphas(self):
+        if self.Nalpha < self.world.size:
+            rstride = self.world.size // self.Nalpha
+            newranks = range(0, self.world.size, rstride)[:self.Nalpha]
             self.vdwcomm = self.world.new_communicator(newranks)
             # self.vdwcomm will be None for those ranks not in the communicator
         else:
@@ -496,7 +505,7 @@ class FFTVDWFunctional(VDWFunctional):
                                self.vdwcomm.rank)]
         else:
             self.alphas = []
-        
+
     def construct_cubic_splines(self):
         """Construc interpolating splines for q0.
 
