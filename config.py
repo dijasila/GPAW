@@ -405,7 +405,14 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     lib_dirs = ' '.join(['-L' + lib for lib in library_dirs])
 
     libs = ' '.join(['-l' + lib for lib in libraries if lib.strip()])
-    libs += ' -lpython%s' % cfgDict['VERSION']
+    # See if there is "scalable" libpython available
+    libpl = cfgDict['LIBPL']
+    if glob(libpl + '/libpython*mpi*'):
+        libs += ' -lpython%s_mpi' % cfgDict['VERSION']
+    else:
+        libs += ' -lpython%s' % cfgDict['VERSION']
+    libs = ' '.join([libs, cfgDict['LIBS'], cfgDict['LIBM']])
+
     libs = ' '.join([libs, cfgDict['LIBS'], cfgDict['LIBM']])
 
     #Hack taken from distutils to determine option for runtime_libary_dirs
