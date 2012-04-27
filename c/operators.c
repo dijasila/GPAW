@@ -1,16 +1,7 @@
 /*  Copyright (C) 2003-2007  CAMP
  *  Copyright (C) 2007-2008  CAMd
- *  Copyright (C) 2005-2010  CSC - IT Center for Science Ltd.
+ *  Copyright (C) 2005-2012  CSC - IT Center for Science Ltd.
  *  Please see the accompanying LICENSE file for further information. */
-
-//*** The apply operator and some associate structors are imple-  ***//
-//*** mented in two version: a original version and a speciel     ***//
-//*** OpenMP version. By default the original version will        ***//
-//*** be used, but it's possible to use the OpenMP version        ***//
-//*** by compiling gpaw with the macro GPAW_OMP defined and       ***//
-//*** and the compile/link option "-fopenmp".                     ***//
-//*** Author of the optimized OpenMP code:                        ***//
-//*** Mads R. B. Kristensen - madsbk@diku.dk                      ***//
 
 #include <Python.h>
 #define PY_ARRAY_UNIQUE_SYMBOL GPAW_ARRAY_API
@@ -23,6 +14,11 @@
 #ifdef _OPENMP
 #include <omp.h>
 #endif
+#include "threading.h"
+
+#define __OPERATORS_C
+#include "operators.h"
+#undef __OPERATORS_C
 
 #ifdef GPAW_ASYNC
   #define GPAW_ASYNC3 3
@@ -32,15 +28,6 @@
   #define GPAW_ASYNC2 1
 #endif
 
-typedef struct
-{
-  PyObject_HEAD
-  bmgsstencil stencil;
-  boundary_conditions* bc;
-  MPI_Request recvreq[2];
-  MPI_Request sendreq[2];
-  int nthreads;
-} OperatorObject;
 
 static void Operator_dealloc(OperatorObject *self)
 {
@@ -93,50 +80,20 @@ static PyObject * Operator_relax(OperatorObject *self,
   Py_RETURN_NONE;
 }
 
-static PyObject * Operator_apply(OperatorObject *self,
-                                 PyObject *args)
+/* The actual computation routine for finite difference operation
+   Separating this routine helps using the same code in 
+   C-preconditioner */
+void apply_worker(OperatorObject *self, int chunksize, int start,
+		  int end, int thread_id, int nthreads,
+		  const double* in, double* out,
+		  int real, const double_complex* ph)
 {
-  PyArrayObject* input;
-  PyArrayObject* output;
-  PyArrayObject* phases = 0;
-  if (!PyArg_ParseTuple(args, "OO|O", &input, &output, &phases))
-    return NULL;
-
-  int nin = 1;
-  if (input->nd == 4)
-    nin = input->dimensions[0];
-
   boundary_conditions* bc = self->bc;
   const int* size1 = bc->size1;
   const int* size2 = bc->size2;
   int ng = bc->ndouble * size1[0] * size1[1] * size1[2];
   int ng2 = bc->ndouble * size2[0] * size2[1] * size2[2];
-
-  const double* in = DOUBLEP(input);
-  double* out = DOUBLEP(output);
-  const double_complex* ph;
-
-  bool real = (input->descr->type_num == PyArray_DOUBLE);
-
-  if (real)
-    ph = 0;
-  else
-    ph = COMPLEXP(phases);
-
-  int chunksize = 1;
-  if (getenv("GPAW_MPI_OPTIMAL_MSG_SIZE") != NULL)
-    {
-      int opt_msg_size = atoi(getenv("GPAW_MPI_OPTIMAL_MSG_SIZE"));
-      if (bc->maxsend > 0 )
-          chunksize = opt_msg_size * 1024 / (bc->maxsend * (2 - (int) real) *
-                                             sizeof(double));
-      chunksize = (chunksize < nin) ? chunksize : nin;
-    }
-
-  int nend = (nin / chunksize) * chunksize;
   
-#pragma omp parallel
-{
   MPI_Request recvreq[2];
   MPI_Request sendreq[2];
 
@@ -144,16 +101,16 @@ static PyObject * Operator_apply(OperatorObject *self,
   double* recvbuf = GPAW_MALLOC(double, bc->maxrecv * chunksize);
   double* buf = GPAW_MALLOC(double, ng2 * chunksize);
 
-    int thread_id = 0;
-#ifdef _OPENMP
-    thread_id = omp_get_thread_num();
-#endif
+  const double* my_in;
+  double* my_out;
 
-  #pragma omp for schedule(static)  
-  for (int n = 0; n < nend; n += chunksize)
+  int nin = end - start;
+  int nend = start + (nin / chunksize) * chunksize;
+
+  for (int n = start; n < nend; n += chunksize)
     {
-      const double* my_in = in + n * ng;
-      double* my_out = out + n * ng;
+      my_in = in + n * ng;
+      my_out = out + n * ng;
 
       for (int i = 0; i < 3; i++)
         {
@@ -172,11 +129,10 @@ static PyObject * Operator_apply(OperatorObject *self,
                                          (double_complex*) (my_out + m * ng));
     }
   // Remainder loop
-  #pragma omp for schedule(static)  
-  for (int n = nend; n < nin; n++)
+  for (int n = nend; n < end; n++)
     {
-      const double* my_in = in + n * ng;
-      double* my_out = out + n * ng;
+      my_in = in + n * ng;
+      my_out = out + n * ng;
 
       for (int i = 0; i < 3; i++)
         {
@@ -193,10 +149,59 @@ static PyObject * Operator_apply(OperatorObject *self,
           bmgs_fdz(&self->stencil, (const double_complex*) buf,
                                          (double_complex*) my_out);
     }
-
   free(buf);
   free(recvbuf);
   free(sendbuf);
+}
+
+
+static PyObject * Operator_apply(OperatorObject *self,
+                                 PyObject *args)
+{
+  PyArrayObject* input;
+  PyArrayObject* output;
+  PyArrayObject* phases = 0;
+  if (!PyArg_ParseTuple(args, "OO|O", &input, &output, &phases))
+    return NULL;
+
+  int nin = 1;
+  if (input->nd == 4)
+    nin = input->dimensions[0];
+
+  const double* in = DOUBLEP(input);
+  double* out = DOUBLEP(output);
+
+  bool real = (input->descr->type_num == PyArray_DOUBLE);
+
+  const double_complex* ph;
+  if (real)
+    ph = 0;
+  else
+    ph = COMPLEXP(phases);
+
+  int chunksize = 1;
+  boundary_conditions* bc = self->bc;
+  if (getenv("GPAW_MPI_OPTIMAL_MSG_SIZE") != NULL)
+    {
+      int opt_msg_size = atoi(getenv("GPAW_MPI_OPTIMAL_MSG_SIZE"));
+      if (bc->maxsend > 0 )
+          chunksize = opt_msg_size * 1024 / (bc->maxsend * (2 - (int) real) *
+                                             sizeof(double));
+      chunksize = (chunksize < nin) ? chunksize : nin;
+    }
+  
+#pragma omp parallel
+{
+  int thread_id = 0;
+  int nthreads = 1;
+  int start, end;
+#ifdef _OPENMP
+  thread_id = omp_get_thread_num();
+  nthreads = omp_get_num_threads();
+#endif
+  SHARE_WORK(nin, nthreads, thread_id, &start, &end);
+  apply_worker(self, chunksize, start, end, thread_id, nthreads,
+	       in, out, real, ph);
 
 } // end #omp parallel
 

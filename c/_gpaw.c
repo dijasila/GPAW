@@ -100,6 +100,7 @@ PyObject* pblas_gemv(PyObject *self, PyObject *args);
 PyObject* pblas_r2k(PyObject *self, PyObject *args);
 PyObject* pblas_rk(PyObject *self, PyObject *args);
 #endif
+PyObject* precondition(PyObject *self, PyObject *args);
 
 // Moving least squares interpolation
 PyObject* mlsqr(PyObject *self, PyObject *args); 
@@ -203,6 +204,7 @@ static PyMethodDef functions[] = {
   {"craypat_region_end", craypat_region_end, METH_VARARGS, 0},
 #endif // GPAW_CRAYPAT
   {"mlsqr", mlsqr, METH_VARARGS, 0}, 
+  {"precondition", precondition, METH_VARARGS, 0},
   {"get_num_threads", get_num_threads, METH_VARARGS, 0}, 
   {0, 0, 0, 0}
 };

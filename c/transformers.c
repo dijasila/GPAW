@@ -1,6 +1,6 @@
 /*  Copyright (C) 2003-2007  CAMP
  *  Copyright (C) 2007-2008  CAMd
- *  Copyright (C) 2005-2010  CSC - IT Center for Science Ltd.
+ *  Copyright (C) 2005-2012  CSC - IT Center for Science Ltd.
  *  Please see the accompanying LICENSE file for further information. */
 
 #include <Python.h>
@@ -14,6 +14,11 @@
 #include "bc.h"
 #include "mympi.h"
 #include "bmgs/bmgs.h"
+#include "threading.h"
+
+#define __TRANSFORMERS_C
+#include "transformers.h"
+#undef __TRANSFORMERS_C
 
 #ifdef GPAW_ASYNC
   #define GPAW_ASYNC_D 3
@@ -21,18 +26,6 @@
   #define GPAW_ASYNC_D 1
 #endif
 
-typedef struct
-{
-  PyObject_HEAD
-  boundary_conditions* bc;
-  int p;
-  int k;
-  bool interpolate;
-  MPI_Request recvreq[2];
-  MPI_Request sendreq[2];
-  int skip[3][2];
-  int size_out[3];          /* Size of the output grid */
-} TransformerObject;
 
 static void Transformer_dealloc(TransformerObject *self)
 {
@@ -40,51 +33,20 @@ static void Transformer_dealloc(TransformerObject *self)
   PyObject_DEL(self);
 }
 
-static PyObject* Transformer_apply(TransformerObject *self, PyObject *args)
+/* The actual computation routine for interpolation and restriction
+   operations.
+   Separating this routine helps using the same code in 
+   C-preconditioner */
+void transapply_worker(TransformerObject *self, int chunksize, int start,
+		       int end, int thread_id, int nthreads, 
+		       const double* in, double* out,
+		       int real, const double_complex* ph)
 {
-  PyArrayObject* input;
-  PyArrayObject* output;
-  PyArrayObject* phases = 0;
-  if (!PyArg_ParseTuple(args, "OO|O", &input, &output, &phases))
-    return NULL;
-
-  int nin = 1;
-  if (input->nd == 4)
-    nin = input->dimensions[0];
-
   boundary_conditions* bc = self->bc;
   const int* size1 = bc->size1;
   const int* size2 = bc->size2;
   int ng = bc->ndouble * size1[0] * size1[1] * size1[2];
   int ng2 = bc->ndouble * size2[0] * size2[1] * size2[2];
-
-  const double* in = DOUBLEP(input);
-  double* out = DOUBLEP(output);
-  bool real = (input->descr->type_num == PyArray_DOUBLE);
-  const double_complex* ph = (real ? 0 : COMPLEXP(phases));
-
-  int chunksize = 1;
-  if (getenv("GPAW_MPI_OPTIMAL_MSG_SIZE") != NULL)
-    {
-      int opt_msg_size = atoi(getenv("GPAW_MPI_OPTIMAL_MSG_SIZE"));
-      if (bc->maxsend > 0 )
-          chunksize = opt_msg_size * 1024 / (bc->maxsend * (2 - (int) real) *
-                                             sizeof(double));
-      chunksize = (chunksize < nin) ? chunksize : nin;
-    }
-
-  int nend = (nin / chunksize) * chunksize;
-
-
-  int out_ng = bc->ndouble * self->size_out[0] * self->size_out[1]
-               * self->size_out[2];
-
-#pragma omp parallel
-  {
-  int thread_id = 0;
-#ifdef _OPENMP
-  thread_id = omp_get_thread_num();
-#endif
 
   double* sendbuf = GPAW_MALLOC(double, bc->maxsend * chunksize);
   double* recvbuf = GPAW_MALLOC(double, bc->maxrecv * chunksize);
@@ -93,11 +55,19 @@ static PyObject* Transformer_apply(TransformerObject *self, PyObject *args)
   MPI_Request recvreq[2];
   MPI_Request sendreq[2];
 
-#pragma omp for schedule(static)
-  for (int n = 0; n < nend; n += chunksize)
+  const double* my_in;
+  double* my_out;
+
+  int out_ng = bc->ndouble * self->size_out[0] * self->size_out[1]
+               * self->size_out[2];
+
+  int nin = end - start;
+  int nend = start + (nin / chunksize) * chunksize;
+
+  for (int n = start; n < nend; n += chunksize)
     {
-      const double* my_in = in + n * ng;
-      double* my_out = out + n * out_ng;
+      my_in = in + n * ng;
+      my_out = out + n * out_ng;
       for (int i = 0; i < 3; i++)
         {
           bc_unpack1(bc, my_in, buf, i,
@@ -132,11 +102,10 @@ static PyObject* Transformer_apply(TransformerObject *self, PyObject *args)
     }
 
   // Remainder loop
-  #pragma omp for schedule(static)  
-  for (int n = nend; n < nin; n++)
+  for (int n = nend; n < end; n++)
     {
-      const double* my_in = in + n * ng;
-      double* my_out = out + n * out_ng;
+      my_in = in + n * ng;
+      out + n * out_ng;
       for (int i = 0; i < 3; i++)
         {
           bc_unpack1(bc, my_in, buf, i,
@@ -172,6 +141,49 @@ static PyObject* Transformer_apply(TransformerObject *self, PyObject *args)
   free(buf);
   free(recvbuf);
   free(sendbuf);
+}
+
+static PyObject* Transformer_apply(TransformerObject *self, PyObject *args)
+{
+  PyArrayObject* input;
+  PyArrayObject* output;
+  PyArrayObject* phases = 0;
+  if (!PyArg_ParseTuple(args, "OO|O", &input, &output, &phases))
+    return NULL;
+
+  int nin = 1;
+  if (input->nd == 4)
+    nin = input->dimensions[0];
+
+  boundary_conditions* bc = self->bc;
+
+  const double* in = DOUBLEP(input);
+  double* out = DOUBLEP(output);
+  bool real = (input->descr->type_num == PyArray_DOUBLE);
+  const double_complex* ph = (real ? 0 : COMPLEXP(phases));
+
+  int chunksize = 1;
+  if (getenv("GPAW_MPI_OPTIMAL_MSG_SIZE") != NULL)
+    {
+      int opt_msg_size = atoi(getenv("GPAW_MPI_OPTIMAL_MSG_SIZE"));
+      if (bc->maxsend > 0 )
+          chunksize = opt_msg_size * 1024 / (bc->maxsend * (2 - (int) real) *
+                                             sizeof(double));
+      chunksize = (chunksize < nin) ? chunksize : nin;
+    }
+
+#pragma omp parallel
+  {
+  int thread_id = 0;
+  int nthreads = 1;
+  int start, end;
+#ifdef _OPENMP
+  thread_id = omp_get_thread_num();
+  nthreads = omp_get_num_threads();
+#endif
+  SHARE_WORK(nin, nthreads, thread_id, &start, &end);
+  transapply_worker(self, chunksize, start, end, thread_id, nthreads, 
+		    in, out, real, ph);
   } // omp parallel for
   Py_RETURN_NONE;
 }
