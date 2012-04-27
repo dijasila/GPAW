@@ -5,23 +5,25 @@ from gpaw.xc import XC
 from gpaw.sphere.lebedev import weight_n, R_nv
 from gpaw.mpi import world, rank, size
 
+
 def v3D_Coulomb(qG):
     """Coulomb Potential in the 3D Periodic Case
     Periodic calculation, no cutoff.
     v3D = 4 pi / G^2"""
-    return 1. / np.dot(qG,qG)
+    return 1. / np.dot(qG, qG)
 
-def v2D_Coulomb(qG,G_p,G_n,R):
+
+def v2D_Coulomb(qG, G_p, G_n, R):
     """ 2D Periodic Case
     Slab/Surface/Layer calculation, cutoff in G_n direction.
     v2D = 4 pi/G^2 * [1 + exp(-G_p R)*[(G_n/G_p)*sin(G_n R) - cos(G_n R)]
     """
 
-    G_nR = np.dot(G_n,qG)*R
-    G_pR = sqrt(np.dot(G_p,qG*qG))*R
+    G_nR = np.dot(G_n, qG) * R
+    G_pR = sqrt(np.dot(G_p, qG * qG)) * R
     return 1. / np.dot(qG,qG) * (1 + exp(-G_pR)*((G_nR/G_pR)*sin(G_nR) - cos(G_nR)))
 
-def v1D_Coulomb(qG,G_p,G_n,R):
+def v1D_Coulomb(qG, G_p, G_n, R):
     """ 1D Periodic Case
     Nanotube/Nanowire/Atomic Chain calculation, cutoff in G_n direction.
      v1D = 4 pi/G^2 * [1 + G_n R J_1(G_n R) K_0(|G_p|R)
@@ -33,13 +35,13 @@ def v1D_Coulomb(qG,G_p,G_n,R):
     G_pR = abs(np.dot(G_p,qG))*R
     return 1. / np.dot(qG,qG) * (1 + G_nR * j1(G_nR) * k0(G_pR) - G_pR * j0(G_nR) * k1(G_pR))
 
-def v0D_Coulomb(qG,R):
+def v0D_Coulomb(qG, R):
     """ 0D Non-Periodic Case
     Isolated System/Molecule calculation, spherical cutoff.
     v0D = 4 pi/G^2 * [1 - cos(G R)
     """
 
-    qG2 = np.dot(qG,qG)
+    qG2 = np.dot(qG, qG)
     return 1. / qG2 * (1 - cos(sqrt(qG2)*R))
 
 
@@ -50,7 +52,7 @@ def calculate_Kc(q_c,
                  optical_limit,
                  vcut=None,
                  density_cut=None,
-                 nonsymmetric = False):
+                 nonsymmetric=False):
     """Symmetric Coulomb kernel"""
     npw = len(Gvec_Gc)
     Kc_G = np.zeros(npw)
@@ -103,8 +105,9 @@ def calculate_Kc(q_c,
 
     Kc_GG = 4 * pi * np.outer(Kc_G, Kc_G)
     
-    if nonsymmetric == True:
-        Kc_GG = 4 * pi * (Kc_G**2*np.ones([npw,npw])).T 
+    if nonsymmetric:
+        Kc_GG = 4 * pi * (Kc_G**2 * np.ones([npw, npw])).T
+
     return Kc_GG
 
 def calculate_Kxc(gd, nt_sG, npw, Gvec_Gc, nG, vol,
