@@ -7,6 +7,7 @@ Version 2:
 """
 
 import os
+import warnings
 
 try:
     from ase.units import AUT # requires rev1839 or later
@@ -547,14 +548,14 @@ def read(paw, reader):
                 if paw.input_parameters['idiotproof']:
                     raise RuntimeError(str)
                 else:
-                    paw.warn(str)
+                    warnings.warn(str)
         except (AttributeError, KeyError):
             str = 'Fingerprint of setup for %s (%s) not in restart file.' \
                 % (setup.symbol, setup.filename)
             if paw.input_parameters['idiotproof']:
                 raise RuntimeError(str)
             else:
-                paw.warn(str)
+                warnings.warn(str)
     nproj = sum([setup.ni for setup in wfs.setups])
     nadm = sum([setup.ni * (setup.ni + 1) // 2 for setup in wfs.setups])
 
