@@ -33,7 +33,7 @@ class DipoleCorrection:
 
         self.description = (
             self.poissonsolver.description +
-            '\nDipole correctaion along %s-axis' % 'xyz'[self.corrector.c])
+            '\nDipole correction along %s-axis' % 'xyz'[self.corrector.c])
 
     def initialize(self):
         self.poissonsolver.initialize()
