@@ -10,17 +10,19 @@ from gpaw.utilities import devnull
 from gpaw.utilities.blas import gemmdot
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.mpi import rank, size, world
+from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
 from gpaw.response.parallel import parallel_partition, set_communicator
 from gpaw.sphere.lebedev import weight_n, R_nv
 from scipy.special.orthogonal import p_roots
 
-class ALDACorrelation:
+class FXCCorrelation:
 
     def __init__(self,
                  calc,
                  txt=None,
                  qsym=True,
                  xc=None,
+                 block=False,
                  perturbative=None,
                  lambda_points=None,
                  density_cut=None,
@@ -28,7 +30,7 @@ class ALDACorrelation:
                  unit_cell=[0,0,0]):
         
         self.calc = calc
-        
+
         if txt is None:
             if rank == 0:
                 self.txt = sys.stdout
@@ -65,9 +67,6 @@ class ALDACorrelation:
             raise 'Choose either perturbative calcalution or lambda points' 
         self.perturbative = perturbative
         self.lambda_points = lambda_points
-        #if self.nspins == 2 and lambda_points is None:
-        #    self.lambda_points = 8
-        #    self.perturbative = None
         self.density_cut = density_cut
         if self.density_cut is None:
             self.density_cut = 1.e-6
@@ -343,13 +342,11 @@ class ALDACorrelation:
             Kxc_sGG = np.zeros((npw, npw))
         else:
             raise 'Kernel not recognized'
-        #print Kxc_sGG.real
                 
         Kc_GG = np.zeros((npw, npw), dtype=complex)
         for iG in range(npw):
             qG = np.dot(df.q_c + df.Gvec_Gc[iG], df.bcell_cv)
             Kc_GG[iG,iG] = 4 * np.pi / np.dot(qG, qG)
-        Kc_sGsG = np.tile(Kc_GG, (ns, ns))
 
         fxc_sGsG = np.zeros((npw*ns, npw*ns), dtype=complex)
         for s in range(ns):
@@ -364,12 +361,9 @@ class ALDACorrelation:
                 Kcr_sGsG[npw:2*npw, :npw] = Kcr_sGG[2]
             fhxc_sGsG = Kcr_sGsG + fxc_sGsG
         else:
-            fhxc_sGsG = Kc_sGsG + fxc_sGsG
-
-        #fhxc_sGsG = Kc_sGsG + fxc_sGsG
-        #if self.xc == 'rALDA':
-        #    fhxc_sGsG = fxc_sGsG
-
+            fhxc_sGsG = np.tile(Kc_GG, (ns, ns)) + fxc_sGsG
+        del Kxc_sGG, Kcr_sGG, fxc_sGsG, Kcr_sGsG
+        
         local_E_q_w = np.zeros(Nw_local, dtype=complex)
         E_q_w = np.empty(len(self.w), complex)
         local_singular_w = np.zeros(Nw_local, int)
@@ -398,16 +392,17 @@ class ALDACorrelation:
                         for s2 in range(ns):
                             X_ss = chi_l[s1*npw:(s1+1)*npw, s2*npw:(s2+1)*npw]
                             local_E_q_w[i] -= np.trace(np.dot(X_ss, Kc_GG))*l_w
-                local_E_q_w[i] += np.dot(np.diag(chi0[i]), np.diag(Kc_sGsG))
+                local_E_q_w[i] += np.dot(np.diag(chi0[i]),
+                                         np.diag(np.tile(Kc_GG, (ns, ns))))
             df.wcomm.all_gather(local_E_q_w, E_q_w)
             
         # Perturbative evaluation
         elif self.perturbative is not None:
             for i in range(Nw_local):
-                chi0_v = np.dot(chi0[i], Kc_sGsG)
+                chi0_v = np.dot(chi0[i], np.tile(Kc_GG, (ns, ns)))
                 chi0_fhxc = np.dot(chi0[i], fhxc_sGsG)
                 eigenvalues, P = np.linalg.eig(chi0_fhxc)
-                if (eigenvalues.real > 1.).any():
+                if (abs(eigenvalues.real) > 1.).any():
                     local_negative_w[i] = 1
                 series = np.array([1/(j+2.) * eigenvalues**(j+1)
                                    for j in range(self.perturbative)])
@@ -418,19 +413,15 @@ class ALDACorrelation:
             for i, wi in enumerate(negative_w):
                 if wi:
                     print >> self.txt, \
-                          'NEGATIVE EIGENVALUES AT w=%3.2f eV ' \
-                          '- Use density cutoff in f_xc' % df.w_w[i].imag
+                          'DYSON EQUATION NOT CONVERGENT AT w=%3.2f eV ' \
+                          '- Result may be unreliable' % df.w_w[i].imag
         # Analytic evaluation
         else:
             for i in range(Nw_local):
-                chi0_v = np.dot(chi0[i], Kc_sGsG)
+                chi0_v = np.dot(chi0[i], np.tile(Kc_GG, (ns, ns)))
                 chi0_fhxc = np.dot(chi0[i], fhxc_sGsG)
-                eigenvalues, P = np.linalg.eig(np.eye(npw, npw)
+                eigenvalues, P = np.linalg.eig(np.eye(ns*npw, ns*npw)
                                                - chi0_fhxc)
-                #if i == 0:
-                    #print eigenvalues.real
-                    #print fhxc_sGsG.real
-                    #print chi0_fhxc.real
                 if (eigenvalues.real < 0).any():
                     local_negative_w[i] = 1
                 if (abs(np.ones(npw*ns) - eigenvalues) < 1.e-10).any():
@@ -438,7 +429,6 @@ class ALDACorrelation:
                 A = np.linalg.solve(chi0_fhxc, P)
                 B = np.dot(chi0_v, A)
                 C = np.dot(np.linalg.inv(P), B)
-                #print np.diag(C).real
                 local_E_q_w[i] = np.dot(np.diag(C), np.log(eigenvalues)) \
                                  + np.trace(chi0_v)
             df.wcomm.all_gather(local_negative_w, negative_w)
@@ -456,12 +446,13 @@ class ALDACorrelation:
                           '- Result may be unreliable' \
                           % df.w_w[i].imag
         del df
+        
         if self.gauss_legendre is not None:
             E_q = np.sum(E_q_w * self.gauss_weights * self.transform) \
-                  / (4*np.pi)
+                  / (4 * np.pi)
         else:   
             dws = self.w[1:] - self.w[:-1]
-            E_q = np.dot((E_q_w[:-1] + E_q_w[1:])/2., dws) / (2.*np.pi)
+            E_q = np.dot((E_q_w[:-1] + E_q_w[1:])/2., dws) / (2 * np.pi)
 
         print >> self.txt, 'E_c(q) = %s eV' % E_q.real
         print >> self.txt
@@ -622,163 +613,196 @@ class ALDACorrelation:
 
         Kxc_sGG = np.zeros((ns, npw, npw), dtype=complex)
         Kcr_sGG = np.zeros((ns+3%ns, npw, npw), dtype=complex)
-
-        #assert self.paw_correction in [0,1,2] # 0: No paw, 1: All paw, 2: average paw
+        
         if self.paw_correction == 0:
-            print >> self.txt, 'Calculating %s kernel - No paw correction' % self.xc
+            print >> self.txt, 'Calculating %s kernel - ' % self.xc \
+                  + 'No paw correction'
         elif self.paw_correction == 1:
-            print >> self.txt, 'Calculating %s kernel - Paw correction at ALDA level' % self.xc
+            print >> self.txt, 'Calculating %s kernel - ' % self.xc \
+                  + 'Paw correction at ALDA level' 
         else:
-            print >> self.txt, 'Calculating %s kernel - Average paw correction' % self.xc
+            print >> self.txt, 'Calculating %s kernel - ' % self.xc \
+                  + 'Average paw correction'
             
         A_x = -(3/4.) * (3/np.pi)**(1/3.)
-        if rank == 0:
-            # The soft part        
-            fx_sg = ns * (4 / 9.) * A_x * (ns*nt_sG)**(-2/3.)
 
-            flocal_sg = 4 * ns * nt_sG * fx_sg
-            Vlocal_sg = 4 * (3 * ns * nt_sG/ np.pi)**(1./3.)
+        # The soft part        
+        fx_sg = ns * (4 / 9.) * A_x * (ns*nt_sG)**(-2/3.)
+
+        flocal_sg = 4 * ns * nt_sG * fx_sg
+        Vlocal_sg = 4 * (3 * ns * nt_sG/ np.pi)**(1./3.)
+        if ns == 2:
+            Vlocaloff_g = 4 * (3 * (nt_sG[0] + nt_sG[1])/ np.pi)**(1./3.)
+
+        nG0 = nG[0] * nG[1] * nG[2]
+        r_vg = gd.get_grid_point_coordinates()
+        r_vgx = r_vg[0].flatten()
+        r_vgy = r_vg[1].flatten()
+        r_vgz = r_vg[2].flatten()
+        
+        q_v = np.dot(q, bcell_cv) 
+        ls, l_ws = p_roots(12)
+
+        # Unit cells
+        R = []
+        R_weight = []
+        N_R = self.unit_cell
+        N_k = self.calc.wfs.kd.N_c
+        assert (np.array(N_R) < np.array(N_k)).all()
+        N_k0 = float(N_k[0]*N_k[1]*N_k[2])
+        for i in range(-N_R[0], N_R[0]+1):
+            for j in range(-N_R[1], N_R[1]+1):
+                for h in range(-N_R[2], N_R[2]+1):
+                    R.append(i*acell_cv[0] + j*acell_cv[1] + h*acell_cv[2])
+                    R_weight.append((N_k[0]-abs(i))*
+                                    (N_k[1]-abs(j))*
+                                    (N_k[2]-abs(h)) / N_k0)
+                    
+        l_g_size = -(-nG0 // world.size)
+        l_g_range = range(world.rank * l_g_size,
+                          min((world.rank+1) * l_g_size, nG0))
+        Kxc_sGr = np.zeros((ns, npw, len(l_g_range)), dtype=complex)
+        Kcr_sGr = np.zeros((ns+3%ns, npw, len(l_g_range)), dtype=complex)
+
+        for s in range(ns):
             if ns == 2:
-                Vlocaloff_g = 4 * (3 * (nt_sG[0] + nt_sG[1])/ np.pi)**(1./3.)
+                print >> self.txt, '    Spin:', s
+            # Loop of Lattice points
+            for i, R_i in enumerate(R):
+                if len(R) > 1: 
+                    print >> self.txt, '    Lattice point and weight: ' \
+                          + '%s' % i, R_i*Bohr, R_weight[i]
+                # Loop over r'.
+                # f_rr, V_rr and V_off are functions of r (dim. as r_vg[0])
+                for g in l_g_range:
+                    r_x = r_vgx[g] + R_i[0]
+                    r_y = r_vgy[g] + R_i[1]
+                    r_z = r_vgz[g] + R_i[2]
 
-            nG0 = nG[0] * nG[1] * nG[2]
-            r_vg = gd.get_grid_point_coordinates()
-            q_v = np.dot(q, bcell_cv) 
-            ls, l_ws = p_roots(12)
+                    # |r-r'-R_i|
+                    rr = ((r_vg[0]-r_x)**2 +
+                          (r_vg[1]-r_y)**2 +
+                          (r_vg[2]-r_z)**2)**0.5
+                    
+                    # Renormalized f_xc term
+                    n_av = ns*(nt_sG[s] + nt_sG[s].flatten()[g]) / 2.
+                    k_f = (3 * np.pi**2 * n_av)**(1./3.)
+                    x = 2 * k_f * rr
+                    fx_g = ns * (4 / 9.) * A_x * n_av**(-2/3.)
+                    f_rr = fx_g * (np.sin(x) - x*np.cos(x)) \
+                           / (2 * np.pi**2 * rr**3)
+                             
+                    # Renormalized Hartree Term
+                    y = np.array([(l + 1.)*x / 2. for l in ls])
+                    y_w = np.array([l_w * x / 2. for l_w in l_ws])
+                    V_rr = np.sum(np.sin(y)/y * y_w, 0) * 2 / np.pi / rr
 
-            # Unit cells
-            R = []
-            R_weight = []
-            N_R = self.unit_cell
-            N_k = self.calc.wfs.kd.N_c
-            assert (np.array(N_R) < np.array(N_k)).all()
-            N_k0 = float(N_k[0]*N_k[1]*N_k[2])
-            for i in range(-N_R[0], N_R[0]+1):
-                for j in range(-N_R[1], N_R[1]+1):
-                    for h in range(-N_R[2], N_R[2]+1):
-                        R.append(i*acell_cv[0] + j*acell_cv[1] + h*acell_cv[2])
-                        R_weight.append((N_k[0]-abs(i))*(N_k[1]-abs(j))*(N_k[2]-abs(h)) / N_k0)
-
-            Kxc_sGr = np.zeros((ns, npw,
-                                np.shape(r_vg[0])[0],
-                                np.shape(r_vg[0])[1],
-                                np.shape(r_vg[0])[2]), dtype=complex)
-            Kcr_sGr = np.zeros((ns+3%ns, npw,
-                                np.shape(r_vg[0])[0],
-                                np.shape(r_vg[0])[1],
-                                np.shape(r_vg[0])[2]), dtype=complex)
-
-            for s in range(ns):
-                if ns == 2:
-                    print >> self.txt, '    Spin:', s
-                # Loop of Lattice points
-                for i, R_i in enumerate(R):
-                    print >> self.txt, '    Lattice point and weight %s:' % i, (R_i*Bohr), R_weight[i]
-                    # Loop over r'. f_rr is a function of r represented by the full array r_vg
-                    for g_x in range(nG[0]):
-                        if (np.array(N_R) == 0).all():
-                            print >> self.txt, '        Grid point', g_x, 'out of', nG[0]
-                        for g_y in range(nG[1]):
-                            for g_z in range(nG[2]):
-                                 r_x = r_vg[0, g_x, g_y, g_z] + R_i[0]
-                                 r_y = r_vg[1, g_x, g_y, g_z] + R_i[1]
-                                 r_z = r_vg[2, g_x, g_y, g_z] + R_i[2]
-                                 #r_p = r_vg[:, g_x, g_y, g_z] + R_i
-                                 rr = ((r_vg[0]-r_x)**2 +
-                                       (r_vg[1]-r_y)**2 +
-                                       (r_vg[2]-r_z)**2)**0.5 # |r-r'-R_i|                        
-
-                                 # Renormalized f_x term
-                                 n_av = ns*(nt_sG[s] + nt_sG[s, g_x, g_y, g_z]) / 2.
-                                 k_f = (3 * np.pi**2 * n_av)**(1./3.)
-                                 x = 2 * k_f * rr
-                                 fx_g = ns * (4 / 9.) * A_x * n_av**(-2/3.)
-                                 f_rr = fx_g / (2*np.pi**2*rr**3) * (np.sin(x) - x*np.cos(x))
-
-                                 # Renormalized Hartree Term
-                                 y = np.array([(l + 1.)*x / 2. for l in ls])
-                                 y_w = np.array([l_w * x / 2. for l_w in l_ws])
-                                 V_rr = np.sum(np.sin(y)/y * y_w, 0) * 2 / np.pi / rr
-
-                                 # Off diagonal Hartree term
-                                 if s == 1:
-                                     n_spin = (nt_sG[0] + nt_sG[1] +
-                                               nt_sG[0, g_x, g_y, g_z] + nt_sG[1, g_x, g_y, g_z]) / 2.
-                                     k_f = (3 * np.pi**2 * n_spin)**(1./3.)
-                                     x = 2 * k_f * rr
-                                     y = np.array([(l + 1.)*x / 2. for l in ls])
-                                     y_w = np.array([l_w * x / 2. for l_w in l_ws])
-                                     V_off = np.sum(np.sin(y)/y * y_w, 0) * 2 / np.pi / rr
-
-                                 # Terms with r = r'
-                                 if (np.abs(R_i) < 0.001).all():
-                                     f_rr[g_x, g_y, g_z] = flocal_sg[s, g_x, g_y, g_z]
-                                     V_rr[g_x, g_y, g_z] = Vlocal_sg[s, g_x, g_y, g_z]
-                                     if s == 1:
-                                         V_off[g_x, g_y, g_z] = Vlocaloff_g[g_x, g_y, g_z]
-
-                                 f_rr[np.where(n_av < self.density_cut)] = 0.0        
-                                 V_rr[np.where(n_av < self.density_cut)] = 0.0
-                                 if s == 1:
-                                     V_off[np.where(n_av < self.density_cut)] = 0.0
-
-                                 f_rr *= R_weight[i]        
-                                 V_rr *= R_weight[i]
-                                 if s == 1:
-                                     V_off *= R_weight[i]
-
-                                 # Fourier transform of r
-                                 r_r = np.array([r_vg[0]-r_x, r_vg[1]-r_y, r_vg[2]-r_z]) # r-r'
-                                 e_q = np.exp(-1j * gemmdot(q_v, r_r, beta=0.0))
-                                 tmp_Kxc = np.fft.fftn(f_rr*e_q) * vol / nG0
-                                 tmp_Kcr = np.fft.fftn(V_rr*e_q) * vol / nG0
-                                 if s == 1:
-                                     tmp_Koff = np.fft.fftn(V_off*e_q) * vol / nG0
-                                 for iG in range(npw): 
-                                     if (nG / 2 - np.abs(Gvec_Gc[iG]) > 0).all():
-                                         index = Gvec_Gc[iG] % nG
-                                         Kxc_sGr[s, iG, g_x, g_y, g_z] += tmp_Kxc[index[0], index[1], index[2]]
-                                         Kcr_sGr[s, iG, g_x, g_y, g_z] += tmp_Kcr[index[0], index[1], index[2]]
-                                         if s == 1:
-                                             Kcr_sGr[2, iG, g_x, g_y, g_z] += tmp_Koff[index[0], index[1], index[2]]
-                                     else: # not in the fft index
-                                         G_v = np.dot(Gvec_Gc[iG], bcell_cv)
-                                         Gr_g = gemmdot(G_v, r_vg, beta=0.0)
-                                         Kxc_sGr[s, iG, g_x, g_y, g_z] += gd.integrate(np.exp(-1j*Gr_g)*e_q*f_rr)
-                                         Kcr_sGr[s, iG, g_x, g_y, g_z] += gd.integrate(np.exp(-1j*Gr_g)*e_q*V_rr)
-                                         if s == 1:
-                                             Kcr_sGr[2, iG, g_x, g_y, g_z] += gd.integrate(np.exp(-1j*Gr_g)*e_q*V_off)
-
-                # Fourier transform of r'
-                for iG in range(npw):
-                    tmp_Kxc = np.fft.fftn(Kxc_sGr[s,iG]) * vol / nG0
-                    tmp_Kcr = np.fft.fftn(Kcr_sGr[s,iG]) * vol / nG0
+                    # Off diagonal Hartree term
                     if s == 1:
-                        tmp_Koff = np.fft.fftn(Kcr_sGr[2,iG]) * vol / nG0
-                    for jG in range(npw):
-                        if (nG / 2 - np.abs(Gvec_Gc[jG]) > 0).all():
-                            index = -Gvec_Gc[jG] % nG
-                            Kxc_sGG[s, iG, jG] = tmp_Kxc[index[0], index[1], index[2]]
-                            Kcr_sGG[s, iG, jG] = tmp_Kcr[index[0], index[1], index[2]]
-                            if s == 1:
-                                Kcr_sGG[2, iG, jG] += tmp_Koff[index[0], index[1], index[2]]
-                        else: # not in the fft index
-                            G_v = np.dot(Gvec_Gc[jG], bcell_cv)
-                            Gr_g = gemmdot(G_v, r_vg, beta=0.0)
-                            Kxc_sGG[s, iG, jG] = gd.integrate(np.exp(1j*Gr_g)*Kxc_sGr[s, iG])
-                            Kcr_sGG[s, iG, jG] = gd.integrate(np.exp(1j*Gr_g)*Kcr_sGr[s, iG])
-                            if s == 1:
-                                Kcr_sGG[2, iG, jG] = gd.integrate(np.exp(1j*Gr_g)*Kcr_sGr[2, iG])
-            del Kxc_sGr
-            del Kcr_sGr
+                        n_spin = (nt_sG[0] + nt_sG[1] +
+                                  nt_sG[0].flatten()[g] +
+                                  nt_sG[1].flatten()[g]) / 2.
+                        k_f = (3 * np.pi**2 * n_spin)**(1/3.)
+                        x = 2 * k_f * rr
+                        y = np.array([(l + 1.)*x / 2. for l in ls])
+                        y_w = np.array([l_w * x / 2. for l_w in l_ws])
+                        V_off = np.sum(np.sin(y)/y * y_w, 0) * 2 / np.pi / rr
+
+                    # Terms with r = r'
+                    if (np.abs(R_i) < 0.001).all():
+                        tmp_flat = f_rr.flatten()
+                        tmp_flat[g] = flocal_sg[s].flatten()[g]
+                        f_rr = tmp_flat.reshape((nG[0], nG[1], nG[2]))
+                        tmp_flat = V_rr.flatten()
+                        tmp_flat[g] = Vlocal_sg[s].flatten()[g]
+                        V_rr = tmp_flat.reshape((nG[0], nG[1], nG[2]))
+                        if s == 1:
+                            tmp_flat = V_off.flatten()
+                            tmp_flat[g] = Vlocaloff_g.flatten()[g]
+                            V_off = tmp_flat.reshape((nG[0], nG[1], nG[2]))
+                        del tmp_flat
+                        
+                    f_rr[np.where(n_av < self.density_cut)] = 0.0        
+                    V_rr[np.where(n_av < self.density_cut)] = 0.0
+                    if s == 1:
+                        V_off[np.where(n_av < self.density_cut)] = 0.0
+
+                    f_rr *= R_weight[i]        
+                    V_rr *= R_weight[i]
+                    if s == 1:
+                        V_off *= R_weight[i]
+
+                    # r-r'-R_i
+                    r_r = np.array([r_vg[0]-r_x, r_vg[1]-r_y, r_vg[2]-r_z])
+                    
+                    # Fourier transform of r
+                    e_q = np.exp(-1j * gemmdot(q_v, r_r, beta=0.0))
+                    tmp_Kxc = np.fft.fftn(f_rr*e_q) * vol / nG0
+                    tmp_Kcr = np.fft.fftn(V_rr*e_q) * vol / nG0
+                    if s == 1:
+                        tmp_Koff = np.fft.fftn(V_off*e_q) * vol / nG0
+                    for iG in range(npw):
+                        assert (nG / 2 - np.abs(Gvec_Gc[iG]) > 0).all()
+                        f_i = Gvec_Gc[iG] % nG
+                        Kxc_sGr[s, iG, g-l_g_range[0]] += \
+                                   tmp_Kxc[f_i[0], f_i[1], f_i[2]]
+                        Kcr_sGr[s, iG, g-l_g_range[0]] += \
+                                   tmp_Kcr[f_i[0], f_i[1], f_i[2]]
+                        if s == 1:
+                            Kcr_sGr[2, iG, g-l_g_range[0]] += \
+                                       tmp_Koff[f_i[0], f_i[1], f_i[2]]
+
+            l_pw_size = -(-npw // world.size)
+            l_pw_range = range(world.rank * l_pw_size,
+                               min((world.rank+1) * l_pw_size, npw))
+
+            if world.size > 1 : 
+                bg1 = BlacsGrid(world, 1, world.size)
+                bg2 = BlacsGrid(world, world.size, 1)
+                bd1 = bg1.new_descriptor(npw, nG0, npw, -(-nG0 / world.size))
+                bd2 = bg2.new_descriptor(npw, nG0, -(-npw / world.size), nG0)
+
+                Kxc_Glr = np.zeros((len(l_pw_range), nG0), dtype=complex)
+                Kcr_Glr = np.zeros((len(l_pw_range), nG0), dtype=complex)
+                if s == 1:
+                    Koff_Glr = np.zeros((len(l_pw_range), nG0), dtype=complex)
+
+                r = Redistributor(bg1.comm, bd1, bd2) 
+                r.redistribute(Kxc_sGr[s], Kxc_Glr, npw, nG0)
+                r.redistribute(Kcr_sGr[s], Kcr_Glr, npw, nG0)
+                if s == 1:
+                    r.redistribute(Kcr_sGr[2], Koff_Glr, npw, nG0)
+            else:
+                Kxc_Glr = Kxc_sGr[s]
+                Kcr_Glr = Kcr_sGr[s]
+                if s == 1:
+                    Koff_Glr = Kcr_sGr[2]
+            
+            # Fourier transform of r'
+            for iG in range(len(l_pw_range)):
+                tmp_Kxc = np.fft.fftn(Kxc_Glr[iG].reshape(nG)) * vol/nG0
+                tmp_Kcr = np.fft.fftn(Kcr_Glr[iG].reshape(nG)) * vol/nG0
+                if s == 1:
+                    tmp_Koff = np.fft.fftn(Koff_Glr[iG].reshape(nG)) * vol/nG0
+                for jG in range(npw):
+                    assert (nG / 2 - np.abs(Gvec_Gc[jG]) > 0).all()
+                    f_i = -Gvec_Gc[jG] % nG
+                    Kxc_sGG[s, l_pw_range[0] + iG, jG] = \
+                               tmp_Kxc[f_i[0], f_i[1], f_i[2]]
+                    Kcr_sGG[s, l_pw_range[0] + iG, jG] = \
+                               tmp_Kcr[f_i[0], f_i[1], f_i[2]]
+                    if s == 1:
+                        Kcr_sGG[2, l_pw_range[0] + iG, jG] += \
+                                   tmp_Koff[f_i[0], f_i[1], f_i[2]]
+
+        del Kxc_sGr, Kcr_sGr, Kxc_Glr, Kcr_Glr
         world.sum(Kxc_sGG)
         world.sum(Kcr_sGG)
 
         if self.paw_correction == 0:
             return Kxc_sGG / vol, Kcr_sGG / vol
-
+        
         # The PAW part
-        print >> self.txt, '    Calculating PAW corrections'
         KxcPAW_sGG = np.zeros_like(Kxc_sGG)
         dG_GGv = np.zeros((npw, npw, 3))
         for iG in range(npw):
@@ -787,61 +811,62 @@ class ALDACorrelation:
                 dG_GGv[iG, jG] =  np.dot(dG_c, bcell_cv)
 
         for a, setup in enumerate(setups):
-            if rank == a % size:
-                rgd = setup.xc_correction.rgd
-                n_qg = setup.xc_correction.n_qg
-                nt_qg = setup.xc_correction.nt_qg
-                nc_g = setup.xc_correction.nc_g
-                nct_g = setup.xc_correction.nct_g
-                Y_nL = setup.xc_correction.Y_nL
-                dv_g = rgd.dv_g
+            rgd = setup.xc_correction.rgd
+            ng = len(rgd.r_g)
+            myng = -(-ng // world.size)
+            n_qg = setup.xc_correction.n_qg
+            nt_qg = setup.xc_correction.nt_qg
+            nc_g = setup.xc_correction.nc_g
+            nct_g = setup.xc_correction.nct_g
+            Y_nL = setup.xc_correction.Y_nL
+            dv_g = rgd.dv_g
 
-                D_sp = D_asp[a]
-                B_pqL = setup.xc_correction.B_pqL
-                D_sLq = np.inner(D_sp, B_pqL.T)
+            D_sp = D_asp[a]
+            B_pqL = setup.xc_correction.B_pqL
+            D_sLq = np.inner(D_sp, B_pqL.T)
 
-                f_sg = rgd.empty(ns)
-                ft_sg = rgd.empty(ns)
+            f_sg = rgd.empty(ns)
+            ft_sg = rgd.empty(ns)
 
-                n_sLg = np.dot(D_sLq, n_qg)
-                nt_sLg = np.dot(D_sLq, nt_qg)
+            n_sLg = np.dot(D_sLq, n_qg)
+            nt_sLg = np.dot(D_sLq, nt_qg)
 
-                # Add core density
-                n_sLg[:, 0] += (4 * np.pi)**0.5 / ns * nc_g
-                nt_sLg[:, 0] += (4 * np.pi)**0.5 / ns * nct_g
-                
-                coefatoms_GG = np.exp(-1j * np.inner(dG_GGv, R_av[a]))
-                w = weight_n    
+            # Add core density
+            n_sLg[:, 0] += (4 * np.pi)**0.5 / ns * nc_g
+            nt_sLg[:, 0] += (4 * np.pi)**0.5 / ns * nct_g
 
-                if self.paw_correction == 2:
-                    Y_nL = [Y_nL[0]]
-                    w = [1.]
+            coefatoms_GG = np.exp(-1j * np.inner(dG_GGv, R_av[a]))
+            w = weight_n    
 
-                for n, Y_L in enumerate(Y_nL):
-                    f_sg[:] = 0.0
-                    n_sg = np.dot(Y_L, n_sLg)
-                    f_sg = ns * (4 / 9.) * A_x * (ns*n_sg)**(-2/3.)
-                    if self.density_cut is not None:
-                        f_sg[np.where(ns*n_sg < self.density_cut)] = 0.0        
+            if self.paw_correction == 2:
+                Y_nL = [Y_nL[0]]
+                w = [1.]
 
-                    ft_sg[:] = 0.0
-                    nt_sg = np.dot(Y_L, nt_sLg)
-                    ft_sg = ns * (4 / 9.) * A_x * (ns*nt_sg)**(-2/3.)
-                    if self.density_cut is not None:
-                        ft_sg[np.where(ns*nt_sg < self.density_cut)] = 0.0        
- 
-                    for i in range(len(rgd.r_g)):
-                        coef_GG = np.exp(-1j * np.inner(dG_GGv, R_nv[n]) * rgd.r_g[i])
-                        for s in range(len(f_sg)):
-                            KxcPAW_sGG[s] += w[n] * np.dot(coef_GG,
-                                                           (f_sg[s,i]-ft_sg[s,i]) * dv_g[i]) \
-                                                           * coefatoms_GG
+            for n, Y_L in enumerate(Y_nL):
+                f_sg[:] = 0.0
+                n_sg = np.dot(Y_L, n_sLg)
+                f_sg = ns * (4 / 9.) * A_x * (ns*n_sg)**(-2/3.)
+                if self.density_cut is not None:
+                    f_sg[np.where(ns*n_sg < self.density_cut)] = 0.0        
+
+                ft_sg[:] = 0.0
+                nt_sg = np.dot(Y_L, nt_sLg)
+                ft_sg = ns * (4 / 9.) * A_x * (ns*nt_sg)**(-2/3.)
+                if self.density_cut is not None:
+                    ft_sg[np.where(ns*nt_sg < self.density_cut)] = 0.0        
+
+                for i in range(world.rank * myng, min((world.rank + 1) * myng, ng)):
+                    coef_GG = np.exp(-1j * np.inner(dG_GGv, R_nv[n]) * rgd.r_g[i])
+                    for s in range(len(f_sg)):
+                        KxcPAW_sGG[s] += w[n] * np.dot(coef_GG,
+                                                       (f_sg[s,i]-ft_sg[s,i]) * dv_g[i]) \
+                                                       * coefatoms_GG
 
         world.sum(KxcPAW_sGG)
         Kxc_sGG += KxcPAW_sGG
-
         return Kxc_sGG / vol, Kcr_sGG / vol
                 
+
     def initialize_calculation(self, w, ecut, smooth_cut,
                                nbands, kcommsize,
                                gauss_legendre, frequency_cut, frequency_scale):
