@@ -210,7 +210,7 @@ tests = [
     'bse_diamond.py',
     'bse_vs_lrtddft.py',
     'bse_sym.py',
-    'bse_silicon.py',
+    #'bse_silicon.py',
     'diamond_eps.py',
     'hgh_h2o.py',
     'apmb.py',
