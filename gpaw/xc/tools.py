@@ -5,7 +5,7 @@ from gpaw.xc import XC
 from gpaw.utilities import unpack
 
 
-def vxc(paw, xc=None):
+def vxc(paw, xc=None, coredensity=True):
     "Calculate XC-contribution to eigenvalues."
     
     ham = paw.hamiltonian
@@ -37,7 +37,8 @@ def vxc(paw, xc=None):
     dvxc_asii = {}
     for a, D_sp in dens.D_asp.items():
         dvxc_sp = np.zeros_like(D_sp)
-        xc.calculate_paw_correction(wfs.setups[a], D_sp, dvxc_sp)
+        xc.calculate_paw_correction(wfs.setups[a], D_sp, dvxc_sp,
+                                    addcoredensity=coredensity)
         dvxc_asii[a] = [unpack(dvxc_p) for dvxc_p in dvxc_sp]
         if thisisatest:
             dvxc_asii[a] = [wfs.setups[a].dO_ii]

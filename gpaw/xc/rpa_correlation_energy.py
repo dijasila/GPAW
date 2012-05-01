@@ -14,6 +14,7 @@ class RPACorrelation:
 
     def __init__(self,
                  calc,
+                 vcut=None,
                  txt=None,
                  tag=None,
                  qsym=True):
@@ -34,6 +35,7 @@ class RPACorrelation:
             self.txt = paropen(txt, 'w')
 
         self.qsym = qsym
+        self.vcut = vcut
         self.nspins = calc.wfs.nspins
         self.bz_k_points = calc.wfs.bzk_kc
         self.atoms = calc.get_atoms()
@@ -262,6 +264,7 @@ class RPACorrelation:
                 eta=0.0,
                 q=q,
                 txt=txt,
+                vcut=self.vcut,
                 w=self.w * 1j,
                 ecut=self.ecut,
                 smooth_cut=self.smooth_cut,
