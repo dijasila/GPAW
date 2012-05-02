@@ -206,7 +206,7 @@ tests = [
     'rpa_energy_Si.py',
     'rpa_energy_Ni.py',
     'rpa_energy_N2.py',
-    'raldax_energy_H2.py',
+    'ralda_energy_H2.py',
     'bse_aluminum.py',
     'bse_diamond.py',
     'bse_vs_lrtddft.py',
