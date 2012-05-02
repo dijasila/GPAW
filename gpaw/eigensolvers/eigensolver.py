@@ -36,10 +36,6 @@ class Eigensolver:
         # Preconditioner for the electronic gradients:
         self.preconditioner = wfs.make_preconditioner(self.blocksize)
 
-        if self.keep_htpsit:
-            # Soft part of the Hamiltonian times psit:
-            self.Htpsit_nG = wfs.empty(self.nbands, self.dtype)
-
         for kpt in wfs.kpt_u:
             if kpt.eps_n is None:
                 kpt.eps_n = np.empty(self.mynbands)
@@ -93,7 +89,7 @@ class Eigensolver:
                                       calculate_change)
         wfs.pt.add(R_xG, c_axi, kpt.q)
         
-    def subspace_diagonalize(self, hamiltonian, wfs, kpt, rotate=True):
+    def subspace_diagonalize(self, hamiltonian, wfs, kpt):
         """Diagonalize the Hamiltonian in the subspace of kpt.psit_nG
 
         *Htpsit_nG* is a work array of same size as psit_nG which contains
@@ -119,16 +115,20 @@ class Eigensolver:
         P_ani = kpt.P_ani
 
         if self.keep_htpsit:
-            Htpsit_xG = self.Htpsit_nG
+            Htpsit_nG = wfs.empty(self.nbands, q=kpt.q)
         else:
-            Htpsit_xG = self.operator.suggest_temporary_buffer()
+            Htpsit_nG = None
 
         def H(psit_xG):
+            if self.keep_htpsit:
+                result_xG = Htpsit_nG
+            else:
+                result_xG = np.empty_like(psit_xG)
             wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_xG,
-                                         Htpsit_xG[:len(psit_xG)])
+                                         result_xG)
             hamiltonian.xc.apply_orbital_dependent_hamiltonian(
-                kpt, psit_xG, Htpsit_xG, hamiltonian.dH_asp)
-            return Htpsit_xG
+                kpt, psit_xG, result_xG, hamiltonian.dH_asp)
+            return result_xG
 
         def dH(a, P_ni):
             return np.dot(P_ni, unpack(hamiltonian.dH_asp[a][kpt.s]))
@@ -145,21 +145,18 @@ class Eigensolver:
         # H_nn now contains the result of the diagonalization.
         wfs.timer.stop(diagonalization_string)
 
-        if not rotate:
-            self.timer.stop('Subspace diag')
-            return
-
         self.timer.start('rotate_psi')
         kpt.psit_nG = self.operator.matrix_multiply(H_nn, psit_nG, P_ani)
         if self.keep_htpsit:
-            self.Htpsit_nG = self.operator.matrix_multiply(H_nn, Htpsit_xG)
+            Htpsit_nG = self.operator.matrix_multiply(H_nn, Htpsit_nG)
 
         # Rotate orbital dependent XC stuff:
         hamiltonian.xc.rotate(kpt, H_nn)
 
         self.timer.stop('rotate_psi')
-
         self.timer.stop('Subspace diag')
+
+        return Htpsit_nG
 
     def estimate_memory(self, mem, wfs):
         gridmem = wfs.bytes_per_wave_function()

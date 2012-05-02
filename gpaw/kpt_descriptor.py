@@ -208,14 +208,18 @@ class KPointDescriptor:
         self.comm = comm
 
         # My number and offset of k-point/spin combinations
-        self.mynks, self.ks0 = self.get_count(), self.get_offset()
+        self.mynks = self.get_count()
+        self.ks0 = self.get_offset()
 
         if self.nspins == 2 and comm.size == 1:  # NCXXXXXXXX
             # Avoid duplicating k-points in local list of k-points.
             self.ibzk_qc = self.ibzk_kc.copy()
+            self.weight_q = self.weight_k
         else:
             self.ibzk_qc = np.vstack((self.ibzk_kc,
                                       self.ibzk_kc))[self.get_slice()]
+            self.weight_q = np.hstack((self.weight_k,
+                                       self.weight_k))[self.get_slice()]
 
     def create_k_points(self, gd):
         """Return a list of KPoints."""

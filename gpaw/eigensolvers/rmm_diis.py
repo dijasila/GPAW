@@ -28,11 +28,10 @@ class RMM_DIIS(Eigensolver):
     def iterate_one_k_point(self, hamiltonian, wfs, kpt):
         """Do a single RMM-DIIS iteration for the kpoint"""
 
-        self.subspace_diagonalize(hamiltonian, wfs, kpt)
+        R_nG = self.subspace_diagonalize(hamiltonian, wfs, kpt)
 
         self.timer.start('RMM-DIIS')
         if self.keep_htpsit:
-            R_nG = self.Htpsit_nG
             self.calculate_residuals(kpt, wfs, hamiltonian, kpt.psit_nG,
                                      kpt.P_ani, kpt.eps_n, R_nG)
 
@@ -41,7 +40,7 @@ class RMM_DIIS(Eigensolver):
 
         comm = wfs.gd.comm
         B = self.blocksize
-        dR_xG = wfs.empty(B, wfs.dtype)
+        dR_xG = wfs.empty(B, q=kpt.q)
         P_axi = wfs.pt.dict(B)
         error = 0.0
         for n1 in range(0, wfs.bd.mynbands, B):
@@ -49,7 +48,7 @@ class RMM_DIIS(Eigensolver):
             if n2 > wfs.bd.mynbands:
                 n2 = wfs.bd.mynbands
                 B = n2 - n1
-                P_axi = dict([(a, P_xi[:B]) for a, P_xi in P_axi.items()])
+                P_axi = dict((a, P_xi[:B]) for a, P_xi in P_axi.items())
                 dR_xG = dR_xG[:B]
                 
             n_x = range(n1, n2)
@@ -57,7 +56,7 @@ class RMM_DIIS(Eigensolver):
             if self.keep_htpsit:
                 R_xG = R_nG[n_x]
             else:
-                R_xG = wfs.empty(B, wfs.dtype)
+                R_xG = wfs.empty(B, q=kpt.q)
                 psit_xG = kpt.psit_nG[n_x]
                 wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_xG, R_xG)
                 wfs.pt.integrate(psit_xG, P_axi, kpt.q)

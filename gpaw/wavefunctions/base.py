@@ -408,7 +408,7 @@ class WaveFunctions(EmptyWaveFunctions):
                 self.world.ssend(psit_G, 0, 1398)
 
         if rank == 0:
-            # allocate full wavefunction and receive
+            # allocate full wave function and receive
             psit_G = self.empty(dtype=self.dtype, global_array=True,
                                 realspace=realspace)
             world_rank = (kpt_rank * self.gd.comm.size *

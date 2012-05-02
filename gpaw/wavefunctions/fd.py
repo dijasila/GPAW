@@ -32,8 +32,8 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
         self.matrixoperator = MatrixOperator(self.orthoksl)
 
-    def empty(self, n=(), dtype=float, global_array=False, realspace=False):
-        return self.gd.empty(n, dtype, global_array)
+    def empty(self, n=(), global_array=False, realspace=False, q=-1):
+        return self.gd.empty(n, self.dtype, global_array)
 
     def integrate(self, a_xg, b_yg=None, global_integral=True):
         return self.gd.integrate(a_xg, b_yg, global_integral)

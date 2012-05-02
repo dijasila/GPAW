@@ -33,8 +33,8 @@ class CG(Eigensolver):
         Eigensolver.initialize(self, wfs)
         self.overlap = wfs.overlap
         # Allocate arrays
-        self.phi_G = wfs.empty(dtype=self.dtype)
-        self.phi_old_G = wfs.empty(dtype=self.dtype)
+        self.phi_G = wfs.empty()
+        self.phi_old_G = wfs.empty()
 
         # self.f = open('CG_debug','w')
 

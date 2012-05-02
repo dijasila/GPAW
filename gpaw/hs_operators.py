@@ -470,9 +470,8 @@ class MatrixOperator:
 
         if B == 1 and J == 1:
             # Simple case:
-            newpsit_nG = self.work1_xG
+            newpsit_nG = np.zeros_like(psit_nG)
             self.gd.gemm(1.0, psit_nG, C_NN, 0.0, newpsit_nG)
-            self.work1_xG = psit_nG
             if P_ani:
                 for P_ni in P_ani.values():
                     gemm(1.0, P_ni.copy(), C_NN, 0.0, P_ni)
