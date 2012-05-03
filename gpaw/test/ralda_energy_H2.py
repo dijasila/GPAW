@@ -1,7 +1,7 @@
 from ase import *
 from gpaw import *
 from gpaw.wavefunctions.pw import PW
-from gpaw.xc.fxc_parallel import FXCCorrelation
+from gpaw.xc.fxc_correlation_energy import FXCCorrelation
 from gpaw.test import equal
 from gpaw.mpi import serial_comm, world, rank
 from os import system
