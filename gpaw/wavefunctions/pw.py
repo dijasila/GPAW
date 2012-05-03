@@ -77,6 +77,7 @@ class PWDescriptor:
         self.G2_qG = []
         Q_Q = np.arange(len(i_Qc))
         
+        self.ngmin = 100000000
         self.ngmax = 0
         self.ngave = 0.0
         for q, K_v in enumerate(self.K_qv):
@@ -90,6 +91,7 @@ class PWDescriptor:
             self.Q_qG.append(Q_G)
             self.G2_qG.append(G2_Q[Q_G])
             ng = len(Q_G)
+            self.ngmin = min(ng, self.ngmin)
             self.ngmax = max(ng, self.ngmax)
             self.ngave += weight_q[q] * ng
             self.nbytes += Q_G.nbytes + self.G2_qG[q].nbytes
@@ -476,7 +478,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                                      self.pd.G2_qG[q][G1:G2])
 
         for G in range(G1, G2):
-            x_G = self.pd.zeros()
+            x_G = self.pd.zeros(q=q)
             x_G[G] = 1.0
             H_GG[G - G1] += (self.pd.gd.dv / N *
                              self.pd.fft(ham.vt_sG[s] *
@@ -529,7 +531,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         myslice = bd.get_slice()
 
         for kpt in self.kpt_u:
-            npw = len(self.pd.Q_qG[q])
+            npw = len(self.pd.Q_qG[kpt.q])
             if scalapack:
                 mynpw = -(-npw // bd.comm.size)
                 md = BlacsDescriptor(bg, npw, npw, mynpw, npw)
@@ -560,6 +562,10 @@ class PWWaveFunctions(FDPWWaveFunctions):
             del psit_nG
 
             self.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+
+            #f_n = np.zeros_like(kpt.eps_n)
+            #f_n[:len(kpt.f_n)] = kpt.f_n
+            kpt.f_n = None
 
         occupations.calculate(self)
         
@@ -791,13 +797,14 @@ class PWLFC(BaseLFC):
         K_v = self.pd.K_qv[q]
 
         b_xI = c_xI.reshape((-1, self.nI))
-        a_xG = a_xG.reshape((-1, len(self.pd)))
+        a_xG = a_xG.reshape((-1, a_xG.shape[-1]))
 
         alpha = 1.0 / self.pd.gd.N_c.prod()
+        G_Gv = self.pd.G_Qv[self.pd.Q_qG[q]]
         if self.pd.dtype == float:
             for v in range(3):
                 gemm(2 * alpha,
-                      (f_IG * 1.0j * self.pd.G_Gv[:, v]).view(float),
+                      (f_IG * 1.0j * G_Gv[:, v]).view(float),
                       a_xG.view(float),
                       0.0, b_xI, 'c')
                 for a, I1, I2 in self.indices:
@@ -805,7 +812,7 @@ class PWLFC(BaseLFC):
         else:
             for v in range(3):
                 gemm(-alpha,
-                      f_IG * (self.pd.G_Gv[:, v] + K_v[v]),
+                      f_IG * (G_Gv[:, v] + K_v[v]),
                       a_xG,
                       0.0, b_xI, 'c')
                 for a, I1, I2 in self.indices:

@@ -24,9 +24,10 @@ import _gpaw
 def to1bz(bzk_kc, cell_cv):
     """Wrap k-points to 1. BZ.
 
+    Return k-points wrapped to the 1. BZ.
+
     bzk_kc: (n,3) ndarray
         Array of k-points in units of the reciprocal lattice vectors.
-        The array will be wrapped in-place to the 1. BZ.
     cell_cv: (3,3) ndarray
         Unit cell.
     """
@@ -35,6 +36,8 @@ def to1bz(bzk_kc, cell_cv):
     K_kv = np.dot(bzk_kc, B_cv)
     N_xc = np.indices((3, 3, 3)).reshape((3, 27)).T - 1
     G_xv = np.dot(N_xc, B_cv)
+
+    bz1k_kc = bzk_kc.copy()
 
     # Find the closest reciprocal lattice vector:
     for k, K_v in enumerate(K_kv):
@@ -45,7 +48,9 @@ def to1bz(bzk_kc, cell_cv):
         # one with the lowest index.
         d = ((G_xv - K_v)**2).sum(1)
         x = (d - d.min()).round(6).argmin()
-        bzk_kc[k] -= N_xc[x]
+        bz1k_kc[k] -= N_xc[x]
+
+    return bz1k_kc
 
 
 class KPointDescriptor:
@@ -141,15 +146,11 @@ class KPointDescriptor:
             If not None:  Check also symmetry of grid.
         """
 
-        self.bz1k_kc = self.bzk_kc.copy()
-
         if atoms is not None:
-            if (~atoms.pbc & self.bz1k_kc.any(0)).any():
+            if (~atoms.pbc & self.bzk_kc.any(0)).any():
                 raise ValueError('K-points can only be used with PBCs!')
 
             self.cell_cv = atoms.cell / Bohr
-            # Wrap k-points to 1. BZ:
-            to1bz(self.bz1k_kc, self.cell_cv)
      
             if magmom_av is None:
                 magmom_av = np.zeros((len(atoms), 3))
@@ -167,7 +168,7 @@ class KPointDescriptor:
         if self.gamma or usesymm is None:
             # Point group and time-reversal symmetry neglected
             self.weight_k = np.ones(self.nbzkpts) / self.nbzkpts
-            self.ibzk_kc = self.bz1k_kc.copy()
+            self.ibzk_kc = self.bzk_kc.copy()
             self.sym_k = np.zeros(self.nbzkpts, int)
             self.time_reversal_k = np.zeros(self.nbzkpts, bool)
             self.bz2ibz_k = np.arange(self.nbzkpts)
@@ -186,7 +187,7 @@ class KPointDescriptor:
              self.time_reversal_k,
              self.bz2ibz_k,
              self.ibz2bz_k,
-             self.bz2bz_ks) = self.symmetry.reduce(self.bz1k_kc, comm)
+             self.bz2bz_ks) = self.symmetry.reduce(self.bzk_kc, comm)
             
         if setups is not None:
             setups.set_symmetry(self.symmetry)
@@ -368,9 +369,7 @@ class KPointDescriptor:
         """Return the q=k1-k2. q-mesh is always Gamma-centered."""
         shift_c = 0.5 * ((self.N_c + 1) % 2) / self.N_c
         bzq_qc = monkhorst_pack(self.N_c) + shift_c
-        to1bz(bzq_qc, self.cell_cv)
-
-        return bzq_qc
+        return to1bz(bzq_qc, self.cell_cv)
 
     def get_ibz_q_points(self, bzq_qc, op_scc):
         """Return ibz q points and the corresponding symmetry operations that

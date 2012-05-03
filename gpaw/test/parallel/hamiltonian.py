@@ -73,10 +73,11 @@ vt_G.fill(0.567)
 def run(psit_mG):
     overlap = MatrixOperator(ksl, J)
     def H(psit_xG):
-        kin(psit_xG, overlap.work1_xG)
-        for psit_G, y_G in zip(psit_xG, overlap.work1_xG):
+        Htpsit_xG = np.empty_like(psit_xG)
+        kin(psit_xG, Htpsit_xG)
+        for psit_G, y_G in zip(psit_xG, Htpsit_xG):
             y_G += vt_G * psit_G
-        return overlap.work1_xG
+        return Htpsit_xG
     dH_aii = {0: np.ones((2, 2)) * 0.123, 1: np.ones((3, 3)) * 0.321}
     def dH(a, P_ni):
         return np.dot(P_ni, dH_aii[a])

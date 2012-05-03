@@ -53,12 +53,12 @@ class CG(Eigensolver):
 
         comm = wfs.gd.comm
 
-        self.subspace_diagonalize(hamiltonian, wfs, kpt)
+        Htpsit_nG = self.subspace_diagonalize(hamiltonian, wfs, kpt)
 
-        R_nG = wfs.matrixoperator.suggest_temporary_buffer()
+        R_nG = np.empty_like(Htpsit_nG)
         Htphi_G = R_nG[0]
 
-        R_nG[:] = self.Htpsit_nG
+        R_nG[:] = Htpsit_nG
         self.timer.start('Residuals')
         self.calculate_residuals(kpt, wfs, hamiltonian, kpt.psit_nG,
                                  kpt.P_ani, kpt.eps_n, R_nG)
@@ -70,7 +70,7 @@ class CG(Eigensolver):
         total_error = 0.0
         for n in range(self.nbands):
             R_G = R_nG[n]
-            Htpsit_G = self.Htpsit_nG[n]
+            Htpsit_G = Htpsit_nG[n]
             gamma_old = 1.0
             phi_old_G[:] = 0.0
             error = np.real(wfs.integrate(R_G, R_G))

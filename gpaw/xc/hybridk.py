@@ -173,7 +173,7 @@ class HybridXC(HybridXCBase):
         
         self.pwd = PWDescriptor(self.ecut, self.gd, complex)
 
-        G2_qG = self.pwd.g2(self.bzq_qc)
+        G2_qG = self.pwd.G2(self.bzq_qc)
         G2_qG[q0, 0] = 117.0
         self.iG2_qG = 1.0 / G2_qG
         self.iG2_qG[q0, 0] = 0.0
@@ -338,7 +338,7 @@ class HybridXC(HybridXCBase):
     def apply(self, kpt1, kpt2, k):
         k1_c = self.kd.ibzk_kc[kpt1.k]
         k20_c = self.kd.ibzk_kc[kpt2.k]
-        k2_c = self.kd.bz1k_kc[k]
+        k2_c = self.kd.bzk_kc[k]
         q_c = k2_c - k1_c
         N_c = self.gd.N_c
 
