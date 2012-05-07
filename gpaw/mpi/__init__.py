@@ -140,7 +140,6 @@ class _Communicator:
 
         """
         if isinstance(a, (int, float)):
-            assert isinstance(a, float)
             return self.comm.max(a, root)
         else:
             tc = a.dtype
@@ -169,7 +168,6 @@ class _Communicator:
 
         """
         if isinstance(a, (int, float)):
-            assert isinstance(a, float)
             return self.comm.min(a, root)
         else:
             tc = a.dtype
