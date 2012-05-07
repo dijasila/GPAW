@@ -116,7 +116,7 @@ class FDPWWaveFunctions(WaveFunctions):
         # from the file to memory:
         for kpt in self.kpt_u:
             file_nG = kpt.psit_nG
-            kpt.psit_nG = self.empty(self.bd.mynbands)
+            kpt.psit_nG = self.empty(self.bd.mynbands, q=kpt.q)
             if extra_parameters.get('sic'):
                 kpt.W_nn = np.zeros((self.bd.nbands, self.bd.nbands),
                                     dtype=self.dtype)
@@ -127,7 +127,7 @@ class FDPWWaveFunctions(WaveFunctions):
                 else:
                     big_psit_G = None
                 self.gd.distribute(big_psit_G, psit_G)
-        
+
     def orthonormalize(self):
         for kpt in self.kpt_u:
             self.overlap.orthonormalize(self, kpt)

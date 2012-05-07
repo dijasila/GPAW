@@ -561,7 +561,6 @@ def read(paw, reader):
 
     # Verify dimensions for minimally required netCDF variables:
     ng = wfs.gd.get_size_of_global_array()
-    nfg = density.finegd.get_size_of_global_array()
     shapes = {'ngptsx': ng[0],
               'ngptsy': ng[1],
               'ngptsz': ng[2],
@@ -747,35 +746,7 @@ def read(paw, reader):
             paw.input_parameters.mode != 'lcao'):
 
             timer.start('Pseudo-wavefunctions')
-            if (not hdf5 and band_comm.size == 1) or (hdf5 and world.size == 1):
-                # We may not be able to keep all the wave
-                # functions in memory - so psit_nG will be a special type of
-                # array that is really just a reference to a file:
-                for kpt in wfs.kpt_u:
-                    kpt.psit_nG = r.get_reference('PseudoWaveFunctions',
-                                                  kpt.s, kpt.k)
-
-            else:
-                for kpt in wfs.kpt_u:
-                    kpt.psit_nG = wfs.empty(wfs.bd.mynbands)
-                    if hdf5:
-                        indices = [kpt.s, kpt.k]
-                        indices.append(wfs.bd.get_slice())
-                        indices += wfs.gd.get_slice()
-                        r.get('PseudoWaveFunctions', out=kpt.psit_nG,
-                              parallel=parallel, *indices)
-                    else:
-                        # Read band by band to save memory
-                        for myn, psit_G in enumerate(kpt.psit_nG):
-                            n = wfs.bd.global_index(myn)
-                            if domain_comm.rank == 0:
-                                big_psit_G = np.array(
-                                    r.get('PseudoWaveFunctions',
-                                          kpt.s, kpt.k, n),
-                                    wfs.dtype)
-                            else:
-                                big_psit_G = None
-                            wfs.gd.distribute(big_psit_G, psit_G)
+            wfs.read(r, hdf5)
             timer.stop('Pseudo-wavefunctions')
 
         if (r.has_array('WaveFunctionCoefficients') and
@@ -789,7 +760,6 @@ def read(paw, reader):
             all_P_ni = np.empty((wfs.bd.mynbands, cumproj_a[-1]),
                                 dtype=wfs.dtype)
             for kpt in wfs.kpt_u:
-                requests = []
                 kpt.P_ani = {}
                 indices = [kpt.s, kpt.k]
                 indices.append(wfs.bd.get_slice())

@@ -1,22 +1,16 @@
 import numpy as np
 
-from gpaw.overlap import Overlap
-from gpaw.fd_operators import Laplace
-from gpaw.lfc import LocalizedFunctionsCollection as LFC
-from gpaw.utilities import unpack
+from gpaw.kpoint import KPoint
+from gpaw.mpi import serial_comm
 from gpaw.io import FileReference
-from gpaw.lfc import BasisFunctions
 from gpaw.utilities.blas import axpy
+from gpaw.fd_operators import Laplace
 from gpaw.transformers import Transformer
-from gpaw.fd_operators import Gradient
-from gpaw.band_descriptor import BandDescriptor
-from gpaw import extra_parameters
-from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.hs_operators import MatrixOperator
 from gpaw.preconditioner import Preconditioner
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.kpoint import KPoint
-from gpaw.mpi import serial_comm
+from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
+from gpaw.lfc import LocalizedFunctionsCollection as LFC
 
 
 class FDWaveFunctions(FDPWWaveFunctions):
@@ -191,6 +185,37 @@ class FDWaveFunctions(FDPWWaveFunctions):
                         psit_G = self.get_wave_function_array(n, k, s)
                         writer.fill(psit_G, s, k, n)
 
+    def read(self, reader, hdf5):
+        if ((not hdf5 and self.bd.comm.size == 1) or
+            (hdf5 and self.world.size == 1)):
+            # We may not be able to keep all the wave
+            # functions in memory - so psit_nG will be a special type of
+            # array that is really just a reference to a file:
+            for kpt in self.kpt_u:
+                kpt.psit_nG = reader.get_reference('PseudoWaveFunctions',
+                                                   (kpt.s, kpt.k))
+        else:
+            for kpt in self.kpt_u:
+                kpt.psit_nG = self.empty(self.bd.mynbands)
+                if hdf5:
+                    indices = [kpt.s, kpt.k]
+                    indices.append(self.bd.get_slice())
+                    indices += self.gd.get_slice()
+                    reader.get('PseudoWaveFunctions', out=kpt.psit_nG,
+                               parallel=(self.world.size > 1), *indices)
+                else:
+                    # Read band by band to save memory
+                    for myn, psit_G in enumerate(kpt.psit_nG):
+                        n = self.bd.global_index(myn)
+                        if self.gd.comm.rank == 0:
+                            big_psit_G = np.array(
+                                reader.get('PseudoWaveFunctions',
+                                           kpt.s, kpt.k, n),
+                                self.dtype)
+                        else:
+                            big_psit_G = None
+                        self.gd.distribute(big_psit_G, psit_G)
+        
     def initialize_from_lcao_coefficients(self, basis_functions, mynbands):
         for kpt in self.kpt_u:
             kpt.psit_nG = self.gd.zeros(self.bd.mynbands, self.dtype)

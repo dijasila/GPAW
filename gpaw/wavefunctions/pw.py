@@ -120,7 +120,10 @@ class PWDescriptor:
             assert dtype == self.dtype
         if isinstance(x, int):
             x = (x,)
-        shape = x + self.Q_qG[q].shape
+        if q == -1:
+            shape = x + (self.ngmax,)
+        else:
+            shape = x + self.Q_qG[q].shape
         return np.empty(shape, complex)
     
     def fft(self, f_R, q=-1):
@@ -367,6 +370,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
         self.ecut =  ecut
         self.fftwflags = fftwflags
 
+        self.ng_k = None
+
         FDPWWaveFunctions.__init__(self, diagksl, orthoksl, initksl,
                                    gd, nvalence, setups, bd, dtype,
                                    world, kd, timer)
@@ -392,6 +397,14 @@ class PWWaveFunctions(FDPWWaveFunctions):
         self.pd = PWDescriptor(self.ecut, self.gd, self.dtype, self.kd,
                                self.fftwflags)
         self.timer.stop('PWDescriptor')
+        
+        # Build array of number of plane wave coefficiants for all k-points
+        # in the IBZ:
+        self.ng_k = np.zeros(self.kd.nibzkpts)
+        for kpt in self.kpt_u:
+            if kpt.s == 0:
+                self.ng_k[kpt.k] = len(self.pd.Q_qG[kpt.q])
+        self.kd.comm.sum(self.ng_k)
 
         self.pt = PWLFC([setup.pt_j for setup in setups], self.pd)
 
@@ -448,6 +461,15 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 eikr_R = phase
             return self.pd.ifft(psit_G, kpt.q) * eikr_R
 
+    def get_wave_function_array(self, n, k, s, realspace=True,
+                                cut=True):
+        psit_G = FDPWWaveFunctions.get_wave_function_array(self, n, k, s,
+                                                           realspace)
+        if cut and psit_G is not None and not realspace:
+            psit_G = psit_G[:self.ng_k[k]].copy()
+
+        return psit_G
+
     def write(self, writer, write_wave_functions=False):
         writer['Mode'] = 'pw'
         writer['PlaneWaveCutoff'] = self.ecut
@@ -464,8 +486,27 @@ class PWWaveFunctions(FDPWWaveFunctions):
             for k in range(self.nibzkpts):
                 for n in range(self.bd.nbands):
                     psit_G = self.get_wave_function_array(n, k, s,
-                                                          realspace=False)
+                                                          realspace=False,
+                                                          cut=False)
                     writer.fill(psit_G, s, k, n)
+
+    def read(self, reader, hdf5):
+        assert not hdf5
+        if self.bd.comm.size == 1:
+            for kpt in self.kpt_u:
+                ng = self.ng_k[kpt.k]
+                kpt.psit_nG = reader.get_reference('PseudoWaveFunctions',
+                                                   (kpt.s, kpt.k),
+                                                   length=ng)
+            return
+
+        for kpt in self.kpt_u:
+            kpt.psit_nG = self.empty(self.bd.mynbands, q=kpt.q)
+            ng = self.ng_k[kpt.k]
+            for myn, psit_G in enumerate(kpt.psit_nG):
+                n = self.bd.global_index(myn)
+                psit_G[:] = reader.get('PseudoWaveFunctions',
+                                       kpt.s, kpt.k, n)[..., :ng]
 
     def hs(self, ham, q=-1, s=0, md=None):
         assert self.dtype == complex
