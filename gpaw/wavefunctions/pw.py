@@ -96,6 +96,12 @@ class PWDescriptor:
             self.ngave += weight_q[q] * ng
             self.nbytes += Q_G.nbytes + self.G2_qG[q].nbytes
 
+        if kd is not None:
+            self.ngmin = kd.comm.min(self.ngmin)
+            self.ngmax = kd.comm.max(self.ngmax)
+            self.ngave = kd.comm.sum(self.ngave)
+
+
         self.n_c = np.array([self.ngmax])  # used by hs_operators.py XXX
 
     def estimate_memory(self, mem):
@@ -425,7 +431,9 @@ class PWWaveFunctions(FDPWWaveFunctions):
         psit_G = FDPWWaveFunctions._get_wave_function_array(self, u, n,
                                                             realspace)
         if not realspace:
-            return psit_G.resize(self.pd.ngmax)
+            zeropadded_G = np.zeros(self.pd.ngmax, complex)
+            zeropadded_G[:len(psit_G)] = psit_G
+            return zeropadded_G
 
         kpt = self.kpt_u[u]
         if self.kd.gamma:
@@ -434,7 +442,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
             if phase is None:
                 N_c = self.gd.N_c
                 k_c = self.kd.ibzk_kc[kpt.k]
-                eikr_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k_c / N_c).T)
+                eikr_R = np.exp(2j * pi * np.dot(np.indices(N_c).T,
+                                                 k_c / N_c).T)
             else:
                 eikr_R = phase
             return self.pd.ifft(psit_G, kpt.q) * eikr_R
