@@ -4,7 +4,7 @@ from math import pi
 import numpy as np
 import ase.units as units
 
-from gpaw.lfc import BaseLFC, LocalizedFunctionsCollection as LFC
+from gpaw.lfc import BaseLFC
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.hs_operators import MatrixOperator
 import gpaw.fftw as fftw

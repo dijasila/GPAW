@@ -6,8 +6,7 @@ from __future__ import division
 import numpy as np
 
 from gpaw.utilities.blas import gemm
-from gpaw.matrix_descriptor import BandMatrixDescriptor, \
-                                   BlacsBandMatrixDescriptor
+
 
 class MatrixOperator:
     """Base class for overlap and hamiltonian operators.
@@ -128,7 +127,6 @@ class MatrixOperator:
                     self.Q = ngroups
 
     def allocate_arrays(self):
-        J = self.nblocks
         ngroups = self.bd.comm.size
         mynbands = self.bd.mynbands
         dtype = self.dtype
@@ -140,7 +138,6 @@ class MatrixOperator:
         J = self.nblocks
         ngroups = self.bd.comm.size
         mynbands = self.bd.mynbands
-        nbands = self.bd.nbands
         gdbytes = self.gd.bytecount(dtype)
         count = self.Q * mynbands**2
 
@@ -248,30 +245,6 @@ class MatrixOperator:
             sbuf_In, rbuf_In = rbuf_In, sbuf_In
 
         return sbuf_mG, rbuf_mG, sbuf_In, rbuf_In
-
-    def suggest_temporary_buffer(self):
-        asdfgsf
-        """Return a *suggested* buffer for calculating A(psit_nG) during
-        a call to calculate_matrix_elements. Work arrays will be allocated
-        if they are not already available.
-
-        Note that the temporary buffer is merely a reference to (part of) a
-        work array, hence data race conditions occur if you're not careful.
-        """
-        dtype = self.dtype
-        if self.work1_xG is None:
-            self.allocate_work_arrays()
-
-        J = self.nblocks
-        N = self.bd.mynbands
-        B = self.bd.comm.size
-
-        if B == 1 and J == 1:
-            return self.work1_xG
-        else:
-            M = int(np.ceil(N / float(J))) 
-            assert M > 0 # must have at least one wave function in group
-            return self.work1_xG[:M]
 
     def calculate_matrix_elements(self, psit_nG, P_ani, A, dA):
         """Calculate matrix elements for A-operator.
@@ -451,7 +424,6 @@ class MatrixOperator:
         """
 
         band_comm = self.bd.comm
-        domain_comm = self.gd.comm
         B = band_comm.size
         J = self.nblocks
         N = self.bd.mynbands

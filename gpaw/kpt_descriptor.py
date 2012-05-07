@@ -312,7 +312,6 @@ class KPointDescriptor:
     def get_transform_wavefunction_index(self, nG, k):
         
         s = self.sym_k[k]
-        time_reversal = self.time_reversal_k[k]
         op_cc = np.linalg.inv(self.symmetry.op_scc[s]).round().astype(int)
 
         # General point group symmetry

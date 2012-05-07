@@ -10,10 +10,7 @@ from time import time
 import numpy as np
 from ase.utils import prnt
 
-from gpaw.xc import XC
-from gpaw.xc.kernel import XCNull
-from gpaw.xc.functional import XCFunctional
-from gpaw.utilities import hartree, pack, unpack2, packed_index, logfile
+from gpaw.utilities import pack, unpack2, packed_index, logfile
 from gpaw.lfc import LFC
 from gpaw.wavefunctions.pw import PWDescriptor, PWWaveFunctions
 from gpaw.kpt_descriptor import KPointDescriptor
@@ -157,7 +154,6 @@ class HybridXC(HybridXCBase):
 
         self.fd = logfile(self.fd, self.world.rank)
 
-        N_c = self.gd.N_c
         N = self.gd.N_c.prod()
         vol = self.gd.dv * N
         
@@ -169,14 +165,16 @@ class HybridXC(HybridXCBase):
             self.ecut = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max() * 0.9999
             
         self.bzq_qc = self.kd.get_bz_q_points()
+        qd = KPointDescriptor(self.bzq_qc)
         q0 = self.kd.where_is_q(np.zeros(3), self.bzq_qc)
         
-        self.pwd = PWDescriptor(self.ecut, self.gd, complex)
+        self.pwd = PWDescriptor(self.ecut, self.gd, complex, kd=qd)
 
-        G2_qG = self.pwd.G2(self.bzq_qc)
-        G2_qG[q0, 0] = 117.0
-        self.iG2_qG = 1.0 / G2_qG
-        self.iG2_qG[q0, 0] = 0.0
+        G2_qG = self.pwd.G2_qG
+        G2_qG[q0][0] = 117.0
+        self.iG2_qG = [1.0 / G2_G for G2_G in G2_qG]
+        G2_qG[q0][0] = 0.0
+        self.iG2_qG[q0][0] = 0.0
 
         self.gamma = (vol / (2 * pi)**2 * sqrt(pi / self.alpha) *
                       self.kd.nbzkpts)
@@ -185,11 +183,11 @@ class HybridXC(HybridXCBase):
             self.gamma -= np.dot(np.exp(-self.alpha * G2_qG[q]),
                                  self.iG2_qG[q])
 
-        self.iG2_qG[q0, 0] = self.gamma
+        self.iG2_qG[q0][0] = self.gamma
         
         self.ghat = LFC(self.gd,
                         [setup.ghat_l for setup in density.setups],
-                        KPointDescriptor(self.bzq_qc), dtype=complex)
+                        qd, dtype=complex)
         
         self.log('Value of alpha parameter:', self.alpha)
         self.log('Value of gamma parameter:', self.gamma)
@@ -405,7 +403,7 @@ class HybridXC(HybridXCBase):
                 t0 = time()
                 nt_R = self.calculate_pair_density(n1, n2, kpt1, kpt2, q, k,
                                                    eik1r_R, eik2r_R, eiqr_R)
-                nt_G = self.pwd.fft(nt_R) / N
+                nt_G = self.pwd.fft(nt_R, q) / N
                 vt_G = nt_G.copy()
                 vt_G *= -pi * vol * iG2_G
                 e = np.vdot(nt_G, vt_G).real * nspins * self.hybrid * x
@@ -453,7 +451,6 @@ class HybridXC(HybridXCBase):
                             for i4 in range(ni):
                                 p24 = packed_index(i2, i4, ni)
                                 A += setup.M_pp[p13, p24] * D_ii[i3, i4]
-                        p12 = packed_index(i1, i2, ni)
                         exx -= self.hybrid / deg * D_ii[i1, i2] * A
 
                 if self.coredensity:
