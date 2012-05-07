@@ -101,7 +101,6 @@ class PWDescriptor:
             self.ngmax = kd.comm.max(self.ngmax)
             self.ngave = kd.comm.sum(self.ngave)
 
-
         self.n_c = np.array([self.ngmax])  # used by hs_operators.py XXX
 
     def estimate_memory(self, mem):
@@ -160,10 +159,10 @@ class PWDescriptor:
         if self.dtype == float:
             t = self.tmp_Q[:, :, 0]
             n, m = self.gd.N_c[:2] // 2 - 1
-            t[0,      -m:] = t[0,      m:0:-1].conj()
-            t[n:0:-1, -m:] = t[-n:,    m:0:-1].conj()
-            t[-n:,    -m:] = t[n:0:-1, m:0:-1].conj()
-            t[-n:,    0  ] = t[n:0:-1, 0     ].conj()
+            t[0, -m:] = t[0, m:0:-1].conj()
+            t[n:0:-1, -m:] = t[-n:, m:0:-1].conj()
+            t[-n:, -m:] = t[n:0:-1, m:0:-1].conj()
+            t[-n:, 0] = t[n:0:-1, 0].conj()
         self.ifftplan.execute()
         return self.tmp_R * (1.0 / self.tmp_R.size)
 
@@ -367,7 +366,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                  diagksl, orthoksl, initksl,
                  gd, nvalence, setups, bd, dtype,
                  world, kd, timer):
-        self.ecut =  ecut
+        self.ecut = ecut
         self.fftwflags = fftwflags
 
         self.ng_k = None
@@ -669,7 +668,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                         sigma_cv[alpha, beta] += f * s
         sigma_cv *= -dOmega
 
-        def symmetrize(x): # XXXXXXX
+        def symmetrize(x):  # XXXXXXX
             return x
         
         self.bd.comm.sum(sigma_cv)
@@ -879,7 +878,7 @@ class PWLFC(BaseLFC):
                 f = ft(spline)
                 G_G = self.G2_qG[q]**0.5
                 f_G =  np.array([-f.get_value_and_derivative(G)[1] * G
-                                 for G in G_G])#f.map(G_qG) * G_qG**l
+                                  for G in G_G])#f.map(G_qG) * G_qG**l
                 cache[spline] = f_G
             else:
                 f_G = cache[spline]
@@ -1010,8 +1009,10 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         class PS:
             def initialize(self):
                 pass
+
             def get_stencil(self):
                 return '????'
+
             def estimate_memory(self, mem):
                 pass
 

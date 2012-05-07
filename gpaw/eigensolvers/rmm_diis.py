@@ -4,8 +4,6 @@ import numpy as np
 
 from gpaw.utilities.blas import axpy
 from gpaw.eigensolvers.eigensolver import Eigensolver
-from gpaw.utilities import unpack
-from gpaw.mpi import run
 
 
 class RMM_DIIS(Eigensolver):
