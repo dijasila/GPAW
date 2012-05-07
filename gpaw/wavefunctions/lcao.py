@@ -66,14 +66,14 @@ class LCAOWaveFunctions(WaveFunctions):
                                               kd,
                                               cut=True)
 
-    def empty(self, n=(), dtype=float, global_array=False, realspace=False):
+    def empty(self, n=(), global_array=False, realspace=False):
         if realspace:
-            return self.gd.empty(n, dtype, global_array)
+            return self.gd.empty(n, self.dtype, global_array)
         else:
             if isinstance(n, int):
                 n = (n,)
             nao = self.setups.nao
-            return np.empty(n + (nao,), dtype)
+            return np.empty(n + (nao,), self.dtype)
 
     def summary(self, fd):
         fd.write('Wave functions: LCAO\n')
