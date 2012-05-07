@@ -244,7 +244,6 @@ class FXCCorrelation:
             optical_limit = False
 
         dummy = DF(calc=self.calc,
-                   xc='RPA',
                    eta=0.0,
                    w=self.w * 1j,
                    q=q,
@@ -270,7 +269,7 @@ class FXCCorrelation:
         else:
             txt='response_'+self.txt.name
         df = DF(calc=self.calc,
-                xc='RPA',
+                xc=None,
                 nbands=nbands,
                 eta=0.0,
                 q=q,
@@ -312,7 +311,7 @@ class FXCCorrelation:
             df.calculate(spin=1)
             print >> self.txt, 'Finished spin 1'
             chi0[:, npw:2*npw, npw:2*npw] = df.chi0_wGG[:]
-        del df.chi0_wGG
+        del df.chi0_wGG, df.Kc_GG
 
         if self.xc[:4] == 'ALDA':
             Kxc_sGG = self.calculate_Kxc(df.gd,
@@ -664,6 +663,9 @@ class FXCCorrelation:
         Kxc_sGr = np.zeros((ns, npw, len(l_g_range)), dtype=complex)
         Kcr_sGr = np.zeros((ns+3%ns, npw, len(l_g_range)), dtype=complex)
 
+        inv_error = np.seterr()['invalid']
+        np.seterr(invalid='ignore')
+
         for s in range(ns):
             if ns == 2:
                 print >> self.txt, '    Spin:', s
@@ -683,7 +685,7 @@ class FXCCorrelation:
                     rr = ((r_vg[0]-r_x)**2 +
                           (r_vg[1]-r_y)**2 +
                           (r_vg[2]-r_z)**2)**0.5
-                    
+
                     # Renormalized f_xc term
                     n_av = ns*(nt_sG[s] + nt_sG[s].flatten()[g]) / 2.
                     k_f = (3 * np.pi**2 * n_av)**(1./3.)
@@ -691,7 +693,7 @@ class FXCCorrelation:
                     fx_g = ns * (4 / 9.) * A_x * n_av**(-2/3.)
                     f_rr = fx_g * (np.sin(x) - x*np.cos(x)) \
                            / (2 * np.pi**2 * rr**3)
-                             
+
                     # Renormalized Hartree Term
                     y = np.array([(l + 1.)*x / 2. for l in ls])
                     y_w = np.array([l_w * x / 2. for l_w in l_ws])
@@ -794,6 +796,8 @@ class FXCCorrelation:
                     if s == 1:
                         Kcr_sGG[2, l_pw_range[0] + iG, jG] += \
                                    tmp_Koff[f_i[0], f_i[1], f_i[2]]
+
+        np.seterr(divide=inv_error)
 
         del Kxc_sGr, Kcr_sGr, Kxc_Glr, Kcr_Glr
         world.sum(Kxc_sGG)
