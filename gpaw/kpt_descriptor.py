@@ -368,7 +368,7 @@ class KPointDescriptor:
         """Return the q=k1-k2. q-mesh is always Gamma-centered."""
         shift_c = 0.5 * ((self.N_c + 1) % 2) / self.N_c
         bzq_qc = monkhorst_pack(self.N_c) + shift_c
-        return to1bz(bzq_qc, self.cell_cv)
+        return bzq_qc
 
     def get_ibz_q_points(self, bzq_qc, op_scc):
         """Return ibz q points and the corresponding symmetry operations that
