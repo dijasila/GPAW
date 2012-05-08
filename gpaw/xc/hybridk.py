@@ -92,10 +92,10 @@ class KPoint:
 
 class HybridXC(HybridXCBase):
     orbital_dependent = True
-    def __init__(self, name, hybrid=None, xc=None,
+    def __init__(self, name, hybrid=None, xc=None, gygi=False,
                  alpha=None, skip_gamma=False, ecut=None, 
                  etotflag = False, acdf=False, coredensity=True,
-                 logfilename='-', bands=None):
+                 logfilename='-', bands=None, core_valence=True):
         """Mix standard functionals with exact exchange.
 
         bands: list or None
@@ -105,7 +105,8 @@ class HybridXC(HybridXCBase):
 
         self.alpha = alpha
         self.skip_gamma = skip_gamma
-
+        self.gygi = gygi
+        
         self.exx = 0.0
         self.etotflag = etotflag
         self.ecut = ecut
@@ -114,6 +115,7 @@ class HybridXC(HybridXCBase):
         self.bands = bands
         self.acdf = acdf  # adiabatic-connection dissipation fluctuation for RPA correlation energy
         self.coredensity = coredensity
+        self.core_valence = core_valence
         if self.acdf:
             self.exxacdf = 0.0
             self.etotflag = True
@@ -216,7 +218,7 @@ class HybridXC(HybridXCBase):
         self.log("%d CPU's used for %d IBZ k-points" % (W, K))
         self.log('Spins:', self.nspins)
 
-        if self.etotflag:
+        if self.etotflag and not self.gygi:
             self.nbandstmp = 0
             for s in range(self.nspins):
                 kpt1_k = [KPoint(kd, kpt)
@@ -235,7 +237,7 @@ class HybridXC(HybridXCBase):
             self.nbands = tmp.max()
         else:
             self.nbands = self.bd.nbands
-                
+        
         B = self.nbands
         self.log('Number of bands calculated:', B)
         self.log('Number of valence electrons:', self.setups.nvalence)
@@ -313,10 +315,11 @@ class HybridXC(HybridXCBase):
                                      P_ni[:, i1].conj() * P_ni[:, i2]).real
                                 
                                 p12 = packed_index(i1, i2, ni)
-                                if setup.X_p is not None:
-                                    self.exx_skn[kpt.s, kpt.k] -= self.hybrid * \
-                                        (P_ni[:, i1].conj() * setup.X_p[p12] *
-                                         P_ni[:, i2]).real / self.nspins
+                                if self.core_valence:
+                                    if setup.X_p is not None:
+                                        self.exx_skn[kpt.s, kpt.k] -= self.hybrid * \
+                                                                      (P_ni[:, i1].conj() * setup.X_p[p12] *
+                                                                       P_ni[:, i2]).real / self.nspins
 
             
             self.world.sum(self.exx_skn)
@@ -327,8 +330,10 @@ class HybridXC(HybridXCBase):
 
             for a, D_sp in self.density.D_asp.items():
                 setup = self.setups[a]
-                self.exx += self.hybrid * setup.ExxC
-                self.exx -= self.hybrid * 0.5 * np.dot(D_sp.sum(0), setup.X_p)
+                if self.coredensity:
+                    self.exx += self.hybrid * setup.ExxC
+                if self.core_valence:
+                    self.exx -= self.hybrid * 0.5 * np.dot(D_sp.sum(0), setup.X_p)
 
             self.world.sum(self.debug_skn)
             assert (self.debug_skn == self.kd.nbzkpts * B).all()
@@ -386,7 +391,7 @@ class HybridXC(HybridXCBase):
                     if is_ibz2:
                         self.debug_skn[kpt2.s, kpt2.k, n2] += x
 
-                if self.etotflag:
+                if self.etotflag and not self.gygi:
                     if abs(f1) < fcut or abs(f2) < fcut:
                         continue
                 else:
@@ -410,8 +415,11 @@ class HybridXC(HybridXCBase):
                 
                 if self.etotflag:
                     if self.acdf:
-                        self.exxacdf += 0.5 * (f1 * (1-np.sign(e2-e1)) * e + 
-                                   f2 * (1-np.sign(e1-e2)) * e ) * kpt1.weight
+                        if self.gygi and same:
+                            self.exxacdf += f2 * e * kpt1.weight                            
+                        else:
+                            self.exxacdf += 0.5 * (f1 * (1-np.sign(e2-e1)) * e + 
+                                                   f2 * (1-np.sign(e1-e2)) * e ) * kpt1.weight
                     else:
                         self.exx += f2 * e * kpt1.weight[0] * f1 * self.kd.nbzkpts * nspins / 2
                 else:
@@ -420,8 +428,11 @@ class HybridXC(HybridXCBase):
                 if is_ibz2:
                     if self.etotflag:
                         if self.acdf:
-                            self.exxacdf += 0.5 * (f1 * (1-np.sign(e2-e1)) * e +
-                                        f2 * (1-np.sign(e1-e2)) * e ) * kpt2.weight
+                            if self.gygi and same:
+                                self.exxacdf += f1 * e * kpt2.weight
+                            else:
+                                self.exxacdf += 0.5 * (f1 * (1-np.sign(e2-e1)) * e +
+                                                       f2 * (1-np.sign(e1-e2)) * e ) * kpt2.weight
                         else:
                             self.exx += f1 * e * kpt2.weight[0] * f2 * self.kd.nbzkpts * nspins / 2
                     else:
@@ -453,7 +464,7 @@ class HybridXC(HybridXCBase):
                                 A += setup.M_pp[p13, p24] * D_ii[i3, i4]
                         exx -= self.hybrid / deg * D_ii[i1, i2] * A
 
-                if self.coredensity:
+                if self.core_valence:
                     if setup.X_p is not None:
                         exx -= self.hybrid * np.dot(D_p, setup.X_p)
             if self.coredensity:

@@ -26,6 +26,7 @@ from gpaw.grid_descriptor import GridDescriptor
 from gpaw.utilities.tools import construct_reciprocal
 from gpaw.fd_operators import Gradient
 from gpaw import setup_paths, extra_parameters
+from gpaw.fftw import get_efficient_fft_size
 import gpaw.mpi as mpi
 import _gpaw
  
@@ -592,6 +593,7 @@ class FFTVDWFunctional(VDWFunctional):
             self.shape = gd.N_c.copy()
             for c, n in enumerate(self.shape):
                 if not gd.pbc_c[c]:
+                    #self.shape[c] = get_efficient_fft_size(n)
                     self.shape[c] = int(2**ceil(log(n) / log(2)))
         else:
             self.shape = np.array(self.size)
@@ -600,27 +602,32 @@ class FFTVDWFunctional(VDWFunctional):
                     assert n == gd.N_c[c]
                 else:
                     assert n >= gd.N_c[c]
+        
+        if self.alphas:
+            scale_c1 = (self.shape / (1.0 * gd.N_c))[:, np.newaxis]
+            gdfft = GridDescriptor(self.shape, gd.cell_cv * scale_c1, True)
+            k_k = construct_reciprocal(gdfft)[0][:,
+                                                 :,
+                                                 :self.shape[2] // 2 + 1]**0.5
+            k_k[0, 0, 0] = 0.0
+    
+    
+            self.dj_k = k_k / (2 * pi / self.rcut)
+            self.j_k = self.dj_k.astype(int)
+            self.dj_k -= self.j_k
+            self.dj_k *= 2 * pi / self.rcut
+         
+            if self.verbose:
+                print 'VDW: density array size:', gd.get_size_of_global_array()
+                print 'VDW: zero-padded array size:', self.shape
+                print ('VDW: maximum kinetic energy: %.3f Hartree' %
+                       (0.5 * k_k.max()**2))
             
-        scale_c1 = (self.shape / (1.0 * gd.N_c))[:, np.newaxis]
-        gdfft = GridDescriptor(self.shape, gd.cell_cv * scale_c1, True)
-        k_k = construct_reciprocal(gdfft)[0][:,
-                                             :,
-                                             :self.shape[2] // 2 + 1]**0.5
-        k_k[0, 0, 0] = 0.0
-
-
-        self.dj_k = k_k / (2 * pi / self.rcut)
-        self.j_k = self.dj_k.astype(int)
-        self.dj_k -= self.j_k
-        self.dj_k *= 2 * pi / self.rcut
-
-        assert self.j_k.max() < self.Nr // 2, 'Use larger Nr than %i.' % self.Nr
- 
-        if self.verbose:
-            print 'VDW: density array size:', gd.get_size_of_global_array()
-            print 'VDW: zero-padded array size:', self.shape
-            print ('VDW: maximum kinetic energy: %.3f Hartree' %
-                   (0.5 * k_k.max()**2))
+            assert self.j_k.max() < self.Nr // 2, 'Use larger Nr than %i.' % self.Nr
+        
+        else:
+            self.dj_k = None
+            self.j_k = None
 
     def calculate_6d_integral(self, n_g, q0_g,
                               a2_g=None, e_LDAc_g=None, v_LDAc_g=None,
@@ -699,7 +706,9 @@ class FFTVDWFunctional(VDWFunctional):
             
             if vdwcomm is not None:
                 self.timer.start('gather')
-                vdwcomm.sum(F_k, vdw_ranka)
+                for F in F_k:
+                    vdwcomm.sum(F, vdw_ranka)
+                #vdwcomm.sum(F_k, vdw_ranka)
                 self.timer.stop('gather')
 
             if vdwcomm is not None and vdwcomm.rank == vdw_ranka:
