@@ -825,9 +825,13 @@ class PWLFC(BaseLFC):
             if spline not in cache:
                 f = ft(spline)
                 G_G = self.G2_qG[q]**0.5
-                f_G =  np.array([-f.get_value_and_derivative(G)[1] * G
-                                 for G in G_G])#f.map(G_qG) * G_qG**l
-                cache[spline] = f_G
+                f_G = []
+                for G in G_G:
+                    y, dydG = f.get_value_and_derivative(G)
+                    if l > 0:
+                        dydG = dydG * G**l + l * y * G**(l - 1)
+                    f_G.append(-dydG * G)
+                cache[spline] = np.array(f_G)
             else:
                 f_G = cache[spline]
                 

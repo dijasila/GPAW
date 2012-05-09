@@ -34,8 +34,6 @@ def stress(calc):
     s0 = 0.0
     for kpt in wfs.kpt_u:
         p_ani = wfs.pt.stress_tensor_contribution(kpt.psit_nG, q=kpt.q)
-        #print p_ani
-        #print kpt.P_ani
         for a, p_ni in p_ani.items():
             P_ni = kpt.P_ani[a]
             Pf_ni = P_ni * kpt.f_n[:, None]
