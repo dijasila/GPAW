@@ -796,7 +796,7 @@ class PAW(PAWTextOutput):
             txt.write('Attribute error: %r' % m)
             txt.write('Some object probably lacks estimate_memory() method')
             txt.write('Memory breakdown may be incomplete')
-        totalsize = mem.calculate_size()
+        mem.calculate_size()
         mem.write(txt, maxdepth=maxdepth)
 
     def converge_wave_functions(self):
