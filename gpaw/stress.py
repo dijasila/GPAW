@@ -17,18 +17,19 @@ def stress(calc):
 
     p = calc.wfs.get_kinetic_stress().trace().real
 
-    p += 3 * calc.hamiltonian.stress[0, 0]
+    p += ham.xc.stress_tensor_contribution(dens.nt_sg)
+    # tilde-n_c contribution to dsigma/depsilon is missing!
 
     p -= ham.epot
-    p_a = dens.ghat.stress_tensor_contribution(ham.vHt_q)
+    p_aL = dens.ghat.stress_tensor_contribution(ham.vHt_q)
     for a, Q_L in dens.Q_aL.items():
-        p += Q_L[0] * p_a[a][0, 0]
+        p += np.dot(Q_L, p_aL[a])
 
     p_a = ham.vbar.stress_tensor_contribution(dens.nt_sQ[0])
-    p += sum(p_a.values())[0, 0] - 3 * ham.ebar
+    p += sum(p_a.values())[0] - 3 * ham.ebar
 
     p_a = dens.nct.stress_tensor_contribution(ham.vt_Q)
-    p += sum(p_a.values())[0, 0]
+    p += sum(p_a.values())[0]
 
     s = 0.0
     s0 = 0.0

@@ -851,7 +851,7 @@ class PWLFC(BaseLFC):
             a_xG = a_xG.view(float)
         
         if c_axi is None:
-            c_axi = self.dict(a_xG.shape[:-1])
+            c_axi = self.dict(c_xI.shape[:-1])
 
         gemm(alpha, f_IG, a_xG, 0.0, b_xI, 'c')
         for a, I1, I2 in self.indices:
@@ -1001,8 +1001,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         
         self.timer.start('XC 3D grid')
         vxct_sg = self.finegd.zeros(self.nspins)
-        exc = self.xc.calculate(self.finegd, density.nt_sg, vxct_sg)
-        self.stress = exc - self.finegd.integrate(density.nt_sg, vxct_sg)
+        self.exc = self.xc.calculate(self.finegd, density.nt_sg, vxct_sg)
 
         for vt_G, vxct_g in zip(self.vt_sG, vxct_sg):
             vxc_G, vxc_Q = self.pd3.restrict(vxct_g, self.pd2)
@@ -1017,7 +1016,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
         eext = 0.0
 
-        return ekin, self.epot, self.ebar, eext, exc, W_aL
+        return ekin, self.epot, self.ebar, eext, self.exc, W_aL
 
     def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):
         dens.ghat.derivative(self.vHt_q, ghat_aLv)
