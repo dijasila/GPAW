@@ -1,6 +1,7 @@
 import numpy as np
 import ase.units as units
 
+from gpaw.utilities import unpack
 from gpaw.wavefunctions.pw import ft, PWWaveFunctions
 
 
@@ -16,38 +17,35 @@ def stress(calc):
 
     p = calc.wfs.get_kinetic_stress().trace().real
 
-    p += 3 * calc.hamiltonian.stress[0, 0]
+    p += ham.xc.stress_tensor_contribution(dens.nt_sg)
+    # tilde-n_c contribution to dsigma/depsilon is missing!
 
     p -= ham.epot
-    p_a = dens.ghat.stress_tensor_contribution(ham.vHt_q)
+    p_aL = dens.ghat.stress_tensor_contribution(ham.vHt_q)
     for a, Q_L in dens.Q_aL.items():
-        p += Q_L[0] * p_a[a][0, 0]
+        p += np.dot(Q_L, p_aL[a])
 
     p_a = ham.vbar.stress_tensor_contribution(dens.nt_sQ[0])
-    p += sum(p_a.values())[0, 0] - 3 * ham.ebar
+    p += sum(p_a.values())[0] - 3 * ham.ebar
 
-    #p_a = dens.nct.stress_tensor_contribution(ham.vt_Q)
-    #p += sum(p_a.values())[0, 0]
+    p_a = dens.nct.stress_tensor_contribution(ham.vt_Q)
+    p += sum(p_a.values())[0]
 
     s = 0.0
     s0 = 0.0
     for kpt in wfs.kpt_u:
         p_ani = wfs.pt.stress_tensor_contribution(kpt.psit_nG, q=kpt.q)
-        #print p_ani
-        #print kpt.P_ani
-        s += (p_ani[0][0,0] * kpt.P_ani[0][0,0] * (
-                ham.dH_asp[0][0,0]
-                - ham.setups[0].dO_ii[0,0] * kpt.eps_n[0]
-                ) *
-              kpt.f_n[0])
-        s0 += (kpt.P_ani[0][0,0] * kpt.P_ani[0][0,0] * (
-                ham.dH_asp[0][0,0]
-                - ham.setups[0].dO_ii[0,0] * kpt.eps_n[0]
-                ) *
-              kpt.f_n[0])
+        for a, p_ni in p_ani.items():
+            P_ni = kpt.P_ani[a]
+            Pf_ni = P_ni * kpt.f_n[:, None]
+            dH_ii = unpack(ham.dH_asp[a][kpt.s])
+            dS_ii = ham.setups[a].dO_ii
+            a_ni = (np.dot(Pf_ni, dH_ii) -
+                    np.dot(Pf_ni * kpt.eps_n[:, None], dS_ii))
+            s += np.vdot(p_ni, a_ni)
+            s0 += np.vdot(P_ni, a_ni)
 
-    #print 2*(s-1.5*s0) / vol * units.Hartree / units.Bohr**3
-    p +=2*(s-1.5*s0).real
+    p += 2 * (s - 1.5 * s0).real
 
     vol = calc.atoms.get_volume() / units.Bohr**3
     sigma_vv = np.eye(3) * p / 3 / vol

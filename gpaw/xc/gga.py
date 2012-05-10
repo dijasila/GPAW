@@ -16,16 +16,11 @@ class GGA(LDA):
 
     def calculate_lda(self, e_g, n_sg, v_sg):
         nspins = len(n_sg)
-        gradn_svg = self.gd.empty((nspins, 3))
-        sigma_xg = self.gd.zeros(nspins * 2 - 1)
+        sigma_xg, gradn_svg = self.calculate_sigma(n_sg)
         dedsigma_xg = self.gd.empty(nspins * 2 - 1)
-        for v in range(3):
-            for s in range(nspins):
-                self.grad_v[v](n_sg[s], gradn_svg[s, v])
-                axpy(1.0, gradn_svg[s, v] ** 2, sigma_xg[2 * s])
-            if nspins == 2:
-                axpy(1.0, gradn_svg[0, v] * gradn_svg[1, v], sigma_xg[1])
         self.calculate_gga(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
+        self.stress=self.gd.integrate(sigma_xg, dedsigma_xg)
+        self.stress2=self.gd.integrate(v_sg, n_sg)
         vv_g = sigma_xg[0]
         for v in range(3):
             for s in range(nspins):
@@ -36,9 +31,32 @@ class GGA(LDA):
                     axpy(-1.0, vv_g, v_sg[1 - s])
                     # TODO: can the number of gradient evaluations be reduced?
 
+    def calculate_sigma(self, n_sg):
+        nspins = len(n_sg)
+        gradn_svg = self.gd.empty((nspins, 3))
+        sigma_xg = self.gd.zeros(nspins * 2 - 1)
+        for v in range(3):
+            for s in range(nspins):
+                self.grad_v[v](n_sg[s], gradn_svg[s, v])
+                axpy(1.0, gradn_svg[s, v] ** 2, sigma_xg[2 * s])
+            if nspins == 2:
+                axpy(1.0, gradn_svg[0, v] * gradn_svg[1, v], sigma_xg[1])
+        return sigma_xg, gradn_svg
+
     def calculate_gga(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
         self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
 
+    def stress_tensor_contribution(self, n_sg):
+        sigma_xg = self.calculate_sigma(n_sg)[0]
+        nspins = len(n_sg)
+        dedsigma_xg = self.gd.empty(nspins * 2 - 1)
+        v_sg = self.gd.zeros(nspins)
+        e_g = self.gd.empty()
+        self.calculate_gga(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
+        return (3 * self.gd.integrate(e_g) -
+                3 * self.gd.integrate(v_sg[0], n_sg[0]) -
+                8 * self.gd.integrate(sigma_xg[0], dedsigma_xg[0]))
+        
     def calculate_radial_expansion(self, rgd, D_sLq, n_qg, nc0_sg):
         n_sLg = np.dot(D_sLq, n_qg)
         n_sLg[:, 0] += nc0_sg

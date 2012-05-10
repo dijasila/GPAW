@@ -908,9 +908,13 @@ class PWLFC(BaseLFC):
             if spline not in cache:
                 f = ft(spline)
                 G_G = self.G2_qG[q]**0.5
-                f_G =  np.array([-f.get_value_and_derivative(G)[1] * G
-                                  for G in G_G])#f.map(G_qG) * G_qG**l
-                cache[spline] = f_G
+                f_G = []
+                for G in G_G:
+                    y, dydG = f.get_value_and_derivative(G)
+                    if l > 0:
+                        dydG = dydG * G**l + l * y * G**(l - 1)
+                    f_G.append(-dydG * G)
+                cache[spline] = np.array(f_G)
             else:
                 f_G = cache[spline]
                 
@@ -930,7 +934,7 @@ class PWLFC(BaseLFC):
             a_xG = a_xG.view(float)
         
         if c_axi is None:
-            c_axi = self.dict(a_xG.shape[:-1])
+            c_axi = self.dict(c_xI.shape[:-1])
 
         gemm(alpha, f_IG, a_xG, 0.0, b_xI, 'c')
         for a, I1, I2 in self.indices:
@@ -1082,8 +1086,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         
         self.timer.start('XC 3D grid')
         vxct_sg = self.finegd.zeros(self.nspins)
-        exc = self.xc.calculate(self.finegd, density.nt_sg, vxct_sg)
-        self.stress = exc - self.finegd.integrate(density.nt_sg, vxct_sg)
+        self.exc = self.xc.calculate(self.finegd, density.nt_sg, vxct_sg)
 
         for vt_G, vxct_g in zip(self.vt_sG, vxct_sg):
             vxc_G, vxc_Q = self.pd3.restrict(vxct_g, self.pd2)
@@ -1098,7 +1101,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
         eext = 0.0
 
-        return ekin, self.epot, self.ebar, eext, exc, W_aL
+        return ekin, self.epot, self.ebar, eext, self.exc, W_aL
 
     def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):
         dens.ghat.derivative(self.vHt_q, ghat_aLv)

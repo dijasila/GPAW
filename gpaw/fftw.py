@@ -1,7 +1,5 @@
 """Python wrapper for FFTW3 library."""
 
-import time
-
 import numpy as np
 
 fftwlibnames = ['libfftw3.so', 'libmkl_intel_lp64.so', 'libmkl_rt.so']
