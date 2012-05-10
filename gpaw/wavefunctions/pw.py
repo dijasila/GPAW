@@ -75,7 +75,7 @@ class PWDescriptor:
         # Map from vectors inside sphere to fft grid:
         self.Q_qG = []
         self.G2_qG = []
-        Q_Q = np.arange(len(i_Qc))
+        Q_Q = np.arange(len(i_Qc), dtype=np.int32)
         
         self.ngmin = 100000000
         self.ngmax = 0
@@ -369,7 +369,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         self.ecut = ecut
         self.fftwflags = fftwflags
 
-        self.ng_k = None
+        self.ng_k = None  # number of G-vectors for all IBZ k-points
 
         FDPWWaveFunctions.__init__(self, diagksl, orthoksl, initksl,
                                    gd, nvalence, setups, bd, dtype,
@@ -489,7 +489,38 @@ class PWWaveFunctions(FDPWWaveFunctions):
                                                           cut=False)
                     writer.fill(psit_G, s, k, n)
 
+        writer.add('PlaneWaveIndices', ('nibzkpts', 'nplanewaves'),
+                   dtype=np.int32)
+
+        if self.bd.comm.rank > 0:
+            return
+
+        Q_G = np.empty(self.pd.ngmax, np.int32)
+        for r in range(self.kd.comm.size):
+            for q, ks in enumerate(self.kd.get_indices(r)):
+                s, k = divmod(ks, self.nibzkpts)
+                ng = self.ng_k[k]
+                if s == 1:
+                    return
+                if r == self.kd.comm.rank:
+                    Q_G[:ng] = self.pd.Q_qG[q]
+                    if r > 0:
+                        self.kd.comm.send(Q_G, 0)
+                if self.kd.comm.rank == 0:
+                    if r > 0:
+                        self.kd.comm.receive(Q_G, r)
+                    Q_G[ng:] = -1
+                    writer.fill(Q_G, k)
+
     def read(self, reader, hdf5):
+        assert reader['version'] >= 3
+        for kpt in self.kpt_u:
+            if kpt.s == 0:
+                Q_G = reader.get('PlaneWaveIndices', kpt.k)
+                ng = self.ng_k[kpt.k]
+                assert (Q_G[:ng] == self.pd.Q_qG[kpt.q]).all()
+                assert (Q_G[ng:] == -1).all()
+
         assert not hdf5
         if self.bd.comm.size == 1:
             for kpt in self.kpt_u:

@@ -1,9 +1,12 @@
 """GPAW I/O
 
-Change log:
+Change log for version:
 
-Version 2:
-    GridPoints array added when gpts is used.
+2) GridPoints array added when gpts is used.
+
+3) Different k-points now have different number of plane-waves.  Added
+   PlaneWaveIndices array.
+    
 """
 
 import os
@@ -125,7 +128,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     
     w = open(filename, 'w', world)
     w['history'] = 'GPAW restart file'
-    w['version'] = 2
+    w['version'] = 3
     w['lengthunit'] = 'Bohr'
     w['energyunit'] = 'Hartree'
 
