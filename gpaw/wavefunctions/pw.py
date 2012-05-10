@@ -4,7 +4,7 @@ from math import pi
 import numpy as np
 import ase.units as units
 
-from gpaw.lfc import BaseLFC, LocalizedFunctionsCollection as LFC
+from gpaw.lfc import BaseLFC
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.hs_operators import MatrixOperator
 import gpaw.fftw as fftw
@@ -21,7 +21,8 @@ from gpaw.band_descriptor import BandDescriptor
 
 
 class PWDescriptor:
-    def __init__(self, ecut, gd, dtype=float, fftwflags=fftw.ESTIMATE):
+    def __init__(self, ecut, gd, dtype=float, kd=None,
+                 fftwflags=fftw.ESTIMATE):
 
         assert gd.pbc_c.all() and gd.comm.size == 1
 
@@ -51,69 +52,80 @@ class PWDescriptor:
             i_Qc -= N_c // 2
             self.tmp_Q = fftw.empty(N_c, complex)
             self.tmp_R = self.tmp_Q
-        
+
+        self.nbytes = self.tmp_R.nbytes
+
         self.fftplan = fftw.FFTPlan(self.tmp_R, self.tmp_Q, -1, fftwflags)
         self.ifftplan = fftw.FFTPlan(self.tmp_Q, self.tmp_R, 1, fftwflags)
 
         # Calculate reciprocal lattice vectors:
         B_cv = 2.0 * pi * gd.icell_cv
         i_Qc.shape = (-1, 3)
-        G_Qv = np.dot(i_Qc, B_cv)
-        G2_Q = (G_Qv**2).sum(axis=1)
+        self.G_Qv = np.dot(i_Qc, B_cv)
+        self.nbytes += self.G_Qv.nbytes
+
+        self.kd = kd
+        if kd is None:
+            self.K_qv = np.zeros((1, 3))
+            weight_q = [1]
+        else:
+            self.K_qv = np.dot(kd.ibzk_qc, B_cv)
+            weight_q = kd.weight_q
 
         # Map from vectors inside sphere to fft grid:
-        mask_Q = (G2_Q <= 2 * ecut)
-        if self.dtype == float:
-            mask_Q &= ((i_Qc[:, 2] > 0) |
-                       (i_Qc[:, 1] > 0) |
-                       ((i_Qc[:, 0] >= 0) & (i_Qc[:, 1] == 0)))
-        self.Q_G = np.arange(len(G2_Q))[mask_Q]
-        self.G_Gv = G_Qv[self.Q_G]
+        self.Q_qG = []
+        self.G2_qG = []
+        Q_Q = np.arange(len(i_Qc), dtype=np.int32)
+        
+        self.ngmin = 100000000
+        self.ngmax = 0
+        self.ngave = 0.0
+        for q, K_v in enumerate(self.K_qv):
+            G2_Q = ((self.G_Qv + K_v)**2).sum(axis=1)
+            mask_Q = (G2_Q <= 2 * ecut)
+            if self.dtype == float:
+                mask_Q &= ((i_Qc[:, 2] > 0) |
+                           (i_Qc[:, 1] > 0) |
+                           ((i_Qc[:, 0] >= 0) & (i_Qc[:, 1] == 0)))
+            Q_G = Q_Q[mask_Q]
+            self.Q_qG.append(Q_G)
+            self.G2_qG.append(G2_Q[Q_G])
+            ng = len(Q_G)
+            self.ngmin = min(ng, self.ngmin)
+            self.ngmax = max(ng, self.ngmax)
+            self.ngave += weight_q[q] * ng
+            self.nbytes += Q_G.nbytes + self.G2_qG[q].nbytes
 
-        self.n_c = self.Q_G #??????? # used by hs_operators.py XXX
-        self.ibzk_qc = []
+        if kd is not None:
+            self.ngmin = kd.comm.min(self.ngmin)
+            self.ngmax = kd.comm.max(self.ngmax)
+            self.ngave = kd.comm.sum(self.ngave)
 
-    def g2(self, ibzk_qc):
-        # Did we already do this one?
-        if (len(self.ibzk_qc) == len(ibzk_qc) and
-            (self.ibzk_qc == ibzk_qc).all()):
-            return self.G2_qG
-
-        # No.
-        self.ibzk_qc = ibzk_qc
-        B_cv = 2.0 * pi * self.gd.icell_cv
-        K_qv = np.dot(ibzk_qc, B_cv)
-        self.G2_qG = np.zeros((len(K_qv), len(self.Q_G)))
-        for q, K_v in enumerate(K_qv):
-            self.G2_qG[q] = ((self.G_Gv + K_v)**2).sum(1)
-        return self.G2_qG
+        self.n_c = np.array([self.ngmax])  # used by hs_operators.py XXX
 
     def estimate_memory(self, mem):
-        mem.subnode('Arrays',
-                    self.Q_G.nbytes +
-                    self.G_Gv.nbytes +
-                    self.tmp_R.nbytes)
-
-    def __len__(self):
-        return len(self.Q_G)
+        mem.subnode('Arrays', self.nbytes)
 
     def bytecount(self, dtype=float):
-        return len(self) * 16
+        return self.ngave * 16
     
-    def zeros(self, x=(), dtype=None):
-        a_xG = self.empty(x, dtype)
+    def zeros(self, x=(), dtype=None, q=-1):
+        a_xG = self.empty(x, dtype, q)
         a_xG.fill(0.0)
         return a_xG
     
-    def empty(self, x=(), dtype=None):
+    def empty(self, x=(), dtype=None, q=-1):
         if dtype is not None:
             assert dtype == self.dtype
         if isinstance(x, int):
             x = (x,)
-        shape = x + self.Q_G.shape
+        if q == -1:
+            shape = x + (self.ngmax,)
+        else:
+            shape = x + self.Q_qG[q].shape
         return np.empty(shape, complex)
     
-    def fft(self, f_R):
+    def fft(self, f_R, q=-1):
         """Fast Fourier transform.
 
         Returns c(G) for G<Gc::
@@ -128,9 +140,9 @@ class PWDescriptor:
         self.tmp_R[:] = f_R
 
         self.fftplan.execute()
-        return self.tmp_Q.ravel()[self.Q_G]
+        return self.tmp_Q.ravel()[self.Q_qG[q]]
 
-    def ifft(self, c_G):
+    def ifft(self, c_G, q=-1):
         """Inverse fast Fourier transform.
 
         Returns::
@@ -143,14 +155,14 @@ class PWDescriptor:
         """
 
         self.tmp_Q[:] = 0.0
-        self.tmp_Q.ravel()[self.Q_G] = c_G
+        self.tmp_Q.ravel()[self.Q_qG[q]] = c_G
         if self.dtype == float:
             t = self.tmp_Q[:, :, 0]
             n, m = self.gd.N_c[:2] // 2 - 1
-            t[0,      -m:] = t[0,      m:0:-1].conj()
-            t[n:0:-1, -m:] = t[-n:,    m:0:-1].conj()
-            t[-n:,    -m:] = t[n:0:-1, m:0:-1].conj()
-            t[-n:,    0  ] = t[n:0:-1, 0     ].conj()
+            t[0, -m:] = t[0, m:0:-1].conj()
+            t[n:0:-1, -m:] = t[-n:, m:0:-1].conj()
+            t[-n:, -m:] = t[n:0:-1, m:0:-1].conj()
+            t[-n:, 0] = t[n:0:-1, 0].conj()
         self.ifftplan.execute()
         return self.tmp_R * (1.0 / self.tmp_R.size)
 
@@ -178,8 +190,8 @@ class PWDescriptor:
             assert self.dtype == float
             return a_xg[..., 0].real * self.gd.dv
 
-        A_xg = a_xg.reshape((-1, len(self)))
-        B_yg = b_yg.reshape((-1, len(self)))
+        A_xg = a_xg.reshape((-1, a_xg.shape[-1]))
+        B_yg = b_yg.reshape((-1, b_yg.shape[-1]))
 
         alpha = self.gd.dv / self.gd.N_c.prod()
 
@@ -216,7 +228,7 @@ class PWDescriptor:
         else:
             return result
 
-    def interpolate(self, a_R, pd):
+    def interpolate(self, a_R, pd, q=-1):
         a_Q = self.tmp_Q
         b_Q = pd.tmp_Q
 
@@ -254,9 +266,9 @@ class PWDescriptor:
 
         b_Q[:] = np.fft.ifftshift(b_Q, axes=axes)
         pd.ifftplan.execute()
-        return pd.tmp_R * (1.0 / self.tmp_R.size), a_Q.ravel()[self.Q_G]
+        return pd.tmp_R * (1.0 / self.tmp_R.size), a_Q.ravel()[self.Q_qG[q]]
 
-    def restrict(self, a_R, pd):
+    def restrict(self, a_R, pd, q=-1):
         a_Q = pd.tmp_Q
         b_Q = self.tmp_Q
 
@@ -290,14 +302,14 @@ class PWDescriptor:
 
         a_Q[:] = b_Q[a0:b0, a1:b1, a2:b2]
         a_Q[:] = np.fft.ifftshift(a_Q, axes=axes)
-        a_G = a_Q.ravel()[pd.Q_G] / 8
+        a_G = a_Q.ravel()[pd.Q_qG[q]] / 8
         pd.ifftplan.execute()
         return pd.tmp_R * (1.0 / self.tmp_R.size), a_G
 
-    def map(self, pd):
+    def map(self, pd, q=-1):
         N_c = np.array(self.tmp_Q.shape)
         N3_c = pd.tmp_Q.shape
-        Q2_G = self.Q_G
+        Q2_G = self.Q_qG[q]
         Q2_Gc = np.empty((len(Q2_G), 3), int)
         Q2_Gc[:, 0], r_G = divmod(Q2_G, N_c[1] * N_c[2])
         Q2_Gc.T[1:] = divmod(r_G, N_c[2])
@@ -307,7 +319,7 @@ class PWDescriptor:
         Q2_Gc[:, :2] %= N3_c[:2]
         Q3_G = Q2_Gc[:, 2] + N3_c[2] * (Q2_Gc[:, 1] + N3_c[1] * Q2_Gc[:, 0])
         G3_Q = np.empty(N3_c, int).ravel()
-        G3_Q[pd.Q_G] = np.arange(len(pd))
+        G3_Q[pd.Q_qG[q]] = np.arange(len(pd.Q_qG[q]))
         return G3_Q[Q3_G]
 
     def gemm(self, alpha, psit_nG, C_mn, beta, newpsit_mG):
@@ -354,8 +366,10 @@ class PWWaveFunctions(FDPWWaveFunctions):
                  diagksl, orthoksl, initksl,
                  gd, nvalence, setups, bd, dtype,
                  world, kd, timer):
-        self.ecut =  ecut
+        self.ecut = ecut
         self.fftwflags = fftwflags
+
+        self.ng_k = None  # number of G-vectors for all IBZ k-points
 
         FDPWWaveFunctions.__init__(self, diagksl, orthoksl, initksl,
                                    gd, nvalence, setups, bd, dtype,
@@ -364,26 +378,34 @@ class PWWaveFunctions(FDPWWaveFunctions):
         self.orthoksl.gd = self.pd
         self.matrixoperator = MatrixOperator(self.orthoksl)
 
-    def empty(self, n=(), dtype=float, global_array=False, realspace=False):
+    def empty(self, n=(), global_array=False, realspace=False,
+              q=-1):
         if realspace:
-            return self.gd.empty(n, dtype, global_array)
+            return self.gd.empty(n, self.dtype, global_array)
         else:
-            return self.pd.empty(n, dtype)
+            return self.pd.empty(n, self.dtype, q)
 
     def integrate(self, a_xg, b_yg=None, global_integral=True):
         return self.pd.integrate(a_xg, b_yg, global_integral)
 
     def bytes_per_wave_function(self):
-        return 16 * len(self.pd)
+        return 16 * self.pd.ngave
 
     def set_setups(self, setups):
         self.timer.start('PWDescriptor')
-        self.pd = PWDescriptor(self.ecut, self.gd, self.dtype, self.fftwflags)
+        self.pd = PWDescriptor(self.ecut, self.gd, self.dtype, self.kd,
+                               self.fftwflags)
         self.timer.stop('PWDescriptor')
+        
+        # Build array of number of plane wave coefficiants for all k-points
+        # in the IBZ:
+        self.ng_k = np.zeros(self.kd.nibzkpts)
+        for kpt in self.kpt_u:
+            if kpt.s == 0:
+                self.ng_k[kpt.k] = len(self.pd.Q_qG[kpt.q])
+        self.kd.comm.sum(self.ng_k)
 
-        self.G2_qG = self.pd.g2(self.kd.ibzk_qc)
-
-        self.pt = PWLFC([setup.pt_j for setup in setups], self.pd, self.kd)
+        self.pt = PWLFC([setup.pt_j for setup in setups], self.pd)
 
         FDPWWaveFunctions.set_setups(self, setups)
 
@@ -393,34 +415,38 @@ class PWWaveFunctions(FDPWWaveFunctions):
                  (self.pd.ecut * units.Hartree))
         if self.dtype == float:
             fd.write('      Number of coefficients: %d (reduced to %d)\n' %
-                     (len(self.pd) * 2 + 1, len(self.pd)))
+                     (self.pd.ngave * 2 + 1, self.pd.ngave))
         else:
-            fd.write('      Number of coefficients: %d\n' % len(self.pd))
+            fd.write('      Number of coefficients (min, ave, max): ' +
+                     '%d, %.1f, %d\n' %
+                     (self.pd.ngmin, self.pd.ngave, self.pd.ngmax))
         if fftw.FFTPlan is fftw.NumpyFFTPlan:
             fd.write("      Using Numpy's FFT\n")
         else:
-            fd.write("      Using FFTW library\n")
+            fd.write('      Using FFTW library\n')
 
     def make_preconditioner(self, block=1):
-        return Preconditioner(self.G2_qG, self.pd)
+        return Preconditioner(self.pd.G2_qG, self.pd)
 
     def apply_pseudo_hamiltonian(self, kpt, hamiltonian, psit_xG, Htpsit_xG):
         """Apply the non-pseudo Hamiltonian i.e. without PAW corrections."""
-        Htpsit_xG[:] = 0.5 * self.G2_qG[kpt.q] * psit_xG
+        Htpsit_xG[:] = 0.5 * self.pd.G2_qG[kpt.q] * psit_xG
         for psit_G, Htpsit_G in zip(psit_xG, Htpsit_xG):
-            psit_R = self.pd.ifft(psit_G)
-            Htpsit_G += self.pd.fft(psit_R * hamiltonian.vt_sG[kpt.s])
+            psit_R = self.pd.ifft(psit_G, kpt.q)
+            Htpsit_G += self.pd.fft(psit_R * hamiltonian.vt_sG[kpt.s], kpt.q)
 
     def add_to_density_from_k_point_with_occupation(self, nt_sR, kpt, f_n):
         nt_R = nt_sR[kpt.s]
         for f, psit_G in zip(f_n, kpt.psit_nG):
-            nt_R += f * abs(self.pd.ifft(psit_G))**2
+            nt_R += f * abs(self.pd.ifft(psit_G, kpt.q))**2
 
     def _get_wave_function_array(self, u, n, realspace=True, phase=None):
         psit_G = FDPWWaveFunctions._get_wave_function_array(self, u, n,
                                                             realspace)
         if not realspace:
-            return psit_G
+            zeropadded_G = np.zeros(self.pd.ngmax, complex)
+            zeropadded_G[:len(psit_G)] = psit_G
+            return zeropadded_G
 
         kpt = self.kpt_u[u]
         if self.kd.gamma:
@@ -429,10 +455,20 @@ class PWWaveFunctions(FDPWWaveFunctions):
             if phase is None:
                 N_c = self.gd.N_c
                 k_c = self.kd.ibzk_kc[kpt.k]
-                eikr_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k_c / N_c).T)
+                eikr_R = np.exp(2j * pi * np.dot(np.indices(N_c).T,
+                                                 k_c / N_c).T)
             else:
                 eikr_R = phase
-            return self.pd.ifft(psit_G) * eikr_R
+            return self.pd.ifft(psit_G, kpt.q) * eikr_R
+
+    def get_wave_function_array(self, n, k, s, realspace=True,
+                                cut=True):
+        psit_G = FDPWWaveFunctions.get_wave_function_array(self, n, k, s,
+                                                           realspace)
+        if cut and psit_G is not None and not realspace:
+            psit_G = psit_G[:self.ng_k[k]].copy()
+
+        return psit_G
 
     def write(self, writer, write_wave_functions=False):
         writer['Mode'] = 'pw'
@@ -441,7 +477,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         if not write_wave_functions:
             return
 
-        writer.dimension('nplanewaves', len(self.pd))
+        writer.dimension('nplanewaves', self.pd.ngmax)
         writer.add('PseudoWaveFunctions',
                    ('nspins', 'nibzkpts', 'nbands', 'nplanewaves'),
                    dtype=complex)
@@ -450,35 +486,86 @@ class PWWaveFunctions(FDPWWaveFunctions):
             for k in range(self.nibzkpts):
                 for n in range(self.bd.nbands):
                     psit_G = self.get_wave_function_array(n, k, s,
-                                                          realspace=False)
+                                                          realspace=False,
+                                                          cut=False)
                     writer.fill(psit_G, s, k, n)
+
+        writer.add('PlaneWaveIndices', ('nibzkpts', 'nplanewaves'),
+                   dtype=np.int32)
+
+        if self.bd.comm.rank > 0:
+            return
+
+        Q_G = np.empty(self.pd.ngmax, np.int32)
+        for r in range(self.kd.comm.size):
+            for q, ks in enumerate(self.kd.get_indices(r)):
+                s, k = divmod(ks, self.nibzkpts)
+                ng = self.ng_k[k]
+                if s == 1:
+                    return
+                if r == self.kd.comm.rank:
+                    Q_G[:ng] = self.pd.Q_qG[q]
+                    if r > 0:
+                        self.kd.comm.send(Q_G, 0)
+                if self.kd.comm.rank == 0:
+                    if r > 0:
+                        self.kd.comm.receive(Q_G, r)
+                    Q_G[ng:] = -1
+                    writer.fill(Q_G, k)
+
+    def read(self, reader, hdf5):
+        assert reader['version'] >= 3
+        for kpt in self.kpt_u:
+            if kpt.s == 0:
+                Q_G = reader.get('PlaneWaveIndices', kpt.k)
+                ng = self.ng_k[kpt.k]
+                assert (Q_G[:ng] == self.pd.Q_qG[kpt.q]).all()
+                assert (Q_G[ng:] == -1).all()
+
+        assert not hdf5
+        if self.bd.comm.size == 1:
+            for kpt in self.kpt_u:
+                ng = self.ng_k[kpt.k]
+                kpt.psit_nG = reader.get_reference('PseudoWaveFunctions',
+                                                   (kpt.s, kpt.k),
+                                                   length=ng)
+            return
+
+        for kpt in self.kpt_u:
+            kpt.psit_nG = self.empty(self.bd.mynbands, q=kpt.q)
+            ng = self.ng_k[kpt.k]
+            for myn, psit_G in enumerate(kpt.psit_nG):
+                n = self.bd.global_index(myn)
+                psit_G[:] = reader.get('PseudoWaveFunctions',
+                                       kpt.s, kpt.k, n)[..., :ng]
 
     def hs(self, ham, q=-1, s=0, md=None):
         assert self.dtype == complex
 
-        n = len(self.pd)
+        npw = len(self.pd.Q_qG[q])
         N = self.pd.tmp_R.size
 
         if md is None:
-            H_GG = np.zeros((n, n), complex)
-            S_GG = np.zeros((n, n), complex)
+            H_GG = np.zeros((npw, npw), complex)
+            S_GG = np.zeros((npw, npw), complex)
             G1 = 0
-            G2 = n
+            G2 = npw
         else:
             H_GG = md.zeros(dtype=complex)
             S_GG = md.zeros(dtype=complex)
             G1, G2 = md.my_blocks(S_GG).next()[:2]
 
-        H_GG.ravel()[G1::n + 1] = (0.5 * self.pd.gd.dv / N *
-                                   self.pd.G2_qG[q, G1:G2])
+        H_GG.ravel()[G1::npw + 1] = (0.5 * self.pd.gd.dv / N *
+                                     self.pd.G2_qG[q][G1:G2])
 
         for G in range(G1, G2):
-            x_G = self.pd.zeros()
+            x_G = self.pd.zeros(q=q)
             x_G[G] = 1.0
             H_GG[G - G1] += (self.pd.gd.dv / N *
-                             self.pd.fft(ham.vt_sG[s] * self.pd.ifft(x_G)))
+                             self.pd.fft(ham.vt_sG[s] *
+                                         self.pd.ifft(x_G, q), q))
 
-        S_GG.ravel()[G1::n + 1] = self.pd.gd.dv / N
+        S_GG.ravel()[G1::npw + 1] = self.pd.gd.dv / N
 
         f_IG = self.pt.expand(q)
         nI = len(f_IG)
@@ -501,27 +588,19 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def diagonalize_full_hamiltonian(self, ham, atoms, occupations, txt,
                                      nbands=None,
                                      scalapack=None):
-        npw = len(self.pd)
 
         if nbands is None:
-            nbands = npw
+            nbands = self.pd.ngmin
 
-        assert nbands <= npw
+        assert nbands <= self.pd.ngmin
 
         self.bd = bd = BandDescriptor(nbands, self.bd.comm)
 
         if scalapack:
             nprow, npcol, b = scalapack
             bg = BlacsGrid(bd.comm, bd.comm.size, 1)
-            mynpw = -(-npw // bd.comm.size)
-            md = BlacsDescriptor(bg, npw, npw, mynpw, npw)
-
             bg2 = BlacsGrid(bd.comm, nprow, npcol)
-            md2 = BlacsDescriptor(bg2, npw, npw, b, b)
-
-            md3 = BlacsDescriptor(bg, npw, npw, bd.mynbands, npw)
         else:
-            md = md2 = MatrixDescriptor(npw, npw)
             nprow = npcol = 1
 
         assert bd.comm.size == nprow * npcol
@@ -530,23 +609,33 @@ class PWWaveFunctions(FDPWWaveFunctions):
         self.kpt_u[0].P_ani = None
         self.allocate_arrays_for_projections(self.pt.my_atom_indices)
 
-        eps_n = np.empty(npw)
         myslice = bd.get_slice()
 
         for kpt in self.kpt_u:
+            npw = len(self.pd.Q_qG[kpt.q])
+            if scalapack:
+                mynpw = -(-npw // bd.comm.size)
+                md = BlacsDescriptor(bg, npw, npw, mynpw, npw)
+                md2 = BlacsDescriptor(bg2, npw, npw, b, b)
+            else:
+                md = md2 = MatrixDescriptor(npw, npw)
+
             H_GG, S_GG = self.hs(ham, kpt.q, kpt.s, md)
+
             if scalapack:
                 r = Redistributor(bd.comm, md, md2)
                 H_GG = r.redistribute(H_GG)
                 S_GG = r.redistribute(S_GG)
 
             psit_nG = md2.empty(dtype=complex)
+            eps_n = np.empty(npw)
             md2.general_diagonalize_dc(H_GG, S_GG, psit_nG, eps_n)
             del H_GG, S_GG
 
             kpt.eps_n = eps_n[myslice].copy()
 
             if scalapack:
+                md3 = BlacsDescriptor(bg, npw, npw, bd.mynbands, npw)
                 r = Redistributor(bd.comm, md2, md3)
                 psit_nG = r.redistribute(psit_nG)
 
@@ -555,8 +644,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
             self.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
-            f_n = np.zeros_like(kpt.eps_n)
-            f_n[:len(kpt.f_n)] = kpt.f_n
+            #f_n = np.zeros_like(kpt.eps_n)
+            #f_n[:len(kpt.f_n)] = kpt.f_n
             kpt.f_n = None
 
         occupations.calculate(self)
@@ -578,13 +667,13 @@ class PWWaveFunctions(FDPWWaveFunctions):
             basis_functions.lcao_to_grid(kpt.C_nM, psit_nR, kpt.q)
             kpt.C_nM = None
 
-            kpt.psit_nG = self.pd.empty(self.bd.mynbands)
+            kpt.psit_nG = self.pd.empty(self.bd.mynbands, q=kpt.q)
             for n in range(mynbands):
-                kpt.psit_nG[n] = self.pd.fft(psit_nR[n] * emikr_R)
+                kpt.psit_nG[n] = self.pd.fft(psit_nR[n] * emikr_R, kpt.q)
 
-    def random_wave_functions(self, mynao):
+    def random_wave_functions(self, mynao, q):
         rs = np.random.RandomState(self.world.rank)
-        weight_G = 1.0 / (1.0 + (self.pd.G_Gv**2).sum(1))
+        weight_G = 1.0 / (1.0 + self.pd.G2_qG[q])
         for kpt in self.kpt_u:
             psit_nG = kpt.psit_nG[mynao:]
             psit_nG.real = rs.uniform(-1, 1, psit_nG.shape) * weight_G
@@ -593,14 +682,13 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def estimate_memory(self, mem):
         FDPWWaveFunctions.estimate_memory(self, mem)
         self.pd.estimate_memory(mem.subnode('PW-descriptor'))
-        mem.subnode('G2', self.G2_qG.nbytes)
 
     def get_kinetic_stress(self):
         sigma_cv = np.zeros((3, 3), dtype=complex)
         pd = self.pd
         dOmega = pd.gd.dv / pd.gd.N_c.prod()
         G_Gv = pd.G_Gv
-        K_qv = self.pt.K_qv
+        K_qv = self.pd.K_qv
         for kpt in self.kpt_u:
             for n, f in enumerate(kpt.f_n):
                 psit2_G = np.abs(kpt.psit_nG[n])**2
@@ -612,7 +700,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                         sigma_cv[alpha, beta] += f * s
         sigma_cv *= -dOmega
 
-        def symmetrize(x): # XXXXXXX
+        def symmetrize(x):  # XXXXXXX
             return x
         
         self.bd.comm.sum(sigma_cv)
@@ -641,18 +729,10 @@ def ft(spline):
 
 
 class PWLFC(BaseLFC):
-    def __init__(self, spline_aj, pd, kd=None):
+    def __init__(self, spline_aj, pd):
         """Reciprocal-space plane-wave localized function collection."""
 
         self.pd = pd
-        self.kd = kd
-
-        if kd is None:
-            k_qc = np.zeros((1, 3))
-        else:
-            k_qc = kd.ibzk_qc
-
-        self.G2_qG = pd.g2(k_qc)
 
         self.lf_aj = []
         cache = {}
@@ -667,40 +747,40 @@ class PWLFC(BaseLFC):
                 l = spline.get_angular_momentum_number()
                 if spline not in cache:
                     f = ft(spline)
-                    G_qG = self.G2_qG**0.5
-                    f_qG = f.map(G_qG) * G_qG**l
+                    f_qG = []
+                    for G2_G in self.pd.G2_qG:
+                        G_G = G2_G**0.5
+                        f_qG.append(f.map(G_G) * G_G**l)
+                        self.nbytes += G_G.nbytes
                     cache[spline] = f_qG
-                    self.nbytes += f_qG.size * 8
                 else:
                     f_qG = cache[spline]
                 self.lf_aj[a].append((l, f_qG))
                 lmax = max(lmax, l)
-            self.nbytes += len(pd) * 8  # self.emiGR_Ga
         
         self.spline_aj = spline_aj
 
         self.dtype = pd.dtype
 
-        B_cv = 2.0 * pi * self.pd.gd.icell_cv
-        self.K_qv = np.dot(k_qc, B_cv)
-
         # Spherical harmonics:
-        self.Y_qLG = np.empty((len(self.K_qv), (lmax + 1)**2, len(pd)))
-        for q, K_v in enumerate(self.K_qv):
-            G_Gv = pd.G_Gv + K_v
-            G_Gv[1:] /= self.G2_qG[q, 1:, None]**0.5
-            if self.G2_qG[q, 0] > 0:
-                G_Gv[0] /= self.G2_qG[q, 0]**0.5
+        self.Y_qLG = []
+        for q, K_v in enumerate(self.pd.K_qv):
+            G_Gv = pd.G_Qv[pd.Q_qG[q]] + K_v
+            G_Gv[1:] /= pd.G2_qG[q][1:, None]**0.5
+            if pd.G2_qG[q][0] > 0:
+                G_Gv[0] /= pd.G2_qG[q][0]**0.5
+            Y_LG = np.empty(((lmax + 1)**2, len(G_Gv)))
             for L in range((lmax + 1)**2):
-                self.Y_qLG[q, L] = Y(L, *G_Gv.T)
+                Y_LG[L] = Y(L, *G_Gv.T)
+            self.Y_qLG.append(Y_LG)
+            self.nbytes += Y_LG.nbytes
 
         # These are set later in set_potitions():
         self.eikR_qa = None
-        self.emiGR_Ga = None
         self.my_atom_indices = None
         self.indices = None
-
-        self.nbytes += self.G2_qG.size * (lmax + 1)**2 * 8  # self.Y_qLG
+        self.pos_av = None
+        self.nI = None
 
     def estimate_memory(self, mem):
         mem.subnode('Arrays', self.nbytes)
@@ -721,13 +801,14 @@ class PWLFC(BaseLFC):
             I += i2
 
     def set_positions(self, spos_ac):
-        if self.kd is None or self.kd.gamma:
+        kd = self.pd.kd
+        if kd is None or kd.gamma:
             self.eikR_qa = np.ones((1, len(spos_ac)))
         else:
-            self.eikR_qa = np.exp(2j * pi * np.dot(self.kd.ibzk_qc, spos_ac.T))
+            self.eikR_qa = np.exp(2j * pi * np.dot(kd.ibzk_qc, spos_ac.T))
 
-        pos_av = np.dot(spos_ac, self.pd.gd.cell_cv)
-        self.emiGR_Ga = np.exp(-1j * np.dot(self.pd.G_Gv, pos_av.T))
+        self.pos_av = np.dot(spos_ac, self.pd.gd.cell_cv)
+
         self.my_atom_indices = np.arange(len(spos_ac))
         self.indices = []
         I1 = 0
@@ -738,11 +819,13 @@ class PWLFC(BaseLFC):
         self.nI = I1
 
     def expand(self, q=-1):
-        f_IG = self.pd.empty(self.nI)
+        f_IG = self.pd.empty(self.nI, q=q)
+        emiGR_Ga = np.exp(-1j * np.dot(self.pd.G_Qv[self.pd.Q_qG[q]],
+                                       self.pos_av.T))
         for a, j, i1, i2, I1, I2 in self:
             l, f_qG = self.lf_aj[a][j]
-            f_IG[I1:I2] = (self.emiGR_Ga[:, a] * f_qG[q] * (-1.0j)**l *
-                           self.Y_qLG[q, l**2:(l + 1)**2])
+            f_IG[I1:I2] = (emiGR_Ga[:, a] * f_qG[q] * (-1.0j)**l *
+                           self.Y_qLG[q][l**2:(l + 1)**2])
         return f_IG
 
     def add(self, a_xG, c_axi=1.0, q=-1):
@@ -757,7 +840,7 @@ class PWLFC(BaseLFC):
             c_xI[..., I1:I2] = c_axi[a] * self.eikR_qa[q][a].conj()
 
         c_xI = c_xI.reshape((np.prod(c_xI.shape[:-1]), self.nI))
-        a_xG = a_xG.reshape((-1, len(self.pd)))
+        a_xG = a_xG.reshape((-1, a_xG.shape[-1]))
 
         if self.pd.dtype == float:
             f_IG = f_IG.view(float)
@@ -770,7 +853,7 @@ class PWLFC(BaseLFC):
         f_IG = self.expand(q)
 
         b_xI = c_xI.reshape((np.prod(c_xI.shape[:-1]), self.nI))
-        a_xG = a_xG.reshape((-1, len(self.pd)))
+        a_xG = a_xG.reshape((-1, a_xG.shape[-1]))
 
         alpha = 1.0 / self.pd.gd.N_c.prod()
         if self.pd.dtype == float:
@@ -792,16 +875,17 @@ class PWLFC(BaseLFC):
         c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
         f_IG = self.expand(q)
 
-        K_v = self.K_qv[q]
+        K_v = self.pd.K_qv[q]
 
         b_xI = c_xI.reshape((-1, self.nI))
-        a_xG = a_xG.reshape((-1, len(self.pd)))
+        a_xG = a_xG.reshape((-1, a_xG.shape[-1]))
 
         alpha = 1.0 / self.pd.gd.N_c.prod()
+        G_Gv = self.pd.G_Qv[self.pd.Q_qG[q]]
         if self.pd.dtype == float:
             for v in range(3):
                 gemm(2 * alpha,
-                      (f_IG * 1.0j * self.pd.G_Gv[:, v]).view(float),
+                      (f_IG * 1.0j * G_Gv[:, v]).view(float),
                       a_xG.view(float),
                       0.0, b_xI, 'c')
                 for a, I1, I2 in self.indices:
@@ -809,7 +893,7 @@ class PWLFC(BaseLFC):
         else:
             for v in range(3):
                 gemm(-alpha,
-                      f_IG * (self.pd.G_Gv[:, v] + K_v[v]),
+                      f_IG * (G_Gv[:, v] + K_v[v]),
                       a_xG,
                       0.0, b_xI, 'c')
                 for a, I1, I2 in self.indices:
@@ -961,8 +1045,10 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         class PS:
             def initialize(self):
                 pass
+
             def get_stencil(self):
                 return '????'
+
             def estimate_memory(self, mem):
                 pass
 
@@ -986,7 +1072,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         # npoisson is the number of iterations:
         #self.npoisson = 0
         self.vHt_q = 4 * pi * density.rhot_q
-        self.vHt_q[1:] /= self.pd3.G2_qG[0, 1:]
+        self.vHt_q[1:] /= self.pd3.G2_qG[0][1:]
         self.epot = 0.5 * self.pd3.integrate(self.vHt_q, density.rhot_q)
         self.timer.stop('Poisson')
 

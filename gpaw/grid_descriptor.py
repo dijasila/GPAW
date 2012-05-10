@@ -9,17 +9,15 @@ This module contains classes defining two kinds of grids:
 * Radial grids.
 """
 
-from math import pi, cos, sin, ceil, floor
-from cmath import exp
+from math import pi
 
 import numpy as np
 
 import _gpaw
 import gpaw.mpi as mpi
 from gpaw.domain import Domain
-from gpaw.utilities import divrl, mlsqr
+from gpaw.utilities import mlsqr
 from gpaw.utilities.blas import rk, r2k, gemm
-from gpaw.spline import Spline
 
 
 # Remove this:  XXX

@@ -6,7 +6,7 @@ import numpy as np
 from numpy import dot
 from ase.units import Hartree
 
-from gpaw.utilities.blas import axpy, rk, r2k, gemm, dotc
+from gpaw.utilities.blas import axpy, dotc
 from gpaw.utilities import unpack
 from gpaw.eigensolvers.eigensolver import Eigensolver
 
@@ -32,45 +32,34 @@ class CG(Eigensolver):
     def initialize(self, wfs):
         Eigensolver.initialize(self, wfs)
         self.overlap = wfs.overlap
-        # Allocate arrays
-        self.phi_G = wfs.empty(dtype=self.dtype)
-        self.phi_old_G = wfs.empty(dtype=self.dtype)
-
-        # self.f = open('CG_debug','w')
-
-    def estimate_memory(self, mem, wfs):
-        Eigensolver.estimate_memory(self, mem, wfs)
-        gridmem = wfs.bytes_per_wave_function()
-        mem.subnode('phi_G', gridmem)
-        mem.subnode('phi_old_G', gridmem)
 
     def iterate_one_k_point(self, hamiltonian, wfs, kpt):
         """Do a conjugate gradient iterations for the kpoint"""
 
         niter = self.niter
-        phi_G = self.phi_G
-        phi_old_G = self.phi_old_G
+
+        phi_G = wfs.empty(q=kpt.q)
+        phi_old_G = wfs.empty(q=kpt.q)
 
         comm = wfs.gd.comm
 
-        self.subspace_diagonalize(hamiltonian, wfs, kpt)
+        Htpsit_nG = self.subspace_diagonalize(hamiltonian, wfs, kpt)
 
-        R_nG = wfs.matrixoperator.suggest_temporary_buffer()
+        R_nG = np.empty_like(Htpsit_nG)
         Htphi_G = R_nG[0]
 
-        R_nG[:] = self.Htpsit_nG
+        R_nG[:] = Htpsit_nG
         self.timer.start('Residuals')
         self.calculate_residuals(kpt, wfs, hamiltonian, kpt.psit_nG,
                                  kpt.P_ani, kpt.eps_n, R_nG)
         self.timer.stop('Residuals')
 
         self.timer.start('CG')
-        vt_G = hamiltonian.vt_sG[kpt.s]
 
         total_error = 0.0
         for n in range(self.nbands):
             R_G = R_nG[n]
-            Htpsit_G = self.Htpsit_nG[n]
+            Htpsit_G = Htpsit_nG[n]
             gamma_old = 1.0
             phi_old_G[:] = 0.0
             error = np.real(wfs.integrate(R_G, R_G))

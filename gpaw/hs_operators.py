@@ -6,8 +6,7 @@ from __future__ import division
 import numpy as np
 
 from gpaw.utilities.blas import gemm
-from gpaw.matrix_descriptor import BandMatrixDescriptor, \
-                                   BlacsBandMatrixDescriptor
+
 
 class MatrixOperator:
     """Base class for overlap and hamiltonian operators.
@@ -84,8 +83,6 @@ class MatrixOperator:
             self.hermitian = hermitian
 
         # default for work spaces
-        self.work1_xG = None
-        self.work2_xG = None
         self.A_qnn = None
         self.A_nn = None
 
@@ -129,34 +126,20 @@ class MatrixOperator:
                 else:
                     self.Q = ngroups
 
-    def allocate_work_arrays(self):
-        J = self.nblocks
+    def allocate_arrays(self):
         ngroups = self.bd.comm.size
         mynbands = self.bd.mynbands
         dtype = self.dtype
-        if ngroups == 1 and J == 1:
-            self.work1_xG = self.gd.zeros(mynbands, dtype)
-        else:
-            self.work1_xG = self.gd.zeros(self.X, dtype)
-            self.work2_xG = self.gd.zeros(self.X, dtype)
-            if ngroups > 1:
-                self.A_qnn = np.zeros((self.Q, mynbands, mynbands), dtype)
+        if ngroups > 1:
+            self.A_qnn = np.zeros((self.Q, mynbands, mynbands), dtype)
         self.A_nn = self.bmd.zeros(dtype=dtype)
 
     def estimate_memory(self, mem, dtype):
-        J = self.nblocks
         ngroups = self.bd.comm.size
-        mynbands = self.bd.mynbands
-        nbands = self.bd.nbands
-        gdbytes = self.gd.bytecount(dtype)
-        count = self.Q * mynbands**2
+        count = self.Q * self.bd.mynbands**2
 
         # Code semipasted from allocate_work_arrays        
-        if ngroups == 1 and J == 1:
-            mem.subnode('work1_xG', mynbands * gdbytes)
-        else:
-            mem.subnode('work1_xG', self.X * gdbytes)
-            mem.subnode('work2_xG', self.X * gdbytes)
+        if ngroups > 1:
             mem.subnode('A_qnn', count * mem.itemsize[dtype])
 
         self.bmd.estimate_memory(mem.subnode('Band Matrices'), dtype)
@@ -256,29 +239,6 @@ class MatrixOperator:
 
         return sbuf_mG, rbuf_mG, sbuf_In, rbuf_In
 
-    def suggest_temporary_buffer(self):
-        """Return a *suggested* buffer for calculating A(psit_nG) during
-        a call to calculate_matrix_elements. Work arrays will be allocated
-        if they are not already available.
-
-        Note that the temporary buffer is merely a reference to (part of) a
-        work array, hence data race conditions occur if you're not careful.
-        """
-        dtype = self.dtype
-        if self.work1_xG is None:
-            self.allocate_work_arrays()
-
-        J = self.nblocks
-        N = self.bd.mynbands
-        B = self.bd.comm.size
-
-        if B == 1 and J == 1:
-            return self.work1_xG
-        else:
-            M = int(np.ceil(N / float(J))) 
-            assert M > 0 # must have at least one wave function in group
-            return self.work1_xG[:M]
-
     def calculate_matrix_elements(self, psit_nG, P_ani, A, dA):
         """Calculate matrix elements for A-operator.
 
@@ -317,10 +277,8 @@ class MatrixOperator:
         N = self.bd.mynbands
         M = int(np.ceil(N / float(J)))
 
-        if self.work1_xG is None:
-            self.allocate_work_arrays()
-        else:
-            assert self.work1_xG.dtype == psit_nG.dtype
+        if self.A_nn is None:
+            self.allocate_arrays()
 
         A_NN = self.A_nn
 
@@ -352,13 +310,16 @@ class MatrixOperator:
             if B > 1:
                 rbuf_In = np.empty_like(sbuf_In)
 
+        work1_xG, work2_xG = np.empty((2, self.X) + psit_nG.shape[1:],
+                                      dtype=psit_nG.dtype)
+
         # Because of the amount of communication involved, we need to
         # be syncronized up to this point but only on the 1D band_comm
         # communication ring
         band_comm.barrier()
-        while M*J >= N + M: # remove extra slice(s)
+        while M * J >= N + M: # remove extra slice(s)
             J -= 1
-        assert 0 < J*M < N + M
+        assert 0 < J * M < N + M
 
         for j in range(J):
             n1 = j * M
@@ -369,7 +330,7 @@ class MatrixOperator:
             psit_mG = psit_nG[n1:n2]
             temp_mG = A(psit_mG) 
             sbuf_mG = temp_mG[:M] # necessary only for last slice
-            rbuf_mG = self.work2_xG[:M]
+            rbuf_mG = work2_xG[:M]
             cycle_P_ani = (j == J - 1 and P_ani)
 
             for q in range(Q):
@@ -414,7 +375,7 @@ class MatrixOperator:
 
                 # First iteration was special because we had the ket to ourself
                 if q == 0:
-                    rbuf_mG = self.work1_xG[:M]
+                    rbuf_mG = work1_xG[:M]
 
         domain_comm.sum(A_qnn, 0)
 
@@ -456,23 +417,16 @@ class MatrixOperator:
         """
 
         band_comm = self.bd.comm
-        domain_comm = self.gd.comm
         B = band_comm.size
         J = self.nblocks
         N = self.bd.mynbands
-
-        if self.work1_xG is None:
-            self.allocate_work_arrays()
-        else:
-            assert self.work1_xG.dtype == psit_nG.dtype
 
         C_NN = self.bmd.redistribute_input(C_NN)
 
         if B == 1 and J == 1:
             # Simple case:
-            newpsit_nG = self.work1_xG
+            newpsit_nG = np.zeros_like(psit_nG)
             self.gd.gemm(1.0, psit_nG, C_NN, 0.0, newpsit_nG)
-            self.work1_xG = psit_nG
             if P_ani:
                 for P_ni in P_ani.values():
                     gemm(1.0, P_ni.copy(), C_NN, 0.0, P_ni)
@@ -503,14 +457,17 @@ class MatrixOperator:
             J -= 1
         assert 0 < g*J < G + g
 
+        work1_xG, work2_xG = np.empty((2, self.X) + psit_nG.shape[1:],
+                                      dtype=psit_nG.dtype)
+
         for j in range(J):
             G1 = j * g
             G2 = G1 + g
             if G2 > G:
                 G2 = G
                 g = G2 - G1
-            sbuf_ng = self.work1_xG.reshape(-1)[:N * g].reshape(N, g)
-            rbuf_ng = self.work2_xG.reshape(-1)[:N * g].reshape(N, g)
+            sbuf_ng = work1_xG.reshape(-1)[:N * g].reshape(N, g)
+            rbuf_ng = work2_xG.reshape(-1)[:N * g].reshape(N, g)
             sbuf_ng[:] = psit_nG[:, G1:G2]
             beta = 0.0
             cycle_P_ani = (j == J - 1 and P_ani)

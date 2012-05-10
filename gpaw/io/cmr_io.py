@@ -203,6 +203,7 @@ class Writer:
             self.data.write(self.cmr_params)
         cmr.runtime.pause_ase_barriers(False)
 
+
 class Reader:
     """ This class allows gpaw to access
     to read a db-file
@@ -242,7 +243,7 @@ class Reader:
                 pass
         return result
     
-    def get_reference(self, name, *indices):
+    def get_reference(self, name, indices, length=None):
         result = self.reader[name]
         if indices!=():
             for a in indices:
