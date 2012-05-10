@@ -173,6 +173,7 @@ def yLL(L1, L2):
             s += c1 * c2 * gam(n1[0] + n2[0], n1[1] + n2[1], n1[2] + n2[2])
     return s
 
+
 if debug:
     for L1 in range(Lmax):
         for L2 in range(Lmax):
@@ -180,7 +181,7 @@ if debug:
             if L1 == L2:
                 r = 1.0
             assert abs(yLL(L1, L2) - r) < 1e-14
-# End of debug part
+
 
 def Y(L, x, y, z):
     result = 0.0
