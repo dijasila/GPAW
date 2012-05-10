@@ -13,6 +13,19 @@ Bondi64jpc_vdWradii = { # units Anstrom
     'Kr' : 2.02,
     'Xe' : 2.16
 }
+# Van der Waals Radii after
+# Pekka Pyykko, Chem. Rev. 97 (1997) 597-636
+# Table 2
+Pyykko97cr_vdWradii = { # units Anstrom
+    'Ne' : 1.55,
+    'Ar' : 1.88,
+    'Kr' : 2.00,
+    'Xe' : 2.18,
+    'Rn' : 2.24
+}
+collected_vdWradii = Bondi64jpc_vdWradii
+collected_vdWradii['Rn'] = Pyykko97cr_vdWradii['Rn']
+
 
 def vdWradii(symbols, xc):
     """Find the elements van der Waals radius.
@@ -23,6 +36,7 @@ def vdWradii(symbols, xc):
     The returned radii are given in Angstroms.
     """
     Z_rare_gas = [atomic_numbers[symbol] for symbol in Bondi64jpc_vdWradii]
+    Z_rare_gas.append(atomic_numbers['Rn'])
     Z_rare_gas.sort()
 
     if isinstance(xc, str):
@@ -53,7 +67,7 @@ def vdWradii(symbols, xc):
 
             n_g, r_g = get_density(Zrg)
             # find density at R
-            R = Bondi64jpc_vdWradii[chemical_symbols[Zrg]] / Bohr
+            R = collected_vdWradii[chemical_symbols[Zrg]] / Bohr
             n = 0
             while r_g[n] < R:
                 n += 1
