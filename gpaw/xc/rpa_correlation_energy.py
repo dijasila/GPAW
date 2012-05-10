@@ -236,7 +236,6 @@ class RPACorrelation:
             optical_limit = False
 
         dummy = DF(calc=self.calc,
-                   xc='RPA',
                    eta=0.0,
                    w=self.w * 1j,
                    q=q,
@@ -259,7 +258,7 @@ class RPACorrelation:
         else:
             txt='response_'+self.txt.name
         df = DF(calc=self.calc,
-                xc='RPA',
+                xc=None,
                 nbands=nbands,
                 eta=0.0,
                 q=q,
@@ -286,6 +285,7 @@ class RPACorrelation:
                   % (q[0],q[1],q[2]), '%s planewaves' % npw
 
         e_wGG = df.get_dielectric_matrix(xc='RPA')
+        del df.chi0_wGG, df.Kc_GG
         Nw_local = len(e_wGG)
         local_E_q_w = np.zeros(Nw_local, dtype=complex)
         E_q_w = np.empty(len(self.w), complex)
