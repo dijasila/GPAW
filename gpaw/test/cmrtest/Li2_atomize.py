@@ -54,7 +54,7 @@ cmr_params_template = {
     }
 
 if calculate:
-
+    print rank,1
     # molecule
     formula = symbol + '2'
     # set formula name to be written into the cmr file
@@ -62,7 +62,7 @@ if calculate:
     cmr_params['U_formula'] = formula
 
     cmrfile = formula + '.cmr'
-
+    print rank,2
     system = molecule(formula)
     system.center(vacuum=vacuum)
     # Note: Molecules do not need broken cell symmetry!
@@ -79,11 +79,13 @@ if calculate:
     system.set_calculator(calc)
     e = system.get_potential_energy()
     # write gpw file
+    print rank,3
     calc.write(formula)
     # add total energy to users tags
     cmr_params['U_potential_energy'] = e
     # write the information 'as in' corresponding trajectory file
     # plus cmr_params into cmr file
+    print rank,4
     write(cmrfile, system, cmr_params=cmr_params)
 
     del calc
@@ -118,11 +120,11 @@ if calculate:
     # write the information 'as in' corresponding trajectory file
     # plus cmr_params into cmr file
     write(cmrfile, system, cmr_params=cmr_params)
-
     del calc
 
 if recalculate:
-
+    print rank,10
+    
     # now calculate PBE energies on LDA orbitals
 
     # molecule
@@ -158,7 +160,7 @@ if recalculate:
     del calc
 
 if analyse_from_dir:
-
+    print rank,20 
     # analyse the results from cmr files in the local directory
 
     from cmr.ui import DirectoryReader
@@ -167,6 +169,7 @@ if analyse_from_dir:
     reader = DirectoryReader(directory='.', ext='.cmr')
     all = reader.find(name_value_list=[('U_mode', 'lcao'), ('U_xc', 'LDA')],
                       keyword_list=[project_id])
+    print rank,21 
     if rank == 0:
         print 'results from cmr files in the local directory'
     # print requested results
@@ -177,11 +180,12 @@ if analyse_from_dir:
                              'U_potential_energy', 'U_potential_energy_PBE',
                              'ase_temperature'])
 
+    print rank,22 
     # access the results directly and calculate atomization energies
     f2 = symbol + '2'
     f1 = symbol
 
-    if rank == 0:
+    if True or rank == 0:
 
         # results are accesible only on master rank
 
@@ -191,8 +195,9 @@ if analyse_from_dir:
         # calculate atomization energies (ea)
         ea_LDA = 2 * r1['U_potential_energy'] - r2['U_potential_energy']
         ea_PBE = 2 * r1['U_potential_energy_PBE'] - r2['U_potential_energy_PBE']
-        print 'atomization energy [eV] ' + xc + ' = ' + str(ea_LDA)
-        print 'atomization energy [eV] PBE = ' + str(ea_PBE)
+        if rank == 0:
+            print 'atomization energy [eV] ' + xc + ' = ' + str(ea_LDA)
+            print 'atomization energy [eV] PBE = ' + str(ea_PBE)
 
         if create_group:
             # ea_LDA and ea_PBE define a group
@@ -208,14 +213,14 @@ if analyse_from_dir:
             group.write(symbol + '2_atomize_from_dir.cmr');
 
 if upload_to_db:
-
+    print rank,40
     # upload cmr files to the database
 
     if rank == 0:
         os.system('cmr --commit ' + symbol + '*.cmr')
 
 if analyse_from_db:
-
+    print rank,50
     # analyse the results from the database
 
     from cmr.ui import DBReader
@@ -270,7 +275,7 @@ if analyse_from_db:
                 group.write(".cmr");
 
 if clean:
-
+    print rank,60
     if rank == 0:
         for file in [symbol + '.cmr', symbol + '.gpw', symbol + '.txt',
                      symbol + '2.cmr', symbol + '2.gpw', symbol + '2.txt',

@@ -1090,7 +1090,9 @@ parameters = {
 #'Bi': Missing
 #'Po': Missing
 #'At': Missing
- 'Rn': {'core': '[Xe]4f5d', 'rcut': [2.13, 2.29, 2.31]}
+ 'Rn': {'core': '[Xe]4f5d', 'rcut': [2.13, 2.29, 2.31],
+        'vbar': ('f', 1.96), 'rcutcomp': 2.02,
+        'filter': (0.62, 1.69)},
  }
 
 # Extra setups

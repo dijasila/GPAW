@@ -134,6 +134,7 @@ tests = [
     'fileio/hdf5_simple.py',
     'fileio/hdf5_noncontiguous.py',
     'restart.py',
+    'fileio/idiotproof_setup.py',
     'fileio/restart_density.py',
     'fileio/parallel.py',
     'fileio/file_reference.py',
