@@ -1086,11 +1086,11 @@ parameters = {
 #'Hg': Missing
 #'Tl': Missing
  'Pb': {'core': '[Xe]4f', 'rcut': [2.4, 2.6, 2.4]},
- 'Bi': {'core': '[Xe]4f', 'rcut': [2.2, 2.4, 2.2]}
+ 'Bi': {'core': '[Xe]4f', 'rcut': [2.2, 2.4, 2.2]},
 #'Bi': Missing
 #'Po': Missing
 #'At': Missing
-#'Rn': Missing
+ 'Rn': {'core': '[Xe]4f5d', 'rcut': [2.13, 2.29, 2.31]}
  }
 
 # Extra setups
