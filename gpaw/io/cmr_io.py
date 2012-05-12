@@ -10,7 +10,7 @@ import numpy as np
 import ase
 from ase.version import version as ase_version
 import gpaw
-from gpaw.version import version as gpaw_version
+from gpaw.version import version_base as gpaw_version
 
 try:
     #new style cmr io
@@ -25,7 +25,7 @@ try:
         return reader
         
     def get_writer():
-        return Converter.get_xml_writer(CALCULATOR_GPAW)
+        return Converter.get_xml_writer(CALCULATOR_GPAW, calculator_version=gpaw_version)
     
     def create_db_filename(param, ext=".db"):
         return cdbfn(param, ext=ext)
