@@ -293,6 +293,7 @@ try:
     tests.append('cmrtest/Li2_atomize.py')
     tests.append('cmrtest/cmr_append.py')
     tests.append('cmrtest/cmr_test.py')
+    tests.append('cmrtest/cmr_test3.py')
 except:
     pass
 
