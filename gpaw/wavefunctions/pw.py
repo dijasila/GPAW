@@ -21,7 +21,7 @@ from gpaw.band_descriptor import BandDescriptor
 
 
 class PWDescriptor:
-    def __init__(self, ecut, gd, dtype=float, kd=None,
+    def __init__(self, ecut, gd, dtype=None, kd=None,
                  fftwflags=fftw.ESTIMATE):
 
         assert gd.pbc_c.all() and gd.comm.size == 1
@@ -34,6 +34,11 @@ class PWDescriptor:
 
         assert ((gd.h_cv**2).sum(1) <= 0.5 * pi**2 / ecut).all()
 
+        if dtype is None:
+            if kd is None or kd.gamma:
+                dtype = float
+            else:
+                dtype = complex
         self.dtype = dtype
 
         if dtype == float:
@@ -313,10 +318,14 @@ class PWDescriptor:
         Q2_Gc = np.empty((len(Q2_G), 3), int)
         Q2_Gc[:, 0], r_G = divmod(Q2_G, N_c[1] * N_c[2])
         Q2_Gc.T[1:] = divmod(r_G, N_c[2])
-        Q2_Gc[:, :2] += N_c[:2] // 2
-        Q2_Gc[:, :2] %= N_c[:2]
-        Q2_Gc[:, :2] -= N_c[:2] // 2
-        Q2_Gc[:, :2] %= N3_c[:2]
+        if self.dtype == float:
+            C = 2
+        else:
+            C = 3
+        Q2_Gc[:, :C] += N_c[:C] // 2
+        Q2_Gc[:, :C] %= N_c[:C]
+        Q2_Gc[:, :C] -= N_c[:C] // 2
+        Q2_Gc[:, :C] %= N3_c[:C]
         Q3_G = Q2_Gc[:, 2] + N3_c[2] * (Q2_Gc[:, 1] + N3_c[1] * Q2_Gc[:, 0])
         G3_Q = np.empty(N3_c, int).ravel()
         G3_Q[pd.Q_qG[q]] = np.arange(len(pd.Q_qG[q]))
@@ -828,14 +837,15 @@ class PWLFC(BaseLFC):
                            self.Y_qLG[q][l**2:(l + 1)**2])
         return f_IG
 
-    def add(self, a_xG, c_axi=1.0, q=-1):
+    def add(self, a_xG, c_axi=1.0, q=-1, f_IG=None):
         if isinstance(c_axi, float):
             assert q == -1, a_xG.dims == 1
             a_xG += (c_axi / self.pd.gd.dv) * self.expand(-1).sum(0)
             return
 
         c_xI = np.empty(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
-        f_IG = self.expand(q)
+        if f_IG is None:
+            f_IG = self.expand(q)
         for a, I1, I2 in self.indices:
             c_xI[..., I1:I2] = c_axi[a] * self.eikR_qa[q][a].conj()
 
