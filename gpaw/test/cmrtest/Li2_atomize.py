@@ -159,7 +159,7 @@ if analyse_from_dir:
 
     # analyze the results from cmr files in the local directory
     # analysis can only be performed on rank 0!!
-    cmr.runtime.pause_ase_barriers(True) # do not use ase-barriers
+    cmr.pause_ase_parallel(True) # do not use ase-barriers
     if rank == 0:
         from cmr.ui import DirectoryReader
     
@@ -206,7 +206,7 @@ if analyse_from_dir:
                 group.set_user_variable('db_keywords', [project_id])
                 group.set_user_variable('project_id', project_id)
                 group.write(symbol + '2_atomize_from_dir.cmr');
-    cmr.runtime.pause_ase_barriers(False) # reenable ase-barriers
+    cmr.pause_ase_parallel(False) # reenable ase-barriers
 
 if upload_to_db:
 
@@ -219,7 +219,7 @@ if analyse_from_db:
 
     # analyze the results from the database
     # analysis can only be performed on rank 0!!
-    cmr.runtime.pause_ase_barriers(True) # do not use ase-barriers
+    cmr.pause_ase_parallel(True) # do not use ase-barriers
     if rank == 0:
         from cmr.ui import DBReader
         reader = DBReader()
@@ -271,7 +271,7 @@ if analyse_from_db:
                     group.set_user_variable('project_id', project_id)
                     group.write(symbol + '2_atomize_from_db.cmr');
                     group.write(".cmr");
-    cmr.runtime.pause_ase_barriers(False) 
+    cmr.pause_ase_parallel(False) 
 
 if clean:
 
