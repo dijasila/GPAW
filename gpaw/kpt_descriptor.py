@@ -222,6 +222,22 @@ class KPointDescriptor:
             self.weight_q = np.hstack((self.weight_k,
                                        self.weight_k))[self.get_slice()]
 
+    def copy(self, comm=mpi.serial_comm):
+        """Create a copy with shared symmetry object."""
+        kd = KPointDescriptor(self.bzk_kc, self.nspins)
+        kd.weight_k = self.weight_k
+        kd.ibzk_kc = self.ibzk_kc
+        kd.sym_k = self.sym_k
+        kd.time_reversal_k = self.time_reversal_k
+        kd.bz2ibz_k = self.bz2ibz_k
+        kd.ibz2bz_k = self.ibz2bz_k
+        kd.bz2bz_ks = self.bz2bz_ks
+        kd.symmetry = self.symmetry
+        kd.nibzkpts = self.nibzkpts
+        kd.nks = self.nks
+        kd.set_communicator(comm)
+        return kd
+
     def create_k_points(self, gd):
         """Return a list of KPoints."""
 
