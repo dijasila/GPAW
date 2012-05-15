@@ -918,7 +918,7 @@ class PWLFC(BaseLFC):
             spline = self.spline_aj[a][j]
             if spline not in cache:
                 f = ft(spline)
-                G_G = self.G2_qG[q]**0.5
+                G_G = self.pd.G2_qG[q]**0.5
                 f_G = []
                 for G in G_G:
                     y, dydG = f.get_value_and_derivative(G)
@@ -929,13 +929,15 @@ class PWLFC(BaseLFC):
             else:
                 f_G = cache[spline]
                 
-            f_IG[I1:I2] = (self.emiGR_Ga[:, a] * f_G * (-1.0j)**l *
-                           self.Y_qLG[q, l**2:(l + 1)**2])
+            emiGR_G = np.exp(-1j * np.dot(self.pd.G_Qv[self.pd.Q_qG[q]],
+                                       self.pos_av[a]))
+            f_IG[I1:I2] = (emiGR_G * f_G * (-1.0j)**l *
+                           self.Y_qLG[q][l**2:(l + 1)**2])
         
         c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
 
         b_xI = c_xI.reshape((np.prod(c_xI.shape[:-1]), self.nI))
-        a_xG = a_xG.reshape((-1, len(self.pd)))
+        a_xG = a_xG.reshape((-1, a_xG.shape[-1]))
 
         alpha = 1.0 / self.pd.gd.N_c.prod()
         if self.pd.dtype == float:
