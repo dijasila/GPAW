@@ -254,7 +254,8 @@ class GW(BASECHI):
             w1_ww = np.zeros((Nw, df.Nw), dtype=complex)
             for iw in range(Nw):
                 w1 = iw * self.dw
-                w1_ww[iw] = 1. / (w1 + self.w_w + 1j*self.eta_w) + 1. / (w1 - self.w_w + 1j*self.eta_w)
+                w1_ww[iw] = 1./(w1 + self.w_w + 1j*self.eta_w) + 1./(w1 - self.w_w + 1j*self.eta_w)
+                w1_ww[iw,0] -= 1./(w1 + 1j*self.eta_w[0]) # correct w'=0
                 w1_ww[iw] *= self.dw_w
             Cplus_Wg = gemmdot(w1_ww, W_Wg, beta=0.0)
             Cminus_Wg = gemmdot(w1_ww.conj(), W_Wg, beta=0.0)
@@ -270,8 +271,8 @@ class GW(BASECHI):
                 if df.optical_limit:
                     kq_c = df.kd.bzk_kc[k]
                 else:
-                   kq_c = df.kd.bzk_kc[k] - df.q_c  # k - q
-            
+                    kq_c = df.kd.bzk_kc[k] - df.q_c  # k - q
+
                 kq = df.kd.where_is_q(kq_c, df.kd.bzk_kc)            
                 assert df.kq_k[kq] == k
                 ibzkpt1 = df.kd.bz2ibz_k[k]
@@ -315,11 +316,13 @@ class GW(BASECHI):
 
                             # calculate self energy
                             w1_w = 1./(w1 - self.w_w + 1j*self.eta_w*sign) + 1./(w1 + self.w_w + 1j*self.eta_w*sign)
+                            w1_w[0] -= 1./(w1 + 1j*self.eta_w[0]*sign) # correct w'=0
                             w1_w *= self.dw_w
                             Sigma_skn[s,i,j] += np.real(gemmdot(C_w, w1_w, beta=0.0))
 
                             # calculate derivate of self energy with respect to w
                             w1_w = 1./(w1 - self.w_w + 1j*self.eta_w*sign)**2 + 1./(w1 + self.w_w + 1j*self.eta_w*sign)**2
+                            w1_w[0] -= 1./(w1 + 1j*self.eta_w[0]*sign)**2 # correct w'=0
                             w1_w *= self.dw_w
                             dSigma_skn[s,i,j] -= np.real(gemmdot(C_w, w1_w, beta=0.0))
 
