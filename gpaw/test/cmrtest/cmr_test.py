@@ -9,7 +9,6 @@ import warnings
 warnings.filterwarnings('ignore', 'ase.atoms.*deprecated',)
 
 import cmr
-cmr.set_ase_parallel(True)
 
 a = 4.05
 d = a / 2 ** 0.5

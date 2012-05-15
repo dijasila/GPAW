@@ -4,8 +4,6 @@
 import os
 
 import cmr
-# set True in order to use cmr in parallel jobs!
-cmr.set_ase_parallel(enable=True)
 
 from ase.structure import molecule
 from ase.io import read, write
@@ -64,7 +62,7 @@ data = cmr.read(cmrfile)
 data.set_user_variable('xc', xc)
 data.write(cmrfile)
 
-# peform PBE calculation on LDA density
+# perform PBE calculation on LDA density
 ediff = calc2.get_xc_difference('PBE')
 
 # add new results to the cmrfile
@@ -73,26 +71,24 @@ data = cmr.read(cmrfile)
 data.set_user_variable('PBE', data['ase_potential_energy'] + ediff)
 data.write(cmrfile)
 
-# analyse the results with CMR
-
-from cmr.ui import DirectoryReader
-
-reader = DirectoryReader(directory='.', ext='.cmr')
-# read all compounds in the project with lcao
-all = reader.find(name_value_list=[('mode', 'lcao')],
-                  keyword_list=[project_id])
-results = all.get('formula', formula)
-
+# analyze the results with CMR
 if rank == 0:
+    
+    from cmr.ui import DirectoryReader
+    
+    reader = DirectoryReader(directory='.', ext='.cmr')
+    # read all compounds in the project with lcao
+    all = reader.find(name_value_list=[('mode', 'lcao')],
+                      keyword_list=[project_id])
+    results = all.get('formula', formula)
+    
     print results['formula'], results['xc'], results['ase_potential_energy']
-
-# column_length=0 aligns data in the table (-1 : data unaligned is default)
-all.print_table(column_length=0,
-                columns=['formula', 'xc', 'h', 'ase_potential_energy', 'PBE'])
-
-if rank == 0:
+    
+    # column_length=0 aligns data in the table (-1 : data unaligned is default)
+    all.print_table(column_length=0,
+                    columns=['formula', 'xc', 'h', 'ase_potential_energy', 'PBE'])
+    
     equal(results['PBE'], e + ediff, 1e-6)
-
-if rank == 0:
+    
     for file in [formula + '.gpw', formula + '.db', cmrfile]:
         if os.path.exists(file): os.unlink(file)
