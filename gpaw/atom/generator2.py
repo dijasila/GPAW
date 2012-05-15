@@ -116,7 +116,7 @@ class PAWWaves:
 
     def __len__(self):
         return len(self.n_n)
-    
+
     def add(self, phi_g, n, e, f):
         self.phi_ng.append(phi_g)
         self.n_n.append(n)
@@ -138,7 +138,7 @@ class PAWWaves:
             phit_ng[n], c_p = rgd.pseudize(phi_ng[n], gcut, self.l, points=P)
             self.c_np.append(c_p)
             self.nt_g += self.f_n[n] / 4 / pi * phit_ng[n]**2
-            
+
         self.dS_nn = np.empty((N, N))
         for n1 in range(N):
             for n2 in range(N):
@@ -188,7 +188,7 @@ class PAWWaves:
 
         L_nn = np.eye(N)
         U_nn = A_nn.copy()
-        
+
         if N - self.n_n.count(-1) == 1:
             assert self.n_n[0] != -1
             # We have a single bound-state projector.
@@ -205,7 +205,7 @@ class PAWWaves:
             self.dH_nn = np.dot(np.dot(iL_nn, self.dH_nn), iL_nn.T)
 
         self.pt_ng = np.dot(np.linalg.inv(U_nn.T), q_ng)
-        
+
     def calculate_kinetic_energy_correction(self, vr_g, vtr_g):
         if len(self) == 0:
             return
@@ -224,7 +224,7 @@ class PAWSetupGenerator:
                  gamma=1.5, h=0.2 / Bohr, fd=sys.stdout):
         """fd: stream
             Text output."""
-        
+
         self.aea = aea
 
         # Filtering parameters:
@@ -267,7 +267,7 @@ class PAWSetupGenerator:
         aea.run()
         aea.scalar_relativistic = scalar_relativistic
         aea.refine()
-        
+
         self.rgd = aea.rgd
 
         self.log('\nGenerating PAW', aea.xc.name, 'setup for', aea.symbol)
@@ -338,7 +338,7 @@ class PAWSetupGenerator:
                 """Fraction of gaussian charge outside rc."""
                 x = alpha * rc**2
                 return 1 - erf(sqrt(x)) + 2 * sqrt(x / pi) * exp(-x)
-        
+
             def f(alpha):
                 return log(spillage(alpha)) - log(eps)
 
@@ -354,7 +354,7 @@ class PAWSetupGenerator:
 
         self.ghat_g = (np.exp(-self.alpha * self.rgd.r_g**2) *
                        (self.alpha / pi)**1.5)
-        
+
     def log(self, *args, **kwargs):
         prnt(file=self.fd, *args, **kwargs)
 
@@ -373,12 +373,12 @@ class PAWSetupGenerator:
                     self.ekincore += f * ch.e_n[n]
                 else:
                     self.nvalence += f
-        
+
         self.ekincore -= self.rgd.integrate(self.nc_g * self.aea.vr_sg[0], -1)
 
         self.log('Core electrons:', self.ncore)
         self.log('Valence electrons:', self.nvalence)
-        
+
         self.Q = -self.aea.Z + self.ncore
 
     def pseudize(self):
@@ -405,7 +405,7 @@ class PAWSetupGenerator:
             A = (-dntdr_g / dfdr_g[:self.gcmax]).max() * 1.5
             self.nt_g += A * f_g
             self.nct_g += A * f_g
-            
+
         self.npseudocore = self.rgd.integrate(self.nct_g)
         self.log('Pseudo core electrons: %.6f' % self.npseudocore)
         self.Q -= self.npseudocore
@@ -434,7 +434,7 @@ class PAWSetupGenerator:
                              (n, 'spdf'[l], f, e, e * Hartree, 1 - ds,
                               waves.rcut))
         self.log()
-                    
+
     def find_polynomial_potential(self, r0, P, e0=None):
         g0 = self.rgd.ceil(r0)
         assert e0 is None
@@ -454,7 +454,7 @@ class PAWSetupGenerator:
         self.log('Local potential matching %s-scattering at e=%.3f eV' %
                  ('spdfg'[l0], e0 * Hartree) +
                  ' and r=%.2f Bohr' % r0)
-        
+
         g0 = self.rgd.ceil(r0)
         gc = g0 + 20
 
@@ -470,7 +470,7 @@ class PAWSetupGenerator:
         r_g = self.rgd.r_g[1:g0]
         p = np.arange(2 * P, 0, -2) + l0
         t_g = np.polyval(-0.5 * c_p[:P] * (p * (p + 1) - l0 * (l0 + 1)),
-                          r_g**2) 
+                          r_g**2)
 
         dgdr_g = 1 / self.rgd.dr_g
         d2gdr2_g = self.rgd.d2gdr2()
@@ -531,7 +531,7 @@ class PAWSetupGenerator:
             H_bb = basis.calculate_potential_matrix(self.vtr_g)
             H_bb += basis.T_bb
             S_bb = np.eye(len(basis))
-            
+
             n0 = 0
             if l < len(self.waves_l):
                 waves = self.waves_l[l]
@@ -544,7 +544,7 @@ class PAWSetupGenerator:
                     if n0 < 0 and l < len(self.aea.channels):
                         n0 = (self.aea.channels[l].f_n > 0).sum()
             elif l < len(self.aea.channels):
-                n0 = (self.aea.channels[l].f_n > 0).sum()                
+                n0 = (self.aea.channels[l].f_n > 0).sum()
 
             e_b = np.empty(len(basis))
             try:
@@ -553,7 +553,7 @@ class PAWSetupGenerator:
                 self.log('Singular overlap matrix!')
                 ok = False
                 continue
-            
+
             nbound = (e_b < -0.002).sum()
 
             if l < len(self.aea.channels):
@@ -574,7 +574,7 @@ class PAWSetupGenerator:
                                   Hartree))
                     else:
                         self.log()
-                
+
                 if nbound != nbound0 - n0:
                     self.log('Wrong number of %s-states!' % 'spdf'[l])
                     ok = False
@@ -610,8 +610,8 @@ class PAWSetupGenerator:
         eee = 0.5 * rgd.integrate(self.nt_g * rgd.poisson(self.nt_g), -1)
         ecc = 0.5 * rgd.integrate(self.rhot_g * self.vHtr_g, -1)
         egg = 0.5 * rgd.integrate(self.ghat_g * rgd.poisson(self.ghat_g), -1)
-        ekin = self.aea.ekin - self.ekincore - self.waves_l[0].dekin_nn[0, 0] 
-        print self.aea.ekin, self.ekincore, self.waves_l[0].dekin_nn[0, 0] 
+        ekin = self.aea.ekin - self.ekincore - self.waves_l[0].dekin_nn[0, 0]
+        print self.aea.ekin, self.ekincore, self.waves_l[0].dekin_nn[0, 0]
         evt = rgd.integrate(self.nt_g * self.vtr_g, -1)
 
         import pylab as p
@@ -662,7 +662,7 @@ class PAWSetupGenerator:
         plt.xlabel('radius [Bohr]')
         plt.ylabel('potential [Ha]')
         plt.legend()
-        
+
         plt.figure()
         i = 0
         for l, waves in enumerate(self.waves_l):
@@ -719,13 +719,13 @@ class PAWSetupGenerator:
         for e in energies:
             dudr = ch.integrate_outwards(u_g, rgd, self.vtr_g, gcut, e)
             u = u_g[gcut]
-            
+
             if N:
                 for n in range(N):
                     dudr_n[n] = ch.integrate_outwards(u_ng[n], rgd,
                                                       self.vtr_g, gcut, e,
                                                       pt_g=pt_ng[n])
-            
+
                 A_nn = (dH_nn - e * dS_nn) / (4 * pi)
                 B_nn = rgd.integrate(pt_ng[:, None] * u_ng, -1)
                 c_n  = rgd.integrate(pt_ng * u_g, -1)
@@ -733,14 +733,14 @@ class PAWSetupGenerator:
                                       np.dot(A_nn, c_n))
                 u -= np.dot(u_ng[:, gcut], d_n)
                 dudr -= np.dot(dudr_n, d_n)
-            
+
             logderivs.append(dudr / u)
 
         return logderivs
-    
+
     def make_paw_setup(self, tag=None):
         aea = self.aea
-        
+
         setup = SetupData(aea.symbol, aea.xc.name, tag, readxml=False)
 
         nj = sum(len(waves) for waves in self.waves_l)
@@ -787,7 +787,7 @@ class PAWSetupGenerator:
         setup.tauc_g = self.rgd.zeros()
         setup.tauct_g = self.rgd.zeros()
         print 'no tau!!!!!!!!!!!'
-        
+
         if self.aea.scalar_relativistic:
             reltype = 'scalar-relativistic'
         else:
@@ -837,7 +837,7 @@ class PAWSetupGenerator:
                     self.exxcc -= e * G
                 f = 2.0
             j1 += 1
-        
+
         self.log('EXX (core-core):', self.exxcc, 'Hartree')
 
         # Calculate core-valence contribution to EXX energy:
@@ -846,7 +846,7 @@ class PAWSetupGenerator:
                  for l, waves in enumerate(self.waves_l))
 
         self.exxcv_ii = np.zeros((ni, ni))
-        
+
         i1 = 0
         for l1, waves1 in enumerate(self.waves_l):
             for phi1_g in waves1.phi_ng:
@@ -932,9 +932,9 @@ def generate(argv=None):
         else:
             Z2 = 86
         symbols = range(Z1, Z2 + 1)
-    else: 
+    else:
         symbols = args
-                    
+
     for symbol in symbols:
         Z = str2z(symbol)
         symbol = chemical_symbols[Z]
@@ -1004,10 +1004,10 @@ def get_parameters(symbol, opt):
         projectors, radii, extra = parameters[symbol]
     else:
         projectors, radii, extra = None, 1.0, {}
-    
+
     if opt.projectors:
         projectors = opt.projectors
-                
+
     if opt.radius:
         radii = [float(r) for r in opt.radius.split(',')]
 
@@ -1029,9 +1029,20 @@ def get_parameters(symbol, opt):
             # i.e. on the command line: -0 {f,poly}
             nderiv0 = 6
             r0 = max(radii)
-        else:
+        elif len(x) == 2:
+            # select zero_potential type, nderivs
+            # i.e. on the command line: -0 f,nderivs
             nderiv0 = int(x[1])
-            r0 = float(x[2])
+            r0 = max(radii)
+        else:
+            if x[2] in ['min', 'max']:
+                # select zero_potential type, nderivs, min/max
+                # i.e. on the command line: -0 f,nderivs,{min,max}
+                nderiv0 = int(x[1])
+                r0 = eval(x[2] + '(radii)')
+            else:
+                nderiv0 = int(x[1])
+                r0 = float(x[2])
         if len(x) == 4:
             e0 = float(x[3])
         elif type == 'poly':
@@ -1049,7 +1060,7 @@ def get_parameters(symbol, opt):
         else:
             l0 = 'spdfg'.find(extra['local'])
             e0 = 0.0
-        
+
     return dict(symbol=symbol,
                 xc=opt.xc_functional,
                 projectors=projectors,
@@ -1076,7 +1087,7 @@ def _generate(symbol, xc, projectors, radii,
         gen.find_local_potential(l0, r0, nderiv0, e0)
 
     gen.construct_projectors()
-    
+
     return gen
 
 
