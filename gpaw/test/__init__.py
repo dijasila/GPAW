@@ -311,8 +311,7 @@ if mpi.size > 1:
                 'muffintinpot.py',
                 'stark_shift.py',
                 'exx_q.py',
-                'potential.py',
-                'cmrtest/Li2_atomize.py']
+                'potential.py']
 
 if mpi.size > 2:
     exclude += ['neb.py']
@@ -337,6 +336,10 @@ if mpi.size != 4:
 
 if mpi.size == 1 or not compiled_with_sl():
     exclude += ['parallel/submatrix_redist.py']
+
+if mpi.size != 1 and not compiled_with_sl():
+    exclude += ['ralda_energy_H2.py',
+                'bse_sym.py']
 
 if not compiled_with_sl():
     exclude += ['pw/fulldiag.py',

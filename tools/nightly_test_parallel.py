@@ -62,7 +62,7 @@ print 'Run'
 if os.system('source /home/camp/modulefiles.sh; ' +
              'module load NUMPY; ' +
              'module load SCIPY; ' +
-             'module load CMR; ' +
+             'module load CMR/647-1.el5.fys.python2.4; ' +
              'module load openmpi/1.3.3-1.el5.fys.open64.4.2.3; ' +
              'export PYTHONPATH=%s/lib64/python:$PYTHONPATH; ' % tmpdir +
              'export GPAW_SETUP_PATH=%s; ' % setups +
