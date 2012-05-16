@@ -10,7 +10,7 @@ from gpaw.utilities.blas import rk, gemm
 from gpaw.basis_data import Basis
 from gpaw.setup import types2atomtypes
 from gpaw.coulomb import CoulombNEW as Coulomb
-from gpaw.mpi import world, MASTER, serial_comm
+from gpaw.mpi import world, rank, MASTER, serial_comm
 from gpaw import GPAW
 
 from ase.units import Hartree
