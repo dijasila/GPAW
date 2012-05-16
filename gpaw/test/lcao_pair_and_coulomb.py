@@ -8,7 +8,7 @@ from gpaw.lcao.tools import remove_pbc, get_bfi2, get_bf_centers
 from gpaw.mpi import world, rank, MASTER, serial_comm
 from gpaw.test import equal
 import os
-os.system('gpaw-basis -t dz -E 0.1 H')
+os.system('gpaw-basis -t dz -E 0.1 H > tmp.txt')
 scat = range(2)
 atoms = molecule('H2')
 atoms.set_cell([8., 8., 8.])
