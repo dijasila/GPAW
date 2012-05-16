@@ -680,11 +680,11 @@ class PWWaveFunctions(FDPWWaveFunctions):
             for n in range(mynbands):
                 kpt.psit_nG[n] = self.pd.fft(psit_nR[n] * emikr_R, kpt.q)
 
-    def random_wave_functions(self, mynao, q):
+    def random_wave_functions(self, mynao):
         rs = np.random.RandomState(self.world.rank)
-        weight_G = 1.0 / (1.0 + self.pd.G2_qG[q])
         for kpt in self.kpt_u:
             psit_nG = kpt.psit_nG[mynao:]
+            weight_G = 1.0 / (1.0 + self.pd.G2_qG[kpt.q])
             psit_nG.real = rs.uniform(-1, 1, psit_nG.shape) * weight_G
             psit_nG.imag = rs.uniform(-1, 1, psit_nG.shape) * weight_G
 
