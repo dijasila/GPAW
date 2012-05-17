@@ -78,7 +78,7 @@ class CHI(BASECHI):
         self.chi0_wGG = None
 
         
-    def initialize(self, do_Kxc=False, simple_version=False, spin=0):
+    def initialize(self, simple_version=False):
 
         self.printtxt('')
         self.printtxt('-----------------------------------------')
@@ -86,7 +86,7 @@ class CHI(BASECHI):
         self.starttime = time()
         self.printtxt(ctime())
 
-        BASECHI.initialize(self, spin=spin)
+        BASECHI.initialize(self)
 
         # Frequency init
         self.dw = None
@@ -114,10 +114,13 @@ class CHI(BASECHI):
                 self.dw /= Hartree
 
         self.nvalbands = self.nbands
-        for n in range(self.nbands):
-            if (self.f_kn[:, n] - self.ftol < 0).all():
-                self.nvalbands = n
-                break
+        tmpn = np.zeros(self.nspins, dtype=int)
+        for spin in range(self.nspins):
+            for n in range(self.nbands):
+                if (self.f_skn[spin][:, n] - self.ftol < 0).all():
+                    tmpn[spin] = n
+                    break
+        self.nvalbands = tmpn.max()
 
         # Parallelization initialize
         self.parallel_init()
@@ -185,7 +188,7 @@ class CHI(BASECHI):
         return
 
 
-    def calculate(self, spin=0):
+    def calculate(self):
         """Calculate the non-interacting density response function. """
 
         calc = self.calc
@@ -196,14 +199,11 @@ class CHI(BASECHI):
         bzk_kc = self.bzk_kc
         kq_k = self.kq_k
         pt = self.pt
-        f_kn = self.f_kn
-        e_kn = self.e_kn
+        f_skn = self.f_skn
+        e_skn = self.e_skn
 
         # Matrix init
         chi0_wGG = np.zeros((self.Nw_local, self.npw, self.npw), dtype=complex)
-        if not (f_kn > self.ftol).any():
-            self.chi0_wGG = chi0_wGG
-            return
 
         if self.hilbert_trans:
             specfunc_wGG = np.zeros((self.NwS_local, self.npw, self.npw), dtype = complex)
@@ -231,166 +231,171 @@ class CHI(BASECHI):
         rho_G = np.zeros(self.npw, dtype=complex)
         t0 = time()
 
-        for k in range(self.kstart, self.kend):
-            k_pad = False
-            if k >= self.nkpt:
-                k = 0
-                k_pad = True
+        for spin in range(self.nspins):
+            if not (f_skn[spin] > self.ftol).any():
+                self.chi0_wGG = chi0_wGG
+                continue
 
-            # Find corresponding kpoint in IBZ
-            ibzkpt1 = kd.bz2ibz_k[k]
-            if self.optical_limit:
-                ibzkpt2 = ibzkpt1
-            else:
-                ibzkpt2 = kd.bz2ibz_k[kq_k[k]]
-
-            if self.pwmode:
-                N_c = self.gd.N_c
-                k_c = self.kd.ibzk_kc[ibzkpt1]
-                eikr1_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k_c / N_c).T)
-                k_c = self.kd.ibzk_kc[ibzkpt2]
-                eikr2_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k_c / N_c).T)
-                
-            index1_g, phase1_g = kd.get_transform_wavefunction_index(self.nG, k)
-            index2_g, phase2_g = kd.get_transform_wavefunction_index(self.nG, kq_k[k])
-
-            for n in range(self.nstart, self.nend):
-#                print >> self.txt, k, n, time() - t0
-                t1 = time()
-                if not self.pwmode:
-                    psitold_g = self.get_wavefunction(ibzkpt1, n, True, spin=spin)
+            for k in range(self.kstart, self.kend):
+                k_pad = False
+                if k >= self.nkpt:
+                    k = 0
+                    k_pad = True
+    
+                # Find corresponding kpoint in IBZ
+                ibzkpt1 = kd.bz2ibz_k[k]
+                if self.optical_limit:
+                    ibzkpt2 = ibzkpt1
                 else:
-                    u = self.kd.get_rank_and_index(spin, ibzkpt1)[1]
-                    psitold_g = calc.wfs._get_wave_function_array(u, n, realspace=True, phase=eikr1_R)
+                    ibzkpt2 = kd.bz2ibz_k[kq_k[k]]
+    
+                if self.pwmode:
+                    N_c = self.gd.N_c
+                    k_c = self.kd.ibzk_kc[ibzkpt1]
+                    eikr1_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k_c / N_c).T)
+                    k_c = self.kd.ibzk_kc[ibzkpt2]
+                    eikr2_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k_c / N_c).T)
+                    
+                index1_g, phase1_g = kd.get_transform_wavefunction_index(self.nG, k)
+                index2_g, phase2_g = kd.get_transform_wavefunction_index(self.nG, kq_k[k])
+    
+                for n in range(self.nstart, self.nend):
+                    if self.calc.wfs.world.size == 1:
+                        if (self.f_skn[spin][ibzkpt1, n] - self.ftol < 0):
+                            continue
 
-                psit1new_g_tmp = kd.transform_wave_function(psitold_g,k,index1_g,phase1_g)
-
-                if (self.rpad > 1).any() or (self.pbc - True).any():
-                    psit1new_g = self.pad(psit1new_g_tmp)
-                else:
-                    psit1new_g = psit1new_g_tmp
-
-                # PAW part
-                if self.calc.wfs.world.size > 1 or self.nkpt == 1:
+                    t1 = time()
+                    if not self.pwmode:
+                        psitold_g = self.get_wavefunction(ibzkpt1, n, True, spin=spin)
+                    else:
+                        u = self.kd.get_rank_and_index(spin, ibzkpt1)[1]
+                        psitold_g = calc.wfs._get_wave_function_array(u, n, realspace=True, phase=eikr1_R)
+    
+                    psit1new_g_tmp = kd.transform_wave_function(psitold_g,k,index1_g,phase1_g)
+    
+                    if (self.rpad > 1).any() or (self.pbc - True).any():
+                        psit1new_g = self.pad(psit1new_g_tmp)
+                    else:
+                        psit1new_g = psit1new_g_tmp
+    
+                    # PAW part
                     P1_ai = pt.dict()
                     pt.integrate(psit1new_g, P1_ai, k)
-                else:
-                    P1_ai = self.get_P_ai(k, n, spin)
-
-                psit1_g = psit1new_g.conj() * self.expqr_g
-
-                for m in range(self.nbands):
-                    if self.nbands > 1000 and m % 200 == 0:
-                        print >> self.txt, '    ', k, n, m, time() - t0
-		    
-                    check_focc = (f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]) > self.ftol
-
-                    if not self.pwmode:
-                        psitold_g = self.get_wavefunction(ibzkpt2, m, check_focc, spin=spin)
-
-                    if check_focc:                            
-                        if self.pwmode:
-                            u = self.kd.get_rank_and_index(spin, ibzkpt2)[1]
-                            psitold_g = calc.wfs._get_wave_function_array(u, m, realspace=True, phase=eikr2_R)
-
-                        psit2_g_tmp = kd.transform_wave_function(psitold_g, kq_k[k], index2_g, phase2_g)
-
-                        if (self.rpad > 1).any() or (self.pbc - True).any():
-                            psit2_g = self.pad(psit2_g_tmp)
-                        else:
-                            psit2_g = psit2_g_tmp
-
-                        # fft
-                        fft_R[:] = psit2_g * psit1_g
-                        fftplan.execute()
-                        fft_G *= self.vol / self.nG0
-#                        tmp_g = np.fft.fftn(psit2_g*psit1_g) * self.vol / self.nG0
-
-                        rho_G = fft_G.ravel()[self.Gindex_G]
-
-                        if self.optical_limit:
-                            phase_cd = np.exp(2j * pi * sdisp_cd * bzk_kc[kq_k[k], :, np.newaxis])
-                            for ix in range(3):
-                                d_c[ix](psit2_g, dpsit_g, phase_cd)
-                                tmp[ix] = gd.integrate(psit1_g * dpsit_g)
-                            rho_G[0] = -1j * np.dot(self.qq_v, tmp)
-
-                        # PAW correction
-                        if self.calc.wfs.world.size > 1 or self.nkpt == 1:
+                    psit1_g = psit1new_g.conj() * self.expqr_g
+    
+                    for m in range(self.nbands):
+                        if self.nbands > 1000 and m % 200 == 0:
+                            print >> self.txt, '    ', k, n, m, time() - t0
+    		    
+                        check_focc = (f_skn[spin][ibzkpt1, n] - f_skn[spin][ibzkpt2, m]) > self.ftol
+    
+                        if not self.pwmode:
+                            psitold_g = self.get_wavefunction(ibzkpt2, m, check_focc, spin=spin)
+    
+                        if check_focc:                            
+                            if self.pwmode:
+                                u = self.kd.get_rank_and_index(spin, ibzkpt2)[1]
+                                psitold_g = calc.wfs._get_wave_function_array(u, m, realspace=True, phase=eikr2_R)
+    
+                            psit2_g_tmp = kd.transform_wave_function(psitold_g, kq_k[k], index2_g, phase2_g)
+    
+                            if (self.rpad > 1).any() or (self.pbc - True).any():
+                                psit2_g = self.pad(psit2_g_tmp)
+                            else:
+                                psit2_g = psit2_g_tmp
+    
+                            # fft
+                            fft_R[:] = psit2_g * psit1_g
+                            fftplan.execute()
+                            fft_G *= self.vol / self.nG0
+    #                        tmp_g = np.fft.fftn(psit2_g*psit1_g) * self.vol / self.nG0
+    
+                            rho_G = fft_G.ravel()[self.Gindex_G]
+    
+                            if self.optical_limit:
+                                phase_cd = np.exp(2j * pi * sdisp_cd * bzk_kc[kq_k[k], :, np.newaxis])
+                                for ix in range(3):
+                                    d_c[ix](psit2_g, dpsit_g, phase_cd)
+                                    tmp[ix] = gd.integrate(psit1_g * dpsit_g)
+                                rho_G[0] = -1j * np.dot(self.qq_v, tmp)
+    
+                            # PAW correction
                             P2_ai = pt.dict()
                             pt.integrate(psit2_g, P2_ai, kq_k[k])
-                        else:
-                            P2_ai = self.get_P_ai(kq_k[k], m, spin)
-
-                        for a, id in enumerate(calc.wfs.setups.id_a):
-                            P_p = np.outer(P1_ai[a].conj(), P2_ai[a]).ravel()
-                            gemv(1.0, self.phi_aGp[a], P_p, 1.0, rho_G)
-
-                        if self.optical_limit:
-                            if np.abs(self.enoshift_kn[ibzkpt2, m] - self.enoshift_kn[ibzkpt1, n]) > 0.1/Hartree:
-                                rho_G[0] /= self.enoshift_kn[ibzkpt2, m] - self.enoshift_kn[ibzkpt1, n]
-                            else:
-                                rho_G[0] = 0.
-
-                        if k_pad:
-                            rho_G[:] = 0.
-
-                        if not self.hilbert_trans:
-                            if not use_zher:
-                                rho_GG = np.outer(rho_G, rho_G.conj())
-                            for iw in range(self.Nw_local):
-                                w = self.w_w[iw + self.wstart] / Hartree
-                                coef = ( 1. / (w + e_kn[ibzkpt1, n] - e_kn[ibzkpt2, m] + 1j * self.eta) 
-                                       - 1. / (w - e_kn[ibzkpt1, n] + e_kn[ibzkpt2, m] + 1j * self.eta) )
-                                C =  (f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]) * coef
-
-                                if use_zher:
-                                    czher(C.real, rho_G.conj(), chi0_wGG[iw])
+    
+                            for a, id in enumerate(calc.wfs.setups.id_a):
+                                P_p = np.outer(P1_ai[a].conj(), P2_ai[a]).ravel()
+                                gemv(1.0, self.phi_aGp[a], P_p, 1.0, rho_G)
+    
+                            if self.optical_limit:
+                                if np.abs(self.enoshift_skn[spin][ibzkpt2, m] -
+                                          self.enoshift_skn[spin][ibzkpt1, n]) > 0.1/Hartree:
+                                    rho_G[0] /= self.enoshift_skn[spin][ibzkpt2, m] \
+                                                - self.enoshift_skn[spin][ibzkpt1, n]
                                 else:
-                                    axpy(C, rho_GG, chi0_wGG[iw])
-
-                        else:
-                            rho_GG = np.outer(rho_G, rho_G.conj())
-                            focc = f_kn[ibzkpt1,n] - f_kn[ibzkpt2,m]
-                            w0 = e_kn[ibzkpt2,m] - e_kn[ibzkpt1,n]
-                            scal(focc, rho_GG)
-
-                            # calculate delta function
-                            w0_id = int(w0 / self.dw)
-                            if w0_id + 1 < self.NwS:
-                                # rely on the self.NwS_local is equal in each node!
-                                if self.wScomm.rank == w0_id // self.NwS_local:
-                                    alpha = (w0_id + 1 - w0/self.dw) / self.dw
-                                    axpy(alpha, rho_GG, specfunc_wGG[w0_id % self.NwS_local] )
-
-                                if self.wScomm.rank == (w0_id+1) // self.NwS_local:
-                                    alpha =  (w0 / self.dw - w0_id) / self.dw
-                                    axpy(alpha, rho_GG, specfunc_wGG[(w0_id+1) % self.NwS_local] )
-
-#                            deltaw = delta_function(w0, self.dw, self.NwS, self.sigma)
-#                            for wi in range(self.NwS_local):
-#                                if deltaw[wi + self.wS1] > 1e-8:
-#                                    specfunc_wGG[wi] += tmp_GG * deltaw[wi + self.wS1]
-                if self.nkpt == 1:
-                    if n == 0:
-                        dt = time() - t0
-                        totaltime = dt * self.nband_local
-                        self.printtxt('Finished n 0 in %f seconds, estimated %f seconds left.' %(dt, totaltime) )
-                    if rank == 0 and self.nband_local // 5 > 0:
-                        if n > 0 and n % (self.nband_local // 5) == 0:
+                                    rho_G[0] = 0.
+    
+                            if k_pad:
+                                rho_G[:] = 0.
+    
+                            if not self.hilbert_trans:
+                                if not use_zher:
+                                    rho_GG = np.outer(rho_G, rho_G.conj())
+                                for iw in range(self.Nw_local):
+                                    w = self.w_w[iw + self.wstart] / Hartree
+                                    coef = ( 1. / (w + e_skn[spin][ibzkpt1, n] - e_skn[spin][ibzkpt2, m]
+                                                   + 1j * self.eta) 
+                                           - 1. / (w - e_skn[spin][ibzkpt1, n] + e_skn[spin][ibzkpt2, m]
+                                                   + 1j * self.eta) )
+                                    C =  (f_skn[spin][ibzkpt1, n] - f_skn[spin][ibzkpt2, m]) * coef
+    
+                                    if use_zher:
+                                        czher(C.real, rho_G.conj(), chi0_wGG[iw])
+                                    else:
+                                        axpy(C, rho_GG, chi0_wGG[iw])
+    
+                            else:
+                                rho_GG = np.outer(rho_G, rho_G.conj())
+                                focc = f_skn[spin][ibzkpt1,n] - f_skn[spin][ibzkpt2,m]
+                                w0 = e_skn[spin][ibzkpt2,m] - e_skn[spin][ibzkpt1,n]
+                                scal(focc, rho_GG)
+    
+                                # calculate delta function
+                                w0_id = int(w0 / self.dw)
+                                if w0_id + 1 < self.NwS:
+                                    # rely on the self.NwS_local is equal in each node!
+                                    if self.wScomm.rank == w0_id // self.NwS_local:
+                                        alpha = (w0_id + 1 - w0/self.dw) / self.dw
+                                        axpy(alpha, rho_GG, specfunc_wGG[w0_id % self.NwS_local] )
+    
+                                    if self.wScomm.rank == (w0_id+1) // self.NwS_local:
+                                        alpha =  (w0 / self.dw - w0_id) / self.dw
+                                        axpy(alpha, rho_GG, specfunc_wGG[(w0_id+1) % self.NwS_local] )
+    
+    #                            deltaw = delta_function(w0, self.dw, self.NwS, self.sigma)
+    #                            for wi in range(self.NwS_local):
+    #                                if deltaw[wi + self.wS1] > 1e-8:
+    #                                    specfunc_wGG[wi] += tmp_GG * deltaw[wi + self.wS1]
+                    if self.nkpt == 1:
+                        if n == 0:
                             dt = time() - t0
-                            self.printtxt('Finished n %d in %f seconds, estimated %f seconds left.'%(n, dt, totaltime-dt))
-            if calc.wfs.world.size != 1:
-                self.kcomm.barrier()            
-            if k == 0:
-                dt = time() - t0
-                totaltime = dt * self.nkpt_local
-                self.printtxt('Finished k 0 in %f seconds, estimated %f seconds left.' %(dt, totaltime))
-                
-            if rank == 0 and self.nkpt_local // 5 > 0:            
-                if k > 0 and k % (self.nkpt_local // 5) == 0:
-                    dt =  time() - t0
-                    self.printtxt('Finished k %d in %f seconds, estimated %f seconds left.  '%(k, dt, totaltime - dt) )
+                            totaltime = dt * self.nband_local
+                            self.printtxt('Finished n 0 in %f seconds, estimated %f seconds left.' %(dt, totaltime) )
+                        if rank == 0 and self.nband_local // 5 > 0:
+                            if n > 0 and n % (self.nband_local // 5) == 0:
+                                dt = time() - t0
+                                self.printtxt('Finished n %d in %f seconds, estimated %f seconds left.'%(n, dt, totaltime-dt))
+                if calc.wfs.world.size != 1:
+                    self.kcomm.barrier()            
+                if k == 0:
+                    dt = time() - t0
+                    totaltime = dt * self.nkpt_local * self.nspins
+                    self.printtxt('Finished k 0 in %f seconds, estimated %f seconds left.' %(dt, totaltime))
+                    
+                if rank == 0 and self.nkpt_local // 5 > 0:            
+                    if k > 0 and k % (self.nkpt_local // 5) == 0:
+                        dt =  time() - t0
+                        self.printtxt('Finished k %d in %f seconds, estimated %f seconds left.  '%(k, dt, totaltime - dt) )
         self.printtxt('Finished summation over k')
 
         self.kcomm.barrier()

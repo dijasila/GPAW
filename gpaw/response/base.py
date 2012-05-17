@@ -56,6 +56,13 @@ class BASECHI:
             # calc = GPAW(filename.gpw, communicator=ranks, txt=None)
             self.calc = calc
 
+        if self.calc.wfs.world.size == 1 and self.calc.input_parameters['mode'] != 'lcao':
+            for kpt in self.calc.wfs.kpt_u:
+                try:
+                    del kpt.P_ani
+                except:
+                    pass
+
         self.nbands = nbands
         self.q_c = q
 
@@ -75,7 +82,7 @@ class BASECHI:
         self.eshift = eshift
 
 
-    def initialize(self, spin=0):
+    def initialize(self):
                         
         self.eta /= Hartree
         self.ecut /= Hartree
@@ -113,18 +120,24 @@ class BASECHI:
         kweight_k = kd.weight_k
 
         try:
-            self.e_kn
+            self.e_skn
             self.printtxt('Use eigenvalues from user.')
         except:
             self.printtxt('Use eigenvalues from the calculator.')
-            self.e_kn = np.array([calc.get_eigenvalues(kpt=k, spin=spin)
-                    for k in range(nibzkpt)]) / Hartree
+            self.e_skn = {}
+            self.f_skn = {}
+            for ispin in range(self.nspins):
+                self.e_skn[ispin] = np.array([calc.get_eigenvalues(kpt=k, spin=ispin)
+                                              for k in range(nibzkpt)]) / Hartree
+                self.f_skn[ispin] = np.array([calc.get_occupation_numbers(kpt=k, spin=ispin)
+                                              / kweight_k[k]
+                                              for k in range(nibzkpt)]) / self.nkpt
             self.printtxt('Eigenvalues(k=0) are:')
-            print  >> self.txt, self.e_kn[0] * Hartree
-        self.f_kn = np.array([calc.get_occupation_numbers(kpt=k, spin=spin) / kweight_k[k]
-                    for k in range(nibzkpt)]) / self.nkpt
+            print  >> self.txt, self.e_skn[0][0] * Hartree
 
-        self.enoshift_kn = self.e_kn.copy()
+        self.enoshift_skn = {}
+        for ispin in range(self.nspins):
+            self.enoshift_skn[ispin] = self.e_skn[ispin].copy()
         if self.eshift is not None:
             self.add_discontinuity(self.eshift)
 
@@ -357,10 +370,11 @@ class BASECHI:
     def add_discontinuity(self, shift):
 
         eFermi = self.calc.occupations.get_fermi_level()
-        for i in range(self.e_kn.shape[1]):
-            for k in range(self.e_kn.shape[0]):
-                if self.e_kn[k,i] > eFermi:
-                    self.e_kn[k,i] += shift / Hartree
+        for ispin in range(self.nspins):
+            for k in range(self.kd.nibzkpts):
+                for i in range(self.e_skn[0].shape[1]):
+                    if self.e_skn[ispin][k,i] > eFermi:
+                        self.e_skn[ispin][k,i] += shift / Hartree
 
         return
 
@@ -430,15 +444,11 @@ class BASECHI:
                     tmp[ix] = gd.integrate(psit1_g.conj() * dpsit_g)
                 rho_G[0] = -1j * np.dot(q_v, tmp)
 
-            if self.calc.wfs.world.size > 1:
-                pt = self.pt
-                P1_ai = pt.dict()
-                pt.integrate(psit1_g, P1_ai, k)
-                P2_ai = pt.dict()
-                pt.integrate(psit2_g, P2_ai, kq)
-            else:
-                P1_ai = self.get_P_ai(k, n, spin)
-                P2_ai = self.get_P_ai(kq,m, spin)
+            pt = self.pt
+            P1_ai = pt.dict()
+            pt.integrate(psit1_g, P1_ai, k)
+            P2_ai = pt.dict()
+            pt.integrate(psit2_g, P2_ai, kq)
 
             if phi_aGp is None:
                 try:
@@ -461,10 +471,10 @@ class BASECHI:
             if optical_limit:
                 if n==m:
                     rho_G[0] = 1.
-                elif np.abs(self.e_kn[ibzkpt2, m] - self.e_kn[ibzkpt1, n]) < 1e-5:
+                elif np.abs(self.e_skn[spin][ibzkpt2, m] - self.e_skn[spin][ibzkpt1, n]) < 1e-5:
                     rho_G[0] = 0.
                 else:
-                    rho_G[0] /= (self.enoshift_kn[ibzkpt2, m] - self.enoshift_kn[ibzkpt1, n])
+                    rho_G[0] /= (self.enoshift_skn[spin][ibzkpt2, m] - self.enoshift_skn[spin][ibzkpt1, n])
 
             return rho_G
 

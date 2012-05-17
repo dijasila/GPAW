@@ -72,18 +72,6 @@ class DF(CHI):
             for iw in range(self.Nw_local):
                 dm_wGG[iw] = tmp_GG - self.Kc_GG * A_wGG[iw]                
 
-        if self.nspins == 2:
-            del self.e_kn
-            self.ecut *= Hartree
-            self.eta *= Hartree
-            if self.hilbert_trans:
-                self.w_w *= Hartree
-            self.initialize(spin=1)
-            self.calculate(spin=1)
-
-            for iw in range(self.Nw_local):
-                dm_wGG[iw] -= self.Kc_GG * self.chi0_wGG[iw]
-        
         return dm_wGG
 
 
@@ -367,12 +355,12 @@ class DF(CHI):
         self.comm.barrier()
 
 
-    def get_jdos(self, f_kn, e_kn, kd, kq, dw, Nw, sigma):
+    def get_jdos(self, f_skn, e_skn, kd, kq, dw, Nw, sigma):
         """Calculate Joint density of states"""
 
         JDOS_w = np.zeros(Nw)
         nkpt = kd.nbzkpts
-        nbands = f_kn.shape[1]
+        nbands = f_skn[0].shape[1]
 
         for k in range(nkpt):
             print k
@@ -380,8 +368,8 @@ class DF(CHI):
             ibzkpt2 = kd.bz2ibz_k[kq[k]]
             for n in range(nbands):
                 for m in range(nbands):
-                    focc = f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]
-                    w0 = e_kn[ibzkpt2, m] - e_kn[ibzkpt1, n]
+                    focc = f_skn[0][ibzkpt1, n] - f_skn[0][ibzkpt2, m]
+                    w0 = e_skn[0][ibzkpt2, m] - e_skn[0][ibzkpt1, n]
                     if focc > 0 and w0 >= 0:
                         w0_id = int(w0 / dw)
                         if w0_id + 1 < Nw:
@@ -713,8 +701,8 @@ class DF(CHI):
                 'nvalence'     : self.nvalence,                
                 'hilbert_trans' : self.hilbert_trans,
                 'optical_limit' : self.optical_limit,
-                'e_kn'         : self.e_kn,          # * Hartree,
-                'f_kn'         : self.f_kn,          # * self.nkpt,
+                'e_skn'         : self.e_skn,          # * Hartree,
+                'f_skn'         : self.f_skn,          # * self.nkpt,
                 'bzk_kc'       : self.bzk_kc,
                 'ibzk_kc'      : self.ibzk_kc,
                 'kq_k'         : self.kq_k,
@@ -763,8 +751,8 @@ class DF(CHI):
         
         self.hilbert_trans = data['hilbert_trans']
         self.optical_limit = data['optical_limit']
-        self.e_kn  = data['e_kn']
-        self.f_kn  = data['f_kn']
+        self.e_skn  = data['e_skn']
+        self.f_skn  = data['f_skn']
         self.nvalence= data['nvalence']
         self.bzk_kc  = data['bzk_kc']
         self.ibzk_kc = data['ibzk_kc']

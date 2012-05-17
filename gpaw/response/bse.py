@@ -57,6 +57,7 @@ class BSE(BASECHI):
         self.printtxt(ctime())
 
         BASECHI.initialize(self)
+        assert self.nspins == 1
         
         calc = self.calc
         self.kd = kd = calc.wfs.kd
@@ -99,13 +100,13 @@ class BSE(BASECHI):
             ibzkpt2 = kd.bz2ibz_k[kq_k[k1]]
             for n1 in range(self.nv[0], self.nv[1]): 
                 for m1 in range(self.nc[0], self.nc[1]): 
-                    focc = self.f_kn[ibzkpt1,n1] - self.f_kn[ibzkpt2,m1]
+                    focc = self.f_skn[0][ibzkpt1,n1] - self.f_skn[0][ibzkpt2,m1]
                     if not self.positive_w: # Dont use Tamm-Dancoff Approx.
                         check_ftol = np.abs(focc) > self.ftol
                     else:
                         check_ftol = focc > self.ftol
                     if check_ftol:           
-                        self.e_S[iS] =self.e_kn[ibzkpt2,m1] - self.e_kn[ibzkpt1,n1]
+                        self.e_S[iS] =self.e_skn[0][ibzkpt2,m1] - self.e_skn[0][ibzkpt1,n1]
                         focc_s[iS] = focc
                         self.Sindex_S3[iS] = (k1, n1, m1)
                         iS += 1
@@ -158,8 +159,8 @@ class BSE(BASECHI):
     def calculate(self):
 
         calc = self.calc
-        f_kn = self.f_kn
-        e_kn = self.e_kn
+        f_skn = self.f_skn
+        e_skn = self.e_skn
         ibzk_kc = self.ibzk_kc
         bzk_kc = self.bzk_kc
         kq_k = self.kq_k
