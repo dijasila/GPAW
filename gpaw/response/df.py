@@ -55,13 +55,13 @@ class DF(CHI):
             pass  # read from file and re-initializing .... need to be implemented
         
         tmp_GG = np.eye(self.npw, self.npw)
-        dm_wGG = np.zeros((self.Nw_local, self.npw, self.npw), dtype = complex)
+        dm_wGG = self.chi0_wGG
         if xc == 'RPA':
             self.printtxt('Use RPA.')
             for iw in range(self.Nw_local):
-                dm_wGG[iw] = tmp_GG - self.Kc_GG * self.chi0_wGG[iw]
+                dmtmp_GG = tmp_GG - self.Kc_GG * self.chi0_wGG[iw]
+                dm_wGG[iw,:,:] = dmtmp_GG[:,:]
         elif xc == 'ALDA':
-            
             self.printtxt('Use ALDA kernel.')
             # E_LDA = 1 - v_c chi0 (1-fxc chi0)^-1
             # http://prb.aps.org/pdf/PRB/v33/i10/p7017_1 eq. 4

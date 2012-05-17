@@ -259,7 +259,7 @@ class CHI(BASECHI):
                 index1_g, phase1_g = kd.get_transform_wavefunction_index(self.nG, k)
                 index2_g, phase2_g = kd.get_transform_wavefunction_index(self.nG, kq_k[k])
     
-                for n in range(self.nstart, self.nend):
+                for n in range(self.nvalbands):
                     if self.calc.wfs.world.size == 1:
                         if (self.f_skn[spin][ibzkpt1, n] - self.ftol < 0):
                             continue
@@ -283,7 +283,7 @@ class CHI(BASECHI):
                     pt.integrate(psit1new_g, P1_ai, k)
                     psit1_g = psit1new_g.conj() * self.expqr_g
     
-                    for m in range(self.nbands):
+                    for m in range(self.mstart, self.mend):
                         if self.nbands > 1000 and m % 200 == 0:
                             print >> self.txt, '    ', k, n, m, time() - t0
     		    
@@ -379,10 +379,10 @@ class CHI(BASECHI):
                     if self.nkpt == 1:
                         if n == 0:
                             dt = time() - t0
-                            totaltime = dt * self.nband_local
+                            totaltime = dt * self.nvalbands * self.nspins
                             self.printtxt('Finished n 0 in %f seconds, estimated %f seconds left.' %(dt, totaltime) )
-                        if rank == 0 and self.nband_local // 5 > 0:
-                            if n > 0 and n % (self.nband_local // 5) == 0:
+                        if rank == 0 and self.nvalbands // 5 > 0:
+                            if n > 0 and n % (self.nvalbands // 5) == 0:
                                 dt = time() - t0
                                 self.printtxt('Finished n %d in %f seconds, estimated %f seconds left.'%(n, dt, totaltime-dt))
                 if calc.wfs.world.size != 1:
@@ -399,11 +399,11 @@ class CHI(BASECHI):
         self.printtxt('Finished summation over k')
 
         self.kcomm.barrier()
-        if self.hilbert_trans:
-            del rho_GG, rho_G
+
         # Hilbert Transform
         if not self.hilbert_trans:
-            self.kcomm.sum(chi0_wGG)
+            for iw in range(self.Nw_local):
+                self.kcomm.sum(chi0_wGG[iw])
             if use_zher:
                 assert (np.abs(chi0_wGG[0,1:,0]) < 1e-10).all()
                 for iw in range(self.Nw_local):
@@ -412,7 +412,8 @@ class CHI(BASECHI):
                         chi0_wGG[iw, iG, iG] /= 2.
                         assert np.abs(np.imag(chi0_wGG[iw, iG, iG])) < 1e-10 
         else:
-            self.kcomm.sum(specfunc_wGG)
+            for iw in range(self.NwS_local):
+                self.kcomm.sum(specfunc_wGG[iw])
             if self.wScomm.size == 1:
                 chi0_wGG = hilbert_transform(specfunc_wGG, self.w_w, self.Nw, self.dw, self.eta,
                                              self.full_hilbert_trans)[self.wstart:self.wend]
@@ -499,21 +500,21 @@ class CHI(BASECHI):
 
         self.kcomm, self.wScomm, self.wcomm = set_communicator(world, rank, size, self.kcommsize)
 
-        if self.nkpt != 1:
+        if self.nkpt >= world.size:
             self.nkpt_reshape = self.nkpt
             self.nkpt_reshape, self.nkpt_local, self.kstart, self.kend = parallel_partition(
                                self.nkpt_reshape, self.kcomm.rank, self.kcomm.size, reshape=True, positive=True)
-            self.nband_local = self.nvalbands
-            self.nstart = 0
-            self.nend = self.nvalbands
+            self.mband_local = self.nvalbands
+            self.mstart = 0
+            self.mend = self.nbands
         else:
             # if number of kpoints == 1, use band parallelization
             self.nkpt_local = 1
             self.kstart = 0
             self.kend = 1
 
-            self.nvalbands, self.nband_local, self.nstart, self.nend = parallel_partition(
-                               self.nvalbands, self.kcomm.rank, self.kcomm.size, reshape=False)
+            self.nbands, self.mband_local, self.mstart, self.mend = parallel_partition(
+                               self.nbands, self.kcomm.rank, self.kcomm.size, reshape=False)
 
         if self.NwS % size != 0:
             self.NwS -= self.NwS % size
