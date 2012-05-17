@@ -447,7 +447,8 @@ class CHI(BASECHI):
                 self.comm.barrier()
                 del chi0_Wg
         
-        self.chi0_wGG = chi0_wGG / self.vol
+        self.chi0_wGG = chi0_wGG
+        self.chi0_wGG /= self.vol
 
         if self.smooth_cut is not None:
             for iw in range(self.Nw_local):
