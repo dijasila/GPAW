@@ -510,9 +510,10 @@ class CHI(BASECHI):
             self.mend = self.nbands
         else:
             # if number of kpoints == 1, use band parallelization
-            self.nkpt_local = 1
+            self.nkpt_local = self.nkpt
             self.kstart = 0
-            self.kend = 1
+            self.kend = self.nkpt
+            self.nkpt_reshape = self.nkpt
 
             self.nbands, self.mband_local, self.mstart, self.mend = parallel_partition(
                                self.nbands, self.kcomm.rank, self.kcomm.size, reshape=False)
