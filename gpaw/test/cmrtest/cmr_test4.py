@@ -9,10 +9,7 @@
 import os
 import cmr
 from ase import Atom, Atoms
-import gpaw.io
-from gpaw import GPAW
-from gpaw.test import equal
-from gpaw.mpi import world, rank
+from ase.calculators.emt import EMT
 
 import warnings
 # cmr calls all available methods in ase.atoms detected by the module inspect.
@@ -29,15 +26,20 @@ bulk = Atoms([Atom('Al', (0, 0, 0)),
              pbc=True)
 bulk.set_cell((d, d, a), scale_atoms=True)
 h = 0.3
-calc = GPAW(h=h,
-            nbands=2 * 8,
-            kpts=(2, 2, 2),
-            convergence={'energy': 1e-5})
-bulk.set_calculator(calc)
+
+bulk.set_calculator(EMT())
 e0 = bulk.get_potential_energy()
-calc.write("cmr_test3.gpw")
+bulk.write("cmr_test4.traj")
+bulk.write("cmr_test4a.cmr")
 
-cmr.convert({"input":"cmr_test3.gpw", "output":"cmr_test3.cmr"})
+cmr.convert({"input":"cmr_test4.traj", "output":"cmr_test4.cmr"})
 
-data = cmr.read("cmr_test3.cmr")
+data = cmr.read("cmr_test4.cmr")
 data.dump()
+
+group = cmr.create_group()
+group.add(data)
+group.write("cmr_group4.cmr")
+
+g = cmr.read("cmr_group4.cmr")
+g.dump_all()

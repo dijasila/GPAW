@@ -202,6 +202,7 @@ class Writer:
             # for compatibility with older CMR versions:
             self.data.write(self.cmr_params)
         cmr.runtime.pause_ase_barriers(False)
+        return [self.data.get_hash()]
 
 
 class Reader:

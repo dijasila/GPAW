@@ -10,6 +10,10 @@ warnings.filterwarnings('ignore', 'ase.atoms.*deprecated',)
 
 import cmr
 
+# from cmr.tools.log import Log
+# cmr.logger.set_message_selection(Log.MSG_TYPE_ALL)
+
+
 a = 4.05
 d = a / 2 ** 0.5
 bulk = Atoms([Atom('Al', (0, 0, 0)),

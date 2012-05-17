@@ -291,10 +291,11 @@ tests = [
 
 try:
     import cmr
-    tests.append('cmrtest/Li2_atomize.py')
-    tests.append('cmrtest/cmr_append.py')
     tests.append('cmrtest/cmr_test.py')
     tests.append('cmrtest/cmr_test3.py')
+    tests.append('cmrtest/cmr_test4.py')
+    tests.append('cmrtest/cmr_append.py')
+    tests.append('cmrtest/Li2_atomize.py')
 except:
     pass
 

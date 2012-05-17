@@ -85,7 +85,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     cmr_params specifies the parameters that should be used for CMR.
     (Computational Materials Repository)
 
-    Please note: mode argument is ignored by for CMR.
+    Please note: mode argument is ignored by CMR.
     """
 
     timer = paw.timer
