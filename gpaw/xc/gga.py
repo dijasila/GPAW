@@ -241,7 +241,8 @@ def gga_x(name, spin, n, a2, kappa, mu):
         Fx = 1.0 + kappa - kappa / x
         dFxds2 = mu / (x ** 2.)
     elif name == 'RPBE':
-        x = np.exp(-mu * s2 / kappa)
+        arg = np.maximum(-mu * s2 / kappa, -5.e2)
+        x = np.exp(arg)
         Fx = 1.0 + kappa * (1.0 - x)
         dFxds2 = mu * x
 
