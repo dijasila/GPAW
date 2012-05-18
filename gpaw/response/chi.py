@@ -11,7 +11,7 @@ from gpaw.mpi import world, rank, size, serial_comm
 from gpaw.fd_operators import Gradient
 from gpaw.response.math_func import hilbert_transform
 from gpaw.response.parallel import set_communicator, \
-     parallel_partition, SliceAlongFrequency, SliceAlongOrbitals
+     parallel_partition, parallel_partition_list, SliceAlongFrequency, SliceAlongOrbitals
 from gpaw.response.kernel import calculate_Kxc, calculate_Kc
 from gpaw.utilities.memory import maxrss
 from gpaw.response.base import BASECHI
@@ -283,7 +283,7 @@ class CHI(BASECHI):
                     pt.integrate(psit1new_g, P1_ai, k)
                     psit1_g = psit1new_g.conj() * self.expqr_g
     
-                    for m in range(self.mstart, self.mend):
+                    for m in self.mlist:
                         if self.nbands > 1000 and m % 200 == 0:
                             print >> self.txt, '    ', k, n, m, time() - t0
     		    
@@ -506,8 +506,7 @@ class CHI(BASECHI):
             self.nkpt_reshape, self.nkpt_local, self.kstart, self.kend = parallel_partition(
                                self.nkpt_reshape, self.kcomm.rank, self.kcomm.size, reshape=True, positive=True)
             self.mband_local = self.nvalbands
-            self.mstart = 0
-            self.mend = self.nbands
+            self.mlist = np.arange(self.nbands)
         else:
             # if number of kpoints == 1, use band parallelization
             self.nkpt_local = self.nkpt
@@ -515,8 +514,8 @@ class CHI(BASECHI):
             self.kend = self.nkpt
             self.nkpt_reshape = self.nkpt
 
-            self.nbands, self.mband_local, self.mstart, self.mend = parallel_partition(
-                               self.nbands, self.kcomm.rank, self.kcomm.size, reshape=False)
+            self.nbands, self.mband_local, self.mlist = parallel_partition_list(
+                               self.nbands, self.kcomm.rank, self.kcomm.size)
 
         if self.NwS % size != 0:
             self.NwS -= self.NwS % size

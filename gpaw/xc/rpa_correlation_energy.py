@@ -7,7 +7,8 @@ from gpaw.response.df import DF
 from gpaw.utilities import devnull
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.mpi import rank, size, world
-from gpaw.response.parallel import parallel_partition, set_communicator
+from gpaw.response.parallel import parallel_partition, \
+     parallel_partition_list, set_communicator
 from scipy.special.orthogonal import p_roots
 
 class RPACorrelation:
@@ -150,14 +151,13 @@ class RPACorrelation:
                                                   world.rank,
                                                   world.size,
                                                   kcommsize=dfcommsize)[:2]
-            nq, nq_local, q_start, q_end = parallel_partition(nq,
+            nq, nq_local, qlist_local = parallel_partition_list(nq,
                                                               qcomm.rank,
-                                                              qcomm.size,
-                                                              reshape=False)
+                                                              qcomm.size)
     
             E_q = np.zeros(nq)
             
-            for iq in range(q_start, q_end):
+            for iq in qlist_local:
                 try:
                     ff = open('E_q_%s_%s.dat' %(self.tag,iq), 'r')
                     E_q[iq] = ff.readline().split()[-2]
