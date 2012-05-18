@@ -2,7 +2,6 @@ import sys
 from time import time, ctime
 import numpy as np
 import gpaw.fftw as fftw
-import gpaw.wavefunctions.pw as pw
 from math import sqrt, pi
 from ase.units import Hartree, Bohr
 from gpaw import extra_parameters
@@ -120,7 +119,8 @@ class CHI(BASECHI):
                 if (self.f_skn[spin][:, n] - self.ftol < 0).all():
                     tmpn[spin] = n
                     break
-        self.nvalbands = tmpn.max()
+        if tmpn.max() > 0:
+            self.nvalbands = tmpn.max()
 
         # Parallelization initialize
         self.parallel_init()
@@ -132,10 +132,6 @@ class CHI(BASECHI):
             raise SystemExit
 
         calc = self.calc
-
-        self.pwmode = isinstance(calc.input_parameters['mode'], pw.PW)
-        if self.pwmode:
-            assert self.calc.wfs.world.size == 1
 
         # For LCAO wfs
         if calc.input_parameters['mode'] == 'lcao':
@@ -279,8 +275,19 @@ class CHI(BASECHI):
                         psit1new_g = psit1new_g_tmp
     
                     # PAW part
-                    P1_ai = pt.dict()
-                    pt.integrate(psit1new_g, P1_ai, k)
+                    if not self.pwmode:
+                        if (calc.wfs.world.size > 1 or self.nkpt==1):
+                            P1_ai = pt.dict()
+                            pt.integrate(psit1new_g, P1_ai, k)
+                        else:
+                            P1_ai = self.get_P_ai(k,n,spin)
+                    else:
+                        # first calculate P_ai at ibzkpt, then rotate to k
+                        Ptmp_ai = pt.dict()
+                        kpt = calc.wfs.kpt_u[u]
+                        pt.integrate(kpt.psit_nG[n], Ptmp_ai, ibzkpt1)
+                        P1_ai = self.get_P_ai(k,n,spin,Ptmp_ai)
+                    
                     psit1_g = psit1new_g.conj() * self.expqr_g
     
                     for m in self.mlist:
@@ -320,9 +327,18 @@ class CHI(BASECHI):
                                 rho_G[0] = -1j * np.dot(self.qq_v, tmp)
     
                             # PAW correction
-                            P2_ai = pt.dict()
-                            pt.integrate(psit2_g, P2_ai, kq_k[k])
-    
+                            if not self.pwmode:
+                                if (calc.wfs.world.size > 1 or self.nkpt==1):
+                                    P2_ai = pt.dict()
+                                    pt.integrate(psit2_g, P2_ai, kq_k[k])
+                                else:
+                                    P2_ai = self.get_P_ai(kq_k[k],m,spin)                                    
+                            else:
+                                Ptmp_ai = pt.dict()
+                                kpt = calc.wfs.kpt_u[u]
+                                pt.integrate(kpt.psit_nG[m], Ptmp_ai, ibzkpt2)
+                                P2_ai = self.get_P_ai(kq_k[k],m,spin,Ptmp_ai)
+
                             for a, id in enumerate(calc.wfs.setups.id_a):
                                 P_p = np.outer(P1_ai[a].conj(), P2_ai[a]).ravel()
                                 gemv(1.0, self.phi_aGp[a], P_p, 1.0, rho_G)

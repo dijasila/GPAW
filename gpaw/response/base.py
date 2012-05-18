@@ -18,7 +18,8 @@ from gpaw.response.parallel import set_communicator, \
      parallel_partition, SliceAlongFrequency, SliceAlongOrbitals
 from gpaw.response.kernel import calculate_Kxc
 from gpaw.kpt_descriptor import KPointDescriptor
-
+from gpaw.wavefunctions.pw import PWLFC, PWDescriptor
+import gpaw.wavefunctions.pw as pw
 
 class BASECHI:
     """This class is to store the basic common stuff for chi and bse."""
@@ -56,12 +57,12 @@ class BASECHI:
             # calc = GPAW(filename.gpw, communicator=ranks, txt=None)
             self.calc = calc
 
-        if self.calc.wfs.world.size == 1 and self.calc.input_parameters['mode'] != 'lcao':
+        self.pwmode = isinstance(self.calc.input_parameters['mode'], pw.PW)
+        if self.pwmode:
+            assert self.calc.wfs.world.size == 1
+#            if self.calc.wfs.world.size == 1 and self.calc.input_parameters['mode'] != 'lcao':
             for kpt in self.calc.wfs.kpt_u:
-                try:
-                    del kpt.P_ani
-                except:
-                    pass
+                kpt.P_ani = None
 
         self.nbands = nbands
         self.q_c = q
@@ -180,12 +181,16 @@ class BASECHI:
 
         # Projectors init
         setups = calc.wfs.setups
-        pt = LFC(gd, [setup.pt_j for setup in setups],
-                 KPointDescriptor(self.bzk_kc),
-                 dtype=complex, forces=True)
         self.spos_ac = calc.atoms.get_scaled_positions()
-        pt.set_positions(self.spos_ac)
-        self.pt = pt
+
+        if self.pwmode:
+            self.pt = PWLFC([setup.pt_j for setup in setups], self.calc.wfs.pd)
+            self.pt.set_positions(self.spos_ac)
+        else:
+            self.pt = LFC(gd, [setup.pt_j for setup in setups],
+                          KPointDescriptor(self.bzk_kc),
+                          dtype=complex, forces=True)
+            self.pt.set_positions(self.spos_ac)
 
         # Printing calculation information
         self.print_stuff()
@@ -478,7 +483,7 @@ class BASECHI:
 
             return rho_G
 
-    def get_P_ai(self, k, n, spin=0):
+    def get_P_ai(self, k, n, spin=0, Ptmp_ai=None):
 
         kd = self.kd
         calc = self.calc
@@ -497,7 +502,10 @@ class BASECHI:
             k_c = kd.ibzk_kc[kpt.k]
         
             x = np.exp(2j * pi * np.dot(k_c, S_c))
-            P_i = np.dot(calc.wfs.setups[a].R_sii[s], kpt.P_ani[b][n]) * x
+            if Ptmp_ai is None:
+                P_i = np.dot(calc.wfs.setups[a].R_sii[s], kpt.P_ani[b][n]) * x
+            else:
+                P_i = np.dot(calc.wfs.setups[a].R_sii[s], Ptmp_ai[b]) * x
             if time_reversal:
                 P_i = P_i.conj()
             P_ai[a] = P_i
