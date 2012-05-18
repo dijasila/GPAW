@@ -105,7 +105,7 @@ tests = [
     'pw/slab.py',
     'pw/fulldiag.py',
     'pw/fulldiagk.py',
-#    'lcao_pair_and_coulomb.py',
+    'lcao_pair_and_coulomb.py',
     'coulomb.py',
     'timing.py',
     'maxrss.py',
