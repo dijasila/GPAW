@@ -285,7 +285,7 @@ class RPACorrelation:
                   % (q[0],q[1],q[2]), '%s planewaves' % npw
 
         e_wGG = df.get_dielectric_matrix(xc='RPA')
-        del df.chi0_wGG, df.Kc_GG
+        df.chi0_wGG = None
         Nw_local = len(e_wGG)
         local_E_q_w = np.zeros(Nw_local, dtype=complex)
         E_q_w = np.empty(len(self.w), complex)

@@ -54,17 +54,26 @@ class DF(CHI):
         else:
             pass  # read from file and re-initializing .... need to be implemented
         
-        tmp_GG = np.eye(self.npw, self.npw)
         dm_wGG = self.chi0_wGG
         if xc == 'RPA':
+            Kc_G = np.zeros(self.npw)
+            for iG in range(self.npw):
+                qG = np.dot(self.q_c + self.Gvec_Gc[iG], self.bcell_cv)
+                Kc_G[iG] = 1. / np.sqrt(np.dot(qG, qG))
+            Kc_G *= np.sqrt(4 * pi)
+
             self.printtxt('Use RPA.')
             for iw in range(self.Nw_local):
-                dmtmp_GG = tmp_GG - self.Kc_GG * self.chi0_wGG[iw]
-                dm_wGG[iw,:,:] = dmtmp_GG[:,:]
+                for iG in range(self.npw):
+                    dmtmp_G = - Kc_G[iG] * Kc_G[:] * self.chi0_wGG[iw,iG,:]
+                    dmtmp_G[iG] += 1
+                    dm_wGG[iw,iG,:] = dmtmp_G[:]
+
         elif xc == 'ALDA':
             self.printtxt('Use ALDA kernel.')
             # E_LDA = 1 - v_c chi0 (1-fxc chi0)^-1
             # http://prb.aps.org/pdf/PRB/v33/i10/p7017_1 eq. 4
+            tmp_GG = np.eye(self.npw, self.npw)
             A_wGG = self.chi0_wGG.copy()
             for iw in range(self.Nw_local):
                 A_wGG[iw] = np.dot(self.chi0_wGG[iw], np.linalg.inv(tmp_GG - np.dot(self.Kxc_sGG[0], self.chi0_wGG[iw])))

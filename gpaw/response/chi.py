@@ -146,16 +146,15 @@ class CHI(BASECHI):
         self.phi_aGp = self.get_phi_aGp()
         self.printtxt('Finished phi_aGp !')
 
-        # Calculate Coulomb kernel
-        self.Kc_GG = calculate_Kc(self.q_c, self.Gvec_Gc, self.acell_cv,
-                                  self.bcell_cv, self.calc.atoms.pbc, self.optical_limit, self.vcut)
-            
         # Calculate ALDA kernel (not used in chi0)
         R_av = calc.atoms.positions / Bohr
         if self.xc == 'RPA': #type(self.w_w[0]) is float:
-            self.Kxc_sGG = np.zeros((self.nspins, self.npw, self.npw))
+            self.Kc_GG = None
             self.printtxt('RPA calculation.')
         elif self.xc == 'ALDA' or self.xc == 'ALDA_X':
+            self.Kc_GG = calculate_Kc(self.q_c, self.Gvec_Gc, self.acell_cv,
+                                  self.bcell_cv, self.calc.atoms.pbc, self.optical_limit, self.vcut)
+
             nt_sg = calc.density.nt_sG
             if (self.rpad > 1).any() or (self.pbc - True).any():
                 nt_sG = np.zeros([self.nspins, self.nG[0], self.nG[1], self.nG[2]])
@@ -176,10 +175,6 @@ class CHI(BASECHI):
                                          density_cut=self.density_cut)
             
             self.printtxt('Finished %s kernel ! ' % self.xc)
-
-
-#        else:
-#            raise ValueError('%s Not implemented !' %(self.xc))
                 
         return
 

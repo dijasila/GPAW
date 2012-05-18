@@ -546,9 +546,16 @@ class BASECHI:
             assert df.Nw == self.Nw
             assert df.dw == self.dw
 
+        if df.Kc_GG is None:
+            from gpaw.response.kernel import calculate_Kc
+            Kc_GG = calculate_Kc(df.q_c, df.Gvec_Gc, df.acell_cv,
+                                  df.bcell_cv, df.calc.atoms.pbc, df.optical_limit, df.vcut)
+        else:
+            Kc_GG = df.Kc_gG
+
         if static:
             assert len(dfinv_wGG) == 1
-            W_GG = dfinv_wGG[0] * df.Kc_GG
+            W_GG = dfinv_wGG[0] * Kc_GG
             self.dfinv_wGG = dfinv_wGG[0]
             if optical_limit:
                 self.dfinvG0_G = dfinv_wGG[0,:,0]
@@ -560,7 +567,7 @@ class BASECHI:
             tmp_GG = np.eye(df.npw, df.npw)
             for iw in range(Nw):
                 dfinv_wGG[iw] -= tmp_GG 
-                W_wGG[iw] = dfinv_wGG[iw] * df.Kc_GG
+                W_wGG[iw] = dfinv_wGG[iw] * Kc_GG
             if optical_limit:
                 self.dfinvG0_wG = dfinv_wGG[:,:,0]
 
