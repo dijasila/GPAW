@@ -89,5 +89,6 @@ all.print_table(column_length=0,
 
 equal(results['PBE'], e + ediff, 1e-6)
 
-for file in [formula + '.gpw', formula + '.db', cmrfile]:
-    if os.path.exists(file): os.unlink(file)
+if rank == 0:
+    for file in [formula + '.gpw', formula + '.db', cmrfile]:
+        if os.path.exists(file): os.unlink(file)
