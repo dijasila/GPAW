@@ -366,6 +366,20 @@ class GridDescriptor(Domain):
                 g_c[c] = min(g_c[c], self.end_c[c] - 1)
         return g_c - self.beg_c
 
+    def plane_wave(self, k_c):
+        """Evaluate plane wave on grid.
+
+        Returns::
+
+               _ _
+              ik.r
+             e    ,
+
+        where the wave vector is given by k_c (in units of reciprocal
+        lattice vectors)."""
+
+        N_c = self.N_c
+        return np.exp(2j * pi * np.dot(np.indices(N_c).T, k_c / N_c).T)
 
     def symmetrize(self, a_g, op_scc):
         if len(op_scc) == 1:
