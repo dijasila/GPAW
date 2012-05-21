@@ -62,6 +62,14 @@ class ExcitationList(list):
             string += '#  '+ex.__str__()+"\n"
         return string
         
+    def get_alpha(self, omega):
+        """Return the polarization tensor"""
+
+        alpha_cc = np.zeros((3,3))
+        for ex in self:
+            alpha_cc += ex.get_alpha(omega)
+        return alpha_cc
+
 class Excitation:
     def get_energy(self):
         """Get the excitations energy relative to the ground state energy
@@ -110,3 +118,14 @@ class Excitation:
         """Set the excitations energy relative to the ground state energy"""
         self.energy = E
     
+    def get_alpha(self, omega):
+        """Return the polarization tensor"""
+        me = self.me
+
+        alpha_cc = np.zeros((3,3))
+        for c1 in range(3):
+            for c2 in range(c1, 3):
+                alpha_cc[c1, c2] = alpha_cc[c2, c1] = me[c1] * me[c2]
+                
+        return 2 * self.energy / (self.energy**2 - omega**2) * alpha_cc
+
