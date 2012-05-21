@@ -105,6 +105,8 @@ class PWDescriptor:
             self.ngmin = kd.comm.min(self.ngmin)
             self.ngmax = kd.comm.max(self.ngmax)
             self.ngave = kd.comm.sum(self.ngave)
+            if kd.nspins == 2 and kd.comm.size > 1:
+                self.ngave /= 2
 
         self.n_c = np.array([self.ngmax])  # used by hs_operators.py XXX
 
