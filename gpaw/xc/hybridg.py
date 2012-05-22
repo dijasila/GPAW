@@ -106,12 +106,28 @@ class HybridXC(HybridXCBase):
                  fcut=1e-10):
         """Mix standard functionals with exact exchange.
 
+        name: str
+            Name of functional: EXX, PBE0, B3LYP.
+        hybrid: float
+            Fraction of exact exchange.
+        xc: str or XCFunctional object
+            Standard DFT functional with scaled down exchange.
         method: str
-            acdf: adiabatic-connection dissipation fluctuation for RPA
-            correlation energy
-        bands: None or list of int
-            List of bands to calculate energy for.  Default is None
-            meaning do all bands.
+            Use 'standard' standard formula and 'acdf for
+            adiabatic-connection dissipation fluctuation formula.
+        finegrid: boolean
+            Use fine grid for energy functional evaluations?
+        alpha: float
+            ...
+        skip_gamma: bool
+            Skip k2-k1=0 interactions.
+        bandstructure: bool
+            Calculate bandstructure instead of just the total energy.
+        bands: None or tuple of two int
+            Use bands=(na,nb) to calculate bandstructure for only bands
+            with index n satisfying na<=n<nb.  Default is all bands.
+        fcut: float
+            Threshold for empty band.
         """
 
         self.alpha = alpha
@@ -128,13 +144,14 @@ class HybridXC(HybridXCBase):
 
         HybridXCBase.__init__(self, name, hybrid, xc)
 
-        self.exx = None
-        self.evv = None
-        self.devv = None
-        self.evc = None
-        self.ecc = None
+        # EXX energies:
+        self.exx = None  # total
+        self.evv = None  # valence-valence (pseudo part)
+        self.devv = None  # valence-valence (PAW correction)
+        self.evc = None  # valence-core
+        self.ecc = None  # core-core
 
-        self.exx_skn = None
+        self.exx_skn = None  # bandstructure
 
     def log(self, *args, **kwargs):
         prnt(file=self.fd, *args, **kwargs)
@@ -168,6 +185,7 @@ class HybridXC(HybridXCBase):
         if self.alpha is None:
             self.alpha = 6 * vol**(2 / 3.0) / pi**2
         
+        # Make q-point descriptor:
         N_c = self.kd.N_c
         i_qc = np.indices(N_c * 2 - 1).transpose((1, 2, 3, 0)).reshape((-1, 3))
         bzq_qc = (i_qc - N_c + 1.0) / N_c
@@ -183,6 +201,7 @@ class HybridXC(HybridXCBase):
         else:
             self.pd3 = self.pd2
 
+        # Calculate 1/|G+q|^2 with special treatment of |G+q|=0:
         G2_qG = self.pd3.G2_qG
         q0 = ((N_c * 2 - 1).prod() - 1) // 2
         assert not bzq_qc[q0].any()
@@ -201,6 +220,7 @@ class HybridXC(HybridXCBase):
 
         self.iG2_qG[q0][0] = self.gamma
         
+        # Compensation charges:
         self.ghat = PWLFC([setup.ghat_l for setup in wfs.setups], self.pd3)
         
         self.log('Value of alpha parameter: %.3f Bohr^2' % self.alpha)
@@ -236,6 +256,7 @@ class HybridXC(HybridXCBase):
         self.log("%d CPU's used for %d IBZ k-points" % (W, K))
         self.log('Spins:', self.wfs.nspins)
 
+        # Find number of occupied bands:
         self.nocc_sk = np.zeros((self.wfs.nspins, kd.nibzkpts), int)
         if self.bandstructure:
             self.nocc_sk[:] = self.wfs.bd.nbands
@@ -258,12 +279,13 @@ class HybridXC(HybridXCBase):
 
         B = noccmax
         E = B - self.wfs.setups.nvalence / 2.0  # empty bands
-        self.npairs = (K * kd.nbzkpts - 0.5 * K**2) * (B**2 - E**2)
-        self.log('Approximate number of pairs:', self.npairs)
-
+        self.npairs_estimate = (K * kd.nbzkpts - 0.5 * K**2) * (B**2 - E**2)
+        self.log('Approximate number of pairs:', self.npairs_estimate)
+        
         if self.bandstructure:
             self.exx_skn = np.zeros((self.wfs.nspins, K, B))
 
+        self.npairs = 0
         self.evv = 0.0
         for s in range(self.wfs.nspins):
             kpt1_q = [KPoint(self.wfs, noccmax).initialize(kpt)
@@ -291,6 +313,7 @@ class HybridXC(HybridXCBase):
                         kpt = kpt2_q[0]
 
                 for kpt1, kpt2 in zip(kpt1_q, kpt2_q):
+                    # Loop over all k-points that k2 can be mapped to:
                     for k, ik in enumerate(kd.bz2ibz_k):
                         if ik == kpt2.k:
                             self.apply(kpt1, kpt2, k)
@@ -316,6 +339,7 @@ class HybridXC(HybridXCBase):
                  (self.devv * Hartree))
         self.log('   total:                        %12.6f eV' %
                  (self.exx * Hartree))
+        self.log('Number of pairs:', self.npairs)
 
     def apply(self, kpt1, kpt2, k):
         k1_c = self.kd.ibzk_kc[kpt1.k]
@@ -416,14 +440,21 @@ class HybridXC(HybridXCBase):
 
     def calculate_interaction(self, n1_n, n2, kpt1, kpt2, q, k,
                               eik20r_R, eik2r_R, G3_G, f_IG, iG2_G):
+        """Calculate Coulomb interactions.
+
+        For all n1 in the n1_n list, calculate interaction with n2."""
+
         t0 = time()
 
+        # number of plane waves:
         ng1 = self.wfs.ng_k[kpt1.k]
         ng2 = self.wfs.ng_k[kpt2.k]
 
+        # Transform to real space and apply symmetry operation:
         psit2_R = self.pd.ifft(kpt2.psit_nG[n2, : ng2], kpt2.k) * eik20r_R
         u2_R = self.kd.transform_wave_function(psit2_R, k) / eik2r_R
 
+        # Calculate pair densities:
         nt_nG = self.pd3.zeros(len(n1_n), q=q)
         for n1, nt_G in zip(n1_n, nt_nG):
             u1_R = self.pd.ifft(kpt1.psit_nG[n1, :ng1], kpt1.k)
@@ -433,12 +464,12 @@ class HybridXC(HybridXCBase):
                 nt_G[G3_G] = self.pd2.interpolate(nt_R, self.pd3, q)[1] * 8
             else:
                 nt_G[:] = self.pd2.fft(nt_R, q)
-
+        
         s = self.kd.sym_k[k]
         time_reversal = self.kd.time_reversal_k[k]
         k2_c = self.kd.ibzk_kc[kpt2.k]
 
-        Q_anL = {}
+        Q_anL = {}  # coefficients for shape functions
         for a, P1_ni in kpt1.P_ani.items():
             P1_ni = P1_ni[n1_n]
 
@@ -461,17 +492,20 @@ class HybridXC(HybridXCBase):
                 D_np.append(pack(D_ii))
             Q_anL[a] = np.dot(D_np, self.wfs.setups[a].Delta_pL)
 
+        # Add compensation charges:
         self.ghat.add(nt_nG, Q_anL, q, f_IG)
 
+        # Calculate energies:
         e_n = np.empty(len(n1_n))
         for n, nt_G in enumerate(nt_nG):
-            e_n[n] = -4 * pi * self.pd3.integrate(nt_G, nt_G * iG2_G).real
+            e_n[n] = -4 * pi * np.real(self.pd3.integrate(nt_G, nt_G * iG2_G))
+            self.npairs += 1
 
         if self.write_timing_information:
             t = (time() - t0) / len(n1_n)
             self.log('Time for first pair-density: %10.3f seconds' % t)
             self.log('Estimated total time:        %10.3f seconds' %
-                     (t * self.npairs / self.wfs.world.size))
+                     (t * self.npairs_estimate / self.wfs.world.size))
             self.write_timing_information = False
 
         return e_n
