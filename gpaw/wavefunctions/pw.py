@@ -698,9 +698,9 @@ class PWWaveFunctions(FDPWWaveFunctions):
         sigma_cv = np.zeros((3, 3), dtype=complex)
         pd = self.pd
         dOmega = pd.gd.dv / pd.gd.N_c.prod()
-        G_Gv = pd.G_Gv
         K_qv = self.pd.K_qv
         for kpt in self.kpt_u:
+            G_Gv = pd.G_Qv[pd.Q_qG[kpt.q]]
             for n, f in enumerate(kpt.f_n):
                 psit2_G = np.abs(kpt.psit_nG[n])**2
                 for alpha in range(3):
@@ -913,7 +913,7 @@ class PWLFC(BaseLFC):
                                          c_xI[..., I1:I2])
 
     def stress_tensor_contribution(self, a_xG, c_axi=None, q=-1):
-        f_IG = self.pd.empty(self.nI)
+        f_IG = self.pd.empty(self.nI, q=q)
         cache = {}
         for a, j, i1, i2, I1, I2 in self:
             l = self.lf_aj[a][j][0]
@@ -927,7 +927,8 @@ class PWLFC(BaseLFC):
                     if l > 0:
                         dydG = dydG * G**l + l * y * G**(l - 1)
                     f_G.append(-dydG * G)
-                cache[spline] = np.array(f_G)
+                f_G = np.array(f_G)
+                cache[spline] = f_G
             else:
                 f_G = cache[spline]
                 
