@@ -426,7 +426,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                  (self.pd.ecut * units.Hartree))
         if self.dtype == float:
             fd.write('      Number of coefficients: %d (reduced to %d)\n' %
-                     (self.pd.ngave * 2 + 1, self.pd.ngave))
+                     (self.pd.ngave * 2 - 1, self.pd.ngave))
         else:
             fd.write('      Number of coefficients (min, ave, max): ' +
                      '%d, %.1f, %d\n' %
@@ -751,7 +751,7 @@ class PWLFC(BaseLFC):
 
         self.nbytes = 0
 
-        # Fourier transform functions:
+        # Fourier transform radial functions:
         for a, spline_j in enumerate(spline_aj):
             self.lf_aj.append([])
             for spline in spline_j:
