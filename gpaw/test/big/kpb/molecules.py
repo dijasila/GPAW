@@ -7,7 +7,7 @@ Compare results to:
   Molecular and Soild-State Tests of Density Functional
   Approximations: LSD, GGAs, and Meta-GGAs
 
-  International Journal of Quantum Chemistry, Vol. 75, 889–909, 1999
+  International Journal of Quantum Chemistry, Vol. 75, 889-909, 1999
 """
 
 from ase.data.g2_1_ref import diatomic, ex_atomization
@@ -16,7 +16,7 @@ from ase import Atoms
 
 from gpaw import PW
 from gpaw.factory import GPAWFactory
-from gpaw.xc.hybridk import HybridXC
+from gpaw.xc.hybridg import HybridXC
 
 
 bondlengths = {'H2': 0.741,
@@ -72,7 +72,6 @@ class KurthPerdewBlahaMolecules(MoleculeTask):
     def calculate(self, name, atoms):
         data = MoleculeTask.calculate(self, name, atoms)
         dexx = atoms.calc.get_xc_difference(HybridXC('EXX',
-                                                     etotflag=True,
                                                      alpha=5.0))
         data['EXX'] = dexx
         return data
