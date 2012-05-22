@@ -21,6 +21,7 @@ from gpaw.lrtddft.apmb import ApmB
 from gpaw.utilities import packed_index
 from gpaw.utilities.lapack import diagonalize
 from gpaw.xc import XC
+from gpaw.xc.hybridk import HybridXC
 from gpaw.lrtddft.spectrum import spectrum
 
 __all__ = ['LrTDDFT', 'photoabsorption_spectrum', 'spectrum']
@@ -169,14 +170,7 @@ class LrTDDFT(ExcitationList):
 
     def forced_update(self):
         """Recalc yourself."""
-        self.kss = KSSingles(calculator=self.calculator,
-                             nspins=self.nspins,
-                             eps=self.eps,
-                             istart=self.istart,
-                             jend=self.jend,
-                             energy_range=self.energy_range,
-                             txt=self.txt)
-
+        nonselfconsistent_xc = None
         if not self.force_ApmB:
             Om = OmegaMatrix
             name = 'LrTDDFT'
@@ -185,9 +179,20 @@ class LrTDDFT(ExcitationList):
                 if hasattr(xc, 'hybrid') and xc.hybrid > 0.0:
                     Om = ApmB
                     name = 'LrTDDFThyb'
+                    nonselfconsistent_xc = HybridXC('PBE0', alpha=5.0)
         else:
             Om = ApmB
             name = 'LrTDDFThyb'
+
+        self.kss = KSSingles(calculator=self.calculator,
+                             nspins=self.nspins,
+                             nonselfconsistent_xc=nonselfconsistent_xc,
+                             eps=self.eps,
+                             istart=self.istart,
+                             jend=self.jend,
+                             energy_range=self.energy_range,
+                             txt=self.txt)
+
         self.Om = Om(self.calculator, self.kss,
                      self.xc, self.derivative_level, self.numscale,
                      finegrid=self.finegrid, eh_comm=self.eh_comm,
@@ -262,7 +267,7 @@ class LrTDDFT(ExcitationList):
             for i in range(n):
                 l = f.readline().split()
                 E = float(l[0])
-                me = [float(l[1]), float(l[2]), float(l[3])]
+                me = np.array([float(l[1]), float(l[2]), float(l[3])])
                 self.append(LrTDDFTExcitation(e=E, m=me))
 
         if fh is None:
