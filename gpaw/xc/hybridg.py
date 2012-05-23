@@ -252,16 +252,23 @@ class HybridXC(HybridXCBase):
         self.evv = self.wfs.world.sum(self.evv)
         self.evvacdf = self.wfs.world.sum(self.evvacdf)
         self.calculate_exx_paw_correction()
-        self.exx = self.evvacdf + self.devv + self.evc + self.ecc
+        
+        if self.method == 'standard':
+            self.exx = self.evv + self.devv + self.evc + self.ecc
+        elif self.method == 'acdf':
+            self.exx = self.evvacdf + self.devv + self.evc + self.ecc
+        else:
+            1 / 0
+
         self.log('Exact exchange energy:')
         for txt, e in [
             ('core-core', self.ecc),
             ('valence-core', self.evc),
             ('valence-valence (pseudo, acdf)', self.evvacdf),
-            ('valence-valence (pseudo, std)', self.evv),
+            ('valence-valence (pseudo, standard)', self.evv),
             ('valence-valence (correction)', self.devv),
-            ('total', self.exx)]:
-            self.log('    %-32s %14.6f eV' % (txt + ':', e * Hartree))
+            ('total (%s)' % self.method, self.exx)]:
+            self.log('    %-36s %14.6f eV' % (txt + ':', e * Hartree))
 
         self.log('Number of pairs:', self.npairs)
 
