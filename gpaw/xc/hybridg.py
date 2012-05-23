@@ -483,10 +483,8 @@ class HybridXC(HybridXCBase):
                                 for i4 in range(ni):
                                     p24 = packed_index(i2, i4, ni)
                                     A += setup.M_pp[p13, p24] * D_ii[i3, i4]
-                            self.exx_skn[kpt.s, kpt.k] -= (
-                                (A *
-                                 P_ni[:, i1].conj() * P_ni[:, i2]).real
-
+                            self.exx_skn[kpt.s, kpt.k] -= \
+                                (A * P_ni[:, i1].conj() * P_ni[:, i2]).real
                             p12 = packed_index(i1, i2, ni)
                             self.exx_skn[kpt.s, kpt.k] -= \
                                 (P_ni[:, i1].conj() * setup.X_p[p12] *
