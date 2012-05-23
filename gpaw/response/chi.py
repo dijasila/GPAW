@@ -136,7 +136,7 @@ class CHI(BASECHI):
         # For LCAO wfs
         if calc.input_parameters['mode'] == 'lcao':
             calc.initialize_positions()        
-        self.printtxt('     GS calculator   : %f M / cpu' %(maxrss() / 1024**2))
+        self.printtxt('     Max mem sofar   : %f M / cpu' %(maxrss() / 1024**2))
 
         if simple_version is True:
             return
@@ -145,6 +145,8 @@ class CHI(BASECHI):
         # G != 0 part
         self.phi_aGp = self.get_phi_aGp()
         self.printtxt('Finished phi_aGp !')
+        mem = np.array([self.phi_aGp[i].size * 16 /1024.**2 for i in range(len(self.phi_aGp))])
+        self.printtxt('     Phi_aGp         : %f M / cpu' %(mem.sum()))
 
         # Calculate ALDA kernel (not used in chi0)
         R_av = calc.atoms.positions / Bohr
@@ -179,7 +181,7 @@ class CHI(BASECHI):
         return
 
 
-    def calculate(self):
+    def calculate(self, seperate_spin=None):
         """Calculate the non-interacting density response function. """
 
         calc = self.calc
@@ -195,7 +197,6 @@ class CHI(BASECHI):
 
         # Matrix init
         chi0_wGG = np.zeros((self.Nw_local, self.npw, self.npw), dtype=complex)
-
         if self.hilbert_trans:
             specfunc_wGG = np.zeros((self.NwS_local, self.npw, self.npw), dtype = complex)
 
@@ -213,8 +214,8 @@ class CHI(BASECHI):
         if fftw.FFTPlan is fftw.NumpyFFTPlan:
             self.printtxt('Using Numpy FFT.')
         else:
-            self.printtxt('Using FFTW Library.')
-                                        
+            self.printtxt('Using FFTW Library.') 
+
         use_zher = False
         if self.eta < 1e-3:
             use_zher = True
@@ -222,7 +223,12 @@ class CHI(BASECHI):
         rho_G = np.zeros(self.npw, dtype=complex)
         t0 = time()
 
-        for spin in range(self.nspins):
+        if seperate_spin is None:
+            spinlist = np.arange(self.nspins)
+        else:
+            spinlist = [seperate_spin]
+        
+        for spin in spinlist:
             if not (f_skn[spin] > self.ftol).any():
                 self.chi0_wGG = chi0_wGG
                 continue
@@ -410,11 +416,12 @@ class CHI(BASECHI):
         self.printtxt('Finished summation over k')
 
         self.kcomm.barrier()
-
+        
         # Hilbert Transform
         if not self.hilbert_trans:
             for iw in range(self.Nw_local):
                 self.kcomm.sum(chi0_wGG[iw])
+
             if use_zher:
                 assert (np.abs(chi0_wGG[0,1:,0]) < 1e-10).all()
                 for iw in range(self.Nw_local):

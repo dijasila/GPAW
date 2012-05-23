@@ -18,7 +18,7 @@ from gpaw.response.parallel import set_communicator, \
      parallel_partition, SliceAlongFrequency, SliceAlongOrbitals
 from gpaw.response.kernel import calculate_Kxc
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.wavefunctions.pw import PWLFC, PWDescriptor
+from gpaw.wavefunctions.pw import PWLFC
 import gpaw.wavefunctions.pw as pw
 
 class BASECHI:
@@ -190,6 +190,7 @@ class BASECHI:
             self.pt = LFC(gd, [setup.pt_j for setup in setups],
                           KPointDescriptor(self.bzk_kc),
                           dtype=complex, forces=True)
+
             self.pt.set_positions(self.spos_ac)
 
         # Printing calculation information
@@ -485,8 +486,9 @@ class BASECHI:
 
     def get_P_ai(self, k, n, spin=0, Ptmp_ai=None):
 
-        kd = self.kd
         calc = self.calc
+        kd = self.calc.wfs.kd
+        spos_ac = self.spos_ac
         
         ibzkpt = kd.bz2ibz_k[k]
         u = ibzkpt + kd.nibzkpts * spin
@@ -496,7 +498,7 @@ class BASECHI:
         P_ai = {}
         for a, id in enumerate(calc.wfs.setups.id_a):
             b = kd.symmetry.a_sa[s, a]
-            S_c = (np.dot(self.spos_ac[a], kd.symmetry.op_scc[s]) - self.spos_ac[b])
+            S_c = (np.dot(spos_ac[a], kd.symmetry.op_scc[s]) - spos_ac[b])
         
             assert abs(S_c.round() - S_c).max() < 1e-10
             k_c = kd.ibzk_kc[kpt.k]
