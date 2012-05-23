@@ -4,95 +4,17 @@
 """This module provides all the classes and functions associated with the
 evaluation of exact exchange with k-point sampling."""
 
-from math import pi, sqrt
 from time import time
+from math import pi, sqrt
 
 import numpy as np
 from ase.utils import prnt
 from ase.units import Hartree
 
-from gpaw.utilities import pack, unpack2, packed_index, logfile
-from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
-from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.xc.hybrid import HybridXCBase
-
-
-class KPoint:
-    def __init__(self, wfs, nbands):
-        """Helper class for parallelizing over k-points.
-
-        Placeholder for wave functions, occupation numbers, eigenvalues,
-        projections, spin index and global k-point index."""
-        
-        self.kd = wfs.kd
-        self.ng_k = wfs.ng_k
-
-        # Array large enough to hold wave functions from all k-points:
-        self.psit_nG = wfs.pd.empty(nbands)
-
-        self.requests = []
-
-    def initialize(self, kpt):
-        ng = self.ng_k[kpt.k]
-        nbands = len(self.psit_nG)
-        self.psit_nG[:, :ng] = kpt.psit_nG[:nbands]
-        self.f_n = kpt.f_n / kpt.weight  # will be in the range [0,1]
-        self.eps_n = kpt.eps_n
-        self.P_ani = kpt.P_ani
-        self.k = kpt.k
-        self.s = kpt.s
-
-        return self
-
-    def next(self, wfs):
-        """Create empty object.
-
-        Data will be received from another process."""
-        
-        nbands = len(self.psit_nG)
-        kpt = KPoint(wfs, nbands)
-
-        # Allocate arrays for receiving:
-        kpt.f_n = wfs.bd.empty()
-        kpt.eps_n = wfs.bd.empty()
-
-        # Total number of projector functions:
-        I = sum([P_ni.shape[1] for P_ni in self.P_ani.values()])
-        
-        kpt.P_In = np.empty((I, wfs.bd.nbands), wfs.dtype)
-
-        kpt.P_ani = {}
-        I1 = 0
-        assert self.P_ani.keys() == range(len(self.P_ani))  # ???
-        for a, P_ni in self.P_ani.items():
-            I2 = I1 + P_ni.shape[1]
-            kpt.P_ani[a] = kpt.P_In[I1:I2].T
-            I1 = I2
-
-        kpt.k = (self.k + 1) % self.kd.nibzkpts
-        kpt.s = self.s
-        
-        return kpt
-        
-    def start_sending(self, rank):
-        assert self.P_ani.keys() == range(len(self.P_ani))  # ???
-        P_In = np.concatenate([P_ni.T for P_ni in self.P_ani.values()])
-        self.requests += [
-            self.kd.comm.send(self.psit_nG, rank, block=False, tag=1),
-            self.kd.comm.send(self.f_n, rank, block=False, tag=2),
-            self.kd.comm.send(self.eps_n, rank, block=False, tag=3),
-            self.kd.comm.send(P_In, rank, block=False, tag=4)]
-        
-    def start_receiving(self, rank):
-        self.requests += [
-            self.kd.comm.receive(self.psit_nG, rank, block=False, tag=1),
-            self.kd.comm.receive(self.f_n, rank, block=False, tag=2),
-            self.kd.comm.receive(self.eps_n, rank, block=False, tag=3),
-            self.kd.comm.receive(self.P_In, rank, block=False, tag=4)]
-    
-    def wait(self):
-        self.kd.comm.waitall(self.requests)
-        self.requests = []
+from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
+from gpaw.utilities import pack, unpack2, packed_index, logfile
         
 
 class HybridXC(HybridXCBase):
@@ -147,6 +69,7 @@ class HybridXC(HybridXCBase):
         # EXX energies:
         self.exx = None  # total
         self.evv = None  # valence-valence (pseudo part)
+        self.evvacdf = None  # valence-valence (pseudo part)
         self.devv = None  # valence-valence (PAW correction)
         self.evc = None  # valence-core
         self.ecc = None  # core-core
@@ -287,6 +210,7 @@ class HybridXC(HybridXCBase):
 
         self.npairs = 0
         self.evv = 0.0
+        self.evvacdf = 0.0
         for s in range(self.wfs.nspins):
             kpt1_q = [KPoint(self.wfs, noccmax).initialize(kpt)
                       for kpt in self.wfs.kpt_u if kpt.s == s]
@@ -326,19 +250,19 @@ class HybridXC(HybridXCBase):
                     kpt2_q.append(kpt)
 
         self.evv = self.wfs.world.sum(self.evv)
+        self.evvacdf = self.wfs.world.sum(self.evvacdf)
         self.calculate_exx_paw_correction()
-        self.exx = self.evv + self.devv + self.evc + self.ecc
+        self.exx = self.evvacdf + self.devv + self.evc + self.ecc
         self.log('Exact exchange energy:')
-        self.log('   core-core:                    %12.6f eV' %
-                 (self.ecc * Hartree))
-        self.log('   valence-core:                 %12.6f eV' %
-                 (self.evc * Hartree))
-        self.log('   valence-valence (pseudo):     %12.6f eV' %
-                 (self.evv * Hartree))
-        self.log('   valence-valence (correction): %12.6f eV' %
-                 (self.devv * Hartree))
-        self.log('   total:                        %12.6f eV' %
-                 (self.exx * Hartree))
+        for txt, e in [
+            ('core-core', self.ecc),
+            ('valence-core', self.evc),
+            ('valence-valence (pseudo, acdf)', self.evvacdf),
+            ('valence-valence (pseudo, std)', self.evv),
+            ('valence-valence (correction)', self.devv),
+            ('total', self.exx)]:
+            self.log('    %-32s %14.6f eV' % (txt + ':', e * Hartree))
+
         self.log('Number of pairs:', self.npairs)
 
     def apply(self, kpt1, kpt2, k):
@@ -420,18 +344,16 @@ class HybridXC(HybridXCBase):
 
             f1_n = kpt1.f_n[n1_n]
             eps1_n = kpt1.eps_n[n1_n]
+            s_n = np.sign(eps2 - eps1_n)
 
-            if self.method == 'standard':
-                self.evv += np.dot(f1_n, e_n) * w1 * f2
-                if is_ibz2:
-                    self.evv += np.dot(f1_n, e_n) * w2 * f2
-            elif self.method == 'acdf':
-                s_n = np.sign(eps2 - eps1_n)
-                self.evv += 0.5 * (f1_n * (1 - s_n) * e_n +
-                                   f2 * (1 + s_n) * e_n).sum() * w1
-                if is_ibz2:
-                    self.evv += 0.5 * (f1_n * (1 - s_n) * e_n +
-                                       f2 * (1 + s_n) * e_n).sum() * w2
+            evv = (f1_n * f2 * e_n).sum()
+            evvacdf = 0.5 * (f1_n * (1 - s_n) * e_n +
+                             f2 * (1 + s_n) * e_n).sum()
+            self.evv += evv * w1
+            self.evvacdf += evvacdf * w1
+            if is_ibz2:
+                self.evv += evv * w2
+                self.evvacdf += evvacdf * w2
             
             if self.bandstructure:
                 self.exx_skn[kpt1.s, kpt1.k, n1_n] += 2 * f2 * e_n
@@ -563,3 +485,81 @@ class HybridXC(HybridXCBase):
                                  P_ni[:, i2]).real / self.wfs.nspins
 
         self.wfs.world.sum(self.exx_skn)
+
+
+class KPoint:
+    def __init__(self, wfs, nbands):
+        """Helper class for parallelizing over k-points.
+
+        Placeholder for wave functions, occupation numbers, eigenvalues,
+        projections, spin index and global k-point index."""
+        
+        self.kd = wfs.kd
+        self.ng_k = wfs.ng_k
+
+        # Array large enough to hold wave functions from all k-points:
+        self.psit_nG = wfs.pd.empty(nbands)
+
+        self.requests = []
+
+    def initialize(self, kpt):
+        ng = self.ng_k[kpt.k]
+        nbands = len(self.psit_nG)
+        self.psit_nG[:, :ng] = kpt.psit_nG[:nbands]
+        self.f_n = kpt.f_n / kpt.weight  # will be in the range [0,1]
+        self.eps_n = kpt.eps_n
+        self.P_ani = kpt.P_ani
+        self.k = kpt.k
+        self.s = kpt.s
+
+        return self
+
+    def next(self, wfs):
+        """Create empty object.
+
+        Data will be received from another process."""
+        
+        nbands = len(self.psit_nG)
+        kpt = KPoint(wfs, nbands)
+
+        # Allocate arrays for receiving:
+        kpt.f_n = wfs.bd.empty()
+        kpt.eps_n = wfs.bd.empty()
+
+        # Total number of projector functions:
+        I = sum([P_ni.shape[1] for P_ni in self.P_ani.values()])
+        
+        kpt.P_In = np.empty((I, wfs.bd.nbands), wfs.dtype)
+
+        kpt.P_ani = {}
+        I1 = 0
+        assert self.P_ani.keys() == range(len(self.P_ani))  # ???
+        for a, P_ni in self.P_ani.items():
+            I2 = I1 + P_ni.shape[1]
+            kpt.P_ani[a] = kpt.P_In[I1:I2].T
+            I1 = I2
+
+        kpt.k = (self.k + 1) % self.kd.nibzkpts
+        kpt.s = self.s
+        
+        return kpt
+        
+    def start_sending(self, rank):
+        assert self.P_ani.keys() == range(len(self.P_ani))  # ???
+        P_In = np.concatenate([P_ni.T for P_ni in self.P_ani.values()])
+        self.requests += [
+            self.kd.comm.send(self.psit_nG, rank, block=False, tag=1),
+            self.kd.comm.send(self.f_n, rank, block=False, tag=2),
+            self.kd.comm.send(self.eps_n, rank, block=False, tag=3),
+            self.kd.comm.send(P_In, rank, block=False, tag=4)]
+        
+    def start_receiving(self, rank):
+        self.requests += [
+            self.kd.comm.receive(self.psit_nG, rank, block=False, tag=1),
+            self.kd.comm.receive(self.f_n, rank, block=False, tag=2),
+            self.kd.comm.receive(self.eps_n, rank, block=False, tag=3),
+            self.kd.comm.receive(self.P_In, rank, block=False, tag=4)]
+    
+    def wait(self):
+        self.kd.comm.waitall(self.requests)
+        self.requests = []
