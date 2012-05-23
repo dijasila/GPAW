@@ -1120,7 +1120,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         return ekin, self.epot, self.ebar, eext, self.exc, W_aL
 
     def restrict(self, vt_sg, vt_sG):
-        for vt_G, vt_g in zip(self.vt_sG, vt_sg):
+        for vt_G, vt_g in zip(vt_sG, vt_sg):
             vt_G[:] = self.pd3.restrict(vt_g, self.pd2)[0]
 
     def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):

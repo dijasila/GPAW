@@ -344,7 +344,7 @@ class HybridXC(HybridXCBase):
                                              eik20r_R, eik2r_R, G3_G, f_IG,
                                              iG2_G)
 
-            e_n *= 1.0 / self.wfs.nspins / self.kd.nbzkpts
+            e_n *= 1.0 / self.kd.nbzkpts / self.wfs.nspins
 
             if same:
                 e_n[n1_n == n2] *= 0.5
@@ -363,9 +363,10 @@ class HybridXC(HybridXCBase):
                 self.evvacdf += evvacdf * w2
             
             if self.bandstructure:
-                self.exx_skn[kpt1.s, kpt1.k, n1_n] += 2 * f2 * e_n
+                x = self.wfs.nspins
+                self.exx_skn[kpt1.s, kpt1.k, n1_n] += x * f2 * e_n
                 if is_ibz2:
-                    self.exx_skn[kpt2.s, kpt2.k, n2] += 2 * np.dot(f1_n, e_n)
+                    self.exx_skn[kpt2.s, kpt2.k, n2] += x * np.dot(f1_n, e_n)
 
     def calculate_interaction(self, n1_n, n2, kpt1, kpt2, q, k,
                               eik20r_R, eik2r_R, G3_G, f_IG, iG2_G):
@@ -482,15 +483,16 @@ class HybridXC(HybridXCBase):
                                 for i4 in range(ni):
                                     p24 = packed_index(i2, i4, ni)
                                     A += setup.M_pp[p13, p24] * D_ii[i3, i4]
-                            self.exx_skn[kpt.s, kpt.k] -= \
-                                (self.hybrid * A *
+                            self.exx_skn[kpt.s, kpt.k] -= (
+                                (A *
                                  P_ni[:, i1].conj() * P_ni[:, i2]).real
 
                             p12 = packed_index(i1, i2, ni)
-                            self.exx_skn[kpt.s, kpt.k] -= self.hybrid * \
+                            self.exx_skn[kpt.s, kpt.k] -= \
                                 (P_ni[:, i1].conj() * setup.X_p[p12] *
                                  P_ni[:, i2]).real / self.wfs.nspins
 
+        self.exx_skn *= self.hybrid
         self.wfs.world.sum(self.exx_skn)
 
 
