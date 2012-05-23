@@ -40,7 +40,7 @@ class HybridXC(HybridXCBase):
         finegrid: boolean
             Use fine grid for energy functional evaluations?
         alpha: float
-            ...
+            XXX describe
         skip_gamma: bool
             Skip k2-k1=0 interactions.
         bandstructure: bool

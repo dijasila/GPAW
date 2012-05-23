@@ -1,13 +1,12 @@
 """Test exact exchange for 20 small molecules.
 
-Compare results to:
+Compare results to::
 
   S. Kurth, J. P. Perdew, and P. Blaha
-  
   Molecular and Soild-State Tests of Density Functional
   Approximations: LSD, GGAs, and Meta-GGAs
-
   International Journal of Quantum Chemistry, Vol. 75, 889-909, 1999
+
 """
 
 from ase.data.g2_1_ref import diatomic, ex_atomization

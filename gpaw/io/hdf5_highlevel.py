@@ -288,12 +288,18 @@ class Dataset(object):
 class Attributes:
     """A dictionary like interface to HDF5 attributes.
 
-       Attributes can be written with the 
+       Attributes can be written with the::
+
           attrs['name'] = value
-       and read with the
+
+       and read with the::
+
           value = attrs['name'] 
+
        syntax. 
-       Values are returned always as NumPy arrays."""
+       Values are returned always as NumPy arrays.
+
+    """
 
     def __init__(self, parent_id):
         self.loc_id = parent_id

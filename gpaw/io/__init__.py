@@ -2,6 +2,8 @@
 
 Change log for version:
 
+1)
+
 2) GridPoints array added when gpts is used.
 
 3) Different k-points now have different number of plane-waves.  Added
