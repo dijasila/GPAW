@@ -284,7 +284,7 @@ class FXCCorrelation:
                 optical_limit=optical_limit,
                 hilbert_trans=False)
         
-        df.initialize(spin=0)
+        df.initialize()
         Nw_local = df.Nw_local
         chi0 = np.zeros((Nw_local, npw*ns, npw*ns),
                         dtype=complex)
@@ -300,18 +300,17 @@ class FXCCorrelation:
             print >> self.txt, 'q = [%1.6f %1.6f %1.6f] -' \
                   % (q[0],q[1],q[2]), '%s planewaves' % npw
 
-        df.calculate(spin=0)
+        df.calculate(seperate_spin=0)
         chi0[:, :npw, :npw] = df.chi0_wGG[:] 
         if ns == 2:
             print >> self.txt, 'Finished spin 0'
-            del df.e_kn
             df.ecut *= Hartree
             df.xc = 'RPA'
-            df.initialize(spin=1)
-            df.calculate(spin=1)
+            df.initialize()
+            df.calculate(seperate_spin=1)
             print >> self.txt, 'Finished spin 1'
             chi0[:, npw:2*npw, npw:2*npw] = df.chi0_wGG[:]
-        del df.chi0_wGG, df.Kc_GG
+        del df.chi0_wGG
 
         if self.xc[:4] == 'ALDA':
             Kxc_sGG = self.calculate_Kxc(df.gd,
@@ -984,8 +983,8 @@ class FXCCorrelation:
               '------------------------------------------------------'
         print >> self.txt, 'Started at:  ', ctime()
         print >> self.txt
-        print >> self.txt, 'Atoms                          :   %s' \
-              % self.atoms.get_chemical_formula(mode="hill")
+#        print >> self.txt, 'Atoms                          :   %s' \
+#              % self.atoms.get_chemical_formula(mode="hill")
         print >> self.txt, 'Ground state XC functional     :   %s' \
               % self.calc.hamiltonian.xc.name
         print >> self.txt, 'Valence electrons              :   %s' \
