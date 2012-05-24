@@ -319,7 +319,8 @@ if mpi.size > 1:
                 'cmrtest/cmr_test3.py',
                 'cmrtest/cmr_append.py',
                 'cmrtest/Li2_atomize.py',
-                ]
+                'lcao_pair_and_coulomb.py']
+
 
 if mpi.size > 2:
     exclude += ['neb.py']
