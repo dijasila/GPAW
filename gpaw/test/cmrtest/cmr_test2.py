@@ -24,7 +24,7 @@ bulk = Atoms([Atom('Al', (0, 0, 0)),
               Atom('Al', (0.5, 0.5, 0.5))],
              pbc=True)
 bulk.set_cell((d, d, a), scale_atoms=True)
-h = 0.25
+h = 0.18
 calc = GPAW(h=h,
             nbands=2 * 8,
             kpts=(2, 2, 2),
