@@ -11,16 +11,16 @@ def agts(queue):
                              ncpus=1,walltime=10*60, deps=[run_generate])
     run1 = queue.add(tag +  '_run.py',
                      queueopts='-l nodes=1:ppn=4:opteron:ethernet',
-                     ncpus=1,walltime=20*60, deps=[run_special1, run_special2])
+                     ncpus=1,walltime=40*60, deps=[run_special1, run_special2])
     run2 = queue.add(tag + '_run.py',
                      queueopts='-l nodes=1:ppn=4:opteron:ethernet',
-                     ncpus=1,walltime=20*60, deps=[run_special1, run_special2])
+                     ncpus=1,walltime=40*60, deps=[run_special1, run_special2])
     run3 = queue.add(tag + '_run.py',
                      queueopts='-l nodes=1:ppn=4:opteron:ethernet',
-                     ncpus=1,walltime=20*60, deps=[run_special1, run_special2])
+                     ncpus=1,walltime=40*60, deps=[run_special1, run_special2])
     run4 = queue.add(tag + '_run.py',
                      queueopts='-l nodes=1:ppn=4:opteron:ethernet',
-                     ncpus=1,walltime=20*60, deps=[run_special1, run_special2])
+                     ncpus=1,walltime=40*60, deps=[run_special1, run_special2])
     analyse = queue.add(tag + '_analyse.py',
                         queueopts='-l nodes=1:ppn=1',
                         ncpus=1, walltime=5, deps=[run1, run2, run3, run4],
