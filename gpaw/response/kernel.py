@@ -25,10 +25,12 @@ def v2D_Coulomb(qG, G_p, G_n, R):
 
 def v1D_Coulomb(qG, G_p, G_n, R):
     """ 1D Periodic Case
-    Nanotube/Nanowire/Atomic Chain calculation, cutoff in G_n direction.
-     v1D = 4 pi/G^2 * [1 + G_n R J_1(G_n R) K_0(|G_p|R)
-     		    - |G_p| R J_0(G_n R) K_1(|G_p|R)]
-    """        
+    Nanotube/Nanowire/Atomic Chain calculation, cutoff in G_n direction::
+
+      v1D = 4 pi/G^2 * [1 + G_n R J_1(G_n R) K_0(|G_p|R)
+          - |G_p| R J_0(G_n R) K_1(|G_p|R)]
+
+    """
     from scipy.special import j1,k0,j0,k1
     
     G_nR = sqrt(np.dot(G_n,qG*qG))*R
