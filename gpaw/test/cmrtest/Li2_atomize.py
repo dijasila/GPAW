@@ -210,7 +210,7 @@ if analyse_from_dir:
         all = reader.find(keyword_list=[project_id])
         
         if rank == 0:
-            print 'all files data in the database'
+            print 'contents of the cmr files present in the local directory'
         # print requested results
         # column_length=0 aligns data in the table (-1 : data unaligned is default)
         all.print_table(column_length=0,
@@ -286,7 +286,7 @@ if analyse_from_db:
         all = reader.find(keyword_list=[project_id])
         
         if rank == 0:
-            print 'all files data in the database'
+            print 'contents of the database'
         # print requested results
         # column_length=0 aligns data in the table (-1 : data unaligned is default)
         all.print_table(column_length=0,
