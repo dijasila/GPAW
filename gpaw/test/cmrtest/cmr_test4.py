@@ -7,7 +7,6 @@
 # fails in some rare cases.
 
 import os
-import cmr
 from ase import Atom, Atoms
 from ase.calculators.emt import EMT
 
@@ -16,6 +15,11 @@ import warnings
 # Therefore also deprecated methods are called - and we choose to silence those warnings.
 warnings.filterwarnings('ignore', 'ase.atoms.*deprecated',)
 
+# make sure a settings file exist
+from gpaw.test.cmrtest.temp_settings import TempSettings
+ts = TempSettings()
+
+import cmr
 # from cmr.tools.log import Log
 # cmr.logger.set_message_selection(Log.MSG_TYPE_ALL)
 
