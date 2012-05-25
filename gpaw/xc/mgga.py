@@ -319,7 +319,7 @@ def transformation(x, t):
     elif int(t) == -1:
         tmp1 = (1.0 - x**2.0)**3.0
         tmp2 = (1.0 + x**3.0 + x**6.0)
-        x = np.divide(tmp1, tmp2)
+        x = -1.0 * np.divide(tmp1, tmp2)
     else:
     	raise KeyError('transformation %i unknown!' % t)
     return x
