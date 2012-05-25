@@ -162,6 +162,8 @@ FLOAT XC(hyb_gga_exx_coef)   (XC(hyb_gga_type) *p);
 #define XC_MGGA_X_REVTPSS        205
 #define XC_MGGA_C_REVTPSS        206 
 
+#define XC_MGGA_X_MBEEF       207
+
 typedef struct{
   const XC(func_info_type) *info;  /* which functional did we chose   */
   int nspin;                       /* XC_UNPOLARIZED or XC_POLARIZED  */
