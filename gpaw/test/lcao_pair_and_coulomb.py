@@ -34,12 +34,14 @@ if rank == MASTER:
     P_awi = lcao.get_projections(indices=indices)
     pickle.dump((w_wG, P_awi), open('lcao_pair_w_wG__P_awi.pckl', 'wb'), 2)
 
+world.barrier()
 makeU('lcao_pair.gpw',
       'lcao_pair_w_wG__P_awi.pckl',
       'lcao_pair_eps_q__U_pq.pckl',
       1.0e-5,
       dppname='lcao_pair_D_pp.pckl')
 
+world.barrier()
 makeV('lcao_pair.gpw',
       'lcao_pair_w_wG__P_awi.pckl',
       'lcao_pair_eps_q__U_pq.pckl',
@@ -47,6 +49,7 @@ makeV('lcao_pair.gpw',
       'lcao_pair_V_qq.log',
       False)
 
+world.barrier()
 V_qq = np.load('lcao_pair_V_qq.pckl')
 eps_q, U_pq = np.load('lcao_pair_eps_q__U_pq.pckl')
 assert U_pq.flags.contiguous
