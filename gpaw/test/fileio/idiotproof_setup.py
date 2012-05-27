@@ -1,6 +1,10 @@
 from ase.structure import molecule
 from gpaw import GPAW
 
+import warnings
+# Silence those warnings.
+warnings.filterwarnings('ignore', 'Setup for',)
+
 m = molecule('H')
 m.center(vacuum=2.0)
 calc = GPAW(mode='lcao')
