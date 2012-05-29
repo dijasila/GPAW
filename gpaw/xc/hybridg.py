@@ -304,7 +304,7 @@ class HybridXC(HybridXCBase):
         # Is k2 in the 1. BZ?
         is_ibz2 = abs(k2_c - k20_c).max() < 1e-9
 
-        for n2 in range(self.wfs.bd.nbands):
+        for n2 in range(self.nocc_sk[kpt2.s, kpt2.k]):
             f2 = kpt2.f_n[n2]
             eps2 = kpt2.eps_n[n2]
 
@@ -324,8 +324,6 @@ class HybridXC(HybridXCBase):
                 if abs(f2) < self.fcut:
                     n1b = min(n1b, self.nocc_sk[kpt1.s, kpt1.k])
             else:
-                if abs(f2) < self.fcut:
-                    break
                 n1b = min(n1b, self.nocc_sk[kpt1.s, kpt1.k])
 
             if self.bands is not None:
@@ -342,7 +340,7 @@ class HybridXC(HybridXCBase):
                     
             e_n = self.calculate_interaction(n1_n, n2, kpt1, kpt2, q, k,
                                              eik20r_R, eik2r_R, G3_G, f_IG,
-                                             iG2_G)
+                                             iG2_G, is_ibz2)
 
             e_n *= 1.0 / self.kd.nbzkpts / self.wfs.nspins
 
@@ -369,7 +367,7 @@ class HybridXC(HybridXCBase):
                     self.exx_skn[kpt2.s, kpt2.k, n2] += x * np.dot(f1_n, e_n)
 
     def calculate_interaction(self, n1_n, n2, kpt1, kpt2, q, k,
-                              eik20r_R, eik2r_R, G3_G, f_IG, iG2_G):
+                              eik20r_R, eik2r_R, G3_G, f_IG, iG2_G, is_ibz2):
         """Calculate Coulomb interactions.
 
         For all n1 in the n1_n list, calculate interaction with n2."""
@@ -381,8 +379,11 @@ class HybridXC(HybridXCBase):
         ng2 = self.wfs.ng_k[kpt2.k]
 
         # Transform to real space and apply symmetry operation:
-        psit2_R = self.pd.ifft(kpt2.psit_nG[n2, : ng2], kpt2.k) * eik20r_R
-        u2_R = self.kd.transform_wave_function(psit2_R, k) / eik2r_R
+        if is_ibz2:
+            u2_R = self.pd.ifft(kpt2.psit_nG[n2, : ng2], kpt2.k)
+        else:
+            psit2_R = self.pd.ifft(kpt2.psit_nG[n2, : ng2], kpt2.k) * eik20r_R
+            u2_R = self.kd.transform_wave_function(psit2_R, k) / eik2r_R
 
         # Calculate pair densities:
         nt_nG = self.pd3.zeros(len(n1_n), q=q)
@@ -403,19 +404,22 @@ class HybridXC(HybridXCBase):
         for a, P1_ni in kpt1.P_ani.items():
             P1_ni = P1_ni[n1_n]
 
-            b = self.kd.symmetry.a_sa[s, a]
-            S_c = (np.dot(self.spos_ac[a], self.kd.symmetry.op_scc[s]) -
-                   self.spos_ac[b])
-            assert abs(S_c.round() - S_c).max() < 1e-13
-            if self.ghat.dtype == complex:
-                x = np.exp(2j * pi * np.dot(k2_c, S_c))
+            if is_ibz2:
+                P2_i = kpt2.P_ani[a][n2]
             else:
-                x = 1.0
-            P2_i = np.dot(self.wfs.setups[a].R_sii[s], kpt2.P_ani[b][n2]) * x
-            if time_reversal:
-                P2_i = P2_i.conj()
+                b = self.kd.symmetry.a_sa[s, a]
+                S_c = (np.dot(self.spos_ac[a], self.kd.symmetry.op_scc[s]) -
+                       self.spos_ac[b])
+                assert abs(S_c.round() - S_c).max() < 1e-13
+                if self.ghat.dtype == complex:
+                    x = np.exp(2j * pi * np.dot(k2_c, S_c))
+                else:
+                    x = 1.0
+                P2_i = np.dot(self.wfs.setups[a].R_sii[s],
+                              kpt2.P_ani[b][n2]) * x
+                if time_reversal:
+                    P2_i = P2_i.conj()
 
-            D_ii = np.outer(P1_ni.conj(), P2_i)
             D_np = []
             for P1_i in P1_ni:
                 D_ii = np.outer(P1_i.conj(), P2_i)
