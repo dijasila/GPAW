@@ -514,11 +514,24 @@ class BASECHI:
         return P_ai
 
 
-    def screened_interaction_kernel(self, iq, static=True, comm=None, kcommsize=None):
+    def screened_interaction_kernel(self, iq, static=True, E0=None, comm=None, kcommsize=None):
         """Calcuate W_GG(w) for a given q.
         if static: return W_GG(w=0)
         is not static: return W_GG(q,w) - Vc_GG
         """
+
+        ppa = False
+        if E0 is not None: # use Plasmon Pole Approximation
+            ppa = True
+            w = (0.,1j*E0)
+            hilbert_trans = False
+        elif not static: # dynamic screened interaction
+            w=self.w_w.copy()*Hartree
+            hilbert_trans = True
+            full_response = True
+        else: #static screened interaction
+            w=(0.,)
+            hilbert_trans = False
 
         from gpaw.response.df import DF
         q = self.ibzq_qc[iq]
@@ -535,15 +548,15 @@ class BASECHI:
                     eta=0.0001, ecut=self.ecut*Hartree,
                     txt='df.out')
         else:
-            df = DF(calc=self.calc, q=q.copy(), w=self.w_w.copy()*Hartree, nbands=self.nbands,
-                    optical_limit=optical_limit, hilbert_trans=True, xc='RPA', full_response=True,
+            df = DF(calc=self.calc, q=q.copy(), w=w, nbands=self.nbands,
+                    optical_limit=optical_limit, hilbert_trans=hilbert_trans, xc='RPA', full_response=True,
                     rpad=self.rpad, vcut=self.vcut, G_plus_q=True,
                     eta=self.eta*Hartree, ecut=self.ecut.copy()*Hartree,
                     txt='df.out', comm=comm, kcommsize=kcommsize)
 
         dfinv_wGG = df.get_inverse_dielectric_matrix(xc='RPA')
         assert df.ecut[0] == self.ecut[0]
-        if not static:
+        if not static and not ppa:
             assert df.eta == self.eta
             assert df.Nw == self.Nw
             assert df.dw == self.dw
@@ -554,6 +567,16 @@ class BASECHI:
                                   df.bcell_cv, df.calc.atoms.pbc, df.optical_limit, df.vcut)
         else:
             Kc_GG = df.Kc_gG
+
+        delta_GG = np.eye(df.npw)
+
+        if ppa:
+            dfinv1_GG = dfinv_wGG[0] - delta_GG
+            dfinv2_GG = dfinv_wGG[1] - delta_GG
+            self.wt_GG = E0/Hartree * np.sqrt(dfinv2_GG / (dfinv1_GG - dfinv2_GG))
+            self.R_GG = - self.wt_GG / 2 * dfinv1_GG
+            del dfinv_wGG
+            dfinv_wGG = np.array([1j*pi*self.R_GG + delta_GG])
 
         if static:
             assert len(dfinv_wGG) == 1
@@ -566,9 +589,8 @@ class BASECHI:
         else:
             Nw = np.shape(dfinv_wGG)[0]
             W_wGG = np.zeros_like(dfinv_wGG)
-            tmp_GG = np.eye(df.npw, df.npw)
             for iw in range(Nw):
-                dfinv_wGG[iw] -= tmp_GG 
+                dfinv_wGG[iw] -= delta_GG 
                 W_wGG[iw] = dfinv_wGG[iw] * Kc_GG
             if optical_limit:
                 self.dfinvG0_wG = dfinv_wGG[:,:,0]

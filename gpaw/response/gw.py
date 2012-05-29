@@ -25,6 +25,8 @@ class GW(BASECHI):
                  w=None,
                  ecut=150.,
                  eta=0.1,
+                 ppa=False,
+                 E0=None,
                  hilbert_trans=False,
                  wpar=1,
                  vcut=None,
@@ -32,28 +34,39 @@ class GW(BASECHI):
                  txt=None
                 ):
 
-        # create nonlinear frequency grid
-        # grid is linear from 0 to wcut with spacing dw
-        # spacing is linearily increasing between wcut and wmax
-        # Hilbert transforms are still carried out on linear grid
-        wcut = w[0]
-        wmax = w[1]
-        dw = w[2]
-        w_w = np.linspace(0., wcut, wcut/dw+1)
-        i=1
-        wi=wcut
-        while wi < wmax:
-            wi += i*dw
-            w_w = np.append(w_w, wi)
-            i+=1
-        while len(w_w) % wpar != 0:
-            wi += i*dw
-            w_w = np.append(w_w, wi)
-            i+=1
+        if ppa:
+            w_w = (0.,)
+            hilbert_trans=False
+            wpar=1
+            if E0 is None:
+                E0 = Hartree
+        else:
+            # create nonlinear frequency grid
+            # grid is linear from 0 to wcut with spacing dw
+            # spacing is linearily increasing between wcut and wmax
+            # Hilbert transforms are still carried out on linear grid
+            wcut = w[0]
+            wmax = w[1]
+            dw = w[2]
+            w_w = np.linspace(0., wcut, wcut/dw+1)
+            i=1
+            wi=wcut
+            while wi < wmax:
+                wi += i*dw
+                w_w = np.append(w_w, wi)
+                i+=1
+            while len(w_w) % wpar != 0:
+                wi += i*dw
+                w_w = np.append(w_w, wi)
+                i+=1
 
-        dw_w = np.zeros(len(w_w))
-        dw_w[0] = dw
-        dw_w[1:] = w_w[1:] - w_w[:-1]
+            dw_w = np.zeros(len(w_w))
+            dw_w[0] = dw
+            dw_w[1:] = w_w[1:] - w_w[:-1]
+
+            self.dw_w = dw_w
+            self.eta_w = dw_w * 4
+            self.wcut = wcut
 
         BASECHI.__init__(self, calc=file, nbands=nbands, w=w, ecut=ecut, eta=eta, txt=txt)
 
@@ -65,9 +78,8 @@ class GW(BASECHI):
         self.wpar = wpar
         self.exxfile = exxfile
         self.w_w = w_w
-        self.dw_w = dw_w
-        self.eta_w = dw_w * 4
-        self.wcut = wcut
+        self.ppa = ppa
+        self.E0 = E0
 
     def initialize(self):
 
@@ -88,13 +100,14 @@ class GW(BASECHI):
         self.nqpt = np.shape(self.bzq_kc)[0]
         
         # frequency points init
-        self.dw_w /= Hartree
-        self.w_w  /= Hartree
-        self.eta_w /= Hartree
-        self.wmax = self.w_w[-1]
-        self.wmin = self.w_w[0]
-        self.dw = self.w_w[1] - self.w_w[0]
-        self.Nw = len(self.w_w)
+        if not self.ppa:
+            self.dw_w /= Hartree
+            self.w_w  /= Hartree
+            self.eta_w /= Hartree
+            self.wmax = self.w_w[-1]
+            self.wmin = self.w_w[0]
+            self.dw = self.w_w[1] - self.w_w[0]
+            self.Nw = len(self.w_w)
 
         # eigenvalues and occupations init
         self.e_skn = np.zeros((self.nspins, self.nikpt, calc.wfs.bd.nbands), dtype=float)
@@ -103,8 +116,9 @@ class GW(BASECHI):
             for k in range(self.nikpt):
                 self.e_skn[s,k] = calc.get_eigenvalues(kpt=k, spin=s) / Hartree
                 self.f_skn[s,k] = calc.get_occupation_numbers(kpt=k, spin=s) / kd.weight_k[k]
-        emaxdiff = self.e_skn[:,:,self.nbands-1].max() - self.e_skn[:,:,0].min()
-        assert (self.wmax > emaxdiff), 'Maximum frequency must be larger than %f' %(emaxdiff*Hartree)
+        if not self.ppa:
+            emaxdiff = self.e_skn[:,:,self.nbands-1].max() - self.e_skn[:,:,0].min()
+            assert (self.wmax > emaxdiff), 'Maximum frequency must be larger than %f' %(emaxdiff*Hartree)
 
         # GW kpoints init
         if (self.kpoints == None):
@@ -155,7 +169,7 @@ class GW(BASECHI):
                 continue
             t1 = time()
             # get screened interaction. 
-            df, W_wGG = self.screened_interaction_kernel(iq, static=False, comm=self.wcomm, kcommsize=1)
+            df, W_wGG = self.screened_interaction_kernel(iq, static=False, E0=self.E0, comm=self.wcomm, kcommsize=1)
             t2 = time()
             t_w += t2 - t1
 
@@ -163,7 +177,7 @@ class GW(BASECHI):
             S, dS = self.get_self_energy(df, W_wGG)
             t3 = time() - t2
             t_selfenergy += t3
-            
+
             Sigma_skn += S
             dSigma_skn += dS
 
@@ -212,7 +226,7 @@ class GW(BASECHI):
 
         # prepare optical limit for both methods
         if df.optical_limit:
-            tmp_wG = np.zeros((df.Nw_local, self.npw), dtype=complex)
+            tmp_wG = np.zeros_like(self.dfinvG0_wG)
             q = np.array([0.0001,0,0])
             for jG in range(1, self.npw):
                 qG = np.dot(q+self.Gvec_Gc[jG], self.bcell_cv)
@@ -298,33 +312,49 @@ class GW(BASECHI):
                                     W_wGG[:,0,:] = tmp_wG.conj()
                                     W_wGG[:,0,0] = tmp_w
                                 else:
-                                    # to be checked.
                                     W_wGG[:,0,0:] = 0.
                                     W_wGG[:,0:,0] = 0.
-
-                            # perform W_wGG * np.outer(rho_G.conj(), rho_G).sum(GG)
-                            W_wG = gemmdot(W_wGG, rho_G, beta=0.0)
-                            C_wlocal = gemmdot(W_wG, rho_G, alpha=self.alpha, beta=0.0,trans='c')
-                            del W_wG, rho_G
-
-                            C_w = np.zeros(df.Nw, dtype=complex)
-                            wcomm.all_gather(C_wlocal, C_w)
-                            del C_wlocal
 
                             # w1 = w - epsilon_m,k-q
                             w1 = self.e_skn[s,ibzkpt1, n] - self.e_skn[s,ibzkpt2,m]
 
-                            # calculate self energy
-                            w1_w = 1./(w1 - self.w_w + 1j*self.eta_w*sign) + 1./(w1 + self.w_w + 1j*self.eta_w*sign)
-                            w1_w[0] -= 1./(w1 + 1j*self.eta_w[0]*sign) # correct w'=0
-                            w1_w *= self.dw_w
-                            Sigma_skn[s,i,j] += np.real(gemmdot(C_w, w1_w, beta=0.0))
+                            if self.ppa:
+                                # analytical expression for Plasmon Pole Approximation
+                                W_GG = sign * W_wGG[0] * (1./(w1 + self.wt_GG - 1j*self.eta) -
+                                                          1./(w1 - self.wt_GG + 1j*self.eta))
+                                W_GG -= W_wGG[0] * (1./(w1 + self.wt_GG + 1j*self.eta*sign) +
+                                                    1./(w1 - self.wt_GG + 1j*self.eta*sign))
+                                W_G = gemmdot(W_GG, rho_G, beta=0.0)
+                                Sigma_skn[s,i,j] += np.real(gemmdot(W_G, rho_G, alpha=self.alpha, beta=0.0,trans='c'))
 
-                            # calculate derivate of self energy with respect to w
-                            w1_w = 1./(w1 - self.w_w + 1j*self.eta_w*sign)**2 + 1./(w1 + self.w_w + 1j*self.eta_w*sign)**2
-                            w1_w[0] -= 1./(w1 + 1j*self.eta_w[0]*sign)**2 # correct w'=0
-                            w1_w *= self.dw_w
-                            dSigma_skn[s,i,j] -= np.real(gemmdot(C_w, w1_w, beta=0.0))
+                                W_GG = sign * W_wGG[0] * (1./(w1 - self.wt_GG + 1j*self.eta)**2 -
+                                                          1./(w1 + self.wt_GG - 1j*self.eta)**2)
+                                W_GG += W_wGG[0] * (1./(w1 - self.wt_GG + 1j*self.eta*sign)**2 +
+                                                    1./(w1 + self.wt_GG + 1j*self.eta*sign)**2)
+                                W_G = gemmdot(W_GG, rho_G, beta=0.0)
+                                dSigma_skn[s,i,j] += np.real(gemmdot(W_G, rho_G, alpha=self.alpha, beta=0.0,trans='c'))
+
+                            else:
+                                # perform W_wGG * np.outer(rho_G.conj(), rho_G).sum(GG)
+                                W_wG = gemmdot(W_wGG, rho_G, beta=0.0)
+                                C_wlocal = gemmdot(W_wG, rho_G, alpha=self.alpha, beta=0.0,trans='c')
+                                del W_wG, rho_G
+
+                                C_w = np.zeros(df.Nw, dtype=complex)
+                                wcomm.all_gather(C_wlocal, C_w)
+                                del C_wlocal
+
+                                # calculate self energy
+                                w1_w = 1./(w1 - self.w_w + 1j*self.eta_w*sign) + 1./(w1 + self.w_w + 1j*self.eta_w*sign)
+                                w1_w[0] -= 1./(w1 + 1j*self.eta_w[0]*sign) # correct w'=0
+                                w1_w *= self.dw_w
+                                Sigma_skn[s,i,j] += np.real(gemmdot(C_w, w1_w, beta=0.0))
+
+                                # calculate derivate of self energy with respect to w
+                                w1_w = 1./(w1 - self.w_w + 1j*self.eta_w*sign)**2 + 1./(w1 + self.w_w + 1j*self.eta_w*sign)**2
+                                w1_w[0] -= 1./(w1 + 1j*self.eta_w[0]*sign)**2 # correct w'=0
+                                w1_w *= self.dw_w
+                                dSigma_skn[s,i,j] -= np.real(gemmdot(C_w, w1_w, beta=0.0))
 
                         else: #method 2
                             if not np.abs(self.e_skn[s,ibzkpt2,m] - self.e_skn[s,ibzkpt1,n]) < 1e-10:
@@ -442,9 +472,14 @@ class GW(BASECHI):
 
         self.printtxt("Number of IBZ k-points       : %d" %(self.kd.nibzkpts))
         self.printtxt("Number of spins              : %d" %(self.nspins))
-        self.printtxt("Linear frequency grid (eV)   : %.2f - %.2f in %.2f" %(self.wmin*Hartree, self.wcut, self.dw*Hartree))
-        self.printtxt("Maximum frequency (eV)       : %.2f" %(self.wmax*Hartree))
-        self.printtxt("Number of frequency points   : %d" %(self.Nw))
+        self.printtxt('')
+        if self.ppa:
+            self.printtxt("Use Plasmon Pole Approximation")
+            self.printtxt("imaginary frequency (eV)     : %.2f" %(self.E0))
+        else:
+            self.printtxt("Linear frequency grid (eV)   : %.2f - %.2f in %.2f" %(self.wmin*Hartree, self.wcut, self.dw*Hartree))
+            self.printtxt("Maximum frequency (eV)       : %.2f" %(self.wmax*Hartree))
+            self.printtxt("Number of frequency points   : %d" %(self.Nw))
         self.printtxt('')
         self.printtxt('Calculate matrix elements for k = :')
         for k in self.gwkpt_k:

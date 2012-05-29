@@ -107,7 +107,7 @@ class CHI(BASECHI):
         else:
             self.Nw = len(self.w_w)
             self.NwS = 0
-            if len(self.w_w) > 1:
+            if len(self.w_w) > 2:
                 self.dw = self.w_w[1] - self.w_w[0]
                 assert ((self.w_w[1:] - self.w_w[:-1] - self.dw) < 1e-10).all()
                 self.dw /= Hartree
