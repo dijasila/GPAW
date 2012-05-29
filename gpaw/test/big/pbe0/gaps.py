@@ -12,6 +12,7 @@ The numbers are compared to:
   DOI: 10.1103/PhysRevB.81.195117
 """
 
+import sys
 import pickle
 
 import numpy as np
@@ -25,14 +26,14 @@ from gpaw.xc.hybridg import HybridXC
 
 
 data = {
-    'C': ['diamond', 3.553,
-          5.64, 7.74, 5.59, 7.69,
-          4.79, 6.69, 4.76, 6.66,
-          8.58, 10.88, 8.46, 10.77],
     'Si': ['diamond', 5.421,
            2.56, 3.96, 2.57, 3.97,
            0.71, 1.93, 0.71, 1.93,
            1.54, 2.87, 1.54, 2.88],
+    'C': ['diamond', 3.553,
+          5.64, 7.74, 5.59, 7.69,
+          4.79, 6.69, 4.76, 6.66,
+          8.58, 10.88, 8.46, 10.77],
     'GaAs': ['zincblende', 5.640,
              0.55, 2.02, 0.56, 2.01,
              1.47, 2.69, 1.46, 2.67,
@@ -48,12 +49,12 @@ data = {
     'Ar': ['fcc', 5.26,
            8.71, 11.15, 8.68, 11.09]}
 
-nk = 12
+nk = int(sys.argv[1])
 kpts = monkhorst_pack((nk, nk, nk)) + 0.5 / nk
 
 results = np.empty((16, 6))
 i = 0
-for name in ['Si']:#data:
+for name in ['Si', 'C', 'GaAs', 'MgO', 'NaCl', 'Ar']:
     x, a = data[name][:2]
     atoms = bulk(name, x, a=a)
     atoms.calc = GPAW(xc='PBE',
@@ -62,7 +63,7 @@ for name in ['Si']:#data:
                       nbands=-8,
                       convergence=dict(bands=-7),
                       kpts=kpts,
-                      txt=name + '.txt')
+                      txt='%s-%d.txt' % (name, nk))
     atoms.get_potential_energy()
     pbe0 = HybridXC('PBE0', alpha=5.0, bandstructure=True)
     de_skn = vxc(atoms.calc, pbe0) - vxc(atoms.calc, 'PBE')
@@ -77,12 +78,15 @@ for name in ['Si']:#data:
             gamma0 = gamma + de_skn[0, k, n - 1]
         e = atoms.calc.get_eigenvalues(k)[n]
         e0 = e + de_skn[0, k, n]
+        if rank == 0:
+            print(nk, name, n, k, symbol, e - gamma, e0 - gamma0)
         results[i][:2] = [e - gamma, e0 - gamma0]
         results[i][2:] = data[name][2 + j * 4:6 + j * 4]
         i += 1
         j += 1
         if name == 'Ar':
             break
+        
 if rank == 0:
-    print results
-    pickle.dump(results, open('results.pckl', 'w'))
+    print(results)
+    pickle.dump(results, open('results-%2.pckl' % nk, 'w'))
