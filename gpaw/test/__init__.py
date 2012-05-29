@@ -106,6 +106,7 @@ tests = [
     'pw/fulldiag.py',
     'pw/fulldiagk.py',
     'pw/hyb.py',
+    'pw/mgo.py',
     'lcao_pair_and_coulomb.py',
     'coulomb.py',
     'timing.py',
