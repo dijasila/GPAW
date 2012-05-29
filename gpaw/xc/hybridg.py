@@ -11,6 +11,7 @@ import numpy as np
 from ase.utils import prnt
 from ase.units import Hartree
 
+import gpaw.fftw as fftw
 from gpaw.xc.hybrid import HybridXCBase
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
@@ -156,6 +157,12 @@ class HybridXC(HybridXCBase):
         self.log('    Compensation charges: %10.3f eV' %
                  (self.pd3.ecut * Hartree))
         self.log('%d x %d x %d k-points' % tuple(self.kd.N_c))
+
+        if fftw.FFTPlan is fftw.NumpyFFTPlan:
+            self.log('Not using FFTW!')
+            
+        if self.bandstructure:
+            self.log('Calculating eigenvalue shifts.')
 
     def set_positions(self, spos_ac):
         self.ghat.set_positions(spos_ac)
