@@ -30,8 +30,6 @@ class HybridXCBase(XCFunctional):
             Fraction of exact exchange.
         xc: str or XCFunctional object
             Standard DFT functional with scaled down exchange.
-        finegrid: boolean
-            Use fine grid for energy functional evaluations?
         """
 
         if name == 'EXX':
