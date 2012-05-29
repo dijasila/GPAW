@@ -290,7 +290,8 @@ tests = [
     'stark_shift.py',
     'aluminum_testcell.py',
     'cmrtest/cmr_test2.py',
-    'gw_test.py']
+    'gw_method.py',
+    'gw_ppa.py']
 
 try:
     import cmr
