@@ -46,15 +46,18 @@ class DF(CHI):
         self.df3_w = None  # NLF ALDA
         self.df4_w = None  # LF ALDA
 
-    def get_dielectric_matrix(self, xc='RPA'):
+    def get_dielectric_matrix(self, xc='RPA', overwritechi0=False):
         
 	if self.chi0_wGG is None:
             self.initialize()
             self.calculate()
         else:
             pass  # read from file and re-initializing .... need to be implemented
-        
-        dm_wGG = self.chi0_wGG
+
+        if overwritechi0:
+            dm_wGG = self.chi0_wGG
+        else:
+            dm_wGG = np.zeros_like(self.chi0_wGG)
         if xc == 'RPA':
             Kc_G = np.zeros(self.npw)
             for iG in range(self.npw):
