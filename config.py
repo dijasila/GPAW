@@ -3,6 +3,7 @@
 # Please see the accompanying LICENSE file for further information.
 
 import os
+import platform
 import sys
 import re
 import distutils.util
@@ -234,6 +235,11 @@ def get_system_config(define_macros, undef_macros,
         else:
             libraries += ['blas', 'lapack']
             msg +=  ['* Using standard lapack']
+
+    # https://listserv.fysik.dtu.dk/pipermail/gpaw-users/2012-May/001473.html
+    p = platform.dist()
+    if p[0].lower() in ['redhat', 'centos'] and p[1].startswith('6.'):
+        define_macros.append(('_GNU_SOURCE', '1'))
 
     return msg
 
