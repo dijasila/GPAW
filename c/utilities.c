@@ -459,6 +459,42 @@ PyObject* errorfunction(PyObject *self, PyObject *args)
   return Py_BuildValue("d", erf(x));
 }
 
+
+PyObject* pack(PyObject *self, PyObject *args)
+{
+    PyArrayObject* a_obj;
+    if (!PyArg_ParseTuple(args, "O", &a_obj)) 
+        return NULL;
+    int n = a_obj->dimensions[0];
+    npy_intp dims[1] = {n * (n + 1) / 2};
+    int typenum = a_obj->descr->type_num;
+    PyArrayObject* b_obj = (PyArrayObject*) PyArray_SimpleNew(1, dims,
+							      typenum);
+    if (b_obj == NULL)
+      return NULL;
+    if (typenum == NPY_DOUBLE) {
+	double* a = (double*)a_obj->data;
+	double* b = (double*)b_obj->data;
+	for (int r = 0; r < n; r++) {
+	    *b++ = a[r + n * r];
+	    for (int c = r + 1; c < n; c++)
+	        *b++ = a[r + n * c] + a[c + n * r];
+	}
+    } else {
+	double complex* a = (double complex*)a_obj->data;
+	double complex* b = (double complex*)b_obj->data;
+	for (int r = 0; r < n; r++) {
+	    *b++ = a[r + n * r];
+	    for (int c = r + 1; c < n; c++)
+	        *b++ = a[r + n * c] + a[c + n * r];
+	}
+    }
+    PyObject* value = Py_BuildValue("O", b_obj);
+    Py_DECREF(b_obj);
+    return value;
+}
+
+
 PyObject* unpack(PyObject *self, PyObject *args)
 {
   PyArrayObject* ap;
