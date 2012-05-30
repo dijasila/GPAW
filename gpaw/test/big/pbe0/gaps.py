@@ -12,7 +12,6 @@ The numbers are compared to:
   DOI: 10.1103/PhysRevB.81.195117
 """
 
-import sys
 import pickle
 
 import numpy as np
@@ -49,7 +48,7 @@ data = {
     'Ar': ['fcc', 5.26,
            8.71, 11.15, 8.68, 11.09]}
 
-nk = int(sys.argv[1])
+nk = 12
 kpts = monkhorst_pack((nk, nk, nk)) + 0.5 / nk
 
 results = np.empty((16, 6))
@@ -63,7 +62,7 @@ for name in ['Si', 'C', 'GaAs', 'MgO', 'NaCl', 'Ar']:
                       nbands=-8,
                       convergence=dict(bands=-7),
                       kpts=kpts,
-                      txt='%s-%d.txt' % (name, nk))
+                      txt='%s.txt' % name)
     atoms.get_potential_energy()
     pbe0 = HybridXC('PBE0', alpha=5.0, bandstructure=True)
     de_skn = vxc(atoms.calc, pbe0) - vxc(atoms.calc, 'PBE')
@@ -79,7 +78,7 @@ for name in ['Si', 'C', 'GaAs', 'MgO', 'NaCl', 'Ar']:
         e = atoms.calc.get_eigenvalues(k)[n]
         e0 = e + de_skn[0, k, n]
         if rank == 0:
-            print(nk, name, n, k, symbol, e - gamma, e0 - gamma0)
+            print(name, n, k, symbol, e - gamma, e0 - gamma0)
         results[i][:2] = [e - gamma, e0 - gamma0]
         results[i][2:] = data[name][2 + j * 4:6 + j * 4]
         i += 1
@@ -89,4 +88,4 @@ for name in ['Si', 'C', 'GaAs', 'MgO', 'NaCl', 'Ar']:
         
 if rank == 0:
     print(results)
-    pickle.dump(results, open('results-%2.pckl' % nk, 'w'))
+    pickle.dump(results, open('results.pckl', 'w'))
