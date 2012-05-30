@@ -119,7 +119,7 @@ class KPointDescriptor:
                     self.description += ' + ['
                     for x in self.offset_c:
                         if x != 0 and abs(round(1 / x) - 1 / x) < 1e-12:
-                            self.description += '1/%d,' % (1 / x)
+                            self.description += '1/%d,' % round(1 / x)
                         else:
                             self.description += '%f,' % x
                     self.description = self.description[:-1] + ']'
