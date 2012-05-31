@@ -158,7 +158,8 @@ def get_system_config(define_macros, undef_macros,
                     atlas = True
                     break
             if atlas:
-                libraries += ['lapack', 'atlas', 'blas']
+                # http://math-atlas.sourceforge.net/errata.html#LINK
+                libraries += ['lapack', 'ptf77blas', 'ptcblas', 'atlas']
                 library_dirs += [dir]
                 msg +=  ['* Using ATLAS library']
             else:
@@ -206,7 +207,8 @@ def get_system_config(define_macros, undef_macros,
                     atlas = True
                     break
             if atlas:
-                libraries += ['lapack', 'atlas', 'blas']
+                # http://math-atlas.sourceforge.net/errata.html#LINK
+                libraries += ['lapack', 'ptf77blas', 'ptcblas', 'atlas']
                 library_dirs += [dir]
                 msg +=  ['* Using ATLAS library']
             else:
