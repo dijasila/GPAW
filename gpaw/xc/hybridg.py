@@ -46,9 +46,9 @@ class HybridXC(HybridXCBase):
             Skip k2-k1=0 interactions.
         bandstructure: bool
             Calculate bandstructure instead of just the total energy.
-        bands: None or tuple of two int
-            Use bands=(na,nb) to calculate bandstructure for only bands
-            with index n satisfying na<=n<nb.  Default is all bands.
+        bands: list of int
+            List of bands to calculate bandstructure for.  Default is
+            all bands.
         fcut: float
             Threshold for empty band.
         """
@@ -188,33 +188,36 @@ class HybridXC(HybridXCBase):
 
         # Find number of occupied bands:
         self.nocc_sk = np.zeros((self.wfs.nspins, kd.nibzkpts), int)
-        if self.bandstructure:
-            self.nocc_sk[:] = self.wfs.bd.nbands
-        else:
-            for kpt in self.wfs.kpt_u:
-                for n, f in enumerate(kpt.f_n):
-                    if abs(f) < self.fcut:
-                        self.nocc_sk[kpt.s, kpt.k] = n
-                        break
-                else:
-                    self.nocc_sk[kpt.s, kpt.k] = self.wfs.bd.nbands
-            self.wfs.kd.comm.sum(self.nocc_sk)
+        for kpt in self.wfs.kpt_u:
+            for n, f in enumerate(kpt.f_n):
+                if abs(f) < self.fcut:
+                    self.nocc_sk[kpt.s, kpt.k] = n
+                    break
+            else:
+                self.nocc_sk[kpt.s, kpt.k] = self.wfs.bd.nbands
+        self.wfs.kd.comm.sum(self.nocc_sk)
 
         noccmin = self.nocc_sk.min()
         noccmax = self.nocc_sk.max()
-        self.log('Number of bands calculated (min, max): %d, %d' %
+        self.log('Number of occupied bands (min, max): %d, %d' %
                  (noccmin, noccmax))
 
         self.log('Number of valence electrons:', self.wfs.setups.nvalence)
+
+        if self.bandstructure:
+            # allocate array for eigenvalue shifts:
+            self.exx_skn = np.zeros((self.wfs.nspins, K, self.wfs.bd.nbands))
+
+            if self.bands is None:
+                noccmax = self.wfs.bd.nbands
+            else:
+                noccmax = max(max(self.bands) + 1, noccmax)
 
         B = noccmax
         E = B - self.wfs.setups.nvalence / 2.0  # empty bands
         self.npairs_estimate = (K * kd.nbzkpts - 0.5 * K**2) * (B**2 - E**2)
         self.log('Approximate number of pairs:', self.npairs_estimate)
         
-        if self.bandstructure:
-            self.exx_skn = np.zeros((self.wfs.nspins, K, B))
-
         self.npairs = 0
         self.evv = 0.0
         self.evvacdf = 0.0
@@ -308,10 +311,13 @@ class HybridXC(HybridXCBase):
         w1 = self.kd.weight_k[kpt1.k]
         w2 = self.kd.weight_k[kpt2.k]
 
+        nocc1 = self.nocc_sk[kpt1.s, kpt1.k]
+        nocc2 = self.nocc_sk[kpt2.s, kpt2.k]
+
         # Is k2 in the 1. BZ?
         is_ibz2 = abs(k2_c - k20_c).max() < 1e-9
 
-        for n2 in range(self.nocc_sk[kpt2.s, kpt2.k]):
+        for n2 in range(self.wfs.bd.nbands):
             f2 = kpt2.f_n[n2]
             eps2 = kpt2.eps_n[n2]
 
@@ -328,23 +334,27 @@ class HybridXC(HybridXCBase):
             n1b = self.wfs.bd.nbands
 
             if self.bandstructure:
-                if abs(f2) < self.fcut:
-                    n1b = min(n1b, self.nocc_sk[kpt1.s, kpt1.k])
+                if n2 >= nocc2:
+                    n1b = min(n1b, nocc1)
             else:
-                n1b = min(n1b, self.nocc_sk[kpt1.s, kpt1.k])
+                if n2 >= nocc2:
+                    break
+                n1b = min(n1b, nocc1)
 
             if self.bands is not None:
                 assert self.bandstructure
-                na, nb = self.bands
-                if not ((na <= n2 < nb) and is_ibz2):
-                    n1a = max(n1a, na)
-                    n1b = min(n1b, nb)
+                n1_n = []
+                for n1 in range(n1a, n1b):
+                    if (n1 in self.bands and n2 < nocc2 or
+                        is_ibz2 and n2 in self.bands and n1 < nocc1):
+                        n1_n.append(n1)
+                n1_n = np.array(n1_n)
+            else:
+                n1_n = np.arange(n1a, n1b)
 
-            if n1a >= n1b:
+            if len(n1_n) == 0:
                 continue
 
-            n1_n = range(n1a, n1b)
-                    
             e_n = self.calculate_interaction(n1_n, n2, kpt1, kpt2, q, k,
                                              eik20r_R, eik2r_R, G3_G, f_IG,
                                              iG2_G, is_ibz2)

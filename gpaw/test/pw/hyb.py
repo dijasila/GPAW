@@ -9,6 +9,7 @@ for spinpol in [False, True]:
     for usesymm in [True, False, None]:
         if size == 8 and not spinpol and usesymm:
             continue
+        print spinpol,usesymm
         li.calc = GPAW(mode=PW(300),
                        kpts=(2, 3, 4),
                        spinpol=spinpol,
@@ -21,7 +22,7 @@ for spinpol in [False, True]:
         de = li.calc.get_xc_difference(exx)
         exx = HybridXC('EXX', logfilename=None,
                        method='acdf',
-                       bandstructure=True)
+                       bandstructure=True, bands=[0, 1])
         de2 = li.calc.get_xc_difference(exx)
         kd = li.calc.wfs.kd
         assert abs(e - -0.56024) < 1e-5
