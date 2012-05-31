@@ -21,7 +21,7 @@ Li_ Be_                                         B_  C_  N_  O_  F_  Ne_
 Na_ Mg_                                         Al_ Si_ P_  S_  Cl_ Ar_  
 K_  Ca_ Sc_ Ti_ V_  Cr_ Mn_ Fe_ Co_ Ni_ Cu_ Zn_ Ga_ Ge_ As_ Se_ Br_ Kr_
 Rb_ Sr_ Y   Zr_ Nb_ Mo_ Tc  Ru_ Rh_ Pd_ Ag_ Cd_ In_ Sn_ Sb  Te_ I_  Xe 
-Cs_ Ba_ La_ Hf  Ta_ W_  Re  Os_ Ir_ Pt_ Au_ Hg  Tl  Pb_ Bi_ Po  At  Rn 
+Cs_ Ba_ La_ Hf  Ta_ W_  Re  Os_ Ir_ Pt_ Au_ Hg  Tl  Pb_ Bi_ Po  At  Rn_ 
 === === === === === === === === === === === === === === === === === ===
 
 See also `NIST Atomic Reference Data`_, `Computational Chemistry
@@ -119,6 +119,7 @@ Comparison and Benchmark DataBase`_, `Dacapo pseudo potentials`_, and
 .. _Au: Au.html
 .. _Pb: Pb.html
 .. _Bi: Bi.html
+.. _Rn: Rn.html
 
 .. toctree::
    :glob:
