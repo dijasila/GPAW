@@ -176,7 +176,6 @@ def pack(A):
     """
     assert A.ndim == 2
     assert A.shape[0] == A.shape[1]
-    assert A.flags.contiguous
     assert A.dtype in [float, complex]
     return _gpaw.pack(A)
 

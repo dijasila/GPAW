@@ -465,6 +465,7 @@ PyObject* pack(PyObject *self, PyObject *args)
     PyArrayObject* a_obj;
     if (!PyArg_ParseTuple(args, "O", &a_obj)) 
         return NULL;
+    a_obj = PyArray_GETCONTIGUOUS(a_obj);
     int n = a_obj->dimensions[0];
     npy_intp dims[1] = {n * (n + 1) / 2};
     int typenum = a_obj->descr->type_num;
@@ -489,6 +490,7 @@ PyObject* pack(PyObject *self, PyObject *args)
 	        *b++ = a[r + n * c] + a[c + n * r];
 	}
     }
+    Py_DECREF(a_obj);
     PyObject* value = Py_BuildValue("O", b_obj);
     Py_DECREF(b_obj);
     return value;
