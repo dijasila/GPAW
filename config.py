@@ -153,8 +153,8 @@ def get_system_config(define_macros, undef_macros,
             msg += ['* Using ACML library']
         else:
             atlas = False
-            for dir in ['/usr/lib', '/usr/local/lib']:
-                if glob(join(dir, 'libatlas.a')) != []:
+            for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib64/atlas']:
+                if glob(join(dir, 'libatlas.so')) != []:
                     atlas = True
                     break
             if atlas:
@@ -201,8 +201,8 @@ def get_system_config(define_macros, undef_macros,
             #extra_link_args += ['-Wl,-rpath=' + library_dirs[-1]]
         else:
             atlas = False
-            for dir in ['/usr/lib', '/usr/local/lib']:
-                if glob(join(dir, 'libatlas.a')) != []:
+            for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib/atlas']:
+                if glob(join(dir, 'libatlas.so')) != []:
                     atlas = True
                     break
             if atlas:
