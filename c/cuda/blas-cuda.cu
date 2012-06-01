@@ -8,82 +8,9 @@
 #include <cublas.h>
 
 #include <gpaw-cuda-int.h>
-#ifndef CUGPAWCOMPLEX
-#define BLOCK_X  128
-#endif
-
-
-__global__ void Zcuda(elmenwise_mul_add_kernelx)(int n,const double* a,const Tcuda* b,Tcuda *c)
-{
-  int i=blockIdx.x*BLOCK_X+threadIdx.x;
-  a+=i;
-  b+=i;
-  c+=i;
-  if (i<n){
-    IADD(c[0],MULDT(a[0],b[0]));
-  }
-}
-
-
-
-
-#ifndef CUGPAWCOMPLEX
-#define CUGPAWCOMPLEX
-#include "blas-cuda.cu"
-
-__global__ void elmenwise_mul_add_kernelzz(int n,const cuDoubleComplex* a,const cuDoubleComplex* b, cuDoubleComplex*c)
-{
-  int i=blockIdx.x*BLOCK_X+threadIdx.x;
-  a+=i;
-  b+=i;
-  c+=i;
-  if (i<n){
-    c[0]=cuCadd(c[0],cuCmul(a[0],b[0]));
-  }
-}
 
 extern "C" {
 
-PyObject* elementwise_multiply_add_gpu(PyObject *self, PyObject *args)
-{
-  CUdeviceptr a_gpu,b_gpu,c_gpu;
-  PyObject *a_shape;
-  PyArray_Descr *a_type,*b_type; 
-  
-  if (!PyArg_ParseTuple(args, "nOOnOn", &a_gpu,&a_shape,&a_type,&b_gpu,&b_type,&c_gpu))
-    return NULL;
-
-  int n = PyInt_AsLong(PyTuple_GetItem(a_shape,0));
-  Py_ssize_t nd=PyTuple_Size(a_shape);
-  for (int d = 1; d < nd; d++)
-    n *= PyInt_AsLong(PyTuple_GetItem(a_shape,d));
-  
-  int gridx=MAX((n+BLOCK_X-1)/BLOCK_X,1);
-  
-  dim3 dimBlock(BLOCK_X,1); 
-  dim3 dimGrid(gridx,1);    
-  if (a_type->type_num == PyArray_DOUBLE){
-    if (b_type->type_num == PyArray_DOUBLE){
-      elmenwise_mul_add_kernelx<<<dimGrid, dimBlock, 0>>>
-	(n,(double*)a_gpu,(double*)b_gpu,(double*)c_gpu);
-    }else{
-      elmenwise_mul_add_kernelxz<<<dimGrid, dimBlock, 0>>>
-	(n,(double*)a_gpu,(cuDoubleComplex*)b_gpu,(cuDoubleComplex*)c_gpu);
-    }
-  } else {
-    if (b_type->type_num == PyArray_DOUBLE){
-      elmenwise_mul_add_kernelxz<<<dimGrid, dimBlock, 0>>>
-	(n,(double*)b_gpu,(cuDoubleComplex*)a_gpu,(cuDoubleComplex*)c_gpu);
-      
-    }else{
-      elmenwise_mul_add_kernelzz<<<dimGrid, dimBlock, 0>>>
-	(n,(cuDoubleComplex*)a_gpu,(cuDoubleComplex*)b_gpu,(cuDoubleComplex*)c_gpu);
-    }
-  }
-  gpaw_cublasSafeCall(cublasGetError());
-  Py_RETURN_NONE;
-}
-  
 
 PyObject* scal_cuda_gpu(PyObject *self, PyObject *args)
 {
@@ -440,5 +367,3 @@ PyObject* dotu_cuda_gpu(PyObject *self, PyObject *args)
 }
 
 }
-
-#endif

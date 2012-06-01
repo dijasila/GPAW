@@ -18,7 +18,7 @@ from gpaw import debug
 
 import _gpaw
 
-from gpaw import debug_cuda,debug_cuda_reltol,debug_cuda_abstol
+from gpaw.cuda import debug_cuda,debug_cuda_test
 import pycuda.driver as cuda
 import pycuda.gpuarray as gpuarray
 
@@ -30,13 +30,25 @@ def scal(alpha, x):
       x <- alpha * x 
       
     """
-    if isinstance(alpha, complex):
-        assert is_contiguous(x, complex)
+    if debug:
+        if isinstance(alpha, complex):
+            assert is_contiguous(x, complex)
+        else:
+            assert isinstance(alpha, float)
+            assert x.dtype in [float, complex]
+            assert x.flags.contiguous
+
+    if isinstance(x,gpuarray.GPUArray):
+        if debug_cuda:
+            x_cpu=x.get()
+            _gpaw.scal(alpha, x_cpu)
+
+        _gpaw.scal_cuda_gpu(alpha, x.gpudata, x.shape, x.dtype)
+        if debug_cuda:
+            debug_cuda_test(x_cpu,x.get(),"scal")
     else:
-        assert isinstance(alpha, float)
-        assert x.dtype in [float, complex]
-        assert x.flags.contiguous
-    _gpaw.scal(alpha, x)
+        _gpaw.scal(alpha, x)
+
     
 
 def gemm(alpha, a, b, beta, c, transa='n', cuda=False):
@@ -98,13 +110,7 @@ def gemm(alpha, a, b, beta, c, transa='n', cuda=False):
         _gpaw.gemm_cuda_gpu(alpha, a.gpudata,a.shape, b.gpudata, 
                             b.shape,beta, c.gpudata, c.shape, a.dtype, transa)
         if debug_cuda:
-            if not  np.allclose(c_cpu,c.get(),
-                                debug_cuda_reltol,debug_cuda_abstol):
-                diff=abs(c_cpu-c.get())
-                error_i=np.unravel_index(np.argmax(diff - debug_cuda_reltol * abs(c_cpu)),diff.shape)
-                print "Debug cuda: gemm max rel error: ",error_i,c_cpu[error_i],c.get()[error_i],abs(c_cpu[error_i]-c.get()[error_i])
-                error_i=np.unravel_index(np.argmax(diff),diff.shape)
-                print "Debug cuda: gemm max abs error: ",error_i, c_cpu[error_i],c.get()[error_i],abs(c_cpu[error_i]-c.get()[error_i])
+            debug_cuda_test(c_cpu,c.get(),"gemm")
     elif cuda:
         print "gemm_cuda_cpu"
         a_gpu = gpuarray.to_gpu(a)
@@ -175,13 +181,7 @@ def gemv(alpha, a, x, beta, y, trans='t', cuda=False):
                             y.gpudata, a.dtype, trans)
         
         if debug_cuda:
-            if not  np.allclose(y_cpu,y.get(),
-                                debug_cuda_reltol,debug_cuda_abstol):
-                diff=abs(y_cpu-y.get())
-                error_i=np.unravel_index(np.argmax(diff - debug_cuda_reltol * abs(y_cpu)),diff.shape)
-                print "Debug cuda: gemv max rel error: ",error_i,y_cpu[error_i],y.get()[error_i],abs(y_cpu[error_i]-y.get()[error_i])
-                error_i=np.unravel_index(np.argmax(diff),diff.shape)
-                print "Debug cuda: gemv max abs error: ",error_i, y_cpu[error_i],y.get()[error_i],abs(y_cpu[error_i]-y.get()[error_i])
+            debug_cuda_test(y_cpu,y.get(),"gemv")
     elif cuda:
         #print "gemv_cuda_cpu"
         a_gpu = gpuarray.to_gpu(a)
@@ -227,13 +227,7 @@ def axpy(alpha, x, y, cuda=False):
 
         _gpaw.axpy_cuda_gpu(alpha, x.gpudata, x.shape, y.gpudata, y.shape, x.dtype)
         if debug_cuda:
-             if not  np.allclose(y_cpu,y.get(),
-                                debug_cuda_reltol,debug_cuda_abstol):
-                diff=abs(y_cpu-y.get())
-                error_i=np.unravel_index(np.argmax(diff - debug_cuda_reltol * abs(y_cpu)),diff.shape)
-                print "Debug cuda: axpy max rel error: ",error_i,y_cpu[error_i],y.get()[error_i],abs(y_cpu[error_i]-y.get()[error_i])
-                error_i=np.unravel_index(np.argmax(diff),diff.shape)
-                print "Debug cuda: axpy max abs error: ",error_i, y_cpu[error_i],y.get()[error_i],abs(y_cpu[error_i]-y.get()[error_i])
+            debug_cuda_test(y_cpu,y.get(),"axpy")
     elif cuda:
         print "axpy_cuda_cpu"
         x_gpu=gpuarray.to_gpu(x)
@@ -288,13 +282,7 @@ def rk(alpha, a, beta, c, cuda=False):
 
         _gpaw.rk_cuda_gpu(alpha, a.gpudata, a.shape,beta, c.gpudata, c.shape, a.dtype)
         if debug_cuda:
-            if not  np.allclose(c_cpu,c.get(),
-                                debug_cuda_reltol,debug_cuda_abstol):
-                diff=abs(c_cpu-c.get())
-                error_i=np.unravel_index(np.argmax(diff - debug_cuda_reltol * abs(c_cpu)),diff.shape)
-                print "Debug cuda: rk max rel error: ",error_i,c_cpu[error_i],c.get()[error_i],abs(c_cpu[error_i]-c.get()[error_i])
-                error_i=np.unravel_index(np.argmax(diff),diff.shape)
-                print "Debug cuda: rk max abs error: ",error_i, c_cpu[error_i],c.get()[error_i],abs(c_cpu[error_i]-c.get()[error_i])
+            debug_cuda_test(c_cpu,c.get(),"rk")
     elif cuda:
         # print "rk_cuda_cpu"
         a_gpu=gpuarray.to_gpu(a)
@@ -356,13 +344,7 @@ def r2k(alpha, a, b, beta, c, cuda=False):
         _gpaw.r2k_cuda_gpu(alpha, a.gpudata, a.shape, b.gpudata,
                            b.shape, beta, c.gpudata, c.shape, a.dtype)
         if debug_cuda:
-            if not  np.allclose(c_cpu,c.get(),
-                                debug_cuda_reltol,debug_cuda_abstol):
-                diff=abs(c_cpu-c.get())
-                error_i=np.unravel_index(np.argmax(diff - debug_cuda_reltol * abs(c_cpu)),diff.shape)
-                print "Debug cuda: rk2 max rel error: ",error_i,c_cpu[error_i],c.get()[error_i],abs(c_cpu[error_i]-c.get()[error_i])
-                error_i=np.unravel_index(np.argmax(diff),diff.shape)
-                print "Debug cuda: rk2 max abs error: ",error_i, c_cpu[error_i],c.get()[error_i],abs(c_cpu[error_i]-c.get()[error_i])
+            debug_cuda_test(c_cpu,c.get(),"rk2")
     elif cuda:
         print "r2k_cuda_cpu"
         a_gpu=gpuarray.to_gpu(a)
@@ -403,9 +385,7 @@ def dotc(a, b):
             a_cpu = a.get()
             b_cpu = b.get()
             cpu = _gpaw.dotc(a_cpu, b_cpu)
-            if not  np.allclose(cpu,gpu,
-                                debug_cuda_reltol,debug_cuda_abstol):
-                print "Debug cuda: dotc error: ",cpu,gpu,abs(cpu-gpu)
+            debug_cuda_test(cpu,gpu,"dotc")
             return gpu
         else:
             return _gpaw.dotc_cuda_gpu(a.gpudata, a.shape, b.gpudata, a.dtype)
@@ -438,9 +418,7 @@ def dotu(a, b):
             b_cpu = b.get()
             cpu = _gpaw.dotu(a_cpu, b_cpu)
             gpu = _gpaw.dotu_cuda_gpu(a.gpudata, a.shape, b.gpudata, a.dtype)
-            if not  np.allclose(cpu,gpu,
-                                debug_cuda_reltol,debug_cuda_abstol):
-                print "Debug cuda: dotu error: ",cpu,gpu,abs(cpu-gpu)
+            debug_cuda_test(cpu,gpu,"dotu")
             return gpu
         else:
             return _gpaw.dotu_cuda_gpu(a.gpudata, a.shape, b.gpudata, a.dtype)
@@ -533,7 +511,7 @@ def _rotate(in_jj, U_ij, a=1., b=0., out_ii=None, work_ij=None):
     return out_ii
 
 if not debug:
-    scal = _gpaw.scal
+    #scal = _gpaw.scal
     #gemm = _gpaw.gemm
     #gemv = _gpaw.gemv
     #axpy = _gpaw.axpy
