@@ -407,7 +407,8 @@ class HybridXC(HybridXCBase):
                 
                 t0 = time()
                 nt_R = self.calculate_pair_density(n1, n2, kpt1, kpt2, q, k,
-                                                   eik1r_R, eik2r_R, eiqr_R)
+                                                   eik1r_R, eik2r_R, eiqr_R,
+                                                   is_ibz2)
                 nt_G = self.pwd.fft(nt_R, q) / N
                 vt_G = nt_G.copy()
                 vt_G *= -pi * vol * iG2_G
@@ -472,7 +473,7 @@ class HybridXC(HybridXCBase):
         return exx
 
     def calculate_pair_density(self, n1, n2, kpt1, kpt2, q, k,
-                               eik1r_R, eik2r_R, eiqr_R):
+                               eik1r_R, eik2r_R, eiqr_R, ibz2):
         if isinstance(self.wfs, PWWaveFunctions):
             psit1_R = self.wfs.pd.ifft(kpt1.psit_nG[n1]) * eik1r_R
             psit2_R = self.wfs.pd.ifft(kpt2.psit_nG[n2]) * eik2r_R
@@ -480,8 +481,11 @@ class HybridXC(HybridXCBase):
             psit1_R = kpt1.psit_nG[n1]
             psit2_R = kpt2.psit_nG[n2]
 
-        psit2_R = np.asarray(self.kd.transform_wave_function(psit2_R, k),
-                             complex)
+        if ibz2:
+            psit2_R = psit2_R
+        else:
+            psit2_R = np.asarray(self.kd.transform_wave_function(psit2_R, k),
+                                 complex)
         nt_R = psit1_R.conj() * psit2_R
 
         s = self.kd.sym_k[k]
@@ -500,6 +504,9 @@ class HybridXC(HybridXCBase):
             P2_i = np.dot(self.setups[a].R_sii[s], kpt2.P_ani[b][n2]) * x
             if time_reversal:
                 P2_i = P2_i.conj()
+
+            if ibz2:
+                P2_i = kpt2.P_ani[a][n2]
 
             D_ii = np.outer(P1_i.conj(), P2_i)
             D_p = pack(D_ii)
