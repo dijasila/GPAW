@@ -159,7 +159,9 @@ def get_system_config(define_macros, undef_macros,
                     break
             if atlas:
                 # http://math-atlas.sourceforge.net/errata.html#LINK
-                libraries += ['lapack', 'ptf77blas', 'ptcblas', 'atlas']
+                # atlas does not respect OMP_NUM_THREADS - build single-thread
+                # http://math-atlas.sourceforge.net/faq.html#tsafe
+                libraries += ['lapack', 'f77blas', 'cblas', 'atlas']
                 library_dirs += [dir]
                 msg +=  ['* Using ATLAS library']
             else:
@@ -208,7 +210,9 @@ def get_system_config(define_macros, undef_macros,
                     break
             if atlas:
                 # http://math-atlas.sourceforge.net/errata.html#LINK
-                libraries += ['lapack', 'ptf77blas', 'ptcblas', 'atlas']
+                # atlas does not respect OMP_NUM_THREADS - build single-thread
+                # http://math-atlas.sourceforge.net/faq.html#tsafe
+                libraries += ['lapack', 'f77blas', 'cblas', 'atlas']
                 library_dirs += [dir]
                 msg +=  ['* Using ATLAS library']
             else:
