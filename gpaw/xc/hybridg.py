@@ -427,7 +427,7 @@ class HybridXC(HybridXCBase):
                 b = self.kd.symmetry.a_sa[s, a]
                 S_c = (np.dot(self.spos_ac[a], self.kd.symmetry.op_scc[s]) -
                        self.spos_ac[b])
-                assert abs(S_c.round() - S_c).max() < 1e-13
+                assert abs(S_c.round() - S_c).max() < 1e-5
                 if self.ghat.dtype == complex:
                     x = np.exp(2j * pi * np.dot(k2_c, S_c))
                 else:
