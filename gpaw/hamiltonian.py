@@ -13,9 +13,10 @@ from gpaw.transformers import Transformer
 from gpaw.lfc import LFC
 from gpaw.utilities import pack2,unpack,unpack2
 from gpaw.utilities.tools import tri2full
+from gpaw.utilities.linalg  import elementwise_multiply_add,multi_elementwise_multiply_add
 
 import pycuda.gpuarray as gpuarray
-from gpaw import debug_cuda,debug_cuda_reltol,debug_cuda_abstol
+from gpaw.cuda import debug_cuda,debug_cuda_test
 
 import _gpaw
 
@@ -238,19 +239,9 @@ class Hamiltonian:
                 self.vt_sG_gpu = gpuarray.to_gpu(self.vt_sG)
             self.timer.stop('Initialize Hamiltonian')
 
-        if debug_cuda and self.cuda:                
-            if not  np.allclose(self.vt_sG,self.vt_sG_gpu.get(),
-                                debug_cuda_reltol,debug_cuda_abstol):
-                diff=abs(self.vt_sG-self.vt_sG_gpu.get())
-                error_i=np.unravel_index(np.argmax(diff - debug_cuda_reltol * abs(self.vt_sG)),diff.shape)
-                print "Debug cuda: Hamiltonian vt_sG max rel error: ",error_i,\
-                      self.vt_sG[error_i],self.vt_sG_gpu.get()[error_i], \
-                      abs(self.vt_sG[error_i]-self.vt_sG_gpu.get()[error_i])
-                error_i=np.unravel_index(np.argmax(diff),diff.shape)
-                print "Debug cuda: Hamiltonian vt_sG max abs error: ",error_i,\
-                      self.vt_sG[error_i],self.vt_sG_gpu.get()[error_i],\
-                      abs(self.vt_sG[error_i]-self.vt_sG_gpu.get()[error_i])
-                
+        if debug_cuda and self.cuda:
+            debug_cuda_test(self.vt_sG,self.vt_sG_gpu.get(),"Hamiltonian vt_sG")
+            
         self.timer.start('vbar')
         Ebar = self.finegd.integrate(self.vbar_g, density.nt_g,
                                      global_integral=False)
@@ -420,22 +411,15 @@ class Hamiltonian:
             are not applied and calculate_projections is ignored.
         
         """
-
         if isinstance(psit_nG, gpuarray.GPUArray):
             if self.cuda:
                 vt_G = self.vt_sG_gpu[s]
             else:            
                 vt_G = gpuarray.to_gpu(self.vt_sG[s])
             if len(psit_nG.shape) == 3:  # XXX Doesn't GPU arrays have ndim attr?
-                _gpaw.elementwise_multiply_add_gpu(psit_nG.gpudata,psit_nG.shape,psit_nG.dtype,
-                                                   vt_G.gpudata,vt_G.dtype,Htpsit_nG.gpudata);
-                #Htpsit_nG += psit_nG * vt_G
+                elementwise_multiply_add(psit_nG,vt_G,Htpsit_nG);
             else:
-                for psit_G, Htpsit_G in zip(psit_nG, Htpsit_nG):
-                    #print psit_nG.dtype,vt_G.dtype
-                    _gpaw.elementwise_multiply_add_gpu(psit_G.gpudata,psit_G.shape,psit_G.dtype,
-                                                       vt_G.gpudata,vt_G.dtype,Htpsit_G.gpudata);
-                    #Htpsit_G += psit_G * vt_G
+                multi_elementwise_multiply_add(psit_nG,vt_G,Htpsit_nG);
         else:
             vt_G = self.vt_sG[s]
             if len(psit_nG.shape) == 3:  # XXX Doesn't GPU arrays have ndim attr?
@@ -464,18 +448,8 @@ class Hamiltonian:
         
         """
         #self.timer.start('Apply Hamiltonian cuda: '+str(self.cuda))
-        if debug_cuda and self.cuda:                
-            if not  np.allclose(self.vt_sG,self.vt_sG_gpu.get(),
-                                debug_cuda_reltol,debug_cuda_abstol):
-                diff=abs(self.vt_sG-self.vt_sG_gpu.get())
-                error_i=np.unravel_index(np.argmax(diff - debug_cuda_reltol * abs(self.vt_sG)),diff.shape)
-                print "Debug cuda: Hamiltonian vt_sG max rel error: ",error_i,\
-                      self.vt_sG[error_i],self.vt_sG_gpu.get()[error_i], \
-                      abs(self.vt_sG[error_i]-self.vt_sG_gpu.get()[error_i])
-                error_i=np.unravel_index(np.argmax(diff),diff.shape)
-                print "Debug cuda: Hamiltonian vt_sG max abs error: ",error_i,\
-                      self.vt_sG[error_i],self.vt_sG_gpu.get()[error_i],\
-                      abs(self.vt_sG[error_i]-self.vt_sG_gpu.get()[error_i])
+        if debug_cuda and self.cuda:
+            debug_cuda_test(self.vt_sG,self.vt_sG_gpu.get(),"Hamiltonian vt_sG")
                 
         #self.timer.start('Apply Hamiltonian kin')
         #print wfs.kin.args
