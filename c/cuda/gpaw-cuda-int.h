@@ -12,6 +12,10 @@
 #undef IADD
 #undef MAKED
 #undef MULTT
+#undef CONJ
+#undef REAL
+#undef IMAG
+#undef NEG
 
 #ifndef CUGPAWCOMPLEX
 #  define Tcuda double
@@ -22,6 +26,10 @@
 #  define ADD(a,b)   ((a)+(b))
 #  define IADD(a,b)  ((a)+=(b))
 #  define MAKED(a)   (a)
+#  define CONJ(a)    (a)
+#  define REAL(a)    (a)
+#  define IMAG(a)    (0)
+#  define NEG(a)     (-(a))
 #else
 #  define Tcuda cuDoubleComplex
 #  define Zcuda(f) f ## z
@@ -31,6 +39,10 @@
 #  define ADD(a,b)   cuCadd((a),(b))
 #  define IADD(a,b)  (a)=ADD((a),(b))
 #  define MAKED(a)   make_cuDoubleComplex((a),0)
+#  define CONJ(a)    cuConj((a))
+#  define REAL(a)    cuCreal(a)
+#  define IMAG(a)    cuCimag(a)
+#  define NEG(a)     cuCneg(a)
 #endif
 
 
@@ -39,22 +51,6 @@
 
 #include <Python.h>
 
-#define FD_BLOCK_X 16
-#define FD_BLOCK_Xz (2*(FD_BLOCK_X))
-
-#define FD_BLOCK_X_B FD_BLOCK_X
-#define FD_BLOCK_X_Bz FD_BLOCK_Xz
-
-#define FD_BLOCK_Y 8
-#define FD_BLOCK_Y_B FD_BLOCK_Y
-#define FD_XDIV 4
-#define FD_XDIV_B FD_XDIV 
-
-#define FD_MAXJ      10
-#define FD_MAXCOEFS  32
-
-#define FD_ACACHE_X  ((FD_BLOCK_X)+16)
-#define FD_ACACHE_Xz  ((FD_BLOCK_Xz)+2*16)
 
 #ifndef MAX
 #define MAX(a,b) (((a)>(b))?(a):(b))
@@ -62,11 +58,6 @@
 #ifndef MIN
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #endif
-
-
-
-
-
 
 typedef struct
 {
@@ -84,6 +75,11 @@ __host__ __device__ static __inline__ cuDoubleComplex cuCmulD(cuDoubleComplex x,
     prod = make_cuDoubleComplex ((cuCreal(x) * y),
                                  (cuCimag(x) * y));
     return prod;
+}
+
+__host__ __device__ static __inline__ cuDoubleComplex cuCneg(cuDoubleComplex x)
+{
+    return make_cuDoubleComplex (-cuCreal(x), -cuCimag(x));
 }
 
 

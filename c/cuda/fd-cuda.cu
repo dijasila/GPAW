@@ -13,148 +13,200 @@
 
 #include "gpaw-cuda-int.h"
 
-#ifndef MYJ
-#ifndef CUGPAWCOMPLEX
-/*
-__constant__ long c_offsets[FD_MAXCOEFS];
-__constant__ double c_coefs[FD_MAXCOEFS];
-__constant__ int c_offsets12[FD_MAXCOEFS];
-__constant__ double c_coefs12[FD_MAXCOEFS];
-__constant__ double c_coefs0[FD_MAXJ+1];
-*/
-#endif
-#endif
-
-#undef  ACACHE_X
+#undef ACACHE_X
+#undef ACACHE_Y
 #undef BLOCK_X
-#undef BLOCK_Y_B
 #undef BLOCK_X_B
-#ifndef CUGPAWCOMPLEX
-#define ACACHE_X  FD_ACACHE_X
-#define BLOCK_X  FD_BLOCK_X
-#define BLOCK_X_B   FD_BLOCK_X_B
-#define BLOCK_Y_B   FD_BLOCK_Y_B
-
-//XOPT 16 8
-//YOPT 16 4
-//ZOPT 8  16
-#else
-#define ACACHE_X  FD_ACACHE_Xz
-#define BLOCK_X  FD_BLOCK_Xz
-#define BLOCK_X_B  FD_BLOCK_X_Bz
-#define BLOCK_Y_B   FD_BLOCK_Y_B
-#endif
-
-#ifdef MYJ
-#undef  FD_ACACHE_Y
-#define FD_ACACHE_Y  ((FD_BLOCK_Y)+(MYJ))
-
+#undef BLOCK_Y
+#undef BLOCK_Y_B
 #undef MYJ_X
+#undef NDOUBLE
+
+
 #ifndef CUGPAWCOMPLEX
-#define MYJ_X MYJ
+
+#define BLOCK_X   16
+#define BLOCK_X_B BLOCK_X
+#define BLOCK_Y   8
+#define BLOCK_Y_B BLOCK_Y
+#define MYJ_X     (MYJ)
+#define ACACHE_X  (BLOCK_X+MYJ_X*2)
+#define ACACHE_Y  (BLOCK_Y+MYJ*2)
+#define NDOUBLE   1
+
 #else
-#define MYJ_X (2*(MYJ))
+
+#define BLOCK_X   (2*(16))
+#define BLOCK_X_B BLOCK_X
+#define BLOCK_Y   8
+#define BLOCK_Y_B BLOCK_Y
+#define MYJ_X     (MYJ*2)
+#define ACACHE_X  (BLOCK_X+MYJ_X*2)
+#define ACACHE_Y  (BLOCK_Y+MYJ*2)
+#define NDOUBLE   2
+
 #endif
+#ifdef MYJ
 
 
 
 __global__ void FD_kernel(const int ncoefs,const double *c_coefs,
 			  const long *c_offsets,
-			  const int ncoefs12,const double *c_coefs12,
-			  const int *c_offsets12,const double *c_coefs0,
+			  const double *c_coefs0,
+			  const double *c_coefs1,
+			  const double *c_coefs2,
 			  const double* a,
-			  double* b,const long3 c_n,
-			  const int3 c_jb,const int3 c_bjb,const int blocks)
+			  double* b,const int3 c_n,
+			  const int3 a_size,const int3 b_size,const int xdiv,
+			  const int blocks)
 {
   
-  int xx=gridDim.x/FD_XDIV;
+  int xx=gridDim.x/xdiv;
   int yy=gridDim.y/blocks;
 
   int xind=blockIdx.x/xx;
-  int i2bl=blockIdx.x-xind*xx;
-
 
   int i2tid=threadIdx.x;
-  int i2=i2bl*BLOCK_X+i2tid;
+  int i2=(blockIdx.x-xind*xx)*BLOCK_X+i2tid;
 
   int blocksi=blockIdx.y/yy;
-  int i1bl=blockIdx.y-blocksi*yy;
 
   int i1tid=threadIdx.y;
-  int i1=i1bl*FD_BLOCK_Y+i1tid;
+  int i1=(blockIdx.y-blocksi*yy)*BLOCK_Y+i1tid;
 
-  __shared__ double acache12[FD_ACACHE_Y*ACACHE_X];
+  
+  __shared__ double s_coefs0[MYJ*2+1];
+  __shared__ double s_coefs1[MYJ*2];
+  __shared__ double s_coefs2[MYJ*2];
 
-  double acache0[MYJ+1];
+  __shared__ double acache12[ACACHE_Y*ACACHE_X];
+  
+  double acache0[MYJ];
+  double acache0t[MYJ+1];
   double *acache12p;
-  int sizez=c_jb.z+c_n.z;  
-  int sizeyz=(c_jb.y+c_n.y)*sizez;
-  int sizebz=c_bjb.z+c_n.z;  
-  int sizebyz=(c_bjb.y+c_n.y)*sizebz;
   
-  int xlen=(c_n.x+FD_XDIV-1)/FD_XDIV;
+  int xlen=(c_n.x+xdiv-1)/xdiv;
   int xstart=xind*xlen;
-  int xend=MIN(xstart+xlen,c_n.x);
+
+  if ((c_n.x-xstart) < xlen)
+    xlen=c_n.x-xstart;
+
+  a+=a_size.x*blocksi+xstart*a_size.y+i1*a_size.z+i2;
+  b+=b_size.x*blocksi+xstart*b_size.y+i1*b_size.z+i2;
   
-  a+=(c_jb.x+c_n.x)*sizeyz*blocksi;
-  b+=(c_n.x+c_bjb.x)*sizebyz*blocksi;
-  
-  a+=xstart*sizeyz+i1*sizez+i2;
-  b+=xstart*sizebyz+i1*sizebz+i2;
-  
-  acache12p=acache12+ACACHE_X*(i1tid+MYJ/2)+i2tid+MYJ_X/2;
-  for (int c=1;c<MYJ+1;c++){
-    acache0[c]=a[(c-1-MYJ/2)*(sizeyz)];
+  acache12p=acache12+ACACHE_X*(i1tid+MYJ)+i2tid+MYJ_X;
+
+  if (i2tid<=MYJ*2)
+    s_coefs0[i2tid]=c_coefs0[i2tid];
+  if (i2tid<MYJ*2){
+    s_coefs1[i2tid]=c_coefs1[i2tid];
+    s_coefs2[i2tid]=c_coefs2[i2tid];
   }
-  for (int i0=xstart; i0 < xend; i0++) {  
-    for (int c=0;c<MYJ;c++){
+  __syncthreads();
+  
+
+  for (int c=0;c<MYJ;c++){
+    if ((i1<c_n.y) && (i2<c_n.z)) 
+      acache0[c]=a[(c-MYJ)*(a_size.y)];
+  }
+
+  for (int i0=0; i0 < xlen; i0++) { 
+    if (i1<c_n.y+MYJ) {
+      acache12p[-MYJ_X]=a[-MYJ_X];
+      if  ((i2tid<MYJ_X*2) && (i2<c_n.z+MYJ_X-BLOCK_X+MYJ_X))
+	acache12p[BLOCK_X-MYJ_X]=a[BLOCK_X-MYJ_X];
+    }
+    if  (i1tid<MYJ) {
+      acache12p[-ACACHE_X*MYJ]=a[-a_size.z*MYJ];
+      if  (i1<c_n.y+MYJ-BLOCK_Y)
+	acache12p[ACACHE_X*BLOCK_Y]=a[a_size.z*BLOCK_Y];      
+    }
+    __syncthreads();         
+
+    acache0t[0]=0.0;
+
+    for (int c = 0; c < MYJ; c++)
+      acache0t[0]+=acache12p[ACACHE_X*(c-MYJ)]*s_coefs1[c];
+    for (int c = 0; c < MYJ; c++)
+      acache0t[0]+=acache12p[NDOUBLE*c-MYJ_X]*s_coefs2[c];
+    for (int c = 0; c < MYJ; c++)
+      acache0t[0]+=acache12p[NDOUBLE*(c+1)]*s_coefs2[c+MYJ];        
+    for (int c = 0; c < MYJ; c++)
+      acache0t[0]+=acache12p[ACACHE_X*(c+1)]*s_coefs1[c+MYJ];    
+    for (int c = 0; c < MYJ; c++)
+      acache0t[0]+=acache0[c]*s_coefs0[c];    
+
+    acache0t[0]+=acache12p[0]*s_coefs0[MYJ];    
+    for (int c = 0; c < MYJ; c++)
+      acache0t[c+1]+= acache12p[0]*s_coefs0[c+1+MYJ];
+    for (int c = 0; c < ncoefs; c++)
+      acache0t[0]+=a[NDOUBLE*c_offsets[c]]*c_coefs[c];
+    
+    if (i0>=MYJ) {
+      if ((i1<c_n.y) && (i2<c_n.z)) {
+	b[0] = acache0t[MYJ];
+      }
+      b+=b_size.y;
+    }    
+
+    for (int c=0;c<MYJ-1;c++){
       acache0[c]=acache0[c+1];
     }   
-    if ((i1<c_n.y+MYJ/2) && (i2<c_n.z+MYJ_X/2))
-      acache0[MYJ]=a[(MYJ/2)*sizeyz];
+    acache0[MYJ-1]= acache12p[0];
 
-    acache12p[0]=acache0[MYJ/2];
-    if  (i2tid<MYJ_X/2){
-      acache12p[-MYJ_X/2]=a[-MYJ_X/2];
-      acache12p[BLOCK_X]=a[BLOCK_X];
-    }
-    if  (i1tid<MYJ/2){
-      acache12p[-ACACHE_X*MYJ/2]=a[-sizez*MYJ/2];
-      acache12p[ACACHE_X*FD_BLOCK_Y]=a[sizez*FD_BLOCK_Y];      
-    }
+    for (int c=MYJ;c>0;c--){
+      acache0t[c]=acache0t[c-1];
+    }   
+    a+=a_size.y;
     __syncthreads();         
-    double x = 0.0;
-#include"fd-cuda-pragmas.cu"
-    for (int c = 0; c < ncoefs12; c++){
-      x+=acache12p[c_offsets12[c]]*c_coefs12[c];
-    }	
-    for (int c = 0; c < MYJ+1; c++){
-      x+=acache0[c]*c_coefs0[c];
-    }	    
-    for (int c = 0; c < ncoefs; c++){	  
-      x+=a[c_offsets[c]]*c_coefs[c];
-    }	
 
-    if ((i1<c_n.y) && (i2<c_n.z)) {
-      b[0] = x;
-    }
-
-    b+=sizebyz;
-    a+=sizeyz;
-    __syncthreads();         
   }
+
+#pragma unroll  
+  for (int i0=0; i0 < MYJ; i0++) { 
+    if ((i1<c_n.y) && (i2<c_n.z)) 
+      acache0[0]=a[0];
+
+    if (i0 < 1)
+      acache0t[1-i0]+=acache0[0]*s_coefs0[1+MYJ];
+#if MYJ >= 2
+    if (i0 < 2)
+      acache0t[2-i0]+=acache0[0]*s_coefs0[2+MYJ];
+#endif
+#if MYJ >= 3
+    if (i0 < 3)
+      acache0t[3-i0]+=acache0[0]*s_coefs0[3+MYJ];
+#endif
+#if MYJ >= 4
+    if (i0 < 4)
+      acache0t[4-i0]+=acache0[0]*s_coefs0[4+MYJ];
+#endif
+#if MYJ >= 5
+    if (i0 < 5)
+      acache0t[5-i0]+=acache0[0]*s_coefs0[5+MYJ];
+#endif
+    if (i0+xlen>=MYJ) {
+      if ((i1<c_n.y) && (i2<c_n.z)) {
+	b[0] = acache0t[MYJ-i0];
+	
+      }
+      b+=b_size.y;
+    }	
+    a+=a_size.y;   
+  }  
   
 }
 
 
 __global__ void FD_kernel_onlyb(const int ncoefs,const double *c_coefs,
 				const long *c_offsets,
-				const int ncoefs12,const double *c_coefs12,
-				const int *c_offsets12,const double *c_coefs0,
+				const double *c_coefs0,
+				const double *c_coefs1,
+				const double *c_coefs2,
 				const double* a,
-				double* b,const long3 c_n,
+				double* b,const int3 c_n,
 				const int3 c_jb,const int boundary,
-				const int blocks)
+				const int xdiv,const int blocks)
 {
 
   int xx=MAX((c_n.z+BLOCK_X_B-1)/BLOCK_X_B,1);
@@ -174,7 +226,7 @@ __global__ void FD_kernel_onlyb(const int ncoefs,const double *c_coefs,
   int xstart=0;
   int i2pitch=0,i1pitch=0;
   int ymax=c_n.y,zmax=c_n.z,xmax=c_n.x;
-  int xend,blockix;
+  int blockix;
 
   blockix=blockIdx.x;
 
@@ -198,27 +250,27 @@ __global__ void FD_kernel_onlyb(const int ncoefs,const double *c_coefs,
   }
   if (blockix>=0){
     if ((boundary & GPAW_BOUNDARY_Y0) != 0) {
-      if ((blockix>=0) && (blockix<FD_XDIV_B*xx)) {
+      if ((blockix>=0) && (blockix<xdiv*xx)) {
 	xind=blockix/xx;
 	i2bl=blockix-xind*xx;
 	i1bl=0;
 	ymax=MIN(BLOCK_Y_B,ymax);
 	//ymax=MIN(c_jb.y/2,ymax);
       }
-      blockix-=FD_XDIV_B*xx;
+      blockix-=xdiv*xx;
     }
     if ((boundary & GPAW_BOUNDARY_Y1) != 0) {
-      if ((blockix>=0) && (blockix<FD_XDIV_B*xx)) {
+      if ((blockix>=0) && (blockix<xdiv*xx)) {
 	xind=blockix/xx;
 	i2bl=blockix-xind*xx;
 	i1bl=0;
 	//i1pitch=MAX(c_n.y-c_jb.y/2,0);
 	i1pitch=MAX(c_n.y-BLOCK_Y_B,0);
       }
-      blockix-=FD_XDIV_B*xx;
+      blockix-=xdiv*xx;
     }
     if ((boundary & GPAW_BOUNDARY_Z0) != 0) {
-      if ((blockix>=0) && (blockix<FD_XDIV_B*yy2)) {
+      if ((blockix>=0) && (blockix<xdiv*yy2)) {
 	xind=blockix/yy2;
 	i2bl=0;
 	zmax=MIN(BLOCK_X_B,zmax);
@@ -231,10 +283,10 @@ __global__ void FD_kernel_onlyb(const int ncoefs,const double *c_coefs,
 	  ymax=MAX(c_n.y-BLOCK_Y_B,0);
 	//ymax=MAX(c_n.y-c_jb.y/2,0);	
       }
-      blockix-=FD_XDIV_B*yy2;
+      blockix-=xdiv*yy2;
     }
     if ((boundary & GPAW_BOUNDARY_Z1) != 0) {
-      if ((blockix>=0) && (blockix<FD_XDIV_B*yy2)) {
+      if ((blockix>=0) && (blockix<xdiv*yy2)) {
 	xind=blockix/yy2;
 	i2bl=0;
 	//i2pitch=MAX(c_n.z-c_jb.z/2,0);
@@ -247,7 +299,7 @@ __global__ void FD_kernel_onlyb(const int ncoefs,const double *c_coefs,
 	  ymax=MAX(c_n.y-BLOCK_Y_B,0);
 	//ymax=MAX(c_n.y-c_jb.y/2,0);
       }
-      blockix-=FD_XDIV_B*yy2;
+      blockix-=xdiv*yy2;
     }
     if ((boundary & GPAW_BOUNDARY_X0) != 0) {
       xstart+=c_jb.x/2; 	
@@ -257,15 +309,9 @@ __global__ void FD_kernel_onlyb(const int ncoefs,const double *c_coefs,
       xlen-=c_jb.x/2;
       xmax-=c_jb.x/2;
     }
-    xlen=(xlen+FD_XDIV_B-1)/FD_XDIV_B;
+    xlen=(xlen+xdiv-1)/xdiv;
     xstart+=xind*xlen;        
   }
-  xend=MIN(xstart+xlen,xmax);    
-  if (blockix>=0){
-    printf("Error!!\n");
-    return;
-  }
-  
 
   int i2tid=threadIdx.x;
   int i2=i2pitch+i2bl*BLOCK_X_B+i2tid;
@@ -275,62 +321,124 @@ __global__ void FD_kernel_onlyb(const int ncoefs,const double *c_coefs,
   int i1tid=threadIdx.y;
   int i1=i1pitch+i1bl*BLOCK_Y_B+i1tid;
 
-  __shared__ double acache12[FD_ACACHE_Y*ACACHE_X];
+  __shared__ double s_coefs0[MYJ*2+1];
+  __shared__ double s_coefs1[MYJ*2];
+  __shared__ double s_coefs2[MYJ*2];
+  __shared__ double acache12[ACACHE_Y*ACACHE_X];
 
-  double acache0[MYJ+1];
+  double acache0[MYJ];
+  double acache0t[MYJ+1];
   double *acache12p;
   int sizez=c_jb.z+c_n.z;  
   int sizeyz=(c_jb.y+c_n.y)*sizez;
+
+  if ((xmax-xstart) < xlen)
+    xlen=xmax-xstart;
 
   a+=((c_jb.x+c_n.x)*sizeyz)*blocksi;
   b+=(c_n.x*c_n.y*c_n.z)*blocksi;
   
 
-  acache12p=acache12+ACACHE_X*(i1tid+MYJ/2)+i2tid+MYJ_X/2;
+  acache12p=acache12+ACACHE_X*(i1tid+MYJ*2/2)+i2tid+MYJ_X*2/2;
+
+  if (i2tid<=MYJ*2)
+    s_coefs0[i2tid]=c_coefs0[i2tid];
+  if (i2tid<MYJ*2){
+    s_coefs1[i2tid]=c_coefs1[i2tid];
+    s_coefs2[i2tid]=c_coefs2[i2tid];
+  }
+  __syncthreads();
 
   a+=xstart*sizeyz+i1*sizez+i2;
   b+=xstart*c_n.y*c_n.z+i1*c_n.z+i2;
-  for (int c=1;c<MYJ+1;c++){
-    acache0[c]=a[(c-1-MYJ/2)*(sizeyz)];
+  for (int c=0;c<MYJ;c++){
+    if ((i1<ymax) && (i2<zmax)) 
+      acache0[c]=a[(c-MYJ)*(sizeyz)];
   }
-  
-  for (int i0=xstart; i0 < xend; i0++) {  
-    for (int c=0;c<MYJ;c++){
+
+  for (int i0=0; i0 < xlen; i0++) {  
+    if (i1<ymax+MYJ) {
+      acache12p[-MYJ_X]=a[-MYJ_X];
+      if  ((i2tid<MYJ_X*2) && (i2<zmax+MYJ_X-BLOCK_X_B+MYJ_X))
+	acache12p[BLOCK_X_B-MYJ_X]=a[BLOCK_X_B-MYJ_X];
+    }
+    if  (i1tid<MYJ) {
+      acache12p[-ACACHE_X*MYJ]=a[-sizez*MYJ];
+      if  (i1<ymax+MYJ-BLOCK_Y_B)
+	acache12p[ACACHE_X*BLOCK_Y_B]=a[sizez*BLOCK_Y_B];      
+    }
+    __syncthreads();         
+    
+    acache0t[0]=0.0;
+
+    for (int c = 0; c < MYJ; c++)
+      acache0t[0]+=acache12p[ACACHE_X*(c-MYJ)]*s_coefs1[c];
+    for (int c = 0; c < MYJ; c++)
+      acache0t[0]+=acache12p[NDOUBLE*c-MYJ_X]*s_coefs2[c];
+    for (int c = 0; c < MYJ; c++)
+      acache0t[0]+=acache12p[NDOUBLE*(c+1)]*s_coefs2[c+MYJ];        
+    for (int c = 0; c < MYJ; c++)
+      acache0t[0]+=acache12p[ACACHE_X*(c+1)]*s_coefs1[c+MYJ];    
+    for (int c = 0; c < MYJ; c++)
+      acache0t[0]+=acache0[c]*s_coefs0[c];    
+    
+    acache0t[0]+=acache12p[0]*s_coefs0[MYJ];    
+    for (int c = 0; c < MYJ; c++)
+      acache0t[c+1]+= acache12p[0]*s_coefs0[c+1+MYJ];
+    for (int c = 0; c < ncoefs; c++)
+      acache0t[0]+=a[NDOUBLE*c_offsets[c]]*c_coefs[c];
+    
+    if (i0>=MYJ) {
+      if ((i1<ymax) && (i2<zmax)) {
+	b[0] = acache0t[MYJ];
+      }
+      b+=c_n.y*c_n.z;
+    }    
+    
+    for (int c=0;c<MYJ-1;c++){
       acache0[c]=acache0[c+1];
     }   
-    if ((i1<c_n.y+MYJ/2) && (i2<c_n.z+MYJ_X/2))
-      acache0[MYJ]=a[(MYJ/2)*sizeyz];
+    acache0[MYJ-1]= acache12p[0];
 
-    acache12p[0]=acache0[MYJ/2];
-    if  (i2tid<MYJ_X/2){
-      acache12p[-MYJ_X/2]=a[-MYJ_X/2];
-      acache12p[BLOCK_X_B]=a[BLOCK_X_B];
-    }
-    if  (i1tid<MYJ/2){
-      acache12p[-ACACHE_X*MYJ/2]=a[-sizez*MYJ/2];
-      acache12p[ACACHE_X*BLOCK_Y_B]=a[sizez*BLOCK_Y_B];      
-    }
-    __syncthreads();         
-    double x = 0.0;
-#include"fd-cuda-pragmas.cu"
-    for (int c = 0; c < ncoefs12; c++){
-      x+=acache12p[c_offsets12[c]]*c_coefs12[c];
-    }	
-    for (int c = 0; c < MYJ+1; c++){
-      x+=acache0[c]*c_coefs0[c];
-    }	    
-    for (int c = 0; c < ncoefs; c++){	  
-      x+=a[c_offsets[c]]*c_coefs[c];
-    }	            
-    if  ((i1<ymax) && (i2<zmax)) {
-      
-      b[0] = x;
-    }
-    
-    b+=c_n.y*c_n.z;
+    for (int c=MYJ;c>0;c--){
+      acache0t[c]=acache0t[c-1];
+    }   
     a+=sizeyz;
-    __syncthreads();         
+    __syncthreads(); 
+
   }
+#pragma unroll  
+  for (int i0=0; i0 < MYJ; i0++) { 
+    if ((i1<c_n.y) && (i2<c_n.z)) 
+      acache0[0]=a[0];
+
+    if (i0 < 1)
+      acache0t[1-i0]+=acache0[0]*s_coefs0[1+MYJ];
+#if MYJ >= 2
+    if (i0 < 2)
+      acache0t[2-i0]+=acache0[0]*s_coefs0[2+MYJ];
+#endif
+#if MYJ >= 3
+    if (i0 < 3)
+      acache0t[3-i0]+=acache0[0]*s_coefs0[3+MYJ];
+#endif
+#if MYJ >= 4
+    if (i0 < 4)
+      acache0t[4-i0]+=acache0[0]*s_coefs0[4+MYJ];
+#endif
+#if MYJ >= 5
+    if (i0 < 5)
+      acache0t[5-i0]+=acache0[0]*s_coefs0[5+MYJ];
+#endif
+    if (i0+xlen>=MYJ) {
+      if ((i1<ymax) && (i2<zmax)) {
+	b[0] = acache0t[MYJ-i0];
+	
+      }
+      b+=c_n.y*c_n.z;
+    }	
+    a+=sizeyz;   
+  }  
   
 }
 
@@ -348,15 +456,15 @@ __global__ void FD_kernel(int ncoefs,int ncoefs12,int ncoefs0,const Tcuda* a,
   int i2bl=blockIdx.x/FD_XDIV;
   int xind=blockIdx.x-FD_XDIV*i2bl;
   int i2tid=threadIdx.x;
-  int i2=i2bl*FD_BLOCK_X+i2tid;
+  int i2=i2bl*BLOCK_X+i2tid;
 
   int i1bl=blockIdx.y/blocks;
   int blocksi=blockIdx.y-blocks*i1bl;
 
   int i1tid=threadIdx.y;
-  int i1=i1bl*FD_BLOCK_Y+i1tid;
+  int i1=i1bl*BLOCK_Y+i1tid;
 
-  __shared__ Tcuda acache12[FD_ACACHE_Y*FD_ACACHE_X];
+  __shared__ Tcuda acache12[ACACHE_Y*ACACHE_X];
 
   Tcuda acache0[MYJ+1];
   Tcuda x;
@@ -375,7 +483,7 @@ __global__ void FD_kernel(int ncoefs,int ncoefs12,int ncoefs0,const Tcuda* a,
   a+=xstart*sizeyz+i1*sizez+i2;
   b+=xstart*c_n.y*c_n.z+i1*c_n.z+i2;
 
-  acache12p=acache12+FD_ACACHE_X*(i1tid+MYJ/2)+i2tid+MYJ/2;
+  acache12p=acache12+ACACHE_X*(i1tid+MYJ/2)+i2tid+MYJ/2;
   for (c=1;c<MYJ+1;c++){
     acache0[c]=a[(c-1-MYJ/2)*(sizeyz)];
   }
@@ -388,11 +496,11 @@ __global__ void FD_kernel(int ncoefs,int ncoefs12,int ncoefs0,const Tcuda* a,
     acache12p[0]=acache0[MYJ/2];
     if  (i2tid<MYJ/2){
       acache12p[-MYJ/2]=a[-MYJ/2];
-      acache12p[FD_BLOCK_X]=a[FD_BLOCK_X];
+      acache12p[BLOCK_X]=a[BLOCK_X];
     }
     if  (i1tid<MYJ/2){
-      acache12p[-FD_ACACHE_X*MYJ/2]=a[-sizez*MYJ/2];
-      acache12p[FD_ACACHE_X*FD_BLOCK_Y]=a[sizez*FD_BLOCK_Y];      
+      acache12p[-ACACHE_X*MYJ/2]=a[-sizez*MYJ/2];
+      acache12p[ACACHE_X*BLOCK_Y]=a[sizez*BLOCK_Y];      
     }
     __syncthreads();         
     x = MAKED(0.0);
@@ -421,35 +529,35 @@ __global__ void FD_kernel(int ncoefs,int ncoefs12,int ncoefs0,const Tcuda* a,
 
 
 #else
-#define MYJ  2
+#define MYJ  (2/2)
 #  define FD_kernel Zcuda(fd_kernel2)
 #  define FD_kernel_onlyb Zcuda(fd_kernel2_onlyb)
 #  include "fd-cuda.cu"
 #  undef FD_kernel
 #  undef FD_kernel_onlyb
 #  undef MYJ
-#define MYJ  4
+#define MYJ  (4/2)
 #  define FD_kernel Zcuda(fd_kernel4)
 #  define FD_kernel_onlyb Zcuda(fd_kernel4_onlyb)
 #  include "fd-cuda.cu"
 #  undef FD_kernel
 #  undef FD_kernel_onlyb
 #  undef MYJ
-#define MYJ  6
+#define MYJ  (6/2)
 #  define FD_kernel Zcuda(fd_kernel6)
 #  define FD_kernel_onlyb Zcuda(fd_kernel6_onlyb)
 #  include "fd-cuda.cu"
 #  undef FD_kernel
 #  undef FD_kernel_onlyb
 #  undef MYJ
-#define MYJ  8
+#define MYJ  (8/2)
 #  define FD_kernel Zcuda(fd_kernel8)
 #  define FD_kernel_onlyb Zcuda(fd_kernel8_onlyb)
 #  include "fd-cuda.cu"
 #  undef FD_kernel
 #  undef FD_kernel_onlyb
 #  undef MYJ
-#define MYJ  10
+#define MYJ  (10/2)
 #  define FD_kernel Zcuda(fd_kernel10)
 #  define FD_kernel_onlyb Zcuda(fd_kernel10_onlyb)
 #  include "fd-cuda.cu"
@@ -463,44 +571,49 @@ extern "C" {
 
 
   bmgsstencil_gpu bmgs_stencil_to_gpu(const bmgsstencil* s);
-
+  int bmgs_fd_boundary_test(const bmgsstencil_gpu* s,int boundary);
 
   void Zcuda(bmgs_fd_cuda_gpu)(const bmgsstencil_gpu* s_gpu, 
 			       const Tcuda* adev, Tcuda* bdev,
 			       int boundary,int blocks,
 			       cudaStream_t stream)  
   {
-    int3 jb;
     int3 bjb;
+    int3 jb;
     int3 hc_bj;
     
 
-    long3 hc_n;
-    long3 hc_j; 
+    int3 hc_n;
+    int3 hc_j; 
+
 
     long* offsets_gpu;
-    int* offsets12_gpu;
 
 
-
+    if ((boundary & GPAW_BOUNDARY_SKIP) != 0) {
+      if  (!bmgs_fd_boundary_test(s_gpu,boundary))
+	return;
+      
+    } else if ((boundary & GPAW_BOUNDARY_ONLY) != 0) {
+      if  (!bmgs_fd_boundary_test(s_gpu,boundary)){
+	boundary&=~GPAW_BOUNDARY_ONLY;
+	boundary|=GPAW_BOUNDARY_NORMAL;
+      }
+    }
 
     hc_n.x=s_gpu->n[0];    hc_n.y=s_gpu->n[1];    hc_n.z=s_gpu->n[2];
     hc_j.x=s_gpu->j[0];    hc_j.y=s_gpu->j[1];    hc_j.z=s_gpu->j[2];
 
 
     bjb.x=0;    bjb.y=0;    bjb.z=0;
-    hc_bj.x=0;    hc_bj.y=0;    hc_bj.y=0;
+    hc_bj.x=0;    hc_bj.y=0;    hc_bj.z=0;
 
 	
-#ifdef CUGPAWCOMPLEX
-    hc_n.z*=2;
-    hc_j.x*=2;    hc_j.y*=2;    hc_j.z*=2;
-    offsets_gpu=s_gpu->offsets_gpuz;
-    offsets12_gpu=s_gpu->offsets12_gpuz;
-#else
+    hc_n.z*=NDOUBLE;
+    hc_j.x*=NDOUBLE;    hc_j.y*=NDOUBLE;    hc_j.z*=NDOUBLE;
+
     offsets_gpu=s_gpu->offsets_gpu;
-    offsets12_gpu=s_gpu->offsets12_gpu;
-#endif
+
 
     jb.z=hc_j.z;
     jb.y=hc_j.y/(hc_j.z+hc_n.z);
@@ -554,51 +667,31 @@ extern "C" {
       
       bdev+=bjb1.z+bjb1.y*(hc_bj.z+hc_n.z)+
 	bjb1.x*((hc_bj.z+hc_n.z)*hc_n.y+hc_bj.y);
-      
       adev=(Tcuda*)((double*)adev+jb1.z+jb1.y*(hc_j.z+hc_n.z)+
 		    jb1.x*((hc_j.z+hc_n.z)*hc_n.y+hc_j.y));
+      //		    adev=(adev+jb1.z+jb1.y*(hc_j.z+hc_n.z)+
+
     }else {
+      //      adev=(adev +(hc_j.x+hc_j.y+hc_j.z)/2);
       adev=(Tcuda*)((double*)adev +(hc_j.x+hc_j.y+hc_j.z)/2);
     }
     
-    /*
-    if (s_gpu->ncoefs>0){
-      gpaw_cudaSafeCall(cudaMemcpyToSymbol(c_offsets,offsets_gpu,
-					   sizeof(long)*s_gpu->ncoefs,0,
-					   cudaMemcpyDeviceToDevice));
-      gpaw_cudaSafeCall(cudaMemcpyToSymbol(c_coefs,s_gpu->coefs_gpu,
-					   sizeof(double)*s_gpu->ncoefs,0,
-					   cudaMemcpyDeviceToDevice,
-					   stream));
-    }
-    gpaw_cudaSafeCall(cudaMemcpyToSymbol(c_offsets12,offsets12_gpu,
-					 sizeof(int)*s_gpu->ncoefs12,0,
-					 cudaMemcpyDeviceToDevice,
-					 stream));
-    gpaw_cudaSafeCall(cudaMemcpyToSymbol(c_coefs12,s_gpu->coefs12_gpu,
-					 sizeof(double)*s_gpu->ncoefs12,0,
-					 cudaMemcpyDeviceToDevice,
-					 stream));
-    */
-    /*gpaw_cudaSafeCall(cudaMemcpyToSymbol(c_offsets0,s_gpu->offsets0_gpu,
-					 sizeof(int)*s_gpu->ncoefs0,0,
-					 cudaMemcpyDeviceToDevice));*/
-    /* gpaw_cudaSafeCall(cudaMemcpyToSymbol(c_coefs0,s_gpu->coefs0_gpu,
-					 sizeof(double)*s_gpu->ncoefs0,0,
-					 cudaMemcpyDeviceToDevice,
-    				 stream));
-    */
     if ((hc_n.x<=0) || (hc_n.y<=0) || (hc_n.z<=0))
       return;
 
     dim3 dimBlock(1,1,1);
     dim3 dimGrid(1,1,1);
+    int xdiv=MIN(hc_n.z,MAX((4+blocks-1)/blocks,1)); 
+
+
     if (((boundary & GPAW_BOUNDARY_NORMAL) != 0) ||
 	((boundary & GPAW_BOUNDARY_SKIP) != 0)){
-      dimGrid.x=FD_XDIV*MAX((hc_n.z+BLOCK_X-1)/BLOCK_X,1);
-      dimGrid.y=blocks*MAX((hc_n.y+FD_BLOCK_Y-1)/FD_BLOCK_Y,1);
+      dimGrid.x=MAX((hc_n.z+BLOCK_X-1)/BLOCK_X,1);
+      dimGrid.y=MAX((hc_n.y+BLOCK_Y-1)/BLOCK_Y,1);
+      dimGrid.y*=blocks;
+      dimGrid.x*=xdiv;
       dimBlock.x=BLOCK_X;
-      dimBlock.y=FD_BLOCK_Y;
+      dimBlock.y=BLOCK_Y;
     } else if ((boundary & GPAW_BOUNDARY_ONLY) != 0) {
       int xx=MAX((hc_n.z+BLOCK_X_B-1)/BLOCK_X_B,1);
       int yy=MAX((hc_n.y+BLOCK_Y_B-1)/BLOCK_Y_B,1);
@@ -616,102 +709,122 @@ extern "C" {
       if ((boundary & GPAW_BOUNDARY_X1) != 0) 
 	dimGrid.x+=xx*yy;
       if ((boundary & GPAW_BOUNDARY_Y0) != 0) 
-	dimGrid.x+=FD_XDIV_B*xx;
+	dimGrid.x+=xdiv*xx;
       if ((boundary & GPAW_BOUNDARY_Y1) != 0) 
-	dimGrid.x+=FD_XDIV_B*xx;
+	dimGrid.x+=xdiv*xx;
       if ((boundary & GPAW_BOUNDARY_Z0) != 0) 
-	dimGrid.x+=FD_XDIV_B*yy2;
+	dimGrid.x+=xdiv*yy2;
       if ((boundary & GPAW_BOUNDARY_Z1) != 0) 
-	dimGrid.x+=FD_XDIV_B*yy2;
+	dimGrid.x+=xdiv*yy2;
       dimGrid.y=blocks;
       dimBlock.x=BLOCK_X_B;
       dimBlock.y=BLOCK_Y_B;
     }
 
-    
+    int3 sizea;
+    sizea.z=hc_j.z+hc_n.z;
+    sizea.y=sizea.z*hc_n.y+hc_j.y;
+    sizea.x= sizea.y*hc_n.x+hc_j.x;
+
+    int3 sizeb;
+    sizeb.z=hc_bj.z+hc_n.z;
+    sizeb.y=sizeb.z*hc_n.y+hc_bj.y;
+    sizeb.x= sizeb.y*hc_n.x+hc_bj.x;
+
     if (((boundary & GPAW_BOUNDARY_NORMAL) != 0) ||
 	((boundary & GPAW_BOUNDARY_SKIP) != 0)){
-      if (s_gpu->ncoefs0<=3)
-	Zcuda(fd_kernel2)<<<dimGrid, dimBlock, 0, stream>>>
-	  (s_gpu->ncoefs,s_gpu->coefs_gpu,offsets_gpu,
-	   s_gpu->ncoefs12,s_gpu->coefs12_gpu,offsets12_gpu,
-	   s_gpu->coefs0_gpu,
-	   (double*)adev,(double*)bdev, 
-	   hc_n,jb,bjb,blocks);    
-      else if (s_gpu->ncoefs0<=5)
-	Zcuda(fd_kernel4)<<<dimGrid, dimBlock, 0, stream>>>
-	  (s_gpu->ncoefs,s_gpu->coefs_gpu,offsets_gpu,
-	   s_gpu->ncoefs12,s_gpu->coefs12_gpu,offsets12_gpu,
-	   s_gpu->coefs0_gpu,
-	   (double*)adev,(double*)bdev, 
-	   hc_n,jb,bjb,blocks);    
-      else if (s_gpu->ncoefs0<=7)
-	Zcuda(fd_kernel6)<<<dimGrid, dimBlock, 0, stream>>>
-	  (s_gpu->ncoefs,s_gpu->coefs_gpu,offsets_gpu,
-	   s_gpu->ncoefs12,s_gpu->coefs12_gpu,offsets12_gpu,
-	   s_gpu->coefs0_gpu,
-	   (double*)adev,(double*)bdev, 
-	   hc_n,jb,bjb,blocks);    
-      else if (s_gpu->ncoefs0<=9)
-	Zcuda(fd_kernel8)<<<dimGrid, dimBlock, 0, stream>>>
-	  (s_gpu->ncoefs,s_gpu->coefs_gpu,offsets_gpu,
-	   s_gpu->ncoefs12,s_gpu->coefs12_gpu,offsets12_gpu,
-	   s_gpu->coefs0_gpu,
-	   (double*)adev,(double*)bdev, 
-	   hc_n,jb,bjb,blocks);    
-      else if (s_gpu->ncoefs0<=11)
-	Zcuda(fd_kernel10)<<<dimGrid, dimBlock, 0, stream>>>
-	  (s_gpu->ncoefs,s_gpu->coefs_gpu,offsets_gpu,
-	   s_gpu->ncoefs12,s_gpu->coefs12_gpu,offsets12_gpu,
-	   s_gpu->coefs0_gpu,
-	   (double*)adev,(double*)bdev, 
-	   hc_n,jb,bjb,blocks); 
+      switch(s_gpu->ncoefs0) 
+	{
+	case 3:
+	  Zcuda(fd_kernel2)<<<dimGrid, dimBlock, 0, stream>>>
+	    (s_gpu->ncoefs,s_gpu->coefs_gpu,offsets_gpu,	   
+	     s_gpu->coefs0_gpu,s_gpu->coefs1_gpu,s_gpu->coefs2_gpu,
+	     (double*)adev,(double*)bdev, 
+	     hc_n,sizea,sizeb,xdiv,blocks);    
+	  break;
+	case 5:
+	  Zcuda(fd_kernel4)<<<dimGrid, dimBlock, 0, stream>>>
+	    (s_gpu->ncoefs,s_gpu->coefs_gpu,offsets_gpu,	   
+	     s_gpu->coefs0_gpu,s_gpu->coefs1_gpu,s_gpu->coefs2_gpu,
+	     (double*)adev,(double*)bdev, 
+	     hc_n,sizea,sizeb,xdiv,blocks);    	  
+	  break;
+	case 7:
+	  Zcuda(fd_kernel6)<<<dimGrid, dimBlock, 0, stream>>>
+	    (s_gpu->ncoefs,s_gpu->coefs_gpu,offsets_gpu,	   
+	     s_gpu->coefs0_gpu,s_gpu->coefs1_gpu,s_gpu->coefs2_gpu,
+	     (double*)adev,(double*)bdev, 
+	     hc_n,sizea,sizeb,xdiv,blocks);    	  
+	  break;
+	case 9:
+	  Zcuda(fd_kernel8)<<<dimGrid, dimBlock, 0, stream>>>
+	    (s_gpu->ncoefs,s_gpu->coefs_gpu,offsets_gpu,	   
+	     s_gpu->coefs0_gpu,s_gpu->coefs1_gpu,s_gpu->coefs2_gpu,
+	     (double*)adev,(double*)bdev, 
+	     hc_n,sizea,sizeb,xdiv,blocks);    	  
+	  break;
+	case 11:
+	  Zcuda(fd_kernel10)<<<dimGrid, dimBlock, 0, stream>>>
+	    (s_gpu->ncoefs,s_gpu->coefs_gpu,offsets_gpu,	   
+	     s_gpu->coefs0_gpu,s_gpu->coefs1_gpu,s_gpu->coefs2_gpu,
+	     (double*)adev,(double*)bdev, 
+	     hc_n,sizea,sizeb,xdiv,blocks); 	  
+	  break;
+	default:
+	  assert(0);	  
+	}	
     } else if ((boundary & GPAW_BOUNDARY_ONLY) != 0) {
-      if (s_gpu->ncoefs0<=3)
-	Zcuda(fd_kernel2_onlyb)<<<dimGrid, dimBlock, 0, stream>>>
-	  (s_gpu->ncoefs,s_gpu->coefs_gpu,offsets_gpu,
-	   s_gpu->ncoefs12,s_gpu->coefs12_gpu,offsets12_gpu,
-	   s_gpu->coefs0_gpu,
-	   (double*)adev,(double*)bdev, 
-	   hc_n,jb,boundary,blocks);    
-      else if (s_gpu->ncoefs0<=5)
-	Zcuda(fd_kernel4_onlyb)<<<dimGrid, dimBlock, 0, stream>>>
-	  (s_gpu->ncoefs,s_gpu->coefs_gpu,offsets_gpu,
-	   s_gpu->ncoefs12,s_gpu->coefs12_gpu,offsets12_gpu,
-	   s_gpu->coefs0_gpu,
-	   (double*)adev,(double*)bdev, 
-	   hc_n,jb,boundary,blocks);    
-      else if (s_gpu->ncoefs0<=7)
-	Zcuda(fd_kernel6_onlyb)<<<dimGrid, dimBlock, 0, stream>>>
-	  (s_gpu->ncoefs,s_gpu->coefs_gpu,offsets_gpu,
-	   s_gpu->ncoefs12,s_gpu->coefs12_gpu,offsets12_gpu,
-	   s_gpu->coefs0_gpu,
-	   (double*)adev,(double*)bdev, 
-	   hc_n,jb,boundary,blocks);    
-      else if (s_gpu->ncoefs0<=9)
-	Zcuda(fd_kernel8_onlyb)<<<dimGrid, dimBlock, 0, stream>>>
-	  (s_gpu->ncoefs,s_gpu->coefs_gpu,offsets_gpu,
-	   s_gpu->ncoefs12,s_gpu->coefs12_gpu,offsets12_gpu,
-	   s_gpu->coefs0_gpu,
-	   (double*)adev,(double*)bdev, 
-	   hc_n,jb,boundary,blocks);    
-      else if (s_gpu->ncoefs0<=11)
-	Zcuda(fd_kernel10_onlyb)<<<dimGrid, dimBlock, 0, stream>>>
-	  (s_gpu->ncoefs,s_gpu->coefs_gpu,offsets_gpu,
-	   s_gpu->ncoefs12,s_gpu->coefs12_gpu,offsets12_gpu,
-	   s_gpu->coefs0_gpu,
-	   (double*)adev,(double*)bdev, 
-	   hc_n,jb,boundary,blocks); 
-    }
+      //      printf("B only\n");
+      switch(s_gpu->ncoefs0) 
+	{
+	case 3:
+	  Zcuda(fd_kernel2_onlyb)<<<dimGrid, dimBlock, 0, stream>>>
+	    (s_gpu->ncoefs,s_gpu->coefs_gpu,offsets_gpu,	   
+	     s_gpu->coefs0_gpu,s_gpu->coefs1_gpu,s_gpu->coefs2_gpu,
+	     (double*)adev,(double*)bdev, 
+	     hc_n,jb,boundary,xdiv,blocks);    	  
+	  break;
+	case 5:
+	  Zcuda(fd_kernel4_onlyb)<<<dimGrid, dimBlock, 0, stream>>>
+	    (s_gpu->ncoefs,s_gpu->coefs_gpu,offsets_gpu,
+	     s_gpu->coefs0_gpu,s_gpu->coefs1_gpu,s_gpu->coefs2_gpu,
+	     (double*)adev,(double*)bdev, 
+	     hc_n,jb,boundary,xdiv,blocks);    	  
+	  break;
+	case 7:
+	  Zcuda(fd_kernel6_onlyb)<<<dimGrid, dimBlock, 0, stream>>>
+	    (s_gpu->ncoefs,s_gpu->coefs_gpu,offsets_gpu,
+	     s_gpu->coefs0_gpu,s_gpu->coefs1_gpu,s_gpu->coefs2_gpu,
+	     (double*)adev,(double*)bdev, 
+	     hc_n,jb,boundary,xdiv,blocks);    	  
+	  break;
+	case 9:
+	  Zcuda(fd_kernel8_onlyb)<<<dimGrid, dimBlock, 0, stream>>>
+	    (s_gpu->ncoefs,s_gpu->coefs_gpu,offsets_gpu,
+	     s_gpu->coefs0_gpu,s_gpu->coefs1_gpu,s_gpu->coefs2_gpu,
+	     (double*)adev,(double*)bdev, 
+	     hc_n,jb,boundary,xdiv,blocks);    	  
+	  break;
+	case 11:
+	  Zcuda(fd_kernel10_onlyb)<<<dimGrid, dimBlock, 0, stream>>>
+	    (s_gpu->ncoefs,s_gpu->coefs_gpu,offsets_gpu,
+	     s_gpu->coefs0_gpu,s_gpu->coefs1_gpu,s_gpu->coefs2_gpu,
+	     (double*)adev,(double*)bdev, 
+	     hc_n,jb,boundary,xdiv,blocks); 
+	  break;
+	default:
+	  assert(0);	  
+	}
+    }    
+    gpaw_cudaSafeCall(cudaGetLastError());
 
-    gpaw_cudaSafeCall(cudaGetLastError());    
   }
   
 
 
 
   double Zcuda(bmgs_fd_cuda_cpu)(const bmgsstencil* s, const Tcuda* a, 
-				 Tcuda* b,int boundary)
+				 Tcuda* b,int boundary,int blocks)
   {
   
     Tcuda *adev,*bdev;
@@ -726,23 +839,24 @@ extern "C" {
     bsize=s->n[0]*s->n[1]*s->n[2];
 
     gpaw_cudaSafeCall(cudaGetLastError());
-    gpaw_cudaSafeCall(cudaMalloc(&adev,sizeof(Tcuda)*asize));
+    gpaw_cudaSafeCall(cudaMalloc(&adev,sizeof(Tcuda)*asize*blocks));
 
-    gpaw_cudaSafeCall(cudaMalloc(&bdev,sizeof(Tcuda)*bsize));
+    gpaw_cudaSafeCall(cudaMalloc(&bdev,sizeof(Tcuda)*bsize*blocks));
 
    
-    gpaw_cudaSafeCall(cudaMemcpy(adev,a,sizeof(Tcuda)*asize,
+    gpaw_cudaSafeCall(cudaMemcpy(adev,a,sizeof(Tcuda)*asize*blocks,
 				 cudaMemcpyHostToDevice));
     gpaw_cudaSafeCall(cudaGetLastError());
     gettimeofday(&t0,NULL);  
-    Zcuda(bmgs_fd_cuda_gpu)(&s_gpu, adev,bdev,boundary,1,0);
-      
+    Zcuda(bmgs_fd_cuda_gpu)(&s_gpu, adev,bdev,GPAW_BOUNDARY_NORMAL,blocks,0);
+    /*Zcuda(bmgs_fd_cuda_gpu)(&s_gpu, adev,bdev,GPAW_BOUNDARY_SKIP,blocks,0);
+      Zcuda(bmgs_fd_cuda_gpu)(&s_gpu, adev,bdev,GPAW_BOUNDARY_ONLY|GPAW_BOUNDARY_X0|GPAW_BOUNDARY_X1|GPAW_BOUNDARY_Y0|GPAW_BOUNDARY_Y1|GPAW_BOUNDARY_Z0|GPAW_BOUNDARY_Z1,blocks,0);*/
     
     cudaThreadSynchronize(); 
     gpaw_cudaSafeCall(cudaGetLastError());
 
     gettimeofday(&t1,NULL);
-    gpaw_cudaSafeCall(cudaMemcpy(b,bdev,sizeof(Tcuda)*bsize,
+    gpaw_cudaSafeCall(cudaMemcpy(b,bdev,sizeof(Tcuda)*bsize*blocks,
 				 cudaMemcpyDeviceToHost));
     
     gpaw_cudaSafeCall(cudaFree(adev));
@@ -808,8 +922,8 @@ extern "C" {
     hc_n.x-=bjb.x;    hc_n.y-=bjb.y;    hc_n.z-=bjb.z;
     
     
-    if (hc_n.x<1 || hc_n.y<(FD_BLOCK_Y_B) || 
-	hc_n.z<(FD_BLOCK_X_B))
+    if (hc_n.x<1 || hc_n.y<(BLOCK_Y_B) || 
+	hc_n.z<(BLOCK_X_B))
       return 0;
     
     return 1;        
@@ -817,36 +931,35 @@ extern "C" {
 
   bmgsstencil_gpu bmgs_stencil_to_gpu(const bmgsstencil* s)  
   {
-    bmgsstencil_gpu s_gpu;/*
-={s->ncoefs,NULL,NULL,0,NULL,NULL,0,NULL,NULL,
-			   {s->n[0],s->n[1],s->n[2]},
-			   {s->j[0],s->j[1],s->j[2]}};
-			  */
+    bmgsstencil_gpu s_gpu;
+
     long offsets[s->ncoefs];
-    int  offsets12[s->ncoefs];
-    long offsetsz[s->ncoefs];
-    int  offsets12z[s->ncoefs];
-    int  offsets0[FD_MAXJ+1];
-    double coefs[s->ncoefs],coefs12[s->ncoefs],coefs0[FD_MAXJ+1];
-    long ncoefs=0,ncoefs12=0,ncoefs0=0;
+    double coefs[s->ncoefs];
+
+    int ncoefs=0,ncoefs0=0,ncoefs1=0,ncoefs2=0;
 
     int n2=(s->n[2]+s->j[2]);
     int n1=s->j[1]+s->n[1]*n2;
-
     int jb[3];
     
     jb[2]=s->j[2];
     jb[1]=s->j[1]/n2;
     jb[0]=s->j[0]/n1;
-
         
     s_gpu.n[0]=s->n[0];    s_gpu.n[1]=s->n[1];    s_gpu.n[2]=s->n[2];
     s_gpu.j[0]=s->j[0];    s_gpu.j[1]=s->j[1];    s_gpu.j[2]=s->j[2];
+
+    ncoefs0=jb[0]+1;
+    ncoefs1=jb[1];    
+    ncoefs2=jb[2];
+
+    double coefs0[ncoefs0],coefs1[ncoefs1],coefs2[ncoefs2];    
     
-    memset(coefs0,0,sizeof(double)*(FD_MAXJ+1));
-    memset(offsets0,0,sizeof(int)*(FD_MAXJ+1));
+    memset(coefs0,0,sizeof(double)*ncoefs0);
+    memset(coefs1,0,sizeof(double)*ncoefs1);
+    memset(coefs2,0,sizeof(double)*ncoefs2);
     
-    
+
     for(int i = 0; i < s->ncoefs; i++){
       int offpoint=s->offsets[i]+(s->j[0]+s->j[1]+s->j[2])/2;
       int i0=offpoint/n1;
@@ -856,38 +969,36 @@ extern "C" {
       i1-=jb[1]/2;
       i2-=jb[2]/2;
       if (i1==0 && i2==0 && abs(i0)<=jb[0]/2){
-	int offset=FD_MAXJ/2+i0;
-	if (fabs(s->coefs[i]) > DBL_EPSILON){
-	  offsets0[offset]=offset;
-	  coefs0[offset]=s->coefs[i];
-	  ncoefs0=MAX(ncoefs0,2*abs(i0)+1);	
-	}
-      } else if (i0==0 && abs(i1)<=jb[1]/2 && abs(i2)<=jb[2]/2 && (i1==0 || i2==0)){
-	offsets12[ncoefs12]=i2+FD_ACACHE_X*i1;
-	offsets12z[ncoefs12]=2*i2+FD_ACACHE_Xz*i1;
-      
-	coefs12[ncoefs12]=s->coefs[i];
-	ncoefs12++;	
-      } else{
+	int offset=ncoefs0/2+i0;
+	coefs0[offset]=s->coefs[i];
+      } else  if (i0==0 && i1==0 && abs(i2)<=jb[2]/2){
+	int offset=i2>0 ? ncoefs2/2+i2-1 : ncoefs2/2+i2;
+	coefs2[offset]=s->coefs[i];
+      } else  if (i0==0 && i2==0 && abs(i1)<=jb[1]/2){
+	int offset=i1>0 ? ncoefs1/2+i1-1 : ncoefs1/2+i1;
+	coefs1[offset]=s->coefs[i];
+      }  else{
 	offsets[ncoefs]=s->offsets[i];
-	offsetsz[ncoefs]=2*s->offsets[i];
 	coefs[ncoefs]=s->coefs[i];
 	ncoefs++;
       }
     }
-    ncoefs0=jb[0]+1;
-    for(int i = 0; i < ncoefs0; i++){
-      offsets0[i]=i;
-      coefs0[i]=coefs0[i+(FD_MAXJ-ncoefs0+1)/2];
-    }
-    /*
-    fprintf(stdout,"ncoefs %d\t", ncoefs);
-    for(int i = 0; i < ncoefs; ++i)
+    /*    
+	  fprintf(stdout,"ncoefs %d\t", ncoefs);
+	  for(int i = 0; i < ncoefs; ++i)
       fprintf(stdout,"(%lf %d)\t", coefs[i], offsets[i]);
     fprintf(stdout,"\n");
     fprintf(stdout,"ncoefs0 %d\t", ncoefs0);
     for(int i = 0; i < ncoefs0; ++i)
       fprintf(stdout,"(%lf %d)\t", coefs0[i], offsets0[i]);
+    fprintf(stdout,"\n");
+    fprintf(stdout,"ncoefs1 %d\t", ncoefs1);
+    for(int i = 0; i < ncoefs1; ++i)
+      fprintf(stdout,"(%lf %d)\t", coefs1[i], offsets1[i]);
+    fprintf(stdout,"\n");
+    fprintf(stdout,"ncoefs2 %d\t", ncoefs2);
+    for(int i = 0; i < ncoefs2; ++i)
+      fprintf(stdout,"(%lf %d)\t", coefs2[i], offsets2[i]);
     fprintf(stdout,"\n");
     fprintf(stdout,"ncoefs12 %d\t", ncoefs12);
     for(int i = 0; i < ncoefs12; ++i)
@@ -895,8 +1006,9 @@ extern "C" {
     fprintf(stdout,"\n");
     */
     s_gpu.ncoefs=ncoefs;
-    s_gpu.ncoefs12=ncoefs12;
     s_gpu.ncoefs0=ncoefs0;
+    s_gpu.ncoefs1=ncoefs1;
+    s_gpu.ncoefs2=ncoefs2;
 
     s_gpu.coef_relax=s->coefs[0];
 
@@ -908,31 +1020,18 @@ extern "C" {
       GPAW_CUDAMALLOC(&(s_gpu.offsets_gpu),long,ncoefs);
       GPAW_CUDAMEMCPY(s_gpu.offsets_gpu,offsets,long,ncoefs,
 		      cudaMemcpyHostToDevice);
-
-      GPAW_CUDAMALLOC(&(s_gpu.offsets_gpuz),long,ncoefs);
-      GPAW_CUDAMEMCPY(s_gpu.offsets_gpuz,offsetsz,long,ncoefs,
-		      cudaMemcpyHostToDevice);
     }
-    GPAW_CUDAMALLOC(&(s_gpu.coefs12_gpu),double,ncoefs12);
-    GPAW_CUDAMEMCPY(s_gpu.coefs12_gpu,coefs12,double,ncoefs12,
-		    cudaMemcpyHostToDevice);
-
-    GPAW_CUDAMALLOC(&(s_gpu.offsets12_gpu),int,ncoefs12);
-    GPAW_CUDAMEMCPY(s_gpu.offsets12_gpu,offsets12,int,ncoefs12,
-		    cudaMemcpyHostToDevice);
-
-    GPAW_CUDAMALLOC(&(s_gpu.offsets12_gpuz),int,ncoefs12);
-    GPAW_CUDAMEMCPY(s_gpu.offsets12_gpuz,offsets12z,int,ncoefs12,
-		    cudaMemcpyHostToDevice);
-
     GPAW_CUDAMALLOC(&(s_gpu.coefs0_gpu),double,ncoefs0);
     GPAW_CUDAMEMCPY(s_gpu.coefs0_gpu,coefs0,double,ncoefs0,
 		    cudaMemcpyHostToDevice);
 
-    GPAW_CUDAMALLOC(&(s_gpu.offsets0_gpu),int,ncoefs0);
-    GPAW_CUDAMEMCPY(s_gpu.offsets0_gpu,offsets0,int,ncoefs0,
+    GPAW_CUDAMALLOC(&(s_gpu.coefs1_gpu),double,ncoefs1);
+    GPAW_CUDAMEMCPY(s_gpu.coefs1_gpu,coefs1,double,ncoefs1,
 		    cudaMemcpyHostToDevice);
 
+    GPAW_CUDAMALLOC(&(s_gpu.coefs2_gpu),double,ncoefs2);
+    GPAW_CUDAMEMCPY(s_gpu.coefs2_gpu,coefs2,double,ncoefs2,
+		    cudaMemcpyHostToDevice);
     return s_gpu;
   }
 

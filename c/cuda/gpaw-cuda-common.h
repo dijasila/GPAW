@@ -33,14 +33,12 @@ typedef struct
   int ncoefs;
   double* coefs_gpu;
   long* offsets_gpu;
-  long* offsets_gpuz;
   int ncoefs0;
   double* coefs0_gpu;
-  int* offsets0_gpu;
-  int ncoefs12;
-  double* coefs12_gpu;
-  int* offsets12_gpu;
-  int* offsets12_gpuz;
+  int ncoefs1;
+  double* coefs1_gpu;
+  int ncoefs2;
+  double* coefs2_gpu;
   double coef_relax;
   long n[3];
   long j[3];
@@ -49,25 +47,27 @@ typedef struct
 
 #define gpaw_cudaSafeCall(err)   __gpaw_cudaSafeCall(err,__FILE__,__LINE__)
 
-static inline void __gpaw_cudaSafeCall( cudaError_t err ,char *file,int line)
+static inline cudaError_t __gpaw_cudaSafeCall( cudaError_t err ,char *file,int line)
 {
   if( cudaSuccess != err) {
     fprintf(stderr, "%s(%i): Cuda error: %s.\n",
 	    file, line, cudaGetErrorString( err) );
     exit(-1);
   }
+  return err;
 }
 
 
 #define gpaw_cublasSafeCall(err)   __gpaw_cublasSafeCall(err,__FILE__,__LINE__)
 
-static inline void __gpaw_cublasSafeCall( cublasStatus err ,char *file,int line)
+static inline cublasStatus __gpaw_cublasSafeCall( cublasStatus err ,char *file,int line)
 {
   if( CUBLAS_STATUS_SUCCESS != err) {
     fprintf(stderr, "%s(%i): Cublas error: %X.\n",
 	    file, line, err);
     exit(-1);
   }
+  return err;
 }
 
 #define GPAW_CUDAMALLOC(pp,T,n) gpaw_cudaSafeCall(cudaMalloc((void**)(pp),sizeof(T)*(n)));
