@@ -9,7 +9,8 @@ from gpaw.transformers import Transformer
 from gpaw.fd_operators import Laplace
 from gpaw.fd_operators import FDOperator
 
-from gpaw.utilities.blas import axpy
+from gpaw.utilities.blas import axpy,scal
+from gpaw.utilities.linalg import change_sign
 
 import pycuda.gpuarray as gpuarray
 import pycuda.driver as cuda
@@ -80,45 +81,54 @@ class Preconditioner:
                                            allocator=self.scratch2.allocator,
                                            base=self.scratch2,
                                            gpudata=self.scratch2.gpudata)
-            #d0, q0 = self.scratch0
-            #r1, d1, q1 = self.scratch1
-            #r2, d2, q2 = self.scratch2
+            self.restrictor0(local_residuals, r1, phases)
+            cuda.memcpy_dtod(d1.gpudata, r1.gpudata, r1.nbytes)
+            scal(-4 * step, d1)
+            self.kin1.apply(d1, q1, phases)
+            q1 += r1
+            self.restrictor1(q1, r2, phases)
+            cuda.memcpy_dtod(d2.gpudata, r2.gpudata, r2.nbytes)
+            scal(16 * step, d2)
+            self.kin2.apply(d2, q2, phases)
+            q2 -= r2
+            axpy(-16*step, q2, d2)
+            self.interpolator2(d2, q1, phases)
+            d1 -= q1
+            self.kin1.apply(d1, q1, phases)
+            q1 += r1
+            axpy(-4*step, q1, d1)
+            change_sign(d1)
+            self.interpolator1(d1, d0, phases)
+            self.kin0.apply(d0, q0, phases)
+            q0 -= local_residuals
+            axpy(-step, q0, d0)  # d0 -= step * q0
+            change_sign(d0)
         else:
             d0, q0 = self.scratch0[:,:nb]
             r1, d1, q1 = self.scratch1[:, :nb]
             r2, d2, q2 = self.scratch2[:, :nb]
+            self.restrictor0(-local_residuals, r1, phases)
+            d1 = 4 * step * r1  
+            self.kin1.apply(d1, q1, phases)
+            q1 -= r1
+            self.restrictor1(q1, r2, phases)
+            d2 = 16 * step * r2 
+            self.kin2.apply(d2, q2, phases)
+            q2 -= r2
+            # d2 -= 16 * step * q2
+            axpy(-16*step, q2, d2)
+            self.interpolator2(d2, q1, phases)
+            d1 -= q1
+            self.kin1.apply(d1, q1, phases)
+            q1 -= r1
+            # d1 -= 4 * step * q1
+            axpy(-4*step, q1, d1)
+            self.interpolator1(-d1, d0, phases)
+            self.kin0.apply(d0, q0, phases)
+            q0 -= local_residuals
+            axpy(-step, q0, d0)  # d0 -= step * q0
+            scal(-1.0, d0)
 
-        self.restrictor0(-local_residuals, r1, phases)
-
-        if self.cuda:
-            cuda.memcpy_dtod(d1.gpudata, r1.gpudata, r1.nbytes)
-            d1 *= 4 * step
-        else:
-            d1 = 4 * step * r1  # XXX Unnecessary array creation? (GPUarray does not support [:])
-        self.kin1.apply(d1, q1, phases)
-        q1 -= r1
-        self.restrictor1(q1, r2, phases)
-
-        if self.cuda:
-            cuda.memcpy_dtod(d2.gpudata, r2.gpudata, r2.nbytes)
-            d2 *= 16 * step
-        else:
-            d2 = 16 * step * r2 # XXX Unnecessary array creation?
-        self.kin2.apply(d2, q2, phases)
-        q2 -= r2
-        # d2 -= 16 * step * q2
-        axpy(-16*step, q2, d2)
-        self.interpolator2(d2, q1, phases)
-        d1 -= q1
-        self.kin1.apply(d1, q1, phases)
-        q1 -= r1
-        # d1 -= 4 * step * q1
-        axpy(-4*step, q1, d1)
-        self.interpolator1(-d1, d0, phases)
-        self.kin0.apply(d0, q0, phases)
-        q0 -= local_residuals
-        axpy(-step, q0, d0)  # d0 -= step * q0
-        d0 *= -1.0
 
         if self.cuda and not isinstance(residuals, gpuarray.GPUArray):
             return d0.get() 
