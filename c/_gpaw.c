@@ -105,6 +105,7 @@ PyObject* set_dxpl_mpio(PyObject *self, PyObject *args);
 #endif
 
 #ifdef GPAW_CUDA  
+PyObject* csign_gpu(PyObject *self, PyObject *args);
 PyObject* scal_cuda_gpu(PyObject *self, PyObject *args);
 PyObject* multi_scal_cuda_gpu(PyObject *self, PyObject *args);
 PyObject* gemm_cuda_gpu(PyObject *self, PyObject *args);
@@ -119,6 +120,9 @@ PyObject* multi_dotu_cuda_gpu(PyObject *self, PyObject *args);
 PyObject* multi_dotc_cuda_gpu(PyObject *self, PyObject *args);
 PyObject* add_linear_field_cuda_gpu(PyObject *self, PyObject *args);
 PyObject* elementwise_multiply_add_gpu(PyObject *self, PyObject *args);
+PyObject* multi_elementwise_multiply_add_gpu(PyObject *self, PyObject *args);
+PyObject* ax2py_gpu(PyObject *self, PyObject *args);
+PyObject* multi_ax2py_gpu(PyObject *self, PyObject *args);
 #endif
 
 // IO wrappers
@@ -226,6 +230,7 @@ static PyMethodDef functions[] = {
   {"h5_set_dxpl_mpio", set_dxpl_mpio, METH_VARARGS, 0}, 
 #endif // HDF5
 #ifdef GPAW_CUDA  
+  {"csign_gpu", csign_gpu, METH_VARARGS, 0},
   {"scal_cuda_gpu", scal_cuda_gpu, METH_VARARGS, 0},
   {"multi_scal_cuda_gpu", multi_scal_cuda_gpu, METH_VARARGS, 0},
   {"gemm_cuda_gpu", gemm_cuda_gpu, METH_VARARGS, 0},
@@ -240,6 +245,9 @@ static PyMethodDef functions[] = {
   {"multi_dotc_cuda_gpu", multi_dotc_cuda_gpu, METH_VARARGS, 0},
   {"add_linear_field_cuda_gpu", add_linear_field_cuda_gpu, METH_VARARGS, 0},
   {"elementwise_multiply_add_gpu", elementwise_multiply_add_gpu, METH_VARARGS, 0},
+  {"multi_elementwise_multiply_add_gpu", multi_elementwise_multiply_add_gpu, METH_VARARGS, 0},
+  {"ax2py_gpu", ax2py_gpu, METH_VARARGS, 0},
+  {"multi_ax2py_gpu", multi_ax2py_gpu, METH_VARARGS, 0},
 #endif
   {"enable_io_wrappers", Py_enable_io_wrappers, METH_VARARGS, 0},
   {"disable_io_wrappers", Py_disable_io_wrappers, METH_VARARGS, 0},
