@@ -200,6 +200,7 @@ as described in :ref:`install_custom_installation`.
 Instructions for running parallel calculations can be found in the
 :ref:`user manual <manual_parallel_calculations>`.
 
+
 .. _PGO:
 
 Profile guided optimization
@@ -208,6 +209,7 @@ Profile guided optimization
 Some compilers allow one to use
 `profile guided optimization <http://en.wikipedia.org/wiki/Profile-guided_optimization>`_ (PGO).
 See :ref:`PGO_gcc_EL5` for an example how use PGO to compile GPAW on CentOS.
+
 
 .. _installationguide_setup_files:
 
@@ -240,6 +242,7 @@ Installation of setup files
 
      In case of several locations of setups the first found setup file is used.
 
+
 .. _running_tests:
 
 Run the tests
@@ -249,7 +252,7 @@ Make sure that everything works by running the test suite (using bash)::
 
   [gpaw]$ gpaw-python `which gpaw-test` 2>&1 | tee test.log
 
-This will take around 40 minutes.  If you have a multicore CPU, you
+This will a couple of hours.  If you have a multicore CPU, you
 can speed up the test by using ``gpaw-test -j <number-of-cores>``.
 This will run tests simultaneously (**not** employing MPI parallelization)
 on the requested `<number-of-cores>`.
