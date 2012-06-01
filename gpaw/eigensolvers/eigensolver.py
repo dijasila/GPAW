@@ -8,6 +8,7 @@ import numpy as np
 
 from gpaw.fd_operators import Laplace
 from gpaw.utilities.blas import axpy, r2k, gemm
+from gpaw.utilities.mblas import multi_axpy
 from gpaw.utilities.tools import apply_subspace_mask
 from gpaw.utilities import unpack
 from gpaw import debug, extra_parameters
@@ -99,11 +100,9 @@ class Eigensolver:
         """Calculate residual.
 
         From R=Ht*psit calculate R=H*psit-eps*S*psit."""
-        #if isinstance(psit_xG,gpuarray.GPUArray):
-        #    _gpaw.multi_axpy_cuda_gpu(-eps_x, psit_xG.gpudata, psit_xG.shape, R_xG.gpudata, R_xG.shape, psit_xG.dtype,eps_x.size)
-        #else:
-        for R_G, eps, psit_G in zip(R_xG, eps_x, psit_xG):
-            axpy(-eps, psit_G, R_G)
+        multi_axpy(-eps_x,psit_xG,R_xG)
+        #for R_G, eps, psit_G in zip(R_xG, eps_x, psit_xG):
+        #    axpy(-eps, psit_G, R_G)
         c_axi = {}
         for a, P_xi in P_axi.items():
             dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
