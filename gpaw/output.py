@@ -296,14 +296,12 @@ class PAWTextOutput:
 
         self.hamiltonian.xc.summary(self.txt)
 
-        if self.density.rhot_g is None:
-            return
-
         t()
-        charge = self.density.finegd.integrate(self.density.rhot_g)
-        t('Total Charge:  %f electrons' % charge)
 
-        dipole = self.get_dipole_moment()
+        try:
+            dipole = self.get_dipole_moment()
+        except AttributeError:
+            dipole = np.nan
         if self.density.charge == 0:
             t('Dipole Moment: %s' % dipole)
         else:
