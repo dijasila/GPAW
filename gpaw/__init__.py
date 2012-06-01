@@ -34,6 +34,10 @@ except ImportError:
 from glob import glob
 from os.path import join, isfile
 
+
+import gpaw.cuda 
+
+
 __all__ = ['GPAW', 'Calculator',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
            'PoissonSolver',
@@ -55,10 +59,8 @@ class PoissonConvergenceError(ConvergenceError):
 
 # Check for special command line arguments:
 debug = False
-debug_cuda = False
-debug_cuda_sync = False
-debug_cuda_reltol = 1e-12
-debug_cuda_abstol = 1e-13
+gpaw.cuda.debug_cuda = False
+gpaw.cuda.debug_cuda_sync = False
 trace = False
 setup_paths = []
 dry_run = 0
@@ -85,10 +87,10 @@ while len(sys.argv) > i:
         debug = True
         sys.stderr.write('gpaw-DEBUG mode\n')
     elif arg == '--debug-cuda':
-        debug_cuda = True
+        gpaw.cuda.debug_cuda = True
         sys.stderr.write('gpaw-cuda-DEBUG mode\n')
     elif arg == '--cuda-sync':
-        debug_cuda_sync = True
+        gpaw.cuda.debug_cuda_sync = True
         sys.stderr.write('Cuda syncronize timing mode.\n')
     elif arg.startswith('--setups='):
         setup_paths = arg.split('=')[1].split(':')

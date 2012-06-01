@@ -22,7 +22,7 @@ import math
 import sys
 
 import pycuda as cuda
-from gpaw import debug_cuda_sync
+from gpaw.cuda import debug_cuda_sync,get_context
 
 try:
     import pytau
@@ -98,7 +98,7 @@ class Timer:
         names = tuple(self.running + [name])
         if debug_cuda_sync:
             try:
-                cuda.autoinit.context.synchronize()
+                get_context().synchronize()
             except AttributeError:
                 pass
         self.timers[names] = self.timers.get(names, 0.0) - time.time()
@@ -114,7 +114,7 @@ class Timer:
                                % (name, running))
         if debug_cuda_sync:
             try:
-                cuda.autoinit.context.synchronize()
+                get_context().synchronize()
             except AttributeError:
                 pass
         self.timers[names] += time.time()

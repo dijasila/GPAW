@@ -39,6 +39,8 @@ from gpaw.scf import SCFLoop
 from gpaw.forces import ForceCalculator
 from gpaw.utilities import h2gpts
 
+import gpaw.cuda
+
 #import pycuda
 #import pycuda.autoinit
 
@@ -279,6 +281,9 @@ class PAW(PAWTextOutput):
                 hooks['not_converged'](self)
             raise KohnShamConvergenceError('Did not converge!')
 
+
+
+
     def initialize_positions(self, atoms=None):
         """Update the positions of the atoms."""
         if atoms is None:
@@ -316,19 +321,6 @@ class PAW(PAWTextOutput):
 
         par = self.input_parameters
 
-        if self.cuda:
-            self.timer.start('Cuda')
-            if par.eigensolver != None and par.eigensolver != 'rmm-diis':
-                print "Cuda disabled: Eigensolver: '", par.eigensolver,"' not implemented."
-                self.cuda = False
-            elif par.mode != 'fd':
-                print "Cuda disabled: Mode: '",par.mode,"' not implemented."
-                self.cuda = False
-            else:
-                import pycuda.autoinit
-                from pycuda.driver import func_cache
-                pycuda.autoinit.context.set_cache_config(func_cache.PREFER_L1)
-            self.timer.stop('Cuda')
 
         world = par.communicator
         if world is None:
@@ -343,6 +335,19 @@ class PAW(PAWTextOutput):
             # world should be a list of ranks:
             world = mpi.world.new_communicator(np.asarray(world))
         self.wfs.world = world
+
+        if self.cuda:
+            self.timer.start('Cuda')
+            if par.eigensolver != None and par.eigensolver != 'rmm-diis':
+                print "Cuda disabled: Eigensolver: '", par.eigensolver,"' not implemented."
+                self.cuda = False
+            elif par.mode != 'fd':
+                print "Cuda disabled: Mode: '",par.mode,"' not implemented."
+                self.cuda = False
+            else:
+                gpaw.cuda.init(mpi.rank)
+            self.timer.stop('Cuda')
+
 
         self.set_text(par.txt, par.verbose)
 
@@ -774,6 +779,10 @@ class PAW(PAWTextOutput):
             raise RuntimeError('Atoms objects on different processors ' +
                                'are not identical!')
 
+    def __del__(self):
+        if self.cuda:
+            gpaw.cuda.delete()        
+        PAWTextOutput.__del__(self)
 
 def kpts2ndarray(kpts):
     """Convert kpts keyword to 2d ndarray of scaled k-points."""
