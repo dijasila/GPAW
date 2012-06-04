@@ -72,10 +72,8 @@ class PWDescriptor:
         self.kd = kd
         if kd is None:
             self.K_qv = np.zeros((1, 3))
-            weight_q = [1]
         else:
             self.K_qv = np.dot(kd.ibzk_qc, B_cv)
-            weight_q = kd.weight_q
 
         # Map from vectors inside sphere to fft grid:
         self.Q_qG = []
@@ -84,7 +82,6 @@ class PWDescriptor:
         
         self.ngmin = 100000000
         self.ngmax = 0
-        self.ngave = 0.0
         for q, K_v in enumerate(self.K_qv):
             G2_Q = ((self.G_Qv + K_v)**2).sum(axis=1)
             mask_Q = (G2_Q <= 2 * ecut)
@@ -98,15 +95,11 @@ class PWDescriptor:
             ng = len(Q_G)
             self.ngmin = min(ng, self.ngmin)
             self.ngmax = max(ng, self.ngmax)
-            self.ngave += weight_q[q] * ng
             self.nbytes += Q_G.nbytes + self.G2_qG[q].nbytes
 
         if kd is not None:
             self.ngmin = kd.comm.min(self.ngmin)
             self.ngmax = kd.comm.max(self.ngmax)
-            self.ngave = kd.comm.sum(self.ngave)
-            if kd.nspins == 2 and kd.comm.size > 1:
-                self.ngave /= 2
 
         self.n_c = np.array([self.ngmax])  # used by hs_operators.py XXX
 
@@ -114,7 +107,7 @@ class PWDescriptor:
         mem.subnode('Arrays', self.nbytes)
 
     def bytecount(self, dtype=float):
-        return self.ngave * 16
+        return self.ngmax * 16
     
     def zeros(self, x=(), dtype=None, q=-1):
         a_xG = self.empty(x, dtype, q)
@@ -400,7 +393,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         return self.pd.integrate(a_xg, b_yg, global_integral)
 
     def bytes_per_wave_function(self):
-        return 16 * self.pd.ngave
+        return 16 * self.pd.ngmax
 
     def set_setups(self, setups):
         self.timer.start('PWDescriptor')
@@ -426,11 +419,10 @@ class PWWaveFunctions(FDPWWaveFunctions):
                  (self.pd.ecut * units.Hartree))
         if self.dtype == float:
             fd.write('      Number of coefficients: %d (reduced to %d)\n' %
-                     (self.pd.ngave * 2 - 1, self.pd.ngave))
+                     (self.pd.ngmax * 2 - 1, self.pd.ngmax))
         else:
-            fd.write('      Number of coefficients (min, ave, max): ' +
-                     '%d, %.1f, %d\n' %
-                     (self.pd.ngmin, self.pd.ngave, self.pd.ngmax))
+            fd.write('      Number of coefficients (min, max): %d, %d\n' %
+                     (self.pd.ngmin, self.pd.ngmax))
         if fftw.FFTPlan is fftw.NumpyFFTPlan:
             fd.write("      Using Numpy's FFT\n")
         else:
@@ -740,8 +732,16 @@ def ft(spline):
 
 
 class PWLFC(BaseLFC):
-    def __init__(self, spline_aj, pd):
-        """Reciprocal-space plane-wave localized function collection."""
+    def __init__(self, spline_aj, pd, blocksize=None):
+        """Reciprocal-space plane-wave localized function collection.
+
+        spline_aj: list of list of spline objects
+            Splines.
+        pd: PWDescriptor
+            Plane-wave descriptor object.
+        blocksize: int
+            Block-size to use when looping over G-vectors.  Default is to do
+            all G-vectors in one big block."""
 
         self.pd = pd
 
@@ -786,6 +786,12 @@ class PWLFC(BaseLFC):
             self.Y_qLG.append(Y_LG)
             self.nbytes += Y_LG.nbytes
 
+        if blocksize is not None:
+            if pd.ngmax <= blocksize:
+                # No need to block G-vectors
+                blocksize = None
+        self.blocksize = blocksize
+
         # These are set later in set_potitions():
         self.eikR_qa = None
         self.my_atom_indices = None
@@ -829,40 +835,57 @@ class PWLFC(BaseLFC):
             I1 = I2
         self.nI = I1
 
-    def expand(self, q=-1):
-        f_IG = self.pd.empty(self.nI, q=q)
-        emiGR_Ga = np.exp(-1j * np.dot(self.pd.G_Qv[self.pd.Q_qG[q]],
+    def expand(self, q=-1, G1=0, G2=None):
+        if G2 is None:
+            G2 = self.Y_qLG[q].shape[1]
+        f_IG = np.empty((self.nI, G2 - G1), complex)
+        emiGR_Ga = np.exp(-1j * np.dot(self.pd.G_Qv[self.pd.Q_qG[q][G1:G2]],
                                        self.pos_av.T))
         for a, j, i1, i2, I1, I2 in self:
             l, f_qG = self.lf_aj[a][j]
-            f_IG[I1:I2] = (emiGR_Ga[:, a] * f_qG[q] * (-1.0j)**l *
-                           self.Y_qLG[q][l**2:(l + 1)**2])
+            f_IG[I1:I2] = (emiGR_Ga[:, a] * f_qG[q][G1:G2] * (-1.0j)**l *
+                           self.Y_qLG[q][l**2:(l + 1)**2, G1:G2])
         return f_IG
 
-    def add(self, a_xG, c_axi=1.0, q=-1, f_IG=None):
+    def block(self, q=-1):
+        nG = self.Y_qLG[q].shape[1]
+        if self.blocksize:
+            G1 = 0
+            while G1 < nG:
+                G2 = min(G1 + self.blocksize, nG)
+                yield G1, G2
+                G1 = G2
+        else:
+            yield 0, nG
+            
+    def add(self, a_xG, c_axi=1.0, q=-1, f0_IG=None):
         if isinstance(c_axi, float):
             assert q == -1, a_xG.dims == 1
             a_xG += (c_axi / self.pd.gd.dv) * self.expand(-1).sum(0)
             return
 
         c_xI = np.empty(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
-        if f_IG is None:
-            f_IG = self.expand(q)
         for a, I1, I2 in self.indices:
             c_xI[..., I1:I2] = c_axi[a] * self.eikR_qa[q][a].conj()
-
         c_xI = c_xI.reshape((np.prod(c_xI.shape[:-1]), self.nI))
-        a_xG = a_xG.reshape((-1, a_xG.shape[-1]))
 
-        if self.pd.dtype == float:
-            f_IG = f_IG.view(float)
-            a_xG = a_xG.view(float)
+        a_xG = a_xG.reshape((-1, a_xG.shape[-1])).view(self.pd.dtype)
+        
+        for G1, G2 in self.block(q):
+            if f0_IG is None:
+                f_IG = self.expand(q, G1, G2)
+            else:
+                f_IG = f0_IG
+            
+            if self.pd.dtype == float:
+                f_IG = f_IG.view(float)
+                G1 *= 2
+                G2 *= 2
 
-        gemm(1.0 / self.pd.gd.dv, f_IG, c_xI, 1.0, a_xG)
+            gemm(1.0 / self.pd.gd.dv, f_IG, c_xI, 1.0, a_xG[:, G1:G2])
 
     def integrate(self, a_xG, c_axi=None, q=-1):
         c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
-        f_IG = self.expand(q)
 
         b_xI = c_xI.reshape((np.prod(c_xI.shape[:-1]), self.nI))
         a_xG = a_xG.reshape((-1, a_xG.shape[-1]))
@@ -870,48 +893,65 @@ class PWLFC(BaseLFC):
         alpha = 1.0 / self.pd.gd.N_c.prod()
         if self.pd.dtype == float:
             alpha *= 2
-            f_IG[:, 0] *= 0.5
-            f_IG = f_IG.view(float)
             a_xG = a_xG.view(float)
         
         if c_axi is None:
             c_axi = self.dict(a_xG.shape[:-1])
 
-        gemm(alpha, f_IG, a_xG, 0.0, b_xI, 'c')
+        x = 0.0
+        for G1, G2 in self.block(q):
+            f_IG = self.expand(q, G1, G2)
+            if self.pd.dtype == float:
+                if G1 == 0:
+                    f_IG[:, 0] *= 0.5
+                f_IG = f_IG.view(float)
+                G1 *= 2
+                G2 *= 2
+
+            gemm(alpha, f_IG, a_xG[:, G1:G2], x, b_xI, 'c')
+            x = 1.0
+
         for a, I1, I2 in self.indices:
             c_axi[a][:] = self.eikR_qa[q][a] * c_xI[..., I1:I2]
 
         return c_axi
 
     def derivative(self, a_xG, c_axiv, q=-1):
-        c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
-        f_IG = self.expand(q)
+        c_vxI = np.zeros((3,) + a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
+        b_vxI = c_vxI.reshape((3, -1, self.nI))
+        a_xG = a_xG.reshape((-1, a_xG.shape[-1])).view(self.pd.dtype)
+
+        alpha = 1.0 / self.pd.gd.N_c.prod()
 
         K_v = self.pd.K_qv[q]
 
-        b_xI = c_xI.reshape((-1, self.nI))
-        a_xG = a_xG.reshape((-1, a_xG.shape[-1]))
+        x = 0.0
+        for G1, G2 in self.block(q):
+            f_IG = self.expand(q, G1, G2)
+            G_Gv = self.pd.G_Qv[self.pd.Q_qG[q][G1:G2]]
+            if self.pd.dtype == float:
+                for v in range(3):
+                    gemm(2 * alpha,
+                         (f_IG * 1.0j * G_Gv[:, v]).view(float),
+                         a_xG[:, 2 * G1:2 * G2],
+                         x, b_vxI[v], 'c')
+            else:
+                for v in range(3):
+                    gemm(-alpha,
+                          f_IG * (G_Gv[:, v] + K_v[v]),
+                          a_xG[:, G1:G2],
+                          x, b_vxI[v], 'c')
+            x = 1.0
 
-        alpha = 1.0 / self.pd.gd.N_c.prod()
-        G_Gv = self.pd.G_Qv[self.pd.Q_qG[q]]
-        if self.pd.dtype == float:
-            for v in range(3):
-                gemm(2 * alpha,
-                      (f_IG * 1.0j * G_Gv[:, v]).view(float),
-                      a_xG.view(float),
-                      0.0, b_xI, 'c')
+        for v in range(3):
+            if self.pd.dtype == float:
                 for a, I1, I2 in self.indices:
-                    c_axiv[a][..., v] = c_xI[..., I1:I2]
-        else:
-            for v in range(3):
-                gemm(-alpha,
-                      f_IG * (G_Gv[:, v] + K_v[v]),
-                      a_xG,
-                      0.0, b_xI, 'c')
+                    c_axiv[a][..., v] = c_vxI[v, ..., I1:I2]
+            else:
                 for a, I1, I2 in self.indices:
                     c_axiv[a][..., v] = (1.0j * self.eikR_qa[q][a] *
-                                         c_xI[..., I1:I2])
-
+                                         c_vxI[v, ..., I1:I2])
+                
     def stress_tensor_contribution(self, a_xG, c_axi=None, q=-1):
         f_IG = self.pd.empty(self.nI, q=q)
         cache = {}
@@ -1019,7 +1059,8 @@ class ReciprocalSpaceDensity(Density):
                 spline_aj.append([setup.nct])
         self.nct = PWLFC(spline_aj, self.pd2)
 
-        self.ghat = PWLFC([setup.ghat_l for setup in setups], self.pd3)
+        self.ghat = PWLFC([setup.ghat_l for setup in setups], self.pd3,
+                          blocksize=10000)
 
     def set_positions(self, spos_ac, rank_a=None):
         Density.set_positions(self, spos_ac, rank_a)
