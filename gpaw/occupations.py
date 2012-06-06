@@ -277,17 +277,21 @@ class ZeroKelvin(OccupationNumbers):
             raise ValueError("Can't find HOMO and/or LUMO!")
 
     def fixed_moment(self, wfs):
-        assert wfs.nspins == 2 and wfs.bd.comm.size == 1
+        assert wfs.nspins == 2 and wfs.kd.nbzkpts == 1
         fermilevels = np.zeros(2)
         for kpt in wfs.kpt_u:
             eps_n = wfs.bd.collect(kpt.eps_n)
-            f_n = wfs.bd.empty(global_array=True)
-            sign = 1 - kpt.s * 2
-            ne = 0.5 * (self.nvalence + sign * self.magmom)
-            homo, lumo = occupy(f_n, eps_n, ne)
+            if eps_n is None:
+                f_n = None
+            else:
+                f_n = wfs.bd.empty(global_array=True)
+                sign = 1 - kpt.s * 2
+                ne = 0.5 * (self.nvalence + sign * self.magmom)
+                homo, lumo = occupy(f_n, eps_n, ne) 
+                fermilevels[kpt.s] = 0.5 * (homo + lumo)
             wfs.bd.distribute(f_n, kpt.f_n)
-            fermilevels[kpt.s] = 0.5 * (homo + lumo)
-        wfs.kpt_comm.sum(fermilevels)
+        wfs.bd.comm.sum(fermilevels)
+        wfs.kd.comm.sum(fermilevels)
         self.fermilevel = fermilevels.mean()
         self.split = fermilevels[0] - fermilevels[1]
         
