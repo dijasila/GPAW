@@ -116,6 +116,7 @@ aoj        Ari Ojanperä               ari,ojanpera:tkk,fi
 askhl      Ask Hjorth Larsen          askhl:fysik,dtu,dk
 dlandis    David Landis               dlandis:fysik,dtu,dk
 dulak      Marcin Dulak               dulak:fysik,dtu,dk
+eojons     Elvar Örn Jónsson          elvar,jonsson:fysik,dtu,dk
 falh       Falco Huser                falh:fysik,dtu,dk
 georg      Poul Georg Moses           georg:fysik,dtu,dk
 getri      George Tritsaris           getri:fysik,dtu,dk
