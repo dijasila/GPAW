@@ -10,7 +10,9 @@ from math import pi, sqrt
 import numpy as np
 from ase.utils import prnt
 from ase.units import Hartree
+from ase.dft.kpoints import monkhorst_pack
 
+import gpaw.mpi as mpi
 import gpaw.fftw as fftw
 from gpaw.xc.hybrid import HybridXCBase
 from gpaw.kpt_descriptor import KPointDescriptor
@@ -22,11 +24,12 @@ class HybridXC(HybridXCBase):
     orbital_dependent = True
 
     def __init__(self, name, hybrid=None, xc=None,
-                 alpha=None, skip_gamma=False, finegrid=False,
+                 alpha=None, skip_gamma=False,
                  method='standard',
                  bandstructure=False,
                  logfilename='-', bands=None,
-                 fcut=1e-10):
+                 fcut=1e-10,
+                 world=None):
         """Mix standard functionals with exact exchange.
 
         name: str
@@ -38,8 +41,6 @@ class HybridXC(HybridXCBase):
         method: str
             Use 'standard' standard formula and 'acdf for
             adiabatic-connection dissipation fluctuation formula.
-        finegrid: boolean
-            Use fine grid for energy functional evaluations?
         alpha: float
             XXX describe
         skip_gamma: bool
@@ -56,7 +57,6 @@ class HybridXC(HybridXCBase):
         self.alpha = alpha
         self.fcut = fcut
 
-        self.finegrid = finegrid
         self.skip_gamma = skip_gamma
         self.method = method
         self.bandstructure = bandstructure
@@ -76,6 +76,12 @@ class HybridXC(HybridXCBase):
         self.ecc = None  # core-core
 
         self.exx_skn = None  # bandstructure
+
+        self.qlatest = None
+
+        if world is None:
+            world = mpi.world
+        self.world = world
 
     def log(self, *args, **kwargs):
         prnt(file=self.fd, *args, **kwargs)
@@ -102,89 +108,34 @@ class HybridXC(HybridXCBase):
         # (self.kd.comm is serial_comm):
         self.kd = wfs.kd.copy()
 
-        self.fd = logfile(self.fd, wfs.world.rank)
+        self.fd = logfile(self.fd, self.world.rank)
 
-        vol = wfs.gd.dv * wfs.gd.N_c.prod()
-        
-        if self.alpha is None:
-            self.alpha = 6 * vol**(2 / 3.0) / pi**2
-        
-        # Make q-point descriptor:
-        N_c = self.kd.N_c
-        i_qc = np.indices(N_c * 2 - 1).transpose((1, 2, 3, 0)).reshape((-1, 3))
-        bzq_qc = (i_qc - N_c + 1.0) / N_c
-        self.qd = KPointDescriptor(bzq_qc)
-
-        self.pd = PWDescriptor(wfs.pd.ecut, wfs.gd,
-                               dtype=wfs.pd.dtype, kd=self.kd)
-        self.pd2 = PWDescriptor(dens.pd2.ecut, dens.gd,
-                                dtype=wfs.dtype, kd=self.qd)
-        if self.finegrid:
-            self.pd3 = PWDescriptor(dens.pd3.ecut, dens.finegd,
-                                    dtype=wfs.dtype, kd=self.qd)
-        else:
-            self.pd3 = self.pd2
-
-        # Calculate 1/|G+q|^2 with special treatment of |G+q|=0:
-        G2_qG = self.pd3.G2_qG
-        q0 = ((N_c * 2 - 1).prod() - 1) // 2
-        assert not bzq_qc[q0].any()
-        G2_qG[q0][0] = 117.0
-        self.iG2_qG = [1.0 / G2_G for G2_G in G2_qG]
-        G2_qG[q0][0] = 0.0
-        self.iG2_qG[q0][0] = 0.0
-
-        self.gamma = (vol / (2 * pi)**2 * sqrt(pi / self.alpha) *
-                      self.kd.nbzkpts)
-
-        for q in range(self.qd.nbzkpts):
-            if abs(bzq_qc[q] + 1e-7).max() < 0.5:
-                self.gamma -= np.dot(np.exp(-self.alpha * G2_qG[q]),
-                                     self.iG2_qG[q])
-
-        self.iG2_qG[q0][0] = self.gamma
-        
-        # Compensation charges:
-        self.ghat = PWLFC([setup.ghat_l for setup in wfs.setups], self.pd3)
-        
-        self.log('Value of alpha parameter: %.3f Bohr^2' % self.alpha)
-        self.log('Value of gamma parameter: %.3f Bohr^2' % self.gamma)
-        self.log('Cutoff energies:')
-        self.log('    Wave functions:       %10.3f eV' %
-                 (self.pd.ecut * Hartree))
-        self.log('    Density:              %10.3f eV' %
-                 (self.pd2.ecut * Hartree))
-        self.log('    Compensation charges: %10.3f eV' %
-                 (self.pd3.ecut * Hartree))
-        self.log('%d x %d x %d k-points' % tuple(self.kd.N_c))
-
-        if fftw.FFTPlan is fftw.NumpyFFTPlan:
-            self.log('Not using FFTW!')
-            
-        if self.bandstructure:
-            self.log('Calculating eigenvalue shifts.')
+        wfs.initialize_wave_functions_from_restart_file()
 
     def set_positions(self, spos_ac):
-        self.ghat.set_positions(spos_ac)
         self.spos_ac = spos_ac
 
     def calculate(self, gd, n_sg, v_sg=None, e_g=None):
         # Normal XC contribution:
         exc = self.xc.calculate(gd, n_sg, v_sg, e_g)
 
-         # Add EXX contribution:
+        # Add EXX contribution:
         return exc + self.exx * self.hybrid
 
     def calculate_exx(self):
         """Non-selfconsistent calculation."""
 
         kd = self.kd
-        K = kd.nibzkpts
-        W = max(1, self.wfs.world.size // self.wfs.nspins)
-        parallel = (W > 1)
+        wfs = self.wfs
 
-        self.log("%d CPU's used for %d IBZ k-points" % (W, K))
+        if fftw.FFTPlan is fftw.NumpyFFTPlan:
+            self.log('NOT USING FFTW !!')
+
         self.log('Spins:', self.wfs.nspins)
+
+        W = max(1, self.wfs.kd.comm.size // self.wfs.nspins)
+        # Are the k-points distributed?
+        kparallel = (W > 1)
 
         # Find number of occupied bands:
         self.nocc_sk = np.zeros((self.wfs.nspins, kd.nibzkpts), int)
@@ -205,19 +156,108 @@ class HybridXC(HybridXCBase):
         self.log('Number of valence electrons:', self.wfs.setups.nvalence)
 
         if self.bandstructure:
+            self.log('Calculating eigenvalue shifts.')
+
             # allocate array for eigenvalue shifts:
-            self.exx_skn = np.zeros((self.wfs.nspins, K, self.wfs.bd.nbands))
+            self.exx_skn = np.zeros((self.wfs.nspins,
+                                     kd.nibzkpts,
+                                     self.wfs.bd.nbands))
 
             if self.bands is None:
                 noccmax = self.wfs.bd.nbands
             else:
                 noccmax = max(max(self.bands) + 1, noccmax)
 
-        B = noccmax
-        E = B - self.wfs.setups.nvalence / 2.0  # empty bands
-        self.npairs_estimate = (K * kd.nbzkpts - 0.5 * K**2) * (B**2 - E**2)
-        self.log('Approximate number of pairs:', self.npairs_estimate)
+        vol = wfs.gd.dv * wfs.gd.N_c.prod()
+        if self.alpha is None:
+            alpha = 6 * vol**(2 / 3.0) / pi**2
+        else:
+            alpha = self.alpha
+        self.gamma = self.calculate_gamma(vol, alpha)
         
+        self.log('Value of alpha parameter: %.3f Bohr^2' % alpha)
+        self.log('Value of gamma parameter: %.3f Bohr^2' % self.gamma)
+            
+        # Construct all possible q=k2-k1 vectors:
+        N_c = self.kd.N_c
+        i_qc = np.indices(N_c * 2 - 1).transpose((1, 2, 3, 0)).reshape((-1, 3))
+        self.bzq_qc = (i_qc - N_c + 1.0) / N_c
+        self.q0 = ((N_c * 2 - 1).prod() - 1) // 2  # index of q=(0,0,0)
+        assert not self.bzq_qc[self.q0].any()
+
+        # Count number of pairs for each q-vector:
+        self.npairs_q = np.zeros(len(self.bzq_qc), int)
+        for s in range(kd.nspins):
+            for k1 in range(kd.nibzkpts):
+                for k2 in range(kd.nibzkpts):
+                    for K2, q, n1_n, n2 in self.indices(s, k1, k2):
+                        self.npairs_q[q] += len(n1_n)
+
+        self.npairs0 = self.npairs_q.sum()  # total number of pairs
+
+        self.log('Number of pairs:', self.npairs0)
+
+        # Distribute q-vectors to Q processors:
+        Q = self.world.size // self.wfs.kd.comm.size
+        myrank = self.world.rank // self.wfs.kd.comm.size
+        rank = 0
+        N = 0
+        myq = []
+        nq = 0
+        for q, n in enumerate(self.npairs_q):
+            if n > 0:
+                nq += 1
+                if rank == myrank:
+                    myq.append(q)
+            N += n
+            if N >= (rank + 1.0) * self.npairs0 / Q:
+                rank += 1
+
+        assert len(myq) > 0, 'Too few q-vectors for too many processes!'
+        self.bzq_qc = self.bzq_qc[myq]
+        try:
+            self.q0 = myq.index(self.q0)
+        except ValueError:
+            self.q0 = None
+
+        self.log('%d x %d x %d k-points' % tuple(self.kd.N_c))
+        self.log('Distributing %d IBZ k-points over %d process(es).' %
+                 (kd.nibzkpts, self.wfs.kd.comm.size))
+        self.log('Distributing %d q-vectors over %d process(es).' % (nq, Q))
+
+        # q-point descriptor for my q-vectors:
+        qd = KPointDescriptor(self.bzq_qc)
+
+        # Plane-wave descriptor for all wave-functions:
+        self.pd = PWDescriptor(wfs.pd.ecut, wfs.gd,
+                               dtype=wfs.pd.dtype, kd=kd)
+
+        # Plane-wave descriptor pair-densities:
+        self.pd2 = PWDescriptor(self.dens.pd2.ecut, self.dens.gd,
+                                dtype=wfs.dtype, kd=qd)
+
+        self.log('Cutoff energies:')
+        self.log('    Wave functions:       %10.3f eV' %
+                 (self.pd.ecut * Hartree))
+        self.log('    Density:              %10.3f eV' %
+                 (self.pd2.ecut * Hartree))
+
+        # Calculate 1/|G+q|^2 with special treatment of |G+q|=0:
+        G2_qG = self.pd2.G2_qG
+        if self.q0 is None:
+            self.iG2_qG = [1.0 / G2_G for G2_G in G2_qG]
+        else:
+            G2_qG[self.q0][0] = 117.0
+            self.iG2_qG = [1.0 / G2_G for G2_G in G2_qG]
+            G2_qG[self.q0][0] = 0.0
+            self.iG2_qG[self.q0][0] = self.gamma
+
+        # Compensation charges:
+        self.ghat = PWLFC([setup.ghat_l for setup in wfs.setups], self.pd2)
+        self.ghat.set_positions(self.spos_ac)
+
+        # Ready ... set ... go:
+        self.t0 = time()
         self.npairs = 0
         self.evv = 0.0
         self.evvacdf = 0.0
@@ -231,15 +271,15 @@ class HybridXC(HybridXCBase):
                 continue
 
             # Send and receive ranks:
-            srank = self.wfs.kd.get_rank_and_index(s,
-                                                   (kpt1_q[0].k - 1) % K)[0]
-            rrank = self.wfs.kd.get_rank_and_index(s,
-                                                   (kpt1_q[-1].k + 1) % K)[0]
+            srank = self.wfs.kd.get_rank_and_index(
+                s, (kpt1_q[0].k - 1) % kd.nibzkpts)[0]
+            rrank = self.wfs.kd.get_rank_and_index(
+                s, (kpt1_q[-1].k + 1) % kd.nibzkpts)[0]
 
-            # Shift k-points K - 1 times:
-            for i in range(K):
-                if i < K - 1:
-                    if parallel:
+            # Shift k-points kd.nibzkpts - 1 times:
+            for i in range(kd.nibzkpts):
+                if i < kd.nibzkpts - 1:
+                    if kparallel:
                         kpt = kpt2_q[-1].next(self.wfs)
                         kpt.start_receiving(rrank)
                         kpt2_q[0].start_sending(srank)
@@ -248,19 +288,18 @@ class HybridXC(HybridXCBase):
 
                 for kpt1, kpt2 in zip(kpt1_q, kpt2_q):
                     # Loop over all k-points that k2 can be mapped to:
-                    for k, ik in enumerate(kd.bz2ibz_k):
-                        if ik == kpt2.k:
-                            self.apply(kpt1, kpt2, k)
+                    for K2, q, n1_n, n2 in self.indices(s, kpt1.k, kpt2.k):
+                        self.apply(K2, q, kpt1, kpt2, n1_n, n2)
 
-                if i < K - 1:
-                    if parallel:
+                if i < kd.nibzkpts - 1:
+                    if kparallel:
                         kpt.wait()
                         kpt2_q[0].wait()
                     kpt2_q.pop(0)
                     kpt2_q.append(kpt)
 
-        self.evv = self.wfs.world.sum(self.evv)
-        self.evvacdf = self.wfs.world.sum(self.evvacdf)
+        self.evv = self.world.sum(self.evv)
+        self.evvacdf = self.world.sum(self.evvacdf)
         self.calculate_exx_paw_correction()
         
         if self.method == 'standard':
@@ -280,51 +319,53 @@ class HybridXC(HybridXCBase):
             ('total (%s)' % self.method, self.exx)]:
             self.log('    %-36s %14.6f eV' % (txt + ':', e * Hartree))
 
-        self.log('Number of pairs:', self.npairs)
+        self.log('Total time: %10.3f seconds' % (time() - self.t0))
 
-    def apply(self, kpt1, kpt2, k):
-        k1_c = self.kd.ibzk_kc[kpt1.k]
-        k20_c = self.kd.ibzk_kc[kpt2.k]
-        k2_c = self.kd.bzk_kc[k]
+        self.npairs = self.world.sum(self.npairs)
+        assert self.npairs == self.npairs0
+
+    def calculate_gamma(self, vol, alpha):
+        N_c = self.kd.N_c
+        offset_c = (N_c + 1) % 2 * 0.5 / N_c
+        bzq_qc = monkhorst_pack(N_c) + offset_c
+        qd = KPointDescriptor(bzq_qc)
+        pd = PWDescriptor(self.wfs.pd.ecut, self.wfs.gd, kd=qd)
+        gamma = (vol / (2 * pi)**2 * sqrt(pi / alpha) *
+                 self.kd.nbzkpts)
+        for G2_G in pd.G2_qG:
+            if G2_G[0] == 0:
+                G2_G = G2_G[1:]
+            gamma -= np.dot(np.exp(-alpha * G2_G), G2_G**-1)
+        return gamma
+
+    def indices(self, s, k1, k2):
+        for K, k in enumerate(self.kd.bz2ibz_k):
+            if k == k2:
+                for K, q, n1_n, n2 in self._indices(s, k1, k2, K):
+                    yield K, q, n1_n, n2
+            
+    def _indices(self, s, k1, k2, K2):
+        k1_c = self.kd.ibzk_kc[k1]
+        k2_c = self.kd.bzk_kc[K2]
         q_c = k2_c - k1_c
-        q = abs(self.qd.bzk_kc - q_c).sum(1).argmin()
-
-        same = abs(k1_c - k2_c).max() < 1e-9
-
-        if self.skip_gamma and same:
+        q = abs(self.bzq_qc - q_c).sum(1).argmin()
+        if abs(self.bzq_qc[q] - q_c).sum() > 1e-7:
             return
 
-        if k2_c.any():
-            eik2r_R = self.wfs.gd.plane_wave(k2_c)
-            eik20r_R = self.wfs.gd.plane_wave(k20_c)
-        else:
-            eik2r_R = 1.0
-            eik20r_R = 1.0
+        if self.skip_gamma and q == self.q0:
+            return
 
-        iG2_G = self.iG2_qG[q]
-        f_IG = self.ghat.expand(q)
-        if self.finegrid:
-            G3_G = self.pd2.map(self.pd3, q)
-        else:
-            G3_G = None
-
-        w1 = self.kd.weight_k[kpt1.k]
-        w2 = self.kd.weight_k[kpt2.k]
-
-        nocc1 = self.nocc_sk[kpt1.s, kpt1.k]
-        nocc2 = self.nocc_sk[kpt2.s, kpt2.k]
+        nocc1 = self.nocc_sk[s, k1]
+        nocc2 = self.nocc_sk[s, k2]
 
         # Is k2 in the 1. BZ?
-        is_ibz2 = abs(k2_c - k20_c).max() < 1e-9
+        is_ibz2 = (self.kd.ibz2bz_k[k2] == K2)
 
         for n2 in range(self.wfs.bd.nbands):
-            f2 = kpt2.f_n[n2]
-            eps2 = kpt2.eps_n[n2]
-
             # Find range of n1's (from n1a to n1b-1):
             if is_ibz2:
                 # We get this combination twice, so let only do half:
-                if kpt1.k >= kpt2.k:
+                if k1 >= k2:
                     n1a = n2
                 else:
                     n1a = n2 + 1
@@ -355,41 +396,64 @@ class HybridXC(HybridXCBase):
             if len(n1_n) == 0:
                 continue
 
-            e_n = self.calculate_interaction(n1_n, n2, kpt1, kpt2, q, k,
-                                             eik20r_R, eik2r_R, G3_G, f_IG,
-                                             iG2_G, is_ibz2)
+            yield K2, q, n1_n, n2
 
-            e_n *= 1.0 / self.kd.nbzkpts / self.wfs.nspins
+    def apply(self, K2, q, kpt1, kpt2, n1_n, n2):
+        k20_c = self.kd.ibzk_kc[kpt2.k]
+        k2_c = self.kd.bzk_kc[K2]
 
-            if same:
-                e_n[n1_n == n2] *= 0.5
+        if k2_c.any():
+            eik2r_R = self.wfs.gd.plane_wave(k2_c)
+            eik20r_R = self.wfs.gd.plane_wave(k20_c)
+        else:
+            eik2r_R = 1.0
+            eik20r_R = 1.0
 
-            f1_n = kpt1.f_n[n1_n]
-            eps1_n = kpt1.eps_n[n1_n]
-            s_n = np.sign(eps2 - eps1_n)
+        w1 = self.kd.weight_k[kpt1.k]
+        w2 = self.kd.weight_k[kpt2.k]
 
-            evv = (f1_n * f2 * e_n).sum()
-            evvacdf = 0.5 * (f1_n * (1 - s_n) * e_n +
-                             f2 * (1 + s_n) * e_n).sum()
-            self.evv += evv * w1
-            self.evvacdf += evvacdf * w1
+        nocc1 = self.nocc_sk[kpt1.s, kpt1.k]
+        nocc2 = self.nocc_sk[kpt2.s, kpt2.k]
+
+        # Is k2 in the 1. BZ?
+        is_ibz2 = (self.kd.ibz2bz_k[kpt2.k] == K2)
+
+        e_n = self.calculate_interaction(n1_n, n2, kpt1, kpt2, q, K2,
+                                         eik20r_R, eik2r_R,
+                                         is_ibz2)
+
+        e_n *= 1.0 / self.kd.nbzkpts / self.wfs.nspins
+
+        if q == self.q0:
+            e_n[n1_n == n2] *= 0.5
+
+        f1_n = kpt1.f_n[n1_n]
+        eps1_n = kpt1.eps_n[n1_n]
+        f2 = kpt2.f_n[n2]
+        eps2 = kpt2.eps_n[n2]
+
+        s_n = np.sign(eps2 - eps1_n)
+
+        evv = (f1_n * f2 * e_n).sum()
+        evvacdf = 0.5 * (f1_n * (1 - s_n) * e_n +
+                         f2 * (1 + s_n) * e_n).sum()
+        self.evv += evv * w1
+        self.evvacdf += evvacdf * w1
+        if is_ibz2:
+            self.evv += evv * w2
+            self.evvacdf += evvacdf * w2
+
+        if self.bandstructure:
+            x = self.wfs.nspins
+            self.exx_skn[kpt1.s, kpt1.k, n1_n] += x * f2 * e_n
             if is_ibz2:
-                self.evv += evv * w2
-                self.evvacdf += evvacdf * w2
-            
-            if self.bandstructure:
-                x = self.wfs.nspins
-                self.exx_skn[kpt1.s, kpt1.k, n1_n] += x * f2 * e_n
-                if is_ibz2:
-                    self.exx_skn[kpt2.s, kpt2.k, n2] += x * np.dot(f1_n, e_n)
+                self.exx_skn[kpt2.s, kpt2.k, n2] += x * np.dot(f1_n, e_n)
 
     def calculate_interaction(self, n1_n, n2, kpt1, kpt2, q, k,
-                              eik20r_R, eik2r_R, G3_G, f_IG, iG2_G, is_ibz2):
+                              eik20r_R, eik2r_R, is_ibz2):
         """Calculate Coulomb interactions.
 
         For all n1 in the n1_n list, calculate interaction with n2."""
-
-        t0 = time()
 
         # number of plane waves:
         ng1 = self.wfs.ng_k[kpt1.k]
@@ -403,15 +467,11 @@ class HybridXC(HybridXCBase):
             u2_R = self.kd.transform_wave_function(psit2_R, k) / eik2r_R
 
         # Calculate pair densities:
-        nt_nG = self.pd3.zeros(len(n1_n), q=q)
+        nt_nG = self.pd2.zeros(len(n1_n), q=q)
         for n1, nt_G in zip(n1_n, nt_nG):
             u1_R = self.pd.ifft(kpt1.psit_nG[n1, :ng1], kpt1.k)
             nt_R = u1_R.conj() * u2_R
-
-            if self.finegrid:
-                nt_G[G3_G] = self.pd2.interpolate(nt_R, self.pd3, q)[1] * 8
-            else:
-                nt_G[:] = self.pd2.fft(nt_R, q)
+            nt_G[:] = self.pd2.fft(nt_R, q)
         
         s = self.kd.sym_k[k]
         time_reversal = self.kd.time_reversal_k[k]
@@ -442,21 +502,27 @@ class HybridXC(HybridXCBase):
                 D_ii = np.outer(P1_i.conj(), P2_i)
                 D_np.append(pack(D_ii))
             Q_anL[a] = np.dot(D_np, self.wfs.setups[a].Delta_pL)
+            
+        if q != self.qlatest:
+            self.f_IG = self.ghat.expand(q)
+            self.qlatest = q
 
         # Add compensation charges:
-        self.ghat.add(nt_nG, Q_anL, q, f_IG)
+        self.ghat.add(nt_nG, Q_anL, q, self.f_IG)
+
+        iG2_G = self.iG2_qG[q]
 
         # Calculate energies:
         e_n = np.empty(len(n1_n))
         for n, nt_G in enumerate(nt_nG):
-            e_n[n] = -4 * pi * np.real(self.pd3.integrate(nt_G, nt_G * iG2_G))
+            e_n[n] = -4 * pi * np.real(self.pd2.integrate(nt_G, nt_G * iG2_G))
             self.npairs += 1
 
         if self.write_timing_information:
-            t = (time() - t0) / len(n1_n)
+            t = (time() - self.t0) / len(n1_n)
             self.log('Time for first pair-density: %10.3f seconds' % t)
             self.log('Estimated total time:        %10.3f seconds' %
-                     (t * self.npairs_estimate / self.wfs.world.size))
+                     (t * self.npairs0 / self.world.size))
             self.write_timing_information = False
 
         return e_n
@@ -485,10 +551,12 @@ class HybridXC(HybridXCBase):
 
                 self.evc -= np.dot(D_p, setup.X_p)
             self.ecc += setup.ExxC
-        
+
         if not self.bandstructure:
             return
 
+        Q = self.world.size // self.wfs.kd.comm.size
+        self.exx_skn *= Q
         for kpt in self.wfs.kpt_u:
             for a, D_sp in self.dens.D_asp.items():
                 setup = self.wfs.setups[a]
@@ -511,8 +579,8 @@ class HybridXC(HybridXCBase):
                                 (P_ni[:, i1].conj() * setup.X_p[p12] *
                                  P_ni[:, i2]).real / self.wfs.nspins
 
-        self.exx_skn *= self.hybrid
-        self.wfs.world.sum(self.exx_skn)
+        self.world.sum(self.exx_skn)
+        self.exx_skn *= self.hybrid / Q
 
 
 class KPoint:
