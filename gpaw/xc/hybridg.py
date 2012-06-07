@@ -339,6 +339,20 @@ class HybridXC(HybridXCBase):
         return gamma
 
     def indices(self, s, k1, k2):
+        """Generate all indices for (k1,k2) pair.
+
+        s: int
+            Spin index.
+        k1: int
+            Index of k-point in the IBZ.
+        k2: int
+            Index of k-point in the IBZ.
+
+        Returns (K, q, n1_n, n2), where K then index of the k-point in
+        the BZ that k2 is mapped to, q is the index of the q-vector
+        between K and k1, and n1_n is a list of bands that should be
+        combined with band n2."""
+
         for K, k in enumerate(self.kd.bz2ibz_k):
             if k == k2:
                 for K, q, n1_n, n2 in self._indices(s, k1, k2, K):
@@ -411,9 +425,6 @@ class HybridXC(HybridXCBase):
 
         w1 = self.kd.weight_k[kpt1.k]
         w2 = self.kd.weight_k[kpt2.k]
-
-        nocc1 = self.nocc_sk[kpt1.s, kpt1.k]
-        nocc2 = self.nocc_sk[kpt2.s, kpt2.k]
 
         # Is k2 in the 1. BZ?
         is_ibz2 = (self.kd.ibz2bz_k[kpt2.k] == K2)
