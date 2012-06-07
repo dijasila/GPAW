@@ -70,9 +70,10 @@ class KurthPerdewBlahaMolecules(MoleculeTask):
    
     def calculate(self, name, atoms):
         data = MoleculeTask.calculate(self, name, atoms)
-        dexx = atoms.calc.get_xc_difference(HybridXC('EXX',
-                                                     alpha=5.0))
+        exx = HybridXC('EXX', alpha=5.0)
+        dexx = atoms.calc.get_xc_difference(exx)
         data['EXX'] = dexx
+        data['EXXvc'] = exx.evc
         return data
     
 
