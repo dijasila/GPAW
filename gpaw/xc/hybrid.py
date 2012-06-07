@@ -48,7 +48,7 @@ class HybridXCBase(XCFunctional):
         if isinstance(xc, str):
             xc = XC(xc)
 
-        self.hybrid = hybrid
+        self.hybrid = float(hybrid)
         self.xc = xc
         self.type = xc.type
 
