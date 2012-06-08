@@ -17,7 +17,7 @@ import gpaw.fftw as fftw
 from gpaw.xc.hybrid import HybridXCBase
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
-from gpaw.utilities import pack, unpack2, packed_index, logfile
+from gpaw.utilities import pack, unpack2, packed_index, logfile, erf
         
 
 class HybridXC(HybridXCBase):
@@ -29,6 +29,7 @@ class HybridXC(HybridXCBase):
                  bandstructure=False,
                  logfilename='-', bands=None,
                  fcut=1e-10,
+                 molecule=False,
                  world=None):
         """Mix standard functionals with exact exchange.
 
@@ -82,6 +83,8 @@ class HybridXC(HybridXCBase):
         if world is None:
             world = mpi.world
         self.world = world
+
+        self.molecule = molecule
 
     def log(self, *args, **kwargs):
         prnt(file=self.fd, *args, **kwargs)
@@ -256,6 +259,10 @@ class HybridXC(HybridXCBase):
         self.ghat = PWLFC([setup.ghat_l for setup in wfs.setups], self.pd2)
         self.ghat.set_positions(self.spos_ac)
 
+        if self.molecule:
+            self.initialize_gaussian()
+            self.log('Value of beta parameter: %.3f 1/Bohr^2' % self.beta)
+            
         # Ready ... set ... go:
         self.t0 = time()
         self.npairs = 0
@@ -325,6 +332,9 @@ class HybridXC(HybridXCBase):
         assert self.npairs == self.npairs0
 
     def calculate_gamma(self, vol, alpha):
+        if self.molecule:
+            return 0.0
+
         N_c = self.kd.N_c
         offset_c = (N_c + 1) % 2 * 0.5 / N_c
         bzq_qc = monkhorst_pack(N_c) + offset_c
@@ -521,6 +531,12 @@ class HybridXC(HybridXCBase):
         # Add compensation charges:
         self.ghat.add(nt_nG, Q_anL, q, self.f_IG)
 
+        if self.molecule and n2 in n1_n:
+            nn = (n1_n == n2).nonzero()[0][0]
+            nt_nG[nn] -= self.ngauss_G
+        else:
+            nn = None
+            
         iG2_G = self.iG2_qG[q]
 
         # Calculate energies:
@@ -528,6 +544,10 @@ class HybridXC(HybridXCBase):
         for n, nt_G in enumerate(nt_nG):
             e_n[n] = -4 * pi * np.real(self.pd2.integrate(nt_G, nt_G * iG2_G))
             self.npairs += 1
+
+        if nn is not None:
+            e_n[nn] -= 2 * (self.pd2.integrate(nt_nG[nn], self.vgauss_G) +
+                            (self.beta / 2 / pi)**0.5)
 
         if self.write_timing_information:
             t = (time() - self.t0) / len(n1_n)
@@ -592,6 +612,51 @@ class HybridXC(HybridXCBase):
 
         self.world.sum(self.exx_skn)
         self.exx_skn *= self.hybrid / Q
+    
+    def initialize_gaussian(self):
+        """Calculate gaussian compensation charge and its potential.
+
+        Used to decouple electrostatic interactions between
+        periodically repeated images for molecular calculations.
+
+        Charge containing one electron::
+
+            (beta/pi)^(3/2)*exp(-beta*r^2),
+
+        its Fourier transform::
+
+            exp(-G^2/(4*beta)),
+
+        and its potential::
+
+            erf(beta^0.5*r)/r.
+        """
+
+        gd = self.wfs.gd
+
+        # Set exponent of exp-function to -19 on the boundary:
+        self.beta = 4 * 19 * (gd.icell_cv**2).sum(1).max()
+
+        # Calculate gaussian:
+        G_Gv = self.pd2.G_Qv[self.pd2.Q_qG[0]]
+        G2_G = self.pd2.G2_qG[0]
+        C_v = gd.cell_cv.sum(0) / 2  # center of cell
+        self.ngauss_G = np.exp(-1.0 / (4 * self.beta) * G2_G +
+                                1j * np.dot(G_Gv, C_v)) / gd.dv
+
+        # Calculate potential from gaussian:
+        R_Rv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
+        r_R = ((R_Rv - C_v)**2).sum(3)**0.5
+        if (gd.N_c % 2 == 0).all():
+            r_R[tuple(gd.N_c // 2)] = 1.0  # avoid dividing by zer0
+        v_R = erf(self.beta**0.5 * r_R) / r_R
+        if (gd.N_c % 2 == 0).all():
+            v_R[tuple(gd.N_c // 2)] = (4 * self.beta / pi)**0.5
+        self.vgauss_G = self.pd2.fft(v_R)
+
+        # Compare self-interaction to analytic result:
+        assert abs(0.5 * self.pd2.integrate(self.ngauss_G, self.vgauss_G) -
+                   (self.beta / 2 / pi)**0.5) < 1e-6
 
 
 class KPoint:

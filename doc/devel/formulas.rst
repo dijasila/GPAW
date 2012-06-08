@@ -95,6 +95,8 @@ and the energy:
     \frac12 \int_0^\infty 4\pi r^2 dr n(r) v(r) =
     \sqrt{\frac{\alpha}{2\pi}}.
 
+Note: `\text{erf}(x) \simeq x\sqrt{4/\pi}` for small `x`.
+
 
 Shape functions
 ---------------
