@@ -51,6 +51,9 @@ class HybridXC(HybridXCBase):
         bands: list of int
             List of bands to calculate bandstructure for.  Default is
             all bands.
+        molecule: bool
+            Decouple electrostatic interactions between periodically
+            repeated images.
         fcut: float
             Threshold for empty band.
         """
