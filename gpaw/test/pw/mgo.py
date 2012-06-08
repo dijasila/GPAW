@@ -5,7 +5,7 @@ from ase.dft.kpoints import monkhorst_pack
 from gpaw import GPAW, PW
 from gpaw.mpi import size, rank, world, serial_comm
 from gpaw.xc.tools import vxc
-from gpaw.xc.hyb import HybridXC
+from gpaw.xc.hybridg import HybridXC
 
 
 mgo = bulk('MgO', 'rocksalt', a=4.189)

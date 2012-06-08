@@ -1,8 +1,7 @@
 from ase import Atoms
 from gpaw import GPAW, PW
 from gpaw.mpi import rank, size, serial_comm
-#from gpaw.xc.hybridg import HybridXC
-from gpaw.xc.hyb import HybridXC
+from gpaw.xc.hybridg import HybridXC
 
 a = 2.0
 li = Atoms('Li', cell=(a, a, a), pbc=1)
