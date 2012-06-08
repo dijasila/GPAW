@@ -333,13 +333,13 @@ class HybridXC(HybridXCBase):
         gamma = (vol / (2 * pi)**2 * sqrt(pi / alpha) *
                  self.kd.nbzkpts)
         for G2_G in pd.G2_qG:
-            if G2_G[0] == 0:
+            if G2_G[0] < 1e-7:
                 G2_G = G2_G[1:]
             gamma -= np.dot(np.exp(-alpha * G2_G), G2_G**-1)
         return gamma
 
     def indices(self, s, k1, k2):
-        """Generate all indices for (k1,k2) pair.
+        """Generator for (K2, q, n1, n2) indices for (k1, k2) pair.
 
         s: int
             Spin index.
