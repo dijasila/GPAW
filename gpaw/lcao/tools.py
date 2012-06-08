@@ -486,7 +486,10 @@ def makeU(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
             P_pp = np.array([pack(np.outer(P_awi[a][w1], P_awi[a][w2]))
                              for w1, w2 in np.ndindex(Nw, Nw)])
             I4_pp = setups[a].four_phi_integrals()
-            D_pp += np.dot(P_pp, np.dot(I4_pp, P_pp.T))
+            A = np.zeros((len(I4_pp), len(P_pp)))
+            gemm(1.0, P_pp, I4_pp, 0.0, A, 't')
+            gemm(1.0, A, P_pp, 1.0, D_pp)
+            #D_pp += np.dot(P_pp, np.dot(I4_pp, P_pp.T))
    
     # Summ all contributions to master
     gd.comm.sum(D_pp, MASTER)
