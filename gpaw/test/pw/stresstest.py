@@ -1,12 +1,9 @@
 import numpy as np
 
-from gpaw.test import equal
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.spline import Spline
 import gpaw.mpi as mpi
-from gpaw.lfc import LocalizedFunctionsCollection as LFC
-from gpaw.wavefunctions.pw import PWDescriptor, PWLFC, ft
-from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
 
 
 x = 2.0
@@ -36,7 +33,11 @@ lfc.add(b_LG, {0: np.eye(4)})
 e1 = pd.integrate(a_G, b_LG)
 assert abs(lfc.integrate(a_G)[0] - e1).max() < 1e-11
 
-s1 = -3 * e1 + lfc.stress_tensor_contribution(a_G)[0]
+s1 = []
+for i in range(4):
+    x = [0, 0, 0, 0]
+    x[i] = 1
+    s1.append(-3 * e1[i] + lfc.stress_tensor_contribution(a_G, {0: x}).trace())
 
 eps = 1e-6
 a *= 1 + eps
@@ -49,5 +50,4 @@ lfc.set_positions(spos_ac)
 b_LG = pd.zeros(4)
 lfc.add(b_LG, {0: np.eye(4)})
 e2 = pd.integrate(a_G, b_LG)
-assert abs((e2-e1)/eps - s1).max() < 2e-5
-
+assert abs((e2 - e1) / eps - s1).max() < 2e-5

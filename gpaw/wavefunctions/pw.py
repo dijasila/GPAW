@@ -10,7 +10,7 @@ from gpaw.hs_operators import MatrixOperator
 import gpaw.fftw as fftw
 from gpaw.lcao.overlap import fbt
 from gpaw.spline import Spline
-from gpaw.spherical_harmonics import Y
+from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.utilities import unpack, _fact as fac
 from gpaw.utilities.blas import rk, r2k, gemm
 from gpaw.density import Density
@@ -687,7 +687,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         self.pd.estimate_memory(mem.subnode('PW-descriptor'))
 
     def get_kinetic_stress(self):
-        sigma_cv = np.zeros((3, 3), dtype=complex)
+        sigma_vv = np.zeros((3, 3), dtype=complex)
         pd = self.pd
         dOmega = pd.gd.dv / pd.gd.N_c.prod()
         K_qv = self.pd.K_qv
@@ -700,15 +700,15 @@ class PWWaveFunctions(FDPWWaveFunctions):
                     for beta in range(3):
                         Gb_G = G_Gv[:, beta] + K_qv[kpt.q, beta]
                         s = (psit2_G * Ga_G * Gb_G).sum()
-                        sigma_cv[alpha, beta] += f * s
-        sigma_cv *= -dOmega
+                        sigma_vv[alpha, beta] += f * s
+        sigma_vv *= -dOmega
 
         def symmetrize(x):  # XXXXXXX
             return x
         
-        self.bd.comm.sum(sigma_cv)
-        self.kd.comm.sum(sigma_cv)
-        return symmetrize(sigma_cv)
+        self.bd.comm.sum(sigma_vv)
+        self.kd.comm.sum(sigma_vv)
+        return symmetrize(sigma_vv)
 
 
 def ft(spline):
@@ -761,7 +761,7 @@ class PWLFC(BaseLFC):
                     f_qG = []
                     for G2_G in self.pd.G2_qG:
                         G_G = G2_G**0.5
-                        f_qG.append(f.map(G_G) * G_G**l)
+                        f_qG.append(f.map(G_G))
                         self.nbytes += G_G.nbytes
                     cache[spline] = f_qG
                 else:
@@ -777,9 +777,6 @@ class PWLFC(BaseLFC):
         self.Y_qLG = []
         for q, K_v in enumerate(self.pd.K_qv):
             G_Gv = pd.G_Qv[pd.Q_qG[q]] + K_v
-            G_Gv[1:] /= pd.G2_qG[q][1:, None]**0.5
-            if pd.G2_qG[q][0] > 0:
-                G_Gv[0] /= pd.G2_qG[q][0]**0.5
             Y_LG = np.empty(((lmax + 1)**2, len(G_Gv)))
             for L in range((lmax + 1)**2):
                 Y_LG[L] = Y(L, *G_Gv.T)
@@ -951,31 +948,56 @@ class PWLFC(BaseLFC):
                 for a, I1, I2 in self.indices:
                     c_axiv[a][..., v] = (1.0j * self.eikR_qa[q][a] *
                                          c_vxI[v, ..., I1:I2])
-                
-    def stress_tensor_contribution(self, a_xG, c_axi=None, q=-1):
-        f_IG = self.pd.empty(self.nI, q=q)
+
+    def stress_tensor_contribution(self, a_xG, c_axi=1.0, q=-1):
         cache = {}
+        for a, j, i1, i2, I1, I2 in self:
+            spline = self.spline_aj[a][j]
+            if spline not in cache:
+                s = ft(spline)
+                G_G = self.pd.G2_qG[q]**0.5
+                f_G = []
+                dfdGoG_G = []
+                for G in G_G:
+                    f, dfdG = s.get_value_and_derivative(G)
+                    if G < 1e-10:
+                        G = 1.0
+                    f_G.append(f)
+                    dfdGoG_G.append(dfdG / G)
+                f_G = np.array(f_G)
+                dfdGoG_G = np.array(dfdGoG_G)
+                cache[spline] = (f_G, dfdGoG_G)
+            else:
+                f_G, dfdGoG_G = cache[spline]
+            
+        if isinstance(c_axi, float):
+            c_axi = dict((a, c_axi) for a in range(len(self.pos_av)))
+
+        K_v = self.pd.K_qv[q]
+        G_Gv = self.pd.G_Qv[self.pd.Q_qG[q]] + K_v
+
+        stress_vv = np.empty((3, 3))
+        for v1 in range(3):
+            for v2 in range(3):
+                stress_vv[v1, v2] = self._stress_tensor_contribution(
+                    v1, v2, cache, G_Gv, a_xG, c_axi, q)
+
+        return stress_vv
+    
+    def _stress_tensor_contribution(self, v1, v2, cache, G_Gv, a_xG, c_axi, q):
+        f_IG = self.pd.empty(self.nI, q=q)
         for a, j, i1, i2, I1, I2 in self:
             l = self.lf_aj[a][j][0]
             spline = self.spline_aj[a][j]
-            if spline not in cache:
-                f = ft(spline)
-                G_G = self.pd.G2_qG[q]**0.5
-                f_G = []
-                for G in G_G:
-                    y, dydG = f.get_value_and_derivative(G)
-                    if l > 0:
-                        dydG = dydG * G**l + l * y * G**(l - 1)
-                    f_G.append(-dydG * G)
-                f_G = np.array(f_G)
-                cache[spline] = f_G
-            else:
-                f_G = cache[spline]
+            f_G, dfdGoG_G = cache[spline]
                 
             emiGR_G = np.exp(-1j * np.dot(self.pd.G_Qv[self.pd.Q_qG[q]],
-                                       self.pos_av[a]))
-            f_IG[I1:I2] = (emiGR_G * f_G * (-1.0j)**l *
-                           self.Y_qLG[q][l**2:(l + 1)**2])
+                                          self.pos_av[a]))
+            f_IG[I1:I2] = emiGR_G * (-1.0j)**l * (
+                dfdGoG_G * G_Gv[:, v1] * G_Gv[:, v2] *
+                self.Y_qLG[q][l**2:(l + 1)**2] +
+                f_G * G_Gv[:, v1] * [nablarlYL(L, G_Gv.T)[v2]
+                                     for L in range(l**2, (l + 1)**2)])
         
         c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
 
@@ -989,14 +1011,12 @@ class PWLFC(BaseLFC):
             f_IG = f_IG.view(float)
             a_xG = a_xG.view(float)
         
-        if c_axi is None:
-            c_axi = self.dict(c_xI.shape[:-1])
-
         gemm(alpha, f_IG, a_xG, 0.0, b_xI, 'c')
-        for a, I1, I2 in self.indices:
-            c_axi[a][:] = self.eikR_qa[q][a] * c_xI[..., I1:I2]
 
-        return c_axi
+        stress = 0.0
+        for a, I1, I2 in self.indices:
+            stress -= self.eikR_qa[q][a] * (c_axi[a] * c_xI[..., I1:I2]).sum()
+        return stress.real
 
 
 class PW:
