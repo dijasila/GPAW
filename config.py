@@ -82,7 +82,7 @@ def get_system_config(define_macros, undef_macros,
     if import_numpy:
         import numpy
         include_dirs += [numpy.get_include()]
-    include_dirs += ['c/libxc']
+    include_dirs += ['c/libxc','c/libxc/src']
 
     machine = os.uname()[4]
     if machine == 'sun4u':
@@ -381,9 +381,12 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     cfiles = glob('c/[a-zA-Z_]*.c') + ['c/bmgs/bmgs.c']
     cfiles += glob('c/libxc/src/*.c')
 
-    cfiles2remove = ['c/libxc/src/test.c',
-                     'c/libxc/src/xc_f.c',
+    cfiles2remove = ['c/libxc/src/xc_f.c',
                      'c/libxc/src/work_gga_x.c',
+                     'c/libxc/src/work_gga_c.c',
+                     'c/libxc/src/work_mgga_x.c',
+                     'c/libxc/src/work_mgga_c.c',
+                     'c/libxc/src/work_gga_becke.c',
                      'c/libxc/src/work_lda.c'
                      ]
 

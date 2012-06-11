@@ -39,6 +39,15 @@
    */
 #define HAVE_ALLOCA_H 1
 
+/* libm includes cbrt */
+#define HAVE_CBRT 1
+
+/* libm includes cbrtf */
+#define HAVE_CBRTF 1
+
+/* Define to 1 if you have the <dlfcn.h> header file. */
+#define HAVE_DLFCN_H 1
+
 /* Defined if libxc is compiled with fortran support */
 #define HAVE_FORTRAN 1
 
@@ -47,6 +56,9 @@
 
 /* Define to 1 if you have the <memory.h> header file. */
 #define HAVE_MEMORY_H 1
+
+/* libm includes sqrtf */
+#define HAVE_SQRTF 1
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #define HAVE_STDINT_H 1
@@ -72,6 +84,10 @@
 /* compiler supports long lines */
 #define LONG_LINES 1
 
+/* Define to the sub-directory in which libtool stores uninstalled libraries.
+   */
+#define LT_OBJDIR ".libs/"
+
 /* Define to 1 if your C compiler doesn't accept -c and -o together. */
 /* #undef NO_MINUS_C_MINUS_O */
 
@@ -79,19 +95,25 @@
 #define PACKAGE "libxc"
 
 /* Define to the address where bug reports for this package should be sent. */
-#define PACKAGE_BUGREPORT "octopus-devel@tddft.org"
+#define PACKAGE_BUGREPORT "octopus-users@tddft.org"
 
 /* Define to the full name of this package. */
 #define PACKAGE_NAME "libxc"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "libxc 0.9"
+#define PACKAGE_STRING "libxc 1.2.0"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "libxc"
 
+/* Define to the home page for this package. */
+#define PACKAGE_URL ""
+
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "0.9"
+#define PACKAGE_VERSION "1.2.0"
+
+/* The size of `void*', as computed by sizeof. */
+#define SIZEOF_VOIDP 8
 
 /* If using the C implementation of alloca, define if you know the
    direction of stack growth for your system; otherwise it will be
@@ -105,10 +127,13 @@
 #define STDC_HEADERS 1
 
 /* Version number of package */
-#define VERSION "0.9"
+#define VERSION "1.2.0"
 
 /* Define to `__inline__' or `__inline' if that's what the C compiler
    calls it, or to nothing if 'inline' is not supported under any name.  */
 #ifndef __cplusplus
 /* #undef inline */
 #endif
+
+/* Define to `unsigned int' if <sys/types.h> does not define. */
+/* #undef size_t */

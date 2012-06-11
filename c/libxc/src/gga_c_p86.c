@@ -2,16 +2,16 @@
  Copyright (C) 2006-2007 M.A.L. Marques
 
  This program is free software; you can redistribute it and/or modify
- it under the terms of the GNU General Public License as published by
+ it under the terms of the GNU Lesser General Public License as published by
  the Free Software Foundation; either version 3 of the License, or
  (at your option) any later version.
   
  This program is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
+ GNU Lesser General Public License for more details.
   
- You should have received a copy of the GNU General Public License
+ You should have received a copy of the GNU Lesser General Public License
  along with this program; if not, write to the Free Software
  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
@@ -22,122 +22,135 @@
 
 #include "util.h"
 
-#define XC_GGA_C_P86 132 /* Perdew 86 */
-
 /************************************************************************
  Implements Perdew 86 Generalized Gradient Approximation
  correlation functional.
 ************************************************************************/
 
-/* TODO: convert to perdew functionals */
+#define XC_GGA_C_P86          132 /* Perdew 86 */
 
-static void
+static void 
 gga_c_p86_init(void *p_)
 {
   XC(gga_type) *p = (XC(gga_type) *)p_;
 
-  p->lda_aux = (XC(lda_type) *) malloc(sizeof(XC(lda_type)));
-  XC(lda_init)(p->lda_aux, XC_LDA_C_PZ, p->nspin);
+  p->n_func_aux  = 1;
+  p->func_aux    = (XC(func_type) **) malloc(1*sizeof(XC(func_type) *));
+  p->func_aux[0] = (XC(func_type) *)  malloc(  sizeof(XC(func_type)));
+
+  XC(func_init)(p->func_aux[0], XC_LDA_C_PZ, p->nspin);
 }
 
-static void
-gga_c_p86_end(void *p_)
+
+static inline void 
+func(const XC(gga_type) *p, int order, FLOAT rs, FLOAT zeta, FLOAT xt, FLOAT *xs,
+     FLOAT *f, FLOAT *dfdrs, FLOAT *dfdz, FLOAT *dfdxt, FLOAT *dfdxs,
+     FLOAT *d2fdrs2, FLOAT *d2fdrsz, FLOAT *d2fdrsxt, FLOAT *d2fdrsxs, FLOAT *d2fdz2, 
+     FLOAT *d2fdzxt, FLOAT *d2fdzxs, FLOAT *d2fdxt2, FLOAT *d2fdxtxs, FLOAT *d2fdxs2)
 {
-  XC(gga_type) *p = (XC(gga_type) *)p_;
+  static const FLOAT alpha = 0.023266, beta = 7.389e-6, gamma = 8.723, delta = 0.472;
+  static const FLOAT aa = 0.001667, bb = 0.002568;
+  static const FLOAT ftilde = 1.745*0.11;
 
-  free(p->lda_aux);
+  FLOAT rsconv, x1, dx1drs, dx1dxt, d2x1drs2, d2x1drsxt;
+  FLOAT f1, f2, H, df1, df2, dHdx1, dHdrs, d2f1, d2f2, d2Hdrs2, d2Hdx12, d2Hdrsx1;
+  FLOAT DD, dDDdzeta, d2DDdzeta2, CC, CCinf, dCCdrs, d2CCdrs2;
+  FLOAT Phi, dPhidx1, dPhidrs, d2Phidrs2, d2Phidrsx1;
+
+  XC(lda_rs_zeta) pw;
+
+  rsconv = POW(4.0*M_PI/3.0, 1.0/6.0);
+
+  pw.order = order;
+  pw.rs[0] = SQRT(rs);
+  pw.rs[1] = rs;
+  pw.rs[2] = rs*rs;
+  pw.zeta  = zeta;
+
+  XC(lda_c_pz_func)(p->func_aux[0]->lda, &pw);
+
+  /* Equation [1].(4) */ 
+  DD = SQRT(POW(1.0 + zeta, 5.0/3.0) + POW(1.0 - zeta, 5.0/3.0))/M_SQRT2;
+  
+  /* Equation [1].(6) */
+  f1    = bb + alpha*rs + beta*pw.rs[2];
+  f2    = 1.0 + gamma*rs + delta*pw.rs[2] + 1.0e4*beta*rs*pw.rs[2];
+  CC    = aa + f1/f2;
+  CCinf = aa + bb;
+
+  /* Equation [1].(9) */
+  x1  = xt/(rsconv*pw.rs[0]);
+  Phi  = ftilde*(CCinf/CC)*x1;
+
+  /* Equation [1].(8) */
+  H = x1*x1*exp(-Phi)*CC/DD;
+  *f = pw.zk + H;
+
+  if(order < 1) return;
+
+  dDDdzeta = 5.0/(3.0*4.0*DD)*(POW(1.0 + zeta, 2.0/3.0) - POW(1.0 - zeta, 2.0/3.0));
+
+  df1    = alpha + 2.0*beta*rs;
+  df2    = gamma + 2.0*delta*rs + 3.0e4*beta*pw.rs[2];
+  dCCdrs = (df1*f2 - f1*df2)/(f2*f2);
+
+  dx1drs = -xt/(2.0*rsconv*rs*pw.rs[0]);
+  dx1dxt = 1.0/(rsconv*pw.rs[0]);
+
+  dPhidx1 =  ftilde*(CCinf/CC);
+  dPhidrs = -dCCdrs*Phi/CC;
+
+  dHdx1   =  x1*exp(-Phi)*CC/DD*(2.0 - x1*dPhidx1);
+  dHdrs   =  x1*x1*exp(-Phi)/DD*(dCCdrs - dPhidrs*CC);
+
+  *dfdrs   = pw.dedrs + dHdrs + dHdx1*dx1drs;
+  *dfdz    = pw.dedz - H*dDDdzeta/DD;
+  *dfdxt   = dHdx1*dx1dxt;
+  dfdxs[0] = 0.0;
+  dfdxs[1] = 0.0;
+
+  if(order < 2) return;
+
+  d2DDdzeta2 = 0.0;
+  if(zeta < 1.0)
+    d2DDdzeta2 += POW(1.0 - zeta, -1.0/3.0);
+  if(zeta > -1.0)
+    d2DDdzeta2 += POW(1.0 + zeta, -1.0/3.0);
+
+  d2DDdzeta2 = -dDDdzeta*dDDdzeta/DD + 10.0/(36.0*DD)*d2DDdzeta2;
+
+  d2f1      = 2.0*beta;
+  d2f2      = 2.0*delta + 6.0e4*beta*rs;
+  d2CCdrs2  = (f2*(d2f1*f2 - f1*d2f2) - 2.0*df2*(df1*f2 - f1*df2))/(f2*f2*f2);
+  
+  d2Phidrs2  = -(d2CCdrs2*Phi + dCCdrs*dPhidrs - dCCdrs*dCCdrs*Phi/CC)/CC;
+  d2Phidrsx1 = -dCCdrs*dPhidx1/CC; 
+
+  d2x1drs2  = 3.0*xt/(4.0*rsconv*pw.rs[2]*pw.rs[0]);
+  d2x1drsxt = -1.0/(2.0*rsconv*rs*pw.rs[0]);
+  
+  d2Hdx12   = exp(-Phi)*CC/DD*(2.0 + x1*dPhidx1*(x1*dPhidx1 - 4.0));
+  d2Hdrs2   = x1*x1*exp(-Phi)/DD*(d2CCdrs2 - d2Phidrs2*CC - dPhidrs*(2.0*dCCdrs - dPhidrs*CC));
+  d2Hdrsx1  =    x1*exp(-Phi)/DD*((dCCdrs - CC*dPhidrs)*(2.0 - x1*dPhidx1) - CC*x1*d2Phidrsx1);
+
+  *d2fdrs2    = pw.d2edrs2 + d2Hdrs2 + 2.0*d2Hdrsx1*dx1drs + d2Hdx12*dx1drs*dx1drs + dHdx1*d2x1drs2;
+  *d2fdrsz    = pw.d2edrsz - (dHdrs + dHdx1*dx1drs)*dDDdzeta/DD;
+  *d2fdrsxt   = d2Hdrsx1*dx1dxt + d2Hdx12*dx1drs*dx1dxt + dHdx1*d2x1drsxt;
+  d2fdrsxs[0] = 0.0;
+  d2fdrsxs[1] = 0.0;
+  *d2fdz2     = pw.d2edz2 - H*(d2DDdzeta2*DD - 2.0*dDDdzeta*dDDdzeta)/(DD*DD);
+  *d2fdzxt    = -dHdx1*dx1dxt*dDDdzeta/DD;
+  d2fdzxs[0]  = 0.0;
+  d2fdzxs[1]  = 0.0;
+  *d2fdxt2    = d2Hdx12*dx1dxt*dx1dxt;
+  d2fdxtxs[0] = 0.0;
+  d2fdxtxs[1] = 0.0;
+  d2fdxs2[0]  = 0.0;
+  d2fdxs2[1]  = 0.0;
+  d2fdxs2[2]  = 0.0;
 }
 
-static void 
-gga_c_p86(void *p_, FLOAT *rho, FLOAT *sigma,
-	  FLOAT *e, FLOAT *vrho, FLOAT *vsigma)
-{
-  XC(gga_type) *p = (XC(gga_type) *)p_;
-
-  FLOAT dens, zeta, dzdd[2], gdmt, ecunif, vcunif[2];
-  FLOAT rs, DD, dDDdzeta, CC, CCinf, dCCdd;
-  FLOAT Phi, dPhidd, dPhidgdmt;
-
-  XC(lda_vxc)(p->lda_aux, rho, &ecunif, vcunif);
-
-  XC(rho2dzeta)(p->nspin, rho, &dens, &zeta);
-  dzdd[0] =  (1.0 - zeta)/dens;
-  dzdd[1] = -(1.0 + zeta)/dens;
-    
-  rs = RS(dens);
-
-  /* get gdmt = |nabla n| */
-  gdmt = sigma[0];
-  if(p->nspin == XC_POLARIZED) gdmt += 2.0*sigma[1] + sigma[2];
-  gdmt = sqrt(gdmt);
-  if(gdmt < MIN_GRAD) gdmt = MIN_GRAD;
-
-
-  { /* Equation [1].(4) */ 
-    DD       = sqrt(POW(1.0 + zeta, 5.0/3.0) + POW(1.0 - zeta, 5.0/3.0))/M_SQRT2;
-    dDDdzeta = 5.0/(3.0*4.0*DD)*(POW(1.0 + zeta, 2.0/3.0) - POW(1.0 - zeta, 2.0/3.0));
-  }
-
-  { /* Equation (6) of [1] */
-    static const FLOAT alpha = 0.023266, beta = 7.389e-6, gamma = 8.723, delta = 0.472;
-    static const FLOAT aa = 0.001667, bb = 0.002568;
-
-    FLOAT rs2 = rs*rs, f1, f2, df1, df2, drsdd;
-
-    f1    = bb + alpha*rs + beta*rs2;
-    f2    = 1.0 + gamma*rs + delta*rs2 + 1.0e4*beta*rs*rs2;
-    CC    = aa + f1/f2;
-    CCinf = aa + bb;
-
-    df1   = alpha + 2.0*beta*rs;
-    df2   = gamma + 2.0*delta*rs + 3.0e4*beta*rs2;
-    drsdd = -rs/(3.0*dens);
-    dCCdd = (df1*f2 - f1*df2)/(f2*f2)*drsdd;
-  }
-
-  { /* Equation (9) of [1] */
-    static const FLOAT ftilde = 1.745*0.11;
-
-    FLOAT f1, f2, df1, df2;
-
-    f1  = ftilde*(CCinf/CC);
-    f2  = POW(dens, -7.0/6.0);
-    Phi = f1*gdmt*f2;
-
-    df1 = -f1/(CC)*dCCdd;
-    df2 = -7.0/6.0*POW(dens, -13.0/6.0);
-    dPhidd    = gdmt*(df1*f2 + f1*df2);
-    dPhidgdmt = f1*f2;
-  }
-
-  { /* Equation [1].(8) */
-    FLOAT gdmt2;
-    FLOAT f1, f2, f3, df1, df1dgdmt, df2, df3, df3dgdmt;
-
-    gdmt2 = gdmt*gdmt;
-
-    f1 = exp(-Phi);
-    f2 = POW(dens, -4.0/3.0);
-    f3 = f1*CC*gdmt2*f2;
-
-    df1      = -f1*dPhidd;
-    df1dgdmt = -f1*dPhidgdmt;
-    df2      = -4.0/3.0*POW(dens, -7.0/3.0);
-    df3      = gdmt2*(df1*CC*f2 + f1*dCCdd*f2 + f1*CC*df2);
-    df3dgdmt = CC*f2*(df1dgdmt*gdmt2 + f1*2.0*gdmt);
-
-    *e = ecunif + f3/(DD*dens);
-
-    vrho[0]   = vcunif[0] + (df3 - (f3/DD)*dDDdzeta*dzdd[0])/DD;
-    vsigma[0] = df3dgdmt/(DD*2.0*gdmt);
-
-    if(p->nspin == XC_POLARIZED){
-      vrho[1]   = vcunif[1] + (df3 - (f3/DD)*dDDdzeta*dzdd[1])/DD;
-      vsigma[1] = 2.0*vsigma[0];
-      vsigma[2] =     vsigma[0];
-    }
-  }
-}
+#include "work_gga_c.c"
 
 const XC(func_info_type) XC(func_info_gga_c_p86) = {
   XC_GGA_C_P86,
@@ -145,9 +158,10 @@ const XC(func_info_type) XC(func_info_gga_c_p86) = {
   "Perdew 86",
   XC_FAMILY_GGA,
   "JP Perdew, Phys. Rev. B 33, 8822 (1986)",
-  XC_PROVIDES_EXC | XC_PROVIDES_VXC,
+  XC_FLAGS_3D | XC_FLAGS_HAVE_EXC | XC_FLAGS_HAVE_VXC | XC_FLAGS_HAVE_FXC,
+  MIN_DENS, MIN_GRAD, 0.0, MIN_ZETA,
   gga_c_p86_init,
-  gga_c_p86_end,   /* we can use the same as exchange here */
-  NULL,            /* this is not an LDA                   */
-  gga_c_p86
+  NULL,
+  NULL,
+  work_gga_c
 };

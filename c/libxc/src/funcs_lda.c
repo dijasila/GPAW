@@ -14,8 +14,19 @@ extern XC(func_info_type) XC(func_info_lda_c_ob_pz);
 extern XC(func_info_type) XC(func_info_lda_c_pw);
 extern XC(func_info_type) XC(func_info_lda_c_pw_mod);
 extern XC(func_info_type) XC(func_info_lda_c_ob_pw);
-extern XC(func_info_type) XC(func_info_lda_c_amgb);
+extern XC(func_info_type) XC(func_info_lda_c_2d_amgb);
+extern XC(func_info_type) XC(func_info_lda_c_2d_prm);
+extern XC(func_info_type) XC(func_info_lda_c_vbh);
+extern XC(func_info_type) XC(func_info_lda_c_1d_csc);
+extern XC(func_info_type) XC(func_info_lda_x_2d);
 extern XC(func_info_type) XC(func_info_lda_xc_teter93);
+extern XC(func_info_type) XC(func_info_lda_x_1d);
+extern XC(func_info_type) XC(func_info_lda_c_ml1);
+extern XC(func_info_type) XC(func_info_lda_c_ml2);
+extern XC(func_info_type) XC(func_info_lda_c_gombas);
+extern XC(func_info_type) XC(func_info_lda_c_pw_rpa);
+extern XC(func_info_type) XC(func_info_lda_k_tf);
+extern XC(func_info_type) XC(func_info_lda_k_lp);
 
 
 const XC(func_info_type) *XC(lda_known_funct)[] = {
@@ -33,7 +44,18 @@ const XC(func_info_type) *XC(lda_known_funct)[] = {
   &XC(func_info_lda_c_pw),
   &XC(func_info_lda_c_pw_mod),
   &XC(func_info_lda_c_ob_pw),
-  &XC(func_info_lda_c_amgb),
+  &XC(func_info_lda_c_2d_amgb),
+  &XC(func_info_lda_c_2d_prm),
+  &XC(func_info_lda_c_vbh),
+  &XC(func_info_lda_c_1d_csc),
+  &XC(func_info_lda_x_2d),
   &XC(func_info_lda_xc_teter93),
+  &XC(func_info_lda_x_1d),
+  &XC(func_info_lda_c_ml1),
+  &XC(func_info_lda_c_ml2),
+  &XC(func_info_lda_c_gombas),
+  &XC(func_info_lda_c_pw_rpa),
+  &XC(func_info_lda_k_tf),
+  &XC(func_info_lda_k_lp),
   NULL
 };

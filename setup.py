@@ -176,9 +176,12 @@ if 'clean' in sys.argv:
 sources = glob('c/*.c') + ['c/bmgs/bmgs.c']
 # libxc sources
 sources = sources + glob('c/libxc/src/*.c')
-sources2remove = ['c/libxc/src/test.c',
-                  'c/libxc/src/xc_f.c',
+sources2remove = ['c/libxc/src/xc_f.c',
                   'c/libxc/src/work_gga_x.c',
+                  'c/libxc/src/work_gga_c.c',
+                  'c/libxc/src/work_mgga_x.c',
+                  'c/libxc/src/work_mgga_c.c',
+                  'c/libxc/src/work_gga_becke.c',
                   'c/libxc/src/work_lda.c',
                   'c/hdf5.c',
                   ]

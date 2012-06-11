@@ -2,48 +2,90 @@
  Copyright (C) 2006-2007 M.A.L. Marques
 
  This program is free software; you can redistribute it and/or modify
- it under the terms of the GNU General Public License as published by
+ it under the terms of the GNU Lesser General Public License as published by
  the Free Software Foundation; either version 3 of the License, or
  (at your option) any later version.
   
  This program is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
+ GNU Lesser General Public License for more details.
   
- You should have received a copy of the GNU General Public License
+ You should have received a copy of the GNU Lesser General Public License
  along with this program; if not, write to the Free Software
  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <assert.h>
 #include "util.h"
 
 #define XC_GGA_X_OPTX         110 /* Handy & Cohen OPTX 01                          */
 
-static inline void
-func(const XC(gga_type) *p, FLOAT x, FLOAT *f, FLOAT *dfdx, FLOAT *ldfdx, FLOAT *d2fdx2)
-{
-  static const FLOAT a = 1.05151, b = 1.43169/X_FACTOR_C, gamma = 0.006;
+typedef struct{
+  FLOAT a, b, gamma;
+} gga_x_optx_params;
 
+
+static void 
+gga_x_optx_init(void *p_)
+{
+  XC(gga_type) *p = (XC(gga_type) *)p_;
+
+  assert(p->params == NULL);
+  p->params = malloc(sizeof(gga_x_optx_params));
+
+  XC(gga_x_optx_set_params_)(p, 1.05151, 1.43169/X_FACTOR_C, 0.006);
+}
+
+
+void 
+XC(gga_x_optx_set_params)(XC(func_type) *p, FLOAT a, FLOAT b, FLOAT gamma)
+{
+  assert(p != NULL && p->gga != NULL);
+  XC(gga_x_optx_set_params_)(p->gga, a, b, gamma);
+}
+
+
+void 
+XC(gga_x_optx_set_params_)(XC(gga_type) *p, FLOAT a, FLOAT b, FLOAT gamma)
+{
+  gga_x_optx_params *params;
+
+  assert(p->params != NULL);
+  params = (gga_x_optx_params *) (p->params);
+
+  params->a     = a;
+  params->b     = b;
+  params->gamma = gamma;
+}
+
+
+static inline void
+func(const XC(gga_type) *p, int order, FLOAT x, 
+     FLOAT *f, FLOAT *dfdx, FLOAT *d2fdx2)
+{
+  FLOAT a, b, gamma;
   FLOAT f1, u, du, d2u;
+
+  assert(p->params != NULL);
+  a     = ((gga_x_optx_params *) (p->params))->a;
+  b     = ((gga_x_optx_params *) (p->params))->b;
+  gamma = ((gga_x_optx_params *) (p->params))->gamma;
 
   f1 = 1.0 + gamma*x*x;
   u  = gamma*x*x/f1;
 
   *f     = a + b*u*u;
   
-  if(dfdx==NULL && d2fdx2==NULL) return; /* nothing else to do */
+  if(order < 1) return;
 
   du  = 2.0*gamma*x/(f1*f1);
 
-  if(dfdx!=NULL){
-    *dfdx  = 2.0*b*u*du;
-    *ldfdx = 0.0;
-  }
+  *dfdx  = 2.0*b*u*du;
 
-  if(d2fdx2==NULL) return; /* nothing else to do */
+  if(order < 2) return;
 
   d2u = 2.0*gamma/(f1*f1)*(1.0 - 4.0*gamma*x*x/f1);
   *d2fdx2 = 2.0*b*(du*du + u*d2u);
@@ -57,7 +99,9 @@ const XC(func_info_type) XC(func_info_gga_x_optx) = {
   "Handy & Cohen OPTX 01",
   XC_FAMILY_GGA,
   "NC Handy and AJ Cohen, Mol. Phys. 99, 403 (2001)",
-  XC_PROVIDES_EXC | XC_PROVIDES_VXC | XC_PROVIDES_FXC,
-  NULL, NULL, NULL,
+  XC_FLAGS_3D | XC_FLAGS_HAVE_EXC | XC_FLAGS_HAVE_VXC | XC_FLAGS_HAVE_FXC,
+  MIN_DENS, MIN_GRAD, 0.0, MIN_ZETA,
+  gga_x_optx_init,
+  NULL, NULL,
   work_gga_x
 };

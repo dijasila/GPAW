@@ -2,16 +2,16 @@
  Copyright (C) 2006-2007 M.A.L. Marques
 
  This program is free software; you can redistribute it and/or modify
- it under the terms of the GNU General Public License as published by
+ it under the terms of the GNU Lesser General Public License as published by
  the Free Software Foundation; either version 3 of the License, or
  (at your option) any later version.
   
  This program is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
+ GNU Lesser General Public License for more details.
   
- You should have received a copy of the GNU General Public License
+ You should have received a copy of the GNU Lesser General Public License
  along with this program; if not, write to the Free Software
  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
@@ -24,7 +24,8 @@
 #define XC_GGA_X_FT97_B       115 /* Filatov & Thiel 97 (version B) */
 
 static inline void
-func(const XC(gga_type) *p, FLOAT x, FLOAT sigma, FLOAT *f, FLOAT *dfdx, FLOAT *ldfdx, 
+func(const XC(gga_type) *p, int order, FLOAT x, FLOAT sigma, 
+     FLOAT *f, FLOAT *dfdx,
      FLOAT *vsigma, FLOAT *d2fdx2, FLOAT *v2sigma2, FLOAT *v2sigmax)
 {
   static const FLOAT 
@@ -49,26 +50,23 @@ func(const XC(gga_type) *p, FLOAT x, FLOAT sigma, FLOAT *f, FLOAT *dfdx, FLOAT *
 
   x2 = x*x;
   f2 = beta*asinh(x2);
-  f3 = sqrt(1.0 + 9.0*x2*f2*f2);
+  f3 = SQRT(1.0 + 9.0*x2*f2*f2);
   *f = 1.0 + beta/X_FACTOR_C*x2/f3;
  
-  if(dfdx==NULL && d2fdx2==NULL) return; /* nothing else to do */
+  if(order < 1) return;
 
-  f0  = sqrt(1.0 + x2*x2);
+  f0  = SQRT(1.0 + x2*x2);
   df2 = beta*2.0*x/f0;
   df3 = 9.0*x*f2*(f2 + x*df2)/f3;
 
   dbetadsigma = (func == 0) ? 0.0 : beta1*beta2/(f1*f1);
 
-  if(dfdx!=NULL){
-    *dfdx = beta/X_FACTOR_C*x*(2.0*f3 - x*df3)/(f3*f3);
-    *ldfdx= beta0/X_FACTOR_C;
+  *dfdx = beta/X_FACTOR_C*x*(2.0*f3 - x*df3)/(f3*f3);
 
-    df3df2  = 9.0*x2*f2/f3;
-    *vsigma = dbetadsigma*x2/(f3*X_FACTOR_C)*(1.0 - f2*df3df2/f3);
-  }
+  df3df2  = 9.0*x2*f2/f3;
+  *vsigma = dbetadsigma*x2/(f3*X_FACTOR_C)*(1.0 - f2*df3df2/f3);
 
-  if(d2fdx2==NULL) return; /* nothing else to do */
+  if(order < 2) return;
 
   d2f2 = beta*2.0*(1.0 - x2*x2)/(f0*f0*f0);
   d2f3 = 9.0*(x2*f3*df2*df2 + f2*f2*(f3 - x*df3) + x*f2*(df2*(4.0*f3 - x*df3) + x*f3*d2f2)) /
@@ -95,7 +93,8 @@ const XC(func_info_type) XC(func_info_gga_x_ft97_a) = {
   "Filatov & Thiel 97 (version A)",
   XC_FAMILY_GGA,
   "M Filatov and W Thiel, Mol. Phys 91, 847 (1997)",
-  XC_PROVIDES_EXC | XC_PROVIDES_VXC | XC_PROVIDES_FXC,
+  XC_FLAGS_3D | XC_FLAGS_HAVE_EXC | XC_FLAGS_HAVE_VXC | XC_FLAGS_HAVE_FXC,
+  MIN_DENS, MIN_GRAD, 0.0, MIN_ZETA,
   NULL, NULL, NULL, 
   work_gga_x
 };
@@ -106,7 +105,8 @@ const XC(func_info_type) XC(func_info_gga_x_ft97_b) = {
   "Filatov & Thiel 97 (version B)",
   XC_FAMILY_GGA,
   "M Filatov and W Thiel, Mol. Phys 91, 847 (1997)",
-  XC_PROVIDES_EXC | XC_PROVIDES_VXC | XC_PROVIDES_FXC,
+  XC_FLAGS_3D | XC_FLAGS_HAVE_EXC | XC_FLAGS_HAVE_VXC | XC_FLAGS_HAVE_FXC,
+  MIN_DENS, MIN_GRAD, 0.0, MIN_ZETA,
   NULL, NULL, NULL, 
   work_gga_x
 };

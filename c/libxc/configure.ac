@@ -1,34 +1,37 @@
 ## Copyright (C) 2002-2006 M. Marques, A. Castro, A. Rubio, G. Bertsch
 ##
 ## This program is free software; you can redistribute it and/or modify
-## it under the terms of the GNU General Public License as published by
+## it under the terms of the GNU Lesser General Public License as published by
 ## the Free Software Foundation; either version 2, or (at your option)
 ## any later version.
 ##
 ## This program is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
 ## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-## GNU General Public License for more details.
+## GNU Lesser General Public License for more details.
 ##
-## You should have received a copy of the GNU General Public License
+## You should have received a copy of the GNU Lesser General Public License
 ## along with this program; if not, write to the Free Software
 ## Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 ## 02111-1307, USA.
 ##
 ## $Id: configure.ac 2422 2006-09-23 20:43:15Z marques $
 
-AC_INIT([libxc],[0.9],[octopus-devel@tddft.org],[libxc])
+AC_INIT([libxc],[1.2.0],[octopus-users@tddft.org],[libxc])
 AC_CONFIG_SRCDIR([src/xc.h])
 AM_INIT_AUTOMAKE
 
 AC_CONFIG_HEADERS([config.h])
+AC_CONFIG_MACRO_DIR([m4])
 
 # Installation prefix by default
 AC_PREFIX_DEFAULT([/opt/etsf])
 
+AC_DISABLE_SHARED
+AC_PROG_LIBTOOL
+
 # Checks for programs.
 AC_PROG_CC
-AC_PROG_RANLIB
 AC_LANG_PREPROC
 AM_PROG_CC_C_O
 AC_C_INLINE
@@ -37,17 +40,13 @@ AC_C_INLINE
 AC_HEADER_STDC
 AC_FUNC_ALLOCA
 
-dnl Allow user-specified location for libstring_f
-AC_ARG_WITH([string_f],
-            AS_HELP_STRING([--with-string_f],[Path to the string_f library]),
-            [string_f_path=$withval],
-            [string_f_path='$(top_srcdir)/../libstring_f'])
+# Checks for typedefs, structures, and compiler characteristics.
+AC_CHECK_SIZEOF(void*)
 
-string_f_include="-I${string_f_path}"
-string_f_ldflags="-L${string_f_path} -lstring_f"
-
-AC_SUBST(string_f_include)
-AC_SUBST(string_f_ldflags)
+# Check for presence of some C99 libm functions
+AC_CHECK_LIB([m],[sqrtf],[AC_DEFINE([HAVE_SQRTF],[1],[libm includes sqrtf])])
+AC_CHECK_LIB([m],[cbrt],[AC_DEFINE([HAVE_CBRT],[1],[libm includes cbrt])])
+AC_CHECK_LIB([m],[cbrtf],[AC_DEFINE([HAVE_CBRTF],[1],[libm includes cbrtf])])
 
 dnl build/install fortran bits unless --disable-fortran is used
 AC_ARG_ENABLE([fortran],
@@ -87,6 +86,8 @@ if test $ac_cv_build_fortran = yes; then
   dnl check whether the Fortran 90 compiler accepts line markers cast by the preprocessor.
   ACX_F90_ACCEPTS_LINE_NUMBERS
 
+  AX_F90_MODULE_EXTENSION
+
   dnl Need to know the size of a Fortran integer
   ACX_FC_INTEGER_SIZE
   ACX_CC_FORTRAN_INT
@@ -95,7 +96,8 @@ if test $ac_cv_build_fortran = yes; then
 else
   HAVE_FORTRAN=0
 fi
-
+AC_SUBST(ax_cv_f90_modext)
+AM_CONDITIONAL(F90_MOD_UPPERCASE, [test x$ax_f90_mod_uppercase = xyes])
 AM_CONDITIONAL(COMPILE_FORTRAN, test x${HAVE_FORTRAN} = x1)
 
 dnl should I compile libxc in single precision?
@@ -107,7 +109,13 @@ AC_ARG_ENABLE([single],
 AM_CONDITIONAL(COMPILE_SINGLE, test  $ac_cv_single_prec = yes)
 
 
-AC_CONFIG_FILES([Makefile src/Makefile testsuite/Makefile])
+AC_CONFIG_FILES([Makefile
+  src/Makefile
+  testsuite/Makefile
+  build/Makefile
+  build/libxc.pc
+  build/libxc.spec
+])
 
 AC_OUTPUT
 
