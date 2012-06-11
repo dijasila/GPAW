@@ -115,8 +115,8 @@ class LDA(XCFunctional):
         v_sg = self.gd.zeros(nspins)
         e_g = self.gd.empty()
         self.calculate_lda(e_g, n_sg, v_sg)
-        return (3 * self.gd.integrate(e_g) -
-                3 * self.gd.integrate(v_sg[0], n_sg[0]))
+        return np.eye(3) * (self.gd.integrate(e_g) -
+                            self.gd.integrate(v_sg[0], n_sg[0]))
 
 
 class PurePythonLDAKernel:

@@ -19,8 +19,6 @@ class GGA(LDA):
         sigma_xg, gradn_svg = self.calculate_sigma(n_sg)
         dedsigma_xg = self.gd.empty(nspins * 2 - 1)
         self.calculate_gga(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
-        self.stress=self.gd.integrate(sigma_xg, dedsigma_xg)
-        self.stress2=self.gd.integrate(v_sg, n_sg)
         vv_g = sigma_xg[0]
         for v in range(3):
             for s in range(nspins):
@@ -53,9 +51,10 @@ class GGA(LDA):
         v_sg = self.gd.zeros(nspins)
         e_g = self.gd.empty()
         self.calculate_gga(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
-        return (3 * self.gd.integrate(e_g) -
-                3 * self.gd.integrate(v_sg[0], n_sg[0]) -
-                8 * self.gd.integrate(sigma_xg[0], dedsigma_xg[0]))
+        return np.eye(3) * (self.gd.integrate(e_g) -
+                            self.gd.integrate(v_sg[0], n_sg[0]) -
+                            8.0 / 3 * self.gd.integrate(sigma_xg[0],
+                                                        dedsigma_xg[0]))
         
     def calculate_radial_expansion(self, rgd, D_sLq, n_qg, nc0_sg):
         n_sLg = np.dot(D_sLq, n_qg)

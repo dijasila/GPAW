@@ -15,18 +15,18 @@ def stress(calc):
     dens = calc.density
     ham = calc.hamiltonian
 
-    p = calc.wfs.get_kinetic_stress().trace().real
+    p = calc.wfs.get_kinetic_stress().real
 
     p += ham.xc.stress_tensor_contribution(dens.nt_sg)
     # tilde-n_c contribution to dsigma/depsilon is missing!
 
-    p -= ham.epot
-    p += dens.ghat.stress_tensor_contribution2(ham.vHt_q, dens.Q_aL).trace()
+    p -= np.eye(3) * (ham.epot / 3)
+    p += dens.ghat.stress_tensor_contribution(ham.vHt_q, dens.Q_aL)
 
-    p -= 3 * ham.ebar
-    p += ham.vbar.stress_tensor_contribution2(dens.nt_sQ[0]).trace()
+    p -= np.eye(3) * ham.ebar
+    p += ham.vbar.stress_tensor_contribution(dens.nt_sQ[0])
 
-    p += dens.nct.stress_tensor_contribution2(ham.vt_Q).trace()
+    p += dens.nct.stress_tensor_contribution(ham.vt_Q)
 
     s = 0.0
     s0 = 0.0
@@ -40,12 +40,12 @@ def stress(calc):
                     np.dot(Pf_ni * kpt.eps_n[:, None], dS_ii))
             s0 += np.vdot(P_ni, a_ni)
             a_ani[a] = a_ni.conj()
-        s += wfs.pt.stress_tensor_contribution2(kpt.psit_nG, a_ani,
-                                                q=kpt.q).trace()
-    p += 2 * (s - 1.5 * s0).real
+        s += wfs.pt.stress_tensor_contribution(kpt.psit_nG, a_ani,
+                                               q=kpt.q)
+    p += 2 * (s - 0.5 * s0 * np.eye(3)).real
 
     vol = calc.atoms.get_volume() / units.Bohr**3
-    sigma_vv = np.eye(3) * p / 3 / vol
+    sigma_vv = p / vol
 
     calc.text('Stress tensor:')
     for sigma_v in sigma_vv:
