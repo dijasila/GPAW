@@ -22,7 +22,7 @@ except ImportError:
     pass  # Scientific.IO.NetCDF was not installed
 else:
     if calc.wfs.world.size == 1:
-        ETSFWriter().write(calc, ecut=200)
+        ETSFWriter().write(calc)
 
 fit = np.polyfit(a, e, 2)
 a0 = np.roots(np.polyder(fit, 1))[0]

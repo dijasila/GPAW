@@ -60,7 +60,7 @@ except ImportError:
     pass  # Scientific.IO.NetCDF was not installed
 else:
     if calc.wfs.world.size == 1:
-        ETSFWriter().write(calc, ecut=150)
+        ETSFWriter().write(calc)
 
 ## for i in range(6):
 ##     wannier.write_cube(i, 'ethylene%s.cube' % i, real=True)
