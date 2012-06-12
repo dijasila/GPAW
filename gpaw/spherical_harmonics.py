@@ -193,7 +193,7 @@ def Y(L, x, y, z):
 def nablarlYL(L, R):
     """Calculate the gradient of a real solid spherical harmonic."""
     x, y, z = R
-    dYdx = dYdy = dYdz = 0.
+    dYdx = dYdy = dYdz = 0.0
     terms = YL[L]
     # The 'abs' avoids error in case powx == 0
     for N, (powx, powy, powz) in terms:

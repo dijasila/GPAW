@@ -295,6 +295,20 @@ class PoissonSolver:
         return representation
 
 
+class NoInteractionPoissonSolver:
+    description = 'No interaction'
+    relax_method = 0
+    nn = 1
+    def get_stencil(self):
+        return 1
+    def solve(self, phi, rho, charge):
+        return 0
+    def set_grid_descriptor(self, gd):
+        pass
+    def initialize(self):
+        pass
+
+
 class PoissonFFTSolver(PoissonSolver):
     """FFT implementation of the Poisson solver."""
 
