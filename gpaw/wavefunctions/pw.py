@@ -686,29 +686,43 @@ class PWWaveFunctions(FDPWWaveFunctions):
         FDPWWaveFunctions.estimate_memory(self, mem)
         self.pd.estimate_memory(mem.subnode('PW-descriptor'))
 
-    def get_kinetic_stress(self):
+    def get_kinetic_stress(self, symmetry=None):
         sigma_vv = np.zeros((3, 3), dtype=complex)
         pd = self.pd
+        cell_cv = pd.gd.cell_cv
         dOmega = pd.gd.dv / pd.gd.N_c.prod()
         K_qv = self.pd.K_qv
         for kpt in self.kpt_u:
             G_Gv = pd.G_Qv[pd.Q_qG[kpt.q]]
+            psit2_G = 0.0
             for n, f in enumerate(kpt.f_n):
-                psit2_G = np.abs(kpt.psit_nG[n])**2
-                for alpha in range(3):
-                    Ga_G = G_Gv[:, alpha] + K_qv[kpt.q, alpha]
-                    for beta in range(3):
-                        Gb_G = G_Gv[:, beta] + K_qv[kpt.q, beta]
-                        s = (psit2_G * Ga_G * Gb_G).sum()
-                        sigma_vv[alpha, beta] += f * s
+                psit2_G += f * np.abs(kpt.psit_nG[n])**2
+            s_vv = np.zeros((3, 3), dtype=complex)
+            for alpha in range(3):
+                Ga_G = G_Gv[:, alpha] + K_qv[kpt.q, alpha]
+                for beta in range(3):
+                    Gb_G = G_Gv[:, beta] + K_qv[kpt.q, beta]
+                    s_vv[alpha, beta] = (psit2_G * Ga_G * Gb_G).sum()
+            if symmetry is None:
+                sigma_vv += s_vv
+                continue
+
+            ss_vv = 0.0
+            n = 0
+            for K, k in enumerate(self.kd.bz2ibz_k):
+                if k == kpt.k:
+                    U_cc = symmetry.op_scc[self.kd.sym_k[K]]
+                    M_vv = np.dot(np.linalg.inv(cell_cv),
+                                  np.dot(U_cc, cell_cv)).T
+                    ss_vv += np.dot(np.dot(M_vv.T, s_vv), M_vv)
+                    n += 1
+            sigma_vv += ss_vv / n
+
         sigma_vv *= -dOmega
 
-        def symmetrize(x):  # XXXXXXX
-            return x
-        
         self.bd.comm.sum(sigma_vv)
         self.kd.comm.sum(sigma_vv)
-        return symmetrize(sigma_vv)
+        return sigma_vv
 
 
 def ft(spline):
