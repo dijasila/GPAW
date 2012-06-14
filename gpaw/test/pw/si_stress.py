@@ -11,7 +11,7 @@ si.calc = GPAW(mode=PW(250),
 
 def check():
     e0 = si.calc.get_potential_energy(si, force_consistent=True)
-    sigma_vv = si.get_stress(0)
+    sigma_vv = si.calc.get_stress(si)
     print(sigma_vv)
     deps = 1e-4
     cell = si.cell.copy()
