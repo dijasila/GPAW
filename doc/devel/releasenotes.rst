@@ -10,6 +10,9 @@ Development version in trunk
 
 :trac:`trunk <>`.
 
+* Calculation of the stress tensor has been implemented for plane-wave
+  based calculation.
+
 
 Version 0.9
 ===========
