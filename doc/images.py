@@ -53,7 +53,6 @@ marco_master.pdf        mortensen_paw.pdf
 logos = """
 logo-csc.png  logo-fmf.png   logo-hut.png  logo-tree.png
 logo-dtu.png  logo-gpaw.png  logo-jyu.png  logo-tut.png  logo-anl.png
-logo-suncat.png logo-slac-center.png
 """.split()
 
 

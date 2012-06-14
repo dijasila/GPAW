@@ -36,8 +36,6 @@ class AtomWaveFunctions(WaveFunctions):
 
 
 class AtomPoissonSolver:
-    description = 'Radial equidistant'
-
     def set_grid_descriptor(self, gd):
         self.gd = gd
         self.relax_method = 0
@@ -45,6 +43,9 @@ class AtomPoissonSolver:
         
     def initialize(self):
         pass
+
+    def get_method(self):
+        return 'Radial equidistant'
 
     def get_stencil(self):
         return 'Exact'

@@ -74,7 +74,7 @@ def gemm(alpha, a, b, beta, c, transa='n'):
         assert a.shape[0] == b.shape[1]
         assert c.shape == b.shape[0:1] + a.shape[1:]
     else:
-        assert b.size == 0 or b[0].flags.contiguous
+        assert b.flags.contiguous
         assert c.strides[1] == c.itemsize
         assert a.shape[1:] == b.shape[1:]
         assert c.shape == (b.shape[0], a.shape[0])

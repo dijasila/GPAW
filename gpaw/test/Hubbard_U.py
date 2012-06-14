@@ -70,7 +70,7 @@ niter1 = calc.get_number_of_iterations()
 Eg_non_Hub=band_gab(calc)
 
 ##############################################################################
-## Setup 6eV Hubbard U on the d-orbitals (l=2) of Ni atoms (atom 0 and 1)
+## Setup 5eV Hubbard U on the d-orbitals (l=2) of Ni atoms (atom nr 0 and 1)
 ## arg 3 and 4 :scaling =1 (yes scale) and store=0 (no do not store)
 
 l=2                         # d-orbitals

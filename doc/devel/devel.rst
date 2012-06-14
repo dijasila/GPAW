@@ -18,9 +18,8 @@ Now you are ready to to perfom a :ref:`developer_installation` and
 start development!
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
-   projects/projects
    developer_installation
 
 .. note --- below toctrees are defined in separate files to make sure that the line spacing doesn't get very large (which is of course a bad hack)
@@ -116,7 +115,6 @@ aoj        Ari Ojanperä               ari,ojanpera:tkk,fi
 askhl      Ask Hjorth Larsen          askhl:fysik,dtu,dk
 dlandis    David Landis               dlandis:fysik,dtu,dk
 dulak      Marcin Dulak               dulak:fysik,dtu,dk
-eojons     Elvar Örn Jónsson          elvar,jonsson:fysik,dtu,dk
 falh       Falco Huser                falh:fysik,dtu,dk
 georg      Poul Georg Moses           georg:fysik,dtu,dk
 getri      George Tritsaris           getri:fysik,dtu,dk
@@ -131,7 +129,6 @@ jsm        Jess Stausholm-Møller      jsm:phys,au,dk
 jussie     Jussi Enkovaara            jussi,enkovaara:csc,fi
 juya       Jun Yan                    juya:fysik,dtu,dk
 kelkkane   Andre Kelkkanen            kelkkane:fysik,dtu,dk
-kelu       Keld Troen Lundgaard       kelu:fysik,dtu,dk
 kiran      Kirsten Andersen           kiran:fysik,dtu,dk
 kkaa       Kristen Kaasbjerg          kkaa:fysik,dtu,dk
 ksaha      Kamal Saha                 ?

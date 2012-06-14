@@ -161,23 +161,30 @@ def unpack2(M):
     return M2
 
     
-def pack(A):
+def pack(M2):
     """Pack a 2D array to 1D, adding offdiagonal terms.
     
     The matrix::
     
            / a00 a01 a02 \ 
-       A = | a10 a11 a12 |
+      M2 = | a10 a11 a12 |
            \ a20 a21 a22 /
                 
     is transformed to the vector::
     
-      (a00, a01 + a10, a02 + a20, a11, a12 + a21, a22)
+      M = (a00, a01 + a10, a02 + a20, a11, a12 + a21, a22)
     """
-    assert A.ndim == 2
-    assert A.shape[0] == A.shape[1]
-    assert A.dtype in [float, complex]
-    return _gpaw.pack(A)
+    n = len(M2)
+    M = np.zeros(n * (n + 1) // 2, M2.dtype.char)
+    p = 0
+    for r in range(n):
+        M[p] = M2[r, r]
+        p += 1
+        for c in range(r + 1, n):
+            M[p] = M2[r, c] + M2[c, r]
+            p += 1
+    assert p == len(M)
+    return M
 
 
 def pack2(M2, tolerance=1e-10):
@@ -266,8 +273,10 @@ def divrl(a_g, l, r_g):
     return b_g
 
 
-def compiled_with_sl():
-    return hasattr(_gpaw, 'new_blacs_context')
+def compiled_with_sl(extended_check=False):
+    if extended_check and not hasattr(_gpaw, 'Communicator'):
+        return False
+    return _gpaw.compiled_with_sl()
 
 
 def load_balance(paw, atoms):
@@ -295,7 +304,6 @@ def load_balance(paw, atoms):
 
 if not debug:
     hartree = _gpaw.hartree
-    pack = _gpaw.pack
 
 
 def mlsqr(order, cutoff, coords_nc, N_c, beg_c, data_g, target_n):

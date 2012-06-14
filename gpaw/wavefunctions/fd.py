@@ -1,16 +1,22 @@
 import numpy as np
 
-from gpaw.kpoint import KPoint
-from gpaw.mpi import serial_comm
-from gpaw.io import FileReference
-from gpaw.utilities.blas import axpy
+from gpaw.overlap import Overlap
 from gpaw.fd_operators import Laplace
+from gpaw.lfc import LocalizedFunctionsCollection as LFC
+from gpaw.utilities import unpack
+from gpaw.io import FileReference
+from gpaw.lfc import BasisFunctions
+from gpaw.utilities.blas import axpy
 from gpaw.transformers import Transformer
+from gpaw.fd_operators import Gradient
+from gpaw.band_descriptor import BandDescriptor
+from gpaw import extra_parameters
+from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.hs_operators import MatrixOperator
 from gpaw.preconditioner import Preconditioner
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
-from gpaw.lfc import LocalizedFunctionsCollection as LFC
+from gpaw.kpoint import KPoint
+from gpaw.mpi import serial_comm
 
 
 class FDWaveFunctions(FDPWWaveFunctions):
@@ -21,19 +27,12 @@ class FDWaveFunctions(FDPWWaveFunctions):
                                    gd, nvalence, setups, bd,
                                    dtype, world, kd, timer)
 
+        self.wd = self.gd  # wave function descriptor
+        
         # Kinetic energy operator:
         self.kin = Laplace(self.gd, -0.5, stencil, self.dtype)
 
         self.matrixoperator = MatrixOperator(self.orthoksl)
-
-    def empty(self, n=(), global_array=False, realspace=False, q=-1):
-        return self.gd.empty(n, self.dtype, global_array)
-
-    def integrate(self, a_xg, b_yg=None, global_integral=True):
-        return self.gd.integrate(a_xg, b_yg, global_integral)
-
-    def bytes_per_wave_function(self):
-        return self.gd.bytecount(self.dtype)
 
     def set_setups(self, setups):
         self.pt = LFC(self.gd, [setup.pt_j for setup in setups],
@@ -44,8 +43,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
         FDPWWaveFunctions.set_positions(self, spos_ac)
 
     def summary(self, fd):
-        fd.write('Wave functions: Uniform real-space grid\n')
-        fd.write('Kinetic energy operator: %s\n' % self.kin.description)
+        fd.write('Mode: Finite-difference\n')
         
     def make_preconditioner(self, block=1):
         return Preconditioner(self.gd, self.kin, self.dtype, block)
@@ -88,10 +86,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
     def calculate_kinetic_energy_density(self, grad_v):
         assert not hasattr(self.kpt_u[0], 'c_on')
-        if self.kpt_u[0].psit_nG is None:
-            raise RuntimeError('No wavefunctions yet')
         if isinstance(self.kpt_u[0].psit_nG, FileReference):
-            # XXX initialize
             raise RuntimeError('Wavefunctions have not been initialized.')
 
         taut_sG = self.gd.zeros(self.nspins)
@@ -184,121 +179,6 @@ class FDWaveFunctions(FDPWWaveFunctions):
                     for n in range(self.bd.nbands):
                         psit_G = self.get_wave_function_array(n, k, s)
                         writer.fill(psit_G, s, k, n)
-
-    def read(self, reader, hdf5):
-        if ((not hdf5 and self.bd.comm.size == 1) or
-            (hdf5 and self.world.size == 1)):
-            # We may not be able to keep all the wave
-            # functions in memory - so psit_nG will be a special type of
-            # array that is really just a reference to a file:
-            for kpt in self.kpt_u:
-                kpt.psit_nG = reader.get_reference('PseudoWaveFunctions',
-                                                   (kpt.s, kpt.k))
-        else:
-            for kpt in self.kpt_u:
-                kpt.psit_nG = self.empty(self.bd.mynbands)
-                if hdf5:
-                    indices = [kpt.s, kpt.k]
-                    indices.append(self.bd.get_slice())
-                    indices += self.gd.get_slice()
-                    reader.get('PseudoWaveFunctions', out=kpt.psit_nG,
-                               parallel=(self.world.size > 1), *indices)
-                else:
-                    # Read band by band to save memory
-                    for myn, psit_G in enumerate(kpt.psit_nG):
-                        n = self.bd.global_index(myn)
-                        if self.gd.comm.rank == 0:
-                            big_psit_G = np.array(
-                                reader.get('PseudoWaveFunctions',
-                                           kpt.s, kpt.k, n),
-                                self.dtype)
-                        else:
-                            big_psit_G = None
-                        self.gd.distribute(big_psit_G, psit_G)
-        
-    def initialize_from_lcao_coefficients(self, basis_functions, mynbands):
-        for kpt in self.kpt_u:
-            kpt.psit_nG = self.gd.zeros(self.bd.mynbands, self.dtype)
-            basis_functions.lcao_to_grid(kpt.C_nM, 
-                                         kpt.psit_nG[:mynbands], kpt.q)
-            kpt.C_nM = None
-
-    def random_wave_functions(self, nao):
-        """Generate random wave functions."""
-
-        gpts = self.gd.N_c[0]*self.gd.N_c[1]*self.gd.N_c[2]
-        
-        if self.bd.nbands < gpts/64:
-            gd1 = self.gd.coarsen()
-            gd2 = gd1.coarsen()
-
-            psit_G1 = gd1.empty(dtype=self.dtype)
-            psit_G2 = gd2.empty(dtype=self.dtype)
-
-            interpolate2 = Transformer(gd2, gd1, 1, self.dtype).apply
-            interpolate1 = Transformer(gd1, self.gd, 1, self.dtype).apply
-
-            shape = tuple(gd2.n_c)
-            scale = np.sqrt(12 / abs(np.linalg.det(gd2.cell_cv)))
-
-            old_state = np.random.get_state()
-
-            np.random.seed(4 + self.world.rank)
-
-            for kpt in self.kpt_u:
-                for psit_G in kpt.psit_nG[nao:]:
-                    if self.dtype == float:
-                        psit_G2[:] = (np.random.random(shape) - 0.5) * scale
-                    else:
-                        psit_G2.real = (np.random.random(shape) - 0.5) * scale
-                        psit_G2.imag = (np.random.random(shape) - 0.5) * scale
-
-                    interpolate2(psit_G2, psit_G1, kpt.phase_cd)
-                    interpolate1(psit_G1, psit_G, kpt.phase_cd)
-            np.random.set_state(old_state)
-        
-        elif gpts/64 <= self.bd.nbands < gpts/8:
-            gd1 = self.gd.coarsen()
-
-            psit_G1 = gd1.empty(dtype=self.dtype)
-
-            interpolate1 = Transformer(gd1, self.gd, 1, self.dtype).apply
-
-            shape = tuple(gd1.n_c)
-            scale = np.sqrt(12 / abs(np.linalg.det(gd1.cell_cv)))
-
-            old_state = np.random.get_state()
-
-            np.random.seed(4 + self.world.rank)
-
-            for kpt in self.kpt_u:
-                for psit_G in kpt.psit_nG[nao:]:
-                    if self.dtype == float:
-                        psit_G1[:] = (np.random.random(shape) - 0.5) * scale
-                    else:
-                        psit_G1.real = (np.random.random(shape) - 0.5) * scale
-                        psit_G1.imag = (np.random.random(shape) - 0.5) * scale
-
-                    interpolate1(psit_G1, psit_G, kpt.phase_cd)
-            np.random.set_state(old_state)
-               
-        else:
-            shape = tuple(self.gd.n_c)
-            scale = np.sqrt(12 / abs(np.linalg.det(self.gd.cell_cv)))
-
-            old_state = np.random.get_state()
-
-            np.random.seed(4 + self.world.rank)
-
-            for kpt in self.kpt_u:
-                for psit_G in kpt.psit_nG[nao:]:
-                    if self.dtype == float:
-                        psit_G[:] = (np.random.random(shape) - 0.5) * scale
-                    else:
-                        psit_G.real = (np.random.random(shape) - 0.5) * scale
-                        psit_G.imag = (np.random.random(shape) - 0.5) * scale
-
-            np.random.set_state(old_state)        
 
     def estimate_memory(self, mem):
         FDPWWaveFunctions.estimate_memory(self, mem)

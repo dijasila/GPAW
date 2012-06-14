@@ -305,8 +305,8 @@ class BaseSetup:
             return self.I4_pp
 
         # radial grid
-        #ng = self.ng
-        #g = np.arange(ng, dtype=float)
+        ng = self.ng
+        g = np.arange(ng, dtype=float)
         r2dr_g = self.rgd.r_g**2 * self.rgd.dr_g
 
         phi_jg = self.data.phi_jg
@@ -622,7 +622,6 @@ class Setup(BaseSetup):
         tauct_g = data.tauct_g
         if tauct_g is None:
             tauct_g = np.zeros(ng)
-            # FIXME: ng is not defined! 
         self.tauct = rgd.spline(tauct_g, self.rcore)
 
         self.pt_j = self.create_projectors(rcutfilter)

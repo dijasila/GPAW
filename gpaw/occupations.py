@@ -186,7 +186,6 @@ def occupy(f_n, eps_n, ne, weight=1):
 
 class ZeroKelvin(OccupationNumbers):
     def __init__(self, fixmagmom):
-        self.width = 0.0
         OccupationNumbers.__init__(self, fixmagmom)
         
     def calculate_occupation_numbers(self, wfs):
@@ -277,21 +276,17 @@ class ZeroKelvin(OccupationNumbers):
             raise ValueError("Can't find HOMO and/or LUMO!")
 
     def fixed_moment(self, wfs):
-        assert wfs.nspins == 2 and wfs.kd.nbzkpts == 1
+        assert wfs.nspins == 2 and wfs.bd.comm.size == 1
         fermilevels = np.zeros(2)
         for kpt in wfs.kpt_u:
             eps_n = wfs.bd.collect(kpt.eps_n)
-            if eps_n is None:
-                f_n = None
-            else:
-                f_n = wfs.bd.empty(global_array=True)
-                sign = 1 - kpt.s * 2
-                ne = 0.5 * (self.nvalence + sign * self.magmom)
-                homo, lumo = occupy(f_n, eps_n, ne) 
-                fermilevels[kpt.s] = 0.5 * (homo + lumo)
+            f_n = wfs.bd.empty(global_array=True)
+            sign = 1 - kpt.s * 2
+            ne = 0.5 * (self.nvalence + sign * self.magmom)
+            homo, lumo = occupy(f_n, eps_n, ne)
             wfs.bd.distribute(f_n, kpt.f_n)
-        wfs.bd.comm.sum(fermilevels)
-        wfs.kd.comm.sum(fermilevels)
+            fermilevels[kpt.s] = 0.5 * (homo + lumo)
+        wfs.kpt_comm.sum(fermilevels)
         self.fermilevel = fermilevels.mean()
         self.split = fermilevels[0] - fermilevels[1]
         
@@ -393,7 +388,7 @@ class SmoothDistribution(ZeroKelvin):
         if self.fermilevel is None:
             self.fermilevel = self.guess_fermi_level(wfs)
 
-        if not self.fixmagmom or wfs.nspins == 1:
+        if not self.fixmagmom:
             self.fermilevel, self.magmom, self.e_entropy = \
                              self.find_fermi_level(wfs, self.nvalence,
                                                    self.fermilevel)
@@ -570,16 +565,3 @@ class MethfesselPaxton(SmoothDistribution):
         else:
             return 2 * x * self.hermite_poly(n - 1, x) \
                             - 2 * (n - 1) * self.hermite_poly(n - 2, x)
-
-class FixedOccupations(ZeroKelvin):
-    def __init__(self, occupation):
-        self.occupation = np.array(occupation)
-        ZeroKelvin.__init__(self, True)
-
-    def spin_paired(self, wfs):
-        return self.fixed_moment(wfs)
-
-    def fixed_moment(self, wfs):
-        for kpt in wfs.kpt_u:
-            wfs.bd.distribute(self.occupation[kpt.s], kpt.f_n)
-        

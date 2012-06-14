@@ -27,13 +27,22 @@ else:
 tmpdir = tempfile.mkdtemp(prefix='gpaw-', dir=dir)
 os.chdir(tmpdir)
 
+day = time.localtime()[6]
+
 # Checkout a fresh version and install:
 if os.system('svn checkout ' +
              'https://svn.fysik.dtu.dk/projects/gpaw/trunk gpaw') != 0:
     fail('Checkout of gpaw failed!')
 
+if day % 2:
+    exec([line for line in open('gpaw/gpaw/version.py').readlines()
+          if line.startswith('ase_required_svnversion')][0])
+else:
+    ase_required_svnversion = 'HEAD'
+
 if os.system('svn checkout ' +
-             'https://svn.fysik.dtu.dk/projects/ase/trunk ase') != 0:
+             'https://svn.fysik.dtu.dk/projects/ase/trunk ase -r %s' %
+             ase_required_svnversion) != 0:
     fail('Checkout of ASE failed!')
 
 os.chdir('gpaw')
@@ -52,8 +61,7 @@ os.system('tar xvzf gpaw-setups-latest.tar.gz')
 setups = tmpdir + '/gpaw/' + glob.glob('gpaw-setups-[0-9]*')[0]
 sys.path.insert(0, '%s/lib/python' % tmpdir)
 
-day = time.localtime()[6]
-if day % 2:
+if day % 4 < 2:
     sys.argv.append('--debug')
 
 from gpaw import setup_paths

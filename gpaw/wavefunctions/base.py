@@ -48,9 +48,6 @@ class WaveFunctions(EmptyWaveFunctions):
     """
 
     collinear = True
-    # ncomp is a number of array components necessary to hold
-    # information about non-collinear spins.  With collinear spin
-    # it is always 1; else it is 2.
     ncomp = 1
     
     def __init__(self, gd, nvalence, setups, bd, dtype,
@@ -113,6 +110,7 @@ class WaveFunctions(EmptyWaveFunctions):
 
     def add_to_density_from_k_point(self, nt_sG, kpt):
         self.add_to_density_from_k_point_with_occupation(nt_sG, kpt, kpt.f_n)
+    
 
     def get_orbital_density_matrix(self, a, kpt, n):
         """Add the nth band density from kpt to density matrix D_sp"""
@@ -371,20 +369,11 @@ class WaveFunctions(EmptyWaveFunctions):
                 if a in P_ani:
                     self.world.ssend(P_ani[a], 0, 1303 + a)
 
-    def get_wave_function_array(self, n, k, s, realspace=True):
-        """Return pseudo-wave-function array on master.
+    def get_wave_function_array(self, n, k, s):
+        """Return pseudo-wave-function array.
         
-        n: int
-            Global band index.
-        k: int
-            Global IBZ k-point index.
-        s: int
-            Spin index (0 or 1).
-        realspace: bool
-            Transform plane wave or LCAO expansion coefficients to real-space.
-
-        For the parallel case find the ranks in kd.comm and bd.comm
-        that contains to (n, k, s), and collect on the corresponding
+        For the parallel case find the rank in kpt_comm that contains
+        the (k,s) pair, for this rank, collect on the corresponding
         domain a full array on the domain master and send this to the
         global master."""
 
@@ -394,25 +383,29 @@ class WaveFunctions(EmptyWaveFunctions):
         size = self.world.size
         rank = self.world.rank
 
-        if (self.kpt_comm.rank == kpt_rank and
-            self.band_comm.rank == band_rank):
-            psit_G = self._get_wave_function_array(u, myn, realspace)
-            if realspace:
-                psit_G = self.gd.collect(psit_G)
+        if self.kpt_comm.rank == kpt_rank:
+            psit1_G = self._get_wave_function_array(u, myn)
+            if size == 1:
+                return psit1_G
+            if self.band_comm.rank == band_rank:
+                psit_G = self.gd.collect(psit1_G)
 
-            if rank == 0:
-                return psit_G
-            
-            # Domain master send this to the global master
-            if self.gd.comm.rank == 0:
-                self.world.ssend(psit_G, 0, 1398)
+                if kpt_rank == 0 and band_rank == 0:
+                    if rank == 0:
+                        return psit_G
+
+                # Domain master send this to the global master
+                if self.gd.comm.rank == 0:
+                    self.world.ssend(psit_G, 0, 1398)
 
         if rank == 0:
-            # allocate full wave function and receive
-            psit_G = self.empty(global_array=True,
-                                realspace=realspace)
+            # allocate full wavefunction and receive
+            psit_G = self.gd.empty(dtype=self.dtype, global_array=True)
             world_rank = (kpt_rank * self.gd.comm.size *
                           self.band_comm.size +
                           band_rank * self.gd.comm.size)
             self.world.receive(psit_G, world_rank, 1398)
             return psit_G
+
+    def _get_wave_function_array(self, u, n):
+        raise NotImplementedError

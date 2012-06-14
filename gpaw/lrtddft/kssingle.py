@@ -13,7 +13,7 @@ from gpaw.localized_functions import create_localized_functions
 from gpaw.pair_density import PairDensity
 from gpaw.fd_operators import Gradient
 from gpaw.gaunt import gaunt as G_LLL
-from gpaw.xc.tools import vxc
+
 
 class KSSingles(ExcitationList):
     """Kohn-Sham single particle excitations
@@ -40,7 +40,6 @@ class KSSingles(ExcitationList):
 
     def __init__(self,
                  calculator=None,
-                 nonselfconsistent_xc=None,
                  nspins=None,
                  eps=0.001,
                  istart=0,
@@ -57,18 +56,6 @@ class KSSingles(ExcitationList):
         
         if calculator is None:
             return # leave the list empty
-
-        # deny hybrids as their empty states are wrong
-        gsxc = calculator.hamiltonian.xc
-        hybrid = hasattr(gsxc, 'hybrid') and gsxc.hybrid > 0.0
-        assert(not hybrid)
-
-        if nonselfconsistent_xc is None:
-            self.de_skn = None
-        else:
-            pass
-#            self.de_skn = (vxc(calculator, nonselfconsistent_xc.name) - 
-#                           vxc(calculator, calculator.hamiltonian.xc))
 
         error = calculator.wfs.eigensolver.error
         criterion = (calculator.input_parameters['convergence']['eigenstates']
@@ -125,8 +112,6 @@ class KSSingles(ExcitationList):
             for kpt in self.kpt_u:
                 f_n = kpt.f_n
                 eps_n = kpt.eps_n
-                if self.de_skn is not None:
-                    eps_n += de_skn[kpt.s, kpt.k]
                 for i in range(len(f_n)):
                     for j in range(i+1, len(f_n)):
                         fij = f_n[i] - f_n[j]

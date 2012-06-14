@@ -16,8 +16,8 @@ class NiflheimCluster(Cluster):
         self.write_pylab_wrapper(job)
 
         if job.queueopts is None:
-            if job.ncpus < 4:
-                ppn = '%d:opteron2218:ethernet' % job.ncpus
+            if job.ncpus == 1:
+                ppn = '1:opteron2218:ethernet'
                 nodes = 1
                 arch = 'linux-x86_64-opteron-2.4'
             elif job.ncpus % 8 == 0:
@@ -45,15 +45,11 @@ class NiflheimCluster(Cluster):
 
         run_command = '. /home/camp/modulefiles.sh&& '
         run_command += 'module load MATPLOTLIB&& '  # loads numpy, mpl, ...
-        run_command += 'module use --append /home/niflheim/dulak/NWchem&& '
-        run_command += 'module load NWCHEM/6.1-27.1.x86_64&& '
 
         if job.ncpus == 1:
-            # don't use mpiexec here,
+            # don't use mpi here,
             # this allows one to start mpi inside the *.agts.py script
-            run_command += 'module load '
-            run_command += 'openmpi/1.3.3-1.el5.fys.gfortran43.4.3.2&& '
-            run_command += ' PYTHONPATH=' + submit_pythonpath + '&&'
+            run_command += ' PYTHONPATH=' + submit_pythonpath
             run_command += ' GPAW_SETUP_PATH=' + self.setuppath
         else:
             run_command += 'module load '

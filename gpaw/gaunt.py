@@ -12,9 +12,6 @@ Y_LLv = np.array([[[0.0, 0.0, 0.0],[0.0, 1.73205080757, 0.0],[0.0, 0.0, 1.732050
 # End of computer generated code
 
 def make_gaunt(lmax=2):
-    if lmax <= 2:
-        return gaunt
-
     Lmax = (lmax + 1)**2
     L2max = (2 * lmax + 1)**2
 

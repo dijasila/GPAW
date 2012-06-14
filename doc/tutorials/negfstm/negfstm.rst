@@ -5,12 +5,6 @@
 STM-simulations using Green's functions
 =======================================
 
-.. warning::
-
-    The code to perform this type of STM simulations is no longer
-    maintained.  It may work or it may not work!
-
-
 This tutorial describes the simulation of STM-images using non equilibrium 
 Green's functions methods to calculate the tunneling current.
 The method is based on J. Bardeen's theory\ [#Bardeen]_, where

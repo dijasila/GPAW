@@ -32,17 +32,18 @@ class PoissonSolver:
         if relax == 'GS':
             # Gauss-Seidel
             self.relax_method = 1
-            self.description = 'Gauss-Seidel'
         elif relax == 'J':
             # Jacobi
             self.relax_method = 2
-            self.description = 'Jacobi'
         else:
             raise NotImplementedError('Relaxation method %s' % relax)
-        
+    
+    def get_method(self):
+        return ['Gauss-Seidel', 'Jacobi'][self.relax_method - 1]
+
     def get_stencil(self):
         return self.nn
-
+    
     def set_grid_descriptor(self, gd):
         # Should probably be renamed initialize
         self.gd = gd
@@ -88,9 +89,6 @@ class PoissonSolver:
             gd = gd2
 
         self.levels = level
-
-        self.description += ' solver with %d multi-grid levels' % (level + 1)
-        self.description += '\nStencil: ' + self.operators[0].description
 
     def initialize(self, load_gauss=False):
         # Should probably be renamed allocate
@@ -188,9 +186,7 @@ class PoissonSolver:
             return niter
         else:
             # System is charged with mixed boundaryconditions
-            msg = 'Charged systems with mixed periodic/zero' 
-            msg += ' boundary conditions'
-            raise NotImplementedError(msg)
+            raise NotImplementedError
 
     def solve_neutral(self, phi, rho, eps=2e-10):
         self.phis[0] = phi
@@ -295,27 +291,14 @@ class PoissonSolver:
         return representation
 
 
-class NoInteractionPoissonSolver:
-    description = 'No interaction'
-    relax_method = 0
-    nn = 1
-    def get_stencil(self):
-        return 1
-    def solve(self, phi, rho, charge):
-        return 0
-    def set_grid_descriptor(self, gd):
-        pass
-    def initialize(self):
-        pass
-
-
 class PoissonFFTSolver(PoissonSolver):
     """FFT implementation of the Poisson solver."""
 
-    description = 'FFT solver of the first kind'
-
     def __init__(self):
         self.charged_periodic_correction = None
+
+    def get_method(self):
+        return 'FFT solver of the first kind'
 
     def initialize(self, gd, load_gauss=False):
         # XXX this won't work now, but supposedly this class will be deprecated
@@ -343,11 +326,13 @@ class FFTPoissonSolver(PoissonSolver):
 
     relax_method = 0
     nn = 999
-    description = 'FFT solver of the second kind'
 
     def __init__(self, eps=2e-10):
         self.charged_periodic_correction = None
         self.eps = eps
+
+    def get_method(self):
+        return 'FFT solver of the second kind'
 
     def set_grid_descriptor(self, gd):
         assert gd.pbc_c.all()
@@ -379,6 +364,9 @@ class FixedBoundaryPoissonSolver(PoissonSolver):
         self.charged_periodic_correction = None
         assert self.nn == 1
 
+    def get_method(self):
+        return 'Fixed-boundary %s' % PoissonSolver.get_method(self)
+        
     def set_grid_descriptor(self, gd):
         assert gd.pbc_c.all()
         assert gd.orthogonal

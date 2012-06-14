@@ -13,24 +13,26 @@ def delta_function(x0, dx, Nx, sigma):
     return deltax / (2. * sqrt(pi * sigma))
 
 
-def hilbert_transform(specfunc_wGG, w_w, Nw, dw, eta, fullresponse=False):
+def hilbert_transform(specfunc_wGG, Nw, dw, eta, fullresponse=False):
 
     NwS = specfunc_wGG.shape[0]
     tmp_ww = np.zeros((Nw, NwS), dtype=complex)
-    ww_w = np.linspace(0., (NwS-1)*dw, NwS)
 
     for iw in range(Nw):
-        if fullresponse is False:
-            tmp_ww[iw] = 1. / (w_w[iw] - ww_w + 1j*eta) - 1. / (w_w[iw] + ww_w + 1j*eta)
-        else:
-            tmp_ww[iw] = 1. / (w_w[iw] - ww_w + 1j*eta) - 1. / (w_w[iw] + ww_w - 1j*eta)
+        w = iw * dw
+        for jw in range(NwS):
+            ww = jw * dw
+            if fullresponse is False:
+                tmp_ww[iw, jw] = 1. / (w - ww + 1j*eta) - 1. / (w + ww + 1j*eta)
+            else:
+                tmp_ww[iw, jw] = 1. / (w - ww + 1j*eta) - 1. / (w + ww - 1j*eta)
 
     chi0_wGG = gemmdot(tmp_ww, specfunc_wGG, beta = 0.)
 
     return chi0_wGG * dw
 
 
-def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=None, Gend=None, rgd=None, phi_jg=None,
+def two_phi_planewave_integrals(k_Gv, setup=None, rgd=None, phi_jg=None,
                                 phit_jg=None,l_j=None):
     """Calculate PAW-correction matrix elements with planewaves.
 
@@ -104,7 +106,7 @@ def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=None, Gend=None, rgd=No
                                phit_jg[j1] * phit_jg[j2])
 
     # Loop over G vectors
-    for iG in range(Gstart, Gend):
+    for iG in range(npw):
         kk = k_Gv[iG] 
         k = np.sqrt(np.dot(kk, kk)) # calculate length of q+G
 

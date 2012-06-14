@@ -55,18 +55,12 @@ def XC(kernel, parameters=None):
             except:
                 from gpaw.xc.sic import SIC 
                 return SIC(xc=name[:-7])
-        elif name.startswith('old'):
+        elif name.startswith('old'): 
             from gpaw.xc.kernel import XCKernel
             kernel = XCKernel(name[3:])
         elif name == 'PPLDA':
             from gpaw.xc.lda import PurePythonLDAKernel
             kernel = PurePythonLDAKernel()
-        elif name in ['pyPBE', 'pyPBEsol', 'pyRPBE']:
-            from gpaw.xc.gga import PurePythonGGAKernel
-            kernel = PurePythonGGAKernel(name)
-        elif name == '2D-MGGA':
-            from gpaw.xc.mgga import PurePython2DMGGAKernel
-            kernel = PurePython2DMGGAKernel(name, parameters)
         else:
             kernel = LibXC(kernel)
     if kernel.type == 'LDA':

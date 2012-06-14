@@ -35,10 +35,8 @@ nbands=8
 bands=np.array([3,4])
 ecut=25./Hartree
 
-gwkpt_k = calc.wfs.kd.ibz2bz_k
 gwnkpt = calc.wfs.kd.nibzkpts
 gwnband = len(bands)
-nspins = calc.wfs.nspins
 
 file='Si_gs.gpw'
 calc = GPAW(
@@ -54,23 +52,24 @@ alpha = 5.0
 exx = HybridXC('EXX', alpha=alpha, ecut=ecut, bands=bands)
 calc.get_xc_difference(exx)
 
-e_skn = np.zeros((nspins, gwnkpt, gwnband), dtype=float)
-vxc_skn = np.zeros((nspins, gwnkpt, gwnband), dtype=float)
-exx_skn = np.zeros((nspins, gwnkpt, gwnband), dtype=float)
+e_kn = np.zeros((gwnkpt, gwnband), dtype=float)
+v_kn = np.zeros((gwnkpt, gwnband), dtype=float)
+e_xx = np.zeros((gwnkpt, gwnband), dtype=float)
 
-for s in range(nspins):
-    for i, k in enumerate(range(gwnkpt)):
-        for j, n in enumerate(bands):
-            e_skn[s][i][j] = calc.get_eigenvalues(kpt=k, spin=s)[n] / Hartree
-            vxc_skn[s][i][j] = v_xc[s][k][n] / Hartree
-            exx_skn[s][i][j] = exx.exx_skn[s][k][n]
+i = 0
+for k in range(gwnkpt):
+    j = 0
+    for n in bands:
+        e_kn[i][j] = calc.get_eigenvalues(kpt=k)[n] / Hartree
+        v_kn[i][j] = v_xc[0][k][n] / Hartree
+        e_xx[i][j] = exx.exx_skn[0][k][n]
+        j += 1
+    i += 1
 
 data = {
-        'e_skn': e_skn,        # in Hartree
-        'vxc_skn': vxc_skn,    # in Hartree
-        'exx_skn': exx_skn,    # in Hartree
-        'gwkpt_k': gwkpt_k,
-        'gwbands_n': bands
+        'e_kn': e_kn,         # in Hartree
+        'v_kn': v_kn,         # in Hartree
+        'e_xx': e_xx,         # in Hartree
        }
 if rank == 0:
     pickle.dump(data, open('EXX.pckl', 'w'), -1)
@@ -81,7 +80,7 @@ gw = GW(
         file=file,
         nbands=8,
         bands=np.array([3,4]),
-        w=np.array([10., 30., 0.05]),
+        w=np.linspace(0., 30., 601),
         ecut=25.,
         eta=0.1,
         hilbert_trans=False,
@@ -90,13 +89,13 @@ gw = GW(
 
 gw.get_QP_spectrum()
 
-QP_False = gw.QP_skn * Hartree
+QP_False = gw.QP_kn * Hartree
 
 gw = GW(
         file=file,
         nbands=8,
         bands=np.array([3,4]),
-        w=np.array([10., 30., 0.05]),
+        w=np.linspace(0., 30., 601),
         ecut=25.,
         eta=0.1,
         hilbert_trans=True,
@@ -105,7 +104,7 @@ gw = GW(
 
 gw.get_QP_spectrum()
 
-QP_True = gw.QP_skn * Hartree
+QP_True = gw.QP_kn * Hartree
 
 if not (np.abs(QP_False - QP_True) < 0.01).all():
     raise AssertionError("method 1 not equal to method 2")

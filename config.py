@@ -3,7 +3,6 @@
 # Please see the accompanying LICENSE file for further information.
 
 import os
-import platform
 import sys
 import re
 import distutils.util
@@ -153,15 +152,12 @@ def get_system_config(define_macros, undef_macros,
             msg += ['* Using ACML library']
         else:
             atlas = False
-            for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib64/atlas']:
-                if glob(join(dir, 'libatlas.so')) != []:
+            for dir in ['/usr/lib', '/usr/local/lib']:
+                if glob(join(dir, 'libatlas.a')) != []:
                     atlas = True
                     break
             if atlas:
-                # http://math-atlas.sourceforge.net/errata.html#LINK
-                # atlas does not respect OMP_NUM_THREADS - build single-thread
-                # http://math-atlas.sourceforge.net/faq.html#tsafe
-                libraries += ['lapack', 'f77blas', 'cblas', 'atlas']
+                libraries += ['lapack', 'atlas', 'blas']
                 library_dirs += [dir]
                 msg +=  ['* Using ATLAS library']
             else:
@@ -204,15 +200,12 @@ def get_system_config(define_macros, undef_macros,
             #extra_link_args += ['-Wl,-rpath=' + library_dirs[-1]]
         else:
             atlas = False
-            for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib/atlas']:
-                if glob(join(dir, 'libatlas.so')) != []:
+            for dir in ['/usr/lib', '/usr/local/lib']:
+                if glob(join(dir, 'libatlas.a')) != []:
                     atlas = True
                     break
             if atlas:
-                # http://math-atlas.sourceforge.net/errata.html#LINK
-                # atlas does not respect OMP_NUM_THREADS - build single-thread
-                # http://math-atlas.sourceforge.net/faq.html#tsafe
-                libraries += ['lapack', 'f77blas', 'cblas', 'atlas']
+                libraries += ['lapack', 'atlas', 'blas']
                 library_dirs += [dir]
                 msg +=  ['* Using ATLAS library']
             else:
@@ -241,11 +234,6 @@ def get_system_config(define_macros, undef_macros,
         else:
             libraries += ['blas', 'lapack']
             msg +=  ['* Using standard lapack']
-
-    # https://listserv.fysik.dtu.dk/pipermail/gpaw-users/2012-May/001473.html
-    p = platform.dist()
-    if p[0].lower() in ['redhat', 'centos'] and p[1].startswith('6.'):
-        define_macros.append(('_GNU_SOURCE', '1'))
 
     return msg
 
@@ -390,7 +378,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     for c2r in glob('c/libxc/src/funcs_*.c'): cfiles2remove.append(c2r)
     for c2r in cfiles2remove: cfiles.remove(c2r)
     sources = ['c/bc.c', 'c/localized_functions.c', 'c/mpi.c', 'c/_gpaw.c',
-               'c/operators.c', 'c/transformers.c',
+               'c/operators.c', 'c/transformers.c', 'c/compiled_WITH_SL.c',
                'c/blacs.c', 'c/utilities.c', 'c/hdf5.c']
     objects = ' '.join(['build/temp.%s/' % plat + x[:-1] + 'o'
                         for x in cfiles])
@@ -417,12 +405,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     lib_dirs = ' '.join(['-L' + lib for lib in library_dirs])
 
     libs = ' '.join(['-l' + lib for lib in libraries if lib.strip()])
-    # See if there is "scalable" libpython available
-    libpl = cfgDict['LIBPL']
-    if glob(libpl + '/libpython*mpi*'):
-        libs += ' -lpython%s_mpi' % cfgDict['VERSION']
-    else:
-        libs += ' -lpython%s' % cfgDict['VERSION']
+    libs += ' -lpython%s' % cfgDict['VERSION']
     libs = ' '.join([libs, cfgDict['LIBS'], cfgDict['LIBM']])
 
     #Hack taken from distutils to determine option for runtime_libary_dirs
@@ -447,6 +430,38 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
         pass
     else:
         extra_link_args.append(cfgDict['LINKFORSHARED'])
+
+    if ('IO_WRAPPERS', 1) in define_macros:
+        extra_link_args += ['-Wl,-wrap,fread',
+                            '-Wl,-wrap,_IO_getc',
+                            '-Wl,-wrap,getc_unlocked',
+                            '-Wl,-wrap,fgets',
+                            '-Wl,-wrap,ungetc',
+                            '-Wl,-wrap,feof',
+                            '-Wl,-wrap,ferror',
+                            '-Wl,-wrap,fflush',
+                            '-Wl,-wrap,fseek',
+                            '-Wl,-wrap,rewind',
+                            # '-Wl,-wrap,fileno',
+                            '-Wl,-wrap,flockfile',
+                            '-Wl,-wrap,funlockfile',
+                            '-Wl,-wrap,clearerr',
+                            '-Wl,-wrap,fgetpos',
+                            '-Wl,-wrap,fsetpos',
+                            '-Wl,-wrap,setbuf',
+                            '-Wl,-wrap,setvbuf',
+                            '-Wl,-wrap,ftell',
+                            '-Wl,-wrap,fstat',
+                            '-Wl,-wrap,fstat64',
+                            '-Wl,-wrap,fgetc',
+                            # '-Wl,-wrap,fputc',
+                            # '-Wl,-wrap,fputs',
+                            # '-Wl,-wrap,fwrite',
+                            # '-Wl,-wrap,_IO_putc',
+                            '-Wl,-wrap,fopen',
+                            '-Wl,-wrap,fopen64',
+                            '-Wl,-wrap,fclose',
+                           ]
 
     # Compile the parallel sources
     for src in sources:

@@ -4,7 +4,6 @@ import pickle
 from math import pi
 from ase.units import Hartree
 from ase.io import write
-from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.io.tar import Writer, Reader
 from gpaw.mpi import world, size, rank, serial_comm
 from gpaw.utilities.blas import gemmdot, gemm, gemv
@@ -13,7 +12,6 @@ from gpaw.utilities.memory import maxrss
 from gpaw.response.base import BASECHI
 from gpaw.response.parallel import parallel_partition
 from gpaw.response.df import DF
-from gpaw.response.parallel import gatherv
 
 class BSE(BASECHI):
     """This class defines Belth-Selpether equations."""
@@ -57,7 +55,6 @@ class BSE(BASECHI):
         self.printtxt(ctime())
 
         BASECHI.initialize(self)
-        assert self.nspins == 1
         
         calc = self.calc
         self.kd = kd = calc.wfs.kd
@@ -100,13 +97,13 @@ class BSE(BASECHI):
             ibzkpt2 = kd.bz2ibz_k[kq_k[k1]]
             for n1 in range(self.nv[0], self.nv[1]): 
                 for m1 in range(self.nc[0], self.nc[1]): 
-                    focc = self.f_skn[0][ibzkpt1,n1] - self.f_skn[0][ibzkpt2,m1]
+                    focc = self.f_kn[ibzkpt1,n1] - self.f_kn[ibzkpt2,m1]
                     if not self.positive_w: # Dont use Tamm-Dancoff Approx.
                         check_ftol = np.abs(focc) > self.ftol
                     else:
                         check_ftol = focc > self.ftol
                     if check_ftol:           
-                        self.e_S[iS] =self.e_skn[0][ibzkpt2,m1] - self.e_skn[0][ibzkpt1,n1]
+                        self.e_S[iS] =self.e_kn[ibzkpt2,m1] - self.e_kn[ibzkpt1,n1]
                         focc_s[iS] = focc
                         self.Sindex_S3[iS] = (k1, n1, m1)
                         iS += 1
@@ -130,7 +127,7 @@ class BSE(BASECHI):
             self.nibzq = len(self.ibzq_qc)
 
         # parallel init
-        self.comm = self.Scomm = world
+        self.Scomm = world
         # kcomm and wScomm is only to be used when wavefunctions r parallelly distributed.
         self.kcomm = world
         self.wScomm = serial_comm
@@ -159,8 +156,8 @@ class BSE(BASECHI):
     def calculate(self):
 
         calc = self.calc
-        f_skn = self.f_skn
-        e_skn = self.e_skn
+        f_kn = self.f_kn
+        e_kn = self.e_kn
         ibzk_kc = self.ibzk_kc
         bzk_kc = self.bzk_kc
         kq_k = self.kq_k
@@ -198,7 +195,7 @@ class BSE(BASECHI):
             self.phi_aGp = self.get_phi_aGp()
 
        # calculate kernel
-        K_SS = np.zeros((self.nS_local, self.nS), dtype=complex)
+        K_SS = np.zeros((self.nS, self.nS), dtype=complex)
         W_SS = np.zeros_like(K_SS)
         self.rhoG0_S = np.zeros((self.nS), dtype=complex)
 
@@ -214,7 +211,7 @@ class BSE(BASECHI):
             for jS in range(self.nS):
                 k2, n2, m2 = self.Sindex_S3[jS]
                 rho2_G = self.density_matrix(n2,m2,k2)
-                K_SS[iS-self.nS_start, jS] = np.sum(rho1_G.conj() * rho2_G * self.kc_G)
+                K_SS[iS, jS] = np.sum(rho1_G.conj() * rho2_G * self.kc_G)
 
                 if self.use_W:
                     
@@ -277,7 +274,7 @@ class BSE(BASECHI):
                                             * self.dfinvG0_G[0] *self.vol 
 
                     tmp_GG = np.outer(rho3_G.conj(), rho4_G) * W_GG
-                    W_SS[iS-self.nS_start, jS] = np.sum(tmp_GG)
+                    W_SS[iS, jS] = np.sum(tmp_GG)
 #                    self.printtxt('%d %d %s %s' %(iS, jS, K_SS[iS,jS], W_SS[iS,jS]))
             self.timing(iS, t0, self.nS_local, 'pair orbital') 
 
@@ -285,115 +282,47 @@ class BSE(BASECHI):
 
         if self.use_W:
             K_SS -= 0.5 * W_SS / self.vol
+        world.sum(K_SS)
         world.sum(self.rhoG0_S)
-        self.printtxt('The number of G index outside the Gvec_Gc: %d'%(noGmap))
 
+        self.printtxt('The number of G index outside the Gvec_Gc: %d'%(noGmap))
         # get and solve hamiltonian
-        H_sS = np.zeros_like(K_SS)
-        for iS in range(self.nS_start, self.nS_end):
-            H_sS[iS-self.nS_start,iS] = e_S[iS]
+        H_SS = np.zeros_like(K_SS)
+        for iS in range(self.nS):
+            H_SS[iS,iS] = e_S[iS]
             for jS in range(self.nS):
-                H_sS[iS-self.nS_start,jS] += focc_S[iS] * K_SS[iS-self.nS_start,jS]
-  
-#        if self.positive_w is True: # matrix should be Hermitian
-#            for iS in range(self.nS):
-#                for jS in range(self.nS):
-#                    if np.abs(H_SS[iS,jS]- H_SS[jS,iS].conj()) > 1e-4:
-#                        print iS, jS, H_SS[iS,jS]- H_SS[jS,iS].conj()
+                H_SS[iS,jS] += focc_S[iS] * K_SS[iS,jS]
+
+        if self.positive_w is True: # matrix should be Hermitian
+            for iS in range(self.nS):
+                for jS in range(self.nS):
+                    if np.abs(H_SS[iS,jS]- H_SS[jS,iS].conj()) > 1e-4:
+                        print iS, jS, H_SS[iS,jS]- H_SS[jS,iS].conj()
 #                    assert np.abs(H_SS[iS,jS]- H_SS[jS,iS].conj()) < 1e-4
 
-        if self.positive_w: # force the matrix Hermitian
-            if world.size > 1:
-                H_Ss = self.redistribute_H(H_sS)
-            else:
-                H_Ss = H_sS
-            H_sS = (np.real(H_sS) + np.real(H_Ss.T)) / 2. + 1j * (np.imag(H_sS) - np.imag(H_Ss.T)) /2.
+        # make the matrix hermitian
+        if self.use_W:
+            H_SS = (np.real(H_SS) + np.real(H_SS.T)) / 2. + 1j * (np.imag(H_SS) - np.imag(H_SS.T)) /2.
 
-        # save H_sS matrix
-        self.par_save('H_SS','H_SS', H_sS)
+#        if not self.positive_w:
+        self.w_S, self.v_SS = np.linalg.eig(H_SS)
+#        else:
+#            from gpaw.utilities.lapack import diagonalize
+#            self.w_S = np.zeros(self.nS, dtype=complex)
+#            diagonalize(H_SS, self.w_S)
+#            self.v_SS = H_SS.T.copy() # eigenvectors in the rows
 
-        return H_sS
+        data = {
+                'w_S': self.w_S,
+                'v_SS':self.v_SS,
+                'rhoG0_S':self.rhoG0_S
+                }
+        if rank == 0:
+            pickle.dump(data, open('H_SS.pckl', 'w'), -1)
 
-    def diagonalize(self, H_sS):
-        if not self.positive_w: # none Hemitian matrix can only use linalg.eig
-            self.printtxt('Use numpy.linalg.eig')
-            H_SS = np.zeros((self.nS, self.nS), dtype=complex)
-            if self.nS % world.size == 0:
-                world.all_gather(H_sS, H_SS)
-            else:
-                H_SS = gatherv(H_sS)
-
-            self.w_S, self.v_SS = np.linalg.eig(H_SS)
-            self.par_save('v_SS', 'v_SS', self.v_SS[self.nS_start:self.nS_end, :].copy())
-        else:
-            if world.size == 1:
-                self.printtxt('Use lapack.')
-                from gpaw.utilities.lapack import diagonalize
-                self.w_S = np.zeros(self.nS)
-                H_SS = H_sS
-                diagonalize(H_SS, self.w_S)
-                self.v_SS = H_SS.conj() # eigenvectors in the rows, transposed later
-            else:
-                self.printtxt('Use scalapack')
-                self.w_S, self.v_sS = self.scalapack_diagonalize(H_sS)
-                self.v_SS = self.v_sS # just use the same name
-            self.par_save('v_SS', 'v_SS', self.v_SS)
         
         return 
 
-
-    def par_save(self,filename, name, A_sS):
-        from gpaw.io import open 
-
-        nS_local = self.nS_local
-        nS = self.nS
-        
-        if rank == 0:
-            w = open(filename, 'w', world)
-            w.dimension('nS', nS)
-            
-            if name == 'v_SS':
-                w.add('w_S', ('nS',), dtype=self.w_S.dtype)
-                w.fill(self.w_S)
-            w.add('rhoG0_S', ('nS',), dtype=complex)
-            w.fill(self.rhoG0_S)
-            w.add(name, ('nS', 'nS'), dtype=complex)
-
-            tmp = np.zeros_like(A_sS)
-
-        # assumes that H_SS is written in order from rank 0 - rank N
-        for irank in range(size):
-            if irank == 0:
-                if rank == 0:
-                    w.fill(A_sS)
-            else:
-                if rank == irank:
-                    world.send(A_sS, 0, irank+100)
-                if rank == 0:
-                    world.receive(tmp, irank, irank+100)
-                    w.fill(tmp)
-        if rank == 0:
-            w.close()
-        world.barrier()
-
-    def par_load(self,filename, name):
-        from gpaw.io import open 
-        r = open(filename, 'r')
-        nS = r.dimension('nS')
-
-        if name == 'v_SS':
-            self.w_S = r.get('w_S')
-
-        A_SS = np.zeros((self.nS_local, nS), dtype=complex)
-        for iS in range(self.nS_start, self.nS_end):   
-            A_SS[iS-self.nS_start,:] = r.get(name, iS)
-
-        self.rhoG0_S = r.get('rhoG0_S')
-
-        r.close()
-        
-        return A_SS
-    
 
     def full_static_screened_interaction(self):
         """Calcuate W_GG(q)"""
@@ -505,32 +434,23 @@ class BSE(BASECHI):
         return phi_aGp
 
 
-    def get_dielectric_function(self, filename='df.dat', readfile=None):
+    def get_dielectric_function(self, filename='df.dat', readfile=None, overlap=True):
 
         if self.epsilon_w is None:
             self.initialize()
 
             if readfile is None:
-                H_sS = self.calculate()
-                self.printtxt('Diagonalizing BSE matrix.')
-                self.diagonalize(H_sS)
+                self.calculate()
                 self.printtxt('Calculating dielectric function.')
-            elif readfile == 'H_SS':
-                H_sS = self.par_load('H_SS', 'H_SS')
-                self.printtxt('Finished reading H_SS.gpw')
-                self.diagonalize(H_sS)
-                self.printtxt('Finished diagonalizing BSE matrix')
-            elif readfile == 'v_SS':
-                self.v_SS = self.par_load('v_SS', 'v_SS')
-                self.printtxt('Finished reading v_SS.gpw')
             else:
-                XX
+                data = pickle.load(open(readfile))
+                self.w_S  = data['w_S']
+                self.v_SS = data['v_SS']
+                self.rhoG0_S = data['rhoG0_S']
+                self.printtxt('Finished reading H_SS.pckl')
 
             w_S = self.w_S
-            if self.positive_w:
-                v_SS = self.v_SS.T # v_SS[:,lamda]
-            else:
-                v_SS = self.v_SS
+            v_SS = self.v_SS # v_SS[:,lamda]
             rhoG0_S = self.rhoG0_S
             focc_S = self.focc_S
 
@@ -548,11 +468,7 @@ class BSE(BASECHI):
             if not self.positive_w:
                 C_S = np.dot(B_S.conj(), overlap_SS.T) * A_S
             else:
-                if world.size == 1:
-                    C_S = B_S.conj() * A_S
-                else:
-                    tmp = B_S.conj() * A_S
-                    C_S = gatherv(tmp, self.nS)
+                C_S = B_S.conj() * A_S
 
             for iw in range(self.Nw):
                 tmp_S = 1. / (iw*self.dw - w_S + 1j*self.eta)
@@ -773,45 +689,3 @@ class BSE(BASECHI):
 
         world.barrier()
 
-    def redistribute_H(self, H_sS):
-
-        g1 = BlacsGrid(world, size, 1)
-        g2 = BlacsGrid(world, 1, size)
-        N = self.nS
-        nndesc1 = g1.new_descriptor(N, N, self.nS_local,  N) 
-        nndesc2 = g2.new_descriptor(N, N, N, self.nS_local)
-        
-        H_Ss = nndesc2.empty(dtype=H_sS.dtype)
-        redistributor = Redistributor(world, nndesc1, nndesc2)
-        redistributor.redistribute(H_sS, H_Ss)
-
-        return H_Ss
-
-    def scalapack_diagonalize(self, H_sS):
-
-        mb = 32
-        N = self.nS
-        
-        g1 = BlacsGrid(world, size,    1)
-        g2 = BlacsGrid(world, size//2, 2)
-        nndesc1 = g1.new_descriptor(N, N, self.nS_local,  N) 
-        nndesc2 = g2.new_descriptor(N, N, mb, mb)
-        
-        A_ss = nndesc2.empty(dtype=H_sS.dtype)
-        redistributor = Redistributor(world, nndesc1, nndesc2)
-        redistributor.redistribute(H_sS, A_ss)
-        
-        # diagonalize
-        v_ss = nndesc2.zeros(dtype=A_ss.dtype)
-        w_S = np.zeros(N,dtype=float)
-        nndesc2.diagonalize_dc(A_ss, v_ss, w_S, 'L')
-        
-        # distribute the eigenvectors to master
-        v_sS = np.zeros_like(H_sS)
-        redistributor = Redistributor(world, nndesc2, nndesc1)
-        redistributor.redistribute(v_ss, v_sS)
-
-#        v2_SS = np.zeros((self.nS, self.nS), dtype=complex)
-#        world.all_gather(v_sS, v2_SS)
-        
-        return w_S, v_sS.conj()

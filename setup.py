@@ -63,7 +63,6 @@ packages = ['gpaw',
             'gpaw.tddft',
             'gpaw.test',
             'gpaw.test.big',
-            'gpaw.test.cmrtest',
             'gpaw.test.noncollinear',
             'gpaw.test.parallel',
             'gpaw.test.fileio',
@@ -179,8 +178,7 @@ sources = sources + glob('c/libxc/src/*.c')
 sources2remove = ['c/libxc/src/test.c',
                   'c/libxc/src/xc_f.c',
                   'c/libxc/src/work_gga_x.c',
-                  'c/libxc/src/work_lda.c',
-                  'c/hdf5.c',
+                  'c/libxc/src/work_lda.c'
                   ]
 
 for s2r in glob('c/libxc/src/funcs_*.c'): sources2remove.append(s2r)

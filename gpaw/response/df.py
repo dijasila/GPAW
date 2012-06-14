@@ -5,7 +5,6 @@ from ase.units import Hartree, Bohr
 from gpaw.mpi import rank
 from gpaw.response.chi import CHI
 
-
 class DF(CHI):
     """This class defines dielectric function related physical quantities."""
 
@@ -20,7 +19,7 @@ class DF(CHI):
                  density_cut=None,
                  G_plus_q=False,
                  eta=0.2,
-                 rpad=np.array([1, 1, 1]),
+                 rpad=np.array([1,1,1]),
                  vcut=None,
                  ftol=1e-7,
                  txt=None,
@@ -41,49 +40,47 @@ class DF(CHI):
 
         self.df_flag = False
         self.print_bootstrap = print_xc_scf
-        self.df1_w = None  # NLF RPA
-        self.df2_w = None  # LF RPA
-        self.df3_w = None  # NLF ALDA
-        self.df4_w = None  # LF ALDA
+        self.df1_w = None # NLF RPA
+        self.df2_w = None # LF RPA
+        self.df3_w = None # NLF ALDA
+        self.df4_w = None # LF ALDA
 
-    def get_dielectric_matrix(self, xc='RPA', overwritechi0=False):
-        
+
+    def get_dielectric_matrix(self, xc='RPA'):
+
 	if self.chi0_wGG is None:
             self.initialize()
             self.calculate()
         else:
-            pass  # read from file and re-initializing .... need to be implemented
+            pass # read from file and re-initializing .... need to be implemented
 
-        if overwritechi0:
-            dm_wGG = self.chi0_wGG
-        else:
-            dm_wGG = np.zeros_like(self.chi0_wGG)
+        tmp_GG = np.eye(self.npw, self.npw)
+        dm_wGG = np.zeros((self.Nw_local, self.npw, self.npw), dtype = complex)
+        
         if xc == 'RPA':
-            Kc_G = np.zeros(self.npw)
-            for iG in range(self.npw):
-                qG = np.dot(self.q_c + self.Gvec_Gc[iG], self.bcell_cv)
-                Kc_G[iG] = 1. / np.sqrt(np.dot(qG, qG))
-            Kc_G *= np.sqrt(4 * pi)
-
             self.printtxt('Use RPA.')
             for iw in range(self.Nw_local):
-                for iG in range(self.npw):
-                    dmtmp_G = - Kc_G[iG] * Kc_G[:] * self.chi0_wGG[iw,iG,:]
-                    dmtmp_G[iG] += 1
-                    dm_wGG[iw,iG,:] = dmtmp_G[:]
-
+                dm_wGG[iw] = tmp_GG - self.Kc_GG * self.chi0_wGG[iw]
         elif xc == 'ALDA':
             self.printtxt('Use ALDA kernel.')
             # E_LDA = 1 - v_c chi0 (1-fxc chi0)^-1
             # http://prb.aps.org/pdf/PRB/v33/i10/p7017_1 eq. 4
-            tmp_GG = np.eye(self.npw, self.npw)
             A_wGG = self.chi0_wGG.copy()
             for iw in range(self.Nw_local):
-                A_wGG[iw] = np.dot(self.chi0_wGG[iw], np.linalg.inv(tmp_GG - np.dot(self.Kxc_sGG[0], self.chi0_wGG[iw])))
+                A_wGG[iw] = np.dot(self.chi0_wGG[iw], np.linalg.inv(tmp_GG - np.dot(self.Kxc_GG[0], self.chi0_wGG[iw])))
     
             for iw in range(self.Nw_local):
                 dm_wGG[iw] = tmp_GG - self.Kc_GG * A_wGG[iw]                
 
+        if self.nspins == 2:
+            del self.e_kn
+            self.ecut *= Hartree
+            self.initialize(spin=1)
+            self.calculate(spin=1)
+
+            for iw in range(self.Nw_local):
+                dm_wGG[iw] -= self.Kc_GG * self.chi0_wGG[iw]
+        
         return dm_wGG
 
 
@@ -114,7 +111,7 @@ class DF(CHI):
             kernel_GG[iG,iG] = 4 * pi / np.dot(qG, qG)
             
         if xc == 'ALDA':
-            kernel_GG += self.Kxc_sGG[0]
+            kernel_GG += self.Kxc_GG
 
         for iw in range(self.Nw_local):
             tmp_GG = np.eye(self.npw, self.npw) - np.dot(self.chi0_wGG[iw], kernel_GG)
@@ -170,7 +167,6 @@ class DF(CHI):
 	if self.chi0_wGG is None:
             self.initialize()
             self.calculate()
-
 
         g_w2 = np.zeros((self.Nw,2), dtype=complex)
         assert self.acell_cv[0,2] == 0. and self.acell_cv[1,2] == 0.
@@ -367,12 +363,12 @@ class DF(CHI):
         self.comm.barrier()
 
 
-    def get_jdos(self, f_skn, e_skn, kd, kq, dw, Nw, sigma):
+    def get_jdos(self, f_kn, e_kn, kd, kq, dw, Nw, sigma):
         """Calculate Joint density of states"""
 
         JDOS_w = np.zeros(Nw)
         nkpt = kd.nbzkpts
-        nbands = f_skn[0].shape[1]
+        nbands = f_kn.shape[1]
 
         for k in range(nkpt):
             print k
@@ -380,8 +376,8 @@ class DF(CHI):
             ibzkpt2 = kd.bz2ibz_k[kq[k]]
             for n in range(nbands):
                 for m in range(nbands):
-                    focc = f_skn[0][ibzkpt1, n] - f_skn[0][ibzkpt2, m]
-                    w0 = e_skn[0][ibzkpt2, m] - e_skn[0][ibzkpt1, n]
+                    focc = f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]
+                    w0 = e_kn[ibzkpt2, m] - e_kn[ibzkpt1, n]
                     if focc > 0 and w0 >= 0:
                         w0_id = int(w0 / dw)
                         if w0_id + 1 < Nw:
@@ -463,196 +459,6 @@ class DF(CHI):
 
         return drho_z
 
-    def get_eigenmodes(self,filename = None, chi0 = None, calc = None, dm = None, xc = 'RPA', sum = None, vcut = None, checkphase = False):
-        """
-        Calculate the plasmonic eigenmodes by finding eigenvectors of the dielectric matrix.
-        If chi0_wGG is given, the RPA dielectric matrix is calculated.  
-
-        Parameters:
-
-        filename:  pckl file
-                   output from response calculation.
-         
-        chi0:  gpw file
-               chi0_wGG from response calculation. 
-
-        dm:  gpw file
-             dielectric matrix from response calculation  
-        
-        calc:  gpaw calculator instance
-               ground state calculator used in response calculation.
-               Wavefunctions only needed if chi0 is calculated from scratch
-
-        sum:  str
-              '2D': sum in the x and y directions
-              '1D': To be implemented
-           
-        """
-        from gpaw import GPAW
-        self.read(filename)      
-        self.calc = GPAW(calc,txt=None)
-        calc = self.calc
-        self.w_w = np.linspace(0, self.dw * (self.Nw - 1)*Hartree, self.Nw)
-        self.vcut = vcut
-        self.xc = xc
-        
-        if chi0 is None and dm is None: # calculate chi0 from scratch            
-            self.initialize()
-            self.calculate()    
-            self.w_w = self.w_w * Hartree
-            self.dm_wGG = self.get_dielectric_matrix()        
-        else: # read from file and reinitialize
-            from gpaw.response.parallel import par_read          
-            from gpaw.response.kernel import calculate_Kc
-            self.Nw_local = self.Nw
-            self.nspins = 1
-            self.gd = self.calc.wfs.gd
-            if dm is not None:
-                self.dm_wGG = par_read(dm, 'dm')
-            else:
-                self.chi0_wGG = par_read(chi0, 'chi0_wGG')
-                self.Kc_GG = calculate_Kc(self.q_c, self.Gvec_Gc,
-                                          self.acell_cv, self.bcell_cv,
-                                          self.calc.atoms.pbc, self.optical_limit,
-                                          self.vcut, nonsymmetric = True)
-                          
-                if self.xc == 'ALDA' or self.xc == 'ALDA_X':
-                    # from gpaw.response.kernel import calculate_Kxc
-                    self.printtxt('ALDA not implemented')
-                    return
-                self.dm_wGG = self.get_dielectric_matrix(xc= xc) 
-               
-
-        self.pbc = self.calc.atoms.pbc
-        q = self.q_c
-        gd = self.gd
-        r = gd.get_grid_point_coordinates()
-        rrr = r*Bohr 
-        pbc = self.calc.atoms.pbc
-        
-        eig_0 = np.array([], dtype = complex)
-        eig_left = np.array([], dtype = complex)
-        eig_right = np.array([], dtype = complex)
-        vec_modes = np.zeros([1, self.npw], dtype = complex)
-        vec_modes_dual = np.zeros([1, self.npw], dtype = complex)
-        eig_all = np.zeros([1, self.npw], dtype = complex)
-        eig_dummy = np.zeros([1, self.npw], dtype = complex)
-        v_dummy = np.zeros([1, self.npw], dtype = complex)
-        vec_dummy = np.zeros([1, self.npw], dtype = complex)
-        w_0 = np.array([]) 
-        w_left = np.array([])
-        w_right = np.array([])
-     
-        if sum == '2D':
-            v_ind = np.zeros([1, r.shape[-1]], dtype = complex)
-            n_ind = np.zeros([1, r.shape[-1]], dtype = complex)
-        elif sum == '1D':            
-            self.printtxt('1D sum not implemented')
-            return 
-        else:
-            v_ind = np.zeros([1, r.shape[1], r.shape[2], r.shape[3]], dtype = complex)
-            n_ind = np.zeros([1, r.shape[1], r.shape[2], r.shape[3]], dtype = complex)
-
-        dm_wGG = self.dm_wGG
-        eps_GG_plus = dm_wGG[0]
-        eig_plus, vec_plus = np.linalg.eig(eps_GG_plus)  # find eigenvalues and eigenvectors
-        vec_plus_dual = np.linalg.inv(vec_plus)
-        
-        # loop over frequencies, where the eigenvalues for the 2D matrix in G,G' are found.
-        for i in np.array(range(self.Nw-1))+1:
-            eps_GG = eps_GG_plus
-            eig, vec = eig_plus,vec_plus
-            vec_dual = vec_plus_dual
-            eps_GG_plus = dm_wGG[i] # epsilon_GG'(omega + d-omega)
-            eig_plus, vec_plus = np.linalg.eig(eps_GG_plus)
-            vec_plus_dual = np.linalg.inv(vec_plus)
-            eig_dummy[0,:] = eig
-            eig_all = np.append(eig_all, eig_dummy, axis=0) # append all eigenvalues to array         
-            # loop to check find the eigenvalues that crosses zero from negative to positive values:
-            for k in range(self.npw):
-                for m in range(self.npw):
-                    if eig[k]< 0 and 0 < eig_plus[m]:
-                        # check it's the same mode - Overlap between eigenvectors should be large:
-                        if abs(np.inner(vec[:,k], np.conjugate(vec_plus[:,m]))) > 0.95:                             
-                            self.printtxt('crossing found at w = %1.1f eV'%self.w_w[i-1])
-                            eig_left = np.append(eig_left, eig[k])   
-                            eig_right = np.append(eig_right, eig_plus[m])
-
-                            vec_dummy[0, :] = vec[:,k]
-                            vec_modes = np.append(vec_modes, vec_dummy, axis = 0)
-                            vec_dummy[0, :] = vec_dual[k, :].T
-                            vec_modes_dual = np.append(vec_modes_dual, vec_dummy, axis = 0)
-                            
-                            w1 = self.w_w[i-1]
-                            w2 = self.w_w[i]
-                            a = np.real((eig_plus[m]-eig[k]) / (w2-w1))
-                            w0 = np.real(-eig[k]) / a + w1
-                            eig0 = a*(w0-w1)+eig[k]
-
-                            w_0 = np.append(w_0,w0)
-                            w_left = np.append(w_left, w1)
-                            eig_0 = np.append(eig_0,eig0)                           
-
-                            n_dummy = np.zeros([1, r.shape[1], r.shape[2],
-                                                r.shape[3]], dtype = complex)
-                            v_dummy = np.zeros([1, r.shape[1], r.shape[2],
-                                                r.shape[3]], dtype = complex)    
-
-                            vec_n = np.zeros([self.npw])
-                            for iG in range(self.npw):  # Fourier transform
-                                qG = np.dot((q + self.Gvec_Gc[iG]), self.bcell_cv)
-                                coef_G = np.dot(qG, qG) / (4 * pi)
-                                qGr_R = np.inner(qG, r.T).T
-                                v_dummy += vec[iG, k] * np.exp(1j * qGr_R)
-                                n_dummy += vec[iG, k] * np.exp(1j * qGr_R) * coef_G
-
-                            if checkphase:
-                                integral = np.zeros([81])
-                                integral_n = np.zeros([81])
-                                phases = np.linspace(0,2,81)
-                                phases_n = np.linspace(0,2,81)
-                                for ip in range(81):
-                                    v_int = v_dummy * np.exp(1j * pi * phases[ip])
-                                    integral[ip] = abs(np.imag(v_int)).sum()
-                                    n_int = n_dummy * np.exp(1j * pi * phases_n[ip])
-                                    integral_n[ip] = abs(np.imag(n_int)).sum()
-                                    
-                                phase = phases[np.argsort(integral)][0]
-                                phase_n = phases_n[np.argsort(integral_n)][0]
-                                v_dummy = v_dummy * np.exp(1j * pi * phase)
-                                n_dummy = n_dummy * np.exp(1j * pi * phase_n)
-#
-                            if sum == '2D':
-                                i_xyz = 3 
-                                v_dummy_z = np.zeros([1,v_dummy.shape[i_xyz]],
-                                                     dtype = complex)
-                                n_dummy_z = np.zeros([1,v_dummy.shape[i_xyz]],
-                                                     dtype = complex)
-                                v_dummy_z[0,:] = np.sum(np.sum(v_dummy, axis = 1),
-                                                        axis = 1)[0,:]
-                                n_dummy_z[0,:] = np.sum(np.sum(n_dummy, axis = 1),
-                                                        axis = 1)[0,:]
-
-                                v_ind = np.append(v_ind, v_dummy_z, axis=0)
-                                n_ind = np.append(n_ind, n_dummy_z, axis=0)
-                                
-                            #elif sum == '1D':
-                            #    self.printtxt('ALDA not implemented')
-                                
-                            elif sum == '1D':
-                                self.printtxt('1D sum not implemented')
-                            else :
-                                v_ind = np.append(v_ind, v_dummy, axis=0)
-                                n_ind = np.append(n_ind, n_dummy, axis=0)                            
-        """                        
-        returns: grid points, frequency grid, all eigenvalues, mode energies,
-                 mode eigenvalues, eigenvalues of left and right-side points,
-                 mode eigenvectors, mode dual eigenvectors,
-                 induced potential in real space, induced density in real space
-        """
-        return rrr, self.w_w, eig_all[1:], w_0, eig_0, w_left, eig_left, \
-               eig_right, vec_modes[1:], vec_modes_dual[1:], v_ind[1:], n_ind[1:]
-    
 
     def project_chi_to_LCAO_pair_orbital(self, orb_MG):
 
@@ -709,12 +515,11 @@ class DF(CHI):
                 'q_red': self.q_c,
                 'q_car': self.qq_v,    # / Bohr,
                 'qmod' : np.dot(self.qq_v, self.qq_v), # / Bohr
-                #'vcut' : self.vcut,
                 'nvalence'     : self.nvalence,                
                 'hilbert_trans' : self.hilbert_trans,
                 'optical_limit' : self.optical_limit,
-                'e_skn'         : self.e_skn,          # * Hartree,
-                'f_skn'         : self.f_skn,          # * self.nkpt,
+                'e_kn'         : self.e_kn,          # * Hartree,
+                'f_kn'         : self.f_kn,          # * self.nkpt,
                 'bzk_kc'       : self.bzk_kc,
                 'ibzk_kc'      : self.ibzk_kc,
                 'kq_k'         : self.kq_k,
@@ -759,12 +564,11 @@ class DF(CHI):
         self.q_c   = data['q_red']
         self.qq_v  = data['q_car']
         self.qmod  = data['qmod']
-        #self.vcut  = data['vcut']
         
         self.hilbert_trans = data['hilbert_trans']
         self.optical_limit = data['optical_limit']
-        self.e_skn  = data['e_skn']
-        self.f_skn  = data['f_skn']
+        self.e_kn  = data['e_kn']
+        self.f_kn  = data['f_kn']
         self.nvalence= data['nvalence']
         self.bzk_kc  = data['bzk_kc']
         self.ibzk_kc = data['ibzk_kc']

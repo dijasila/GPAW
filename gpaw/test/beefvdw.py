@@ -32,11 +32,11 @@ de_h = ens.get_ensemble_energies()
 f0 = f[0].sum()
 f1 = f[1].sum()
 assert abs(f0 + f1) < 1.e-10
-assert abs(f0 - 1.04) < 1.e-2
+assert abs(f0 - 1.04407657919) < 1.e-6
 
 # binding energy
 E_bind = 2*e_h - e_h2
 dE_bind = 2*de_h[:] - de_h2[:]
 dE_bind = np.std(dE_bind)
-assert abs(E_bind - 5.125) < 1.e-2
-assert abs(dE_bind - 0.204) < 1.e-2
+assert abs(E_bind - 5.1263857048) < 1.e-6
+assert abs(dE_bind - 0.206959770215 ) < 1.e-3

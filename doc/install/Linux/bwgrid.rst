@@ -32,8 +32,7 @@ The installation of gpaw requires to modify customize.py to
 
 .. literalinclude:: customize_bwgrid_icc.py
 
-and build GPAW (``python setup.py build_ext 2>&1 | tee build_ext.log``)
-while ignoring some intermediate warnings.
+and build GPAW (``python setup.py build_ext | tee build_ext.log``)
 
 A gpaw script :file:`test.py` can be submitted to run on 8 cpus like this::
 

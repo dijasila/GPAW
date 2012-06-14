@@ -7,21 +7,17 @@ from gpaw.response.df import DF
 from gpaw.utilities import devnull
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.mpi import rank, size, world
-from gpaw.response.parallel import parallel_partition, \
-     parallel_partition_list, set_communicator
+from gpaw.response.parallel import parallel_partition, set_communicator
 from scipy.special.orthogonal import p_roots
 
 class RPACorrelation:
 
     def __init__(self,
                  calc,
-                 vcut=None,
                  txt=None,
-                 tag=None,
                  qsym=True):
         
         self.calc = calc
-        self.tag = tag
         
         if txt is None:
             if rank == 0:
@@ -36,7 +32,6 @@ class RPACorrelation:
             self.txt = paropen(txt, 'w')
 
         self.qsym = qsym
-        self.vcut = vcut
         self.nspins = calc.wfs.nspins
         self.bz_k_points = calc.wfs.bzk_kc
         self.atoms = calc.get_atoms()
@@ -151,33 +146,22 @@ class RPACorrelation:
                                                   world.rank,
                                                   world.size,
                                                   kcommsize=dfcommsize)[:2]
-            nq, nq_local, qlist_local = parallel_partition_list(nq,
+            nq, nq_local, q_start, q_end = parallel_partition(nq,
                                                               qcomm.rank,
-                                                              qcomm.size)
+                                                              qcomm.size,
+                                                              reshape=False)
     
             E_q = np.zeros(nq)
-            
-            for iq in qlist_local:
-                try:
-                    ff = open('E_q_%s_%s.dat' %(self.tag,iq), 'r')
-                    E_q[iq] = ff.readline().split()[-2]
-                    print >> self.txt, 'Reading E_q[%s] '%(iq), E_q[iq] 
-                except:
-                    E_q[iq] = self.E_q(qlist[iq][1],
+            for iq in range(q_start, q_end):
+                E_q[iq] = self.E_q(qlist[iq][1],
                                    index=iq,
                                    direction=qlist[iq][2]) * qlist[iq][3]
-
-                    if self.tag is not None and self.dfcomm.rank == 0:
-                        ff = open('E_q_%s_%s.dat' %(self.tag,iq), 'a')
-                        print >> ff, qlist[iq][1:4], E_q[iq], qweight[iq]
-                        ff.close()
-                    
             qcomm.sum(E_q)
-
+    
             print >> self.txt, '(q, direction, weight), E_q, qweight'
             for iq in range(nq):
                 print >> self.txt, qlist[iq][1:4], E_q[iq], qweight[iq]
-                
+    
             E = np.dot(np.array(qweight), np.array(E_q))
 
         print >> self.txt, 'RPA correlation energy:'
@@ -237,12 +221,15 @@ class RPACorrelation:
 
         dummy = DF(calc=self.calc,
                    eta=0.0,
-                   w=self.w * 1j,
                    q=q,
+                   w=self.w * 1j,
                    ecut=self.ecut,
                    G_plus_q=True,
+                   kcommsize=self.kcommsize,
+                   comm=self.dfcomm,
                    optical_limit=optical_limit,
                    hilbert_trans=False)
+
         dummy.txt = devnull
         dummy.initialize(simple_version=True)
         npw = dummy.npw
@@ -258,12 +245,11 @@ class RPACorrelation:
         else:
             txt='response_'+self.txt.name
         df = DF(calc=self.calc,
-                xc=None,
+                xc='RPA',
                 nbands=nbands,
                 eta=0.0,
                 q=q,
                 txt=txt,
-                vcut=self.vcut,
                 w=self.w * 1j,
                 ecut=self.ecut,
                 smooth_cut=self.smooth_cut,
@@ -284,8 +270,7 @@ class RPACorrelation:
             print >> self.txt, 'q = [%1.6f %1.6f %1.6f] -' \
                   % (q[0],q[1],q[2]), '%s planewaves' % npw
 
-        e_wGG = df.get_dielectric_matrix(xc='RPA',overwritechi0=True)
-        df.chi0_wGG = None
+        e_wGG = df.get_dielectric_matrix(xc='RPA')
         Nw_local = len(e_wGG)
         local_E_q_w = np.zeros(Nw_local, dtype=complex)
         E_q_w = np.empty(len(self.w), complex)
@@ -372,7 +357,6 @@ class RPACorrelation:
         dummy.spin = 0
         dummy.initialize(simple_version=True)
 
-        self.npw = dummy.npw
         self.ecut = ecut
         self.smooth_cut = smooth_cut
         self.w = w
@@ -388,10 +372,13 @@ class RPACorrelation:
         if self.smooth_cut is not None:
             print >> self.txt, 'Smooth cutoff from            : %s x cutoff' \
                   % self.smooth_cut
-        print >> self.txt, 'Number of Planewaves at Gamma : %s' % self.npw
+        print >> self.txt, 'Number of Planewaves at Gamma : %s' % dummy.npw
         if self.nbands is None:
             print >> self.txt, 'Response function bands       :'\
                   + ' Equal to number of Planewaves'
+        elif type(self.nbands) is float:
+            print >> self.txt, 'Response function bands       : %s' \
+                  % int(dummy.npw * self.nbands)
         else:
             print >> self.txt, 'Response function bands       : %s' \
                   % self.nbands
@@ -420,7 +407,7 @@ class RPACorrelation:
         print >> self.txt, '     Frequency parsize : %d' % dummy.wScomm.size
         print >> self.txt, 'Memory usage estimate'
         print >> self.txt, '     chi0_wGG(Q)       : %f M / cpu' \
-              % (dummy.Nw_local * self.npw**2 * 16. / 1024**2)
+              % (dummy.Nw_local * dummy.npw**2 * 16. / 1024**2)
         print >> self.txt
         del dummy
 
@@ -433,8 +420,8 @@ class RPACorrelation:
               '------------------------------------------------------'
         print >> self.txt, 'Started at:  ', ctime()
         print >> self.txt
-#        print >> self.txt, 'Atoms                          :   %s' \
-#              % self.atoms.get_chemical_formula(mode="hill")
+        print >> self.txt, 'Atoms                          :   %s' \
+              % self.atoms.get_name()
         print >> self.txt, 'Ground state XC functional     :   %s' \
               % self.calc.hamiltonian.xc.name
         print >> self.txt, 'Valence electrons              :   %s' \

@@ -310,7 +310,7 @@ class RawLDOS:
         return spd
 
     def by_element(self):
-        """Return a dict with elements as keys and LDOS as values."""
+        # get element indicees
         elemi = {}
         for i,a in enumerate(self.paw.atoms):
             symbol = a.symbol
@@ -322,13 +322,12 @@ class RawLDOS:
             elemi[key] = self.get(elemi[key])
         return elemi
 
-    def to_file(self, 
-                ldbe,
-                filename=None,
-                width=None,
-                shift=True,
-                bound=False):
-        """Write the LDOS to a file.
+    def by_element_to_file(self, 
+                           filename='ldos_by_element.dat',
+                           width=None,
+                           shift=True,
+                           bound=False):
+        """Write the LDOS by element to a file
 
         If a width is given, the LDOS will be Gaussian folded and shifted to set 
         Fermi energy to 0 eV. The latter can be avoided by setting shift=False. 
@@ -337,6 +336,7 @@ class RawLDOS:
         spin-setting. Normaly these will shifted individually to 0 eV. If you
         want to shift them as pair to the higher energy use bound=True.
         """
+        ldbe = self.by_element()
 
         f = paropen(filename, 'w')
 
@@ -480,13 +480,3 @@ class RawLDOS:
                             
 
         f.close()
-
-    def by_element_to_file(self, 
-                           filename='ldos_by_element.dat',
-                           width=None,
-                           shift=True,
-                           bound=False):
-        """Write the LDOS by element to a file.
-        """
-        ldbe = self.by_element()
-        self.to_file(ldbe, filename, width, shift, bound)

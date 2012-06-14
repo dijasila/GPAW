@@ -78,11 +78,7 @@ class GPAW(PAW):
       
     def get_stress(self, atoms):
         """Return the stress for the current state of the ListOfAtoms."""
-        self.calculate(atoms, converge=True)
-        if self.stress_vv is None:
-            from gpaw.stress import stress
-            self.stress_vv = stress(self)
-        return self.stress_vv * (Hartree / Bohr**3)
+        raise NotImplementedError
 
     def calculation_required(self, atoms, quantities):
         if 'stress' in quantities:
@@ -118,6 +114,10 @@ class GPAW(PAW):
         
         return self.hamiltonian.xc.name
  
+    def get_bz_k_points(self):
+        """Return the k-points."""
+        return self.wfs.kd.bzk_kc
+ 
     def get_number_of_spins(self):
         return self.wfs.nspins
 
@@ -125,13 +125,9 @@ class GPAW(PAW):
         """Is it a spin-polarized calculation?"""
         return self.wfs.nspins == 2
     
-    def get_bz_k_points(self):
-        """Return the k-points."""
-        return self.wfs.kd.bzk_kc.copy()
- 
     def get_ibz_k_points(self):
         """Return k-points in the irreducible part of the Brillouin zone."""
-        return self.wfs.kd.ibzk_kc.copy()
+        return self.wfs.kd.ibzk_kc
 
     def get_k_point_weights(self):
         """Weights of the k-points.

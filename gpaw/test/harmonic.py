@@ -6,10 +6,23 @@ from ase.units import Hartree, Bohr
 
 from gpaw import GPAW
 from gpaw.xc import XC
-from gpaw.test import equal
 from gpaw.xc.kernel import XCNull
-from gpaw.poisson import NoInteractionPoissonSolver
+from gpaw.test import equal
 
+
+class NoInteractionPoissonSolver:
+    relax_method = 0
+    nn = 1
+    def get_method(self):
+        return 'No interaction'
+    def get_stencil(self):
+        return self.nn
+    def solve(self, phi, rho, charge):
+        return 0
+    def set_grid_descriptor(self, gd):
+        pass
+    def initialize(self):
+        pass
 
 a = 4.0
 x = Atoms(cell=(a, a, a))  # no atoms
@@ -25,7 +38,6 @@ class HarmonicPotential:
             self.vext_g = self.alpha * ((r_vg - a / Bohr / 2)**2).sum(0)
         return self.vext_g
 
-
 calc = GPAW(charge=-8,
             nbands=4,
             h=0.2,
@@ -34,7 +46,7 @@ calc = GPAW(charge=-8,
             poissonsolver=NoInteractionPoissonSolver(),
             eigensolver='cg')
 
-x.calc = calc
+x.set_calculator(calc)
 x.get_potential_energy()
 
 eigs = calc.get_eigenvalues()

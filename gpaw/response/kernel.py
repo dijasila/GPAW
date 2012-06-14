@@ -5,45 +5,41 @@ from gpaw.xc import XC
 from gpaw.sphere.lebedev import weight_n, R_nv
 from gpaw.mpi import world, rank, size
 
-
 def v3D_Coulomb(qG):
     """Coulomb Potential in the 3D Periodic Case
     Periodic calculation, no cutoff.
     v3D = 4 pi / G^2"""
-    return 1. / np.dot(qG, qG)
+    return 1. / np.dot(qG,qG)
 
-
-def v2D_Coulomb(qG, G_p, G_n, R):
+def v2D_Coulomb(qG,G_p,G_n,R):
     """ 2D Periodic Case
     Slab/Surface/Layer calculation, cutoff in G_n direction.
     v2D = 4 pi/G^2 * [1 + exp(-G_p R)*[(G_n/G_p)*sin(G_n R) - cos(G_n R)]
     """
 
-    G_nR = np.dot(G_n, qG) * R
-    G_pR = sqrt(np.dot(G_p, qG * qG)) * R
+    G_nR = np.dot(G_n,qG)*R
+    G_pR = sqrt(np.dot(G_p,qG*qG))*R
     return 1. / np.dot(qG,qG) * (1 + exp(-G_pR)*((G_nR/G_pR)*sin(G_nR) - cos(G_nR)))
 
-def v1D_Coulomb(qG, G_p, G_n, R):
+def v1D_Coulomb(qG,G_p,G_n,R):
     """ 1D Periodic Case
-    Nanotube/Nanowire/Atomic Chain calculation, cutoff in G_n direction::
-
-      v1D = 4 pi/G^2 * [1 + G_n R J_1(G_n R) K_0(|G_p|R)
-          - |G_p| R J_0(G_n R) K_1(|G_p|R)]
-
-    """
+    Nanotube/Nanowire/Atomic Chain calculation, cutoff in G_n direction.
+     v1D = 4 pi/G^2 * [1 + G_n R J_1(G_n R) K_0(|G_p|R)
+     		    - |G_p| R J_0(G_n R) K_1(|G_p|R)]
+    """        
     from scipy.special import j1,k0,j0,k1
     
     G_nR = sqrt(np.dot(G_n,qG*qG))*R
     G_pR = abs(np.dot(G_p,qG))*R
     return 1. / np.dot(qG,qG) * (1 + G_nR * j1(G_nR) * k0(G_pR) - G_pR * j0(G_nR) * k1(G_pR))
 
-def v0D_Coulomb(qG, R):
+def v0D_Coulomb(qG,R):
     """ 0D Non-Periodic Case
     Isolated System/Molecule calculation, spherical cutoff.
     v0D = 4 pi/G^2 * [1 - cos(G R)
     """
 
-    qG2 = np.dot(qG, qG)
+    qG2 = np.dot(qG,qG)
     return 1. / qG2 * (1 - cos(sqrt(qG2)*R))
 
 
@@ -53,8 +49,7 @@ def calculate_Kc(q_c,
                  pbc,
                  optical_limit,
                  vcut=None,
-                 density_cut=None,
-                 nonsymmetric=False):
+                 density_cut=None):
     """Symmetric Coulomb kernel"""
     npw = len(Gvec_Gc)
     Kc_G = np.zeros(npw)
@@ -104,13 +99,11 @@ def calculate_Kc(q_c,
     if optical_limit:
         q_v = np.dot(q_c, bcell_cv)
         Kc_G[0] = sqrt(1. / np.dot(q_v,q_v))
-
+            
     Kc_GG = 4 * pi * np.outer(Kc_G, Kc_G)
-    
-    if nonsymmetric:
-        Kc_GG = 4 * pi * (Kc_G**2 * np.ones([npw, npw])).T
 
     return Kc_GG
+
 
 def calculate_Kxc(gd, nt_sG, npw, Gvec_Gc, nG, vol,
                   bcell_cv, R_av, setups, D_asp, functional='ALDA',
@@ -195,23 +188,20 @@ def calculate_Kxc(gd, nt_sG, npw, Gvec_Gc, nG, vol,
                 f_sg[:] = 0.0
                 n_sg = np.dot(Y_L, n_sLg)
                 if x_only:
-                    f_sg = nspins * (4 / 9.) * A_x * (nspins*n_sg)**(-2/3.)
+                    f_sg = 2 * (4 / 9.) * A_x * (2*n_sg)**(-2/3.)
                 else:
                     xc.calculate_fxc(rgd, n_sg, f_sg)
                 
                 ft_sg[:] = 0.0
                 nt_sg = np.dot(Y_L, nt_sLg)
                 if x_only:
-                    ft_sg = nspins * (4 / 9.) * A_x * (nspins*nt_sg)**(-2/3.)
+                    ft_sg = 2 * (4 / 9.) * A_x * (2*nt_sg)**(-2/3.)
                 else:
                     xc.calculate_fxc(rgd, nt_sg, ft_sg)
+                
                 for i in range(len(rgd.r_g)):
                     coef_GG = np.exp(-1j * np.inner(dG_GGv, R_nv[n]) * rgd.r_g[i])
-                    for s in range(len(f_sg)):
-                        KxcPAW_sGG[s] += w * np.dot(coef_GG,
-                                                    (f_sg[s,i]-ft_sg[s,i]) * dv_g[i]) \
-                                                    * coefatoms_GG
-
+                    KxcPAW_sGG += w * np.dot(coef_GG, (f_sg[0,i]-ft_sg[0,i]) * dv_g[i]) * coefatoms_GG
     world.sum(KxcPAW_sGG)
     Kxc_sGG += KxcPAW_sGG
 

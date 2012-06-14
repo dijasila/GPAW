@@ -79,7 +79,7 @@ mpi_library_dirs = [
     '/bgsys/drivers/ppcfloor/runtime/SPI',
     ]
 
-extra_link_args += ['-Wl,-export-dynamic'] # make symbols in *.a visible to *.so, needed for TAU
+   
 compiler = "bgp_gcc.py"
 mpicompiler = "bgp_gcc.py"
 mpilinker   = "bgp_gcc_linker.py"

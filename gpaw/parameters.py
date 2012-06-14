@@ -53,13 +53,12 @@ class InputParameters(dict):
             ('eigensolver',     None),
             ('poissonsolver',   None),
             ('communicator',    mpi.world),
-            ('idiotproof',      True),
+            ('idiotproof',     True),
             ('mode',            'fd'),
             ('convergence',     {'energy':      0.0005,  # eV / electron
                                  'density':     1.0e-4,
                                  'eigenstates': 4.0e-8,  # eV^2
                                  'bands':       'occupied'}),
-            ('realspace',       None)
             ])
         dict.update(self, kwargs)
 

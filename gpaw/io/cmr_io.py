@@ -10,7 +10,7 @@ import numpy as np
 import ase
 from ase.version import version as ase_version
 import gpaw
-from gpaw.version import version_base as gpaw_version
+from gpaw.version import version as gpaw_version
 
 try:
     #new style cmr io
@@ -25,10 +25,10 @@ try:
         return reader
         
     def get_writer():
-        return Converter.get_xml_writer(CALCULATOR_GPAW, calculator_version=gpaw_version)
+        return Converter.get_xml_writer(CALCULATOR_GPAW)
     
-    def create_db_filename(param, ext=".db"):
-        return cdbfn(param, ext=ext)
+    def create_db_filename(param):
+        return cdbfn(param)
     
 except:    
     #old style cmr io
@@ -91,17 +91,9 @@ class Writer:
             print "dimension: ", name, value
 
     def __setitem__(self, name, value):
-        """ sets the value of a variable in the db-file. Note that only
-        values that were defined in the cmr-schema are written.
-        (User defined values have to be added with set_user_variable(name, value)
-        IMPORTANT: CMR does not support None values for numbers, therefore all variables
-        with value None are ignored."""
         if self.verbose:
             print "name value:", name, value
-        if name == "GridSpacing" and value == "None":
-            return
-        if not value is None:
-            self.data[name]=value
+        self.data[name]=value
         
     def _get_dimension(self, array):
         """retrieves the dimension of a multidimensional array
@@ -195,15 +187,7 @@ class Writer:
             self.cmr_params["output"]=create_db_filename(self.data, ext=".db")
         else:
             self.cmr_params["output"]=self.filename
-        try:
-            cmr.runtime.pause_ase_barriers(True)
-            self.data.write(self.cmr_params, ase_barrier=False)
-        except TypeError:
-            # for compatibility with older CMR versions:
-            self.data.write(self.cmr_params)
-        cmr.runtime.pause_ase_barriers(False)
-        return [self.data.get_hash()]
-
+        self.data.write(self.cmr_params)
 
 class Reader:
     """ This class allows gpaw to access
@@ -244,7 +228,7 @@ class Reader:
                 pass
         return result
     
-    def get_reference(self, name, indices, length=None):
+    def get_reference(self, name, *indices):
         result = self.reader[name]
         if indices!=():
             for a in indices:

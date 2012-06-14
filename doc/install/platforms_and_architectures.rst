@@ -81,7 +81,6 @@ Linux:
    Linux/r410_psmn.ens-lyon
    Linux/ranger_EL4
    Linux/sepeli
-   Linux/sun_chpc
    Linux/supernova
    Linux/uranus
    Linux/vsc.univie

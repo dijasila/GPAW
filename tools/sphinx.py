@@ -51,20 +51,18 @@ def build():
         fd = open('epydoc.errors', 'w')
         fd.write(''.join(errors))
         fd.close()
-        email = 'jensj@fysik.dtu.dk'
         email = 'gpaw-developers@listserv.fysik.dtu.dk'
+        email = 'jensj@fysik.dtu.dk'
         x = os.system('mail -s "EpyDoc errors" %s < epydoc.errors' % email)
         assert x == 0
 
-    # ase installs under lib independently of the platform
     sys.path.insert(0, tmpdir + '/lib/python')
-    sys.path.insert(0, tmpdir + '/lib64/python')
     from gpaw.version import version
 
     os.chdir('doc')
     os.system('sed -i s/gpaw-snapshot/gpaw-%s/ download.rst' % version)
     os.mkdir('_build')
-    if os.system('PYTHONPATH=%s/lib64/python:%s/lib/python ' % (tmpdir, tmpdir) +
+    if os.system('PYTHONPATH=%s/lib/python ' % tmpdir +
                  'GPAW_SETUP_PATH=%s ' % setups +
                  'sphinx-build . _build') != 0:
         raise RuntimeError('Sphinx failed!')
@@ -95,5 +93,5 @@ build()
     
 if tarfiledir is not None:
     os.system('cd ..; tar czf %s/gpaw-webpages.tar.gz _build' % tarfiledir)
-    os.system('cd; /bin/rm -rf ' + tmpdir)
+    os.system('cd; rm -r ' + tmpdir)
 

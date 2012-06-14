@@ -25,8 +25,6 @@ PyObject* craypat_region_end(PyObject *self, PyObject *args);
 
 PyObject* symmetrize(PyObject *self, PyObject *args);
 PyObject* symmetrize_wavefunction(PyObject *self, PyObject *args);
-PyObject* symmetrize_return_index(PyObject *self, PyObject *args);
-PyObject* symmetrize_with_index(PyObject *self, PyObject *args);
 PyObject* map_k_points(PyObject *self, PyObject *args);
 PyObject* scal(PyObject *self, PyObject *args);
 PyObject* gemm(PyObject *self, PyObject *args);
@@ -61,7 +59,6 @@ PyObject* utilities_vdot(PyObject *self, PyObject *args);
 PyObject* utilities_vdot_self(PyObject *self, PyObject *args);
 PyObject* errorfunction(PyObject *self, PyObject *args);
 PyObject* cerf(PyObject *self, PyObject *args);
-PyObject* pack(PyObject *self, PyObject *args);
 PyObject* unpack(PyObject *self, PyObject *args);
 PyObject* unpack_complex(PyObject *self, PyObject *args);
 PyObject* hartree(PyObject *self, PyObject *args);
@@ -77,6 +74,7 @@ PyObject* swap_arrays(PyObject *self, PyObject *args);
 PyObject* spherical_harmonics(PyObject *self, PyObject *args);
 PyObject* spline_to_grid(PyObject *self, PyObject *args);
 PyObject* NewLFCObject(PyObject *self, PyObject *args);
+PyObject* compiled_WITH_SL(PyObject *self, PyObject *args);
 #if defined(GPAW_WITH_SL) && defined(PARALLEL)
 PyObject* new_blacs_context(PyObject *self, PyObject *args);
 PyObject* get_blacs_gridinfo(PyObject* self, PyObject *args);
@@ -105,11 +103,16 @@ PyObject* pblas_rk(PyObject *self, PyObject *args);
 // Moving least squares interpolation
 PyObject* mlsqr(PyObject *self, PyObject *args); 
 
+// IO wrappers
+#ifdef IO_WRAPPERS
+void init_io_wrappers();
+#endif
+PyObject* Py_enable_io_wrappers(PyObject *self, PyObject *args);
+PyObject* Py_disable_io_wrappers(PyObject *self, PyObject *args);
+
 static PyMethodDef functions[] = {
   {"symmetrize", symmetrize, METH_VARARGS, 0},
   {"symmetrize_wavefunction", symmetrize_wavefunction, METH_VARARGS, 0},
-  {"symmetrize_return_index", symmetrize_return_index, METH_VARARGS, 0},
-  {"symmetrize_with_index", symmetrize_with_index, METH_VARARGS, 0},
   {"map_k_points", map_k_points, METH_VARARGS, 0},
   {"scal", scal, METH_VARARGS, 0},
   {"gemm", gemm, METH_VARARGS, 0},
@@ -144,7 +147,6 @@ static PyMethodDef functions[] = {
   {"plane_wave_grid", plane_wave_grid, METH_VARARGS, 0},
   {"erf",        errorfunction,        METH_VARARGS, 0},
   {"cerf",       cerf,        METH_VARARGS, 0},
-  {"pack",       pack,           METH_VARARGS, 0},
   {"unpack",       unpack,           METH_VARARGS, 0},
   {"unpack_complex",       unpack_complex,           METH_VARARGS, 0},
   {"hartree",        hartree,        METH_VARARGS, 0},
@@ -157,6 +159,7 @@ static PyMethodDef functions[] = {
   {"vdw2", vdw2, METH_VARARGS, 0},
   {"swap", swap_arrays, METH_VARARGS, 0},
   {"spherical_harmonics", spherical_harmonics, METH_VARARGS, 0},
+  {"compiled_with_sl", compiled_WITH_SL, METH_VARARGS, 0},
   {"pc_potential", pc_potential, METH_VARARGS, 0},
   {"pc_potential_value", pc_potential_value, METH_VARARGS, 0},
   {"spline_to_grid", spline_to_grid, METH_VARARGS, 0},
@@ -202,12 +205,13 @@ static PyMethodDef functions[] = {
   {"craypat_region_end", craypat_region_end, METH_VARARGS, 0},
 #endif // GPAW_CRAYPAT
   {"mlsqr", mlsqr, METH_VARARGS, 0}, 
+  {"enable_io_wrappers", Py_enable_io_wrappers, METH_VARARGS, 0},
+  {"disable_io_wrappers", Py_disable_io_wrappers, METH_VARARGS, 0},
   {0, 0, 0, 0}
 };
 
 #ifdef PARALLEL
 extern PyTypeObject MPIType;
-extern PyTypeObject GPAW_MPI_Request_type;
 #endif
 
 #ifndef GPAW_INTERPRETER
@@ -215,8 +219,6 @@ PyMODINIT_FUNC init_gpaw(void)
 {
 #ifdef PARALLEL
   if (PyType_Ready(&MPIType) < 0)
-    return;
-  if (PyType_Ready(&GPAW_MPI_Request_type) < 0)
     return;
 #endif
 
@@ -227,7 +229,6 @@ PyMODINIT_FUNC init_gpaw(void)
 
 #ifdef PARALLEL
   Py_INCREF(&MPIType);
-  Py_INCREF(&GPAW_MPI_Request_type);
   PyModule_AddObject(m, "Communicator", (PyObject *)&MPIType);
 #endif
 
@@ -272,6 +273,10 @@ main(int argc, char **argv)
 
 #ifdef GPAW_PERFORMANCE_REPORT
   gpaw_perf_init();
+#endif
+
+#ifdef IO_WRAPPERS
+  init_io_wrappers();
 #endif
 
 #ifdef GPAW_MPI_MAP

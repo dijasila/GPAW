@@ -113,7 +113,7 @@ class BEEVDWKernel(XCKernel):
 class BEEVDWFunctional(FFTVDWFunctional):
     """Base class for BEEVDW functionals."""
     def __init__(self, bee='BEE1', xcoefs=(0.0, 1.0),
-                 ccoefs=(0.0, 1.0, 0.0), t=4.0, orders=None, Nr=2048,
+                 ccoefs=(0.0, 1.0, 0.0), t=4.0, orders=None,
                  **kwargs):
         """BEEVDW functionals.
 
@@ -129,8 +129,6 @@ class BEEVDWFunctional(FFTVDWFunctional):
             transformation for BEE2 exchange
         orders : array
             orders of Legendre polynomials for BEE2 exchange
-        Nr : int
-            Nr for FFT evaluation of vdW
 
         """
 
@@ -157,13 +155,10 @@ class BEEVDWFunctional(FFTVDWFunctional):
         else:
             raise KeyError('Unknown BEEVDW functional: %s', bee)
 
-        assert isinstance(Nr, int)
-        assert Nr % 512 == 0
-
         ldac, pbec, vdw = ccoefs
         kernel = BEEVDWKernel(bee, xcoefs, ldac, pbec)
         FFTVDWFunctional.__init__(self, name=name, soft_correction=soft_corr,
-                                  kernel=kernel, Zab=Zab, vdwcoef=vdw, Nr=Nr,
+                                  kernel=kernel, Zab=Zab, vdwcoef=vdw,
                                   **kwargs)
 
     def get_setup_name(self):
@@ -213,7 +208,7 @@ class BEEF_Ensemble:
         else:
             raise NotImplementedError('xc = %s not implemented' % self.xc)
 
-    def get_ensemble_energies(self, ensemble_size=2000, seed=0):
+    def get_ensemble_energies(self, ensemble_size=25000):
         """Returns an array of ensemble total energies"""
 
         if self.exch is None:
@@ -228,11 +223,11 @@ class BEEF_Ensemble:
         assert len(c) == 2
 
         basis_constribs = np.append(x, c)
-        ensemble_coefs = self.get_ensemble_coefs(ensemble_size, seed)
+        ensemble_coefs = self.get_ensemble_coefs(ensemble_size)
         de = np.dot(ensemble_coefs, basis_constribs)
         return de
 
-    def get_ensemble_coefs(self, ensemble_size, seed):
+    def get_ensemble_coefs(self, ensemble_size):
         """Pertubation coefficients of BEEF ensemble functionals."""
 
         if self.xc in ['BEEF-vdW', 'BEEF-1']:
@@ -241,12 +236,11 @@ class BEEF_Ensemble:
             N = ensemble_size
             assert np.shape(uiOmega) == (31, 31)
             Wo, Vo = np.linalg.eig(uiOmega)
-            np.random.seed(seed)
-            RandV = np.random.randn(31, N)
 
             for j in range(N):
-                v = RandV[:,j]
-                coefs_i = (np.dot(np.dot(Vo, np.diag(np.sqrt(Wo))), v)[:])
+                np.random.seed(j)
+                RandV = np.random.randn(31)
+                coefs_i = (np.dot(np.dot(Vo, np.diag(np.sqrt(Wo))), RandV)[:])
                 if j == 0:
                     ensemble_coefs = coefs_i
                 else:

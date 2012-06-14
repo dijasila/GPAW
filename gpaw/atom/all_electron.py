@@ -669,7 +669,7 @@ class AllElectron:
         denom = rc - r
         value = np.exp(exponent) / denom
         potential[i_ri + 1:i_rc + 1] = value
-        potential[i_rc + 1:] = np.inf
+        potential[i_rc + 1:] = float('nan')
 
         return alpha * potential
 

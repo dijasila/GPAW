@@ -19,7 +19,7 @@ def equal(x, y, tolerance=0, fail=True, msg=''):
     """Compare x and y."""
 
     if not np.isfinite(x - y) or abs(x - y) > tolerance:
-        msg = (msg + '%s != %s (error: |%s| > %.9g)' %
+        msg = (msg + '%.9g != %.9g (error: |%.9g| > %.9g)' %
                (x, y, x - y, tolerance))
         if fail:
             raise AssertionError(msg)
@@ -96,7 +96,6 @@ tests = [
     'ase3k.py',
     'laplace.py',
     'gauss_wave.py',
-    'pw/stresstest.py',
     'pw/interpol.py',
     'pw/h.py',
     'pw/lfc.py',
@@ -105,9 +104,6 @@ tests = [
     'pw/slab.py',
     'pw/fulldiag.py',
     'pw/fulldiagk.py',
-    'pw/hyb.py',
-    'pw/mgo.py',
-    'lcao_pair_and_coulomb.py',
     'coulomb.py',
     'timing.py',
     'maxrss.py',
@@ -118,7 +114,6 @@ tests = [
     'wfs_io.py',
     'wfs_auto.py',
     'xcatom.py',
-    'fixocc.py',
     'ds_beta.py',
     'parallel/overlap.py',
     'symmetry.py',
@@ -138,7 +133,6 @@ tests = [
     'fileio/hdf5_simple.py',
     'fileio/hdf5_noncontiguous.py',
     'restart.py',
-    'fileio/idiotproof_setup.py',
     'fileio/restart_density.py',
     'fileio/parallel.py',
     'fileio/file_reference.py',
@@ -146,8 +140,6 @@ tests = [
     'gga_atom.py',
     'bee1.py',
     'beefvdw.py',
-    'pplda.py',
-    'pygga.py',
     'external_potential.py',
     'refine.py',
     'revPBE.py',
@@ -208,17 +200,14 @@ tests = [
     'au02_absorption.py',
     'exx_q.py',
     'exx_acdf.py',
-    'rpa_Na.py',
     'rpa_energy_Si.py',
-    'rpa_energy_Ni.py',
     'rpa_energy_N2.py',
-    'ralda_energy_H2.py',
     'bse_aluminum.py',
     'bse_diamond.py',
     'bse_vs_lrtddft.py',
     'bse_sym.py',
     'bse_silicon.py',
-    'diamond_eps.py',
+    'diamond_eps_alda.py',
     'hgh_h2o.py',
     'apmb.py',
     'relax.py',
@@ -260,7 +249,6 @@ tests = [
     'scfsic_n2.py',
     'lb94.py',
     'aluminum_EELS_lcao.py',
-    'P_ai.py',
     'vdw/quick.py',
     'vdw/potential.py',
     'vdw/quick_spin.py',
@@ -286,21 +274,16 @@ tests = [
     'ut_tddft.py',
     'AA_exx_enthalpy.py',
     'transport.py',
-    'mgga_sc.py',
     'constant_electric_field.py',
     'stark_shift.py',
     'aluminum_testcell.py',
-    'cmrtest/cmr_test2.py',
-    'gw_method.py',
-    'gw_ppa.py']
+    'cmr_test2.py',
+    'gw_test.py']
 
 try:
     import cmr
-    tests.append('cmrtest/cmr_test.py')
-    tests.append('cmrtest/cmr_test3.py')
-    tests.append('cmrtest/cmr_test4.py')
-    tests.append('cmrtest/cmr_append.py')
-    tests.append('cmrtest/Li2_atomize.py')
+    tests.append('cmr_restart.py')
+    tests.append('cmr_test.py')
 except:
     pass
 
@@ -310,7 +293,6 @@ exclude = []
 if mpi.size > 1:
     exclude += ['maxrss.py',
                 'pes.py',
-                'diamond_eps.py',
                 'nscfsic.py',
                 'coreeig.py',
                 'asewannier.py',
@@ -318,12 +300,7 @@ if mpi.size > 1:
                 'muffintinpot.py',
                 'stark_shift.py',
                 'exx_q.py',
-                'potential.py',
-                #'cmrtest/cmr_test3.py',
-                #'cmrtest/cmr_append.py',
-                #'cmrtest/Li2_atomize.py',
-                'lcao_pair_and_coulomb.py']
-
+                'potential.py']
 
 if mpi.size > 2:
     exclude += ['neb.py']
@@ -349,11 +326,6 @@ if mpi.size != 4:
 if mpi.size == 1 or not compiled_with_sl():
     exclude += ['parallel/submatrix_redist.py']
 
-if mpi.size != 1 and not compiled_with_sl():
-    exclude += ['ralda_energy_H2.py',
-                'bse_sym.py',
-                'bse_silicon.py']
-
 if not compiled_with_sl():
     exclude += ['pw/fulldiag.py',
                 'pw/fulldiagk.py']
@@ -369,7 +341,7 @@ try:
     import scipy
 except ImportError:
     exclude += ['diamond_absorption.py',
-                'diamond_eps.py',
+                'diamond_eps_alda.py',
                 'aluminum_EELS.py',
                 'aluminum_EELS_lcao.py',
                 'aluminum_testcell.py',
@@ -380,12 +352,8 @@ except ImportError:
                 'bse_sym.py',
                 'bse_silicon.py',
                 'aeatom.py',
-                'rpa_Na.py',
                 'rpa_energy_Si.py',
-                'rpa_energy_Ni.py',
-                'rpa_energy_N2.py',
-                'raldax_energy_H2.py',
-                'gw_test.py']
+                'rpa_energy_N2.py']
 
 try:
     import _hdf5

@@ -176,11 +176,29 @@ class PAWTextOutput:
             else:
                 eigensolver = 'rmm-diis'
         t('Eigensolver:       %s' % eigensolver)
+        if p['mode'] != 'lcao':
+            t('                   (%s)' % fd(p['stencils'][0]))
 
-        self.hamiltonian.summary(self.txt)
+        poisson = self.hamiltonian.poisson
+        t('Poisson Solver:    %s' % poisson.get_method())
+        description = fd(poisson.get_stencil())
+        t('                   (%s)\n' % description)
 
+        order = str((2 * p['stencils'][1]))
+        if order[-1] == '1':
+            order = order + 'st'
+        elif order[-1] == '2':
+            order = order + 'nd'
+        elif order[-1] == '3':
+            order = order + 'rd'
+        else:
+            order = order + 'th'
+
+        t('Interpolation:     ' + order + ' Order')
         t('Reference Energy:  %.6f' % (self.wfs.setups.Eref * Hartree))
         t()
+        if self.wfs.gamma:
+            t('Gamma Point Calculation')
 
         nibzkpts = self.wfs.nibzkpts
 
@@ -220,9 +238,9 @@ class PAWTextOutput:
 
         self.wfs.symmetry.print_symmetries(t)
 
-        t(self.wfs.kd.description)
-        t(('%d k-point%s in the Irreducible Part of the Brillouin Zone') %
-          (nibzkpts, ' s'[1:nibzkpts]))
+        t(('%d k-point%s in the Irreducible Part of the ' +
+           'Brillouin Zone (total: %d)') %
+          (nibzkpts, ' s'[1:nibzkpts], len(self.wfs.bzk_kc)))
 
         if self.scf.fixdensity > self.scf.maxiter:
             t('Fixing the initial density')
@@ -296,27 +314,18 @@ class PAWTextOutput:
 
         self.hamiltonian.xc.summary(self.txt)
 
+        if self.density.rhot_g is None:
+            return
+
         t()
+        charge = self.density.finegd.integrate(self.density.rhot_g)
+        t('Total Charge:  %f electrons' % charge)
 
-        try:
-            dipole = self.get_dipole_moment()
-        except AttributeError:
-            pass
+        dipole = self.get_dipole_moment()
+        if self.density.charge == 0:
+            t('Dipole Moment: %s' % dipole)
         else:
-            if self.density.charge == 0:
-                t('Dipole Moment: %s' % dipole)
-            else:
-                t('Center of Charge: %s' % (dipole / abs(self.density.charge)))
-
-        try:
-            c = self.hamiltonian.poisson.corrector.c
-            epsF = self.occupations.fermilevel
-        except AttributeError:
-            pass
-        else:
-            wf_a = -epsF * Hartree - dipole[c]
-            wf_b = -epsF * Hartree + dipole[c]
-            t('Dipole-corrected work function: %f, %f' % (wf_a, wf_b))
+            t('Center of Charge: %s' % (dipole / abs(charge)))
 
         if self.wfs.nspins == 2:
             t()
@@ -556,3 +565,13 @@ class Grid:
         if depth < self.depth[i, j]:
             self.grid[i, j] = ord(c)
             self.depth[i, j] = depth
+
+
+def fd(n):
+    if n == 'M':
+        return 'Mehrstellen finite-difference stencil'
+    if n == 1:
+        return 'Nearest neighbor central finite-difference stencil'
+    if isinstance(n, str):
+        return n
+    return '%d nearest neighbors central finite-difference stencil' % n

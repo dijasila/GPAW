@@ -52,12 +52,13 @@ class Transport(GPAW):
         self.finegd = self.density.finegd
             
     def set_transport_kwargs(self, **transport_kwargs):
-        """ Illustration of keywords::
-          o  o  o  o  o  o  o  o  o  o  o  o  o
-          0  1  2  3  4  5  6  7  8  9  10 11 12
-          .            | mol_atoms |
-          | pl_atoms1 |              | pl_atoms2 |
-        """
+        '''illustration of keywords:
+
+                 o  o  o  o  o  o  o  o  o  o  o  o  o 
+                 0  1  2  3  4  5  6  7  8  9  10 11 12
+                             | mol_atoms |    
+                 |pl_atoms1|                |pl_atoms2|
+        '''
         kw = transport_kwargs  
         p =  self.set_default_transport_parameters()
         self.gpw_kwargs = kw.copy()

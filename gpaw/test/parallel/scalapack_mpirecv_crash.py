@@ -8,7 +8,6 @@
 from ase.lattice.surface import fcc100, add_adsorbate
 from gpaw import GPAW, ConvergenceError
 from gpaw.mpi import world
-from gpaw.utilities import compiled_with_sl
 
 assert world.size == 4
 
@@ -19,10 +18,8 @@ slab.center(vacuum=3.0, axis=2)
 calc = GPAW(mode='lcao',
             kpts=(2, 2, 1),
 	    txt='-',
+	    parallel={'domain': (1, 1, 4), 'sl_default': (2, 2, 64)},
             maxiter=1,)
-
-if compiled_with_sl():
-    calc.set(parallel={'domain': (1, 1, 4), 'sl_default': (2, 2, 64)})
 
 slab.set_calculator(calc)
 try:

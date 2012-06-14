@@ -78,9 +78,6 @@ if opt.range:
         stop_index = len(tests)
     tests = tests[start_index:stop_index]
 
-if opt.jobs > 1:
-    exclude.append('maxrss.py')
-
 for test in exclude:
     if test in tests:
         tests.remove(test)

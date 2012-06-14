@@ -9,7 +9,7 @@ The central object that glues everything together!"""
 
 import numpy as np
 from ase.units import Bohr, Hartree
-from ase.dft.kpoints import monkhorst_pack
+from ase.dft import monkhorst_pack
 
 import gpaw.io
 import gpaw.mpi as mpi
@@ -37,7 +37,8 @@ from gpaw.setup import Setups
 from gpaw.output import PAWTextOutput
 from gpaw.scf import SCFLoop
 from gpaw.forces import ForceCalculator
-from gpaw.utilities.gpts import get_number_of_grid_points
+from gpaw.utilities import h2gpts
+from gpaw.fftw import get_efficient_fft_size
 
 
 class PAW(PAWTextOutput):
@@ -76,7 +77,6 @@ class PAW(PAWTextOutput):
 
         self.scf = None
         self.forces = ForceCalculator(self.timer)
-        self.stress_vv = None
         self.wfs = EmptyWaveFunctions()
         self.occupations = None
         self.density = None
@@ -172,7 +172,7 @@ class PAW(PAWTextOutput):
             
             if key in ['fixmom', 'mixer',
                        'verbose', 'txt', 'hund', 'random',
-                       'eigensolver', 'idiotproof', 'notify']:
+                       'eigensolver', 'poissonsolver', 'idiotproof', 'notify']:
                 continue
 
             if key in ['convergence', 'fixdensity', 'maxiter']:
@@ -183,7 +183,7 @@ class PAW(PAWTextOutput):
             self.scf = None
             self.wfs.set_orthonormalized(False)
             if key in ['lmax', 'width', 'stencils', 'external', 'xc',
-                       'poissonsolver', 'occupations']:
+                       'occupations']:
                 self.hamiltonian = None
                 self.occupations = None
             elif key in ['charge']:
@@ -194,7 +194,7 @@ class PAW(PAWTextOutput):
             elif key in ['kpts', 'nbands', 'usesymm']:
                 self.wfs = EmptyWaveFunctions()
                 self.occupations = None
-            elif key in ['h', 'gpts', 'setups', 'spinpol', 'realspace',
+            elif key in ['h', 'gpts', 'setups', 'spinpol',
                          'parallel', 'communicator', 'dtype']:
                 self.density = None
                 self.occupations = None
@@ -304,7 +304,6 @@ class PAW(PAWTextOutput):
         self.wfs.initialize(self.density, self.hamiltonian, spos_ac)
         self.scf.reset()
         self.forces.reset()
-        self.stress_vv = None
         self.print_positions()
 
     def initialize(self, atoms=None):
@@ -391,26 +390,29 @@ class PAW(PAWTextOutput):
       
         mode = par.mode
 
-        if xc.orbital_dependent:
-            assert mode == 'fd'
-
         if mode == 'pw':
             mode = PW()
 
-        if par.realspace is None:
-            realspace = not isinstance(mode, PW)
-        else:
-            realspace = par.realspace
-            if isinstance(mode, PW):
-                assert not realspace
+        real_space = not isinstance(mode, PW)
 
-        if par.gpts is not None:
+        if par.gpts is not None and par.h is None:
             N_c = np.array(par.gpts)
         else:
-            h = par.h
-            if h is not None:
-                h /= Bohr
-            N_c = get_number_of_grid_points(cell_cv, h, mode, realspace)
+            if par.h is None:
+                if real_space:
+                    self.text('Using default value for grid spacing.')
+                    h = 0.2 / Bohr
+                else:
+                    h = np.pi / (4 * mode.ecut)**0.5
+            else:
+                h = par.h / Bohr
+
+            if 1:#real_space:
+                N_c = h2gpts(h, cell_cv, 4)
+            else:
+                # Need to test this a bit more ...
+                N_c = h2gpts(h, cell_cv, 1)
+                N_c = np.array([get_efficient_fft_size(N) for N in N_c])
 
         if hasattr(self, 'time') or par.dtype == complex:
             dtype = complex
@@ -483,7 +485,7 @@ class PAW(PAWTextOutput):
         parsize_domain = par.parallel['domain']
         parsize_bands = par.parallel['band']
 
-        if not realspace:
+        if isinstance(mode, PW):
             pbc_c = np.ones(3, bool)
 
         if not self.wfs:
@@ -587,25 +589,18 @@ class PAW(PAWTextOutput):
 
                 # Use (at most) all available LCAO for initialization
                 lcaonbands = min(nbands, nao)
+                lcaobd = BandDescriptor(lcaonbands, band_comm, parstride_bands)
+                assert nbands <= nao or bd.comm.size == 1
+                assert lcaobd.mynbands == min(bd.mynbands, nao)  # XXX
 
-                try:
-                    lcaobd = BandDescriptor(lcaonbands, band_comm,
-                                            parstride_bands)
-                except RuntimeError:
-                    initksl = None
-                else:
-                    #assert nbands <= nao or bd.comm.size == 1
-                    assert lcaobd.mynbands == min(bd.mynbands, nao)  # XXX
-
-                    # Layouts used for general diagonalizer
-                    # (LCAO initialization)
-                    sl_lcao = par.parallel['sl_lcao']
-                    if sl_lcao is None:
-                        sl_lcao = sl_default
-                    initksl = get_KohnSham_layouts(sl_lcao, 'lcao',
-                                                   gd, lcaobd, dtype,
-                                                   nao=nao,
-                                                   timer=self.timer)
+                # Layouts used for general diagonalizer (LCAO initialization)
+                sl_lcao = par.parallel['sl_lcao']
+                if sl_lcao is None:
+                    sl_lcao = sl_default
+                initksl = get_KohnSham_layouts(sl_lcao, 'lcao',
+                                               gd, lcaobd, dtype,
+                                               nao=nao,
+                                               timer=self.timer)
 
                 if hasattr(self, 'time'):
                     assert mode == 'fd'
@@ -652,7 +647,7 @@ class PAW(PAWTextOutput):
                 # Special case (use only coarse grid):
                 finegd = gd
 
-            if realspace:
+            if real_space:
                 self.density = RealSpaceDensity(
                     gd, finegd, nspins, par.charge + setups.core_charge,
                     collinear, par.stencils[1])
@@ -666,7 +661,7 @@ class PAW(PAWTextOutput):
 
         if self.hamiltonian is None:
             gd, finegd = self.density.gd, self.density.finegd
-            if realspace:
+            if real_space:
                 self.hamiltonian = RealSpaceHamiltonian(
                     gd, finegd, nspins, setups, self.timer, xc, par.external,
                     collinear, par.poissonsolver, par.stencils[1])
@@ -799,7 +794,7 @@ class PAW(PAWTextOutput):
             txt.write('Attribute error: %r' % m)
             txt.write('Some object probably lacks estimate_memory() method')
             txt.write('Memory breakdown may be incomplete')
-        mem.calculate_size()
+        totalsize = mem.calculate_size()
         mem.write(txt, maxdepth=maxdepth)
 
     def converge_wave_functions(self):

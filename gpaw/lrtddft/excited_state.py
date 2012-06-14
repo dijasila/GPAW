@@ -5,40 +5,8 @@ from ase.calculators.general import Calculator
 from ase.calculators.test import numeric_forces
 from gpaw import GPAW
 from gpaw.output import initialize_text_stream
-from gpaw.mpi import rank
 
-class FiniteDifferenceCalculator(Calculator):
-    def __init__(self, lrtddft, d=0.001, txt=None, parallel=None):
-        """Finite difference calculator for LrTDDFT.
-
-        parallel: Can be used to parallelize the numerical force 
-        calculation over images
-        """
-        if lrtddft is not None:
-            self.lrtddft = lrtddft
-            self.calculator = self.lrtddft.calculator
-            self.set_atoms(self.calculator.get_atoms())
-
-            if txt is None:
-                self.txt = self.lrtddft.txt
-            else:
-                rank = self.calculator.wfs.world.rank
-                self.txt, firsttime = initialize_text_stream(txt, rank)
-                                                              
-        self.d = d
-        self.parallel = parallel
-
-    def calculate(self, atoms):
-        E0 = self.calculator.get_potential_energy(atoms)
-        lr = self.lrtddft
-        self.lrtddft.forced_update()
-        self.lrtddft.diagonalize()
-        return E0
-
-    def set(self, **kwargs):
-        self.calculator.set(**kwargs)
-
-class ExcitedState(FiniteDifferenceCalculator):
+class ExcitedState(Calculator):
     def __init__(self, lrtddft, index, d=0.001, txt=None,
                  parallel=None):
         """ExcitedState object.
@@ -46,51 +14,58 @@ class ExcitedState(FiniteDifferenceCalculator):
         parallel: Can be used to parallelize the numerical force calculation over
         images.
         """
-        FiniteDifferenceCalculator.__init__(self, lrtddft, d, txt, parallel)
-
+        self.lrtddft = lrtddft
+        self.calculator = self.lrtddft.calculator
+        self.atoms = self.calculator.get_atoms()
         if type(index) == type(1):
             self.index = UnconstraintIndex(index)
         else:
             self.index = index
-
-        self.energy = None
-        self.forces = None
+        self.d = d
+        if txt is None:
+            self.txt = self.lrtddft.txt
+        else:
+            rank = self.calculator.wfs.world.rank
+            self.txt, firsttime = initialize_text_stream(txt, rank)
+                                                              
+        self.parallel = parallel
         
         print >> self.txt, 'ExcitedState', self.index
  
     def get_potential_energy(self, atoms=None):
         """Evaluate potential energy for the given excitation."""
-        if atoms is None:
-            atoms = self.atoms
-            self.energy = self.calculate(atoms)
-        if (self.energy is None) or atoms != self.atoms:  
-            energy = self.calculate(atoms)
-            return energy
-        else:
-            return self.energy
+        if atoms is not None:
+            self.atoms = atoms
+            self.update()
+        return self.energy
 
-    def calculate(self, atoms):
-        E0 = FiniteDifferenceCalculator.calculate(self, atoms)
+    def update(self):
+        E0 = self.calculator.get_potential_energy(self.atoms)
+        lr = self.lrtddft
+        self.lrtddft.forced_update()
+        self.lrtddft.diagonalize()
         index = self.index.apply(self.lrtddft)
-        return E0 + self.lrtddft[index].energy * Hartree
+        print >> self.txt, type(self.index), 'index=', index
+        self.energy = E0 + self.lrtddft[index].energy * Hartree
 
     def get_forces(self, atoms):
         """Get finite-difference forces"""
-        if (self.forces is None) or atoms != self.atoms:
-            atoms.set_calculator(self)
-            self.forces = numeric_forces(atoms, d=self.d, 
-                                         parallel=self.parallel)
-            if self.txt:
-                print >> self.txt, 'Excited state forces in eV/Ang:'
-                symbols = self.atoms.get_chemical_symbols()
-                for a, symbol in enumerate(symbols):
-                    print >> self.txt, ('%3d %-2s %10.5f %10.5f %10.5f' %
-                                        ((a, symbol) + tuple(self.forces[a])))
-        return self.forces
+        atoms.set_calculator(self)
+        forces = numeric_forces(atoms, d=self.d, parallel=self.parallel)
+        if self.txt:
+            print >> self.txt, 'Excited state forces in eV/Ang:'
+            symbols = self.atoms.get_chemical_symbols()
+            for a, symbol in enumerate(symbols):
+                print >> self.txt, ('%3d %-2s %10.5f %10.5f %10.5f' %
+                                    ((a, symbol) + tuple(forces[a])))
+        return forces
 
     def get_stress(self, atoms):
         """Return the stress for the current state of the Atoms."""
         raise NotImplementedError
+
+    def set(self, **kwargs):
+        self.calculator.set(**kwargs)
 
 class UnconstraintIndex:
     def __init__(self, index):

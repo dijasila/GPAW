@@ -36,14 +36,13 @@ class Davidson(Eigensolver):
         self.S_2n2n = np.empty((2 * self.nbands, 2 * self.nbands), self.dtype)
         self.eps_2n = np.empty(2 * self.nbands)
 
-    def estimate_memory(self, mem, wfs):
-        Eigensolver.estimate_memory(self, mem, wfs)
-        itemsize = mem.itemsize[wfs.dtype]
-        nbands = wfs.bd.nbands
-        mem.subnode('H_nn', nbands * nbands * mem.itemsize[wfs.dtype])
-        mem.subnode('S_nn', nbands * nbands * mem.itemsize[wfs.dtype])
-        mem.subnode('H_2n2n', 4 * nbands * nbands * mem.itemsize[wfs.dtype])
-        mem.subnode('S_2n2n', 4 * nbands * nbands * mem.itemsize[wfs.dtype])
+    def estimate_memory(self, mem, gd, dtype, mynbands, nbands):
+        Eigensolver.estimate_memory(self, mem, gd, dtype, mynbands, nbands)
+        itemsize = mem.itemsize[dtype]
+        mem.subnode('H_nn', nbands * nbands * mem.itemsize[dtype])
+        mem.subnode('S_nn', nbands * nbands * mem.itemsize[dtype])
+        mem.subnode('H_2n2n', 4 * nbands * nbands * mem.itemsize[dtype])
+        mem.subnode('S_2n2n', 4 * nbands * nbands * mem.itemsize[dtype])
         mem.subnode('eps_2n', 2 * nbands * mem.floatsize)
 
     def iterate_one_k_point(self, hamiltonian, wfs, kpt):
@@ -51,17 +50,15 @@ class Davidson(Eigensolver):
         niter = self.niter
         nbands = self.nbands
 
-        gd = wfs.gd
-
-        Htpsit_nG = self.subspace_diagonalize(hamiltonian, wfs, kpt)
+        self.subspace_diagonalize(hamiltonian, wfs, kpt)
 
         H_2n2n = self.H_2n2n
         S_2n2n = self.S_2n2n
         eps_2n = self.eps_2n
-        psit2_nG = np.empty_like(Htpsit_nG)
+        psit2_nG = wfs.matrixoperator.suggest_temporary_buffer()
 
         self.timer.start('Davidson')
-        R_nG = Htpsit_nG
+        R_nG = self.Htpsit_nG
         self.calculate_residuals(kpt, wfs, hamiltonian, kpt.psit_nG,
                                  kpt.P_ani, kpt.eps_n, R_nG)
 
@@ -92,62 +89,62 @@ class Davidson(Eigensolver):
             
             # Hamiltonian matrix
             # <psi2 | H | psi>
-            wfs.kin.apply(psit2_nG, Htpsit_nG, kpt.phase_cd)
-            hamiltonian.apply_local_potential(psit2_nG, Htpsit_nG, kpt.s)
-            gemm(gd.dv, kpt.psit_nG, Htpsit_nG, 0.0, self.H_nn, 'c')
+            wfs.kin.apply(psit2_nG, self.Htpsit_nG, kpt.phase_cd)
+            hamiltonian.apply_local_potential(psit2_nG, self.Htpsit_nG, kpt.s)
+            gemm(self.gd.dv, kpt.psit_nG, self.Htpsit_nG, 0.0, self.H_nn, 'c')
 
             for a, P_ni in kpt.P_ani.items():
                 P2_ni = P2_ani[a]
                 dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
                 self.H_nn += np.dot(P2_ni, np.dot(dH_ii, P_ni.T.conj()))
 
-            gd.comm.sum(self.H_nn, 0)
+            self.gd.comm.sum(self.H_nn, 0)
             H_2n2n[nbands:, :nbands] = self.H_nn
 
             # <psi2 | H | psi2>
-            r2k(0.5 * gd.dv, psit2_nG, Htpsit_nG, 0.0, self.H_nn)
+            r2k(0.5 * self.gd.dv, psit2_nG, self.Htpsit_nG, 0.0, self.H_nn)
             for a, P2_ni in P2_ani.items():
                 dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
                 self.H_nn += np.dot(P2_ni, np.dot(dH_ii, P2_ni.T.conj()))
 
-            gd.comm.sum(self.H_nn, 0)
+            self.gd.comm.sum(self.H_nn, 0)
             H_2n2n[nbands:, nbands:] = self.H_nn
 
             # Overlap matrix
             # <psi2 | S | psi>
-            gemm(gd.dv, kpt.psit_nG, psit2_nG, 0.0, self.S_nn, 'c')
+            gemm(self.gd.dv, kpt.psit_nG, psit2_nG, 0.0, self.S_nn, 'c')
         
             for a, P_ni in kpt.P_ani.items():
                 P2_ni = P2_ani[a]
                 dO_ii = wfs.setups[a].dO_ii
                 self.S_nn += np.dot(P2_ni, np.inner(dO_ii, P_ni.conj()))
 
-            gd.comm.sum(self.S_nn, 0)
+            self.gd.comm.sum(self.S_nn, 0)
             S_2n2n[nbands:, :nbands] = self.S_nn
 
             # <psi2 | S | psi2>
-            rk(gd.dv, psit2_nG, 0.0, self.S_nn)
+            rk(self.gd.dv, psit2_nG, 0.0, self.S_nn)
             for a, P2_ni in P2_ani.items():
                 dO_ii = wfs.setups[a].dO_ii
                 self.S_nn += np.dot(P2_ni, np.dot(dO_ii, P2_ni.T.conj()))
 
-            gd.comm.sum(self.S_nn, 0)
+            self.gd.comm.sum(self.S_nn, 0)
             S_2n2n[nbands:, nbands:] = self.S_nn
 
-            if gd.comm.rank == 0:
+            if self.gd.comm.rank == 0:
                 general_diagonalize(H_2n2n, eps_2n, S_2n2n)
 
-            gd.comm.broadcast(H_2n2n, 0)
-            gd.comm.broadcast(eps_2n, 0)
+            self.gd.comm.broadcast(H_2n2n, 0)
+            self.gd.comm.broadcast(eps_2n, 0)
 
             kpt.eps_n[:] = eps_2n[:nbands]
 
             # Rotate psit_nG
             gemm(1.0, kpt.psit_nG, H_2n2n[:nbands, :nbands],
-                 0.0, Htpsit_nG)
+                 0.0, self.Htpsit_nG)
             gemm(1.0, psit2_nG, H_2n2n[:nbands, nbands:],
-                 1.0, Htpsit_nG)
-            kpt.psit_nG, Htpsit_nG = Htpsit_nG, kpt.psit_nG
+                 1.0, self.Htpsit_nG)
+            kpt.psit_nG, self.Htpsit_nG = self.Htpsit_nG, kpt.psit_nG
 
             # Rotate P_uni:
             for a, P_ni in kpt.P_ani.items():
@@ -156,13 +153,13 @@ class Davidson(Eigensolver):
                 gemm(1.0, P2_ni, H_2n2n[:nbands, nbands:], 1.0, P_ni)
 
             if nit < niter - 1:
-                wfs.kin.apply(kpt.psit_nG, Htpsit_nG, kpt.phase_cd)
-                hamiltonian.apply_local_potential(kpt.psit_nG, Htpsit_nG,
+                wfs.kin.apply(kpt.psit_nG, self.Htpsit_nG, kpt.phase_cd)
+                hamiltonian.apply_local_potential(kpt.psit_nG, self.Htpsit_nG,
                                                   kpt.s)
-                R_nG = Htpsit_nG
+                R_nG = self.Htpsit_nG
                 self.calculate_residuals(kpt, wfs, hamiltonian, kpt.psit_nG,
                                          kpt.P_ani, kpt.eps_n, R_nG)
 
         self.timer.stop('Davidson')
-        error = gd.comm.sum(error)
-        return error * gd.dv
+        error = self.gd.comm.sum(error)
+        return error * self.gd.dv

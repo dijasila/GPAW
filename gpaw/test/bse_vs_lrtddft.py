@@ -31,8 +31,7 @@ if bse:
               q=np.array([0,0,0.0001]),optical_limit=True,ecut=50.,
               nbands=8,use_W=False)
     bse.initialize()
-    H_SS = bse.calculate()
-    bse.diagonalize(H_SS)
+    bse.calculate()
     
     w = np.real(bse.w_S) * Hartree
     energies = np.sort(w[:,np.nonzero(w>0)[0]])

@@ -1,6 +1,6 @@
 import numpy as np
 
-from ase.units import Hartree
+from ase import Hartree
 from gpaw.aseinterface import GPAW
 from gpaw.lcao.overlap import NewTwoCenterIntegrals
 from gpaw.utilities import unpack
