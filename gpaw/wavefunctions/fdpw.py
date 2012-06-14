@@ -57,7 +57,7 @@ class FDPWWaveFunctions(WaveFunctions):
             if hamiltonian.xc.type == 'GLLB':
                 hamiltonian.xc.initialize_from_atomic_orbitals(
                     basis_functions)
-        else: # XXX???
+        else:  # XXX???
             # We didn't even touch density, but some combinations in paw.set()
             # will make it necessary to do this for some reason.
             density.calculate_normalized_charges_and_mix()
@@ -153,7 +153,7 @@ class FDPWWaveFunctions(WaveFunctions):
             # Hack used in delta-scf calculations:
             if hasattr(kpt, 'c_on'):
                 assert self.bd.comm.size == 1
-                self.pt.derivative(kpt.psit_nG, F_aniv, kpt.q)  #XXX again
+                self.pt.derivative(kpt.psit_nG, F_aniv, kpt.q)  # XXX again
                 d_nn = np.zeros((self.bd.mynbands, self.bd.mynbands),
                                 dtype=complex)
                 for ne, c_n in zip(kpt.ne_o, kpt.c_on):
@@ -177,11 +177,11 @@ class FDPWWaveFunctions(WaveFunctions):
         psit_nG = self.kpt_u[u].psit_nG
         if psit_nG is None:
             raise RuntimeError('This calculator has no wave functions!')
-        return psit_nG[n][:] # dereference possible tar-file content
+        return psit_nG[n][:]  # dereference possible tar-file content
 
     def estimate_memory(self, mem):
         gridbytes = self.bytes_per_wave_function()
-        mem.subnode('Arrays psit_nG', 
+        mem.subnode('Arrays psit_nG',
                     len(self.kpt_u) * self.bd.mynbands * gridbytes)
         self.eigensolver.estimate_memory(mem.subnode('Eigensolver'), self)
         self.pt.estimate_memory(mem.subnode('Projectors'))

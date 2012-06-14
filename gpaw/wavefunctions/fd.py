@@ -219,16 +219,16 @@ class FDWaveFunctions(FDPWWaveFunctions):
     def initialize_from_lcao_coefficients(self, basis_functions, mynbands):
         for kpt in self.kpt_u:
             kpt.psit_nG = self.gd.zeros(self.bd.mynbands, self.dtype)
-            basis_functions.lcao_to_grid(kpt.C_nM, 
+            basis_functions.lcao_to_grid(kpt.C_nM,
                                          kpt.psit_nG[:mynbands], kpt.q)
             kpt.C_nM = None
 
     def random_wave_functions(self, nao):
         """Generate random wave functions."""
 
-        gpts = self.gd.N_c[0]*self.gd.N_c[1]*self.gd.N_c[2]
+        gpts = self.gd.N_c[0] * self.gd.N_c[1] * self.gd.N_c[2]
         
-        if self.bd.nbands < gpts/64:
+        if self.bd.nbands < gpts / 64:
             gd1 = self.gd.coarsen()
             gd2 = gd1.coarsen()
 
@@ -257,7 +257,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                     interpolate1(psit_G1, psit_G, kpt.phase_cd)
             np.random.set_state(old_state)
         
-        elif gpts/64 <= self.bd.nbands < gpts/8:
+        elif gpts / 64 <= self.bd.nbands < gpts / 8:
             gd1 = self.gd.coarsen()
 
             psit_G1 = gd1.empty(dtype=self.dtype)
@@ -298,7 +298,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                         psit_G.real = (np.random.random(shape) - 0.5) * scale
                         psit_G.imag = (np.random.random(shape) - 0.5) * scale
 
-            np.random.set_state(old_state)        
+            np.random.set_state(old_state)
 
     def estimate_memory(self, mem):
         FDPWWaveFunctions.estimate_memory(self, mem)
