@@ -97,6 +97,7 @@ tests = [
     'laplace.py',
     'gauss_wave.py',
     'pw/stresstest.py',
+    'pw/si_stress.py',
     'pw/interpol.py',
     'pw/h.py',
     'pw/lfc.py',

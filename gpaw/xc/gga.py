@@ -47,6 +47,7 @@ class GGA(LDA):
     def stress_tensor_contribution(self, n_sg):
         sigma_xg = self.calculate_sigma(n_sg)[0]
         nspins = len(n_sg)
+        assert nspins == 1
         dedsigma_xg = self.gd.empty(nspins * 2 - 1)
         v_sg = self.gd.zeros(nspins)
         e_g = self.gd.empty()
