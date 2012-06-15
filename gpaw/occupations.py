@@ -419,7 +419,7 @@ class SmoothDistribution(ZeroKelvin):
             homo = wfs.world.max(max([kpt.eps_n[n - 1] for kpt in wfs.kpt_u]))
             lumo = -wfs.world.max(-min([kpt.eps_n[n] for kpt in wfs.kpt_u]))
             return np.array([homo, lumo])
-	else:
+        else:
             assert self.fixmagmom
             sign = 1 - spin * 2
             n = (self.nvalence + sign * self.magmom) // 2
