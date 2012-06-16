@@ -54,7 +54,9 @@ class NiflheimCluster(Cluster):
             run_command += 'module load '
             run_command += 'openmpi/1.3.3-1.el5.fys.gfortran43.4.3.2&& '
             run_command += ' PYTHONPATH=' + submit_pythonpath + '&&'
-            run_command += ' GPAW_SETUP_PATH=' + self.setuppath
+            run_command += ' GPAW_SETUP_PATH=' + self.setuppath + '&&'
+            # we want to run GPAW/ASE scripts with os.system!
+            run_command += ' PATH=%s/ase/tools:%s/gpaw/tools:$PATH' % (dir, dir)
         else:
             run_command += 'module load '
             run_command += 'openmpi/1.3.3-1.el5.fys.gfortran43.4.3.2&& '
