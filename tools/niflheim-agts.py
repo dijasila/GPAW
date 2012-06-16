@@ -46,7 +46,7 @@ cmd("\
 cd " + gpawdir + "&& \
 source /home/camp/modulefiles.sh&& \
 module load NUMPY&& \
-python setup.py build_ext 2>&1 | tee build_ext.log")
+python setup.py build_ext 2>&1 > build_ext.log")
 
 # import gpaw from where it was installed
 sys.path.insert(0, gpawdir)
@@ -60,7 +60,7 @@ module load openmpi/1.3.3-1.el5.fys.open64.4.2.3 && \
 module load hdf5/1.8.6-5.el5.fys.open64.4.2.3.openmpi.1.3.3 && \
 python setup.py --remove-default-flags --customize=\
 doc/install/Linux/Niflheim/el5-xeon-open64-acml-4.4.0-acml-4.4.0-hdf-SL-2.0.1.py \
-build_ext' | ssh thul bash")
+build_ext 2>&1 > thul.log' | ssh thul bash")
 
 cmd("echo '\
 cd '" + gpawdir + "'&& \
@@ -69,7 +69,7 @@ module load NUMPY&& \
 module load open64/4.2.3-0 && \
 python setup.py --remove-default-flags --customize=\
 doc/install/Linux/Niflheim/el5-opteron-open64-acml-4.4.0-acml-4.4.0-hdf-SL-2.0.1.py \
-build_ext' | ssh fjorm bash")
+build_ext 2>&1 > fjorm.log' | ssh fjorm bash")
 
 cmd("""wget --no-check-certificate --quiet \
 http://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-latest.tar.gz && \
