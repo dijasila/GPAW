@@ -260,7 +260,7 @@ lxcXCFunctional_CalculateFXC_FD_SpinPaired(lxcXCFunctionalObject *self, PyObject
 
   assert (self->c_functional.info->family != XC_FAMILY_MGGA); /* MDTMP - not implemented yet */
 
-  assert (self->xc_functional.info->family == XC_FAMILY_UNKNOWN);
+  // (cpo) assert (self->xc_functional.info->family == XC_FAMILY_UNKNOWN);
 
   /* find x functional */
   self->get_fxc_x = get_fxc_fd_spinpaired;
@@ -412,10 +412,17 @@ lxcXCFunctional_CalculateFXC_FD_SpinPaired(lxcXCFunctionalObject *self, PyObject
 
 // number of gridpoints we will "block" over when doing xc calculation
 #define BLOCKSIZE 1024
+
+// this is the maximum number of BLOCKSIZE arrays that will be put
+// into scratch (depends on the "spinsize" values for the various
+// arrays.  currently determined by fxc, which has input spinsizes
+// of 2+3 and output spinsizes of 3+6+6 (totalling 20).
 #define MAXARRAYS 20
 #define LIBXCSCRATCHSIZE (BLOCKSIZE*MAXARRAYS)
 
 static double *scratch=NULL;
+
+// we don't use lapl, but libxc needs space for them.
 static double *scratch_lapl=NULL;
 static double *scratch_vlapl=NULL;
 
@@ -450,27 +457,39 @@ typedef struct xcinfo {
 // farthest apart in memory ("scatter").  "scatteradd" adds to previous results.
 
 static void gather(const double* src, double* dst, int np, int stride, int nspins) {
-  for (int i=0; i<np; i++) {
-    for (int j=0; j<nspins; j++) {
-      dst[i*nspins+j] = src[i+j*stride];
-    }
-  }
+  const double *dstend = dst+np*nspins;
+  const double *srcend = src+nspins*stride;
+  do {
+    const double *s = src;
+    do {
+      *dst++ = *s; s+=stride;
+    } while (s<srcend);
+    src++; srcend++;
+  } while (dst<dstend);
 }
 
 static void scatter(const double* src, double* dst, int np, int stride, int nspins) {
-  for (int i=0; i<np; i++) {
-    for (int j=0; j<nspins; j++) {
-      dst[i+j*stride] = src[i*nspins+j];
-    }
-  }
+  const double *srcend = src+np*nspins;
+  const double *dstend = dst+nspins*stride;
+  do {
+    double *d = dst;
+    do {
+      *d = *src++; d+=stride;
+    } while (d<dstend);
+    dst++; dstend++;
+  } while (src<srcend);
 }
 
 static void scatteradd(const double* src, double* dst, int np, int stride, int nspins) {
-  for (int i=0; i<np; i++) {
-    for (int j=0; j<nspins; j++) {
-      dst[i+j*stride] += src[i*nspins+j];
-    }
-  }
+  const double *srcend = src+np*nspins;
+  const double *dstend = dst+nspins*stride;
+  do {
+    double *d = dst;
+    do {
+      *d += *src++; d+=stride;
+    } while (d<dstend);
+    dst++; dstend++;
+  } while (src<srcend);
 }
 
 // set up the pointers into the scratch area, leaving space for each of the arrays
@@ -490,7 +509,8 @@ static void setupblockptrs(const xcinfo *info,
     next+=blocksize*outlist->p[i].spinsize;
   }
   // check that we fit in the scratch space
-  assert((next - scratch) < LIBXCSCRATCHSIZE);
+  // if we don't, then we need to increase MAXARRAY
+  assert((next - scratch) <= LIBXCSCRATCHSIZE);
 }
 
 // copy a piece of the full data into the block for processing by libxc
@@ -526,8 +546,6 @@ static void block2data(const xcinfo *info, double *outblocklist[], const xcptrli
         for (int i=0; i<blocksize; i++)
           ptr[i]=(n_sg[i*2]+n_sg[i*2+1])*block[i];
       } else {
-        // this assumes n_sg has been copied into the block (currently
-        // done because of NMIN cutoff.
         for (int i=0; i<blocksize; i++) ptr[i]=n_sg[i]*block[i];
       }
     } else if (outlist->p[i].special&DEDN_SG) {
@@ -546,6 +564,8 @@ static void block2data(const xcinfo *info, double *outblocklist[], const xcptrli
   }
 }
 
+// copy the data from the block back into its final resting place, but add to previous results
+
 static void block2dataadd(const xcinfo *info, double *outblocklist[], const xcptrlist *outlist,
                           double *n_sg, int blocksize) {
   for (int i=0; i<outlist->num; i++) {
@@ -555,8 +575,6 @@ static void block2dataadd(const xcinfo *info, double *outblocklist[], const xcpt
         for (int i=0; i<blocksize; i++)
           ptr[i]+=(n_sg[i*2]+n_sg[i*2+1])*block[i];
       } else {
-        // this assumes n_sg has been copied into the block (currently
-        // done because of NMIN cutoff.
         for (int i=0; i<blocksize; i++) ptr[i]+=n_sg[i]*block[i];
       }
     } else {
@@ -731,12 +749,12 @@ lxcXCFunctional_CalculateFXC(lxcXCFunctionalObject *self, PyObject *args)
       inlist.p[1].special = 0;
       inlist.p[1].spinsize = 3;
       inlist.num++;
-      outlist.p[2].p = DOUBLEP(py_v2rhosigma_yg);
+      outlist.p[1].p = DOUBLEP(py_v2rhosigma_yg);
+      outlist.p[1].special = 0;
+      outlist.p[1].spinsize = 6;
+      outlist.p[2].p = DOUBLEP(py_v2sigma2_yg);
       outlist.p[2].special = 0;
       outlist.p[2].spinsize = 6;
-      outlist.p[3].p = DOUBLEP(py_v2sigma2_yg);
-      outlist.p[3].special = 0;
-      outlist.p[3].spinsize = 6;
       outlist.num+=2;
       // don't break here since GGA also needs LDA ptrs
     case XC_FAMILY_LDA:
