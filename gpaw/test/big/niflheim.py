@@ -53,12 +53,12 @@ class NiflheimCluster(Cluster):
             # this allows one to start mpi inside the *.agts.py script
             run_command += 'module load '
             run_command += 'openmpi/1.3.3-1.el5.fys.gfortran43.4.3.2&& '
-            run_command += ' PYTHONPATH=' + submit_pythonpath + '&&'
-            run_command += ' GPAW_SETUP_PATH=' + self.setuppath + '&&'
+            run_command += ' export PYTHONPATH=' + submit_pythonpath + '&&'
+            run_command += ' export GPAW_SETUP_PATH=' + self.setuppath + '&&'
             # we want to run GPAW/ASE scripts + gpaw-python with os.system!
             run_command += ' PATH=%s/ase/tools:$PATH' % dir + '&&'
             run_command += ' PATH=%s/gpaw/tools:$PATH' % dir + '&&'
-            run_command += ' PATH=%s/gpaw/build/bin.%s:$PATH' % (dir, arch)
+            run_command += ' PATH=%s/gpaw/build/bin.%s:$PATH' % (dir, arch) + '&&'
         else:
             run_command += 'module load '
             run_command += 'openmpi/1.3.3-1.el5.fys.gfortran43.4.3.2&& '
