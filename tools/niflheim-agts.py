@@ -102,6 +102,11 @@ if not os.path.isdir(gfiles):
 
 queue.copy_created_files(gfiles)
 
+# make files readable by go
+files = glob.glob(gfiles + '/*')
+for f in files:
+    os.chmod(f, 0644)
+
 from gpaw.version import version
 
 subject = 'AGTS GPAW %s: ' % str(version)
