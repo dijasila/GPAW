@@ -186,7 +186,7 @@ def remove_pbc(atoms, h, s=None, d=0, centers_ic=None, cutoff=None):
             s[:, i] *= mask_i
 
 
-def dump_hamiltonian(filename, atoms, direction=None):
+def dump_hamiltonian(filename, atoms, direction=None, Ef=None):
     h_skmm, s_kmm = get_hamiltonian(atoms)
     if direction != None:
         d = 'xyz'.index(direction)
@@ -213,7 +213,7 @@ def dump_hamiltonian(filename, atoms, direction=None):
     world.barrier()
 
 
-def dump_hamiltonian_parallel(filename, atoms, direction=None):
+def dump_hamiltonian_parallel(filename, atoms, direction=None, Ef=None):
     """
         Dump the lcao representation of H and S to file(s) beginning
         with filename. If direction is x, y or z, the periodic boundary
@@ -264,8 +264,12 @@ def dump_hamiltonian_parallel(filename, atoms, direction=None):
             if direction is not None:
                 remove_pbc(atoms, H_qMM[kpt.s, kpt.q], None, d)
         if calc.occupations.width > 0:
-            H_qMM[kpt.s, kpt.q] -= S_qMM[kpt.q] * \
-                                   calc.occupations.get_fermi_level()    
+            if Ef is None:
+                Ef = calc.occupations.get_fermi_level()
+            else:
+                Ef = Ef / Hartree
+
+            H_qMM[kpt.s, kpt.q] -= S_qMM[kpt.q] * Ef
     
     if wfs.gd.comm.rank == 0:
         fd = file(filename+'%i.pckl' % wfs.kpt_comm.rank, 'wb')
