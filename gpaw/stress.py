@@ -26,12 +26,11 @@ def stress(calc):
         s_vv[v1,v1] -= ham.epot
         for v2 in range(3):
             s_vv[v1,v2] += pd.integrate(p_G, dens.rhot_q *
-                                     G_Gv[:, v1] * G_Gv[:, v2])
-    #s_vv -= np.eye(3) * (ham.epot / 3)
+                                        G_Gv[:, v1] * G_Gv[:, v2])
     s_vv += dens.ghat.stress_tensor_contribution(ham.vHt_q, dens.Q_aL)
 
     s_vv -= np.eye(3) * ham.ebar
-    s_vv += ham.vbar.stress_tensor_contribution(dens.nt_sQ[0])
+    s_vv += ham.vbar.stress_tensor_contribution(dens.nt_sQ.sum(0))
 
     s_vv += dens.nct.stress_tensor_contribution(ham.vt_Q)
 
