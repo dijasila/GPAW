@@ -450,12 +450,31 @@ class BASECHI:
                     tmp[ix] = gd.integrate(psit1_g.conj() * dpsit_g)
                 rho_G[0] = -1j * np.dot(q_v, tmp)
 
+            calc = self.calc
             pt = self.pt
-            P1_ai = pt.dict()
-            pt.integrate(psit1_g, P1_ai, k)
-            P2_ai = pt.dict()
-            pt.integrate(psit2_g, P2_ai, kq)
+            if not self.pwmode:
+                if (calc.wfs.world.size > 1 or self.nkpt==1):
+                    P1_ai = pt.dict()
+                    pt.integrate(psit1_g, P1_ai, k)
+                    P2_ai = pt.dict()
+                    pt.integrate(psit2_g, P2_ai, kq)
+                else:
+                    P1_ai = self.get_P_ai(k,n,spin)
+                    P2_ai = self.get_P_ai(kq, m, spin)
+            else:
+                # first calculate P_ai at ibzkpt, then rotate to k
+                u = self.kd.get_rank_and_index(spin, ibzkpt1)[1]
+                Ptmp_ai = pt.dict()
+                kpt = calc.wfs.kpt_u[u]
+                pt.integrate(kpt.psit_nG[n], Ptmp_ai, ibzkpt1)
+                P1_ai = self.get_P_ai(k,n,spin,Ptmp_ai)
 
+                u = self.kd.get_rank_and_index(spin, ibzkpt2)[1]
+                Ptmp_ai = pt.dict()
+                kpt = calc.wfs.kpt_u[u]
+                pt.integrate(kpt.psit_nG[m], Ptmp_ai, ibzkpt2)
+                P2_ai = self.get_P_ai(kq,m,spin,Ptmp_ai)
+                
             if phi_aGp is None:
                 try:
                     if self.use_W:
