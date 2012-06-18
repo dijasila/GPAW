@@ -5,7 +5,7 @@ import gpaw.fftw as fftw
 from math import sqrt, pi
 from ase.units import Hartree, Bohr
 from gpaw import extra_parameters
-from gpaw.utilities.blas import gemv, scal, axpy, czher
+from gpaw.utilities.blas import gemv, scal, axpy, czher, ccher
 from gpaw.mpi import world, rank, size, serial_comm
 from gpaw.fd_operators import Gradient
 from gpaw.response.math_func import hilbert_transform
@@ -14,6 +14,7 @@ from gpaw.response.parallel import set_communicator, \
 from gpaw.response.kernel import calculate_Kxc, calculate_Kc
 from gpaw.utilities.memory import maxrss
 from gpaw.response.base import BASECHI
+import _gpaw
 
 class CHI(BASECHI):
     """This class is a calculator for the linear density response function.
@@ -57,6 +58,9 @@ class CHI(BASECHI):
                  hilbert_trans=True,
                  full_response=False,
                  optical_limit=False,
+                 single_precision=False,
+                 cublas=False,
+                 cugemv=False,                 
                  comm=None,
                  kcommsize=None):
 
@@ -70,6 +74,9 @@ class CHI(BASECHI):
         self.hilbert_trans = hilbert_trans
         self.full_hilbert_trans = full_response
         self.vcut = vcut
+        self.single_precision = single_precision
+        self.cublas = cublas
+        self.cugemv = cugemv        
         self.kcommsize = kcommsize
         self.comm = comm
         if self.comm is None:
@@ -196,7 +203,58 @@ class CHI(BASECHI):
         e_skn = self.e_skn
 
         # Matrix init
-        chi0_wGG = np.zeros((self.Nw_local, self.npw, self.npw), dtype=complex)
+        if self.single_precision:
+            print >> self.txt, 'Use Single Precision !'
+            sizeofdata = 8
+            assert self.hilbert_trans is False
+            chi0_wGG = np.zeros((self.Nw_local, self.npw, self.npw), dtype=np.complex64)
+        else:
+            sizeofdata = 16
+            chi0_wGG = np.zeros((self.Nw_local, self.npw, self.npw), dtype=complex)
+
+        if self.cublas:
+            print >> self.txt, 'Use Cublas ! '
+            # CUblas allocation
+
+            # (cpo) kludge GPU allocation scheme
+            lockdir = '/nfs/slac/g/suncatfs/cpo/gpu/lock/'
+            import os
+            jobid = os.getenv('LSB_JOBID')
+            if jobid is not None:
+                # this is a batch job
+                fname = lockdir+'job'+str(jobid)
+                f = open(fname,'r')
+                gpus = f.readline().split()
+                gpunum = int(gpus[rank])
+            else:
+                # running outside the batch environment.  take a guess.
+                gpunum = rank
+            #print 'Using GPU ',gpunum
+            
+            status, handle = _gpaw.cuCreate(gpunum)
+            matrixlist_w = []
+            for iw in range(self.Nw_local):
+                status, matrixGPU_GG = _gpaw.cuMalloc(self.npw*self.npw*sizeofdata)
+                status = _gpaw.cuSetMatrix(self.npw, self.npw, sizeofdata,
+                                           chi0_wGG[iw].copy(), self.npw,
+                                           matrixGPU_GG, self.npw)
+                matrixlist_w.append(matrixGPU_GG)
+            
+            status,GPU_rho_G = _gpaw.cuMalloc(self.npw*sizeofdata)
+
+        if self.cugemv:
+            GPU_phi_aGp = []
+            npair_a = []
+            for a, id in enumerate(calc.wfs.setups.id_a):
+                phi_Gp = self.phi_aGp[a]
+                if self.single_precision:
+                    phi_Gp = np.complex64(phi_Gp)
+                npw, npair = phi_Gp.shape
+                status,GPU_phi_Gp = _gpaw.cuMalloc(npw*npair*sizeofdata)
+                status = _gpaw.cuSetMatrix(npair,npw,sizeofdata,phi_Gp,npair,GPU_phi_Gp,npair)
+                GPU_phi_aGp.append(GPU_phi_Gp)
+                npair_a.append(npair)
+
         if self.hilbert_trans:
             specfunc_wGG = np.zeros((self.NwS_local, self.npw, self.npw), dtype = complex)
 
@@ -340,9 +398,35 @@ class CHI(BASECHI):
                                 pt.integrate(kpt.psit_nG[m], Ptmp_ai, ibzkpt2)
                                 P2_ai = self.get_P_ai(kq_k[k],m,spin,Ptmp_ai)
 
+                            if self.cugemv:
+                                if self.single_precision:
+                                    rho_G = np.complex64(rho_G)
+                                # should send rho_G.conj(), but the final chi_wGG takes its conj()
+                                status = _gpaw.cuSetVector(npw,sizeofdata,rho_G,1,GPU_rho_G,1)
+
                             for a, id in enumerate(calc.wfs.setups.id_a):
                                 P_p = np.outer(P1_ai[a].conj(), P2_ai[a]).ravel()
-                                gemv(1.0, self.phi_aGp[a], P_p, 1.0, rho_G)
+
+                                if not self.cugemv:
+                                    gemv(1.0, self.phi_aGp[a], P_p, 1.0, rho_G)
+                                else:
+                                    if self.single_precision:
+                                        P_p = np.complex64(P_p)
+
+                                    status,GPU_P_p = _gpaw.cuMalloc(npair_a[a]*sizeofdata)
+                                    status = _gpaw.cuSetVector(npair_a[a],sizeofdata,P_p,1,GPU_P_p,1)
+
+                                    alpha = 1.0
+                                    beta = 1.0
+                                    if self.single_precision:
+                                        alpha = np.complex64(alpha)
+                                        beta = np.complex64(alpha)
+                                        _gpaw.cuCgemv(handle,npair_a[a],npw,alpha,GPU_phi_aGp[a],npair_a[a],GPU_P_p,1,beta,GPU_rho_G,1)
+                                    else:
+                                        _gpaw.cuZgemv(handle,npair_a[a],npw,alpha,GPU_phi_aGp[a],npair_a[a],GPU_P_p,1,beta,GPU_rho_G,1)
+
+                            if self.optical_limit and self.cugemv:
+                                status = _gpaw.cuGetVector(1,sizeofdata,GPU_rho_G,1,rho_G,1)
     
                             if self.optical_limit:
                                 if np.abs(self.enoshift_skn[spin][ibzkpt2, m] -
@@ -358,6 +442,14 @@ class CHI(BASECHI):
                             if not self.hilbert_trans:
                                 if not use_zher:
                                     rho_GG = np.outer(rho_G, rho_G.conj())
+                                else:
+                                    if self.single_precision:
+                                        rho_G = np.complex64(rho_G)
+                                    if self.optical_limit and self.cugemv:
+                                        status = _gpaw.cuSetVector(1, sizeofdata, rho_G, 1, GPU_rho_G, 1)
+                                    if self.cublas and not self.cugemv:
+                                        status = _gpaw.cuSetVector(self.npw,sizeofdata,rho_G,1,GPU_rho_G,1)
+
                                 for iw in range(self.Nw_local):
                                     w = self.w_w[iw + self.wstart] / Hartree
                                     coef = ( 1. / (w + e_skn[spin][ibzkpt1, n] - e_skn[spin][ibzkpt2, m]
@@ -367,7 +459,21 @@ class CHI(BASECHI):
                                     C =  (f_skn[spin][ibzkpt1, n] - f_skn[spin][ibzkpt2, m]) * coef
     
                                     if use_zher:
-                                        czher(C.real, rho_G.conj(), chi0_wGG[iw])
+                                        if self.single_precision:
+                                            C = np.float32(C.real)
+                                            if not self.cublas:
+                                                ccher(C, rho_G.conj(), chi0_wGG[iw])
+                                            else:
+                                                matrixGPU_GG = matrixlist_w[iw]
+                                                status = _gpaw.cuCher(handle,0,self.npw,C,GPU_rho_G,1,
+                                                                      matrixGPU_GG,self.npw)
+                                        else:          
+                                            if not self.cublas:
+                                                czher(C.real, rho_G.conj(), chi0_wGG[iw])
+                                            else:
+                                                matrixGPU_GG = matrixlist_w[iw]
+                                                status = _gpaw.cuZher(handle,0,self.npw,C,GPU_rho_G,1,
+                                                                      matrixGPU_GG,self.npw)
                                     else:
                                         axpy(C, rho_GG, chi0_wGG[iw])
     
@@ -419,16 +525,35 @@ class CHI(BASECHI):
         
         # Hilbert Transform
         if not self.hilbert_trans:
-            for iw in range(self.Nw_local):
-                self.kcomm.sum(chi0_wGG[iw])
+            if not use_zher: # in fact, it should be, if not use_cuzher
+                for iw in range(self.Nw_local):
+                    self.kcomm.sum(chi0_wGG)
+            else:
+                if self.cublas:
+                    for iw in range(self.Nw_local):
+                        status = _gpaw.cuGetMatrix(self.npw,self.npw,sizeofdata,matrixlist_w[iw],self.npw,
+                                                   chi0_wGG[iw],self.npw)
+                        chi0_wGG[iw] = chi0_wGG[iw].conj()
 
-            if use_zher:
+                    for iw in range(self.Nw_local):
+                        _gpaw.cuFree(matrixlist_w[iw])
+                    _gpaw.cuFree(GPU_rho_G)
+
+                if self.cugemv:
+                    for a, id in enumerate(calc.wfs.setups.id_a):
+                        _gpaw.cuFree(GPU_phi_aGp[a])                    
+                    _gpaw.cuFree(GPU_P_p)
+                    
+                for iw in range(self.Nw_local):
+                    self.kcomm.sum(chi0_wGG)
+
                 assert (np.abs(chi0_wGG[0,1:,0]) < 1e-10).all()
                 for iw in range(self.Nw_local):
                     chi0_wGG[iw] += chi0_wGG[iw].conj().T
                     for iG in range(self.npw):
                         chi0_wGG[iw, iG, iG] /= 2.
                         assert np.abs(np.imag(chi0_wGG[iw, iG, iG])) < 1e-10 
+
         else:
             for iw in range(self.NwS_local):
                 self.kcomm.sum(specfunc_wGG[iw])

@@ -31,8 +31,12 @@ PyObject* map_k_points(PyObject *self, PyObject *args);
 PyObject* scal(PyObject *self, PyObject *args);
 PyObject* gemm(PyObject *self, PyObject *args);
 PyObject* gemv(PyObject *self, PyObject *args);
+PyObject* cugemm(PyObject *self, PyObject *args);
+PyObject* cuZgemv(PyObject *self, PyObject *args);
+PyObject* cuCgemv(PyObject *self, PyObject *args);
 PyObject* axpy(PyObject *self, PyObject *args);
 PyObject* czher(PyObject *self, PyObject *args);
+PyObject* ccher(PyObject *self, PyObject *args);
 PyObject* rk(PyObject *self, PyObject *args);
 PyObject* r2k(PyObject *self, PyObject *args);
 PyObject* dotc(PyObject *self, PyObject *args);
@@ -102,6 +106,16 @@ PyObject* pblas_r2k(PyObject *self, PyObject *args);
 PyObject* pblas_rk(PyObject *self, PyObject *args);
 #endif
 
+PyObject* cuCreate(PyObject *self, PyObject *args);
+PyObject* cuMalloc(PyObject *self, PyObject *args);
+PyObject* cuFree(PyObject *self, PyObject *args);
+PyObject* cuSetMatrix(PyObject *self, PyObject *args);
+PyObject* cuGetMatrix(PyObject *self, PyObject *args);
+PyObject* cuSetVector(PyObject *self, PyObject *args);
+PyObject* cuGetVector(PyObject *self, PyObject *args);
+PyObject* cuZher(PyObject *self, PyObject *args);
+PyObject* cuCher(PyObject *self, PyObject *args);
+
 // Moving least squares interpolation
 PyObject* mlsqr(PyObject *self, PyObject *args); 
 
@@ -114,8 +128,21 @@ static PyMethodDef functions[] = {
   {"scal", scal, METH_VARARGS, 0},
   {"gemm", gemm, METH_VARARGS, 0},
   {"gemv", gemv, METH_VARARGS, 0},
+  {"cugemm", cugemm, METH_VARARGS, 0},
+  {"cuZgemv", cuZgemv, METH_VARARGS, 0},
+  {"cuCgemv", cuCgemv, METH_VARARGS, 0},
   {"axpy", axpy, METH_VARARGS, 0}, 
   {"czher", czher, METH_VARARGS, 0},
+  {"ccher", ccher, METH_VARARGS, 0},
+  {"cuMalloc", cuMalloc, METH_VARARGS, 0},
+  {"cuFree", cuFree, METH_VARARGS, 0},
+  {"cuCreate", cuCreate, METH_VARARGS, 0},
+  {"cuSetMatrix", cuSetMatrix, METH_VARARGS, 0},
+  {"cuGetMatrix", cuGetMatrix, METH_VARARGS, 0},
+  {"cuSetVector", cuSetVector, METH_VARARGS, 0},
+  {"cuGetVector", cuGetVector, METH_VARARGS, 0},
+  {"cuZher", cuZher, METH_VARARGS, 0},
+  {"cuCher", cuCher, METH_VARARGS, 0},
   {"rk",  rk,  METH_VARARGS, 0},
   {"r2k", r2k, METH_VARARGS, 0},
   {"dotc", dotc, METH_VARARGS, 0},

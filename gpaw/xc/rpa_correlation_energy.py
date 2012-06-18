@@ -18,10 +18,16 @@ class RPACorrelation:
                  vcut=None,
                  txt=None,
                  tag=None,
+                 single_precision=False,
+                 cublas=False,
+                 cugemv=False,
                  qsym=True):
         
         self.calc = calc
         self.tag = tag
+        self.single_precision=single_precision
+        self.cublas = cublas
+        self.cugemv = cugemv
         
         if txt is None:
             if rank == 0:
@@ -270,6 +276,9 @@ class RPACorrelation:
                 G_plus_q=True,
                 kcommsize=self.kcommsize,
                 comm=self.dfcomm,
+                single_precision=self.single_precision,
+                cublas=self.cublas,
+                cugemv=self.cugemv,
                 optical_limit=optical_limit,
                 hilbert_trans=False)
         

@@ -157,6 +157,17 @@ def czher(alpha, x, a):
 
     _gpaw.czher(alpha, x, a)
 
+def ccher(alpha, x, a):
+    """Single precision """
+
+    assert isinstance(alpha, np.float32)
+    assert is_contiguous(x, np.complex64) and is_contiguous(a, np.complex64)
+    assert x.flags.contiguous and a.flags.contiguous
+    assert x.ndim == 1 and a.ndim == 2
+    assert x.shape[0] == a.shape[0]
+
+    _gpaw.ccher(alpha, x, a)
+
 
 def rk(alpha, a, beta, c):
     """Rank-k update of a matrix.
