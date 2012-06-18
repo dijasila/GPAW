@@ -45,18 +45,24 @@ class GGA(LDA):
         self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
 
     def stress_tensor_contribution(self, n_sg):
-        sigma_xg = self.calculate_sigma(n_sg)[0]
+        sigma_xg, gradn_svg = self.calculate_sigma(n_sg)
         nspins = len(n_sg)
         assert nspins == 1
         dedsigma_xg = self.gd.empty(nspins * 2 - 1)
         v_sg = self.gd.zeros(nspins)
         e_g = self.gd.empty()
         self.calculate_gga(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
-        return np.eye(3) * (self.gd.integrate(e_g) -
-                            self.gd.integrate(v_sg[0], n_sg[0]) -
-                            8.0 / 3 * self.gd.integrate(sigma_xg[0],
-                                                        dedsigma_xg[0]))
-        
+        stress_vv = np.eye(3) * (self.gd.integrate(e_g) -
+                                 self.gd.integrate(v_sg[0], n_sg[0]) -
+                                 2 * self.gd.integrate(sigma_xg[0],
+                                                       dedsigma_xg[0]))
+        for v1 in range(3):
+            for v2 in range(3):
+                stress_vv[v1, v2] -= self.gd.integrate(gradn_svg[0, v1] *
+                                                       gradn_svg[0, v2],
+                                                       dedsigma_xg[0]) * 2 
+        return stress_vv
+
     def calculate_radial_expansion(self, rgd, D_sLq, n_qg, nc0_sg):
         n_sLg = np.dot(D_sLq, n_qg)
         n_sLg[:, 0] += nc0_sg
