@@ -476,7 +476,6 @@ class CHI(BASECHI):
                                                                       matrixGPU_GG,self.npw)
                                     else:
                                         axpy(C, rho_GG, chi0_wGG[iw])
-    
                             else:
                                 rho_GG = np.outer(rho_G, rho_G.conj())
                                 focc = f_skn[spin][ibzkpt1,n] - f_skn[spin][ibzkpt2,m]
@@ -527,7 +526,7 @@ class CHI(BASECHI):
         if not self.hilbert_trans:
             if not use_zher: # in fact, it should be, if not use_cuzher
                 for iw in range(self.Nw_local):
-                    self.kcomm.sum(chi0_wGG)
+                    self.kcomm.sum(chi0_wGG[iw])
             else:
                 if self.cublas:
                     for iw in range(self.Nw_local):
@@ -545,7 +544,7 @@ class CHI(BASECHI):
                     _gpaw.cuFree(GPU_P_p)
                     
                 for iw in range(self.Nw_local):
-                    self.kcomm.sum(chi0_wGG)
+                    self.kcomm.sum(chi0_wGG[iw])
 
                 assert (np.abs(chi0_wGG[0,1:,0]) < 1e-10).all()
                 for iw in range(self.Nw_local):
