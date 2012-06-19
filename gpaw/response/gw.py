@@ -9,8 +9,8 @@ from gpaw import GPAW
 from gpaw.mpi import world, rank, size, serial_comm
 from gpaw.utilities.blas import gemmdot
 from gpaw.utilities.memory import maxrss
-from gpaw.xc.hybridk import HybridXC
 from gpaw.xc.tools import vxc
+from gpaw.wavefunctions.pw import PWWaveFunctions
 from gpaw.response.parallel import set_communicator, parallel_partition, SliceAlongFrequency, GatherOrbitals
 from gpaw.response.base import BASECHI
 
@@ -449,8 +449,12 @@ class GW(BASECHI):
             calc = GPAW(self.file, communicator=world, parallel={'domain':1}, txt=None)
             v_xc = vxc(calc)
 
-            alpha = 5.0
-            exx = HybridXC('EXX', alpha=alpha, ecut=self.ecut.max(), bands=self.bands)
+            if isinstance(calc.wfs, PWWaveFunctions): # planewave mode
+                from gpaw.xc.hybridg import HybridXC
+                exx = HybridXC('EXX', alpha=5.0, bandstructure=True, bands=self.bands)
+            else:                                     # grid mode
+                from gpaw.xc.hybridk import HybridXC
+                exx = HybridXC('EXX', alpha=5.0, ecut=self.ecut.max(), bands=self.bands)
             calc.get_xc_difference(exx)
 
             e_skn = np.zeros((self.nspins, self.gwnkpt, self.gwnband), dtype=float)
