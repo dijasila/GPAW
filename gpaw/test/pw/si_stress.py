@@ -2,18 +2,19 @@ import numpy as np
 from ase.lattice import bulk
 from gpaw import GPAW, PW
 
+
 si = bulk('Si')
 k = 3
 si.calc = GPAW(mode=PW(250),
                xc='PBE',
                kpts=(k, k, k),
+               convergence={'energy': 1e-8},
                txt='si.txt')
 
 def check():
-    e0 = si.calc.get_potential_energy(si, force_consistent=True)
-    sigma_vv = si.calc.get_stress(si)
+    sigma_vv = si.get_stress(voigt=False)
     print(sigma_vv)
-    deps = 1e-4
+    deps = 1e-5
     cell = si.cell.copy()
     for v in range(3):
         x = np.eye(3)
@@ -25,7 +26,7 @@ def check():
         em = si.calc.get_potential_energy(si, force_consistent=True)
         s = (ep - em) / 2 / deps / si.get_volume()
         print(v, s, abs(s - sigma_vv[v, v]))
-        assert abs(s - sigma_vv[v, v]) < 1e-3
+        assert abs(s - sigma_vv[v, v]) < 1e-4
     for v1 in range(3):
         v2 = (v1 + 1) % 3
         x = np.eye(3)
@@ -39,7 +40,7 @@ def check():
         em = si.calc.get_potential_energy(si, force_consistent=True)
         s = (ep - em) / deps / 4 / si.get_volume()
         print(v1, v2, s, abs(s - sigma_vv[v1, v2]))
-        assert abs(s - sigma_vv[v1, v2]) < 1e-3
+        assert abs(s - sigma_vv[v1, v2]) < 2e-4
 
 check()
 
