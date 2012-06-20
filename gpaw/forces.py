@@ -1,5 +1,7 @@
 import numpy as np
 
+from gpaw.xc.hybrid import HybridXCBase
+
 
 class ForceCalculator:
     def __init__(self, timer):
@@ -11,6 +13,8 @@ class ForceCalculator:
 
     def calculate(self, wfs, dens, ham):
         """Return the atomic forces."""
+
+        assert not isinstance(ham.xc, HybridXCBase)
 
         if self.F_av is not None:
             return self.F_av
@@ -34,10 +38,6 @@ class ForceCalculator:
 
         wfs.world.broadcast(self.F_av, 0)
         
-        # Add non-local contributions:
-        for kpt in wfs.kpt_u:
-            pass#XXXself.F_av += hamiltonian.xcfunc.get_non_local_force(kpt)
-    
         self.F_av = wfs.symmetry.symmetrize_forces(self.F_av)
 
         return self.F_av
