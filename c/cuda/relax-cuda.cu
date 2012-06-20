@@ -601,7 +601,7 @@ extern "C" {
     
     dim3 dimBlock(1,1,1);
     dim3 dimGrid(1,1,1);
-    int xdiv=MIN(hc_n.z,4);
+    int xdiv=MIN(hc_n.x,4);
     if (((boundary & GPAW_BOUNDARY_NORMAL) != 0) ||
 	((boundary & GPAW_BOUNDARY_SKIP) != 0)){
       dimGrid.x=xdiv*MAX((hc_n.z+BLOCK_X-1)/BLOCK_X,1);
