@@ -293,7 +293,8 @@ tests = [
     'aluminum_testcell.py',
     'cmrtest/cmr_test2.py',
     'gw_method.py',
-    'gw_ppa.py']
+    'gw_ppa.py',
+    'gw_planewave.py']
 
 try:
     import cmr
