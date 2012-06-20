@@ -17,11 +17,8 @@
 #endif //DEBUG_CUDA
 
 static double *transformer_buf_gpu=NULL;
-static double *transformer_buf2_gpu=NULL;
 static int transformer_buf_size=0;
-static int transformer_buf2_size=0;
 static int transformer_buf_max=0;
-static int transformer_buf2_max=0;
 
 
 void transformer_init_cuda(TransformerObject *self)
@@ -29,11 +26,8 @@ void transformer_init_cuda(TransformerObject *self)
   const boundary_conditions* bc = self->bc;
   const int* size2 = bc->size2;  
   int ng2 = bc->ndouble * size2[0] * size2[1] * size2[2];
-  int out_ng = bc->ndouble * self->size_out[0] * self->size_out[1]
-    * self->size_out[2];
-
+  
   transformer_buf_max=MAX(ng2,transformer_buf_max);
-  transformer_buf2_max=MAX(out_ng,MAX(ng2,transformer_buf2_max));
 }
 
 
@@ -42,8 +36,6 @@ void transformer_init_buffers(TransformerObject *self,int blocks)
   const boundary_conditions* bc = self->bc;
   const int* size2 = bc->size2;  
   int ng2 = (bc->ndouble * size2[0] * size2[1] * size2[2])*blocks;
-  int out_ng = (bc->ndouble * self->size_out[0] * self->size_out[1]
-		* self->size_out[2])*blocks;
   
   transformer_buf_max=MAX(ng2,transformer_buf_max);
 
@@ -52,19 +44,12 @@ void transformer_init_buffers(TransformerObject *self,int blocks)
     GPAW_CUDAMALLOC(&transformer_buf_gpu, double,transformer_buf_max);    
     transformer_buf_size=transformer_buf_max;
   }
-  transformer_buf2_max=MAX(out_ng,MAX(ng2,transformer_buf2_max));
-  if (transformer_buf2_max>transformer_buf2_size){
-    if (transformer_buf2_gpu) cudaFree(transformer_buf2_gpu);
-    GPAW_CUDAMALLOC(&transformer_buf2_gpu, double,transformer_buf2_max);    
-    transformer_buf2_size=transformer_buf2_max;
-  }  
 }
 
 
 void transformer_delete_cuda(TransformerObject *self)
 {
   if (transformer_buf_gpu) cudaFree(transformer_buf_gpu);
-  if (transformer_buf2_gpu) cudaFree(transformer_buf2_gpu);
 }
 
 
@@ -130,7 +115,6 @@ PyObject* Transformer_apply_cuda_gpu(TransformerObject *self, PyObject *args)
   transformer_init_buffers(self,blocks);
   
   double* buf = transformer_buf_gpu;
-  double* buf2 = transformer_buf2_gpu;
   
   
   for (int n = 0; n < nin; n+=blocks)   {
@@ -154,18 +138,17 @@ PyObject* Transformer_apply_cuda_gpu(TransformerObject *self, PyObject *args)
       GPAW_CUDAMEMCPY(buf_cpu2,transformer_buf_gpu,double, ng2 * myblocks, 
 		    cudaMemcpyDeviceToHost);
 #endif //DEBUG_CUDA_TRANSFORMER
-      
       if (real)  {	
 	bmgs_interpolate_cuda_gpu(self->k, self->skip, buf, 
 				  bc->size2, out2, self->size_out,
-				  buf2, myblocks);
+				  myblocks);
       } else {
 	bmgs_interpolate_cuda_gpuz(self->k, self->skip, 
 				   (cuDoubleComplex*)(buf),
 				   bc->size2, 
 				   (cuDoubleComplex*)(out2),
 				   self->size_out,
-				   (cuDoubleComplex*)buf2, myblocks);
+				   myblocks);
       }
     }else  {
       for (int i = 0; i < 3; i++){
@@ -182,15 +165,15 @@ PyObject* Transformer_apply_cuda_gpu(TransformerObject *self, PyObject *args)
 #endif //DEBUG_CUDA_TRANSFORMER
       if (real)  {
 	bmgs_restrict_cuda_gpu(self->k, buf, bc->size2,
-			       out2, self->size_out, 
-			       buf2, myblocks);	
+				out2, self->size_out, 
+				myblocks);	
       } else {
-	bmgs_restrict_cuda_gpuz(self->k, 
-				(cuDoubleComplex*)(buf),
-				bc->size2, 
-				(cuDoubleComplex*)(out2),
-				self->size_out,
-				(cuDoubleComplex*) buf2, myblocks);
+	bmgs_restrict_cuda_gpu2z(self->k, 
+				 (cuDoubleComplex*)(buf),
+				 bc->size2, 
+				 (cuDoubleComplex*)(out2),
+				 self->size_out,
+				 myblocks);
       }
     }
     

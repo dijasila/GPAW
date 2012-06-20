@@ -11,235 +11,246 @@
 #include "gpaw-cuda-int.h"
 
 
-#ifdef K
 
 #ifndef CUGPAWCOMPLEX
-#define BLOCK 16
+#define BLOCK_X 16
+#define BLOCK_Y 8
 
-
+#define ACACHE_X (2*(BLOCK_X)+1)
+#define ACACHE_Y (2*(BLOCK_Y)+1)
 #endif
 
-#undef AC_X
-#undef AC_Y
-#undef ACK
-#define ACK (2*(K-1))
-#define AC_X (2*BLOCK+ACK)
-#define AC_Y (BLOCK)
 
-/*
-__global__ void RST1D_kernel(const Tcuda* a, int n, int m, Tcuda* b)
+__global__ void Zcuda(restrict_kernel)(const Tcuda* a, int3 n, Tcuda* b,int3 b_n,int xdiv,int blocks)
 {
-
-  int j=blockIdx.x*BLOCK+threadIdx.x;
-  if (j>=m) return;
-
-  int i=blockIdx.y*BLOCK+threadIdx.y;
-  if (i>=n) return;
-
-  a += j * (n * 2 + K * 2 - 3) + i * 2;
-  b += j + i * m ;
-  
-  if      (K == 2)
-    b[0] = MULDT(0.5 , ADD(a[0] ,
-			   MULDT(0.5 , ADD(a[1] , a[-1]))));
-  
-  else if (K == 4)
-    b[0] = MULDT(0.5 , ADD(a[0] ,
-		     ADD(MULDT( 0.5625 , ADD(a[1] , a[-1])),
-			 MULDT(-0.0625 , ADD(a[3] , a[-3])))));
-  
-  else if (K == 6)
-    b[0] = MULDT(0.5 , ADD(ADD(a[0] ,
-			       MULDT( 0.58593750 , ADD(a[1] , a[-1]))) ,
-			   ADD(MULDT(-0.09765625 , ADD(a[3] , a[-3])) ,
-			       MULDT( 0.01171875 , ADD(a[5] , a[-5])))));
-  
-  else
-    b[0] = MULDT(0.5 , ADD(a[0] ,
-			   ADD(ADD(MULDT( 0.59814453125 , ADD(a[1] , a[-1])) ,
-				   MULDT(-0.11962890625 , ADD(a[3] , a[-3]))) ,
-			       ADD(MULDT( 0.02392578125 , ADD(a[5] , a[-5])) ,
-				   MULDT(-0.00244140625 , ADD(a[7] , a[-7]))))));
-  
-}
-*/
-
-
-__global__ void RST1D_kernel(const Tcuda* a, int n, int m, Tcuda* b,int ang,int bng, int blocks)
-{
-  __shared__ Tcuda ac[AC_Y*AC_X];
-  Tcuda *acp;
-  
-  int jtid=threadIdx.x;
-  int j=blockIdx.x*BLOCK;
-  
-  
-  int itid=threadIdx.y;
-
+   
+  int xx=gridDim.x/xdiv;
   int yy=gridDim.y/blocks;
+
+  int xind=blockIdx.x/xx;
+
+  int i2tid=threadIdx.x;
+  int i2base=(blockIdx.x-xind*xx)*BLOCK_X;
+  int i2=i2base+i2tid;
+
   int blocksi=blockIdx.y/yy;
-  int ibl=blockIdx.y-yy*blocksi;
 
-  int i=ibl*BLOCK;
+  int i1tid=threadIdx.y;
+
+  int i1base=(blockIdx.y-blocksi*yy)*BLOCK_Y;
+  int i1=i1base+i1tid;
+
+  int3 a_size={n.x*n.y*n.z,n.y*n.z,n.z};
+
+  int3 b_size={b_n.x*b_n.y*b_n.z,b_n.y*b_n.z,b_n.z};
+
+  __shared__ Tcuda acache12[ACACHE_Y*ACACHE_X];
   
-  int sizex=(n * 2 + K * 2 - 3);
+  Tcuda *acache12p;
+  Tcuda *acache12p_2x;
 
-  int aind=(j+itid) * sizex + i * 2+jtid + K -1;
-
-  a +=blocksi*ang+aind;
-  b +=blocksi*bng+(j+jtid) + (i+itid) * m;
+  Tcuda b_new;
+  Tcuda b_old;
   
-  acp=ac+AC_X*(itid)+jtid+ACK/2;
-  if (aind<ang)
-    acp[0]=a[0]; 
-  if ((aind+BLOCK)<ang)  
-    acp[BLOCK]=a[BLOCK];
-  if  (jtid<ACK/2){
-    if (aind-ACK/2<ang)
-      acp[-ACK/2]=a[-ACK/2];
-    if (aind+2*BLOCK<ang)
-      acp[2*BLOCK]=a[2*BLOCK];
+  int xlen=(b_n.x+xdiv-1)/xdiv;
+  int xstart=xind*xlen;
+  int xend=MIN(xstart+xlen,b_n.x);
+  xlen=xend-xstart;
+
+  a+=a_size.x*blocksi+2*xstart*a_size.y+(i1base*2+i1tid)*a_size.z+i2base*2+i2tid;  
+
+  b+=b_size.x*blocksi+xstart*b_size.y+i1*b_size.z+i2;  
+   
+  acache12p=acache12+ACACHE_X*(i1tid)+i2tid;
+  acache12p_2x=acache12+ACACHE_X*(2*i1tid)+2*i2tid;
+  
+  acache12p[0]=a[0];
+  acache12p[BLOCK_X]=a[BLOCK_X];
+  if  (i2tid<1) {
+    acache12p[2*BLOCK_X]=a[2*BLOCK_X];
+    acache12p[BLOCK_Y*ACACHE_X+2*BLOCK_X]=a[BLOCK_Y*a_size.z+2*BLOCK_X];
   }
-  acp=ac+AC_X*(jtid)+2*itid+ACK/2;
-  __syncthreads();
+  acache12p[BLOCK_Y*ACACHE_X]=a[BLOCK_Y*a_size.z];
+  acache12p[BLOCK_Y*ACACHE_X+BLOCK_X]=a[BLOCK_Y*a_size.z+BLOCK_X];
+  if (i1tid<1) {
+    acache12p[2*BLOCK_Y*ACACHE_X]=a[2*BLOCK_Y*a_size.z];
+    acache12p[2*BLOCK_Y*ACACHE_X+BLOCK_X]=a[2*BLOCK_Y*a_size.z+BLOCK_X];
+    if (i2tid<1)
+      acache12p[2*BLOCK_Y*ACACHE_X+2*BLOCK_X]=a[2*BLOCK_Y*a_size.z+2*BLOCK_X];
+  }
   
-  if (((i+itid)<n) && ((j+jtid)<m)) {
+  __syncthreads();        
+  b_old=ADD(MULTD(acache12p_2x[ACACHE_X*1+1],0.0625),
+	    ADD(MULTD(ADD(ADD(acache12p_2x[ACACHE_X*1+0],
+			      acache12p_2x[ACACHE_X*1+2]),
+			  ADD(acache12p_2x[ACACHE_X*0+1],
+			      acache12p_2x[ACACHE_X*2+1])),0.03125),
+		MULTD(ADD(ADD(acache12p_2x[ACACHE_X*0+0],
+			      acache12p_2x[ACACHE_X*0+2]),
+			  ADD(acache12p_2x[ACACHE_X*2+0],
+			      acache12p_2x[ACACHE_X*2+2])),0.015625)));  
+
+  __syncthreads();         
+  for (int i0=xstart; i0 < xend; i0++) { 
     
-    if      (K == 2)
-      b[0] = MULDT(0.5 , ADD(acp[0] ,
-			     MULDT(0.5 , ADD(acp[1] , acp[-1]))));
+    a+=a_size.y;
+    acache12p[0]=a[0];
+    acache12p[BLOCK_X]=a[BLOCK_X];
+    if  (i2tid<1) {
+      acache12p[2*BLOCK_X]=a[2*BLOCK_X];
+      acache12p[BLOCK_Y*ACACHE_X+2*BLOCK_X]=a[BLOCK_Y*a_size.z+2*BLOCK_X];
+    }
+    acache12p[BLOCK_Y*ACACHE_X]=a[BLOCK_Y*a_size.z];
+    acache12p[BLOCK_Y*ACACHE_X+BLOCK_X]=a[BLOCK_Y*a_size.z+BLOCK_X];
+    if (i1tid<1) {
+      acache12p[2*BLOCK_Y*ACACHE_X]=a[2*BLOCK_Y*a_size.z];
+      acache12p[2*BLOCK_Y*ACACHE_X+BLOCK_X]=a[2*BLOCK_Y*a_size.z+BLOCK_X];
+      if (i2tid<1)
+	acache12p[2*BLOCK_Y*ACACHE_X+2*BLOCK_X]=a[2*BLOCK_Y*a_size.z+2*BLOCK_X];
+    }
     
-    else if (K == 4)
-      b[0] = MULDT(0.5 , ADD(acp[0] ,
-			     ADD(MULDT( 0.5625 , ADD(acp[1] , acp[-1])),
-				 MULDT(-0.0625 , ADD(acp[3] , acp[-3])))));
+    __syncthreads();
+    IADD(b_old,ADD(MULTD(acache12p_2x[ACACHE_X*1+1],0.125),
+		   ADD(MULTD(ADD(ADD(acache12p_2x[ACACHE_X*1+0],
+				     acache12p_2x[ACACHE_X*1+2]),
+				 ADD(acache12p_2x[ACACHE_X*0+1],
+				     acache12p_2x[ACACHE_X*2+1])),0.0625),
+		       MULTD(ADD(ADD(acache12p_2x[ACACHE_X*0+0],
+				     acache12p_2x[ACACHE_X*0+2]),
+				 ADD(acache12p_2x[ACACHE_X*2+0],
+				     acache12p_2x[ACACHE_X*2+2])),0.03125))));  
     
-    else if (K == 6)
-      b[0] = MULDT(0.5 , ADD(ADD(acp[0] ,
-				 MULDT( 0.58593750 , ADD(acp[1] , acp[-1]))) ,
-			     ADD(MULDT(-0.09765625 , ADD(acp[3] , acp[-3])) ,
-				 MULDT( 0.01171875 , ADD(acp[5] , acp[-5])))));
+    __syncthreads();         
+    a+=a_size.y;
+    if (i0==b_n.x-1) {
+      if (i1base*2+i1tid<n.y) {
+	if (i2base*2+i2tid<n.z) {
+	  acache12p[0]=a[0];
+	  if (i2base*2+BLOCK_X+i2tid<n.z) {
+	    acache12p[BLOCK_X]=a[BLOCK_X];
+	    if  (i2tid<1) {
+	      if (i2base*2+2*BLOCK_X+i2tid<n.z) 
+		acache12p[2*BLOCK_X]=a[2*BLOCK_X];
+	    }
+	  }
+	}
+	
+      }
+      if (i1base*2+BLOCK_Y+i1tid<n.y) {
+	if (i2base*2+i2tid<n.z) {
+	  acache12p[BLOCK_Y*ACACHE_X]=a[BLOCK_Y*a_size.z];
+	  if (i2base*2+BLOCK_X+i2tid<n.z) {
+	    acache12p[BLOCK_Y*ACACHE_X+BLOCK_X]=a[BLOCK_Y*a_size.z+BLOCK_X];
+	    if  (i2tid<1) {
+	      if (i2base*2+2*BLOCK_X+i2tid<n.z) 
+		acache12p[BLOCK_Y*ACACHE_X+2*BLOCK_X]=a[BLOCK_Y*a_size.z+2*BLOCK_X];
+	    }
+	  }
+	}
+      }
+
+      if (i1tid<1) {
+	if (i1base*2+2*BLOCK_Y+i1tid<n.y) {
+	  if (i2base*2+i2tid<n.z) {
+	    acache12p[2*BLOCK_Y*ACACHE_X]=a[2*BLOCK_Y*a_size.z];
+	    if (i2base*2+BLOCK_X+i2tid<n.z) {
+	      acache12p[2*BLOCK_Y*ACACHE_X+BLOCK_X]=a[2*BLOCK_Y*a_size.z+BLOCK_X];
+	      if (i2tid<1)
+		if (i2base*2+2*BLOCK_X+i2tid<n.z) 
+		  acache12p[2*BLOCK_Y*ACACHE_X+2*BLOCK_X]=a[2*BLOCK_Y*a_size.z+2*BLOCK_X];
+	    }
+	  }
+	}
+      }
+      
+    } else {
+      acache12p[0]=a[0];
+      acache12p[BLOCK_X]=a[BLOCK_X];
+      if  (i2tid<1) {
+	acache12p[2*BLOCK_X]=a[2*BLOCK_X];
+	acache12p[BLOCK_Y*ACACHE_X+2*BLOCK_X]=a[BLOCK_Y*a_size.z+2*BLOCK_X];
+      }
+      acache12p[BLOCK_Y*ACACHE_X]=a[BLOCK_Y*a_size.z];
+      acache12p[BLOCK_Y*ACACHE_X+BLOCK_X]=a[BLOCK_Y*a_size.z+BLOCK_X];
+      if (i1tid<1) {
+	acache12p[2*BLOCK_Y*ACACHE_X]=a[2*BLOCK_Y*a_size.z];
+	acache12p[2*BLOCK_Y*ACACHE_X+BLOCK_X]=a[2*BLOCK_Y*a_size.z+BLOCK_X];
+	if (i2tid<1)
+	  acache12p[2*BLOCK_Y*ACACHE_X+2*BLOCK_X]=a[2*BLOCK_Y*a_size.z+2*BLOCK_X];
+      }      
+    }
+    __syncthreads();         
+    b_new=ADD(MULTD(acache12p_2x[ACACHE_X*1+1],0.0625),
+	      ADD(MULTD(ADD(ADD(acache12p_2x[ACACHE_X*1+0],
+				acache12p_2x[ACACHE_X*1+2]),
+			    ADD(acache12p_2x[ACACHE_X*0+1],
+				acache12p_2x[ACACHE_X*2+1])),0.03125),
+		  MULTD(ADD(ADD(acache12p_2x[ACACHE_X*0+0],
+				acache12p_2x[ACACHE_X*0+2]),
+			    ADD(acache12p_2x[ACACHE_X*2+0],
+			    acache12p_2x[ACACHE_X*2+2])),0.015625)));
     
-    else
-      b[0] = MULDT(0.5 , 
-		   ADD(acp[0] ,
-		       ADD(ADD(MULDT( 0.59814453125 , ADD(acp[1] , acp[-1])) ,
-			       MULDT(-0.11962890625 , ADD(acp[3] , acp[-3]))) ,
-			   ADD(MULDT( 0.02392578125 , ADD(acp[5] , acp[-5])) ,
-			       MULDT(-0.00244140625 , ADD(acp[7] , acp[-7]))))));
-    
+    if (i1<b_n.y && i2<b_n.z)
+      b[0]=ADD(b_old,b_new);
+    b_old=b_new;    
+    __syncthreads();             
+    b+=b_size.y;
   }
 }
 
-void RST1D(const Tcuda* a, int n, int m, Tcuda* b,int ang,int bng, int blocks){
-  
 
-  
-  int gridy=(n+BLOCK-1)/BLOCK;
 
-  int gridx=(m+BLOCK-1)/BLOCK;
-  
-  dim3 dimBlock(BLOCK,BLOCK); 
-  dim3 dimGrid(gridx,gridy*blocks);    
-
-  RST1D_kernel<<<dimGrid, dimBlock, 0>>>(a,n,m, b, ang, bng, blocks);
-  
-  gpaw_cudaSafeCall(cudaGetLastError());
-
-}
-
-#else
-#  define K 2
-#  define RST1D Zcuda(bmgs_restrict1D2)
-#  define RST1D_kernel Zcuda(bmgs_restrict1D2_kernel)
-#  include "restrict-cuda.cu"
-#  undef RST1D
-#  undef RST1D_kernel
-#  undef K
-#  define K 4
-#  define RST1D Zcuda(bmgs_restrict1D4)
-#  define RST1D_kernel Zcuda(bmgs_restrict1D4_kernel)
-#  include "restrict-cuda.cu"
-#  undef RST1D
-#  undef RST1D_kernel
-#  undef K
-#  define K 6
-#  define RST1D Zcuda(bmgs_restrict1D6)
-#  define RST1D_kernel Zcuda(bmgs_restrict1D6_kernel)
-#  include "restrict-cuda.cu"
-#  undef RST1D
-#  undef RST1D_kernel
-#  undef K
-#  define K 8
-#  define RST1D Zcuda(bmgs_restrict1D8)
-#  define RST1D_kernel Zcuda(bmgs_restrict1D8_kernel)
-#  include "restrict-cuda.cu"
-#  undef RST1D
-#  undef RST1D_kernel
-#  undef K
 
 extern "C"{
   
-  void Zcuda(bmgs_restrict_cuda_gpu)(int k, Tcuda* a, const int n[3], 
-				     Tcuda* b, const int nb[3], Tcuda* w,
-				     int blocks)
+  void Zcuda(bmgs_restrict_cuda_gpu)(int k,
+				      const Tcuda* a, const int size[3], 
+				      Tcuda* b, const int sizeb[3],
+				      int blocks)
   {
-    void (*plg)(const Tcuda*, int, int, Tcuda*,int,int,int);
-    int ang=n[0]*n[1]*n[2];
-    int bng=nb[0]*nb[1]*nb[2];
-    //printf("ang %d  bng %d\n",ang,bng);
+    if (k!=2) assert(0);
+    int xdiv=MIN(sizeb[0],MAX((4+blocks-1)/blocks,1)); 
     
-    if (k == 2)
-      plg = Zcuda(bmgs_restrict1D2);
-    else if (k == 4)
-      plg = Zcuda(bmgs_restrict1D4);
-    else if (k == 6)
-      plg = Zcuda(bmgs_restrict1D6);
-    else
-      plg = Zcuda(bmgs_restrict1D8);
+    int gridy=blocks*((sizeb[1]+BLOCK_Y-1)/BLOCK_Y);
     
-    int e = k * 2 - 3;
-    //    for (int i = 0; i < blocks; i++){
-    plg(a, (n[2] - e) / 2, n[0] * n[1], w, ang, ang, blocks);
-    plg(w, (n[1] - e) / 2, n[0] * (n[2] - e) / 2, a, ang, ang, blocks);
-    plg(a, (n[0] - e) / 2, (n[1] - e) * (n[2] - e) / 4, b, ang, bng, blocks);
-
-    /*   a+=n[0]*n[1]*n[2];
-	 w+=n[0]*n[1]*n[2];
-	 b+=nb[0]*nb[1]*nb[2];
-	 }*/
+    int gridx=xdiv*((sizeb[2]+BLOCK_X-1)/BLOCK_X);
+    
+    dim3 dimBlock(BLOCK_X,BLOCK_Y); 
+    dim3 dimGrid(gridx,gridy);    
+    int3 n={size[0],size[1],size[2]};
+    int3 b_n={sizeb[0],sizeb[1],sizeb[2]};
+    
+    Zcuda(restrict_kernel)<<<dimGrid, dimBlock, 0>>>(a,n,b,b_n,xdiv,blocks);
+    gpaw_cudaSafeCall(cudaGetLastError());
   }
+  
+
 }
 #ifndef CUGPAWCOMPLEX
 #define CUGPAWCOMPLEX
 #include "restrict-cuda.cu"
 
 extern "C"{
-  double bmgs_restrict_cuda_cpu(int k, double* a, const int n[3], double* b, 
-				double* w)
+  double bmgs_restrict_cuda_cpu(int k, double* a, const int n[3], double* b, int blocks)
   {
-    double *adev,*bdev,*wdev;
-    size_t bsize;
+    double *adev,*bdev;
+    size_t bsize,asize;
     struct timeval  t0, t1; 
     double flops;
+    int   b_n[3]={(n[0]-1)/2,(n[1]-1)/2,(n[2]-1)/2};
   
-  
-    bsize=n[0]*n[1]*n[2];
-  
-    gpaw_cudaSafeCall(cudaMalloc(&adev,sizeof(double)*bsize));
-  
-    gpaw_cudaSafeCall(cudaMalloc(&bdev,sizeof(double)*bsize));
-    gpaw_cudaSafeCall(cudaMalloc(&wdev,sizeof(double)*bsize));
-   
-    gpaw_cudaSafeCall(cudaMemcpy(adev,a,sizeof(double)*bsize,
-				 cudaMemcpyHostToDevice));
-    gpaw_cudaSafeCall(cudaMemcpy(bdev,b,sizeof(double)*bsize,
-				 cudaMemcpyHostToDevice));
-    gpaw_cudaSafeCall(cudaMemcpy(wdev,w,sizeof(double)*bsize,
+    asize=n[0]*n[1]*n[2];
+    bsize=b_n[0]*b_n[1]*b_n[2];
+    
+    gpaw_cudaSafeCall(cudaMalloc(&adev,sizeof(double)*asize*blocks));
+    
+    gpaw_cudaSafeCall(cudaMalloc(&bdev,sizeof(double)*bsize*blocks));
+    
+    gpaw_cudaSafeCall(cudaMemcpy(adev,a,sizeof(double)*asize*blocks,
 				 cudaMemcpyHostToDevice));
   
     gettimeofday(&t0,NULL);
-    bmgs_restrict_cuda_gpu(k, adev, n, bdev,n, wdev,1);
+    bmgs_restrict_cuda_gpu(k, adev, n, bdev,b_n,blocks);
   
   
     cudaThreadSynchronize();  
@@ -248,17 +259,11 @@ extern "C"{
     
     gettimeofday(&t1,NULL);
   
-    gpaw_cudaSafeCall(cudaMemcpy(a,adev,sizeof(double)*bsize,
+    gpaw_cudaSafeCall(cudaMemcpy(b,bdev,sizeof(double)*bsize*blocks,
 				 cudaMemcpyDeviceToHost));
-    gpaw_cudaSafeCall(cudaMemcpy(b,bdev,sizeof(double)*bsize,
-				 cudaMemcpyDeviceToHost));
-    gpaw_cudaSafeCall(cudaMemcpy(w,wdev,sizeof(double)*bsize,
-				 cudaMemcpyDeviceToHost));
-  
   
     gpaw_cudaSafeCall(cudaFree(adev));
     gpaw_cudaSafeCall(cudaFree(bdev));
-    gpaw_cudaSafeCall(cudaFree(wdev));
   
     flops=(t1.tv_sec*1.0+t1.tv_usec/1000000.0-t0.tv_sec*1.0-t0.tv_usec/1000000.0); 
   
@@ -268,4 +273,4 @@ extern "C"{
 
 }
 #endif
-#endif
+

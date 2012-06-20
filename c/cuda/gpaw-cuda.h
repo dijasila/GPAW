@@ -68,17 +68,18 @@ void bmgs_translate_cuda_gpu(double* a, const int sizea[3], const int size[3],
 			     const int start1[3], const int start2[3],
 			     int blocks,cudaStream_t stream);
 
+
 void bmgs_restrict_cuda_gpu(int k, double* a, const int n[3], double* b, 
-			    const int nb[3], double* w,int blocks);
-double bmgs_restrict_cuda_cpu(int k, double* a, const int n[3], double* b, 
-			      double* w);
+			    const int nb[3], int blocks);
+double bmgs_restrict_cuda_cpu(int k, double* a, const int n[3], double* b, int blocks);
 void bmgs_interpolate_cuda_gpu(int k, int skip[3][2],
 			       const double* a, const int n[3],
-			       double* b, const int sizeb[3], double* w, 
+			       double* b, const int sizeb[3], 
 			       int blocks);
+
 double bmgs_interpolate_cuda_cpu(int k, int skip[3][2],
 				 const double* a, const int n[3],
-				 double* b, double* w);
+				  double* b,int blocks);
 
 // complex routines:
 double bmgs_fd_cuda_cpuz(const bmgsstencil* s, const cuDoubleComplex* a, cuDoubleComplex* b,int boundary,int blocks);
@@ -117,12 +118,13 @@ void bmgs_translate_cuda_gpuz(cuDoubleComplex* a, const int sizea[3],
 			      const int start2[3],cuDoubleComplex, int blocks,cudaStream_t stream);
 
 void bmgs_restrict_cuda_gpuz(int k, cuDoubleComplex* a, const int n[3], 
-			     cuDoubleComplex* b, const int nb[3], 
-			     cuDoubleComplex* w, int blocks);
+			      cuDoubleComplex* b, const int nb[3], 
+			      int blocks);
+
 void bmgs_interpolate_cuda_gpuz(int k, int skip[3][2],
 				const cuDoubleComplex* a, const int n[3],
 				cuDoubleComplex* b, const int sizeb[3],
-				cuDoubleComplex* w, int blocks);
+				int blocks);
 
 
 #endif
