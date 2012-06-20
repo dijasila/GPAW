@@ -6,9 +6,9 @@ CSRC  = kernel_test.c
 PROG  = kernel_test
 
 
-all: $(PROG)
+all: libgpawcuda $(PROG)
 
-ALLSRC = ../../bmgs/bmgs.c $(CSRC) $(CUSRC)
+ALLSRC = $(CSRC) $(CUSRC)
 
 ALLOBJ = $(CSRC:.c=.o) $(CUSRC:.cu=.o)
 
@@ -16,11 +16,12 @@ NVLDFLAGS=-L.. -lgpaw-cuda -L$(PYTHONLIBdir) -lpython2.6 -lutil -L$(CUDALIBdir) 
 
 -include make.dep
 
-.PHONY: depend clean
+.PHONY: depend clean libgpawcuda
 
 
-../$(CUGPAWLIB):
-	cd .. ; make
+libgpawcuda: 
+	@cd .. && $(MAKE)
+
 
 $(PROG): $(ALLSRC) ../$(CUGPAWLIB)
 	$(NVCC) $(NVCCFLAGS) $(NVLDFLAGS) $(ALLSRC) -o $@

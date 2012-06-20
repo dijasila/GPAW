@@ -17,6 +17,7 @@
 extern "C" {
 #endif 
 #include "../../bmgs/bmgs.h"
+#include "../../bmgs/bmgs.c"
  #ifdef __cplusplus
  }
  #endif 
@@ -34,7 +35,7 @@ int check_result(int n0,int n1, int n2,int blocks,double *b,double *b_cuda)
 	  long i=i0*n1*n2+i1*n2+i2; 
 	  double ee=sqrt((b[i]-b_cuda[i])*(b[i]-b_cuda[i]));
 	  if  (ee>1e-14) {
-	    //	  fprintf(stdout,"error %d %d %d %f %f %f\n",i0,i1,i2,ee,b[i],b_cuda[i]);
+	    if (e_i<64)	    fprintf(stdout,"error [[%d,%d,%d],%d] er:%f cpu:%f gpu:%f\n",i0,i1,i2,k,ee,b[i],b_cuda[i]);
 	    e_i++;
 	  }
 	  
@@ -46,7 +47,7 @@ int check_result(int n0,int n1, int n2,int blocks,double *b,double *b_cuda)
     b_cuda+=n0*n1*n2;
   }
   if  (e_i>0)
-    fprintf(stdout,"sum error %g count %d/%d\n",error,e_i,bsize);
+    fprintf(stdout,"sum error %g count %d/%d\n",error,e_i,blocks*bsize);
   return e_i;
 
 }
@@ -123,7 +124,7 @@ int calc_test_fd(int n1,int n2,int n3,int blocks)
 
   flops=((t1.tv_sec+t1.tv_usec/1000000.0-t0.tv_sec-t0.tv_usec/1000000.0)); 
   flops2=((t2.tv_sec+t2.tv_usec/1000000.0-t1.tv_sec-t1.tv_usec/1000000.0));
-  printf ("%dx%dx%dx%d \t %f\t %f\t %3.1f",s.n[0],s.n[1],s.n[2],blocks,ntimes*blocks*bsize/(1000000.0*flops),ntimes*blocks*bsize/(1000000.0*flops3),flops/flops3);
+  printf ("(%3d,%3d,%3d,%3d) \t %f\t %f\t %3.1f",s.n[0],s.n[1],s.n[2],blocks,ntimes*blocks*bsize/(1000000.0*flops),ntimes*blocks*bsize/(1000000.0*flops3),flops/flops3);
 
   if (!check_result(s.n[0],s.n[1],s.n[2],blocks,b,b_cuda)) {
     printf("\tOK");
@@ -136,6 +137,160 @@ int calc_test_fd(int n1,int n2,int n3,int blocks)
   return 0;
 
 }
+
+
+int calc_test_interpolate(int n1,int n2,int n3,int blocks)
+{
+
+  double h[3]={1.0, 1.0, 1.0};
+  int   n[3]={n1,n2,n3};
+  //  int skip[3][2]={{1,1},{1,1},{0,1}};
+
+  int skip[3][2]={{0,0},{0,0},{0,0}};
+  int   b_n[3]={2*n1-2-skip[0][0]+skip[0][1],
+		2*n2-2-skip[1][0]+skip[1][1],
+		2*n3-2-skip[2][0]+skip[2][1]};
+
+  int ntimes=1;
+  double *a,*b,*b_cuda,*w;
+  size_t asize,bsize;
+
+  struct timeval  t0, t1, t2; 
+  double flops,flops2,flops3;
+
+  
+  asize=n[0]*n[1]*n[2];
+  bsize=b_n[0]*b_n[1]*b_n[2];
+  
+  a=malloc(blocks*asize*sizeof(double));
+
+  b=malloc(blocks*bsize*sizeof(double));  
+  w=malloc(blocks*bsize*sizeof(double));  
+  b_cuda=malloc(blocks*bsize*sizeof(double));  
+
+  srand ( time(NULL) );
+  //srand (0 );
+
+  for (int i=0;i<blocks*asize;i++){
+    a[i]=rand()/(double)RAND_MAX;
+  }
+
+  bmgs_interpolate_cuda_cpu(2,skip,a,n,b_cuda,blocks);
+
+  memset(b,0,blocks*bsize*sizeof(double));  
+  memset(w,0,blocks*bsize*sizeof(double));  
+  memset(b_cuda,0,blocks*bsize*sizeof(double));  
+  gettimeofday(&t0,NULL);
+
+  for (int i=0;i<ntimes;i++){
+    for (int k=0;k<blocks;k++)
+      bmgs_interpolate(2,skip,a+k*asize,n,b+k*bsize,w);
+  }
+
+  gettimeofday(&t1,NULL);
+  flops3=0;
+  for (int i=0;i<ntimes;i++) flops3+=bmgs_interpolate_cuda_cpu(2,skip,a,n,b_cuda,blocks);
+  gettimeofday(&t2,NULL);
+
+  flops=((t1.tv_sec+t1.tv_usec/1000000.0-t0.tv_sec-t0.tv_usec/1000000.0)); 
+  flops2=((t2.tv_sec+t2.tv_usec/1000000.0-t1.tv_sec-t1.tv_usec/1000000.0));
+  printf ("(%3d,%3d,%3d,%3d) -> (%3d,%3d,%3d,%3d) \t %f\t %f\t %3.1f",n[0],n[1],n[2],blocks,b_n[0],b_n[1],b_n[2],blocks,ntimes*blocks*bsize/(1000000.0*flops),ntimes*blocks*bsize/(1000000.0*flops3),flops/flops3);
+
+  if (!check_result(b_n[0],b_n[1],b_n[2],blocks,b,b_cuda)) {
+    printf("\tOK");
+  }
+  printf("\n");
+
+  free(a);
+
+  free(b);
+
+  free(w);
+
+  free(b_cuda);
+
+  return 0;
+
+}
+
+int calc_test_restrict(int n1,int n2,int n3,int blocks)
+{
+
+  double h[3]={1.0, 1.0, 1.0};
+  int   n[3]={n1,n2,n3};
+  //  int   b_n[3]={n1,n2,n3};
+  //  int   b_n[3]={(n1-1)/2,(n2-1)/2,(n3-1)/2};
+  int   b_n[3]={(n1-1)/2,(n2-1)/2,(n3-1)/2};
+
+
+  int ntimes=1;
+  double *a,*b,*b_cuda,*w,*a_cuda;
+  size_t asize,bsize;
+
+  struct timeval  t0, t1, t2; 
+  double flops,flops2,flops3;
+
+  
+  asize=n[0]*n[1]*n[2];
+  bsize=(b_n[0])*(b_n[1])*(b_n[2]);
+  
+  a=malloc(blocks*asize*sizeof(double));
+  a_cuda=malloc(blocks*asize*sizeof(double));
+
+  b=malloc(blocks*bsize*sizeof(double));  
+  w=malloc(blocks*asize*sizeof(double));  
+  b_cuda=malloc(blocks*bsize*sizeof(double));  
+
+  srand ( time(NULL) );
+  //srand (0 );
+
+  for (int i=0;i<blocks*asize;i++){
+    a[i]=rand()/(double)RAND_MAX;
+    a_cuda[i]=a[i];
+  }
+
+  bmgs_restrict_cuda_cpu(2,a_cuda,n,b_cuda,blocks);
+
+  for (int i=0;i<blocks*asize;i++){
+    a_cuda[i]=a[i];
+  }
+  memset(b,0,blocks*bsize*sizeof(double));  
+  memset(w,0,blocks*asize*sizeof(double));  
+  memset(b_cuda,0,blocks*bsize*sizeof(double));  
+  gettimeofday(&t0,NULL);
+
+  for (int i=0;i<ntimes;i++){
+    for (int k=0;k<blocks;k++)
+      bmgs_restrict(2,a+k*asize,n,b+k*bsize,w);
+  }
+
+  gettimeofday(&t1,NULL);
+  flops3=0;
+  for (int i=0;i<ntimes;i++) flops3+=bmgs_restrict_cuda_cpu(2,a_cuda,n,b_cuda,blocks);
+  gettimeofday(&t2,NULL);
+
+  flops=((t1.tv_sec+t1.tv_usec/1000000.0-t0.tv_sec-t0.tv_usec/1000000.0)); 
+  flops2=((t2.tv_sec+t2.tv_usec/1000000.0-t1.tv_sec-t1.tv_usec/1000000.0));
+  printf ("(%3d,%3d,%3d,%3d) -> (%3d,%3d,%3d,%3d) \t %f\t %f\t %3.1f",n[0],n[1],n[2],blocks,b_n[0],b_n[1],b_n[2],blocks,ntimes*blocks*bsize/(1000000.0*flops),ntimes*blocks*bsize/(1000000.0*flops3),flops/flops3);
+
+  if (!check_result(b_n[0],b_n[1],b_n[2],blocks,b,b_cuda)) {
+    printf("\tOK");
+  }
+  printf("\n");
+  free(a);
+  free(a_cuda);
+
+  free(b);
+
+  free(w);
+
+  free(b_cuda);
+
+  return 0;
+
+}
+
+
 
 
 int calc_test_paste(int n1,int n2,int n3,int blocks)
@@ -189,20 +344,20 @@ int calc_test_paste(int n1,int n2,int n3,int blocks)
   for (int i=0;i<ntimes;i++) flops3+=bmgs_paste_cuda_cpu(a,ni,b_cuda,ni,c);
 
 
-  for (int i=0;i<ntimes;i++) flops4+=bmgs_paste_cuda_cpu2(a,ni,b_cuda2,ni,c);
+  //  for (int i=0;i<ntimes;i++) flops4+=bmgs_paste_cuda_cpu2(a,ni,b_cuda2,ni,c);
 
   gettimeofday(&t2,NULL);
 
   flops=((t1.tv_sec+t1.tv_usec/1000000.0-t0.tv_sec-t0.tv_usec/1000000.0)); 
   flops2=((t2.tv_sec+t2.tv_usec/1000000.0-t1.tv_sec-t1.tv_usec/1000000.0));
-  printf ("%dx%dx%dx%d \t %f\t %f\t %f\t %3.1f",s.n[0],s.n[1],s.n[2],blocks,ntimes*blocks*bsize/(1000000.0*flops),ntimes*blocks*bsize/(1000000.0*flops3),ntimes*blocks*bsize/(1000000.0*flops4),flops/flops3);
+  printf ("(%3d,%3d,%3d,%3d) \t %f\t %f\t %f\t %3.1f",s.n[0],s.n[1],s.n[2],blocks,ntimes*blocks*bsize/(1000000.0*flops),ntimes*blocks*bsize/(1000000.0*flops3),flops/flops3);
 
   if (!check_result(s.n[0],s.n[1],s.n[2],blocks,b,b_cuda)) {
     printf("\tOK");
   }
-  if (!check_result(s.n[0],s.n[1],s.n[2],blocks,b,b_cuda2)) {
+  /*  if (!check_result(s.n[0],s.n[1],s.n[2],blocks,b,b_cuda2)) {
     printf("\tOK");
-  }
+    }*/
   printf("\n");
 
   free(a);
@@ -275,7 +430,7 @@ int calc_test_relax(int n1,int n2,int n3)
 
   flops=((t1.tv_sec+t1.tv_usec/1000000.0-t0.tv_sec-t0.tv_usec/1000000.0)); 
   flops2=((t2.tv_sec+t2.tv_usec/1000000.0-t1.tv_sec-t1.tv_usec/1000000.0));
-  printf ("%dx%dx%d \t %f\t %f\t %3.1f",s.n[0],s.n[1],s.n[2],nrelax*bsize/(1000000.0*flops),nrelax*bsize/(1000000.0*flops3),flops/flops3);
+  printf ("(%3d,%3d,%3d) \t %f\t %f\t %3.1f",s.n[0],s.n[1],s.n[2],nrelax*bsize/(1000000.0*flops),nrelax*bsize/(1000000.0*flops3),flops/flops3);
 
   if (!check_result(s.n[0],s.n[1],s.n[2],blocks,b,b_cuda)) {
     printf("\tOK");
@@ -334,7 +489,7 @@ int calc_test_fdz(int n1,int n2,int n3,int blocks)
 
   flops=((t1.tv_sec+t1.tv_usec/1000000.0-t0.tv_sec-t0.tv_usec/1000000.0)); 
   flops2=((t2.tv_sec+t2.tv_usec/1000000.0-t1.tv_sec-t1.tv_usec/1000000.0));
-  printf ("%dx%dx%d \t %f\t %f\t %3.1f",s.n[0],s.n[1],s.n[2],ntimes*bsize/(1000000.0*flops),ntimes*bsize/(1000000.0*flops3),flops/flops3);
+  printf ("(%3d,%3d,%3d) \t %f\t %f\t %3.1f",s.n[0],s.n[1],s.n[2],ntimes*bsize/(1000000.0*flops),ntimes*bsize/(1000000.0*flops3),flops/flops3);
 
   if (!check_resultz(s.n[0],s.n[1],s.n[2],b,b_cuda)) {
     printf("\tOK");
@@ -351,24 +506,57 @@ int main(void)
 {
   cudaSetDevice(1);
   cudaThreadSetCacheConfig(cudaFuncCachePreferL1);
-  srand((unsigned int) time(NULL));
-  //srand(0);
-    //for (int n=16;n<449;n+=6)
+  //for (int n=16;n<449;n+=6)
   /*  printf("# bmgs_paste  \n");  
-  printf("# N \t\t CPU Mpoint/s \t GPU Mpoint/s \t Speed-up\n");  
-  for (int n=16;n<280;n+=24)
-  calc_test_paste(n,n,n,1);*/
+      printf("# N \t\t CPU Mpoint/s \t GPU Mpoint/s \t Speed-up\n");  
+      for (int n=16;n<280;n+=24)
+      calc_test_paste(n,n,n,1);*/
+  
+  printf("# bmgs_restrict\n");  
+  printf("# N \t\t\t\t\t CPU Mpoint/s \t GPU Mpoint/s \t Speed-up\n");    //
+  //calc_test_restrict(28,28,28,1);
+  //exit(0);
+  calc_test_restrict(8,8,8,1);
+  for (int n=16;n<450/2;n+=2*6){
+    calc_test_restrict(n,n,n,1);
+  }
+  for (int n=16;n<140;n+=24)
+    calc_test_restrict(n,n,n,16);
+  for (int n=1;n<=128;n*=2)
+    calc_test_restrict(30,30,30,n);
+  for (int n=1;n<=128;n*=2)
+    calc_test_restrict(60,60,60,n);
+  printf("# bmgs_interpolate  \n");  
+  printf("# N \t\t\t\t\t CPU Mpoint/s \t GPU Mpoint/s \t Speed-up\n");  
+  calc_test_interpolate(2,2,2,1);
+  calc_test_interpolate(4,4,4,1);
+  calc_test_interpolate(8,8,8,1);
+  for (int n=16;n<450/4;n+=2*6){
+    calc_test_interpolate(n,n,n,1);
+  }
+  for (int n=8;n<70;n+=140)
+   calc_test_interpolate(n,n,n,16);
+  for (int n=1;n<=128;n*=2)
+    calc_test_interpolate(30,30,30,n);
+  for (int n=1;n<=128;n*=2)
+    calc_test_interpolate(60,60,60,n);
+  
+
   printf("# bmgs_fd  \n");  
-  printf("# N \t\t CPU Mpoint/s \t GPU Mpoint/s \t Speed-up\n");  
-  for (int n=16;n<280;n+=24){
+  printf("# N \t\t\t CPU Mpoint/s \t GPU Mpoint/s \t Speed-up\n");  
+  calc_test_fd(2,2,2,1);
+  calc_test_fd(4,4,4,1);
+  calc_test_fd(8,8,8,1);
+  for (int n=16;n<450/2;n+=2*6){
     calc_test_fd(n,n,n,1);
   }
   for (int n=16;n<140;n+=24)
     calc_test_fd(n,n,n,16);
-  for (int n=1;n<=128;n*=2){
-    calc_test_fd(40,40,40,n);
-    calc_test_fd(80,80,80,n);
-  }
+  for (int n=1;n<=128;n*=2)
+    calc_test_fd(30,30,30,n);
+  for (int n=1;n<=128;n*=2)
+    calc_test_fd(60,60,60,n);
+
   printf("# bmgs_fdz  \n");  
   printf("# N \t\t CPU Mpoint/s \t GPU Mpoint/s \t Speed-up\n");  
   for (int n=16;n<280;n+=24)
