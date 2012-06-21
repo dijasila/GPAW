@@ -11,8 +11,8 @@ import numpy as np
 from gpaw.poisson import PoissonSolver
 from gpaw.transformers import Transformer
 from gpaw.lfc import LFC
-from gpaw.utilities import pack2,unpack,unpack2
-from gpaw.utilities.tools import tri2full
+from gpaw.utilities import pack2, unpack, unpack2
+from gpaw.io import read_atomic_matrices
 
 
 class Hamiltonian:
@@ -145,7 +145,6 @@ class Hamiltonian:
         """
         S=self.setups[a]
         l_j = S.l_j
-        n_j = S.n_j
         lq  = S.lq
         nl  = np.where(np.equal(l_j, l))[0]
         V = np.zeros(np.shape(DM))
@@ -283,7 +282,7 @@ class Hamiltonian:
 
         # Make corrections due to non-local xc:
         #xcfunc = self.xc.xcfunc
-        self.Enlxc = 0.0#XXXxcfunc.get_non_local_energy()
+        self.Enlxc = 0.0  # XXXxcfunc.get_non_local_energy()
         Ekin += self.xc.get_kinetic_energy_correction() / self.gd.comm.size
 
         energies = np.array([Ekin, Epot, Ebar, Eext, Exc])
@@ -383,7 +382,7 @@ class Hamiltonian:
         shape = a_xG.shape[:-3]
         P_axi = wfs.pt.dict(shape)
 
-        if calculate_P_ani: #TODO calculate_P_ani=False is experimental
+        if calculate_P_ani:  # TODO calculate_P_ani=False is experimental
             wfs.pt.integrate(a_xG, P_axi, kpt.q)
         else:
             for a, P_ni in kpt.P_ani.items():
@@ -418,6 +417,52 @@ class Hamiltonian:
         self.xc.estimate_memory(mem.subnode('XC'))
         self.poisson.estimate_memory(mem.subnode('Poisson'))
         self.vbar.estimate_memory(mem.subnode('vbar'))
+
+    def read(self, reader, parallel, kd, bd):
+        self.Ekin = reader['Ekin']
+        self.Epot = reader['Epot']
+        self.Ebar = reader['Ebar']
+        try:
+            self.Eext = reader['Eext']
+        except (AttributeError, KeyError):
+            self.Eext = 0.0
+        self.Exc = reader['Exc']
+        self.S = reader['S']
+        self.Etot = reader.get('PotentialEnergy',
+                               broadcast=True) - 0.5 * self.S
+
+        if not reader.has_array('PseudoPotential'):
+            return
+
+        hdf5 = hasattr(reader, 'hdf5')
+        version = reader['version']
+
+        # Read pseudo potential on the coarse grid
+        # and broadcast on kd.comm and bd.comm:
+        if version > 0.3:
+            self.vt_sG = self.gd.empty(self.nspins)
+            if hdf5:
+                indices = [slice(0, self.nspins), ] + self.gd.get_slice()
+                do_read = (kd.comm.rank == 0) and (bd.comm.rank == 0)
+                reader.get('PseudoPotential', out=self.vt_sG,
+                           parallel=parallel,
+                           read=do_read, *indices)  # XXX read=?
+                kd.comm.broadcast(self.vt_sG, 0)
+                bd.comm.broadcast(self.vt_sG, 0)
+            else:
+                for s in range(self.nspins):
+                    self.gd.distribute(reader.get('PseudoPotential', s),
+                                       self.vt_sG[s])
+
+        # Read non-local part of hamiltonian
+        self.dH_asp = {}
+        natoms = len(self.setups)
+        self.rank_a = np.zeros(natoms, int)
+        if version > 0.3:
+            all_H_sp = reader.get('NonLocalPartOfHamiltonian', broadcast=True)
+
+        if self.gd.comm.rank == 0 and version > 0.3:
+            self.dH_asp = read_atomic_matrices(all_H_sp, self.setups)
 
 
 class RealSpaceHamiltonian(Hamiltonian):
