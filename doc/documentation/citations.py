@@ -21,9 +21,9 @@ def f(filename):
         if tag == 'TI':
             ntitle = n
         elif tag == 'SO':
-            title = ' '.join(lines[i][3:] for i in range(ntitle, n))
+            title = ' '.join(lines[i][3:-1] for i in range(ntitle, n))
         elif tag == 'DI':
-            doi = line[3:]
+            doi = line[3:-1]
         elif tag == 'PD':
             w = line.split()[1:]
             if len(w) == 1:
