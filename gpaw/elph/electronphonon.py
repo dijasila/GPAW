@@ -440,7 +440,11 @@ class ElectronPhononCoupling(Displacement):
         cell_vc = self.atoms.cell.transpose()
         # Atomic positions in reference cell
         pos_av = self.atoms.get_positions()
-        
+
+        # Create a mask array to zero the relevant matrix elements
+        if cutmin is not None:
+            mask_avNNMM = np.zeros(g_avNNMM.shape, dtype=bool)
+            
         # Zero elements with a distance to atoms in the reference cell
         # larger than the cutoff
         for n in range(N):
@@ -461,12 +465,18 @@ class ElectronPhononCoupling(Displacement):
                         g_avNNMM[a, :, :, n, :, slice_a[j]] = 0.0
 
                 if cutmin is not None:
-                    # Atoms indices where the distance is larger than the max cufoff
-                    j_a = np.where(dist_a < cutmin)[0]
-                    # Zero elements
+
+                    # Atoms indices where the distance is larger than the min cufoff
+                    j_a = np.where(dist_a > cutmin)[0]
+                    # Update mask to keep elements where one LCAO is outside
+                    # the min cutoff
                     for j in j_a:
-                        g_avNNMM[a, :, n, :, slice_a[j], :] = 0.0
-                        g_avNNMM[a, :, :, n, :, slice_a[j]] = 0.0
+                        mask_avNNMM[a, :, n, :, slice_a[j], :] = True
+                        mask_avNNMM[a, :, :, n, :, slice_a[j]] = True
+
+        # Zero elements where both LCAOs are located within the min cutoff
+        if cutmin is not None:
+            g_avNNMM[~mask_avNNMM] = 0.0
                         
     def lcao_matrix(self, u_l, omega_l):
         """Calculate the el-ph coupling in the electronic LCAO basis.
