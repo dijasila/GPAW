@@ -289,7 +289,7 @@ tests = [
     'transport.py',
     'mgga_sc.py',
     'constant_electric_field.py',
-    'stark_shift.py',
+#    'stark_shift.py',
     'aluminum_testcell.py',
     'cmrtest/cmr_test2.py',
     'gw_method.py',
