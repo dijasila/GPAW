@@ -202,7 +202,8 @@ lxcXCFunctional_is_gga(lxcXCFunctionalObject *self, PyObject *args)
 {
   int success = 0; /* assume functional is not GGA */
   // check family of most-complex functional
-  if (self->functional[0]->info->family == XC_FAMILY_GGA) success = XC_FAMILY_GGA;
+  if (self->functional[0]->info->family == XC_FAMILY_GGA ||
+      self->functional[0]->info->family == XC_FAMILY_HYB_GGA) success = XC_FAMILY_GGA;
   return Py_BuildValue("i", success);
 }
 
@@ -538,7 +539,7 @@ static void data2block(const xcinfo *info,
 // copy the data from the block back into its final resting place
 
 static void block2data(const xcinfo *info, double *outblocklist[], const xcptrlist *outlist,
-                       double *n_sg, int blocksize) {
+                       const double *n_sg, int blocksize) {
   for (int i=0; i<outlist->num; i++) {
     double *ptr = outlist->p[i].p; double* block = outblocklist[i];
     if (outlist->p[i].special&E_G) {
@@ -567,8 +568,8 @@ static void block2data(const xcinfo *info, double *outblocklist[], const xcptrli
 // copy the data from the block back into its final resting place, but add to previous results
 
 static void block2dataadd(const xcinfo *info, double *outblocklist[], const xcptrlist *outlist,
-                          double *n_sg, int blocksize) {
-  for (int i=0; i<outlist->num; i++) {
+                          const double *n_sg, int blocksize, int noutcopy) {
+  for (int i=0; i<noutcopy; i++) {
     double *ptr = outlist->p[i].p; double* block = outblocklist[i];
     if (outlist->p[i].special&E_G) {
       if (info->spinpolarized) {
@@ -630,6 +631,7 @@ lxcXCFunctional_Calculate(lxcXCFunctionalObject *self, PyObject *args)
       outlist.p[3].spinsize = 2;
       outlist.num++;
       // don't break here since MGGA also needs GGA ptrs
+    case XC_FAMILY_HYB_GGA:
     case XC_FAMILY_GGA:
       inlist.p[1].p = DOUBLEP(py_sigma_xg);
       inlist.p[1].special = 0;
@@ -680,19 +682,24 @@ lxcXCFunctional_Calculate(lxcXCFunctionalObject *self, PyObject *args)
     for (int i=0; i<2; i++) {
       if (self->functional[i] == NULL) continue;
       XC(func_type) *func = self->functional[i];
+      int noutcopy;
       switch(func->info->family)
         {
         case XC_FAMILY_LDA:
           xc_lda_exc_vxc(func, blocksize, n_sg, e_g, dedn_sg);
+          noutcopy = 2; // potentially decrease the size for block2dataadd if second functional less complex.
           break;
+        case XC_FAMILY_HYB_GGA:
         case XC_FAMILY_GGA:
           xc_gga_exc_vxc(func, blocksize,
                          n_sg, sigma_xg, e_g,
                          dedn_sg, dedsigma_xg);
+          noutcopy = 3; // potentially decrease the size for block2dataadd if second functional less complex.
           break;
         case XC_FAMILY_MGGA:
           xc_mgga_exc_vxc(func, blocksize, n_sg, sigma_xg, scratch_lapl, tau_sg,
                           e_g, dedn_sg, dedsigma_xg, scratch_vlapl, dedtau_sg);
+          noutcopy = 4; // potentially decrease the size for block2dataadd if second functional less complex.
           break;
         }
       // if we have more than 1 functional, add results
@@ -700,7 +707,7 @@ lxcXCFunctional_Calculate(lxcXCFunctionalObject *self, PyObject *args)
       if (i==0)
         block2data(&info, &outblock[0], &outlist, n_sg, blocksize);
       else
-        block2dataadd(&info, &outblock[0], &outlist, n_sg, blocksize);
+        block2dataadd(&info, &outblock[0], &outlist, n_sg, blocksize, noutcopy);
     }
 
     for (int i=0; i<inlist.num; i++) inlist.p[i].p+=blocksize;
@@ -744,6 +751,7 @@ lxcXCFunctional_CalculateFXC(lxcXCFunctionalObject *self, PyObject *args)
       // not supported
       assert(self->functional[0]->info->family != XC_FAMILY_MGGA);
       // don't break here since MGGA also needs GGA ptrs
+    case XC_FAMILY_HYB_GGA:
     case XC_FAMILY_GGA:
       inlist.p[1].p = DOUBLEP(py_sigma_xg);
       inlist.p[1].special = 0;
@@ -758,7 +766,6 @@ lxcXCFunctional_CalculateFXC(lxcXCFunctionalObject *self, PyObject *args)
       outlist.num+=2;
       // don't break here since GGA also needs LDA ptrs
     case XC_FAMILY_LDA:
-      // n_g must go in position 0 (required by block2data for e_g calculation)
       inlist.p[0].p = DOUBLEP(py_n_sg);
       inlist.p[0].special = N_SG;
       inlist.p[0].spinsize = 2;
@@ -792,17 +799,21 @@ lxcXCFunctional_CalculateFXC(lxcXCFunctionalObject *self, PyObject *args)
     for (int i=0; i<2; i++) {
       if (self->functional[i] == NULL) continue;
       XC(func_type) *func = self->functional[i];
+      int noutcopy;
       switch(func->info->family)
         {
         case XC_FAMILY_LDA:
           xc_lda_fxc(func, blocksize, n_sg, v2rho2);
+          noutcopy = 1; // potentially decrease the size for block2dataadd if second functional less complex.
           break;
+        case XC_FAMILY_HYB_GGA:
         case XC_FAMILY_GGA:
           xc_gga_fxc(func, blocksize, n_sg, sigma_xg,
                      v2rho2, v2rhosigma, v2sigma2);
+          noutcopy = 3; // potentially decrease the size for block2dataadd if second functional less complex.
           break;
         case XC_FAMILY_MGGA:
-          // not supported
+          // not supported by GPAW yet
           assert (func->info->family!=XC_FAMILY_MGGA);
           break;
         }
@@ -811,7 +822,7 @@ lxcXCFunctional_CalculateFXC(lxcXCFunctionalObject *self, PyObject *args)
       if (i==0)
         block2data(&info, &outblock[0], &outlist, n_sg, blocksize);
       else
-        block2dataadd(&info, &outblock[0], &outlist, n_sg, blocksize);
+        block2dataadd(&info, &outblock[0], &outlist, n_sg, blocksize, noutcopy);
     }
 
     for (int i=0; i<inlist.num; i++) inlist.p[i].p+=blocksize;
@@ -914,7 +925,7 @@ PyObject * NewlxcXCFunctionalObject(PyObject *obj, PyObject *args)
       } else if (familyc == XC_FAMILY_MGGA) {
         self->functional[0]=&self->c_functional;
         self->functional[1]=&self->x_functional;
-      } else if (familyx == XC_FAMILY_GGA) {
+      } else if (familyx == XC_FAMILY_GGA || familyx == XC_FAMILY_HYB_GGA) {
         self->functional[0]=&self->x_functional;
         self->functional[1]=&self->c_functional;
       } else {
