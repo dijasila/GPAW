@@ -294,7 +294,8 @@ tests = [
     'cmrtest/cmr_test2.py',
     'gw_method.py',
     'gw_ppa.py',
-    'gw_planewave.py']
+    'gw_planewave.py',
+    'gw_static.py']
 
 try:
     import cmr

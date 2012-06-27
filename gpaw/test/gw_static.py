@@ -10,17 +10,17 @@ from gpaw.wavefunctions.pw import PW
 
 starttime = time()
 
-a = 5.431
-atoms = bulk('Si', 'diamond', a=a)
+a = 3.567
+atoms = bulk('C', 'diamond', a=a)
 
 kpts = (2,2,2)
 
 calc = GPAW(
             h=0.24,
-            mode=PW(100),
+            mode=PW(400),
             kpts=kpts,
             xc='LDA',
-            txt='Si_gs.txt',
+            txt='C_gs.txt',
             occupations=FermiDirac(0.001),
             usesymm=None,
             parallel={'band':1}
@@ -28,25 +28,27 @@ calc = GPAW(
 
 atoms.set_calculator(calc)
 atoms.get_potential_energy()
-calc.write('Si_gs.gpw','all')
 
-file='Si_gs.gpw'
+calc.diagonalize_full_hamiltonian(nbands=100)
+calc.write('C_gs.gpw', 'all')
+
+file='C_gs.gpw'
 
 gw = GW(
         file=file,
-        nbands=8,
+        nbands=20,
         bands=np.array([3,4]),
-        w=np.array([10., 30., 0.05]),
+        w=None,
         ecut=25.,
         eta=0.1,
-        hilbert_trans=False,
+        hilbert_trans=False
        )
 
 gw.get_QP_spectrum()
 
 gap = (gw.QP_skn[0,0,1] - gw.QP_skn[0,0,0]) * Hartree
 
-if not (np.abs(gap - 3.48) < 0.01):
+if not (np.abs(gap - 10.70) < 0.01):
     raise AssertionError("check your results!")
 
 totaltime = round(time() - starttime)
