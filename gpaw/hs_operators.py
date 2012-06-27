@@ -85,6 +85,7 @@ class MatrixOperator:
         # default for work spaces
         self.A_qnn = None
         self.A_nn = None
+        self.work_nG = None
 
         mynbands = self.bd.mynbands
         ngroups = self.bd.comm.size
@@ -390,7 +391,7 @@ class MatrixOperator:
         block_comm.barrier()
         return self.bmd.redistribute_output(A_NN)
         
-    def matrix_multiply(self, C_NN, psit_nG, P_ani=None):
+    def matrix_multiply(self, C_NN, psit_nG, P_ani=None, out_nG=None):
         """Calculate new linear combinations of wave functions.
 
         Results will be put in the *P_ani* dict and a new psit_nG returned::
@@ -423,14 +424,22 @@ class MatrixOperator:
 
         C_NN = self.bmd.redistribute_input(C_NN)
 
+        if out_nG is None or out_nG is psit_nG:
+            if self.work_nG is None:
+                self.work_nG = np.zeros_like(psit_nG)
+            if out_nG is None:
+                out_nG = self.work_nG
+            else:
+                self.work_nG[:] = psit_nG
+                psit_nG = self.work_nG
+
         if B == 1 and J == 1:
             # Simple case:
-            newpsit_nG = np.zeros_like(psit_nG)
-            self.gd.gemm(1.0, psit_nG, C_NN, 0.0, newpsit_nG)
+            self.gd.gemm(1.0, psit_nG, C_NN, 0.0, out_nG)
             if P_ani:
                 for P_ni in P_ani.values():
                     gemm(1.0, P_ni.copy(), C_NN, 0.0, P_ni)
-            return newpsit_nG
+            return out_nG
         
         # Now it gets nasty! We parallelize over B groups of bands and
         # each grid chunk is divided in J smaller slices (less memory).

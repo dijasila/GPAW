@@ -33,6 +33,9 @@ class Eigensolver:
         if self.mynbands != self.nbands or self.operator.nblocks != 1:
             self.keep_htpsit = False
 
+        if self.keep_htpsit:
+            self.Htpsit_nG = wfs.empty(self.nbands)
+
         # Preconditioner for the electronic gradients:
         self.preconditioner = wfs.make_preconditioner(self.blocksize)
 
@@ -53,15 +56,15 @@ class Eigensolver:
         if not self.initialized:
             self.initialize(wfs)
 
-        if not wfs.orthonormalized:
-            wfs.orthonormalize()
-            
         error = 0.0
         for kpt in wfs.kpt_u:
-            error += self.iterate_one_k_point(hamiltonian, wfs, kpt)
-        #error *= self.gd.dv
+            if not wfs.orthonormalized:
+                wfs.overlap.orthonormalize(wfs, kpt)
+            e, psit_nG = self.iterate_one_k_point(hamiltonian, wfs, kpt)
+            error += e
+            wfs.overlap.orthonormalize(wfs, kpt, psit_nG)
 
-        wfs.orthonormalize()
+        wfs.set_orthonormalized(True)
 
         self.error = self.band_comm.sum(self.kpt_comm.sum(error))
 
@@ -115,7 +118,7 @@ class Eigensolver:
         P_ani = kpt.P_ani
 
         if self.keep_htpsit:
-            Htpsit_nG = wfs.empty(self.nbands, q=kpt.q)
+            Htpsit_nG = self.Htpsit_nG
         else:
             Htpsit_nG = None
 
@@ -146,9 +149,10 @@ class Eigensolver:
         wfs.timer.stop(diagonalization_string)
 
         self.timer.start('rotate_psi')
-        kpt.psit_nG = self.operator.matrix_multiply(H_nn, psit_nG, P_ani)
+        psit_nG = self.operator.matrix_multiply(H_nn, psit_nG, P_ani)
         if self.keep_htpsit:
-            Htpsit_nG = self.operator.matrix_multiply(H_nn, Htpsit_nG)
+            Htpsit_nG = self.operator.matrix_multiply(H_nn, Htpsit_nG,
+                                                      out_nG=kpt.psit_nG)
 
         # Rotate orbital dependent XC stuff:
         hamiltonian.xc.rotate(kpt, H_nn)
@@ -156,7 +160,7 @@ class Eigensolver:
         self.timer.stop('rotate_psi')
         self.timer.stop('Subspace diag')
 
-        return Htpsit_nG
+        return psit_nG, Htpsit_nG
 
     def estimate_memory(self, mem, wfs):
         gridmem = wfs.bytes_per_wave_function()
