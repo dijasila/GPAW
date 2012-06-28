@@ -429,6 +429,9 @@ class MatrixOperator:
 
         """
 
+        if self.A_nn is None:
+            self.allocate_arrays()
+
         band_comm = self.bd.comm
         B = band_comm.size
         J = self.nblocks
@@ -441,6 +444,7 @@ class MatrixOperator:
             work_nG = reshape(self.work1_x, psit_nG.shape)
             if out_nG is None:
                 out_nG = work_nG
+                out_nG[:] = 117  # gemm may not like nan's
             elif out_nG is psit_nG:
                 work_nG[:] = psit_nG
                 psit_nG = work_nG
