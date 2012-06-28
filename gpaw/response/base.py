@@ -565,7 +565,7 @@ class BASECHI:
                     optical_limit=optical_limit, hilbert_trans=False, xc='RPA',
                     rpad=self.rpad, vcut=self.vcut,
                     eta=0.0001, ecut=self.ecut*Hartree,
-                    txt='df.out')
+                    txt='df.out', comm=comm, kcommsize=kcommsize)
         else:
             df = DF(calc=self.calc, q=q.copy(), w=w, nbands=self.nbands,
                     optical_limit=optical_limit, hilbert_trans=hilbert_trans, xc='RPA', full_response=True,

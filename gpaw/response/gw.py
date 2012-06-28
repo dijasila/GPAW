@@ -231,9 +231,11 @@ class GW(BASECHI):
         dSigma_skn = np.zeros((self.nspins, self.gwnkpt, self.gwnband), dtype=float)
 
         wcomm = df.wcomm
+
         if self.static:
             W_wGG = np.array([W_wGG])
-            self.dfinvG0_wG = np.array([self.dfinvG0_G])
+            if df.optical_limit:
+                self.dfinvG0_wG = np.array([self.dfinvG0_G])
 
         # prepare optical limit for both methods
         if df.optical_limit:
