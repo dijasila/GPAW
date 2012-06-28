@@ -123,7 +123,7 @@ class Eigensolver:
             if self.keep_htpsit:
                 result_xG = Htpsit_nG
             else:
-                result_xG = reshape(self.operator.work1_x, psit_nG.shape)
+                result_xG = reshape(self.operator.work1_x, psit_xG.shape)
             wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_xG,
                                          result_xG)
             hamiltonian.xc.apply_orbital_dependent_hamiltonian(
