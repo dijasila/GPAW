@@ -1,13 +1,10 @@
-"""Module defining and eigensolver base-class."""
-
-from math import ceil
+"""Module defining an eigensolver base-class."""
 
 import numpy as np
 
-from gpaw.fd_operators import Laplace
-from gpaw.utilities.blas import axpy, r2k, gemm
-from gpaw.utilities.tools import apply_subspace_mask
+from gpaw.utilities.blas import axpy
 from gpaw.utilities import unpack
+from gpaw.hs_operators import reshape
 
 
 class Eigensolver:
@@ -118,7 +115,7 @@ class Eigensolver:
         P_ani = kpt.P_ani
 
         if self.keep_htpsit:
-            Htpsit_nG = self.Htpsit_nG
+            Htpsit_nG = reshape(self.Htpsit_nG, psit_nG.shape)
         else:
             Htpsit_nG = None
 
@@ -126,7 +123,7 @@ class Eigensolver:
             if self.keep_htpsit:
                 result_xG = Htpsit_nG
             else:
-                result_xG = np.empty_like(psit_xG)
+                result_xG = reshape(self.operator.work1_x, psit_nG.shape)
             wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_xG,
                                          result_xG)
             hamiltonian.xc.apply_orbital_dependent_hamiltonian(
@@ -176,5 +173,3 @@ class Eigensolver:
         mem.subnode('eps_N', wfs.bd.nbands * mem.floatsize)
         mem.subnode('Preconditioner', 4 * gridmem)
         mem.subnode('Work', gridmem)
-        
-

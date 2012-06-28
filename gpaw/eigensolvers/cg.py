@@ -43,14 +43,14 @@ class CG(Eigensolver):
 
         comm = wfs.gd.comm
 
-        Htpsit_nG = self.subspace_diagonalize(hamiltonian, wfs, kpt)
+        psit_nG, Htpsit_nG = self.subspace_diagonalize(hamiltonian, wfs, kpt)
 
         R_nG = np.empty_like(Htpsit_nG)
         Htphi_G = R_nG[0]
 
         R_nG[:] = Htpsit_nG
         self.timer.start('Residuals')
-        self.calculate_residuals(kpt, wfs, hamiltonian, kpt.psit_nG,
+        self.calculate_residuals(kpt, wfs, hamiltonian, psit_nG,
                                  kpt.P_ani, kpt.eps_n, R_nG)
         self.timer.stop('Residuals')
 
@@ -68,7 +68,7 @@ class CG(Eigensolver):
                     break
 
                 ekin = self.preconditioner.calculate_kinetic_energy(
-                    kpt.psit_nG[n:n + 1], kpt)
+                    psit_nG[n:n + 1], kpt)
 
                 pR_G = self.preconditioner(R_nG[n:n + 1], kpt, ekin)
 
@@ -86,7 +86,7 @@ class CG(Eigensolver):
                 self.timer.start('CG: orthonormalize')
                 for nn in range(self.nbands):
                     self.timer.start('CG: overlap')
-                    overlap = wfs.integrate(kpt.psit_nG[nn], phi_G,
+                    overlap = wfs.integrate(psit_nG[nn], phi_G,
                                             global_integral=False)
                     self.timer.stop('CG: overlap')
                     self.timer.start('CG: overlap2')
@@ -97,7 +97,7 @@ class CG(Eigensolver):
                     self.timer.stop('CG: overlap2')
                     overlap = comm.sum(overlap)
                     # phi_G -= overlap * kpt.psit_nG[nn]
-                    axpy(-overlap, kpt.psit_nG[nn], phi_G)
+                    axpy(-overlap, psit_nG[nn], phi_G)
                     for a, P2_i in P2_ai.items():
                         P_i = kpt.P_ani[a][nn]
                         P2_i -= P_i * overlap
@@ -140,9 +140,9 @@ class CG(Eigensolver):
                             b * sin(2.0 * theta))
 
                 kpt.eps_n[n] = enew
-                kpt.psit_nG[n] *= cos(theta)
+                psit_nG[n] *= cos(theta)
                 # kpt.psit_nG[n] += sin(theta) * phi_G
-                axpy(sin(theta), phi_G, kpt.psit_nG[n])
+                axpy(sin(theta), phi_G, psit_nG[n])
                 for a, P2_i in P2_ai.items():
                     P_i = kpt.P_ani[a][n]
                     P_i *= cos(theta)
@@ -153,7 +153,7 @@ class CG(Eigensolver):
                     # Htpsit_G += sin(theta) * Htphi_G
                     axpy(sin(theta), Htphi_G, Htpsit_G)
                     #adjust residuals
-                    R_G[:] = Htpsit_G - kpt.eps_n[n] * kpt.psit_nG[n]
+                    R_G[:] = Htpsit_G - kpt.eps_n[n] * psit_nG[n]
 
                     coef_ai = wfs.pt.dict()
                     for a, coef_i in coef_ai.items():
@@ -184,4 +184,4 @@ class CG(Eigensolver):
             #   print >> self.f, "cg:iters", n, nit+1
 
         self.timer.stop('CG')
-        return total_error
+        return total_error, psit_nG
