@@ -54,11 +54,13 @@ class Davidson(Eigensolver):
         gd = wfs.gd
 
         psit_nG, Htpsit_nG = self.subspace_diagonalize(hamiltonian, wfs, kpt)
+        # Note that psit_nG is now in self.operator.work1_nG and
+        # Htpsit_nG is in kpt.psit_nG!
 
         H_2n2n = self.H_2n2n
         S_2n2n = self.S_2n2n
         eps_2n = self.eps_2n
-        psit2_nG = np.empty_like(Htpsit_nG)
+        psit2_nG = self.Htpsit_nG
 
         self.timer.start('Davidson')
         R_nG = Htpsit_nG

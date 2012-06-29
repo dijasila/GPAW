@@ -96,14 +96,17 @@ class Eigensolver:
         the local part of the Hamiltonian times psit on exit
 
         First, the Hamiltonian (defined by *kin*, *vt_sG*, and
-        *my_nuclei*) is applied to the wave functions, then the
-        *H_nn* matrix is calculated and diagonalized, and finally,
-        the wave functions are rotated.  Also the projections
-        *P_uni* (an attribute of the nuclei) are rotated.
+        *dH_asp*) is applied to the wave functions, then the *H_nn*
+        matrix is calculated and diagonalized, and finally, the wave
+        functions (and also Htpsit_nG are rotated.  Also the
+        projections *P_ani* are rotated.
 
-        It is assumed that the wave functions *psit_n* are orthonormal
+        It is assumed that the wave functions *psit_nG* are orthonormal
         and that the integrals of projector functions and wave functions
-        *P_uni* are already calculated.
+        *P_ani* are already calculated.
+
+        Return ratated wave functions and H applied to the rotated
+        wave functions if self.keep_htpsit is True.
         """
 
         if self.band_comm.size > 1 and wfs.bd.strided:
@@ -123,7 +126,7 @@ class Eigensolver:
             if self.keep_htpsit:
                 result_xG = Htpsit_nG
             else:
-                result_xG = reshape(self.operator.work1_x, psit_xG.shape)
+                result_xG = reshape(self.operator.work1_xG, psit_xG.shape)
             wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_xG,
                                          result_xG)
             hamiltonian.xc.apply_orbital_dependent_hamiltonian(

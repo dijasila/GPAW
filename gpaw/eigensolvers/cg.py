@@ -34,7 +34,7 @@ class CG(Eigensolver):
         self.overlap = wfs.overlap
 
     def iterate_one_k_point(self, hamiltonian, wfs, kpt):
-        """Do a conjugate gradient iterations for the kpoint"""
+        """Do conjugate gradient iterations for the k-point"""
 
         niter = self.niter
 
@@ -44,8 +44,10 @@ class CG(Eigensolver):
         comm = wfs.gd.comm
 
         psit_nG, Htpsit_nG = self.subspace_diagonalize(hamiltonian, wfs, kpt)
+        # Note that psit_nG is now in self.operator.work1_nG and
+        # Htpsit_nG is in kpt.psit_nG!
 
-        R_nG = np.empty_like(Htpsit_nG)
+        R_nG = self.Htpsit_nG
         Htphi_G = R_nG[0]
 
         R_nG[:] = Htpsit_nG

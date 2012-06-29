@@ -90,8 +90,8 @@ class MatrixOperator:
         # default for work spaces
         self.A_qnn = None
         self.A_nn = None
-        self.work1_x = None
-        self.work2_x = None
+        self.work1_xG = None
+        self.work2_xG = None
 
         mynbands = self.bd.mynbands
         ngroups = self.bd.comm.size
@@ -142,10 +142,10 @@ class MatrixOperator:
         self.A_nn = self.bmd.zeros(dtype=dtype)
 
         if ngroups == 1 and self.nblocks == 1:
-            self.work1_x = self.gd.empty(self.bd.mynbands, self.dtype).ravel()
+            self.work1_xG = self.gd.empty(self.bd.mynbands, self.dtype)
         else:
-            self.work1_x = self.gd.empty(self.X, self.dtype).ravel()
-            self.work2_x = self.gd.empty(self.X, self.dtype).ravel()
+            self.work1_xG = self.gd.empty(self.X, self.dtype)
+            self.work2_xG = self.gd.empty(self.X, self.dtype)
 
     def estimate_memory(self, mem, dtype):
         ngroups = self.bd.comm.size
@@ -154,6 +154,13 @@ class MatrixOperator:
         # Code semipasted from allocate_work_arrays        
         if ngroups > 1:
             mem.subnode('A_qnn', count * mem.itemsize[dtype])
+
+        if ngroups == 1 and self.nblocks == 1:
+            mem.subnode('work1_xG',
+                        self.bd.mynbands * self.gd.bytecount(self.dtype))
+        else:
+            mem.subnode('work1_xG', self.X * self.gd.bytecount(self.dtype))
+            mem.subnode('work2_xG', self.X * self.gd.bytecount(self.dtype))
 
         self.bmd.estimate_memory(mem.subnode('Band Matrices'), dtype)
 
@@ -323,8 +330,8 @@ class MatrixOperator:
             if B > 1:
                 rbuf_In = np.empty_like(sbuf_In)
 
-        work1_xG = reshape(self.work1_x, (self.X,) + psit_nG.shape[1:])
-        work2_xG = reshape(self.work2_x, (self.X,) + psit_nG.shape[1:])
+        work1_xG = reshape(self.work1_xG, (self.X,) + psit_nG.shape[1:])
+        work2_xG = reshape(self.work2_xG, (self.X,) + psit_nG.shape[1:])
 
         # Because of the amount of communication involved, we need to
         # be syncronized up to this point but only on the 1D band_comm
@@ -441,7 +448,7 @@ class MatrixOperator:
 
         if B == 1 and J == 1:
             # Simple case:
-            work_nG = reshape(self.work1_x, psit_nG.shape)
+            work_nG = reshape(self.work1_xG, psit_nG.shape)
             if out_nG is None:
                 out_nG = work_nG
                 out_nG[:] = 117  # gemm may not like nan's
@@ -479,8 +486,8 @@ class MatrixOperator:
             J -= 1
         assert 0 < g * J < G + g
 
-        work1_xG = reshape(self.work1_x, (self.X,) + psit_nG.shape[1:])
-        work2_xG = reshape(self.work2_x, (self.X,) + psit_nG.shape[1:])
+        work1_xG = reshape(self.work1_xG, (self.X,) + psit_nG.shape[1:])
+        work2_xG = reshape(self.work2_xG, (self.X,) + psit_nG.shape[1:])
 
         for j in range(J):
             G1 = j * g
