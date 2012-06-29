@@ -1099,6 +1099,19 @@ class ReciprocalSpaceDensity(Density):
         for nt_G, nt_Q, nt_g in zip(self.nt_sG, self.nt_sQ, self.nt_sg):
             nt_g[:], nt_Q[:] = self.pd2.interpolate(nt_G, self.pd3)
 
+    def interpolate0(self, in_xR, out_xR=None):
+        """Interpolate array."""
+        if out_xR is None:
+            out_xR = self.finegd.empty(in_xR.shape[:-3])
+
+        a_xR = in_xR.reshape((-1,) + in_xR.shape[-3:])
+        b_xR = out_xR.reshape((-1,) + out_xR.shape[-3:])
+        
+        for in_R, out_R in zip(a_xR, b_xR):
+            out_R[:] = self.pd2.interpolate(in_R, self.pd3)[0]
+
+        return out_xR
+
     def calculate_pseudo_charge(self):
         self.nt_Q = self.nt_sQ[:self.nspins].sum(axis=0)
         self.rhot_q = self.pd3.zeros()
