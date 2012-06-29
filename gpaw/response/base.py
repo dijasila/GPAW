@@ -548,7 +548,7 @@ class BASECHI:
             w=self.w_w.copy()*Hartree
             hilbert_trans = True
             full_response = True
-        else: #static screened interaction
+        else: # static screened interaction
             w=(0.,)
             hilbert_trans = False
 
@@ -565,7 +565,7 @@ class BASECHI:
                     optical_limit=optical_limit, hilbert_trans=False, xc='RPA',
                     rpad=self.rpad, vcut=self.vcut,
                     eta=0.0001, ecut=self.ecut*Hartree,
-                    txt='df.out')
+                    txt='df.out', comm=comm, kcommsize=kcommsize)
         else:
             df = DF(calc=self.calc, q=q.copy(), w=w, nbands=self.nbands,
                     optical_limit=optical_limit, hilbert_trans=hilbert_trans, xc='RPA', full_response=True,
@@ -601,10 +601,11 @@ class BASECHI:
             assert len(dfinv_wGG) == 1
             W_GG = dfinv_wGG[0] * Kc_GG
             self.dfinv_wGG = dfinv_wGG[0]
+            self.Kc_GG = Kc_GG
             if optical_limit:
                 self.dfinvG0_G = dfinv_wGG[0,:,0]
 
-            return W_GG
+            return df, W_GG
         else:
             Nw = np.shape(dfinv_wGG)[0]
             W_wGG = np.zeros_like(dfinv_wGG)

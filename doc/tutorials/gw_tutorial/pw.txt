@@ -1,0 +1,5 @@
+from gpaw.xc.hybridg import HybridXC
+
+...
+
+exx = HybridXC('EXX', alpha=alpha, bandstructure=True, bands=gwbands_n)

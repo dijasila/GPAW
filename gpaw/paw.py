@@ -821,7 +821,7 @@ class PAW(PAWTextOutput):
             error = self.density.mixer.get_charge_sloshing()
             criterion = (self.input_parameters['convergence']['density']
                          * self.wfs.nvalence)
-            if error < criterion:
+            if error < criterion and not self.hamiltonian.xc.orbital_dependent:
                 self.scf.fix_density()
 
             self.calculate()
