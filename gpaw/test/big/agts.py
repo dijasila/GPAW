@@ -291,7 +291,7 @@ class AGTSQueue:
                 id = job.pbsid
             else:
                 id = ''
-            fd.write('%-50s %-10s %s %6d %5d %5d %5d %s\n' %
+            fd.write('%-70s %-10s %s %6d %5d %5d %5d %s\n' %
                      (job.absname, job.status, t, job.walltime,
                       job.ncpus, len(job.deps), c, id))
         fd.close()
