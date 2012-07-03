@@ -277,7 +277,7 @@ class AGTSQueue:
     def status(self):
         fd = open('status.log', 'w')
         fd.write('# job                                              ' +
-                 'status      time   tmax ncpus  deps files id\n')
+                 20*' ' + 'status      time   tmax ncpus  deps files id\n')
         for job in self.jobs:
             if job.tstop is not None:
                 t = '%5d' % round(job.tstop - job.tstart)
