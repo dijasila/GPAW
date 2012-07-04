@@ -215,6 +215,11 @@ class ConstantElectricField(ElectrostaticPotential):
                 # nothing changed
                 return self.potential
 
+        if gd.pbc_c.any():
+            raise NotImplementedError('ConstantElectricField is ' +
+                                      'not suitable for periodic ' +
+                                      'boundary conditions.')
+
         self.gd = gd
 
         if self.center is None:
