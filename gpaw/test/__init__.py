@@ -297,6 +297,7 @@ tests = [
     'gw_static.py',
      #'usesymm2.py',
      #'eigh_perf.py', # Requires LAPACK 3.2.1 or later
+     # XXX https://trac.fysik.dtu.dk/projects/gpaw/ticket/230
      #'parallel/scalapack_pdlasrt_hang.py',
      #'dscf_forces.py',
      #'stark_shift.py',
