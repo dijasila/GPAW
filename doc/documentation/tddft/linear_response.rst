@@ -83,8 +83,7 @@ Testing convergence
 You can test the convergence of the Kohn-Sham transition basis size by restricting
 the basis in the diagonalisation step, e.g.::
 
-  from gpaw.lrtddft import LrTDDFT
-  from gpaw.lrtddft import photoabsorption_spectrum
+  from gpaw.lrtddft import LrTDDFT 
 
   lr = LrTDDFT('lr.dat.gz')
   lr.diagonalize(energy_range=2.)
@@ -92,7 +91,7 @@ the basis in the diagonalisation step, e.g.::
 This can be automated by using the check_convergence function::
 
   from gpaw.lrtddft import LrTDDFT
-  from gpaw.lrtddft import photoabsorption_spectrum
+  from gpaw.lrtddft.convergence import check_convergence
 
   lr = LrTDDFT('lr.dat.gz')
   check_convergence(lr,
@@ -111,7 +110,6 @@ The single transitions (or a list of transitions) can be analysed as follows
 (output printed)::
 
   from gpaw.lrtddft import LrTDDFT
-  from gpaw.lrtddft import photoabsorption_spectrum
 
   lr = LrTDDFT('lr.dat.gz')
   lr.diagonalize()
@@ -125,7 +123,7 @@ The single transitions (or a list of transitions) can be analysed as follows
 Relaxation in the excited state
 ===============================
 
-This example shows ho to relax in the B excited state of the sodium dimer::
+This example shows how to relax in the B excited state of the sodium dimer::
 
   from ase import Atom, io, optimize
   from gpaw import GPAW, FermiDirac
