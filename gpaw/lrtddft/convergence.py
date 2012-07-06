@@ -120,6 +120,7 @@ def check_convergence(lr,             # LrTDDFT object
             if i < 3:
                 print >> fgpl,', \\',
             print >> fgpl
+        print >> fgpl, 'pause -10'
             
     # plot different directions
     print >> fgpl, 'plot "' + fname('full.dat') + '" u 1:3 t "x" w l lt 1, \\'
