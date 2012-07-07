@@ -9,6 +9,7 @@ from ase.units import Hartree
 from gpaw.utilities.blas import axpy, dotc
 from gpaw.utilities import unpack
 from gpaw.eigensolvers.eigensolver import Eigensolver
+from gpaw.hs_operators import reshape
 
 
 class CG(Eigensolver):
@@ -47,7 +48,7 @@ class CG(Eigensolver):
         # Note that psit_nG is now in self.operator.work1_nG and
         # Htpsit_nG is in kpt.psit_nG!
 
-        R_nG = self.Htpsit_nG
+        R_nG = reshape(self.Htpsit_nG, psit_nG.shape)
         Htphi_G = R_nG[0]
 
         R_nG[:] = Htpsit_nG
