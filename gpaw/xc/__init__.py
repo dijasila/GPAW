@@ -55,6 +55,9 @@ def XC(kernel, parameters=None):
             except:
                 from gpaw.xc.sic import SIC 
                 return SIC(xc=name[:-7])
+        elif name == 'TPSS' or name == 'M06L' or name == 'revTPSS':
+            from gpaw.xc.kernel import XCKernel
+            kernel = XCKernel(name)
         elif name.startswith('old'):
             from gpaw.xc.kernel import XCKernel
             kernel = XCKernel(name[3:])

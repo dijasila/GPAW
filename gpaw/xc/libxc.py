@@ -14,7 +14,6 @@ short_names = {
     'HCTH407': 'GGA_XC_HCTH_407',
     'WC':      'GGA_X_WC+GGA_C_PBE',
     'AM05':    'GGA_X_AM05+GGA_C_AM05',
-    'TPSS':    'MGGA_X_TPSS+MGGA_C_TPSS',
     }
 
 class LibXC(XCKernel):
