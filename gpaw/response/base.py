@@ -58,7 +58,8 @@ class BASECHI:
             self.calc = calc
         if self.calc is not None:
             self.pwmode = isinstance(self.calc.input_parameters['mode'], pw.PW)
-            
+        else:
+            self.pwmode = None
         if self.pwmode:
             assert self.calc.wfs.world.size == 1
 #            if self.calc.wfs.world.size == 1 and self.calc.input_parameters['mode'] != 'lcao':
