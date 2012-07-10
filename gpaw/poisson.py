@@ -32,14 +32,14 @@ class PoissonSolver:
         if relax == 'GS':
             # Gauss-Seidel
             self.relax_method = 1
-            self.description = 'Gauss-Seidel'
         elif relax == 'J':
             # Jacobi
             self.relax_method = 2
-            self.description = 'Jacobi'
         else:
             raise NotImplementedError('Relaxation method %s' % relax)
         
+        self.description = None
+
     def get_stencil(self):
         return self.nn
 
@@ -89,6 +89,10 @@ class PoissonSolver:
 
         self.levels = level
 
+        if self.relax_method == 1:
+            self.description = 'Gauss-Seidel'
+        else:
+            self.description = 'Jacobi'
         self.description += ' solver with %d multi-grid levels' % (level + 1)
         self.description += '\nStencil: ' + self.operators[0].description
 
@@ -293,6 +297,20 @@ class PoissonSolver:
         template = 'PoissonSolver(relax=\'%s\', nn=%s, eps=%e)'
         representation = template % (self.relax, repr(self.nn), self.eps)
         return representation
+
+
+class NoInteractionPoissonSolver:
+    description = 'No interaction'
+    relax_method = 0
+    nn = 1
+    def get_stencil(self):
+        return 1
+    def solve(self, phi, rho, charge):
+        return 0
+    def set_grid_descriptor(self, gd):
+        pass
+    def initialize(self):
+        pass
 
 
 class PoissonFFTSolver(PoissonSolver):

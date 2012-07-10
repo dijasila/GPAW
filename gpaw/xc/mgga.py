@@ -12,7 +12,7 @@ from gpaw.sphere.lebedev import weight_n
 class MGGA(GGA):
     orbital_dependent = True
 
-    def __init__(self, kernel, nn=1):
+    def __init__(self, kernel, nn=3):
         """Meta GGA functional.
 
         nn: int

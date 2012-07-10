@@ -27,8 +27,8 @@ include_dirs += ['/nfs/slac/g/suncatfs/sw/external/libxc/1.2.0/install/include',
 extra_link_args += ['-fPIC']
 
 #extra_compile_args = ['-I/afs/slac/package/intel_tools/compiler11.1/mkl/include','-xHOST','-O3','-ipo','-no-prec-div','-static','-std=c99']
-extra_compile_args = ['-I/afs/slac/package/intel_tools/compiler11.1/mkl/include','-xHOST','-O0','-g','-ipo','-no-prec-div','-static','-std=c99','-fPIC']
-#extra_compile_args = ['-I/afs/slac/package/intel_tools/compiler11.1/mkl/include','-xHOST','-O1','-ipo','-no-prec-div','-static','-std=c99','-fPIC']
+#extra_compile_args = ['-I/afs/slac/package/intel_tools/compiler11.1/mkl/include','-xHOST','-O0','-g','-ipo','-no-prec-div','-static','-std=c99','-fPIC']
+extra_compile_args = ['-I/afs/slac/package/intel_tools/compiler11.1/mkl/include','-xHOST','-O1','-ipo','-no-prec-div','-static','-std=c99','-fPIC']
 #extra_compile_args += []
 
 #runtime_library_dirs = []

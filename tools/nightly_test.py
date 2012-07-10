@@ -8,21 +8,25 @@ import trace
 import tempfile
 
 def send_email(subject, filename='/dev/null'):
-    assert os.system(
-        'mail -s "%s" gpaw-developers@listserv.fysik.dtu.dk < %s' %
-        #'mail -s "%s" jensj@fysik.dtu.dk < %s' %
-        (subject, filename)) == 0
+    assert os.system('mail -s "%s" %s < %s' %
+                     (subject, email, filename)) == 0
 
-def fail(msg, filename='/dev/null'):
-    send_email(msg, filename)
+def fail(msg, email=None, filename='/dev/null'):
+    if email is not None:
+        send_email(msg, filename)
     raise SystemExit
 
 if '--dir' in sys.argv:
     i = sys.argv.index('--dir')
-    sys.argv.pop(i)
-    dir = sys.argv.pop(i)
+    dir = sys.argv[i+1]
 else:
     dir = None
+
+if '--email' in sys.argv:
+    i = sys.argv.index('--email')
+    email = sys.argv[i+1]
+else:
+    email = None
 
 tmpdir = tempfile.mkdtemp(prefix='gpaw-', dir=dir)
 os.chdir(tmpdir)
@@ -32,17 +36,23 @@ if os.system('svn checkout ' +
              'https://svn.fysik.dtu.dk/projects/gpaw/trunk gpaw') != 0:
     fail('Checkout of gpaw failed!')
 
-if os.system('svn checkout ' +
+if os.system('svn export ' +
              'https://svn.fysik.dtu.dk/projects/ase/trunk ase') != 0:
     fail('Checkout of ASE failed!')
 
 os.chdir('gpaw')
 
 if os.system('python setup.py install --home=%s ' % tmpdir +
-             '2>&1 | grep -v "c/libxc/src"') != 0:
-    fail('Installation failed!')
+             '2>&1 | grep -v "c/libxc/src" | tee install.out') != 0:
+    fail('Installation failed!', email, 'install.out')
 
-os.system('mv ../ase/ase ../lib/python')
+# gpaw installs under libdir
+from distutils.sysconfig import get_config_var
+libdir = os.path.split(get_config_var('LIBDIR'))[-1]
+# import gpaw from where it was installed
+sys.path.insert(0, '%s/%s/python' % (tmpdir, libdir))
+# and move ase there
+os.system('mv ../ase/ase %s/%s/python' % (tmpdir, libdir))
 
 os.system('wget --no-check-certificate --quiet ' +
           'http://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-latest.tar.gz')
@@ -50,7 +60,6 @@ os.system('wget --no-check-certificate --quiet ' +
 os.system('tar xvzf gpaw-setups-latest.tar.gz')
 
 setups = tmpdir + '/gpaw/' + glob.glob('gpaw-setups-[0-9]*')[0]
-sys.path.insert(0, '%s/lib/python' % tmpdir)
 
 day = time.localtime()[6]
 if day % 2:
@@ -58,6 +67,8 @@ if day % 2:
 
 from gpaw import setup_paths
 setup_paths.insert(0, setups)
+
+from gpaw.version import version
 
 # Run test-suite:
 from gpaw.test import TestRunner, tests
@@ -77,7 +88,8 @@ if failed:
                    (n, failed[0], failed[1]))
         if n > 2:
             subject += ', ...'
-    fail(subject, 'test.out')
+    subject = 'GPAW %s: ' % str(version) + subject
+    fail(subject, email, 'test.out')
 
 def count(dir, pattern):
     p = os.popen('wc -l `find %s -name %s` | tail -1' % (dir, pattern), 'r')
@@ -92,7 +104,7 @@ py = count('gpaw', '\\*.py') - test
 """
 import pylab
 # Update the stat.dat file:
-dir = '/scratch/jensj/nightly-test/'
+dir = '/tmp/nightly-test/'
 f = open(dir + 'stat.dat', 'a')
 print >> f, pylab.epoch2num(time.time()), libxc, ch, py, test
 f.close()
@@ -137,4 +149,5 @@ pylab.title('Number of lines')
 pylab.savefig(dir + 'stat.png')
 """
 
-#os.system('cd; rm -r ' + tmpdir)
+print 'Done'
+os.system('cd; rm -rf ' + tmpdir)

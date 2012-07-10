@@ -594,7 +594,7 @@ class PAW(PAWTextOutput):
                 except RuntimeError:
                     initksl = None
                 else:
-                    assert nbands <= nao or bd.comm.size == 1
+                    #assert nbands <= nao or bd.comm.size == 1
                     assert lcaobd.mynbands == min(bd.mynbands, nao)  # XXX
 
                     # Layouts used for general diagonalizer
@@ -821,7 +821,7 @@ class PAW(PAWTextOutput):
             error = self.density.mixer.get_charge_sloshing()
             criterion = (self.input_parameters['convergence']['density']
                          * self.wfs.nvalence)
-            if error < criterion:
+            if error < criterion and not self.hamiltonian.xc.orbital_dependent:
                 self.scf.fix_density()
 
             self.calculate()

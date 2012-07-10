@@ -80,12 +80,12 @@ The result is shown below
 .. image:: extrapolate.png
 	   :height: 400 px
 
-The fit is seen to be very good at the last three points and we find an extrapolated value of -4.97 eV for the correlation part of the atomization energy. The results are summarized below (all values in eV	)
+The fit is seen to be very good at the last three points and we find an extrapolated value of -4.96 eV for the correlation part of the atomization energy. The results are summarized below (all values in eV	)
 
 ======   =====   =====   ======       ============
 PBE      HF      RPA     HF+RPA       Experimental
 ======   =====   =====   ======       ============
-10.59	 4.68    4.91    9.59	  	9.89
+10.60	 4.64    4.96    9.60	  	9.89
 ======   =====   =====   ======       ============
 
 One should also be aware that due to the non-local nature of the RPA functional, very large supercells are needed to avoid spurious interactions between repeated images and the calculation done for the 6x6x7 cell used here is not expected to be fully converged with respect to super cell size. In fact, the present super cell is not even large enough for the PBE and HF calculations to be converged. See ref. \ [#Harl]_ for more details on this. It should be noted that in general, the accuaracy of RPA is comparable to that of PBE calculations \ [#Furche]_ and N2 is just a special case where RPA performs better than PBE. The major advantage of RPA is the non-locality, which results in a good description of van der Waals forces. The true power of RPA thus only comes into play for systems where dispersive interaction dominate.

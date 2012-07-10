@@ -53,16 +53,18 @@ class Davidson(Eigensolver):
 
         gd = wfs.gd
 
-        Htpsit_nG = self.subspace_diagonalize(hamiltonian, wfs, kpt)
+        psit_nG, Htpsit_nG = self.subspace_diagonalize(hamiltonian, wfs, kpt)
+        # Note that psit_nG is now in self.operator.work1_nG and
+        # Htpsit_nG is in kpt.psit_nG!
 
         H_2n2n = self.H_2n2n
         S_2n2n = self.S_2n2n
         eps_2n = self.eps_2n
-        psit2_nG = np.empty_like(Htpsit_nG)
+        psit2_nG = self.Htpsit_nG
 
         self.timer.start('Davidson')
         R_nG = Htpsit_nG
-        self.calculate_residuals(kpt, wfs, hamiltonian, kpt.psit_nG,
+        self.calculate_residuals(kpt, wfs, hamiltonian, psit_nG,
                                  kpt.P_ani, kpt.eps_n, R_nG)
 
         for nit in range(niter):
@@ -94,7 +96,7 @@ class Davidson(Eigensolver):
             # <psi2 | H | psi>
             wfs.kin.apply(psit2_nG, Htpsit_nG, kpt.phase_cd)
             hamiltonian.apply_local_potential(psit2_nG, Htpsit_nG, kpt.s)
-            gemm(gd.dv, kpt.psit_nG, Htpsit_nG, 0.0, self.H_nn, 'c')
+            gemm(gd.dv, psit_nG, Htpsit_nG, 0.0, self.H_nn, 'c')
 
             for a, P_ni in kpt.P_ani.items():
                 P2_ni = P2_ani[a]
@@ -115,7 +117,7 @@ class Davidson(Eigensolver):
 
             # Overlap matrix
             # <psi2 | S | psi>
-            gemm(gd.dv, kpt.psit_nG, psit2_nG, 0.0, self.S_nn, 'c')
+            gemm(gd.dv, psit_nG, psit2_nG, 0.0, self.S_nn, 'c')
         
             for a, P_ni in kpt.P_ani.items():
                 P2_ni = P2_ani[a]
@@ -143,11 +145,11 @@ class Davidson(Eigensolver):
             kpt.eps_n[:] = eps_2n[:nbands]
 
             # Rotate psit_nG
-            gemm(1.0, kpt.psit_nG, H_2n2n[:nbands, :nbands],
+            gemm(1.0, psit_nG, H_2n2n[:nbands, :nbands],
                  0.0, Htpsit_nG)
             gemm(1.0, psit2_nG, H_2n2n[:nbands, nbands:],
                  1.0, Htpsit_nG)
-            kpt.psit_nG, Htpsit_nG = Htpsit_nG, kpt.psit_nG
+            psit_nG, Htpsit_nG = Htpsit_nG, psit_nG
 
             # Rotate P_uni:
             for a, P_ni in kpt.P_ani.items():
@@ -156,13 +158,13 @@ class Davidson(Eigensolver):
                 gemm(1.0, P2_ni, H_2n2n[:nbands, nbands:], 1.0, P_ni)
 
             if nit < niter - 1:
-                wfs.kin.apply(kpt.psit_nG, Htpsit_nG, kpt.phase_cd)
-                hamiltonian.apply_local_potential(kpt.psit_nG, Htpsit_nG,
+                wfs.kin.apply(psit_nG, Htpsit_nG, kpt.phase_cd)
+                hamiltonian.apply_local_potential(psit_nG, Htpsit_nG,
                                                   kpt.s)
                 R_nG = Htpsit_nG
-                self.calculate_residuals(kpt, wfs, hamiltonian, kpt.psit_nG,
+                self.calculate_residuals(kpt, wfs, hamiltonian, psit_nG,
                                          kpt.P_ani, kpt.eps_n, R_nG)
 
         self.timer.stop('Davidson')
         error = gd.comm.sum(error)
-        return error * gd.dv
+        return error * gd.dv, psit_nG

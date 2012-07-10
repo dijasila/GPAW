@@ -26,11 +26,11 @@ class RMM_DIIS(Eigensolver):
     def iterate_one_k_point(self, hamiltonian, wfs, kpt):
         """Do a single RMM-DIIS iteration for the kpoint"""
 
-        R_nG = self.subspace_diagonalize(hamiltonian, wfs, kpt)
+        psit_nG, R_nG = self.subspace_diagonalize(hamiltonian, wfs, kpt)
 
         self.timer.start('RMM-DIIS')
         if self.keep_htpsit:
-            self.calculate_residuals(kpt, wfs, hamiltonian, kpt.psit_nG,
+            self.calculate_residuals(kpt, wfs, hamiltonian, psit_nG,
                                      kpt.P_ani, kpt.eps_n, R_nG)
 
         def integrate(a_G, b_G):
@@ -76,7 +76,7 @@ class RMM_DIIS(Eigensolver):
             # Precondition the residual:
             self.timer.start('precondition')
             ekin_x = self.preconditioner.calculate_kinetic_energy(
-                kpt.psit_nG[n_x], kpt)
+                psit_nG[n_x], kpt)
             dpsit_xG = self.preconditioner(R_xG, kpt, ekin_x)
             self.timer.stop('precondition')
 
@@ -104,9 +104,9 @@ class RMM_DIIS(Eigensolver):
                 axpy(lam**2, dR_G, R_G)  # R_G += lam**2 * dR_G
                 
             self.timer.start('precondition')
-            kpt.psit_nG[n1:n2] += self.preconditioner(R_xG, kpt, ekin_x)
+            psit_nG[n1:n2] += self.preconditioner(R_xG, kpt, ekin_x)
             self.timer.stop('precondition')
             
         self.timer.stop('RMM-DIIS')
         error = comm.sum(error)
-        return error
+        return error, psit_nG

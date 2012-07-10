@@ -179,7 +179,7 @@ class GUCLaplace(FDOperator):
             A_md = (h_dv**m_mv[:, np.newaxis, :]).prod(2)
             a_d, residual, rank, s = np.linalg.lstsq(A_md, [1, 1, 1, 0, 0, 0])
             if residual.sum() < 1e-14:
-                assert rank == D
+                assert rank == D, 'You have a weird unit cell!'
                 # D directions was OK
                 break
 

@@ -689,26 +689,25 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def get_kinetic_stress(self):
         sigma_vv = np.zeros((3, 3), dtype=complex)
         pd = self.pd
+        cell_cv = pd.gd.cell_cv
         dOmega = pd.gd.dv / pd.gd.N_c.prod()
         K_qv = self.pd.K_qv
         for kpt in self.kpt_u:
             G_Gv = pd.G_Qv[pd.Q_qG[kpt.q]]
+            psit2_G = 0.0
             for n, f in enumerate(kpt.f_n):
-                psit2_G = np.abs(kpt.psit_nG[n])**2
-                for alpha in range(3):
-                    Ga_G = G_Gv[:, alpha] + K_qv[kpt.q, alpha]
-                    for beta in range(3):
-                        Gb_G = G_Gv[:, beta] + K_qv[kpt.q, beta]
-                        s = (psit2_G * Ga_G * Gb_G).sum()
-                        sigma_vv[alpha, beta] += f * s
+                psit2_G += f * np.abs(kpt.psit_nG[n])**2
+            for alpha in range(3):
+                Ga_G = G_Gv[:, alpha] + K_qv[kpt.q, alpha]
+                for beta in range(3):
+                    Gb_G = G_Gv[:, beta] + K_qv[kpt.q, beta]
+                    sigma_vv[alpha, beta] += (psit2_G * Ga_G * Gb_G).sum()
+
         sigma_vv *= -dOmega
 
-        def symmetrize(x):  # XXXXXXX
-            return x
-        
         self.bd.comm.sum(sigma_vv)
         self.kd.comm.sum(sigma_vv)
-        return symmetrize(sigma_vv)
+        return sigma_vv
 
 
 def ft(spline):

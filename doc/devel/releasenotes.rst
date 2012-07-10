@@ -10,6 +10,11 @@ Development version in trunk
 
 :trac:`trunk <>`.
 
+* Calculation of the stress tensor has been implemented for plane-wave
+  based calculation.
+
+* MGGA: number of neighbor grid points to use for FD stencil for
+  wave function gradient changed from 1 to 3.
 
 Version 0.9
 ===========

@@ -403,7 +403,7 @@ class BSE(BASECHI):
         t0 = time()
         for iq in range(self.nibzq):#self.q_start, self.q_end):
 
-            W_qGG[iq] = self.screened_interaction_kernel(iq, static=True)
+            df, W_qGG[iq] = self.screened_interaction_kernel(iq, static=True)
             self.timing(iq, t0, self.nibzq, 'iq')
 
         data = {'W_qGG': W_qGG,

@@ -9,8 +9,8 @@ from gpaw import GPAW
 from gpaw.mpi import world, rank, size, serial_comm
 from gpaw.utilities.blas import gemmdot
 from gpaw.utilities.memory import maxrss
-from gpaw.xc.hybridk import HybridXC
 from gpaw.xc.tools import vxc
+from gpaw.wavefunctions.pw import PWWaveFunctions
 from gpaw.response.parallel import set_communicator, parallel_partition, SliceAlongFrequency, GatherOrbitals
 from gpaw.response.base import BASECHI
 
@@ -34,12 +34,19 @@ class GW(BASECHI):
                  txt=None
                 ):
 
-        if ppa:
+        static=False
+
+        if ppa: # Plasmon Pole Approximation
             w_w = (0.,)
             hilbert_trans=False
             wpar=1
             if E0 is None:
                 E0 = Hartree
+        elif w==None: # static COHSEX
+            w_w = (0.,)
+            static=True
+            hilbert_trans=False
+            wpar=1
         else:
             # create nonlinear frequency grid
             # grid is linear from 0 to wcut with spacing dw
@@ -80,6 +87,7 @@ class GW(BASECHI):
         self.w_w = w_w
         self.ppa = ppa
         self.E0 = E0
+        self.static = static
 
     def initialize(self):
 
@@ -100,7 +108,7 @@ class GW(BASECHI):
         self.nqpt = np.shape(self.bzq_kc)[0]
         
         # frequency points init
-        if not self.ppa:
+        if not self.ppa and not self.static:
             self.dw_w /= Hartree
             self.w_w  /= Hartree
             self.eta_w /= Hartree
@@ -116,7 +124,7 @@ class GW(BASECHI):
             for k in range(self.nikpt):
                 self.e_skn[s,k] = calc.get_eigenvalues(kpt=k, spin=s) / Hartree
                 self.f_skn[s,k] = calc.get_occupation_numbers(kpt=k, spin=s) / kd.weight_k[k]
-        if not self.ppa:
+        if not self.ppa and not self.static:
             emaxdiff = self.e_skn[:,:,self.nbands-1].max() - self.e_skn[:,:,0].min()
             assert (self.wmax > emaxdiff), 'Maximum frequency must be larger than %f' %(emaxdiff*Hartree)
 
@@ -169,7 +177,7 @@ class GW(BASECHI):
                 continue
             t1 = time()
             # get screened interaction. 
-            df, W_wGG = self.screened_interaction_kernel(iq, static=False, E0=self.E0, comm=self.wcomm, kcommsize=1)
+            df, W_wGG = self.screened_interaction_kernel(iq, static=self.static, E0=self.E0, comm=self.wcomm, kcommsize=1)
             t2 = time()
             t_w += t2 - t1
 
@@ -224,6 +232,11 @@ class GW(BASECHI):
 
         wcomm = df.wcomm
 
+        if self.static:
+            W_wGG = np.array([W_wGG])
+            if df.optical_limit:
+                self.dfinvG0_wG = np.array([self.dfinvG0_G])
+
         # prepare optical limit for both methods
         if df.optical_limit:
             tmp_wG = np.zeros_like(self.dfinvG0_wG)
@@ -231,10 +244,8 @@ class GW(BASECHI):
             for jG in range(1, self.npw):
                 qG = np.dot(q+self.Gvec_Gc[jG], self.bcell_cv)
                 tmp_wG[:,jG] = self.dfinvG0_wG[:,jG] / np.sqrt(np.inner(qG,qG))
-            const = 1./pi*self.vol*(6*pi**2/self.vol)**(2./3.)
-            tmp_wG *= const * self.nkpt**(1./3.)
-            tmp_w = 2./pi*(6*pi**2/self.vol)**(1./3.) * self.dfinvG0_wG[:,0] * self.vol
-            tmp_w *= self.nkpt**(2./3.)
+            tmp_wG *= 1./pi*self.vol*(6*pi**2/self.vol)**(2./3.)*self.nkpt**(1./3.)
+            tmp_w = 2./pi*self.vol*(6*pi**2/self.vol)**(1./3.)*self.nkpt**(2./3.)*self.dfinvG0_wG[:,0]
 
         if not self.hilbert_trans: #method 1
             Wbackup_wG0 = W_wGG[:,:,0].copy()
@@ -333,6 +344,23 @@ class GW(BASECHI):
                                                     1./(w1 + self.wt_GG + 1j*self.eta*sign)**2)
                                 W_G = gemmdot(W_GG, rho_G, beta=0.0)
                                 dSigma_skn[s,i,j] += np.real(gemmdot(W_G, rho_G, alpha=self.alpha, beta=0.0,trans='c'))
+
+                            elif self.static:
+                                W1_GG = W_wGG[0] - np.eye(df.npw)*self.Kc_GG
+                                W2_GG = W_wGG[0]
+                                if df.optical_limit:
+                                    if n==m:
+                                        W1_GG[0,0] = tmp_w[0] - 2./pi*self.vol*(6*pi**2/self.vol)**(1./3.)*self.nkpt**(2./3.)
+                                    else:
+                                        W1_GG[0,0:] = 0.
+                                        W1_GG[0:,0] = 0.
+                                # perform W_GG * np.outer(rho_G.conj(), rho_G).sum(GG)
+                                W_G = gemmdot(W1_GG, rho_G, beta=0.0) # Coulomb Hole
+                                Sigma_skn[s,i,j] += np.real(gemmdot(W_G, rho_G, alpha=self.alpha*pi/1j, beta=0.0,trans='c'))
+                                if sign == -1:
+                                    W_G = gemmdot(W2_GG, rho_G, beta=0.0) # Screened Exchange
+                                    Sigma_skn[s,i,j] -= np.real(gemmdot(W_G, rho_G, alpha=2*self.alpha*pi/1j, beta=0.0,trans='c'))
+                                del W1_GG, W2_GG, W_G, rho_G
 
                             else:
                                 # perform W_wGG * np.outer(rho_G.conj(), rho_G).sum(GG)
@@ -437,7 +465,10 @@ class GW(BASECHI):
             data = pickle.load(open(self.exxfile))
             e_skn = data['e_skn'] # in Hartree
             vxc_skn = data['vxc_skn'] # in Hartree
-            exx_skn = data['exx_skn'] # in Hartree
+            if not self.static:
+                exx_skn = data['exx_skn'] # in Hartree
+            else:
+                exx_skn = np.zeros((self.nspins, self.gwnkpt, self.gwnband), dtype=float)
             gwkpt_k = data['gwkpt_k']
             gwbands_n = data['gwbands_n']
             assert (gwkpt_k == self.gwkpt_k).all(), 'exxfile inconsistent with input parameters'
@@ -449,9 +480,14 @@ class GW(BASECHI):
             calc = GPAW(self.file, communicator=world, parallel={'domain':1}, txt=None)
             v_xc = vxc(calc)
 
-            alpha = 5.0
-            exx = HybridXC('EXX', alpha=alpha, ecut=self.ecut.max(), bands=self.bands)
-            calc.get_xc_difference(exx)
+            if not self.static:
+                if isinstance(calc.wfs, PWWaveFunctions): # planewave mode
+                    from gpaw.xc.hybridg import HybridXC
+                    exx = HybridXC('EXX', alpha=5.0, bandstructure=True, bands=self.bands)
+                else:                                     # grid mode
+                    from gpaw.xc.hybridk import HybridXC
+                    exx = HybridXC('EXX', alpha=5.0, ecut=self.ecut.max(), bands=self.bands)
+                calc.get_xc_difference(exx)
 
             e_skn = np.zeros((self.nspins, self.gwnkpt, self.gwnband), dtype=float)
             vxc_skn = np.zeros((self.nspins, self.gwnkpt, self.gwnband), dtype=float)
@@ -463,7 +499,8 @@ class GW(BASECHI):
                     for j, n in enumerate(self.gwbands_n):
                         e_skn[s][i][j] = calc.get_eigenvalues(kpt=ik, spin=s)[n] / Hartree
                         vxc_skn[s][i][j] = v_xc[s][ik][n] / Hartree
-                        exx_skn[s][i][j] = exx.exx_skn[s][ik][n]
+                        if not self.static:
+                            exx_skn[s][i][j] = exx.exx_skn[s][ik][n]
 
         return e_skn, vxc_skn, exx_skn
 
@@ -476,6 +513,8 @@ class GW(BASECHI):
         if self.ppa:
             self.printtxt("Use Plasmon Pole Approximation")
             self.printtxt("imaginary frequency (eV)     : %.2f" %(self.E0))
+        elif self.static:
+            self.printtxt("Use static COHSEX")
         else:
             self.printtxt("Linear frequency grid (eV)   : %.2f - %.2f in %.2f" %(self.wmin*Hartree, self.wcut, self.dw*Hartree))
             self.printtxt("Maximum frequency (eV)       : %.2f" %(self.wmax*Hartree))
@@ -495,12 +534,14 @@ class GW(BASECHI):
         self.printtxt("%s \n" %(e_skn*Hartree))
         self.printtxt("LDA exchange-correlation contributions are (eV): ")
         self.printtxt("%s \n" %(vxc_skn*Hartree))
-        self.printtxt("Exact exchange contributions are (eV): ")
-        self.printtxt("%s \n" %(exx_skn*Hartree))
+        if not self.static:
+            self.printtxt("Exact exchange contributions are (eV): ")
+            self.printtxt("%s \n" %(exx_skn*Hartree))
         self.printtxt("Self energy contributions are (eV):")
         self.printtxt("%s \n" %(Sigma_skn*Hartree))
-        self.printtxt("Renormalization factors are:")
-        self.printtxt("%s \n" %(Z_skn))
+        if not self.static:
+            self.printtxt("Renormalization factors are:")
+            self.printtxt("%s \n" %(Z_skn))
 
         totaltime = round(time() - self.starttime)
         self.printtxt("GW calculation finished in %s " %(timedelta(seconds=totaltime)))

@@ -23,7 +23,7 @@ calc = GPAW(h=0.20,
             kpts=(2,1,1),
             xc='PBE',
             width=0.1,
-            maxiter=300,
+            maxiter=250,
             txt='ScSZ.txt',
             )
 if compiled_with_sl():

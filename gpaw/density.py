@@ -15,6 +15,7 @@ from gpaw.lfc import LFC, BasisFunctions
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 from gpaw.utilities import unpack2
 from gpaw.utilities.timing import nulltimer
+from gpaw.io import read_atomic_matrices
 
 
 class Density:
@@ -308,15 +309,6 @@ class Density:
             np.dot(self.D_asp[a][spin], setup.Delta_pL[:, 0])
             + setup.Delta0 / self.nspins)
 
-    def get_density_array(self):
-        XXX
-        # XXX why not replace with get_spin_density and get_total_density?
-        """Return pseudo-density array."""
-        if self.nspins == 2:
-            return self.nt_sG
-        else:
-            return self.nt_sG[0]
-    
     def get_all_electron_density(self, atoms, gridrefinement=2):
         """Return real all-electron density array."""
 
@@ -462,7 +454,7 @@ class Density:
         nct.set_positions(spos_ac)
 
         I_sa = np.zeros((self.nspins, len(atoms)))
-        a_W =  np.empty(len(phi.M_W), np.intc)
+        a_W = np.empty(len(phi.M_W), np.intc)
         W = 0
         for a in phi.atom_indices:
             nw = len(phi.sphere_a[a].M_w)
@@ -489,7 +481,7 @@ class Density:
             phi.lfc.ae_valence_density_correction(rho_MM, n_sg[s], a_W, I_a)
             phit.lfc.ae_valence_density_correction(-rho_MM, n_sg[s], a_W, I_a)
 
-        a_W =  np.empty(len(nc.M_W), np.intc)
+        a_W = np.empty(len(nc.M_W), np.intc)
         W = 0
         for a in nc.atom_indices:
             nw = len(nc.sphere_a[a].M_w)
@@ -553,6 +545,41 @@ class Density:
         dt_sg = np.where(dt_sg > 0, dt_sg, 0.0)
         return gd.integrate(dt_sg)
 
+    def read(self, reader, parallel, kd, bd):
+        if reader['version'] > 0.3:
+            density_error = reader['DensityError']
+            if density_error is not None:
+                self.mixer.set_charge_sloshing(density_error)
+
+        if not reader.has_array('PseudoElectronDensity'):
+            return
+
+        hdf5 = hasattr(reader, 'hdf5')
+        nt_sG = self.gd.empty(self.nspins)
+        if hdf5:
+            # Read pseudoelectron density on the coarse grid
+            # and broadcast on kpt_comm and band_comm:
+            indices = [slice(0, self.nspins)] + self.gd.get_slice()
+            do_read = (kd.comm.rank == 0) and (bd.comm.rank == 0)
+            reader.get('PseudoElectronDensity', out=nt_sG, parallel=parallel,
+                       read=do_read, *indices)  # XXX read=?
+            kd.comm.broadcast(nt_sG, 0)
+            bd.comm.broadcast(nt_sG, 0)
+        else:
+            for s in range(self.nspins):
+                self.gd.distribute(reader.get('PseudoElectronDensity', s),
+                                   nt_sG[s])
+
+        # Read atomic density matrices
+        D_asp = {}
+        natoms = len(self.setups)
+        self.rank_a = np.zeros(natoms, int)
+        all_D_sp = reader.get('AtomicDensityMatrices', broadcast=True)
+        if self.gd.comm.rank == 0:
+            D_asp = read_atomic_matrices(all_D_sp, self.setups)
+
+        self.initialize_directly_from_arrays(nt_sG, D_asp)
+
 
 class RealSpaceDensity(Density):
     def __init__(self, gd, finegd, nspins, charge, collinear=True,
@@ -615,4 +642,3 @@ class RealSpaceDensity(Density):
             if abs(charge) > self.charge_eps:
                 raise RuntimeError('Charge not conserved: excess=%.9f' %
                                    charge)
-
