@@ -4,13 +4,13 @@ def agts(queue):
                              queueopts='-l nodes=1:ppn=4:ethernet',
                              ncpus=1,walltime=20, deps=[])
     run_special = [queue.add(tag + '_run_special.py %d' % i,
-                             queueopts='-l nodes=1:ppn=2:opteron:ethernet',
+                             queueopts='-l nodes=1:ppn=4:opteron:ethernet',
                              ncpus=1,
                              walltime=10*60,
                              deps=[run_generate])
                    for i in range(2)]
     run = [queue.add(tag + '_run.py %d' % i,
-                     queueopts='-l nodes=1:ppn=2:opteron:ethernet',
+                     queueopts='-l nodes=1:ppn=4:opteron:ethernet',
                      ncpus=1,
                      walltime=30*60,
                      deps=run_special)
