@@ -9,7 +9,7 @@ def f(name, dist, k, g):
     tag = '%s-%02d-%2d' % (name, k, g)
     task = BulkTask(tag=tag, lattice_constant=a0, cubic=True,
                     magmoms=[2.3],
-                    fit=(5, 0.02))
+                    fit=(5, 0.02, 'ip3'))
     factory = GPAWFactory(xc='PBE',
                           kpts=(k, k, k),
                           occupations=dist,
