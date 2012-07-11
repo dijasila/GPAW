@@ -16,7 +16,7 @@ tag = 'pbe_nwchem_def2_qzvppd'
 
 def main():
 
-    atoms, task = run('nwchem molecule g2-1 -t ' + tag + ' --atomize -s')
+    atoms, task = run('nwchem molecule g2_1 -t ' + tag + ' --atomize -s')
 
     prop2molecules = {'ea': molecule_names, 'energy': molecule_names + atom_names}
     prop2index = {'ea': 'atomic energy', 'energy': 'energy'}
