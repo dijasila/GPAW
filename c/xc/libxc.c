@@ -304,18 +304,15 @@ lxcXCFunctional_CalculateFXC_FD_SpinPaired(lxcXCFunctionalObject *self, PyObject
         XC(func_type) *func = self->functional[i];
         if (func == NULL) continue;
         self->get_fxc(func, point, derivative);
-        //printf("fxc_fd_x '%f'\n", derivative_x[0][0]); // MDTMP
         v2rho2[0] = derivative[0][0];
         v2rho2[1] = derivative[0][1]; // XC_POLARIZED
         v2rho2[2] = derivative[1][1]; // XC_POLARIZED
-        //printf("fxc_fd_x '%f'\n", derivative_x[0][2]); // MDTMP
         v2rhosigma[0] = derivative[0][2];
         v2rhosigma[1] = derivative[0][3]; // XC_POLARIZED
         v2rhosigma[2] = derivative[0][4]; // XC_POLARIZED
         v2rhosigma[3] = derivative[1][2]; // XC_POLARIZED
         v2rhosigma[4] = derivative[1][3]; // XC_POLARIZED
         v2rhosigma[5] = derivative[1][4]; // XC_POLARIZED
-        //printf("fxc_fd_x '%f'\n", derivative_x[2][2]); // MDTMP
         v2sigma2[0] = derivative[2][2]; /* aa_aa */
         v2sigma2[1] = derivative[2][3]; // XC_POLARIZED /* aa_ab */
         v2sigma2[2] = derivative[2][4]; // XC_POLARIZED /* aa_bb */

@@ -3,6 +3,17 @@ from gpaw.xc.kernel import XCKernel
 from gpaw.xc.libxc_functionals import libxc_functionals
 from gpaw import debug
 
+libxclibnames = ['libxc.so']
+
+lib = None
+for libname in libxclibnames:
+    try:
+        import ctypes
+        lib = ctypes.CDLL(libname)
+        break
+    except (ImportError, OSError):
+        pass
+
 short_names = {
     'LDA':     'LDA_X+LDA_C_PW',
     'PW91':    'GGA_X_PW91+GGA_C_PW91',

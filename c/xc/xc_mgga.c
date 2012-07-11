@@ -1,6 +1,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 #include "xc_mgga.h"
 #include "xc_gpaw.h"
 
@@ -15,7 +16,6 @@ static void init_common(common_params* params, int code, int nspin, const mgga_f
 }
 
 void init_mgga(void** params, int code, int nspin) {
-  int size=0;
   const mgga_func_info *finfo;
   if (code==20) {
     finfo = &tpss_info;
@@ -24,7 +24,7 @@ void init_mgga(void** params, int code, int nspin) {
   } else if (code==22) {
     finfo = &revtpss_info;
   } else {
-    printf("*** Unsupported mgga functional %d\n",code);
+    assert(code>=20 && code <=22);
   }
   *params = malloc(finfo->size);
   init_common(*params, code, nspin, finfo);
@@ -70,8 +70,6 @@ void calc_mgga(void** params, int nspin, int ng,
       v_g[g] += vtmp;
       dedsigma_g[g] += dedsigmatmp;
       dedtau_g[g] += dedtautmp;
-      /*         printf("%e %e %e %e %e %e %e\n", n_g[g], sigma_g[g], tau_g[g], */
-      /*                e_g[g], v_g[g], dedsigma_g[g], dedtau_g[g]); */
     }
   } else {
     double etmp, ntmp[2], vtmp[2], sigmatmp[3], dedsigmatmp[3],
@@ -94,8 +92,6 @@ void calc_mgga(void** params, int nspin, int ng,
 
       common->funcinfo->exch(*params, ntmp, sigmatmp, tautmp,
                              &etmp, vtmp, dedsigmatmp, dedtautmp);
-      /*         for (int i=0; i<3; i++) printf("%e ", dedsigmatmp[i]); */
-      /*         printf("\n"); */
       e_g[g] = etmp;
       v_g[g] += vtmp[0];
       v_g[g+ng] += vtmp[1];
@@ -106,8 +102,6 @@ void calc_mgga(void** params, int nspin, int ng,
       dedtau_g[g+ng] = dedtautmp[1];
       common->funcinfo->corr(*params, ntmp, sigmatmp, tautmp,
                              &etmp, vtmp, dedsigmatmp, dedtautmp);
-      /*         for (int i=0; i<3; i++) printf("%e ", dedsigmatmp[i]); */
-      /*         printf("\n"); */
       e_g[g] += etmp;
       e_g[g] *= ntmp[0]+ntmp[1];
       v_g[g] += vtmp[0];
