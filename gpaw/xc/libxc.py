@@ -1,6 +1,5 @@
 import _gpaw
 from gpaw.xc.kernel import XCKernel
-from gpaw.xc.libxc_functionals import libxc_functionals
 from gpaw import debug
 
 short_names = {
@@ -24,8 +23,9 @@ class LibXC(XCKernel):
     def initialize(self, nspins):
         self.nspins = nspins
         name = short_names.get(self.name, self.name)
-        if name in libxc_functionals:
-            f = libxc_functionals[name]
+        number = _gpaw.lxcXCFuncNum(name)
+        if number is not None:
+            f = number
             xc = -1
             x = -1
             c = -1
@@ -41,8 +41,8 @@ class LibXC(XCKernel):
             except ValueError:
                 raise NameError('Unknown functional: "%s".' % name)
             xc = -1
-            x = libxc_functionals[x]
-            c = libxc_functionals[c]
+            x = _gpaw.lxcXCFuncNum(x)
+            c = _gpaw.lxcXCFuncNum(c)
 
         self.xc = _gpaw.lxcXCFunctional(xc, x, c, nspins)
 

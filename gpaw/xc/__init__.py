@@ -17,7 +17,7 @@ def XC(kernel, parameters=None):
     GLLBSC.  One can also use equivalent libxc names, for example
     GGA_X_PBE+GGA_C_PBE is equivalent to PBE, and LDA_X to the LDA exchange.
     In this way one has access to all the functionals defined in libxc.
-    See gpaw.xc.libxc_functionals.py for the complete list.  """
+    See xc_funcs.h for the complete list.  """
     
     if isinstance(kernel, str):
         name = kernel

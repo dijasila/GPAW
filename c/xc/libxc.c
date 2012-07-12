@@ -898,3 +898,17 @@ PyObject * NewlxcXCFunctionalObject(PyObject *obj, PyObject *args)
 
   return (PyObject*)self;
 }
+
+PyObject * lxcXCFuncNum(PyObject *obj, PyObject *args)
+{
+  char *funcname;
+  if (!PyArg_ParseTuple(args, "s", &funcname)) {
+    return NULL;
+  }
+
+  int num = XC(functional_get_number)(funcname);
+  if (num != -1)
+    return Py_BuildValue("i",num);
+  else
+    Py_RETURN_NONE;
+}
