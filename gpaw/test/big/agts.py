@@ -272,7 +272,7 @@ class AGTSQueue:
         self.fd.write('CPU time: %d:%02d:%02d\n' %
                       (t // 3600, t // 60 % 60, t % 60))
 
-        return len([None for job in self.jobs if job != 'success'])
+        return len([None for job in self.jobs if job.status != 'success'])
 
     def status(self):
         fd = open('status.log', 'w')
