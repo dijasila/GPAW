@@ -8,6 +8,11 @@ Note that the iteration number (steps) is not the same as the number of force
 evaluations. This is because some of the optimizers uses internal line searches
 or similar.
 
+The most important performance characteristics of an optimizer is the
+total optimization time.
+Different optimizers may perform the same number of steps, but along a different
+path, so the time spent on calculation of energy/forces will be different.
+
 N2Cu
 ====
 Relaxation of Cu surface.
@@ -16,7 +21,6 @@ Calculator used: EMT
 
 .. csv-table::
    :file: N2Cu-surf.csv       
-   :header: Optimizer, Steps, Force evaluations, Energy, Note
 
 N2 adsorption on relaxed Ru surface
 
@@ -24,7 +28,6 @@ Calculator used: EMT
 
 .. csv-table::
    :file: N2Cu-N2.csv       
-   :header: Optimizer, Steps, Force evaluations, Energy, Note
 
 Cu_bulk
 =======
@@ -34,7 +37,6 @@ Calculator used: EMT
 
 .. csv-table::
    :file: Cu_bulk.csv       
-   :header: Optimizer, Steps, Force evaluations, Energy, Note
 
 CO_Au111
 ========
@@ -44,7 +46,6 @@ Calculator used: EMT
 
 .. csv-table::
    :file: CO_Au111.csv       
-   :header: Optimizer, Steps, Force evaluations, Energy, Note
 
 H2
 ==
@@ -54,13 +55,11 @@ Calculator used: EMT
 
 .. csv-table::
    :file: H2-emt.csv       
-   :header: Optimizer, Steps, Force evaluations, Energy, Note
 
 Calculator used: GPAW
 
 .. csv-table::
    :file: H2-gpaw.csv       
-   :header: Optimizer, Steps, Force evaluations, Energy, Note
 
 C5H12
 =====
@@ -70,7 +69,6 @@ Calculator used: GPAW (lcao)
 
 .. csv-table::
    :file: C5H12-gpaw.csv       
-   :header: Optimizer, Steps, Force evaluations, Energy, Note
 
 nanoparticle
 ============
@@ -80,7 +78,6 @@ Calculator used: GPAW (lcao)
 
 .. csv-table::
    :file: nanoparticle.csv       
-   :header: Optimizer, Steps, Force evaluations, Energy, Note
 
 NEB
 =======
@@ -90,10 +87,8 @@ Calculator used: EMT
 
 .. csv-table::
    :file: neb-emt.csv       
-   :header: Optimizer, Steps, Force evaluations, Energy, Note
 
 Calculator used: GPAW (lcao)
 
 .. csv-table::
    :file: neb-gpaw.csv       
-   :header: Optimizer, Steps, Force evaluations, Energy, Note
