@@ -244,6 +244,7 @@ class CHI(BASECHI):
 
         if self.cugemv:
             GPU_phi_aGp = []
+            GPU_P_ap = []
             npair_a = []
             for a, id in enumerate(calc.wfs.setups.id_a):
                 phi_Gp = self.phi_aGp[a]
@@ -254,6 +255,9 @@ class CHI(BASECHI):
                 status = _gpaw.cuSetMatrix(npair,npw,sizeofdata,phi_Gp,npair,GPU_phi_Gp,npair)
                 GPU_phi_aGp.append(GPU_phi_Gp)
                 npair_a.append(npair)
+
+                status,GPU_P_p = _gpaw.cuMalloc(npair*sizeofdata)
+                GPU_P_ap.append(GPU_P_p)
 
         if self.hilbert_trans:
             specfunc_wGG = np.zeros((self.NwS_local, self.npw, self.npw), dtype = complex)
@@ -413,17 +417,16 @@ class CHI(BASECHI):
                                     if self.single_precision:
                                         P_p = np.complex64(P_p)
 
-                                    status,GPU_P_p = _gpaw.cuMalloc(npair_a[a]*sizeofdata)
-                                    status = _gpaw.cuSetVector(npair_a[a],sizeofdata,P_p,1,GPU_P_p,1)
+                                    status = _gpaw.cuSetVector(npair_a[a],sizeofdata,P_p,1,GPU_P_ap[a],1)
 
                                     alpha = 1.0
                                     beta = 1.0
                                     if self.single_precision:
                                         alpha = np.complex64(alpha)
                                         beta = np.complex64(alpha)
-                                        _gpaw.cuCgemv(handle,npair_a[a],npw,alpha,GPU_phi_aGp[a],npair_a[a],GPU_P_p,1,beta,GPU_rho_G,1)
+                                        _gpaw.cuCgemv(handle,npair_a[a],npw,alpha,GPU_phi_aGp[a],npair_a[a],GPU_P_ap[a],1,beta,GPU_rho_G,1)
                                     else:
-                                        _gpaw.cuZgemv(handle,npair_a[a],npw,alpha,GPU_phi_aGp[a],npair_a[a],GPU_P_p,1,beta,GPU_rho_G,1)
+                                        _gpaw.cuZgemv(handle,npair_a[a],npw,alpha,GPU_phi_aGp[a],npair_a[a],GPU_P_ap[a],1,beta,GPU_rho_G,1)
 
                             if self.optical_limit and self.cugemv:
                                 status = _gpaw.cuGetVector(1,sizeofdata,GPU_rho_G,1,rho_G,1)
@@ -541,7 +544,7 @@ class CHI(BASECHI):
                 if self.cugemv:
                     for a, id in enumerate(calc.wfs.setups.id_a):
                         _gpaw.cuFree(GPU_phi_aGp[a])                    
-                    _gpaw.cuFree(GPU_P_p)
+                        _gpaw.cuFree(GPU_P_ap[a])
                     
                 for iw in range(self.Nw_local):
                     self.kcomm.sum(chi0_wGG[iw])
