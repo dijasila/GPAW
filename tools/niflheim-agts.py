@@ -8,7 +8,8 @@ def cmd(c):
     x = os.system(c)
     assert x == 0, c
 
-def fail(subject, email=None, filename='/dev/null', uuencode=False):
+def fail(subject, email=None, filename='/dev/null', mailer='mail'):
+    assert mailer in ['mailx', 'mail', 'mutt']
     import os
     if email is not None:
         if filename == '/dev/null':
@@ -16,14 +17,14 @@ def fail(subject, email=None, filename='/dev/null', uuencode=False):
                              (subject, email, filename)) == 0
         else: # attachments
             filenames = filename.split()
-            if uuencode: # new mailx (12?)
+            if mailer == 'mailx': # new mailx (12?)
                 attach = ''
                 for f in filenames:
                     attach += ' -a %s ' % f
                 # send with empty body
                 assert os.system('echo | mail %s -s "%s" %s' %
                                  (attach, subject, email)) == 0
-            else: # old mailx (8?)
+            elif mailer == 'mail': # old mailx (8?)
                 attach = '('
                 for f in filenames:
                     ext = os.path.splitext(f)[-1]
@@ -36,6 +37,13 @@ def fail(subject, email=None, filename='/dev/null', uuencode=False):
                 attach = attach[:-2]
                 attach += ')'
                 assert os.system('%s | mail -s "%s" %s' %
+                                 (attach, subject, email)) == 0
+            else: # mutt
+                attach = ''
+                for f in filenames:
+                    attach += ' -a %s ' % f
+                # send with empty body
+                assert os.system('mutt %s -s "%s" %s < /dev/null' %
                                  (attach, subject, email)) == 0
     raise SystemExit
 
@@ -147,7 +155,7 @@ else:
         ef = glob.glob(os.path.join(dir, t) + '.e*')
         for f in ef:
             attach += ' ' + f
-    fail(subject, email, attach, uuencode=False)
+    fail(subject, email, attach, mailer='mutt')
 
 if 0:
     # Analysis:
