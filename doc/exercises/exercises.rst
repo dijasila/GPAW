@@ -33,7 +33,7 @@ Introductory exercises (do these first):
    water/water
    wavefunctions/wavefunctions
 
-Advanced exercises:
+Advanced exercises (pick according to your interest):
 
 .. toctree::
    :maxdepth: 1
@@ -51,6 +51,12 @@ Advanced exercises:
    tst/tst
    transport/transport
    lrtddft/lrtddft
+
+Further information:
+
+.. toctree::
+   :maxdepth: 1
+
    faeq
    
 See also :ref:`timepropagation`.
