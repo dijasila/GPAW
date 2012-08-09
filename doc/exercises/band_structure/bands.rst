@@ -7,9 +7,13 @@ Band structure
 Band diagrams are usefull analysis tools. Read
 :svn:`~doc/exercises/band_structure/Na_band.py` and try to
 understand what it does, then use it to construct the band diagram of
-bulk Na and Si. Read
+bulk Na.  Read
 :svn:`~doc/exercises/band_structure/plot_band.py` and try
 to understand it, then use it to plot the band diagram.
+
+Modify the first script to calculate the band diagram of Silicon.
+Note that Si has a different crystal structure (diamond), either set
+it up manually as for Na, or use the :ase:`ase.structure.bulk <ase/structure.html>` function.
 
 Compare the Si band diagram to the band diagram below (adapted from
 Cohen and Chelikowsky: "Electronic Structure and Optical Properties of

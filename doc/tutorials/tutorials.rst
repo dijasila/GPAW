@@ -17,7 +17,6 @@ perform some of the most common tasks:
    atomization/atomization
    atomization_cmr/atomization_cmr
    optimization/optimization
-   stress/stress
    plotting/plot_wave_functions
    bandstructures/bandstructures
    band_gap/band_gap

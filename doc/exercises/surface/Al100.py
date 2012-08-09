@@ -4,10 +4,8 @@ from ase.lattice.surface import fcc100
 def energy(N, k, a=4.05):
     fcc = fcc100('Al', (1, 1, N), a=a, vacuum=7.5)
     fcc.center(axis=2)
-    calc = GPAW(nbands=N * 5,
-                kpts=(k, k, 1),
-                h=0.25,
-                txt='slab-%d.txt' % N)
+    calc = GPAW(
+    1), h=0.25, k, kpts=(k, nbands=N * 3, txt='slab-%d.txt' % N)
     fcc.set_calculator(calc)
     e = fcc.get_potential_energy()
     calc.write('slab-%d.gpw' % N)

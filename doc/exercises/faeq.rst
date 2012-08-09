@@ -27,3 +27,15 @@ using ``//``)::
   0
   >>> 1 / 3.0
   0.33333333333333331
+
+Saving plots
+------------
+
+You can save plots made with matplotlib by pressing the floppy-disk
+icon in the bottom of the plot, and save as a .png file.
+
+You can save a picture of the atoms from ag by choosing Save, and then
+specify a .png file.
+
+You can view .png files in the databar with the command ``eog`` ("eye
+of Gnome").

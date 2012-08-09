@@ -4,6 +4,10 @@
 CAMd Summer school 2012
 =======================
 
+
+Logging in to the databar terminals
+===================================
+
 When you log into the databars, you can select various desktop
 environments.  We recommend IceWM, but any will do (except the last
 option).

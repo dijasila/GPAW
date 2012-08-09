@@ -1,8 +1,8 @@
 .. _exercise_lrtddft:
 
-==============================
-Calculation of optical spectra
-==============================
+=========================================
+Calculation of optical spectra with TDDFT
+=========================================
 
 In this exercise we calculate optical spectrum of Na2 molecule using
 linear response time-dependent density functional theory. We start
