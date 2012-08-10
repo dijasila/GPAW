@@ -93,6 +93,8 @@ class BASECHI:
         calc = self.calc
         self.nspins = self.calc.wfs.nspins
 
+        assert (self.calc.atoms.get_pbc()).all(), "Periodic boundary conditions required."
+
         # kpoint init
         self.kd = kd = calc.wfs.kd
         self.bzk_kc = kd.bzk_kc
