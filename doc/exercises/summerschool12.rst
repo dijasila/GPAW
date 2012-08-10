@@ -17,7 +17,7 @@ the terminal on one of the Linux servers, not on the Sun server
 running the graphical user interface, as GPAW will not work on it.
 Choose :menuselection:`Terminal --> xterm on Linux` from the GBar
 menu, accessible by right-clicking on the desktop in IceWM.  Or press
-the Terminal icon on the bottom toolbar (XXX CHECK).
+the Terminal icon on the bottom toolbar.
 
 Setting up your UNIX environment
 ================================
