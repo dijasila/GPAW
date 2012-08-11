@@ -238,7 +238,7 @@ class KSSingle(Excitation, PairDensity):
       me  = sqrt(fij*epsij) * <i|r|j>
       mur = - <i|r|a>
       muv = - <i|nabla|a>/omega_ia with omega_ia>0
-      magn = <i|[r x nabla]|a> / (2c)
+      magn = <i|[r x nabla]|a> / (2 m_e c)
     """
     def __init__(self, iidx=None, jidx=None, pspin=None, kpt=None,
                  paw=None, string=None, fijscale=1):
@@ -298,17 +298,13 @@ class KSSingle(Excitation, PairDensity):
             ma += sqrt(4 * pi / 3) * ma1 + Ra * sqrt(4 * pi) * ma0
         gd.comm.sum(ma)
 
-##        print '<KSSingle> i,j,me,ma,fac=',self.i,self.j,\
-##            me, ma,sqrt(self.energy*self.fij)
-#        print 'l: me, ma', me, ma
         self.me = sqrt(self.energy * self.fij) * ( me + ma )
 
         self.mur = - ( me + ma )
-##        print '<KSSingle> mur=',self.mur,-self.fij *me
 
         # velocity form .............................
 
-        self.muv = np.zeros(me.shape)  # does not work XXX
+        me = np.zeros(self.mur.shape)
 
         # get derivatives
         dtype = self.wfj.dtype
@@ -317,53 +313,28 @@ class KSSingle(Excitation, PairDensity):
             gd.ddr = [Gradient(gd, c, dtype=dtype).apply for c in range(3)]
         for c in range(3):
             gd.ddr[c](self.wfj, dwfj_cg[c], kpt.phase_cd)
-            self.muv[c] = gd.integrate(self.wfi * dwfj_cg[c])
+            me[c] = gd.integrate(self.wfi * dwfj_cg[c])
 
-        # XXXX local corrections are missing here
+        if 0:
+            me2 = np.zeros(self.mur.shape)
+            for c in range(3):
+                gd.ddr[c](self.wfi, dwfj_cg[c], kpt.phase_cd)
+                me2[c] = gd.integrate(self.wfj * dwfj_cg[c])
+            print me, -me2, me2+me
+
         # augmentation contributions
         ma = np.zeros(me.shape)
-##         for a, P_ni in kpt.P_ani.items():
-##             setup = paw.wfs.setups[a]
-## #            print setup.Delta1_jj
-## #            print "l_j", setup.l_j, setup.n_j
+        for a, P_ni in kpt.P_ani.items():
+            Pi_i = P_ni[self.i]
+            Pj_i = P_ni[self.j]
+            nabla_iiv = paw.wfs.setups[a].nabla_iiv
+            for c in range(3):
+                for i1, Pi in enumerate(Pi_i):
+                    for i2, Pj in enumerate(Pj_i):
+                        ma[c] += Pi * Pj * nabla_iiv[i1, i2, c]
 
-##             if not (hasattr(setup, 'j_i') and hasattr(setup, 'l_i')):
-##                 l_i = [] # map i -> l
-##                 j_i = [] # map i -> j
-##                 for j, l in enumerate(setup.l_j):
-##                     for m in range(2 * l + 1):
-##                         l_i.append(l)
-##                         j_i.append(j)
-                        
-##                 setup.l_i = l_i
-##                 setup.j_i = j_i
-
-##             Pi_i = P_ni[self.i]
-##             Pj_i = P_ni[self.j]
-##             ni = len(Pi_i)
-            
-##             ma1 = np.zeros(me.shape)
-##             for i1 in range(ni):
-##                 L1 = setup.l_i[i1]
-##                 j1 = setup.j_i[i1]
-##                 for i2 in range(ni):
-##                     L2 = setup.l_i[i2]
-##                     j2 = setup.j_i[i2]
- 
-##                     pi1i2 = Pi_i[i1] * Pj_i[i2]
-##                     p = packed_index(i1, i2, ni)
-                    
-##                     v1 = sqrt(4 * pi / 3) * np.array([G_LLL[L1, L2, 3],
-##                                                       G_LLL[L1, L2, 1],
-##                                                       G_LLL[L1, L2, 2]])
-##                     v2 = ylnyl[L1, L2, :]
-##                     ma1 += pi1i2 * (v1 * setup.Delta1_jj[j1, j2] +
-##                                     v2 * setup.Delta_pL[p, 0]      )
-##             ma += ma1
-## #        print 'v: me, ma=', me, ma
-
-        # XXXX the weight fij is missing here
-        self.muv = (me + ma) / self.energy
+        self.muv = - (me + ma) / self.energy
+##        print self.mur, self.muv, self.mur - self.muv
 
         # magnetic transition dipole ................
 
