@@ -451,9 +451,6 @@ class LrTDDFTExcitation(Excitation):
         s+='  rest=%.3g'%rest
         return s
 
-    def get_rotary_strength(self):
-        return np.dot(self.me, self.magn)
-        
 def photoabsorption_spectrum(excitation_list, spectrum_file=None,
                              e_min=None, e_max=None, delta_e = None,
                              folding='Gauss', width=0.1, comment=None):
