@@ -377,8 +377,8 @@ def d2Excdn2(den):
     return res
 
 class LrTDDFTExcitation(Excitation):
-    def __init__(self,Om=None,i=None,
-                 e=None,m=None):
+    def __init__(self, Om=None, i=None,
+                 e=None, m=None):
         # define from the diagonalized Omega matrix
         if Om is not None:
             if i is None:
@@ -393,8 +393,10 @@ class LrTDDFTExcitation(Excitation):
             self.f = Om.eigenvectors[i]
             self.kss = Om.kss
             self.me = 0.
-            for f,k in zip(self.f, self.kss):
+            self.magn = 0.
+            for f, k in zip(self.f, self.kss):
                 self.me += f * k.me
+                self.magn += np.sqrt(self.energy / k.energy) * f * k.magn
 
             return
 
@@ -448,6 +450,9 @@ class LrTDDFTExcitation(Excitation):
                 rest -= f2
         s+='  rest=%.3g'%rest
         return s
+
+    def get_rotary_strength(self):
+        return np.dot(self.me, self.magn)
         
 def photoabsorption_spectrum(excitation_list, spectrum_file=None,
                              e_min=None, e_max=None, delta_e = None,

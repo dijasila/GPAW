@@ -114,6 +114,10 @@ class Excitation:
         
         return osz
 
+    def get_rotary_strength(self):
+        """Return rotary strength"""
+        return np.dot(self.me, self.magn)
+        
     def set_energy(self, E):
         """Set the excitations energy relative to the ground state energy"""
         self.energy = E

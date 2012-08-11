@@ -4,7 +4,7 @@
 from math import pi, sqrt
 
 import numpy as np
-from ase.units import Bohr, Hartree
+from ase.units import Bohr, Hartree, alpha
 
 import gpaw.mpi as mpi
 from gpaw.utilities import packed_index
@@ -14,6 +14,7 @@ from gpaw.pair_density import PairDensity
 from gpaw.fd_operators import Gradient
 from gpaw.gaunt import gaunt as G_LLL
 from gpaw.xc.tools import vxc
+from gpaw.utilities.tools import coordinates
 
 class KSSingles(ExcitationList):
     """Kohn-Sham single particle excitations
@@ -237,7 +238,7 @@ class KSSingle(Excitation, PairDensity):
       me  = sqrt(fij*epsij) * <i|r|j>
       mur = - <i|r|a>
       muv = - <i|nabla|a>/omega_ia with omega_ia>0
-      m   = <i|[r x nabla]|a> / (2c)
+      magn = <i|[r x nabla]|a> / (2c)
     """
     def __init__(self, iidx=None, jidx=None, pspin=None, kpt=None,
                  paw=None, string=None, fijscale=1):
@@ -306,20 +307,21 @@ class KSSingle(Excitation, PairDensity):
 ##        print '<KSSingle> mur=',self.mur,-self.fij *me
 
         # velocity form .............................
+
         self.muv = np.zeros(me.shape)  # does not work XXX
 
-##         # smooth contribution
-##         dtype = self.wfj.dtype
-##         dwfdr_G = gd.empty(dtype=dtype)
-##         if not hasattr(gd, 'ddr'):
-##             gd.ddr = [Gradient(gd, c, dtype=dtype).apply for c in range(3)]
-##         for c in range(3):
-##             gd.ddr[c](self.wfj, dwfdr_G, kpt.phase_cd)
-##             me[c] = gd.integrate(self.wfi * dwfdr_G)
+        # get derivatives
+        dtype = self.wfj.dtype
+        dwfj_cg = gd.empty((3), dtype=dtype)
+        if not hasattr(gd, 'ddr'):
+            gd.ddr = [Gradient(gd, c, dtype=dtype).apply for c in range(3)]
+        for c in range(3):
+            gd.ddr[c](self.wfj, dwfj_cg[c], kpt.phase_cd)
+            self.muv[c] = gd.integrate(self.wfi * dwfj_cg[c])
 
-##         # XXXX local corrections are missing here
-##         # augmentation contributions
-##         ma = np.zeros(me.shape)
+        # XXXX local corrections are missing here
+        # augmentation contributions
+        ma = np.zeros(me.shape)
 ##         for a, P_ni in kpt.P_ani.items():
 ##             setup = paw.wfs.setups[a]
 ## #            print setup.Delta1_jj
@@ -360,18 +362,23 @@ class KSSingle(Excitation, PairDensity):
 ##             ma += ma1
 ## #        print 'v: me, ma=', me, ma
 
-##         # XXXX the weight fij is missing here
-##         self.muv = (me + ma) / self.energy
-## #        print '<KSSingle> muv=', self.muv
+        # XXXX the weight fij is missing here
+        self.muv = (me + ma) / self.energy
 
-##         # magnetic transition dipole ................
-        
-##         # m depends on how the origin is set, so we need the centre of mass
-##         # of the structure
-## #        cm = wfs
+        # magnetic transition dipole ................
 
-## #        for i in range(3):
-## #            me[i] = gd.integrate(self.wfi*dwfdr_cg[i])
+        magn = np.zeros(me.shape)
+        r_cg, r2_g = coordinates(gd)
+
+        wfi_g = self.wfi
+        for ci in range(3):
+            cj = (ci + 1) % 3
+            ck = (ci + 2) % 3
+            magn[ci] = gd.integrate(wfi_g * r_cg[cj] * dwfj_cg[ck] -
+                                    wfi_g * r_cg[ck] * dwfj_cg[cj]  )
+
+        # XXXX local corrections are missing
+        self.magn = alpha / 2. * magn
         
     def __add__(self, other):
         """Add two KSSingles"""
@@ -420,6 +427,8 @@ class KSSingle(Excitation, PairDensity):
             self.mur = np.array([float(l.pop(0)) for i in range(3)])
             self.me = - self.mur * sqrt(self.energy*self.fij)
             self.muv = np.array([float(l.pop(0)) for i in range(3)])
+            if len(l): 
+                self.magn = np.array([float(l.pop(0)) for i in range(3)])
         return None
 
     def outstring(self):
@@ -429,6 +438,8 @@ class KSSingle(Excitation, PairDensity):
         for m in self.mur: str += '%12.4e' % m
         str += '  '
         for m in self.muv: str += '%12.4e' % m
+        str += '  '
+        for m in self.magn: str += '%12.4e' % m
         str += '\n'
         return str
         
