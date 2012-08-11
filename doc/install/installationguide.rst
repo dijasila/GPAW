@@ -46,27 +46,47 @@ are described, in order of preference.
 
 .. _installationguide_package:
 
-Installation from the fys package repository
---------------------------------------------
+Installation with package manager on Linux
+------------------------------------------
 
-GPAW and dependencies will be installed system-wide.
-This procedure requires root access.
+Install the binaries with the software package manager of your Linux distribution.
+This is **the preferred** way to install on a Linux system.
+If you prefer to install from sources follow :ref:`installationguide_developer`.
 
-.. note::
+The currently supported systems include (issue the commands below **as root**):
 
-   Most of the fys packages are relocatable, therefore also suitable for
-   installing on a cluster.
+- RHEL/CentOS 6::
 
-The packages are provided for the following RPMS-based systems:
+    yum install wget
+    cd /etc/yum.repos.d/
+    wget http://download.opensuse.org/repositories/home:/dtufys/RedHat_RHEL-6/home:dtufys.repo
+    yum install gpaw
 
-* Fedora: :ref:`Fedora`
-* openSUSE: :ref:`openSUSE`
-* RedHat Enterprise Linux (or CentOS): :ref:`CentOS`
+- Fedora 17::
 
-Ubuntu 9.10 or newer: :ref:`Ubuntupackage`.
+    yum install wget
+    cd /etc/yum.repos.d/
+    wget http://download.opensuse.org/repositories/home:/dtufys/Fedora_17/home:dtufys.repo
+    yum install gpaw
+
+- openSUSE 12.2::
+
+    zypper ar -f http://download.opensuse.org/repositories/home:/dtufys/openSUSE_12.2/home:dtufys.repo
+    yast -i gpaw
+
+- Debian 6.0::
+
+    sudo bash -c 'echo "deb http://widehat.opensuse.org/repositories/home:/dtufys/Debian_6.0 /" > /etc/apt/sources.list.d/home_dtufys.sources.list'
+    wget http://widehat.opensuse.org/repositories/home:/dtufys/Debian_6.0/Release.key && sudo apt-key add Release.key && rm Release.key
+    sudo apt-get update
+    sudo apt-get install gpaw
+
+- Ubuntu. Install `Ubuntu package <https://wiki.fysik.dtu.dk/gpaw/install/Linux/Ubuntu_ppa.html#ubuntupackage>`_.
+
+For the full list of supported distributions check
+https://build.opensuse.org/package/show?package=gpaw&project=home%3Adtufys
 
 If you prefer to install manually proceed to the next section.
-
 
 .. _installationguide_developer:
 
