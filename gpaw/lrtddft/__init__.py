@@ -393,10 +393,16 @@ class LrTDDFTExcitation(Excitation):
             self.f = Om.eigenvectors[i]
             self.kss = Om.kss
             self.me = 0.
+            self.mur = 0.
+            self.muv = 0.
             self.magn = 0.
             for f, k in zip(self.f, self.kss):
                 self.me += f * k.me
-                self.magn += np.sqrt(self.energy / k.energy) * f * k.magn
+                erat = np.sqrt(k.energy / self.energy)
+                wght = np.sqrt(k.fij) * f
+                self.mur += k.mur * erat * wght
+                self.muv += k.muv * erat * wght
+                self.magn += k.magn / erat * wght
 
             return
 
