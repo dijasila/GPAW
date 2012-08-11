@@ -7,6 +7,7 @@ import numpy as np
 
 import gpaw.mpi as mpi
 from gpaw.output import initialize_text_stream
+from ase.units import A, m, s, Bohr
 
 class ExcitationList(list):
     """General Excitation List class.
@@ -102,9 +103,10 @@ class Excitation:
             # length form
             me = self.me
         elif form == 'v':
-            raise NotImplemented
             # velocity form
-            me = self.muv
+            me = self.muv * np.sqrt(self.energy)
+        else:
+            raise RuntimeError('Unknown form >' + form + '<')
 
         osz = [0.]
         for c in range(3):
@@ -114,9 +116,19 @@ class Excitation:
         
         return osz
 
-    def get_rotary_strength(self):
+    def get_rotary_strength(self, units='usual'):
         """Return rotary strength"""
-        return np.dot(self.me, self.magn)
+        if units =='usual':
+            # 10^-40 esu cm erg / G
+            pre = Bohr**3 # from au to ase units
+            pre /= 1. # from ase units to SI
+            pre /= 3.33564095e-15 * A**2 * m**3 * s # from SI to esu 
+        elif uints == 'a.u.':
+            pre = 1.
+        else:
+            raise RuntimeError('Unknown units >' + units + '<')
+
+        return pre * np.dot(self.me, self.magn)
         
     def set_energy(self, E):
         """Set the excitations energy relative to the ground state energy"""
