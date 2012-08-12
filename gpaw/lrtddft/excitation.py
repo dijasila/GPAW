@@ -116,7 +116,7 @@ class Excitation:
         
         return osz
 
-    def get_rotary_strength(self, units='usual'):
+    def get_rotary_strength(self, form='r', units='usual'):
         """Return rotary strength"""
         if units =='usual':
             # 10^-40 esu cm erg / G
@@ -128,7 +128,16 @@ class Excitation:
         else:
             raise RuntimeError('Unknown units >' + units + '<')
 
-        return pre * np.dot(self.me, self.magn)
+        if form == 'r':
+            # length form
+            mu = self.mur
+        elif form == 'v':
+            # velocity form
+            mu = self.muv
+        else:
+            raise RuntimeError('Unknown form >' + form + '<')
+        
+        return pre * np.dot(mu, self.magn)
         
     def set_energy(self, E):
         """Set the excitations energy relative to the ground state energy"""
