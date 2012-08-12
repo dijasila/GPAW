@@ -123,4 +123,4 @@ After downloading create the link to the requested version, e.g.:
 
      The recommended installation path is :envvar:`$HOME`.
 
-When you have the code, go back to the :ref:`installationguide`.
+When you have the code, go back to the :ref:`installationguide_developer`.
