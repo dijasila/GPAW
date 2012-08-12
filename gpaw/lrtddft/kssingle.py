@@ -347,9 +347,18 @@ class KSSingle(Excitation, PairDensity):
             ck = (ci + 2) % 3
             magn[ci] = gd.integrate(wfi_g * r_cg[cj] * dwfj_cg[ck] -
                                     wfi_g * r_cg[ck] * dwfj_cg[cj]  )
+        # augmentation contributions
+        ma = np.zeros(magn.shape)
+        for a, P_ni in kpt.P_ani.items():
+            Pi_i = P_ni[self.i]
+            Pj_i = P_ni[self.j]
+            rnabla_iiv = paw.wfs.setups[a].rnabla_iiv
+            for c in range(3):
+                for i1, Pi in enumerate(Pi_i):
+                    for i2, Pj in enumerate(Pj_i):
+                        ma[c] += Pi * Pj * rnabla_iiv[i1, i2, c]
 
-        # XXXX local corrections are missing
-        self.magn = alpha / 2. * magn
+        self.magn = alpha / 2. * (magn + ma)
         
     def __add__(self, other):
         """Add two KSSingles"""
