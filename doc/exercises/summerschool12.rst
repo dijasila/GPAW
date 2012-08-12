@@ -9,8 +9,7 @@ Logging in to the databar terminals
 ===================================
 
 When you log into the databars, you can select various desktop
-environments.  We recommend IceWM, but any will do (except the last
-option).
+environments. Please choose IceWM, the other choices will cause trouble!
 
 Exercises will make use of terminals.  It is important that you open
 the terminal on one of the Linux servers, not on the Sun server
@@ -52,18 +51,28 @@ the command::
 If the calculation lasts more than a few seconds, submit it to the
 queue instead of running it directly::
 
-  $ gpaw-qsub filename.py  XXXX THIS IS CURRENTLY BROKEN XXXX
+  $ gpaw-qsub filename.py
 
 This will allow the script to be executed on a different host, so the
 jobs will be distributed efficiently even if many users logged on to
-the same computer.  You can run jobs in parallel, using more CPUs for
+the same computer.  The output from your script will be written to the
+files :samp:`filename.py.oNNNNNN` and :samp:`filename.py.eNNNNNN`
+where :samp:`NNNNNN` is a job number.  Normal output (stdout) goes to
+the :samp:`.oNNNNNN` file, whereas error messages (stderr) goes to
+:samp:`.eNNNNNN`.  Unlike some queue systems these files appear when
+the job starts, so you can follow job progress by looking at them.
+
+You can run jobs in parallel, using more CPUs for
 increased speed, by specifying e.g. 4 CPUs like this::
 
-  $ gpaw-qsub -pe 4 filename.py  XXXX THIS IS CURRENTLY BROKEN XXXX
+  $ gpaw-qsub -p 4 filename.py
 
 The ``qstat`` or :samp:`qstat -u {USERNAME}` commands can be used to
 monitor running jobs, and :samp:`qdel {JOB_ID}` to delete jobs if
-necessary.
+necessary.  On the joblist from ``qstat``, you can find the JOB_ID.
+You can also see the status of the jobs, Q means queued, R means
+running, C means completed (jobs remain on the list for a while after
+completing).
 
 
 Notes and hints
@@ -71,8 +80,9 @@ Notes and hints
 
 * Editor: Several editors are available including emacs, vim and gedit.
 
-* Printer: ``gps1-308``. Terminal: :samp:`lp -d gps1-308 {filename}`.  The
-  printer is located in databar 15, the middle of the three databars.
+* Printer: There is a printer in each databar, the name is written on
+  the printer. To use it from a terminal: :samp:`lp -d {printename}
+  {filename}`.  Read more about printing `here <http://www.gbar.dtu.dk/wiki/Printing>`_.
 
 * To open a pdf-file: :samp:`evince {filename}`
 

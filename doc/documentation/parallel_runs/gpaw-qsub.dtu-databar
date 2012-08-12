@@ -1,0 +1,22 @@
+#!/usr/bin/env python
+
+# This version of gpaw-qsub works in the DTU databar as per August 2012.
+
+from optparse import OptionParser
+import os
+import sys
+
+p = OptionParser()
+p.add_option('-p', '--procs', type=int, default=1,
+             help='number of processes')
+opts, args = p.parse_args()
+
+jobdir = os.getcwd()
+#jobname = os.path.join(os.getcwd(), args[0])
+jobname = args[0]
+
+qsub = '''#!/bin/bash
+cd %s
+mpirun -np %d gpaw-python %s %s''' % (jobdir, opts.procs, jobname, 
+                                            ' '.join(args[1:]))
+os.popen('qsub -N %s -q app' % args[0], 'w').write(qsub)

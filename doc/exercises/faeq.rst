@@ -28,6 +28,25 @@ using ``//``)::
   >>> 1 / 3.0
   0.33333333333333331
 
+Why does changing one variable change another one?
+--------------------------------------------------
+
+The = operator in Python is *not* and assignment operator, it is a
+*naming* operator:  It makes a new name for (reference to) the object::
+
+  a = [1, 2, 3, 4, 5]  # Create a list
+  b = a                # New name for list
+  a[2] = 42
+  print b              # [1, 2, 42, 4, 5]
+
+
+  c = 7
+  d = c
+  c += 42   # d is still 7, we just did
+	    # c = c + 42
+	    # creating a new object 49 and
+	    # giving it the name c
+
 Saving plots
 ------------
 
