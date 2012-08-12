@@ -7,7 +7,7 @@ import numpy as np
 
 import gpaw.mpi as mpi
 from gpaw.output import initialize_text_stream
-from ase.units import A, m, s, Bohr
+from ase.units import A, m, s, Bohr, _aut, C
 
 class ExcitationList(list):
     """General Excitation List class.
@@ -116,13 +116,15 @@ class Excitation:
         
         return osz
 
-    def get_rotary_strength(self, form='r', units='usual'):
+    def get_rotary_strength(self, form='r', units='cgs'):
         """Return rotary strength"""
-        if units =='usual':
+        if units =='cgs':
             # 10^-40 esu cm erg / G
-            pre = Bohr**3 # from au to ase units
-            pre /= 1. # from ase units to SI
-            pre /= 3.33564095e-15 * A**2 * m**3 * s # from SI to esu 
+            # = 3.33564095 * 10^-15 A^2 m^3 s
+            # conversion factor after
+            # T. B. Pedersen and A. E. Hansen, 
+            # Chem. Phys. Lett. 246 (1995) 1
+            pre = 471.43
         elif uints == 'a.u.':
             pre = 1.
         else:
