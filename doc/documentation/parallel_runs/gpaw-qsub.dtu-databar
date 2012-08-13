@@ -6,6 +6,8 @@ from optparse import OptionParser
 import os
 import sys
 
+queue='hpc'   # Other option is app
+
 p = OptionParser()
 p.add_option('-p', '--procs', type=int, default=1,
              help='number of processes')
@@ -19,4 +21,4 @@ qsub = '''#!/bin/bash
 cd %s
 mpirun -np %d gpaw-python %s %s''' % (jobdir, opts.procs, jobname, 
                                             ' '.join(args[1:]))
-os.popen('qsub -N %s -q app' % args[0], 'w').write(qsub)
+os.popen('qsub -N %s -q %s' % (args[0], queue), 'w').write(qsub)
