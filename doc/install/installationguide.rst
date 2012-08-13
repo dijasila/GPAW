@@ -86,7 +86,23 @@ The currently supported systems include (issue the commands below **as root**):
 For the full list of supported distributions check
 https://build.opensuse.org/package/show?package=gpaw&project=home%3Adtufys
 
-If you prefer to install manually proceed to the next section.
+.. note::
+
+   If you prefer to install manually proceed to the next section, or
+   alternatively, manually unpack the RPMS, e.g. (RHEL/CentOS 6)::
+
+     # download the packages + dependencies (you can do that also manually!)
+     $ yumdownloader --resolve gpaw
+     # unpack into the current directory
+     $ find . -name "*.rpm" | xargs -t -I file sh -c "rpm2cpio file | cpio -idm"
+     # modify profile.d scripts
+     $ find . -name "*.*sh" | xargs -t -I file sh -c "sed -i "s#PA=/usr#PA=$PWD/usr#" file"
+     # make scripts executable
+     $ find . -name "*.*sh" | xargs -t -I file sh -c "chmod u+x file"
+     # source the scripts (example for bash)
+     $ for f in `find . -name "*.sh"`; do source $f; done
+     # test the installation
+     $ gpaw-python -c "import gpaw; print gpaw.__file__, gpaw.mpi.rank"
 
 .. _installationguide_developer:
 
