@@ -15,6 +15,7 @@
    transport/keldyshgf
    tddft/tddft
    bse/bse
+   gw_theory/gw_theory
    dscf/dscf
    pdos/pdos
    xas/xas

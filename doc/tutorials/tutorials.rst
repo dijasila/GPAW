@@ -30,6 +30,7 @@ perform some of the most common tasks:
    dielectric_response/dielectric_response
    rpa/rpa_tut
    ensembles/ensembles
+   gw_tutorial/gw_tutorial
 
 
 =========
