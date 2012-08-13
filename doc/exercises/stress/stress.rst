@@ -13,7 +13,7 @@ As a simple example we perform a calculation on bulk Si using the plane wave bas
 
 .. literalinclude:: con_pw.py
 
-Note that we use a rather rough k-point sampling and the default Fermi smearing of 0.1 eV. These parameters should of course be converged, but for now we will just keep them fixed in order to speed up the calculations. At `E_{cut}` = 400 eV, the total energy is seen to be converged to within 5 meV. Now edit the script such that the calculation is performed in grid mode with various values of the grid spacing (comment out the lines :samp:`for x in [100, ...` and :samp:`ecut=PW(x)` and uncomment the lines :samp:`for h in [0.24, ...` and :samp:`h=x`). 
+Note that we use a rather rough k-point sampling and the default Fermi smearing of 0.1 eV. These parameters should of course be converged, but for now we will just keep them fixed in order to speed up the calculations. At `E_{cut}` = 400 eV, the total energy is seen to be converged to within 5 meV. Now edit the script such that the calculation is performed in grid mode with various values of the grid spacing (comment out the lines :samp:`for x in [100, ...` and :samp:`mode=PW(x)` and uncomment the lines :samp:`for h in [0.24, ...` and :samp:`h=x`). 
 
 What grid spacing is needed in order to converge the total energy to within 5 meV? What is the timing of this calculation compared to the one at 400 eV in plane wave mode? Compare the number of grid points and plane waves used in these two calculations respectively (look in the output file 'convergence_400.txt' and the corresponding one for the grid calculation.)  You can see how long a calculation took by looking at the times recorded in the .txt file.
 
