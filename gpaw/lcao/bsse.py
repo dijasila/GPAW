@@ -73,6 +73,7 @@ class GhostSetup(BaseSetup):
         self.rcore = None
         self.N0_p = np.zeros(1)
         self.nabla_iiv = None
+        self.rnabla_iiv = None
         self.phicorehole_g = None
         self.rgd = None
         self.rcut_j = [0.5]
