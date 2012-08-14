@@ -81,7 +81,17 @@ The currently supported systems include (issue the commands below **as root**):
     sudo apt-get update
     sudo apt-get install gpaw
 
-- Ubuntu. Install `Ubuntu package <https://wiki.fysik.dtu.dk/gpaw/install/Linux/Ubuntu_ppa.html#ubuntupackage>`_.
+- Ubuntu 12.04::
+
+    sudo bash -c 'echo "deb http://widehat.opensuse.org/repositories/home:/dtufys/xUbuntu_12.04 /" > /etc/apt/sources.list.d/home_dtufys.sources.list'
+    wget http://widehat.opensuse.org/repositories/home:/dtufys/xUbuntu_12.04/Release.key && sudo apt-key add Release.key && rm Release.key
+    sudo apt-get update
+    sudo apt-get install gpaw
+
+.. note::
+
+   Alternative packages for ubuntu are provided at
+   `Ubuntu package <https://wiki.fysik.dtu.dk/gpaw/install/Linux/Ubuntu_ppa.html#ubuntupackage>`_.
 
 For the full list of supported distributions check
 https://build.opensuse.org/package/show?package=gpaw&project=home%3Adtufys
