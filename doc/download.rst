@@ -6,8 +6,7 @@ Download
 
 .. note::
 
-   GPAW requires ASE.
-   :ase:`Download and install ASE <download.html>`.
+   GPAW requires ASE. :ase:`Install ASE <download.html>`.
 
    When done, to determine which way of installing GPAW suits you best
    please read carefully :ref:`installationguide` first!
