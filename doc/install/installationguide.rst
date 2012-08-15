@@ -88,10 +88,10 @@ The currently supported systems include (issue the commands below **as root**):
     sudo apt-get update
     sudo apt-get install gpaw
 
-.. note::
+  .. note::
 
-   Alternative packages for ubuntu are provided at
-   `Ubuntu package <https://wiki.fysik.dtu.dk/gpaw/install/Linux/Ubuntu_ppa.html#ubuntupackage>`_.
+    Alternative packages for ubuntu are provided at
+    `Ubuntu package <https://wiki.fysik.dtu.dk/gpaw/install/Linux/Ubuntu_ppa.html#ubuntupackage>`_.
 
 For the full list of supported distributions check
 https://build.opensuse.org/package/show?package=gpaw&project=home%3Adtufys
@@ -99,7 +99,7 @@ https://build.opensuse.org/package/show?package=gpaw&project=home%3Adtufys
 .. note::
 
    If you prefer to install manually proceed to the next section, or
-   alternatively, manually unpack the RPMS, e.g. (RHEL/CentOS 6)::
+   alternatively, manually unpack the RPMS, e.g.::
 
      # download the packages + dependencies (you can do that also manually!)
      $ yumdownloader --resolve gpaw

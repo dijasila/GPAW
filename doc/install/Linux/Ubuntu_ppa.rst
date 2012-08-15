@@ -15,11 +15,11 @@ GPAW is available as an `Ubuntu package
 
     sudo add-apt-repository ppa:campos-dev/campos
 
-.. note::
+  .. note::
 
-   More up-to-date packages can be usually found at::
+    More up-to-date packages can be usually found at::
 
-     sudo add-apt-repository ppa:askhl/ppa
+      sudo add-apt-repository ppa:askhl/ppa
 
 - Update the package cache::
 
