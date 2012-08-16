@@ -49,70 +49,30 @@ are described, in order of preference.
 Installation with package manager on Linux
 ------------------------------------------
 
-Install the binaries with the software package manager of your Linux distribution.
 This is **the preferred** way to install on a Linux system.
 If you prefer to install from sources follow :ref:`installationguide_developer`.
 
-The currently supported systems include (issue the commands below **as root**):
+After performing the installation do not forget to :ref:`running_tests`!
 
-- RHEL/CentOS 6::
+Configure the package repositories as described at
+`Installation with package manager on Linux <https://wiki.fysik.dtu.dk/ase/download.html#installation-with-package-manager-on-linux>`_,
+and install GPAW with:
 
-    yum install wget
-    cd /etc/yum.repos.d/
-    wget http://download.opensuse.org/repositories/home:/dtufys/CentOS_CentOS-6/home:dtufys.repo
+- on RHEL/CentOS/Fedora::
+
     yum install gpaw
 
-- Fedora 17::
+- on openSUSE::
 
-    yum install wget
-    cd /etc/yum.repos.d/
-    wget http://download.opensuse.org/repositories/home:/dtufys/Fedora_17/home:dtufys.repo
-    yum install gpaw
-
-- openSUSE 12.2::
-
-    zypper ar -f http://download.opensuse.org/repositories/home:/dtufys/openSUSE_12.2/home:dtufys.repo
     yast -i gpaw
 
-- Debian 6.0::
+- on Debian/Ubuntu::
 
-    sudo bash -c 'echo "deb http://widehat.opensuse.org/repositories/home:/dtufys/Debian_6.0 /" > /etc/apt/sources.list.d/home_dtufys.sources.list'
-    wget http://widehat.opensuse.org/repositories/home:/dtufys/Debian_6.0/Release.key && sudo apt-key add Release.key && rm Release.key
     sudo apt-get update
     sudo apt-get install gpaw
-
-- Ubuntu 12.04::
-
-    sudo bash -c 'echo "deb http://widehat.opensuse.org/repositories/home:/dtufys/xUbuntu_12.04 /" > /etc/apt/sources.list.d/home_dtufys.sources.list'
-    wget http://widehat.opensuse.org/repositories/home:/dtufys/xUbuntu_12.04/Release.key && sudo apt-key add Release.key && rm Release.key
-    sudo apt-get update
-    sudo apt-get install gpaw
-
-  .. note::
-
-    Alternative packages for ubuntu are provided at
-    `Ubuntu package <https://wiki.fysik.dtu.dk/gpaw/install/Linux/Ubuntu_ppa.html#ubuntupackage>`_.
 
 For the full list of supported distributions check
 https://build.opensuse.org/package/show?package=gpaw&project=home%3Adtufys
-
-.. note::
-
-   If you prefer to install manually proceed to the next section, or
-   alternatively, manually unpack the RPMS, e.g.::
-
-     # download the packages + dependencies (you can do that also manually!)
-     $ yumdownloader --resolve gpaw
-     # unpack into the current directory
-     $ find . -name "*.rpm" | xargs -t -I file sh -c "rpm2cpio file | cpio -idm"
-     # modify profile.d scripts
-     $ find . -name "*.*sh" | xargs -t -I file sh -c "sed -i "s#PA=/usr#PA=$PWD/usr#" file"
-     # make scripts executable
-     $ find . -name "*.*sh" | xargs -t -I file sh -c "chmod u+x file"
-     # source the scripts (example for bash)
-     $ for f in `find . -name "*.sh"`; do source $f; done
-     # test the installation
-     $ gpaw-python -c "import gpaw; print gpaw.__file__, gpaw.mpi.rank"
 
 .. _installationguide_developer:
 
@@ -145,13 +105,13 @@ It offers the following advantages:
 Standard installation
 ---------------------
 
-This is the standard way of installing python modules.
-Avoid it as it does **not** offer advantages of
+This way of installing python modules
+**should** be **avoided** as it does **not** offer advantages of
 the :ref:`installationguide_developer`.
 
 .. note::
 
-   The standard installation must
+   The standard installation, if chosen, must
    always be preceded by a well tested :ref:`installationguide_developer`!
 
 1) :ref:`download` the code.
