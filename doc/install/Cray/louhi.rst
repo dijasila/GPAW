@@ -10,11 +10,11 @@ Here you find information about the the system
 GPAW
 ====
 
-The latest operating system release for Cray XT4/5 (CLE 2.2 UP01) supports 
-dynamic libraries which simplifies GPAW installation significantly.
+The recent operating system releases for Cray XT4/5 (CLE 2.2 UP01 and later) 
+supports dynamic libraries which simplifies GPAW installation significantly.
 
-These instructions for GPAW installation use Python 2.6.4 compiled
-with PGI compiler suite, see the end of this page for instructions for
+These instructions for GPAW installation use Python 2.6.5 compiled
+with GNU compiler suite, see the end of this page for instructions for
 compiling Python.
 
 First, load the Python module and set ``XTPE_LINK_TYPE`` environment
