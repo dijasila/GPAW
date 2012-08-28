@@ -7,6 +7,9 @@ louhi.csc.fi  (Cray XT4/XT5)
 Here you find information about the the system
 `<http://www.csc.fi/english/research/Computing_services/computing/servers/louhi>`_.
 
+.. note::
+   These instructions are up-to-date as of August 28th 2012.
+
 GPAW
 ====
 
