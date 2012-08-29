@@ -16,8 +16,30 @@ Development version in trunk
 * MGGA: number of neighbor grid points to use for FD stencil for
   wave function gradient changed from 1 to 3.
 
-Version 0.9
-===========
+* New setups: Y, Sb, Xe, Hf, Re, Hg, Tl, Rn
+
+* Modified setups:
+
+  - improved eggbox: N, O, K, S, Ca, Sc, Zn, Sr, Zr, Cd, In, Sn, Pb, Bi
+
+  - semicore states included: Na, Mg, V, Mn, Ni,
+    Mo, Ru (seems to solve the Ru problem :trac:`gpaw/test/big/Ru001`),
+    Rh, Ag, Ta, W, Os, Ir, Pt
+
+  - semicore states removed: Te
+
+  .. note::
+
+     For some of the setups one has now a choice of different
+     number of valence electrons, e.g.::
+
+       setups = {'Ag': '11'}
+
+     See :ref:`manual_setups` and list the contents of :envvar:`GPAW_SETUP_PATH`
+     for available setups.
+
+Version 0.9.0
+=============
 
 7 March 2012: :trac:`tags/0.9.0 <../tags/0.9.0>`.
 
@@ -38,8 +60,8 @@ Version 0.9
 .. _ase-3.6: https://svn.fysik.dtu.dk/projects/ase/tags/3.6.0
 
 
-Version 0.8
-===========
+Version 0.8.0
+=============
 
 25 May 2011: :trac:`tags/0.8.0 <../tags/0.8.0>`.
 

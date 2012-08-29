@@ -4,6 +4,9 @@
 Bulk tests
 ==============
 
+**Warning**: this page is outdated.
+For performance of GPAW for bulk systems please refer to :ref:`dcdft`.
+
 Lattice constants (*a*) in Å and bulk moduli (*B*) in GPa calculated
 using PBE functional in GPAW revision 2041.
 

@@ -20,8 +20,8 @@ H_                                                                  He_
 Li_ Be_                                         B_  C_  N_  O_  F_  Ne_ 
 Na_ Mg_                                         Al_ Si_ P_  S_  Cl_ Ar_  
 K_  Ca_ Sc_ Ti_ V_  Cr_ Mn_ Fe_ Co_ Ni_ Cu_ Zn_ Ga_ Ge_ As_ Se_ Br_ Kr_
-Rb_ Sr_ Y   Zr_ Nb_ Mo_ Tc  Ru_ Rh_ Pd_ Ag_ Cd_ In_ Sn_ Sb  Te_ I_  Xe 
-Cs_ Ba_ La_ Hf  Ta_ W_  Re  Os_ Ir_ Pt_ Au_ Hg  Tl  Pb_ Bi_ Po  At  Rn_ 
+Rb_ Sr_ Y_  Zr_ Nb_ Mo_ Tc  Ru_ Rh_ Pd_ Ag_ Cd_ In_ Sn_ Sb_ Te_ I_  Xe_ 
+Cs_ Ba_ La_ Hf_ Ta_ W_  Re_ Os_ Ir_ Pt_ Au_ Hg_ Tl_ Pb_ Bi_ Po  At  Rn_ 
 === === === === === === === === === === === === === === === === === ===
 
 See also `NIST Atomic Reference Data`_, `Computational Chemistry
@@ -40,6 +40,7 @@ Comparison and Benchmark DataBase`_, `Dacapo pseudo potentials`_, and
 
    molecule_tests
    bulk_tests
+   dcdft
    generation_of_setups
    pawxml
 
@@ -96,6 +97,7 @@ Comparison and Benchmark DataBase`_, `Dacapo pseudo potentials`_, and
 .. _Kr: Kr.html
 .. _Rb: Rb.html
 .. _Sr: Sr.html
+..  _Y: Y.html
 .. _Zr: Zr.html
 .. _Nb: Nb.html
 .. _Mo: Mo.html
@@ -106,17 +108,23 @@ Comparison and Benchmark DataBase`_, `Dacapo pseudo potentials`_, and
 .. _Cd: Cd.html
 .. _In: In.html
 .. _Sn: Sn.html
+.. _Sb: Sb.html
 .. _Te: Te.html
 ..  _I:  I.html
+.. _Xe: Xe.html
 .. _Cs: Cs.html
 .. _Ba: Ba.html
 .. _La: La.html
+.. _Hf: Hf.html
 .. _Ta: Ta.html
 ..  _W:  W.html
+.. _Re: Re.html
 .. _Os: Os.html
 .. _Ir: Ir.html
 .. _Pt: Pt.html
 .. _Au: Au.html
+.. _Hg: Hg.html
+.. _Tl: Tl.html
 .. _Pb: Pb.html
 .. _Bi: Bi.html
 .. _Rn: Rn.html
