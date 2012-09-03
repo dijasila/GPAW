@@ -441,8 +441,9 @@ class LrTDDFTExcitation(Excitation):
 
     def analyse(self,min=.1):
         """Return an analysis string of the excitation"""
-        s='E=%.3f'%(self.energy * Hartree)+' eV, f=%.3g'\
-           %(self.get_oscillator_strength()[0])+'\n'
+        s='E=%.3f'%(self.energy * Hartree)+' eV, ' \
+           ' f=%16.5lf' % (self.get_oscillator_strength()[0]) + ' ' \
+           ' R=%16.5lf' % (self.get_rotatory_strength()) +'\n'
 
         def sqr(x): return x*x
         spin = ['u','d'] 

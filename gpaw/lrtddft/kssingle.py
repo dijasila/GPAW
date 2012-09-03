@@ -332,7 +332,8 @@ class KSSingle(Excitation, PairDensity):
                 for i1, Pi in enumerate(Pi_i):
                     for i2, Pj in enumerate(Pj_i):
                         ma[c] += Pi * Pj * nabla_iiv[i1, i2, c]
-
+        gd.comm.sum(ma)
+        
         self.muv = - (me + ma) / self.energy
 ##        print self.mur, self.muv, self.mur - self.muv
 
@@ -357,8 +358,9 @@ class KSSingle(Excitation, PairDensity):
                 for i1, Pi in enumerate(Pi_i):
                     for i2, Pj in enumerate(Pj_i):
                         ma[c] += Pi * Pj * rnabla_iiv[i1, i2, c]
-
-        self.magn = alpha / 2. * (magn + ma)
+        gd.comm.sum(ma)
+        
+        self.magn = -alpha / 2. * (magn + ma)
         
     def __add__(self, other):
         """Add two KSSingles"""
