@@ -30,8 +30,7 @@ Delta precision measure
 
 Calculated accordingly to http://molmod.ugent.be/DeltaCodesDFT
 
-.. csv-table::
-   :file: dcdft_pbe_gpaw_pw_Delta.txt
+.. literalinclude:: dcdft_pbe_gpaw_pw_Delta.txt
 
 Abinit
 ------
@@ -50,5 +49,4 @@ Delta precision measure
 
 Calculated accordingly to http://molmod.ugent.be/DeltaCodesDFT
 
-.. csv-table::
-   :file: dcdft_pbe_abinit_fhi_Delta.txt
+.. literalinclude:: dcdft_pbe_abinit_fhi_Delta.txt
