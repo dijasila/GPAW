@@ -405,9 +405,12 @@ class KSSingle(Excitation, PairDensity):
         self.fij = float(l.pop(0))
         if len(l) == 3: # old writing style
             self.me = np.array([float(l.pop(0)) for i in range(3)])
+            self.mur = - self.me / sqrt(self.energy * self.fij)
+            self.muv = np.zeros((3,))
+            self.magn = np.zeros((3,))
         else:
             self.mur = np.array([float(l.pop(0)) for i in range(3)])
-            self.me = - self.mur * sqrt(self.energy*self.fij)
+            self.me = - self.mur * sqrt(self.energy * self.fij)
             self.muv = np.array([float(l.pop(0)) for i in range(3)])
             if len(l): 
                 self.magn = np.array([float(l.pop(0)) for i in range(3)])
