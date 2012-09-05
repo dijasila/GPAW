@@ -410,9 +410,14 @@ class LrTDDFTExcitation(Excitation):
                 erat = np.sqrt(k.energy / self.energy)
                 wght = np.sqrt(k.fij) * f
                 self.mur += k.mur * erat * wght
-                self.muv += k.muv * erat * wght
-                self.magn += k.magn / erat * wght
-
+                if k.muv is not None:
+                    self.muv += k.muv * erat * wght
+                else:
+                    self.muv = None
+                if k.magn is not None:
+                    self.magn += k.magn / erat * wght
+                else:
+                    self.magn = None
             return
 
         # define from energy and matrix element

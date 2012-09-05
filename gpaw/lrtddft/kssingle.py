@@ -406,8 +406,8 @@ class KSSingle(Excitation, PairDensity):
         if len(l) == 3: # old writing style
             self.me = np.array([float(l.pop(0)) for i in range(3)])
             self.mur = - self.me / sqrt(self.energy * self.fij)
-            self.muv = np.zeros((3,))
-            self.magn = np.zeros((3,))
+            self.muv = None
+            self.magn = None
         else:
             self.mur = np.array([float(l.pop(0)) for i in range(3)])
             self.me = - self.mur * sqrt(self.energy * self.fij)
@@ -415,7 +415,7 @@ class KSSingle(Excitation, PairDensity):
             if len(l): 
                 self.magn = np.array([float(l.pop(0)) for i in range(3)])
             else:
-                self.magn = np.zeros((3,))
+                self.magn = None
         return None
 
     def outstring(self):

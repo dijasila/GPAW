@@ -118,6 +118,9 @@ class Excitation:
 
     def get_rotatory_strength(self, form='r', units='cgs'):
         """Return rotatory strength"""
+        if self.magn is None:
+            raise RuntimeError('Magnetic moment not available.')
+
         if units =='cgs':
             # 10^-40 esu cm erg / G
             # = 3.33564095 * 10^-15 A^2 m^3 s
@@ -127,7 +130,6 @@ class Excitation:
             # pre = 471.43
             # From TurboMole
             pre = 64604.8164
-             
         elif uints == 'a.u.':
             pre = 1.
         else:
