@@ -106,16 +106,28 @@ get('tutorials/xas', ['h2o_xas_3.png', 'h2o_xas_4.png'])
 
 # Warning: for the moment dcdft runs are not run (files are static)!
 dcdft_pbe_gpaw_pw_stuff = """
-dcdft_pbe_gpaw_pw.csv dcdft_pbe_gpaw_pw.txt dcdft_pbe_gpaw_pw_Delta.txt
+dcdft_pbe_gpaw_pw.csv
+dcdft_pbe_gpaw_pw_raw.csv
+dcdft_pbe_gpaw_pw_Delta.txt
 """.split()
 
 get('gpaw-files', dcdft_pbe_gpaw_pw_stuff, target='setups', source=jjwww)
 
 dcdft_pbe_abinit_fhi_stuff = """
-dcdft_pbe_abinit_fhi.csv dcdft_pbe_abinit_fhi.txt dcdft_pbe_abinit_fhi_Delta.txt
+dcdft_pbe_abinit_fhi.csv
+dcdft_pbe_abinit_fhi_raw.csv
+dcdft_pbe_abinit_fhi_Delta.txt
 """.split()
 
 get('gpaw-files', dcdft_pbe_abinit_fhi_stuff, target='setups', source=jjwww)
+
+g2_1_stuff = """
+pbe_gpaw_nrel_ea_vs.csv
+pbe_gpaw_nrel_opt_ea_vs.csv pbe_gpaw_nrel_opt_distance_vs.csv
+pbe_nwchem_def2_qzvppd_opt_ea_vs.csv pbe_nwchem_def2_qzvppd_opt_distance_vs.csv
+""".split()
+
+get('gpaw-files', g2_1_stuff, target='setups', source=jjwww)
 
 def setup(app):
     # Generate one page for each setup:
