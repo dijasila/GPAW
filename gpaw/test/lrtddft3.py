@@ -89,7 +89,7 @@ if rank == 0:
     lr.analyse(n)
     s = sio.getvalue() 
     sys.stdout = origstdout
-    match = re.findall(r'%i: E=([0-9]*\.[0-9]*) eV, f=([0-9]*\.[0-9]*)' % n, s)
+    match = re.findall(r'%i: E=([0-9]*\.[0-9]*) eV, f=([0-9]*\.[0-9]*)*' % n, s)
     Eanalyse = float(match[0][0])
     oszanalyse = float(match[0][1])
     print 'From analyse           :', Eanalyse, oszanalyse

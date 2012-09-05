@@ -411,6 +411,8 @@ class KSSingle(Excitation, PairDensity):
             self.muv = np.array([float(l.pop(0)) for i in range(3)])
             if len(l): 
                 self.magn = np.array([float(l.pop(0)) for i in range(3)])
+            else:
+                self.magn = np.zeros((3,))
         return None
 
     def outstring(self):
