@@ -32,6 +32,27 @@ Calculated accordingly to http://molmod.ugent.be/DeltaCodesDFT
 
 .. literalinclude:: dcdft_pbe_gpaw_pw_Delta.txt
 
+
+Dacapo
+------
+
+https://wiki.fysik.dtu.dk/dacapo
+Calculated with: :svn:`gpaw/test/big/dcdft/pbe_jacapo.py`.
+
+EOS
++++
+
+.. csv-table::
+   :file: dcdft_pbe_jacapo.csv
+
+Delta precision measure
++++++++++++++++++++++++
+
+Calculated accordingly to http://molmod.ugent.be/DeltaCodesDFT
+
+.. literalinclude:: dcdft_pbe_jacapo_Delta.txt
+
+
 Abinit
 ------
 

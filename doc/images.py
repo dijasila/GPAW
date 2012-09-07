@@ -104,6 +104,15 @@ get('tutorials/xas', ['h2o_xas_3.png', 'h2o_xas_4.png'])
 
 # files from jjwww
 
+scf_conv_eval_stuff = """
+scf_g2_pbe0_fd_calculator_steps.png
+scf_g2_pbe0_fd.csv
+scf_dcdft_pbe_pbe_pw_calculator_steps.png
+scf_dcdft_pbe_pbe_pw.csv
+""".split()
+
+get('gpaw-files', scf_conv_eval_stuff, target='documentation/convergence', source=jjwww)
+
 # Warning: for the moment dcdft runs are not run (files are static)!
 dcdft_pbe_gpaw_pw_stuff = """
 dcdft_pbe_gpaw_pw.csv
@@ -113,6 +122,16 @@ dcdft_pbe_gpaw_pw_Delta.txt
 
 get('gpaw-files', dcdft_pbe_gpaw_pw_stuff, target='setups', source=jjwww)
 
+# Warning: for the moment dcdft runs are not run (files are static)!
+dcdft_pbe_jacapo_stuff = """
+dcdft_pbe_jacapo.csv
+dcdft_pbe_jacapo_raw.csv
+dcdft_pbe_jacapo_Delta.txt
+""".split()
+
+get('gpaw-files', dcdft_pbe_jacapo_stuff, target='setups', source=jjwww)
+
+# Warning: for the moment dcdft runs are not run (files are static)!
 dcdft_pbe_abinit_fhi_stuff = """
 dcdft_pbe_abinit_fhi.csv
 dcdft_pbe_abinit_fhi_raw.csv
