@@ -141,7 +141,7 @@ dcdft_pbe_abinit_fhi_Delta.txt
 get('gpaw-files', dcdft_pbe_abinit_fhi_stuff, target='setups', source=jjwww)
 
 g2_1_stuff = """
-pbe_gpaw_nrel_ea_vs.csv
+pbe_gpaw_nrel_ea_vs.csv pbe_gpaw_nrel_ea_vs.png
 pbe_gpaw_nrel_opt_ea_vs.csv pbe_gpaw_nrel_opt_distance_vs.csv
 pbe_nwchem_def2_qzvppd_opt_ea_vs.csv pbe_nwchem_def2_qzvppd_opt_distance_vs.csv
 """.split()
