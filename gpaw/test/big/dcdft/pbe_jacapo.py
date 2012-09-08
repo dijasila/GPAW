@@ -47,9 +47,9 @@ task = Task(
 if __name__ == '__main__':
     keys = set(psp.keys()).intersection(set(task.collection.names))
     for m in ['Be', 'Cr', 'Kr', 'Xe']:
-        keys.pop(m)  # EOS fails: maybe need higher ecut?
+        keys.remove(m)  # EOS fails: maybe need higher ecut?
     for m in ['Zn', 'Zr']:
-        keys.pop(m)  # do not converge
+        keys.remove(m)  # do not converge
     # run just only system to check if scripts work
     keys = ['Si']
     task.run(keys)
