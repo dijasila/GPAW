@@ -1,6 +1,7 @@
 def agts(queue):
     run = [queue.add('pbe_abinit_fhi.py %s' % r,
-                     ncpus=4,
+                     queueopts='-l nodes=1:ppn=4:opteron:ethernet',
+                     ncpus=1,
                      walltime=5*60)
            for r in range(1)]
     if 0:  # do not perform analysis
