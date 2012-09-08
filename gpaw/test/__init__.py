@@ -211,7 +211,8 @@ tests = [
     'relax.py',
     'fixmom.py',
     'CH4.py',
-    'MgO_exx_fd_vs_pw.py',
+    # https://trac.fysik.dtu.dk/projects/gpaw/ticket/237
+    #'MgO_exx_fd_vs_pw.py',
     'diamond_absorption.py',
     'simple_stm.py',
     'gw_method.py',
