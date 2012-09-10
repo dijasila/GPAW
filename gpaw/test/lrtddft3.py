@@ -26,7 +26,9 @@ N2.set_cell([L, L, L])
 N2.center()
 
 try:
-    calc = GPAW('N2_wfs.gpw', txt=txt)
+    calc = GPAW('N2_wfs.gpw', 
+                txt=txt, 
+                parallel={'domain': world.size})
     calc.converge_wave_functions()
 except:
     calc = GPAW(h=0.25,

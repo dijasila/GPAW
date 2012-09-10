@@ -280,7 +280,7 @@ tests = [
     'bse_sym.py',
     'aluminum_testcell.py',
     'au02_absorption.py',
-    #'lrtddft3.py',
+    'lrtddft3.py',
     'scfsic_n2.py',
     'parallel/lcao_parallel.py',
     'parallel/lcao_parallel_kpt.py',
