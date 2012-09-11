@@ -407,17 +407,21 @@ class LrTDDFTExcitation(Excitation):
             self.magn = 0.
             for f, k in zip(self.f, self.kss):
                 self.me += f * k.me
-                erat = np.sqrt(k.energy / self.energy)
-                wght = np.sqrt(k.fij) * f
-                self.mur += k.mur * erat * wght
-                if k.muv is not None:
-                    self.muv += k.muv * erat * wght
+                if self.energy > 0:
+                    erat = np.sqrt(k.energy / self.energy)
+                    wght = np.sqrt(k.fij) * f
+                    self.mur += k.mur * erat * wght
+                    if k.muv is not None:
+                        self.muv += k.muv * erat * wght
+                    else:
+                        self.muv = None
+                    if k.magn is not None:
+                        self.magn += k.magn / erat * wght
+                    else:
+                        self.magn = None
                 else:
-                    self.muv = None
-                if k.magn is not None:
-                    self.magn += k.magn / erat * wght
-                else:
-                    self.magn = None
+                    # instability
+                    self.mur = self.muv = self.magn = None
             return
 
         # define from energy and matrix element
