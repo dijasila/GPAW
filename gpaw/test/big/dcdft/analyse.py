@@ -65,7 +65,7 @@ for n in task.collection.names:
 
 if 1:
     # download and create the project databases
-    src = 'http://molmod.ugent.be/sites/default/files/Delta_v1-0.zip'
+    src = 'http://molmod.ugent.be/sites/default/files/Delta_v1-1.zip'
     name = os.path.basename(src)
     dir = 'Delta'
     if not os.path.exists(dir): os.makedirs(dir)
@@ -82,8 +82,6 @@ if 1:
                 fd = open(f, "w")
                 fd.write(z.read(f))
                 fd.close()
-        urllib.urlretrieve('http://dcwww.camd.dtu.dk/~dulak/calcDelta.py',
-                           filename='calcDelta.py')
         # AttributeError if unzip not found
     except (urllib2.HTTPError, AttributeError):
         raise NotAvailable('Retrieval of zip failed')
@@ -96,6 +94,6 @@ if 1:
         csvwriter3.writerow(r)
     f.close()
     cmd = 'python ' + os.path.join(dir, 'calcDelta.py')
-    cmd += ' ' + '%s.txt ' % tag + os.path.join(dir, 'WIEN2k.txt') + ' --full --stdout'
+    cmd += ' ' + '%s.txt ' % tag + os.path.join(dir, 'WIEN2k.txt') + ' --stdout'
     cmd += ' > ' + '%s_Delta.txt' % tag
     os.system(cmd)
