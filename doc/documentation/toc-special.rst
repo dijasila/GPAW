@@ -3,7 +3,8 @@
    ../technology
    lcao/lcao
    parallel_runs/parallel_runs
-   convergence/convergence	
+   convergence/convergence
+   convergence/scf_conv_eval
    restart_files
    cmdline
    rmm-diis

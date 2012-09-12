@@ -105,10 +105,10 @@ get('tutorials/xas', ['h2o_xas_3.png', 'h2o_xas_4.png'])
 # files from jjwww
 
 scf_conv_eval_stuff = """
-scf_g2_pbe0_fd_calculator_steps.png
-scf_g2_pbe0_fd.csv
-scf_dcdft_pbe_pbe_pw_calculator_steps.png
-scf_dcdft_pbe_pbe_pw.csv
+scf_g2_1_pbe0_fd_calculator_steps.png
+scf_g2_1_pbe0_fd_energy.csv
+scf_dcdft_pbe_pw_calculator_steps.png
+scf_dcdft_pbe_pw_energy.csv
 """.split()
 
 get('gpaw-files', scf_conv_eval_stuff, target='documentation/convergence', source=jjwww)
