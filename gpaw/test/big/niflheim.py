@@ -47,6 +47,10 @@ class NiflheimCluster(Cluster):
         run_command += 'module load MATPLOTLIB&& '  # loads numpy, mpl, ...
         run_command += 'module load SCIPY&& '
         run_command += 'module load povray&& '
+        run_command += 'module load ABINIT&& '
+        run_command += 'module load DACAPO&& '
+        run_command += 'module unload SCIENTIFICPYTHON&& '
+        run_command += 'module load SCIENTIFICPYTHON/2.8&& '
         run_command += 'module use --append /home/niflheim/dulak/NWchem&& '
         run_command += 'module load NWCHEM/6.1-27.1.x86_64&& '
 
