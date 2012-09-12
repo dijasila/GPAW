@@ -33,17 +33,29 @@ calc = GPAW('gs_pw.gpw', communicator=serial_comm, txt=None)
 for cublas in (True, False):
     for single_precision in (True, False):
         for cugemv in (True, False):
-            if cublas is False and (single_precision is True or cugemv is True):
-                continue
-
-            rpa = RPACorrelation(calc, txt='rpa_%s.txt' %(ecut),
-                     single_precision=single_precision, cublas=cublas, cugemv=cugemv)
-            E = rpa.get_rpa_correlation_energy(ecut=ecut,
-                                   skip_gamma=False,
-                                   directions=[[0,1.0]],
-                                   kcommsize=size,
-                                   dfcommsize=size)
-            if single_precision:
-                equal(E, -1.098, 0.005)
-            else:
-                equal(E, -1.106, 0.005)
+            for use_zher in (None, 'single', 'multi', False, None):
+                if cublas is False and (single_precision is True or cugemv is True 
+                                        or use_zher == 'multi'):
+                    continue
+                if use_zher == 'multi' and single_precision is True:
+                    continue
+                if cublas is True and (use_zher is False):
+                    continue
+    
+                print 'cublas', cublas
+                print 'single_precision', single_precision
+                print 'cugemv', cugemv
+                print 'use_zher', use_zher 
+                rpa = RPACorrelation(calc, txt='rpa_%s.txt' %(ecut),
+                                     single_precision=single_precision, 
+                                     cublas=cublas, cugemv=cugemv,
+                                     use_zher=use_zher)
+                E = rpa.get_rpa_correlation_energy(ecut=ecut,
+                                       skip_gamma=False,
+                                       directions=[[0,1.0]],
+                                       kcommsize=size,
+                                       dfcommsize=size)
+                if single_precision:
+                    equal(E, -1.098, 0.005)
+                else:
+                    equal(E, -1.106, 0.005)
