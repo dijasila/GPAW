@@ -61,6 +61,7 @@ class CHI(BASECHI):
                  single_precision=False,
                  cublas=False,
                  cugemv=False,                 
+                 use_zher=None, # 'True', 'False', 'Multi'
                  comm=None,
                  kcommsize=None):
 
@@ -77,12 +78,21 @@ class CHI(BASECHI):
         self.single_precision = single_precision
         self.cublas = cublas
         self.cugemv = cugemv        
+        self.use_zher = use_zher
         self.kcommsize = kcommsize
         self.comm = comm
         if self.comm is None:
             self.comm = world
         self.chi0_wGG = None
 
+        if self.use_zher is None:
+            self.use_zher = False
+            if self.eta < 1e-3:
+                self.use_zher = 'single'
+        if self.use_zher == 'multi':
+            assert self.cublas is True
+            assert self.eta < 1e-3
+            assert self.single_precision is False
         
     def initialize(self, simple_version=False):
 
@@ -232,20 +242,23 @@ class CHI(BASECHI):
             #print 'Using GPU ',gpunum
             
             status, handle = _gpaw.cuCreate(gpunum)
-            matrixlist_w = []
-#            for iw in range(self.Nw_local):
-#                status, matrixGPU_GG = _gpaw.cuMalloc(self.npw*self.npw*sizeofdata)
-#                status = _gpaw.cuSetMatrix(self.npw, self.npw, sizeofdata,
-#                                           chi0_wGG[iw].copy(), self.npw,
-#                                           matrixGPU_GG, self.npw)
-#                matrixlist_w.append(matrixGPU_GG)
-            status, matrixGPU_wGG = _gpaw.cuMalloc(self.Nw_local*self.npw*self.npw*sizeofdata)
-            status = _gpaw.cuSetMatrix(self.Nw_local*self.npw, self.npw, sizeofdata,
-                                       chi0_wGG.copy(), self.Nw_local*self.npw,
-                                       matrixGPU_wGG, self.Nw_local*self.npw)
-            
+            if self.use_zher == 'single':
+                matrixlist_w = []
+                for iw in range(self.Nw_local):
+                    status, matrixGPU_GG = _gpaw.cuMalloc(self.npw*self.npw*sizeofdata)
+                    status = _gpaw.cuSetMatrix(self.npw, self.npw, sizeofdata,
+                                               chi0_wGG[iw].copy(), self.npw,
+                                               matrixGPU_GG, self.npw)
+                    matrixlist_w.append(matrixGPU_GG)
+            elif self.use_zher == 'multi':
+                status, matrixGPU_wGG = _gpaw.cuMalloc(self.Nw_local*self.npw*self.npw*sizeofdata)
+                status = _gpaw.cuSetMatrix(self.Nw_local*self.npw, self.npw, sizeofdata,
+                                           chi0_wGG.copy(), self.Nw_local*self.npw,
+                                           matrixGPU_wGG, self.Nw_local*self.npw)
+                status,GPU_alpha_w = _gpaw.cuMalloc(self.Nw_local*sizeofdata/2) 
+                alpha_w = np.zeros(self.Nw_local)
+                
             status,GPU_rho_G = _gpaw.cuMalloc(self.npw*sizeofdata)
-            status,GPU_alpha_w = _gpaw.cuMalloc(self.Nw_local*sizeofdata/2) 
 
         if self.cugemv:
             GPU_phi_aGp = []
@@ -282,10 +295,6 @@ class CHI(BASECHI):
             self.printtxt('Using Numpy FFT.')
         else:
             self.printtxt('Using FFTW Library.') 
-
-        use_zher = False
-        if self.eta < 1e-3:
-            use_zher = True
 
         rho_G = np.zeros(self.npw, dtype=complex)
         t0 = time()
@@ -448,7 +457,7 @@ class CHI(BASECHI):
                                 rho_G[:] = 0.
     
                             if not self.hilbert_trans:
-                                if not use_zher:
+                                if self.use_zher is False:
                                     rho_GG = np.outer(rho_G, rho_G.conj())
                                 else:
                                     if self.single_precision:
@@ -457,8 +466,7 @@ class CHI(BASECHI):
                                         status = _gpaw.cuSetVector(1, sizeofdata, rho_G, 1, GPU_rho_G, 1)
                                     if self.cublas and not self.cugemv:
                                         status = _gpaw.cuSetVector(self.npw,sizeofdata,rho_G,1,GPU_rho_G,1)
-
-                                alpha_w = np.zeros(self.Nw_local)
+                                
                                 for iw in range(self.Nw_local):
                                     w = self.w_w[iw + self.wstart] / Hartree
                                     coef = ( 1. / (w + e_skn[spin][ibzkpt1, n] - e_skn[spin][ibzkpt2, m]
@@ -466,31 +474,34 @@ class CHI(BASECHI):
                                            - 1. / (w - e_skn[spin][ibzkpt1, n] + e_skn[spin][ibzkpt2, m]
                                                    + 1j * self.eta) )
                                     C =  (f_skn[spin][ibzkpt1, n] - f_skn[spin][ibzkpt2, m]) * coef
-                                    alpha_w[iw] = C.real
                                     
-                                
-#                                    if use_zher:
-#                                        if self.single_precision:
-#                                            C = np.float32(C.real)
-#                                            if not self.cublas:
-#                                                ccher(C, rho_G.conj(), chi0_wGG[iw])
-#                                            else:
-#                                                matrixGPU_GG = matrixlist_w[iw]
-#                                                status = _gpaw.cuCher(handle,0,self.npw,C,GPU_rho_G,1,
-#                                                                      matrixGPU_GG,self.npw)
-#                                        else:          
-#                                            if not self.cublas:
-#                                                czher(C.real, rho_G.conj(), chi0_wGG[iw])
-#                                            else:
-#                                                matrixGPU_GG = matrixlist_w[iw]
-#                                                status = _gpaw.cuZher(handle,0,self.npw,C,GPU_rho_G,1,
-#                                                                      matrixGPU_GG,self.npw)
-#                                    else:
-#                                        axpy(C, rho_GG, chi0_wGG[iw])
+                                    if self.use_zher == 'multi':
+                                        alpha_w[iw] = C.real
 
-                                _gpaw.cuSetVector(self.Nw_local, sizeofdata/2, alpha_w, 1, GPU_alpha_w, 1)
-                                _gpaw.multi_cuZher(self.npw, self.Nw_local, GPU_alpha_w, 
-                                                   GPU_rho_G, matrixGPU_wGG)
+                                    elif self.use_zher == 'single':
+                                        if self.single_precision:
+                                            C = np.float32(C.real)
+                                            if not self.cublas:
+                                                ccher(C, rho_G.conj(), chi0_wGG[iw])
+                                            else:
+                                                matrixGPU_GG = matrixlist_w[iw]
+                                                status = _gpaw.cuCher(handle,0,self.npw,C,GPU_rho_G,1,
+                                                                      matrixGPU_GG,self.npw)
+                                        else:          
+                                            if not self.cublas:
+                                                czher(C.real, rho_G.conj(), chi0_wGG[iw])
+                                            else:
+                                                matrixGPU_GG = matrixlist_w[iw]
+                                                status = _gpaw.cuZher(handle,0,self.npw,C,GPU_rho_G,1,
+                                                                      matrixGPU_GG,self.npw)
+                                    else:
+                                        axpy(C, rho_GG, chi0_wGG[iw])
+
+                                if self.use_zher == 'multi':
+                                    _gpaw.cuSetVector(self.Nw_local, sizeofdata/2, alpha_w, 1, 
+                                                      GPU_alpha_w, 1) # alpha is real
+                                    _gpaw.multi_cuZher(self.npw, self.Nw_local, GPU_alpha_w, 
+                                                       GPU_rho_G, matrixGPU_wGG)
 
                             else:
                                 rho_GG = np.outer(rho_G, rho_G.conj())
@@ -540,26 +551,27 @@ class CHI(BASECHI):
         
         # Hilbert Transform
         if not self.hilbert_trans:
-            if not use_zher: # in fact, it should be, if not use_cuzher
+            if self.use_zher is False: # in fact, it should be, if not use_cuzher
                 for iw in range(self.Nw_local):
                     self.kcomm.sum(chi0_wGG[iw])
             else:
                 if self.cublas:
-#                    for iw in range(self.Nw_local):
-#                        status = _gpaw.cuGetMatrix(self.npw,self.npw,sizeofdata,matrixlist_w[iw],self.npw,
-#                                                   chi0_wGG[iw],self.npw)
-#                        chi0_wGG[iw] = chi0_wGG[iw].conj()
-#                    for iw in range(self.Nw_local):
-#                        _gpaw.cuFree(matrixlist_w[iw])
-
-                    status = _gpaw.cuGetMatrix(self.Nw_local*self.npw,self.npw,sizeofdata, 
+                    if self.use_zher == 'single':
+                        for iw in range(self.Nw_local):
+                            status = _gpaw.cuGetMatrix(self.npw,self.npw,sizeofdata,matrixlist_w[iw],
+                                                       self.npw,chi0_wGG[iw],self.npw)
+                            chi0_wGG[iw] = chi0_wGG[iw].conj()
+                        for iw in range(self.Nw_local):
+                            _gpaw.cuFree(matrixlist_w[iw])
+                    elif self.use_zher == 'multi':
+                        status = _gpaw.cuGetMatrix(self.Nw_local*self.npw,self.npw,sizeofdata, 
                                                matrixGPU_wGG,self.Nw_local*self.npw,
                                                    chi0_wGG,self.Nw_local*self.npw)
-                    for iw in range(self.Nw_local):
-                        chi0_wGG[iw] = chi0_wGG[iw].conj()
-
+                        for iw in range(self.Nw_local):
+                            chi0_wGG[iw] = chi0_wGG[iw].conj()
+                        _gpaw.cuFree(matrixGPU_wGG)
+                            
                     _gpaw.cuFree(GPU_rho_G)
-                    _gpaw.cuFree(matrixGPU_wGG)
 
                 if self.cugemv:
                     for a, id in enumerate(calc.wfs.setups.id_a):
