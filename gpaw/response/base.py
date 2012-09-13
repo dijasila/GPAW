@@ -586,8 +586,9 @@ class BASECHI:
 
         if df.Kc_GG is None:
             from gpaw.response.kernel import calculate_Kc
-            Kc_GG = calculate_Kc(df.q_c, df.Gvec_Gc, df.acell_cv,
+            Kc_G = calculate_Kc(df.q_c, df.Gvec_Gc, df.acell_cv,
                                   df.bcell_cv, df.calc.atoms.pbc, df.optical_limit, df.vcut)
+            Kc_GG = np.outer(Kc_G, Kc_G)
         else:
             Kc_GG = df.Kc_gG
 

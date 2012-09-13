@@ -59,12 +59,17 @@ class DF(CHI):
         else:
             dm_wGG = np.zeros_like(self.chi0_wGG)
 
+        from gpaw.response.kernel import calculate_Kc
         if nonsymmetric:
-            from gpaw.response.kernel import calculate_Kc
             self.Kc_GG = calculate_Kc(self.q_c, self.Gvec_Gc,
                                           self.acell_cv, self.bcell_cv,
                                           self.calc.atoms.pbc, self.optical_limit,
                                           self.vcut, nonsymmetric = True)
+        else:
+            Kc_G = calculate_Kc(self.q_c, self.Gvec_Gc,
+                                          self.acell_cv, self.bcell_cv,
+                                          self.calc.atoms.pbc, self.optical_limit,
+                                          self.vcut, nonsymmetric = False)
 
         if xc == 'RPA':
             if nonsymmetric:
@@ -74,12 +79,6 @@ class DF(CHI):
                     dm_wGG[iw] = tmp_GG - self.Kc_GG * self.chi0_wGG[iw]
                 
             else:
-                Kc_G = np.zeros(self.npw)
-                for iG in range(self.npw):
-                    qG = np.dot(self.q_c + self.Gvec_Gc[iG], self.bcell_cv)
-                    Kc_G[iG] = 1. / np.sqrt(np.dot(qG, qG))
-                Kc_G *= np.sqrt(4 * pi)
-
                 self.printtxt('Use RPA.')
                 for iw in range(self.Nw_local):
                     for iG in range(self.npw):
