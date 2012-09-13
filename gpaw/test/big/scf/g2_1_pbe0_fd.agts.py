@@ -14,8 +14,8 @@ runsstr = ','.join(runs)
 def agts(queue):
     run = [queue.add('g2_1_pbe0_fd.py %s --gpaw=fprojectors=1' % s,
                      ncpus=4,
-                     walltime=20*60)
-           for r in runs]
+                     walltime=30*60)
+           for r in runs * 2]
     analyse = queue.add('analyse.py molecule scf_g2_1_pbe0_fd ' + runsstr,
                         ncpus=1, walltime=10, deps=run,
                         creates=['scf_g2_1_pbe0_fd.csv',
