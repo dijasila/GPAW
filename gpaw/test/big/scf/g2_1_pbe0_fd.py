@@ -112,4 +112,7 @@ task = Task(calcfactory=calcfactory,
             collection=collection,
             cell=cell,
             )
-task.run(collection.keys())
+keys = collection.keys()
+for m in ['Na2', 'NaCl']:  # those seem to need cg
+    keys.remove(m)
+task.run(keys)

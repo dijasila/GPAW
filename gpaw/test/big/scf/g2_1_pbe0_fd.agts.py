@@ -1,13 +1,13 @@
 runs = [
-    'bands05m', 'bands10m', 'bands20m',  # large number of bands bad
+    'bands05m', 'bands10m',  # 'bands20m',  # large number of bands bad
     'm101',
     'm102',
-    'm103', 'm105', 'm107',  # for Mixer nmaxold matters
+    'm103', 'm105',  # 'm107',  # for Mixer nmaxold matters
     'm051',
     'm203',  # larger mixing better
     's103',
     'd103', 'd203', 'd253',  # MixerDiff best
-    'dzpm103', 'dzpm203', 'dzpm253', # dzp guess does not help
+    'dzpm103',  'dzpm203',  # 'dzpm253', # dzp guess does not help
     ]
 runsstr = ','.join(runs)
 
