@@ -13,13 +13,30 @@ l=2                         # d-orbitals
 U_ev=3                      # U in eV
 U_au=U_ev / Hartree   # U in atomic units
 scale=1                     # Do not scale (does not seem to matter much)
-store=0                     # Do not store (not in use yet)
 
 s = Cluster([Atom('Zn')])
 s.minimal_box(box, h=h)
 
 E = {}
 E_U = {}
+
+HubU_dict = {0:{l:{0:{'U':U_au},
+                   1:{'U':U_au},
+                   }},
+            'scale': scale,
+            }
+
+
+for spin in [0, 1]:
+    c = GPAW(h=h, spinpol=spin, 
+             charge=1, occupations=FermiDirac(width=0.1, fixmagmom=spin)
+             )
+    s.set_calculator(c)
+    E[spin] = s.get_potential_energy()
+    c.hamiltonian.set_hubbard_u(HubU_dict=HubU_dict)    
+    c.scf.reset()
+    E_U[spin] = s.get_potential_energy()
+"""
 for spin in [0, 1]:
     c = GPAW(h=h, spinpol=spin, 
              charge=1, occupations=FermiDirac(width=0.1, fixmagmom=spin)
@@ -30,7 +47,7 @@ for spin in [0, 1]:
         setup.set_hubbard_u(U_au, l, scale, store) # Apply U
     c.scf.reset()
     E_U[spin] = s.get_potential_energy()
-
+"""
 print "E=", E
 equal(E[0], E[1], energy_tolerance)
 print "E_U=", E_U

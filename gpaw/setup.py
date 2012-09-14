@@ -32,7 +32,7 @@ def create_setup(symbol, xc='LDA', lmax=0,
                  type='paw', basis=None, setupdata=None, world=None):
     if isinstance(xc, str):
         xc = XC(xc)
-
+    
     if setupdata is None:
         if type == 'hgh' or type == 'hgh.sc':
             lmax = 0
@@ -267,27 +267,6 @@ class BaseSetup:
             phit_j.append(self.rgd.spline(phit_g, rcut2, l, points=100))
         return phi_j, phit_j, nc, nct, tauc, tauct
 
-    def set_hubbard_u(self, U, l,scale=1,store=0,LinRes=0):
-        """Set Hubbard parameter.
-        U in atomic units, l is the orbital to which we whish to
-        add a hubbard potential and scale enables or desables the
-        scaling of the overlap between the l orbitals, if true we enforce
-        <p|p>=1
-        Note U is in atomic units
-        """
-        
-        self.HubLinRes=LinRes;
-        self.Hubs = scale;
-        self.HubStore=store;
-        self.HubOcc=[];
-        self.HubU = U;
-        self.Hubl = l;
-        self.Hubi = 0;
-        for ll in self.l_j:
-            if ll == self.Hubl:
-                break
-            self.Hubi = self.Hubi + 2 * ll + 1
-
     def four_phi_integrals(self):
         """Calculate four-phi integral.
 
@@ -374,9 +353,9 @@ class LeanSetup(BaseSetup):
     class in order to function in a calculation."""
     def __init__(self, s):
         """Copies precisely the necessary attributes of the Setup s."""
-        # R_sii and HubU can be changed dynamically (which is ugly)
+        # R_sii can be changed dynamically (which is ugly)
         self.R_sii = None # rotations, initialized when doing sym. reductions
-        self.HubU = s.HubU # XXX probably None
+
         self.lq  = s.lq # Required for LDA+U I think.
         self.type = s.type # required for writing to file
         self.fingerprint = s.fingerprint # also req. for writing
@@ -535,8 +514,6 @@ class Setup(BaseSetup):
     """
     def __init__(self, data, xc, lmax=0, basis=None):
         self.type = data.name
-        
-        self.HubU = None
         
         if not data.is_compatible(xc):
             raise ValueError('Cannot use %s setup with %s functional' %

@@ -71,15 +71,21 @@ Eg_non_Hub=band_gab(calc)
 
 ##############################################################################
 ## Setup 6eV Hubbard U on the d-orbitals (l=2) of Ni atoms (atom 0 and 1)
-## arg 3 and 4 :scaling =1 (yes scale) and store=0 (no do not store)
 
-l=2                         # d-orbitals
 U_ev=6                      # U in eV
 U_au=U_ev / Hartree   # U in atomic units
-scale=1                     # Do not scale (does not seem to matter much)
-store=0                     # Do not store (not in use yet)
-for a in np.arange(2):      # Loops though all Ni atoms
-    calc.hamiltonian.setups[a].set_hubbard_u(U_au,l,scale,store) # Apply U
+
+# Setting on atom 0,1 : l=2, for spins (no spin dependency) 
+HubU_dict = {0:{2:{0:{'U':U_au},
+                   1:{'U':U_au},
+                   }},
+             1:{2:{0:{'U':U_au},
+                   1:{'U':U_au},
+                    }},
+            'scale': 1,
+            }
+
+calc.hamiltonian.set_hubbard_u(HubU_dict=HubU_dict)
 
 ##############################################################################
 ## Make ready for scf with the DFT+U functional and converge this new system
@@ -94,6 +100,8 @@ Eg_Hub=band_gab(calc)
 ## gab, so the band gab shall we test parameter:
 ## Let's compare the new and old band gab and require that is has opened by
 ## at least 0.2 eV
+
+print Eg_Hub, Eg_non_Hub, Eg_Hub- Eg_non_Hub
 assert( Eg_Hub- Eg_non_Hub>1.9)
 
 energy_tolerance = 0.0004

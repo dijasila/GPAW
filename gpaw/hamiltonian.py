@@ -82,6 +82,53 @@ class Hamiltonian:
         self.Exc = None
         self.Etot = None
         self.S = None
+        
+        self.HubU_dict = None
+
+    def set_hubbard_u(self, HubU_dict={}):
+        """Set Hubbard parameter.
+        l_U_dict is a dictionary:
+        
+        HubU_dict = {a:{
+                        l: {
+                            s:{
+                                'U': U,
+                                'alpha':alpha,
+                               }
+                            scale = 1 # optional
+                            },
+                        },
+                    atomname: {
+                        l: {
+                            s:{
+                                'U': U,
+                                'alpha':alpha,
+                               }
+                            scale = 1 # optional
+                            },
+                        }, 
+                    }
+        
+        a is the atom index
+        l: orbital
+        s: spin 
+        U: Hubbard U value in atomic units 
+        
+        atomname option to be used to easy specify for all atoms of this 
+        atomname, e.g. 'F'. Prioritized below atom index.
+        
+        add a hubbard potential and scale enables or disables the
+        scaling of the overlap between the l orbitals, if true we enforce
+        <p|p>=1
+        
+        Note U is in atomic units
+        
+        + 
+        Set a potential shift on the l orbital by alpha in atomic units.
+        Used in the linear response Hubbard U calculation. 
+        alpha is a list [] that specify alpha for each spin.
+        """
+        self.HubU_dict = HubU_dict;
 
     def summary(self, fd):
         fd.write('XC and Coulomb potentials evaluated on a %d*%d*%d grid\n' %
@@ -152,7 +199,6 @@ class Hamiltonian:
             aa = (nl[0])*len(l_j)-((nl[0]-1)*(nl[0])/2)
             bb = (nl[1])*len(l_j)-((nl[1]-1)*(nl[1])/2)
             ab = aa+nl[1]-nl[0]
-            
             if(scale==0 or scale=='False' or scale =='false'):
                 lq_a  = lq[aa]
                 lq_ab = lq[ab]
@@ -161,7 +207,6 @@ class Hamiltonian:
                 lq_a  = 1
                 lq_ab = lq[ab]/lq[aa]
                 lq_b  = lq[bb]/lq[aa]
- 
             # and the correct entrances in the DM
             nn = (2*np.array(l_j)+1)[0:nl[0]].sum()
             mm = (2*np.array(l_j)+1)[0:nl[1]].sum()
@@ -206,7 +251,9 @@ class Hamiltonian:
 
         self.timer.start('Atomic')
         self.dH_asp = {}
+        
         for a, D_sp in density.D_asp.items():
+            
             W_L = W_aL[a]
             setup = self.setups[a]
 
@@ -236,54 +283,61 @@ class Hamiltonian:
                     dH_p += sqrt(4 * pi / 3) * np.dot(vext[1], Delta_p1)
 
             self.dH_asp[a] = dH_sp = np.zeros_like(D_sp)
+
             self.timer.start('XC Correction')
             Exc += self.xc.calculate_paw_correction(setup, D_sp, dH_sp, a=a)
             self.timer.stop('XC Correction')
-
-            if setup.HubU is not None:
+            
+            if self.HubU_dict is not None and a in self.HubU_dict:
                 assert self.collinear
                 nspins = len(D_sp)
-                
                 l_j = setup.l_j
-                l   = setup.Hubl
-                nl  = np.where(np.equal(l_j,l))[0]
-                nn  = (2*np.array(l_j)+1)[0:nl[0]].sum()
-                
-                for D_p, H_p in zip(D_sp, self.dH_asp[a]):
-                    [N_mm,V] =self.aoom(unpack2(D_p),a,l)
-                    N_mm = N_mm / 2 * nspins
-                     
-                    Eorb = setup.HubU / 2. * (N_mm - np.dot(N_mm,N_mm)).trace()
-                    Vorb = setup.HubU * (0.5 * np.eye(2*l+1) - N_mm)
-                    Exc += Eorb
-                    if nspins == 1:
-                        # add contribution of other spin manyfold
-                        Exc += Eorb
-                    
-                    if len(nl)==2:
-                        mm  = (2*np.array(l_j)+1)[0:nl[1]].sum()
-                        
-                        V[nn:nn+2*l+1,nn:nn+2*l+1] *= Vorb
-                        V[mm:mm+2*l+1,nn:nn+2*l+1] *= Vorb
-                        V[nn:nn+2*l+1,mm:mm+2*l+1] *= Vorb
-                        V[mm:mm+2*l+1,mm:mm+2*l+1] *= Vorb
+                for l, HubU_l in self.HubU_dict[a].items(): 
+                    nl  = np.where(np.equal(l_j,l))[0]
+                    nn  = (2*np.array(l_j)+1)[0:nl[0]].sum()
+                    if 'scale' in HubU_l:
+                        scale = HubU_l['scale']
+                    elif 'scale' in self.HubU_dict:
+                        scale = self.HubU_dict['scale']
                     else:
-                        V[nn:nn+2*l+1,nn:nn+2*l+1] *= Vorb
-                    
-                    Htemp = unpack(H_p)
-                    Htemp += V
-                    H_p[:] = pack2(Htemp)
-
+                        scale = 1
+                    print 'scale', scale 
+                    for s, (D_p, H_p) in enumerate(zip(D_sp, self.dH_asp[a])):
+                        [N_mm,V] =self.aoom(unpack2(D_p),a,l,scale=scale)
+                        N_mm = N_mm / 2 * nspins
+                        Vorb = np.zeros((2*l+1,2*l+1))
+                        if s in HubU_l:
+                            if 'alpha' in HubU_l[s]:
+                                Vorb += HubU_l[i]['alpha'] * np.eye(2*l+1) *(2 / nspins)
+                            if 'U' in HubU_l[s]:
+                                Hub_U_als = HubU_l[s]['U']
+                                Eorb = Hub_U_als / 2. * (N_mm - np.dot(N_mm,N_mm)).trace()
+                                Exc += Eorb
+                                Vorb += Hub_U_als * (0.5 * np.eye(2*l+1) - N_mm)
+                        print 'tst',a,l,s,HubU_l[s]['U'], Eorb 
+                        if len(nl)==2:
+                            mm  = (2*np.array(l_j)+1)[0:nl[1]].sum()
+                            V[nn:nn+2*l+1,nn:nn+2*l+1] *= Vorb
+                            V[mm:mm+2*l+1,nn:nn+2*l+1] *= Vorb
+                            V[nn:nn+2*l+1,mm:mm+2*l+1] *= Vorb
+                            V[mm:mm+2*l+1,mm:mm+2*l+1] *= Vorb
+                        else:
+                            V[nn:nn+2*l+1,nn:nn+2*l+1] *= Vorb
+                        Htemp = unpack(H_p)
+                        Htemp += V
+                        H_p[:] = pack2(Htemp)
+            
             dH_sp[:self.nspins] += dH_p
-
+            
             Ekin -= (D_sp * dH_sp).sum()  # NCXXX
-
         self.timer.stop('Atomic')
-
+        
         # Make corrections due to non-local xc:
         #xcfunc = self.xc.xcfunc
         self.Enlxc = 0.0  # XXXxcfunc.get_non_local_energy()
+        #print self.xc.get_kinetic_energy_correction() / self.gd.comm.size
         Ekin += self.xc.get_kinetic_energy_correction() / self.gd.comm.size
+        kk1 = Ekin, Epot, Ebar, Eext, Exc
 
         energies = np.array([Ekin, Epot, Ebar, Eext, Exc])
         self.timer.start('Communicate energies')
@@ -299,7 +353,6 @@ class Hamiltonian:
     def get_energy(self, occupations):
         self.Ekin = self.Ekin0 + occupations.e_band
         self.S = occupations.e_entropy
-
         # Total free energy:
         self.Etot = (self.Ekin + self.Epot + self.Eext +
                      self.Ebar + self.Exc - self.S)
