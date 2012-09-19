@@ -95,7 +95,6 @@ class Hamiltonian:
                                 'U': U,
                                 'alpha':alpha,
                                }
-                            scale = 1 # optional
                             },
                         },
                     atomname: {
@@ -104,9 +103,10 @@ class Hamiltonian:
                                 'U': U,
                                 'alpha':alpha,
                                }
-                            scale = 1 # optional
+                            scale = 0 # to set specifically for this site
                             },
                         }, 
+                    scale = 1 # for all sites 
                     }
         
         a is the atom index
@@ -301,7 +301,6 @@ class Hamiltonian:
                         scale = self.HubU_dict['scale']
                     else:
                         scale = 1
-                    print 'scale', scale 
                     for s, (D_p, H_p) in enumerate(zip(D_sp, self.dH_asp[a])):
                         [N_mm,V] =self.aoom(unpack2(D_p),a,l,scale=scale)
                         N_mm = N_mm / 2 * nspins
@@ -313,8 +312,11 @@ class Hamiltonian:
                                 Hub_U_als = HubU_l[s]['U']
                                 Eorb = Hub_U_als / 2. * (N_mm - np.dot(N_mm,N_mm)).trace()
                                 Exc += Eorb
+                                if nspins == 1:
+                                    # add contribution of other spin manyfold
+                                    Exc += Eorb
                                 Vorb += Hub_U_als * (0.5 * np.eye(2*l+1) - N_mm)
-                        print 'tst',a,l,s,HubU_l[s]['U'], Eorb 
+
                         if len(nl)==2:
                             mm  = (2*np.array(l_j)+1)[0:nl[1]].sum()
                             V[nn:nn+2*l+1,nn:nn+2*l+1] *= Vorb
@@ -326,7 +328,7 @@ class Hamiltonian:
                         Htemp = unpack(H_p)
                         Htemp += V
                         H_p[:] = pack2(Htemp)
-            
+           
             dH_sp[:self.nspins] += dH_p
             
             Ekin -= (D_sp * dH_sp).sum()  # NCXXX
