@@ -26,9 +26,21 @@ class CG(Eigensolver):
     * Conjugate gradient steps
     """
 
-    def __init__(self, niter=4):
+    def __init__(self, niter=4, rtol=0.30):
+        """Construct conjugate gradient eigen solver.
+
+        parameters:
+
+        niter: int
+            Maximum number of conjugate gradient iterations per band
+        rtol: float
+            If change in residual is less than rtol, iteration for band is
+            not continued
+
+        """
         Eigensolver.__init__(self)
         self.niter = niter
+        self.rtol = rtol
 
     def initialize(self, wfs):
         Eigensolver.initialize(self, wfs)
@@ -168,7 +180,7 @@ class CG(Eigensolver):
                                      dot(P_i * kpt.eps_n[n], dO_ii))
                     wfs.pt.add(R_G, coef_ai, kpt.q)
                     error_new = np.real(wfs.integrate(R_G, R_G))
-                    if error_new / error < 0.30:
+                    if error_new / error < self.rtol:
                         # print >> self.f, "cg:iters", n, nit+1
                         break
                     if (self.nbands_converge == 'occupied' and
