@@ -307,10 +307,12 @@ class Hamiltonian:
                         Vorb = np.zeros((2*l+1,2*l+1))
                         if s in HubU_l:
                             if 'alpha' in HubU_l[s]:
-                                Vorb += HubU_l[i]['alpha'] * np.eye(2*l+1) *(2 / nspins)
+                                Vorb += HubU_l[s]['alpha'] * \
+                                            np.eye(2*l+1) *(2 / nspins)
                             if 'U' in HubU_l[s]:
                                 Hub_U_als = HubU_l[s]['U']
-                                Eorb = Hub_U_als / 2. * (N_mm - np.dot(N_mm,N_mm)).trace()
+                                Eorb = Hub_U_als / 2. * (N_mm - \
+                                                    np.dot(N_mm,N_mm)).trace()
                                 Exc += Eorb
                                 if nspins == 1:
                                     # add contribution of other spin manyfold
