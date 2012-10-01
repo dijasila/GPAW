@@ -62,7 +62,7 @@ class Hamiltonian:
         self.xc = xc
         self.collinear = collinear
         self.ncomp = 2 - int(collinear)
-        
+
         self.dH_asp = None
 
         # The external potential
@@ -92,7 +92,7 @@ class Hamiltonian:
         self.vbar.set_positions(spos_ac)
 
         self.xc.set_positions(spos_ac)
-        
+
         # If both old and new atomic ranks are present, start a blank dict if
         # it previously didn't exist but it will needed for the new atoms.
         if (self.rank_a is not None and rank_a is not None and
@@ -130,10 +130,10 @@ class Hamiltonian:
 
     def aoom(self, DM, a, l, scale=1):
         """Atomic Orbital Occupation Matrix.
-        
+
         Determine the Atomic Orbital Occupation Matrix (aoom) for a
         given l-quantum number.
-        
+
         This operation, takes the density matrix (DM), which for
         example is given by unpack2(D_asq[i][spin]), and corrects for
         the overlap between the selected orbitals (l) upon which the
@@ -152,7 +152,7 @@ class Hamiltonian:
             aa = (nl[0])*len(l_j)-((nl[0]-1)*(nl[0])/2)
             bb = (nl[1])*len(l_j)-((nl[1]-1)*(nl[1])/2)
             ab = aa+nl[1]-nl[0]
-            
+
             if(scale==0 or scale=='False' or scale =='false'):
                 lq_a  = lq[aa]
                 lq_ab = lq[ab]
@@ -161,22 +161,22 @@ class Hamiltonian:
                 lq_a  = 1
                 lq_ab = lq[ab]/lq[aa]
                 lq_b  = lq[bb]/lq[aa]
- 
+
             # and the correct entrances in the DM
             nn = (2*np.array(l_j)+1)[0:nl[0]].sum()
             mm = (2*np.array(l_j)+1)[0:nl[1]].sum()
-            
+
             # finally correct and add the four submatrices of NC_DM
             A = DM[nn:nn+2*l+1,nn:nn+2*l+1]*(lq_a)
             B = DM[nn:nn+2*l+1,mm:mm+2*l+1]*(lq_ab)
             C = DM[mm:mm+2*l+1,nn:nn+2*l+1]*(lq_ab)
             D = DM[mm:mm+2*l+1,mm:mm+2*l+1]*(lq_b)
-            
+
             V[nn:nn+2*l+1,nn:nn+2*l+1]=+(lq_a)
             V[nn:nn+2*l+1,mm:mm+2*l+1]=+(lq_ab)
             V[mm:mm+2*l+1,nn:nn+2*l+1]=+(lq_ab)
             V[mm:mm+2*l+1,mm:mm+2*l+1]=+(lq_b)
- 
+
             return  A+B+C+D, V
         else:
             nn =(2*np.array(l_j)+1)[0:nl[0]].sum()
@@ -243,33 +243,33 @@ class Hamiltonian:
             if setup.HubU is not None:
                 assert self.collinear
                 nspins = len(D_sp)
-                
+
                 l_j = setup.l_j
                 l   = setup.Hubl
                 nl  = np.where(np.equal(l_j,l))[0]
                 nn  = (2*np.array(l_j)+1)[0:nl[0]].sum()
-                
+
                 for D_p, H_p in zip(D_sp, self.dH_asp[a]):
                     [N_mm,V] =self.aoom(unpack2(D_p),a,l)
                     N_mm = N_mm / 2 * nspins
-                     
+
                     Eorb = setup.HubU / 2. * (N_mm - np.dot(N_mm,N_mm)).trace()
                     Vorb = setup.HubU * (0.5 * np.eye(2*l+1) - N_mm)
                     Exc += Eorb
                     if nspins == 1:
                         # add contribution of other spin manyfold
                         Exc += Eorb
-                    
+
                     if len(nl)==2:
                         mm  = (2*np.array(l_j)+1)[0:nl[1]].sum()
-                        
+
                         V[nn:nn+2*l+1,nn:nn+2*l+1] *= Vorb
                         V[mm:mm+2*l+1,nn:nn+2*l+1] *= Vorb
                         V[nn:nn+2*l+1,mm:mm+2*l+1] *= Vorb
                         V[mm:mm+2*l+1,mm:mm+2*l+1] *= Vorb
                     else:
                         V[nn:nn+2*l+1,nn:nn+2*l+1] *= Vorb
-                    
+
                     Htemp = unpack(H_p)
                     Htemp += V
                     H_p[:] = pack2(Htemp)
@@ -332,7 +332,7 @@ class Hamiltonian:
         """Apply the Hamiltonian operator to a set of vectors.
 
         XXX Parameter description is deprecated!
-        
+
         Parameters:
 
         a_nG: ndarray
@@ -348,7 +348,7 @@ class Hamiltonian:
         local_part_only: bool
             When True, the non-local atomic parts of the Hamiltonian
             are not applied and calculate_projections is ignored.
-        
+
         """
         vt_G = self.vt_sG[s]
         if psit_nG.ndim == 3:
@@ -374,7 +374,7 @@ class Hamiltonian:
             When True, the integrals of projector times vectors
             P_ni = <p_i | a_nG> are calculated.
             When False, existing P_ani are used
-        
+
         """
 
         wfs.kin.apply(a_xG, b_xG, kpt.phase_cd)
@@ -521,7 +521,7 @@ class RealSpaceHamiltonian(Hamiltonian):
         self.vt_sg[1:self.nspins] = vt_g
 
         self.vt_sg[self.nspins:] = 0.0
-            
+
         self.timer.start('XC 3D grid')
         Exc = self.xc.calculate(self.finegd, density.nt_sg, self.vt_sg)
         Exc /= self.gd.comm.size
@@ -551,7 +551,7 @@ class RealSpaceHamiltonian(Hamiltonian):
             s += 1
 
         self.timer.stop('Hartree integrate/restrict')
-            
+
         # Calculate atomic hamiltonians:
         W_aL = {}
         for a in density.D_asp:

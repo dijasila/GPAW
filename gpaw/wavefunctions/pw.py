@@ -79,7 +79,7 @@ class PWDescriptor:
         self.Q_qG = []
         self.G2_qG = []
         Q_Q = np.arange(len(i_Qc), dtype=np.int32)
-        
+
         self.ngmin = 100000000
         self.ngmax = 0
         for q, K_v in enumerate(self.K_qv):
@@ -108,12 +108,12 @@ class PWDescriptor:
 
     def bytecount(self, dtype=float):
         return self.ngmax * 16
-    
+
     def zeros(self, x=(), dtype=None, q=-1):
         a_xG = self.empty(x, dtype, q)
         a_xG.fill(0.0)
         return a_xG
-    
+
     def empty(self, x=(), dtype=None, q=-1):
         if dtype is not None:
             assert dtype == self.dtype
@@ -124,12 +124,12 @@ class PWDescriptor:
         else:
             shape = x + self.Q_qG[q].shape
         return np.empty(shape, complex)
-    
+
     def fft(self, f_R, q=-1):
         """Fast Fourier transform.
 
         Returns c(G) for G<Gc::
-  
+
                    __
                   \        -iG.R
             c(G) = ) f(R) e
@@ -146,7 +146,7 @@ class PWDescriptor:
         """Inverse fast Fourier transform.
 
         Returns::
-  
+
                       __
                    1 \        iG.R
             f(R) = -  ) c(G) e
@@ -184,7 +184,7 @@ class PWDescriptor:
         _transposed_result: ndarray
             Long story.  Don't use this unless you are a method of the
             MatrixOperator class ..."""
-        
+
         if b_yg is None:
             # Only one array:
             assert self.dtype == float
@@ -211,7 +211,7 @@ class PWDescriptor:
             r2k(0.5 * alpha, A_xg, B_yg, 0.0, result_yx)
         else:
             gemm(alpha, A_xg, B_yg, 0.0, result_yx, 'c')
-        
+
         if self.dtype == float:
             correction_yx = np.outer(B_yg[:, 0], A_xg[:, 0])
             if hermitian:
@@ -222,7 +222,7 @@ class PWDescriptor:
         xshape = a_xg.shape[:-1]
         yshape = b_yg.shape[:-1]
         result = result_yx.T.reshape(xshape + yshape)
-        
+
         if result.ndim == 0:
             return result.item()
         else:
@@ -378,7 +378,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         FDPWWaveFunctions.__init__(self, diagksl, orthoksl, initksl,
                                    gd, nvalence, setups, bd, dtype,
                                    world, kd, timer)
-        
+
         self.orthoksl.gd = self.pd
         self.matrixoperator = MatrixOperator(self.orthoksl)
 
@@ -400,7 +400,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         self.pd = PWDescriptor(self.ecut, self.gd, self.dtype, self.kd,
                                self.fftwflags)
         self.timer.stop('PWDescriptor')
-        
+
         # Build array of number of plane wave coefficiants for all k-points
         # in the IBZ:
         self.ng_k = np.zeros(self.kd.nibzkpts)
@@ -585,9 +585,9 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         H_GG += np.dot(f_IG.T[G1:G2].conj(), np.dot(dH_II, f_IG))
         S_GG += np.dot(f_IG.T[G1:G2].conj(), np.dot(dS_II, f_IG))
-        
+
         return H_GG, S_GG
-        
+
     def diagonalize_full_hamiltonian(self, ham, atoms, occupations, txt,
                                      nbands=None,
                                      scalapack=None):
@@ -652,7 +652,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             kpt.f_n = None
 
         occupations.calculate(self)
-        
+
     def initialize_from_lcao_coefficients(self, basis_functions, mynbands):
         N_c = self.gd.N_c
 
@@ -767,7 +767,7 @@ class PWLFC(BaseLFC):
                     f_qG = cache[spline]
                 self.lf_aj[a].append((l, f_qG))
                 lmax = max(lmax, l)
-        
+
         self.spline_aj = spline_aj
 
         self.dtype = pd.dtype
@@ -853,7 +853,7 @@ class PWLFC(BaseLFC):
                 G1 = G2
         else:
             yield 0, nG
-            
+
     def add(self, a_xG, c_axi=1.0, q=-1, f0_IG=None):
         if isinstance(c_axi, float):
             assert q == -1, a_xG.dims == 1
@@ -866,13 +866,13 @@ class PWLFC(BaseLFC):
         c_xI = c_xI.reshape((np.prod(c_xI.shape[:-1]), self.nI))
 
         a_xG = a_xG.reshape((-1, a_xG.shape[-1])).view(self.pd.dtype)
-        
+
         for G1, G2 in self.block(q):
             if f0_IG is None:
                 f_IG = self.expand(q, G1, G2)
             else:
                 f_IG = f0_IG
-            
+
             if self.pd.dtype == float:
                 f_IG = f_IG.view(float)
                 G1 *= 2
@@ -890,7 +890,7 @@ class PWLFC(BaseLFC):
         if self.pd.dtype == float:
             alpha *= 2
             a_xG = a_xG.view(float)
-        
+
         if c_axi is None:
             c_axi = self.dict(a_xG.shape[:-1])
 
@@ -968,7 +968,7 @@ class PWLFC(BaseLFC):
                 cache[spline] = (f_G, dfdGoG_G)
             else:
                 f_G, dfdGoG_G = cache[spline]
-            
+
         if isinstance(c_axi, float):
             c_axi = dict((a, c_axi) for a in range(len(self.pos_av)))
 
@@ -982,14 +982,14 @@ class PWLFC(BaseLFC):
                     v1, v2, cache, G_Gv, a_xG, c_axi, q)
 
         return stress_vv
-    
+
     def _stress_tensor_contribution(self, v1, v2, cache, G_Gv, a_xG, c_axi, q):
         f_IG = self.pd.empty(self.nI, q=q)
         for a, j, i1, i2, I1, I2 in self:
             l = self.lf_aj[a][j][0]
             spline = self.spline_aj[a][j]
             f_G, dfdGoG_G = cache[spline]
-                
+
             emiGR_G = np.exp(-1j * np.dot(self.pd.G_Qv[self.pd.Q_qG[q]],
                                           self.pos_av[a]))
             f_IG[I1:I2] = emiGR_G * (-1.0j)**l * (
@@ -997,7 +997,7 @@ class PWLFC(BaseLFC):
                 self.Y_qLG[q][l**2:(l + 1)**2] +
                 f_G * G_Gv[:, v1] * [nablarlYL(L, G_Gv.T)[v2]
                                      for L in range(l**2, (l + 1)**2)])
-        
+
         c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
 
         b_xI = c_xI.reshape((np.prod(c_xI.shape[:-1]), self.nI))
@@ -1009,7 +1009,7 @@ class PWLFC(BaseLFC):
             f_IG[:, 0] *= 0.5
             f_IG = f_IG.view(float)
             a_xG = a_xG.view(float)
-        
+
         gemm(alpha, f_IG, a_xG, 0.0, b_xI, 'c')
 
         stress = 0.0
@@ -1031,7 +1031,7 @@ class PW:
 
         self.ecut = ecut / units.Hartree
         self.fftwflags = fftwflags
-        
+
         if cell is None:
             self.cell_cv = None
         else:
@@ -1159,7 +1159,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
         self.vt_Q = self.vbar_Q + self.vHt_q[density.G3_G] / 8
         self.vt_sG[:] = self.pd2.ifft(self.vt_Q)
-        
+
         self.timer.start('XC 3D grid')
         vxct_sg = self.finegd.zeros(self.nspins)
         self.exc = self.xc.calculate(self.finegd, density.nt_sg, vxct_sg)

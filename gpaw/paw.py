@@ -169,7 +169,7 @@ class PAW(PAWTextOutput):
 
             if key == 'eigensolver':
                 self.wfs.set_eigensolver(None)
-            
+
             if key in ['fixmom', 'mixer',
                        'verbose', 'txt', 'hund', 'random',
                        'eigensolver', 'idiotproof', 'notify']:
@@ -354,7 +354,7 @@ class PAW(PAWTextOutput):
             magmom_av[:, 2] = magmom_a
         else:
             collinear = False
-            
+
         magnetic = magmom_av.any()
 
         spinpol = par.spinpol
@@ -363,7 +363,7 @@ class PAW(PAWTextOutput):
                 raise ValueError('hund=True arg only valid for single atoms!')
             spinpol = True
             magmom_av[0] = (0, 0, setups[0].get_hunds_rule_moment(par.charge))
-            
+
         if spinpol is None:
             spinpol = magnetic
         elif magnetic and not spinpol:
@@ -388,7 +388,7 @@ class PAW(PAWTextOutput):
                 width = 0.1  # eV
         else:
             assert par.occupations is None
-      
+
         mode = par.mode
 
         if xc.orbital_dependent:
@@ -426,7 +426,7 @@ class PAW(PAWTextOutput):
         nvalence = setups.nvalence - par.charge
         M_v = magmom_av.sum(0)
         M = np.dot(M_v, M_v)**0.5
-        
+
         nbands = par.nbands
         if nbands is None:
             nbands = nao
@@ -518,7 +518,7 @@ class PAW(PAWTextOutput):
 
             if par.parallel['sl_auto']:
                 # Choose scalapack parallelization automatically
-                
+
                 for key, val in par.parallel.items():
                     if (key.startswith('sl_') and key != 'sl_auto'
                         and val is not None):
@@ -527,7 +527,7 @@ class PAW(PAWTextOutput):
                 max_scalapack_cpus = bd.comm.size * gd.comm.size
                 nprow = max_scalapack_cpus
                 npcol = 1
-                
+
                 # Get a sort of reasonable number of columns/rows
                 while npcol < nprow and nprow % 2 == 0:
                     npcol *= 2
@@ -676,7 +676,7 @@ class PAW(PAWTextOutput):
                     self.density.pd2, self.density.pd3,
                     nspins, setups, self.timer, xc, par.external,
                     collinear)
-            
+
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)
 
