@@ -159,6 +159,13 @@ class SmearedCavityElectronicContribution(BaseElectronicContribution):
 
 
 class RadiiElContribution(SmearedCavityElectronicContribution):
+    """
+    Electronic contribution to the solvation
+
+    with cavity from fake density constructed by spheres
+    following Sanchez et al J. Chem. Phys. 131 (2009) 174108
+    """
+
     default_parameters = {
         'radii'     : NoDefault,
         'centers'   : 'atoms',
@@ -280,6 +287,13 @@ class RadiiElContribution(SmearedCavityElectronicContribution):
 
 
 class ElDensElContribution(SmearedCavityElectronicContribution):
+    """
+    Electronic contribution to the solvation
+
+    with cavity from density cutoff
+    following Sanchez et al J. Chem. Phys. 131 (2009) 174108
+    """
+
     default_parameters = {
         'cutoff'    : NoDefault,
         'exponent'  : NoDefault,
@@ -311,6 +325,11 @@ class ElDensElContribution(SmearedCavityElectronicContribution):
 
 
 class STCavityContribution(BaseContribution):
+    """
+    Cavity formation contribution
+
+    Calculates Ecav from macroscopic surface tension and cavity area.
+    """
     default_parameters = {
         'surface_tension': NoDefault
         }
