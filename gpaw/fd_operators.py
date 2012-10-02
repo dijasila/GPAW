@@ -68,6 +68,10 @@ class FDOperator:
         self.mp = mp # padding
         self.gd = gd
         self.npoints = len(coef_p)
+        self.coef_p = coef_p
+        self.offset_p = offset_p
+        self.comm = comm
+        self.cfd = cfd
 
         self.operator = _gpaw.Operator(coef_p, offset_p, n_c, mp,
                                        neighbor_cd, dtype == float,

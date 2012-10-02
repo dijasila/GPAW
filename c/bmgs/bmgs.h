@@ -80,7 +80,10 @@ void bmgs_radiald3(const bmgsspline* spline, int m, int c,
       const double h[3],
       const double* f, const double* g, double* a);
 void bmgs_fd(const bmgsstencil* s, const double* a, double* b);
+void bmgs_wfd(int nweights, const bmgsstencil* stencils, const double** weights, const double* a, double* b);
 void bmgs_relax(const int relax_method, const bmgsstencil* s, double* a, double* b,
+    const double* src, const double w);
+void bmgs_wrelax(const int relax_method, const int nweights, const bmgsstencil* stencils, const double** weights, double* a, double* b,
     const double* src, const double w);
 void bmgs_cut(const double* a, const int n[3], const int c[3],
         double* b, const int m[3]);
@@ -102,6 +105,7 @@ void bmgs_interpolate(int k, int skip[3][2],
 // complex routines:
 void bmgs_fdz(const bmgsstencil* s, const double_complex* a,
         double_complex* b);
+void bmgs_wfdz(int nweights, const bmgsstencil* stencils, const double** weights, const double_complex* a, double_complex* b);
 void bmgs_cutz(const double_complex* a, const int n[3],
          const int c[3],
          double_complex* b, const int m[3]);

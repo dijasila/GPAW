@@ -184,6 +184,12 @@ class Hamiltonian:
             V[nn:nn+2*l+1,nn:nn+2*l+1]=+lq[-1]
             return A,V
 
+    def initialize(self):
+        self.vt_sg = self.finegd.empty(self.nspins * self.ncomp**2)
+        self.vHt_g = self.finegd.zeros()
+        self.vt_sG = self.gd.empty(self.nspins * self.ncomp**2)
+        self.poisson.initialize()
+
     def update(self, density):
         """Calculate effective potential.
 
@@ -195,15 +201,28 @@ class Hamiltonian:
 
         if self.vt_sg is None:
             self.timer.start('Initialize Hamiltonian')
-            self.vt_sg = self.finegd.empty(self.nspins * self.ncomp**2)
-            self.vHt_g = self.finegd.zeros()
-            self.vt_sG = self.gd.empty(self.nspins * self.ncomp**2)
-            self.poisson.initialize()
+            self.initialize()
             self.timer.stop('Initialize Hamiltonian')
 
-        Ekin, Epot, Ebar, Eext, Exc, W_aL = \
-            self.update_pseudo_potential(density)
+        Epot, Ebar, Eext, Exc = self.update_pseudo_potential(density)
+        Ekin = self.calculate_kinetic_energy(density)
+        W_aL = self.calculate_atomic_hamiltonians(density)
+        Ekin, Epot, Ebar, Eext, Exc = self.update_corrections(
+            density, Ekin, Epot, Ebar, Eext, Exc, W_aL
+            )
 
+        energies = np.array([Ekin, Epot, Ebar, Eext, Exc])
+        self.timer.start('Communicate energies')
+        self.gd.comm.sum(energies)
+        self.timer.stop('Communicate energies')
+        (self.Ekin0, self.Epot, self.Ebar, self.Eext, self.Exc) = energies
+
+        #self.Exc += self.Enlxc
+        #self.Ekin0 += self.Enlkin
+
+        self.timer.stop('Hamiltonian')
+
+    def update_corrections(self, density, Ekin, Epot, Ebar, Eext, Exc, W_aL):
         self.timer.start('Atomic')
         self.dH_asp = {}
         for a, D_sp in density.D_asp.items():
@@ -285,16 +304,7 @@ class Hamiltonian:
         self.Enlxc = 0.0  # XXXxcfunc.get_non_local_energy()
         Ekin += self.xc.get_kinetic_energy_correction() / self.gd.comm.size
 
-        energies = np.array([Ekin, Epot, Ebar, Eext, Exc])
-        self.timer.start('Communicate energies')
-        self.gd.comm.sum(energies)
-        self.timer.stop('Communicate energies')
-        (self.Ekin0, self.Epot, self.Ebar, self.Eext, self.Exc) = energies
-
-        #self.Exc += self.Enlxc
-        #self.Ekin0 += self.Enlkin
-
-        self.timer.stop('Hamiltonian')
+        return (Ekin, Epot, Ebar, Eext, Exc)
 
     def get_energy(self, occupations):
         self.Ekin = self.Ekin0 + occupations.e_band
@@ -471,11 +481,7 @@ class RealSpaceHamiltonian(Hamiltonian):
         Hamiltonian.__init__(self, gd, finegd, nspins, setups, timer, xc,
                              vext, collinear)
 
-        # Solver for the Poisson equation:
-        if psolver is None:
-            psolver = PoissonSolver(nn=3, relax='J')
-        self.poisson = psolver
-        self.poisson.set_grid_descriptor(finegd)
+        self.init_psolver(psolver)
 
         # Restrictor function for the potential:
         self.restrictor = Transformer(self.finegd, self.gd, stencil)
@@ -484,6 +490,13 @@ class RealSpaceHamiltonian(Hamiltonian):
         self.vbar = LFC(self.finegd, [[setup.vbar] for setup in setups],
                         forces=True)
         self.vbar_g = None
+
+    def init_psolver(self, psolver):
+        # Solver for the Poisson equation:
+        if psolver is None:
+            psolver = PoissonSolver(nn=3, relax='J')
+        self.poisson = psolver
+        self.poisson.set_grid_descriptor(self.finegd)
 
     def summary(self, fd):
         Hamiltonian.summary(self, fd)
@@ -537,28 +550,38 @@ class RealSpaceHamiltonian(Hamiltonian):
         Epot = 0.5 * self.finegd.integrate(self.vHt_g, density.rhot_g,
                                            global_integral=False)
 
-        Ekin = 0.0
         s = 0
         for vt_g, vt_G, nt_G in zip(self.vt_sg, self.vt_sG, density.nt_sG):
             if s < self.nspins:
                 vt_g += self.vHt_g
             self.restrict(vt_g, vt_G)
+            s += 1
+
+        self.timer.stop('Hartree integrate/restrict')
+
+        return Epot, Ebar, Eext, Exc
+
+    def calculate_kinetic_energy(self, density):
+        # XXX new timer item for kinetic energy?
+        self.timer.start('Hartree integrate/restrict')
+        Ekin = 0.0
+        s = 0
+        for vt_g, vt_G, nt_G in zip(self.vt_sg, self.vt_sG, density.nt_sG):
             if s < self.nspins:
                 Ekin -= self.gd.integrate(vt_G, nt_G - density.nct_G,
                                           global_integral=False)
             else:
                 Ekin -= self.gd.integrate(vt_G, nt_G, global_integral=False)
             s += 1
-
         self.timer.stop('Hartree integrate/restrict')
+        return Ekin
 
-        # Calculate atomic hamiltonians:
+    def calculate_atomic_hamiltonians(self, density):
         W_aL = {}
         for a in density.D_asp:
             W_aL[a] = np.empty((self.setups[a].lmax + 1)**2)
         density.ghat.integrate(self.vHt_g, W_aL)
-
-        return Ekin, Epot, Ebar, Eext, Exc, W_aL
+        return W_aL
 
     def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):
         if self.nspins == 2:

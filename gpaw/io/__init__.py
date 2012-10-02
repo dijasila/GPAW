@@ -243,6 +243,22 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         # Zero temperature calculation - don't write Fermi level:
         pass
 
+    # Solvation parameters and energy contributions
+
+    # XXX bad: circular dependency, should move this to gpaw.solvation,
+    # but current layout of gpaw.io.write does not allow this, since
+    # the file handle is opened and closed by gpaw.io.write
+    from gpaw.solvation.calculator import SolvationGPAW
+    if isinstance(paw, SolvationGPAW):
+        w['SolvationEel'] = hamiltonian.Eel
+        w['SolvationErep'] = hamiltonian.Erep
+        w['SolvationEdis'] = hamiltonian.Edis
+        w['SolvationEcav'] = hamiltonian.Ecav
+        w['SolvationEtm'] = hamiltonian.Etm
+        w['SolvationAcav'] = hamiltonian.Acav
+        w['SolvationVcav'] = hamiltonian.Vcav
+        w['SolvationParameters'] = repr(p['solvation'])
+
     # write errors
     w['DensityError'] = scf.density_error
     w['EnergyError'] = scf.energy_error

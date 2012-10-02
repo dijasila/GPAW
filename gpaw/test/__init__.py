@@ -303,6 +303,11 @@ tests = [
      #'parallel/scalapack_pdlasrt_hang.py',
      #'dscf_forces.py',
      #'stark_shift.py',
+    'solvation/parameters.py',
+    'solvation/vdwcutvacuum.py',
+    'solvation/vdwcutwater.py',
+    'solvation/vdwcutforces.py',
+    'solvation/denscutvacuum.py',
     ]
 
 try:

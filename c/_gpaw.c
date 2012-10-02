@@ -50,6 +50,7 @@ PyObject* linear_solve_tridiag(PyObject *self, PyObject *args);
 PyObject* right_eigenvectors(PyObject *self, PyObject *args);
 PyObject* NewLocalizedFunctionsObject(PyObject *self, PyObject *args);
 PyObject* NewOperatorObject(PyObject *self, PyObject *args);
+PyObject* NewWOperatorObject(PyObject *self, PyObject *args);
 PyObject* NewSplineObject(PyObject *self, PyObject *args);
 PyObject* NewTransformerObject(PyObject *self, PyObject *args);
 PyObject* pc_potential(PyObject *self, PyObject *args);
@@ -133,6 +134,7 @@ static PyMethodDef functions[] = {
   {"right_eigenvectors", right_eigenvectors, METH_VARARGS, 0},
   {"LocalizedFunctions", NewLocalizedFunctionsObject, METH_VARARGS, 0},
   {"Operator", NewOperatorObject, METH_VARARGS, 0},
+  {"WOperator", NewWOperatorObject, METH_VARARGS, 0},
   {"Spline", NewSplineObject, METH_VARARGS, 0},
   {"Transformer", NewTransformerObject, METH_VARARGS, 0},
   {"heap_mallinfo", (PyCFunction) heap_mallinfo, METH_NOARGS, 0},

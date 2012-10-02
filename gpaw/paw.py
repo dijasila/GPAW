@@ -44,6 +44,9 @@ class PAW(PAWTextOutput):
     """This is the main calculation object for doing a PAW calculation."""
 
     timer_class = Timer
+    input_parameters_class = InputParameters
+    real_space_hamiltonian_class = RealSpaceHamiltonian
+    reciprocal_space_hamiltonian_class = ReciprocalSpaceHamiltonian
 
     def __init__(self, filename=None, **kwargs):
         """ASE-calculator interface.
@@ -71,7 +74,7 @@ class PAW(PAWTextOutput):
 
         PAWTextOutput.__init__(self)
         self.grid_descriptor_class = GridDescriptor
-        self.input_parameters = InputParameters()
+        self.input_parameters = self.input_parameters_class()
         self.timer = self.timer_class()
 
         self.scf = None
@@ -667,11 +670,11 @@ class PAW(PAWTextOutput):
         if self.hamiltonian is None:
             gd, finegd = self.density.gd, self.density.finegd
             if realspace:
-                self.hamiltonian = RealSpaceHamiltonian(
+                self.hamiltonian = self.real_space_hamiltonian_class(
                     gd, finegd, nspins, setups, self.timer, xc, par.external,
                     collinear, par.poissonsolver, par.stencils[1])
             else:
-                self.hamiltonian = ReciprocalSpaceHamiltonian(
+                self.hamiltonian = self.reciprocal_space_hamiltonian_class(
                     gd, finegd,
                     self.density.pd2, self.density.pd3,
                     nspins, setups, self.timer, xc, par.external,

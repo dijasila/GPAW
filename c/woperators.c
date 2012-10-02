@@ -33,22 +33,29 @@
 typedef struct
 {
   PyObject_HEAD
-  bmgsstencil stencil;
+  int nweights;
+  const double** weights;
+  bmgsstencil* stencils;
   boundary_conditions* bc;
   MPI_Request recvreq[2];
   MPI_Request sendreq[2];
-} OperatorObject;
+} WOperatorObject;
 
-static void Operator_dealloc(OperatorObject *self)
+static void WOperator_dealloc(WOperatorObject *self)
 {
-  free(self->stencil.coefs);
-  free(self->stencil.offsets);
   free(self->bc);
+  for (int i = 0; i < self->nweights; i++)
+    {
+      free(self->stencils[i].coefs);
+      free(self->stencils[i].offsets);
+    }
+  free(self->stencils);
+  free(self->weights);
   PyObject_DEL(self);
 }
 
 
-static PyObject * Operator_relax(OperatorObject *self,
+static PyObject * WOperator_relax(WOperatorObject *self,
                                  PyObject *args)
 {
   int relax_method;
@@ -67,10 +74,11 @@ static PyObject * Operator_relax(OperatorObject *self,
   const double_complex* ph;
 
   const int* size2 = bc->size2;
-  double* buf = GPAW_MALLOC(double, size2[0] * size2[1] * size2[2] *
-                            bc->ndouble);
-  double* sendbuf = GPAW_MALLOC(double, bc->maxsend);
-  double* recvbuf = GPAW_MALLOC(double, bc->maxrecv);
+  double* buf = (double*) GPAW_MALLOC(double, size2[0] * size2[1] * size2[2] *
+                                      bc->ndouble);
+  double* sendbuf = (double*) GPAW_MALLOC(double, bc->maxsend);
+  double* recvbuf = (double*) GPAW_MALLOC(double, bc->maxrecv);
+  const double** weights = (const double**) GPAW_MALLOC(double*, self->nweights);
 
   ph = 0;
 
@@ -84,17 +92,20 @@ static PyObject * Operator_relax(OperatorObject *self,
           bc_unpack2(bc, buf, i,
                self->recvreq, self->sendreq, recvbuf, 1);
         }
-      bmgs_relax(relax_method, &self->stencil, buf, fun, src, w);
+      for (int iw = 0; iw < self->nweights; iw++)
+        weights[iw] = self->weights[iw];
+      bmgs_wrelax(relax_method, self->nweights, self->stencils, weights, buf, fun, src, w);
     }
+  free(weights);
   free(recvbuf);
   free(sendbuf);
   free(buf);
   Py_RETURN_NONE;
 }
 
-struct apply_args{
+struct wapply_args{
   int thread_id;
-  OperatorObject *self;
+  WOperatorObject *self;
   int ng;
   int ng2;
   int nin;
@@ -108,9 +119,9 @@ struct apply_args{
 };
 
 //Plain worker
-void *apply_worker(void *threadarg)
+void *wapply_worker(void *threadarg)
 {
-  struct apply_args *args = (struct apply_args *) threadarg;
+  struct wapply_args *args = (struct wapply_args *) threadarg;
   boundary_conditions* bc = args->self->bc;
   MPI_Request recvreq[2];
   MPI_Request sendreq[2];
@@ -127,9 +138,10 @@ void *apply_worker(void *threadarg)
   if (chunksize > args->chunksize)
     chunksize = args->chunksize;
 
-  double* sendbuf = GPAW_MALLOC(double, bc->maxsend * args->chunksize);
-  double* recvbuf = GPAW_MALLOC(double, bc->maxrecv * args->chunksize);
-  double* buf = GPAW_MALLOC(double, args->ng2 * args->chunksize);
+  double* sendbuf = (double*) GPAW_MALLOC(double, bc->maxsend * args->chunksize);
+  double* recvbuf = (double*) GPAW_MALLOC(double, bc->maxrecv * args->chunksize);
+  double* buf = (double*) GPAW_MALLOC(double, args->ng2 * args->chunksize);
+  const double** weights = (const double**) GPAW_MALLOC(double*, args->self->nweights);
 
   for (int n = nstart; n < nend; n += chunksize)
     {
@@ -146,12 +158,19 @@ void *apply_worker(void *threadarg)
           bc_unpack2(bc, buf, i, recvreq, sendreq, recvbuf, chunksize);
         }
       for (int m = 0; m < chunksize; m++)
-        if (args->real)
-          bmgs_fd(&args->self->stencil, buf + m * args->ng2, out + m * args->ng);
-        else
-          bmgs_fdz(&args->self->stencil, (const double_complex*) (buf + m * args->ng2),
-                                         (double_complex*) (out + m * args->ng));
+        {
+          for (int iw = 0; iw < args->self->nweights; iw++)
+            weights[iw] = args->self->weights[iw] + m * args->ng2;
+          if (args->real)
+            bmgs_wfd(args->self->nweights, args->self->stencils, weights,
+                     buf + m * args->ng2, out + m * args->ng);
+          else
+            bmgs_wfdz(args->self->nweights, args->self->stencils, weights,
+                      (const double_complex*) (buf + m * args->ng2),
+                      (double_complex*) (out + m * args->ng));
+        }
     }
+  free(weights);
   free(buf);
   free(recvbuf);
   free(sendbuf);
@@ -159,9 +178,9 @@ void *apply_worker(void *threadarg)
 }
 
 //Async worker
-void *apply_worker_cfd_async(void *threadarg)
+void *wapply_worker_cfd_async(void *threadarg)
 {
-  struct apply_args *args = (struct apply_args *) threadarg;
+  struct wapply_args *args = (struct wapply_args *) threadarg;
   boundary_conditions* bc = args->self->bc;
   MPI_Request recvreq[2 * GPAW_ASYNC3];
   MPI_Request sendreq[2 * GPAW_ASYNC3];
@@ -178,11 +197,12 @@ void *apply_worker_cfd_async(void *threadarg)
   if (chunksize > args->chunksize)
     chunksize = args->chunksize;
 
-  double* sendbuf = GPAW_MALLOC(double, bc->maxsend * GPAW_ASYNC3 *
-                                args->chunksize);
-  double* recvbuf = GPAW_MALLOC(double, bc->maxrecv * GPAW_ASYNC3 *
-                                args->chunksize);
-  double* buf = GPAW_MALLOC(double, args->ng2 * args->chunksize);
+  double* sendbuf = (double*) GPAW_MALLOC(double, bc->maxsend * GPAW_ASYNC3 *
+                                          args->chunksize);
+  double* recvbuf = (double*) GPAW_MALLOC(double, bc->maxrecv * GPAW_ASYNC3 *
+                                          args->chunksize);
+  double* buf = (double*) GPAW_MALLOC(double, args->ng2 * args->chunksize);
+  const double** weights = (const double**) GPAW_MALLOC(double*, args->self->nweights);
 
   for (int n = nstart; n < nend; n += chunksize)
     {
@@ -205,12 +225,19 @@ void *apply_worker_cfd_async(void *threadarg)
                      recvbuf + i * bc->maxrecv * chunksize, chunksize);
         }
       for (int m = 0; m < chunksize; m++)
-        if (args->real)
-          bmgs_fd(&args->self->stencil, buf + m * args->ng2, out + m * args->ng);
-        else
-          bmgs_fdz(&args->self->stencil, (const double_complex*) (buf + m * args->ng2),
-                                         (double_complex*) (out + m * args->ng));
+        {
+          for (int iw = 0; iw < args->self->nweights; iw++)
+            weights[iw] = args->self->weights[iw] + m * args->ng2;
+          if (args->real)
+            bmgs_wfd(args->self->nweights, args->self->stencils, weights,
+                     buf + m * args->ng2, out + m * args->ng);
+          else
+            bmgs_wfdz(args->self->nweights, args->self->stencils, weights,
+                      (const double_complex*) (buf + m * args->ng2),
+                      (double_complex*) (out + m * args->ng));
+        }
     }
+  free(weights);
   free(buf);
   free(recvbuf);
   free(sendbuf);
@@ -218,9 +245,9 @@ void *apply_worker_cfd_async(void *threadarg)
 }
 
 //Double buffering async worker
-void *apply_worker_cfd(void *threadarg)
+void *wapply_worker_cfd(void *threadarg)
 {
-  struct apply_args *args = (struct apply_args *) threadarg;
+  struct wapply_args *args = (struct wapply_args *) threadarg;
   boundary_conditions* bc = args->self->bc;
   MPI_Request recvreq[2 * GPAW_ASYNC3 * GPAW_ASYNC2];
   MPI_Request sendreq[2 * GPAW_ASYNC3 * GPAW_ASYNC2];
@@ -241,11 +268,12 @@ void *apply_worker_cfd(void *threadarg)
   if (chunk > chunksize);
     chunk = chunksize;
 
-  double* sendbuf = GPAW_MALLOC(double, bc->maxsend * args->chunksize
+  double* sendbuf = (double*) GPAW_MALLOC(double, bc->maxsend * args->chunksize
+                                          * GPAW_ASYNC3 * GPAW_ASYNC2);
+  double* recvbuf = (double*) GPAW_MALLOC(double, bc->maxrecv * args->chunksize
                                 * GPAW_ASYNC3 * GPAW_ASYNC2);
-  double* recvbuf = GPAW_MALLOC(double, bc->maxrecv * args->chunksize
-                                * GPAW_ASYNC3 * GPAW_ASYNC2);
-  double* buf = GPAW_MALLOC(double, args->ng2 * args->chunksize * GPAW_ASYNC2);
+  double* buf = (double*) GPAW_MALLOC(double, args->ng2 * args->chunksize * GPAW_ASYNC2);
+  const double** weights = (const double**) GPAW_MALLOC(double*, args->self->nweights);
 
   int odd = 0;
   const double* in = args->in + nstart * args->ng;
@@ -284,12 +312,18 @@ void *apply_worker_cfd(void *threadarg)
                      recvbuf + odd * bc->maxrecv * chunksize + i * bc->maxrecv * chunksize * GPAW_ASYNC2, chunk);
         }
       for (int m = 0; m < chunk; m++)
-        if (args->real)
-          bmgs_fd(&args->self->stencil, buf + m * args->ng2 + odd * args->ng2 * chunksize,
-                                        out + m * args->ng);
-        else
-          bmgs_fdz(&args->self->stencil, (const double_complex*) (buf + m * args->ng2 + odd * args->ng2 * chunksize),
-                                         (double_complex*) (out + m * args->ng));
+        {
+          for (int iw = 0; iw < args->self->nweights; iw++)
+            weights[iw] = args->self->weights[iw] + m * args->ng2 + odd * args->ng2 * chunksize;
+          if (args->real)
+            bmgs_wfd(args->self->nweights, args->self->stencils, weights,
+                     buf + m * args->ng2 + odd * args->ng2 * chunksize,
+                     out + m * args->ng);
+          else
+            bmgs_wfdz(args->self->nweights, args->self->stencils, weights,
+                      (const double_complex*) (buf + m * args->ng2 + odd * args->ng2 * chunksize),
+                      (double_complex*) (out + m * args->ng));
+        }
       chunk = last_chunk;
     }
 
@@ -302,20 +336,27 @@ void *apply_worker_cfd(void *threadarg)
                  recvbuf + odd * bc->maxrecv * chunksize + i * bc->maxrecv * chunksize * GPAW_ASYNC2, last_chunk);
     }
   for (int m = 0; m < last_chunk; m++)
-    if (args->real)
-      bmgs_fd(&args->self->stencil, buf + m * args->ng2 + odd * args->ng2 * chunksize,
-                                    out + m * args->ng);
-    else
-      bmgs_fdz(&args->self->stencil, (const double_complex*) (buf + m * args->ng2 + odd * args->ng2 * chunksize),
-                                     (double_complex*) (out + m * args->ng));
+    {
+      for (int iw = 0; iw < args->self->nweights; iw++)
+        weights[iw] = args->self->weights[iw] + m * args->ng2 + odd * args->ng2 * chunksize;
+      if (args->real)
+        bmgs_wfd(args->self->nweights, args->self->stencils, weights,
+                 buf + m * args->ng2 + odd * args->ng2 * chunksize,
+                 out + m * args->ng);
+      else
+        bmgs_wfdz(args->self->nweights, args->self->stencils, weights,
+                  (const double_complex*) (buf + m * args->ng2 + odd * args->ng2 * chunksize),
+                  (double_complex*) (out + m * args->ng));
+    }
 
+  free(weights);
   free(buf);
   free(recvbuf);
   free(sendbuf);
   return NULL;
 }
 
-static PyObject * Operator_apply(OperatorObject *self,
+static PyObject * WOperator_apply(WOperatorObject *self,
                                  PyObject *args)
 {
   PyArrayObject* input;
@@ -358,7 +399,7 @@ static PyObject * Operator_apply(OperatorObject *self,
   if (getenv("OMP_NUM_THREADS") != NULL)
     nthds = atoi(getenv("OMP_NUM_THREADS"));
 #endif
-  struct apply_args *wargs = GPAW_MALLOC(struct apply_args, nthds);
+  struct wapply_args *wargs = GPAW_MALLOC(struct wapply_args, nthds);
   pthread_t *thds = GPAW_MALLOC(pthread_t, nthds);
 
   for(int i=0; i < nthds; i++)
@@ -384,17 +425,17 @@ static PyObject * Operator_apply(OperatorObject *self,
     {
     #ifdef GPAW_OMP
       for(int i=1; i < nthds; i++)
-        pthread_create(thds + i, NULL, apply_worker, (void*) (wargs+i));
+        pthread_create(thds + i, NULL, wapply_worker, (void*) (wargs+i));
     #endif
-      apply_worker(wargs);
+      wapply_worker(wargs);
     }
   else
     {
     #ifdef GPAW_OMP
       for(int i=1; i < nthds; i++)
-        pthread_create(thds + i, NULL, apply_worker_cfd, (void*) (wargs+i));
+        pthread_create(thds + i, NULL, wapply_worker_cfd, (void*) (wargs+i));
     #endif
-      apply_worker_cfd(wargs);
+      wapply_worker_cfd(wargs);
     }
 #ifdef GPAW_OMP
   for(int i=1; i < nthds; i++)
@@ -407,22 +448,46 @@ static PyObject * Operator_apply(OperatorObject *self,
 }
 
 
-static PyObject * Operator_get_diagonal_element(OperatorObject *self,
+static PyObject * WOperator_get_diagonal_element(WOperatorObject *self,
                                               PyObject *args)
 {
   if (!PyArg_ParseTuple(args, ""))
     return NULL;
 
-  const bmgsstencil* s = &self->stencil;
+  const double** weights = (const double**) GPAW_MALLOC(double*, self->nweights);
+  for (int iw = 0; iw < self->nweights; iw++)
+    weights[iw] = self->weights[iw];
+  const int n0 = self->stencils[0].n[0];
+  const int n1 = self->stencils[0].n[1];
+  const int n2 = self->stencils[0].n[2];
+
   double d = 0.0;
-  for (int n = 0; n < s->ncoefs; n++)
-    if (s->offsets[n] == 0)
-      d = s->coefs[n];
+  for (int i0 = 0; i0 < n0; i0++)
+    {
+      for (int i1 = 0; i1 < n1; i1++)
+        {
+          for (int i2 = 0; i2 < n2; i2++)
+            {
+              double coef = 0.0;
+              for (int iw = 0; iw < self->nweights; iw++)
+                {
+                  coef += weights[iw][0] * self->stencils[iw].coefs[0];
+                  weights[iw]++;
+                }
+              if (coef < 0)
+                coef = -coef;
+              if (coef > d)
+                d = coef;
+            }
+        }
+    }
+
+  free(weights);
 
   return Py_BuildValue("d", d);
 }
 
-static PyObject * Operator_get_async_sizes(OperatorObject *self, PyObject *args)
+static PyObject * WOperator_get_async_sizes(WOperatorObject *self, PyObject *args)
 {
   if (!PyArg_ParseTuple(args, ""))
     return NULL;
@@ -434,57 +499,79 @@ static PyObject * Operator_get_async_sizes(OperatorObject *self, PyObject *args)
 #endif
 }
 
-static PyMethodDef Operator_Methods[] = {
+static PyMethodDef WOperator_Methods[] = {
     {"apply",
-     (PyCFunction)Operator_apply, METH_VARARGS, NULL},
+     (PyCFunction)WOperator_apply, METH_VARARGS, NULL},
     {"relax",
-     (PyCFunction)Operator_relax, METH_VARARGS, NULL},
+     (PyCFunction)WOperator_relax, METH_VARARGS, NULL},
     {"get_diagonal_element",
-     (PyCFunction)Operator_get_diagonal_element, METH_VARARGS, NULL},
+     (PyCFunction)WOperator_get_diagonal_element, METH_VARARGS, NULL},
     {"get_async_sizes",
-     (PyCFunction)Operator_get_async_sizes, METH_VARARGS, NULL},
+     (PyCFunction)WOperator_get_async_sizes, METH_VARARGS, NULL},
     {NULL, NULL, 0, NULL}
 
 };
 
 
-static PyObject* Operator_getattr(PyObject *obj, char *name)
+static PyObject* WOperator_getattr(PyObject *obj, char *name)
 {
-    return Py_FindMethod(Operator_Methods, obj, name);
+    return Py_FindMethod(WOperator_Methods, obj, name);
 }
 
-static PyTypeObject OperatorType = {
+static PyTypeObject WOperatorType = {
   PyObject_HEAD_INIT(&PyType_Type)
   0,
-  "Operator",
-  sizeof(OperatorObject),
+  "WOperator",
+  sizeof(WOperatorObject),
   0,
-  (destructor)Operator_dealloc,
+  (destructor)WOperator_dealloc,
   0,
-  Operator_getattr
+  WOperator_getattr
 };
 
-PyObject * NewOperatorObject(PyObject *obj, PyObject *args)
+PyObject* NewWOperatorObject(PyObject *obj, PyObject *args)
 {
+  PyObject* coefs_list;
   PyArrayObject* coefs;
+  PyObject* offsets_list;
   PyArrayObject* offsets;
+  PyObject* weights_list;
+  PyArrayObject* weights;
   PyArrayObject* size;
-  int range;
   PyArrayObject* neighbors;
   int real;
   PyObject* comm_obj;
   int cfd;
-  if (!PyArg_ParseTuple(args, "OOOiOiOi",
-                        &coefs, &offsets, &size, &range, &neighbors,
-                        &real, &comm_obj, &cfd))
+  int range;
+  int nweights;
+
+  if (!PyArg_ParseTuple(args, "iO!O!O!OiOiOi",
+                        &nweights,
+                        &PyList_Type, &weights_list,
+                        &PyList_Type, &coefs_list,
+                        &PyList_Type, &offsets_list,
+                        &size,
+                        &range,
+                        &neighbors, &real, &comm_obj, &cfd))
     return NULL;
 
-  OperatorObject *self = PyObject_NEW(OperatorObject, &OperatorType);
+  WOperatorObject *self = PyObject_NEW(WOperatorObject, &WOperatorType);
   if (self == NULL)
     return NULL;
 
-  self->stencil = bmgs_stencil(coefs->dimensions[0], DOUBLEP(coefs),
-                               LONGP(offsets), range, LONGP(size));
+  self->stencils = (bmgsstencil*) GPAW_MALLOC(bmgsstencil, nweights);
+  self->weights = (const double**) GPAW_MALLOC(double*, nweights);
+  self->nweights = nweights;
+
+  for (int iw = 0; iw < nweights; iw++)
+    {
+      coefs = (PyArrayObject*) PyList_GetItem(coefs_list, iw);
+      offsets = (PyArrayObject*) PyList_GetItem(offsets_list, iw);
+      weights = (PyArrayObject*) PyList_GetItem(weights_list, iw);
+      self->stencils[iw] = bmgs_stencil(coefs->dimensions[0], DOUBLEP(coefs),
+                                        LONGP(offsets), range, LONGP(size));
+      self->weights[iw] = DOUBLEP(weights);
+    }
 
   const long (*nb)[2] = (const long (*)[2])LONGP(neighbors);
   const long padding[3][2] = {{range, range},
@@ -496,5 +583,6 @@ PyObject * NewOperatorObject(PyObject *obj, PyObject *args)
     comm = ((MPIObject*)comm_obj)->comm;
 
   self->bc = bc_init(LONGP(size), padding, padding, nb, comm, real, cfd);
-  return (PyObject*)self;
+
+  return (PyObject*) self;
 }

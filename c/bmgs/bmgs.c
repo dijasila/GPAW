@@ -3,7 +3,9 @@
  *  Please see the accompanying LICENSE file for further information. */
 
 #include "fd.c"
+#include "wfd.c"
 #include "relax.c"
+#include "wrelax.c"
 #include "cut.c"
 #include "zero.c"
 #include "paste.c"
@@ -15,6 +17,7 @@
 
 #define BMGSCOMPLEX
 #include "fd.c"
+#include "wfd.c"
 #include "cut.c"
 #include "zero.c"
 #include "paste.c"
