@@ -106,7 +106,7 @@ def calculate_Kc(q_c,
         Kc_G[0] = 1. / np.dot(q_v,q_v)
    
     if nonsymmetric:
-        return 4 * pi * (Kc_G**2 * np.ones([npw, npw])).T
+        return 4 * pi * (Kc_G * np.ones([npw, npw])).T
     else: 
         return np.sqrt(4*pi*Kc_G)
 
