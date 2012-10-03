@@ -91,33 +91,25 @@ def calculate_Kc(q_c,
         qG = np.dot(q_c + Gvec_Gc[iG], bcell_cv)       
 
         if vcut is None:
-            Kc_G[iG] = sqrt(v3D_Coulomb(qG)) 
-#            Kc_G[iG] = v3D_Coulomb(qG)
+            Kc_G[iG] = v3D_Coulomb(qG)
         elif vcut == '2D':
-            Kc_G[iG] = sqrt(v2D_Coulomb(qG,G_p,G_n,R)) 
-#            Kc_G[iG] = v2D_Coulomb(qG,G_p,G_n,R)
+            Kc_G[iG] = v2D_Coulomb(qG,G_p,G_n,R)
         elif vcut == '1D':     
-            Kc_G[iG] = sqrt(v1D_Coulomb(qG,G_p,G_n,R)) 
-#            Kc_G[iG] = v1D_Coulomb(qG,G_p,G_n,R)
+            Kc_G[iG] = v1D_Coulomb(qG,G_p,G_n,R)
         elif vcut == '0D':
-            Kc_G[iG] = sqrt(v0D_Coulomb(qG,R)) 
-#            Kc_G[iG] = v0D_Coulomb(qG,R)
+            Kc_G[iG] = v0D_Coulomb(qG,R)
         else:
             NotImplemented
             
     if optical_limit:
         q_v = np.dot(q_c, bcell_cv)
-        Kc_G[0] = sqrt(1. / np.dot(q_v,q_v)) 
-#        Kc_G[0] = 1. / np.dot(q_v,q_v)
+        Kc_G[0] = 1. / np.dot(q_v,q_v)
    
     if nonsymmetric:
         return 4 * pi * (Kc_G**2 * np.ones([npw, npw])).T
-#        Kc_GG = 4 * pi * (Kc_G * np.ones([npw, npw])).T
-    else:
-       return Kc_G * np.sqrt(4 * pi)  
-#       Kc_GG = 4 * pi * np.outer(np.sqrt(Kc_G), np.sqrt(Kc_G))
-#
-#    return Kc_GG
+    else: 
+        return np.sqrt(4*pi*Kc_G)
+
 
 def calculate_Kxc(gd, nt_sG, npw, Gvec_Gc, nG, vol,
                   bcell_cv, R_av, setups, D_asp, functional='ALDA',
