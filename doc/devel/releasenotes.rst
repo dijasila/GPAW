@@ -24,7 +24,7 @@ Development version in trunk
 
   - semicore states included: Na, Mg, V, Mn, Ni,
     Mo, Ru (seems to solve the Ru problem :trac:`gpaw/test/big/Ru001`),
-    Rh, Ag, Ta, W, Os, Ir, Pt
+    Rh, Pd, Ag, Ta, W, Os, Ir, Pt
 
   - semicore states removed: Te
 
