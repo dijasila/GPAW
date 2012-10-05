@@ -356,7 +356,7 @@ class LeanSetup(BaseSetup):
         # R_sii can be changed dynamically (which is ugly)
         self.R_sii = None # rotations, initialized when doing sym. reductions
 
-        self.lq  = s.lq # Required for LDA+U I think.
+        self.lq  = s.lq # Required for DFT+U
         self.type = s.type # required for writing to file
         self.fingerprint = s.fingerprint # also req. for writing
         self.filename = s.filename

@@ -187,8 +187,8 @@ class Hamiltonian:
         the density is expanded (ex <p|p*>,<p|p>,<p*|p*> ).
 
         Returned is only the "corrected" part of the density matrix,
-        which represents the orbital occupation matrix for l=2 this is
-        a 5x5 matrix.
+        which represents the orbital occupation matrix. For l=2 this 
+        is a 5x5 matrix.
         """
         S=self.setups[a]
         l_j = S.l_j
@@ -199,7 +199,7 @@ class Hamiltonian:
             aa = (nl[0])*len(l_j)-((nl[0]-1)*(nl[0])/2)
             bb = (nl[1])*len(l_j)-((nl[1]-1)*(nl[1])/2)
             ab = aa+nl[1]-nl[0]
-            if(scale==0 or scale=='False' or scale =='false'):
+            if scale == 0:
                 lq_a  = lq[aa]
                 lq_ab = lq[ab]
                 lq_b  = lq[bb]
