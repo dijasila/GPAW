@@ -70,18 +70,18 @@ niter1 = calc.get_number_of_iterations()
 Eg_non_Hub=band_gab(calc)
 
 ##############################################################################
-## Setup 6eV Hubbard U on the d-orbitals (l=2) of Ni atoms (atom 0 and 1)
+## Setup 6eV Hubbard U on the 3d-orbitals (n=3, l=2) of Ni atoms (atom 0 and 1)
 
 U_ev=6                      # U in eV
 U_au=U_ev / Hartree   # U in atomic units
 
 # Setting on atom 0,1 : l=2, for spins (no spin dependency) 
-HubU_dict = {0:{2:{0:{'U':U_au},
-                   1:{'U':U_au},
-                   }},
-             1:{2:{0:{'U':U_au},
-                   1:{'U':U_au},
-                    }},
+HubU_dict = {0:{3:{2:{0:{'U':U_au},
+                      1:{'U':U_au},
+                      }}},
+             1:{3:{2:{0:{'U':U_au},
+                      1:{'U':U_au},
+                      }}},
             'scale': 1,
             }
 

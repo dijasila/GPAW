@@ -89,44 +89,26 @@ class Hamiltonian:
         """Set Hubbard parameter.
         l_U_dict is a dictionary:
         
-        HubU_dict = {a:{
-                        l: {
-                            s:{
-                                'U': U,
-                                'alpha':alpha,
-                               }
+        HubU_dict = {a:{ # atom index
+                        n:{  # quantum number in 1,2,3 for first second or third shell
+                            l: { # angular momentum in 1,2,3, 4 for s, p, d, f 
+                                s:{ # spin  in 0,1
+                                    'U': U, # hubbard U [a.u.]
+                                    'alpha':alpha, # orbital potential shift in [a.u.]
+                                   }
+                                },
                             },
                         },
-                    atomname: {
-                        l: {
-                            s:{
-                                'U': U,
-                                'alpha':alpha,
-                               }
-                            scale = 0 # to set specifically for this site
-                            },
-                        }, 
-                    scale = 1 # for all sites 
+                    'scale' = 0, 
+                    'NbP' = 1, # include non-bound projectors for the highest quantum number
                     }
-        
-        a is the atom index
-        l: orbital
-        s: spin 
-        U: Hubbard U value in atomic units 
-        
-        atomname option to be used to easy specify for all atoms of this 
-        atomname, e.g. 'F'. Prioritized below atom index.
+                    
         
         add a hubbard potential and scale enables or disables the
         scaling of the overlap between the l orbitals, if true we enforce
         <p|p>=1
         
-        Note U is in atomic units
-        
-        + 
-        Set a potential shift on the l orbital by alpha in atomic units.
-        Used in the linear response Hubbard U calculation. 
-        alpha is a list [] that specify alpha for each spin.
+        alpha is used to find the U in the linear response method! 
         """
         self.HubU_dict = HubU_dict;
 
@@ -175,7 +157,7 @@ class Hamiltonian:
 
         self.rank_a = rank_a
 
-    def aoom(self, DM, a, l, scale=1):
+    def aoom(self, DM, a, n, l, NbP=1, scale=1):
         """Atomic Orbital Occupation Matrix.
         
         Determine the Atomic Orbital Occupation Matrix (aoom) for a
@@ -192,8 +174,18 @@ class Hamiltonian:
         """
         S=self.setups[a]
         l_j = S.l_j
+        n_j = S.n_j
         lq  = S.lq
-        nl  = np.where(np.equal(l_j, l))[0]
+        # Selection the orbitals:
+        # Pick the (n, l), if n is the highest orcupied, then take the oscillatory orbital
+        # into account too if there (optionally)
+        if (NbP and len(np.where(np.equal(l_j,l)*
+                    np.equal(n_j,n+1))[0])==0):
+            nl  = np.where(np.equal(l_j,l) *np.logical_or(np.equal(n_j,n), 
+                                                          np.equal(n_j,-1)))[0]
+        else:
+            nl  = np.where( np.equal(l_j,l)*np.equal(n_j,n))[0]
+
         V = np.zeros(np.shape(DM))
         if len(nl) == 2:
             aa = (nl[0])*len(l_j)-((nl[0]-1)*(nl[0])/2)
@@ -291,45 +283,66 @@ class Hamiltonian:
             if self.HubU_dict is not None and a in self.HubU_dict:
                 assert self.collinear
                 nspins = len(D_sp)
+                
                 l_j = setup.l_j
-                for l, HubU_l in self.HubU_dict[a].items(): 
-                    nl  = np.where(np.equal(l_j,l))[0]
-                    nn  = (2*np.array(l_j)+1)[0:nl[0]].sum()
-                    if 'scale' in HubU_l:
-                        scale = HubU_l['scale']
-                    elif 'scale' in self.HubU_dict:
-                        scale = self.HubU_dict['scale']
-                    else:
-                        scale = 1
-                    for s, (D_p, H_p) in enumerate(zip(D_sp, self.dH_asp[a])):
-                        [N_mm,V] =self.aoom(unpack2(D_p),a,l,scale=scale)
-                        N_mm = N_mm / 2 * nspins
-                        Vorb = np.zeros((2*l+1,2*l+1))
-                        if s in HubU_l:
-                            if 'alpha' in HubU_l[s]:
-                                Vorb += HubU_l[s]['alpha'] * \
-                                            np.eye(2*l+1) *(2 / nspins)
-                            if 'U' in HubU_l[s]:
-                                Hub_U_als = HubU_l[s]['U']
-                                Eorb = Hub_U_als / 2. * (N_mm - \
-                                                    np.dot(N_mm,N_mm)).trace()
-                                Exc += Eorb
-                                if nspins == 1:
-                                    # add contribution of other spin manyfold
-                                    Exc += Eorb
-                                Vorb += Hub_U_als * (0.5 * np.eye(2*l+1) - N_mm)
-
-                        if len(nl)==2:
-                            mm  = (2*np.array(l_j)+1)[0:nl[1]].sum()
-                            V[nn:nn+2*l+1,nn:nn+2*l+1] *= Vorb
-                            V[mm:mm+2*l+1,nn:nn+2*l+1] *= Vorb
-                            V[nn:nn+2*l+1,mm:mm+2*l+1] *= Vorb
-                            V[mm:mm+2*l+1,mm:mm+2*l+1] *= Vorb
+                n_j = setup.n_j
+                
+                scale = 1   
+                NbP = 1  
+                if 'scale' in self.HubU_dict:
+                    scale = self.HubU_dict['scale']
+                if 'NbP' in self.HubU_dict:
+                    NbP = self.HubU_dict['NbP']
+                
+                for n, HubU_n in self.HubU_dict[a].items():
+                    for l, HubU_nl in HubU_n.items(): 
+                        
+                        # Checking if non-bound projectors is on 
+                        # and that there is not any higher orbitals than n. 
+                        if (NbP and len(np.where(np.equal(l_j,l)*
+                                        np.equal(n_j,n+1))[0])==0):
+                            
+                            nl  = np.where(np.equal(l_j,l) * \
+                                           np.logical_or(np.equal(n_j,n), 
+                                                         np.equal(n_j,-1)))[0]
                         else:
-                            V[nn:nn+2*l+1,nn:nn+2*l+1] *= Vorb
-                        Htemp = unpack(H_p)
-                        Htemp += V
-                        H_p[:] = pack2(Htemp)
+                            nl  = np.where( np.equal(l_j,l)*np.equal(n_j,n))[0]
+                        
+                        nn  = (2*np.array(l_j)+1)[0:nl[0]].sum()
+                        
+                        for s, (D_p, H_p) in enumerate(zip(D_sp, 
+                                                self.dH_asp[a])):
+                            [N_mm,V] =self.aoom(unpack2(D_p),a,n,l,NbP=NbP, 
+                                                scale=scale)
+                            N_mm = N_mm / 2 * nspins
+                            Vorb = np.zeros((2*l+1,2*l+1))
+                            
+                            if s in HubU_nl:
+                                if 'alpha' in HubU_nl[s]:
+                                    Vorb += HubU_nl[s]['alpha'] * \
+                                                np.eye(2*l+1) *(2 / nspins)
+                                if 'U' in HubU_nl[s]:
+                                    Hub_U_anls = HubU_nl[s]['U']
+                                    Eorb = Hub_U_anls / 2. * (N_mm - \
+                                                    np.dot(N_mm,N_mm)).trace()
+                                    Exc += Eorb
+                                    if nspins == 1:
+                                        # add contribution of other spin many-fold
+                                        Exc += Eorb
+                                    Vorb += Hub_U_anls * (0.5 * 
+                                                          np.eye(2*l+1) - N_mm)
+                                
+                            if len(nl)==2:
+                                mm  = (2*np.array(l_j)+1)[0:nl[1]].sum()
+                                V[nn:nn+2*l+1,nn:nn+2*l+1] *= Vorb
+                                V[mm:mm+2*l+1,nn:nn+2*l+1] *= Vorb
+                                V[nn:nn+2*l+1,mm:mm+2*l+1] *= Vorb
+                                V[mm:mm+2*l+1,mm:mm+2*l+1] *= Vorb
+                            else:
+                                V[nn:nn+2*l+1,nn:nn+2*l+1] *= Vorb
+                            Htemp = unpack(H_p)
+                            Htemp += V
+                            H_p[:] = pack2(Htemp)
            
             dH_sp[:self.nspins] += dH_p
             
