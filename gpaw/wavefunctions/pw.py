@@ -1109,9 +1109,9 @@ class ReciprocalSpaceDensity(Density):
 
 class ReciprocalSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, pd2, pd3, nspins, setups, timer, xc,
-                 vext=None, collinear=True):
+                 vext=None, collinear=True, world=None):
         Hamiltonian.__init__(self, gd, finegd, nspins, setups, timer, xc,
-                             vext, collinear)
+                             vext, collinear, world)
 
         self.vbar = PWLFC([[setup.vbar] for setup in setups], pd2)
         self.pd2 = pd2

@@ -669,13 +669,13 @@ class PAW(PAWTextOutput):
             if realspace:
                 self.hamiltonian = RealSpaceHamiltonian(
                     gd, finegd, nspins, setups, self.timer, xc, par.external,
-                    collinear, par.poissonsolver, par.stencils[1])
+                    collinear, par.poissonsolver, par.stencils[1], world)
             else:
                 self.hamiltonian = ReciprocalSpaceHamiltonian(
                     gd, finegd,
                     self.density.pd2, self.density.pd3,
                     nspins, setups, self.timer, xc, par.external,
-                    collinear)
+                    collinear, world)
             
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)
