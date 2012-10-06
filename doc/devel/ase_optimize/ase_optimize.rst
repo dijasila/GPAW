@@ -11,7 +11,50 @@ or similar.
 The most important performance characteristics of an optimizer is the
 total optimization time.
 Different optimizers may perform the same number of steps, but along a different
-path, so the time spent on calculation of energy/forces will be different.
+path, so the time spent on calculation of energy/forces may be different
+due to different convergence of the self-consistent field.
+
+G2
+==
+PBE relaxation of molecules from the G2 set.
+
+On the plots: the number of optimizer force calls (stats), the total run time,
+the systems with the largest number of optimizer force calls, and the number of
+systems for which optimization failed.
+
+In the corresponding tables: the most common value of the total energy
+("relaxed energy"), and the differences (optimizer - "relaxed energy").
+The dot sign denotes the above difference below a threshold
+(same as the printed precision of "relaxed energy" in eV),
+and "N/A" denotes an optimization failure.
+Only the systems that fail to converge or converge to a
+total energy above the threshold are given in the tables.
+
+Calculator used: GPAW mode='lcao' (see :svn:`~doc/devel/ase_optimize/g2_dzp.py`)
+
+Limit of optimizer steps: 100
+
+.. image:: g2_dzp_optimizer_force_calls.png
+
+.. csv-table::
+   :file: g2_dzp_relaxed_energy.csv
+
+HTB
+===
+Unit cell stress relaxation using StrainFilter (see :mod:`constraints`) for
+bulk systems compilation by Haas, Tran, and Blaha (10.1103/PhysRevB.79.085104).
+The PBE optimization starts from LDA unit cells.
+
+Description of plots and tables: see the section above.
+
+Calculator used: GPAW mode=PW() (see :svn:`~doc/devel/ase_optimize/htb_pw.py`)
+
+Limit of optimizer steps: 50
+
+.. image:: htb_pw_optimizer_force_calls.png
+
+.. csv-table::
+   :file: htb_pw_relaxed_energy.csv
 
 N2Cu
 ====
