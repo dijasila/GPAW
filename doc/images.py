@@ -201,6 +201,7 @@ def setup(app):
                 names.add(name)
                 # the files are saved by the weekly tests under jjwww/gpaw-files
                 # now we are copying them back to their original run directories
+                print os.path.join(job.dir, name) + ' copied from ' + jjwww
                 get('gpaw-files', [name], job.dir, source=jjwww)
 
     # Get files that we can't generate:
