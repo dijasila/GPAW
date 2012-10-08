@@ -16,7 +16,7 @@ def agts(queue):
     run = [queue.add('htb_pw.py %s' % o,
                      ncpus=1,
                      walltime=40*60)
-           for o in optimizers*2]
+           for o in optimizers]
     analyse = queue.add('task_analyse.py bulk htb_pw ' + runsstr,
                         ncpus=1, walltime=10, deps=run,
                         creates=['htb_pw_relaxed_energy.csv',
