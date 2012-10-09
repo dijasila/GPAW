@@ -173,6 +173,7 @@ tests = [
     'fileio/restart_density.py',
     'external_potential.py',
     'pw/bulk.py',
+    'pw/fftmixer.py',
     'mgga_restart.py',
     'vdw/quick.py',
     'partitioning.py',
