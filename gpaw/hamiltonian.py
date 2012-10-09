@@ -185,7 +185,7 @@ class Hamiltonian:
                                                           np.equal(n_j,-1)))[0]
         else:
             nl  = np.where( np.equal(l_j,l)*np.equal(n_j,n))[0]
-
+        
         V = np.zeros(np.shape(DM))
         if len(nl) == 2:
             aa = (nl[0])*len(l_j)-((nl[0]-1)*(nl[0])/2)
@@ -296,7 +296,6 @@ class Hamiltonian:
                 
                 for n, HubU_n in self.HubU_dict[a].items():
                     for l, HubU_nl in HubU_n.items(): 
-                        
                         # Checking if non-bound projectors is on 
                         # and that there is not any higher orbitals than n. 
                         if (NbP and len(np.where(np.equal(l_j,l)*
@@ -639,3 +638,4 @@ class RealSpaceHamiltonian(Hamiltonian):
         dens.ghat.derivative(self.vHt_g, ghat_aLv)
         dens.nct.derivative(vt_G, nct_av)
         self.vbar.derivative(dens.nt_g, vbar_av)
+
