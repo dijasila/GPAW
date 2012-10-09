@@ -168,7 +168,7 @@ PyObject* Transformer_apply_cuda_gpu(TransformerObject *self, PyObject *args)
 				out2, self->size_out, 
 				myblocks);	
       } else {
-	bmgs_restrict_cuda_gpu2z(self->k, 
+	bmgs_restrict_cuda_gpuz(self->k, 
 				 (cuDoubleComplex*)(buf),
 				 bc->size2, 
 				 (cuDoubleComplex*)(out2),

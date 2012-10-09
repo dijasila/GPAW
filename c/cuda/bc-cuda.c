@@ -368,6 +368,7 @@ void bc_unpack1_cuda_gpu_async_all(const boundary_conditions* bc,
 			      bc->size1, (cuDoubleComplex*)aa2,
 			      bc->size2, bc->sendstart[0][0],nin,thd);
 
+#ifdef PARALLEL
   double* rbuf = bc_rbuff;
     
   // Start receiving.
@@ -406,7 +407,7 @@ void bc_unpack1_cuda_gpu_async_all(const boundary_conditions* bc,
     } 
   }  
   cudaStreamSynchronize(thd);    
-  
+#endif  
 }
 
 
