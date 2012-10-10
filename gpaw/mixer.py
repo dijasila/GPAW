@@ -559,14 +559,9 @@ class FFTBaseMixer(BaseMixer):
 
     def initialize_metric(self, gd):
         self.gd = gd
-        self.k2_Q, self.N3 = construct_reciprocal(self.gd)
-        k2_min = np.min(self.k2_Q)
-        q1 = (self.weight - 1) * k2_min
+        k2_Q, N3 = construct_reciprocal(self.gd)
 
-        def metric(R_Q, mR_Q):
-            mR_Q[:] = R_Q * (1.0 + q1 / self.k2_Q )
-
-        self.metric = metric
+        self.metric = ReciprocalMetric(self.weight, k2_Q)
         self.mR_G = gd.empty(dtype=complex)
 
     def calculate_charge_sloshing(self, R_Q):
@@ -711,3 +706,12 @@ class FFTMixerDif(FFTBaseMixer):
         if self.mixer.dNt is None:
             return None
         return self.mixer.dNt
+
+class ReciprocalMetric:
+    def __init__(self, weight, k2_Q):
+        self.k2_Q = k2_Q
+        k2_min = np.min(self.k2_Q)
+        self.q1 = (weight - 1) * k2_min
+
+    def __call__(self, R_Q, mR_Q):
+            mR_Q[:] = R_Q * ( 1.0 + self.q1 / self.k2_Q )
