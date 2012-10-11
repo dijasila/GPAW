@@ -55,6 +55,7 @@ def wrap_pylab(names=[]):
 
 
 tests = [
+    'lcao_tddft.py',
     'gemm_complex.py',
     'mpicomm.py',
     'ase3k_version.py',

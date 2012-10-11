@@ -1,3 +1,11 @@
+extra_compile_args = ["-std=c99"]
+libraries = ['scalapack-openmpi',
+             'blacsCinit-openmpi',
+             'blacsF77init-openmpi',
+             'blacs-openmpi',
+             'lapack']
+extra_link_args = ["-L/usr/lib/lapack"]
+
 #User provided customizations for the gpaw setup
 
 #Here, one can override the default arguments, or append own
@@ -56,7 +64,7 @@
 # Valid values for scalapack are False, or True:
 # False (the default) - no ScaLapack compiled in
 # True - ScaLapack compiled in
-scalapack = False
+scalapack = True
 
 if scalapack:
     libraries += ['scalapack']

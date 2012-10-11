@@ -378,7 +378,12 @@ class PAW(PAWTextOutput):
             ncomp = 2
 
         # K-point descriptor
-        kd = KPointDescriptor(par.kpts, nspins, collinear)
+        if par.dtype == complex and par.mode == 'lcao':
+            gamma = False
+        else:
+            gamma = None
+        kd = KPointDescriptor(par.kpts, nspins, collinear, gamma=gamma)
+
 
         width = par.width
         if width is None:

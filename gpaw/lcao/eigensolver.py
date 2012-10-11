@@ -27,7 +27,7 @@ class LCAO:
     error = property(error)
 
     def calculate_hamiltonian_matrix(self, hamiltonian, wfs, kpt, Vt_xMM=None,
-                                     root=-1):
+                                     root=-1, add_kinetic=True):
         # XXX document parallel stuff, particularly root parameter
         assert self.has_initialized
 
@@ -52,7 +52,7 @@ class LCAO:
             for sdisp_c, Vt_MM in zip(bf.sdisp_xc, Vt_xMM)[1:]:
                 H_MM += np.exp(2j * np.pi * np.dot(sdisp_c, k_c)) * Vt_MM
             wfs.timer.stop('Sum over cells')
-        
+
         # Add atomic contribution
         #
         #           --   a     a  a*
@@ -74,7 +74,8 @@ class LCAO:
         H_MM = wfs.ksl.distribute_overlap_matrix(
             H_MM, root, add_hermitian_conjugate=(y == 0.5))
         wfs.timer.stop('Distribute overlap matrix')
-        H_MM += wfs.T_qMM[kpt.q]
+        if add_kinetic:
+            H_MM += wfs.T_qMM[kpt.q]
         return H_MM
 
     def iterate(self, hamiltonian, wfs):
