@@ -16,7 +16,7 @@ from gpaw.tddft.utils import MultiBlas
 from gpaw.tddft.tdopers import DummyDensity
 
 import pycuda.driver as cuda
-import pycuda.gpuarray as gpuarray
+import gpaw.gpuarray as gpuarray
 
 ###############################################################################
 # DummyKPoint

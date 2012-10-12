@@ -73,6 +73,7 @@ sl_inverse_cholesky = None
 sl_lcao = None
 extra_parameters = {}
 profile = False
+use_cuda = False
 i = 1
 while len(sys.argv) > i:
     arg = sys.argv[i]
@@ -86,6 +87,8 @@ while len(sys.argv) > i:
     elif arg == '--debug':
         debug = True
         sys.stderr.write('gpaw-DEBUG mode\n')
+    elif arg == '--cuda':
+        use_cuda = True
     elif arg == '--debug-cuda':
         gpaw.cuda.debug_cuda = True
         sys.stderr.write('gpaw-cuda-DEBUG mode\n')

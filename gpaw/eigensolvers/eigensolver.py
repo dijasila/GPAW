@@ -13,7 +13,7 @@ from gpaw.utilities.tools import apply_subspace_mask
 from gpaw.utilities import unpack
 from gpaw import debug, extra_parameters
 
-import pycuda.gpuarray as gpuarray
+import gpaw.gpuarray as gpuarray
 
 class Eigensolver:
     def __init__(self, keep_htpsit=True, blocksize=1, cuda=False):

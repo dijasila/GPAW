@@ -12,7 +12,7 @@ from gpaw.fd_operators import FDOperator
 from gpaw.utilities.blas import axpy,scal
 from gpaw.utilities.linalg import change_sign
 
-import pycuda.gpuarray as gpuarray
+import gpaw.gpuarray as gpuarray
 import pycuda.driver as cuda
 
 class Preconditioner:

@@ -21,7 +21,7 @@ from gpaw.utilities import divrl, mlsqr
 from gpaw.spline import Spline
 
 import pycuda.driver as cuda
-import pycuda.gpuarray as gpuarray
+import gpaw.gpuarray as gpuarray
 
 # Remove this:  XXX
 assert (-1) % 3 == 2

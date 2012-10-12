@@ -5,6 +5,7 @@ from gpaw.poisson import PoissonSolver, FFTPoissonSolver
 from gpaw.occupations import FermiDirac
 from gpaw import parsize, parsize_bands, sl_default, sl_diagonalize, \
                  sl_inverse_cholesky, sl_lcao
+from gpaw import use_cuda
 
 class InputParameters(dict):
     def __init__(self, **kwargs):
@@ -51,7 +52,7 @@ class InputParameters(dict):
                                  'density':     1.0e-4,
                                  'eigenstates': 1.0e-9,  # XXX ???
                                  'bands':       'occupied'}),
-            ('cuda',            False),
+            ('cuda',            use_cuda),
             ])
         dict.update(self, kwargs)
 

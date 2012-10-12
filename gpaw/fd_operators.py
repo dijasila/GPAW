@@ -18,7 +18,7 @@ import _gpaw
 
 import pycuda
 import pycuda.driver as cuda
-import pycuda.gpuarray as gpuarray
+import gpaw.gpuarray as gpuarray
 from gpaw.cuda import debug_cuda,debug_cuda_test
 
 class FDOperator:

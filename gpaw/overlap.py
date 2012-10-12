@@ -15,7 +15,7 @@ from gpaw.utilities.tools import lowdin, tri2full
 from gpaw import extra_parameters
 from gpaw.utilities.lapack import diagonalize
 
-import pycuda.gpuarray as gpuarray
+import gpaw.gpuarray as gpuarray
 import pycuda.driver as cuda
 
 class Overlap:

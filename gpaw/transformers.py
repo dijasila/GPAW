@@ -16,7 +16,7 @@ from gpaw.utilities import is_contiguous
 import _gpaw
 
 import pycuda.driver as cuda
-import pycuda.gpuarray as gpuarray
+import gpaw.gpuarray as gpuarray
 from gpaw.cuda import debug_cuda,debug_cuda_test
 
 class _Transformer:

@@ -4,7 +4,7 @@ from ase.units import Bohr
 
 import _gpaw
 
-import pycuda.gpuarray as gpuarray
+import gpaw.gpuarray as gpuarray
 from gpaw import debug_cuda,debug_cuda_reltol,debug_cuda_abstol
 
 

@@ -16,7 +16,7 @@ from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.hs_operators import MatrixOperator
 from gpaw.preconditioner import Preconditioner
 
-import pycuda.gpuarray as gpuarray
+import gpaw.gpuarray as gpuarray
 import pycuda.driver as cuda
 
 class FDWaveFunctions(FDPWWaveFunctions):

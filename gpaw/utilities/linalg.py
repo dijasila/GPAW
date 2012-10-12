@@ -7,7 +7,7 @@ from gpaw.utilities.blas import axpy,scal
 
 from gpaw.cuda import debug_cuda,debug_cuda_test
 import pycuda.driver as cuda
-import pycuda.gpuarray as gpuarray
+import gpaw.gpuarray as gpuarray
 
 
 def elementwise_multiply_add(a,b,c):

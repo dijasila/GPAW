@@ -18,7 +18,7 @@ import gpaw.mpi as mpi
 import _gpaw
 
 import pycuda.driver as cuda
-import pycuda.gpuarray as gpuarray
+import gpaw.gpuarray as gpuarray
 
 class PoissonSolver:
     def __init__(self, nn=3, relax='J', eps=2e-10, cuda=False):

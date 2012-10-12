@@ -15,7 +15,7 @@ from gpaw.utilities import pack2,unpack,unpack2
 from gpaw.utilities.tools import tri2full
 from gpaw.utilities.linalg  import elementwise_multiply_add,multi_elementwise_multiply_add
 
-import pycuda.gpuarray as gpuarray
+import gpaw.gpuarray as gpuarray
 from gpaw.cuda import debug_cuda,debug_cuda_test
 
 import _gpaw

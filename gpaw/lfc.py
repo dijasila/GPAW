@@ -9,7 +9,7 @@ from gpaw.mpi import serial_comm
 import _gpaw
 
 from gpaw.cuda import debug_cuda, debug_cuda_test
-import pycuda.gpuarray as gpuarray
+import gpaw.gpuarray as gpuarray
 import pycuda as cuda
 
 """

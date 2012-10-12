@@ -210,6 +210,9 @@ class PAWTextOutput:
             t('Diagonalizer layout: ' + diagonalizer_layout)
             orthonormalizer_layout = self.wfs.orthoksl.get_description()
             t('Orthonormalizer layout: ' + orthonormalizer_layout)
+
+        if self.cuda:
+            t('Using GP-GPUs')
         t()      
 
         if self.wfs.symmetry is not None:

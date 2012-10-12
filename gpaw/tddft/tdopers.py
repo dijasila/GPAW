@@ -14,7 +14,7 @@ from gpaw.tddft.abc import *
 
 import _gpaw
 from gpaw import debug_cuda,debug_cuda_reltol,debug_cuda_abstol
-import pycuda.gpuarray as gpuarray
+import gpaw.gpuarray as gpuarray
 # Hamiltonian
 class TimeDependentHamiltonian:
     """Time-dependent Hamiltonian, H(t)

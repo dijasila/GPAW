@@ -9,7 +9,7 @@ from gpaw.fd_operators import Gradient
 from gpaw.utilities.blas import axpy
 from gpaw import extra_parameters
 
-import pycuda.gpuarray as gpuarray
+import gpaw.gpuarray as gpuarray
 
 class KPoint:
     """Class for a single k-point.

@@ -15,7 +15,7 @@ from gpaw.tddft.utils import MultiBlas
 import _gpaw
 
 from gpaw import debug_cuda,debug_cuda_reltol,debug_cuda_abstol
-import pycuda.gpuarray as gpuarray
+import gpaw.gpuarray as gpuarray
 
 class CSCG:
     """Conjugate gradient for complex symmetric matrices

@@ -8,7 +8,7 @@ from gpaw.utilities.blas import rk, r2k, gemm
 from gpaw.matrix_descriptor import BandMatrixDescriptor, \
                                    BlacsBandMatrixDescriptor
 
-import pycuda.gpuarray as gpuarray
+import gpaw.gpuarray as gpuarray
 
 class MatrixOperator:
     """Base class for overlap and hamiltonian operators.

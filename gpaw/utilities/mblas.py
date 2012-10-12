@@ -13,7 +13,7 @@ import _gpaw
 
 from gpaw.cuda import debug_cuda,debug_cuda_test
 import pycuda.driver as cuda
-import pycuda.gpuarray as gpuarray
+import gpaw.gpuarray as gpuarray
 
 
 
