@@ -1,10 +1,15 @@
 import numpy as np
 from gpaw.utilities import unpack2
 from copy import copy
+import gpaw.mpi as mpi
+
 class HubU:
     def __init__(self, paw):
         self.paw = paw
-
+        
+        # Is this allowed or should world be an input to the class?
+        self.world = mpi.world
+        
     def get_MS_linear_response_U0(self,
                                HubU_IO_dict, 
                                HubU_dict = {},
@@ -27,16 +32,22 @@ class HubU:
 
         Background specify that the background increase in charge is included.
         """
+         
         HubU_dict_base = copy(HubU_dict)
         
         c = self.paw
         c.calculate()
         
-        nspin = len(c.density.D_asp[0])
+        # Get number of spins
+        nspin=np.array([0])
+        if c.density.rank_a[0] == self.world.rank:
+            nspin = len(c.density.D_asp[0])
+            nspin=np.array([nspin])
+        self.world.broadcast(nspin, c.density.rank_a[0])
+        nspin=nspin[0]
         
         # Find number of Hub sites
         
-        D_asp = c.density.D_asp
         Nanls_ref = {}
         sites = 0
         for a in HubU_IO_dict:
@@ -49,22 +60,22 @@ class HubU:
                         if (HubU_IO_dict[a][n][l]==1):
                             sites+=1
                             Nanls_ref[a][n][l][0] = (
-                                                    self.get_Nocc(D_asp,a, n, l, 0,
+                                                    self.get_Nocc(a, n, l, 0,
                                                           scale=scale,NbP = NbP)  
-                                                  + self.get_Nocc(D_asp,a, n, l, 1,
+                                                  + self.get_Nocc(a, n, l, 1,
                                                           scale=scale,NbP = NbP)
                                                     )
                         elif HubU_IO_dict[a][n][l]==2:
                             sites+=2
-                            Nanls_ref[a][n][l][0] = self.get_Nocc(D_asp,a, n, l, 0,
+                            Nanls_ref[a][n][l][0] = self.get_Nocc(a, n, l, 0,
                                                           scale=scale,NbP = NbP)  
-                            Nanls_ref[a][n][l][1] = self.get_Nocc(D_asp,a, n, l, 1,
+                            Nanls_ref[a][n][l][1] = self.get_Nocc(a, n, l, 1,
                                                           scale=scale,NbP = NbP)                                                      
                     else:
                         if (HubU_IO_dict[a][n][l]==1 or
                             HubU_IO_dict[a][n][l]==2):
                             sites+=1
-                        Nanls_ref[a][n][l][0] = self.get_Nocc(D_asp,a, n, l, 0,
+                        Nanls_ref[a][n][l][0] = self.get_Nocc(a, n, l, 0,
                                                               scale=scale,NbP = NbP) 
         
         X0, Xks =   np.zeros((sites+background,sites+background)), \
@@ -102,7 +113,7 @@ class HubU:
                             HubU_alpha_dict[a][n][l][1]['alpha']=alpha
                         else:
                             HubU_alpha_dict[a][n][l][s]['alpha']=alpha
-                        print 'HubU_alpha_dict', HubU_alpha_dict
+                        
                         c.hamiltonian.set_hubbard_u(HubU_dict = HubU_alpha_dict)
                         c.scf.reset()
                         c.calculate()
@@ -126,12 +137,11 @@ class HubU:
                                         if HubU_IO_dict[a][n][l]==2:
                                             for ss in range(2):
                                                 Nals_ref = Nanls_ref[aa][nn][ll][ss]
-                                                Nals_0 = self.get_Nocc(c.scf.D_asp_0, 
-                                                                       aa, nn, ll, ss,
+                                                Nals_0 = self.get_Nocc(aa, nn, ll, ss,
                                                                        scale=scale,
-                                                                       NbP = NbP) 
-                                                Nals_KS = self.get_Nocc(c.density.D_asp, 
-                                                                       aa, nn, ll, ss,
+                                                                       NbP = NbP,
+                                                                       mode='0') 
+                                                Nals_KS = self.get_Nocc(aa, nn, ll, ss,
                                                                        scale=scale,
                                                                        NbP = NbP)
                                                 
@@ -141,24 +151,22 @@ class HubU:
                                             
                                         elif HubU_IO_dict[a][n][l]==1:
                                             Nals_ref = Nanls_ref[aa][nn][ll][0]
-                                            Nals_0 = (self.get_Nocc(c.scf.D_asp_0, 
-                                                                   aa, nn, ll, 0,
+                                            Nals_0 = (self.get_Nocc(aa, nn, ll, 0,
                                                                    scale=scale,
-                                                                   NbP = NbP)
-                                                     + self.get_Nocc(c.scf.D_asp_0, 
-                                                                           aa, nn, ll, 1,
-                                                                           scale=scale,
-                                                                           NbP = NbP)
+                                                                   NbP = NbP,
+                                                                   mode='0')
+                                                     + self.get_Nocc(aa, nn, ll, 1,
+                                                                     scale=scale,
+                                                                     NbP = NbP,
+                                                                     mode='0')
                                                       )
                                                     
-                                            Nals_KS = (self.get_Nocc(c.density.D_asp, 
-                                                                   aa, nn, ll, 0,
+                                            Nals_KS = (self.get_Nocc(aa, nn, ll, 0,
                                                                    scale=scale,
                                                                    NbP = NbP)
-                                                     + self.get_Nocc(c.density.D_asp, 
-                                                                           aa, nn, ll, 1,
-                                                                           scale=scale,
-                                                                           NbP = NbP)
+                                                     + self.get_Nocc(aa, nn, ll, 1,
+                                                                     scale=scale,
+                                                                     NbP = NbP)
                                                       )
                                             
                                             X0[ii,jj] = (Nals_0-Nals_ref)/alpha
@@ -169,12 +177,12 @@ class HubU:
                                     
                                     else:    
                                         Nals_ref = Nanls_ref[aa][nn][ll][0]
-                                        Nals_0 = self.get_Nocc(c.scf.D_asp_0, 
-                                                               aa, nn, ll, 0,
+                                        Nals_0 = self.get_Nocc(aa, nn, ll, 0,
                                                                scale=scale,
-                                                               NbP = NbP)   
-                                        Nals_KS = self.get_Nocc(c.density.D_asp, 
-                                                               aa, nn, ll, 0,
+                                                               NbP = NbP,
+                                                               mode='0'
+                                                               )   
+                                        Nals_KS = self.get_Nocc(aa, nn, ll, 0,
                                                                scale=scale,
                                                                NbP = NbP)
                                         
@@ -195,18 +203,32 @@ class HubU:
         
         return U, X0, Xks
 
-    def get_Nocc(self,D_asp,
+    def get_Nocc(self,
                  a, n, l, s,
                  p=0,
                  scale=1,
-                 NbP = 1,
+                 NbP = 1, 
+                 mode='KS'
                  ):
         """
         Get occupancy of site
         p: projector
-        """        
-        return  np.trace(self.paw.hamiltonian.aoom(unpack2(D_asp[a][s]),
+        """ 
+        c = self.paw
+        N = np.array([0.])  
+        if c.density.rank_a[a] == self.world.rank:
+            if mode=='KS':
+                D_asp = c.density.D_asp
+            elif mode=='0':
+                D_asp = c.scf.D_asp_0
+            else:
+                print 'unknown mode:', mode
+                assert(0)
+            N = np.trace(c.hamiltonian.aoom(unpack2(D_asp[a][s]),
                                         a,n,l,NbP=NbP,scale=scale)[p])
+            N = np.array([N])
+        self.world.broadcast(N, c.density.rank_a[a])
+        return  N[0]
 
     def get_linear_response_U0(self,a,n,l,s,
                                HubU_dict = {},
@@ -230,29 +252,45 @@ class HubU:
                 HubU_dict[a][n][l][1]={'alpha':alpha}
             else:
                 HubU_dict[a][n][l][s]={'alpha':alpha}      
-        
         c = self.paw
         c.calculate()
-        D_p = c.density.D_asp[a][0]
         
-        Nanls_ref = np.trace(c.hamiltonian.aoom(unpack2(D_p),
+        D_p = []
+        
+        Nanls_ref = np.array([0.])
+        
+        if c.density.rank_a[a] == self.world.rank:
+            D_p = c.density.D_asp[a][:].sum(0)  
+            Nanls_ref = np.array([np.trace(c.hamiltonian.aoom(unpack2(D_p),
                           a,n,l,NbP=NbP,scale=scale)[0])
+                                 ])
+        self.world.broadcast(Nanls_ref, c.density.rank_a[a])
+        
         
         c.hamiltonian.set_hubbard_u(HubU_dict = HubU_dict)
         c.scf.HubAlphaIO = True
         c.scf.reset()
         c.calculate()
         
-        D_p = c.scf.D_asp_0[a][0]
-        Nanls_0 = np.trace(c.hamiltonian.aoom(unpack2(D_p),
-                          a,n,l,NbP=NbP,scale=scale)[0])
         
-        D_p = c.density.D_asp[a][0]
-        Nanls_KS = np.trace(c.hamiltonian.aoom(unpack2(D_p),
+        if c.density.rank_a[a] == self.world.rank:
+            D_p = c.scf.D_asp_0[a][:].sum(0)  
+            Nanls_0 = np.array([np.trace(c.hamiltonian.aoom(unpack2(D_p),
                           a,n,l,NbP=NbP,scale=scale)[0])
+                                 ])
+        self.world.broadcast(Nanls_0, c.density.rank_a[a])
         
-        Xres_0 = (Nanls_0-Nanls_ref)/alpha
-        Xres_KS = (Nanls_KS-Nanls_ref)/alpha
+        
+        if c.density.rank_a[a] == self.world.rank:
+            D_p = c.density.D_asp[a][:].sum(0)  
+            Nanls_KS = np.array([np.trace(c.hamiltonian.aoom(unpack2(D_p),
+                          a,n,l,NbP=NbP,scale=scale)[0])
+                                 ])
+        self.world.broadcast(Nanls_KS, c.density.rank_a[a])
+        
+        
+        Xres_0 = (Nanls_0[0]-Nanls_ref[0])/alpha
+        Xres_KS = (Nanls_KS[0]-Nanls_ref[0])/alpha
         
         U0 = Xres_0**-1 - Xres_KS**-1
         return U0
