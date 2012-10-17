@@ -238,8 +238,8 @@ class HubU:
         Nanls_0 = self.get_Nocc(a, n, l, s, scale=scale, NbP = NbP, mode='0')
         Nanls_KS = self.get_Nocc(a, n, l, s, scale=scale, NbP = NbP)
         
-        Xres_0 = (Nanls_0[0]-Nanls_ref[0])/alpha
-        Xres_KS = (Nanls_KS[0]-Nanls_ref[0])/alpha
+        Xres_0 = (Nanls_0-Nanls_ref)/alpha
+        Xres_KS = (Nanls_KS-Nanls_ref)/alpha
         
         U0 = Xres_0**-1 - Xres_KS**-1
         return U0
