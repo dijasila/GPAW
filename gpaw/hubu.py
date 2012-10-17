@@ -39,12 +39,7 @@ class HubU:
         c.calculate()
         
         # Get number of spins
-        nspin=np.array([0])
-        if c.density.rank_a[0] == self.world.rank:
-            nspin = len(c.density.D_asp[0])
-            nspin=np.array([nspin])
-        self.world.broadcast(nspin, c.density.rank_a[0])
-        nspin=nspin[0]
+        nspin = self.get_nspin()
         
         # Find number of Hub sites
         
@@ -229,7 +224,7 @@ class HubU:
         c.calculate()
         
         Nanls_ref = self.get_Nocc(a, n, l, s, scale=scale, NbP = NbP)
-        
+            
         c.hamiltonian.set_hubbard_u(HubU_dict = HubU_dict)
         c.scf.HubAlphaIO = True
         c.scf.reset()
@@ -237,12 +232,24 @@ class HubU:
         
         Nanls_0 = self.get_Nocc(a, n, l, s, scale=scale, NbP = NbP, mode='0')
         Nanls_KS = self.get_Nocc(a, n, l, s, scale=scale, NbP = NbP)
-        
+
+            
+            
         Xres_0 = (Nanls_0-Nanls_ref)/alpha
         Xres_KS = (Nanls_KS-Nanls_ref)/alpha
         
         U0 = Xres_0**-1 - Xres_KS**-1
         return U0
+
+    def get_nspin(self):
+        c = self.paw
+        nspin=np.array([0])
+        if c.density.rank_a[0] == self.world.rank:
+            nspin = len(c.density.D_asp[0])
+            nspin=np.array([nspin])
+        self.world.broadcast(nspin, c.density.rank_a[0])
+        nspin=nspin[0]
+        return nspin
 
     def get_Nocc(self,
                  a, n, l, s,
@@ -254,7 +261,8 @@ class HubU:
         """
         Get occupancy of site
         p: projector
-        """ 
+        """
+        nspin = self.get_nspin()
         c = self.paw
         N = np.array([0.])  
         if c.density.rank_a[a] == self.world.rank:
@@ -265,8 +273,18 @@ class HubU:
             else:
                 print 'unknown mode:', mode
                 assert(0)
-            N = np.trace(c.hamiltonian.aoom(unpack2(D_asp[a][s]),
+            if s == 2 and nspin==2:
+                N = (np.trace(c.hamiltonian.aoom(unpack2(D_asp[a][0]),
+                                        a,n,l,NbP=NbP,scale=scale)[p])+
+                     np.trace(c.hamiltonian.aoom(unpack2(D_asp[a][1]),
+                                        a,n,l,NbP=NbP,scale=scale)[p]))
+            if s == 2 and nspin==1:
+                N = np.trace(c.hamiltonian.aoom(unpack2(D_asp[a][0]),
                                         a,n,l,NbP=NbP,scale=scale)[p])
+            else:
+                N = np.trace(c.hamiltonian.aoom(unpack2(D_asp[a][s]),
+                                    a,n,l,NbP=NbP,scale=scale)[p])
+        
             N = np.array([N])
         self.world.broadcast(N, c.density.rank_a[a])
         return  N[0]
