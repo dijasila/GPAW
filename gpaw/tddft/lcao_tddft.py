@@ -11,6 +11,18 @@ from math import pi
 from ase.parallel import paropen
 from gpaw.mpi import world
 from gpaw.tddft.units import attosec_to_autime
+from numpy.linalg import solve
+
+DEBUG_FULL_INV = True
+
+def verify(data1, data2, id):
+    err = sum(abs(data1-data2).ravel()**2)
+    if err > 1e-10:
+       print "Parallel assert failed: ", id, " norm: ", err
+       print "Data from proc ", world.rank
+       print "First", data1
+       print "Second", data2
+       assert False
 
 def mpiverify(data, id):
         # Do some debugging when running on two procs XXX REMOVE
@@ -20,7 +32,7 @@ def mpiverify(data, id):
             else:
                 temp = data.copy()
             world.sum(temp)
-            err = sum(temp.ravel()**2)
+            err = sum(abs(temp).ravel()**2)
             if err > 1e-10:
                 if world.rank == 0:
                     print "Parallel assert failed: ", id, " norm: ", sum(temp.ravel()**2)
@@ -76,14 +88,22 @@ class LCAOTDDFT(GPAW):
         # Create hamiltonian object for absorbtion kick
         kick_hamiltonian = KickHamiltonian(self, ConstantElectricField(magnitude, direction=direction))
         
-        Vkick_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(kick_hamiltonian, self.wfs, self.wfs.kpt_u[0], add_kinetic=False)
+        Vkick_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(kick_hamiltonian, self.wfs, self.wfs.kpt_u[0], add_kinetic=False, root=-1)
         mpiverify(Vkick_MM,"Vkick_MM")
-   
+  
         # Apply kick
-        Ukick_MM = dot(inv(self.S_MM-0.5j*0.1*Vkick_MM), self.S_MM+0.5j*0.1*Vkick_MM)
+        if DEBUG_FULL_INV:
+            Ukick_MM = dot(inv(self.S_MM-0.5j*0.1*Vkick_MM), self.S_MM+0.5j*0.1*Vkick_MM)
+            temp_C_nM = self.C_nM.copy()
+            for i in range(0,10):
+                temp_C_nM = dot(temp_C_nM, Ukick_MM.T)
+
         for i in range(0,10):
-            self.C_nM = dot(self.C_nM, Ukick_MM.T)
-        
+            self.C_nM = solve(self.S_MM-0.5j*0.1*Vkick_MM, np.dot(self.S_MM+0.5j*0.1*Vkick_MM, self.C_nM.T)).T     
+
+        if DEBUG_FULL_INV:
+            verify(temp_C_nM, self.C_nM, "Absorbtion propagator")
+
         mpiverify(self.C_nM, "C_nm after kick")
 
     def tddft_init(self):
@@ -137,12 +157,20 @@ class LCAOTDDFT(GPAW):
 
             tempC_nM = self.C_nM.copy()
             self.timer.start('LCAO Predictor step') 
-            H_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(self.hamiltonian, self.wfs, self.wfs.kpt_u[0])
-            U_MM = dot(inv(self.S_MM-0.5j*H_MM*dt), self.S_MM+0.5j*H_MM*dt)
-            
+            H_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(self.hamiltonian, self.wfs, self.wfs.kpt_u[0], root=-1)
+
+            if DEBUG_FULL_INV:
+                U_MM = dot(inv(self.S_MM-0.5j*H_MM*dt), self.S_MM+0.5j*H_MM*dt)
+                mpiverify(U_MM, "U_MM first")
+                debugC_nM = dot(self.C_nM, U_MM.T)
+
+            self.wfs.kpt_u[0].C_nM = solve(self.S_MM-0.5j*H_MM*dt, np.dot(self.S_MM+0.5j*H_MM*dt, \
+                                                                          self.wfs.kpt_u[0].C_nM.T)).T
+
             mpiverify(H_MM, "H_MM first")
-            mpiverify(U_MM, "U_MM first")
-            self.wfs.kpt_u[0].C_nM = dot(self.wfs.kpt_u[0].C_nM, U_MM.T)
+            if DEBUG_FULL_INV:          
+                verify(self.wfs.kpt_u[0].C_nM, debugC_nM, "Predictor propagator")
+
             for a, P_ni in self.wfs.kpt_u[0].P_ani.items():
                 P_ni.fill(117)
                 gemm(1.0, self.wfs.kpt_u[0].P_aMi[a], self.wfs.kpt_u[0].C_nM, 0.0, P_ni, 'n')
@@ -151,11 +179,21 @@ class LCAOTDDFT(GPAW):
             self.timer.start('Propagate')
             self.density.update(self.wfs)
             self.hamiltonian.update(self.density)
-            H_MM = 0.5 * H_MM + 0.5 * self.wfs.eigensolver.calculate_hamiltonian_matrix(self.hamiltonian, self.wfs, self.wfs.kpt_u[0])
-            U_MM = dot(inv(self.S_MM-0.5j*H_MM*dt), self.S_MM+0.5j*H_MM*dt)
-            mpiverify(H_MM, "H_MM second")
-            mpiverify(U_MM, "U_MM second")
-            self.C_nM = dot(self.C_nM, U_MM.T)
+            H_MM = 0.5 * H_MM + 0.5 * self.wfs.eigensolver.calculate_hamiltonian_matrix(self.hamiltonian, self.wfs, self.wfs.kpt_u[0], root=-1)
+            mpiverify(H_MM, "H_MM first")
+
+            if DEBUG_FULL_INV:
+                U_MM = dot(inv(self.S_MM-0.5j*H_MM*dt), self.S_MM+0.5j*H_MM*dt)
+                mpiverify(U_MM, "U_MM first")
+                debugC_nM = dot(self.C_nM, U_MM.T)
+
+            self.C_nM = solve(self.S_MM-0.5j*H_MM*dt, np.dot(self.S_MM+0.5j*H_MM*dt,
+                                                             self.C_nM.T)).T
+
+
+            if DEBUG_FULL_INV:          
+                verify(debugC_nM, self.C_nM, "Propagator")
+
             mpiverify(self.C_nM, "C_nM second")
             self.timer.stop('Propagate')
             steps += 1

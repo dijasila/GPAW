@@ -13,16 +13,16 @@ b = 'dzp'
 sy = 'Na2'
 positions = [[0.00,0.00,0.00],[0.00,0.00,2.00]]
 atoms = Atoms(symbols=sy, positions = positions)
-atoms.center(vacuum=5)
+atoms.center(vacuum=3)
 
 # LCAO-RT-TDDFT
-calc = LCAOTDDFT(mode='lcao', xc=xc, h=h, basis=b, dtype=complex, charge=c, width=0)
+calc = LCAOTDDFT(mode='lcao', nbands=1, xc=xc, h=h, basis=b, dtype=complex, charge=c, width=0, convergence={'density':1e-8})
 atoms.set_calculator(calc)
 atoms.get_potential_energy()
 dmfile = sy+'_lcao_'+b+'_rt_z.dm'+str(world.size)
 specfile = sy+'_lcao_'+b+'_rt_z.spectrum'+str(world.size)
 calc.absorption_kick([0.0,0,0.001])
-calc.propagate(10, 50, dmfile)
+calc.propagate(10, 500, dmfile)
 if world.rank == 0:
     photoabsorption_spectrum(dmfile, specfile)
 
