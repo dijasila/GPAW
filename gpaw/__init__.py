@@ -30,7 +30,8 @@ __all__ = ['GPAW', 'Calculator',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
            'PoissonSolver',
            'FermiDirac',
-           'restart']
+           'restart',
+           'HubU']
 
 
 class ConvergenceError(Exception):

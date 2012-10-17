@@ -176,16 +176,17 @@ class Hamiltonian:
         l_j = S.l_j
         n_j = S.n_j
         lq  = S.lq
+        
         # Selection the orbitals:
         # Pick the (n, l), if n is the highest orcupied, then take the oscillatory orbital
-        # into account too if there (optionally)
+        # into account too if present and NbP==True
         if (NbP and len(np.where(np.equal(l_j,l)*
                     np.equal(n_j,n+1))[0])==0):
             nl  = np.where(np.equal(l_j,l) *np.logical_or(np.equal(n_j,n), 
                                                           np.equal(n_j,-1)))[0]
         else:
             nl  = np.where( np.equal(l_j,l)*np.equal(n_j,n))[0]
-        
+
         V = np.zeros(np.shape(DM))
         if len(nl) == 2:
             aa = (nl[0])*len(l_j)-((nl[0]-1)*(nl[0])/2)
@@ -325,8 +326,8 @@ class Hamiltonian:
                                     Eorb = Hub_U_anls / 2. * (N_mm - \
                                                     np.dot(N_mm,N_mm)).trace()
                                     Exc += Eorb
+                                    # add contribution of other spin many-fold
                                     if nspins == 1:
-                                        # add contribution of other spin many-fold
                                         Exc += Eorb
                                     Vorb += Hub_U_anls * (0.5 * 
                                                           np.eye(2*l+1) - N_mm)
@@ -353,7 +354,7 @@ class Hamiltonian:
         self.Enlxc = 0.0  # XXXxcfunc.get_non_local_energy()
         #print self.xc.get_kinetic_energy_correction() / self.gd.comm.size
         Ekin += self.xc.get_kinetic_energy_correction() / self.gd.comm.size
-        kk1 = Ekin, Epot, Ebar, Eext, Exc
+        #kk1 = Ekin, Epot, Ebar, Eext, Exc
 
         energies = np.array([Ekin, Epot, Ebar, Eext, Exc])
         self.timer.start('Communicate energies')

@@ -344,7 +344,7 @@ class WaveFunctions(EmptyWaveFunctions):
         if self.world.rank == 0:
             if kpt_rank == 0:
                 P_ani = self.kpt_u[u].P_ani
-            mynu = len(self.kpt_u)
+            #mynu = len(self.kpt_u)
             all_P_ni = np.empty((self.bd.nbands, nproj), self.dtype)
             for band_rank in range(self.band_comm.size):
                 nslice = self.bd.get_slice(band_rank)
@@ -391,7 +391,7 @@ class WaveFunctions(EmptyWaveFunctions):
         kpt_rank, u = self.kd.get_rank_and_index(s, k)
         band_rank, myn = self.bd.who_has(n)
 
-        size = self.world.size
+        #size = self.world.size # unused
         rank = self.world.rank
 
         if (self.kpt_comm.rank == kpt_rank and

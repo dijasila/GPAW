@@ -86,13 +86,13 @@ class Density:
         self.nt_g = None
         self.rhot_g = None
         self.Q_aL = None
-
+        
         # If both old and new atomic ranks are present, start a blank dict if
         # it previously didn't exist but it will needed for the new atoms.
         if (self.rank_a is not None and rank_a is not None and
             self.D_asp is None and (rank_a == self.gd.comm.rank).any()):
             self.D_asp = {}
-
+        
         if self.rank_a is not None and self.D_asp is not None:
             self.timer.start('Redistribute')
             requests = []

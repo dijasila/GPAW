@@ -46,7 +46,7 @@ class PAW(PAWTextOutput):
     timer_class = Timer
 
     def __init__(self, filename=None, **kwargs):
-        """ASE-calculator interface.
+        """ASE-calculator interface. 
 
         The following parameters can be used: `nbands`, `xc`, `kpts`,
         `spinpol`, `gpts`, `h`, `charge`, `usesymm`, `width`, `mixer`,
