@@ -108,7 +108,8 @@ class LrTDDFT(ExcitationList):
         if calculator is not None:
             if xc == 'GS':
                 xc = calculator.hamiltonian.xc.name
-            calculator.converge_wave_functions()
+            if calculator.input_parameters.mode != 'lcao':
+                calculator.converge_wave_functions()
             if calculator.density.nct_G is None:
                 calculator.set_positions()
 

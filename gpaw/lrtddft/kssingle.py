@@ -59,6 +59,11 @@ class KSSingles(ExcitationList):
         if calculator is None:
             return # leave the list empty
 
+        # LCAO calculation requires special actions
+        self.lcao = calculator.input_parameters.mode == 'lcao'
+        if self.lcao:
+            print >> txt, "LR-TDDFT for LCAO orbitals"
+
         # deny hybrids as their empty states are wrong
         gsxc = calculator.hamiltonian.xc
         hybrid = hasattr(gsxc, 'hybrid') and gsxc.hybrid > 0.0
@@ -97,7 +102,7 @@ class KSSingles(ExcitationList):
         wfs = paw.wfs
         self.kpt_u = wfs.kpt_u
 
-        if self.kpt_u[0].psit_nG is None:
+        if not self.lcao and self.kpt_u[0].psit_nG is None:
             raise RuntimeError('No wave functions in calculator!')
 
         # here, we need to take care of the spins also for
@@ -303,6 +308,12 @@ class KSSingle(Excitation, PairDensity):
         self.mur = - ( me + ma )
 
         # velocity form .............................
+
+        if self.lcao:
+            # Velocity form not supported in LCAO-LR-TDDFT
+            self.muv = None
+            self.magn = None
+            return
 
         me = np.zeros(self.mur.shape)
 
