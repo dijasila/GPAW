@@ -54,12 +54,8 @@ class HubU:
                     if nspin == 2:
                         if (HubU_IO_dict[a][n][l]==1):
                             sites+=1
-                            Nanls_ref[a][n][l][0] = (
-                                                    self.get_Nocc(a, n, l, 0,
-                                                          scale=scale,NbP = NbP)  
-                                                  + self.get_Nocc(a, n, l, 1,
+                            Nanls_ref[a][n][l][0] = self.get_Nocc(a, n, l, 2,
                                                           scale=scale,NbP = NbP)
-                                                    )
                         elif HubU_IO_dict[a][n][l]==2:
                             sites+=2
                             Nanls_ref[a][n][l][0] = self.get_Nocc(a, n, l, 0,
@@ -146,23 +142,14 @@ class HubU:
                                             
                                         elif HubU_IO_dict[a][n][l]==1:
                                             Nals_ref = Nanls_ref[aa][nn][ll][0]
-                                            Nals_0 = (self.get_Nocc(aa, nn, ll, 0,
-                                                                   scale=scale,
-                                                                   NbP = NbP,
-                                                                   mode='0')
-                                                     + self.get_Nocc(aa, nn, ll, 1,
+                                            Nals_0 = self.get_Nocc(aa, nn, ll, 2,
                                                                      scale=scale,
                                                                      NbP = NbP,
                                                                      mode='0')
-                                                      )
                                                     
-                                            Nals_KS = (self.get_Nocc(aa, nn, ll, 0,
+                                            Nals_KS = self.get_Nocc(aa, nn, ll, 2,
                                                                    scale=scale,
                                                                    NbP = NbP)
-                                                     + self.get_Nocc(aa, nn, ll, 1,
-                                                                     scale=scale,
-                                                                     NbP = NbP)
-                                                      )
                                             
                                             X0[ii,jj] = (Nals_0-Nals_ref)/alpha
                                             Xks[ii,jj] = (Nals_KS-Nals_ref)/alpha
