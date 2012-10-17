@@ -202,6 +202,49 @@ class HubU:
         U = (np.linalg.inv(X0)- np.linalg.inv(Xks))
         
         return U, X0, Xks
+    
+    def get_linear_response_U0(self,a,n,l,s,
+                               HubU_dict = {},
+                               alpha = 0.002,
+                               scale = 1,
+                               NbP = 1,
+                               ):
+        """
+        spin {0,1,2} (2: on both)
+        0.05eV/Hartree=0.00183746618: potential shift  
+        """
+        if a not in HubU_dict:
+            HubU_dict[a]={}
+        if n not in HubU_dict[a]:
+            HubU_dict[a][n]={}
+        if l not in HubU_dict[a][n]:
+            HubU_dict[a][n][l]={}
+        if s not in HubU_dict[a][n][l]:
+            if s == 2:
+                HubU_dict[a][n][l][0]={'alpha':alpha}
+                HubU_dict[a][n][l][1]={'alpha':alpha}
+            else:
+                HubU_dict[a][n][l][s]={'alpha':alpha}      
+        c = self.paw
+        c.calculate()
+        
+        Nanls_ref = self.get_Nocc(a, n, l, s, scale=scale, NbP = NbP)
+        
+        c.hamiltonian.set_hubbard_u(HubU_dict = HubU_dict)
+        c.scf.HubAlphaIO = True
+        c.scf.reset()
+        c.calculate()
+        
+        Nanls_0 = self.get_Nocc(a, n, l, s, scale=scale, NbP = NbP, mode='0')
+        
+        Nanls_KS = self.get_Nocc(a, n, l, s, scale=scale, NbP = NbP)
+        
+        
+        Xres_0 = (Nanls_0[0]-Nanls_ref[0])/alpha
+        Xres_KS = (Nanls_KS[0]-Nanls_ref[0])/alpha
+        
+        U0 = Xres_0**-1 - Xres_KS**-1
+        return U0
 
     def get_Nocc(self,
                  a, n, l, s,
@@ -230,68 +273,5 @@ class HubU:
         self.world.broadcast(N, c.density.rank_a[a])
         return  N[0]
 
-    def get_linear_response_U0(self,a,n,l,s,
-                               HubU_dict = {},
-                               alpha = 0.002,
-                               scale = 1,
-                               NbP = 1,
-                               ):
-        """
-        spin {0,1,2} (2: on both)
-        0.05eV/Hartree=0.00183746618: potential shift  
-        """
-        if a not in HubU_dict:
-            HubU_dict[a]={}
-        if n not in HubU_dict[a]:
-            HubU_dict[a][n]={}
-        if l not in HubU_dict[a][n]:
-            HubU_dict[a][n][l]={}
-        if s not in HubU_dict[a][n][l]:
-            if s == 2:
-                HubU_dict[a][n][l][0]={'alpha':alpha}
-                HubU_dict[a][n][l][1]={'alpha':alpha}
-            else:
-                HubU_dict[a][n][l][s]={'alpha':alpha}      
-        c = self.paw
-        c.calculate()
-        
-        D_p = []
-        
-        Nanls_ref = np.array([0.])
-        
-        if c.density.rank_a[a] == self.world.rank:
-            D_p = c.density.D_asp[a][:].sum(0)  
-            Nanls_ref = np.array([np.trace(c.hamiltonian.aoom(unpack2(D_p),
-                          a,n,l,NbP=NbP,scale=scale)[0])
-                                 ])
-        self.world.broadcast(Nanls_ref, c.density.rank_a[a])
-        
-        
-        c.hamiltonian.set_hubbard_u(HubU_dict = HubU_dict)
-        c.scf.HubAlphaIO = True
-        c.scf.reset()
-        c.calculate()
-        
-        
-        if c.density.rank_a[a] == self.world.rank:
-            D_p = c.scf.D_asp_0[a][:].sum(0)  
-            Nanls_0 = np.array([np.trace(c.hamiltonian.aoom(unpack2(D_p),
-                          a,n,l,NbP=NbP,scale=scale)[0])
-                                 ])
-        self.world.broadcast(Nanls_0, c.density.rank_a[a])
-        
-        
-        if c.density.rank_a[a] == self.world.rank:
-            D_p = c.density.D_asp[a][:].sum(0)  
-            Nanls_KS = np.array([np.trace(c.hamiltonian.aoom(unpack2(D_p),
-                          a,n,l,NbP=NbP,scale=scale)[0])
-                                 ])
-        self.world.broadcast(Nanls_KS, c.density.rank_a[a])
-        
-        
-        Xres_0 = (Nanls_0[0]-Nanls_ref[0])/alpha
-        Xres_KS = (Nanls_KS[0]-Nanls_ref[0])/alpha
-        
-        U0 = Xres_0**-1 - Xres_KS**-1
-        return U0
+
         #print 'Linear response Hubbard U0 on Sc 3d orbital', U0        @
