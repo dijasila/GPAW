@@ -147,8 +147,15 @@ class LCAOWaveFunctions(WaveFunctions):
         self.timer.stop('TCI: Calculate S, T, P')
 
         S_MM = None # allow garbage collection of old S_qMM after redist
-        S_qMM = self.ksl.distribute_overlap_matrix(S_qMM)
-        T_qMM = self.ksl.distribute_overlap_matrix(T_qMM)
+        
+        # 
+        # XXX Added root=-1. It makes lcao-eigensolver.calculate_potential_matrix to work properly with root=-1
+        # but will propably slow down the initialization of all LCAO calculation slightly.
+        # lcao/eigensolver.calculate_potential_matrix will add T_qMM after redistribution, but the default root for 
+        # distribute_overlap_matrix is 0. 
+        # Therefore T_qMM for other ranks has garbage(?). At least not the right numbers. 
+        S_qMM = self.ksl.distribute_overlap_matrix(S_qMM, root=-1) 
+        T_qMM = self.ksl.distribute_overlap_matrix(T_qMM, root=-1)
 
         for kpt in self.kpt_u:
             q = kpt.q
