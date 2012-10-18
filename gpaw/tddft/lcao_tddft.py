@@ -13,7 +13,7 @@ from gpaw.mpi import world
 from gpaw.tddft.units import attosec_to_autime
 from numpy.linalg import solve
 
-DEBUG_FULL_INV = True
+DEBUG_FULL_INV = False
 
 def verify(data1, data2, id):
     err = sum(abs(data1-data2).ravel()**2)
@@ -129,6 +129,7 @@ class LCAOTDDFT(GPAW):
         dm0 = None # Initial dipole moment
         time = 0
         steps = 0
+        self.timer.start('Propagate')
         while 1:
             dm = self.density.finegd.calculate_dipole_moment(self.density.rhot_g)
             mpiverify(dm, "dipole moment")
@@ -156,7 +157,6 @@ class LCAOTDDFT(GPAW):
 
 
             tempC_nM = self.C_nM.copy()
-            self.timer.start('LCAO Predictor step') 
             H_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(self.hamiltonian, self.wfs, self.wfs.kpt_u[0], root=-1)
 
             if DEBUG_FULL_INV:
@@ -164,9 +164,10 @@ class LCAOTDDFT(GPAW):
                 mpiverify(U_MM, "U_MM first")
                 debugC_nM = dot(self.C_nM, U_MM.T)
 
+            self.timer.start('Linear solve')
             self.wfs.kpt_u[0].C_nM = solve(self.S_MM-0.5j*H_MM*dt, np.dot(self.S_MM+0.5j*H_MM*dt, \
                                                                           self.wfs.kpt_u[0].C_nM.T)).T
-
+            self.timer.stop('Linear solve')
             mpiverify(H_MM, "H_MM first")
             if DEBUG_FULL_INV:          
                 verify(self.wfs.kpt_u[0].C_nM, debugC_nM, "Predictor propagator")
@@ -175,8 +176,6 @@ class LCAOTDDFT(GPAW):
                 P_ni.fill(117)
                 gemm(1.0, self.wfs.kpt_u[0].P_aMi[a], self.wfs.kpt_u[0].C_nM, 0.0, P_ni, 'n')
 
-            self.timer.stop('LCAO Predictor step') 
-            self.timer.start('Propagate')
             self.density.update(self.wfs)
             self.hamiltonian.update(self.density)
             H_MM = 0.5 * H_MM + 0.5 * self.wfs.eigensolver.calculate_hamiltonian_matrix(self.hamiltonian, self.wfs, self.wfs.kpt_u[0], root=-1)
@@ -187,17 +186,19 @@ class LCAOTDDFT(GPAW):
                 mpiverify(U_MM, "U_MM first")
                 debugC_nM = dot(self.C_nM, U_MM.T)
 
+            self.timer.start('Linear solve')
             self.C_nM = solve(self.S_MM-0.5j*H_MM*dt, np.dot(self.S_MM+0.5j*H_MM*dt,
                                                              self.C_nM.T)).T
+            self.timer.stop('Linear solve')
 
 
             if DEBUG_FULL_INV:          
                 verify(debugC_nM, self.C_nM, "Propagator")
 
             mpiverify(self.C_nM, "C_nM second")
-            self.timer.stop('Propagate')
             steps += 1
             if steps > max_steps:
+                self.self.timer.stop('Propagate')
                 break
         self.dm_file.close()
 
