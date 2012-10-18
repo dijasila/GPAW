@@ -118,7 +118,6 @@ class HubU:
                         else:
                             HubU_alpha_dict[a][n][l][s]['alpha']=0.
                         
-                        #print 'HubU_alpha_dict', HubU_alpha_dict
                              
                         jj = 0
                         for aa in HubU_IO_dict:
@@ -265,7 +264,7 @@ class HubU:
                                         a,n,l,NbP=NbP,scale=scale)[p])+
                      np.trace(c.hamiltonian.aoom(unpack2(D_asp[a][1]),
                                         a,n,l,NbP=NbP,scale=scale)[p]))
-            if s == 2 and nspin==1:
+            elif s == 2 and nspin==1:
                 N = np.trace(c.hamiltonian.aoom(unpack2(D_asp[a][0]),
                                         a,n,l,NbP=NbP,scale=scale)[p])
             else:
@@ -275,6 +274,3 @@ class HubU:
             N = np.array([N])
         self.world.broadcast(N, c.density.rank_a[a])
         return  N[0]
-
-
-        #print 'Linear response Hubbard U0 on Sc 3d orbital', U0        @
