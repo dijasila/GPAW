@@ -55,6 +55,7 @@ def wrap_pylab(names=[]):
 
 
 tests = [
+    'lcao_tddft_restart.py', # XXX Branch tests first, move further and simplify when merging to trunk 
     'lcao_tddft.py',
     'gemm_complex.py',
     'mpicomm.py',

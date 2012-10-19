@@ -61,10 +61,15 @@ class KickHamiltonian:
 
 
 class LCAOTDDFT(GPAW):
-    def __init__(self, **kwargs):
-        GPAW.__init__(self, **kwargs)
+    def __init__(self, filename=None, **kwargs):
+        GPAW.__init__(self, filename, **kwargs)
         self.kick_strength = [0.0, 0.0, 0.0]
         self.tddft_initialized = False
+        
+        # Restarting from a file
+        if filename is not None:
+            self.initialize()
+            self.set_positions()
 
     def absorption_kick(self, strength):
         self.tddft_init()
