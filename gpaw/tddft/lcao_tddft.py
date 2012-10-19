@@ -13,8 +13,6 @@ from gpaw.mpi import world
 from gpaw.tddft.units import attosec_to_autime
 from numpy.linalg import solve
 
-DEBUG_FULL_INV = True
-
 def verify(data1, data2, id):
     err = sum(abs(data1-data2).ravel()**2)
     if err > 1e-10:
@@ -61,8 +59,9 @@ class KickHamiltonian:
 
 
 class LCAOTDDFT(GPAW):
-    def __init__(self, filename=None, propagator_debug=True, propagator='numpysolve_CN', **kwargs):
+    def __init__(self, filename=None, propagator_debug=False, propagator='numpysolve_CN', **kwargs):
         GPAW.__init__(self, filename, **kwargs)
+        self.propagator_debug = propagator_debug
         self.kick_strength = [0.0, 0.0, 0.0]
         self.tddft_initialized = False
         plist = {'numpysolve_CN': self.linear_propagator}
@@ -76,7 +75,7 @@ class LCAOTDDFT(GPAW):
     def linear_propagator(self, sourceC_nM, targetC_nM, S_MM, H_MM, dt):
         self.timer.start('Linear solve')
 
-        if DEBUG_FULL_INV:
+        if self.propagator_debug:
             mpiverify(H_MM, "H_MM first")
             U_MM = dot(inv(S_MM-0.5j*H_MM*dt), S_MM+0.5j*H_MM*dt)
             mpiverify(U_MM, "U_MM first")
@@ -84,7 +83,7 @@ class LCAOTDDFT(GPAW):
 
         targetC_nM[:] = solve(S_MM-0.5j*H_MM*dt, np.dot(S_MM+0.5j*H_MM*dt, sourceC_nM.T.conjugate())).T.conjugate()
 
-        if DEBUG_FULL_INV:
+        if self.propagator_debug:
              verify(targetC_nM, debugC_nM, "Linear solver propagator vs. reference")
 
         self.timer.stop('Linear solve')
