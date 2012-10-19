@@ -21,10 +21,10 @@ HubU_IO_dict = {0:{4:{0:1}, #4s
                    
                    }}
                 
-# Second atom 
-scale = 1       #
-NbP = 1         #
-background = 1  #
+# Specifications of procedure
+scale = 1       # Should the projections be normalized
+NbP = 1         # Use the non-occupied orbitals when available
+background = 1  # Have a background term in the calculation of Hubbard
 
 
 ########################
@@ -44,17 +44,15 @@ sys.set_calculator(c)
 sys.get_potential_energy()
 
 Hubu = HubU(c)
-U0_au, X0, Xks = Hubu.get_MS_linear_response_U0(HubU_IO_dict,
+HubU_dict = Hubu.get_MS_linear_response_U0(HubU_IO_dict,
                                  background=background,
                                  scale = scale, 
                                  NbP = NbP, 
                                  alpha = alpha)
-U0 = np.array(U0_au)*Hartree
-
 orbital = ['s','p','d','f']
-jj = 0
-for a in HubU_IO_dict:
-    for n in HubU_IO_dict[a]:
-        for l in HubU_IO_dict[a][n]:
-            print a, str(n)+orbital[l], 'U:',U0[jj,jj]
-            jj+=1
+
+for a in HubU_dict:
+    for n in HubU_dict[a]:
+        for l in HubU_dict[a][n]:
+            print a, str(n)+orbital[l], 
+            print'U:',HubU_dict[a][n][l][0]['U']*Hartree

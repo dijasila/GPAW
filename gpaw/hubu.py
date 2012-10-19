@@ -1,7 +1,7 @@
 import numpy as np
+import gpaw.mpi as mpi
 from gpaw.utilities import unpack2
 from copy import copy
-import gpaw.mpi as mpi
 
 class HubU:
     def __init__(self, paw):
@@ -9,7 +9,79 @@ class HubU:
         
         # Is this allowed or should world be an input to the class?
         self.world = mpi.world
+
+    def get_MS_Usc(self,
+                   HubU_IO_dict, 
+                   background = True,
+                   alpha = 0.002,
+                   scale = 1,
+                   NbP = 1,
+                   factors = [ 0.5, 0.75, 1.0],
+                   out = None,
+                   ):
+        factors = np.array(factors)
+        HubU_dict_U0 = self.get_MS_linear_response_U0(
+                                       HubU_IO_dict, 
+                                       HubU_dict = {},
+                                       background = background,
+                                       alpha = alpha,
+                                       scale = scale,
+                                       NbP = NbP,
+                                       )
+
+        HubU_dict_li = {'0.0':HubU_dict_U0}
         
+        for factor in (factors):
+            HubU_dict_scaled = self.get_scaled_HubU_dict(HubU_dict_U0, factor)
+            HubU_dict_out = self.get_MS_linear_response_U0(
+                                   HubU_IO_dict, 
+                                   HubU_dict = HubU_dict_scaled,
+                                   background = background,
+                                   alpha = alpha,
+                                   scale = scale,
+                                   NbP = NbP,
+                                   )
+            HubU_dict_li[factor]=HubU_dict_out
+        
+        # Calculate Usc Hub_dict
+        HubUsc_dict = {}
+        for a in HubU_IO_dict:
+            HubUsc_dict[a]={}
+            for n in HubU_IO_dict[a]:
+                HubUsc_dict[a][n]={}
+                for l in HubU_IO_dict[a][n]:
+                    HubUsc_dict[a][n][l]={}
+                    for s in range(2):
+                        Uout_li = []
+                        HubUsc_dict[a][n][l][s]={}
+                        
+                        for factor in factors:
+                            Uout_li.append(HubU_dict_li[factor][a][n][l][s]['U'])
+                        Uout_li = np.array(Uout_li)
+                        Usc = np.polyfit(factors, Uout_li, 1)[1]
+                        HubUsc_dict[a][n][l][s]['U']=Usc
+                        print 'Usc', Usc
+        if out == 'all':
+            return HubUsc_dict, HubU_dict_li
+        else:
+            return HubUsc_dict
+    
+    def get_scaled_HubU_dict(self, HubU_dict_U0, factor):
+        """
+        Scale all the U values by a factor. Used in Usc. 
+        """
+        HubU_dict = {}
+        
+        for a in HubU_dict_U0:
+            HubU_dict[a]={} 
+            for n in HubU_dict_U0[a]:
+                HubU_dict[a][n]={}
+                for l in HubU_dict_U0[a][n]:
+                    HubU_dict[a][n][l]={}
+                    for s in HubU_dict_U0[a][n][l]:
+                        HubU_dict[a][n][l][s]={'U':HubU_dict_U0[a][n][l][s]['U']*factor}
+        return HubU_dict
+
     def get_MS_linear_response_U0(self,
                                HubU_IO_dict, 
                                HubU_dict = {},
@@ -17,6 +89,7 @@ class HubU:
                                alpha = 0.002,
                                scale = 1,
                                NbP = 1,
+                               out = None, # options: all
                                ):
         """
         HubU_IO_dict = {a:{n:{l:
@@ -32,17 +105,17 @@ class HubU:
 
         Background specify that the background increase in charge is included.
         """
-         
         HubU_dict_base = copy(HubU_dict)
-        
         c = self.paw
+        
+        c.hamiltonian.set_hubbard_u(HubU_dict = HubU_dict_base)
+        c.scf.reset()
         c.calculate()
         
         # Get number of spins
         nspin = self.get_nspin()
         
         # Find number of Hub sites
-        
         Nanls_ref = {}
         sites = 0
         for a in HubU_IO_dict:
@@ -69,32 +142,32 @@ class HubU:
                         Nanls_ref[a][n][l][0] = self.get_Nocc(a, n, l, 0,
                                                               scale=scale,NbP = NbP) 
         
+        if sites < 2:
+            print 'WARNING: overwriting settings - setting background=False'
+            background = 0
+        
         X0, Xks =   np.zeros((sites+background,sites+background)), \
                     np.zeros((sites+background,sites+background))
         
         c.scf.HubAlphaIO = True
         HubU_alpha_dict = {}
         ii = 0
+        
         for a in HubU_IO_dict:
             if a not in HubU_dict_base:
                 HubU_dict_base[a] = {}
-            #HubU_alpha_dict[a]={}
             for n in HubU_IO_dict[a]:
                 if n not in HubU_dict_base[a]:
                     HubU_dict_base[a][n] = {}
-                #HubU_alpha_dict[a][n]={}
                 for l in HubU_IO_dict[a][n]:
                     if l not in HubU_dict_base[a][n]:
                         HubU_dict_base[a][n][l] = {}
-                    #HubU_alpha_dict[a][n][l]={}
-                    
                     for s in range(HubU_IO_dict[a][n][l]):
                         if s==1 and nspin==1:
                             continue
                         
                         if s not in HubU_dict_base[a][n][l]:
                             HubU_dict_base[a][n][l][s] = {}
-                        #HubU_alpha_dict[a][n][l][s]={}
                         
                         HubU_alpha_dict = copy(HubU_dict_base)
                         if HubU_IO_dict[a][n][l] == 1:
@@ -109,15 +182,8 @@ class HubU:
                         c.scf.reset()
                         c.calculate()
                         
-                        # Make zero
-                        if HubU_IO_dict[a][n][l] == 1:
-                            HubU_alpha_dict[a][n][l][0]['alpha']=0.
-                            if 1 not in HubU_alpha_dict[a][n][l]:
-                                HubU_alpha_dict[a][n][l][1] = {}
-                            HubU_alpha_dict[a][n][l][1]['alpha']=0.
-                        else:
-                            HubU_alpha_dict[a][n][l][s]['alpha']=0.
-                        
+                        del HubU_alpha_dict[a][n][l][0]['alpha']
+                        del HubU_alpha_dict[a][n][l][1]['alpha']
                              
                         jj = 0
                         for aa in HubU_IO_dict:
@@ -179,10 +245,32 @@ class HubU:
             for jj in range(sites):
                 X0[-1,jj]  -= np.sum(X0[:,jj]) 
                 Xks[-1,jj] -= np.sum(Xks[:,jj]) 
-        
         U = (np.linalg.inv(X0)- np.linalg.inv(Xks))
         
-        return U, X0, Xks
+        # Create Hub_dict
+        new_HubU_dict = {}
+        jj=0
+        for a in HubU_IO_dict:
+            new_HubU_dict[a]={} 
+            for n in HubU_IO_dict[a]:
+                new_HubU_dict[a][n]={}
+                for l in HubU_IO_dict[a][n]:
+                    new_HubU_dict[a][n][l]={}
+                    if HubU_IO_dict[a][n][l]==0:
+                        pass
+                    elif HubU_IO_dict[a][n][l]==2 and nspin == 2:
+                        new_HubU_dict[a][n][l][0]={'U':U[jj,jj]}
+                        new_HubU_dict[a][n][l][1]={'U':U[jj+1,jj+1]}
+                        jj+=2
+                    else:
+                        new_HubU_dict[a][n][l][0]={'U':U[jj,jj]}
+                        new_HubU_dict[a][n][l][1]={'U':U[jj,jj]}
+                        jj+=1
+        
+        if out == 'all':
+            return new_HubU_dict, U, X0, Xks 
+        else:
+            return new_HubU_dict
     
     def get_linear_response_U0(self,a,n,l,s,
                                HubU_dict = {},
