@@ -13,7 +13,7 @@ from gpaw.mpi import world
 from gpaw.tddft.units import attosec_to_autime
 from numpy.linalg import solve
 
-DEBUG_FULL_INV = False
+DEBUG_FULL_INV = True
 
 def verify(data1, data2, id):
     err = sum(abs(data1-data2).ravel()**2)
@@ -61,15 +61,33 @@ class KickHamiltonian:
 
 
 class LCAOTDDFT(GPAW):
-    def __init__(self, filename=None, **kwargs):
+    def __init__(self, filename=None, propagator_debug=True, propagator='numpysolve_CN', **kwargs):
         GPAW.__init__(self, filename, **kwargs)
         self.kick_strength = [0.0, 0.0, 0.0]
         self.tddft_initialized = False
-        
+        plist = {'numpysolve_CN': self.linear_propagator}
+        self.propagator = plist[propagator]
+
         # Restarting from a file
         if filename is not None:
             self.initialize()
             self.set_positions()
+
+    def linear_propagator(self, sourceC_nM, targetC_nM, S_MM, H_MM, dt):
+        self.timer.start('Linear solve')
+
+        if DEBUG_FULL_INV:
+            mpiverify(H_MM, "H_MM first")
+            U_MM = dot(inv(S_MM-0.5j*H_MM*dt), S_MM+0.5j*H_MM*dt)
+            mpiverify(U_MM, "U_MM first")
+            debugC_nM = dot(sourceC_nM, U_MM.T.conjugate())
+
+        targetC_nM[:] = solve(S_MM-0.5j*H_MM*dt, np.dot(S_MM+0.5j*H_MM*dt, sourceC_nM.T.conjugate())).T.conjugate()
+
+        if DEBUG_FULL_INV:
+             verify(targetC_nM, debugC_nM, "Linear solver propagator vs. reference")
+
+        self.timer.stop('Linear solve')
 
     def absorption_kick(self, strength):
         self.tddft_init()
@@ -92,34 +110,44 @@ class LCAOTDDFT(GPAW):
 
         # Create hamiltonian object for absorbtion kick
         kick_hamiltonian = KickHamiltonian(self, ConstantElectricField(magnitude, direction=direction))
-        
-        Vkick_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(kick_hamiltonian, self.wfs, self.wfs.kpt_u[0], add_kinetic=False, root=-1)
-        mpiverify(Vkick_MM,"Vkick_MM")
+        for k, kpt in enumerate(self.wfs.kpt_u):
+            Vkick_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(kick_hamiltonian, self.wfs, kpt, add_kinetic=False, root=-1)
+            for i in range(10):
+                self.propagator(kpt.C_nM, kpt.C_nM, kpt.S_MM, Vkick_MM, 0.1)
+            mpiverify(Vkick_MM,"Vkick_MM")
   
-        # Apply kick
-        if DEBUG_FULL_INV:
-            Ukick_MM = dot(inv(self.S_MM-0.5j*0.1*Vkick_MM), self.S_MM+0.5j*0.1*Vkick_MM)
-            temp_C_nM = self.C_nM.copy()
-            for i in range(0,10):
-                temp_C_nM = dot(temp_C_nM, Ukick_MM.T)
-
-        for i in range(0,10):
-            self.C_nM = solve(self.S_MM-0.5j*0.1*Vkick_MM, np.dot(self.S_MM+0.5j*0.1*Vkick_MM, self.C_nM.T)).T     
-
-        if DEBUG_FULL_INV:
-            verify(temp_C_nM, self.C_nM, "Absorbtion propagator")
-
-        mpiverify(self.C_nM, "C_nm after kick")
-
     def tddft_init(self):
         if not self.tddft_initialized:
              self.density.mixer = DummyMixer()    # Reset the density mixer
-             self.S_MM = self.wfs.S_qMM[0]        # Get the overlap matrix
-             self.C_nM = self.wfs.kpt_u[0].C_nM   # Get the LCAO matrix
              self.tddft_initialized = True
+             for k, kpt in enumerate(self.wfs.kpt_u):
+                 kpt.C2_nM = kpt.C_nM.copy()
+                 kpt.firstC_nM = kpt.C_nM.copy()
+
+
+    def update_projectors(self):
+        self.timer.start('LCAO update projectors') 
+        # Loop over all k-points
+        for k, kpt in enumerate(self.wfs.kpt_u):
+            for a, P_ni in kpt.P_ani.items():
+                P_ni.fill(117)
+                gemm(1.0, kpt.P_aMi[a], kpt.C_nM, 0.0, P_ni, 'n')
+            mpiverify(kpt.C_nM, "C_nM first")
+        self.timer.stop('LCAO update projectors') 
+
+    def save_wfs(self):
+        for k, kpt in enumerate(self.wfs.kpt_u):
+            kpt.C2_nM[:] = kpt.C_nM
+
+    def update_hamiltonian(self):
+        self.update_projectors()
+        self.density.update(self.wfs)
+        self.hamiltonian.update(self.density)
 
     def propagate(self, dt, max_steps, out='lcao.dm'):
         dt *= attosec_to_autime
+        self.dt = dt
+        
         self.dm_file = paropen(out,'w')
         self.tddft_init()
 
@@ -148,62 +176,33 @@ class LCAOTDDFT(GPAW):
                 print line,
                 self.dm_file.flush()
 
-            self.timer.start('LCAO update projectors') 
-            # Update projectors, (is this needed?)
-            for a, P_ni in self.wfs.kpt_u[0].P_ani.items():
-                P_ni.fill(117)
-                gemm(1.0, self.wfs.kpt_u[0].P_aMi[a], self.C_nM, 0.0, P_ni, 'n')
+            # ---------------------------------------------------------------------------- 
+            # Predictor step
+            # ----------------------------------------------------------------------------
+            # 1. Calculate H(t)
+            self.save_wfs() # kpt.C2_nM = kpt.C_nM
+            self.update_hamiltonian()
+            # 2. H_MM(t) = <M|H(t)|H>
+            #    Solve Psi(t+dt) from (S_MM - 0.5j*H_MM(t)*dt) Psi(t+dt) = (S_MM + 0.5j*H_MM(t)*dt) Psi(t)
+            for k, kpt in enumerate(self.wfs.kpt_u):
+                kpt.H0_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(self.hamiltonian, self.wfs, kpt, root=-1)
+                self.propagator(kpt.C_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM, dt)
+            # ----------------------------------------------------------------------------
+            # Propagator step
+            # ----------------------------------------------------------------------------
+            # 1. Calculate H(t+dt)
+            self.update_hamiltonian()
+            # 2. Estimate H(t+0.5*dt) ~ H(t) + H(t+dT)
+            for k, kpt in enumerate(self.wfs.kpt_u):
+                H_MM = 0.5 * kpt.H0_MM + \
+                       0.5 * self.wfs.eigensolver.calculate_hamiltonian_matrix( \
+                                 self.hamiltonian, self.wfs, kpt, root=-1)
+                # 3. Solve Psi(t+dt) from (S_MM - 0.5j*H_MM(t+0.5*dt)*dt) Psi(t+dt) = (S_MM + 0.5j*H_MM(t+0.5*dt)*dt) Psi(t)
+                self.propagator(kpt.C2_nM, kpt.C_nM, kpt.S_MM, H_MM, dt)
 
-            self.timer.stop('LCAO update projectors') 
-            self.wfs.kpt_u[0].C_nM[:] = self.C_nM
-            mpiverify(self.C_nM, "C_nM first")
-            self.density.update(self.wfs)
-            self.hamiltonian.update(self.density)
-
-
-            tempC_nM = self.C_nM.copy()
-            H_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(self.hamiltonian, self.wfs, self.wfs.kpt_u[0], root=-1)
-
-            if DEBUG_FULL_INV:
-                U_MM = dot(inv(self.S_MM-0.5j*H_MM*dt), self.S_MM+0.5j*H_MM*dt)
-                mpiverify(U_MM, "U_MM first")
-                debugC_nM = dot(self.C_nM, U_MM.T)
-
-            self.timer.start('Linear solve')
-            self.wfs.kpt_u[0].C_nM = solve(self.S_MM-0.5j*H_MM*dt, np.dot(self.S_MM+0.5j*H_MM*dt, \
-                                                                          self.wfs.kpt_u[0].C_nM.T)).T
-            self.timer.stop('Linear solve')
-            mpiverify(H_MM, "H_MM first")
-            if DEBUG_FULL_INV:          
-                verify(self.wfs.kpt_u[0].C_nM, debugC_nM, "Predictor propagator")
-
-            for a, P_ni in self.wfs.kpt_u[0].P_ani.items():
-                P_ni.fill(117)
-                gemm(1.0, self.wfs.kpt_u[0].P_aMi[a], self.wfs.kpt_u[0].C_nM, 0.0, P_ni, 'n')
-
-            self.density.update(self.wfs)
-            self.hamiltonian.update(self.density)
-            H_MM = 0.5 * H_MM + 0.5 * self.wfs.eigensolver.calculate_hamiltonian_matrix(self.hamiltonian, self.wfs, self.wfs.kpt_u[0], root=-1)
-            mpiverify(H_MM, "H_MM first")
-
-            if DEBUG_FULL_INV:
-                U_MM = dot(inv(self.S_MM-0.5j*H_MM*dt), self.S_MM+0.5j*H_MM*dt)
-                mpiverify(U_MM, "U_MM first")
-                debugC_nM = dot(self.C_nM, U_MM.T)
-
-            self.timer.start('Linear solve')
-            self.C_nM = solve(self.S_MM-0.5j*H_MM*dt, np.dot(self.S_MM+0.5j*H_MM*dt,
-                                                             self.C_nM.T)).T
-            self.timer.stop('Linear solve')
-
-
-            if DEBUG_FULL_INV:          
-                verify(debugC_nM, self.C_nM, "Propagator")
-
-            mpiverify(self.C_nM, "C_nM second")
             steps += 1
             if steps > max_steps:
-                self.self.timer.stop('Propagate')
+                self.timer.stop('Propagate')
                 break
         self.dm_file.close()
 
