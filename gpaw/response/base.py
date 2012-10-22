@@ -268,7 +268,7 @@ class BASECHI:
         return    
 
 
-    def get_phi_aGp(self, q_c=None):
+    def get_phi_aGp(self, q_c=None, parallel=True):
         if q_c is None:
             q_c = self.q_c
             qq_v = self.qq_v
@@ -286,17 +286,22 @@ class BASECHI:
         kk_Gv = gemmdot(q_c + self.Gvec_Gc, self.bcell_cv.copy(), beta=0.0)
         phi_aGp = {}
 
-        from gpaw.response.parallel import parallel_partition
+        if parallel:
+            from gpaw.response.parallel import parallel_partition
 
-        npw, npw_local, Gstart, Gend = parallel_partition(
+            npw, npw_local, Gstart, Gend = parallel_partition(
                                self.npw, self.comm.rank, self.comm.size, reshape=False)
-
+        else:
+            Gstart = 0
+            Gend = self.npw
+        
         for a, id in enumerate(setups.id_a):
             phi_aGp[a] = two_phi_planewave_integrals(kk_Gv, setups[a], Gstart, Gend)
             for iG in range(Gstart, Gend):
                 phi_aGp[a][iG] *= np.exp(-1j * 2. * pi *
                                          np.dot(q_c + self.Gvec_Gc[iG], spos_ac[a]) )
-            self.comm.sum(phi_aGp[a])
+            if parallel:
+                self.comm.sum(phi_aGp[a])
         # For optical limit, G == 0 part should change
         if optical_limit:
             for a, id in enumerate(setups.id_a):
