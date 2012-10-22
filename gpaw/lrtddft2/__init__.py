@@ -670,3 +670,53 @@ class LrTDDFTindexed:
             self.Kfile.close()
             self.ready_file.close()
             self.log_file.close()
+
+
+
+
+########################
+def lr_communicators(world, dd_size, eh_size):
+    """Create communicators for LrTDDFT calculation.
+
+    Parameters:
+    ------------------------------------------------------------------------------
+    world        | MPI world communicator (gpaw.mpi.world)
+    dd_size      | Over how many processes is domain distributed.
+    eh_size      | Over how many processes are electron-hole pairs distributed.
+    ------------------------------------------------------------------------------
+    Note: Sizes must match, i.e., world.size must be equal to dd_size x eh_size,
+          e.g., 1024 = 64*16
+    Tip:  Use enough processes for domain decomposition (dd_size) to fit everything
+          into memory, and use the remaining processes for electron-hole pairs
+          as it is trivially parallel.
+
+    Returns: dd_comm, eh_comm
+    ------------------------------------------------------------------------------
+    dd_comm      | MPI communicator for domain decomposition
+                 | Pass this to ground state calculator object (GPAW object).
+    eh_comm      | MPI communicator for electron hole pairs
+                 | Pass this to linear response calculator (LrTDDFT object).
+    ------------------------------------------------------------------------------
+
+    Example:
+
+    dd_comm, eh_comm = lr_communicators(gmpi.world, 4, 2)
+    txt = 'lr_%04d_%04d.txt' % (dd_comm.rank, eh_comm.rank)
+    lr = LrTDDFT(GPAW('unocc.gpw', communicator=dd_comm), eh_comm=eh_comm, txt=txt)
+    """
+
+    if world.size != dd_size * eh_size:
+        raise RuntimeError('Domain decomposition processes (dd_size) times electron-hole (eh_size) processes does not match with total processes (world size != dd_size * eh_size)')
+
+    dd_ranks = []
+    eh_ranks = []
+    for k in range(world.size):
+        if k / dd_size == world.rank / dd_size:
+            dd_ranks.append(k)
+        if k % dd_size == world.rank % dd_size:
+            eh_ranks.append(k)
+    #print 'Proc #%05d DD : ' % world.rank, dd_ranks, '\n', 'Proc #%05d EH : ' % world.rank, eh_ranks
+    return world.new_communicator(dd_ranks), world.new_communicator(eh_ranks)
+
+
+    
