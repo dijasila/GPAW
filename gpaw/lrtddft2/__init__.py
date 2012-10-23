@@ -21,83 +21,6 @@ from gpaw.utilities.tools import pick
 
 
 
-################
-class PairDensity3:
-    def  __init__(self, density):
-        """Initialization needs density instance"""
-        self.density = density
-
-    def initialize(self, kpt, n1, n2):
-        """Set wave function indices."""
-        self.n1 = n1
-        self.n2 = n2
-        self.spin = kpt.s
-        self.P_ani = kpt.P_ani
-        self.psit1_G = pick(kpt.psit_nG, n1)
-        self.psit2_G = pick(kpt.psit_nG, n2)
-
-    def get(self, nt_G, nt_g, rhot_g):
-        np.multiply(self.psit1_G.conj(), self.psit2_G, nt_G)
-        self.density.interpolator.apply(nt_G, nt_g)
-        rhot_g[:] = nt_g[:]
-        
-        # Determine the compensation charges for each nucleus
-        Q_aL = {}
-        for a, P_ni in self.P_ani.items():
-            assert P_ni.dtype == float
-            # Generate density matrix
-            P1_i = P_ni[self.n1]
-            P2_i = P_ni[self.n2]
-            D_ii = np.outer(P1_i.conj(), P2_i)
-            # allowed to pack as used in the scalar product with
-            # the symmetric array Delta_pL
-            D_p  = pack(D_ii)
-            #FIXME: CHECK THIS D_p  = pack(D_ii, tolerance=1e30)
-            
-            # Determine compensation charge coefficients:
-            Q_aL[a] = np.dot(D_p, self.density.setups[a].Delta_pL)
-
-        # Add compensation charges
-        self.density.ghat.add(rhot_g, Q_aL)
-
-#######################
-class KSSingle:
-    def __init__(self, calc, occ_ind, unocc_ind):
-        self.calc = calc
-        self.occ_ind = occ_ind
-        self.unocc_ind = unocc_ind
-        self.energy_diff = None
-        self.pop_diff = None
-        self.dip_mom_r = None
-        self.dip_mom_v = None
-        self.magn_mom = None
-
-    def __str__(self):
-        if self.dip_mom_r is not None and self.dip_mom_v is not None and self.magn_mom is not None:
-            str = "# KS single excitation from state %05d to state %05d: dE_pi = %18.12lf, f_pi = %18.12lf,  dmr_ip = (%18.12lf, %18.12lf, %18.12lf), dmv_ip = (%18.12lf, %18.12lf, %18.12lf), dmm_ip = %18.12lf" \
-                % ( self.occ_ind, \
-                        self.unocc_ind, \
-                        self.energy_diff, \
-                        self.pop_diff, \
-                        self.dip_mom_r[0], self.dip_mom_r[1], self.dip_mom_r[2], \
-                        self.dip_mom_v[0], self.dip_mom_v[1], self.dip_mom_v[2], \
-                        self.magn_mom )
-        elif self.energy_diff is not None and self.pop_diff is not None:
-            str = "# KS single excitation from state %05d to state %05d: dE_pi = %18.12lf, f_pi = %18.12lf" \
-                % ( self.occ_ind, \
-                        self.unocc_ind,  \
-                        self.energy_diff, \
-                        self.pop_diff )
-        elif self.occ_ind is not None and self.unocc_ind is not None:
-            str = "# KS single excitation from state %05d to state %05d" \
-                % ( self.occ_ind, self.unocc_ind )
-        else:
-            raise RuntimeError("Uninitialized KSSingle")
-        return str
-    
-
-
-
 #####################################################
 class LrTDDFTindexed:
     def __init__(self, 
@@ -118,7 +41,7 @@ class LrTDDFTindexed:
         self.max_occ = max_occ
         self.min_unocc = min_unocc
         self.max_unocc = max_unocc
-        self.max_energy_diff = max_energy_diff / units.Hartree
+        self.max_energy_diff = max_energy_diff # / units.Hartree
 
 
         self.calc = calc
@@ -141,15 +64,18 @@ class LrTDDFTindexed:
         self.min_pop_diff = 1e-3
 
         # > FIXME
+        assert len(self.calc.wfs.kpt_u) == 1, "LrTDDFTindexed does not support more than one k-point/spin."
         self.kpt_ind = 0
         # <
-        
+         
         if self.min_occ is None:   self.min_occ = 0
         if self.min_unocc is None: self.min_unocc = self.min_occ
         if self.max_occ is None:   self.max_occ = len(self.calc.wfs.kpt_u[self.kpt_ind].eps_n)
         if self.max_unocc is None: self.max_unocc = self.max_occ
         if self.max_energy_diff is None: self.max_energy_diff = 1e9
 
+        self.kss_list_ready = False
+        self.ks_prop_ready = False
         self.K_matrix_ready = False
 
 
@@ -168,7 +94,7 @@ class LrTDDFTindexed:
                 [i,p,ediff,fdiff] = [int(line[0]),int(line[1]), float(line[2]), float(line[3])]
                 dm = [float(line[4]),float(line[5]),float(line[6])]
                 mm = [float(line[7]),float(line[8]),float(line[9])]
-                kss = KSSingle(self.calc, i,p)
+                kss = KSSingle(self.calc, i,p) # see below
                 kss.energy_diff = ediff
                 kss.pop_diff = fdiff
                 kss.dip_mom_r = np.array(dm)
@@ -265,26 +191,30 @@ class LrTDDFTindexed:
     recalculate | None = don't recalculate anything if not needed
                 | 'all'    = recalculate everything (matrix and eigenvectors)
                 | 'matrix' = (re)calculate only matrix (no diagonalization)
-                | 'eig'    = (re)calculate only eigenvectors from the current
+                | 'eigen'  = (re)calculate only eigenvectors from the current
                 |            matrix (on-the-fly)
     """
     def calculate_excitations(self, recalculate=None):
-        if recalculate is 'all':
+        if recalculate == 'all' or recalculate == 'matrix':
             self.kss_list = None
             self.evalues = None
             self.evectors = None
-        if recalculate is 'eig':
+        if recalculate == 'eigen':
             self.evalues = None
             self.evectors = None
 
         if self.evectors is None:
-            if recalculate is not 'eig':
+            if ( recalculate is None 
+                 or recalculate == 'all'
+                 or recalculate == 'matrix' ):
                 self.calculate_KS_singles()
                 self.calculate_KS_properties()
                 self.calculate_K_matrix()
 
-
             gpaw.mpi.world.barrier()
+
+            if recalculate == 'matrix':
+                return None
             
             # create matrix FIXME: SCALAPACK
             self.ind_map = {}
@@ -298,11 +228,16 @@ class LrTDDFTindexed:
             for off in range(self.stride):
                 rrfn = self.basefilename + '.ready_rows.' + '%04dof%04d' % (off, self.stride)
                 for line in open(rrfn,'r'):
-                    key = (int(line.split()[0]), int(line.split()[1]))
-                    if not key in self.ind_map:
+                    i = int(line.split()[0])
+                    p = int(line.split()[1])
+                    key = (i,p)
+                    # if key not in self.kss_list, drop it
+                    found = False
+                    for kss in self.kss_list:
+                        if kss.occ_ind == i and kss.unocc_ind == p: found = True
+                    if found and not key in self.ind_map:
                         self.ind_map[key] = nind
                         nind += 1
-
 
             omega_matrix = np.zeros((nind,nind))
             for off in range(self.stride):
@@ -312,7 +247,11 @@ class LrTDDFTindexed:
                     ipkey = (int(line[0]), int(line[1]))
                     jqkey = (int(line[2]), int(line[3]))
                     Kvalue = float(line[4])
-                    omega_matrix[self.ind_map[ipkey],self.ind_map[jqkey]] = Kvalue
+                    if not ipkey in self.ind_map or not jqkey in self.ind_map:
+                        continue
+                    ip = self.ind_map[ipkey]
+                    jq = self.ind_map[jqkey]
+                    omega_matrix[ip,jq] = Kvalue
 
 
             diag = np.zeros(nind)
@@ -338,14 +277,16 @@ class LrTDDFTindexed:
         return self.evectors
 
 
+
     def calculate_KS_singles(self):
-        if self.kss_list is not None:
-            return self.kss_list
+        if self.kss_list_ready: return self.kss_list
 
         eps_n = self.calc.wfs.kpt_u[self.kpt_ind].eps_n      # eigen energies
         f_n = self.calc.wfs.kpt_u[self.kpt_ind].f_n          # occupations
 
+
         # create Kohn-Sham single excitation list with energy filter
+        old_kss_list = self.kss_list
         self.kss_list = []
         for i in range(self.min_occ, self.max_occ+1):
             for p in range(self.min_unocc, self.max_unocc+1):
@@ -364,8 +305,42 @@ class LrTDDFTindexed:
             if ediff < 0: return -1
             elif ediff > 0: return 1
             return 0
-        self.kss_list = sorted(self.kss_list, cmp=energy_diff_cmp)
+        self.kss_list = sorted(self.kss_list, cmp=energy_diff_cmp)            
 
+
+        # remove old and add new, but only add to the end of the list
+        # (otherwise lower triangle matrix is not filled completely)
+        if old_kss_list is not None:
+            if gpaw.mpi.world.rank == 0:
+                for kss in self.kss_list:
+                    print kss
+                for kss in old_kss_list:
+                    print kss
+                
+            new_kss_list = self.kss_list
+            self.kss_list = []
+            # if in both lists
+            for kss_o in old_kss_list:
+                for kss_n in new_kss_list:
+                    if ( kss_o.occ_ind == kss_n.occ_ind
+                         and kss_o.unocc_ind == kss_n.unocc_ind ):
+                        self.kss_list.append(kss_o)
+                        break
+
+            # if only in new list
+            app_list = []
+            for kss_n in new_kss_list:
+                found = False
+                for kss in self.kss_list:
+                    if kss.occ_ind == kss_n.occ_ind and kss.unocc_ind == kss_n.unocc_ind:
+                        found = True
+                        break
+                if not found:
+                    app_list.append(kss_n)
+            self.kss_list += app_list
+
+
+        self.kss_list_ready = True
         return self.kss_list
 
 
@@ -375,13 +350,11 @@ class LrTDDFTindexed:
 
 
     def calculate_KS_properties(self):
-        if self.kss_list is not None and len(self.kss_list) > 0:
-            if self.kss_list[-1].dip_mom_r is not None:
-                return
+        if self.ks_prop_ready: return
         self.calculate_KS_singles()
 
         if gpaw.mpi.rank == 0:
-            self.kss_file = open(self.basefilename+'.KS_singles','w')
+            self.kss_file = open(self.basefilename+'.KS_singles','a')
 
         # FIXME
         self.kpt_ind = 0
@@ -402,9 +375,11 @@ class LrTDDFTindexed:
 
         # loop over all KS single excitations
         for kss_ip in self.kss_list:
+            if kss_ip.dip_mom_r is not None and kss_ip.magn_mom is not None: continue
+
 #            print 'KS single properties for ', kss_ip.occ_ind, ' => ', kss_ip.unocc_ind
             # Dipole moment
-            self.pair_density = PairDensity3(self.calc.density)
+            self.pair_density = LRiPairDensity(self.calc.density) # see below
             self.calculate_pair_density(self.calc.wfs.kpt_u[self.kpt_ind], kss_ip, 
                                         dnt_Gip, dnt_gip, drhot_gip)
             kss_ip.dip_mom_r = self.calc.density.finegd.calculate_dipole_moment(drhot_gip)
@@ -453,6 +428,8 @@ class LrTDDFTindexed:
 
         if gpaw.mpi.rank == 0:
             self.kss_file.close()
+            
+        self.ks_prop_ready = True
         
 
 
@@ -489,7 +466,7 @@ class LrTDDFTindexed:
         self.poisson.set_grid_descriptor(self.calc.density.finegd)
         self.poisson.initialize()
 
-        self.pair_density = PairDensity3(self.calc.density)
+        self.pair_density = LRiPairDensity(self.calc.density)
 
         dnt_Gip = self.calc.wfs.gd.empty()
         dnt_gip = self.calc.density.finegd.empty()
@@ -674,7 +651,94 @@ class LrTDDFTindexed:
 
 
 
-########################
+    
+
+
+###############################################################################
+# Small utility classes and functions
+###############################################################################
+
+class LRiPairDensity:
+    def  __init__(self, density):
+        """Initialization needs density instance"""
+        self.density = density
+
+    def initialize(self, kpt, n1, n2):
+        """Set wave function indices."""
+        self.n1 = n1
+        self.n2 = n2
+        self.spin = kpt.s
+        self.P_ani = kpt.P_ani
+        self.psit1_G = pick(kpt.psit_nG, n1)
+        self.psit2_G = pick(kpt.psit_nG, n2)
+
+    def get(self, nt_G, nt_g, rhot_g):
+        np.multiply(self.psit1_G.conj(), self.psit2_G, nt_G)
+        self.density.interpolator.apply(nt_G, nt_g)
+        rhot_g[:] = nt_g[:]
+        
+        # Determine the compensation charges for each nucleus
+        Q_aL = {}
+        for a, P_ni in self.P_ani.items():
+            assert P_ni.dtype == float
+            # Generate density matrix
+            P1_i = P_ni[self.n1]
+            P2_i = P_ni[self.n2]
+            D_ii = np.outer(P1_i.conj(), P2_i)
+            # allowed to pack as used in the scalar product with
+            # the symmetric array Delta_pL
+            D_p  = pack(D_ii)
+            #FIXME: CHECK THIS D_p  = pack(D_ii, tolerance=1e30)
+            
+            # Determine compensation charge coefficients:
+            Q_aL[a] = np.dot(D_p, self.density.setups[a].Delta_pL)
+
+        # Add compensation charges
+        self.density.ghat.add(rhot_g, Q_aL)
+
+
+
+###############################################################################
+class KSSingle:
+    def __init__(self, calc, occ_ind, unocc_ind):
+        self.calc = calc
+        self.occ_ind = occ_ind
+        self.unocc_ind = unocc_ind
+        self.energy_diff = None
+        self.pop_diff = None
+        self.dip_mom_r = None
+        self.dip_mom_v = None
+        self.magn_mom = None
+
+    def __str__(self):
+        if self.dip_mom_r is not None and self.dip_mom_v is not None and self.magn_mom is not None:
+            str = "# KS single excitation from state %05d to state %05d: dE_pi = %18.12lf, f_pi = %18.12lf,  dmr_ip = (%18.12lf, %18.12lf, %18.12lf), dmv_ip = (%18.12lf, %18.12lf, %18.12lf), dmm_ip = %18.12lf" \
+                % ( self.occ_ind, \
+                        self.unocc_ind, \
+                        self.energy_diff, \
+                        self.pop_diff, \
+                        self.dip_mom_r[0], self.dip_mom_r[1], self.dip_mom_r[2], \
+                        self.dip_mom_v[0], self.dip_mom_v[1], self.dip_mom_v[2], \
+                        self.magn_mom )
+        elif self.energy_diff is not None and self.pop_diff is not None:
+            str = "# KS single excitation from state %05d to state %05d: dE_pi = %18.12lf, f_pi = %18.12lf" \
+                % ( self.occ_ind, \
+                        self.unocc_ind,  \
+                        self.energy_diff, \
+                        self.pop_diff )
+        elif self.occ_ind is not None and self.unocc_ind is not None:
+            str = "# KS single excitation from state %05d to state %05d" \
+                % ( self.occ_ind, self.unocc_ind )
+        else:
+            raise RuntimeError("Uninitialized KSSingle")
+        return str
+    
+
+
+
+
+
+###############################################################################
 def lr_communicators(world, dd_size, eh_size):
     """Create communicators for LrTDDFT calculation.
 
@@ -719,4 +783,3 @@ def lr_communicators(world, dd_size, eh_size):
     return world.new_communicator(dd_ranks), world.new_communicator(eh_ranks)
 
 
-    
