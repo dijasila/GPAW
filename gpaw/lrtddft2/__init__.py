@@ -54,11 +54,12 @@ class LrTDDFTindexed:
         self.read(basefilename)
 
         # initialize wfs, paw corrections and xc
-        if calc is not None:
-            self.calc.converge_wave_functions()
-            if self.calc.density.nct_G is None:   self.calc.set_positions()
+        #if calc is not None:
+        #    self.calc.converge_wave_functions()
+        #    if self.calc.density.nct_G is None:   self.calc.set_positions()
+        #    self.xc.initialize(self.calc.density, self.calc.hamiltonian, self.calc.wfs, self.calc.occupations)
 
-            self.xc.initialize(self.calc.density, self.calc.hamiltonian, self.calc.wfs, self.calc.occupations)
+
 
         self.deriv_scale = 1e-5
         self.min_pop_diff = 1e-3
@@ -70,7 +71,7 @@ class LrTDDFTindexed:
          
         if self.min_occ is None:   self.min_occ = 0
         if self.min_unocc is None: self.min_unocc = self.min_occ
-        if self.max_occ is None:   self.max_occ = len(self.calc.wfs.kpt_u[self.kpt_ind].eps_n)
+        if self.max_occ is None:   self.max_occ = len(self.calc.wfs.kpt_u[self.kpt_ind].f_n)
         if self.max_unocc is None: self.max_unocc = self.max_occ
         if self.max_energy_diff is None: self.max_energy_diff = 1e9
 
@@ -94,7 +95,7 @@ class LrTDDFTindexed:
                 [i,p,ediff,fdiff] = [int(line[0]),int(line[1]), float(line[2]), float(line[3])]
                 dm = [float(line[4]),float(line[5]),float(line[6])]
                 mm = [float(line[7]),float(line[8]),float(line[9])]
-                kss = KSSingle(self.calc, i,p) # see below
+                kss = KSSingle(i,p) # see below
                 kss.energy_diff = ediff
                 kss.pop_diff = fdiff
                 kss.dip_mom_r = np.array(dm)
@@ -199,6 +200,12 @@ class LrTDDFTindexed:
             self.kss_list = None
             self.evalues = None
             self.evectors = None
+            self.ready_indices = []
+            rrfn = self.basefilename + '.ready_rows.' + '%04dof%04d' % (self.offset, self.stride)
+            Kfn = self.basefilename + '.K_matrix.' + '%04dof%04d' % (self.offset, self.stride)
+            open(rrfn,'w').close()
+            open(Kfn,'w').close()
+            
         if recalculate == 'eigen':
             self.evalues = None
             self.evectors = None
@@ -294,7 +301,7 @@ class LrTDDFTindexed:
                 df_ip = f_n[i] - f_n[p]
                 if np.abs(deps_pi) <= self.max_energy_diff and df_ip > self.min_pop_diff:
                     # i, p, deps, df, mur, muv, magn
-                    kss = KSSingle(self.calc,i,p)
+                    kss = KSSingle(i,p)
                     kss.energy_diff = deps_pi
                     kss.pop_diff = df_ip
                     self.kss_list.append(kss)
@@ -353,11 +360,17 @@ class LrTDDFTindexed:
         if self.ks_prop_ready: return
         self.calculate_KS_singles()
 
+
+        # initialize wfs, paw corrections and xc
+        if self.calc is not None:
+            self.calc.converge_wave_functions()
+            if self.calc.density.nct_G is None:   self.calc.set_positions()
+            self.xc.initialize(self.calc.density, self.calc.hamiltonian, self.calc.wfs, self.calc.occupations)
+
+
         if gpaw.mpi.rank == 0:
             self.kss_file = open(self.basefilename+'.KS_singles','a')
 
-        # FIXME
-        self.kpt_ind = 0
 
         dnt_Gip = self.calc.wfs.gd.empty()
         dnt_gip = self.calc.density.finegd.empty()
@@ -700,8 +713,7 @@ class LRiPairDensity:
 
 ###############################################################################
 class KSSingle:
-    def __init__(self, calc, occ_ind, unocc_ind):
-        self.calc = calc
+    def __init__(self, occ_ind, unocc_ind):
         self.occ_ind = occ_ind
         self.unocc_ind = unocc_ind
         self.energy_diff = None
