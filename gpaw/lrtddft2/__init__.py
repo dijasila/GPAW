@@ -37,7 +37,7 @@ class LrTDDFTindexed:
         self.ready_indices = []
         self.kss_list = None
         self.evectors = None
-        self.recalculate = None
+        self.recalculate = recalculate
 
         self.basefilename = basefilename
         self.xc = XC(xc)        
