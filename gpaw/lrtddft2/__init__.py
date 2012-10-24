@@ -318,11 +318,11 @@ class LrTDDFTindexed:
         # remove old and add new, but only add to the end of the list
         # (otherwise lower triangle matrix is not filled completely)
         if old_kss_list is not None:
-            if gpaw.mpi.world.rank == 0:
-                for kss in self.kss_list:
-                    print kss
-                for kss in old_kss_list:
-                    print kss
+            #if gpaw.mpi.world.rank == 0:
+            #    for kss in self.kss_list:
+            #        print kss
+            #    for kss in old_kss_list:
+            #        print kss
                 
             new_kss_list = self.kss_list
             self.kss_list = []
@@ -357,9 +357,16 @@ class LrTDDFTindexed:
 
 
     def calculate_KS_properties(self):
-        if self.ks_prop_ready: return
         self.calculate_KS_singles()
 
+        if self.ks_prop_ready: return
+        self.ks_prop_ready = True
+        for kss_ip in self.kss_list:
+            if kss_ip.dip_mom_r is None and kss_ip.magn_mom is None:
+                self.ks_prop_ready = False
+                break
+        if self.ks_prop_ready: return
+        
 
         # initialize wfs, paw corrections and xc
         if self.calc is not None:
@@ -389,6 +396,8 @@ class LrTDDFTindexed:
         # loop over all KS single excitations
         for kss_ip in self.kss_list:
             if kss_ip.dip_mom_r is not None and kss_ip.magn_mom is not None: continue
+
+            
 
 #            print 'KS single properties for ', kss_ip.occ_ind, ' => ', kss_ip.unocc_ind
             # Dipole moment
