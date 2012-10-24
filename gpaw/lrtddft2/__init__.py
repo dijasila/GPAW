@@ -4,6 +4,7 @@
 import os
 import datetime
 import time
+import pickle
 import math
 
 import numpy as np
@@ -54,6 +55,9 @@ class LrTDDFTindexed:
         self.offset = self.eh_comm.rank
         #print 'Offset and stride = ', self.offset, ' / ', self.stride
 
+	self.timer = calc.timer
+	self.timer.start('LrTDDFT')
+
         # read
         self.read(basefilename)
 
@@ -94,19 +98,21 @@ class LrTDDFTindexed:
         kss_file = basename+'.KS_singles'
         if os.path.exists(kss_file) and os.path.isfile(kss_file):
             self.kss_list = []
-            for line in open(kss_file,'r'):
-                line = line.split()
-                [i,p,ediff,fdiff] = [int(line[0]),int(line[1]), float(line[2]), float(line[3])]
-                dm = [float(line[4]),float(line[5]),float(line[6])]
-                mm = [float(line[7]),float(line[8]),float(line[9])]
+	    kss_file = open(kss_file)
+	    while True:
+		try:
+		    i, p, ediff, fdiff, dm, mm = pickle.load(kss_file)
+		except EOFError:
+		    break
                 kss = KSSingle(i,p) # see below
                 kss.energy_diff = ediff
                 kss.pop_diff = fdiff
-                kss.dip_mom_r = np.array(dm)
-                kss.magn_mom = np.array(mm)
+                kss.dip_mom_r = dm
+                kss.magn_mom = mm
                 if not kss in self.kss_list:
                     self.kss_list.append(kss)
             if len(self.kss_list) <= 0: self.kss_list = None
+	    kss_file.close()
 
 
     # omega_k = sqrt(lambda_k)
@@ -454,7 +460,10 @@ class LrTDDFTindexed:
 
 
             if gpaw.mpi.rank == 0:
-                self.kss_file.write('%08d %08d  %18.12lf %18.12lf   %18.12lf %18.12lf %18.12lf  %18.12lf %18.12lf %18.12lf\n' % (kss_ip.occ_ind, kss_ip.unocc_ind, kss_ip.energy_diff, kss_ip.pop_diff, kss_ip.dip_mom_r[0], kss_ip.dip_mom_r[1], kss_ip.dip_mom_r[2], kss_ip.magn_mom[0], kss_ip.magn_mom[1], kss_ip.magn_mom[2]))
+		pickle.dump((kss_ip.occ_ind, kss_ip.unocc_ind, 
+		             kss_ip.energy_diff, kss_ip.pop_diff, 
+			     kss_ip.dip_mom_r, kss_ip.magn_mom),
+			     self.kss_file)
 
         if gpaw.mpi.rank == 0:
             self.kss_file.close()
@@ -544,13 +553,18 @@ class LrTDDFTindexed:
             drhot_gip[:] = 0.0
 
             # pair density
+	    self.timer.start('Pair density')
             self.calculate_pair_density(self.calc.wfs.kpt_u[self.kpt_ind], kss_ip, 
                                         dnt_Gip, dnt_gip, drhot_gip)
 
+	    self.timer.stop('Pair density')
             # smooth hartree potential
             dVht_gip[:] = 0.0
+	    self.timer.start('Poisson')
             self.poisson.solve(dVht_gip, drhot_gip, charge=None)
+	    self.timer.stop('Poisson')
 
+	    self.timer.start('Smooth XC')
             # smooth xc potential
             # finite difference plus
             nt_g[self.kpt_ind][:] = self.deriv_scale * dnt_gip
@@ -566,6 +580,7 @@ class LrTDDFTindexed:
             # finite difference approx for fxc
             # vxc = (vxc+ - vxc-) / 2h
             dVxct_gip *= 1./(2.*self.deriv_scale)
+	    self.timer.stop('Smooth XC')
 
 
             # XC corrections
@@ -575,6 +590,7 @@ class LrTDDFTindexed:
             # FIXME
             kss_ip.spin = 0
 
+	    self.timer.start('Atomic XC')
             for a, P_ni in self.calc.wfs.kpt_u[kss_ip.spin].P_ani.items():
                 I_sp = np.zeros_like(self.calc.density.D_asp[a])
                 I_sp_2 = np.zeros_like(self.calc.density.D_asp[a])
@@ -595,6 +611,7 @@ class LrTDDFTindexed:
 
                 # finite difference
                 I_asp[a] = (I_sp - I_sp_2) / (2.*self.deriv_scale)
+	    self.timer.stop('Atomic XC')
                 
 
             # calculate whole row before write to file (store row to K)
@@ -615,18 +632,22 @@ class LrTDDFTindexed:
                 dnt_gjq[:] = 0.0
                 drhot_gjq[:] = 0.0
 
+	        self.timer.start('Pair density')
                 self.calculate_pair_density(self.calc.wfs.kpt_u[self.kpt_ind], kss_jq, 
                                             dnt_Gjq, dnt_gjq, drhot_gjq)
+	        self.timer.stop('Pair density')
 
 
+		self.timer.start('Integrate')
                 # Hartree smooth part, RHOT_JQ HERE???
                 Ig = self.calc.density.finegd.integrate(dVht_gip, drhot_gjq)
                 # XC smooth part
                 Ig += self.calc.density.finegd.integrate(dVxct_gip[self.kpt_ind], dnt_gjq)
-
+		self.timer.stop('Integrate')
                 # FIXME
                 kss_ip.spin = kss_jq.spin = 0
                 # atomic corrections
+		self.timer.start('Atomic corrections')
                 Ia = 0.
                 for a, P_ni in self.calc.wfs.kpt_u[kss_ip.spin].P_ani.items():
                     Pip_ni = self.calc.wfs.kpt_u[kss_ip.spin].P_ani[a]
@@ -648,6 +669,7 @@ class LrTDDFTindexed:
                     
                     # XC part, CHECK THIS JQ EVERWHERE!!!
                     Ia += np.dot(I_asp[a][kss_jq.spin], Djq_p)
+		self.timer.stop('Atomic corrections')
 
                 Ia = self.calc.density.finegd.comm.sum(Ia)
                 
@@ -661,6 +683,7 @@ class LrTDDFTindexed:
                            * Itot] )
 
             # write  i p j q Omega_Hxc -2345.789012345678
+	    self.timer.start('Write Omega')
             if self.calc.density.finegd.comm.rank == 0:
                 for k in K:
                     [i,p,j,q,Kipjq] = k
@@ -670,6 +693,7 @@ class LrTDDFTindexed:
                 self.Kfile.flush()
                 self.ready_file.write("%d %d\n" % (kss_ip.occ_ind, kss_ip.unocc_ind))
                 self.ready_file.flush()
+	    self.timer.stop('Write Omega')
 
             self.ready_indices.append([kss_ip.occ_ind,kss_ip.unocc_ind])
         
@@ -678,6 +702,9 @@ class LrTDDFTindexed:
             self.ready_file.close()
             self.log_file.close()
 
+
+    def __del__(self):
+        self.timer.stop('LrTDDFT')
 
 
 
@@ -762,8 +789,6 @@ class KSSingle:
             raise RuntimeError("Uninitialized KSSingle")
         return str
     
-
-
 
 
 
