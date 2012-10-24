@@ -4,9 +4,11 @@
 import os
 import datetime
 import time
+import math
 
 import numpy as np
-import ase.units as units
+
+import ase.units
 import gpaw.mpi
 from gpaw.xc import XC
 from gpaw.poisson import PoissonSolver
@@ -30,10 +32,12 @@ class LrTDDFTindexed:
                  min_occ=None, max_occ=None, 
                  min_unocc=None, max_unocc=None,
                  max_energy_diff=None,
-                 eh_communicator=None):
+                 eh_communicator=None,
+                 recalculate=None):
         self.ready_indices = []
         self.kss_list = None
         self.evectors = None
+        self.recalculate = None
 
         self.basefilename = basefilename
         self.xc = XC(xc)        
@@ -158,6 +162,11 @@ class LrTDDFTindexed:
 
     def get_spectrum(self, min_energy=0.0, max_energy=30.0, energy_step=0.01, width=0.1, units='eVcgs'):
         self.calculate_excitations()
+        max_energy = max_energy / ase.units.Hartree
+        min_energy = min_energy / ase.units.Hartree
+        energy_step = energy_step / ase.units.Hartree
+        width = width / ase.units.Hartree
+
         n = int((max_energy-min_energy)/energy_step+.5)
         w = np.zeros(n)
         S = np.zeros(n)
@@ -166,18 +175,17 @@ class LrTDDFTindexed:
         for k in range(n):
             w[k] += min_energy + k*energy_step
 
-        for (k,omega) in enumerate(self.evalues):
-            c = self.get_oscillator_strength(k) / width / np.sqrt(6.28318530717959)
-            S += c * np.exp( (-5./width/width) * np.pow(w[k]-self.get_excitation_energy(k),2) ) 
+        for (k,omega2) in enumerate(self.evalues):
+            c = self.get_oscillator_strength(k) / width / math.sqrt(6.28318530717959)
+            S += c * np.exp( (-5./width/width) * np.power(w-self.get_excitation_energy(k),2) ) 
 
             c = self.get_rotatory_strength(k) / width / np.sqrt(6.28318530717959)
-            R += c * np.exp( (-5./width/width) * np.pow(w[k]-self.get_excitation_energy(k),2) ) 
+            R += c * np.exp( (-5./width/width) * np.power(w-self.get_excitation_energy(k),2) ) 
 
         if units == 'eVcgs':
-            for k in range(n):
-                w *= units.Hartree
-                S /= units.Hartree
-                R *= 64604.8164 # from turbomole
+            w *= ase.units.Hartree
+            S /= ase.units.Hartree
+            R *= 64604.8164 # from turbomole
 
         return (w,S,R)
         
@@ -195,8 +203,8 @@ class LrTDDFTindexed:
                 | 'eigen'  = (re)calculate only eigenvectors from the current
                 |            matrix (on-the-fly)
     """
-    def calculate_excitations(self, recalculate=None):
-        if recalculate == 'all' or recalculate == 'matrix':
+    def calculate_excitations(self):
+        if self.recalculate == 'all' or self.recalculate == 'matrix':
             self.kss_list = None
             self.evalues = None
             self.evectors = None
@@ -206,21 +214,21 @@ class LrTDDFTindexed:
             open(rrfn,'w').close()
             open(Kfn,'w').close()
             
-        if recalculate == 'eigen':
+        if self.recalculate == 'eigen':
             self.evalues = None
             self.evectors = None
 
         if self.evectors is None:
-            if ( recalculate is None 
-                 or recalculate == 'all'
-                 or recalculate == 'matrix' ):
+            if ( self.recalculate is None 
+                 or self.recalculate == 'all'
+                 or self.recalculate == 'matrix' ):
                 self.calculate_KS_singles()
                 self.calculate_KS_properties()
                 self.calculate_K_matrix()
 
             gpaw.mpi.world.barrier()
 
-            if recalculate == 'matrix':
+            if self.recalculate == 'matrix':
                 return None
             
             # create matrix FIXME: SCALAPACK
