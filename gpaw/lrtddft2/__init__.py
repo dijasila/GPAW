@@ -8,8 +8,7 @@ import pickle
 import math
 
 import numpy as np
-
-import ase.units
+from ase.units import Hartree, alpha
 import gpaw.mpi
 from gpaw.xc import XC
 from gpaw.poisson import PoissonSolver
@@ -19,6 +18,9 @@ from gpaw.utilities import pack
 from gpaw.utilities.lapack import diagonalize
 from gpaw.utilities.tools import coordinates
 from gpaw.utilities.tools import pick
+from gpaw.parameters import InputParameters
+from gpaw.kohnsham_layouts import LrTDDFTLayouts
+
 
 #from gpaw.output import initialize_text_stream
 
@@ -55,8 +57,8 @@ class LrTDDFTindexed:
         self.offset = self.eh_comm.rank
         #print 'Offset and stride = ', self.offset, ' / ', self.stride
 
-	self.timer = calc.timer
-	self.timer.start('LrTDDFT')
+        self.timer = calc.timer
+        self.timer.start('LrTDDFT')
 
         # read
         self.read(basefilename)
@@ -98,12 +100,13 @@ class LrTDDFTindexed:
         kss_file = basename+'.KS_singles'
         if os.path.exists(kss_file) and os.path.isfile(kss_file):
             self.kss_list = []
-	    kss_file = open(kss_file)
-	    while True:
-		try:
-		    i, p, ediff, fdiff, dm, mm = pickle.load(kss_file)
-		except EOFError:
-		    break
+            kss_file = open(kss_file)
+            for line in kss_file:
+                line = line.split()
+                i, p = int(line[0]), int(line[1])
+                ediff, fdiff = float(line[2]), float(line[3])
+                dm = np.array([float(line[4]),float(line[5]),float(line[6])])
+                mm = np.array([float(line[7]),float(line[8]),float(line[9])])
                 kss = KSSingle(i,p) # see below
                 kss.energy_diff = ediff
                 kss.pop_diff = fdiff
@@ -112,7 +115,7 @@ class LrTDDFTindexed:
                 if not kss in self.kss_list:
                     self.kss_list.append(kss)
             if len(self.kss_list) <= 0: self.kss_list = None
-	    kss_file.close()
+            kss_file.close()
 
 
     # omega_k = sqrt(lambda_k)
@@ -128,6 +131,7 @@ class LrTDDFTindexed:
 
     def get_oscillator_strength(self, k):
         self.calculate_excitations()
+        print "SHAPE", self.evectors.shape
         dm = [0.0,0.0,0.0]
         for kss_ip in self.kss_list:
             i = kss_ip.occ_ind
@@ -168,10 +172,10 @@ class LrTDDFTindexed:
 
     def get_spectrum(self, min_energy=0.0, max_energy=30.0, energy_step=0.01, width=0.1, units='eVcgs'):
         self.calculate_excitations()
-        max_energy = max_energy / ase.units.Hartree
-        min_energy = min_energy / ase.units.Hartree
-        energy_step = energy_step / ase.units.Hartree
-        width = width / ase.units.Hartree
+        max_energy = max_energy / Hartree
+        min_energy = min_energy / Hartree
+        energy_step = energy_step / Hartree
+        width = width / Hartree
 
         n = int((max_energy-min_energy)/energy_step+.5)
         w = np.zeros(n)
@@ -191,8 +195,8 @@ class LrTDDFTindexed:
             R += c * np.exp( (-5./width/width) * np.power(w-self.get_excitation_energy(k),2) ) 
 
         if units == 'eVcgs':
-            w *= ase.units.Hartree
-            S /= ase.units.Hartree
+            w *= Hartree
+            S /= Hartree
             R *= 64604.8164 # from turbomole
 
         return (w,S,R)
@@ -242,8 +246,79 @@ class LrTDDFTindexed:
                 return None
             # recalculate only first time
             self.recalculate = None
+
+            self.evectors = self.diagonalize()
+
+        return self.evectors
+
+    def diagonalize(self):
+        """Diagonalizes the Omega matrix. Use ScaLAPACK if available."""
+
+
+        par = InputParameters()  # We need ScaLAPACK parameters
+        sl_omega = par.parallel['sl_lrtddft']
+
+        if sl_omega is not None:
+            # Use ScaLAPACK
+            print "Using SCALAPACK"
+            self.ind_map = {}
+            nind = 0
+            for off in range(self.stride):
+                local_ind = 0
+                rrfn = self.basefilename + '.ready_rows.' + '%04dof%04d' % (off, self.stride)
+                for line in open(rrfn,'r'):
+                    i = int(line.split()[0])
+                    p = int(line.split()[1])
+                    key = (i,p)
+                    # if key not in self.kss_list, drop it
+                    found = False
+                    for kss in self.kss_list:
+                        if kss.occ_ind == i and kss.unocc_ind == p:
+                            found = True
+                            break
+                    if found and not key in self.ind_map:
+                        global_ind = local_ind * self.stride + (self.stride + off) % self.stride 
+                        self.ind_map[key] = global_ind
+                        local_ind += 1
+                        nind += 1
+
+            mynind = len(range(self.offset, nind, self.stride))
+            omega_matrix = np.zeros((mynind, nind))
+            Kfn = self.basefilename + '.K_matrix.' + '%04dof%04d' % (self.offset, self.stride)
+            for line in open(Kfn,'r'):
+                line = line.split()
+                ipkey = (int(line[0]), int(line[1]))
+                jqkey = (int(line[2]), int(line[3]))
+                Kvalue = float(line[4])
+                if not ipkey in self.ind_map or not jqkey in self.ind_map:
+                    continue
+                ip = self.ind_map[ipkey]
+                # Debugging stuff
+                off = ip % self.stride
+                assert off == self.offset
+                myip = ip // self.stride
+                jq = self.ind_map[jqkey]
+                omega_matrix[myip,jq] = Kvalue
+
+            # Add diagonal values
+            for kss in self.kss_list:
+                key = (kss.occ_ind, kss.unocc_ind)
+                if key in self.ind_map:
+                    global_ind = self.ind_map[key]
+                    if (global_ind % self.stride) == self.offset:
+                        local_ind = global_ind // self.stride
+                        omega_matrix[local_ind, global_ind] += kss.energy_diff * kss.energy_diff
+
+            ksl = LrTDDFTLayouts(sl_omega, nind, self.eh_comm)
+            self.evectors = omega_matrix
+            self.evalues = np.zeros(nind)
+            ksl.diagonalize(self.evectors, self.evalues)
+            # print "Shapes", self.Om.shape, self.eigenvectors.shape
+            shape = self.evectors.shape
+            self.evectors = self.evectors.reshape((shape[1], shape[0]))
             
-            # create matrix FIXME: SCALAPACK
+        else:
+        # Serial LAPACK
             self.ind_map = {}
             nind = 0
 
@@ -473,15 +548,22 @@ class LrTDDFTindexed:
                             magn_a[c] += Pi * Pp * rnabla_iiv[i1, i2, c]
             self.calc.wfs.gd.comm.sum(magn_a)
                 
-            kss_ip.magn_mom = - units.alpha / 2. * (magn_g + magn_a)
+            kss_ip.magn_mom = - alpha / 2. * (magn_g + magn_a)
 
 
             if gpaw.mpi.rank == 0:
-		pickle.dump((kss_ip.occ_ind, kss_ip.unocc_ind, 
-		             kss_ip.energy_diff, kss_ip.pop_diff, 
-			     kss_ip.dip_mom_r, kss_ip.magn_mom),
-			     self.kss_file)
-
+                format = '%08d %08d  %18.12lf %18.12lf  '
+                format += '%18.12lf %18.12lf %18.12lf '
+                format += '%18.12lf %18.12lf %18.12lf\n'
+                self.kss_file.write(format % (kss_ip.occ_ind, kss_ip.unocc_ind,
+                                              kss_ip.energy_diff,
+                                              kss_ip.pop_diff,
+                                              kss_ip.dip_mom_r[0],
+                                              kss_ip.dip_mom_r[1],
+                                              kss_ip.dip_mom_r[2],
+                                              kss_ip.magn_mom[0],
+                                              kss_ip.magn_mom[1],
+                                              kss_ip.magn_mom[2]))
         if gpaw.mpi.rank == 0:
             self.kss_file.close()
             
@@ -570,18 +652,18 @@ class LrTDDFTindexed:
             drhot_gip[:] = 0.0
 
             # pair density
-	    self.timer.start('Pair density')
+            self.timer.start('Pair density')
             self.calculate_pair_density(self.calc.wfs.kpt_u[self.kpt_ind], kss_ip, 
                                         dnt_Gip, dnt_gip, drhot_gip)
 
-	    self.timer.stop('Pair density')
+            self.timer.stop('Pair density')
             # smooth hartree potential
             dVht_gip[:] = 0.0
-	    self.timer.start('Poisson')
+            self.timer.start('Poisson')
             self.poisson.solve(dVht_gip, drhot_gip, charge=None)
-	    self.timer.stop('Poisson')
+            self.timer.stop('Poisson')
 
-	    self.timer.start('Smooth XC')
+            self.timer.start('Smooth XC')
             # smooth xc potential
             # finite difference plus
             nt_g[self.kpt_ind][:] = self.deriv_scale * dnt_gip
@@ -597,7 +679,7 @@ class LrTDDFTindexed:
             # finite difference approx for fxc
             # vxc = (vxc+ - vxc-) / 2h
             dVxct_gip *= 1./(2.*self.deriv_scale)
-	    self.timer.stop('Smooth XC')
+            self.timer.stop('Smooth XC')
 
 
             # XC corrections
@@ -607,7 +689,7 @@ class LrTDDFTindexed:
             # FIXME
             kss_ip.spin = 0
 
-	    self.timer.start('Atomic XC')
+            self.timer.start('Atomic XC')
             for a, P_ni in self.calc.wfs.kpt_u[kss_ip.spin].P_ani.items():
                 I_sp = np.zeros_like(self.calc.density.D_asp[a])
                 I_sp_2 = np.zeros_like(self.calc.density.D_asp[a])
@@ -628,7 +710,7 @@ class LrTDDFTindexed:
 
                 # finite difference
                 I_asp[a] = (I_sp - I_sp_2) / (2.*self.deriv_scale)
-	    self.timer.stop('Atomic XC')
+            self.timer.stop('Atomic XC')
                 
 
             # calculate whole row before write to file (store row to K)
@@ -649,22 +731,22 @@ class LrTDDFTindexed:
                 dnt_gjq[:] = 0.0
                 drhot_gjq[:] = 0.0
 
-	        self.timer.start('Pair density')
+                self.timer.start('Pair density')
                 self.calculate_pair_density(self.calc.wfs.kpt_u[self.kpt_ind], kss_jq, 
                                             dnt_Gjq, dnt_gjq, drhot_gjq)
-	        self.timer.stop('Pair density')
+                self.timer.stop('Pair density')
 
 
-		self.timer.start('Integrate')
+                self.timer.start('Integrate')
                 # Hartree smooth part, RHOT_JQ HERE???
                 Ig = self.calc.density.finegd.integrate(dVht_gip, drhot_gjq)
                 # XC smooth part
                 Ig += self.calc.density.finegd.integrate(dVxct_gip[self.kpt_ind], dnt_gjq)
-		self.timer.stop('Integrate')
+                self.timer.stop('Integrate')
                 # FIXME
                 kss_ip.spin = kss_jq.spin = 0
                 # atomic corrections
-		self.timer.start('Atomic corrections')
+                self.timer.start('Atomic corrections')
                 Ia = 0.
                 for a, P_ni in self.calc.wfs.kpt_u[kss_ip.spin].P_ani.items():
                     Pip_ni = self.calc.wfs.kpt_u[kss_ip.spin].P_ani[a]
@@ -686,7 +768,7 @@ class LrTDDFTindexed:
                     
                     # XC part, CHECK THIS JQ EVERWHERE!!!
                     Ia += np.dot(I_asp[a][kss_jq.spin], Djq_p)
-		self.timer.stop('Atomic corrections')
+                self.timer.stop('Atomic corrections')
 
                 Ia = self.calc.density.finegd.comm.sum(Ia)
                 
@@ -700,17 +782,17 @@ class LrTDDFTindexed:
                            * Itot] )
 
             # write  i p j q Omega_Hxc -2345.789012345678
-	    self.timer.start('Write Omega')
+            self.timer.start('Write Omega')
             if self.calc.density.finegd.comm.rank == 0:
                 for k in K:
                     [i,p,j,q,Kipjq] = k
                     self.Kfile.write("%5d %5d %5d %5d %18.12lf\n" % (i,p,j,q,Kipjq))
-                    if i != j or p != q: 
-                        self.Kfile.write("%5d %5d %5d %5d %18.12lf\n" % (j,q,i,p,Kipjq))
+                    # if i != j or p != q: 
+                    #     self.Kfile.write("%5d %5d %5d %5d %18.12lf\n" % (j,q,i,p,Kipjq))
                 self.Kfile.flush()
                 self.ready_file.write("%d %d\n" % (kss_ip.occ_ind, kss_ip.unocc_ind))
                 self.ready_file.flush()
-	    self.timer.stop('Write Omega')
+            self.timer.stop('Write Omega')
 
             self.ready_indices.append([kss_ip.occ_ind,kss_ip.unocc_ind])
         
