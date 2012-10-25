@@ -618,3 +618,49 @@ class OrbitalLayouts(KohnShamLayouts):
 
     def get_transposed_density_matrix_delta(self, d_nn, C_nM, rho_MM=None):
         return self.calculate_density_matrix_delta(d_nn, C_nM, rho_MM).T.copy()
+
+class LrTDDFTLayouts:
+    """BLACS layout for distributed Omega matrix in linear response
+       time-dependet DFT calculations"""
+
+    def __init__(self, sl_omega, nkq, eh_comm):
+        mcpus, ncpus, blocksize = tuple(sl_omega)
+        self.world = eh_comm.parent
+        # All the ranks within domain communicator contain the omega matrix
+        # construct new communicator only on domain master
+        eh_ranks = np.arange(eh_comm.size)
+        self.eh_comm2 = self.world.new_communicator(eh_ranks)
+
+        self.eh_grid = BlacsGrid(self.eh_comm2, self.eh_comm2.size, 1)
+        self.eh_descr = self.eh_grid.new_descriptor(nkq, nkq, 1, nkq)
+        self.eh_grid2 = BlacsGrid(self.eh_comm2, 1, self.eh_comm2.size)
+        self.eh_descr2 = self.eh_grid2.new_descriptor(nkq, nkq, nkq, 1)
+        self.diag_grid = BlacsGrid(self.world, mcpus, ncpus)
+        self.diag_descr = self.diag_grid.new_descriptor(nkq, nkq, 
+                                                        blocksize,
+                                                        blocksize)
+
+        self.redistributor_in = Redistributor(self.world,
+                                              self.eh_descr,
+                                              self.diag_descr)
+        self.redistributor_out = Redistributor(self.world,
+                                               self.diag_descr,
+                                               self.eh_descr2)
+
+        
+    def diagonalize(self, Om, eps_n):
+
+        O_nn = self.diag_descr.empty(dtype=float)
+        if self.eh_descr.blacsgrid.is_active():
+            O_nN = Om
+            shape = O_nN.shape
+            O_Nn = Om.reshape((shape[1], shape[0]))
+        else:
+            O_nN = np.empty((0,0), dtype=float)
+            O_Nn = np.empty((0,0), dtype=float)
+
+        self.redistributor_in.redistribute(O_nN, O_nn)
+        self.diag_descr.diagonalize_dc(O_nn.copy(), O_nn, eps_n, 'U')
+        self.redistributor_out.redistribute(O_nn, O_Nn)
+        # Do we need to broadcast eps_n?
+        self.world.broadcast(eps_n, 0)
