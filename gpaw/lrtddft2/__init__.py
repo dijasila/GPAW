@@ -182,6 +182,8 @@ class LrTDDFTindexed:
             w[k] += min_energy + k*energy_step
 
         for (k,omega2) in enumerate(self.evalues):
+            #if gpaw.mpi.world.rank == 0:
+            #    print k, str(datetime.datetime.now())
             c = self.get_oscillator_strength(k) / width / math.sqrt(6.28318530717959)
             S += c * np.exp( (-5./width/width) * np.power(w-self.get_excitation_energy(k),2) ) 
 
@@ -203,7 +205,7 @@ class LrTDDFTindexed:
     """
     Parameters:
     ----------------------------------------------------------------------
-    recalculate | None = don't recalculate anything if not needed
+    recalculate | None     = don't recalculate anything if not needed
                 | 'all'    = recalculate everything (matrix and eigenvectors)
                 | 'matrix' = (re)calculate only matrix (no diagonalization)
                 | 'eigen'  = (re)calculate only eigenvectors from the current
@@ -221,6 +223,7 @@ class LrTDDFTindexed:
             open(Kfn,'w').close()
             
         if self.recalculate == 'eigen':
+            self.calculate_KS_singles()
             self.evalues = None
             self.evectors = None
 
@@ -235,7 +238,10 @@ class LrTDDFTindexed:
             gpaw.mpi.world.barrier()
 
             if self.recalculate == 'matrix':
+                self.recalculate = None
                 return None
+            # recalculate only first time
+            self.recalculate = None
             
             # create matrix FIXME: SCALAPACK
             self.ind_map = {}
@@ -259,6 +265,8 @@ class LrTDDFTindexed:
                     if found and not key in self.ind_map:
                         self.ind_map[key] = nind
                         nind += 1
+                        #if gpaw.mpi.world.rank == 0:
+                        #    print 'Included transition ', key,' as index ', nind
 
             omega_matrix = np.zeros((nind,nind))
             for off in range(self.stride):
@@ -305,7 +313,6 @@ class LrTDDFTindexed:
         eps_n = self.calc.wfs.kpt_u[self.kpt_ind].eps_n      # eigen energies
         f_n = self.calc.wfs.kpt_u[self.kpt_ind].f_n          # occupations
 
-
         # create Kohn-Sham single excitation list with energy filter
         old_kss_list = self.kss_list
         self.kss_list = []
@@ -342,11 +349,18 @@ class LrTDDFTindexed:
             self.kss_list = []
             # if in both lists
             for kss_o in old_kss_list:
+                found = False
                 for kss_n in new_kss_list:
                     if ( kss_o.occ_ind == kss_n.occ_ind
                          and kss_o.unocc_ind == kss_n.unocc_ind ):
-                        self.kss_list.append(kss_o)
+                        found = True
                         break
+                if found:
+                    self.kss_list.append(kss_o)
+                else:
+                    #if gpaw.mpi.world.rank == 0:
+                    #    print 'Dropped transition ', kss_o.occ_ind, kss_o.unocc_ind
+                    pass
 
             # if only in new list
             app_list = []
@@ -358,6 +372,9 @@ class LrTDDFTindexed:
                         break
                 if not found:
                     app_list.append(kss_n)
+                    #if gpaw.mpi.world.rank == 0:
+                    #    print 'Added transition ', kss_o.occ_ind, kss_o.unocc_ind
+
             self.kss_list += app_list
 
 
