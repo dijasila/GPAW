@@ -32,7 +32,7 @@ e = np.array([])
 f = np.array([])
 
 for xc in ['LDA', 'PPLDA']:
-    calc = GPAW(nbands=-2, xc=xc, convergence={'eigenstates': 1.e-9}, txt=None)
+    calc = GPAW(nbands=-2, xc=xc, convergence={'energy': 1.e-9}, txt=None)
     o2.set_calculator(calc)
     e = np.append(e, o2.get_potential_energy())
     f = np.append(f, o2.get_forces())
