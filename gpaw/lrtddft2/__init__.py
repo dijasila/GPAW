@@ -126,19 +126,18 @@ class LrTDDFTindexed:
     # populations F**2
     def get_excitation_weights(self, k, threshold=0.01):
         self.calculate_excitations()
-        x = np.power(self.evectors[k],2)
+        x = np.power(self.get_evector(k), 2)
         return x[x > threshold]
 
     def get_oscillator_strength(self, k):
         self.calculate_excitations()
-        print "SHAPE", self.evectors.shape
         dm = [0.0,0.0,0.0]
         for kss_ip in self.kss_list:
             i = kss_ip.occ_ind
             p = kss_ip.unocc_ind
             # c = sqrt(ediff_ip / omega_n) sqrt(population_ip) * F^(n)_ip
             c = np.sqrt(kss_ip.energy_diff / self.get_excitation_energy(k))
-            c *= np.sqrt(kss_ip.pop_diff) * self.evectors[k][self.ind_map[(i,p)]]
+            c *= np.sqrt(kss_ip.pop_diff) * self.get_evector(k)[self.ind_map[(i,p)]]
             # dm_n = c * dm_ip
             dm[0] += c * kss_ip.dip_mom_r[0]
             dm[1] += c * kss_ip.dip_mom_r[1]
@@ -157,7 +156,7 @@ class LrTDDFTindexed:
             p = kss_ip.unocc_ind
             # c = sqrt(ediff_ip / omega_n) sqrt(population_ip) * F^(n)_ip
             c = np.sqrt(kss_ip.energy_diff / self.get_excitation_energy(k))
-            c *= np.sqrt(kss_ip.pop_diff) * self.evectors[k][self.ind_map[(i,p)]]
+            c *= np.sqrt(kss_ip.pop_diff) * self.get_evector(k)[self.ind_map[(i,p)]]
             # dm_n = c * dm_ip
             dm[0] += c * kss_ip.dip_mom_r[0]
             dm[1] += c * kss_ip.dip_mom_r[1]
@@ -169,6 +168,24 @@ class LrTDDFTindexed:
 
         return dm[0] * magn[0] + dm[1] * magn[1] + dm[2] * magn[2]
 
+    def get_evector(self, k):
+        # First get the eigenvector for the rank 0 and
+        # then broadcast it  
+        evec = np.zeros_like(self.evectors[0])
+        # Rank owning this evector
+        off = k % self.stride
+        k_local = k // self.stride
+        if off == self.offset:
+            if self.offset == 0:
+                evec[:] = self.evectors[k_local]
+            else:
+                self.eh_comm.send(self.evectors[k_local], 0, 123)
+        else:
+            if self.offset == 0:
+                self.eh_comm.receive(evec, off, 123)
+        # Broadcast
+        self.eh_comm.broadcast(evec, 0)
+        return evec
 
     def get_spectrum(self, min_energy=0.0, max_energy=30.0, energy_step=0.01, width=0.1, units='eVcgs'):
         self.calculate_excitations()
@@ -177,15 +194,14 @@ class LrTDDFTindexed:
         energy_step = energy_step / Hartree
         width = width / Hartree
 
-        n = int((max_energy-min_energy)/energy_step+.5)
-        w = np.zeros(n)
-        S = np.zeros(n)
-        R = np.zeros(n)
-
-        for k in range(n):
-            w[k] += min_energy + k*energy_step
-
-        for (k,omega2) in enumerate(self.evalues):
+        w = np.arange(min_energy, max_energy, energy_step)
+        n = len(w)
+        data = np.zeros((n, 3))
+        data[:,0] = w * Hartree
+        S = data[:,1]
+        R = data[:,2]
+            
+        for (k, omega2) in enumerate(self.evalues):
             #if gpaw.mpi.world.rank == 0:
             #    print k, str(datetime.datetime.now())
             c = self.get_oscillator_strength(k) / width / math.sqrt(6.28318530717959)
@@ -199,7 +215,7 @@ class LrTDDFTindexed:
             S /= Hartree
             R *= 64604.8164 # from turbomole
 
-        return (w,S,R)
+        return data
         
 
 ####
@@ -353,9 +369,9 @@ class LrTDDFTindexed:
 #                    print
 
             # diagonalize
-            self.evectors = omega_matrix
             self.evalues = np.zeros(nind)
-            diagonalize(self.evectors, self.evalues)
+            diagonalize(omega_matrix, self.evalues)
+            self.evectors = omega_matrix[self.offset::self.stride].copy()
 
         return self.evectors
 
