@@ -18,7 +18,7 @@ runsstr = ','.join(runs)
 runsstr += ',jacapo'
 
 def agts(queue):
-    run = [queue.add('dcdft_pbe_pw.py %s --gpaw=fprojectors=1' % s,
+    run = [queue.add('dcdft_pbe_pw.py %s --gpaw=fprojectors=1' % r,
                      ncpus=1,
                      walltime=30*60)
            for r in runs*8]
