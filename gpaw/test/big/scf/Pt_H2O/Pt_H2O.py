@@ -17,7 +17,7 @@ calc = GPAW(h=0.20,
             xc='RPBE',
             poissonsolver=DipoleCorrection(PoissonSolver(),2),
             basis='dzp',
-            maxiter=550,
+            maxiter=200,
             width=0.1,
             txt='Pt_H2O.txt',
             )

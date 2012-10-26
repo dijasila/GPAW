@@ -22,6 +22,7 @@ except IOError:
                  pbc=False, cell=a)
     NaCl.center()
     calc = GPAW(h=h, xc='LDA', nbands=5, lmax=0,
+                setups={'Na': '1'},
                 convergence={'eigenstates': 1e-6}, spinpol=1)
 
     NaCl.set_calculator(calc)

@@ -29,10 +29,11 @@ class Factory(GPAWFactory):
         if name.split('-')[0] in ['Rb']:
             calculator.set(nbands=-1)
         if name.split('-')[0] in ['In', 'Cs', 'Sb', 'Ni', 'Ta', 'As',
-                                  'V', 'Ni']:
+                                  'V', 'Ni', 'Li', 'Rb']:
             calculator.set(nbands=-3)
         if name.split('-')[0] in ['Ca', 'Zn', 'Zr', 'Pb', 'Sr',
-                                  'Xe', 'Rn', 'Ru', 'N', 'Os']:
+                                  'Xe', 'Rn', 'Ru', 'N', 'Os',
+                                  'Cl', 'Cd']:
             calculator.set(nbands=-4)
         if name.split('-')[0] in ['Sc']:
             calculator.set(nbands=-5)
