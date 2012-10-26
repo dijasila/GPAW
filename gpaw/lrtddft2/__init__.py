@@ -258,30 +258,36 @@ class LrTDDFTindexed:
         par = InputParameters()  # We need ScaLAPACK parameters
         sl_omega = par.parallel['sl_lrtddft']
 
+        # Determine index map
+        # Read the calculated rows from all read_rows files. K_matrix elements
+        # are calculated with a stride comm.size, the global index of eh-pair
+        # is thus given by g = l * stride + (stride + offset) % stride
+
+        self.ind_map = {}
+        nind = 0
+        for off in range(self.stride):
+            local_ind = 0
+            rrfn = self.basefilename + '.ready_rows.' + '%04dof%04d' % (off, self.stride)
+            for line in open(rrfn,'r'):
+                i = int(line.split()[0])
+                p = int(line.split()[1])
+                key = (i,p)
+                # if key not in self.kss_list, drop it
+                found = False
+                for kss in self.kss_list:
+                    if kss.occ_ind == i and kss.unocc_ind == p:
+                        found = True
+                        break
+                if found and not key in self.ind_map:
+                    global_ind = local_ind * self.stride + (self.stride + off) % self.stride 
+                    self.ind_map[key] = global_ind
+                    local_ind += 1
+                    nind += 1
+
+        # Read omega matrix and diagonalize
+
         if sl_omega is not None:
             # Use ScaLAPACK
-            print "Using SCALAPACK"
-            self.ind_map = {}
-            nind = 0
-            for off in range(self.stride):
-                local_ind = 0
-                rrfn = self.basefilename + '.ready_rows.' + '%04dof%04d' % (off, self.stride)
-                for line in open(rrfn,'r'):
-                    i = int(line.split()[0])
-                    p = int(line.split()[1])
-                    key = (i,p)
-                    # if key not in self.kss_list, drop it
-                    found = False
-                    for kss in self.kss_list:
-                        if kss.occ_ind == i and kss.unocc_ind == p:
-                            found = True
-                            break
-                    if found and not key in self.ind_map:
-                        global_ind = local_ind * self.stride + (self.stride + off) % self.stride 
-                        self.ind_map[key] = global_ind
-                        local_ind += 1
-                        nind += 1
-
             mynind = len(range(self.offset, nind, self.stride))
             omega_matrix = np.zeros((mynind, nind))
             Kfn = self.basefilename + '.K_matrix.' + '%04dof%04d' % (self.offset, self.stride)
@@ -318,31 +324,7 @@ class LrTDDFTindexed:
             self.evectors = self.evectors.reshape((shape[1], shape[0]))
             
         else:
-        # Serial LAPACK
-            self.ind_map = {}
-            nind = 0
-
-            # 
-            # if rowid / comm.size == comm.rank:
-            #
-            #
-
-            for off in range(self.stride):
-                rrfn = self.basefilename + '.ready_rows.' + '%04dof%04d' % (off, self.stride)
-                for line in open(rrfn,'r'):
-                    i = int(line.split()[0])
-                    p = int(line.split()[1])
-                    key = (i,p)
-                    # if key not in self.kss_list, drop it
-                    found = False
-                    for kss in self.kss_list:
-                        if kss.occ_ind == i and kss.unocc_ind == p: found = True
-                    if found and not key in self.ind_map:
-                        self.ind_map[key] = nind
-                        nind += 1
-                        #if gpaw.mpi.world.rank == 0:
-                        #    print 'Included transition ', key,' as index ', nind
-
+            # Serial LAPACK
             omega_matrix = np.zeros((nind,nind))
             for off in range(self.stride):
                 Kfn = self.basefilename + '.K_matrix.' + '%04dof%04d' % (off, self.stride)
