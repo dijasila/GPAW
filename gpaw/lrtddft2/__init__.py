@@ -2,6 +2,7 @@
 
 """
 import os
+import sys
 import datetime
 import time
 import pickle
@@ -13,7 +14,6 @@ import gpaw.mpi
 from gpaw.xc import XC
 from gpaw.poisson import PoissonSolver
 from gpaw.fd_operators import Gradient
-#from gpaw.gaunt import gaunt as G_LLL
 from gpaw.utilities import pack
 from gpaw.utilities.lapack import diagonalize
 from gpaw.utilities.tools import coordinates
@@ -36,13 +36,21 @@ class LrTDDFTindexed:
                  min_unocc=None, max_unocc=None,
                  max_energy_diff=None,
                  eh_communicator=None,
-                 recalculate=None):
+                 recalculate=None,
+                 txt=None):
+        self.txt = None
+        if gpaw.mpi.world.rank == 0:
+            if txt is None: txt = sys.stdout
+            self.txt = txt
+
+        
         self.ready_indices = []
         self.kss_list = None
         self.evectors = None
         self.recalculate = recalculate
 
         self.basefilename = basefilename
+        self.xc_name = xc
         self.xc = XC(xc)        
         self.min_occ = min_occ
         self.max_occ = max_occ
@@ -57,6 +65,10 @@ class LrTDDFTindexed:
         self.offset = self.eh_comm.rank
         #print 'Offset and stride = ', self.offset, ' / ', self.stride
 
+        self.deriv_scale = 1e-5
+        self.min_pop_diff = 1e-3
+        self.K_parts = None
+
         self.timer = calc.timer
         self.timer.start('LrTDDFT')
 
@@ -70,10 +82,6 @@ class LrTDDFTindexed:
         #    self.xc.initialize(self.calc.density, self.calc.hamiltonian, self.calc.wfs, self.calc.occupations)
 
 
-
-        self.deriv_scale = 1e-5
-        self.min_pop_diff = 1e-3
-
         # > FIXME
         assert len(self.calc.wfs.kpt_u) == 1, "LrTDDFTindexed does not support more than one k-point/spin."
         self.kpt_ind = 0
@@ -85,12 +93,45 @@ class LrTDDFTindexed:
         if self.max_unocc is None: self.max_unocc = self.max_occ
         if self.max_energy_diff is None: self.max_energy_diff = 1e9
 
+
+        # write info file
+        f = open(basefilename+'.lr_info','w')
+        f.write('# LrTDDFTindexed\n')
+        f.write('%20s = %s\n' % ('xc_name', self.xc_name))
+        f.write('%20s = %s\n' % ('',''))
+        f.write('%20s = %d\n' % ('min_occ', self.min_occ))
+        f.write('%20s = %d\n' % ('min_unocc', self.min_unocc))
+        f.write('%20s = %d\n' % ('max_occ', self.max_occ))
+        f.write('%20s = %d\n' % ('max_unocc', self.max_unocc))
+        f.write('%20s = %18.12lf\n' % ('max_energy_diff',self.max_energy_diff))
+        f.write('%20s = %s\n' % ('',''))
+        f.write('%20s = %18.12lf\n' % ('deriv_scale', self.deriv_scale))
+        f.write('%20s = %18.12lf\n' % ('min_pop_diff', self.min_pop_diff))
+        if self.K_parts is not None:
+            f.write('%20s = %d\n' % ('K_parts', self.K_parts))
+        f.close()
+
+
+        self.calc_ready = False
         self.kss_list_ready = False
         self.ks_prop_ready = False
         self.K_matrix_ready = False
 
 
     def read(self, basename):
+        info_file = basename+'.lr_info'
+        if os.path.exists(info_file) and os.path.isfile(info_file):
+            info_file = open(info_file,'r')
+            for line in info_file:
+                if len(line.split()) <= 2: continue
+                key = line.split()[0]
+                value = line.split()[2]
+                if key == 'K_parts': self.K_parts = int(value)
+                # .....
+                # FIXME: do something, like warn if changed
+                # ... 
+            info_file.close()            
+                
         ready_file = basename+'.ready_rows.' + '%04dof%04d' % (self.offset, self.stride)
         if os.path.exists(ready_file) and os.path.isfile(ready_file):
             for line in open(ready_file,'r'):
@@ -124,24 +165,28 @@ class LrTDDFTindexed:
         return np.sqrt(self.evalues[k])
 
     # populations F**2
-    def get_excitation_weights(self, k, threshold=0.01):
-        self.calculate_excitations()
-        x = np.power(self.get_evector(k), 2)
-        return x[x > threshold]
+    #def get_excitation_weights(self, k, threshold=0.01):
+    #    self.calculate_excitations()
+    #    x = np.power(self.get_local_evector(k), 2)
+    #    x = x[x > threshold]
+    #    self.eh_comm.sum(x)
+    #    return x
 
     def get_oscillator_strength(self, k):
         self.calculate_excitations()
-        dm = [0.0,0.0,0.0]
+        dm = np.zeros(3)
         for kss_ip in self.kss_list:
             i = kss_ip.occ_ind
             p = kss_ip.unocc_ind
             # c = sqrt(ediff_ip / omega_n) sqrt(population_ip) * F^(n)_ip
             c = np.sqrt(kss_ip.energy_diff / self.get_excitation_energy(k))
-            c *= np.sqrt(kss_ip.pop_diff) * self.get_evector(k)[self.ind_map[(i,p)]]
+            c *= np.sqrt(kss_ip.pop_diff) * self.get_local_eig_coeff(k,self.ind_map[(i,p)])
             # dm_n = c * dm_ip
             dm[0] += c * kss_ip.dip_mom_r[0]
             dm[1] += c * kss_ip.dip_mom_r[1]
             dm[2] += c * kss_ip.dip_mom_r[2]
+
+        self.eh_comm.sum(dm)
 
         # osc = 2 * omega |dm|**2 / 3
         osc = 2. * self.get_excitation_energy(k) * (dm[0]*dm[0]+dm[1]*dm[1]+dm[2]*dm[2]) / 3.
@@ -149,14 +194,14 @@ class LrTDDFTindexed:
 
     def get_rotatory_strength(self, k):
         self.calculate_excitations()
-        dm = [0.0,0.0,0.0]
-        magn = [0.0,0.0,0.0]
+        dm = np.zeros(3)
+        magn = np.zeros(3)
         for kss_ip in self.kss_list:
             i = kss_ip.occ_ind
             p = kss_ip.unocc_ind
             # c = sqrt(ediff_ip / omega_n) sqrt(population_ip) * F^(n)_ip
             c = np.sqrt(kss_ip.energy_diff / self.get_excitation_energy(k))
-            c *= np.sqrt(kss_ip.pop_diff) * self.get_evector(k)[self.ind_map[(i,p)]]
+            c *= np.sqrt(kss_ip.pop_diff) * self.get_local_eig_coeff(k,self.ind_map[(i,p)])
             # dm_n = c * dm_ip
             dm[0] += c * kss_ip.dip_mom_r[0]
             dm[1] += c * kss_ip.dip_mom_r[1]
@@ -165,27 +210,10 @@ class LrTDDFTindexed:
             magn[0] += c * kss_ip.magn_mom[0]
             magn[1] += c * kss_ip.magn_mom[1]
             magn[2] += c * kss_ip.magn_mom[2]
-
+        self.eh_comm.sum(dm)
+        self.eh_comm.sum(magn)
         return dm[0] * magn[0] + dm[1] * magn[1] + dm[2] * magn[2]
 
-    def get_evector(self, k):
-        # First get the eigenvector for the rank 0 and
-        # then broadcast it  
-        evec = np.zeros_like(self.evectors[0])
-        # Rank owning this evector
-        off = k % self.stride
-        k_local = k // self.stride
-        if off == self.offset:
-            if self.offset == 0:
-                evec[:] = self.evectors[k_local]
-            else:
-                self.eh_comm.send(self.evectors[k_local], 0, 123)
-        else:
-            if self.offset == 0:
-                self.eh_comm.receive(evec, off, 123)
-        # Broadcast
-        self.eh_comm.broadcast(evec, 0)
-        return evec
 
     def get_spectrum(self, min_energy=0.0, max_energy=30.0, energy_step=0.01, width=0.1, units='eVcgs'):
         self.calculate_excitations()
@@ -217,6 +245,48 @@ class LrTDDFTindexed:
 
         return data
         
+
+###
+# Utility
+###
+
+    def index_of_kss(self,i,p):
+        for (ind,kss) in enumerate(self.kss_list):
+            if kss.occ_ind == i and kss.unocc_ind == p:
+                return ind
+        return None
+
+
+    def get_evector(self, k):
+        # First get the eigenvector for the rank 0 and
+        # then broadcast it  
+        evec = np.zeros_like(self.evectors[0])
+        # Rank owning this evector
+        off = k % self.stride
+        k_local = k // self.stride
+        if off == self.offset:
+            if self.offset == 0:
+                evec[:] = self.evectors[k_local]
+            else:
+                self.eh_comm.send(self.evectors[k_local], 0, 123)
+        else:
+            if self.offset == 0:
+                self.eh_comm.receive(evec, off, 123)
+        # Broadcast
+        self.eh_comm.broadcast(evec, 0)
+        return evec
+
+
+    def get_local_index(self,k):
+        if k % self.stride != self.offset: return None
+        return k // self.stride
+
+    def get_local_eig_coeff(self, k, ip):
+        kloc = self.get_local_index(k)
+        if kloc is None: return 0.0
+        return self.evectors[kloc][ip]
+    
+
 
 ####
 # Somewhat ugly things
@@ -263,13 +333,126 @@ class LrTDDFTindexed:
             # recalculate only first time
             self.recalculate = None
 
-            self.evectors = self.diagonalize()
+            # diagonalize
+            self.diagonalize2()
 
-        return self.evectors
+
+    def diagonalize2(self):
+        par = InputParameters() # ScaLAPACK paramters
+        sl_omega = par.parallel['sl_lrtddft']
+
+        self.ind_map = {}   # (i,p) to matrix index map
+        nind = 0            # next index (and total rows)
+        nloc = 0            # local rows
+        
+        # read all files
+        # (K_parts from calculate_K_matrix or from lr_info-file.)
+        for off in range(self.K_parts):
+
+            # read all ready rows files
+            # to decide what indices are already calculated
+            rrfn = self.basefilename + '.ready_rows.' + '%04dof%04d' % (off, self.K_parts)
+
+            for line in open(rrfn,'r'):
+                i = int(line.split()[0])
+                p = int(line.split()[1])
+                key = (i,p)
+                
+                # if key not in self.kss_list, drop it
+                # i.e. we are calculating just part of the whole matrix
+                # if key is in self.kss_list
+                # (but is not in self.ind_map... which should not happen)
+                # add its global index to the index map 
+                if ( self.index_of_kss(i,p) is not None
+                     and not key in self.ind_map ):
+                    if self.get_local_index(nind) is not None: nloc += 1
+                    self.ind_map[key] = nind
+                    nind += 1
+                    
+
+
+        # Matrix build
+        omega_matrix = np.zeros((nloc,nind))
+        for off in range(self.K_parts):
+            Kfn = self.basefilename + '.K_matrix.' + '%04dof%04d' % (off, self.K_parts)
+            for line in open(Kfn,'r'):
+                line = line.split()
+                ipkey = (int(line[0]), int(line[1]))
+                jqkey = (int(line[2]), int(line[3]))
+                Kvalue = float(line[4])
+                # if not in index map, ignore
+                if ( not ipkey in self.ind_map
+                     or not jqkey in self.ind_map ):
+                    continue
+                # if ip on this this proc
+                if self.get_local_index(self.ind_map[ipkey]) is not None:
+                    # add value to matrix
+                    lip = self.get_local_index(self.ind_map[ipkey])
+                    jq = self.ind_map[jqkey]
+                    omega_matrix[lip,jq] = Kvalue
+                # if jq on this this proc
+                if self.get_local_index(self.ind_map[jqkey]) is not None:
+                    # add value to matrix
+                    ljq = self.get_local_index(self.ind_map[jqkey])
+                    ip = self.ind_map[ipkey]
+                    omega_matrix[ljq,ip] = Kvalue
+
+
+        # Add diagonal values
+        for kss in self.kss_list:
+            key = (kss.occ_ind, kss.unocc_ind)
+            if key in self.ind_map:
+                ip = self.ind_map[key]
+                lip = self.get_local_index(ip)
+                if lip is None: continue
+                omega_matrix[lip,ip] += kss.energy_diff * kss.energy_diff
+
+
+        # calculate eigenvalues
+        self.evalues = np.zeros(nind)
+        # ScaLapack
+        if sl_omega is not None:
+            print 'eh_comm', self.eh_comm.size, self.eh_comm.parent
+            ksl = LrTDDFTLayouts(sl_omega, nind, self.eh_comm)
+            self.evectors = omega_matrix
+            ksl.diagonalize(self.evectors, self.evalues)
+
+        # Serial Lapack
+        else:
+            # local to global
+            self.evectors = omega_matrix
+            omega_matrix = np.zeros((nind,nind))
+            for ip in range(nind):
+                lip = self.get_local_index(ip)
+                if lip is None: continue
+                omega_matrix[ip,:] = self.evectors[lip]
+
+            #if gpaw.mpi.world.rank == 0:
+            #    print omega_matrix
+                
+            # broadcast to all
+            self.eh_comm.sum(omega_matrix)
+            self.eh_comm.broadcast(omega_matrix,0)
+
+            #if gpaw.mpi.world.rank == 0:
+            #    print omega_matrix
+
+            # diagonalize
+            diagonalize(omega_matrix, self.evalues)
+
+            # global to local
+            for ip in range(nind):
+                lip = self.get_local_index(ip)
+                if lip is None: continue
+                #print '#####', self.offset, ip, lip
+                self.evectors[lip][:] = omega_matrix[ip]
+            
+            #if gpaw.mpi.world.rank == 0:
+            #    print omega_matrix
+            
 
     def diagonalize(self):
         """Diagonalizes the Omega matrix. Use ScaLAPACK if available."""
-
 
         par = InputParameters()  # We need ScaLAPACK parameters
         sl_omega = par.parallel['sl_lrtddft']
@@ -378,7 +561,7 @@ class LrTDDFTindexed:
 
 
     def calculate_KS_singles(self):
-        if self.kss_list_ready: return self.kss_list
+        if self.kss_list_ready: return 
 
         eps_n = self.calc.wfs.kpt_u[self.kpt_ind].eps_n      # eigen energies
         f_n = self.calc.wfs.kpt_u[self.kpt_ind].f_n          # occupations
@@ -449,7 +632,6 @@ class LrTDDFTindexed:
 
 
         self.kss_list_ready = True
-        return self.kss_list
 
 
     def calculate_pair_density(self, kpt, kss_ip, dnt_Gip, dnt_gip, drhot_gip):
@@ -470,11 +652,11 @@ class LrTDDFTindexed:
         
 
         # initialize wfs, paw corrections and xc
-        if self.calc is not None:
+        if not self.calc_ready:
             self.calc.converge_wave_functions()
             if self.calc.density.nct_G is None:   self.calc.set_positions()
             self.xc.initialize(self.calc.density, self.calc.hamiltonian, self.calc.wfs, self.calc.occupations)
-
+            self.calc_ready
 
         if gpaw.mpi.rank == 0:
             self.kss_file = open(self.basefilename+'.KS_singles','a')
@@ -579,10 +761,25 @@ class LrTDDFTindexed:
         nrows = 0
         for (ip,kss_ip) in enumerate(self.kss_list):
             if ip % self.stride != self.offset:  continue
-            if [kss_ip.occ_ind,kss_ip.unocc_ind] in self.ready_indices: continue
+            if [kss_ip.occ_ind,kss_ip.unocc_ind] in self.ready_indices:continue
             self.K_matrix_ready = False
             nrows += 1
         if self.K_matrix_ready: return
+
+
+        # initialize wfs, paw corrections and xc
+        if not self.calc_ready:
+            self.calc.converge_wave_functions()
+            if self.calc.density.nct_G is None:   self.calc.set_positions()
+            self.xc.initialize(self.calc.density, self.calc.hamiltonian, self.calc.wfs, self.calc.occupations)
+            self.calc_ready
+
+
+        self.K_parts = self.stride
+        if gpaw.mpi.world.rank == 0:
+            info_file = open(self.basefilename + '.lr_info','a+')
+            info_file.write('%20s = %d' % ('K_parts',self.stride))
+            info_file.close()
 
 
         Kfn = self.basefilename + '.K_matrix.' + '%04dof%04d' % (self.offset, self.stride)
