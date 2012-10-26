@@ -319,9 +319,6 @@ class LrTDDFTindexed:
             self.evectors = omega_matrix
             self.evalues = np.zeros(nind)
             ksl.diagonalize(self.evectors, self.evalues)
-            # print "Shapes", self.Om.shape, self.eigenvectors.shape
-            shape = self.evectors.shape
-            self.evectors = self.evectors.reshape((shape[1], shape[0]))
             
         else:
             # Serial LAPACK
