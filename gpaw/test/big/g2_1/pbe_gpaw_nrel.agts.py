@@ -20,7 +20,7 @@ def agts(queue):
                      walltime=30*60,
                      deps=run_special + run_cg)
            for i in range(4)]
-    if 0:  # run after releasing new setups
+    if 1:  # run after releasing new setups
         analyse = queue.add(tag + '_analyse.py',
                             ncpus=1, walltime=5, deps=run,
                             creates=[tag + '_ea.csv',
@@ -38,7 +38,7 @@ def agts(queue):
                          walltime=40*60,
                          deps=[run_generate])
                for i in range(20)]
-    if 0:  # run after releasing new setups
+    if 1:  # run after releasing new setups
         opt_analyse = queue.add(tag + '_opt_analyse.py',
                                 ncpus=1, walltime=5, deps=opt_run,
                                 creates=[tag + '_opt_ea.csv',
