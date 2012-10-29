@@ -342,13 +342,20 @@ class LrTDDFTindexed:
             self.diagonalize2()
 
 
+
+
     def diagonalize2(self):
         par = InputParameters() # ScaLAPACK paramters
         sl_omega = par.parallel['sl_lrtddft']
 
-        self.ind_map = {}   # (i,p) to matrix index map
-        nind = 0            # next index (and total rows)
-        nloc = 0            # local rows
+        self.ind_map = {}          # (i,p) to matrix index map
+        nrow = len(self.kss_list)  # total rows
+        nloc = 0                   # local rows
+
+        # create indexing
+        for (ip,kss) in enumerate(self.kss_list):
+            self.ind_map[(kss.occ_ind,kss.unocc_ind)] = ip
+
         
         # read all files
         # (K_parts from calculate_K_matrix or from lr_info-file.)
@@ -365,19 +372,14 @@ class LrTDDFTindexed:
                 
                 # if key not in self.kss_list, drop it
                 # i.e. we are calculating just part of the whole matrix
-                # if key is in self.kss_list
-                # (but is not in self.ind_map... which should not happen)
-                # add its global index to the index map 
-                if ( self.index_of_kss(i,p) is not None
-                     and not key in self.ind_map ):
-                    if self.get_local_index(nind) is not None: nloc += 1
-                    self.ind_map[key] = nind
-                    nind += 1
-                    
+                ip = self.index_of_kss(i,p)
+                if ip is not None:
+                    assert ip == self.ind_map[key]
+                    if self.get_local_index(ip) is not None: nloc += 1
 
 
         # Matrix build
-        omega_matrix = np.zeros((nloc,nind))
+        omega_matrix = np.zeros((nloc,nrow))
         for off in range(self.K_parts):
             Kfn = self.basefilename + '.K_matrix.' + '%04dof%04d' % (off, self.K_parts)
             for line in open(Kfn,'r'):
@@ -402,7 +404,7 @@ class LrTDDFTindexed:
                     ip = self.ind_map[ipkey]
                     omega_matrix[ljq,ip] = Kvalue
 
-
+                    
         # Add diagonal values
         for kss in self.kss_list:
             key = (kss.occ_ind, kss.unocc_ind)
@@ -413,8 +415,9 @@ class LrTDDFTindexed:
                 omega_matrix[lip,ip] += kss.energy_diff * kss.energy_diff
 
 
+
         # calculate eigenvalues
-        self.evalues = np.zeros(nind)
+        self.evalues = np.zeros(nrow)
         # ScaLapack
         if sl_omega is not None:
             # print 'eh_comm', self.eh_comm.size, self.eh_comm.parent
@@ -427,34 +430,56 @@ class LrTDDFTindexed:
         else:
             # local to global
             self.evectors = omega_matrix
-            omega_matrix = np.zeros((nind,nind))
-            for ip in range(nind):
+            omega_matrix = np.zeros((nrow,nrow))
+            for ip in range(nrow):
                 lip = self.get_local_index(ip)
                 if lip is None: continue
-                omega_matrix[ip,:] = self.evectors[lip]
+                omega_matrix[ip,:] = self.evectors[lip,:]
 
             #if gpaw.mpi.world.rank == 0:
             #    print omega_matrix
                 
             # broadcast to all
             self.eh_comm.sum(omega_matrix)
-            self.eh_comm.broadcast(omega_matrix,0)
+            #self.eh_comm.broadcast(omega_matrix,0)
 
             #if gpaw.mpi.world.rank == 0:
             #    print omega_matrix
+
+            omega_matrix2 = omega_matrix.copy()
 
             # diagonalize
             diagonalize(omega_matrix, self.evalues)
 
+            #if gpaw.mpi.world.rank == 0:
+            #    for i in range(nrow):
+            #        for j in range(nrow):
+            #            print "%9.3le" % omega_matrix[i,j],
+            #        print
+
+            #if gpaw.mpi.world.rank == 0:
+            #    print omega_matrix
+
             # global to local
-            for ip in range(nind):
+            for ip in range(nrow):
                 lip = self.get_local_index(ip)
                 if lip is None: continue
                 #print '#####', self.offset, ip, lip
-                self.evectors[lip][:] = omega_matrix[ip]
-            
-            #if gpaw.mpi.world.rank == 0:
-            #    print omega_matrix
+                self.evectors[lip,:] = omega_matrix[ip,:]
+
+#            if gpaw.mpi.world.rank == 0:
+#                n = 0; m = 0
+#                print np.vdot(omega_matrix[:,n], np.dot(omega_matrix2,omega_matrix[:,m]))
+#                print np.vdot(omega_matrix[n,:], np.dot(omega_matrix2,omega_matrix[m,:]))
+#
+#            x = np.zeros(nrow)
+#            k = 0
+#            for (ip,kss) in enumerate(self.kss_list):
+#                i = kss.occ_ind
+#                p = kss.unocc_ind
+#                x[ip] = self.get_local_eig_coeff(k,self.ind_map[(i,p)])
+#            print np.sqrt(np.vdot(x,np.dot(omega_matrix2,x)))
+
             
 
     def diagonalize(self):
@@ -651,7 +676,7 @@ class LrTDDFTindexed:
         if self.ks_prop_ready: return
         self.ks_prop_ready = True
         for kss_ip in self.kss_list:
-            if kss_ip.dip_mom_r is None and kss_ip.magn_mom is None:
+            if kss_ip.dip_mom_r is None or kss_ip.magn_mom is None:
                 self.ks_prop_ready = False
                 break
         if self.ks_prop_ready: return
@@ -662,7 +687,7 @@ class LrTDDFTindexed:
             self.calc.converge_wave_functions()
             if self.calc.density.nct_G is None:   self.calc.set_positions()
             self.xc.initialize(self.calc.density, self.calc.hamiltonian, self.calc.wfs, self.calc.occupations)
-            self.calc_ready
+            self.calc_ready = True
 
         if gpaw.mpi.rank == 0:
             self.kss_file = open(self.basefilename+'.KS_singles','a')
@@ -682,17 +707,18 @@ class LrTDDFTindexed:
             grad.append(Gradient(self.calc.wfs.gd, c, dtype=dtype))
 
 
+        self.pair_density = LRiPairDensity(self.calc.density) # see below
+
+
         # loop over all KS single excitations
         for kss_ip in self.kss_list:
             if kss_ip.dip_mom_r is not None and kss_ip.magn_mom is not None: continue
-
             
 
 #            print 'KS single properties for ', kss_ip.occ_ind, ' => ', kss_ip.unocc_ind
             # Dipole moment
-            self.pair_density = LRiPairDensity(self.calc.density) # see below
-            self.calculate_pair_density(self.calc.wfs.kpt_u[self.kpt_ind], kss_ip, 
-                                        dnt_Gip, dnt_gip, drhot_gip)
+            self.calculate_pair_density( self.calc.wfs.kpt_u[self.kpt_ind],
+                                         kss_ip, dnt_Gip, dnt_gip, drhot_gip )
             kss_ip.dip_mom_r = self.calc.density.finegd.calculate_dipole_moment(drhot_gip)
 
 
@@ -778,7 +804,7 @@ class LrTDDFTindexed:
             self.calc.converge_wave_functions()
             if self.calc.density.nct_G is None:   self.calc.set_positions()
             self.xc.initialize(self.calc.density, self.calc.hamiltonian, self.calc.wfs, self.calc.occupations)
-            self.calc_ready
+            self.calc_ready = True
 
 
         self.K_parts = self.stride
@@ -936,11 +962,15 @@ class LrTDDFTindexed:
 
 
                 self.timer.start('Integrate')
+                Ig = 0.0
                 # Hartree smooth part, RHOT_JQ HERE???
-                Ig = self.calc.density.finegd.integrate(dVht_gip, drhot_gjq)
+                if fH:
+                    Ig += self.calc.density.finegd.integrate(dVht_gip, drhot_gjq)
                 # XC smooth part
-                Ig += self.calc.density.finegd.integrate(dVxct_gip[self.kpt_ind], dnt_gjq)
+                if fxc:
+                    Ig += self.calc.density.finegd.integrate(dVxct_gip[self.kpt_ind], dnt_gjq)
                 self.timer.stop('Integrate')
+                
                 # FIXME
                 kss_ip.spin = kss_jq.spin = 0
                 # atomic corrections
@@ -961,11 +991,13 @@ class LrTDDFTindexed:
                     # 2 >      P   P  C    P  P
                     #   ----    ip  jr prst ks qt
                     #   prst
-                    Ia += 2.0 * np.dot(Djq_p, np.dot(C_pp, Dip_p))
+                    if fH:
+                        Ia += 2.0 * np.dot(Djq_p, np.dot(C_pp, Dip_p))
 
-                    
                     # XC part, CHECK THIS JQ EVERWHERE!!!
-                    Ia += np.dot(I_asp[a][kss_jq.spin], Djq_p)
+                    if fxc:
+                        Ia += np.dot(I_asp[a][kss_jq.spin], Djq_p)
+                    
                 self.timer.stop('Atomic corrections')
 
                 Ia = self.calc.density.finegd.comm.sum(Ia)
@@ -985,8 +1017,8 @@ class LrTDDFTindexed:
                 for k in K:
                     [i,p,j,q,Kipjq] = k
                     self.Kfile.write("%5d %5d %5d %5d %18.12lf\n" % (i,p,j,q,Kipjq))
-                    # if i != j or p != q: 
-                    #     self.Kfile.write("%5d %5d %5d %5d %18.12lf\n" % (j,q,i,p,Kipjq))
+                    #if i != j or p != q: 
+                    #    self.Kfile.write("%5d %5d %5d %5d %18.12lf\n" % (j,q,i,p,Kipjq))
                 self.Kfile.flush()
                 self.ready_file.write("%d %d\n" % (kss_ip.occ_ind, kss_ip.unocc_ind))
                 self.ready_file.flush()
