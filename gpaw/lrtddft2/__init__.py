@@ -19,7 +19,7 @@ from gpaw.utilities.lapack import diagonalize
 from gpaw.utilities.tools import coordinates
 from gpaw.utilities.tools import pick
 from gpaw.parameters import InputParameters
-from gpaw.kohnsham_layouts import LrTDDFTLayouts
+from gpaw.blacs import BlacsGrid, Redistributor
 
 
 #from gpaw.output import initialize_text_stream
@@ -64,6 +64,11 @@ class LrTDDFTindexed:
         self.stride = self.eh_comm.size
         self.offset = self.eh_comm.rank
         #print 'Offset and stride = ', self.offset, ' / ', self.stride
+
+        if calc is None:
+            self.domain_comm = gpaw.mpi.serial_comm
+        else:
+            self.domain_comm = calc.density.gd.comm
 
         self.deriv_scale = 1e-5
         self.min_pop_diff = 1e-3
@@ -412,8 +417,9 @@ class LrTDDFTindexed:
         self.evalues = np.zeros(nind)
         # ScaLapack
         if sl_omega is not None:
-            print 'eh_comm', self.eh_comm.size, self.eh_comm.parent
-            ksl = LrTDDFTLayouts(sl_omega, nind, self.eh_comm)
+            # print 'eh_comm', self.eh_comm.size, self.eh_comm.parent
+            ksl = LrTDDFTLayouts(sl_omega, nind, self.domain_comm,
+                                 self.eh_comm)
             self.evectors = omega_matrix
             ksl.diagonalize(self.evectors, self.evalues)
 
@@ -1081,7 +1087,48 @@ class KSSingle:
         return str
     
 
+class LrTDDFTLayouts:
+    """BLACS layout for distributed Omega matrix in linear response
+       time-dependet DFT calculations"""
 
+    def __init__(self, sl_omega, nkq, domain_comm, eh_comm):
+        mcpus, ncpus, blocksize = tuple(sl_omega)
+        self.world = eh_comm.parent
+        self.domain_comm = domain_comm
+        # All the ranks within domain communicator contain the omega matrix
+        # construct new communicator only on domain masters
+        eh_ranks = np.arange(eh_comm.size) * domain_comm.size
+        self.eh_comm2 = self.world.new_communicator(eh_ranks)
+
+        self.eh_grid = BlacsGrid(self.eh_comm2, eh_comm.size, 1)
+        self.eh_descr = self.eh_grid.new_descriptor(nkq, nkq, 1, nkq)
+        self.diag_grid = BlacsGrid(self.world, mcpus, ncpus)
+        self.diag_descr = self.diag_grid.new_descriptor(nkq, nkq,
+                                                        blocksize,
+                                                        blocksize)
+        self.redistributor_in = Redistributor(self.world,
+                                              self.eh_descr,
+                                              self.diag_descr)
+        self.redistributor_out = Redistributor(self.world,
+                                               self.diag_descr,
+                                               self.eh_descr)
+
+    def diagonalize(self, Om, eps_n):
+
+        O_nn = self.diag_descr.empty(dtype=float)
+        if self.eh_descr.blacsgrid.is_active():
+            O_nN = Om
+        else:
+            O_nN = np.empty((0,0), dtype=float)
+
+        self.redistributor_in.redistribute(O_nN, O_nn)
+        self.diag_descr.diagonalize_dc(O_nn.copy(), O_nn, eps_n, 'L')
+        self.redistributor_out.redistribute(O_nn, O_nN)
+        self.world.broadcast(eps_n, 0)
+        # Broadcast eigenvectors within domains
+        if not self.eh_descr.blacsgrid.is_active():
+            O_nN = Om
+        self.domain_comm.broadcast(O_nN, 0)
 
 ###############################################################################
 def lr_communicators(world, dd_size, eh_size):
@@ -1126,5 +1173,4 @@ def lr_communicators(world, dd_size, eh_size):
             eh_ranks.append(k)
     #print 'Proc #%05d DD : ' % world.rank, dd_ranks, '\n', 'Proc #%05d EH : ' % world.rank, eh_ranks
     return world.new_communicator(dd_ranks), world.new_communicator(eh_ranks)
-
 
