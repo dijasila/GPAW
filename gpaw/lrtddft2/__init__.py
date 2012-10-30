@@ -384,6 +384,7 @@ class LrTDDFTindexed:
 
         # Matrix build
         omega_matrix = np.zeros((nloc,nrow))
+        omega_matrix[:,:] = np.NAN
         for off in range(self.K_parts):
             Kfn = self.basefilename + '.K_matrix.' + '%04dof%04d' % (off, self.K_parts)
             for line in open(Kfn,'r'):
@@ -408,7 +409,9 @@ class LrTDDFTindexed:
                     ip = self.ind_map[ipkey]
                     omega_matrix[ljq,ip] = Kvalue
 
-                    
+        if np.isnan(np.sum(np.sum(omega_matrix))):
+            raise RuntimeError('Not all required LrTDDFT matrix elements could be found.')
+
         # Add diagonal values
         for kss in self.kss_list:
             key = (kss.occ_ind, kss.unocc_ind)
