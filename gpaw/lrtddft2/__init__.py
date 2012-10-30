@@ -198,26 +198,30 @@ class LrTDDFTindexed:
         return osc
 
     def get_rotatory_strength(self, k):
+
         self.calculate_excitations()
         dm = np.zeros(3)
         magn = np.zeros(3)
+
+        # J. Chem. Phys., Vol. 116, No. 16, 22 April 2002
         for kss_ip in self.kss_list:
             i = kss_ip.occ_ind
             p = kss_ip.unocc_ind
             # c = sqrt(ediff_ip / omega_n) sqrt(population_ip) * F^(n)_ip
-            c = np.sqrt(kss_ip.energy_diff / self.get_excitation_energy(k))
-            c *= np.sqrt(kss_ip.pop_diff) * self.get_local_eig_coeff(k,self.ind_map[(i,p)])
+            c1 = np.sqrt(kss_ip.energy_diff / self.get_excitation_energy(k))
+            c2 = np.sqrt(kss_ip.pop_diff) * self.get_local_eig_coeff(k,self.ind_map[(i,p)])
             # dm_n = c * dm_ip
-            dm[0] += c * kss_ip.dip_mom_r[0]
-            dm[1] += c * kss_ip.dip_mom_r[1]
-            dm[2] += c * kss_ip.dip_mom_r[2]
+            dm[0] += c1*c2 * kss_ip.dip_mom_r[0]
+            dm[1] += c1*c2 * kss_ip.dip_mom_r[1]
+            dm[2] += c1*c2 * kss_ip.dip_mom_r[2]
 
-            magn[0] += c * kss_ip.magn_mom[0]
-            magn[1] += c * kss_ip.magn_mom[1]
-            magn[2] += c * kss_ip.magn_mom[2]
+            magn[0] += c2/c1 * kss_ip.magn_mom[0]
+            magn[1] += c2/c1 * kss_ip.magn_mom[1]
+            magn[2] += c2/c1 * kss_ip.magn_mom[2]
+
         self.eh_comm.sum(dm)
         self.eh_comm.sum(magn)
-        return dm[0] * magn[0] + dm[1] * magn[1] + dm[2] * magn[2]
+        return - ( dm[0] * magn[0] + dm[1] * magn[1] + dm[2] * magn[2] )
 
 
     def get_spectrum(self, min_energy=0.0, max_energy=30.0, energy_step=0.01, width=0.1, units='eVcgs'):
@@ -704,7 +708,7 @@ class LrTDDFTindexed:
 
         grad = []
         for c in range(3):
-            grad.append(Gradient(self.calc.wfs.gd, c, dtype=dtype))
+            grad.append(Gradient(self.calc.wfs.gd, c, dtype=dtype,n=2))
 
 
         self.pair_density = LRiPairDensity(self.calc.density) # see below
@@ -723,9 +727,10 @@ class LrTDDFTindexed:
 
 
             # Magnetic transition dipole
+            # J. Chem. Phys., Vol. 116, No. 16, 22 April 2002
 
             # coordinate vector r
-            r_cg, r2_g = coordinates(self.calc.wfs.gd)
+            r_cG, r2_G = coordinates(self.calc.wfs.gd)
             # gradients
             for c in range(3):
                 grad[c].apply(self.pair_density.psit2_G, grad_psit2_G[c], self.calc.wfs.kpt_u[self.kpt_ind].phase_cd)
@@ -735,15 +740,15 @@ class LrTDDFTindexed:
             #    x  y  z   = (y pz - z py)i + (z px - x pz)j + (x py - y px)
             #    px py pz
             magn_g = np.zeros(3)
-            magn_g[0] = self.calc.wfs.gd.integrate( self.pair_density.psit1_G * 
-                                                    ( r_cg[1] * grad_psit2_G[2] -
-                                                      r_cg[2] * grad_psit2_G[1] ) )
-            magn_g[1] = self.calc.wfs.gd.integrate( self.pair_density.psit1_G * 
-                                                    ( r_cg[2] * grad_psit2_G[0] -
-                                                      r_cg[0] * grad_psit2_G[2] ) )
-            magn_g[2] = self.calc.wfs.gd.integrate( self.pair_density.psit1_G * 
-                                                    ( r_cg[0] * grad_psit2_G[1] -
-                                                      r_cg[1] * grad_psit2_G[0] ) )
+            magn_g[0] = self.calc.wfs.gd.integrate(self.pair_density.psit1_G *
+                                                   (r_cG[1] * grad_psit2_G[2] -
+                                                    r_cG[2] * grad_psit2_G[1]))
+            magn_g[1] = self.calc.wfs.gd.integrate(self.pair_density.psit1_G * 
+                                                   (r_cG[2] * grad_psit2_G[0] -
+                                                    r_cG[0] * grad_psit2_G[2]))
+            magn_g[2] = self.calc.wfs.gd.integrate(self.pair_density.psit1_G * 
+                                                   (r_cG[0] * grad_psit2_G[1] -
+                                                    r_cG[1] * grad_psit2_G[0]))
             
             # augmentation contributions
             magn_a = np.zeros(3)
@@ -757,7 +762,7 @@ class LrTDDFTindexed:
                             magn_a[c] += Pi * Pp * rnabla_iiv[i1, i2, c]
             self.calc.wfs.gd.comm.sum(magn_a)
                 
-            kss_ip.magn_mom = - alpha / 2. * (magn_g + magn_a)
+            kss_ip.magn_mom = alpha / 2. * (magn_g + magn_a)
 
 
             if gpaw.mpi.rank == 0:
