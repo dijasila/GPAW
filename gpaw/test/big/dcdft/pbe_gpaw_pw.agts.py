@@ -8,12 +8,12 @@ def agts(queue):
                       ncpus=4,
                       walltime=40*60)
             for s in range(20)]
-    if 0:  # run when new setups ready
+    if 1:  # run when new setups ready
         analyse = queue.add('analyse.py dcdft_pbe_gpaw_pw',
                             ncpus=1, walltime=10, deps=run16 + run4,
                             creates=['dcdft_pbe_gpaw_pw.csv',
                                      'dcdft_pbe_gpaw_pw.txt',
                                      'dcdft_pbe_gpaw_pw_Delta.txt',
-                                     'dcdft_pbe_gpaw_pw_raw.csv'])
+                                     'dcdft_pbe_gpaw_pw_raw.csv']
         varify = queue.add('pbe_gpaw_pw_verify.py',
                            ncpus=1, walltime=10, deps=[analyse])
