@@ -421,7 +421,7 @@ class LrTDDFTindexed:
         # ScaLapack
         if sl_omega is not None:
             # print 'eh_comm', self.eh_comm.size, self.eh_comm.parent
-            ksl = LrTDDFTLayouts(sl_omega, nind, self.domain_comm,
+            ksl = LrTDDFTLayouts(sl_omega, nrow, self.domain_comm,
                                  self.eh_comm)
             self.evectors = omega_matrix
             ksl.diagonalize(self.evectors, self.evalues)
@@ -545,7 +545,7 @@ class LrTDDFTindexed:
                         local_ind = global_ind // self.stride
                         omega_matrix[local_ind, global_ind] += kss.energy_diff * kss.energy_diff
 
-            ksl = LrTDDFTLayouts(sl_omega, nind, self.eh_comm)
+            ksl = LrTDDFTLayouts(sl_omega, nind, self.domain_comm, self.eh_comm)
             self.evectors = omega_matrix
             self.evalues = np.zeros(nind)
             ksl.diagonalize(self.evectors, self.evalues)
