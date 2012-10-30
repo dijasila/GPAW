@@ -194,6 +194,7 @@ tests = [
     'spin_contamination.py',
     'rpa_energy_Ni.py',
     'davidson.py',
+    'davidson_pw.py',
     'cg.py',
     'gllbatomic.py',
     'lcao_force.py',
