@@ -100,7 +100,8 @@ class LrTDDFTindexed:
 
 
         # write info file
-        self.eh_comm.parent.barrier()
+        if self.eh_comm.parent is not None:  self.eh_comm.parent.barrier()
+        else:                                gpaw.mpi.world.barrier()
         if gpaw.mpi.world.rank == 0:
             f = open(basefilename+'.lr_info','a+')
             f.write('# LrTDDFTindexed\n')
@@ -337,8 +338,9 @@ class LrTDDFTindexed:
                 self.calculate_KS_properties()
                 self.calculate_K_matrix()
 
-            self.eh_comm.parent.barrier()
-
+            if self.eh_comm.parent is not None:  self.eh_comm.parent.barrier()
+            else:                                gpaw.mpi.world.barrier()
+    
             if self.recalculate == 'matrix':
                 self.recalculate = None
                 return None
@@ -381,7 +383,7 @@ class LrTDDFTindexed:
                 # i.e. we are calculating just part of the whole matrix
                 ip = self.index_of_kss(i,p)
                 if ip is not None:
-                    assert ip == self.ind_map[key]
+                    assert ip == self.ind_map[key], 'List index %d is not equal to ind_map index %d for key (%d,%d)\n' % (ip,self.ind_map[key],i,p)
                     if self.get_local_index(ip) is not None: nloc += 1
 
 
@@ -586,7 +588,7 @@ class LrTDDFTindexed:
                 omega_matrix[k,k] += value
 
 
-#            if gpaw.mpi.rank == 0:
+#            if gpaw.mpi.world.rank == 0:
 #                for i in range(nind):
 #                    for j in range(nind):
 #                        print '%18.12lf ' % omega_matrix[i,j],
@@ -702,9 +704,6 @@ class LrTDDFTindexed:
             self.xc.initialize(self.calc.density, self.calc.hamiltonian, self.calc.wfs, self.calc.occupations)
             self.calc_ready = True
 
-        if gpaw.mpi.rank == 0:
-            self.kss_file = open(self.basefilename+'.KS_singles','a')
-
 
         dnt_Gip = self.calc.wfs.gd.empty()
         dnt_gip = self.calc.density.finegd.empty()
@@ -774,7 +773,13 @@ class LrTDDFTindexed:
             kss_ip.magn_mom = alpha / 2. * (magn_g + magn_a)
 
 
-            if gpaw.mpi.rank == 0:
+
+
+
+
+        if gpaw.mpi.world.rank == 0:
+            self.kss_file = open(self.basefilename+'.KS_singles','w')
+            for kss_ip in self.kss_list:
                 format = '%08d %08d  %18.12lf %18.12lf  '
                 format += '%18.12lf %18.12lf %18.12lf '
                 format += '%18.12lf %18.12lf %18.12lf\n'
@@ -787,7 +792,6 @@ class LrTDDFTindexed:
                                               kss_ip.magn_mom[0],
                                               kss_ip.magn_mom[1],
                                               kss_ip.magn_mom[2]))
-        if gpaw.mpi.rank == 0:
             self.kss_file.close()
             
         self.ks_prop_ready = True

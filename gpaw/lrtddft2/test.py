@@ -255,58 +255,116 @@ def do_old(istart, pend, ediff, dd, eh, sl):
 ###############################################################################
 
 
+data = {}
+
+data[(4,9)] = [ [[  3.8307029,          0.0033744,          0.6852403],
+                 [  5.0140338,          0.0091942,         56.4963774],
+                 [  5.9941797,          0.0000016,          0.0585058],
+                 [  6.2012587,          0.0000768,         -2.6735164],
+                 [  7.3217155,          0.0834718,       -114.8496973],
+                 [  8.1095916,          0.1802103,         62.1772987],
+                 [  8.6754220,          0.0950949,          1.4506092],
+                 [  9.4443891,          0.9660643,          3.8178493],
+                 [ 10.1910041,          0.0122456,        -13.0075263] ] ]
+
+data[(3,11)] = [ [ [   3.8216832,          0.0036721,          0.4962022],
+                   [   5.0136285,          0.0090210,         55.9136106],
+                   [   5.9827652,          0.0000695,          0.2920758],
+                   [   6.1926338,          0.0001338,         -4.1875160],
+                   [   6.2262262,          0.0462699,         21.4012398],
+                   [   6.2763805,          0.0000161,          0.6371072],
+                   [   7.3206578,          0.0816187,       -112.6221885],
+                   [   7.7192300,          0.0042342,         12.7233311],
+                   [   8.0121517,          0.1973411,         74.8663029] ] ]
+
+for d in data[(4,9)]+data[(3,11)]:
+    for t in d:
+        t[0] /= 27.211
+        t[1] /= 1.
+        t[2] /= 64604.8164
+
 
 # 4 9
 (istart,pend,ediff,dd,eh,sl) = (4,9,100.,8,1, None)
-otrans = do_old(istart, pend, ediff, dd, eh, sl)
-trans = do_new(istart, pend, ediff, dd, eh, sl)
+otrans = do_old(istart, pend, ediff, dd, eh, sl);   data[(istart,pend)].append(otrans)
+trans = do_new(istart, pend, ediff, dd, eh, sl);    data[(istart,pend)].append(trans)
 (istart,pend,ediff,dd,eh,sl) = (4,9,100.,8,3, None)
-trans = do_new(istart, pend, ediff, dd, eh, sl)
+trans = do_new(istart, pend, ediff, dd, eh, sl);    data[(istart,pend)].append(trans)
 
 # 3 11
 (istart,pend,ediff,dd,eh,sl) = (3,11,100.,8,1, None)
-otrans = do_old(istart, pend, ediff, dd, eh, sl)
-trans = do_new(istart, pend, ediff, dd, eh, sl)
+otrans = do_old(istart, pend, ediff, dd, eh, sl);    data[(istart,pend)].append(otrans)
+trans = do_new(istart, pend, ediff, dd, eh, sl);     data[(istart,pend)].append(trans)
 
 
 # Scalapack 4 9
 (istart,pend,ediff,dd,eh,sl) = (4,9,100.,8,3, (1,1,1))
-trans = do_new(istart, pend, ediff, dd, eh, sl)
+trans = do_new(istart, pend, ediff, dd, eh, sl);       data[(istart,pend)].append(trans)
 (istart,pend,ediff,dd,eh,sl) = (4,9,100.,8,3, (3,1,3))
-trans = do_new(istart, pend, ediff, dd, eh, sl)
+trans = do_new(istart, pend, ediff, dd, eh, sl);       data[(istart,pend)].append(trans)
 (istart,pend,ediff,dd,eh,sl) = (4,9,100.,8,3, (4,4,1))
-trans = do_new(istart, pend, ediff, dd, eh, sl)
+trans = do_new(istart, pend, ediff, dd, eh, sl);       data[(istart,pend)].append(trans)
 (istart,pend,ediff,dd,eh,sl) = (4,9,100.,8,3, (3,7,1))
-trans = do_new(istart, pend, ediff, dd, eh, sl)
+trans = do_new(istart, pend, ediff, dd, eh, sl);       data[(istart,pend)].append(trans)
 
-# Scalapack restart
+# Scalapack eigen
 (istart,pend,ediff,dd,eh,sl) = (4,9,100., 8,3, (1,1,1))
-trans = do_eig(istart, pend, ediff, dd, eh, sl)
+trans = do_eig(istart, pend, ediff, dd, eh, sl);       data[(istart,pend)].append(trans)
 (istart,pend,ediff,dd,eh,sl) = (4,9,100., 8,3, (3,1,3))
-trans = do_eig(istart, pend, ediff, dd, eh, sl)
+trans = do_eig(istart, pend, ediff, dd, eh, sl);       data[(istart,pend)].append(trans)
 (istart,pend,ediff,dd,eh,sl) = (4,9,100., 8,3, (3,7,1))
-trans = do_eig(istart, pend, ediff, dd, eh, sl)
+trans = do_eig(istart, pend, ediff, dd, eh, sl);       data[(istart,pend)].append(trans)
 
 
 # Size change
 (istart,pend,ediff,dd,eh,sl) = (4,9,100.,8,3, None)
 (istart2,pend2,ediff2) = (3,11,100.)
-trans = do_rst(istart, pend, ediff, dd, eh, istart2, pend2, ediff2, sl)
+trans = do_rst(istart, pend, ediff, dd, eh, istart2, pend2, ediff2, sl);       data[(istart2,pend2)].append(trans)
 
 (istart,pend,ediff,dd,eh,sl) = (3,11,100.,8,3, None)
 (istart2,pend2,ediff2) = (4,9,100.)
-trans = do_rst(istart, pend, ediff, dd, eh, istart2, pend2, ediff2, sl)
+trans = do_rst(istart, pend, ediff, dd, eh, istart2, pend2, ediff2, sl);       data[(istart2,pend2)].append(trans)
 
 
 # Scalapack size changes
 (istart,pend,ediff,dd,eh,sl) = (4,9,100.,8,3, (3,1,3))
 (istart2,pend2,ediff2) = (3,11,100.)
-trans = do_rst(istart, pend, ediff, dd, eh, istart2, pend2, ediff2, sl)
+trans = do_rst(istart, pend, ediff, dd, eh, istart2, pend2, ediff2, sl);       data[(istart2,pend2)].append(trans)
 
 (istart,pend,ediff,dd,eh,sl) = (4,9,100.,8,3, (3,7,1))
 (istart2,pend2,ediff2) = (3,11,100.)
-trans = do_rst(istart, pend, ediff, dd, eh, istart2, pend2, ediff2, sl)
+trans = do_rst(istart, pend, ediff, dd, eh, istart2, pend2, ediff2, sl);       data[(istart2,pend2)].append(trans)
 
 (istart,pend,ediff,dd,eh,sl) = (3,11,100.,8,3, (3,7,1))
 (istart2,pend2,ediff2) = (4,9,100.)
-trans = do_rst(istart, pend, ediff, dd, eh, istart2, pend2, ediff2, sl)
+trans = do_rst(istart, pend, ediff, dd, eh, istart2, pend2, ediff2, sl);       data[(istart2,pend2)].append(trans)
+
+
+if gpaw.mpi.world.rank == 0:
+    d0 = data[(4,9)][0]
+    for d in data[(4,9)][1:]:
+        for (t,t0) in zip(d,d0):
+            dw = t[0] - t0[0]
+            df = t[1] - t0[1]
+            dR = t[2] - t0[2]
+            if abs(dw) > 1e-5 or abs(df) > 1e-5 or abs(dR) > 1e-4:
+                print "%10.3le %10.3le %10.3le <= TOO LARGE" % (t[0]-t0[0], t[1]-t0[1], t[2]-t0[2])
+            else:
+                print "%10.3le %10.3le %10.3le" % (t[0]-t0[0], t[1]-t0[1], t[2]-t0[2])
+        print
+
+if gpaw.mpi.world.rank == 0:
+    d0 = data[(3,11)][0]
+    for d in data[(3,11)][1:]:
+        for (t,t0) in zip(d,d0):
+            dw = t[0] - t0[0]
+            df = t[1] - t0[1]
+            dR = t[2] - t0[2]
+            if abs(dw) > 1e-5 or abs(df) > 1e-5 or abs(dR) > 1e-4:
+                print "%10.3le %10.3le %10.3le <= TOO LARGE" % (t[0]-t0[0], t[1]-t0[1], t[2]-t0[2])
+            else:
+                print "%10.3le %10.3le %10.3le" % (t[0]-t0[0], t[1]-t0[1], t[2]-t0[2])
+        print
+
+
+
