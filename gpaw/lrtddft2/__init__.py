@@ -692,7 +692,10 @@ class LrTDDFTindexed:
         # initialize wfs, paw corrections and xc
         if not self.calc_ready:
             self.calc.converge_wave_functions()
-            if self.calc.density.nct_G is None:   self.calc.set_positions()
+            spos_ac = self.calc.initialize_positions()
+            self.calc.wfs.initialize(self.calc.density, 
+                                     self.calc.hamiltonian, spos_ac)
+
             self.xc.initialize(self.calc.density, self.calc.hamiltonian, self.calc.wfs, self.calc.occupations)
             self.calc_ready = True
 
