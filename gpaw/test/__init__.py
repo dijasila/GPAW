@@ -98,6 +98,7 @@ tests = [
     'poisson.py',
     'pw/lfc.py',
     'pw/reallfc.py',
+    'pw/moleculecg.py',
     'XC2.py',
     'multipoletest.py',
     'nabla.py',
