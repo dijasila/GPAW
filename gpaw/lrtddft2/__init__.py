@@ -100,21 +100,23 @@ class LrTDDFTindexed:
 
 
         # write info file
-        f = open(basefilename+'.lr_info','w')
-        f.write('# LrTDDFTindexed\n')
-        f.write('%20s = %s\n' % ('xc_name', self.xc_name))
-        f.write('%20s = %s\n' % ('',''))
-        f.write('%20s = %d\n' % ('min_occ', self.min_occ))
-        f.write('%20s = %d\n' % ('min_unocc', self.min_unocc))
-        f.write('%20s = %d\n' % ('max_occ', self.max_occ))
-        f.write('%20s = %d\n' % ('max_unocc', self.max_unocc))
-        f.write('%20s = %18.12lf\n' % ('max_energy_diff',self.max_energy_diff))
-        f.write('%20s = %s\n' % ('',''))
-        f.write('%20s = %18.12lf\n' % ('deriv_scale', self.deriv_scale))
-        f.write('%20s = %18.12lf\n' % ('min_pop_diff', self.min_pop_diff))
-        if self.K_parts is not None:
-            f.write('%20s = %d\n' % ('K_parts', self.K_parts))
-        f.close()
+        self.eh_comm.parent.barrier()
+        if gpaw.mpi.world.rank == 0:
+            f = open(basefilename+'.lr_info','a+')
+            f.write('# LrTDDFTindexed\n')
+            f.write('%20s = %s\n' % ('xc_name', self.xc_name))
+            f.write('%20s = %s\n' % ('',''))
+            f.write('%20s = %d\n' % ('min_occ', self.min_occ))
+            f.write('%20s = %d\n' % ('min_unocc', self.min_unocc))
+            f.write('%20s = %d\n' % ('max_occ', self.max_occ))
+            f.write('%20s = %d\n' % ('max_unocc', self.max_unocc))
+            f.write('%20s = %18.12lf\n' % ('max_energy_diff',self.max_energy_diff))
+            f.write('%20s = %s\n' % ('',''))
+            f.write('%20s = %18.12lf\n' % ('deriv_scale', self.deriv_scale))
+            f.write('%20s = %18.12lf\n' % ('min_pop_diff', self.min_pop_diff))
+            if self.K_parts is not None:
+                f.write('%20s = %d\n' % ('K_parts', self.K_parts))
+            f.close()
 
 
         self.calc_ready = False
@@ -128,6 +130,7 @@ class LrTDDFTindexed:
         if os.path.exists(info_file) and os.path.isfile(info_file):
             info_file = open(info_file,'r')
             for line in info_file:
+                if line[0] == '#': continue
                 if len(line.split()) <= 2: continue
                 key = line.split()[0]
                 value = line.split()[2]
@@ -334,7 +337,7 @@ class LrTDDFTindexed:
                 self.calculate_KS_properties()
                 self.calculate_K_matrix()
 
-            gpaw.mpi.world.barrier()
+            self.eh_comm.parent.barrier()
 
             if self.recalculate == 'matrix':
                 self.recalculate = None
@@ -821,7 +824,7 @@ class LrTDDFTindexed:
         self.K_parts = self.stride
         if gpaw.mpi.world.rank == 0:
             info_file = open(self.basefilename + '.lr_info','a+')
-            info_file.write('%20s = %d' % ('K_parts',self.stride))
+            info_file.write('%20s = %d\n' % ('K_parts',self.stride))
             info_file.close()
 
 
@@ -1199,7 +1202,7 @@ def lr_communicators(world, dd_size, eh_size):
 
     Example:
 
-    dd_comm, eh_comm = lr_communicators(gmpi.world, 4, 2)
+    dd_comm, eh_comm = lr_communicators(gpaw.mpi.world, 4, 2)
     txt = 'lr_%04d_%04d.txt' % (dd_comm.rank, eh_comm.rank)
     lr = LrTDDFT(GPAW('unocc.gpw', communicator=dd_comm), eh_comm=eh_comm, txt=txt)
     """
