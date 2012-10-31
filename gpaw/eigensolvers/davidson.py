@@ -91,10 +91,9 @@ class Davidson(Eigensolver):
                 ekin = self.preconditioner.calculate_kinetic_energy(R_nG[n:n+1], kpt)
                 psit2_nG[n] = self.preconditioner(R_nG[n:n+1], kpt, ekin)
 
-            indices = np.diag_indices_from(H_2n2n[:nbands, :nbands])
-            H_2n2n[indices] = kpt.eps_n[:]
-            S_2n2n[indices] = 1.0
-                            
+                H_2n2n[n, n] = kpt.eps_n[n]
+                S_2n2n[n, n] = 1.0
+
             # Calculate projections
             P2_ani = wfs.pt.dict(nbands)
             wfs.pt.integrate(psit2_nG, P2_ani, kpt.q)
