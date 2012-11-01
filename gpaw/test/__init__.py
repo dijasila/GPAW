@@ -340,7 +340,9 @@ if mpi.size > 1:
                 #'cmrtest/cmr_append.py',
                 #'cmrtest/Li2_atomize.py',
                 'lcao_pair_and_coulomb.py',
-                'pw/moleculecg.py']
+                'pw/moleculecg.py',
+		'pw/davidson_pw.py',
+		]
 
 
 if mpi.size > 2:
