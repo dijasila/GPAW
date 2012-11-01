@@ -1,4 +1,4 @@
-### run with 24 mpi-procs
+### run with at least 24 mpi-procs
 
 import sys
 from ase import *
@@ -11,7 +11,6 @@ from lrigpaw.lrtddft2 import *
 
 
 nanal = 9
-
 
 ###############################################################################
 # GS
@@ -284,58 +283,61 @@ for d in data[(4,9)]+data[(3,11)]:
         t[2] /= 64604.8164
 
 
+ndd = 8
+neh = 3
+
 # 4 9
-(istart,pend,ediff,dd,eh,sl) = (4,9,100.,8,1, None)
+(istart,pend,ediff,dd,eh,sl) = (4,9,100., ndd, 1, None)
 otrans = do_old(istart, pend, ediff, dd, eh, sl);   data[(istart,pend)].append(otrans)
 trans = do_new(istart, pend, ediff, dd, eh, sl);    data[(istart,pend)].append(trans)
-(istart,pend,ediff,dd,eh,sl) = (4,9,100.,8,3, None)
+(istart,pend,ediff,dd,eh,sl) = (4,9,100., ndd, neh, None)
 trans = do_new(istart, pend, ediff, dd, eh, sl);    data[(istart,pend)].append(trans)
 
 # 3 11
-(istart,pend,ediff,dd,eh,sl) = (3,11,100.,8,1, None)
+(istart,pend,ediff,dd,eh,sl) = (3,11,100., ndd, 1, None)
 otrans = do_old(istart, pend, ediff, dd, eh, sl);    data[(istart,pend)].append(otrans)
 trans = do_new(istart, pend, ediff, dd, eh, sl);     data[(istart,pend)].append(trans)
 
 
 # Scalapack 4 9
-(istart,pend,ediff,dd,eh,sl) = (4,9,100.,8,3, (1,1,1))
+(istart,pend,ediff,dd,eh,sl) = (4,9,100., ndd, neh, (1,1,1))
 trans = do_new(istart, pend, ediff, dd, eh, sl);       data[(istart,pend)].append(trans)
-(istart,pend,ediff,dd,eh,sl) = (4,9,100.,8,3, (3,1,3))
+(istart,pend,ediff,dd,eh,sl) = (4,9,100., ndd, neh, (3,1,3))
 trans = do_new(istart, pend, ediff, dd, eh, sl);       data[(istart,pend)].append(trans)
-(istart,pend,ediff,dd,eh,sl) = (4,9,100.,8,3, (4,4,1))
+(istart,pend,ediff,dd,eh,sl) = (4,9,100., ndd, neh, (4,4,1))
 trans = do_new(istart, pend, ediff, dd, eh, sl);       data[(istart,pend)].append(trans)
-(istart,pend,ediff,dd,eh,sl) = (4,9,100.,8,3, (3,7,1))
+(istart,pend,ediff,dd,eh,sl) = (4,9,100., ndd, neh, (3,7,1))
 trans = do_new(istart, pend, ediff, dd, eh, sl);       data[(istart,pend)].append(trans)
 
 # Scalapack eigen
-(istart,pend,ediff,dd,eh,sl) = (4,9,100., 8,3, (1,1,1))
+(istart,pend,ediff,dd,eh,sl) = (4,9,100., ndd, neh, (1,1,1))
 trans = do_eig(istart, pend, ediff, dd, eh, sl);       data[(istart,pend)].append(trans)
-(istart,pend,ediff,dd,eh,sl) = (4,9,100., 8,3, (3,1,3))
+(istart,pend,ediff,dd,eh,sl) = (4,9,100., ndd, neh, (3,1,3))
 trans = do_eig(istart, pend, ediff, dd, eh, sl);       data[(istart,pend)].append(trans)
-(istart,pend,ediff,dd,eh,sl) = (4,9,100., 8,3, (3,7,1))
+(istart,pend,ediff,dd,eh,sl) = (4,9,100., ndd, neh, (3,7,1))
 trans = do_eig(istart, pend, ediff, dd, eh, sl);       data[(istart,pend)].append(trans)
 
 
 # Size change
-(istart,pend,ediff,dd,eh,sl) = (4,9,100.,8,3, None)
+(istart,pend,ediff,dd,eh,sl) = (4,9,100., ndd, neh, None)
 (istart2,pend2,ediff2) = (3,11,100.)
 trans = do_rst(istart, pend, ediff, dd, eh, istart2, pend2, ediff2, sl);       data[(istart2,pend2)].append(trans)
 
-(istart,pend,ediff,dd,eh,sl) = (3,11,100.,8,3, None)
+(istart,pend,ediff,dd,eh,sl) = (3,11,100., ndd, neh, None)
 (istart2,pend2,ediff2) = (4,9,100.)
 trans = do_rst(istart, pend, ediff, dd, eh, istart2, pend2, ediff2, sl);       data[(istart2,pend2)].append(trans)
 
 
 # Scalapack size changes
-(istart,pend,ediff,dd,eh,sl) = (4,9,100.,8,3, (3,1,3))
+(istart,pend,ediff,dd,eh,sl) = (4,9,100., ndd, neh, (3,1,3))
 (istart2,pend2,ediff2) = (3,11,100.)
 trans = do_rst(istart, pend, ediff, dd, eh, istart2, pend2, ediff2, sl);       data[(istart2,pend2)].append(trans)
 
-(istart,pend,ediff,dd,eh,sl) = (4,9,100.,8,3, (3,7,1))
+(istart,pend,ediff,dd,eh,sl) = (4,9,100., ndd, neh, (3,7,1))
 (istart2,pend2,ediff2) = (3,11,100.)
 trans = do_rst(istart, pend, ediff, dd, eh, istart2, pend2, ediff2, sl);       data[(istart2,pend2)].append(trans)
 
-(istart,pend,ediff,dd,eh,sl) = (3,11,100.,8,3, (3,7,1))
+(istart,pend,ediff,dd,eh,sl) = (3,11,100., ndd, neh, (3,7,1))
 (istart2,pend2,ediff2) = (4,9,100.)
 trans = do_rst(istart, pend, ediff, dd, eh, istart2, pend2, ediff2, sl);       data[(istart2,pend2)].append(trans)
 
