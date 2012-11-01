@@ -92,12 +92,19 @@ class LrTDDFTindexed:
         self.kpt_ind = 0
         # <
          
-        if self.min_occ is None:   self.min_occ = 0
-        if self.min_unocc is None: self.min_unocc = self.min_occ
-        if self.max_occ is None:   self.max_occ = len(self.calc.wfs.kpt_u[self.kpt_ind].f_n)
-        if self.max_unocc is None: self.max_unocc = self.max_occ
-        if self.max_energy_diff is None: self.max_energy_diff = 1e9
-
+        nbands = len(self.calc.wfs.kpt_u[self.kpt_ind].f_n)
+        if self.min_occ is None:
+            self.min_occ = 0
+        if self.min_unocc is None:
+            self.min_unocc = self.min_occ
+        if self.max_occ is None:
+            self.max_occ = nbands - 1
+        else:
+            self.max_occ = min(self.max_occ, nbands - 1)
+        if self.max_unocc is None:
+            self.max_unocc = self.max_occ
+        if self.max_energy_diff is None:
+            self.max_energy_diff = 1e9
 
         # write info file
         if self.eh_comm.parent is not None:  self.eh_comm.parent.barrier()
