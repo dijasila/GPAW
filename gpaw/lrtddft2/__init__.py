@@ -7,6 +7,7 @@ import datetime
 import time
 import pickle
 import math
+from glob import glob
 
 import numpy as np
 from ase.units import Hartree, alpha
@@ -148,11 +149,12 @@ class LrTDDFTindexed:
                 # ... 
             info_file.close()            
                 
-        ready_file = basename+'.ready_rows.' + '%04dof%04d' % (self.offset, self.stride)
-        if os.path.exists(ready_file) and os.path.isfile(ready_file):
-            for line in open(ready_file,'r'):
-                line = line.split()
-                self.ready_indices.append([int(line[0]),int(line[1])])
+        ready_files = glob(basename + '.ready_rows.*')
+        for ready_file in ready_files:
+            if os.path.isfile(ready_file):
+                for line in open(ready_file,'r'):
+                    line = line.split()
+                    self.ready_indices.append([int(line[0]),int(line[1])])
 
         kss_file = basename+'.KS_singles'
         if os.path.exists(kss_file) and os.path.isfile(kss_file):
@@ -375,12 +377,10 @@ class LrTDDFTindexed:
         
         # read all files
         # (K_parts from calculate_K_matrix or from lr_info-file.)
-        for off in range(self.K_parts):
-
+        rrfns = glob(self.basefilename + '.ready_rows.*')
+        for rrfn in rrfns:
             # read all ready rows files
             # to decide what indices are already calculated
-            rrfn = self.basefilename + '.ready_rows.' + '%04dof%04d' % (off, self.K_parts)
-
             for line in open(rrfn,'r'):
                 i = int(line.split()[0])
                 p = int(line.split()[1])
@@ -397,8 +397,8 @@ class LrTDDFTindexed:
         # Matrix build
         omega_matrix = np.zeros((nloc,nrow))
         omega_matrix[:,:] = np.NAN
-        for off in range(self.K_parts):
-            Kfn = self.basefilename + '.K_matrix.' + '%04dof%04d' % (off, self.K_parts)
+        Kfns = glob(self.basefilename + '.K_matrix.*')
+        for Kfn in Kfns:
             for line in open(Kfn,'r'):
                 line = line.split()
                 ipkey = (int(line[0]), int(line[1]))
