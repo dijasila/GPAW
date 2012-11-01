@@ -361,8 +361,8 @@ class LrTDDFTindexed:
 
 
     def diagonalize2(self):
-        par = InputParameters() # ScaLAPACK paramters
-        sl_omega = par.parallel['sl_lrtddft']
+        par = self.calc.input_parameters
+        sl_lrtddft = par.parallel['sl_lrtddft']
 
         self.ind_map = {}          # (i,p) to matrix index map
         nrow = len(self.kss_list)  # total rows
@@ -438,9 +438,9 @@ class LrTDDFTindexed:
         # calculate eigenvalues
         self.evalues = np.zeros(nrow)
         # ScaLapack
-        if sl_omega is not None:
+        if sl_lrtddft is not None:
             # print 'eh_comm', self.eh_comm.size, self.eh_comm.parent
-            ksl = LrTDDFTLayouts(sl_omega, nrow, self.domain_comm,
+            ksl = LrTDDFTLayouts(sl_lrtddft, nrow, self.domain_comm,
                                  self.eh_comm)
             self.evectors = omega_matrix
             ksl.diagonalize(self.evectors, self.evalues)
