@@ -43,7 +43,7 @@ class Eigensolver:
         self.initialized = True
 
     def reset(self):
-	self.initialized = False
+        self.initialized = False
 
     def iterate(self, hamiltonian, wfs):
         """Solves eigenvalue problem iteratively
