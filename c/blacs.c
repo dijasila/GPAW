@@ -78,6 +78,12 @@ int Csys2blacs_handle_(MPI_Comm SysCtxt);
 #define   pzherk_  pzherk
 #define   pdtrsm_  pdtrsm
 #define   pztrsm_  pztrsm
+
+#define   pzhetri_ pzhetri
+
+#define   pzhemm_  pzhemm
+#define   pdsymm_  pdsymm
+
 #endif
 
 #ifdef GPAW_NO_UNDERSCORE_CSCALAPACK
@@ -111,6 +117,9 @@ void Cpztrmr2d_(char* uplo, char* diag, int m, int n,
                 int gcontext);
 
 double pdlamch_(int* ictxt, char* cmach);
+
+void pzgetri_(int* n, void* a,
+              int *ia, int* ja, int* desca, int* info);
 
 void pdlaset_(char* uplo, int* m, int* n, double* alpha, double* beta,
 	      double* a, int* ia, int* ja, int* desca);
@@ -248,6 +257,20 @@ void pzgemm_(char* transa, char* transb, int* m, int* n, int* k,
              void* beta,
              void* c, int* ic, int* jc, int* descc);
 
+void pzhemm_(char* side, char* uplo, int* m, int* n,
+             void* alpha,
+             void* a, int* ia, int* ja, int* desca,
+             void* b, int* ib, int* jb, int* descb,
+             void* beta,
+             void* c, int* ic, int* jc, int* descc);
+
+void pdsymm_(char* side, char* uplo, int* m, int* n,
+             void* alpha,
+             void* a, int* ia, int* ja, int* desca,
+             void* b, int* ib, int* jb, int* descb,
+             void* beta,
+             void* c, int* ic, int* jc, int* descc);
+
 void pdgemv_(char* transa, int* m, int* n, double* alpha, 
              double* a, int* ia, int* ja, int* desca,
              double* x, int* ix, int* jx, int* descx, int* incx,
@@ -366,6 +389,43 @@ PyObject* pblas_gemm(PyObject *self, PyObject *args)
 	    (void*)COMPLEXP(c), &one, &one, INTP(descc));
 
   Py_RETURN_NONE;
+}
+
+
+//    _gpaw.pblas_hemm(side, uplo, N, M, alpha, a_MK, b_KN, beta, c_MN,
+//                     descb.asarray(), desca.asarray(), descc.asarray())
+PyObject* pblas_hemm(PyObject *self, PyObject *args)
+{
+  char side;
+  char uplo;
+  int m, n;
+  Py_complex alpha;
+  Py_complex beta;
+  PyArrayObject *a, *b, *c;
+  PyArrayObject *desca, *descb, *descc;
+  int one = 1;
+  if (!PyArg_ParseTuple(args, "cciiDOOdOOOO", 
+                 &side, &uplo, &n, &m,
+                 &alpha, &a, &b, &beta, 
+                 &c, &desca, &descb, &descc)) {
+    return NULL;
+  }
+
+  if (c->descr->type_num == PyArray_DOUBLE) {
+     pdsymm_(&side, &uplo, &n, &m, &alpha,
+             (void*)DOUBLEP(a), &one, &one, INTP(desca),
+             (void*)DOUBLEP(b), &one, &one, INTP(descb),
+             &beta,
+             (void*)DOUBLEP(c), &one, &one, INTP(descc));
+  } else {
+     pzhemm_(&side, &uplo, &n, &m, &alpha,
+             (void*)COMPLEXP(a), &one, &one, INTP(desca),
+             (void*)COMPLEXP(b), &one, &one, INTP(descb),
+             &beta,
+             (void*)COMPLEXP(c), &one, &one, INTP(descc));
+  }
+
+ Py_RETURN_NONE;
 }
 
 PyObject* pblas_gemv(PyObject *self, PyObject *args)
@@ -1627,6 +1687,47 @@ PyObject* scalapack_inverse_cholesky(PyObject *self, PyObject *args)
   PyObject* returnvalue = Py_BuildValue("i", info);
   return returnvalue;
 }
+
+PyObject* scalapack_inverse(PyObject *self, PyObject *args)
+{
+  // Cholesky plus inverse of triangular matrix
+
+  PyArrayObject* a; // overlap matrix
+  PyArrayObject* desca; // symmetric matrix description vector
+  int info;
+  double d_zero = 0.0;
+  double_complex c_zero = 0.0;
+  int one = 1;
+  int two = 2;
+
+  if (!PyArg_ParseTuple(args, "OO", &a, &desca))
+    return NULL;
+
+  // adesc
+  // int a_ConTxt = INTP(desca)[1];
+  int a_m      = INTP(desca)[2];
+  int a_n      = INTP(desca)[3];
+
+  // Only square matrices
+  assert (a_m == a_n);
+  int n = a_n;
+  int p = a_n - 1;
+  
+  // If process not on BLACS grid, then return.
+  // if (a_ConTxt == -1) Py_RETURN_NONE;
+
+  if (a->descr->type_num == PyArray_DOUBLE)
+     {
+      assert(1==-1);
+     }
+  else
+    {
+      pzgetri_(&n, (void*)COMPLEXP(a), &one, &one,INTP(desca), &info);
+    }
+  PyObject* returnvalue = Py_BuildValue("i", info);
+  return returnvalue;
+}
+
 
 #endif
 #endif // PARALLEL

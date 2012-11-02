@@ -300,6 +300,19 @@ def scalapack_inverse_cholesky(desca, a, uplo):
     if info != 0:
         raise RuntimeError('scalapack_inverse_cholesky error: %d' % info)
 
+def scalapack_inverse(desca, a, uplo):
+    """Perform general matrix inversion.
+
+    """
+    desca.checkassert(a)
+    # only symmetric matrices
+    assert desca.gshape[0] == desca.gshape[1]
+    if not desca.blacsgrid.is_active():
+        return
+    info = _gpaw.scalapack_inverse(a, desca.asarray())
+    if info != 0:
+        raise RuntimeError('scalapack_inverse error: %d' % info)
+
 def pblas_tran(alpha, a_MN, beta, c_NM, desca, descc):
     desca.checkassert(a_MN)
     descc.checkassert(c_NM)
@@ -309,6 +322,30 @@ def pblas_tran(alpha, a_MN, beta, c_NM, desca, descc):
                      desca.asarray(), descc.asarray())
 
 
+def pblas_hemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
+               side='L', uplo='L'):
+    # Hermitean matrix multiply, only lower or upper diagonal of a_MK
+    # is used. By default, C = beta*C + alpha*A*B
+    # Executes PBLAS method pzhemm for complex and pdsymm for real matrices.
+    desca.checkassert(a_MK)
+    descb.checkassert(b_KN)
+    descc.checkassert(c_MN)
+    assert side in ['R','L'] and uplo in ['L','U']
+    M, Ka = desca.gshape
+    Kb, N = descb.gshape
+
+    if not desca.blacsgrid.is_active():
+        return
+    fortran_side = {'L':'R', 'R':'L'}
+    fortran_uplo = {'U':'L', 'L':'U'}
+    print "MN", M, N
+    print "A", a_MK.shape
+    print "C", c_MN.shape
+    print "B", b_KN.shape
+    _gpaw.pblas_hemm(fortran_side[side], fortran_uplo[uplo], 
+                     N, M, alpha, a_MK.T, b_KN.T, beta, c_MN.T,
+                     desca.asarray(), descb.asarray(), descc.asarray())
+    
 def pblas_gemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
                transa='N', transb='N'):
     desca.checkassert(a_MK)
@@ -372,6 +409,10 @@ def pblas_simple_gemm(desca, descb, descc, a_MK, b_KN, c_MN,
     pblas_gemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
                transa, transb)
 
+def pblas_simple_hemm(desca, descb, descc, a_MK, b_KN, c_MN, side='L', uplo='L'):
+    alpha = 1.0
+    beta = 0.0
+    pblas_hemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc, side, uplo)
 
 def pblas_gemv(alpha, a, x, beta, y, desca, descx, descy,
                transa='T'):
