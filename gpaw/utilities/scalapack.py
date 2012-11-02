@@ -333,6 +333,8 @@ def pblas_hemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
     assert side in ['R','L'] and uplo in ['L','U']
     M, Ka = desca.gshape
     Kb, N = descb.gshape
+    if side=='R':
+        Kb, N = N, Kb
 
     if not desca.blacsgrid.is_active():
         return
@@ -342,6 +344,9 @@ def pblas_hemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
     print "A", a_MK.shape
     print "C", c_MN.shape
     print "B", b_KN.shape
+    if side=='R':
+        M, N = N, M
+
     _gpaw.pblas_hemm(fortran_side[side], fortran_uplo[uplo], 
                      N, M, alpha, a_MK.T, b_KN.T, beta, c_MN.T,
                      desca.asarray(), descb.asarray(), descc.asarray())
