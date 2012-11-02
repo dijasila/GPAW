@@ -113,7 +113,8 @@ class CG(Eigensolver):
                 comm.sum(overlap_n)
 
                 # phi_G -= overlap_n * kpt.psit_nG
-                gemv(-1.0, psit_nG, overlap_n, 1.0, phi_G, 'n')
+                wfs.matrixoperator.gd.gemv(-1.0, psit_nG, overlap_n, 
+                                           1.0, phi_G, 'n')
                 for a, P2_i in P2_ai.items():
                     P_ni = kpt.P_ani[a]
                     gemv(-1.0, P_ni, overlap_n, 1.0, P2_i, 'n')

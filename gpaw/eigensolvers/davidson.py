@@ -158,10 +158,10 @@ class Davidson(Eigensolver):
             kpt.eps_n[:] = eps_2n[:nbands]
 
             # Rotate psit_nG
-            gemm(1.0, psit_nG, H_2n2n[:nbands, :nbands],
-                 0.0, Htpsit_nG)
-            gemm(1.0, psit2_nG, H_2n2n[:nbands, nbands:],
-                 1.0, Htpsit_nG)
+            gd.gemm(1.0, psit_nG, H_2n2n[:nbands, :nbands],
+                    0.0, Htpsit_nG)
+            gd.gemm(1.0, psit2_nG, H_2n2n[:nbands, nbands:],
+                    1.0, Htpsit_nG)
             psit_nG, Htpsit_nG = Htpsit_nG, psit_nG
 
             # Rotate P_uni:

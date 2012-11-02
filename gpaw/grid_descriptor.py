@@ -17,7 +17,7 @@ import _gpaw
 import gpaw.mpi as mpi
 from gpaw.domain import Domain
 from gpaw.utilities import mlsqr
-from gpaw.utilities.blas import rk, r2k, gemm
+from gpaw.utilities.blas import rk, r2k, gemv, gemm
 
 
 # Remove this:  XXX
@@ -257,6 +257,10 @@ class GridDescriptor(Domain):
     def gemm(self, alpha, psit_nG, C_mn, beta, newpsit_mG):
         """Helper function for MatrixOperator class."""
         gemm(alpha, psit_nG, C_mn, beta, newpsit_mG)
+
+    def gemv(self, alpha, psit_nG, C_n, beta, newpsit_G, trans='t'):
+        """Helper function for CG eigensolver."""
+        gemv(alpha, psit_nG, C_n, beta, newpsit_G, trans)
 
     def coarsen(self):
         """Return coarsened `GridDescriptor` object.
