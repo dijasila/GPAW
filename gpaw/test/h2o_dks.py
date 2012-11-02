@@ -33,14 +33,19 @@ niter3 = calc.get_number_of_iterations()
 print 'Energy difference %.3f eV' % (e2 - e1)
 print 'XPS %.3f eV' % (e3 - e1)
 
-assert abs(e2 - e1 - 533.349) < 0.001
-assert abs(e3 - e1 - 538.844) < 0.001
+print e2 - e1
+print e3 - e1
+assert abs(e2 - e1 - 533.070) < 0.001
+assert abs(e3 - e1 - 538.559) < 0.001
 
 energy_tolerance = 0.00002
-niter_tolerance = 0
-equal(e1, -2080.0831386228238, energy_tolerance)
+niter_tolerance = 1
+print e1, niter1
+print e2, niter2
+print e3, niter3
+equal(e1, -2080.3715465, energy_tolerance)
 equal(niter1, 25, niter_tolerance)
-equal(e2, -1546.7345330563153, energy_tolerance)
-equal(niter2, 24, niter_tolerance)
-equal(e3, -1541.2394024, energy_tolerance)
+equal(e2, -1547.30157798, energy_tolerance)
+equal(niter2, 22, niter_tolerance)
+equal(e3, -1541.81265245, energy_tolerance)
 equal(niter3, 20, niter_tolerance)

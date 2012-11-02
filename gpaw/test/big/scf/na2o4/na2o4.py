@@ -32,6 +32,7 @@ calc = GPAW(
     xc='PBE',
     kpts=kpts,
     parallel={'band': 1},
+    eigensolver='cg',
     txt='na2o4.txt',
     )
 
@@ -51,6 +52,7 @@ calc1 = GPAW(
     xc='PBE',
     kpts=kpts,
     parallel={'band': 1},
+    eigensolver='cg',
     txt='na2o4.txt',
     )
 

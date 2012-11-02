@@ -48,7 +48,8 @@ if __name__ == '__main__':
         atoms.set_velocities(np.zeros_like(atoms.get_positions()))
         cell_c = np.sum(atoms.get_cell()**2, axis=1)**0.5
         N_c = 16 * np.round(cell_c / (0.25 * 16))
-        calc = GPAW(gpts=N_c, nbands=1, basis='dzp', txt=name + '_gs.txt')
+        calc = GPAW(gpts=N_c, nbands=1, basis='dzp', setups={'Na': '1'},
+                    txt=name + '_gs.txt')
         atoms.set_calculator(calc)
         atoms.get_potential_energy()
         calc.write(name + '_gs.gpw', mode='all')

@@ -1,5 +1,5 @@
 def agts(queue):
-    iron = queue.add('iron.py', ncpus=8, walltime=8 * 60)
+    iron = queue.add('iron.py', ncpus=8, walltime=12 * 60)
     queue.add('iron.agts.py', deps=[iron],
               creates=['Fe_conv_k_FD.png', 'Fe_conv_k_MP.png',
                        'Fe_conv_h.png'])

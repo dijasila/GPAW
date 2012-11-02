@@ -12,7 +12,7 @@ runs = [
 runsstr = ','.join(runs)
 
 def agts(queue):
-    run = [queue.add('g2_1_pbe0_fd.py %s --gpaw=fprojectors=1' % s,
+    run = [queue.add('g2_1_pbe0_fd.py %s --gpaw=fprojectors=1' % r,
                      ncpus=4,
                      walltime=30*60)
            for r in runs * 2]

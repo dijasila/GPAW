@@ -28,7 +28,7 @@ atoms.get_potential_energy()
 dmfile = sy+'_lcao_'+b+'_rt_z.dm'+str(world.size)
 specfile = sy+'_lcao_'+b+'_rt_z.spectrum'+str(world.size)
 calc.absorption_kick([0.0,0,0.001])
-calc.propagate(10, 1000, dmfile)
+calc.propagate(10, 20, dmfile)
 if world.rank == 0:
     photoabsorption_spectrum(dmfile, specfile)
 

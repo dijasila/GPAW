@@ -23,7 +23,7 @@ Development version in trunk
   - improved eggbox: N, O, K, S, Ca, Sc, Zn, Sr, Zr, Cd, In, Sn, Pb, Bi
 
   - semicore states included: Na, Mg, V, Mn, Ni,
-    Mo, Ru (seems to solve the Ru problem :trac:`gpaw/test/big/Ru001`),
+    Nb, Mo, Ru (seems to solve the Ru problem :trac:`gpaw/test/big/Ru001`),
     Rh, Pd, Ag, Ta, W, Os, Ir, Pt
 
   - semicore states removed: Te
@@ -37,6 +37,9 @@ Development version in trunk
 
      See :ref:`manual_setups` and list the contents of :envvar:`GPAW_SETUP_PATH`
      for available setups.
+
+* new ``dzp`` basis set generated for all the new setups with
+  ``gpaw-basis -t dzp --lpol=2`` with exception of Zn and Cd (``--lpol=1``).
 
 Version 0.9.0
 =============

@@ -2,7 +2,7 @@ optimizers = [
     'BFGS',
     'LBFGS',
     'FIRE',
-    'MDMin',
+    #'MDMin',  # memory hungy!
     #'BFGSLineSearch',  # StrainFilter instance has no attribute 'copy'
     #'LBFGSLineSearch',  # hundreds of force evaluations
     #'SciPyFminCG',  # hundreds of force evaluations

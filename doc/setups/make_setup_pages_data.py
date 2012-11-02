@@ -175,8 +175,10 @@ class MakeSetupPageData:
 
         eigensolver = 'rmm-diis'
         if self.symbol in ['Na', 'Mg']: eigensolver = 'cg'
-        if self.symbol in ['Sc', 'Ti', 'V', 'Mn', 'Ni', 'Zn']: eigensolver = 'cg'
-        if self.symbol in ['Zr', 'Mo', 'Ru', 'Rh', 'Ag']: eigensolver = 'cg'
+        if self.symbol in ['Sc', 'Ti', 'V', 'Mn', 'Ni',
+                           'Zn']: eigensolver = 'cg'
+        if self.symbol in ['Zr', 'Nb', 'Mo', 'Ru', 'Rh', 'Pd',
+                           'Ag']: eigensolver = 'cg'
         if self.symbol in ['Sn', 'Sb', 'Te', 'Ba']: eigensolver = 'cg'
         if self.symbol in ['Hf', 'Ta', 'W', 'Re', 'Os',
                            'Ir', 'Pt', 'Hg', 'Pb', 'Bi']: eigensolver = 'cg'
@@ -210,8 +212,10 @@ class MakeSetupPageData:
         q0 = self.d0 / np.sqrt(3)
         eigensolver = 'rmm-diis'
         if self.symbol in ['Na', 'Mg']: eigensolver = 'cg'
-        if self.symbol in ['Sc', 'Ti', 'V', 'Mn', 'Ni', 'Zn']: eigensolver = 'cg'
-        if self.symbol in ['Zr', 'Mo', 'Ru', 'Rh', 'Ag']: eigensolver = 'cg'
+        if self.symbol in ['Sc', 'Ti', 'V', 'Mn', 'Ni',
+                           'Zn']: eigensolver = 'cg'
+        if self.symbol in ['Zr', 'Nb', 'Mo', 'Ru', 'Rh', 'Pd',
+                           'Ag']: eigensolver = 'cg'
         if self.symbol in ['Sn', 'Sb', 'Te', 'Ba']: eigensolver = 'cg'
         if self.symbol in ['Hf', 'Ta', 'W', 'Re', 'Os',
                            'Ir', 'Pt', 'Hg', 'Pb', 'Bi']: eigensolver = 'cg'

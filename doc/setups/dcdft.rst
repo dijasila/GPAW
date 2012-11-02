@@ -24,8 +24,8 @@ This can be performed using the `calcDelta.py` script provided at the website::
   python calcDelta.py VASP.txt WIEN2k.txt --stdout | grep -E -v "#|-|np" | join test.txt - | grep -v "N/A" | awk '{print $1, $3/$2*100}'
 
 
-GPAW
-----
+GPAW PAW
+--------
 
 Calculated with: :svn:`gpaw/test/big/dcdft/pbe_gpaw_pw.py`.
 
@@ -63,8 +63,8 @@ Calculated accordingly to http://molmod.ugent.be/DeltaCodesDFT
 .. literalinclude:: dcdft_pbe_jacapo_Delta.txt
 
 
-Abinit
-------
+Abinit FHI
+----------
 
 Abinit 5.4.4p, `GGA_FHI <http://www.abinit.org/downloads/psp-links/gga_fhi>`_
 pseudopotentials, calculated with: :svn:`gpaw/test/big/dcdft/pbe_abinit_fhi.py`.

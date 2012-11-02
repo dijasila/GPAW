@@ -13,7 +13,7 @@ if __name__ == '__main__':
     mae0a = abs(pbe0 - pbe0a).mean()
     mae0b = abs(pbe0 - pbe0b).mean()
     print maea, maeb, mae0a, mae0b
-    assert abs(maea - 0.066) < 0.001
-    assert abs(maeb - 0.051) < 0.001
-    assert abs(mae0a - 0.108) < 0.001
-    assert abs(mae0b - 0.083) < 0.001
+    assert abs(maea - 0.053) < 0.001
+    assert abs(maeb - 0.035) < 0.001
+    assert abs(mae0a - 0.091) < 0.001
+    assert abs(mae0b - 0.074) < 0.001

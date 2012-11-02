@@ -4,7 +4,7 @@ from ase.constraints import FixAtoms
 from ase.optimize.lbfgs import LBFGS
 from gpaw import GPAW, Mixer, FermiDirac
 
-tag = 'Ru001'
+tag = 'Ru001_Ru8'
 
 adsorbate_heights = {'H': 1.0, 'N': 1.108, 'O': 1.257}
 
@@ -25,7 +25,7 @@ calc = GPAW(xc='PBE',
             stencils=(3, 3),
             occupations=FermiDirac(width=0.1),
             kpts=[4, 4, 1],
-            eigensolver='cg',
+            setups={'Ru': '8'},
             txt=tag + '.txt')
 slab.set_calculator(calc)
   
