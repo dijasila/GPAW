@@ -776,7 +776,7 @@ extern "C" {
 	  dim3 dimGridr(MAX(iter/REDUCE_THREADS,1), lfc->nW*int_blocks);
 	  integrate_reduce_kernel<<<dimGridr, dimBlockr, smemSize/**lfc->max_nm*/>>>
 	    (lfc->volume_W_gpu,iter,swap,int_blocks,c_M+x*nM,lfc->nW,dv,nM);
-	  iter=nextPow2(iter)/(REDUCE_THREADS*2);
+	  iter=(iter+REDUCE_THREADS*2-1)/(REDUCE_THREADS*2);
 	}
 	gpaw_cudaSafeCall(cudaGetLastError());
 	/*	dim3 dimBlockr(1,1, 1);
