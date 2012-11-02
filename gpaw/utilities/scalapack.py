@@ -340,10 +340,6 @@ def pblas_hemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
         return
     fortran_side = {'L':'R', 'R':'L'}
     fortran_uplo = {'U':'L', 'L':'U'}
-    print "MN", M, N
-    print "A", a_MK.shape
-    print "C", c_MN.shape
-    print "B", b_KN.shape
     if side=='R':
         M, N = N, M
 

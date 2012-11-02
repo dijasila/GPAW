@@ -68,6 +68,8 @@ class C_Response(Contribution):
             self.vt_sG[:] = 0.0
             self.nt_sG[:] = 0.0
 
+            # XXX This is terribly inefficients with LCAO basis set
+            # XXX Form a "response" density-matrix first before expanding the numerator of the response potential.
             for kpt, w_n in zip(self.kpt_u, w_kn):
                 self.wfs.add_to_density_from_k_point_with_occupation(self.vt_sG, kpt, w_n)
                 self.wfs.add_to_density_from_k_point(self.nt_sG, kpt)

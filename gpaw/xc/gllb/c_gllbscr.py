@@ -75,10 +75,13 @@ class C_GLLBScr(Contribution):
         
 
     def get_coefficients_by_kpt(self, kpt_u, lumo_perturbation=False, homolumo=None, nspins=1):
-
-        if kpt_u[0].psit_nG is None or isinstance(kpt_u[0].psit_nG,
-                                                  TarFileReference): 
+        if not hasattr(kpt_u[0],'orbitals_ready'):
+            kpt_u[0].orbitals_ready = True
             return None
+        #if kpt_u[0].psit_nG is None or isinstance(kpt_u[0].psit_nG,
+        #                                          TarFileReference): 
+        #    if kpt_u[0].C_nM==None:
+        #        return None
 
         if homolumo == None:
             if self.metallic:

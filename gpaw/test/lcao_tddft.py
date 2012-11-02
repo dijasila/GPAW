@@ -6,23 +6,29 @@ from gpaw.tddft.lcao_tddft import LCAOTDDFT
 import gpaw.lrtddft as lrtddft
 from sys import exit
 from gpaw.mpi import world
+N = 17
 xc = 'oldLDA'
 c = +1
 h = 0.4
 b = 'dzp'
-sy = 'Na2'
-positions = [[0.00,0.00,0.00],[0.00,0.00,2.00]]
+sy = 'Na'+str(N)
+positions = []
+for i in range(N):
+    positions.append([0.00,0.00,i*2.50])
 atoms = Atoms(symbols=sy, positions = positions)
 atoms.center(vacuum=3)
 
 # LCAO-RT-TDDFT
-calc = LCAOTDDFT(mode='lcao', nbands=1, xc=xc, h=h, basis=b, dtype=complex, charge=c, width=0, convergence={'density':1e-8})
+calc = LCAOTDDFT(mode='lcao', xc=xc, h=h, basis=b, 
+                dtype=complex, charge=c, width=0, convergence={'density':1e-6}, 
+                propagator_debug=False)#, propagator='taylor')
+                #parallel={'sl_default':(1,1,64)})
 atoms.set_calculator(calc)
 atoms.get_potential_energy()
 dmfile = sy+'_lcao_'+b+'_rt_z.dm'+str(world.size)
 specfile = sy+'_lcao_'+b+'_rt_z.spectrum'+str(world.size)
 calc.absorption_kick([0.0,0,0.001])
-calc.propagate(10, 500, dmfile)
+calc.propagate(10, 1000, dmfile)
 if world.rank == 0:
     photoabsorption_spectrum(dmfile, specfile)
 

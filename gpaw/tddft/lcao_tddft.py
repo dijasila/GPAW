@@ -12,31 +12,53 @@ from ase.parallel import paropen
 from gpaw.mpi import world
 from gpaw.tddft.units import attosec_to_autime
 from numpy.linalg import solve
+from gpaw.utilities.scalapack import pblas_simple_hemm
+from gpaw.utilities.tools import tri2full 
+
+import sys
+
+def print_matrix(M, file=None):
+    # XXX Debugging stuff. Remove.
+    if file is not None:
+        f = open(file,'w')
+    else:
+        f = sys.stdout
+    a, b = M.shape
+    for i in range(a):
+        for j in range(b):
+            print >>f, "%.3f" % M[i][j].real, "%.3f" % M[i][j].imag
+        print >>f
+    if file is not None:
+        f.close()
+
 
 def verify(data1, data2, id):
+    # Debugging stuff. Remove
     err = sum(abs(data1-data2).ravel()**2)
-    if err > 1e-10:
+    print "verify err", err
+    if err > 1e-5:
        print "Parallel assert failed: ", id, " norm: ", err
        print "Data from proc ", world.rank
        print "First", data1
        print "Second", data2
+       print "Diff", data1-data2
        assert False
 
 def mpiverify(data, id):
-        # Do some debugging when running on two procs XXX REMOVE
-        if world.size == 2:
+    # Do some debugging when running on two procs XXX REMOVE
+    if world.size == 2:
+        if world.rank == 0:
+            temp = -data.copy()
+        else:
+            temp = data.copy()
+        world.sum(temp)
+        err = sum(abs(temp).ravel()**2)
+        if err > 1e-10:
             if world.rank == 0:
-                temp = -data.copy()
-            else:
-                temp = data.copy()
-            world.sum(temp)
-            err = sum(abs(temp).ravel()**2)
-            if err > 1e-10:
-                if world.rank == 0:
-                    print "Parallel assert failed: ", id, " norm: ", sum(temp.ravel()**2)
-                print "Data from proc ", world.rank
-                print data
-                assert False
+                print "Parallel assert failed: ", id, " norm: ", sum(temp.ravel()**2)
+            print "Data from proc ", world.rank
+            print data
+            assert False
             
 class KickHamiltonian:
     def __init__(self, calc, ext):
@@ -59,12 +81,13 @@ class KickHamiltonian:
 
 
 class LCAOTDDFT(GPAW):
-    def __init__(self, filename=None, propagator_debug=False, propagator='numpysolve_CN', **kwargs):
+    def __init__(self, filename=None, propagator_debug=False, propagator='taylor', **kwargs):
         GPAW.__init__(self, filename, **kwargs)
         self.propagator_debug = propagator_debug
         self.kick_strength = [0.0, 0.0, 0.0]
         self.tddft_initialized = False
-        plist = {'numpysolve_CN': self.linear_propagator}
+        plist = {'numpysolve_CN': self.linear_propagator, # Doesn't work with blacs yet
+                 'taylor': self.taylor_propagator} # Not very good, but works with blacs.
         self.propagator = plist[propagator]
 
         # Restarting from a file
@@ -81,12 +104,96 @@ class LCAOTDDFT(GPAW):
             mpiverify(U_MM, "U_MM first")
             debugC_nM = dot(sourceC_nM, U_MM.T.conjugate())
 
+        # Note: The full equation is conjugated (therefore -+, not +-)
         targetC_nM[:] = solve(S_MM-0.5j*H_MM*dt, np.dot(S_MM+0.5j*H_MM*dt, sourceC_nM.T.conjugate())).T.conjugate()
 
         if self.propagator_debug:
              verify(targetC_nM, debugC_nM, "Linear solver propagator vs. reference")
 
         self.timer.stop('Linear solve')
+
+    def taylor_propagator(self, sourceC_nM, targetC_nM, S_MM, H_MM, dt):
+        self.timer.start('Taylor propagator')
+
+        # XXX Debugging stuff. Remove
+        if self.propagator_debug:
+            if self.blacs:
+                globalH_MM = self.blacs_mm_to_global(H_MM)
+                globalS_MM = self.blacs_mm_to_global(S_MM) 
+                if world.rank == 0:
+                    tri2full(globalS_MM, 'L')
+                    tri2full(globalH_MM, 'L')
+                    U_MM = dot(inv(globalS_MM-0.5j*globalH_MM*dt), globalS_MM+0.5j*globalH_MM*dt)
+                    debugC_nM = dot(sourceC_nM, U_MM.T.conjugate())
+                    #print "PASS PROPAGATOR"
+                    #debugC_nM = sourceC_nM.copy()
+            else:
+                if world.rank == 0:
+                    U_MM = dot(inv(S_MM-0.5j*H_MM*dt), S_MM+0.5j*H_MM*dt)
+                    debugC_nM = dot(sourceC_nM, U_MM.T.conjugate())
+                #print "PASS PROPAGATOR"
+                #debugC_nM = sourceC_nM.copy()
+
+        if self.blacs:
+            target_blockC_nm = self.Cnm_block_descriptor.empty(dtype=complex) # XXX, Preallocate
+            if self.density.gd.comm.rank != 0: 
+                # XXX Fake blacks nbands, nao, nbands, nao grid because some weird asserts
+                # (these are 0,x or x,0 arrays)
+                sourceC_nM = self.CnM_descriptor.zeros(dtype=complex)
+
+            # Zeroth order taylor to target
+            self.CnM2nm.redistribute(sourceC_nM, target_blockC_nm) 
+
+            # XXX, preallocate, optimize use of temporal arrays
+            temp_blockC_nm = target_blockC_nm.copy()
+            temp2_blockC_nm = target_blockC_nm.copy()
+
+            order = 4
+            assert self.wfs.kpt_comm.size == 1
+            for n in range(order):
+                # Multiply with hamiltonian
+                pblas_simple_hemm(self.mm_block_descriptor, 
+                                  self.Cnm_block_descriptor, 
+                                  self.Cnm_block_descriptor, 
+                                  H_MM, 
+                                  temp_blockC_nm, 
+                                  temp2_blockC_nm, side='R') 
+                # XXX: replace with not simple gemm
+                temp2_blockC_nm *= -1j*dt/(n+1) 
+                # Multiply with inverse overlap
+                pblas_simple_hemm(self.mm_block_descriptor, 
+                                  self.Cnm_block_descriptor,
+                                  self.Cnm_block_descriptor, 
+                                  self.wfs.kpt_u[0].invS_MM, # XXX
+                                  temp2_blockC_nm, 
+                                  temp_blockC_nm, side='R')
+                target_blockC_nm += temp_blockC_nm
+            if self.density.gd.comm.rank != 0: # Todo: Change to gd.rank
+                # XXX Fake blacks nbands, nao, nbands, nao grid because some weird asserts
+                # (these are 0,x or x,0 arrays)
+                target = self.CnM_descriptor.zeros(dtype=complex)
+            else:
+                target = targetC_nM
+            self.Cnm2nM.redistribute(target_blockC_nm, target)
+
+            self.density.gd.comm.broadcast(targetC_nM, 0)
+        else:
+            assert self.wfs.kpt_comm.size == 1
+            if self.density.gd.comm.rank == 0:
+                targetC_nM[:] = sourceC_nM[:]
+                tempC_nM = sourceC_nM.copy()
+                order = 4
+                for n in range(order):
+                    tempC_nM[:] = np.dot(self.wfs.kpt_u[0].invS, np.dot(H_MM, 1j*dt/(n+1)*tempC_nM.T.conjugate())).T.conjugate()
+                    targetC_nM += tempC_nM
+            self.density.gd.comm.broadcast(targetC_nM, 0)
+                
+        if self.propagator_debug:
+             if world.rank == 0:
+                 verify(targetC_nM, debugC_nM, "Linear solver propagator vs. reference")
+
+        self.timer.stop('Taylor propagator')
+
 
     def absorption_kick(self, strength):
         self.tddft_init()
@@ -114,15 +221,66 @@ class LCAOTDDFT(GPAW):
             for i in range(10):
                 self.propagator(kpt.C_nM, kpt.C_nM, kpt.S_MM, Vkick_MM, 0.1)
             mpiverify(Vkick_MM,"Vkick_MM")
-  
+
+    def blacs_mm_to_global(self, H_mm):
+        target = self.MM_descriptor.empty(dtype=complex)
+        self.mm2MM.redistribute(H_mm, target)
+        world.barrier()
+        return target
+
     def tddft_init(self):
         if not self.tddft_initialized:
-             self.density.mixer = DummyMixer()    # Reset the density mixer
-             self.tddft_initialized = True
-             for k, kpt in enumerate(self.wfs.kpt_u):
-                 kpt.C2_nM = kpt.C_nM.copy()
-                 kpt.firstC_nM = kpt.C_nM.copy()
+            if world.rank == 0:
+                print "Initializing real time LCAO TD-DFT calculation."
+                print "XXX Warning: Array use not optimal for memory."
+                print "XXX ...and no arrays are listed in memory estimate yet."
+            self.blacs = self.wfs.ksl.using_blacs
+            if self.blacs:
+                self.ksl = ksl = self.wfs.ksl    
+                nao = ksl.nao
+                nbands = ksl.bd.nbands
+                mynbands = ksl.bd.mynbands
+                blocksize = ksl.blocksize
 
+                from gpaw.blacs import Redistributor
+                if world.rank == 0:
+                    print "BLACS Parallelization"
+                self.MM_descriptor = ksl.blockgrid.new_descriptor(nao, nao, nao, nao)
+                self.mm_block_descriptor = ksl.blockgrid.new_descriptor(nao, nao, blocksize, blocksize)
+                self.Cnm_block_descriptor = ksl.blockgrid.new_descriptor(nbands, nao, blocksize, blocksize)
+                self.CnM_descriptor = ksl.blockgrid.new_descriptor(nbands, nao, mynbands, nao)
+                self.mm2MM =  Redistributor(ksl.block_comm, self.mm_block_descriptor, self.MM_descriptor)
+                self.MM2mm =  Redistributor(ksl.block_comm, self.MM_descriptor, self.mm_block_descriptor)
+                self.Cnm2nM = Redistributor(ksl.block_comm, self.Cnm_block_descriptor, self.CnM_descriptor) 
+                self.CnM2nm = Redistributor(ksl.block_comm, self.CnM_descriptor, self.Cnm_block_descriptor) 
+
+                if world.rank == 0:
+                    print "XXX Doing serial inversion of overlap matrix."
+                self.timer.start('Invert overlap (serial)')
+                invS_MM = self.MM_descriptor.empty(dtype=complex)
+                for kpt in self.wfs.kpt_u:
+                    #kpt.S_MM[:] = 128.0*(2**world.rank)
+                    self.mm2MM.redistribute(self.wfs.S_qMM[kpt.q], invS_MM)
+                    world.barrier()
+                    if world.rank == 0:
+                        tri2full(invS_MM,'L')
+                        invS_MM[:] = inv(invS_MM.copy())
+                        self.invS_MM = invS_MM
+                    kpt.invS_MM = ksl.mmdescriptor.empty(dtype=complex)
+                    self.MM2mm.redistribute(invS_MM, kpt.invS_MM)
+                self.timer.stop('Invert overlap (serial)')
+                if world.rank == 0:
+                    print "XXX Overlap inverted."
+            else:
+                tmp = inv(self.wfs.kpt_u[0].S_MM)
+                self.wfs.kpt_u[0].invS = tmp
+
+            # Reset the density mixer
+            self.density.mixer = DummyMixer()    
+            self.tddft_initialized = True
+            for k, kpt in enumerate(self.wfs.kpt_u):
+                kpt.C2_nM = kpt.C_nM.copy()
+                kpt.firstC_nM = kpt.C_nM.copy()
 
     def update_projectors(self):
         self.timer.start('LCAO update projectors') 
@@ -168,7 +326,6 @@ class LCAOTDDFT(GPAW):
             if dm0 is None:
                 dm0 = dm
             norm = self.density.finegd.integrate(self.density.rhot_g)
-            time += dt
             line = '%20.8lf %20.8le %22.12le %22.12le %22.12le\n' % (time, norm, dm[0], dm[1], dm[2])
             if world.rank == 0:            
                 print >>self.dm_file, line,
@@ -200,6 +357,7 @@ class LCAOTDDFT(GPAW):
                 self.propagator(kpt.C2_nM, kpt.C_nM, kpt.S_MM, H_MM, dt)
 
             steps += 1
+            time += dt
             if steps > max_steps:
                 self.timer.stop('Propagate')
                 break

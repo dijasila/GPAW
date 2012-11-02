@@ -97,6 +97,7 @@ class BlacsLayouts(KohnShamLayouts):
         # WARNING: Do not create the BlacsGrid on a communicator which does not
         # contain block_comm.rank = 0. This will break BlacsBandLayouts which
         # assume eps_M will be broadcast over block_comm.
+        self.blocksize = blocksize
         self.blockgrid = BlacsGrid(self.block_comm, mcpus, ncpus)
 
     def get_description(self):
@@ -203,7 +204,7 @@ class BlacsBandLayouts(BlacsLayouts):  #XXX should derive from BandLayouts too!
                               timer)
         self.buffer_size = buffer_size
         nbands = bd.nbands
-        mynbands = bd.mynbands
+        self.mynbands = mynbands = bd.mynbands
 
         # 1D layout - columns
         self.columngrid = BlacsGrid(self.column_comm, 1, bd.comm.size)
@@ -289,6 +290,7 @@ class BlacsOrbitalLayouts(BlacsLayouts):
                               timer)
         nbands = bd.nbands
         mynbands = bd.mynbands
+        
         self.orbital_comm = self.bd.comm
         naoblocksize = -((-nao) // self.orbital_comm.size)
         self.nao = nao
