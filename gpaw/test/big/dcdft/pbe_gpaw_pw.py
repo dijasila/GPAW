@@ -22,7 +22,7 @@ class Factory(GPAWFactory):
         calculator = GPAWFactory.__call__(self, name, atoms)
         calculator.set(nbands=-2)
         if name.split('-')[0] in ['Ne', 'Ar', 'Kr', 'Xe', 'Rn',
-                                  'K', 'Ca', 'Cs', 'Ba', 'Sr']:
+                                  'K', 'Ca', 'Cs', 'Ba', 'Sr', 'Rb']:
             # MDTMP: not enough orbitals - use dzp!
             calculator.set(nbands=-1)
             calculator.set(basis='dzp')
