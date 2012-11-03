@@ -53,6 +53,8 @@ task = Task(
     **taskopts)
 
 if __name__ == '__main__':
+    for m in ['Mn']:
+        keys.remove(m)  # EOS fails: reason unknown
     # run just only system to check if scripts work
     #task.run()
     task.run(['Si'])
