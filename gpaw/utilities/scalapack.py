@@ -307,9 +307,10 @@ def scalapack_inverse(desca, a, uplo):
     desca.checkassert(a)
     # only symmetric matrices
     assert desca.gshape[0] == desca.gshape[1]
+    assert uplo in ['L', 'U']
     if not desca.blacsgrid.is_active():
         return
-    info = _gpaw.scalapack_inverse(a, desca.asarray())
+    info = _gpaw.scalapack_inverse(a, desca.asarray(), switch_lu[uplo])
     if info != 0:
         raise RuntimeError('scalapack_inverse error: %d' % info)
 
@@ -462,11 +463,11 @@ def pblas_r2k(alpha, a_NK, b_NK, beta, c_NN, desca, descb, descc,
                     uplo)
 
 
-def pblas_simple_r2k(desca, descb, descc, a, b, c):
+def pblas_simple_r2k(desca, descb, descc, a, b, c, uplo=None):
     alpha = 1.0
     beta = 0.0
     pblas_r2k(alpha, a, b, beta, c, 
-                desca, descb, descc)
+                desca, descb, descc, uplo)
 
 
 def pblas_rk(alpha, a_NK, beta, c_NN, desca, descc,

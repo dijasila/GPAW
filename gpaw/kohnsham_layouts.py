@@ -292,7 +292,7 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         mynbands = bd.mynbands
         
         self.orbital_comm = self.bd.comm
-        naoblocksize = -((-nao) // self.orbital_comm.size)
+        self.naoblocksize = naoblocksize = -((-nao) // self.orbital_comm.size)
         self.nao = nao
 
         # Range of basis functions for BLACS distribution of matrices:

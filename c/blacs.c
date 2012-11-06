@@ -50,6 +50,7 @@ int Csys2blacs_handle_(MPI_Comm SysCtxt);
 
 #define   pdpotrf_ pdpotrf
 #define   pzpotrf_ pzpotrf
+#define   pzpotri_ pzpotri
 #define   pdtrtri_ pdtrtri
 #define   pztrtri_ pztrtri
 
@@ -78,8 +79,6 @@ int Csys2blacs_handle_(MPI_Comm SysCtxt);
 #define   pzherk_  pzherk
 #define   pdtrsm_  pdtrsm
 #define   pztrsm_  pztrsm
-
-#define   pzhetri_ pzhetri
 
 #define   pzhemm_  pzhemm
 #define   pdsymm_  pdsymm
@@ -117,6 +116,8 @@ void Cpztrmr2d_(char* uplo, char* diag, int m, int n,
                 int gcontext);
 
 double pdlamch_(int* ictxt, char* cmach);
+
+void pzpotri_(char* uplo, int* n, void* a, int *ia, int* ja, int* desca, int* info);
 
 void pzgetri_(int* n, void* a,
               int *ia, int* ja, int* desca, int* info);
@@ -1690,39 +1691,33 @@ PyObject* scalapack_inverse_cholesky(PyObject *self, PyObject *args)
 
 PyObject* scalapack_inverse(PyObject *self, PyObject *args)
 {
-  // Cholesky plus inverse of triangular matrix
-
-  PyArrayObject* a; // overlap matrix
-  PyArrayObject* desca; // symmetric matrix description vector
+  // Inverse of an hermitean matrix
+  PyArrayObject* a; // Matrix
+  PyArrayObject* desca; // Matrix description vector
+  char uplo;
   int info;
-  double d_zero = 0.0;
-  double_complex c_zero = 0.0;
   int one = 1;
-  int two = 2;
-
-  if (!PyArg_ParseTuple(args, "OO", &a, &desca))
+  if (!PyArg_ParseTuple(args, "OOc", &a, &desca, &uplo))
     return NULL;
 
-  // adesc
-  // int a_ConTxt = INTP(desca)[1];
   int a_m      = INTP(desca)[2];
   int a_n      = INTP(desca)[3];
-
   // Only square matrices
   assert (a_m == a_n);
+
   int n = a_n;
-  int p = a_n - 1;
-  
-  // If process not on BLACS grid, then return.
-  // if (a_ConTxt == -1) Py_RETURN_NONE;
 
   if (a->descr->type_num == PyArray_DOUBLE)
      {
-      assert(1==-1);
+      assert(1==-1);       // No double version implemented
      }
   else
     {
-      pzgetri_(&n, (void*)COMPLEXP(a), &one, &one,INTP(desca), &info);
+      pzpotrf_(&uplo, &n, (void*)COMPLEXP(a), &one, &one, INTP(desca), &info);
+      if (info == 0)
+      {
+        pzpotri_(&uplo, &n, (void*)COMPLEXP(a), &one, &one, INTP(desca), &info);
+      }
     }
   PyObject* returnvalue = Py_BuildValue("i", info);
   return returnvalue;

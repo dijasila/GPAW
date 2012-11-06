@@ -27,14 +27,13 @@ else:
     atoms.center(vacuum=vacuum)
     atoms.set_calculator(calc)
     atoms.get_potential_energy()
-    gs_calc.write('flake_gs.gpw', 'all')
+    gs_calc.write('flake.gpw', 'all')
   
 maxiterations = 24000/time_step
-tag = '%s_%s_h%6.4f_vac%04.1f_dt%4.2f_%i'   % (title, basis, spacing, vacuum, time_step, kcnt)
-fname0 = 'flake_dm.%s.dat'       % (tag)
-fname2 = 'flake_spectrum.%s.dat' % (tag)
+fname0 = 'flake_dm.dat'
+fname2 = 'flake_spectrum.dat'
   
-calc.absorption_kick(kick_strength=kick)
-td_calc.propagate(time_step, maxiterations, fname0)
+calc.absorption_kick(kick)
+calc.propagate(time_step, maxiterations, fname0)
  
 #photoabsorption_spectrum(fname0, fname2, e_min=0.0, e_max=40.0, delta_e=0.02, width=0.05)

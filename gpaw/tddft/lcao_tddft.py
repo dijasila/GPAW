@@ -12,7 +12,7 @@ from ase.parallel import paropen
 from gpaw.mpi import world
 from gpaw.tddft.units import attosec_to_autime
 from numpy.linalg import solve
-from gpaw.utilities.scalapack import pblas_simple_hemm
+from gpaw.utilities.scalapack import pblas_simple_hemm, pblas_simple_hemm, scalapack_inverse_cholesky, pblas_simple_gemm, pblas_simple_r2k, scalapack_inverse
 from gpaw.utilities.tools import tri2full 
 
 import sys
@@ -32,9 +32,21 @@ def print_matrix(M, file=None):
         f.close()
 
 
-def verify(data1, data2, id):
+def verify(data1, data2, id, uplo='B'):
     # Debugging stuff. Remove
-    err = sum(abs(data1-data2).ravel()**2)
+    if uplo=='B':
+        err = sum(abs(data1-data2).ravel()**2)
+    else:
+        err = 0
+        N,M = data1.shape
+        for i in range(N):
+            for j in range(i,M):
+                if uplo == 'L':
+                    if i >= j:
+                        err += abs(data1[i][j]-data2[i][j])**2
+                if uplo == 'U':
+                    if i <= j:
+                        err += abs(data1[i][j]-data2[i][j])**2
     print "verify err", err
     if err > 1e-5:
        print "Parallel assert failed: ", id, " norm: ", err
@@ -194,7 +206,6 @@ class LCAOTDDFT(GPAW):
 
         self.timer.stop('Taylor propagator')
 
-
     def absorption_kick(self, strength):
         self.tddft_init()
         self.kick_strength = strength
@@ -218,8 +229,8 @@ class LCAOTDDFT(GPAW):
         kick_hamiltonian = KickHamiltonian(self, ConstantElectricField(magnitude, direction=direction))
         for k, kpt in enumerate(self.wfs.kpt_u):
             Vkick_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(kick_hamiltonian, self.wfs, kpt, add_kinetic=False, root=-1)
-            for i in range(10):
-                self.propagator(kpt.C_nM, kpt.C_nM, kpt.S_MM, Vkick_MM, 0.1)
+            for i in range(1):
+                self.propagator(kpt.C_nM, kpt.C_nM, kpt.S_MM, Vkick_MM, 1)
             mpiverify(Vkick_MM,"Vkick_MM")
 
     def blacs_mm_to_global(self, H_mm):
@@ -245,32 +256,44 @@ class LCAOTDDFT(GPAW):
                 from gpaw.blacs import Redistributor
                 if world.rank == 0:
                     print "BLACS Parallelization"
+
+                # Parallel grid descriptors
                 self.MM_descriptor = ksl.blockgrid.new_descriptor(nao, nao, nao, nao)
                 self.mm_block_descriptor = ksl.blockgrid.new_descriptor(nao, nao, blocksize, blocksize)
                 self.Cnm_block_descriptor = ksl.blockgrid.new_descriptor(nbands, nao, blocksize, blocksize)
                 self.CnM_descriptor = ksl.blockgrid.new_descriptor(nbands, nao, mynbands, nao)
+                self.mM_column_descriptor = ksl.columngrid.new_descriptor(nao, nao, ksl.naoblocksize, nao)
+
+                # Redistributors
                 self.mm2MM =  Redistributor(ksl.block_comm, self.mm_block_descriptor, self.MM_descriptor)
                 self.MM2mm =  Redistributor(ksl.block_comm, self.MM_descriptor, self.mm_block_descriptor)
                 self.Cnm2nM = Redistributor(ksl.block_comm, self.Cnm_block_descriptor, self.CnM_descriptor) 
                 self.CnM2nm = Redistributor(ksl.block_comm, self.CnM_descriptor, self.Cnm_block_descriptor) 
-
-                if world.rank == 0:
-                    print "XXX Doing serial inversion of overlap matrix."
-                self.timer.start('Invert overlap (serial)')
-                invS_MM = self.MM_descriptor.empty(dtype=complex)
+                self.mM2mm =  Redistributor(ksl.block_comm, self.mM_column_descriptor, self.mm_block_descriptor)
+                
+                cholS_mm = self.mm_block_descriptor.empty(dtype=complex)
                 for kpt in self.wfs.kpt_u:
-                    #kpt.S_MM[:] = 128.0*(2**world.rank)
-                    self.mm2MM.redistribute(self.wfs.S_qMM[kpt.q], invS_MM)
-                    world.barrier()
+                    kpt.invS_MM = kpt.S_MM.copy()
+                    scalapack_inverse(self.mm_block_descriptor, kpt.invS_MM, 'L')
+                if self.propagator_debug:
                     if world.rank == 0:
-                        tri2full(invS_MM,'L')
-                        invS_MM[:] = inv(invS_MM.copy())
-                        self.invS_MM = invS_MM
-                    kpt.invS_MM = ksl.mmdescriptor.empty(dtype=complex)
-                    self.MM2mm.redistribute(invS_MM, kpt.invS_MM)
-                self.timer.stop('Invert overlap (serial)')
-                if world.rank == 0:
-                    print "XXX Overlap inverted."
+                        print "XXX Doing serial inversion of overlap matrix."
+                    self.timer.start('Invert overlap (serial)')
+                    invS2_MM = self.MM_descriptor.empty(dtype=complex)
+                    for kpt in self.wfs.kpt_u:
+                        #kpt.S_MM[:] = 128.0*(2**world.rank)
+                        self.mm2MM.redistribute(self.wfs.S_qMM[kpt.q], invS2_MM)
+                        world.barrier()
+                        if world.rank == 0:
+                            tri2full(invS2_MM,'L')
+                            invS2_MM[:] = inv(invS2_MM.copy())
+                            self.invS2_MM = invS2_MM
+                        kpt.invS2_MM = ksl.mmdescriptor.empty(dtype=complex)
+                        self.MM2mm.redistribute(invS2_MM, kpt.invS2_MM)
+                        verify(kpt.invS_MM, kpt.invS2_MM, "overlap par. vs. serial", 'L')
+                    self.timer.stop('Invert overlap (serial)')
+                    if world.rank == 0:
+                        print "XXX Overlap inverted."
             else:
                 tmp = inv(self.wfs.kpt_u[0].S_MM)
                 self.wfs.kpt_u[0].invS = tmp
