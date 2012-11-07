@@ -141,10 +141,12 @@ the :ref:`installationguide_developer`.
    parallel runs. See :ref:`parallel_installation` for more details about
    parallel runs.
 
-   If you have root permissions, you can install GPAW system-wide
+   Optional, NOT recommended way of installing GPAW system-wide is
    (example below assumes bash)::
 
      [gpaw]# python setup.py install 2>&1 | tee install.log
+
+   This is one of the best ways to ruin a Linux system.
 
 4) :ref:`running_tests`.
 
