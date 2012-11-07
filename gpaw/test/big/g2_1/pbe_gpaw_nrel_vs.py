@@ -26,12 +26,12 @@ for m in molecule_names:
         derr1.append(err1)
         dname1.append(m)
         perr1 = err1 / ref1 * 100
-        r1.extend(["%.3f" % ref1, "%.3f" % err1, "%.2f" % perr1])
+        r1.extend(["%.3f" % v1, "%.3f" % err1, "%.2f" % perr1])
     else:
         ref1 = 'N/A'
         err1 = 'N/A'
         perr1 = 'N/A'
-        r1.extend([ref1, err1, perr1])
+        r1.extend([v1, err1, perr1])
     if 'N/A' not in r1:
         csvwriter1.writerow(r1)
 

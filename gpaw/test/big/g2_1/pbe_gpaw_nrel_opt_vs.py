@@ -35,12 +35,12 @@ for m in molecule_names:
         derr1.append(err1)
         dname1.append(m)
         perr1 = err1 / ref1 * 100
-        r1.extend(["%.3f" % ref1, "%.3f" % err1, "%.2f" % perr1])
+        r1.extend(["%.3f" % v1, "%.3f" % err1, "%.2f" % perr1])
     else:
         ref1 = 'N/A'
         err1 = 'N/A'
         perr1 = 'N/A'
-        r1.extend([ref1, err1, perr1])
+        r1.extend([v1, err1, perr1])
     v2 = d2[m]
     if m in ref['distance']:
         ref2 = ref['distance'][m]
@@ -48,12 +48,12 @@ for m in molecule_names:
         derr2.append(err2)
         dname2.append(m)
         perr2 = err2 / ref2 * 100
-        r2.extend(["%.3f" % ref2, "%.3f" % err2, "%.2f" % perr2])
+        r2.extend(["%.3f" % v2, "%.3f" % err2, "%.2f" % perr2])
     else:
         ref2 = 'N/A'
         err2 = 'N/A'
         perr2 = 'N/A'
-        r2.extend([ref2, err2, perr2])
+        r2.extend([v2, err2, perr2])
     if 'N/A' not in r1:
         csvwriter1.writerow(r1)
     if 'N/A' not in r2:
