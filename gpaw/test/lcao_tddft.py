@@ -20,10 +20,10 @@ atoms = Atoms(symbols=sy, positions = positions)
 atoms.center(vacuum=3)
 print atoms
 # LCAO-RT-TDDFT
-calc = LCAOTDDFT(mode='lcao', xc=xc, h=h, basis=b, nbands=N/2,
+calc = LCAOTDDFT(mode='lcao', xc=xc, h=h, basis=b, nbands=N,
                 dtype=complex, charge=c, convergence={'density':1e-6}, 
-                propagator_debug=True, propagator='cn')
-                #parallel={'sl_default':(1,1,64)})
+                propagator_debug=True, propagator='cn',
+                parallel={'band':2})
 atoms.set_calculator(calc)
 atoms.get_potential_energy()
 dmfile = sy+'_lcao_'+b+'_rt_z.dm'+str(world.size)

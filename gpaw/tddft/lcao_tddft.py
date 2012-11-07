@@ -13,7 +13,9 @@ from gpaw.mpi import world
 from gpaw.tddft.units import attosec_to_autime
 from numpy.linalg import solve
 from gpaw.utilities.scalapack import pblas_simple_hemm, pblas_simple_gemm, \
-                                     scalapack_inverse, scalapack_solve
+                                     scalapack_inverse, scalapack_solve, \
+                                     scalapack_zero, pblas_tran, scalapack_set
+                                     
 from gpaw.utilities.tools import tri2full 
 
 import sys
@@ -49,7 +51,8 @@ def verify(data1, data2, id, uplo='B'):
                 if uplo == 'U':
                     if i <= j:
                         err += abs(data1[i][j]-data2[i][j])**2
-    print "verify err", err
+    if err > 1e-7:
+        print "verify err", err
     if err > 1e-5:
        print "Parallel assert failed: ", id, " norm: ", err
        print "Data from proc ", world.rank
@@ -140,12 +143,19 @@ class LCAOTDDFT(GPAW):
             if self.density.gd.comm.rank != 0: 
                 # XXX Fake blacks nbands, nao, nbands, nao grid because some weird asserts
                 # (these are 0,x or x,0 arrays)
-                sourceC_nM = self.CnM_descriptor.zeros(dtype=complex)
+                sourceC_nM = self.CnM_unique_descriptor.zeros(dtype=complex)
 
             # 1. target = (S+0.5j*H*dt) * source
             # Wave functions to target
             self.CnM2nm.redistribute(sourceC_nM, temp_blockC_nm) 
-            temp_block_mm[:] = S_MM - (0.5j*dt) * H_MM
+
+            # XXX It can't be this f'n hard to symmetrize a matrix (tri2full)
+            scalapack_zero(self.mm_block_descriptor, H_MM, 'U') # Remove upper diagonal
+            temp_block_mm[:] = S_MM - (0.5j*dt) * H_MM  # Lower diagonal matrix
+            scalapack_set(self.mm_block_descriptor, temp_block_mm, 0, 0, 'U') # Not it's stricly lower diagonal matrix           
+            pblas_tran(-0.5j*dt, H_MM, 1.0, temp_block_mm, self.mm_block_descriptor, self.mm_block_descriptor) # Add transpose of H
+            pblas_tran(1.0, S_MM, 1.0, temp_block_mm, self.mm_block_descriptor, self.mm_block_descriptor) # Add transpose of S
+
             pblas_simple_gemm(self.Cnm_block_descriptor, 
                               self.mm_block_descriptor, 
                               self.Cnm_block_descriptor, 
@@ -153,7 +163,13 @@ class LCAOTDDFT(GPAW):
                               temp_block_mm, 
                               target_blockC_nm)
             # 2. target = (S-0.5j*H*dt)^-1 * target
-            temp_block_mm[:] = S_MM + (0.5j*dt) * H_MM
+            #temp_block_mm[:] = S_MM + (0.5j*dt) * H_MM
+            # XXX It can't be this f'n hard to symmetrize a matrix (tri2full)
+            temp_block_mm[:] = S_MM + (0.5j*dt) * H_MM  # Lower diagonal matrix
+            scalapack_set(self.mm_block_descriptor, temp_block_mm, 0, 0, 'U') # Not it's stricly lower diagonal matrix           
+            pblas_tran(+0.5j*dt, H_MM, 1.0, temp_block_mm, self.mm_block_descriptor, self.mm_block_descriptor) # Add transpose of H
+            pblas_tran(1.0, S_MM, 1.0, temp_block_mm, self.mm_block_descriptor, self.mm_block_descriptor) # Add transpose of S
+
             scalapack_solve(self.mm_block_descriptor, 
                             self.Cnm_block_descriptor, 
                             temp_block_mm,
@@ -162,7 +178,7 @@ class LCAOTDDFT(GPAW):
             if self.density.gd.comm.rank != 0: # XXX is this correct?
                 # XXX Fake blacks nbands, nao, nbands, nao grid because some weird asserts
                 # (these are 0,x or x,0 arrays)
-                target = self.CnM_descriptor.zeros(dtype=complex)
+                target = self.CnM_unique_descriptor.zeros(dtype=complex)
             else:
                 target = targetC_nM
             self.Cnm2nM.redistribute(target_blockC_nm, target)
@@ -204,7 +220,7 @@ class LCAOTDDFT(GPAW):
             if self.density.gd.comm.rank != 0: 
                 # XXX Fake blacks nbands, nao, nbands, nao grid because some weird asserts
                 # (these are 0,x or x,0 arrays)
-                sourceC_nM = self.CnM_descriptor.zeros(dtype=complex)
+                sourceC_nM = self.CnM_unique_descriptor.zeros(dtype=complex)
 
             # Zeroth order taylor to target
             self.CnM2nm.redistribute(sourceC_nM, target_blockC_nm) 
@@ -236,7 +252,7 @@ class LCAOTDDFT(GPAW):
             if self.density.gd.comm.rank != 0: # Todo: Change to gd.rank
                 # XXX Fake blacks nbands, nao, nbands, nao grid because some weird asserts
                 # (these are 0,x or x,0 arrays)
-                target = self.CnM_descriptor.zeros(dtype=complex)
+                target = self.CnM_unique_descriptor.zeros(dtype=complex)
             else:
                 target = targetC_nM
             self.Cnm2nM.redistribute(target_blockC_nm, target)
@@ -276,16 +292,13 @@ class LCAOTDDFT(GPAW):
             print "Magnitude: ", magnitude
             print "Direction: ", direction
 
-        print "gamma", self.wfs.basis_functions.gamma
-
         # Create hamiltonian object for absorbtion kick
         kick_hamiltonian = KickHamiltonian(self, ConstantElectricField(magnitude, direction=direction))
         for k, kpt in enumerate(self.wfs.kpt_u):
             Vkick_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(kick_hamiltonian, self.wfs, kpt, add_kinetic=False, root=-1)
+            print "VK", Vkick_MM
             for i in range(10):
-                print i
                 self.propagator(kpt.C_nM, kpt.C_nM, kpt.S_MM, Vkick_MM, 0.1)
-            mpiverify(Vkick_MM,"Vkick_MM")
 
     def blacs_mm_to_global(self, H_mm):
         target = self.MM_descriptor.empty(dtype=complex)
@@ -294,7 +307,7 @@ class LCAOTDDFT(GPAW):
         return target
 
     def blacs_nm_to_global(self, C_nm):
-        target = self.CnM_descriptor.empty(dtype=complex)
+        target = self.CnM_unique_descriptor.empty(dtype=complex)
         self.Cnm2nM.redistribute(C_nm, target)
         world.barrier()
         return target
@@ -304,6 +317,7 @@ class LCAOTDDFT(GPAW):
             if world.rank == 0:
                 print "Initializing real time LCAO TD-DFT calculation."
                 print "XXX Warning: Array use not optimal for memory."
+                print "XXX Taylor propagator probably doesn't work"
                 print "XXX ...and no arrays are listed in memory estimate yet."
             self.blacs = self.wfs.ksl.using_blacs
             if self.blacs:
@@ -321,16 +335,21 @@ class LCAOTDDFT(GPAW):
                 self.MM_descriptor = ksl.blockgrid.new_descriptor(nao, nao, nao, nao) # FOR DEBUG
                 self.mm_block_descriptor = ksl.blockgrid.new_descriptor(nao, nao, blocksize, blocksize)
                 self.Cnm_block_descriptor = ksl.blockgrid.new_descriptor(nbands, nao, blocksize, blocksize)
-                self.CnM_descriptor = ksl.blockgrid.new_descriptor(nbands, nao, mynbands, nao)
+                #self.CnM_descriptor = ksl.blockgrid.new_descriptor(nbands, nao, mynbands, nao)
                 self.mM_column_descriptor = ksl.single_column_grid.new_descriptor(nao, nao, ksl.naoblocksize, nao)
+                self.CnM_unique_descriptor = ksl.single_column_grid.new_descriptor(nbands, nao, mynbands, nao)
 
                 # Redistributors
                 self.mm2MM =  Redistributor(ksl.block_comm, self.mm_block_descriptor, self.MM_descriptor) # XXX FOR DEBUG
                 self.MM2mm =  Redistributor(ksl.block_comm, self.MM_descriptor, self.mm_block_descriptor) # XXX FOR DEBUG
-                self.Cnm2nM = Redistributor(ksl.block_comm, self.Cnm_block_descriptor, self.CnM_descriptor) 
-                self.CnM2nm = Redistributor(ksl.block_comm, self.CnM_descriptor, self.Cnm_block_descriptor) 
+                self.Cnm2nM = Redistributor(ksl.block_comm, self.Cnm_block_descriptor, self.CnM_unique_descriptor) 
+                self.CnM2nm = Redistributor(ksl.block_comm, self.CnM_unique_descriptor, self.Cnm_block_descriptor) 
                 self.mM2mm =  Redistributor(ksl.block_comm, self.mM_column_descriptor, self.mm_block_descriptor)
-                
+
+                for kpt in self.wfs.kpt_u:
+                    scalapack_zero(self.mm_block_descriptor, kpt.S_MM,'U')
+                    scalapack_zero(self.mm_block_descriptor, kpt.T_MM,'U')
+
                 if self.propagator_text == 'taylor' and self.blacs: # XXX to propagator class
                     cholS_mm = self.mm_block_descriptor.empty(dtype=complex)
                     for kpt in self.wfs.kpt_u:
@@ -373,7 +392,6 @@ class LCAOTDDFT(GPAW):
             for a, P_ni in kpt.P_ani.items():
                 P_ni.fill(117)
                 gemm(1.0, kpt.P_aMi[a], kpt.C_nM, 0.0, P_ni, 'n')
-            mpiverify(kpt.C_nM, "C_nM first")
         self.timer.stop('LCAO update projectors') 
 
     def save_wfs(self):
@@ -406,7 +424,6 @@ class LCAOTDDFT(GPAW):
         self.timer.start('Propagate')
         while 1:
             dm = self.density.finegd.calculate_dipole_moment(self.density.rhot_g)
-            mpiverify(dm, "dipole moment")
             if dm0 is None:
                 dm0 = dm
             norm = self.density.finegd.integrate(self.density.rhot_g)

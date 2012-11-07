@@ -147,10 +147,6 @@ class LCAOWaveFunctions(WaveFunctions):
         self.timer.stop('TCI: Calculate S, T, P')
 
         S_MM = None # allow garbage collection of old S_qMM after redist
-        for S_MM in S_qMM:
-            tri2full(S_MM,'L')
-        for T_MM in T_qMM:
-            tri2full(T_MM, 'L')
         S_qMM = self.ksl.distribute_overlap_matrix(S_qMM) 
         T_qMM = self.ksl.distribute_overlap_matrix(T_qMM)
         for kpt in self.kpt_u:
