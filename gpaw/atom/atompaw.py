@@ -64,6 +64,9 @@ class AtomEigensolver:
         self.f_sln = f_sln
         self.error = 0.0
         self.initialized = False
+
+    def reset(self):
+        self.initialized = False
         
     def initialize(self, wfs):
         r = self.gd.r_g

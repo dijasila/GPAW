@@ -62,6 +62,8 @@ more about :ref:`its features and the algorithms used
 News
 ====
 
+* A new :ref:`setups` bundle released (Oct 26 2012)
+
 * :ref:`GPAW version 0.9 <releasenotes>` released (March 7 2012)
 
 * Help!  The :ref:`todolist` has been updated.  Maybe there is

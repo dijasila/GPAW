@@ -96,6 +96,7 @@ PyObject* scalapack_general_diagonalize_mr3(PyObject *self, PyObject *args);
 #endif 
 PyObject* scalapack_inverse_cholesky(PyObject *self, PyObject *args);
 PyObject* scalapack_inverse(PyObject *self, PyObject *args);
+PyObject* scalapack_solve(PyObject *self, PyObject *args);
 PyObject* pblas_tran(PyObject *self, PyObject *args);
 PyObject* pblas_gemm(PyObject *self, PyObject *args);
 PyObject* pblas_hemm(PyObject *self, PyObject *args);
@@ -190,6 +191,7 @@ static PyMethodDef functions[] = {
 #endif // GPAW_MR3
   {"scalapack_inverse_cholesky", scalapack_inverse_cholesky, METH_VARARGS, 0},
   {"scalapack_inverse", scalapack_inverse, METH_VARARGS, 0},
+  {"scalapack_solve", scalapack_solve, METH_VARARGS, 0},
   {"pblas_tran", pblas_tran, METH_VARARGS, 0},
   {"pblas_gemm", pblas_gemm, METH_VARARGS, 0},
   {"pblas_hemm", pblas_hemm, METH_VARARGS, 0},

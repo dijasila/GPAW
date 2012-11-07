@@ -103,7 +103,7 @@ tests = [
     # XXX currently fails
     # https://listserv.fysik.dtu.dk/pipermail/gpaw-developers/2012-October/003255.html
     # https://listserv.fysik.dtu.dk/pipermail/gpaw-developers/2012-October/003257.html
-    #'pw/moleculecg.py',
+    'pw/moleculecg.py',
     'XC2.py',
     'multipoletest.py',
     'nabla.py',

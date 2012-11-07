@@ -301,7 +301,7 @@ def scalapack_inverse_cholesky(desca, a, uplo):
         raise RuntimeError('scalapack_inverse_cholesky error: %d' % info)
 
 def scalapack_inverse(desca, a, uplo):
-    """Perform general matrix inversion.
+    """Perform a hermitian matrix inversion.
 
     """
     desca.checkassert(a)
@@ -313,6 +313,24 @@ def scalapack_inverse(desca, a, uplo):
     info = _gpaw.scalapack_inverse(a, desca.asarray(), switch_lu[uplo])
     if info != 0:
         raise RuntimeError('scalapack_inverse error: %d' % info)
+
+def scalapack_solve(desca, descb, a, b):
+    """Perform general matrix solution to Ax=b. Result will be replaces with b.
+       Equivalent to numpy.linalg.solve(a, b.T.conjugate()).T.conjugate()
+
+    """
+    desca.checkassert(a)
+    descb.checkassert(b)
+    # only symmetric matrices
+    assert desca.gshape[0] == desca.gshape[1]
+    # valid equation
+    assert desca.gshape[1] == descb.gshape[1]
+
+    if not desca.blacsgrid.is_active():
+        return
+    info = _gpaw.scalapack_solve(a.T, desca.asarray(), b.T, descb.asarray())
+    if info != 0:
+        raise RuntimeError('scalapack_solve error: %d' % info)
 
 def pblas_tran(alpha, a_MN, beta, c_NM, desca, descc):
     desca.checkassert(a_MN)

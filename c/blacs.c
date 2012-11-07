@@ -54,6 +54,8 @@ int Csys2blacs_handle_(MPI_Comm SysCtxt);
 #define   pdtrtri_ pdtrtri
 #define   pztrtri_ pztrtri
 
+#define   pzgesv_ pzgesv
+
 #define   pdsyevd_  pdsyevd
 #define   pzheevd_  pzheevd
 #define   pdsyevx_  pdsyevx
@@ -134,6 +136,10 @@ void pdpotrf_(char* uplo, int* n, double* a,
 
 void pzpotrf_(char* uplo, int* n, void* a,
               int* ia, int* ja, int* desca, int* info);
+
+void pzgesv_(int* n, int* nrhs, void* a,
+             int* ia, int* ja, int* desca, int* ipiv,
+             void* b, int* ib, int* jb, int* descb, int* info);
 
 void pdtrtri_(char* uplo, char* diag, int* n, double* a,
               int *ia, int* ja, int* desca, int* info);
@@ -1723,6 +1729,48 @@ PyObject* scalapack_inverse(PyObject *self, PyObject *args)
   return returnvalue;
 }
 
+
+PyObject* scalapack_solve(PyObject *self, PyObject *args)
+{
+  // Solves equation Ax = B, where A is a general matrix
+  PyArrayObject* a; // Matrix
+  PyArrayObject* desca; // Matrix description vector
+  PyArrayObject* b; // Matrix
+  PyArrayObject* descb; // Matrix description vector
+  char uplo;
+  int info;
+  int one = 1;
+  if (!PyArg_ParseTuple(args, "OOOO", &a, &desca, &b, &descb))
+    return NULL;
+
+  int a_m      = INTP(desca)[2];
+  int a_n      = INTP(desca)[3];
+  // Only square matrices
+  assert (a_m == a_n);
+
+  int b_m      = INTP(descb)[2];
+  int b_n      = INTP(descb)[3];
+  // Equation valid
+  assert (a_n == b_m);
+
+  int n = a_n;
+  int nrhs = b_n;
+
+  int* pivot = GPAW_MALLOC(int, a_m+2000); // TODO: How long should this exaclty be?
+
+  if (a->descr->type_num == PyArray_DOUBLE)
+     {
+      assert(1==-1);       // No double version implemented
+     }
+  else
+    {
+       pzgesv_(&n, &nrhs,(void*)COMPLEXP(a), &one, &one, INTP(desca), pivot,
+               (void*)COMPLEXP(b), &one, &one, INTP(descb), &info);
+    }
+  free(pivot);
+  PyObject* returnvalue = Py_BuildValue("i", info);
+  return returnvalue;
+}
 
 #endif
 #endif // PARALLEL

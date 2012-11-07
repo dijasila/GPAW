@@ -12,24 +12,26 @@ from ase.parallel import paropen
 from gpaw.mpi import world
 from gpaw.tddft.units import attosec_to_autime
 from numpy.linalg import solve
-from gpaw.utilities.scalapack import pblas_simple_hemm, pblas_simple_hemm, scalapack_inverse_cholesky, pblas_simple_gemm, pblas_simple_r2k, scalapack_inverse
+from gpaw.utilities.scalapack import pblas_simple_hemm, pblas_simple_gemm, \
+                                     scalapack_inverse, scalapack_solve
 from gpaw.utilities.tools import tri2full 
 
 import sys
 
-def print_matrix(M, file=None):
+def print_matrix(M, file=None, rank=0):
     # XXX Debugging stuff. Remove.
-    if file is not None:
-        f = open(file,'w')
-    else:
-        f = sys.stdout
-    a, b = M.shape
-    for i in range(a):
-        for j in range(b):
-            print >>f, "%.3f" % M[i][j].real, "%.3f" % M[i][j].imag
-        print >>f
-    if file is not None:
-        f.close()
+    if world.rank == 0:
+        if file is not None:
+            f = open(file,'w')
+        else:
+            f = sys.stdout
+        a, b = M.shape
+        for i in range(a):
+            for j in range(b):
+                print >>f, "%.7f" % M[i][j].real, "%.7f" % M[i][j].imag,
+            print >>f
+        if file is not None:
+            f.close()
 
 
 def verify(data1, data2, id, uplo='B'):
@@ -98,9 +100,12 @@ class LCAOTDDFT(GPAW):
         self.propagator_debug = propagator_debug
         self.kick_strength = [0.0, 0.0, 0.0]
         self.tddft_initialized = False
-        plist = {'numpysolve_CN': self.linear_propagator, # Doesn't work with blacs yet
+
+        # XXX Make propagator class
+        plist = {'cn': self.linear_propagator, # Doesn't work with blacs yet
                  'taylor': self.taylor_propagator} # Not very good, but works with blacs.
-        self.propagator = plist[propagator]
+        self.propagator_text = propagator
+        self.propagator = plist[self.propagator_text]
 
         # Restarting from a file
         if filename is not None:
@@ -109,24 +114,72 @@ class LCAOTDDFT(GPAW):
 
     def linear_propagator(self, sourceC_nM, targetC_nM, S_MM, H_MM, dt):
         self.timer.start('Linear solve')
-
+        # XXX Debugging stuff. Remove
         if self.propagator_debug:
-            mpiverify(H_MM, "H_MM first")
-            U_MM = dot(inv(S_MM-0.5j*H_MM*dt), S_MM+0.5j*H_MM*dt)
-            mpiverify(U_MM, "U_MM first")
-            debugC_nM = dot(sourceC_nM, U_MM.T.conjugate())
+            if self.blacs:
+                globalH_MM = self.blacs_mm_to_global(H_MM)
+                globalS_MM = self.blacs_mm_to_global(S_MM) 
+                if world.rank == 0:
+                    tri2full(globalS_MM, 'L')
+                    tri2full(globalH_MM, 'L')
+                    U_MM = dot(inv(globalS_MM-0.5j*globalH_MM*dt), globalS_MM+0.5j*globalH_MM*dt)
+                    debugC_nM = dot(sourceC_nM, U_MM.T.conjugate())
+                    #print "PASS PROPAGATOR"
+                    #debugC_nM = sourceC_nM.copy()
+            else:
+                if world.rank == 0:
+                    U_MM = dot(inv(S_MM-0.5j*H_MM*dt), S_MM+0.5j*H_MM*dt)
+                    debugC_nM = dot(sourceC_nM, U_MM.T.conjugate())
+                #print "PASS PROPAGATOR"
+                #debugC_nM = sourceC_nM.copy()
 
-        # Note: The full equation is conjugated (therefore -+, not +-)
-        targetC_nM[:] = solve(S_MM-0.5j*H_MM*dt, np.dot(S_MM+0.5j*H_MM*dt, sourceC_nM.T.conjugate())).T.conjugate()
+        if self.blacs:
+            target_blockC_nm = self.Cnm_block_descriptor.empty(dtype=complex) # XXX, Preallocate
+            temp_blockC_nm = self.Cnm_block_descriptor.empty(dtype=complex) # XXX, Preallocate
+            temp_block_mm = self.mm_block_descriptor.empty(dtype=complex)
+            if self.density.gd.comm.rank != 0: 
+                # XXX Fake blacks nbands, nao, nbands, nao grid because some weird asserts
+                # (these are 0,x or x,0 arrays)
+                sourceC_nM = self.CnM_descriptor.zeros(dtype=complex)
 
+            # 1. target = (S+0.5j*H*dt) * source
+            # Wave functions to target
+            self.CnM2nm.redistribute(sourceC_nM, temp_blockC_nm) 
+            temp_block_mm[:] = S_MM - (0.5j*dt) * H_MM
+            pblas_simple_gemm(self.Cnm_block_descriptor, 
+                              self.mm_block_descriptor, 
+                              self.Cnm_block_descriptor, 
+                              temp_blockC_nm, 
+                              temp_block_mm, 
+                              target_blockC_nm)
+            # 2. target = (S-0.5j*H*dt)^-1 * target
+            temp_block_mm[:] = S_MM + (0.5j*dt) * H_MM
+            scalapack_solve(self.mm_block_descriptor, 
+                            self.Cnm_block_descriptor, 
+                            temp_block_mm,
+                            target_blockC_nm)
+
+            if self.density.gd.comm.rank != 0: # XXX is this correct?
+                # XXX Fake blacks nbands, nao, nbands, nao grid because some weird asserts
+                # (these are 0,x or x,0 arrays)
+                target = self.CnM_descriptor.zeros(dtype=complex)
+            else:
+                target = targetC_nM
+            self.Cnm2nM.redistribute(target_blockC_nm, target)
+            self.density.gd.comm.broadcast(targetC_nM, 0)
+        else:
+            # Note: The full equation is conjugated (therefore -+, not +-)
+            targetC_nM[:] = solve(S_MM-0.5j*H_MM*dt, np.dot(S_MM+0.5j*H_MM*dt, sourceC_nM.T.conjugate())).T.conjugate()
+        
+        # XXX Debugging stuff. Remove
         if self.propagator_debug:
-             verify(targetC_nM, debugC_nM, "Linear solver propagator vs. reference")
+             if world.rank == 0:
+                 verify(targetC_nM, debugC_nM, "Linear solver propagator vs. reference")
 
         self.timer.stop('Linear solve')
 
     def taylor_propagator(self, sourceC_nM, targetC_nM, S_MM, H_MM, dt):
         self.timer.start('Taylor propagator')
-
         # XXX Debugging stuff. Remove
         if self.propagator_debug:
             if self.blacs:
@@ -229,13 +282,20 @@ class LCAOTDDFT(GPAW):
         kick_hamiltonian = KickHamiltonian(self, ConstantElectricField(magnitude, direction=direction))
         for k, kpt in enumerate(self.wfs.kpt_u):
             Vkick_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(kick_hamiltonian, self.wfs, kpt, add_kinetic=False, root=-1)
-            for i in range(1):
-                self.propagator(kpt.C_nM, kpt.C_nM, kpt.S_MM, Vkick_MM, 1)
+            for i in range(10):
+                print i
+                self.propagator(kpt.C_nM, kpt.C_nM, kpt.S_MM, Vkick_MM, 0.1)
             mpiverify(Vkick_MM,"Vkick_MM")
 
     def blacs_mm_to_global(self, H_mm):
         target = self.MM_descriptor.empty(dtype=complex)
         self.mm2MM.redistribute(H_mm, target)
+        world.barrier()
+        return target
+
+    def blacs_nm_to_global(self, C_nm):
+        target = self.CnM_descriptor.empty(dtype=complex)
+        self.Cnm2nM.redistribute(C_nm, target)
         world.barrier()
         return target
 
@@ -258,52 +318,53 @@ class LCAOTDDFT(GPAW):
                     print "BLACS Parallelization"
 
                 # Parallel grid descriptors
-                self.MM_descriptor = ksl.blockgrid.new_descriptor(nao, nao, nao, nao)
+                self.MM_descriptor = ksl.blockgrid.new_descriptor(nao, nao, nao, nao) # FOR DEBUG
                 self.mm_block_descriptor = ksl.blockgrid.new_descriptor(nao, nao, blocksize, blocksize)
                 self.Cnm_block_descriptor = ksl.blockgrid.new_descriptor(nbands, nao, blocksize, blocksize)
                 self.CnM_descriptor = ksl.blockgrid.new_descriptor(nbands, nao, mynbands, nao)
-                self.mM_column_descriptor = ksl.columngrid.new_descriptor(nao, nao, ksl.naoblocksize, nao)
+                self.mM_column_descriptor = ksl.single_column_grid.new_descriptor(nao, nao, ksl.naoblocksize, nao)
 
                 # Redistributors
-                self.mm2MM =  Redistributor(ksl.block_comm, self.mm_block_descriptor, self.MM_descriptor)
-                self.MM2mm =  Redistributor(ksl.block_comm, self.MM_descriptor, self.mm_block_descriptor)
+                self.mm2MM =  Redistributor(ksl.block_comm, self.mm_block_descriptor, self.MM_descriptor) # XXX FOR DEBUG
+                self.MM2mm =  Redistributor(ksl.block_comm, self.MM_descriptor, self.mm_block_descriptor) # XXX FOR DEBUG
                 self.Cnm2nM = Redistributor(ksl.block_comm, self.Cnm_block_descriptor, self.CnM_descriptor) 
                 self.CnM2nm = Redistributor(ksl.block_comm, self.CnM_descriptor, self.Cnm_block_descriptor) 
                 self.mM2mm =  Redistributor(ksl.block_comm, self.mM_column_descriptor, self.mm_block_descriptor)
                 
-                cholS_mm = self.mm_block_descriptor.empty(dtype=complex)
-                for kpt in self.wfs.kpt_u:
-                    kpt.invS_MM = kpt.S_MM.copy()
-                    scalapack_inverse(self.mm_block_descriptor, kpt.invS_MM, 'L')
-                if self.propagator_debug:
-                    if world.rank == 0:
-                        print "XXX Doing serial inversion of overlap matrix."
-                    self.timer.start('Invert overlap (serial)')
-                    invS2_MM = self.MM_descriptor.empty(dtype=complex)
+                if self.propagator_text == 'taylor' and self.blacs: # XXX to propagator class
+                    cholS_mm = self.mm_block_descriptor.empty(dtype=complex)
                     for kpt in self.wfs.kpt_u:
-                        #kpt.S_MM[:] = 128.0*(2**world.rank)
-                        self.mm2MM.redistribute(self.wfs.S_qMM[kpt.q], invS2_MM)
-                        world.barrier()
+                        kpt.invS_MM = kpt.S_MM.copy()
+                        scalapack_inverse(self.mm_block_descriptor, kpt.invS_MM, 'L')
+                    if self.propagator_debug:
                         if world.rank == 0:
-                            tri2full(invS2_MM,'L')
-                            invS2_MM[:] = inv(invS2_MM.copy())
-                            self.invS2_MM = invS2_MM
-                        kpt.invS2_MM = ksl.mmdescriptor.empty(dtype=complex)
-                        self.MM2mm.redistribute(invS2_MM, kpt.invS2_MM)
-                        verify(kpt.invS_MM, kpt.invS2_MM, "overlap par. vs. serial", 'L')
-                    self.timer.stop('Invert overlap (serial)')
-                    if world.rank == 0:
-                        print "XXX Overlap inverted."
-            else:
-                tmp = inv(self.wfs.kpt_u[0].S_MM)
-                self.wfs.kpt_u[0].invS = tmp
+                            print "XXX Doing serial inversion of overlap matrix."
+                        self.timer.start('Invert overlap (serial)')
+                        invS2_MM = self.MM_descriptor.empty(dtype=complex)
+                        for kpt in self.wfs.kpt_u:
+                            #kpt.S_MM[:] = 128.0*(2**world.rank)
+                            self.mm2MM.redistribute(self.wfs.S_qMM[kpt.q], invS2_MM)
+                            world.barrier()
+                            if world.rank == 0:
+                                tri2full(invS2_MM,'L')
+                                invS2_MM[:] = inv(invS2_MM.copy())
+                                self.invS2_MM = invS2_MM
+                            kpt.invS2_MM = ksl.mmdescriptor.empty(dtype=complex)
+                            self.MM2mm.redistribute(invS2_MM, kpt.invS2_MM)
+                            verify(kpt.invS_MM, kpt.invS2_MM, "overlap par. vs. serial", 'L')
+                        self.timer.stop('Invert overlap (serial)')
+                        if world.rank == 0:
+                            print "XXX Overlap inverted."
+                if self.propagator_text == 'taylor' and not self.blacs:
+                    tmp = inv(self.wfs.kpt_u[0].S_MM)
+                    self.wfs.kpt_u[0].invS = tmp
 
             # Reset the density mixer
             self.density.mixer = DummyMixer()    
             self.tddft_initialized = True
             for k, kpt in enumerate(self.wfs.kpt_u):
                 kpt.C2_nM = kpt.C_nM.copy()
-                kpt.firstC_nM = kpt.C_nM.copy()
+                #kpt.firstC_nM = kpt.C_nM.copy()
 
     def update_projectors(self):
         self.timer.start('LCAO update projectors') 

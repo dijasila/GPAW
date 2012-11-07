@@ -6,22 +6,23 @@ from gpaw.tddft.lcao_tddft import LCAOTDDFT
 import gpaw.lrtddft as lrtddft
 from sys import exit
 from gpaw.mpi import world
-N = 3
+
+N = 2
 xc = 'oldLDA'
-c = +1
+c = 0
 h = 0.4
 b = 'sz'
-sy = 'Na'+str(N)
+sy = 'H'+str(N)
 positions = []
 for i in range(N):
-    positions.append([0.00,0.00,i*2.50])
+    positions.append([0.00,0.00,i*0.7])
 atoms = Atoms(symbols=sy, positions = positions)
 atoms.center(vacuum=3)
-
+print atoms
 # LCAO-RT-TDDFT
-calc = LCAOTDDFT(mode='lcao', xc=xc, h=h, basis=b, 
-                dtype=complex, charge=c, width=0, convergence={'density':1e-6}, 
-                propagator_debug=True)#, propagator='taylor')
+calc = LCAOTDDFT(mode='lcao', xc=xc, h=h, basis=b, nbands=N/2,
+                dtype=complex, charge=c, convergence={'density':1e-6}, 
+                propagator_debug=True, propagator='cn')
                 #parallel={'sl_default':(1,1,64)})
 atoms.set_calculator(calc)
 atoms.get_potential_energy()

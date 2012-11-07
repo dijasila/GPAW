@@ -14,6 +14,6 @@ def agts(queue):
                             creates=['dcdft_pbe_gpaw_pw.csv',
                                      'dcdft_pbe_gpaw_pw.txt',
                                      'dcdft_pbe_gpaw_pw_Delta.txt',
-                                     'dcdft_pbe_gpaw_pw_raw.csv']
-        varify = queue.add('pbe_gpaw_pw_verify.py',
+                                     'dcdft_pbe_gpaw_pw_raw.csv'])
+        verify = queue.add('pbe_gpaw_pw_verify.py',
                            ncpus=1, walltime=10, deps=[analyse])

@@ -46,13 +46,51 @@ class DF(CHI):
         self.df3_w = None  # NLF ALDA
         self.df4_w = None  # LF ALDA
 
-    def get_dielectric_matrix(self, xc='RPA', overwritechi0=False, nonsymmetric=False):
-        
-	if self.chi0_wGG is None:
+    def get_dielectric_matrix(self, xc='RPA', overwritechi0=False, nonsymmetric=False, chi0_wGG = None, calc = None, vcut = None):
+	if self.chi0_wGG is None and chi0_wGG is None:
             self.initialize()
             self.calculate()
-        else:
-            pass  # read from file and re-initializing .... need to be implemented
+        elif self.chi0_wGG is None and chi0_wGG is not None: #Read from file and reinitialize 
+            self.xc = xc
+            from gpaw.response.parallel import par_read 
+            self.chi0_wGG = par_read(chi0_wGG, 'chi0_wGG')
+            self.nvalbands = self.nbands
+            #self.parallel_init() # parallelization not yet implemented
+            self.Nw_local = self.Nw  # parallelization not yet implemented
+            if self.calc is None:
+                from gpaw import GPAW
+                self.calc = GPAW(calc,txt=None)
+            if self.xc == 'ALDA' or self.xc == 'ALDA_X':
+                from gpaw.response.kernel import calculate_Kxc
+                from gpaw.grid_descriptor import GridDescriptor
+                from gpaw.mpi import world, rank, size, serial_comm
+                    
+                self.pbc = self.calc.atoms.pbc
+                self.gd = GridDescriptor(self.calc.wfs.gd.N_c*self.rpad, self.acell_cv,
+                                         pbc_c=True, comm=serial_comm)
+
+                self.h_cv = self.gd.h_cv
+                self.nG = self.gd.N_c
+                R_av = self.calc.atoms.positions / Bohr
+                nt_sg = self.calc.density.nt_sG
+                    
+                if (self.rpad > 1).any() or (self.pbc - True).any():
+                    nt_sG = np.zeros([self.nspins, self.nG[0], self.nG[1], self.nG[2]])
+                    for s in range(self.nspins):
+                        nt_G = self.pad(nt_sg[s])
+                        nt_sG[s] = nt_G
+                else:
+                    nt_sG = nt_sg
+                        
+                self.Kxc_sGG = calculate_Kxc(self.gd, 
+                                             nt_sG,
+                                             self.npw, self.Gvec_Gc,
+                                             self.nG, self.vol,
+                                             self.bcell_cv, R_av,
+                                             self.calc.wfs.setups,
+                                             self.calc.density.D_asp,
+                                             functional=self.xc,
+                                             density_cut=self.density_cut)
 
         if overwritechi0:
             dm_wGG = self.chi0_wGG
@@ -517,63 +555,11 @@ class DF(CHI):
                       returned. 
            
         """
-        from gpaw import GPAW
-        self.read(filename)      
-        self.calc = GPAW(calc,txt=None)
-        calc = self.calc
+        self.read(filename)
         self.w_w = np.linspace(0, self.dw * (self.Nw - 1)*Hartree, self.Nw)
         self.vcut = vcut
-        self.xc = xc
-        print self.nG
-        
-        if chi0 is None and dm is None: # calculate chi0 from scratch            
-            self.initialize()
-            self.calculate()    
-            self.w_w = self.w_w * Hartree
-            self.dm_wGG = self.get_dielectric_matrix(xc= xc, nonsymmetric = True)        
-        else: # read from file and reinitialize
-            from gpaw.response.parallel import par_read 
-            if dm is not None:
-                self.dm_wGG = par_read(dm, 'dm')
-            else:
-                self.chi0_wGG = par_read(chi0, 'chi0_wGG')
-                #self.parallel_init()
-                self.Nw_local = self.Nw # parallelization not implemented
-                if self.xc == 'ALDA' or self.xc == 'ALDA_X':
-                    from gpaw.response.kernel import calculate_Kxc
-                    from gpaw.grid_descriptor import GridDescriptor
-                    from gpaw.mpi import world, rank, size, serial_comm
-                    
-                    self.pbc = calc.atoms.get_pbc()
-                    self.gd = GridDescriptor(calc.wfs.gd.N_c*self.rpad, self.acell_cv,
-                                        pbc_c=True, comm=serial_comm)
-
-                    self.h_cv = self.gd.h_cv
-                    self.nG = self.gd.N_c
-                    R_av = calc.atoms.positions / Bohr
-                    nt_sg = calc.density.nt_sG
-                    
-                    if (self.rpad > 1).any() or (self.pbc - True).any():
-                        nt_sG = np.zeros([self.nspins, self.nG[0], self.nG[1], self.nG[2]])
-                        for s in range(self.nspins):
-                            nt_G = self.pad(nt_sg[s])
-                            nt_sG[s] = nt_G
-                    else:
-                        nt_sG = nt_sg
-                        
-                    self.Kxc_sGG = calculate_Kxc(self.gd, # global grid
-                                         nt_sG,
-                                         self.npw, self.Gvec_Gc,
-                                         self.nG, self.vol,
-                                         self.bcell_cv, R_av,
-                                         calc.wfs.setups,
-                                         calc.density.D_asp,
-                                         functional=self.xc,
-                                         density_cut=self.density_cut)
-                    
-                self.dm_wGG = self.get_dielectric_matrix(xc= xc, nonsymmetric = True)
-
-  
+        dm_wGG = self.get_dielectric_matrix(xc=xc, nonsymmetric = True, chi0_wGG = chi0, calc=calc, vcut=vcut)
+    
         q = self.q_c
         gd = self.calc.wfs.gd
         r = gd.get_grid_point_coordinates()
@@ -605,7 +591,6 @@ class DF(CHI):
             v_ind = np.zeros([1, r.shape[1], r.shape[2], r.shape[3]], dtype = complex)
             n_ind = np.zeros([1, r.shape[1], r.shape[2], r.shape[3]], dtype = complex)
 
-        dm_wGG = self.dm_wGG
         eps_GG_plus = dm_wGG[0]
         eig_plus, vec_plus = np.linalg.eig(eps_GG_plus)  # find eigenvalues and eigenvectors
         vec_plus_dual = np.linalg.inv(vec_plus)

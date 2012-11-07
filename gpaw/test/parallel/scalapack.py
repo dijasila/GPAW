@@ -62,7 +62,7 @@ def main(N=72, seed=42, mprocs=2, nprocs=2, dtype=float):
     W0 = np.empty((N),dtype=float)
     W0_g = np.empty((N),dtype=float)
 
-    # Calculate eigenvalues
+    # Calculate eigenvalues / other serial results
     if rank == 0:
         diagonalize(H0.copy(), W0)
         general_diagonalize(H0.copy(), W0_g, S0.copy())
