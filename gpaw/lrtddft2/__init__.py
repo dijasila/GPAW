@@ -416,14 +416,21 @@ class LrTDDFTindexed:
         w = np.arange(min_energy, max_energy, energy_step)
         S = w*0.
         R = w*0.
-            
+
+        print >> self.txt, 'Calculating spectrum (', str(datetime.datetime.now()), ').',
         for (k, omega2) in enumerate(self.evalues):
+            if k % 10 == 0:
+                print >> self.txt, '.',
+                self.txt.flush()
+                
             c = self.get_oscillator_strength(k) / width / math.sqrt(2*np.pi)
             S += c * np.exp( (-.5/width/width) * np.power(w-self.get_excitation_energy(k),2) ) 
 
             c = self.get_rotatory_strength(k) / width / np.sqrt(2*np.pi)
             R += c * np.exp( (-.5/width/width) * np.power(w-self.get_excitation_energy(k),2) ) 
 
+        print >> self.txt, ''
+                
         if units == 'a.u.':
             pass
         elif units == 'eVcgs':
@@ -433,7 +440,7 @@ class LrTDDFTindexed:
         else:
             raise RuntimeError('Unknown units.')
 
-        if filename is not None:
+        if filename is not None and gpaw.mpi.world.rank == 0:
             sfile = open(filename,'w')
             for (ww,SS,RR) in zip(w,S,R):
                 sfile.write("%12.8lf  %12.8lf  %12.8lf\n" % (ww,SS,RR))
@@ -562,7 +569,8 @@ class LrTDDFTindexed:
         for (ip,kss) in enumerate(self.kss_list):
             self.index_map[(kss.occ_ind,kss.unocc_ind)] = ip
 
-        
+        print >> self.txt, 'Reading data for diagonalize (', str(datetime.datetime.now()), '). ',
+            
         # Read ALL ready_rows files
         for rrfn in glob.glob(self.basefilename + '.ready_rows.*'):
             for line in open(rrfn,'r'):
@@ -576,13 +584,14 @@ class LrTDDFTindexed:
                 if ip is not None:
                     assert ip == self.index_map[key], 'List index %d is not equal to ind_map index %d for key (%d,%d)\n' % (ip,self.index_map[key],i,p)
                     if self.get_local_index(ip) is not None: nloc += 1
-
-
+        
         # Matrix build
         omega_matrix = np.zeros((nloc,nrow))
         omega_matrix[:,:] = np.NAN # fill with NaNs to detect problems
         # Read ALL K_matrix files
-        for Kfn in glob.glob(self.basefilename + '.K_matrix.*'):
+        for Kfn in glob.glob(self.basefilename + '.K_matrix.*'): 
+            print >> self.txt, '.',
+            self.txt.flush()
             for line in open(Kfn,'r'):
                 line = line.split()
                 ipkey = (int(line[0]), int(line[1]))
@@ -604,6 +613,7 @@ class LrTDDFTindexed:
                     ljq = self.get_local_index(self.index_map[jqkey])
                     ip = self.index_map[ipkey]
                     omega_matrix[ljq,ip] = Kvalue
+        print >> self.txt, ''
 
         # If any NaNs found, we did not read all matrix elements... BAD
         if np.isnan(np.sum(np.sum(omega_matrix))):
@@ -622,6 +632,9 @@ class LrTDDFTindexed:
         # Calculate eigenvalues
         self.evalues = np.zeros(nrow)
 
+
+        print >> self.txt, 'Diagonalizing (', str(datetime.datetime.now()), ')'
+        
         # ScaLapack
         if sl_lrtddft is not None:
             ksl = LrTDDFTLayouts(sl_lrtddft, nrow, self.dd_comm,
@@ -1055,8 +1068,7 @@ class LrTDDFTindexed:
 
 
         # Init timings
-        [irow, tp, t0, tm] = [0, None, None, None]
-
+        [irow, tp, t0, tm, ap, bp, cp] = [0, None, None, None, None, None, None]
         
         #################################################################
         # Outer loop over KS singles
@@ -1072,19 +1084,32 @@ class LrTDDFTindexed:
             if self.dd_comm.rank == 0:
                 # on every 10th transition, update ETA
                 neta = 10
-                if irow % neta == 0: tm = t0;  t0 = tp;  tp = time.time()
-
-                # No ETA available
-                if tm is None:
-                    eta = -1.0
-                    self.log_file.write('Calculating pair %5d => %5d  ( %s, ETA %9.1lfs )\n' % (kss_ip.occ_ind, kss_ip.unocc_ind, str(datetime.datetime.now()), eta))
-                # ETA from second order polynomial fit
-                else:
-                    a = (.5*tp - t0 + .5*tm)/10./10.
-                    b = .5*(tp - tm)/10. - 2.*a*(irow-10)
-                    c = t0 - a*(irow-10)*(irow-10) - b*(irow-10)
-                    eta = a*nrows*nrows + b * nrows + c - tp
-                    self.log_file.write('Calculating pair %5d => %5d  ( %s, ETA %9.1lfs )\n' % (kss_ip.occ_ind, kss_ip.unocc_ind, str(datetime.datetime.now()), eta))
+                if irow % neta == 0:
+                    tm = t0;  t0 = tp;  tp = time.time()
+                    # 2nd order fit:
+                    #   t(irow) = a irow0**2 + b irow0 + c
+                    #   t0'' = 2 a                        => a = t0''/2
+                    #   t0'  = 2 a irow0 + b              => b = t0' - 2 a irow0
+                    #   t0   = a irow0**2 + b irow0 + c   => c = t0 - a irow**2 - b irow0
+                    # eta = t(nrows)
+                    if tm is not None:
+                        a = .5*(tp - 2*t0 + tm)/float(neta*neta)
+                        b = (tp - tm)/(2.*neta) - 2.*a*float(irow-neta)
+                        c = t0 - a*float((irow-neta)*(irow-neta)) - b*float(irow-neta)
+                        #self.log_file.write('Calculated parameters for ETA: %12.6lf %12.6lf %12.6lf\n' % (a,b,c))
+                        # Do some mixing to avoid large oscillations...
+                        if ap is not None: a = .25*a + .75*ap
+                        if bp is not None: b = .25*b + .75*bp
+                        if cp is not None: c = .25*c + .75*cp
+                        ap = a; bp = b; cp = c
+                        #self.log_file.write('Averaged parameters for ETA: %12.6lf %12.6lf %12.6lf\n' % (a,b,c))
+                    # No ETA available yet
+                    else:
+                        a = 0.0
+                        b = 0.0
+                        c = tp
+                eta = a*nrows*nrows + b * nrows + c - time.time()
+                self.log_file.write('Calculating pair %5d => %5d  ( %s, ETA %9.1lfs )\n' % (kss_ip.occ_ind, kss_ip.unocc_ind, str(datetime.datetime.now()), eta))
                 self.log_file.flush()
                 irow += 1
 
