@@ -7,12 +7,15 @@ runs = [
     #'d105', 'd107', 'd203',  # for MixerDif nmaxold does not matter
     'inititer10m', # cg steps and switching to rmm-diis does not help
     'cgm103', 'cgm203',  # cg helps
-    'cgs103',  # cg + MixerSum
+    #'cgs103',  # cg + MixerSum
     'cgd103', 'cgd203', 'cgd253', # cg + MixerDif: the winner
     'dzpm103',  # lcao guess does not help
-    'cgdzpm103',  # lcao + cg
-    'cgdzps103',  # lcao + cg + MixerSum
-    'cgdzpd103',  # lcao + cg + MixerDif
+    #'cgdzpm103',  # lcao + cg
+    #'cgdzps103',  # lcao + cg + MixerSum
+    #'cgdzpd103',  # lcao + cg + MixerDif
+    'fm103',  # FFT
+    'davd203',  # PW mode winner
+    'davfd203',  # FFT
     ]
 runsstr = ','.join(runs)
 runsstr += ',jacapo'
