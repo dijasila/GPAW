@@ -173,9 +173,11 @@ class KSSingles(ExcitationList):
 
         f.readline()
         n = int(f.readline())
+        self.npspins = 1
         for i in range(n):
             kss = KSSingle(string = f.readline())
             self.append(kss)
+            self.npspins = max(self.npspins, kss.pspin + 1)
         self.update()
 
         if fh is None:

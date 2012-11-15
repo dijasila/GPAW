@@ -1,11 +1,16 @@
 """Excited state as calculator object."""
 
-from ase.units import Hartree
+import numpy as np
+
+from ase.units import Bohr, Hartree
 from ase.calculators.general import Calculator
 from ase.calculators.test import numeric_forces
 from gpaw import GPAW
 from gpaw.output import initialize_text_stream
 from gpaw.mpi import rank
+from gpaw.transformers import Transformer
+from gpaw.utilities.blas import axpy
+
 
 class FiniteDifferenceCalculator(Calculator):
     def __init__(self, lrtddft, d=0.001, txt=None, parallel=None):
@@ -29,9 +34,11 @@ class FiniteDifferenceCalculator(Calculator):
         self.parallel = parallel
 
     def calculate(self, atoms):
-        E0 = self.calculator.get_potential_energy(atoms)
+        redo = self.calculator.calculate(atoms)
+        E0 = self.calculator.get_potential_energy()
         lr = self.lrtddft
-        self.lrtddft.forced_update()
+        if redo:
+            self.lrtddft.forced_update()
         self.lrtddft.diagonalize()
         return E0
 
@@ -91,6 +98,70 @@ class ExcitedState(FiniteDifferenceCalculator):
     def get_stress(self, atoms):
         """Return the stress for the current state of the Atoms."""
         raise NotImplementedError
+
+    def get_pseudo_density(self, spin=None, gridrefinement=1,
+                           pad=True, broadcast=True):
+        """Return pseudo-density array.
+
+        If *spin* is not given, then the total density is returned.
+        Otherwise, the spin up or down density is returned (spin=0 or
+        1)."""
+
+        calc = self.calculator
+        gd = calc.density.gd # XXX get from a better place
+        npspins = self.lrtddft.kss.npspins
+        nvspins = self.lrtddft.kss.nvspins
+        nt_sG = gd.zeros(npspins)
+        nbands = calc.wfs.bd.nbands
+
+        # obtain weights
+        ex = self.lrtddft[self.index.apply(self.lrtddft)]
+        wocc_sn = np.zeros((npspins, nbands))
+        wunocc_sn = np.zeros((npspins, nbands))
+        energy = self.get_potential_energy() / Hartree
+        for f, k in zip(ex.f, ex.kss):
+            erat = k.fij * k.energy / energy
+            wocc_sn[k.pspin, k.i] += erat * f**2
+            wunocc_sn[k.pspin, k.j] += erat * f**2
+        
+        # sum up
+        for s in range(npspins):
+            for kpt in calc.wfs.kpt_u:
+                if s == kpt.s or npspins > nvspins:
+                    f_n = kpt.f_n / (1. + int(npspins > nvspins))
+                    for fo, fu, psit_G in zip(f_n - wocc_sn[s],
+                                              wunocc_sn[s],
+                                              kpt.psit_nG):
+                        axpy(fo, psit_G**2, nt_sG[s])
+                        axpy(fu, psit_G**2, nt_sG[s])
+                         
+        if gridrefinement == 1:
+            pass
+        elif gridrefinement == 2:
+            finegd = self.calculator.density.finegd
+            nt_sg = finegd.empty(npspins)
+            interpolator = Transformer(gd, finegd, calc.density.stencil)
+            for nt_G, nt_g in zip(nt_sG, nt_sg):
+                interpolator.apply(nt_G, nt_g)
+            nt_sG = nt_sg
+        else:
+            raise NotImplementedError
+
+        if spin is None:
+            if npspins == 1:
+                nt_G = nt_sG[0]
+            else:
+                nt_G = nt_sG.sum(axis=0)
+        else:
+            if npspins == 1:
+                nt_G = 0.5 * nt_sG[0]
+            else:
+                nt_G = nt_sG[spin]
+
+        if pad:
+            nt_G = gd.zero_pad(nt_G)
+
+        return nt_G / Bohr**3
 
 class UnconstraintIndex:
     def __init__(self, index):
