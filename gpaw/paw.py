@@ -216,7 +216,9 @@ class PAW(PAWTextOutput):
 
     def calculate(self, atoms=None, converge=False,
                   force_call_to_set_positions=False):
-        """Update PAW calculaton if needed."""
+        """Update PAW calculaton if needed. 
+
+        Returns True/False whether a calculation was performed or not."""
 
         self.timer.start('Initialization')
         if atoms is None:
@@ -258,7 +260,7 @@ class PAW(PAWTextOutput):
         self.timer.stop('Initialization')
 
         if self.scf.converged:
-            return
+            return False
         else:
             self.print_cell_and_parameters()
 
@@ -279,6 +281,8 @@ class PAW(PAWTextOutput):
             if 'not_converged' in hooks:
                 hooks['not_converged'](self)
             raise KohnShamConvergenceError('Did not converge!')
+
+        return True
 
     def initialize_positions(self, atoms=None):
         """Update the positions of the atoms."""
