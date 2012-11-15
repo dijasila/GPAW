@@ -120,10 +120,11 @@ class ExcitedState(FiniteDifferenceCalculator):
         wunocc_sn = np.zeros((npspins, nbands))
         energy = self.get_potential_energy() / Hartree
         for f, k in zip(ex.f, ex.kss):
-            erat = k.fij * k.energy / energy
+            # XXX why not k.fij * k.energy / energy ???
+            erat = k.energy / energy
             wocc_sn[k.pspin, k.i] += erat * f**2
             wunocc_sn[k.pspin, k.j] += erat * f**2
-        
+
         # sum up
         for s in range(npspins):
             for kpt in calc.wfs.kpt_u:

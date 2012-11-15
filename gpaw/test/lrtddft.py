@@ -1,5 +1,6 @@
 import os
 from ase import Atom, Atoms
+from ase.units import Bohr
 from gpaw import GPAW
 from gpaw.test import equal
 from gpaw.lrtddft import LrTDDFT
@@ -29,7 +30,9 @@ if not io_only:
     lr = LrTDDFT(calc, xc=xc)
     lr.diagonalize()
     t1 = lr[0]
-    lr_calc = lr 
+    lr_calc = lr
+    ex = ExcitedState(lr, 0)
+    den = ex.get_pseudo_density() * Bohr**3
 
     # course grids
     for finegrid in [1,0]:
@@ -47,9 +50,16 @@ if not io_only:
     # the triplet is lower, so that the second is the first singlet
     # excited state
     t2 = lr_vspin[1]
+    ex = ExcitedState(lr_vspin, 1)
+    den_vspin = ex.get_pseudo_density() * Bohr**3
 
     print 'with virtual/wo spin t2, t1=', t2.get_energy(), t1 .get_energy()
     equal(t1.get_energy(), t2.get_energy(), 5.e-7)
+    gd = lr.calculator.density.gd
+    ddiff = gd.integrate(abs(den - den_vspin))
+    print '   density integral, difference=', \
+        gd.integrate(den), gd.integrate(den_vspin), ddiff
+    assert(ddiff < 1.e-4)
 
     if not load:
         c_spin = GPAW(xc='PBE', nbands=2, 
@@ -65,6 +75,15 @@ if not io_only:
     for i in range(2):
         print 'i, real, virtual spin: ', i, lr_vspin[i], lr_spin[i]
         equal(lr_vspin[i].get_energy(), lr_spin[i].get_energy(), 5.e-6)
+        ex_vspin = ExcitedState(lr_vspin, i)
+        den_vspin = ex_vspin.get_pseudo_density() * Bohr**3
+        ex_spin = ExcitedState(lr_spin, i)
+        den_spin = ex_spin.get_pseudo_density() * Bohr**3
+        ddiff = gd.integrate(abs(den_vspin - den_spin))
+        print '   density integral, difference=', \
+            gd.integrate(den_vspin), gd.integrate(den_spin), \
+            ddiff
+        assert(ddiff < 1.e-4)
 
     # singlet/triplet separation
     precision = 1.e-5
