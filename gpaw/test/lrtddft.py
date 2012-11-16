@@ -50,15 +50,19 @@ if not io_only:
     # the triplet is lower, so that the second is the first singlet
     # excited state
     t2 = lr_vspin[1]
-    ex = ExcitedState(lr_vspin, 1)
-    den_vspin = ex.get_pseudo_density() * Bohr**3
+    ex_vspin = ExcitedState(lr_vspin, 1)
+    den_vspin = ex_vspin.get_pseudo_density() * Bohr**3
 
     print 'with virtual/wo spin t2, t1=', t2.get_energy(), t1 .get_energy()
     equal(t1.get_energy(), t2.get_energy(), 5.e-7)
     gd = lr.calculator.density.gd
+    finegd = lr.calculator.density.finegd
     ddiff = gd.integrate(abs(den - den_vspin))
     print '   density integral, difference=', \
         gd.integrate(den), gd.integrate(den_vspin), ddiff
+    print '   aed density integral', \
+        finegd.integrate(ex.get_all_electron_density() * Bohr**3), \
+        finegd.integrate(ex_vspin.get_all_electron_density() * Bohr**3)
     assert(ddiff < 1.e-4)
 
     if not load:
@@ -83,6 +87,9 @@ if not io_only:
         print '   density integral, difference=', \
             gd.integrate(den_vspin), gd.integrate(den_spin), \
             ddiff
+        print '   aed density integral', \
+            finegd.integrate(ex_vspin.get_all_electron_density() * Bohr**3), \
+            finegd.integrate(ex_spin.get_all_electron_density() * Bohr**3)
         assert(ddiff < 1.e-4)
 
     # singlet/triplet separation

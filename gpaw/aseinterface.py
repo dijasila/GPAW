@@ -155,12 +155,12 @@ class GPAW(PAW):
             raise NotImplementedError
 
         if spin is None:
-            if self.wfs.nspins == 1:
+            if self.density.nspins == 1:
                 nt_G = nt_sG[0]
             else:
                 nt_G = nt_sG.sum(axis=0)
         else:
-            if self.wfs.nspins == 1:
+            if self.density.nspins == 1:
                 nt_G = 0.5 * nt_sG[0]
             else:
                 nt_G = nt_sG[spin]
@@ -211,12 +211,12 @@ class GPAW(PAW):
             self.atoms, gridrefinement=gridrefinement)
 
         if spin is None:
-            if self.wfs.nspins == 1:
+            if self.density.nspins == 1:
                 n_G = n_sG[0]
             else:
                 n_G = n_sG.sum(axis=0)
         else:
-            if self.wfs.nspins == 1:
+            if self.density.nspins == 1:
                 n_G = 0.5 * n_sG[0]
             else:
                 n_G = n_sG[spin]

@@ -6,10 +6,12 @@ from ase.units import Bohr, Hartree
 from ase.calculators.general import Calculator
 from ase.calculators.test import numeric_forces
 from gpaw import GPAW
+from gpaw.density import RealSpaceDensity
 from gpaw.output import initialize_text_stream
 from gpaw.mpi import rank
 from gpaw.transformers import Transformer
 from gpaw.utilities.blas import axpy
+from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 
 
 class FiniteDifferenceCalculator(Calculator):
@@ -22,6 +24,7 @@ class FiniteDifferenceCalculator(Calculator):
         if lrtddft is not None:
             self.lrtddft = lrtddft
             self.calculator = self.lrtddft.calculator
+            self.timer = self.calculator.timer
             self.set_atoms(self.calculator.get_atoms())
 
             if txt is None:
@@ -38,6 +41,8 @@ class FiniteDifferenceCalculator(Calculator):
         E0 = self.calculator.get_potential_energy()
         lr = self.lrtddft
         if redo:
+            if hasattr(self, 'density'):
+                del(self.density)
             self.lrtddft.forced_update()
         self.lrtddft.diagonalize()
         return E0
@@ -45,7 +50,7 @@ class FiniteDifferenceCalculator(Calculator):
     def set(self, **kwargs):
         self.calculator.set(**kwargs)
 
-class ExcitedState(FiniteDifferenceCalculator):
+class ExcitedState(FiniteDifferenceCalculator,GPAW):
     def __init__(self, lrtddft, index, d=0.001, txt=None,
                  parallel=None):
         """ExcitedState object.
@@ -62,7 +67,7 @@ class ExcitedState(FiniteDifferenceCalculator):
 
         self.energy = None
         self.forces = None
-        
+
         print >> self.txt, 'ExcitedState', self.index
  
     def get_potential_energy(self, atoms=None):
@@ -107,62 +112,20 @@ class ExcitedState(FiniteDifferenceCalculator):
         Otherwise, the spin up or down density is returned (spin=0 or
         1)."""
 
-        calc = self.calculator
-        gd = calc.density.gd # XXX get from a better place
-        npspins = self.lrtddft.kss.npspins
-        nvspins = self.lrtddft.kss.nvspins
-        nt_sG = gd.zeros(npspins)
-        nbands = calc.wfs.bd.nbands
+        if not hasattr(self, 'density'):
+            gsdensity = self.calculator.density
+            lr = self.lrtddft
+            self.density = ExcitedStateDensity(
+                gsdensity.gd, gsdensity.finegd, lr.kss.npspins,
+                gsdensity.charge)
+            index = self.index.apply(self.lrtddft)
+            energy = self.get_potential_energy()
+            self.density.initialize(self.lrtddft, index, energy)
+            self.density.update(self.calculator.wfs)
 
-        # obtain weights
-        ex = self.lrtddft[self.index.apply(self.lrtddft)]
-        wocc_sn = np.zeros((npspins, nbands))
-        wunocc_sn = np.zeros((npspins, nbands))
-        energy = self.get_potential_energy() / Hartree
-        for f, k in zip(ex.f, ex.kss):
-            # XXX why not k.fij * k.energy / energy ???
-            erat = k.energy / energy
-            wocc_sn[k.pspin, k.i] += erat * f**2
-            wunocc_sn[k.pspin, k.j] += erat * f**2
+        return GPAW.get_pseudo_density(self, spin, gridrefinement,
+                                       pad, broadcast)
 
-        # sum up
-        for s in range(npspins):
-            for kpt in calc.wfs.kpt_u:
-                if s == kpt.s or npspins > nvspins:
-                    f_n = kpt.f_n / (1. + int(npspins > nvspins))
-                    for fo, fu, psit_G in zip(f_n - wocc_sn[s],
-                                              wunocc_sn[s],
-                                              kpt.psit_nG):
-                        axpy(fo, psit_G**2, nt_sG[s])
-                        axpy(fu, psit_G**2, nt_sG[s])
-                         
-        if gridrefinement == 1:
-            pass
-        elif gridrefinement == 2:
-            finegd = self.calculator.density.finegd
-            nt_sg = finegd.empty(npspins)
-            interpolator = Transformer(gd, finegd, calc.density.stencil)
-            for nt_G, nt_g in zip(nt_sG, nt_sg):
-                interpolator.apply(nt_G, nt_g)
-            nt_sG = nt_sg
-        else:
-            raise NotImplementedError
-
-        if spin is None:
-            if npspins == 1:
-                nt_G = nt_sG[0]
-            else:
-                nt_G = nt_sG.sum(axis=0)
-        else:
-            if npspins == 1:
-                nt_G = 0.5 * nt_sG[0]
-            else:
-                nt_G = nt_sG[spin]
-
-        if pad:
-            nt_G = gd.zero_pad(nt_G)
-
-        return nt_G / Bohr**3
 
 class UnconstraintIndex:
     def __init__(self, index):
@@ -201,3 +164,82 @@ class MinimalOSIndex:
         error += 'can not be satisfied (max(f) = ' + str(fmax) + ').'
         raise RuntimeError(error)
         
+
+class ExcitedStateDensity(RealSpaceDensity):
+    """Approximate excited state density object."""
+
+    def initialize(self, lrtddft, index, energy):
+        self.lrtddft = lrtddft
+        self.index = index
+
+        calc = lrtddft.calculator
+        self.gsdensity = calc.density
+        self.gd = self.gsdensity.gd
+        self.nbands =  calc.wfs.bd.nbands
+        self.D_asp = {}
+        for a, D_sp in self.gsdensity.D_asp.items():
+            self.D_asp[a] = 1. *  D_sp
+        
+        # obtain weights
+        ex = lrtddft[index]
+        wocc_sn = np.zeros((self.nspins, self.nbands))
+        wunocc_sn = np.zeros((self.nspins, self.nbands))
+        for f, k in zip(ex.f, ex.kss):
+            # XXX why not k.fij * k.energy / energy ???
+            erat = Hartree * k.energy / energy
+            wocc_sn[k.pspin, k.i] += erat * f**2
+            wunocc_sn[k.pspin, k.j] += erat * f**2
+        self.wocc_sn = wocc_sn
+        self.wunocc_sn = wunocc_sn
+
+        RealSpaceDensity.initialize(
+            self, calc.wfs.setups, calc.timer, None, False)
+
+        spos_ac = calc.get_atoms().get_scaled_positions() % 1.0
+        self.set_positions(spos_ac, calc.wfs.rank_a)
+
+    def update(self, wfs):
+        self.timer.start('Density')
+        self.timer.start('Pseudo density')
+        self.calculate_pseudo_density(wfs)
+        self.timer.stop('Pseudo density')
+        self.timer.start('Atomic density matrices')
+        f_un = []
+        for kpt in wfs.kpt_u:
+            f_n = kpt.f_n - self.wocc_sn[kpt.s] + self.wunocc_sn[kpt.s]
+            if self.nspins > self.gsdensity.nspins:
+                f_n = kpt.f_n - self.wocc_sn[1] + self.wunocc_sn[1]
+            f_un.append(f_n)
+        wfs.calculate_atomic_density_matrices_with_occupation(self.D_asp,
+                                                              f_un)
+        self.timer.stop('Atomic density matrices')
+        self.timer.start('Multipole moments')
+        comp_charge = self.calculate_multipole_moments()
+        self.timer.stop('Multipole moments')
+        
+        if isinstance(wfs, LCAOWaveFunctions):
+            self.timer.start('Normalize')
+            self.normalize(comp_charge)
+            self.timer.stop('Normalize')
+
+        self.timer.stop('Density')
+
+    def calculate_pseudo_density(self, wfs):
+        """Calculate nt_sG from scratch.
+
+        nt_sG will be equal to nct_G plus the contribution from
+        wfs.add_to_density().
+        """
+        nvspins = wfs.kd.nspins
+        npspins = self.nspins
+        self.nt_sG = self.gd.zeros(npspins)
+
+        for s in range(npspins):
+            for kpt in wfs.kpt_u:
+                if s == kpt.s or npspins > nvspins:
+                    f_n = kpt.f_n / (1. + int(npspins > nvspins))
+                    for f, psit_G in zip((f_n - self.wocc_sn[s] +
+                                          self.wunocc_sn[s]),
+                                         kpt.psit_nG):
+                        axpy(f, psit_G**2, self.nt_sG[s])
+        self.nt_sG[:self.nspins] += self.nct_G
