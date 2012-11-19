@@ -1022,7 +1022,7 @@ if __name__ == '__main__':
     from gpaw.atom.basis import BasisMaker
     from gpaw.atom.configurations import parameters
 
-    for xcname in ['LDA', 'PBE', 'RPBE', 'revPBE']:
+    for xcname in ['LDA', 'PBE', 'RPBE', 'revPBE', 'GLLBSC']:
         for symbol, par in parameters.items():
             filename = symbol + '.' + xcname
             if os.path.isfile(filename) or os.path.isfile(filename + '.gz'):

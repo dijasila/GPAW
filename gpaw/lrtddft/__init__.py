@@ -265,10 +265,14 @@ class LrTDDFT(ExcitationList):
             # load the eigenvalues
             n = int(f.readline().split()[0])
             for i in range(n):
-                l = f.readline().split()
-                E = float(l[0])
-                me = np.array([float(l[1]), float(l[2]), float(l[3])])
-                self.append(LrTDDFTExcitation(e=E, m=me))
+                self.append(LrTDDFTExcitation(string=f.readline()))
+            # load the eigenvectors
+            f.readline()
+            for i in range(n):
+                values = f.readline().split()
+                weights = [float(val) for val in values]
+                self[i].f = np.array(weights)
+                self[i].kss = self.kss
 
         if fh is None:
             f.close()
@@ -378,7 +382,12 @@ def d2Excdn2(den):
 
 class LrTDDFTExcitation(Excitation):
     def __init__(self, Om=None, i=None,
-                 e=None, m=None):
+                 e=None, m=None, string=None):
+
+        if string is not None: 
+            self.fromstring(string)
+            return None
+
         # define from the diagonalized Omega matrix
         if Om is not None:
             if i is None:
@@ -398,20 +407,34 @@ class LrTDDFTExcitation(Excitation):
             self.magn = 0.
             for f, k in zip(self.f, self.kss):
                 self.me += f * k.me
-                erat = np.sqrt(k.energy / self.energy)
-                wght = np.sqrt(k.fij) * f
-                self.mur += k.mur * erat * wght
-                self.muv += k.muv * erat * wght
-                self.magn += k.magn / erat * wght
-
+                if self.energy > 0:
+                    erat = np.sqrt(k.energy / self.energy)
+                    wght = np.sqrt(k.fij) * f
+                    self.mur += k.mur * erat * wght
+                    if k.muv is not None:
+                        self.muv += k.muv * erat * wght
+                    else:
+                        self.muv = None
+                    if k.magn is not None:
+                        self.magn += k.magn / erat * wght
+                    else:
+                        self.magn = None
+                else:
+                    # instability
+                    self.mur = self.muv = self.magn = None
             return
 
         # define from energy and matrix element
         if e is not None:
-            if m is None:
-                raise RuntimeError
             self.energy = e
-            self.me = m
+            if m is None:
+                if mur is None or muv is None or magn is None:
+                    raise RuntimeError
+                self.mur = mur
+                self.muv = muv
+                self.magn = magn
+            else:
+                self.me = m
             return
 
         raise RuntimeError
@@ -420,14 +443,28 @@ class LrTDDFTExcitation(Excitation):
         """get the density change associated with this transition"""
         raise NotImplementedError
 
+    def fromstring(self, string):
+        l = string.split()
+        self.energy = float(l.pop(0))
+        if len(l) == 3: # old writing style
+            self.me = np.array([float(l.pop(0)) for i in range(3)])
+        else:
+            self.mur = np.array([float(l.pop(0)) for i in range(3)])
+            self.me = - self.mur * sqrt(self.energy)
+            self.muv = np.array([float(l.pop(0)) for i in range(3)])
+            self.magn = np.array([float(l.pop(0)) for i in range(3)])
+
     def outstring(self):
         str = '%g ' % self.energy
         str += '  '
-        for m in self.me:
-            str += ' %g' % m
+        for m in self.mur: str += '%12.4e' % m
+        str += '  '
+        for m in self.muv: str += '%12.4e' % m
+        str += '  '
+        for m in self.magn: str += '%12.4e' % m
         str += '\n'
         return str
-        
+
     def __str__(self):
         m2 = np.sum(self.me * self.me)
         m = sqrt(m2)
@@ -441,8 +478,9 @@ class LrTDDFTExcitation(Excitation):
 
     def analyse(self,min=.1):
         """Return an analysis string of the excitation"""
-        s='E=%.3f'%(self.energy * Hartree)+' eV, f=%.3g'\
-           %(self.get_oscillator_strength()[0])+'\n'
+        s=('E=%.3f' % (self.energy * Hartree) + ' eV, ' +
+           'f=%.5g' % self.get_oscillator_strength()[0] + ', ' +
+           'R=%.5g' % self.get_rotatory_strength() + ' cgs\n')
 
         def sqr(x): return x*x
         spin = ['u','d'] 

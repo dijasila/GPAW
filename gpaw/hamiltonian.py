@@ -52,7 +52,7 @@ class Hamiltonian:
     """
 
     def __init__(self, gd, finegd, nspins, setups, timer, xc,
-                 vext=None, collinear=True):
+                 vext=None, collinear=True, world=None):
         """Create the Hamiltonian."""
         self.gd = gd
         self.finegd = finegd
@@ -62,6 +62,7 @@ class Hamiltonian:
         self.xc = xc
         self.collinear = collinear
         self.ncomp = 2 - int(collinear)
+        self.world = world
         
         self.dH_asp = None
 
@@ -84,6 +85,8 @@ class Hamiltonian:
         self.S = None
         
         self.HubU_dict = None
+        
+        self.get_Dab_neighborlist()
 
     def set_hubbard_u(self, HubU_dict={}):
         """Set Hubbard parameter.
@@ -92,17 +95,20 @@ class Hamiltonian:
         HubU_dict = {a:{ # atom index
                         n:{  # quantum number in 1,2,3 for first second or third shell
                             l: { # angular momentum in 1,2,3, 4 for s, p, d, f 
-                                s:{ # spin  in 0,1
-                                    'U': U, # hubbard U [a.u.]
-                                    'alpha':alpha, # orbital potential shift in [a.u.]
-                                   }
-                                },
+                                'U': U, # hubbard U [a.u.]
+                                'alpha':alpha, # orbital potential shift in [a.u.]
+                                b:{ # atom index on neighbor atoms...
+                                    n:{  # quantum number in 1,2,3 for first second or third shell
+                                        l: { # angular momentum in 1,2,3, 4 for s, p, d, f 
+                                            'V': V, # hubbard V [a.u.]}
+                                       }
+                                   }   
+                               } 
                             },
                         },
                     'scale' = 0, 
                     'NbP' = 1, # include non-bound projectors for the highest quantum number
                     }
-                    
         
         add a hubbard potential and scale enables or disables the
         scaling of the overlap between the l orbitals, if true we enforce
@@ -111,6 +117,13 @@ class Hamiltonian:
         alpha is used to find the U in the linear response method! 
         """
         self.HubU_dict = HubU_dict;
+
+    def get_Dab_neighborlist(self, cutoff=None):
+        self.Dab_neighborlist = {}
+        # Simple definition of the neighbor atoms - avoids self and double counting
+        for a in range(len(self.setups)):
+            if cutoff == None:
+                self.Dab_neighborlist[a] = range(a+1,len(self.setups))
 
     def summary(self, fd):
         fd.write('XC and Coulomb potentials evaluated on a %d*%d*%d grid\n' %
@@ -127,7 +140,9 @@ class Hamiltonian:
         if (self.rank_a is not None and rank_a is not None and
             self.dH_asp is None and (rank_a == self.gd.comm.rank).any()):
             self.dH_asp = {}
-
+            if self.dHab_sij is None:
+                self.dHab_sij = {}
+                
         if self.rank_a is not None and self.dH_asp is not None:
             self.timer.start('Redistribute')
             requests = []
@@ -146,16 +161,66 @@ class Hamiltonian:
                                                      tag=a, block=False))
                 assert a not in self.dH_asp
                 self.dH_asp[a] = dH_sp
-
+                
+                # YYY To create the empty array for the intersite density matrix
+                self.dHab_sij[a]={}
+                dHb_sij = {}
+                for b in self.Dab_neighborlist[a]:
+                    nbi = self.setups[b].ni
+                    dHb_sij[b] = np.empty((self.nspins * self.ncomp**2,
+                                 ni * nbi + 1))
+                    
+                requests.append(self.gd.comm.receive(dHb_sij, 
+                                                         self.rank_a[a],
+                                                     tag=a, block=False))
+                self.dHab_sp[a] = dHb_sij
+                
+                
             for a in my_outgoing_atom_indices:
                 # Send matrix to new domain:
                 dH_sp = self.dH_asp.pop(a)
                 requests.append(self.gd.comm.send(dH_sp, rank_a[a],
                                                   tag=a, block=False))
+                # YYY
+                dHb_sij = self.dHab_sp.pop(a)
+                requests.append(self.gd.comm.send(dHb_sij, rank_a[a],
+                                                  tag=a, block=False))
+                
             self.gd.comm.waitall(requests)
             self.timer.stop('Redistribute')
 
         self.rank_a = rank_a
+
+    def inter_aoom(self, DMab, a, b, n_a, l_a, n_b, l_b):
+        #, NbP=1, scale=1
+        """
+        Atomic Orbital Occupation Matrix for inter site. 
+        
+        a, b: atom a and b
+        
+        """
+        Sa=self.setups[a]
+        la_j = Sa.l_j
+        na_j = Sa.n_j
+        laq  = Sa.lq
+        
+        nla  = np.where( np.equal(la_j,l_a)*np.equal(na_j,n_a))[0]
+
+        Sb=self.setups[b]
+        lb_j = Sb.l_j
+        nb_j = Sb.n_j
+        lbq  = Sb.lq
+
+        nlb  = np.where( np.equal(lb_j,l_b)*np.equal(nb_j,n_b))[0]
+
+        nn_a =(2*np.array(la_j)+1)[0:nla[0]].sum()
+        nn_b =(2*np.array(lb_j)+1)[0:nlb[0]].sum()
+        # YYY NEED TO FIGURE OUT ABOUT lq
+        V = np.zeros(np.shape(DMab))
+        A=DMab[nn_a:nn_a+2*l_a+1,nn_b:nn_b+2*l_b+1]#*lq[-1] 
+        V[nn_a:nn_a+2*l_a+1,nn_b:nn_b+2*l_b+1]=+1#lq[-1] # How should this be done
+        return A,V
+
 
     def aoom(self, DM, a, n, l, NbP=1, scale=1):
         """Atomic Orbital Occupation Matrix.
@@ -178,7 +243,7 @@ class Hamiltonian:
         lq  = S.lq
         
         # Selection the orbitals:
-        # Pick the (n, l), if n is the highest orcupied, then take the oscillatory orbital
+        # Pick the (n, l), if n is the highest occupied, then take the oscillatory orbital
         # into account too if present and NbP==True
         if (NbP and len(np.where(np.equal(l_j,l)*
                     np.equal(n_j,n+1))[0])==0):
@@ -244,9 +309,10 @@ class Hamiltonian:
 
         self.timer.start('Atomic')
         self.dH_asp = {}
+        # YYY
+        self.dHab_sij = {}
         
         for a, D_sp in density.D_asp.items():
-            
             W_L = W_aL[a]
             setup = self.setups[a]
 
@@ -258,7 +324,7 @@ class Hamiltonian:
             Ebar += setup.MB + np.dot(setup.MB_p, D_p)
             Epot += setup.M + np.dot(D_p, (setup.M_p +
                                            np.dot(setup.M_pp, D_p)))
-
+            # inter_aoom(self, DMab, a, b, n_a, l_a, n_b, l_b)
             if self.vext is not None:
                 vext = self.vext.get_taylor(spos_c=self.spos_ac[a, :])
                 # Tailor expansion to the zeroth order
@@ -276,77 +342,21 @@ class Hamiltonian:
                     dH_p += sqrt(4 * pi / 3) * np.dot(vext[1], Delta_p1)
 
             self.dH_asp[a] = dH_sp = np.zeros_like(D_sp)
-
+            
             self.timer.start('XC Correction')
             Exc += self.xc.calculate_paw_correction(setup, D_sp, dH_sp, a=a)
             self.timer.stop('XC Correction')
             
-            if self.HubU_dict is not None and a in self.HubU_dict:
-                assert self.collinear
-                nspins = len(D_sp)
-                
-                l_j = setup.l_j
-                n_j = setup.n_j
-                
-                scale = 1   
-                NbP = 1  
-                if 'scale' in self.HubU_dict:
-                    scale = self.HubU_dict['scale']
-                if 'NbP' in self.HubU_dict:
-                    NbP = self.HubU_dict['NbP']
-                
-                for n, HubU_n in self.HubU_dict[a].items():
-                    for l, HubU_nl in HubU_n.items(): 
-                        # Checking if non-bound projectors is on 
-                        # and that there is not any higher orbitals than n. 
-                        if (NbP and len(np.where(np.equal(l_j,l)*
-                                        np.equal(n_j,n+1))[0])==0):
-                            
-                            nl  = np.where(np.equal(l_j,l) * \
-                                           np.logical_or(np.equal(n_j,n), 
-                                                         np.equal(n_j,-1)))[0]
-                        else:
-                            nl  = np.where( np.equal(l_j,l)*np.equal(n_j,n))[0]
-                        
-                        nn  = (2*np.array(l_j)+1)[0:nl[0]].sum()
-                        
-                        for s, (D_p, H_p) in enumerate(zip(D_sp, 
-                                                self.dH_asp[a])):
-                            [N_mm,V] =self.aoom(unpack2(D_p),a,n,l,NbP=NbP, 
-                                                scale=scale)
-                            N_mm = N_mm / 2 * nspins
-                            Vorb = np.zeros((2*l+1,2*l+1))
-                            
-                            if s in HubU_nl:
-                                if 'alpha' in HubU_nl[s]:
-                                    Vorb += HubU_nl[s]['alpha'] * \
-                                                np.eye(2*l+1) *(2 / nspins)
-                                if 'U' in HubU_nl[s]:
-                                    Hub_U_anls = HubU_nl[s]['U']
-                                    Eorb = Hub_U_anls / 2. * (N_mm - \
-                                                    np.dot(N_mm,N_mm)).trace()
-                                    Exc += Eorb
-                                    # add contribution of other spin many-fold
-                                    if nspins == 1:
-                                        Exc += Eorb
-                                    Vorb += Hub_U_anls * (0.5 * 
-                                                          np.eye(2*l+1) - N_mm)
-                                
-                            if len(nl)==2:
-                                mm  = (2*np.array(l_j)+1)[0:nl[1]].sum()
-                                V[nn:nn+2*l+1,nn:nn+2*l+1] *= Vorb
-                                V[mm:mm+2*l+1,nn:nn+2*l+1] *= Vorb
-                                V[nn:nn+2*l+1,mm:mm+2*l+1] *= Vorb
-                                V[mm:mm+2*l+1,mm:mm+2*l+1] *= Vorb
-                            else:
-                                V[nn:nn+2*l+1,nn:nn+2*l+1] *= Vorb
-                            Htemp = unpack(H_p)
-                            Htemp += V
-                            H_p[:] = pack2(Htemp)
-           
+            # YYY
+            dExc = self.get_hubbard_corrections(a, density)
+            Exc += dExc
+                         
             dH_sp[:self.nspins] += dH_p
+            Ekin -= (D_sp * self.dH_asp[a]).sum()
+            # add for the inter site components 
             
-            Ekin -= (D_sp * dH_sp).sum()  # NCXXX
+            #Ekin -= (D_sp * dH_sp).sum()  # NCXXX
+
         self.timer.stop('Atomic')
         
         # Make corrections due to non-local xc:
@@ -359,6 +369,8 @@ class Hamiltonian:
         energies = np.array([Ekin, Epot, Ebar, Eext, Exc])
         self.timer.start('Communicate energies')
         self.gd.comm.sum(energies)
+        # Make sure that all CPUs have the same energies
+        self.world.broadcast(energies, 0)
         self.timer.stop('Communicate energies')
         (self.Ekin0, self.Epot, self.Ebar, self.Eext, self.Exc) = energies
 
@@ -366,6 +378,85 @@ class Hamiltonian:
         #self.Ekin0 += self.Enlkin
 
         self.timer.stop('Hamiltonian')
+
+    def get_hubbard_corrections(self, a, density):
+        """
+        Function to calculate the 
+        """
+        dExc = 0
+        
+        D_sp = density.D_asp[a]
+        setup = self.setups[a]
+        
+        self.dHab_sij[a] = {}
+        
+        Db_sij = density.Dab_sij[a]
+
+        for b in self.Dab_neighborlist[a]:
+            self.dHab_sij[a][b] = np.zeros_like(Db_sij[b])
+        
+        if self.HubU_dict is not None and a in self.HubU_dict:
+            assert self.collinear
+            nspins = len(D_sp)
+            
+            l_j = setup.l_j
+            n_j = setup.n_j
+            
+            scale = 1   
+            NbP = 1  
+            if 'scale' in self.HubU_dict:
+                scale = self.HubU_dict['scale']
+            if 'NbP' in self.HubU_dict:
+                NbP = self.HubU_dict['NbP']
+            
+            for n, HubU_n in self.HubU_dict[a].items():
+                for l, HubU_nl in HubU_n.items(): 
+                    # Checking if non-bound projectors is on 
+                    # and that there is not any higher orbitals than n. 
+                    if (NbP and len(np.where(np.equal(l_j,l)*
+                                    np.equal(n_j,n+1))[0])==0):
+                        
+                        nl  = np.where(np.equal(l_j,l) * \
+                                       np.logical_or(np.equal(n_j,n), 
+                                                     np.equal(n_j,-1)))[0]
+                    else:
+                        nl  = np.where( np.equal(l_j,l)*np.equal(n_j,n))[0]
+                    
+                    nn  = (2*np.array(l_j)+1)[0:nl[0]].sum()
+                    
+                    for s, (D_p, H_p) in enumerate(zip(D_sp,self.dH_asp[a])):
+                        [N_mm,V] =self.aoom(unpack2(D_p),a,n,l,NbP=NbP, 
+                                            scale=scale)
+                        #inter_aoom(self, DMab, a, b, n_a, l_a, n_b, l_b)
+                        
+                        N_mm = N_mm / 2 * nspins
+                        Vorb = np.zeros((2*l+1,2*l+1))
+                        if 'alpha' in HubU_nl:
+                            Vorb += HubU_nl['alpha'] * \
+                                        np.eye(2*l+1) *(2 / nspins)
+                        if 'U' in HubU_nl:
+                            Hub_U_anls = HubU_nl['U']
+                            Eorb = Hub_U_anls / 2. * (N_mm - \
+                                            np.dot(N_mm,N_mm)).trace()
+                            dExc += Eorb
+                            # add contribution of other spin many-fold
+                            if nspins == 1:
+                                dExc += Eorb
+                            Vorb += Hub_U_anls * (0.5 * np.eye(2*l+1) - N_mm)
+                            # V on site
+                            
+                        if len(nl)==2:
+                            mm  = (2*np.array(l_j)+1)[0:nl[1]].sum()
+                            V[nn:nn+2*l+1,nn:nn+2*l+1] *= Vorb
+                            V[mm:mm+2*l+1,nn:nn+2*l+1] *= Vorb
+                            V[nn:nn+2*l+1,mm:mm+2*l+1] *= Vorb
+                            V[mm:mm+2*l+1,mm:mm+2*l+1] *= Vorb
+                        else:
+                            V[nn:nn+2*l+1,nn:nn+2*l+1] *= Vorb
+                        Htemp = unpack(H_p)
+                        Htemp += V
+                        H_p[:] = pack2(Htemp)
+        return dExc
 
     def get_energy(self, occupations):
         self.Ekin = self.Ekin0 + occupations.e_band
@@ -461,6 +552,7 @@ class Hamiltonian:
         for a, P_xi in P_axi.items():
             dH_ii = unpack(self.dH_asp[a][kpt.s])
             P_axi[a] = np.dot(P_xi, dH_ii)
+
         wfs.pt.add(b_xG, P_axi, kpt.q)
 
     def get_xc_difference(self, xc, density):
@@ -537,9 +629,10 @@ class Hamiltonian:
 
 class RealSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, nspins, setups, timer, xc,
-                 vext=None, collinear=True, psolver=None, stencil=3):
+                 vext=None, collinear=True, psolver=None, 
+                 stencil=3, world=None):
         Hamiltonian.__init__(self, gd, finegd, nspins, setups, timer, xc,
-                             vext, collinear)
+                             vext, collinear, world)
 
         # Solver for the Poisson equation:
         if psolver is None:

@@ -126,10 +126,6 @@ class ETSFWriter:
             ('number_of_kpoints', 'number_of_reduced_dimensions'), kd.ibzk_kc)
         var('kpoint_weights', ('number_of_kpoints',), kd.weight_k)
         var('basis_set', ('character_string_length',), 'plane_waves')
-        var('kinetic_energy_cutoff', (), 1.0 * ecut, units='atomic units')
-        var('number_of_coefficients', ('number_of_kpoints',),
-            np.zeros(kd.nibzkpts, np.int32) + len(i_Gc),
-            k_dependent='no')
         var('number_of_electrons', (), np.array(wfs.nvalence, dtype=np.int32))
         self.nc.close()
 

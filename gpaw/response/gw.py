@@ -145,18 +145,33 @@ class GW(BASECHI):
             self.gwbands_n = self.bands
 
         self.alpha = 1j/(2*pi * self.vol * self.nkpt)
-
-        # print init
-        self.print_gw_init()
         
         # parallel init
         assert len(self.w_w) % self.wpar == 0
         self.wcommsize = self.wpar
         self.qcommsize = size // self.wpar
         assert self.qcommsize * self.wcommsize == size, 'wpar must be integer divisor of number of requested cores'
-        self.wcomm, self.qcomm, self.worldcomm = set_communicator(world, rank, size, self.wpar)
+        if self.nqpt != 1: # parallelize over q-points
+            self.wcomm, self.qcomm, self.worldcomm = set_communicator(world, rank, size, self.wpar)
+            self.ncomm = serial_comm
+            self.dfcomm = self.wcomm
+            self.kcommsize = 1
+        else: # parallelize over bands
+            self.wcomm, self.ncomm, self.worldcomm = set_communicator(world, rank, size, self.wpar)
+            self.qcomm = serial_comm
+            if len(self.w_w) > 1:
+                self.dfcomm = self.wcomm
+                self.kcommsize = 1
+            else:
+                self.dfcomm = self.ncomm
+                self.kcommsize = self.ncomm.size
         nq, self.nq_local, self.q_start, self.q_end = parallel_partition(
                                   self.nqpt, self.qcomm.rank, self.qcomm.size, reshape=False)
+        nb, self.nbands_local, self.m_start, self.m_end = parallel_partition(
+                                  self.nbands, self.ncomm.rank, self.ncomm.size, reshape=False)
+
+        # print init
+        self.print_gw_init()
 
 
     def get_QP_spectrum(self):
@@ -177,7 +192,7 @@ class GW(BASECHI):
                 continue
             t1 = time()
             # get screened interaction. 
-            df, W_wGG = self.screened_interaction_kernel(iq, static=self.static, E0=self.E0, comm=self.wcomm, kcommsize=1)
+            df, W_wGG = self.screened_interaction_kernel(iq, static=self.static, E0=self.E0, comm=self.dfcomm, kcommsize=self.kcommsize)
             t2 = time()
             t_w += t2 - t1
 
@@ -304,7 +319,7 @@ class GW(BASECHI):
                 ibzkpt2 = df.kd.bz2ibz_k[kq]
 
                 for j, n in enumerate(self.bands):
-                    for m in range(self.nbands):
+                    for m in range(self.m_start, self.m_end):
 
                         if self.f_skn[s,ibzkpt2,m] < self.ftol: #self.e_kn[s,ibzkpt2, m] > E_f :
                             sign = 1.
@@ -453,6 +468,10 @@ class GW(BASECHI):
                                 Sw0 = (w2-np.abs(w0))/self.dw * Sw1 + (np.abs(w0)-w1)/self.dw * Sw2
                                 Sigma_skn[s,i,j] += np.sign(self.e_skn[s,ibzkpt1,n] - self.e_skn[s,ibzkpt2,m]) * Sw0
                                 dSigma_skn[s,i,j] += (Sw2 - Sw1)/self.dw
+
+        self.ncomm.barrier()
+        self.ncomm.sum(Sigma_skn)
+        self.ncomm.sum(dSigma_skn)
 
         return Sigma_skn, dSigma_skn 
 

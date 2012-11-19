@@ -98,6 +98,10 @@ tests = [
     'poisson.py',
     'pw/lfc.py',
     'pw/reallfc.py',
+    # XXX currently fails
+    # https://listserv.fysik.dtu.dk/pipermail/gpaw-developers/2012-October/003255.html
+    # https://listserv.fysik.dtu.dk/pipermail/gpaw-developers/2012-October/003257.html
+    'pw/moleculecg.py',
     'XC2.py',
     'multipoletest.py',
     'nabla.py',
@@ -173,6 +177,7 @@ tests = [
     'fileio/restart_density.py',
     'external_potential.py',
     'pw/bulk.py',
+    'pw/fftmixer.py',
     'mgga_restart.py',
     'vdw/quick.py',
     'partitioning.py',
@@ -193,6 +198,7 @@ tests = [
     'spin_contamination.py',
     'rpa_energy_Ni.py',
     'davidson.py',
+    'pw/davidson_pw.py',
     'cg.py',
     'gllbatomic.py',
     'lcao_force.py',
@@ -211,6 +217,8 @@ tests = [
     'relax.py',
     'fixmom.py',
     'CH4.py',
+    # https://trac.fysik.dtu.dk/projects/gpaw/ticket/237
+    #'MgO_exx_fd_vs_pw.py',
     'diamond_absorption.py',
     'simple_stm.py',
     'gw_method.py',
@@ -331,7 +339,10 @@ if mpi.size > 1:
                 #'cmrtest/cmr_test3.py',
                 #'cmrtest/cmr_append.py',
                 #'cmrtest/Li2_atomize.py',
-                'lcao_pair_and_coulomb.py']
+                'lcao_pair_and_coulomb.py',
+                'pw/moleculecg.py',
+		'pw/davidson_pw.py',
+		]
 
 
 if mpi.size > 2:
@@ -377,7 +388,8 @@ if mpi.size != 8:
 try:
     import scipy
 except ImportError:
-    exclude += ['diamond_absorption.py',
+    exclude += ['MgO_exx_fd_vs_pw.py',
+                'diamond_absorption.py',
                 'diamond_eps.py',
                 'aluminum_EELS.py',
                 'aluminum_EELS_lcao.py',

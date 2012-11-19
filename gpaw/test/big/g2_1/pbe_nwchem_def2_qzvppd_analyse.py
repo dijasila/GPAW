@@ -49,7 +49,7 @@ def main():
         outfilename = tag + '_%s.csv' % p
 
         d = []
-        for k in skeys:
+        for k in prop2molecules[p]:
             d.append([k, calc[p][k]])
         csvwriter = csv.writer(open(outfilename, 'wb'))
         for row in d:

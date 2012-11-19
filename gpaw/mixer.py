@@ -6,10 +6,11 @@ See Kresse, Phys. Rev. B 54, 11169 (1996)
 """
 
 import numpy as np
+from numpy.fft import fftn, ifftn
 
 from gpaw.utilities.blas import axpy
 from gpaw.fd_operators import FDOperator
-
+from gpaw.utilities.tools import construct_reciprocal
 
 class BaseMixer:
     """Pulay density mixer."""
@@ -96,6 +97,9 @@ class BaseMixer:
         
         return self.dNt
 
+    def calculate_charge_sloshing(self, R_G):
+        return self.gd.integrate(np.fabs(R_G))
+
     def set_charge_sloshing(self, dNt):
         self.dNt = dNt
         
@@ -116,7 +120,7 @@ class BaseMixer:
             # Calculate new residual (difference between input and
             # output density):
             R_G = nt_G - self.nt_iG[-1]
-            self.dNt = self.gd.integrate(np.fabs(R_G))
+            self.dNt = self.calculate_charge_sloshing(R_G)
             self.R_iG.append(R_G)
             self.dD_iap.append([])
             for D_p, D_ip in zip(D_ap, self.D_iap[-1]):
@@ -134,7 +138,7 @@ class BaseMixer:
                 self.metric(R_G, mR_G)
                 
             for R_1G in self.R_iG:
-                a = self.gd.comm.sum(np.vdot(R_1G, mR_G))
+                a = self.gd.comm.sum(np.vdot(R_1G, mR_G).real)
                 A_ii[i1, i2] = a
                 A_ii[i2, i1] = a
                 i1 += 1
@@ -541,3 +545,173 @@ class BroydenMixerSum(BroydenBaseMixer):
         # Construct new spin up/down densities 
         nt_sG[0] = 0.5 * (nt_G + dnt_G)
         nt_sG[1] = 0.5 * (nt_G - dnt_G)
+
+class FFTBaseMixer(BaseMixer):
+    """Mix the density in Fourier space"""
+    def __init__(self, beta=0.4, nmaxold=3, weight=20.0):
+        BaseMixer.__init__(self, beta, nmaxold, weight)
+
+    def initialize(self, density):
+        if density.gd.comm.size > 1:
+            err = 'FFT Mixer cannot be used with domain decomposition'
+            raise NotImplementedError(err)
+        self.initialize_metric(density.gd)
+
+    def initialize_metric(self, gd):
+        self.gd = gd
+        k2_Q, N3 = construct_reciprocal(self.gd)
+
+        self.metric = ReciprocalMetric(self.weight, k2_Q)
+        self.mR_G = gd.empty(dtype=complex)
+
+    def calculate_charge_sloshing(self, R_Q):
+        return self.gd.integrate(np.fabs(ifftn(R_Q).real))
+
+    def mix(self, nt_G, D_ap):
+        # Transform real-space density to Fourier space
+        nt_Q = np.ascontiguousarray(fftn(nt_G))
+
+        BaseMixer.mix(self, nt_Q, D_ap)
+
+        # Return density in real space
+        nt_G[:] = np.ascontiguousarray(ifftn(nt_Q).real)
+
+class FFTMixer(FFTBaseMixer):
+    """Mix spin up and down densities separately"""
+
+    def initialize(self, density):
+        self.mixers = []
+        for s in range(density.nspins):
+            mixer = FFTBaseMixer(self.beta, self.nmaxold, self.weight)
+            mixer.initialize(density)
+            self.mixers.append(mixer)
+    
+    def mix(self, density):
+        """Mix pseudo electron densities."""
+
+        nt_sG = density.nt_sG
+        D_asp = density.D_asp.values()
+        D_sap = []
+        for s in range(density.nspins):
+            D_sap.append([D_sp[s] for D_sp in D_asp])
+        for nt_G, D_ap, mixer in zip(nt_sG, D_sap, self.mixers):
+            mixer.mix(nt_G, D_ap)
+
+    def reset(self):
+        for mixer in self.mixers:
+            mixer.reset()
+
+    def get_charge_sloshing(self):
+        """Return number of electrons moving around.
+
+        Calculated as the integral of the absolute value of the change
+        of the density from input to output."""
+
+        if self.mixers[0].dNt is None:
+            return None
+        return sum([mixer.dNt for mixer in self.mixers])
+
+    def set_charge_sloshing(self, dNt):
+        for mixer in self.mixers:
+            mixer.set_charge_sloshing(dNt / len(self.mixers))
+
+class FFTMixerSum(FFTBaseMixer):
+    """For pseudo electron densities, mix the total charge density and for
+    density matrices, mix spin up and densities separately.
+    Magnetization density is not mixed, i.e new magnetization density is used
+    """
+
+    def mix(self, density):
+        nt_sG = density.nt_sG
+        D_asp = density.D_asp.values()
+
+        # Mix density
+        nt_G = density.nt_sG.sum(0)
+        FFTBaseMixer.mix(self, nt_G, D_asp)
+
+        # Only new magnetization for spin density
+        dnt_G = nt_sG[0] - nt_sG[1]
+        #dD_ap = [D_sp[0] - D_sp[1] for D_sp in D_asp]
+
+        # Construct new spin up/down densities 
+        nt_sG[0] = 0.5 * (nt_G + dnt_G)
+        nt_sG[1] = 0.5 * (nt_G - dnt_G)
+
+class FFTMixerDif(FFTBaseMixer):
+    """Mix the charge density and magnetization density separately"""
+    
+    def __init__(self, beta=0.1, nmaxold=3, weight=20.0,
+                 beta_m=0.7, nmaxold_m=2, weight_m=1.0):
+        """Construct density-mixer object.
+
+        Parameters
+        ----------
+        beta: float
+            Mixing parameter between zero and one (one is most
+            aggressive).
+        nmaxold: int
+            Maximum number of old densities.
+        weight: float
+            Weight parameter for special metric (for long wave-length
+            changes).
+        """
+
+        self.beta = beta
+        self.beta1 = beta
+        self.nmaxold = nmaxold
+        self.weight = weight
+
+        self.beta_m = beta_m
+        self.nmaxold_m = nmaxold_m
+        self.weight_m = weight_m
+        self.dNt = None
+
+        self.mix_rho = False
+
+
+    def initialize(self, density):
+        assert density.nspins == 2
+        self.mixer = FFTBaseMixer(self.beta, self.nmaxold, self.weight)
+        self.mixer.initialize(density)
+        self.mixer_m = FFTBaseMixer(self.beta_m, self.nmaxold_m, self.weight_m)
+        self.mixer_m.initialize(density)
+
+    def reset(self):
+        self.mixer.reset()
+        self.mixer_m.reset()
+
+    def mix(self, density):
+
+        nt_sG = density.nt_sG
+        D_asp = density.D_asp.values()
+
+        # Mix density
+        nt_G = density.nt_sG.sum(0)
+        D_ap = [D_sp[0] + D_sp[1] for D_sp in D_asp]
+        self.mixer.mix(nt_G, D_ap)
+
+        # Mix magnetization
+        dnt_G = nt_sG[0] - nt_sG[1]
+        dD_ap = [D_sp[0] - D_sp[1] for D_sp in D_asp]
+        self.mixer_m.mix(dnt_G, dD_ap)
+
+        # Construct new spin up/down densities 
+        nt_sG[0] = 0.5 * (nt_G + dnt_G)
+        nt_sG[1] = 0.5 * (nt_G - dnt_G)
+        for D_sp, D_p, dD_p in zip(D_asp, D_ap, dD_ap):
+            D_sp[0] = 0.5 * (D_p + dD_p)
+            D_sp[1] = 0.5 * (D_p - dD_p)
+            
+    def get_charge_sloshing(self):
+        if self.mixer.dNt is None:
+            return None
+        return self.mixer.dNt
+
+class ReciprocalMetric:
+    def __init__(self, weight, k2_Q):
+        self.k2_Q = k2_Q
+        k2_min = np.min(self.k2_Q)
+        self.q1 = (weight - 1) * k2_min
+
+    def __call__(self, R_Q, mR_Q):
+            mR_Q[:] = R_Q * ( 1.0 + self.q1 / self.k2_Q )

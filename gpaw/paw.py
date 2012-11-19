@@ -268,6 +268,7 @@ class PAW(PAWTextOutput):
             self.call_observers(iter)
             self.print_iteration(iter)
             self.iter = iter
+
         self.timer.stop('SCF-cycle')
 
         if self.scf.converged:
@@ -302,6 +303,7 @@ class PAW(PAWTextOutput):
         """Update the positions of the atoms and initialize wave functions."""
         spos_ac = self.initialize_positions(atoms)
         self.wfs.initialize(self.density, self.hamiltonian, spos_ac)
+        self.wfs.eigensolver.reset()
         self.scf.reset()
         self.forces.reset()
         self.stress_vv = None
@@ -669,13 +671,13 @@ class PAW(PAWTextOutput):
             if realspace:
                 self.hamiltonian = RealSpaceHamiltonian(
                     gd, finegd, nspins, setups, self.timer, xc, par.external,
-                    collinear, par.poissonsolver, par.stencils[1])
+                    collinear, par.poissonsolver, par.stencils[1], world)
             else:
                 self.hamiltonian = ReciprocalSpaceHamiltonian(
                     gd, finegd,
                     self.density.pd2, self.density.pd3,
                     nspins, setups, self.timer, xc, par.external,
-                    collinear)
+                    collinear, world)
             
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)

@@ -50,17 +50,14 @@ class HubU:
             for n in HubU_IO_dict[a]:
                 HubUsc_dict[a][n]={}
                 for l in HubU_IO_dict[a][n]:
+                    Uout_li = []
                     HubUsc_dict[a][n][l]={}
-                    for s in range(2):
-                        Uout_li = []
-                        HubUsc_dict[a][n][l][s]={}
-                        
-                        for factor in factors:
-                            Uout_li.append(HubU_dict_li[factor][a][n][l][s]['U'])
-                        Uout_li = np.array(Uout_li)
-                        Usc = np.polyfit(factors, Uout_li, 1)[1]
-                        HubUsc_dict[a][n][l][s]['U']=Usc
-                        print 'Usc', Usc
+                    for factor in factors:
+                        Uout_li.append(HubU_dict_li[factor][a][n][l]['U'])
+                    Uout_li = np.array(Uout_li)
+                    Usc = np.polyfit(factors, Uout_li, 1)[1]
+                    HubUsc_dict[a][n][l]['U']=Usc
+                    print 'Usc', Usc
         if out == 'all':
             return HubUsc_dict, HubU_dict_li
         else:
@@ -77,9 +74,7 @@ class HubU:
             for n in HubU_dict_U0[a]:
                 HubU_dict[a][n]={}
                 for l in HubU_dict_U0[a][n]:
-                    HubU_dict[a][n][l]={}
-                    for s in HubU_dict_U0[a][n][l]:
-                        HubU_dict[a][n][l][s]={'U':HubU_dict_U0[a][n][l][s]['U']*factor}
+                    HubU_dict[a][n][l]={'U':HubU_dict_U0[a][n][l]['U']*factor}
         return HubU_dict
 
     def get_MS_linear_response_U0(self,
@@ -123,25 +118,9 @@ class HubU:
             for n in HubU_IO_dict[a]:
                 Nanls_ref[a][n]={}
                 for l in HubU_IO_dict[a][n]:
-                    Nanls_ref[a][n][l]={}
-                    if nspin == 2:
-                        if (HubU_IO_dict[a][n][l]==1):
-                            sites+=1
-                            Nanls_ref[a][n][l][0] = self.get_Nocc(a, n, l, 2,
-                                                          scale=scale,NbP = NbP)
-                        elif HubU_IO_dict[a][n][l]==2:
-                            sites+=2
-                            Nanls_ref[a][n][l][0] = self.get_Nocc(a, n, l, 0,
-                                                          scale=scale,NbP = NbP)  
-                            Nanls_ref[a][n][l][1] = self.get_Nocc(a, n, l, 1,
-                                                          scale=scale,NbP = NbP)                                                      
-                    else:
-                        if (HubU_IO_dict[a][n][l]==1 or
-                            HubU_IO_dict[a][n][l]==2):
-                            sites+=1
-                        Nanls_ref[a][n][l][0] = self.get_Nocc(a, n, l, 0,
-                                                              scale=scale,NbP = NbP) 
-        
+                    sites+=1
+                    Nanls_ref[a][n][l] = self.get_Nocc(a, n, l, 
+                                                scale=scale, NbP = NbP)         
         if sites < 2:
             print 'WARNING: overwriting settings - setting background=False'
             background = 0
@@ -162,85 +141,40 @@ class HubU:
                 for l in HubU_IO_dict[a][n]:
                     if l not in HubU_dict_base[a][n]:
                         HubU_dict_base[a][n][l] = {}
-                    for s in range(HubU_IO_dict[a][n][l]):
-                        if s==1 and nspin==1:
-                            continue
                         
-                        if s not in HubU_dict_base[a][n][l]:
-                            HubU_dict_base[a][n][l][s] = {}
+                    HubU_alpha_dict = copy(HubU_dict_base)
+                    HubU_alpha_dict[a][n][l]['alpha']=alpha
                         
-                        HubU_alpha_dict = copy(HubU_dict_base)
-                        if HubU_IO_dict[a][n][l] == 1:
-                            HubU_alpha_dict[a][n][l][0]['alpha']=alpha
-                            if 1 not in HubU_alpha_dict[a][n][l]:
-                                HubU_alpha_dict[a][n][l][1] = {}
-                            HubU_alpha_dict[a][n][l][1]['alpha']=alpha
-                        else:
-                            HubU_alpha_dict[a][n][l][s]['alpha']=alpha
+                    c.hamiltonian.set_hubbard_u(HubU_dict = HubU_alpha_dict)
+                    c.scf.reset()
+                    c.calculate()
                         
-                        c.hamiltonian.set_hubbard_u(HubU_dict = HubU_alpha_dict)
-                        c.scf.reset()
-                        c.calculate()
-                        
-                        del HubU_alpha_dict[a][n][l][0]['alpha']
-                        del HubU_alpha_dict[a][n][l][1]['alpha']
-                             
-                        jj = 0
-                        for aa in HubU_IO_dict:
-                            for nn in HubU_IO_dict[aa]:
-                                for ll in HubU_IO_dict[aa][nn]:
-                                    if nspin == 2:
-                                        if HubU_IO_dict[a][n][l]==2:
-                                            for ss in range(2):
-                                                Nals_ref = Nanls_ref[aa][nn][ll][ss]
-                                                Nals_0 = self.get_Nocc(aa, nn, ll, ss,
-                                                                       scale=scale,
-                                                                       NbP = NbP,
-                                                                       mode='0') 
-                                                Nals_KS = self.get_Nocc(aa, nn, ll, ss,
-                                                                       scale=scale,
-                                                                       NbP = NbP)
-                                                
-                                                X0[ii,jj] = (Nals_0-Nals_ref)/alpha
-                                                Xks[ii,jj] = (Nals_KS-Nals_ref)/alpha
-                                                jj+=1
-                                            
-                                        elif HubU_IO_dict[a][n][l]==1:
-                                            Nals_ref = Nanls_ref[aa][nn][ll][0]
-                                            Nals_0 = self.get_Nocc(aa, nn, ll, 2,
-                                                                     scale=scale,
-                                                                     NbP = NbP,
-                                                                     mode='0')
-                                                    
-                                            Nals_KS = self.get_Nocc(aa, nn, ll, 2,
-                                                                   scale=scale,
-                                                                   NbP = NbP)
-                                            
-                                            X0[ii,jj] = (Nals_0-Nals_ref)/alpha
-                                            Xks[ii,jj] = (Nals_KS-Nals_ref)/alpha
-                                            jj+=1                                            
-                                        else:
-                                            print 'PROBLEM!!! \n\n\n'
-                                    
-                                    else:    
-                                        Nals_ref = Nanls_ref[aa][nn][ll][0]
-                                        Nals_0 = self.get_Nocc(aa, nn, ll, 0,
-                                                               scale=scale,
-                                                               NbP = NbP,
-                                                               mode='0'
-                                                               )   
-                                        Nals_KS = self.get_Nocc(aa, nn, ll, 0,
-                                                               scale=scale,
-                                                               NbP = NbP)
-                                        
-                                        X0[ii,jj] = (Nals_0-Nals_ref)/alpha
-                                        Xks[ii,jj] = (Nals_KS-Nals_ref)/alpha
-                                        jj+=1 
-                                        
+                    del HubU_alpha_dict[a][n][l]['alpha']
+                         
+                    jj = 0
+                    for aa in HubU_IO_dict:
+                        for nn in HubU_IO_dict[aa]:
+                            for ll in HubU_IO_dict[aa][nn]:
+                                Nals_ref = Nanls_ref[aa][nn][ll]
+                                Nals_0 = self.get_Nocc(aa, nn, ll, 
+                                                       scale=scale,
+                                                       NbP = NbP,
+                                                       mode='0'
+                                                       )   
+                                Nals_KS = self.get_Nocc(aa, nn, ll,
+                                                       scale=scale,
+                                                       NbP = NbP)
+                                
+                                X0[ii,jj] = (Nals_0-Nals_ref)/alpha
+                                Xks[ii,jj] = (Nals_KS-Nals_ref)/alpha
+                                jj+=1 
+                                
                         if background:
                             X0[ii,-1] -= np.sum(X0[ii,:])
                             Xks[ii,-1] -= np.sum(Xks[ii,:])
                         ii+=1
+        print X0
+        print Xks
         if background:
             for jj in range(sites):
                 X0[-1,jj]  -= np.sum(X0[:,jj]) 
@@ -255,16 +189,10 @@ class HubU:
             for n in HubU_IO_dict[a]:
                 new_HubU_dict[a][n]={}
                 for l in HubU_IO_dict[a][n]:
-                    new_HubU_dict[a][n][l]={}
                     if HubU_IO_dict[a][n][l]==0:
                         pass
-                    elif HubU_IO_dict[a][n][l]==2 and nspin == 2:
-                        new_HubU_dict[a][n][l][0]={'U':U[jj,jj]}
-                        new_HubU_dict[a][n][l][1]={'U':U[jj+1,jj+1]}
-                        jj+=2
                     else:
-                        new_HubU_dict[a][n][l][0]={'U':U[jj,jj]}
-                        new_HubU_dict[a][n][l][1]={'U':U[jj,jj]}
+                        new_HubU_dict[a][n][l]={'U':U[jj,jj]}
                         jj+=1
         
         if out == 'all':
@@ -272,7 +200,7 @@ class HubU:
         else:
             return new_HubU_dict
     
-    def get_linear_response_U0(self,a,n,l,s,
+    def get_linear_response_U0(self,a,n,l,
                                HubU_dict = {},
                                alpha = 0.002,
                                scale = 1,
@@ -288,29 +216,23 @@ class HubU:
             HubU_dict[a][n]={}
         if l not in HubU_dict[a][n]:
             HubU_dict[a][n][l]={}
-        if s not in HubU_dict[a][n][l]:
-            if s == 2:
-                HubU_dict[a][n][l][0]={'alpha':alpha}
-                HubU_dict[a][n][l][1]={'alpha':alpha}
-            else:
-                HubU_dict[a][n][l][s]={'alpha':alpha}      
+        HubU_dict[a][n][l]['alpha']=alpha
+
         c = self.paw
         c.calculate()
         
-        Nanls_ref = self.get_Nocc(a, n, l, s, scale=scale, NbP = NbP)
+        Nanl_ref = self.get_Nocc(a, n, l, scale=scale, NbP = NbP)
             
         c.hamiltonian.set_hubbard_u(HubU_dict = HubU_dict)
         c.scf.HubAlphaIO = True
         c.scf.reset()
         c.calculate()
         
-        Nanls_0 = self.get_Nocc(a, n, l, s, scale=scale, NbP = NbP, mode='0')
-        Nanls_KS = self.get_Nocc(a, n, l, s, scale=scale, NbP = NbP)
-
-            
-            
-        Xres_0 = (Nanls_0-Nanls_ref)/alpha
-        Xres_KS = (Nanls_KS-Nanls_ref)/alpha
+        Nanl_0 = self.get_Nocc(a, n, l, scale=scale, NbP = NbP, mode='0')
+        Nanl_KS = self.get_Nocc(a, n, l, scale=scale, NbP = NbP)
+        print 'Nanl_ref, Nanl_0, Nanl_KS', Nanl_ref, Nanl_0, Nanl_KS
+        Xres_0 = (Nanl_0-Nanl_ref)/alpha
+        Xres_KS = (Nanl_KS-Nanl_ref)/alpha
         
         U0 = Xres_0**-1 - Xres_KS**-1
         return U0
@@ -326,7 +248,7 @@ class HubU:
         return nspin
 
     def get_Nocc(self,
-                 a, n, l, s,
+                 a, n, l,
                  p=0,
                  scale=1,
                  NbP = 1, 
@@ -336,8 +258,8 @@ class HubU:
         Get occupancy of site
         p: projector
         """
-        nspin = self.get_nspin()
         c = self.paw
+        nspin = self.get_nspin()
         N = np.array([0.])  
         if c.density.rank_a[a] == self.world.rank:
             if mode=='KS':
@@ -347,18 +269,11 @@ class HubU:
             else:
                 print 'unknown mode:', mode
                 assert(0)
-            if s == 2 and nspin==2:
-                N = (np.trace(c.hamiltonian.aoom(unpack2(D_asp[a][0]),
-                                        a,n,l,NbP=NbP,scale=scale)[p])+
-                     np.trace(c.hamiltonian.aoom(unpack2(D_asp[a][1]),
-                                        a,n,l,NbP=NbP,scale=scale)[p]))
-            elif s == 2 and nspin==1:
-                N = np.trace(c.hamiltonian.aoom(unpack2(D_asp[a][0]),
-                                        a,n,l,NbP=NbP,scale=scale)[p])
-            else:
-                N = np.trace(c.hamiltonian.aoom(unpack2(D_asp[a][s]),
-                                    a,n,l,NbP=NbP,scale=scale)[p])
-        
+            
+            N = 0.
+            for s in range(nspin):
+                N += np.trace(c.hamiltonian.aoom(unpack2(D_asp[a][0]),
+                                a,n,l,NbP=NbP,scale=scale)[p])
             N = np.array([N])
         self.world.broadcast(N, c.density.rank_a[a])
         return  N[0]

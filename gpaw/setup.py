@@ -106,7 +106,7 @@ class BaseSetup:
                 # add to the lower levels first
                 for j in range(nj):
                     f = f_j[j]
-                    l = self.l_j[j]
+                    #l = self.l_j[j]
                     if use_complete or f > 0:
                         c = min(degeneracy_j[j] - f, -charge)
                         f_j[j] += c
@@ -188,6 +188,7 @@ class BaseSetup:
     
     def initialize_density_matrix(self, f_si):
         nspins, niao = f_si.shape
+        del niao
         ni = self.ni
 
         D_sii = np.zeros((nspins, ni, ni))
@@ -235,7 +236,7 @@ class BaseSetup:
         """Return spline representation of partial waves and densities."""
 
         l_j = self.l_j
-        nj = len(l_j)
+        #nj = len(l_j)
 
         # cutoffs
         rcut2 = 2 * max(self.rcut_j)
@@ -519,7 +520,7 @@ class Setup(BaseSetup):
             raise ValueError('Cannot use %s setup with %s functional' %
                              (data.setupname, xc.get_setup_name()))
         
-        self.symbol = symbol = data.symbol
+        self.symbol = data.symbol
         self.data = data
 
         self.Nc = data.Nc
@@ -544,7 +545,7 @@ class Setup(BaseSetup):
 
         rgd = self.rgd = data.rgd
         r_g = rgd.r_g
-        dr_g = rgd.dr_g
+        #dr_g = rgd.dr_g
 
         self.lmax = lmax
 
@@ -559,11 +560,12 @@ class Setup(BaseSetup):
 
         self.gcutmin = rgd.ceil(min(rcut_j))
 
-        ni = 0
+        #ni = 0
         i = 0
         j = 0
         jlL_i = []
         for l, n in zip(l_j, n_j):
+            del n
             for m in range(2 * l + 1):
                 jlL_i.append((j, l, l**2 + m))
                 i += 1
@@ -598,9 +600,7 @@ class Setup(BaseSetup):
 
         # Construct splines for core kinetic energy density:
         tauct_g = data.tauct_g
-        if tauct_g is None:
-            tauct_g = np.zeros(ng)
-            # FIXME: ng is not defined! 
+
         self.tauct = rgd.spline(tauct_g, self.rcore)
 
         self.pt_j = self.create_projectors(rcutfilter)
@@ -624,7 +624,7 @@ class Setup(BaseSetup):
         self.nc_g = nc_g = nc_g[:gcut2].copy()
         self.nct_g = nct_g = nct_g[:gcut2].copy()
         vbar_g = data.vbar_g[:gcut2].copy()
-        tauc_g = data.tauc_g[:gcut2].copy()
+        #tauc_g = data.tauc_g[:gcut2].copy()
 
         extra_xc_data = dict(data.extra_xc_data)
         # Cut down the GLLB related extra data

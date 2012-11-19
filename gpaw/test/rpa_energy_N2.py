@@ -45,4 +45,4 @@ print 'PBE: ', E_n2_pbe - 2*E_n_pbe
 print 'HF: ',  E_n2_hf - 2*E_n_hf
 print 'HF+RPA: ', E_n2_hf - 2*E_n_hf + E_n2_rpa - 2*E_n_rpa, '(Not converged!)'
 
-equal(E_n2_rpa - 2*E_n_rpa, -1.78, 0.01)
+equal(E_n2_rpa - 2*E_n_rpa, -1.72, 0.02)

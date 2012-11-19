@@ -332,7 +332,8 @@ class KSSingle(Excitation, PairDensity):
                 for i1, Pi in enumerate(Pi_i):
                     for i2, Pj in enumerate(Pj_i):
                         ma[c] += Pi * Pj * nabla_iiv[i1, i2, c]
-
+        gd.comm.sum(ma)
+        
         self.muv = - (me + ma) / self.energy
 ##        print self.mur, self.muv, self.mur - self.muv
 
@@ -357,8 +358,9 @@ class KSSingle(Excitation, PairDensity):
                 for i1, Pi in enumerate(Pi_i):
                     for i2, Pj in enumerate(Pj_i):
                         ma[c] += Pi * Pj * rnabla_iiv[i1, i2, c]
-
-        self.magn = alpha / 2. * (magn + ma)
+        gd.comm.sum(ma)
+        
+        self.magn = -alpha / 2. * (magn + ma)
         
     def __add__(self, other):
         """Add two KSSingles"""
@@ -403,12 +405,17 @@ class KSSingle(Excitation, PairDensity):
         self.fij = float(l.pop(0))
         if len(l) == 3: # old writing style
             self.me = np.array([float(l.pop(0)) for i in range(3)])
+            self.mur = - self.me / sqrt(self.energy * self.fij)
+            self.muv = None
+            self.magn = None
         else:
             self.mur = np.array([float(l.pop(0)) for i in range(3)])
-            self.me = - self.mur * sqrt(self.energy*self.fij)
+            self.me = - self.mur * sqrt(self.energy * self.fij)
             self.muv = np.array([float(l.pop(0)) for i in range(3)])
             if len(l): 
                 self.magn = np.array([float(l.pop(0)) for i in range(3)])
+            else:
+                self.magn = None
         return None
 
     def outstring(self):

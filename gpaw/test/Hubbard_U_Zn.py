@@ -18,9 +18,8 @@ scale=1             # scale (to be investigated what the influence is!)
 
 HubU_dict = {a:{
                 n:{
-                   l:{0:{'U':U_au},
-                      1:{'U':U_au},
-                   }}},
+                   l:{'U':U_au}
+                   }},
             'scale': scale,
             }
 
@@ -31,7 +30,8 @@ E = {}
 E_U = {}
 
 for spin in [0, 1]:
-    c = GPAW(h=h, spinpol=spin, 
+    c = GPAW(h=h, spinpol=spin,
+             eigensolver='cg',
              charge=1, occupations=FermiDirac(width=0.1, fixmagmom=spin)
              )
     s.set_calculator(c)

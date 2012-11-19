@@ -18,10 +18,10 @@ from ase.data import atomic_numbers
 from ase.structure import molecule
 from ase.data.g2_1 import data
 
-from gpaw.test.big.setups.g2_1.fix.pbe_nwchem_def2_qzvppd_analyse import ref
+from gpaw.test.big.g2_1.pbe_nwchem_def2_qzvppd_analyse import ref
 
-from gpaw.test.big.setups.g2_1.fix.pbe_gpaw_nrel08_analyse import ref as calc
-from gpaw.test.big.setups.g2_1.fix.pbe_gpaw_nrel08_analyse import tag
+from gpaw.test.big.g2_1.pbe_gpaw_nrel_analyse import ref as calc
+from gpaw.test.big.g2_1.pbe_gpaw_nrel_analyse import tag
 
 formulas = ref['ea'].keys()
 formulas.sort()
@@ -92,8 +92,6 @@ def get_statistics(result, reference):
         e = diff[ref1.index(c)]
         largest.append((c, e))
     return average, absaverage, std, largest, all, resrm, refrm
-
-#print get_statistics('dacapo.G2_1', 'def2-qzvppd.G2_1', fixed, fixed)
 
 # prepare plot
 
@@ -263,5 +261,5 @@ for n, l in enumerate(largest):
                        fontsize=ann_fontsize,
                        )
 #pylab.show()
-plot_save(".", tag)
+plot_save(".", tag + '_ea_vs')
 #pylab.close(1)

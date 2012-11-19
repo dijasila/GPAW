@@ -6,7 +6,7 @@ import numpy as np
 from numpy import dot
 from ase.units import Hartree
 
-from gpaw.utilities.blas import axpy, dotc
+from gpaw.utilities.blas import axpy, dotc, gemv, gemm
 from gpaw.utilities import unpack
 from gpaw.eigensolvers.eigensolver import Eigensolver
 from gpaw.hs_operators import reshape
@@ -26,9 +26,21 @@ class CG(Eigensolver):
     * Conjugate gradient steps
     """
 
-    def __init__(self, niter=4):
+    def __init__(self, niter=4, rtol=0.30):
+        """Construct conjugate gradient eigen solver.
+
+        parameters:
+
+        niter: int
+            Maximum number of conjugate gradient iterations per band
+        rtol: float
+            If change in residual is less than rtol, iteration for band is
+            not continued
+
+        """
         Eigensolver.__init__(self)
         self.niter = niter
+        self.rtol = rtol
 
     def initialize(self, wfs):
         Eigensolver.initialize(self, wfs)
@@ -87,23 +99,25 @@ class CG(Eigensolver):
 
                 # Orthonormalize phi_G to all bands
                 self.timer.start('CG: orthonormalize')
-                for nn in range(self.nbands):
-                    self.timer.start('CG: overlap')
-                    overlap = wfs.integrate(psit_nG[nn], phi_G,
-                                            global_integral=False)
-                    self.timer.stop('CG: overlap')
-                    self.timer.start('CG: overlap2')
-                    for a, P2_i in P2_ai.items():
-                        P_i = kpt.P_ani[a][nn]
-                        dO_ii = wfs.setups[a].dO_ii
-                        overlap += dotc(P_i, np.inner(dO_ii, P2_i))
-                    self.timer.stop('CG: overlap2')
-                    overlap = comm.sum(overlap)
-                    # phi_G -= overlap * kpt.psit_nG[nn]
-                    axpy(-overlap, psit_nG[nn], phi_G)
-                    for a, P2_i in P2_ai.items():
-                        P_i = kpt.P_ani[a][nn]
-                        P2_i -= P_i * overlap
+                self.timer.start('CG: overlap')
+                overlap_n = wfs.integrate(psit_nG, phi_G,
+                                        global_integral=False)
+                self.timer.stop('CG: overlap')
+                self.timer.start('CG: overlap2')
+                for a, P2_i in P2_ai.items():
+                    P_ni = kpt.P_ani[a]
+                    dO_ii = wfs.setups[a].dO_ii
+                    gemv(1.0, P_ni.conjugate(), np.inner(dO_ii, P2_i), 
+                         1.0, overlap_n)
+                self.timer.stop('CG: overlap2')
+                comm.sum(overlap_n)
+
+                # phi_G -= overlap_n * kpt.psit_nG
+                wfs.matrixoperator.gd.gemv(-1.0, psit_nG, overlap_n, 
+                                           1.0, phi_G, 'n')
+                for a, P2_i in P2_ai.items():
+                    P_ni = kpt.P_ani[a]
+                    gemv(-1.0, P_ni, overlap_n, 1.0, P2_i, 'n')
 
                 norm = wfs.integrate(phi_G, phi_G, global_integral=False)
                 for a, P2_i in P2_ai.items():
@@ -167,7 +181,7 @@ class CG(Eigensolver):
                                      dot(P_i * kpt.eps_n[n], dO_ii))
                     wfs.pt.add(R_G, coef_ai, kpt.q)
                     error_new = np.real(wfs.integrate(R_G, R_G))
-                    if error_new / error < 0.30:
+                    if error_new / error < self.rtol:
                         # print >> self.f, "cg:iters", n, nit+1
                         break
                     if (self.nbands_converge == 'occupied' and

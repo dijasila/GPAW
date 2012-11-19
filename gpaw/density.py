@@ -53,6 +53,8 @@ class Density:
         self.charge_eps = 1e-7
         
         self.D_asp = None
+        self.Dab_sp = None
+        
         self.Q_aL = None
 
         self.nct_G = None
@@ -66,14 +68,27 @@ class Density:
         self.mixer = BaseMixer()
         self.timer = nulltimer
         
+        # YYY dict {a:[b1,b2,b3], ...}
+        self.Dab_neighborlist = None # To create {} do not create
+        
     def initialize(self, setups, timer, magmom_av, hund):
         self.timer = timer
         self.setups = setups
         self.hund = hund
         self.magmom_av = magmom_av
+        
+        if self.Dab_neighborlist is None:
+            self.get_Dab_neighborlist()
+
+    # YYY
+    def get_Dab_neighborlist(self, cutoff=None):
+        self.Dab_neighborlist = {}
+        # Simple definition of the neighbor atoms - avoids self and double counting
+        for a in range(len(self.setups)):
+            if cutoff == None:
+                self.Dab_neighborlist[a] = range(a+1,len(self.setups))
 
     def reset(self):
-        # TODO: reset other parameters?
         self.nt_sG = None
 
     def set_positions(self, spos_ac, rank_a=None):
@@ -89,10 +104,13 @@ class Density:
         
         # If both old and new atomic ranks are present, start a blank dict if
         # it previously didn't exist but it will needed for the new atoms.
+
         if (self.rank_a is not None and rank_a is not None and
             self.D_asp is None and (rank_a == self.gd.comm.rank).any()):
             self.D_asp = {}
-        
+            if self.Dab_sij is None:
+                self.Dab_sij = {}
+                            
         if self.rank_a is not None and self.D_asp is not None:
             self.timer.start('Redistribute')
             requests = []
@@ -111,12 +129,32 @@ class Density:
                                                      tag=a, block=False))
                 assert a not in self.D_asp
                 self.D_asp[a] = D_sp
+                
+                # YYY To create the empty array for the intersite density matrix
+                self.Dab_sij[a]={}
+                Db_sij = {}
+                for b in self.Dab_neighborlist[a]:
+                    nbi = self.setups[b].ni
+                    Db_sij[b] = np.empty((self.nspins * self.ncomp**2,
+                                 ni * nbi + 1))
+                    
+                requests.append(self.gd.comm.receive(Db_sij, 
+                                                         self.rank_a[a],
+                                                     tag=a, block=False))
+                self.Dab_sp[a] = Db_sij
+                    
 
             for a in my_outgoing_atom_indices:
                 # Send matrix to new domain:
                 D_sp = self.D_asp.pop(a)
                 requests.append(self.gd.comm.send(D_sp, rank_a[a],
                                                   tag=a, block=False))
+                
+                # YYY for intersite Density matrix
+                Db_sij = self.Dab_sp.pop(a)
+                requests.append(self.gd.comm.send(Db_sij, rank_a[a],
+                                                  tag=a, block=False))
+                
             self.gd.comm.waitall(requests)
             self.timer.stop('Redistribute')
 
@@ -138,6 +176,8 @@ class Density:
         self.timer.stop('Pseudo density')
         self.timer.start('Atomic density matrices')
         wfs.calculate_atomic_density_matrices(self.D_asp)
+        # Update Dab_sp
+        
         self.timer.stop('Atomic density matrices')
         self.timer.start('Multipole moments')
         comp_charge = self.calculate_multipole_moments()
@@ -197,7 +237,8 @@ class Density:
             comp_charge += Q_L[0]
         return self.gd.comm.sum(comp_charge) * sqrt(4 * pi)
 
-    def initialize_from_atomic_densities(self, basis_functions):
+    def initialize_from_atomic_densities(self, basis_functions, 
+                                     neighbor_dict = None):
         """Initialize D_asp, nt_sG and Q_aL from atomic densities.
 
         nt_sG is initialized from atomic orbitals, and will
@@ -211,6 +252,8 @@ class Density:
         # consuming step)
 
         self.D_asp = {}
+        self.Dab_sij = {}
+        
         f_asi = {}
         for a in basis_functions.atom_indices:
             c = self.charge / len(self.setups)  # distribute on all atoms
@@ -233,30 +276,55 @@ class Density:
             
             if a in basis_functions.my_atom_indices:
                 self.D_asp[a] = self.setups[a].initialize_density_matrix(f_si)
-            
+                       
             f_asi[a] = f_si
+
+        for a in basis_functions.atom_indices:        
+            # YYY
+            self.Dab_sij[a] = {}
+            for b in self.Dab_neighborlist:
+                self.Dab_sij[a][b] = self.initialize_Dab_fsi(a, b, f_asi) ##
 
         self.nt_sG = self.gd.zeros(self.nspins * self.ncomp**2)
         basis_functions.add_to_density(self.nt_sG, f_asi)
         self.nt_sG[:self.nspins] += self.nct_G
         self.calculate_normalized_charges_and_mix()
 
+    # YYY : Currently not implemented as it should have little effect
+    def initialize_Dab_fsi(self, a, b, f_asi):
+        nspins, niao = f_asi[a].shape
+        del niao
+        ni_ab = [self.setups[a].ni, self.setups[b].ni]
+        Dab_sii = np.zeros((nspins, ni_ab[0], ni_ab[1]))
+        return Dab_sii
+        
     def initialize_from_wavefunctions(self, wfs):
         """Initialize D_asp, nt_sG and Q_aL from wave functions."""
         self.nt_sG = self.gd.empty(self.nspins * self.ncomp**2)
         self.calculate_pseudo_density(wfs)
         self.D_asp = {}
+        self.Dab_sij = {}
         my_atom_indices = np.argwhere(wfs.rank_a == self.gd.comm.rank).ravel()
         for a in my_atom_indices:
             ni = self.setups[a].ni
             self.D_asp[a] = np.empty((self.nspins, ni * (ni + 1) // 2))
+
+            # YYY
+            self.Dab_sij[a] = {}
+            for b in self.Dab_neighborlist:
+                nib = self.setups[b].ni
+                self.Dab_sij[a][b] = np.empty((self.nspins, ni * nib))
+        
         wfs.calculate_atomic_density_matrices(self.D_asp)
+        # YYY
+        wfs.calculate_inter_atomic_density_matrices(self.Dab_sij)
         self.calculate_normalized_charges_and_mix()
 
-    def initialize_directly_from_arrays(self, nt_sG, D_asp):
+    def initialize_directly_from_arrays(self, nt_sG, D_asp, Dab_sij ={}):
         """Set D_asp and nt_sG directly."""
         self.nt_sG = nt_sG
         self.D_asp = D_asp
+        self.Dab_sij = Dab_sij
         #self.calculate_normalized_charges_and_mix()
         # No calculate multipole moments?  Tests will fail because of
         # improperly initialized mixer

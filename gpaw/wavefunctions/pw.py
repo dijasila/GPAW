@@ -12,7 +12,7 @@ from gpaw.lcao.overlap import fbt
 from gpaw.spline import Spline
 from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.utilities import unpack, _fact as fac
-from gpaw.utilities.blas import rk, r2k, gemm
+from gpaw.utilities.blas import rk, r2k, gemv, gemm
 from gpaw.density import Density
 from gpaw.hamiltonian import Hamiltonian
 from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
@@ -333,6 +333,12 @@ class PWDescriptor:
             newpsit_mG = newpsit_mG.view(float)
         gemm(alpha, psit_nG, C_mn, beta, newpsit_mG)
 
+    def gemv(self, alpha, psit_nG, C_n, beta, newpsit_G, trans='t'):
+        """Helper function for CG eigensolver."""
+        if self.dtype == float:
+            psit_nG = psit_nG.view(float)
+            newpsit_G = newpsit_G.view(float)
+        gemv(alpha, psit_nG, C_n, beta, newpsit_G, trans)
 
 class Preconditioner:
     """Preconditioner for KS equation.
@@ -1109,9 +1115,9 @@ class ReciprocalSpaceDensity(Density):
 
 class ReciprocalSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, pd2, pd3, nspins, setups, timer, xc,
-                 vext=None, collinear=True):
+                 vext=None, collinear=True, world=None):
         Hamiltonian.__init__(self, gd, finegd, nspins, setups, timer, xc,
-                             vext, collinear)
+                             vext, collinear, world)
 
         self.vbar = PWLFC([[setup.vbar] for setup in setups], pd2)
         self.pd2 = pd2

@@ -70,6 +70,8 @@ class WaveFunctions(EmptyWaveFunctions):
         self.band_comm = self.bd.comm #XXX
         self.timer = timer
         self.rank_a = None
+        self.rank_ab = None # to be used for hubbard v term
+        
 
         # XXX Remember to modify aseinterface when removing the following
         # attributes from the wfs object
@@ -123,29 +125,81 @@ class WaveFunctions(EmptyWaveFunctions):
         D_sp = [pack(D_ii) for D_ii in D_sii]
         return D_sp
     
-    def calculate_atomic_density_matrices_k_point(self, D_sii, kpt, a, f_n):
+    def new_get_orbital_density_matrix(self, a, b, kpt, n):
+        """Add the nth band density from kpt to density matrix D_sp"""
+        ni_a = self.setups[a].ni
+        ni_b = self.setups[b].ni
+        Dab_sii = np.zeros((self.nspins, ni_a, ni_b))
+        Pa_i = kpt.P_ani[a][n]
+        Pb_i = kpt.P_ani[b][n]
+        
+        Dab_sii[kpt.s] += np.outer(Pa_i.conj(), Pb_i).real
+        Dab_sp = [pack(Dab_ii) for Dab_ii in Dab_sii]
+        return Dab_sp    
+
+
+    def calculate_inter_atomic_density_matrices(self, Dab_sij):
+        """Calculate atomic density matrices from projections."""
+        f_un = [kpt.f_n for kpt in self.kpt_u]
+        for a, Db_sij in Dab_sij.items():
+            nai = self.setups[a].ni
+            for b, D_sij in Db_sij.items():
+                nbi = self.setups[b].ni
+            
+                D_sij = np.zeros((len(D_sij), nai,nbi))
+                for f_n, kpt in zip(f_un, self.kpt_u):
+                    self.calculate_inter_atomic_density_matrices_k_point(
+                                                    D_sij, kpt, a, b, f_n)
+                self.band_comm.sum(D_sij)
+                self.kpt_comm.sum(D_sij)
+        
+    def calculate_inter_atomic_density_matrices_k_point(self, D_sij, kpt, a, 
+                                                        b, f_n):
         if kpt.rho_MM is not None:
-            P_Mi = kpt.P_aMi[a]
-            #P_Mi = kpt.P_aMi_sparse[a]
-            #ind = get_matrix_index(kpt.P_aMi_index[a])
-            #D_sii[kpt.s] += np.dot(np.dot(P_Mi.T.conj(), kpt.rho_MM),
-            #                       P_Mi).real
-            rhoP_Mi = np.zeros_like(P_Mi)
-            D_ii = np.zeros(D_sii[kpt.s].shape, kpt.rho_MM.dtype)
-            #gemm(1.0, P_Mi, kpt.rho_MM[ind.T, ind], 0.0, tmp)
-            gemm(1.0, P_Mi, kpt.rho_MM, 0.0, rhoP_Mi)
-            gemm(1.0, rhoP_Mi, P_Mi.T.conj().copy(), 0.0, D_ii)
-            D_sii[kpt.s] += D_ii.real
-            #D_sii[kpt.s] += dot(dot(P_Mi.T.conj().copy(),
-            #                        kpt.rho_MM[ind.T, ind]), P_Mi).real
+            Pa_Mi = kpt.P_aMi[a]
+            Pb_Mi = kpt.P_aMi[b]
+            rhoP_Mi = np.zeros_like(Pa_Mi)
+            D_ii = np.zeros(D_sij[kpt.s].shape, kpt.rho_MM.dtype)
+            gemm(1.0, Pa_Mi, kpt.rho_MM, 0.0, rhoP_Mi)
+            gemm(1.0, rhoP_Mi, Pb_Mi.T.conj().copy(), 0.0, D_ii)
+            D_sij[kpt.s] += D_ii.real
         else:
-            P_ni = kpt.P_ani[a]
-            D_sii[kpt.s] += np.dot(P_ni.T.conj() * f_n, P_ni).real
+            Pa_ni = kpt.P_ani[a]
+            Pb_ni = kpt.P_ani[b]
+            D_sij[kpt.s] += np.dot(Pa_ni.T.conj() * f_n, Pb_ni).real
 
         if hasattr(kpt, 'c_on'):
             for ne, c_n in zip(kpt.ne_o, kpt.c_on):
                 d_nn = ne * np.outer(c_n.conj(), c_n)
-                D_sii[kpt.s] += np.dot(P_ni.T.conj(), np.dot(d_nn, P_ni)).real
+                D_sij[kpt.s] += np.dot(Pa_ni.T.conj(), np.dot(d_nn, Pb_ni)).real 
+        
+    # YYY
+    def calculate_inter_atomic_density_matrices2(self, Dab_sp):
+        """Calculate atomic density matrices from projections."""
+        f_un = [kpt.f_n for kpt in self.kpt_u]
+        self.calculate_inter_atomic_density_matrices_with_occupation(
+                                                                Dab_sp, f_un)
+    # YYY
+    def calculate_inter_atomic_density_matrices_with_occupation(self, 
+                                                                Dab_sp, f_un):
+        """Calculate atomic density matrices from projections with
+        custom occupation f_un."""
+        # Varying f_n used in calculation of response part of GLLB-potential
+        for a, Db_sp in Dab_sp.items():
+            nai = self.setups[a].ni
+            for b, D_sp in Db_sp.items():
+                nbi = self.setups[b].ni
+            
+                D_sii = np.zeros((len(D_sp), nai,nbi))
+                for f_n, kpt in zip(f_un, self.kpt_u):
+                    self.calculate_inter_atomic_density_matrices_k_point(
+                                                    D_sii, kpt, a, b, f_n)
+                D_sp[:] = [pack(D_ii) for D_ii in D_sii]
+                self.band_comm.sum(D_sp)
+                self.kpt_comm.sum(D_sp)
+        self.symmetrize_inter_atomic_density_matrices(Dab_sp)
+    # YYY
+
     
     def calculate_atomic_density_matrices(self, D_asp):
         """Calculate atomic density matrices from projections."""
@@ -168,9 +222,33 @@ class WaveFunctions(EmptyWaveFunctions):
 
         self.symmetrize_atomic_density_matrices(D_asp)
 
+    def calculate_atomic_density_matrices_k_point(self, D_sii, kpt, a, f_n):
+        if kpt.rho_MM is not None:
+            P_Mi = kpt.P_aMi[a]
+            #P_Mi = kpt.P_aMi_sparse[a]
+            #ind = get_matrix_index(kpt.P_aMi_index[a])
+            #D_sii[kpt.s] += np.dot(np.dot(P_Mi.T.conj(), kpt.rho_MM),
+            #                       P_Mi).real
+            rhoP_Mi = np.zeros_like(P_Mi)
+            D_ii = np.zeros(D_sii[kpt.s].shape, kpt.rho_MM.dtype)
+            #gemm(1.0, P_Mi, kpt.rho_MM[ind.T, ind], 0.0, tmp)
+            gemm(1.0, P_Mi, kpt.rho_MM, 0.0, rhoP_Mi)
+            gemm(1.0, rhoP_Mi, P_Mi.T.conj().copy(), 0.0, D_ii)
+            D_sii[kpt.s] += D_ii.real
+            #D_sii[kpt.s] += dot(dot(P_Mi.T.conj().copy(),
+            #                        kpt.rho_MM[ind.T, ind]), P_Mi).real
+        else:
+            P_ni = kpt.P_ani[a]
+            D_sii[kpt.s] += np.dot(P_ni.T.conj() * f_n, P_ni).real
+        
+        if hasattr(kpt, 'c_on'):
+            for ne, c_n in zip(kpt.ne_o, kpt.c_on):
+                d_nn = ne * np.outer(c_n.conj(), c_n)
+                D_sii[kpt.s] += np.dot(P_ni.T.conj(), np.dot(d_nn, P_ni)).real
+
     def symmetrize_atomic_density_matrices(self, D_asp):
         if len(self.symmetry.op_scc) > 1:
-            all_D_asp = []
+            all_D_asp = []  
             for a, setup in enumerate(self.setups):
                 D_sp = D_asp.get(a)
                 if D_sp is None:
@@ -190,7 +268,7 @@ class WaveFunctions(EmptyWaveFunctions):
     def set_positions(self, spos_ac):
         self.positions_set = False
         rank_a = self.gd.get_ranks_from_positions(spos_ac)
-
+        
         """
         # If both old and new atomic ranks are present, start a blank dict if
         # it previously didn't exist but it will needed for the new atoms.
