@@ -409,6 +409,9 @@ class LrTDDFTindexed:
         
         print >> self.txt, 'Calculating transitions (', str(datetime.datetime.now()), ').',
         for (k, omega2) in enumerate(self.evalues):
+            ww = self.get_excitation_energy(k)
+            if ww < min_energy or ww > max_energy: continue
+
             if k % 10 == 0:
                 print >> self.txt, '.',
                 self.txt.flush()
@@ -489,7 +492,7 @@ class LrTDDFTindexed:
         (ww,SS,RR) = self.get_transitions(min_energy=min_energy, max_energy=max_energy, units='a.u.')
                 
         print >> self.txt, 'Calculating spectrum (', str(datetime.datetime.now()), ').',
-        for (k, omega2) in enumerate(self.evalues):
+        for (k, www) in enumerate(ww):
             if k % 10 == 0:
                 print >> self.txt, '.',
                 self.txt.flush()
