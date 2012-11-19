@@ -489,7 +489,7 @@ class LrTDDFTindexed:
         S = w*0.
         R = w*0.
 
-        (ww,SS,RR) = self.get_transitions(min_energy=min_energy, max_energy=max_energy, units='a.u.')
+        (ww,SS,RR) = self.get_transitions(min_energy=min_energy-5*width, max_energy=max_energy+5*width, units='a.u.')
                 
         print >> self.txt, 'Calculating spectrum (', str(datetime.datetime.now()), ').',
         for (k, www) in enumerate(ww):
