@@ -374,6 +374,75 @@ class LrTDDFTindexed:
 
 
 
+    def get_transitions(self, filename=None, min_energy=0.0, max_energy=30.0, units='eVcgs'):
+        """Get transitions: energy, dipole strength and rotatory strength.
+
+        Returns transitions as (w,S,R) where w is an array of frequencies,
+        S is an array of corresponding dipole strengths, and R is an array of
+        corresponding rotatory strengths.
+
+        Input parameters:
+
+        min_energy
+          Minimum energy 
+
+        min_energy
+          Maximum energy
+
+        units
+          Units for spectrum: 'a.u.' or 'eVcgs'
+        """
+
+        self.calculate_excitations()
+
+        if units == 'eVcgs':
+            convf = 1/ase.units.Hartree
+        else:
+            convf = 1.
+            
+        max_energy = max_energy * convf
+        min_energy = min_energy * convf
+
+        w = []
+        S = []
+        R = []
+        
+        print >> self.txt, 'Calculating transitions (', str(datetime.datetime.now()), ').',
+        for (k, omega2) in enumerate(self.evalues):
+            if k % 10 == 0:
+                print >> self.txt, '.',
+                self.txt.flush()
+            
+            w.append(self.get_excitation_energy(k))
+            S.append(self.get_oscillator_strength(k))
+            R.append(self.get_rotatory_strength(k))
+
+        w = np.array(w)
+        S = np.array(S)
+        R = np.array(R)
+
+        print >> self.txt, ''
+                
+        if units == 'a.u.':
+            pass
+        elif units == 'eVcgs':
+            w *= ase.units.Hartree
+            S /= ase.units.Hartree
+            R *= 64604.8164 # from turbomole
+        else:
+            raise RuntimeError('Unknown units.')
+
+
+        if filename is not None and gpaw.mpi.world.rank == 0:
+            sfile = open(filename,'w')
+            for (ww,SS,RR) in zip(w,S,R):
+                sfile.write("%12.8lf  %12.8lf  %12.8lf\n" % (ww,SS,RR))
+            sfile.close()
+
+        return (w,S,R)
+        
+
+
     
     def get_spectrum(self, filename=None, min_energy=0.0, max_energy=30.0, energy_step=0.01, width=0.1, units='eVcgs'):
         """Get spectrum for dipole and rotatory strength.
@@ -417,17 +486,19 @@ class LrTDDFTindexed:
         S = w*0.
         R = w*0.
 
+        (ww,SS,RR) = self.get_transitions(min_energy=min_energy, max_energy=max_energy, units='a.u.')
+                
         print >> self.txt, 'Calculating spectrum (', str(datetime.datetime.now()), ').',
         for (k, omega2) in enumerate(self.evalues):
             if k % 10 == 0:
                 print >> self.txt, '.',
                 self.txt.flush()
-                
-            c = self.get_oscillator_strength(k) / width / math.sqrt(2*np.pi)
-            S += c * np.exp( (-.5/width/width) * np.power(w-self.get_excitation_energy(k),2) ) 
+            
+            c = SS[k] / width / math.sqrt(2*np.pi)
+            S += c * np.exp( (-.5/width/width) * np.power(w-ww[k],2) ) 
 
-            c = self.get_rotatory_strength(k) / width / np.sqrt(2*np.pi)
-            R += c * np.exp( (-.5/width/width) * np.power(w-self.get_excitation_energy(k),2) ) 
+            c = RR[k] / width / np.sqrt(2*np.pi)
+            R += c * np.exp( (-.5/width/width) * np.power(w-ww[k],2) ) 
 
         print >> self.txt, ''
                 
@@ -448,6 +519,7 @@ class LrTDDFTindexed:
 
         return (w,S,R)
         
+
 
 ###
 # Utility
