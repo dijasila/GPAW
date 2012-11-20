@@ -549,9 +549,9 @@ class GW(BASECHI):
     def print_gw_finish(self, e_skn, vxc_skn, exx_skn, Sigma_skn, Z_skn, QP_skn):
 
         self.printtxt("------------------------------------------------")
-        self.printtxt("LDA eigenvalues are (eV): ")
+        self.printtxt("Kohn-Sham eigenvalues are (eV): ")
         self.printtxt("%s \n" %(e_skn*Hartree))
-        self.printtxt("LDA exchange-correlation contributions are (eV): ")
+        self.printtxt("Kohn-Sham exchange-correlation contributions are (eV): ")
         self.printtxt("%s \n" %(vxc_skn*Hartree))
         if not self.static:
             self.printtxt("Exact exchange contributions are (eV): ")
