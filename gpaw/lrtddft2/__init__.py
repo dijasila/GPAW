@@ -21,6 +21,7 @@ from gpaw.utilities.tools import pick
 from gpaw.parameters import InputParameters
 from gpaw.blacs import BlacsGrid, Redistributor
 
+from gpaw import dry_run, memory_estimate_depth
 
 #from gpaw.output import initialize_text_stream
 
@@ -149,7 +150,7 @@ class LrTDDFTindexed:
         if self.parent_comm.rank == 0 and txt is not None:
             if txt == '-':
                 self.txt = sys.stdout
-            elif isintance(txt,str):
+            elif isinstance(txt,str):
                 self.txt = open(txt,'w')
             else:
                 self.txt = txt
