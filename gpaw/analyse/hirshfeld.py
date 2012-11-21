@@ -100,8 +100,8 @@ class HirshfeldPartitioning:
         atoms = self.atoms
         finegd = self.calculator.density.finegd
 
-        den_g, gd = self.calculator.density.get_all_electron_density(atoms)
-        den_g = den_g.sum(axis=0)
+        den_sg, gd = self.calculator.density.get_all_electron_density(atoms)
+        den_g = den_sg.sum(axis=0)
         assert(gd == finegd)
         denfree_g, gd = self.hdensity.get_density([atom_index])
         assert(gd == finegd)
@@ -123,18 +123,24 @@ class HirshfeldPartitioning:
         weight_g = denfree_g * self.invweight_g
         return weight_g
 
-    def get_charges(self):
-        """Charge on the atom according to the Hirshfeld partitioning"""
+    def get_charges(self, den_g=None):
+        """Charge on the atom according to the Hirshfeld partitioning
+
+        Can be applied to any density den_g.
+        """
         self.initialize()
         finegd = self.calculator.density.finegd
         
-        den_g, gd = self.calculator.density.get_all_electron_density(self.atoms)
-        den_g = den_g.sum(axis=0)
+        if den_g is None:
+            den_sg, gd = self.calculator.density.get_all_electron_density(
+                self.atoms)
+            den_g = den_sg.sum(axis=0)
+        assert(den_g.shape == finegd.empty().shape)
 
         charges = []
         for ia, atom in enumerate(self.atoms):
             weight_g = self.get_weight(ia)
-            charge = atom.number - finegd.integrate(weight_g * den_g)
+#            charge = atom.number - finegd.integrate(weight_g * den_g)
             charges.append(atom.number - finegd.integrate(weight_g * den_g))
         return charges
 
