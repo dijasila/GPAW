@@ -21,6 +21,7 @@ from gpaw.utilities.tools import pick
 from gpaw.parameters import InputParameters
 from gpaw.blacs import BlacsGrid, Redistributor
 
+from gpaw.utilities import devnull
 from gpaw import dry_run, memory_estimate_depth
 
 #from gpaw.output import initialize_text_stream
@@ -155,7 +156,7 @@ class LrTDDFTindexed:
             else:
                 self.txt = txt
         else:
-            self.txt = open(os.devnull,'w')
+            self.txt = devnull
 
 
         # Timer
@@ -855,6 +856,7 @@ class LrTDDFTindexed:
     def calculate_KS_singles(self):
         # If ready, then done
         if self.kss_list_ready: return 
+        self.timer.start('Calculate KS singles')
 
         # shorthands
         eps_n = self.calc.wfs.kpt_u[self.kpt_ind].eps_n      # eigen energies
@@ -926,6 +928,7 @@ class LrTDDFTindexed:
 
         # Prevent repeated work
         self.kss_list_ready = True
+        self.timer.stop('Calculate KS singles')
 
 
     # Calculates pair density of (i,p) transition (and given kpt)
@@ -953,6 +956,7 @@ class LrTDDFTindexed:
                 self.ks_prop_ready = False
                 break
         if self.ks_prop_ready: return
+        self.timer.start('Calculate KS properties')
         
 
         # Initialize wfs, paw corrections and xc, if not done yet
@@ -1054,6 +1058,7 @@ class LrTDDFTindexed:
         self.parent_comm.barrier()
             
         self.ks_prop_ready = True      # avoid repeated work
+        self.timer.stop('Calculate KS properties')
         
 
 
@@ -1102,6 +1107,8 @@ class LrTDDFTindexed:
         if self.K_matrix_ready: return    
 
 
+        self.timer.start('Calculate K matrix')
+        self.timer.start('Initialize')
         # Initialize wfs, paw corrections and xc, if not done yet
         if not self.calc_ready:
             self.calc.converge_wave_functions()
@@ -1143,6 +1150,7 @@ class LrTDDFTindexed:
         dVxct_gip_2 = self.calc.density.finegd.zeros(self.calc.density.nt_sg.shape[0])
 
 
+        self.timer.stop('Initialize')
         # Init timings
         [irow, tp, t0, tm, ap, bp, cp] = [0, None, None, None, None, None, None]
         
@@ -1356,6 +1364,7 @@ class LrTDDFTindexed:
             self.Kfile.close()
             self.ready_file.close()
             self.log_file.close()
+        self.timer.stop('Calculate K matrix')
 
 
     def __del__(self):
