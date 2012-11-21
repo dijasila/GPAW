@@ -135,7 +135,7 @@ class HirshfeldPartitioning:
             den_sg, gd = self.calculator.density.get_all_electron_density(
                 self.atoms)
             den_g = den_sg.sum(axis=0)
-        assert(den_g.shape == finegd.empty().shape)
+        assert(den_g.shape == tuple(finegd.n_c))
 
         charges = []
         for ia, atom in enumerate(self.atoms):

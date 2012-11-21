@@ -80,7 +80,7 @@ class WignerSeitz:
 
         Can be applied to any density den_g.
         """
-        assert(den_g.shape == self.gd.empty().shape)
+        assert(den_g.shape == tuple(self.gd.n_c))
         charges = []
         for atom, q in zip(self.atoms, self.expand(den_g)):
             charges.append(atom.number - q)
