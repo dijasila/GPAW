@@ -20,6 +20,11 @@ Development version in trunk
 
 * Modified setups:
 
+  .. note::
+
+     Most of the new setups currently require
+     :ref:`eigensolver <manual_eigensolver>` ``cg``.
+
   - improved eggbox: N, O, K, S, Ca, Sc, Zn, Sr, Zr, Cd, In, Sn, Pb, Bi
 
   - semicore states included: Na, Mg, V, Mn, Ni,
