@@ -24,6 +24,13 @@ from gpaw.xc import XC
 from gpaw.xc.hybridk import HybridXC
 from gpaw.lrtddft.spectrum import spectrum
 
+try:
+    import gzip
+except ImportError:
+    has_gzip = False
+else:
+    has_gzip = True
+
 __all__ = ['LrTDDFT', 'photoabsorption_spectrum', 'spectrum']
 
 class LrTDDFT(ExcitationList):
@@ -219,10 +226,9 @@ class LrTDDFT(ExcitationList):
 
         if fh is None:
             if filename.endswith('.gz'):
-                try:
-                    import gzip
+                if has_gzip:
                     f = gzip.open(filename)
-                except:
+                else:
                     f = open(filename, 'r')
             else:
                 f = open(filename, 'r')
@@ -324,10 +330,9 @@ class LrTDDFT(ExcitationList):
         if mpi.rank == mpi.MASTER:
             if fh is None:
                 if filename.endswith('.gz'):
-                    try:
-                        import gzip
+                    if has_gzip:
                         f = gzip.open(filename,'wb')
-                    except:
+                    else:
                         f = open(filename, 'w')
                 else:
                     f = open(filename, 'w')
