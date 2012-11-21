@@ -22,7 +22,6 @@ from gpaw.parameters import InputParameters
 from gpaw.blacs import BlacsGrid, Redistributor
 
 from gpaw.utilities import devnull
-from gpaw import dry_run, memory_estimate_depth
 
 #from gpaw.output import initialize_text_stream
 
@@ -203,7 +202,6 @@ class LrTDDFTindexed:
         self.K_matrix_ready = False
 
 
-
     def read(self, basename):
         info_file = basename+'.LR_info'
         if os.path.exists(info_file) and os.path.isfile(info_file):
@@ -241,7 +239,6 @@ class LrTDDFTindexed:
                 self.kss_list.append(kss)
             if len(self.kss_list) <= 0: self.kss_list = None
             kss_file.close()
-
 
 
     def write_info(self, fname):
@@ -447,9 +444,8 @@ class LrTDDFTindexed:
         return (w,S,R)
         
 
-
-    
-    def get_spectrum(self, filename=None, min_energy=0.0, max_energy=30.0, energy_step=0.01, width=0.1, units='eVcgs'):
+    def get_spectrum(self, filename=None, min_energy=0.0, max_energy=30.0,
+                     energy_step=0.01, width=0.1, units='eVcgs'):
         """Get spectrum for dipole and rotatory strength.
 
         Returns folded spectrum as (w,S,R) where w is an array of frequencies,
@@ -469,7 +465,6 @@ class LrTDDFTindexed:
 
         width
           Width of the Gaussian
-
 
         units
           Units for spectrum: 'a.u.' or 'eVcgs'
@@ -491,7 +486,9 @@ class LrTDDFTindexed:
         S = w*0.
         R = w*0.
 
-        (ww,SS,RR) = self.get_transitions(min_energy=min_energy-5*width, max_energy=max_energy+5*width, units='a.u.')
+        ww, SS, RR = self.get_transitions(min_energy=min_energy-5*width,
+                                          max_energy=max_energy+5*width,
+                                          units='a.u.')
                 
         print >> self.txt, 'Calculating spectrum (', str(datetime.datetime.now()), ').',
         for (k, www) in enumerate(ww):
@@ -524,8 +521,6 @@ class LrTDDFTindexed:
 
         return (w,S,R)
         
-
-
 ###
 # Utility
 ###
@@ -557,7 +552,6 @@ class LrTDDFTindexed:
 #        self.eh_comm.broadcast(evec, 0)
 #        return evec
 
-
     def get_local_index(self,k):
         if k % self.stride != self.offset:
             return None
@@ -569,8 +563,6 @@ class LrTDDFTindexed:
             return 0.0
         return self.evectors[kloc][ip]
     
-
-
 ####
 # Somewhat ugly things
 ####
@@ -604,7 +596,6 @@ class LrTDDFTindexed:
         # If eigenvectors are not there, we may have to calculate
         # KS properties and K-matrix, and we have to diagonalize
         if self.evectors is None:
-
             # Calculate KS properties and K-matrix if needed
             if ( self.recalculate is None 
                  or self.recalculate == 'all'
@@ -633,6 +624,7 @@ class LrTDDFTindexed:
 
     # Diagonalize Casida matrix
     def diagonalize(self):
+        self.timer.start('Diagonalize')
         # Are we using ScaLapack
         par = self.calc.input_parameters
         sl_lrtddft = par.parallel['sl_lrtddft']
@@ -643,14 +635,15 @@ class LrTDDFTindexed:
         nloc = 0                   # local rows
 
         # Create indexing
-        for (ip,kss) in enumerate(self.kss_list):
+        for (ip, kss) in enumerate(self.kss_list):
             self.index_map[(kss.occ_ind,kss.unocc_ind)] = ip
 
         print >> self.txt, 'Reading data for diagonalize (', str(datetime.datetime.now()), '). ',
             
+        self.timer.start('Read data')
         # Read ALL ready_rows files
-        for rrfn in glob.glob(self.basefilename + '.ready_rows.*'):
-            for line in open(rrfn,'r'):
+        for rr_fn in glob.glob(self.basefilename + '.ready_rows.*'):
+            for line in open(rr_fn,'r'):
                 i = int(line.split()[0])
                 p = int(line.split()[1])
                 key = (i,p)
@@ -660,16 +653,17 @@ class LrTDDFTindexed:
                 ip = self.index_of_kss(i,p)
                 if ip is not None:
                     assert ip == self.index_map[key], 'List index %d is not equal to ind_map index %d for key (%d,%d)\n' % (ip,self.index_map[key],i,p)
-                    if self.get_local_index(ip) is not None: nloc += 1
+                    if self.get_local_index(ip) is not None:
+                        nloc += 1
         
         # Matrix build
         omega_matrix = np.zeros((nloc,nrow))
         omega_matrix[:,:] = np.NAN # fill with NaNs to detect problems
         # Read ALL K_matrix files
-        for Kfn in glob.glob(self.basefilename + '.K_matrix.*'): 
+        for K_fn in glob.glob(self.basefilename + '.K_matrix.*'): 
             print >> self.txt, '.',
             self.txt.flush()
-            for line in open(Kfn,'r'):
+            for line in open(K_fn,'r'):
                 line = line.split()
                 ipkey = (int(line[0]), int(line[1]))
                 jqkey = (int(line[2]), int(line[3]))
@@ -692,6 +686,8 @@ class LrTDDFTindexed:
                     omega_matrix[ljq,ip] = Kvalue
         print >> self.txt, ''
 
+        self.timer.stop('Read data')
+        
         # If any NaNs found, we did not read all matrix elements... BAD
         if np.isnan(np.sum(np.sum(omega_matrix))):
             raise RuntimeError('Not all required LrTDDFT matrix elements could be found.')
@@ -705,10 +701,8 @@ class LrTDDFTindexed:
                 if lip is None: continue
                 omega_matrix[lip,ip] += kss.energy_diff * kss.energy_diff
 
-
         # Calculate eigenvalues
         self.evalues = np.zeros(nrow)
-
 
         print >> self.txt, 'Diagonalizing (', str(datetime.datetime.now()), ')'
         
@@ -741,121 +735,14 @@ class LrTDDFTindexed:
                 if lip is None: continue
                 self.evectors[lip,:] = omega_matrix[ip,:]
 
-            
-# OLD VERSION... does not work anymore
-#    def diagonalize2(self):
-#        """Diagonalizes the Omega matrix. Use ScaLAPACK if available."""
-#
-#        par = InputParameters()  # We need ScaLAPACK parameters
-#        sl_omega = par.parallel['sl_lrtddft']
-#
-#        # Determine index map
-#        # Read the calculated rows from all read_rows files. K_matrix elements
-#        # are calculated with a stride comm.size, the global index of eh-pair
-#        # is thus given by g = l * stride + (stride + offset) % stride
-#
-#        self.index_map = {}
-#        nind = 0
-#        for off in range(self.stride):
-#            local_ind = 0
-#            rrfn = self.basefilename + '.ready_rows.' + '%04dof%04d' % (off, self.stride)
-#            for line in open(rrfn,'r'):
-#                i = int(line.split()[0])
-#                p = int(line.split()[1])
-#                key = (i,p)
-#                # if key not in self.kss_list, drop it
-#                found = False
-#                for kss in self.kss_list:
-#                    if kss.occ_ind == i and kss.unocc_ind == p:
-#                        found = True
-#                        break
-#                if found and not key in self.index_map:
-#                    global_ind = local_ind * self.stride + (self.stride + off) % self.stride 
-#                    self.index_map[key] = global_ind
-#                    local_ind += 1
-#                    nind += 1
-#
-#        # Read omega matrix and diagonalize
-#
-#        if sl_omega is not None:
-#            # Use ScaLAPACK
-#            mynind = len(range(self.offset, nind, self.stride))
-#            omega_matrix = np.zeros((mynind, nind))
-#            Kfn = self.basefilename + '.K_matrix.' + '%04dof%04d' % (self.offset, self.stride)
-#            for line in open(Kfn,'r'):
-#                line = line.split()
-#                ipkey = (int(line[0]), int(line[1]))
-#                jqkey = (int(line[2]), int(line[3]))
-#                Kvalue = float(line[4])
-#                if not ipkey in self.index_map or not jqkey in self.index_map:
-#                    continue
-#                ip = self.index_map[ipkey]
-#                # Debugging stuff
-#                off = ip % self.stride
-#                assert off == self.offset
-#                myip = ip // self.stride
-#                jq = self.index_map[jqkey]
-#                omega_matrix[myip,jq] = Kvalue
-#
-#            # Add diagonal values
-#            for kss in self.kss_list:
-#                key = (kss.occ_ind, kss.unocc_ind)
-#                if key in self.index_map:
-#                    global_ind = self.index_map[key]
-#                    if (global_ind % self.stride) == self.offset:
-#                        local_ind = global_ind // self.stride
-#                        omega_matrix[local_ind, global_ind] += kss.energy_diff * kss.energy_diff
-#
-#            ksl = LrTDDFTLayouts(sl_omega, nind, self.dd_comm, self.eh_comm)
-#            self.evectors = omega_matrix
-#            self.evalues = np.zeros(nind)
-#            ksl.diagonalize(self.evectors, self.evalues)
-#            
-#        else:
-#            # Serial LAPACK
-#            omega_matrix = np.zeros((nind,nind))
-#            for off in range(self.stride):
-#                Kfn = self.basefilename + '.K_matrix.' + '%04dof%04d' % (off, self.stride)
-#                for line in open(Kfn,'r'):
-#                    line = line.split()
-#                    ipkey = (int(line[0]), int(line[1]))
-#                    jqkey = (int(line[2]), int(line[3]))
-#                    Kvalue = float(line[4])
-#                    if not ipkey in self.index_map or not jqkey in self.index_map:
-#                        continue
-#                    ip = self.index_map[ipkey]
-#                    jq = self.index_map[jqkey]
-#                    omega_matrix[ip,jq] = Kvalue
-#
-#
-#            diag = np.zeros(nind)
-#            for kss in self.kss_list:
-#                key = (kss.occ_ind,kss.unocc_ind)
-#                if key in self.index_map:
-#                    diag[self.index_map[key]] = kss.energy_diff * kss.energy_diff
-#            for (k,value) in enumerate(diag):
-#                omega_matrix[k,k] += value
-#
-#
-##            if gpaw.mpi.world.rank == 0:
-##                for i in range(nind):
-##                    for j in range(nind):
-##                        print '%18.12lf ' % omega_matrix[i,j],
-##                    print
-#
-#            # diagonalize
-#            self.evalues = np.zeros(nind)
-#            diagonalize(omega_matrix, self.evalues)
-#            self.evectors = omega_matrix[self.offset::self.stride].copy()
-#
-#        return self.evectors
-
+        self.timer.stop('Diagonalize')
 
 
     # Create kss_list
     def calculate_KS_singles(self):
         # If ready, then done
-        if self.kss_list_ready: return 
+        if self.kss_list_ready:
+            return 
         self.timer.start('Calculate KS singles')
 
         # shorthands
@@ -872,13 +759,13 @@ class LrTDDFTindexed:
                 deps_pi = eps_n[p] - eps_n[i] # energy diff
                 df_ip = f_n[i] - f_n[p]       # population diff
                 # Filter it
-                if np.abs(deps_pi) <= self.max_energy_diff and df_ip > self.min_pop_diff:
+                if ( np.abs(deps_pi) <= self.max_energy_diff
+                     and df_ip > self.min_pop_diff ):
                     # i, p, deps, df, mur, muv, magn
-                    kss = KSSingle(i,p)
+                    kss = KSSingle(i, p)
                     kss.energy_diff = deps_pi
                     kss.pop_diff = df_ip
                     self.kss_list.append(kss)
-
 
         # Sort by energy diff
         def energy_diff_cmp(kss_ip,kss_jq):
@@ -887,7 +774,6 @@ class LrTDDFTindexed:
             elif ediff > 0: return 1
             return 0
         self.kss_list = sorted(self.kss_list, cmp=energy_diff_cmp)            
-
 
         # Remove old transitions and add new, but only add to the end of
         # the list (otherwise lower triangle matrix is not filled completely)
@@ -915,7 +801,8 @@ class LrTDDFTindexed:
             for kss_n in new_kss_list:
                 found = False
                 for kss in self.kss_list:
-                    if kss.occ_ind == kss_n.occ_ind and kss.unocc_ind == kss_n.unocc_ind:
+                    if ( kss.occ_ind == kss_n.occ_ind
+                         and kss.unocc_ind == kss_n.unocc_ind ):
                         found = True
                         break
                 if not found:
@@ -926,10 +813,12 @@ class LrTDDFTindexed:
             # Create the final list
             self.kss_list += app_list
 
+        print >> self.txt, 'Number of electron-hole pairs: %d' % len(self.kss_list)    
+        print >> self.txt, 'Maximum energy difference: %6.3f' % (self.kss_list[-1].energy_diff * ase.units.Hartree)
+
         # Prevent repeated work
         self.kss_list_ready = True
         self.timer.stop('Calculate KS singles')
-
 
     # Calculates pair density of (i,p) transition (and given kpt)
     # dnt_Gp: pair density without compensation charges on coarse grid
@@ -941,7 +830,6 @@ class LrTDDFTindexed:
         self.pair_density.initialize(kpt, kss_ip.occ_ind, kss_ip.unocc_ind)
         self.pair_density.get(dnt_Gip, dnt_gip, drhot_gip)
         
-
     # Calculate dipole moment and magnetic moment for noninteracting
     # Kohn-Sham transitions
     def calculate_KS_properties(self):
@@ -955,19 +843,19 @@ class LrTDDFTindexed:
             if kss_ip.dip_mom_r is None or kss_ip.magn_mom is None:
                 self.ks_prop_ready = False
                 break
-        if self.ks_prop_ready: return
+        if self.ks_prop_ready:
+            return
         self.timer.start('Calculate KS properties')
         
-
         # Initialize wfs, paw corrections and xc, if not done yet
         if not self.calc_ready:
             self.calc.converge_wave_functions()
             spos_ac = self.calc.initialize_positions()
             self.calc.wfs.initialize(self.calc.density, 
                                      self.calc.hamiltonian, spos_ac)
-            self.xc.initialize(self.calc.density, self.calc.hamiltonian, self.calc.wfs, self.calc.occupations)
+            self.xc.initialize(self.calc.density, self.calc.hamiltonian,
+                               self.calc.wfs, self.calc.occupations)
             self.calc_ready = True
-
 
         # Init pair densities
         dnt_Gip = self.calc.wfs.gd.empty()
@@ -975,20 +863,21 @@ class LrTDDFTindexed:
         drhot_gip = self.calc.density.finegd.empty()
 
         # Init gradients of wfs
-        grad_psit2_G = [self.calc.wfs.gd.empty(),self.calc.wfs.gd.empty(),self.calc.wfs.gd.empty()]
-
+        grad_psit2_G = [self.calc.wfs.gd.empty(), self.calc.wfs.gd.empty(),
+                        self.calc.wfs.gd.empty()]
 
         # Init gradient operators
         grad = []
-        dtype = pick(self.calc.wfs.kpt_u[self.kpt_ind].psit_nG,0).dtype
+        dtype = pick(self.calc.wfs.kpt_u[self.kpt_ind].psit_nG, 0).dtype
         for c in range(3):
-            grad.append(Gradient(self.calc.wfs.gd, c, dtype=dtype,n=2))
-
+            grad.append(Gradient(self.calc.wfs.gd, c, dtype=dtype, n=2))
 
         # Loop over all KS single excitations
         for kss_ip in self.kss_list:
             # If have dipole moment and magnetic moment, already done and skip
-            if kss_ip.dip_mom_r is not None and kss_ip.magn_mom is not None: continue
+            if (kss_ip.dip_mom_r is not None
+                and kss_ip.magn_mom is not None):
+                continue
             
             # Dipole moment
             self.calculate_pair_density( self.calc.wfs.kpt_u[self.kpt_ind],
@@ -1104,8 +993,8 @@ class LrTDDFTindexed:
             nrows += 1
 
         # If matrix was ready, done
-        if self.K_matrix_ready: return    
-
+        if self.K_matrix_ready:
+            return    
 
         self.timer.start('Calculate K matrix')
         self.timer.start('Initialize')
@@ -1197,8 +1086,6 @@ class LrTDDFTindexed:
                 self.log_file.flush()
                 irow += 1
 
-
-
             # Pair density
             self.timer.start('Pair density')
             dnt_Gip[:] = 0.0
@@ -1257,12 +1144,14 @@ class LrTDDFTindexed:
                 # finite difference plus
                 D_sp = self.calc.density.D_asp[a].copy()
                 D_sp[kss_ip.spin] += self.deriv_scale * Dip_p
-                self.xc.calculate_paw_correction(self.calc.wfs.setups[a], D_sp, I_sp)
+                self.xc.calculate_paw_correction(self.calc.wfs.setups[a],
+                                                 D_sp, I_sp)
 
                 # finite difference minus
                 D_sp_2 = self.calc.density.D_asp[a].copy()
                 D_sp_2[kss_ip.spin] -= self.deriv_scale * Dip_p
-                self.xc.calculate_paw_correction(self.calc.wfs.setups[a], D_sp_2, I_sp_2)
+                self.xc.calculate_paw_correction(self.calc.wfs.setups[a],
+                                                 D_sp_2, I_sp_2)
 
                 # finite difference
                 I_asp[a] = (I_sp - I_sp_2) / (2.*self.deriv_scale)
@@ -1278,7 +1167,6 @@ class LrTDDFTindexed:
                 j = kss_jq.occ_ind
                 q = kss_jq.unocc_ind
 
-
                 # Only lower triangle
                 if ip < jq: continue
 
@@ -1287,10 +1175,10 @@ class LrTDDFTindexed:
                 dnt_Gjq[:] = 0.0
                 dnt_gjq[:] = 0.0
                 drhot_gjq[:] = 0.0
-                self.calculate_pair_density(self.calc.wfs.kpt_u[self.kpt_ind], kss_jq, 
-                                            dnt_Gjq, dnt_gjq, drhot_gjq)
+                self.calculate_pair_density(self.calc.wfs.kpt_u[self.kpt_ind],
+                                            kss_jq, dnt_Gjq, dnt_gjq,
+                                            drhot_gjq)
                 self.timer.stop('Pair density')
-
 
                 self.timer.start('Integrate')
                 Ig = 0.0
@@ -1299,7 +1187,6 @@ class LrTDDFTindexed:
                 # XC smooth part
                 Ig += fxc_pre * self.calc.density.finegd.integrate(dVxct_gip[self.kpt_ind], dnt_gjq)
                 self.timer.stop('Integrate')
-
 
                 # FIXME: make function of the following loop
                 # FIXME, only spin unpolarized works atm
@@ -1369,10 +1256,6 @@ class LrTDDFTindexed:
 
     def __del__(self):
         self.timer.stop('LrTDDFT')
-
-
-
-    
 
 
 ###############################################################################
