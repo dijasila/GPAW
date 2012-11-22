@@ -1037,7 +1037,6 @@ class LrTDDFTindexed:
         dVht_gip = self.calc.density.finegd.empty()
         dVxct_gip = self.calc.density.finegd.zeros(self.calc.density.nt_sg.shape[0])
         dVxct_gip_2 = self.calc.density.finegd.zeros(self.calc.density.nt_sg.shape[0])
-        dVhxct_gip = self.calc.density.finegd.empty()
 
 
         self.timer.stop('Initialize')
@@ -1159,11 +1158,6 @@ class LrTDDFTindexed:
             self.timer.stop('Atomic XC')
 
 
-            # Avoid one integrate by combining Vht and Vxct to Vhxct 
-            dVhxct_gip[:]  = fH_pre  * dVht_gip
-            dVhxct_gip    += fxc_pre * dVxct_gip[self.kpt_ind]
-
-
             #################################################################
             # Inner loop over KS singles            
             K = [] # storage for row before writing to file
@@ -1188,8 +1182,10 @@ class LrTDDFTindexed:
 
                 self.timer.start('Integrate')
                 Ig = 0.0
-                # Hartree and XC smooth part
-                Ig += self.calc.density.finegd.integrate(dVhxct_gip, drhot_gjq)
+                # Hartree smooth part, RHOT_JQ HERE???
+                Ig += fH_pre * self.calc.density.finegd.integrate(dVht_gip, drhot_gjq)
+                # XC smooth part
+                Ig += fxc_pre * self.calc.density.finegd.integrate(dVxct_gip[self.kpt_ind], dnt_gjq)
                 self.timer.stop('Integrate')
 
                 # FIXME: make function of the following loop
