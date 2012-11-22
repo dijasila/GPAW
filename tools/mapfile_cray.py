@@ -29,7 +29,7 @@ print "# Total number of cores:", cores
 print "# Cores for band parallelization:", band_cores
 print "# Cores for domain decomposition:", ndomains
 
-reorder_file = open(' MPICH_RANK_ORDER', 'w')
+reorder_file = open('MPICH_RANK_ORDER', 'w')
 
 for rd in range(ndomains):
     band_ranks = range(rd, rd + (ndomains * band_cores), ndomains)
