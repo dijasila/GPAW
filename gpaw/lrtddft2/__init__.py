@@ -144,7 +144,7 @@ class LrTDDFTindexed:
 
         # Parent communicator
         if self.parent_comm is None:
-            self.parent_comm = self.gpaw.mpi.serial_comm
+            self.parent_comm = gpaw.mpi.serial_comm
 
         # Init text output
         if self.parent_comm.rank == 0 and txt is not None:
