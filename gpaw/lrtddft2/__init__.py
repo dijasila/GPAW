@@ -74,7 +74,7 @@ class LrTDDFTindexed:
 
         max_energy_diff
           Noninteracting Kohn-Sham excitations above this value are not
-          included in the calculation. Atomic units = Hartree! (optional)
+          included in the calculation. Units: eV (optional)
 
         recalculate
           | Force recalculation.
@@ -109,7 +109,7 @@ class LrTDDFTindexed:
         self.max_occ = max_occ
         self.min_unocc = min_unocc
         self.max_unocc = max_unocc
-        self.max_energy_diff = max_energy_diff # / units.Hartree
+        self.max_energy_diff = max_energy_diff / ase.units.Hartree
         self.recalculate = recalculate
         # Don't init calculator yet if it's not needed (to save memory)
         self.calc = calc
@@ -188,6 +188,11 @@ class LrTDDFTindexed:
             self.max_unocc = self.max_occ
         if self.max_energy_diff is None:
             self.max_energy_diff = 1e9
+        # FIXME: Warn if limits changed
+        self.min_occ   = max(self.min_occ,0)
+        self.min_unocc = max(self.min_unocc,0)
+        self.max_occ   = min(self.max_occ,nbands-1)
+        self.max_unocc = min(self.max_unocc,nbands-1)
 
 
         # Write info file
