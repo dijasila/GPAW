@@ -50,12 +50,12 @@ class RMM_DIIS(Eigensolver):
                 dR_xG = dR_xG[:B]
                 
             n_x = range(n1, n2)
+	    psit_xG = psit_nG[n1:n2]
             
             if self.keep_htpsit:
-                R_xG = R_nG[n_x]
+                R_xG = R_nG[n1:n2]
             else:
                 R_xG = wfs.empty(B, q=kpt.q)
-                psit_xG = kpt.psit_nG[n_x]
                 wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_xG, R_xG)
                 wfs.pt.integrate(psit_xG, P_axi, kpt.q)
                 self.calculate_residuals(kpt, wfs, hamiltonian, psit_xG,
@@ -76,7 +76,7 @@ class RMM_DIIS(Eigensolver):
             # Precondition the residual:
             self.timer.start('precondition')
             ekin_x = self.preconditioner.calculate_kinetic_energy(
-                psit_nG[n_x], kpt)
+                psit_xG, kpt)
             dpsit_xG = self.preconditioner(R_xG, kpt, ekin_x)
             self.timer.stop('precondition')
 
@@ -104,7 +104,7 @@ class RMM_DIIS(Eigensolver):
                 axpy(lam**2, dR_G, R_G)  # R_G += lam**2 * dR_G
                 
             self.timer.start('precondition')
-            psit_nG[n1:n2] += self.preconditioner(R_xG, kpt, ekin_x)
+            psit_xG[:] += self.preconditioner(R_xG, kpt, ekin_x)
             self.timer.stop('precondition')
             
         self.timer.stop('RMM-DIIS')
