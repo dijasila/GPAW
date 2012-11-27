@@ -75,9 +75,8 @@ class ExcitedState(FiniteDifferenceCalculator,GPAW):
         if atoms is None:
             atoms = self.atoms
             self.energy = self.calculate(atoms)
-        if (self.energy is None) or atoms != self.atoms:  
-            energy = self.calculate(atoms)
-            return energy
+        if (self.energy is None) or (atoms != self.atoms):  
+            return self.calculate(atoms)
         else:
             return self.energy
 
@@ -104,28 +103,32 @@ class ExcitedState(FiniteDifferenceCalculator,GPAW):
         """Return the stress for the current state of the Atoms."""
         raise NotImplementedError
 
-    def get_pseudo_density(self, spin=None, gridrefinement=1,
-                           pad=True, broadcast=True):
-        """Return pseudo-density array.
+    def initialize_density(self, method='dipole'):
+        if hasattr(self, 'density') and self.density.method == method:
+            return
 
-        If *spin* is not given, then the total density is returned.
-        Otherwise, the spin up or down density is returned (spin=0 or
-        1)."""
+        gsdensity = self.calculator.density
+        lr = self.lrtddft
+        self.density = ExcitedStateDensity(
+            gsdensity.gd, gsdensity.finegd, lr.kss.npspins,
+            gsdensity.charge,
+            method=method)
+        index = self.index.apply(self.lrtddft)
+        energy = self.get_potential_energy()
+        self.density.initialize(self.lrtddft, index)
+        self.density.update(self.calculator.wfs)
 
-        if not hasattr(self, 'density'):
-            gsdensity = self.calculator.density
-            lr = self.lrtddft
-            self.density = ExcitedStateDensity(
-                gsdensity.gd, gsdensity.finegd, lr.kss.npspins,
-                gsdensity.charge)
-            index = self.index.apply(self.lrtddft)
-            energy = self.get_potential_energy()
-            self.density.initialize(self.lrtddft, index, energy)
-            self.density.update(self.calculator.wfs)
+    def get_pseudo_density(self, *args, **kwargs):
+        """Return pseudo-density array."""
+        method = kwargs.pop('method', 'dipole')
+        self.initialize_density(method)
+        return GPAW.get_pseudo_density(self, *args, **kwargs)
 
-        return GPAW.get_pseudo_density(self, spin, gridrefinement,
-                                       pad, broadcast)
-
+    def get_all_electron_density(self, *args, **kwargs):
+        """Return all electron density array."""
+        method = kwargs.pop('method', 'dipole')
+        self.initialize_density(method)
+        return GPAW.get_all_electron_density(self, *args, **kwargs)
 
 class UnconstraintIndex:
     def __init__(self, index):
@@ -167,8 +170,11 @@ class MinimalOSIndex:
 
 class ExcitedStateDensity(RealSpaceDensity):
     """Approximate excited state density object."""
+    def __init__(self, *args, **kwargs):
+        self.method = kwargs.pop('method', 'dipole')
+        RealSpaceDensity.__init__(self, *args, **kwargs)
 
-    def initialize(self, lrtddft, index, energy):
+    def initialize(self, lrtddft, index):
         self.lrtddft = lrtddft
         self.index = index
 
@@ -182,11 +188,18 @@ class ExcitedStateDensity(RealSpaceDensity):
         
         # obtain weights
         ex = lrtddft[index]
+        energy = ex.energy
         wocc_sn = np.zeros((self.nspins, self.nbands))
         wunocc_sn = np.zeros((self.nspins, self.nbands))
         for f, k in zip(ex.f, ex.kss):
             # XXX why not k.fij * k.energy / energy ???
-            erat = Hartree * k.energy / energy
+            if self.method == 'dipole':
+                erat = k.energy / ex.energy
+            elif self.method == 'orthogonal':
+                erat = 1.
+            else:
+                raise NotImplementedError(
+                    'method should be either "dipole" or "orthogonal"')
             wocc_sn[k.pspin, k.i] += erat * f**2
             wunocc_sn[k.pspin, k.j] += erat * f**2
         self.wocc_sn = wocc_sn
