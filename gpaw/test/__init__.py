@@ -18,7 +18,7 @@ import gpaw
 def equal(x, y, tolerance=0, fail=True, msg=''):
     """Compare x and y."""
 
-    if not np.isfinite(x - y) or abs(x - y) > tolerance:
+    if not np.isfinite(x - y).any() or (np.abs(x - y) > tolerance).any():
         msg = (msg + '%s != %s (error: |%s| > %.9g)' %
                (x, y, x - y, tolerance))
         if fail:
