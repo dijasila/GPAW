@@ -30,8 +30,11 @@ class HirshfeldDensity(RealSpaceDensity):
             atom_indicees = range(len(all_atoms))
 
         density = self.calculator.density
+        spos_ac = all_atoms.get_scaled_positions() % 1.0
+        rank_a = self.finegd.get_ranks_from_positions(spos_ac)
         density.set_positions(all_atoms.get_scaled_positions() % 1.0,
-                              self.calculator.wfs.rank_a)
+                              rank_a
+                              )
 
         # select atoms
         atoms = []
@@ -69,7 +72,6 @@ class HirshfeldDensity(RealSpaceDensity):
 
         aed_sg, gd = self.get_all_electron_density(atoms, 
                                                    gridrefinement=2)
-
         return aed_sg[0], gd
 
 class HirshfeldPartitioning:

@@ -70,6 +70,4 @@ lastres = run()
 parprint('reloaded:')
 calc = GPAW(gpwname, txt=None)
 mol = calc.get_atoms()
-# XXX this should not be necessary
-calc.converge_wave_functions()
 run(lastres)
