@@ -141,6 +141,7 @@ class WaveFunctions(EmptyWaveFunctions):
     def calculate_inter_atomic_density_matrices(self, Dab_sij):
         """Calculate atomic density matrices from projections."""
         f_un = [kpt.f_n for kpt in self.kpt_u]
+        
         for a, Db_sij in Dab_sij.items():
             nai = self.setups[a].ni
             for b, D_sij in Db_sij.items():
@@ -152,26 +153,28 @@ class WaveFunctions(EmptyWaveFunctions):
                                                     D_sij, kpt, a, b, f_n)
                 self.band_comm.sum(D_sij)
                 self.kpt_comm.sum(D_sij)
-        
+    
+    # YYY
     def calculate_inter_atomic_density_matrices_k_point(self, D_sij, kpt, a, 
                                                         b, f_n):
-        if kpt.rho_MM is not None:
-            Pa_Mi = kpt.P_aMi[a]
-            Pb_Mi = kpt.P_aMi[b]
-            rhoP_Mi = np.zeros_like(Pa_Mi)
-            D_ii = np.zeros(D_sij[kpt.s].shape, kpt.rho_MM.dtype)
-            gemm(1.0, Pa_Mi, kpt.rho_MM, 0.0, rhoP_Mi)
-            gemm(1.0, rhoP_Mi, Pb_Mi.T.conj().copy(), 0.0, D_ii)
-            D_sij[kpt.s] += D_ii.real
-        else:
-            Pa_ni = kpt.P_ani[a]
-            Pb_ni = kpt.P_ani[b]
-            D_sij[kpt.s] += np.dot(Pa_ni.T.conj() * f_n, Pb_ni).real
-
-        if hasattr(kpt, 'c_on'):
-            for ne, c_n in zip(kpt.ne_o, kpt.c_on):
-                d_nn = ne * np.outer(c_n.conj(), c_n)
-                D_sij[kpt.s] += np.dot(Pa_ni.T.conj(), np.dot(d_nn, Pb_ni)).real 
+        if 0:       
+            if kpt.rho_MM is not None:
+                Pa_Mi = kpt.P_aMi[a]
+                Pb_Mi = kpt.P_aMi[b]
+                rhoP_Mi = np.zeros_like(Pa_Mi)
+                D_ii = np.zeros(D_sij[kpt.s].shape, kpt.rho_MM.dtype)
+                gemm(1.0, Pa_Mi, kpt.rho_MM, 0.0, rhoP_Mi)
+                gemm(1.0, rhoP_Mi, Pb_Mi.T.conj().copy(), 0.0, D_ii)
+                D_sij[kpt.s] += D_ii.real
+            else:
+                Pa_ni = kpt.P_ani[a]
+                Pb_ni = kpt.P_ani[b]
+                D_sij[kpt.s] += np.dot(Pa_ni.T.conj() * f_n, Pb_ni).real
+    
+            if hasattr(kpt, 'c_on'):
+                for ne, c_n in zip(kpt.ne_o, kpt.c_on):
+                    d_nn = ne * np.outer(c_n.conj(), c_n)
+                    D_sij[kpt.s] += np.dot(Pa_ni.T.conj(), np.dot(d_nn, Pb_ni)).real 
         
     # YYY
     def calculate_inter_atomic_density_matrices2(self, Dab_sp):

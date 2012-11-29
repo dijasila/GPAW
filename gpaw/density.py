@@ -104,13 +104,13 @@ class Density:
         
         # If both old and new atomic ranks are present, start a blank dict if
         # it previously didn't exist but it will needed for the new atoms.
-
+        
         if (self.rank_a is not None and rank_a is not None and
             self.D_asp is None and (rank_a == self.gd.comm.rank).any()):
             self.D_asp = {}
             if self.Dab_sij is None:
                 self.Dab_sij = {}
-                            
+      
         if self.rank_a is not None and self.D_asp is not None:
             self.timer.start('Redistribute')
             requests = []
@@ -119,7 +119,7 @@ class Density:
                 rank_a == self.gd.comm.rank)).ravel()
             my_outgoing_atom_indices = np.argwhere(np.bitwise_and(flags, \
                 self.rank_a == self.gd.comm.rank)).ravel()
-
+            
             for a in my_incoming_atom_indices:
                 # Get matrix from old domain:
                 ni = self.setups[a].ni
@@ -131,18 +131,19 @@ class Density:
                 self.D_asp[a] = D_sp
                 
                 # YYY To create the empty array for the intersite density matrix
+                
                 self.Dab_sij[a]={}
                 Db_sij = {}
                 for b in self.Dab_neighborlist[a]:
                     nbi = self.setups[b].ni
                     Db_sij[b] = np.empty((self.nspins * self.ncomp**2,
-                                 ni * nbi + 1))
+                                 ni, nbi))
                     
                 requests.append(self.gd.comm.receive(Db_sij, 
                                                          self.rank_a[a],
                                                      tag=a, block=False))
-                self.Dab_sp[a] = Db_sij
-                    
+                self.Dab_sij[a] = Db_sij
+            
 
             for a in my_outgoing_atom_indices:
                 # Send matrix to new domain:
@@ -151,7 +152,7 @@ class Density:
                                                   tag=a, block=False))
                 
                 # YYY for intersite Density matrix
-                Db_sij = self.Dab_sp.pop(a)
+                Db_sij = self.Dab_sij.pop(a)
                 requests.append(self.gd.comm.send(Db_sij, rank_a[a],
                                                   tag=a, block=False))
                 
@@ -176,7 +177,8 @@ class Density:
         self.timer.stop('Pseudo density')
         self.timer.start('Atomic density matrices')
         wfs.calculate_atomic_density_matrices(self.D_asp)
-        # Update Dab_sp
+        # YYY
+        wfs.calculate_inter_atomic_density_matrices(self.Dab_sij)
         
         self.timer.stop('Atomic density matrices')
         self.timer.start('Multipole moments')
@@ -253,7 +255,7 @@ class Density:
 
         self.D_asp = {}
         self.Dab_sij = {}
-        
+
         f_asi = {}
         for a in basis_functions.atom_indices:
             c = self.charge / len(self.setups)  # distribute on all atoms
@@ -313,7 +315,7 @@ class Density:
             self.Dab_sij[a] = {}
             for b in self.Dab_neighborlist:
                 nib = self.setups[b].ni
-                self.Dab_sij[a][b] = np.empty((self.nspins, ni * nib))
+                self.Dab_sij[a][b] = np.empty((self.nspins, ni, nib))
         
         wfs.calculate_atomic_density_matrices(self.D_asp)
         # YYY

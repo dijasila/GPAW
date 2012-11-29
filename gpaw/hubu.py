@@ -104,7 +104,9 @@ class HubU:
         c = self.paw
         
         c.hamiltonian.set_hubbard_u(HubU_dict = HubU_dict_base)
-        c.scf.reset()
+        
+        if c.scf != None:
+            c.scf.reset()
         c.calculate()
         
         # Get number of spins
@@ -172,9 +174,7 @@ class HubU:
                         if background:
                             X0[ii,-1] -= np.sum(X0[ii,:])
                             Xks[ii,-1] -= np.sum(Xks[ii,:])
-                        ii+=1
-        print X0
-        print Xks
+
         if background:
             for jj in range(sites):
                 X0[-1,jj]  -= np.sum(X0[:,jj]) 
@@ -199,6 +199,87 @@ class HubU:
             return new_HubU_dict, U, X0, Xks 
         else:
             return new_HubU_dict
+
+
+    def get_LR_U0_range(self,a,n,l,
+                               HubU_dict = {},
+                               alpha = 0.002,
+                               steps = 5, 
+                               negative = 1,
+                               scale = 1,
+                               NbP = 1,
+                               mode='all',
+                               ):
+        """
+        spin {0,1,2} (2: on both)
+        0.05eV/Hartree=0.00183746618: potential shift  
+        """
+        if a not in HubU_dict:
+            HubU_dict[a]={}
+        if n not in HubU_dict[a]:
+            HubU_dict[a][n]={}
+        if l not in HubU_dict[a][n]:
+            HubU_dict[a][n][l]={}
+        HubU_dict[a][n][l]['alpha']=alpha
+
+        c = self.paw
+        c.calculate()
+        #print 'magmom', c.density.magmom_av
+        
+        #print 'c.occupations.magmom', c.occupations.magmom
+        #print 'c.get_magnetic_moments()', c.get_magnetic_moments()
+        #STOP
+        
+        
+        mag = c.occupations.magmom
+        Nanl_ref = self.get_Nocc(a, n, l, scale=scale, NbP = NbP)
+        print Nanl_ref
+         
+        STOP
+        if negative:
+            alpha_range = np.linspace(-1*alpha, alpha, steps)
+        else:
+            alpha_range = np.linspace(0., alpha, steps)
+            
+        Nanl_0_li = np.array([])
+        Nanl_KS_li = np.array([])
+        
+        mag_li = c.get_magnetic_moments()
+        
+        for i, alphai in enumerate(alpha_range):
+            c.scf.HubAlphaIO = False
+            HubU_dict[a][n][l]['alpha']=0.
+            c.hamiltonian.set_hubbard_u(HubU_dict = HubU_dict)
+            c.scf.reset()
+            c.calculate()
+            
+            HubU_dict[a][n][l]['alpha']=alphai
+            c.hamiltonian.set_hubbard_u(HubU_dict = HubU_dict)
+            c.scf.HubAlphaIO = True
+            c.scf.reset()
+            c.calculate()
+            
+            mag_li = np.vstack((mag_li, c.get_magnetic_moments()))
+            
+            Nanl_0 = self.get_Nocc(a, n, l, scale=scale, NbP = NbP, mode='0')
+            Nanl_KS = self.get_Nocc(a, n, l, scale=scale, NbP = NbP)
+        
+            Nanl_0_li = np.hstack((Nanl_0_li,Nanl_0))
+            Nanl_KS_li = np.hstack((Nanl_KS_li,Nanl_KS))
+        
+        Xres_0 = np.polyfit(alpha_range, Nanl_0_li-Nanl_ref, 1)[0]
+        Xres_KS = np.polyfit(alpha_range, Nanl_KS_li-Nanl_ref, 1)[0]
+        
+        
+        #print 'Nanl_ref, Nanl_0, Nanl_KS', Nanl_ref, Nanl_0, Nanl_KS
+        #Xres_0 = (Nanl_0-Nanl_ref)/alpha
+        #Xres_KS = (Nanl_KS-Nanl_ref)/alpha
+        
+        U0 = Xres_0**-1 - Xres_KS**-1
+        if mode=='all':
+            return U0, Nanl_0_li, Nanl_KS_li, Nanl_ref, mag_li, alpha_range
+        else:
+            return U0
     
     def get_linear_response_U0(self,a,n,l,
                                HubU_dict = {},
@@ -272,7 +353,7 @@ class HubU:
             
             N = 0.
             for s in range(nspin):
-                N += np.trace(c.hamiltonian.aoom(unpack2(D_asp[a][0]),
+                N += np.trace(c.hamiltonian.aoom(unpack2(D_asp[a][s]),
                                 a,n,l,NbP=NbP,scale=scale)[p])
             N = np.array([N])
         self.world.broadcast(N, c.density.rank_a[a])

@@ -199,6 +199,7 @@ class Hamiltonian:
         a, b: atom a and b
         
         """
+        
         Sa=self.setups[a]
         la_j = Sa.l_j
         na_j = Sa.n_j
@@ -389,9 +390,10 @@ class Hamiltonian:
         setup = self.setups[a]
         
         self.dHab_sij[a] = {}
-        
         Db_sij = density.Dab_sij[a]
 
+        #print 'shape \n\n\n', np.shape(Db_sij)
+        
         for b in self.Dab_neighborlist[a]:
             self.dHab_sij[a][b] = np.zeros_like(Db_sij[b])
         
@@ -427,7 +429,6 @@ class Hamiltonian:
                     for s, (D_p, H_p) in enumerate(zip(D_sp,self.dH_asp[a])):
                         [N_mm,V] =self.aoom(unpack2(D_p),a,n,l,NbP=NbP, 
                                             scale=scale)
-                        #inter_aoom(self, DMab, a, b, n_a, l_a, n_b, l_b)
                         
                         N_mm = N_mm / 2 * nspins
                         Vorb = np.zeros((2*l+1,2*l+1))
@@ -443,8 +444,29 @@ class Hamiltonian:
                             if nspins == 1:
                                 dExc += Eorb
                             Vorb += Hub_U_anls * (0.5 * np.eye(2*l+1) - N_mm)
-                            # V on site
-                            
+                        
+                        # V on site
+                        for b in density.Dab_neighborlist[a]:
+                            if 1 and b in HubU_nl:
+                                for bn in HubU_nl[b]:
+                                    for bl in HubU_nl[b][bn]:
+                                        HubV = HubU_nl[b][bn][bl]
+                                        for s, (Dab_ij, Hab_ij) in enumerate(
+                                                            zip(Db_sij[b],self.dHab_sij[a][b])):
+                                            [N_mn,Vmn] = self.inter_aoom(Dab_ij, 
+                                                                         a, b, n, 
+                                                                         l, bn, bl)
+                                            
+                                            N_mn = N_mn / 2 * nspins
+                                            Vorb = np.zeros((2*l+1,2*bl+1))
+                                            if 'V' in HubV:
+                                                print 'test'
+                                                Eorb = HubV['V'] # * (N_mm - \ np.dot(N_mm,N_mm)).trace()
+                                                            
+                                                            
+                                                            
+                                            
+                                            
                         if len(nl)==2:
                             mm  = (2*np.array(l_j)+1)[0:nl[1]].sum()
                             V[nn:nn+2*l+1,nn:nn+2*l+1] *= Vorb
