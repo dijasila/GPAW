@@ -1,5 +1,9 @@
+# Run on 32 cores to keep memory below 2GB per core!
+
 # keep_htpsit=False fails since 9473,
 # on some installations (intel?/mkl?) with:
+
+# case A (see below in the code):
 # RuntimeError: Could not locate the Fermi level!
 
 # The energies from the 2nd one behave strange:
@@ -9,8 +13,10 @@
 # iter:   4  18:23:58  +2.4   -0.9     -1040.851545  216    11
 # iter:   5  18:24:43  +2.6   -1.0      822.569589  597    14
 
-# The energies depend strongly on the number of cores,
-# no convergence when starting from a converged (keep_htpsit=True) run!
+# case B (see below in the code):
+# No convergence when starting from a converged (keep_htpsit=True) run!
+# WFS error grow to positive values!
+
 # Is it an extreme case of https://trac.fysik.dtu.dk/projects/gpaw/ticket/51 ?
 
 import os
@@ -88,5 +94,17 @@ calc = GPAW(nbands=nbands,
             eigensolver = es,
             txt=prefix + '.txt',
             )
-atoms.set_calculator(calc)
-pot = atoms.get_potential_energy()
+if 1:  # case A
+    atoms.set_calculator(calc)
+    pot = atoms.get_potential_energy()
+else:  # case B
+    # converge first with keep_htpsit=True
+    calc.set(eigensolver='rmm-diis')
+    calc.set(txt=prefix + '_True.txt')
+    atoms.set_calculator(calc)
+    pot = atoms.get_potential_energy()
+    # fails to converge with keep_htpsit=False
+    calc.set(eigensolver=es)
+    calc.set(txt=prefix + '_False.txt')
+    atoms.set_calculator(calc)
+    pot = atoms.get_potential_energy()
