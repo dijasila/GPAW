@@ -205,7 +205,7 @@ class GPAW(PAW):
                              for spin in range(2)])
 
     def get_all_electron_density(self, spin=None, gridrefinement=2,
-                                 pad=True, broadcast=True):
+                                 pad=True, broadcast=True, collect=True):
         """Return reconstructed all-electron density array."""
         n_sG, gd = self.density.get_all_electron_density(
             self.atoms, gridrefinement=gridrefinement)
@@ -221,7 +221,8 @@ class GPAW(PAW):
             else:
                 n_G = n_sG[spin]
 
-        n_G = gd.collect(n_G, broadcast)
+        if collect:
+            n_G = gd.collect(n_G, broadcast)
 
         if n_G is None:
             return None
