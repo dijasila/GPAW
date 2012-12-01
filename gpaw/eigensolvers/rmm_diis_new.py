@@ -50,7 +50,7 @@ class RMM_DIIS_new(Eigensolver):
         errors = np.zeros(B)
         
         # Arrays needed for DIIS step
-	if self.niter > 1:
+        if self.niter > 1:
             psit_diis_nxG = wfs.empty(B * self.niter, q=kpt.q)
             R_diis_nxG = wfs.empty(B * self.niter, q=kpt.q)
             P_diis_anxi = wfs.pt.dict(B * self.niter)
