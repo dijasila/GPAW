@@ -8,7 +8,7 @@ from ase.calculators.test import numeric_forces
 from gpaw import GPAW
 from gpaw.density import RealSpaceDensity
 from gpaw.output import initialize_text_stream
-from gpaw.mpi import rank
+from gpaw.mpi import rank, world
 from gpaw.transformers import Transformer
 from gpaw.utilities.blas import axpy
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
@@ -30,7 +30,7 @@ class FiniteDifferenceCalculator(Calculator):
             if txt is None:
                 self.txt = self.lrtddft.txt
             else:
-                rank = self.calculator.wfs.world.rank
+                rank = world.rank
                 self.txt, firsttime = initialize_text_stream(txt, rank)
                                                               
         self.d = d
@@ -55,8 +55,8 @@ class ExcitedState(FiniteDifferenceCalculator,GPAW):
                  parallel=None):
         """ExcitedState object.
 
-        parallel: Can be used to parallelize the numerical force calculation over
-        images.
+        parallel: Can be used to parallelize the numerical force calculation 
+        over images.
         """
         FiniteDifferenceCalculator.__init__(self, lrtddft, d, txt, parallel)
 
