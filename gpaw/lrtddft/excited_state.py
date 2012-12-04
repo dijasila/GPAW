@@ -70,13 +70,28 @@ class ExcitedState(FiniteDifferenceCalculator,GPAW):
 
         print >> self.txt, 'ExcitedState', self.index
  
+    def calculation_required(self, atoms, quantities):
+        if len(quantities) == 0:
+            return False
+        if atoms != self.atoms:
+            return True
+        for quantity in ['energy', 'forces']:
+            if quantity in quantities:
+                quantities.remove(quantity)
+                if self.__dict__[quantity] is None:
+                    return True
+        return len(quantities) > 0
+
     def get_potential_energy(self, atoms=None):
         """Evaluate potential energy for the given excitation."""
         if atoms is None:
             atoms = self.atoms
-            self.energy = self.calculate(atoms)
-        if (self.energy is None) or (atoms != self.atoms):  
-            return self.calculate(atoms)
+        if self.calculation_required(atoms, ['energy']):
+            if atoms is None or atoms == self.atoms:
+                self.energy = self.calculate(atoms)
+                return self.energy
+            else:
+                return self.calculate(atoms)
         else:
             return self.energy
 
@@ -87,7 +102,7 @@ class ExcitedState(FiniteDifferenceCalculator,GPAW):
 
     def get_forces(self, atoms):
         """Get finite-difference forces"""
-        if (self.forces is None) or atoms != self.atoms:
+        if self.calculation_required(atoms, ['forces']):
             atoms.set_calculator(self)
             self.forces = numeric_forces(atoms, d=self.d, 
                                          parallel=self.parallel)
