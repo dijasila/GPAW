@@ -330,8 +330,13 @@ class LrTDDFTindexed:
         self.eh_comm.sum(dm)
 
         # osc = 2 * omega |dm|**2 / 3
-        osc = 2. * self.get_excitation_energy(k) * (dm[0]*dm[0]+dm[1]*dm[1]+dm[2]*dm[2]) / 3.
-        return osc
+        omega = self.get_excitation_energy(k)
+        oscx = 2. * omega * dm[0]*dm[0]
+        oscy = 2. * omega * dm[1]*dm[1]
+        oscz = 2. * omega * dm[2]*dm[2]
+        osc = (oscx+oscy+oscz)/3.
+        return osc, np.array([oscx, oscy, oscz])
+
 
     def get_rotatory_strength(self, k, units='a.u.'):
         """Get rotatory strength for an interacting transition
@@ -381,7 +386,7 @@ class LrTDDFTindexed:
     def get_transitions(self, filename=None, min_energy=0.0, max_energy=30.0, units='eVcgs'):
         """Get transitions: energy, dipole strength and rotatory strength.
 
-        Returns transitions as (w,S,R) where w is an array of frequencies,
+        Returns transitions as (w,S,R, Sx,Sy,Sz) where w is an array of frequencies,
         S is an array of corresponding dipole strengths, and R is an array of
         corresponding rotatory strengths.
 
@@ -410,6 +415,9 @@ class LrTDDFTindexed:
         w = []
         S = []
         R = []
+        Sx = []
+        Sy = []
+        Sz = []
         
         print >> self.txt, 'Calculating transitions (', str(datetime.datetime.now()), ').',
         for (k, omega2) in enumerate(self.evalues):
@@ -421,12 +429,19 @@ class LrTDDFTindexed:
                 self.txt.flush()
             
             w.append(self.get_excitation_energy(k))
-            S.append(self.get_oscillator_strength(k))
+            St, Sc = self.get_oscillator_strength(k)
+            S.append(St)
+            Sx.append(Sc[0])
+            Sy.append(Sc[1])
+            Sz.append(Sc[2])
             R.append(self.get_rotatory_strength(k))
 
         w = np.array(w)
         S = np.array(S)
         R = np.array(R)
+        Sx = np.array(Sx)
+        Sy = np.array(Sy)
+        Sz = np.array(Sz)
 
         print >> self.txt, ''
                 
@@ -434,7 +449,7 @@ class LrTDDFTindexed:
             pass
         elif units == 'eVcgs':
             w *= ase.units.Hartree
-            S /= ase.units.Hartree
+            # S has no units!!!
             R *= 64604.8164 # from turbomole
         else:
             raise RuntimeError('Unknown units.')
@@ -442,11 +457,11 @@ class LrTDDFTindexed:
 
         if filename is not None and gpaw.mpi.world.rank == 0:
             sfile = open(filename,'w')
-            for (ww,SS,RR) in zip(w,S,R):
-                sfile.write("%12.8lf  %12.8lf  %12.8lf\n" % (ww,SS,RR))
+            for (ww,SS,RR,SSx,SSy,SSz) in zip(w,S,R,Sx,Sy,Sz):
+                sfile.write("%12.8lf  %12.8lf  %12.8lf     %12.8lf  %12.8lf  %12.8lf\n" % (ww,SS,RR,SSx,SSy,SSz))
             sfile.close()
 
-        return (w,S,R)
+        return (w,S,R,Sx,Sy,Sz)
         
 
     def get_spectrum(self, filename=None, min_energy=0.0, max_energy=30.0,
@@ -489,11 +504,14 @@ class LrTDDFTindexed:
 
         w = np.arange(min_energy, max_energy, energy_step)
         S = w*0.
+        Sx = w*0.
+        Sy = w*0.
+        Sz = w*0.
         R = w*0.
 
-        ww, SS, RR = self.get_transitions(min_energy=min_energy-5*width,
-                                          max_energy=max_energy+5*width,
-                                          units='a.u.')
+        (ww, SS, RR, SSx, SSy, SSz) = self.get_transitions(min_energy=min_energy-5*width,
+                                                           max_energy=max_energy+5*width,
+                                                           units='a.u.')
                 
         print >> self.txt, 'Calculating spectrum (', str(datetime.datetime.now()), ').',
         for (k, www) in enumerate(ww):
@@ -504,6 +522,16 @@ class LrTDDFTindexed:
             c = SS[k] / width / math.sqrt(2*np.pi)
             S += c * np.exp( (-.5/width/width) * np.power(w-ww[k],2) ) 
 
+            c = SSx[k] / width / math.sqrt(2*np.pi)
+            Sx += c * np.exp( (-.5/width/width) * np.power(w-ww[k],2) ) 
+
+            c = SSy[k] / width / math.sqrt(2*np.pi)
+            Sy += c * np.exp( (-.5/width/width) * np.power(w-ww[k],2) ) 
+
+            c = SSz[k] / width / math.sqrt(2*np.pi)
+            Sz += c * np.exp( (-.5/width/width) * np.power(w-ww[k],2) ) 
+
+
             c = RR[k] / width / np.sqrt(2*np.pi)
             R += c * np.exp( (-.5/width/width) * np.power(w-ww[k],2) ) 
 
@@ -512,20 +540,25 @@ class LrTDDFTindexed:
         if units == 'a.u.':
             pass
         elif units == 'eVcgs':
-            w *= ase.units.Hartree
-            S /= ase.units.Hartree
-            R *= 64604.8164 # from turbomole
+            w  *= ase.units.Hartree
+            S  /= ase.units.Hartree
+            Sx /= ase.units.Hartree
+            Sy /= ase.units.Hartree
+            Sz /= ase.units.Hartree
+            R  *= 1./ase.units.Hartree * 64604.8164   # factor 64604.8164 from turbomole
         else:
             raise RuntimeError('Unknown units.')
 
         if filename is not None and gpaw.mpi.world.rank == 0:
             sfile = open(filename,'w')
-            for (ww,SS,RR) in zip(w,S,R):
-                sfile.write("%12.8lf  %12.8lf  %12.8lf\n" % (ww,SS,RR))
+            for (ww,SS,RR,SSx,SSy,SSz) in zip(w,S,R,Sx,Sy,Sz):
+                sfile.write("%12.8lf  %12.8lf  %12.8lf     %12.8lf  %12.8lf  %12.8lf\n" % (ww,SS,RR,SSx,SSy,SSz))
             sfile.close()
 
-        return (w,S,R)
-        
+        return (w,S,R, Sx,Sy,Sz)
+
+
+
 ###
 # Utility
 ###
