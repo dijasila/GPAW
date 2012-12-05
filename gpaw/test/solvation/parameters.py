@@ -45,7 +45,7 @@ assert calc1.input_parameters['solvation'] == expected
 calc0.set(solvation=params)
 assert calc0.input_parameters['solvation'] == expected
 
-el_change = {'mode':MODE_ELECTRON_DENSITY_CUTOFF, 'cutoff':1e-5}
+el_change = {'mode':MODE_ELECTRON_DENSITY_CUTOFF, 'rho_min':1e-5}
 calc0.set(solvation={'el':el_change})
 assert calc0.input_parameters['solvation'] == update(
     expected,

@@ -550,12 +550,8 @@ class RealSpaceHamiltonian(Hamiltonian):
         Epot = 0.5 * self.finegd.integrate(self.vHt_g, density.rhot_g,
                                            global_integral=False)
 
-        s = 0
-        for vt_g, vt_G, nt_G in zip(self.vt_sg, self.vt_sG, density.nt_sG):
-            if s < self.nspins:
-                vt_g += self.vHt_g
-            self.restrict(vt_g, vt_G)
-            s += 1
+        for vt_g in self.vt_sg[:self.nspins]:
+            vt_g += self.vHt_g
 
         self.timer.stop('Hartree integrate/restrict')
 
@@ -567,6 +563,7 @@ class RealSpaceHamiltonian(Hamiltonian):
         Ekin = 0.0
         s = 0
         for vt_g, vt_G, nt_G in zip(self.vt_sg, self.vt_sG, density.nt_sG):
+            self.restrict(vt_g, vt_G)
             if s < self.nspins:
                 Ekin -= self.gd.integrate(vt_G, nt_G - density.nct_G,
                                           global_integral=False)

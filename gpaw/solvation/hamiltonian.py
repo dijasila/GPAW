@@ -44,7 +44,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         E = {}
         E['pot'], E['bar'], E['ext'], E['xc'] = \
                   self.update_pseudo_potential(density)
-        self.contributions['el'].update_pseudo_potential(density)
+        E['pot'] += self.contributions['el'].update_pseudo_potential(density)
         Acav = self.contributions['el'].get_cavity_surface_area()
         Vcav = self.contributions['el'].get_cavity_volume()
         for cname, contrib in self.contributions.iteritems():

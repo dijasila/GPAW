@@ -3,7 +3,7 @@ from ase.data.vdw import vdw_radii
 from gpaw import GPAW
 from gpaw.solvation.calculator import SolvationGPAW
 from gpaw.solvation.contributions import (
-    MODE_RADII_CUTOFF, MODE_SURFACE_TENSION
+    MODE_RADII_CUTOFF, MODE_SURFACE_TENSION, MODE_AREA_VOLUME_VDW
     )
 from gpaw.solvation.poisson import SolvationPoissonSolver
 from gpaw.solvation.hamiltonian import SolvationRealSpaceHamiltonian
@@ -38,12 +38,16 @@ water.calc = SolvationGPAW(
         'el':{
             'mode':MODE_RADII_CUTOFF,
             'radii':[vdw_radii[a.number] for a in water],
-            'exponent':3.4,
-            'epsilon_r':1.0
+            'exponent':5.2
             },
         'cav':{
             'mode':MODE_SURFACE_TENSION,
             'surface_tension': .0
+            },
+        'dis':{
+            'mode':MODE_AREA_VOLUME_VDW,
+            'surface_tension': .0,
+            'pressure': .0
             }
         }
     )
