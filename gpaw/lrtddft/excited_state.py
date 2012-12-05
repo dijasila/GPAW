@@ -52,7 +52,7 @@ class FiniteDifferenceCalculator(Calculator):
 
 class ExcitedState(FiniteDifferenceCalculator,GPAW):
     def __init__(self, lrtddft, index, d=0.001, txt=None,
-                 parallel=None):
+                 parallel=None, name='ES'):
         """ExcitedState object.
 
         parallel: Can be used to parallelize the numerical force calculation 
@@ -64,11 +64,15 @@ class ExcitedState(FiniteDifferenceCalculator,GPAW):
             self.index = UnconstraintIndex(index)
         else:
             self.index = index
+        self.name = name
 
         self.energy = None
         self.forces = None
 
-        print >> self.txt, 'ExcitedState', self.index
+        print >> self.txt, 'ExcitedState', self.index,
+        if name:
+            print >> self.txt, ('name=' + name),
+        print >> self.txt
  
     def calculation_required(self, atoms, quantities):
         if len(quantities) == 0:
@@ -104,8 +108,12 @@ class ExcitedState(FiniteDifferenceCalculator,GPAW):
         """Get finite-difference forces"""
         if self.calculation_required(atoms, ['forces']):
             atoms.set_calculator(self)
+            name = self.name
+            if name:
+                name += 'force'
             self.forces = numeric_forces(atoms, d=self.d, 
-                                         parallel=self.parallel)
+                                         parallel=self.parallel,
+                                         name=name)
             if self.txt:
                 print >> self.txt, 'Excited state forces in eV/Ang:'
                 symbols = self.atoms.get_chemical_symbols()
