@@ -71,6 +71,22 @@ class LrTDDFT(ExcitationList):
                  eh_comm=None # parallelization over eh-pairs
                  ):
 
+        parameters = {
+            'nspins' : None,
+            'eps' : 0.001,
+            'istart' : 0,
+            'jend' : None,
+            'energy_range' : None,
+            'xc' : 'GS',
+            'derivative_level' : 1,
+            'numscale' : 0.00001,
+            'txt' : None,
+            'filename' : None,
+            'finegrid' : 2,
+            'force_ApmB' : False, # for tests
+            'eh_comm' : None # parallelization over eh-pairs
+            }
+
         self.nspins = None
         self.istart = None
         self.jend = None
@@ -115,6 +131,10 @@ class LrTDDFT(ExcitationList):
             self.update(calculator, nspins, eps, 
                         istart, jend, energy_range,
                         xc, derivative_level, numscale)
+
+    def set_calculator(self, calculator):
+        self.calculator = calculator
+        self.force_ApmB = parameters['force_ApmB']
 
     def analyse(self, what=None, out=None, min=0.1):
         """Print info about the transitions.
