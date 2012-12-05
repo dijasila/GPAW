@@ -123,6 +123,7 @@ tests = [
     'maxrss.py',
     'proton.py',
     'gemm.py',
+    'keep_htpsit.py',
     'pw/stresstest.py',
     'aeatom.py',
     'numpy_zdotc_graphite.py',
