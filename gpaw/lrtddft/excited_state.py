@@ -52,7 +52,7 @@ class FiniteDifferenceCalculator(Calculator):
 
 class ExcitedState(FiniteDifferenceCalculator,GPAW):
     def __init__(self, lrtddft, index, d=0.001, txt=None,
-                 parallel=None, name='ES'):
+                 parallel=None, name=None):
         """ExcitedState object.
 
         parallel: Can be used to parallelize the numerical force calculation 
