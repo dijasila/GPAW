@@ -1,3 +1,5 @@
+# the problem described below was fixed in 9758!
+
 # keep_htpsit=False fails since 9473,
 # on some installations (?) with:
 
