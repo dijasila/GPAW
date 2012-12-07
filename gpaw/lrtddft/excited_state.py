@@ -164,6 +164,9 @@ class MinimalOSIndex:
     """
     Constraint on minimal oscillator strength.
 
+    Searches for the first excitation that has a larger
+    oscillator strength than the given minimum.
+
     direction:
         None: averaged (default)
         0, 1, 2: x, y, z
@@ -176,11 +179,11 @@ class MinimalOSIndex:
         index = None
         i = 0
         fmax = 0.
+        idir = 0
+        if self.direction is not None:
+            idir = 1 + self.direction
         while i < len(lrtddft):
             ex = lrtddft[i]
-            idir = 0
-            if self.direction is not None:
-                idir = 1 + self.direction
             f = ex.get_oscillator_strength()[idir]
             fmax = max(f, fmax)
             if f > self.fmin:
@@ -190,6 +193,47 @@ class MinimalOSIndex:
         error += 'can not be satisfied (max(f) = ' + str(fmax) + ').'
         raise RuntimeError(error)
         
+class MaximalOSIndex:
+    """
+    Select maximal oscillator strength.
+
+    Searches for the excitation with maximal oscillator strength
+    in a given energy range.
+
+    energy_range:
+        None: take all (default)
+        [Emin, Emax]: take only transition in this energy range
+        Emax: the same as [0, Emax]
+    direction:
+        None: averaged (default)
+        0, 1, 2: x, y, z
+    """
+    def __init__(self, energy_range=None, direction=None):
+        if energy_range is None:
+            energy_range = np.array([0.0, 1.e32])
+        elif isinstance(energy_range, (int, long, float)):
+            energy_range = np.array([0.0, energy_range]) / Hartree
+        self.energy_range = energy_range
+
+        self.direction = direction
+
+    def apply(self, lrtddft):
+        index = None
+        fmax = 0.
+        idir = 0
+        if self.direction is not None:
+            idir = 1 + self.direction
+        emin, emax = self.energy_range
+        for i, ex in enumerate(lrtddft):
+            f = ex.get_oscillator_strength()[idir]
+            e = ex.get_energy()
+            if e >= emin and e < emax and f > fmax:
+                fmax = f
+                index = i
+        if index is None:
+            raise RuntimeError('No transition in the energy range ' +
+                               '[%g,%g]' % self.energy_range)
+        return index
 
 class ExcitedStateDensity(RealSpaceDensity):
     """Approximate excited state density object."""
