@@ -50,7 +50,7 @@ class RMM_DIIS(Eigensolver):
                 dR_xG = dR_xG[:B]
                 
             n_x = range(n1, n2)
-	    psit_xG = psit_nG[n1:n2]
+            psit_xG = psit_nG[n1:n2]
             
             if self.keep_htpsit:
                 R_xG = R_nG[n1:n2]
