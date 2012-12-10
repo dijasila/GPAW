@@ -3,13 +3,16 @@ from gpaw.utilities.tools import coordinates
 from gpaw.fd_operators import Gradient, Laplace
 from gpaw.poisson import PoissonSolver
 from types import StringTypes
-from ase.units import Hartree, Bohr
+from ase.units import Hartree, Bohr, kB
 import numpy
 
 MODE_ELECTRON_DENSITY_CUTOFF = 'electron_density_cutoff'
+MODE_TEST = 'test'
 MODE_RADII_CUTOFF = 'radii_cutoff'
 MODE_SURFACE_TENSION = 'surface_tension'
 MODE_AREA_VOLUME_VDW = 'area_volume_vdw'
+MODE_C6_VDW = 'c6_vdw'
+MODE_SPILLED_DENSITY_VDW = 'spilled_density_vdw'
 
 
 class NoDefault:
@@ -441,6 +444,7 @@ class ElDensElContribution(BaseElectronicContribution):
         self.VAcav *= (self.theta(rho + d2) - self.theta(rho - d2))
         self.Acav = (self.VAcav * norm_grad_rho).sum() * self.finegd.dv
         mask = self.VAcav == .0
+        #mask = norm_grad_rho == .0
         grad_rho_squared[mask] = numpy.nan
         norm_grad_rho[mask] = numpy.nan
         laplace_rho = self.finegd.empty()
@@ -539,6 +543,69 @@ class ElDensElContribution(BaseElectronicContribution):
         return self.VVcav
 
 
+class TestElContribution(ElDensElContribution):
+    default_parameters = {
+        'rho_0'     : NoDefault,
+        'eta'       : NoDefault,
+        'rho_delta' : 1e-6,
+        'epsilon_r' : 1.0,
+        'T'         : NoDefault,
+        }
+
+    def update_parameters(self):
+        self.rho0 = self.params['rho_0']
+        self.eta = self.params['eta']
+        self.rhodelta = self.params['rho_delta']
+        self.epsinf = self.params['epsilon_r']
+        self.kT = kB * self.params['T']
+
+    def theta(self, rho, derivative=False):
+        rho_tilde = rho / self.rho0
+        u = rho_tilde ** self.eta
+        g = numpy.exp(-u / self.kT)
+        if derivative:
+            dg = g.copy()
+            dg *= rho_tilde ** (self.eta - 1.)
+            dg *= -self.eta / (self.rho0 * self.kT)
+            return 1. - g, -dg
+        return 1. - g
+
+    def update_dielectric(self, theta):
+        eps = self.dielectric[0]
+        t = (self.epsinf - 1.) * (1. - theta)
+        eps[...] = (2. + self.epsinf + 2. * t) / (2. + self.epsinf - t)
+        eps_hack = eps - self.epsinf # zero on boundary
+        for i in (0, 1, 2):
+            self.gradient[i].apply(eps_hack, self.dielectric[i + 1])
+
+    def update_pseudo_potential(self, density):
+        #if not hasattr(self, 'niter'):
+        #    self.niter = 0
+        #self.niter += 1
+        #if self.niter < 6:
+        #    self.Acav = .0
+        #    self.Vcav = .0
+        #    return .0
+        self.update_parameters()
+        rho = density.nt_g
+        #rho[rho < .0] = .0
+        theta, dtheta = self.theta(rho, derivative=True)
+        self.update_dielectric(theta)
+        self.update_volume(theta, dtheta)
+        self.update_area(rho)
+        g = 1. - theta
+        dg = -dtheta
+        Veps = (3. * (self.epsinf - 1.) * (self.epsinf + 2.)) / \
+               ((self.epsinf - 1.) * g - self.epsinf - 2.) ** 2 * dg
+        Veps *= self.grad_squared(self.hamiltonian.vHt_g)
+        Veps *= -1. / (8. * numpy.pi)
+        for vt_g in self.hamiltonian.vt_sg[:self.hamiltonian.nspins]:
+            vt_g += Veps
+        return .0
+
+
+
+
 class STCavityContribution(BaseContribution):
     """
     Cavity formation contribution
@@ -610,20 +677,75 @@ class AreaVolumeVdWContribution(BaseContribution):
             F_av += p * FV
 
 
+class C6VdWContribution(BaseContribution):
+    default_parameters = {
+        'factor': NoDefault
+        }
+
+    def set_atoms(self, atoms):
+        self.positions = atoms.positions / Bohr
+
+    def update_pseudo_potential(self, density):
+        # XXX Hack
+        assert isinstance(self.hamiltonian.contributions['el'],
+                          RadiiElContribution)
+        theta = self.hamiltonian.contributions['el'].theta(1.)
+        E = .0
+        g = 1. - theta
+        for pos in self.positions:
+            r_square = coordinates(self.hamiltonian.finegd, origin=pos)[1]
+            E += self.hamiltonian.finegd.integrate(
+                g,
+                1. / r_square ** 3,
+                global_integral=False
+                )
+        E *= self.params['factor']
+        # XXX todo: Kohn Sham potential in general case
+        return E
+
+
+class SpilledDensityVdWContribution(BaseContribution):
+    default_parameters = {
+        'factor': NoDefault
+        }
+
+    def update_pseudo_potential(self, density):
+        # XXX Hack
+        assert isinstance(self.hamiltonian.contributions['el'],
+                          RadiiElContribution)
+        theta = self.hamiltonian.contributions['el'].theta(1.)
+        g = 1. - theta
+        E = self.hamiltonian.finegd.integrate(
+            g,
+            density.nt_g,
+            global_integral=False
+            )
+        E *= self.params['factor']
+        for vt_g in self.hamiltonian.vt_sg[:self.hamiltonian.nspins]:
+            vt_g += self.params['factor'] * g
+        return E
+
+
+
 #name -> mode -> contribution
 CONTRIBUTIONS = {
     'el' : {
         None: DummyElContribution,
         MODE_RADII_CUTOFF: RadiiElContribution,
-        MODE_ELECTRON_DENSITY_CUTOFF: ElDensElContribution
+        MODE_ELECTRON_DENSITY_CUTOFF: ElDensElContribution,
+        MODE_TEST: TestElContribution
         },
     'rep': {
         None: DummyContribution,
-        MODE_AREA_VOLUME_VDW: AreaVolumeVdWContribution
+        MODE_AREA_VOLUME_VDW: AreaVolumeVdWContribution,
+        MODE_C6_VDW: C6VdWContribution,
+        MODE_SPILLED_DENSITY_VDW: SpilledDensityVdWContribution
         },
     'dis': {
         None: DummyContribution,
-        MODE_AREA_VOLUME_VDW: AreaVolumeVdWContribution
+        MODE_AREA_VOLUME_VDW: AreaVolumeVdWContribution,
+        MODE_C6_VDW: C6VdWContribution,
+        MODE_SPILLED_DENSITY_VDW: SpilledDensityVdWContribution
         },
     'cav': {
         None: DummyContribution,
