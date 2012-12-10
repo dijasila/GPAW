@@ -205,7 +205,7 @@ class LrTDDFTindexed:
         self.kss_list_ready = False
         self.ks_prop_ready = False
         self.K_matrix_ready = False
-
+        self.trans_prop_ready = False
 
     def read(self, basename):
         info_file = basename+'.LR_info'
@@ -314,26 +314,15 @@ class LrTDDFTindexed:
         k
           Transition index (indexing starts from zero).
         """
-        self.calculate_excitations()
-        dm = np.zeros(3)
-        for kss_ip in self.kss_list:
-            i = kss_ip.occ_ind
-            p = kss_ip.unocc_ind
-            # c = sqrt(ediff_ip / omega_n) sqrt(population_ip) * F^(n)_ip
-            c = np.sqrt(kss_ip.energy_diff / self.get_excitation_energy(k))
-            c *= np.sqrt(kss_ip.pop_diff) * self.get_local_eig_coeff(k,self.index_map[(i,p)])
-            # dm_n = c * dm_ip
-            dm[0] += c * kss_ip.dip_mom_r[0]
-            dm[1] += c * kss_ip.dip_mom_r[1]
-            dm[2] += c * kss_ip.dip_mom_r[2]
+        self.calculate_transition_properties()
+        omega = self.transition_properties[k][0]
+        dmx = self.transition_properties[k][1]
+        dmy = self.transition_properties[k][2]
+        dmz = self.transition_properties[k][3]
 
-        self.eh_comm.sum(dm)
-
-        # osc = 2 * omega |dm|**2 / 3
-        omega = self.get_excitation_energy(k)
-        oscx = 2. * omega * dm[0]*dm[0]
-        oscy = 2. * omega * dm[1]*dm[1]
-        oscz = 2. * omega * dm[2]*dm[2]
+        oscx = 2. * omega * dmx*dmx
+        oscy = 2. * omega * dmy*dmy
+        oscz = 2. * omega * dmz*dmz
         osc = (oscx+oscy+oscz)/3.
         return osc, np.array([oscx, oscy, oscz])
 
@@ -351,36 +340,176 @@ class LrTDDFTindexed:
         units
           Units for rotatory strength: 'a.u.' or 'cgs'.
         """
-        self.calculate_excitations()
-        dm = np.zeros(3)
-        magn = np.zeros(3)
 
-        # J. Chem. Phys., Vol. 116, No. 16, 22 April 2002
-        for kss_ip in self.kss_list:
-            i = kss_ip.occ_ind
-            p = kss_ip.unocc_ind
-            # c = sqrt(ediff_ip / omega_n) sqrt(population_ip) * F^(n)_ip
-            c1 = np.sqrt(kss_ip.energy_diff / self.get_excitation_energy(k))
-            c2 = np.sqrt(kss_ip.pop_diff) * self.get_local_eig_coeff(k,self.index_map[(i,p)])
-            # dm_n = c * dm_ip
-            dm[0] += c1*c2 * kss_ip.dip_mom_r[0]
-            dm[1] += c1*c2 * kss_ip.dip_mom_r[1]
-            dm[2] += c1*c2 * kss_ip.dip_mom_r[2]
-
-            magn[0] += c2/c1 * kss_ip.magn_mom[0]
-            magn[1] += c2/c1 * kss_ip.magn_mom[1]
-            magn[2] += c2/c1 * kss_ip.magn_mom[2]
-
-        self.eh_comm.sum(dm)
-        self.eh_comm.sum(magn)
+        self.calculate_transition_properties()
+        omega = self.transition_properties[k][0]
+        dmx = self.transition_properties[k][1]
+        dmy = self.transition_properties[k][2]
+        dmz = self.transition_properties[k][3]
+        magnx = self.transition_properties[k][4]
+        magny = self.transition_properties[k][5]
+        magnz = self.transition_properties[k][6]
 
         if units == 'a.u.':
-            return - ( dm[0] * magn[0] + dm[1] * magn[1] + dm[2] * magn[2] )
+            return - ( dmx * magnx + dmy * magny + dmz * magnz )
         elif units == 'cgs':
-            return - 64604.8164 * ( dm[0] * magn[0] + dm[1] * magn[1] + dm[2] * magn[2] )
+            return - 64604.8164 * ( dmx * magnx + dmy * magny + dmz * magnz )
         else:
             raise RuntimeError('Unknown units.')
 
+        
+#    def get_oscillator_strength(self, k):
+#        """Get oscillator strength for an interacting transition
+#
+#        Returns oscillator strength of kth interacting transition.
+#
+#        Input parameters:
+#
+#        k
+#          Transition index (indexing starts from zero).
+#        """
+#
+#        self.calculate_excitations()
+#        dm = np.zeros(3)
+#        for kss_ip in self.kss_list:
+#            i = kss_ip.occ_ind
+#            p = kss_ip.unocc_ind
+#            # c = sqrt(ediff_ip / omega_n) sqrt(population_ip) * F^(n)_ip
+#            c = np.sqrt(kss_ip.energy_diff / self.get_excitation_energy(k))
+#            c *= np.sqrt(kss_ip.pop_diff) * self.get_local_eig_coeff(k,self.index_map[(i,p)])
+#            # dm_n = c * dm_ip
+#            dm[0] += c * kss_ip.dip_mom_r[0]
+#            dm[1] += c * kss_ip.dip_mom_r[1]
+#            dm[2] += c * kss_ip.dip_mom_r[2]
+#
+#        self.eh_comm.sum(dm)
+#
+#        # osc = 2 * omega |dm|**2 / 3
+#        omega = self.get_excitation_energy(k)
+#        oscx = 2. * omega * dm[0]*dm[0]
+#        oscy = 2. * omega * dm[1]*dm[1]
+#        oscz = 2. * omega * dm[2]*dm[2]
+#        osc = (oscx+oscy+oscz)/3.
+#        return osc, np.array([oscx, oscy, oscz])
+
+
+#    def get_rotatory_strength(self, k, units='a.u.'):
+#        """Get rotatory strength for an interacting transition
+#
+#        Returns rotatory strength of kth interacting transition.
+#
+#        Input parameters:
+#
+#        k
+#          Transition index (indexing starts from zero).
+#
+#        units
+#          Units for rotatory strength: 'a.u.' or 'cgs'.
+#        """
+#        self.calculate_excitations()
+#        dm = np.zeros(3)
+#        magn = np.zeros(3)
+#
+#        # J. Chem. Phys., Vol. 116, No. 16, 22 April 2002
+#        for kss_ip in self.kss_list:
+#            i = kss_ip.occ_ind
+#            p = kss_ip.unocc_ind
+#
+#            c1 = np.sqrt(kss_ip.energy_diff / self.get_excitation_energy(k))
+#            c2 = np.sqrt(kss_ip.pop_diff) * self.get_local_eig_coeff(k,self.index_map[(i,p)])
+#            # dm_n = c1*c2 * dm_ip
+#            dm[0] += c1*c2 * kss_ip.dip_mom_r[0]
+#            dm[1] += c1*c2 * kss_ip.dip_mom_r[1]
+#            dm[2] += c1*c2 * kss_ip.dip_mom_r[2]
+#
+#            # dm_n = c2/c1 * dm_ip
+#            magn[0] += c2/c1 * kss_ip.magn_mom[0]
+#            magn[1] += c2/c1 * kss_ip.magn_mom[1]
+#            magn[2] += c2/c1 * kss_ip.magn_mom[2]
+#
+#        self.eh_comm.sum(dm)
+#        self.eh_comm.sum(magn)
+#
+#        if units == 'a.u.':
+#            return - ( dm[0] * magn[0] + dm[1] * magn[1] + dm[2] * magn[2] )
+#        elif units == 'cgs':
+#            return - 64604.8164 * ( dm[0] * magn[0] + dm[1] * magn[1] + dm[2] * magn[2] )
+#        else:
+#            raise RuntimeError('Unknown units.')
+
+
+    def calculate_transition_properties(self):
+        self.calculate_excitations()
+        if self.trans_prop_ready: return
+
+        nloc = len(self.evectors)
+        sqrtwloc = np.zeros(nloc)
+        for kloc in range(nloc):
+            sqrtwloc[kloc] = np.sqrt(self.get_excitation_energy(kloc*self.stride+self.offset))
+
+        # continuous arrays because of performance reasons
+        dmxloc  = np.zeros(nloc)
+        dmyloc  = np.zeros(nloc)
+        dmzloc  = np.zeros(nloc)
+        magnxloc = np.zeros(nloc)
+        magnyloc = np.zeros(nloc)
+        magnzloc = np.zeros(nloc)
+
+        cloc_dm = np.zeros(nloc)
+        cloc_magn = np.zeros(nloc)
+        
+        for kss_ip in self.kss_list:
+            i = kss_ip.occ_ind
+            p = kss_ip.unocc_ind
+
+            # see get_local_index and get_local_eig_coeff for definitions
+            # c1 = np.sqrt(kss_ip.energy_diff / self.get_excitation_energy(k))
+            # c2 = np.sqrt(kss_ip.pop_diff) * self.get_local_eig_coeff(k,self.index_map[(i,p)])
+            # dm[0] += c1*c2 * kss_ip.dip_mom_r[0]
+            # dm[1] += c1*c2 * kss_ip.dip_mom_r[1]
+            # dm[2] += c1*c2 * kss_ip.dip_mom_r[2]
+
+            # magn[0] += c2/c1 * kss_ip.magn_mom[0]
+            # magn[1] += c2/c1 * kss_ip.magn_mom[1]
+            # magn[2] += c2/c1 * kss_ip.magn_mom[2]
+
+
+            # continuous copies
+            ip =  self.index_map[(i,p)] 
+            cloc_dm[:]   = self.evectors[:,ip]
+            cloc_magn[:] = cloc_dm
+            
+
+            cloc_dm   *= np.sqrt(kss_ip.pop_diff * kss_ip.energy_diff)
+            cloc_dm   /= sqrtwloc
+
+            cloc_magn *= np.sqrt(kss_ip.pop_diff / kss_ip.energy_diff)
+            cloc_magn *= sqrtwloc
+
+
+            dmxloc  += kss_ip.dip_mom_r[0] * cloc_dm
+            dmyloc  += kss_ip.dip_mom_r[1] * cloc_dm
+            dmzloc  += kss_ip.dip_mom_r[2] * cloc_dm
+
+            magnxloc += kss_ip.magn_mom[0] * cloc_magn
+            magnyloc += kss_ip.magn_mom[1] * cloc_magn
+            magnzloc += kss_ip.magn_mom[2] * cloc_magn
+
+        
+        self.transition_properties = np.zeros([len(self.kss_list),1+3+3])
+        for kloc in range(nloc):
+            k = kloc * self.stride + self.offset
+            self.transition_properties[k,0] = sqrtwloc[kloc] * sqrtwloc[kloc]
+            self.transition_properties[k,1] = dmxloc[kloc]
+            self.transition_properties[k,2] = dmyloc[kloc]
+            self.transition_properties[k,3] = dmzloc[kloc]
+            self.transition_properties[k,4] = magnxloc[kloc]
+            self.transition_properties[k,5] = magnyloc[kloc]
+            self.transition_properties[k,6] = magnzloc[kloc]
+        
+        self.eh_comm.sum(self.transition_properties.ravel())
+
+        self.trans_prop_ready = True
 
 
     def get_transitions(self, filename=None, min_energy=0.0, max_energy=30.0, units='eVcgs'):
@@ -418,6 +547,8 @@ class LrTDDFTindexed:
         Sx = []
         Sy = []
         Sz = []
+
+        
         
         print >> self.txt, 'Calculating transitions (', str(datetime.datetime.now()), ').',
         for (k, omega2) in enumerate(self.evalues):
@@ -555,6 +686,7 @@ class LrTDDFTindexed:
                 sfile.write("%12.8lf  %12.8lf  %12.8lf     %12.8lf  %12.8lf  %12.8lf\n" % (ww,SS,RR,SSx,SSy,SSz))
             sfile.close()
 
+        print >> self.txt, 'Calculating spectrum done (', str(datetime.datetime.now()), ').',
         return (w,S,R, Sx,Sy,Sz)
 
 
@@ -652,6 +784,7 @@ class LrTDDFTindexed:
 
             # Diagonalize
             self.diagonalize()
+
 
             # Recalculate only first time
             self.recalculate = None
@@ -857,6 +990,7 @@ class LrTDDFTindexed:
         # Prevent repeated work
         self.kss_list_ready = True
         self.timer.stop('Calculate KS singles')
+
 
     # Calculates pair density of (i,p) transition (and given kpt)
     # dnt_Gp: pair density without compensation charges on coarse grid
