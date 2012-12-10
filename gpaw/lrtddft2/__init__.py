@@ -442,6 +442,8 @@ class LrTDDFTindexed:
         self.calculate_excitations()
         if self.trans_prop_ready: return
 
+        #print >> self.txt, 'Calculating transition properties (', str(datetime.datetime.now()), ').'
+        
         nloc = len(self.evectors)
         sqrtwloc = np.zeros(nloc)
         for kloc in range(nloc):
@@ -454,7 +456,6 @@ class LrTDDFTindexed:
         magnxloc = np.zeros(nloc)
         magnyloc = np.zeros(nloc)
         magnzloc = np.zeros(nloc)
-
         cloc_dm = np.zeros(nloc)
         cloc_magn = np.zeros(nloc)
         
@@ -509,6 +510,7 @@ class LrTDDFTindexed:
         
         self.eh_comm.sum(self.transition_properties.ravel())
 
+        #print >> self.txt, 'Calculating transition properties done (', str(datetime.datetime.now()), ').'
         self.trans_prop_ready = True
 
 
@@ -686,7 +688,7 @@ class LrTDDFTindexed:
                 sfile.write("%12.8lf  %12.8lf  %12.8lf     %12.8lf  %12.8lf  %12.8lf\n" % (ww,SS,RR,SSx,SSy,SSz))
             sfile.close()
 
-        print >> self.txt, 'Calculating spectrum done (', str(datetime.datetime.now()), ').',
+        print >> self.txt, 'Calculating spectrum done (', str(datetime.datetime.now()), ').'
         return (w,S,R, Sx,Sy,Sz)
 
 
