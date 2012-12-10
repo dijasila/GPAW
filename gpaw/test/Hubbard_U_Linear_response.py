@@ -14,7 +14,6 @@ box = 3.
 
 # applying U on the 3d orbital 
 alpha = 0.05/Hartree    # potential shift  
-s = 0           # spin 0,non-spinpolerized 
 a = 0           # atom index
 n = 3           # quantum number
 l = 2           # angular momentum
@@ -38,6 +37,6 @@ sys.set_calculator(c)
 sys.get_potential_energy()
 
 Hubu = HubU(c)
-U0 = Hubu.get_linear_response_U0(a,n,l,s,scale = scale, 
+U0 = Hubu.get_linear_response_U0(a,n,l,scale = scale, 
                                  NbP = NbP, alpha = alpha)
 print 'U in eV:', U0*Hartree

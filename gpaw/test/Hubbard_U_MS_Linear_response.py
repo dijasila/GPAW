@@ -4,7 +4,7 @@ from ase.data.tmfp06d import data
 from gpaw import GPAW
 from gpaw.cluster import Cluster
 from gpaw.hubu import HubU
-import numpy as np
+
 molecule = 'ScH'
 
 energy_tolerance = 0.0004
@@ -55,4 +55,4 @@ for a in HubU_dict:
     for n in HubU_dict[a]:
         for l in HubU_dict[a][n]:
             print a, str(n)+orbital[l], 
-            print'U:',HubU_dict[a][n][l][0]['U']*Hartree
+            print'U:',HubU_dict[a][n][l]['U']*Hartree
