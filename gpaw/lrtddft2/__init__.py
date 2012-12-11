@@ -36,7 +36,7 @@ class LrTDDFTindexed:
                  xc = None,
                  min_occ=None, max_occ=None, 
                  min_unocc=None, max_unocc=None,
-                 max_energy_diff=None,
+                 max_energy_diff=1e9,
                  recalculate=None,
                  eh_communicator=None,
                  txt='-'):
