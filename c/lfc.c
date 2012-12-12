@@ -124,7 +124,9 @@ PyObject * NewLFCObject(PyObject *obj, PyObject *args)
   if (self == NULL)
     return NULL;
 
+#ifdef GPAW_CUDA
   self->cuda = cuda;
+#endif
 
   self->dv = dv;
 
