@@ -56,20 +56,23 @@ void calc_mgga(void** params, int nspin, int ng,
       n[0] = n_g[g];
       n[1] = 0.0;
       if (n[0] < NMIN) n[0] = NMIN;
-      double etmp, vtmp, dedsigmatmp, dedtautmp;
+      // m06l is assuming that there is space for spinpolarized calculation output
+      // even for non-spin-polarized.
+      double etmp, vtmp[2], dedsigmatmp[3], dedtautmp[2],ex;
       common->funcinfo->exch(*params, n, sigma_g+g, tau_g+g,
-                             &etmp, &vtmp, &dedsigmatmp, &dedtautmp);
+                             &etmp, vtmp, dedsigmatmp, dedtautmp);
+      ex = etmp;
       e_g[g] = etmp;
-      v_g[g] += vtmp;
-      dedsigma_g[g] = dedsigmatmp;
-      dedtau_g[g] = dedtautmp;
+      v_g[g] += vtmp[0];
+      dedsigma_g[g] = dedsigmatmp[0];
+      dedtau_g[g] = dedtautmp[0];
       common->funcinfo->corr(*params, n, sigma_g+g, tau_g+g,
-                             &etmp, &vtmp, &dedsigmatmp, &dedtautmp);
+                             &etmp, vtmp, dedsigmatmp, dedtautmp);
       e_g[g] += etmp;
       e_g[g] *= n[0];
-      v_g[g] += vtmp;
-      dedsigma_g[g] += dedsigmatmp;
-      dedtau_g[g] += dedtautmp;
+      v_g[g] += vtmp[0];
+      dedsigma_g[g] += dedsigmatmp[0];
+      dedtau_g[g] += dedtautmp[0];
     }
   } else {
     double etmp, ntmp[2], vtmp[2], sigmatmp[3], dedsigmatmp[3],
