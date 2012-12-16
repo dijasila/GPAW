@@ -57,12 +57,11 @@ class BASECHI:
             # calc = GPAW(filename.gpw, communicator=ranks, txt=None)
             self.calc = calc
         if self.calc is not None:
-            self.pwmode = isinstance(self.calc.input_parameters['mode'], pw.PW)
+            self.pwmode = isinstance(self.calc.wfs, pw.PWWaveFunctions)
         else:
             self.pwmode = None
         if self.pwmode:
             assert self.calc.wfs.world.size == 1
-#            if self.calc.wfs.world.size == 1 and self.calc.input_parameters['mode'] != 'lcao':
             for kpt in self.calc.wfs.kpt_u:
                 kpt.P_ani = None
 
@@ -93,8 +92,6 @@ class BASECHI:
         calc = self.calc
         self.nspins = self.calc.wfs.nspins
 
-        assert (self.calc.atoms.get_pbc()).all(), "Periodic boundary conditions required."
-
         # kpoint init
         self.kd = kd = calc.wfs.kd
         self.bzk_kc = kd.bzk_kc
@@ -114,7 +111,8 @@ class BASECHI:
 
         # grid init
         self.pbc = calc.atoms.get_pbc()
-        gd = GridDescriptor(calc.wfs.gd.N_c*self.rpad, self.acell_cv, pbc_c=True, comm=serial_comm)
+        gd = GridDescriptor(calc.wfs.gd.N_c*self.rpad,
+                            self.acell_cv, pbc_c=True, comm=serial_comm)
         self.gd = gd
         self.nG = gd.N_c
         self.nG0 = self.nG[0] * self.nG[1] * self.nG[2]
@@ -368,18 +366,19 @@ class BASECHI:
 
 
     def pad(self, psit_g):
-        N_c = self.calc.wfs.gd.N_c
-        shift = np.zeros(3, int)
-        shift[np.where(self.pbc == False)] = 1
-        psit_G = self.gd.zeros(dtype=psit_g.dtype)
-        psit_G[shift[0]:N_c[0],
-               shift[1]:N_c[1],
-               shift[2]:N_c[2]] = psit_g[:N_c[0]-shift[0],
-                                          :N_c[1]-shift[1],
-                                          :N_c[2]-shift[2]]
-
+        if self.pwmode:
+            return psit_g
+        else:
+            N_c = self.calc.wfs.gd.N_c
+            shift = np.zeros(3, int)
+            shift[np.where(self.pbc == False)] = 1
+            psit_G = self.gd.zeros(dtype=psit_g.dtype)
+            psit_G[shift[0]:N_c[0],
+                   shift[1]:N_c[1],
+                   shift[2]:N_c[2]] = psit_g[:N_c[0]-shift[0],
+                                             :N_c[1]-shift[1],
+                                             :N_c[2]-shift[2]]
         return psit_G
-            
 
 
     def add_discontinuity(self, shift):
