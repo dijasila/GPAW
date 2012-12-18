@@ -102,6 +102,10 @@ PyObject* pblas_r2k(PyObject *self, PyObject *args);
 PyObject* pblas_rk(PyObject *self, PyObject *args);
 #endif
 
+#ifdef GPAW_PAPI
+PyObject* papi_mem_info(PyObject *self, PyObject *args);
+#endif
+
 // Moving least squares interpolation
 PyObject* mlsqr(PyObject *self, PyObject *args); 
 
@@ -201,6 +205,9 @@ static PyMethodDef functions[] = {
   {"craypat_region_begin", craypat_region_begin, METH_VARARGS, 0},
   {"craypat_region_end", craypat_region_end, METH_VARARGS, 0},
 #endif // GPAW_CRAYPAT
+#ifdef GPAW_PAPI
+  {"papi_mem_info", papi_mem_info, METH_VARARGS, 0}, 
+#endif // GPAW_PAPI
   {"mlsqr", mlsqr, METH_VARARGS, 0}, 
   {0, 0, 0, 0}
 };
