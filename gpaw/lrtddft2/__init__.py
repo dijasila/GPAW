@@ -438,81 +438,6 @@ class LrTDDFTindexed:
 #            raise RuntimeError('Unknown units.')
 
 
-    def calculate_transition_properties(self):
-        self.calculate_excitations()
-        if self.trans_prop_ready: return
-
-        #print >> self.txt, 'Calculating transition properties (', str(datetime.datetime.now()), ').'
-        
-        nloc = len(self.evectors)
-        sqrtwloc = np.zeros(nloc)
-        for kloc in range(nloc):
-            sqrtwloc[kloc] = np.sqrt(self.get_excitation_energy(kloc*self.stride+self.offset))
-
-        # continuous arrays because of performance reasons
-        dmxloc  = np.zeros(nloc)
-        dmyloc  = np.zeros(nloc)
-        dmzloc  = np.zeros(nloc)
-        magnxloc = np.zeros(nloc)
-        magnyloc = np.zeros(nloc)
-        magnzloc = np.zeros(nloc)
-        cloc_dm = np.zeros(nloc)
-        cloc_magn = np.zeros(nloc)
-        
-        for kss_ip in self.kss_list:
-            i = kss_ip.occ_ind
-            p = kss_ip.unocc_ind
-
-            # see get_local_index and get_local_eig_coeff for definitions
-            # c1 = np.sqrt(kss_ip.energy_diff / self.get_excitation_energy(k))
-            # c2 = np.sqrt(kss_ip.pop_diff) * self.get_local_eig_coeff(k,self.index_map[(i,p)])
-            # dm[0] += c1*c2 * kss_ip.dip_mom_r[0]
-            # dm[1] += c1*c2 * kss_ip.dip_mom_r[1]
-            # dm[2] += c1*c2 * kss_ip.dip_mom_r[2]
-
-            # magn[0] += c2/c1 * kss_ip.magn_mom[0]
-            # magn[1] += c2/c1 * kss_ip.magn_mom[1]
-            # magn[2] += c2/c1 * kss_ip.magn_mom[2]
-
-
-            # continuous copies
-            ip =  self.index_map[(i,p)] 
-            cloc_dm[:]   = self.evectors[:,ip]
-            cloc_magn[:] = cloc_dm
-            
-
-            cloc_dm   *= np.sqrt(kss_ip.pop_diff * kss_ip.energy_diff)
-            cloc_dm   /= sqrtwloc
-
-            cloc_magn *= np.sqrt(kss_ip.pop_diff / kss_ip.energy_diff)
-            cloc_magn *= sqrtwloc
-
-
-            dmxloc  += kss_ip.dip_mom_r[0] * cloc_dm
-            dmyloc  += kss_ip.dip_mom_r[1] * cloc_dm
-            dmzloc  += kss_ip.dip_mom_r[2] * cloc_dm
-
-            magnxloc += kss_ip.magn_mom[0] * cloc_magn
-            magnyloc += kss_ip.magn_mom[1] * cloc_magn
-            magnzloc += kss_ip.magn_mom[2] * cloc_magn
-
-        
-        self.transition_properties = np.zeros([len(self.kss_list),1+3+3])
-        for kloc in range(nloc):
-            k = kloc * self.stride + self.offset
-            self.transition_properties[k,0] = sqrtwloc[kloc] * sqrtwloc[kloc]
-            self.transition_properties[k,1] = dmxloc[kloc]
-            self.transition_properties[k,2] = dmyloc[kloc]
-            self.transition_properties[k,3] = dmzloc[kloc]
-            self.transition_properties[k,4] = magnxloc[kloc]
-            self.transition_properties[k,5] = magnyloc[kloc]
-            self.transition_properties[k,6] = magnzloc[kloc]
-        
-        self.eh_comm.sum(self.transition_properties.ravel())
-
-        #print >> self.txt, 'Calculating transition properties done (', str(datetime.datetime.now()), ').'
-        self.trans_prop_ready = True
-
 
     def get_transitions(self, filename=None, min_energy=0.0, max_energy=30.0, units='eVcgs'):
         """Get transitions: energy, dipole strength and rotatory strength.
@@ -692,6 +617,8 @@ class LrTDDFTindexed:
         return (w,S,R, Sx,Sy,Sz)
 
 
+        
+
 
 ###
 # Utility
@@ -795,24 +722,238 @@ class LrTDDFTindexed:
             # for fast recalculation of spectrum
 
 
-    # Diagonalize Casida matrix
-    def diagonalize(self):
-        self.timer.start('Diagonalize')
-        # Are we using ScaLapack
-        par = self.calc.input_parameters
-        sl_lrtddft = par.parallel['sl_lrtddft']
 
-        # Init
-        self.index_map = {}        # (i,p) to matrix index map
-        nrow = len(self.kss_list)  # total rows
-        nloc = 0                   # local rows
+    def calculate_transition_properties(self):
+        self.calculate_excitations()
+        if self.trans_prop_ready: return
+
+        #print >> self.txt, 'Calculating transition properties (', str(datetime.datetime.now()), ').'
+        
+        nloc = len(self.evectors)
+        sqrtwloc = np.zeros(nloc)
+        for kloc in range(nloc):
+            sqrtwloc[kloc] = np.sqrt(self.get_excitation_energy(kloc*self.stride+self.offset))
+
+        # continuous arrays because of performance reasons
+        dmxloc  = np.zeros(nloc)
+        dmyloc  = np.zeros(nloc)
+        dmzloc  = np.zeros(nloc)
+        magnxloc = np.zeros(nloc)
+        magnyloc = np.zeros(nloc)
+        magnzloc = np.zeros(nloc)
+        cloc_dm = np.zeros(nloc)
+        cloc_magn = np.zeros(nloc)
+        
+        for kss_ip in self.kss_list:
+            i = kss_ip.occ_ind
+            p = kss_ip.unocc_ind
+
+            # see get_local_index and get_local_eig_coeff for definitions
+            # c1 = np.sqrt(kss_ip.energy_diff / self.get_excitation_energy(k))
+            # c2 = np.sqrt(kss_ip.pop_diff) * self.get_local_eig_coeff(k,self.index_map[(i,p)])
+            # dm[0] += c1*c2 * kss_ip.dip_mom_r[0]
+            # dm[1] += c1*c2 * kss_ip.dip_mom_r[1]
+            # dm[2] += c1*c2 * kss_ip.dip_mom_r[2]
+
+            # magn[0] += c2/c1 * kss_ip.magn_mom[0]
+            # magn[1] += c2/c1 * kss_ip.magn_mom[1]
+            # magn[2] += c2/c1 * kss_ip.magn_mom[2]
+
+
+            # continuous copies
+            ip =  self.index_map[(i,p)] 
+            cloc_dm[:]   = self.evectors[:,ip]
+            cloc_magn[:] = cloc_dm
+            
+
+            cloc_dm   *= np.sqrt(kss_ip.pop_diff * kss_ip.energy_diff)
+            cloc_dm   /= sqrtwloc
+
+            cloc_magn *= np.sqrt(kss_ip.pop_diff / kss_ip.energy_diff)
+            cloc_magn *= sqrtwloc
+
+
+            dmxloc  += kss_ip.dip_mom_r[0] * cloc_dm
+            dmyloc  += kss_ip.dip_mom_r[1] * cloc_dm
+            dmzloc  += kss_ip.dip_mom_r[2] * cloc_dm
+
+            magnxloc += kss_ip.magn_mom[0] * cloc_magn
+            magnyloc += kss_ip.magn_mom[1] * cloc_magn
+            magnzloc += kss_ip.magn_mom[2] * cloc_magn
+
+        
+        self.transition_properties = np.zeros([len(self.kss_list),1+3+3])
+        for kloc in range(nloc):
+            k = kloc * self.stride + self.offset
+            self.transition_properties[k,0] = sqrtwloc[kloc] * sqrtwloc[kloc]
+            self.transition_properties[k,1] = dmxloc[kloc]
+            self.transition_properties[k,2] = dmyloc[kloc]
+            self.transition_properties[k,3] = dmzloc[kloc]
+            self.transition_properties[k,4] = magnxloc[kloc]
+            self.transition_properties[k,5] = magnyloc[kloc]
+            self.transition_properties[k,6] = magnzloc[kloc]
+        
+        self.eh_comm.sum(self.transition_properties.ravel())
+
+        #print >> self.txt, 'Calculating transition properties done (', str(datetime.datetime.now()), ').'
+        self.trans_prop_ready = True
+
+
+    # TD-DFPT:
+    # A C = -Vext 
+    #
+    # ( E+KN+w    KN     -eta     0    ) ( C_+w,Re )   ( -dm_laser )
+    # (   KN    E+KN-w    0      -eta  ) ( C_-w,Re ) = ( -dm_laser )
+    # (  eta      0     E+KN+w   -KN   ) ( C_+w,Im )   (      0      )
+    # (   0      eta     -KN    E+KN-w ) ( C_-w,Im )   (      0      )
+    #
+    # N is occupation matrix (not occupation difference matrix).
+    def calculate_response_wavefunction(self, omega, eta, laser):
+        laser = np.array(laser)
+
+        ################
+        # Wrong not reading K-matrix but it's "Casida form" 
+        # 2 (dN dE)**.5 K (dN dE)**.5
+        ############
+        K_matrix = self.read_K_matrix()
+
+        nloc = K_matrix.shape[0]
+        nrow = K_matrix.shape[1]
+        A_matrix = np.zeros((nloc*4,nrow*4))
+        assert nloc == nrow, "Parallel matrix not implemented yet (nloc!=nrow, %d != %d)." % (nloc,nrow)
 
         # Create indexing
+        self.index_map = {}        # (i,p) to matrix index map
         for (ip, kss) in enumerate(self.kss_list):
             self.index_map[(kss.occ_ind,kss.unocc_ind)] = ip
 
-        print >> self.txt, 'Reading data for diagonalize (', str(datetime.datetime.now()), '). ',
+        print K_matrix
+
+        # K_matrix => K N
+        for kss_ip in self.kss_list:
+            i = kss_ip.occ_ind
+            p = kss_ip.unocc_ind
+            ip = self.index_of_kss(i,p)
+            assert ip is not None, "Could not find index for transition (%d,%d)." % (i,p)
+            lip = self.get_local_index(ip)
+            if lip is None: 
+                continue
+
+            K_matrix[:,ip]  /= np.sqrt(2.* kss_ip.energy_diff * kss_ip.pop_diff)
+            K_matrix[lip,:] /= np.sqrt(2.* kss_ip.energy_diff * kss_ip.pop_diff)
+
+            K_matrix[:,ip]  *= kss_ip.pop_diff # K => K N
+
+        # print K_matrix
+
+        A_matrix[(nloc*0):(nloc*1), (nrow*0):(nrow*1)] = K_matrix
+        A_matrix[(nloc*1):(nloc*2), (nrow*0):(nrow*1)] = K_matrix
+        A_matrix[(nloc*0):(nloc*1), (nrow*1):(nrow*2)] = K_matrix
+        A_matrix[(nloc*1):(nloc*2), (nrow*1):(nrow*2)] = K_matrix
+
+        A_matrix[(nloc*2):(nloc*3), (nrow*2):(nrow*3)] = K_matrix
+        A_matrix[(nloc*3):(nloc*4), (nrow*2):(nrow*3)] = -K_matrix
+        A_matrix[(nloc*2):(nloc*3), (nrow*3):(nrow*4)] = -K_matrix
+        A_matrix[(nloc*3):(nloc*4), (nrow*3):(nrow*4)] = K_matrix
+
+        # rhs
+        V_rhs = np.zeros(nrow*4)
+
+        #
+        # FIX ME: DOES NOT WORK WITH FRACTIONAL OCCUPATIONS
+        #
+        # diagonal terms of blocks
+        for kss_ip in self.kss_list:
+            i = kss_ip.occ_ind
+            p = kss_ip.unocc_ind
+            ip = self.index_of_kss(i,p)
+            assert ip is not None, "Could not find index for transition (%d,%d)." % (i,p)
+            lip = self.get_local_index(ip)
+            if lip is None: 
+                continue
+
+            # print >> self.txt, kss_ip.energy_diff, kss_ip.dip_mom_r
+
+            A_matrix[nloc*0+lip, nrow*0+ip] += kss_ip.energy_diff + omega
+            A_matrix[nloc*1+lip, nrow*1+ip] += kss_ip.energy_diff - omega
+            A_matrix[nloc*2+lip, nrow*2+ip] += kss_ip.energy_diff + omega
+            A_matrix[nloc*3+lip, nrow*3+ip] += kss_ip.energy_diff - omega
+
+            A_matrix[nloc*0+lip, nrow*2+ip] += -eta
+            A_matrix[nloc*1+lip, nrow*3+ip] += -eta
+            A_matrix[nloc*2+lip, nrow*0+ip] +=  eta
+            A_matrix[nloc*3+lip, nrow*1+ip] +=  eta
             
+            V_rhs[nrow*0+ip] = np.dot(kss_ip.dip_mom_r, laser)
+            V_rhs[nrow*1+ip] = np.dot(kss_ip.dip_mom_r, laser)
+        
+            #A_matrix[:, nrow*0+ip] *= -1. # eig test
+            #A_matrix[:, nrow*2+ip] *= -1. # eig test
+
+
+        #for i in range(nloc*4):
+        #    for j in range(nrow*4):
+        #        print "%6.3lf" % A_matrix[i,j],
+        #    print
+        #print >> self.txt, np.round(A_matrix,3)
+        #print >> self.txt, np.round(np.linalg.eig(A_matrix)[0]*27.211,3)
+        #print >> self.txt, V_rhs
+
+        C = np.linalg.solve(A_matrix, V_rhs)
+        
+        C_re = C[(nrow*0):(nrow*1)] + C[(nrow*1):(nrow*2)]
+        C_im = C[(nrow*2):(nrow*3)] - C[(nrow*3):(nrow*4)]
+        
+        #print >> self.txt, C
+        #print >> self.txt, C_re
+        #print >> self.txt, C_im
+
+        return C_im
+        
+    def get_transition_density(self, C_im):
+        # Initialize wfs, paw corrections and xc, if not done yet
+        if not self.calc_ready:
+            self.calc.converge_wave_functions()
+            spos_ac = self.calc.initialize_positions()
+            self.calc.wfs.initialize(self.calc.density, 
+                                     self.calc.hamiltonian, spos_ac)
+            self.xc.initialize(self.calc.density, self.calc.hamiltonian,
+                               self.calc.wfs, self.calc.occupations)
+            self.calc_ready = True
+
+        # Init pair densities
+        dnt_Gip = self.calc.wfs.gd.empty()
+        dnt_gip = self.calc.density.finegd.empty()
+        drhot_gip = self.calc.density.finegd.empty()
+
+        drhot_g = self.calc.density.finegd.empty()
+        drhot_g[:] = 0.0
+
+        maxC = np.max(abs(C_im))
+        #print >> self.txt, maxC
+        for kss_ip in self.kss_list:
+            ip = self.index_of_kss(kss_ip.occ_ind, kss_ip.unocc_ind)
+            if abs(C_im[ip]) < 1e-5 * maxC: 
+                continue
+            dnt_Gip[:] = 0.0
+            dnt_gip[:] = 0.0
+            drhot_gip[:] = 0.0
+            self.calculate_pair_density( self.calc.wfs.kpt_u[self.kpt_ind],
+                                         kss_ip, dnt_Gip, dnt_gip, drhot_gip )
+            drhot_g += C_im[ip] * drhot_gip
+        
+        return drhot_g
+
+
+    # Read K-matrix from files
+    ################
+    # Wrong not reading K-matrix but it's "Casida form" 
+    # 2 (dN dE)**.5 K (dN dE)**.5
+    ############
+    def read_K_matrix(self):
+        nrow = len(self.kss_list)  # total rows
+        nloc = 0                   # local rows
+
         self.timer.start('Read data')
         # Read ALL ready_rows files
         for rr_fn in glob.glob(self.basefilename + '.ready_rows.*'):
@@ -830,8 +971,8 @@ class LrTDDFTindexed:
                         nloc += 1
         
         # Matrix build
-        omega_matrix = np.zeros((nloc,nrow))
-        omega_matrix[:,:] = np.NAN # fill with NaNs to detect problems
+        K_matrix = np.zeros((nloc,nrow))
+        K_matrix[:,:] = np.NAN # fill with NaNs to detect problems
         # Read ALL K_matrix files
         for K_fn in glob.glob(self.basefilename + '.K_matrix.*'): 
             print >> self.txt, '.',
@@ -850,20 +991,43 @@ class LrTDDFTindexed:
                     # add value to matrix
                     lip = self.get_local_index(self.index_map[ipkey])
                     jq = self.index_map[jqkey]
-                    omega_matrix[lip,jq] = Kvalue
+                    K_matrix[lip,jq] = Kvalue
                 # if jq on this this proc
                 if self.get_local_index(self.index_map[jqkey]) is not None:
                     # add value to matrix
                     ljq = self.get_local_index(self.index_map[jqkey])
                     ip = self.index_map[ipkey]
-                    omega_matrix[ljq,ip] = Kvalue
+                    K_matrix[ljq,ip] = Kvalue
         print >> self.txt, ''
 
         self.timer.stop('Read data')
         
         # If any NaNs found, we did not read all matrix elements... BAD
-        if np.isnan(np.sum(np.sum(omega_matrix))):
-            raise RuntimeError('Not all required LrTDDFT matrix elements could be found.')
+        if np.isnan(np.sum(np.sum(K_matrix))):
+            raise RuntimeError('Not all required K-matrix elements could be found.')
+
+        return K_matrix
+
+
+    # Diagonalize Casida matrix
+    def diagonalize(self):
+        self.timer.start('Diagonalize')
+        # Are we using ScaLapack
+        par = self.calc.input_parameters
+        sl_lrtddft = par.parallel['sl_lrtddft']
+
+        # Create indexing
+        self.index_map = {}        # (i,p) to matrix index map
+        for (ip, kss) in enumerate(self.kss_list):
+            self.index_map[(kss.occ_ind,kss.unocc_ind)] = ip
+
+        print >> self.txt, 'Reading data for diagonalize (', str(datetime.datetime.now()), '). ',
+
+        ################
+        # Wrong not reading K-matrix but it's "Casida form" 
+        # 2 (dN dE)**.5 K (dN dE)**.5
+        ############
+        omega_matrix = self.read_K_matrix()
 
         # Add diagonal values
         for kss in self.kss_list:
@@ -873,6 +1037,9 @@ class LrTDDFTindexed:
                 lip = self.get_local_index(ip)
                 if lip is None: continue
                 omega_matrix[lip,ip] += kss.energy_diff * kss.energy_diff
+
+        nloc = omega_matrix.shape[0]
+        nrow = omega_matrix.shape[1]
 
         # Calculate eigenvalues
         self.evalues = np.zeros(nrow)
@@ -1183,6 +1350,10 @@ class LrTDDFTindexed:
 
 
         # Filenames
+        ################
+        # Wrong not writing K-matrix but it's "Casida form" 
+        # 2 (dN dE)**.5 K (dN dE)**.5
+        ############
         Kfn = self.basefilename + '.K_matrix.' + '%04dof%04d' % (self.offset, self.stride)
         rrfn = self.basefilename + '.ready_rows.' + '%04dof%04d' % (self.offset, self.stride)
         logfn = self.basefilename + '.log.' + '%04dof%04d' % (self.offset, self.stride)
@@ -1395,6 +1566,10 @@ class LrTDDFTindexed:
                 Itot = Ig + Ia
                 
                 # K_ip,jq += 2*sqrt(f_ip*f_jq*eps_pi*eps_qj)<ip|dH|jq>
+                ################
+                # Wrong not writing K-matrix but it's "Casida form" 
+                # 2 (dN dE)**.5 K (dN dE)**.5
+                ############
                 K.append( [i,p,j,q,
                            2.*np.sqrt(kss_ip.pop_diff * kss_jq.pop_diff 
                                    * kss_ip.energy_diff * kss_jq.energy_diff)
