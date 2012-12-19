@@ -888,6 +888,11 @@ rundefs = {
 
 if __name__ == '__main__':
 
+    import os
+    import warnings
+    # silence matplotlib.use() warning
+    warnings.filterwarnings('ignore', '.*This call to matplotlib\.use.*',)
+
     assert len(sys.argv) > 1
     if len(sys.argv) == 2:
         taskname = sys.argv[1]

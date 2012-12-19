@@ -30,7 +30,7 @@ def agts(queue):
                        creates=[tag + '_ea_vs.csv'])
         plot = queue.add(tag + '_plot.py',
                          ncpus=1, walltime=5, deps=[analyse],
-                         creates=[tag + '.png'])
+                         creates=[tag + '_ea_vs.png'])
     # optimization
     if 0:  # run after releasing new setups
         opt_run = [queue.add(tag + '_opt_run.py %d' % i,

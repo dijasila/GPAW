@@ -1,4 +1,7 @@
 import os
+import warnings
+# silence matplotlib.use() warning
+warnings.filterwarnings('ignore', '.*This call to matplotlib\.use.*',)
 
 import csv
 

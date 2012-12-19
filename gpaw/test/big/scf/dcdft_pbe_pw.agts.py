@@ -30,5 +30,5 @@ def agts(queue):
                        walltime=5*60)
     analyse = queue.add('analyse.py bulk scf_dcdft_pbe_pw ' + runsstr,
                         ncpus=1, walltime=10, deps=run + [jacapo],
-                        creates=['scf_dcdft_pbe_pbe_pw.csv',
-                                 'scf_dcdft_pbe_pbe_pw_calculator_steps.png'])
+                        creates=['scf_dcdft_pbe_pw_energy.csv',
+                                 'scf_dcdft_pbe_pw_calculator_steps.png'])
