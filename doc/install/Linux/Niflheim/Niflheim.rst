@@ -96,6 +96,10 @@ https://wiki.fysik.dtu.dk/it/SshWithoutPassword.
            module load GPAW
            setenv GPAW_PLATFORM "linux-x86_64-xeon-2.4"
        endif
+       if ( "`echo $FYS_PLATFORM`" == "sl230s-el6" ) then # surt
+           module load GPAW
+           setenv GPAW_PLATFORM "linux-x86_64-sl230s-2.6"
+       endif
        setenv PATH ${GPAW_HOME}/build/bin.${GPAW_PLATFORM}:${PATH}
        setenv PATH ${GPAW_HOME}/tools:${PATH}
        setenv PYTHONPATH ${GPAW_HOME}:${PYTHONPATH}
@@ -122,6 +126,10 @@ https://wiki.fysik.dtu.dk/it/SshWithoutPassword.
        if [ "`echo $FYS_PLATFORM`" == "Intel-Nehalem-el5" ]; then # thul
            module load GPAW
            export GPAW_PLATFORM="linux-x86_64-xeon-2.4"
+       fi
+       if [ "`echo $FYS_PLATFORM`" == "sl230s-el6" ]; then # surt
+           module load GPAW
+           export GPAW_PLATFORM="linux-x86_64-sl230s-2.6"
        fi
        export PATH=${GPAW_HOME}/build/bin.${GPAW_PLATFORM}:${PATH}
        export PATH=${GPAW_HOME}/tools:${PATH}
