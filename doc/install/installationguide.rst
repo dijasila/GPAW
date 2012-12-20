@@ -10,7 +10,7 @@ Requirements
 
 1) Python 2.4 - 2.7.  Python is available from http://www.python.org.
 
-2) NumPy_ 1.1 - 1.5.
+2) NumPy_ 1.1 or later.
 
 3) Atomic Simulation Environment (:ase:`ASE <>`).
 
@@ -19,17 +19,21 @@ Requirements
 5) BLAS and LAPACK libraries. Start with your system provided defaults or
    e.g. http://www.amd.com/acml.
 
-6) An MPI library (required for parallel calculations).
+Optionally:
 
-7) (Optional) HDF5 (> 1.8.0) library for parallel I/O and for saving files in HDF5 format
+6) an MPI library (required for parallel calculations).
 
+7) HDF5 (> 1.8.0) library for parallel I/O and for saving files in HDF5 format
+
+8) SciPy_ 0.7.0 or later (required for example for transport of response calculations)
 
 .. note::
 
    In order to use the code, you need also the setups for all your
    atoms (:ref:`setups`).
 
-.. _NumPy: http://numpy.scipy.org/
+.. _NumPy: http://numpy.org/
+.. _SciPy: http://scipy.org/
 
 
 Installation
