@@ -62,8 +62,6 @@ class BASECHI:
             self.pwmode = None
         if self.pwmode:
             assert self.calc.wfs.world.size == 1
-            for kpt in self.calc.wfs.kpt_u:
-                kpt.P_ani = None
 
         self.nbands = nbands
         self.q_c = q
