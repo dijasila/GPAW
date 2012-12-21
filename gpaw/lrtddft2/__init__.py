@@ -804,10 +804,14 @@ class LrTDDFTindexed:
     #
     # ( E+KN+w    KN     -eta     0    ) ( C_+w,Re )   ( -dm_laser )
     # (   KN    E+KN-w    0      -eta  ) ( C_-w,Re ) = ( -dm_laser )
-    # (  eta      0     E+KN+w   -KN   ) ( C_+w,Im )   (      0      )
-    # (   0      eta     -KN    E+KN-w ) ( C_-w,Im )   (      0      )
+    # (  eta      0     E+KN+w   -KN   ) ( C_+w,Im )   (      0    )
+    # (   0      eta     -KN    E+KN-w ) ( C_-w,Im )   (      0    )
     #
-    # N is occupation matrix (not occupation difference matrix).
+    # N is occupation matrix (not occupation difference matrix)
+    # OR actually it seems like it's the occupation difference matrix
+    #    just like in Casida
+    #    (at least K = 0 gives density diffs for both real and imaginary part)
+    # Check this! ... So far seems to work. More testing needed.
     def calculate_response_wavefunction(self, omega, eta, laser):
         laser = np.array(laser)
 
@@ -827,7 +831,7 @@ class LrTDDFTindexed:
         for (ip, kss) in enumerate(self.kss_list):
             self.index_map[(kss.occ_ind,kss.unocc_ind)] = ip
 
-        print K_matrix
+        # print K_matrix
 
         # K_matrix => K N
         for kss_ip in self.kss_list:
@@ -908,7 +912,7 @@ class LrTDDFTindexed:
         #print >> self.txt, C_re
         #print >> self.txt, C_im
 
-        return C_im
+        return (C_re,C_im)
         
     def get_transition_density(self, C_im):
         # Initialize wfs, paw corrections and xc, if not done yet
