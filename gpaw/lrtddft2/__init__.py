@@ -475,16 +475,14 @@ class LrTDDFTindexed:
         Sy = []
         Sz = []
 
-        
-        
         print >> self.txt, 'Calculating transitions (', str(datetime.datetime.now()), ').',
         for (k, omega2) in enumerate(self.evalues):
             ww = self.get_excitation_energy(k)
             if ww < min_energy or ww > max_energy: continue
 
-            if k % 10 == 0:
-                print >> self.txt, '.',
-                self.txt.flush()
+            #if k % 10 == 0:
+            #    print >> self.txt, '.',
+            #    self.txt.flush()
             
             w.append(self.get_excitation_energy(k))
             St, Sc = self.get_oscillator_strength(k)
@@ -573,9 +571,9 @@ class LrTDDFTindexed:
                 
         print >> self.txt, 'Calculating spectrum (', str(datetime.datetime.now()), ').',
         for (k, www) in enumerate(ww):
-            if k % 10 == 0:
-                print >> self.txt, '.',
-                self.txt.flush()
+            #if k % 10 == 0:
+            #    print >> self.txt, '.',
+            #    self.txt.flush()
             
             c = SS[k] / width / math.sqrt(2*np.pi)
             S += c * np.exp( (-.5/width/width) * np.power(w-ww[k],2) ) 
@@ -888,6 +886,7 @@ class LrTDDFTindexed:
             A_matrix[nloc*2+lip, nrow*0+ip] +=  eta
             A_matrix[nloc*3+lip, nrow*1+ip] +=  eta
             
+            # exp(+iwt) + exp(-iwt)
             V_rhs[nrow*0+ip] = np.dot(kss_ip.dip_mom_r, laser)
             V_rhs[nrow*1+ip] = np.dot(kss_ip.dip_mom_r, laser)
         
@@ -905,9 +904,31 @@ class LrTDDFTindexed:
 
         C = np.linalg.solve(A_matrix, V_rhs)
         
+        # response wavefunction
+        #   perturbation was exp(iwt) + exp(-iwt) = 2 cos(wt)
+        #   => real part of the polarizability is propto 2 cos(wt)
+        #   => imag part of the polarizability is propto 2 sin(wt)
+        #
+        # exp(iwt)
+        # dn+ = phi-**h phi0 + phi0**h phi+ = phi0 (phi-**h + phi+)
+        # exp(-iwt)
+        # dn- = phi+**h phi0 + phi0**h phi- = phi0 (phi+**h + phi-) = dn+**h
+        #
+        # 2 cos(wt)
+        # dn_2cos =    dn+ + dn-      =     dn+ + dn+**h  = Re[dn+] + Re[dn-]  
+        # 2 sin(wt)
+        # dn_2sin = -i(dn+ - dn-)     = -i (dn+ - dn-**h) = Im[dn+] - Im[dn-]
+
+        # Re[phi-**h + phi_+]
         C_re = C[(nrow*0):(nrow*1)] + C[(nrow*1):(nrow*2)]
+        # Im[phi-**h + phi_+]
         C_im = C[(nrow*2):(nrow*3)] - C[(nrow*3):(nrow*4)]
         
+        # normalization (where the hell this comes from ?!? 
+        #                lorentzian or fourier)
+        C_re *= 1/(np.pi)
+        C_im *= 1/(np.pi)
+
         #print >> self.txt, C
         #print >> self.txt, C_re
         #print >> self.txt, C_im
@@ -979,7 +1000,7 @@ class LrTDDFTindexed:
         K_matrix[:,:] = np.NAN # fill with NaNs to detect problems
         # Read ALL K_matrix files
         for K_fn in glob.glob(self.basefilename + '.K_matrix.*'): 
-            print >> self.txt, '.',
+            #print >> self.txt, '.',
             self.txt.flush()
             for line in open(K_fn,'r'):
                 line = line.split()
@@ -1002,7 +1023,7 @@ class LrTDDFTindexed:
                     ljq = self.get_local_index(self.index_map[jqkey])
                     ip = self.index_map[ipkey]
                     K_matrix[ljq,ip] = Kvalue
-        print >> self.txt, ''
+        #print >> self.txt, ''
 
         self.timer.stop('Read data')
         
