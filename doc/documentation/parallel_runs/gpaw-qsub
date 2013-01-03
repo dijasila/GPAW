@@ -46,7 +46,7 @@ if c in 'abcd':
     else:
         # do not use mpi_paffinity_alone on partially filled nodes
         mpiexec = 'unset OMPI_MCA_mpi_paffinity_alone&& mpiexec '
-if c in 'g':
+elif c in 'g':
     # Intel Niflheim node:
     if not (np % 16):
         mpiexec = 'mpiexec --mca btl ^tcp ' + mpi_paffinity_alone
