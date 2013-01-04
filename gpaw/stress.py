@@ -14,6 +14,8 @@ def stress(calc):
         raise NotImplementedError('Calculation of stress tensor is only ' +
                                   'implemented for plane-wave mode.')
 
+    calc.timer.start('Stress tensor')
+
     s_vv = wfs.get_kinetic_stress().real
 
     s_vv += ham.xc.stress_tensor_contribution(dens.nt_sg)
@@ -69,5 +71,7 @@ def stress(calc):
     for sigma_v in sigma_vv:
         calc.text('%12.6f %12.6f %12.6f' %
                   tuple(units.Hartree / units.Bohr**3 * sigma_v))
+
+    calc.timer.stop('Stress tensor')
 
     return sigma_vv
