@@ -979,30 +979,35 @@ class PWLFC(BaseLFC):
             c_axi = dict((a, c_axi) for a in range(len(self.pos_av)))
 
         K_v = self.pd.K_qv[q]
-        G_Gv = self.pd.G_Qv[self.pd.Q_qG[q]] + K_v
+        G0_Gv = self.pd.G_Qv[self.pd.Q_qG[q]] + K_v
 
-        stress_vv = np.empty((3, 3))
-        for v1 in range(3):
-            for v2 in range(3):
-                stress_vv[v1, v2] = self._stress_tensor_contribution(
-                    v1, v2, cache, G_Gv, a_xG, c_axi, q)
+        stress_vv = np.zeros((3, 3))
+        for G1, G2 in self.block(q):
+            G_Gv = G0_Gv[G1:G2]
+            aa_xG = a_xG[..., G1:G2]
+            for v1 in range(3):
+                for v2 in range(3):
+                    stress_vv[v1, v2] += self._stress_tensor_contribution(
+                        v1, v2, cache, G1, G2, G_Gv, aa_xG, c_axi, q)
 
         return stress_vv
     
-    def _stress_tensor_contribution(self, v1, v2, cache, G_Gv, a_xG, c_axi, q):
-        f_IG = self.pd.empty(self.nI, q=q)
+    def _stress_tensor_contribution(self, v1, v2, cache, G1, G2,
+                                    G_Gv, a_xG, c_axi, q):
+        f_IG = np.empty((self.nI, G2 - G1), complex)
+        K_v = self.pd.K_qv[q]
         for a, j, i1, i2, I1, I2 in self:
             l = self.lf_aj[a][j][0]
             spline = self.spline_aj[a][j]
             f_G, dfdGoG_G = cache[spline]
                 
-            emiGR_G = np.exp(-1j * np.dot(self.pd.G_Qv[self.pd.Q_qG[q]],
-                                          self.pos_av[a]))
-            f_IG[I1:I2] = emiGR_G * (-1.0j)**l * (
-                dfdGoG_G * G_Gv[:, v1] * G_Gv[:, v2] *
-                self.Y_qLG[q][l**2:(l + 1)**2] +
-                f_G * G_Gv[:, v1] * [nablarlYL(L, G_Gv.T)[v2]
-                                     for L in range(l**2, (l + 1)**2)])
+            emiGR_G = np.exp(-1j * np.dot(G_Gv, self.pos_av[a]))
+            f_IG[I1:I2] = (emiGR_G * (-1.0j)**l *
+                           np.exp(1j * np.dot(K_v, self.pos_av[a])) * (
+                    dfdGoG_G[G1:G2] * G_Gv[:, v1] * G_Gv[:, v2] *
+                    self.Y_qLG[q][l**2:(l + 1)**2, G1:G2] +
+                    f_G[G1:G2] * G_Gv[:, v1] * [nablarlYL(L, G_Gv.T)[v2]
+                                         for L in range(l**2, (l + 1)**2)]))
         
         c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
 
@@ -1012,7 +1017,8 @@ class PWLFC(BaseLFC):
         alpha = 1.0 / self.pd.gd.N_c.prod()
         if self.pd.dtype == float:
             alpha *= 2
-            f_IG[:, 0] *= 0.5
+            if G1 == 0:
+                f_IG[:, 0] *= 0.5
             f_IG = f_IG.view(float)
             a_xG = a_xG.view(float)
         
