@@ -616,7 +616,7 @@ class GPAW(PAW):
         if self.wfs.collinear:
             momsum = magmom_av.sum()
             M = self.occupations.magmom
-            if abs(M) > 1e-7 and momsum > 1e-7:
+            if abs(M) > 1e-7 and abs(momsum) > 1e-7:
                 magmom_av *= M / momsum
             # return a contiguous array
             return magmom_av[:, 2].copy()
