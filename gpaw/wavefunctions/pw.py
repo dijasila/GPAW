@@ -21,6 +21,8 @@ from gpaw.band_descriptor import BandDescriptor
 
 
 class PWDescriptor:
+    ndim = 1  # all 3d G-vectors are stored in a 1d ndarray
+
     def __init__(self, ecut, gd, dtype=None, kd=None,
                  fftwflags=fftw.ESTIMATE):
 
@@ -339,6 +341,7 @@ class PWDescriptor:
             psit_nG = psit_nG.view(float)
             newpsit_G = newpsit_G.view(float)
         gemv(alpha, psit_nG, C_n, beta, newpsit_G, trans)
+
 
 class Preconditioner:
     """Preconditioner for KS equation.
@@ -695,7 +698,6 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def get_kinetic_stress(self):
         sigma_vv = np.zeros((3, 3), dtype=complex)
         pd = self.pd
-        cell_cv = pd.gd.cell_cv
         dOmega = pd.gd.dv / pd.gd.N_c.prod()
         K_qv = self.pd.K_qv
         for kpt in self.kpt_u:
@@ -1099,7 +1101,7 @@ class ReciprocalSpaceDensity(Density):
         self.nct.add(self.nct_q, 1.0 / self.nspins)
         self.nct_G = self.pd2.ifft(self.nct_q)
 
-    def interpolate(self, comp_charge=None):
+    def interpolate_pseudo_density(self, comp_charge=None):
         """Interpolate pseudo density to fine grid."""
         if comp_charge is None:
             comp_charge = self.calculate_multipole_moments()
@@ -1110,6 +1112,19 @@ class ReciprocalSpaceDensity(Density):
 
         for nt_G, nt_Q, nt_g in zip(self.nt_sG, self.nt_sQ, self.nt_sg):
             nt_g[:], nt_Q[:] = self.pd2.interpolate(nt_G, self.pd3)
+
+    def interpolate(self, in_xR, out_xR=None):
+        """Interpolate array(s)."""
+        if out_xR is None:
+            out_xR = self.finegd.empty(in_xR.shape[:-3])
+
+        a_xR = in_xR.reshape((-1,) + in_xR.shape[-3:])
+        b_xR = out_xR.reshape((-1,) + out_xR.shape[-3:])
+        
+        for in_R, out_R in zip(a_xR, b_xR):
+            out_R[:] = self.pd2.interpolate(in_R, self.pd3)[0]
+
+        return out_xR
 
     def calculate_pseudo_charge(self):
         self.nt_Q = self.nt_sQ[:self.nspins].sum(axis=0)
@@ -1191,9 +1206,18 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
         return ekin, self.epot, self.ebar, eext, self.exc, W_aL
 
-    def restrict(self, vt_sg, vt_sG):
-        for vt_G, vt_g in zip(vt_sG, vt_sg):
-            vt_G[:] = self.pd3.restrict(vt_g, self.pd2)[0]
+    def restrict(self, in_xR, out_xR=None):
+        """Restrict array."""
+        if out_xR is None:
+            out_xR = self.gd.empty(in_xR.shape[:-3])
+
+        a_xR = in_xR.reshape((-1,) + in_xR.shape[-3:])
+        b_xR = out_xR.reshape((-1,) + out_xR.shape[-3:])
+        
+        for in_R, out_R in zip(a_xR, b_xR):
+            out_R[:] = self.pd3.restrict(in_R, self.pd2)[0]
+
+        return out_xR
 
     def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):
         dens.ghat.derivative(self.vHt_q, ghat_aLv)

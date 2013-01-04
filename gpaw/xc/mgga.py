@@ -35,8 +35,8 @@ class MGGA(GGA):
                          forces=True, cut=True)
         self.tauct_G = None
         self.dedtaut_sG = None
-        self.restrict = hamiltonian.restrictor.apply
-        self.interpolate = density.interpolator.apply
+        self.restrict = hamiltonian.restrict
+        self.interpolate = density.interpolate
         self.taugrad_v = [Gradient(wfs.gd, v, n=self.nn, dtype=wfs.dtype).apply
                           for v in range(3)]
 
@@ -60,7 +60,7 @@ class MGGA(GGA):
                 for v in range(3):
                     self.grad_v[v](nt_sg[s], gradn_g)
                     axpy(0.125, gradn_g**2, taut_g)
-                ntinv_g = 0. * taut_g 
+                ntinv_g = 0. * taut_g
                 nt_ok = np.where(nt_sg[s] > 1e-7)
                 ntinv_g[nt_ok] = 1.0 / nt_sg[s][nt_ok]
                 taut_g *= ntinv_g
@@ -176,8 +176,6 @@ class MGGA(GGA):
 
         """
         nj = len(phi_jg)
-        ni = len(x.jlL)
-        nii = ni * (ni + 1) // 2
         dphidr_jg = np.zeros(np.shape(phi_jg))
         for j in range(nj):
             phi_g = phi_jg[j]
@@ -321,7 +319,7 @@ def transformation(x, t):
         tmp2 = (1.0 + x**3.0 + x**6.0)
         x = -1.0 * np.divide(tmp1, tmp2)
     else:
-    	raise KeyError('transformation %i unknown!' % t)
+        raise KeyError('transformation %i unknown!' % t)
     return x
 
 
@@ -388,7 +386,6 @@ def legendre_polynomial(x, orders, coefs, P=None):
     coefs_ = np.empty(max_order + 1)
     k = 0
     for i in range(len(coefs_)):
-        order = orders[k]
         if orders[k] == i:
             coefs_[i] = coefs[k]
             k += 1

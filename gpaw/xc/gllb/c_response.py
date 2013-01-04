@@ -89,8 +89,7 @@ class C_Response(Contribution):
 
             self.vt_sG /= self.nt_sG +1e-10
 
-        for s in range(nspins):
-            self.density.interpolator.apply(self.vt_sG[s], self.vt_sg[s])
+        self.density.interpolate(self.vt_sG, self.vt_sg)
         
     def calculate_spinpaired(self, e_g, n_g, v_g):
         self.update_potentials([n_g]) 

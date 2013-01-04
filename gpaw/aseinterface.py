@@ -148,7 +148,7 @@ class GPAW(PAW):
             gd = self.density.gd
         elif gridrefinement == 2:
             if self.density.nt_sg is None:
-                self.density.interpolate()
+                self.density.interpolate_pseudo_density()
             nt_sG = self.density.nt_sg
             gd = self.density.finegd
         else:

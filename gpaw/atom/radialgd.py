@@ -35,6 +35,8 @@ def fsbt(l, f_g, r_g, G_k):
 
 
 class RadialGridDescriptor:
+    ndim = 1  # dimension of ndarrays
+
     def __init__(self, r_g, dr_g, default_spline_points=25):
         """Grid descriptor for radial grid."""
         self.r_g = r_g
@@ -189,7 +191,7 @@ class RadialGridDescriptor:
         Returns (b_g, c_p) such that b_g=a_g for g >= gc and::
         
                 P-1      2(P-1-p)+l
-            b = Sum c_p r 
+            b = Sum c_p r
              g  p=0      g
 
         for g < gc+P.
@@ -222,11 +224,13 @@ class RadialGridDescriptor:
         i = [gc0] + range(gc, gc + points)
         r_i = r_g[i]
         norm = self.integrate(a_g**2)
+
         def f(x):
             b_g[gc0] = x
             c_x[:] = np.polyfit(r_i**2, b_g[i] / r_i**l, points)
             b_g[:gc] = np.polyval(c_x, r_g[:gc]**2) * r_g[:gc]**l
             return self.integrate(b_g**2) - norm
+
         from scipy.optimize import fsolve
         fsolve(f, x0)
         return b_g, c_x
@@ -259,17 +263,10 @@ class RadialGridDescriptor:
         N = len(b_g)
         if l > 0:
             b_g = divrl(b_g, l, self.r_g[:N])
-            #b_g[1:] /= self.r_g[1:]**l
-            #b_g[0] = b_g[1]
             
         r_i = np.linspace(0, rcut, points + 1)
-        #g_i = np.clip(self.ceil(r_i), 1, self.N - 2)
-        #g_i = np.clip(self.round(r_i), 1, self.N - 2)
-        g_i = np.clip((self.r2g(r_i)+0.5).astype(int), 1, N - 2)
-        if 0:#a_g[0] < 0:
-            print a_g[[0,1,2,-10,-2,-1]]
-            print rcut,l,points, len(a_g)
-            print g_i;dcvg
+        g_i = np.clip((self.r2g(r_i) + 0.5).astype(int), 1, N - 2)
+
         r1_i = self.r_g[g_i - 1]
         r2_i = self.r_g[g_i]
         r3_i = self.r_g[g_i + 1]
@@ -321,7 +318,6 @@ class AERadialGridDescriptor(RadialGridDescriptor):
         dr_g = (self.b * r_g + self.a)**2 / self.a
         RadialGridDescriptor.__init__(self, r_g, dr_g, default_spline_points)
                                       
-
     def r2g(self, r):
         # return r / (r * self.b + self.a)
         # Hack to preserve backwards compatibility:
@@ -332,10 +328,10 @@ class AERadialGridDescriptor(RadialGridDescriptor):
     def xml(self, id='grid1'):
         if abs(self.N - 1 / self.b) < 1e-5:
             return (('<radial_grid eq="r=a*i/(n-i)" a="%r" n="%d" ' +
-                     'istart="0" iend="%d" id="%s"/>') % 
+                     'istart="0" iend="%d" id="%s"/>') %
                     (self.a * self.N, self.N, self.N - 1, id))
         return (('<radial_grid eq="r=a*i/(1-b*i)" a="%r" b="%r" n="%d" ' +
-                 'istart="0" iend="%d" id="%s"/>') % 
+                 'istart="0" iend="%d" id="%s"/>') %
                 (self.a, self.b, self.N, self.N - 1, id))
 
     def d2gdr2(self):

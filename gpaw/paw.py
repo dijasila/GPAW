@@ -216,7 +216,7 @@ class PAW(PAWTextOutput):
 
     def calculate(self, atoms=None, converge=False,
                   force_call_to_set_positions=False):
-        """Update PAW calculaton if needed. 
+        """Update PAW calculaton if needed.
 
         Returns True/False whether a calculation was performed or not."""
 
@@ -614,7 +614,7 @@ class PAW(PAWTextOutput):
 
                 if hasattr(self, 'time'):
                     assert mode == 'fd'
-                    from gpaw.tddft import TimeDependentWaveFunctions #XXX
+                    from gpaw.tddft import TimeDependentWaveFunctions
                     self.wfs = TimeDependentWaveFunctions(par.stencils[0],
                         diagksl, orthoksl, initksl, gd, nvalence, setups,
                         bd, world, kd, self.timer)
@@ -712,7 +712,7 @@ class PAW(PAWTextOutput):
         self.density.ghat.set_positions(spos_ac)
         self.density.nct_G = self.density.gd.zeros()
         self.density.nct.add(self.density.nct_G, 1.0 / self.density.nspins)
-        self.density.interpolate()
+        self.density.interpolate_pseudo_density()
         self.density.calculate_pseudo_charge()
         self.hamiltonian.set_positions(spos_ac, self.wfs.rank_a)
         self.hamiltonian.update(self.density)
