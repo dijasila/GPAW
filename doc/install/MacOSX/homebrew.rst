@@ -1,15 +1,19 @@
 .. _homebrew:
 
-======================
-Homebrew Mountain Lion
-======================
+========
+Homebrew
+========
+
+Mountain Lion
+=============
 
 Install https://developer.apple.com/xcode/ and activate it from a terminal::
 
   xcodebuild -license
 
-After installing xcode install also its `Command-Line Tools`
-(After launching Xcode, in the top menubar, close to the `Apple`, choose
+After installing xcode install also its `Command-Line Tools` (provides
+`llvm-gcc compiler` on the command line).
+After launching Xcode, in the top menubar, close to the `Apple`, choose
 Xcode -> Preferences -> Downloads).
 
 Follow the instructions for installing Homebrew http://mxcl.github.com/homebrew/
@@ -57,24 +61,33 @@ Install GPAW setups::
 Currently with::
 
   brew install https://github.com/marcindulak/homebrew/raw/gpaw-setups/Library/Formula/gpaw-setups.rb
-  
+
+www.virtualenv.org allows you to run different versions of python modules after
+having them configured in different virtualenvs.
+It is a convenient way of keeping GPAW with its corresponding
+ASE version isolated form the globally installed python modules.
+
 Numpy installed under virtualenv does not work with gpaw-python
 (`ImportError: numpy.core.multiarray failed to import`), so install numpy
 globally with::
 
   PIP_REQUIRE_VIRTUALENV=false pip install numpy
 
-Configure virtualenv::
+Install virtualenv::
 
-  mkdir ~/Virtualenvs && cd ~/Virtualenvs
-  virtualenv gpaw-venv && cd gpaw-venv
+  PIP_REQUIRE_VIRTUALENV=false pip install virtualenv && mkdir ~/Virtualenvs
+
+Configure a virtualenv for GPAW, e.g. trunk::
+
+  cd ~/Virtualenvs
+  virtualenv gpaw-trunk && cd gpaw-trunk
   . bin/activate
 
 Now, install ASE inside of virtualenv::
 
   pip install python-ase
 
-Install GPAW (still inside of virtualenv) for example with
+Install GPAW (still inside of the virtualenv) for example with
 :ref:`installationguide_standard`::
 
   python setup.py install

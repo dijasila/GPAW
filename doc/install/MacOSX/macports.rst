@@ -1,8 +1,11 @@
-.. _snowleopard_macports:
+.. _macports:
 
-=====================
-MacPorts Snow Leopard
-=====================
+========
+MacPorts
+========
+
+Snow Leopard
+============
 
 Follow the instructions here for installing MacPorts and all supporting packages:
 `<https://sites.google.com/site/naromero/code-development-on-mac-os-x>`_
