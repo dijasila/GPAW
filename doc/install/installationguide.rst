@@ -47,10 +47,10 @@ are described, in order of preference.
    **CAMd users** installing on ``Niflheim``: please follow instructions
    for :ref:`Niflheim`.
 
-.. _installationguide_macos:
+.. _installationguide_macosx:
 
-Installation on MacOS
----------------------
+Installation on OS X
+--------------------
 
 For installation with http://mxcl.github.com/homebrew/ please follow
 instructions at :ref:`homebrew`.
