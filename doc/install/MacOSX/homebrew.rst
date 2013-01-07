@@ -16,6 +16,10 @@ After installing xcode install also its `Command-Line Tools` (provides
 After launching Xcode, in the top menubar, close to the `Apple`, choose
 Xcode -> Preferences -> Downloads).
 
+Make sure the compilers are in place::
+
+  which llvm-gcc
+
 Follow the instructions for installing Homebrew http://mxcl.github.com/homebrew/
 the famous::
 
@@ -27,6 +31,21 @@ and configure your init scripts `~/.bash_profile`::
   export ARCHFLAGS="-arch x86_64"
   # Ensure user-installed binaries take precedence
   export PATH=/usr/local/share/python:/usr/local/bin:$PATH
+  pyver=`python -c "from distutils import sysconfig; print sysconfig.get_python_version()"`
+  export PYTHONPATH=/usr/local/lib/python${pyver}/site-packages:$PYTHONPATH
+  # hack gtk-2.0
+  export PYTHONPATH=/usr/local/lib/python${pyver}/site-packages/gtk-2.0:$PYTHONPATH
+  # personal installation of pip
+  export PATH=/Users/$USER/pip_latest:$PATH
+  export PYTHONPATH=/Users/$USER/pip_latest:$PYTHONPATH
+  # pip --user installations of packages
+  export PATH=/Users/$USER/Library/Python/${pyver}/bin:$PATH
+  export PYTHONPATH=/Users/$USER/Library/Python/${pyver}/lib/python/site-packages:$PYTHONPATH
+
+  # https://github.com/mxcl/homebrew/issues/16891
+  export PKG_CONFIG_PATH=`brew --prefix libffi`/lib/pkgconfig:$PKG_CONFIG_PATH
+  export PKG_CONFIG_PATH=/opt/X11/lib/pkgconfig:$PKG_CONFIG_PATH
+  export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
 
   # virtualenv should use Distribute instead of legacy setuptools
   export VIRTUALENV_DISTRIBUTE=true
@@ -45,11 +64,31 @@ Update with::
 
   brew update
 
-Build homebrew python::
+Iy you prefer to use OS X python (recommended!), install ``pip``::
+
+  easy_install --install-dir=$HOME/pip_latest pip  # fails under $HOME/pip
+
+otherwise install homebrew python (provides ``pip``, but be ready for other
+troubles!)::
 
   brew install python --with-brewed-openssl --framework
 
-And install the following homebrew packages::
+www.virtualenv.org allows you to run different versions of python modules after
+having them configured in different virtualenvs.
+It is a convenient way of keeping GPAW with its corresponding
+ASE version isolated form the globally installed python modules.
+
+Install virtualenv (you don't need ``--user`` if installing with homebrew python)::
+
+  PIP_REQUIRE_VIRTUALENV=false pip install --user virtualenv
+  mkdir ~/Virtualenvs
+
+If you are only installing ASE skip the next section.
+
+Installing GPAW requirements
+----------------------------
+
+Install the following homebrew packages::
 
   brew install gfortran
   brew install openmpi
@@ -60,22 +99,7 @@ Install GPAW setups::
 
 Currently with::
 
-  brew install https://github.com/marcindulak/homebrew/raw/gpaw-setups/Library/Formula/gpaw-setups.rb
-
-www.virtualenv.org allows you to run different versions of python modules after
-having them configured in different virtualenvs.
-It is a convenient way of keeping GPAW with its corresponding
-ASE version isolated form the globally installed python modules.
-
-Numpy installed under virtualenv does not work with gpaw-python
-(`ImportError: numpy.core.multiarray failed to import`), so install numpy
-globally with::
-
-  PIP_REQUIRE_VIRTUALENV=false pip install numpy
-
-Install virtualenv::
-
-  PIP_REQUIRE_VIRTUALENV=false pip install virtualenv && mkdir ~/Virtualenvs
+  brew install https://raw.github.com/marcindulak/homebrew/gpaw-setups/Library/Formula/gpaw-setups.rb
 
 Configure a virtualenv for GPAW, e.g. trunk::
 
@@ -83,25 +107,39 @@ Configure a virtualenv for GPAW, e.g. trunk::
   virtualenv gpaw-trunk && cd gpaw-trunk
   . bin/activate
 
-Now, install ASE inside of virtualenv::
-
-  pip install python-ase
-
 Install GPAW (still inside of the virtualenv) for example with
 :ref:`installationguide_standard`::
 
-  python setup.py install
+  pip install python-ase
+  pip install numpy
+  cd gpaw&& python setup.py install
 
-You may need additionally to set :envvar:`PYTHONPATH` (should not be necessary).
+Installing ASE requirements
+---------------------------
 
 If you prefer to have matplotlib available you need to
-install http://xquartz.macosforge.org, reboot and additionally::
+install http://xquartz.macosforge.org, reboot, and additionally::
 
   brew install freetype
   brew install libpng
+  brew install ghostscript
   brew install pygtk
 
-Set the PKG_CONFIG_PATH correctly https://github.com/mxcl/homebrew/issues/16891
+Configure a virtualenv for ASE (or use an existing GPAW one),
+e.g. latest stable release::
+
+  cd ~/Virtualenvs
+  virtualenv ase-stable && cd ase-stable
+  . bin/activate
+
+Now, install ASE inside of virtualenv::
+
+  pip install python-ase
+  pip install numpy
+
+Make sure the PKG_CONFIG_PATH correctly
+https://github.com/mxcl/homebrew/issues/16891
 and then, again inside of virtualenv::
 
-  pip install matplotlib
+  easy_install python-dateutil  # OS X version is outdated!
+  easy_install matplotlib  # pip install asks for sudo!
