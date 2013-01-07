@@ -61,7 +61,6 @@ class CHI(BASECHI):
                  single_precision=False,
                  cublas=False,
                  cugemv=False,                 
-                 use_zher=None, # 'True', 'False', 'Multi'
                  comm=None,
                  kcommsize=None):
 
@@ -78,21 +77,12 @@ class CHI(BASECHI):
         self.single_precision = single_precision
         self.cublas = cublas
         self.cugemv = cugemv        
-        self.use_zher = use_zher
         self.kcommsize = kcommsize
         self.comm = comm
         if self.comm is None:
             self.comm = world
         self.chi0_wGG = None
 
-        if self.use_zher is None:
-            self.use_zher = False
-            if self.eta < 1e-3:
-                self.use_zher = 'single'
-        if self.use_zher == 'multi':
-            assert self.cublas is True
-            assert self.eta < 1e-3
-            assert self.single_precision is False
         
     def initialize(self, simple_version=False):
 
@@ -226,38 +216,15 @@ class CHI(BASECHI):
             print >> self.txt, 'Use Cublas ! '
             # CUblas allocation
 
-            # (cpo) kludge GPU allocation scheme
-            lockdir = '/nfs/slac/g/suncatfs/cpo/gpu/lock/'
-            import os
-            jobid = os.getenv('LSB_JOBID')
-            if jobid is not None:
-                # this is a batch job
-                fname = lockdir+'job'+str(jobid)
-                f = open(fname,'r')
-                gpus = f.readline().split()
-                gpunum = int(gpus[rank])
-            else:
-                # running outside the batch environment.  take a guess.
-                gpunum = rank
-            #print 'Using GPU ',gpunum
+            status, handle = _gpaw.cuCreate()
+            matrixlist_w = []
+            for iw in range(self.Nw_local):
+                status, matrixGPU_GG = _gpaw.cuMalloc(self.npw*self.npw*sizeofdata)
+                status = _gpaw.cuSetMatrix(self.npw, self.npw, sizeofdata,
+                                           chi0_wGG[iw].copy(), self.npw,
+                                           matrixGPU_GG, self.npw)
+                matrixlist_w.append(matrixGPU_GG)
             
-            status, handle = _gpaw.cuCreate(gpunum)
-            if self.use_zher == 'single':
-                matrixlist_w = []
-                for iw in range(self.Nw_local):
-                    status, matrixGPU_GG = _gpaw.cuMalloc(self.npw*self.npw*sizeofdata)
-                    status = _gpaw.cuSetMatrix(self.npw, self.npw, sizeofdata,
-                                               chi0_wGG[iw].copy(), self.npw,
-                                               matrixGPU_GG, self.npw)
-                    matrixlist_w.append(matrixGPU_GG)
-            elif self.use_zher == 'multi':
-                status, matrixGPU_wGG = _gpaw.cuMalloc(self.Nw_local*self.npw*self.npw*sizeofdata)
-                status = _gpaw.cuSetMatrix(self.Nw_local*self.npw, self.npw, sizeofdata,
-                                           chi0_wGG.copy(), self.Nw_local*self.npw,
-                                           matrixGPU_wGG, self.Nw_local*self.npw)
-                status,GPU_alpha_w = _gpaw.cuMalloc(self.Nw_local*sizeofdata/2) 
-                alpha_w = np.zeros(self.Nw_local)
-                
             status,GPU_rho_G = _gpaw.cuMalloc(self.npw*sizeofdata)
 
         if self.cugemv:
@@ -295,6 +262,10 @@ class CHI(BASECHI):
             self.printtxt('Using Numpy FFT.')
         else:
             self.printtxt('Using FFTW Library.') 
+
+        use_zher = False
+        if self.eta < 1e-3:
+            use_zher = True
 
         rho_G = np.zeros(self.npw, dtype=complex)
         t0 = time()
@@ -352,7 +323,7 @@ class CHI(BASECHI):
                         psit1new_g = psit1new_g_tmp
     
                     # PAW part
-                    if not self.pwmode:
+                    if 1:#not self.pwmode:
                         if (calc.wfs.world.size > 1 or self.nkpt==1):
                             P1_ai = pt.dict()
                             pt.integrate(psit1new_g, P1_ai, k)
@@ -376,7 +347,7 @@ class CHI(BASECHI):
                         if not self.pwmode:
                             psitold_g = self.get_wavefunction(ibzkpt2, m, check_focc, spin=spin)
     
-                        if check_focc:  
+                        if check_focc:                            
                             if self.pwmode:
                                 u = self.kd.get_rank_and_index(spin, ibzkpt2)[1]
                                 psitold_g = calc.wfs._get_wave_function_array(u, m, realspace=True, phase=eikr2_R)
@@ -404,7 +375,7 @@ class CHI(BASECHI):
                                 rho_G[0] = -1j * np.dot(self.qq_v, tmp)
     
                             # PAW correction
-                            if not self.pwmode:
+                            if 1:#not self.pwmode:
                                 if (calc.wfs.world.size > 1 or self.nkpt==1):
                                     P2_ai = pt.dict()
                                     pt.integrate(psit2_g, P2_ai, kq_k[k])
@@ -457,7 +428,7 @@ class CHI(BASECHI):
                                 rho_G[:] = 0.
     
                             if not self.hilbert_trans:
-                                if self.use_zher is False:
+                                if not use_zher:
                                     rho_GG = np.outer(rho_G, rho_G.conj())
                                 else:
                                     if self.single_precision:
@@ -466,7 +437,7 @@ class CHI(BASECHI):
                                         status = _gpaw.cuSetVector(1, sizeofdata, rho_G, 1, GPU_rho_G, 1)
                                     if self.cublas and not self.cugemv:
                                         status = _gpaw.cuSetVector(self.npw,sizeofdata,rho_G,1,GPU_rho_G,1)
-                                
+
                                 for iw in range(self.Nw_local):
                                     w = self.w_w[iw + self.wstart] / Hartree
                                     coef = ( 1. / (w + e_skn[spin][ibzkpt1, n] - e_skn[spin][ibzkpt2, m]
@@ -474,11 +445,8 @@ class CHI(BASECHI):
                                            - 1. / (w - e_skn[spin][ibzkpt1, n] + e_skn[spin][ibzkpt2, m]
                                                    + 1j * self.eta) )
                                     C =  (f_skn[spin][ibzkpt1, n] - f_skn[spin][ibzkpt2, m]) * coef
-                                    
-                                    if self.use_zher == 'multi':
-                                        alpha_w[iw] = C.real
-
-                                    elif self.use_zher == 'single':
+    
+                                    if use_zher:
                                         if self.single_precision:
                                             C = np.float32(C.real)
                                             if not self.cublas:
@@ -492,17 +460,10 @@ class CHI(BASECHI):
                                                 czher(C.real, rho_G.conj(), chi0_wGG[iw])
                                             else:
                                                 matrixGPU_GG = matrixlist_w[iw]
-                                                status = _gpaw.cuZher(handle,0,self.npw,C,GPU_rho_G,1,
+                                                status = _gpaw.cuZher(handle,0,self.npw,C.real,GPU_rho_G,1,
                                                                       matrixGPU_GG,self.npw)
                                     else:
                                         axpy(C, rho_GG, chi0_wGG[iw])
-
-                                if self.use_zher == 'multi':
-                                    _gpaw.cuSetVector(self.Nw_local, sizeofdata/2, alpha_w, 1, 
-                                                      GPU_alpha_w, 1) # alpha is real
-                                    _gpaw.multi_cuZher(self.npw, self.Nw_local, GPU_alpha_w, 
-                                                       GPU_rho_G, matrixGPU_wGG)
-
                             else:
                                 rho_GG = np.outer(rho_G, rho_G.conj())
                                 focc = f_skn[spin][ibzkpt1,n] - f_skn[spin][ibzkpt2,m]
@@ -551,26 +512,18 @@ class CHI(BASECHI):
         
         # Hilbert Transform
         if not self.hilbert_trans:
-            if self.use_zher is False: # in fact, it should be, if not use_cuzher
+            if not use_zher: # in fact, it should be, if not use_cuzher
                 for iw in range(self.Nw_local):
                     self.kcomm.sum(chi0_wGG[iw])
             else:
                 if self.cublas:
-                    if self.use_zher == 'single':
-                        for iw in range(self.Nw_local):
-                            status = _gpaw.cuGetMatrix(self.npw,self.npw,sizeofdata,matrixlist_w[iw],
-                                                       self.npw,chi0_wGG[iw],self.npw)
-                            chi0_wGG[iw] = chi0_wGG[iw].conj()
-                        for iw in range(self.Nw_local):
-                            _gpaw.cuFree(matrixlist_w[iw])
-                    elif self.use_zher == 'multi':
-                        status = _gpaw.cuGetMatrix(self.Nw_local*self.npw,self.npw,sizeofdata, 
-                                               matrixGPU_wGG,self.Nw_local*self.npw,
-                                                   chi0_wGG,self.Nw_local*self.npw)
-                        for iw in range(self.Nw_local):
-                            chi0_wGG[iw] = chi0_wGG[iw].conj()
-                        _gpaw.cuFree(matrixGPU_wGG)
-                            
+                    for iw in range(self.Nw_local):
+                        status = _gpaw.cuGetMatrix(self.npw,self.npw,sizeofdata,matrixlist_w[iw],self.npw,
+                                                   chi0_wGG[iw],self.npw)
+                        chi0_wGG[iw] = chi0_wGG[iw].conj()
+
+                    for iw in range(self.Nw_local):
+                        _gpaw.cuFree(matrixlist_w[iw])
                     _gpaw.cuFree(GPU_rho_G)
 
                 if self.cugemv:
@@ -678,7 +631,7 @@ class CHI(BASECHI):
 
         self.kcomm, self.wScomm, self.wcomm = set_communicator(world, rank, size, self.kcommsize)
 
-        if self.nkpt >= world.size:
+        if self.nkpt % world.size ==0:
             self.nkpt_reshape = self.nkpt
             self.nkpt_reshape, self.nkpt_local, self.kstart, self.kend = parallel_partition(
                                self.nkpt_reshape, self.kcomm.rank, self.kcomm.size, reshape=True, positive=True)

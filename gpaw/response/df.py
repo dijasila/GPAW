@@ -32,7 +32,6 @@ class DF(CHI):
                  single_precision=False,
                  cublas=False,
                  cugemv=False,
-                 use_zher=None,
                  comm=None,
                  kcommsize=None):
 
@@ -41,8 +40,8 @@ class DF(CHI):
                      G_plus_q=G_plus_q, eta=eta, rpad=rpad, vcut=vcut,
                      ftol=ftol, txt=txt, xc=xc, hilbert_trans=hilbert_trans,
                      full_response=full_response, optical_limit=optical_limit,
-                     single_precision=single_precision,cublas=cublas,cugemv=cugemv,
-                     use_zher=use_zher,comm=comm, kcommsize=kcommsize)
+                     single_precision=single_precision,cublas=cublas,cugemv=cugemv,                     
+                     comm=comm, kcommsize=kcommsize)
 
         self.df_flag = False
         self.print_bootstrap = print_xc_scf

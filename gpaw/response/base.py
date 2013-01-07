@@ -58,7 +58,7 @@ class BASECHI:
             self.calc = calc
 
         self.pwmode = isinstance(self.calc.input_parameters['mode'], pw.PW)
-        if self.pwmode:
+        if 0:#self.pwmode:
             assert self.calc.wfs.world.size == 1
 #            if self.calc.wfs.world.size == 1 and self.calc.input_parameters['mode'] != 'lcao':
             for kpt in self.calc.wfs.kpt_u:

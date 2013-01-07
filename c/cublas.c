@@ -95,11 +95,11 @@ PyObject* cuCreate(PyObject *self, PyObject *args)
 {
   cublasHandle_t handle;
   cublasStatus_t cudaStat;
-  int devid=0;
+  int devid=-1;
   if (!PyArg_ParseTuple(args, "|i",&devid))
     return NULL;
 
-  cudaSetDevice(devid);
+  if (devid>=0) cudaSetDevice(devid);
   cudaStat = cublasCreate(&handle);
   if (cudaStat != cudaSuccess) {
     printf("cublasCreate failed %d\n",cudaStat);
