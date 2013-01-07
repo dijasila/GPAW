@@ -114,6 +114,7 @@ PyObject* cuGetMatrix(PyObject *self, PyObject *args);
 PyObject* cuSetVector(PyObject *self, PyObject *args);
 PyObject* cuGetVector(PyObject *self, PyObject *args);
 PyObject* cuZher(PyObject *self, PyObject *args);
+PyObject* cuDevSynch(PyObject *self, PyObject *args);
 PyObject* cuCher(PyObject *self, PyObject *args);
 
 // Moving least squares interpolation
@@ -142,6 +143,7 @@ static PyMethodDef functions[] = {
   {"cuSetVector", cuSetVector, METH_VARARGS, 0},
   {"cuGetVector", cuGetVector, METH_VARARGS, 0},
   {"cuZher", cuZher, METH_VARARGS, 0},
+  {"cuDevSynch", cuDevSynch, METH_VARARGS, 0},
   {"cuCher", cuCher, METH_VARARGS, 0},
   {"rk",  rk,  METH_VARARGS, 0},
   {"r2k", r2k, METH_VARARGS, 0},

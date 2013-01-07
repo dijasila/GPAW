@@ -235,6 +235,17 @@ PyObject* cuZher(PyObject *self, PyObject *args)
   return Py_BuildValue("i",cudaStat);
 }
 
+PyObject* cuDevSynch(PyObject *self, PyObject *args)
+{
+  cudaError_t cudaStat;
+  cudaStat = cudaDeviceSynchronize();
+  if (cudaStat != cudaSuccess) {
+    printf("cudaDevicesynchronize failed %d\n",cudaStat);
+    return NULL;
+  }
+  return Py_BuildValue("i",cudaStat);
+}
+
 PyObject* cuCher(PyObject *self, PyObject *args)
 {
   cublasHandle_t handle;
