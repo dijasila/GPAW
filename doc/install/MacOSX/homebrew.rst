@@ -29,24 +29,28 @@ and configure your init scripts `~/.bash_profile`::
 
   # Set architecture flags
   export ARCHFLAGS="-arch x86_64"
+
+  # personal installation of pip
+  export PATH=/Users/$USER/pip_latest:$PATH
+  export PYTHONPATH=/Users/$USER/pip_latest:$PYTHONPATH
+
+  # pip --user installations of packages
+  export PATH=/Users/$USER/Library/Python/${pyver}/bin:$PATH
+  export PYTHONPATH=/Users/$USER/Library/Python/${pyver}/lib/python/site-packages:$PYTHONPATH
+
+  # homebrew
   # Ensure user-installed binaries take precedence
   export PATH=/usr/local/share/python:/usr/local/bin:$PATH
   pyver=`python -c "from distutils import sysconfig; print sysconfig.get_python_version()"`
   export PYTHONPATH=/usr/local/lib/python${pyver}/site-packages:$PYTHONPATH
   # hack gtk-2.0
   export PYTHONPATH=/usr/local/lib/python${pyver}/site-packages/gtk-2.0:$PYTHONPATH
-  # personal installation of pip
-  export PATH=/Users/$USER/pip_latest:$PATH
-  export PYTHONPATH=/Users/$USER/pip_latest:$PYTHONPATH
-  # pip --user installations of packages
-  export PATH=/Users/$USER/Library/Python/${pyver}/bin:$PATH
-  export PYTHONPATH=/Users/$USER/Library/Python/${pyver}/lib/python/site-packages:$PYTHONPATH
-
   # https://github.com/mxcl/homebrew/issues/16891
   export PKG_CONFIG_PATH=`brew --prefix libffi`/lib/pkgconfig:$PKG_CONFIG_PATH
   export PKG_CONFIG_PATH=/opt/X11/lib/pkgconfig:$PKG_CONFIG_PATH
   export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
 
+  # virtualenv
   # virtualenv should use Distribute instead of legacy setuptools
   export VIRTUALENV_DISTRIBUTE=true
   # Centralized location for new virtual environments
@@ -64,14 +68,12 @@ Update with::
 
   brew update
 
-Iy you prefer to use OS X python (recommended!), install ``pip``::
+If you prefer to use OS X python (recommended!), install ``pip``::
 
   easy_install --install-dir=$HOME/pip_latest pip  # fails under $HOME/pip
 
-otherwise install homebrew python (provides ``pip``, but be ready for other
-troubles!)::
-
-  brew install python --with-brewed-openssl --framework
+Note that homebrew recommends installing its own python, but by doing so
+be prepared on other troubles than addressed in the installation described here.
 
 www.virtualenv.org allows you to run different versions of python modules after
 having them configured in different virtualenvs.
@@ -95,11 +97,7 @@ Install the following homebrew packages::
 
 Install GPAW setups::
 
-  brew install gpaw-setups
-
-Currently with::
-
-  brew install https://raw.github.com/marcindulak/homebrew/gpaw-setups/Library/Formula/gpaw-setups.rb
+  brew install https://svn.fysik.dtu.dk/projects/gpaw/trunk/doc/install/MacOSX/gpaw-setups.rb
 
 Configure a virtualenv for GPAW, e.g. trunk::
 
@@ -120,26 +118,22 @@ Installing ASE requirements
 If you prefer to have matplotlib available you need to
 install http://xquartz.macosforge.org, reboot, and additionally::
 
-  brew install freetype
-  brew install libpng
-  brew install ghostscript
   brew install pygtk
 
-Configure a virtualenv for ASE (or use an existing GPAW one),
-e.g. latest stable release::
+Configure a virtualenv for ASE, e.g. 3.6.0.2515 release::
 
   cd ~/Virtualenvs
-  virtualenv ase-stable && cd ase-stable
+  virtualenv ase-3.6.0.2515 && cd ase-3.6.0.2515
   . bin/activate
 
 Now, install ASE inside of virtualenv::
 
-  pip install python-ase
+  pip install python-ase==3.6.0.2515
   pip install numpy
 
 Make sure the PKG_CONFIG_PATH correctly
 https://github.com/mxcl/homebrew/issues/16891
 and then, again inside of virtualenv::
 
-  easy_install python-dateutil  # OS X version is outdated!
-  easy_install matplotlib  # pip install asks for sudo!
+  pip install python-dateutil  # OS X version is outdated!
+  pip install matplotlib
