@@ -113,7 +113,7 @@ id         real name
 =========  =========================  ========================================
 anpet      Andrew Peterson            andy,peterson:stanford,edu
 aoj        Ari Ojanperä               ari,ojanpera:tkk,fi
-askhl      Ask Hjorth Larsen          askhl:fysik,dtu,dk
+askhl      Ask Hjorth Larsen          asklarsen:gmail,com
 dlandis    David Landis               dlandis:fysik,dtu,dk
 dulak      Marcin Dulak               dulak:fysik,dtu,dk
 eojons     Elvar Örn Jónsson          elvar,jonsson:fysik,dtu,dk
