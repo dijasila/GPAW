@@ -22,8 +22,6 @@
 #ifdef GPAW_HPM
 void HPM_Start(char *);
 void HPM_Stop(char *);
-void HPM_Print(void);
-void HPM_Print_Flops(void);
 
 PyObject* ibm_hpm_start(PyObject *self, PyObject *args)
 {
@@ -214,12 +212,10 @@ void gpaw_perf_finalize()
   }
 }
 #elif GPAW_HPM
-void HPM_Init(void);
 void HPM_Start(char *);
 
 int gpaw_perf_init()
 {
-  HPM_Init();
   HPM_Start("GPAW");
   return 0;
 }
@@ -227,8 +223,6 @@ int gpaw_perf_init()
 void gpaw_perf_finalize()
 {
   HPM_Stop("GPAW");
-  HPM_Print();
-  HPM_Print_Flops();
 }
 #else  // Use just MPI_Wtime
 static double t0;
