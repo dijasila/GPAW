@@ -915,7 +915,7 @@ def generate(argv=None):
     parser.add_option('-c', '--convergence', action='store_true')
     parser.add_option('-a', '--alpha', type=float)
     parser.add_option('-F', '--filter', metavar='gamma,h',
-                      help='Fourrier filtering parameters for Wang ' +
+                      help='Fourier filtering parameters for Wang ' +
                       'mask-function.  Default: ' +
                       u'gamma=1.5 and h=0.2 Å.  Use gamma=1 and ' +
                       u'h=0 Å to turn off filtering.')
