@@ -1066,7 +1066,7 @@ class PsudoCoreKineticEnergyDensityLFC(PWLFC):
         tauct_R += self.pd.ifft(1.0 / self.pd.gd.dv * self.expand(-1).sum(0))
 
     def derivative(self, dedtaut_R, dF_aiv):
-        PWLFC.derivative(self, self.fft(dedtaut_R), dF_aiv)
+        PWLFC.derivative(self, self.pd.fft(dedtaut_R), dF_aiv)
 
 
 class PW:
