@@ -42,16 +42,11 @@ class SCFLoop:
         if self.converged:
             return
 
-        cuda_psit_nG=cuda
-
-        if cuda_psit_nG:
+        if cuda:
             wfs.cuda_psit_nG_htod()
             
         for iter in range(1, self.maxiter + 1):
-            if cuda: #XXX At the moment all eigensolvers do not support cuda
-                wfs.eigensolver.iterate(hamiltonian, wfs, cuda_psit_nG=cuda_psit_nG)
-            else:
-                wfs.eigensolver.iterate(hamiltonian, wfs)
+            wfs.eigensolver.iterate(hamiltonian, wfs)
             occupations.calculate(wfs)
             # XXX ortho, dens, wfs?
             energy = hamiltonian.get_energy(occupations)
@@ -64,14 +59,14 @@ class SCFLoop:
                 break
 
             if iter > self.niter_fixdensity:
-                density.update(wfs,cuda_psit_nG=cuda_psit_nG)
+                density.update(wfs)
                 hamiltonian.update(density)
             else:
                 hamiltonian.npoisson = 0
                 
         # Don't fix the density in the next step:
         self.niter_fixdensity = 0
-        if cuda_psit_nG:
+        if cuda:
             wfs.cuda_psit_nG_dtoh()
         
     def check_convergence(self, density, eigensolver):

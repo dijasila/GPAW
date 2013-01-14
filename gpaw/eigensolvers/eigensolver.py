@@ -13,8 +13,6 @@ from gpaw.utilities.tools import apply_subspace_mask
 from gpaw.utilities import unpack
 from gpaw import debug, extra_parameters
 
-import gpaw.gpuarray as gpuarray
-
 class Eigensolver:
     def __init__(self, keep_htpsit=True, blocksize=1, cuda=False):
         self.keep_htpsit = keep_htpsit
@@ -60,7 +58,7 @@ class Eigensolver:
         
         self.initialized = True
 
-    def iterate(self, hamiltonian, wfs, cuda_psit_nG=False):
+    def iterate(self, hamiltonian, wfs):
         """Solves eigenvalue problem iteratively
 
         This method is inherited by the actual eigensolver which should
@@ -75,19 +73,15 @@ class Eigensolver:
             self.preconditioner.allocate()
 
         if not wfs.orthonormalized:
-            wfs.orthonormalize(cuda_psit_nG)
+            wfs.orthonormalize()
             
-        if self.cuda:   # XXX Currently only RMM-DIIS has cuda_psit_nG keyword
-            error = 0.0
-            for kpt in wfs.kpt_u:
-                error += self.iterate_one_k_point(hamiltonian, wfs, kpt, cuda_psit_nG)
-        else:
-            error = 0.0
-            for kpt in wfs.kpt_u:
-                error += self.iterate_one_k_point(hamiltonian, wfs, kpt)
+
+        error = 0.0
+        for kpt in wfs.kpt_u:
+            error += self.iterate_one_k_point(hamiltonian, wfs, kpt)
 
 
-        wfs.orthonormalize(cuda_psit_nG)
+        wfs.orthonormalize()
 
         self.error = self.band_comm.sum(self.kpt_comm.sum(error))
 
@@ -114,7 +108,7 @@ class Eigensolver:
                                       calculate_change)
         wfs.pt.add(R_xG, c_axi, kpt.q)
         
-    def subspace_diagonalize(self, hamiltonian, wfs, kpt, rotate=True, cuda_psit_nG=False):
+    def subspace_diagonalize(self, hamiltonian, wfs, kpt, rotate=True):
         """Diagonalize the Hamiltonian in the subspace of kpt.psit_nG
 
         *Htpsit_nG* is a work array of same size as psit_nG which contains
@@ -137,10 +131,7 @@ class Eigensolver:
         self.timer.start('Subspace diag')
 
         if self.cuda:
-            if cuda_psit_nG:
-                psit_nG = kpt.psit_nG_gpu
-            else:
-                psit_nG = gpuarray.to_gpu(kpt.psit_nG)
+            psit_nG = kpt.psit_nG_gpu
         else:
             psit_nG = kpt.psit_nG
         P_ani = kpt.P_ani
@@ -177,11 +168,7 @@ class Eigensolver:
 
         self.timer.start('rotate_psi')
         if self.cuda:
-            if cuda_psit_nG:
-                kpt.psit_nG_gpu = self.operator.matrix_multiply(H_nn, psit_nG, P_ani)
-            else:
-                psit_nG = self.operator.matrix_multiply(H_nn, psit_nG, P_ani)
-                kpt.psit_nG = psit_nG.get()
+            kpt.psit_nG_gpu = self.operator.matrix_multiply(H_nn, psit_nG, P_ani)
         else:
             kpt.psit_nG = self.operator.matrix_multiply(H_nn, psit_nG, P_ani)
 

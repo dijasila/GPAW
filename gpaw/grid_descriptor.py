@@ -20,8 +20,7 @@ from gpaw.domain import Domain
 from gpaw.utilities import divrl, mlsqr
 from gpaw.spline import Spline
 
-import pycuda.driver as cuda
-import gpaw.gpuarray as gpuarray
+import gpaw.cuda
 
 # Remove this:  XXX
 assert (-1) % 3 == 2
@@ -192,9 +191,9 @@ class GridDescriptor(Domain):
         shape = n + tuple(shape)
         if cuda:
             if zero:
-                return gpuarray.zeros(tuple(int(x) for x in shape), dtype)
+                return gpaw.cuda.gpuarray.zeros(tuple(int(x) for x in shape), dtype)
             else:
-                return gpuarray.empty(tuple(int(x) for x in shape), dtype)
+                return gpaw.cuda.gpuarray.empty(tuple(int(x) for x in shape), dtype)
         else:
             if zero:
                 return np.zeros(shape, dtype)

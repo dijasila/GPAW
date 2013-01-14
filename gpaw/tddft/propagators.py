@@ -15,8 +15,8 @@ from gpaw.mpi import rank, run
 from gpaw.tddft.utils import MultiBlas
 from gpaw.tddft.tdopers import DummyDensity
 
-import pycuda.driver as cuda
-import gpaw.gpuarray as gpuarray
+import gpaw.cuda
+
 
 ###############################################################################
 # DummyKPoint
@@ -82,8 +82,8 @@ class DummyPropagator:
         if self.preconditioner is not None:
             self.preconditioner.apply(self.kpt, psi, psin)
         else:
-            if  isinstance(psi,gpuarray.GPUArray):
-                cuda.memcpy_dtod(psin.gpudata, psi.gpudata,
+            if  isinstance(psi,gpaw.cuda.gpuarray.GPUArray):
+                gpaw.cuda.drv.memcpy_dtod(psin.gpudata, psi.gpudata,
                                  psi.nbytes)
             else:
                 psin[:] = psi
@@ -211,7 +211,7 @@ class ExplicitCrankNicolson(DummyPropagator):
         # Copy current wavefunctions psit_nG to work wavefunction arrays
         if self.cuda:
             for u in range(len(kpt_u)):
-                cuda.memcpy_dtod(self.tmp_kpt_u[u].psit_nG.gpudata,
+                gpaw.cuda.drv.memcpy_dtod(self.tmp_kpt_u[u].psit_nG.gpudata,
                                  kpt_u[u].psit_nG_gpu.gpudata, kpt_u[u].psit_nG_gpu.nbytes)
         else:
             for u in range(len(kpt_u)):
@@ -260,8 +260,8 @@ class ExplicitCrankNicolson(DummyPropagator):
 
         # Update rhs_kpt.psit_nG to reflect ( S - i H dt/2 ) psit(t)
         #rhs_kpt.psit_nG[:] = self.spsit - .5J * self.hpsit * time_step
-        if  isinstance(self.spsit,gpuarray.GPUArray):
-            cuda.memcpy_dtod(rhs_kpt.psit_nG.gpudata, self.spsit.gpudata,
+        if  isinstance(self.spsit,gpaw.cuda.gpuarray.GPUArray):
+            gpaw.cuda.drv.memcpy_dtod(rhs_kpt.psit_nG.gpudata, self.spsit.gpudata,
                              self.spsit.nbytes)
         else:        
             rhs_kpt.psit_nG[:] = self.spsit
@@ -307,8 +307,8 @@ class ExplicitCrankNicolson(DummyPropagator):
         self.timer.stop('Apply time-dependent operators')
 
         # psin[:] = self.spsit + .5J * self.time_step * self.hpsit
-        if  isinstance(self.spsit,gpuarray.GPUArray):
-            cuda.memcpy_dtod(psin.gpudata, self.spsit.gpudata,
+        if  isinstance(self.spsit,gpaw.cuda.gpuarray.GPUArray):
+            gpaw.cuda.drv.memcpy_dtod(psin.gpudata, self.spsit.gpudata,
                              self.spsit.nbytes)
         else:        
             psin[:] = self.spsit
@@ -448,9 +448,9 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         # Copy current wavefunctions psit_nG to work and old wavefunction arrays
         if self.cuda:
             for u in range(len(kpt_u)):
-                cuda.memcpy_dtod(self.old_kpt_u[u].psit_nG.gpudata,
+                gpaw.cuda.drv.memcpy_dtod(self.old_kpt_u[u].psit_nG.gpudata,
                                  kpt_u[u].psit_nG_gpu.gpudata, kpt_u[u].psit_nG_gpu.nbytes)
-                cuda.memcpy_dtod(self.tmp_kpt_u[u].psit_nG.gpudata,
+                gpaw.cuda.drv.memcpy_dtod(self.tmp_kpt_u[u].psit_nG.gpudata,
                                  kpt_u[u].psit_nG_gpu.gpudata, kpt_u[u].psit_nG_gpu.nbytes)
         else:
             for u in range(len(kpt_u)):
@@ -546,8 +546,8 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
 
         # Update rhs_kpt.psit_nG to reflect ( S - i H dt/2 ) psit(t)
         #rhs_kpt.psit_nG[:] = self.spsit - .5J * self.hpsit * time_step
-        if  isinstance(self.spsit,gpuarray.GPUArray):
-            cuda.memcpy_dtod(rhs_kpt.psit_nG.gpudata, self.spsit.gpudata,
+        if  isinstance(self.spsit,gpaw.cuda.gpuarray.GPUArray):
+            gpaw.cuda.drv.memcpy_dtod(rhs_kpt.psit_nG.gpudata, self.spsit.gpudata,
                              self.spsit.nbytes)
         else:        
             rhs_kpt.psit_nG[:] = self.spsit

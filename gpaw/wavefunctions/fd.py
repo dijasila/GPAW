@@ -16,8 +16,7 @@ from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.hs_operators import MatrixOperator
 from gpaw.preconditioner import Preconditioner
 
-import gpaw.gpuarray as gpuarray
-import pycuda.driver as cuda
+import gpaw.cuda
 
 class FDWaveFunctions(FDPWWaveFunctions):
     def __init__(self, stencil, diagksl, orthoksl, initksl,
@@ -39,15 +38,15 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
         if self.cuda:
             self.nt_G_gpu=None
-            from pycuda.elementwise import ElementwiseKernel
-            self.axpysquarez = ElementwiseKernel(
-                "double f, const pycuda::complex<double> *a, double *b",
-                "b[i] += f*(a[i]._M_re*a[i]._M_re+a[i]._M_im*a[i]._M_im)",
-                "axpy_squarez",preamble="#include <pycuda-complex.hpp>")
-            self.axpysquare = ElementwiseKernel(
-                "double f, const double *a, double *b",
-                "b[i] += f*a[i]*a[i]",
-                "axpy_square")          
+            #from pycuda.elementwise import ElementwiseKernel
+            #self.axpysquarez = ElementwiseKernel(
+            #    "double f, const pycuda::complex<double> *a, double *b",
+            #    "b[i] += f*(a[i]._M_re*a[i]._M_re+a[i]._M_im*a[i]._M_im)",
+            #    "axpy_squarez",preamble="#include <pycuda-complex.hpp>")
+            #self.axpysquare = ElementwiseKernel(
+            #    "double f, const double *a, double *b",
+            #    "b[i] += f*a[i]*a[i]",
+            #    "axpy_square")          
             
 
     def set_setups(self, setups):
@@ -78,26 +77,16 @@ class FDWaveFunctions(FDPWWaveFunctions):
             axpy(1.0, kpt.psit_nG[n].real**2, nt_G)
             axpy(1.0, kpt.psit_nG[n].imag**2, nt_G)
 
-    def add_to_density_from_k_point_with_occupation(self, nt_sG, kpt, f_n, cuda_psit_nG=False):
+    def add_to_density_from_k_point_with_occupation(self, nt_sG, kpt, f_n):
         # Used in calculation of response part of GLLB-potential
 
         
-        if cuda_psit_nG:
-            assert self.cuda
+        if self.cuda:
             if self.nt_G_gpu is None:
-                self.nt_G_gpu = gpuarray.empty(nt_sG[kpt.s].shape,nt_sG[kpt.s].dtype)
+                self.nt_G_gpu = gpaw.cuda.gpuarray.empty(nt_sG[kpt.s].shape,nt_sG[kpt.s].dtype)
             self.nt_G_gpu.set(nt_sG[kpt.s])
             psit_nG = kpt.psit_nG_gpu
             multi_ax2py(f_n,psit_nG,self.nt_G_gpu)
-            #for f, psit_G in zip(f_n, psit_nG):
-            #    ax2py(f,psit_G,nt_G)     #axpy(f, psit_G*psit_G, nt_G)
-            #if self.dtype == float:
-            #    for f, psit_G in zip(f_n, psit_nG):
-            #        self.axpysquare(f,psit_G,nt_G)
-            #else:
-            #    for f, psit_G in zip(f_n, psit_nG):
-            #        self.axpysquarez(f,psit_G,nt_G)
-
 
         else:
             nt_G = nt_sG[kpt.s]
@@ -126,7 +115,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                     if abs(d) > 1.e-12:
                         nt_G += (psi0_G.conj() * d * psi_G).real
 
-        if cuda_psit_nG:
+        if self.cuda:
             self.nt_G_gpu.get(nt_sG[kpt.s])
 
     def calculate_kinetic_energy_density(self, tauct, grad_v):

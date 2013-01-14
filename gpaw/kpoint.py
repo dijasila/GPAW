@@ -9,7 +9,7 @@ from gpaw.fd_operators import Gradient
 from gpaw.utilities.blas import axpy
 from gpaw import extra_parameters
 
-import gpaw.gpuarray as gpuarray
+import gpaw.cuda as cuda
 
 class KPoint:
     """Class for a single k-point.
@@ -167,7 +167,7 @@ class KPoint:
 
     def cuda_psit_nG_htod(self):
         if self.psit_nG_gpu is None:
-            self.psit_nG_gpu=gpuarray.to_gpu(self.psit_nG)
+            self.psit_nG_gpu=cuda.gpuarray.to_gpu(self.psit_nG)
         else:
             self.psit_nG_gpu.set(self.psit_nG)
     

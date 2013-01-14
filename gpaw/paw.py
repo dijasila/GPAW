@@ -41,9 +41,6 @@ from gpaw.utilities import h2gpts
 
 import gpaw.cuda
 
-#import pycuda
-#import pycuda.autoinit
-
 class PAW(PAWTextOutput):
     """This is the main calculation object for doing a PAW calculation."""
     timer_class = Timer

@@ -183,9 +183,9 @@ class FDPWWaveFunctions(WaveFunctions):
                 interpolate1(psit_G1, psit_G, kpt.phase_cd)
         np.random.set_state(old_state)
 
-    def orthonormalize(self, cuda_psit_nG=False):
+    def orthonormalize(self):
         for kpt in self.kpt_u:
-            self.overlap.orthonormalize(self, kpt, cuda_psit_nG=cuda_psit_nG)
+            self.overlap.orthonormalize(self, kpt)
         self.set_orthonormalized(True)
 
     def _get_wave_function_array(self, u, n):

@@ -15,9 +15,8 @@ from gpaw import debug
 from gpaw.utilities import is_contiguous
 import _gpaw
 
-import pycuda.driver as cuda
-import gpaw.gpuarray as gpuarray
-from gpaw.cuda import debug_cuda,debug_cuda_test
+import gpaw.cuda
+
 
 class _Transformer:
     def __init__(self, gdin, gdout, nn=1, dtype=float, allocate=True, cuda=False):
@@ -88,18 +87,18 @@ class _Transformer:
 
         assert (type(input) == type(output))
         
-        if isinstance(input,gpuarray.GPUArray) and  isinstance(output,gpuarray.GPUArray):
+        if isinstance(input,gpaw.cuda.gpuarray.GPUArray) and  isinstance(output,gpaw.cuda.gpuarray.GPUArray):
             #print "fd_transformer_apply_cuda_gpu"
             assert self.cuda
-            if debug_cuda:
+            if gpaw.cuda.debug:
                 input_cpu = input.get()
                 output_cpu = output.get()
                 self.transformer.apply(input_cpu, output_cpu, phases)
             
             self.transformer.apply_cuda_gpu(input.gpudata, output.gpudata,
                                             input.shape, input.dtype,phases)
-            if debug_cuda:
-                debug_cuda_test(output_cpu,output.get(),"transformer")
+            if gpaw.cuda.debug:
+                gpaw.cuda.debug_test(output_cpu,output,"transformer")
         else:    
             self.transformer.apply(input, output, phases)
 

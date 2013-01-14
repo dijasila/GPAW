@@ -11,9 +11,7 @@ from gpaw import debug
 
 import _gpaw
 
-from gpaw.cuda import debug_cuda,debug_cuda_test
-import pycuda.driver as cuda
-import gpaw.gpuarray as gpuarray
+import gpaw.cuda
 
 
 
@@ -32,20 +30,20 @@ def multi_axpy(a,x,y):
     if isinstance(a, (float, complex)):
         axpy(a, x, y)
     else:
-        if isinstance(x,gpuarray.GPUArray):                
-            if debug_cuda:
+        if isinstance(x,gpaw.cuda.gpuarray.GPUArray):                
+            if gpaw.cuda.debug:
                 y_cpu=y.get()
-                if isinstance(a,gpuarray.GPUArray):
+                if isinstance(a,gpaw.cuda.gpuarray.GPUArray):
                     multi_axpy_cpu(a.get(),x.get(),y_cpu)
                 else:
                     multi_axpy_cpu(a,x.get(),y_cpu)
 
-            if isinstance(a,gpuarray.GPUArray):                
+            if isinstance(a,gpaw.cuda.gpuarray.GPUArray):                
                 _gpaw.multi_axpy_cuda_gpu(a.gpudata,a.dtype, x.gpudata, x.shape, y.gpudata, y.shape, x.dtype)
             else:
-                _gpaw.multi_axpy_cuda_gpu(gpuarray.to_gpu(a).gpudata,a.dtype, x.gpudata, x.shape, y.gpudata, y.shape, x.dtype)
-            if debug_cuda:
-                debug_cuda_test(y.get(),y_cpu,"multi_axpy",raise_error=True)
+                _gpaw.multi_axpy_cuda_gpu(gpaw.cuda.gpuarray.to_gpu(a).gpudata,a.dtype, x.gpudata, x.shape, y.gpudata, y.shape, x.dtype)
+            if gpaw.cuda.debug:
+                gpaw.cuda.debug_test(y,y_cpu,"multi_axpy",raise_error=True)
         else:
             multi_axpy_cpu(a,x,y)
 
@@ -70,12 +68,12 @@ def multi_dotc(x,y,s=None):
     elif s is None:
         s=np.empty(x.shape[0],dtype=x.dtype)
         
-    if isinstance(x,gpuarray.GPUArray):
+    if isinstance(x,gpaw.cuda.gpuarray.GPUArray):
         _gpaw.multi_dotc_cuda_gpu(x.gpudata, x.shape, y.gpudata, x.dtype, s)
-        if debug_cuda:
+        if gpaw.cuda.debug:
             s_cpu=np.empty(x.shape[0],dtype=x.dtype)        
             multi_dotc_cpu(x.get(), y.get(),s_cpu)
-            if not debug_cuda_test(s,s_cpu,"multi_dotc"):
+            if not gpaw.cuda.debug_test(s,s_cpu,"multi_dotc"):
                 print abs(s_cpu-s)
                 assert(0)
     else:
@@ -103,12 +101,12 @@ def multi_dotu(x,y,s=None):
     elif s is None:
         s=np.empty(x.shape[0],dtype=x.dtype)
     
-    if isinstance(x,gpuarray.GPUArray):
+    if isinstance(x,gpaw.cuda.gpuarray.GPUArray):
         _gpaw.multi_dotu_cuda_gpu(x.gpudata, x.shape, y.gpudata, x.dtype, s)
-        if debug_cuda:
+        if gpaw.cuda.debug:
             s_cpu=np.empty(x.shape[0],dtype=x.dtype)
             multi_dotu_cpu(x.get(), y.get(),s_cpu)
-            debug_cuda_test(s,s_cpu,"multi_dotu")
+            gpaw.cuda.debug_test(s,s_cpu,"multi_dotu")
     else:
         multi_dotu_cpu(x,y,s)
     return s
@@ -128,20 +126,20 @@ def multi_scal(a,x):
     if isinstance(a, (float, complex)):
         scal(a,x)
     else:
-        if isinstance(x,gpuarray.GPUArray):
-            if debug_cuda:
+        if isinstance(x,gpaw.cuda.gpuarray.GPUArray):
+            if gpaw.cuda.debug:
                 x_cpu=x.get()
-                if isinstance(a,gpuarray.GPUArray):                
+                if isinstance(a,gpaw.cuda.gpuarray.GPUArray):                
                     multi_scal_cpu(a.get(),x_cpu)
                 else:
                     multi_scal_cpu(a,x_cpu)
                     
-            if isinstance(a,gpuarray.GPUArray):                
+            if isinstance(a,gpaw.cuda.gpuarray.GPUArray):                
                 _gpaw.multi_scal_cuda_gpu(a.gpudata, a.dtype, x.gpudata, x.shape, x.dtype)
             else:
-                _gpaw.multi_scal_cuda_gpu(gpuarray.to_gpu(a).gpudata,a.dtype, x.gpudata, x.shape, x.dtype)
-            if debug_cuda:
-                debug_cuda_test(x.get(),x_cpu,"multi_scal")
+                _gpaw.multi_scal_cuda_gpu(gpaw.cuda.gpuarray.to_gpu(a).gpudata,a.dtype, x.gpudata, x.shape, x.dtype)
+            if gpaw.cuda.debug:
+                gpaw.cuda.debug_test(x,x_cpu,"multi_scal")
         else:
             multi_scal_cpu(a,x)
 

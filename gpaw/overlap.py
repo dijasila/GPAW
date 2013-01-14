@@ -15,8 +15,7 @@ from gpaw.utilities.tools import lowdin, tri2full
 from gpaw import extra_parameters
 from gpaw.utilities.lapack import diagonalize
 
-import gpaw.gpuarray as gpuarray
-import pycuda.driver as cuda
+import gpaw.cuda
 
 class Overlap:
     """Overlap operator class.
@@ -34,7 +33,7 @@ class Overlap:
         self.ksl = ksl
         self.timer = timer
         
-    def orthonormalize(self, wfs, kpt, cuda_psit_nG=False):
+    def orthonormalize(self, wfs, kpt):
         """Orthonormalizes the vectors a_nG with respect to the overlap.
 
         First, a Cholesky factorization C is done for the overlap
@@ -63,7 +62,7 @@ class Overlap:
 
         """
         self.timer.start('Orthonormalize')
-        if cuda_psit_nG:
+        if kpt.cuda:
             psit_nG = kpt.psit_nG_gpu
         else:
             psit_nG = kpt.psit_nG
@@ -107,7 +106,7 @@ class Overlap:
         self.timer.stop(orthonormalization_string)
 
         self.timer.start('rotate_psi')
-        if cuda_psit_nG:
+        if kpt.cuda:
             kpt.psit_nG_gpu = operator.matrix_multiply(C_nn, psit_nG, P_ani)
         else:
             kpt.psit_nG = operator.matrix_multiply(C_nn, psit_nG, P_ani)
@@ -132,8 +131,8 @@ class Overlap:
 
         """
         self.timer.start('Apply overlap')
-        if isinstance(a_xG,gpuarray.GPUArray):
-            cuda.memcpy_dtod(b_xG.gpudata, a_xG.gpudata, a_xG.nbytes)
+        if isinstance(a_xG,gpaw.cuda.gpuarray.GPUArray):
+            gpaw.cuda.drv.memcpy_dtod(b_xG.gpudata, a_xG.gpudata, a_xG.nbytes)
         else:
             b_xG[:] = a_xG
         shape = a_xG.shape[:-3]
@@ -154,8 +153,8 @@ class Overlap:
     def apply_inverse(self, a_xG, b_xG, wfs, kpt, calculate_P_ani=True):
         """Apply approximative inverse overlap operator to wave functions."""
 
-        if isinstance(a_xG,gpuarray.GPUArray):
-            cuda.memcpy_dtod(b_xG.gpudata, a_xG.gpudata, a_xG.nbytes)
+        if isinstance(a_xG,gpaw.cuda.gpuarray.GPUArray):
+            gpaw.cuda.drv.memcpy_dtod(b_xG.gpudata, a_xG.gpudata, a_xG.nbytes)
         else:
             b_xG[:] = a_xG
             

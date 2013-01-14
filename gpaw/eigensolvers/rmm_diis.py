@@ -27,14 +27,14 @@ class RMM_DIIS(Eigensolver):
     def __init__(self, keep_htpsit=True, blocksize=1, cuda=False):
         Eigensolver.__init__(self, keep_htpsit, blocksize, cuda)
 
-    def iterate_one_k_point(self, hamiltonian, wfs, kpt, cuda_psit_nG=False):
+    def iterate_one_k_point(self, hamiltonian, wfs, kpt):
         """Do a single RMM-DIIS iteration for the kpoint"""
 
-        self.subspace_diagonalize(hamiltonian, wfs, kpt, cuda_psit_nG=cuda_psit_nG)
+        self.subspace_diagonalize(hamiltonian, wfs, kpt)
 
         self.timer.start('RMM-DIIS')
 
-        if cuda_psit_nG:
+        if self.cuda:
             psit_nG = kpt.psit_nG_gpu
         else:
             psit_nG = kpt.psit_nG
@@ -49,7 +49,7 @@ class RMM_DIIS(Eigensolver):
             R_nG = self.Htpsit_nG
         else:
             print "no keep htpsit"
-            R_nG = self.gd.empty(wfs.bd.mynbands, wfs.dtype, cuda=cuda_psit_nG)
+            R_nG = self.gd.empty(wfs.bd.mynbands, wfs.dtype, cuda=self.cuda)
             wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_nG, R_nG)
             wfs.pt.integrate(psit_nG, kpt.P_ani, kpt.q)
             

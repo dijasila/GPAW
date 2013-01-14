@@ -17,8 +17,7 @@ from gpaw.utilities.tools import construct_reciprocal
 import gpaw.mpi as mpi
 import _gpaw
 
-import pycuda.driver as cuda
-import gpaw.gpuarray as gpuarray
+import gpaw.cuda
 
 class PoissonSolver:
     def __init__(self, nn=3, relax='J', eps=2e-10, cuda=False):
@@ -209,12 +208,12 @@ class PoissonSolver:
         NOTE: for CUDA implementation input arrays phi and rho are located
         on CPU"""
 
-        if isinstance(self.phis[1], gpuarray.GPUArray):
-            self.phis[0] = gpuarray.to_gpu(phi)
+        if isinstance(self.phis[1], gpaw.cuda.gpuarray.GPUArray):
+            self.phis[0] = gpaw.cuda.gpuarray.to_gpu(phi)
             if self.B is None:
-                self.rhos[0] = gpuarray.to_gpu(rho)
+                self.rhos[0] = gpaw.cuda.gpuarray.to_gpu(rho)
             else:
-                self.B.apply(gpuarray.to_gpu(rho), self.rhos[0])
+                self.B.apply(gpaw.cuda.gpuarray.to_gpu(rho), self.rhos[0])
         else:
             self.phis[0] = phi            
             if self.B is None:
@@ -232,7 +231,7 @@ class PoissonSolver:
             msg = 'Poisson solver did not converge in %d iterations!' % maxiter
             raise PoissonConvergenceError(msg)
 
-        if isinstance(self.phis[0], gpuarray.GPUArray):
+        if isinstance(self.phis[0], gpaw.cuda.gpuarray.GPUArray):
             self.phis[0].get(phi)
 
         # Set the average potential to zero in periodic systems
@@ -300,9 +299,9 @@ class PoissonSolver:
         if level == 0:
             self.operators[level].apply(phi, residual)
             residual -= rho
-            if isinstance(residual, gpuarray.GPUArray):
+            if isinstance(residual, gpaw.cuda.gpuarray.GPUArray):
                 error = self.gd.comm.sum(dotu(residual,residual)) * self.dv
-                #error = self.gd.comm.sum(np.float64(gpuarray.dot(residual,residual).get())) * self.dv
+                #error = self.gd.comm.sum(np.float64(gpaw.cuda.gpuarray.dot(residual,residual).get())) * self.dv
             else:
                 error = self.gd.comm.sum(np.dot(residual.ravel(),
                                                 residual.ravel())) * self.dv

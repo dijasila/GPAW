@@ -13,8 +13,8 @@ from gpaw.fd_operators import Laplace, Gradient
 from gpaw.tddft.abc import *
 
 import _gpaw
-from gpaw import debug_cuda,debug_cuda_reltol,debug_cuda_abstol
-import gpaw.gpuarray as gpuarray
+import gpaw.cuda
+
 # Hamiltonian
 class TimeDependentHamiltonian:
     """Time-dependent Hamiltonian, H(t)
@@ -119,9 +119,9 @@ class TimeDependentHamiltonian:
             self.hamiltonian.vt_sG - self.vt_sG
 
         if self.cuda:
-            self.vt_sG_gpu = gpuarray.to_gpu(self.vt_sG)
+            self.vt_sG_gpu = gpaw.cuda.gpuarray.to_gpu(self.vt_sG)
         if self.hamiltonian.cuda:
-            self.hamiltonian.vt_sG_gpu = gpuarray.to_gpu(self.hamiltonian.vt_sG)
+            self.hamiltonian.vt_sG_gpu = gpaw.cuda.gpuarray.to_gpu(self.hamiltonian.vt_sG)
         for a, dH_sp in self.hamiltonian.dH_asp.items():
             dH_sp[:], self.dH_asp[a][:] = 0.5*(dH_sp + self.dH_asp[a]), \
                 dH_sp - self.dH_asp[a] #pack/unpack is linear for real values
@@ -143,11 +143,11 @@ class TimeDependentHamiltonian:
         # but uses the difference between vt_sG at time t and t+dt.
 
         
-        if isinstance(psit_nG, gpuarray.GPUArray):
+        if isinstance(psit_nG, gpaw.cuda.gpuarray.GPUArray):
             if self.cuda:
                 vt_G = self.vt_sG_gpu[s]
             else:            
-                vt_G = gpuarray.to_gpu(self.vt_sG[s])
+                vt_G = gpaw.cuda.gpuarray.to_gpu(self.vt_sG[s])
             if len(psit_nG.shape) == 3:  # XXX Doesn't GPU arrays have ndim attr?
                 _gpaw.elementwise_multiply_add_gpu(psit_nG.gpudata,psit_nG.shape,psit_nG.dtype,
                                                    vt_G.gpudata,vt_G.dtype,Htpsit_nG.gpudata);
@@ -234,18 +234,18 @@ class TimeDependentHamiltonian:
         """
 
         self.hamiltonian.timer.start('Apply time-dependent Hamiltonian')
-        if debug_cuda and self.cuda:                
-            if not  np.allclose(self.vt_sG,self.vt_sG_gpu.get(),
-                                debug_cuda_reltol,debug_cuda_abstol):
-                diff=abs(self.vt_sG-self.vt_sG_gpu.get())
-                error_i=np.unravel_index(np.argmax(diff - debug_cuda_reltol * abs(self.vt_sG)),diff.shape)
-                print "Debug cuda: TDHamiltonian vt_sG max rel error: ",error_i,\
-                      self.vt_sG[error_i],self.vt_sG_gpu.get()[error_i], \
-                      abs(self.vt_sG[error_i]-self.vt_sG_gpu.get()[error_i])
-                error_i=np.unravel_index(np.argmax(diff),diff.shape)
-                print "Debug cuda: TDHamiltonian vt_sG max abs error: ",error_i,\
-                      self.vt_sG[error_i],self.vt_sG_gpu.get()[error_i],\
-                      abs(self.vt_sG[error_i]-self.vt_sG_gpu.get()[error_i])
+        #if debug_cuda and self.cuda:                
+        #    if not  np.allclose(self.vt_sG,self.vt_sG_gpu.get(),
+        #                        debug_cuda_reltol,debug_cuda_abstol):
+        #        diff=abs(self.vt_sG-self.vt_sG_gpu.get())
+        #        error_i=np.unravel_index(np.argmax(diff - debug_cuda_reltol * abs(self.vt_sG)),diff.shape)
+        #        print "Debug cuda: TDHamiltonian vt_sG max rel error: ",error_i,\
+        #              self.vt_sG[error_i],self.vt_sG_gpu.get()[error_i], \
+        #              abs(self.vt_sG[error_i]-self.vt_sG_gpu.get()[error_i])
+        #        error_i=np.unravel_index(np.argmax(diff),diff.shape)
+        #        print "Debug cuda: TDHamiltonian vt_sG max abs error: ",error_i,\
+        #              self.vt_sG[error_i],self.vt_sG_gpu.get()[error_i],\
+        #              abs(self.vt_sG[error_i]-self.vt_sG_gpu.get()[error_i])
         
         self.hamiltonian.apply(psit, hpsit, self.wfs, kpt, calculate_P_ani)
 

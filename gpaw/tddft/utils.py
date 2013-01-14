@@ -6,7 +6,6 @@ from gpaw.utilities.mblas import multi_axpy,multi_dotc,multi_dotu,multi_scal
 
 import _gpaw
 
-import gpaw.gpuarray as gpuarray
 
 class MultiBlas:
     def __init__(self, gd, timer = None):

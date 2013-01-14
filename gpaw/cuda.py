@@ -1,11 +1,17 @@
 import numpy as np
 import warnings
-import pycuda.driver as cuda
-import pycuda.tools as cuda_tools
-from pycuda.driver import func_cache
+try:
+    import pycuda.driver as drv
+    import pycuda.tools as tools
 
-debug_cuda = False
-debug_cuda_sync = False
+except ImportError:
+    pass
+
+import gpaw.gpuarray as gpuarray
+
+
+debug = False
+debug_sync = False
 cuda_ctx = None
 
 class DebugCudaError(Exception):
@@ -20,16 +26,22 @@ def init(rank=0):
     """
     """
     global cuda_ctx
-    cuda.init()
-    if cuda.Device(0).get_attribute(cuda.device_attribute.COMPUTE_MODE) is cuda.compute_mode.EXCLUSIVE:
-        cuda_ctx=cuda_tools.make_default_context()
+    try:
+        drv.init()
+    except NameError:
+        errmsg = "PyCUDA not found."
+        raise NameError(errmsg)
+        return False
+    
+    if drv.Device(0).get_attribute(drv.device_attribute.COMPUTE_MODE) is drv.compute_mode.EXCLUSIVE:
+        cuda_ctx=tools.make_default_context()
     else:
-        current_dev = cuda.Device(rank % cuda.Device.count())
+        current_dev = drv.Device(rank % drv.Device.count())
         cuda_ctx = current_dev.make_context()
     cuda_ctx.push()                
         
-    cuda_ctx.set_cache_config(func_cache.PREFER_L1)
-    return cuda_ctx
+    cuda_ctx.set_cache_config(drv.func_cache.PREFER_L1)
+    return True
     
 def delete():
     """
@@ -44,26 +56,37 @@ def get_context():
     """
     return cuda_ctx
 
-def debug_cuda_test(x,y,text,reltol=1e-12,abstol=1e-13,raise_error=False):
+def debug_test(x,y,text,reltol=1e-12,abstol=1e-13,raise_error=False):
     """
     """
-    if not  np.allclose(x,y,reltol,abstol):
-        diff=abs(y-x)
+
+    if isinstance(x,gpuarray.GPUArray):
+        x_cpu=x.get()
+    else:
+        x_cpu=x
+
+    if isinstance(y,gpuarray.GPUArray):
+        y_cpu=y.get()
+    else:
+        y_cpu=y
+    
+    if not  np.allclose(x_cpu,y_cpu,reltol,abstol):
+        diff=abs(y_cpu-x_cpu)
         if isinstance(diff, (float, complex)):
-            warnings.warn('%s error: %s %s %s' \
-                          % (text,y,x,abs(y-x)),  \
+            warnings.warn('%s error val: %s %s diff: %s' \
+                          % (text,y_cpu,x_cpu,abs(y_cpu-x_cpu)),  \
                           DebugCudaWarning,stacklevel=2)
         else:
-            error_i=np.unravel_index(np.argmax(diff - reltol * abs(y)), \
+            error_i=np.unravel_index(np.argmax(diff - reltol * abs(y_cpu)), \
                                      diff.shape)
-            warnings.warn('%s max rel error: %s %s %s %s' \
-                          % (text,error_i,y[error_i],x[error_i], \
-                             abs(y[error_i]-x[error_i])),  \
+            warnings.warn('%s max rel error pos: %s val: %s %s diff: %s' \
+                          % (text,error_i,y_cpu[error_i],x_cpu[error_i], \
+                             abs(y_cpu[error_i]-x_cpu[error_i])),  \
                           DebugCudaWarning,stacklevel=2)
             error_i=np.unravel_index(np.argmax(diff),diff.shape)
-            warnings.warn('%s max abs error: %s %s %s %s' \
-                          % (text,error_i,y[error_i],x[error_i], \
-                             abs(y[error_i]-x[error_i])),  \
+            warnings.warn('%s max abs error pos: %s val: %s %s diff:%s' \
+                          % (text,error_i,y_cpu[error_i],x_cpu[error_i], \
+                             abs(y_cpu[error_i]-x_cpu[error_i])),  \
                           DebugCudaWarning, stacklevel=2)
         
         if raise_error:

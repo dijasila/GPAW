@@ -4,8 +4,7 @@ from ase.units import Bohr
 
 import _gpaw
 
-import gpaw.gpuarray as gpuarray
-from gpaw import debug_cuda,debug_cuda_reltol,debug_cuda_abstol
+import gpaw.cuda
 
 
 """This module defines different external potentials to be used in 
@@ -105,22 +104,16 @@ class ExternalPotential:
 
         gd = wfs.gd
 
-        if isinstance(a_nG, gpuarray.GPUArray):
-            if debug_cuda:
+        if isinstance(a_nG, gpaw.cuda.gpuarray.GPUArray):
+            if gpaw.cuda.debug:
                 a_nG_cpu=a_nG.get()
                 b_nG_cpu=b_nG.get()
                 add_linear_field_cpu(a_nG_cpu, b_nG_cpu, gd, strength)
             _gpaw.add_linear_field_cuda_gpu(a_nG.gpudata, a_nG.shape,
                                             a_nG.dtype, b_nG.gpudata, gd.n_c,
                                             gd.beg_c, gd.h_cv, strength)
-            if debug_cuda:
-                if not  np.allclose(b_nG_cpu,b_nG.get(),
-                                    debug_cuda_reltol,debug_cuda_abstol):
-                    diff=abs(b_nG_cpu-b_nG.get())
-                    error_i=np.unravel_index(np.argmax(diff - debug_cuda_reltol * abs(b_nG_cpu)),diff.shape)
-                    print "Debug cuda: add_linear_field max rel error: ",error_i,b_nG_cpu[error_i],b_nG.get()[error_i],abs(b_nG_cpu[error_i]-b_nG.get()[error_i])
-                    error_i=np.unravel_index(np.argmax(diff),diff.shape)
-                    print "Debug cuda: add_linear_field max abs error: ",error_i, b_nG_cpu[error_i],b_nG.get()[error_i],abs(b_nG_cpu[error_i]-b_nG.get()[error_i])
+            if gpaw.cuda.debug:
+                gpaw.cuda.debug_test(b_nG,b_nG_cpu,"add_linear_field")
         else:
             add_linear_field_cpu(a_nG, b_nG, gd, strength)
 

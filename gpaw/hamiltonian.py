@@ -15,8 +15,7 @@ from gpaw.utilities import pack2,unpack,unpack2
 from gpaw.utilities.tools import tri2full
 from gpaw.utilities.linalg  import elementwise_multiply_add,multi_elementwise_multiply_add
 
-import gpaw.gpuarray as gpuarray
-from gpaw.cuda import debug_cuda,debug_cuda_test
+import gpaw.cuda
 
 import _gpaw
 
@@ -236,11 +235,11 @@ class Hamiltonian:
             self.vt_sG = self.gd.empty(self.nspins)
             self.poisson.initialize()
             if self.cuda:
-                self.vt_sG_gpu = gpuarray.to_gpu(self.vt_sG)
+                self.vt_sG_gpu = gpaw.cuda.gpuarray.to_gpu(self.vt_sG)
             self.timer.stop('Initialize Hamiltonian')
 
-        if debug_cuda and self.cuda:
-            debug_cuda_test(self.vt_sG,self.vt_sG_gpu.get(),"Hamiltonian vt_sG")
+        if gpaw.cuda.debug and self.cuda:
+            gpaw.cuda.debug_test(self.vt_sG,self.vt_sG_gpu,"Hamiltonian vt_sG")
             
         self.timer.start('vbar')
         Ebar = self.finegd.integrate(self.vbar_g, density.nt_g,
@@ -282,7 +281,7 @@ class Hamiltonian:
 
 
         if self.cuda:
-            self.vt_sG_gpu = gpuarray.to_gpu(self.vt_sG)
+            self.vt_sG_gpu = gpaw.cuda.gpuarray.to_gpu(self.vt_sG)
             
         self.timer.stop('Hartree integrate/restrict')
             
@@ -411,11 +410,11 @@ class Hamiltonian:
             are not applied and calculate_projections is ignored.
         
         """
-        if isinstance(psit_nG, gpuarray.GPUArray):
+        if isinstance(psit_nG, gpaw.cuda.gpuarray.GPUArray):
             if self.cuda:
                 vt_G = self.vt_sG_gpu[s]
             else:            
-                vt_G = gpuarray.to_gpu(self.vt_sG[s])
+                vt_G = gpaw.cuda.gpuarray.to_gpu(self.vt_sG[s])
             if len(psit_nG.shape) == 3:  # XXX Doesn't GPU arrays have ndim attr?
                 elementwise_multiply_add(psit_nG,vt_G,Htpsit_nG);
             else:
@@ -448,8 +447,8 @@ class Hamiltonian:
         
         """
         #self.timer.start('Apply Hamiltonian cuda: '+str(self.cuda))
-        if debug_cuda and self.cuda:
-            debug_cuda_test(self.vt_sG,self.vt_sG_gpu.get(),"Hamiltonian vt_sG")
+        if gpaw.cuda.debug and self.cuda:
+            gpaw.cuda.debug_test(self.vt_sG,self.vt_sG_gpu,"Hamiltonian vt_sG")
                 
         #self.timer.start('Apply Hamiltonian kin')
         #print wfs.kin.args

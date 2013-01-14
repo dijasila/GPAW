@@ -14,8 +14,7 @@ from gpaw.tddft.utils import MultiBlas
 
 import _gpaw
 
-from gpaw import debug_cuda,debug_cuda_reltol,debug_cuda_abstol
-import gpaw.gpuarray as gpuarray
+import gpaw.cuda
 
 class CSCG:
     """Conjugate gradient for complex symmetric matrices
@@ -87,9 +86,9 @@ class CSCG:
             self.timer.start('CSCG')
 
         #print type(A)
-        if self.cuda and not isinstance(xx,gpuarray.GPUArray):
-            b=gpuarray.to_gpu(bb)
-            x=gpuarray.to_gpu(xx)
+        if self.cuda and not isinstance(xx,gpaw.cuda.gpuarray.GPUArray):
+            b=gpaw.cuda.gpuarray.to_gpu(bb)
+            x=gpaw.cuda.gpuarray.to_gpu(xx)
             A.cuda_psit_htod()
         else:
             b=bb
@@ -199,7 +198,7 @@ class CSCG:
         # done
         self.iterations = i+1
         #print 'CSCG iterations = ', self.iterations
-        if self.cuda and not isinstance(xx,gpuarray.GPUArray):
+        if self.cuda and not isinstance(xx,gpaw.cuda.gpuarray.GPUArray):
             x.get(xx)
             b.get(bb)
             A.cuda_psit_dtoh()

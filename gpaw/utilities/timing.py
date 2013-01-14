@@ -21,8 +21,7 @@ import time
 import math
 import sys
 
-import pycuda as cuda
-from gpaw.cuda import debug_cuda_sync,get_context
+from gpaw.cuda import debug_sync,get_context
 
 try:
     import pytau
@@ -96,7 +95,7 @@ class Timer:
         
     def start(self, name):
         names = tuple(self.running + [name])
-        if debug_cuda_sync:
+        if debug_sync:
             try:
                 get_context().synchronize()
             except AttributeError:
@@ -112,7 +111,7 @@ class Timer:
             raise RuntimeError('Must stop timers by stack order.  '
                                'Requested stopping of %s but topmost is %s'
                                % (name, running))
-        if debug_cuda_sync:
+        if debug_sync:
             try:
                 get_context().synchronize()
             except AttributeError:

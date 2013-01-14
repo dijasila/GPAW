@@ -8,7 +8,7 @@ from gpaw.utilities.blas import rk, r2k, gemm
 from gpaw.matrix_descriptor import BandMatrixDescriptor, \
                                    BlacsBandMatrixDescriptor
 
-import gpaw.gpuarray as gpuarray
+import gpaw.cuda
 
 class MatrixOperator:
     """Base class for overlap and hamiltonian operators.
@@ -342,8 +342,8 @@ class MatrixOperator:
         if B == 1 and J == 1:
             # Simple case:
             Apsit_nG = A(psit_nG)
-            if self.cuda and isinstance(psit_nG, gpuarray.GPUArray):
-                A_NN_gpu=gpuarray.to_gpu(A_NN)
+            if self.cuda and isinstance(psit_nG, gpaw.cuda.gpuarray.GPUArray):
+                A_NN_gpu=gpaw.cuda.gpuarray.to_gpu(A_NN)
                 self._pseudo_braket(psit_nG, Apsit_nG, A_NN_gpu)
                 A_NN_gpu.get(A_NN)
             else:
@@ -478,12 +478,12 @@ class MatrixOperator:
 
         if B == 1 and J == 1:
             # Simple case:
-            if self.cuda and  isinstance(psit_nG, gpuarray.GPUArray):
+            if self.cuda and  isinstance(psit_nG, gpaw.cuda.gpuarray.GPUArray):
                 newpsit_nG = self.work1_xG_gpu
-                #psit_nG_gpu=gpuarray.to_gpu(psit_nG)
+                #psit_nG_gpu=gpaw.cuda.gpuarray.to_gpu(psit_nG)
                 #print type(C_NN),C_NN.dtype,C_NN.shape
                 #print type(newpsit_nG),newpsit_nG.dtype,newpsit_nG.shape
-                gemm(1.0, psit_nG, gpuarray.to_gpu(C_NN), 0.0, newpsit_nG)
+                gemm(1.0, psit_nG, gpaw.cuda.gpuarray.to_gpu(C_NN), 0.0, newpsit_nG)
                 if P_ani:
                     for P_ni in P_ani.values():
                         gemm(1.0, P_ni.copy(), C_NN, 0.0, P_ni)
