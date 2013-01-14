@@ -42,7 +42,7 @@ lr.get_spectrum('spectrum.dat', 0, 10.)
 for i in range(500):
     omega = 0.01*i/27.211
     eta = .1/27.211
-    (C_re,C_im) = lr.calculate_response_wavefunction(omega,eta,[0,0,1])
+    (C_re,C_im) = lr.calculate_response_wavefunction(omega,eta,[1.,1.,1.])
     dm_re = 0.
     dm_im = 0.
     for (k,kss_ip) in enumerate(lr.kss_list):

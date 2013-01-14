@@ -813,6 +813,11 @@ class LrTDDFTindexed:
     def calculate_response_wavefunction(self, omega, eta, laser):
         laser = np.array(laser)
 
+        #
+        # !!!!!!!!!! TODO 4X4 BLOCKS for scalapack !!!!!!!!!
+        # 
+
+
         ################
         # Wrong not reading K-matrix but it's "Casida form" 
         # 2 (dN dE)**.5 K (dN dE)**.5
@@ -821,15 +826,12 @@ class LrTDDFTindexed:
 
         nloc = K_matrix.shape[0]
         nrow = K_matrix.shape[1]
-        A_matrix = np.zeros((nloc*4,nrow*4))
-        assert nloc == nrow, "Parallel matrix not implemented yet (nloc!=nrow, %d != %d)." % (nloc,nrow)
+        # assert nloc == nrow, "Parallel matrix not implemented yet (nloc!=nrow, %d != %d)." % (nloc,nrow)
 
         # Create indexing
         self.index_map = {}        # (i,p) to matrix index map
         for (ip, kss) in enumerate(self.kss_list):
             self.index_map[(kss.occ_ind,kss.unocc_ind)] = ip
-
-        # print K_matrix
 
         # K_matrix => K N
         for kss_ip in self.kss_list:
@@ -848,21 +850,27 @@ class LrTDDFTindexed:
 
         # print K_matrix
 
-        A_matrix[(nloc*0):(nloc*1), (nrow*0):(nrow*1)] = K_matrix
-        A_matrix[(nloc*1):(nloc*2), (nrow*0):(nrow*1)] = K_matrix
-        A_matrix[(nloc*0):(nloc*1), (nrow*1):(nrow*2)] = K_matrix
-        A_matrix[(nloc*1):(nloc*2), (nrow*1):(nrow*2)] = K_matrix
+        A_matrix = np.zeros((nloc*4,nrow*4))
 
-        A_matrix[(nloc*2):(nloc*3), (nrow*2):(nrow*3)] = K_matrix
-        A_matrix[(nloc*3):(nloc*4), (nrow*2):(nrow*3)] = -K_matrix
-        A_matrix[(nloc*2):(nloc*3), (nrow*3):(nrow*4)] = -K_matrix
-        A_matrix[(nloc*3):(nloc*4), (nrow*3):(nrow*4)] = K_matrix
+        for i in range(nloc):
+            rind = np.array(np.zeros(nrow,dtype=int)+i*4)
+            cind = np.arange(nrow)*4
+
+            A_matrix[rind+0, cind+0] = K_matrix[i,:]
+            A_matrix[rind+1, cind+0] = K_matrix[i,:]
+            A_matrix[rind+0, cind+1] = K_matrix[i,:]
+            A_matrix[rind+1, cind+1] = K_matrix[i,:]
+
+            A_matrix[rind+2, cind+2] = K_matrix[i,:]
+            A_matrix[rind+3, cind+2] = -K_matrix[i,:]
+            A_matrix[rind+2, cind+3] = -K_matrix[i,:]
+            A_matrix[rind+3, cind+3] = K_matrix[i,:]
 
         # rhs
-        V_rhs = np.zeros(nrow*4)
+        V_rhs = np.zeros(nloc*4)
 
         #
-        # FIX ME: DOES NOT WORK WITH FRACTIONAL OCCUPATIONS
+        # FIX ME: DOES NOT WORK WITH FRACTIONAL OCCUPATIONS or maybe it does now
         #
         # diagonal terms of blocks
         for kss_ip in self.kss_list:
@@ -876,24 +884,22 @@ class LrTDDFTindexed:
 
             # print >> self.txt, kss_ip.energy_diff, kss_ip.dip_mom_r
 
-            A_matrix[nloc*0+lip, nrow*0+ip] += kss_ip.energy_diff + omega
-            A_matrix[nloc*1+lip, nrow*1+ip] += kss_ip.energy_diff - omega
-            A_matrix[nloc*2+lip, nrow*2+ip] += kss_ip.energy_diff + omega
-            A_matrix[nloc*3+lip, nrow*3+ip] += kss_ip.energy_diff - omega
+            A_matrix[0+lip*4, 0+ip*4] += kss_ip.energy_diff + omega
+            A_matrix[1+lip*4, 1+ip*4] += kss_ip.energy_diff - omega
+            A_matrix[2+lip*4, 2+ip*4] += kss_ip.energy_diff + omega
+            A_matrix[3+lip*4, 3+ip*4] += kss_ip.energy_diff - omega
 
-            A_matrix[nloc*0+lip, nrow*2+ip] += -eta
-            A_matrix[nloc*1+lip, nrow*3+ip] += -eta
-            A_matrix[nloc*2+lip, nrow*0+ip] +=  eta
-            A_matrix[nloc*3+lip, nrow*1+ip] +=  eta
+            A_matrix[0+lip*4, 2+ip*4] += -eta
+            A_matrix[1+lip*4, 3+ip*4] += -eta
+            A_matrix[2+lip*4, 0+ip*4] +=  eta
+            A_matrix[3+lip*4, 1+ip*4] +=  eta
             
             # exp(+iwt) + exp(-iwt)
-            V_rhs[nrow*0+ip] = np.dot(kss_ip.dip_mom_r, laser)
-            V_rhs[nrow*1+ip] = np.dot(kss_ip.dip_mom_r, laser)
+            V_rhs[0+lip*4] = np.dot(kss_ip.dip_mom_r, laser)
+            V_rhs[1+lip*4] = np.dot(kss_ip.dip_mom_r, laser)
         
-            #A_matrix[:, nrow*0+ip] *= -1. # eig test
-            #A_matrix[:, nrow*2+ip] *= -1. # eig test
 
-
+        
         #for i in range(nloc*4):
         #    for j in range(nrow*4):
         #        print "%6.3lf" % A_matrix[i,j],
@@ -902,8 +908,10 @@ class LrTDDFTindexed:
         #print >> self.txt, np.round(np.linalg.eig(A_matrix)[0]*27.211,3)
         #print >> self.txt, V_rhs
 
+        
         C = np.linalg.solve(A_matrix, V_rhs)
         
+
         # response wavefunction
         #   perturbation was exp(iwt) + exp(-iwt) = 2 cos(wt)
         #   => real part of the polarizability is propto 2 cos(wt)
@@ -920,9 +928,11 @@ class LrTDDFTindexed:
         # dn_2sin = -i(dn+ - dn-)     = -i (dn+ - dn-**h) = Im[dn+] - Im[dn-]
 
         # Re[phi-**h + phi_+]
-        C_re = C[(nrow*0):(nrow*1)] + C[(nrow*1):(nrow*2)]
+        
+        rind = np.array(range(nloc)) * 4
+        C_re = C[rind+0] + C[rind+1]
         # Im[phi-**h + phi_+]
-        C_im = C[(nrow*2):(nrow*3)] - C[(nrow*3):(nrow*4)]
+        C_im = C[rind+2] - C[rind+3]
         
         # normalization (where the hell this comes from ?!? 
         #                lorentzian or fourier)
@@ -1749,12 +1759,59 @@ class LrTDDFTLayouts:
         self.diag_descr = self.diag_grid.new_descriptor(nkq, nkq,
                                                         blocksize,
                                                         blocksize)
+
         self.redistributor_in = Redistributor(self.world,
                                               self.eh_descr,
                                               self.diag_descr)
         self.redistributor_out = Redistributor(self.world,
                                                self.diag_descr,
                                                self.eh_descr)
+
+        self.eh_descr2a = self.eh_grid.new_descriptor(nkq*4, nkq*4, 4, nkq*4)
+        self.eh_descr2b = self.eh_grid.new_descriptor(nkq*4, 1,     4, 1)
+        self.solve_descr2a = self.diag_grid.new_descriptor(nkq*4,     nkq*4,
+                                                           blocksize, blocksize)
+        self.solve_descr2b = self.diag_grid.new_descriptor(nkq*4,     1,
+                                                           blocksize, 1)
+
+
+        self.redist_in_2a = Redistributor(self.world,
+                                          self.eh_descr2a,
+                                          self.solve_descr2a)
+        self.redist_in_2b = Redistributor(self.world,
+                                          self.eh_descr2b,
+                                          self.solve_descr2b)
+
+        self.redist_out_2a = Redistributor(self.world,
+                                           self.solve_descr2a,
+                                           self.eh_descr2a)
+        self.redist_out_2b = Redistributor(self.world,
+                                           self.solve_descr2b, 
+                                           self.eh_descr2b)
+
+    def solve(self, A, b):
+        A_nn = self.solve_descr2a.empty(dtype=float)
+        if self.eh_descr2a.blacsgrid.is_active():
+            A_nN = A
+        else:
+            A_nN = np.empty((0,0), dtype=float)
+        self.redist_solve_in_2a.redistribute(A_nN, A_nn)
+
+        b_n = self.solve_descr2b.empty(dtype=float)
+        if self.eh_descr2b.blacsgrid.is_active():
+            b_N = b
+        else:
+            b_N = np.empty((0,0), dtype=float)
+
+        self.redist_solve_in_2b.redistribute(b_N, b_n)
+
+        scalapack_solve(self.solve_descr2a, self.solve_descr2b, A_nn, b_n)
+        
+        if not self.eh_descr2b.blacsgrid.is_active():
+            b_N = b
+
+        self.dd_comm.broadcast(b_N, 0)
+
 
     def diagonalize(self, Om, eps_n):
 
