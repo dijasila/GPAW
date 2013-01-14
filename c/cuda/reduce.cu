@@ -1,24 +1,10 @@
-#include <stdio.h>
-#include <malloc.h>
-#include <string.h>
-#include <stdlib.h>
-#include <time.h>
-
-#include <sys/types.h>
-#include <sys/time.h>
-
-
-
-#include <gpaw-cuda-int.h>
-#include "cuda.h"
-#include "cuda_runtime_api.h"
-
 
 #ifndef REDUCE
 
 #define REDUCE_MAX_THREADS  (256)
 #define REDUCE_MAX_BLOCKS   (64)
-#define REDUCE_MAX_NVEC     (8*1024)
+//#define REDUCE_MAX_NVEC     (32*1024)
+#define REDUCE_MAX_NVEC     (128*1024)
 #define REDUCE_BUFFER_SIZE  ((REDUCE_MAX_NVEC+2*GPAW_CUDA_BLOCKS_MAX*REDUCE_MAX_BLOCKS)*16)
 static void *reduce_buffer=NULL;
 

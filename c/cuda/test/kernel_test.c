@@ -18,10 +18,17 @@ extern "C" {
 #endif 
 #include "../../bmgs/bmgs.h"
 #include "../../bmgs/bmgs.c"
- #ifdef __cplusplus
- }
- #endif 
-#include "../gpaw-cuda.h"
+
+
+  double ddot(int *n, void *dx, int *incx, void *dy, int *incy);
+  double ddot_(int *n, void *dx, int *incx, void *dy, int *incy);
+
+#ifdef __cplusplus
+}
+#endif 
+
+
+#include "../gpaw-cuda.h"  
 
 int check_result(int n0,int n1, int n2,int blocks,double *b,double *b_cuda)
 {
@@ -34,7 +41,7 @@ int check_result(int n0,int n1, int n2,int blocks,double *b,double *b_cuda)
 	for (int i2=0;i2<n2;i2++){
 	  long i=i0*n1*n2+i1*n2+i2; 
 	  double ee=sqrt((b[i]-b_cuda[i])*(b[i]-b_cuda[i]));
-	  if  (ee>1e-14) {
+	  if  (ee>1e-7) {
 	    if (e_i<64)	    fprintf(stdout,"error [[%d,%d,%d],%d] er:%f cpu:%f gpu:%f\n",i0,i1,i2,k,ee,b[i],b_cuda[i]);
 	    e_i++;
 	  }
@@ -137,7 +144,116 @@ int calc_test_fd(int n1,int n2,int n3,int blocks)
   return 0;
 
 }
+//extern "C" {
+  int calc_test_dotu(int n1,int n2,int n3,int blocks)
+  {
+  long   n[3]={n1,n2,n3};
 
+  int ntimes=5;
+  int inc=1;
+  double *a,*b,*c,*c_cuda,*c_cuda2,*a_gpu,*b_gpu;
+  int asize,bsize;
+
+  struct timeval  t0, t1, t2, t3; 
+  double flops,flops2,flops3;
+
+  // s=bmgs_laplace(7,1.0,h,n);
+
+
+  asize=n[0]*n[1]*n[2];
+  //asize=s.j[0]+s.n[0]*(s.j[1]+s.n[1]*(s.n[2]+s.j[2]));
+  bsize=n[0]*n[1]*n[2];
+  
+  a=malloc(blocks*asize*sizeof(double));
+  b=malloc(blocks*bsize*sizeof(double));  
+  c=malloc(blocks*sizeof(double));  
+  c_cuda=malloc(blocks*sizeof(double));  
+  c_cuda2=malloc(blocks*sizeof(double));  
+
+  srand ( time(NULL) );
+  //srand (0 );
+
+  for (int i=0;i<blocks*asize;i++){
+    a[i]=rand()/(double)RAND_MAX;
+  }
+  for (int i=0;i<blocks*bsize;i++){
+    b[i]=rand()/(double)RAND_MAX;
+  }
+
+  gpaw_cudaSafeCall(cudaMalloc((void**)&a_gpu,sizeof(double)*asize*blocks));
+  
+  gpaw_cudaSafeCall(cudaMalloc((void**)&b_gpu,sizeof(double)*bsize*blocks));
+  
+  
+  gpaw_cudaSafeCall(cudaMemcpy(a_gpu,a,sizeof(double)*asize*blocks,
+			       cudaMemcpyHostToDevice));
+  gpaw_cudaSafeCall(cudaMemcpy(b_gpu,b,sizeof(double)*bsize*blocks,
+			       cudaMemcpyHostToDevice));
+  gpaw_cudaSafeCall(cudaGetLastError());
+  
+  mdotu_cuda_gpu(a_gpu,b_gpu,c_cuda,(int)asize,blocks);
+  c_cuda[0] = cublasDdot(asize, (double*)a_gpu,
+			 inc, (double*)b_gpu, inc);
+  
+  //bmgs_fd_cuda_cpu(&s,a,b_cuda,GPAW_BOUNDARY_NORMAL,1);
+  c[0]=ddot_(&asize, a, &inc, b, &inc);
+  memset(c_cuda,0,blocks*sizeof(double));  
+  memset(c,0,blocks*sizeof(double));  
+  cudaThreadSynchronize(); 
+  gettimeofday(&t0,NULL);
+
+  for (int i=0;i<ntimes;i++){
+    for (int k=0;k<blocks;k++)
+      c[k]=ddot_(&asize, a+k*asize, &inc, b+k*bsize, &inc);
+  }
+  /*
+#ifdef __cplusplus
+}
+
+#endif     */
+  gettimeofday(&t1,NULL);
+  for (int i=0;i<ntimes;i++){
+    for (int k=0;k<blocks;k++)
+      c_cuda[k] = cublasDdot(asize, (double*)a_gpu+k*asize,
+			     inc, (double*)b_gpu+k*bsize, inc);
+  }
+  cudaThreadSynchronize(); 
+  //for (int i=0;i<ntimes;i++) flops3+=bmgs_fd_cuda_cpu(&s,a,b_cuda,GPAW_BOUNDARY_NORMAL,blocks);
+  gettimeofday(&t2,NULL);
+  for (int i=0;i<ntimes;i++)
+    mdotu_cuda_gpu(a_gpu,b_gpu,c_cuda2,(int)asize,blocks);
+  cudaThreadSynchronize(); 
+  gettimeofday(&t3,NULL);
+  flops=((t1.tv_sec+t1.tv_usec/1000000.0-t0.tv_sec-t0.tv_usec/1000000.0)); 
+  flops2=((t2.tv_sec+t2.tv_usec/1000000.0-t1.tv_sec-t1.tv_usec/1000000.0));
+  flops3=((t3.tv_sec+t3.tv_usec/1000000.0-t2.tv_sec-t2.tv_usec/1000000.0));
+  printf ("(%3d,%3d,%3d,%3d) \t %f\t %f\t %f\t %3.1f\t %3.1f\t %3.1f",n[0],n[1],n[2],blocks,ntimes*blocks*bsize/(1000000.0*flops),ntimes*blocks*bsize/(1000000.0*flops2),ntimes*blocks*bsize/(1000000.0*flops3),flops/flops2,flops/flops3,flops2/flops3);
+
+  for (int k=0;k<blocks;k++){
+    c[k]/=asize;
+    c_cuda[k]/=asize;
+    c_cuda2[k]/=asize;
+
+  }
+  if (!check_result(1,1,1,blocks,c,c_cuda)) {
+    printf("\tOK");
+  }
+  if (!check_result(1,1,1,blocks,c,c_cuda2)) {
+    printf(" OK");
+  }
+  printf("\n");
+
+  free(a);
+  free(b);
+  free(c);
+  free(c_cuda);
+  free(c_cuda2);
+  gpaw_cudaSafeCall(cudaFree(a_gpu));
+  gpaw_cudaSafeCall(cudaFree(b_gpu));
+  return 0;
+
+}
+//  }
 
 int calc_test_interpolate(int n1,int n2,int n3,int blocks)
 {
@@ -512,6 +628,20 @@ int main(void)
       for (int n=16;n<280;n+=24)
       calc_test_paste(n,n,n,1);*/
   
+  printf("# dotu\n");  
+  printf("# N \t\t\t CPU Mpoint/s \t GPU Mpoint/s \t GPU2 Mpoint/s \t Speed-up\n");    
+  calc_test_dotu(8,8,8,1);
+  for (int n=16;n<350;n+=2*6){
+    calc_test_dotu(n,n,n,1);
+  }
+  for (int n=16;n<140;n+=24)
+    calc_test_dotu(n,n,n,16);
+  for (int n=1;n<=512;n*=2)
+    calc_test_dotu(30,30,30,n);
+  for (int n=1;n<=512;n*=2)
+    calc_test_dotu(60,60,60,n);
+  exit(0);
+
   printf("# bmgs_restrict\n");  
   printf("# N \t\t\t\t\t CPU Mpoint/s \t GPU Mpoint/s \t Speed-up\n");    //
   //calc_test_restrict(28,28,28,1);

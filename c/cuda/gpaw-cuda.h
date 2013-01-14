@@ -126,5 +126,7 @@ void bmgs_interpolate_cuda_gpuz(int k, int skip[3][2],
 				cuDoubleComplex* b, const int sizeb[3],
 				int blocks);
 
+void mdotu_cuda_gpu( const double* a_gpu, const double* b_gpu,double *result,int n,int nvec);
+void reducemap_dotuz( const cuDoubleComplex* a_gpu, const cuDoubleComplex* b_gpu,cuDoubleComplex* result,int n,int nvec);
 
 #endif

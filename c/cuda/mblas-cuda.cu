@@ -84,9 +84,6 @@ __global__ void Zcuda(multi_axxpy_cuda_kernel)(int n,const double *alpha,const T
 }
 
 
-extern "C" {
-
-}
 
 
 #ifndef CUGPAWCOMPLEX
@@ -208,6 +205,10 @@ extern "C" {
     Py_RETURN_NONE;
   }
   
+  void mdotu_cuda_gpu( const double* a_gpu, const double* b_gpu,double *result,int n,int nvec)
+  {
+    reducemap_dotu((double*)a_gpu,(double*)b_gpu,result,n,nvec);
+  }
   
   
   PyObject* multi_dotu_cuda_gpu(PyObject *self, PyObject *args)
@@ -262,6 +263,8 @@ extern "C" {
 	}*/
     Py_RETURN_NONE;
   }
+
+
   
   
   PyObject* multi_dotc_cuda_gpu(PyObject *self, PyObject *args)

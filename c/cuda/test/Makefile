@@ -12,7 +12,7 @@ ALLSRC = $(CSRC) $(CUSRC)
 
 ALLOBJ = $(CSRC:.c=.o) $(CUSRC:.cu=.o)
 
-NVLDFLAGS=-L.. -lgpaw-cuda -L$(PYTHONLIBdir) -lpython2.6 -lutil -L$(CUDALIBdir) -lcuda -lcublas
+NVLDFLAGS=-L.. -lgpaw-cuda -L$(PYTHONLIBdir) -lpython2.6 -lutil -L$(CUDALIBdir) -lcuda -lcublas -lmkl_intel_lp64 -lgfortran -lmkl_sequential -lmkl_core
 
 -include make.dep
 
