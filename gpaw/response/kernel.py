@@ -54,7 +54,7 @@ def calculate_Kc(q_c,
                  optical_limit,
                  vcut=None,
                  density_cut=None,
-                 nonsymmetric=False):
+                 symmetric=True):
     """Symmetric Coulomb kernel"""
     npw = len(Gvec_Gc)
     Kc_G = np.zeros(npw)
@@ -62,7 +62,7 @@ def calculate_Kc(q_c,
     # get cutoff parameters
     G_p = np.array(pbc, float)
     # Normal Direction
-    G_n = np.array([1,1,1])-G_p
+    G_n = np.array([1,1,1]) - G_p
         
     if vcut is None:
         pass
@@ -105,10 +105,11 @@ def calculate_Kc(q_c,
         q_v = np.dot(q_c, bcell_cv)
         Kc_G[0] = 1. / np.dot(q_v,q_v)
    
-    if nonsymmetric:
+    if symmetric:
+        Kc_G = np.sqrt(Kc_G)
+        return 4 * pi * np.outer(Kc_G.conj(), Kc_G)
+    else:
         return 4 * pi * (Kc_G * np.ones([npw, npw])).T
-    else: 
-        return np.sqrt(4*pi*Kc_G)
 
 
 def calculate_Kxc(gd, nt_sG, npw, Gvec_Gc, nG, vol,
