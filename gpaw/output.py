@@ -154,6 +154,10 @@ class PAWTextOutput:
             t(basis_descr)
             t()
 
+        if p['HubU'] != None:
+            t('Using Hubbard U')
+            STOP
+
         t('Using the %s Exchange-Correlation Functional.'
           % self.hamiltonian.xc.name)
         if self.wfs.nspins == 2:
@@ -181,6 +185,25 @@ class PAWTextOutput:
 
         t('Reference Energy:  %.6f' % (self.wfs.setups.Eref * Hartree))
         t()
+
+        if self.hamiltonian.HubU_dict is not None:
+            Hub_dict = self.hamiltonian.HubU_dict
+            t('Hubbard U calculation: Format: a (n,l):  [in eV]')
+            hub_string = ''
+            for a in Hub_dict:
+                hub_string = '%i ' % a
+                for n in Hub_dict[a]:
+                    hub_string += '(%i,' % n
+                    for l in Hub_dict[a][n]:
+                        hub_string += '%i): ' % (l)
+                        if 'U' in Hub_dict[a][n][l]:
+                            hub_string += 'U=%.2f  ' % (
+                                                        Hub_dict[a][n][l]['U']*27.2107)
+                        elif 'alpha' in Hub_dict[a][n][l]:
+                            hub_string += 'alpha=%.2f  ' % (
+                                                    Hub_dict[a][n][l]['alpha']*27.2107)
+                t(hub_string)
+                t()
 
         nibzkpts = self.wfs.nibzkpts
 
