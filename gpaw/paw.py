@@ -195,12 +195,12 @@ class PAW(PAWTextOutput):
                 self.wfs = EmptyWaveFunctions()
                 self.occupations = None
             elif key in ['h', 'gpts', 'setups', 'spinpol', 'realspace',
-                         'parallel', 'communicator', 'dtype']:
+                         'parallel', 'communicator', 'dtype', 'mode']:
                 self.density = None
                 self.occupations = None
                 self.hamiltonian = None
                 self.wfs = EmptyWaveFunctions()
-            elif key in ['mode', 'basis']:
+            elif key in ['basis']:
                 self.wfs = EmptyWaveFunctions()
             elif key in ['parsize', 'parsize_bands', 'parstride_bands']:
                 name = {'parsize': 'domain',
