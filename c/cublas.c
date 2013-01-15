@@ -108,6 +108,20 @@ PyObject* cuCreate(PyObject *self, PyObject *args)
   return Py_BuildValue("IL",cudaStat,handle);
 }
 
+PyObject* cuDestroy(PyObject *self, PyObject *args)
+{
+  cublasHandle_t handle;
+  cublasStatus_t cudaStat;
+  if (!PyArg_ParseTuple(args, "i",&handle))
+    return NULL;
+
+  cudaStat = cublasDestroy(handle);
+  if (cudaStat != cudaSuccess) {
+    printf("cublasDestroy failed %d\n",cudaStat);
+  }
+  return Py_BuildValue("IL",cudaStat,handle);
+}
+
 PyObject* cuMalloc(PyObject *self, PyObject *args)
 {
   Py_ssize_t nbytes;

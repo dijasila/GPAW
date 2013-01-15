@@ -107,6 +107,7 @@ PyObject* pblas_rk(PyObject *self, PyObject *args);
 #endif
 
 PyObject* cuCreate(PyObject *self, PyObject *args);
+PyObject* cuDestroy(PyObject *self, PyObject *args);
 PyObject* cuMalloc(PyObject *self, PyObject *args);
 PyObject* cuFree(PyObject *self, PyObject *args);
 PyObject* cuSetMatrix(PyObject *self, PyObject *args);
@@ -138,6 +139,7 @@ static PyMethodDef functions[] = {
   {"cuMalloc", cuMalloc, METH_VARARGS, 0},
   {"cuFree", cuFree, METH_VARARGS, 0},
   {"cuCreate", cuCreate, METH_VARARGS, 0},
+  {"cuDestroy", cuDestroy, METH_VARARGS, 0},
   {"cuSetMatrix", cuSetMatrix, METH_VARARGS, 0},
   {"cuGetMatrix", cuGetMatrix, METH_VARARGS, 0},
   {"cuSetVector", cuSetVector, METH_VARARGS, 0},
