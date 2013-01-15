@@ -173,6 +173,7 @@ static PyMethodDef functions[] = {
   {"blacs_destroy",     blacs_destroy,      METH_VARARGS, 0},
   {"scalapack_set", scalapack_set, METH_VARARGS, 0}, 
   {"scalapack_redist",      scalapack_redist,     METH_VARARGS, 0},
+  {"scalapack_solve", scalapack_solve, METH_VARARGS, 0},
   {"scalapack_diagonalize_dc", scalapack_diagonalize_dc, METH_VARARGS, 0}, 
   {"scalapack_diagonalize_ex", scalapack_diagonalize_ex, METH_VARARGS, 0},
 #ifdef GPAW_MR3

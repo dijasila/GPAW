@@ -53,6 +53,24 @@ def scalapack_set(desca, a, alpha, beta, uplo, m=None, n=None, ia=1, ja=1):
                         switch_lu[uplo], n, m, ja, ia)
 
 
+def scalapack_solve(desca, descb, a, b):
+    """Perform general matrix solution to Ax=b. Result will be replaces with b.
+       Equivalent to numpy.linalg.solve(a, b.T.conjugate()).T.conjugate()
+    """
+    desca.checkassert(a)
+    descb.checkassert(b)
+    # only symmetric matrices
+    assert desca.gshape[0] == desca.gshape[1]
+    # valid equation
+    assert desca.gshape[1] == descb.gshape[1]
+
+    if not desca.blacsgrid.is_active():
+        return
+    info = _gpaw.scalapack_solve(a.T, desca.asarray(), b.T, descb.asarray())
+    if info != 0:
+        raise RuntimeError('scalapack_solve error: %d' % info)
+
+
 def scalapack_diagonalize_dc(desca, a, z, w, uplo):
     """Diagonalize symmetric matrix using the divide & conquer algorithm.
     Orthogonal eigenvectors not guaranteed; no warning is provided.
