@@ -4,21 +4,22 @@
 Maximizing performance on BG/P
 ==============================
 
-Begin by reading up on the GPAW parallelization strategies 
-(:ref:`parallel_runs`) and the `BG/P
-architecture <https://wiki.alcf.anl.gov/index.php/References>`_.  In
-particular,  :ref:`band_parallelization` will be needed to scale your
-calculation to large number of cores. The BG/P systems at the `Argonne
-Leadership Computing Facility <http://www.alcf.anl.gov>`_
-uses Cobalt for scheduling and it will be referred to frequently below. Other schedulers should have similar functionality.
+Begin by reading up on the GPAW parallelization strategies
+(:ref:`parallel_runs`) and the `BG/P architecture
+<https://wiki.alcf.anl.gov/index.php/References>`_.  In particular,
+:ref:`band_parallelization` will be needed to scale your calculation
+to large number of cores. The BG/P systems at the `Argonne Leadership
+Computing Facility <http://www.alcf.anl.gov>`_ uses Cobalt for
+scheduling and it will be referred to frequently below. Other
+schedulers should have similar functionality.
 
 There are four key aspects that require careful considerations:
 
 1) Choosing a parallelization strategy.
 
-#) Selecting the correct partion size (number of nodes) and mapping.
+#) Selecting the correct partition size (number of nodes) and mapping.
 
-#) Choosing an appropriate value of ``nblocks``. The constraints on ``nbands`` are also summarized.
+#) Choosing an appropriate value of ``buffer_size``. The use of ``nblocks`` is no longer recommended.
 
 #) Setting the appropriate DCMF environmental variables.
 
@@ -35,18 +36,20 @@ Additionally, the ``parallel`` keyword is also available.
 
 The smallest calculation that can benefit from band/state
 parallelization is *nbands = 1000*. If you are using fewer bands, you
-are possibly *not* in need of a leadership class computer facility. 
+are possibly *not* in need of a leadership class computing facility. 
 Note that only :ref:`RMM-DIIS` eigensolver is compatible with band
 parallelization. Furthermore, the RMM-DIIS eigensolver requires 
 some unoccupied bands in order to converge properly. Recommend range is::
 
-  nbands = valence electrons/spin*[1.0 - 1.2], where
-  spin = 1 for spinpol = True
-  spin = 2 for spinpol = False
+  spinpol=False
+  nbands = valence electrons/2*[1.0 - 1.2]
+
+  spinpol=True
+  nbands = max(up valence electrons, down valence electrons)*[1.0 - 1.2]
   
 It was empirically determined that you need to have *nbands/B
 > 256*  for reasonable performance. It is also possible use smaller groups, 
-*N/B < 256*, but this may require large domains. It is *required* that
+*nbands/B < 256*, but this may require large domains. It is *required* that
 *nbands/B* be integer-divisible. The best values for B =2, 4, 8, 16,
 32, 64, and 128.
 
@@ -55,14 +58,14 @@ Obviously, the number of total cores must equal::
    Nx*Ny*Nz*B
 
 The parallelization strategy will require careful consideration of the
-partition size and mapping. Obviously, also memory!
+partition size and mapping. And, obviously, also memory!
 
 Partition size and Mapping 
 ========================================
 The BG/P partition dimensions (Px, Py, Pz, T) for Surveyor and Intrepid at the
 Argonne Leadership Computing Facility are `available here 
 <https://wiki.alcf.anl.gov/index.php/Running#What_are_the_sizes_and_dimensions_of_the_partitions_on_the_system.3F>`_,
-where T represents the number of MPI tasks (not whether a
+where T represents the number of MPI tasks per node (not whether a
 torus network is available). The number of cores per node which
 execute MPI tasks is specified by the Cobalt flag::
 
@@ -76,19 +79,23 @@ Hence, the possible values of T are::
 
 Note that there are 4 cores per node and 2 GB per node on BG/P. As GPAW is
 presently an MPI-only code, vn mode is preferred since all cores will
-be perform computational work.
+perform computational work.
 
 It is essential to think of the BG/P network as a 4-dimensional object with
-3 spatial dimentions and a T-dimension. For optimum scalability it
+3 spatial dimensions and a T-dimension. For optimum scalability it
 would seem necessary to maximize the locality of two distinct
 communications patterns arising in the canonical O(N^3) DFT algorithm: 
-a) H*Psi products  b) parallel matrix multiplies. However, it turns
-out this is *not*  necessary. The mesh network can handle small messages
-rather efficiently such that the time to send a small message to a
-nearest-neighbor node versus a node half-way across the machine is
-comparable. Hence, it is only necessary to optimize the mapping for
-the communication arising from the parallel matrix multiply which is
-a simple 1D systolic communication pattern.
+
+1) H*Psi products  
+
+#) parallel matrix multiplies. 
+
+However, it turns out that this is *not* necessary. The mesh network can
+handle small messages rather efficiently such that the time to send a
+small message to a nearest-neighbor node versus a node half-way across
+the machine is comparable. Hence, it is only necessary to optimize the
+mapping for the communication arising from the parallel matrix
+multiply which is a simple 1D systolic communication pattern.
 
 Here we show the examples of different mappings on a 512-node BG/P
 partition. Band groups are colored coded. *(Left)* Inefficient mapping
@@ -127,26 +134,38 @@ Mapping is accomplished by the Cobalt flag::
   
    --env=BG_MAPPING=<mapping>
 
-where *<mapping>* can be one of the standard BG/P mappings or
-a mapfile.
+where *<mapping>* can be one of the canonical BG/P mappings 
+(permutations of XYZT with T at the beginning or end) or a mapfile.
 
-Lastly, it is important to note that GPAW code orders the MPI tasks as
+Lastly, it is important to note that GPAW orders the MPI tasks as
 follows::
   
    Z, Y, X, bands, kpoints, and spins.
 
+A list of mappings is provided below. Note that this list is not
+exhaustive. The contraint on the mapping comes from the value
+of *B*; only *one* of these constraints must be true:
+
+1) The last dimension in the canonical BG/P mapping equals the value of *B*.
+
+#) For canonical BG/P mappings which end in T, the product of T and the
+last cartesian dimension in the mapping equals *B*.
+
+#) If a canonical mapping is not suitable, the ``tools/mapfile.py``
+can be used to generate a mapfile that satisfies
+
+
 B = 2
 --------
-Simply set the followin submission script setting, noting that the
-domain decomposition must match up *exactly* with the partition dimensions::
+Simply set the following variables in your submission script::
 
   mode = dual
-  any mapping ending with a T
-  {Nz, Ny, Nx} = {Px, Py, Pz}; BG_MAPPING = XYZT
-  {Nz, Ny, Nx} = {Pz, Px, Py}; BG_MAPPING = ZXYT
-  {Nz, Ny, Nx} = {Py, Pz, Px}; BG_MAPPING = YZXT
-  plus other permutations of the right-hand side which end with a T
-  
+  mapping = any canonical mapping ending with a T
+
+the constraint on the domain-decomposition is simply::
+
+  Nx*Ny*Nz = Px*Py*Pz
+ 
 
 B = 4
 --------
@@ -154,78 +173,55 @@ Similar to the *B=2* case, but with::
 
   mode = vn
 
-B = 8 or 16
----------------
-It will be necessary to have the combined band-domain decomposition
-match the partition dimension exactly, i.e.::
+B = 8, 16, 32, 64, or 128
+--------------------------
 
-  {Nz, Ny, Nx, B} = {T, Px, Py, Pz}
-  {Nz, Ny, Nx, B} = {Px, T, Py, Pz}
-  {Nz, Ny, Nx, B} = {Px, Py, T, Pz}
-  plus other permutations of the right-hand side which do not end with
-  a T
+This is left as an exercises to the user. 
 
-As only mappings with T at the beginning or end are standard mappings
-on BG/P, a mapfile must be provided for many of the *B=8 or 16*
-case. This can be accomplised with ``tools/mapfile.py.`` You will want
-to use ``band``  mode to generate a BG/P mapfile for a  DFT
-calculation. Since there is no orthogonalization in the rTDDFT method,
-one can use ``domain`` mode to satisfy the communiation pattern of the
-H*Psi products.  Remember to specify the mapfile via Cobalt::
 
-  --env=BG_MAPPING=<mapfile>
+Setting the value of buffer_size
+================================
+Use ``buffer_size=2048``. Refer to :ref:`manual_parallel` for more
+information about the ``buffer_size`` keyword. Larger values require
+increasing the default value of DCMF_RECFIFO.
 
-B = 32, 64, or 128
-------------------
-For *B=32*, a mapfile can be generated as in the *B=8 or 16* case. But
-it is much easier to fold the T-dimension into one of the three
-spatial dimensions and use this as the band parallelization
-direction. The three-dimensional physical domain can then be flattened into
-the two remaining spatial dimensions of the network. The constraints
-can be summarized as follows::
+For those interested in more technical details, continue reading this section.
 
-  mode = vn
-  mapping =  any mapping end with T
-  T*[X,Y,Z] = B
-  product of remaining two dimensions = Nx*Ny*Nz
-
-Setting the value of nblocks
-============================
 The computation of the hamiltonian and overlap matrix elements, as well as
 the computation of the new wavefunctions, is accomplished by a hand-coded 
 parallel matrix-multiply ``hs_operators.py`` employing a 1D systolic
 ring algorithm. 
 
-It will be necessary to select appropriate values for the number of blocks ``nblocks``::
+Under the *original* implementation of the matrix-multiply algorithm, 
+it was necessary to select appropriate values for the number of blocks ``nblocks``::
 
   from gpaw.hs_operators import MatrixOperator
   MatrixOperator.nblocks = K
   MatrixOperator.async = True (default)
 
 where the ``B`` groups of bands are further divided into ``K``
-blocks. It is also required that *nbands/B/K* be integer-divisible. 
+blocks. It was also required that *nbands/B/K* be integer-divisible. 
 The value of ``K`` should be chosen so that 2 MB of wavefunctions are
 interchanged.  The special cases of B=2, 4 as described
 above permit the use blocks of wavefunctions larger than 2 MB to be
-interchanged since there is only intranode communication. Larger
-blocks of wavefunctions can be interchanged by adjusting the 
-Cobalt environment variables: DMCF_RECFIFO.
+interchanged since there is only intranode communication. 
 
 The size of the wavefunction being interchanged is given by::
 
   gpts = (Gx, Gy, Gz)
   size of wavefunction block in MB = (Gx/Nx, Gy/Ny, Gz/Nz)*(nbands/B/K)*8/1024^2
 
-There are thus a number of constraints on the value of nbands:
+The constraints on the value of nbands are:
 
 1) ``nbands/B`` must be integer divisible
 
-#) ``nbands/B/K`` must be integer divisible
+#) ``nbands/B/K`` must be integer divisible. 
 
 #) size of wavefunction block ~ 2 MB
 
 #) ``nbands`` must be sufficient largely so that the RMM-DIIS eigensolver converges
 
+The second constraint above is no longer applicable as of SVN version 7520.
 
 Important DCMF environment variables
 ===============================================
@@ -266,3 +262,13 @@ environment variables::
   --env=DCMF_REDUCE_REUSE_STORAGE=N:DCMF_ALLREDUCE_REUSE_STORAGE=N:DCMF_REDUCE=RECT
 
 It is very likely that your calculation is low on memory. Simply try using more nodes.
+
+DCMF_ALLTOALL_PREMALLOC
+-------------------------------
+HDF5 uses MPI_Alltoall which can consume a significant amount of
+memory.  The default behavior for MPI collectives on Blue Gene/P is to
+not release memory between calls due to peformance reasons. We recommend
+setting this environment variable to overide the default behavior::
+
+  --env DCMF_ALLTOALL_PREMALLOC=N:
+

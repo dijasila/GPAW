@@ -7,20 +7,24 @@ louhi.csc.fi  (Cray XT4/XT5)
 Here you find information about the the system
 `<http://www.csc.fi/english/research/Computing_services/computing/servers/louhi>`_.
 
+.. note::
+   These instructions are up-to-date as of August 28th 2012.
+
 GPAW
 ====
 
-The latest operating system release for Cray XT4/5 (CLE 2.2 UP01) supports 
-dynamic libraries which simplifies GPAW installation significantly.
+The recent operating system releases for Cray XT4/5 (CLE 2.2 UP01 and later) 
+supports dynamic libraries which simplifies GPAW installation significantly.
 
-These instructions for GPAW installation use Python 2.6.4 compiled
-with PGI compiler suite, see the end of this page for instructions for
+These instructions for GPAW installation use Python 2.6.5 compiled
+with GNU compiler suite, see the end of this page for instructions for
 compiling Python.
 
 First, load the Python module and set ``XTPE_LINK_TYPE`` environment
 variable for dynamic linking::
 
-  module load python/2.6.4
+  module load python
+  module load hdf5-parallel
   setenv XTPE_LINK_TYPE dynamic
 
 GPAW can now be build with a minimal ``customize.py``

@@ -8,10 +8,10 @@ import os
 
 # Sodium dimer, Na2
 d = 1.5
-atoms = Atoms( symbols='Na2',
-               positions=[( 0, 0, d),
-                          ( 0, 0,-d)],
-               pbc=False)
+atoms = Atoms(symbols='Na2',
+              positions=[( 0, 0, d),
+                         ( 0, 0,-d)],
+              pbc=False)
 
 
 # Calculate ground state for TDDFT
@@ -19,7 +19,7 @@ atoms = Atoms( symbols='Na2',
 # Larger box
 atoms.center(vacuum=6.0)
 # Larger grid spacing, LDA is ok
-gs_calc = GPAW(nbands=1, h=0.35, xc='LDA')
+gs_calc = GPAW(nbands=1, h=0.35, xc='LDA', setups={'Na': '1'})
 atoms.set_calculator(gs_calc)
 e = atoms.get_potential_energy()
 niter = gs_calc.get_number_of_iterations()

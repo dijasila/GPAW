@@ -16,8 +16,8 @@ except ImportError:
     pass
 
 for ending in endings:
-    restart = 'gpaw-restart.' + ending
-    restart_wf = 'gpaw-restart-wf.' + ending
+    restart = 'gpaw-restart-wfs_io.' + ending
+    restart_wf = 'gpaw-restart-wfs_io-wf.' + ending
     # H2
     H = Atoms([Atom('H', (0, 0, 0)), Atom('H', (0, 0, 1))])
     H.center(vacuum=2.0)
@@ -47,6 +47,8 @@ for ending in endings:
     print E1, E2
     equal(E1, E2, 1e-12)
 
+    barrier()
+    
     if rank == 0:
         os.remove(restart_wf)
         os.remove(restart)

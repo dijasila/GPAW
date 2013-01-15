@@ -71,6 +71,11 @@ h0, s0 = pickle.load(open('lead_hs.pckl'))
 h1, s1 = pickle.load(open('tip_hs.pckl'))
 h2, s2 = pickle.load(open('srf_hs.pckl'))
 
+assert abs(h0.imag).max() < 1e-14
+assert abs(s0.imag).max() < 1e-14
+h0 = h0.real
+s0 = h0.real
+
 stm = STM(tip, srf,
           hs10=(h0[0], s0[0]),
           hs1=(h1[0], s1[0]),

@@ -27,5 +27,6 @@ plt.plot([0, L], [efermi, efermi], label='Fermi level')
 plt.ylabel('Potential / V')
 plt.xlabel('z / Angstrom')
 plt.legend(loc=0)
+# plt.savefig('workfunction.png', format='png')
 plt.show()
 

@@ -24,12 +24,26 @@ BGP:
 
    BGP/performance
 
+BGQ:
+
+.. toctree::
+   :maxdepth: 2
+
+   BGQ/mira
+
 BSD:
 
 .. toctree::
    :maxdepth: 1
 
    BSD/FreeBSD
+
+Bull:
+
+.. toctree::
+   :maxdepth: 1
+
+   Bull/curie
 
 Cray:
 
@@ -57,6 +71,7 @@ Linux:
    Linux/Ubuntu_ppa
    Linux/Ubuntu
    Linux/Niflheim/Niflheim
+   Linux/SUNCAT/SUNCAT
    Linux/akka
    Linux/armageddon
    Linux/batman
@@ -70,10 +85,22 @@ Linux:
    Linux/nanolab_EL4
    Linux/neolith
    Linux/newcell
+   Linux/r410_psmn.ens-lyon
    Linux/ranger_EL4
    Linux/sepeli
+   Linux/sun_chpc
    Linux/supernova
    Linux/uranus
+   Linux/vsc.univie
+   Linux/odyssey
+
+MacOSX:
+
+.. toctree::
+   :maxdepth: 1
+
+   MacOSX/homebrew
+   MacOSX/macports
 
 Solaris:
 
@@ -82,3 +109,6 @@ Solaris:
 
    Solaris/corona
    Solaris/bohr
+
+
+

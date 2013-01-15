@@ -122,7 +122,10 @@ keyword            type       default value        description
 ``external``       Object                          XXX Missing doc
 ``verbose``        ``int``    ``0``                XXX Missing doc
 ``poissonsolver``  Object                          Specification of
-                                                   :ref:`manual_poissonsolver`
+                                                   :ref:`Poisson solver 
+                                                   <manual_poissonsolver>`
+                                                   or :ref:`dipole correction
+                                                   <manual_dipole_correction>`
 ``communicator``   Object                          XXX Missing doc
 ``idiotproof``     ``bool``   ``True``             Set to ``False`` to ignore 
                                                    setup fingerprint mismatch
@@ -151,7 +154,7 @@ Deprecated keywords (in favour of the ``parallel`` keyword) include:
 keyword            type       default value        description
 =================  =========  ===================  ============================
 ``parsize``        *seq*                           Parallel
-                                                   :ref:`manual_parsize`
+                                                   :ref:`manual_parsize_domain`
 ``parsize_bands``  ``int``    ``1``                :ref:`manual_parsize_bands`
 =================  =========  ===================  ============================
 
@@ -174,6 +177,13 @@ See also the page on :ref:`lcao`.
 Number of electronic bands
 --------------------------
 
+This parameter determines how many bands are included in the calculation for
+each spin. For example, for spin-unpolarized system with 10 valence electrons
+``nbands=5`` would include all the occupied states. In 10 valence electron
+spin-polarized system with magnetic moment of 2 a minimum of ``nbands=6`` is
+needed (6 occupied bands for spin-up, 4 occupied bands and 2 empty bands for
+spin down).
+
 The default number of electronic bands (``nbands``) is equal to the
 number of atomic orbitals present in the atomic setups.  For systems
 with the occupied states well separated from the unoccupied states,
@@ -191,53 +201,52 @@ unoccupied bands will improve convergence.
 Exchange-Correlation functional
 -------------------------------
 
-The most commonly used exchange-correlation functionals are listed below.
-For the list of all commonly used functionals defined in GPAW
-see :trac:`~gpaw/xc_functional.py`
-(use :command:`grep "xcname ==" gpaw/xc_functional.py` for an overview),
-and for the complete list of functionals
-see :trac:`~gpaw/libxc_functionals.py`:
+Some of the most commonly used exchange-correlation functionals
+are listed below.
 
-============  =================== ===========================  ==========
-``xc``        libxc_ keyword      description                  reference 
-============  =================== ===========================  ==========
-``'LDA'``     ``'X-C_PW'``        Local density approximation  [#LDA]_
-``'PBE'``     ``'X_PBE-C_PBE'``   Perdew, Burke, Ernzerhof     [#PBE]_
-``'revPBE'``  ``'X_PBE_R-C_PBE'`` revised PBE                  [#revPBE]_
-``'RPBE'``    ``'X_RPBE-C_PBE'``  revised revPBE               [#RPBE]_
-``'PBEH'``    N/A as keyword      Known as PBE0                [#PBE0]_
-``'B3LYP'``   N/A as keyword      B3LYP (as in Gaussian Inc.)  [#B3LYP]_
-============  =================== ===========================  ==========
+============  =========================== ===========================  ==========
+``xc``        full libxc_ keyword         description                  reference 
+============  =========================== ===========================  ==========
+``'LDA'``     ``'LDA_X+LDA_C_PW'``        Local density approximation  [#LDA]_
+``'PBE'``     ``'GGA_X_PBE+GGA_C_PBE'``   Perdew, Burke, Ernzerhof     [#PBE]_
+``'revPBE'``  ``'GGA_X_PBE_R+GGA_C_PBE'`` revised PBE                  [#revPBE]_
+``'RPBE'``    ``'GGA_X_RPBE+GGA_C_PBE'``  revised revPBE               [#RPBE]_
+``'PBE0'``    ``'HYB_GGA_XC_PBEH'``       Known as PBE0                [#PBE0]_
+``'B3LYP'``   ``'HYB_GGA_XC_B3LYP'``      B3LYP (as in Gaussian Inc.)  [#B3LYP]_
+============  =========================== ===========================  ==========
 
 ``'LDA'`` is the default value.  The next three ones are of
 generalized gradient approximation (GGA) type, and the last two are
 `hybrid functionals <http://en.wikipedia.org/wiki/Hybrid_functional>`_.
 
+For the list of all functionals available in GPAW see :ref:`overview_xc`.
+
 GPAW uses the functionals from libxc_ by default.
-Keywords are based on the :file:`gpaw/libxc_functionals.py` file.
-Custom combinations of exchange and correlation functionals are allowed.
-To form a valid libxc keyword the exchange and
-correlation strings from the :file:`gpaw/libxc_functionals.py` file need
-to be stripped off the ``'XC_LDA'`` or ``'XC_GGA'`` prefix and
-combined using the dash (-); e.g. to use "the" LDA approximation (most
-common) in chemistry specify ``'X-C_VWN'``.
+Keywords are based on the strings from the
+:file:`gpaw/xc/libxc_functionals.py` file.
+Valid keywords are strings or combinations of exchange and correlation string
+joined by **+** (plus).
+For example, "the" (most common) LDA approximation in chemistry
+corresponds to ``'LDA_X+LDA_C_VWN'``.
 
-Hybdrid functionals (features implemented in GPAW are described  at :ref:`exx`)
-require the corresponding
-setups containing exx information (use :command:`gpaw-setup --exact-exchange`
-to generate such a setup) to be present in :envvar:`GPAW_SETUP_PATH`
-(see :ref:`manual_setups`).
-The setup type coresponding to a hybrid functional is to be found in
-:trac:`~gpaw/xc_functional.py`. For example, for ``'B3LYP'``
-the ``'BLYP'`` is listed as ``'self.setupname'``, so one would
-use the command :command:`gpaw-setup --exact-exchange -f BLYP H O`
-to generate hydrogen and oxygen setups for calculations using ``'B3LYP'``.
+Hybrid functionals (the feature is described at :ref:`exx`)
+require the setups containing exx information to be generated.
+Check available setups for the presence of exx information, for example::
 
-**For developers only**: It is still possible to use the "old" functionals
-by prefixing the keyword with ``'old'``, e.g. ``'oldrevPBEx'``.
-It this case the ``'oldrevPBEx'`` setup will be used.
+     [~]$ zcat $GPAW_SETUP_PATH/O.PBE.gz | grep "<exact_exchange_"
 
-See details of implementation on the :ref:`xc_functionals` page.
+and generate setups with missing exx information::
+
+     [~]$ gpaw-setup --exact-exchange -f PBE H C
+
+Currently all the hybrid functionals use the PBE setup as a *base* setup.
+
+For more information about ``gpaw-setup`` see :ref:`generation_of_setups`.
+
+Set the location of setups as decribed on :ref:`installationguide_setup_files`.
+
+The details of the implementation of the exchange-correlation
+are described on the :ref:`xc_functionals` page.
 
 .. _libxc: http://www.tddft.org/programs/octopus/wiki/index.php/Libxc
 
@@ -248,17 +257,36 @@ Brillouin-zone sampling
 -----------------------
 
 The default sampling of the Brillouin-zone is with only the
-`\Gamma`-point.  This allows us to choose the wave functions to be real.
-Monkhorst-Pack sampling can be used if required: ``kpts=(n1, n2,
-n3)``, where ``n1``, ``n2`` and ``n3`` are positive integers.  This
-will sample the Brillouin-zone with a regular grid of ``n1`` `\times`
-``n2`` `\times` ``n3`` **k**-points.
+`\Gamma`-point.  This allows us to choose the wave functions to be
+real.  Monkhorst-Pack sampling can be used if required: ``kpts=(N1,
+N2, N3)``, where ``N1``, ``N2`` and ``N3`` are positive integers.
+This will sample the Brillouin-zone with a regular grid of ``N1``
+`\times` ``N2`` `\times` ``N3`` **k**-points.  See the
+:func:`ase.dft.kpoints.monkhorst_pack` function for more details.
 
-An arbitrary set of **k**-points can be specified, by giving an array
-of floats of the format ``kpts_kc`` where ``k`` is a k-point index,
-and ``c`` is an axis index. **k**-points are given in scaled
-coordinates, relative to the basis vectors of the reciprocal unit
-cell.
+An arbitrary set of **k**-points can be specified, by giving a
+sequence of k-point coordinates like this::
+
+    kpts=[(0, 0, -0.25), (0, 0, 0), (0, 0, 0.25), (0, 0, 0.5)]
+
+The **k**-point coordinates are given in scaled coordinates, relative
+to the basis vectors of the reciprocal unit cell.
+
+The above four k-points are equivalent to this:
+
+>>> from ase.dft.kpoints import monkhorst_pack
+>>> kpts = monkhorst_pack((1, 1, 4))
+>>> kpts
+array([[ 0.   ,  0.   , -0.375],
+       [ 0.   ,  0.   , -0.125],
+       [ 0.   ,  0.   ,  0.125],
+       [ 0.   ,  0.   ,  0.375]])
+>>> kpts+=(0,0,0.125)
+>>> kpts
+array([[ 0.  ,  0.  , -0.25],
+       [ 0.  ,  0.  ,  0.  ],
+       [ 0.  ,  0.  ,  0.25],
+       [ 0.  ,  0.  ,  0.5 ]])
 
 
 .. _manual_spinpol:
@@ -403,9 +431,9 @@ Accuracy of the self-consistency cycle
 The ``convergence`` keyword is used to set the convergence criteria.
 The default value is this Python dictionary::
 
-  {'energy': 0.0005, # eV / electron
+  {'energy': 0.0005,  # eV / electron
    'density': 1.0e-4,
-   'eigenstates': 1.0e-9,
+   'eigenstates': 4.0e-8,  # eV^2 / electron
    'bands': 'occupied'}
 
 In words:
@@ -417,8 +445,8 @@ In words:
   should be less than 0.001 electrons per valence electron.
 
 * The integrated value of the square of the residuals of the Kohn-Sham
-  equations should be less than :math:`1.0 \times 10^{-9}` per state
-  (FD mode only).
+  equations should be less than :math:`4.0 \times 10^{-8}
+  \mathrm{eV}^2` per valence electron (FD mode only).
 
 The individual criteria can be changed by giving only the specific
 entry of dictionary e.g. ``convergence={'energy': 0.0001}`` would set
@@ -433,16 +461,14 @@ also use ``{'bands': 200}`` to converge the lowest 200 bands. One can
 also write ``{'bands': -10}`` to converge all bands except the last
 10. It is often hard to converge the last few bands in a calculation.
 
-The calculation will stop with an error if convergence is not reached
-in ``maxiter`` self-consistent iterations (defaults to 120).
-
 
 .. _manual_maxiter:
 
 Maximum number of SCF-iterations
 --------------------------------
 
-XXX Missing doc
+The calculation will stop with an error if convergence is not reached
+in ``maxiter`` self-consistent iterations (defaults to 120).
 
 
 .. _manual_txt:
@@ -506,9 +532,10 @@ The ``setups`` keyword is used to specify the name(s) of the setup files
 used in the calulation.
 
 For a given element ``E``, setup name ``NAME``, and xc-functional
-'XC', GPAW look for the file :file:`E.NAME.XC` or :file:`E.NAME.XC.gz`
-(in that order) in your :envvar:`GPAW_SETUP_PATH` environment
-variable. Unless ``NAME='paw'``, in which case it will simply look for
+'XC', GPAW looks for the file :file:`E.NAME.XC` or :file:`E.NAME.XC.gz`
+(in that order) in the setup locations
+(see :ref:`installationguide_setup_files`).
+Unless ``NAME='paw'``, in which case it will simply look for
 :file:`E.XC` (or :file:`E.XC.gz`).
 
 The ``setups`` keyword can be either a single string, or a dictionary.
@@ -557,9 +584,13 @@ determined by solving the Kohn-Sham equations in the LCAO basis.
 
 The ``basis`` keyword can be either a string or a dictionary.  If
 ``basis`` is a string, GPAW will look for a file named
-:file:`{symbol}.{basis}.basis` in the :envvar:`GPAW_SETUP_PATH`, where
+:file:`{symbol}.{basis}.basis` in
+the setup locations
+(see :ref:`installationguide_setup_files`), where
 :file:`{symbol}` is taken as the chemical symbol from the ``Atoms``
-object.  If ``basis`` is a dictionary, the basis set can be specified
+object.
+The first found file is used.
+If ``basis`` is a dictionary, the basis set can be specified
 differently for each atomic species by using the atomic symbol as
 a key, or for individual atoms by using an ``int`` as a key.  In the
 latter case the integer corresponds to the index of that atom in the
@@ -568,10 +599,18 @@ latter case the integer corresponds to the index of that atom in the
 basis for carbon, and the ``dzp`` for whichever atom is number 7 in
 the ``Atoms`` object.
 
+.. note::
+
+    If you want to use only the ``sz`` basis functinons from a ``dzp``
+    basis set, then you can use this syntax: ``basis='sz(dzp)'``.
+    This will read the basis functions for, say hydrogen, from the
+    ``H.dzp.basis`` file.
+
 The value ``None`` (default) implies that the pseudo partial waves
 from the setup are used as a basis. This basis is always available;
 choosing anything else requires the existence of the corresponding
-basis set file in the :envvar:`GPAW_SETUP_PATH`.
+basis set file in setup locations
+(see :ref:`installationguide_setup_files`).
 
 For details on the LCAO mode and generation of basis set files; see
 the :ref:`LCAO <lcao>` documentation.
@@ -593,6 +632,15 @@ available options in FD mode are conjugate gradient method
 (``eigensolver='dav'``). From the alternatives, conjugate gradient
 seems to perform better in general.
 
+More control can be obtained by using directly the eigensolver objects::
+
+  from gpaw.eigensolvers import CG
+  calc = GPAW(eigensolver=CG(niter=5, rtol=0.20))
+
+Here, ``niter`` specifies the maximum number of conjugate gradient iterations
+for each band (within a single SCF step), and if the relative change 
+in residual is less than ``rtol``, the iteration for the band is not continued.
+
 LCAO mode has its own eigensolver, which directly diagonalizes the
 Hamiltonian matrix instead of using an iterative method.
 
@@ -601,6 +649,9 @@ Hamiltonian matrix instead of using an iterative method.
 
 Poisson solver
 --------------
+
+The *poissonsolver* keyword is used to specify a Poisson solver class
+or enable dipole correction.
 
 The default Poisson solver uses a multigrid Jacobian method.  Use this
 keyword to specify a different method.  This example corresponds to
@@ -625,6 +676,29 @@ The last argument, ``eps``, is the convergence criterion.
   important in LCAO calculations, but can be good to know in general.
   See the LCAO notes on
   :ref:`Poisson performance <poisson_performance>`.
+
+.. _manual_dipole_correction:
+
+The *poissonsolver* keyword can also be used to specify that a dipole
+correction should be applied along a given axis.  The system should be
+non-periodic in that direction but periodic in the two other
+directions.
+
+::
+  
+  from gpaw import GPAW
+  from gpaw.poisson import PoissonSolver
+  from gpaw.dipole_correction import DipoleCorrection
+  
+  poissonsolver = PoissonSolver()
+  correction = DipoleCorrection(poissonsolver, 2) # 2 == z-axis
+  calc = GPAW(poissonsolver=correction)
+
+Without dipole correction, the potential will approach 0 at all
+non-periodic boundaries.  With dipole correction, there will be a
+potential difference across the system depending on the size of the
+dipole moment.
+
 
 .. _manual_stencils:
 
@@ -749,37 +823,41 @@ The possible command line arguments are:
 argument                         description
 ===============================  =============================================
 ``--trace``
-``--debug``                      Run in debug-mode, e.g. check
+``--debug``                      
+                                 Run in debug-mode, e.g. check
                                  consistency of arrays passed to c-extensions
-``--setups=path``                Use setups from the colon-separated
-                                 list of directories in ``path``
-``--dry-run[=nprocs]``           Print out the computational
+``--dry-run[=nprocs]``           
+                                 Print out the computational
                                  parameters and estimate memory usage, 
                                  do not perform actual calculation. 
                                  If ``nprocs`` is specified, print also which 
                                  parallelization settings would be employed
                                  when run on ``nprocs`` processors.
-``--memory-estimate-depth[=n]``  Print out an itemized memory estimate by
+``--memory-estimate-depth[=n]``  
+                                 Print out an itemized memory estimate by
                                  stepping recursively through the object
                                  hierarchy of the calculator. If ``n`` is
                                  specified, print a summary for depths
                                  greater than the specified value.
                                  Default: ``n=2``
-``--domain-decomposition=comp``  Specify the domain decomposition with
+``--domain-decomposition=comp``  
+                                 Specify the domain decomposition with
                                  ``comp`` as a positive integer or, for
                                  greater control, a tuple of three integers.
                                  Allowed values are equivalent to those of
                                  the ``domain`` argument in the
                                  :ref:`parallel <manual_parallel>` keyword,
                                  with tuples specified as ``nx,ny,nz``.
-                                 See :ref:`manual_parsize` for details.
-``--state-parallelization=nbg``  Specify the parallelization over Kohn-Sham
+                                 See :ref:`manual_parsize_domain` for details.
+``--state-parallelization=nbg``
+                                 Specify the parallelization over Kohn-Sham
                                  orbitals with ``nbg`` as a positive integer.
                                  Allowed values are equivalent to those of
                                  the ``band`` argument in the
                                  :ref:`parallel <manual_parallel>` keyword.
                                  See :ref:`manual_parsize_bands` for details.
-``--sl_...=m,n,mb``              Specify ScaLAPACK / BLACS parameters for
+``--sl_...=m,n,mb``
+                                 Specify ScaLAPACK / BLACS parameters for
                                  diagonalization (``--sl_default``),
                                  inverse Cholesky factorization
                                  (``--sl_inverse_cholesky``) and LCAO general
@@ -791,6 +869,12 @@ argument                         description
                                  the four ``sl_...`` arguments in the 
                                  :ref:`parallel <manual_parallel>` keyword.
                                  Requires GPAW to be built with ScaLAPACK.
+``--gpaw a=1,b=2.3,...``         
+				 Extra parameters for development work:
+				 
+				 >>> from gpaw import extra_parameters
+				 >>> print extra_parameters
+				 {'a': 1, 'b': 2.3}
 ===============================  =============================================
 
 

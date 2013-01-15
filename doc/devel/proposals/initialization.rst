@@ -36,7 +36,7 @@ Object hierarki
 ===============
 
 .. image:: ../bigpicture.png
-   :target: ../../bigpicture.pdf
+   :target: ../../bigpicture.svg
 
 So all the objects above may implement functions to read and write their 
 own parameters.  They could also implement functions to read/write 

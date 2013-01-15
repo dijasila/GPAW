@@ -1,19 +1,18 @@
 from math import pi
-from gpaw.grid_descriptor import RadialGridDescriptor, GridDescriptor
+from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
+from gpaw.grid_descriptor import GridDescriptor
 from gpaw.xc import XC
 import numpy as np
 from gpaw.test import equal
 
-r = 0.01 * np.arange(100)
-dr = 0.01 * np.ones(100)
-rgd = RadialGridDescriptor(r, dr)
+rgd = EquidistantRadialGridDescriptor(0.01, 100)
 
 for name in ['LDA', 'PBE']:
     xc = XC(name)
     for nspins in [1, 2]:
         n = rgd.zeros(nspins)
         v = rgd.zeros(nspins)
-        n[:] = np.exp(-r**2)
+        n[:] = np.exp(-rgd.r_g**2)
         n[-1] *= 2
         E = xc.calculate_spherical(rgd, n, v)
         i = 23

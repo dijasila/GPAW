@@ -35,7 +35,7 @@ are in order:
 * A :class:`~ase.optimize.bfgs.BFGS` optimizer is created and
   associated with the
   :class:`Atoms` object.  It is also given an optional argument,
-  :keyword:`trajectory`, which specifies the name of a file into which the
+  ``trajectory``, which specifies the name of a file into which the
   positions will be saved for each step in the geometry optimization.
 * Finally the call ``opt.run(fmax=0.05)`` will run the
   optimization algorithm until all atomic forces are below 0.05 eV per
@@ -53,7 +53,10 @@ Structure optimization of :mol:`H_2O` with EMT and GPAW
 -------------------------------------------------------
 
 Adapt the above script as needed and calculate the structure of a
-:mol:`H_2O` molecule using the EMT calculator.
+:mol:`H_2O` molecule using the EMT calculator.  Note that water is not
+a linear molecule.  If you start with a linear molecule, the
+minimization may not be able to break the symmetry.  Be sure to
+visualize the final configuration to check that it is reasonable.
 
 The empirical EMT potential is fast, but not very accurate for
 molecules in particular.  We therefore want to perform this
@@ -126,4 +129,4 @@ different XC functionals to the calculator using
 ``'LDA'``, ``'PBE'`` or ``'RPBE'``.
 
 Calculate the atomization energy of :mol:`H_2O` with LDA and PBE (just
-reuse the geometry from the LDA optimization).
+reuse the geometry from the LDA optimization, i.e. do not repeat the minimization).

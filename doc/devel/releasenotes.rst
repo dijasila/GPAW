@@ -10,10 +10,86 @@ Development version in trunk
 
 :trac:`trunk <>`.
 
-* Corresponding ASE release: ...
-* Energy convergence criterion changed from 1 meV/atom to 0.5
-  meV/electron.
+* Calculation of the stress tensor has been implemented for plane-wave
+  based calculation.
 
+* MGGA: number of neighbor grid points to use for FD stencil for
+  wave function gradient changed from 1 to 3.
+
+* New setups: Y, Sb, Xe, Hf, Re, Hg, Tl, Rn
+
+* Modified setups:
+
+  .. note::
+
+     Most of the new setups currently require
+     :ref:`eigensolver <manual_eigensolver>` ``cg``.
+
+  - improved eggbox: N, O, K, S, Ca, Sc, Zn, Sr, Zr, Cd, In, Sn, Pb, Bi
+
+  - semicore states included: Na, Mg, V, Mn, Ni,
+    Nb, Mo, Ru (seems to solve the Ru problem :trac:`gpaw/test/big/Ru001`),
+    Rh, Pd, Ag, Ta, W, Os, Ir, Pt
+
+  - semicore states removed: Te
+
+  .. note::
+
+     For some of the setups one has now a choice of different
+     number of valence electrons, e.g.::
+
+       setups = {'Ag': '11'}
+
+     See :ref:`manual_setups` and list the contents of :envvar:`GPAW_SETUP_PATH`
+     for available setups.
+
+* new ``dzp`` basis set generated for all the new setups with
+  ``gpaw-basis -t dzp --lpol=2`` with exception of Zn and Cd (``--lpol=1``).
+
+Version 0.9.0
+=============
+
+7 March 2012: :trac:`tags/0.9.0 <../tags/0.9.0>`.
+
+* Corresponding ASE release: ase-3.6_
+
+* Convergence criteria for eigenstates changed: The missing volume per
+  grid-point factor is now included and the units are now eV**2. The
+  new default value is 4.0e-8 eV**2 which is equivalent to the old
+  default for a grid spacing of 0.2 Å.
+
+* GPAW should now work also with NumPy 1.6.
+
+* Much improved :ref:`command line tool` now based on the `new
+  tool`_ in ASE.
+
+
+.. _new tool: https://wiki.fysik.dtu.dk/ase/ase/cmdline.html
+.. _ase-3.6: https://svn.fysik.dtu.dk/projects/ase/tags/3.6.0
+
+
+Version 0.8.0
+=============
+
+25 May 2011: :trac:`tags/0.8.0 <../tags/0.8.0>`.
+
+* Corresponding ASE release: ase-3.5.1_
+* Energy convergence criterion changed from 1 meV/atom to 0.5
+  meV/electron.  This was changed in order to allow having no atoms like
+  for jellium calculations.
+* Linear :ref:`dielectric response <df_theory>` of an extended system
+  (RPA and ALDA kernels) can now be calculated.
+* :ref:`rpa`.
+* Non-selfconsistent calculations with k-points for hybrid functionals.
+* Methfessel-Paxton distribution added.
+* Text output now shows the distance between planes of grid-points as
+  this is what will be close to the grid-spacing parameter *h* also for
+  non-orthorhombic cells.
+* Exchange-correlation code restructured.  Naming convention for
+  explicitely specifying libxc functionals has changed: :ref:`manual_xc`.
+* New PAW setups for Rb, Ti, Ba, La, Sr, K, Sc, Ca, Zr and Cs.
+
+.. _ase-3.5.1: https://svn.fysik.dtu.dk/projects/ase/tags/3.5.1
 
 
 Version 0.7.2

@@ -20,7 +20,7 @@ will calculate the vibrational frequencies for a water molecule.
   :svn:`~doc/exercises/vibrations/h2o.py`.  An alternative is to
   use the MP2 structures from ASE's molecular database::
 
-    from ase.data.molecules import molecule
+    from ase.structure import molecule
     h2o = molecule('H2O')
     h2o.center(vacuum=3.5)
 
@@ -39,4 +39,4 @@ will calculate the vibrational frequencies for a water molecule.
   these trajectories with the :command:`ag` command - click :guilabel:`Play` 
   to play the movie. Do they look like you expected and what would you have
   expected (you may have learned something about symmetry groups at
-  one point)?
+  one point)?  Did you assign the modes correctly in the previous question?

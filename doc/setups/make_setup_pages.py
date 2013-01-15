@@ -10,9 +10,9 @@ import numpy as np
 from ase.data import atomic_numbers, atomic_names
 from ase.atoms import string2symbols
 from ase.data.molecules import rest
-from ase.data.molecules import data as molecule_data
+from ase.data.g2_1 import data as molecule_data
 
-from gpaw.testing.atomization_data import atomization_vasp
+from ase.data.g2_1_ref import atomization_vasp
 from gpaw.atom.configurations import parameters
 
 page = """.. Computer generated reST (make_setup_pages.py)
@@ -178,7 +178,10 @@ def make_page(symbol):
             root = roots[0]
         else:
             root = roots[1]
-        d0 = 1.0 / root
+        if isinstance(root, complex):
+            print '??????'
+            root = root.real
+        d0 = 1.0 / root.real
         E0 = np.polyval(energy, root)
         Edimer0[i] = E0
         ddimer0[i] = d0

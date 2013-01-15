@@ -1,17 +1,6 @@
 #!/usr/bin/env python
 # Emacs: treat this as -*- python -*-
 
-import sys
-
-# Importing GPAW will remove --setups=... from argv, so save a copy
-# Use --gpaw="setup_path='...'" instead.
-for i, arg in enumerate(sys.argv):
-    if arg.startswith('--setups='):
-        sys.argv.pop(i)
-        import gpaw
-        sys.argv.append(arg)
-        break
-
-from gpaw.utilities.gpawscript import main
-
-main()
+import gpaw
+from ase.tasks.main import run
+run(calcname='gpaw')

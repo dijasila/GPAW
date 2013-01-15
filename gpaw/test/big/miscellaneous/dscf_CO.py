@@ -1,4 +1,4 @@
-from ase.data.molecules import molecule
+from ase.structure import molecule
 from gpaw import GPAW
 from gpaw import dscf
 from gpaw.test import equal
@@ -9,7 +9,7 @@ from gpaw.test import equal
 calc_mol = GPAW(nbands=8, h=0.2, xc='PBE', spinpol=True,
                 convergence={'energy': 100,
                              'density': 100,
-                             'eigenstates': 1.0e-9,
+                             #'eigenstates': 1.0e-9,
                              'bands': -1})
 
 CO = molecule('CO')
@@ -31,7 +31,7 @@ p_uai = [dict([(molecule[a], P_ni[n]) for a, P_ni in kpt.P_ani.items()])
 calc_1 = GPAW(nbands=8, h=0.2, xc='PBE', spinpol=True,
               convergence={'energy': 100,
                            'density': 100,
-                           'eigenstates': 1.0e-9,
+                           #'eigenstates': 1.0e-9,
                            'bands': -1})
 CO.set_calculator(calc_1)
 weights = {0: [0.,0.,0.,1.], 1: [0.,0.,0.,-1.]}
@@ -44,7 +44,7 @@ calc_1.write('dscf_CO_es1.gpw', mode='all')
 calc_2 = GPAW(nbands=8, h=0.2, xc='PBE', spinpol=True,
               convergence={'energy': 100,
                           'density': 100,
-                           'eigenstates': 1.0e-9,
+                           #'eigenstates': 1.0e-9,
                            'bands': -1})
 CO.set_calculator(calc_2)
 lumo = dscf.AEOrbital(calc_2, wf_u, p_uai)
@@ -58,9 +58,12 @@ equal(E_es1, E_es2, 0.001)
 
 energy_tolerance = 0.001
 niter_tolerance = 2
-equal(E_gs, -14.9313, energy_tolerance)
+print E_gs, niter_gs
+print E_es1, niter_es1
+print E_es2, niter_es2
+equal(E_gs, -15.1924620949, energy_tolerance)
 equal(niter_gs, 20, niter_tolerance)
-equal(E_es1, -9.1067, energy_tolerance)
+equal(E_es1, -9.36671359062, energy_tolerance)
 equal(niter_es1, 22, niter_tolerance)
-equal(E_es2, -9.10706, energy_tolerance)
+equal(E_es2, -9.3667912622, energy_tolerance)
 equal(niter_es2, 23, niter_tolerance)

@@ -16,16 +16,10 @@ from gpaw.utilities import gcd
 from gpaw.paw import kpts2ndarray
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.grid_descriptor import GridDescriptor
-from gpaw.kpt_descriptor import KPointDescriptor, KPointDescriptorOld #XXX
+from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.parameters import InputParameters
 from gpaw.setup import SetupData, Setups
 from gpaw.xc import XC
-
-#from gpaw.hs_operators import MatrixOperator
-#from gpaw.parameters import InputParameters
-#from gpaw.xc_functional import XCFunctional
-#from gpaw.setup import Setup, Setups
-#from gpaw.lfc import LFC
 
 from gpaw.test.ut_common import ase_svnversion, shapeopt, TestCase, \
     TextTestRunner, CustomTextTestRunner, defaultTestLoader, \
@@ -75,10 +69,10 @@ class UTKPointParallelSetup(TestCase):
         assert p.usesymm == None
         self.nibzkpts = len(bzk_kc)
 
-        #parsize, parsize_bands = create_parsize_minbands(self.nbands, world.size)
-        parsize, parsize_bands = 1, 1 #XXX
+        #parsize_domain, parsize_bands = create_parsize_minbands(self.nbands, world.size)
+        parsize_domain, parsize_bands = 1, 1 #XXX
         assert self.nbands % np.prod(parsize_bands) == 0
-        domain_comm, kpt_comm, band_comm = distribute_cpus(parsize,
+        domain_comm, kpt_comm, band_comm = distribute_cpus(parsize_domain,
             parsize_bands, self.nspins, self.nibzkpts)
 
         # Set up band descriptor:
@@ -88,7 +82,7 @@ class UTKPointParallelSetup(TestCase):
         res, ngpts = shapeopt(300, self.G**3, 3, 0.2)
         cell_c = self.h * np.array(ngpts)
         pbc_c = (True, False, True)
-        self.gd = GridDescriptor(ngpts, cell_c, pbc_c, domain_comm, parsize)
+        self.gd = GridDescriptor(ngpts, cell_c, pbc_c, domain_comm, parsize_domain)
 
         # Create randomized gas-like atomic configuration
         self.atoms = create_random_atoms(self.gd)
@@ -100,19 +94,16 @@ class UTKPointParallelSetup(TestCase):
 
         # Set up kpoint descriptor:
         self.kd = KPointDescriptor(bzk_kc, self.nspins)
-        self.kd.set_symmetry(self.atoms, self.setups, p.usesymm)
+        self.kd.set_symmetry(self.atoms, self.setups, usesymm=p.usesymm)
         self.kd.set_communicator(kpt_comm)
 
-        #self.kd_old = KPointDescriptorOld(self.nspins, self.nibzkpts, \
-        #    kpt_comm, self.gamma, self.dtype) #XXX
-
     def tearDown(self):
-        del self.bd, self.gd, self.kd #self.kd_old
+        del self.bd, self.gd, self.kd
         del self.setups, self.atoms
 
     def get_parsizes(self): #XXX NO LONGER IN UT_HSOPS?!?
         # Careful, overwriting imported GPAW params may cause amnesia in Python.
-        from gpaw import parsize, parsize_bands
+        from gpaw import parsize_domain, parsize_bands
 
         # Choose the largest possible parallelization over kpoint/spins
         test_parsize_ks_pairs = gcd(self.nspins*self.nibzkpts, world.size)
@@ -122,9 +113,9 @@ class UTKPointParallelSetup(TestCase):
         test_parsize_bands = parsize_bands or gcd(self.nbands, remsize)
 
         # If parsize_bands is not set, choose as few domains as possible
-        test_parsize = parsize or (remsize//test_parsize_bands)
+        test_parsize_domain = parsize_domain or (remsize//test_parsize_bands)
 
-        return test_parsize, test_parsize_bands
+        return test_parsize_domain, test_parsize_bands
 
     # =================================
 

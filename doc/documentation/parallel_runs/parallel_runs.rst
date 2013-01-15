@@ -22,10 +22,12 @@ decomposition that match both the number of processors and the size of
 the unit cell.  This choice can be overruled, see
 :ref:`manual_parallelization_types`.
 
-Before starting a parallel calculation, it might be useful to check how the parallelization corresponding to given number
-of processors would be done with ``--dry-run`` command line option::
+Before starting a parallel calculation, it might be useful to check how the parallelization corresponding to the given number
+of processes would be done with ``--dry-run`` command line option::
 
   python script.py --dry-run=8
+
+The output will contain also the "Calculator" RAM Memory estimate per process.
 
 In order to start parallel calculation, you need to know the
 command for starting parallel processes. This command might contain
@@ -147,11 +149,13 @@ or simply a list of ranks. Thus, you may write::
 
   from gpaw import GPAW
   import gpaw.mpi as mpi
-  import numpy as np
 
   # Create a calculator using ranks 0, 3 and 4 from the mpi world communicator
-  comm = mpi.world.new_communicator(np.array([0, 3, 4]))
-  calc = GPAW(communicator=comm)
+  ranks = [0, 3, 4]
+  comm = mpi.world.new_communicator(ranks)
+  if mpi.world.rank in ranks:
+      calc = GPAW(communicator=comm)
+      ...
 
 Be sure to specify different output files to each calculator,
 otherwise their outputs will be mixed up.
@@ -160,14 +164,6 @@ Here is an example which calculates the atomization energy of a
 nitrogen molecule using two processes:
 
 .. literalinclude:: parallel_atomization.py
-
-ScaLapack
-=========
-
-.. toctree::
-   :maxdepth: 1
-
-   ScaLapack/ScaLapack
 
 .. _manual_parallelization_types:
 
@@ -187,15 +183,17 @@ The default value corresponds to this Python dictionary::
   {'domain':              None,
    'band':                1,
    'stridebands':         False,
+   'sl_auto':             False,
    'sl_default':          None,
    'sl_diagonalize':      None,
    'sl_inverse_cholesky': None,
-   'sl_lcao':             None}
+   'sl_lcao':             None,
+   'buffer_size':         None}
 
 In words:
 
 * The ``'domain'`` value specifies either an integer ``n``, or specifically a tuple
-  ``(nx,ny,nz)`` of 3 integers, for :ref:`domain decomposition <manual_parsize>`.
+  ``(nx,ny,nz)`` of 3 integers, for :ref:`domain decomposition <manual_parsize_domain>`.
   If not specified (i.e. ``None``), the calculator will try to determine the best
   domain parallelization size based on number of kpoints, spins etc.
 
@@ -206,11 +204,25 @@ In words:
 * The ``'stridebands'`` value only applies when band parallelization is used, and
   can be used to toggle between grouped and strided band distribution.
 
-* The four ``'sl_...'`` values are for specifying ScaLAPACK parameters, which
-  must be a tuple ``(m,n,mb)`` of 3 integers to indicate a ``m*n`` grid of CPUs
-  and a blocking factor of ``mb``. If either of the three latter are not
-  specified (i.e. ``None``), they default to the value of ``'sl_default'``,
-  which can also be omitted.
+* If ``'sl_auto'`` is ``True``, ScaLAPACK will be enabled with automatically chosen
+  parameters and using all available CPUs.
+
+* The four other ``'sl_...'`` values are for enabling ScaLAPACK with custom parameters.
+  Each can be specified as a tuple ``(m,n,mb)`` of 3 integers to
+  indicate an ``m*n`` grid of CPUs and a block size of ``mb``.
+  If any of the three latter keywords are not
+  specified (i.e. ``None``), they default to the value of
+  ``'sl_default'``. Presently, ``'sl_inverse_cholesky'`` must equal
+  ``'sl_diagonalize'``.
+
+* The ``'buffer_size'``  is specified as an integer and corresponds to
+  the size of the buffer in KiB used in the 1D systolic parallel
+  matrix multiply algorithm. The default value corresponds to sending all
+  wavefunctions simultaneously. A reasonable value would be the size
+  of the largest cache (L2 or L3) divide by the number of MPI tasks
+  per CPU. Values larger than the default value are non-sensical and
+  internally reset to the default value.
+
 
 .. note::
    With the exception of ``'stridebands'``, these parameters all have an
@@ -222,7 +234,7 @@ In words:
    specifically state otherwise.
 
 
-.. _manual_parsize:
+.. _manual_parsize_domain:
 
 Domain decomposition
 --------------------
@@ -266,7 +278,7 @@ where ``nbg`` is the number of band groups to parallelize over.
    each CPU has to carry out to calculate e.g. the overlap matrix, the actual
    linear algebra necessary to solve such linear systems is in fact still
    done using serial LAPACK by default. It is therefor advisable to use both
-   band parallelization and ScaLAPACK / BLACS in conjunction to reduce this
+   band parallelization and ScaLAPACK in conjunction to reduce this
    potential bottleneck.
 
 There is also a command line argument ``--state-parallelization`` which allows you
@@ -278,5 +290,40 @@ More information about these topics can be found here:
    :maxdepth: 1
 
    band_parallelization/band_parallelization
-   ScaLapack/ScaLapack
+
+.. _manual_ScaLAPACK:
+
+ScaLAPACK
+--------------------
+Calculations with nbands > 500 will benefit from ScaLAPACK (otherwise
+the default serial LAPACK should be used). The ScaLAPACK parameters
+are defined either using the aformentioned ``'sl_...'`` entry in the parallel
+keyword dictionary or using a command line argument,
+e.g. ``--sl_default=m,n,mb``.  A reasonbly good guess for these 
+parameters on most systems is related to the numbers of bands. 
+We recommend::
+
+  mb = 64
+  m = floor(sqrt(nbands/mb))
+  n = m
+
+There are a total of four ``'sl_...'`` keywords. Most people will be
+fine just using ``'sl_default'``. Here we use the same 
+ScaLAPACK parameters in three different places: i) general eigensolve
+in the LCAO intilization ii) standard eigensolve in the FD calculation and 
+iii) Cholesky decomposition in the FD calculation. It is currently
+possible to use different ScaLAPACK parameters in the LCAO
+intialization and the FD calculation by using two of the ScaLAPACK 
+keywords in tandem, e.g::
+
+   --sl_lcao=p,q,pb --sl_default=m,n,mb
+
+where ``p``, ``q``, ``pb``, ``m``, ``n``, and ``mb`` all 
+have different values. The most general case is the combination
+of three ScaLAPACK keywords, e.g::
+
+   --sl_lcao=p,q,pb --sl_diagonalize=m,n,mb  --sl_inverse_cholesky=r,s,rb
+
+however, we do not presently support ``m != r``, ``n != s``,  and
+``mb != rb``.  We may implement this in the future.
 

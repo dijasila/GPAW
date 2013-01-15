@@ -39,7 +39,7 @@ class UTBandParallelBlacsSetup(UTBandParallelSetup):
         cpus = self.bd.comm.size * self.gd.comm.size
         self.mcpus = int(cpus**0.5)
         self.ncpus = cpus//self.mcpus
-        return BlacsBandLayouts(self.gd, self.bd, self.mcpus, self.ncpus, 6)
+        return BlacsBandLayouts(self.gd, self.bd, self.dtype, self.mcpus, self.ncpus, 6)
 
     # =================================
 
@@ -62,10 +62,12 @@ class UTBandParallelBlacsSetup(UTBandParallelSetup):
 class UTBandParallelBlacsSetup_Blocked(UTBandParallelBlacsSetup):
     __doc__ = UTBandParallelBlacsSetup.__doc__
     parstride_bands = False
+    dtype = float
 
 class UTBandParallelBlacsSetup_Strided(UTBandParallelSetup):
     __doc__ = UTBandParallelBlacsSetup.__doc__
     parstride_bands = True
+    dtype = float
 
 # -------------------------------------------------------------------
 
@@ -81,8 +83,7 @@ class UTConstantWavefunctionBlacsSetup(UTConstantWavefunctionSetup,
         S = lambda x: x
         dS = lambda a, P_ni: np.dot(P_ni, self.setups[a].dO_ii)
         nblocks = self.get_optimal_number_of_blocks(self.blocking)
-        overlap = MatrixOperator(self.bd, self.gd, self.ksl,
-                                 nblocks, self.async, True)
+        overlap = MatrixOperator(self.ksl, nblocks, self.async, True)
         S_nn = overlap.calculate_matrix_elements(self.psit_nG, self.P_ani, S, dS)
 
         if memstats:
@@ -113,8 +114,7 @@ class UTConstantWavefunctionBlacsSetup(UTConstantWavefunctionSetup,
         S = lambda x: alpha*x
         dS = lambda a, P_ni: np.dot(alpha*P_ni, self.setups[a].dO_ii)
         nblocks = self.get_optimal_number_of_blocks(self.blocking)
-        overlap = MatrixOperator(self.bd, self.gd, self.ksl,
-                                 nblocks, self.async, False)
+        overlap = MatrixOperator(self.ksl, nblocks, self.async, False)
         if 0: #XXX non-hermitian case so Nn2nn not just uplo='L' but rather 'G'
             blockcomm = self.ksl.nndescriptor.blacsgrid.comm
             self.ksl.Nn2nn = Redistributor(blockcomm, self.ksl.Nndescriptor,
@@ -143,8 +143,7 @@ class UTConstantWavefunctionBlacsSetup(UTConstantWavefunctionSetup,
         S = lambda x: x
         dS = lambda a, P_ni: np.dot(P_ni, self.setups[a].dO_ii)
         nblocks = self.get_optimal_number_of_blocks(self.blocking)
-        overlap = MatrixOperator(self.bd, self.gd, self.ksl,
-                                 nblocks, self.async, True)
+        overlap = MatrixOperator(self.ksl, nblocks, self.async, True)
         S_nn = overlap.calculate_matrix_elements(self.psit_nG, self.P_ani, S, dS)
 
         # Known starting point of SI_nn = <psit_m|S+alpha*I|psit_n>
@@ -189,8 +188,7 @@ class UTConstantWavefunctionBlacsSetup(UTConstantWavefunctionSetup,
         S = lambda x: x
         dS = lambda a, P_ni: np.dot(P_ni, self.setups[a].dO_ii)
         nblocks = self.get_optimal_number_of_blocks(self.blocking)
-        overlap = MatrixOperator(self.bd, self.gd, self.ksl,
-                                 nblocks, self.async, True)
+        overlap = MatrixOperator(self.ksl, nblocks, self.async, True)
         S_nn = overlap.calculate_matrix_elements(self.psit_nG, self.P_ani, S, dS)
 
         eps_N = self.bd.empty(global_array=True) # XXX dtype?
@@ -239,8 +237,7 @@ class UTConstantWavefunctionBlacsSetup(UTConstantWavefunctionSetup,
         S = lambda x: x
         dS = lambda a, P_ni: np.dot(P_ni, self.setups[a].dO_ii)
         nblocks = self.get_optimal_number_of_blocks(self.blocking)
-        overlap = MatrixOperator(self.bd, self.gd, self.ksl,
-                                 nblocks, self.async, True)
+        overlap = MatrixOperator(self.ksl, nblocks, self.async, True)
 
         if self.bd.comm.rank == 0 and self.gd.comm.rank == 0:
             assert C_NN.shape == (self.bd.nbands,) * 2
@@ -293,8 +290,8 @@ class UTConstantWavefunctionBlacsSetup(UTConstantWavefunctionSetup,
         S = lambda x: alpha*x
         dS = lambda a, P_ni: np.dot(alpha*P_ni, self.setups[a].dO_ii)
         nblocks = self.get_optimal_number_of_blocks(self.blocking)
-        overlap = MatrixOperator(self.bd, self.gd, self.ksl,
-                                 nblocks, self.async, False)
+        overlap = MatrixOperator(self.ksl, nblocks, self.async, False)
+
         if 0: #XXX non-hermitian case so Nn2nn not just uplo='L' but rather 'G'
             blockcomm = self.ksl.nndescriptor.blacsgrid.comm
             self.ksl.Nn2nn = Redistributor(blockcomm, self.ksl.Nndescriptor,
@@ -337,7 +334,9 @@ def UTConstantWavefunctionFactory(dtype, parstride_bands, blocking, async):
     classname = 'UTConstantWavefunctionBlacsSetup' \
     + sep + {float:'Float', complex:'Complex'}[dtype] \
     + sep + {False:'Blocked', True:'Strided'}[parstride_bands] \
-    + sep + {'fast':'Fast', 'light':'Light', 'best':'Best'}[blocking] \
+    + sep + {'fast':'Fast', 'light':'Light', 
+             'intdiv':'Intdiv', 'nonintdiv1': 'Nonintdiv1', 
+             'nonintdiv2':'Nonintdiv2'}[blocking] \
     + sep + {False:'Synchronous', True:'Asynchronous'}[async]
     class MetaPrototype(UTConstantWavefunctionBlacsSetup, object):
         __doc__ = UTConstantWavefunctionBlacsSetup.__doc__
@@ -350,7 +349,7 @@ def UTConstantWavefunctionFactory(dtype, parstride_bands, blocking, async):
 
 # -------------------------------------------------------------------
 
-if __name__ in ['__main__', '__builtin__'] and compiled_with_sl(True):
+if __name__ in ['__main__', '__builtin__'] and compiled_with_sl():
     # We may have been imported by test.py, if so we should redirect to logfile
     if __name__ == '__builtin__':
         testrunner = CustomTextTestRunner('ut_hsblacs.log', verbosity=2)
@@ -360,6 +359,7 @@ if __name__ in ['__main__', '__builtin__'] and compiled_with_sl(True):
         testrunner = TextTestRunner(stream=stream, verbosity=2)
 
     parinfo = []
+    # Initial Verification only tests case : dtype = float
     for test in [UTBandParallelBlacsSetup_Blocked]: #, UTBandParallelBlacsSetup_Strided]:
         info = ['', test.__name__, test.__doc__.strip('\n'), '']
         testsuite = initialTestLoader.loadTestsFromTestCase(test)
@@ -373,7 +373,8 @@ if __name__ in ['__main__', '__builtin__'] and compiled_with_sl(True):
     testcases = []
     for dtype in [float, complex]:
         for parstride_bands in [False]: #XXX [False, True]:
-            for blocking in ['fast', 'best']: # 'light'
+            for blocking in ['fast', 'light', 'intdiv',
+                             'nonintdiv1', 'nonintdiv2']: 
                 for async in [False, True]:
                     testcases.append(UTConstantWavefunctionFactory(dtype, \
                         parstride_bands, blocking, async))

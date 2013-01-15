@@ -11,8 +11,7 @@ atom = Atoms([Atom('H', (c, c, c), magmom=1)],
 
 # gpaw calculator:
 calc = GPAW(gpts=(32, 32, 32), nbands=1, xc='PBE', txt='H.txt',
-            #????????????????????????????????
-            )#poissonsolver=PoissonSolver(nn='M', relax='J'))
+            convergence=dict(eigenstates=3.3e-8))
 atom.set_calculator(calc)
 
 e1 = atom.get_potential_energy()
@@ -53,9 +52,10 @@ print PBEM06Ldifference
 print PBEEXXdifference
 print PBEEXXbdifference
 # TPSS value is from JCP 120 (15) 6898, 2004
+# e.g. Table VII: DE(PBE - TPSS) = (104.6-112.9)*kcal/mol
 # EXX value is from PRL 77, 3865 (1996)
-equal(PBETPSSdifference, -0.3599, 0.002)
-equal(PBEM06Ldifference, -0.169, 0.003)
+equal(PBETPSSdifference, -0.3599, 0.04)
+equal(PBEM06Ldifference, -0.169, 0.01)
 equal(PBEEXXdifference, 0.91, 0.005)
 equal(PBEEXXbdifference, 0.91, 0.005)
 

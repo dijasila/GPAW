@@ -1,12 +1,7 @@
-import os
 from ase import Atoms
 from ase.units import Bohr
-from ase.parallel import rank, barrier
 from gpaw import GPAW
-from gpaw.test import equal, gen
-
-# Generate setup
-gen('He', xcname='revPBE')
+from gpaw.test import equal
 
 a = 7.5 * Bohr
 n = 16
@@ -33,9 +28,9 @@ calc.write('revPBE.gpw')
 de21b = GPAW('revPBE.gpw').get_xc_difference('PBE')
 equal(de21, de21b, 9e-8)
 
-energy_tolerance = 0.000001
+energy_tolerance = 0.000005
 niter_tolerance = 0
 equal(e1, -0.07904951, energy_tolerance)
-equal(niter1, 14, niter_tolerance)
+equal(niter1, 16, niter_tolerance)
 equal(e2, -0.08147563, energy_tolerance)
 equal(niter2, 11, niter_tolerance)

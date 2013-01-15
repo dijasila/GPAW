@@ -147,6 +147,10 @@ Calculate transmission using hamiltonian from normal DFT
 Get an iv curve using NEGF:
 
 .. literalinclude:: transport.py
+
+A spin transport example (anti-parallel junction):
+
+.. literalinclude:: spin_transport.py
  
 Optimize a system under bias voltage:
 
@@ -155,6 +159,11 @@ Optimize a system under bias voltage:
 Do a multi_terminal calculation:
 
 .. literalinclude:: transport_multi_terminal.py
+
+Calculate transmission and DOS based on separate DFT results for electrodes and scattering region(for example
+one may want to carry out a PBE+U calculation for the scattering region):
+
+.. literalinclude:: transport_from_dft.py
 
 Analysis:
 
@@ -283,6 +292,8 @@ Principle Layer Cells
 
 ``pl_cells`` is a list of leads' cells, also has the same length
 with the leads number. [[10., 10., 30], [10., 10., 30.]] for example.
+For two-probe system, the lead cell should have the same size with that of 
+scattering region in x, y directions.
 
 .. _manual_pl_kpts:
 
@@ -294,7 +305,10 @@ We just let all the leads have the same K number. Attention here that
 the k number in the transport direction should bigger than 3, 
 in principle we should have enough k points in this direction, an
 experenced rule is nK * L(Å) ~ 50. L is the length of unit cell
-in this direction.
+in this direction. Note that pl_kpts should match the K sampling of 
+scattering region kpts in the x and y direction and in the parallel
+case, the local K sampling should match as well. So a safe way is to use
+a prime number for the pl_kpts in the z axis.
 
 .. _manual_bias:
 
@@ -323,7 +337,7 @@ Fixed Boundary Condition
 ``fixed_boundary`` is a bool option. If set True, we solve the
 Poisson equation for the scattering region with fixed boundary
 condition. It workes when ``pbc`` in the transport direction
-for the scattering region is False and ``poissonsolver=PoissonSolver(nn=X)``. 
+for the scattering region is True and ``poissonsolver=PoissonSolver(nn=X)``. 
 If set False, Transport object will deal with a 
 regular gpaw option which depends on ``pbc``.
 
@@ -391,10 +405,10 @@ Buffer Atoms Indices
 Edge Atoms
 ----------
 
-``edge_atoms`` If ``align`` is True, you need to point which atom
+``edge_atoms`` One needs to point which atom
 is used to align the energy levels, that means in ground
 state calculation, the hamiltonian matrix should have the same 
-number in the orbitals of that atom. It is a list includes 
+value in the orbitals of that atom. It is a list includes 
 two sub lists. For example, [[0,3],[0,9]] means the atom 0 in
 lead1, atom 3 in lead2 are equal to atom 0, atom 9 in scattering 
 region respectively.

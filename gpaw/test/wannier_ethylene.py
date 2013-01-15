@@ -19,7 +19,7 @@ ethylene = Atoms([Atom('H', (-1.235,-0.936 , 0 )),
                  cell=(a, a, a), pbc=True)
 ethylene.center()
 
-calc = GPAW(nbands=8, gpts=(32, 32, 32), convergence={'eigenstates': 1e-6})
+calc = GPAW(nbands=8, gpts=(32, 32, 32), convergence={'eigenstates': 3.3e-5})
 ethylene.set_calculator(calc)
 e = ethylene.get_potential_energy()
 niter = calc.get_number_of_iterations()
@@ -53,6 +53,14 @@ def check(calc):
 check(calc)
 calc.write('ethylene.gpw', 'all')
 check(GPAW('ethylene.gpw', txt=None))
+
+try:
+    from gpaw.io.etsf import ETSFWriter
+except ImportError:
+    pass  # Scientific.IO.NetCDF was not installed
+else:
+    if calc.wfs.world.size == 1:
+        ETSFWriter().write(calc)
 
 ## for i in range(6):
 ##     wannier.write_cube(i, 'ethylene%s.cube' % i, real=True)

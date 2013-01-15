@@ -12,7 +12,7 @@ from gpaw.test import equal
 ## top of the valence band.
 def band_gab(calc):
     ef = calc.get_fermi_level()
-    Nb = calc.wfs.nbands
+    Nb = calc.wfs.bd.nbands
     w_k = calc.wfs.weight_k
     x = 0
     nspin=calc.get_number_of_spins()
@@ -55,7 +55,8 @@ calc = GPAW(
     h=0.25,
     occupations=FermiDirac(width=0.05),
     poissonsolver=PoissonSolver(nn='M', relax='J'),
-    convergence={'eigenstates':1e-5,'density': 1.0e-2,'energy': 0.1},
+    setups={'Ni': '10'},
+    convergence={'eigenstates':8e-4,'density': 1.0e-2,'energy': 0.1},
     #txt=name+'.txt',
     kpts=(k, k, k),
     xc='PBE')
@@ -70,7 +71,7 @@ niter1 = calc.get_number_of_iterations()
 Eg_non_Hub=band_gab(calc)
 
 ##############################################################################
-## Setup 5eV Hubbard U on the d-orbitals (l=2) of Ni atoms (atom nr 0 and 1)
+## Setup 6eV Hubbard U on the d-orbitals (l=2) of Ni atoms (atom 0 and 1)
 ## arg 3 and 4 :scaling =1 (yes scale) and store=0 (no do not store)
 
 l=2                         # d-orbitals
@@ -98,7 +99,7 @@ assert( Eg_Hub- Eg_non_Hub>1.9)
 
 energy_tolerance = 0.0004
 niter_tolerance = 0
-equal(e1, -28.43826, energy_tolerance) # svnversion 5252
+equal(e1, -29.35604, energy_tolerance) # version 0.9.1
 equal(niter1, 13, niter_tolerance) # svnversion 5252
-equal(e2, -27.70915, energy_tolerance) # svnversion 5252
-equal(niter2, 9, niter_tolerance) # svnversion 7411
+equal(e2, -28.63015, energy_tolerance) # version 0.9.1
+equal(niter2, 10, niter_tolerance) # version 0.9.1

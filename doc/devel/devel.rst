@@ -5,7 +5,7 @@ Development
 ===========
 
 GPAW development can be done by anyone! Just take a look at the
-:ref:`todo` list and find something that suits your talents!
+:ref:`todolist` list and find something that suits your talents!
 
 The primary source of information is still the :ref:`manual` and
 :ref:`documentation`, but as a developer you might need additional
@@ -18,8 +18,9 @@ Now you are ready to to perfom a :ref:`developer_installation` and
 start development!
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
 
+   projects/projects
    developer_installation
 
 .. note --- below toctrees are defined in separate files to make sure that the line spacing doesn't get very large (which is of course a bad hack)
@@ -46,6 +47,7 @@ to become the next release.
 .. _PyLint: http://www.logilab.org/857
 
 
+.. _the_big_picture:
 .. _code_overview:
 
 Code Overview
@@ -53,10 +55,9 @@ Code Overview
 
 Keep this picture under your pillow:
 
-.. _the_big_picture:
 
 .. image:: bigpicture.png
-   :target: ../bigpicture.pdf
+   :target: ../bigpicture.svg
 
 The developer guide provides an overview of the PAW quantities and how
 the corresponding objects are defined in the code:
@@ -107,35 +108,37 @@ Contributing to GPAW
 Getting commit access to our SVN repository works the same way as for
 the `ASE project`_.  Here is the list of current committers:
 
-
 =========  =========================  ========================================
 id         real name
 =========  =========================  ========================================
 anpet      Andrew Peterson            andy,peterson:stanford,edu
-askhl      Ask Hjorth Larsen          askhl:fysik,dtu,dk
-carstenr   Carsten Rostgaard          carstenr:fysik,dtu,dk
+aoj        Ari Ojanperä               ari,ojanpera:tkk,fi
+askhl      Ask Hjorth Larsen          asklarsen:gmail,com
 dlandis    David Landis               dlandis:fysik,dtu,dk
 dulak      Marcin Dulak               dulak:fysik,dtu,dk
+eojons     Elvar Örn Jónsson          elvar,jonsson:fysik,dtu,dk
+falh       Falco Huser                falh:fysik,dtu,dk
 georg      Poul Georg Moses           georg:fysik,dtu,dk
 getri      George Tritsaris           getri:fysik,dtu,dk
 hahansen   Heine Anton Hansen         hahansen:fysik,dtu,dk
 haiping    Haiping Lin                H,Lin1:liverpool,ac,uk
 hhk05      Henrik Kristoffersen       hhk05:inano,dk
+hildur     Hildur Guõmundsdóttir      hildur,gud:gmail,com
 jensj      Jens Jørgen Mortensen      jensj:fysik,dtu,dk
 jesswe     Jess Wellendorff Pedersen  jesswe:fysik,dtu,dk
 jingzhe    Jingzhe Chen               jingzhe:fysik,dtu,dk
 jsm        Jess Stausholm-Møller      jsm:phys,au,dk
-jstenlund  Jonathan Stenlund          jonathan,stenlund:abo,fi
 jussie     Jussi Enkovaara            jussi,enkovaara:csc,fi
 juya       Jun Yan                    juya:fysik,dtu,dk
 kelkkane   Andre Kelkkanen            kelkkane:fysik,dtu,dk
+kelu       Keld Troen Lundgaard       kelu:fysik,dtu,dk
+kiran      Kirsten Andersen           kiran:fysik,dtu,dk
 kkaa       Kristen Kaasbjerg          kkaa:fysik,dtu,dk
 ksaha      Kamal Saha                 ?
 kuismam    Mikael Kuisma              mikael,kuisma:tut,fi
 lara       Lara Ferrighi              laraf:phys,au,dk
 lauri      Lauri Lethovaara           lauri,lehtovaara:iki,fi
 lopeza     Olga Lopez                 lopez:cc,jyu,fi
-madsbk     Mads Burgdorff Kristensen  madsbk:diku,dk
 marsalek   Ondrej Marsalek            ondrej,marsalek:gmail,com
 mathiasl   Mathias Ljungberg          mathiasl:physto,se
 miwalter   Michael Walter             Michael,Walter:fmf,uni-freiburg,de
@@ -143,14 +146,25 @@ moses      Poul Georg Moses           poulgeorgmoses:gmail,com
 mvanin     Marco Vanin                mvanin:fysik,dtu,dk
 naromero   Nichols Romero             naromero:alcf,anl,gov
 peterklue  Peter Kluepfel             peter:theochem,org
-rostgaard  Carsten Rostgaard          rostgaard:fysik,dtu,dk
 s032082    Christian Glinsvad         s032082:fysik,dtu,dk
-s042606    Janosch Michael Rauba      s042606:fysik,dtu,dk
-s052580    Troels Kofoed Jacobsen     s052580:fysik,dtu,dk
 schiotz    Jakob Schiotz              schiotz:fysik,dtu,dk
+shakala    Samuli Hakala              samuli,hakala:tkk,fi
 strange    Mikkel Strange             strange:fysik,dtu,dk
 tjiang     Tao Jiang                  tjiang:fysik,dtu,dk
 tolsen     Thomas Olsen               tolsen:fysik,dtu,dk
+=========  =========================  ========================================
+
+
+Former committers:
+
+=========  =========================  ========================================
+id         real name
+=========  =========================  ========================================
+carstenr   Carsten Rostgaard          carstenr:fysik,dtu,dk 
+jstenlund  Jonathan Stenlund          jonathan,stenlund:abo,fi 
+madsbk     Mads Burgdorff Kristensen  madsbk:diku,dk 
+s042606    Janosch Michael Rauba      s042606:fysik,dtu,dk 
+s052580    Troels Kofoed Jacobsen     s052580:fysik,dtu,dk 
 =========  =========================  ========================================
 
 

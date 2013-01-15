@@ -22,6 +22,7 @@ except IOError:
                  pbc=False, cell=a)
     NaCl.center()
     calc = GPAW(h=h, xc='LDA', nbands=5, lmax=0,
+                setups={'Na': '1'},
                 convergence={'eigenstates': 1e-6}, spinpol=1)
 
     NaCl.set_calculator(calc)
@@ -29,7 +30,7 @@ except IOError:
     niter = calc.get_number_of_iterations()
     calc.write('NaCl.gpw')
 
-dv = calc.get_grid_spacings().prod()
+dv = NaCl.get_volume() / calc.get_number_of_grid_points().prod()
 nt1 = calc.get_pseudo_density(gridrefinement=1)
 Zt1 = nt1.sum() * dv
 nt2 = calc.get_pseudo_density(gridrefinement=2)

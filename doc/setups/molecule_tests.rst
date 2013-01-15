@@ -6,6 +6,9 @@ Molecule tests
 
 .. default-role:: math
 
+**Warning**: this page is outdated.
+For performance of GPAW for molecular systems refer to :ref:`g2_1`.
+
 Atomization energies and bond lengths for a set of small molecules
 have been calculated with the PBE functional.  All calculations are
 done with a grid spacing of 0.16 Å, zero-boundary conditions and

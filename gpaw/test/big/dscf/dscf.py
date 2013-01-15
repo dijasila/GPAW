@@ -15,6 +15,7 @@ c_mol = GPAW(nbands=8, h=0.2, xc='RPBE', kpts=(4,6,1),
              convergence={'bands': -2}, txt='CO.txt')
 
 calc = GPAW(nbands=120, h=0.2, xc='RPBE', kpts=(4,6,1),
+            setups={'Pt': '10'},
             eigensolver='cg', spinpol=True,
             mixer=MixerSum(nmaxold=5, beta=0.1, weight=100),
             convergence={'eigenstates': 1.0e-4,
@@ -43,8 +44,8 @@ ds = [d_0 - 0.02 + i*0.02 for i in range(3)]
 E_es = []
 
 for d in ds:
-    molecule[0].set_position((pos[12][0], pos[12][1], z_0 - 16*d/(12+16)))
-    molecule[1].set_position((pos[13][0], pos[13][1], z_0 + 12*d/(12+16)))
+    molecule[0].position = (pos[12][0], pos[12][1], z_0 - 16*d/(12+16))
+    molecule[1].position = (pos[13][0], pos[13][1], z_0 + 12*d/(12+16))
     molecule.get_potential_energy()
 
     #Find band corresponding to lumo
@@ -88,4 +89,4 @@ for d in ds:
 
 F_d = (E_es[0]-E_es[2]) / 0.02 / 2
 equal(E_es[1], E_gs + 3.9, 0.1)
-equal(F_d, 4.3, 0.2)
+equal(F_d, 3.8, 0.2)
