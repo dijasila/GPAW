@@ -5,7 +5,7 @@ from ase.atoms import Atoms
 
 from gpaw.aseinterface import GPAW
 from gpaw.wavefunctions.base import WaveFunctions
-from gpaw.grid_descriptor import EquidistantRadialGridDescriptor
+from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 from gpaw.utilities import unpack
 from gpaw.utilities.lapack import general_diagonalize
 from gpaw.occupations import OccupationNumbers
@@ -36,6 +36,8 @@ class AtomWaveFunctions(WaveFunctions):
 
 
 class AtomPoissonSolver:
+    description = 'Radial equidistant'
+
     def set_grid_descriptor(self, gd):
         self.gd = gd
         self.relax_method = 0
@@ -43,6 +45,9 @@ class AtomPoissonSolver:
         
     def initialize(self):
         pass
+
+    def get_stencil(self):
+        return 'Exact'
 
     def solve(self, vHt_g, rhot_g, charge=0):
         r = self.gd.r_g
@@ -53,11 +58,15 @@ class AtomPoissonSolver:
         vHt_g[:] = 4 * pi * (p - 0.5 * dp - (q - 0.5 * dq - q[0]) / r)
         return 1
     
+
 class AtomEigensolver:
     def __init__(self, gd, f_sln):
         self.gd = gd
         self.f_sln = f_sln
         self.error = 0.0
+        self.initialized = False
+
+    def reset(self):
         self.initialized = False
         
     def initialize(self, wfs):
@@ -89,10 +98,12 @@ class AtomEigensolver:
             i1 += 2 * l1 + 1
 
         for kpt in wfs.kpt_u:
-            kpt.eps_n = np.empty(wfs.nbands)
-            kpt.psit_nG = self.gd.empty(wfs.nbands)
-            kpt.P_ani = {0: np.zeros((wfs.nbands, len(dS_ii)))}
+            kpt.eps_n = np.empty(wfs.bd.nbands)
+            kpt.psit_nG = self.gd.empty(wfs.bd.nbands)
+            kpt.P_ani = {0: np.zeros((wfs.bd.nbands, len(dS_ii)))}
         
+        self.initialized = True
+
     def iterate(self, hamiltonian, wfs):
         if not self.initialized:
             self.initialize(wfs)
@@ -135,6 +146,7 @@ class AtomEigensolver:
                         i1 = i2
                     N1 = N2
                     
+
 class AtomLocalizedFunctionsCollection:
     def __init__(self, gd, spline_aj):
         self.gd = gd
@@ -157,6 +169,7 @@ class AtomLocalizedFunctionsCollection:
         c_ai[0][0] = self.gd.integrate(a_g, self.b_g)
         c_ai[0][1:] = 0.0
 
+
 class AtomBasisFunctions:
     def __init__(self, gd, phit_j):
         self.gd = gd
@@ -178,11 +191,12 @@ class AtomBasisFunctions:
             nt_sG += f_asi[0][:, i:i + 1] * (2 * l + 1) / 4 / pi * b_g**2
             i += 2 * l + 1
 
+
 class AtomGridDescriptor(EquidistantRadialGridDescriptor):
     def __init__(self, h, rcut):
         ng = int(float(rcut) / h + 0.5) - 1
         rcut = ng * h
-        EquidistantRadialGridDescriptor.__init__(self, h, ng)
+        EquidistantRadialGridDescriptor.__init__(self, h, ng, h0=h)
         self.sdisp_cd = np.empty((3, 2))
         self.comm = mpi.serial_comm
         self.pbc_c = np.zeros(3, bool)
@@ -191,16 +205,6 @@ class AtomGridDescriptor(EquidistantRadialGridDescriptor):
         self.h_cv = self.cell_cv / self.N_c
         self.dv = (rcut / 2 / ng)**3
         self.orthogonal = False
-    def _get_position_array(self, h, ng):
-        return np.linspace(h, ng * h, ng)
-    def r2g_ceil(self, r):
-        return EquidistantRadialGridDescriptor.r2g_ceil(self, r + self.h)
-    def r2g_floor(self, r):
-        return EquidistantRadialGridDescriptor.r2g_floor(self, r + self.h)
-    def spline(self, l, f_g):
-        raise NotImplementedError
-    def reducedspline(self, l, f_g):
-        raise NotImplementedError
     def get_ranks_from_positions(self, spos_ac):
         return np.array([0])
     def refine(self):
@@ -217,6 +221,9 @@ class AtomGridDescriptor(EquidistantRadialGridDescriptor):
         return np.zeros(3)
     def symmetrize(self, a_g, op_scc):
         pass
+    def get_grid_spacings(self):
+        return self.h_cv.diagonal()
+    
 
 class AtomOccupations(OccupationNumbers):
     def __init__(self, f_sln):
@@ -238,6 +245,7 @@ class AtomOccupations(OccupationNumbers):
 
     def get_fermi_level(self):
         raise ValueError
+
 
 class AtomPAW(GPAW):
     def __init__(self, symbol, f_sln, h=0.05, rcut=10.0, **kwargs):
@@ -284,8 +292,8 @@ class AtomPAW(GPAW):
         assert self.wfs.nspins == 1
 
         basis = Basis(self.symbol, basis_name, readxml=False)
-        basis.d = self.wfs.gd.h
-        basis.ng = self.wfs.gd.ng + 1
+        basis.d = self.wfs.gd.r_g[0]
+        basis.ng = self.wfs.gd.N + 1
         basis.generatorattrs = {} # attrs of the setup maybe
         basis.generatordata = 'AtomPAW' # version info too?
 
@@ -300,7 +308,7 @@ class AtomPAW(GPAW):
             # We'll make an ugly hack
             if abs(phit_g[1]) > 3.0 * abs(phit_g[2] - phit_g[1]):
                 phit_g[0] = phit_g[1]
-            bf = BasisFunction(l, self.wfs.gd.rcut, phit_g,
+            bf = BasisFunction(l, self.wfs.gd.r_g[-1], phit_g,
                                '%s%d e=%.3f f=%.3f' % ('spdfgh'[l], n, eps, f))
             bf_j.append(bf)
         return basis

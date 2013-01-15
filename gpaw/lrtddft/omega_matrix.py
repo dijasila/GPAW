@@ -88,7 +88,7 @@ class OmegaMatrix:
             self.poisson.initialize()
             self.gd = wfs.gd
         self.restrict = Transformer(self.paw.density.finegd, wfs.gd,
-                                    self.paw.input_parameters.stencils[0]
+                                    self.paw.input_parameters.stencils[1]
                                     ).apply
 
         if xc == 'RPA': 
@@ -102,7 +102,7 @@ class OmegaMatrix:
             if derivativeLevel is None:
                 derivativeLevel= \
                     self.xc.get_functional().get_max_derivative_level()
-            self.derivativeLevel=derivativeLevel
+            self.derivativeLevel = derivativeLevel
             # change the setup xc functional if needed
             # the ground state calculation may have used another xc
             if kss.npspins > kss.nvspins:
@@ -195,11 +195,8 @@ class OmegaMatrix:
         elif self.derivativeLevel==1:
             pass
         elif self.derivativeLevel==2:
-            raise NotImplementedError
-            if kss.npspins==2:
-                fxc=d2Excdnsdnt(nt_sg[0],nt_sg[1])
-            else:
-                fxc=d2Excdn2(nt_sg)
+            fxc_sg = np.zeros(nt_sg.shape)
+            self.xc.calculate_fxc(gd, nt_sg, fxc_sg)
         else:
             raise ValueError('derivativeLevel can only be 0,1,2')
 
@@ -215,7 +212,7 @@ class OmegaMatrix:
             timer.start('init')
             timer2 = Timer()
                       
-            if self.derivativeLevel == 1:
+            if self.derivativeLevel >= 1:
                 # vxc is available
                 # We use the numerical two point formula for calculating
                 # the integral over fxc*n_ij. The results are
@@ -249,16 +246,16 @@ class OmegaMatrix:
                     Pj_i = P_ni[kss[ij].j]
                     P_ii = np.outer(Pi_i, Pj_i)
                     # we need the symmetric form, hence we can pack
-                    P_p = pack(P_ii, tolerance=1e30)
+                    P_p = pack(P_ii)
                     D_sp = self.paw.density.D_asp[a].copy()
                     D_sp[kss[ij].pspin] -= ns * P_p
                     setup = wfs.setups[a]
                     I_sp = np.zeros_like(D_sp)
-                    setup.xc_correction.calculate(self.xc, D_sp, I_sp)
+                    self.xc.calculate_paw_correction(setup, D_sp, I_sp)
                     I_sp *= -1.0
                     D_sp = self.paw.density.D_asp[a].copy()
-                    D_sp[kss[ij].pspin] += ns*P_p
-                    setup.xc_correction.calculate(self.xc, D_sp, I_sp)
+                    D_sp[kss[ij].pspin] += ns * P_p
+                    self.xc.calculate_paw_correction(setup, D_sp, I_sp)
                     I_sp /= 2.0 * ns
                     I_asp[a] = I_sp
                 timer2.stop()
@@ -275,17 +272,13 @@ class OmegaMatrix:
                     
                     if kss.npspins==2: # spin polarised
                         nv_g = nt_sg.copy()
-                        nv_g[kss[ij].pspin] +=\
-                                        kss[ij].get(fg)
-                        nv_g[kss[kq].pspin] +=\
-                                        kss[kq].get(fg)
-                        Excpp = xc.get_energy_and_potential(\
-                                        nv_g[0],v_g,nv_g[1],v_g)
+                        nv_g[kss[ij].pspin] += kss[ij].get(fg)
+                        nv_g[kss[kq].pspin] += kss[kq].get(fg)
+                        Excpp = xc.get_energy_and_potential(
+                            nv_g[0], v_g, nv_g[1], v_g)
                         nv_g = nt_sg.copy()
-                        nv_g[kss[ij].pspin] +=\
-                                        kss[ij].get(fg)
-                        nv_g[kss[kq].pspin] -= \
-                                        kss[kq].get(fg)
+                        nv_g[kss[ij].pspin] += kss[ij].get(fg)
+                        nv_g[kss[kq].pspin] -= kss[kq].get(fg)
                         Excpm = xc.get_energy_and_potential(\
                                             nv_g[0],v_g,nv_g[1],v_g)
                         nv_g = nt_sg.copy()
@@ -337,7 +330,7 @@ class OmegaMatrix:
                         P_ii = np.outer(Pk_i, Pq_i)
                         # we need the symmetric form, hence we can pack
                         # use pack as I_sp used pack2
-                        P_p = pack(P_ii, tolerance=1e30)
+                        P_p = pack(P_ii)
                         Exc += np.dot(I_asp[a][kss[kq].pspin], P_p)
                     Om_xc[ij, kq] += weight * self.gd.comm.sum(Exc)
                     timer2.stop()
@@ -346,14 +339,30 @@ class OmegaMatrix:
                     # fxc is available
                     if kss.npspins==2: # spin polarised
                         Om_xc[ij,kq] += weight *\
-                            gd.integrate(kss[ij].get(fg)*
-                                         kss[kq].get(fg)*
-                                         fxc[kss[ij].pspin,kss[kq].pspin])
+                            gd.integrate(kss[ij].get(fg) *
+                                         kss[kq].get(fg) *
+                                         fxc_sg[kss[ij].pspin, kss[kq].pspin])
                     else: # spin unpolarised
                         Om_xc[ij,kq] += weight *\
-                            gd.integrate(kss[ij].get(fg)*
-                                         kss[kq].get(fg)*
-                                         fxc)
+                            gd.integrate(kss[ij].get(fg) *
+                                         kss[kq].get(fg) *
+                                         fxc_sg)
+                    
+                    # XXX still numeric derivatives for local terms
+                    timer2.start('integrate corrections')
+                    Exc = 0.
+                    for a, P_ni in wfs.kpt_u[kss[kq].spin].P_ani.items():
+                        # create the modified density matrix
+                        Pk_i = P_ni[kss[kq].i]
+                        Pq_i = P_ni[kss[kq].j]
+                        P_ii = np.outer(Pk_i, Pq_i)
+                        # we need the symmetric form, hence we can pack
+                        # use pack as I_sp used pack2
+                        P_p = pack(P_ii)
+                        Exc += np.dot(I_asp[a][kss[kq].pspin], P_p)
+                    Om_xc[ij, kq] += weight * self.gd.comm.sum(Exc)
+                    timer2.stop()
+
                 if ij != kq:
                     Om_xc[kq,ij] = Om_xc[ij,kq]
                 
@@ -435,12 +444,12 @@ class OmegaMatrix:
                     Pi_i = P_ni[kss[ij].i]
                     Pj_i = P_ni[kss[ij].j]
                     Dij_ii = np.outer(Pi_i, Pj_i)
-                    Dij_p = pack(Dij_ii, tolerance=1e3)
+                    Dij_p = pack(Dij_ii)
                     Pkq_ni = wfs.kpt_u[kss[kq].spin].P_ani[a]
                     Pk_i = Pkq_ni[kss[kq].i]
                     Pq_i = Pkq_ni[kss[kq].j]
                     Dkq_ii = np.outer(Pk_i, Pq_i)
-                    Dkq_p = pack(Dkq_ii, tolerance=1e3)
+                    Dkq_p = pack(Dkq_ii)
                     C_pp = wfs.setups[a].M_pp
                     #   ----
                     # 2 >      P   P  C    P  P
@@ -572,6 +581,7 @@ class OmegaMatrix:
             for ij in range(nij):
                 for kq in range(nij):
                     evec[ij,kq] = self.full[map[ij],map[kq]]
+        assert(len(evec) > 0)
 
         self.eigenvectors = evec        
         self.eigenvalues = np.zeros((len(kss)))

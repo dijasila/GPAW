@@ -2,7 +2,8 @@ import numpy as np
 import numpy.linalg as la
 from ase.units import Hartree
 
-from gpaw.lcao.overlap import TwoCenterIntegrals
+from gpaw.wavefunctions.lcao import add_paw_correction_to_overlap
+from gpaw.lcao.overlap import NewTwoCenterIntegrals as TwoCenterIntegrals
 from gpaw.lfc import BasisFunctions
 from gpaw.utilities import unpack
 from gpaw.utilities.tools import dagger, lowdin, tri2full
@@ -63,9 +64,7 @@ def eigvals(H, S):
 def get_bfs(calc):
     wfs = calc.wfs
     bfs = BasisFunctions(wfs.gd, [setup.phit_j for setup in wfs.setups],
-                         wfs.kpt_comm, cut=True)
-    if not wfs.gamma:
-        bfs.set_k_points(wfs.ibzk_qc)
+                         wfs.kd, cut=True)
     bfs.set_positions(calc.atoms.get_scaled_positions() % 1.)
     return bfs
 
@@ -94,9 +93,11 @@ def get_lcao_projections_HSP(calc, bfs=None, spin=0, projectionsonly=True):
     dtype = calc.wfs.dtype
     if bfs is None:
         bfs = get_bfs(calc)
-    tci = TwoCenterIntegrals(calc.wfs.gd, calc.wfs.setups,
-                             calc.wfs.gamma, calc.wfs.ibzk_qc)
-    tci.set_positions(spos_ac)
+    tci = TwoCenterIntegrals(calc.wfs.gd.cell_cv,
+                             calc.wfs.gd.pbc_c,
+                             calc.wfs.setups,
+                             calc.wfs.ibzk_qc,
+                             calc.wfs.gamma)
 
     # Calculate projector overlaps, and (lower triangle of-) S and T matrices
     S_qMM = np.zeros((nq, nao, nao), dtype)
@@ -107,9 +108,13 @@ def get_lcao_projections_HSP(calc, bfs=None, spin=0, projectionsonly=True):
         ni = calc.wfs.setups[a].ni
         P_aqMi[a] = np.zeros((nq, nao, ni), dtype)
     tci.calculate(spos_ac, S_qMM, T_qMM, P_aqMi)
-
+    add_paw_correction_to_overlap(calc.wfs.setups, P_aqMi, S_qMM)
+    calc.wfs.gd.comm.sum(S_qMM)
+    calc.wfs.gd.comm.sum(T_qMM)
+    
+    
     # Calculate projections
-    V_qnM = np.zeros((nq, calc.wfs.nbands, nao), dtype)
+    V_qnM = np.zeros((nq, calc.wfs.bd.nbands, nao), dtype)
     for kpt in calc.wfs.kpt_u:
         if kpt.s != spin:
             continue
@@ -352,11 +357,11 @@ class ProjectedWannierFunctions:
         
 
     def calculate_functions(self, calc, basis, k=0):
-        from gpaw.io.tar import TarFileReference
+        from gpaw.io import FileReference
         psit_nG = calc.wfs.kpt_u[k].psit_nG
         atoms = calc.get_atoms()
         Uo_ni = self.Uo_kni[k]
-        tarinstance = isinstance(psit_nG, TarFileReference)
+        tarinstance = isinstance(psit_nG, FileReference)
         if tarinstance:
             psit_nG = np.asarray([psit_nG[i] for i in range(self.M_k[k])])
 

@@ -105,13 +105,14 @@ class PhononCalculator:
         # K-point descriptor for the q-vectors of the dynamical matrix
         # Note, no explicit parallelization here.
         self.kd = KPointDescriptor(kpts, 1)
-        self.kd.set_symmetry(self.atoms, self.calc.wfs.setups, symmetry)
+        self.kd.set_symmetry(self.atoms, self.calc.wfs.setups,
+                             usesymm=symmetry)
         self.kd.set_communicator(serial_comm)
 
         # Number of occupied bands
         nvalence = self.calc.wfs.nvalence
-        nbands = nvalence/2 + nvalence%2
-        assert nbands <= self.calc.wfs.nbands
+        nbands = nvalence / 2 + nvalence % 2
+        assert nbands <= self.calc.wfs.bd.nbands
 
         # Extract other useful objects
         # Ground-state k-point descriptor - used for the k-points in the
@@ -127,7 +128,8 @@ class PhononCalculator:
         wfs = WaveFunctions(nbands, kpt_u, setups, kd_gs, gd, dtype=dtype_gs)
 
         # Linear response calculator
-        self.response_calc = ResponseCalculator(self.calc, wfs, dtype=self.dtype)
+        self.response_calc = ResponseCalculator(self.calc, wfs,
+                                                dtype=self.dtype)
         
         # Phonon perturbation
         self.perturbation = PhononPerturbation(self.calc, self.kd,

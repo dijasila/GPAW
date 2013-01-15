@@ -503,10 +503,13 @@ class Generator(AllElectron):
             nn = len(e_n)
             L_nn = np.identity(nn, float)
             U_nn = A_nn.copy()
-            for i in range(nn):
-                for j in range(i+1,nn):
-                    L_nn[j,i] = 1.0 * U_nn[j,i] / U_nn[i,i]
-                    U_nn[j,:] -= U_nn[i,:] * L_nn[j,i]
+            
+            # Keep all bound states normalized
+            if sum([n > 0 for n in n_ln[l]]) <= 1:
+                for i in range(nn):
+                    for j in range(i + 1, nn):
+                        L_nn[j, i] = 1.0 * U_nn[j, i] / U_nn[i, i]
+                        U_nn[j, :] -= U_nn[i, :] * L_nn[j, i]
 
             dO_nn = (np.inner(u_n, u_n * dr) -
                      np.inner(s_n, s_n * dr))
@@ -719,8 +722,9 @@ class Generator(AllElectron):
         setup.e_xc = self.Exc
         setup.e_electrostatic = self.Epot
         setup.e_total = self.Epot + self.Exc + self.Ekin
-        setup.beta = self.beta
-        setup.ng = self.N
+
+        setup.rgd = self.rgd
+        
         setup.rcgauss = self.rcutcomp / sqrt(self.gamma)
         setup.e_kin_jj = self.dK_jj
         setup.ExxC = ExxC
@@ -1015,14 +1019,13 @@ def construct_smooth_wavefunction(u, l, gc, r, s):
 
 if __name__ == '__main__':
     import os
-    from gpaw.xc_functional import XCFunctional
     from gpaw.atom.basis import BasisMaker
     from gpaw.atom.configurations import parameters
 
-    for xcname in ['LDA', 'PBE', 'RPBE', 'revPBE']:
+    for xcname in ['LDA', 'PBE', 'RPBE', 'revPBE', 'GLLBSC']:
         for symbol, par in parameters.items():
-            filename = symbol + '.' + XCFunctional(xcname).get_name()
-            if os.path.isfile(filename):
+            filename = symbol + '.' + xcname
+            if os.path.isfile(filename) or os.path.isfile(filename + '.gz'):
                 continue
             g = Generator(symbol, xcname, scalarrel=True, nofiles=True)
             g.run(exx=True, logderiv=False, use_restart_file=False, **par)

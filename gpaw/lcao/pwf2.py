@@ -1,8 +1,8 @@
 import numpy as np
 
-from ase import Hartree
+from ase.units import Hartree
 from gpaw.aseinterface import GPAW
-from gpaw.lcao.overlap import TwoCenterIntegrals
+from gpaw.lcao.overlap import NewTwoCenterIntegrals
 from gpaw.utilities import unpack
 from gpaw.utilities.tools import tri2full, lowdin
 from gpaw.lcao.tools import basis_subset2, get_bfi2
@@ -35,7 +35,7 @@ def get_lcao_xc(calc, P_aqMi, bfs=None, spin=0):
         bfs = get_bfs(calc)
     
     if calc.density.nt_sg is None:
-        calc.density.interpolate()
+        calc.density.interpolate_pseudo_density()
     nt_sg = calc.density.nt_sg
     vxct_sg = calc.density.finegd.zeros(calc.wfs.nspins)
     calc.hamiltonian.xc.calculate(calc.density.finegd, nt_sg, vxct_sg)
@@ -50,8 +50,8 @@ def get_lcao_xc(calc, P_aqMi, bfs=None, spin=0):
     for a, P_qMi in P_aqMi.items():
         D_sp = calc.density.D_asp[a][:]
         H_sp = np.zeros_like(D_sp)
-        calc.wfs.setups[a].xc_correction.calculate(calc.hamiltonian.xc,
-            D_sp, H_sp)
+        calc.hamiltonian.xc.calculate_paw_correction(calc.wfs.setups[a],
+                                                     D_sp, H_sp) 
         H_ii = unpack(H_sp[spin])
         for Vxc_MM, P_Mi in zip(Vxc_qMM, P_qMi):
             Vxc_MM += dots(P_Mi, H_ii, P_Mi.T.conj())
@@ -60,7 +60,7 @@ def get_lcao_xc(calc, P_aqMi, bfs=None, spin=0):
 
 def get_xc2(calc, w_wG, P_awi, spin=0):
     if calc.density.nt_sg is None:
-        calc.density.interpolate()
+        calc.density.interpolate_pseudo_density()
     nt_g = calc.density.nt_sg[spin]
     vxct_g = calc.density.finegd.zeros()
     calc.hamiltonian.xc.get_energy_and_potential(nt_g, vxct_g)
@@ -432,8 +432,9 @@ class LCAOwrap:
         else:
             Fcore_ww = np.zeros((len(indices), len(indices)))
         for a, P_wi in self.get_projections(q, indices).items():
-            X_ii = unpack(self.calc.wfs.setups[a].X_p)
-            Fcore_ww -= dots(P_wi, X_ii, P_wi.T.conj())
+            if self.calc.wfs.setups[a].type != 'ghost':
+                X_ii = unpack(self.calc.wfs.setups[a].X_p)
+                Fcore_ww -= dots(P_wi, X_ii, P_wi.T.conj())
         return Fcore_ww * Hartree
 
     def get_xc(self, q=0, indices=None):
