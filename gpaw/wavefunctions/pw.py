@@ -837,16 +837,17 @@ class PWLFC(BaseLFC):
         return sum(2 * l + 1 for l, f_qG in self.lf_aj[a])
 
     def __iter__(self):
-        I = 0
+        I1 = 0
         for a in self.my_atom_indices:
             j = 0
             i1 = 0
             for l, f_qG in self.lf_aj[a]:
                 i2 = i1 + 2 * l + 1
-                yield a, j, i1, i2, I + i1, I + i2
+                I2 = I1 + 2 * l + 1
+                yield a, j, i1, i2, I1, I2
                 i1 = i2
+                I1 = I2
                 j += 1
-            I += i2
 
     def set_positions(self, spos_ac):
         kd = self.pd.kd
@@ -949,7 +950,7 @@ class PWLFC(BaseLFC):
 
     def derivative(self, a_xG, c_axiv, q=-1):
         c_vxI = np.zeros((3,) + a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
-        b_vxI = c_vxI.reshape((3, -1, self.nI))
+        b_vxI = c_vxI.reshape((3, np.prod(c_vxI.shape[1:-1]), self.nI))
         a_xG = a_xG.reshape((-1, a_xG.shape[-1])).view(self.pd.dtype)
 
         alpha = 1.0 / self.pd.gd.N_c.prod()

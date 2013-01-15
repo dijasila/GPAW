@@ -89,7 +89,6 @@ class MGGA(GGA):
 
         if self.c.tau_npg is None:
             self.c.tau_npg, self.c.taut_npg = self.initialize_kinetic(self.c)
-            print('TODO: tau_ypg is HUGE!  There must be a better way.')
 
         E = GGA.calculate_paw_correction(self, setup, D_sp, dEdD_sp,
                                          addcoredensity, a)
