@@ -453,14 +453,12 @@ class PWWaveFunctions(FDPWWaveFunctions):
             nt_R += f * abs(self.pd.ifft(psit_G, kpt.q))**2
 
     def calculate_kinetic_energy_density(self):
-        assert self.kd.gamma
-        
         if self.kpt_u[0].f_n is None:
             raise RuntimeError
 
         taut_sR = self.gd.zeros(self.nspins)
         for kpt in self.kpt_u:
-            G_Gv = self.pd.G_Qv[self.pd.Q_qG[kpt.q]]
+            G_Gv = self.pd.G_Qv[self.pd.Q_qG[kpt.q]] + self.pd.K_qv[kpt.q]
             for f, psit_G in zip(kpt.f_n, kpt.psit_nG):
                 for v in range(3):
                     taut_sR[kpt.s] += 0.5 * f * abs(
@@ -473,7 +471,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def apply_mgga_orbital_dependent_hamiltonian(self, kpt, psit_xG,
                                                  Htpsit_xG, dH_asp,
                                                  dedtaut_R):
-        G_Gv = self.pd.G_Qv[self.pd.Q_qG[kpt.q]]
+        G_Gv = self.pd.G_Qv[self.pd.Q_qG[kpt.q]] + self.pd.K_qv[kpt.q]
         for psit_G, Htpsit_G in zip(psit_xG, Htpsit_xG):
             for v in range(3):
                 a_R = self.pd.ifft(1j * G_Gv[:, v] * psit_G, kpt.q)
