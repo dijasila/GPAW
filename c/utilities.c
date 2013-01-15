@@ -9,12 +9,19 @@
 #include <numpy/arrayobject.h>
 #include "extensions.h"
 #include <math.h>
+#include <stdlib.h>
+#ifdef __DARWIN_UNIX03
+/* Allows for special MaxOS magic */
+#include <malloc/malloc.h>
+#endif
+#ifdef __linux__
+/* stdlib.h does not define mallinfo (it should!) */
+#include <malloc.h>
+#endif
 
 #ifdef GPAW_HPM
 void HPM_Start(char *);
 void HPM_Stop(char *);
-void HPM_Print(void);
-void HPM_Print_Flops(void);
 
 PyObject* ibm_hpm_start(PyObject *self, PyObject *args)
 {
@@ -105,6 +112,32 @@ static void coll_print(FILE *fp, const char *label, double val,
 static long_long papi_start_usec_p;
 static long_long papi_start_usec_r;
 
+// Returns PAPI_dmem_info structure in Python dictionary
+// Units used by PAPI are kB
+PyObject* papi_mem_info(PyObject *self, PyObject *args)
+{
+  PAPI_dmem_info_t dmem;
+  PyObject* py_dmem;
+
+  PAPI_get_dmem_info(&dmem);
+
+  py_dmem = PyDict_New();
+  PyDict_SetItemString(py_dmem, "peak", PyLong_FromLongLong(dmem.peak));
+  PyDict_SetItemString(py_dmem, "size", PyLong_FromLongLong(dmem.size));
+  PyDict_SetItemString(py_dmem, "resident", PyLong_FromLongLong(dmem.resident));
+  PyDict_SetItemString(py_dmem, "high_water_mark", 
+                       PyLong_FromLongLong(dmem.high_water_mark));
+  PyDict_SetItemString(py_dmem, "shared", PyLong_FromLongLong(dmem.shared));
+  PyDict_SetItemString(py_dmem, "text", PyLong_FromLongLong(dmem.text));
+  PyDict_SetItemString(py_dmem, "library", PyLong_FromLongLong(dmem.library));
+  PyDict_SetItemString(py_dmem, "heap", PyLong_FromLongLong(dmem.heap));
+  PyDict_SetItemString(py_dmem, "stack", PyLong_FromLongLong(dmem.stack));
+  PyDict_SetItemString(py_dmem, "pagesize", PyLong_FromLongLong(dmem.pagesize));
+  PyDict_SetItemString(py_dmem, "pte", PyLong_FromLongLong(dmem.pte));
+
+  return py_dmem;
+}
+
 int gpaw_perf_init()
 {
   int events[NUM_PAPI_EV];
@@ -179,12 +212,10 @@ void gpaw_perf_finalize()
   }
 }
 #elif GPAW_HPM
-void HPM_Init(void);
 void HPM_Start(char *);
 
 int gpaw_perf_init()
 {
-  HPM_Init();
   HPM_Start("GPAW");
   return 0;
 }
@@ -192,8 +223,6 @@ int gpaw_perf_init()
 void gpaw_perf_finalize()
 {
   HPM_Stop("GPAW");
-  HPM_Print();
-  HPM_Print_Flops();
 }
 #else  // Use just MPI_Wtime
 static double t0;
@@ -247,6 +276,33 @@ double distance(double *a, double *b)
   }
   return sqrt(sum);
 } 
+
+/* get heap memory using mallinfo. 
+   There is a UNIX version and a Mac OS X version is not well tested 
+   but seems to give credible values in simple tests.*/
+PyObject* heap_mallinfo(PyObject *self)
+{
+  double heap;
+#ifdef __linux__
+  unsigned int mmap, arena, small;
+  struct mallinfo mi; /* structure in bytes */
+
+  mi = mallinfo();
+  mmap = mi.hblkhd;
+  arena = mi.uordblks;
+  small = mi.usmblks;
+  heap = ((double)(mmap + arena + small))/1024.0; /* convert to KB */
+#elif defined(__DARWIN_UNIX03)
+  /* Mac OS X specific hack */
+  struct malloc_statistics_t mi; /* structure in bytes */
+
+  malloc_zone_statistics(NULL, &mi);
+  heap = ((double)(mi.size_in_use))/1024.0; /* convert to KB */
+#else
+  heap = -1;
+#endif
+  return Py_BuildValue("d",heap);
+}
 
 /* elementwise multiply and add result to another vector
  *
@@ -422,6 +478,44 @@ PyObject* errorfunction(PyObject *self, PyObject *args)
 
   return Py_BuildValue("d", erf(x));
 }
+
+
+PyObject* pack(PyObject *self, PyObject *args)
+{
+    PyArrayObject* a_obj;
+    if (!PyArg_ParseTuple(args, "O", &a_obj)) 
+        return NULL;
+    a_obj = PyArray_GETCONTIGUOUS(a_obj);
+    int n = a_obj->dimensions[0];
+    npy_intp dims[1] = {n * (n + 1) / 2};
+    int typenum = a_obj->descr->type_num;
+    PyArrayObject* b_obj = (PyArrayObject*) PyArray_SimpleNew(1, dims,
+							      typenum);
+    if (b_obj == NULL)
+      return NULL;
+    if (typenum == NPY_DOUBLE) {
+	double* a = (double*)a_obj->data;
+	double* b = (double*)b_obj->data;
+	for (int r = 0; r < n; r++) {
+	    *b++ = a[r + n * r];
+	    for (int c = r + 1; c < n; c++)
+	        *b++ = a[r + n * c] + a[c + n * r];
+	}
+    } else {
+	double complex* a = (double complex*)a_obj->data;
+	double complex* b = (double complex*)b_obj->data;
+	for (int r = 0; r < n; r++) {
+	    *b++ = a[r + n * r];
+	    for (int c = r + 1; c < n; c++)
+	        *b++ = a[r + n * c] + a[c + n * r];
+	}
+    }
+    Py_DECREF(a_obj);
+    PyObject* value = Py_BuildValue("O", b_obj);
+    Py_DECREF(b_obj);
+    return value;
+}
+
 
 PyObject* unpack(PyObject *self, PyObject *args)
 {

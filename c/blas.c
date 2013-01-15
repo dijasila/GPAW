@@ -15,6 +15,7 @@
 #  define daxpy_  daxpy
 #  define zaxpy_  zaxpy
 #  define dsyrk_  dsyrk
+#  define zher_   zher
 #  define zherk_  zherk
 #  define dsyr2k_ dsyr2k
 #  define zher2k_ zher2k
@@ -39,6 +40,9 @@ void zaxpy_(int* n, void* alpha,
 void dsyrk_(char *uplo, char *trans, int *n, int *k,
 	    double *alpha, double *a, int *lda, double *beta,
 	    double *c, int *ldc);
+void zher_(char *uplo, int *n,
+	   double *alpha, void *x, int *incx, 
+           void *a, int *lda);
 void zherk_(char *uplo, char *trans, int *n, int *k,
 	    double *alpha, void *a, int *lda,
 	    double *beta,
@@ -106,8 +110,8 @@ PyObject* gemm(PyObject *self, PyObject *args)
 	m *= a->dimensions[i];
       k = a->dimensions[0];
       lda = MAX(1, m);
-      ldb = b->strides[0] / b->strides[1];
-      ldc = c->strides[0] / c->strides[c->nd - 1];
+      ldb = MAX(1, b->strides[0] / b->strides[1]);
+      ldc = MAX(1, c->strides[0] / c->strides[c->nd - 1]);
     }
   else
     {
@@ -116,8 +120,9 @@ PyObject* gemm(PyObject *self, PyObject *args)
 	k *= a->dimensions[i];
       m = a->dimensions[0];
       lda = MAX(1, k);
-      ldb = lda;
-      ldc = c->strides[0] / c->strides[1];
+      ldb = MAX(1, b->strides[0] / b->strides[b->nd - 1]);
+      ldc = MAX(1, c->strides[0] / c->strides[1]);
+
     }
   int n = b->dimensions[0];
   if (a->descr->type_num == PyArray_DOUBLE)
@@ -214,6 +219,26 @@ PyObject* axpy(PyObject *self, PyObject *args)
     zaxpy_(&n, &alpha,
            (void*)COMPLEXP(x), &incx,
            (void*)COMPLEXP(y), &incy);
+  Py_RETURN_NONE;
+}
+
+PyObject* czher(PyObject *self, PyObject *args)
+{
+  double alpha;
+  PyArrayObject* x;
+  PyArrayObject* a;
+  if (!PyArg_ParseTuple(args, "dOO", &alpha, &x, &a))
+    return NULL;
+  int n = x->dimensions[0];
+  for (int d = 1; d < x->nd; d++)
+    n *= x->dimensions[d];
+
+  int incx = 1;
+  int lda = MAX(1, n);
+
+  zher_("l", &n, &(alpha), 
+        (void*)COMPLEXP(x), &incx,
+        (void*)COMPLEXP(a), &lda);
   Py_RETURN_NONE;
 }
 
