@@ -5,6 +5,11 @@ import xml.sax
 
 import numpy as np
 
+from gpaw.mpi import broadcast as mpi_broadcast
+from gpaw.mpi import world
+
+from gpaw.io import FileReference
+
 
 intsize = 4
 floatsize = np.array([1], float).itemsize
@@ -13,7 +18,8 @@ itemsizes = {'int': intsize, 'float': floatsize, 'complex': complexsize}
 
     
 class Writer:
-    def __init__(self, name, comm=None):
+    def __init__(self, name, comm=world):
+        self.comm = comm # for possible future use
         self.dims = {}
         self.files = {}
         self.xml1 = ['<gpaw_io version="0.1" endianness="%s">' %
@@ -31,10 +37,13 @@ class Writer:
         self.dims[name] = value
 
     def __setitem__(self, name, value):
+        if isinstance(value, float):
+            value = repr(value)
         self.xml1 += ['  <parameter %-20s value="%s"/>' %
                       ('name="%s"' % name, value)]
         
-    def add(self, name, shape, array=None, dtype=None, units=None):
+    def add(self, name, shape, array=None, dtype=None, units=None,
+            parallel=False, write=True):
         if array is not None:
             array = np.asarray(array)
 
@@ -64,7 +73,7 @@ class Writer:
 
         return dtype, type, dtype.itemsize
 
-    def fill(self, array, *indices):
+    def fill(self, array, *indices, **kwargs):
         self.write(np.asarray(array, self.dtype).tostring())
 
     def write_header(self, name, size):
@@ -96,7 +105,9 @@ class Writer:
 
 
 class Reader(xml.sax.handler.ContentHandler):
-    def __init__(self, name, comm=None):
+    def __init__(self, name, comm=world):
+        self.comm = comm # used for broadcasting replicated data
+        self.master = (self.comm.rank == 0)
         self.dims = {}
         self.shapes = {}
         self.dtypes = {}
@@ -136,23 +147,29 @@ class Reader(xml.sax.handler.ContentHandler):
     def has_array(self, name):
         return name in self.shapes
     
-    def get(self, name, *indices):
-        fileobj, shape, size, dtype = self.get_file_object(name, indices)
-        array = np.fromstring(fileobj.read(size), dtype)
-        if self.byteswap:
-            array = array.byteswap()
-        if dtype == np.int32:
-            array = np.asarray(array, int)
-        array.shape = shape
-        if shape == ():
-            return array.item()
+    def get(self, name, *indices, **kwargs):
+        broadcast = kwargs.pop('broadcast', False)
+        if self.master or not broadcast:
+            fileobj, shape, size, dtype = self.get_file_object(name, indices)
+            array = np.fromstring(fileobj.read(size), dtype)
+            if self.byteswap:
+                array = array.byteswap()
+            if dtype == np.int32:
+                array = np.asarray(array, int)
+            array.shape = shape
+            if shape == ():
+                array = array.item()
         else:
-            return array
+            array = None
+
+        if broadcast:
+            array = mpi_broadcast(array, 0, self.comm)
+        return array
     
-    def get_reference(self, name, *indices):
+    def get_reference(self, name, indices, length=None):
         fileobj, shape, size, dtype = self.get_file_object(name, indices)
         assert dtype != np.int32
-        return TarFileReference(fileobj, shape, dtype, self.byteswap)
+        return TarFileReference(fileobj, shape, dtype, self.byteswap, length)
     
     def get_file_object(self, name, indices):
         dtype, type, itemsize = self.get_data_type(name)
@@ -181,21 +198,18 @@ class Reader(xml.sax.handler.ContentHandler):
     def close(self):
         self.tar.close()
 
-class TarFileReference:
-    def __init__(self, fileobj, shape, dtype, byteswap):
+class TarFileReference(FileReference):
+    def __init__(self, fileobj, shape, dtype, byteswap, length):
         self.fileobj = fileobj
         self.shape = tuple(shape)
         self.dtype = dtype
         self.itemsize = dtype.itemsize
         self.byteswap = byteswap
         self.offset = fileobj.tell()
+        self.length = length
 
     def __len__(self):
         return self.shape[0]
-
-    def __iter__(self):
-        for i in range(len(self)):
-            yield self[i]
 
     def __getitem__(self, indices):
         if isinstance(indices, slice):
@@ -224,7 +238,7 @@ class TarFileReference:
         if self.byteswap:
             array = array.byteswap()
         array.shape = self.shape[n:]
+        if self.length:
+            array = array[..., :self.length].copy()
         return array
 
-    def __array__(self):
-        return self[::]

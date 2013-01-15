@@ -254,12 +254,16 @@ class TAUTimer(Timer):
 
     The TAU Python API will not output any data if there are any
     unmatched starts/stops in the code."""
-    
+
+    top_level = 'GPAW.calculator' # TAU needs top level timer 
+    merge = True # Requires TAU 2.19.2 or later
+
     def __init__(self):
         Timer.__init__(self)
         self.tau_timers = {}
         pytau.setNode(mpi.rank)
-        self.start('PAW_calc') 
+        self.tau_timers[self.top_level] = pytau.profileTimer(self.top_level)
+        pytau.start(self.tau_timers[self.top_level])
 
     def start(self, name):
         Timer.start(self, name)
@@ -271,34 +275,43 @@ class TAUTimer(Timer):
         pytau.stop(self.tau_timers[name])
 
     def write(self, out=sys.stdout):
-        self.stop('PAW_calc')
         Timer.write(self, out)
+        if self.merge:
+            pytau.dbMergeDump()
+        else:
+            pytau.stop(self.tau_timers[self.top_level])
 
-
+        
 class HPMTimer(Timer):
     """HPMTimer requires installation of the IBM BlueGene/P HPM
     middleware interface to the low-level UPC library. This will
     most likely only work at ANL's BlueGene/P. Must compile
-    with GPAW_HPM macro in customize.py.
-    WARNING: You will need to comment out the following timer in
-    hamiltonian.py,  'Hamiltonian: atomic: xc_correction'"""
+    with GPAW_HPM macro in customize.py. Note that HPM_Init
+    and HPM_Finalize are called in _gpaw.c and not in the Python
+    interface. Timer must be called on all ranks in node, otherwise
+    HPM will hang. Hence, we only call HPM_start/stop on a list
+    subset of timers."""
     
+    top_level = 'GPAW.calculator' # HPM needs top level timer
+    compatible = ['Initialization','SCF-cycle'] 
+
     def __init__(self):
         Timer.__init__(self)
-        self.start('PAW_calc') 
+        hpm_start(self.top_level)
 
     def start(self, name):
         Timer.start(self, name)
-        hpm_start(name)
+        if name in self.compatible:
+            hpm_start(name)
         
     def stop(self, name=None):
         Timer.stop(self, name)
-        hpm_stop(name)
+        if name in self.compatible:
+            hpm_stop(name)
 
     def write(self, out=sys.stdout):
-        self.stop('PAW_calc')
         Timer.write(self, out)
-
+        hpm_stop(self.top_level)
 
 class CrayPAT_timer(Timer):
     """Interface to CrayPAT API. In addition to regular timers,

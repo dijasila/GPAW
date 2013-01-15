@@ -13,11 +13,11 @@ and
 http://www.netlib.org/scalapack
 """
 
+import warnings
 from sys import stderr
 
 import numpy as np
 
-from gpaw.utilities import warning
 from gpaw import debug
 import gpaw.mpi as mpi
 import _gpaw
@@ -73,7 +73,7 @@ def scalapack_diagonalize_dc(desca, a, z, w, uplo):
     desca.checkassert(a)
     desca.checkassert(z)
     # only symmetric matrices
-    assert desca.gshape[0] == desca.gshape[1] 
+    assert desca.gshape[0] == desca.gshape[1]
     assert uplo in ['L', 'U']
     if not desca.blacsgrid.is_active():
         return
@@ -118,12 +118,15 @@ def scalapack_diagonalize_ex(desca, a, z, w, uplo, iu=None):
     if not desca.blacsgrid.is_active():
         return
     assert desca.gshape[0] == len(w)
+    if (desca.blacsgrid.myrow, desca.blacsgrid.mycol) == (0, 0):
+        message = 'scalapack_diagonalize_ex may have a buffer ' \
+            'overflow, use scalapack_diagonalize_dc instead'
+        warnings.warn(message, RuntimeWarning)
     info = _gpaw.scalapack_diagonalize_ex(a, desca.asarray(), 
                                           switch_lu[uplo], 
                                           iu, z, w)
-    if info not in [0, 2]:
+    if info != 0:
         # 0 means you are OK
-        # 2 means eigenvectors not guaranteed to be orthogonal
         raise RuntimeError('scalapack_diagonalize_ex error: %d' % info)
 
 def scalapack_diagonalize_mr3(desca, a, z, w, uplo, iu=None):
@@ -228,12 +231,15 @@ def scalapack_general_diagonalize_ex(desca, a, b, z, w, uplo, iu=None):
     if not desca.blacsgrid.is_active():
         return
     assert desca.gshape[0] == len(w)
+    if (desca.blacsgrid.myrow, desca.blacsgrid.mycol) == (0, 0):
+        message = 'scalapack_general_diagonalize_ex may have a buffer ' \
+            'overflow, use scalapack_general_diagonalize_dc instead'
+        warnings.warn(message, RuntimeWarning)
     info = _gpaw.scalapack_general_diagonalize_ex(a, desca.asarray(), 
                                                   switch_lu[uplo], 
                                                   iu, b, z, w)
-    if info not in [0, 2]:
+    if info != 0:
         # 0 means you are OK
-        # 2 means eigenvectors not guaranteed to be orthogonal        
         raise RuntimeError('scalapack_general_diagonalize_ex error: %d' % info)
 
 def scalapack_general_diagonalize_mr3(desca, a, b, z, w, uplo, iu=None):
@@ -294,6 +300,15 @@ def scalapack_inverse_cholesky(desca, a, uplo):
     if info != 0:
         raise RuntimeError('scalapack_inverse_cholesky error: %d' % info)
 
+def pblas_tran(alpha, a_MN, beta, c_NM, desca, descc):
+    desca.checkassert(a_MN)
+    descc.checkassert(c_NM)
+    M, N = desca.gshape
+    assert N, M == descc.gshape
+    _gpaw.pblas_tran(N, M, alpha, a_MN, beta, c_NM,
+                     desca.asarray(), descc.asarray())
+
+
 def pblas_gemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
                transa='N', transb='N'):
     desca.checkassert(a_MK)
@@ -303,7 +318,7 @@ def pblas_gemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
     M, Ka = desca.gshape
     Kb, N = descb.gshape
 
-    if transa =='T':
+    if transa == 'T':
         M, Ka = Ka, M
     if transb == 'T':
         Kb, N = N, Kb

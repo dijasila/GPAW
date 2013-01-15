@@ -91,7 +91,7 @@ def gemm(alpha, a, b, beta, c, transa='n', cuda=False):
             assert a.shape[0] == b.shape[1]
             assert c.shape == b.shape[0:1] + a.shape[1:]
         else:
-            assert b.flags.contiguous
+            assert b.size == 0 or b[0].flags.contiguous
             assert c.strides[1] == c.itemsize
             assert a.shape[1:] == b.shape[1:]
             assert c.shape == (b.shape[0], a.shape[0])
@@ -237,6 +237,26 @@ def axpy(alpha, x, y, cuda=False):
         y_gpu.get(y)
     else:
         _gpaw.axpy(alpha, x, y)
+
+def czher(alpha, x, a):
+    """alpha x * x.conj() + a.
+
+    Performs the operation::
+
+      y <- alpha * x * x.conj() + a
+
+    where x is a N element vector and a is a N by N hermitian matrix, alpha is a real scalar
+      
+    """
+
+    assert isinstance(alpha, float)
+    assert is_contiguous(x, complex) and is_contiguous(a, complex)
+    assert x.flags.contiguous and a.flags.contiguous
+    assert x.ndim == 1 and a.ndim == 2
+    assert x.shape[0] == a.shape[0]
+
+    _gpaw.czher(alpha, x, a)
+
 
 def rk(alpha, a, beta, c, cuda=False):
     """Rank-k update of a matrix.
@@ -447,10 +467,10 @@ def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
     # Vector-vector multiplication is handled by dotu
     if a.ndim == 1 and b.ndim == 1:
         assert out is None
-        if trans is 'c':
-            return beta * _gpaw.dotc(b, a) # dotc conjugates *first* argument
+        if trans == 'c':
+            return alpha * _gpaw.dotc(b, a) # dotc conjugates *first* argument
         else:
-            return beta * _gpaw.dotu(a, b)
+            return alpha * _gpaw.dotu(a, b)
 
 ##     # Use gemv if a or b is a vector, and the other is a matrix??
 ##     if a.ndim == 1 and trans == 'n':

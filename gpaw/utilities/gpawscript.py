@@ -1,11 +1,13 @@
+import os
 import sys
+import tempfile
+import optparse
 import traceback
-from optparse import OptionParser, OptionGroup
 
 import numpy as np
 from ase.structure import bulk, estimate_lattice_constant
 from ase.atoms import Atoms, string2symbols
-from ase.data.molecules import molecule
+from ase.structure import molecule
 from ase.visualize import view
 from ase.io import read, write
 from ase.constraints import FixAtoms
@@ -22,16 +24,17 @@ defaults = InputParameters()
 def build_parser():
     description = ('Run GPAW calculation for simple atoms, molecules or '
                    'bulk systems.')
+    epilog = 'GPAW options: --%s.  ' % ', --'.join(defaults.keys())
+    parser = optparse.OptionParser(usage='%prog [options] formula or filename',
+                                   version='%prog 0.1',
+                                   description=description + ' ' + epilog)
 
-    parser = OptionParser(usage='%prog [options] formula or filename',
-                          version='%prog 0.1', description=description)
-
-    struct = OptionGroup(parser, 'Structure')
+    struct = optparse.OptionGroup(parser, 'Structure')
     struct.add_option('-i', '--identifier',
                       help='String identifier added to filenames.')
     struct.add_option('-x', '--crystal-structure',
                       help='Crystal structure.',
-                      choices=['sc', 'fcc', 'bcc', 'diamond', 'hcp', 
+                      choices=['sc', 'fcc', 'bcc', 'diamond', 'hcp',
                                'rocksalt', 'zincblende'])
     struct.add_option('-a', '--lattice-constant', type='float',
                       help='Lattice constant in Angstrom.')
@@ -50,15 +53,15 @@ def build_parser():
                       help='Magnetic moment(s).  Use "-M 1" or "-M 2.3,-2.3".')
     parser.add_option_group(struct)
 
-    behavior = OptionGroup(parser, 'Behavior')
+    behavior = optparse.OptionGroup(parser, 'Behavior')
     behavior.add_option('--read', action='store_true',
-                        help="Don't alculate anything - read from file.")
+                        help="Don't calculate anything - read from file.")
     behavior.add_option('-p', '--plot', action='store_true',
                         help='Plot results.')
     behavior.add_option('-G', '--gui', action='store_true',
                         help="Pop up ASE's GUI.")
     behavior.add_option('-w', '--write-to-file', metavar='FILENAME',
-                        help="Write configuration to file.")
+                        help='Write configuration to file.')
     behavior.add_option('-F', '--fit', action='store_true',
                         help='Find optimal volume or bondlength.')
     behavior.add_option('-R', '--relax', type='float', metavar='FMAX',
@@ -71,58 +74,54 @@ def build_parser():
     behavior.add_option('-E', '--effective-medium-theory',
                         action='store_true',
                         help='Use EMT calculator.')
+    behavior.add_option('-P', '--python-session',
+                        action='store_true',
+                        help='Run calculation inside interactive Python ' +
+                        'session.  A possible $PYTHONSTARTUP script will be ' +
+                        'imported and the "calc" variable refers to the ' +
+                        'calculator.')
     parser.add_option_group(behavior)
 
-    # Calculator:
-    calc_opts = OptionGroup(parser, 'Calculator')
+    calc_opts = optparse.OptionGroup(parser, 'Calculator')
     for key in defaults:
         calc_opts.add_option('--%s' % key, type=str,
-                             help='default=%default')
+                             help=optparse.SUPPRESS_HELP)
 
-    calc_opts.add_option('--write-gpw-file', metavar='MODE',
+    calc_opts.add_option('-W', '--write-gpw-file', metavar='MODE',
                          help='Write gpw file.')
     parser.add_option_group(calc_opts)
-
-    if 0:
-        calc_opts.add_option('-e', '--eigensolver', default='rmm-diis',
-                             choices=['rmm-diis', 'cg'],
-                             help='Eigensolver.')
-        calc_opts.add_option('-m', '--mode', default='fd', choices=['fd', 'lcao'],
-                             help='Mode of calculation.')
-        calc_opts.add_option('-b', '--basis',
-                             help='Basis set.')
-        calc_opts.add_option('-k', '--brillouin-zone-sampling',
-                             default='1,1,1', metavar='K1,K2,K3',
-                             help='Number of k-points.  Example: -k 4,4,1.')
-        calc_opts.add_option('-g', '--grid-spacing', type='float', default=0.2,
-                             help='Grid spacing in Angstrom.  Deafault is 0.2.')
-        calc_opts.add_option('-T', '--smearing-width', type='float', default=0.1,
-                             metavar='WIDTH',
-                             help='Occupation number smearing width in eV.  Default '
-                             'is 0.1 eV.')
-        calc_opts.add_option('-s', '--finite-difference-stencils', default='3,3',
-                             metavar='K,I',
-                             help='Range of stencils for kinetic energy and '
-                             'interpolation.  Deafault is -s 3,3.')
-        calc_opts.add_option('-f', '--xc-functional', default='LDA',
-                             help='Exchange-Correlation functional (default value LDA).')
-        calc_opts.add_option('-N', '--number-of-bands', type='int',
-                             help='Number of bands / states.')
-        parser.add_option_group(calc_opts)
 
     return parser
 
 
-def run():
+def run(argv=None, ignore_python_session_option=False):
+    if argv is None:
+        argv = sys.argv[1:]
+    elif isinstance(argv, str):
+        argv = argv.split()
+
     parser = build_parser()
-    opt, args = parser.parse_args()
-    
+    opt, args = parser.parse_args(argv)
+
     if len(args) != 1:
-        parser.error("incorrect number of arguments")
+        parser.error('incorrect number of arguments')
     name = args[0]
 
+    if not ignore_python_session_option and opt.python_session:
+        file = tempfile.NamedTemporaryFile()
+        file.write('import os\n')
+        file.write('if "PYTHONSTARTUP" in os.environ:\n')
+        file.write('    execfile(os.environ["PYTHONSTARTUP"])\n')
+        file.write('from gpaw.utilities.gpawscript import run\n')
+        file.write('runner = run(%r, ignore_python_session_option=True)\n' %
+                   ' '.join(argv))
+        file.write('calc = runner.calc\n')
+        file.flush()
+        os.system('python -i %s' % file.name)
+        return
+
     if world.rank == 0:
-        out = sys.stdout#open('%s-%s.results' % (name, opt.identifier), 'w')
+        out = sys.stdout
     else:
         out = devnull
 
@@ -199,8 +198,11 @@ def run():
     if not opt.effective_medium_theory:
         # Import stuff that eval() may need to know:
         from gpaw.wavefunctions.pw import PW
-        from gpaw.occupations import FermiDirac
-            
+        from gpaw.occupations import FermiDirac, MethfesselPaxton
+        from gpaw.mixer import Mixer, MixerSum
+        from gpaw.poisson import PoissonSolver
+        from gpaw.eigensolvers import RMM_DIIS
+
         if opt.parameters:
             input_parameters = eval(open(opt.parameters).read())
         else:
@@ -221,19 +223,22 @@ def run():
 
     runner.summary(plot=opt.plot, a0=a)
 
+    return runner
+
+
 def main():
     try:
-        run()
+        run(sys.argv[1:])
     except KeyboardInterrupt:
-        print 'Killed!'
+        print('Killed!')
         raise SystemExit(1)
     except SystemExit:
         raise
     except Exception:
         #traceback.print_exc()
-        print >> sys.stderr, """
+        sys.stderr.write("""
 An exception occurred!  Please report the issue to
-gridpaw-developer@listserv.fysik.dtu.dk - thanks!  Please also report this
+gpaw-developer@listserv.fysik.dtu.dk - thanks!  Please also report this
 if it was a user error, so that a better error message can be provided
-next time."""
+next time.""")
         raise

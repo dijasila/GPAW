@@ -5,14 +5,15 @@
 
 import os
 import re
+import sys
 from operator import mul
 from math import sqrt, exp
 
 import numpy as np
+from numpy import linalg
 
 import _gpaw
 from gpaw import debug
-from numpy import linalg
 
 elementwise_multiply_add = _gpaw.elementwise_multiply_add
 utilities_vdot = _gpaw.utilities_vdot
@@ -61,22 +62,12 @@ def gcd(a, b):
     return a
 
 
-def contiguous(array, dtype):
-    # XXX Use numpy.ascontiguousarray(array, dtype=None) instead!
-    """Convert a sequence to a contiguous Numpy array."""
-    array = np.asarray(array, dtype)
-    if array.flags.contiguous:
-        return array
-    else:
-        return np.array(array)
-
-
 def is_contiguous(array, dtype=None):
     """Check for contiguity and type."""
     if dtype is None:
-        return array.flags.contiguous
+        return array.flags.c_contiguous
     else:
-        return array.flags.contiguous and array.dtype == dtype
+        return array.flags.c_contiguous and array.dtype == dtype
 
 
 # Radial-grid Hartree solver:
@@ -170,32 +161,23 @@ def unpack2(M):
     return M2
 
     
-def pack(M2, tolerance=1e-10):
+def pack(A):
     """Pack a 2D array to 1D, adding offdiagonal terms.
     
     The matrix::
     
            / a00 a01 a02 \ 
-      M2 = | a10 a11 a12 |
+       A = | a10 a11 a12 |
            \ a20 a21 a22 /
                 
     is transformed to the vector::
     
-      M = (a00, a01 + a10*, a02 + a20*, a11, a12 + a21*, a22)
+      (a00, a01 + a10, a02 + a20, a11, a12 + a21, a22)
     """
-    n = len(M2)
-    M = np.zeros(n * (n + 1) // 2, M2.dtype.char)
-    p = 0
-    for r in range(n):
-        M[p] = M2[r, r]
-        p += 1
-        for c in range(r + 1, n):
-            M[p] = M2[r, c] + np.conjugate(M2[c, r])
-            error = abs(M2[r, c] - np.conjugate(M2[c, r]))
-            assert error < tolerance, 'Pack not symmetric by %s' % error + ' %'
-            p += 1
-    assert p == len(M)
-    return M
+    assert A.ndim == 2
+    assert A.shape[0] == A.shape[1]
+    assert A.dtype in [float, complex]
+    return _gpaw.pack(A)
 
 
 def pack2(M2, tolerance=1e-10):
@@ -230,15 +212,6 @@ def element_from_packed(M, i, j):
         return .5 * M[p]
     else:
         return .5 * np.conjugate(M[p])
-
-
-def check_unit_cell(cell):
-    """Check that the unit cell (3*3 matrix) is orthorhombic (diagonal)."""
-    c = cell.copy()
-    # Zero the diagonal:
-    c.flat[::4] = 0.0
-    if np.sometrue(c.flat):
-        raise RuntimeError('Unit cell not orthorhombic')
     
 
 class _DownTheDrain:
@@ -255,41 +228,25 @@ class _DownTheDrain:
 
 devnull = _DownTheDrain()
 
-"""
-class OutputFilter:
-    def __init__(self, out, threshold, level=500):
-        self.threshold = threshold
-        self.verbosity = verbosity
 
-    def write(self, string):
-        if kfdce
+def logfile(name, rank=0):
+    """Create file object from name.
 
-"""
+    Use None for /dev/null and '-' for sys.stdout.  Ranks > 0 will
+    get /dev/null."""
 
-
-def warning(msg):
-    r"""Put string in a box.
-
-    >>> print Warning('Watch your step!')
-     /\/\/\/\/\/\/\/\/\/\/\
-     \                    /
-     /  WARNING:          \
-     \  Watch your step!  /
-     /                    \
-     \/\/\/\/\/\/\/\/\/\/\/
-    """
-    
-    lines = ['', 'WARNING:'] + msg.split('\n')
-    n = max([len(line) for line in lines])
-    n += n % 2
-    bar = (n / 2 + 3) * '/\\'
-    start, end = ' \\ ', ' / '
-    msg = ' %s\n' % bar
-    for line in lines + (len(lines) % 2) * ['']:
-        msg += '%s %s %s%s\n' % (start, line, (n - len(line)) * ' ', end)
-        start, end = end, start
-    msg += ' %s/' % bar[1:]
-    return msg
+    if rank == 0:
+        if name is None:
+            fd = devnull
+        elif name == '-':
+            fd = sys.stdout
+        elif isinstance(name, str):
+            fd = open(name, 'w')
+        else:
+            fd = name
+    else:
+        fd = devnull
+    return fd
 
 
 def uncamelcase(name):
@@ -309,47 +266,9 @@ def divrl(a_g, l, r_g):
     return b_g
 
 
-def locked(filename):
-    try:
-        os.open(filename, os.O_EXCL | os.O_RDWR | os.O_CREAT)
-    except OSError:
-        return True
-    os.remove(filename)
-    return False
+def compiled_with_sl():
+    return hasattr(_gpaw, 'new_blacs_context')
 
-
-def fix(formula):
-    """Convert chemical formula to LaTeX"""
-    s = '$'
-    j = 0
-    for i in range(len(formula)):
-        c = formula[i]
-        if c.isdigit():
-            s += r'\rm{' + formula[j:i] + '}_' + c
-            j = i + 1
-    remainder = formula[j:]
-    if remainder:
-        s += r'\rm{' + remainder + '}'
-    return s + '$'
-
-
-def fix2(formula):
-    """Convert chemical formula to reStructuredText"""
-    s = ''
-    j = 0
-    for i in range(len(formula)):
-        c = formula[i]
-        if c.isdigit():
-            s += r'\ `' + c + '`:sub:\ '
-        else:
-            s += c
-    return s
-
-
-def compiled_with_sl(extended_check=False):
-    if extended_check and not hasattr(_gpaw, 'Communicator'):
-        return False
-    return _gpaw.compiled_with_sl()
 
 def load_balance(paw, atoms):
     try:
@@ -376,6 +295,8 @@ def load_balance(paw, atoms):
 
 if not debug:
     hartree = _gpaw.hartree
+    pack = _gpaw.pack
+
 
 def mlsqr(order, cutoff, coords_nc, N_c, beg_c, data_g, target_n):
     """Interpolate a point using moving least squares algorithm.
@@ -392,12 +313,13 @@ def mlsqr(order, cutoff, coords_nc, N_c, beg_c, data_g, target_n):
 
     assert is_contiguous(coords_nc, float)
     assert is_contiguous(data_g, float)
-    N_c = contiguous(N_c, float)
-    beg_c = contiguous(beg_c, float)    
+    N_c = np.ascontiguousarray(N_c, float)
+    beg_c = np.ascontiguousarray(beg_c, float)
     assert is_contiguous(target_n, float)
 
     return _gpaw.mlsqr(order, cutoff, coords_nc, N_c, beg_c, data_g, target_n)
     
+
 def interpolate_mlsqr(dg_c, vt_g, order):
     """Interpolate a point using moving least squares algorithm.
 
@@ -407,33 +329,33 @@ def interpolate_mlsqr(dg_c, vt_g, order):
     """
 
     # Define the weight function
-    lsqr_weight = lambda r2 : exp(-r2)
+    lsqr_weight = lambda r2: exp(-r2)
 
     # Define the polynomial basis
     if order == 1:
-        b = lambda x : np.array([1, x[0], x[1], x[2]])
+        b = lambda x: np.array([1, x[0], x[1], x[2]])
     elif order == 2:
-        b = lambda x :  np.array([1, x[0], x[1], x[2],
-                                  x[0]*x[1], x[1]*x[2], x[2]*x[0],
-                                  x[0]**2, x[1]**2, x[2]**2])
+        b = lambda x:  np.array([1, x[0], x[1], x[2],
+                                 x[0] * x[1], x[1] * x[2], x[2] * x[0],
+                                 x[0]**2, x[1]**2, x[2]**2])
     else:
         raise NotImplementedError
 
-    def fill_X(x,y,z):
+    def fill_X(x, y, z):
         result = None
-        for i,j,k in zip(x.ravel(), y.ravel(), z.ravel()):
-            r = b(np.array([i,j,k]))*lsqr_weight(np.sum((dg_c-np.array([i,j,k]))**2))
+        for i, j, k in zip(x.ravel(), y.ravel(), z.ravel()):
+            r = b(np.array([i, j, k])) * lsqr_weight(
+                np.sum((dg_c - np.array([i, j, k]))**2))
             if result == None:
                 result = r
             else:
                 result = np.vstack((result, r))
         return result
 
-
-    def fill_w(x,y,z):
+    def fill_w(x, y, z):
         result = []
-        for i,j,k in zip(x.ravel(), y.ravel(), z.ravel()):
-            weight = lsqr_weight(np.sum((dg_c-np.array([i,j,k]))**2))
+        for i, j, k in zip(x.ravel(), y.ravel(), z.ravel()):
+            weight = lsqr_weight(np.sum((dg_c - np.array([i, j, k]))**2))
             result.append(weight * vt_g[i][j][k])
         return np.array(result)
     
@@ -445,16 +367,3 @@ def interpolate_mlsqr(dg_c, vt_g, order):
     c = linalg.solve(X2, y2)
     a = np.dot(b(dg_c), c)
     return a
-
-
-def crop_array(v_g, bg_c, Bg_c):
-    # XXX TODO: Make more efficient using special features of numpy
-    N_c = v_g.shape
-    size_c = Bg_c-bg_c+1
-    result = np.zeros(size_c)
-    for i in range(0, size_c[0]):
-        for j in range(0, size_c[1]):
-            for k in range(0, size_c[2]):
-                result[i][j][k] = v_g[(i + bg_c[0]) % N_c[0]][(j + bg_c[1]) % N_c[1]][(k + bg_c[2]) % N_c[2]]
-                
-    return result
