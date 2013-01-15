@@ -154,10 +154,6 @@ class PAWTextOutput:
             t(basis_descr)
             t()
 
-        if p['HubU'] != None:
-            t('Using Hubbard U')
-            STOP
-
         t('Using the %s Exchange-Correlation Functional.'
           % self.hamiltonian.xc.name)
         if self.wfs.nspins == 2:
