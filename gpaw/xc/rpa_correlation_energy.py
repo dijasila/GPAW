@@ -16,6 +16,7 @@ class RPACorrelation:
     def __init__(self,
                  calc,
                  vcut=None,
+                 cell=None,
                  txt=None,
                  tag=None,
                  single_precision=False,
@@ -25,6 +26,7 @@ class RPACorrelation:
         
         self.calc = calc
         self.tag = tag
+        self.cell = cell
         self.single_precision=single_precision
         self.cublas = cublas
         self.cugemv = cugemv
@@ -248,6 +250,7 @@ class RPACorrelation:
                    ecut=self.ecut,
                    G_plus_q=True,
                    optical_limit=optical_limit,
+                   cell=self.cell,
                    hilbert_trans=False)
         dummy.txt = devnull
         dummy.initialize(simple_version=True)
@@ -274,6 +277,7 @@ class RPACorrelation:
                 ecut=self.ecut,
                 smooth_cut=self.smooth_cut,
                 G_plus_q=True,
+                cell=self.cell,
                 kcommsize=self.kcommsize,
                 comm=self.dfcomm,
                 single_precision=self.single_precision,
@@ -375,6 +379,7 @@ class RPACorrelation:
                    q=[0.,0.,0.0001],
                    ecut=ecut,
                    optical_limit=True,
+                   cell=self.cell,
                    hilbert_trans=False,
                    kcommsize=kcommsize)
         dummy.txt = devnull

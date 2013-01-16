@@ -29,6 +29,7 @@ class DF(CHI):
                  hilbert_trans=True,
                  full_response=False,
                  optical_limit=False,
+                 cell=None,
                  single_precision=False,
                  cublas=False,
                  cugemv=False,
@@ -39,7 +40,7 @@ class DF(CHI):
                      ecut=ecut, smooth_cut=smooth_cut, density_cut=density_cut,
                      G_plus_q=G_plus_q, eta=eta, rpad=rpad, vcut=vcut,
                      ftol=ftol, txt=txt, xc=xc, hilbert_trans=hilbert_trans,
-                     full_response=full_response, optical_limit=optical_limit,
+                     full_response=full_response, optical_limit=optical_limit,cell=cell,
                      single_precision=single_precision,cublas=cublas,cugemv=cugemv,                     
                      comm=comm, kcommsize=kcommsize)
 

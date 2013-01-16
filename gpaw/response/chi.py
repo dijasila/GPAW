@@ -58,6 +58,7 @@ class CHI(BASECHI):
                  hilbert_trans=True,
                  full_response=False,
                  optical_limit=False,
+                 cell=None,
                  single_precision=False,
                  cublas=False,
                  cugemv=False,                 
@@ -68,7 +69,7 @@ class CHI(BASECHI):
                          eshift=eshift, ecut=ecut, smooth_cut=smooth_cut,
                          density_cut=density_cut, G_plus_q=G_plus_q, eta=eta,
                          rpad=rpad, ftol=ftol, txt=txt,
-                         optical_limit=optical_limit)
+                         optical_limit=optical_limit, cell=cell)
         
         self.xc = xc
         self.hilbert_trans = hilbert_trans
@@ -539,7 +540,7 @@ class CHI(BASECHI):
                     chi0_wGG[iw] += chi0_wGG[iw].conj().T
                     for iG in range(self.npw):
                         chi0_wGG[iw, iG, iG] /= 2.
-                        assert np.abs(np.imag(chi0_wGG[iw, iG, iG])) < 1e-10 
+                        assert np.abs(np.imag(chi0_wGG[iw, iG, iG])) < 1e-6
 
         else:
             for iw in range(self.NwS_local):

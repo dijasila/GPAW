@@ -38,7 +38,8 @@ class BASECHI:
                  rpad=np.array([1,1,1]),
                  ftol=1e-5,
                  txt=None,
-                 optical_limit=False):
+                 optical_limit=False,
+                 cell=None):
 
         self.txtname = txt
         self.output_init()
@@ -81,6 +82,7 @@ class BASECHI:
         self.rpad = rpad
         self.optical_limit = optical_limit
         self.eshift = eshift
+        self.cell = cell
 
 
     def initialize(self):
@@ -107,6 +109,14 @@ class BASECHI:
         self.acell_cv = calc.atoms.cell / Bohr 
         self.acell_cv, self.bcell_cv, self.vol, self.BZvol = \
                        get_primitive_cell(self.acell_cv,rpad=self.rpad)
+        if self.cell is not None:
+            self.aorg_cv = self.cell / Bohr
+            self.aorg_cv, self.borg_cv, tmp, tmp = \
+                       get_primitive_cell(self.aorg_cv,rpad=self.rpad)
+        else:
+            self.aorg_cv = self.acell_cv
+            self.borg_cv = self.bcell_cv
+       
 
         # grid init
         self.pbc = calc.atoms.get_pbc()
@@ -159,14 +169,14 @@ class BASECHI:
 
         # Plane wave init
         if self.G_plus_q:
-            self.npw, self.Gvec_Gc, self.Gindex_G = set_Gvectors(self.acell_cv,
-                                                                 self.bcell_cv,
+            self.npw, self.Gvec_Gc, self.Gindex_G = set_Gvectors(self.aorg_cv,
+                                                                 self.borg_cv,
                                                                  self.nG,
                                                                  self.ecut,
                                                                  q=self.q_c)
         else:
-            self.npw, self.Gvec_Gc, self.Gindex_G = set_Gvectors(self.acell_cv,
-                                                                 self.bcell_cv,
+            self.npw, self.Gvec_Gc, self.Gindex_G = set_Gvectors(self.aorg_cv,
+                                                                 self.borg_cv,
                                                                  self.nG,
                                                                  self.ecut)
         if self.smooth_cut is not None:
