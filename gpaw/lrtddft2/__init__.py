@@ -23,6 +23,9 @@ from gpaw.blacs import BlacsGrid, Redistributor
 
 from gpaw.utilities import devnull
 
+import _gpaw
+from gpaw.mpi import rank
+
 #from gpaw.output import initialize_text_stream
 
 
@@ -813,10 +816,6 @@ class LrTDDFTindexed:
     def calculate_response_wavefunction(self, omega, eta, laser):
         laser = np.array(laser)
 
-        #
-        # !!!!!!!!!! TODO 4X4 BLOCKS for scalapack !!!!!!!!!
-        # 
-
 
         ################
         # Wrong not reading K-matrix but it's "Casida form" 
@@ -826,51 +825,66 @@ class LrTDDFTindexed:
 
         nloc = K_matrix.shape[0]
         nrow = K_matrix.shape[1]
-        # assert nloc == nrow, "Parallel matrix not implemented yet (nloc!=nrow, %d != %d)." % (nloc,nrow)
+
+        # ---------------------------------------------------------------
+        # for SCALAPACK we need TRANSPOSED MATRIX 
+        # ---------------------------------------------------------------
 
         # Create indexing
         self.index_map = {}        # (i,p) to matrix index map
         for (ip, kss) in enumerate(self.kss_list):
             self.index_map[(kss.occ_ind,kss.unocc_ind)] = ip
 
-        # K_matrix => K N
+        
+
+        # Casida => K => (K N)**T
         for kss_ip in self.kss_list:
             i = kss_ip.occ_ind
             p = kss_ip.unocc_ind
             ip = self.index_of_kss(i,p)
             assert ip is not None, "Could not find index for transition (%d,%d)." % (i,p)
+
+            # Casida to K
+            K_matrix[:,ip] /= np.sqrt(2.* kss_ip.energy_diff * kss_ip.pop_diff)
+                        
             lip = self.get_local_index(ip)
             if lip is None: 
                 continue
 
-            K_matrix[:,ip]  /= np.sqrt(2.* kss_ip.energy_diff * kss_ip.pop_diff)
-            K_matrix[lip,:] /= np.sqrt(2.* kss_ip.energy_diff * kss_ip.pop_diff)
+            # Casida to K
+            K_matrix[lip,:] /= np.sqrt(2.* kss_ip.energy_diff *kss_ip.pop_diff)
 
-            K_matrix[:,ip]  *= kss_ip.pop_diff # K => K N
+            # K => (K N)**T (scalapack)
+            K_matrix[lip,:] *= kss_ip.pop_diff # K => N K
+            
 
         # print K_matrix
 
-        A_matrix = np.zeros((nloc*4,nrow*4))
+        # ---------------------------------------------------------------
+        # for SCALAPACK we need TRANSPOSED MATRIX, i.e.,
+        # fill nloc x nrow matrix like it would be nrow x nloc matrix
+        # don't worry, for serial version we later transpose this matrix
+        # ---------------------------------------------------------------
+        At_matrix = np.zeros((nloc*4,nrow*4))
 
+        # scatter K... we use 4x4 (re/im,+/-) blocks for scalapack
         for i in range(nloc):
-            rind = np.array(np.zeros(nrow,dtype=int)+i*4)
-            cind = np.arange(nrow)*4
+            # build index pairs (col <=> row for scalapack)
+            cind = np.array(np.zeros(nrow,dtype=int)+i*4)
+            rind = np.arange(nrow)*4
 
-            A_matrix[rind+0, cind+0] = K_matrix[i,:]
-            A_matrix[rind+1, cind+0] = K_matrix[i,:]
-            A_matrix[rind+0, cind+1] = K_matrix[i,:]
-            A_matrix[rind+1, cind+1] = K_matrix[i,:]
+            At_matrix[cind+0, rind+0] = K_matrix[i,:]
+            At_matrix[cind+1, rind+0] = K_matrix[i,:]
+            At_matrix[cind+0, rind+1] = K_matrix[i,:]
+            At_matrix[cind+1, rind+1] = K_matrix[i,:]
 
-            A_matrix[rind+2, cind+2] = K_matrix[i,:]
-            A_matrix[rind+3, cind+2] = -K_matrix[i,:]
-            A_matrix[rind+2, cind+3] = -K_matrix[i,:]
-            A_matrix[rind+3, cind+3] = K_matrix[i,:]
-
-        # rhs
-        V_rhs = np.zeros(nloc*4)
+            At_matrix[cind+2, rind+2] = K_matrix[i,:]
+            At_matrix[cind+3, rind+2] = -K_matrix[i,:]
+            At_matrix[cind+2, rind+3] = -K_matrix[i,:]
+            At_matrix[cind+3, rind+3] = K_matrix[i,:]
 
         #
-        # FIX ME: DOES NOT WORK WITH FRACTIONAL OCCUPATIONS or maybe it does now
+        # FIX ME: DOES NOT WORK WITH FRACTIONAL OCCUPATIONS or maybe it does
         #
         # diagonal terms of blocks
         for kss_ip in self.kss_list:
@@ -884,32 +898,65 @@ class LrTDDFTindexed:
 
             # print >> self.txt, kss_ip.energy_diff, kss_ip.dip_mom_r
 
-            A_matrix[0+lip*4, 0+ip*4] += kss_ip.energy_diff + omega
-            A_matrix[1+lip*4, 1+ip*4] += kss_ip.energy_diff - omega
-            A_matrix[2+lip*4, 2+ip*4] += kss_ip.energy_diff + omega
-            A_matrix[3+lip*4, 3+ip*4] += kss_ip.energy_diff - omega
+            At_matrix[lip*4+0, ip*4+0] += kss_ip.energy_diff + omega
+            At_matrix[lip*4+1, ip*4+1] += kss_ip.energy_diff - omega
+            At_matrix[lip*4+2, ip*4+2] += kss_ip.energy_diff + omega
+            At_matrix[lip*4+3, ip*4+3] += kss_ip.energy_diff - omega
 
-            A_matrix[0+lip*4, 2+ip*4] += -eta
-            A_matrix[1+lip*4, 3+ip*4] += -eta
-            A_matrix[2+lip*4, 0+ip*4] +=  eta
-            A_matrix[3+lip*4, 1+ip*4] +=  eta
+            # transposed again
+            At_matrix[lip*4+0, ip*4+2] += eta
+            At_matrix[lip*4+1, ip*4+3] += eta
+            At_matrix[lip*4+2, ip*4+0] += -eta
+            At_matrix[lip*4+3, ip*4+1] += -eta
+            
+
+        # rhs
+        V_rhs = np.zeros(nloc*4)
+        for kss_ip in self.kss_list:
+            i = kss_ip.occ_ind
+            p = kss_ip.unocc_ind
+            ip = self.index_of_kss(i,p)
+            assert ip is not None, "Could not find index for transition (%d,%d)." % (i,p)
+            lip = self.get_local_index(ip)
+            if lip is None: 
+                continue
             
             # exp(+iwt) + exp(-iwt)
-            V_rhs[0+lip*4] = np.dot(kss_ip.dip_mom_r, laser)
-            V_rhs[1+lip*4] = np.dot(kss_ip.dip_mom_r, laser)
-        
+            V_rhs[lip*4+0] = np.dot(kss_ip.dip_mom_r, laser)
+            V_rhs[lip*4+1] = np.dot(kss_ip.dip_mom_r, laser)
+            V_rhs[lip*4+2] = 0.0
+            V_rhs[lip*4+3] = 0.0
 
-        
+
         #for i in range(nloc*4):
         #    for j in range(nrow*4):
-        #        print "%6.3lf" % A_matrix[i,j],
+        #        print "%6.3lf" % At_matrix[i,j],
         #    print
-        #print >> self.txt, np.round(A_matrix,3)
-        #print >> self.txt, np.round(np.linalg.eig(A_matrix)[0]*27.211,3)
+        #print >> self.txt, np.round(At_matrix,3)
         #print >> self.txt, V_rhs
 
-        
-        C = np.linalg.solve(A_matrix, V_rhs)
+
+        # ScaLapack
+        parm = self.calc.input_parameters
+        sl_lrtddft = parm.parallel['sl_lrtddft']
+        if sl_lrtddft is not None:
+            ksl = LrTDDFTLayouts(sl_lrtddft, nrow, self.dd_comm, self.eh_comm)
+            ksl.solve(At_matrix, V_rhs)
+            C = np.zeros(nrow*4)
+            for kss_ip in self.kss_list:
+                i = kss_ip.occ_ind
+                p = kss_ip.unocc_ind
+                ip = self.index_of_kss(i,p)
+                assert ip is not None, "Could not find index for transition (%d,%d)." % (i,p)
+                lip = self.get_local_index(ip)
+                if lip is None: 
+                    continue
+                C[(ip*4+0):(ip*4+4)] = V_rhs[(lip*4+0):(lip*4+4)]
+            self.eh_comm.sum(C)
+            
+        else:
+            assert nloc == nrow, "Parallel solve without scalapack is not implemented yet (nloc!=nrow, %d != %d)." % (nloc,nrow)
+            C = np.linalg.solve(np.transpose(At_matrix), V_rhs)
         
 
         # response wavefunction
@@ -929,7 +976,7 @@ class LrTDDFTindexed:
 
         # Re[phi-**h + phi_+]
         
-        rind = np.array(range(nloc)) * 4
+        rind = np.array(range(nrow)) * 4
         C_re = C[rind+0] + C[rind+1]
         # Im[phi-**h + phi_+]
         C_im = C[rind+2] - C[rind+3]
@@ -1748,6 +1795,9 @@ class LrTDDFTLayouts:
         mcpus, ncpus, blocksize = tuple(sl_omega)
         self.world = eh_comm.parent
         self.dd_comm = dd_comm
+        if self.world is None:
+            self.world = self.dd_comm
+        
         # All the ranks within domain communicator contain the omega matrix
         # construct new communicator only on domain masters
         eh_ranks = np.arange(eh_comm.size) * dd_comm.size
@@ -1767,50 +1817,114 @@ class LrTDDFTLayouts:
                                                self.diag_descr,
                                                self.eh_descr)
 
-        self.eh_descr2a = self.eh_grid.new_descriptor(nkq*4, nkq*4, 4, nkq*4)
-        self.eh_descr2b = self.eh_grid.new_descriptor(nkq*4, 1,     4, 1)
-        self.solve_descr2a = self.diag_grid.new_descriptor(nkq*4,     nkq*4,
-                                                           blocksize, blocksize)
-        self.solve_descr2b = self.diag_grid.new_descriptor(nkq*4,     1,
-                                                           blocksize, 1)
+        # -----------------------------------------------------------------
+        # for SCALAPACK we need TRANSPOSED MATRIX (and vector)
+        # -----------------------------------------------------------------
+        # M = rows, N = cols 
+        M = nkq*4; N = nkq*4; mb = nkq*4; nb = 4; Nrhs = 1
+        # Matrix, mp=1, np=eh_comm.size
+        self.eh_grid2a = BlacsGrid(self.eh_comm2, eh_comm.size, 1)
+        # Vector, mp=eh_comm.size, np=1
+        self.eh_grid2b = BlacsGrid(self.eh_comm2, 1, eh_comm.size)
+        self.eh_descr2a = self.eh_grid2a.new_descriptor(N,    M,  nb, mb)
+        self.eh_descr2b = self.eh_grid2b.new_descriptor(Nrhs, N,   1, nb)
+        self.solve_descr2a =self.diag_grid.new_descriptor(N, M,
+                                                          blocksize, blocksize)
+        self.solve_descr2b =self.diag_grid.new_descriptor(Nrhs, N,
+                                                          1, blocksize)
 
 
-        self.redist_in_2a = Redistributor(self.world,
-                                          self.eh_descr2a,
-                                          self.solve_descr2a)
-        self.redist_in_2b = Redistributor(self.world,
-                                          self.eh_descr2b,
-                                          self.solve_descr2b)
-
-        self.redist_out_2a = Redistributor(self.world,
-                                           self.solve_descr2a,
-                                           self.eh_descr2a)
-        self.redist_out_2b = Redistributor(self.world,
-                                           self.solve_descr2b, 
-                                           self.eh_descr2b)
+        self.redist_solve_in_2a = Redistributor(self.world,
+                                                self.eh_descr2a,
+                                                self.solve_descr2a)
+        self.redist_solve_in_2b = Redistributor(self.world,
+                                                self.eh_descr2b,
+                                                self.solve_descr2b)
+        
+        self.redist_solve_out_2a = Redistributor(self.world,
+                                                 self.solve_descr2a,
+                                                 self.eh_descr2a)
+        self.redist_solve_out_2b = Redistributor(self.world,
+                                                 self.solve_descr2b, 
+                                                 self.eh_descr2b)
 
     def solve(self, A, b):
+        if 0:
+            print 'edescr2a', rank, self.eh_descr2a.asarray() 
+            print 'edescr2b', rank, self.eh_descr2b.asarray() 
+            
+            sys.stdout.flush()        
+            self.world.barrier()
+            
+            print 'sdescr2a', rank, self.solve_descr2a.asarray() 
+            print 'sdescr2b', rank, self.solve_descr2b.asarray() 
+            
+            sys.stdout.flush()        
+            self.world.barrier()
+            
+            print 'A ', rank, A.shape
+            print 'b ', rank, b.shape
+
+            sys.stdout.flush()        
+            self.world.barrier()
+
         A_nn = self.solve_descr2a.empty(dtype=float)
         if self.eh_descr2a.blacsgrid.is_active():
-            A_nN = A
+            A_Nn = A
         else:
-            A_nN = np.empty((0,0), dtype=float)
-        self.redist_solve_in_2a.redistribute(A_nN, A_nn)
+            A_Nn = np.empty((0,0), dtype=float)
+        self.redist_solve_in_2a.redistribute(A_Nn, A_nn)
 
         b_n = self.solve_descr2b.empty(dtype=float)
         if self.eh_descr2b.blacsgrid.is_active():
-            b_N = b
+            b_N = b.reshape(1,len(b))
         else:
-            b_N = np.empty((0,0), dtype=float)
-
+            b_N = np.empty((0,0), dtype=float)            
         self.redist_solve_in_2b.redistribute(b_N, b_n)
 
-        scalapack_solve(self.solve_descr2a, self.solve_descr2b, A_nn, b_n)
+
+        if 0:
+            print 'A_Nn ', rank, A_Nn.shape
+            print 'b_N  ', rank, b_N.shape
+            sys.stdout.flush()        
+            self.world.barrier()
+            print 'A_nn ', rank, A_nn.shape
+            print 'b_n  ', rank, b_n.shape
+            sys.stdout.flush()        
+            self.world.barrier()
+            
+
+            print 'b_N  ', rank, b_N
+            sys.stdout.flush()        
+            self.world.barrier()
+            print 'b_n ', rank, b_n
+            sys.stdout.flush()        
+            self.world.barrier()
+
+            print 'A_Nn  ', rank, A_Nn
+            sys.stdout.flush()        
+            self.world.barrier()
+            print 'A_nn ', rank, A_nn
+            sys.stdout.flush()        
+            self.world.barrier()
+
+        info = 0
+        if self.solve_descr2a.blacsgrid.is_active():
+            _gpaw.scalapack_solve(A_nn, self.solve_descr2a.asarray(), b_n, self.solve_descr2b.asarray())
+            if info != 0:
+                raise RuntimeEror('scalapack_solve error: %d' % info)
+
+        self.redist_solve_out_2b.redistribute(b_n, b_N)
+
         
-        if not self.eh_descr2b.blacsgrid.is_active():
+        if self.eh_descr2b.blacsgrid.is_active():
+            b_N = b_N.flatten()
+        else:
             b_N = b
 
         self.dd_comm.broadcast(b_N, 0)
+
+        b[:] = b_N
 
 
     def diagonalize(self, Om, eps_n):

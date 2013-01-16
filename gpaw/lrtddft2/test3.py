@@ -19,7 +19,12 @@ if not os.path.exists('test.gpw'):
     e = atoms.get_potential_energy()
     calc.write('test.gpw', mode='all')
 
-atoms, calc = restart('test.gpw')
+
+domain_size = 4
+eh_size = size//4
+assert eh_size * domain_size == size
+dd_comm, eh_comm = lr_communicators(world, domain_size, eh_size)
+calc = GPAW('test.gpw', communicator=dd_comm, txt=None)
 
 # Big calculation
 istart = 0
@@ -34,6 +39,7 @@ lr = LrTDDFTindexed( 'test_lri',
                      min_unocc=pstart,
                      max_unocc=pend,
                      recalculate=None,
+                     eh_communicator=eh_comm,
                      txt='-')
 lr.calculate_excitations()
 lr.get_transitions('trans.dat')

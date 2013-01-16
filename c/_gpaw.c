@@ -95,6 +95,7 @@ PyObject* scalapack_general_diagonalize_ex(PyObject *self, PyObject *args);
 PyObject* scalapack_general_diagonalize_mr3(PyObject *self, PyObject *args);
 #endif 
 PyObject* scalapack_inverse_cholesky(PyObject *self, PyObject *args);
+PyObject* scalapack_solve(PyObject *self, PyObject *args);
 PyObject* pblas_tran(PyObject *self, PyObject *args);
 PyObject* pblas_gemm(PyObject *self, PyObject *args);
 PyObject* pblas_gemv(PyObject *self, PyObject *args);
