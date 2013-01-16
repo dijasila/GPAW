@@ -12,7 +12,7 @@ from gpaw.lcao.overlap import fbt
 from gpaw.spline import Spline
 from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.utilities import unpack, _fact as fac
-from gpaw.utilities.blas import rk, r2k, gemv, gemm
+from gpaw.utilities.blas import rk, r2k, gemv, gemm, axpy
 from gpaw.density import Density
 from gpaw.hamiltonian import Hamiltonian
 from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
@@ -452,6 +452,33 @@ class PWWaveFunctions(FDPWWaveFunctions):
         for f, psit_G in zip(f_n, kpt.psit_nG):
             nt_R += f * abs(self.pd.ifft(psit_G, kpt.q))**2
 
+    def calculate_kinetic_energy_density(self):
+        if self.kpt_u[0].f_n is None:
+            raise RuntimeError
+
+        taut_sR = self.gd.zeros(self.nspins)
+        for kpt in self.kpt_u:
+            G_Gv = self.pd.G_Qv[self.pd.Q_qG[kpt.q]] + self.pd.K_qv[kpt.q]
+            for f, psit_G in zip(kpt.f_n, kpt.psit_nG):
+                for v in range(3):
+                    taut_sR[kpt.s] += 0.5 * f * abs(
+                        self.pd.ifft(1j * G_Gv[:, v] * psit_G, kpt.q))**2
+
+        self.kpt_comm.sum(taut_sR)
+        self.band_comm.sum(taut_sR)
+        return taut_sR
+
+    def apply_mgga_orbital_dependent_hamiltonian(self, kpt, psit_xG,
+                                                 Htpsit_xG, dH_asp,
+                                                 dedtaut_R):
+        G_Gv = self.pd.G_Qv[self.pd.Q_qG[kpt.q]] + self.pd.K_qv[kpt.q]
+        for psit_G, Htpsit_G in zip(psit_xG, Htpsit_xG):
+            for v in range(3):
+                a_R = self.pd.ifft(1j * G_Gv[:, v] * psit_G, kpt.q)
+                axpy(-0.5, 1j * G_Gv[:, v] *
+                      self.pd.fft(dedtaut_R * a_R, kpt.q),
+                      Htpsit_G)
+                
     def _get_wave_function_array(self, u, n, realspace=True, phase=None):
         psit_G = FDPWWaveFunctions._get_wave_function_array(self, u, n,
                                                             realspace)
@@ -1033,6 +1060,14 @@ class PWLFC(BaseLFC):
         return stress.real
 
 
+class PsudoCoreKineticEnergyDensityLFC(PWLFC):
+    def add(self, tauct_R):
+        tauct_R += self.pd.ifft(1.0 / self.pd.gd.dv * self.expand(-1).sum(0))
+
+    def derivative(self, dedtaut_R, dF_aiv):
+        PWLFC.derivative(self, self.pd.fft(dedtaut_R), dF_aiv)
+
+
 class PW:
     def __init__(self, ecut=340, fftwflags=fftw.ESTIMATE, cell=None):
         """Plane-wave basis mode.
@@ -1133,6 +1168,10 @@ class ReciprocalSpaceDensity(Density):
         self.rhot_q[self.G3_G] = self.nt_Q * 8
         self.ghat.add(self.rhot_q, self.Q_aL)
         self.rhot_q[0] = 0.0
+
+    def get_pseudo_core_kinetic_energy_density_lfc(self):
+        return PsudoCoreKineticEnergyDensityLFC(
+            [[setup.tauct] for setup in self.setups], self.pd2)
 
 
 class ReciprocalSpaceHamiltonian(Hamiltonian):

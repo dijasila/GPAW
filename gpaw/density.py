@@ -656,3 +656,9 @@ class RealSpaceDensity(Density):
             if abs(charge) > self.charge_eps:
                 raise RuntimeError('Charge not conserved: excess=%.9f' %
                                    charge)
+
+    def get_pseudo_core_kinetic_energy_density_lfc(self):
+        return LFC(self.gd,
+                   [[setup.tauct] for setup in self.setups],
+                   forces=True, cut=True)
+

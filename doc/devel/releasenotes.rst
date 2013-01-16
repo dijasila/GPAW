@@ -10,8 +10,10 @@ Development version in trunk
 
 :trac:`trunk <>`.
 
+* MGGA calculations can be done in plane-wave mode.
+
 * Calculation of the stress tensor has been implemented for plane-wave
-  based calculation.
+  based calculation (except MGGA).
 
 * MGGA: number of neighbor grid points to use for FD stencil for
   wave function gradient changed from 1 to 3.
@@ -45,6 +47,7 @@ Development version in trunk
 
 * new ``dzp`` basis set generated for all the new setups with
   ``gpaw-basis -t dzp --lpol=2`` with exception of Zn and Cd (``--lpol=1``).
+
 
 Version 0.9.0
 =============
