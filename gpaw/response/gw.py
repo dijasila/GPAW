@@ -116,6 +116,7 @@ class GW(BASECHI):
             self.wmin = self.w_w[0]
             self.dw = self.w_w[1] - self.w_w[0]
             self.Nw = len(self.w_w)
+#            self.wpar = int(self.Nw * self.npw**2 * 16. / 1024**2) // 1500 + 1 # estimate memory and parallelize over frequencies
 
         # eigenvalues and occupations init
         self.e_skn = np.zeros((self.nspins, self.nikpt, calc.wfs.bd.nbands), dtype=float)
@@ -361,7 +362,7 @@ class GW(BASECHI):
                                 dSigma_skn[s,i,j] += np.real(gemmdot(W_G, rho_G, alpha=self.alpha, beta=0.0,trans='c'))
 
                             elif self.static:
-                                W1_GG = W_wGG[0] - np.eye(df.npw)*self.Kc_GG
+                                W1_GG = W_wGG[0] - np.eye(df.npw)*df.Kc_GG
                                 W2_GG = W_wGG[0]
                                 if df.optical_limit:
                                     if n==m:
