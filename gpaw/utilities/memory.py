@@ -5,7 +5,6 @@
 # http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/286222
 
 import os
-import resource
 import numpy as np
 
 _proc_status = '/proc/%d/status' % os.getpid()
@@ -62,11 +61,15 @@ def maxrss():
     # will be scaled by 1024
     #
     # the next call seems to return 'VmHWM'
-    mm = resource.getrusage(resource.RUSAGE_SELF)[2]
-    if mm > 0:
-        if mm < (1024)**2: # 1 MiB
-            mm = mm*1024 # then mm was probably in KiB so convert to MiB
-        return mm
+    try:
+        import resource
+        mm = resource.getrusage(resource.RUSAGE_SELF)[2]
+        if mm > 0:
+            if mm < (1024)**2: # 1 MiB
+                mm = mm*1024 # then mm was probably in KiB so convert to MiB
+            return mm
+    except ImportError:
+        pass
 
     return 0.0 # no more ideas
 
