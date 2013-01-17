@@ -520,7 +520,7 @@ class CHI(BASECHI):
                                             if not self.cublas:
                                                 czher(C.real, rho_G.conj(), chi0_wGG[iw])
                                             else:
-                                                if imultix == nmultix - 1 or m == self.mlist.max() - 1:
+                                                if imultix == nmultix - 1 or m == len(self.mlist) - 1:
                                                     matrixGPU_GG = matrixlist_w[iw]
                                                     # replace with zherk
 #                                                    status = _gpaw.cuZher(handle,0,self.npw,C.real,GPU_rho_G,1,
