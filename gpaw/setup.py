@@ -17,20 +17,22 @@ from math import pi, sqrt
 
 import numpy as np
 from ase.data import atomic_names, chemical_symbols, atomic_numbers
-from ase.units import Bohr, Hartree
 
 from gpaw.setup_data import SetupData
 from gpaw.basis_data import Basis
 from gpaw.gaunt import gaunt as G_LLL, Y_LLv
-from gpaw.spline import Spline
-from gpaw.grid_descriptor import RadialGridDescriptor
-from gpaw.utilities import unpack, pack, hartree, divrl
+from gpaw.utilities import unpack, pack
 from gpaw.rotation import rotation
 from gpaw import extra_parameters
+from gpaw.atom.radialgd import AERadialGridDescriptor
+from gpaw.xc import XC
 
 
-def create_setup(symbol, xc, lmax=0,
+def create_setup(symbol, xc='LDA', lmax=0,
                  type='paw', basis=None, setupdata=None, world=None):
+    if isinstance(xc, str):
+        xc = XC(xc)
+
     if setupdata is None:
         if type == 'hgh' or type == 'hgh.sc':
             lmax = 0
@@ -46,6 +48,12 @@ def create_setup(symbol, xc, lmax=0,
             ah = AppelbaumHamann()
             ah.build(basis)
             return ah
+        elif type == 'ae':
+            from gpaw.ae import HydrogenAllElectronSetup
+            assert symbol == 'H'
+            ae = HydrogenAllElectronSetup()
+            ae.build(basis)
+            return ae
         elif type == 'ghost':
             from gpaw.lcao.bsse import GhostSetupData
             setupdata = GhostSetupData(symbol)
@@ -79,33 +87,59 @@ class BaseSetup:
         """If f_j is specified, custom occupation numbers will be used.
 
         Hund rules disabled if so."""
-        
+
         niao = self.niAO
         f_si = np.zeros((nspins, niao))
 
         assert (not hund) or f_j is None
-        if f_j == None:
+        if f_j is None:
             f_j = self.f_j
+        f_j = np.array(f_j, float)
+        l_j = np.array(self.l_j)
 
+        def correct_for_charge(f_j, charge, degeneracy_j, use_complete=True):
+            nj = len(f_j)
+            # correct for the charge
+            if charge >= 0:
+                # reduce the higher levels first
+                for j in range(nj - 1, -1, -1):
+                    f = f_j[j]
+                    if use_complete or f < degeneracy_j[j]:
+                        c = min(f, charge)
+                        f_j[j] -= c
+                        charge -= c
+            else:
+                # add to the lower levels first
+                for j in range(nj):
+                    f = f_j[j]
+                    l = self.l_j[j]
+                    if use_complete or f > 0:
+                        c = min(degeneracy_j[j] - f, -charge)
+                        f_j[j] += c
+                        charge += c
+            if charge != 0:
+                correct_for_charge(f_j, charge, degeneracy_j, True)
+
+        # distribute the charge to the radial orbitals
+        if nspins == 1:
+            assert magmom == 0.0
+            f_sj = np.array([f_j])
+            correct_for_charge(f_sj[0], charge, 
+                               2 * (2 * l_j + 1))
+        else:
+            nval = f_j.sum() - charge
+            f_sj = 0.5 * np.array([f_j, f_j])
+            nup = 0.5 * (nval + magmom)
+            ndown = 0.5 * (nval - magmom)
+            correct_for_charge(f_sj[0], f_sj[0].sum() - nup,
+                               2 * l_j + 1, False)
+            correct_for_charge(f_sj[1], f_sj[1].sum() - ndown,
+                               2 * l_j + 1, False)
+        
         # Projector function indices:
         nj = len(self.n_j)
 
-        f_j = np.array(f_j, float)
-        if charge >= 0:
-            for j in range(nj - 1, -1, -1):
-                f = f_j[j]
-                c = min(f, charge)
-                f_j[j] -= c
-                charge -= c
-        else:
-            for j in range(nj):
-                f = f_j[j]
-                l = self.l_j[j]
-                c = min(2 * (2 * l + 1) - f, -charge)
-                f_j[j] += c
-                charge += c
-        assert charge == 0.0
-
+        # distribute to the atomic wave functions
         i = 0
         j = 0
         for phit in self.phit_j:
@@ -116,8 +150,10 @@ class BaseSetup:
                 j += 1
             if j < nj:
                 f = f_j[j]
+                f_s = f_sj[:, j]
             else:
                 f = 0
+                f_s = np.array([0, 0])
 
             degeneracy = 2 * l + 1
 
@@ -132,28 +168,29 @@ class BaseSetup:
                 else:
                     magmom -= 2 * degeneracy - f
             else:
-                if nspins == 1:
-                    f_si[0, i:i + degeneracy] = 1.0 * f / degeneracy
-                else:
-                    maxmom = min(f, 2 * degeneracy - f)
-                    mag = magmom
-                    if abs(mag) > maxmom:
-                        mag = cmp(mag, 0) * maxmom
-                    f_si[0, i:i + degeneracy] = 0.5 * (f + mag) / degeneracy
-                    f_si[1, i:i + degeneracy] = 0.5 * (f - mag) / degeneracy
-                    magmom -= mag
-                
+                for s in range(nspins):
+                    f_si[s, i:i + degeneracy] = f_s[s] / degeneracy
+
             i += degeneracy
             j += 1
 
-        #These lines disable the calculation of charged atoms!
-        #Therefore I commented them. -Mikael
-        #if magmom != 0:
-        #    raise RuntimeError('Bad magnetic moment %g for %s atom!'
-        # % (magmom, self.self.symbol))
+        if hund and magmom != 0:
+            raise ValueError('Bad magnetic moment %g for %s atom!'
+                             % (magmom, self.symbol))
         assert i == niao
 
+#        print "fsi=", f_si
         return f_si
+
+    def get_hunds_rule_moment(self, charge=0):
+        for M in range(10):
+            try:
+                self.calculate_initial_occupation_numbers(M, True, charge, 2)
+            except ValueError:
+                pass
+            else:
+                return M
+        raise RuntimeError
     
     def initialize_density_matrix(self, f_si):
         nspins, niao = f_si.shape
@@ -205,15 +242,10 @@ class BaseSetup:
 
         l_j = self.l_j
         nj = len(l_j)
-        beta = self.beta
 
         # cutoffs
         rcut2 = 2 * max(self.rcut_j)
-        gcut2 = 1 + int(rcut2 * self.ng / (rcut2 + beta))
-
-        # radial grid
-        g = np.arange(self.ng, dtype=float)
-        r_g = beta * g / (self.ng - g)
+        gcut2 = self.rgd.ceil(rcut2)
 
         data = self.data
 
@@ -223,13 +255,13 @@ class BaseSetup:
         tauc_g = data.tauc_g
         tauct_g = data.tauct_g
         #nc_g[gcut2:] = nct_g[gcut2:] = 0.0
-        nc = Spline(0, rcut2, nc_g, r_g, beta, points=1000)
-        nct = Spline(0, rcut2, nct_g, r_g, beta, points=1000)
+        nc = self.rgd.spline(nc_g, rcut2, points=1000)
+        nct = self.rgd.spline(nct_g, rcut2, points=1000)
         if tauc_g is None:
             tauc_g = np.zeros(nct_g.shape)
             tauct_g = tauc_g
-        tauc = Spline(0, rcut2, tauc_g, r_g, beta, points=1000)
-        tauct = Spline(0, rcut2, tauct_g, r_g, beta, points=1000)
+        tauc = self.rgd.spline(tauc_g, rcut2, points=1000)
+        tauct = self.rgd.spline(tauct_g, rcut2, points=1000)
         phi_j = []
         phit_j = []
         for j, (phi_g, phit_g) in enumerate(zip(data.phi_jg, data.phit_jg)):
@@ -237,8 +269,8 @@ class BaseSetup:
             phi_g = phi_g.copy()
             phit_g = phit_g.copy()
             phi_g[gcut2:] = phit_g[gcut2:] = 0.0
-            phi_j.append(Spline(l, rcut2, phi_g, r_g, beta, points=100))
-            phit_j.append(Spline(l, rcut2, phit_g, r_g, beta, points=100))
+            phi_j.append(self.rgd.spline(phi_g, rcut2, l, points=100))
+            phit_j.append(self.rgd.spline(phit_g, rcut2, l, points=100))
         return phi_j, phit_j, nc, nct, tauc, tauct
 
     def set_hubbard_u(self, U, l,scale=1,store=0,LinRes=0):
@@ -279,9 +311,9 @@ class BaseSetup:
             return self.I4_pp
 
         # radial grid
-        ng = self.ng
-        g = np.arange(ng, dtype=float)
-        r2dr_g = self.beta**3 * g**2 * ng / (ng - g)**4
+        #ng = self.ng
+        #g = np.arange(ng, dtype=float)
+        r2dr_g = self.rgd.r_g**2 * self.rgd.dr_g
 
         phi_jg = self.data.phi_jg
         phit_jg = self.data.phit_jg
@@ -412,6 +444,7 @@ class LeanSetup(BaseSetup):
 
         self.N0_p = s.N0_p # req. by estimate_magnetic_moments
         self.nabla_iiv = s.nabla_iiv  # req. by lrtddft
+        self.rnabla_iiv = s.rnabla_iiv  # req. by lrtddft
 
         # XAS stuff
         self.phicorehole_g = s.phicorehole_g # should be optional
@@ -419,9 +452,8 @@ class LeanSetup(BaseSetup):
             self.A_ci = s.A_ci # oscillator strengths
 
         # Required to get all electron density
-        self.beta = s.beta
+        self.rgd = s.rgd
         self.rcut_j = s.rcut_j
-        self.ng = s.ng
 
         self.tauct = s.tauct # required by TPSS, MGGA
 
@@ -527,8 +559,6 @@ class Setup(BaseSetup):
         self.f_j = data.f_j
         self.eps_j = data.eps_j
         nj = self.nj = len(l_j)
-        ng = self.ng = data.ng
-        beta = self.beta = data.beta
         rcut_j = self.rcut_j = data.rcut_j
 
         self.ExxC = data.ExxC
@@ -541,10 +571,9 @@ class Setup(BaseSetup):
         self.fingerprint = data.fingerprint
         self.filename = data.filename
 
-        g = np.arange(ng, dtype=float)
-        r_g = beta * g / (ng - g)
-        dr_g = beta * ng / (ng - g)**2
-        d2gdr2 = -2 * ng * beta / (beta + r_g)**3
+        rgd = self.rgd = data.rgd
+        r_g = rgd.r_g
+        dr_g = rgd.dr_g
 
         self.lmax = lmax
 
@@ -554,10 +583,10 @@ class Setup(BaseSetup):
 
         rcutmax = max(rcut_j)
         rcut2 = 2 * rcutmax
-        gcut2 = 1 + int(rcut2 * ng / (rcut2 + beta))
+        gcut2 = rgd.ceil(rcut2)
         self.gcut2 = gcut2
 
-        self.gcutmin = 1 + int(min(rcut_j) * ng / (min(rcut_j) + beta))
+        self.gcutmin = rgd.ceil(min(rcut_j))
 
         ni = 0
         i = 0
@@ -579,21 +608,20 @@ class Setup(BaseSetup):
             lcut = (lmax + 1) // 2
         self.lcut = lcut
 
-        self.B_ii = self.calculate_projector_overlaps(r_g, dr_g, pt_jg)
+        self.B_ii = self.calculate_projector_overlaps(pt_jg)
 
         self.fcorehole = data.fcorehole
         self.lcorehole = data.lcorehole
         if data.phicorehole_g is not None:
             if self.lcorehole == 0:
-                self.calculate_oscillator_strengths(r_g, dr_g, phi_jg)
+                self.calculate_oscillator_strengths(phi_jg)
             else:
                 self.A_ci = None
 
         # Construct splines:
-        self.vbar = Spline(0, rcutfilter, data.vbar_g, r_g, beta)
+        self.vbar = rgd.spline(data.vbar_g, rcutfilter)
 
-        rcore, nc_g, nct_g, nct = self.construct_core_densities(r_g, dr_g,
-                                                                beta, data)
+        rcore, nc_g, nct_g, nct = self.construct_core_densities(data)
         self.rcore = rcore
         self.nct = nct
 
@@ -601,17 +629,13 @@ class Setup(BaseSetup):
         tauct_g = data.tauct_g
         if tauct_g is None:
             tauct_g = np.zeros(ng)
-        self.tauct = Spline(0, self.rcore, tauct_g, r_g, beta)
+            # FIXME: ng is not defined! 
+        self.tauct = rgd.spline(tauct_g, self.rcore)
 
-        self.pt_j = self.create_projectors(r_g, rcutfilter, beta)
+        self.pt_j = self.create_projectors(rcutfilter)
 
         if basis is None:
-            basis = self.create_basis_functions(phit_jg, beta, ng, rcut2,
-                                                gcut2, r_g)
-            
-        else:
-            if isinstance(basis, str):
-                basis = Basis(self.symbol, basis)
+            basis = self.create_basis_functions(phit_jg, rcut2, gcut2)
         phit_j = basis.tosplines()
         self.phit_j = phit_j
         self.basis = basis #?
@@ -621,8 +645,9 @@ class Setup(BaseSetup):
             l = phit.get_angular_momentum_number()
             self.niAO += 2 * l + 1
 
-        r_g = r_g[:gcut2].copy()
-        dr_g = dr_g[:gcut2].copy()
+        rgd2 = self.rgd2 = AERadialGridDescriptor(rgd.a, rgd.b, gcut2)
+        r_g = rgd2.r_g
+        dr_g = rgd2.dr_g
         phi_jg = np.array([phi_g[:gcut2].copy() for phi_g in phi_jg])
         phit_jg = np.array([phit_g[:gcut2].copy() for phit_g in phit_jg])
         self.nc_g = nc_g = nc_g[:gcut2].copy()
@@ -633,7 +658,7 @@ class Setup(BaseSetup):
         extra_xc_data = dict(data.extra_xc_data)
         # Cut down the GLLB related extra data
         for key, item in extra_xc_data.iteritems():
-            if len(item) == ng:
+            if len(item) == rgd.N:
                 extra_xc_data[key] = item[:gcut2].copy()
         self.extra_xc_data = extra_xc_data
 
@@ -643,18 +668,14 @@ class Setup(BaseSetup):
 
         T_Lqp = self.calculate_T_Lqp(lcut, nq, _np, nj, jlL_i)
         (g_lg, n_qg, nt_qg, Delta_lq, self.Lmax, self.Delta_pL, Delta0, 
-         self.N0_p) = self.get_compensation_charges(r_g, dr_g, phi_jg,
-                                                    phit_jg, _np, T_Lqp)
+         self.N0_p) = self.get_compensation_charges(phi_jg, phit_jg, _np,
+                                                    T_Lqp)
         self.Delta0 = Delta0
         self.g_lg = g_lg
 
         # Solves the radial poisson equation for density n_g
         def H(n_g, l):
-            yrrdr_g = np.zeros(gcut2)
-            nrdr_g = n_g * r_g * dr_g
-            hartree(l, nrdr_g, beta, ng, yrrdr_g)
-            yrrdr_g *= r_g * dr_g
-            return yrrdr_g
+            return rgd2.poisson(n_g, l) * r_g * dr_g
 
         wnc_g = H(nc_g, l=0)
         wnct_g = H(nct_g, l=0)
@@ -706,9 +727,9 @@ class Setup(BaseSetup):
                 self.fc_j = self.extra_xc_data['core_f']
                 self.lc_j = self.extra_xc_data['core_l']
                 self.njcore = len(self.lc_j)
-                print self.extra_xc_data['core_states'].shape
                 if self.njcore > 0:
-                    self.uc_jg = self.extra_xc_data['core_states'].reshape((self.njcore, -1))
+                    self.uc_jg = self.extra_xc_data['core_states'].reshape(
+                        (self.njcore, -1))
                     self.uc_jg = self.uc_jg[:, :gcut2]
                 self.phi_jg = phi_jg
             
@@ -718,7 +739,8 @@ class Setup(BaseSetup):
 
         Delta0_ii = unpack(self.Delta_pL[:, 0].copy())
         self.dO_ii = data.get_overlap_correction(Delta0_ii)
-        self.dC_ii = self.get_inverse_overlap_coefficients(self.B_ii, self.dO_ii)
+        self.dC_ii = self.get_inverse_overlap_coefficients(self.B_ii,
+                                                           self.dO_ii)
         
         self.Delta_Lii = np.zeros((ni, ni, self.Lmax)) # XXX index order
         for L in range(self.Lmax):
@@ -729,13 +751,12 @@ class Setup(BaseSetup):
         
         r = 0.02 * rcut2 * np.arange(51, dtype=float)
         alpha = data.rcgauss**-2
-        self.ghat_l = data.get_ghat(lmax, alpha, r, rcut2)
+        self.ghat_l = data.get_ghat(lmax, alpha, r, rcut2)#;print 'use g_lg!'
         self.rcgauss = data.rcgauss
-        #self.rcutcomp = sqrt(10) * rcgauss # ??? XXX Not used for anything
         
-        rgd = RadialGridDescriptor(r_g, dr_g)
-        self.xc_correction = data.get_xc_correction(rgd, xc, gcut2, lcut)
-        self.nabla_iiv = self.get_derivative_integrals(rgd, phi_jg, phit_jg)
+        self.xc_correction = data.get_xc_correction(rgd2, xc, gcut2, lcut)
+        self.nabla_iiv = self.get_derivative_integrals(rgd2, phi_jg, phit_jg)
+        self.rnabla_iiv = self.get_magnetic_integrals(rgd2, phi_jg, phit_jg)
 
     def calculate_coulomb_corrections(self, lcut, n_qg, wn_lqg,
                                       lmax, Delta_lq, wnt_lqg,
@@ -771,11 +792,11 @@ class Setup(BaseSetup):
 
         return M_p, M_pp
 
-    def create_projectors(self, r_g, rcut, beta):
+    def create_projectors(self, rcut):
         pt_j = []
         for j, pt_g in enumerate(self.data.pt_jg):
             l = self.l_j[j]
-            pt_j.append(Spline(l, rcut, pt_g, r_g, beta))
+            pt_j.append(self.rgd.spline(pt_g, rcut, l))
         return pt_j
 
     def get_inverse_overlap_coefficients(self, B_ii, dO_ii):
@@ -799,13 +820,13 @@ class Setup(BaseSetup):
             i1 += 1
         return T_Lqp
     
-    def calculate_projector_overlaps(self, r_g, dr_g, pt_jg):
+    def calculate_projector_overlaps(self, pt_jg):
         """Compute projector function overlaps B_ii = <pt_i | pt_i>."""
         nj = len(pt_jg)
         B_jj = np.zeros((nj, nj))
         for j1, pt1_g in enumerate(pt_jg):
             for j2, pt2_g in enumerate(pt_jg):
-                B_jj[j1, j2] = np.dot(r_g**2 * dr_g, pt1_g * pt2_g)
+                B_jj[j1, j2] = self.rgd.integrate(pt1_g * pt2_g) / (4 * pi)
         B_ii = np.zeros((self.ni, self.ni))
         i1 = 0
         for j1, l1 in enumerate(self.l_j):
@@ -819,12 +840,12 @@ class Setup(BaseSetup):
                 i1 += 1
         return B_ii
 
-    def get_compensation_charges(self, r_g, dr_g, phi_jg, phit_jg, _np, T_Lqp):
+    def get_compensation_charges(self, phi_jg, phit_jg, _np, T_Lqp):
         lmax = self.lmax
         gcut2 = self.gcut2
         nq = self.nq
 
-        g_lg = self.data.create_compensation_charge_functions(lmax, r_g, dr_g)
+        g_lg = self.data.create_compensation_charge_functions(lmax)
         
         n_qg = np.zeros((nq, gcut2))
         nt_qg = np.zeros((nq, gcut2))
@@ -836,6 +857,8 @@ class Setup(BaseSetup):
                 q += 1
         
         gcutmin = self.gcutmin
+        r_g = self.rgd2.r_g
+        dr_g = self.rgd2.dr_g
         self.lq = np.dot(n_qg[:, :gcutmin], r_g[:gcutmin]**2 * dr_g[:gcutmin])
 
         Delta_lq = np.zeros((lmax + 1, nq))
@@ -856,11 +879,12 @@ class Setup(BaseSetup):
         # Electron density inside augmentation sphere.  Used for estimating
         # atomic magnetic moment:
         rcutmax = max(self.rcut_j)
-        gcutmax = int(round(rcutmax * self.ng / (rcutmax + self.beta)))
+        gcutmax = self.rgd.round(rcutmax)
         N0_q = np.dot(n_qg[:, :gcutmax], (r_g**2 * dr_g)[:gcutmax])
         N0_p = np.dot(N0_q, T_Lqp[0]) * sqrt(4 * pi)
 
-        return g_lg, n_qg, nt_qg, Delta_lq, Lmax, Delta_pL, Delta0, N0_p
+        return (g_lg[:, :gcut2].copy(), n_qg, nt_qg,
+                Delta_lq, Lmax, Delta_pL, Delta0, N0_p)
 
     def get_derivative_integrals(self, rgd, phi_jg, phit_jg):
         """Calculate PAW-correction matrix elements of nabla.
@@ -875,7 +899,7 @@ class Setup(BaseSetup):
 
         if extra_parameters.get('fprojectors'):
             return None
-        
+
         r_g = rgd.r_g
         dr_g = rgd.dr_g
         nabla_iiv = np.empty((self.ni, self.ni, 3))
@@ -906,15 +930,69 @@ class Setup(BaseSetup):
             i1 += nm1
         return nabla_iiv
 
-    def construct_core_densities(self, r_g, dr_g, beta, setupdata):
-        rcore = self.data.find_core_density_cutoff(r_g, dr_g, setupdata.nc_g)
-        nct = Spline(0, rcore, setupdata.nct_g, r_g, beta)
+    def get_magnetic_integrals(self, rgd, phi_jg, phit_jg):
+        """Calculate PAW-correction matrix elements of r x nabla.
+
+        ::
+        
+          /  _       _          _     ~   _      ~   _
+          | dr [phi (r) O  phi (r) - phi (r) O  phi (r)]
+          /        1     x    2         1     x    2
+
+                       d      d
+          where O  = y -- - z --
+                 x     dz     dy
+
+        and similar for y and z."""
+
+        if extra_parameters.get('fprojectors'):
+            return None
+        r_g = rgd.r_g
+        dr_g = rgd.dr_g
+        rnabla_iiv = np.zeros((self.ni, self.ni, 3))
+        i1 = 0
+        for j1 in range(self.nj):
+            l1 = self.l_j[j1]
+            nm1 = 2 * l1 + 1
+            i2 = 0
+            for j2 in range(self.nj):
+                l2 = self.l_j[j2]
+                nm2 = 2 * l2 + 1
+                f1f2or = np.dot(phi_jg[j1] * phi_jg[j2] -
+                                phit_jg[j1] * phit_jg[j2], r_g**2 * dr_g)
+                for v in range(3):
+                    v1 = (v + 1) % 3
+                    v2 = (v + 2) % 3
+                    # term from radial wfs does not contribute
+                    # term from spherical harmonics derivatives
+                    G = np.zeros((nm1, nm2))
+                    for l3 in range(abs(l1 - 1), l1 + 2):
+                        for m3 in range(0, (2 * l3 + 1)):
+                            L3 = l3**2 + m3
+                            try:
+                                G += np.outer(G_LLL[L3, l1**2:l1**2 + nm1, 
+                                                    1 + v1],
+                                              Y_LLv[L3, l2**2:l2**2 + nm2, v2])
+                                G -= np.outer(G_LLL[L3, l1**2:l1**2 + nm1, 
+                                                    1 + v2],
+                                              Y_LLv[L3, l2**2:l2**2 + nm2, v1])
+                            except IndexError:
+                                pass # L3 might be too large, ignore
+                    rnabla_iiv[i1:i1 + nm1, i2:i2 + nm2, v] += (
+                        f1f2or * G )
+                i2 += nm2
+            i1 += nm1
+        return (4 * pi / 3 ) * rnabla_iiv
+
+    def construct_core_densities(self, setupdata):
+        rcore = self.data.find_core_density_cutoff(setupdata.nc_g)
+        nct = self.rgd.spline(setupdata.nct_g, rcore)
         return rcore, setupdata.nc_g, setupdata.nct_g, nct
 
-    def create_basis_functions(self, phit_jg, beta, ng, rcut2, gcut2, r_g):
+    def create_basis_functions(self, phit_jg, rcut2, gcut2):
         # Cutoff for atomic orbitals used for initial guess:
         rcut3 = 8.0  # XXXXX Should depend on the size of the atom!
-        gcut3 = 1 + int(rcut3 * ng / (rcut3 + beta))
+        gcut3 = self.rgd.ceil(rcut3)
 
         # We cut off the wave functions smoothly at rcut3 by the
         # following replacement:
@@ -932,6 +1010,7 @@ class Setup(BaseSetup):
         #  b(rcut2) = 0, b'(rcut2) = 0, b''(rcut2) = 0,
         #  b(rcut3) = 0, b'(rcut3) = 1
         #
+        r_g = self.rgd.r_g
         x = (r_g[gcut2:gcut3] - rcut2) / (rcut3 - rcut2)
         a_g = 4 * x**3 * (1 - 0.75 * x)
         b_g = x**3 * (x - 1) * (rcut3 - rcut2)
@@ -958,11 +1037,11 @@ class Setup(BaseSetup):
                            (r_g[gcut3] - r_g[gcut3 - 1]))
                 phit_g[gcut2:gcut3] -= phit * a_g + dphitdr * b_g
                 phit_g[gcut3:] = 0.0
-                phit_j.append(Spline(l, rcut3, phit_g, r_g, beta, points=100))
+                phit_j.append(self.rgd.spline(phit_g, rcut3, l, points=100))
         basis = PartialWaveBasis(self.symbol, phit_j)
         return basis
 
-    def calculate_oscillator_strengths(self, r_g, dr_g, phi_jg):
+    def calculate_oscillator_strengths(self, phi_jg):
         # XXX implement oscillator strengths for lcorehole != 0
         assert(self.lcorehole == 0)
         self.A_ci = np.zeros((3, self.ni))
@@ -971,7 +1050,8 @@ class Setup(BaseSetup):
         for j in range(nj):
             l = self.l_j[j]
             if l == 1:
-                a = np.dot(r_g**3 * dr_g, phi_jg[j] * self.data.phicorehole_g)
+                a = self.rgd.integrate(phi_jg[j] * self.data.phicorehole_g,
+                                      n=1) / (4 * pi)
 
                 for m in range(3):
                     c = (m + 1) % 3
@@ -1014,6 +1094,11 @@ class Setups(list):
                 setupdata = None
                 if not isinstance(type, str):
                     setupdata = type
+                # Basis may be None (meaning that the setup decides), a string
+                # (meaning we load the basis set now from a file) or an actual
+                # pre-created Basis object (meaning we just pass it along)
+                if isinstance(basis, str):
+                    basis = Basis(symbol, basis, world=world)
                 setup = create_setup(symbol, xc, lmax, type,
                                      basis, setupdata=setupdata, world=world)
                 self.setups[id] = setup

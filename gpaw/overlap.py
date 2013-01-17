@@ -18,14 +18,10 @@ from gpaw.utilities.lapack import diagonalize
 import gpaw.cuda
 
 class Overlap:
-    """Overlap operator class.
+    """Overlap operator S
 
-    Attributes
-    ==========
-
-    dtype: type object
-        Numerical type of operator (float/complex)
-
+    This class contains information required to apply the
+    overlap operator to a set of wavefunctions.
     """
 
     def __init__(self, ksl, timer):
@@ -33,7 +29,7 @@ class Overlap:
         self.ksl = ksl
         self.timer = timer
         
-    def orthonormalize(self, wfs, kpt):
+    def orthonormalize(self, wfs, kpt, psit_nG=None):
         """Orthonormalizes the vectors a_nG with respect to the overlap.
 
         First, a Cholesky factorization C is done for the overlap
@@ -62,15 +58,18 @@ class Overlap:
 
         """
         self.timer.start('Orthonormalize')
-        if kpt.cuda:
-            psit_nG = kpt.psit_nG_gpu
-        else:
-            psit_nG = kpt.psit_nG
-        P_ani = kpt.P_ani
-        #self.timer.start('LFC integrate')
-        wfs.pt.integrate(psit_nG, P_ani, kpt.q)
 
-        #self.timer.stop('LFC integrate')
+        if psit_nG is None:
+            if kpt.cuda:
+                psit_nG = kpt.psit_nG_gpu
+            else:
+                psit_nG = kpt.psit_nG
+
+        P_ani = kpt.P_ani
+        self.timer.start('projections')
+        wfs.pt.integrate(psit_nG, P_ani, kpt.q)
+        self.timer.stop('projections')
+
         # Construct the overlap matrix:
         operator = wfs.matrixoperator
 
@@ -80,10 +79,9 @@ class Overlap:
         def dS(a, P_ni):
             return np.dot(P_ni, wfs.setups[a].dO_ii)
 
-        self.timer.start('calc_matrix')
-
+        self.timer.start('calc_s_matrix')
         S_nn = operator.calculate_matrix_elements(psit_nG, P_ani, S, dS)
-        self.timer.stop('calc_matrix')
+        self.timer.stop('calc_s_matrix')
 
         orthonormalization_string = repr(self.ksl)
         self.timer.start(orthonormalization_string)
@@ -107,9 +105,10 @@ class Overlap:
 
         self.timer.start('rotate_psi')
         if kpt.cuda:
-            kpt.psit_nG_gpu = operator.matrix_multiply(C_nn, psit_nG, P_ani)
+            operator.matrix_multiply(C_nn, psit_nG, P_ani, out_nG=kpt.psit_nG_gpu)
         else:
-            kpt.psit_nG = operator.matrix_multiply(C_nn, psit_nG, P_ani)
+            operator.matrix_multiply(C_nn, psit_nG, P_ani, out_nG=kpt.psit_nG)
+
         self.timer.stop('rotate_psi')
         self.timer.stop('Orthonormalize')
 

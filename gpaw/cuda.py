@@ -3,7 +3,6 @@ import warnings
 try:
     import pycuda.driver as drv
     import pycuda.tools as tools
-
 except ImportError:
     pass
 

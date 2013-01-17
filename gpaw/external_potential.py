@@ -6,9 +6,9 @@ import _gpaw
 
 import gpaw.cuda
 
-
-"""This module defines different external potentials to be used in 
+"""This module defines different external potentials to be used in
 time-independent and time-dependent calculations."""
+
 
 class ExternalPotential:
     """ External potential
@@ -46,7 +46,7 @@ class ExternalPotential:
         return [[self.get_value(position, spos_c)]]
 
     def get_value(self, position=None, spos_c=None):
-        """The potential value (as seen by an electron) 
+        """The potential value (as seen by an electron)
         at a certain grid point.
 
         position [Angstrom]
@@ -54,17 +54,17 @@ class ExternalPotential:
         if spos_c is None:
             spos_c = self.gd.scale_position(position / Bohr)
         g_c = self.gd.get_nearest_grid_point(spos_c)
-        g_c -= (g_c == self.gd.n_c) # force point to this domain
+        g_c -= (g_c == self.gd.n_c)  # force point to this domain
         return self.vext_g[tuple(g_c)]
 
     def get_nuclear_energy(self, nucleus):
         """Return the energy contribution of the bare nucleus."""
-        return 0. # don't assume anything about the nucleus
+        return 0.0  # don't assume anything about the nucleus
 
     
 
     def add_linear_field(self, wfs, spos_ac, a_nG, b_nG, strength, kpt):
-        """Adds (does NOT apply) linear field 
+        """Adds (does NOT apply) linear field
         f(x,y,z) = str_x * x + str_y * y + str_z * z to wavefunctions.
 
         Parameters
@@ -81,41 +81,37 @@ class ExternalPotential:
             K-point
         """
 
-        def add_linear_field_cpu(a_nG, b_nG, gd, strength):
+        def add_linear_field_sub(a_nG, b_nG, gd, strength):
             # apply local part of x to smooth wavefunctions psit_n
             for i in range(gd.n_c[0]):
                 x = (i + gd.beg_c[0]) * gd.h_cv[0, 0]
-                b_nG[:,i,:,:] += (strength[0] * x) * a_nG[:,i,:,:]
-                
-            # FIXME: combine y and z to one vectorized operation,
-            # i.e., make yz-array and take its product with a_nG
-                
+                b_nG[:, i, :, :] += (strength[0] * x) * a_nG[:, i, :, :]
+
             # apply local part of y to smooth wavefunctions psit_n
             for i in range(gd.n_c[1]):
                 y = (i + gd.beg_c[1]) * gd.h_cv[1, 1]
-                b_nG[:,:,i,:] += (strength[1] * y) * a_nG[:,:,i,:]
-                
+                b_nG[:, :, i, :] += (strength[1] * y) * a_nG[:, :, i, :]
+
             # apply local part of z to smooth wavefunctions psit_n
             for i in range(gd.n_c[2]):
                 z = (i + gd.beg_c[2]) * gd.h_cv[2, 2]
-                b_nG[:,:,:,i] += (strength[2] * z) * a_nG[:,:,:,i]
-
+                b_nG[:, :, :, i] += (strength[2] * z) * a_nG[:, :, :, i]
 
 
         gd = wfs.gd
-
+        
         if isinstance(a_nG, gpaw.cuda.gpuarray.GPUArray):
             if gpaw.cuda.debug:
                 a_nG_cpu=a_nG.get()
                 b_nG_cpu=b_nG.get()
-                add_linear_field_cpu(a_nG_cpu, b_nG_cpu, gd, strength)
+                add_linear_field_sub(a_nG_cpu, b_nG_cpu, gd, strength)
             _gpaw.add_linear_field_cuda_gpu(a_nG.gpudata, a_nG.shape,
                                             a_nG.dtype, b_nG.gpudata, gd.n_c,
                                             gd.beg_c, gd.h_cv, strength)
             if gpaw.cuda.debug:
                 gpaw.cuda.debug_test(b_nG,b_nG_cpu,"add_linear_field")
         else:
-            add_linear_field_cpu(a_nG, b_nG, gd, strength)
+            add_linear_field_sub(a_nG, b_nG, gd, strength)
 
         # apply the non-local part for each nucleus
 
@@ -128,7 +124,7 @@ class ExternalPotential:
         for a, P_ni in P_ani.items():
             c0 = np.dot(spos_ac[a] * gd.cell_cv.diagonal(), strength)
             cxyz = strength
-            # calculate coefficient 
+            # calculate coefficient
             # ---------------------
             #
             # coeffs_ni =
@@ -149,108 +145,23 @@ class ExternalPotential:
             #   y_ij = sqrt(4pi/3) Delta_1ij
             #   z_ij = sqrt(4pi/3) Delta_2ij
             #   x_ij = sqrt(4pi/3) Delta_3ij
-            oneij = np.sqrt(4.*np.pi) \
-                * np.dot(P_ni, Delta_iiL[:,:,0])
-            yij = np.sqrt(4.*np.pi / 3.) \
-                * np.dot(P_ni, Delta_iiL[:,:,1])
-            zij = np.sqrt(4.*np.pi / 3.) \
-                * np.dot(P_ni, Delta_iiL[:,:,2])
-            xij = np.sqrt(4.*np.pi / 3.) \
-                * np.dot(P_ni, Delta_iiL[:,:,3])
+            oneij = np.sqrt(4 * np.pi) \
+                * np.dot(P_ni, Delta_iiL[:, :, 0])
+            yij = np.sqrt(4 * np.pi / 3) \
+                * np.dot(P_ni, Delta_iiL[:, :, 1])
+            zij = np.sqrt(4 * np.pi / 3) \
+                * np.dot(P_ni, Delta_iiL[:, :, 2])
+            xij = np.sqrt(4 * np.pi / 3) \
+                * np.dot(P_ni, Delta_iiL[:, :, 3])
 
             # coefficients
             # coefs_ni = sum_j ( <phi_i| f(x,y,z) | phi_j>
             #                    - <phit_i| f(x,y,z) | phit_j> ) P_nj
-            coef_ani[a] = ( c0 * oneij 
-                            + cxyz[0] * xij + cxyz[1] * yij + cxyz[2] * zij )
+            coef_ani[a] = (c0 * oneij +
+                           cxyz[0] * xij + cxyz[1] * yij + cxyz[2] * zij)
             
         # add partial wave pt_nG to psit_nG with proper coefficient
         wfs.pt.add(b_nG, coef_ani, kpt.q)
-
-
-    # BAD, VERY VERY SLOW, DO NOT USE IN REAL CALCULATIONS!!!
-    def apply_scalar_potential(self, pt_nuclei, a_nG, b_nG, func, kpt):
-        """Apply scalar function f(x,y,z) to wavefunctions. BAD
-
-        NOTE: BAD, VERY VERY SLOW, DO NOT USE IN REAL CALCULATIONS!!!
-        The function is approximated by a low-order polynomial near nuclei.
-
-        Currently supports only quadratic (actually, only linear as
-        nucleus.apply_polynomial support only linear)::
-        
-          p(x,y,z) = a + b_x x + b_y y + b_z z 
-                       + c_x^2 x^2 + c_xy x y
-                       + c_y^2 y^2 + c_yz y z
-                       + c_z^2 z^2 + c_zx z x 
-
-
-        The polynomial is constructed by making a least-squares fit to
-        points (0,0,0), 3/8 (r_cut,0,0), sqrt(3)/4 (r_cut,r_cut,r_cut), and 
-        to points symmetric in cubic symmetry. (Points are given relative to 
-        the nucleus).
-        """
-
-        # apply local part to smooth wavefunctions psit_n
-        for i in range(kpt.gd.n_c[0]):
-            x = (i + kpt.gd.beg_c[0]) * kpt.gd.h_cv[0, 0]
-            for j in range(kpt.gd.n_c[1]):
-                y = (j + kpt.gd.beg_c[1]) * kpt.gd.h_cv[1, 1]
-                for k in range(kpt.gd.n_c[2]):
-                    z = (k + kpt.gd.beg_c[2]) * kpt.gd.h_c[2, 2]
-                    b_nG[:,i,j,k] = func.value(x,y,z) * a_nG[:,i,j,k]
-
-        # apply the non-local part for each nucleus
-        for nucleus in pt_nuclei:
-            if nucleus.in_this_domain:
-                # position
-                x_c = nucleus.spos_c[0] * kpt.gd.cell_cv[0, 0]
-                y_c = nucleus.spos_c[1] * kpt.gd.cell_cv[1, 1]
-                z_c = nucleus.spos_c[2] * kpt.gd.cell_cv[2, 2]
-                # Delta r = max(r_cut) / 2
-                # factor sqrt(1/3) because (dr,dr,dr)^2 = Delta r
-                rcut = max(nucleus.setup.rcut_j)
-                a = rcut * 3.0 / 8.0
-                b = 2.0 * a / np.sqrt(3.0)
-                
-                # evaluate function at (0,0,0), 3/8 (r_cut,0,0),
-                # sqrt(3)/4 (r_cut,r_cut,rcut), and at symmetric points 
-                # in cubic symmetry
-                #
-                # coordinates
-                coords = [ [x_c,y_c,z_c], \
-                           [x_c+a, y_c,   z_c], \
-                           [x_c-a, y_c,   z_c], \
-                           [x_c,   y_c+a, z_c], \
-                           [x_c,   y_c-a, z_c], \
-                           [x_c,   y_c,   z_c+a], \
-                           [x_c,   y_c,   z_c-a], \
-                           [x_c+b, y_c+b, z_c+b], \
-                           [x_c+b, y_c+b, z_c-b], \
-                           [x_c+b, y_c-b, z_c+b], \
-                           [x_c+b, y_c-b, z_c-b], \
-                           [x_c-b, y_c+b, z_c+b], \
-                           [x_c-b, y_c+b, z_c-b], \
-                           [x_c-b, y_c-b, z_c+b], \
-                           [x_c-b, y_c-b, z_c-b] ]
-                # values
-                values = np.zeros(len(coords))
-                for i in range(len(coords)):
-                    values[i] = func.value( coords[i][0],
-                                            coords[i][1],
-                                            coords[i][2] )
-                
-                # fit polynomial
-                # !!! FIX ME !!! order should be changed to 2 as soon as
-                # nucleus.apply_polynomial supports it
-                nuc_poly = Polynomial(values, coords, order=1)
-                #print nuc_poly.c
-                
-                # apply polynomial operator
-                nucleus.apply_polynomial(a_nG, b_nG, self.k, nuc_poly)
-                
-            # if not in this domain
-            else:
-                nucleus.apply_polynomial(a_nG, b_nG, self.k, None)
 
 
 class ConstantPotential(ExternalPotential):
@@ -267,7 +178,7 @@ class ConstantPotential(ExternalPotential):
     
     def get_ion_energy_and_forces(self, atoms):
         """Return the ionic energy and force contribution."""
-        forces = np.zeros((len(atoms),3))
+        forces = np.zeros((len(atoms), 3))
         energy = 0
         return energy, forces
 
@@ -280,24 +191,24 @@ class ElectrostaticPotential(ExternalPotential):
     """
     def get_ion_energy_and_forces(self, atoms):
         """Return the ionic energy and force contribution."""
-        forces = np.zeros((len(atoms),3))
+        forces = np.zeros((len(atoms), 3))
         energy = 0
         for i, atom in enumerate(atoms):
             taylor = self.get_taylor(atom.position)
-##            print "pos, taylor=", atom.position, taylor 
+##            print "pos, taylor=", atom.position, taylor
             Z = atom.number
             energy -= Z * taylor[0][0]
             if len(taylor) > 1:
                 # see spherical_harmonics.py for the assignment
-                forces[i] += Z * np.array([taylor[1][2], # x
-                                           taylor[1][0], # y
-                                           taylor[1][1]])# z
+                forces[i] += Z * np.array([taylor[1][2],   # x
+                                           taylor[1][0],   # y
+                                           taylor[1][1]])  # z
         return energy, forces
 
 
 class ConstantElectricField(ElectrostaticPotential):
     """External constant electric field"""
-    def __init__(self, strength, direction=[0,0,1], center=None):
+    def __init__(self, strength, direction=[0, 0, 1], center=None):
         """
         strength: field strength [atomic units]
         direction: polarisation direction
@@ -322,26 +233,20 @@ class ConstantElectricField(ElectrostaticPotential):
                 # nothing changed
                 return self.potential
 
+        if gd.pbc_c.any():
+            raise NotImplementedError('ConstantElectricField is ' +
+                                      'not suitable for periodic ' +
+                                      'boundary conditions.')
+
         self.gd = gd
 
         if self.center is None:
             # use the center of the grid as default
-            self.center = .5 * np.sum(gd.h_cv * gd.N_c, axis=0)
+            self.center = 0.5 * gd.cell_cv.sum(0)
 
-        x = np.dot( ( (np.arange(gd.n_c[0]) + gd.beg_c[0]).reshape(-1, 1) *
-                      gd.h_cv[0, :] - self.center ), self.direction )
-        y = np.dot( ( (np.arange(gd.n_c[1]) + gd.beg_c[1]).reshape(-1, 1) *
-                      gd.h_cv[1, :] - self.center ), self.direction )
-        z = np.dot( ( (np.arange(gd.n_c[2]) + gd.beg_c[2]).reshape(-1, 1) *
-                      gd.h_cv[2, :] - self.center ), self.direction )
-
-        x.shape = (-1,1,1)
-        y.shape = (1,-1,1)
-        z.shape = (1,1,-1)
-
-        self.potential = self.strength * ( np.resize(x, gd.n_c) +
-                                           np.resize(y, gd.n_c) +
-                                           np.resize(z, gd.n_c) )
+        r_Rv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
+        self.potential = self.strength * np.dot(r_Rv - self.center,
+                                                self.direction)
         return self.potential
 
     def get_taylor(self, position=None, spos_c=None):
@@ -350,24 +255,24 @@ class ConstantElectricField(ElectrostaticPotential):
         position [Angstrom]"""
         if position is None:
             gd = self.gd
-            pos = np.dot(gd.N_c*spos_c, gd.h_cv) * Bohr
+            pos = np.dot(gd.N_c * spos_c, gd.h_cv) * Bohr
         else:
             pos = position
         # see spherical_harmonics.py for the assignment
         return [[self.get_value(position=pos)],
-                [self.strength * self.direction[1], # y
-                 self.strength * self.direction[2], # z
-                 self.strength * self.direction[0]]]# x
+                [self.strength * self.direction[1],   # y
+                 self.strength * self.direction[2],   # z
+                 self.strength * self.direction[0]]]  # x
 
     def get_value(self, position=None, spos_c=None):
-        """The potential value (as seen by an electron) 
+        """The potential value (as seen by an electron)
         at a certain grid point.
 
         position [Angstrom]
         spos_c scaled position on the grid"""
         gd = self.gd
         if position is None:
-            vr = np.dot(gd.N_c*spos_c, gd.h_cv) - self.center
+            vr = np.dot(gd.N_c * spos_c, gd.h_cv) - self.center
         else:
             vr = position / Bohr - self.center
         return self.strength * np.dot(vr, self.direction)

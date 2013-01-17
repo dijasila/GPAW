@@ -46,6 +46,13 @@ class WaveFunctions(EmptyWaveFunctions):
     kpt_comm:
         MPI-communicator for parallelization over **k**-points.
     """
+
+    collinear = True
+    # ncomp is a number of array components necessary to hold
+    # information about non-collinear spins.  With collinear spin
+    # it is always 1; else it is 2.
+    ncomp = 1
+    
     def __init__(self, gd, nvalence, setups, bd, dtype,
                  world, kd, timer=None, cuda=False):
         if timer is None:
@@ -55,8 +62,8 @@ class WaveFunctions(EmptyWaveFunctions):
         self.nspins = kd.nspins
         self.nvalence = nvalence
         self.bd = bd
-        self.nbands = self.bd.nbands #XXX
-        self.mynbands = self.bd.mynbands #XXX
+        #self.nbands = self.bd.nbands #XXX
+        #self.mynbands = self.bd.mynbands #XXX
         self.dtype = dtype
         self.world = world
         self.kd = kd
@@ -102,16 +109,14 @@ class WaveFunctions(EmptyWaveFunctions):
         self.band_comm.sum(nt_sG)
         self.kpt_comm.sum(nt_sG)
         
-        if self.symmetry:
-            self.timer.start('Symmetrize density')
-            for nt_G in nt_sG:
-                self.symmetry.symmetrize(nt_G, self.gd)
-            self.timer.stop('Symmetrize density')
+        self.timer.start('Symmetrize density')
+        for nt_G in nt_sG:
+            self.symmetry.symmetrize(nt_G, self.gd)
+        self.timer.stop('Symmetrize density')
 
     def add_to_density_from_k_point(self, nt_sG, kpt):
             self.add_to_density_from_k_point_with_occupation(nt_sG, kpt, 
                                                              kpt.f_n)
-    
 
     def get_orbital_density_matrix(self, a, kpt, n):
         """Add the nth band density from kpt to density matrix D_sp"""
@@ -157,7 +162,7 @@ class WaveFunctions(EmptyWaveFunctions):
         # Varying f_n used in calculation of response part of GLLB-potential
         for a, D_sp in D_asp.items():
             ni = self.setups[a].ni
-            D_sii = np.zeros((self.nspins, ni, ni))
+            D_sii = np.zeros((len(D_sp), ni, ni))
             for f_n, kpt in zip(f_un, self.kpt_u):
                 self.calculate_atomic_density_matrices_k_point(D_sii, kpt, a,
                                                                f_n)
@@ -168,13 +173,14 @@ class WaveFunctions(EmptyWaveFunctions):
         self.symmetrize_atomic_density_matrices(D_asp)
 
     def symmetrize_atomic_density_matrices(self, D_asp):
-        if self.symmetry:
+        if len(self.symmetry.op_scc) > 1:
             all_D_asp = []
             for a, setup in enumerate(self.setups):
                 D_sp = D_asp.get(a)
                 if D_sp is None:
                     ni = setup.ni
-                    D_sp = np.empty((self.nspins, ni * (ni + 1) // 2))
+                    D_sp = np.empty((self.nspins * self.ncomp**2,
+                                     ni * (ni + 1) // 2))
                 self.gd.comm.broadcast(D_sp, self.rank_a[a])
                 all_D_asp.append(D_sp)
 
@@ -183,7 +189,7 @@ class WaveFunctions(EmptyWaveFunctions):
                 for a, D_sp in D_asp.items():
                     setup = self.setups[a]
                     D_sp[s] = pack(setup.symmetrize(a, D_aii,
-                                                    self.symmetry.maps))
+                                                    self.symmetry.a_sa))
 
     def set_positions(self, spos_ac):
         self.positions_set = False
@@ -211,7 +217,7 @@ class WaveFunctions(EmptyWaveFunctions):
             for a in my_incoming_atom_indices:
                 # Get matrix from old domain:
                 ni = self.setups[a].ni
-                P_uni = np.empty((mynks, self.mynbands, ni), self.dtype)
+                P_uni = np.empty((mynks, self.bd.mynbands, ni), self.dtype)
                 requests.append(self.gd.comm.receive(P_uni, self.rank_a[a],
                                                      tag=a, block=False))
                 for myu, kpt in enumerate(self.kpt_u):
@@ -241,7 +247,7 @@ class WaveFunctions(EmptyWaveFunctions):
             for a in my_atom_indices:
                 ni = self.setups[a].ni
                 for kpt in self.kpt_u:
-                    kpt.P_ani[a] = np.empty((self.mynbands, ni), self.dtype)
+                    kpt.P_ani[a] = np.empty((self.bd.mynbands, ni), self.dtype)
 
     def collect_eigenvalues(self, k, s):
         return self.collect_array('eps_n', k, s)
@@ -282,11 +288,14 @@ class WaveFunctions(EmptyWaveFunctions):
                             self.kpt_comm.ssend(b_nx, 0, 1301)
 
         elif self.world.rank == 0 and kpt_rank != 0:
-            # Find shape and dtype:
+            # Only used to determine shape and dtype of receiving buffer:
             a_nx = getattr(kpt_u[0], name)
-            shape = (self.nbands,) + a_nx.shape[1:]
-            dtype = a_nx.dtype
-            b_nx = np.zeros(shape, dtype=dtype)
+
+            if subset is not None:
+                a_nx = a_nx[subset]
+
+            b_nx = np.zeros((self.bd.nbands,) + a_nx.shape[1:],
+                            dtype=a_nx.dtype)
             self.kpt_comm.receive(b_nx, kpt_rank, 1301)
             return b_nx
 
@@ -331,16 +340,16 @@ class WaveFunctions(EmptyWaveFunctions):
         For the parallel case find the rank in kpt_comm that contains
         the (k,s) pair, for this rank, send to the global master."""
 
-        kpt_u = self.kpt_u
         kpt_rank, u = self.kd.get_rank_and_index(s, k)
-        P_ani = kpt_u[u].P_ani
 
         natoms = len(self.rank_a) # it's a hack...
         nproj = sum([setup.ni for setup in self.setups])
 
         if self.world.rank == 0:
-            mynu = len(kpt_u)
-            all_P_ni = np.empty((self.nbands, nproj), self.dtype)
+            if kpt_rank == 0:
+                P_ani = self.kpt_u[u].P_ani
+            mynu = len(self.kpt_u)
+            all_P_ni = np.empty((self.bd.nbands, nproj), self.dtype)
             for band_rank in range(self.band_comm.size):
                 nslice = self.bd.get_slice(band_rank)
                 i = 0
@@ -349,7 +358,7 @@ class WaveFunctions(EmptyWaveFunctions):
                     if kpt_rank == 0 and band_rank == 0 and a in P_ani:
                         P_ni = P_ani[a]
                     else:
-                        P_ni = np.empty((self.mynbands, ni), self.dtype)
+                        P_ni = np.empty((self.bd.mynbands, ni), self.dtype)
                         world_rank = (self.rank_a[a] +
                                       kpt_rank * self.gd.comm.size *
                                       self.band_comm.size +
@@ -361,47 +370,53 @@ class WaveFunctions(EmptyWaveFunctions):
             return all_P_ni
 
         elif self.kpt_comm.rank == kpt_rank: # plain else works too...
+            P_ani = self.kpt_u[u].P_ani
             for a in range(natoms):
                 if a in P_ani:
                     self.world.ssend(P_ani[a], 0, 1303 + a)
 
-    def get_wave_function_array(self, n, k, s):
-        """Return pseudo-wave-function array.
+    def get_wave_function_array(self, n, k, s, realspace=True):
+        """Return pseudo-wave-function array on master.
         
-        For the parallel case find the rank in kpt_comm that contains
-        the (k,s) pair, for this rank, collect on the corresponding
+        n: int
+            Global band index.
+        k: int
+            Global IBZ k-point index.
+        s: int
+            Spin index (0 or 1).
+        realspace: bool
+            Transform plane wave or LCAO expansion coefficients to real-space.
+
+        For the parallel case find the ranks in kd.comm and bd.comm
+        that contains to (n, k, s), and collect on the corresponding
         domain a full array on the domain master and send this to the
         global master."""
 
         kpt_rank, u = self.kd.get_rank_and_index(s, k)
         band_rank, myn = self.bd.who_has(n)
 
-        psit1_G = self._get_wave_function_array(u, myn)
         size = self.world.size
         rank = self.world.rank
-        if size == 1:
-            return psit1_G
 
-        if self.kpt_comm.rank == kpt_rank:
-            if self.band_comm.rank == band_rank:
-                psit_G = self.gd.collect(psit1_G)
+        if (self.kpt_comm.rank == kpt_rank and
+            self.band_comm.rank == band_rank):
+            psit_G = self._get_wave_function_array(u, myn, realspace)
+            if realspace:
+                psit_G = self.gd.collect(psit_G)
 
-                if kpt_rank == 0 and band_rank == 0:
-                    if rank == 0:
-                        return psit_G
-
-                # Domain master send this to the global master
-                if self.gd.comm.rank == 0:
-                    self.world.send(psit_G, 0, 1398)
+            if rank == 0:
+                return psit_G
+            
+            # Domain master send this to the global master
+            if self.gd.comm.rank == 0:
+                self.world.ssend(psit_G, 0, 1398)
 
         if rank == 0:
-            # allocate full wavefunction and receive
-            psit_G = self.gd.empty(dtype=self.dtype, global_array=True)
+            # allocate full wave function and receive
+            psit_G = self.empty(global_array=True,
+                                realspace=realspace)
             world_rank = (kpt_rank * self.gd.comm.size *
                           self.band_comm.size +
                           band_rank * self.gd.comm.size)
             self.world.receive(psit_G, world_rank, 1398)
             return psit_G
-
-    def _get_wave_function_array(self, u, n):
-        raise NotImplementedError

@@ -1,127 +1,63 @@
-# Copyright (C) 2003  CAMP
-# Please see the accompanying LICENSE file for further information.
-
-"""All-electron calculations with GPAW.
-
-This module implements a special type of Setup object that allows us
-to do all-electron calculations for hydrogen atoms - all the PAW stuff
-is turned off.  Therefore, the densities will have sharp cusps at the
-nuclei, and dense grids are needed for accurate results.
-
-This feature is only useful for testing!
-"""
-
-from math import pi, sqrt
+"""Bare Coulomb potential for hydrogen."""
 
 import numpy as np
 
-from gpaw.spline import Spline
 from gpaw.utilities import erf
+from gpaw.spline import Spline
+from gpaw.setup import BaseSetup
+from gpaw.basis_data import Basis
 
 
-class AllElectronSetup:
-    def __init__(self, symbol, xcfunc, nspins):
-        assert symbol == 'H'
-        self.type = 'ae'
-        self.symbol = symbol + '.ae'
-        self.xcname = xcfunc.get_name()
-        self.softgauss = True
-        self.HubU = None
-        
-        self.fingerprint = ''
+class HydrogenAllElectronSetup(BaseSetup):
 
-        self.Nv = 1
-        self.Nc = 0
-        self.Z = 1
-        self.X_p = np.array([0.])
-        self.ExxC = 0.
-
-        self.n_j = [1]
-        self.l_j = [0]
-        self.f_j = [1]
-        self.eps_j = []
-
-        ng = 150
-        beta = 0.4
-        rcut = 0.9
-        rcut2 = 2 * rcut
-        gcut = 1 + int(rcut * ng / (rcut + beta))
-        gcut2 = 1 + int(rcut2 * ng / (rcut2 + beta))
-
-        g = np.arange(ng, dtype=float)
-        r_g = beta * g / (ng - g)
-
-        self.ni = 1
-        self.niAO = 1
-
-        self.rcore = 0.5
-        spline0 = Spline(0, self.rcore, [0.0, 0.0, 0.0])
-        
-        # Construct splines:
-        self.nct = spline0
-        self.tauct = spline0
-        self.vbar = spline0
-
-        # Step function:
-        stepf = sqrt(4 * pi) * np.ones(ng)
-        stepf[gcut:] = 0.0
-        self.stepf = Spline(0, rcut2, stepf, r_g=r_g, beta=beta)
-
-        self.pt_j = [spline0]
-
-        # Cutoff for atomic orbitals used for initial guess:
-        rcut3 = 8.0
-        gcut3 = 1 + int(rcut3 * ng / (rcut3 + beta))
-        self.phit_j = [Spline(0, rcut3, 2 * np.exp(-r_g), r_g=r_g, beta=beta)]
-
-        self.Delta_pL = np.zeros((1, 1))
-        self.Delta0 = -1 / sqrt(4 * pi)
-        self.MB = 0
-        self.M_p = np.zeros(1)
-        self.MB_p = np.zeros(1)
-        self.M_pp = np.zeros((1, 1))
-        self.Kc = 0
-        self.E = 0
-        self.dO_ii = np.zeros((1, 1))
-        self.K_p = np.zeros(1)
-        
-        self.xc_correction = self
-        self.xc = self
-        self.xc.set_functional(xcfunc)
-        
-        self.lmax = 0
-
-        rcutsoft = rcut2
-        rcgauss = 0.02
-
-        r = 0.02 * rcutsoft * np.arange(51, dtype=float)
-
-        alpha = rcgauss**-2
-        alpha2 = 15.0 / rcutsoft**2
-        self.M = -sqrt(alpha / 2 / pi)
-
-        vt0 = 4 * pi * (erf(sqrt(alpha) * r) - erf(sqrt(alpha2) * r))
-        vt0[0] = 8 * sqrt(pi) * (sqrt(alpha) - sqrt(alpha2))
-        vt0[1:] /= r[1:]
-        vt0[-1] = 0.0
-        self.vhat_l = [Spline(0, rcutsoft, vt0)]
-
-        self.rcutsoft = rcutsoft
-        self.rcut = rcut
-        self.alpha = alpha
+    def __init__(self, alpha1=10.0, alpha2=300.0):
+        self.alpha1 = alpha1
         self.alpha2 = alpha2
-
-        d_0 = 4 / sqrt(pi)
-        g = alpha2**1.5 * np.exp(-alpha2 * r**2)
-        g[-1] = 0.0
-        self.ghat_l = [Spline(0, rcutsoft, d_0 * g)]
-
-    # xc_correction methods:
-    def calculate_energy_and_derivatives(self, D_sp, H_sp, a=None):
-        H_sp[:] = 0.0
-        return 0.0
-    def set_functional(self, xcfunc):
-        self.xcfunc = xcfunc
+        
+        self.natoms = 0
+        self.E = 0.0
+        self.Z = 1
+        self.Nc = 0
+        self.Nv = 1
+        self.niAO = None
+        self.pt_j = []
+        self.ni = 0
+        self.l_j = []
+        self.n_j = []
+        self.nct = Spline(0, 0.5, [0.0, 0.0, 0.0])
+        self.Nct = 0.0
+        rc = 2.0
+        r_g = np.linspace(0, rc, 100)
+        r2_g = r_g**2
+        self.ghat_l = [Spline(0, rc, 4 * alpha1**1.5 / np.pi**0.5 *
+                              np.exp(-alpha1 * r2_g))]
+        v_g = erf(alpha1**0.5 * r_g) - erf(alpha2**0.5 * r_g)
+        v_g[1:] *= (4 * np.pi)**0.5 / r_g[1:]
+        v_g[0] = 4 * (alpha1**0.5 - alpha2**0.5)
+        self.vbar = Spline(0, rc, v_g)
+        self.Delta_pL = np.zeros((0, 1))
+        self.Delta0 = -1 / (4 * np.pi)**0.5
+        self.lmax = 0
+        self.K_p = self.M_p = self.MB_p = np.zeros(0)
+        self.M_pp = np.zeros((0, 0))
+        self.Kc = 0.0
+        self.MB = 0.0
+        self.M = -(alpha1 / 2 / np.pi)**0.5
+        self.xc_correction = None
+        self.HubU = None
+        self.dO_ii = np.zeros((0, 0))
+        self.type = 'all-electron'
+        self.fingerprint = None
+        
+    def build(self, basis):
+        if basis is None:
+            basis = Basis('H', 'sz(dzp)')
+        elif isinstance(basis, str):
+            basis = Basis('H', basis)
+        self.basis = basis
+        self.phit_j = self.basis.tosplines()
+        self.f_j = [1.0]
+        self.niAO = self.basis.nao
     
     def print_info(self, text):
-        text('All-electron calculation.')
+        text('Hydrogen all-electron potential')

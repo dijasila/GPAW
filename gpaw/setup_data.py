@@ -16,10 +16,11 @@ from gpaw.utilities import _fact, divrl
 from gpaw.utilities.tools import md5_new
 from gpaw.xc.pawcorrection import PAWXCCorrection
 from gpaw.mpi import broadcast_string
+from gpaw.atom.radialgd import AERadialGridDescriptor
 
 try:
     import gzip
-except:
+except ImportError:
     has_gzip = False
 else:
     has_gzip = True
@@ -54,8 +55,7 @@ class SetupData:
         self.eps_j = []
         self.e_kin_jj = None # <phi | T | phi> - <phit | T | phit>
         
-        self.beta = None
-        self.ng = None
+        self.rgd = None
         self.rcgauss = None # For compensation charge expansion functions
         
         # State identifier, like "X-2s" or "X-p1", where X is chemical symbol,
@@ -101,10 +101,29 @@ class SetupData:
         self.core_hole_e_kin = None
         self.has_corehole = False        
 
+        # Parameters for zero-potential:
+        self.l0 = None
+        self.e0 = None
+        self.r0 = None
+        self.nderiv0 = None
+
         if readxml:
-            PAWXMLParser(self).parse(world)
-            nj = len(self.l_j)
-            self.e_kin_jj.shape = (nj, nj)
+            self.read_xml(world=world)
+
+    def append(self, n, l, f, e, rcut, phi_g, phit_g, pt_g):
+        self.n_j.append(n)
+        self.l_j.append(l)
+        self.f_j.append(f)
+        self.eps_j.append(e)
+        self.rcut_j.append(rcut)
+        self.phi_jg.append(phi_g)
+        self.phit_jg.append(phit_g)
+        self.pt_jg.append(pt_g)
+        
+    def read_xml(self, source=None, world=None):
+        PAWXMLParser(self).parse(source=source, world=world)
+        nj = len(self.l_j)
+        self.e_kin_jj.shape = (nj, nj)
 
     def is_compatible(self, xc):
         return xc.get_setup_name() == self.setupname
@@ -145,16 +164,17 @@ class SetupData:
             j += 1
         text()
 
-    def create_compensation_charge_functions(self, lmax, r_g, dr_g):
+    def create_compensation_charge_functions(self, lmax):
         """Create Gaussians used to expand compensation charges."""
         rcgauss = self.rcgauss
-        g_lg = np.zeros((lmax + 1, len(r_g)))
+        g_lg = self.rgd.zeros(lmax + 1)
+        r_g = self.rgd.r_g
         g_lg[0] = 4 / rcgauss**3 / sqrt(pi) * np.exp(-(r_g / rcgauss)**2)
         for l in range(1, lmax + 1):
             g_lg[l] = 2.0 / (2 * l + 1) / rcgauss**2 * r_g * g_lg[l - 1]
 
         for l in range(lmax + 1):
-            g_lg[l] /= np.dot(r_g**(l + 2) * dr_g, g_lg[l])
+            g_lg[l] /= self.rgd.integrate(g_lg[l], l) / (4 * pi)
         return g_lg
 
     def get_smooth_core_density_integral(self, Delta0):
@@ -182,19 +202,20 @@ class SetupData:
                   for l in range(lmax + 1)]
         return ghat_l
 
-    def find_core_density_cutoff(self, r_g, dr_g, nc_g):
+    def find_core_density_cutoff(self, nc_g):
         if self.Nc == 0:
             return 1.0
         else:
+            rgd = self.rgd
             N = 0.0
-            g = self.ng - 1
+            g = self.rgd.N - 1
             while N < 1e-7:
-                N += sqrt(4 * pi) * nc_g[g] * r_g[g]**2 * dr_g[g]
+                N += sqrt(4 * pi) * nc_g[g] * rgd.r_g[g]**2 * rgd.dr_g[g]
                 g -= 1
-            return r_g[g]
+            return rgd.r_g[g]
 
     def get_max_projector_cutoff(self):
-        g = self.ng - 1
+        g = self.rgd.N - 1
         pt_g = self.pt_jg[0]
         while pt_g[g] == 0.0:
             g -= 1
@@ -235,7 +256,7 @@ class SetupData:
         print >> xml, '  <!--', comment1, '-->'
         print >> xml, '  <!--', comment2, '-->'
 
-        print >> xml, ('  <atom symbol="%s" Z="%d" core="%.1f" valence="%d"/>'
+        print >> xml, ('  <atom symbol="%s" Z="%d" core="%r" valence="%d"/>'
                        % (self.symbol, self.Z, self.Nc, self.Nv))
         if self.setupname == 'LDA':
             type = 'LDA'
@@ -249,15 +270,15 @@ class SetupData:
         print >> xml, '  <generator %s>' % gen_attrs
         print >> xml, '    %s' % self.generatordata
         print >> xml, '  </generator>'
-        print >> xml, '  <ae_energy kinetic="%f" xc="%f"' % \
+        print >> xml, '  <ae_energy kinetic="%r" xc="%r"' % \
               (self.e_kinetic, self.e_xc)
-        print >> xml, '             electrostatic="%f" total="%f"/>' % \
+        print >> xml, '             electrostatic="%r" total="%r"/>' % \
               (self.e_electrostatic, self.e_total)
 
-        print >> xml, '  <core_energy kinetic="%f"/>' % self.e_kinetic_core
+        print >> xml, '  <core_energy kinetic="%r"/>' % self.e_kinetic_core
         print >> xml, '  <valence_states>'
-        line1 = '    <state n="%d" l="%d" f=%s rc="%5.3f" e="%8.5f" id="%s"/>'
-        line2 = '    <state       l="%d"        rc="%5.3f" e="%8.5f" id="%s"/>'
+        line1 = '    <state n="%d" l="%d" f=%s rc="%r" e="%r" id="%s"/>'
+        line2 = '    <state       l="%d"        rc="%r" e="%r" id="%s"/>'
 
         for id, l, n, f, e, rc in zip(self.id_j, l_j, self.n_j, self.f_j,
                                       self.eps_j, self.rcut_j):
@@ -268,32 +289,44 @@ class SetupData:
                 print >> xml, line2 % (l, rc, e, id)
         print >> xml, '  </valence_states>'
 
-        print >> xml, ('  <radial_grid eq="r=a*i/(n-i)" a="%f" n="%d" ' +
-                       'istart="0" iend="%d" id="g1"/>') % \
-                       (self.beta, self.ng, self.ng - 1)
+        print >> xml, self.rgd.xml('g1')
 
-        print >> xml, ('  <shape_function type="gauss" rc="%.12e"/>' %
+        print >> xml, ('  <shape_function type="gauss" rc="%r"/>' %
                        self.rcgauss)
+
+        if self.r0 is None:
+            # Old setups:
+            xml.write('  <zero_potential grid="g1">\n')
+        elif self.l0 is None:
+            xml.write('  <zero_potential type="polynomial" ' +
+                      'nderiv="%d" r0="%r" grid="g1">\n' %
+                      (self.nderiv0, self.r0))
+        else:
+            xml.write(('  <zero_potential type="%s" ' +
+                       'e0="%r" nderiv="%d" r0="%r" grid="g1">\n') %
+                      ('spdfg'[self.l0], self.e0, self.nderiv0, self.r0))
+            
+        for x in self.vbar_g:
+            print >> xml, '%r' % x,
+        print >> xml, '\n  </zero_potential>'
 
         if self.has_corehole:
             print >> xml, (('  <core_hole_state state="%d%s" ' +
-                           'removed="%.1f" eig="%.8f" ekin="%.8f">') %
+                           'removed="%r" eig="%r" ekin="%r">') %
                            (self.ncorehole, 'spdf'[self.lcorehole],
                             self.fcorehole,
                             self.core_hole_e, self.core_hole_e_kin))
             for x in self.phicorehole_g:
-                print >> xml, '%16.12e' % x,
+                print >> xml, '%r' % x,
             print >> xml, '\n  </core_hole_state>'
 
         for name, a in [('ae_core_density', self.nc_g),
                         ('pseudo_core_density', self.nct_g),
-                        ('pseudo_valence_density', self.nvt_g),
-                        ('zero_potential', self.vbar_g),
                         ('ae_core_kinetic_energy_density', self.tauc_g),
                         ('pseudo_core_kinetic_energy_density', self.tauct_g)]:
             print >> xml, '  <%s grid="g1">\n    ' % name,
             for x in a:
-                print >> xml, '%16.12e' % x,
+                print >> xml, '%r' % x,
             print >> xml, '\n  </%s>' % name
 
         # Print xc-specific data to setup file (used so for KLI and GLLB)
@@ -301,7 +334,7 @@ class SetupData:
             newname = 'GLLB_'+name
             print >> xml, '  <%s grid="g1">\n    ' % newname,
             for x in a:
-                print >> xml, '%16.12e' % x,
+                print >> xml, '%r' % x,
             print >> xml, '\n  </%s>' % newname
 
         for id, l, u, s, q, in zip(self.id_j, l_j, self.phi_jg, self.phit_jg,
@@ -318,7 +351,7 @@ class SetupData:
                 #    p[0] = (p[2] +
                 #            (p[1] - p[2]) * (r[0] - r[2]) / (r[1] - r[2]))
                 for x in a:
-                    print >> xml, '%16.12e' % x,
+                    print >> xml, '%r' % x,
                 print >> xml, '\n  </%s>' % name
 
         print >> xml, '  <kinetic_energy_differences>',
@@ -326,16 +359,16 @@ class SetupData:
         for j1 in range(nj):
             print >> xml, '\n    ',
             for j2 in range(nj):
-                print >> xml, '%16.12e' % self.e_kin_jj[j1, j2],
+                print >> xml, '%r' % self.e_kin_jj[j1, j2],
         print >> xml, '\n  </kinetic_energy_differences>'
 
         if self.X_p is not None:
             print >> xml, '  <exact_exchange_X_matrix>\n    ',
             for x in self.X_p:
-                print >> xml, '%16.12e' % x,
+                print >> xml, '%r' % x,
             print >> xml, '\n  </exact_exchange_X_matrix>'
 
-            print >> xml, '  <exact_exchange core-core="%f"/>' % self.ExxC
+            print >> xml, '  <exact_exchange core-core="%r"/>' % self.ExxC
 
         print >> xml, '</paw_setup>'
 
@@ -354,13 +387,15 @@ def search_for_file(name, world=None):
     if world is not None and world.size > 1:
         if world.rank == 0:
             filename, source = search_for_file(name)
-            if not source:
-                return filename, source
+            if source is None:
+                source = ''
             string = filename + '|' + source
         else:
             string = None
-        string = broadcast_string(string, 0, world)
-        return string.split('|', 1)
+        filename, source = broadcast_string(string, 0, world).split('|', 1)
+        if source == '':
+            source = None
+        return filename, source
 
     source = None
     filename = None
@@ -377,7 +412,6 @@ def search_for_file(name, world=None):
                 else:
                     source = os.popen('gunzip -c ' + filename, 'r').read()
                 break
-
     return filename, source
 
 
@@ -388,10 +422,11 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
         self.id = None
         self.data = None
 
-    def parse(self, world=None):
+    def parse(self, source=None, world=None):
         setup = self.setup
-
-        (setup.filename, source) = search_for_file(setup.stdfilename, world)
+        if source is None:
+            (setup.filename, source) = search_for_file(setup.stdfilename,
+                                                       world)
 
         if source is None:
             print """
@@ -401,9 +436,9 @@ http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details."""
             raise RuntimeError('Could not find %s-setup for "%s".' %
                                (setup.name + '.' + setup.setupname, 
                                 setup.symbol))
-
+        
         setup.fingerprint = md5_new(source).hexdigest()
-
+        
         # XXXX There must be a better way!
         # We don't want to look at the dtd now.  Remove it:
         source = re.compile(r'<!DOCTYPE .*?>', re.DOTALL).sub('', source, 1)
@@ -451,10 +486,18 @@ http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details."""
             # Compatibility with old setups:
             if setup.version < '0.6' and setup.f_j[-1] == 0:
                 setup.n_j[-1] = -1
-        elif name in ['grid', 'radial_grid']:  # XXX
-            assert attrs['eq'] == 'r=a*i/(n-i)'
-            setup.ng = int(attrs['n'])
-            setup.beta = float(attrs['a'])
+        elif name == 'radial_grid':
+            if attrs['eq'] == 'r=a*i/(n-i)':
+                beta = float(attrs['a'])
+                ng = int(attrs['n'])
+                setup.rgd = AERadialGridDescriptor(beta / ng, 1.0 / ng, ng)
+            elif attrs['eq'] == 'r=a*i/(1-b*i)':
+                a = float(attrs['a'])
+                b = float(attrs['b'])
+                N = int(attrs['n'])
+                setup.rgd = AERadialGridDescriptor(a, b, N)
+            else:
+                raise ValueError('Unknown grid:' + attrs['eq'])
         elif name == 'shape_function':
             if attrs.has_key('rc'):
                 assert attrs['type'] == 'gauss'
@@ -463,7 +506,7 @@ http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details."""
                 # Old style: XXX
                 setup.rcgauss = max(setup.rcut_j) / sqrt(float(attrs['alpha']))
         elif name in ['ae_core_density', 'pseudo_core_density',
-                      'localized_potential', 'zero_potential',  # XXX
+                      'localized_potential',
                       'kinetic_energy_differences', 'exact_exchange_X_matrix',
                       'ae_core_kinetic_energy_density',
                       'pseudo_core_kinetic_energy_density']:
@@ -485,6 +528,21 @@ http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details."""
             setup.core_hole_e = float(attrs['eig'])
             setup.core_hole_e_kin = float(attrs['ekin'])
             self.data = []
+        elif name == 'zero_potential':
+            if attrs.has_key('type'):
+                setup.r0 = float(attrs['r0'])
+                setup.nderiv0 = int(attrs['nderiv'])
+                if attrs['type'] == 'polynomial':
+                    setup.e0 = None
+                    setup.l0 = None
+                else:
+                    setup.e0 = float(attrs['e0'])
+                    setup.l0 = 'spdfg'.find(attrs['type'])
+            self.data = []
+        elif name == 'generator':
+            setup.type = attrs['type']
+            setup.gamma = float(attrs.get('gamma', 0.0))
+            setup.h = float(attrs.get('h', 0.0))
         else:
             self.data = None
 

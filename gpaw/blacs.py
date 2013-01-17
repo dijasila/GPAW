@@ -174,6 +174,21 @@ class BlacsGrid:
         self.ncpus = nprow * npcol
         self.order = order
 
+    @property
+    def coords(self):
+        return self.myrow, self.mycol
+
+    @property
+    def shape(self):
+        return self.nprow, self.npcol
+
+    def coords2rank(self, row, col):
+        return self.nprow * col + row
+
+    def rank2coords(self, rank):
+        col, row = divmod(rank, self.nprow)
+        return row, col
+
     def new_descriptor(self, M, N, mb, nb, rsrc=0, csrc=0):
         """Create a new descriptor from this BLACS grid.
 
@@ -289,7 +304,7 @@ class BlacsDescriptor(MatrixDescriptor):
     implementation probably works.
 
     """
-    def __init__(self, blacsgrid, M, N, mb, nb, rsrc, csrc):
+    def __init__(self, blacsgrid, M, N, mb, nb, rsrc=0, csrc=0):
         assert M > 0
         assert N > 0
         assert 1 <= mb
@@ -347,7 +362,7 @@ class BlacsDescriptor(MatrixDescriptor):
         generally be passed to BLACS functions in the C code."""
         arr = np.array([BLOCK_CYCLIC_2D, self.blacsgrid.context, 
                         self.N, self.M, self.nb, self.mb, self.csrc, self.rsrc,
-                        self.lld], np.int32)
+                        self.lld], np.intc)
         return arr
 
     def __repr__(self):
@@ -357,6 +372,18 @@ class BlacsDescriptor(MatrixDescriptor):
                              self.gshape,
                              self.bshape, self.lld, self.shape)
         return string
+
+    def index2grid(self, row, col):
+        """Get the BLACS grid coordinates storing global index (row, col)."""
+        assert row < self.gshape[0], (row, col, self.gshape)
+        assert col < self.gshape[1], (row, col, self.gshape)
+        gridx = (row // self.bshape[0]) % self.blacsgrid.nprow
+        gridy = (col // self.bshape[1]) % self.blacsgrid.npcol
+        return gridx, gridy
+
+    def index2rank(self, row, col):
+        """Get the rank where global index (row, col) is stored."""
+        return self.blacsgrid.coords2rank(*self.index2grid(row, col))
 
     def diagonalize_dc(self, H_nn, C_nn, eps_N, UL='L'):
         """See documentation in gpaw/utilities/blacs.py."""
@@ -422,35 +449,36 @@ class BlacsDescriptor(MatrixDescriptor):
                 Mstop = min(Mstart + mb, M)
                 Nstop = min(Nstart + nb, N)
                 block = array_mn[myMstart:myMstart + mb,
-                                 myNstart:myNstart + mb]
+                                 myNstart:myNstart + nb]
                 
                 yield Mstart, Mstop, Nstart, Nstop, block
 
     def as_serial(self):
         return self.blacsgrid.new_descriptor(self.M, self.N, self.M, self.N)
 
-    def redistribute(self, otherdesc, src_mn, dst_mn=None):
+    def redistribute(self, otherdesc, src_mn, dst_mn=None,
+                     subM=None, subN=None, ia=0, ja=0, ib=0, jb=0, uplo='G'):
         if self.blacsgrid != otherdesc.blacsgrid:
             raise ValueError('Cannot redistribute to other BLACS grid.  '
                              'Requires using Redistributor class explicitly')
         if dst_mn is None:
             dst_mn = otherdesc.empty(dtype=src_mn.dtype)
         r = Redistributor(self.blacsgrid.comm, self, otherdesc)
-        r.redistribute(src_mn, dst_mn)
+        r.redistribute(src_mn, dst_mn, subM, subN, ia, ja, ib, jb, uplo)
         return dst_mn
 
-    def collect_on_master(self, src_mn, dst_mn=None):
+    def collect_on_master(self, src_mn, dst_mn=None, uplo='G'):
         desc = self.as_serial()
-        return self.redistribute(desc, src_mn, dst_mn)
+        return self.redistribute(desc, src_mn, dst_mn, uplo=uplo)
 
-    def distribute_from_master(self, src_mn, dst_mn=None):
+    def distribute_from_master(self, src_mn, dst_mn=None, uplo='G'):
         desc = self.as_serial()
-        return desc.redistribute(self, src_mn, dst_mn)
+        return desc.redistribute(self, src_mn, dst_mn, uplo=uplo)
 
 
 class Redistributor:
     """Class for redistributing BLACS matrices on different contexts."""
-    def __init__(self, supercomm, srcdescriptor, dstdescriptor, uplo='G'):
+    def __init__(self, supercomm, srcdescriptor, dstdescriptor):
         """Create redistributor.
 
         Source and destination descriptors may reside on different
@@ -468,49 +496,67 @@ class Redistributor:
         self.supercomm_bg = BlacsGrid(self.supercomm, self.supercomm.size, 1)
         self.srcdescriptor = srcdescriptor
         self.dstdescriptor = dstdescriptor
-        assert uplo in ['G', 'U', 'L'] 
-        self.uplo = uplo
     
-    def redistribute_submatrix(self, src_mn, dst_mn, subM, subN):
-        """Redistribute submatrix into other submatrix.  
+    def redistribute(self, src_mn, dst_mn=None,
+                     subM=None, subN=None,
+                     ia=0, ja=0, ib=0, jb=0, uplo='G'):
+        """Redistribute src_mn into dst_mn.
 
-        A bit more general than redistribute().  See also redistribute()."""
+        src_mn and dst_mn must be compatible with source and
+        destination descriptors of this redistributor.
+
+        If subM and subN are given, distribute only a subM by subN
+        submatrix.
+
+        If any ia, ja, ib and jb are given, they denote the global
+        index (i, j) of the origin of the submatrix inside the source
+        and destination (a, b) matrices."""
+        
+        srcdescriptor = self.srcdescriptor
+        dstdescriptor = self.dstdescriptor
+        dtype = src_mn.dtype
+
+        if dst_mn is None:
+            dst_mn = dstdescriptor.empty(dtype=dtype)
+
         # self.supercomm must be a supercommunicator of the communicators
         # corresponding to the context of srcmatrix as well as dstmatrix.
         # We should verify this somehow.
+        srcdescriptor = self.srcdescriptor
+        dstdescriptor = self.dstdescriptor
+
         dtype = src_mn.dtype
+        if dst_mn is None:
+            dst_mn = dstdescriptor.zeros(dtype=dtype)
+
         assert dtype == dst_mn.dtype
         assert dtype == float or dtype == complex
-
+        
         # Check to make sure the submatrix of the source
         # matrix will fit into the destination matrix
         # plus standard BLACS matrix checks.
-        srcdescriptor = self.srcdescriptor
-        dstdescriptor = self.dstdescriptor
         srcdescriptor.checkassert(src_mn)
         dstdescriptor.checkassert(dst_mn)
+
+        if subM is None:
+            subM = srcdescriptor.gshape[0]
+        if subN is None:
+            subN = srcdescriptor.gshape[1]
+
         assert srcdescriptor.gshape[0] >= subM
         assert srcdescriptor.gshape[1] >= subN
         assert dstdescriptor.gshape[0] >= subM
         assert dstdescriptor.gshape[1] >= subN
-
-        # Switch to Fortran conventions
-        uplo = {'U': 'L', 'L': 'U', 'G': 'G'}[self.uplo]
         
+        # Switch to Fortran conventions
+        uplo = {'U': 'L', 'L': 'U', 'G': 'G'}[uplo]
         _gpaw.scalapack_redist(srcdescriptor.asarray(), 
                                dstdescriptor.asarray(),
                                src_mn, dst_mn,
-                               self.supercomm_bg.context,
-                               subN, subM, uplo)
-    
-    def redistribute(self, src_mn, dst_mn):
-        """Redistribute src_mn to dst_mn.
-
-        src_mn must be compatible with the source descriptor of this 
-        redistributor, while dst_mn must be compatible with the 
-        destination descriptor.""" 
-        subM, subN = self.srcdescriptor.gshape 
-        self.redistribute_submatrix(src_mn, dst_mn, subM, subN)
+                               subN, subM,
+                               ja + 1, ia + 1, jb + 1, ib + 1, # 1-indexing
+                               self.supercomm_bg.context, uplo)
+        return dst_mn
 
 
 def parallelprint(comm, obj):

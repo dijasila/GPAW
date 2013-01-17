@@ -64,8 +64,8 @@ class Sphere:
     def __init__(self, spline_j):
         self.spline_j = spline_j
         self.spos_c = None
-        self.rank = None
-        self.ranks = None
+        self.rank = None # Rank corresponding to center
+        self.ranks = None # Ranks with at least some overlap
         self.Mmax = None
         self.A_wgm = None
         self.G_wb = None
@@ -119,7 +119,8 @@ class Sphere:
         dom = gd
         pos_v = np.dot(spos_c, dom.cell_cv)
         return _gpaw.spline_to_grid(spline.spline, start_c, end_c, pos_v,
-                                    gd.h_cv, gd.n_c, gd.beg_c)
+                                    np.ascontiguousarray(gd.h_cv),
+                                    gd.n_c, gd.beg_c)
 
     spline_to_grid = staticmethod(spline_to_grid) # TODO This belongs in Spline!
 
@@ -228,16 +229,21 @@ class NewLocalizedFunctionsCollection(BaseLFC):
     a wrapper around the old localized_functions which use rectangular grids.
 
     """
-    def __init__(self, gd, spline_aj, kpt_comm=None, cut=False, dtype=float,
+    def __init__(self, gd, spline_aj, kd=None, cut=False, dtype=float,
                  integral=None, forces=None, cuda=False):
         self.gd = gd
         self.sphere_a = [Sphere(spline_j) for spline_j in spline_aj]
         self.cut = cut
-        self.ibzk_qc = None
-        self.gamma = True
         self.dtype = dtype
         self.Mmax = None
         self.cuda = cuda
+
+        if kd is None:
+            self.ibzk_qc = np.zeros((1, 3))
+            self.gamma = True
+        else:
+            self.ibzk_qc = kd.ibzk_qc
+            self.gamma = kd.gamma
 
         # Global or local M-indices?
         self.use_global_indices = False
@@ -253,11 +259,6 @@ class NewLocalizedFunctionsCollection(BaseLFC):
   
         self.my_atom_indices = None
 
-    def set_k_points(self, ibzk_qc):
-        self.ibzk_qc = ibzk_qc
-        self.gamma = False
-        self.dtype = complex
-                
     def set_positions(self, spos_ac):
         assert len(spos_ac) == len(self.sphere_a)
         spos_ac = np.asarray(spos_ac)
@@ -374,6 +375,8 @@ class NewLocalizedFunctionsCollection(BaseLFC):
                 for iterator in iterators:
                     iterator.next()
 
+        return sdisp_Wc
+
     def M_to_ai(self, src_xM, dst_axi):
         xshape = src_xM.shape[:-1]
         src_xM = src_xM.reshape(np.prod(xshape), self.Mmax)        
@@ -406,7 +409,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
             assert self.dtype == float
         
         if isinstance(c_axi, float):
-            assert q == -1
+            assert q == -1 and a_xG.ndim == 3
             c_xM = np.empty(self.Mmax)
             c_xM.fill(c_axi)
             if isinstance(a_xG, gpaw.cuda.gpuarray.GPUArray):
@@ -552,7 +555,8 @@ class NewLocalizedFunctionsCollection(BaseLFC):
 
         gd = self.gd
 
-        self.lfc.add_derivative(c_xM, a_xG, gd.h_cv, gd.n_c, cspline_M,
+        self.lfc.add_derivative(c_xM, a_xG, np.ascontiguousarray(gd.h_cv),
+                                gd.n_c, cspline_M,
                                 gd.beg_c, self.pos_Wv, a, v, q)
 
             
@@ -693,7 +697,8 @@ class NewLocalizedFunctionsCollection(BaseLFC):
                 cspline_M.extend([spline.spline] * nm)
                 
         gd = self.gd
-        self.lfc.derivative(a_xG, c_xMv, gd.h_cv, gd.n_c, cspline_M,
+        self.lfc.derivative(a_xG, c_xMv, np.ascontiguousarray(gd.h_cv),
+                            gd.n_c, cspline_M,
                             gd.beg_c, self.pos_Wv, q)
 
         comm = self.gd.comm
@@ -795,7 +800,9 @@ class NewLocalizedFunctionsCollection(BaseLFC):
                 nm = 2 * spline.get_angular_momentum_number() + 1
                 cspline_M.extend([spline.spline] * nm)
         gd = self.gd
-        self.lfc.normalized_derivative(a_G, c_Mv, gd.h_cv, gd.n_c, cspline_M,
+        self.lfc.normalized_derivative(a_G, c_Mv,
+                                       np.ascontiguousarray(gd.h_cv), gd.n_c,
+                                       cspline_M,
                                        gd.beg_c, self.pos_Wv)
 
         comm = self.gd.comm
@@ -891,7 +898,8 @@ class NewLocalizedFunctionsCollection(BaseLFC):
             
         gd = self.gd
 
-        self.lfc.second_derivative(a_xG, c_Mvv, gd.h_cv, gd.n_c, cspline_M,
+        self.lfc.second_derivative(a_xG, c_Mvv, np.ascontiguousarray(gd.h_cv),
+                                   gd.n_c, cspline_M,
                                    gd.beg_c, self.pos_Wv, q)
 
         comm = self.gd.comm
@@ -959,10 +967,10 @@ class NewLocalizedFunctionsCollection(BaseLFC):
 
 
 class BasisFunctions(NewLocalizedFunctionsCollection):
-    def __init__(self, gd, spline_aj, kpt_comm=None, cut=False, dtype=float,
+    def __init__(self, gd, spline_aj, kd=None, cut=False, dtype=float,
                  integral=None, forces=None):
         NewLocalizedFunctionsCollection.__init__(self, gd, spline_aj,
-                                                 kpt_comm, cut,
+                                                 kd, cut,
                                                  dtype, integral,
                                                  forces)
         self.use_global_indices = True
@@ -974,6 +982,28 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
         NewLocalizedFunctionsCollection.set_positions(self, spos_ac)
         self.Mstart = 0
         self.Mstop = self.Mmax
+
+    def _update(self, spos_ac):
+        sdisp_Wc = NewLocalizedFunctionsCollection._update(self, spos_ac)
+
+        if self.gamma:
+            return
+
+        if len(sdisp_Wc) > 0:
+            n_c = sdisp_Wc.max(0) - sdisp_Wc.min(0)
+        else:
+            n_c = np.zeros(3, int)
+        N_c = 2 * n_c + 1
+        stride_c = np.array([N_c[1] * N_c[2], N_c[2], 1])
+        self.x_W = np.dot(sdisp_Wc, stride_c).astype(np.intc)
+        # use a neighbor list instead?
+        x1 = np.dot(n_c, stride_c)
+        self.sdisp_xc = np.zeros((x1 + 1, 3), int)
+        r_x, self.sdisp_xc[:, 2] = divmod(np.arange(x1, 2 * x1 + 1), N_c[2])
+        self.sdisp_xc.T[:2] = divmod(r_x, N_c[1])
+        self.sdisp_xc -= n_c
+
+        return sdisp_Wc
 
     def set_matrix_distribution(self, Mstart, Mstop):
         assert self.Mmax is not None
@@ -997,7 +1027,7 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
             M1 = self.M_a[a]
             M2 = M1 + sphere.Mmax
             f_sM[:, M1:M2] = f_asi[a]
-
+  
         for nt_G, f_M in zip(nt_sG, f_sM):
             self.lfc.construct_density1(f_M, nt_G)
 
@@ -1034,6 +1064,30 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
         for a_G, c_M in zip(a_xG, c_xM):
             self.lfc.integrate(a_G, c_M, q)
 
+    def calculate_potential_matrices(self, vt_G):
+        """Calculate lower part of potential matrix.
+
+        ::
+
+                      /
+            ~         |     *  _  ~ _        _   _
+            V      =  |  Phi  (r) v(r) Phi  (r) dr    for  mu >= nu
+             mu nu    |     mu            nu
+                      /
+
+        Overwrites the elements of the target matrix Vt_MM. """
+        if self.gamma:
+            Vt_xMM = np.zeros((1, self.Mstop - self.Mstart, self.Mmax))
+            self.lfc.calculate_potential_matrix(vt_G, Vt_xMM[0], -1,
+                                                self.Mstart, self.Mstop)
+        else:
+            Vt_xMM = np.zeros((len(self.sdisp_xc),
+                               self.Mstop - self.Mstart,
+                               self.Mmax))
+            self.lfc.calculate_potential_matrices(vt_G, Vt_xMM, self.x_W,
+                                                  self.Mstart, self.Mstop)
+        return Vt_xMM
+
     def calculate_potential_matrix(self, vt_G, Vt_MM, q):
         """Calculate lower part of potential matrix.
 
@@ -1050,7 +1104,7 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
         self.lfc.calculate_potential_matrix(vt_G, Vt_MM, q,
                                             self.Mstart, self.Mstop)
 
-    def lcao_to_grid(self, C_nM, psit_nG, q):
+    def lcao_to_grid(self, C_xM, psit_xG, q):
         """Deploy basis functions onto grids according to coefficients.
 
         ::
@@ -1062,8 +1116,22 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
                        ----
                         mu
         """
-        for C_M, psit_G in zip(C_nM, psit_nG):
-            self.lfc.lcao_to_grid(C_M, psit_G, q)
+
+        if C_xM.size == 0:
+            return
+        
+        C_xM = C_xM.reshape((-1,) + C_xM.shape[-1:])
+        psit_xG = psit_xG.reshape((-1,) + psit_xG.shape[-3:])
+        
+        if self.gamma or len(C_xM) == 1:
+            for C_M, psit_G in zip(C_xM, psit_xG):
+                self.lfc.lcao_to_grid(C_M, psit_G, q)
+        else:
+            # Do sum over unit cells first followed by sum over bands
+            # in blocks of 10 orbitals at the time:
+            assert C_xM.flags.contiguous
+            assert psit_xG.flags.contiguous
+            self.lfc.lcao_to_grid_k(C_xM, psit_xG, q, 10)
 
     def calculate_potential_matrix_derivative(self, vt_G, DVt_vMM, q):
         """Calculate derivatives of potential matrix elements.
@@ -1086,88 +1154,63 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
                 cspline_M.extend([spline.spline] * nm)
         gd = self.gd
         for c in range(3): # XXX
-            self.lfc.calculate_potential_matrix_derivative(vt_G, DVt_vMM[c],
-                                                           gd.h_cv,
-                                                           gd.n_c, q, c,
-                                                           np.array(cspline_M),
-                                                           gd.beg_c,
-                                                           self.pos_Wv,
-                                                           self.Mstart,
-                                                           self.Mstop)
+            self.lfc.calculate_potential_matrix_derivative(
+                vt_G, DVt_vMM[c],
+                np.ascontiguousarray(gd.h_cv),
+                gd.n_c, q, c,
+                np.array(cspline_M),
+                gd.beg_c,
+                self.pos_Wv,
+                self.Mstart,
+                self.Mstop)
 
-    # Python implementations:
-    if 0:
-        def add_to_density(self, nt_sG, f_sM):
-            nspins = len(nt_sG)
-            nt_sG = nt_sG.reshape((nspins, -1))
-            for G1, G2 in self.griditer():
-                for W in self.current_lfindices:
-                    M = self.M_W[W]
-                    A_gm = self.A_Wgm[W][self.g_W[W]:self.g_W[W] + G2 - G1]
-                    nm = A_gm.shape[1]
-                    nt_sG[0, G1:G2] += np.dot(A_gm**2, f_sM[0, M:M + nm])
 
-        def construct_density(self, rho_MM, nt_G, k):
-            nt_G = nt_G.ravel()
+    def calculate_force_contribution(self, vt_G, rhoT_MM, q):
+        """Calculate derivatives of potential matrix elements.
 
-            for G1, G2 in self.griditer():
-                for W1 in self.current_lfindices:
-                    M1 = self.M_W[W1]
-                    f1_gm = self.A_Wgm[W1][self.g_W[W1]:self.g_W[W1] + G2 - G1]
-                    nm1 = f1_gm.shape[1]
-                    for W2 in self.current_lfindices:
-                        M2 = self.M_W[W2]
-                        f2_gm = self.A_Wgm[W2][self.g_W[W2]:
-                                               self.g_W[W2] + G2 - G1]
-                        nm2 = f2_gm.shape[1]
-                        rho_mm = rho_MM[M1:M1 + nm1, M2:M2 + nm2]
-                        if self.ibzk_qc is not None:
-                            rho_mm = (rho_mm *
-                                      self.phase_qW[k, W1] *
-                                      self.phase_qW[k, W2].conj()).real
-                        nt_G[G1:G2] += (np.dot(f1_gm, rho_mm) * f2_gm).sum(1)
+        ::
 
-        def calculate_potential_matrix(self, vt_G, Vt_MM, k):
-            vt_G = vt_G.ravel()
-            Vt_MM[:] = 0.0
-            dv = self.gd.dv
+                      /     *  _
+                     |   Phi  (r)
+           ~c        |      mu    ~ _        _   _
+          DV      += |   -------- v(r) Phi  (r) dr
+            mu nu    |     dr             nu
+                    /        c
 
-            for G1, G2 in self.griditer():
-                for W1 in self.current_lfindices:
-                    M1 = self.M_W[W1]
-                    f1_gm = self.A_Wgm[W1][self.g_W[W1]:self.g_W[W1] + G2 - G1]
-                    nm1 = f1_gm.shape[1]
-                    for W2 in self.current_lfindices:
-                        M2 = self.M_W[W2]
-                        f2_gm = self.A_Wgm[W2][self.g_W[W2]:
-                                               self.g_W[W2] + G2 - G1]
-                        nm2 = f2_gm.shape[1]
-                        Vt_mm = np.dot(f1_gm.T,
-                                       vt_G[G1:G2, None] * f2_gm) * dv
-                        if self.ibzk_qc is not None:
-                            Vt_mm = (Vt_mm *
-                                     self.phase_qW[k, W1].conj() *
-                                     self.phase_qW[k, W2])
-                        Vt_MM[M1:M1 + nm1, M2:M2 + nm2] += Vt_mm
+        Results are added to DVt_vMM.
+        """
+        cspline_M = []
+        for a, sphere in enumerate(self.sphere_a):
+            for j, spline in enumerate(sphere.spline_j):
+                nm = 2 * spline.get_angular_momentum_number() + 1
+                cspline_M.extend([spline.spline] * nm)
+        gd = self.gd
+        Mstart = self.Mstart
+        Mstop = self.Mstop
+        F_cM = np.zeros((3, Mstop - Mstart))
+        assert self.Mmax == rhoT_MM.shape[1]
+        assert Mstop - Mstart == rhoT_MM.shape[0]
+        for c in range(3): # XXX
+            self.lfc.calculate_potential_matrix_force_contribution(
+                vt_G, rhoT_MM, F_cM[c],
+                np.ascontiguousarray(gd.h_cv),
+                gd.n_c, q, c,
+                np.array(cspline_M),
+                gd.beg_c,
+                self.pos_Wv,
+                Mstart,
+                Mstop)
 
-        def lcao_to_grid(self, C_nM, psit_nG, k):
-            for C_M, psit_G in zip(C_nM, psit_nG):
-                self._lcao_band_to_grid(C_M, psit_G, k)
-
-        def _lcao_band_to_grid(self, C_M, psit_G, k):
-            psit_G = psit_G.ravel()
-            for G1, G2 in self.griditer():
-                for W in self.current_lfindices:
-                    A_gm = self.A_Wgm[W][self.g_W[W]:self.g_W[W] + G2 - G1]
-                    M1 = self.M_W[W]
-                    M2 = M1 + A_gm.shape[1]
-                    if self.ibzk_qc is None:
-                        psit_G[G1:G2] += np.dot(A_gm, C_M[M1:M2])
-                    else:
-                        psit_G[G1:G2] += np.dot(A_gm,
-                                                C_M[M1:M2] /
-                                                self.phase_qW[k, W])
-
+        F_av = np.zeros((len(self.M_a), 3))
+        a = 0
+        for a, M1 in enumerate(self.M_a):
+            M1 -= Mstart
+            M2 = M1 + self.sphere_a[a].Mmax
+            if M2 < 0:
+                continue
+            M1 = max(0, M1)
+            F_av[a, :] = 2.0 * F_cM[:, M1:M2].sum(axis=1)
+        return F_av
 
 from gpaw.localized_functions import LocFuncs, LocFuncBroadcaster
 from gpaw.mpi import run
@@ -1191,10 +1234,6 @@ class LocalizedFunctionsCollection(BaseLFC):
         self.kpt_comm = kpt_comm
 
         self.my_atom_indices = None
-
-    def set_k_points(self, ibzk_qc):
-        self.ibzk_qc = ibzk_qc
-        self.gamma = False
 
     def set_positions(self, spos_ac):
         if self.kpt_comm:
@@ -1300,11 +1339,11 @@ if extra_parameters.get('usenewlfc', True):
     LocalizedFunctionsCollection = NewLocalizedFunctionsCollection
 
 
-def LFC(gd, spline_aj, kpt_comm=None,
+def LFC(gd, spline_aj, kd=None,
         cut=False, dtype=float,
         integral=None, forces=False):
     if isinstance(gd, GridDescriptor):
-        return LocalizedFunctionsCollection(gd, spline_aj, kpt_comm,
+        return LocalizedFunctionsCollection(gd, spline_aj, kd,
                                             cut, dtype, integral, forces)
     else:
         return gd.get_lfc(gd, spline_aj)

@@ -1,11 +1,16 @@
 import numpy as np
-from ase.units import Hartree
 
+from ase.units import Hartree, Bohr
+from ase.dft.kpoints import monkhorst_pack
+
+import gpaw.mpi as mpi
 from gpaw.poisson import PoissonSolver, FFTPoissonSolver
 from gpaw.occupations import FermiDirac
-from gpaw import parsize, parsize_bands, sl_default, sl_diagonalize, \
-                 sl_inverse_cholesky, sl_lcao
+from gpaw.wavefunctions.pw import PW
+from gpaw import parsize_domain, parsize_bands, sl_default, sl_diagonalize, \
+                 sl_inverse_cholesky, sl_lcao, buffer_size
 from gpaw import use_cuda
+
 
 class InputParameters(dict):
     def __init__(self, **kwargs):
@@ -16,7 +21,7 @@ class InputParameters(dict):
             ('kpts',            [(0, 0, 0)]),
             ('lmax',            2),
             ('charge',          0),
-            ('fixmom',          False),      # don't use this
+            ('fixmom',          False),  # don't use this
             ('nbands',          None),
             ('setups',          'paw'),
             ('basis',           {}),
@@ -30,29 +35,33 @@ class InputParameters(dict):
             ('txt',             '-'),
             ('hund',            False),
             ('random',          False),
+            ('dtype',           None),
             ('maxiter',         120),
-            ('parallel',        {'domain':              parsize,
+            ('parallel',        {'domain':              parsize_domain,
                                  'band':                parsize_bands,
                                  'stridebands':         False,
+                                 'sl_auto':             False,
                                  'sl_default':          sl_default,
                                  'sl_diagonalize':      sl_diagonalize,
                                  'sl_inverse_cholesky': sl_inverse_cholesky,
-                                 'sl_lcao':             sl_lcao}),
-            ('parsize',         None),
-            ('parsize_bands',   None),
-            ('parstride_bands', False),
+                                 'sl_lcao':             sl_lcao,
+                                 'buffer_size':         buffer_size}),
+            ('parsize',         None),  # don't use this
+            ('parsize_bands',   None),  # don't use this
+            ('parstride_bands', False),  # don't use this
             ('external',        None),  # eV
             ('verbose',         0),
             ('eigensolver',     None),
             ('poissonsolver',   None),
-            ('communicator' ,   None),
-            ('idiotproof'   ,   True),
+            ('communicator',    mpi.world),
+            ('idiotproof',      True),
             ('mode',            'fd'),
             ('convergence',     {'energy':      0.0005,  # eV / electron
                                  'density':     1.0e-4,
-                                 'eigenstates': 1.0e-9,  # XXX ???
+                                 'eigenstates': 4.0e-8,  # eV^2
                                  'bands':       'occupied'}),
             ('cuda',            use_cuda),
+            ('realspace',       None)
             ])
         dict.update(self, kwargs)
 
@@ -87,9 +96,6 @@ class InputParameters(dict):
     def read(self, reader):
         """Read state from file."""
 
-        if isinstance(reader, str):
-            reader = gpaw.io.open(reader, 'r')
-
         r = reader
 
         version = r['version']
@@ -100,18 +106,46 @@ class InputParameters(dict):
         self.nbands = r.dimension('nbands')
         self.spinpol = (r.dimension('nspins') == 2)
 
+        bzk_kc = r.get('BZKPoints', broadcast=True)
         if r.has_array('NBZKPoints'):
-            self.kpts = r.get('NBZKPoints')
+            self.kpts = r.get('NBZKPoints', broadcast=True)
+            if r.has_array('MonkhorstPackOffset'):
+                offset_c = r.get('MonkhorstPackOffset', broadcast=True)
+                if offset_c.any():
+                    self.kpts = monkhorst_pack(self.kpts) + offset_c
         else:
-            self.kpts = r.get('BZKPoints')
+            self.kpts = bzk_kc
+
         self.usesymm = r['UseSymmetry']
         try:
             self.basis = r['BasisSet']
         except KeyError:
             pass
-        self.gpts = ((r.dimension('ngptsx') + 1) // 2 * 2,
-                     (r.dimension('ngptsy') + 1) // 2 * 2,
-                     (r.dimension('ngptsz') + 1) // 2 * 2)
+
+        if version >= 2:
+            try:
+                h = r['GridSpacing']
+            except KeyError:  # CMR can't handle None!
+                h = None
+            if h is not None:
+                self.h = Bohr * h
+            if r.has_array('GridPoints'):
+                self.gpts = r.get('GridPoints')
+        else:
+            if version >= 0.9:
+                h = r['GridSpacing']
+            else:
+                h = None
+
+            gpts = ((r.dimension('ngptsx') + 1) // 2 * 2,
+                    (r.dimension('ngptsy') + 1) // 2 * 2,
+                    (r.dimension('ngptsz') + 1) // 2 * 2)
+
+            if h is None:
+                self.gpts = gpts
+            else:
+                self.h = Bohr * h
+
         self.lmax = r['MaximumAngularMomentum']
         self.setups = r['SetupTypes']
         self.fixdensity = r['FixDensity']
@@ -121,12 +155,23 @@ class InputParameters(dict):
                   'will be disabled some day in the future!')
             self.convergence['eigenstates'] = r['Tolerance']
         else:
+            nbtc = r['NumberOfBandsToConverge']
+            if not isinstance(nbtc, (int, str)):
+                # The string 'all' was eval'ed to the all() function!
+                nbtc = 'all'
             self.convergence = {'density': r['DensityConvergenceCriterion'],
                                 'energy':
                                 r['EnergyConvergenceCriterion'] * Hartree,
                                 'eigenstates':
                                 r['EigenstatesConvergenceCriterion'],
-                                'bands': r['NumberOfBandsToConverge']}
+                                'bands': nbtc}
+
+            if version < 1:
+                # Volume per grid-point:
+                dv = (abs(np.linalg.det(r.get('UnitCell'))) /
+                      (gpts[0] * gpts[1] * gpts[2]))
+                self.convergence['eigenstates'] *= Hartree**2 * dv
+
             if version <= 0.6:
                 mixer = 'Mixer'
                 weight = r['MixMetric']
@@ -182,3 +227,11 @@ class InputParameters(dict):
             self.mode = r['Mode']
         except KeyError:
             self.mode = 'fd'
+
+        if self.mode == 'pw':
+            self.mode = PW(ecut=r['PlaneWaveCutoff'] * Hartree)
+            
+        if len(bzk_kc) == 1 and not bzk_kc[0].any():
+            # Gamma point only:
+            if r['DataType'] == 'Complex':
+                self.dtype = complex

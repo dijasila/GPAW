@@ -3,16 +3,37 @@ import numpy as np
 from gpaw.utilities import erf
 
 
-class DipoleCorrectionPoissonSolver:
+class DipoleCorrection:
     """Dipole-correcting wrapper around another PoissonSolver."""
     def __init__(self, poissonsolver, direction):
-        self.corrector = DipoleCorrection(direction)
+        """Construct dipole correction object.
+        
+        poissonsolver is a GPAW Poisson solver.
+        direction is 0, 1 or 2 and specifies x, y or z.
+        """
+        self.corrector = DipoleCorrector(direction)
         self.poissonsolver = poissonsolver
-        self.relax_method = 0
-        self.nn = 17
+
+    def get_stencil(self):
+        return self.poissonsolver.get_stencil()
 
     def set_grid_descriptor(self, gd):
+        for c in range(3):
+            if c == self.corrector.c:
+                if gd.pbc_c[c]:
+                    raise ValueError('System must be non-periodic along '
+                                     'dipole correction axis')
+            else:
+                pass
+                # XXX why was the below restriction deemed desirable?
+                #if not gd.pbc_c[c]:
+                #    raise ValueError('System must be periodic along axes '
+                #                     'perpendicular to dipole correction')
         self.poissonsolver.set_grid_descriptor(gd)
+
+        self.description = (
+            self.poissonsolver.description +
+            '\nDipole correction along %s-axis' % 'xyz'[self.corrector.c])
 
     def initialize(self):
         self.poissonsolver.initialize()
@@ -20,6 +41,7 @@ class DipoleCorrectionPoissonSolver:
     def solve(self, phi, rho, **kwargs):
         gd = self.poissonsolver.gd
         drho, dphi = self.corrector.get_dipole_correction(gd, rho)
+        phi -= dphi
         iters = self.poissonsolver.solve(phi, rho + drho, **kwargs)
         phi += dphi
         return iters
@@ -28,7 +50,7 @@ class DipoleCorrectionPoissonSolver:
         self.poissonsolver.estimate_memory(mem)
 
 
-class DipoleCorrection:
+class DipoleCorrector:
     def __init__(self, direction):
         self.c = direction
 
@@ -43,7 +65,18 @@ class DipoleCorrection:
         cell boundaries and beyond.
         """
         # This implementation is not particularly economical memory-wise
-        c = self.c        
+        
+        c = self.c
+        
+        # Right now the dipole correction must be along one coordinate
+        # axis and orthogonal to the two others.  The two others need not
+        # be orthogonal to each other.
+        for c1 in range(3):
+            if c1 != c:
+                if np.vdot(gd.cell_cv[c], gd.cell_cv[c1]) > 1e-12:
+                    raise ValueError('Dipole correction axis must be '
+                                     'orthogonal to the two other axes.')
+        
         moment = gd.calculate_dipole_moment(rhot_g)[c]
         if abs(moment) < 1e-12:
             return gd.zeros(), gd.zeros()

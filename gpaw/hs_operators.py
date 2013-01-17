@@ -4,11 +4,16 @@
 from __future__ import division
 
 import numpy as np
-from gpaw.utilities.blas import rk, r2k, gemm
-from gpaw.matrix_descriptor import BandMatrixDescriptor, \
-                                   BlacsBandMatrixDescriptor
 
 import gpaw.cuda
+
+from gpaw.utilities.blas import gemm
+
+
+def reshape(a_x, shape):
+    """Get an ndarray of size shape from a_x buffer."""
+    return a_x.ravel()[:np.prod(shape)].reshape(shape)
+
 
 class MatrixOperator:
     """Base class for overlap and hamiltonian operators.
@@ -28,150 +33,149 @@ class MatrixOperator:
     async = True
     hermitian = True
 
-    def __init__(self, bd, gd, ksl, nblocks=None, async=None, hermitian=None,
-                 cuda=False):
+    def __init__(self, ksl, nblocks=None, async=None, hermitian=None, cuda=False):
         """The constructor now calculates the work array sizes, but does not
         allocate them. Here is a summary of the relevant variables and the
         cases handled.
 
         Given::
 
-          N = mynbands            The number of bands on this MPI task
-          J = nblocks             The number of blocks to divide bands into.
-          M = N // J              The number of bands in each block.
-          G = gd.n_c.prod()       The number of grid points on this MPI task.
-          g = int(np.ceil(G/J))   The number of grid points in a block.
+          J = nblocks              The number of blocks to divide bands and
+                                   grid points into.
+          N = mynbands             The number of bands on this MPI task
+          M = np.ceil(N/float(J))  The number of bands in each block.
+          G = gd.n_c.prod()        The number of grid points on this MPI task.
+          g = np.ceil(G/float(J))  The number of grid points in each block.
+          X and Q                  The workspaces to be calculated.
 
-        Calculate X and Q, the latter is a function of ngroups and the
-        Hermiticity.
+        Note that different values of J can lead to the same values of M 
+        and G. Q is relatively simple to calculate, symmetric case needs 
+        *roughly* half as much storage space as the non-symmetric case. 
+        X is much more difficult. Read below.
 
-        Conditions::
+        X is the band index of the workspace array. It is allocated in units
+        of the wavefunctions. Here is the condition on X and some intermediate
+        variables::
 
-          N % J == 0        Bands must be exactly divisible into blocks.
-          g * J >= G        The grid point blocks can contain all the points.
-          X * G >= N * g    Blocking over grid points must have enough space.
+              M >  0        At least one band in a block
+              X >= M        Blocking over band index must have enough space.
+          X * G >= N * g    Blocking over grid index must have enough space.
+
+        There are two different parallel matrix multiples here:
+        1. calculate_matrix_elements contracts on grid index
+        2. matrix_multiply contracts on the band index
+
+        We simply needed to make sure that we have enough workspace for
+        both of these multiples since we re-use the workspace arrays.
 
         Cases::
 
-          When G % J == 0, the expression for g simplifies to g = G//J,
-          and g * J >= G is obviously fulfilled. The condition for X
-          is equivalent to X >= N//J, hence this is the minimal requirement.
-
-          When G % J != 0, the expression for g becomes g = G//J+1 instead,
-          and g * J >= G is again fulfilled. The condition for X is basically
-          X * J * G >= N * (G+J) hence X = N//J + int(np.ceil(N/G)) is best.
+          Simplest case is G % J = M % J = 0: X = M.
+          
+          If g * N > M * G, then we need to increase the buffer size by one 
+          wavefunction unit greater than the simple case, thus X = M + 1.
 
         """
-        self.bd = bd
-        self.gd = gd
-        self.work1_xG = None
-        self.work2_xG = None
         self.cuda = cuda
-        if self.cuda:
-            self.work1_xG_gpu = None
-            self.work2_xG_gpu = None
-
-        self.A_qnn = None
-        self.A_nn = None
+        self.bd = ksl.bd
+        self.gd = ksl.gd
+        self.block_comm = ksl.block_comm
+        self.bmd = ksl.new_descriptor()  # XXX take hermitian as argument?
+        self.dtype = ksl.dtype
+        self.buffer_size = ksl.buffer_size
         if nblocks is not None:
             self.nblocks = nblocks
         if async is not None:
             self.async = async
         if hermitian is not None:
             self.hermitian = hermitian
-        self.bmd = ksl.new_descriptor() #XXX take hermitian as argument?
 
-        # Calculate M, Q, and X for allocating arrays later
-        self.M = 1
-        self.X = 1 # not used in some cases
-        self.Q = 1
+        # default for work spaces
+        self.A_qnn = None
+        self.A_nn = None
+        self.work1_xG = None
+        self.work2_xG = None
+        if self.cuda:
+            self.work1_xG_gpu = None
+            self.work2_xG_gpu = None
+
+        mynbands = self.bd.mynbands
         ngroups = self.bd.comm.size
         if self.cuda and (self.nblocks > 1 or ngroups > 1):
             err_str = 'CUDA not implemented for blocking/band parallelization'
             raise NotImplementedError(err_str)
-        mynbands = self.bd.mynbands
-        nbands = self.bd.nbands
+
         G = self.gd.n_c.prod()
-        if ngroups == 1 and self.nblocks == 1:
+
+        # If buffer_size keyword exist, use it to calculate closest 
+        # corresponding value of nblocks. An *attempt* is made
+        # such that actual buffer size used does not exceed the 
+        # value specified by buffer_size.
+        # Maximum allowable buffer_size corresponds to nblock = 1 
+        # which is all the wavefunctions.
+        # Give error if the buffer_size is so small that it cannot
+        # contain a single wavefunction
+        if self.buffer_size is not None:  # buffersize is in KiB
+            sizeof_single_wfs = float(self.gd.bytecount(self.dtype))
+            numberof_wfs = self.buffer_size * 1024 / sizeof_single_wfs
+            assert numberof_wfs > 0  # buffer_size is too small
+            self.nblocks = max(int(mynbands // numberof_wfs), 1)
+            
+        # Calculate Q and X for allocating arrays later
+        self.X = 1  # not used for ngroups == 1 and J == 1
+        self.Q = 1
+        J = self.nblocks
+        M = int(np.ceil(mynbands / float(J)))
+        g = int(np.ceil(G / float(J)))
+        assert M > 0  # must have at least one wave function in a block
+
+        if ngroups == 1 and J == 1:
             pass
         else:
-            assert mynbands % self.nblocks == 0
-            self.M = mynbands // self.nblocks
-            if G % self.nblocks != 0:
-                self.X += int(np.ceil(mynbands / G))
+            if g * mynbands > M * G:  # then more space is needed
+                self.X = M + 1
+                assert self.X * G >= g * mynbands
             else:
-                self.X = self.M
-            if ngroups > 1:
+                self.X = M
+            if ngroups > 1: 
                 if self.hermitian:
                     self.Q = ngroups // 2 + 1
                 else:
                     self.Q = ngroups
 
-    def allocate_work_arrays(self, dtype):
+    def allocate_arrays(self):
         ngroups = self.bd.comm.size
         mynbands = self.bd.mynbands
+        dtype = self.dtype
+        if ngroups > 1:
+            self.A_qnn = np.zeros((self.Q, mynbands, mynbands), dtype)
+        self.A_nn = self.bmd.zeros(dtype=dtype)
+
         if ngroups == 1 and self.nblocks == 1:
-            self.work1_xG = self.gd.zeros(mynbands, dtype)
+            self.work1_xG = self.gd.empty(self.bd.mynbands, self.dtype)
             if self.cuda:
                 self.work1_xG_gpu = self.gd.zeros(mynbands, dtype,
                                                   cuda=self.cuda)
         else:
-            self.work1_xG = self.gd.zeros(self.X, dtype)
-            self.work2_xG = self.gd.zeros(self.X, dtype)
-            if ngroups > 1:
-                self.A_qnn = np.zeros((self.Q, mynbands, mynbands), dtype)
-        self.A_nn = self.bmd.zeros(dtype=dtype)
+            self.work1_xG = self.gd.empty(self.X, self.dtype)
+            self.work2_xG = self.gd.empty(self.X, self.dtype)
 
     def estimate_memory(self, mem, dtype):
         ngroups = self.bd.comm.size
-        mynbands = self.bd.mynbands
-        nbands = self.bd.nbands
-        gdbytes = self.gd.bytecount(dtype)
-        count = self.Q * mynbands**2
+        count = self.Q * self.bd.mynbands**2
 
-        # Code semipasted from allocate_work_arrays
-        if ngroups == 1 and self.nblocks == 1:
-            mem.subnode('work1_xG', mynbands * gdbytes)
-        else:
-            mem.subnode('work1_xG', self.X * gdbytes)
-            mem.subnode('work2_xG', self.X * gdbytes)
+        # Code semipasted from allocate_work_arrays        
+        if ngroups > 1:
             mem.subnode('A_qnn', count * mem.itemsize[dtype])
 
-        self.bmd.estimate_memory(mem.subnode('Band Matrices'), dtype)
-
-    def _pseudo_braket(self, bra_xG, ket_yG, A_yx, square=None):
-        """Calculate matrix elements of braket pairs of pseudo wave functions.
-        Low-level helper function. Results will be put in the *A_yx* array::
-        
-                   /     ~ *     ~   
-           A    =  | dG bra (G) ket  (G)
-            nn'    /       n       n'
-
-
-        Parameters:
-
-        bra_xG: ndarray
-            Set of bra-like vectors in which the matrix elements are evaluated.
-        key_yG: ndarray
-            Set of ket-like vectors in which the matrix elements are evaluated.
-        A_yx: ndarray
-            Matrix in which to put calculated elements. Take care: Due to the
-            difference in Fortran/C array order and the inherent BLAS nature,
-            the matrix has to be filled in transposed (conjugated in future?).
-
-        """
-        assert bra_xG.shape[1:] == ket_yG.shape[1:]
-        assert (ket_yG.shape[0], bra_xG.shape[0]) == A_yx.shape
-
-        if square is None:
-            square = (bra_xG.shape[0]==ket_yG.shape[0])
-        dv = self.gd.dv
-        if ket_yG is bra_xG:
-            rk(dv, bra_xG, 0.0, A_yx, self.cuda)
-        elif self.hermitian and square:
-            r2k(0.5 * dv, bra_xG, ket_yG, 0.0, A_yx, self.cuda)
+        if ngroups == 1 and self.nblocks == 1:
+            mem.subnode('work1_xG',
+                        self.bd.mynbands * self.gd.bytecount(self.dtype))
         else:
-            gemm(dv, bra_xG, ket_yG, 0.0, A_yx, 'c', self.cuda)
+            mem.subnode('work1_xG', self.X * self.gd.bytecount(self.dtype))
+            mem.subnode('work2_xG', self.X * self.gd.bytecount(self.dtype))
+
+        self.bmd.estimate_memory(mem.subnode('Band Matrices'), dtype)
 
     def _initialize_cycle(self, sbuf_mG, rbuf_mG, sbuf_In, rbuf_In, auxiliary):
         """Initializes send/receive cycle of pseudo wave functions, as well as
@@ -268,35 +272,6 @@ class MatrixOperator:
 
         return sbuf_mG, rbuf_mG, sbuf_In, rbuf_In
 
-    def suggest_temporary_buffer(self, dtype, cuda=False):
-        """Return a *suggested* buffer for calculating A(psit_nG) during
-        a call to calculate_matrix_elements. Work arrays will be allocated
-        if they are not already available.
-
-        Note that the temporary buffer is merely a reference to (part of) a
-        work array, hence data race conditions occur if you're not careful.
-        """
-        if self.work1_xG is None:
-            self.allocate_work_arrays(dtype)
-        else:
-            assert self.work1_xG.dtype == dtype
-
-        J = self.nblocks
-        N = self.bd.mynbands
-        B = self.bd.comm.size
-
-        if B == 1 and J == 1:
-            if cuda and self.cuda:
-                return self.work1_xG_gpu
-            elif cuda:
-                raise RuntimeError('hs_operators is not initialized for CUDA')
-            else:
-                return self.work1_xG
-        else:
-            assert N % J == 0, "Can't divide %d bands in %d blocks." % (N,J)
-            M = self.M
-            return self.work1_xG[:M]
-
     def calculate_matrix_elements(self, psit_nG, P_ani, A, dA):
         """Calculate matrix elements for A-operator.
 
@@ -328,26 +303,31 @@ class MatrixOperator:
         """
         band_comm = self.bd.comm
         domain_comm = self.gd.comm
+        block_comm = self.block_comm
+
         B = band_comm.size
         J = self.nblocks
         N = self.bd.mynbands
-        
-        if self.work1_xG is None:
-            self.allocate_work_arrays(psit_nG.dtype)
-        else:
-            assert self.work1_xG.dtype == psit_nG.dtype
+        M = int(np.ceil(N / float(J)))
+
+        if self.A_nn is None:
+            self.allocate_arrays()
 
         A_NN = self.A_nn
 
         if B == 1 and J == 1:
             # Simple case:
             Apsit_nG = A(psit_nG)
+
             if self.cuda and isinstance(psit_nG, gpaw.cuda.gpuarray.GPUArray):
                 A_NN_gpu=gpaw.cuda.gpuarray.to_gpu(A_NN)
-                self._pseudo_braket(psit_nG, Apsit_nG, A_NN_gpu)
+                self.gd.integrate(psit_nG, Apsit_nG, hermitian=self.hermitian,
+                                  _transposed_result=A_NN_gpu)
                 A_NN_gpu.get(A_NN)
             else:
-                self._pseudo_braket(psit_nG, Apsit_nG, A_NN)
+                self.gd.integrate(psit_nG, Apsit_nG, hermitian=self.hermitian,
+                                  _transposed_result=A_NN)
+
             for a, P_ni in P_ani.items():
                 gemm(1.0, P_ni, dA(a, P_ni), 1.0, A_NN, 'c')
             domain_comm.sum(A_NN, 0)
@@ -356,8 +336,7 @@ class MatrixOperator:
         # Now it gets nasty! We parallelize over B groups of bands and
         # each band group is blocked in J smaller slices (less memory).
         Q = self.Q
-        M = self.M
-
+        
         # Buffer for storage of blocks of calculated matrix elements.
         if B == 1:
             A_qnn = A_NN.reshape((1, N, N))
@@ -372,16 +351,27 @@ class MatrixOperator:
             if B > 1:
                 rbuf_In = np.empty_like(sbuf_In)
 
+        work1_xG = reshape(self.work1_xG, (self.X,) + psit_nG.shape[1:])
+        work2_xG = reshape(self.work2_xG, (self.X,) + psit_nG.shape[1:])
+
         # Because of the amount of communication involved, we need to
         # be syncronized up to this point but only on the 1D band_comm
         # communication ring
         band_comm.barrier()
+        while M * J >= N + M:  # remove extra slice(s)
+            J -= 1
+        assert 0 < J * M < N + M
+
         for j in range(J):
             n1 = j * M
             n2 = n1 + M
+            if n2 > N:
+                n2 = N
+                M = n2 - n1
             psit_mG = psit_nG[n1:n2]
-            sbuf_mG = A(psit_mG)
-            rbuf_mG = self.work2_xG[:M]
+            temp_mG = A(psit_mG) 
+            sbuf_mG = temp_mG[:M]  # necessary only for last slice
+            rbuf_mG = work2_xG[:M]
             cycle_P_ani = (j == J - 1 and P_ani)
 
             for q in range(Q):
@@ -397,11 +387,16 @@ class MatrixOperator:
 
                 # Calculate pseudo-braket contributions for the current slice
                 # of bands in the current mynbands x mynbands matrix block.
-                if q == 0 and self.hermitian and not self.bd.strided:
-                    # Special case, we only need the lower part:
-                    self._pseudo_braket(psit_nG[:n2], sbuf_mG, A_mn[:, :n2])
-                else:
-                    self._pseudo_braket(psit_nG, sbuf_mG, A_mn, square=False)
+                # The special case may no longer be valid when. Better to be 
+                # conservative, than to risk it. Moreover, this special case 
+                # seems is an accident waiting to happen. Always doing the 
+                # more general case is safer.
+                # if q == 0 and self.hermitian and not self.bd.strided:
+                #    # Special case, we only need the lower part:
+                #     self._pseudo_braket(psit_nG[:n2], sbuf_mG, A_mn[:, :n2])
+                # else:
+                self.gd.integrate(psit_nG, sbuf_mG, hermitian=False,
+                                  _transposed_result=A_mn)
 
                 # If we're at the last slice, add contributions from P_ani's.
                 if cycle_P_ani:
@@ -421,7 +416,7 @@ class MatrixOperator:
 
                 # First iteration was special because we had the ket to ourself
                 if q == 0:
-                    rbuf_mG = self.work1_xG[:M]
+                    rbuf_mG = work1_xG[:M]
 
         domain_comm.sum(A_qnn, 0)
 
@@ -433,11 +428,10 @@ class MatrixOperator:
 
         # Because of the amount of communication involved, we need to
         # be syncronized up to this point.           
-        band_comm.barrier()
-        domain_comm.barrier()
+        block_comm.barrier()
         return self.bmd.redistribute_output(A_NN)
         
-    def matrix_multiply(self, C_NN, psit_nG, P_ani=None):
+    def matrix_multiply(self, C_NN, psit_nG, P_ani=None, out_nG=None):
         """Calculate new linear combinations of wave functions.
 
         Results will be put in the *P_ani* dict and a new psit_nG returned::
@@ -463,55 +457,54 @@ class MatrixOperator:
 
         """
 
+        if self.A_nn is None:
+            self.allocate_arrays()
+
         band_comm = self.bd.comm
-        domain_comm = self.gd.comm
         B = band_comm.size
         J = self.nblocks
         N = self.bd.mynbands
-
-        if self.work1_xG is None:
-            self.allocate_work_arrays(psit_nG.dtype)
-        else:
-            assert self.work1_xG.dtype == psit_nG.dtype
 
         C_NN = self.bmd.redistribute_input(C_NN)
 
         if B == 1 and J == 1:
             # Simple case:
-            if self.cuda and  isinstance(psit_nG, gpaw.cuda.gpuarray.GPUArray):
-                newpsit_nG = self.work1_xG_gpu
-                #psit_nG_gpu=gpaw.cuda.gpuarray.to_gpu(psit_nG)
-                #print type(C_NN),C_NN.dtype,C_NN.shape
-                #print type(newpsit_nG),newpsit_nG.dtype,newpsit_nG.shape
-                gemm(1.0, psit_nG, gpaw.cuda.gpuarray.to_gpu(C_NN), 0.0, newpsit_nG)
+            if isinstance(psit_nG, gpaw.cuda.gpuarray.GPUArray):
+                work_nG = reshape(self.work1_xG_gpu, psit_nG.shape)
+                if out_nG is None:
+                    out_nG = work_nG
+                    out_nG.fill(117)  # gemm may not like nan's
+                elif out_nG is psit_nG:
+                    gpaw.cuda.drv.memcpy_dtod(work_nG.gpudata, psit_nG.gpudata, psit_nG.nbytes)
+                    psit_nG = work_nG
+                self.gd.gemm(1.0, psit_nG, gpaw.cuda.gpuarray.to_gpu(C_NN), 0.0, out_nG)
                 if P_ani:
                     for P_ni in P_ani.values():
                         gemm(1.0, P_ni.copy(), C_NN, 0.0, P_ni)
-                self.work1_xG_gpu = psit_nG
             else:
-                newpsit_nG = self.work1_xG
-                gemm(1.0, psit_nG, C_NN, 0.0, newpsit_nG)
+                work_nG = reshape(self.work1_xG, psit_nG.shape)
+                if out_nG is None:
+                    out_nG = work_nG
+                    out_nG[:] = 117  # gemm may not like nan's
+                elif out_nG is psit_nG:
+                    work_nG[:] = psit_nG
+                    psit_nG = work_nG
+                self.gd.gemm(1.0, psit_nG, C_NN, 0.0, out_nG)
                 if P_ani:
                     for P_ni in P_ani.values():
                         gemm(1.0, P_ni.copy(), C_NN, 0.0, P_ni)
-                self.work1_xG = psit_nG
-
-                    #print P_ni.copy().shape,C_NN.shape,P_ni.shape
-#            if self.cuda:
-#                return newpsit_nG.get()
-#            else:
-            return newpsit_nG
+            return out_nG
         
         # Now it gets nasty! We parallelize over B groups of bands and
         # each grid chunk is divided in J smaller slices (less memory).
         print "matrix_multiply: Nasty case"
             
-        Q = B # always non-hermitian XXX
+        Q = B  # always non-hermitian XXX
         rank = band_comm.rank
         shape = psit_nG.shape
         psit_nG = psit_nG.reshape(N, -1)
-        G = psit_nG.shape[1]   # number of grid-points
-        g = int(np.ceil(G/J))
+        G = psit_nG.shape[1]  # number of grid-points
+        g = int(np.ceil(G / float(J)))
 
         # Buffers for send/receive of pre-multiplication versions of P_ani's.
         sbuf_In = rbuf_In = None
@@ -524,14 +517,21 @@ class MatrixOperator:
         # be syncronized up to this point but only on the 1D band_comm
         # communication ring
         band_comm.barrier()
+        while g * J >= G + g:  # remove extra slice(s)
+            J -= 1
+        assert 0 < g * J < G + g
+
+        work1_xG = reshape(self.work1_xG, (self.X,) + psit_nG.shape[1:])
+        work2_xG = reshape(self.work2_xG, (self.X,) + psit_nG.shape[1:])
+
         for j in range(J):
             G1 = j * g
             G2 = G1 + g
             if G2 > G:
                 G2 = G
                 g = G2 - G1
-            sbuf_ng = self.work1_xG.reshape(-1)[:N * g].reshape(N, g)
-            rbuf_ng = self.work2_xG.reshape(-1)[:N * g].reshape(N, g)
+            sbuf_ng = reshape(work1_xG, (N, g))
+            rbuf_ng = reshape(work2_xG, (N, g))
             sbuf_ng[:] = psit_nG[:, G1:G2]
             beta = 0.0
             cycle_P_ani = (j == J - 1 and P_ani)
@@ -546,7 +546,7 @@ class MatrixOperator:
                 # Calculate wave-function contributions from the current slice
                 # of grid data by the current mynbands x mynbands matrix block.
                 C_nn = self.bmd.extract_block(C_NN, (rank + q) % B, rank)
-                gemm(1.0, sbuf_ng, C_nn, beta, psit_nG[:, G1:G2])
+                self.gd.gemm(1.0, sbuf_ng, C_nn, beta, psit_nG[:, G1:G2])
 
                 # If we're at the last slice, add contributions to P_ani's.
                 if cycle_P_ani:
@@ -569,4 +569,3 @@ class MatrixOperator:
 
         psit_nG.shape = shape
         return psit_nG
-

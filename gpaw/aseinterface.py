@@ -10,6 +10,8 @@ from ase.units import Bohr, Hartree
 
 from gpaw.xc import XC
 from gpaw.paw import PAW
+from gpaw.stress import stress
+from gpaw.occupations import MethfesselPaxton
 
 
 class GPAW(PAW):
@@ -19,6 +21,9 @@ class GPAW(PAW):
         atoms = self.atoms.copy()
         atoms.set_calculator(self)
         return atoms
+
+    def set_atoms(self, atoms):
+        pass
 
     def get_potential_energy(self, atoms=None, force_consistent=False):
         """Return total energy.
@@ -37,11 +42,13 @@ class GPAW(PAW):
             return Hartree * self.hamiltonian.Etot
         else:
             # Energy extrapolated to zero Kelvin:
+            if (isinstance(self.occupations, MethfesselPaxton) and
+                self.occupations.iter > 0):
+                raise NotImplementedError(
+                    'Extrapolation to zero width not implemeted for ' +
+                    'Methfessel-Paxton distribution with order > 0.')
             return Hartree * (self.hamiltonian.Etot + 0.5 * self.hamiltonian.S)
 
-    def get_reference_energy(self):
-        return self.wfs.setups.Eref * Hartree
-    
     def get_forces(self, atoms):
         """Return the forces for the current state of the atoms."""
         # I believe that the force_call_to_set_positions must be set
@@ -71,13 +78,13 @@ class GPAW(PAW):
         return F_av * (Hartree / Bohr)
       
     def get_stress(self, atoms):
-        """Return the stress for the current state of the ListOfAtoms."""
-        raise NotImplementedError
+        """Return the stress for the current state of the atoms."""
+        self.calculate(atoms, converge=True)
+        if self.stress_vv is None:
+            self.stress_vv = stress(self)
+        return self.stress_vv.flat[[0, 4, 8, 5, 2, 1]] * (Hartree / Bohr**3)
 
     def calculation_required(self, atoms, quantities):
-        if 'stress' in quantities:
-            return True
-
         if len(quantities) == 0:
             return False
 
@@ -92,14 +99,12 @@ class GPAW(PAW):
             (atoms.get_pbc() != self.atoms.get_pbc()).any()):
             return True
 
-        if 'forces' in quantities:
-            return self.forces.F_av is None
-
-        return False
+        return ('forces' in quantities and self.forces.F_av is None or
+                'stress' in quantities and self.stress_vv is None)
 
     def get_number_of_bands(self):
         """Return the number of bands."""
-        return self.wfs.nbands
+        return self.wfs.bd.nbands
   
     def get_xc_functional(self):
         """Return the XC-functional identifier.
@@ -108,10 +113,6 @@ class GPAW(PAW):
         
         return self.hamiltonian.xc.name
  
-    def get_bz_k_points(self):
-        """Return the k-points."""
-        return self.wfs.bzk_kc
- 
     def get_number_of_spins(self):
         return self.wfs.nspins
 
@@ -119,9 +120,13 @@ class GPAW(PAW):
         """Is it a spin-polarized calculation?"""
         return self.wfs.nspins == 2
     
+    def get_bz_k_points(self):
+        """Return the k-points."""
+        return self.wfs.kd.bzk_kc.copy()
+ 
     def get_ibz_k_points(self):
         """Return k-points in the irreducible part of the Brillouin zone."""
-        return self.wfs.ibzk_kc
+        return self.wfs.kd.ibzk_kc.copy()
 
     def get_k_point_weights(self):
         """Weights of the k-points.
@@ -143,19 +148,19 @@ class GPAW(PAW):
             gd = self.density.gd
         elif gridrefinement == 2:
             if self.density.nt_sg is None:
-                self.density.interpolate()
+                self.density.interpolate_pseudo_density()
             nt_sG = self.density.nt_sg
             gd = self.density.finegd
         else:
             raise NotImplementedError
 
         if spin is None:
-            if self.wfs.nspins == 1:
+            if self.density.nspins == 1:
                 nt_G = nt_sG[0]
             else:
                 nt_G = nt_sG.sum(axis=0)
         else:
-            if self.wfs.nspins == 1:
+            if self.density.nspins == 1:
                 nt_G = 0.5 * nt_sG[0]
             else:
                 nt_G = nt_sG[spin]
@@ -172,10 +177,14 @@ class GPAW(PAW):
 
     get_pseudo_valence_density = get_pseudo_density  # Don't use this one!
     
-    def get_effective_potential(self, spin=0, pad=True):
+    def get_effective_potential(self, spin=0, pad=True, broadcast=False):
         """Return pseudo effective-potential."""
         # XXX should we do a gd.collect here?
-        vt_G = self.hamiltonian.vt_sG[spin]
+        vt_G = self.hamiltonian.gd.collect(self.hamiltonian.vt_sG[spin],
+                                           broadcast=broadcast)
+        if vt_G is None:
+            return None
+        
         if pad:
             vt_G = self.hamiltonian.gd.zero_pad(vt_G)
         return vt_G * Hartree
@@ -196,23 +205,24 @@ class GPAW(PAW):
                              for spin in range(2)])
 
     def get_all_electron_density(self, spin=None, gridrefinement=2,
-                                 pad=True, broadcast=True):
+                                 pad=True, broadcast=True, collect=True):
         """Return reconstructed all-electron density array."""
         n_sG, gd = self.density.get_all_electron_density(
             self.atoms, gridrefinement=gridrefinement)
 
         if spin is None:
-            if self.wfs.nspins == 1:
+            if self.density.nspins == 1:
                 n_G = n_sG[0]
             else:
                 n_G = n_sG.sum(axis=0)
         else:
-            if self.wfs.nspins == 1:
+            if self.density.nspins == 1:
                 n_G = 0.5 * n_sG[0]
             else:
                 n_G = n_sG[spin]
 
-        n_G = gd.collect(n_G, broadcast)
+        if collect:
+            n_G = gd.collect(n_G, broadcast)
 
         if n_G is None:
             return None
@@ -264,7 +274,8 @@ class GPAW(PAW):
         weight_a = np.empty(len(self.atoms))
         for a in range(len(self.atoms)):
             # XXX Optimize! No need to integrate in zero-region
-            smooth = self.wfs.gd.integrate(np.where(atom_index==a, nt_G, 0.0))
+            smooth = self.wfs.gd.integrate(np.where(atom_index == a,
+                                                    nt_G, 0.0))
             correction = self.density.get_correction(a, spin)
             weight_a[a] = smooth + correction
             
@@ -285,9 +296,9 @@ class GPAW(PAW):
             width = 0.1
 
         w_k = self.wfs.weight_k
-        Nb = self.wfs.nbands
+        Nb = self.wfs.bd.nbands
         energies = np.empty(len(w_k) * Nb)
-        weights  = np.empty(len(w_k) * Nb)
+        weights = np.empty(len(w_k) * Nb)
         x = 0
         for k, w in enumerate(w_k):
             energies[x:x + Nb] = self.get_eigenvalues(k, spin)
@@ -386,7 +397,7 @@ class GPAW(PAW):
         if broadcast:
             if self.wfs.world.rank != 0:
                 assert eps_n is None
-                eps_n = np.empty(self.wfs.nbands)
+                eps_n = np.empty(self.wfs.bd.nbands)
             self.wfs.world.broadcast(eps_n, 0)
         if eps_n is not None:
             return eps_n * Hartree
@@ -397,7 +408,7 @@ class GPAW(PAW):
         if broadcast:
             if self.wfs.world.rank != 0:
                 assert f_n is None
-                f_n = np.empty(self.wfs.nbands)
+                f_n = np.empty(self.wfs.bd.nbands)
             self.wfs.world.broadcast(f_n, 0)
         return f_n
     
@@ -411,88 +422,47 @@ class GPAW(PAW):
             self.converge_wave_functions()
         return self.hamiltonian.get_xc_difference(xc, self.density) * Hartree
 
-    def get_nonselfconsistent_eigenvalues(self, xcname):
-        wfs = self.wfs
-        oldxc = self.hamiltonian.xc.xcfunc
-
-        def shiftxc(calc, xc, energy_only=False):
-            if isinstance(xc, str):
-                xc = XCFunctional(xc, calc.wfs.nspins)
-            elif isinstance(xc, dict):
-                xc = XCFunctional(xc.copy(), calc.wfs.nspins)
-            xc.set_non_local_things(calc.density, calc.hamiltonian, calc.wfs,
-                                    calc.atoms, energy_only=energy_only)
-            calc.hamiltonian.xc.set_functional(xc)
-            calc.hamiltonian.xc.set_positions(
-                calc.atoms.get_scaled_positions() % 1.0)
-            for setup in calc.wfs.setups:
-                setup.xc_correction.xc.set_functional(xc)
-                if xc.mgga:
-                    setup.xc_correction.initialize_kinetic(setup.data)
-
-        # Read in stuff from the file
-        assert wfs.kpt_u[0].psit_nG is not None, 'gpw file must contain wfs!'
-        wfs.initialize_wave_functions_from_restart_file()
-        self.set_positions()
-        for kpt in wfs.kpt_u:
-            wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-
-        # Change the xc functional
-        shiftxc(self, xcname)
-
-        # Recalculate the effective potential
-        self.hamiltonian.update(self.density)
-        if not wfs.eigensolver.initialized:
-            wfs.eigensolver.initialize(wfs)
-
-        # Apply Hamiltonian and get new eigenvalues, occupation, and energy
-        for kpt in wfs.kpt_u:
-            wfs.eigensolver.subspace_diagonalize(
-                self.hamiltonian, wfs, kpt, rotate=False)
-
-        # Change xc functional back to the original
-        shiftxc(self, oldxc)
-
-        eig_skn = np.array([[self.get_eigenvalues(kpt=k, spin=s)
-                             for k in range(wfs.nibzkpts)]
-                            for s in range(wfs.nspins)])
-        return eig_skn
-
     def initial_wannier(self, initialwannier, kpointgrid, fixedstates,
-                        edf, spin):
+                        edf, spin, nbands):
         """Initial guess for the shape of wannier functions.
 
         Use initial guess for wannier orbitals to determine rotation
         matrices U and C.
         """
-        if not self.wfs.gamma:
-            raise NotImplementedError
+        #if not self.wfs.gamma:
+        #    raise NotImplementedError
         from ase.dft.wannier import rotation_from_projection
         proj_knw = self.get_projections(initialwannier, spin)
-        U_ww, C_ul = rotation_from_projection(proj_knw[0],
-                                              fixedstates[0],
-                                              ortho=True)
-        return [C_ul], U_ww[np.newaxis]
+        U_kww = []
+        C_kul = []
+        for fixed, proj_nw in zip(fixedstates, proj_knw):
+            U_ww, C_ul = rotation_from_projection(proj_nw[:nbands],
+                                                  fixed,
+                                                  ortho=True)
+            U_kww.append(U_ww)
+            C_kul.append(C_ul)
+
+        U_kww = np.asarray(U_kww)
+        return C_kul, U_kww
 
     def get_wannier_localization_matrix(self, nbands, dirG, kpoint,
                                         nextkpoint, G_I, spin):
         """Calculate integrals for maximally localized Wannier functions."""
 
         # Due to orthorhombic cells, only one component of dirG is non-zero.
-        c = dirG.tolist().index(1)
-        k_kc = self.wfs.bzk_kc
-        G = k_kc[nextkpoint, c] - k_kc[kpoint, c] - G_I[c]
+        k_kc = self.wfs.kd.bzk_kc
+        G_c = k_kc[nextkpoint] - k_kc[kpoint] - G_I
 
-        return self.get_wannier_integrals(c, spin, kpoint,
-                                          nextkpoint, G, nbands)
+        return self.get_wannier_integrals(spin, kpoint,
+                                          nextkpoint, G_c, nbands)
 
-    def get_wannier_integrals(self, c, s, k, k1, G, nbands=None):
+    def get_wannier_integrals(self, s, k, k1, G_c, nbands=None):
         """Calculate integrals for maximally localized Wannier functions."""
 
         assert s <= self.wfs.nspins
-        kpt_rank, u = divmod(k + len(self.wfs.ibzk_kc) * s,
+        kpt_rank, u = divmod(k + len(self.wfs.kd.ibzk_kc) * s,
                              len(self.wfs.kpt_u))
-        kpt_rank1, u1 = divmod(k1 + len(self.wfs.ibzk_kc) * s,
+        kpt_rank1, u1 = divmod(k1 + len(self.wfs.kd.ibzk_kc) * s,
                                len(self.wfs.kpt_u))
         kpt_u = self.wfs.kpt_u
 
@@ -504,16 +474,16 @@ class GPAW(PAW):
         
         # Get pseudo part
         Z_nn = self.wfs.gd.wannier_matrix(kpt_u[u].psit_nG,
-                                          kpt_u[u1].psit_nG, c, G, nbands)
+                                          kpt_u[u1].psit_nG, G_c, nbands)
 
         # Add corrections
-        self.add_wannier_correction(Z_nn, G, c, u, u1, nbands)
+        self.add_wannier_correction(Z_nn, G_c, u, u1, nbands)
 
-        self.wfs.gd.comm.sum(Z_nn, 0)
+        self.wfs.gd.comm.sum(Z_nn)
             
         return Z_nn
 
-    def add_wannier_correction(self, Z_nn, G, c, u, u1, nbands=None):
+    def add_wannier_correction(self, Z_nn, G_c, u, u1, nbands=None):
         """
         Calculate the correction to the wannier integrals Z,
         given by (Eq. 27 ref1)::
@@ -536,18 +506,18 @@ class GPAW(PAW):
         """
 
         if nbands is None:
-            nbands = self.wfs.nbands
+            nbands = self.wfs.bd.nbands
             
         P_ani = self.wfs.kpt_u[u].P_ani
         P1_ani = self.wfs.kpt_u[u1].P_ani
-        spos_av = self.atoms.get_scaled_positions()
+        spos_ac = self.atoms.get_scaled_positions()
         for a, P_ni in P_ani.items():
             P_ni = P_ani[a][:nbands]
             P1_ni = P1_ani[a][:nbands]
             dO_ii = self.wfs.setups[a].dO_ii
-            e = np.exp(-2.j * np.pi * G * spos_av[a, c])
+            e = np.exp(-2.j * np.pi * np.dot(G_c, spos_ac[a]))
             Z_nn += e * np.dot(np.dot(P_ni.conj(), dO_ii), P1_ni.T)
-
+            
     def get_projections(self, locfun, spin=0):
         """Project wave functions onto localized functions
 
@@ -594,11 +564,9 @@ class GPAW(PAW):
         from gpaw.spline import Spline
         from gpaw.utilities import _fact
 
-        nkpts = len(wfs.ibzk_kc)
+        nkpts = len(wfs.kd.ibzk_kc)
         nbf = np.sum([2 * l + 1 for pos, l, a in locfun])
-        f_kni = np.zeros((nkpts, wfs.nbands, nbf), wfs.dtype)
-
-        bf = 0
+        f_kni = np.zeros((nkpts, wfs.bd.nbands, nbf), wfs.dtype)
 
         spos_ac = self.atoms.get_scaled_positions() % 1.0
         spos_xc = []
@@ -607,21 +575,19 @@ class GPAW(PAW):
             if isinstance(spos_c, int):
                 spos_c = spos_ac[spos_c]
             spos_xc.append(spos_c)
-            
             alpha = .5 * Bohr**2 / sigma**2
-            r = np.linspace(0, 6. * sigma, 500)
+            r = np.linspace(0, 10. * sigma, 500)
             f_g = (_fact[l] * (4 * alpha)**(l + 3 / 2.) *
-                   np.exp(-a * r**2) /
+                   np.exp(-alpha * r**2) /
                    (np.sqrt(4 * np.pi) * _fact[2 * l + 1]))
-            splines_x.append([Spline(l, rmax=r[-1], f_g=f_g, points=61)])
+            splines_x.append([Spline(l, rmax=r[-1], f_g=f_g)])
             
-        lf = LFC(wfs.gd, splines_x, wfs.kpt_comm, dtype=wfs.dtype)
-        if not wfs.gamma:
-            lf.set_k_points(wfs.ibzk_qc)
+        lf = LFC(wfs.gd, splines_x, wfs.kd, dtype=wfs.dtype)
         lf.set_positions(spos_xc)
 
+        assert wfs.gd.comm.size == 1
         k = 0
-        f_ani = lf.dict(wfs.nbands)
+        f_ani = lf.dict(wfs.bd.nbands)
         for kpt in wfs.kpt_u:
             if kpt.s != spin:
                 continue
@@ -646,12 +612,16 @@ class GPAW(PAW):
 
     def get_magnetic_moments(self, atoms=None):
         """Return the local magnetic moments within augmentation spheres"""
-        magmom_a = self.density.estimate_magnetic_moments()
-        momsum = magmom_a.sum()
-        M = self.occupations.magmom
-        if abs(M) > 1e-7 and momsum > 1e-7:
-            magmom_a *= M / momsum
-        return magmom_a
+        magmom_av = self.density.estimate_magnetic_moments()
+        if self.wfs.collinear:
+            momsum = magmom_av.sum()
+            M = self.occupations.magmom
+            if abs(M) > 1e-7 and abs(momsum) > 1e-7:
+                magmom_av *= M / momsum
+            # return a contiguous array
+            return magmom_av[:, 2].copy()
+        else:
+            return magmom_av
         
     def get_number_of_grid_points(self):
         return self.wfs.gd.N_c
@@ -678,8 +648,11 @@ class GPAW(PAW):
         return np.array(coefs)
 
     def get_electronic_temperature(self):
-        # XXX do we need this?
+        # XXX do we need this - yes we do!
         return self.occupations.width * Hartree
+
+    def get_number_of_electrons(self):
+        return self.wfs.setups.nvalence - self.density.charge
 
     def get_electrostatic_corrections(self):
         """Calculate PAW correction to average electrostatic potential."""
@@ -690,20 +663,15 @@ class GPAW(PAW):
         self.wfs.gd.comm.sum(dEH_a)
         return dEH_a * Hartree * Bohr**3
 
-    def get_grid_spacings(self):
-        assert self.wfs.gd.orthogonal
-        return Bohr * self.wfs.gd.h_cv.diagonal()
-
     def read_wave_functions(self, mode='gpw'):
         """Read wave functions one by one from separate files"""
 
         from gpaw.io import read_wave_function
         for u, kpt in enumerate(self.wfs.kpt_u):
             #kpt = self.kpt_u[u]
-            kpt.psit_nG = self.wfs.gd.empty(self.wfs.nbands, self.wfs.dtype)
+            kpt.psit_nG = self.wfs.gd.empty(self.wfs.bd.nbands, self.wfs.dtype)
             # Read band by band to save memory
             s = kpt.s
             k = kpt.k
             for n, psit_G in enumerate(kpt.psit_nG):
                 psit_G[:] = read_wave_function(self.wfs.gd, s, k, n, mode)
-                

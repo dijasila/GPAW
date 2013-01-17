@@ -19,9 +19,9 @@ from gpaw.utilities.blas import gemm
 from gpaw.gaunt import make_gaunt
 
 
-class HybridXC(XCFunctional):
+class HybridXCBase(XCFunctional):
     orbital_dependent = True
-    def __init__(self, name, hybrid=None, xc=None, finegrid=False):
+    def __init__(self, name, hybrid=None, xc=None):
         """Mix standard functionals with exact exchange.
 
         name: str
@@ -30,8 +30,6 @@ class HybridXC(XCFunctional):
             Fraction of exact exchange.
         xc: str or XCFunctional object
             Standard DFT functional with scaled down exchange.
-        finegrid: boolean
-            Use fine grid for energy functional evaluations?
         """
 
         if name == 'EXX':
@@ -50,21 +48,29 @@ class HybridXC(XCFunctional):
         if isinstance(xc, str):
             xc = XC(xc)
 
-        self.hybrid = hybrid
+        self.hybrid = float(hybrid)
         self.xc = xc
         self.type = xc.type
-        self.finegrid = finegrid
 
         XCFunctional.__init__(self, name)
 
     def get_setup_name(self):
         return 'PBE'
 
-    def calculate_radial(self, rgd, n_sLg, Y_L, v_sg,
-                         dndr_sLg=None, rnablaY_Lv=None,
-                         tau_sg=None, dedtau_sg=None):
-        return self.xc.calculate_radial(rgd, n_sLg, Y_L, v_sg,
-                                        dndr_sLg, rnablaY_Lv)
+class HybridXC(HybridXCBase):
+    def __init__(self, name, hybrid=None, xc=None, finegrid=False):
+        """Mix standard functionals with exact exchange.
+
+        finegrid: boolean
+            Use fine grid for energy functional evaluations?
+        """
+        self.finegrid = finegrid
+        HybridXCBase.__init__(self, name, hybrid, xc)
+        
+    def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
+                                 addcoredensity=True, a=None):
+        return self.xc.calculate_paw_correction(setup, D_sp, dEdD_sp,
+                                 addcoredensity, a)
     
     def initialize(self, density, hamiltonian, wfs, occupations):
         assert wfs.gamma
@@ -263,7 +269,7 @@ class HybridXC(XCFunctional):
             P1_i = P_ni[n1]
             P2_i = P_ni[n2]
             D_ii = np.outer(P1_i, P2_i.conj()).real
-            D_p = pack(D_ii, tolerance=1e30)
+            D_p = pack(D_ii)
             Q_aL[a] = np.dot(D_p, self.setups[a].Delta_pL)
             
         nt_G = psit_nG[n1] * psit_nG[n2]
@@ -450,7 +456,7 @@ def constructX(gen):
             i1 += 2 * lv1 + 1
 
     # pack X_ii matrix
-    X_p = pack2(X_ii, tolerance=1e-8)
+    X_p = pack2(X_ii)
     return X_p
 
 
@@ -465,7 +471,7 @@ def H_coulomb_val_core(paw, u=0):
         ij   //       --          |r - r'|
                       k
     """
-    H_nn = np.zeros((paw.wfs.nbands, paw.wfs.nbands), dtype=paw.wfs.dtype)
+    H_nn = np.zeros((paw.wfs.bd.nbands, paw.wfs.bd.nbands), dtype=paw.wfs.dtype)
     for a, P_ni in paw.wfs.kpt_u[u].P_ani.items():
         X_ii = unpack(paw.wfs.setups[a].X_p)
         H_nn += np.dot(P_ni.conj(), np.dot(X_ii, P_ni.T))

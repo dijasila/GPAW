@@ -22,10 +22,10 @@ class Wannier:
             self.Z_nnc = np.empty((nbands, nbands, 3), complex)
             print "calculating Z_nnc"
             for c in range(3):
-                self.Z_nnc[:, :, c] = calc.get_wannier_integrals(c, spin,
-                                                                #k, k1, G
-                                                                 0, 0, 1.0,
-                                                                 nbands)
+                G_c = np.zeros(3)
+                G_c[c] = 1
+                self.Z_nnc[:, :, c] = calc.get_wannier_integrals(
+                    spin, 0, 0, G_c, nbands)
             self.value = 0.0
             self.U_nn = np.identity(nbands)
 
@@ -54,7 +54,7 @@ class Wannier:
         if pad:
             return calc.wfs.gd.zero_pad(self.get_function(calc, n, False))
         psit_nG = calc.wfs.kpt_u[self.spin].psit_nG[:]
-        psit_nG = psit_nG.reshape((calc.wfs.nbands, -1))
+        psit_nG = psit_nG.reshape((calc.wfs.bd.nbands, -1))
         return np.dot(self.U_nn[:, n],
                        psit_nG).reshape(calc.wfs.gd.n_c) / Bohr**1.5
 
