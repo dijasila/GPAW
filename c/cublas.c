@@ -5,6 +5,21 @@
 #include <cuda_runtime.h>
 #include <cublas_v2.h>
 
+PyObject* cuZscal(PyObject *self, PyObject *args)
+{
+  cublasHandle_t handle;
+  int n, incx;
+  cuDoubleComplex alpha;
+  void *x;
+
+  if (!PyArg_ParseTuple(args, "LiDLi",&handle, &n, &alpha, &x, &incx))
+    return NULL;
+  cublasZscal(handle, n, &alpha, x, incx);
+  Py_RETURN_NONE;
+}
+
+
+
 PyObject* cugemm(PyObject *self, PyObject *args)
 {
   cublasHandle_t handle;
@@ -151,6 +166,23 @@ PyObject* cuFree(PyObject *self, PyObject *args)
   return Py_BuildValue("i",cudaStat);
 }
 
+
+PyObject* cuMemset(PyObject *self, PyObject *args)
+{
+  void *devPtr;
+  int a, n;
+  if (!PyArg_ParseTuple(args,"Lii",&devPtr,&a,&n))
+    return NULL;
+  cudaError_t cudaStat;
+  cudaStat = cudaMemset(devPtr, a, n);
+  if (cudaStat != cudaSuccess) {
+    printf("device memory set failed %d at %p\n",cudaStat,devPtr);
+    return NULL;
+  }
+  return Py_BuildValue("i",cudaStat);
+}
+
+
 #define VOIDP(a) ((void*) ((a)->data))
 
 PyObject* cuSetMatrix(PyObject *self, PyObject *args)
@@ -248,6 +280,34 @@ PyObject* cuZher(PyObject *self, PyObject *args)
   }
   return Py_BuildValue("i",cudaStat);
 }
+
+
+PyObject* cuZherk(PyObject *self, PyObject *args)
+{
+  cublasHandle_t handle;
+  cublasFillMode_t uplo;
+  cublasOperation_t trans = CUBLAS_OP_N;
+  int n, k;
+  const double alpha, beta;
+  int lda, ldc;
+  void *A,*C;
+
+  if (!PyArg_ParseTuple(args,"LiiidLidLi",&handle,&uplo,&n,&k, &alpha,&A,&lda,
+			&beta, &C, &ldc))
+    return NULL;
+
+  cudaError_t cudaStat;
+/*   printf("%p %d %d %f %p %d %p %d\n",handle,uplo,n,alpha,x,incx,A,lda); */
+  cudaStat = cublasZherk(handle,uplo,trans, n,k,&alpha,A,lda,&beta,C,ldc);
+  if (cudaStat != cudaSuccess) {
+    printf("cublasZherk failed %d\n",cudaStat);
+    return NULL;
+  }
+  return Py_BuildValue("i",cudaStat);
+}
+
+
+
 
 PyObject* cuDevSynch(PyObject *self, PyObject *args)
 {

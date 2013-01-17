@@ -22,6 +22,7 @@ class RPACorrelation:
                  single_precision=False,
                  cublas=False,
                  cugemv=False,
+                 nmultix=1,
                  qsym=True):
         
         self.calc = calc
@@ -30,6 +31,7 @@ class RPACorrelation:
         self.single_precision=single_precision
         self.cublas = cublas
         self.cugemv = cugemv
+        self.nmultix=nmultix
         
         if txt is None:
             if rank == 0:
@@ -283,6 +285,7 @@ class RPACorrelation:
                 single_precision=self.single_precision,
                 cublas=self.cublas,
                 cugemv=self.cugemv,
+                nmultix=self.nmultix,
                 optical_limit=optical_limit,
                 hilbert_trans=False)
         

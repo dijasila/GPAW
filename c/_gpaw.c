@@ -31,6 +31,7 @@ PyObject* map_k_points(PyObject *self, PyObject *args);
 PyObject* scal(PyObject *self, PyObject *args);
 PyObject* gemm(PyObject *self, PyObject *args);
 PyObject* gemv(PyObject *self, PyObject *args);
+PyObject* cuZscal(PyObject *self, PyObject *args);
 PyObject* cugemm(PyObject *self, PyObject *args);
 PyObject* cuZgemv(PyObject *self, PyObject *args);
 PyObject* cuCgemv(PyObject *self, PyObject *args);
@@ -110,11 +111,13 @@ PyObject* cuCreate(PyObject *self, PyObject *args);
 PyObject* cuDestroy(PyObject *self, PyObject *args);
 PyObject* cuMalloc(PyObject *self, PyObject *args);
 PyObject* cuFree(PyObject *self, PyObject *args);
+PyObject* cuMemset(PyObject *self, PyObject *args);
 PyObject* cuSetMatrix(PyObject *self, PyObject *args);
 PyObject* cuGetMatrix(PyObject *self, PyObject *args);
 PyObject* cuSetVector(PyObject *self, PyObject *args);
 PyObject* cuGetVector(PyObject *self, PyObject *args);
 PyObject* cuZher(PyObject *self, PyObject *args);
+PyObject* cuZherk(PyObject *self, PyObject *args);
 PyObject* cuDevSynch(PyObject *self, PyObject *args);
 PyObject* cuCher(PyObject *self, PyObject *args);
 
@@ -130,6 +133,7 @@ static PyMethodDef functions[] = {
   {"scal", scal, METH_VARARGS, 0},
   {"gemm", gemm, METH_VARARGS, 0},
   {"gemv", gemv, METH_VARARGS, 0},
+  {"cuZscal", cuZscal, METH_VARARGS, 0},
   {"cugemm", cugemm, METH_VARARGS, 0},
   {"cuZgemv", cuZgemv, METH_VARARGS, 0},
   {"cuCgemv", cuCgemv, METH_VARARGS, 0},
@@ -138,6 +142,7 @@ static PyMethodDef functions[] = {
   {"ccher", ccher, METH_VARARGS, 0},
   {"cuMalloc", cuMalloc, METH_VARARGS, 0},
   {"cuFree", cuFree, METH_VARARGS, 0},
+  {"cuMemset", cuMemset, METH_VARARGS, 0},
   {"cuCreate", cuCreate, METH_VARARGS, 0},
   {"cuDestroy", cuDestroy, METH_VARARGS, 0},
   {"cuSetMatrix", cuSetMatrix, METH_VARARGS, 0},
@@ -145,6 +150,7 @@ static PyMethodDef functions[] = {
   {"cuSetVector", cuSetVector, METH_VARARGS, 0},
   {"cuGetVector", cuGetVector, METH_VARARGS, 0},
   {"cuZher", cuZher, METH_VARARGS, 0},
+  {"cuZherk", cuZherk, METH_VARARGS, 0},
   {"cuDevSynch", cuDevSynch, METH_VARARGS, 0},
   {"cuCher", cuCher, METH_VARARGS, 0},
   {"rk",  rk,  METH_VARARGS, 0},
