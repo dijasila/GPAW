@@ -111,9 +111,7 @@ class ELF:
                 self.nt_grad2_sg[s] += d_g**2.0
 
     def update(self):
-        ddr_v = [Gradient(self.gd, v, n=3).apply for v in range(3)]
-
-        self.taut_sG = self.paw.wfs.calculate_kinetic_energy_density(ddr_v)
+        self.taut_sG = self.paw.wfs.calculate_kinetic_energy_density()
 
         # Add the pseudo core kinetic array
         for taut_G in self.taut_sG:
@@ -129,7 +127,7 @@ class ELF:
 
         for s in range(self.nspins):
             for v in range(3):
-                ddr_v[v](self.density.nt_sG[s], d_G)
+                self.paw.wfs.taugrad_v[v](self.density.nt_sG[s], d_G)
                 self.nt_grad2_sG[s] += d_G**2.0
 
         #TODO are nct from setups usable for nt_grad2_sG ?
