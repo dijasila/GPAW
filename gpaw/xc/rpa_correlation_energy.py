@@ -23,6 +23,7 @@ class RPACorrelation:
                  cublas=False,
                  cugemv=False,
                  nmultix=1,
+                 sync=False,
                  qsym=True):
         
         self.calc = calc
@@ -32,6 +33,7 @@ class RPACorrelation:
         self.cublas = cublas
         self.cugemv = cugemv
         self.nmultix=nmultix
+        self.sync = sync
         
         if txt is None:
             if rank == 0:
@@ -286,6 +288,7 @@ class RPACorrelation:
                 cublas=self.cublas,
                 cugemv=self.cugemv,
                 nmultix=self.nmultix,
+                sync=self.sync,
                 optical_limit=optical_limit,
                 hilbert_trans=False)
         

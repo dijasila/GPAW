@@ -64,6 +64,7 @@ class CHI(BASECHI):
                  cublas=False,
                  cugemv=False,                 
                  nmultix=1,
+                 sync=False,
                  comm=None,
                  kcommsize=None):
 
@@ -81,6 +82,7 @@ class CHI(BASECHI):
         self.cublas = cublas
         self.cugemv = cugemv  
         self.nmultix = nmultix
+        self.sync = sync
         self.kcommsize = kcommsize
         self.comm = comm
         if self.comm is None:
@@ -281,7 +283,6 @@ class CHI(BASECHI):
         else:
             spinlist = [seperate_spin]
         
-        self.sync = True
         if self.sync: # perform timing when synchronize
             assert self.cublas is True
             print >> self.txt, 'Initialization time', time() - self.starttime
@@ -362,9 +363,13 @@ class CHI(BASECHI):
                     imultix = 0
                     for m in self.mlist:
                         if self.nbands > 200 and m % 200 == 0:
-                            print >> self.txt, '\n', k, n, m, time() - t0, time() - t0 - timer.get_tot_timing()
-                            for key in timer.timers.keys():
-                                print >> self.txt, '%15s'%(key), timer.get_timing(key)
+                            
+                            if not self.sync:
+                                print >> self.txt, k, n, m, time() - t0
+                            else:
+                                print >> self.txt, '\n', k, n, m, time() - t0, time() - t0 - timer.get_tot_timing()
+                                for key in timer.timers.keys():
+                                    print >> self.txt, '%15s'%(key), timer.get_timing(key)
     		    
                         check_focc = (f_skn[spin][ibzkpt1, n] - f_skn[spin][ibzkpt2, m]) > self.ftol
     
