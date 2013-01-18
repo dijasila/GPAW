@@ -19,7 +19,6 @@ PyObject* cuZscal(PyObject *self, PyObject *args)
 }
 
 
-
 PyObject* cugemm(PyObject *self, PyObject *args)
 {
   cublasHandle_t handle;
@@ -342,4 +341,39 @@ PyObject* cuCher(PyObject *self, PyObject *args)
     return NULL;
   }
   return Py_BuildValue("i",cudaStat);
+}
+
+
+PyObject* cuAdd(PyObject *self, PyObject *args)
+{
+  int n;
+  void *a, *b, *c;
+
+  if (!PyArg_ParseTuple(args, "LLLi",&a, &b, &c, &n))
+    return NULL;
+  printf("mouse");
+  cudaAdd(a, b, c, n);
+  Py_RETURN_NONE;
+}
+
+PyObject* cuMul(PyObject *self, PyObject *args)
+{
+  int n;
+  void *a, *b, *c;
+
+  if (!PyArg_ParseTuple(args, "LLLi",&a, &b, &c, &n))
+    return NULL;
+  cudaMul(a, b, c, n);
+  Py_RETURN_NONE;
+}
+
+PyObject* cuMulc(PyObject *self, PyObject *args)
+{
+  int n;
+  void *a, *b, *c;
+
+  if (!PyArg_ParseTuple(args, "LLLi",&a, &b, &c, &n))
+    return NULL;
+  cudaMulc(a, b, c, n);
+  Py_RETURN_NONE;
 }
