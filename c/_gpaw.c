@@ -120,6 +120,9 @@ PyObject* cuZher(PyObject *self, PyObject *args);
 PyObject* cuZherk(PyObject *self, PyObject *args);
 PyObject* cuDevSynch(PyObject *self, PyObject *args);
 PyObject* cuCher(PyObject *self, PyObject *args);
+PyObject* cufft_plan3d(PyObject *self, PyObject *args);
+PyObject* cufft_execZ2Z(PyObject *self, PyObject *args);
+PyObject* cufft_destroy(PyObject *self, PyObject *args);
 
 // Moving least squares interpolation
 PyObject* mlsqr(PyObject *self, PyObject *args); 
@@ -153,6 +156,9 @@ static PyMethodDef functions[] = {
   {"cuZherk", cuZherk, METH_VARARGS, 0},
   {"cuDevSynch", cuDevSynch, METH_VARARGS, 0},
   {"cuCher", cuCher, METH_VARARGS, 0},
+  {"cufft_plan3d", cufft_plan3d, METH_VARARGS, 0},
+  {"cufft_execZ2Z", cufft_execZ2Z, METH_VARARGS, 0},
+  {"cufft_destroy", cufft_destroy, METH_VARARGS, 0},
   {"rk",  rk,  METH_VARARGS, 0},
   {"r2k", r2k, METH_VARARGS, 0},
   {"dotc", dotc, METH_VARARGS, 0},
