@@ -333,13 +333,13 @@ class KPointDescriptor:
         # General point group symmetry
         nG0 = nG[0]*nG[1]*nG[2]
         if (np.abs(op_cc - np.eye(3, dtype=int)) < 1e-10).all():
-            index_G = np.arange(nG0)
+            index_G = np.arange(nG0, dtype=np.int32)
             phase_G = np.ones(nG0)
             return index_G, phase_G
         else:
             ik = self.bz2ibz_k[k]
             kibz_c = self.ibzk_kc[ik]
-            index_G = np.zeros(nG, dtype=int)
+            index_G = np.zeros(nG, dtype=np.int32)
             phase_G = np.zeros(nG, dtype=complex)
 
             kbz_c = np.dot(self.symmetry.op_scc[s], kibz_c)

@@ -377,3 +377,25 @@ PyObject* cuMulc(PyObject *self, PyObject *args)
   cudaMulc(a, b, c, n);
   Py_RETURN_NONE;
 }
+
+PyObject* cuMap_G2Q(PyObject *self, PyObject *args)
+{
+  int n;
+  void *a, *b, *c;
+
+  if (!PyArg_ParseTuple(args, "LLLi",&a, &b, &c, &n))
+    return NULL;
+  cudaMap_G2Q(a, b, c, n);
+  Py_RETURN_NONE;
+}
+
+PyObject* cuTrans_wfs(PyObject *self, PyObject *args)
+{
+  int n;
+  void *a, *b, *index, *phase;
+
+  if (!PyArg_ParseTuple(args, "LLLLi",&a, &b, &index, &phase, &n))
+    return NULL;
+  cudaTransform_wfs(a, b, index, phase, n);
+  Py_RETURN_NONE;
+}

@@ -103,7 +103,7 @@ PyObject* symmetrize_return_index(PyObject *self, PyObject *args)
     int ng1 = a_g_obj->dimensions[1];
     int ng2 = a_g_obj->dimensions[2];
     
-    unsigned long* a_g = (unsigned long*)a_g_obj->data;
+    int* a_g = (int*)a_g_obj->data;
     double complex* b_g = (double complex*)b_g_obj->data;
     
     for (int g0 = 0; g0 < ng0; g0++)
@@ -141,7 +141,7 @@ PyObject* symmetrize_with_index(PyObject *self, PyObject *args)
     int ng1 = a_g_obj->dimensions[1];
     int ng2 = a_g_obj->dimensions[2];
     
-    const unsigned long* index_g = (const unsigned long*)index_g_obj->data;
+    const int* index_g = (const int*)index_g_obj->data;
     const double complex* phase_g = (const double complex*)phase_g_obj->data;
     const double complex* a_g = (const double complex*)a_g_obj->data;
     double complex* b_g = (double complex*)b_g_obj->data;

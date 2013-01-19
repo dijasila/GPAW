@@ -126,6 +126,8 @@ PyObject* cufft_destroy(PyObject *self, PyObject *args);
 PyObject* cuAdd(PyObject *self, PyObject *args);
 PyObject* cuMul(PyObject *self, PyObject *args);
 PyObject* cuMulc(PyObject *self, PyObject *args);
+PyObject* cuMap_G2Q(PyObject *self, PyObject *args);
+PyObject* cuTrans_wfs(PyObject *self, PyObject *args);
 
 // Moving least squares interpolation
 PyObject* mlsqr(PyObject *self, PyObject *args); 
@@ -165,6 +167,8 @@ static PyMethodDef functions[] = {
   {"cuAdd", cuAdd, METH_VARARGS, 0},
   {"cuMul", cuMul, METH_VARARGS, 0},
   {"cuMulc", cuMulc, METH_VARARGS, 0},
+  {"cuMap_G2Q", cuMap_G2Q, METH_VARARGS, 0},
+  {"cuTrans_wfs", cuTrans_wfs, METH_VARARGS, 0},
   {"rk",  rk,  METH_VARARGS, 0},
   {"r2k", r2k, METH_VARARGS, 0},
   {"dotc", dotc, METH_VARARGS, 0},
