@@ -455,7 +455,7 @@ class PAWSetupGenerator:
 
         self.vtr_g = self.rgd.pseudize(self.aea.vr_sg[0], g0, 1, P)[0]
         self.v0r_g = self.vtr_g - self.vHtr_g - self.vxct_g * self.rgd.r_g
-        self.v0r_g[g0:] = 0.0
+        self.v0r_g[self.gcmax] = 0.0
 
         self.l0 = None
         self.e0 = None
@@ -502,7 +502,7 @@ class PAWSetupGenerator:
         self.vtr_g[0] = 0.0
         self.vtr_g[1:g0] = q_g[1:g0]#e0 * r_g - t_g * r_g**(l0 + 1) / phit_g[1:g0]
         self.v0r_g = self.vtr_g - self.vHtr_g - self.vxct_g * self.rgd.r_g
-        self.v0r_g[g0:] = 0.0
+        self.v0r_g[self.gcmax:] = 0.0
 
         self.l0 = l0
         self.e0 = e0
