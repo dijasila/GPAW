@@ -203,9 +203,9 @@ class RadialGridDescriptor:
         assert isinstance(gc, int) and gc > 10
         
         r_g = self.r_g
-        i = range(gc, gc + points)
+        i = range(gc, gc + P)
         r_i = r_g[i]
-        c_p = np.polyfit(r_i**2, a_g[i] / r_i**l, points - 1)
+        c_p = np.polyfit(r_i**2, a_g[i] / r_i**l, P - 1)
         b_g = a_g.copy()
         b_g[:gc] = np.polyval(c_p, r_g[:gc]**2) * r_g[:gc]**l
         return b_g, c_p[-1]
@@ -270,7 +270,7 @@ class RadialGridDescriptor:
             j, dj = (y[-1] for y in sph_jn(l, q * rc))
             return dj * q - j * ld
 
-        points = 3
+        points = 4
         j_pg = self.empty(points - 1)
         q_p = np.empty(points - 1)
 
