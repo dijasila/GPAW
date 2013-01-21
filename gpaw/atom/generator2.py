@@ -123,19 +123,23 @@ class PAWWaves:
         self.e_n.append(e)
         self.f_n.append(f)
 
-    def pseudize(self):
+    def pseudize(self, type, nderiv):
         rgd = self.rgd
+
+        if type == 'poly':
+            ps = rgd.pseudize
+        elif type == 'bessel':
+            ps = rgd.jpseudize
 
         phi_ng = self.phi_ng = np.array(self.phi_ng)
         N = len(phi_ng)
         phit_ng = self.phit_ng = rgd.empty(N)
         gcut = rgd.ceil(self.rcut)
 
-        P = 6
         self.nt_g = 0
         self.c_n = []
         for n in range(N):
-            phit_ng[n], c = rgd.jpseudize(phi_ng[n], gcut, self.l, points=P)
+            phit_ng[n], c = ps(phi_ng[n], gcut, self.l, nderiv)
             self.c_n.append(c)
             self.nt_g += self.f_n[n] / 4 / pi * phit_ng[n]**2
 
@@ -379,28 +383,38 @@ class PAWSetupGenerator:
 
         self.Q = -self.aea.Z + self.ncore
 
-    def pseudize(self):
+    def pseudize(self, type='poly', nderiv=6, rcore=None):
         self.nt_g = self.rgd.zeros()
         for waves in self.waves_l:
-            waves.pseudize()
+            waves.pseudize(type, nderiv)
             self.nt_g += waves.nt_g
             self.Q += waves.Q
 
-        self.nct_g = self.rgd.jpseudize(self.nc_g, self.gcmax)[0]
+        if rcore is None:
+            rcore = self.rcmax * 0.8
+        else:
+            assert rcore < self.rcmax
+
+        gcore = self.rgd.round(rcore)
+
+        self.log('Constructing smooth pseudo core density for r < %.3f' %
+                 rcore)
+        self.nct_g = self.rgd.pseudize(self.nc_g, gcore)[0]
         self.nt_g += self.nct_g
 
         # Make sure pseudo density is monotonically decreasing:
-        dntdr_g = self.rgd.derivative(self.nt_g)[:self.gcmax]
-        if dntdr_g.max() > 0.0:
+        dntdr_g = self.rgd.derivative(self.nt_g)[:gcore]
+        assert dntdr_g.max() < 0.0
+        if 0:
             # Constuct function that decrease smoothly from
             # f(0)=1 to f(rcmax)=0:
-            x_g = self.rgd.r_g[:self.gcmax] / self.rcmax
+            x_g = self.rgd.r_g[:gcore] / self.rcmax
             f_g = self.rgd.zeros()
-            f_g[:self.gcmax] = (1 - x_g**2 * (3 - 2 * x_g))**2
+            f_g[:gcore] = (1 - x_g**2 * (3 - 2 * x_g))**2
 
             # Add enough of f to nct to make nt monotonically decreasing:
             dfdr_g = self.rgd.derivative(f_g)
-            A = (-dntdr_g / dfdr_g[:self.gcmax]).max() * 1.5
+            A = (-dntdr_g / dfdr_g[:gcore]).max() * 1.5
             self.nt_g += A * f_g
             self.nct_g += A * f_g
             self.log('Adding to nct ...')
@@ -435,10 +449,11 @@ class PAWSetupGenerator:
         self.log()
 
     def find_polynomial_potential(self, r0, P, e0=None):
+        self.log('Constructing smooth local potential for r < %.3f' % r0)
         g0 = self.rgd.ceil(r0)
         assert e0 is None
 
-        self.vtr_g = self.rgd.jpseudize(self.aea.vr_sg[0], g0, 1, P)[0]
+        self.vtr_g = self.rgd.pseudize(self.aea.vr_sg[0], g0, 1, P)[0]
         self.v0r_g = self.vtr_g - self.vHtr_g - self.vxct_g * self.rgd.r_g
         self.v0r_g[g0:] = 0.0
 
@@ -898,6 +913,12 @@ def generate(argv=None):
     parser.add_option('-0', '--zero-potential',
                       metavar='type,nderivs,radius,e0',
                       help='Parameters for zero potential.')
+    parser.add_option('-c', '--pseudo-core-density-radius', type=float,
+                      metavar='radius',
+                      help='Radius for pseudizing core density.')
+    parser.add_option('-z', '--pseudize',
+                      metavar='type,nderivs',
+                      help='Parameters for pseudizing wave functions.')
     parser.add_option('-p', '--plot', action='store_true')
     parser.add_option('-l', '--logarithmic-derivatives',
                       metavar='spdfg,e1:e2:de,radius',
@@ -908,7 +929,6 @@ def generate(argv=None):
     parser.add_option('-s', '--scalar-relativistic', action='store_true')
     parser.add_option('--no-check', action='store_true')
     parser.add_option('-t', '--tag', type='string')
-    parser.add_option('-c', '--convergence', action='store_true')
     parser.add_option('-a', '--alpha', type=float)
     parser.add_option('-F', '--filter', metavar='gamma,h',
                       help='Fourier filtering parameters for Wang ' +
@@ -944,8 +964,7 @@ def generate(argv=None):
         else:
             ok = gen.check()
 
-        if opt.convergence:
-            gen.test_convergence()
+        #gen.test_convergence()
 
         if opt.write or opt.tag:
             gen.make_paw_setup(opt.tag).write_xml()
@@ -1016,6 +1035,12 @@ def get_parameters(symbol, opt):
     if isinstance(radii, float):
         radii = [radii]
 
+    if opt.pseudize:
+        type, nderiv = opt.pseudize.split(',')
+        pseudize = (type, int(nderiv))
+    else:
+        pseudize = ('poly', 6)
+
     l0 = None
     if opt.zero_potential:
         x = opt.zero_potential.split(',')
@@ -1063,19 +1088,21 @@ def get_parameters(symbol, opt):
                 radii=radii,
                 scalar_relativistic=opt.scalar_relativistic, alpha=opt.alpha,
                 gamma=gamma, h=h,
-                l0=l0, r0=r0, nderiv0=nderiv0, e0=e0)
+                l0=l0, r0=r0, nderiv0=nderiv0, e0=e0,
+                pseudize=pseudize, rcore=opt.pseudo_core_density_radius)
 
 
 def _generate(symbol, xc, projectors, radii,
               scalar_relativistic, alpha,
               gamma, h,
-              l0, r0, nderiv0, e0):
+              l0, r0, nderiv0, e0,
+              pseudize, rcore):
     aea = AllElectronAtom(symbol, xc)
     gen = PAWSetupGenerator(aea, projectors, radii,
                             scalar_relativistic,
                             alpha, gamma, h)
     gen.calculate_core_density()
-    gen.pseudize()
+    gen.pseudize(*pseudize, rcore=rcore)
 
     if l0 is None:
         gen.find_polynomial_potential(r0, nderiv0, e0)

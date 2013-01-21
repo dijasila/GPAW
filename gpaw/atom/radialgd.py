@@ -270,7 +270,6 @@ class RadialGridDescriptor:
             j, dj = (y[-1] for y in sph_jn(l, q * rc))
             return dj * q - j * ld
 
-        points = 4
         j_pg = self.empty(points - 1)
         q_p = np.empty(points - 1)
 
@@ -289,16 +288,12 @@ class RadialGridDescriptor:
 
         r_g = self.r_g
 
-        C_dg = [[0, 0, 1, 0, 0],
-                [-1 / 12, 4 / 3, -5 / 2, 4 / 3, -1 / 12],
-                [-1 / 2, 1, 0, -1, 1 / 2],
-                [1, -4, 6, -4, 1]][:points - 1]
         C_dg = [[0, 0, 0, 1, 0, 0, 0],
                 [1 / 90, -3 / 20, 3 / 2, -49 / 18, 3 / 2, -3 / 20, 1 / 90],
                 [1 / 8, -1, 13 / 8, 0, -13 / 8, 1, -1 / 8],
                 [-1 / 6, 2, -13 / 2, 28 / 3, -13 / 2, 2, -1 / 6]][:points - 1]
         c_p = np.linalg.solve(np.dot(C_dg, j_pg[:, gc - 3:gc + 4].T),
-                              np.dot(C_dg, a_g[gc - 3:gc + 4])) 
+                              np.dot(C_dg, a_g[gc - 3:gc + 4]))
         b_g = a_g.copy()
         b_g[:gc+2] = np.dot(c_p, j_pg[:, :gc + 2])
         return b_g, np.dot(c_p, q_p**l) * 2**l * fac[l] / fac[2 * l + 1]
