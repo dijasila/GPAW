@@ -133,10 +133,10 @@ class PAWWaves:
 
         P = 6
         self.nt_g = 0
-        self.c_np = []
+        self.c_n = []
         for n in range(N):
-            phit_ng[n], c_p = rgd.pseudize(phi_ng[n], gcut, self.l, points=P)
-            self.c_np.append(c_p)
+            phit_ng[n], c = rgd.jpseudize(phi_ng[n], gcut, self.l, points=P)
+            self.c_n.append(c)
             self.nt_g += self.f_n[n] / 4 / pi * phit_ng[n]**2
 
         self.dS_nn = np.empty((N, N))
@@ -158,8 +158,6 @@ class PAWWaves:
         gcmax = rgd.ceil(rcmax)
         r_g = rgd.r_g
         l = self.l
-        P = len(self.c_np[0]) - 1
-        p = np.arange(2 * P, 0, -2) + l
 
         dgdr_g = 1 / rgd.dr_g
         d2gdr2_g = rgd.d2gdr2()
@@ -168,7 +166,7 @@ class PAWWaves:
         for n in range(N):
             a_g, dadg_g, d2adg2_g = rgd.zeros(3)
             a_g[1:] = self.phit_ng[n, 1:] / r_g[1:]**l
-            a_g[0] = self.c_np[n][-1]
+            a_g[0] = self.c_n[n]
             dadg_g[1:-1] = 0.5 * (a_g[2:] - a_g[:-2])
             d2adg2_g[1:-1] = a_g[2:] - 2 * a_g[1:-1] + a_g[:-2]
             q_g = (vtr_g - self.e_n[n] * r_g) * self.phit_ng[n]
@@ -388,7 +386,7 @@ class PAWSetupGenerator:
             self.nt_g += waves.nt_g
             self.Q += waves.Q
 
-        self.nct_g = self.rgd.pseudize(self.nc_g, self.gcmax)[0]
+        self.nct_g = self.rgd.jpseudize(self.nc_g, self.gcmax)[0]
         self.nt_g += self.nct_g
 
         # Make sure pseudo density is monotonically decreasing:
@@ -405,6 +403,7 @@ class PAWSetupGenerator:
             A = (-dntdr_g / dfdr_g[:self.gcmax]).max() * 1.5
             self.nt_g += A * f_g
             self.nct_g += A * f_g
+            self.log('Adding to nct ...')
 
         self.npseudocore = self.rgd.integrate(self.nct_g)
         self.log('Pseudo core electrons: %.6f' % self.npseudocore)
@@ -439,7 +438,7 @@ class PAWSetupGenerator:
         g0 = self.rgd.ceil(r0)
         assert e0 is None
 
-        self.vtr_g = self.rgd.pseudize(self.aea.vr_sg[0], g0, 1, P)[0]
+        self.vtr_g = self.rgd.jpseudize(self.aea.vr_sg[0], g0, 1, P)[0]
         self.v0r_g = self.vtr_g - self.vHtr_g - self.vxct_g * self.rgd.r_g
         self.v0r_g[g0:] = 0.0
 
@@ -466,17 +465,14 @@ class PAWSetupGenerator:
         if l0 == 0:
             phi_g[0] = phi_g[1]
 
-        phit_g, c_p = self.rgd.pseudize_normalized(phi_g, g0, l=l0, points=P)
+        phit_g, c = self.rgd.pseudize_normalized(phi_g, g0, l=l0, points=P)
         r_g = self.rgd.r_g[1:g0]
-        p = np.arange(2 * P, 0, -2) + l0
-        t_g = np.polyval(-0.5 * c_p[:P] * (p * (p + 1) - l0 * (l0 + 1)),
-                          r_g**2)
 
         dgdr_g = 1 / self.rgd.dr_g
         d2gdr2_g = self.rgd.d2gdr2()
         a_g = phit_g.copy()
         a_g[1:] /= self.rgd.r_g[1:]**l0
-        a_g[0] = c_p[-1]
+        a_g[0] = c
         dadg_g = self.rgd.zeros()
         d2adg2_g = self.rgd.zeros()
         dadg_g[1:-1] = 0.5 * (a_g[2:] - a_g[:-2])
