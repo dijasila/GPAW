@@ -23,12 +23,25 @@ __global__ void map_G2Q( cuDoubleComplex *a, cuDoubleComplex *b, int *c, int n )
   if (tid < n) b[c[tid]] = a[tid];
 }
 
+__global__ void map_Q2G( cuDoubleComplex *a, cuDoubleComplex *b, int *c, int n ){
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  if (tid < n) b[tid] = a[c[tid]];
+}
+
 __global__ void trans_wfs( cuDoubleComplex *a, cuDoubleComplex *b, int *index, cuDoubleComplex *phase, int n ){
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < n) b[index[tid]] = cuCmul(a[tid], phase[tid]);
 }
 
+__global__ void conj( cuDoubleComplex *a, int N ){
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  if (tid < N) a[tid] = cuConj(a[tid]);
+}
 
+__global__ void copy( cuDoubleComplex *a, cuDoubleComplex *b, int N ){
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  if (tid < N) b[tid] = a[tid];
+}
 
 
 extern "C" {
@@ -64,9 +77,33 @@ void cudaMap_G2Q( double complex* dev_a, double complex* dev_b, int* dev_c, int 
 }
 
 extern "C" {
+void cudaMap_Q2G( double complex* dev_a, double complex* dev_b, int* dev_c, int N ) {
+  int threads = 128;
+  int blocks = N/threads + (N%threads == 0 ? 0:1);
+  map_Q2G<<<blocks, threads>>>( (cuDoubleComplex*)dev_a, (cuDoubleComplex*)dev_b, (int*)dev_c, N);
+}
+}
+
+extern "C" {
   void cudaTransform_wfs( double complex* dev_a, double complex* dev_b, int* dev_c, double complex* dev_d, int N ) {
     int threads = 128;
     int blocks = N/threads + (N%threads == 0 ? 0:1);
     trans_wfs<<<blocks, threads>>>( (cuDoubleComplex*)dev_a, (cuDoubleComplex*)dev_b, (int*)dev_c, (cuDoubleComplex*)dev_d, N );
   }
+}
+
+extern "C" {
+  void cudaConj( double complex* dev_a, int N ) {
+  int threads = 128;
+  int blocks = N/threads + (N%threads == 0 ? 0:1);
+  conj<<<blocks, threads>>>( (cuDoubleComplex*)dev_a, N);
+}
+}
+
+extern "C" {
+  void cudaCopy( double complex* dev_a, double complex* dev_b, int N ) {
+  int threads = 128;
+  int blocks = N/threads + (N%threads == 0 ? 0:1);
+  copy<<<blocks, threads>>>( (cuDoubleComplex*)dev_a, (cuDoubleComplex*)dev_b, N);
+}
 }

@@ -20,6 +20,7 @@ from gpaw.response.kernel import calculate_Kxc
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.pw import PWLFC
 import gpaw.wavefunctions.pw as pw
+import _gpaw
 
 class BASECHI:
     """This class is to store the basic common stuff for chi and bse."""
@@ -366,6 +367,46 @@ class BASECHI:
             self.wScomm.broadcast(psit_G, 0)
 
             return psit_G
+
+    def cuda_get_wfs(self, u, n, dev_Qtmp, dev_eikr_R, dev_Q_G, 
+                     handle, sizeofdata=16):
+
+        calc = self.calc
+        
+        psit_G = calc.wfs.kpt_u[u].psit_nG[n] # G is planewave-coefficient in GS mode
+        
+        nx,ny,nz = self.nG
+        ncoef = len(psit_G) # k-point dependent
+
+        status, dev_G = _gpaw.cuMalloc(ncoef*sizeofdata)
+        _gpaw.cuSetVector(ncoef,sizeofdata,psit_G,1,dev_G,1)
+        _gpaw.cuMemset(dev_Qtmp, 0, sizeofdata*nx*ny*nz)  # dev_Q has to be zeor
+
+        _gpaw.cuMap_G2Q( dev_G, dev_Qtmp, dev_Q_G, ncoef )
+        _gpaw.cufft_execZ2Z(self.cufftplan, dev_Qtmp, dev_Qtmp,1)
+        _gpaw.cuMul(dev_Qtmp, dev_eikr_R, dev_Qtmp, nx*ny*nz)  # phase e^ikr is not really necessary here.
+        _gpaw.cuZscal(handle, nx*ny*nz, 1./(nx*ny*nz), dev_Qtmp, 1)
+        
+        _gpaw.cuFree(dev_G)
+
+        return
+
+    def cuda_trans_wfs(self, dev_Qtmp, dev_psi_R, dev_index_Q, dev_phase_Q,
+                       trans, time_reversal, sizeofdata=16):
+
+        nx,ny,nz = self.nG
+        if trans:
+            # transform wavefunction here
+            _gpaw.cuMemset(dev_psi_R, 0, sizeofdata*nx*ny*nz)  # dev_Q has to be zero
+            _gpaw.cuTrans_wfs(dev_Qtmp, dev_psi_R, dev_index_Q, dev_phase_Q, nx*ny*nz)
+        else:
+            # Identity
+            _gpaw.cuCopy_vector(dev_Qtmp, dev_psi_R, nx*ny*nz)
+            
+        if time_reversal:
+            _gpaw.cuConj_vector(dev_psi_R, nx*ny*nz)
+
+        return 
 
 
     def pad(self, psit_g):

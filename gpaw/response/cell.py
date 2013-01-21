@@ -20,7 +20,7 @@ def set_Gvectors(acell, bcell, nG, Ecut, q=[0., 0., 0.]):
     """Calculate the number of planewaves with a certain cutoff, their reduced coordinates and index."""
 
     # Refer to R.Martin P85
-    Gmax = np.zeros(3, dtype=int)
+    Gmax = np.zeros(3, dtype=np.int32)
     Gcut = np.zeros(3, dtype=float)
     for i in range(3):
         a = acell[i]
@@ -33,13 +33,13 @@ def set_Gvectors(acell, bcell, nG, Ecut, q=[0., 0., 0.]):
 
     m = {}
     for dim in range(3):
-        m[dim] = np.zeros(Nmax[dim],dtype=int)
+        m[dim] = np.zeros(Nmax[dim],dtype=np.int32)
         for i in range(Nmax[dim]):
             m[dim][i] = i
-            if m[dim][i] > np.int(Gmax[dim]):
+            if m[dim][i] > np.int32(Gmax[dim]):
                 m[dim][i] = i - Nmax[dim]
 
-    G = np.zeros((Nmax[0]*Nmax[1]*Nmax[2],3),dtype=int)
+    G = np.zeros((Nmax[0]*Nmax[1]*Nmax[2],3),dtype=np.int32)
     n = 0
     for i in range(Nmax[0]):
         for j in range(Nmax[1]):
@@ -56,8 +56,8 @@ def set_Gvectors(acell, bcell, nG, Ecut, q=[0., 0., 0.]):
     npw = n
     Gvec = G[:n]
 
-    Gindex = np.zeros(npw, dtype=int) 
-    id = np.zeros(3, dtype=int)
+    Gindex = np.zeros(npw, dtype=np.int32) 
+    id = np.zeros(3, dtype=np.int32)
 
     for iG in range(npw):
         G = Gvec[iG]
@@ -68,4 +68,4 @@ def set_Gvectors(acell, bcell, nG, Ecut, q=[0., 0., 0.]):
                 id[dim] = nG[dim] - np.abs(G[dim])
         Gindex[iG] = id[0]*nG[1]*nG[2] + id[1]*nG[2] + id[2] 
     
-    return npw, Gvec, Gindex
+    return np.int32(npw), Gvec, Gindex

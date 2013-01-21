@@ -389,6 +389,17 @@ PyObject* cuMap_G2Q(PyObject *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
+PyObject* cuMap_Q2G(PyObject *self, PyObject *args)
+{
+  int n;
+  void *a, *b, *c;
+
+  if (!PyArg_ParseTuple(args, "LLLi",&a, &b, &c, &n))
+    return NULL;
+  cudaMap_Q2G(a, b, c, n);
+  Py_RETURN_NONE;
+}
+
 PyObject* cuTrans_wfs(PyObject *self, PyObject *args)
 {
   int n;
@@ -397,5 +408,27 @@ PyObject* cuTrans_wfs(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "LLLLi",&a, &b, &index, &phase, &n))
     return NULL;
   cudaTransform_wfs(a, b, index, phase, n);
+  Py_RETURN_NONE;
+}
+
+PyObject* cuConj_vector(PyObject *self, PyObject *args)
+{
+  int n;
+  void *a;
+
+  if (!PyArg_ParseTuple(args, "Li",&a, &n))
+    return NULL;
+  cudaConj(a, n);
+  Py_RETURN_NONE;
+}
+
+PyObject* cuCopy_vector(PyObject *self, PyObject *args)
+{
+  int n;
+  void *a, *b;
+
+  if (!PyArg_ParseTuple(args, "LLi",&a, &b, &n))
+    return NULL;
+  cudaCopy(a, b, n);
   Py_RETURN_NONE;
 }
