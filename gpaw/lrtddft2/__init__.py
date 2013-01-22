@@ -922,6 +922,7 @@ class LrTDDFTindexed:
                 continue
             
             # exp(+iwt) + exp(-iwt)
+            #print lip, kss_ip.dip_mom_r, laser
             V_rhs[lip*4+0] = np.dot(kss_ip.dip_mom_r, laser)
             V_rhs[lip*4+1] = np.dot(kss_ip.dip_mom_r, laser)
             V_rhs[lip*4+2] = 0.0
@@ -992,7 +993,7 @@ class LrTDDFTindexed:
 
         return (C_re,C_im)
         
-    def get_transition_density(self, C_im):
+    def get_transition_density(self, C_im, collect=False):
         # Initialize wfs, paw corrections and xc, if not done yet
         if not self.calc_ready:
             self.calc.converge_wave_functions()
@@ -1015,6 +1016,8 @@ class LrTDDFTindexed:
         #print >> self.txt, maxC
         for kss_ip in self.kss_list:
             ip = self.index_of_kss(kss_ip.occ_ind, kss_ip.unocc_ind)
+            if self.get_local_index(ip) is None:
+                continue
             if abs(C_im[ip]) < 1e-5 * maxC: 
                 continue
             dnt_Gip[:] = 0.0
@@ -1023,7 +1026,12 @@ class LrTDDFTindexed:
             self.calculate_pair_density( self.calc.wfs.kpt_u[self.kpt_ind],
                                          kss_ip, dnt_Gip, dnt_gip, drhot_gip )
             drhot_g += C_im[ip] * drhot_gip
-        
+
+        self.eh_comm.sum(drhot_g)
+
+        if collect:
+            drhot_g = self.calc.density.finegd.collect(drhot_g)
+
         return drhot_g
 
 
