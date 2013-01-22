@@ -3,8 +3,6 @@ from __future__ import division
 from math import pi
 
 import numpy as np
-from scipy.special import sph_jn
-from scipy.optimize import brentq
 
 from gpaw.spline import Spline
 from gpaw.utilities import hartree, divrl, _fact as fac
@@ -250,6 +248,10 @@ class RadialGridDescriptor:
 
         for g < gc+P, where.
         """
+
+        from scipy.special import sph_jn
+        from scipy.optimize import brentq
+
         if a_g[gc] == 0:
             return self.zeros(), 0.0
 
