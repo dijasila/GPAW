@@ -300,6 +300,7 @@ class CHI(BASECHI):
             assert self.cublas is True
             print >> self.txt, 'Initialization time', time() - self.starttime
             timer = Timer()
+            self.timer = timer
         
         for spin in spinlist:
             if not (f_skn[spin] > self.ftol).any():
@@ -346,11 +347,11 @@ class CHI(BASECHI):
                     _gpaw.cuSetVector(nx*ny*nz,sizeofint,Q1_G,1,dev_Q1_G,1)
                     _gpaw.cuSetVector(nx*ny*nz,sizeofint,Q2_G,1,dev_Q2_G,1)
                        
-                    s = self.kd.sym_k[k]
-                    op_cc = np.linalg.inv(self.kd.symmetry.op_scc[s]).round().astype(int)
+                    s1 = self.kd.sym_k[k]
+                    op_cc = np.linalg.inv(self.kd.symmetry.op_scc[s1]).round().astype(int)
                     trans1 = not ( (np.abs(op_cc - np.eye(3, dtype=int)) < 1e-10).all() )
-                    s = self.kd.sym_k[kq_k[k]]
-                    op_cc = np.linalg.inv(self.kd.symmetry.op_scc[s]).round().astype(int)
+                    s2 = self.kd.sym_k[kq_k[k]]
+                    op_cc = np.linalg.inv(self.kd.symmetry.op_scc[s2]).round().astype(int)
                     trans2 = not ( (np.abs(op_cc - np.eye(3, dtype=int)) < 1e-10).all() )
                     time_rev1 = self.kd.time_reversal_k[k]
                     time_rev2 = self.kd.time_reversal_k[kq_k[k]]
@@ -377,14 +378,13 @@ class CHI(BASECHI):
                     if not self.pwmode:
                         psitold_g = self.get_wavefunction(ibzkpt1, n, True, spin=spin)
                     else:
-                        u = self.kd.get_rank_and_index(spin, ibzkpt1)[1]
                         if not self.cublas:
+                            u = self.kd.get_rank_and_index(spin, ibzkpt1)[1]
                             psitold_g = calc.wfs._get_wave_function_array(u, n, realspace=True,
                                                                           phase=eikr1_R)
                         else:
                             self.cuda_get_wfs(u1, n, dev_Qtmp, dev_eikr1_R,
                                               dev_Q1_G, handle, sizeofdata=sizeofdata)
-                            
                     if self.sync: timer.end('wfs_read')
 
                     if self.sync: timer.start('wfs_transform')
@@ -413,13 +413,13 @@ class CHI(BASECHI):
                             P1_ai = pt.dict()
                             pt.integrate(psit1new_g, P1_ai, k)
                         else:
-                            P1_ai = self.get_P_ai(k,n,spin)
+                            P1_ai = self.get_P_ai(k, n, spin)
                     else:
                         # first calculate P_ai at ibzkpt, then rotate to k
                         Ptmp_ai = pt.dict()
                         kpt = calc.wfs.kpt_u[u]
                         pt.integrate(kpt.psit_nG[n], Ptmp_ai, ibzkpt1)
-                        P1_ai = self.get_P_ai(k,n,spin,Ptmp_ai)
+                        P1_ai = self.get_P_ai(k, n, spin, Ptmp_ai)
                     if self.sync: timer.end('paw')
 
                     if not self.cublas:
@@ -452,8 +452,6 @@ class CHI(BASECHI):
                                     # dev_psit2_R is the (transformed) wave function for (kq[k],m) on device
                                     self.cuda_get_wfs(u2, m, dev_Qtmp, dev_eikr2_R,
                                               dev_Q2_G, handle, sizeofdata=sizeofdata)
-
-                                    
                             if self.sync: timer.end('wfs_read')
 
                             if self.sync: timer.start('wfs_transform')
@@ -489,7 +487,6 @@ class CHI(BASECHI):
                                 _gpaw.cuMul(dev_psit2_R, dev_expqr_R, dev_psit2_R, nx*ny*nz)
                                 _gpaw.cufft_execZ2Z(self.cufftplan, dev_psit2_R, dev_psit2_R, -1) # forward
                                 _gpaw.cuZscal(handle, nx*ny*nz, self.vol/self.nG0, dev_psit2_R, 1)
-
                             if self.sync: timer.end('fft')
 
                             if self.sync: timer.start('mapG')
@@ -518,12 +515,12 @@ class CHI(BASECHI):
                                     P2_ai = pt.dict()
                                     pt.integrate(psit2_g, P2_ai, kq_k[k])
                                 else:
-                                    P2_ai = self.get_P_ai(kq_k[k],m,spin)                                    
+                                    P2_ai = self.get_P_ai(kq_k[k], m, spin)                    
                             else:
                                 Ptmp_ai = pt.dict()
                                 kpt = calc.wfs.kpt_u[u]
                                 pt.integrate(kpt.psit_nG[m], Ptmp_ai, ibzkpt2)
-                                P2_ai = self.get_P_ai(kq_k[k],m,spin,Ptmp_ai)
+                                P2_ai = self.get_P_ai(kq_k[k], m, spin, Ptmp_ai)
                             if self.sync: timer.end('paw')
 
                             if self.sync: timer.start('cugemv')
@@ -536,9 +533,9 @@ class CHI(BASECHI):
                             if self.sync: timer.end('cugemv')
 
                             for a, id in enumerate(calc.wfs.setups.id_a):
-                                if self.sync: timer.start('paw')
+                                if self.sync: timer.start('paw_outer')
                                 P_p = np.outer(P1_ai[a].conj(), P2_ai[a]).ravel()
-                                if self.sync: timer.end('paw')
+                                if self.sync: timer.end('paw_outer')
 
                                 if self.sync: timer.start('cugemv')
                                 if not self.cugemv:

@@ -351,7 +351,6 @@ PyObject* cuAdd(PyObject *self, PyObject *args)
 
   if (!PyArg_ParseTuple(args, "LLLi",&a, &b, &c, &n))
     return NULL;
-  printf("mouse");
   cudaAdd(a, b, c, n);
   Py_RETURN_NONE;
 }
@@ -432,3 +431,17 @@ PyObject* cuCopy_vector(PyObject *self, PyObject *args)
   cudaCopy(a, b, n);
   Py_RETURN_NONE;
 }
+
+PyObject* cuGet_P_ai(PyObject *self, PyObject *args)
+{
+  void *a, *b, *c;
+
+  if (!PyArg_ParseTuple(args, "LLL",&a,&b,&c))
+    return NULL;
+  cudaP_ai(a,b,c);
+  Py_RETURN_NONE;
+}
+
+
+
+

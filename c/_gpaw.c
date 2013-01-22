@@ -131,6 +131,7 @@ PyObject* cuMap_Q2G(PyObject *self, PyObject *args);
 PyObject* cuTrans_wfs(PyObject *self, PyObject *args);
 PyObject* cuConj_vector(PyObject *self, PyObject *args);
 PyObject* cuCopy_vector(PyObject *self, PyObject *args);
+PyObject* cuGet_P_ai(PyObject *self, PyObject *args);
 
 // Moving least squares interpolation
 PyObject* mlsqr(PyObject *self, PyObject *args); 
@@ -175,6 +176,7 @@ static PyMethodDef functions[] = {
   {"cuTrans_wfs", cuTrans_wfs, METH_VARARGS, 0},
   {"cuConj_vector", cuConj_vector, METH_VARARGS, 0},
   {"cuCopy_vector", cuCopy_vector, METH_VARARGS, 0},
+  {"cuGet_P_ai", cuGet_P_ai, METH_VARARGS, 0},
   {"rk",  rk,  METH_VARARGS, 0},
   {"r2k", r2k, METH_VARARGS, 0},
   {"dotc", dotc, METH_VARARGS, 0},

@@ -564,7 +564,6 @@ class BASECHI:
             P_ai[a] = P_i
         return P_ai
 
-
     def screened_interaction_kernel(self, iq, static=True, E0=None, comm=None, kcommsize=None):
         """Calcuate W_GG(w) for a given q.
         if static: return W_GG(w=0)
