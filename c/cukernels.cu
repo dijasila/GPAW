@@ -1,6 +1,7 @@
 #include "cublas_v2.h" 
 #include "complex.h"
 #include <stdio.h>
+#include <"math_constants.h">
 
 __global__ void add( cuDoubleComplex* a, cuDoubleComplex* b, cuDoubleComplex* c, int N ){
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -41,6 +42,34 @@ __global__ void conj( cuDoubleComplex *a, int N ){
 __global__ void copy( cuDoubleComplex *a, cuDoubleComplex *b, int N ){
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < N) b[tid] = a[tid];
+}
+
+__global__ void P_ai( double *spos1_c, double *spos2_c, double *k_c, int *op_cc, 
+		      cuDoubleComplex *R_ii, cuDoubleComplex *Pin_i, cuDoubleComplex *Pout_i, int Ni){
+  int tid = threadIdx.x;
+  double complex x=0;
+  double S_c[3] = [0,0,0];
+
+  if (tid < 3){
+    for (int dim=0; dim<3; dim++){
+      S_c[tid] += spos1_c[dim] * op_cc[dim*3+tid] ;
+      __syncthreads();
+    }
+    S_c[tid] -= spos2_c[tid];
+
+    x += cos(2*CUDART_PI*S_c[tid] * k_c[tid]) + I * sin(2*CUDART_PI*S_c[tid] * k_c[tid]);
+  }
+  __syncthreads();
+
+  if (tid < Ni){
+    for (int j=0; j<3; j++){
+      Pout_i[tid] += R_ii[tid*Nj+j] * Rin_i[j];
+      _syncthreads();
+    }
+    Pout_i[tid] *= x;
+  }
+
+
 }
 
 
@@ -107,3 +136,14 @@ extern "C" {
   copy<<<blocks, threads>>>( (cuDoubleComplex*)dev_a, (cuDoubleComplex*)dev_b, N);
 }
 }
+
+extern "C" {
+  void cudaP_ai( double* dev_spos_c, int* dev_op_cc, double* dev_S_c) {
+  int threads = 128;
+  int blocks = 1;
+  P_ai<<<blocks, threads>>>( dev_spos_c, dev_op_cc, dev_S_c);
+}
+}
+
+
+
