@@ -1,4 +1,4 @@
-nodetype = 'sl230s'
+nodetype = 'dl160g6'
 scalapack = True
 compiler = 'icc'
 libraries =[
