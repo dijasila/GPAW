@@ -22,6 +22,7 @@ class GW(BASECHI):
                  nbands=None,
                  bands=None,
                  kpoints=None,
+                 eshift=None,
                  w=None,
                  ecut=150.,
                  eta=0.1,
@@ -75,12 +76,13 @@ class GW(BASECHI):
             self.eta_w = dw_w * 4
             self.wcut = wcut
 
-        BASECHI.__init__(self, calc=file, nbands=nbands, w=w, ecut=ecut, eta=eta, txt=txt)
+        BASECHI.__init__(self, calc=file, nbands=nbands, w=w, eshift=eshift, ecut=ecut, eta=eta, txt=txt)
 
         self.file = file
         self.vcut = vcut
         self.bands = bands
         self.kpoints = kpoints
+        self.eshift = eshift
         self.hilbert_trans = hilbert_trans
         self.wpar = wpar
         self.exxfile = exxfile
@@ -125,6 +127,8 @@ class GW(BASECHI):
             for k in range(self.nikpt):
                 self.e_skn[s,k] = calc.get_eigenvalues(kpt=k, spin=s) / Hartree
                 self.f_skn[s,k] = calc.get_occupation_numbers(kpt=k, spin=s) / kd.weight_k[k]
+        if self.eshift is not None:
+            self.add_discontinuity(self.eshift)
         if not self.ppa and not self.static:
             emaxdiff = self.e_skn[:,:,self.nbands-1].max() - self.e_skn[:,:,0].min()
             assert (self.wmax > emaxdiff), 'Maximum frequency must be larger than %f' %(emaxdiff*Hartree)

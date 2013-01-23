@@ -141,6 +141,7 @@ class BASECHI:
             self.enoshift_skn[ispin] = self.e_skn[ispin].copy()
         if self.eshift is not None:
             self.add_discontinuity(self.eshift)
+            self.printtxt('Shift unoccupied bands by %f eV' %(self.eshift))
 
         # k + q init
         if self.q_c is not None:
@@ -230,13 +231,13 @@ class BASECHI:
         printtxt(self.bcell_cv)
         printtxt('Number of Grid points / G-vectors, and in total: (%d %d %d), %d'
                   %(self.nG[0], self.nG[1], self.nG[2], self.nG0))
-        printtxt('Volome of cell (a.u.**3)     : %f' %(self.vol) )
+        printtxt('Volume of cell (a.u.**3)     : %f' %(self.vol) )
         printtxt('BZ volume (1/a.u.**3)        : %f' %(self.BZvol) )
         printtxt('')                         
         printtxt('Number of bands              : %d' %(self.nbands) )
         printtxt('Number of kpoints            : %d' %(self.nkpt) )
         printtxt('Planewave ecut (eV)          : (%f, %f, %f)' %(self.ecut[0]*Hartree,self.ecut[1]*Hartree,self.ecut[2]*Hartree) )
-        printtxt('Number of planewave used     : %d' %(self.npw) )
+        printtxt('Number of planewaves used    : %d' %(self.npw) )
         printtxt('Broadening (eta)             : %f' %(self.eta * Hartree))
         if self.q_c is not None:
             if self.optical_limit:
