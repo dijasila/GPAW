@@ -44,6 +44,7 @@ __global__ void copy( cuDoubleComplex *a, cuDoubleComplex *b, int N ){
   if (tid < N) b[tid] = a[tid];
 }
 
+/*
 __global__ void P_ai( double *spos1_c, double *spos2_c, double *k_c, int *op_cc, 
 		      cuDoubleComplex *R_ii, cuDoubleComplex *Pin_i, cuDoubleComplex *Pout_i, int Ni){
   int tid = threadIdx.x;
@@ -68,9 +69,8 @@ __global__ void P_ai( double *spos1_c, double *spos2_c, double *k_c, int *op_cc,
     }
     Pout_i[tid] *= x;
   }
-
-
 }
+*/
 
 
 extern "C" {
@@ -137,6 +137,7 @@ extern "C" {
 }
 }
 
+/*
 extern "C" {
   void cudaP_ai( double* dev_spos_c, int* dev_op_cc, double* dev_S_c) {
   int threads = 128;
@@ -144,6 +145,5 @@ extern "C" {
   P_ai<<<blocks, threads>>>( dev_spos_c, dev_op_cc, dev_S_c);
 }
 }
-
-
+*/
 
