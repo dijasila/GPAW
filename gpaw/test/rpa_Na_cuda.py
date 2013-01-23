@@ -9,53 +9,31 @@ from gpaw.mpi import size, serial_comm
 from gpaw.xc.rpa_correlation_energy import RPACorrelation
 from gpaw.test import equal
 
-#kpts = monkhorst_pack((4,4,4))
-#kpts += np.array([1/8., 1/8., 1/8.])
-#
-#bulk = bulk('Na', 'bcc', a=4.23)
-#
-#ecut = 350
-#calc = GPAW(mode=PW(ecut),dtype=complex, basis='dzp', kpts=kpts, 
-#            parallel={'domain': 1}, txt='gs_occ_pw.txt', nbands=4,
-#              occupations=FermiDirac(0.01)
-#              )
-#bulk.set_calculator(calc)
-#bulk.get_potential_energy()
-#calc.write('gs_occ_pw.gpw')
-#
-#calc = GPAW('gs_occ_pw.gpw',txt='gs_pw.txt', parallel={'band': 1})
-#calc.diagonalize_full_hamiltonian(nbands=520)
-#calc.write('gs_pw.gpw', 'all')
+kpts = monkhorst_pack((4,4,4))
+kpts += np.array([1/8., 1/8., 1/8.])
+
+bulk = bulk('Na', 'bcc', a=4.23)
+
+ecut = 350
+calc = GPAW(mode=PW(ecut),dtype=complex, basis='dzp', kpts=kpts, 
+            parallel={'domain': 1}, txt='gs_occ_pw.txt', nbands=4,
+              occupations=FermiDirac(0.01)
+              )
+bulk.set_calculator(calc)
+bulk.get_potential_energy()
+calc.write('gs_occ_pw.gpw')
+
+calc = GPAW('gs_occ_pw.gpw',txt='gs_pw.txt', parallel={'band': 1})
+calc.diagonalize_full_hamiltonian(nbands=520)
+calc.write('gs_pw.gpw', 'all')
 
 ecut = 120 
 calc = GPAW('gs_pw.gpw', communicator=serial_comm, txt=None)
+rpa = RPACorrelation(calc, txt='rpa_%s.txt' %(ecut), cublas=True, cugemv=True)
+E = rpa.get_rpa_correlation_energy(ecut=ecut,
+                                   skip_gamma=False,
+                                   directions=[[0,1.0]],
+                                   kcommsize=size,
+                                   dfcommsize=size)
 
-for cublas in (True, False):
-    for single_precision in (True, False):
-        for cugemv in (True, False):
-            for use_zher in (None, 'single', 'multi', False, None):
-                if cublas is False and (single_precision is True or cugemv is True 
-                                        or use_zher == 'multi'):
-                    continue
-                if use_zher == 'multi' and single_precision is True:
-                    continue
-                if cublas is True and (use_zher is False):
-                    continue
-    
-                print 'cublas', cublas
-                print 'single_precision', single_precision
-                print 'cugemv', cugemv
-                print 'use_zher', use_zher 
-                rpa = RPACorrelation(calc, txt='rpa_%s.txt' %(ecut),
-                                     single_precision=single_precision, 
-                                     cublas=cublas, cugemv=cugemv,
-                                     use_zher=use_zher)
-                E = rpa.get_rpa_correlation_energy(ecut=ecut,
-                                       skip_gamma=False,
-                                       directions=[[0,1.0]],
-                                       kcommsize=size,
-                                       dfcommsize=size)
-                if single_precision:
-                    equal(E, -1.098, 0.005)
-                else:
-                    equal(E, -1.106, 0.005)
+equal(E, -1.106, 0.005)
