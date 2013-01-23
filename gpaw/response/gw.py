@@ -521,7 +521,7 @@ class GW(BASECHI):
                 for i, k in enumerate(self.gwkpt_k):
                     ik = self.kd.bz2ibz_k[k]
                     for j, n in enumerate(self.gwbands_n):
-                        e_skn[s][i][j] = calc.get_eigenvalues(kpt=ik, spin=s)[n] / Hartree
+                        e_skn[s][i][j] = self.e_skn[s][ik][n]
                         vxc_skn[s][i][j] = v_xc[s][ik][n] / Hartree
                         if not self.static:
                             exx_skn[s][i][j] = exx.exx_skn[s][ik][n]
