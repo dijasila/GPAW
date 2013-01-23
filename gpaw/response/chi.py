@@ -409,18 +409,21 @@ class CHI(BASECHI):
     
                     # PAW part
                     if self.sync: timer.start('paw')
-                    if 1:#not self.pwmode:
+                    if not self.pwmode:
                         if (calc.wfs.world.size > 1 or self.nkpt==1):
                             P1_ai = pt.dict()
                             pt.integrate(psit1new_g, P1_ai, k)
                         else:
                             P1_ai = self.get_P_ai(k, n, spin)
                     else:
-                        # first calculate P_ai at ibzkpt, then rotate to k
-                        Ptmp_ai = pt.dict()
-                        kpt = calc.wfs.kpt_u[u]
-                        pt.integrate(kpt.psit_nG[n], Ptmp_ai, ibzkpt1)
-                        P1_ai = self.get_P_ai(k, n, spin, Ptmp_ai)
+                        if calc.wfs.kpt_u[0].P_ani is None: 
+                            # first calculate P_ai at ibzkpt, then rotate to k
+                            Ptmp_ai = pt.dict()
+                            kpt = calc.wfs.kpt_u[u]
+                            pt.integrate(kpt.psit_nG[n], Ptmp_ai, ibzkpt1)
+                            P1_ai = self.get_P_ai(k, n, spin, Ptmp_ai)
+                        else:
+                            P1_ai = self.get_P_ai(k, n, spin)
                     if self.sync: timer.end('paw')
 
                     #if not self.cublas:
@@ -513,17 +516,20 @@ class CHI(BASECHI):
 
                             if self.sync: timer.start('paw')
                             # PAW correction
-                            if 1:#not self.pwmode:
+                            if not self.pwmode:
                                 if (calc.wfs.world.size > 1 or self.nkpt==1):
                                     P2_ai = pt.dict()
                                     pt.integrate(psit2_g, P2_ai, kq_k[k])
                                 else:
                                     P2_ai = self.get_P_ai(kq_k[k], m, spin)                    
                             else:
-                                Ptmp_ai = pt.dict()
-                                kpt = calc.wfs.kpt_u[u]
-                                pt.integrate(kpt.psit_nG[m], Ptmp_ai, ibzkpt2)
-                                P2_ai = self.get_P_ai(kq_k[k], m, spin, Ptmp_ai)
+                                if calc.wfs.kpt_u[0].P_ani is None: 
+                                    Ptmp_ai = pt.dict()
+                                    kpt = calc.wfs.kpt_u[u]
+                                    pt.integrate(kpt.psit_nG[m], Ptmp_ai, ibzkpt2)
+                                    P2_ai = self.get_P_ai(kq_k[k], m, spin, Ptmp_ai)
+                                else:
+                                    P2_ai = self.get_P_ai(kq_k[k], m, spin)                                    
                             if self.sync: timer.end('paw')
 
                             if self.sync: timer.start('cugemv')
