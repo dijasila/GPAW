@@ -40,10 +40,13 @@ more about :ref:`its features and the algorithms used
 .. |i8| image:: _static/logo-slac-center.png
         :height: 38 px
         :target: http://suncat.stanford.edu
+.. |i9| image:: _static/logo-prace.png
+        :height: 44 px
+        :target: http://http://www.prace-ri.eu/
 
 
 
-|i0| |i1| |i2| |i3| |i4| |i5| |i6| |i8|
+|i0| |i1| |i2| |i3| |i4| |i5| |i6| |i8| |i9|
 
  
 * `Argonne National Laboratory <http://www.anl.gov>`_
@@ -55,12 +58,19 @@ more about :ref:`its features and the algorithms used
 * `Laboratory of Physics, Helsinki University of Technology
   <http://www.fyslab.hut.fi>`_
 * `SUNCAT Center, Stanford University/SLAC <http://suncat.stanford.edu>`_
+* `PRACE, Partnership for Advanced Computing in Europe 
+  <http://www.prace-ri.eu/>`_
 
 
 .. _news:
 
 News
 ====
+
+* Prof. Häkkinen has received `18 million CPU hour grant`_ for GPAW based 
+  research project (Nov 20 2012)
+
+* A new :ref:`setups` bundle released (Oct 26 2012)
 
 * :ref:`GPAW version 0.9 <releasenotes>` released (March 7 2012)
 
@@ -138,3 +148,5 @@ News
 .. _pycon 2011: http://us.pycon.org/2011/schedule/presentations/226/
 .. _Python for High Performance Computing: http://pycon.blip.tv/file/4881240/
 .. _CSC's supercomputer procurement: http://www.csc.fi/english/pages/hpc2011
+.. _18 million CPU hour grant: http://www.prace-ri.eu/PRACE-5thRegular-Call
+

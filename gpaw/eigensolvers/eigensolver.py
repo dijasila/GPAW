@@ -1,13 +1,10 @@
-"""Module defining and eigensolver base-class."""
-
-from math import ceil
+"""Module defining an eigensolver base-class."""
 
 import numpy as np
 
-from gpaw.fd_operators import Laplace
-from gpaw.utilities.blas import axpy, r2k, gemm
-from gpaw.utilities.tools import apply_subspace_mask
+from gpaw.utilities.blas import axpy
 from gpaw.utilities import unpack
+from gpaw.hs_operators import reshape
 
 
 class Eigensolver:
@@ -33,6 +30,9 @@ class Eigensolver:
         if self.mynbands != self.nbands or self.operator.nblocks != 1:
             self.keep_htpsit = False
 
+        if self.keep_htpsit:
+            self.Htpsit_nG = wfs.empty(self.nbands)
+
         # Preconditioner for the electronic gradients:
         self.preconditioner = wfs.make_preconditioner(self.blocksize)
 
@@ -41,6 +41,9 @@ class Eigensolver:
                 kpt.eps_n = np.empty(self.mynbands)
         
         self.initialized = True
+
+    def reset(self):
+        self.initialized = False
 
     def iterate(self, hamiltonian, wfs):
         """Solves eigenvalue problem iteratively
@@ -53,15 +56,15 @@ class Eigensolver:
         if not self.initialized:
             self.initialize(wfs)
 
-        if not wfs.orthonormalized:
-            wfs.orthonormalize()
-            
         error = 0.0
         for kpt in wfs.kpt_u:
-            error += self.iterate_one_k_point(hamiltonian, wfs, kpt)
-        #error *= self.gd.dv
+            if not wfs.orthonormalized:
+                wfs.overlap.orthonormalize(wfs, kpt)
+            e, psit_nG = self.iterate_one_k_point(hamiltonian, wfs, kpt)
+            error += e
+            wfs.overlap.orthonormalize(wfs, kpt, psit_nG)
 
-        wfs.orthonormalize()
+        wfs.set_orthonormalized(True)
 
         self.error = self.band_comm.sum(self.kpt_comm.sum(error))
 
@@ -96,14 +99,17 @@ class Eigensolver:
         the local part of the Hamiltonian times psit on exit
 
         First, the Hamiltonian (defined by *kin*, *vt_sG*, and
-        *my_nuclei*) is applied to the wave functions, then the
-        *H_nn* matrix is calculated and diagonalized, and finally,
-        the wave functions are rotated.  Also the projections
-        *P_uni* (an attribute of the nuclei) are rotated.
+        *dH_asp*) is applied to the wave functions, then the *H_nn*
+        matrix is calculated and diagonalized, and finally, the wave
+        functions (and also Htpsit_nG are rotated.  Also the
+        projections *P_ani* are rotated.
 
-        It is assumed that the wave functions *psit_n* are orthonormal
+        It is assumed that the wave functions *psit_nG* are orthonormal
         and that the integrals of projector functions and wave functions
-        *P_uni* are already calculated.
+        *P_ani* are already calculated.
+
+        Return ratated wave functions and H applied to the rotated
+        wave functions if self.keep_htpsit is True.
         """
 
         if self.band_comm.size > 1 and wfs.bd.strided:
@@ -115,7 +121,7 @@ class Eigensolver:
         P_ani = kpt.P_ani
 
         if self.keep_htpsit:
-            Htpsit_nG = wfs.empty(self.nbands, q=kpt.q)
+            Htpsit_nG = reshape(self.Htpsit_nG, psit_nG.shape)
         else:
             Htpsit_nG = None
 
@@ -123,7 +129,7 @@ class Eigensolver:
             if self.keep_htpsit:
                 result_xG = Htpsit_nG
             else:
-                result_xG = np.empty_like(psit_xG)
+                result_xG = reshape(self.operator.work1_xG, psit_xG.shape)
             wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_xG,
                                          result_xG)
             hamiltonian.xc.apply_orbital_dependent_hamiltonian(
@@ -146,9 +152,10 @@ class Eigensolver:
         wfs.timer.stop(diagonalization_string)
 
         self.timer.start('rotate_psi')
-        kpt.psit_nG = self.operator.matrix_multiply(H_nn, psit_nG, P_ani)
+        psit_nG = self.operator.matrix_multiply(H_nn, psit_nG, P_ani)
         if self.keep_htpsit:
-            Htpsit_nG = self.operator.matrix_multiply(H_nn, Htpsit_nG)
+            Htpsit_nG = self.operator.matrix_multiply(H_nn, Htpsit_nG,
+                                                      out_nG=kpt.psit_nG)
 
         # Rotate orbital dependent XC stuff:
         hamiltonian.xc.rotate(kpt, H_nn)
@@ -156,7 +163,7 @@ class Eigensolver:
         self.timer.stop('rotate_psi')
         self.timer.stop('Subspace diag')
 
-        return Htpsit_nG
+        return psit_nG, Htpsit_nG
 
     def estimate_memory(self, mem, wfs):
         gridmem = wfs.bytes_per_wave_function()
@@ -172,5 +179,3 @@ class Eigensolver:
         mem.subnode('eps_N', wfs.bd.nbands * mem.floatsize)
         mem.subnode('Preconditioner', 4 * gridmem)
         mem.subnode('Work', gridmem)
-        
-

@@ -89,8 +89,7 @@ class C_Response(Contribution):
 
             self.vt_sG /= self.nt_sG +1e-10
 
-        for s in range(nspins):
-            self.density.interpolator.apply(self.vt_sG[s], self.vt_sg[s])
+        self.density.interpolate(self.vt_sG, self.vt_sg)
         
     def calculate_spinpaired(self, e_g, n_g, v_g):
         self.update_potentials([n_g]) 
@@ -103,16 +102,19 @@ class C_Response(Contribution):
         vb_g[:] += self.weight * self.vt_sg[1]
         return 0.0
 
-    def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a):
+    def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a, addcoredensity=True):
         # Get the XC-correction instance
         c = setup.xc_correction
         ncresp_g = setup.extra_xc_data['core_response'] / self.nspins
+        if not addcoredensity:
+            ncresp_g[:] = 0.0
         
         for D_p, dEdD_p, Dresp_p in zip(D_sp, H_sp, self.Dresp_asp.get(a)):
             D_Lq = np.dot(c.B_pqL.T, D_p)
             n_Lg = np.dot(D_Lq, c.n_qg) # Construct density
-            n_Lg[0] += c.nc_g * sqrt(4 * pi) / self.nspins
-            nt_Lg = np.dot(D_Lq, c.nt_qg) # Construct smooth density (without smooth core)
+            if addcoredensity:
+                n_Lg[0] += c.nc_g * sqrt(4 * pi) / self.nspins
+            nt_Lg = np.dot(D_Lq, c.nt_qg) # Construct smooth density (_without smooth core density_)
 
             Dresp_Lq = np.dot(c.B_pqL.T, Dresp_p)
             nresp_Lg = np.dot(Dresp_Lq, c.n_qg) # Construct 'response density'
@@ -224,10 +226,11 @@ class C_Response(Contribution):
         assert self.nspins == 1
         lumo_n = ne // 2
         eps_u =[]
-        eps_un = np.zeros((len(self.kpt_u),len(self.kpt_u[0].psit_nG)))
+        nn = len(self.kpt_u[0].eps_n)
+        eps_un = np.zeros((len(self.kpt_u),nn))
         for u, kpt in enumerate(self.kpt_u):
             #print "K-Point index: ",u
-            for n in range(len(kpt.psit_nG)):
+            for n in range(nn):
                 nt_G[:] = 0.0
                 self.wfs.add_orbital_density(nt_G, kpt, n)
                 E = 0.0

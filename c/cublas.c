@@ -432,6 +432,7 @@ PyObject* cuCopy_vector(PyObject *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
+/*
 PyObject* cuGet_P_ai(PyObject *self, PyObject *args)
 {
   void *a, *b, *c;
@@ -441,7 +442,7 @@ PyObject* cuGet_P_ai(PyObject *self, PyObject *args)
   cudaP_ai(a,b,c);
   Py_RETURN_NONE;
 }
-
+*/
 
 
 

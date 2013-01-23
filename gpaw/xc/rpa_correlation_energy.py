@@ -53,7 +53,7 @@ class RPACorrelation:
         self.bz_k_points = calc.wfs.bzk_kc
         self.atoms = calc.get_atoms()
         self.setups = calc.wfs.setups
-        self.bz_q_points = calc.wfs.kd.get_bz_q_points()
+        self.bz_q_points = calc.wfs.kd.get_bz_q_points(first=True)
         if qsym == False:
             self.ibz_q_points = self.bz_q_points
             self.q_weights = (np.ones(len(self.bz_q_points))

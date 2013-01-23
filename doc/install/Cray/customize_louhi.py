@@ -4,7 +4,7 @@ compiler = 'cc'
 mpicompiler = 'cc'
 mpilinker= 'cc'
 
-extra_compile_args = ['-fastsse']
+extra_compile_args = ['-std=c99']
 libraries = []
 
 scalapack = True

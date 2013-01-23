@@ -11,6 +11,10 @@ class GPAWFactory(CalculatorFactory):
     def __init__(self, show_text_output=False, write_gpw_file=None,
                  **kwargs):
         self.show_text_output = show_text_output
+        # this is used as write(mode=write_gpw_file)
+        # so it should be called rather write_gpw_mode?
+        if write_gpw_file is not None:
+            assert isinstance(write_gpw_file, str)
         self.write_gpw_file = write_gpw_file
 
         CalculatorFactory.__init__(self, None, 'GPAW', **kwargs)

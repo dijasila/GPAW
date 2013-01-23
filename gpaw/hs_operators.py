@@ -8,6 +8,11 @@ import numpy as np
 from gpaw.utilities.blas import gemm
 
 
+def reshape(a_x, shape):
+    """Get an ndarray of size shape from a_x buffer."""
+    return a_x.ravel()[:np.prod(shape)].reshape(shape)
+
+
 class MatrixOperator:
     """Base class for overlap and hamiltonian operators.
 
@@ -72,7 +77,7 @@ class MatrixOperator:
         self.bd = ksl.bd
         self.gd = ksl.gd
         self.block_comm = ksl.block_comm
-        self.bmd = ksl.new_descriptor() #XXX take hermitian as argument?
+        self.bmd = ksl.new_descriptor()  # XXX take hermitian as argument?
         self.dtype = ksl.dtype
         self.buffer_size = ksl.buffer_size
         if nblocks is not None:
@@ -85,6 +90,8 @@ class MatrixOperator:
         # default for work spaces
         self.A_qnn = None
         self.A_nn = None
+        self.work1_xG = None
+        self.work2_xG = None
 
         mynbands = self.bd.mynbands
         ngroups = self.bd.comm.size
@@ -98,26 +105,26 @@ class MatrixOperator:
         # which is all the wavefunctions.
         # Give error if the buffer_size is so small that it cannot
         # contain a single wavefunction
-        if self.buffer_size is not None: # buffersize is in KiB
+        if self.buffer_size is not None:  # buffersize is in KiB
             sizeof_single_wfs = float(self.gd.bytecount(self.dtype))
-            numberof_wfs = self.buffer_size*1024/sizeof_single_wfs
-            assert numberof_wfs > 0 # buffer_size is too small
-            self.nblocks = max(int(mynbands//numberof_wfs),1)
+            numberof_wfs = self.buffer_size * 1024 / sizeof_single_wfs
+            assert numberof_wfs > 0  # buffer_size is too small
+            self.nblocks = max(int(mynbands // numberof_wfs), 1)
             
         # Calculate Q and X for allocating arrays later
-        self.X = 1 # not used for ngroups == 1 and J == 1
+        self.X = 1  # not used for ngroups == 1 and J == 1
         self.Q = 1
         J = self.nblocks
         M = int(np.ceil(mynbands / float(J)))
         g = int(np.ceil(G / float(J)))
-        assert M > 0 # must have at least one wave function in a block
+        assert M > 0  # must have at least one wave function in a block
 
         if ngroups == 1 and J == 1:
             pass
         else:
-            if g*mynbands > M*G: # then more space is needed
+            if g * mynbands > M * G:  # then more space is needed
                 self.X = M + 1
-                assert self.X*G >= g*mynbands
+                assert self.X * G >= g * mynbands
             else:
                 self.X = M
             if ngroups > 1: 
@@ -134,6 +141,12 @@ class MatrixOperator:
             self.A_qnn = np.zeros((self.Q, mynbands, mynbands), dtype)
         self.A_nn = self.bmd.zeros(dtype=dtype)
 
+        if ngroups == 1 and self.nblocks == 1:
+            self.work1_xG = self.gd.empty(self.bd.mynbands, self.dtype)
+        else:
+            self.work1_xG = self.gd.empty(self.X, self.dtype)
+            self.work2_xG = self.gd.empty(self.X, self.dtype)
+
     def estimate_memory(self, mem, dtype):
         ngroups = self.bd.comm.size
         count = self.Q * self.bd.mynbands**2
@@ -141,6 +154,13 @@ class MatrixOperator:
         # Code semipasted from allocate_work_arrays        
         if ngroups > 1:
             mem.subnode('A_qnn', count * mem.itemsize[dtype])
+
+        if ngroups == 1 and self.nblocks == 1:
+            mem.subnode('work1_xG',
+                        self.bd.mynbands * self.gd.bytecount(self.dtype))
+        else:
+            mem.subnode('work1_xG', self.X * self.gd.bytecount(self.dtype))
+            mem.subnode('work2_xG', self.X * self.gd.bytecount(self.dtype))
 
         self.bmd.estimate_memory(mem.subnode('Band Matrices'), dtype)
 
@@ -310,14 +330,14 @@ class MatrixOperator:
             if B > 1:
                 rbuf_In = np.empty_like(sbuf_In)
 
-        work1_xG, work2_xG = np.empty((2, self.X) + psit_nG.shape[1:],
-                                      dtype=psit_nG.dtype)
+        work1_xG = reshape(self.work1_xG, (self.X,) + psit_nG.shape[1:])
+        work2_xG = reshape(self.work2_xG, (self.X,) + psit_nG.shape[1:])
 
         # Because of the amount of communication involved, we need to
         # be syncronized up to this point but only on the 1D band_comm
         # communication ring
         band_comm.barrier()
-        while M * J >= N + M: # remove extra slice(s)
+        while M * J >= N + M:  # remove extra slice(s)
             J -= 1
         assert 0 < J * M < N + M
 
@@ -329,7 +349,7 @@ class MatrixOperator:
                 M = n2 - n1
             psit_mG = psit_nG[n1:n2]
             temp_mG = A(psit_mG) 
-            sbuf_mG = temp_mG[:M] # necessary only for last slice
+            sbuf_mG = temp_mG[:M]  # necessary only for last slice
             rbuf_mG = work2_xG[:M]
             cycle_P_ani = (j == J - 1 and P_ani)
 
@@ -390,7 +410,7 @@ class MatrixOperator:
         block_comm.barrier()
         return self.bmd.redistribute_output(A_NN)
         
-    def matrix_multiply(self, C_NN, psit_nG, P_ani=None):
+    def matrix_multiply(self, C_NN, psit_nG, P_ani=None, out_nG=None):
         """Calculate new linear combinations of wave functions.
 
         Results will be put in the *P_ani* dict and a new psit_nG returned::
@@ -416,6 +436,9 @@ class MatrixOperator:
 
         """
 
+        if self.A_nn is None:
+            self.allocate_arrays()
+
         band_comm = self.bd.comm
         B = band_comm.size
         J = self.nblocks
@@ -425,21 +448,27 @@ class MatrixOperator:
 
         if B == 1 and J == 1:
             # Simple case:
-            newpsit_nG = np.zeros_like(psit_nG)
-            self.gd.gemm(1.0, psit_nG, C_NN, 0.0, newpsit_nG)
+            work_nG = reshape(self.work1_xG, psit_nG.shape)
+            if out_nG is None:
+                out_nG = work_nG
+                out_nG[:] = 117  # gemm may not like nan's
+            elif out_nG is psit_nG:
+                work_nG[:] = psit_nG
+                psit_nG = work_nG
+            self.gd.gemm(1.0, psit_nG, C_NN, 0.0, out_nG)
             if P_ani:
                 for P_ni in P_ani.values():
                     gemm(1.0, P_ni.copy(), C_NN, 0.0, P_ni)
-            return newpsit_nG
+            return out_nG
         
         # Now it gets nasty! We parallelize over B groups of bands and
         # each grid chunk is divided in J smaller slices (less memory).
 
-        Q = B # always non-hermitian XXX
+        Q = B  # always non-hermitian XXX
         rank = band_comm.rank
         shape = psit_nG.shape
         psit_nG = psit_nG.reshape(N, -1)
-        G = psit_nG.shape[1]   # number of grid-points
+        G = psit_nG.shape[1]  # number of grid-points
         g = int(np.ceil(G / float(J)))
 
         # Buffers for send/receive of pre-multiplication versions of P_ani's.
@@ -453,12 +482,12 @@ class MatrixOperator:
         # be syncronized up to this point but only on the 1D band_comm
         # communication ring
         band_comm.barrier()
-        while g*J >= G + g: # remove extra slice(s)
+        while g * J >= G + g:  # remove extra slice(s)
             J -= 1
-        assert 0 < g*J < G + g
+        assert 0 < g * J < G + g
 
-        work1_xG, work2_xG = np.empty((2, self.X) + psit_nG.shape[1:],
-                                      dtype=psit_nG.dtype)
+        work1_xG = reshape(self.work1_xG, (self.X,) + psit_nG.shape[1:])
+        work2_xG = reshape(self.work2_xG, (self.X,) + psit_nG.shape[1:])
 
         for j in range(J):
             G1 = j * g
@@ -466,8 +495,8 @@ class MatrixOperator:
             if G2 > G:
                 G2 = G
                 g = G2 - G1
-            sbuf_ng = work1_xG.reshape(-1)[:N * g].reshape(N, g)
-            rbuf_ng = work2_xG.reshape(-1)[:N * g].reshape(N, g)
+            sbuf_ng = reshape(work1_xG, (N, g))
+            rbuf_ng = reshape(work2_xG, (N, g))
             sbuf_ng[:] = psit_nG[:, G1:G2]
             beta = 0.0
             cycle_P_ani = (j == J - 1 and P_ani)
@@ -505,4 +534,3 @@ class MatrixOperator:
 
         psit_nG.shape = shape
         return psit_nG
-

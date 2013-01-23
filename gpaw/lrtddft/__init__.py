@@ -22,6 +22,7 @@ from gpaw.utilities import packed_index
 from gpaw.utilities.lapack import diagonalize
 from gpaw.xc import XC
 from gpaw.xc.hybridk import HybridXC
+from gpaw.utilities.timing import Timer, nulltimer
 from gpaw.lrtddft.spectrum import spectrum
 
 __all__ = ['LrTDDFT', 'photoabsorption_spectrum', 'spectrum']
@@ -71,6 +72,24 @@ class LrTDDFT(ExcitationList):
                  eh_comm=None # parallelization over eh-pairs
                  ):
 
+        parameters = {
+            'nspins' : None,
+            'eps' : 0.001,
+            'istart' : 0,
+            'jend' : None,
+            'energy_range' : None,
+            'xc' : 'GS',
+            'derivative_level' : 1,
+            'numscale' : 0.00001,
+            'txt' : None,
+            'filename' : None,
+            'finegrid' : 2,
+            'force_ApmB' : False, # for tests
+            'eh_comm' : None # parallelization over eh-pairs
+            }
+
+        self.timer = Timer()
+
         self.nspins = None
         self.istart = None
         self.jend = None
@@ -115,6 +134,10 @@ class LrTDDFT(ExcitationList):
             self.update(calculator, nspins, eps, 
                         istart, jend, energy_range,
                         xc, derivative_level, numscale)
+
+    def set_calculator(self, calculator):
+        self.calculator = calculator
+        self.force_ApmB = parameters['force_ApmB']
 
     def analyse(self, what=None, out=None, min=0.1):
         """Print info about the transitions.
@@ -200,16 +223,23 @@ class LrTDDFT(ExcitationList):
         self.name = name
 
     def diagonalize(self, istart=None, jend=None, energy_range=None):
+        self.timer.start('diagonalize')
+        self.timer.start('omega')
         self.Om.diagonalize(istart, jend, energy_range)
+        self.timer.stop('omega')
         
         # remove old stuff
+        self.timer.start('clean')
         while len(self): self.pop()
+        self.timer.stop('clean')
 
         print >> self.txt, 'LrTDDFT digonalized:'
+        self.timer.start('build')
         for j in range(len(self.Om.kss)):
-            self.append(LrTDDFTExcitation(self.Om,j))
+            self.append(LrTDDFTExcitation(self.Om, j))
             print >> self.txt, ' ', str(self[-1])
-            
+        self.timer.stop('build')
+        self.timer.stop('diagonalize')
 
     def get_Om(self):
         return self.Om
@@ -265,10 +295,14 @@ class LrTDDFT(ExcitationList):
             # load the eigenvalues
             n = int(f.readline().split()[0])
             for i in range(n):
-                l = f.readline().split()
-                E = float(l[0])
-                me = np.array([float(l[1]), float(l[2]), float(l[3])])
-                self.append(LrTDDFTExcitation(e=E, m=me))
+                self.append(LrTDDFTExcitation(string=f.readline()))
+            # load the eigenvectors
+            f.readline()
+            for i in range(n):
+                values = f.readline().split()
+                weights = [float(val) for val in values]
+                self[i].f = np.array(weights)
+                self[i].kss = self.kss
 
         if fh is None:
             f.close()
@@ -377,8 +411,13 @@ def d2Excdn2(den):
     return res
 
 class LrTDDFTExcitation(Excitation):
-    def __init__(self,Om=None,i=None,
-                 e=None,m=None):
+    def __init__(self, Om=None, i=None,
+                 e=None, m=None, string=None):
+
+        if string is not None: 
+            self.fromstring(string)
+            return None
+
         # define from the diagonalized Omega matrix
         if Om is not None:
             if i is None:
@@ -392,18 +431,35 @@ class LrTDDFTExcitation(Excitation):
                 self.energy = sqrt(ev)
             self.f = Om.eigenvectors[i]
             self.kss = Om.kss
-            self.me = 0.
-            for f,k in zip(self.f, self.kss):
-                self.me += f * k.me
+
+            self.kss.set_arrays()
+            self.me = np.dot(self.f, self.kss.me)
+            erat_k = np.sqrt(self.kss.energies / self.energy)
+            wght_k = np.sqrt(self.kss.fij) * self.f
+            ew_k = erat_k * wght_k
+            self.mur = np.dot(ew_k, self.kss.mur)
+            if self.kss.muv is not None:
+                self.muv = np.dot(ew_k, self.kss.muv)
+            else:
+                self.muv = None
+            if self.kss.magn is not None:
+                self.magn = np.dot(1. / ew_k, self.kss.magn)
+            else:
+                self.magn = None
 
             return
 
         # define from energy and matrix element
         if e is not None:
-            if m is None:
-                raise RuntimeError
             self.energy = e
-            self.me = m
+            if m is None:
+                if mur is None or muv is None or magn is None:
+                    raise RuntimeError
+                self.mur = mur
+                self.muv = muv
+                self.magn = magn
+            else:
+                self.me = m
             return
 
         raise RuntimeError
@@ -412,14 +468,28 @@ class LrTDDFTExcitation(Excitation):
         """get the density change associated with this transition"""
         raise NotImplementedError
 
+    def fromstring(self, string):
+        l = string.split()
+        self.energy = float(l.pop(0))
+        if len(l) == 3: # old writing style
+            self.me = np.array([float(l.pop(0)) for i in range(3)])
+        else:
+            self.mur = np.array([float(l.pop(0)) for i in range(3)])
+            self.me = - self.mur * sqrt(self.energy)
+            self.muv = np.array([float(l.pop(0)) for i in range(3)])
+            self.magn = np.array([float(l.pop(0)) for i in range(3)])
+
     def outstring(self):
         str = '%g ' % self.energy
         str += '  '
-        for m in self.me:
-            str += ' %g' % m
+        for m in self.mur: str += '%12.4e' % m
+        str += '  '
+        for m in self.muv: str += '%12.4e' % m
+        str += '  '
+        for m in self.magn: str += '%12.4e' % m
         str += '\n'
         return str
-        
+
     def __str__(self):
         m2 = np.sum(self.me * self.me)
         m = sqrt(m2)
@@ -433,8 +503,9 @@ class LrTDDFTExcitation(Excitation):
 
     def analyse(self,min=.1):
         """Return an analysis string of the excitation"""
-        s='E=%.3f'%(self.energy * Hartree)+' eV, f=%.3g'\
-           %(self.get_oscillator_strength()[0])+'\n'
+        s=('E=%.3f' % (self.energy * Hartree) + ' eV, ' +
+           'f=%.5g' % self.get_oscillator_strength()[0] + ', ' +
+           'R=%.5g' % self.get_rotatory_strength() + ' cgs\n')
 
         def sqr(x): return x*x
         spin = ['u','d'] 
@@ -448,7 +519,7 @@ class LrTDDFTExcitation(Excitation):
                 rest -= f2
         s+='  rest=%.3g'%rest
         return s
-        
+
 def photoabsorption_spectrum(excitation_list, spectrum_file=None,
                              e_min=None, e_max=None, delta_e = None,
                              folding='Gauss', width=0.1, comment=None):

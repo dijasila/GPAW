@@ -651,7 +651,7 @@ class HybridXC(HybridXCBase):
         R_Rv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
         r_R = ((R_Rv - C_v)**2).sum(3)**0.5
         if (gd.N_c % 2 == 0).all():
-            r_R[tuple(gd.N_c // 2)] = 1.0  # avoid dividing by zer0
+            r_R[tuple(gd.N_c // 2)] = 1.0  # avoid dividing by zero
         v_R = erf(self.beta**0.5 * r_R) / r_R
         if (gd.N_c % 2 == 0).all():
             v_R[tuple(gd.N_c // 2)] = (4 * self.beta / pi)**0.5

@@ -3,9 +3,10 @@
 """This module defines an ELF class."""
 
 from numpy import pi
-from ase.units import Bohr, Hartree
+
 from gpaw.fd_operators import Gradient
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
+
 
 def _elf(nt_sg, nt_grad2_sg, taut_sg, ncut, spinpol):
     """Pseudo electron localisation function (ELF) as defined in
@@ -25,7 +26,7 @@ def _elf(nt_sg, nt_grad2_sg, taut_sg, ncut, spinpol):
     """
 
     # Fermi constant
-    cF = 3.0 / 10 * (3*pi**2)**(2.0/3.0)
+    cF = 3.0 / 10 * (3 * pi**2)**(2.0 / 3.0)
 
     if spinpol:
         # Kouhut eq. (9)
@@ -45,6 +46,7 @@ def _elf(nt_sg, nt_grad2_sg, taut_sg, ncut, spinpol):
         elf_g[nt < ncut] = 0.0
 
     return elf_g
+
 
 class ELF:
     """ELF object for calculating the electronic localization function.
@@ -88,7 +90,7 @@ class ELF:
 
     def interpolate(self):
 
-        self.density.interpolate()
+        self.density.interpolate_pseudo_density()
 
         if self.taut_sg is None:
             self.taut_sg = self.finegd.empty(self.nspins)
@@ -109,9 +111,7 @@ class ELF:
                 self.nt_grad2_sg[s] += d_g**2.0
 
     def update(self):
-        ddr_v = [Gradient(self.gd, v, n=3).apply for v in range(3)]
-
-        self.taut_sG = self.paw.wfs.calculate_kinetic_energy_density(ddr_v)
+        self.taut_sG = self.paw.wfs.calculate_kinetic_energy_density()
 
         # Add the pseudo core kinetic array
         for taut_G in self.taut_sG:
@@ -127,7 +127,7 @@ class ELF:
 
         for s in range(self.nspins):
             for v in range(3):
-                ddr_v[v](self.density.nt_sG[s], d_G)
+                self.paw.wfs.taugrad_v[v](self.density.nt_sG[s], d_G)
                 self.nt_grad2_sG[s] += d_G**2.0
 
         #TODO are nct from setups usable for nt_grad2_sG ?

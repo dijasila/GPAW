@@ -167,8 +167,9 @@ class CHI(BASECHI):
             self.Kc_GG = None
             self.printtxt('RPA calculation.')
         elif self.xc == 'ALDA' or self.xc == 'ALDA_X':
-            self.Kc_GG = calculate_Kc(self.q_c, self.Gvec_Gc, self.acell_cv,
+            Kc_G = calculate_Kc(self.q_c, self.Gvec_Gc, self.acell_cv,
                                   self.bcell_cv, self.calc.atoms.pbc, self.optical_limit, self.vcut)
+            self.Kc_GG = np.outer(Kc_G, Kc_G)
 
             nt_sg = calc.density.nt_sG
             if (self.rpad > 1).any() or (self.pbc - True).any():
@@ -356,16 +357,15 @@ class CHI(BASECHI):
                     time_rev1 = self.kd.time_reversal_k[k]
                     time_rev2 = self.kd.time_reversal_k[kq_k[k]]
         
-                    if trans1:
-                        status, dev_index1_Q = _gpaw.cuMalloc(nx*ny*nz*sizeofint)
-                        _gpaw.cuSetVector(nx*ny*nz,sizeofint,index1_g,1,dev_index1_Q,1)
-                        status, dev_phase1_Q = _gpaw.cuMalloc(nx*ny*nz*sizeofdata)
-                        _gpaw.cuSetVector(nx*ny*nz,sizeofdata,phase1_g.ravel(),1,dev_phase1_Q,1)
-                    if trans2:
-                        status, dev_index2_Q = _gpaw.cuMalloc(nx*ny*nz*sizeofint)
-                        _gpaw.cuSetVector(nx*ny*nz,sizeofint,index2_g,1,dev_index2_Q,1)
-                        status, dev_phase2_Q = _gpaw.cuMalloc(nx*ny*nz*sizeofdata)
-                        _gpaw.cuSetVector(nx*ny*nz,sizeofdata,phase2_g.ravel(),1,dev_phase2_Q,1)                 
+                    status, dev_index1_Q = _gpaw.cuMalloc(nx*ny*nz*sizeofint)
+                    _gpaw.cuSetVector(nx*ny*nz,sizeofint,index1_g,1,dev_index1_Q,1)
+                    status, dev_phase1_Q = _gpaw.cuMalloc(nx*ny*nz*sizeofdata)
+                    _gpaw.cuSetVector(nx*ny*nz,sizeofdata,phase1_g.ravel(),1,dev_phase1_Q,1)
+
+                    status, dev_index2_Q = _gpaw.cuMalloc(nx*ny*nz*sizeofint)
+                    _gpaw.cuSetVector(nx*ny*nz,sizeofint,index2_g,1,dev_index2_Q,1)
+                    status, dev_phase2_Q = _gpaw.cuMalloc(nx*ny*nz*sizeofdata)
+                    _gpaw.cuSetVector(nx*ny*nz,sizeofdata,phase2_g.ravel(),1,dev_phase2_Q,1)                 
 
     
                 for n in range(self.nvalbands):
@@ -402,8 +402,9 @@ class CHI(BASECHI):
                     if self.sync: timer.end('wfs_transform')
 
 
-#                    psit1new_g = np.zeros(self.nG, dtype=complex)
-#                    _gpaw.cuGetVector(self.nG0,sizeofdata,dev_psit1_R,1, psit1new_g,1)
+                    if self.cublas and self.optical_limt:
+                        psit1new_g = np.zeros(self.nG, dtype=complex)
+                        _gpaw.cuGetVector(self.nG0,sizeofdata,dev_psit1_R,1, psit1new_g,1)
 
     
                     # PAW part
@@ -422,8 +423,8 @@ class CHI(BASECHI):
                         P1_ai = self.get_P_ai(k, n, spin, Ptmp_ai)
                     if self.sync: timer.end('paw')
 
-                    if not self.cublas:
-                        psit1_g = psit1new_g.conj() * self.expqr_g
+                    #if not self.cublas:
+                    psit1_g = psit1new_g.conj() * self.expqr_g
 
                     imultix = 0
                     for m in self.mlist:
@@ -466,14 +467,14 @@ class CHI(BASECHI):
                                 self.cuda_trans_wfs(dev_Qtmp, dev_psit2_R, dev_index2_Q, dev_phase2_Q,
                                                     trans2, time_rev2, sizeofdata)
                             if self.sync: timer.end('wfs_transform')
-    
 
-                            # testing whether psit1new_g == dev_psit1_R,
-#                            psit2_g = np.zeros(self.nG, dtype=complex)
-#                            _gpaw.cuGetVector(self.nG0,sizeofdata,dev_psit2_R,1, psit2_g,1)
+                            if self.cublas and self.optical_limit:
+                                # testing whether psit1new_g == dev_psit1_R,
+                                psit2_g = np.zeros(self.nG, dtype=complex)
+                                _gpaw.cuGetVector(self.nG0,sizeofdata,dev_psit2_R,1, psit2_g,1)
 
-                            
-                            GPUpointer = imultix * npw * sizeofdata
+                            if self.cublas:
+                                GPUpointer = imultix * npw * sizeofdata
                             # fft
                             if self.sync: timer.start('fft')
                             if not self.cublas:
@@ -506,6 +507,8 @@ class CHI(BASECHI):
                                     d_c[ix](psit2_g, dpsit_g, phase_cd)
                                     tmp[ix] = gd.integrate(psit1_g * dpsit_g)
                                 rho_G[0] = -1j * np.dot(self.qq_v, tmp)
+                                if self.cublas:
+                                    status = _gpaw.cuSetVector(1, sizeofdata, rho_G, 1, GPU_rho_uG+GPUpointer, 1)
                             if self.sync: timer.end('opt')
 
                             if self.sync: timer.start('paw')

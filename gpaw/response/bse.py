@@ -403,7 +403,7 @@ class BSE(BASECHI):
         t0 = time()
         for iq in range(self.nibzq):#self.q_start, self.q_end):
 
-            W_qGG[iq] = self.screened_interaction_kernel(iq, static=True)
+            df, W_qGG[iq] = self.screened_interaction_kernel(iq, static=True)
             self.timing(iq, t0, self.nibzq, 'iq')
 
         data = {'W_qGG': W_qGG,
@@ -450,7 +450,7 @@ class BSE(BASECHI):
         for iq in range(nq_local):
             self.printtxt('%d' %(iq))
             q_c = self.bzq_qc[iq + q_start]
-            tmp_aGp = self.get_phi_aGp(q_c)
+            tmp_aGp = self.get_phi_aGp(q_c, parallel=False)
             for id in range(natoms):
                 N1, N2 = tmp_aGp[id].shape
                 phimax_qaGp[iq, id, :N1, :N2] = tmp_aGp[id]

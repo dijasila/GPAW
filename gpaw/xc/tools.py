@@ -6,7 +6,7 @@ from gpaw.utilities import unpack
 
 
 def vxc(paw, xc=None, coredensity=True):
-    "Calculate XC-contribution to eigenvalues."
+    """Calculate XC-contribution to eigenvalues."""
     
     ham = paw.hamiltonian
     dens = paw.density
@@ -18,7 +18,7 @@ def vxc(paw, xc=None, coredensity=True):
         xc = XC(xc)
 
     if dens.nt_sg is None:
-        dens.interpolate()
+        dens.interpolate_pseudo_density()
 
     thisisatest = not True
     
@@ -31,13 +31,13 @@ def vxc(paw, xc=None, coredensity=True):
     vxct_sG = ham.gd.empty(wfs.nspins)
     ham.restrict(vxct_sg, vxct_sG)
     if thisisatest:
-        vxct_G[:] = 1
+        vxct_sG[:] = 1
         
     # ... and PAW corrections:
     dvxc_asii = {}
     for a, D_sp in dens.D_asp.items():
         dvxc_sp = np.zeros_like(D_sp)
-        xc.calculate_paw_correction(wfs.setups[a], D_sp, dvxc_sp,
+        xc.calculate_paw_correction(wfs.setups[a], D_sp, dvxc_sp, a=a, 
                                     addcoredensity=coredensity)
         dvxc_asii[a] = [unpack(dvxc_p) for dvxc_p in dvxc_sp]
         if thisisatest:

@@ -80,15 +80,41 @@ The result is shown below
 .. image:: extrapolate.png
 	   :height: 400 px
 
-The fit is seen to be very good at the last three points and we find an extrapolated value of -4.97 eV for the correlation part of the atomization energy. The results are summarized below (all values in eV	)
+The fit is seen to be very good at the last three points and we find an extrapolated value of -4.96 eV for the correlation part of the atomization energy. The results are summarized below (all values in eV	)
 
 ======   =====   =====   ======       ============
 PBE      HF      RPA     HF+RPA       Experimental
 ======   =====   =====   ======       ============
-10.59	 4.68    4.91    9.59	  	9.89
+10.60	 4.64    4.96    9.60	  	9.89
 ======   =====   =====   ======       ============
 
-One should also be aware that due to the non-local nature of the RPA functional, very large supercells are needed to avoid spurious interactions between repeated images and the calculation done for the 6x6x7 cell used here is not expected to be fully converged with respect to super cell size. In fact, the present super cell is not even large enough for the PBE and HF calculations to be converged. See ref. \ [#Harl]_ for more details on this. It should be noted that in general, the accuaracy of RPA is comparable to that of PBE calculations \ [#Furche]_ and N2 is just a special case where RPA performs better than PBE. The major advantage of RPA is the non-locality, which results in a good description of van der Waals forces. The true power of RPA thus only comes into play for systems where dispersive interaction dominate.
+One should also be aware that due to the non-local nature of the RPA functional, very large supercells are needed to avoid spurious interactions between repeated images and the calculation done for the 6x6x7 cell used here is not expected to be fully converged with respect to super cell size. In fact, the present super cell is not even large enough for the PBE and HF calculations to be converged. See ref. \ [#Harl]_ for more details on this. It should be noted that in general, the accuaracy of RPA is comparable to that of PBE calculations and N2 is just a special case where RPA performs better than PBE. The major advantage of RPA is the non-locality, which results in a good description of van der Waals forces. The true power of RPA thus only comes into play for systems where dispersive interaction dominate.
+
+
+Example 2: Adsorption of graphene on metal surfaces
+===================================================
+
+As an example where dispersive interactions are known to play a prominent role, we consider the case af graphene adsorpbed on a Co(0001) surface [#Olsen]_. First, the input .gpw files are generated with the following script: 
+
+.. literalinclude:: gs_graph_Co.py
+
+Note that besides diagonalizing the full Hamiltonian for each distance, the script calculates the EXX energy at the self-consistent PBE orbitals and writes the result to a file. It should also be noted that the kpoint grid is centered at the Gamma point, which makes the *q*-point reduction in the RPA calculation much more efficient. In general, RPA and EXX is more sensitive to Fermi smearing than semi-local functionals and we have set the smearing to 0.01 eV. Due to the long range nature of the van der Waals interactions, a lot of vacuum have been included above the slab. The calculation should be parallelized over spin and irreducible *k*-points. 
+
+The RPA calculations are done with the following script
+
+.. literalinclude:: rpa_graph_Co.py
+
+Here we have changed the frequency scale from the deafualt value of 2.0 to 2.5 to increase the density of frequency points near the origin. We also specify that the calculation should be parallelized over 128 *k*-points but any number divisibe by the toal number of Brillouin zone *k*-points (256) would be ok. The default paralellization scheme is over frequency points but *k*-point parallelization is much more efficient for solid state systems. Finally, we specify that the Gamma point (in *q*) should not be included since the optical limit becomes unstable for systems with high degeneracy near the Fermi level. The restart file contains the contributions from different *q*-points, which is read if a calculation needs to be restarted.
+
+In principle, the calculations should be performed for a range of cutoff energies and extrapolated to infinity as in the example above. However, energy differences between systems with similar electronic structure converges much faster than absolute correlation energies and a reasonably converged potential energy surface can be obtained using a fixed cutoff of 200 eV for this system.
+
+The result is shown in the Figure below along with LDA, PBE and vdW-DF results. The solid RPA line was obtained using spline interpolation.
+
+.. image:: pes_graph.png
+	   :height: 600 px
+
+Both LDA and PBE predicts adsorption at 2.0 A from the metal slab, but do not include van der Waals attraction. The van der Waals functional shows a significant amount of dispersive interactions far from the slab and predicts a physisorbed minimum 3.75 A from the slab. RPA captures both covalent and dispersive interactions and the resulting potential energy surface is a delicate balance between the two types of interactions. Two minima are seen and the covalent bound state at 2.2 A is slightly lower that the physorbed state at 3.2 A, which is in good agreement with experiment.
+
 
 .. [#Furche] F. Furche,
              *Phys. Rev. B* **64**, 195120 (2001)
@@ -96,3 +122,6 @@ One should also be aware that due to the non-local nature of the RPA functional,
 
 .. [#Harl] J. Harl and G. Kresse,
            *Phys. Rev. B* **77**, 045136 (2008)
+
+.. [#Olsen] T. Olsen, J. Yan, J. J. Mortensen and K. S. Thygesen
+           *Phys. Rev. Lett* **107**, 156401 (2011)

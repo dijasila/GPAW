@@ -6,7 +6,9 @@ Download
 
 .. note::
 
-   To determine which way of installation suits you best
+   GPAW requires ASE. :ase:`Install ASE <download.html>`.
+
+   When done, to determine which way of installing GPAW suits you best
    please read carefully :ref:`installationguide` first!
 
 .. _latest_stable_release:
@@ -101,11 +103,6 @@ See :ref:`faq` in case of problems.
 Create links
 ============
 
-.. note::
-
-   GPAW requires ASE.
-   :ase:`Download and install ASE <download.html>`.
-
 It is convenient to maintain several version of GPAW
 with the help of links.
 After downloading create the link to the requested version, e.g.:
@@ -125,4 +122,4 @@ After downloading create the link to the requested version, e.g.:
 
      The recommended installation path is :envvar:`$HOME`.
 
-When you have the code, go back to the :ref:`installationguide`.
+When you have the code, go back to the :ref:`installationguide_developer`.

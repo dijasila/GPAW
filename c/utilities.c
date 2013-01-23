@@ -22,8 +22,6 @@
 #ifdef GPAW_HPM
 void HPM_Start(char *);
 void HPM_Stop(char *);
-void HPM_Print(void);
-void HPM_Print_Flops(void);
 
 PyObject* ibm_hpm_start(PyObject *self, PyObject *args)
 {
@@ -114,6 +112,32 @@ static void coll_print(FILE *fp, const char *label, double val,
 static long_long papi_start_usec_p;
 static long_long papi_start_usec_r;
 
+// Returns PAPI_dmem_info structure in Python dictionary
+// Units used by PAPI are kB
+PyObject* papi_mem_info(PyObject *self, PyObject *args)
+{
+  PAPI_dmem_info_t dmem;
+  PyObject* py_dmem;
+
+  PAPI_get_dmem_info(&dmem);
+
+  py_dmem = PyDict_New();
+  PyDict_SetItemString(py_dmem, "peak", PyLong_FromLongLong(dmem.peak));
+  PyDict_SetItemString(py_dmem, "size", PyLong_FromLongLong(dmem.size));
+  PyDict_SetItemString(py_dmem, "resident", PyLong_FromLongLong(dmem.resident));
+  PyDict_SetItemString(py_dmem, "high_water_mark", 
+                       PyLong_FromLongLong(dmem.high_water_mark));
+  PyDict_SetItemString(py_dmem, "shared", PyLong_FromLongLong(dmem.shared));
+  PyDict_SetItemString(py_dmem, "text", PyLong_FromLongLong(dmem.text));
+  PyDict_SetItemString(py_dmem, "library", PyLong_FromLongLong(dmem.library));
+  PyDict_SetItemString(py_dmem, "heap", PyLong_FromLongLong(dmem.heap));
+  PyDict_SetItemString(py_dmem, "stack", PyLong_FromLongLong(dmem.stack));
+  PyDict_SetItemString(py_dmem, "pagesize", PyLong_FromLongLong(dmem.pagesize));
+  PyDict_SetItemString(py_dmem, "pte", PyLong_FromLongLong(dmem.pte));
+
+  return py_dmem;
+}
+
 int gpaw_perf_init()
 {
   int events[NUM_PAPI_EV];
@@ -188,12 +212,10 @@ void gpaw_perf_finalize()
   }
 }
 #elif GPAW_HPM
-void HPM_Init(void);
 void HPM_Start(char *);
 
 int gpaw_perf_init()
 {
-  HPM_Init();
   HPM_Start("GPAW");
   return 0;
 }
@@ -201,8 +223,6 @@ int gpaw_perf_init()
 void gpaw_perf_finalize()
 {
   HPM_Stop("GPAW");
-  HPM_Print();
-  HPM_Print_Flops();
 }
 #else  // Use just MPI_Wtime
 static double t0;

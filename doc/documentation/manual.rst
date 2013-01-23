@@ -632,6 +632,15 @@ available options in FD mode are conjugate gradient method
 (``eigensolver='dav'``). From the alternatives, conjugate gradient
 seems to perform better in general.
 
+More control can be obtained by using directly the eigensolver objects::
+
+  from gpaw.eigensolvers import CG
+  calc = GPAW(eigensolver=CG(niter=5, rtol=0.20))
+
+Here, ``niter`` specifies the maximum number of conjugate gradient iterations
+for each band (within a single SCF step), and if the relative change 
+in residual is less than ``rtol``, the iteration for the band is not continued.
+
 LCAO mode has its own eigensolver, which directly diagonalizes the
 Hamiltonian matrix instead of using an iterative method.
 

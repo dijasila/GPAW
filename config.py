@@ -84,7 +84,7 @@ def get_system_config(define_macros, undef_macros,
         include_dirs += [numpy.get_include()]
     include_dirs += ['c/libxc']
 
-    machine = os.uname()[4]
+    machine = platform.uname()[4]
     if machine == 'sun4u':
 
         #  _

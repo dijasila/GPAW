@@ -3,7 +3,8 @@
    ../technology
    lcao/lcao
    parallel_runs/parallel_runs
-   convergence/convergence	
+   convergence/convergence
+   convergence/scf_conv_eval
    restart_files
    cmdline
    rmm-diis
@@ -15,6 +16,7 @@
    transport/keldyshgf
    tddft/tddft
    bse/bse
+   gw_theory/gw_theory
    dscf/dscf
    pdos/pdos
    xas/xas

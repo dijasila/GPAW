@@ -15,4 +15,9 @@ If we run the job on 12 cpu's::
   $ mpirun -np 12 gpaw-python neb.py
 
 then each of the three internal images will be parallelized over 4 cpu's.
+
+The results are read with::
+
+  $ ag neb_?.traj
+
 The energy barrier is found to be 0.29 eV.

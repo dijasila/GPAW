@@ -7,6 +7,7 @@ import numpy as np
 
 import gpaw.mpi as mpi
 from gpaw.output import initialize_text_stream
+from ase.units import A, m, s, Bohr, _aut, C
 
 class ExcitationList(list):
     """General Excitation List class.
@@ -102,9 +103,10 @@ class Excitation:
             # length form
             me = self.me
         elif form == 'v':
-            raise NotImplemented
             # velocity form
-            me = self.muv
+            me = self.muv * np.sqrt(self.energy)
+        else:
+            raise RuntimeError('Unknown form >' + form + '<')
 
         osz = [0.]
         for c in range(3):
@@ -114,6 +116,36 @@ class Excitation:
         
         return osz
 
+    def get_rotatory_strength(self, form='r', units='cgs'):
+        """Return rotatory strength"""
+        if self.magn is None:
+            raise RuntimeError('Magnetic moment not available.')
+
+        if units =='cgs':
+            # 10^-40 esu cm erg / G
+            # = 3.33564095 * 10^-15 A^2 m^3 s
+            # conversion factor after
+            # T. B. Pedersen and A. E. Hansen, 
+            # Chem. Phys. Lett. 246 (1995) 1
+            # pre = 471.43
+            # From TurboMole
+            pre = 64604.8164
+        elif uints == 'a.u.':
+            pre = 1.
+        else:
+            raise RuntimeError('Unknown units >' + units + '<')
+
+        if form == 'r':
+            # length form
+            mu = self.mur
+        elif form == 'v':
+            # velocity form
+            mu = self.muv
+        else:
+            raise RuntimeError('Unknown form >' + form + '<')
+        
+        return pre * np.dot(mu, self.magn)
+        
     def set_energy(self, E):
         """Set the excitations energy relative to the ground state energy"""
         self.energy = E

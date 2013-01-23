@@ -63,6 +63,8 @@ for name in ['Si', 'C', 'GaAs', 'MgO', 'NaCl', 'Ar']:
                       convergence=dict(bands=-7),
                       kpts=kpts,
                       txt='%s.txt' % name)
+    if name in ['MgO', 'NaCl']:
+        atoms.calc.set(eigensolver='cg')
     atoms.get_potential_energy()
     pbe0 = HybridXC('PBE0', alpha=5.0, bandstructure=True)
     de_skn = vxc(atoms.calc, pbe0) - vxc(atoms.calc, 'PBE')

@@ -47,20 +47,32 @@ class GGA(LDA):
     def stress_tensor_contribution(self, n_sg):
         sigma_xg, gradn_svg = self.calculate_sigma(n_sg)
         nspins = len(n_sg)
-        assert nspins == 1
         dedsigma_xg = self.gd.empty(nspins * 2 - 1)
         v_sg = self.gd.zeros(nspins)
         e_g = self.gd.empty()
         self.calculate_gga(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
-        stress_vv = np.eye(3) * (self.gd.integrate(e_g) -
-                                 self.gd.integrate(v_sg[0], n_sg[0]) -
-                                 2 * self.gd.integrate(sigma_xg[0],
-                                                       dedsigma_xg[0]))
+
+        def integrate(a1_g, a2_g=None):
+            return self.gd.integrate(a1_g, a2_g, global_integral=False)
+
+        P = integrate(e_g)
+        for v_g, n_g in zip(v_sg, n_sg):
+            P -= integrate(v_g, n_g)
+        for sigma_g, dedsigma_g in zip(sigma_xg, dedsigma_xg):
+            P -= 2 * integrate(sigma_g, dedsigma_g)
+        stress_vv = P * np.eye(3)
         for v1 in range(3):
             for v2 in range(3):
-                stress_vv[v1, v2] -= self.gd.integrate(gradn_svg[0, v1] *
-                                                       gradn_svg[0, v2],
-                                                       dedsigma_xg[0]) * 2 
+                stress_vv[v1, v2] -= integrate(gradn_svg[0, v1] *
+                                               gradn_svg[0, v2],
+                                               dedsigma_xg[0]) * 2
+                if nspins == 2:
+                    stress_vv[v1, v2] -= integrate(gradn_svg[0, v1] *
+                                                   gradn_svg[1, v2],
+                                                   dedsigma_xg[1]) * 2
+                    stress_vv[v1, v2] -= integrate(gradn_svg[1, v1] *
+                                                   gradn_svg[1, v2],
+                                                   dedsigma_xg[2]) * 2
         return stress_vv
 
     def calculate_radial_expansion(self, rgd, D_sLq, n_qg, nc0_sg):

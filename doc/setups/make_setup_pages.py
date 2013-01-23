@@ -12,7 +12,7 @@ from ase.atoms import string2symbols
 from ase.data.molecules import rest
 from ase.data.g2_1 import data as molecule_data
 
-from gpaw.testing.atomization_data import atomization_vasp
+from ase.data.g2_1_ref import atomization_vasp
 from gpaw.atom.configurations import parameters
 
 page = """.. Computer generated reST (make_setup_pages.py)

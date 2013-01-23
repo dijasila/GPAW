@@ -75,6 +75,17 @@ class WignerSeitz:
 
         return weigths
 
+    def get_charges(self, den_g):
+        """Charge on the atom according to the Wigner-Seitz partitioning
+
+        Can be applied to any density den_g.
+        """
+        assert(den_g.shape == tuple(self.gd.n_c))
+        charges = []
+        for atom, q in zip(self.atoms, self.expand(den_g)):
+            charges.append(atom.number - q)
+        return charges
+
     def get_effective_volume_ratio(self, atom_index):
         """Effective volume to free volume ratio.
 

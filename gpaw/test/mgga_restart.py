@@ -49,5 +49,5 @@ energy_tolerance = 0.00004
 niter_tolerance = 0
 equal(E_PBE, -5.33901, energy_tolerance)
 equal(E_PBE_no_wfs, -5.33901, energy_tolerance)
-equal(E_1, -5.6435, energy_tolerance)
-equal(E_2, -5.64352, energy_tolerance)
+equal(E_1, -5.57685, energy_tolerance)
+equal(E_2, -5.57685, energy_tolerance)

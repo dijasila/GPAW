@@ -1,8 +1,8 @@
 .. _exercise_lrtddft:
 
-==============================
-Calculation of optical spectra
-==============================
+=========================================
+Calculation of optical spectra with TDDFT
+=========================================
 
 In this exercise we calculate optical spectrum of Na2 molecule using
 linear response time-dependent density functional theory. We start
@@ -11,12 +11,13 @@ with a normal ground state calculation:
 Linear response TDDFT needs unoccupied states, so we calculate 19 of
 them in addition to the one occupied state. Note that in realistic
 calculation there should be more vacuum around the molecule. One might
-also want to first :ref:`optimize the geometry
-<structure_optimization>`, save the structure::
+also want to first optimize the geometry.  Get inspiration from the
+exercise :ref:`structure_optimization`, modify it to Na2 instead of
+H2, and save the structure at the end::
 
   calc.write('na2_gs.gpw')
 
-and start a then a new calculation with more vacuum and unoccupied states::
+Then start a new calculation with more vacuum and unoccupied states::
 
   atoms, calc = restart('na2_gs.gpw')
   atoms.center(vacuum=6.0)
@@ -60,5 +61,6 @@ By default only singlet-singlet transitions are calculated, singlet-triplet tran
 
 4. Try to calculate optical spectrum also with the
    :ref:`timepropagation` approach and see how the results compare to
-   linear response calculation.
+   linear response calculation.  Note that the :ref:`timepropagation`
+   examples deal with Be2, you can of course modify it to use Na2 instead.
 

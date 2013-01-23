@@ -15,3 +15,7 @@ error and occupations number as described in [Kresse]_.
    Phys. Rev. B 54, 11169 - 11186 (1996)
    "Efficient iterative schemes for ab initio total-energy calculations
    using a plane-wave basis set"
+
+Any potential improvements in algorithms need to be evaluated on a large
+set of systems. The :ref:`scf_conv_eval` page is dedicated to
+presenting those evaluations.

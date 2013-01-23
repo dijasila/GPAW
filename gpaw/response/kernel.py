@@ -32,7 +32,7 @@ def v1D_Coulomb(qG, G_p, G_n, R):
 
     """
     from scipy.special import j1,k0,j0,k1
-    
+
     G_nR = sqrt(np.dot(G_n,qG*qG))*R
     G_pR = abs(np.dot(G_p,qG))*R
     return 1. / np.dot(qG,qG) * (1 + G_nR * j1(G_nR) * k0(G_pR) - G_pR * j0(G_nR) * k1(G_pR))
@@ -54,7 +54,7 @@ def calculate_Kc(q_c,
                  optical_limit,
                  vcut=None,
                  density_cut=None,
-                 nonsymmetric=False):
+                 symmetric=True):
     """Symmetric Coulomb kernel"""
     npw = len(Gvec_Gc)
     Kc_G = np.zeros(npw)
@@ -62,7 +62,7 @@ def calculate_Kc(q_c,
     # get cutoff parameters
     G_p = np.array(pbc, float)
     # Normal Direction
-    G_n = np.array([1,1,1])-G_p
+    G_n = np.array([1,1,1]) - G_p
         
     if vcut is None:
         pass
@@ -85,32 +85,32 @@ def calculate_Kc(q_c,
     else:
         XXX
         NotImplemented
-
+    
     # calculate coulomb kernel
     for iG in range(npw):
-        qG = np.dot(q_c + Gvec_Gc[iG], bcell_cv)
-        
+        qG = np.dot(q_c + Gvec_Gc[iG], bcell_cv)       
+
         if vcut is None:
-            Kc_G[iG] = sqrt(v3D_Coulomb(qG))
+            Kc_G[iG] = v3D_Coulomb(qG)
         elif vcut == '2D':
-            Kc_G[iG] = sqrt(v2D_Coulomb(qG,G_p,G_n,R))
-        elif vcut == '1D':
-            Kc_G[iG] = sqrt(v1D_Coulomb(qG,G_p,G_n,R))
+            Kc_G[iG] = v2D_Coulomb(qG,G_p,G_n,R)
+        elif vcut == '1D':     
+            Kc_G[iG] = v1D_Coulomb(qG,G_p,G_n,R)
         elif vcut == '0D':
-            Kc_G[iG] = sqrt(v0D_Coulomb(qG,R))
+            Kc_G[iG] = v0D_Coulomb(qG,R)
         else:
             NotImplemented
             
     if optical_limit:
         q_v = np.dot(q_c, bcell_cv)
-        Kc_G[0] = sqrt(1. / np.dot(q_v,q_v))
+        Kc_G[0] = 1. / np.dot(q_v,q_v)
+   
+    if symmetric:
+        Kc_G = np.sqrt(Kc_G)
+        return 4 * pi * np.outer(Kc_G.conj(), Kc_G)
+    else:
+        return 4 * pi * (Kc_G * np.ones([npw, npw])).T
 
-    Kc_GG = 4 * pi * np.outer(Kc_G, Kc_G)
-    
-    if nonsymmetric:
-        Kc_GG = 4 * pi * (Kc_G**2 * np.ones([npw, npw])).T
-
-    return Kc_GG
 
 def calculate_Kxc(gd, nt_sG, npw, Gvec_Gc, nG, vol,
                   bcell_cv, R_av, setups, D_asp, functional='ALDA',

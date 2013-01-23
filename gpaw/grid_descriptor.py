@@ -17,7 +17,7 @@ import _gpaw
 import gpaw.mpi as mpi
 from gpaw.domain import Domain
 from gpaw.utilities import mlsqr
-from gpaw.utilities.blas import rk, r2k, gemm
+from gpaw.utilities.blas import rk, r2k, gemv, gemm
 
 
 # Remove this:  XXX
@@ -25,6 +25,7 @@ assert (-1) % 3 == 2
 assert (np.array([-1]) % 3)[0] == 2
 
 NONBLOCKING = False
+
 
 class GridDescriptor(Domain):
     """Descriptor-class for uniform 3D grid
@@ -42,8 +43,8 @@ class GridDescriptor(Domain):
     This is how a 2x2x2 3D array is laid out in memory::
 
         3-----7
-        |\    |\ 
-        | \   | \ 
+        |\    |\
+        | \   | \
         |  1-----5      z
         2--|--6  |   y  |
          \ |   \ |    \ |
@@ -60,7 +61,9 @@ class GridDescriptor(Domain):
             [[4, 5],
              [6, 7]]])
      """
-    
+
+    ndim = 3  # dimension of ndarrays
+
     def __init__(self, N_c, cell_cv=(1, 1, 1), pbc_c=True,
                  comm=None, parsize=None):
         """Construct grid-descriptor object.
@@ -258,6 +261,10 @@ class GridDescriptor(Domain):
         """Helper function for MatrixOperator class."""
         gemm(alpha, psit_nG, C_mn, beta, newpsit_mG)
 
+    def gemv(self, alpha, psit_nG, C_n, beta, newpsit_G, trans='t'):
+        """Helper function for CG eigensolver."""
+        gemv(alpha, psit_nG, C_n, beta, newpsit_G, trans)
+
     def coarsen(self):
         """Return coarsened `GridDescriptor` object.
 
@@ -426,7 +433,7 @@ class GridDescriptor(Domain):
                 for n2 in range(parsize_c[2]):
                     b2, e2 = self.n_cp[2][n2:n2 + 2] - self.beg_c[2]
                     if r != 0:
-                        a_xg = np.empty(xshape + 
+                        a_xg = np.empty(xshape +
                                         ((e0 - b0), (e1 - b1), (e2 - b2)),
                                         a_xg.dtype.char)
                         self.comm.receive(a_xg, r, 301)
@@ -511,7 +518,7 @@ class GridDescriptor(Domain):
         psit_nG and psit_nG1 are the set of wave functions for the two
         different spin/kpoints in question.
 
-        ref1: Thygesen et al, Phys. Rev. B 72, 125119 (2005) 
+        ref1: Thygesen et al, Phys. Rev. B 72, 125119 (2005)
         """
 
         if nbands is None:
@@ -582,7 +589,7 @@ class GridDescriptor(Domain):
                     vt_g[Bg_c[0],bg_c[1],Bg_c[2]] *
                     (0.0 + dg_c[0]) * (1.0 - dg_c[1]) * (0.0 + dg_c[2]) + 
                     vt_g[bg_c[0],Bg_c[1],Bg_c[2]] *
-                    (1.0 - dg_c[0]) * (0.0 + dg_c[1]) * (0.0 + dg_c[2]) + 
+                    (1.0 - dg_c[0]) * (0.0 + dg_c[1]) * (0.0 + dg_c[2]) +
                     vt_g[Bg_c[0],Bg_c[1],Bg_c[2]] *
                     (0.0 + dg_c[0]) * (0.0 + dg_c[1]) * (0.0 + dg_c[2]))
 
