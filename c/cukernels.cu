@@ -1,7 +1,7 @@
-#include "cublas_v2.h" 
-#include "complex.h"
+#include <complex.h>
 #include <stdio.h>
-#include <"math_constants.h">
+#include <cublas_v2.h> 
+#include <math_constants.h>
 
 __global__ void add( cuDoubleComplex* a, cuDoubleComplex* b, cuDoubleComplex* c, int N ){
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
