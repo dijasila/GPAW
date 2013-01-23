@@ -1,6 +1,7 @@
 scalapack = True
 compiler = 'icc'
 libraries =[
+    'mkl_def',
     'mkl_scalapack_lp64', 'mkl_intel_lp64', 'mkl_sequential',
     'mkl_core', 'mkl_blacs_openmpi_lp64',
     'hdf5',
