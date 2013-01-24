@@ -14,6 +14,8 @@ PyMODINIT_FUNC init_hdf5(void);
 #ifdef GPAW_HPM
 PyObject* ibm_hpm_start(PyObject *self, PyObject *args);
 PyObject* ibm_hpm_stop(PyObject *self, PyObject *args);
+PyObject* ibm_mpi_start(PyObject *self);
+PyObject* ibm_mpi_stop(PyObject *self);
 #endif
 
 #ifdef GPAW_CRAYPAT
@@ -200,6 +202,8 @@ static PyMethodDef functions[] = {
 #ifdef GPAW_HPM
   {"hpm_start", ibm_hpm_start, METH_VARARGS, 0},
   {"hpm_stop", ibm_hpm_stop, METH_VARARGS, 0},
+  {"mpi_start", (PyCFunction) ibm_mpi_start, METH_NOARGS, 0},
+  {"mpi_stop", (PyCFunction) ibm_mpi_stop, METH_NOARGS, 0},
 #endif // GPAW_HPM
 #ifdef GPAW_CRAYPAT
   {"craypat_region_begin", craypat_region_begin, METH_VARARGS, 0},

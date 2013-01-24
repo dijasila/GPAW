@@ -22,6 +22,8 @@
 #ifdef GPAW_HPM
 void HPM_Start(char *);
 void HPM_Stop(char *);
+void summary_start(void);
+void summary_stop(void);
 
 PyObject* ibm_hpm_start(PyObject *self, PyObject *args)
 {
@@ -38,6 +40,18 @@ PyObject* ibm_hpm_stop(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "s", &s))
     return NULL;
   HPM_Stop(s);
+  Py_RETURN_NONE;
+}
+
+PyObject* ibm_mpi_start(PyObject *self)
+{
+  summary_start();
+  Py_RETURN_NONE;
+}
+
+PyObject* ibm_mpi_stop(PyObject *self)
+{
+  summary_stop();
   Py_RETURN_NONE;
 }
 #endif
