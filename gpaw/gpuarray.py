@@ -11,10 +11,18 @@ try:
         c_contiguous_strides as _c_contiguous_strides, 
         ArrayFlags as _ArrayFlags,
         get_common_dtype as _get_common_dtype)
+    from pycuda.characterize import has_double_support
 except ImportError:
     class GPUArray(object):
         pass
 else:
+
+
+    def _get_common_dtype(obj1, obj2):
+        return _get_common_dtype_base(obj1, obj2, has_double_support())
+
+
+
 
     # {{{ vector types
 
@@ -22,9 +30,7 @@ else:
         pass
 
     def _create_vector_types():
-        name_to_dtype = {}
-        dtype_to_name = {}
-        from pycuda.characterize import platform_bits        
+        from pycuda.characterize import platform_bits
         if platform_bits() == 32:
             long_dtype = np.int32
             ulong_dtype = np.uint32
@@ -34,19 +40,21 @@ else:
 
         field_names = ["x", "y", "z", "w"]
 
+        from pycuda.tools import register_dtype
+
         for base_name, base_type, counts in [
             ('char', np.int8, [1,2,3,4]),
             ('uchar', np.uint8, [1,2,3,4]),
             ('short', np.int16, [1,2,3,4]),
             ('ushort', np.uint16, [1,2,3,4]),
-            ('int', np.uint32, [1,2,3,4]),
+            ('int', np.int32, [1,2,3,4]),
             ('uint', np.uint32, [1,2,3,4]),
             ('long', long_dtype, [1,2,3,4]),
             ('ulong', ulong_dtype, [1,2,3,4]),
             ('longlong', np.int64, [1,2]),
             ('ulonglong', np.uint64, [1,2]),
             ('float', np.float32, [1,2,3,4]),
-            ('ulonglong', np.float64, [1,2]),
+            ('double', np.float64, [1,2]),
             ]:
             for count in counts:
                 name = "%s%d" % (base_name, count)
@@ -54,20 +62,16 @@ else:
                     (field_names[i], base_type)
                     for i in range(count)])
 
-                name_to_dtype[name] = dtype
-                dtype_to_name[dtype] = name
+                register_dtype(dtype, name, alias_ok=True)
 
                 setattr(vec, name, dtype)
 
                 my_field_names = ",".join(field_names[:count])
-                setattr(vec, "make_"+name, 
+                setattr(vec, "make_"+name,
                         staticmethod(eval(
                             "lambda %s: array((%s), dtype=my_dtype)"
                             % (my_field_names, my_field_names),
                             dict(array=np.array, my_dtype=dtype))))
-
-        vec._dtype_to_c_name = dtype_to_name
-        vec._c_name_to_dtype = name_to_dtype
 
     _create_vector_types()
 
@@ -84,7 +88,7 @@ else:
         min_threads = devdata.warp_size
         max_threads = 128
         max_blocks = 4 * devdata.thread_blocks_per_mp \
-                     * dev.get_attribute(drv.device_attribute.MULTIPROCESSOR_COUNT)
+                * dev.get_attribute(drv.device_attribute.MULTIPROCESSOR_COUNT)
 
         if n < min_threads:
             block_count = 1
@@ -100,7 +104,7 @@ else:
             block_count = max_blocks
             threads_per_block = max_threads
 
-            #print "n:%d bc:%d tpb:%d" % (n, block_count, threads_per_block)
+        #print "n:%d bc:%d tpb:%d" % (n, block_count, threads_per_block)
         return (block_count, 1), (threads_per_block, 1, 1)
 
 
@@ -158,7 +162,7 @@ else:
                 for dim in shape:
                     s *= dim
             except TypeError:
-                assert isinstance(shape, int)
+                assert isinstance(shape, (int, long, np.integer))
                 s = shape
                 shape = (shape,)
 
@@ -206,10 +210,13 @@ else:
         def set(self, ary):
             assert ary.size == self.size
             assert ary.dtype == self.dtype
+            if ary.strides != self.strides:
+                from warnings import warn
+                warn("Setting array from one with different strides/storage order. "
+                        "This will cease to work in 2013.x.",
+                        stacklevel=2)
 
             assert self.flags.forc
-            if not ary.flags.forc:
-                raise RuntimeError("cannot set from non-contiguous array")
 
             if self.size:
                 drv.memcpy_htod(self.gpudata, ary)
@@ -217,6 +224,12 @@ else:
         def set_async(self, ary, stream=None):
             assert ary.size == self.size
             assert ary.dtype == self.dtype
+            if ary.strides != self.strides:
+                from warnings import warn
+                warn("Setting array from one with different strides/storage order. "
+                        "This will cease to work in 2013.x.",
+                        stacklevel=2)
+
             assert self.flags.forc
 
             if not ary.flags.forc:
@@ -331,8 +344,6 @@ else:
             if not self.flags.forc:
                 raise RuntimeError("only contiguous arrays may "
                         "be used as arguments to this operation")
-
-            assert self.dtype == np.float32
 
             func = elementwise.get_rdivide_elwise_kernel(self.dtype)
             func.prepared_async_call(self._grid, self._block, stream,
@@ -634,6 +645,42 @@ else:
 
             return result
 
+        def reshape(self, *shape):
+            # TODO: add more error-checking, perhaps
+            if isinstance(shape[0], tuple) or isinstance(shape[0], list):
+                shape = tuple(shape[0])
+            size = reduce(lambda x, y: x * y, shape, 1)
+            if size != self.size:
+                raise ValueError("total size of new array must be unchanged")
+
+            return GPUArray(
+                    shape=shape,
+                    dtype=self.dtype,
+                    allocator=self.allocator,
+                    base=self,
+                    gpudata=int(self.gpudata))
+
+        def ravel(self):
+            return self.reshape(self.size)
+
+        def view(self, dtype=None):
+            if dtype is None:
+                dtype = self.dtype
+
+            old_itemsize = self.dtype.itemsize
+            itemsize = np.dtype(dtype).itemsize
+
+            if self.shape[-1] * old_itemsize % itemsize != 0:
+                raise ValueError("new type not compatible with array")
+
+            shape = self.shape[:-1] + (self.shape[-1] * old_itemsize // itemsize,)
+
+            return GPUArray(
+                    shape=shape,
+                    dtype=dtype,
+                    allocator=self.allocator,
+                    base=self,
+                    gpudata=int(self.gpudata))
 
         # slicing -----------------------------------------------------------------
         def __getitem__(self, idx):
@@ -1107,7 +1154,7 @@ else:
 
     def subset_dot(subset, a, b, dtype=None, stream=None):
         from pycuda.reduction import get_subset_dot_kernel
-        krnl = get_subset_dot_kernel(dtype, a.dtype, b.dtype)
+        krnl = get_subset_dot_kernel(dtype, subset.dtype, a.dtype, b.dtype)
         return krnl(subset, a, b, stream=stream)
 
     def _make_minmax_kernel(what):
@@ -1127,7 +1174,7 @@ else:
         def f(subset, a, stream=None):
             from pycuda.reduction import get_subset_minmax_kernel
             import pycuda.reduction
-            krnl = get_subset_minmax_kernel(what, a.dtype)
+            krnl = get_subset_minmax_kernel(what, a.dtype, subset.dtype)
             return krnl(subset, a,  stream=stream)
 
         return f
@@ -1138,3 +1185,4 @@ else:
     # }}}
 
     # vim: foldmethod=marker
+

@@ -66,30 +66,34 @@ class LibXC(XCKernel):
         if self.nspins != nspins:
             self.initialize(nspins)
 
-        if nspins == 1:
-            self.xc.calculate_spinpaired(e_g.ravel(), n_sg, dedn_sg,
-                                         sigma_xg, dedsigma_xg,
-                                         tau_sg, dedtau_sg)
-        else:
-            if self.type == 'LDA':
-                self.xc.calculate_spinpolarized(
-                    e_g.ravel(),
-                    n_sg[0], dedn_sg[0],
-                    n_sg[1], dedn_sg[1])
-            elif self.type == 'GGA':
-                self.xc.calculate_spinpolarized(
-                    e_g.ravel(),
-                    n_sg[0], dedn_sg[0],
-                    n_sg[1], dedn_sg[1],
-                    sigma_xg[0], sigma_xg[1], sigma_xg[2],
-                    dedsigma_xg[0], dedsigma_xg[1], dedsigma_xg[2])
-            else:
-                self.xc.calculate_spinpolarized(
-                    e_g.ravel(),
-                    n_sg[0], dedn_sg[0],
-                    n_sg[1], dedn_sg[1],
-                    sigma_xg[0], sigma_xg[1], sigma_xg[2],
-                    dedsigma_xg[0], dedsigma_xg[1], dedsigma_xg[2],
-                    tau_sg[0], tau_sg[1],
-                    dedtau_sg[0], dedtau_sg[1])
+        self.xc.calculate(e_g.ravel(), n_sg, dedn_sg,
+                          sigma_xg, dedsigma_xg,
+                          tau_sg, dedtau_sg)
+
+##       if nspins == 1:
+##             self.xc.calculate_spinpaired(e_g.ravel(), n_sg, dedn_sg,
+##                                          sigma_xg, dedsigma_xg,
+##                                          tau_sg, dedtau_sg)
+##         else:
+##             if self.type == 'LDA':
+##                 self.xc.calculate_spinpolarized(
+##                     e_g.ravel(),
+##                     n_sg[0], dedn_sg[0],
+##                     n_sg[1], dedn_sg[1])
+##             elif self.type == 'GGA':
+##                 self.xc.calculate_spinpolarized(
+##                     e_g.ravel(),
+##                     n_sg[0], dedn_sg[0],
+##                     n_sg[1], dedn_sg[1],
+##                     sigma_xg[0], sigma_xg[1], sigma_xg[2],
+##                     dedsigma_xg[0], dedsigma_xg[1], dedsigma_xg[2])
+##             else:
+##                 self.xc.calculate_spinpolarized(
+##                     e_g.ravel(),
+##                     n_sg[0], dedn_sg[0],
+##                     n_sg[1], dedn_sg[1],
+##                     sigma_xg[0], sigma_xg[1], sigma_xg[2],
+##                     dedsigma_xg[0], dedsigma_xg[1], dedsigma_xg[2],
+##                     tau_sg[0], tau_sg[1],
+##                     dedtau_sg[0], dedtau_sg[1])
 

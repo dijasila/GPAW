@@ -16,7 +16,10 @@ from os.path import join
 from config import *
 
 # Get the current version number:
-execfile('gpaw/svnversion_io.py')  # write gpaw/svnversion.py and get svnversion
+try:
+    execfile('gpaw/svnversion_io.py')  # write gpaw/svnversion.py and get svnversion
+except ValueError:
+    svnversion = ''
 execfile('gpaw/version.py')        # get version_base
 if svnversion:
     version = version_base + '.' + svnversion
@@ -59,10 +62,19 @@ packages = ['gpaw',
             'gpaw.pes',
             'gpaw.response',
             'gpaw.sphere',
+            'gpaw.tasks',
             'gpaw.tddft',
             'gpaw.test',
             'gpaw.test.big',
+            'gpaw.test.big.dcdft',
+            'gpaw.test.big.g2_1',
+            'gpaw.test.big.scf',
+            'gpaw.test.big.setups',
+            'gpaw.test.cmrtest',
+            'gpaw.test.fileio',
+            'gpaw.test.noncollinear',
             'gpaw.test.parallel',
+            'gpaw.test.pw',
             'gpaw.test.vdw',
             'gpaw.testing',
             'gpaw.transport',
@@ -110,9 +122,10 @@ mpilinker = mpicompiler
 compiler = None
 
 scalapack = False
-#User provided customizations
-if os.path.isfile(customize):
-    execfile(customize)
+hdf5 = False
+
+# User provided customizations:
+execfile(customize)
 
 if platform_id != '':
     my_platform = distutils.util.get_platform() + '-' + platform_id
@@ -127,16 +140,18 @@ if compiler is not None:
         for key in ['BASECFLAGS', 'CFLAGS', 'OPT', 'PY_CFLAGS',
             'CCSHARED', 'CFLAGSFORSHARED', 'LINKFORSHARED',
             'LIBS', 'SHLIBS']:
-            value = vars[key].split()
-            # remove all gcc flags (causing problems with other compilers)
-            for v in list(value):
-                value.remove(v)
-            vars[key] = ' '.join(value)
+            if key in vars:
+                value = vars[key].split()
+                # remove all gcc flags (causing problems with other compilers)
+                for v in list(value):
+                    value.remove(v)
+                vars[key] = ' '.join(value)
     for key in ['CC', 'LDSHARED']:
-        value = vars[key].split()
-        # first argument is the compiler/linker.  Replace with mpicompiler:
-        value[0] = compiler
-        vars[key] = ' '.join(value)
+        if key in vars:
+            value = vars[key].split()
+            # first argument is the compiler/linker.  Replace with mpicompiler:
+            value[0] = compiler
+            vars[key] = ' '.join(value)
 
 custom_interpreter = False
 # Check the command line so that custom interpreter is build only with
@@ -169,6 +184,15 @@ if 'clean' in sys.argv:
 
 sources = glob('c/*.c') + ['c/bmgs/bmgs.c']
 
+# libxc sources
+#sources = sources + glob('c/libxc/src/*.c')
+#sources2remove = ['c/libxc/src/test.c',
+#                  'c/libxc/src/xc_f.c',
+#                  'c/libxc/src/work_gga_x.c',
+#                  'c/libxc/src/work_lda.c',
+#                  'c/hdf5.c',
+#                  ]
+
 sources = sources + glob('c/xc/*.c')
 
 check_dependencies(sources)
@@ -184,6 +208,26 @@ extension = Extension('_gpaw',
                       extra_compile_args=extra_compile_args,
                       runtime_library_dirs=runtime_library_dirs,
                       extra_objects=extra_objects)
+
+extensions = [extension,]
+
+if hdf5:
+    hdf5_sources = ['c/hdf5.c']
+    get_hdf5_config(define_macros)
+    msg.append('* Compiling with HDF5')
+
+    hdf5_extension = Extension('_hdf5',
+                               hdf5_sources,
+                               libraries=libraries,
+                               library_dirs=library_dirs,
+                               include_dirs=include_dirs,
+                               define_macros=define_macros,
+                               undef_macros=undef_macros,
+                               extra_link_args=extra_link_args,
+                               extra_compile_args=extra_compile_args,
+                               runtime_library_dirs=runtime_library_dirs,
+                               extra_objects=extra_objects)
+    extensions.append(hdf5_extension)
 
 scripts = [join('tools', script)
            for script in ('gpaw', 'gpaw-test', 'gpaw-setup', 'gpaw-basis',
@@ -204,7 +248,7 @@ setup(name = 'gpaw',
       license='GPLv3+',
       platforms=['unix'],
       packages=packages,
-      ext_modules=[extension],
+      ext_modules=extensions,
       scripts=scripts,
       long_description=long_description,
       )

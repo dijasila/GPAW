@@ -207,7 +207,7 @@ class GridDescriptor(Domain):
         
     def integrate(self, a_xg, b_yg=None,
                   global_integral=True, hermitian=False,
-                  _transposed_result=None, cuda=False):
+                  _transposed_result=None):
         """Integrate function(s) over domain.
 
         a_xg: ndarray
@@ -225,6 +225,13 @@ class GridDescriptor(Domain):
             MatrixOperator class ..."""
         
         xshape = a_xg.shape[:-3]
+
+        assert(not isinstance(_transposed_result, gpaw.cuda.gpuarray.GPUArray))
+
+        #if isinstance(a_xg, gpaw.cuda.gpuarray.GPUArray):
+        #    print "Grid integrate cuda"
+        #else:
+        #    print "Grid integrate"
         
         if b_yg is None:
             # Only one array:
@@ -236,34 +243,41 @@ class GridDescriptor(Domain):
                     self.comm.sum(result)
             return result
 
-        if isinstance(A_xg, gpaw.cuda.gpuarray.GPUArray):
-            A_xg = a_xg.reshape((-1,) + a_xg.shape[-3:])
-            B_yg = b_yg.reshape((-1,) + b_yg.shape[-3:])
+        if isinstance(a_xg, gpaw.cuda.gpuarray.GPUArray):
+            nd=a_xg.size/np.prod(a_xg.shape[-3:])
+            A_xg = a_xg.reshape((nd,) + a_xg.shape[-3:])
+            nd=b_yg.size/np.prod(b_yg.shape[-3:])
+            B_yg = b_yg.reshape((nd,) + b_yg.shape[-3:])
         else:
             A_xg = np.ascontiguousarray(a_xg.reshape((-1,) + a_xg.shape[-3:]))
             B_yg = np.ascontiguousarray(b_yg.reshape((-1,) + b_yg.shape[-3:]))
 
         if _transposed_result is None:
-            if isinstance(A_xg, gpaw.cuda.gpuarray.GPUArray):
-                result_yx = gpaw.cuda.gpuarray.zeros((len(B_yg), len(A_xg)), A_xg.dtype)
-            else:
-                result_yx = np.zeros((len(B_yg), len(A_xg)), A_xg.dtype)
+            result_yx = np.zeros((len(B_yg), len(A_xg)), A_xg.dtype)
         else:
             result_yx = _transposed_result
             global_integral = False
 
-        if a_xg is b_yg:
-            rk(self.dv, A_xg, 0.0, result_yx)
-        elif hermitian:
-            r2k(0.5 * self.dv, A_xg, B_yg, 0.0, result_yx)
+        if isinstance(a_xg, gpaw.cuda.gpuarray.GPUArray):
+            result_gpu=gpaw.cuda.gpuarray.to_gpu(result_yx)
+            if a_xg is b_yg:
+                rk(self.dv, A_xg, 0.0, result_gpu)
+            elif hermitian:
+                r2k(0.5 * self.dv, A_xg, B_yg, 0.0, result_gpu)
+            else:
+                gemm(self.dv, A_xg, B_yg, 0.0, result_gpu, 'c')
+            result_gpu.get(result_yx)
         else:
-            gemm(self.dv, A_xg, B_yg, 0.0, result_yx, 'c')
+            if a_xg is b_yg:
+                rk(self.dv, A_xg, 0.0, result_yx)
+            elif hermitian:
+                r2k(0.5 * self.dv, A_xg, B_yg, 0.0, result_yx)
+            else:
+                gemm(self.dv, A_xg, B_yg, 0.0, result_yx, 'c')
+
         
         if global_integral:
-            if isinstance(result_yx, gpaw.cuda.gpuarray.GPUArray):
-                self.comm.sum(result_yx.get())
-            else:
-                self.comm.sum(result_yx)
+            self.comm.sum(result_yx)
 
         yshape = b_yg.shape[:-3]
         result = result_yx.T.reshape(xshape + yshape)

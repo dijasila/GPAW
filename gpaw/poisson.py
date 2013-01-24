@@ -82,7 +82,7 @@ class PoissonSolver:
                 gd2 = gd.coarsen()
             except ValueError:
                 break
-            self.operators.append(Laplace(gd2, scale, 1), cuda=self.cuda)
+            self.operators.append(Laplace(gd2, scale, 1, cuda=self.cuda))
             self.interpolators.append(Transformer(gd2, gd, cuda=self.cuda))
             self.restrictors.append(Transformer(gd, gd2, cuda=self.cuda))
             self.presmooths.append(4)

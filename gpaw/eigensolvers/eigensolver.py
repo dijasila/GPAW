@@ -35,9 +35,9 @@ class Eigensolver:
             cuda_blocks_min=16
             cuda_blocks_max=64
             self.blocksize=min(cuda_blocks_max,self.mynbands,
-                               self.gd.comm.size*cuda_blocks_min,
-                               max((192*192*192)*self.gd.comm.size/
-                                   (self.gd.N_c[0]*self.gd.N_c[1]*self.gd.N_c[2]),1))
+                               wfs.gd.comm.size*cuda_blocks_min,
+                               max((192*192*192)*wfs.gd.comm.size/
+                                   (wfs.gd.N_c[0]*wfs.gd.N_c[1]*wfs.gd.N_c[2]),1))
         if self.mynbands != self.nbands or self.operator.nblocks != 1:
             self.keep_htpsit = False
 
@@ -173,10 +173,10 @@ class Eigensolver:
         if self.keep_htpsit:
             if self.cuda:
                 Htpsit_nG = self.operator.matrix_multiply(H_nn, Htpsit_nG,
-                                                          out_nG=kpt.psit_nG)
+                                                          out_nG=kpt.psit_nG_gpu)
             else:
                 Htpsit_nG = self.operator.matrix_multiply(H_nn, Htpsit_nG,
-                                                          out_nG=kpt.psit_nG_gpu)                
+                                                          out_nG=kpt.psit_nG)                
 
         # Rotate orbital dependent XC stuff:
         hamiltonian.xc.rotate(kpt, H_nn)

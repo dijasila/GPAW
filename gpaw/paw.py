@@ -425,7 +425,7 @@ class PAW(PAWTextOutput):
         mode = par.mode
 
         if xc.orbital_dependent:
-            assert mode == 'fd'
+            assert mode != 'lcao'
 
         if mode == 'pw':
             mode = PW()

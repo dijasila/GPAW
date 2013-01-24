@@ -4,11 +4,11 @@ from gpaw.kpoint import KPoint
 from gpaw.mpi import serial_comm
 from gpaw.io import FileReference
 from gpaw.utilities.blas import axpy
-from gpaw.fd_operators import Laplace
 from gpaw.utilities.linalg import multi_ax2py
 from gpaw.transformers import Transformer
 from gpaw.hs_operators import MatrixOperator
 from gpaw.preconditioner import Preconditioner
+from gpaw.fd_operators import Laplace, Gradient
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
@@ -40,6 +40,8 @@ class FDWaveFunctions(FDPWWaveFunctions):
             #    "double f, const double *a, double *b",
             #    "b[i] += f*a[i]*a[i]",
             #    "axpy_square")          
+
+        self.taugrad_v = None  # initialized by MGGA functional
 
     def empty(self, n=(), global_array=False, realspace=False, q=-1):
         return self.gd.empty(n, self.dtype, global_array, cuda=self.cuda)
@@ -112,15 +114,21 @@ class FDWaveFunctions(FDPWWaveFunctions):
                             dtype=complex)
             for ne, c_n in zip(kpt.ne_o, kpt.c_on):
                 d_nn += ne * np.outer(c_n.conj(), c_n)
-            for d_n, psi0_G in zip(d_nn, psit_nG):
-                for d, psi_G in zip(d_n, psit_nG):
+            for d_n, psi0_G in zip(d_nn, kpt.psit_nG):
+                for d, psi_G in zip(d_n, kpt.psit_nG):
                     if abs(d) > 1.e-12:
                         nt_G += (psi0_G.conj() * d * psi_G).real
 
         if self.cuda:
             self.nt_G_gpu.get(nt_sG[kpt.s])
 
-    def calculate_kinetic_energy_density(self, grad_v):
+
+    def calculate_kinetic_energy_density(self):
+        if self.taugrad_v is None:
+            self.taugrad_v = [
+                Gradient(self.gd, v, n=3, dtype=self.dtype).apply
+                for v in range(3)]
+            
         assert not hasattr(self.kpt_u[0], 'c_on')
         if self.kpt_u[0].psit_nG is None:
             raise RuntimeError('No wavefunctions yet')
@@ -133,13 +141,23 @@ class FDWaveFunctions(FDPWWaveFunctions):
         for kpt in self.kpt_u:
             for f, psit_G in zip(kpt.f_n, kpt.psit_nG):
                 for v in range(3):
-                    grad_v[v](psit_G, dpsit_G, kpt.phase_cd)
+                    self.taugrad_v[v](psit_G, dpsit_G, kpt.phase_cd)
                     axpy(0.5 * f, abs(dpsit_G)**2, taut_sG[kpt.s])
 
         self.kpt_comm.sum(taut_sG)
         self.band_comm.sum(taut_sG)
         return taut_sG
         
+    def apply_mgga_orbital_dependent_hamiltonian(self, kpt, psit_xG,
+                                                 Htpsit_xG, dH_asp,
+                                                 dedtaut_G):
+        a_G = self.gd.empty(dtype=psit_xG.dtype)
+        for psit_G, Htpsit_G in zip(psit_xG, Htpsit_xG):
+            for v in range(3):
+                self.taugrad_v[v](psit_G, a_G, kpt.phase_cd)
+                self.taugrad_v[v](dedtaut_G * a_G, a_G, kpt.phase_cd)
+                axpy(-0.5, a_G, Htpsit_G)
+
     def ibz2bz(self, atoms):
         """Transform wave functions in IBZ to the full BZ."""
 

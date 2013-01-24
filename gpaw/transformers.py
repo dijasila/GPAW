@@ -76,7 +76,7 @@ class _Transformer:
     def apply(self, input, output=None, phases=None):
         if output is None:
             output = self.gdout.empty(input.shape[:-3], dtype=self.dtype, cuda=self.cuda)
-        return output
+
 
         assert (type(input) == type(output))
         
@@ -94,6 +94,8 @@ class _Transformer:
                 gpaw.cuda.debug_test(output_cpu,output,"transformer")
         else:    
             self.transformer.apply(input, output, phases)
+
+        return output
 
     def get_async_sizes(self):
         return self.transformer.get_async_sizes()

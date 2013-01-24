@@ -154,7 +154,7 @@ class MatrixOperator:
         if ngroups == 1 and self.nblocks == 1:
             self.work1_xG = self.gd.empty(self.bd.mynbands, self.dtype)
             if self.cuda:
-                self.work1_xG_gpu = self.gd.zeros(mynbands, dtype,
+                self.work1_xG_gpu = self.gd.empty(mynbands, dtype,
                                                   cuda=self.cuda)
         else:
             self.work1_xG = self.gd.empty(self.X, self.dtype)
@@ -320,10 +320,12 @@ class MatrixOperator:
             Apsit_nG = A(psit_nG)
 
             if self.cuda and isinstance(psit_nG, gpaw.cuda.gpuarray.GPUArray):
-                A_NN_gpu=gpaw.cuda.gpuarray.to_gpu(A_NN)
+                #A_NN_gpu=gpaw.cuda.gpuarray.to_gpu(A_NN)
+                #self.gd.integrate(psit_nG, Apsit_nG, hermitian=self.hermitian,
+                #                  _transposed_result=A_NN_gpu)
                 self.gd.integrate(psit_nG, Apsit_nG, hermitian=self.hermitian,
-                                  _transposed_result=A_NN_gpu)
-                A_NN_gpu.get(A_NN)
+                                  _transposed_result=A_NN)
+                #A_NN_gpu.get(A_NN)
             else:
                 self.gd.integrate(psit_nG, Apsit_nG, hermitian=self.hermitian,
                                   _transposed_result=A_NN)
@@ -478,6 +480,7 @@ class MatrixOperator:
                     gpaw.cuda.drv.memcpy_dtod(work_nG.gpudata, psit_nG.gpudata, psit_nG.nbytes)
                     psit_nG = work_nG
                 self.gd.gemm(1.0, psit_nG, gpaw.cuda.gpuarray.to_gpu(C_NN), 0.0, out_nG)
+                self.work1_xG_gpu=psit_nG
                 if P_ani:
                     for P_ni in P_ani.values():
                         gemm(1.0, P_ni.copy(), C_NN, 0.0, P_ni)

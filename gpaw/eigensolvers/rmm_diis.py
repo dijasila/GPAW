@@ -40,7 +40,13 @@ class RMM_DIIS(Eigensolver):
 
         comm = wfs.gd.comm
         B = self.blocksize
-        dR_xG = wfs.empty(B, q=kpt.q)
+        #dR_xG = wfs.empty(B, q=kpt.q)
+        #dR_nG = wfs.empty(wfs.bd.mynbands, q=kpt.q)
+        if self.cuda:
+            dR_nG = self.operator.work1_xG_gpu
+        else:
+            dR_nG = self.operator.work1_xG
+                    
         P_axi = wfs.pt.dict(B)
 
         if kpt.f_n is None:

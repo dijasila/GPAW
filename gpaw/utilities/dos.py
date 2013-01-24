@@ -509,8 +509,8 @@ class LCAODOS:
     def get_atomic_subspace_pdos(self, a, ravel=True):
         """Get projected subspace DOS from LCAO basis on atom a."""
         M = self.calc.wfs.basis_functions.M_a[a]
-        Mvalues = range(M, M + self.setups[a].niAO)
-        return self.get_subspace_dos(Mvalues, ravel=ravel)
+        Mvalues = range(M, M + self.calc.wfs.setups[a].niAO)
+        return self.get_subspace_pdos(Mvalues, ravel=ravel)
 
     def get_subspace_pdos(self, Mvalues, ravel=True):
         """Get projected subspace DOS from LCAO basis."""

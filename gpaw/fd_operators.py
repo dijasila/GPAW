@@ -74,7 +74,7 @@ class FDOperator:
         
         self.operator = _gpaw.Operator(coef_p, offset_p, n_c, mp,
                                        neighbor_cd, dtype == float,
-                                       comm, cfd)
+                                       comm, cfd, self.cuda)
         
         if description is None:
             description = '%d point finite-difference stencil' % self.npoints
@@ -174,7 +174,7 @@ class Gradient(FDOperator):
                 offset_pc.extend(offset)
 
         FDOperator.__init__(self, coef_p, offset_pc, gd, dtype,
-                            'O(h^%d) %s-gradient stencil' % (2 * n, 'xyz'[v]), cuda)
+                            'O(h^%d) %s-gradient stencil' % (2 * n, 'xyz'[v]), cuda=cuda)
         
 
 def Laplace(gd, scale=1.0, n=1, dtype=float, cuda=False):
@@ -226,7 +226,7 @@ class GUCLaplace(FDOperator):
             offsets.extend(np.arange(-1, -n - 1, -1)[:, np.newaxis] * M_c)
             coefs.extend(a_d[d] * np.array(laplace[n][1:]))
 
-        FDOperator.__init__(self, coefs, offsets, gd, dtype, cuda)
+        FDOperator.__init__(self, coefs, offsets, gd, dtype, cuda=cuda)
         
         self.description = (
             '%d*%d+1=%d point O(h^%d) finite-difference Laplacian' %
