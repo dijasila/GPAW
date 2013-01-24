@@ -109,8 +109,7 @@ class BASECHI:
 
         # grid init
         self.pbc = calc.atoms.get_pbc()
-        gd = GridDescriptor(calc.wfs.gd.N_c*self.rpad,
-                            self.acell_cv, pbc_c=True, comm=serial_comm)
+        gd = GridDescriptor(calc.wfs.gd.N_c*self.rpad, self.acell_cv, pbc_c=True, comm=serial_comm)
         self.gd = gd
         self.nG = gd.N_c
         self.nG0 = self.nG[0] * self.nG[1] * self.nG[2]
@@ -133,16 +132,15 @@ class BASECHI:
                 self.f_skn[ispin] = np.array([calc.get_occupation_numbers(kpt=k, spin=ispin)
                                               / kweight_k[k]
                                               for k in range(nibzkpt)]) / self.nkpt
-            self.printtxt('Eigenvalues(k=0) are:')
-            print  >> self.txt, self.e_skn[0][0] * Hartree
+            #self.printtxt('Eigenvalues(k=0) are:')
+            #print  >> self.txt, self.e_skn[0][0] * Hartree
 
         self.enoshift_skn = {}
         for ispin in range(self.nspins):
             self.enoshift_skn[ispin] = self.e_skn[ispin].copy()
         if self.eshift is not None:
             self.add_discontinuity(self.eshift)
-            self.printtxt('Shift unoccupied bands by %f eV' %(self.eshift))
-
+            self.printtxt('Shift unoccupied bands by %f eV' % (self.eshift))
         # k + q init
         if self.q_c is not None:
             self.qq_v = np.dot(self.q_c, self.bcell_cv) # summation over c
@@ -227,18 +225,24 @@ class BASECHI:
         printtxt('')
         printtxt('Unit cell (a.u.):')
         printtxt(self.acell_cv)
+        printtxt('Volume of cell (a.u.**3)     : %f' %(self.vol) )
         printtxt('Reciprocal cell (1/a.u.)')
         printtxt(self.bcell_cv)
-        printtxt('Number of Grid points / G-vectors, and in total: (%d %d %d), %d'
-                  %(self.nG[0], self.nG[1], self.nG[2], self.nG0))
-        printtxt('Volume of cell (a.u.**3)     : %f' %(self.vol) )
         printtxt('BZ volume (1/a.u.**3)        : %f' %(self.BZvol) )
+        printtxt('Number of G-vectors / Grid   : %d (%d %d %d)'
+                  %(self.nG0, self.nG[0], self.nG[1], self.nG[2]))
+        printtxt('')                         
+        printtxt('Coulomb interaction cutoff   : %s' % self.vcut)                            
         printtxt('')                         
         printtxt('Number of bands              : %d' %(self.nbands) )
         printtxt('Number of kpoints            : %d' %(self.nkpt) )
-        printtxt('Planewave ecut (eV)          : (%f, %f, %f)' %(self.ecut[0]*Hartree,self.ecut[1]*Hartree,self.ecut[2]*Hartree) )
-        printtxt('Number of planewaves used    : %d' %(self.npw) )
-        printtxt('Broadening (eta)             : %f' %(self.eta * Hartree))
+        if self.ecut[0] == self.ecut[1] and self.ecut[0] == self.ecut[2]:
+            printtxt('Planewave ecut (eV)          : %4.1f' % (self.ecut[0]*Hartree) )
+        else:
+            printtxt('Planewave ecut (eV)          : (%f, %f, %f)' % (self.ecut[0]*Hartree,self.ecut[1]*Hartree,self.ecut[2]*Hartree) )
+        printtxt('Number of planewave used     : %d' %(self.npw) )
+        printtxt('Broadening (eta)             : %f' %(self.eta*Hartree) )
+        printtxt('')                         
         if self.q_c is not None:
             if self.optical_limit:
                 printtxt('Optical limit calculation ! (q=0.00001)')
@@ -291,7 +295,7 @@ class BASECHI:
         else:
             Gstart = 0
             Gend = self.npw
-
+        
         for a, id in enumerate(setups.id_a):
             phi_aGp[a] = two_phi_planewave_integrals(kk_Gv, setups[a], Gstart, Gend)
             for iG in range(Gstart, Gend):
@@ -481,10 +485,10 @@ class BASECHI:
                 kpt = calc.wfs.kpt_u[u]
                 pt.integrate(kpt.psit_nG[m], Ptmp_ai, ibzkpt2)
                 P2_ai = self.get_P_ai(kq,m,spin,Ptmp_ai)
-                
+
             if phi_aGp is None:
                 try:
-                    if self.use_W:
+                    if not self.mode == 'RPA':
                         if optical_limit:
                             iq = kd.where_is_q(np.zeros(3), self.bzq_qc)
                         else:
