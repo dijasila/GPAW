@@ -13,7 +13,10 @@ def stress(calc):
     if not isinstance(wfs, PWWaveFunctions):
         raise NotImplementedError('Calculation of stress tensor is only ' +
                                   'implemented for plane-wave mode.')
-    assert not ham.xc.orbital_dependent, ham.xc.name
+    if ham.xc.orbital_dependent:
+        raise NotImplementedError('Calculation of stress tensor is not ' +
+                                  'implemented for orbital-dependent ' +
+                                  'XC functionals such as '+ham.xc.name)
 
     calc.timer.start('Stress tensor')
 
