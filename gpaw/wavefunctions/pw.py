@@ -371,7 +371,7 @@ class Preconditioner:
             x_G = 1 / ekin / 3 * G2_G
             a_G = 27.0 + x_G * (18.0 + x_G * (12.0 + x_G * 8.0))
             PR_G[:] = 4.0 / 3 / ekin * R_G * a_G / (a_G + 16.0 * x_G**4)
-        return PR_xG
+        return -PR_xG
 
 
 class PWWaveFunctions(FDPWWaveFunctions):
