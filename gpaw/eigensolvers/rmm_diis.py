@@ -5,6 +5,7 @@ import numpy as np
 from gpaw.utilities.blas import axpy
 from gpaw.eigensolvers.eigensolver import Eigensolver
 
+from gpaw import extra_parameters
 
 class RMM_DIIS(Eigensolver):
     """RMM-DIIS eigensolver
@@ -97,6 +98,8 @@ class RMM_DIIS(Eigensolver):
             comm.sum(dRdR_x)
 
             lam_x = -RdR_x / dRdR_x
+            if extra_parameters.get('PK', False):
+                lam_x[:] = np.where(lam_x>0.0, lam_x, 0.2)   
             # Calculate new psi'_G = psi_G + lam pR_G + lam pR'_G
             #                      = psi_G + p(2 lam R_G + lam**2 dR_G)
             for lam, R_G, dR_G in zip(lam_x, R_xG, dR_xG):
