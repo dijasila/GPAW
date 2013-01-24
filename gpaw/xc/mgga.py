@@ -124,7 +124,7 @@ class MGGA(GGA):
         dF_av = self.tauct.dict(derivative=True)
         self.tauct.derivative(self.dedtaut_sG.sum(0), dF_av)
         for a, dF_v in dF_av.items():
-            F_av[a] += dF_v[0]
+            F_av[a] += dF_v[0] / self.wfs.nspins
 
     def estimate_memory(self, mem):
         bytecount = self.wfs.gd.bytecount()
