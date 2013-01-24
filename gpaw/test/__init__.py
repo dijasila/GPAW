@@ -296,6 +296,7 @@ tests = [
     'bse_diamond.py',
     'bse_vs_lrtddft.py',
     'bse_silicon.py',
+    'bse_MoS2_cut.py',    
     'parallel/pblas.py',
     'parallel/scalapack.py',
     'parallel/scalapack_diag_simple.py',
@@ -334,6 +335,7 @@ if mpi.size > 1:
                 #'cmrtest/cmr_append.py',
                 #'cmrtest/Li2_atomize.py',
                 'lcao_pair_and_coulomb.py',
+                'bse_MoS2_cut.py',
                 'pw/moleculecg.py',
                 'pw/davidson_pw.py']
 
