@@ -46,13 +46,20 @@ class DF(CHI):
         self.df3_w = None  # NLF ALDA
         self.df4_w = None  # LF ALDA
 
-    def get_dielectric_matrix(self, xc='RPA', overwritechi0=False, symmetric=True, chi0_wGG=None, calc=None, vcut=None):
-
-    	if self.chi0_wGG is None and chi0_wGG is None:
+    def get_dielectric_matrix(self,
+                              xc='RPA',
+                              overwritechi0=False,
+                              symmetric=True,
+                              chi0_wGG=None,
+                              calc=None,
+                              vcut=None):
+	if self.chi0_wGG is None and chi0_wGG is None:
             self.initialize()
             self.calculate()
-        elif self.chi0_wGG is None and chi0_wGG is not None: #Read from file and reinitialize 
+        elif self.chi0_wGG is None and chi0_wGG is not None:
+            #Read from file and reinitialize 
             self.xc = xc
+
             from gpaw.response.parallel import par_read 
             self.chi0_wGG = par_read(chi0_wGG, 'chi0_wGG')
             self.nvalbands = self.nbands
@@ -97,12 +104,15 @@ class DF(CHI):
             dm_wGG = self.chi0_wGG
         else:
             dm_wGG = np.zeros_like(self.chi0_wGG)
-
+        
         from gpaw.response.kernel import calculate_Kc
-        self.Kc_GG = calculate_Kc(self.q_c, self.Gvec_Gc,
-                                      self.acell_cv, self.bcell_cv,
-                                      self.calc.atoms.pbc, self.optical_limit,
-                                      self.vcut, symmetric=symmetric)
+        self.Kc_GG = calculate_Kc(self.q_c,
+                                  self.Gvec_Gc,
+                                  self.acell_cv,
+                                  self.bcell_cv,
+                                  self.calc.atoms.pbc,
+                                  self.vcut,
+                                  symmetric=symmetric)
 
         tmp_GG = np.eye(self.npw, self.npw)
 
@@ -110,7 +120,7 @@ class DF(CHI):
             self.printtxt('Use RPA.')
             for iw in range(self.Nw_local):
                 dm_wGG[iw] = tmp_GG - self.Kc_GG * self.chi0_wGG[iw]
-
+                
         elif xc == 'ALDA':
             self.printtxt('Use ALDA kernel.')
             # E_LDA = 1 - v_c chi0 (1-fxc chi0)^-1
@@ -125,7 +135,7 @@ class DF(CHI):
         return dm_wGG
 
 
-    def get_inverse_dielectric_matrix(self,xc='RPA'):
+    def get_inverse_dielectric_matrix(self, xc='RPA'):
 
         dm_wGG = self.get_dielectric_matrix(xc=xc)
         dminv_wGG = np.zeros_like(dm_wGG)
@@ -304,7 +314,7 @@ class DF(CHI):
         self.printtxt('Include local field: N2 = %f, %f  %% error' %(N2, (N2 - nv) / nv * 100) )
 
 
-    def get_macroscopic_dielectric_constant(self):
+    def get_macroscopic_dielectric_constant(self, xc='RPA'):
         """Calculate macroscopic dielectric constant. Returns eM1 and eM2
 
         Macroscopic dielectric constant is defined as the real part of dielectric function at w=0.
@@ -318,17 +328,16 @@ class DF(CHI):
 
         """
 
-        eM1 = np.zeros(2)
-        eM2 = np.zeros(2)
-        for id, xc in enumerate(['RPA', 'ALDA']):
-            df1, df2 = self.get_dielectric_function(xc=xc)
-            eM1[id], eM2[id] = np.real(df1[0]), np.real(df2[0])
+        eM = np.zeros(2)
+        df1, df2 = self.get_dielectric_function(xc=xc)
+        eps0 = np.real(df1[0])
+        eps = np.real(df2[0])
         self.printtxt('')
-        self.printtxt('Macroscopic dielectric constant:')
-        self.printtxt('    Without local field (RPA, ALDA): %f, %f' %(eM1[0], eM1[1]) )
-        self.printtxt('    Include local field (RPA, ALDA): %f, %f' %(eM2[0], eM2[1]) )        
+        self.printtxt('%s Macroscopic Dielectric Constant:' % xc)
+        self.printtxt('    Without local field: %f' % eps0 )
+        self.printtxt('    Include local field: %f' % eps )        
             
-        return eM1, eM2
+        return eps0, eps
 
 
     def get_absorption_spectrum(self, filename='Absorption.dat'):
@@ -543,7 +552,11 @@ class DF(CHI):
         self.read(filename)
         self.w_w = np.linspace(0, self.dw * (self.Nw - 1)*Hartree, self.Nw)
         self.vcut = vcut
-        dm_wGG = self.get_dielectric_matrix(xc=xc, symmetric=False, chi0_wGG=chi0, calc=calc, vcut=vcut)
+        dm_wGG = self.get_dielectric_matrix(xc=xc,
+                                            symmetric=False,
+                                            chi0_wGG=chi0,
+                                            calc=calc,
+                                            vcut=vcut)
     
         q = self.q_c
         gd = self.calc.wfs.gd
