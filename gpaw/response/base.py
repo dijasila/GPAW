@@ -57,14 +57,11 @@ class BASECHI:
             # calc = GPAW(filename.gpw, communicator=ranks, txt=None)
             self.calc = calc
         if self.calc is not None:
-            self.pwmode = isinstance(self.calc.input_parameters['mode'], pw.PW)
+            self.pwmode = isinstance(self.calc.wfs, pw.PWWaveFunctions)
         else:
             self.pwmode = None
         if self.pwmode:
             assert self.calc.wfs.world.size == 1
-#            if self.calc.wfs.world.size == 1 and self.calc.input_parameters['mode'] != 'lcao':
-            for kpt in self.calc.wfs.kpt_u:
-                kpt.P_ani = None
 
         self.nbands = nbands
         self.q_c = q
@@ -93,8 +90,6 @@ class BASECHI:
         calc = self.calc
         self.nspins = self.calc.wfs.nspins
 
-        assert (self.calc.atoms.get_pbc()).all(), "Periodic boundary conditions required."
-
         # kpoint init
         self.kd = kd = calc.wfs.kd
         self.bzk_kc = kd.bzk_kc
@@ -114,7 +109,8 @@ class BASECHI:
 
         # grid init
         self.pbc = calc.atoms.get_pbc()
-        gd = GridDescriptor(calc.wfs.gd.N_c*self.rpad, self.acell_cv, pbc_c=True, comm=serial_comm)
+        gd = GridDescriptor(calc.wfs.gd.N_c*self.rpad,
+                            self.acell_cv, pbc_c=True, comm=serial_comm)
         self.gd = gd
         self.nG = gd.N_c
         self.nG0 = self.nG[0] * self.nG[1] * self.nG[2]
@@ -145,6 +141,7 @@ class BASECHI:
             self.enoshift_skn[ispin] = self.e_skn[ispin].copy()
         if self.eshift is not None:
             self.add_discontinuity(self.eshift)
+            self.printtxt('Shift unoccupied bands by %f eV' %(self.eshift))
 
         # k + q init
         if self.q_c is not None:
@@ -234,13 +231,13 @@ class BASECHI:
         printtxt(self.bcell_cv)
         printtxt('Number of Grid points / G-vectors, and in total: (%d %d %d), %d'
                   %(self.nG[0], self.nG[1], self.nG[2], self.nG0))
-        printtxt('Volome of cell (a.u.**3)     : %f' %(self.vol) )
+        printtxt('Volume of cell (a.u.**3)     : %f' %(self.vol) )
         printtxt('BZ volume (1/a.u.**3)        : %f' %(self.BZvol) )
         printtxt('')                         
         printtxt('Number of bands              : %d' %(self.nbands) )
         printtxt('Number of kpoints            : %d' %(self.nkpt) )
         printtxt('Planewave ecut (eV)          : (%f, %f, %f)' %(self.ecut[0]*Hartree,self.ecut[1]*Hartree,self.ecut[2]*Hartree) )
-        printtxt('Number of planewave used     : %d' %(self.npw) )
+        printtxt('Number of planewaves used    : %d' %(self.npw) )
         printtxt('Broadening (eta)             : %f' %(self.eta * Hartree))
         if self.q_c is not None:
             if self.optical_limit:
@@ -294,7 +291,7 @@ class BASECHI:
         else:
             Gstart = 0
             Gend = self.npw
-        
+
         for a, id in enumerate(setups.id_a):
             phi_aGp[a] = two_phi_planewave_integrals(kk_Gv, setups[a], Gstart, Gend)
             for iG in range(Gstart, Gend):
@@ -368,18 +365,19 @@ class BASECHI:
 
 
     def pad(self, psit_g):
-        N_c = self.calc.wfs.gd.N_c
-        shift = np.zeros(3, int)
-        shift[np.where(self.pbc == False)] = 1
-        psit_G = self.gd.zeros(dtype=psit_g.dtype)
-        psit_G[shift[0]:N_c[0],
-               shift[1]:N_c[1],
-               shift[2]:N_c[2]] = psit_g[:N_c[0]-shift[0],
-                                          :N_c[1]-shift[1],
-                                          :N_c[2]-shift[2]]
-
+        if self.pwmode:
+            return psit_g
+        else:
+            N_c = self.calc.wfs.gd.N_c
+            shift = np.zeros(3, int)
+            shift[np.where(self.pbc == False)] = 1
+            psit_G = self.gd.zeros(dtype=psit_g.dtype)
+            psit_G[shift[0]:N_c[0],
+                   shift[1]:N_c[1],
+                   shift[2]:N_c[2]] = psit_g[:N_c[0]-shift[0],
+                                             :N_c[1]-shift[1],
+                                             :N_c[2]-shift[2]]
         return psit_G
-            
 
 
     def add_discontinuity(self, shift):
@@ -589,14 +587,6 @@ class BASECHI:
             assert df.Nw == self.Nw
             assert df.dw == self.dw
 
-        if df.Kc_GG is None:
-            from gpaw.response.kernel import calculate_Kc
-            Kc_G = calculate_Kc(df.q_c, df.Gvec_Gc, df.acell_cv,
-                                  df.bcell_cv, df.calc.atoms.pbc, df.optical_limit, df.vcut)
-            Kc_GG = np.outer(Kc_G, Kc_G)
-        else:
-            Kc_GG = df.Kc_gG
-
         delta_GG = np.eye(df.npw)
 
         if ppa:
@@ -609,9 +599,8 @@ class BASECHI:
 
         if static:
             assert len(dfinv_wGG) == 1
-            W_GG = dfinv_wGG[0] * Kc_GG
+            W_GG = dfinv_wGG[0] * df.Kc_GG
             self.dfinv_wGG = dfinv_wGG[0]
-            self.Kc_GG = Kc_GG
             if optical_limit:
                 self.dfinvG0_G = dfinv_wGG[0,:,0]
 
@@ -621,7 +610,7 @@ class BASECHI:
             W_wGG = np.zeros_like(dfinv_wGG)
             for iw in range(Nw):
                 dfinv_wGG[iw] -= delta_GG 
-                W_wGG[iw] = dfinv_wGG[iw] * Kc_GG
+                W_wGG[iw] = dfinv_wGG[iw] * df.Kc_GG
             if optical_limit:
                 self.dfinvG0_wG = dfinv_wGG[:,:,0]
 

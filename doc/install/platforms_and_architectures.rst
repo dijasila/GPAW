@@ -24,6 +24,13 @@ BGP:
 
    BGP/performance
 
+BGQ:
+
+.. toctree::
+   :maxdepth: 2
+
+   BGQ/mira
+
 BSD:
 
 .. toctree::
@@ -92,7 +99,8 @@ MacOSX:
 .. toctree::
    :maxdepth: 1
 
-   MacOSX/snowleopard
+   MacOSX/homebrew
+   MacOSX/macports
 
 Solaris:
 

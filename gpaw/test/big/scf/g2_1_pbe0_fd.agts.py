@@ -18,5 +18,5 @@ def agts(queue):
            for r in runs * 2]
     analyse = queue.add('analyse.py molecule scf_g2_1_pbe0_fd ' + runsstr,
                         ncpus=1, walltime=10, deps=run,
-                        creates=['scf_g2_1_pbe0_fd.csv',
+                        creates=['scf_g2_1_pbe0_fd_energy.csv',
                                  'scf_g2_1_pbe0_fd_calculator_steps.png'])

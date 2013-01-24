@@ -18,7 +18,7 @@ import gpaw
 def equal(x, y, tolerance=0, fail=True, msg=''):
     """Compare x and y."""
 
-    if not np.isfinite(x - y) or abs(x - y) > tolerance:
+    if not np.isfinite(x - y).any() or (np.abs(x - y) > tolerance).any():
         msg = (msg + '%s != %s (error: |%s| > %.9g)' %
                (x, y, x - y, tolerance))
         if fail:
@@ -125,6 +125,7 @@ tests = [
     'maxrss.py',
     'proton.py',
     'gemm.py',
+    'keep_htpsit.py',
     'pw/stresstest.py',
     'aeatom.py',
     'numpy_zdotc_graphite.py',
@@ -219,8 +220,7 @@ tests = [
     'relax.py',
     'fixmom.py',
     'CH4.py',
-    # https://trac.fysik.dtu.dk/projects/gpaw/ticket/237
-    #'MgO_exx_fd_vs_pw.py',
+    'MgO_exx_fd_vs_pw.py',
     'diamond_absorption.py',
     'simple_stm.py',
     'gw_method.py',
@@ -311,20 +311,14 @@ tests = [
      #'parallel/scalapack_pdlasrt_hang.py',
      #'dscf_forces.py',
      #'stark_shift.py',
+    'cmrtest/cmr_test.py',
+    'cmrtest/cmr_test3.py',
+    'cmrtest/cmr_test4.py',
+    'cmrtest/cmr_append.py',
+    'cmrtest/Li2_atomize.py'
     ]
 
-try:
-    import cmr
-    tests.append('cmrtest/cmr_test.py')
-    tests.append('cmrtest/cmr_test3.py')
-    tests.append('cmrtest/cmr_test4.py')
-    tests.append('cmrtest/cmr_append.py')
-    tests.append('cmrtest/Li2_atomize.py')
-except:
-    pass
-
 exclude = []
-
 
 if mpi.size > 1:
     exclude += ['maxrss.py',
@@ -343,9 +337,7 @@ if mpi.size > 1:
                 #'cmrtest/Li2_atomize.py',
                 'lcao_pair_and_coulomb.py',
                 'pw/moleculecg.py',
-		'pw/davidson_pw.py',
-		]
-
+                'pw/davidson_pw.py']
 
 if mpi.size > 2:
     exclude += ['neb.py']
@@ -387,35 +379,6 @@ if mpi.size != 8:
     exclude += ['parallel/lcao_parallel_kpt.py']
     exclude += ['parallel/fd_parallel_kpt.py']
 
-try:
-    import scipy
-except ImportError:
-    exclude += ['MgO_exx_fd_vs_pw.py',
-                'diamond_absorption.py',
-                'diamond_eps.py',
-                'aluminum_EELS.py',
-                'aluminum_EELS_lcao.py',
-                'aluminum_testcell.py',
-                'au02_absorption.py',
-                'bse_aluminum.py',
-                'bse_diamond.py',
-                'bse_vs_lrtddft.py',
-                'bse_sym.py',
-                'bse_silicon.py',
-                'aeatom.py',
-                'rpa_Na.py',
-                'rpa_energy_Si.py',
-                'rpa_energy_Ni.py',
-                'rpa_energy_N2.py',
-                'raldax_energy_H2.py',
-                'gw_test.py']
-
-try:
-    import _hdf5
-except ImportError:
-    exclude += ['fileio/hdf5_simple.py',
-                'fileio/hdf5_noncontiguous.py']
-
 for test in exclude:
     if test in tests:
         tests.remove(test)
@@ -430,6 +393,7 @@ class TestRunner:
         self.show_output = show_output
         self.tests = tests
         self.failed = []
+        self.skipped = []
         self.garbage = []
         if mpi.rank == 0:
             self.log = stream
@@ -452,7 +416,9 @@ class TestRunner:
         sys.stdout = sys.__stdout__
         self.log.write('=' * 77 + '\n')
         self.log.write('Ran %d tests out of %d in %.1f seconds\n' %
-                       (ntests - len(self.tests), ntests, time.time() - t0))
+                       (ntests - len(self.tests) - len(self.skipped),
+                        ntests, time.time() - t0))
+        self.log.write('Tests skipped: %d\n' % len(self.skipped))
         if self.failed:
             self.log.write('Tests failed: %d\n' % len(self.failed))
         else:
@@ -494,8 +460,10 @@ class TestRunner:
                         self.write_result(test, 'STOPPED', time.time())
                         self.tests.append(test)
                     break
-                if exitcode:
+                if exitcode == 512:
                     self.failed.append(pids[pid])
+                elif exitcode == 256:
+                    self.skipped.append(pids[pid])
                 del pids[pid]
                 j -= 1
 
@@ -507,6 +475,9 @@ class TestRunner:
         t0 = time.time()
         filename = gpaw.__path__[0] + '/test/' + test
 
+        failed = False
+        skip = False
+
         try:
             loc = {}
             execfile(filename, loc)
@@ -516,10 +487,14 @@ class TestRunner:
         except KeyboardInterrupt:
             self.write_result(test, 'STOPPED', t0)
             raise
+        except ImportError, ex:
+            module = ex.args[0].split()[-1].split('.')[0]
+            if module in ['scipy', 'cmr', '_hdf5']:
+                skip = True
+            else:
+                failed = True
         except:
             failed = True
-        else:
-            failed = False
 
         mpi.ibarrier(timeout=60.0)  # guard against parallel hangs
 
@@ -527,13 +502,20 @@ class TestRunner:
         everybody = np.empty(mpi.size, bool)
         mpi.world.all_gather(me, everybody)
         failed = everybody.any()
+        skip = mpi.world.sum(int(skip))
 
         if failed:
             self.fail(test, np.argwhere(everybody).ravel(), t0)
+            exitcode = 2
+        elif skip:
+            self.write_result(test, 'SKIPPED', t0)
+            self.skipped.append(test)
+            exitcode = 1
         else:
             self.write_result(test, 'OK', t0)
+            exitcode = 0
 
-        return failed
+        return exitcode
 
     def check_garbage(self):
         gc.collect()

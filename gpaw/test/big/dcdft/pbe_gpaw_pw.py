@@ -29,7 +29,7 @@ class Factory(GPAWFactory):
         if name.split('-')[0] in ['Rb']:
             calculator.set(nbands=-1)
         if name.split('-')[0] in ['In', 'Cs', 'Sb', 'Ni', 'Ta', 'As',
-                                  'V', 'Ni', 'Li', 'Rb']:
+                                  'V', 'Ni', 'Li', 'Rb', 'Tl']:
             calculator.set(nbands=-3)
         if name.split('-')[0] in ['Ca', 'Zn', 'Zr', 'Pb', 'Sr',
                                   'Xe', 'Rn', 'Ru', 'N', 'Os',
@@ -60,9 +60,13 @@ class Factory(GPAWFactory):
             calculator.set(usesymm=False)
             calculator.set(eigensolver='cg')
             calculator.set(parallel={'band': 1})
-        if name.split('-')[0] in ['Cr', 'Mn']:
+        if name.split('-')[0] in ['Mn']:
             calculator.set(mixer=MixerDif())
-            calculator.set(maxiter=350)
+            calculator.set(maxiter=450)
+        if name.split('-')[0] in ['Cr']:
+            calculator.set(eigensolver='dav')
+            calculator.set(mixer=MixerDif(0.05,1))
+            calculator.set(maxiter=650)
         return calculator
 
 if len(sys.argv) == 1:

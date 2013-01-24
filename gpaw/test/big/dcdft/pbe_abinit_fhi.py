@@ -29,6 +29,9 @@ class Factory(CalculatorFactory):
         # http://www.abinit.org/documentation/helpfiles/for-v5.8/input_variables/varrlx.html#ecutsm
         if 1:
             calculator.set_inp('ecutsm', 0.05) # default 0.0
+        # http://forum.abinit.org/viewtopic.php?f=8&t=1335
+        if 1:
+            calculator.set_inp('nsym', 1) # default 0
         return calculator
 
 calcopts = {'toldfe':1.0e-7,

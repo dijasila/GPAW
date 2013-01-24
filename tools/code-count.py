@@ -26,12 +26,14 @@ def plot_count(fname, dpi=70):
 
     fig = pl.figure(1, figsize=(10, 5), dpi=dpi)
     ax = fig.add_subplot(111)
-    polygon(date, c + code + test, c + code + test + doc,
-             facecolor='m', label='Documentation')
-    polygon(date, c + code, c + code + test,
-             facecolor='y', label='Tests')
-    polygon(date, c, c + code,
+    polygon(date, c + libxc + code + test, c + libxc + code + test + doc,
+            facecolor='m', label='Documentation')
+    polygon(date, c + libxc + code, c + libxc + code + test,
+            facecolor='y', label='Tests')
+    polygon(date, c + libxc, c + libxc + code,
             facecolor='g', label='Python-code')
+    polygon(date, c, c + libxc,
+            facecolor='c', label='LibXC-code')
     polygon(date, zero, c,
             facecolor='r', label='C-code')
     polygon(date, zero, zero,

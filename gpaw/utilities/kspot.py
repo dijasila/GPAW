@@ -83,7 +83,7 @@ class AllElectronPotential:
       # If the calculation is just loaded, density needs to be interpolated
       if self.paw.density.nt_sg is None:
          print "Interpolating density"
-         self.paw.density.interpolate()
+         self.paw.density.interpolate_pseudo_density()
          
       # Get xccorr for atom a
       setup = self.paw.density.setups[a]

@@ -195,12 +195,13 @@ class PAW(PAWTextOutput):
                 self.wfs = EmptyWaveFunctions()
                 self.occupations = None
             elif key in ['h', 'gpts', 'setups', 'spinpol', 'realspace',
-                         'parallel', 'communicator', 'dtype']:
+                         'parallel', 'communicator', 'dtype', 'mode']:
+                print "removing density"
                 self.density = None
                 self.occupations = None
                 self.hamiltonian = None
                 self.wfs = EmptyWaveFunctions()
-            elif key in ['mode', 'basis']:
+            elif key in ['basis']:
                 self.wfs = EmptyWaveFunctions()
             elif key in ['parsize', 'parsize_bands', 'parstride_bands']:
                 name = {'parsize': 'domain',
@@ -216,7 +217,9 @@ class PAW(PAWTextOutput):
 
     def calculate(self, atoms=None, converge=False,
                   force_call_to_set_positions=False):
-        """Update PAW calculaton if needed."""
+        """Update PAW calculaton if needed.
+
+        Returns True/False whether a calculation was performed or not."""
 
         self.timer.start('Initialization')
         if atoms is None:
@@ -258,7 +261,7 @@ class PAW(PAWTextOutput):
         self.timer.stop('Initialization')
 
         if self.scf.converged:
-            return
+            return False
         else:
             self.print_cell_and_parameters()
 
@@ -279,6 +282,8 @@ class PAW(PAWTextOutput):
             if 'not_converged' in hooks:
                 hooks['not_converged'](self)
             raise KohnShamConvergenceError('Did not converge!')
+
+        return True
 
     def initialize_positions(self, atoms=None):
         """Update the positions of the atoms."""
@@ -398,7 +403,7 @@ class PAW(PAWTextOutput):
         mode = par.mode
 
         if xc.orbital_dependent:
-            assert mode == 'fd'
+            assert mode != 'lcao'
 
         if mode == 'pw':
             mode = PW()
@@ -615,7 +620,7 @@ class PAW(PAWTextOutput):
 
                 if hasattr(self, 'time'):
                     assert mode == 'fd'
-                    from gpaw.tddft import TimeDependentWaveFunctions #XXX
+                    from gpaw.tddft import TimeDependentWaveFunctions
                     self.wfs = TimeDependentWaveFunctions(par.stencils[0],
                         diagksl, orthoksl, initksl, gd, nvalence, setups,
                         bd, world, kd, self.timer)
@@ -713,7 +718,7 @@ class PAW(PAWTextOutput):
         self.density.ghat.set_positions(spos_ac)
         self.density.nct_G = self.density.gd.zeros()
         self.density.nct.add(self.density.nct_G, 1.0 / self.density.nspins)
-        self.density.interpolate()
+        self.density.interpolate_pseudo_density()
         self.density.calculate_pseudo_charge()
         self.hamiltonian.set_positions(spos_ac, self.wfs.rank_a)
         self.hamiltonian.update(self.density)
@@ -815,6 +820,8 @@ class PAW(PAWTextOutput):
             self.initialize()
         else:
             self.wfs.initialize_wave_functions_from_restart_file()
+            spos_ac = self.atoms.get_scaled_positions() % 1.0
+            self.wfs.set_positions(spos_ac)
 
         no_wave_functions = (self.wfs.kpt_u[0].psit_nG is None)
         converged = self.scf.check_convergence(self.density,

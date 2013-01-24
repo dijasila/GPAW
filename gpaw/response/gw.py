@@ -22,6 +22,7 @@ class GW(BASECHI):
                  nbands=None,
                  bands=None,
                  kpoints=None,
+                 eshift=None,
                  w=None,
                  ecut=150.,
                  eta=0.1,
@@ -75,12 +76,13 @@ class GW(BASECHI):
             self.eta_w = dw_w * 4
             self.wcut = wcut
 
-        BASECHI.__init__(self, calc=file, nbands=nbands, w=w, ecut=ecut, eta=eta, txt=txt)
+        BASECHI.__init__(self, calc=file, nbands=nbands, w=w, eshift=eshift, ecut=ecut, eta=eta, txt=txt)
 
         self.file = file
         self.vcut = vcut
         self.bands = bands
         self.kpoints = kpoints
+        self.eshift = eshift
         self.hilbert_trans = hilbert_trans
         self.wpar = wpar
         self.exxfile = exxfile
@@ -116,6 +118,7 @@ class GW(BASECHI):
             self.wmin = self.w_w[0]
             self.dw = self.w_w[1] - self.w_w[0]
             self.Nw = len(self.w_w)
+#            self.wpar = int(self.Nw * self.npw**2 * 16. / 1024**2) // 1500 + 1 # estimate memory and parallelize over frequencies
 
         # eigenvalues and occupations init
         self.e_skn = np.zeros((self.nspins, self.nikpt, calc.wfs.bd.nbands), dtype=float)
@@ -124,6 +127,8 @@ class GW(BASECHI):
             for k in range(self.nikpt):
                 self.e_skn[s,k] = calc.get_eigenvalues(kpt=k, spin=s) / Hartree
                 self.f_skn[s,k] = calc.get_occupation_numbers(kpt=k, spin=s) / kd.weight_k[k]
+        if self.eshift is not None:
+            self.add_discontinuity(self.eshift)
         if not self.ppa and not self.static:
             emaxdiff = self.e_skn[:,:,self.nbands-1].max() - self.e_skn[:,:,0].min()
             assert (self.wmax > emaxdiff), 'Maximum frequency must be larger than %f' %(emaxdiff*Hartree)
@@ -361,7 +366,7 @@ class GW(BASECHI):
                                 dSigma_skn[s,i,j] += np.real(gemmdot(W_G, rho_G, alpha=self.alpha, beta=0.0,trans='c'))
 
                             elif self.static:
-                                W1_GG = W_wGG[0] - np.eye(df.npw)*self.Kc_GG
+                                W1_GG = W_wGG[0] - np.eye(df.npw)*df.Kc_GG
                                 W2_GG = W_wGG[0]
                                 if df.optical_limit:
                                     if n==m:
@@ -516,7 +521,7 @@ class GW(BASECHI):
                 for i, k in enumerate(self.gwkpt_k):
                     ik = self.kd.bz2ibz_k[k]
                     for j, n in enumerate(self.gwbands_n):
-                        e_skn[s][i][j] = calc.get_eigenvalues(kpt=ik, spin=s)[n] / Hartree
+                        e_skn[s][i][j] = self.e_skn[s][ik][n]
                         vxc_skn[s][i][j] = v_xc[s][ik][n] / Hartree
                         if not self.static:
                             exx_skn[s][i][j] = exx.exx_skn[s][ik][n]
@@ -549,9 +554,9 @@ class GW(BASECHI):
     def print_gw_finish(self, e_skn, vxc_skn, exx_skn, Sigma_skn, Z_skn, QP_skn):
 
         self.printtxt("------------------------------------------------")
-        self.printtxt("LDA eigenvalues are (eV): ")
+        self.printtxt("Kohn-Sham eigenvalues are (eV): ")
         self.printtxt("%s \n" %(e_skn*Hartree))
-        self.printtxt("LDA exchange-correlation contributions are (eV): ")
+        self.printtxt("Kohn-Sham exchange-correlation contributions are (eV): ")
         self.printtxt("%s \n" %(vxc_skn*Hartree))
         if not self.static:
             self.printtxt("Exact exchange contributions are (eV): ")

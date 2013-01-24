@@ -98,7 +98,7 @@ class KickHamiltonian:
 
 
 class LCAOTDDFT(GPAW):
-    def __init__(self, filename=None, propagator_debug=False, propagator='taylor', **kwargs):
+    def __init__(self, filename=None, propagator_debug=False, propagator='cn', **kwargs):
         GPAW.__init__(self, filename, **kwargs)
         self.propagator_debug = propagator_debug
         self.kick_strength = [0.0, 0.0, 0.0]
@@ -296,7 +296,6 @@ class LCAOTDDFT(GPAW):
         kick_hamiltonian = KickHamiltonian(self, ConstantElectricField(magnitude, direction=direction))
         for k, kpt in enumerate(self.wfs.kpt_u):
             Vkick_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(kick_hamiltonian, self.wfs, kpt, add_kinetic=False, root=-1)
-            print "VK", Vkick_MM
             for i in range(10):
                 self.propagator(kpt.C_nM, kpt.C_nM, kpt.S_MM, Vkick_MM, 0.1)
 

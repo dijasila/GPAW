@@ -38,6 +38,7 @@ from gpaw import ConvergenceError
 from gpaw import PW
 from gpaw.factory import GPAWFactory
 from gpaw.mixer import Mixer, MixerSum, MixerSum2, MixerDif
+from gpaw.mixer import FFTMixer, FFTMixerSum, FFTMixerDif
 from gpaw.mixer import BroydenMixer, BroydenMixerSum
 from gpaw.poisson import PoissonSolver
 from gpaw.occupations import FermiDirac, MethfesselPaxton
@@ -110,6 +111,8 @@ if run.startswith('dzp'):
     calcopts.update({'basis': 'dzp'})
 if 'cg' in run:
     calcopts.update({'eigensolver': 'cg'})
+elif 'dav' in run:
+    calcopts.update({'eigensolver': 'dav'})
 else:
     calcopts.update({'eigensolver': 'rmm-diis'})
 if run.startswith('cgdzp'):

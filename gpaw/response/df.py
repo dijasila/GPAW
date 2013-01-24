@@ -46,8 +46,9 @@ class DF(CHI):
         self.df3_w = None  # NLF ALDA
         self.df4_w = None  # LF ALDA
 
-    def get_dielectric_matrix(self, xc='RPA', overwritechi0=False, nonsymmetric=False, chi0_wGG = None, calc = None, vcut = None):
-	if self.chi0_wGG is None and chi0_wGG is None:
+    def get_dielectric_matrix(self, xc='RPA', overwritechi0=False, symmetric=True, chi0_wGG=None, calc=None, vcut=None):
+
+    	if self.chi0_wGG is None and chi0_wGG is None:
             self.initialize()
             self.calculate()
         elif self.chi0_wGG is None and chi0_wGG is not None: #Read from file and reinitialize 
@@ -98,38 +99,22 @@ class DF(CHI):
             dm_wGG = np.zeros_like(self.chi0_wGG)
 
         from gpaw.response.kernel import calculate_Kc
-        if nonsymmetric:
-            self.Kc_GG = calculate_Kc(self.q_c, self.Gvec_Gc,
-                                          self.acell_cv, self.bcell_cv,
-                                          self.calc.atoms.pbc, self.optical_limit,
-                                          self.vcut, nonsymmetric = True)
-        else:
-            Kc_G = calculate_Kc(self.q_c, self.Gvec_Gc,
-                                          self.acell_cv, self.bcell_cv,
-                                          self.calc.atoms.pbc, self.optical_limit,
-                                          self.vcut, nonsymmetric = False)
+        self.Kc_GG = calculate_Kc(self.q_c, self.Gvec_Gc,
+                                      self.acell_cv, self.bcell_cv,
+                                      self.calc.atoms.pbc, self.optical_limit,
+                                      self.vcut, symmetric=symmetric)
+
+        tmp_GG = np.eye(self.npw, self.npw)
 
         if xc == 'RPA':
-            if nonsymmetric:
-                tmp_GG = np.eye(self.npw, self.npw)
-                self.printtxt('Use RPA.')
-                for iw in range(self.Nw_local):
-                    dm_wGG[iw] = tmp_GG - self.Kc_GG * self.chi0_wGG[iw]
-                
-            else:
-                self.printtxt('Use RPA.')
-                for iw in range(self.Nw_local):
-                    for iG in range(self.npw):
-                        dmtmp_G = - Kc_G[iG] * Kc_G[:] * self.chi0_wGG[iw,iG,:]
-                        dmtmp_G[iG] += 1
-                        dm_wGG[iw,iG,:] = dmtmp_G[:]
-                
+            self.printtxt('Use RPA.')
+            for iw in range(self.Nw_local):
+                dm_wGG[iw] = tmp_GG - self.Kc_GG * self.chi0_wGG[iw]
 
         elif xc == 'ALDA':
             self.printtxt('Use ALDA kernel.')
             # E_LDA = 1 - v_c chi0 (1-fxc chi0)^-1
             # http://prb.aps.org/pdf/PRB/v33/i10/p7017_1 eq. 4
-            tmp_GG = np.eye(self.npw, self.npw)
             A_wGG = self.chi0_wGG.copy()
             for iw in range(self.Nw_local):
                 A_wGG[iw] = np.dot(self.chi0_wGG[iw], np.linalg.inv(tmp_GG - np.dot(self.Kxc_sGG[0], self.chi0_wGG[iw])))
@@ -558,7 +543,7 @@ class DF(CHI):
         self.read(filename)
         self.w_w = np.linspace(0, self.dw * (self.Nw - 1)*Hartree, self.Nw)
         self.vcut = vcut
-        dm_wGG = self.get_dielectric_matrix(xc=xc, nonsymmetric = True, chi0_wGG = chi0, calc=calc, vcut=vcut)
+        dm_wGG = self.get_dielectric_matrix(xc=xc, symmetric=False, chi0_wGG=chi0, calc=calc, vcut=vcut)
     
         q = self.q_c
         gd = self.calc.wfs.gd

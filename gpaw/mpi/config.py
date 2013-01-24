@@ -1,4 +1,5 @@
 import os
+import platform
 import sys
 
 
@@ -7,7 +8,7 @@ def get_mpi_implementation():
     if mpi is not None:
         return mpi
     
-    machine = os.uname()[4]
+    machine = platform.uname()[4]
     
     if machine == 'sun4u':
         return 'sun'

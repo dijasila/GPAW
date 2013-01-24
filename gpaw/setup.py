@@ -48,6 +48,12 @@ def create_setup(symbol, xc='LDA', lmax=0,
             ah = AppelbaumHamann()
             ah.build(basis)
             return ah
+        elif type == 'ae':
+            from gpaw.ae import HydrogenAllElectronSetup
+            assert symbol == 'H'
+            ae = HydrogenAllElectronSetup()
+            ae.build(basis)
+            return ae
         elif type == 'ghost':
             from gpaw.lcao.bsse import GhostSetupData
             setupdata = GhostSetupData(symbol)

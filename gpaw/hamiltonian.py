@@ -399,7 +399,7 @@ class Hamiltonian:
     def get_xc_difference(self, xc, density):
         """Calculate non-selfconsistent XC-energy difference."""
         if density.nt_sg is None:
-            density.interpolate()
+            density.interpolate_pseudo_density()
         nt_sg = density.nt_sg
         if hasattr(xc, 'hybrid'):
             xc.calculate_exx()
