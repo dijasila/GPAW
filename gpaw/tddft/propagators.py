@@ -59,6 +59,8 @@ class DummyPropagator:
         self.td_hamiltonian = td_hamiltonian
         self.td_overlap = td_overlap
 
+        self.wfs = td_density.get_wavefunctions()
+
         self.solver = solver
         self.preconditioner = preconditioner
         self.gd = gd
@@ -90,13 +92,11 @@ class DummyPropagator:
         self.timer.stop('Solve TDDFT preconditioner')
 
 
-    def propagate(self, kpt_u, time, time_step):
+    def propagate(self, time, time_step):
         """Propagate wavefunctions once. 
         
         Parameters
         ----------
-        kpt_u: Kpoint
-            K-point
         time: float
             the current time
         time_step: float
@@ -147,8 +147,6 @@ class ExplicitCrankNicolson(DummyPropagator):
                                  solver, preconditioner, gd, timer)
 
         self.cuda=cuda        
-        self.wfs = td_density.get_wavefunctions()
-
         self.tmp_kpt_u = None
         self.hpsit = None
         self.spsit = None
@@ -162,13 +160,11 @@ class ExplicitCrankNicolson(DummyPropagator):
         #    self.sinvhpsit_gpu = None
         
     # ( S + i H dt/2 ) psit(t+dt) = ( S - i H dt/2 ) psit(t)
-    def propagate(self, kpt_u, time, time_step):
+    def propagate(self, time, time_step):
         """Propagate wavefunctions. 
         
         Parameters
         ----------
-        kpt_u: List of Kpoints
-            K-points
         time: float
             the current time
         time_step: float
@@ -180,14 +176,14 @@ class ExplicitCrankNicolson(DummyPropagator):
         # Allocate temporary wavefunctions
         if self.tmp_kpt_u is None:
             self.tmp_kpt_u = []
-            for kpt in kpt_u:
+            for kpt in self.wfs.kpt_u:
                 tmp_kpt = DummyKPoint()
                 tmp_kpt.psit_nG = self.gd.empty(n=len(kpt.psit_nG),
                                                 dtype=complex, cuda=self.cuda)
                 self.tmp_kpt_u.append(tmp_kpt)
 
         # Allocate memory for Crank-Nicolson stuff
-        nvec = len(kpt_u[0].psit_nG)
+        nvec = len(self.wfs.kpt_u[0].psit_nG)
         if self.hpsit is None:
             self.hpsit = self.gd.zeros(nvec, dtype=complex, cuda=self.cuda)
         if self.spsit is None:
@@ -197,7 +193,8 @@ class ExplicitCrankNicolson(DummyPropagator):
         self.timer.start('Update time-dependent operators')
 
         # Update overlap S(t) of kpt.psit_nG in kpt.P_ani.
-        self.td_overlap.update(cuda_psit_nG=self.cuda)
+
+        self.td_overlap.update(self.wfs, cuda_psit_nG=self.cuda)
 
         # Calculate density rho(t) based on the wavefunctions psit_nG
         # in kpt_u for t = time. Updates wfs.D_asp based on kpt.P_ani.
@@ -210,27 +207,23 @@ class ExplicitCrankNicolson(DummyPropagator):
 
         # Copy current wavefunctions psit_nG to work wavefunction arrays
         if self.cuda:
-            for u in range(len(kpt_u)):
+            for u, kpt in enumerate(self.wfs.kpt_u):
                 gpaw.cuda.drv.memcpy_dtod(self.tmp_kpt_u[u].psit_nG.gpudata,
-                                 kpt_u[u].psit_nG_gpu.gpudata, kpt_u[u].psit_nG_gpu.nbytes)
+                                 kpt.psit_nG_gpu.gpudata, kpt.psit_nG_gpu.nbytes)
         else:
-            for u in range(len(kpt_u)):
-                self.tmp_kpt_u[u].psit_nG[:] = kpt_u[u].psit_nG
-
+            for u, kpt in enumerate(self.wfs.kpt_u):
+                self.tmp_kpt_u[u].psit_nG[:] = kpt.psit_nG
 
         # Euler step
         # Overwrite psit_nG in tmp_kpt_u by (1 - i S^(-1)(t) H(t) dt) psit_nG
         # from corresponding kpt_u in a Euler step before predicting psit(t+dt)
-        for [kpt, rhs_kpt] in zip(kpt_u, self.tmp_kpt_u):
+        for [kpt, rhs_kpt] in zip(self.wfs.kpt_u, self.tmp_kpt_u):
             self.solve_propagation_equation(kpt, rhs_kpt, time_step, guess=True)
 
         # update projections before exiting
-        self.td_overlap.update(cuda_psit_nG=self.cuda)
-        #if self.cuda:
-            #self.cuda_psit_dtoh()
-        #    for kpt in kpt_u:
-        #        kpt.cuda_psit_nG_dtoh() 
-       
+
+        self.td_overlap.update(self.wfs,cuda_psit_nG=self.cuda)
+
         return self.niter
 
 
@@ -251,10 +244,10 @@ class ExplicitCrankNicolson(DummyPropagator):
 
         self.timer.start('Apply time-dependent operators')
         # Store H psi(t) as hpsit and S psit(t) as spsit
-        self.td_overlap.update_k_point_projections(kpt, rhs_kpt.psit_nG)
+        self.td_overlap.update_k_point_projections(self.wfs, kpt, rhs_kpt.psit_nG)
         self.td_hamiltonian.apply(kpt, rhs_kpt.psit_nG, self.hpsit,
                                   calculate_P_ani=False)
-        self.td_overlap.apply(kpt, rhs_kpt.psit_nG, self.spsit,
+        self.td_overlap.apply(rhs_kpt.psit_nG, self.spsit, self.wfs, kpt,
                               calculate_P_ani=False)
         self.timer.stop('Apply time-dependent operators')
 
@@ -273,7 +266,7 @@ class ExplicitCrankNicolson(DummyPropagator):
                 self.sinvhpsit = self.gd.zeros(len(psit_nG), dtype=complex, cuda=self.cuda)
 
             # Update estimate of psit(t+dt) to ( 1 - i S^(-1) H dt ) psit(t)
-            self.td_overlap.apply_inverse(kpt, self.hpsit, self.sinvhpsit)
+            self.td_overlap.apply_inverse(self.hpsit, self.sinvhpsit, self.wfs, kpt, use_cg=False)
             self.mblas.multi_zaxpy(-1.0j*time_step, self.sinvhpsit,
                                    psit_nG, nvec)
 
@@ -299,11 +292,10 @@ class ExplicitCrankNicolson(DummyPropagator):
         #self.timer.start('dot')
         self.timer.start('Apply time-dependent operators')
 
-        
-        self.td_overlap.update_k_point_projections(self.kpt, psi)
+        self.td_overlap.update_k_point_projections(self.wfs, self.kpt, psi)
         self.td_hamiltonian.apply(self.kpt, psi, self.hpsit,
                                   calculate_P_ani=False)
-        self.td_overlap.apply(self.kpt, psi, self.spsit, calculate_P_ani=False)
+        self.td_overlap.apply(psi, self.spsit, self.wfs, self.kpt, calculate_P_ani=False)
         self.timer.stop('Apply time-dependent operators')
 
         # psin[:] = self.spsit + .5J * self.time_step * self.hpsit
@@ -392,13 +384,11 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         self.old_kpt_u = None
 
 
-    def propagate(self, kpt_u, time, time_step):
+    def propagate(self, time, time_step):
         """Propagate wavefunctions once.
         
         Parameters
         ----------
-        kpt_u: List of Kpoints
-            K-points
         time: float
             the current time
         time_step: float
@@ -410,7 +400,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         # Allocate old/temporary wavefunctions
         if self.old_kpt_u is None:
             self.old_kpt_u = []
-            for kpt in kpt_u:
+            for kpt in self.wfs.kpt_u:
                 old_kpt = DummyKPoint()
                 old_kpt.psit_nG = self.gd.empty(n=len(kpt.psit_nG),
                                                 dtype=complex, cuda=self.cuda)
@@ -418,14 +408,14 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
 
         if self.tmp_kpt_u is None:
             self.tmp_kpt_u = []
-            for kpt in kpt_u:
+            for kpt in self.wfs.kpt_u:
                 tmp_kpt = DummyKPoint()
                 tmp_kpt.psit_nG = self.gd.empty(n=len(kpt.psit_nG),
                                                 dtype=complex, cuda=self.cuda)
                 self.tmp_kpt_u.append(tmp_kpt)
 
         # Allocate memory for Crank-Nicolson stuff
-        nvec = len(kpt_u[0].psit_nG)
+        nvec = len(self.wfs.kpt_u[0].psit_nG)
         if self.hpsit is None:
             self.hpsit = self.gd.zeros(nvec, dtype=complex, cuda=self.cuda)
         if self.spsit is None:
@@ -434,7 +424,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         self.timer.start('Update time-dependent operators')
 
         # Update overlap S(t) of kpt.psit_nG in kpt.P_ani.
-        self.td_overlap.update(cuda_psit_nG=self.cuda)
+        self.td_overlap.update(self.wfs,cuda_psit_nG=self.cuda)
 
         # Calculate density rho(t) based on the wavefunctions psit_nG
         # in kpt_u for t = time. Updates wfs.D_asp based on kpt.P_ani.
@@ -447,28 +437,29 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
 
         # Copy current wavefunctions psit_nG to work and old wavefunction arrays
         if self.cuda:
-            for u in range(len(kpt_u)):
+            for u, kpt in enumerate(self.wfs.kpt_u):
                 gpaw.cuda.drv.memcpy_dtod(self.old_kpt_u[u].psit_nG.gpudata,
-                                 kpt_u[u].psit_nG_gpu.gpudata, kpt_u[u].psit_nG_gpu.nbytes)
+                                 kpt.psit_nG_gpu.gpudata, kpt.psit_nG_gpu.nbytes)
                 gpaw.cuda.drv.memcpy_dtod(self.tmp_kpt_u[u].psit_nG.gpudata,
-                                 kpt_u[u].psit_nG_gpu.gpudata, kpt_u[u].psit_nG_gpu.nbytes)
+                                 kpt.psit_nG_gpu.gpudata, kpt.psit_nG_gpu.nbytes)
         else:
-            for u in range(len(kpt_u)):
-                self.old_kpt_u[u].psit_nG[:] = kpt_u[u].psit_nG
-                self.tmp_kpt_u[u].psit_nG[:] = kpt_u[u].psit_nG
+            for u, kpt in enumerate(self.wfs.kpt_u):
+                self.old_kpt_u[u].psit_nG[:] = kpt.psit_nG
+                self.tmp_kpt_u[u].psit_nG[:] = kpt.psit_nG
 
 
         # Predictor step
         # Overwrite psit_nG in tmp_kpt_u by (1 - i S^(-1)(t) H(t) dt) psit_nG
         # from corresponding kpt_u in a Euler step before predicting psit(t+dt)
-        for [kpt, rhs_kpt] in zip(kpt_u, self.tmp_kpt_u):
+        for [kpt, rhs_kpt] in zip(self.wfs.kpt_u, self.tmp_kpt_u):
             #print "predictor step  solve_propagation_equation"
             self.solve_propagation_equation(kpt, rhs_kpt, time_step, guess=True)
 
         self.timer.start('Update time-dependent operators')
 
         # Update overlap S(t+dt) of kpt.psit_nG in kpt.P_ani.
-        self.td_overlap.update(cuda_psit_nG=self.cuda)
+        self.td_overlap.update(self.wfs,cuda_psit_nG=self.cuda)
+
 
         # Calculate density rho(t+dt) based on the wavefunctions psit_nG in
         # kpt_u for t = time+time_step. Updates wfs.D_asp based on kpt.P_ani.
@@ -480,14 +471,14 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
                                         time + time_step)
 
         # Estimate overlap S(t+dt/2) by averaging S(t) and S(t+dt) #TODO!!!
-        self.td_overlap.half_update()
+        self.td_overlap.half_update(self.wfs)
 
         self.timer.stop('Update time-dependent operators')
 
         # Corrector step
         # Use predicted psit_nG in kpt_u as an initial guess, whereas the old 
         # wavefunction in old_kpt_u are used to calculate rhs based on psit(t)
-        for [kpt, rhs_kpt] in zip(kpt_u, self.old_kpt_u):
+        for [kpt, rhs_kpt] in zip(self.wfs.kpt_u, self.old_kpt_u):
             # Average of psit(t) and predicted psit(t+dt)
             if self.cuda:
                 psit_nG=kpt.psit_nG_gpu
@@ -495,22 +486,18 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
                psit_nG=kpt.psit_nG 
             mean_psit_nG = 0.5*(psit_nG + rhs_kpt.psit_nG)
             self.td_hamiltonian.half_apply(kpt, mean_psit_nG, self.hpsit)
-            self.td_overlap.apply_inverse(kpt, self.hpsit, self.sinvhpsit)
+            self.td_overlap.apply_inverse(self.hpsit, self.sinvhpsit, self.wfs, kpt, use_cg=False)
             
             # Update kpt.psit_nG to reflect psit(t+dt) - i S^(-1) dH(t+dt/2) dt/2 psit(t+dt/2)
-            #kpt.psit_nG[:] = kpt.psit_nG - .5J * self.sinvhpsit * time_step
+            kpt.psit_nG[:] = kpt.psit_nG - .5J * self.sinvhpsit * time_step
             self.mblas.multi_zaxpy(-.5j*time_step, self.sinvhpsit, psit_nG, nvec)                
             
             #print "corrector step solve_propagation_equation"
             self.solve_propagation_equation(kpt, rhs_kpt, time_step)
  
         # update projections before exiting
-        self.td_overlap.update(cuda_psit_nG=self.cuda)
-        
-        #if self.cuda:
-            #self.cuda_psit_dtoh()
-        #    for kpt in kpt_u:
-        #       kpt.cuda_psit_nG_dtoh() 
+
+        self.td_overlap.update(self.wfs,cuda_psit_nG=self.cuda)
        
         return self.niter
 
@@ -531,10 +518,10 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
 
         self.timer.start('Apply time-dependent operators')
         # Store H psi(t) as self.hpsit and S psit(t) as self.spsit
-        self.td_overlap.update_k_point_projections(kpt, rhs_kpt.psit_nG)
+        self.td_overlap.update_k_point_projections(self.wfs, kpt, rhs_kpt.psit_nG)
         self.td_hamiltonian.apply(kpt, rhs_kpt.psit_nG, self.hpsit,
                                   calculate_P_ani=False)
-        self.td_overlap.apply(kpt, rhs_kpt.psit_nG, self.spsit,
+        self.td_overlap.apply(rhs_kpt.psit_nG, self.spsit, self.wfs, kpt,
                               calculate_P_ani=False)
         self.timer.stop('Apply time-dependent operators')
 
@@ -559,7 +546,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         if guess:
             self.sinvhpsit = self.gd.zeros(len(psit_nG), dtype=complex, cuda=self.cuda)
             # Update estimate of psit(t+dt) to ( 1 - i S^(-1) H dt ) psit(t)
-            self.td_overlap.apply_inverse(kpt, self.hpsit, self.sinvhpsit)
+            self.td_overlap.apply_inverse(self.hpsit, self.sinvhpsit, self.wfs, kpt, use_cg=False)
             self.mblas.multi_zaxpy(-1.0j*time_step, self.sinvhpsit,
                                    psit_nG, nvec)
 
@@ -590,6 +577,450 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         ExplicitCrankNicolson.dot(self, psi, psin)
         # Apply shift -i eps S t/2 
         #self.mblas.multi_zaxpy(.5j * self.time_step * (-self.shift), self.spsit, psin, len(psi))
+
+class EhrenfestPAWSICN(ExplicitCrankNicolson):
+    """Semi-implicit Crank-Nicolson propagator for Ehrenfest dynamics
+       TODO: merge this with the ordinary SICN
+    """
+    def __init__(self, td_density, td_hamiltonian, td_overlap, 
+                 solver, preconditioner, gd, timer, corrector_guess = True,
+                 predictor_guess = (True,False), use_cg = (False,False)):
+        """Create SemiImplicitCrankNicolson-object.
+        
+        Parameters
+        ----------
+        td_density: TimeDependentDensity
+            the time-dependent density
+        td_hamiltonian: TimeDependentHamiltonian
+            the time-dependent hamiltonian
+        td_overlap: TimeDependentOverlap
+            the time-dependent overlap operator
+        solver: LinearSolver
+            solver for linear equations
+        preconditioner: Preconditioner
+            preconditioner for linear equations
+        gd: GridDescriptor
+            coarse (wavefunction) grid descriptor
+        timer: Timer
+            timer
+        corrector_guess: Bool
+            use initial guess for the corrector step (default is True)
+        predictor_guess: (Bool, Bool)
+            use (first, second) order initial guesses for the predictor step
+            default is (True, False)
+        use_cg: (Bool, Bool)
+            use CG for calculating the inverse overlap (predictor, corrector)
+            default is (False, False)
+        
+        """
+        ExplicitCrankNicolson.__init__(self, td_density, td_hamiltonian,
+                          td_overlap, solver, preconditioner, gd, timer)
+
+        self.old_kpt_u = None
+        self.corrector_guess = corrector_guess
+        self.predictor_guess = predictor_guess
+        self.use_cg = use_cg
+
+        #self.hsinvhpsit = None
+        self.sinvh2psit = None
+
+    def update_velocities(self, v_at_new, v_at_old = None):
+        self.v_at = v_at_new.copy()
+        if(v_at_old is not None):
+            self.v_at_old = v_at_old.copy()
+
+    def propagate(self, time, time_step, v_a):
+        """Propagate wavefunctions once.
+        
+        Parameters
+        ----------
+        time: float
+            the current time
+        time_step: float
+            time step
+        """
+
+        self.niter = 0
+
+        #update the atomic velocities which are required
+        #for calculating the P term
+        self.update_velocities(v_a)
+
+        # Allocate old/temporary wavefunctions
+        if self.old_kpt_u is None:
+            self.old_kpt_u = []
+            for kpt in self.wfs.kpt_u:
+                old_kpt = DummyKPoint()
+                old_kpt.psit_nG = self.gd.empty(n=len(kpt.psit_nG),
+                                                dtype=complex)
+                self.old_kpt_u.append(old_kpt)
+
+        if self.tmp_kpt_u is None:
+            self.tmp_kpt_u = []
+            for kpt in self.wfs.kpt_u:
+                tmp_kpt = DummyKPoint()
+                tmp_kpt.psit_nG = self.gd.empty(n=len(kpt.psit_nG),
+                                                dtype=complex)
+                self.tmp_kpt_u.append(tmp_kpt)
+
+        # Allocate memory for Crank-Nicolson stuff
+        nvec = len(self.wfs.kpt_u[0].psit_nG)
+        if self.hpsit is None:
+            self.hpsit = self.gd.zeros(nvec, dtype=complex)
+        if self.spsit is None:
+            self.spsit = self.gd.zeros(nvec, dtype=complex)
+
+
+        self.timer.start('Update time-dependent operators')
+
+        # Update overlap S(t) of kpt.psit_nG in kpt.P_ani.
+        self.td_overlap.update(self.wfs)
+
+        # Calculate density rho(t) based on the wavefunctions psit_nG
+        # in kpt_u for t = time. Updates wfs.D_asp based on kpt.P_ani.
+        self.td_density.update()
+
+        # Update Hamiltonian H(t) to reflect density rho(t)
+        self.td_hamiltonian.update(self.td_density.get_density(), time)
+
+        self.timer.stop('Update time-dependent operators')
+
+        # Copy current wavefunctions psit_nG to work and old wavefunction arrays
+        for u, kpt in enumerate(self.wfs.kpt_u):
+            self.old_kpt_u[u].psit_nG[:] = kpt.psit_nG
+            self.tmp_kpt_u[u].psit_nG[:] = kpt.psit_nG
+
+        #print 'P_ani[0] =', self.wfs.kpt_u[0].P_ani[0]
+        #print self.test
+
+
+        # Predictor step
+        # Overwrite psit_nG in tmp_kpt_u by (1 - i S^(-1)(t) H(t) dt) psit_nG
+        # from corresponding kpt_u in a Euler step before predicting psit(t+dt)
+        #self.v_at = self.v_at_old.copy() #v(t) for predictor step
+        for [kpt, rhs_kpt] in zip(self.wfs.kpt_u, self.tmp_kpt_u):
+            #print 'self.predictor_guess[0]', self.predictor_guess[0]
+            self.solve_propagation_equation(kpt, rhs_kpt, time_step, guess=self.predictor_guess[0])
+
+        self.timer.start('Update time-dependent operators')
+
+        # Update overlap S(t+dt) of kpt.psit_nG in kpt.P_ani.
+        self.td_overlap.update(self.wfs)
+
+        # Calculate density rho(t+dt) based on the wavefunctions psit_nG in
+        # kpt_u for t = time+time_step. Updates wfs.D_asp based on kpt.P_ani.
+        self.td_density.update()
+
+        # Estimate Hamiltonian H(t+dt/2) by averaging H(t) and H(t+dt)
+        # and retain the difference for a half-way Hamiltonian dH(t+dt/2).
+        self.td_hamiltonian.half_update(self.td_density.get_density(),
+                                        time + time_step)
+
+        # Estimate overlap S(t+dt/2) by averaging S(t) and S(t+dt) #TODO!!!
+        self.td_overlap.half_update(self.wfs)
+
+        self.timer.stop('Update time-dependent operators')
+
+        # Corrector step
+        # Use predicted psit_nG in kpt_u as an initial guess, whereas the old 
+        # wavefunction in old_kpt_u are used to calculate rhs based on psit(t)
+        for [kpt, rhs_kpt] in zip(self.wfs.kpt_u, self.old_kpt_u):
+            # Average of psit(t) and predicted psit(t+dt)
+            if(self.corrector_guess):
+                mean_psit_nG = 0.5*(kpt.psit_nG + rhs_kpt.psit_nG)
+                self.td_hamiltonian.half_apply(kpt, mean_psit_nG, self.hpsit)
+                self.td_overlap.apply_inverse(self.hpsit, self.sinvhpsit, self.wfs, kpt, use_cg=self.use_cg[1])
+
+                # Update kpt.psit_nG to reflect psit(t+dt) - i S^(-1) dH(t+dt/2) dt/2 psit(t+dt/2)
+                kpt.psit_nG[:] = kpt.psit_nG - .5J * self.sinvhpsit * time_step
+                self.mblas.multi_zaxpy(-.5j*time_step, self.sinvhpsit, kpt.psit_nG, nvec)
+
+            self.solve_propagation_equation(kpt, rhs_kpt, time_step)
+ 
+        # update projections before exiting
+        self.td_overlap.update(self.wfs)
+       
+        return self.niter
+
+
+    # ( S + i H dt/2 ) psit(t+dt) = ( S - i H dt/2 ) psit(t)
+    def solve_propagation_equation(self, kpt, rhs_kpt, time_step, calculate_P_ani=False, guess=False):
+
+        # kpt is guess, rhs_kpt is used to calculate rhs and is overwritten
+        nvec = len(rhs_kpt.psit_nG)
+
+        assert kpt != rhs_kpt, 'Data race condition detected'
+        assert len(kpt.psit_nG) == nvec, 'Incompatible lhs/rhs vectors'
+
+        self.timer.start('Apply time-dependent operators')
+        # Store H psi(t) as hpsit and S psit(t) as spsit
+        self.td_overlap.update_k_point_projections(self.wfs, kpt, rhs_kpt.psit_nG)
+        self.td_hamiltonian.apply(kpt, rhs_kpt.psit_nG, self.hpsit,
+                                  calculate_P_ani=False)
+        self.td_hamiltonian.calculate_paw_correction(rhs_kpt.psit_nG, self.hpsit, self.wfs, kpt, self.v_at, calculate_P_ani=False)
+            
+        self.td_overlap.apply(rhs_kpt.psit_nG, self.spsit, self.wfs, kpt,
+                              calculate_P_ani=False)
+        self.timer.stop('Apply time-dependent operators')
+
+        #self.mblas.multi_zdotc(self.shift, rhs_kpt.psit_nG, self.hpsit, nvec)
+        #self.shift *= self.gd.dv
+        #self.mblas.multi_zdotc(self.tmp_shift, rhs_kpt.psit_nG, self.spsit, nvec)
+        #self.tmp_shift *= self.gd.dv
+        #self.shift /= self.tmp_shift
+
+        # Update rhs_kpt.psit_nG to reflect ( S - i H dt/2 ) psit(t)
+        #rhs_kpt.psit_nG[:] = self.spsit - .5J * self.hpsit * time_step
+        rhs_kpt.psit_nG[:] = self.spsit
+        self.mblas.multi_zaxpy(-.5j*time_step, self.hpsit, rhs_kpt.psit_nG, nvec)
+        # Apply shift -i eps S t/2
+        #self.mblas.multi_zaxpy(-.5j*time_step * (-self.shift), self.spsit, rhs_kpt.psit_nG, nvec)
+
+        if guess:
+            if self.sinvhpsit is None:
+                self.sinvhpsit = self.gd.zeros(len(kpt.psit_nG), dtype=complex)
+
+            if self.predictor_guess[1]:
+                if self.sinvh2psit is None:
+                    self.sinvh2psit = self.gd.zeros(len(kpt.psit_nG), dtype=complex)
+
+            # Update estimate of psit(t+dt) to ( 1 - i S^(-1) H dt ) psit(t)
+            #print 'self.use_cg[0]', self.use_cg[0]
+            self.td_overlap.apply_inverse(self.hpsit, self.sinvhpsit, self.wfs, kpt, use_cg=self.use_cg[0])
+            #assert self.use_cg[0] is False
+            #self.td_overlap.apply_inverse(self.hpsit, self.sinvhpsit, self.wfs, kpt, use_cg=False)
+            
+            self.mblas.multi_zaxpy(-1.0j*time_step, self.sinvhpsit,
+                                   kpt.psit_nG, nvec)
+            #print 'using guess for P step'
+            if(self.predictor_guess[1]):
+                #print 'using 2nd order guess for P step'
+                self.td_hamiltonian.apply(kpt, self.sinvhpsit, self.sinvh2psit,
+                                  calculate_P_ani=False)
+                self.td_hamiltonian.calculate_paw_correction(self.sinvhpsit, self.sinvh2psit, self.wfs, kpt, self.v_at, calculate_P_ani=False)
+                self.td_overlap.apply_inverse(self.sinvh2psit, self.sinvh2psit, self.wfs, kpt, use_cg=self.use_cg[0])
+                self.mblas.multi_zaxpy(-.5 * time_step*time_step, self.sinvh2psit,
+                                   kpt.psit_nG, nvec)
+                
+
+        # Information needed by solver.solve -> self.dot
+        self.kpt = kpt
+        self.time_step = time_step
+
+        # Solve A x = b where A is (S + i H dt/2) and b = rhs_kpt.psit_nG
+        self.niter += self.solver.solve(self, kpt.psit_nG, rhs_kpt.psit_nG)
+
+        # Apply shift exp(i eps t)
+        #self.phase_shift = np.exp(1.0J * self.shift * time_step)
+        #self.mblas.multi_scale(self.phase_shift, kpt.psit_nG, nvec)
+
+    # ( S + i H dt/2 ) psi
+    def dot(self, psi, psin):
+        """Applies the propagator matrix to the given wavefunctions.
+
+        Parameters
+        ----------
+        psi: List of coarse grids
+            the known wavefunctions
+        psin: List of coarse grids
+            the result ( S + i H dt/2 ) psi
+
+        """
+        self.timer.start('Apply time-dependent operators')
+        self.td_overlap.update_k_point_projections(self.wfs, self.kpt, psi)
+        self.td_hamiltonian.apply(self.kpt, psi, self.hpsit,
+                                  calculate_P_ani=False)
+        self.td_hamiltonian.calculate_paw_correction(psi, self.hpsit, self.wfs, self.kpt, self.v_at, calculate_P_ani=False)
+        self.td_overlap.apply(psi, self.spsit, self.wfs, self.kpt, calculate_P_ani=False)
+        self.timer.stop('Apply time-dependent operators')
+
+        # psin[:] = self.spsit + .5J * self.time_step * self.hpsit
+        psin[:] = self.spsit
+        self.mblas.multi_zaxpy(.5j*self.time_step, self.hpsit, psin, len(psi))
+        # Apply shift -i eps S t/2 
+        #self.mblas.multi_zaxpy(.5j * self.time_step * (-self.shift), self.spsit, psin, len(psi))
+
+class EhrenfestHGHSICN(ExplicitCrankNicolson):
+    """Semi-implicit Crank-Nicolson propagator for Ehrenfest dynamics
+       using HGH pseudopotentials
+    
+    """
+    def __init__(self, td_density, td_hamiltonian, td_overlap, 
+                 solver, preconditioner, gd, timer):
+        """Create SemiImplicitCrankNicolson-object.
+        
+        Parameters
+        ----------
+        td_density: TimeDependentDensity
+            the time-dependent density
+        td_hamiltonian: TimeDependentHamiltonian
+            the time-dependent hamiltonian
+        td_overlap: TimeDependentOverlap
+            the time-dependent overlap operator
+        solver: LinearSolver
+            solver for linear equations
+        preconditioner: Preconditioner
+            preconditioner for linear equations
+        gd: GridDescriptor
+            coarse (wavefunction) grid descriptor
+        timer: Timer
+            timer
+        
+        """
+        ExplicitCrankNicolson.__init__(self, td_density, td_hamiltonian,
+                          td_overlap, solver, preconditioner, gd, timer)
+
+        self.old_kpt_u = None
+
+    def propagate(self, time, time_step):
+        """Propagate wavefunctions once.
+        
+        Parameters
+        ----------
+        time: float
+            the current time
+        time_step: float
+            time step
+        """
+
+        self.niter = 0
+
+        # Allocate old/temporary wavefunctions
+        if self.old_kpt_u is None:
+            self.old_kpt_u = []
+            for kpt in self.wfs.kpt_u:
+                old_kpt = DummyKPoint()
+                old_kpt.psit_nG = self.gd.empty(n=len(kpt.psit_nG),
+                                                dtype=complex)
+                self.old_kpt_u.append(old_kpt)
+
+        if self.tmp_kpt_u is None:
+            self.tmp_kpt_u = []
+            for kpt in self.wfs.kpt_u:
+                tmp_kpt = DummyKPoint()
+                tmp_kpt.psit_nG = self.gd.empty(n=len(kpt.psit_nG),
+                                                dtype=complex)
+                self.tmp_kpt_u.append(tmp_kpt)
+
+        # Allocate memory for Crank-Nicolson stuff
+        nvec = len(self.wfs.kpt_u[0].psit_nG)
+        if self.hpsit is None:
+            self.hpsit = self.gd.zeros(nvec, dtype=complex)
+        if self.spsit is None:
+            self.spsit = self.gd.zeros(nvec, dtype=complex)
+
+
+        self.timer.start('Update time-dependent operators')
+
+        # Update overlap S(t) of kpt.psit_nG in kpt.P_ani.
+        self.td_overlap.update(self.wfs)
+
+        # Calculate density rho(t) based on the wavefunctions psit_nG
+        # in kpt_u for t = time. Updates wfs.D_asp based on kpt.P_ani.
+        self.td_density.update()
+
+        # Update Hamiltonian H(t) to reflect density rho(t)
+        self.td_hamiltonian.update(self.td_density.get_density(), time)
+
+        self.timer.stop('Update time-dependent operators')
+
+        # Copy current wavefunctions psit_nG to work and old wavefunction arrays
+        for u, kpt in enumerate(self.wfs.kpt_u):
+            self.old_kpt_u[u].psit_nG[:] = kpt.psit_nG
+            self.tmp_kpt_u[u].psit_nG[:] = kpt.psit_nG
+
+        #print 'P_ani[0] =', self.wfs.kpt_u[0].P_ani[0]
+        #print self.test
+
+
+        # Predictor step
+        # Overwrite psit_nG in tmp_kpt_u by (1 - i S^(-1)(t) H(t) dt) psit_nG
+        # from corresponding kpt_u in a Euler step before predicting psit(t+dt)
+        for [kpt, rhs_kpt] in zip(self.wfs.kpt_u, self.tmp_kpt_u):
+            self.solve_propagation_equation(kpt, rhs_kpt, time_step, guess=False)
+
+        self.timer.start('Update time-dependent operators')
+
+        # Update overlap S(t+dt) of kpt.psit_nG in kpt.P_ani.
+        self.td_overlap.update(self.wfs)
+
+        # Calculate density rho(t+dt) based on the wavefunctions psit_nG in
+        # kpt_u for t = time+time_step. Updates wfs.D_asp based on kpt.P_ani.
+        self.td_density.update()
+
+        # Estimate Hamiltonian H(t+dt/2) by averaging H(t) and H(t+dt)
+        # and retain the difference for a half-way Hamiltonian dH(t+dt/2).
+        self.td_hamiltonian.half_update(self.td_density.get_density(),
+                                        time + time_step)
+
+        # Estimate overlap S(t+dt/2) by averaging S(t) and S(t+dt) #TODO!!!
+        self.td_overlap.half_update(self.wfs)
+
+        self.timer.stop('Update time-dependent operators')
+
+        # Corrector step
+        # Use predicted psit_nG in kpt_u as an initial guess, whereas the old 
+        # wavefunction in old_kpt_u are used to calculate rhs based on psit(t)
+        for [kpt, rhs_kpt] in zip(self.wfs.kpt_u, self.old_kpt_u):
+
+            self.solve_propagation_equation(kpt, rhs_kpt, time_step)
+ 
+        # update projections before exiting
+        self.td_overlap.update(self.wfs)
+       
+        return self.niter
+
+
+    # ( S + i H dt/2 ) psit(t+dt) = ( S - i H dt/2 ) psit(t)
+    def solve_propagation_equation(self, kpt, rhs_kpt, time_step, calculate_P_ani = False, guess=False):
+
+        # kpt is guess, rhs_kpt is used to calculate rhs and is overwritten
+        nvec = len(rhs_kpt.psit_nG)
+
+        assert kpt != rhs_kpt, 'Data race condition detected'
+        assert len(kpt.psit_nG) == nvec, 'Incompatible lhs/rhs vectors'
+
+        self.timer.start('Apply time-dependent operators')
+        # Store H psi(t) as hpsit and S psit(t) as spsit
+        self.td_overlap.update_k_point_projections(self.wfs, kpt, rhs_kpt.psit_nG)
+        self.td_hamiltonian.apply(kpt, rhs_kpt.psit_nG, self.hpsit,
+                                  calculate_P_ani=False)          
+        self.td_overlap.apply(rhs_kpt.psit_nG, self.spsit, self.wfs, kpt,
+                              calculate_P_ani=False)
+        self.timer.stop('Apply time-dependent operators')
+
+        # Update rhs_kpt.psit_nG to reflect ( S - i H dt/2 ) psit(t)
+        #rhs_kpt.psit_nG[:] = self.spsit - .5J * self.hpsit * time_step
+        rhs_kpt.psit_nG[:] = self.spsit
+        self.mblas.multi_zaxpy(-.5j*time_step, self.hpsit, rhs_kpt.psit_nG, nvec)
+        # Apply shift -i eps S t/2
+        #self.mblas.multi_zaxpy(-.5j*time_step * (-self.shift), self.spsit, rhs_kpt.psit_nG, nvec)
+
+        # Information needed by solver.solve -> self.dot
+        self.kpt = kpt
+        self.time_step = time_step
+
+        # Solve A x = b where A is (S + i H dt/2) and b = rhs_kpt.psit_nG
+        self.niter += self.solver.solve(self, kpt.psit_nG, rhs_kpt.psit_nG)
+
+        # Apply shift exp(i eps t)
+        #self.phase_shift = np.exp(1.0J * self.shift * time_step)
+        #self.mblas.multi_scale(self.phase_shift, kpt.psit_nG, nvec)
+
+    # ( S + i H dt/2 ) psi
+    def dot(self, psi, psin):
+        """Applies the propagator matrix to the given wavefunctions.
+
+        Parameters
+        ----------
+        psi: List of coarse grids
+            the known wavefunctions
+        psin: List of coarse grids
+            the result ( S + i H dt/2 ) psi
+
+        """
+        ExplicitCrankNicolson.dot(self, psi, psin)
+
 
 
 
@@ -639,13 +1070,11 @@ class EnforcedTimeReversalSymmetryCrankNicolson(ExplicitCrankNicolson):
         self.old_kpt_u = None
 
 
-    def propagate(self, kpt_u, time, time_step, update_callback = None):
+    def propagate(self, time, time_step, update_callback=None):
         """Propagate wavefunctions once.
         
         Parameters
         ----------
-        kpt_u: List of Kpoints
-            K-points
         time: float
             the current time
         time_step: float
@@ -657,7 +1086,7 @@ class EnforcedTimeReversalSymmetryCrankNicolson(ExplicitCrankNicolson):
         # Allocate old/temporary wavefunctions
         if self.old_kpt_u is None:
             self.old_kpt_u = []
-            for kpt in kpt_u:
+            for kpt in self.wfs.kpt_u:
                 old_kpt = DummyKPoint()
                 old_kpt.psit_nG = self.gd.empty(n=len(kpt.psit_nG),
                                                 dtype=complex)
@@ -665,14 +1094,14 @@ class EnforcedTimeReversalSymmetryCrankNicolson(ExplicitCrankNicolson):
 
         if self.tmp_kpt_u is None:
             self.tmp_kpt_u = []
-            for kpt in kpt_u:
+            for kpt in self.wfs.kpt_u:
                 tmp_kpt = DummyKPoint()
                 tmp_kpt.psit_nG = self.gd.empty(n=len(kpt.psit_nG),
                                                 dtype=complex)
                 self.tmp_kpt_u.append(tmp_kpt)
 
         # Allocate memory for Crank-Nicolson stuff
-        nvec = len(kpt_u[0].psit_nG)
+        nvec = len(self.wfs.kpt_u[0].psit_nG)
         if self.hpsit is None:
             self.hpsit = self.gd.zeros(nvec, dtype=complex)
         if self.spsit is None:
@@ -682,7 +1111,7 @@ class EnforcedTimeReversalSymmetryCrankNicolson(ExplicitCrankNicolson):
         self.timer.start('Update time-dependent operators')
 
         # Update overlap S(t) of kpt.psit_nG in kpt.P_ani.
-        self.td_overlap.update()
+        self.td_overlap.update(self.wfs)
 
         # Calculate density rho(t) based on the wavefunctions psit_nG
         # in kpt_u for t = time. Updates wfs.D_asp based on kpt.P_ani.
@@ -694,27 +1123,27 @@ class EnforcedTimeReversalSymmetryCrankNicolson(ExplicitCrankNicolson):
         self.timer.stop('Update time-dependent operators')
 
         # Copy current wavefunctions psit_nG to work and old wavefunction arrays
-        for u in range(len(kpt_u)):
-            self.old_kpt_u[u].psit_nG[:] = kpt_u[u].psit_nG
-            self.tmp_kpt_u[u].psit_nG[:] = kpt_u[u].psit_nG
+        for u, kpt in enumerate(self.wfs.kpt_u):
+            self.old_kpt_u[u].psit_nG[:] = kpt.psit_nG
+            self.tmp_kpt_u[u].psit_nG[:] = kpt.psit_nG
 
 
         # Predictor step
-        for [kpt, rhs_kpt] in zip(kpt_u, self.old_kpt_u):
+        for [kpt, rhs_kpt] in zip(self.wfs.kpt_u, self.old_kpt_u):
             self.create_rhs(rhs_kpt, kpt, time_step)
 
         if update_callback is not None:
             update_callback()
 
             
-        for [kpt, rhs_kpt] in zip(kpt_u, self.old_kpt_u):            
+        for [kpt, rhs_kpt] in zip(self.wfs.kpt_u, self.old_kpt_u):            
             self.solve_propagation_equation(kpt, rhs_kpt, time_step)
 
 
         self.timer.start('Update time-dependent operators')
 
         # Update overlap S(t+dt) of kpt.psit_nG in kpt.P_ani.
-        self.td_overlap.update()
+        self.td_overlap.update(self.wfs)
 
         # Calculate density rho(t+dt) based on the wavefunctions psit_nG in
         # kpt_u for t = time+time_step. Updates wfs.D_asp based on kpt.P_ani.
@@ -726,18 +1155,18 @@ class EnforcedTimeReversalSymmetryCrankNicolson(ExplicitCrankNicolson):
                                    time + time_step)
 
         # Estimate overlap S(t+dt/2) by averaging S(t) and S(t+dt) #TODO!!!
-        self.td_overlap.update()
+        self.td_overlap.update(self.wfs)
 
         self.timer.stop('Update time-dependent operators')
 
         # Corrector step
         # Use predicted psit_nG in kpt_u as an initial guess, whereas the old 
         # wavefunction in old_kpt_u are used to calculate rhs based on psit(t)
-        for [kpt, rhs_kpt] in zip(kpt_u, self.old_kpt_u):
+        for [kpt, rhs_kpt] in zip(self.wfs.kpt_u, self.old_kpt_u):
             self.solve_propagation_equation(kpt, rhs_kpt, time_step)
 
         # update projections before exiting
-        self.td_overlap.update()
+        self.td_overlap.update(self.wfs)
         
         return self.niter
 
@@ -751,10 +1180,10 @@ class EnforcedTimeReversalSymmetryCrankNicolson(ExplicitCrankNicolson):
 
         self.timer.start('Apply time-dependent operators')
         # Store H psi(t) as hpsit and S psit(t) as spsit
-        self.td_overlap.update_k_point_projections(kpt, rhs_kpt.psit_nG)
+        self.td_overlap.update_k_point_projections(self.wfs, kpt, rhs_kpt.psit_nG)
         self.td_hamiltonian.apply(kpt, rhs_kpt.psit_nG, self.hpsit,
                                   calculate_P_ani=False)
-        self.td_overlap.apply(kpt, rhs_kpt.psit_nG, self.spsit,
+        self.td_overlap.apply(rhs_kpt.psit_nG, self.spsit, self.wfs, kpt,
                               calculate_P_ani=False)
         self.timer.stop('Apply time-dependent operators')
 
@@ -840,14 +1269,9 @@ class AbsorptionKick(ExplicitCrankNicolson):
                         preconditioner, gd, timer, cuda=cuda)
 
 
-    def kick(self, kpt_u):
+    def kick(self):
         """Excite all possible frequencies.
         
-        Parameters
-        ----------
-        kpt_u: List of Kpoints
-            K-points
-
         """
 
         # if rank == 0:
@@ -855,7 +1279,7 @@ class AbsorptionKick(ExplicitCrankNicolson):
 
         for l in range(self.td_hamiltonian.iterations):
             print "kick propagate =",l
-            self.propagate(kpt_u, 0, 1.0)
+            self.propagate(0, 1.0)
             # if rank == 0:
             #     self.text('.')
         # if rank == 0:
@@ -876,7 +1300,7 @@ class SemiImplicitTaylorExponential(DummyPropagator):
     """
     
     def __init__(self, td_density, td_hamiltonian, td_overlap, solver,
-                 preconditioner, gd, timer, degree):
+                 preconditioner, gd, timer, degree=4):
         """Create SemiImplicitTaylorExponential-object.
         
         Parameters
@@ -896,7 +1320,7 @@ class SemiImplicitTaylorExponential(DummyPropagator):
         timer: Timer
             timer
         degree: integer
-            Degree of the Taylor polynomial
+            Degree of the Taylor polynomial (default is 4)
         
         """
         DummyPropagator.__init__(self, td_density, td_hamiltonian, td_overlap,
@@ -909,13 +1333,11 @@ class SemiImplicitTaylorExponential(DummyPropagator):
         self.hpsit = None
         
         
-    def propagate(self, kpt_u, time, time_step):
+    def propagate(self, time, time_step):
         """Propagate wavefunctions once.
         
         Parameters
         ----------
-        kpt_u: List of Kpoints
-            K-points
         time: float
             the current time
         time_step: float
@@ -927,14 +1349,14 @@ class SemiImplicitTaylorExponential(DummyPropagator):
         # Allocate temporary wavefunctions
         if self.tmp_kpt_u is None:
             self.tmp_kpt_u = []
-            for kpt in kpt_u:
+            for kpt in self.wfs.kpt_u:
                 tmp_kpt = DummyKPoint()
                 tmp_kpt.psit_nG = self.gd.empty(n=len(kpt.psit_nG),
                                                 dtype=complex)
                 self.tmp_kpt_u.append(tmp_kpt)
 
         # Allocate memory for Taylor exponential stuff
-        nvec = len(kpt_u[0].psit_nG)
+        nvec = len(self.wfs.kpt_u[0].psit_nG)
         if self.psin is None:
             self.psin = self.gd.zeros(nvec, dtype=complex)
         if self.hpsit is None:
@@ -944,7 +1366,7 @@ class SemiImplicitTaylorExponential(DummyPropagator):
         self.timer.start('Update time-dependent operators')
 
         # Update overlap S(t) of kpt.psit_nG in kpt.P_ani.
-        self.td_overlap.update()
+        self.td_overlap.update(self.wfs)
 
         # Calculate density rho(t) based on the wavefunctions psit_nG
         # in kpt_u for t = time. Updates wfs.D_asp based on kpt.P_ani.
@@ -957,18 +1379,18 @@ class SemiImplicitTaylorExponential(DummyPropagator):
 
 
         # copy current wavefunctions to temporary variable
-        for u in range(len(kpt_u)):
-            self.tmp_kpt_u[u].psit_nG[:] = kpt_u[u].psit_nG
+        for u, kpt in enumerate(self.wfs.kpt_u):
+            self.tmp_kpt_u[u].psit_nG[:] = kpt.psit_nG
 
         # predict for each k-point
-        for kpt in kpt_u:
+        for kpt in self.wfs.kpt_u:
             self.solve_propagation_equation(kpt, time_step)
 
 
         self.timer.start('Update time-dependent operators')
 
         # Update overlap S(t+dt) of kpt.psit_nG in kpt.P_ani.
-        self.td_overlap.update()
+        self.td_overlap.update(self.wfs)
 
         # Calculate density rho(t+dt) based on the wavefunctions psit_nG in
         # kpt_u for t = time+time_step. Updates wfs.D_asp based on kpt.P_ani.
@@ -979,21 +1401,21 @@ class SemiImplicitTaylorExponential(DummyPropagator):
                                         time + time_step)
 
         # Estimate overlap S(t+dt/2) by averaging S(t) and S(t+dt) #TODO!!!
-        self.td_overlap.half_update()
+        self.td_overlap.half_update(self.wfs)
 
         self.timer.stop('Update time-dependent operators')
 
 
         # propagate psit(t), not psit(t+dt), in correct
-        for u in range(len(kpt_u)):
-            kpt_u[u].psit_nG[:] = self.tmp_kpt_u[u].psit_nG
+        for u, kpt in enumerate(self.wfs.kpt_u):
+            kpt.psit_nG[:] = self.tmp_kpt_u[u].psit_nG
 
         # correct for each k-point
-        for kpt in kpt_u:
+        for kpt in self.wfs.kpt_u:
             self.solve_propagation_equation(kpt, time_step)
         
         # update projections before exiting
-        self.td_overlap.update()
+        self.td_overlap.update(self.wfs)
 
         return self.niter
 
@@ -1023,7 +1445,7 @@ class SemiImplicitTaylorExponential(DummyPropagator):
         kpt.psit_nG[:] = self.psin
 
     def dot(self, psit, spsit):
-        self.td_overlap.apply(self.kpt, psit, spsit)
+        self.td_overlap.apply(psit, spsit, self.wfs, self.kpt)
 
 
 
@@ -1038,7 +1460,7 @@ class SemiImplicitKrylovExponential(DummyPropagator):
     """
     
     def __init__(self, td_density, td_hamiltonian, td_overlap, solver,
-                 preconditioner, gd, timer, degree):
+                 preconditioner, gd, timer, degree=4):
         """Create SemiImplicitKrylovExponential-object.
         
         Parameters
@@ -1058,7 +1480,7 @@ class SemiImplicitKrylovExponential(DummyPropagator):
         timer: Timer
             timer
         degree: integer
-            Degree of the Krylov subspace
+            Degree of the Krylov subspace (default is 4)
         
         """
         DummyPropagator.__init__(self, td_density, td_hamiltonian, td_overlap,
@@ -1078,13 +1500,11 @@ class SemiImplicitKrylovExponential(DummyPropagator):
         self.rqm = None
         
         
-    def propagate(self, kpt_u, time, time_step):
+    def propagate(self, time, time_step):
         """Propagate wavefunctions once.
         
         Parameters
         ----------
-        kpt_u: List of Kpoints
-            K-points
         time: float
             the current time
         time_step: float
@@ -1096,7 +1516,7 @@ class SemiImplicitKrylovExponential(DummyPropagator):
         # Allocate temporary wavefunctions
         if self.tmp_kpt_u is None:
             self.tmp_kpt_u = []
-            for kpt in kpt_u:
+            for kpt in self.wfs.kpt_u:
                 tmp_kpt = DummyKPoint()
                 tmp_kpt.psit_nG = self.gd.empty(n=len(kpt.psit_nG),
                                                 dtype=complex)
@@ -1104,7 +1524,7 @@ class SemiImplicitKrylovExponential(DummyPropagator):
 
 
         # Allocate memory for Krylov subspace stuff
-        nvec = len(kpt_u[0].psit_nG)
+        nvec = len(self.wfs.kpt_u[0].psit_nG)
 
         # em = (wfs, degree)
         if self.em is None:
@@ -1144,7 +1564,7 @@ class SemiImplicitKrylovExponential(DummyPropagator):
         self.timer.start('Update time-dependent operators')
 
         # Update overlap S(t) of kpt.psit_nG in kpt.P_ani.
-        self.td_overlap.update()
+        self.td_overlap.update(self.wfs)
 
         # Calculate density rho(t) based on the wavefunctions psit_nG
         # in kpt_u for t = time. Updates wfs.D_asp based on kpt.P_ani.
@@ -1157,18 +1577,18 @@ class SemiImplicitKrylovExponential(DummyPropagator):
 
 
         # copy current wavefunctions to temporary variable
-        for u in range(len(kpt_u)):
-            self.tmp_kpt_u[u].psit_nG[:] = kpt_u[u].psit_nG
+        for u, kpt in enumerate(self.wfs.kpt_u):
+            self.tmp_kpt_u[u].psit_nG[:] = kpt.psit_nG
 
         # predict for each k-point
-        for kpt in kpt_u:
+        for kpt in self.wfs.kpt_u:
             self.solve_propagation_equation(kpt, time_step)
 
 
         self.timer.start('Update time-dependent operators')
 
         # Update overlap S(t+dt) of kpt.psit_nG in kpt.P_ani.
-        self.td_overlap.update()
+        self.td_overlap.update(self.wfs)
 
         # Calculate density rho(t+dt) based on the wavefunctions psit_nG in
         # kpt_u for t = time+time_step. Updates wfs.D_asp based on kpt.P_ani.
@@ -1179,21 +1599,21 @@ class SemiImplicitKrylovExponential(DummyPropagator):
                                         time + time_step)
 
         # Estimate overlap S(t+dt/2) by averaging S(t) and S(t+dt) #TODO!!!
-        self.td_overlap.half_update()
+        self.td_overlap.half_update(self.wfs)
 
         self.timer.stop('Update time-dependent operators')
 
 
         # propagate psit(t), not psit(t+dt), in correct
-        for u in range(len(kpt_u)):
-            kpt_u[u].psit_nG[:] = self.tmp_kpt_u[u].psit_nG
+        for u, kpt in enumerate(self.wfs.kpt_u):
+            kpt.psit_nG[:] = self.tmp_kpt_u[u].psit_nG
 
         # correct for each k-point
-        for kpt in kpt_u:
+        for kpt in self.wfs.kpt_u:
             self.solve_propagation_equation(kpt, time_step)
         
         # update projections before exiting
-        self.td_overlap.update()
+        self.td_overlap.update(self.wfs)
 
         return self.niter
     
@@ -1297,7 +1717,7 @@ class SemiImplicitKrylovExponential(DummyPropagator):
                 self.mblas.multi_zaxpy(-tmp, qm[j], qm[i], nvec)
 
             # S q_i
-            s.apply(kpt, qm[i], Sqm[i])
+            s.apply(qm[i], Sqm[i], self.wfs, kpt)
             self.mblas.multi_zdotc(tmp, qm[i], Sqm[i], nvec)
             tmp *= self.gd.dv
             self.mblas.multi_scale(1./np.sqrt(tmp), qm[i], nvec)
@@ -1319,12 +1739,12 @@ class SemiImplicitKrylovExponential(DummyPropagator):
         return scale
 
     def dot(self, psit, spsit):
-        self.td_overlap.apply(self.kpt, psit, spsit)
+        self.td_overlap.apply(psit, spsit, self.wfs, self.kpt)
 
     ### Below this, just for testing & debug
     def Sdot(self, psit, spsit):
         self.apply_preconditioner(psit, self.tmp)
-        self.td_overlap.apply(self.kpt, self.tmp, spsit)
+        self.td_overlap.apply(self.tmp, spsit, self.wfs, self.kpt)
 
     def Hdot(self, psit, spsit):
         self.apply_preconditioner(psit, self.tmp)
@@ -1342,7 +1762,7 @@ class SemiImplicitKrylovExponential(DummyPropagator):
             self.mblas.multi_zdotc(nrm2, self.kpt.psit_nG, self.kpt.psit_nG, nvec)
             nrm2 *= self.gd.dv
             self.mblas.multi_scale(1/np.sqrt(nrm2), self.kpt.psit_nG, nvec)
-        self.td_overlap.apply(self.kpt, self.kpt.psit_nG, self.tmp)
+        self.td_overlap.apply(self.kpt.psit_nG, self.tmp, self.wfs, self.kpt)
         self.mblas.multi_zdotc(nrm2, self.kpt.psit_nG, self.tmp, nvec)
         nrm2 *= self.gd.dv
         print 'S min eig = ', nrm2
@@ -1357,11 +1777,11 @@ class SemiImplicitKrylovExponential(DummyPropagator):
 
         for i in range(100):
             self.tmp[:] = self.kpt.psit_nG
-            self.td_overlap.apply(self.kpt, self.tmp, self.kpt.psit_nG)
+            self.td_overlap.apply(self.tmp, self.kpt.psit_nG, self.wfs, self.kpt)
             self.mblas.multi_zdotc(nrm2, self.kpt.psit_nG, self.kpt.psit_nG, nvec)
             nrm2 *= self.gd.dv
             self.mblas.multi_scale(1/np.sqrt(nrm2), self.kpt.psit_nG, nvec)
-        self.td_overlap.apply(self.kpt, self.kpt.psit_nG, self.tmp)
+        self.td_overlap.apply(self.kpt.psit_nG, self.tmp, self.wfs, self.kpt)
         self.mblas.multi_zdotc(nrm2, self.kpt.psit_nG, self.tmp, nvec)
         nrm2 *= self.gd.dv
         print 'S max eig = ', nrm2
