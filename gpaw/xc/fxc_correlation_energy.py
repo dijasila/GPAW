@@ -423,7 +423,8 @@ class FXCCorrelation:
             local_E_q_w[i] += np.dot(np.diag(chi0[i]),
                                      np.diag(np.tile(Kc_GG, (ns, ns))))
         df.wcomm.all_gather(local_E_q_w, E_q_w)
-        del df
+
+        del df, chi0, chi0_fhxc, chi_l, X_ss, Kc_GG, fhxc_sGsG
         
         if self.gauss_legendre is not None:
             E_q = np.sum(E_q_w * self.gauss_weights * self.transform) \
@@ -648,17 +649,15 @@ class FXCCorrelation:
 
         Kxc_sGG = np.zeros((ns, npw, npw), dtype=complex)
         Kcr_sGG = np.zeros((ns+3%ns, npw, npw), dtype=complex)
-        
+
+        print >> self.txt, 'Calculating %s kernel - ' % self.xc
         if self.paw_correction == 0:
-            print >> self.txt, 'Calculating %s kernel - ' % self.xc \
-                  + 'No paw correction'
+            print >> self.txt, '    No PAW correction'
         elif self.paw_correction == 1:
-            print >> self.txt, 'Calculating %s kernel - ' % self.xc \
-                  + 'Paw correction at ALDA level' 
+            print >> self.txt, '    PAW correction at ALDA level' 
         else:
-            print >> self.txt, 'Calculating %s kernel - ' % self.xc \
-                  + 'Average paw correction'
-        print >> self.txt, 'Non-periodic two-point density'
+            print >> self.txt, '    Average PAW correction'
+        print >> self.txt, '    Non-periodic two-point density'
         
         # The soft part
         A_x = -(3/4.) * (3/np.pi)**(1/3.)
@@ -860,14 +859,16 @@ class FXCCorrelation:
                               setups,
                               D_asp,
                               q):
-        
+
+        print >> self.txt, 'Calculating %s kernel - ' % self.xc
         if self.paw_correction == 0:
-            print >> self.txt, 'Calculating %s kernel - No paw correction' % self.xc
+            print >> self.txt, '    No PAW correction'
         elif self.paw_correction == 1:
-            print >> self.txt, 'Calculating %s kernel - Full paw correction' % self.xc
+            print >> self.txt, '    PAW correction at ALDA level' 
         else:
-            print >> self.txt, 'Calculating %s kernel - Average paw correction' % self.xc
-        print >> self.txt, 'Periodic average density'
+            print >> self.txt, '    Average PAW correction'
+        print >> self.txt, '    Periodic average density'
+        
         # The soft part        
         ns = self.nspins        
         A_x = -(3/4.) * (3/np.pi)**(1/3.)
