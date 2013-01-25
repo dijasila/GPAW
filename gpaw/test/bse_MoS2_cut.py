@@ -9,7 +9,7 @@ from gpaw.mpi import rank
 calc = GPAW(h=0.2,
             xc='GLLBSC',
             nbands=20,
-            setups={'Mo': '6'}
+            setups={'Mo': '6'},
             occupations=FermiDirac(0.001),
             convergence={'bands': -5},
             kpts=(9,9,1))
@@ -29,9 +29,11 @@ pos[2][2] = pos[0][2] - 3.172/2
 layer.set_positions(pos)
 layer.set_calculator(calc)
 layer.get_potential_energy()
+calc.write()
 response = calc.hamiltonian.xc.xcs['RESPONSE']
 response.calculate_delta_xc()
 E_ks, dis = response.calculate_delta_xc_perturbation()
+    
 
 bse = BSE(calc,
           w=np.linspace(0., 5., 501),
@@ -51,10 +53,10 @@ bse.get_dielectric_function('bse_cut.dat')
 
 if rank == 0 and os.path.isfile('phi_qaGp'):
     os.remove('phi_qaGp')
-
-d = np.loadtxt('bse_cut.dat')
-Nw = 88
-if d[Nw,2] > d[Nw-1,2] and d[Nw,2] > d[Nw+1,2]:
-    pass
-else:
-    raise ValueError('Absorption peak not correct ! ')
+    
+    d = np.loadtxt('bse_cut.dat')
+    Nw = 88
+    if d[Nw,2] > d[Nw-1,2] and d[Nw,2] > d[Nw+1,2]:
+        pass
+    else:
+        raise ValueError('Absorption peak not correct ! ')
