@@ -5,7 +5,7 @@ from gpaw.mpi import size
 from gpaw import GPAW
 from gpaw.response.bse import BSE
 
-GS = 0
+GS = 1
 bse = 1
 casida = 1
 compare = 1

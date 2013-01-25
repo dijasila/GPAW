@@ -76,7 +76,11 @@ def calculate_Kc(q_c,
 
     if integrate_gamma:
         assert N_k is not None
-        
+        if (q_c == 0).all():
+            # Only to avoid dividing by zero below!
+            # The term is handled separately later
+            q_c = [1.e-12, 0., 0.]
+            
     G_p = np.array(pbc, float)
     G_n = np.array([1,1,1]) - G_p
 
