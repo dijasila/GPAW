@@ -16,7 +16,7 @@ from gpaw.response.math_func import delta_function,  \
      two_phi_planewave_integrals
 from gpaw.response.parallel import set_communicator, \
      parallel_partition, SliceAlongFrequency, SliceAlongOrbitals
-from gpaw.response.kernel import calculate_Kxc
+from gpaw.response.kernel import calculate_Kxc, calculate_Kc, calculate_Kc_q
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.pw import PWLFC
 import gpaw.wavefunctions.pw as pw
@@ -568,7 +568,7 @@ class BASECHI:
 
         optical_limit = False
         if np.abs(q).sum() < 1e-8:
-            q = np.array([1e-4, 0, 0]) # arbitrary q, not really need to be calculated
+            q = np.array([1e-12, 0, 0]) # arbitrary q, not really need to be calculated
             optical_limit = True
             
         if static:
@@ -591,7 +591,28 @@ class BASECHI:
             assert df.Nw == self.Nw
             assert df.dw == self.dw
 
+        # calculate Coulomb kernel and use truncation in 2D
         delta_GG = np.eye(df.npw)
+        Vq_G = np.diag(calculate_Kc(q,
+                                    df.Gvec_Gc,
+                                    self.acell_cv,
+                                    self.bcell_cv,
+                                    self.pbc,
+                                    integrate_gamma=True,
+                                    N_k=self.kd.N_c,
+                                    vcut=self.vcut))**0.5
+        if self.vcut == '2D' and df.optical_limit:
+            for iG in range(len(df.Gvec_Gc)):
+                if df.Gvec_Gc[iG, 0] == 0 and df.Gvec_Gc[iG, 1] == 0:
+                    v_q, v0_q = calculate_Kc_q(self.acell_cv,
+                                               self.bcell_cv,
+                                               self.pbc,
+                                               self.kd.N_c,
+                                               vcut=self.vcut,
+                                               q_qc=np.array([q]),
+                                               Gvec_c=df.Gvec_Gc[iG])
+                    Vq_G[iG] = v_q[0]**0.5
+        self.Kc_GG = np.outer(Vq_G, Vq_G)
 
         if ppa:
             dfinv1_GG = dfinv_wGG[0] - delta_GG
@@ -603,7 +624,7 @@ class BASECHI:
 
         if static:
             assert len(dfinv_wGG) == 1
-            W_GG = dfinv_wGG[0] * df.Kc_GG
+            W_GG = dfinv_wGG[0] * self.Kc_GG
             self.dfinv_wGG = dfinv_wGG[0]
             if optical_limit:
                 self.dfinvG0_G = dfinv_wGG[0,:,0]
@@ -614,7 +635,7 @@ class BASECHI:
             W_wGG = np.zeros_like(dfinv_wGG)
             for iw in range(Nw):
                 dfinv_wGG[iw] -= delta_GG 
-                W_wGG[iw] = dfinv_wGG[iw] * df.Kc_GG
+                W_wGG[iw] = dfinv_wGG[iw] * self.Kc_GG
             if optical_limit:
                 self.dfinvG0_wG = dfinv_wGG[:,:,0]
 

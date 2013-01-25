@@ -254,18 +254,6 @@ class GW(BASECHI):
 
         if self.static:
             W_wGG = np.array([W_wGG])
-            if df.optical_limit:
-                self.dfinvG0_wG = np.array([self.dfinvG0_G])
-
-        # prepare optical limit for both methods
-        if df.optical_limit:
-            tmp_wG = np.zeros_like(self.dfinvG0_wG)
-            q = np.array([0.0001,0,0])
-            for jG in range(1, self.npw):
-                qG = np.dot(q+self.Gvec_Gc[jG], self.bcell_cv)
-                tmp_wG[:,jG] = self.dfinvG0_wG[:,jG] / np.sqrt(np.inner(qG,qG))
-            tmp_wG *= 1./pi*self.vol*(6*pi**2/self.vol)**(2./3.)*self.nkpt**(1./3.)
-            tmp_w = 2./pi*self.vol*(6*pi**2/self.vol)**(1./3.)*self.nkpt**(2./3.)*self.dfinvG0_wG[:,0]
 
         if not self.hilbert_trans: #method 1
             Wbackup_wG0 = W_wGG[:,:,0].copy()
@@ -283,33 +271,17 @@ class GW(BASECHI):
             ng = np.shape(W_Wg)[1]
             Nw = int(self.w_w[-1] / self.dw)
 
-            Cplus_Wg = np.zeros((Nw, ng), dtype=complex)
-            Cminus_Wg = np.zeros((Nw, ng), dtype=complex)
-            Cplus_wG0 = np.zeros((2, nG), dtype=complex)
-            Cminus_wG0 = np.zeros((2, nG), dtype=complex)
-
-            if df.optical_limit:
-                tmp_WG = np.zeros((df.Nw, nG), dtype=complex)
-                wcomm.all_gather(tmp_wG, tmp_WG)
-                del tmp_wG
-                tmp_W = np.zeros(df.Nw, dtype=complex)
-                wcomm.all_gather(tmp_w, tmp_W)
-                del tmp_w
-
             w1_ww = np.zeros((Nw, df.Nw), dtype=complex)
             for iw in range(Nw):
                 w1 = iw * self.dw
                 w1_ww[iw] = 1./(w1 + self.w_w + 1j*self.eta_w) + 1./(w1 - self.w_w + 1j*self.eta_w)
                 w1_ww[iw,0] -= 1./(w1 + 1j*self.eta_w[0]) # correct w'=0
                 w1_ww[iw] *= self.dw_w
+
+            Cplus_Wg = np.zeros((Nw, ng), dtype=complex)
+            Cminus_Wg = np.zeros((Nw, ng), dtype=complex)
             Cplus_Wg = gemmdot(w1_ww, W_Wg, beta=0.0)
             Cminus_Wg = gemmdot(w1_ww.conj(), W_Wg, beta=0.0)
-            # special Hilbert transform optical limit:
-            if df.optical_limit:
-                Cplus_wG0 = gemmdot(w1_ww[0:2], tmp_WG, beta=0.0)
-                Cminus_wG0 = gemmdot(w1_ww[0:2].conj(), tmp_WG, beta=0.0)
-                Cplus_wG0[:,0] = gemmdot(w1_ww[0:2], tmp_W, beta=0.0)
-                Cminus_wG0[:,0] = gemmdot(w1_ww[0:2].conj(), tmp_W, beta=0.0)
 
         for s in range(self.nspins):
             for i, k in enumerate(self.gwkpt_k): # k is bzk index
@@ -337,15 +309,6 @@ class GW(BASECHI):
                             W_wGG[:,:,0] = Wbackup_wG0
                             W_wGG[:,0,:] = Wbackup_w0G
 
-                            if df.optical_limit:
-                                if n==m:
-                                    W_wGG[:,:,0] = tmp_wG
-                                    W_wGG[:,0,:] = tmp_wG.conj()
-                                    W_wGG[:,0,0] = tmp_w
-                                else:
-                                    W_wGG[:,0,0:] = 0.
-                                    W_wGG[:,0:,0] = 0.
-
                             # w1 = w - epsilon_m,k-q
                             w1 = self.e_skn[s,ibzkpt1, n] - self.e_skn[s,ibzkpt2,m]
 
@@ -366,14 +329,9 @@ class GW(BASECHI):
                                 dSigma_skn[s,i,j] += np.real(gemmdot(W_G, rho_G, alpha=self.alpha, beta=0.0,trans='c'))
 
                             elif self.static:
-                                W1_GG = W_wGG[0] - np.eye(df.npw)*df.Kc_GG
+                                W1_GG = W_wGG[0] - np.eye(df.npw)*self.Kc_GG
                                 W2_GG = W_wGG[0]
-                                if df.optical_limit:
-                                    if n==m:
-                                        W1_GG[0,0] = tmp_w[0] - 2./pi*self.vol*(6*pi**2/self.vol)**(1./3.)*self.nkpt**(2./3.)
-                                    else:
-                                        W1_GG[0,0:] = 0.
-                                        W1_GG[0:,0] = 0.
+
                                 # perform W_GG * np.outer(rho_G.conj(), rho_G).sum(GG)
                                 W_G = gemmdot(W1_GG, rho_G, beta=0.0) # Coulomb Hole
                                 Sigma_skn[s,i,j] += np.real(gemmdot(W_G, rho_G, alpha=self.alpha*pi/1j, beta=0.0,trans='c'))
@@ -420,36 +378,13 @@ class GW(BASECHI):
                             if sign == -1:
                                 C_Wg = Cminus_Wg[w0_id:w0_id+2] # only two grid points needed for each w0
 
-                            C_wGG = GatherOrbitals(C_Wg, coords, wcomm)
+                            C_wGG = GatherOrbitals(C_Wg, coords, wcomm).copy()
                             del C_Wg
-
-                            if df.optical_limit:
-                                if n==m:
-                                    if sign == 1:
-                                        C_wGG[:,0,:] = Cminus_wG0.conj()
-                                        C_wGG[:,:,0] = Cplus_wG0
-                                    if sign == -1:
-                                        C_wGG[:,0,:] = Cplus_wG0.conj()
-                                        C_wGG[:,:,0] = Cminus_wG0
-                                else:
-                                    C_wGG[:,0,0:] = 0.
-                                    C_wGG[:,0:,0] = 0.
 
                             # special treat of w0 = 0 (degenerate states):
                             if w0_id == 0:
-                                Cplustmp_GG = GatherOrbitals(Cplus_Wg[1], coords, wcomm)
-                                Cminustmp_GG = GatherOrbitals(Cminus_Wg[1], coords, wcomm)
-                                if df.optical_limit:
-                                    if n==m:
-                                        Cplustmp_GG[0,:] = Cminus_wG0.conj()[1]
-                                        Cplustmp_GG[:,0] = Cplus_wG0[1]
-                                        Cminustmp_GG[0,:] = Cplus_wG0.conj()[1]
-                                        Cminustmp_GG[:,0] = Cminus_wG0[1]
-                                    else:
-                                        Cplustmp_GG[0,:] = 0.
-                                        Cplustmp_GG[:,0] = 0.
-                                        Cminustmp_GG[0,:] = 0.
-                                        Cminustmp_GG[:,0] = 0.
+                                Cplustmp_GG = GatherOrbitals(Cplus_Wg[1], coords, wcomm).copy()
+                                Cminustmp_GG = GatherOrbitals(Cminus_Wg[1], coords, wcomm).copy()
 
                             # perform C_wGG * np.outer(rho_G.conj(), rho_G).sum(GG)
 

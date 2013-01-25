@@ -263,7 +263,7 @@ def calculate_Kc_q(acell_cv,
                    N_k,
                    vcut=None,
                    integrated=True,
-                   q_qc=np.array([[0., 0., 0.]]),
+                   q_qc=np.array([[1.e-12, 0., 0.]]),
                    Gvec_c=np.array([0, 0, 0]),
                    N=100):
     # get cutoff parameters
