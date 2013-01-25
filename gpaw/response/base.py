@@ -574,7 +574,7 @@ class BASECHI:
         if static:
             df = DF(calc=self.calc, q=q.copy(), w=(0.,), nbands=self.nbands,
                     optical_limit=optical_limit, hilbert_trans=False, xc='RPA',
-                    rpad=self.rpad, vcut=self.vcut,
+                    rpad=self.rpad, vcut=self.vcut, G_plus_q=True,
                     eta=0.0001, ecut=self.ecut*Hartree,
                     txt='df.out', comm=comm, kcommsize=kcommsize)
         else:
@@ -625,9 +625,6 @@ class BASECHI:
         if static:
             assert len(dfinv_wGG) == 1
             W_GG = dfinv_wGG[0] * self.Kc_GG
-            self.dfinv_wGG = dfinv_wGG[0]
-            if optical_limit:
-                self.dfinvG0_G = dfinv_wGG[0,:,0]
 
             return df, W_GG
         else:
@@ -636,7 +633,5 @@ class BASECHI:
             for iw in range(Nw):
                 dfinv_wGG[iw] -= delta_GG 
                 W_wGG[iw] = dfinv_wGG[iw] * self.Kc_GG
-            if optical_limit:
-                self.dfinvG0_wG = dfinv_wGG[:,:,0]
 
             return df, W_wGG
