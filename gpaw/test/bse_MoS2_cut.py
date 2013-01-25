@@ -29,7 +29,6 @@ pos[2][2] = pos[0][2] - 3.172/2
 layer.set_positions(pos)
 layer.set_calculator(calc)
 layer.get_potential_energy()
-calc.write()
 response = calc.hamiltonian.xc.xcs['RESPONSE']
 response.calculate_delta_xc()
 E_ks, dis = response.calculate_delta_xc_perturbation()
