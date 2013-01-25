@@ -52,7 +52,8 @@ module libxc_funcs_m
   integer, parameter :: XC_GGA_C_PW91        = 134  !  Perdew & Wang 91 
   integer, parameter :: XC_GGA_C_AM05        = 135  !  Armiento & Mattsson 05 correlation             
   integer, parameter :: XC_GGA_C_XPBE        = 136  !  xPBE reparametrization by Xu & Goddard         
-  integer, parameter :: XC_GGA_C_PBE_REVTPSS = 137  !  PBE correlation for TPSS
+  integer, parameter :: XC_GGA_C_PBE_REVTPSS = 137  !  PBE correlation for revTPSS
+  integer, parameter :: XC_GGA_C_PBE_OTPSS   = 138  !  PBE correlation for oTPSS
   integer, parameter :: XC_GGA_XC_LB         = 160  !  van Leeuwen & Baerends 
   integer, parameter :: XC_GGA_XC_HCTH_93    = 161  !  HCTH functional fitted to  93 molecules  
   integer, parameter :: XC_GGA_XC_HCTH_120   = 162  !  HCTH functional fitted to 120 molecules  

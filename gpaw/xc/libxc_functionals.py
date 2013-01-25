@@ -51,6 +51,7 @@ libxc_functionals = {
     'GGA_C_AM05': 135,
     'GGA_C_XPBE': 136,
     'GGA_C_PBE_REVTPSS': 137,
+    'GGA_C_PBE_OTPSS': 138,
     'GGA_XC_LB': 160,
     'GGA_XC_HCTH_93': 161,
     'GGA_XC_HCTH_120': 162,
