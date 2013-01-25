@@ -123,13 +123,8 @@ void XC(mgga_x_m06l)(XC(mgga_type) *p, FLOAT *rho, FLOAT *sigma, FLOAT *tau,
 void XC(mgga_c_m06l)(XC(mgga_type) *p, FLOAT *rho, FLOAT *sigma, FLOAT *tau,
 		 FLOAT *e, FLOAT *dedd, FLOAT *vsigma, FLOAT *dedtau);
 
-void XC(mgga_c_m06l)(XC(mgga_type) *p, FLOAT *rho, FLOAT *sigma, FLOAT *tau,
- 		 FLOAT *e, FLOAT *dedd, FLOAT *vsigma, FLOAT *dedtau);
- 
 void XC(mgga_x_mbeef_init)(XC(mgga_type) *p);
- 
 void XC(mgga_x_mbeef_end)(XC(mgga_type) *p);
-
 void XC(mgga_x_mbeef)(XC(mgga_type) *p, FLOAT *rho, FLOAT *sigma, FLOAT *tau,
                  FLOAT *e, FLOAT *dedd, FLOAT *vsigma, FLOAT *dedtau);
 
