@@ -894,8 +894,8 @@ class FXCCorrelation:
             for iG in l_pw_range:
                 for jG in range(npw):
                     dGq_c = (Gvec_Gc[iG] + Gvec_Gc[jG])/ 2. + q
-                    if (dGq_c == 0.0).all():
-                        dGq_c = np.array([0.0, 0.0, 0.0001])
+                    if (np.abs(dGq_c) < 1.e-12).all():
+                        dGq_c = np.array([0.0, 0.0, 0.00001])
                     dGq_v = np.dot(dGq_c, bcell_cv)
                     fxc = fxc_sg[s].copy()
                     fxc[np.where(2*kf_s[s] < np.dot(dGq_v, dGq_v)**0.5)] = 0.0
@@ -906,7 +906,6 @@ class FXCCorrelation:
                         v_off = 4 * np.pi * np.ones(np.shape(fxc_sg[0]), float)
                         v_off /= np.dot(dGq_v, dGq_v)
                         v_off[np.where(2*kf_off < np.dot(dGq_v, dGq_v)**0.5)] = 0.0
-
                     dG_c = Gvec_Gc[iG] - Gvec_Gc[jG]
                     dG_v = np.dot(dG_c, bcell_cv)
                     dGr_g = gemmdot(dG_v, r_vg, beta=0.0)
@@ -917,7 +916,9 @@ class FXCCorrelation:
                                                           * v_off)
         world.sum(Kxc_sGG)
         world.sum(Kcr_sGG)
-
+        #print np.abs(Kxc_sGG[0])/vol
+        #print np.abs(Kcr_sGG[0])/vol
+        
         if self.paw_correction != 0:
             Kxc_sGG += self.add_paw_correction(npw, Gvec_Gc, bcell_cv,
                                                setups, D_asp, R_av)
