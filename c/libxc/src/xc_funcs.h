@@ -69,6 +69,7 @@
 #define  XC_MGGA_C_M06L       204  /* Zhao, Truhlar correlation                                  */
 #define  XC_MGGA_X_REVTPSS    205  /* Perdew, Ruzsinszky, Csonka, Constantin and Sun Exchange    */
 #define  XC_MGGA_C_REVTPSS    206  /* Perdew, Ruzsinszky, Csonka, Constantin and Sun correlation */
+#define  XC_MGGA_C_OTPSS      208  /* Goerigk and Grimme oTPSS correlation                       */
 #define  XC_MGGA_X_MBEEF      209  /* mBEEF-v5 exchange                                          */
 #define  XC_LCA_OMC           301  /* Orestes, Marcasso & Capelle                                */
 #define  XC_LCA_LCH           302  /* Lee, Colwell & Handy                                       */
