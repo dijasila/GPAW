@@ -113,8 +113,14 @@ void XC(mgga_x_revtpss)(XC(mgga_type) *p, FLOAT *rho, FLOAT *sigma, FLOAT *tau,
 void XC(mgga_c_revtpss)(XC(mgga_type) *p, FLOAT *rho, FLOAT *sigma, FLOAT *tau,
 		 FLOAT *e, FLOAT *dedd, FLOAT *vsigma, FLOAT *dedtau);
 /* oTPSS */
+void XC(mgga_x_otpss_init)(XC(mgga_type) *p);
 void XC(mgga_c_otpss_init)(XC(mgga_type) *p);
+
+void XC(mgga_x_otpss_end)(XC(mgga_type) *p);
 void XC(mgga_c_otpss_end)(XC(mgga_type) *p);
+
+void XC(mgga_x_otpss)(XC(mgga_type) *p, FLOAT *rho, FLOAT *sigma, FLOAT *tau,
+                 FLOAT *e, FLOAT *dedd, FLOAT *vsigma, FLOAT *dedtau);
 void XC(mgga_c_otpss)(XC(mgga_type) *p, FLOAT *rho, FLOAT *sigma, FLOAT *tau,
                  FLOAT *e, FLOAT *dedd, FLOAT *vsigma, FLOAT *dedtau);
 /* M06L */

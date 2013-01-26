@@ -74,6 +74,7 @@ module libxc_funcs_m
   integer, parameter :: XC_MGGA_C_M06L       = 204  !  Zhao, Truhlar correlation 
   integer, parameter :: XC_MGGA_X_REVTPSS    = 205  !  Perdew, Ruzsinszky, Csonka, Constantin and Sun Exchange    
   integer, parameter :: XC_MGGA_C_REVTPSS    = 206  !  Perdew, Ruzsinszky, Csonka, Constantin and Sun Correlation
+  integer, parameter :: XC_MGGA_X_OTPSS      = 207  !  Goerigk and Grimme oTPSS exchange
   integer, parameter :: XC_MGGA_C_OTPSS      = 208  !  Goerigk and Grimme oTPSS correlation
   integer, parameter :: XC_MGGA_X_MBEEF      = 209  !  mBEEF-v5 exchange
   integer, parameter :: XC_LCA_OMC           = 301  !  Orestes, Marcasso & Capelle  
