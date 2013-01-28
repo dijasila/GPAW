@@ -1014,6 +1014,7 @@ class LrTDDFTindexed:
 
         maxC = np.max(abs(C_im))
         #print >> self.txt, maxC
+
         for kss_ip in self.kss_list:
             ip = self.index_of_kss(kss_ip.occ_ind, kss_ip.unocc_ind)
             if self.get_local_index(ip) is None:
@@ -1025,7 +1026,9 @@ class LrTDDFTindexed:
             drhot_gip[:] = 0.0
             self.calculate_pair_density( self.calc.wfs.kpt_u[self.kpt_ind],
                                          kss_ip, dnt_Gip, dnt_gip, drhot_gip )
-            drhot_g += C_im[ip] * drhot_gip
+            #### ?FIXME?: SHOULD HERE BE OCCUPATION DIFFERENCE? yes ####
+            drhot_g += kss_ip.pop_diff * C_im[ip] * drhot_gip
+
 
         self.eh_comm.sum(drhot_g)
 
@@ -1035,11 +1038,88 @@ class LrTDDFTindexed:
         return drhot_g
 
 
+
+    def get_approximate_electron_and_hole_densities(self, C_im, collect=False):
+        # Initialize wfs, paw corrections and xc, if not done yet
+        if not self.calc_ready:
+            self.calc.converge_wave_functions()
+            spos_ac = self.calc.initialize_positions()
+            self.calc.wfs.initialize(self.calc.density, 
+                                     self.calc.hamiltonian, spos_ac)
+            self.xc.initialize(self.calc.density, self.calc.hamiltonian,
+                               self.calc.wfs, self.calc.occupations)
+            self.calc_ready = True
+
+
+        # Init pair densities
+        dnt_Gip = self.calc.wfs.gd.empty()
+        dnt_gip = self.calc.density.finegd.empty()
+        drhot_gip = self.calc.density.finegd.empty()
+
+        drhot_ge = self.calc.density.finegd.empty()
+        drhot_ge[:] = 0.0
+        drhot_gh = self.calc.density.finegd.empty()
+        drhot_gh[:] = 0.0
+
+
+        # occupations for electron and hole
+        f_n = self.calc.wfs.kpt_u[self.kpt_ind].f_n
+        n_el = np.sum(f_n)
+        fe_n = np.zeros(f_n.shape)
+        fh_n = np.zeros(f_n.shape)
+
+        maxC = np.max(abs(C_im))
+
+        for kss_ip in self.kss_list:
+            ip = self.index_of_kss(kss_ip.occ_ind, kss_ip.unocc_ind)
+            if self.get_local_index(ip) is None:
+                continue
+            if abs(C_im[ip]) < 1e-5 * maxC: 
+                continue
+            fh_n[kss_ip.occ_ind]   -= C_im[ip]*C_im[ip] * kss_ip.pop_diff
+            fe_n[kss_ip.unocc_ind] += C_im[ip]*C_im[ip] * kss_ip.pop_diff
+
+
+        self.eh_comm.sum(fh_n)
+        self.eh_comm.sum(fe_n)
+
+        if self.parent_comm.rank == 0:
+            print fh_n
+            print fe_n
+
+
+        for k in range(len(f_n)):
+            if abs(fh_n[k]) < 1e-5 and abs(fe_n[k]):
+                continue
+            
+            dnt_Gip[:] = 0.0
+            dnt_gip[:] = 0.0
+            drhot_gip[:] = 0.0
+            kss_ip = KSSingle(k,k)
+            self.calculate_pair_density( self.calc.wfs.kpt_u[self.kpt_ind],
+                                         kss_ip, dnt_Gip, dnt_gip, drhot_gip )
+
+            drhot_gh += fh_n[k] * drhot_gip
+            drhot_ge += fe_n[k] * drhot_gip
+
+        self.eh_comm.sum(drhot_ge)
+        self.eh_comm.sum(drhot_gh)
+
+        if collect:
+            drhot_ge = self.calc.density.finegd.collect(drhot_ge)
+            drhot_gh = self.calc.density.finegd.collect(drhot_gh)
+
+        return (drhot_ge,drhot_gh)
+
+        
+        
+
+    #####################################################################
     # Read K-matrix from files
-    ################
+    #####################################################################
     # Wrong not reading K-matrix but it's "Casida form" 
     # 2 (dN dE)**.5 K (dN dE)**.5
-    ############
+    #####################################################################
     def read_K_matrix(self):
         nrow = len(self.kss_list)  # total rows
         nloc = 0                   # local rows
