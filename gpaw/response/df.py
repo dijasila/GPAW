@@ -110,7 +110,8 @@ class DF(CHI):
                                   self.Gvec_Gc,
                                   self.acell_cv,
                                   self.bcell_cv,
-                                  self.calc.atoms.pbc,
+                                  self.pbc, #calc.atoms.pbc,
+                                  self.npw,
                                   self.vcut,
                                   symmetric=symmetric)
 
@@ -550,6 +551,9 @@ class DF(CHI):
            
         """
         self.read(filename)
+        self.pbc = [1,1,1]
+        #self.calc.atoms.pbc = [1,1,1]
+        npw = self.npw
         self.w_w = np.linspace(0, self.dw * (self.Nw - 1)*Hartree, self.Nw)
         self.vcut = vcut
         dm_wGG = self.get_dielectric_matrix(xc=xc,
@@ -559,9 +563,25 @@ class DF(CHI):
                                             vcut=vcut)
     
         q = self.q_c
-        gd = self.calc.wfs.gd
+        
+
+        # get grid on which the eigenmodes are calculated
+        #gd = self.calc.wfs.gd
+        #r = gd.get_grid_point_coordinates()
+        #rrr = r*Bohr 
+        from gpaw.utilities.gpts import get_number_of_grid_points
+        from gpaw.grid_descriptor import GridDescriptor
+        grid_size = [1,1,1]
+        h=0.2
+        cell_cv = self.acell_cv*np.diag(grid_size)
+        mode = 'fd'
+        realspace = True
+        h /= Bohr
+        N_c = get_number_of_grid_points(cell_cv, h, mode, realspace)
+        gd = GridDescriptor(N_c, cell_cv, self.pbc) 
+        #gd = self.calc.wfs.gd
         r = gd.get_grid_point_coordinates()
-        rrr = r*Bohr 
+        rrr = r*Bohr
         
         eig_0 = np.array([], dtype = complex)
         eig_left = np.array([], dtype = complex)
@@ -746,6 +766,7 @@ class DF(CHI):
                 'q_car': self.qq_v,    # / Bohr,
                 'qmod' : np.dot(self.qq_v, self.qq_v), # / Bohr
                 'vcut' : self.vcut,
+                'pbc'  : self.pbc,
                 'nvalence'     : self.nvalence,                
                 'hilbert_trans' : self.hilbert_trans,
                 'optical_limit' : self.optical_limit,
@@ -796,6 +817,7 @@ class DF(CHI):
         self.qq_v  = data['q_car']
         self.qmod  = data['qmod']
         #self.vcut  = data['vcut']
+        #self.pbc = data['pbc']
         
         self.hilbert_trans = data['hilbert_trans']
         self.optical_limit = data['optical_limit']
