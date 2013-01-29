@@ -67,7 +67,6 @@ def calculate_Kc(q_c,
                  acell_cv,
                  bcell_cv,
                  pbc,
-                 npw,
                  vcut=None,
                  integrate_gamma=False,
                  N_k=None,
@@ -131,12 +130,12 @@ def calculate_Kc(q_c,
         bvol = np.abs(np.linalg.det(bcell_cv)) / (N_k[0]*N_k[1]*N_k[2])
         R_q0 = (3*bvol / (4*pi))**(1/3.)
         Kc_G[0] = 4*pi * R_q0 / bvol
-
+        
     if symmetric:
         Kc_G = np.sqrt(Kc_G)
         return 4 * pi * np.outer(Kc_G.conj(), Kc_G)
     else:
-        return 4 * pi * (Kc_G * np.ones([npw, npw])).T
+        return 4 * pi * (Kc_G * np.ones([len(Kc_G), len(Kc_G)])).T
         
 
 def calculate_Kxc(gd,
