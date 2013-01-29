@@ -49,10 +49,11 @@ class RMM_DIIS(Eigensolver):
                     
         P_axi = wfs.pt.dict(B)
 
+        weight=np.empty(wfs.bd.mynbands,float)
         if kpt.f_n is None:
-            weight = kpt.weight
+            weight[:] = kpt.weight
         else:
-            weight = kpt.f_n
+            weight[:] = kpt.f_n
             
         if self.nbands_converge != 'occupied':
             for n in range(0, wfs.bd.mynbands):
@@ -61,8 +62,8 @@ class RMM_DIIS(Eigensolver):
                 else:
                     weight[n] = 0.0
                             
-        error = sum(weight * multi_dotc(R_nG, R_nG).real)
-        
+        error = sum(weight * multi_dotc(R_nG, R_nG).real) * wfs.gd.dv
+
         for n1 in range(0, wfs.bd.mynbands, B):
             n2 = n1 + B
             if n2 > wfs.bd.mynbands:
@@ -100,8 +101,8 @@ class RMM_DIIS(Eigensolver):
             
 
         # Find lam that minimizes the norm of R'_G = R_G + lam dR_G
-        RdR_n=np.array(multi_dotc(R_nG, dR_nG).real)
-        dRdR_n=np.array(multi_dotc(dR_nG, dR_nG).real)
+        RdR_n=np.array(multi_dotc(R_nG, dR_nG).real)*wfs.gd.dv
+        dRdR_n=np.array(multi_dotc(dR_nG, dR_nG).real)*wfs.gd.dv
         comm.sum(RdR_n)
         comm.sum(dRdR_n)
         lam_n = -RdR_n / dRdR_n
