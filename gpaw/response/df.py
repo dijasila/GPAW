@@ -110,8 +110,7 @@ class DF(CHI):
                                   self.Gvec_Gc,
                                   self.acell_cv,
                                   self.bcell_cv,
-                                  self.pbc, #calc.atoms.pbc,
-                                  self.npw,
+                                  self.pbc,
                                   self.vcut,
                                   symmetric=symmetric)
 
