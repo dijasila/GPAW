@@ -26,6 +26,7 @@ static int operator_streams = 0;
 static double *operator_buf_gpu=NULL;
 static int operator_buf_size=0;
 static int operator_buf_max=0;
+static int operator_init_count=0;
 
 
 void operator_init_cuda(OperatorObject *self)
@@ -37,6 +38,7 @@ void operator_init_cuda(OperatorObject *self)
   operator_buf_max=MAX(ng2,operator_buf_max);
 
   self->stencil_gpu = bmgs_stencil_to_gpu(&(self->stencil));
+  operator_init_count++;
 }
 
 
@@ -60,9 +62,17 @@ void operator_init_buffers(OperatorObject *self,int blocks,int async)
   }
 }
 
-void operator_delete_cuda(OperatorObject *self)
+void operator_dealloc_cuda(OperatorObject *self)
 {
-  if (operator_buf_gpu) cudaFree(operator_buf_gpu);
+  if (operator_init_count==1) {
+    if (operator_buf_gpu) cudaFree(operator_buf_gpu);
+    cudaGetLastError();
+    operator_buf_gpu=NULL;
+    operator_buf_size=0;
+    operator_buf_max=0;
+  }
+  operator_init_count--;
+  assert(operator_init_count>=0);
 }
 
 PyObject * Operator_relax_cuda_gpu(OperatorObject *self,
@@ -123,7 +133,7 @@ PyObject * Operator_relax_cuda_gpu(OperatorObject *self,
     cuda_async=1;
   }
 
-  gpaw_cudaSafeCall(cudaGetLastError());
+  //gpaw_cudaSafeCall(cudaGetLastError());
   operator_init_buffers(self,blocks,cuda_async);
 
   int boundary=0;

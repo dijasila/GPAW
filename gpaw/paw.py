@@ -873,9 +873,12 @@ class PAW(PAWTextOutput):
                                'are not identical!')
 
     def __del__(self):
-        if self.cuda:
-            gpaw.cuda.delete()        
         PAWTextOutput.__del__(self)
+        try:
+            if self.cuda:
+                gpaw.cuda.delete()
+        except AttributeError:
+            pass
 
 def kpts2ndarray(kpts):
     """Convert kpts keyword to 2d ndarray of scaled k-points."""

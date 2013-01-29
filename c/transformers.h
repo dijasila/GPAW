@@ -27,6 +27,6 @@ typedef struct
 
 #ifdef GPAW_CUDA
 void transformer_init_cuda(TransformerObject *self);
-void transformer_delete_cuda(TransformerObject *self);
+void transformer_dealloc_cuda(TransformerObject *self);
 #endif
 #endif

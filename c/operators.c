@@ -42,12 +42,14 @@ PyObject * Operator_apply_cuda_gpu(OperatorObject *self,
 
 static void Operator_dealloc(OperatorObject *self)
 {
-  free(self->bc);
+
 #ifdef GPAW_CUDA
   if (self->cuda) {
-    //
+    operator_dealloc_cuda(self);
+    bc_dealloc_cuda(self->bc);
   }
 #endif
+  free(self->bc);
   PyObject_DEL(self);
 }
 

@@ -44,6 +44,9 @@ class PoissonSolver:
         
         self.description = None
 
+    def get_stencil(self):
+        return self.nn
+
     def set_grid_descriptor(self, gd, cuda=False):
         # Should probably be renamed initialize
         self.gd = gd

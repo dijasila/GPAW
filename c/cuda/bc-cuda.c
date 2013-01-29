@@ -15,6 +15,7 @@ static cudaStream_t bc_send_stream[3][2];
 static cudaStream_t bc_recv_stream[3][2];
 
 static int bc_streams = 0;
+static int bc_init_count = 0;
 
 static double *bc_rbuff=NULL;
 static double *bc_sbuff=NULL;
@@ -37,10 +38,11 @@ void bc_init_cuda(boundary_conditions* bc)
   bc_sbuff_max=MAX(nsends, bc_sbuff_max);
   bc_rbuff_max=MAX(nrecvs, bc_rbuff_max);
   
+  bc_init_count++;
 
 }
 
-void bc_init_buffers(const boundary_conditions* bc,int blocks)
+void bc_alloc_buffers(const boundary_conditions* bc,int blocks)
 {
  
   int nsends=(bc->nsend[0][0]+bc->nsend[0][1]+bc->nsend[1][0]+bc->nsend[1][1]+
@@ -68,6 +70,27 @@ void bc_init_buffers(const boundary_conditions* bc,int blocks)
   }
 }
 
+void bc_dealloc_cuda(boundary_conditions* bc)
+{
+  if (bc_init_count==1) {
+    if (bc_sbuff) cudaFreeHost(bc_sbuff);
+    if (bc_rbuff) cudaFreeHost(bc_rbuff);
+    if (bc_sbuff_gpu) cudaFree(bc_sbuff_gpu);
+    if (bc_rbuff_gpu) cudaFree(bc_rbuff_gpu);
+    cudaGetLastError();
+    bc_rbuff=NULL;
+    bc_sbuff=NULL;
+    bc_rbuff_gpu=NULL;
+    bc_sbuff_gpu=NULL;    
+    bc_rbuff_size=0;
+    bc_sbuff_size=0;
+    bc_rbuff_max=0;
+    bc_sbuff_max=0;
+  }
+  bc_init_count--;
+  assert(bc_init_count>=0);
+}
+
 void bc_unpack_cuda_gpu_all(const boundary_conditions* bc,
 			    const double* aa1, double* aa2, 
 			    MPI_Request recvreq[3][2],
@@ -79,7 +102,7 @@ void bc_unpack_cuda_gpu_all(const boundary_conditions* bc,
   int ng2 = bc->ndouble * bc->size2[0] * bc->size2[1] * bc->size2[2];
   bool real = (bc->ndouble == 1);
   
-  bc_init_buffers(bc,nin);
+  bc_alloc_buffers(bc,nin);
   // Copy data from a1 to central part of a2 and zero boundaries:
   if (real)
     bmgs_paste_zero_cuda_gpu(aa1, bc->size1, aa2,
@@ -226,7 +249,7 @@ void bc_unpack_cuda_gpu(const boundary_conditions* bc,
   int ng2 = bc->ndouble * bc->size2[0] * bc->size2[1] * bc->size2[2];
   bool real = (bc->ndouble == 1);
 
-  bc_init_buffers(bc,nin);
+  bc_alloc_buffers(bc,nin);
   if ((i == 0)) {
     // Copy data:
     // Zero all of a2 array.  We should only zero the bounaries
@@ -358,7 +381,7 @@ void bc_unpack1_cuda_gpu_async_all(const boundary_conditions* bc,
 {
   bool real = (bc->ndouble == 1);
   
-  bc_init_buffers(bc,nin);  
+  bc_alloc_buffers(bc,nin);  
   // Copy data from a1 to central part of a2 and zero boundaries:
   if (real)
     bmgs_paste_zero_cuda_gpu(aa1, bc->size1, aa2,

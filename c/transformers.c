@@ -24,12 +24,13 @@ PyObject* Transformer_apply_cuda_gpu(TransformerObject *self, PyObject *args);
 
 static void Transformer_dealloc(TransformerObject *self)
 {
-  free(self->bc);
 #ifdef GPAW_CUDA
   if (self->cuda) {
-    //
+    transformer_dealloc_cuda(self);
+    bc_dealloc_cuda(self->bc);
   }
 #endif
+  free(self->bc);
   PyObject_DEL(self);
 }
 

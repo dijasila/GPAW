@@ -19,6 +19,7 @@
 static double *transformer_buf_gpu=NULL;
 static int transformer_buf_size=0;
 static int transformer_buf_max=0;
+static int transformer_init_count=0;
 
 
 void transformer_init_cuda(TransformerObject *self)
@@ -28,6 +29,8 @@ void transformer_init_cuda(TransformerObject *self)
   int ng2 = bc->ndouble * size2[0] * size2[1] * size2[2];
   
   transformer_buf_max=MAX(ng2,transformer_buf_max);
+
+  transformer_init_count++;
 }
 
 
@@ -46,10 +49,17 @@ void transformer_init_buffers(TransformerObject *self,int blocks)
   }
 }
 
-
-void transformer_delete_cuda(TransformerObject *self)
+void transformer_dealloc_cuda(TransformerObject *self)
 {
-  if (transformer_buf_gpu) cudaFree(transformer_buf_gpu);
+  if (transformer_init_count==1) {
+    if (transformer_buf_gpu) cudaFree(transformer_buf_gpu);
+    cudaGetLastError();
+    transformer_buf_gpu=NULL;
+    transformer_buf_size=0;
+    transformer_buf_max=0;
+  }
+  transformer_init_count--;
+  assert(transformer_init_count>=0);
 }
 
 
