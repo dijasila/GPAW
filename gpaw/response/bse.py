@@ -474,7 +474,7 @@ class BSE(BASECHI):
             
             if optical_limit:
                 eps = 1/dfinv_GG[0,0]
-                self.printtxt('  RPA macroscopic dielectric constant is: %3.3f' %  eps)
+                self.printtxt('  RPA macroscopic dielectric constant is: %3.3f' %  eps.real)
             W_qGG[iq] = dfinv_GG * self.V_qGG[iq]
             self.timing(iq, t0, self.nibzq, 'iq')
             

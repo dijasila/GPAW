@@ -29,14 +29,14 @@ if GS:
     atoms = bulk('Si', 'diamond', a=a)
 
     calc = GPAW(h=0.20,
-            kpts=(12,12,12),
-            xc='LDA',
-            basis='dzp',
-            txt='si_gs.txt',
-            nbands=80,
-            eigensolver='cg',
-            occupations=FermiDirac(0.001),
-            convergence={'bands':70})
+                kpts=(12,12,12),
+                xc='LDA',
+                basis='dzp',
+                txt='si_gs.txt',
+                nbands=80,
+                eigensolver='cg',
+                occupations=FermiDirac(0.001),
+                convergence={'bands':70})
     atoms.set_calculator(calc)
     atoms.get_potential_energy()
     calc.write('si.gpw','all')
@@ -48,21 +48,31 @@ if ABS:
     q = np.array([0.0, 0.00001, 0.])
 
     # getting macroscopic constant
-    df = DF(calc='si.gpw', q=q, w=(0.,), eta=0.0001, 
-        hilbert_trans=False, txt='df_1.out',
-        ecut=150, optical_limit=True)
+    df = DF(calc='si.gpw',
+            q=q,
+            w=(0.,),
+            eta=0.0001, 
+            hilbert_trans=False,
+            ecut=150,
+            optical_limit=True,
+            txt='df_1.out')
 
     eM1, eM2 = df.get_macroscopic_dielectric_constant()
 
     df.write('df_1.pckl')
 
-    if np.abs(eM1[0] - 13.991793) > 1e-4 or np.abs(eM2[0] - 12.589129) > 1e-4:
+    if np.abs(eM1 - 13.991793) > 1e-3 or np.abs(eM2 - 12.589129) > 1e-3:
         print eM1, eM2
-        raise ValueError('Pls check dielectric constant !')
+        raise ValueError('Please check dielectric constant !')
 
     #getting absorption spectrum
-    df = DF(calc='si.gpw', q=q, w=w, eta=0.1,
-        ecut=150, optical_limit=True, txt='df_2.out')
+    df = DF(calc='si.gpw',
+            q=q,
+            w=w,
+            eta=0.1,
+            ecut=150,
+            optical_limit=True,
+            txt='df_2.out')
 
     df.get_absorption_spectrum(filename='si_abs')
     df.check_sum_rule()
