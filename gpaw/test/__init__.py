@@ -254,6 +254,8 @@ tests = [
     'si_xas.py',
     'atomize.py',
     'ralda_energy_H2.py',
+    'ralda_energy_N2.py',
+    'ralda_energy_Ni.py',
     'Cu.py',
     'restart_band_structure.py',
     'ne_disc.py',
@@ -276,7 +278,7 @@ tests = [
     'rpa_energy_N2.py',
     'beefvdw.py',
     'wannierk.py',
-    'rpa_Na.py',
+    'rpa_energy_Na.py',
     'coreeig.py',
     'pw/si_stress.py',
     'P_ai.py',
@@ -365,6 +367,7 @@ if mpi.size == 1 or not compiled_with_sl():
 
 if mpi.size != 1 and not compiled_with_sl():
     exclude += ['ralda_energy_H2.py',
+                'ralda_energy_N2.py',
                 'bse_sym.py',
                 'bse_silicon.py']
 
