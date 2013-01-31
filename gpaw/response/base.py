@@ -420,6 +420,76 @@ class BASECHI:
         return 
 
 
+    def cuda_init(self, chi0_wGG):
+        sizeofdata = 16
+        sizeofint = 4
+        nmultix = self.nmultix
+        status, handle = _gpaw.cuCreate()
+        matrixlist_w = []
+        for iw in range(self.Nw_local):
+            status, matrixGPU_GG = _gpaw.cuMalloc(self.npw*self.npw*sizeofdata)
+            status = _gpaw.cuSetMatrix(self.npw, self.npw, sizeofdata,
+                                       chi0_wGG[iw].copy(), self.npw,
+                                       matrixGPU_GG, self.npw)
+            matrixlist_w.append(matrixGPU_GG)
+        
+        status,GPU_rho_uG = _gpaw.cuMalloc(nmultix*self.npw*sizeofdata)
+        nx,ny,nz = self.nG
+        status, dev_Qtmp = _gpaw.cuMalloc(nx*ny*nz*sizeofdata)
+        status, dev_psit1_R = _gpaw.cuMalloc(nx*ny*nz*sizeofdata)
+        status, dev_psit2_R = _gpaw.cuMalloc(nx*ny*nz*sizeofdata)
+
+        self.cufftplan = _gpaw.cufft_plan3d(self.nG[0],self.nG[1],self.nG[2])
+
+        status, dev_expqr_R = _gpaw.cuMalloc(nx*ny*nz*sizeofdata)
+
+        status, dev_Gindex_G = _gpaw.cuMalloc(self.npw*sizeofint)
+        _gpaw.cuSetVector(self.npw,sizeofint,self.Gindex_G,1,dev_Gindex_G,1)
+
+        return handle, matrixlist_w, GPU_rho_uG, dev_Qtmp, dev_psit1_R, dev_psit2_R, dev_expqr_R, dev_Gindex_G
+
+
+    def cuda_kspecific_init(self, spin, k, ibzkpt1, ibzkpt2, index1_g, index2_g, dev_expqr_R):
+        sizeofint = 4
+        sizeofdata = 16
+        calc = self.calc
+        nx,ny,nz = self.nG
+        kq_k = self.kq_k
+        kd = self.kd
+        N_c = self.gd.N_c
+        
+        self.u1 = u1 = calc.wfs.kd.get_rank_and_index(spin, ibzkpt1)[1]
+        self.u2 = u2 = calc.wfs.kd.get_rank_and_index(spin, ibzkpt2)[1]
+        Q1_G = calc.wfs.pd.Q_qG[calc.wfs.kpt_u[u1].q]
+        Q2_G = calc.wfs.pd.Q_qG[calc.wfs.kpt_u[u2].q]
+        status, self.dev_Q1_G = _gpaw.cuMalloc(nx*ny*nz*sizeofint)
+        status, self.dev_Q2_G = _gpaw.cuMalloc(nx*ny*nz*sizeofint)
+        _gpaw.cuSetVector(nx*ny*nz,sizeofint,Q1_G,1,self.dev_Q1_G,1)
+        _gpaw.cuSetVector(nx*ny*nz,sizeofint,Q2_G,1,self.dev_Q2_G,1)
+           
+        self.s1 = s1 = self.kd.sym_k[k]
+        self.op1_cc = op1_cc = self.kd.symmetry.op_scc[s1]
+        self.trans1 = trans1 = not ( (np.abs(op1_cc - np.eye(3, dtype=int)) < 1e-10).all() )
+        self.s2 = s2 = self.kd.sym_k[kq_k[k]]
+        self.op2_cc = op2_cc = self.kd.symmetry.op_scc[s2]
+        self.trans2 = trans2 = not ( (np.abs(op2_cc - np.eye(3, dtype=int)) < 1e-10).all() )
+        self.time_rev1 = time_rev1 = self.kd.time_reversal_k[k]
+        self.time_rev2 = time_rev2 = self.kd.time_reversal_k[kq_k[k]]
+        
+        status, self.dev_index1_Q = _gpaw.cuMalloc(nx*ny*nz*sizeofint)
+        status, self.dev_index2_Q = _gpaw.cuMalloc(nx*ny*nz*sizeofint)
+        _gpaw.cuSetVector(nx*ny*nz,sizeofint,index1_g,1,self.dev_index1_Q,1)
+        _gpaw.cuSetVector(nx*ny*nz,sizeofint,index2_g,1,self.dev_index2_Q,1)
+
+        deltak_c = (np.dot(op1_cc, kd.ibzk_kc[ibzkpt1]) -
+                    np.dot(op2_cc, kd.ibzk_kc[ibzkpt2]) + self.q_c)
+
+        deltaeikr_R = np.exp(- 2j * pi * np.dot(np.indices(N_c).T, deltak_c / N_c).T)
+        _gpaw.cuSetVector(nx*ny*nz,sizeofdata,deltaeikr_R.ravel(),1,dev_expqr_R,1)
+        
+        return 
+
+
     def cuda_paw_init(self):
 
         sizeofdata = 16
