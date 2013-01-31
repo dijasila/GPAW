@@ -93,7 +93,7 @@ class RMM_DIIS_new(Eigensolver):
                         weight = 0.0
                 error_block += weight * integrate(R_xG[n - n1], 
                                                   R_xG[n - n1])
-            comm.sum(error_block)
+            error_block = comm.sum(error_block)
             error += error_block
 
             # Insert first vectors and residuals for DIIS step
@@ -222,7 +222,7 @@ class RMM_DIIS_new(Eigensolver):
                             weight = 0.0
                     error_block += weight * integrate(R_xG[n - n1], 
                                                       R_xG[n - n1])
-                comm.sum(error_block)
+                error_block = comm.sum(error_block)
 
             self.timer.stop('DIIS step')                
             # Final trial step
