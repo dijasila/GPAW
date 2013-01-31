@@ -402,11 +402,11 @@ PyObject* cuMap_Q2G(PyObject *self, PyObject *args)
 PyObject* cuTrans_wfs(PyObject *self, PyObject *args)
 {
   int n;
-  void *a, *b, *index, *phase;
+  void *a, *b, *index;
 
-  if (!PyArg_ParseTuple(args, "LLLLi",&a, &b, &index, &phase, &n))
+  if (!PyArg_ParseTuple(args, "LLLi",&a, &b, &index, &n))
     return NULL;
-  cudaTransform_wfs(a, b, index, phase, n);
+  cudaTransform_wfs(a, b, index, n);
   Py_RETURN_NONE;
 }
 
@@ -432,17 +432,20 @@ PyObject* cuCopy_vector(PyObject *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
-/*
+
 PyObject* cuGet_P_ai(PyObject *self, PyObject *args)
 {
-  void *a, *b, *c;
-
-  if (!PyArg_ParseTuple(args, "LLL",&a,&b,&c))
+  int Na, s, ik, n;
+  int time_rev;
+  void *spos_ac, *ibzk_kc, *op_scc, *a_sa, **R_asii, **P_ani, **Pout_ai, *Ni_a;
+  
+  if (!PyArg_ParseTuple(args, "LLLLLLLLiiiii",&spos_ac, &ibzk_kc, &op_scc, &a_sa, &R_asii, 
+			&P_ani, &Pout_ai, &Ni_a, &time_rev, &Na, &s, &ik, &n))
     return NULL;
-  cudaP_ai(a,b,c);
+  cudaP_ai(spos_ac, ibzk_kc, op_scc, a_sa, R_asii, P_ani, Pout_ai, Ni_a, time_rev, Na, s, ik, n);
   Py_RETURN_NONE;
 }
-*/
+
 
 
 

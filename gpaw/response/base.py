@@ -171,6 +171,7 @@ class BASECHI:
                 del r_vg, qr_g
                 kq_k = kd.find_k_plus_q(self.q_c)
             self.kq_k = kq_k
+#            self.expqr_g[:,:,:] = 1.
 
         # Plane wave init
         if self.G_plus_q:
@@ -311,6 +312,7 @@ class BASECHI:
             for iG in range(Gstart, Gend):
                 phi_aGp[a][iG] *= np.exp(-1j * 2. * pi *
                                          np.dot(q_c + self.Gvec_Gc[iG], spos_ac[a]) )
+
             if parallel:
                 self.comm.sum(phi_aGp[a])
         # For optical limit, G == 0 part should change
@@ -377,8 +379,8 @@ class BASECHI:
 
             return psit_G
 
-    def cuda_get_wfs(self, u, n, dev_Qtmp, dev_eikr_R, dev_Q_G, 
-                     handle, sizeofdata=16):
+    def cuda_get_wfs(self, u, n, dev_Qtmp, 
+                     dev_Q_G, handle, sizeofdata=16):
 
         calc = self.calc
         
@@ -393,21 +395,21 @@ class BASECHI:
 
         _gpaw.cuMap_G2Q( dev_G, dev_Qtmp, dev_Q_G, ncoef )
         _gpaw.cufft_execZ2Z(self.cufftplan, dev_Qtmp, dev_Qtmp,1)
-        _gpaw.cuMul(dev_Qtmp, dev_eikr_R, dev_Qtmp, nx*ny*nz)  # phase e^ikr is not really necessary here.
         _gpaw.cuZscal(handle, nx*ny*nz, 1./(nx*ny*nz), dev_Qtmp, 1)
         
         _gpaw.cuFree(dev_G)
 
         return
 
-    def cuda_trans_wfs(self, dev_Qtmp, dev_psi_R, dev_index_Q, dev_phase_Q,
+    def cuda_trans_wfs(self, dev_Qtmp, dev_psi_R, dev_index_Q, #dev_phase_Q,
                        trans, time_reversal, sizeofdata=16):
 
         nx,ny,nz = self.nG
         if trans:
             # transform wavefunction here
             _gpaw.cuMemset(dev_psi_R, 0, sizeofdata*nx*ny*nz)  # dev_Q has to be zero
-            _gpaw.cuTrans_wfs(dev_Qtmp, dev_psi_R, dev_index_Q, dev_phase_Q, nx*ny*nz)
+            _gpaw.cuTrans_wfs(dev_Qtmp, dev_psi_R, dev_index_Q, #dev_phase_Q, 
+                              nx*ny*nz)
         else:
             # Identity
             _gpaw.cuCopy_vector(dev_Qtmp, dev_psi_R, nx*ny*nz)

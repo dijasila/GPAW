@@ -244,7 +244,6 @@ class CHI(BASECHI):
             self.cufftplan = _gpaw.cufft_plan3d(self.nG[0],self.nG[1],self.nG[2])
 
             status, dev_expqr_R = _gpaw.cuMalloc(nx*ny*nz*sizeofdata)
-            _gpaw.cuSetVector(nx*ny*nz,sizeofdata,self.expqr_g.ravel(),1,dev_expqr_R,1)
 
             status, dev_Gindex_G = _gpaw.cuMalloc(self.npw*sizeofint)
             _gpaw.cuSetVector(self.npw,sizeofint,self.Gindex_G,1,dev_Gindex_G,1)
@@ -331,14 +330,10 @@ class CHI(BASECHI):
                     
                 index1_g, phase1_g = kd.get_transform_wavefunction_index(self.nG, k)
                 index2_g, phase2_g = kd.get_transform_wavefunction_index(self.nG, kq_k[k])
+
                 if self.sync: timer.end('wfs_transform')
 
                 if self.pwmode and self.cublas:
-                    status, dev_eikr1_R = _gpaw.cuMalloc(nx*ny*nz*sizeofdata)
-                    status, dev_eikr2_R = _gpaw.cuMalloc(nx*ny*nz*sizeofdata)
-                    _gpaw.cuSetVector(nx*ny*nz,sizeofdata,eikr1_R.ravel(),1,dev_eikr1_R,1)
-                    _gpaw.cuSetVector(nx*ny*nz,sizeofdata,eikr2_R.ravel(),1,dev_eikr2_R,1)
-                    
                     u1 = calc.wfs.kd.get_rank_and_index(spin, ibzkpt1)[1]
                     u2 = calc.wfs.kd.get_rank_and_index(spin, ibzkpt2)[1]
                     Q1_G = calc.wfs.pd.Q_qG[calc.wfs.kpt_u[u1].q]
@@ -349,25 +344,25 @@ class CHI(BASECHI):
                     _gpaw.cuSetVector(nx*ny*nz,sizeofint,Q2_G,1,dev_Q2_G,1)
                        
                     s1 = self.kd.sym_k[k]
-                    op_cc = np.linalg.inv(self.kd.symmetry.op_scc[s1]).round().astype(int)
-                    trans1 = not ( (np.abs(op_cc - np.eye(3, dtype=int)) < 1e-10).all() )
+                    op1_cc = self.kd.symmetry.op_scc[s1]
+                    trans1 = not ( (np.abs(op1_cc - np.eye(3, dtype=int)) < 1e-10).all() )
                     s2 = self.kd.sym_k[kq_k[k]]
-                    op_cc = np.linalg.inv(self.kd.symmetry.op_scc[s2]).round().astype(int)
-                    trans2 = not ( (np.abs(op_cc - np.eye(3, dtype=int)) < 1e-10).all() )
+                    op2_cc = self.kd.symmetry.op_scc[s2]
+                    trans2 = not ( (np.abs(op2_cc - np.eye(3, dtype=int)) < 1e-10).all() )
                     time_rev1 = self.kd.time_reversal_k[k]
                     time_rev2 = self.kd.time_reversal_k[kq_k[k]]
         
                     status, dev_index1_Q = _gpaw.cuMalloc(nx*ny*nz*sizeofint)
-                    _gpaw.cuSetVector(nx*ny*nz,sizeofint,index1_g,1,dev_index1_Q,1)
-                    status, dev_phase1_Q = _gpaw.cuMalloc(nx*ny*nz*sizeofdata)
-                    _gpaw.cuSetVector(nx*ny*nz,sizeofdata,phase1_g.ravel(),1,dev_phase1_Q,1)
-
                     status, dev_index2_Q = _gpaw.cuMalloc(nx*ny*nz*sizeofint)
+                    _gpaw.cuSetVector(nx*ny*nz,sizeofint,index1_g,1,dev_index1_Q,1)
                     _gpaw.cuSetVector(nx*ny*nz,sizeofint,index2_g,1,dev_index2_Q,1)
-                    status, dev_phase2_Q = _gpaw.cuMalloc(nx*ny*nz*sizeofdata)
-                    _gpaw.cuSetVector(nx*ny*nz,sizeofdata,phase2_g.ravel(),1,dev_phase2_Q,1)                 
 
-    
+                    deltak_c = (np.dot(op1_cc, kd.ibzk_kc[ibzkpt1]) -
+                                np.dot(op2_cc, kd.ibzk_kc[ibzkpt2]) + self.q_c)
+
+                    deltaeikr_R = np.exp(- 2j * pi * np.dot(np.indices(N_c).T, deltak_c / N_c).T)
+                    _gpaw.cuSetVector(nx*ny*nz,sizeofdata,deltaeikr_R.ravel(),1,dev_expqr_R,1)
+
                 for n in range(self.nvalbands):
                     if self.calc.wfs.world.size == 1:
                         if (self.f_skn[spin][ibzkpt1, n] - self.ftol < 0):
@@ -383,7 +378,7 @@ class CHI(BASECHI):
                             psitold_g = calc.wfs._get_wave_function_array(u, n, realspace=True,
                                                                           phase=eikr1_R)
                         else:
-                            self.cuda_get_wfs(u1, n, dev_Qtmp, dev_eikr1_R,
+                            self.cuda_get_wfs(u1, n, dev_Qtmp, 
                                               dev_Q1_G, handle, sizeofdata=sizeofdata)
                     if self.sync: timer.end('wfs_read')
 
@@ -396,13 +391,13 @@ class CHI(BASECHI):
                             psit1new_g = psit1new_g_tmp
                     else:
                         # dev_psit1_R is the wave function of (k, n) on device
-                        self.cuda_trans_wfs(dev_Qtmp, dev_psit1_R, dev_index1_Q, dev_phase1_Q,
+                        self.cuda_trans_wfs(dev_Qtmp, dev_psit1_R, dev_index1_Q, 
                                             trans1, time_rev1, sizeofdata)
                         # padding does not work on cuda now !! 
                     if self.sync: timer.end('wfs_transform')
 
 
-                    if self.cublas and self.optical_limt:
+                    if self.cublas and self.optical_limit:
                         psit1new_g = np.zeros(self.nG, dtype=complex)
                         _gpaw.cuGetVector(self.nG0,sizeofdata,dev_psit1_R,1, psit1new_g,1)
 
@@ -426,8 +421,8 @@ class CHI(BASECHI):
                             P1_ai = self.get_P_ai(k, n, spin)
                     if self.sync: timer.end('paw')
 
-                    #if not self.cublas:
-                    psit1_g = psit1new_g.conj() * self.expqr_g
+                    if not self.cublas or (self.cublas and self.optical_limit):
+                        psit1_g = psit1new_g.conj() * self.expqr_g # cublas optical_limit is wrong now
 
                     imultix = 0
                     for m in self.mlist:
@@ -454,7 +449,7 @@ class CHI(BASECHI):
                                     psitold_g = calc.wfs._get_wave_function_array(u, m, realspace=True, phase=eikr2_R)
                                 else:
                                     # dev_psit2_R is the (transformed) wave function for (kq[k],m) on device
-                                    self.cuda_get_wfs(u2, m, dev_Qtmp, dev_eikr2_R,
+                                    self.cuda_get_wfs(u2, m, dev_Qtmp, 
                                               dev_Q2_G, handle, sizeofdata=sizeofdata)
                             if self.sync: timer.end('wfs_read')
 
@@ -467,7 +462,7 @@ class CHI(BASECHI):
                                     psit2_g = psit2_g_tmp
                             else:
                                 # dev_psit2_R is the wave function of (k+q, m) on device
-                                self.cuda_trans_wfs(dev_Qtmp, dev_psit2_R, dev_index2_Q, dev_phase2_Q,
+                                self.cuda_trans_wfs(dev_Qtmp, dev_psit2_R, dev_index2_Q, 
                                                     trans2, time_rev2, sizeofdata)
                             if self.sync: timer.end('wfs_transform')
 
@@ -482,6 +477,7 @@ class CHI(BASECHI):
                             if self.sync: timer.start('fft')
                             if not self.cublas:
                                 fft_R[:] = psit2_g * psit1_g
+
                                 fftplan.execute()
                                 fft_G *= self.vol / self.nG0
         #                        tmp_g = np.fft.fftn(psit2_g*psit1_g) * self.vol / self.nG0
@@ -506,9 +502,16 @@ class CHI(BASECHI):
                             if self.sync: timer.start('opt')
                             if self.optical_limit:
                                 phase_cd = np.exp(2j * pi * sdisp_cd * bzk_kc[kq_k[k], :, np.newaxis])
+                                if self.cublas:
+                                    tmpk_c = np.dot(op1_cc, kd.ibzk_kc[ibzkpt1])
+                                    eikr_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, tmpk_c / N_c).T)
+                                    psit2_g *= eikr_R
                                 for ix in range(3):
                                     d_c[ix](psit2_g, dpsit_g, phase_cd)
-                                    tmp[ix] = gd.integrate(psit1_g * dpsit_g)
+                                    if self.cublas:
+                                        tmp[ix] = gd.integrate(psit1_g * dpsit_g * eikr_R.conj())
+                                    else:
+                                        tmp[ix] = gd.integrate(psit1_g * dpsit_g)
                                 rho_G[0] = -1j * np.dot(self.qq_v, tmp)
                                 if self.cublas:
                                     status = _gpaw.cuSetVector(1, sizeofdata, rho_G, 1, GPU_rho_uG+GPUpointer, 1)
