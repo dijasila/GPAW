@@ -23,6 +23,18 @@ class RMM_DIIS_new(Eigensolver):
 
     def __init__(self, keep_htpsit=True, blocksize=10, niter=4, rtol=1e-6,
                  limit_lambda=False):
+        """Initialize RMM-DIIS eigensolver.
+
+        Parameters:
+
+        limit_lambda: dictionary
+            determines if step length should be limited
+            supported keys: 'absolute':True/False limit the absolute value
+                            'upper':float   upper limit for lambda
+                            'lower':float   lower limit for lambda
+
+        """
+
         Eigensolver.__init__(self, keep_htpsit, blocksize)
         self.niter = niter
         self.rtol = rtol
@@ -135,8 +147,17 @@ class RMM_DIIS_new(Eigensolver):
             lam_x = -RdR_x / dRdR_x
             # Limit abs(lam) to [0.15, 1.0]
             if self.limit_lambda:
-                lam_x = np.where(np.abs(lam_x) < 0.1, 0.1 * np.sign(lam_x), lam_x)
-                lam_x = np.where(np.abs(lam_x) > 1.0, 1.0 * np.sign(lam_x), lam_x)
+                upper = self.limit_lambda['upper']
+                lower = self.limit_lambda['lower']
+                if self.limit_lambda.get('absolute', False):
+                    lam_x = np.where(np.abs(lam_x) < lower, 
+                                     lower * np.sign(lam_x), lam_x)
+                    lam_x = np.where(np.abs(lam_x) > upper, 
+                                     upper * np.sign(lam_x), lam_x)
+                else:
+                    lam_x = np.where(lam_x < lower, lower, lam_x)
+                    lam_x = np.where(lam_x > upper, upper, lam_x)
+
             self.timer.stop('Find lambda')
             # New trial wavefunction and residual          
             self.timer.start('Update psi')
