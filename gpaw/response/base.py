@@ -420,6 +420,114 @@ class BASECHI:
         return 
 
 
+    def cuda_paw_init(self):
+
+        sizeofdata = 16
+        sizeofint = 4
+        sizeofdouble = 8
+        sizeofpointer = 8
+
+        calc = self.calc
+        kd = calc.wfs.kd
+        self.Na = Na = len(calc.wfs.setups.id_a)
+        
+        # Non k-point dependence stuff
+        spos_ac = calc.atoms.get_scaled_positions()
+        a_sa = np.int32(kd.symmetry.a_sa)
+        op_scc = np.int32(calc.wfs.kd.symmetry.op_scc)
+        ibzk_kc = kd.ibzk_kc
+        R_asii = {}
+        for a in range(Na):
+            R_asii[a] = calc.wfs.setups[a].R_sii
+        
+        Ns = len(op_scc)
+        nibzk = kd.nibzkpts
+        nband = calc.get_number_of_bands()
+        
+        status, self.dev_spos_ac = _gpaw.cuMalloc(Na*3*sizeofdouble)
+        _gpaw.cuSetVector(Na*3,sizeofdouble,spos_ac.ravel(),1,self.dev_spos_ac,1)
+        
+        status, self.dev_a_sa = _gpaw.cuMalloc(Ns*Na*sizeofint)
+        _gpaw.cuSetVector(Ns*Na,sizeofint,a_sa.ravel(),1,self.dev_a_sa,1)
+        
+        status, self.dev_op_scc = _gpaw.cuMalloc(Ns*9*sizeofint)
+        _gpaw.cuSetVector(Ns*9,sizeofint,op_scc.ravel(),1,self.dev_op_scc,1)
+        
+        status, self.dev_ibzk_kc = _gpaw.cuMalloc(nibzk*3*sizeofdouble)
+        _gpaw.cuSetVector(nibzk*3,sizeofdouble,ibzk_kc.ravel(),1,self.dev_ibzk_kc,1)
+        
+        P_R_asii = np.zeros(Na, dtype=np.int64)            # P_R_asii is a pointer array on CPU
+        P_P1_ani = np.zeros(Na, dtype=np.int64)       # for k
+        P_P1_ai = np.zeros(Na, dtype=np.int64)
+        P_P2_ani = np.zeros(Na, dtype=np.int64)       # for k+q
+        P_P2_ai = np.zeros(Na, dtype=np.int64)
+        self.Ni_a = Ni_a = np.zeros(Na, dtype=np.int32)
+        for a in range(Na):
+            Ni = len(R_asii[a][0])
+            Ni_a[a] = Ni
+            status, dev_R_sii = _gpaw.cuMalloc(Ns*Ni*Ni*sizeofdouble)
+            _gpaw.cuSetVector(Ns*Ni*Ni,sizeofdouble,R_asii[a].ravel(),1,dev_R_sii,1)
+            P_R_asii[a] = dev_R_sii
+        
+            status, dev_P_ni = _gpaw.cuMalloc(nband*Ni*sizeofdata)
+            P_P1_ani[a] = dev_P_ni
+            status, dev_P_ni = _gpaw.cuMalloc(nband*Ni*sizeofdata)
+            P_P2_ani[a] = dev_P_ni
+            
+            status, dev_P_i = _gpaw.cuMalloc(Ni*sizeofdata)
+            P_P1_ai[a] = dev_P_i
+            status, dev_P_i = _gpaw.cuMalloc(Ni*sizeofdata)
+            P_P2_ai[a] = dev_P_i
+        
+        status, self.dev_R_asii = _gpaw.cuMalloc(Na*sizeofpointer) # dev_R_asii is a pointer array on GPU
+        _gpaw.cuSetVector(Na,sizeofpointer,P_R_asii,1,self.dev_R_asii,1)
+            
+        status, self.dev_Ni_a = _gpaw.cuMalloc(Na*sizeofint)
+        _gpaw.cuSetVector(Na,sizeofint,Ni_a,1,self.dev_Ni_a,1)
+        
+        status, dev_P1_ani = _gpaw.cuMalloc(Na*sizeofpointer)
+        status, dev_P1_ai = _gpaw.cuMalloc(Na*sizeofpointer)
+        status, dev_P2_ani = _gpaw.cuMalloc(Na*sizeofpointer)
+        status, dev_P2_ai = _gpaw.cuMalloc(Na*sizeofpointer)
+
+        self.P_phi_aGp = []
+        self.P_P_ap = []
+        for a, id in enumerate(calc.wfs.setups.id_a):
+            phi_Gp = self.phi_aGp[a]
+            npw, npair = phi_Gp.shape
+            status,GPU_phi_Gp = _gpaw.cuMalloc(npw*npair*sizeofdata)
+            status = _gpaw.cuSetMatrix(npair,npw,sizeofdata,phi_Gp,npair,GPU_phi_Gp,npair)
+            self.P_phi_aGp.append(GPU_phi_Gp)
+
+            status,GPU_P_p = _gpaw.cuMalloc(npair*sizeofdata)
+            self.P_P_ap.append(GPU_P_p)
+
+        return P_P1_ani, P_P1_ai, dev_P1_ani, dev_P1_ai, P_P2_ani, P_P2_ai, dev_P2_ani, dev_P2_ai
+
+
+    def cuda_get_P_ai(self, P_P_ani, P_P_ai, dev_P_ani, dev_P_ai, u, time_rev, s, ibzkpt, n):
+        sizeofpointer = 8
+        sizeofdata = 16
+        P_ani = self.calc.wfs.kpt_u[u].P_ani
+        nband = self.nbands
+        for a in range(self.Na):
+            Ni = self.Ni_a[a]
+            _gpaw.cuSetVector(nband*Ni,sizeofdata,P_ani[a].ravel(),1,P_P_ani[a],1)
+            _gpaw.cuMemset(P_P_ai[a], 0, sizeofdata*Ni)
+    
+        _gpaw.cuSetVector(self.Na,sizeofpointer,P_P_ani,1,dev_P_ani,1)
+        _gpaw.cuSetVector(self.Na,sizeofpointer,P_P_ai,1,dev_P_ai,1)
+        
+        _gpaw.cuGet_P_ai(self.dev_spos_ac, self.dev_ibzk_kc, self.dev_op_scc, self.dev_a_sa, self.dev_R_asii, 
+                         dev_P_ani, dev_P_ai, self.dev_Ni_a, time_rev, self.Na, s, ibzkpt, n)
+
+        return 
+
+
+    def cuda_free(self):
+        # to be finished ! 
+        pass
+        
     def pad(self, psit_g):
         if self.pwmode:
             return psit_g
