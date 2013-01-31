@@ -42,6 +42,10 @@ class CG(Eigensolver):
         Eigensolver.__init__(self)
         self.niter = niter
         self.rtol = rtol
+        if extra_parameters.get('PK', False):
+            self.orthonormalization_required = True
+        else:
+            self.orthonormalization_required = False
 
     def initialize(self, wfs):
         Eigensolver.initialize(self, wfs)
