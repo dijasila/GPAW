@@ -29,7 +29,7 @@ calc.write('gs_pw.gpw', 'all')
 
 ecut = 120 
 calc = GPAW('gs_pw.gpw', communicator=serial_comm, txt=None)
-rpa = RPACorrelation(calc, txt='rpa_%s.txt' %(ecut), cublas=True, cugemv=True)
+rpa = RPACorrelation(calc, txt='rpa_%s.txt' %(ecut), cuda=True)
 E = rpa.get_rpa_correlation_energy(ecut=ecut,
                                    skip_gamma=False,
                                    directions=[[0,1.0]],

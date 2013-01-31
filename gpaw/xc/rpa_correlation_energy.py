@@ -19,9 +19,7 @@ class RPACorrelation:
                  cell=None,
                  txt=None,
                  tag=None,
-                 single_precision=False,
-                 cublas=False,
-                 cugemv=False,
+                 cuda=False,
                  nmultix=1,
                  sync=False,
                  qsym=True):
@@ -29,9 +27,7 @@ class RPACorrelation:
         self.calc = calc
         self.tag = tag
         self.cell = cell
-        self.single_precision=single_precision
-        self.cublas = cublas
-        self.cugemv = cugemv
+        self.cuda = cuda
         self.nmultix=nmultix
         self.sync = sync
         
@@ -284,9 +280,7 @@ class RPACorrelation:
                 cell=self.cell,
                 kcommsize=self.kcommsize,
                 comm=self.dfcomm,
-                single_precision=self.single_precision,
-                cublas=self.cublas,
-                cugemv=self.cugemv,
+                cuda=self.cuda,
                 nmultix=self.nmultix,
                 sync=self.sync,
                 optical_limit=optical_limit,
