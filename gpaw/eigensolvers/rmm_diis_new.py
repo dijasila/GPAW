@@ -30,9 +30,10 @@ class RMM_DIIS_new(Eigensolver):
 
         limit_lambda: dictionary
             determines if step length should be limited
-            supported keys: 'absolute':True/False limit the absolute value
-                            'upper':float   upper limit for lambda
-                            'lower':float   lower limit for lambda
+            supported keys:
+            'absolute':True/False limit the absolute value
+            'upper':float upper limit for lambda
+            'lower':float lower limit for lambda
 
         """
 
