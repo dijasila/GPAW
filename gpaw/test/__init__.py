@@ -368,6 +368,7 @@ if mpi.size == 1 or not compiled_with_sl():
 if mpi.size != 1 and not compiled_with_sl():
     exclude += ['ralda_energy_H2.py',
                 'ralda_energy_N2.py',
+                'ralda_energy_Ni.py',
                 'bse_sym.py',
                 'bse_silicon.py']
 
