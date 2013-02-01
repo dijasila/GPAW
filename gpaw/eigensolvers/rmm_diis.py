@@ -21,7 +21,9 @@ class RMM_DIIS(Eigensolver):
     * Improvement of wave functions:  psi' = psi + lambda PR + lambda PR'
     * Orthonormalization"""
 
-    def __init__(self, keep_htpsit=True, blocksize=10):
+    def __init__(self, keep_htpsit=True, blocksize=10,
+                 fixed_trial_step=None):
+        self.fixed_trial_step = fixed_trial_step
         Eigensolver.__init__(self, keep_htpsit, blocksize)
 
     def iterate_one_k_point(self, hamiltonian, wfs, kpt):
@@ -100,11 +102,15 @@ class RMM_DIIS(Eigensolver):
             lam_x = -RdR_x / dRdR_x
             if extra_parameters.get('PK', False):
                 lam_x[:] = np.where(lam_x>0.0, lam_x, 0.2)   
-            # Calculate new psi'_G = psi_G + lam pR_G + lam pR'_G
-            #                      = psi_G + p(2 lam R_G + lam**2 dR_G)
+            # Calculate new psi'_G = psi_G + lam pR_G + lam2 pR'_G
+            #                      = psi_G + p((lam+lam2) R_G + lam*lam2 dR_G)
             for lam, R_G, dR_G in zip(lam_x, R_xG, dR_xG):
-                R_G *= 2.0 * lam
-                axpy(lam**2, dR_G, R_G)  # R_G += lam**2 * dR_G
+                if self.fixed_trial_step is None:
+                    lam2 = lam
+                else:
+                    lam2 = self.fixed_trial_step
+                R_G *= lam + lam2
+                axpy(lam * lam2, dR_G, R_G)
                 
             self.timer.start('precondition')
             psit_xG[:] += self.preconditioner(R_xG, kpt, ekin_x)
