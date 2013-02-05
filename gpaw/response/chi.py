@@ -217,7 +217,7 @@ class CHI(BASECHI):
             (handle, matrixlist_w, GPU_rho_uG, dev_Qtmp,
              dev_psit1_R, dev_psit2_R, dev_expqr_R, dev_Gindex_G) = self.cuda_init(chi0_wGG)
 
-            (P_P1_ani, P_P1_ai, dev_P1_ani, dev_P1_ai,  
+            (P_R_asii, P_P1_ani, P_P1_ai, dev_P1_ani, dev_P1_ai,  
             P_P2_ani, P_P2_ai, dev_P2_ani, dev_P2_ai) = self.cuda_paw_init()
 
         if self.hilbert_trans:
@@ -324,12 +324,6 @@ class CHI(BASECHI):
                         # padding does not work on cuda now !! 
                     if self.sync: timer.end('wfs_transform')
 
-
-                    # optical limit is not in GPU yet
-                    if self.cuda and self.optical_limit:
-                        psit1new_g = np.zeros(self.nG, dtype=complex)
-                        _gpaw.cuGetVector(self.nG0,sizeofdata,dev_psit1_R,1, psit1new_g,1)
-    
                     # PAW part
                     if self.sync: timer.start('paw')
                     if not self.cuda:
@@ -354,7 +348,7 @@ class CHI(BASECHI):
                                            self.u1, self.time_rev1, self.s1, ibzkpt1, n)
                     if self.sync: timer.end('paw')
 
-                    if not self.cuda or (self.cuda and self.optical_limit):
+                    if not self.cuda: # or (self.cuda and self.optical_limit):
                         psit1_g = psit1new_g.conj() * self.expqr_g # cublas optical_limit is wrong now
 
                     imultix = 0
@@ -399,11 +393,6 @@ class CHI(BASECHI):
                                                     self.trans2, self.time_rev2, sizeofdata)
                             if self.sync: timer.end('wfs_transform')
 
-                            if self.cuda and self.optical_limit:
-                                # testing whether psit1new_g == dev_psit1_R,
-                                psit2_g = np.zeros(self.nG, dtype=complex)
-                                _gpaw.cuGetVector(self.nG0,sizeofdata,dev_psit2_R,1, psit2_g,1)
-
                             if self.cuda:
                                 GPUpointer = imultix * self.npw * sizeofdata
                             # fft
@@ -415,11 +404,14 @@ class CHI(BASECHI):
                                 fft_G *= self.vol / self.nG0
         #                        tmp_g = np.fft.fftn(psit2_g*psit1_g) * self.vol / self.nG0
                             else:
-                                # dev_psit1_R is re-used ! can't change ! 
+                                # dev_psit1_R is re-used ! can't change !
+                                if self.optical_limit: # psit2_R has to be saved for later
+                                    _gpaw.cuCopy_vector(dev_psit2_R, self.dev_optpsit2_R, self.nG0)
+                                
                                 _gpaw.cuMulc(dev_psit1_R, dev_psit2_R, dev_psit2_R, self.nG0)
                                 _gpaw.cuMul(dev_psit2_R, dev_expqr_R, dev_psit2_R, self.nG0)
                                 _gpaw.cufft_execZ2Z(self.cufftplan, dev_psit2_R, 
-                                                    dev_psit2_R, -1) # forward
+                                                    dev_psit2_R, -1) # R->Q
                                 _gpaw.cuZscal(handle, self.nG0, self.vol/self.nG0, dev_psit2_R, 1)
                             if self.sync: timer.end('fft')
 
@@ -431,24 +423,21 @@ class CHI(BASECHI):
                                                 dev_Gindex_G, self.npw)
                             if self.sync: timer.end('mapG')
 
-
-                            # to be solved: opt
                             if self.sync: timer.start('opt')
                             if self.optical_limit:
-                                phase_cd = np.exp(2j * pi * sdisp_cd * bzk_kc[kq_k[k], :, np.newaxis])
-                                if self.cuda:
-                                    tmpk_c = np.dot(self.op1_cc, kd.ibzk_kc[ibzkpt1])
-                                    eikr_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, tmpk_c / N_c).T)
-                                    psit2_g *= eikr_R
-                                for ix in range(3):
-                                    d_c[ix](psit2_g, dpsit_g, phase_cd)
-                                    if self.cuda:
-                                        tmp[ix] = gd.integrate(psit1_g * dpsit_g * eikr_R.conj())
-                                    else:
-                                        tmp[ix] = gd.integrate(psit1_g * dpsit_g)
-                                rho_G[0] = -1j * np.dot(self.qq_v, tmp)
-                                if self.cuda:
-                                    status = _gpaw.cuSetVector(1, sizeofdata, rho_G, 1, GPU_rho_uG+GPUpointer, 1)
+                                if not self.cuda:
+                                    phase_cd = np.exp(2j * pi * sdisp_cd * bzk_kc[kq_k[k], :, np.newaxis])
+                                    for ix in range(3):
+                                        d_c[ix](psit2_g, dpsit_g, phase_cd)
+                                        if self.cuda:
+                                            tmp[ix] = gd.integrate(psit1_g * dpsit_g * eikr_R.conj())
+                                        else:
+                                            tmp[ix] = gd.integrate(psit1_g * dpsit_g)
+                                    rho_G[0] = -1j * np.dot(self.qq_v, tmp)
+                                else:
+                                    rhoG0 = self.cuda_opt(handle, dev_psit1_R)
+                                            
+                                    status = _gpaw.cuSetVector(1, sizeofdata, rhoG0, 1, GPU_rho_uG+GPUpointer, 1)
                             if self.sync: timer.end('opt')
 
                             if self.sync: timer.start('paw')
@@ -596,6 +585,10 @@ class CHI(BASECHI):
                             if n > 0 and n % (self.nvalbands // 5) == 0:
                                 dt = time() - t0
                                 self.printtxt('Finished n %d in %f seconds, estimated %f seconds left.'%(n, dt, totaltime-dt))
+
+                if self.cuda:
+#                    _gpaw.cuDevSynch()
+                    self.cuda_kspecific_free()
                 if calc.wfs.world.size != 1:
                     self.kcomm.barrier()            
                 if k == 0:
@@ -623,15 +616,10 @@ class CHI(BASECHI):
                                                    chi0_wGG[iw],self.npw)
                         chi0_wGG[iw] = chi0_wGG[iw].conj()
 
-                    for iw in range(self.Nw_local):
-                        _gpaw.cuFree(matrixlist_w[iw])
-                    _gpaw.cuFree(GPU_rho_uG)
-
-                # has to free the gpu memory  !!!
-                if self.cuda:
-                    for a, id in enumerate(calc.wfs.setups.id_a):
-                        _gpaw.cuFree(self.P_phi_aGp[a])                    
-                        _gpaw.cuFree(self.P_P_ap[a])
+                    self.cuda_free(matrixlist_w, GPU_rho_uG, dev_Qtmp,
+                                   dev_psit1_R, dev_psit2_R, dev_expqr_R, dev_Gindex_G)
+                    self.cuda_paw_free(P_R_asii, P_P1_ani, P_P1_ai, dev_P1_ani, dev_P1_ai,
+                                       P_P2_ani, P_P2_ai, dev_P2_ani, dev_P2_ai)
                     
                 for iw in range(self.Nw_local):
                     self.kcomm.sum(chi0_wGG[iw])
@@ -641,7 +629,7 @@ class CHI(BASECHI):
                     chi0_wGG[iw] += chi0_wGG[iw].conj().T
                     for iG in range(self.npw):
                         chi0_wGG[iw, iG, iG] /= 2.
-                        assert np.abs(np.imag(chi0_wGG[iw, iG, iG])) < 1e-6
+#                        assert np.abs(np.imag(chi0_wGG[iw, iG, iG])) < 1e-6
 
         else:
             for iw in range(self.NwS_local):

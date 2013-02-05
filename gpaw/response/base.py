@@ -434,20 +434,23 @@ class BASECHI:
             matrixlist_w.append(matrixGPU_GG)
         
         status,GPU_rho_uG = _gpaw.cuMalloc(nmultix*self.npw*sizeofdata)
-        nx,ny,nz = self.nG
-        status, dev_Qtmp = _gpaw.cuMalloc(nx*ny*nz*sizeofdata)
-        status, dev_psit1_R = _gpaw.cuMalloc(nx*ny*nz*sizeofdata)
-        status, dev_psit2_R = _gpaw.cuMalloc(nx*ny*nz*sizeofdata)
+        status, dev_Qtmp = _gpaw.cuMalloc(self.nG0*sizeofdata)
+        status, dev_psit1_R = _gpaw.cuMalloc(self.nG0*sizeofdata)
+        status, dev_psit2_R = _gpaw.cuMalloc(self.nG0*sizeofdata)
+        status, self.dev_index1_Q = _gpaw.cuMalloc(self.nG0*sizeofint)
+        status, self.dev_index2_Q = _gpaw.cuMalloc(self.nG0*sizeofint)
+        status, dev_expqr_R = _gpaw.cuMalloc(self.nG0*sizeofdata)
 
         self.cufftplan = _gpaw.cufft_plan3d(self.nG[0],self.nG[1],self.nG[2])
-
-        status, dev_expqr_R = _gpaw.cuMalloc(nx*ny*nz*sizeofdata)
 
         status, dev_Gindex_G = _gpaw.cuMalloc(self.npw*sizeofint)
         _gpaw.cuSetVector(self.npw,sizeofint,self.Gindex_G,1,dev_Gindex_G,1)
 
+        if self.optical_limit:
+            status, self.dev_opteikr_R = _gpaw.cuMalloc(self.nG0*sizeofdata)
+            status, self.dev_optpsit2_R = _gpaw.cuMalloc(self.nG0*sizeofdata)
+            
         return handle, matrixlist_w, GPU_rho_uG, dev_Qtmp, dev_psit1_R, dev_psit2_R, dev_expqr_R, dev_Gindex_G
-
 
     def cuda_kspecific_init(self, spin, k, ibzkpt1, ibzkpt2, index1_g, index2_g, dev_expqr_R):
         sizeofint = 4
@@ -462,10 +465,12 @@ class BASECHI:
         self.u2 = u2 = calc.wfs.kd.get_rank_and_index(spin, ibzkpt2)[1]
         Q1_G = calc.wfs.pd.Q_qG[calc.wfs.kpt_u[u1].q]
         Q2_G = calc.wfs.pd.Q_qG[calc.wfs.kpt_u[u2].q]
-        status, self.dev_Q1_G = _gpaw.cuMalloc(nx*ny*nz*sizeofint)
-        status, self.dev_Q2_G = _gpaw.cuMalloc(nx*ny*nz*sizeofint)
-        _gpaw.cuSetVector(nx*ny*nz,sizeofint,Q1_G,1,self.dev_Q1_G,1)
-        _gpaw.cuSetVector(nx*ny*nz,sizeofint,Q2_G,1,self.dev_Q2_G,1)
+        self.ncoef = len(Q1_G)
+        self.ncoef2 = len(Q2_G)
+        status, self.dev_Q1_G = _gpaw.cuMalloc(self.ncoef*sizeofint)
+        status, self.dev_Q2_G = _gpaw.cuMalloc(self.ncoef2*sizeofint)
+        _gpaw.cuSetVector(self.ncoef,sizeofint,Q1_G,1,self.dev_Q1_G,1)
+        _gpaw.cuSetVector(self.ncoef2,sizeofint,Q2_G,1,self.dev_Q2_G,1)
            
         self.s1 = s1 = self.kd.sym_k[k]
         self.op1_cc = op1_cc = self.kd.symmetry.op_scc[s1]
@@ -476,8 +481,6 @@ class BASECHI:
         self.time_rev1 = time_rev1 = self.kd.time_reversal_k[k]
         self.time_rev2 = time_rev2 = self.kd.time_reversal_k[kq_k[k]]
         
-        status, self.dev_index1_Q = _gpaw.cuMalloc(nx*ny*nz*sizeofint)
-        status, self.dev_index2_Q = _gpaw.cuMalloc(nx*ny*nz*sizeofint)
         _gpaw.cuSetVector(nx*ny*nz,sizeofint,index1_g,1,self.dev_index1_Q,1)
         _gpaw.cuSetVector(nx*ny*nz,sizeofint,index2_g,1,self.dev_index2_Q,1)
 
@@ -486,6 +489,25 @@ class BASECHI:
 
         deltaeikr_R = np.exp(- 2j * pi * np.dot(np.indices(N_c).T, deltak_c / N_c).T)
         _gpaw.cuSetVector(nx*ny*nz,sizeofdata,deltaeikr_R.ravel(),1,dev_expqr_R,1)
+
+
+        if self.optical_limit:
+#            self.ncoef = len(Q1_G) # the length of Q1_G and Q2_G are different for non optical transition
+            deltak_c = np.dot(op1_cc, kd.ibzk_kc[ibzkpt1]) - kd.bzk_kc[k] 
+            deltaeikr_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, deltak_c / N_c).T)
+            _gpaw.cuSetVector(nx*ny*nz,sizeofdata,deltaeikr_R.ravel(),1,self.dev_opteikr_R,1)
+            status, self.dev_tmp_G = _gpaw.cuMalloc(self.ncoef*sizeofdata)
+            status, self.dev_tmp2_G = _gpaw.cuMalloc(self.ncoef*sizeofdata)
+            status, self.dev_dir_c = _gpaw.cuMalloc(3*sizeofdata)
+
+            pd=calc.wfs.pd
+            G_Gc = (pd.G_Qv[pd.Q_qG[ibzkpt1]] + np.dot(kd.bzk_kc[k], self.bcell_cv)) * 1j
+            status, self.dev_G_cG = _gpaw.cuMalloc(3*self.ncoef*sizeofdata)
+
+ 
+            for i in range(3):
+                _gpaw.cuSetVector(self.ncoef,sizeofdata,G_Gc[:,i].copy(),1,
+                                  self.dev_G_cG+i*self.ncoef*sizeofdata,1)
         
         return 
 
@@ -548,6 +570,7 @@ class BASECHI:
             P_P1_ai[a] = dev_P_i
             status, dev_P_i = _gpaw.cuMalloc(Ni*sizeofdata)
             P_P2_ai[a] = dev_P_i
+
         
         status, self.dev_R_asii = _gpaw.cuMalloc(Na*sizeofpointer) # dev_R_asii is a pointer array on GPU
         _gpaw.cuSetVector(Na,sizeofpointer,P_R_asii,1,self.dev_R_asii,1)
@@ -572,7 +595,7 @@ class BASECHI:
             status,GPU_P_p = _gpaw.cuMalloc(npair*sizeofdata)
             self.P_P_ap.append(GPU_P_p)
 
-        return P_P1_ani, P_P1_ai, dev_P1_ani, dev_P1_ai, P_P2_ani, P_P2_ai, dev_P2_ani, dev_P2_ai
+        return P_R_asii, P_P1_ani, P_P1_ai, dev_P1_ani, dev_P1_ai, P_P2_ani, P_P2_ai, dev_P2_ani, dev_P2_ai
 
 
     def cuda_get_P_ai(self, P_P_ani, P_P_ai, dev_P_ani, dev_P_ai, u, time_rev, s, ibzkpt, n):
@@ -594,9 +617,100 @@ class BASECHI:
         return 
 
 
-    def cuda_free(self):
-        # to be finished ! 
-        pass
+    def cuda_opt(self, handle, dev_psit1_R):
+        sizeofdata = 16
+        # multiply the phase to get U_mk(r) since U_mk0(r) has different plw coef 
+        _gpaw.cuMul(self.dev_optpsit2_R, self.dev_opteikr_R, self.dev_optpsit2_R, self.nG0)
+        _gpaw.cufft_execZ2Z(self.cufftplan, self.dev_optpsit2_R, 
+                        self.dev_optpsit2_R, -1)  # R -> Q
+        _gpaw.cuMap_Q2G(self.dev_optpsit2_R, self.dev_tmp_G, # reduce planewaves
+                        self.dev_Q1_G, self.ncoef) # for optical limit self.dev_Q1_G = self.dev_Q2_G
+
+        for ix in range(3):   # multiple the plw coef by [ 1j (k+G) ]
+            _gpaw.cuMul(self.dev_tmp_G, self.dev_G_cG+ix*self.ncoef*sizeofdata,
+                         self.dev_tmp2_G, self.ncoef)
+#            _gpaw.cuDevSynch()
+            _gpaw.cuMemset(self.dev_optpsit2_R, 0, sizeofdata*self.nG0)
+            _gpaw.cuMap_G2Q(self.dev_tmp2_G, self.dev_optpsit2_R, 
+                            self.dev_Q1_G, self.ncoef )
+            _gpaw.cufft_execZ2Z(self.cufftplan, self.dev_optpsit2_R, 
+                            self.dev_optpsit2_R, 1)  # Q -> R
+            # has to take into account fft (1/self.nG0) and gd.integrate(self.vol/self.nG0)
+            _gpaw.cuZscal(handle, self.nG0, self.vol/(self.nG0*self.nG0),
+                          self.dev_optpsit2_R, 1)
+            _gpaw.cuMulc(dev_psit1_R, self.dev_optpsit2_R, # (psit1_R*opteikr_R).conj() * optpsit2_R
+                         self.dev_optpsit2_R, self.nG0)
+    
+            alpha = -1j * self.qq_v[ix]                    
+            _gpaw.cugemm(handle,alpha, self.dev_optpsit2_R, self.dev_opteikr_R, 0.0,
+                         self.dev_dir_c+ix*sizeofdata,
+                         1, 1, self.nG0, 1, 1, 1, 2, 0) # transb(Hermitian), transa
+
+        tmpp = np.zeros(3, dtype=complex)               # similar to np.dot(-1j*qq_v*tmp)
+        status = _gpaw.cuGetVector(3,sizeofdata,self.dev_dir_c,1, tmpp, 1)
+        rhoG0 = np.array([np.sum(tmpp),])
+
+        return rhoG0
+
+
+    def cuda_free(self, matrixlist_w, GPU_rho_uG, dev_Qtmp,
+                  dev_psit1_R, dev_psit2_R, dev_expqr_R, dev_Gindex_G):
+
+        for iw in range(self.Nw_local):
+            _gpaw.cuFree(matrixlist_w[iw])
+        _gpaw.cuFree(GPU_rho_uG)
+        _gpaw.cuFree(self.dev_spos_ac)
+        _gpaw.cuFree(self.dev_a_sa)
+        _gpaw.cuFree(self.dev_op_scc)
+        _gpaw.cuFree(self.dev_ibzk_kc)
+        _gpaw.cuFree(dev_Qtmp)
+        _gpaw.cuFree(dev_psit1_R)
+        _gpaw.cuFree(dev_psit2_R)
+        _gpaw.cuFree(dev_expqr_R)
+        _gpaw.cuFree(dev_Gindex_G)
+        _gpaw.cuFree(self.dev_index1_Q)
+        _gpaw.cuFree(self.dev_index2_Q)
+
+        if self.optical_limit:
+            _gpaw.cuFree(self.dev_opteikr_R)
+            _gpaw.cuFree(self.dev_optpsit2_R)
+
+        return
+
+    
+    def cuda_kspecific_free(self):
+        _gpaw.cuFree(self.dev_Q1_G)
+        _gpaw.cuFree(self.dev_Q2_G)
+
+        if self.optical_limit:
+            _gpaw.cuFree(self.dev_tmp_G)
+            _gpaw.cuFree(self.dev_tmp2_G)
+            _gpaw.cuFree(self.dev_dir_c)
+            _gpaw.cuFree(self.dev_G_cG)
+
+        return 
+
+
+
+    def cuda_paw_free(self, P_R_asii, P_P1_ani, P_P1_ai, dev_P1_ani, dev_P1_ai,
+                      P_P2_ani, P_P2_ai, dev_P2_ani, dev_P2_ai):
+
+        _gpaw.cuFree(dev_P1_ani) # they are pointer array
+        _gpaw.cuFree(dev_P1_ai)
+        _gpaw.cuFree(dev_P2_ani)
+        _gpaw.cuFree(dev_P2_ai)
+
+        for a, id in enumerate(self.calc.wfs.setups.id_a):
+            _gpaw.cuFree(self.P_phi_aGp[a])                    
+            _gpaw.cuFree(self.P_P_ap[a])
+            _gpaw.cuFree(P_R_asii[a])
+            _gpaw.cuFree(P_P1_ani[a])
+            _gpaw.cuFree(P_P1_ai[a])
+            _gpaw.cuFree(P_P2_ani[a])
+            _gpaw.cuFree(P_P2_ai[a])
+            _gpaw.cuFree(self.dev_R_asii)
+            _gpaw.cuFree(self.dev_Ni_a)
+
         
     def pad(self, psit_g):
         if self.pwmode:
