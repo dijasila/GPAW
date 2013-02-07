@@ -210,6 +210,8 @@ class RMM_DIIS_new(Eigensolver):
                     lam_x = np.where(lam_x < lower, lower, lam_x)
                     lam_x = np.where(lam_x > upper, upper, lam_x)
 
+            # lam_x[:] = 0.1
+
             # New trial wavefunction and residual          
             self.timer.start('Update psi')
             for lam, psit_G, dpsit_G, R_G, dR_G in zip(lam_x, psit_xG, 
@@ -237,12 +239,21 @@ class RMM_DIIS_new(Eigensolver):
 
                     # Residual matrix
                     R_nn = np.zeros((nit+1, nit+1), wfs.dtype)
-                    rk(wfs.gd.dv, R_diis_nxG[istart:iend], 0.0, R_nn)
-                    comm.sum(R_nn)
+                    wfs.matrixoperator.gd.integrate(R_diis_nxG[istart:iend],
+                                                    R_diis_nxG[istart:iend],
+                                                    global_integral=True,
+                                                    _transposed_result=R_nn)
+                    # rk(wfs.gd.dv, R_diis_nxG[istart:iend], 0.0, R_nn)
+                    # comm.sum(R_nn)
 
                     # Overlap matrix
                     S_nn = np.zeros((nit + 1, nit + 1), wfs.dtype)
-                    rk(wfs.gd.dv, psit_diis_nxG[istart:iend], 0.0, S_nn)
+                    # rk(wfs.gd.dv, psit_diis_nxG[istart:iend], 0.0, S_nn)
+                    wfs.matrixoperator.gd.integrate(psit_diis_nxG[istart:iend],
+                                                    psit_diis_nxG[istart:iend],
+                                                    global_integral=False,
+                                                    _transposed_result=S_nn)
+
                     for a, P_nxi in P_diis_anxi.items():
                         dO_ii = wfs.setups[a].dO_ii
                         gemm(1.0, P_nxi[istart:iend], 
