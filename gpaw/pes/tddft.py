@@ -14,7 +14,18 @@ from numpy import sqrt, pi
 
 class TDDFTPES(BasePES):
     def __init__(self, mother, excited_daughter, daughter=None, 
-                 shift=True, occupation_tolerance=0.05):
+                 shift=True, tolerance={}):
+        self.tolerance = {
+            'occupation' : 1.e-10,
+            'magnetic'   : 1.e-10,
+            'grid' : 0,
+            }
+        for key in tolerance.keys():
+            if not key in self.tolerance:
+                raise RuntimeError("Tolerance key '%s' not known."
+                                   % key)
+            self.tolerance[key] = tolerance[key]
+
         if excited_daughter.calculator is not None:
             self.c_d = excited_daughter.calculator
         else:
@@ -28,7 +39,7 @@ class TDDFTPES(BasePES):
         self.c_d.converge_wave_functions()
         self.lr_d.diagonalize()
         
-        self.check_systems(occupation_tolerance)
+        self.check_systems()
         self.lr_d.jend = self.lr_d.kss[-1].j        
         
         # Make good way for initialising these
@@ -49,7 +60,7 @@ class TDDFTPES(BasePES):
             indicees = []
             nbands = calc.get_number_of_bands()
             spin = calc.get_number_of_spins() == 2
-            f_tolerance = (1 + spin) *  occupation_tolerance
+            f_tolerance = (1 + spin) *  self.tolerance['occupation']
             for kpt in calc.wfs.kpt_u:
                 for i in range(nbands):
                     if kpt.f_n[i] > f_tolerance:
@@ -188,18 +199,29 @@ class TDDFTPES(BasePES):
         self.gd.comm.sum(ma)
         return sqrt(4 * pi) * ma
         
-    def check_systems(self, occupation_tolerance):
+    def check_systems(self):
         """Check that mother and daughter systems correspond to each other.
 
         """
-        if (self.c_m.wfs.gd.cell_cv != self.c_d.wfs.gd.cell_cv).any():
-            raise RuntimeError('Not the same grid')
-        if (self.c_m.wfs.gd.h_cv != self.c_d.wfs.gd.h_cv).any():
+        gtol = self.tolerance['grid']
+        mtol = self.tolerance['magnetic']
+        if (np.abs(self.c_m.wfs.gd.cell_cv - 
+                   self.c_d.wfs.gd.cell_cv) > gtol).any():
+            raise RuntimeError('Not the same grid:' +
+                               str(self.c_m.wfs.gd.cell_cv) + ' !=' +
+                               str(self.c_d.wfs.gd.cell_cv))
+        if (np.abs(self.c_m.wfs.gd.h_cv - 
+                   self.c_d.wfs.gd.h_cv) > gtol).any():
             raise RuntimeError('Not the same grid')
         if (self.c_m.atoms.positions != self.c_m.atoms.positions).any():
             raise RuntimeError('Not the same atomic positions')
-        #if np.abs(self.c_m.get_magnetic_moment()-self.c_d.get_magnetic_moment())!=1.:
-            #raise RuntimeError('Mother and daughter spin are not compatible')
+        if np.abs(np.abs(self.c_m.get_magnetic_moment()-
+                         self.c_d.get_magnetic_moment()) - 1) > mtol:
+            raise RuntimeError(('Mother (%g) ' %
+                                self.c_m.get_magnetic_moment()) +
+                               ('and daughter spin (%g) ' %
+                                self.c_d.get_magnetic_moment()) +
+                               'are not compatible')
 
     def Dyson_orbital(self, I):
         """Return the Dyson orbital corresponding to excition I."""
