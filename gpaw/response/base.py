@@ -572,13 +572,13 @@ class BASECHI:
             optical_limit = True
             
         if static:
-            df = DF(calc=self.calc, q=q.copy(), w=(0.,), nbands=self.nbands,
+            df = DF(calc=self.calc, q=q.copy(), w=(0.,), nbands=self.nbands, eshift=self.eshift,
                     optical_limit=optical_limit, hilbert_trans=False, xc='RPA',
                     rpad=self.rpad, vcut=self.vcut, G_plus_q=True,
                     eta=0.0001, ecut=self.ecut*Hartree,
                     txt='df.out', comm=comm, kcommsize=kcommsize)
         else:
-            df = DF(calc=self.calc, q=q.copy(), w=w, nbands=self.nbands,
+            df = DF(calc=self.calc, q=q.copy(), w=w, nbands=self.nbands, eshift=self.eshift,
                     optical_limit=optical_limit, hilbert_trans=hilbert_trans, xc='RPA', full_response=True,
                     rpad=self.rpad, vcut=self.vcut, G_plus_q=True,
                     eta=self.eta*Hartree, ecut=self.ecut.copy()*Hartree,
