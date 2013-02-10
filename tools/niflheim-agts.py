@@ -146,7 +146,7 @@ sfile = os.path.join(dir, 'status.log')
 attach = sfile
 if not nfailed:
     subject += ' succeeded'
-    fail(subject, email, attach)
+    fail(subject, email, attach, mailer='mutt')
 else:
     subject += ' failed'
     # attach failed tests error files
