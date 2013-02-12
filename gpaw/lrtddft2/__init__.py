@@ -1062,36 +1062,40 @@ class LrTDDFTindexed:
         drhot_gh[:] = 0.0
 
 
+        #
+        # Sum of Slater determinants:
+        # diag ip ip     => |c_ip|**2 ( |psi_p|**2 - |psi_i]**2 )
+        # offdiag ip iq  =>   c_ip c_iq psi_p psi_q
+        # offdiag ip jp  => - c_ip c_jp psi_i psi_j
+        # offdiag ip jq  => 0
+        #
+        # remember both ip,jq  and jq,ip
+        #
+        
         # occupations for electron and hole
-        f_n = self.calc.wfs.kpt_u[self.kpt_ind].f_n
-        n_el = np.sum(f_n)
-        fe_n = np.zeros(f_n.shape)
-        fh_n = np.zeros(f_n.shape)
+        f_n  = self.calc.wfs.kpt_u[self.kpt_ind].f_n
+        fe_n = np.zeros(len(f_n)) 
+        fh_n = np.zeros(len(f_n)) 
 
         maxC = np.max(abs(C_im))
 
+        # diagonal ip,ip
         for kss_ip in self.kss_list:
             ip = self.index_of_kss(kss_ip.occ_ind, kss_ip.unocc_ind)
             if self.get_local_index(ip) is None:
                 continue
-            if abs(C_im[ip]) < 1e-5 * maxC: 
+            if abs(C_im[ip]) < 1e-3 * maxC: 
                 continue
-            fh_n[kss_ip.occ_ind]   -= C_im[ip]*C_im[ip] * kss_ip.pop_diff
-            fe_n[kss_ip.unocc_ind] += C_im[ip]*C_im[ip] * kss_ip.pop_diff
 
-
-        self.eh_comm.sum(fh_n)
-        self.eh_comm.sum(fe_n)
-
-        if self.parent_comm.rank == 0:
-            print fh_n
-            print fe_n
+            fh_n[kss_ip.occ_ind]   -= C_im[ip] * C_im[ip] * kss_ip.pop_diff
+            fe_n[kss_ip.unocc_ind] += C_im[ip] * C_im[ip] * kss_ip.pop_diff
 
 
         for k in range(len(f_n)):
-            if abs(fh_n[k]) < 1e-5 and abs(fe_n[k]):
+            if ( abs(fh_n[k]) < 1e-3 * maxC*maxC and
+                 abs(fe_n[k]) < 1e-3 * maxC*maxC ):
                 continue
-            
+
             dnt_Gip[:] = 0.0
             dnt_gip[:] = 0.0
             drhot_gip[:] = 0.0
@@ -1102,6 +1106,62 @@ class LrTDDFTindexed:
             drhot_gh += fh_n[k] * drhot_gip
             drhot_ge += fe_n[k] * drhot_gip
 
+            if self.parent_comm.rank == 0:
+                print '%03d => %03d : %03d=>%03d | %12.6lf  %12.6lf %12.6lf' % (kss_ip.occ_ind, kss_ip.unocc_ind, kss_ip.occ_ind, kss_ip.unocc_ind, C_im[ip], C_im[ip], C_im[ip] * C_im[ip]) 
+                sys.stdout.flush()
+
+
+        # offdiagonal
+        for kss_ip in self.kss_list:
+            ip = self.index_of_kss(kss_ip.occ_ind, kss_ip.unocc_ind)
+            if self.get_local_index(ip) is None:
+                continue
+            if abs(C_im[ip]) < 1e-3 * maxC: 
+                continue
+            
+            for kss_jq in self.kss_list:
+                if ( kss_ip.occ_ind   == kss_jq.occ_ind and
+                     kss_ip.unocc_ind == kss_jq.unocc_ind ):
+                    continue
+
+                if ( kss_ip.occ_ind   != kss_jq.occ_ind and
+                     kss_ip.unocc_ind != kss_jq.unocc_ind ):
+                    continue
+
+                jq = self.index_of_kss(kss_jq.occ_ind, kss_jq.unocc_ind)
+
+                if abs(C_im[ip] * C_im[jq]) < 1e-3 * maxC * maxC:
+                    continue
+
+
+                if self.parent_comm.rank == 0:
+                    print '%03d => %03d : %03d=>%03d | %12.6lf  %12.6lf %12.6lf' % (kss_ip.occ_ind, kss_ip.unocc_ind, kss_jq.occ_ind, kss_jq.unocc_ind, C_im[ip], C_im[jq], C_im[ip] * C_im[jq]) 
+                    sys.stdout.flush()
+
+                if ( kss_ip.occ_ind   == kss_jq.occ_ind and
+                     kss_ip.unocc_ind != kss_jq.unocc_ind ):
+                    dnt_Gip[:] = 0.0
+                    dnt_gip[:] = 0.0
+                    drhot_gip[:] = 0.0
+                    kss_pq = KSSingle(kss_ip.unocc_ind, kss_jq.unocc_ind)
+                    self.calculate_pair_density( self.calc.wfs.kpt_u[self.kpt_ind],
+                                                 kss_pq, dnt_Gip, dnt_gip, drhot_gip )
+                    
+                    drhot_ge += (C_im[ip] * C_im[jq] * np.sqrt(kss_ip.pop_diff * kss_jq.pop_diff)) * drhot_gip
+
+
+                if ( kss_ip.occ_ind   != kss_jq.occ_ind and
+                     kss_ip.unocc_ind == kss_jq.unocc_ind ):
+                    dnt_Gip[:] = 0.0
+                    dnt_gip[:] = 0.0
+                    drhot_gip[:] = 0.0
+                    kss_ij = KSSingle(kss_ip.occ_ind, kss_jq.occ_ind)
+                    self.calculate_pair_density( self.calc.wfs.kpt_u[self.kpt_ind],
+                                                 kss_ij, dnt_Gip, dnt_gip, drhot_gip )
+                    
+                    drhot_gh -= (C_im[ip] * C_im[jq] * np.sqrt(kss_ip.pop_diff * kss_jq.pop_diff)) * drhot_gip
+
+
         self.eh_comm.sum(drhot_ge)
         self.eh_comm.sum(drhot_gh)
 
@@ -1109,7 +1169,13 @@ class LrTDDFTindexed:
             drhot_ge = self.calc.density.finegd.collect(drhot_ge)
             drhot_gh = self.calc.density.finegd.collect(drhot_gh)
 
-        return (drhot_ge,drhot_gh)
+        drhot_geh = drhot_ge + drhot_gh
+
+        print 'drho_ge', self.calc.density.finegd.integrate(drhot_ge)
+        print 'drho_gh', self.calc.density.finegd.integrate(drhot_gh)
+        print 'drho_geh', self.calc.density.finegd.integrate(drhot_geh)
+
+        return (drhot_ge, drhot_gh, drhot_geh)
 
         
         
@@ -1146,7 +1212,7 @@ class LrTDDFTindexed:
         # Read ALL K_matrix files
         for K_fn in glob.glob(self.basefilename + '.K_matrix.*'): 
             #print >> self.txt, '.',
-            self.txt.flush()
+            #self.txt.flush()
             for line in open(K_fn,'r'):
                 line = line.split()
                 ipkey = (int(line[0]), int(line[1]))
@@ -1833,7 +1899,7 @@ class LRiPairDensity:
         # Add compensation charges
         rhot_g[:] = nt_g[:]
         self.density.ghat.add(rhot_g, Q_aL)
-
+        #print 'dens', self.density.finegd.integrate(rhot_g)
 
 
 ###############################################################################
