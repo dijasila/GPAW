@@ -17,91 +17,7 @@ from gpaw.occupations import MethfesselPaxton
 class GPAW(PAW):
     """This is the ASE-calculator frontend for doing a PAW calculation.
     """
-    def get_atoms(self):
-        atoms = self.atoms.copy()
-        atoms.set_calculator(self)
-        return atoms
-
-    def set_atoms(self, atoms):
-        pass
-
-    def get_potential_energy(self, atoms=None, force_consistent=False):
-        """Return total energy.
-
-        Both the energy extrapolated to zero Kelvin and the energy
-        consistent with the forces (the free energy) can be
-        returned."""
         
-        if atoms is None:
-            atoms = self.atoms
-
-        self.calculate(atoms, converge=True)
-
-        if force_consistent:
-            # Free energy:
-            return Hartree * self.hamiltonian.Etot
-        else:
-            # Energy extrapolated to zero Kelvin:
-            if (isinstance(self.occupations, MethfesselPaxton) and
-                self.occupations.iter > 0):
-                raise NotImplementedError(
-                    'Extrapolation to zero width not implemeted for ' +
-                    'Methfessel-Paxton distribution with order > 0.')
-            return Hartree * (self.hamiltonian.Etot + 0.5 * self.hamiltonian.S)
-
-    def get_forces(self, atoms):
-        """Return the forces for the current state of the atoms."""
-        # I believe that the force_call_to_set_positions must be set
-        # in order to make sure that psit_nG is correctly initialized
-        # from a tarfile reference.
-        #
-        # TODO: improve i/o interface so the rest of the program doesn't need
-        # to distinguish between the ways in which wave functions were obtained
-        if (self.forces.F_av is None and
-            hasattr(self.wfs, 'kpt_u') and
-            not hasattr(self.wfs, 'tci') and
-            not isinstance(self.wfs.kpt_u[0].psit_nG, np.ndarray)):
-            force_call_to_set_positions = True
-        else:
-            force_call_to_set_positions = False
-            
-        self.calculate(atoms, converge=True,
-                       force_call_to_set_positions=force_call_to_set_positions)
-
-        if self.forces.F_av is None:
-            F_av = self.forces.calculate(self.wfs, self.density,
-                                         self.hamiltonian)
-            self.print_forces()
-        else:
-            F_av = self.forces.F_av
-
-        return F_av * (Hartree / Bohr)
-      
-    def get_stress(self, atoms):
-        """Return the stress for the current state of the atoms."""
-        self.calculate(atoms, converge=True)
-        if self.stress_vv is None:
-            self.stress_vv = stress(self)
-        return self.stress_vv.flat[[0, 4, 8, 5, 2, 1]] * (Hartree / Bohr**3)
-
-    def calculation_required(self, atoms, quantities):
-        if len(quantities) == 0:
-            return False
-
-        if not (self.initialized and self.scf.converged):
-            return True
-
-        if (len(atoms) != len(self.atoms) or
-            (atoms.get_positions() != self.atoms.get_positions()).any() or
-            (atoms.get_atomic_numbers() !=
-             self.atoms.get_atomic_numbers()).any() or
-            (atoms.get_cell() != self.atoms.get_cell()).any() or
-            (atoms.get_pbc() != self.atoms.get_pbc()).any()):
-            return True
-
-        return ('forces' in quantities and self.forces.F_av is None or
-                'stress' in quantities and self.stress_vv is None)
-
     def get_number_of_bands(self):
         """Return the number of bands."""
         return self.wfs.bd.nbands
@@ -601,28 +517,6 @@ class GPAW(PAW):
 
         return f_kni.conj()
 
-    def get_dipole_moment(self, atoms=None):
-        """Return the total dipole moment in ASE units."""
-        rhot_g = self.density.rhot_g
-        return self.density.finegd.calculate_dipole_moment(rhot_g) * Bohr
-
-    def get_magnetic_moment(self, atoms=None):
-        """Return the total magnetic moment."""
-        return self.occupations.magmom
-
-    def get_magnetic_moments(self, atoms=None):
-        """Return the local magnetic moments within augmentation spheres"""
-        magmom_av = self.density.estimate_magnetic_moments()
-        if self.wfs.collinear:
-            momsum = magmom_av.sum()
-            M = self.occupations.magmom
-            if abs(M) > 1e-7 and abs(momsum) > 1e-7:
-                magmom_av *= M / momsum
-            # return a contiguous array
-            return magmom_av[:, 2].copy()
-        else:
-            return magmom_av
-        
     def get_number_of_grid_points(self):
         return self.wfs.gd.N_c
 

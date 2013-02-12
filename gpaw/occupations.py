@@ -537,7 +537,11 @@ class MethfesselPaxton(SmoothDistribution):
     def __init__(self, width, iter=0, fixmagmom=False, maxiter=1000):
         SmoothDistribution.__init__(self, width, fixmagmom, maxiter)
         self.iter = iter
-
+        if iter > 0:
+            raise NotImplementedError(
+                'Extrapolation to zero width not implemeted for ' +
+                'Methfessel-Paxton distribution with order > 0.')
+        
     def distribution(self, kpt, fermilevel):
         x = (kpt.eps_n - fermilevel) / self.width
         x = x.clip(-100, 100)

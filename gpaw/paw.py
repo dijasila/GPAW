@@ -76,12 +76,10 @@ class PAW(PAWTextOutput):
 
         self.scf = None
         self.forces = ForceCalculator(self.timer)
-        self.stress_vv = None
         self.wfs = EmptyWaveFunctions()
         self.occupations = None
         self.density = None
         self.hamiltonian = None
-        self.atoms = None
 
         self.initialized = False
 
@@ -219,6 +217,60 @@ class PAW(PAWTextOutput):
         """Update PAW calculaton if needed.
 
         Returns True/False whether a calculation was performed or not."""
+
+        self.results['free energy'] = Hartree * self.hamiltonian.Etot
+        self.results['energy'] = Hartree * (self.hamiltonian.Etot +
+                                            0.5 * self.hamiltonian.S)
+
+        if (self.forces.F_av is None and
+            hasattr(self.wfs, 'kpt_u') and
+            not hasattr(self.wfs, 'tci') and
+            not isinstance(self.wfs.kpt_u[0].psit_nG, np.ndarray)):
+            force_call_to_set_positions = True
+        else:
+            force_call_to_set_positions = False
+            
+        self.calculate(atoms, converge=True,
+                       force_call_to_set_positions=force_call_to_set_positions)
+
+        if self.forces.F_av is None:
+            F_av = self.forces.calculate(self.wfs, self.density,
+                                         self.hamiltonian)
+            self.print_forces()
+        else:
+            F_av = self.forces.F_av
+
+        return F_av * (Hartree / Bohr)
+      
+        """Return the stress for the current state of the atoms."""
+        self.calculate(atoms, converge=True)
+        if self.stress_vv is None:
+            self.stress_vv = stress(self)
+        return self.stress_vv.flat[[0, 4, 8, 5, 2, 1]] * (Hartree / Bohr**3)
+    def get_dipole_moment(self, atoms=None):
+        """Return the total dipole moment in ASE units."""
+        rhot_g = self.density.rhot_g
+        return self.density.finegd.calculate_dipole_moment(rhot_g) * Bohr
+
+    def get_magnetic_moment(self, atoms=None):
+        """Return the total magnetic moment."""
+        return self.occupations.magmom
+
+    def get_magnetic_moments(self, atoms=None):
+        """Return the local magnetic moments within augmentation spheres"""
+        magmom_av = self.density.estimate_magnetic_moments()
+        if self.wfs.collinear:
+            momsum = magmom_av.sum()
+            M = self.occupations.magmom
+            if abs(M) > 1e-7 and abs(momsum) > 1e-7:
+                magmom_av *= M / momsum
+            # return a contiguous array
+            return magmom_av[:, 2].copy()
+        else:
+            return magmom_av
+
+
+
 
         self.timer.start('Initialization')
         if atoms is None:
