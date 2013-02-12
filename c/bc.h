@@ -63,7 +63,7 @@ void bc_unpack2(const boundary_conditions* bc,
 
 
 void bc_init_cuda(boundary_conditions* bc);
-void bc_dealloc_cuda(boundary_conditions* bc);
+void bc_dealloc_cuda(int force);
 
 void bc_unpack_cuda_gpu(const boundary_conditions* bc,
 			const double* aa1, double* aa2, int i,

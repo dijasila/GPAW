@@ -111,6 +111,8 @@ PyObject* papi_mem_info(PyObject *self, PyObject *args);
 PyObject* mlsqr(PyObject *self, PyObject *args); 
 
 #ifdef GPAW_CUDA  
+PyObject* cuda_init(PyObject *self, PyObject *args);
+PyObject* cuda_delete(PyObject *self, PyObject *args);
 PyObject* csign_gpu(PyObject *self, PyObject *args);
 PyObject* scal_cuda_gpu(PyObject *self, PyObject *args);
 PyObject* multi_scal_cuda_gpu(PyObject *self, PyObject *args);
@@ -233,6 +235,8 @@ static PyMethodDef functions[] = {
 #endif // GPAW_PAPI
   {"mlsqr", mlsqr, METH_VARARGS, 0}, 
 #ifdef GPAW_CUDA  
+  {"cuda_init", cuda_init, METH_VARARGS, 0},
+  {"cuda_delete", cuda_delete, METH_VARARGS, 0},
   {"csign_gpu", csign_gpu, METH_VARARGS, 0},
   {"scal_cuda_gpu", scal_cuda_gpu, METH_VARARGS, 0},
   {"multi_scal_cuda_gpu", multi_scal_cuda_gpu, METH_VARARGS, 0},

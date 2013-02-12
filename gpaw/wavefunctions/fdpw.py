@@ -116,7 +116,7 @@ class FDPWWaveFunctions(WaveFunctions):
         # from the file to memory:
         for kpt in self.kpt_u:
             file_nG = kpt.psit_nG
-            kpt.psit_nG = self.empty(self.bd.mynbands, q=kpt.q)
+            kpt.psit_nG = self.empty(self.bd.mynbands, q=kpt.q, cuda=False)
             if extra_parameters.get('sic'):
                 kpt.W_nn = np.zeros((self.bd.nbands, self.bd.nbands),
                                     dtype=self.dtype)

@@ -158,7 +158,8 @@ extern "C"{
 					int blocks)
   {
     if (k!=2) assert(0);
-    int xdiv=MIN(size[0],MAX((4+blocks-1)/blocks,1)); 
+    //    int xdiv=MIN(MAX(size[0]/2,1),MAX((4+blocks-1)/blocks,1)); 
+    int xdiv=1;
 
     int gridy=blocks*((sizeb[1]+skip[1][0]+BLOCK_Y-1)/BLOCK_Y);
     

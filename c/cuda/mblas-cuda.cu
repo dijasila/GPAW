@@ -140,7 +140,10 @@ extern "C" {
     gpaw_cublasSafeCall(cublasGetError());
     //  cublasSetKernelStream(NULL);
     
-    Py_RETURN_NONE;
+    if (PyErr_Occurred())
+      return NULL;
+    else
+      Py_RETURN_NONE;
   }
 
   
@@ -202,7 +205,10 @@ extern "C" {
     
     gpaw_cublasSafeCall(cublasGetError());
     
-    Py_RETURN_NONE;
+    if (PyErr_Occurred())
+      return NULL;
+    else
+      Py_RETURN_NONE;
   }
   
   void mdotu_cuda_gpu( const double* a_gpu, const double* b_gpu,double *result,int n,int nvec)
@@ -261,9 +267,12 @@ extern "C" {
 	for (int i=0;i<MBLAS_BLOCKS;i++){
 	cudaStreamSynchronize(mblas_streams[i]);
 	}*/
-    Py_RETURN_NONE;
+    if (PyErr_Occurred())
+      return NULL;
+    else
+      Py_RETURN_NONE;
   }
-
+  
 
   
   
@@ -323,7 +332,10 @@ extern "C" {
        for (int i=0;i<MBLAS_BLOCKS;i++){
        cudaStreamSynchronize(mblas_streams[i]);
        }*/
-    Py_RETURN_NONE;
+    if (PyErr_Occurred())
+      return NULL;
+    else
+      Py_RETURN_NONE;
   }
   
   

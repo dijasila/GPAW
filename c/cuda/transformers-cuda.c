@@ -43,23 +43,30 @@ void transformer_init_buffers(TransformerObject *self,int blocks)
   transformer_buf_max=MAX(ng2,transformer_buf_max);
 
   if (transformer_buf_max>transformer_buf_size){
-    if (transformer_buf_gpu) cudaFree(transformer_buf_gpu);
+    cudaFree(transformer_buf_gpu);
+    cudaGetLastError();
     GPAW_CUDAMALLOC(&transformer_buf_gpu, double,transformer_buf_max);    
     transformer_buf_size=transformer_buf_max;
   }
 }
 
-void transformer_dealloc_cuda(TransformerObject *self)
+void transformer_init_buffers_cuda()
+{    
+  transformer_buf_gpu=NULL;
+  transformer_buf_size=0;
+  //  transformer_buf_max=0;
+  transformer_init_count=0;
+}
+
+void transformer_dealloc_cuda(int force)
 {
-  if (transformer_init_count==1) {
-    if (transformer_buf_gpu) cudaFree(transformer_buf_gpu);
+  if (force || (transformer_init_count==1)) {
+    cudaFree(transformer_buf_gpu);
     cudaGetLastError();
-    transformer_buf_gpu=NULL;
-    transformer_buf_size=0;
-    transformer_buf_max=0;
+    transformer_init_buffers_cuda();
+    return;
   }
-  transformer_init_count--;
-  assert(transformer_init_count>=0);
+  if (transformer_init_count>0) transformer_init_count--;
 }
 
 
@@ -253,6 +260,9 @@ PyObject* Transformer_apply_cuda_gpu(TransformerObject *self, PyObject *args)
   free(out_cpu2);
 #endif //DEBUG_CUDA_TRANSFORMER
 
-  Py_RETURN_NONE;
+  if (PyErr_Occurred())
+    return NULL;
+  else
+    Py_RETURN_NONE;
 }
 

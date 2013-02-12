@@ -481,7 +481,10 @@ class GridDescriptor(Domain):
         """
 
         if self.comm.size == 1:
-            b_xg[:] = B_xg
+            if isinstance(B_xg,gpaw.cuda.gpuarray.GPUArray):
+                gpaw.cuda.drv.memcpy_dtod(b_xg.gpudata, B_xg.gpudata, B_xg.nbytes)
+            else:
+                b_xg[:] = B_xg            
             return
         
         if self.rank != 0:

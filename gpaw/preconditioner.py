@@ -47,10 +47,7 @@ class Preconditioner:
         nb = len(residuals) # number of bands
         phases = kpt.phase_cd
         step = self.step
-        if self.cuda and not isinstance(residuals, gpaw.cuda.gpuarray.GPUArray):
-            local_residuals=gpaw.cuda.gpuarray.to_gpu(residuals)
-        else:
-            local_residuals=residuals
+        local_residuals=residuals
 
         if self.cuda:
             # XXX GPUarray does not support properly multi-d slicing
@@ -73,24 +70,26 @@ class Preconditioner:
                                            allocator=self.scratch2.allocator,
                                            base=self.scratch2,
                                            gpudata=self.scratch2.gpudata)
+            
             self.restrictor0(local_residuals, r1, phases)
+            change_sign(r1)
             gpaw.cuda.drv.memcpy_dtod(d1.gpudata, r1.gpudata, r1.nbytes)
-            scal(-4 * step, d1)
+            scal(4 * step, d1)            
             self.kin1.apply(d1, q1, phases)
-            q1 += r1
+            q1 -= r1            
             self.restrictor1(q1, r2, phases)
             gpaw.cuda.drv.memcpy_dtod(d2.gpudata, r2.gpudata, r2.nbytes)
-            scal(16 * step, d2)
+            scal(16 * step, d2)            
             self.kin2.apply(d2, q2, phases)
             q2 -= r2
-            axpy(-16*step, q2, d2)
+            axpy(-16*step, q2, d2)            
             self.interpolator2(d2, q1, phases)
-            d1 -= q1
+            d1 -= q1            
             self.kin1.apply(d1, q1, phases)
-            q1 += r1
+            q1 -= r1            
             axpy(-4*step, q1, d1)
-            change_sign(d1)
             self.interpolator1(d1, d0, phases)
+            change_sign(d0)
             self.kin0.apply(d0, q0, phases)
             q0 -= local_residuals
             axpy(-step, q0, d0)  # d0 -= step * q0
@@ -99,20 +98,21 @@ class Preconditioner:
             d0, q0 = self.scratch0[:,:nb]
             r1, d1, q1 = self.scratch1[:, :nb]
             r2, d2, q2 = self.scratch2[:, :nb]
+
             self.restrictor0(-local_residuals, r1, phases)
-            d1 = 4 * step * r1  
+            d1 = 4 * step * r1            
             self.kin1.apply(d1, q1, phases)
-            q1 -= r1
+            q1 -= r1            
             self.restrictor1(q1, r2, phases)
-            d2 = 16 * step * r2 
+            d2 = 16 * step * r2            
             self.kin2.apply(d2, q2, phases)
             q2 -= r2
             # d2 -= 16 * step * q2
-            axpy(-16*step, q2, d2)
+            axpy(-16*step, q2, d2)            
             self.interpolator2(d2, q1, phases)
-            d1 -= q1
+            d1 -= q1            
             self.kin1.apply(d1, q1, phases)
-            q1 -= r1
+            q1 -= r1            
             # d1 -= 4 * step * q1
             axpy(-4*step, q1, d1)
             self.interpolator1(-d1, d0, phases)
@@ -121,10 +121,6 @@ class Preconditioner:
             axpy(-step, q0, d0)  # d0 -= step * q0
             scal(-1.0, d0)
 
-
-        if self.cuda and not isinstance(residuals, gpaw.cuda.gpuarray.GPUArray):
-            return d0.get() 
-        else:
-            return d0
+        return d0
 
 

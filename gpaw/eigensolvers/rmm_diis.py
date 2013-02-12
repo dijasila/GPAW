@@ -40,6 +40,7 @@ class RMM_DIIS(Eigensolver):
 
         comm = wfs.gd.comm
         B = self.blocksize
+        error = 0
         #dR_xG = wfs.empty(B, q=kpt.q)
         #dR_nG = wfs.empty(wfs.bd.mynbands, q=kpt.q)
         if self.cuda:
@@ -61,8 +62,9 @@ class RMM_DIIS(Eigensolver):
                     weight[n] = kpt.weight
                 else:
                     weight[n] = 0.0
-                            
-        error = sum(weight * multi_dotc(R_nG, R_nG).real) * wfs.gd.dv
+
+        if self.keep_htpsit:
+            error = sum(weight * multi_dotc(R_nG, R_nG).real) * wfs.gd.dv
 
         for n1 in range(0, wfs.bd.mynbands, B):
             n2 = n1 + B
@@ -83,6 +85,7 @@ class RMM_DIIS(Eigensolver):
                 self.calculate_residuals(kpt, wfs, hamiltonian, psit_xG,
                                          P_axi, kpt.eps_n[n_x], R_xG, n_x)
                 
+                error += sum(weight[n1:n2] * multi_dotc(R_xG, R_xG).real) * wfs.gd.dv
             # Precondition the residual:
             self.timer.start('precondition')
             ekin_x = self.preconditioner.calculate_kinetic_energy(
@@ -98,30 +101,47 @@ class RMM_DIIS(Eigensolver):
             self.calculate_residuals(kpt, wfs, hamiltonian, dpsit_xG,
                                      P_axi, kpt.eps_n[n_x], dR_xG, n_x,
                                      calculate_change=True)
-            
 
-        # Find lam that minimizes the norm of R'_G = R_G + lam dR_G
-        RdR_n=np.array(multi_dotc(R_nG, dR_nG).real)*wfs.gd.dv
-        dRdR_n=np.array(multi_dotc(dR_nG, dR_nG).real)*wfs.gd.dv
-        comm.sum(RdR_n)
-        comm.sum(dRdR_n)
-        lam_n = -RdR_n / dRdR_n
-        # Calculate new psi'_G = psi_G + lam pR_G + lam pR'_G
-        #                      = psi_G + p(2 lam R_G + lam**2 dR_G)
-        multi_scal(2.0*lam_n,R_nG)
-        multi_axpy(lam_n**2,dR_nG,R_nG)
-        #for lam, R_G, dR_G in zip(lam_x, R_xG, dR_xG):
-        #    R_G *= 2.0 * lam
-        #    axpy(lam**2, dR_G, R_G)  # R_G += lam**2 * dR_G
-        self.timer.start('precondition')
-        for n1 in range(0, wfs.bd.mynbands, self.blocksize):
-            # XXX GPUarray does not support properly multi-d slicing
-            n2 = min(n1+self.blocksize, wfs.bd.mynbands)
-            psit_G = psit_nG[n1:n2]
-            R_xG = R_nG[n1:n2]
-            psit_G += self.preconditioner(R_xG, kpt, ekin_x)
+            if not self.keep_htpsit:
+                # Find lam that minimizes the norm of R'_G = R_G + lam dR_G
+                RdR_x=np.array(multi_dotc(R_xG, dR_xG).real) * wfs.gd.dv
+                dRdR_x=np.array(multi_dotc(dR_xG, dR_xG).real) * wfs.gd.dv
+                comm.sum(RdR_x)
+                comm.sum(dRdR_x)
+                lam_x = -RdR_x / dRdR_x
+                # Calculate new psi'_G = psi_G + lam pR_G + lam pR'_G
+                #                      = psi_G + p(2 lam R_G + lam**2 dR_G)
+                multi_scal(2.0 * lam_x, R_xG)
+                multi_axpy(lam_x**2, dR_xG, R_xG)
+                self.timer.start('precondition')
+                psit_G = psit_nG[n1:n2]
+                psit_G += self.preconditioner(R_xG, kpt, ekin_x)
+                self.timer.stop('precondition')        
+
+        if self.keep_htpsit:
+            # Find lam that minimizes the norm of R'_G = R_G + lam dR_G
+            RdR_n=np.array(multi_dotc(R_nG, dR_nG).real) * wfs.gd.dv
+            dRdR_n=np.array(multi_dotc(dR_nG, dR_nG).real) * wfs.gd.dv
+            comm.sum(RdR_n)
+            comm.sum(dRdR_n)
+            lam_n = -RdR_n / dRdR_n
+            # Calculate new psi'_G = psi_G + lam pR_G + lam pR'_G
+            #                      = psi_G + p(2 lam R_G + lam**2 dR_G)
+            multi_scal(2.0 * lam_n, R_nG)
+            multi_axpy(lam_n**2, dR_nG, R_nG)
+            #for lam, R_G, dR_G in zip(lam_x, R_xG, dR_xG):
+            #    R_G *= 2.0 * lam
+            #    axpy(lam**2, dR_G, R_G)  # R_G += lam**2 * dR_G
             
-        self.timer.stop('precondition')        
+            self.timer.start('precondition')
+            for n1 in range(0, wfs.bd.mynbands, self.blocksize):
+                # XXX GPUarray does not support properly multi-d slicing
+                n2 = min(n1+self.blocksize, wfs.bd.mynbands)
+                psit_G = psit_nG[n1:n2]
+                R_xG = R_nG[n1:n2]
+                psit_G += self.preconditioner(R_xG, kpt, ekin_x)
+            
+            self.timer.stop('precondition')        
         self.timer.stop('RMM-DIIS')
         error = comm.sum(error)
         return error, psit_nG

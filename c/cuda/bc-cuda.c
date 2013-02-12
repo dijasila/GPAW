@@ -42,6 +42,19 @@ void bc_init_cuda(boundary_conditions* bc)
 
 }
 
+void bc_init_buffers_cuda()
+{
+    bc_rbuff=NULL;
+    bc_sbuff=NULL;
+    bc_rbuff_gpu=NULL;
+    bc_sbuff_gpu=NULL;    
+    bc_rbuff_size=0;
+    bc_sbuff_size=0;
+    //bc_rbuff_max=0;
+    //bc_sbuff_max=0;
+    bc_init_count=0;
+}
+
 void bc_alloc_buffers(const boundary_conditions* bc,int blocks)
 {
  
@@ -53,43 +66,39 @@ void bc_alloc_buffers(const boundary_conditions* bc,int blocks)
 
   bc_sbuff_max=MAX(nsends, bc_sbuff_max);  
   if (bc_sbuff_max > bc_sbuff_size) {
-    if (bc_sbuff) cudaFreeHost(bc_sbuff);
+    cudaFreeHost(bc_sbuff);
+    cudaFree(bc_sbuff_gpu);
+    cudaGetLastError();
     GPAW_CUDAMALLOC_HOST(&bc_sbuff,double, bc_sbuff_max);
-    if (bc_sbuff_gpu) cudaFree(bc_sbuff_gpu);
     GPAW_CUDAMALLOC(&bc_sbuff_gpu,double, bc_sbuff_max);
     bc_sbuff_size=bc_sbuff_max;
   }
 
   bc_rbuff_max=MAX(nrecvs, bc_rbuff_max);
   if (bc_rbuff_max > bc_rbuff_size) {
-    if (bc_rbuff) cudaFreeHost(bc_rbuff);
+    cudaFreeHost(bc_rbuff);
+    cudaFree(bc_rbuff_gpu);
+    cudaGetLastError();
     GPAW_CUDAMALLOC_HOST(&bc_rbuff,double, bc_rbuff_max);
-    if (bc_rbuff_gpu) cudaFree(bc_rbuff_gpu);
     GPAW_CUDAMALLOC(&bc_rbuff_gpu,double, bc_rbuff_max);
     bc_rbuff_size=bc_rbuff_max;
   }
 }
 
-void bc_dealloc_cuda(boundary_conditions* bc)
+void bc_dealloc_cuda(int force)
 {
-  if (bc_init_count==1) {
-    if (bc_sbuff) cudaFreeHost(bc_sbuff);
-    if (bc_rbuff) cudaFreeHost(bc_rbuff);
-    if (bc_sbuff_gpu) cudaFree(bc_sbuff_gpu);
-    if (bc_rbuff_gpu) cudaFree(bc_rbuff_gpu);
+  if (force || (bc_init_count==1)) {
+    cudaFreeHost(bc_sbuff);
+    cudaFreeHost(bc_rbuff);
+    cudaFree(bc_sbuff_gpu);
+    cudaFree(bc_rbuff_gpu);
     cudaGetLastError();
-    bc_rbuff=NULL;
-    bc_sbuff=NULL;
-    bc_rbuff_gpu=NULL;
-    bc_sbuff_gpu=NULL;    
-    bc_rbuff_size=0;
-    bc_sbuff_size=0;
-    bc_rbuff_max=0;
-    bc_sbuff_max=0;
+    bc_init_buffers_cuda();
+    return;
   }
-  bc_init_count--;
-  assert(bc_init_count>=0);
+  if (bc_init_count>0) bc_init_count--;
 }
+
 
 void bc_unpack_cuda_gpu_all(const boundary_conditions* bc,
 			    const double* aa1, double* aa2, 
@@ -140,7 +149,7 @@ void bc_unpack_cuda_gpu_all(const boundary_conditions* bc,
 			    sbuf_gpu,
 			    size,nin ,thd);
 	else {
-	  cuDoubleComplex phase={creal(phases[d+2*i]),cimag(phases[d*i])};
+	  cuDoubleComplex phase={creal(phases[d+2*i]),cimag(phases[d+2*i])};
 	  bmgs_cut_cuda_gpuz((cuDoubleComplex*)(aa2), bc->size2, 
 			     start,
 			     (cuDoubleComplex*)(sbuf_gpu),
@@ -184,7 +193,7 @@ void bc_unpack_cuda_gpu_all(const boundary_conditions* bc,
 				  bc->sendstart[i][d], bc->recvstart[i][1 - d],
 				  nin,thd);
 	} else {
-	  cuDoubleComplex phase={creal(phases[d]),cimag(phases[d])};
+	  cuDoubleComplex phase={creal(phases[d+2*i]),cimag(phases[d+2*i])};
 	  bmgs_translate_cuda_gpuz((cuDoubleComplex*)(aa2), 
 				   bc->size2,bc->sendsize[i][d],
 				   bc->sendstart[i][d],bc->recvstart[i][1 - d],

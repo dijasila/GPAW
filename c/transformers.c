@@ -26,8 +26,8 @@ static void Transformer_dealloc(TransformerObject *self)
 {
 #ifdef GPAW_CUDA
   if (self->cuda) {
-    transformer_dealloc_cuda(self);
-    bc_dealloc_cuda(self->bc);
+    transformer_dealloc_cuda(0);
+    bc_dealloc_cuda(0);
   }
 #endif
   free(self->bc);

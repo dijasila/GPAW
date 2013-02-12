@@ -43,8 +43,11 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
         self.taugrad_v = None  # initialized by MGGA functional
 
-    def empty(self, n=(), global_array=False, realspace=False, q=-1):
-        return self.gd.empty(n, self.dtype, global_array, cuda=self.cuda)
+    def empty(self, n=(), global_array=False, realspace=False, q=-1, cuda=None):
+        if cuda == None:
+            return self.gd.empty(n, self.dtype, global_array, cuda=self.cuda)
+        else:
+            return self.gd.empty(n, self.dtype, global_array, cuda=cuda)
 
     def integrate(self, a_xg, b_yg=None, global_integral=True):
         return self.gd.integrate(a_xg, b_yg, global_integral)
@@ -73,7 +76,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
         self.kin.apply(psit_xG, Htpsit_xG, kpt.phase_cd)
         hamiltonian.apply_local_potential(psit_xG, Htpsit_xG, kpt.s)
         self.timer.stop('Apply hamiltonian')
-
+        
     def add_orbital_density(self, nt_G, kpt, n):
         if self.dtype == float:
             axpy(1.0, kpt.psit_nG[n]**2, nt_G)
@@ -85,7 +88,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
         # Used in calculation of response part of GLLB-potential
 
         
-        if self.cuda:
+        if (self.cuda) and (kpt.psit_nG_gpu is not None):
             if self.nt_G_gpu is None:
                 self.nt_G_gpu = gpaw.cuda.gpuarray.empty(nt_sG[kpt.s].shape,nt_sG[kpt.s].dtype)
             self.nt_G_gpu.set(nt_sG[kpt.s])
@@ -119,7 +122,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                     if abs(d) > 1.e-12:
                         nt_G += (psi0_G.conj() * d * psi_G).real
 
-        if self.cuda:
+        if self.cuda  and (kpt.psit_nG_gpu is not None):
             self.nt_G_gpu.get(nt_sG[kpt.s])
 
 

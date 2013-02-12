@@ -42,15 +42,17 @@ void operator_init_cuda(OperatorObject *self)
 }
 
 
-void operator_init_buffers(OperatorObject *self,int blocks,int async)
+void operator_alloc_buffers(OperatorObject *self,int blocks,int async)
 {
   const boundary_conditions* bc = self->bc;
   const int* size2 = bc->size2;  
   int ng2 = (bc->ndouble * size2[0] * size2[1] * size2[2])*blocks;
   
   operator_buf_max=MAX(ng2,operator_buf_max);
+
   if (operator_buf_max>operator_buf_size){
-    if (operator_buf_gpu) cudaFree(operator_buf_gpu);
+    cudaFree(operator_buf_gpu);
+    cudaGetLastError();
     GPAW_CUDAMALLOC(&operator_buf_gpu, double,operator_buf_max);    
     operator_buf_size=operator_buf_max;
   }
@@ -62,17 +64,28 @@ void operator_init_buffers(OperatorObject *self,int blocks,int async)
   }
 }
 
-void operator_dealloc_cuda(OperatorObject *self)
+void operator_init_buffers_cuda()
+{    
+  operator_buf_gpu=NULL;
+  operator_buf_size=0;
+  //  operator_buf_max=0;
+  operator_init_count=0;
+  operator_streams=0;
+}
+
+void operator_dealloc_cuda(int force)
 {
-  if (operator_init_count==1) {
-    if (operator_buf_gpu) cudaFree(operator_buf_gpu);
+  if (force || (operator_init_count==1)) {
+    cudaFree(operator_buf_gpu);
+    if (operator_streams)
+      for (int i=0;i<2;i++){
+	cudaStreamDestroy(operator_stream[i]);
+      }
     cudaGetLastError();
-    operator_buf_gpu=NULL;
-    operator_buf_size=0;
-    operator_buf_max=0;
+    operator_init_buffers_cuda();
+    return;
   }
-  operator_init_count--;
-  assert(operator_init_count>=0);
+  if (operator_init_count>0) operator_init_count--;
 }
 
 PyObject * Operator_relax_cuda_gpu(OperatorObject *self,
@@ -133,8 +146,8 @@ PyObject * Operator_relax_cuda_gpu(OperatorObject *self,
     cuda_async=1;
   }
 
-  //gpaw_cudaSafeCall(cudaGetLastError());
-  operator_init_buffers(self,blocks,cuda_async);
+  gpaw_cudaSafeCall(cudaGetLastError());
+  operator_alloc_buffers(self,blocks,cuda_async);
 
   int boundary=0;
   
@@ -247,7 +260,10 @@ PyObject * Operator_relax_cuda_gpu(OperatorObject *self,
 #endif //DEBUG_CUDA_OPERATOR
   cudaStreamSynchronize(operator_stream[0]);      
   cudaStreamSynchronize(operator_stream[1]);      
-  Py_RETURN_NONE;
+  if (PyErr_Occurred())
+    return NULL;
+  else
+    Py_RETURN_NONE;
 }
 
 
@@ -357,7 +373,7 @@ PyObject * Operator_apply_cuda_gpu(OperatorObject *self,
   else if (cuda_async)
     printf("async split blocks %d cal size %d %d %d nin %d nsends %d\n",blocks,size1[0],size1[1],size1[2],nin,nsends);
   */
-  operator_init_buffers(self,blocks,cuda_async);
+  operator_alloc_buffers(self,blocks,cuda_async);
   //  if (blocks>self->alloc_blocks){
     //printf("blocks %d cal %d %d %d %d\n",blocks,(160*160*160)/(size1[0]*size1[1]*size1[2]),size1[0],size1[1],size1[2]);
     /*    if (self->buf_gpu) cudaFree(self->buf_gpu);
@@ -497,23 +513,28 @@ PyObject * Operator_apply_cuda_gpu(OperatorObject *self,
     GPAW_CUDAMEMCPY(out_cpu2,out2,double, ng * myblocks, 
 		    cudaMemcpyDeviceToHost);    
     double out_err=0;
+    int out_err_n=0;
     double buf_err=0;
-    for (int i=0;i<ng2*myblocks;i++) {      
-      buf_err=MAX(buf_err,fabs(buf_cpu[i]-buf_cpu2[i]));
+    int buf_err_n=0;
+    for (int i=0;i<ng2*myblocks;i++) { 
+      double err=fabs(buf_cpu[i]-buf_cpu2[i]);
+      if (err>GPAW_CUDA_ABS_TOL) buf_err_n++;
+      buf_err=MAX(buf_err,err);
       if (i<ng*myblocks){
-	out_err=MAX(out_err,fabs(out_cpu[i]-out_cpu2[i]));
+	err=fabs(out_cpu[i]-out_cpu2[i]);
+	if (err>GPAW_CUDA_ABS_TOL) out_err_n++;
+	out_err=MAX(out_err,err);
       }
     }
-    int rank;
-    MPI_Comm_rank(bc->comm,&rank);      
+    int rank=0;
+    if (bc->comm != MPI_COMM_NULL)
+      MPI_Comm_rank(bc->comm,&rank);      
     if (buf_err>GPAW_CUDA_ABS_TOL) {      
-      printf("Debug cuda operator fd bc (n:%d rank:%d) errors: buf %g\n",n,
-	     rank,buf_err);
+      printf("Debug cuda operator fd bc (n:%d rank:%d) errors: buf %g count %d/%d\n",n, rank,buf_err,buf_err_n,ng2*myblocks);
       fflush(stdout);
     } 
     if (out_err>GPAW_CUDA_ABS_TOL) {      
-      printf("Debug cuda operator fd (n:%d rank:%d) errors: out %g\n",n,
-	     rank,out_err);
+      printf("Debug cuda operator fd (n:%d rank:%d) errors: out %g count %d/%d\n",n,rank,out_err,out_err_n,ng*myblocks);
       fflush(stdout);
     }
 #endif //DEBUG_CUDA_OPERATOR
@@ -534,7 +555,10 @@ PyObject * Operator_apply_cuda_gpu(OperatorObject *self,
 #endif //DEBUG_CUDA_OPERATOR
   cudaStreamSynchronize(operator_stream[0]);      
   cudaStreamSynchronize(operator_stream[1]);      
-  Py_RETURN_NONE;
+  if (PyErr_Occurred())
+    return NULL;
+  else
+    Py_RETURN_NONE;
 }
 
 

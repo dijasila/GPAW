@@ -6,6 +6,7 @@
 #include <cuda_runtime_api.h>
 #include <cublas.h>
 #include <float.h>
+#include <Python.h>
 
 //#define DEBUG_CUDA 
 
@@ -50,9 +51,11 @@ typedef struct
 static inline cudaError_t __gpaw_cudaSafeCall( cudaError_t err ,char *file,int line)
 {
   if( cudaSuccess != err) {
-    fprintf(stderr, "%s(%i): Cuda error: %s.\n",
-	    file, line, cudaGetErrorString( err) );
-    exit(-1);
+    char str[100];
+    snprintf(str,100,"%s(%i): Cuda error: %s.\n",
+	     file, line, cudaGetErrorString( err));
+    PyErr_SetString(PyExc_RuntimeError,str);
+    fprintf(stderr, str);
   }
   return err;
 }
@@ -63,9 +66,11 @@ static inline cudaError_t __gpaw_cudaSafeCall( cudaError_t err ,char *file,int l
 static inline cublasStatus __gpaw_cublasSafeCall( cublasStatus err ,char *file,int line)
 {
   if( CUBLAS_STATUS_SUCCESS != err) {
-    fprintf(stderr, "%s(%i): Cublas error: %X.\n",
-	    file, line, err);
-    exit(-1);
+    char str[100];
+    snprintf(str,100,"%s(%i): Cublas error: %X.\n",
+	     file, line, err);
+    PyErr_SetString(PyExc_RuntimeError,str);
+    fprintf(stderr,str);
   }
   return err;
 }

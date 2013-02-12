@@ -8,6 +8,22 @@
 #define REDUCE_BUFFER_SIZE  ((REDUCE_MAX_NVEC+2*GPAW_CUDA_BLOCKS_MAX*REDUCE_MAX_BLOCKS)*16)
 static void *reduce_buffer=NULL;
 
+extern "C" {
+
+  void reduce_init_buffers_cuda()
+  {    
+    reduce_buffer=NULL;
+  }
+  
+  void reduce_dealloc_cuda()
+  {
+    if (reduce_buffer) cudaFree(reduce_buffer);
+    cudaGetLastError();
+    reduce_init_buffers_cuda();
+  }
+
+}
+
 static unsigned int nextPow2( unsigned int x ) {
   --x;
   x |= x >> 1;
@@ -147,8 +163,6 @@ MAPNAME(reducemap)(const Tcuda *d_idata1, const Tcuda *d_idata2,
   
   int threads;
   int blocks;
-
-
   if (reduce_buffer==NULL){
     gpaw_cudaSafeCall(cudaMalloc((void**)(&reduce_buffer),REDUCE_BUFFER_SIZE));
   }
@@ -231,7 +245,7 @@ MAPNAME(reducemap)(const Tcuda *d_idata1, const Tcuda *d_idata2,
       default:
 	assert(0);
       }
-    
+    gpaw_cudaSafeCall(cudaGetLastError());
     
     s=blocks;   
     int count=0;
@@ -302,13 +316,12 @@ MAPNAME(reducemap)(const Tcuda *d_idata1, const Tcuda *d_idata2,
 	default:
 	  assert(0);
 	}
+      gpaw_cudaSafeCall(cudaGetLastError());
     
     
       s = (s + (threads2*2-1)) / (threads2*2);
     }
   }
-  
-  
   
   GPAW_CUDAMEMCPY(d_odata,result_gpu,Tcuda,nvec,
 		  cudaMemcpyDeviceToHost);

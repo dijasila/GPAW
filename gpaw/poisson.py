@@ -107,6 +107,9 @@ class PoissonSolver:
         # Should probably be renamed allocate
         gd = self.gd
 
+        if self.cuda and gpaw.cuda.get_context() == None:
+            self.cuda = False
+
         self.rhos = [gd.empty(cuda=self.cuda)]
         self.phis = [None]
         self.residuals = [gd.empty(cuda=self.cuda)]
@@ -218,7 +221,7 @@ class PoissonSolver:
         if isinstance(self.phis[1], gpaw.cuda.gpuarray.GPUArray):
             self.phis[0] = gpaw.cuda.gpuarray.to_gpu(phi)
             if self.B is None:
-                self.rhos[0] = gpaw.cuda.gpuarray.to_gpu(rho)
+                self.rhos[0].set(rho)
             else:
                 self.B.apply(gpaw.cuda.gpuarray.to_gpu(rho), self.rhos[0])
         else:

@@ -120,7 +120,10 @@ extern "C" {
 	 h_strength,blocks);      
     }
     gpaw_cudaSafeCall(cudaGetLastError());
-    Py_RETURN_NONE;
+    if (PyErr_Occurred())
+      return NULL;
+    else
+      Py_RETURN_NONE;
   }
 }
 

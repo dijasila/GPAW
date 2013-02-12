@@ -439,6 +439,7 @@ extern "C" {
       cudaFree(self->A_gm_i_gpu);
       cudaFree(self->work_i_gpu);
       cudaFree(self->ni_gpu);
+      cudaGetLastError();
     }
   }
 
@@ -708,7 +709,9 @@ extern "C" {
     if (self->bloch_boundary_conditions){
       free(phase_i_gpu);
     }
-
+    if (PyErr_Occurred())
+      return NULL;
+    else
     return (PyObject*)self;
   }
 
@@ -827,7 +830,10 @@ extern "C" {
 
 
     }
-    Py_RETURN_NONE;
+    if (PyErr_Occurred())
+      return NULL;
+    else
+      Py_RETURN_NONE;
   }
 
 
@@ -888,9 +894,12 @@ extern "C" {
 	 lfc->max_k,q,lfc->nB_gpu);
       gpaw_cudaSafeCall(cudaGetLastError());
     }
-    Py_RETURN_NONE;
+    if (PyErr_Occurred())
+      return NULL;
+    else
+      Py_RETURN_NONE;
   }
-
+  
 }
 
 

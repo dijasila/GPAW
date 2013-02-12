@@ -25,6 +25,7 @@ from gpaw.hamiltonian import RealSpaceHamiltonian
 from gpaw.utilities.timing import Timer
 from gpaw.xc import XC
 from gpaw.xc.hybrid import HybridXC # needed for disabling CUDA
+from gpaw.xc.mgga import MGGA # needed for disabling CUDA
 from gpaw.xc.sic import SIC
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.base import EmptyWaveFunctions
@@ -403,12 +404,13 @@ class PAW(PAWTextOutput):
             nspins = 1
             ncomp = 2
 
-        if self.cuda and isinstance(xc, HybridXC):
+        if self.cuda and (isinstance(xc, HybridXC) or isinstance(xc, MGGA)
+                          or isinstance(xc, SIC)):
             # Make sure wavefunctions etc. are initialized to non-CUDA
             self.hamiltonian = None
             self.wfs = EmptyWaveFunctions()
             self.cuda=False
-            print "Cuda disabled: Hybrid functionals not implemented."
+            print "Cuda disabled: Hybrid, MGGA and SIC functionals not implemented."
 
         # K-point descriptor
         kd = KPointDescriptor(par.kpts, nspins, collinear)
@@ -837,6 +839,9 @@ class PAW(PAWTextOutput):
 
     def converge_wave_functions(self):
         """Converge the wave-functions if not present."""
+
+        if self.cuda and (gpaw.cuda.get_context() == None):
+            self.cuda = False
 
         if not self.wfs or not self.scf:
             self.initialize()

@@ -39,7 +39,10 @@ PyObject* scal_cuda_gpu(PyObject *self, PyObject *args)
   }
   gpaw_cublasSafeCall(cublasGetError());
 
-  Py_RETURN_NONE;
+  if (PyErr_Occurred())
+    return NULL;
+  else
+    Py_RETURN_NONE;
 }
 
 
@@ -105,7 +108,10 @@ PyObject* gemm_cuda_gpu(PyObject *self, PyObject *args)
   }
   
   gpaw_cublasSafeCall(cublasGetError());
-  Py_RETURN_NONE;
+  if (PyErr_Occurred())
+    return NULL;
+  else
+    Py_RETURN_NONE;
 }
 
 
@@ -166,7 +172,10 @@ PyObject* gemv_cuda_gpu(PyObject *self, PyObject *args)
 		(cuDoubleComplex*)y_gpu, incy);
   }
 
-  Py_RETURN_NONE;
+  if (PyErr_Occurred())
+    return NULL;
+  else
+    Py_RETURN_NONE;
 }
 
 
@@ -205,7 +214,10 @@ PyObject* axpy_cuda_gpu(PyObject *self, PyObject *args)
   gpaw_cublasSafeCall(cublasGetError());
 
   
-  Py_RETURN_NONE;
+  if (PyErr_Occurred())
+    return NULL;
+  else
+    Py_RETURN_NONE;
 }
 
 
@@ -243,7 +255,10 @@ PyObject* rk_cuda_gpu(PyObject *self, PyObject *args)
   }
   gpaw_cublasSafeCall(cublasGetError());
 
-  Py_RETURN_NONE;
+  if (PyErr_Occurred())
+    return NULL;
+  else
+    Py_RETURN_NONE;
 }
 
 
@@ -287,7 +302,10 @@ PyObject* r2k_cuda_gpu(PyObject *self, PyObject *args)
   gpaw_cublasSafeCall(cublasGetError());
 
 
-  Py_RETURN_NONE;
+  if (PyErr_Occurred())
+    return NULL;
+  else
+    Py_RETURN_NONE;
 }
 
 
@@ -316,7 +334,10 @@ PyObject* dotc_cuda_gpu(PyObject *self, PyObject *args)
       result = cublasDdot(n, (double*)a_gpu,
 			  incx, (double*)b_gpu, incy);
       gpaw_cublasSafeCall(cublasGetError());
-      return PyFloat_FromDouble(result);
+      if (PyErr_Occurred())
+	return NULL;
+      else
+	return PyFloat_FromDouble(result);
     }
   else
     {
@@ -324,7 +345,10 @@ PyObject* dotc_cuda_gpu(PyObject *self, PyObject *args)
       result = cublasZdotc(n, (cuDoubleComplex*)a_gpu,
 			  incx, (cuDoubleComplex*)b_gpu, incy);
       gpaw_cublasSafeCall(cublasGetError());
-      return PyComplex_FromDoubles(result.x,result.y);
+      if (PyErr_Occurred())
+	return NULL;
+      else
+	return PyComplex_FromDoubles(result.x,result.y);
     }
 
 }
@@ -354,7 +378,10 @@ PyObject* dotu_cuda_gpu(PyObject *self, PyObject *args)
       result = cublasDdot(n, (double*)a_gpu,
 			  incx, (double*)b_gpu, incy);
       gpaw_cublasSafeCall(cublasGetError());
-      return PyFloat_FromDouble(result);
+      if (PyErr_Occurred())
+	return NULL;
+      else
+	return PyFloat_FromDouble(result);
     }
   else
     {
@@ -362,8 +389,11 @@ PyObject* dotu_cuda_gpu(PyObject *self, PyObject *args)
       result = cublasZdotu(n, (cuDoubleComplex*)a_gpu,
 			  incx, (cuDoubleComplex*)b_gpu, incy);
       gpaw_cublasSafeCall(cublasGetError());
-      return PyComplex_FromDoubles(result.x,result.y);
+      if (PyErr_Occurred())
+	return NULL;
+      else
+	return PyComplex_FromDoubles(result.x,result.y);
     }
 }
-
+  
 }

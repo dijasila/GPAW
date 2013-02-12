@@ -22,6 +22,6 @@ typedef struct
 
 #ifdef GPAW_CUDA
 void operator_init_cuda(OperatorObject *self);
-void operator_dealloc_cuda(OperatorObject *self);
+void operator_dealloc_cuda(int force);
 #endif
 #endif

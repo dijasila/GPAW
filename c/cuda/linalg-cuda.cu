@@ -163,7 +163,10 @@ extern "C" {
       }
     }
     gpaw_cublasSafeCall(cublasGetError());
-    Py_RETURN_NONE;
+    if (PyErr_Occurred())
+      return NULL;
+    else
+      Py_RETURN_NONE;
   }
 
 
@@ -229,7 +232,10 @@ extern "C" {
       }
     }
     gpaw_cublasSafeCall(cublasGetError());
-    Py_RETURN_NONE;
+    if (PyErr_Occurred())
+      return NULL;
+    else
+      Py_RETURN_NONE;
   }
 
   PyObject* ax2py_gpu(PyObject *self, PyObject *args)
@@ -262,7 +268,10 @@ extern "C" {
 	(n,alpha,(Tcuda*) x_gpu,(double*) y_gpu);
     }
     gpaw_cublasSafeCall(cublasGetError());
-    Py_RETURN_NONE;
+    if (PyErr_Occurred())
+      return NULL;
+    else
+      Py_RETURN_NONE;
   }
 
 
@@ -294,7 +303,10 @@ extern "C" {
 	(n,(Tcuda*) x_gpu);
     }
     gpaw_cublasSafeCall(cublasGetError());
-    Py_RETURN_NONE;
+    if (PyErr_Occurred())
+      return NULL;
+    else
+      Py_RETURN_NONE;
   }
   
 
@@ -345,9 +357,12 @@ extern "C" {
     }
     
     gpaw_cublasSafeCall(cublasGetError());
-    
-    Py_RETURN_NONE;
-  }
+    	
+    if (PyErr_Occurred())
+      return NULL;	
+    else		
+      Py_RETURN_NONE;
+  }	
   
 }
 #endif
