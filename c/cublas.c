@@ -410,6 +410,17 @@ PyObject* cuTrans_wfs(PyObject *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
+PyObject* cuTrans_wfs_noindex(PyObject *self, PyObject *args)
+{
+  int n0, n1, n2;
+  void *a, *b, *op_cc, *dk_c;
+
+  if (!PyArg_ParseTuple(args, "LLLLiii",&a, &b, &op_cc, &dk_c, &n0, &n1, &n2))
+    return NULL;
+  cudaTransform_wfs_noindex(a, b, op_cc, dk_c, n0, n1, n2);
+  Py_RETURN_NONE;
+}
+
 PyObject* cuConj_vector(PyObject *self, PyObject *args)
 {
   int n;

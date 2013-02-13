@@ -34,6 +34,28 @@ __global__ void trans_wfs( cuDoubleComplex *a, cuDoubleComplex *b, int *index, i
   if (tid < n) b[index[tid]] = a[tid]; /*cuCmul(a[tid], phase[tid]);*/
 }
 
+__global__ void trans_wfs_noindex( cuDoubleComplex *a, cuDoubleComplex *b, int *C, double *dk, int ng0, int ng1, int ng2 ){
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  int n = ng0 * ng1 * ng2;
+  if (tid < n) {
+    int g2 = tid % ng2;
+    int g1 = (tid / ng2) % ng1;
+    int g0 = (tid / ng2) / ng1;
+
+    int p0 = ((C[0] * g0 + C[3] * g1 + C[6] * g2) % ng0 + ng0) % ng0;
+    int p1 = ((C[1] * g0 + C[4] * g1 + C[7] * g2) % ng1 + ng1) % ng1;
+    int p2 = ((C[2] * g0 + C[5] * g1 + C[8] * g2) % ng2 + ng2) % ng2;
+
+    int index = (p0 * ng1 + p1) * ng2 + p2;
+    double tmp = dk[0]/ng0*p0 + dk[1]/ng1*p1 + dk[2]/ng2*p2; 
+    cuDoubleComplex phase  = make_cuDoubleComplex(cos(2*CUDART_PI*tmp), sin(2*CUDART_PI*tmp));
+
+    b[index] = cuCmul(a[tid], phase); 
+  }
+
+}
+
+
 __global__ void conj( cuDoubleComplex *a, int N ){
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < N) a[tid] = cuConj(a[tid]);
@@ -135,6 +157,15 @@ extern "C" {
     int threads = 128;
     int blocks = N/threads + (N%threads == 0 ? 0:1);
     trans_wfs<<<blocks, threads>>>( (cuDoubleComplex*)dev_a, (cuDoubleComplex*)dev_b, (int*)dev_c, N );
+  }
+}
+
+extern "C" {
+  void cudaTransform_wfs_noindex( double complex* dev_a, double complex* dev_b, int* dev_c, double* dk, int N0, int N1, int N2 ) {
+    int threads = 128;
+    int N = N0 * N1 * N2;
+    int blocks = N/threads + (N%threads == 0 ? 0:1);
+    trans_wfs_noindex<<<blocks, threads>>>( (cuDoubleComplex*)dev_a, (cuDoubleComplex*)dev_b, (int*)dev_c, (double*)dk, N0, N1, N2 );
   }
 }
 

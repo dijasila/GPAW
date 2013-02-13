@@ -129,6 +129,7 @@ PyObject* cuMulc(PyObject *self, PyObject *args);
 PyObject* cuMap_G2Q(PyObject *self, PyObject *args);
 PyObject* cuMap_Q2G(PyObject *self, PyObject *args);
 PyObject* cuTrans_wfs(PyObject *self, PyObject *args);
+PyObject* cuTrans_wfs_noindex(PyObject *self, PyObject *args);
 PyObject* cuConj_vector(PyObject *self, PyObject *args);
 PyObject* cuCopy_vector(PyObject *self, PyObject *args);
 PyObject* cuGet_P_ai(PyObject *self, PyObject *args);
@@ -178,6 +179,7 @@ static PyMethodDef functions[] = {
   {"cuMap_G2Q", cuMap_G2Q, METH_VARARGS, 0},
   {"cuMap_Q2G", cuMap_Q2G, METH_VARARGS, 0},
   {"cuTrans_wfs", cuTrans_wfs, METH_VARARGS, 0},
+  {"cuTrans_wfs_noindex", cuTrans_wfs_noindex, METH_VARARGS, 0},
   {"cuConj_vector", cuConj_vector, METH_VARARGS, 0},
   {"cuCopy_vector", cuCopy_vector, METH_VARARGS, 0},
   {"cuGet_P_ai", cuGet_P_ai, METH_VARARGS, 0},

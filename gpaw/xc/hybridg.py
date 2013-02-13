@@ -18,7 +18,7 @@ from gpaw.xc.hybrid import HybridXCBase
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
 from gpaw.utilities import pack, unpack2, packed_index, logfile, erf
-        
+import _gpaw
 
 class HybridXC(HybridXCBase):
     orbital_dependent = True
@@ -30,7 +30,8 @@ class HybridXC(HybridXCBase):
                  logfilename='-', bands=None,
                  fcut=1e-10,
                  molecule=False,
-                 world=None):
+                 world=None,
+                 cuda=False):
         """Mix standard functionals with exact exchange.
 
         name: str
@@ -88,6 +89,8 @@ class HybridXC(HybridXCBase):
         self.world = world
 
         self.molecule = molecule
+        self.cuda = cuda
+
 
     def log(self, *args, **kwargs):
         prnt(file=self.fd, *args, **kwargs)
@@ -134,6 +137,11 @@ class HybridXC(HybridXCBase):
         kd = self.kd
         wfs = self.wfs
 
+        from gpaw.response.timing import Timer
+        from time import time
+        self.timer = Timer()
+
+        t0 = time()
         if fftw.FFTPlan is fftw.NumpyFFTPlan:
             self.log('NOT USING FFTW !!')
 
@@ -234,13 +242,29 @@ class HybridXC(HybridXCBase):
         # q-point descriptor for my q-vectors:
         qd = KPointDescriptor(self.bzq_qc)
 
+
+        if self.cuda:
+            status, self.handle = _gpaw.cuCreate()
+            self.sizeofdata = sizeofdata = 16
+            sizeofint = 4
+            sizeofdouble = 8
+            self.nG = nG = wfs.gd.N_c
+            status, self.dev_u1_R = _gpaw.cuMalloc(nG[0]*nG[1]*nG[2]*sizeofdata)
+            status, self.dev_u2_R = _gpaw.cuMalloc(nG[0]*nG[1]*nG[2]*sizeofdata)
+            status, self.dev_tmp_R = _gpaw.cuMalloc(nG[0]*nG[1]*nG[2]*sizeofdata)
+            status, self.dev_op_cc = _gpaw.cuMalloc(9*sizeofint)
+            status, self.dev_dk_c = _gpaw.cuMalloc(3*sizeofdouble)
+
+        else:
+            self.handle = None
+            
         # Plane-wave descriptor for all wave-functions:
         self.pd = PWDescriptor(wfs.pd.ecut, wfs.gd,
-                               dtype=wfs.pd.dtype, kd=kd)
+                               dtype=wfs.pd.dtype, kd=kd, cuda=self.cuda, handle=self.handle)
 
         # Plane-wave descriptor pair-densities:
         self.pd2 = PWDescriptor(self.dens.pd2.ecut, self.dens.gd,
-                                dtype=wfs.dtype, kd=qd)
+                                dtype=wfs.dtype, kd=qd, cuda=self.cuda, handle=self.handle)
 
         self.log('Cutoff energies:')
         self.log('    Wave functions:       %10.3f eV' %
@@ -265,7 +289,9 @@ class HybridXC(HybridXCBase):
         if self.molecule:
             self.initialize_gaussian()
             self.log('Value of beta parameter: %.3f 1/Bohr^2' % self.beta)
-            
+
+        print 'Init time:', time() - t0
+        
         # Ready ... set ... go:
         self.t0 = time()
         self.npairs = 0
@@ -299,6 +325,10 @@ class HybridXC(HybridXCBase):
                 for kpt1, kpt2 in zip(kpt1_q, kpt2_q):
                     # Loop over all k-points that k2 can be mapped to:
                     for K2, q, n1_n, n2 in self.indices(s, kpt1.k, kpt2.k):
+                        print '\n', s, i, kpt1, K2, time() - self.t0, self.timer.get_tot_timing()
+                        for key in self.timer.timers.keys():
+                            print '%15s'%(key), self.timer.get_timing(key)
+                        
                         self.apply(K2, q, kpt1, kpt2, n1_n, n2)
 
                 if i < kd.nibzkpts - 1:
@@ -426,16 +456,22 @@ class HybridXC(HybridXCBase):
             yield K2, q, n1_n, n2
 
     def apply(self, K2, q, kpt1, kpt2, n1_n, n2):
+
         k20_c = self.kd.ibzk_kc[kpt2.k]
         k2_c = self.kd.bzk_kc[K2]
 
-        if k2_c.any():
-            eik2r_R = self.wfs.gd.plane_wave(k2_c)
-            eik20r_R = self.wfs.gd.plane_wave(k20_c)
+        self.timer.start('eikr', sync=False) 
+        if not self.cuda:
+            if k2_c.any():
+                eik2r_R = self.wfs.gd.plane_wave(k2_c)
+                eik20r_R = self.wfs.gd.plane_wave(k20_c)
+            else:
+                eik2r_R = 1.0
+                eik20r_R = 1.0
         else:
-            eik2r_R = 1.0
-            eik20r_R = 1.0
-
+            eik2r_R = eik20r_R = None
+        self.timer.end('eikr', sync=False)
+        
         w1 = self.kd.weight_k[kpt1.k]
         w2 = self.kd.weight_k[kpt2.k]
 
@@ -446,6 +482,7 @@ class HybridXC(HybridXCBase):
                                          eik20r_R, eik2r_R,
                                          is_ibz2)
 
+        self.timer.start('other_k', sync=False) 
         e_n *= 1.0 / self.kd.nbzkpts / self.wfs.nspins
 
         if q == self.q0:
@@ -466,7 +503,8 @@ class HybridXC(HybridXCBase):
         if is_ibz2:
             self.evv += evv * w2
             self.evvacdf += evvacdf * w2
-
+        self.timer.end('other_k', sync=False) 
+        
         if self.bandstructure:
             x = self.wfs.nspins
             self.exx_skn[kpt1.s, kpt1.k, n1_n] += x * f2 * e_n
@@ -478,29 +516,56 @@ class HybridXC(HybridXCBase):
         """Calculate Coulomb interactions.
 
         For all n1 in the n1_n list, calculate interaction with n2."""
-
+        sizeofdata = 16
         # number of plane waves:
         ng1 = self.wfs.ng_k[kpt1.k]
         ng2 = self.wfs.ng_k[kpt2.k]
 
+        self.timer.start('get_trans_wfs', sync=False) 
+#        u2_R = np.zeros(self.nG, dtype=complex)
         # Transform to real space and apply symmetry operation:
         if is_ibz2:
-            u2_R = self.pd.ifft(kpt2.psit_nG[n2, : ng2], kpt2.k)
+            if not self.cuda:
+                u2_R = self.pd.ifft(kpt2.psit_nG[n2, : ng2], kpt2.k)
+            else:
+                self.pd.cuifft(kpt2.psit_nG[n2, : ng2], kpt2.k, self.dev_u2_R)
+#                _gpaw.cuGetVector(self.nG[0]*self.nG[1]*self.nG[2],sizeofdata,self.dev_u2_R,1, u2_R, 1)
         else:
-            psit2_R = self.pd.ifft(kpt2.psit_nG[n2, : ng2], kpt2.k) * eik20r_R
-            u2_R = self.kd.transform_wave_function(psit2_R, k) / eik2r_R
+            if not self.cuda:
+                psit2_R = self.pd.ifft(kpt2.psit_nG[n2, : ng2], kpt2.k) * eik20r_R
+                u2_R = self.kd.transform_wave_function(psit2_R, k) / eik2r_R
+            else:
+                self.pd.cuifft(kpt2.psit_nG[n2, : ng2], kpt2.k, self.dev_tmp_R)
+                self.kd.cuda_transform_wfs(self.dev_tmp_R, self.dev_u2_R, k, self.nG, self.dev_op_cc, self.dev_dk_c)
+#                _gpaw.cuGetVector(self.nG[0]*self.nG[1]*self.nG[2],sizeofdata,self.dev_u2_R,1, u2_R, 1)
+                
+        self.timer.end('get_trans_wfs', sync=False) 
 
+        self.timer.start('pair_density', sync=False) 
         # Calculate pair densities:
         nt_nG = self.pd2.zeros(len(n1_n), q=q)
+        ncoef = len(nt_nG[0])
+        status, dev_G = _gpaw.cuMalloc(ncoef*sizeofdata)
         for n1, nt_G in zip(n1_n, nt_nG):
-            u1_R = self.pd.ifft(kpt1.psit_nG[n1, :ng1], kpt1.k)
-            nt_R = u1_R.conj() * u2_R
-            nt_G[:] = self.pd2.fft(nt_R, q)
+            if not self.cuda:
+                u1_R = self.pd.ifft(kpt1.psit_nG[n1, :ng1], kpt1.k)
+                nt_R = u1_R.conj() * u2_R
+                nt_G[:] = self.pd2.fft(nt_R, q)
+            else:
+                self.pd.cuifft(kpt1.psit_nG[n1, : ng1], kpt1.k, self.dev_u1_R)
+                _gpaw.cuMulc(self.dev_u1_R, self.dev_u2_R, self.dev_u1_R, self.nG[0]*self.nG[1]*self.nG[2])
+                
+                self.pd2.cufft(self.dev_u1_R, q, dev_G, ncoef)
+                _gpaw.cuGetVector(ncoef,sizeofdata,dev_G,1, nt_G, 1)
+        _gpaw.cuFree(dev_G)
+            
+        self.timer.end('pair_density', sync=False) 
         
         s = self.kd.sym_k[k]
         time_reversal = self.kd.time_reversal_k[k]
         k2_c = self.kd.ibzk_kc[kpt2.k]
-
+        
+        self.timer.start('paw', sync=False) 
         Q_anL = {}  # coefficients for shape functions
         for a, P1_ni in kpt1.P_ani.items():
             P1_ni = P1_ni[n1_n]
@@ -520,20 +585,25 @@ class HybridXC(HybridXCBase):
                               kpt2.P_ani[b][n2]) * x
                 if time_reversal:
                     P2_i = P2_i.conj()
-
+            
             D_np = []
             for P1_i in P1_ni:
                 D_ii = np.outer(P1_i.conj(), P2_i)
                 D_np.append(pack(D_ii))
             Q_anL[a] = np.dot(D_np, self.wfs.setups[a].Delta_pL)
-            
+
         if q != self.qlatest:
             self.f_IG = self.ghat.expand(q)
             self.qlatest = q
+        self.timer.end('paw', sync=False)
 
+        self.timer.start('ghat_add', sync=False) 
         # Add compensation charges:
         self.ghat.add(nt_nG, Q_anL, q, self.f_IG)
+        self.timer.end('ghat_add', sync=False) 
 
+
+        self.timer.start('pair_others', sync=False) 
         if self.molecule and n2 in n1_n:
             nn = (n1_n == n2).nonzero()[0][0]
             nt_nG[nn] -= self.ngauss_G
@@ -541,7 +611,9 @@ class HybridXC(HybridXCBase):
             nn = None
             
         iG2_G = self.iG2_qG[q]
+        self.timer.end('pair_others', sync=False)
 
+        self.timer.start('e_n', sync=False) 
         # Calculate energies:
         e_n = np.empty(len(n1_n))
         for n, nt_G in enumerate(nt_nG):
@@ -552,6 +624,8 @@ class HybridXC(HybridXCBase):
             e_n[nn] -= 2 * (self.pd2.integrate(nt_nG[nn], self.vgauss_G) +
                             (self.beta / 2 / pi)**0.5)
 
+        self.timer.end('e_n', sync=False)
+        
         if self.write_timing_information:
             t = (time() - self.t0) / len(n1_n)
             self.log('Time for first pair-density: %10.3f seconds' % t)

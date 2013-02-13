@@ -18,18 +18,21 @@ from gpaw.hamiltonian import Hamiltonian
 from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
 from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.band_descriptor import BandDescriptor
-
+import _gpaw
 
 class PWDescriptor:
     ndim = 1  # all 3d G-vectors are stored in a 1d ndarray
 
     def __init__(self, ecut, gd, dtype=None, kd=None,
-                 fftwflags=fftw.ESTIMATE):
+                 fftwflags=fftw.ESTIMATE, cuda=False, handle=None):
 
         assert gd.pbc_c.all() and gd.comm.size == 1
 
         self.ecut = ecut
         self.gd = gd
+        self.cuda = cuda
+        self.handle = handle
+        self.sizeofdata = 16
 
         N_c = gd.N_c
         self.comm = gd.comm
@@ -62,8 +65,14 @@ class PWDescriptor:
 
         self.nbytes = self.tmp_R.nbytes
 
-        self.fftplan = fftw.FFTPlan(self.tmp_R, self.tmp_Q, -1, fftwflags)
-        self.ifftplan = fftw.FFTPlan(self.tmp_Q, self.tmp_R, 1, fftwflags)
+        if not self.cuda:
+            self.fftplan = fftw.FFTPlan(self.tmp_R, self.tmp_Q, -1, fftwflags)
+            self.ifftplan = fftw.FFTPlan(self.tmp_Q, self.tmp_R, 1, fftwflags)
+        else:
+            self.fftplan = fftw.FFTPlan(self.tmp_R, self.tmp_Q, -1, fftwflags)
+            self.ifftplan = fftw.FFTPlan(self.tmp_Q, self.tmp_R, 1, fftwflags)
+
+            self.cufftplan = _gpaw.cufft_plan3d(N_c[0],N_c[1],N_c[2])
 
         # Calculate reciprocal lattice vectors:
         B_cv = 2.0 * pi * gd.icell_cv
@@ -105,6 +114,16 @@ class PWDescriptor:
 
         self.n_c = np.array([self.ngmax])  # used by hs_operators.py XXX
 
+        if self.cuda:
+            sizeofint = 4
+            self.dev_Q_qG = []
+            for q, Q_G in enumerate(self.Q_qG):
+                ncoef = len(Q_G)
+                status, dev_Q_G = _gpaw.cuMalloc(ncoef*sizeofint)
+                _gpaw.cuSetVector(ncoef,sizeofint,Q_G,1,dev_Q_G,1)
+                self.dev_Q_qG.append(dev_Q_G)
+
+
     def estimate_memory(self, mem):
         mem.subnode('Arrays', self.nbytes)
 
@@ -144,6 +163,13 @@ class PWDescriptor:
         self.fftplan.execute()
         return self.tmp_Q.ravel()[self.Q_qG[q]]
 
+
+    def cufft(self, dev_R, q=-1, dev_G=None, ncoef=None):
+        _gpaw.cufft_execZ2Z(self.cufftplan, dev_R, dev_R, -1) # R->G
+        _gpaw.cuMap_Q2G(dev_R, dev_G, self.dev_Q_qG[q], ncoef)
+        return
+
+    
     def ifft(self, c_G, q=-1):
         """Inverse fast Fourier transform.
 
@@ -167,6 +193,27 @@ class PWDescriptor:
             t[-n:, 0] = t[n:0:-1, 0].conj()
         self.ifftplan.execute()
         return self.tmp_R * (1.0 / self.tmp_R.size)
+
+
+    def cuifft(self, c_G, q=-1, dev_Qtmp=None):
+        sizeofdata = self.sizeofdata
+        nx,ny,nz = self.gd.N_c
+        ncoef = len(c_G) # k-point dependent
+
+        status, dev_G = _gpaw.cuMalloc(ncoef*sizeofdata)
+        _gpaw.cuSetVector(ncoef,sizeofdata,c_G,1,dev_G,1) # cuda memcopy c_G to dev_G
+        _gpaw.cuMemset(dev_Qtmp, 0, sizeofdata*nx*ny*nz)  # self.tmp_Q[:] = 0
+
+        _gpaw.cuMap_G2Q( dev_G, dev_Qtmp, self.dev_Q_qG[q], ncoef ) # self.tmp_Q.ravel()[self.Q_qG[q]] = c_G
+        _gpaw.cufft_execZ2Z(self.cufftplan, dev_Qtmp, dev_Qtmp,1)
+        _gpaw.cuZscal(self.handle, nx*ny*nz, 1./(nx*ny*nz), dev_Qtmp, 1)
+        
+        _gpaw.cuFree(dev_G)
+
+        return 
+        
+
+
 
     def integrate(self, a_xg, b_yg=None,
                   global_integral=True, hermitian=False,
