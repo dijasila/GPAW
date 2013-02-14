@@ -97,11 +97,6 @@ class BASECHI:
         self.nkpt = kd.nbzkpts
         self.ftol /= self.nkpt
 
-        # band init
-        if self.nbands is None:
-            self.nbands = calc.wfs.bd.nbands
-        self.nvalence = calc.wfs.nvalence
-
         # cell init
         self.acell_cv = calc.atoms.cell / Bohr 
         self.acell_cv, self.bcell_cv, self.vol, self.BZvol = \
@@ -177,6 +172,16 @@ class BASECHI:
                     x = np.pi*(E/self.ecut[0] - self.smooth_cut) / (1. - self.smooth_cut)
                     G_weights[iG] = 0.5 * (1. + np.cos(x))
             self.G_weights = G_weights
+
+        # band init
+        if self.nbands is None:
+            self.nbands = calc.wfs.bd.nbands
+        elif self.nbands == 'npw':
+            if self.npw > calc.wfs.bd.nbands:
+                self.nbands = calc.wfs.bd.nbands
+            else:
+                self.nbands = self.npw
+        self.nvalence = calc.wfs.nvalence
 
         # Projectors init
         setups = calc.wfs.setups
