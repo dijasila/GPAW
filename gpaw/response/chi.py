@@ -207,6 +207,7 @@ class CHI(BASECHI):
         e_skn = self.e_skn
         nmultix = self.nmultix
         C_uw = np.zeros((nmultix, self.npw))
+        spos_ac = calc.atoms.get_scaled_positions()
 
         # Matrix init
         sizeofdata = 16
@@ -217,7 +218,7 @@ class CHI(BASECHI):
             print >> self.txt, 'Use Cuda ! '
             cu = BASECUDA()
             cu.chi_init(self, chi0_wGG)
-            cu.paw_init(self)
+            cu.paw_init(calc.wfs, spos_ac, self)
 
         if self.hilbert_trans:
             specfunc_wGG = np.zeros((self.NwS_local, self.npw, self.npw), dtype = complex)

@@ -2,7 +2,7 @@ import _gpaw
 import numpy as np
 from math import pi, sqrt
 
-sizeofdata =16
+sizeofdata = 16
 sizeofint = 4
 sizeofdouble = 8
 sizeofpointer = 8
@@ -47,24 +47,23 @@ class BASECUDA:
         return 
 
 
-    def paw_init(self, chi):
+    def paw_init(self, wfs, spos_ac, chi=None):
 
-        calc = chi.calc
-        kd = calc.wfs.kd
-        self.Na = Na = len(calc.wfs.setups.id_a)
+        kd = wfs.kd
+        self.Na = Na = len(wfs.setups.id_a)
         
         # Non k-point dependence stuff
-        spos_ac = calc.atoms.get_scaled_positions()
+#        spos_ac = calc.atoms.get_scaled_positions()
         a_sa = np.int32(kd.symmetry.a_sa)
-        op_scc = np.int32(calc.wfs.kd.symmetry.op_scc)
+        op_scc = np.int32(wfs.kd.symmetry.op_scc)
         ibzk_kc = kd.ibzk_kc
         R_asii = {}
         for a in range(Na):
-            R_asii[a] = calc.wfs.setups[a].R_sii
+            R_asii[a] = wfs.setups[a].R_sii
         
         Ns = len(op_scc)
         nibzk = kd.nibzkpts
-        nband = calc.get_number_of_bands()
+        nband = len(wfs.kpt_u[0].psit_nG)
         
         status, self.spos_ac = _gpaw.cuMalloc(Na*3*sizeofdouble)
         _gpaw.cuSetVector(Na*3,sizeofdouble,spos_ac.ravel(),1,self.spos_ac,1)
@@ -113,16 +112,18 @@ class BASECUDA:
         status, self.P2_ani = _gpaw.cuMalloc(Na*sizeofpointer)
         status, self.P2_ai = _gpaw.cuMalloc(Na*sizeofpointer)
 
-        self.P_phi_aGp = []
+        if chi is not None:
+            self.P_phi_aGp = []
+            for a, id in enumerate(wfs.setups.id_a):
+                phi_Gp = chi.phi_aGp[a]
+                npw, npair = phi_Gp.shape
+                status,GPU_phi_Gp = _gpaw.cuMalloc(npw*npair*sizeofdata)
+                status = _gpaw.cuSetMatrix(npair,npw,sizeofdata,phi_Gp,npair,GPU_phi_Gp,npair)
+                self.P_phi_aGp.append(GPU_phi_Gp)
+    
         self.P_P_ap = []
-        for a, id in enumerate(calc.wfs.setups.id_a):
-            phi_Gp = chi.phi_aGp[a]
-            npw, npair = phi_Gp.shape
-            status,GPU_phi_Gp = _gpaw.cuMalloc(npw*npair*sizeofdata)
-            status = _gpaw.cuSetMatrix(npair,npw,sizeofdata,phi_Gp,npair,GPU_phi_Gp,npair)
-            self.P_phi_aGp.append(GPU_phi_Gp)
-
-            status,GPU_P_p = _gpaw.cuMalloc(npair*sizeofdata)
+        for a, id in enumerate(wfs.setups.id_a):
+            status,GPU_P_p = _gpaw.cuMalloc(Ni_a[a]*Ni_a[a]*sizeofdata)
             self.P_P_ap.append(GPU_P_p)
 
         return
