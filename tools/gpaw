@@ -2,5 +2,5 @@
 # Emacs: treat this as -*- python -*-
 
 import gpaw
-from ase.tasks.main import run
-run(calcname='gpaw')
+from ase.asec import main
+main('gpaw')

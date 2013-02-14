@@ -5,19 +5,228 @@
 
 """ASE-calculator interface."""
 
+import os
+
 import numpy as np
 from ase.units import Bohr, Hartree
+from ase.calculators.calculator import Calculator
 
+import gpaw.mpi as mpi
 from gpaw.xc import XC
 from gpaw.paw import PAW
+from gpaw.hooks import hooks
 from gpaw.stress import stress
 from gpaw.occupations import MethfesselPaxton
+from gpaw.wavefunctions.base import EmptyWaveFunctions
+from gpaw.parameters import read_parameters
+from gpaw import parsize_domain, parsize_bands, sl_default, sl_diagonalize, \
+                 sl_inverse_cholesky, sl_lcao, buffer_size
 
 
-class GPAW(PAW):
+class GPAW(PAW, Calculator):
     """This is the ASE-calculator frontend for doing a PAW calculation.
     """
+    
+    default_parameters = {
+        'h':               None,  # Angstrom
+        'xc':              'LDA',
+        'gpts':            None,
+        'kpts':            [(0, 0, 0)],
+        'lmax':            2,
+        'charge':          0,
+        'fixmom':          False,  # don't use this
+        'nbands':          None,
+        'setups':          'paw',
+        'basis':           {},
+        'width':           None,  # eV, don't use this
+        'occupations':     None,
+        'spinpol':         None,
+        'usesymm':         True,
+        'stencils':        (3, 3),
+        'fixdensity':      False,
+        'mixer':           None,
+        'txt':             '-',
+        'hund':            False,
+        'random':          False,
+        'dtype':           None,
+        'maxiter':         120,
+        'parsize':         None,  # don't use this
+        'parsize_bands':   None,  # don't use this
+        'parstride_bands': False,  # don't use this
+        'external':        None,  # eV
+        'verbose':         0,
+        'eigensolver':     None,
+        'poissonsolver':   None,
+        'communicator':    mpi.world,
+        'idiotproof':      True,
+        'mode':            'fd',
+        'realspace':       None,
+        'convergence':     {'energy':      0.0005,  # eV / electron
+                            'density':     1.0e-4,
+                            'eigenstates': 4.0e-8,  # eV^2
+                            'bands':       'occupied'},
+        'parallel':        {'domain':              parsize_domain,
+                            'band':                parsize_bands,
+                            'stridebands':         False,
+                            'sl_auto':             False,
+                            'sl_default':          sl_default,
+                            'sl_diagonalize':      sl_diagonalize,
+                            'sl_inverse_cholesky': sl_inverse_cholesky,
+                            'sl_lcao':             sl_lcao,
+                            'buffer_size':         buffer_size}
+        }
+
+    def __init__(self, label=None, iomode='rw', output=None, atoms=None,
+                 **kwargs):
+        PAW.__init__(self)
+        Calculator.__init__(self, label, iomode, output, atoms, **kwargs)
+
+    def read(self):
+        if self.label is None or not os.path.isfile(self.label):
+            return
+
+        comm = kwargs.get('communicator', mpi.world)
+        reader = gpaw.io.open(self.label, 'r', comm)
+        self.atoms = gpaw.io.read_atoms(reader)
+        read_parameters(self.parameters)
+
+        #self.print_cell_and_parameters()
+
+    def set(self, **kwargs):
+        if (kwargs.get('h') is not None) and (kwargs.get('gpts') is not None):
+            raise TypeError("""You can't use both "gpts" and "h"!""")
+
+        changed_parameters = Calculator.set(self, **kwargs)
+
+        print changed_parameters
+
+        self.initialized = False
+        p = self.parameters
+
+        for key in changed_parameters:
+            if key == 'basis' and p['mode'] == 'fd':
+                continue
+
+            if key == 'eigensolver':
+                self.wfs.set_eigensolver(None)
+            
+            if key in ['fixmom', 'mixer',
+                       'verbose', 'txt', 'hund', 'random',
+                       'eigensolver', 'idiotproof', 'notify']:
+                continue
+
+            self.reset()
+
+            if key in ['convergence', 'fixdensity', 'maxiter']:
+                self.scf = None
+                continue
+
+            # More drastic changes:
+            self.scf = None
+            self.wfs.set_orthonormalized(False)
+            if key in ['lmax', 'width', 'stencils', 'external', 'xc',
+                       'poissonsolver', 'occupations']:
+                self.hamiltonian = None
+                self.occupations = None
+            elif key in ['charge']:
+                self.hamiltonian = None
+                self.density = None
+                self.wfs = EmptyWaveFunctions()
+                self.occupations = None
+            elif key in ['kpts', 'nbands', 'usesymm']:
+                self.wfs = EmptyWaveFunctions()
+                self.occupations = None
+            elif key in ['h', 'gpts', 'setups', 'spinpol', 'realspace',
+                         'parallel', 'communicator', 'dtype', 'mode']:
+                self.density = None
+                self.occupations = None
+                self.hamiltonian = None
+                self.wfs = EmptyWaveFunctions()
+            elif key in ['basis']:
+                self.wfs = EmptyWaveFunctions()
+            elif key in ['parsize', 'parsize_bands', 'parstride_bands']:
+                name = {'parsize': 'domain',
+                        'parsize_bands': 'band',
+                        'parstride_bands': 'stridebands'}[key]
+                raise DeprecationWarning(
+                    'Keyword argument has been moved ' +
+                    "to the 'parallel' dictionary keyword under '%s'." % name)
+            else:
+                raise TypeError("Unknown keyword argument: '%s'" % key)
+
+    def get_stress(self, atoms):
+        if self.parameters.mode in ['fd', 'lcao']:
+            raise NotImplementedError
+        return Calculator.get_stress(self, atoms)
+
+    def calculate(self, atoms, properties, changes):
+        for change in ['numbers', 'pbc', 'cell', 'magmoms']:
+            if change in changes:
+                self.wfs = EmptyWaveFunctions()
+                self.occupations = None
+                self.density = None
+                self.hamiltonian = None
+                self.scf = None
+                self.initialize(atoms)
+                self.set_positions(atoms)
+                break
+        else:
+            if self.density is not None:
+                self.density.reset()
+            self.set_positions(atoms)
+
+            #self.print_cell_and_parameters()
+
+        self.timer.start('SCF-cycle')
+        for iter in self.scf.run(self.wfs, self.hamiltonian, self.density,
+                                 self.occupations):
+            self.call_observers(iter)
+            self.print_iteration(iter)
+            self.iter = iter
+        self.timer.stop('SCF-cycle')
+
+        if self.scf.converged:
+            self.call_observers(iter, final=True)
+            if 'converged' in hooks:
+                hooks['converged'](self)
+        elif converge:
+            if 'not_converged' in hooks:
+                hooks['not_converged'](self)
+            raise KohnShamConvergenceError('Did not converge!')
+
+        self.results['free energy'] = Hartree * self.hamiltonian.Etot
+        self.results['energy'] = Hartree * (self.hamiltonian.Etot +
+                                            0.5 * self.hamiltonian.S)
+        if 'forces' in properties:
+            self.results['forces'] = self.forces.calculate(self.wfs,
+                                                           self.density,
+                                                           self.hamiltonian)
+            self.print_forces()
+
+        if 'stress' in properties:
+            stress_vv = stress(self)
+            self.results['stress'] = (stress_vv.flat[[0, 4, 8, 5, 2, 1]] *
+                                      (Hartree / Bohr**3))
+
+        rhot_g = self.density.rhot_g
+        dipole_v = self.density.finegd.calculate_dipole_moment(rhot_g)
+        self.results['dipole'] =  dipole_v * Bohr
         
+        self.results['magmom'] = self.occupations.magmom
+
+        # Local magnetic moments within augmentation spheres:
+        magmom_av = self.density.estimate_magnetic_moments()
+        if self.wfs.collinear:
+            momsum = magmom_av.sum()
+            M = self.occupations.magmom
+            if abs(M) > 1e-7 and abs(momsum) > 1e-7:
+                magmom_av *= M / momsum
+            self.results['magmoms'] = magmom_av[:, 2].copy()
+        else:
+            self.results['magmoms'] = magmom_av
+
+        self.print_converged(iter)
+
     def get_number_of_bands(self):
         """Return the number of bands."""
         return self.wfs.bd.nbands

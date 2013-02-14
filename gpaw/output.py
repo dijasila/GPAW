@@ -141,7 +141,7 @@ class PAWTextOutput:
 
     def print_parameters(self):
         t = self.text
-        p = self.input_parameters
+        p = self.parameters
 
         # Write PAW setup information in order of appearance:
         ids = set()
@@ -299,15 +299,11 @@ class PAWTextOutput:
 
         t()
 
-        try:
-            dipole = self.get_dipole_moment()
-        except AttributeError:
-            pass
+        dipole = self.results['dipole']
+        if self.density.charge == 0:
+            t('Dipole Moment: %s' % dipole)
         else:
-            if self.density.charge == 0:
-                t('Dipole Moment: %s' % dipole)
-            else:
-                t('Center of Charge: %s' % (dipole / abs(self.density.charge)))
+            t('Center of Charge: %s' % (dipole / abs(self.density.charge)))
 
         try:
             c = self.hamiltonian.poisson.corrector.c
@@ -344,7 +340,7 @@ class PAWTextOutput:
         # Output from each iteration:
         t = self.text
 
-        nvalence = self.wfs.setups.nvalence - self.input_parameters.charge
+        nvalence = self.wfs.setups.nvalence - self.parameters.charge
         if nvalence > 0:
             eigerr = self.scf.eigenstates_error * Hartree**2 / nvalence
         else:

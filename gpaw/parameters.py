@@ -3,233 +3,152 @@ import numpy as np
 from ase.units import Hartree, Bohr
 from ase.dft.kpoints import monkhorst_pack
 
-import gpaw.mpi as mpi
 from gpaw.poisson import PoissonSolver, FFTPoissonSolver
 from gpaw.occupations import FermiDirac
 from gpaw.wavefunctions.pw import PW
-from gpaw import parsize_domain, parsize_bands, sl_default, sl_diagonalize, \
-                 sl_inverse_cholesky, sl_lcao, buffer_size
 
 
-class InputParameters(dict):
-    def __init__(self, **kwargs):
-        dict.__init__(self, [
-            ('h',               None),  # Angstrom
-            ('xc',              'LDA'),
-            ('gpts',            None),
-            ('kpts',            [(0, 0, 0)]),
-            ('lmax',            2),
-            ('charge',          0),
-            ('fixmom',          False),  # don't use this
-            ('nbands',          None),
-            ('setups',          'paw'),
-            ('basis',           {}),
-            ('width',           None),  # eV, don't use this
-            ('occupations',     None),
-            ('spinpol',         None),
-            ('usesymm',         True),
-            ('stencils',        (3, 3)),
-            ('fixdensity',      False),
-            ('mixer',           None),
-            ('txt',             '-'),
-            ('hund',            False),
-            ('random',          False),
-            ('dtype',           None),
-            ('maxiter',         120),
-            ('parallel',        {'domain':              parsize_domain,
-                                 'band':                parsize_bands,
-                                 'stridebands':         False,
-                                 'sl_auto':             False,
-                                 'sl_default':          sl_default,
-                                 'sl_diagonalize':      sl_diagonalize,
-                                 'sl_inverse_cholesky': sl_inverse_cholesky,
-                                 'sl_lcao':             sl_lcao,
-                                 'buffer_size':         buffer_size}),
-            ('parsize',         None),  # don't use this
-            ('parsize_bands',   None),  # don't use this
-            ('parstride_bands', False),  # don't use this
-            ('external',        None),  # eV
-            ('verbose',         0),
-            ('eigensolver',     None),
-            ('poissonsolver',   None),
-            ('communicator',    mpi.world),
-            ('idiotproof',      True),
-            ('mode',            'fd'),
-            ('convergence',     {'energy':      0.0005,  # eV / electron
-                                 'density':     1.0e-4,
-                                 'eigenstates': 4.0e-8,  # eV^2
-                                 'bands':       'occupied'}),
-            ('realspace',       None)
-            ])
-        dict.update(self, kwargs)
+def read_parameters(params, reader):
+    """Read state from file."""
 
-    def __repr__(self):
-        dictrepr = dict.__repr__(self)
-        repr = 'InputParameters(**%s)' % dictrepr
-        return repr
+    r = reader
+
+    version = r['version']
     
-    def __getattr__(self, key):
-        return self[key]
+    assert version >= 0.3
 
-    def __setattr__(self, key, value):
-        assert key in self
-        self[key] = value
+    params.xc = r['XCFunctional']
+    params.nbands = r.dimension('nbands')
+    params.spinpol = (r.dimension('nspins') == 2)
 
-    def update(self, parameters):
-        assert isinstance(parameters, dict)
+    bzk_kc = r.get('BZKPoints', broadcast=True)
+    if r.has_array('NBZKPoints'):
+        params.kpts = r.get('NBZKPoints', broadcast=True)
+        if r.has_array('MonkhorstPackOffset'):
+            offset_c = r.get('MonkhorstPackOffset', broadcast=True)
+            if offset_c.any():
+                params.kpts = monkhorst_pack(params.kpts) + offset_c
+    else:
+        params.kpts = bzk_kc
 
-        for key, value in parameters.items():
-            assert key in self
+    params.usesymm = r['UseSymmetry']
+    try:
+        params.basis = r['BasisSet']
+        assert params.basis is not None
+    except KeyError:
+        pass
 
-            haschanged = (self[key] != value)
+    if version >= 2:
+        try:
+            h = r['GridSpacing']
+        except KeyError:  # CMR can't handle None!
+            h = None
+        if h is not None:
+            params.h = Bohr * h
+        if r.has_array('GridPoints'):
+            params.gpts = r.get('GridPoints')
+    else:
+        if version >= 0.9:
+            h = r['GridSpacing']
+        else:
+            h = None
 
-            if isinstance(haschanged, np.ndarray):
-                haschanged = haschanged.any()
+        gpts = ((r.dimension('ngptsx') + 1) // 2 * 2,
+                (r.dimension('ngptsy') + 1) // 2 * 2,
+                (r.dimension('ngptsz') + 1) // 2 * 2)
 
-            #if haschanged:
-            #    self.notify(key)
+        if h is None:
+            params.gpts = gpts
+        else:
+            params.h = Bohr * h
 
-        dict.update(self, parameters)
+    params.lmax = r['MaximumAngularMomentum']
+    params.setups = r['SetupTypes']
+    assert params.setups is not None
+    params.fixdensity = r['FixDensity']
+    if version <= 0.4:
+        # Old version: XXX
+        print('# Warning: Reading old version 0.3/0.4 restart files ' +
+              'will be disabled some day in the future!')
+        params.convergence['eigenstates'] = r['Tolerance']
+    else:
+        nbtc = r['NumberOfBandsToConverge']
+        if not isinstance(nbtc, (int, str)):
+            # The string 'all' was eval'ed to the all() function!
+            nbtc = 'all'
+        params.convergence = {'density': r['DensityConvergenceCriterion'],
+                            'energy':
+                            r['EnergyConvergenceCriterion'] * Hartree,
+                            'eigenstates':
+                            r['EigenstatesConvergenceCriterion'],
+                            'bands': nbtc}
 
-    def read(self, reader):
-        """Read state from file."""
+        if version < 1:
+            # Volume per grid-point:
+            dv = (abs(np.linalg.det(r.get('UnitCell'))) /
+                  (gpts[0] * gpts[1] * gpts[2]))
+            params.convergence['eigenstates'] *= Hartree**2 * dv
 
-        r = reader
+        if version <= 0.6:
+            mixer = 'Mixer'
+            weight = r['MixMetric']
+        elif version <= 0.7:
+            mixer = r['MixClass']
+            weight = r['MixWeight']
+            metric = r['MixMetric']
+            if metric is None:
+                weight = 1.0
+        else:
+            mixer = r['MixClass']
+            weight = r['MixWeight']
 
-        version = r['version']
+        if mixer == 'Mixer':
+            from gpaw.mixer import Mixer
+        elif mixer == 'MixerSum':
+            from gpaw.mixer import MixerSum as Mixer
+        elif mixer == 'MixerSum2':
+            from gpaw.mixer import MixerSum2 as Mixer
+        elif mixer == 'MixerDif':
+            from gpaw.mixer import MixerDif as Mixer
+        elif mixer == 'DummyMixer':
+            from gpaw.mixer import DummyMixer as Mixer
+        else:
+            Mixer = None
+
+        if Mixer is None:
+            params.mixer = None
+        else:
+            params.mixer = Mixer(r['MixBeta'], r['MixOld'], weight)
         
-        assert version >= 0.3
-    
-        self.xc = r['XCFunctional']
-        self.nbands = r.dimension('nbands')
-        self.spinpol = (r.dimension('nspins') == 2)
-
-        bzk_kc = r.get('BZKPoints', broadcast=True)
-        if r.has_array('NBZKPoints'):
-            self.kpts = r.get('NBZKPoints', broadcast=True)
-            if r.has_array('MonkhorstPackOffset'):
-                offset_c = r.get('MonkhorstPackOffset', broadcast=True)
-                if offset_c.any():
-                    self.kpts = monkhorst_pack(self.kpts) + offset_c
+    if version == 0.3:
+        # Old version: XXX
+        print('# Warning: Reading old version 0.3 restart files is ' +
+              'dangerous and will be disabled some day in the future!')
+        params.stencils = (2, 3)
+        params.charge = 0.0
+        fixmom = False
+    else:
+        params.stencils = (r['KohnShamStencil'],
+                         r['InterpolationStencil'])
+        if r['PoissonStencil'] == 999:
+            params.poissonsolver = FFTPoissonSolver()
         else:
-            self.kpts = bzk_kc
+            params.poissonsolver = PoissonSolver(nn=r['PoissonStencil'])
+        params.charge = r['Charge']
+        fixmom = r['FixMagneticMoment']
 
-        self.usesymm = r['UseSymmetry']
-        try:
-            self.basis = r['BasisSet']
-        except KeyError:
-            pass
+    params.occupations = FermiDirac(r['FermiWidth'] * Hartree,
+                                  fixmagmom=fixmom)
 
-        if version >= 2:
-            try:
-                h = r['GridSpacing']
-            except KeyError:  # CMR can't handle None!
-                h = None
-            if h is not None:
-                self.h = Bohr * h
-            if r.has_array('GridPoints'):
-                self.gpts = r.get('GridPoints')
-        else:
-            if version >= 0.9:
-                h = r['GridSpacing']
-            else:
-                h = None
+    try:
+        params.mode = r['Mode']
+    except KeyError:
+        params.mode = 'fd'
 
-            gpts = ((r.dimension('ngptsx') + 1) // 2 * 2,
-                    (r.dimension('ngptsy') + 1) // 2 * 2,
-                    (r.dimension('ngptsz') + 1) // 2 * 2)
-
-            if h is None:
-                self.gpts = gpts
-            else:
-                self.h = Bohr * h
-
-        self.lmax = r['MaximumAngularMomentum']
-        self.setups = r['SetupTypes']
-        self.fixdensity = r['FixDensity']
-        if version <= 0.4:
-            # Old version: XXX
-            print('# Warning: Reading old version 0.3/0.4 restart files ' +
-                  'will be disabled some day in the future!')
-            self.convergence['eigenstates'] = r['Tolerance']
-        else:
-            nbtc = r['NumberOfBandsToConverge']
-            if not isinstance(nbtc, (int, str)):
-                # The string 'all' was eval'ed to the all() function!
-                nbtc = 'all'
-            self.convergence = {'density': r['DensityConvergenceCriterion'],
-                                'energy':
-                                r['EnergyConvergenceCriterion'] * Hartree,
-                                'eigenstates':
-                                r['EigenstatesConvergenceCriterion'],
-                                'bands': nbtc}
-
-            if version < 1:
-                # Volume per grid-point:
-                dv = (abs(np.linalg.det(r.get('UnitCell'))) /
-                      (gpts[0] * gpts[1] * gpts[2]))
-                self.convergence['eigenstates'] *= Hartree**2 * dv
-
-            if version <= 0.6:
-                mixer = 'Mixer'
-                weight = r['MixMetric']
-            elif version <= 0.7:
-                mixer = r['MixClass']
-                weight = r['MixWeight']
-                metric = r['MixMetric']
-                if metric is None:
-                    weight = 1.0
-            else:
-                mixer = r['MixClass']
-                weight = r['MixWeight']
-
-            if mixer == 'Mixer':
-                from gpaw.mixer import Mixer
-            elif mixer == 'MixerSum':
-                from gpaw.mixer import MixerSum as Mixer
-            elif mixer == 'MixerSum2':
-                from gpaw.mixer import MixerSum2 as Mixer
-            elif mixer == 'MixerDif':
-                from gpaw.mixer import MixerDif as Mixer
-            elif mixer == 'DummyMixer':
-                from gpaw.mixer import DummyMixer as Mixer
-            else:
-                Mixer = None
-
-            if Mixer is None:
-                self.mixer = None
-            else:
-                self.mixer = Mixer(r['MixBeta'], r['MixOld'], weight)
-            
-        if version == 0.3:
-            # Old version: XXX
-            print('# Warning: Reading old version 0.3 restart files is ' +
-                  'dangerous and will be disabled some day in the future!')
-            self.stencils = (2, 3)
-            self.charge = 0.0
-            fixmom = False
-        else:
-            self.stencils = (r['KohnShamStencil'],
-                             r['InterpolationStencil'])
-            if r['PoissonStencil'] == 999:
-                self.poissonsolver = FFTPoissonSolver()
-            else:
-                self.poissonsolver = PoissonSolver(nn=r['PoissonStencil'])
-            self.charge = r['Charge']
-            fixmom = r['FixMagneticMoment']
-
-        self.occupations = FermiDirac(r['FermiWidth'] * Hartree,
-                                      fixmagmom=fixmom)
-
-        try:
-            self.mode = r['Mode']
-        except KeyError:
-            self.mode = 'fd'
-
-        if self.mode == 'pw':
-            self.mode = PW(ecut=r['PlaneWaveCutoff'] * Hartree)
-            
-        if len(bzk_kc) == 1 and not bzk_kc[0].any():
-            # Gamma point only:
-            if r['DataType'] == 'Complex':
-                self.dtype = complex
+    if params.mode == 'pw':
+        params.mode = PW(ecut=r['PlaneWaveCutoff'] * Hartree)
+        
+    if len(bzk_kc) == 1 and not bzk_kc[0].any():
+        # Gamma point only:
+        if r['DataType'] == 'Complex':
+            params.dtype = complex

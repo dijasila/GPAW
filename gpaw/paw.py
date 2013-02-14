@@ -15,7 +15,6 @@ import gpaw.io
 import gpaw.mpi as mpi
 import gpaw.occupations as occupations
 from gpaw import dry_run, memory_estimate_depth, KohnShamConvergenceError
-from gpaw.hooks import hooks
 from gpaw.density import RealSpaceDensity
 from gpaw.eigensolvers import get_eigensolver
 from gpaw.band_descriptor import BandDescriptor
@@ -32,7 +31,6 @@ from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 from gpaw.wavefunctions.pw import PW, ReciprocalSpaceDensity, \
     ReciprocalSpaceHamiltonian
 from gpaw.utilities.memory import MemNode, maxrss
-from gpaw.parameters import InputParameters
 from gpaw.setup import Setups
 from gpaw.output import PAWTextOutput
 from gpaw.scf import SCFLoop
@@ -45,7 +43,7 @@ class PAW(PAWTextOutput):
 
     timer_class = Timer
 
-    def __init__(self, filename=None, **kwargs):
+    def __init__(self):
         """ASE-calculator interface.
 
         The following parameters can be used: `nbands`, `xc`, `kpts`,
@@ -71,7 +69,6 @@ class PAW(PAWTextOutput):
 
         PAWTextOutput.__init__(self)
         self.grid_descriptor_class = GridDescriptor
-        self.input_parameters = InputParameters()
         self.timer = self.timer_class()
 
         self.scf = None
@@ -83,258 +80,7 @@ class PAW(PAWTextOutput):
 
         self.initialized = False
 
-        # Possibly read GPAW keyword arguments from file:
-        if filename is not None and filename.endswith('.gkw'):
-            from gpaw.utilities.kwargs import load
-            parameters = load(filename)
-            parameters.update(kwargs)
-            kwargs = parameters
-            filename = None  # XXX
-
-        if filename is not None:
-            comm = kwargs.get('communicator', mpi.world)
-            reader = gpaw.io.open(filename, 'r', comm)
-            self.atoms = gpaw.io.read_atoms(reader)
-            par = self.input_parameters
-            par.read(reader)
-
-        self.set(**kwargs)
-
-        if filename is not None:
-            # Setups are not saved in the file if the setups were not loaded
-            # *from* files in the first place
-            if par.setups is None:
-                if par.idiotproof:
-                    raise RuntimeError('Setups not specified in file. Use '
-                                       'idiotproof=False to proceed anyway.')
-                else:
-                    par.setups = {None: 'paw'}
-            if par.basis is None:
-                if par.idiotproof:
-                    raise RuntimeError('Basis not specified in file. Use '
-                                       'idiotproof=False to proceed anyway.')
-                else:
-                    par.basis = {}
-
-            self.initialize()
-            self.read(reader)
-
-            self.print_cell_and_parameters()
-
         self.observers = []
-
-    def read(self, reader):
-        gpaw.io.read(self, reader)
-
-    def set(self, **kwargs):
-        p = self.input_parameters
-
-        # Prune input for things that didn't change
-        for key, value in kwargs.items():
-            if key == 'kpts':
-                oldbzk_kc = kpts2ndarray(p.kpts)
-                newbzk_kc = kpts2ndarray(value)
-                if (len(oldbzk_kc) == len(newbzk_kc) and
-                    (oldbzk_kc == newbzk_kc).all()):
-                    kwargs.pop('kpts')
-            elif np.all(p[key] == value):
-                kwargs.pop(key)
-
-        if (kwargs.get('h') is not None) and (kwargs.get('gpts') is not None):
-            raise TypeError("""You can't use both "gpts" and "h"!""")
-        if 'h' in kwargs:
-            p['gpts'] = None
-        if 'gpts' in kwargs:
-            p['h'] = None
-
-        # Special treatment for dictionary parameters:
-        for name in ['convergence', 'parallel']:
-            if kwargs.get(name) is not None:
-                tmp = p[name]
-                for key in kwargs[name]:
-                    if not key in tmp:
-                        raise KeyError('Unknown subparameter "%s" in '
-                                       'dictionary parameter "%s"' % (key,
-                                                                      name))
-                tmp.update(kwargs[name])
-                kwargs[name] = tmp
-
-        self.initialized = False
-
-        for key in kwargs:
-            if key == 'basis' and  p['mode'] == 'fd':
-                continue
-
-            if key == 'eigensolver':
-                self.wfs.set_eigensolver(None)
-            
-            if key in ['fixmom', 'mixer',
-                       'verbose', 'txt', 'hund', 'random',
-                       'eigensolver', 'idiotproof', 'notify']:
-                continue
-
-            if key in ['convergence', 'fixdensity', 'maxiter']:
-                self.scf = None
-                continue
-
-            # More drastic changes:
-            self.scf = None
-            self.wfs.set_orthonormalized(False)
-            if key in ['lmax', 'width', 'stencils', 'external', 'xc',
-                       'poissonsolver', 'occupations']:
-                self.hamiltonian = None
-                self.occupations = None
-            elif key in ['charge']:
-                self.hamiltonian = None
-                self.density = None
-                self.wfs = EmptyWaveFunctions()
-                self.occupations = None
-            elif key in ['kpts', 'nbands', 'usesymm']:
-                self.wfs = EmptyWaveFunctions()
-                self.occupations = None
-            elif key in ['h', 'gpts', 'setups', 'spinpol', 'realspace',
-                         'parallel', 'communicator', 'dtype', 'mode']:
-                self.density = None
-                self.occupations = None
-                self.hamiltonian = None
-                self.wfs = EmptyWaveFunctions()
-            elif key in ['basis']:
-                self.wfs = EmptyWaveFunctions()
-            elif key in ['parsize', 'parsize_bands', 'parstride_bands']:
-                name = {'parsize': 'domain',
-                        'parsize_bands': 'band',
-                        'parstride_bands': 'stridebands'}[key]
-                raise DeprecationWarning(
-                    'Keyword argument has been moved ' +
-                    "to the 'parallel' dictionary keyword under '%s'." % name)
-            else:
-                raise TypeError("Unknown keyword argument: '%s'" % key)
-
-        p.update(kwargs)
-
-    def calculate(self, atoms=None, converge=False,
-                  force_call_to_set_positions=False):
-        """Update PAW calculaton if needed.
-
-        Returns True/False whether a calculation was performed or not."""
-
-        self.results['free energy'] = Hartree * self.hamiltonian.Etot
-        self.results['energy'] = Hartree * (self.hamiltonian.Etot +
-                                            0.5 * self.hamiltonian.S)
-
-        if (self.forces.F_av is None and
-            hasattr(self.wfs, 'kpt_u') and
-            not hasattr(self.wfs, 'tci') and
-            not isinstance(self.wfs.kpt_u[0].psit_nG, np.ndarray)):
-            force_call_to_set_positions = True
-        else:
-            force_call_to_set_positions = False
-            
-        self.calculate(atoms, converge=True,
-                       force_call_to_set_positions=force_call_to_set_positions)
-
-        if self.forces.F_av is None:
-            F_av = self.forces.calculate(self.wfs, self.density,
-                                         self.hamiltonian)
-            self.print_forces()
-        else:
-            F_av = self.forces.F_av
-
-        return F_av * (Hartree / Bohr)
-      
-        """Return the stress for the current state of the atoms."""
-        self.calculate(atoms, converge=True)
-        if self.stress_vv is None:
-            self.stress_vv = stress(self)
-        return self.stress_vv.flat[[0, 4, 8, 5, 2, 1]] * (Hartree / Bohr**3)
-    def get_dipole_moment(self, atoms=None):
-        """Return the total dipole moment in ASE units."""
-        rhot_g = self.density.rhot_g
-        return self.density.finegd.calculate_dipole_moment(rhot_g) * Bohr
-
-    def get_magnetic_moment(self, atoms=None):
-        """Return the total magnetic moment."""
-        return self.occupations.magmom
-
-    def get_magnetic_moments(self, atoms=None):
-        """Return the local magnetic moments within augmentation spheres"""
-        magmom_av = self.density.estimate_magnetic_moments()
-        if self.wfs.collinear:
-            momsum = magmom_av.sum()
-            M = self.occupations.magmom
-            if abs(M) > 1e-7 and abs(momsum) > 1e-7:
-                magmom_av *= M / momsum
-            # return a contiguous array
-            return magmom_av[:, 2].copy()
-        else:
-            return magmom_av
-
-
-
-
-        self.timer.start('Initialization')
-        if atoms is None:
-            atoms = self.atoms
-
-        if self.atoms is None:
-            # First time:
-            self.initialize(atoms)
-            self.set_positions(atoms)
-        elif (len(atoms) != len(self.atoms) or
-              (atoms.get_atomic_numbers() !=
-               self.atoms.get_atomic_numbers()).any() or
-              (atoms.get_initial_magnetic_moments() !=
-               self.atoms.get_initial_magnetic_moments()).any() or
-              (atoms.get_cell() != self.atoms.get_cell()).any() or
-              (atoms.get_pbc() != self.atoms.get_pbc()).any()):
-            # Drastic changes:
-            self.wfs = EmptyWaveFunctions()
-            self.occupations = None
-            self.density = None
-            self.hamiltonian = None
-            self.scf = None
-            self.initialize(atoms)
-            self.set_positions(atoms)
-        elif not self.initialized:
-            self.initialize(atoms)
-            self.set_positions(atoms)
-        elif (atoms.get_positions() != self.atoms.get_positions()).any():
-            self.density.reset()
-            self.set_positions(atoms)
-        elif not self.scf.converged:
-            # Do not call scf.check_convergence() here as it overwrites
-            # scf.converged, and setting scf.converged is the only
-            # 'practical' way for a user to force the calculation to proceed
-            self.set_positions(atoms)
-        elif force_call_to_set_positions:
-            self.set_positions(atoms)
-
-        self.timer.stop('Initialization')
-
-        if self.scf.converged:
-            return False
-        else:
-            self.print_cell_and_parameters()
-
-        self.timer.start('SCF-cycle')
-        for iter in self.scf.run(self.wfs, self.hamiltonian, self.density,
-                                 self.occupations):
-            self.call_observers(iter)
-            self.print_iteration(iter)
-            self.iter = iter
-        self.timer.stop('SCF-cycle')
-
-        if self.scf.converged:
-            self.call_observers(iter, final=True)
-            self.print_converged(iter)
-            if 'converged' in hooks:
-                hooks['converged'](self)
-        elif converge:
-            if 'not_converged' in hooks:
-                hooks['not_converged'](self)
-            raise KohnShamConvergenceError('Did not converge!')
-
-        return True
 
     def initialize_positions(self, atoms=None):
         """Update the positions of the atoms."""
@@ -373,7 +119,7 @@ class PAW(PAWTextOutput):
             # Save the state of the atoms:
             self.atoms = atoms.copy()
 
-        par = self.input_parameters
+        par = self.parameters
 
         world = par.communicator
         if world is None:
@@ -878,7 +624,7 @@ class PAW(PAWTextOutput):
 
             # is the density ok ?
             error = self.density.mixer.get_charge_sloshing()
-            criterion = (self.input_parameters['convergence']['density']
+            criterion = (self.parameters['convergence']['density']
                          * self.wfs.nvalence)
             if error < criterion and not self.hamiltonian.xc.orbital_dependent:
                 self.scf.fix_density()
