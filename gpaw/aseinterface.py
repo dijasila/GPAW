@@ -171,25 +171,29 @@ class GPAW(PAW, Calculator):
                 self.set_positions(atoms)
                 break
         else:
-            if self.density is not None:
-                self.density.reset()
-            self.set_positions(atoms)
+            if 'positions' in changes:
+                if self.density is not None:
+                    self.density.reset()
+                self.set_positions(atoms)
 
-            #self.print_cell_and_parameters()
+        #self.print_cell_and_parameters()
 
-        self.timer.start('SCF-cycle')
-        for iter in self.scf.run(self.wfs, self.hamiltonian, self.density,
-                                 self.occupations):
-            self.call_observers(iter)
-            self.print_iteration(iter)
-            self.iter = iter
-        self.timer.stop('SCF-cycle')
+        iter = None
+        if not self.scf.converged:
+            self.timer.start('SCF-cycle')
+            for iter in self.scf.run(self.wfs, self.hamiltonian, self.density,
+                                     self.occupations):
+                self.call_observers(iter)
+                self.print_iteration(iter)
+                self.iter = iter
+            self.timer.stop('SCF-cycle')
 
-        if self.scf.converged:
-            self.call_observers(iter, final=True)
-            if 'converged' in hooks:
-                hooks['converged'](self)
-        elif converge:
+            if self.scf.converged:
+                self.call_observers(iter, final=True)
+                if 'converged' in hooks:
+                    hooks['converged'](self)
+
+        if not self.scf.converged:
             if 'not_converged' in hooks:
                 hooks['not_converged'](self)
             raise KohnShamConvergenceError('Did not converge!')
@@ -225,7 +229,8 @@ class GPAW(PAW, Calculator):
         else:
             self.results['magmoms'] = magmom_av
 
-        self.print_converged(iter)
+        if iter is not None:
+            self.print_converged(iter)
 
     def get_number_of_bands(self):
         """Return the number of bands."""
