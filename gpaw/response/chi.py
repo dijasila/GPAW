@@ -305,7 +305,7 @@ class CHI(BASECHI):
                             psitold_g = calc.wfs._get_wave_function_array(u, n, realspace=True,
                                                                           phase=eikr1_R)
                         else:
-                            cu.get_wfs(calc.wfs.kpt_u[cu.u1].psit_nG[n], cu.dev_Q1_G)
+                            cu.get_wfs(calc.wfs.kpt_u[cu.u1].psit_nG[n], cu.Q1_G)
                     if self.sync: timer.end('wfs_read')
 
                     if self.sync: timer.start('wfs_transform')
@@ -317,7 +317,7 @@ class CHI(BASECHI):
                             psit1new_g = psit1new_g_tmp
                     else:
                         # dev_psit1_R is the wave function of (k, n) on device
-                        cu.trans_wfs(cu.dev_psit1_R, cu.dev_index1_Q, cu.trans1, cu.time_rev1)
+                        cu.trans_wfs(cu.psit1_R, cu.index1_Q, cu.trans1, cu.time_rev1)
                         # padding does not work on cuda now !! 
                     if self.sync: timer.end('wfs_transform')
 
@@ -340,7 +340,7 @@ class CHI(BASECHI):
                             else:
                                 P1_ai = self.get_P_ai(k, n, spin)
                     else:
-                        cu.get_P_ai(cu.P_P1_ani, cu.P_P1_ai, cu.dev_P1_ani, cu.dev_P1_ai, 
+                        cu.get_P_ai(cu.P_P1_ani, cu.P_P1_ai, cu.P1_ani, cu.P1_ai, 
                                            calc.wfs.kpt_u[cu.u1].P_ani, cu.time_rev1, cu.s1, ibzkpt1, n)
                     if self.sync: timer.end('paw')
 
@@ -372,7 +372,7 @@ class CHI(BASECHI):
                                     psitold_g = calc.wfs._get_wave_function_array(u, m, realspace=True, phase=eikr2_R)
                                 else:
                                     # dev_psit2_R is the (transformed) wave function for (kq[k],m) on device
-                                    cu.get_wfs(calc.wfs.kpt_u[cu.u2].psit_nG[m], cu.dev_Q2_G)
+                                    cu.get_wfs(calc.wfs.kpt_u[cu.u2].psit_nG[m], cu.Q2_G)
                             if self.sync: timer.end('wfs_read')
 
                             if self.sync: timer.start('wfs_transform')
@@ -384,7 +384,7 @@ class CHI(BASECHI):
                                     psit2_g = psit2_g_tmp
                             else:
                                 # dev_psit2_R is the wave function of (k+q, m) on device
-                                cu.trans_wfs(cu.dev_psit2_R, cu.dev_index2_Q, cu.trans2, cu.time_rev2)
+                                cu.trans_wfs(cu.psit2_R, cu.index2_Q, cu.trans2, cu.time_rev2)
                             if self.sync: timer.end('wfs_transform')
 
                             if self.cuda:
@@ -400,21 +400,21 @@ class CHI(BASECHI):
                             else:
                                 # dev_psit1_R is re-used ! can't change !
                                 if self.optical_limit: # psit2_R has to be saved for later
-                                    _gpaw.cuCopy_vector(cu.dev_psit2_R, cu.dev_optpsit2_R, self.nG0)
+                                    _gpaw.cuCopy_vector(cu.psit2_R, cu.optpsit2_R, self.nG0)
                                 
-                                _gpaw.cuMulc(cu.dev_psit1_R, cu.dev_psit2_R, cu.dev_psit2_R, self.nG0)
-                                _gpaw.cuMul(cu.dev_psit2_R, cu.dev_expqr_R, cu.dev_psit2_R, self.nG0)
-                                _gpaw.cufft_execZ2Z(cu.cufftplan, cu.dev_psit2_R, 
-                                                    cu.dev_psit2_R, -1) # R->Q
-                                _gpaw.cuZscal(cu.handle, self.nG0, self.vol/self.nG0, cu.dev_psit2_R, 1)
+                                _gpaw.cuMulc(cu.psit1_R, cu.psit2_R, cu.psit2_R, self.nG0)
+                                _gpaw.cuMul(cu.psit2_R, cu.expqr_R, cu.psit2_R, self.nG0)
+                                _gpaw.cufft_execZ2Z(cu.cufftplan, cu.psit2_R, 
+                                                    cu.psit2_R, -1) # R->Q
+                                _gpaw.cuZscal(cu.handle, self.nG0, self.vol/self.nG0, cu.psit2_R, 1)
                             if self.sync: timer.end('fft')
 
                             if self.sync: timer.start('mapG')
                             if not self.cuda:
                                 rho_G = fft_G.ravel()[self.Gindex_G]
                             else:
-                                _gpaw.cuMap_Q2G(cu.dev_psit2_R, cu.GPU_rho_uG+GPUpointer, 
-                                                cu.dev_Gindex_G, self.npw)
+                                _gpaw.cuMap_Q2G(cu.psit2_R, cu.rho_uG+GPUpointer, 
+                                                cu.Gindex_G, self.npw)
                             if self.sync: timer.end('mapG')
 
                             if self.sync: timer.start('opt')
@@ -429,9 +429,9 @@ class CHI(BASECHI):
                                             tmp[ix] = gd.integrate(psit1_g * dpsit_g)
                                     rho_G[0] = -1j * np.dot(self.qq_v, tmp)
                                 else:
-                                    rhoG0 = cu.calculate_opt(cu.dev_psit1_R)
+                                    rhoG0 = cu.calculate_opt(cu.psit1_R)
                                             
-                                    status = _gpaw.cuSetVector(1, sizeofdata, rhoG0, 1, cu.GPU_rho_uG+GPUpointer, 1)
+                                    status = _gpaw.cuSetVector(1, sizeofdata, rhoG0, 1, cu.rho_uG+GPUpointer, 1)
                             if self.sync: timer.end('opt')
 
                             if self.sync: timer.start('paw')
@@ -452,7 +452,7 @@ class CHI(BASECHI):
                                     else:
                                         P2_ai = self.get_P_ai(kq_k[k], m, spin)         
                             else:
-                                cu.get_P_ai(cu.P_P2_ani, cu.P_P2_ai, cu.dev_P2_ani, cu.dev_P2_ai, 
+                                cu.get_P_ai(cu.P_P2_ani, cu.P_P2_ai, cu.P2_ani, cu.P2_ai, 
                                            calc.wfs.kpt_u[cu.u2].P_ani, cu.time_rev2, cu.s2, ibzkpt2, m)
                             if self.sync: timer.end('paw')
 
@@ -461,7 +461,7 @@ class CHI(BASECHI):
                                 if not self.cuda:
                                     P_p = np.outer(P1_ai[a].conj(), P2_ai[a]).ravel()
                                 else:
-                                    Ni = cu.Ni_a[a]
+                                    Ni = cu.host_Ni_a[a]
                                     # here ravel has the opposite effect in memory 
                                     _gpaw.cugemm(cu.handle,1.0, cu.P_P2_ai[a], cu.P_P1_ai[a], 0.0, cu.P_P_ap[a], \
                                                      Ni, Ni, 1, Ni, Ni, Ni, 2, 0) # transb(Hermitian), transa
@@ -472,12 +472,12 @@ class CHI(BASECHI):
                                     gemv(1.0, self.phi_aGp[a], P_p, 1.0, rho_G)
                                 else:
                                     _gpaw.cuZgemv(cu.handle,Ni*Ni,self.npw,1.0,cu.P_phi_aGp[a],
-                                                  Ni*Ni,cu.P_P_ap[a],1,1.0,cu.GPU_rho_uG+GPUpointer,1)
+                                                  Ni*Ni,cu.P_P_ap[a],1,1.0,cu.rho_uG+GPUpointer,1)
                                 if self.sync: timer.end('cugemv')
 
                             if self.optical_limit and self.cuda:
                                 if self.sync: timer.start('cugemv')
-                                status = _gpaw.cuGetVector(1,sizeofdata,cu.GPU_rho_uG+GPUpointer,1,rho_G,1)
+                                status = _gpaw.cuGetVector(1,sizeofdata,cu.rho_uG+GPUpointer,1,rho_G,1)
                                 if self.sync: timer.end('cugemv')
 
                             if self.optical_limit:
@@ -499,7 +499,7 @@ class CHI(BASECHI):
                                 else:
                                     if self.sync: timer.start('cugemv')
                                     if self.optical_limit and self.cuda:
-                                        status = _gpaw.cuSetVector(1, sizeofdata, rho_G, 1, cu.GPU_rho_uG+GPUpointer, 1)
+                                        status = _gpaw.cuSetVector(1, sizeofdata, rho_G, 1, cu.rho_uG+GPUpointer, 1)
                                     if self.sync: timer.end('cugemv')
 
                                 for iw in range(self.Nw_local):
@@ -519,7 +519,7 @@ class CHI(BASECHI):
                                             czher(C.real, rho_G.conj(), chi0_wGG[iw])
                                         else:
                                             if imultix == nmultix - 1 or m == len(self.mlist) - 1:
-                                                matrixGPU_GG = cu.matrixlist_w[iw]
+                                                matrixGPU_GG = cu.chi0_w[iw]
                                                 # replace with zherk
 #                                                status = _gpaw.cuZher(handle,0,self.npw,C.real,GPU_rho_G,1,
 #                                                                  matrixGPU_GG,self.npw)
@@ -530,9 +530,9 @@ class CHI(BASECHI):
                                                 
                                                 for iu in range(nmultix):
                                                     alpha = alpha_u[iu]
-                                                    _gpaw.cuZscal(cu.handle,self.npw,alpha,cu.GPU_rho_uG+iu*self.npw*sizeofdata,1)
+                                                    _gpaw.cuZscal(cu.handle,self.npw,alpha,cu.rho_uG+iu*self.npw*sizeofdata,1)
 
-                                                status = _gpaw.cuZherk(cu.handle,0,self.npw,nmultix,-1.0,cu.GPU_rho_uG,self.npw,1.0,
+                                                status = _gpaw.cuZherk(cu.handle,0,self.npw,nmultix,-1.0,cu.rho_uG,self.npw,1.0,
                                                                        matrixGPU_GG,self.npw)
                                     else:
                                         axpy(C, rho_GG, chi0_wGG[iw])
@@ -542,7 +542,7 @@ class CHI(BASECHI):
                                 if self.cuda:
                                     if imultix == nmultix - 1:
                                         imultix = 0
-                                        _gpaw.cuMemset(cu.GPU_rho_uG, 0, sizeofdata*nmultix*self.npw)
+                                        _gpaw.cuMemset(cu.rho_uG, 0, sizeofdata*nmultix*self.npw)
                                     else:
                                         imultix += 1
                                 if self.sync: timer.end('zherk')
@@ -605,7 +605,7 @@ class CHI(BASECHI):
             else:
                 if self.cuda:
                     for iw in range(self.Nw_local):
-                        status = _gpaw.cuGetMatrix(self.npw,self.npw,sizeofdata,cu.matrixlist_w[iw],self.npw,
+                        status = _gpaw.cuGetMatrix(self.npw,self.npw,sizeofdata,cu.chi0_w[iw],self.npw,
                                                    chi0_wGG[iw],self.npw)
                         chi0_wGG[iw] = chi0_wGG[iw].conj()
 
