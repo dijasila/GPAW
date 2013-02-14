@@ -204,11 +204,15 @@ class HybridXC(HybridXCBase):
 
         # Count number of pairs for each q-vector:
         self.npairs_q = np.zeros(len(self.bzq_qc), int)
+        maxn1 = 0
         for s in range(kd.nspins):
             for k1 in range(kd.nibzkpts):
                 for k2 in range(kd.nibzkpts):
                     for K2, q, n1_n, n2 in self.indices(s, k1, k2):
                         self.npairs_q[q] += len(n1_n)
+                        if len(n1_n) > maxn1:
+                            maxn1 = len(n1_n) # for allocation of memory in cuda
+
 
         self.npairs0 = self.npairs_q.sum()  # total number of pairs
 
@@ -249,32 +253,7 @@ class HybridXC(HybridXCBase):
         if self.cuda:
             cu = BASECUDA()
             cu.paw_init(wfs, self.spos_ac)
-            self.nG0 = nG0 = wfs.gd.N_c[0] * wfs.gd.N_c[1] * wfs.gd.N_c[2]
-            self.nG = nG = wfs.gd.N_c
-            status, cu.u1_R = _gpaw.cuMalloc(nG0*sizeofdata)
-            status, cu.u2_R = _gpaw.cuMalloc(nG0*sizeofdata)
-            status, cu.tmp_R = _gpaw.cuMalloc(nG0*sizeofdata)
-            status, cu.op_cc = _gpaw.cuMalloc(9*sizeofdouble)
-            status, cu.dk_c = _gpaw.cuMalloc(3*sizeofdouble)
-
-            cu.P_Delta_apL = np.zeros(cu.Na, dtype=np.int64)
-            cu.P_Q_aL = np.zeros(cu.Na, dtype=np.int64)
-            Delta_apL = {}
-            cu.nL_a = {}
-            for a in range(cu.Na):
-                Ni = cu.host_Ni_a[a]
-                Delta_pL = wfs.setups[a].Delta_pL
-                nL = Delta_pL.shape[1]
-                cu.nL_a[a] = nL
-                Delta_apL[a] = np.zeros((Ni*Ni, nL), dtype=complex)
-                for ii in range(Delta_pL.shape[1]):
-                    Delta_apL[a][:,ii] = unpack(Delta_pL[:,ii].copy()).ravel()
-                status, dev_Delta_pL = _gpaw.cuMalloc(Ni*Ni*nL*sizeofdata)
-                status = _gpaw.cuSetMatrix(nL,Ni*Ni,sizeofdata,Delta_apL[a],nL,dev_Delta_pL,nL)
-                cu.P_Delta_apL[a] = dev_Delta_pL
-                status, dev_Q_L = _gpaw.cuMalloc(nL*sizeofdata)
-                cu.P_Q_aL[a] = dev_Q_L
-
+            cu.exx_init(wfs, maxn1)
             self.cu = cu
             
         # Plane-wave descriptor for all wave-functions:
@@ -558,7 +537,7 @@ class HybridXC(HybridXCBase):
                 u2_R = self.kd.transform_wave_function(psit2_R, k) / eik2r_R
             else:
                 self.pd.cuifft(kpt2.psit_nG[n2, : ng2], kpt2.k, cu.tmp_R)
-                self.kd.cuda_transform_wfs(cu.tmp_R, cu.u2_R, k, self.nG, cu.op_cc, cu.dk_c)
+                self.kd.cuda_transform_wfs(cu.tmp_R, cu.u2_R, k, cu.nG, cu.op_cc, cu.dk_c)
 #                _gpaw.cuGetVector(self.nG[0]*self.nG[1]*self.nG[2],sizeofdata,self.dev_u2_R,1, u2_R, 1)
                 
         if self.sync: self.timer.end('get_trans_wfs') 
@@ -575,7 +554,7 @@ class HybridXC(HybridXCBase):
                 nt_G[:] = self.pd2.fft(nt_R, q)
             else:
                 self.pd.cuifft(kpt1.psit_nG[n1, : ng1], kpt1.k, cu.u1_R)
-                _gpaw.cuMulc(cu.u1_R, cu.u2_R, cu.u1_R, self.nG[0]*self.nG[1]*self.nG[2])
+                _gpaw.cuMulc(cu.u1_R, cu.u2_R, cu.u1_R, cu.nG[0]*cu.nG[1]*cu.nG[2])
                 
                 self.pd2.cufft(cu.u1_R, q, dev_G, ncoef)
                 _gpaw.cuGetVector(ncoef,sizeofdata,dev_G,1, nt_G, 1)
@@ -633,16 +612,16 @@ class HybridXC(HybridXCBase):
             for a, P1_ni in kpt1.P_ani.items():
                 P1_ni = P1_ni[n1_n]
                 D_np = []
-                Q_anL[a] = np.zeros((len(n1_n), cu.nL_a[a]), dtype=complex)
+                Q_anL[a] = np.zeros((len(n1_n), cu.host_nL_a[a]), dtype=complex)
                 for inn, P1_i in enumerate(P1_ni):
                     Ni = len(P1_i)
                     _gpaw.cuSetVector(Ni,sizeofdata,P1_i,1,cu.P_P1_ai[a],1)
                     _gpaw.cugemm(cu.handle,1.0, cu.P_P2_ai[a], cu.P_P1_ai[a], 0.0, cu.P_P_ap[a], \
                                                      Ni, Ni, 1, Ni, Ni, Ni, 2, 0) # transb(Hermitian), transa
 
-                    _gpaw.cuZgemv(cu.handle,cu.nL_a[a],Ni*Ni,1.0,cu.P_Delta_apL[a],
-                                  cu.nL_a[a],cu.P_P_ap[a],1,0.0,cu.P_Q_aL[a], 1, 0)
-                    _gpaw.cuGetVector(cu.nL_a[a],sizeofdata,cu.P_Q_aL[a],1, Q_anL[a][inn,:], 1)
+                    _gpaw.cuZgemv(cu.handle,cu.host_nL_a[a],Ni*Ni,1.0,cu.P_Delta_apL[a],
+                                  cu.host_nL_a[a],cu.P_P_ap[a],1,0.0,cu.P_Q_aL[a], 1, 0)
+                    _gpaw.cuGetVector(cu.host_nL_a[a],sizeofdata,cu.P_Q_aL[a],1, Q_anL[a][inn,:], 1)
             if self.sync: self.timer.end('paw2') 
 
         if q != self.qlatest:

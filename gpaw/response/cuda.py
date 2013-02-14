@@ -188,7 +188,40 @@ class BASECUDA:
                                   self.G_cG+i*self.ncoef*sizeofdata,1)
         
         return 
+    
 
+    def exx_init(self, wfs, maxn1):
+
+        from gpaw.utilities import unpack
+        self.nG0 = nG0 = wfs.gd.N_c[0] * wfs.gd.N_c[1] * wfs.gd.N_c[2]
+        self.nG = nG = wfs.gd.N_c
+        status, self.u1_R = _gpaw.cuMalloc(nG0*sizeofdata)
+        status, self.u2_R = _gpaw.cuMalloc(nG0*sizeofdata)
+        status, self.tmp_R = _gpaw.cuMalloc(nG0*sizeofdata)
+        status, self.op_cc = _gpaw.cuMalloc(9*sizeofdouble)
+        status, self.dk_c = _gpaw.cuMalloc(3*sizeofdouble)
+
+        self.P_Delta_apL = np.zeros(self.Na, dtype=np.int64) # is a pointer
+        self.P_Q_aL = np.zeros(self.Na, dtype=np.int64)
+        Delta_apL = {}
+        self.maxmband = maxn1
+        self.host_nL_a = np.zeros(self.Na, dtype=np.int32)
+        for a in range(self.Na):
+            Ni = self.host_Ni_a[a]
+            Delta_pL = wfs.setups[a].Delta_pL
+            nL = Delta_pL.shape[1]
+            self.host_nL_a[a] = nL
+            Delta_apL[a] = np.zeros((Ni*Ni, nL), dtype=complex)
+            for ii in range(Delta_pL.shape[1]):
+                Delta_apL[a][:,ii] = unpack(Delta_pL[:,ii].copy()).ravel()
+            status, dev_Delta_pL = _gpaw.cuMalloc(Ni*Ni*nL*sizeofdata)
+            status = _gpaw.cuSetMatrix(nL,Ni*Ni,sizeofdata,Delta_apL[a],nL,dev_Delta_pL,nL)
+            self.P_Delta_apL[a] = dev_Delta_pL
+            status, dev_Q_L = _gpaw.cuMalloc(nL*sizeofdata)
+            self.P_Q_aL[a] = dev_Q_L
+
+        status, self.nL_a = _gpaw.cuMalloc(self.Na*sizeofint)
+        _gpaw.cuSetVector(self.Na,sizeofint,self.host_nL_a,1,self.nL_a,1)
 
 
     def get_wfs(self, host_psit_G, Q_G):
