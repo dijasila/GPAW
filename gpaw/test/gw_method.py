@@ -1,14 +1,11 @@
 import numpy as np
-import pickle
 from time import time, ctime
 from datetime import timedelta
 from ase.structure import bulk
 from ase.units import Hartree
 from gpaw import GPAW, FermiDirac
 from gpaw.response.gw import GW
-from gpaw.xc.hybridk import HybridXC
-from gpaw.xc.tools import vxc
-from gpaw.mpi import serial_comm, world, rank
+from gpaw.mpi import serial_comm
 
 starttime = time()
 
@@ -46,7 +43,7 @@ gw = GW(
         hilbert_trans=False
        )
 
-gw.get_exact_exchange()
+gw.get_exact_exchange(communicator=serial_comm)
 
 gw.get_QP_spectrum()
 

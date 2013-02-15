@@ -225,6 +225,7 @@ class GW(BASECHI):
         except:
             t0 = time()
             self.get_exact_exchange(ecut=self.ecut.max()*Hartree)
+            world.barrier()
             exxfile='EXX.pckl'
             self.printtxt('EXX takes %f seconds' %(time()-t0))
         data = pickle.load(open(exxfile))
@@ -428,13 +429,13 @@ class GW(BASECHI):
         return Sigma_skn, dSigma_skn 
 
 
-    def get_exact_exchange(self, ecut=None, file='EXX.pckl'):
+    def get_exact_exchange(self, ecut=None, communicator=world, file='EXX.pckl'):
 
 #        self.initialize()
         self.printtxt("calculating Exact exchange and E_XC")
         self.printtxt('------------------------------------------------')
 
-        calc = GPAW(self.file, communicator=world, parallel={'domain':1}, txt=None)
+        calc = GPAW(self.file, communicator=communicator, parallel={'domain':1}, txt=None)
         v_xc = vxc(calc)
 
         if ecut == None:
