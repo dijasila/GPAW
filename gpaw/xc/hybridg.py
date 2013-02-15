@@ -210,9 +210,6 @@ class HybridXC(HybridXCBase):
                 for k2 in range(kd.nibzkpts):
                     for K2, q, n1_n, n2 in self.indices(s, k1, k2):
                         self.npairs_q[q] += len(n1_n)
-                        if len(n1_n) > maxn1:
-                            maxn1 = len(n1_n) # for allocation of memory in cuda
-
 
         self.npairs0 = self.npairs_q.sum()  # total number of pairs
 
@@ -252,9 +249,11 @@ class HybridXC(HybridXCBase):
 
         if self.cuda:
             cu = BASECUDA()
-            cu.paw_init(wfs, self.spos_ac)
-            cu.exx_init(wfs, maxn1)
+#            cu.paw_init(wfs, self.spos_ac)
+            cu.exx_init(wfs)
             self.cu = cu
+        else:
+            self.cu = cu = None
             
         # Plane-wave descriptor for all wave-functions:
         self.pd = PWDescriptor(wfs.pd.ecut, wfs.gd,
@@ -326,11 +325,6 @@ class HybridXC(HybridXCBase):
                         print '\n', s, i, kpt1, K2, time() - self.t0, self.timer.get_tot_timing()
                         for key in self.timer.timers.keys():
                             print '%15s'%(key), self.timer.get_timing(key)
-                        
-
-                        # n1_n is similar to the nmultix !! 
-
-
                         self.apply(K2, q, kpt1, kpt2, n1_n, n2)
 
                 if i < kd.nibzkpts - 1:
@@ -524,7 +518,6 @@ class HybridXC(HybridXCBase):
         ng2 = self.wfs.ng_k[kpt2.k]
 
         if self.sync: self.timer.start('get_trans_wfs') 
-#        u2_R = np.zeros(self.nG, dtype=complex)
         # Transform to real space and apply symmetry operation:
         if is_ibz2:
             if not self.cuda:
@@ -538,7 +531,6 @@ class HybridXC(HybridXCBase):
             else:
                 self.pd.cuifft(kpt2.psit_nG[n2, : ng2], kpt2.k, cu.tmp_R)
                 self.kd.cuda_transform_wfs(cu.tmp_R, cu.u2_R, k, cu.nG, cu.op_cc, cu.dk_c)
-#                _gpaw.cuGetVector(self.nG[0]*self.nG[1]*self.nG[2],sizeofdata,self.dev_u2_R,1, u2_R, 1)
                 
         if self.sync: self.timer.end('get_trans_wfs') 
 
@@ -567,7 +559,7 @@ class HybridXC(HybridXCBase):
         k2_c = self.kd.ibzk_kc[kpt2.k]
         
         if self.sync: self.timer.start('paw') 
-        if not self.cuda:
+        if 1:#not self.cuda:
             Q_anL = {}  # coefficients for shape functions
             for a, P1_ni in kpt1.P_ani.items():
                 P1_ni = P1_ni[n1_n]
@@ -596,7 +588,6 @@ class HybridXC(HybridXCBase):
                 Q_anL[a] = np.dot(D_np, self.wfs.setups[a].Delta_pL)
         else:
             Q_anL = {}  # coefficients for shape functions
-            if self.sync: self.timer.start('paw1') 
             # get P2_ai
             P2_ai = {}
             if is_ibz2:
@@ -604,11 +595,14 @@ class HybridXC(HybridXCBase):
                     P2_ai[a] = kpt2.P_ani[a][n2]
                     _gpaw.cuSetVector(len(P2_ai[a]),sizeofdata,P2_ai[a],1,cu.P_P2_ai[a],1)
             else:
+                for a in range(len(kpt2.P_ani)):
+                    P2_ai[a] = kpt2.P_ani[a][n2]
+                    Ni = len(P2_ai[a])
+                    _gpaw.cuSetVector(Ni,sizeofdata,P2_ai[a],1,cu.P_P2_ani[a]+n2*Ni*sizeofdata,1)
+
                 cu.get_P_ai(cu.P_P2_ani, cu.P_P2_ai, cu.P2_ani, cu.P2_ai, 
                                            kpt2.P_ani, time_reversal, s, kpt2.k, n2)
-            if self.sync: self.timer.end('paw1') 
 
-            if self.sync: self.timer.start('paw2') 
             for a, P1_ni in kpt1.P_ani.items():
                 P1_ni = P1_ni[n1_n]
                 D_np = []
@@ -618,11 +612,10 @@ class HybridXC(HybridXCBase):
                     _gpaw.cuSetVector(Ni,sizeofdata,P1_i,1,cu.P_P1_ai[a],1)
                     _gpaw.cugemm(cu.handle,1.0, cu.P_P2_ai[a], cu.P_P1_ai[a], 0.0, cu.P_P_ap[a], \
                                                      Ni, Ni, 1, Ni, Ni, Ni, 2, 0) # transb(Hermitian), transa
-
                     _gpaw.cuZgemv(cu.handle,cu.host_nL_a[a],Ni*Ni,1.0,cu.P_Delta_apL[a],
                                   cu.host_nL_a[a],cu.P_P_ap[a],1,0.0,cu.P_Q_aL[a], 1, 0)
                     _gpaw.cuGetVector(cu.host_nL_a[a],sizeofdata,cu.P_Q_aL[a],1, Q_anL[a][inn,:], 1)
-            if self.sync: self.timer.end('paw2') 
+
 
         if q != self.qlatest:
             self.f_IG = self.ghat.expand(q)

@@ -112,6 +112,12 @@ class BASECUDA:
         status, self.P2_ani = _gpaw.cuMalloc(Na*sizeofpointer)
         status, self.P2_ai = _gpaw.cuMalloc(Na*sizeofpointer)
 
+        _gpaw.cuSetVector(self.Na,sizeofpointer,self.P_P1_ani,1,self.P1_ani,1)
+        _gpaw.cuSetVector(self.Na,sizeofpointer,self.P_P1_ai,1,self.P1_ai,1)
+        _gpaw.cuSetVector(self.Na,sizeofpointer,self.P_P2_ani,1,self.P2_ani,1)
+        _gpaw.cuSetVector(self.Na,sizeofpointer,self.P_P2_ai,1,self.P2_ai,1)
+
+
         if chi is not None:
             self.P_phi_aGp = []
             for a, id in enumerate(wfs.setups.id_a):
@@ -166,6 +172,12 @@ class BASECUDA:
         deltaeikr_R = np.exp(- 2j * pi * np.dot(np.indices(N_c).T, deltak_c / N_c).T)
         _gpaw.cuSetVector(nx*ny*nz,sizeofdata,deltaeikr_R.ravel(),1,self.expqr_R,1)
 
+        for a in range(self.Na):
+            Ni = self.host_Ni_a[a]
+            # there is no need to copy the whole host_P_ani while using only one n !! 
+            _gpaw.cuSetVector(chi.nbands*Ni,sizeofdata,calc.wfs.kpt_u[u1].P_ani[a].ravel(),1,self.P_P1_ani[a],1)
+            _gpaw.cuSetVector(chi.nbands*Ni,sizeofdata,calc.wfs.kpt_u[u2].P_ani[a].ravel(),1,self.P_P2_ani[a],1)
+
 
         if chi.optical_limit:
 #            self.ncoef = len(Q1_G) # the length of Q1_G and Q2_G are different for non optical transition
@@ -190,7 +202,7 @@ class BASECUDA:
         return 
     
 
-    def exx_init(self, wfs, maxn1):
+    def exx_init(self, wfs):
 
         from gpaw.utilities import unpack
         self.nG0 = nG0 = wfs.gd.N_c[0] * wfs.gd.N_c[1] * wfs.gd.N_c[2]
@@ -201,27 +213,34 @@ class BASECUDA:
         status, self.op_cc = _gpaw.cuMalloc(9*sizeofdouble)
         status, self.dk_c = _gpaw.cuMalloc(3*sizeofdouble)
 
-        self.P_Delta_apL = np.zeros(self.Na, dtype=np.int64) # is a pointer
-        self.P_Q_aL = np.zeros(self.Na, dtype=np.int64)
-        Delta_apL = {}
-        self.maxmband = maxn1
-        self.host_nL_a = np.zeros(self.Na, dtype=np.int32)
-        for a in range(self.Na):
-            Ni = self.host_Ni_a[a]
-            Delta_pL = wfs.setups[a].Delta_pL
-            nL = Delta_pL.shape[1]
-            self.host_nL_a[a] = nL
-            Delta_apL[a] = np.zeros((Ni*Ni, nL), dtype=complex)
-            for ii in range(Delta_pL.shape[1]):
-                Delta_apL[a][:,ii] = unpack(Delta_pL[:,ii].copy()).ravel()
-            status, dev_Delta_pL = _gpaw.cuMalloc(Ni*Ni*nL*sizeofdata)
-            status = _gpaw.cuSetMatrix(nL,Ni*Ni,sizeofdata,Delta_apL[a],nL,dev_Delta_pL,nL)
-            self.P_Delta_apL[a] = dev_Delta_pL
-            status, dev_Q_L = _gpaw.cuMalloc(nL*sizeofdata)
-            self.P_Q_aL[a] = dev_Q_L
-
-        status, self.nL_a = _gpaw.cuMalloc(self.Na*sizeofint)
-        _gpaw.cuSetVector(self.Na,sizeofint,self.host_nL_a,1,self.nL_a,1)
+#        self.P_Delta_apL = np.zeros(self.Na, dtype=np.int64) # is a pointer
+#        self.P_Q_aL = np.zeros(self.Na, dtype=np.int64)
+#
+#        Delta_apL = {}
+#        self.host_nL_a = np.zeros(self.Na, dtype=np.int32)
+#        for a in range(self.Na):
+#            Ni = self.host_Ni_a[a]
+#            Delta_pL = wfs.setups[a].Delta_pL
+#            nL = Delta_pL.shape[1]
+#            self.host_nL_a[a] = nL
+#
+#            Delta_apL[a] = np.zeros((Ni*Ni, nL), complex) # has to be double other zgemv wont work 
+#            for ii in range(Delta_pL.shape[1]):
+#                Delta_apL[a][:,ii] = unpack(Delta_pL[:,ii].copy()).ravel()
+#            status, dev_Delta_pL = _gpaw.cuMalloc(Ni*Ni*nL*sizeofdata)
+#            status = _gpaw.cuSetMatrix(nL,Ni*Ni,sizeofdata,Delta_apL[a],nL,dev_Delta_pL,nL)
+#            self.P_Delta_apL[a] = dev_Delta_pL
+#
+#            status, dev_Q_L = _gpaw.cuMalloc(nL*sizeofdata)
+#            self.P_Q_aL[a] = dev_Q_L
+#
+#
+#
+#        status, self.nL_a = _gpaw.cuMalloc(self.Na*sizeofint)
+#        _gpaw.cuSetVector(self.Na,sizeofint,self.host_nL_a,1,self.nL_a,1)
+#
+#        status, self.Delta_apL = _gpaw.cuMalloc(self.Na*sizeofpointer)
+#        _gpaw.cuSetVector(self.Na,sizeofpointer,self.P_Delta_apL,1,self.Delta_apL,1)
 
 
     def get_wfs(self, host_psit_G, Q_G):
@@ -263,16 +282,27 @@ class BASECUDA:
         nband = len(host_P_ani[0])
         for a in range(self.Na):
             Ni = self.host_Ni_a[a]
-            _gpaw.cuSetVector(nband*Ni,sizeofdata,host_P_ani[a].ravel(),1,P_P_ani[a],1)
+            # there is no need to copy the whole host_P_ani while using only one n !! 
+#            _gpaw.cuSetVector(nband*Ni,sizeofdata,host_P_ani[a].ravel(),1,P_P_ani[a],1)
             _gpaw.cuMemset(P_P_ai[a], 0, sizeofdata*Ni)
     
-        _gpaw.cuSetVector(self.Na,sizeofpointer,P_P_ani,1,P_ani,1)
-        _gpaw.cuSetVector(self.Na,sizeofpointer,P_P_ai,1,P_ai,1)
+#        _gpaw.cuSetVector(self.Na,sizeofpointer,P_P_ani,1,P_ani,1)
+#        _gpaw.cuSetVector(self.Na,sizeofpointer,P_P_ai,1,P_ai,1)
         
         _gpaw.cuGet_P_ai(self.spos_ac, self.ibzk_kc, self.op_scc, self.a_sa, self.R_asii, 
                          P_ani, P_ai, self.Ni_a, time_rev, self.Na, s, ibzkpt, n)
 
         return 
+
+
+    def calculate_Q_anL(self, host_P1_ani, n1_n, P_P1_ami, P2_ai, Delta_apL, Q_amL, mband):
+        for a in range(self.Na):
+            Ni = self.host_Ni_a[a]
+            for im in range(mband):
+                _gpaw.cuSetVector(Ni,sizeofdata,host_P1_ani[a][n1_n[im]].ravel(),1,
+                                  P_P1_ami[a]+im*Ni*sizeofdata,1)
+
+        _gpaw.cuGet_Q_anL(self.P1_ami, P2_ai, Delta_apL, Q_amL, mband, self.Na, self.Ni_a, self.nL_a)
 
 
     def calculate_opt(self, psit1_R):

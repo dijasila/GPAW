@@ -332,26 +332,32 @@ class KPointDescriptor:
         s = self.sym_k[k]
         time_reversal = self.time_reversal_k[k]
         op_cc = np.int32(np.linalg.inv(self.symmetry.op_scc[s]).round())
+        nx,ny,nz = nG
 
-        # Identity
-        if (np.abs(op_cc - np.eye(3, dtype=int)) < 1e-10).all():
-            _gpaw.cuCopy_vector(dev_Qtmp, dev_psi_R, nx*ny*nz)
-            if time_reversal:
-                _gpaw.cuConj_vector(dev_psi_R, nx*ny*nz)
-                return dev_psi_R
-            else:
-                return dev_psi_R
+        ik = self.bz2ibz_k[k]
+        kibz_c = self.ibzk_kc[ik]
+
+        if time_reversal:
+            dk_c = np.dot(self.symmetry.op_scc[s], kibz_c) + self.bzk_kc[k]
         else:
-            nx,ny,nz = nG
-            ik = self.bz2ibz_k[k]
-            kibz_c = self.ibzk_kc[ik]
             dk_c = np.dot(self.symmetry.op_scc[s], kibz_c) - self.bzk_kc[k]
 
+        # Identity
+        if (np.abs(op_cc - np.eye(3, dtype=int)) < 1e-10).all() and not np.abs(dk_c).sum() > 0:
+            _gpaw.cuCopy_vector(dev_Qtmp, dev_psi_R, nx*ny*nz)
+        else:
             _gpaw.cuSetVector(9,sizeofint,op_cc,1,dev_op_cc,1)
             _gpaw.cuSetVector(3,sizeofdouble,dk_c,1,dev_dk_c,1)
             # transform wavefunction here
             _gpaw.cuMemset(dev_psi_R, 0, sizeofdata*nx*ny*nz)  # dev_Q has to be zero
             _gpaw.cuTrans_wfs_noindex(dev_Qtmp, dev_psi_R, dev_op_cc, dev_dk_c, nx, ny, nz)
+
+        if time_reversal:
+            _gpaw.cuConj_vector(dev_psi_R, nx*ny*nz)
+            return dev_psi_R
+        else:
+            return dev_psi_R
+
 
         return 
 
