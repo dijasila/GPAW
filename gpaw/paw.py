@@ -10,6 +10,7 @@ The central object that glues everything together!"""
 import numpy as np
 from ase.units import Bohr, Hartree
 from ase.dft.kpoints import monkhorst_pack
+from ase.calculators.calculator import kptdensity2monkhorstpack
 
 import gpaw.io
 import gpaw.mpi as mpi
@@ -187,8 +188,11 @@ class PAW(PAWTextOutput):
             nspins = 1
             ncomp = 2
 
-        # K-point descriptor
-        kd = KPointDescriptor(par.kpts, nspins, collinear)
+        if isinstance(par.kpts, (float, int)):
+            kpts = kptdensity2monkhorstpack(atoms, kptdensity=par.kpts)
+        else:
+            kpts = par.kpts
+        kd = KPointDescriptor(kpts, nspins, collinear)
 
         width = par.width
         if width is None:
