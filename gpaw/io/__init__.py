@@ -111,7 +111,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     atoms = paw.atoms
     natoms = len(atoms)
 
-    magmom_a = paw.get_magnetic_moments()
+    magmom_a = paw.results['magmoms']
 
     hdf5 = filename.endswith('.hdf5')
 
@@ -196,7 +196,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     else:
         w['DataType'] = 'Complex'
 
-    p = paw.input_parameters
+    p = paw.parameters
 
     if p.gpts is not None:
         w.add('GridPoints', ('3'), p.gpts, write=master)
@@ -559,14 +559,14 @@ def read(paw, reader):
             if setup.fingerprint != r[key]:
                 str = 'Setup for %s (%s) not compatible with restart file.' \
                     % (setup.symbol, setup.filename)
-                if paw.input_parameters['idiotproof']:
+                if paw.parameters['idiotproof']:
                     raise RuntimeError(str)
                 else:
                     warnings.warn(str)
         except (AttributeError, KeyError):
             str = 'Fingerprint of setup for %s (%s) not in restart file.' \
                 % (setup.symbol, setup.filename)
-            if paw.input_parameters['idiotproof']:
+            if paw.parameters['idiotproof']:
                 raise RuntimeError(str)
             else:
                 warnings.warn(str)
@@ -616,7 +616,7 @@ def read(paw, reader):
             if 'FermiLevel' in r.get_parameters():
                 paw.occupations.set_fermi_level(r['FermiLevel'])
     else:
-        if (not paw.input_parameters.fixmom and
+        if (not paw.parameters.fixmom and
             'FermiLevel' in r.get_parameters()):
             paw.occupations.set_fermi_level(r['FermiLevel'])
 
@@ -694,14 +694,14 @@ def read(paw, reader):
                 timer.stop('dSCF expansions')
 
         if (r.has_array('PseudoWaveFunctions') and
-            paw.input_parameters.mode != 'lcao'):
+            paw.parameters.mode != 'lcao'):
 
             timer.start('Pseudo-wavefunctions')
             wfs.read(r, hdf5)
             timer.stop('Pseudo-wavefunctions')
 
         if (r.has_array('WaveFunctionCoefficients') and
-            paw.input_parameters.mode == 'lcao'):
+            paw.parameters.mode == 'lcao'):
             wfs.read_coefficients(r)
 
         timer.start('Projections')
@@ -741,7 +741,7 @@ def read(paw, reader):
 
     # Manage mode change:
     paw.scf.check_convergence(density, wfs.eigensolver)
-    newmode = paw.input_parameters.mode
+    newmode = paw.parameters.mode
     try:
         oldmode = r['Mode']
         if oldmode == 'pw':

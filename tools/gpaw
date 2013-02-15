@@ -2,5 +2,13 @@
 # Emacs: treat this as -*- python -*-
 
 import gpaw
+from gpaw.wavefunctions.pw import PW
+#from gpaw.occupations import FermiDirac, MethfesselPaxton
+#from gpaw.mixer import Mixer, MixerSum
+#from gpaw.poisson import PoissonSolver
+#from gpaw.eigensolvers import RMM_DIIS
 from ase.asec import main
-main('gpaw')
+class calculator:
+    name = 'gpaw'
+    namespace = {'PW': PW}
+main(calculator)

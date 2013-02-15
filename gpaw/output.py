@@ -299,7 +299,7 @@ class PAWTextOutput:
 
         t()
 
-        dipole = self.results['dipole']
+        dipole = self.results.get('dipole', [42, 42, 42])
         if self.density.charge == 0:
             t('Dipole Moment: %s' % dipole)
         else:

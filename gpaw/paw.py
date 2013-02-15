@@ -135,7 +135,14 @@ class PAW(PAWTextOutput):
             world = mpi.world.new_communicator(np.asarray(world))
         self.wfs.world = world
 
-        self.set_text(par.txt, par.verbose)
+        if par.txt is None:
+            if self.label is None:
+                txt = '-'
+            else:
+                txt = self.label + '.txt'
+        else:
+            txt = par.txt
+        self.set_text(txt, par.verbose)
 
         natoms = len(atoms)
 

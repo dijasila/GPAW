@@ -19,6 +19,7 @@ from gpaw.stress import stress
 from gpaw.occupations import MethfesselPaxton
 from gpaw.wavefunctions.base import EmptyWaveFunctions
 from gpaw.parameters import read_parameters
+from gpaw.wavefunctions.pw import ReciprocalSpaceDensity
 from gpaw import parsize_domain, parsize_bands, sl_default, sl_diagonalize, \
                  sl_inverse_cholesky, sl_lcao, buffer_size
 
@@ -45,7 +46,7 @@ class GPAW(PAW, Calculator):
         'stencils':        (3, 3),
         'fixdensity':      False,
         'mixer':           None,
-        'txt':             '-',
+        'txt':             None,
         'hund':            False,
         'random':          False,
         'dtype':           None,
@@ -57,7 +58,7 @@ class GPAW(PAW, Calculator):
         'verbose':         0,
         'eigensolver':     None,
         'poissonsolver':   None,
-        'communicator':    mpi.world,
+        'communicator':    None,
         'idiotproof':      True,
         'mode':            'fd',
         'realspace':       None,
@@ -159,6 +160,11 @@ class GPAW(PAW, Calculator):
             raise NotImplementedError
         return Calculator.get_stress(self, atoms)
 
+    def get_dipole_moment(self, atoms):
+        if isinstance(self.density, ReciprocalSpaceDensity):
+            raise NotImplementedError
+        return Calculator.get_dipole_moment(self, atoms)
+
     def calculate(self, atoms, properties, changes):
         for change in ['numbers', 'pbc', 'cell', 'magmoms']:
             if change in changes:
@@ -212,9 +218,10 @@ class GPAW(PAW, Calculator):
             self.results['stress'] = (stress_vv.flat[[0, 4, 8, 5, 2, 1]] *
                                       (Hartree / Bohr**3))
 
-        rhot_g = self.density.rhot_g
-        dipole_v = self.density.finegd.calculate_dipole_moment(rhot_g)
-        self.results['dipole'] =  dipole_v * Bohr
+        if 'dipole' in properties:
+            rhot_g = self.density.rhot_g
+            dipole_v = self.density.finegd.calculate_dipole_moment(rhot_g)
+            self.results['dipole'] =  dipole_v * Bohr
         
         self.results['magmom'] = self.occupations.magmom
 
@@ -231,6 +238,8 @@ class GPAW(PAW, Calculator):
 
         if iter is not None:
             self.print_converged(iter)
+            if self.label:
+                self.write(self.label)
 
     def get_number_of_bands(self):
         """Return the number of bands."""
