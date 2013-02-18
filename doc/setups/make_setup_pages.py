@@ -6,6 +6,10 @@ import pickle
 import matplotlib
 matplotlib.use('Agg')
 
+# Workaround for bug #562421 in python-matplotlib on Fedora
+# https://bugzilla.redhat.com/show_bug.cgi?id=562421
+matplotlib.rc('text', usetex=True)
+
 import numpy as np
 from ase.data import atomic_numbers, atomic_names
 from ase.atoms import string2symbols
