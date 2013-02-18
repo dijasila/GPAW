@@ -1,6 +1,7 @@
 import numpy as np
 import pickle
 import sys
+import os
 from math import pi, sqrt
 from time import time, ctime
 from datetime import timedelta
@@ -219,10 +220,12 @@ class GW(BASECHI):
         Z_skn = 1. / (1. - dSigma_skn)
 
         # exact exchange
-        try:
+        exx = os.path.isfile(exxfile)
+        world.barrier()
+        if exx:
             open(exxfile)
             self.printtxt("reading Exact exchange and E_XC from file")
-        except:
+        else:
             t0 = time()
             self.get_exact_exchange(ecut=self.ecut.max()*Hartree)
             world.barrier()
