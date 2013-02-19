@@ -983,13 +983,16 @@ class LCAOWaveFunctions(WaveFunctions):
 
     def load_lazily(self, hamiltonian, spos_ac):
         """Horrible hack to recalculate lcao coefficients after restart."""
+        self.basis_functions.set_positions(spos_ac)
         class LazyLoader:
             def __init__(self, hamiltonian, spos_ac):
-                self.hamiltonian = hamiltonian
                 self.spos_ac = spos_ac
             
             def load(self, wfs):
-                wfs.set_positions(self.spos_ac)
+                wfs.set_positions(self.spos_ac) # this sets rank_a
+                # Now we need to pass wfs.rank_a or things to work
+                # XXX WTF why does one have to fiddle with rank_a???
+                hamiltonian.set_positions(self.spos_ac, wfs.rank_a)
                 wfs.eigensolver.iterate(hamiltonian, wfs)
                 del wfs.lazyloader
         

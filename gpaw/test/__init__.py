@@ -111,6 +111,7 @@ tests = [
     'atoms_too_close.py',
     'noncollinear/xcgrid3d.py',
     'vdwradii.py',
+    'lcao_restart.py',
     'ase3k.py',
     'parallel/ut_kptops.py',
     'fileio/idiotproof_setup.py',

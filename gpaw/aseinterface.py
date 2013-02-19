@@ -376,7 +376,7 @@ class GPAW(PAW):
         """
         if pad:
             psit_G = self.get_pseudo_wave_function(band, kpt, spin, broadcast,
-                                                 pad=False)
+                                                   pad=False)
             if psit_G is None:
                 return
             else:
