@@ -42,6 +42,7 @@ gw = GW(
         hilbert_trans=False,
        )
 
+gw.get_exact_exchange()
 gw.get_QP_spectrum()
 
 QP_False = gw.QP_skn * Hartree
