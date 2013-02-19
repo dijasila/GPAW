@@ -36,7 +36,6 @@ class DF(CHI):
                  comm=None,
                  kcommsize=None):
 
-        print("making DF")
         CHI.__init__(self, calc=calc, nbands=nbands, w=w, q=q, eshift=eshift,
                      ecut=ecut, smooth_cut=smooth_cut, density_cut=density_cut,
                      G_plus_q=G_plus_q, eta=eta, rpad=rpad, vcut=vcut,
