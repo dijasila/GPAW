@@ -220,6 +220,7 @@ class CHI(BASECHI):
             cu.chi_init(self, chi0_wGG)
             cu.paw_init(calc.wfs, spos_ac, self)
 
+
         if self.hilbert_trans:
             specfunc_wGG = np.zeros((self.NwS_local, self.npw, self.npw), dtype = complex)
 
@@ -307,6 +308,7 @@ class CHI(BASECHI):
                                                                           phase=eikr1_R)
                         else:
                             cu.get_wfs(calc.wfs.kpt_u[cu.u1].psit_nG[n], cu.Q1_G)
+
                     if self.sync: timer.end('wfs_read')
 
                     if self.sync: timer.start('wfs_transform')
@@ -318,8 +320,9 @@ class CHI(BASECHI):
                             psit1new_g = psit1new_g_tmp
                     else:
                         # dev_psit1_R is the wave function of (k, n) on device
-                        cu.trans_wfs(cu.psit1_R, cu.index1_Q, cu.trans1, cu.time_rev1)
+                        cu.trans_wfs(cu.psit1_R, cu.ind.index1_Q, cu.trans1, cu.time_rev1)
                         # padding does not work on cuda now !! 
+
                     if self.sync: timer.end('wfs_transform')
 
                     # PAW part
@@ -343,6 +346,7 @@ class CHI(BASECHI):
                     else:
                         cu.get_P_ai(cu.P_P1_ani, cu.P_P1_ai, cu.P1_ani, cu.P1_ai, 
                                            calc.wfs.kpt_u[cu.u1].P_ani, cu.time_rev1, cu.s1, ibzkpt1, n)
+
                     if self.sync: timer.end('paw')
 
                     if not self.cuda: # or (self.cuda and self.optical_limit):
@@ -385,7 +389,8 @@ class CHI(BASECHI):
                                     psit2_g = psit2_g_tmp
                             else:
                                 # dev_psit2_R is the wave function of (k+q, m) on device
-                                cu.trans_wfs(cu.psit2_R, cu.index2_Q, cu.trans2, cu.time_rev2)
+                                cu.trans_wfs(cu.psit2_R, cu.ind.index2_Q, cu.trans2, cu.time_rev2)
+
                             if self.sync: timer.end('wfs_transform')
 
                             if self.cuda:
@@ -400,9 +405,9 @@ class CHI(BASECHI):
         #                        tmp_g = np.fft.fftn(psit2_g*psit1_g) * self.vol / self.nG0
                             else:
                                 # dev_psit1_R is re-used ! can't change !
+
                                 if self.optical_limit: # psit2_R has to be saved for later
                                     _gpaw.cuCopy_vector(cu.psit2_R, cu.optpsit2_R, self.nG0)
-                                
                                 _gpaw.cuMulc(cu.psit1_R, cu.psit2_R, cu.psit2_R, self.nG0)
                                 _gpaw.cuMul(cu.psit2_R, cu.expqr_R, cu.psit2_R, self.nG0)
                                 _gpaw.cufft_execZ2Z(cu.cufftplan, cu.psit2_R, 
@@ -410,12 +415,14 @@ class CHI(BASECHI):
                                 _gpaw.cuZscal(cu.handle, self.nG0, self.vol/self.nG0, cu.psit2_R, 1)
                             if self.sync: timer.end('fft')
 
+
+
                             if self.sync: timer.start('mapG')
                             if not self.cuda:
                                 rho_G = fft_G.ravel()[self.Gindex_G]
                             else:
                                 _gpaw.cuMap_Q2G(cu.psit2_R, cu.rho_uG+GPUpointer, 
-                                                cu.Gindex_G, self.npw)
+                                                cu.ind.Gindex_G, self.npw)
                             if self.sync: timer.end('mapG')
 
                             if self.sync: timer.start('opt')
@@ -581,7 +588,6 @@ class CHI(BASECHI):
                                 self.printtxt('Finished n %d in %f seconds, estimated %f seconds left.'%(n, dt, totaltime-dt))
 
                 if self.cuda:
-#                    _gpaw.cuDevSynch()
                     cu.kspecific_free(self)
                 if calc.wfs.world.size != 1:
                     self.kcomm.barrier()            

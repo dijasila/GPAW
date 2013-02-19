@@ -7,6 +7,40 @@ sizeofint = 4
 sizeofdouble = 8
 sizeofpointer = 8
 
+class GPU_ALLOC:
+    def __init__(self, list):
+        sizetot = 0
+        for si in list:
+            sizetot += si[1]
+
+        status, ptr = _gpaw.cuMalloc(sizetot)
+        self.ptr = ptr
+        for si in list:
+            exec 'self.' + si[0] + '= ptr'
+            ptr += si[1]
+
+    def free(self):
+        _gpaw.cuFree(self.ptr)
+
+class INDICES(GPU_ALLOC):
+
+    def __init__(self, chi0_wGG, basechi):
+        sizelist = []
+        self.sizeofint = 4
+
+        sizelist.append(['index1_Q', basechi.nG0*self.sizeofint])
+        sizelist.append(['index2_Q', basechi.nG0*self.sizeofint])
+        sizelist.append(['Gindex_G', basechi.npw*self.sizeofint])
+
+        GPU_ALLOC.__init__(self, sizelist)
+
+        _gpaw.cuSetVector(basechi.npw,self.sizeofint,basechi.Gindex_G,1,self.Gindex_G,1)
+
+    def kspecific_init(self, size, index1_g, index2_g):
+        _gpaw.cuSetVector(size, self.sizeofint,index1_g,1,self.index1_Q,1)
+        _gpaw.cuSetVector(size, self.sizeofint,index2_g,1,self.index2_Q,1)
+
+
 class BASECUDA:
 
 
@@ -31,14 +65,10 @@ class BASECUDA:
         status, self.tmp_Q = _gpaw.cuMalloc(nG0*sizeofdata)
         status, self.psit1_R = _gpaw.cuMalloc(nG0*sizeofdata)
         status, self.psit2_R = _gpaw.cuMalloc(nG0*sizeofdata)
-        status, self.index1_Q = _gpaw.cuMalloc(nG0*sizeofint)
-        status, self.index2_Q = _gpaw.cuMalloc(nG0*sizeofint)
         status, self.expqr_R = _gpaw.cuMalloc(nG0*sizeofdata)
 
         self.cufftplan = _gpaw.cufft_plan3d(nG[0],nG[1],nG[2])
-
-        status, self.Gindex_G = _gpaw.cuMalloc(npw*sizeofint)
-        _gpaw.cuSetVector(npw,sizeofint,chi.Gindex_G,1,self.Gindex_G,1)
+        self.ind =INDICES(chi0_wGG, chi)
 
         if chi.optical_limit:
             status, self.opteikr_R = _gpaw.cuMalloc(nG0*sizeofdata)
@@ -163,8 +193,8 @@ class BASECUDA:
         self.time_rev1 = time_rev1 = kd.time_reversal_k[k]
         self.time_rev2 = time_rev2 = kd.time_reversal_k[kq_k[k]]
         
-        _gpaw.cuSetVector(nx*ny*nz,sizeofint,index1_g,1,self.index1_Q,1)
-        _gpaw.cuSetVector(nx*ny*nz,sizeofint,index2_g,1,self.index2_Q,1)
+
+        self.ind.kspecific_init(nx*ny*nz, index1_g, index2_g)
 
         deltak_c = (np.dot(op1_cc, kd.ibzk_kc[ibzkpt1]) -
                     np.dot(op2_cc, kd.ibzk_kc[ibzkpt2]) + chi.q_c)
@@ -354,10 +384,7 @@ class BASECUDA:
         _gpaw.cuFree(self.psit1_R)
         _gpaw.cuFree(self.psit2_R)
         _gpaw.cuFree(self.expqr_R)
-        _gpaw.cuFree(self.Gindex_G)
-        _gpaw.cuFree(self.index1_Q)
-        _gpaw.cuFree(self.index2_Q)
-
+        self.ind.free()
         if chi.optical_limit:
             _gpaw.cuFree(self.opteikr_R)
             _gpaw.cuFree(self.optpsit2_R)
