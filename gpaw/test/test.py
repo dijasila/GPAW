@@ -127,4 +127,3 @@ if mpi.rank == 0:
     elif not opt.keep_tmpdir:
         os.system('rm -rf ' + tmpdir)
 hooks.update(old_hooks.items())
-sys.exit(len(failed))
