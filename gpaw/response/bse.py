@@ -10,12 +10,12 @@ from gpaw.mpi import world, size, rank, serial_comm
 from gpaw.utilities.blas import gemmdot, gemm, gemv
 from gpaw.utilities import devnull
 from gpaw.utilities.memory import maxrss
-from gpaw.response.base import BASECHI
+from gpaw.response.base import BaseChi
 from gpaw.response.parallel import parallel_partition
 from gpaw.response.df import DF
 from gpaw.response.parallel import gatherv
 
-class BSE(BASECHI):
+class BSE(BaseChi):
     """This class defines Belth-Selpether equations."""
 
     def __init__(self,
@@ -37,7 +37,7 @@ class BSE(BASECHI):
                  use_W=True, # True: include screened interaction kernel
                  qsymm=True): 
 
-        BASECHI.__init__(self, calc=calc, nbands=nbands, w=w, q=q,
+        BaseChi.__init__(self, calc=calc, nbands=nbands, w=w, q=q,
                          eshift=eshift, ecut=ecut, eta=eta, rpad=rpad,
                          ftol=ftol, txt=txt, optical_limit=optical_limit)
 
@@ -56,7 +56,7 @@ class BSE(BASECHI):
         self.printtxt('Bethe Salpeter Equation calculation started at:')
         self.printtxt(ctime())
 
-        BASECHI.initialize(self)
+        BaseChi.initialize(self)
         assert self.nspins == 1
         
         calc = self.calc

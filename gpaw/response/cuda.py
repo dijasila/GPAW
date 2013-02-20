@@ -7,7 +7,7 @@ sizeofint = 4
 sizeofdouble = 8
 sizeofpointer = 8
 
-class GPU_ALLOC:
+class GpuAlloc:
     def __init__(self, list):
         sizetot = 0
         for si in list:
@@ -22,7 +22,7 @@ class GPU_ALLOC:
     def free(self):
         _gpaw.cuFree(self.ptr)
 
-class INDICES(GPU_ALLOC):
+class Indices(GpuAlloc):
 
     def __init__(self, chi0_wGG, basechi):
         sizelist = []
@@ -32,7 +32,7 @@ class INDICES(GPU_ALLOC):
         sizelist.append(['index2_Q', basechi.nG0*self.sizeofint])
         sizelist.append(['Gindex_G', basechi.npw*self.sizeofint])
 
-        GPU_ALLOC.__init__(self, sizelist)
+        GpuAlloc.__init__(self, sizelist)
 
         _gpaw.cuSetVector(basechi.npw,self.sizeofint,basechi.Gindex_G,1,self.Gindex_G,1)
 
@@ -40,17 +40,17 @@ class INDICES(GPU_ALLOC):
         _gpaw.cuSetVector(size, self.sizeofint,index1_g,1,self.index1_Q,1)
         _gpaw.cuSetVector(size, self.sizeofint,index2_g,1,self.index2_Q,1)
 
-class KPOINTS(GPU_ALLOC):
+class KPoints(GpuAlloc):
     def __init__(self, nibzk, ibzk_kc):
         sizelist = []
         sizelist.append(['ibzk_kc', nibzk*3*sizeofdouble])
 
 
-        GPU_ALLOC.__init__(self, sizelist)
+        GpuAlloc.__init__(self, sizelist)
         _gpaw.cuSetVector(nibzk*3,sizeofdouble,ibzk_kc.ravel(),1,self.ibzk_kc,1)
 
 
-class BASECUDA:
+class BaseCuda:
 
 
 
@@ -77,7 +77,7 @@ class BASECUDA:
         status, self.expqr_R = _gpaw.cuMalloc(nG0*sizeofdata)
 
         self.cufftplan = _gpaw.cufft_plan3d(nG[0],nG[1],nG[2])
-        self.ind =INDICES(chi0_wGG, chi)
+        self.ind =Indices(chi0_wGG, chi)
 
         if chi.optical_limit:
             status, self.opteikr_R = _gpaw.cuMalloc(nG0*sizeofdata)
@@ -113,7 +113,7 @@ class BASECUDA:
         status, self.op_scc = _gpaw.cuMalloc(Ns*9*sizeofint)
         _gpaw.cuSetVector(Ns*9,sizeofint,op_scc.ravel(),1,self.op_scc,1)
 
-        self.kpoints = KPOINTS(nibzk, ibzk_kc)
+        self.kpoints = KPoints(nibzk, ibzk_kc)
         
         self.P_R_asii = np.zeros(Na, dtype=np.int64)            # P_R_asii is a pointer array on CPU
         self.P_P1_ani = np.zeros(Na, dtype=np.int64)       # for k

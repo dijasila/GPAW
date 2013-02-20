@@ -13,12 +13,12 @@ from gpaw.response.parallel import set_communicator, \
      parallel_partition, parallel_partition_list, SliceAlongFrequency, SliceAlongOrbitals
 from gpaw.response.kernel import calculate_Kxc, calculate_Kc
 from gpaw.utilities.memory import maxrss
-from gpaw.response.base import BASECHI
+from gpaw.response.base import BaseChi
 import _gpaw
 from gpaw.response.timing import Timer
-from gpaw.response.cuda import BASECUDA
+from gpaw.response.cuda import BaseCuda
 
-class CHI(BASECHI):
+class Chi(BaseChi):
     """This class is a calculator for the linear density response function.
 
     Parameters:
@@ -67,7 +67,7 @@ class CHI(BASECHI):
                  comm=None,
                  kcommsize=None):
 
-        BASECHI.__init__(self, calc=calc, nbands=nbands, w=w, q=q,
+        BaseChi.__init__(self, calc=calc, nbands=nbands, w=w, q=q,
                          eshift=eshift, ecut=ecut, smooth_cut=smooth_cut,
                          density_cut=density_cut, G_plus_q=G_plus_q, eta=eta,
                          rpad=rpad, ftol=ftol, txt=txt,
@@ -95,7 +95,7 @@ class CHI(BASECHI):
         self.starttime = time()
         self.printtxt(ctime())
 
-        BASECHI.initialize(self)
+        BaseChi.initialize(self)
 
         # Frequency init
         self.dw = None
@@ -216,7 +216,7 @@ class CHI(BASECHI):
 
         if self.cuda:
             print >> self.txt, 'Use Cuda ! '
-            cu = BASECUDA()
+            cu = BaseCuda()
             cu.chi_init(self, chi0_wGG)
             cu.paw_init(calc.wfs, spos_ac, self)
 

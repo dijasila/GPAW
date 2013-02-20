@@ -12,9 +12,9 @@ from gpaw.utilities.memory import maxrss
 from gpaw.xc.tools import vxc
 from gpaw.wavefunctions.pw import PWWaveFunctions
 from gpaw.response.parallel import set_communicator, parallel_partition, SliceAlongFrequency, GatherOrbitals
-from gpaw.response.base import BASECHI
+from gpaw.response.base import BaseChi
 
-class GW(BASECHI):
+class GW(BaseChi):
 
     def __init__(
                  self,
@@ -76,7 +76,7 @@ class GW(BASECHI):
             self.eta_w = dw_w * 4
             self.wcut = wcut
 
-        BASECHI.__init__(self, calc=file, nbands=nbands, w=w, eshift=eshift, ecut=ecut, eta=eta, txt=txt)
+        BaseChi.__init__(self, calc=file, nbands=nbands, w=w, eshift=eshift, ecut=ecut, eta=eta, txt=txt)
 
         self.file = file
         self.vcut = vcut
@@ -98,7 +98,7 @@ class GW(BASECHI):
         self.printtxt(ctime())
         self.starttime = time()
         
-        BASECHI.initialize(self)
+        BaseChi.initialize(self)
         calc = self.calc
         self.kd = kd = self.calc.wfs.kd
         self.nkpt = kd.nbzkpts

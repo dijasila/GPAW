@@ -3,10 +3,10 @@ from math import sqrt, pi
 import pickle
 from ase.units import Hartree, Bohr
 from gpaw.mpi import rank
-from gpaw.response.chi import CHI
+from gpaw.response.chi import Chi
 
 
-class DF(CHI):
+class DF(Chi):
     """This class defines dielectric function related physical quantities."""
 
     def __init__(self,
@@ -36,7 +36,7 @@ class DF(CHI):
                  comm=None,
                  kcommsize=None):
 
-        CHI.__init__(self, calc=calc, nbands=nbands, w=w, q=q, eshift=eshift,
+        Chi.__init__(self, calc=calc, nbands=nbands, w=w, q=q, eshift=eshift,
                      ecut=ecut, smooth_cut=smooth_cut, density_cut=density_cut,
                      G_plus_q=G_plus_q, eta=eta, rpad=rpad, vcut=vcut,
                      ftol=ftol, txt=txt, xc=xc, hilbert_trans=hilbert_trans,

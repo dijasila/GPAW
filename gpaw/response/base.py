@@ -22,7 +22,7 @@ from gpaw.wavefunctions.pw import PWLFC
 import gpaw.wavefunctions.pw as pw
 import _gpaw
 
-class BASECHI:
+class BaseChi:
     """This class is to store the basic common stuff for chi and bse."""
 
     def __init__(self,
