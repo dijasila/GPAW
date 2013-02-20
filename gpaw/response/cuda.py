@@ -40,6 +40,15 @@ class INDICES(GPU_ALLOC):
         _gpaw.cuSetVector(size, self.sizeofint,index1_g,1,self.index1_Q,1)
         _gpaw.cuSetVector(size, self.sizeofint,index2_g,1,self.index2_Q,1)
 
+class KPOINTS(GPU_ALLOC):
+    def __init__(self, nibzk, ibzk_kc):
+        sizelist = []
+        sizelist.append(['ibzk_kc', nibzk*3*sizeofdouble])
+
+
+        GPU_ALLOC.__init__(self, sizelist)
+        _gpaw.cuSetVector(nibzk*3,sizeofdouble,ibzk_kc.ravel(),1,self.ibzk_kc,1)
+
 
 class BASECUDA:
 
@@ -103,9 +112,8 @@ class BASECUDA:
         
         status, self.op_scc = _gpaw.cuMalloc(Ns*9*sizeofint)
         _gpaw.cuSetVector(Ns*9,sizeofint,op_scc.ravel(),1,self.op_scc,1)
-        
-        status, self.ibzk_kc = _gpaw.cuMalloc(nibzk*3*sizeofdouble)
-        _gpaw.cuSetVector(nibzk*3,sizeofdouble,ibzk_kc.ravel(),1,self.ibzk_kc,1)
+
+        self.kpoints = KPOINTS(nibzk, ibzk_kc)
         
         self.P_R_asii = np.zeros(Na, dtype=np.int64)            # P_R_asii is a pointer array on CPU
         self.P_P1_ani = np.zeros(Na, dtype=np.int64)       # for k
@@ -319,7 +327,7 @@ class BASECUDA:
 #        _gpaw.cuSetVector(self.Na,sizeofpointer,P_P_ani,1,P_ani,1)
 #        _gpaw.cuSetVector(self.Na,sizeofpointer,P_P_ai,1,P_ai,1)
         
-        _gpaw.cuGet_P_ai(self.spos_ac, self.ibzk_kc, self.op_scc, self.a_sa, self.R_asii, 
+        _gpaw.cuGet_P_ai(self.spos_ac, self.kpoints.ibzk_kc, self.op_scc, self.a_sa, self.R_asii, 
                          P_ani, P_ai, self.Ni_a, time_rev, self.Na, s, ibzkpt, n)
 
         return 
@@ -379,7 +387,7 @@ class BASECUDA:
         _gpaw.cuFree(self.spos_ac)
         _gpaw.cuFree(self.a_sa)
         _gpaw.cuFree(self.op_scc)
-        _gpaw.cuFree(self.ibzk_kc)
+        self.kpoints.free()
         _gpaw.cuFree(self.tmp_Q)
         _gpaw.cuFree(self.psit1_R)
         _gpaw.cuFree(self.psit2_R)
