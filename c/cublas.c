@@ -319,6 +319,14 @@ PyObject* cuDevSynch(PyObject *self, PyObject *args)
   return Py_BuildValue("i",cudaStat);
 }
 
+PyObject* cuGetLastError(PyObject *self, PyObject *args)
+{
+  cudaError_t cudaStat;
+  cudaStat = cudaGetLastError();
+  return Py_BuildValue("i",cudaStat);
+}
+
+
 PyObject* cuCher(PyObject *self, PyObject *args)
 {
   cublasHandle_t handle;
