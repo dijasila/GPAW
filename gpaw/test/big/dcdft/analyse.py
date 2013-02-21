@@ -71,7 +71,7 @@ if 1:
     if not os.path.exists(dir): os.makedirs(dir)
     os.chdir(dir)
     try:
-        resp = urllib2.urlopen(src, timeout=10)  # 10 sec
+        resp = urllib2.urlopen(src)
         urllib.urlretrieve(src, filename=name)
         z = zipfile.ZipFile(name)
         try:  # new in 2.6
