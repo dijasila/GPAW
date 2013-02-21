@@ -277,6 +277,7 @@ tests = [
     'beefvdw.py',
     'wannierk.py',
     'rpa_Na.py',
+    'rpa_Na1_cuda.py',
     'coreeig.py',
     'pw/si_stress.py',
     'P_ai.py',
