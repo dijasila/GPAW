@@ -61,6 +61,7 @@ libraries = [
              'lapack', 'blas',
              'cublas', 'cufft', 'cuda',
              'cudart',
+             'stdc++',
              ]
 library_dirs += ['/opt/cuda/lib64']
 include_dirs += ['/opt/cuda/include']
