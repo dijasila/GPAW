@@ -19,7 +19,7 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
 from gpaw.utilities import pack, unpack2, packed_index, logfile, erf, unpack
 import _gpaw
-from gpaw.response.cuda import BASECUDA, sizeofdata, sizeofint, sizeofdouble
+from gpaw.response.cuda import BaseCuda, sizeofdata, sizeofint, sizeofdouble
 
 
 class HybridXC(HybridXCBase):
@@ -248,7 +248,7 @@ class HybridXC(HybridXCBase):
 
 
         if self.cuda:
-            cu = BASECUDA()
+            cu = BaseCuda()
 #            cu.paw_init(wfs, self.spos_ac)
             cu.exx_init(wfs)
             self.cu = cu
