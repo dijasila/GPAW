@@ -374,7 +374,7 @@ class BaseCuda:
 #            _gpaw.cuDevSynch()
             _gpaw.cuMemset(self.optpsit2_R, 0, sizeofdata*self.nG0)
             _gpaw.cuMap_G2Q(self.tmp2_G, self.optpsit2_R, 
-                            self.Q1_G, self.ncoef, 1 )
+                            self.Q1_G, self.ncoef, self.nG0, 1 )
             _gpaw.cufft_execZ2Z(self.cufftplan, self.optpsit2_R, 
                             self.optpsit2_R, 1)  # Q -> R
             # has to take into account fft (1/self.nG0) and gd.integrate(self.vol/self.nG0)
