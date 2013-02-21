@@ -396,23 +396,35 @@ PyObject* cuMap_G2Q(PyObject *self, PyObject *args)
 
 PyObject* cuMap_Q2G(PyObject *self, PyObject *args)
 {
-  int n;
+  int n, nmultix, nG0;
   void *a, *b, *c;
 
-  if (!PyArg_ParseTuple(args, "LLLi",&a, &b, &c, &n))
+  if (!PyArg_ParseTuple(args, "LLLiii",&a, &b, &c, &n, &nG0, &nmultix))
     return NULL;
-  cudaMap_Q2G(a, b, c, n);
+  cudaMap_Q2G(a, b, c, n, nG0, nmultix);
   Py_RETURN_NONE;
 }
 
+PyObject* cuDensity_matrix_R(PyObject *self, PyObject *args)
+{
+  int n, nmultix;
+  void *a, *b, *c;
+
+  if (!PyArg_ParseTuple(args, "LLLii",&a, &b, &c, &n, &nmultix))
+    return NULL;
+  cudaDensity_matrix_R(a, b, c, n, nmultix);
+  Py_RETURN_NONE;
+}
+
+
 PyObject* cuTrans_wfs(PyObject *self, PyObject *args)
 {
-  int n;
+  int n, nmultix;
   void *a, *b, *index;
 
-  if (!PyArg_ParseTuple(args, "LLLi",&a, &b, &index, &n))
+  if (!PyArg_ParseTuple(args, "LLLii",&a, &b, &index, &n, &nmultix))
     return NULL;
-  cudaTransform_wfs(a, b, index, n);
+  cudaTransform_wfs(a, b, index, n, nmultix);
   Py_RETURN_NONE;
 }
 

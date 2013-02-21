@@ -323,12 +323,12 @@ class Chi(BaseChi):
                             psit1new_g = psit1new_g_tmp
                     else:
                         # dev_psit1_R is the wave function of (k, n) on device
-                        cu.trans_wfs(cu.psit1_R, cu.ind.index1_Q, cu.trans1, cu.time_rev1)
+                        cu.trans_wfs(cu.tmp_Q, cu.psit1_R, cu.ind.index1_Q, cu.trans1, cu.time_rev1, 1)
                         # padding does not work on cuda now !! 
 
                     if self.sync: timer.end('wfs_transform')
 
-                    # PAW part
+                   # PAW part
                     if self.sync: timer.start('paw')
                     if not self.cuda:
                         if not self.pwmode:
@@ -382,12 +382,14 @@ class Chi(BaseChi):
                                     # dev_psit2_R is the (transformed) wave function for (kq[k],m) on device
                                     psit_uG = np.zeros((nmultix, cu.ncoef2),complex)
                                     if imultix == 0:
-                                        for iu in range(nmultix):
-                                            if m + iu < self.nbands:
+                                        iu = 0
+                                        while iu < nmultix  and m + iu < self.nbands:
+                                            if (f_skn[spin][ibzkpt1, n] - f_skn[spin][ibzkpt2, m+iu]) > self.ftol:
                                                 psit_uG[iu] = calc.wfs.kpt_u[cu.u2].psit_nG[m+iu]
+                                                iu += 1
                                         cu.get_wfs(psit_uG, cu.Q2_G, cu.ncoef2, nmultix)
                                     _gpaw.cuCopy_vector(cu.tmp_uQ+imultix*sizeofdata*cu.nG0, cu.tmp_Q, self.nG0) 
-    
+   
                                 # check whether code is correct 
                                 aa_Q = np.zeros(cu.nG, complex)
                                 status = _gpaw.cuGetVector(cu.nG0,sizeofdata,cu.tmp_Q,1,aa_Q,1)
@@ -408,8 +410,9 @@ class Chi(BaseChi):
                                 else:
                                     psit2_g = psit2_g_tmp
                             else:
-                                # dev_psit2_R is the wave function of (k+q, m) on device
-                                cu.trans_wfs(cu.psit2_R, cu.ind.index2_Q, cu.trans2, cu.time_rev2)
+                                if imultix == 0:
+                                    # dev_psit2_R is the wave function of (k+q, m) on device
+                                    cu.trans_wfs(cu.tmp_uQ, cu.psit2_uR, cu.ind.index2_Q, cu.trans2, cu.time_rev2, nmultix)
 
                             if self.sync: timer.end('wfs_transform')
 
@@ -426,13 +429,23 @@ class Chi(BaseChi):
                             else:
                                 # dev_psit1_R is re-used ! can't change !
 
+                                # calculate cu.psit1_R.conj() * cu.expqr_R * cu.psit2_uR 
+                                
+
                                 if self.optical_limit: # psit2_R has to be saved for later
-                                    _gpaw.cuCopy_vector(cu.psit2_R, cu.optpsit2_R, self.nG0)
-                                _gpaw.cuMulc(cu.psit1_R, cu.psit2_R, cu.psit2_R, self.nG0)
-                                _gpaw.cuMul(cu.psit2_R, cu.expqr_R, cu.psit2_R, self.nG0)
-                                _gpaw.cufft_execZ2Z(cu.cufftplan, cu.psit2_R, 
-                                                    cu.psit2_R, -1) # R->Q
-                                _gpaw.cuZscal(cu.handle, self.nG0, self.vol/self.nG0, cu.psit2_R, 1)
+                                    if imultix == 0:
+                                        _gpaw.cuCopy_vector(cu.psit2_uR, cu.optpsit2_uR, self.nG0*nmultix) 
+                                    _gpaw.cuCopy_vector(cu.optpsit2_uR+imultix*sizeofdata*cu.nG0, cu.optpsit2_R, self.nG0)
+                                    
+                                if imultix == 0:
+                                    _gpaw.cuDensity_matrix_R(cu.psit1_R, cu.expqr_R, cu.psit2_uR, self.nG0, nmultix)
+
+#                                _gpaw.cuMulc(cu.psit1_R, cu.psit2_R, cu.psit2_R, self.nG0)
+#                                _gpaw.cuMul(cu.psit2_R, cu.expqr_R, cu.psit2_R, self.nG0)
+                                    _gpaw.cufft_execZ2Z(cu.cufftplanmany, cu.psit2_uR, 
+                                                    cu.psit2_uR, -1) # R->Q
+                                    _gpaw.cuZscal(cu.handle, self.nG0*nmultix, self.vol/self.nG0, cu.psit2_uR, 1)
+
                             if self.sync: timer.end('fft')
 
 
@@ -441,8 +454,9 @@ class Chi(BaseChi):
                             if not self.cuda:
                                 rho_G = fft_G.ravel()[self.Gindex_G]
                             else:
-                                _gpaw.cuMap_Q2G(cu.psit2_R, cu.rho_uG+GPUpointer, 
-                                                cu.ind.Gindex_G, self.npw)
+                                if imultix == 0:
+                                    _gpaw.cuMap_Q2G(cu.psit2_uR, cu.rho_uG, 
+                                                cu.ind.Gindex_G, self.npw, self.nG0, nmultix)
 
                             if self.sync: timer.end('mapG')
 
@@ -459,7 +473,6 @@ class Chi(BaseChi):
                                     rho_G[0] = -1j * np.dot(self.qq_v, tmp)
                                 else:
                                     rhoG0 = cu.calculate_opt(cu.psit1_R)
-                                            
                                     status = _gpaw.cuSetVector(1, sizeofdata, rhoG0, 1, cu.rho_uG+GPUpointer, 1)
                             if self.sync: timer.end('opt')
 

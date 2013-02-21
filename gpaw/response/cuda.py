@@ -75,6 +75,7 @@ class BaseCuda:
         status, self.tmp_uQ = _gpaw.cuMalloc(nG0*nmultix*sizeofdata)
         status, self.psit1_R = _gpaw.cuMalloc(nG0*sizeofdata)
         status, self.psit2_R = _gpaw.cuMalloc(nG0*sizeofdata)
+        status, self.psit2_uR = _gpaw.cuMalloc(nG0*nmultix*sizeofdata)
         status, self.expqr_R = _gpaw.cuMalloc(nG0*sizeofdata)
 
         self.cufftplanmany = _gpaw.cufft_planmany(nG[0],nG[1],nG[2],nmultix)
@@ -84,6 +85,7 @@ class BaseCuda:
         if chi.optical_limit:
             status, self.opteikr_R = _gpaw.cuMalloc(nG0*sizeofdata)
             status, self.optpsit2_R = _gpaw.cuMalloc(nG0*sizeofdata)
+            status, self.optpsit2_uR = _gpaw.cuMalloc(nG0*nmultix*sizeofdata)
             
         return 
 
@@ -314,19 +316,19 @@ class BaseCuda:
 
         return
 
-    def trans_wfs(self, psi_R, index_Q, trans, time_reversal):
+    def trans_wfs(self, tmp_uQ, psi_uR, index_Q, trans, time_reversal, nmultix):
 
         nx,ny,nz = self.nG
         if trans:
             # transform wavefunction here
-            _gpaw.cuMemset(psi_R, 0, sizeofdata*self.nG0)  # dev_Q has to be zero
-            _gpaw.cuTrans_wfs(self.tmp_Q, psi_R, index_Q, self.nG0)
+            _gpaw.cuMemset(psi_uR, 0, sizeofdata*self.nG0*nmultix)  # dev_Q has to be zero
+            _gpaw.cuTrans_wfs(tmp_uQ, psi_uR, index_Q, self.nG0, nmultix)
         else:
             # Identity
-            _gpaw.cuCopy_vector(self.tmp_Q, psi_R, self.nG0)
+            _gpaw.cuCopy_vector(tmp_uQ, psi_uR, self.nG0*nmultix)
             
         if time_reversal:
-            _gpaw.cuConj_vector(psi_R, self.nG0)
+            _gpaw.cuConj_vector(psi_uR, self.nG0*nmultix)
 
         return 
 
@@ -366,7 +368,7 @@ class BaseCuda:
         _gpaw.cufft_execZ2Z(self.cufftplan, self.optpsit2_R, 
                         self.optpsit2_R, -1)  # R -> Q
         _gpaw.cuMap_Q2G(self.optpsit2_R, self.tmp_G, # reduce planewaves
-                        self.Q1_G, self.ncoef) # for optical limit self.dev_Q1_G = self.dev_Q2_G
+                        self.Q1_G, self.ncoef, self.nG0, 1) # for optical limit self.dev_Q1_G = self.dev_Q2_G
 
         for ix in range(3):   # multiple the plw coef by [ 1j (k+G) ]
             _gpaw.cuMul(self.tmp_G, self.G_cG+ix*self.ncoef*sizeofdata,
@@ -406,7 +408,7 @@ class BaseCuda:
         self.kpoints.free()
         _gpaw.cuFree(self.tmp_Q)
         _gpaw.cuFree(self.psit1_R)
-        _gpaw.cuFree(self.psit2_R)
+        _gpaw.cuFree(self.psit2_uR)
         _gpaw.cuFree(self.expqr_R)
         self.ind.free()
         if chi.optical_limit:
