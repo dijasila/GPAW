@@ -19,6 +19,24 @@ PyObject* cufft_plan3d(PyObject *self, PyObject *args)
   return Py_BuildValue("L",plan);
 }
 
+PyObject* cufft_planmany(PyObject *self, PyObject *args)
+{
+  cufftHandle plan;
+  cufftType ffttype = CUFFT_Z2Z;
+  int nx, ny, nz, batch;
+
+  if (!PyArg_ParseTuple(args, "iiii|s", &nx, &ny, &nz, &batch, &ffttype))
+    return NULL;
+  int n[3] = {nx, ny, nz};
+  cufftPlanMany(&plan, 3, n, 
+		NULL, 1, nx*ny*nz,
+		NULL, 1, nx*ny*nz,
+		ffttype, batch);
+
+  return Py_BuildValue("L",plan);
+}
+
+
 PyObject* cufft_execZ2Z(PyObject *self, PyObject *args)
 {
   cufftHandle plan;

@@ -122,6 +122,7 @@ PyObject* cuDevSynch(PyObject *self, PyObject *args);
 PyObject* cuGetLastError(PyObject *self, PyObject *args);
 PyObject* cuCher(PyObject *self, PyObject *args);
 PyObject* cufft_plan3d(PyObject *self, PyObject *args);
+PyObject* cufft_planmany(PyObject *self, PyObject *args);
 PyObject* cufft_execZ2Z(PyObject *self, PyObject *args);
 PyObject* cufft_destroy(PyObject *self, PyObject *args);
 PyObject* cuAdd(PyObject *self, PyObject *args);
@@ -134,6 +135,7 @@ PyObject* cuTrans_wfs_noindex(PyObject *self, PyObject *args);
 PyObject* cuConj_vector(PyObject *self, PyObject *args);
 PyObject* cuCopy_vector(PyObject *self, PyObject *args);
 PyObject* cuGet_P_ai(PyObject *self, PyObject *args);
+PyObject* cuGet_Q_anL(PyObject *self, PyObject *args);
 
 #ifdef GPAW_PAPI
 PyObject* papi_mem_info(PyObject *self, PyObject *args);
@@ -173,6 +175,7 @@ static PyMethodDef functions[] = {
   {"cuGetLastError", cuGetLastError, METH_VARARGS, 0},
   {"cuCher", cuCher, METH_VARARGS, 0},
   {"cufft_plan3d", cufft_plan3d, METH_VARARGS, 0},
+  {"cufft_planmany", cufft_planmany, METH_VARARGS, 0},
   {"cufft_execZ2Z", cufft_execZ2Z, METH_VARARGS, 0},
   {"cufft_destroy", cufft_destroy, METH_VARARGS, 0},
   {"cuAdd", cuAdd, METH_VARARGS, 0},
@@ -185,6 +188,7 @@ static PyMethodDef functions[] = {
   {"cuConj_vector", cuConj_vector, METH_VARARGS, 0},
   {"cuCopy_vector", cuCopy_vector, METH_VARARGS, 0},
   {"cuGet_P_ai", cuGet_P_ai, METH_VARARGS, 0},
+  {"cuGet_Q_anL", cuGet_Q_anL, METH_VARARGS, 0},
   {"rk",  rk,  METH_VARARGS, 0},
   {"r2k", r2k, METH_VARARGS, 0},
   {"dotc", dotc, METH_VARARGS, 0},

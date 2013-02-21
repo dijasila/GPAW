@@ -306,8 +306,6 @@ PyObject* cuZherk(PyObject *self, PyObject *args)
 }
 
 
-
-
 PyObject* cuDevSynch(PyObject *self, PyObject *args)
 {
   cudaError_t cudaStat;
@@ -319,13 +317,13 @@ PyObject* cuDevSynch(PyObject *self, PyObject *args)
   return Py_BuildValue("i",cudaStat);
 }
 
+
 PyObject* cuGetLastError(PyObject *self, PyObject *args)
 {
   cudaError_t cudaStat;
   cudaStat = cudaGetLastError();
   return Py_BuildValue("i",cudaStat);
 }
-
 
 PyObject* cuCher(PyObject *self, PyObject *args)
 {
@@ -387,12 +385,12 @@ PyObject* cuMulc(PyObject *self, PyObject *args)
 
 PyObject* cuMap_G2Q(PyObject *self, PyObject *args)
 {
-  int n;
+  int n, nmultix, nG0;
   void *a, *b, *c;
 
-  if (!PyArg_ParseTuple(args, "LLLi",&a, &b, &c, &n))
+  if (!PyArg_ParseTuple(args, "LLLiii",&a, &b, &c, &n, &nG0, &nmultix))
     return NULL;
-  cudaMap_G2Q(a, b, c, n);
+  cudaMap_G2Q(a, b, c, n, nG0,  nmultix);
   Py_RETURN_NONE;
 }
 
@@ -462,6 +460,19 @@ PyObject* cuGet_P_ai(PyObject *self, PyObject *args)
 			&P_ani, &Pout_ai, &Ni_a, &time_rev, &Na, &s, &ik, &n))
     return NULL;
   cudaP_ai(spos_ac, ibzk_kc, op_scc, a_sa, R_asii, P_ani, Pout_ai, Ni_a, time_rev, Na, s, ik, n);
+  Py_RETURN_NONE;
+}
+
+
+PyObject* cuGet_Q_anL(PyObject *self, PyObject *args)
+{
+  int mband, Na;
+  void **P1_ami, **P2_ai, **Delta_apL, **Q_amL, *Ni_a, *nL_a;
+  
+  if (!PyArg_ParseTuple(args, "LLLLiiLL",&P1_ami, &P2_ai, &Delta_apL, &Q_amL, &mband, 
+			&Na, &Ni_a, &nL_a))
+    return NULL;
+  cudaQ_anL(P1_ami, P2_ai, Delta_apL, Q_amL, mband, Na, Ni_a, nL_a);
   Py_RETURN_NONE;
 }
 

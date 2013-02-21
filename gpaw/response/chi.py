@@ -253,7 +253,7 @@ class Chi(BaseChi):
             spinlist = [seperate_spin]
         
         if self.sync: # perform timing when synchronize
-            assert self.cuda is True
+#            assert self.cuda is True
             print >> self.txt, 'Initialization time', time() - self.starttime
             timer = Timer()
             self.timer = timer
@@ -264,6 +264,8 @@ class Chi(BaseChi):
                 continue
             
             for k in range(self.kstart, self.kend):
+#                if k > 0:
+#                    XX
                 k_pad = False
                 if k >= self.nkpt:
                     k = 0
@@ -307,7 +309,8 @@ class Chi(BaseChi):
                             psitold_g = calc.wfs._get_wave_function_array(u, n, realspace=True,
                                                                           phase=eikr1_R)
                         else:
-                            cu.get_wfs(calc.wfs.kpt_u[cu.u1].psit_nG[n], cu.Q1_G)
+                            cu.get_wfs(calc.wfs.kpt_u[cu.u1].psit_nG[n], cu.Q1_G, cu.ncoef, 1)
+                            _gpaw.cuCopy_vector(cu.tmp_uQ, cu.tmp_Q, self.nG0) 
 
                     if self.sync: timer.end('wfs_read')
 
@@ -377,7 +380,24 @@ class Chi(BaseChi):
                                     psitold_g = calc.wfs._get_wave_function_array(u, m, realspace=True, phase=eikr2_R)
                                 else:
                                     # dev_psit2_R is the (transformed) wave function for (kq[k],m) on device
-                                    cu.get_wfs(calc.wfs.kpt_u[cu.u2].psit_nG[m], cu.Q2_G)
+                                    psit_uG = np.zeros((nmultix, cu.ncoef2),complex)
+                                    if imultix == 0:
+                                        for iu in range(nmultix):
+                                            if m + iu < self.nbands:
+                                                psit_uG[iu] = calc.wfs.kpt_u[cu.u2].psit_nG[m+iu]
+                                        cu.get_wfs(psit_uG, cu.Q2_G, cu.ncoef2, nmultix)
+                                    _gpaw.cuCopy_vector(cu.tmp_uQ+imultix*sizeofdata*cu.nG0, cu.tmp_Q, self.nG0) 
+    
+                                # check whether code is correct 
+                                aa_Q = np.zeros(cu.nG, complex)
+                                status = _gpaw.cuGetVector(cu.nG0,sizeofdata,cu.tmp_Q,1,aa_Q,1)
+    
+                                u = self.kd.get_rank_and_index(spin, ibzkpt2)[1]
+                                psitold_g = calc.wfs._get_wave_function_array(u, m, realspace=True,
+                                                                              phase=1.)
+                                assert np.abs(psitold_g - aa_Q).sum() < 1e-10
+                                # check whether code is correct
+
                             if self.sync: timer.end('wfs_read')
 
                             if self.sync: timer.start('wfs_transform')
@@ -423,6 +443,7 @@ class Chi(BaseChi):
                             else:
                                 _gpaw.cuMap_Q2G(cu.psit2_R, cu.rho_uG+GPUpointer, 
                                                 cu.ind.Gindex_G, self.npw)
+
                             if self.sync: timer.end('mapG')
 
                             if self.sync: timer.start('opt')
