@@ -19,19 +19,30 @@ __global__ void mulc( cuDoubleComplex *a, cuDoubleComplex *b, cuDoubleComplex *c
   if (tid < N) c[tid] = cuCmul(cuConj(a[tid]), b[tid]);
 }
 
-__global__ void map_G2Q( cuDoubleComplex *a, cuDoubleComplex *b, int *c, int n ){
+__global__ void map_G2Q( cuDoubleComplex *a, cuDoubleComplex *b, int *c, int n, int nG0, int nmultix ){
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  if (tid < n) b[c[tid]] = a[tid];
+  if (tid < n*nmultix) b[c[tid%n]+tid/n*nG0] = a[tid];
 }
 
-__global__ void map_Q2G( cuDoubleComplex *a, cuDoubleComplex *b, int *c, int n ){
+__global__ void map_Q2G( cuDoubleComplex *a, cuDoubleComplex *b, int *c, int n, int nG0, int nmultix ){
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  if (tid < n) b[tid] = a[c[tid]];
+  if (tid < n*nmultix) b[tid] = a[c[tid%n]+tid/n*nG0];
 }
 
-__global__ void trans_wfs( cuDoubleComplex *a, cuDoubleComplex *b, int *index, int n ){
+__global__ void density_matrix_R( cuDoubleComplex *a, cuDoubleComplex *b, cuDoubleComplex *c, int n, int nmultix ){
+  /* perform psit1_R.conj() * expqr_R * psit2_uR */
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  if (tid < n) b[index[tid]] = a[tid]; /*cuCmul(a[tid], phase[tid]);*/
+  int ii = tid%n;
+  if (tid < n*nmultix) {
+    c[tid] = cuCmul(cuCmul(cuConj(a[ii]), b[ii]), c[tid]);
+  }
+}
+
+
+
+__global__ void trans_wfs( cuDoubleComplex *a, cuDoubleComplex *b, int *index, int n, int nmultix ){
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  if (tid < n*nmultix) b[index[tid%n]+tid/n*n] = a[tid]; /*cuCmul(a[tid], phase[tid]);*/
 }
 
 __global__ void trans_wfs_noindex( cuDoubleComplex *a, cuDoubleComplex *b, int *C, double *dk, int ng0, int ng1, int ng2 ){
@@ -69,7 +80,8 @@ __global__ void copy( cuDoubleComplex *a, cuDoubleComplex *b, int N ){
 
 
 __global__ void P_ai( double *spos_ac, double *ibzk_kc, int *op_scc, int *a_sa,
-		      double **R_asii, cuDoubleComplex **P_ani, cuDoubleComplex **Pout_ai, int *Ni_a, bool time_rev, 
+		      double **R_asii, cuDoubleComplex **P_ani, cuDoubleComplex **Pout_ai, 
+		      int *Ni_a, bool time_rev, 
 		      int Na, int s, int ik, int n){
   int tid = threadIdx.x;
   int ia = blockIdx.x;
@@ -111,6 +123,51 @@ __global__ void P_ai( double *spos_ac, double *ibzk_kc, int *op_scc, int *a_sa,
 }
 
 
+__global__ void Q_anL(cuDoubleComplex **P1_ami, cuDoubleComplex **P2_ai, 
+		      double **Delta_apL, cuDoubleComplex **Q_amL, int mband, int Na, 
+		      int *Ni_a, int *nL_a){
+  int tidx = threadIdx.x;
+  int tidy = threadIdx.y;  
+  int ia = blockIdx.x;
+
+  int Ni=Ni_a[ia];
+  int nL=nL_a[ia];
+
+  if (blockDim.x < mband) printf("Q_anL calculation is wrong !! ");
+  if (blockDim.y < nL) printf("Q_anL calculation is wrong !! ");
+
+  if (tidx < mband && tidy < nL){
+    for (int ix=0; ix<Ni; ix++){
+      for (int iy=0; iy<Ni; iy++){
+        int ip = ix*Ni+iy;
+	cuDoubleComplex tmp = cuCmul(P1_ami[ia][tidx*Ni+ix], P2_ai[ia][iy]);
+	cuDoubleComplex tmp2 = make_cuDoubleComplex(Delta_apL[ia][ip*nL+tidy] * cuCreal(tmp), 
+			     Delta_apL[ia][ip*nL+tidy] * cuCimag(tmp));
+        Q_amL[ia][tidx*nL+tidy] = cuCadd(Q_amL[ia][tidx*nL+tidy], tmp2);
+      }
+    }
+  }
+
+  /*  __shared__ cuDoubleComplex Q_mL;
+      Q_mL = Q_amL[ia];*/
+
+  /*  
+  if (tidx < Ni && tidy < Ni){
+    for (int im=0; im<mband; im++){
+      cuDoubleComplex tmp = cuCmul(P1_ami[ia][im*Ni+tidx], P2_ai[ia][tidy]);
+      for (int i=0; i<nL; i++){
+        int ip=tidx+Ni+tidy;
+	cuDoubleComplex tmp2 = make_cuDoubleComplex(Delta_apL[ia][ip*nL+i] * cuCreal(tmp), 
+			     Delta_apL[ia][ip*nL+i] * cuCimag(tmp));
+	atomicAdd( &(Q_amL[ia][im*nL+i]), tmp2);
+      }
+    }
+  }
+
+  __syncthreads();
+*/
+}
+
 
 extern "C" {
 void cudaAdd( double complex* dev_a, double complex* dev_b, double complex* dev_c, int N ) {
@@ -137,26 +194,39 @@ void cudaMulc( double complex* dev_a, double complex* dev_b, double complex* dev
 }
 
 extern "C" {
-void cudaMap_G2Q( double complex* dev_a, double complex* dev_b, int* dev_c, int N ) {
+  void cudaMap_G2Q( double complex* dev_a, double complex* dev_b, int* dev_c, int N, int nG0, int nmultix ) {
   int threads = 128;
-  int blocks = N/threads + (N%threads == 0 ? 0:1);
-  map_G2Q<<<blocks, threads>>>( (cuDoubleComplex*)dev_a, (cuDoubleComplex*)dev_b, (int*)dev_c, N);
+  int nn = N * nmultix;
+  int blocks = nn/threads + (nn%threads == 0 ? 0:1);
+  map_G2Q<<<blocks, threads>>>( (cuDoubleComplex*)dev_a, (cuDoubleComplex*)dev_b, (int*)dev_c, N, nG0, nmultix);
 }
 }
 
 extern "C" {
-void cudaMap_Q2G( double complex* dev_a, double complex* dev_b, int* dev_c, int N ) {
+  void cudaMap_Q2G( double complex* dev_a, double complex* dev_b, int* dev_c, int N, int nG0, int nmultix ) {
   int threads = 128;
-  int blocks = N/threads + (N%threads == 0 ? 0:1);
-  map_Q2G<<<blocks, threads>>>( (cuDoubleComplex*)dev_a, (cuDoubleComplex*)dev_b, (int*)dev_c, N);
+  int nn = N * nmultix;
+  int blocks = nn/threads + (nn%threads == 0 ? 0:1);
+  map_Q2G<<<blocks, threads>>>( (cuDoubleComplex*)dev_a, (cuDoubleComplex*)dev_b, (int*)dev_c, N, nG0, nmultix);
 }
 }
 
 extern "C" {
-  void cudaTransform_wfs( double complex* dev_a, double complex* dev_b, int* dev_c, int N ) {
+  void cudaDensity_matrix_R( double complex* dev_a, double complex* dev_b, double complex* dev_c, int N, int nmultix ) {
+  int threads = 128;
+  int nn = N * nmultix;
+  int blocks = nn/threads + (nn%threads == 0 ? 0:1);
+  density_matrix_R<<<blocks, threads>>>( (cuDoubleComplex*)dev_a, (cuDoubleComplex*)dev_b, (cuDoubleComplex*)dev_c, N, nmultix);
+}
+}
+
+
+extern "C" {
+  void cudaTransform_wfs( double complex* dev_a, double complex* dev_b, int* dev_c, int N, int nmultix ) {
     int threads = 128;
-    int blocks = N/threads + (N%threads == 0 ? 0:1);
-    trans_wfs<<<blocks, threads>>>( (cuDoubleComplex*)dev_a, (cuDoubleComplex*)dev_b, (int*)dev_c, N );
+    int nn = N * nmultix;
+    int blocks = nn/threads + (nn%threads == 0 ? 0:1);
+    trans_wfs<<<blocks, threads>>>( (cuDoubleComplex*)dev_a, (cuDoubleComplex*)dev_b, (int*)dev_c, N, nmultix );
   }
 }
 
@@ -194,10 +264,28 @@ extern "C" {
   int threads = 128;
   int blocks = Na;
 
-  P_ai<<<blocks, threads>>>( (double*)dev_spos_ac, (double*)dev_ibzk_kc, (int*)dev_op_scc, (int*)dev_a_sa, 
-			     (double**)dev_R_asii,(cuDoubleComplex**)P_ani, (cuDoubleComplex**)Pout_ai, (int*)Ni_a,
+  P_ai<<<blocks, threads>>>( (double*)dev_spos_ac, (double*)dev_ibzk_kc, 
+			     (int*)dev_op_scc, (int*)dev_a_sa, 
+			     (double**)dev_R_asii,(cuDoubleComplex**)P_ani, 
+			     (cuDoubleComplex**)Pout_ai, (int*)Ni_a,
 			     time_rev, Na, s, ik, n);
 }
 }
 
+
+
+extern "C" {
+  void cudaQ_anL( double complex **P1_ami, double complex **P2_ai,  
+		  double **Delta_apL, double complex **Q_amL, int mband, int Na, 
+		  int* Ni_a, int* nL_a){
+
+  dim3 threads(16,16);
+  int blocks = Na;
+
+  Q_anL<<<blocks, threads>>>( (cuDoubleComplex**)P1_ami, (cuDoubleComplex**)P2_ai,
+			     (double**)Delta_apL, (cuDoubleComplex**)Q_amL,
+			     mband, Na, (int*)Ni_a, (int*)nL_a);
+
+}
+}
 
