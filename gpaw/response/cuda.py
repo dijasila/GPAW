@@ -58,7 +58,7 @@ class BaseCuda:
         status, self.handle = _gpaw.cuCreate()
 
     def chi_init(self, chi, chi0_wGG):
-        nmultix = chi.nmultix
+        self.nmultix = nmultix = chi.nmultix
         npw = chi.npw
         self.nG0 = nG0 = chi.nG0
         self.nG = nG = chi.nG
@@ -170,9 +170,13 @@ class BaseCuda:
                 self.P_phi_aGp.append(GPU_phi_Gp)
     
         self.P_P_ap = []
+        self.P_P_aup = []
         for a, id in enumerate(wfs.setups.id_a):
             status,GPU_P_p = _gpaw.cuMalloc(Ni_a[a]*Ni_a[a]*sizeofdata)
             self.P_P_ap.append(GPU_P_p)
+
+            status,GPU_P_up = _gpaw.cuMalloc(self.nmultix*Ni_a[a]*Ni_a[a]*sizeofdata)
+            self.P_P_aup.append(GPU_P_up)
 
         return
 
@@ -333,18 +337,12 @@ class BaseCuda:
         return 
 
 
-    def get_P_ai(self, P_P_ani, P_P_ai, P_ani, P_ai, host_P_ani, time_rev, s, ibzkpt, n):
+    def get_P_ai(self, P_P_ani, P_P_ai, P_ani, P_ai, time_rev, s, ibzkpt, n):
 
-        nband = len(host_P_ani[0])
         for a in range(self.Na):
             Ni = self.host_Ni_a[a]
-            # there is no need to copy the whole host_P_ani while using only one n !! 
-#            _gpaw.cuSetVector(nband*Ni,sizeofdata,host_P_ani[a].ravel(),1,P_P_ani[a],1)
             _gpaw.cuMemset(P_P_ai[a], 0, sizeofdata*Ni)
     
-#        _gpaw.cuSetVector(self.Na,sizeofpointer,P_P_ani,1,P_ani,1)
-#        _gpaw.cuSetVector(self.Na,sizeofpointer,P_P_ai,1,P_ai,1)
-        
         _gpaw.cuGet_P_ai(self.spos_ac, self.kpoints.ibzk_kc, self.op_scc, self.a_sa, self.R_asii, 
                          P_ani, P_ai, self.Ni_a, time_rev, self.Na, s, ibzkpt, n)
 

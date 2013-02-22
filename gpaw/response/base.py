@@ -527,34 +527,42 @@ class BaseChi:
 
             return rho_G
 
-    def get_P_ai(self, k, n, spin=0, Ptmp_ai=None):
+    def get_P_ai(self, k, n_n, spin=0, Ptmp_ai=None):
 
         calc = self.calc
         kd = self.calc.wfs.kd
         spos_ac = self.spos_ac
+        if Ptmp_ai is not None:
+            assert type(n_n) is int
         
         ibzkpt = kd.bz2ibz_k[k]
         u = ibzkpt + kd.nibzkpts * spin
         kpt = calc.wfs.kpt_u[u]
         s = kd.sym_k[k]
         time_reversal = kd.time_reversal_k[k]
-        P_ai = {}
+        P_ani = {}
         for a, id in enumerate(calc.wfs.setups.id_a):
             b = kd.symmetry.a_sa[s, a]
             S_c = (np.dot(spos_ac[a], kd.symmetry.op_scc[s]) - spos_ac[b])
+            Ni = len(kpt.P_ani[a][0])
         
             assert abs(S_c.round() - S_c).max() < 1e-10
             k_c = kd.ibzk_kc[kpt.k]
         
             x = np.exp(2j * pi * np.dot(k_c, S_c))
             if Ptmp_ai is None:
-                P_i = np.dot(calc.wfs.setups[a].R_sii[s], kpt.P_ani[b][n]) * x
+                if type(n_n) is int:
+                    P_ni = np.dot(calc.wfs.setups[a].R_sii[s], kpt.P_ani[b][n_n]) * x
+                else:
+                    P_ni = np.zeros((self.nmultix, Ni), complex)
+                    for i, n in enumerate(n_n):
+                        P_ni[i] = np.dot(calc.wfs.setups[a].R_sii[s], kpt.P_ani[b][n]) * x
             else:
-                P_i = np.dot(calc.wfs.setups[a].R_sii[s], Ptmp_ai[b]) * x
+                P_ni = np.dot(calc.wfs.setups[a].R_sii[s], Ptmp_ai[b]) * x
             if time_reversal:
-                P_i = P_i.conj()
-            P_ai[a] = P_i
-        return P_ai
+                P_ni = P_ni.conj()
+            P_ani[a] = P_ni
+        return P_ani
 
     def screened_interaction_kernel(self, iq, static=True, E0=None, comm=None, kcommsize=None):
         """Calcuate W_GG(w) for a given q.

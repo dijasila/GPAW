@@ -347,8 +347,9 @@ class Chi(BaseChi):
                             else:
                                 P1_ai = self.get_P_ai(k, n, spin)
                     else:
-                        cu.get_P_ai(cu.P_P1_ani, cu.P_P1_ai, cu.P1_ani, cu.P1_ai, 
-                                           calc.wfs.kpt_u[cu.u1].P_ani, cu.time_rev1, cu.s1, ibzkpt1, n)
+                        P1_ai = self.get_P_ai(k, n, spin)
+#                        cu.get_P_ai(cu.P_P1_ani, cu.P_P1_ai, cu.P1_ani, cu.P1_ai, 
+#                                    cu.time_rev1, cu.s1, ibzkpt1, n)
 
                     if self.sync: timer.end('paw')
 
@@ -357,7 +358,7 @@ class Chi(BaseChi):
 
                     imultix = 0
                     for m in self.mlist:
-                        if self.nbands > 200 and m % 200 == 0:
+                        if self.nbands > 100 and m % 20 == 0:
                             
                             if not self.sync:
                                 print >> self.txt, k, n, m, time() - t0
@@ -382,23 +383,15 @@ class Chi(BaseChi):
                                     # dev_psit2_R is the (transformed) wave function for (kq[k],m) on device
                                     psit_uG = np.zeros((nmultix, cu.ncoef2),complex)
                                     if imultix == 0:
+                                        mlocallist = []
                                         iu = 0
                                         while iu < nmultix  and m + iu < self.nbands:
                                             if (f_skn[spin][ibzkpt1, n] - f_skn[spin][ibzkpt2, m+iu]) > self.ftol:
                                                 psit_uG[iu] = calc.wfs.kpt_u[cu.u2].psit_nG[m+iu]
+                                                mlocallist.append(m+iu)
                                                 iu += 1
                                         cu.get_wfs(psit_uG, cu.Q2_G, cu.ncoef2, nmultix)
-                                    _gpaw.cuCopy_vector(cu.tmp_uQ+imultix*sizeofdata*cu.nG0, cu.tmp_Q, self.nG0) 
-   
-                                # check whether code is correct 
-                                aa_Q = np.zeros(cu.nG, complex)
-                                status = _gpaw.cuGetVector(cu.nG0,sizeofdata,cu.tmp_Q,1,aa_Q,1)
-    
-                                u = self.kd.get_rank_and_index(spin, ibzkpt2)[1]
-                                psitold_g = calc.wfs._get_wave_function_array(u, m, realspace=True,
-                                                                              phase=1.)
-                                assert np.abs(psitold_g - aa_Q).sum() < 1e-10
-                                # check whether code is correct
+#                                    _gpaw.cuCopy_vector(cu.tmp_uQ+imultix*sizeofdata*cu.nG0, cu.tmp_Q, self.nG0) 
 
                             if self.sync: timer.end('wfs_read')
 
@@ -494,8 +487,9 @@ class Chi(BaseChi):
                                     else:
                                         P2_ai = self.get_P_ai(kq_k[k], m, spin)         
                             else:
-                                cu.get_P_ai(cu.P_P2_ani, cu.P_P2_ai, cu.P2_ani, cu.P2_ai, 
-                                           calc.wfs.kpt_u[cu.u2].P_ani, cu.time_rev2, cu.s2, ibzkpt2, m)
+                                P2_aui = self.get_P_ai(kq_k[k], mlocallist, spin)         
+#                                cu.get_P_ai(cu.P_P2_ani, cu.P_P2_ai, cu.P2_ani, cu.P2_ai, 
+#                                            cu.time_rev2, cu.s2, ibzkpt2, m)
                             if self.sync: timer.end('paw')
 
                             for a, id in enumerate(calc.wfs.setups.id_a):
@@ -503,19 +497,42 @@ class Chi(BaseChi):
                                 if not self.cuda:
                                     P_p = np.outer(P1_ai[a].conj(), P2_ai[a]).ravel()
                                 else:
-                                    Ni = cu.host_Ni_a[a]
-                                    # here ravel has the opposite effect in memory 
-                                    _gpaw.cugemm(cu.handle,1.0, cu.P_P2_ai[a], cu.P_P1_ai[a], 0.0, cu.P_P_ap[a], \
-                                                     Ni, Ni, 1, Ni, Ni, Ni, 2, 0) # transb(Hermitian), transa
+                                    if imultix == 0:
+                                        Ni = cu.host_Ni_a[a]
+                                        P_up = np.zeros((nmultix, Ni*Ni), complex)
+                                        for iu in range(len(P2_aui[a])):
+                                            P_up[iu] = np.outer(P1_ai[a].conj(), P2_aui[a][iu]).ravel()
+    
+                                        status = _gpaw.cuSetMatrix(Ni*Ni,nmultix,sizeofdata,P_up,Ni*Ni,cu.P_P_aup[a],Ni*Ni)
                                 if self.sync: timer.end('paw_outer')
 
                                 if self.sync: timer.start('cugemv')
                                 if not self.cuda:
                                     gemv(1.0, self.phi_aGp[a], P_p, 1.0, rho_G)
                                 else:
-                                    _gpaw.cuZgemv(cu.handle,Ni*Ni,self.npw,1.0,cu.P_phi_aGp[a],
-                                                  Ni*Ni,cu.P_P_ap[a],1,1.0,cu.rho_uG+GPUpointer,1)
+                                    if imultix == 0:
+                                        _gpaw.cugemm(cu.handle,1.0,  cu.P_phi_aGp[a], cu.P_P_aup[a], 1.0, cu.rho_uG, \
+                                                     nmultix, self.npw, Ni*Ni, Ni*Ni, Ni*Ni, self.npw, 0, 1)
                                 if self.sync: timer.end('cugemv')
+
+#                            for a, id in enumerate(calc.wfs.setups.id_a):
+#                                if self.sync: timer.start('paw_outer')
+#                                if not self.cuda:
+#                                    P_p = np.outer(P1_ai[a].conj(), P2_ai[a]).ravel()
+#                                else:
+#                                    Ni = cu.host_Ni_a[a]
+#                                    # here ravel has the opposite effect in memory 
+#                                    _gpaw.cugemm(cu.handle,1.0, cu.P_P2_ai[a], cu.P_P1_ai[a], 0.0, cu.P_P_ap[a], \
+#                                                     Ni, Ni, 1, Ni, Ni, Ni, 2, 0) # transb(Hermitian), transa
+#                                if self.sync: timer.end('paw_outer')
+#
+#                                if self.sync: timer.start('cugemv')
+#                                if not self.cuda:
+#                                    gemv(1.0, self.phi_aGp[a], P_p, 1.0, rho_G)
+#                                else:
+#                                    _gpaw.cuZgemv(cu.handle,Ni*Ni,self.npw,1.0,cu.P_phi_aGp[a],
+#                                                  Ni*Ni,cu.P_P_ap[a],1,1.0,cu.rho_uG+GPUpointer,1)
+#                                if self.sync: timer.end('cugemv')
 
                             if self.optical_limit and self.cuda:
                                 if self.sync: timer.start('cugemv')
