@@ -515,7 +515,7 @@ class SmoothDistribution(ZeroKelvin):
 
 
 class FermiDirac(SmoothDistribution):
-    def __init__(self, width, fixmagmom=False, maxiter=1000):
+    def __init__(self, width, fixmagmom=False, maxiter=10000):
         SmoothDistribution.__init__(self, width, fixmagmom, maxiter)
 
     def distribution(self, kpt, fermilevel):

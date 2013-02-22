@@ -141,9 +141,9 @@ class C_GLLBScr(Contribution):
         v_g += self.weight * 2 * self.e_g / (n_g + 1e-10)
         e_g += self.weight * self.e_g
 
-    def calculate_spinpolarized(self, e_g, na_g, va_g, nb_g, vb_g):
+    def calculate_spinpolarized(self, e_g, n_sg, v_sg):
 	# Calculate spinpolarized exchange screening as two spin-paired calculations n=2*n_s
-        for n, v in [ (na_g, va_g), (nb_g, vb_g) ]:
+        for n, v in [ (n_sg[0], v_sg[0]), (n_sg[1], v_sg[1]) ]:
 		self.e_g[:] = 0.0
 	        self.vt_sg[:] = 0.0
 	        self.xc.calculate(self.nlfunc.finegd, 2*n[None, ...], self.vt_sg, self.e_g)

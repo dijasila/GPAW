@@ -390,7 +390,6 @@ class PAW(PAWTextOutput):
             gamma = None
         kd = KPointDescriptor(par.kpts, nspins, collinear, gamma=gamma)
 
-
         width = par.width
         if width is None:
             if kd.gamma:
