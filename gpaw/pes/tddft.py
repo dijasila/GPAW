@@ -7,18 +7,18 @@ from ase.units import Hartree
 
 from gpaw.pes import BasePES
 from gpaw.pes.state import State
-import gpaw.mpi as mpi
 from gpaw.utilities import packed_index
 
 from numpy import sqrt, pi
 
+
 class TDDFTPES(BasePES):
-    def __init__(self, mother, excited_daughter, daughter=None, 
+    def __init__(self, mother, excited_daughter, daughter=None,
                  shift=True, tolerance={}):
         self.tolerance = {
-            'occupation' : 1.e-10,
-            'magnetic'   : 1.e-10,
-            'grid' : 0,
+            'occupation': 1.e-10,
+            'magnetic': 1.e-10,
+            'grid': 0,
             }
         for key in tolerance.keys():
             if not key in self.tolerance:
@@ -40,7 +40,7 @@ class TDDFTPES(BasePES):
         self.lr_d.diagonalize()
         
         self.check_systems()
-        self.lr_d.jend = self.lr_d.kss[-1].j        
+        self.lr_d.jend = self.lr_d.kss[-1].j
         
         # Make good way for initialising these
 
@@ -59,8 +59,8 @@ class TDDFTPES(BasePES):
         def gs_orbitals(calc):
             indicees = []
             nbands = calc.get_number_of_bands()
-            spin = calc.get_number_of_spins() == 2
-            f_tolerance = (1 + spin) *  self.tolerance['occupation']
+            spin = (calc.get_number_of_spins() == 2)
+            f_tolerance = (1 + spin) * self.tolerance['occupation']
             for kpt in calc.wfs.kpt_u:
                 for i in range(nbands):
                     if kpt.f_n[i] > f_tolerance:
@@ -74,7 +74,8 @@ class TDDFTPES(BasePES):
 
         if (len(self.gs_m) != len(self.gs_d) + 1):
             raise RuntimeError(('Mother valence %d does not correspond ' +
-                                'to daughter valence %d') %
+                                'to daughter valence %d. ' +
+                                'Modify tolerance["occupation"] ?') %
                                (len(self.gs_m), len(self.gs_d)))
 
     def _calculate(self):
@@ -130,7 +131,7 @@ class TDDFTPES(BasePES):
 
                 for col in range(len(keep_col)):
                     for row in range(len(keep_row)):
-                        d_ikl[row, col] = self.overlap[keep_row[row], 
+                        d_ikl[row, col] = self.overlap[keep_row[row],
                                                        keep_col[col]]
                         
                 self.singles[i, kl] = np.linalg.det(d_ikl)
@@ -149,7 +150,7 @@ class TDDFTPES(BasePES):
 
             for col in range(len(keep_col)):
                 for row in range(len(keep_row)):
-                    d_i00[row, col] = self.overlap[keep_row[row], 
+                    d_i00[row, col] = self.overlap[keep_row[row],
                                                    keep_col[col]]
                     
             g0[i] = (-1)**(self.imax + i) * np.linalg.det(d_i00)
@@ -205,17 +206,17 @@ class TDDFTPES(BasePES):
         """
         gtol = self.tolerance['grid']
         mtol = self.tolerance['magnetic']
-        if (np.abs(self.c_m.wfs.gd.cell_cv - 
+        if (np.abs(self.c_m.wfs.gd.cell_cv -
                    self.c_d.wfs.gd.cell_cv) > gtol).any():
             raise RuntimeError('Not the same grid:' +
                                str(self.c_m.wfs.gd.cell_cv) + ' !=' +
                                str(self.c_d.wfs.gd.cell_cv))
-        if (np.abs(self.c_m.wfs.gd.h_cv - 
+        if (np.abs(self.c_m.wfs.gd.h_cv -
                    self.c_d.wfs.gd.h_cv) > gtol).any():
             raise RuntimeError('Not the same grid')
         if (self.c_m.atoms.positions != self.c_m.atoms.positions).any():
             raise RuntimeError('Not the same atomic positions')
-        if np.abs(np.abs(self.c_m.get_magnetic_moment()-
+        if np.abs(np.abs(self.c_m.get_magnetic_moment() -
                          self.c_d.get_magnetic_moment()) - 1) > mtol:
             raise RuntimeError(('Mother (%g) ' %
                                 self.c_m.get_magnetic_moment()) +
