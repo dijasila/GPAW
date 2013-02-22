@@ -807,6 +807,30 @@ change the number of grid points:
 
 More details can be found on the :ref:`restart_files` page.
 
+---------------------------------------
+Customizing behaviour through observers
+---------------------------------------
+
+An *observer* function can be *attached* to the calculator so that it
+will be executed every *N* iterations during a calculation.  The below
+example saves a differently named restart file every 5 iterations::
+
+  calc = GPAW(...)
+
+  occasionally = 5
+
+  class OccasionalWriter:
+      def __init__(self):
+          self.iter = 0
+
+      def write(self):
+          calc.write('filename.%03d.gpw' % self.iter)
+          self.iter += occasionally
+
+  calc.attach(OccasionalWriter().write, occasionally)
+
+See also :meth:`~gpaw.GPAW.attach`.
+
 ----------------------
 Command line arguments
 ----------------------

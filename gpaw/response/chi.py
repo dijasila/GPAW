@@ -154,9 +154,12 @@ class CHI(BASECHI):
             self.Kc_GG = None
             self.printtxt('RPA calculation.')
         elif self.xc == 'ALDA' or self.xc == 'ALDA_X':
-            Kc_G = calculate_Kc(self.q_c, self.Gvec_Gc, self.acell_cv,
-                                  self.bcell_cv, self.calc.atoms.pbc, self.optical_limit, self.vcut)
-            self.Kc_GG = np.outer(Kc_G, Kc_G)
+            self.Kc_GG = calculate_Kc(self.q_c,
+                                      self.Gvec_Gc,
+                                      self.acell_cv,
+                                      self.bcell_cv,
+                                      self.calc.atoms.pbc,
+                                      self.vcut)
 
             nt_sg = calc.density.nt_sG
             if (self.rpad > 1).any() or (self.pbc - True).any():

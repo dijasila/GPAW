@@ -113,6 +113,7 @@ tests = [
     'atoms_too_close.py',
     'noncollinear/xcgrid3d.py',
     'vdwradii.py',
+    'lcao_restart.py',
     'ase3k.py',
     'parallel/ut_kptops.py',
     'fileio/idiotproof_setup.py',
@@ -256,6 +257,8 @@ tests = [
     'si_xas.py',
     'atomize.py',
     'ralda_energy_H2.py',
+    'ralda_energy_N2.py',
+    'ralda_energy_Ni.py',
     'Cu.py',
     'restart_band_structure.py',
     'ne_disc.py',
@@ -278,7 +281,7 @@ tests = [
     'rpa_energy_N2.py',
     'beefvdw.py',
     'wannierk.py',
-    'rpa_Na.py',
+    'rpa_energy_Na.py',
     'coreeig.py',
     'pw/si_stress.py',
     'P_ai.py',
@@ -298,6 +301,7 @@ tests = [
     'bse_diamond.py',
     'bse_vs_lrtddft.py',
     'bse_silicon.py',
+    'bse_MoS2_cut.py',    
     'parallel/pblas.py',
     'parallel/scalapack.py',
     'parallel/scalapack_diag_simple.py',
@@ -336,6 +340,7 @@ if mpi.size > 1:
                 #'cmrtest/cmr_append.py',
                 #'cmrtest/Li2_atomize.py',
                 'lcao_pair_and_coulomb.py',
+                'bse_MoS2_cut.py',
                 'pw/moleculecg.py',
                 'pw/davidson_pw.py']
 
@@ -365,6 +370,8 @@ if mpi.size == 1 or not compiled_with_sl():
 
 if mpi.size != 1 and not compiled_with_sl():
     exclude += ['ralda_energy_H2.py',
+                'ralda_energy_N2.py',
+                'ralda_energy_Ni.py',
                 'bse_sym.py',
                 'bse_silicon.py']
 

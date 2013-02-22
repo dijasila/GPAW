@@ -5,14 +5,12 @@ from ase.units import Hartree, Bohr
 from gpaw import GPAW, FermiDirac
 from gpaw.response.bse import BSE
 
-
 GS = 1
 bse = 1
 df = 1
 check_spectrum = 1
 
 if GS:
-
     a = 6.75 * Bohr
     atoms = bulk('C', 'diamond', a=a)
 
@@ -27,22 +25,30 @@ if GS:
     calc.write('C_kpt8.gpw','all')
 
 if bse:
-    
-    bse = BSE('C_kpt8.gpw',w=np.linspace(0,20,201),
-              q=np.array([0.0001,0,0.]),optical_limit=True,ecut=50.,
-              nbands=8,use_W=False)
-
+    bse = BSE('C_kpt8.gpw',
+              w=np.linspace(0,20,201),
+              mode='RPA',
+              nc=[0,8],
+              nv=[0,8],
+              coupling=True,
+              q=np.array([0.0001,0,0.]),
+              optical_limit=True,
+              ecut=50.,
+              nbands=8)
     bse.get_dielectric_function('C_bse.dat')
 
 if df:
     from gpaw.response.df import DF
-    df = DF('C_kpt8.gpw',w=np.linspace(0,20,201),q=np.array([0.0001,0,0.]),
-            optical_limit=True,ecut=50., hilbert_trans=False)
+    df = DF('C_kpt8.gpw',
+            w=np.linspace(0,20,201),
+            q=np.array([0.0001,0,0.]),
+            optical_limit=True,
+            ecut=50.,
+            hilbert_trans=False)
     df.get_absorption_spectrum(filename='C.dat')
 
 
 if check_spectrum:
-
     d = np.loadtxt('C_bse.dat')[:,2]
     Nw1 = 96
     Nw2 = 109

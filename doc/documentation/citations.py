@@ -15,25 +15,36 @@ def f(filename):
     papers = []
     lines = open(filename).readlines()
     n = 0
+    dois =  set()
     while n < len(lines):
         line = lines[n]
         tag = line[:2]
         if tag == 'TI':
             ntitle = n
+            y = None
+            m = 1
+            d = 15
         elif tag == 'SO':
             title = ' '.join(lines[i][3:-1] for i in range(ntitle, n))
         elif tag == 'DI':
             doi = line[3:-1]
+        elif tag == 'PY':
+            y = int(line.split()[1])
         elif tag == 'PD':
-            w = line.split()[1:]
-            if len(w) == 1:
-                date = datetime.date(int(w[0]), 6, 15)
-            elif len(w) == 2:
-                date = datetime.date(int(w[1]), 1 + months.index(w[0]), 15)
-            else:
-                date = datetime.date(int(w[2]), 1 + months.index(w[0]),
-                                     int(w[1]))
-            papers.append((date, doi, title))
+            for w in line.split()[1:]:
+                if w[0].isdigit():
+                    w = int(w)
+                    if w < 100:
+                        d = w
+                    else:
+                        y = w
+                else:
+                    m = months.index(w) + 1
+        elif tag == '\n':
+            date = datetime.date(y, m, d)
+            if doi not in dois:
+                dois.add(doi)
+                papers.append((date, doi, title))
         n += 1
 
     papers.sort()
@@ -42,13 +53,21 @@ def f(filename):
 plt.figure(figsize=(10, 5))
 total = {}
 for bib in ['gpaw1', 'tddft', 'gpaw2', 'response']:
-    papers = f(bib + '.txt')
+    papers = []
+    for line in open(bib + '.txt'):
+        date, doi, title = line.split(' ', 2)
+        papers.append((datetime.date(*[int(x) for x in date.split('-')]),
+                       doi, title.strip()))
     plt.plot([paper[0] for paper in papers], range(1, len(papers) + 1),
              '-o', label=bib)
     for date, doi, title in papers:
         total[doi] = (date, title)
     x = dict([(p[1], 0) for p in papers])
     print(bib, len(papers), len(x), len(total))
+    #fd = open(bib + '.txt', 'w')
+    #for date, doi, title in papers:
+    #    print >> fd, date,doi,title
+    #fd.close()
 
 allpapers = [(paper[0], doi, paper[1]) for doi, paper in total.items()]
 allpapers.sort()

@@ -393,7 +393,7 @@ class PAWSetupGenerator:
         if rcore is None:
             rcore = self.rcmax * 0.8
         else:
-            assert rcore < self.rcmax
+            assert rcore <= self.rcmax
 
         gcore = self.rgd.round(rcore)
 
@@ -404,7 +404,8 @@ class PAWSetupGenerator:
 
         # Make sure pseudo density is monotonically decreasing:
         dntdr_g = self.rgd.derivative(self.nt_g)[:gcore]
-        assert dntdr_g.max() < 0.0
+        if dntdr_g.max() > 0.0:
+            self.log('DECREASE MATCHING RADIUS FOR PSEUDO CORE DENSITY!')
         if 0:
             # Constuct function that decrease smoothly from
             # f(0)=1 to f(rcmax)=0:
@@ -453,9 +454,10 @@ class PAWSetupGenerator:
         g0 = self.rgd.ceil(r0)
         assert e0 is None
 
-        self.vtr_g = self.rgd.pseudize(self.aea.vr_sg[0], g0, 1, P)[0]
-        self.v0r_g = self.vtr_g - self.vHtr_g - self.vxct_g * self.rgd.r_g
-        self.v0r_g[self.gcmax] = 0.0
+        #self.vtr_g = self.rgd.pseudize(self.aea.vr_sg[0], g0, 1, P)[0]
+        self.vtr_g = self.vHtr_g + self.vxct_g * self.rgd.r_g
+        self.v0r_g = self.rgd.pseudize(self.vtr_g, g0, 1, P)[0] - self.vtr_g
+        self.vtr_g += self.v0r_g
 
         self.l0 = None
         self.e0 = None
@@ -1009,8 +1011,10 @@ def generate(argv=None):
             if opt.plot:
                 gen.plot()
 
-            plt.show()
-
+            try:
+                plt.show()
+            except KeyboardInterrupt:
+                pass
     return gen
 
 

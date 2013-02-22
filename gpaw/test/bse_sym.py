@@ -32,10 +32,16 @@ for kpts in (kpts2,):
     
     # no symmetry BSE
     eshift = 0.8
-    bse = BSE('Si.gpw',w=np.linspace(0,10,201),
-                  q=np.array([0.0001,0,0.0]),optical_limit=True,ecut=150.,
-                  nc=np.array([4,6]), nv=np.array([2,4]), eshift=eshift,
-                  nbands=8,positive_w=True,use_W=True,qsymm=False)
+    bse = BSE('Si.gpw',
+              w=np.linspace(0,10,201),
+              q=np.array([0.0001, 0, 0.0]),
+              optical_limit=True,
+              ecut=150.,
+              nc=np.array([4,6]),
+              nv=np.array([2,4]),
+              eshift=eshift,
+              nbands=8,
+              qsymm=False)
     bse.get_dielectric_function('bse_nosymm.dat')
 
     if rank == 0 and os.path.isfile('phi_qaGp'):
@@ -44,10 +50,16 @@ for kpts in (kpts2,):
     
     # with symmetry BSE
     eshift = 0.8
-    bse = BSE('Si.gpw',w=np.linspace(0,10,201),
-                  q=np.array([0.0001,0,0.0]),optical_limit=True,ecut=150.,
-                  nc=np.array([4,6]), nv=np.array([2,4]), eshift=eshift,
-                  nbands=8,positive_w=True,use_W=True,qsymm=True)
+    bse = BSE('Si.gpw',
+              w=np.linspace(0,10,201),
+              q=np.array([0.0001,0,0.0]),
+              optical_limit=True,
+              ecut=150.,
+              nc=np.array([4,6]),
+              nv=np.array([2,4]),
+              eshift=eshift,
+              nbands=8,
+              qsymm=True)
     bse.get_dielectric_function('bse_symm.dat')
 
     if rank == 0 and os.path.isfile('phi_qaGp'):

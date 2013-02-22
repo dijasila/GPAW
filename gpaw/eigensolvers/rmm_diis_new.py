@@ -4,6 +4,7 @@ import numpy as np
 
 from gpaw.utilities.blas import axpy, gemm, rk, r2k
 from gpaw.utilities.lapack import general_diagonalize
+from gpaw.utilities import unpack
 from gpaw.eigensolvers.eigensolver import Eigensolver
 
 
@@ -22,11 +23,27 @@ class RMM_DIIS_new(Eigensolver):
     * Orthonormalization"""
 
     def __init__(self, keep_htpsit=True, blocksize=10, niter=4, rtol=1e-6,
-                 limit_lambda=False):
+                 limit_lambda=False, use_rayleigh=False):
+        """Initialize RMM-DIIS eigensolver.
+
+        Parameters:
+
+        limit_lambda: dictionary
+            determines if step length should be limited
+            supported keys:
+            'absolute':True/False limit the absolute value
+            'upper':float upper limit for lambda
+            'lower':float lower limit for lambda
+
+        """
+
         Eigensolver.__init__(self, keep_htpsit, blocksize)
         self.niter = niter
         self.rtol = rtol
         self.limit_lambda = limit_lambda
+        self.use_rayleigh = use_rayleigh
+        if use_rayleigh:
+            self.blocksize = 1
 
     def iterate_one_k_point(self, hamiltonian, wfs, kpt):
         """Do a single RMM-DIIS iteration for the kpoint"""
@@ -93,7 +110,7 @@ class RMM_DIIS_new(Eigensolver):
                         weight = 0.0
                 error_block += weight * integrate(R_xG[n - n1], 
                                                   R_xG[n - n1])
-            comm.sum(error_block)
+            error_block = comm.sum(error_block)
             error += error_block
 
             # Insert first vectors and residuals for DIIS step
@@ -119,25 +136,82 @@ class RMM_DIIS_new(Eigensolver):
             self.timer.start('projections')
             wfs.pt.integrate(dpsit_xG, P_axi, kpt.q)
             self.timer.stop('projections')
-            self.timer.start('Calculate residuals')
-            self.calculate_residuals(kpt, wfs, hamiltonian, dpsit_xG,
-                                     P_axi, kpt.eps_n[n_x], dR_xG, n_x,
-                                     calculate_change=True)
-            self.timer.stop('Calculate residuals')
 
-            # Find lam that minimizes the norm of R'_G = R_G + lam dR_G
-            self.timer.start('Find lambda')
-            RdR_x = np.array([integrate(dR_G, R_G)
-                              for R_G, dR_G in zip(R_xG, dR_xG)])
-            dRdR_x = np.array([integrate(dR_G, dR_G) for dR_G in dR_xG])
-            comm.sum(RdR_x)
-            comm.sum(dRdR_x)
-            lam_x = -RdR_x / dRdR_x
+            if self.use_rayleigh:
+                self.timer.start('Minimize Rayleigh')
+                i1 = wfs.integrate(psit_xG, dR_xG, 
+                                          global_integral=False).item()
+                i2 = wfs.integrate(dpsit_xG, dR_xG, 
+                                          global_integral=False).item()
+                i3 = wfs.integrate(dpsit_xG, psit_xG, 
+                                          global_integral=False).item()
+                i4 = wfs.integrate(dpsit_xG, dpsit_xG, 
+                                          global_integral=False).item()
+
+                for a, dP_xi in P_axi.items():
+                    P_i = kpt.P_ani[a][n1]
+                    dP_i = dP_xi[0]
+                    dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
+                    dO_ii = wfs.setups[a].dO_ii
+                    i1 += np.dot(P_i, 
+                                        np.dot(dH_ii, dP_i.conj())).item()
+                    i2 += np.dot(dP_i, 
+                                        np.dot(dH_ii, dP_i.conj())).item()
+                    i3 += np.dot(dP_i, 
+                                        np.dot(dO_ii, P_i.conj())).item()
+                    i4 += np.dot(dP_i, 
+                                        np.dot(dO_ii, dP_i.conj())).item()
+
+                i1 = comm.sum(i1)
+                i2 = comm.sum(i2)
+                i3 = comm.sum(i3)
+                i4 = comm.sum(i4)
+
+                a = np.real(i2 * i3 - i1 * i4)
+                b = np.real(i2 - kpt.eps_n[n1] * i4)
+                c = np.real(i1 - kpt.eps_n[n1] * i3)
+                # print "A,B,C", a,b,c
+                lam_x = np.array((-2.0 * c / (b + np.sqrt(b**2 - 4.0 * a * c)),))
+
+                self.timer.stop('Minimize Rayleigh')
+                self.timer.start('Calculate residuals')
+                self.calculate_residuals(kpt, wfs, hamiltonian, dpsit_xG,
+                                         P_axi, kpt.eps_n[n_x], dR_xG, n_x,
+                                         calculate_change=True)
+                self.timer.stop('Calculate residuals')
+            else:
+                self.timer.start('Calculate residuals')
+                self.calculate_residuals(kpt, wfs, hamiltonian, dpsit_xG,
+                                         P_axi, kpt.eps_n[n_x], dR_xG, n_x,
+                                         calculate_change=True)
+                self.timer.stop('Calculate residuals')
+
+                # Find lam that minimizes the norm of R'_G = R_G + lam dR_G
+                self.timer.start('Find lambda')
+                RdR_x = np.array([integrate(dR_G, R_G)
+                                  for R_G, dR_G in zip(R_xG, dR_xG)])
+                dRdR_x = np.array([integrate(dR_G, dR_G) for dR_G in dR_xG])
+                comm.sum(RdR_x)
+                comm.sum(dRdR_x)
+                lam_x = -RdR_x / dRdR_x
+                self.timer.stop('Find lambda')
+
+            # print "Lam_x:", lam_x
             # Limit abs(lam) to [0.15, 1.0]
             if self.limit_lambda:
-                lam_x = np.where(np.abs(lam_x) < 0.1, 0.1 * np.sign(lam_x), lam_x)
-                lam_x = np.where(np.abs(lam_x) > 1.0, 1.0 * np.sign(lam_x), lam_x)
-            self.timer.stop('Find lambda')
+                upper = self.limit_lambda['upper']
+                lower = self.limit_lambda['lower']
+                if self.limit_lambda.get('absolute', False):
+                    lam_x = np.where(np.abs(lam_x) < lower, 
+                                     lower * np.sign(lam_x), lam_x)
+                    lam_x = np.where(np.abs(lam_x) > upper, 
+                                     upper * np.sign(lam_x), lam_x)
+                else:
+                    lam_x = np.where(lam_x < lower, lower, lam_x)
+                    lam_x = np.where(lam_x > upper, upper, lam_x)
+
+            # lam_x[:] = 0.1
+
             # New trial wavefunction and residual          
             self.timer.start('Update psi')
             for lam, psit_G, dpsit_G, R_G, dR_G in zip(lam_x, psit_xG, 
@@ -165,12 +239,21 @@ class RMM_DIIS_new(Eigensolver):
 
                     # Residual matrix
                     R_nn = np.zeros((nit+1, nit+1), wfs.dtype)
-                    rk(wfs.gd.dv, R_diis_nxG[istart:iend], 0.0, R_nn)
-                    comm.sum(R_nn)
+                    wfs.matrixoperator.gd.integrate(R_diis_nxG[istart:iend],
+                                                    R_diis_nxG[istart:iend],
+                                                    global_integral=True,
+                                                    _transposed_result=R_nn)
+                    # rk(wfs.gd.dv, R_diis_nxG[istart:iend], 0.0, R_nn)
+                    # comm.sum(R_nn)
 
                     # Overlap matrix
                     S_nn = np.zeros((nit + 1, nit + 1), wfs.dtype)
-                    rk(wfs.gd.dv, psit_diis_nxG[istart:iend], 0.0, S_nn)
+                    # rk(wfs.gd.dv, psit_diis_nxG[istart:iend], 0.0, S_nn)
+                    wfs.matrixoperator.gd.integrate(psit_diis_nxG[istart:iend],
+                                                    psit_diis_nxG[istart:iend],
+                                                    global_integral=False,
+                                                    _transposed_result=S_nn)
+
                     for a, P_nxi in P_diis_anxi.items():
                         dO_ii = wfs.setups[a].dO_ii
                         gemm(1.0, P_nxi[istart:iend], 
@@ -222,7 +305,7 @@ class RMM_DIIS_new(Eigensolver):
                             weight = 0.0
                     error_block += weight * integrate(R_xG[n - n1], 
                                                       R_xG[n - n1])
-                comm.sum(error_block)
+                error_block = comm.sum(error_block)
 
             self.timer.stop('DIIS step')                
             # Final trial step
