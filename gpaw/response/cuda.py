@@ -82,6 +82,8 @@ class BaseCuda:
         self.cufftplan = _gpaw.cufft_plan3d(nG[0],nG[1],nG[2])
         self.ind =Indices(chi0_wGG, chi)
 
+        status, self.mlocallist = _gpaw.cuMalloc(nmultix*sizeofint)
+
         if chi.optical_limit:
             status, self.opteikr_R = _gpaw.cuMalloc(nG0*sizeofdata)
             status, self.optpsit2_R = _gpaw.cuMalloc(nG0*sizeofdata)
@@ -123,11 +125,15 @@ class BaseCuda:
         self.P_P1_ani = np.zeros(Na, dtype=np.int64)       # for k
         self.P_P1_ai = np.zeros(Na, dtype=np.int64)
         self.P_P2_ani = np.zeros(Na, dtype=np.int64)       # for k+q
-        self.P_P2_ai = np.zeros(Na, dtype=np.int64)
+        self.P_P2_aui = np.zeros(Na, dtype=np.int64)
+
         self.host_Ni_a = Ni_a = np.zeros(Na, dtype=np.int32)
+        offset_a = np.zeros(Na, dtype=np.int32)
         for a in range(Na):
             Ni = len(R_asii[a][0])
             Ni_a[a] = Ni
+            if a > 0:
+                offset_a[a] += Ni
             status, dev_R_sii = _gpaw.cuMalloc(Ns*Ni*Ni*sizeofdouble)
             _gpaw.cuSetVector(Ns*Ni*Ni,sizeofdouble,R_asii[a].ravel(),1,dev_R_sii,1)
             self.P_R_asii[a] = dev_R_sii
@@ -139,25 +145,29 @@ class BaseCuda:
             
             status, dev_P_i = _gpaw.cuMalloc(Ni*sizeofdata)
             self.P_P1_ai[a] = dev_P_i
-            status, dev_P_i = _gpaw.cuMalloc(Ni*sizeofdata)
-            self.P_P2_ai[a] = dev_P_i
+            status, dev_P_ui = _gpaw.cuMalloc(Ni*self.nmultix*sizeofdata)
+            self.P_P2_aui[a] = dev_P_ui
 
-        
+        self.Nisum = np.int32(self.host_Ni_a.sum())
+
         status, self.R_asii = _gpaw.cuMalloc(Na*sizeofpointer) # dev_R_asii is a pointer array on GPU
         _gpaw.cuSetVector(Na,sizeofpointer,self.P_R_asii,1,self.R_asii,1)
             
         status, self.Ni_a = _gpaw.cuMalloc(Na*sizeofint)
         _gpaw.cuSetVector(Na,sizeofint,Ni_a,1,self.Ni_a,1)
+
+        status, self.offset_a = _gpaw.cuMalloc(Na*sizeofint)
+        _gpaw.cuSetVector(Na,sizeofint,offset_a,1,self.offset_a,1)
         
         status, self.P1_ani = _gpaw.cuMalloc(Na*sizeofpointer)
         status, self.P1_ai = _gpaw.cuMalloc(Na*sizeofpointer)
         status, self.P2_ani = _gpaw.cuMalloc(Na*sizeofpointer)
-        status, self.P2_ai = _gpaw.cuMalloc(Na*sizeofpointer)
-
+        status, self.P2_aui = _gpaw.cuMalloc(Na*sizeofpointer)
+        status, self.P_aup = _gpaw.cuMalloc(Na*sizeofpointer)
         _gpaw.cuSetVector(self.Na,sizeofpointer,self.P_P1_ani,1,self.P1_ani,1)
         _gpaw.cuSetVector(self.Na,sizeofpointer,self.P_P1_ai,1,self.P1_ai,1)
         _gpaw.cuSetVector(self.Na,sizeofpointer,self.P_P2_ani,1,self.P2_ani,1)
-        _gpaw.cuSetVector(self.Na,sizeofpointer,self.P_P2_ai,1,self.P2_ai,1)
+        _gpaw.cuSetVector(self.Na,sizeofpointer,self.P_P2_aui,1,self.P2_aui,1)
 
 
         if chi is not None:
@@ -169,14 +179,16 @@ class BaseCuda:
                 status = _gpaw.cuSetMatrix(npair,npw,sizeofdata,phi_Gp,npair,GPU_phi_Gp,npair)
                 self.P_phi_aGp.append(GPU_phi_Gp)
     
-        self.P_P_ap = []
-        self.P_P_aup = []
+        self.P_P_ap = np.zeros(Na, dtype=np.int64)
+        self.P_P_aup = np.zeros(Na, dtype=np.int64)
         for a, id in enumerate(wfs.setups.id_a):
             status,GPU_P_p = _gpaw.cuMalloc(Ni_a[a]*Ni_a[a]*sizeofdata)
-            self.P_P_ap.append(GPU_P_p)
+            self.P_P_ap[a] = GPU_P_p
 
             status,GPU_P_up = _gpaw.cuMalloc(self.nmultix*Ni_a[a]*Ni_a[a]*sizeofdata)
-            self.P_P_aup.append(GPU_P_up)
+            self.P_P_aup[a] = GPU_P_up
+
+        _gpaw.cuSetVector(self.Na,sizeofpointer,self.P_P_aup,1,self.P_aup,1)
 
         return
 
@@ -223,7 +235,6 @@ class BaseCuda:
             # there is no need to copy the whole host_P_ani while using only one n !! 
             _gpaw.cuSetVector(chi.nbands*Ni,sizeofdata,calc.wfs.kpt_u[u1].P_ani[a].ravel(),1,self.P_P1_ani[a],1)
             _gpaw.cuSetVector(chi.nbands*Ni,sizeofdata,calc.wfs.kpt_u[u2].P_ani[a].ravel(),1,self.P_P2_ani[a],1)
-
 
         if chi.optical_limit:
 #            self.ncoef = len(Q1_G) # the length of Q1_G and Q2_G are different for non optical transition
@@ -337,17 +348,29 @@ class BaseCuda:
         return 
 
 
-    def get_P_ai(self, P_P_ani, P_P_ai, P_ani, P_ai, time_rev, s, ibzkpt, n):
+    def get_P_ai(self, P_P_ani, P_P_aui, P_ani, P_aui, time_rev, s, ibzkpt, n_n, nn):
 
         for a in range(self.Na):
             Ni = self.host_Ni_a[a]
-            _gpaw.cuMemset(P_P_ai[a], 0, sizeofdata*Ni)
-    
-        _gpaw.cuGet_P_ai(self.spos_ac, self.kpoints.ibzk_kc, self.op_scc, self.a_sa, self.R_asii, 
-                         P_ani, P_ai, self.Ni_a, time_rev, self.Na, s, ibzkpt, n)
+            if nn == 1:
+                _gpaw.cuMemset(P_P_aui[a], 0, sizeofdata*Ni)
+            else:
+                _gpaw.cuMemset(P_P_aui[a], 0, sizeofdata*Ni*self.nmultix)                
+
+        _gpaw.cuGet_P_ani(self.spos_ac, self.kpoints.ibzk_kc, self.op_scc, self.a_sa, self.R_asii, 
+                         P_ani, P_aui, self.Ni_a, time_rev, self.Na, s, ibzkpt, n_n, nn, self.offset_a,
+                         self.host_Ni_a.sum())
 
         return 
 
+
+    def get_P_aup(self, P1_ai, P2_aui, P_aup, nn):
+
+        _gpaw.cuGet_P_ap(P1_ai, P2_aui, P_aup, self.Ni_a,
+                         self.offset_a, self.Na, nn, self.host_Ni_a.sum())
+
+
+        return 
 
     def calculate_Q_anL(self, host_P1_ani, n1_n, P_P1_ami, P2_ai, Delta_apL, Q_amL, mband):
         for a in range(self.Na):
@@ -435,7 +458,7 @@ class BaseCuda:
         _gpaw.cuFree(self.P1_ani) # they are pointer array
         _gpaw.cuFree(self.P1_ai)
         _gpaw.cuFree(self.P2_ani)
-        _gpaw.cuFree(self.P2_ai)
+        _gpaw.cuFree(self.P2_aui)
         _gpaw.cuFree(self.R_asii)
 
         for a in range(self.Na):
@@ -445,7 +468,7 @@ class BaseCuda:
             _gpaw.cuFree(self.P_P1_ani[a])
             _gpaw.cuFree(self.P_P1_ai[a])
             _gpaw.cuFree(self.P_P2_ani[a])
-            _gpaw.cuFree(self.P_P2_ai[a])
+            _gpaw.cuFree(self.P_P2_aui[a])
             
         _gpaw.cuFree(self.Ni_a)
 

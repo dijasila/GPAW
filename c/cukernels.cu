@@ -78,13 +78,12 @@ __global__ void copy( cuDoubleComplex *a, cuDoubleComplex *b, int N ){
 }
 
 
-
-__global__ void P_ai( double *spos_ac, double *ibzk_kc, int *op_scc, int *a_sa,
-		      double **R_asii, cuDoubleComplex **P_ani, cuDoubleComplex **Pout_ai, 
+/*
+__global__ void Pold_ai( double *spos_ac, double *ibzk_kc, int *op_scc, int *a_sa,
+		      double **R_asii, cuDoubleComplex **P_ani, cuDoubleComplex **Pout_ani, 
 		      int *Ni_a, bool time_rev, 
-		      int Na, int s, int ik, int n){
-  int tid = threadIdx.x;
-  int ia = blockIdx.x;
+		      int Na, int s, int ik, int *n_n, int n){
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
   __shared__ cuDoubleComplex x;
   __shared__ double S_c[3];
   __shared__ double tmp;
@@ -92,35 +91,126 @@ __global__ void P_ai( double *spos_ac, double *ibzk_kc, int *op_scc, int *a_sa,
   x=make_cuDoubleComplex(0., 0.);
   tmp = 0. ;
 
-  int ib=a_sa[s*Na+ia];
-  int Ni=Ni_a[ia];
+  for (int ia=0; ia<Na; ia++){
+      int ib=a_sa[s*Na+ia];
+      int Ni=Ni_a[ia];
+    
+      if (tid < 3){
+        S_c[tid] = 0.;
+        for (int dim=0; dim<3; dim++){
+          S_c[tid] += spos_ac[ia*3+dim] * op_scc[s*9+dim*3+tid] ;
+         }
+        S_c[tid] -= spos_ac[ib*3+tid];
+      }
+    
+      __syncthreads();
 
-  if (tid < 3){
-    S_c[tid] = 0.;
-    for (int dim=0; dim<3; dim++){
-      S_c[tid] += spos_ac[ia*3+dim] * op_scc[s*9+dim*3+tid] ;
-     }
-    S_c[tid] -= spos_ac[ib*3+tid];
+      tmp = S_c[0] * ibzk_kc[ik*3+0] + S_c[1] * ibzk_kc[ik*3+1] + S_c[2] * ibzk_kc[ik*3+2];
+
+      x = make_cuDoubleComplex(cos(2*CUDART_PI*tmp), sin(2*CUDART_PI*tmp));
+
+      int m = tid / Ni;
+      int i = tid % Ni;
+
+      if (tid < Ni*n){
+        for (int j=0; j<Ni; j++){
+	  Pout_ani[ia][m*Ni+i] = cuCadd(cuCmul(make_cuDoubleComplex(R_asii[ia][s*Ni*Ni+i*Ni+j],0), P_ani[ib][n_n(m)*Ni+j]), 
+  				Pout_ani[ia][m*Ni+i]);
+        }
+  
+        Pout_ani[ia][m*Ni+i] = cuCmul(x, Pout_ai[ia][m*Ni+i]);
+  
+        if (time_rev > 0){
+          Pout_ani[ia][m*Ni+i] = cuConj(Pout_ai[ia][m*Ni+i]);
+        }
+      }
+      __syncthreads();
+
   }
 
-  __syncthreads();
+}
+*/
 
-  tmp = S_c[0] * ibzk_kc[ik*3+0] + S_c[1] * ibzk_kc[ik*3+1] + S_c[2] * ibzk_kc[ik*3+2];
+__global__ void P_ai( double *spos_ac, double *ibzk_kc, int *op_scc, int *a_sa,
+		      double **R_asii, cuDoubleComplex **P_ani, cuDoubleComplex **Pout_ani, 
+		      int *Ni_a, bool time_rev, 
+		      int Na, int s, int ik, int *n_n, int n, int *offset, int NN){
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  cuDoubleComplex x;
+  double S_c[3];
+  double tmp;
+  int ia;
+  x=make_cuDoubleComplex(0., 0.);
+  tmp = 0. ;
 
-  x = make_cuDoubleComplex(cos(2*CUDART_PI*tmp), sin(2*CUDART_PI*tmp));
-
-  if (tid < Ni){
-    for (int j=0; j<Ni; j++){
-      Pout_ai[ia][tid] = cuCadd(cuCmul(make_cuDoubleComplex(R_asii[ia][s*Ni*Ni+tid*Ni+j],0), P_ani[ib][n*Ni+j]), Pout_ai[ia][tid]);
-      __syncthreads();
+  if (tid < NN*n){
+    for (int i=0; i<Na; i++){
+      if (tid < offset[i+1]*n && tid >= offset[i]*n){
+        ia = i;
+        break;
+      }
     }
-    Pout_ai[ia][tid] = cuCmul(x, Pout_ai[ia][tid]);
-
+  
+    int ib=a_sa[s*Na+ia];
+    int Ni=Ni_a[ia];
+    int Nib = Ni_a[ib];
+    
+    for (int i=0; i<3; i++){
+      S_c[i] = 0.;
+      for (int dim=0; dim<3; dim++){
+        S_c[i] += spos_ac[ia*3+dim] * op_scc[s*9+dim*3+i] ;
+       }
+      S_c[i] -= spos_ac[ib*3+i];
+    }
+    
+    tmp = S_c[0] * ibzk_kc[ik*3+0] + S_c[1] * ibzk_kc[ik*3+1] + S_c[2] * ibzk_kc[ik*3+2];
+  
+    x = make_cuDoubleComplex(cos(2*CUDART_PI*tmp), sin(2*CUDART_PI*tmp));
+  
+    int m = (tid-offset[ia]*n) / Ni;
+    int i = (tid-offset[ia]*n) % Ni;
+  
+    for (int j=0; j<Ni; j++){
+    	  Pout_ani[ia][m*Ni+i] = cuCadd(cuCmul(make_cuDoubleComplex(R_asii[ia][s*Ni*Ni+i*Ni+j],0), P_ani[ib][n_n[m]*Nib+j]), 
+    				Pout_ani[ia][m*Ni+i]);
+    }
+    
+    Pout_ani[ia][m*Ni+i] = cuCmul(x, Pout_ani[ia][m*Ni+i]);
+    
     if (time_rev > 0){
-      Pout_ai[ia][tid] = cuConj(Pout_ai[ia][tid]);
+      Pout_ani[ia][m*Ni+i] = cuConj(Pout_ani[ia][m*Ni+i]);
     }
   }
 }
+
+
+
+__global__ void P_ai_outer(cuDoubleComplex **P1_ai, cuDoubleComplex **P2_aui,  
+			   cuDoubleComplex **P_aup, 
+			   int *Ni_a, int Na, int n, int *offset, int NN){
+  /* NN is Ni_a.sum(), n_n is a list of bands, n is len(n_n)*/
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  int ia;
+
+  if (tid < NN*n){
+    for (int i=0; i<Na; i++){
+      if (tid < offset[i+1]*n && tid >= offset[i]*n){
+        ia = i;
+        break;
+      }
+    }
+  
+    int Ni=Ni_a[ia];
+
+    for (int i=0; i<Ni; i++){
+      int iu = (tid-offset[ia]*n) / Ni;
+      int j = (tid-offset[ia]*n) % Ni;
+      int p = Ni*i + j;
+      P_aup[ia][iu*Ni*Ni+p] = cuCmul(cuConj(P1_ai[ia][i]),  P2_aui[ia][iu*Ni+j]);
+    }
+  }
+}
+
 
 
 __global__ void Q_anL(cuDoubleComplex **P1_ami, cuDoubleComplex **P2_ai, 
@@ -257,22 +347,34 @@ extern "C" {
 
 
 extern "C" {
-  void cudaP_ai( double* dev_spos_ac, double* dev_ibzk_kc, int* dev_op_scc, int* dev_a_sa, 
-		 double **dev_R_asii, double complex **P_ani, double complex **Pout_ai, int* Ni_a,
-		 bool time_rev, int Na, int s, int ik, int n){
+  void cudaP_ani( double* dev_spos_ac, double* dev_ibzk_kc, int* dev_op_scc, int* dev_a_sa, 
+		 double **dev_R_asii, double complex **P_ani, double complex **Pout_ani, int* Ni_a,
+		 bool time_rev, int Na, int s, int ik, int* n_n, int n, int* offset, int NN){
 
   int threads = 128;
-  int blocks = Na;
+  int blocks = (NN*n)/threads + ((NN*n)%threads == 0 ? 0:1);
 
   P_ai<<<blocks, threads>>>( (double*)dev_spos_ac, (double*)dev_ibzk_kc, 
 			     (int*)dev_op_scc, (int*)dev_a_sa, 
 			     (double**)dev_R_asii,(cuDoubleComplex**)P_ani, 
-			     (cuDoubleComplex**)Pout_ai, (int*)Ni_a,
-			     time_rev, Na, s, ik, n);
+			     (cuDoubleComplex**)Pout_ani, (int*)Ni_a,
+			     time_rev, Na, s, ik, (int*)n_n, n, (int*)offset, NN);
 }
 }
 
 
+extern "C" {
+  void cudaP_aup( double complex **P1_ai, double complex **P2_aui, double complex **P_aup, 
+		  int* Ni_a, int Na, int n, int* offset, int NN){
+
+  int threads = 128;
+  int blocks = (NN*n)/threads + ((NN*n)%threads == 0 ? 0:1);
+
+  P_ai_outer<<<blocks, threads>>>( (cuDoubleComplex**)P1_ai, (cuDoubleComplex**)P2_aui, 
+			     (cuDoubleComplex**)P_aup, (int*)Ni_a,
+			     Na, n, (int*)offset, NN);
+}
+}
 
 extern "C" {
   void cudaQ_anL( double complex **P1_ami, double complex **P2_ai,  

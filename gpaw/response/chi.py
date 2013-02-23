@@ -348,8 +348,19 @@ class Chi(BaseChi):
                                 P1_ai = self.get_P_ai(k, n, spin)
                     else:
                         P1_ai = self.get_P_ai(k, n, spin)
-#                        cu.get_P_ai(cu.P_P1_ani, cu.P_P1_ai, cu.P1_ani, cu.P1_ai, 
-#                                    cu.time_rev1, cu.s1, ibzkpt1, n)
+
+                        _gpaw.cuMemset(cu.mlocallist, 0, sizeofint*cu.Na)
+                        _gpaw.cuSetVector(1,sizeofint,np.array(n, np.int32),1,cu.mlocallist,1)      
+                        cu.get_P_ai(cu.P_P1_ani, cu.P_P1_ai, cu.P1_ani, cu.P1_ai, 
+                                            cu.time_rev1, cu.s1, ibzkpt1, cu.mlocallist, 1)
+
+                        for a in range(cu.Na):
+                            P1_i = P1_ai[a]
+                            Ni = len(P1_i)
+                            Ptmp_i = np.zeros_like(P1_i)
+                            _gpaw.cuGetVector(Ni, sizeofdata, cu.P_P1_ai[a],1,Ptmp_i,1)                                    
+                            assert np.abs(P1_i - Ptmp_i).sum() < 1e-7
+
 
                     if self.sync: timer.end('paw')
 
@@ -392,6 +403,9 @@ class Chi(BaseChi):
                                                 iu += 1
                                         cu.get_wfs(psit_uG, cu.Q2_G, cu.ncoef2, nmultix)
 #                                    _gpaw.cuCopy_vector(cu.tmp_uQ+imultix*sizeofdata*cu.nG0, cu.tmp_Q, self.nG0) 
+                                        _gpaw.cuMemset(cu.mlocallist, 0, sizeofint*cu.Na)
+                                        _gpaw.cuSetVector(len(mlocallist),sizeofint,np.array(mlocallist, np.int32),1,
+                                                          cu.mlocallist,1)                                    
 
                             if self.sync: timer.end('wfs_read')
 
@@ -487,9 +501,22 @@ class Chi(BaseChi):
                                     else:
                                         P2_ai = self.get_P_ai(kq_k[k], m, spin)         
                             else:
-                                P2_aui = self.get_P_ai(kq_k[k], mlocallist, spin)         
-#                                cu.get_P_ai(cu.P_P2_ani, cu.P_P2_ai, cu.P2_ani, cu.P2_ai, 
-#                                            cu.time_rev2, cu.s2, ibzkpt2, m)
+                                if imultix == 0:
+                                    P2_aui = self.get_P_ai(kq_k[k], mlocallist, spin)
+
+                                    cu.get_P_ai(cu.P_P2_ani, cu.P_P2_aui, cu.P2_ani, cu.P2_aui, 
+                                                cu.time_rev2, cu.s2, ibzkpt2, cu.mlocallist, len(mlocallist))
+
+                                    
+                                    for iu in range(len(mlocallist)):
+                                        for a in range(cu.Na):
+                                            P2_i = P2_aui[a][iu]
+                                            Ni = len(P2_i)
+                                            Ptmp_i = np.zeros_like(P2_i)
+                                            _gpaw.cuGetVector(Ni, sizeofdata, cu.P_P2_aui[a]+iu*Ni*sizeofdata,1,Ptmp_i,1)                                    
+                                            assert np.abs(P2_i - Ptmp_i).sum() < 1e-7
+
+
                             if self.sync: timer.end('paw')
 
                             for a, id in enumerate(calc.wfs.setups.id_a):
@@ -498,12 +525,18 @@ class Chi(BaseChi):
                                     P_p = np.outer(P1_ai[a].conj(), P2_ai[a]).ravel()
                                 else:
                                     if imultix == 0:
-                                        Ni = cu.host_Ni_a[a]
-                                        P_up = np.zeros((nmultix, Ni*Ni), complex)
-                                        for iu in range(len(P2_aui[a])):
-                                            P_up[iu] = np.outer(P1_ai[a].conj(), P2_aui[a][iu]).ravel()
-    
-                                        status = _gpaw.cuSetMatrix(Ni*Ni,nmultix,sizeofdata,P_up,Ni*Ni,cu.P_P_aup[a],Ni*Ni)
+                                        cu.get_P_aup(cu.P1_ai, cu.P2_aui, cu.P_aup, len(mlocallist))
+#                                        Ni = cu.host_Ni_a[a]
+#                                        P_up = np.zeros((nmultix, Ni*Ni), complex)
+#                                        for iu in range(len(mlocallist)):
+#                                            P1_i = np.zeros(Ni, complex)
+#                                            P2_i = np.zeros(Ni, complex)
+#                                            status = _gpaw.cuGetVector(Ni,sizeofdata,cu.P_P1_ai[a],1, P1_i, 1)
+#                                            status = _gpaw.cuGetVector(Ni,sizeofdata,cu.P_P2_aui[a]+iu*Ni*sizeofdata,1, P2_i, 1)
+#                                            P_up[iu] = np.outer(P1_i.conj(), P2_i).ravel()
+##                                            P_up[iu] = np.outer(P1_ai[a].conj(), P2_aui[a][iu]).ravel()
+#    
+#                                        status = _gpaw.cuSetMatrix(Ni*Ni,nmultix,sizeofdata,P_up,Ni*Ni,cu.P_P_aup[a],Ni*Ni)
                                 if self.sync: timer.end('paw_outer')
 
                                 if self.sync: timer.start('cugemv')
@@ -515,24 +548,6 @@ class Chi(BaseChi):
                                                      nmultix, self.npw, Ni*Ni, Ni*Ni, Ni*Ni, self.npw, 0, 1)
                                 if self.sync: timer.end('cugemv')
 
-#                            for a, id in enumerate(calc.wfs.setups.id_a):
-#                                if self.sync: timer.start('paw_outer')
-#                                if not self.cuda:
-#                                    P_p = np.outer(P1_ai[a].conj(), P2_ai[a]).ravel()
-#                                else:
-#                                    Ni = cu.host_Ni_a[a]
-#                                    # here ravel has the opposite effect in memory 
-#                                    _gpaw.cugemm(cu.handle,1.0, cu.P_P2_ai[a], cu.P_P1_ai[a], 0.0, cu.P_P_ap[a], \
-#                                                     Ni, Ni, 1, Ni, Ni, Ni, 2, 0) # transb(Hermitian), transa
-#                                if self.sync: timer.end('paw_outer')
-#
-#                                if self.sync: timer.start('cugemv')
-#                                if not self.cuda:
-#                                    gemv(1.0, self.phi_aGp[a], P_p, 1.0, rho_G)
-#                                else:
-#                                    _gpaw.cuZgemv(cu.handle,Ni*Ni,self.npw,1.0,cu.P_phi_aGp[a],
-#                                                  Ni*Ni,cu.P_P_ap[a],1,1.0,cu.rho_uG+GPUpointer,1)
-#                                if self.sync: timer.end('cugemv')
 
                             if self.optical_limit and self.cuda:
                                 if self.sync: timer.start('cugemv')

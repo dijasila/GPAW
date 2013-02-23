@@ -551,7 +551,7 @@ class BaseChi:
         
             x = np.exp(2j * pi * np.dot(k_c, S_c))
             if Ptmp_ai is None:
-                if type(n_n) is int:
+                if type(n_n) is int or type(n_n) is np.int64:
                     P_ni = np.dot(calc.wfs.setups[a].R_sii[s], kpt.P_ani[b][n_n]) * x
                 else:
                     P_ni = np.zeros((self.nmultix, Ni), complex)

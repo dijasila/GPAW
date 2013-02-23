@@ -462,16 +462,28 @@ PyObject* cuCopy_vector(PyObject *self, PyObject *args)
 }
 
 
-PyObject* cuGet_P_ai(PyObject *self, PyObject *args)
+PyObject* cuGet_P_ani(PyObject *self, PyObject *args)
 {
-  int Na, s, ik, n;
+  int Na, s, ik, n, NN;
   int time_rev;
-  void *spos_ac, *ibzk_kc, *op_scc, *a_sa, **R_asii, **P_ani, **Pout_ai, *Ni_a;
+  void *spos_ac, *ibzk_kc, *op_scc, *a_sa, **R_asii, **P_ani, **Pout_ani, *Ni_a, *n_n, *offset;
   
-  if (!PyArg_ParseTuple(args, "LLLLLLLLiiiii",&spos_ac, &ibzk_kc, &op_scc, &a_sa, &R_asii, 
-			&P_ani, &Pout_ai, &Ni_a, &time_rev, &Na, &s, &ik, &n))
+  if (!PyArg_ParseTuple(args, "LLLLLLLLiiiiLiLi",&spos_ac, &ibzk_kc, &op_scc, &a_sa, &R_asii, 
+			&P_ani, &Pout_ani, &Ni_a, &time_rev, &Na, &s, &ik, &n_n, &n, &offset, &NN))
     return NULL;
-  cudaP_ai(spos_ac, ibzk_kc, op_scc, a_sa, R_asii, P_ani, Pout_ai, Ni_a, time_rev, Na, s, ik, n);
+  cudaP_ani(spos_ac, ibzk_kc, op_scc, a_sa, R_asii, P_ani, Pout_ani, Ni_a, time_rev, Na, s, ik, n_n, n, offset, NN);
+  Py_RETURN_NONE;
+}
+
+
+PyObject* cuGet_P_ap(PyObject *self, PyObject *args)
+{
+  int Na, n, NN;
+  void **P1_ai, **P2_aui, **P_aup, *Ni_a, *offset;
+  
+  if (!PyArg_ParseTuple(args, "LLLLLiii",&P1_ai, &P2_aui, &P_aup, &Ni_a, &offset, &Na, &n, &NN))
+    return NULL;
+  cudaP_aup(P1_ai, P2_aui, P_aup, Ni_a, Na, n, offset, NN);
   Py_RETURN_NONE;
 }
 
