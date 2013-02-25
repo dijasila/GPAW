@@ -128,12 +128,13 @@ class BaseCuda:
         self.P_P2_aui = np.zeros(Na, dtype=np.int64)
 
         self.host_Ni_a = Ni_a = np.zeros(Na, dtype=np.int32)
-        offset_a = np.zeros(Na, dtype=np.int32)
+        offset = 0
+        offset_a = np.zeros(Na+1, dtype=np.int32)
         for a in range(Na):
             Ni = len(R_asii[a][0])
             Ni_a[a] = Ni
-            if a > 0:
-                offset_a[a] += Ni
+            offset += Ni
+            offset_a[a+1] = offset
             status, dev_R_sii = _gpaw.cuMalloc(Ns*Ni*Ni*sizeofdouble)
             _gpaw.cuSetVector(Ns*Ni*Ni,sizeofdouble,R_asii[a].ravel(),1,dev_R_sii,1)
             self.P_R_asii[a] = dev_R_sii
@@ -156,8 +157,9 @@ class BaseCuda:
         status, self.Ni_a = _gpaw.cuMalloc(Na*sizeofint)
         _gpaw.cuSetVector(Na,sizeofint,Ni_a,1,self.Ni_a,1)
 
-        status, self.offset_a = _gpaw.cuMalloc(Na*sizeofint)
-        _gpaw.cuSetVector(Na,sizeofint,offset_a,1,self.offset_a,1)
+        status, self.offset_a = _gpaw.cuMalloc((Na+1)*sizeofint)
+        _gpaw.cuSetVector(Na+1,sizeofint,offset_a,1,self.offset_a,1)
+        print offset_a
         
         status, self.P1_ani = _gpaw.cuMalloc(Na*sizeofpointer)
         status, self.P1_ai = _gpaw.cuMalloc(Na*sizeofpointer)
@@ -209,6 +211,9 @@ class BaseCuda:
         self.ncoef2 = len(Q2_G)
         status, self.Q1_G = _gpaw.cuMalloc(self.ncoef*sizeofint)
         status, self.Q2_G = _gpaw.cuMalloc(self.ncoef2*sizeofint)
+        status, self.psit_G = _gpaw.cuMalloc(self.ncoef*sizeofdata)
+        status, self.psit_uG = _gpaw.cuMalloc(self.ncoef2*self.nmultix*sizeofdata)
+
         _gpaw.cuSetVector(self.ncoef,sizeofint,Q1_G,1,self.Q1_G,1)
         _gpaw.cuSetVector(self.ncoef2,sizeofint,Q2_G,1,self.Q2_G,1)
            
@@ -300,34 +305,19 @@ class BaseCuda:
 #        _gpaw.cuSetVector(self.Na,sizeofpointer,self.P_Delta_apL,1,self.Delta_apL,1)
 
 
-    def get_wfs(self, host_psit_uG, Q_G, ncoef,nmultix):
-                     
+    def get_wfs(self, host_psit_uG, psit_uG, Q_G, ncoef,nmultix, chi):
+               
         nx,ny,nz = self.nG
         tmp_uQ = self.tmp_uQ
 
-        status, dev_uG = _gpaw.cuMalloc(ncoef*nmultix*sizeofdata)
-        _gpaw.cuSetVector(ncoef*nmultix,sizeofdata,host_psit_uG,1,dev_uG,1)
+        _gpaw.cuSetVector(ncoef*nmultix,sizeofdata,host_psit_uG,1,psit_uG,1)
         _gpaw.cuMemset(tmp_uQ, 0, sizeofdata*self.nG0*nmultix)  # dev_Q has to be zeor
-        _gpaw.cuMap_G2Q( dev_uG, tmp_uQ, Q_G, ncoef, self.nG0, nmultix )
+        _gpaw.cuMap_G2Q( psit_uG, tmp_uQ, Q_G, ncoef, self.nG0, nmultix )
         if nmultix == 1:
             _gpaw.cufft_execZ2Z(self.cufftplan, tmp_uQ, tmp_uQ, 1)
         else:
             _gpaw.cufft_execZ2Z(self.cufftplanmany, tmp_uQ, tmp_uQ, 1)
         _gpaw.cuZscal(self.handle, self.nG0*nmultix, 1./self.nG0, tmp_uQ, 1)
-        
-        _gpaw.cuFree(dev_uG)
-
-        
-
-
-#        status, dev_G = _gpaw.cuMalloc(ncoef*sizeofdata)
-#        _gpaw.cuMemset(self.tmp_Q, 0, sizeofdata*self.nG0)  # dev_Q has to be zeor
-#    
-#        _gpaw.cuMap_G2Q( dev_G, self.tmp_Q, Q_G, ncoef )
-#        _gpaw.cufft_execZ2Z(self.cufftplan, self.tmp_Q, self.tmp_Q,1)
-#        _gpaw.cuZscal(self.handle, self.nG0, 1./self.nG0, self.tmp_Q, 1)
-#        _gpaw.cuFree(dev_G)
-
 
         return
 
@@ -442,6 +432,8 @@ class BaseCuda:
     def kspecific_free(self, chi):
         _gpaw.cuFree(self.Q1_G)
         _gpaw.cuFree(self.Q2_G)
+        _gpaw.cuFree(self.psit_G)
+        _gpaw.cuFree(self.psit_uG)
 
         if chi.optical_limit:
             _gpaw.cuFree(self.tmp_G)
