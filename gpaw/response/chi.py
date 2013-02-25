@@ -512,7 +512,7 @@ class Chi(BaseChi):
                                     if imultix == 0:
                                         Ni = cu.host_Ni_a[a]
                                         _gpaw.cugemm(cu.handle,1.0,  cu.P_phi_aGp[a], cu.P_P_aup[a], 1.0, cu.rho_uG, \
-                                                     nmultix, self.npw, Ni*Ni, Ni*Ni, Ni*Ni, self.npw, 0, 1)
+                                                     len(mlocallist), self.npw, Ni*Ni, Ni*Ni, Ni*Ni, self.npw, 0, 1)
                                 if self.sync: timer.end('cugemv')
 
 
@@ -573,7 +573,7 @@ class Chi(BaseChi):
                                                     alpha = alpha_u[iu]
                                                     _gpaw.cuZscal(cu.handle,self.npw,alpha,cu.rho_uG+iu*self.npw*sizeofdata,1)
 
-                                                status = _gpaw.cuZherk(cu.handle,0,self.npw,nmultix,-1.0,cu.rho_uG,self.npw,1.0,
+                                                status = _gpaw.cuZherk(cu.handle,0,self.npw,len(mlocallist),-1.0,cu.rho_uG,self.npw,1.0,
                                                                        matrixGPU_GG,self.npw)
                                     else:
                                         axpy(C, rho_GG, chi0_wGG[iw])

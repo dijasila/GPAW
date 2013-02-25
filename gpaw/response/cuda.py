@@ -159,7 +159,6 @@ class BaseCuda:
 
         status, self.offset_a = _gpaw.cuMalloc((Na+1)*sizeofint)
         _gpaw.cuSetVector(Na+1,sizeofint,offset_a,1,self.offset_a,1)
-        print offset_a
         
         status, self.P1_ani = _gpaw.cuMalloc(Na*sizeofpointer)
         status, self.P1_ai = _gpaw.cuMalloc(Na*sizeofpointer)
