@@ -7,6 +7,8 @@ import time
 import pickle
 import math
 import glob
+import StringIO
+import array
 
 import numpy as np
 import ase.units
@@ -631,8 +633,36 @@ class LrTDDFTindexed:
                 return ind
         return None
 
+    def get_local_eh_index(self, ip):
+        if ip % self.stride != self.offset:
+            return None
+        return ip // self.stride
 
-# Probably does not work
+    def get_local_dd_index(self, jq):
+        if jq % self.dd_comm.size != self.dd_comm.rank:
+            return None
+        return jq // self.dd_comm.size
+
+    def get_global_eh_index(self, lip):
+        return lip * self.stride + self.offset
+
+
+    def get_matrix_elem_proc_and_index(self, ip, jq):
+        ehproc = ip % self.eh_comm.size
+        ddproc = jq % self.dd_comm.size
+        proc = ehproc * self.dd_comm.size + ddproc
+        lip = ip // self.stride
+        ljq = jq // self.stride
+        return (proc, ehproc, ddproc, lip, ljq)
+
+
+#    def get_local_eig_coeff(self, k, ip):
+#        kloc = self.get_local_eh_index(k)
+#        if kloc is None:
+#            return 0.0
+#        return self.evectors[kloc][ip]
+
+    # Probably does not work
 #    def get_evector(self, k):
 #        # First get the eigenvector for the rank 0 and
 #        # then broadcast it  
@@ -652,17 +682,6 @@ class LrTDDFTindexed:
 #        self.eh_comm.broadcast(evec, 0)
 #        return evec
 
-    def get_local_index(self,k):
-        if k % self.stride != self.offset:
-            return None
-        return k // self.stride
-
-    def get_local_eig_coeff(self, k, ip):
-        kloc = self.get_local_index(k)
-        if kloc is None:
-            return 0.0
-        return self.evectors[kloc][ip]
-    
 ####
 # Somewhat ugly things
 ####
@@ -733,7 +752,7 @@ class LrTDDFTindexed:
         nloc = len(self.evectors)
         sqrtwloc = np.zeros(nloc)
         for kloc in range(nloc):
-            sqrtwloc[kloc] = np.sqrt(self.get_excitation_energy(kloc*self.stride+self.offset))
+            sqrtwloc[kloc] = np.sqrt(self.get_excitation_energy(self.get_global_eh_index(kloc)))
 
         # continuous arrays because of performance reasons
         dmxloc  = np.zeros(nloc)
@@ -785,7 +804,7 @@ class LrTDDFTindexed:
         
         self.transition_properties = np.zeros([len(self.kss_list),1+3+3])
         for kloc in range(nloc):
-            k = kloc * self.stride + self.offset
+            k = self.get_global_eh_index(kloc)
             self.transition_properties[k,0] = sqrtwloc[kloc] * sqrtwloc[kloc]
             self.transition_properties[k,1] = dmxloc[kloc]
             self.transition_properties[k,2] = dmyloc[kloc]
@@ -799,6 +818,208 @@ class LrTDDFTindexed:
         #print >> self.txt, 'Calculating transition properties done (', str(datetime.datetime.now()), ').'
         self.trans_prop_ready = True
 
+
+
+
+    def calculate_response_wavefunction_new(self, omega, eta, laser):
+        laser = np.array(laser)
+
+        nrow = len(self.kss_list)  # total rows
+
+        # read K_matrix (creates indexing also)
+        K_matrix = self.read_K_matrix_new()
+        nlrow = K_matrix.shape[0]
+        nlcol = K_matrix.shape[1]
+
+        
+        for kss_ip in self.kss_list:
+            i = kss_ip.occ_ind
+            p = kss_ip.unocc_ind
+            ip = self.index_map.get( (i,p) )
+
+            assert ip is not None, "Could not find index for transition (%d,%d)." % (i,p)
+
+
+            # from Casida form to K
+            ljq = self.get_local_dd_index(ip)
+            if ljq is not None:
+                K_matrix[:,ljq] /= np.sqrt(2. * kss_ip.energy_diff * kss_ip.pop_diff)
+            lip = self.get_local_eh_index(ip)
+            if lip is not None:
+                K_matrix[lip,:] /= np.sqrt(2. * kss_ip.energy_diff * kss_ip.pop_diff)
+
+            # K => (K N)**T = N K (for scalapack)
+            #if lip is not None:
+            #    K_matrix[lip,:] *= kss_ip.pop_diff
+
+            if ljq is not None:
+                K_matrix[:,ljq] *= kss_ip.pop_diff
+            
+
+
+        # ---------------------------------------------------------------
+        # for SCALAPACK we need TRANSPOSED MATRIX, i.e.,
+        # fill nloc x nrow matrix like it would be nrow x nloc matrix
+        # fill nlcol x nlrow matrix like it would be nlrow x ncol matrix
+        # don't worry, for serial version we later transpose this matrix
+        # ---------------------------------------------------------------
+        At_matrix = np.zeros((nlcol*4,nlrow*4))
+
+        #print K_matrix.shape  #  N/eh x  N/dd
+        #print At_matrix.shape # 4N/dd x 4N/eh
+
+        # scatter K... we use 4x4 (re/im,+/-) blocks for scalapack
+        for icol in range(nlcol):
+            # build index pairs (col <=> row for scalapack)
+            # scalapack column index
+            cind = np.array(np.zeros(nlrow,dtype=int)+icol*4)
+            # scalapack row index
+            rind = np.arange(nlrow)*4
+
+            # add N K to At
+            At_matrix[cind+0, rind+0] =  K_matrix[:,icol]
+            At_matrix[cind+1, rind+0] =  K_matrix[:,icol]
+            At_matrix[cind+0, rind+1] =  K_matrix[:,icol]
+            At_matrix[cind+1, rind+1] =  K_matrix[:,icol]
+
+            At_matrix[cind+2, rind+2] =  K_matrix[:,icol]
+            At_matrix[cind+3, rind+2] = -K_matrix[:,icol]
+            At_matrix[cind+2, rind+3] = -K_matrix[:,icol]
+            At_matrix[cind+3, rind+3] =  K_matrix[:,icol]
+
+
+            
+        # diagonal terms of blocks
+        for kss_ip in self.kss_list:
+            i = kss_ip.occ_ind
+            p = kss_ip.unocc_ind
+            ip = self.index_map[(i,p)]
+            assert ip is not None, "Could not find index for transition (%d,%d)." % (i,p)
+            lip = self.get_local_eh_index(ip)
+            if lip is None: 
+                continue
+            ljq = self.get_local_dd_index(ip)
+            if ljq is None: 
+                continue
+
+            # print >> self.txt, kss_ip.energy_diff, kss_ip.dip_mom_r
+
+            At_matrix[ljq*4+0, lip*4+0] += kss_ip.energy_diff + omega
+            At_matrix[ljq*4+1, lip*4+1] += kss_ip.energy_diff - omega
+            At_matrix[ljq*4+2, lip*4+2] += kss_ip.energy_diff + omega
+            At_matrix[ljq*4+3, lip*4+3] += kss_ip.energy_diff - omega
+
+            # transposed again
+            At_matrix[ljq*4+0, lip*4+2] += eta
+            At_matrix[ljq*4+1, lip*4+3] += eta
+            At_matrix[ljq*4+2, lip*4+0] += -eta
+            At_matrix[ljq*4+3, lip*4+1] += -eta
+
+
+        # rhs
+        V_rhs = []
+        for kss_jq in self.kss_list:
+            j = kss_jq.occ_ind
+            q = kss_jq.unocc_ind
+            jq = self.index_map[(j,q)]
+            assert jq is not None, "Could not find index for transition (%d,%d)." % (j,q)
+
+            if jq % self.parent_comm.size != self.parent_comm.rank:
+                continue
+            
+            # exp(+iwt) + exp(-iwt)
+            #print ljq, kss_jq.dip_mom_r, laser
+            V_rhs.append( np.dot(kss_jq.dip_mom_r, laser) )
+            V_rhs.append( np.dot(kss_jq.dip_mom_r, laser) )
+            V_rhs.append( 0. )
+            V_rhs.append( 0. )
+
+        V_rhs = np.array( V_rhs )
+        
+
+        #for proc in range(self.parent_comm.size):
+        #    sys.stdout.flush()
+        #    self.parent_comm.barrier()
+        #    if proc != self.parent_comm.rank: continue
+        #    print '0000000000000000000000000 rank #', proc, '-------------'
+        #    for i in range(nlrow*4):
+        #        for j in range(nlcol*4):
+        #            print "%04d %04d %04d %04d %18.12lf" % (((i/4)*self.eh_comm.size+self.eh_comm.rank)*4+(i%4), ((j/4)*self.dd_comm.size + self.dd_comm.rank)*4 + (j%4), i, j, At_matrix[j,i])
+        #    print
+
+
+        #self.parent_comm.barrier()
+        #sys.exit(0)
+
+
+        # ScaLapack
+        parm = self.calc.input_parameters
+        sl_lrtddft = parm.parallel['sl_lrtddft']
+        if sl_lrtddft is not None:
+            ksl = LrTDDFTLayouts(sl_lrtddft, nrow, self.dd_comm, self.eh_comm)
+            ksl.solve(At_matrix, V_rhs)
+
+            #print self.parent_comm.rank, V_rhs
+
+            C = np.zeros(nrow*4)
+            kl = 0
+            for (kg,kss_jq) in enumerate(self.kss_list):
+                j = kss_jq.occ_ind
+                q = kss_jq.unocc_ind
+                jq = self.index_map[(j,q)]
+                assert jq is not None, "Could not find index for transition (%d,%d)." % (j,q)
+                
+                if jq % self.parent_comm.size != self.parent_comm.rank:
+                    continue
+
+                C[kg*4+0] = V_rhs[kl*4+0]
+                C[kg*4+1] = V_rhs[kl*4+1]
+                C[kg*4+2] = V_rhs[kl*4+2]
+                C[kg*4+3] = V_rhs[kl*4+3]
+
+                kl += 1
+
+            self.parent_comm.sum(C)
+            
+        else:
+            assert nrow == nlrow and nrow == nlcol, "Parallel solve without scalapack is not implemented yet." % (nloc,nrow)
+            C = np.linalg.solve(np.transpose(At_matrix), V_rhs)
+
+
+        # response wavefunction
+        #   perturbation was exp(iwt) + exp(-iwt) = 2 cos(wt)
+        #   => real part of the polarizability is propto 2 cos(wt)
+        #   => imag part of the polarizability is propto 2 sin(wt)
+        #
+        # exp(iwt)
+        # dn+ = phi-**h phi0 + phi0**h phi+ = phi0 (phi-**h + phi+)
+        # exp(-iwt)
+        # dn- = phi+**h phi0 + phi0**h phi- = phi0 (phi+**h + phi-) = dn+**h
+        #
+        # 2 cos(wt)
+        # dn_2cos =    dn+ + dn-      =     dn+ + dn+**h  = Re[dn+] + Re[dn-]  
+        # 2 sin(wt)
+        # dn_2sin = -i(dn+ - dn-)     = -i (dn+ - dn-**h) = Im[dn+] - Im[dn-]
+
+        # Re[phi-**h + phi_+]
+        
+        rind = np.array(range(nrow)) * 4
+        C_re = C[rind+0] + C[rind+1]
+        # Im[phi-**h + phi_+]
+        C_im = C[rind+2] - C[rind+3]
+        
+        # normalization (where the hell this comes from ?!? 
+        #                lorentzian or fourier)
+        C_re *= 1/(np.pi)
+        C_im *= 1/(np.pi)
+
+        #print >> self.txt, C
+        #print >> self.txt, C_re
+        #print >> self.txt, C_im
+
+        return (C_re,C_im)
+
+    
 
     # TD-DFPT:
     # A C = -Vext 
@@ -816,6 +1037,11 @@ class LrTDDFTindexed:
     def calculate_response_wavefunction(self, omega, eta, laser):
         laser = np.array(laser)
 
+        # Create indexing
+        self.index_map = {}        # (i,p) to matrix index map
+        for (ip, kss) in enumerate(self.kss_list):
+            self.index_map[(kss.occ_ind,kss.unocc_ind)] = ip
+
 
         ################
         # Wrong not reading K-matrix but it's "Casida form" 
@@ -829,25 +1055,19 @@ class LrTDDFTindexed:
         # ---------------------------------------------------------------
         # for SCALAPACK we need TRANSPOSED MATRIX 
         # ---------------------------------------------------------------
-
-        # Create indexing
-        self.index_map = {}        # (i,p) to matrix index map
-        for (ip, kss) in enumerate(self.kss_list):
-            self.index_map[(kss.occ_ind,kss.unocc_ind)] = ip
-
         
 
         # Casida => K => (K N)**T
         for kss_ip in self.kss_list:
             i = kss_ip.occ_ind
             p = kss_ip.unocc_ind
-            ip = self.index_of_kss(i,p)
+            ip = self.index_map[(i,p)]
             assert ip is not None, "Could not find index for transition (%d,%d)." % (i,p)
 
             # Casida to K
             K_matrix[:,ip] /= np.sqrt(2.* kss_ip.energy_diff * kss_ip.pop_diff)
                         
-            lip = self.get_local_index(ip)
+            lip = self.get_local_eh_index(ip)
             if lip is None: 
                 continue
 
@@ -856,6 +1076,8 @@ class LrTDDFTindexed:
 
             # K => (K N)**T (scalapack)
             K_matrix[lip,:] *= kss_ip.pop_diff # K => N K
+            #this is wrong: K_matrix[:,ip] *= kss_ip.pop_diff # K => N K
+
             
 
         # print K_matrix
@@ -883,6 +1105,7 @@ class LrTDDFTindexed:
             At_matrix[cind+2, rind+3] = -K_matrix[i,:]
             At_matrix[cind+3, rind+3] = K_matrix[i,:]
 
+
         #
         # FIX ME: DOES NOT WORK WITH FRACTIONAL OCCUPATIONS or maybe it does
         #
@@ -890,9 +1113,9 @@ class LrTDDFTindexed:
         for kss_ip in self.kss_list:
             i = kss_ip.occ_ind
             p = kss_ip.unocc_ind
-            ip = self.index_of_kss(i,p)
+            ip = self.index_map[(i,p)]
             assert ip is not None, "Could not find index for transition (%d,%d)." % (i,p)
-            lip = self.get_local_index(ip)
+            lip = self.get_local_eh_index(ip)
             if lip is None: 
                 continue
 
@@ -915,9 +1138,9 @@ class LrTDDFTindexed:
         for kss_ip in self.kss_list:
             i = kss_ip.occ_ind
             p = kss_ip.unocc_ind
-            ip = self.index_of_kss(i,p)
+            ip = self.index_map[(i,p)]
             assert ip is not None, "Could not find index for transition (%d,%d)." % (i,p)
-            lip = self.get_local_index(ip)
+            lip = self.get_local_eh_index(ip)
             if lip is None: 
                 continue
             
@@ -943,13 +1166,14 @@ class LrTDDFTindexed:
         if sl_lrtddft is not None:
             ksl = LrTDDFTLayouts(sl_lrtddft, nrow, self.dd_comm, self.eh_comm)
             ksl.solve(At_matrix, V_rhs)
+            #print self.parent_comm.rank, V_rhs
             C = np.zeros(nrow*4)
             for kss_ip in self.kss_list:
                 i = kss_ip.occ_ind
                 p = kss_ip.unocc_ind
-                ip = self.index_of_kss(i,p)
+                ip = self.index_map[(i,p)]
                 assert ip is not None, "Could not find index for transition (%d,%d)." % (i,p)
-                lip = self.get_local_index(ip)
+                lip = self.get_local_eh_index(ip)
                 if lip is None: 
                     continue
                 C[(ip*4+0):(ip*4+4)] = V_rhs[(lip*4+0):(lip*4+4)]
@@ -959,6 +1183,7 @@ class LrTDDFTindexed:
             assert nloc == nrow, "Parallel solve without scalapack is not implemented yet (nloc!=nrow, %d != %d)." % (nloc,nrow)
             C = np.linalg.solve(np.transpose(At_matrix), V_rhs)
         
+
 
         # response wavefunction
         #   perturbation was exp(iwt) + exp(-iwt) = 2 cos(wt)
@@ -994,6 +1219,11 @@ class LrTDDFTindexed:
         return (C_re,C_im)
         
     def get_transition_density(self, C_im, collect=False):
+        # Create indexing
+        self.index_map = {}        # (i,p) to matrix index map
+        for (ip, kss) in enumerate(self.kss_list):
+            self.index_map[(kss.occ_ind,kss.unocc_ind)] = ip
+
         # Initialize wfs, paw corrections and xc, if not done yet
         if not self.calc_ready:
             self.calc.converge_wave_functions()
@@ -1016,8 +1246,8 @@ class LrTDDFTindexed:
         #print >> self.txt, maxC
 
         for kss_ip in self.kss_list:
-            ip = self.index_of_kss(kss_ip.occ_ind, kss_ip.unocc_ind)
-            if self.get_local_index(ip) is None:
+            ip = self.index_map[(kss_ip.occ_ind, kss_ip.unocc_ind)]
+            if self.get_local_eh_index(ip) is None:
                 continue
             if abs(C_im[ip]) < 1e-5 * maxC: 
                 continue
@@ -1040,6 +1270,12 @@ class LrTDDFTindexed:
 
 
     def get_approximate_electron_and_hole_densities(self, C_im, collect=False):
+
+        # Create indexing
+        self.index_map = {}        # (i,p) to matrix index map
+        for (ip, kss) in enumerate(self.kss_list):
+            self.index_map[(kss.occ_ind,kss.unocc_ind)] = ip
+
         # Initialize wfs, paw corrections and xc, if not done yet
         if not self.calc_ready:
             self.calc.converge_wave_functions()
@@ -1081,8 +1317,8 @@ class LrTDDFTindexed:
 
         # diagonal ip,ip
         for kss_ip in self.kss_list:
-            ip = self.index_of_kss(kss_ip.occ_ind, kss_ip.unocc_ind)
-            if self.get_local_index(ip) is None:
+            ip = self.index_map[(kss_ip.occ_ind, kss_ip.unocc_ind)]
+            if self.get_local_eh_index(ip) is None:
                 continue
             if abs(C_im[ip]) < 1e-3 * maxC: 
                 continue
@@ -1113,8 +1349,8 @@ class LrTDDFTindexed:
 
         # offdiagonal
         for kss_ip in self.kss_list:
-            ip = self.index_of_kss(kss_ip.occ_ind, kss_ip.unocc_ind)
-            if self.get_local_index(ip) is None:
+            ip = self.index_map[(kss_ip.occ_ind, kss_ip.unocc_ind)]
+            if self.get_local_eh_index(ip) is None:
                 continue
             if abs(C_im[ip]) < 1e-3 * maxC: 
                 continue
@@ -1128,7 +1364,7 @@ class LrTDDFTindexed:
                      kss_ip.unocc_ind != kss_jq.unocc_ind ):
                     continue
 
-                jq = self.index_of_kss(kss_jq.occ_ind, kss_jq.unocc_ind)
+                jq = self.index_map[(kss_jq.occ_ind, kss_jq.unocc_ind)]
 
                 if abs(C_im[ip] * C_im[jq]) < 1e-3 * maxC * maxC:
                     continue
@@ -1171,9 +1407,9 @@ class LrTDDFTindexed:
 
         drhot_geh = drhot_ge + drhot_gh
 
-        print 'drho_ge', self.calc.density.finegd.integrate(drhot_ge)
-        print 'drho_gh', self.calc.density.finegd.integrate(drhot_gh)
-        print 'drho_geh', self.calc.density.finegd.integrate(drhot_geh)
+        #print 'drho_ge', self.calc.density.finegd.integrate(drhot_ge)
+        #print 'drho_gh', self.calc.density.finegd.integrate(drhot_gh)
+        #print 'drho_geh', self.calc.density.finegd.integrate(drhot_geh)
 
         return (drhot_ge, drhot_gh, drhot_geh)
 
@@ -1186,34 +1422,193 @@ class LrTDDFTindexed:
     # Wrong not reading K-matrix but it's "Casida form" 
     # 2 (dN dE)**.5 K (dN dE)**.5
     #####################################################################
+    def read_K_matrix_new(self):
+        nrow = len(self.kss_list)  # total rows
+        nlrow = 0                  # local rows
+        nlcol = 0                  # local cols
+
+        # Create indexing
+        self.index_map = {}        # (i,p) to matrix index map
+        for (ip, kss) in enumerate(self.kss_list):
+            self.index_map[(kss.occ_ind,kss.unocc_ind)] = ip
+            if self.get_local_eh_index(ip) is not None:
+                nlrow += 1
+            if self.get_local_dd_index(ip) is not None:
+                nlcol += 1
+        
+
+        # ready rows list for different procs (read by this proc)
+        elem_lists = {}
+        for proc in range(self.parent_comm.size):
+            elem_lists[proc] = ''
+
+        
+        self.timer.start('Read data')
+        # Read ALL ready_rows files but on different processors
+        for (k, K_fn) in enumerate(glob.glob(self.basefilename + '.K_matrix.*')):
+            # stride
+            if k % self.parent_comm.size != self.parent_comm.rank:
+                continue
+            
+            for line in StringIO.StringIO(open(K_fn,'r', 1024*1024).read()):
+                elems = line.split()
+                i = int(elems[0])
+                p = int(elems[1])
+                j = int(elems[2])
+                q = int(elems[3])
+
+                
+                ip = self.index_map.get( (i,p) )
+                jq = self.index_map.get( (j,q) )
+                if ip is None or jq is None:
+                    continue
+
+                # where to send
+                (proc, ehproc, ddproc, lip, ljq) = self.get_matrix_elem_proc_and_index(ip, jq)
+                elem_lists[proc] += line                
+
+                # where to send transposed
+                (proc, ehproc, ddproc, lip, ljq) = self.get_matrix_elem_proc_and_index(jq, ip)
+                elem_lists[proc] += line
+
+
+        #print self.parent_comm.rank, '- elem_lists -'
+        #for (key,val) in elem_lists.items():
+        #    print key, ':', val[0:120]
+        #sys.stdout.flush()
+
+
+        # send and receive elem_list
+        local_elem_list = ''
+        for sending_proc in range(self.parent_comm.size):
+            for receiving_proc in range(self.parent_comm.size):
+                if ( sending_proc == receiving_proc and
+                     sending_proc == self.parent_comm.rank ):
+                    local_elem_list += elem_lists[sending_proc]
+                elif sending_proc == self.parent_comm.rank:
+                    gpaw.mpi.send_string( elem_lists[receiving_proc],
+                                          receiving_proc,
+                                          comm=self.parent_comm)
+                elif receiving_proc == self.parent_comm.rank:
+                    elist = gpaw.mpi.receive_string( sending_proc,
+                                                     comm=self.parent_comm )
+                    local_elem_list += elist
+            
+
+
+        #print self.parent_comm.rank, '- local_elem_list -', local_elem_list[0:120]
+        #sys.stdout.flush()
+        self.parent_comm.barrier()
+
+        self.timer.stop('Read data')
+        
+        self.timer.start('Build matrix')
+        
+        # Matrix build
+        K_matrix = np.zeros((nlrow,nlcol))
+        K_matrix[:,:] = np.NAN # fill with NaNs to detect problems
+        # Read ALL K_matrix files                        
+        for line in StringIO.StringIO(local_elem_list):
+            line = line.split()
+            ipkey = (int(line[0]), int(line[1]))
+            jqkey = (int(line[2]), int(line[3]))
+            Kvalue = float(line[4])
+
+            ip = self.index_map.get(ipkey)
+            jq = self.index_map.get(jqkey)
+
+            # if not in index map, ignore
+            if ( ip is None or jq is None ):
+                continue
+
+            # if (ip,jq) on this this proc
+            lip = self.get_local_eh_index(ip)
+            ljq = self.get_local_dd_index(jq)
+            if lip is not None and ljq is not None:
+                # add value to matrix
+                K_matrix[lip,ljq] = Kvalue
+            # if (jq,ip) on this this proc
+            ljq = self.get_local_eh_index(jq)
+            lip = self.get_local_dd_index(ip)
+            if lip is not None and ljq is not None:
+                # add value to matrix
+                K_matrix[ljq,lip] = Kvalue
+                
+        self.timer.stop('Build matrix')
+
+        #print K_matrix
+
+        
+        #for ((i,p), ip) in self.index_map.items():
+        #    for ((j,q), jq) in self.index_map.items():
+        #        lip = self.get_local_eh_index(ip)
+        #        ljq = self.get_local_dd_index(jq) 
+        #        if ( lip is not None and ljq is not None ):
+        #            print 'proc #', self.parent_comm.rank, ' dd #', self.dd_comm.rank, ' eh #', self.eh_comm.rank, ': ',ip,'(', i, ',', p,') ',jq,'(', j, ',', q,')  = ', K_matrix[lip,ljq] 
+                    
+                    
+
+
+        # If any NaNs found, we did not read all matrix elements... BAD
+        if np.isnan(np.sum(np.sum(K_matrix))):
+            raise RuntimeError('Not all required K-matrix elements could be found.')
+
+        return K_matrix
+
+        
+
+
+        
+
+
+
+
+    #####################################################################
+    # Read K-matrix from files
+    #####################################################################
+    # Wrong not reading K-matrix but it's "Casida form" 
+    # 2 (dN dE)**.5 K (dN dE)**.5
+    #####################################################################
     def read_K_matrix(self):
+        # Create indexing
+        self.index_map = {}        # (i,p) to matrix index map
+        for (ip, kss) in enumerate(self.kss_list):
+            self.index_map[(kss.occ_ind,kss.unocc_ind)] = ip
+
         nrow = len(self.kss_list)  # total rows
         nloc = 0                   # local rows
 
         self.timer.start('Read data')
         # Read ALL ready_rows files
         for rr_fn in glob.glob(self.basefilename + '.ready_rows.*'):
-            for line in open(rr_fn,'r'):
+            data = None
+            if rank == 0:
+                data = open(rr_fn,'r', 1024*1024).read()
+            data = gpaw.mpi.broadcast_string(data, root=0, comm=self.parent_comm)
+                        
+            for line in StringIO.StringIO(data):
                 i = int(line.split()[0])
                 p = int(line.split()[1])
                 key = (i,p)
                 
                 # if key not in self.kss_list, drop it
                 # i.e. we are calculating just part of the whole matrix
-                ip = self.index_of_kss(i,p)
-                if ip is not None:
-                    assert ip == self.index_map[key], 'List index %d is not equal to ind_map index %d for key (%d,%d)\n' % (ip,self.index_map[key],i,p)
-                    if self.get_local_index(ip) is not None:
-                        nloc += 1
+                ip = self.index_map.get( (i,p) )
+                if ip is not None and self.get_local_eh_index(ip) is not None:
+                    nloc += 1
+                
         
         # Matrix build
         K_matrix = np.zeros((nloc,nrow))
         K_matrix[:,:] = np.NAN # fill with NaNs to detect problems
         # Read ALL K_matrix files
         for K_fn in glob.glob(self.basefilename + '.K_matrix.*'): 
-            #print >> self.txt, '.',
-            #self.txt.flush()
-            for line in open(K_fn,'r'):
+            data = None
+            if rank == 0:
+                data = open(K_fn,'r', 1024*1024).read()
+            data = gpaw.mpi.broadcast_string(data, root=0, comm=self.parent_comm)
+                        
+            for line in StringIO.StringIO(data):
                 line = line.split()
                 ipkey = (int(line[0]), int(line[1]))
                 jqkey = (int(line[2]), int(line[3]))
@@ -1223,15 +1618,15 @@ class LrTDDFTindexed:
                      or not jqkey in self.index_map ):
                     continue
                 # if ip on this this proc
-                if self.get_local_index(self.index_map[ipkey]) is not None:
+                if self.get_local_eh_index(self.index_map[ipkey]) is not None:
                     # add value to matrix
-                    lip = self.get_local_index(self.index_map[ipkey])
+                    lip = self.get_local_eh_index(self.index_map[ipkey])
                     jq = self.index_map[jqkey]
                     K_matrix[lip,jq] = Kvalue
                 # if jq on this this proc
-                if self.get_local_index(self.index_map[jqkey]) is not None:
+                if self.get_local_eh_index(self.index_map[jqkey]) is not None:
                     # add value to matrix
-                    ljq = self.get_local_index(self.index_map[jqkey])
+                    ljq = self.get_local_eh_index(self.index_map[jqkey])
                     ip = self.index_map[ipkey]
                     K_matrix[ljq,ip] = Kvalue
         #print >> self.txt, ''
@@ -1270,7 +1665,7 @@ class LrTDDFTindexed:
             key = (kss.occ_ind, kss.unocc_ind)
             if key in self.index_map:
                 ip = self.index_map[key]
-                lip = self.get_local_index(ip)
+                lip = self.get_local_eh_index(ip)
                 if lip is None: continue
                 omega_matrix[lip,ip] += kss.energy_diff * kss.energy_diff
 
@@ -1295,7 +1690,7 @@ class LrTDDFTindexed:
             self.evectors = omega_matrix
             omega_matrix = np.zeros((nrow,nrow))
             for ip in range(nrow):
-                lip = self.get_local_index(ip)
+                lip = self.get_local_eh_index(ip)
                 if lip is None: continue
                 omega_matrix[ip,:] = self.evectors[lip,:]
 
@@ -1307,7 +1702,7 @@ class LrTDDFTindexed:
 
             # global to local
             for ip in range(nrow):
-                lip = self.get_local_index(ip)
+                lip = self.get_local_eh_index(ip)
                 if lip is None: continue
                 self.evectors[lip,:] = omega_matrix[ip,:]
 
@@ -1560,7 +1955,7 @@ class LrTDDFTindexed:
             p = kss_ip.unocc_ind
 
             # if not mine, skip it
-            if self.get_local_index(ip) is None:
+            if self.get_local_eh_index(ip) is None:
                 continue
             # if already calculated, skip it
             if [i,p] in self.ready_indices:
@@ -1628,7 +2023,7 @@ class LrTDDFTindexed:
         # Outer loop over KS singles
         for (ip,kss_ip) in enumerate(self.kss_list):
             # if not mine, skip it
-            if self.get_local_index(ip) is None:
+            if self.get_local_eh_index(ip) is None:
                 continue                          
             # if already calculated, skip it
             if [kss_ip.occ_ind,kss_ip.unocc_ind] in self.ready_indices:
@@ -1971,6 +2366,7 @@ class LrTDDFTLayouts:
                                                self.diag_descr,
                                                self.eh_descr)
 
+        """
         # -----------------------------------------------------------------
         # for SCALAPACK we need TRANSPOSED MATRIX (and vector)
         # -----------------------------------------------------------------
@@ -2001,6 +2397,41 @@ class LrTDDFTLayouts:
         self.redist_solve_out_2b = Redistributor(self.world,
                                                  self.solve_descr2b, 
                                                  self.eh_descr2b)
+        """
+        
+
+        # -----------------------------------------------------------------
+        # for SCALAPACK we need TRANSPOSED MATRIX (and vector)
+        # -----------------------------------------------------------------
+        # M = rows, N = cols 
+        M = nkq*4; N = nkq*4; mb = 4; nb = 4; Nrhs = 1
+        # Matrix, mp=1, np=eh_comm.size
+        self.eh_grid2a = BlacsGrid(self.world, dd_comm.size, eh_comm.size)
+        # Vector, mp=eh_comm.size, np=1
+        self.eh_grid2b = BlacsGrid(self.world, 1, dd_comm.size * eh_comm.size)
+        self.eh_descr2a = self.eh_grid2a.new_descriptor(N,    M,  nb,   mb)
+        self.eh_descr2b = self.eh_grid2b.new_descriptor(Nrhs, N,  Nrhs, nb)
+        self.solve_descr2a =self.diag_grid.new_descriptor(N, M,
+                                                          blocksize, blocksize)
+        self.solve_descr2b =self.diag_grid.new_descriptor(Nrhs, N,
+                                                          Nrhs, blocksize)
+
+
+        self.redist_solve_in_2a = Redistributor(self.world,
+                                                self.eh_descr2a,
+                                                self.solve_descr2a)
+        self.redist_solve_in_2b = Redistributor(self.world,
+                                                self.eh_descr2b,
+                                                self.solve_descr2b)
+        
+        self.redist_solve_out_2a = Redistributor(self.world,
+                                                 self.solve_descr2a,
+                                                 self.eh_descr2a)
+        self.redist_solve_out_2b = Redistributor(self.world,
+                                                 self.solve_descr2b, 
+                                                 self.eh_descr2b)
+        
+
 
     def solve(self, A, b):
         if 0:
@@ -2017,7 +2448,8 @@ class LrTDDFTLayouts:
             self.world.barrier()
             
             print 'A ', rank, A.shape
-            print 'b ', rank, b.shape
+            if b is not None:
+                print 'b ', rank, b.shape
 
             sys.stdout.flush()        
             self.world.barrier()
@@ -2033,7 +2465,7 @@ class LrTDDFTLayouts:
         if self.eh_descr2b.blacsgrid.is_active():
             b_N = b.reshape(1,len(b))
         else:
-            b_N = np.empty((0,0), dtype=float)            
+            b_N = np.empty((A_Nn.shape[0],0), dtype=float)            
         self.redist_solve_in_2b.redistribute(b_N, b_n)
 
 
@@ -2076,7 +2508,7 @@ class LrTDDFTLayouts:
         else:
             b_N = b
 
-        self.dd_comm.broadcast(b_N, 0)
+        #self.dd_comm.broadcast(b_N, 0)
 
         b[:] = b_N
 
