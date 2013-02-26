@@ -440,6 +440,18 @@ PyObject* cuOpt_rhoG0_copy(PyObject *self, PyObject *args)
 }
 
 
+PyObject* cuOpt_dE(PyObject *self, PyObject *args)
+{
+  int nG0, nmultix, s, k, n, nkpt, nband;
+  void *rho_uG, *e_skn, *m_m;
+
+  if (!PyArg_ParseTuple(args, "LiiLiiiLii",&rho_uG, &nG0, &nmultix, &e_skn, &s, &k, &n, &m_m, &nkpt, &nband))
+    return NULL;
+  cudaOpt_dE(rho_uG, nG0, nmultix, e_skn, s, k, n, m_m, nkpt, nband);
+  Py_RETURN_NONE;
+}
+
+
 PyObject* cuTrans_wfs(PyObject *self, PyObject *args)
 {
   int n, nmultix;

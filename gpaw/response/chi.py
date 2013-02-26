@@ -470,7 +470,7 @@ class Chi(BaseChi):
                                     rho_G[0] = -1j * np.dot(self.qq_v, tmp)
                                 else:
                                     if imultix == 0:
-                                        cu.calculate_opt(len(mlocallist))
+                                        cu.calculate_opt(len(mlocallist), self.npw)
                             if self.sync: timer.end('opt')
 
                             if self.sync: timer.start('paw')
@@ -516,13 +516,7 @@ class Chi(BaseChi):
                                                      len(mlocallist), self.npw, Ni*Ni, Ni*Ni, Ni*Ni, self.npw, 0, 1)
                                 if self.sync: timer.end('cugemv')
 
-
-                            if self.optical_limit and self.cuda:
-                                if self.sync: timer.start('cugemv')
-                                status = _gpaw.cuGetVector(1,sizeofdata,cu.rho_uG+GPUpointer,1,rho_G,1)
-                                if self.sync: timer.end('cugemv')
-
-                            if self.optical_limit:
+                            if self.optical_limit and not self.cuda:
                                 if self.sync: timer.start('opt')
                                 if np.abs(self.enoshift_skn[spin][ibzkpt2, m] -
                                           self.enoshift_skn[spin][ibzkpt1, n]) > 0.1/Hartree:
@@ -531,6 +525,9 @@ class Chi(BaseChi):
                                 else:
                                     rho_G[0] = 0.
                                 if self.sync: timer.end('opt')
+
+                            if self.cuda and self.optical_limit and imultix == 0:
+                                cu.apply_opt_dE(spin, ibzkpt1, n, len(mlocallist), self.npw)
     
                             if k_pad:
                                 rho_G[:] = 0.
@@ -538,12 +535,6 @@ class Chi(BaseChi):
                             if not self.hilbert_trans:
                                 if not use_zher:
                                     rho_GG = np.outer(rho_G, rho_G.conj())
-                                else:
-                                    if self.sync: timer.start('cugemv')
-                                    if self.optical_limit and self.cuda:
-                                        status = _gpaw.cuSetVector(1, sizeofdata, rho_G, 1, cu.rho_uG+GPUpointer, 1)
-                                    if self.sync: timer.end('cugemv')
-
                                 for iw in range(self.Nw_local):
                                     w = self.w_w[iw + self.wstart] / Hartree
                                     coef = ( 1. / (w + e_skn[spin][ibzkpt1, n] - e_skn[spin][ibzkpt2, m]
@@ -562,9 +553,7 @@ class Chi(BaseChi):
                                         else:
                                             if imultix == nmultix - 1 or m == len(self.mlist) - 1:
                                                 matrixGPU_GG = cu.chi0_w[iw]
-                                                # replace with zherk
-#                                                status = _gpaw.cuZher(handle,0,self.npw,C.real,GPU_rho_G,1,
-#                                                                  matrixGPU_GG,self.npw)
+
                                                 if iw == 0:
                                                     alpha_u = np.sqrt(-C_uw[:,iw])
                                                 else:

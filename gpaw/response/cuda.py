@@ -88,12 +88,14 @@ class BaseCuda:
             status, self.opteikr_R = _gpaw.cuMalloc(nG0*sizeofdata)
             status, self.optpsit2_R = _gpaw.cuMalloc(nG0*sizeofdata)
             status, self.optpsit2_uR = _gpaw.cuMalloc(nG0*nmultix*sizeofdata)
-            
-            status, self.e_skn = _gpaw.cuMalloc(chi.nspins * chi.kd.nibzkpts * chi.nbands * sizeofdouble)
+
+            self.nibzkpt = chi.kd.nibzkpts
+            self.totnband = chi.calc.get_number_of_bands()            
+            status, self.e_skn = _gpaw.cuMalloc(chi.nspins * self.nibzkpt * self.totnband * sizeofdouble)
             for s in range(chi.nspins):
                 pointer = s * sizeofdouble * chi.nspins * chi.kd.nibzkpts
-                _gpaw.cuSetVector(chi.kd.nibzkpts*chi.nbands,sizeofdouble,chi.enoshift_skn[s].ravel(),1,self.e_skn+pointer,1)
-            
+                _gpaw.cuSetVector(self.nibzkpt*self.totnband,sizeofdouble,chi.enoshift_skn[s].ravel(),1,self.e_skn+pointer,1)
+
         return 
 
 
@@ -256,14 +258,10 @@ class BaseCuda:
                 _gpaw.cuSetVector(nx*ny*nz,sizeofdata,deltaeikr_R.ravel(),1,self.opteikr_R,1)
             else:
                 self.optphase = False
-#            status, self.tmp_G = _gpaw.cuMalloc(self.ncoef*sizeofdata)
-#            status, self.tmp2_G = _gpaw.cuMalloc(self.ncoef*sizeofdata)
-#            status, self.dir_c = _gpaw.cuMalloc(3*sizeofdata)
 
             status, self.opt_uG = _gpaw.cuMalloc(self.ncoef*self.nmultix*sizeofdata)
             status, self.opt2_uG = _gpaw.cuMalloc(self.ncoef*self.nmultix*sizeofdata)
             status, self.optrho_u = _gpaw.cuMalloc(self.nmultix*sizeofdata)
-
 
             pd=calc.wfs.pd
             G_Gc = (pd.G_Qv[pd.Q_qG[ibzkpt1]] + np.dot(kd.bzk_kc[k], chi.bcell_cv)) * 1j
@@ -385,7 +383,7 @@ class BaseCuda:
         _gpaw.cuGet_Q_anL(self.P1_ami, P2_ai, Delta_apL, Q_amL, mband, self.Na, self.Ni_a, self.nL_a)
 
 
-    def calculate_opt(self, nu):
+    def calculate_opt(self, nu, npw):
 
         # multiply the phase to get U_mk(r) since U_mk0(r) has different plw coef 
         if self.optphase:
@@ -415,14 +413,13 @@ class BaseCuda:
             _gpaw.cuZgemv(self.handle,self.nG0, nu, alpha, self.optpsit2_uR,
                           self.nG0, self.psit1_R, 1,1.0, self.optrho_u,1)
             # optrho_u -> rho_uG[:,0]
-        _gpaw.cuOpt_rhoG0_copy(self.optrho_u, self.rho_uG, self.nG0, nu)
+        _gpaw.cuOpt_rhoG0_copy(self.optrho_u, self.rho_uG, npw, nu)
 
         return 
 
 
-#    def opt_dE(s, ibzk, n, nu):
-#        _gpaw.cuOpt_dE()
-#        pass
+    def apply_opt_dE(self, s, ibzk, n, nu, npw):
+        _gpaw.cuOpt_dE(self.rho_uG, npw, nu, self.e_skn, s, ibzk, n, self.mlocallist, self.nibzkpt, self.totnband)
 
 
     def chi_free(self, chi):
