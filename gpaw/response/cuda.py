@@ -1,6 +1,7 @@
 import _gpaw
 import numpy as np
 from math import pi, sqrt
+from ase.units import Hartree
 
 sizeofdata = 16
 sizeofint = 4
@@ -83,18 +84,33 @@ class BaseCuda:
         self.ind =Indices(chi0_wGG, chi)
 
         status, self.mlocallist = _gpaw.cuMalloc(nmultix*sizeofint)
+        self.nibzkpt = chi.kd.nibzkpts
+        self.totnband = chi.calc.get_number_of_bands()            
+
+        status, self.e_skn = _gpaw.cuMalloc(chi.nspins * self.nibzkpt * self.totnband * sizeofdouble)
+        status, self.f_skn = _gpaw.cuMalloc(chi.nspins * self.nibzkpt * self.totnband * sizeofdouble)
+        for s in range(chi.nspins):
+            pointer = s * sizeofdouble * chi.nspins * chi.kd.nibzkpts
+            _gpaw.cuSetVector(self.nibzkpt*self.totnband,sizeofdouble,chi.e_skn[s].ravel(),1,self.e_skn+pointer,1)
+            _gpaw.cuSetVector(self.nibzkpt*self.totnband,sizeofdouble,chi.f_skn[s].ravel(),1,self.f_skn+pointer,1)
+
+        w2_w = np.zeros(chi.Nw_local)
+        for iw in range(chi.Nw_local):
+            tmp = (chi.w_w[iw + chi.wstart] / Hartree)**2
+            assert np.imag(tmp) < 1e-7
+            w2_w[iw] = np.real(tmp)
+        status, self.w2_w = _gpaw.cuMalloc(chi.Nw_local * sizeofdouble)
+        status, self.C_wu = _gpaw.cuMalloc(chi.Nw_local * self.nmultix * sizeofdouble)
+        status, self.alpha_wu = _gpaw.cuMalloc(chi.Nw_local * self.nmultix * sizeofdouble)
+        _gpaw.cuSetVector(chi.Nw_local, sizeofdouble, w2_w, 1, self.w2_w, 1)
+
 
         if chi.optical_limit:
             status, self.opteikr_R = _gpaw.cuMalloc(nG0*sizeofdata)
             status, self.optpsit2_R = _gpaw.cuMalloc(nG0*sizeofdata)
             status, self.optpsit2_uR = _gpaw.cuMalloc(nG0*nmultix*sizeofdata)
 
-            self.nibzkpt = chi.kd.nibzkpts
-            self.totnband = chi.calc.get_number_of_bands()            
-            status, self.e_skn = _gpaw.cuMalloc(chi.nspins * self.nibzkpt * self.totnband * sizeofdouble)
-            for s in range(chi.nspins):
-                pointer = s * sizeofdouble * chi.nspins * chi.kd.nibzkpts
-                _gpaw.cuSetVector(self.nibzkpt*self.totnband,sizeofdouble,chi.enoshift_skn[s].ravel(),1,self.e_skn+pointer,1)
+            assert chi.eshift is None
 
         return 
 

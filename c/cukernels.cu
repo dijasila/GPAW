@@ -34,10 +34,89 @@ __global__ void density_matrix_R( cuDoubleComplex *a, cuDoubleComplex *b, cuDoub
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   int ii = tid%n;
   if (tid < n*nmultix) {
-    c[tid] = cuCmul(cuCmul(cuConj(a[ii]), b[ii]), c[tid]);
+    /*    c[tid] = cuCmul(cuCmul(cuConj(a[ii]), b[ii]), c[tid]);*/
+    c[tid] = cuCmul(cuCmul(a[ii], b[ii]), c[tid]);
   }
 }
 
+__global__ void opt_phase( cuDoubleComplex *a, cuDoubleComplex *b, cuDoubleComplex *c, int n, int nmultix, int conjugate ){
+  /* perform optexp_R * optpsit2_uR */
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  int ii = tid%n;
+  if (tid < n*nmultix) {
+    if (conjugate > 0){
+      c[tid] = cuCmul(cuConj(a[ii]), b[tid]);
+    }
+    else{
+      c[tid] = cuCmul(a[ii], b[tid]);
+    }
+  }
+}
+
+__global__ void opt_rhoG0_copy( cuDoubleComplex *rho_u, cuDoubleComplex *rho_uG, int nG0, int nmultix){
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+
+  if (tid < nmultix) {
+    rho_uG[tid*nG0] = rho_u[tid]; 
+  }
+}
+
+
+__global__ void opt_dE( cuDoubleComplex *rho_uG, int nG0, int nmultix, double *e_skn, int s, int k, int n, int *m_m, int nkpt, int nband){
+  /* perform optexp_R * optpsit2_uR */
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  double e1 = e_skn[s*nkpt*nband + k*nband + n];
+
+  if (tid < nmultix) {
+    double e2 = e_skn[s*nkpt*nband + k*nband + m_m[tid]] - e1;
+    if (e2 > 0.0036749309467970742){
+      rho_uG[tid*nG0] = make_cuDoubleComplex( cuCreal(rho_uG[tid*nG0]) / e2, cuCimag(rho_uG[tid*nG0]) / e2 ); 
+    }
+    else{
+      rho_uG[tid*nG0] = make_cuDoubleComplex(0., 0.);
+    }
+  }
+}
+
+
+__global__ void GetC_wu( double *e_skn, double *f_skn, double *w_w, double *C_wu,
+		      int s, int k1, int k2, int n, int *m_u, int nu, int nmultix, int nkpt, int nband, int nw){
+  /* perform optexp_R * optpsit2_uR */
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  double e1 = e_skn[s*nkpt*nband + k1*nband + n];
+  double f1 = f_skn[s*nkpt*nband + k1*nband + n];
+  int nn = nw * nu;
+
+  if (tid < nn) {
+    int iw = tid/nu;
+    int iu = tid%nu;
+    double e2 = e_skn[s*nkpt*nband + k2*nband + m_u[iu]] - e1;
+    double f2 = f1 - f_skn[s*nkpt*nband + k2*nband + m_u[iu]];
+
+    C_wu[iw*nmultix+iu] = 2*e2*f2 / (w_w[iw] - e2*e2);
+  }
+}
+
+
+__global__ void Getalpha_u( double *C_wu, double *alpha_wu, cuDoubleComplex *rho_uG, int iw, int nu, int nmultix, int npw){
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  int nn = nu * npw;
+  if (tid < nn) {
+    int iu = tid/npw;
+    if (iw > 0){
+      alpha_wu[iw*nmultix+iu] = sqrt( C_wu[iw*nmultix+iu] / C_wu[(iw-1)*nmultix+iu]);
+    }
+    else{
+      alpha_wu[iw*nmultix+iu] = sqrt(-C_wu[iw*nmultix+iu]);      
+    }
+  }
+  __syncthreads();
+  if (tid < nn) {
+    int iu = tid/npw;
+    rho_uG[tid] = make_cuDoubleComplex( cuCreal(rho_uG[tid]) * alpha_wu[iw*nmultix+iu], cuCimag(rho_uG[tid]) * alpha_wu[iw*nmultix+iu] );
+  }
+
+}
 
 
 __global__ void trans_wfs( cuDoubleComplex *a, cuDoubleComplex *b, int *index, int n, int nmultix ){
@@ -151,9 +230,11 @@ __global__ void P_ai( double *spos_ac, double *ibzk_kc, int *op_scc, int *a_sa,
       }
     }
   
+    /*    printf("%d,%d,\n", tid,ia);*/
+
     int ib=a_sa[s*Na+ia];
     int Ni=Ni_a[ia];
-    int Nib = Ni_a[ib];
+    int Nj=Ni_a[ib];
     
     for (int i=0; i<3; i++){
       S_c[i] = 0.;
@@ -169,10 +250,15 @@ __global__ void P_ai( double *spos_ac, double *ibzk_kc, int *op_scc, int *a_sa,
   
     int m = (tid-offset[ia]*n) / Ni;
     int i = (tid-offset[ia]*n) % Ni;
+    /*    printf("%d,%d,%d\n", tid,m,i);*/
   
-    for (int j=0; j<Ni; j++){
-    	  Pout_ani[ia][m*Ni+i] = cuCadd(cuCmul(make_cuDoubleComplex(R_asii[ia][s*Ni*Ni+i*Ni+j],0), P_ani[ib][n_n[m]*Nib+j]), 
+    for (int j=0; j<Nj; j++){
+    	  Pout_ani[ia][m*Ni+i] = cuCadd(cuCmul(make_cuDoubleComplex(R_asii[ia][s*Ni*Nj+i*Nj+j],0), P_ani[ib][n_n[m]*Nj+j]), 
     				Pout_ani[ia][m*Ni+i]);
+	  /*
+	  printf("Pout_ani, %d,%f,%f\n", j, cuCreal(Pout_ani[ia][m*Ni+i]), cuCimag(Pout_ani[ia][m*Ni+i]));
+	  printf("P_ani, %d,%f,%f\n", j, cuCreal(P_ani[ib][n_n[m]*Nj+j]), cuCimag(P_ani[ia][n_n[m]*Nj+j]));
+	  */
     }
     
     Pout_ani[ia][m*Ni+i] = cuCmul(x, Pout_ani[ia][m*Ni+i]);
@@ -310,6 +396,55 @@ extern "C" {
 }
 }
 
+extern "C" {
+  void cudaOpt_phase( double complex* dev_a, double complex* dev_b, double complex* dev_c, int N, int nmultix, int conjugate ) {
+  int threads = 128;
+  int nn = N * nmultix;
+  int blocks = nn/threads + (nn%threads == 0 ? 0:1);
+  opt_phase<<<blocks, threads>>>( (cuDoubleComplex*)dev_a, (cuDoubleComplex*)dev_b, (cuDoubleComplex*)dev_c, N, nmultix, conjugate);
+}
+}
+
+
+extern "C" {
+  void cudaOpt_rhoG0_copy( double complex* rho_u, double complex* rho_uG, int nG0, int nmultix){
+  int threads = 64;
+  int nn = nmultix;
+  int blocks = nn/threads + (nn%threads == 0 ? 0:1);
+  opt_rhoG0_copy<<<blocks, threads>>>( (cuDoubleComplex*)rho_u, (cuDoubleComplex*)rho_uG, nG0, nmultix);
+}
+}
+
+
+extern "C" {
+  void cudaOpt_dE( double complex* rho_uG, int nG0, int nmultix, double* e_skn, int s, int k, int n, int* m_m, int nkpt, int nband){
+  int threads = 64;
+  int nn = nmultix;
+  int blocks = nn/threads + (nn%threads == 0 ? 0:1);
+  opt_dE<<<blocks, threads>>>( (cuDoubleComplex*)rho_uG, nG0, nmultix, (double*)e_skn, s, k, n, (int*)m_m, nkpt, nband);
+}
+}
+
+
+extern "C" {
+  void cudaC_wu( double* e_skn, double* f_skn, double* w_w, double* C_wu, 
+		 int s, int k1, int k2, int n, int* m_u, int nu, int nmultix, int nkpt, int nband, int nw){
+  int threads = 64;
+  int nn = nu * nw;
+  int blocks = nn/threads + (nn%threads == 0 ? 0:1);
+  GetC_wu<<<blocks, threads>>>( (double*)e_skn, (double*)f_skn, (double*)w_w, (double*)C_wu, 
+			       s, k1, k2, n, (int*)m_u, nu, nmultix, nkpt, nband, nw);
+}
+}
+
+extern "C" {
+  void cudaalpha_u( double* C_wu, double* alpha_u, double complex* rho_uG, int iw, int nu, int nmultix, int npw){
+  int threads = 128;
+  int nn = nu * npw;
+  int blocks = nn/threads + (nn%threads == 0 ? 0:1);
+  Getalpha_u<<<blocks, threads>>>( (double*)C_wu, (double*)alpha_u, (cuDoubleComplex*)rho_uG, iw, nu, nmultix, npw);
+}
+}
 
 extern "C" {
   void cudaTransform_wfs( double complex* dev_a, double complex* dev_b, int* dev_c, int N, int nmultix ) {

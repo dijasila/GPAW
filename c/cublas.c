@@ -451,6 +451,29 @@ PyObject* cuOpt_dE(PyObject *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
+PyObject* cuGet_C_wu(PyObject *self, PyObject *args)
+{
+  int nmultix, s, k1, k2, n, nu, nkpt, nband, nw;
+  void *e_skn, *m_u, *f_skn, *C_wu, *w_w;
+
+  if (!PyArg_ParseTuple(args, "LLLLiiiiLiiiii",&e_skn, &f_skn, &w_w, &C_wu, &s, &k1, &k2, &n, &m_u, &nu, &nmultix, &nkpt, &nband, &nw))
+    return NULL;
+  cudaC_wu( e_skn, f_skn, w_w, C_wu,
+	     s, k1, k2, n, m_u, nu, nmultix, nkpt, nband, nw);
+  Py_RETURN_NONE;
+}
+
+PyObject* cuGet_alpha_u(PyObject *self, PyObject *args)
+{
+  int nmultix, nu, iw, npw;
+  void *C_wu, *alpha_u, *rho_uG;
+
+  if (!PyArg_ParseTuple(args, "LLLiiii",&C_wu, &alpha_u, &rho_uG, &iw, &nu, &nmultix, &npw))
+    return NULL;
+  cudaalpha_u( C_wu, alpha_u, rho_uG, iw, nu, nmultix, npw);
+  Py_RETURN_NONE;
+}
+
 
 PyObject* cuTrans_wfs(PyObject *self, PyObject *args)
 {
