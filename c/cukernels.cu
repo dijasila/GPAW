@@ -79,7 +79,7 @@ __global__ void opt_dE( cuDoubleComplex *rho_uG, int nG0, int nmultix, double *e
 }
 
 
-__global__ void GetC_wu( double *e_skn, double *f_skn, double *w_w, double *C_wu, double *alpha_wu, 
+__global__ void GetC_wu( double *e_skn, double *f_skn, double *w_w, double *C_wu, cuDoubleComplex *alpha_wu, 
 		      int s, int k1, int k2, int n, int *m_u, int nu, int nmultix, int nkpt, int nband, int nw){
   /* perform optexp_R * optpsit2_uR */
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -101,15 +101,16 @@ __global__ void GetC_wu( double *e_skn, double *f_skn, double *w_w, double *C_wu
     int iw = tid/nu;
     int iu = tid%nu;
     if (iw > 0){
-      alpha_wu[iw*nmultix+iu] = sqrt( C_wu[iw*nmultix+iu] / C_wu[(iw-1)*nmultix+iu]);
+      alpha_wu[iw*nmultix+iu] = make_cuDoubleComplex( sqrt( C_wu[iw*nmultix+iu] / C_wu[(iw-1)*nmultix+iu]), 0.) ;
     }
     else{
-      alpha_wu[iw*nmultix+iu] = sqrt(-C_wu[iw*nmultix+iu]);      
+      alpha_wu[iw*nmultix+iu] = make_cuDoubleComplex( sqrt(-C_wu[iw*nmultix+iu]), 0.) ;      
     }
   }
 }
 
 
+/*
 __global__ void Apply_alpha_u( double *alpha_wu, cuDoubleComplex *rho_uG, int iw, int nu, int nmultix, int npw){
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   int nn = nu * npw;
@@ -119,7 +120,7 @@ __global__ void Apply_alpha_u( double *alpha_wu, cuDoubleComplex *rho_uG, int iw
   }
 
 }
-
+*/
 
 __global__ void trans_wfs( cuDoubleComplex *a, cuDoubleComplex *b, int *index, int n, int nmultix ){
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -429,16 +430,17 @@ extern "C" {
 
 
 extern "C" {
-  void cudaC_wu( double* e_skn, double* f_skn, double* w_w, double* C_wu, double* alpha_wu, 
+  void cudaC_wu( double* e_skn, double* f_skn, double* w_w, double* C_wu, double complex* alpha_wu, 
 		 int s, int k1, int k2, int n, int* m_u, int nu, int nmultix, int nkpt, int nband, int nw){
   int threads = 128;
   int nn = nu * nw;
   int blocks = nn/threads + (nn%threads == 0 ? 0:1);
-  GetC_wu<<<blocks, threads>>>( (double*)e_skn, (double*)f_skn, (double*)w_w, (double*)C_wu, (double*)alpha_wu,
+  GetC_wu<<<blocks, threads>>>( (double*)e_skn, (double*)f_skn, (double*)w_w, (double*)C_wu, (cuDoubleComplex*)alpha_wu,
 			       s, k1, k2, n, (int*)m_u, nu, nmultix, nkpt, nband, nw);
 }
 }
 
+/*
 extern "C" {
   void cudaalpha_u( double* alpha_wu, double complex* rho_uG, int iw, int nu, int nmultix, int npw){
   int threads = 128;
@@ -447,6 +449,7 @@ extern "C" {
   Apply_alpha_u<<<blocks, threads>>>( (double*)alpha_wu, (cuDoubleComplex*)rho_uG, iw, nu, nmultix, npw);
 }
 }
+*/
 
 extern "C" {
   void cudaTransform_wfs( double complex* dev_a, double complex* dev_b, int* dev_c, int N, int nmultix ) {
