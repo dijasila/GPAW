@@ -325,6 +325,7 @@ class Chi(BaseChi):
                     else:
                         # dev_psit1_R is the wave function of (k, n) on device
                         cu.trans_wfs(cu.tmp_Q, cu.psit1_R, cu.ind.index1_Q, cu.trans1, cu.time_rev1, 1)
+                        _gpaw.cuConj_vector(cu.psit1_R, self.nG0)
                         # padding does not work on cuda now !! 
 
                     if self.sync: timer.end('wfs_transform')
@@ -434,7 +435,7 @@ class Chi(BaseChi):
                                 if self.optical_limit: # psit2_R has to be saved for later
                                     if imultix == 0:
                                         _gpaw.cuCopy_vector(cu.psit2_uR, cu.optpsit2_uR, self.nG0*nmultix) 
-                                    _gpaw.cuCopy_vector(cu.optpsit2_uR+imultix*sizeofdata*cu.nG0, cu.optpsit2_R, self.nG0)
+#                                    _gpaw.cuCopy_vector(cu.optpsit2_uR+imultix*sizeofdata*cu.nG0, cu.optpsit2_R, self.nG0)
                                     
                                 if imultix == 0:
                                     _gpaw.cuDensity_matrix_R(cu.psit1_R, cu.expqr_R, cu.psit2_uR, self.nG0, nmultix)
@@ -468,8 +469,8 @@ class Chi(BaseChi):
                                             tmp[ix] = gd.integrate(psit1_g * dpsit_g)
                                     rho_G[0] = -1j * np.dot(self.qq_v, tmp)
                                 else:
-                                    rhoG0 = cu.calculate_opt(cu.psit1_R)
-                                    status = _gpaw.cuSetVector(1, sizeofdata, rhoG0, 1, cu.rho_uG+GPUpointer, 1)
+                                    if imultix == 0:
+                                        cu.calculate_opt(len(mlocallist))
                             if self.sync: timer.end('opt')
 
                             if self.sync: timer.start('paw')

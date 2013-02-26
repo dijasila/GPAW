@@ -416,6 +416,29 @@ PyObject* cuDensity_matrix_R(PyObject *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
+PyObject* cuOpt_phase(PyObject *self, PyObject *args)
+{
+  int n, nmultix, conjugate;
+  void *a, *b, *c;
+
+  if (!PyArg_ParseTuple(args, "LLLiii",&a, &b, &c, &n, &nmultix, &conjugate))
+    return NULL;
+  cudaOpt_phase(a, b, c, n, nmultix, conjugate);
+  Py_RETURN_NONE;
+}
+
+
+PyObject* cuOpt_rhoG0_copy(PyObject *self, PyObject *args)
+{
+  int nG0, nmultix;
+  void *rho_u, *rho_uG;
+
+  if (!PyArg_ParseTuple(args, "LLii",&rho_u, &rho_uG, &nG0, &nmultix))
+    return NULL;
+  cudaOpt_rhoG0_copy(rho_u, rho_uG, nG0, nmultix);
+  Py_RETURN_NONE;
+}
+
 
 PyObject* cuTrans_wfs(PyObject *self, PyObject *args)
 {

@@ -89,6 +89,11 @@ class BaseCuda:
             status, self.optpsit2_R = _gpaw.cuMalloc(nG0*sizeofdata)
             status, self.optpsit2_uR = _gpaw.cuMalloc(nG0*nmultix*sizeofdata)
             
+            status, self.e_skn = _gpaw.cuMalloc(chi.nspins * chi.kd.nibzkpts * chi.nbands * sizeofdouble)
+            for s in range(chi.nspins):
+                pointer = s * sizeofdouble * chi.nspins * chi.kd.nibzkpts
+                _gpaw.cuSetVector(chi.kd.nibzkpts*chi.nbands,sizeofdouble,chi.enoshift_skn[s].ravel(),1,self.e_skn+pointer,1)
+            
         return 
 
 
@@ -244,12 +249,21 @@ class BaseCuda:
 #            self.ncoef = len(Q1_G) # the length of Q1_G and Q2_G are different for non optical transition
             self.vol = chi.vol
             self.qq_v = chi.qq_v
-            deltak_c = np.dot(op1_cc, kd.ibzk_kc[ibzkpt1]) - kd.bzk_kc[k] 
-            deltaeikr_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, deltak_c / N_c).T)
-            _gpaw.cuSetVector(nx*ny*nz,sizeofdata,deltaeikr_R.ravel(),1,self.opteikr_R,1)
-            status, self.tmp_G = _gpaw.cuMalloc(self.ncoef*sizeofdata)
-            status, self.tmp2_G = _gpaw.cuMalloc(self.ncoef*sizeofdata)
-            status, self.dir_c = _gpaw.cuMalloc(3*sizeofdata)
+            deltak_c = - np.dot(op1_cc, kd.ibzk_kc[ibzkpt1]) + kd.bzk_kc[k] 
+            if np.abs(deltak_c).sum() > 1e-10:
+                self.optphase = True
+                deltaeikr_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, deltak_c / N_c).T)
+                _gpaw.cuSetVector(nx*ny*nz,sizeofdata,deltaeikr_R.ravel(),1,self.opteikr_R,1)
+            else:
+                self.optphase = False
+#            status, self.tmp_G = _gpaw.cuMalloc(self.ncoef*sizeofdata)
+#            status, self.tmp2_G = _gpaw.cuMalloc(self.ncoef*sizeofdata)
+#            status, self.dir_c = _gpaw.cuMalloc(3*sizeofdata)
+
+            status, self.opt_uG = _gpaw.cuMalloc(self.ncoef*self.nmultix*sizeofdata)
+            status, self.opt2_uG = _gpaw.cuMalloc(self.ncoef*self.nmultix*sizeofdata)
+            status, self.optrho_u = _gpaw.cuMalloc(self.nmultix*sizeofdata)
+
 
             pd=calc.wfs.pd
             G_Gc = (pd.G_Qv[pd.Q_qG[ibzkpt1]] + np.dot(kd.bzk_kc[k], chi.bcell_cv)) * 1j
@@ -371,40 +385,44 @@ class BaseCuda:
         _gpaw.cuGet_Q_anL(self.P1_ami, P2_ai, Delta_apL, Q_amL, mband, self.Na, self.Ni_a, self.nL_a)
 
 
-    def calculate_opt(self, psit1_R):
+    def calculate_opt(self, nu):
 
         # multiply the phase to get U_mk(r) since U_mk0(r) has different plw coef 
-        _gpaw.cuMul(self.optpsit2_R, self.opteikr_R, self.optpsit2_R, self.nG0)
-        _gpaw.cufft_execZ2Z(self.cufftplan, self.optpsit2_R, 
-                        self.optpsit2_R, -1)  # R -> Q
-        _gpaw.cuMap_Q2G(self.optpsit2_R, self.tmp_G, # reduce planewaves
-                        self.Q1_G, self.ncoef, self.nG0, 1) # for optical limit self.dev_Q1_G = self.dev_Q2_G
+        if self.optphase:
+            _gpaw.cuOpt_phase(self.opteikr_R, self.optpsit2_uR, self.optpsit2_uR, self.nG0, nu, 1)  # opteikr_R.conj() * optpsit2_uR
+        _gpaw.cufft_execZ2Z(self.cufftplanmany, self.optpsit2_uR, 
+                                                    self.optpsit2_uR, -1) # R->Q
+        _gpaw.cuMap_Q2G(self.optpsit2_uR, self.opt_uG, self.Q1_G, 
+                        self.ncoef, self.nG0, nu)
 
+        _gpaw.cuMemset(self.optrho_u, 0, sizeofdata*nu)
         for ix in range(3):   # multiple the plw coef by [ 1j (k+G) ]
-            _gpaw.cuMul(self.tmp_G, self.G_cG+ix*self.ncoef*sizeofdata,
-                         self.tmp2_G, self.ncoef)
-#            _gpaw.cuDevSynch()
-            _gpaw.cuMemset(self.optpsit2_R, 0, sizeofdata*self.nG0)
-            _gpaw.cuMap_G2Q(self.tmp2_G, self.optpsit2_R, 
-                            self.Q1_G, self.ncoef, self.nG0, 1 )
-            _gpaw.cufft_execZ2Z(self.cufftplan, self.optpsit2_R, 
-                            self.optpsit2_R, 1)  # Q -> R
-            # has to take into account fft (1/self.nG0) and gd.integrate(self.vol/self.nG0)
-            _gpaw.cuZscal(self.handle, self.nG0, self.vol/(self.nG0*self.nG0),
-                          self.optpsit2_R, 1)
-            _gpaw.cuMulc(psit1_R, self.optpsit2_R, # (psit1_R*opteikr_R).conj() * optpsit2_R
-                         self.optpsit2_R, self.nG0)
-    
             alpha = -1j * self.qq_v[ix]                    
-            _gpaw.cugemm(self.handle,alpha, self.optpsit2_R, self.opteikr_R, 0.0,
-                         self.dir_c+ix*sizeofdata,
-                         1, 1, self.nG0, 1, 1, 1, 2, 0) # transb(Hermitian), transa
+            if np.abs(alpha) < 1e-10:
+                continue
+            _gpaw.cuOpt_phase(self.G_cG+ix*self.ncoef*sizeofdata, self.opt_uG,  # G_G * opt_uG -> opt2_uG
+                         self.opt2_uG, self.ncoef, nu, 0)
+            _gpaw.cuMemset(self.optpsit2_uR, 0, sizeofdata*self.nG0*nu)
+            _gpaw.cuMap_G2Q(self.opt2_uG, self.optpsit2_uR, self.Q1_G, self.ncoef, self.nG0, nu )
+            _gpaw.cufft_execZ2Z(self.cufftplanmany, self.optpsit2_uR, 
+                            self.optpsit2_uR, 1)  # Q -> R
+            # has to take into account fft (1/self.nG0) and gd.integrate(self.vol/self.nG0)
+            _gpaw.cuZscal(self.handle, self.nG0*nu, self.vol/(self.nG0*self.nG0),
+                          self.optpsit2_uR, 1)
+            if self.optphase:
+                _gpaw.cuOpt_phase(self.opteikr_R, self.optpsit2_uR, self.optpsit2_uR, self.nG0, nu, 0)# (psit1_R*opteikr_R).conj() * optpsit2_R
+    
+            _gpaw.cuZgemv(self.handle,self.nG0, nu, alpha, self.optpsit2_uR,
+                          self.nG0, self.psit1_R, 1,1.0, self.optrho_u,1)
+            # optrho_u -> rho_uG[:,0]
+        _gpaw.cuOpt_rhoG0_copy(self.optrho_u, self.rho_uG, self.nG0, nu)
 
-        tmpp = np.zeros(3, dtype=complex)               # similar to np.dot(-1j*qq_v*tmp)
-        status = _gpaw.cuGetVector(3,sizeofdata,self.dir_c,1, tmpp, 1)
-        rhoG0 = np.array([np.sum(tmpp),])
+        return 
 
-        return rhoG0
+
+#    def opt_dE(s, ibzk, n, nu):
+#        _gpaw.cuOpt_dE()
+#        pass
 
 
     def chi_free(self, chi):
@@ -435,9 +453,9 @@ class BaseCuda:
         _gpaw.cuFree(self.psit_uG)
 
         if chi.optical_limit:
-            _gpaw.cuFree(self.tmp_G)
-            _gpaw.cuFree(self.tmp2_G)
-            _gpaw.cuFree(self.dir_c)
+            _gpaw.cuFree(self.opt_uG)
+            _gpaw.cuFree(self.opt2_uG)
+            _gpaw.cuFree(self.optrho_u)
             _gpaw.cuFree(self.G_cG)
 
         return 
