@@ -480,17 +480,6 @@ PyObject* cuGet_C_wu(PyObject *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
-PyObject* cuApply_alpha_u(PyObject *self, PyObject *args)
-{
-  int nmultix, nu, iw, npw;
-  void *alpha_wu, *rho_uG;
-
-  if (!PyArg_ParseTuple(args, "LLiiii",&alpha_wu, &rho_uG, &iw, &nu, &nmultix, &npw))
-    return NULL;
-  cudaalpha_u( alpha_wu, rho_uG, iw, nu, nmultix, npw);
-  Py_RETURN_NONE;
-}
-
 
 PyObject* cuTrans_wfs(PyObject *self, PyObject *args)
 {
