@@ -339,7 +339,7 @@ class LrTDDFT(ExcitationList):
     def __str__(self):
         string = ExcitationList.__str__(self)
         string += '# derived from:\n'
-        string += self.kss.__str__()
+        string += self.Om.kss.__str__()
         return string
 
     def write(self, filename=None, fh=None):
