@@ -454,23 +454,23 @@ PyObject* cuOpt_dE(PyObject *self, PyObject *args)
 PyObject* cuGet_C_wu(PyObject *self, PyObject *args)
 {
   int nmultix, s, k1, k2, n, nu, nkpt, nband, nw;
-  void *e_skn, *m_u, *f_skn, *C_wu, *w_w;
+  void *e_skn, *m_u, *f_skn, *C_wu, *w_w, *alpha_wu;
 
-  if (!PyArg_ParseTuple(args, "LLLLiiiiLiiiii",&e_skn, &f_skn, &w_w, &C_wu, &s, &k1, &k2, &n, &m_u, &nu, &nmultix, &nkpt, &nband, &nw))
+  if (!PyArg_ParseTuple(args, "LLLLLiiiiLiiiii",&e_skn, &f_skn, &w_w, &C_wu, &alpha_wu, &s, &k1, &k2, &n, &m_u, &nu, &nmultix, &nkpt, &nband, &nw))
     return NULL;
-  cudaC_wu( e_skn, f_skn, w_w, C_wu,
+  cudaC_wu( e_skn, f_skn, w_w, C_wu, alpha_wu,
 	     s, k1, k2, n, m_u, nu, nmultix, nkpt, nband, nw);
   Py_RETURN_NONE;
 }
 
-PyObject* cuGet_alpha_u(PyObject *self, PyObject *args)
+PyObject* cuApply_alpha_u(PyObject *self, PyObject *args)
 {
   int nmultix, nu, iw, npw;
-  void *C_wu, *alpha_u, *rho_uG;
+  void *alpha_wu, *rho_uG;
 
-  if (!PyArg_ParseTuple(args, "LLLiiii",&C_wu, &alpha_u, &rho_uG, &iw, &nu, &nmultix, &npw))
+  if (!PyArg_ParseTuple(args, "LLiiii",&alpha_wu, &rho_uG, &iw, &nu, &nmultix, &npw))
     return NULL;
-  cudaalpha_u( C_wu, alpha_u, rho_uG, iw, nu, nmultix, npw);
+  cudaalpha_u( alpha_wu, rho_uG, iw, nu, nmultix, npw);
   Py_RETURN_NONE;
 }
 

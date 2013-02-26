@@ -79,7 +79,7 @@ __global__ void opt_dE( cuDoubleComplex *rho_uG, int nG0, int nmultix, double *e
 }
 
 
-__global__ void GetC_wu( double *e_skn, double *f_skn, double *w_w, double *C_wu,
+__global__ void GetC_wu( double *e_skn, double *f_skn, double *w_w, double *C_wu, double *alpha_wu, 
 		      int s, int k1, int k2, int n, int *m_u, int nu, int nmultix, int nkpt, int nband, int nw){
   /* perform optexp_R * optpsit2_uR */
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -95,14 +95,11 @@ __global__ void GetC_wu( double *e_skn, double *f_skn, double *w_w, double *C_wu
 
     C_wu[iw*nmultix+iu] = 2*e2*f2 / (w_w[iw] - e2*e2);
   }
-}
+  __syncthreads();
 
-
-__global__ void Getalpha_u( double *C_wu, double *alpha_wu, cuDoubleComplex *rho_uG, int iw, int nu, int nmultix, int npw){
-  int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  int nn = nu * npw;
   if (tid < nn) {
-    int iu = tid/npw;
+    int iw = tid/nu;
+    int iu = tid%nu;
     if (iw > 0){
       alpha_wu[iw*nmultix+iu] = sqrt( C_wu[iw*nmultix+iu] / C_wu[(iw-1)*nmultix+iu]);
     }
@@ -110,7 +107,12 @@ __global__ void Getalpha_u( double *C_wu, double *alpha_wu, cuDoubleComplex *rho
       alpha_wu[iw*nmultix+iu] = sqrt(-C_wu[iw*nmultix+iu]);      
     }
   }
-  __syncthreads();
+}
+
+
+__global__ void Apply_alpha_u( double *alpha_wu, cuDoubleComplex *rho_uG, int iw, int nu, int nmultix, int npw){
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  int nn = nu * npw;
   if (tid < nn) {
     int iu = tid/npw;
     rho_uG[tid] = make_cuDoubleComplex( cuCreal(rho_uG[tid]) * alpha_wu[iw*nmultix+iu], cuCimag(rho_uG[tid]) * alpha_wu[iw*nmultix+iu] );
@@ -427,22 +429,22 @@ extern "C" {
 
 
 extern "C" {
-  void cudaC_wu( double* e_skn, double* f_skn, double* w_w, double* C_wu, 
+  void cudaC_wu( double* e_skn, double* f_skn, double* w_w, double* C_wu, double* alpha_wu, 
 		 int s, int k1, int k2, int n, int* m_u, int nu, int nmultix, int nkpt, int nband, int nw){
-  int threads = 64;
+  int threads = 128;
   int nn = nu * nw;
   int blocks = nn/threads + (nn%threads == 0 ? 0:1);
-  GetC_wu<<<blocks, threads>>>( (double*)e_skn, (double*)f_skn, (double*)w_w, (double*)C_wu, 
+  GetC_wu<<<blocks, threads>>>( (double*)e_skn, (double*)f_skn, (double*)w_w, (double*)C_wu, (double*)alpha_wu,
 			       s, k1, k2, n, (int*)m_u, nu, nmultix, nkpt, nband, nw);
 }
 }
 
 extern "C" {
-  void cudaalpha_u( double* C_wu, double* alpha_u, double complex* rho_uG, int iw, int nu, int nmultix, int npw){
+  void cudaalpha_u( double* alpha_wu, double complex* rho_uG, int iw, int nu, int nmultix, int npw){
   int threads = 128;
   int nn = nu * npw;
   int blocks = nn/threads + (nn%threads == 0 ? 0:1);
-  Getalpha_u<<<blocks, threads>>>( (double*)C_wu, (double*)alpha_u, (cuDoubleComplex*)rho_uG, iw, nu, nmultix, npw);
+  Apply_alpha_u<<<blocks, threads>>>( (double*)alpha_wu, (cuDoubleComplex*)rho_uG, iw, nu, nmultix, npw);
 }
 }
 
