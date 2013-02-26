@@ -52,6 +52,23 @@ PyObject* cugemm(PyObject *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
+
+PyObject* cudgmm(PyObject *self, PyObject *args)
+{
+  cublasHandle_t handle;
+  cublasSideMode_t mode = CUBLAS_SIDE_LEFT; /* left : 0 , right : 1*/
+  cuDoubleComplex* A;
+  cuDoubleComplex* x;
+  cuDoubleComplex* C;
+  int n, m, lda, incx, ldc;
+
+  if (!PyArg_ParseTuple(args, "LLLLiiiii|i",&handle, &A, &x, &C, &n, &m, &lda, &ldc, &incx, &mode))
+    return NULL;
+  cublasZdgmm(handle, mode, m, n, A, lda, x, incx, C, ldc);
+  Py_RETURN_NONE;
+}
+
+
 PyObject* cuCgemv(PyObject *self, PyObject *args)
 {
   cublasHandle_t handle;

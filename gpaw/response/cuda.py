@@ -101,7 +101,7 @@ class BaseCuda:
             w2_w[iw] = np.real(tmp)
         status, self.w2_w = _gpaw.cuMalloc(chi.Nw_local * sizeofdouble)
         status, self.C_wu = _gpaw.cuMalloc(chi.Nw_local * self.nmultix * sizeofdouble)
-        status, self.alpha_wu = _gpaw.cuMalloc(chi.Nw_local * self.nmultix * sizeofdouble)
+        status, self.alpha_wu = _gpaw.cuMalloc(chi.Nw_local * self.nmultix * sizeofdata)
         _gpaw.cuSetVector(chi.Nw_local, sizeofdouble, w2_w, 1, self.w2_w, 1)
 
 
@@ -414,8 +414,10 @@ class BaseCuda:
             alpha = -1j * self.qq_v[ix]                    
             if np.abs(alpha) < 1e-10:
                 continue
-            _gpaw.cuOpt_phase(self.G_cG+ix*self.ncoef*sizeofdata, self.opt_uG,  # G_G * opt_uG -> opt2_uG
-                         self.opt2_uG, self.ncoef, nu, 0)
+            _gpaw.cudgmm(self.handle, self.opt_uG, self.G_cG+ix*self.ncoef*sizeofdata, 
+                         self.opt2_uG, nu, self.ncoef, self.ncoef, self.ncoef, 1, 0)
+#            _gpaw.cuOpt_phase(self.G_cG+ix*self.ncoef*sizeofdata, self.opt_uG,  # G_G * opt_uG -> opt2_uG
+#                         self.opt2_uG, self.ncoef, nu, 0)
             _gpaw.cuMemset(self.optpsit2_uR, 0, sizeofdata*self.nG0*nu)
             _gpaw.cuMap_G2Q(self.opt2_uG, self.optpsit2_uR, self.Q1_G, self.ncoef, self.nG0, nu )
             _gpaw.cufft_execZ2Z(self.cufftplanmany, self.optpsit2_uR, 
@@ -424,7 +426,10 @@ class BaseCuda:
             _gpaw.cuZscal(self.handle, self.nG0*nu, self.vol/(self.nG0*self.nG0),
                           self.optpsit2_uR, 1)
             if self.optphase:
-                _gpaw.cuOpt_phase(self.opteikr_R, self.optpsit2_uR, self.optpsit2_uR, self.nG0, nu, 0)# (psit1_R*opteikr_R).conj() * optpsit2_R
+                _gpaw.cudgmm(self.handle, self.optpsit2_uR, self.opteikr_R, 
+                             self.optpsit2_uR, nu, self.nG0, self.nG0, self.nG0, 1, 0)
+#                _gpaw.cuOpt_phase(self.opteikr_R, self.optpsit2_uR, self.optpsit2_uR, self.nG0, nu, 0)
+                 # (psit1_R*opteikr_R).conj() * optpsit2_R
     
             _gpaw.cuZgemv(self.handle,self.nG0, nu, alpha, self.optpsit2_uR,
                           self.nG0, self.psit1_R, 1,1.0, self.optrho_u,1)

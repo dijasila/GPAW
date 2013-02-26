@@ -245,7 +245,6 @@ class Chi(BaseChi):
             use_zher = True
 
         rho_G = np.zeros(self.npw, dtype=complex)
-        t0 = time()
 
         if seperate_spin is None:
             spinlist = np.arange(self.nspins)
@@ -258,10 +257,13 @@ class Chi(BaseChi):
             timer = Timer()
             self.timer = timer
         
+        t0 = time()
         for spin in spinlist:
+            if self.sync: timer.start('others')
             if not (f_skn[spin] > self.ftol).any():
                 self.chi0_wGG = chi0_wGG
                 continue
+            if self.sync: timer.end('others')
             
             for k in range(self.kstart, self.kend):
 #                if k > 0:
@@ -547,8 +549,15 @@ class Chi(BaseChi):
                             if not self.hilbert_trans:
                                 if not use_zher:
                                     rho_GG = np.outer(rho_G, rho_G.conj())
+                                if self.sync: timer.start('C_uw1')
+                                if imultix == 0:
+                                    _gpaw.cuGet_C_wu(cu.e_skn, cu.f_skn, cu.w2_w, cu.C_wu, cu.alpha_wu,
+                                                     spin, ibzkpt1, ibzkpt2, n, cu.mlocallist, len(mlocallist), 
+                                                     nmultix, kd.nibzkpts, cu.totnband, self.Nw_local)
+                                if self.sync: timer.end('C_uw1')
+
                                 for iw in range(self.Nw_local):
-                                    if self.sync: timer.start('C_uw')
+                                    if self.sync: timer.start('C_uw2')
                                     if not self.cuda:
                                         w = self.w_w[iw + self.wstart] / Hartree
                                         coef = ( 1. / (w + e_skn[spin][ibzkpt1, n] - e_skn[spin][ibzkpt2, m]
@@ -559,13 +568,10 @@ class Chi(BaseChi):
                                     else:
                                         assert use_zher is True
                                         if imultix == 0:
-                                            _gpaw.cuGet_C_wu(cu.e_skn, cu.f_skn, cu.w2_w, cu.C_wu,
-                                                         spin, ibzkpt1, ibzkpt2, n, cu.mlocallist, len(mlocallist), 
-                                                         nmultix, kd.nibzkpts, cu.totnband, self.Nw_local)
+                                            _gpaw.cudgmm(cu.handle, cu.rho_uG, cu.alpha_wu+iw*nmultix*sizeofdata, 
+                                                         cu.rho_uG, len(mlocallist), self.npw, self.npw, self.npw, 1, 1)
 
-                                            _gpaw.cuGet_alpha_u(cu.C_wu, cu.alpha_wu, cu.rho_uG, iw, len(mlocallist), nmultix, self.npw)
-
-                                    if self.sync: timer.end('C_uw')
+                                    if self.sync: timer.end('C_uw2')
 
                                     if self.sync: timer.start('zherk')
                                     if use_zher:
