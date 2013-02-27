@@ -816,6 +816,50 @@ static PyObject * mpi_broadcast(MPIObject *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
+static PyObject * mpi_alltoallv(MPIObject *self, PyObject *args)
+{
+  PyArrayObject* send_obj;
+  PyArrayObject* send_cnts;
+  PyArrayObject* send_displs;
+  PyArrayObject* recv_obj;
+  PyArrayObject* recv_cnts;
+  PyArrayObject* recv_displs;
+
+  if (!PyArg_ParseTuple(args, "OOOOOO:alltoallv", &send_obj, &send_cnts, &send_displs,
+			                          &recv_obj, &recv_cnts, &recv_displs))
+    return NULL;
+  CHK_ARRAY(send_obj);
+  CHK_ARRAY(send_cnts);
+  CHK_ARRAY(send_displs);
+  CHK_ARRAY(recv_obj);
+  CHK_ARRAY(recv_cnts);
+  CHK_ARRAY(recv_displs);
+
+  int *s_cnts = GPAW_MALLOC(int, self->size);
+  int *s_displs = GPAW_MALLOC(int, self->size);
+  int *r_cnts = GPAW_MALLOC(int, self->size);
+  int *r_displs = GPAW_MALLOC(int, self->size);
+
+  /* Create count and displacement arrays in units of bytes */
+  int elem_size = PyArray_DESCR(send_obj)->elsize;
+  long* tmp1 = PyArray_DATA(send_cnts);
+  long* tmp2 = PyArray_DATA(send_displs);
+  long* tmp3 = PyArray_DATA(recv_cnts);
+  long* tmp4 = PyArray_DATA(recv_displs);
+  for (int i=0; i < self->size; i++)
+    {
+      s_cnts[i] = tmp1[i] * elem_size;
+      s_displs[i] = tmp2[i] * elem_size;
+      r_cnts[i] = tmp3[i] * elem_size;
+      r_displs[i] = tmp4[i] * elem_size;
+    }
+
+  MPI_Alltoallv(PyArray_BYTES(send_obj), s_cnts, s_displs, 
+		MPI_BYTE, PyArray_BYTES(recv_obj), r_cnts, 
+		r_displs, MPI_BYTE, self->comm);
+  Py_RETURN_NONE;
+}
+
 static PyObject * get_members(MPIObject *self, PyObject *args)
 {
   PyArrayObject *ranks;
@@ -886,6 +930,8 @@ static PyMethodDef mpi_methods[] = {
      "gather(src, root, target=None) gathers data from all tasks on root task."},
     {"all_gather",       (PyCFunction)mpi_allgather,    METH_VARARGS,
      "all_gather(src, target) gathers data from all tasks on all tasks."},
+    {"alltoallv",       (PyCFunction)mpi_alltoallv,    METH_VARARGS,
+     "alltoallv(sbuf, scnt, sdispl, rbuf, ...) send data from all tasks to all tasks."},
     {"broadcast",        (PyCFunction)mpi_broadcast,    METH_VARARGS,
      "broadcast(buffer, root) Broadcast data in-place from root task."},
     {"get_members",      (PyCFunction)get_members,      METH_VARARGS, 0},
