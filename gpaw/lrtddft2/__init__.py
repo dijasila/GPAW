@@ -26,7 +26,7 @@ from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.utilities import devnull
 
 import _gpaw
-from gpaw.mpi import rank
+from gpaw.mpi import rank, alltoallv_string
 
 #from gpaw.output import initialize_text_stream
 
@@ -1342,9 +1342,9 @@ class LrTDDFTindexed:
             drhot_gh += fh_n[k] * drhot_gip
             drhot_ge += fe_n[k] * drhot_gip
 
-            if self.parent_comm.rank == 0:
-                print '%03d => %03d : %03d=>%03d | %12.6lf  %12.6lf %12.6lf' % (kss_ip.occ_ind, kss_ip.unocc_ind, kss_ip.occ_ind, kss_ip.unocc_ind, C_im[ip], C_im[ip], C_im[ip] * C_im[ip]) 
-                sys.stdout.flush()
+            #if self.parent_comm.rank == 0:
+            #    print '%03d => %03d : %03d=>%03d | %12.6lf  %12.6lf %12.6lf' % (kss_ip.occ_ind, kss_ip.unocc_ind, kss_ip.occ_ind, kss_ip.unocc_ind, C_im[ip], C_im[ip], C_im[ip] * C_im[ip]) 
+            #    sys.stdout.flush()
 
 
         # offdiagonal
@@ -1370,9 +1370,9 @@ class LrTDDFTindexed:
                     continue
 
 
-                if self.parent_comm.rank == 0:
-                    print '%03d => %03d : %03d=>%03d | %12.6lf  %12.6lf %12.6lf' % (kss_ip.occ_ind, kss_ip.unocc_ind, kss_jq.occ_ind, kss_jq.unocc_ind, C_im[ip], C_im[jq], C_im[ip] * C_im[jq]) 
-                    sys.stdout.flush()
+                #if self.parent_comm.rank == 0:
+                #    print '%03d => %03d : %03d=>%03d | %12.6lf  %12.6lf %12.6lf' % (kss_ip.occ_ind, kss_ip.unocc_ind, kss_jq.occ_ind, kss_jq.unocc_ind, C_im[ip], C_im[jq], C_im[ip] * C_im[jq]) 
+                #    sys.stdout.flush()
 
                 if ( kss_ip.occ_ind   == kss_jq.occ_ind and
                      kss_ip.unocc_ind != kss_jq.unocc_ind ):
@@ -1443,7 +1443,7 @@ class LrTDDFTindexed:
             elem_lists[proc] = ''
 
         
-        self.timer.start('Read data')
+        self.timer.start('Read K-matrix')
         # Read ALL ready_rows files but on different processors
         for (k, K_fn) in enumerate(glob.glob(self.basefilename + '.K_matrix.*')):
             # stride
@@ -1467,6 +1467,8 @@ class LrTDDFTindexed:
                 (proc, ehproc, ddproc, lip, ljq) = self.get_matrix_elem_proc_and_index(ip, jq)
                 elem_lists[proc] += line                
 
+                if ip == jq: continue
+
                 # where to send transposed
                 (proc, ehproc, ddproc, lip, ljq) = self.get_matrix_elem_proc_and_index(jq, ip)
                 elem_lists[proc] += line
@@ -1477,8 +1479,13 @@ class LrTDDFTindexed:
         #    print key, ':', val[0:120]
         #sys.stdout.flush()
 
+        self.timer.stop('Read K-matrix')
 
         # send and receive elem_list
+        self.timer.start('Communicate K-matrix')
+        local_elem_list = ''.join(alltoallv_string(elem_lists,self.parent_comm).values())
+        
+        """
         local_elem_list = ''
         for sending_proc in range(self.parent_comm.size):
             for receiving_proc in range(self.parent_comm.size):
@@ -1493,14 +1500,14 @@ class LrTDDFTindexed:
                     elist = gpaw.mpi.receive_string( sending_proc,
                                                      comm=self.parent_comm )
                     local_elem_list += elist
-            
+        """ 
 
 
-        #print self.parent_comm.rank, '- local_elem_list -', local_elem_list[0:120]
+        #print self.parent_comm.rank, '- local_elem_list -', local_elem_list[0:120].replace('\n', ' | ')
         #sys.stdout.flush()
-        self.parent_comm.barrier()
+        #sys.exit(0)
 
-        self.timer.stop('Read data')
+        self.timer.stop('Communicate K-matrix')
         
         self.timer.start('Build matrix')
         
