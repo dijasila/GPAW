@@ -1450,6 +1450,9 @@ class LrTDDFTindexed:
             if k % self.parent_comm.size != self.parent_comm.rank:
                 continue
             
+            # if K_matrix file is too large, use
+            # "split -l 100000 xxx.K_matrix.ddddddofDDDDDD xxx.K_matrix.ddddddofDDDDDD." 
+            # for each file and delete the original file
             for line in StringIO.StringIO(open(K_fn,'r', 1024*1024).read()):
                 elems = line.split()
                 i = int(elems[0])
@@ -1542,7 +1545,7 @@ class LrTDDFTindexed:
                 K_matrix[ljq,lip] = Kvalue
                 
         self.timer.stop('Build matrix')
-
+ 
         #print K_matrix
 
         
@@ -1992,9 +1995,9 @@ class LrTDDFTindexed:
         # Wrong not writing K-matrix but it's "Casida form" 
         # 2 (dN dE)**.5 K (dN dE)**.5
         ############
-        Kfn = self.basefilename + '.K_matrix.' + '%04dof%04d' % (self.offset, self.stride)
-        rrfn = self.basefilename + '.ready_rows.' + '%04dof%04d' % (self.offset, self.stride)
-        logfn = self.basefilename + '.log.' + '%04dof%04d' % (self.offset, self.stride)
+        Kfn = self.basefilename + '.K_matrix.' + '%06dof%06d' % (self.offset, self.stride)
+        rrfn = self.basefilename + '.ready_rows.' + '%06dof%06d' % (self.offset, self.stride)
+        logfn = self.basefilename + '.log.' + '%06dof%06d' % (self.offset, self.stride)
 
         # Open only on dd_comm root
         if self.dd_comm.rank == 0:
@@ -2580,7 +2583,7 @@ def lr_communicators(world, dd_size, eh_size):
     Example (for 8 MPI processes):
 
     dd_comm, eh_comm = lr_communicators(gpaw.mpi.world, 4, 2)
-    txt = 'lr_%04d_%04d.txt' % (dd_comm.rank, eh_comm.rank)
+    txt = 'lr_%06d_%06d.txt' % (dd_comm.rank, eh_comm.rank)
     lr = LrTDDFTindexed(GPAW('unocc.gpw', communicator=dd_comm), eh_comm=eh_comm, txt=txt)
     """
 
