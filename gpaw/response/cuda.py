@@ -251,8 +251,18 @@ class BaseCuda:
 
         self.ind.kspecific_init(nx*ny*nz, index1_g, index2_g)
 
-        deltak_c = (np.dot(op1_cc, kd.ibzk_kc[ibzkpt1]) -
-                    np.dot(op2_cc, kd.ibzk_kc[ibzkpt2]) + chi.q_c)
+
+        deltak1_c = np.dot(op1_cc, kd.ibzk_kc[ibzkpt1])
+        deltak2_c = np.dot(op2_cc, kd.ibzk_kc[ibzkpt2])
+        if time_rev1:
+            deltak1_c = -deltak1_c
+        if time_rev2:
+            deltak2_c = -deltak2_c
+
+        if not chi.optical_limit:
+            deltak_c = deltak1_c - deltak2_c + chi.q_c
+        else:
+            deltak_c = deltak1_c - deltak2_c
 
         deltaeikr_R = np.exp(- 2j * pi * np.dot(np.indices(N_c).T, deltak_c / N_c).T)
         _gpaw.cuSetVector(nx*ny*nz,sizeofdata,deltaeikr_R.ravel(),1,self.expqr_R,1)

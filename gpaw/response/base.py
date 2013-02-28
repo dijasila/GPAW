@@ -546,7 +546,7 @@ class BaseChi:
             S_c = (np.dot(spos_ac[a], kd.symmetry.op_scc[s]) - spos_ac[b])
             Ni = len(kpt.P_ani[a][0])
         
-            assert abs(S_c.round() - S_c).max() < 1e-10
+            assert abs(S_c.round() - S_c).max() < 1e-6
             k_c = kd.ibzk_kc[kpt.k]
         
             x = np.exp(2j * pi * np.dot(k_c, S_c))
