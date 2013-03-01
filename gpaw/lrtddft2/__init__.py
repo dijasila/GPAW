@@ -213,6 +213,7 @@ class LrTDDFTindexed:
         self.trans_prop_ready = False
 
     def read(self, basename):
+        self.timer.start('Init read')
         info_file = basename+'.LR_info'
         if os.path.exists(info_file) and os.path.isfile(info_file):
             self.read_info(info_file)
@@ -220,21 +221,34 @@ class LrTDDFTindexed:
             return
 
         # Read ALL ready_rows files
-        ready_files = glob.glob(basename+'.ready_rows.*')
-        for ready_file in ready_files:
-            if os.path.isfile(ready_file):
-                for line in open(ready_file,'r'):
-                    line = line.split()
-                    self.ready_indices.append([int(line[0]),int(line[1])])
+        self.timer.start('Init read ready rows')
+        data = None
+        if self.parent_comm.rank == 0:
+            data = ''
+            ready_files = glob.glob(basename+'.ready_rows.*')
+            for ready_file in ready_files:
+                if os.path.isfile(ready_file):
+                    data += open(ready_file,'r',1024*1024).read()
+
+        data = gpaw.mpi.broadcast_string(data, root=0, comm=self.parent_comm)
+        for line in StringIO.StringIO(data):
+            line = line.split()
+            self.ready_indices.append([int(line[0]),int(line[1])])
+        self.timer.stop('Init read ready rows')
 
         # Read KS_singles file if exists
         # occ_index | unocc index | energy diff | population diff |
         #   dmx | dmy | dmz | magnx | magny | magnz
+        self.timer.start('Init read KS singles')
         kss_file = basename+'.KS_singles'
         if os.path.exists(kss_file) and os.path.isfile(kss_file):
             self.kss_list = []
-            kss_file = open(kss_file)
-            for line in kss_file:
+
+            data = None
+            if self.parent_comm.rank == 0:
+                data = open(kss_file, 'r', 1024*1024).read()
+            data = gpaw.mpi.broadcast_string(data, root=0, comm=self.parent_comm)
+            for line in StringIO.StringIO(data):
                 line = line.split()
                 i, p = int(line[0]), int(line[1])
                 ediff, fdiff = float(line[2]), float(line[3])
@@ -248,7 +262,10 @@ class LrTDDFTindexed:
                 assert self.index_of_kss(i,p) is None, 'KS transition %d->%d found twice in KS_singles files.' % (i,p)
                 self.kss_list.append(kss)
             if len(self.kss_list) <= 0: self.kss_list = None
-            kss_file.close()
+
+        self.timer.stop('Init read KS singles')
+        self.timer.stop('Init read')
+
 
 
     def write_info(self, fname):
@@ -822,6 +839,7 @@ class LrTDDFTindexed:
 
 
     def calculate_response_wavefunction_new(self, omega, eta, laser):
+
         laser = np.array(laser)
 
         nrow = len(self.kss_list)  # total rows
@@ -831,7 +849,9 @@ class LrTDDFTindexed:
         nlrow = K_matrix.shape[0]
         nlcol = K_matrix.shape[1]
 
-        
+        self.timer.start('Calculate response wavefunction')
+
+        self.timer.start('Calculate response wavefunction: prepare K')
         for kss_ip in self.kss_list:
             i = kss_ip.occ_ind
             p = kss_ip.unocc_ind
@@ -854,7 +874,8 @@ class LrTDDFTindexed:
 
             if ljq is not None:
                 K_matrix[:,ljq] *= kss_ip.pop_diff
-            
+
+        self.timer.stop('Calculate response wavefunction: prepare K')
 
 
         # ---------------------------------------------------------------
@@ -868,6 +889,7 @@ class LrTDDFTindexed:
         #print K_matrix.shape  #  N/eh x  N/dd
         #print At_matrix.shape # 4N/dd x 4N/eh
 
+        self.timer.start('Calculate response wavefunction: expand K to A')
         # scatter K... we use 4x4 (re/im,+/-) blocks for scalapack
         for icol in range(nlcol):
             # build index pairs (col <=> row for scalapack)
@@ -888,7 +910,9 @@ class LrTDDFTindexed:
             At_matrix[cind+3, rind+3] =  K_matrix[:,icol]
 
 
-            
+        self.timer.stop('Calculate response wavefunction: expand K to A')
+
+        self.timer.start('Calculate response wavefunction: diagonal blocks')
         # diagonal terms of blocks
         for kss_ip in self.kss_list:
             i = kss_ip.occ_ind
@@ -915,7 +939,9 @@ class LrTDDFTindexed:
             At_matrix[ljq*4+2, lip*4+0] += -eta
             At_matrix[ljq*4+3, lip*4+1] += -eta
 
+        self.timer.stop('Calculate response wavefunction: diagonal blocks')
 
+        self.timer.start('Calculate response wavefunction: rhs')
         # rhs
         V_rhs = []
         for kss_jq in self.kss_list:
@@ -935,7 +961,7 @@ class LrTDDFTindexed:
             V_rhs.append( 0. )
 
         V_rhs = np.array( V_rhs )
-        
+        self.timer.stop('Calculate response wavefunction: rhs')
 
         #for proc in range(self.parent_comm.size):
         #    sys.stdout.flush()
@@ -952,6 +978,7 @@ class LrTDDFTindexed:
         #sys.exit(0)
 
 
+        self.timer.start('Calculate response wavefunction: solve ')
         # ScaLapack
         parm = self.calc.input_parameters
         sl_lrtddft = parm.parallel['sl_lrtddft']
@@ -985,6 +1012,7 @@ class LrTDDFTindexed:
             assert nrow == nlrow and nrow == nlcol, "Parallel solve without scalapack is not implemented yet." % (nloc,nrow)
             C = np.linalg.solve(np.transpose(At_matrix), V_rhs)
 
+        self.timer.stop('Calculate response wavefunction: solve ')
 
         # response wavefunction
         #   perturbation was exp(iwt) + exp(-iwt) = 2 cos(wt)
@@ -1016,6 +1044,8 @@ class LrTDDFTindexed:
         #print >> self.txt, C
         #print >> self.txt, C_re
         #print >> self.txt, C_im
+
+        self.timer.stop('Calculate response wavefunction')
 
         return (C_re,C_im)
 
@@ -1407,9 +1437,10 @@ class LrTDDFTindexed:
 
         drhot_geh = drhot_ge + drhot_gh
 
-        #print 'drho_ge', self.calc.density.finegd.integrate(drhot_ge)
-        #print 'drho_gh', self.calc.density.finegd.integrate(drhot_gh)
-        #print 'drho_geh', self.calc.density.finegd.integrate(drhot_geh)
+        if self.parent_comm.rank == 0:
+            print 'drho_ge ', self.calc.density.finegd.integrate(drhot_ge)
+            print 'drho_gh ', self.calc.density.finegd.integrate(drhot_gh)
+            print 'drho_geh', self.calc.density.finegd.integrate(drhot_geh)
 
         return (drhot_ge, drhot_gh, drhot_geh)
 
@@ -1440,9 +1471,10 @@ class LrTDDFTindexed:
         # ready rows list for different procs (read by this proc)
         elem_lists = {}
         for proc in range(self.parent_comm.size):
-            elem_lists[proc] = ''
+           elem_lists[proc] = []
 
-        
+        self.parent_comm.barrier()
+
         self.timer.start('Read K-matrix')
         # Read ALL ready_rows files but on different processors
         for (k, K_fn) in enumerate(glob.glob(self.basefilename + '.K_matrix.*')):
@@ -1454,35 +1486,49 @@ class LrTDDFTindexed:
             # "split -l 100000 xxx.K_matrix.ddddddofDDDDDD xxx.K_matrix.ddddddofDDDDDD." 
             # for each file and delete the original file
             for line in StringIO.StringIO(open(K_fn,'r', 1024*1024).read()):
+                #self.timer.start('Read K-matrix: elem')
                 elems = line.split()
                 i = int(elems[0])
                 p = int(elems[1])
                 j = int(elems[2])
                 q = int(elems[3])
+                #self.timer.stop('Read K-matrix: elem')
 
-                
+                #self.timer.start('Read K-matrix: index')
                 ip = self.index_map.get( (i,p) )
                 jq = self.index_map.get( (j,q) )
+                #self.timer.stop('Read K-matrix: index')
                 if ip is None or jq is None:
                     continue
 
+
                 # where to send
+                #self.timer.start('Read K-matrix: line')
                 (proc, ehproc, ddproc, lip, ljq) = self.get_matrix_elem_proc_and_index(ip, jq)
-                elem_lists[proc] += line                
+                elem_lists[proc].append( line )
+                #self.timer.stop('Read K-matrix: line')
 
                 if ip == jq: continue
 
                 # where to send transposed
+                #self.timer.start('Read K-matrix: line')
                 (proc, ehproc, ddproc, lip, ljq) = self.get_matrix_elem_proc_and_index(jq, ip)
-                elem_lists[proc] += line
+                elem_lists[proc].append( line )
+                #self.timer.stop('Read K-matrix: line')
 
+        #self.timer.start('Read K-matrix: join')
+        for proc in range(self.parent_comm.size):
+            elem_lists[proc] = ''.join(elem_lists[proc])
+        #self.timer.stop('Read K-matrix: join')
 
         #print self.parent_comm.rank, '- elem_lists -'
         #for (key,val) in elem_lists.items():
         #    print key, ':', val[0:120]
         #sys.stdout.flush()
 
+        self.parent_comm.barrier()
         self.timer.stop('Read K-matrix')
+
 
         # send and receive elem_list
         self.timer.start('Communicate K-matrix')
@@ -1730,6 +1776,7 @@ class LrTDDFTindexed:
         eps_n = self.calc.wfs.kpt_u[self.kpt_ind].eps_n      # eigen energies
         f_n = self.calc.wfs.kpt_u[self.kpt_ind].f_n          # occupations
 
+        self.timer.start('Calculate KS singles: new list')
         # Create Kohn-Sham single excitation list with energy filter
         old_kss_list = self.kss_list   # save old list for later
         self.kss_list = []             # create a completely new list
@@ -1748,6 +1795,8 @@ class LrTDDFTindexed:
                     kss.pop_diff = df_ip
                     self.kss_list.append(kss)
 
+        self.timer.stop('Calculate KS singles: new list')
+
         # Sort by energy diff
         def energy_diff_cmp(kss_ip,kss_jq):
             ediff = kss_ip.energy_diff - kss_jq.energy_diff
@@ -1756,9 +1805,12 @@ class LrTDDFTindexed:
             return 0
         self.kss_list = sorted(self.kss_list, cmp=energy_diff_cmp)            
 
+
+        self.timer.start('Calculate KS singles: merge old and new lists')
         # Remove old transitions and add new, but only add to the end of
         # the list (otherwise lower triangle matrix is not filled completely)
         if old_kss_list is not None:
+            self.timer.start('Calculate KS singles: merge old')
             new_kss_list = self.kss_list   # required list
             self.kss_list = []             # final list with correct order
             # Old list first
@@ -1774,9 +1826,12 @@ class LrTDDFTindexed:
                     self.kss_list.append(kss_o) # Found, add to final list
                 else:
                     pass                        # else drop
-                
+
+            self.timer.stop('Calculate KS singles: merge old')
+
             # Now old transitions which are not in new list where dropped
 
+            self.timer.start('Calculate KS singles: merge new')
             # If only in new list
             app_list = []
             for kss_n in new_kss_list:
@@ -1790,9 +1845,12 @@ class LrTDDFTindexed:
                     app_list.append(kss_n) # Not found, add to final list
                 else:
                     pass                   # else skip to avoid duplicates
+            self.timer.stop('Calculate KS singles: merge new')
 
             # Create the final list
             self.kss_list += app_list
+
+        self.timer.stop('Calculate KS singles: merge old and new lists')
 
         print >> self.txt, 'Number of electron-hole pairs: %d' % len(self.kss_list)    
         print >> self.txt, 'Maximum energy difference: %6.3f' % (self.kss_list[-1].energy_diff * ase.units.Hartree)
