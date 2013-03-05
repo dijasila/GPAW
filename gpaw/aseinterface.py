@@ -91,15 +91,13 @@ class GPAW(PAW, Calculator):
         self.atoms = gpaw.io.read_atoms(reader)
         read_parameters(self.parameters)
 
-        #self.print_cell_and_parameters()
+        self.print_cell_and_parameters()
 
     def set(self, **kwargs):
         if (kwargs.get('h') is not None) and (kwargs.get('gpts') is not None):
             raise TypeError("""You can't use both "gpts" and "h"!""")
 
         changed_parameters = Calculator.set(self, **kwargs)
-
-        print changed_parameters
 
         self.initialized = False
         p = self.parameters
@@ -182,7 +180,7 @@ class GPAW(PAW, Calculator):
                     self.density.reset()
                 self.set_positions(atoms)
 
-        #self.print_cell_and_parameters()
+        self.print_cell_and_parameters()
 
         iter = None
         if not self.scf.converged:
@@ -208,9 +206,9 @@ class GPAW(PAW, Calculator):
         self.results['energy'] = Hartree * (self.hamiltonian.Etot +
                                             0.5 * self.hamiltonian.S)
         if 'forces' in properties:
-            self.results['forces'] = self.forces.calculate(self.wfs,
-                                                           self.density,
-                                                           self.hamiltonian)
+            F_av = self.forces.calculate(self.wfs, self.density,
+                                         self.hamiltonian)
+            self.results['forces'] = F_av * (Hartree / Bohr)
             self.print_forces()
 
         if 'stress' in properties:
@@ -238,8 +236,8 @@ class GPAW(PAW, Calculator):
 
         if iter is not None:
             self.print_converged(iter)
-            if self.label:
-                self.write(self.label)
+            #if self.label:
+            #    self.write(self.label)
 
     def get_number_of_bands(self):
         """Return the number of bands."""
