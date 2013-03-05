@@ -327,7 +327,7 @@ class PAWTextOutput:
             except (TypeError, AttributeError):
                 pass
             t('Local Magnetic Moments:')
-            for a, mom in enumerate(self.get_magnetic_moments()):
+            for a, mom in enumerate(self.results['magmoms']):
                 t(a, mom)
             t()
         elif not self.wfs.collinear:
