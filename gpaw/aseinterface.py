@@ -77,10 +77,11 @@ class GPAW(PAW, Calculator):
                             'buffer_size':         buffer_size}
         }
 
-    def __init__(self, label=None, iomode='rw', output=None, atoms=None,
-                 **kwargs):
+    def __init__(self, restart=None, ignore_bad_restart_file=False, label=None,
+                 atoms=None, **kwargs):
         PAW.__init__(self)
-        Calculator.__init__(self, label, iomode, output, atoms, **kwargs)
+        Calculator.__init__(self, restart, ignore_bad_restart_file, label,
+                            atoms, **kwargs)
 
     def read(self):
         if self.label is None or not os.path.isfile(self.label):
