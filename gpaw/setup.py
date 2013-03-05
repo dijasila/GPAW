@@ -1079,6 +1079,10 @@ class Setups(list):
                  world=None):
         list.__init__(self)
         symbols = [chemical_symbols[Z] for Z in Z_a]
+
+        if basis_sets is None:
+            basis_sets = {}
+
         type_a = types2atomtypes(symbols, setup_types, default='paw')
         basis_a = types2atomtypes(symbols, basis_sets, default=None)
         

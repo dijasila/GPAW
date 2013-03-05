@@ -38,7 +38,7 @@ class GPAW(PAW, Calculator):
         'fixmom':          False,  # don't use this
         'nbands':          None,
         'setups':          'paw',
-        'basis':           {},
+        'basis':           None,
         'width':           None,  # eV, don't use this
         'occupations':     None,
         'spinpol':         None,
