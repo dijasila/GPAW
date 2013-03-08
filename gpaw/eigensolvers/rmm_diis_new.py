@@ -339,7 +339,7 @@ class RMM_DIIS_new(Eigensolver):
             # psit_xG /= np.sqrt(norm)
             
         self.timer.stop('RMM-DIIS')
-        return errors_n, psit_nG
+        return error, psit_nG
 
     def __repr__(self):
         repr_string = 'RMM-DIIS eigensolver\n'
