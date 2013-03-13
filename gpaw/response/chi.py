@@ -5,7 +5,7 @@ import gpaw.fftw as fftw
 from math import sqrt, pi
 from ase.units import Hartree, Bohr
 from gpaw import extra_parameters
-from gpaw.utilities.blas import gemv, scal, axpy, czher, ccher
+from gpaw.utilities.blas import gemv, scal, axpy, czher, rk
 from gpaw.mpi import world, rank, size, serial_comm
 from gpaw.fd_operators import Gradient
 from gpaw.response.math_func import hilbert_transform
@@ -392,6 +392,11 @@ class Chi(BaseChi):
                     if self.timing: timer.end('fft')
 
                     imultix = 0
+                    if not self.cuda:
+                        rho_uG = np.zeros((self.npw, nmultix), complex)
+                        C_wu = np.zeros((self.Nw_local, self.nmultix))
+                        alpha_wu = np.zeros((self.Nw_local, self.nmultix))
+
                     for m in self.mlist:
                         if self.timing: timer.start('print')
                         if self.nbands > 50 and m % 500 == 0:
@@ -576,8 +581,11 @@ class Chi(BaseChi):
                                                      nmultix, kd.nibzkpts, cu.totnband, self.Nw_local)
                                 if self.timing: timer.end('C_uw1')
 
+
+                                if not self.cuda:
+                                    rho_uG[:, imultix] = rho_G.conj()
+
                                 for iw in range(self.Nw_local):
-                                    
                                     if not self.cuda:
                                         if self.timing: timer.start('C_uw1')
                                         w = self.w_w[iw + self.wstart] / Hartree
@@ -597,7 +605,17 @@ class Chi(BaseChi):
                                     if self.timing: timer.start('zherk')
                                     if use_zher:
                                         if not self.cuda:
-                                            czher(C.real, rho_G.conj(), chi0_wGG[iw])
+                                            C_wu[iw, imultix] = C.real
+                                            if iw == 0:
+                                                alpha_wu[iw, imultix] = np.sqrt(-C_wu[iw, imultix])
+                                            else:
+                                                alpha_wu[iw, imultix] = np.sqrt(C_wu[iw, imultix] / C_wu[iw-1, imultix])
+                                            if imultix == nmultix -1 or m == len(self.mlist) - 1:
+                                                for ii in range(imultix+1):
+                                                    rho_uG[:,ii] *= alpha_wu[iw, ii]
+                                                rk(-1.0, rho_uG, 1.0, chi0_wGG[iw])
+#                                            else:
+#                                            czher(C.real, rho_G.conj(), chi0_wGG[iw])
                                         else:
                                             no_zherk += 1
                                             matrixGPU_GG = cu.chi0_w[iw]
@@ -607,9 +625,12 @@ class Chi(BaseChi):
                                         axpy(C, rho_GG, chi0_wGG[iw])
                                     if self.timing: timer.end('zherk')
 
-                                if self.cuda:
+                                if 1: #self.cuda:
                                     if imultix == nmultix - 1:
                                         imultix = 0
+                                        rho_uG[:,:] = 0
+                                        C_wu[:,:] = 0
+                                        alpha_wu[:,:] = 0
                                     else:
                                         imultix += 1
                             else:
@@ -679,7 +700,8 @@ class Chi(BaseChi):
                 for iw in range(self.Nw_local):
                     self.kcomm.sum(chi0_wGG[iw])
 
-                assert (np.abs(chi0_wGG[0,1:,0]) < 1e-10).all()
+                if ((np.abs(chi0_wGG[0,1:,0]) < 1e-10).all() is not True):
+                    assert (np.abs(chi0_wGG[0,0,1:]) < 1e-10).all()
                 for iw in range(self.Nw_local):
                     chi0_wGG[iw] += chi0_wGG[iw].conj().T
                     for iG in range(self.npw):
