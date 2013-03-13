@@ -72,10 +72,8 @@ class BaseCuda:
             self.chi0_w.append(matrix_GG)
         
         status, self.rho_uG = _gpaw.cuMalloc(nmultix*npw*sizeofdata)
-#        status, self.tmp_Q = _gpaw.cuMalloc(nG0*sizeofdata)
         status, self.tmp_uQ = _gpaw.cuMalloc(nG0*nmultix*sizeofdata)
         status, self.psit1_R = _gpaw.cuMalloc(nG0*sizeofdata)
-#        status, self.psit2_R = _gpaw.cuMalloc(nG0*sizeofdata)
         status, self.psit2_uR = _gpaw.cuMalloc(nG0*nmultix*sizeofdata)
         status, self.expqr_R = _gpaw.cuMalloc(nG0*sizeofdata)
 
@@ -108,8 +106,8 @@ class BaseCuda:
 
         if chi.optical_limit:
             status, self.opteikr_R = _gpaw.cuMalloc(nG0*sizeofdata)
-#            status, self.optpsit2_R = _gpaw.cuMalloc(nG0*sizeofdata)
             status, self.optpsit2_uR = _gpaw.cuMalloc(nG0*nmultix*sizeofdata)
+            status, self.optrho_u = _gpaw.cuMalloc(self.nmultix*sizeofdata)
 
             assert chi.eshift is None
 
@@ -287,7 +285,6 @@ class BaseCuda:
 
             status, self.opt_uG = _gpaw.cuMalloc(self.ncoef*self.nmultix*sizeofdata)
             status, self.opt2_uG = _gpaw.cuMalloc(self.ncoef*self.nmultix*sizeofdata)
-            status, self.optrho_u = _gpaw.cuMalloc(self.nmultix*sizeofdata)
 
             pd=calc.wfs.pd
             G_Gc = (pd.G_Qv[pd.Q_qG[ibzkpt1]] + np.dot(kd.bzk_kc[k], chi.bcell_cv)) * 1j
@@ -477,7 +474,7 @@ class BaseCuda:
         if chi.optical_limit:
             _gpaw.cuFree(self.opteikr_R)
             _gpaw.cuFree(self.optpsit2_uR)
-
+            _gpaw.cuFree(self.optrho_u)
         return
 
     
@@ -490,7 +487,6 @@ class BaseCuda:
         if chi.optical_limit:
             _gpaw.cuFree(self.opt_uG)
             _gpaw.cuFree(self.opt2_uG)
-            _gpaw.cuFree(self.optrho_u)
             _gpaw.cuFree(self.G_cG)
 
         return 
@@ -519,5 +515,6 @@ class BaseCuda:
 
     def destroy(self):
         _gpaw.cuDestroy(self.handle)
+        _gpaw.cufft_destroy(self.cufftplan)
         
 

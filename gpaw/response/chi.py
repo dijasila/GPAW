@@ -80,6 +80,14 @@ class Chi(BaseChi):
         self.cuda = cuda
         self.nmultix = nmultix
         self.sync = sync
+        if self.cuda:
+            if self.sync:
+                self.timing = True
+            else:
+                self.timing = False
+        else:
+            self.sync = False
+            self.timing = True
         self.kcommsize = kcommsize
         self.comm = comm
         if self.comm is None:
@@ -255,21 +263,23 @@ class Chi(BaseChi):
             spinlist = [seperate_spin]
 
         print >> self.txt, 'Initialization time', time() - self.starttime
-        if self.sync: # perform timing when synchronize
+        if self.timing: # perform timing when synchronize
 #            assert self.cuda is True
-            timer = Timer()
+            timer = Timer(sync=self.sync)
             self.timer = timer
         
         t0 = time()
+        no_zherk = 0
         for spin in spinlist:
-            if self.sync: timer.start('others')
+            if self.timing: timer.start('others')
             if not (f_skn[spin] > self.ftol).any():
                 self.chi0_wGG = chi0_wGG
                 continue
-            if self.sync: timer.end('others')
+            if self.timing: timer.end('others')
             
             for k in range(self.kstart, self.kend):
-                if self.sync: timer.start('others')
+
+                if self.timing: timer.start('others')
                 k_pad = False
                 if k >= self.nkpt:
                     k = 0
@@ -281,9 +291,9 @@ class Chi(BaseChi):
                     ibzkpt2 = ibzkpt1
                 else:
                     ibzkpt2 = kd.bz2ibz_k[kq_k[k]]
-                if self.sync: timer.end('others')
+                if self.timing: timer.end('others')
 
-                if self.sync: timer.start('wfs_transform')
+                if self.timing: timer.start('wfs_transform')
                 if not self.cuda and self.pwmode:
                     N_c = self.gd.N_c
                     k_c = self.kd.ibzk_kc[ibzkpt1]
@@ -294,38 +304,48 @@ class Chi(BaseChi):
                 index1_g, phase1_g = kd.get_transform_wavefunction_index(self.nG, k)
                 index2_g, phase2_g = kd.get_transform_wavefunction_index(self.nG, kq_k[k])
 
-                if self.sync: timer.end('wfs_transform')
+                if self.timing: timer.end('wfs_transform')
 
-                if self.sync: timer.start('k_init')
+                if self.timing: timer.start('k_init')
                 if self.pwmode and self.cuda:
                     cu.kspecific_init(self, spin, k, ibzkpt1, ibzkpt2, index1_g, index2_g)
-                if self.sync: timer.end('k_init')
+                if self.timing: timer.end('k_init')
 
                 for n in range(self.nvalbands):
-                    if self.sync: timer.start('others')
+#                    if n > 5:
+#                        if self.cuda:
+#                            print >> self.txt, no_zherk
+#                            cu.chi_free(self)
+#                            cu.paw_free()
+#                            cu.kspecific_free(self)
+#                            cu.destroy()
+#                        XX
+                    if self.timing: timer.start('others')
                     if self.calc.wfs.world.size == 1:
                         if (self.f_skn[spin][ibzkpt1, n] - self.ftol < 0):
                             continue
-                    if self.sync: timer.end('others')
+                    if self.timing: timer.end('others')
 
                     t1 = time()
                     if not self.pwmode:
                         psitold_g = self.get_wavefunction(ibzkpt1, n, True, spin=spin)
                     else:
                         if not self.cuda:
+                            if self.timing: timer.start('wfs_get')
                             u = self.kd.get_rank_and_index(spin, ibzkpt1)[1]
                             psitold_g = calc.wfs._get_wave_function_array(u, n, realspace=True,
                                                                           phase=eikr1_R)
+                            if self.timing: timer.end('wfs_get')
                         else:
-                            if self.sync: timer.start('wfs_read_disk')
+                            if self.timing: timer.start('wfs_read_disk')
                             psit_G = calc.wfs.kpt_u[cu.u1].psit_nG[n]
-                            if self.sync: timer.end('wfs_read_disk')
-                            if self.sync: timer.start('wfs_get')
+                            if self.timing: timer.end('wfs_read_disk')
+                            if self.timing: timer.start('wfs_get')
                             cu.get_wfs(psit_G, cu.psit_G, cu.Q1_G, cu.ncoef, 1, self)
 #                            _gpaw.cuCopy_vector(cu.tmp_uQ, cu.tmp_Q, self.nG0) 
-                            if self.sync: timer.end('wfs_get')
+                            if self.timing: timer.end('wfs_get')
 
-                    if self.sync: timer.start('wfs_transform')
+                    if self.timing: timer.start('wfs_transform')
                     if not self.cuda:
                         psit1new_g_tmp = kd.transform_wave_function(psitold_g,k,index1_g,phase1_g)
                         if (self.rpad > 1).any() or (self.pbc - True).any():
@@ -338,10 +358,10 @@ class Chi(BaseChi):
                         _gpaw.cuConj_vector(cu.psit1_R, self.nG0)
                         # padding does not work on cuda now !! 
 
-                    if self.sync: timer.end('wfs_transform')
+                    if self.timing: timer.end('wfs_transform')
 
                    # PAW part
-                    if self.sync: timer.start('paw')
+                    if self.timing: timer.start('paw')
                     if not self.cuda:
                         if not self.pwmode:
                             if (calc.wfs.world.size > 1 or self.nkpt==1):
@@ -364,26 +384,28 @@ class Chi(BaseChi):
                         cu.get_P_ai(cu.P_P1_ani, cu.P_P1_ai, cu.P1_ani, cu.P1_ai, 
                                             cu.time_rev1, cu.s1, ibzkpt1, cu.mlocallist, 1)
 
-                    if self.sync: timer.end('paw')
+                    if self.timing: timer.end('paw')
 
+                    if self.timing: timer.start('fft')
                     if not self.cuda: # or (self.cuda and self.optical_limit):
                         psit1_g = psit1new_g.conj() * self.expqr_g # cublas optical_limit is wrong now
+                    if self.timing: timer.end('fft')
 
                     imultix = 0
                     for m in self.mlist:
-                        if self.sync: timer.start('print')
-                        if self.nbands > 50 and m % 50 == 0:
-                            if not self.sync:
+                        if self.timing: timer.start('print')
+                        if self.nbands > 50 and m % 500 == 0:
+                            if not self.timing:
                                 print >> self.txt, k, n, m, time() - t0
                             else:
                                 print >> self.txt, '\n', k, n, m, time() - t0, time() - t0 - timer.get_tot_timing()
                                 for key in timer.timers.keys():
                                     print >> self.txt, '%15s'%(key), timer.get_timing(key)
-                        if self.sync: timer.end('print')
+                        if self.timing: timer.end('print')
     		    
-                        if self.sync: timer.start('other')
+                        if self.timing: timer.start('others')
                         check_focc = (f_skn[spin][ibzkpt1, n] - f_skn[spin][ibzkpt2, m]) > self.ftol
-                        if self.sync: timer.end('other')
+                        if self.timing: timer.end('others')
     
                         if not self.pwmode:
                             psitold_g = self.get_wavefunction(ibzkpt2, m, check_focc, spin=spin)
@@ -392,41 +414,45 @@ class Chi(BaseChi):
 
                             if self.pwmode:
                                 if not self.cuda:
+                                    if self.timing: timer.start('wfs_get')
                                     u = self.kd.get_rank_and_index(spin, ibzkpt2)[1]
                                     psitold_g = calc.wfs._get_wave_function_array(u, m, realspace=True, phase=eikr2_R)
+                                    if self.timing: timer.end('wfs_get')
                                 else:
                                     # dev_psit2_R is the (transformed) wave function for (kq[k],m) on device
                                     if imultix == 0 and imultix < nmultix:
                                         mlocallist = []
                                         iu = 0
-                                        if self.sync: timer.start('wfs_read_disk')
+                                        if self.timing: timer.start('wfs_read_disk')
                                         psit_uG = np.zeros((nmultix, cu.ncoef2),complex)
                                         while iu < nmultix  and m + iu < self.nbands:
                                             if (f_skn[spin][ibzkpt1, n] - f_skn[spin][ibzkpt2, m+iu]) > self.ftol:
                                                 psit_uG[iu] = calc.wfs.kpt_u[cu.u2].psit_nG[m+iu]
                                                 mlocallist.append(m+iu)
                                                 iu += 1
-                                        if self.sync: timer.end('wfs_read_disk')
-                                        if self.sync: timer.start('wfs_get')
+                                        if self.timing: timer.end('wfs_read_disk')
+                                        if self.timing: timer.start('wfs_get')
                                         cu.get_wfs(psit_uG, cu.psit_uG, cu.Q2_G, cu.ncoef2, nmultix, self)
-                                        if self.sync: timer.end('wfs_get')
+                                        if self.timing: timer.end('wfs_get')
 
-                                        if self.sync: timer.start('other')
+                                        if self.timing: timer.start('others')
                                         _gpaw.cuMemset(cu.rho_uG, 0, sizeofdata*nmultix*self.npw)
                                         _gpaw.cuMemset(cu.mlocallist, 0, sizeofint*nmultix)
                                         mmultix = len(mlocallist)
                                         _gpaw.cuSetVector(mmultix,sizeofint,np.array(mlocallist, np.int32),1,
                                                           cu.mlocallist,1)                                    
-                                        if self.sync: timer.end('other')
+                                        if self.timing: timer.end('others')
 
+                                    if self.timing: timer.start('others')
                                     if imultix > 0 and nmultix > 1:
                                         if imultix == nmultix -1:
                                             imultix = 0
                                         else:
                                             imultix += 1
                                         continue
+                                    if self.timing: timer.end('others')
 
-                            if self.sync: timer.start('wfs_transform')
+                            if self.timing: timer.start('wfs_transform')
                             if not self.cuda:
                                 psit2_g_tmp = kd.transform_wave_function(psitold_g, kq_k[k], index2_g, phase2_g)
                                 if (self.rpad > 1).any() or (self.pbc - True).any():
@@ -437,10 +463,10 @@ class Chi(BaseChi):
                                 # dev_psit2_R is the wave function of (k+q, m) on device
                                 cu.trans_wfs(cu.tmp_uQ, cu.psit2_uR, cu.ind.index2_Q, cu.trans2, cu.time_rev2, nmultix)
 
-                            if self.sync: timer.end('wfs_transform')
+                            if self.timing: timer.end('wfs_transform')
 
                             # fft
-                            if self.sync: timer.start('fft')
+                            if self.timing: timer.start('fft')
                             if not self.cuda:
                                 fft_R[:] = psit2_g * psit1_g
 
@@ -458,18 +484,18 @@ class Chi(BaseChi):
                                                 cu.psit2_uR, -1) # R->Q
                                 _gpaw.cuZscal(cu.handle, self.nG0*nmultix, self.vol/self.nG0, cu.psit2_uR, 1)
 
-                            if self.sync: timer.end('fft')
+                            if self.timing: timer.end('fft')
 
-                            if self.sync: timer.start('mapG')
+                            if self.timing: timer.start('mapG')
                             if not self.cuda:
                                 rho_G = fft_G.ravel()[self.Gindex_G]
                             else:
                                 _gpaw.cuMap_Q2G(cu.psit2_uR, cu.rho_uG, 
                                                 cu.ind.Gindex_G, self.npw, self.nG0, nmultix)
 
-                            if self.sync: timer.end('mapG')
+                            if self.timing: timer.end('mapG')
 
-                            if self.sync: timer.start('opt')
+                            if self.timing: timer.start('opt')
                             if self.optical_limit:
                                 if not self.cuda:
                                     phase_cd = np.exp(2j * pi * sdisp_cd * bzk_kc[kq_k[k], :, np.newaxis])
@@ -479,9 +505,9 @@ class Chi(BaseChi):
                                     rho_G[0] = -1j * np.dot(self.qq_v, tmp)
                                 else:
                                     cu.calculate_opt(mmultix, self.npw)
-                            if self.sync: timer.end('opt')
+                            if self.timing: timer.end('opt')
 
-                            if self.sync: timer.start('paw')
+                            if self.timing: timer.start('paw')
                             # PAW correction
                             if not self.cuda:
                                 if not self.pwmode:
@@ -502,40 +528,40 @@ class Chi(BaseChi):
                                 cu.get_P_ai(cu.P_P2_ani, cu.P_P2_aui, cu.P2_ani, cu.P2_aui, 
                                                 cu.time_rev2, cu.s2, ibzkpt2, cu.mlocallist, mmultix)
 
-                            if self.sync: timer.end('paw')
+                            if self.timing: timer.end('paw')
 
                             for a, id in enumerate(calc.wfs.setups.id_a):
-                                if self.sync: timer.start('paw_outer')
+                                if self.timing: timer.start('paw_outer')
                                 if not self.cuda:
                                     P_p = np.outer(P1_ai[a].conj(), P2_ai[a]).ravel()
                                 else:
                                     cu.get_P_aup(cu.P1_ai, cu.P2_aui, cu.P_aup, mmultix)
-                                if self.sync: timer.end('paw_outer')
+                                if self.timing: timer.end('paw_outer')
 
-                                if self.sync: timer.start('cugemv')
+                                if self.timing: timer.start('cugemv')
                                 if not self.cuda:
                                     gemv(1.0, self.phi_aGp[a], P_p, 1.0, rho_G)
                                 else:
                                     Ni = cu.host_Ni_a[a]
                                     _gpaw.cugemm(cu.handle,1.0,  cu.P_phi_aGp[a], cu.P_P_aup[a], 1.0, cu.rho_uG, \
                                                      mmultix, self.npw, Ni*Ni, Ni*Ni, Ni*Ni, self.npw, 0, 1)
-                                if self.sync: timer.end('cugemv')
+                                if self.timing: timer.end('cugemv')
 
                             if self.optical_limit and not self.cuda:
-                                if self.sync: timer.start('opt')
+                                if self.timing: timer.start('opt')
                                 if np.abs(self.enoshift_skn[spin][ibzkpt2, m] -
                                           self.enoshift_skn[spin][ibzkpt1, n]) > 0.1/Hartree:
                                     rho_G[0] /= self.enoshift_skn[spin][ibzkpt2, m] \
                                                 - self.enoshift_skn[spin][ibzkpt1, n]
                                 else:
                                     rho_G[0] = 0.
-                                if self.sync: timer.end('opt')
+                                if self.timing: timer.end('opt')
 
 
-                            if self.sync: timer.start('opt')
+                            if self.timing: timer.start('opt')
                             if self.cuda and self.optical_limit:
                                 cu.apply_opt_dE(spin, ibzkpt1, n, mmultix, self.npw)
-                            if self.sync: timer.end('opt')
+                            if self.timing: timer.end('opt')
     
                             if k_pad:
                                 rho_G[:] = 0.
@@ -543,40 +569,43 @@ class Chi(BaseChi):
                             if not self.hilbert_trans:
                                 if not use_zher:
                                     rho_GG = np.outer(rho_G, rho_G.conj())
-                                if self.sync: timer.start('C_uw1')
+                                if self.timing: timer.start('C_uw1')
                                 if self.cuda:
                                     _gpaw.cuGet_C_wu(cu.e_skn, cu.f_skn, cu.w2_w, cu.C_wu, cu.alpha_wu,
                                                      spin, ibzkpt1, ibzkpt2, n, cu.mlocallist, mmultix, 
                                                      nmultix, kd.nibzkpts, cu.totnband, self.Nw_local)
-                                if self.sync: timer.end('C_uw1')
+                                if self.timing: timer.end('C_uw1')
 
                                 for iw in range(self.Nw_local):
-                                    if self.sync: timer.start('C_uw2')
+                                    
                                     if not self.cuda:
+                                        if self.timing: timer.start('C_uw1')
                                         w = self.w_w[iw + self.wstart] / Hartree
                                         coef = ( 1. / (w + e_skn[spin][ibzkpt1, n] - e_skn[spin][ibzkpt2, m]
                                                        + 1j * self.eta) 
                                                - 1. / (w - e_skn[spin][ibzkpt1, n] + e_skn[spin][ibzkpt2, m]
                                                        + 1j * self.eta) )
                                         C =  (f_skn[spin][ibzkpt1, n] - f_skn[spin][ibzkpt2, m]) * coef
+                                        if self.timing: timer.end('C_uw1')
                                     else:
                                         assert use_zher is True
+                                        if self.timing: timer.start('apply_alpha')
                                         _gpaw.cudgmm(cu.handle, cu.rho_uG, cu.alpha_wu+iw*nmultix*sizeofdata, 
                                                          cu.rho_uG, mmultix, self.npw, self.npw, self.npw, 1, 1)
+                                        if self.timing: timer.end('apply_alpha')
 
-                                    if self.sync: timer.end('C_uw2')
-
-                                    if self.sync: timer.start('zherk')
+                                    if self.timing: timer.start('zherk')
                                     if use_zher:
                                         if not self.cuda:
                                             czher(C.real, rho_G.conj(), chi0_wGG[iw])
                                         else:
+                                            no_zherk += 1
                                             matrixGPU_GG = cu.chi0_w[iw]
                                             status = _gpaw.cuZherk(cu.handle,0,self.npw,mmultix,-1.0,cu.rho_uG,self.npw,1.0,
                                                                        matrixGPU_GG,self.npw)
                                     else:
                                         axpy(C, rho_GG, chi0_wGG[iw])
-                                    if self.sync: timer.end('zherk')
+                                    if self.timing: timer.end('zherk')
 
                                 if self.cuda:
                                     if imultix == nmultix - 1:
@@ -705,6 +734,7 @@ class Chi(BaseChi):
         if self.cuda:
             self.printtxt('Destroy Cuda !')
             cu.destroy()
+#        XX
 
         return
 
