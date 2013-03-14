@@ -700,10 +700,9 @@ class Chi(BaseChi):
                 for iw in range(self.Nw_local):
                     self.kcomm.sum(chi0_wGG[iw])
 
-                try:
-                    assert (np.abs(chi0_wGG[0,1:,0]) < 1e-10).all()
-                except:
+                if not (np.abs(chi0_wGG[0,1:,0]) < 1e-10).all(): 
                     assert (np.abs(chi0_wGG[0,0,1:]) < 1e-10).all()
+
                 for iw in range(self.Nw_local):
                     chi0_wGG[iw] += chi0_wGG[iw].conj().T
                     for iG in range(self.npw):
