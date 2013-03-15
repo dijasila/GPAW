@@ -89,7 +89,7 @@ class BaseCuda:
         status, self.e_skn = _gpaw.cuMalloc(chi.nspins * self.nibzkpt * self.totnband * sizeofdouble)
         status, self.f_skn = _gpaw.cuMalloc(chi.nspins * self.nibzkpt * self.totnband * sizeofdouble)
         for s in range(chi.nspins):
-            pointer = s * sizeofdouble * chi.nspins * chi.kd.nibzkpts
+            pointer = s * sizeofdouble * self.totnband * chi.kd.nibzkpts
             _gpaw.cuSetVector(self.nibzkpt*self.totnband,sizeofdouble,chi.e_skn[s].ravel(),1,self.e_skn+pointer,1)
             _gpaw.cuSetVector(self.nibzkpt*self.totnband,sizeofdouble,chi.f_skn[s].ravel(),1,self.f_skn+pointer,1)
 
@@ -514,7 +514,8 @@ class BaseCuda:
             _gpaw.cuFree(self.P_P_aup[a])
 
     def destroy(self):
-        _gpaw.cuDestroy(self.handle)
+#        _gpaw.cuDestroy(self.handle)
         _gpaw.cufft_destroy(self.cufftplan)
+        _gpaw.cufft_destroy(self.cufftplanmany)
         
 
