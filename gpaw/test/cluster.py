@@ -40,10 +40,14 @@ for c in range(3):
 
 # minimal box, ensure multiple of 4
 h = .13
+b = [2, 3, 4]
 CO.minimal_box(b, h=h)
 cc = CO.get_cell() 
 for c in range(3):
-##    print "cc[c,c], cc[c,c] / h % 4 =", cc[c, c], cc[c, c] / h % 4
+#    print "cc[c,c], cc[c,c] / h % 4 =", cc[c, c], cc[c, c] / h % 4
+    for a in CO:
+        print a.symbol, b[c], a.position[c], cc[c, c] - a.position[c]
+        assert(a.position[c] > b[c])
     equal(cc[c, c] / h % 4, 0.0, 1e-10)
 
 # .............................................
