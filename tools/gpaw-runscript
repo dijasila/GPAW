@@ -29,12 +29,12 @@ hosts = { 'batman'                   : 'pbs_batman',
           'opaali.phys.jyu.fi'       : 'sge',
           'sepeli.csc.fi'            : 'sepeli',
           'bwui.bfg.uni-freiburg.de' : 'bwg',
+          'globus.bfg.uni-freiburg.de' : 'bwg',
           'globus'                   : 'bwg',
           'ui.bfg.uni'               : 'pbs_bfg',
-          'xc2n992'                  : 'xc2',
-          'xc2n993'                  : 'xc2',
-          'xc2.rz.uni-karlsruhe.de'  : 'xc2',
-          'juropa.fz-juelich.de'     : 'juropa'
+          r'xc2(.*)'                 : 'xc2',
+          'juropa.fz-juelich.de'     : 'juropa',
+	  r'jj(.*)'                  : 'juropa'
           }
 
 platforms = { 'aix5' : 'loadleveler' }
@@ -576,9 +576,15 @@ else:
             dummy, hostname = os.popen4('hostname -s')
             host = hostname.readline().split()
 
-    if hosts.has_key(host):
-        set['qsys']=hosts[host]
-        print 'hostname',host,'found,',
+    def has_key_regexp(dictionary, expression):
+        for key in dictionary:
+            if re.match(key, expression):
+                return dictionary[key]
+        return False
+
+    if has_key_regexp(hosts, host):
+        set['qsys'] = has_key_regexp(hosts, host)
+        print 'hostname', host, 'found,',
     elif platforms.has_key(sys.platform):
         set['qsys'] = platforms[sys.platform]
         print 'platform', sys.platform, 'found,',
@@ -587,7 +593,7 @@ else:
         list_systems(RunScript)
         sys.exit()
 
-print 'using',set['qsys']
+print 'using', set['qsys']
 
 # ............................................................
 # check necessary environment variables
