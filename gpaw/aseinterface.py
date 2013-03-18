@@ -9,7 +9,7 @@ import os
 
 import numpy as np
 from ase.units import Bohr, Hartree
-from ase.calculators.calculator import Calculator
+from ase.calculators.calculator import Calculator, ReadError
 
 import gpaw.mpi as mpi
 from gpaw.xc import XC
@@ -83,9 +83,10 @@ class GPAW(PAW, Calculator):
         Calculator.__init__(self, restart, ignore_bad_restart_file, label,
                             atoms, **kwargs)
 
-    def read(self):
+    def read(self, label):
+        self.set_label(label)
         if self.label is None or not os.path.isfile(self.label):
-            return
+            raise ReadError
 
         comm = kwargs.get('communicator', mpi.world)
         reader = gpaw.io.open(self.label, 'r', comm)
