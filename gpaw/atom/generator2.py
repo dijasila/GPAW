@@ -6,7 +6,7 @@ from math import pi, exp, sqrt, log
 import numpy as np
 from scipy.optimize import fsolve
 from scipy import __version__ as scipy_version
-from ase.utils import prnt
+from ase.utils import prnt, devnull
 from ase.units import Hartree, Bohr
 from ase.data import atomic_numbers, chemical_symbols
 
@@ -221,24 +221,20 @@ class PAWWaves:
 
 
 class PAWSetupGenerator:
-    def __init__(self, aea, projectors, rc,
-                 scalar_relativistic=False, alpha=None,
-                 gamma=1.5, h=0.2 / Bohr, fd=sys.stdout):
+    def __init__(self, aea, projectors,
+                 scalar_relativistic=False,
+                 fd=sys.stdout):
         """fd: stream
             Text output."""
 
         self.aea = aea
 
-        # Filtering parameters:
-        self.gamma = gamma
-        self.h = h
-
         if fd is None:
             fd = devnull
         self.fd = fd
 
-        lmax = -1
-        states = {}
+        self.lmax = -1
+        self.states = {}
         for s in projectors.split(','):
             l = 'spdf'.find(s[-1])
             if len(s) == 1:
@@ -247,22 +243,22 @@ class PAWSetupGenerator:
                 n = float(s[:-1])
             else:
                 n = int(s[:-1])
-            if l in states:
-                states[l].append(n)
+            if l in self.states:
+                self.states[l].append(n)
             else:
-                states[l] = [n]
-            if l > lmax:
-                lmax = l
+                self.states[l] = [n]
+            if l > self.lmax:
+                self.lmax = l
 
         # Add empty bound states:
-        for l, nn in states.items():
+        for l, nn in self.states.items():
             for n in nn:
                 if (isinstance(n, int) and
                     (l not in aea.f_lsn or n - l > len(aea.f_lsn[l][0]))):
                     aea.add(n, l, 0)
 
-        for l in range(lmax):
-            if l not in states:
+        for l in range(self.lmax):
+            if l not in self.states:
                 states[l] = []
 
         aea.initialize()
@@ -272,70 +268,20 @@ class PAWSetupGenerator:
 
         self.rgd = aea.rgd
 
-        self.log('\nGenerating PAW', aea.xc.name, 'setup for', aea.symbol)
-
-        if isinstance(rc, float):
-            radii = [rc]
-        else:
-            radii = rc
-
-        self.rcmax = max(radii)
-        self.gcmax = self.rgd.ceil(self.rcmax)
-
-        self.rcfilter = self.rcmax * gamma
-        if h == 0:
-            self.Gcut = None
-        else:
-            self.Gcut = pi / h - 2 / self.rcfilter
-            self.log('Wang mask function for Fourier filtering:')
-            self.log('gamma=%.2f, h=%.2f Bohr, rcut=%.2f, Gcut=%.2f Bohr^-1' %
-                     (gamma, h, self.rcfilter, self.Gcut))
-
-        if lmax >= 0:
-            radii += [radii[-1]] * (lmax + 1 - len(radii))
-
-        self.waves_l = []
-        for l in range(lmax + 1):
-            rcut = radii[l]
-            waves = PAWWaves(self.rgd, l, rcut)
-            e = -1.0
-            for n in states[l]:
-                if isinstance(n, int):
-                    # Bound state:
-                    ch = aea.channels[l]
-                    e = ch.e_n[n - l - 1]
-                    f = ch.f_n[n - l - 1]
-                    phi_g = ch.phi_ng[n - l - 1]
-                else:
-                    if n is None:
-                        e += 1.0
-                    else:
-                        e = n
-                    n = -1
-                    f = 0.0
-                    phi_g = self.rgd.zeros()
-                    gc = self.rgd.round(self.rcfilter) + 10
-                    ch = Channel(l)
-                    ch.integrate_outwards(phi_g, self.rgd, aea.vr_sg[0], gc, e,
-                                          aea.scalar_relativistic)
-                    phi_g[1:gc + 1] /= self.rgd.r_g[1:gc + 1]
-                    if l == 0:
-                        phi_g[0] = phi_g[1]
-                    phi_g /= (self.rgd.integrate(phi_g**2) / (4*pi))**0.5
-
-                waves.add(phi_g, n, e, f)
-            self.waves_l.append(waves)
-
-        self.alpha = alpha
-        self.construct_shape_function(eps=1e-10)
-
         self.vtr_g = None
 
-    def construct_shape_function(self, eps):
+        self.log('\nGenerating PAW', aea.xc.name, 'setup for', aea.symbol)
+
+    def construct_shape_function(self, alpha=None, rc=None, eps=1e-10):
         """Build shape-function for compensation charge."""
 
+        self.alpha = alpha
+
         if self.alpha is None:
-            rc = 1.5 * self.rcmax
+            if isinstance(rc, list):
+                rc = min(rc)
+            rc = 1.5 * rc
+
             def spillage(alpha):
                 """Fraction of gaussian charge outside rc."""
                 x = alpha * rc**2
@@ -367,23 +313,78 @@ class PAWSetupGenerator:
         self.ekincore = 0.0
         for l, ch in enumerate(self.aea.channels):
             for n, f in enumerate(ch.f_n):
-                if (l >= len(self.waves_l) or
-                    (l < len(self.waves_l) and
-                     n + l + 1 not in self.waves_l[l].n_n)):
+                if n + l + 1 in self.states[l]:
+                    self.nvalence += f
+                else:
                     self.nc_g += f * ch.calculate_density(n)
                     self.ncore += f
                     self.ekincore += f * ch.e_n[n]
-                else:
-                    self.nvalence += f
 
         self.ekincore -= self.rgd.integrate(self.nc_g * self.aea.vr_sg[0], -1)
 
         self.log('Core electrons:', self.ncore)
         self.log('Valence electrons:', self.nvalence)
 
+    def add_waves(self, rc):
+        if isinstance(rc, float):
+            radii = [rc]
+        else:
+            radii = rc
+
+        self.rcmax = max(radii)
+
+        if self.lmax >= 0:
+            radii += [radii[-1]] * (self.lmax + 1 - len(radii))
+
+        self.waves_l = []
+        for l in range(self.lmax + 1):
+            rcut = radii[l]
+            waves = PAWWaves(self.rgd, l, rcut)
+            e = -1.0
+            for n in self.states[l]:
+                if isinstance(n, int):
+                    # Bound state:
+                    ch = self.aea.channels[l]
+                    e = ch.e_n[n - l - 1]
+                    f = ch.f_n[n - l - 1]
+                    phi_g = ch.phi_ng[n - l - 1]
+                else:
+                    if n is None:
+                        e += 1.0
+                    else:
+                        e = n
+                    n = -1
+                    f = 0.0
+                    phi_g = self.rgd.zeros()
+                    gc = self.rgd.round(1.5 * rcut)
+                    ch = Channel(l)
+                    ch.integrate_outwards(phi_g, self.rgd, self.aea.vr_sg[0], gc, e,
+                                          self.aea.scalar_relativistic)
+                    phi_g[1:gc + 1] /= self.rgd.r_g[1:gc + 1]
+                    if l == 0:
+                        phi_g[0] = phi_g[1]
+                    phi_g /= (self.rgd.integrate(phi_g**2) / (4*pi))**0.5
+
+                waves.add(phi_g, n, e, f)
+            self.waves_l.append(waves)
+
+    def pseudize(self, type='poly', nderiv=6, rcore=None, h=None, gamma=None):
+        # Filtering parameters:
+        self.gamma = gamma
+        self.h = h
+
+        self.rcfilter = gamma * self.rcmax
+
+        if h == 0:
+            self.Gcut = None
+        else:
+            self.Gcut = pi / h - 2 / self.rcfilter
+            self.log('Wang mask function for Fourier filtering:')
+            self.log('gamma=%.2f, h=%.2f Bohr, rcut=%.2f, Gcut=%.2f Bohr^-1' %
+                     (gamma, h, self.rcfilter, self.Gcut))
+
         self.Q = -self.aea.Z + self.ncore
 
-    def pseudize(self, type='poly', nderiv=6, rcore=None):
         self.nt_g = self.rgd.zeros()
         for waves in self.waves_l:
             waves.pseudize(type, nderiv)
@@ -432,6 +433,17 @@ class PAWSetupGenerator:
         self.exct = self.aea.xc.calculate_spherical(
             self.rgd, self.nt_g.reshape((1, -1)), self.vxct_g.reshape((1, -1)))
 
+        self.v0r_g = self.vtr_g - self.vHtr_g - self.vxct_g * self.rgd.r_g
+        self.v0r_g[self.rgd.round(self.rcmax):] = 0.0
+
+        if self.Gcut is not None:
+            self.vtr_g -= self.v0r_g
+            self.v0r_g[1:] /= self.rgd.r_g[1:]
+            self.v0r_g[0] = self.v0r_g[1]
+            self.v0r_g = self.rgd.filter(
+                self.v0r_g, self.rcfilter, self.Gcut) * self.rgd.r_g
+            self.vtr_g += self.v0r_g
+
         self.log('\nProjectors:')
         self.log(' state  occ         energy             norm        rcut')
         self.log(' nl            [Hartree]  [eV]      [electrons]   [Bohr]')
@@ -449,24 +461,25 @@ class PAWSetupGenerator:
                               waves.rcut))
         self.log()
 
+    def find_local_potential(self, l0, r0, P, e0):
+        if l0 is None:
+            self.find_polynomial_potential(r0, P)
+        else:
+            self.match_local_potential(l0, r0, P, e0)
+
     def find_polynomial_potential(self, r0, P, e0=None):
         self.log('Constructing smooth local potential for r < %.3f' % r0)
         g0 = self.rgd.ceil(r0)
         assert e0 is None
 
-        #self.vtr_g = self.rgd.pseudize(self.aea.vr_sg[0], g0, 1, P)[0]
-        self.vtr_g = self.vHtr_g + self.vxct_g * self.rgd.r_g
-        self.v0r_g = self.rgd.pseudize(self.vtr_g, g0, 1, P)[0] - self.vtr_g
-        self.vtr_g += self.v0r_g
+        self.vtr_g = self.rgd.pseudize(self.aea.vr_sg[0], g0, 1, P)[0]
 
         self.l0 = None
         self.e0 = None
         self.r0 = r0
         self.nderiv0 = P
 
-        self.filter_zero_potential()
-
-    def find_local_potential(self, l0, r0, P, e0):
+    def match_local_potential(self, l0, r0, P, e0):
         self.log('Local potential matching %s-scattering at e=%.3f eV' %
                  ('spdfg'[l0], e0 * Hartree) +
                  ' and r=%.2f Bohr' % r0)
@@ -503,24 +516,10 @@ class PAWSetupGenerator:
         self.vtr_g = self.aea.vr_sg[0].copy()
         self.vtr_g[0] = 0.0
         self.vtr_g[1:g0] = q_g[1:g0]#e0 * r_g - t_g * r_g**(l0 + 1) / phit_g[1:g0]
-        self.v0r_g = self.vtr_g - self.vHtr_g - self.vxct_g * self.rgd.r_g
-        self.v0r_g[self.gcmax:] = 0.0
-
         self.l0 = l0
         self.e0 = e0
         self.r0 = r0
         self.nderiv0 = P
-
-        self.filter_zero_potential()
-
-    def filter_zero_potential(self):
-        if self.Gcut is not None:
-            self.vtr_g -= self.v0r_g
-            self.v0r_g[1:] /= self.rgd.r_g[1:]
-            self.v0r_g[0] = self.v0r_g[1]
-            self.v0r_g = self.rgd.filter(
-                self.v0r_g, self.rcfilter, self.Gcut) * self.rgd.r_g
-            self.vtr_g += self.v0r_g
 
     def construct_projectors(self):
         for waves in self.waves_l:
@@ -529,39 +528,16 @@ class PAWSetupGenerator:
             waves.calculate_kinetic_energy_correction(self.aea.vr_sg[0],
                                                       self.vtr_g)
 
-    def check(self):
+    def check_all(self):
         self.log(('Checking eigenvalues of %s pseudo atom using ' +
                   'a Gaussian basis set:') % self.aea.symbol)
         self.log('                 AE [eV]        PS [eV]      error [eV]')
-        basis = self.aea.channels[0].basis
-        eps = basis.eps
-        alpha_B = basis.alpha_B
 
         ok = True
 
         for l in range(4):
-            basis = GaussianBasis(l, alpha_B, self.rgd, eps)
-            H_bb = basis.calculate_potential_matrix(self.vtr_g)
-            H_bb += basis.T_bb
-            S_bb = np.eye(len(basis))
-
-            n0 = 0
-            if l < len(self.waves_l):
-                waves = self.waves_l[l]
-                if len(waves) > 0:
-                    P_bn = self.rgd.integrate(basis.basis_bg[:, None] *
-                                              waves.pt_ng) / (4 * pi)
-                    H_bb += np.dot(np.dot(P_bn, waves.dH_nn), P_bn.T)
-                    S_bb += np.dot(np.dot(P_bn, waves.dS_nn), P_bn.T)
-                    n0 = waves.n_n[0] - l - 1
-                    if n0 < 0 and l < len(self.aea.channels):
-                        n0 = (self.aea.channels[l].f_n > 0).sum()
-            elif l < len(self.aea.channels):
-                n0 = (self.aea.channels[l].f_n > 0).sum()
-
-            e_b = np.empty(len(basis))
             try:
-                general_diagonalize(H_bb, e_b, S_bb)
+                e_b, n0 = self.check(l)
             except RuntimeError:
                 self.log('Singular overlap matrix!')
                 ok = False
@@ -604,6 +580,34 @@ class PAWSetupGenerator:
                 ok = False
 
         return ok
+
+    def check(self, l):
+        basis = self.aea.channels[0].basis
+        eps = basis.eps
+        alpha_B = basis.alpha_B
+
+        basis = GaussianBasis(l, alpha_B, self.rgd, eps)
+        H_bb = basis.calculate_potential_matrix(self.vtr_g)
+        H_bb += basis.T_bb
+        S_bb = np.eye(len(basis))
+
+        n0 = 0
+        if l < len(self.waves_l):
+            waves = self.waves_l[l]
+            if len(waves) > 0:
+                P_bn = self.rgd.integrate(basis.basis_bg[:, None] *
+                                          waves.pt_ng) / (4 * pi)
+                H_bb += np.dot(np.dot(P_bn, waves.dH_nn), P_bn.T)
+                S_bb += np.dot(np.dot(P_bn, waves.dS_nn), P_bn.T)
+                n0 = waves.n_n[0] - l - 1
+                if n0 < 0 and l < len(self.aea.channels):
+                    n0 = (self.aea.channels[l].f_n > 0).sum()
+        elif l < len(self.aea.channels):
+            n0 = (self.aea.channels[l].f_n > 0).sum()
+
+        e_b = np.empty(len(basis))
+        general_diagonalize(H_bb, e_b, S_bb)
+        return e_b, n0
 
     def test_convergence(self):
         rgd = self.rgd
@@ -964,7 +968,7 @@ def generate(argv=None):
         if opt.no_check:
             ok = True
         else:
-            ok = gen.check()
+            ok = gen.check_all()
 
         #gen.test_convergence()
 
@@ -1102,17 +1106,14 @@ def _generate(symbol, xc, projectors, radii,
               l0, r0, nderiv0, e0,
               pseudize, rcore):
     aea = AllElectronAtom(symbol, xc)
-    gen = PAWSetupGenerator(aea, projectors, radii,
-                            scalar_relativistic,
-                            alpha, gamma, h)
+    gen = PAWSetupGenerator(aea, projectors,
+                            scalar_relativistic)#, fd=None)
+
+    gen.construct_shape_function(alpha, radii, eps=1e-10)
     gen.calculate_core_density()
-    gen.pseudize(*pseudize, rcore=rcore)
-
-    if l0 is None:
-        gen.find_polynomial_potential(r0, nderiv0, e0)
-    else:
-        gen.find_local_potential(l0, r0, nderiv0, e0)
-
+    gen.find_local_potential(l0, r0, nderiv0, e0)
+    gen.add_waves(radii)
+    gen.pseudize(*pseudize, rcore=rcore, gamma=gamma, h=h)
     gen.construct_projectors()
 
     return gen
