@@ -117,7 +117,7 @@ as well as an ensemble estimate of the binding energy error (dE_bind)
 
 >>> from ase import *
 >>> from gpaw import GPAW
->>> from gpaw.xc.bee import BEEF_Ensemble
+>>> from ase.dft.bee import BEEF_Ensemble
 >>> import numpy as np
 >>> xc = 'BEEF-vdW'
 >>> h2 = Atoms('H2',[[0.,0.,0.],[0.,0.,0.75]])
@@ -142,6 +142,8 @@ as well as an ensemble estimate of the binding energy error (dE_bind)
 >>> dE_bind = np.std(dE_bind)
 
 
+Note that the BEEF_Ensemble module has recently been moved from GPAW
+to the ASE package.
 The default number of ensemble XC functionals is 2000,
 for which well-converged error estimates should be ensured.
 Therefore, "de_h2" and "de_h" in the example
