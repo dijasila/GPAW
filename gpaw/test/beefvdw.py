@@ -1,6 +1,6 @@
 from ase import *
+from ase.dft.bee import BEEF_Ensemble
 from gpaw import GPAW
-from gpaw.xc.bee import BEEF_Ensemble
 import numpy as np
 
 xc = 'BEEF-vdW'

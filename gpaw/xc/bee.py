@@ -1,6 +1,9 @@
 import numpy as np
+from types import FloatType
+from ase.parallel import rank
 
 import _gpaw
+from gpaw.xc import XC
 from gpaw.xc.kernel import XCKernel
 from gpaw.xc.libxc import LibXC
 from gpaw.xc.vdw import FFTVDWFunctional
@@ -170,11 +173,45 @@ class BEEVDWFunctional(FFTVDWFunctional):
         return 'PBE'
 
     def load_xc_pars(self, name):
-        if name == 'BEEF-vdW':
-            from beefvdw_pars import t, x, o, c
-            return t, x, o, c
-        else:
-            raise KeyError('Unknown XC name: %s', name)
+        """Get BEEF-vdW parameters"""
+        assert name == 'BEEF-vdW'
+
+        t = np.array([4.0, 0.0])
+        c = np.array([ 0.600166476948828631066,
+                       0.399833523051171368934,
+                       1.0])
+        x = np.array([ 1.516501714304992365356,
+                       0.441353209874497942611,
+                      -0.091821352411060291887,
+                      -0.023527543314744041314,
+                       0.034188284548603550816,
+                       0.002411870075717384172,
+                      -0.014163813515916020766,
+                       0.000697589558149178113,
+                       0.009859205136982565273,
+                      -0.006737855050935187551,
+                      -0.001573330824338589097,
+                       0.005036146253345903309,
+                      -0.002569472452841069059,
+                      -0.000987495397608761146,
+                       0.002033722894696920677,
+                      -0.000801871884834044583,
+                      -0.000668807872347525591,
+                       0.001030936331268264214,
+                      -0.000367383865990214423,
+                      -0.000421363539352619543,
+                       0.000576160799160517858,
+                      -0.000083465037349510408,
+                      -0.000445844758523195788,
+                       0.000460129009232047457,
+                      -0.000005231775398304339,
+                      -0.000423957047149510404,
+                       0.000375019067938866537,
+                       0.000021149381251344578,
+                      -0.000190491156503997170,
+                       0.000073843624209823442])
+        o = range(len(x))
+        return t, x, o, c
 
 
 class BEEF_Ensemble:
@@ -185,7 +222,8 @@ class BEEF_Ensemble:
         parameters:
 
         calc : object
-            Calculator holding a selfconsistent BEEF electron density.
+            Calculator holding a selfconsistent BEEF type electron density.
+            May be BEEF-vdW or mBEEF.
         exch : array
             Exchange basis function contributions to the total energy.
             Defaults to None.
@@ -198,6 +236,8 @@ class BEEF_Ensemble:
         self.calc = calc
         self.exch = exch
         self.corr = corr
+        self.e_dft = None
+        self.e0 = None
         if self.calc is None:
             raise KeyError('calculator not specified')
 
@@ -205,85 +245,86 @@ class BEEF_Ensemble:
         self.xc = self.calc.get_xc_functional()
         if self.xc in ['BEEF-vdW', 'BEEF-1']:
             self.bee = BEEVDWFunctional('BEEF-vdW')
+            self.bee_type = 1
             self.nl_type = self.bee.nl_type
             self.t = self.bee.t
             self.x = self.bee.x
             self.o = self.bee.o
             self.c = self.bee.c
+        elif self.xc == 'mBEEF':
+            self.bee = LibXC('mBEEF')
+            self.bee_type = 2
+            self.max_order = 8
+            self.trans = [6.5124, -1.0]
+            if self.exch is None and rank == 0:
+                self.calc.converge_wave_functions()
+                print 'wave functions converged'
         else:
             raise NotImplementedError('xc = %s not implemented' % self.xc)
 
-    def get_ensemble_energies(self, ensemble_size=2000, seed=0):
-        """Returns an array of ensemble total energies"""
+    def create_xc_contributions(self, type):
+        """General function for creating exchange or correlation energies"""
+        assert type in ['exch', 'corr']
+        err = 'bee_type %i not implemented' % self.bee_type
 
-        if self.exch is None:
-            x = self.beef_energy_contribs_x()
+        if type == 'exch':
+            if self.bee_type == 1:
+                out = self.beefvdw_energy_contribs_x()
+            elif self.bee_type == 2:
+                out = self.mbeef_exchange_energy_contribs()
+            else:
+                raise NotImplementedError(err)
         else:
-            x = self.exch
-        if self.corr is None:
-            c = self.beef_energy_contribs_c()
-        else:
-            c = self.corr
-        assert len(x) == 30
-        assert len(c) == 2
+            if self.bee_type == 1:
+                out = self.beefvdw_energy_contribs_c()
+            elif self.bee_type == 2:
+                out = np.array([])
+            else:
+                raise NotImplementedError(err)
+        return out
 
-        basis_constribs = np.append(x, c)
-        ensemble_coefs = self.get_ensemble_coefs(ensemble_size, seed)
-        de = np.dot(ensemble_coefs, basis_constribs)
-        return de
+    def get_non_xc_total_energies(self):
+        """Compile non-XC total energy contributions"""
+        if self.e_dft is None:
+            self.e_dft = self.calc.get_potential_energy()
+        if self.e0 is None:
+            from gpaw.xc.kernel import XCNull
+            xc_null = XC(XCNull())
+            self.e0 = self.e_dft + self.calc.get_xc_difference(xc_null)
+        isinstance(self.e_dft, FloatType)
+        isinstance(self.e0, FloatType)
 
-    def get_ensemble_coefs(self, ensemble_size, seed):
-        """Pertubation coefficients of BEEF ensemble functionals."""
+    def mbeef_exchange_energy_contribs(self):
+        """Legendre polynomial exchange contributions to mBEEF Etot"""
+        self.get_non_xc_total_energies()
+        e_x = np.zeros((self.max_order, self.max_order))
+        for p1 in range(self.max_order):  # alpha
+            for p2 in range(self.max_order):  # s2
+                pars_i = np.array([1, self.trans[0], p2, 1.0])
+                pars_j = np.array([1, self.trans[1], p1, 1.0])
+                pars = np.hstack((pars_i, pars_j))
+                x = XC('2D-MGGA', pars)
+                e_x[p1, p2] = self.e_dft + self.calc.get_xc_difference(x) - self.e0
+                del x
+        return e_x
 
-        if self.xc in ['BEEF-vdW', 'BEEF-1']:
-            from beefvdw_pars import uiOmega
-
-            N = ensemble_size
-            assert np.shape(uiOmega) == (31, 31)
-            Wo, Vo = np.linalg.eig(uiOmega)
-            np.random.seed(seed)
-            RandV = np.random.randn(31, N)
-
-            for j in range(N):
-                v = RandV[:,j]
-                coefs_i = (np.dot(np.dot(Vo, np.diag(np.sqrt(Wo))), v)[:])
-                if j == 0:
-                    ensemble_coefs = coefs_i
-                else:
-                    ensemble_coefs = np.vstack((ensemble_coefs, coefs_i))
-            PBEc_ens = -ensemble_coefs[:, 30]
-            ensemble_coefs = (np.vstack((ensemble_coefs.T, PBEc_ens))).T
-        else:
-            raise NotImplementedError('xc = %s not implemented' % self.xc)
-        return ensemble_coefs
-
-    def beef_energy_contribs_x(self):
-        """Legendre polynomial exchange contributions to Etot"""
-        from gpaw.xc import XC
-        from gpaw.xc.kernel import XCNull
-
-        e_dft = self.calc.get_potential_energy()
-        xc_null = XC(XCNull())
-        e_0 = e_dft + self.calc.get_xc_difference(xc_null)
-        e_pbe = e_dft + self.calc.get_xc_difference('GGA_C_PBE') - e_0
+    def beefvdw_energy_contribs_x(self):
+        """Legendre polynomial exchange contributions to BEEF-vdW Etot"""
+        self.get_non_xc_total_energies()
+        e_pbe = self.e_dft + self.calc.get_xc_difference('GGA_C_PBE') - self.e0
 
         exch = np.zeros(len(self.o))
         for p in self.o:
             pars = [self.t[0], self.t[1], p, 1.0]
             bee = XC('BEE2', pars)
-            exch[p] = e_dft + self.calc.get_xc_difference(bee) - e_0 - e_pbe
+            exch[p] = self.e_dft + self.calc.get_xc_difference(bee) - self.e0 - e_pbe
             del bee
         return exch
 
-    def beef_energy_contribs_c(self):
-        """LDA and PBE correlation contributions to Etot"""
-        from gpaw.xc import XC
-        from gpaw.xc.kernel import XCNull
-
-        e_dft = self.calc.get_potential_energy()
-        xc_null = XC(XCNull())
-        e_0 = e_dft + self.calc.get_xc_difference(xc_null)
-        e_lda = e_dft + self.calc.get_xc_difference('LDA_C_PW') - e_0
-        e_pbe = e_dft + self.calc.get_xc_difference('GGA_C_PBE') - e_0
+    def beefvdw_energy_contribs_c(self):
+        """LDA and PBE correlation contributions to BEEF-vdW Etot"""
+        self.get_non_xc_total_energies()
+        e_lda = self.e_dft + self.calc.get_xc_difference('LDA_C_PW') - self.e0
+        e_pbe = self.e_dft + self.calc.get_xc_difference('GGA_C_PBE') - self.e0
         corr = np.array([e_lda, e_pbe])
         return corr
