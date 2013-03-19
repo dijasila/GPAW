@@ -70,6 +70,11 @@ def stress(calc):
                       np.dot(U_cc, cell_cv)).T
         sigma_vv += np.dot(np.dot(M_vv.T, s_vv), M_vv)
     sigma_vv /= len(wfs.symmetry.op_scc)
+    
+    # Make sure all agree on the result (redundant calculation on
+    # different cores involving BLAS might give slightly different
+    # results):
+    wfs.world.broadcast(sigma_vv, 0)
 
     calc.text('Stress tensor:')
     for sigma_v in sigma_vv:

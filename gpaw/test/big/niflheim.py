@@ -65,6 +65,8 @@ class NiflheimCluster(Cluster):
             run_command += ' PATH=%s/ase/tools:$PATH' % dir + '&&'
             run_command += ' PATH=%s/gpaw/tools:$PATH' % dir + '&&'
             run_command += ' PATH=%s/gpaw/build/bin.%s:$PATH' % (dir, arch) + '&&'
+            # we run other codes with asec
+            run_command += ' export ASE_ABINIT_COMMAND="mpiexec abinip < PREFIX.files > PREFIX.log"&&'
         else:
             run_command += 'module load '
             run_command += 'openmpi/1.3.3-1.el5.fys.gfortran43.4.3.2&& '
