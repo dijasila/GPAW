@@ -204,8 +204,8 @@ static void mpi_dealloc(MPIObject *obj)
 static PyObject * mpi_sendreceive(MPIObject *self, PyObject *args,
 				  PyObject *kwargs)
 {
-    PyObject* a;
-    PyObject* b;
+    PyArrayObject* a;
+    PyArrayObject* b;
     int dest, src;
     int sendtag = 123;
     int recvtag = 123;
@@ -244,7 +244,7 @@ static PyObject * mpi_sendreceive(MPIObject *self, PyObject *args,
 
 static PyObject * mpi_receive(MPIObject *self, PyObject *args, PyObject *kwargs)
 {
-  PyObject* a;
+  PyArrayObject* a;
   int src;
   int tag = 123;
   int block = 1;
@@ -278,7 +278,7 @@ static PyObject * mpi_receive(MPIObject *self, PyObject *args, PyObject *kwargs)
     {
       GPAW_MPI_Request *req = NewMPIRequest();
       if (req == NULL) return NULL;
-      req->buffer = a;
+      req->buffer = (PyObject*)a;
       Py_INCREF(req->buffer);
 #ifndef GPAW_MPI_DEBUG
       MPI_Irecv(PyArray_BYTES(a), n, MPI_BYTE, src, tag, self->comm, &(req->rq));
@@ -297,7 +297,7 @@ static PyObject * mpi_receive(MPIObject *self, PyObject *args, PyObject *kwargs)
 
 static PyObject * mpi_send(MPIObject *self, PyObject *args, PyObject *kwargs)
 {
-  PyObject* a;
+  PyArrayObject* a;
   int dest;
   int tag = 123;
   int block = 1;
@@ -327,7 +327,7 @@ static PyObject * mpi_send(MPIObject *self, PyObject *args, PyObject *kwargs)
   else
     {
       GPAW_MPI_Request *req = NewMPIRequest();
-      req->buffer = a;
+      req->buffer = (PyObject*)a;
       Py_INCREF(a);
 #ifndef GPAW_MPI_DEBUG
       MPI_Isend(PyArray_BYTES(a), n, MPI_BYTE, dest, tag, self->comm,
@@ -347,7 +347,7 @@ static PyObject * mpi_send(MPIObject *self, PyObject *args, PyObject *kwargs)
 
 static PyObject * mpi_ssend(MPIObject *self, PyObject *args, PyObject *kwargs)
 {
-  PyObject* a;
+  PyArrayObject* a;
   int dest;
   int tag = 123;
   static char *kwlist[] = {"a", "dest", "tag", NULL};
@@ -528,11 +528,11 @@ static PyObject * mpi_waitall(MPIObject *self, PyObject *requests)
 }
  
 
-static MPI_Datatype get_mpi_datatype(PyObject *a)
+static MPI_Datatype get_mpi_datatype(PyArrayObject *a)
 {
   int n = PyArray_DESCR(a)->elsize;
   if (PyArray_ISCOMPLEX(a))
-    n = n/2;
+    n = n / 2;
 
   switch(PyArray_TYPE(a))
     {
@@ -639,13 +639,14 @@ static PyObject * mpi_reduce(MPIObject *self, PyObject *args, PyObject *kwargs,
       int n;
       int elemsize;
       MPI_Datatype datatype;
-      CHK_ARRAY(obj);
-      datatype = get_mpi_datatype(obj);
+      PyArrayObject* aobj = (PyArrayObject*)obj;
+      CHK_ARRAY(aobj);
+      datatype = get_mpi_datatype(aobj);
       if (datatype == 0)
 	return NULL;
-      n = PyArray_SIZE(obj);
-      elemsize = PyArray_DESCR(obj)->elsize;
-      if (PyArray_ISCOMPLEX(obj))
+      n = PyArray_SIZE(aobj);
+      elemsize = PyArray_DESCR(aobj)->elsize;
+      if (PyArray_ISCOMPLEX(aobj))
 	{
 	  if (allowcomplex)
 	    {
@@ -662,14 +663,14 @@ static PyObject * mpi_reduce(MPIObject *self, PyObject *args, PyObject *kwargs,
       if (root == -1)
         {
 #ifdef GPAW_MPI2
-	  MPI_Allreduce(MPI_IN_PLACE, PyArray_BYTES(obj), n, datatype,
+	  MPI_Allreduce(MPI_IN_PLACE, PyArray_BYTES(aobj), n, datatype,
                         operation, self->comm);
 #else
           char* b = GPAW_MALLOC(char, n * elemsize);
-          MPI_Allreduce(PyArray_BYTES(obj), b, n, datatype, operation,
+          MPI_Allreduce(PyArray_BYTES(aobj), b, n, datatype, operation,
 			self->comm);
-	  assert(PyArray_NBYTES(obj) == n * elemsize);
-          memcpy(PyArray_BYTES(obj), b, n * elemsize);
+	  assert(PyArray_NBYTES(aobj) == n * elemsize);
+          memcpy(PyArray_BYTES(aobj), b, n * elemsize);
           free(b);
 #endif
         }
@@ -681,20 +682,20 @@ static PyObject * mpi_reduce(MPIObject *self, PyObject *args, PyObject *kwargs,
           if (rank == root)
             {
 #ifdef GPAW_MPI2 
-              MPI_Reduce(MPI_IN_PLACE, PyArray_BYTES(obj), n, 
+              MPI_Reduce(MPI_IN_PLACE, PyArray_BYTES(aobj), n, 
 			 datatype, operation, root, self->comm);
 #else
               b = GPAW_MALLOC(char, n * elemsize);
-              MPI_Reduce(PyArray_BYTES(obj), b, n, datatype, 
+              MPI_Reduce(PyArray_BYTES(aobj), b, n, datatype, 
 			 operation, root, self->comm);
-	      assert(PyArray_NBYTES(obj) == n * elemsize);
-              memcpy(PyArray_BYTES(obj), b, n * elemsize);
+	      assert(PyArray_NBYTES(aobj) == n * elemsize);
+              memcpy(PyArray_BYTES(aobj), b, n * elemsize);
               free(b);               
 #endif
             }
           else
             {
-              MPI_Reduce(PyArray_BYTES(obj), b, n, datatype, 
+              MPI_Reduce(PyArray_BYTES(aobj), b, n, datatype, 
 			 operation, root, self->comm);
             }
         }
@@ -726,8 +727,8 @@ static PyObject * mpi_min(MPIObject *self, PyObject *args, PyObject *kwargs)
 
 static PyObject * mpi_scatter(MPIObject *self, PyObject *args)
 {
-  PyObject* sendobj;
-  PyObject* recvobj;
+  PyArrayObject* sendobj;
+  PyArrayObject* recvobj;
   int root;
   if (!PyArg_ParseTuple(args, "OOi:scatter", &sendobj, &recvobj, &root))
     return NULL;
@@ -769,9 +770,9 @@ static PyObject * mpi_allgather(MPIObject *self, PyObject *args)
 
 static PyObject * mpi_gather(MPIObject *self, PyObject *args)
 {
-  PyObject* a;
+  PyArrayObject* a;
   int root;
-  PyObject* b = 0;
+  PyArrayObject* b = 0;
   if (!PyArg_ParseTuple(args, "Oi|O", &a, &root, &b))
     return NULL;
   CHK_ARRAY(a);
@@ -781,7 +782,7 @@ static PyObject * mpi_gather(MPIObject *self, PyObject *args)
       CHK_ARRAY(b);
       CHK_ARRAYS(a, b, self->size);
     }
-  else if (b != Py_None && b != NULL)
+  else if ((PyObject*)b != Py_None && b != NULL)
     {
       fprintf(stderr, "******** Root=%d\n", root);
       PyErr_SetString(PyExc_ValueError,	 
@@ -803,7 +804,7 @@ static PyObject * mpi_broadcast(MPIObject *self, PyObject *args)
 #ifdef GPAW_MPI_DEBUG
   MPI_Barrier(self->comm);
 #endif
-  PyObject* buf;
+  PyArrayObject* buf;
   int root;
   if (!PyArg_ParseTuple(args, "Oi:broadcast", &buf, &root))
     return NULL;
@@ -992,12 +993,13 @@ static PyObject * MPICommunicator(MPIObject *self, PyObject *args)
   // NB: int32 is NPY_LONG on 32-bit Linux and NPY_INT on 64-bit Linux!
   // First convert to NumPy array of NPY_LONG, then cast to NPY_INT, to 
   // allow both 32 and 64 bit integers in the argument (except 64 on 32).
-  PyObject *ranks = PyArray_ContiguousFromAny(orig_ranks, NPY_LONG, 1, 1);
+  PyArrayObject *ranks = (PyArrayObject*)PyArray_ContiguousFromAny(
+					    orig_ranks, NPY_LONG, 1, 1);
   if (ranks == NULL)
     return NULL;
-  PyObject *iranks;
+  PyArrayObject *iranks;
   int n = PyArray_DIM(ranks, 0);
-  iranks = PyArray_Cast((PyArrayObject*) ranks, NPY_INT);
+  iranks = (PyArrayObject*)PyArray_Cast((PyArrayObject*) ranks, NPY_INT);
   Py_DECREF(ranks);
   if (iranks == NULL)
     return NULL;
