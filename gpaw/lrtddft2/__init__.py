@@ -212,6 +212,10 @@ class LrTDDFTindexed:
         self.K_matrix_ready = False
         self.trans_prop_ready = False
 
+        self.K_matrix = None
+        self.custom_axes = None
+
+
     def read(self, basename):
         self.timer.start('Init read')
         info_file = basename+'.LR_info'
@@ -259,7 +263,7 @@ class LrTDDFTindexed:
                 kss.pop_diff = fdiff
                 kss.dip_mom_r = dm
                 kss.magn_mom = mm
-                assert self.index_of_kss(i,p) is None, 'KS transition %d->%d found twice in KS_singles files.' % (i,p)
+                #assert self.index_of_kss(i,p) is None, 'KS transition %d->%d found twice in KS_singles files.' % (i,p)
                 self.kss_list.append(kss)
             if len(self.kss_list) <= 0: self.kss_list = None
 
@@ -764,6 +768,9 @@ class LrTDDFTindexed:
         self.calculate_excitations()
         if self.trans_prop_ready: return
 
+        if self.custom_axes is not None:
+            self.custom_axes = np.array(self.custom_axes)
+
         #print >> self.txt, 'Calculating transition properties (', str(datetime.datetime.now()), ').'
         
         nloc = len(self.evectors)
@@ -809,14 +816,23 @@ class LrTDDFTindexed:
             cloc_magn *= np.sqrt(kss_ip.pop_diff / kss_ip.energy_diff)
             cloc_magn *= sqrtwloc
 
+            if self.custom_axes is None:
+                dmxloc  += kss_ip.dip_mom_r[0] * cloc_dm
+                dmyloc  += kss_ip.dip_mom_r[1] * cloc_dm
+                dmzloc  += kss_ip.dip_mom_r[2] * cloc_dm
 
-            dmxloc  += kss_ip.dip_mom_r[0] * cloc_dm
-            dmyloc  += kss_ip.dip_mom_r[1] * cloc_dm
-            dmzloc  += kss_ip.dip_mom_r[2] * cloc_dm
+                magnxloc += kss_ip.magn_mom[0] * cloc_magn
+                magnyloc += kss_ip.magn_mom[1] * cloc_magn
+                magnzloc += kss_ip.magn_mom[2] * cloc_magn
+            else:
+                dmxloc  += np.dot(kss_ip.dip_mom_r, self.custom_axes[0]) * cloc_dm
+                dmyloc  += np.dot(kss_ip.dip_mom_r, self.custom_axes[1]) * cloc_dm
+                dmzloc  += np.dot(kss_ip.dip_mom_r, self.custom_axes[2]) * cloc_dm
 
-            magnxloc += kss_ip.magn_mom[0] * cloc_magn
-            magnyloc += kss_ip.magn_mom[1] * cloc_magn
-            magnzloc += kss_ip.magn_mom[2] * cloc_magn
+                magnxloc += np.dot(kss_ip.magn_mom, self.custom_axes[0]) * cloc_magn
+                magnyloc += np.dot(kss_ip.magn_mom, self.custom_axes[1]) * cloc_magn
+                magnzloc += np.dot(kss_ip.magn_mom, self.custom_axes[2]) * cloc_magn
+
 
         
         self.transition_properties = np.zeros([len(self.kss_list),1+3+3])
@@ -838,14 +854,19 @@ class LrTDDFTindexed:
 
 
 
-    def calculate_response_wavefunction_new(self, omega, eta, laser):
+    def calculate_response_wavefunction_new(self, omega, eta, laser, reread_K_matrix=False):
+        if reread_K_matrix:
+            self.K_matrix = None
 
         laser = np.array(laser)
 
         nrow = len(self.kss_list)  # total rows
 
         # read K_matrix (creates indexing also)
-        K_matrix = self.read_K_matrix_new()
+        if self.K_matrix is None:
+            self.K_matrix = self.read_K_matrix_new()
+        K_matrix = self.K_matrix.copy()
+
         nlrow = K_matrix.shape[0]
         nlcol = K_matrix.shape[1]
 
@@ -1437,10 +1458,13 @@ class LrTDDFTindexed:
 
         drhot_geh = drhot_ge + drhot_gh
 
+        Ige  = self.calc.density.finegd.integrate(drhot_ge)
+        Igh  = self.calc.density.finegd.integrate(drhot_gh)
+        Igeh = self.calc.density.finegd.integrate(drhot_geh)
         if self.parent_comm.rank == 0:
-            print 'drho_ge ', self.calc.density.finegd.integrate(drhot_ge)
-            print 'drho_gh ', self.calc.density.finegd.integrate(drhot_gh)
-            print 'drho_geh', self.calc.density.finegd.integrate(drhot_geh)
+            print 'drho_ge ', Ige
+            print 'drho_gh ', Igh
+            print 'drho_geh', Igeh
 
         return (drhot_ge, drhot_gh, drhot_geh)
 
