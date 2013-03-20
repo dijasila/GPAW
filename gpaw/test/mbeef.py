@@ -8,8 +8,7 @@ xc = 'mBEEF'
 conv = {'eigenstates':1.e-6, 'density':1.e-6, 'energy':1.e-6}
 d = 1.09
 tol1 = 1.e-9
-tol2 = 1.e-2
-tol3 = 5.e-2
+tol2 = 1.e-1
 
 # N2 molecule
 n2 = Atoms('N2',[[0.,0.,0.],[0.,0.,d]])
@@ -42,11 +41,11 @@ del n, calc, ens
 f0 = f[0].sum()
 f1 = f[1].sum()
 equal(f0, -f1, tol1)
-equal(f0, -0.222, tol2)
+equal(f0, -0.25, tol2)
 
 # binding energy
 E_bind = 2*e_n - e_n2
 dE_bind = 2*de_n[:] - de_n2[:]
 dE_bind = np.std(dE_bind)
-equal(E_bind, 9.748, tol2)
-equal(dE_bind, 0.43, tol3)
+equal(E_bind, 9.75, tol2)
+equal(dE_bind, 0.42, tol2)
