@@ -1,11 +1,15 @@
 from ase import *
 from ase.dft.bee import BEEF_Ensemble
 from gpaw import GPAW, PW
+from gpaw.test import equal
 import numpy as np
 
 xc = 'mBEEF'
 pw = 600.
 d = 1.09
+tol1 = 1.e-10
+tol2 = 1.e-2
+tol3 = 1.e-1
 
 # N2 molecule
 n2 = Atoms('N2',[[0.,0.,0.],[0.,0.,d]])
@@ -33,12 +37,12 @@ del n, calc, ens
 # forces
 f0 = f[0].sum()
 f1 = f[1].sum()
-assert abs(f0 + f1) < 1.e-10
-assert (f1 - 0.469) < 1.e-2
+equal(f0, -f1, tol1)
+equal(f0, -0.469, tol2)
 
 # binding energy
 E_bind = 2*e_n - e_n2
 dE_bind = 2*de_n[:] - de_n2[:]
 dE_bind = np.std(dE_bind)
-assert abs(E_bind - 9.70) < 1.e-2
-assert abs(dE_bind - 0.41) < 1.e-2
+equal(E_bind, 9.700, tol2)
+equal(dE_bind, 0.42, tol3)
