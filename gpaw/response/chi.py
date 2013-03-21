@@ -625,7 +625,7 @@ class Chi(BaseChi):
                                         axpy(C, rho_GG, chi0_wGG[iw])
                                     if self.timing: timer.end('zherk')
 
-                                if 1: #self.cuda:
+                                if not self.cuda:
                                     if imultix == nmultix - 1:
                                         imultix = 0
                                         rho_uG[:,:] = 0
@@ -693,6 +693,10 @@ class Chi(BaseChi):
                         status = _gpaw.cuGetMatrix(self.npw,self.npw,sizeofdata,cu.chi0_w[iw],self.npw,
                                                    chi0_wGG[iw],self.npw)
                         chi0_wGG[iw] = chi0_wGG[iw].conj()
+
+                        if np.isnan(chi0_wGG[iw]).any():
+                            self.printtxt('chi0 has nan result !')
+                            XX
 
                     cu.chi_free(self)
                     cu.paw_free()
@@ -803,7 +807,7 @@ class Chi(BaseChi):
 
         self.kcomm, self.wScomm, self.wcomm = set_communicator(world, rank, size, self.kcommsize)
 
-        if self.nkpt % world.size ==0:
+        if self.nkpt % self.kcomm.size == 0:
             self.nkpt_reshape = self.nkpt
             self.nkpt_reshape, self.nkpt_local, self.kstart, self.kend = parallel_partition(
                                self.nkpt_reshape, self.kcomm.rank, self.kcomm.size, reshape=True, positive=True)
