@@ -119,7 +119,10 @@ PyObject* cuSetVector(PyObject *self, PyObject *args);
 PyObject* cuGetVector(PyObject *self, PyObject *args);
 PyObject* cuZher(PyObject *self, PyObject *args);
 PyObject* cuZherk(PyObject *self, PyObject *args);
+PyObject* cuProfilerStart(PyObject *self, PyObject *args);
+PyObject* cuProfilerStop(PyObject *self, PyObject *args);
 PyObject* cuDevSynch(PyObject *self, PyObject *args);
+PyObject* cuDevReset(PyObject *self, PyObject *args);
 PyObject* cuGetLastError(PyObject *self, PyObject *args);
 PyObject* cuCher(PyObject *self, PyObject *args);
 PyObject* cufft_plan3d(PyObject *self, PyObject *args);
@@ -179,7 +182,10 @@ static PyMethodDef functions[] = {
   {"cuGetVector", cuGetVector, METH_VARARGS, 0},
   {"cuZher", cuZher, METH_VARARGS, 0},
   {"cuZherk", cuZherk, METH_VARARGS, 0},
+  {"cuProfilerStart", cuProfilerStart, METH_VARARGS, 0},
+  {"cuProfilerStop", cuProfilerStop, METH_VARARGS, 0},
   {"cuDevSynch", cuDevSynch, METH_VARARGS, 0},
+  {"cuDevReset", cuDevReset, METH_VARARGS, 0},
   {"cuGetLastError", cuGetLastError, METH_VARARGS, 0},
   {"cuCher", cuCher, METH_VARARGS, 0},
   {"cufft_plan3d", cufft_plan3d, METH_VARARGS, 0},

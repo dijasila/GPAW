@@ -4,6 +4,9 @@
 #include <numpy/arrayobject.h>
 #include <cuda_runtime.h>
 #include <cublas_v2.h>
+#include <cuda_profiler_api.h>
+#include "cuErrCheck.h"
+#include "cukernels.h"
 
 PyObject* cuZscal(PyObject *self, PyObject *args)
 {
@@ -14,7 +17,8 @@ PyObject* cuZscal(PyObject *self, PyObject *args)
 
   if (!PyArg_ParseTuple(args, "LiDLi",&handle, &n, &alpha, &x, &incx))
     return NULL;
-  cublasZscal(handle, n, &alpha, x, incx);
+  CudaSafeCall(cublasZscal(handle, n, &alpha, x, incx));
+  CudaCheckError();
   Py_RETURN_NONE;
 }
 
@@ -34,20 +38,21 @@ PyObject* cugemm(PyObject *self, PyObject *args)
 
   if (!PyArg_ParseTuple(args, "LDLLDLiiiiii|ii",&handle, &alpha, &a, &b, &beta, &c,&n, &m, &k, &lda, &ldb, &ldc, &transb, &transa))
     return NULL;
-  cublasZgemm(handle, 
-              transa,
-              transb, 
-              m,
-              n,
-              k,
-              &alpha, /* host or device pointer */  
-              a, 
-              lda,
-              b,
-              ldb, 
-              &beta, /* host or device pointer */  
-              c,
-              ldc);  
+  CudaSafeCall(cublasZgemm(handle, 
+                           transa,
+                           transb, 
+                           m,
+                           n,
+                           k,
+                           &alpha, /* host or device pointer */  
+                           a, 
+                           lda,
+                           b,
+                           ldb, 
+                           &beta, /* host or device pointer */  
+                           c,
+                           ldc));
+  CudaCheckError();
 
   Py_RETURN_NONE;
 }
@@ -64,7 +69,8 @@ PyObject* cudgmm(PyObject *self, PyObject *args)
 
   if (!PyArg_ParseTuple(args, "LLLLiiiii|i",&handle, &A, &x, &C, &n, &m, &lda, &ldc, &incx, &mode))
     return NULL;
-  cublasZdgmm(handle, mode, m, n, A, lda, x, incx, C, ldc);
+  CudaSafeCall(cublasZdgmm(handle, mode, m, n, A, lda, x, incx, C, ldc));
+  CudaCheckError();
   Py_RETURN_NONE;
 }
 
@@ -86,13 +92,14 @@ PyObject* cuCgemv(PyObject *self, PyObject *args)
   betacomplex = make_cuFloatComplex(beta,0.0);
   /*  printf("alpha %f %f\n",cuCrealf(alphacomplex),cuCimagf(alphacomplex)); */
 
-  cublasCgemv(handle, trans, m, n,
-	      &alphacomplex, /* host or device pointer */
-	      a, lda,
-	      x, incx,
-	      &betacomplex, /* host or device pointer */
-	      y, incy);
+  CudaSafeCall(cublasCgemv(handle, trans, m, n,
+                           &alphacomplex, /* host or device pointer */
+                           a, lda,
+                           x, incx,
+                           &betacomplex, /* host or device pointer */
+                           y, incy));
 
+  CudaCheckError();
   Py_RETURN_NONE;
 }
 
@@ -109,16 +116,17 @@ PyObject* cuZgemv(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "LiiDLiLiDLi|i",&handle, &m, &n, &alpha, &a, &lda, &x, &incx, &beta, &y, &incy, &trans))
     return NULL;
 
-/*   printf("m %d n %d lda %d incx %d incy %d\n", */
-/* 	 m,n,lda,incx,incy); */
+  /*   printf("m %d n %d lda %d incx %d incy %d\n", */
+  /* 	 m,n,lda,incx,incy); */
 
-  cublasZgemv(handle, trans, m, n,
-	      &alpha, /* host or device pointer */
-	      a, lda,
-	      x, incx,
-	      &beta, /* host or device pointer */
-	      y, incy);
+  CudaSafeCall(cublasZgemv(handle, trans, m, n,
+                           &alpha, /* host or device pointer */
+                           a, lda,
+                           x, incx,
+                           &beta, /* host or device pointer */
+                           y, incy));
 
+  CudaCheckError();
   Py_RETURN_NONE;
 }
 
@@ -131,7 +139,8 @@ PyObject* cuCreate(PyObject *self, PyObject *args)
     return NULL;
 
   if (devid>=0) cudaSetDevice(devid);
-  cudaStat = cublasCreate(&handle);
+  CudaSafeCall(cudaStat=cublasCreate(&handle));
+  CudaCheckError();
   if (cudaStat != cudaSuccess) {
     printf("cublasCreate failed %d\n",cudaStat);
     return NULL;
@@ -146,7 +155,8 @@ PyObject* cuDestroy(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "i",&handle))
     return NULL;
 
-  cudaStat = cublasDestroy(handle);
+  CudaSafeCall(cudaStat = cublasDestroy(handle));
+  CudaCheckError();
   if (cudaStat != cudaSuccess) {
     printf("cublasDestroy failed %d\n",cudaStat);
   }
@@ -160,7 +170,8 @@ PyObject* cuMalloc(PyObject *self, PyObject *args)
     return NULL;
   cudaError_t cudaStat;
   void *devPtr;
-  cudaStat = cudaMalloc(&devPtr,nbytes);
+  CudaSafeCall(cudaStat = cudaMalloc(&devPtr,nbytes));
+  CudaCheckError();
   if (cudaStat != cudaSuccess) {
     printf("device memory allocation failed %d\n",cudaStat);
     return NULL;
@@ -174,7 +185,8 @@ PyObject* cuFree(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args,"L",&devPtr))
     return NULL;
   cudaError_t cudaStat;
-  cudaStat = cudaFree(devPtr);
+  CudaSafeCall(cudaStat = cudaFree(devPtr));
+  CudaCheckError();
   if (cudaStat != cudaSuccess) {
     printf("device memory free failed %d at %p\n",cudaStat,devPtr);
     return NULL;
@@ -190,7 +202,8 @@ PyObject* cuMemset(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args,"Lii",&devPtr,&a,&n))
     return NULL;
   cudaError_t cudaStat;
-  cudaStat = cudaMemset(devPtr, a, n);
+  CudaSafeCall(cudaStat = cudaMemset(devPtr, a, n));
+  CudaCheckError();
   if (cudaStat != cudaSuccess) {
     printf("device memory set failed %d at %p\n",cudaStat,devPtr);
     return NULL;
@@ -209,9 +222,10 @@ PyObject* cuSetMatrix(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args,"iiiOiLi",&m,&n,&elemsize,&x,&lda,&devPtr,&ldb))
     return NULL;
   const void *a = VOIDP(x);
-/*   printf("%d %d %d %p %d %p %d\n",m,n,elemsize,a,lda,devPtr,ldb); */
+  /*   printf("%d %d %d %p %d %p %d\n",m,n,elemsize,a,lda,devPtr,ldb); */
   cudaError_t cudaStat;
-  cudaStat = cublasSetMatrix(m,n,elemsize,a,lda,devPtr,ldb);
+  CudaSafeCall(cudaStat = cublasSetMatrix(m,n,elemsize,a,lda,devPtr,ldb));
+  CudaCheckError();
   if (cudaStat != cudaSuccess) {
     printf("cublasSetMatrix failed %d\n",cudaStat);
     return NULL;
@@ -227,9 +241,10 @@ PyObject* cuGetMatrix(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args,"iiiLiOi",&m,&n,&elemsize,&devPtr,&lda,&x,&ldb))
     return NULL;
   void *b = VOIDP(x);
-/*   printf("%d %d %d %p %d %p %d\n",m,n,elemsize,devPtr,lda,b,ldb); */
+  /*   printf("%d %d %d %p %d %p %d\n",m,n,elemsize,devPtr,lda,b,ldb); */
   cudaError_t cudaStat;
-  cudaStat = cublasGetMatrix(m,n,elemsize,devPtr,lda,b,ldb);
+  CudaSafeCall(cudaStat = cublasGetMatrix(m,n,elemsize,devPtr,lda,b,ldb));
+  CudaCheckError();
   if (cudaStat != cudaSuccess) {
     printf("cublasGetMatrix failed %d\n",cudaStat);
     return NULL;
@@ -245,9 +260,10 @@ PyObject* cuSetVector(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args,"iiOiLi",&n,&elemsize,&x,&incx,&devPtr,&incy))
     return NULL;
   const void *ptr = VOIDP(x);
-/*   printf("%d %d %p %d %p %d\n",n,elemsize,ptr,incx,devPtr,incy); */
+  /*   printf("%d %d %p %d %p %d\n",n,elemsize,ptr,incx,devPtr,incy); */
   cudaError_t cudaStat;
-  cudaStat = cublasSetVector(n,elemsize,ptr,incx,devPtr,incy);
+  CudaSafeCall(cudaStat = cublasSetVector(n,elemsize,ptr,incx,devPtr,incy));
+  CudaCheckError();
   if (cudaStat != cudaSuccess) {
     printf("cublasSetVector failed %d\n",cudaStat);
     return NULL;
@@ -263,9 +279,10 @@ PyObject* cuGetVector(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args,"iiLiOi",&n,&elemsize,&devPtr,&incx,&y,&incy))
     return NULL;
   void *ptr = VOIDP(y);
-/*   printf("%d %d %p %d %p %d\n",n,elemsize,devPtr,incx,ptr,incy); */
+  /*   printf("%d %d %p %d %p %d\n",n,elemsize,devPtr,incx,ptr,incy); */
   cudaError_t cudaStat;
-  cudaStat = cublasGetVector(n,elemsize,devPtr,incx,ptr,incy);
+  CudaSafeCall(cudaStat = cublasGetVector(n,elemsize,devPtr,incx,ptr,incy));
+  CudaCheckError();
   if (cudaStat != cudaSuccess) {
     printf("cublasGetVector failed %d\n",cudaStat);
     return NULL;
@@ -288,8 +305,9 @@ PyObject* cuZher(PyObject *self, PyObject *args)
     return NULL;
 
   cudaError_t cudaStat;
-/*   printf("%p %d %d %f %p %d %p %d\n",handle,uplo,n,alpha,x,incx,A,lda); */
-  cudaStat = cublasZher(handle,uplo,n,&alpha,x,incx,A,lda);
+  /*   printf("%p %d %d %f %p %d %p %d\n",handle,uplo,n,alpha,x,incx,A,lda); */
+  CudaSafeCall(cudaStat = cublasZher(handle,uplo,n,&alpha,x,incx,A,lda));
+  CudaCheckError();
   if (cudaStat != cudaSuccess) {
     printf("cublasZher failed %d\n",cudaStat);
     return NULL;
@@ -313,10 +331,37 @@ PyObject* cuZherk(PyObject *self, PyObject *args)
     return NULL;
 
   cudaError_t cudaStat;
-/*   printf("%p %d %d %f %p %d %p %d\n",handle,uplo,n,alpha,x,incx,A,lda); */
-  cudaStat = cublasZherk(handle,uplo,trans, n,k,&alpha,A,lda,&beta,C,ldc);
+  /*   printf("%p %d %d %f %p %d %p %d\n",handle,uplo,n,alpha,x,incx,A,lda); */
+  CudaSafeCall(cudaStat = cublasZherk(handle,uplo,trans, n,k,&alpha,A,lda,&beta,C,ldc));
+  CudaCheckError();
   if (cudaStat != cudaSuccess) {
     printf("cublasZherk failed %d\n",cudaStat);
+    return NULL;
+  }
+  return Py_BuildValue("i",cudaStat);
+}
+
+
+PyObject* cuProfilerStart(PyObject *self, PyObject *args)
+{
+  cudaError_t cudaStat;
+  CudaSafeCall(cudaStat = cudaProfilerStart());
+  CudaCheckError();
+  if (cudaStat != cudaSuccess) {
+    printf("cudaProfilerStart failed %d\n",cudaStat);
+    return NULL;
+  }
+  return Py_BuildValue("i",cudaStat);
+}
+
+
+PyObject* cuProfilerStop(PyObject *self, PyObject *args)
+{
+  cudaError_t cudaStat;
+  CudaSafeCall(cudaStat = cudaProfilerStop());
+  CudaCheckError();
+  if (cudaStat != cudaSuccess) {
+    printf("cudaProfilerStop failed %d\n",cudaStat);
     return NULL;
   }
   return Py_BuildValue("i",cudaStat);
@@ -329,6 +374,18 @@ PyObject* cuDevSynch(PyObject *self, PyObject *args)
   cudaStat = cudaDeviceSynchronize();
   if (cudaStat != cudaSuccess) {
     printf("cudaDevicesynchronize failed %d\n",cudaStat);
+    return NULL;
+  }
+  return Py_BuildValue("i",cudaStat);
+}
+
+
+PyObject* cuDevReset(PyObject *self, PyObject *args)
+{
+  cudaError_t cudaStat;
+  cudaStat = cudaDeviceReset();
+  if (cudaStat != cudaSuccess) {
+    printf("cudaDeviceReset failed %d\n",cudaStat);
     return NULL;
   }
   return Py_BuildValue("i",cudaStat);
@@ -357,8 +414,9 @@ PyObject* cuCher(PyObject *self, PyObject *args)
     return NULL;
 
   cudaError_t cudaStat;
-/*   printf("%p %d %d %f %p %d %p %d\n",handle,uplo,n,alpha,x,incx,A,lda); */
-  cudaStat = cublasCher(handle,uplo,n,&alpha,x,incx,A,lda);
+  /*   printf("%p %d %d %f %p %d %p %d\n",handle,uplo,n,alpha,x,incx,A,lda); */
+  CudaSafeCall(cudaStat = cublasCher(handle,uplo,n,&alpha,x,incx,A,lda));
+  CudaCheckError();
   if (cudaStat != cudaSuccess) {
     printf("cublasZher failed %d\n",cudaStat);
     return NULL;
@@ -375,6 +433,7 @@ PyObject* cuAdd(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "LLLi",&a, &b, &c, &n))
     return NULL;
   cudaAdd(a, b, c, n);
+  CudaCheckError();
   Py_RETURN_NONE;
 }
 
@@ -386,6 +445,7 @@ PyObject* cuMul(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "LLLi",&a, &b, &c, &n))
     return NULL;
   cudaMul(a, b, c, n);
+  CudaCheckError();
   Py_RETURN_NONE;
 }
 
@@ -397,6 +457,7 @@ PyObject* cuMulc(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "LLLi",&a, &b, &c, &n))
     return NULL;
   cudaMulc(a, b, c, n);
+  CudaCheckError();
   Py_RETURN_NONE;
 }
 
@@ -408,6 +469,7 @@ PyObject* cuMap_G2Q(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "LLLiii",&a, &b, &c, &n, &nG0, &nmultix))
     return NULL;
   cudaMap_G2Q(a, b, c, n, nG0,  nmultix);
+  CudaCheckError();
   Py_RETURN_NONE;
 }
 
@@ -419,6 +481,7 @@ PyObject* cuMap_Q2G(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "LLLiii",&a, &b, &c, &n, &nG0, &nmultix))
     return NULL;
   cudaMap_Q2G(a, b, c, n, nG0, nmultix);
+  CudaCheckError();
   Py_RETURN_NONE;
 }
 
@@ -430,6 +493,7 @@ PyObject* cuDensity_matrix_R(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "LLLii",&a, &b, &c, &n, &nmultix))
     return NULL;
   cudaDensity_matrix_R(a, b, c, n, nmultix);
+  CudaCheckError();
   Py_RETURN_NONE;
 }
 
@@ -441,6 +505,7 @@ PyObject* cuOpt_phase(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "LLLiii",&a, &b, &c, &n, &nmultix, &conjugate))
     return NULL;
   cudaOpt_phase(a, b, c, n, nmultix, conjugate);
+  CudaCheckError();
   Py_RETURN_NONE;
 }
 
@@ -453,6 +518,7 @@ PyObject* cuOpt_rhoG0_copy(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "LLii",&rho_u, &rho_uG, &nG0, &nmultix))
     return NULL;
   cudaOpt_rhoG0_copy(rho_u, rho_uG, nG0, nmultix);
+  CudaCheckError();
   Py_RETURN_NONE;
 }
 
@@ -465,6 +531,7 @@ PyObject* cuOpt_dE(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "LiiLiiiLii",&rho_uG, &nG0, &nmultix, &e_skn, &s, &k, &n, &m_m, &nkpt, &nband))
     return NULL;
   cudaOpt_dE(rho_uG, nG0, nmultix, e_skn, s, k, n, m_m, nkpt, nband);
+  CudaCheckError();
   Py_RETURN_NONE;
 }
 
@@ -476,7 +543,8 @@ PyObject* cuGet_C_wu(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "LLLLLiiiiLiiiii",&e_skn, &f_skn, &w_w, &C_wu, &alpha_wu, &s, &k1, &k2, &n, &m_u, &nu, &nmultix, &nkpt, &nband, &nw))
     return NULL;
   cudaC_wu( e_skn, f_skn, w_w, C_wu, alpha_wu,
-	     s, k1, k2, n, m_u, nu, nmultix, nkpt, nband, nw);
+                         s, k1, k2, n, m_u, nu, nmultix, nkpt, nband, nw);
+  CudaCheckError();
   Py_RETURN_NONE;
 }
 
@@ -489,6 +557,7 @@ PyObject* cuTrans_wfs(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "LLLii",&a, &b, &index, &n, &nmultix))
     return NULL;
   cudaTransform_wfs(a, b, index, n, nmultix);
+  CudaCheckError();
   Py_RETURN_NONE;
 }
 
@@ -500,6 +569,7 @@ PyObject* cuTrans_wfs_noindex(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "LLLLiii",&a, &b, &op_cc, &dk_c, &n0, &n1, &n2))
     return NULL;
   cudaTransform_wfs_noindex(a, b, op_cc, dk_c, n0, n1, n2);
+  CudaCheckError();
   Py_RETURN_NONE;
 }
 
@@ -511,6 +581,7 @@ PyObject* cuConj_vector(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "Li",&a, &n))
     return NULL;
   cudaConj(a, n);
+  CudaCheckError();
   Py_RETURN_NONE;
 }
 
@@ -522,6 +593,7 @@ PyObject* cuCopy_vector(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "LLi",&a, &b, &n))
     return NULL;
   cudaCopy(a, b, n);
+  CudaCheckError();
   Py_RETURN_NONE;
 }
 
@@ -530,12 +602,15 @@ PyObject* cuGet_P_ani(PyObject *self, PyObject *args)
 {
   int Na, s, ik, n, NN;
   int time_rev;
-  void *spos_ac, *ibzk_kc, *op_scc, *a_sa, **R_asii, **P_ani, **Pout_ani, *Ni_a, *n_n, *offset;
+  double *spos_ac, *ibzk_kc, **R_asii;
+  int *op_scc, *a_sa, *Ni_a, *n_n, *offset;
+  cuDoubleComplex **P_ani, **Pout_ani;
   
   if (!PyArg_ParseTuple(args, "LLLLLLLLiiiiLiLi",&spos_ac, &ibzk_kc, &op_scc, &a_sa, &R_asii, 
 			&P_ani, &Pout_ani, &Ni_a, &time_rev, &Na, &s, &ik, &n_n, &n, &offset, &NN))
     return NULL;
   cudaP_ani(spos_ac, ibzk_kc, op_scc, a_sa, R_asii, P_ani, Pout_ani, Ni_a, time_rev, Na, s, ik, n_n, n, offset, NN);
+  CudaCheckError();
   Py_RETURN_NONE;
 }
 
@@ -543,11 +618,13 @@ PyObject* cuGet_P_ani(PyObject *self, PyObject *args)
 PyObject* cuGet_P_ap(PyObject *self, PyObject *args)
 {
   int Na, n, NN;
-  void **P1_ai, **P2_aui, **P_aup, *Ni_a, *offset;
+  cuDoubleComplex **P1_ai, **P2_aui, **P_aup;
+  int *Ni_a, *offset;
   
   if (!PyArg_ParseTuple(args, "LLLLLiii",&P1_ai, &P2_aui, &P_aup, &Ni_a, &offset, &Na, &n, &NN))
     return NULL;
   cudaP_aup(P1_ai, P2_aui, P_aup, Ni_a, Na, n, offset, NN);
+  CudaCheckError();
   Py_RETURN_NONE;
 }
 
@@ -555,15 +632,14 @@ PyObject* cuGet_P_ap(PyObject *self, PyObject *args)
 PyObject* cuGet_Q_anL(PyObject *self, PyObject *args)
 {
   int mband, Na;
-  void **P1_ami, **P2_ai, **Delta_apL, **Q_amL, *Ni_a, *nL_a;
+  cuDoubleComplex **P1_ami, **P2_ai, **Q_amL;
+  double **Delta_apL;
+  int *Ni_a, *nL_a;
   
   if (!PyArg_ParseTuple(args, "LLLLiiLL",&P1_ami, &P2_ai, &Delta_apL, &Q_amL, &mband, 
 			&Na, &Ni_a, &nL_a))
     return NULL;
   cudaQ_anL(P1_ami, P2_ai, Delta_apL, Q_amL, mband, Na, Ni_a, nL_a);
+  CudaCheckError();
   Py_RETURN_NONE;
 }
-
-
-
-

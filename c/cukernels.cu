@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <cublas_v2.h> 
 #include <math_constants.h>
+#include "cukernels.h"
 
 __global__ void add( cuDoubleComplex* a, cuDoubleComplex* b, cuDoubleComplex* c, int N ){
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -349,7 +350,7 @@ __global__ void Q_anL(cuDoubleComplex **P1_ami, cuDoubleComplex **P2_ai,
 
 
 extern "C" {
-void cudaAdd( double complex* dev_a, double complex* dev_b, double complex* dev_c, int N ) {
+void cudaAdd( cuDoubleComplex* dev_a, cuDoubleComplex* dev_b, cuDoubleComplex* dev_c, int N ) {
   int threads = 128;
   int blocks = N/threads + (N%threads == 0 ? 0:1);
   add<<<blocks, threads>>>( (cuDoubleComplex*)dev_a, (cuDoubleComplex*)dev_b, (cuDoubleComplex*)dev_c, N);
@@ -357,7 +358,7 @@ void cudaAdd( double complex* dev_a, double complex* dev_b, double complex* dev_
 }
 
 extern "C" {
-void cudaMul( double complex* dev_a, double complex* dev_b, double complex* dev_c, int N ) {
+void cudaMul( cuDoubleComplex* dev_a, cuDoubleComplex* dev_b, cuDoubleComplex* dev_c, int N ) {
   int threads = 128;
   int blocks = N/threads + (N%threads == 0 ? 0:1);
   mul<<<blocks, threads>>>( (cuDoubleComplex*)dev_a, (cuDoubleComplex*)dev_b, (cuDoubleComplex*)dev_c, N);
@@ -365,7 +366,7 @@ void cudaMul( double complex* dev_a, double complex* dev_b, double complex* dev_
 }
 
 extern "C" {
-void cudaMulc( double complex* dev_a, double complex* dev_b, double complex* dev_c, int N ) {
+void cudaMulc( cuDoubleComplex* dev_a, cuDoubleComplex* dev_b, cuDoubleComplex* dev_c, int N ) {
   int threads = 128;
   int blocks = N/threads + (N%threads == 0 ? 0:1);
   mulc<<<blocks, threads>>>( (cuDoubleComplex*)dev_a, (cuDoubleComplex*)dev_b, (cuDoubleComplex*)dev_c, N);
@@ -373,7 +374,7 @@ void cudaMulc( double complex* dev_a, double complex* dev_b, double complex* dev
 }
 
 extern "C" {
-  void cudaMap_G2Q( double complex* dev_a, double complex* dev_b, int* dev_c, int N, int nG0, int nmultix ) {
+  void cudaMap_G2Q( cuDoubleComplex* dev_a, cuDoubleComplex* dev_b, int* dev_c, int N, int nG0, int nmultix ) {
   int threads = 128;
   int nn = N * nmultix;
   int blocks = nn/threads + (nn%threads == 0 ? 0:1);
@@ -382,7 +383,7 @@ extern "C" {
 }
 
 extern "C" {
-  void cudaMap_Q2G( double complex* dev_a, double complex* dev_b, int* dev_c, int N, int nG0, int nmultix ) {
+  void cudaMap_Q2G( cuDoubleComplex* dev_a, cuDoubleComplex* dev_b, int* dev_c, int N, int nG0, int nmultix ) {
   int threads = 128;
   int nn = N * nmultix;
   int blocks = nn/threads + (nn%threads == 0 ? 0:1);
@@ -391,7 +392,7 @@ extern "C" {
 }
 
 extern "C" {
-  void cudaDensity_matrix_R( double complex* dev_a, double complex* dev_b, double complex* dev_c, int N, int nmultix ) {
+  void cudaDensity_matrix_R( cuDoubleComplex* dev_a, cuDoubleComplex* dev_b, cuDoubleComplex* dev_c, int N, int nmultix ) {
   int threads = 128;
   int nn = N * nmultix;
   int blocks = nn/threads + (nn%threads == 0 ? 0:1);
@@ -400,7 +401,7 @@ extern "C" {
 }
 
 extern "C" {
-  void cudaOpt_phase( double complex* dev_a, double complex* dev_b, double complex* dev_c, int N, int nmultix, int conjugate ) {
+  void cudaOpt_phase( cuDoubleComplex* dev_a, cuDoubleComplex* dev_b, cuDoubleComplex* dev_c, int N, int nmultix, int conjugate ) {
   int threads = 128;
   int nn = N * nmultix;
   int blocks = nn/threads + (nn%threads == 0 ? 0:1);
@@ -410,7 +411,7 @@ extern "C" {
 
 
 extern "C" {
-  void cudaOpt_rhoG0_copy( double complex* rho_u, double complex* rho_uG, int nG0, int nmultix){
+  void cudaOpt_rhoG0_copy( cuDoubleComplex* rho_u, cuDoubleComplex* rho_uG, int nG0, int nmultix){
   int threads = 64;
   int nn = nmultix;
   int blocks = nn/threads + (nn%threads == 0 ? 0:1);
@@ -420,7 +421,7 @@ extern "C" {
 
 
 extern "C" {
-  void cudaOpt_dE( double complex* rho_uG, int nG0, int nmultix, double* e_skn, int s, int k, int n, int* m_m, int nkpt, int nband){
+  void cudaOpt_dE( cuDoubleComplex* rho_uG, int nG0, int nmultix, double* e_skn, int s, int k, int n, int* m_m, int nkpt, int nband){
   int threads = 64;
   int nn = nmultix;
   int blocks = nn/threads + (nn%threads == 0 ? 0:1);
@@ -430,7 +431,7 @@ extern "C" {
 
 
 extern "C" {
-  void cudaC_wu( double* e_skn, double* f_skn, double* w_w, double* C_wu, double complex* alpha_wu, 
+  void cudaC_wu( double* e_skn, double* f_skn, double* w_w, double* C_wu, cuDoubleComplex* alpha_wu, 
 		 int s, int k1, int k2, int n, int* m_u, int nu, int nmultix, int nkpt, int nband, int nw){
   int threads = 128;
   int nn = nu * nw;
@@ -442,7 +443,7 @@ extern "C" {
 
 /*
 extern "C" {
-  void cudaalpha_u( double* alpha_wu, double complex* rho_uG, int iw, int nu, int nmultix, int npw){
+  void cudaalpha_u( double* alpha_wu, cuDoubleComplex* rho_uG, int iw, int nu, int nmultix, int npw){
   int threads = 128;
   int nn = nu * npw;
   int blocks = nn/threads + (nn%threads == 0 ? 0:1);
@@ -452,7 +453,7 @@ extern "C" {
 */
 
 extern "C" {
-  void cudaTransform_wfs( double complex* dev_a, double complex* dev_b, int* dev_c, int N, int nmultix ) {
+  void cudaTransform_wfs( cuDoubleComplex* dev_a, cuDoubleComplex* dev_b, int* dev_c, int N, int nmultix ) {
     int threads = 128;
     int nn = N * nmultix;
     int blocks = nn/threads + (nn%threads == 0 ? 0:1);
@@ -461,7 +462,7 @@ extern "C" {
 }
 
 extern "C" {
-  void cudaTransform_wfs_noindex( double complex* dev_a, double complex* dev_b, int* dev_c, double* dk, int N0, int N1, int N2 ) {
+  void cudaTransform_wfs_noindex( cuDoubleComplex* dev_a, cuDoubleComplex* dev_b, int* dev_c, double* dk, int N0, int N1, int N2 ) {
     int threads = 128;
     int N = N0 * N1 * N2;
     int blocks = N/threads + (N%threads == 0 ? 0:1);
@@ -470,7 +471,7 @@ extern "C" {
 }
 
 extern "C" {
-  void cudaConj( double complex* dev_a, int N ) {
+  void cudaConj( cuDoubleComplex* dev_a, int N ) {
   int threads = 128;
   int blocks = N/threads + (N%threads == 0 ? 0:1);
   conj<<<blocks, threads>>>( (cuDoubleComplex*)dev_a, N);
@@ -478,7 +479,7 @@ extern "C" {
 }
 
 extern "C" {
-  void cudaCopy( double complex* dev_a, double complex* dev_b, int N ) {
+  void cudaCopy( cuDoubleComplex* dev_a, cuDoubleComplex* dev_b, int N ) {
   int threads = 128;
   int blocks = N/threads + (N%threads == 0 ? 0:1);
   copy<<<blocks, threads>>>( (cuDoubleComplex*)dev_a, (cuDoubleComplex*)dev_b, N);
@@ -488,7 +489,7 @@ extern "C" {
 
 extern "C" {
   void cudaP_ani( double* dev_spos_ac, double* dev_ibzk_kc, int* dev_op_scc, int* dev_a_sa, 
-		 double **dev_R_asii, double complex **P_ani, double complex **Pout_ani, int* Ni_a,
+		 double **dev_R_asii, cuDoubleComplex **P_ani, cuDoubleComplex **Pout_ani, int* Ni_a,
 		 bool time_rev, int Na, int s, int ik, int* n_n, int n, int* offset, int NN){
 
   int threads = 128;
@@ -504,7 +505,7 @@ extern "C" {
 
 
 extern "C" {
-  void cudaP_aup( double complex **P1_ai, double complex **P2_aui, double complex **P_aup, 
+  void cudaP_aup( cuDoubleComplex **P1_ai, cuDoubleComplex **P2_aui, cuDoubleComplex **P_aup, 
 		  int* Ni_a, int Na, int n, int* offset, int NN){
 
   int threads = 128;
@@ -517,8 +518,8 @@ extern "C" {
 }
 
 extern "C" {
-  void cudaQ_anL( double complex **P1_ami, double complex **P2_ai,  
-		  double **Delta_apL, double complex **Q_amL, int mband, int Na, 
+  void cudaQ_anL( cuDoubleComplex **P1_ami, cuDoubleComplex **P2_ai,  
+		  double **Delta_apL, cuDoubleComplex **Q_amL, int mband, int Na, 
 		  int* Ni_a, int* nL_a){
 
   dim3 threads(16,16);
@@ -530,4 +531,3 @@ extern "C" {
 
 }
 }
-
