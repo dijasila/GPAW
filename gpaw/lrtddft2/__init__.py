@@ -217,12 +217,13 @@ class LrTDDFTindexed:
 
 
     def read(self, basename):
-        self.timer.start('Init read')
         info_file = basename+'.LR_info'
         if os.path.exists(info_file) and os.path.isfile(info_file):
             self.read_info(info_file)
         else:
             return
+
+        self.timer.start('Init read')
 
         # Read ALL ready_rows files
         self.timer.start('Init read ready rows')
@@ -1631,6 +1632,7 @@ class LrTDDFTindexed:
 
         # If any NaNs found, we did not read all matrix elements... BAD
         if np.isnan(np.sum(np.sum(K_matrix))):
+            print >> sys.stderr, 'NaN elements in K-matrix:', np.where(K_matrix == np.NAN)
             raise RuntimeError('Not all required K-matrix elements could be found.')
 
         return K_matrix
@@ -1709,12 +1711,28 @@ class LrTDDFTindexed:
                     ljq = self.get_local_eh_index(self.index_map[jqkey])
                     ip = self.index_map[ipkey]
                     K_matrix[ljq,ip] = Kvalue
-        #print >> self.txt, ''
 
         self.timer.stop('Read data')
         
         # If any NaNs found, we did not read all matrix elements... BAD
         if np.isnan(np.sum(np.sum(K_matrix))):
+            for k in range(gpaw.mpi.world.size):
+                if k == gpaw.mpi.world.rank:
+                    print >> sys.stderr, self.index_map
+                    for i in range(K_matrix.shape[0]):
+                        for j in range(K_matrix.shape[1]):
+                            if np.isnan(K_matrix[i,j]):
+                                print >> sys.stderr, i, j, K_matrix[i,j],
+                                for (key,val) in self.index_map.items():
+                                    if val == i:
+                                        print >> sys.stderr, ' i:', key,
+                                    if val == j:
+                                        print >> sys.stderr, ' j:', key,
+                                print >> sys.stderr, ''
+
+                sys.stderr.flush()
+                gpaw.mpi.world.barrier()
+
             raise RuntimeError('Not all required K-matrix elements could be found.')
 
         return K_matrix
@@ -1853,7 +1871,7 @@ class LrTDDFTindexed:
 
             self.timer.stop('Calculate KS singles: merge old')
 
-            # Now old transitions which are not in new list where dropped
+            # Now old transitions which are not in new list were dropped
 
             self.timer.start('Calculate KS singles: merge new')
             # If only in new list
@@ -2324,6 +2342,8 @@ class LrTDDFTindexed:
             self.ready_file.close()
             self.log_file.close()
         self.timer.stop('Calculate K matrix')
+
+        self.parent_comm.barrier()
 
 
     def __del__(self):
