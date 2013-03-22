@@ -3,10 +3,9 @@ from ase.structure import bulk
 from ase.dft import monkhorst_pack
 from gpaw import *
 from gpaw import PW
-from gpaw.mpi import serial_comm, world
 from gpaw.test import equal
 from gpaw.xc.fxc_correlation_energy import FXCCorrelation
-import numpy as np
+from gpaw.mpi import serial_comm, world
 
 a0  = 5.43
 Ni = bulk('Ni', 'fcc')
@@ -38,5 +37,5 @@ E_standard = ralda.get_fxc_correlation_energy(ecut=50,
                                               skip_gamma=True,
                                               kcommsize=world.size)
 
-equal(E_solid, -7.461, 0.01)
-equal(E_standard, -5.538, 0.01)
+equal(E_solid, -7.4604, 0.001)
+equal(E_standard, -5.5105, 0.001)

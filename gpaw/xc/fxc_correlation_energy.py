@@ -5,14 +5,17 @@ from ase.parallel import paropen
 from ase.units import Hartree, Bohr
 from gpaw import GPAW
 from gpaw.xc import XC
+from gpaw.xc.libxc import LibXC
 from gpaw.response.df import DF
 from gpaw.utilities import devnull
-from gpaw.utilities.blas import gemmdot
+from gpaw.utilities.blas import gemmdot, axpy
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.mpi import rank, size, world, serial_comm
 from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
 from gpaw.response.parallel import parallel_partition, set_communicator
+from gpaw.fd_operators import Gradient, Laplace
 from gpaw.sphere.lebedev import weight_n, R_nv
+from gpaw.io.tar import Writer, Reader
 from scipy.special import sici
 from scipy.special.orthogonal import p_roots
 
@@ -23,6 +26,8 @@ class FXCCorrelation:
                  txt=None,
                  qsym=True,
                  xc=None,
+                 num=0,
+                 write=False,
                  method='standard',
                  lambda_points=8,
                  density_cut=None,
@@ -43,6 +48,7 @@ class FXCCorrelation:
             self.txt = paropen(txt, 'w')
 
         self.qsym = qsym
+        self.num = num
         self.nspins = calc.wfs.nspins
         self.bz_k_points = calc.wfs.bzk_kc
         self.atoms = calc.get_atoms()
@@ -64,15 +70,19 @@ class FXCCorrelation:
             self.xc = xc
 
         self.lambda_points = lambda_points
+        assert method in ['solid', 'standard']
         self.method = method             
         self.density_cut = density_cut
         if self.density_cut is None:
             self.density_cut = 1.e-6
+        assert paw_correction in range(4)
         self.paw_correction = paw_correction
         self.unit_cells = unit_cells
         self.print_initialization()
         self.initialized = 0
-
+        self.grad_v = [Gradient(calc.density.gd, v, n=1).apply for v in range(3)]
+        self.laplace = Laplace(calc.density.gd, n=1).apply
+        self.write = write
    
     def get_fxc_correlation_energy(self,
                                    kcommsize=1,
@@ -241,8 +251,8 @@ class FXCCorrelation:
         print >> self.txt
         print >> self.txt, \
               '------------------------------------------------------'
-
         return E_q
+
 
     def E_q(self,
             q,
@@ -257,104 +267,26 @@ class FXCCorrelation:
         else:
             optical_limit = False
 
-        dummy = DF(calc=self.calc,
-                   eta=0.0,
-                   w=self.w * 1j,
-                   q=q,
-                   ecut=self.ecut,
-                   G_plus_q=True,
-                   optical_limit=optical_limit,
-                   hilbert_trans=False)
-        dummy.txt = devnull
-        dummy.initialize(simple_version=True)
-        gd = dummy.gd
-        npw = dummy.npw
-        Gvec_Gc = dummy.Gvec_Gc
-        nG = dummy.nG
-        vol = dummy.vol
-        bcell_cv = dummy.bcell_cv
-        acell_cv = dummy.acell_cv
-        del dummy
-
-        if self.xc[:4] == 'ALDA':
-            Kxc_sGG = self.calculate_Kxc(gd,
-                                         self.calc.density.nt_sG,
-                                         npw,
-                                         Gvec_Gc,
-                                         nG,
-                                         vol,
-                                         bcell_cv,
-                                         self.atoms.positions/Bohr,
-                                         self.calc.wfs.setups,
-                                         self.calc.density.D_asp)
-        elif self.xc == 'rALDA':
-            if self.method == 'solid':
-                Kxc_sGG, Kcr_sGG = self.calculate_ralda_solid(gd,
-                                                              self.calc.density.nt_sG,
-                                                              npw,
-                                                              Gvec_Gc,
-                                                              nG,
-                                                              vol,
-                                                              acell_cv,
-                                                              bcell_cv,
-                                                              self.atoms.positions/Bohr,
-                                                              self.calc.wfs.setups,
-                                                              self.calc.density.D_asp,
-                                                              q)
-            elif self.method == 'standard':
-                Kxc_sGG, Kcr_sGG = self.calculate_ralda(gd,
-                                                        self.calc.density.nt_sG,
-                                                        npw,
-                                                        Gvec_Gc,
-                                                        nG,
-                                                        vol,
-                                                        acell_cv,
-                                                        bcell_cv,
-                                                        self.atoms.positions/Bohr,
-                                                        self.calc.wfs.setups,
-                                                        self.calc.density.D_asp,
-                                                        q)
-            else:
-                raise 'Unknown method - Choose standard or solid'
-        elif self.xc == 'RPA':
-            Kxc_sGG = np.zeros((npw, npw))
-        else:
-            raise 'Kernel not recognized'
-                
-        Kc_GG = np.zeros((npw, npw), dtype=complex)
-        for iG in range(npw):
-            qG = np.dot(q + Gvec_Gc[iG], bcell_cv)
-            Kc_GG[iG,iG] = 4 * np.pi / np.dot(qG, qG)
+        fhxc_sGsG, Kc_G = self.get_fxc(q,
+                                       optical_limit,
+                                       index,
+                                       direction)
 
         ns = self.nspins
-        fxc_sGsG = np.zeros((npw*ns, npw*ns), dtype=complex)
-        for s in range(ns):
-            fxc_sGsG[s*npw:(s+1)*npw, s*npw:(s+1)*npw] = Kxc_sGG[s]
 
-        if self.xc == 'rALDA':
-            Kcr_sGsG = np.zeros((npw*ns, npw*ns), dtype=complex)
-            for s in range(ns):
-                Kcr_sGsG[s*npw:(s+1)*npw, s*npw:(s+1)*npw] = Kcr_sGG[s]
-            if ns == 2:
-                Kcr_sGsG[:npw, npw:2*npw] = Kcr_sGG[2]
-                Kcr_sGsG[npw:2*npw, :npw] = Kcr_sGG[2]
-            fhxc_sGsG = Kcr_sGsG + fxc_sGsG #+ np.tile(Kc_GG, (ns, ns))
-            del Kcr_sGG, Kcr_sGsG
-        else:
-            fhxc_sGsG = np.tile(Kc_GG, (ns, ns)) + fxc_sGsG
-        del Kxc_sGG, fxc_sGsG
-        
+        print >> self.txt, 'Calculating KS response function'
+
         if self.nbands is None:
-            nbands = npw
+            nbands = len(Kc_G)
         elif type(self.nbands) is float:
-            nbands = int(npw * self.nbands)
+            nbands = int(len(Kc_G) * self.nbands)
         else:
             nbands = self.nbands
 
         if self.txt is sys.stdout:
             txt = 'response.txt'
         else:
-            txt='response_'+self.txt.name
+            txt='response_' + self.txt.name
         df = DF(calc=self.calc,
                 xc=None,
                 nbands=nbands,
@@ -373,39 +305,24 @@ class FXCCorrelation:
         
         df.initialize()
         Nw_local = df.Nw_local
-        chi0 = np.zeros((Nw_local, npw*ns, npw*ns),
-                        dtype=complex)
-
-        if index is None:
-            print >> self.txt, 'Calculating KS response function at:'
-        else:
-            print >> self.txt, '#', index, \
-                  '- Calculating KS response function at:'
-        if optical_limit:
-            print >> self.txt, 'q = [0 0 0] -', 'Polarization: ', direction
-        else:
-            print >> self.txt, 'q = [%1.6f %1.6f %1.6f] -' \
-                  % (q[0],q[1],q[2]), '%s planewaves' % npw
+        npw = df.npw
+        Gvec_Gc = df.Gvec_Gc
+        chi0 = np.zeros((Nw_local, ns*npw, ns*npw), dtype=complex)
 
         df.calculate(seperate_spin=0)
         chi0[:, :npw, :npw] = df.chi0_wGG[:] 
         if ns == 2:
-            print >> self.txt, 'Finished spin 0'
             df.ecut *= Hartree
             df.xc = 'RPA'
             df.initialize()
             df.calculate(seperate_spin=1)
-            print >> self.txt, 'Finished spin 1'
             chi0[:, npw:2*npw, npw:2*npw] = df.chi0_wGG[:]
         del df.chi0_wGG
-
+        
+        #w = Writer('chi0_w')
         
         local_E_q_w = np.zeros(Nw_local, dtype=complex)
         E_q_w = np.empty(len(self.w), complex)
-        local_singular_w = np.zeros(Nw_local, int)
-        singular_w = np.empty(len(self.w), int)
-        local_negative_w = np.zeros(Nw_local, int)
-        negative_w = np.empty(len(self.w), int)
 
         print >> self.txt, 'Calculating interacting response function'
         ls, l_ws = p_roots(self.lambda_points)
@@ -419,12 +336,11 @@ class FXCCorrelation:
                 for s1 in range(ns):
                     for s2 in range(ns):
                         X_ss = chi_l[s1*npw:(s1+1)*npw, s2*npw:(s2+1)*npw]
-                        local_E_q_w[i] -= np.trace(np.dot(X_ss, Kc_GG))*l_w
-            local_E_q_w[i] += np.dot(np.diag(chi0[i]),
-                                     np.diag(np.tile(Kc_GG, (ns, ns))))
+                        local_E_q_w[i] -= np.dot(np.diag(X_ss), Kc_G)*l_w
+            local_E_q_w[i] += np.dot(np.diag(chi0[i]), np.tile(Kc_G, ns))
         df.wcomm.all_gather(local_E_q_w, E_q_w)
 
-        del df, chi0, chi0_fhxc, chi_l, X_ss, Kc_GG, fhxc_sGsG
+        del df, chi0, chi0_fhxc, chi_l, X_ss, Kc_G, fhxc_sGsG
         
         if self.gauss_legendre is not None:
             E_q = np.sum(E_q_w * self.gauss_weights * self.transform) \
@@ -442,26 +358,15 @@ class FXCCorrelation:
             return E_q_w.real               
 
 
-    def E_q_serial_w(self,
-                     q,
-                     index=None,
-                     direction=0,
-                     integrated=True):
-
-        if abs(np.dot(q, q))**0.5 < 1.e-5:
-            q = [0.,0.,0.]
-            q[direction] = 1.e-5
-            optical_limit = True
-        else:
-            optical_limit = False
+    def get_fxc(self, q, optical_limit, index, direction):
 
         dummy = DF(calc=self.calc,
                    eta=0.0,
                    w=self.w * 1j,
                    q=q,
+                   optical_limit=optical_limit,
                    ecut=self.ecut,
                    G_plus_q=True,
-                   optical_limit=optical_limit,
                    hilbert_trans=False)
         dummy.txt = devnull
         dummy.initialize(simple_version=True)
@@ -472,199 +377,95 @@ class FXCCorrelation:
         vol = dummy.vol
         bcell_cv = dummy.bcell_cv
         acell_cv = dummy.acell_cv
-        del dummy
-        
-        if self.nbands is None:
-            nbands = npw
-        elif type(self.nbands) is float:
-            nbands = int(npw * self.nbands)
-        else:
-            nbands = self.nbands
+        del dummy       
 
-        if self.txt is sys.stdout:
-            txt = 'response.txt'
-        else:
-            txt='response_' + self.txt.name
+        if index is not None:
+            print >> self.txt, '#', index
+        if optical_limit:
+            print >> self.txt, 'q = [0 0 0] -', 'Polarization: ', direction
+        else: print >> self.txt, 'q = [%1.6f %1.6f %1.6f] -' \
+              % (q[0],q[1],q[2]), '%s planewaves' % npw
 
-        if self.xc[:4] == 'ALDA':
-            Kxc_sGG = self.calculate_Kxc(gd,
-                                         self.calc.density.nt_sG,
-                                         npw,
-                                         Gvec_Gc,
-                                         nG,
-                                         vol,
-                                         bcell_cv,
-                                         self.atoms.positions/Bohr,
-                                         self.calc.wfs.setups,
-                                         self.calc.density.D_asp)
-            if rank != 0:
-                del Kxc_sGG            
-        elif self.xc == 'rALDA':
-            if self.method == 'solid':
-                Kxc_sGG, Kcr_sGG = self.calculate_ralda_solid(gd,
-                                                              self.calc.density.nt_sG,
-                                                              npw,
-                                                              Gvec_Gc,
-                                                              nG,
-                                                              vol,
-                                                              acell_cv,
-                                                              bcell_cv,
-                                                              self.atoms.positions/Bohr,
-                                                              self.calc.wfs.setups,
-                                                              self.calc.density.D_asp,
-                                                              q)
-            elif self.method == 'standard':
-                Kxc_sGG, Kcr_sGG = self.calculate_ralda(gd,
-                                                        self.calc.density.nt_sG,
+        print >> self.txt, 'Calculating %s kernel' % self.xc
+
+        Kc_G = np.zeros(npw, dtype=complex)
+        for iG in range(npw):
+            qG = np.dot(q + Gvec_Gc[iG], bcell_cv)
+            Kc_G[iG] = 4 * np.pi / np.dot(qG, qG)
+
+        if self.xc == 'RPA':
+            Kc_GG = np.zeros((npw, npw), dtype=complex)
+            for iG in range(npw):
+                Kc_GG[iG, iG] = Kc_G[iG]
+            fhxc_sGsG = np.tile(Kc_GG, (self.nspins, self.nspins))
+
+        else:
+            if self.xc[0] == 'r':
+                if self.method == 'solid':
+                    fhxc_sGsG = self.calculate_rkernel_solid(gd,
+                                                             npw,
+                                                             Gvec_Gc,
+                                                             nG,
+                                                             vol,
+                                                             acell_cv,
+                                                             bcell_cv,
+                                                             q)
+                elif self.method == 'standard':
+                    fhxc_sGsG = self.calculate_rkernel(gd,
+                                                       npw,
+                                                       Gvec_Gc,
+                                                       nG,
+                                                       vol,
+                                                       acell_cv,
+                                                       bcell_cv,
+                                                       q)
+                else:
+                    raise 'Method % s not known' % self.method
+            else:
+                fhxc_sGsG = self.calculate_local_kernel(gd,
                                                         npw,
                                                         Gvec_Gc,
                                                         nG,
                                                         vol,
-                                                        acell_cv,
-                                                        bcell_cv,
-                                                        self.atoms.positions/Bohr,
-                                                        self.calc.wfs.setups,
-                                                        self.calc.density.D_asp,
-                                                        q)
-            else:
-                raise 'Unknown method - Choose standard or solid'                
-            if rank != 0:
-                del Kxc_sGG, Kcr_sGG
-        elif self.xc == 'RPA':
-            Kxc_sGG = np.zeros((npw, npw))
-        else:
-            raise 'Kernel not recognized'
-  
-        if index is None:
-            print >> self.txt, 'Calculating KS response function at:'
-        else:
-            print >> self.txt, '#', index, \
-                  '- Calculating KS response function at:'
-        if optical_limit:
-            print >> self.txt, 'q = [0 0 0] -', 'Polarization: ', direction
-        else:
-            print >> self.txt, 'q = [%1.6f %1.6f %1.6f] -' \
-                  % (q[0],q[1],q[2]), '%s planewaves' % npw
+                                                        bcell_cv)
+                Kc_GG = np.zeros((npw, npw), dtype=complex)
+                for iG in range(npw):
+                    Kc_GG[iG, iG] = Kc_G[iG]
+                fhxc_sGsG += np.tile(Kc_GG, (self.nspins, self.nspins))
 
-        E_q_w = np.zeros(len(self.w), dtype=complex)
-        if rank == 0:            
-            Kc_GG = np.zeros((npw, npw), dtype=complex)
-            for iG in range(npw):
-                qG = np.dot(q + Gvec_Gc[iG], bcell_cv)
-                Kc_GG[iG,iG] = 4 * np.pi / np.dot(qG, qG)
+        return fhxc_sGsG, Kc_G
 
-            ns = self.nspins
-            fxc_sGsG = np.zeros((npw*ns, npw*ns), dtype=complex)
-            for s in range(ns):
-                fxc_sGsG[s*npw:(s+1)*npw, s*npw:(s+1)*npw] = Kxc_sGG[s]
-
-            if self.xc == 'rALDA':
-                Kcr_sGsG = np.zeros((npw*ns, npw*ns), dtype=complex)
-                for s in range(ns):
-                    Kcr_sGsG[s*npw:(s+1)*npw, s*npw:(s+1)*npw] = Kcr_sGG[s]
-                if ns == 2:
-                    Kcr_sGsG[:npw, npw:2*npw] = Kcr_sGG[2]
-                    Kcr_sGsG[npw:2*npw, :npw] = Kcr_sGG[2]
-                fhxc_sGsG = Kcr_sGsG + fxc_sGsG
-                del Kcr_sGG, Kcr_sGsG
-            else:
-                fhxc_sGsG = np.tile(Kc_GG, (ns, ns)) + fxc_sGsG
-            del Kxc_sGG, fxc_sGsG
-            
-            for w_i in range(len(self.w)):
-                print >> self.txt, '    #w = %s ' % w_i
-                df = DF(calc=self.calc,
-                        xc=None,
-                        nbands=nbands,
-                        eta=0.0,
-                        q=q,
-                        txt=txt,
-                        w=np.array([self.w[w_i]]) * 1j,
-                        ecut=self.ecut,
-                        smooth_cut=self.smooth_cut,
-                        G_plus_q=True,
-                        density_cut=self.density_cut,
-                        comm=serial_comm,
-                        optical_limit=optical_limit,
-                        hilbert_trans=False)
-                df.initialize()
-
-                chi0 = np.zeros((npw*ns, npw*ns), dtype=complex)
-                df.calculate(seperate_spin=0)
-                chi0[:npw, :npw] = df.chi0_wGG[0] 
-                if ns == 2:
-                    df.ecut *= Hartree
-                    df.xc = 'RPA'
-                    df.initialize()
-                    df.calculate(seperate_spin=1)
-                    chi0[npw:2*npw, npw:2*npw] = df.chi0_wGG[0]
-                del df
-
-                print >> self.txt, '      Calculating interacting response function'
-                ls, l_ws = p_roots(self.lambda_points)
-                ls = (ls + 1.0) * 0.5
-                l_ws *= 0.5            
-                chi0_fhxc = np.dot(chi0, fhxc_sGsG)
-                for l, l_w in zip(ls, l_ws):
-                    chi_l = np.linalg.solve(np.eye(npw*ns, npw*ns)
-                                            - l*chi0_fhxc, chi0).real
-                    for s1 in range(ns):
-                        for s2 in range(ns):
-                            X_ss = chi_l[s1*npw:(s1+1)*npw, s2*npw:(s2+1)*npw]
-                            E_q_w[w_i] -= np.trace(np.dot(X_ss, Kc_GG))*l_w
-                E_q_w[w_i] += np.dot(np.diag(chi0),
-                                     np.diag(np.tile(Kc_GG, (ns, ns))))
-
-        if self.gauss_legendre is not None:
-            E_q = np.sum(E_q_w * self.gauss_weights * self.transform) \
-                  / (4 * np.pi)
-        else:   
-            dws = self.w[1:] - self.w[:-1]
-            E_q = np.dot((E_q_w[:-1] + E_q_w[1:])/2., dws) / (2 * np.pi)
-
-        print >> self.txt, 'E_c(q) = %s eV' % E_q.real
-        print >> self.txt
-
-        if integrated:
-            return E_q.real
-        else:
-            return E_q_w.real               
-
-
-    def calculate_ralda(self,
-                        gd,
-                        nt_sG,
-                        npw,
-                        Gvec_Gc,
-                        nG,
-                        vol,
-                        acell_cv,
-                        bcell_cv,
-                        R_av,
-                        setups,
-                        D_asp,
-                        q):
+    def calculate_rkernel(self,
+                          gd,
+                          npw,
+                          Gvec_Gc,
+                          nG,
+                          vol,
+                          acell_cv,
+                          bcell_cv,
+                          q):
 
         ns = self.nspins
 
-        Kxc_sGG = np.zeros((ns, npw, npw), dtype=complex)
-        Kcr_sGG = np.zeros((ns+3%ns, npw, npw), dtype=complex)
-
-        print >> self.txt, 'Calculating %s kernel - ' % self.xc
-        if self.paw_correction == 0:
-            print >> self.txt, '    No PAW correction'
-        elif self.paw_correction == 1:
-            print >> self.txt, '    PAW correction at ALDA level' 
+        if self.paw_correction == 1:
+            nt_sG = np.array([self.calc.get_all_electron_density(gridrefinement=1, spin=s)
+                              for s in range(ns)]) * Bohr**3 * (ns % 2 +1)
         else:
-            print >> self.txt, '    Average PAW correction'
-        print >> self.txt, '    Non-periodic two-point density'
-        
-        # The soft part
-        A_x = -(3/4.) * (3/np.pi)**(1/3.)
-        fx_sg = ns * (4 / 9.) * A_x * (ns*nt_sG)**(-2/3.)
+            nt_sG = self.calc.density.nt_sG
 
+        fhxc_sGsG = np.zeros((ns*npw, ns*npw), dtype=complex)
+
+        if self.xc[2:] == 'LDA':
+            A_x = -(3/4.) * (3/np.pi)**(1/3.)
+            fx_sg = ns * (4 / 9.) * A_x * (ns * nt_sG)**(-2/3.)
+        else:
+            nt_sg = np.array([self.calc.get_all_electron_density(gridrefinement=2, spin=s)
+                              for s in range(ns)]) * Bohr**3 * (ns % 2 +1)
+            fx_sg = ns * np.array([self.get_fxc_g(ns * nt_sg[s])
+                                   for s in range(ns)])
+            
         flocal_sg = 4 * ns * nt_sG * fx_sg
-        Vlocal_sg = 4 * (3 * ns * nt_sG/ np.pi)**(1./3.)
+        Vlocal_sg = 4 * (3 * ns * nt_sG / np.pi)**(1./3.)
         if ns == 2:
             Vlocaloff_g = 4 * (3 * (nt_sG[0] + nt_sG[1])/ np.pi)**(1./3.)
 
@@ -699,8 +500,8 @@ class FXCCorrelation:
         l_g_size = -(-nG0 // world.size)
         l_g_range = range(world.rank * l_g_size,
                           min((world.rank+1) * l_g_size, nG0))
-        Kxc_sGr = np.zeros((ns, npw, len(l_g_range)), dtype=complex)
-        Kcr_sGr = np.zeros((ns+3%ns, npw, len(l_g_range)), dtype=complex)
+
+        fhxc_sGr = np.zeros((ns+3%ns, npw, len(l_g_range)), dtype=complex)
 
         inv_error = np.seterr()['invalid']
         np.seterr(invalid='ignore')
@@ -710,13 +511,10 @@ class FXCCorrelation:
                 print >> self.txt, '    Spin:', s
             # Loop over Lattice points
             for i, R_i in enumerate(R):
-                #if len(R) > 1: 
-                #    print >> self.txt, '    Lattice point and weight: ' \
-                #          + '%s' % i, R_i*Bohr, R_weight[i]
-
                 # Loop over r'.
                 # f_rr, V_rr and V_off are functions of r (dim. as r_vg[0])
                 for g in l_g_range:
+                    #print g
                     r_x = r_vgx[g] + R_i[0]
                     r_y = r_vgy[g] + R_i[1]
                     r_z = r_vgz[g] + R_i[2]
@@ -730,7 +528,12 @@ class FXCCorrelation:
                     n_av = ns*(nt_sG[s] + nt_sG[s].flatten()[g]) / 2.
                     k_f = (3 * np.pi**2 * n_av)**(1./3.)
                     x = 2 * k_f * rr
-                    fx_g = ns * (4 / 9.) * A_x * n_av**(-2/3.)
+                    if self.xc[2:] == 'LDA':
+                        fx_g = ns * (4 / 9.) * A_x * n_av**(-2/3.)
+                    else:
+                        n_av_g = ns*(nt_sg[s] + nt_sG[s].flatten()[g]) / 2.
+                        fx_g = ns * self.get_fxc_g(n_av_g)
+
                     f_rr = fx_g * (np.sin(x) - x*np.cos(x)) \
                            / (2 * np.pi**2 * rr**3)
 
@@ -775,21 +578,19 @@ class FXCCorrelation:
                     
                     # Fourier transform of r
                     e_q = np.exp(-1j * gemmdot(q_v, r_r, beta=0.0))
-                    tmp_Kxc = np.fft.fftn(f_rr*e_q) * vol / nG0
-                    tmp_Kcr = np.fft.fftn(V_rr*e_q) * vol / nG0
+                    tmp_fhxc = np.fft.fftn(f_rr*e_q) * vol / nG0
+                    tmp_fhxc += np.fft.fftn(V_rr*e_q) * vol / nG0
                     if s == 1:
-                        tmp_Koff = np.fft.fftn(V_off*e_q) * vol / nG0
+                        tmp_V_off = np.fft.fftn(V_off*e_q) * vol / nG0
                     for iG in range(npw):
                         assert (nG / 2 - np.abs(Gvec_Gc[iG]) > 0).all()
                         f_i = Gvec_Gc[iG] % nG
-                        Kxc_sGr[s, iG, g-l_g_range[0]] += \
-                                   tmp_Kxc[f_i[0], f_i[1], f_i[2]]
-                        Kcr_sGr[s, iG, g-l_g_range[0]] += \
-                                   tmp_Kcr[f_i[0], f_i[1], f_i[2]]
+                        fhxc_sGr[s, iG, g-l_g_range[0]] += \
+                                    tmp_fhxc[f_i[0], f_i[1], f_i[2]]
                         if s == 1:
-                            Kcr_sGr[2, iG, g-l_g_range[0]] += \
-                                       tmp_Koff[f_i[0], f_i[1], f_i[2]]
-
+                            fhxc_sGr[2, iG, g-l_g_range[0]] += \
+                                        tmp_V_off[f_i[0], f_i[1], f_i[2]]
+                        
             l_pw_size = -(-npw // world.size)
             l_pw_range = range(world.rank * l_pw_size,
                                min((world.rank+1) * l_pw_size, npw))
@@ -800,89 +601,102 @@ class FXCCorrelation:
                 bd1 = bg1.new_descriptor(npw, nG0, npw, -(-nG0 / world.size))
                 bd2 = bg2.new_descriptor(npw, nG0, -(-npw / world.size), nG0)
 
-                Kxc_Glr = np.zeros((len(l_pw_range), nG0), dtype=complex)
-                Kcr_Glr = np.zeros((len(l_pw_range), nG0), dtype=complex)
+                fhxc_Glr = np.zeros((len(l_pw_range), nG0), dtype=complex)
                 if s == 1:
                     Koff_Glr = np.zeros((len(l_pw_range), nG0), dtype=complex)
 
                 r = Redistributor(bg1.comm, bd1, bd2) 
-                r.redistribute(Kxc_sGr[s], Kxc_Glr, npw, nG0)
-                r.redistribute(Kcr_sGr[s], Kcr_Glr, npw, nG0)
+                r.redistribute(fhxc_sGr[s], fhxc_Glr, npw, nG0)
                 if s == 1:
-                    r.redistribute(Kcr_sGr[2], Koff_Glr, npw, nG0)
+                    r.redistribute(fhxc_sGr[2], Koff_Glr, npw, nG0)
             else:
-                Kxc_Glr = Kxc_sGr[s]
-                Kcr_Glr = Kcr_sGr[s]
+                fhxc_Glr = fhxc_sGr[s]
                 if s == 1:
-                    Koff_Glr = Kcr_sGr[2]
+                    Koff_Glr = fhxc_sGr[2]
 
             # Fourier transform of r'
             for iG in range(len(l_pw_range)):
-                tmp_Kxc = np.fft.fftn(Kxc_Glr[iG].reshape(nG)) * vol/nG0
-                tmp_Kcr = np.fft.fftn(Kcr_Glr[iG].reshape(nG)) * vol/nG0
+                tmp_fhxc = np.fft.fftn(fhxc_Glr[iG].reshape(nG)) * vol/nG0
                 if s == 1:
                     tmp_Koff = np.fft.fftn(Koff_Glr[iG].reshape(nG)) * vol/nG0
                 for jG in range(npw):
                     assert (nG / 2 - np.abs(Gvec_Gc[jG]) > 0).all()
                     f_i = -Gvec_Gc[jG] % nG
-                    Kxc_sGG[s, l_pw_range[0] + iG, jG] = \
-                               tmp_Kxc[f_i[0], f_i[1], f_i[2]]
-                    Kcr_sGG[s, l_pw_range[0] + iG, jG] = \
-                               tmp_Kcr[f_i[0], f_i[1], f_i[2]]
+                    fhxc_sGsG[s*npw + l_pw_range[0] + iG, s*npw + jG] = \
+                                    tmp_fhxc[f_i[0], f_i[1], f_i[2]]
                     if s == 1:
-                        Kcr_sGG[2, l_pw_range[0] + iG, jG] += \
-                                   tmp_Koff[f_i[0], f_i[1], f_i[2]]
+                        fhxc_sGsG[npw + l_pw_range[0] + iG, jG] += \
+                                      tmp_Koff[f_i[0], f_i[1], f_i[2]]
 
         np.seterr(divide=inv_error)
 
-        del Kxc_sGr, Kcr_sGr, Kxc_Glr, Kcr_Glr
-        world.sum(Kxc_sGG)
-        world.sum(Kcr_sGG)
+        del fhxc_sGr, fhxc_Glr
 
-        if self.paw_correction != 0:
-            Kxc_sGG += self.add_paw_correction(npw, Gvec_Gc, bcell_cv,
-                                               setups, D_asp, R_av)
+        world.sum(fhxc_sGsG)
+
+        if ns == 2:
+            fhxc_sGsG[:npw, npw:] = fhxc_sGsG[npw:, :npw]
+
+        if self.paw_correction in [0, 2]:
+            print >> self.txt, '    Calculating PAW correction'
+            f_paw_sGG = self.add_paw_correction(npw,
+                                                Gvec_Gc,
+                                                bcell_cv,
+                                                self.calc.wfs.setups,
+                                                self.calc.density.D_asp,
+                                                self.atoms.positions/Bohr)
+            for s in range(ns):
+                fhxc_sGsG[s*npw:(s+1)*npw, s*npw:(s+1)*npw] += f_paw_sGG[s]
             
-        return Kxc_sGG / vol, Kcr_sGG / vol
+        return fhxc_sGsG / vol
 
 
-    def calculate_ralda_solid(self,
-                              gd,
-                              nt_sG,
-                              npw,
-                              Gvec_Gc,
-                              nG,
-                              vol,
-                              acell_cv,
-                              bcell_cv,
-                              R_av,
-                              setups,
-                              D_asp,
-                              q):
+    def calculate_rkernel_solid(self,
+                                gd,
+                                npw,
+                                Gvec_Gc,
+                                nG,
+                                vol,
+                                acell_cv,
+                                bcell_cv,
+                                q):
 
-        print >> self.txt, 'Calculating %s kernel - ' % self.xc
-        if self.paw_correction == 0:
-            print >> self.txt, '    No PAW correction'
-        elif self.paw_correction == 1:
-            print >> self.txt, '    PAW correction at ALDA level' 
+        ns = self.nspins
+
+        if self.paw_correction == 1:
+            nt_sG = np.array([self.calc.get_all_electron_density(gridrefinement=1, spin=s)
+                              for s in range(ns)]) * Bohr**3 * (ns % 2 +1)
         else:
-            print >> self.txt, '    Average PAW correction'
-        print >> self.txt, '    Periodic average density'
-        
-        # The soft part        
-        ns = self.nspins        
-        A_x = -(3/4.) * (3/np.pi)**(1/3.)
-        fxc_sg = ns * (4 / 9.) * A_x * (ns*nt_sG)**(-2/3.)
-        fxc_sg[np.where(nt_sG < self.density_cut)] = 0.0        
+            nt_sG = self.calc.density.nt_sG
+
+        fhxc_sGsG = np.zeros((ns*npw, ns*npw), dtype=complex)
+
+        if self.num:
+            print >> self.txt, 'Numerical evaluation of local kernel'
+            nt_sg = np.array([self.calc.get_all_electron_density(gridrefinement=2, spin=s)
+                              for s in range(ns)]) * Bohr**3 * (ns % 2 +1)
+            fx_sg = self.get_numerical_fxc_sg(nt_sg)
+        else:
+            if self.xc[2:] == 'LDA':
+                A_x = -(3/4.) * (3/np.pi)**(1/3.)
+                fx_sg = ns * (4 / 9.) * A_x * (ns * nt_sG)**(-2/3.)
+            else:
+                nt_sg = np.array([self.calc.get_all_electron_density(gridrefinement=2, spin=s)
+                                  for s in range(ns)]) * Bohr**3 * (ns % 2 +1)
+                fx_sg = ns * np.array([self.get_fxc_g(ns * nt_sg[s])
+                                       for s in range(ns)])
+
+        fx_sg[np.where(nt_sG < self.density_cut)] = 0.0        
 
         r_vg = gd.get_grid_point_coordinates()
-        Kxc_sGG = np.zeros((ns, npw, npw), dtype=complex)
-        Kcr_sGG = np.zeros((ns+3%ns, npw, npw), dtype=complex)
+
+        fhxc_sGsG = np.zeros((ns*npw, ns*npw), dtype=complex)
+
         kf_s = (3 * np.pi**2 * ns * nt_sG)**(1./3.)
-        v_c_g = 4 * np.pi * np.ones(np.shape(fxc_sg[0]), float)
+        #v_c_g = 4 * np.pi * np.ones(np.shape(fxc_sg[0]), float)
         if ns == 2:
             kf_off = (3 * np.pi**2 * (nt_sG[0] + nt_sG[1]))**(1./3.)
-            v_off_sg = 4 * np.pi * np.ones(np.shape(fxc_sg[0]), float)
+            v_off_sg = 4 * np.pi * np.ones(np.shape(fx_sg[0]), float)
 
         l_pw_size = -(-npw // world.size)
         l_pw_range = range(world.rank * l_pw_size,
@@ -897,34 +711,97 @@ class FXCCorrelation:
                     if (np.abs(dGq_c) < 1.e-12).all():
                         dGq_c = np.array([0.0, 0.0, 0.00001])
                     dGq_v = np.dot(dGq_c, bcell_cv)
-                    fxc = fxc_sg[s].copy()
-                    fxc[np.where(2*kf_s[s] < np.dot(dGq_v, dGq_v)**0.5)] = 0.0
-                    v_c = 4 * np.pi * np.ones(np.shape(fxc_sg[0]), float)
+                    fx = fx_sg[s].copy()
+                    fx[np.where(2*kf_s[s] < np.dot(dGq_v, dGq_v)**0.5)] = 0.0
+                    v_c = 4 * np.pi * np.ones(np.shape(fx_sg[0]), float)
                     v_c /= np.dot(dGq_v, dGq_v)
                     v_c[np.where(2*kf_s[s] < np.dot(dGq_v, dGq_v)**0.5)] = 0.0
                     if s == 1:
-                        v_off = 4 * np.pi * np.ones(np.shape(fxc_sg[0]), float)
+                        v_off = 4 * np.pi * np.ones(np.shape(fx_sg[0]), float)
                         v_off /= np.dot(dGq_v, dGq_v)
                         v_off[np.where(2*kf_off < np.dot(dGq_v, dGq_v)**0.5)] = 0.0
                     dG_c = Gvec_Gc[iG] - Gvec_Gc[jG]
                     dG_v = np.dot(dG_c, bcell_cv)
                     dGr_g = gemmdot(dG_v, r_vg, beta=0.0)
-                    Kxc_sGG[s, iG, jG] = gd.integrate(np.exp(-1j*dGr_g) * fxc)
-                    Kcr_sGG[s, iG, jG] = gd.integrate(np.exp(-1j*dGr_g) * v_c)
+                    fhxc_sGsG[s*npw+iG, s*npw+jG] = gd.integrate(np.exp(-1j*dGr_g) * (fx + v_c))
                     if s == 1:
-                        Kcr_sGG[2, iG, jG] = gd.integrate(np.exp(-1j*dGr_g)
-                                                          * v_off)
-        world.sum(Kxc_sGG)
-        world.sum(Kcr_sGG)
-        #print np.abs(Kxc_sGG[0])/vol
-        #print np.abs(Kcr_sGG[0])/vol
-        
-        if self.paw_correction != 0:
-            Kxc_sGG += self.add_paw_correction(npw, Gvec_Gc, bcell_cv,
-                                               setups, D_asp, R_av)
+                        fhxc_sGsG[iG, npw+jG] = gd.integrate(np.exp(-1j*dGr_g)
+                                                             * v_off)
+        if ns == 2:
+            fhxc_sGsG[npw:2*npw, :npw] = fhxc_sGsG[:npw, npw:2*npw]
+
+        world.sum(fhxc_sGsG)
+
+        if self.paw_correction in [0, 2]:
+            print >> self.txt, '    Calculating PAW correction'
+            f_paw_sGG = self.add_paw_correction(npw,
+                                                Gvec_Gc,
+                                                bcell_cv,
+                                                self.calc.wfs.setups,
+                                                self.calc.density.D_asp,
+                                                self.atoms.positions/Bohr)
+            for s in range(ns):
+                fhxc_sGsG[s*npw:(s+1)*npw, s*npw:(s+1)*npw] += f_paw_sGG[s]
             
-        return Kxc_sGG / vol, Kcr_sGG / vol
+        return fhxc_sGsG / vol
     
+
+    def calculate_local_kernel(self,
+                               gd,
+                               npw,
+                               Gvec_Gc,
+                               nG,
+                               vol,
+                               bcell_cv):
+        
+        ns = self.nspins
+
+        if self.paw_correction == 1:
+            nt_sG = np.array([self.calc.get_all_electron_density(gridrefinement=1, spin=s)
+                              for s in range(ns)]) * Bohr**3 * (ns % 2 +1)
+        else:
+            nt_sG = self.calc.density.nt_sG
+
+        fhxc_sGsG = np.zeros((ns*npw, ns*npw), dtype=complex)
+
+        A_x = -(3/4.) * (3/np.pi)**(1/3.)
+        fxc_sg = ns * (4 / 9.) * A_x * (ns*nt_sG)**(-2/3.)
+        fxc_sg[np.where(nt_sG < self.density_cut)] = 0.0        
+
+        r_vg = gd.get_grid_point_coordinates()
+
+        fhxc_sGsG = np.zeros((ns*npw, ns*npw), dtype=complex)
+
+        l_pw_size = -(-npw // world.size)
+        l_pw_range = range(world.rank * l_pw_size,
+                           min((world.rank+1) * l_pw_size, npw))
+        
+        for s in range(ns):
+            if ns == 2:
+                print >> self.txt, '    Spin: ', s
+            for iG in l_pw_range:
+                for jG in range(npw):
+                    fxc = fxc_sg[s].copy()
+                    dG_c = Gvec_Gc[iG] - Gvec_Gc[jG]
+                    dG_v = np.dot(dG_c, bcell_cv)
+                    dGr_g = gemmdot(dG_v, r_vg, beta=0.0)
+                    fhxc_sGsG[s*npw+iG, s*npw+jG] = gd.integrate(np.exp(-1j*dGr_g) * fxc)
+
+        world.sum(fhxc_sGsG)
+
+        if self.paw_correction in [0, 2]:
+            print >> self.txt, '    Calculating PAW correction'
+            f_paw_sGG = self.add_paw_correction(npw,
+                                                Gvec_Gc,
+                                                bcell_cv,
+                                                self.calc.wfs.setups,
+                                                self.calc.density.D_asp,
+                                                self.atoms.positions/Bohr)
+            for s in range(ns):
+                fhxc_sGsG[s*npw:(s+1)*npw, s*npw:(s+1)*npw] += f_paw_sGG[s]
+            
+        return fhxc_sGsG / vol
+
 
     def add_paw_correction(self, npw, Gvec_Gc, bcell_cv, setups, D_asp, R_av):
         ns = self.nspins
@@ -1109,6 +986,20 @@ class FXCCorrelation:
               '------------------------------------------------------'
         print >> self.txt, 'Non-self-consistent %s correlation energy' \
               % self.xc
+        if self.xc is not 'RPA':
+            if self.xc[0] == 'r':
+                if self.method == 'solid':
+                    print >> self.txt, 'Periodic average density'
+                else:
+                    print >> self.txt, 'Non-periodic two-point density'
+            if self.paw_correction == 0:
+                print >> self.txt, 'Using pseudo-density with ALDA PAW corrections'
+            elif self.paw_correction == 1:
+                print >> self.txt, 'Using all-electron density' 
+            elif self.paw_correction == 2:
+                print >> self.txt, 'Using pseudo-density with average ALDA PAW corrections'
+            elif self.paw_correction == 3:
+                print >> self.txt, 'Using pseudo-density'
         print >> self.txt, \
               '------------------------------------------------------'
         print >> self.txt, 'Started at:  ', ctime()
@@ -1146,3 +1037,222 @@ class FXCCorrelation:
         print >> self.txt, \
               '------------------------------------------------------'
         print >> self.txt
+
+
+    def get_C6_coefficient(self,
+                           ecut=100.,
+                           smoothcut=None,
+                           nbands=None,
+                           kcommsize=1,
+                           extrapolate=False,
+                           gauss_legendre=None,
+                           frequency_cut=None,
+                           frequency_scale=None,
+                           direction=2):
+
+        self.initialize_calculation(None,
+                                    ecut,
+                                    None,
+                                    nbands,
+                                    kcommsize,
+                                    extrapolate,
+                                    gauss_legendre,
+                                    frequency_cut,
+                                    frequency_scale)
+
+        d = direction
+        d_pro = []
+        for i in range(3):
+            if i != d:
+                d_pro.append(i)
+        
+        dummy = DF(calc=self.calc,
+                   eta=0.0,
+                   w=self.w * 1j,
+                   ecut=self.ecut,
+                   hilbert_trans=False)
+        dummy.txt = devnull
+        dummy.initialize(simple_version=True)
+        npw = dummy.npw
+        del dummy
+
+        q = [0.,0.,0.]
+        q[d] = 1.e-5
+
+        fhxc_sGsG, Kc_G = self.get_fxc(q, True, 0, d)
+
+        if self.nbands is None:
+            nbands = npw
+        else:
+            nbands = self.nbands
+
+        if self.txt is sys.stdout:
+            txt = 'response.txt'
+        else:
+            txt='response_'+self.txt.name
+        df = DF(calc=self.calc,
+                xc=None,
+                nbands=nbands,
+                eta=0.0,
+                q=q,
+                txt=txt,
+                w=self.w * 1j,
+                ecut=self.ecut,
+                comm=world,
+                optical_limit=True,
+                G_plus_q=True,
+                kcommsize=self.kcommsize,
+                hilbert_trans=False)
+        
+        print >> self.txt, 'Calculating RPA response function'
+        print >> self.txt, 'Polarization: %s' % d
+
+        df.initialize()
+        ns = self.nspins
+        Nw_local = df.Nw_local
+        chi0 = np.zeros((Nw_local, ns*npw, ns*npw), dtype=complex)
+
+        df.calculate(seperate_spin=0)
+        chi0[:, :npw, :npw] = df.chi0_wGG[:] 
+        if ns == 2:
+            df.ecut *= Hartree
+            df.xc = 'RPA'
+            df.initialize()
+            df.calculate(seperate_spin=1)
+            chi0[:, npw:2*npw, npw:2*npw] = df.chi0_wGG[:]
+        del df.chi0_wGG
+
+        local_a0_w = np.zeros(Nw_local, dtype=complex)
+        a0_w = np.empty(len(self.w), complex)
+        local_a_w = np.zeros(Nw_local, dtype=complex)
+        a_w = np.empty(len(self.w), complex)
+
+        Gvec_Gv = np.dot(df.Gvec_Gc + np.array(q), df.bcell_cv)
+        gd = self.calc.density.gd
+        n_d = gd.get_size_of_global_array()[d]
+        d_d = gd.get_grid_spacings()[d]
+        r_d = np.array([i*d_d for i in range(n_d)])
+
+        print >> self.txt, 'Calculating real space integrals'
+
+        int_G = np.zeros(npw, complex)
+        for iG in range(npw):
+            if df.Gvec_Gc[iG, d_pro[0]] == 0 and df.Gvec_Gc[iG, d_pro[1]] == 0:
+                int_G[iG] = np.sum(r_d * np.exp(1j*Gvec_Gv[iG, d] * r_d))*d_d
+        int2_GG = np.outer(int_G, int_G.conj())
+
+        print >> self.txt, 'Calculating dynamic polarizability'
+
+        for i in range(Nw_local):
+            chi0_fhxc = np.dot(chi0[i], fhxc_sGsG)
+            chi = np.linalg.solve(np.eye(npw*ns, npw*ns)
+                                  - chi0_fhxc, chi0[i]).real
+            for s1 in range(ns):
+                X0 = chi0[i, s1*npw:(s1+1)*npw, s1*npw:(s1+1)*npw]
+                local_a0_w[i] += np.trace(np.dot(X0, int2_GG))
+                for s2 in range(ns):
+                    X_ss = chi[s1*npw:(s1+1)*npw, s2*npw:(s2+1)*npw]
+                    local_a_w[i] += np.trace(np.dot(X_ss, int2_GG))
+        df.wcomm.all_gather(local_a0_w, a0_w)
+        df.wcomm.all_gather(local_a_w, a_w)
+
+        A = df.vol / gd.cell_cv[d,d]
+        a0_w *= A**2 / df.vol
+        a_w *= A**2 / df.vol
+
+        del df, chi0, chi0_fhxc, chi, X_ss, Kc_G, fhxc_sGsG
+        
+        C06 = np.sum(a0_w**2 * self.gauss_weights
+                     * self.transform) * 3 / (2*np.pi)
+        C6 = np.sum(a_w**2 * self.gauss_weights
+                    * self.transform) * 3 / (2*np.pi)
+
+        print >> self.txt, 'C06 = %s Ha*Bohr**6' % (C06.real / Hartree)
+        print >> self.txt, 'C6 = %s Ha*Bohr**6' % (C6.real / Hartree)
+        print >> self.txt
+
+        return C6.real / Hartree, C06.real / Hartree
+
+
+    def get_fxc_g(self, n_g):
+        
+        gd = self.calc.density.gd.refine()
+
+        xc = XC('GGA_X_' + self.xc[2:])
+        #xc = XC('LDA_X')
+        #sigma = np.zeros_like(n_g).flat[:]
+        xc.set_grid_descriptor(gd)
+        sigma_xg, gradn_svg = xc.calculate_sigma(np.array([n_g]))
+
+        dedsigma_xg = np.zeros_like(sigma_xg)
+        e_g = np.zeros_like(n_g)
+        v_sg = np.array([np.zeros_like(n_g)])
+        
+        xc.calculate_gga(e_g, np.array([n_g]), v_sg, sigma_xg, dedsigma_xg)
+
+        sigma = sigma_xg[0].flat[:]
+        gradn_vg = gradn_svg[0]
+        dedsigma_g = dedsigma_xg[0]
+        
+        libxc = LibXC('GGA_X_' + self.xc[2:])
+        #libxc = LibXC('LDA_X')
+        libxc.initialize(1)
+        libxc_fxc = libxc.xc.calculate_fxc_spinpaired
+        
+        fxc_g = np.zeros_like(n_g).flat[:]
+        d2edndsigma_g = np.zeros_like(n_g).flat[:]
+        d2ed2sigma_g = np.zeros_like(n_g).flat[:]
+
+        libxc_fxc(n_g.flat[:], fxc_g, sigma, d2edndsigma_g, d2ed2sigma_g)
+        fxc_g = fxc_g.reshape(np.shape(n_g))
+        d2edndsigma_g = d2edndsigma_g.reshape(np.shape(n_g))
+        d2ed2sigma_g = d2ed2sigma_g.reshape(np.shape(n_g))
+
+        tmp = np.zeros_like(fxc_g)
+        tmp1 = np.zeros_like(fxc_g)
+        
+        for v in range(3):
+            self.grad_v[v](d2edndsigma_g * gradn_vg[v], tmp)
+            axpy(-4.0, tmp, fxc_g)
+            
+        for u in range(3):
+            for v in range(3):
+                self.grad_v[v](d2ed2sigma_g * gradn_vg[u] * gradn_vg[v], tmp)
+                self.grad_v[u](tmp, tmp1)
+                axpy(4.0, tmp1, fxc_g)
+
+        self.laplace(dedsigma_g, tmp)
+        axpy(2.0, tmp, fxc_g)
+            
+        return fxc_g[::2,::2,::2]
+
+
+    def get_numerical_fxc_sg(self, n_sg):
+
+        gd = self.calc.density.gd.refine()
+
+        delta = 1.e-4
+        if self.xc[2:] == 'LDA':
+            xc = XC('LDA_X')
+            v1xc_sg = np.zeros_like(n_sg)
+            v2xc_sg = np.zeros_like(n_sg)
+            xc.calculate(gd, (1+delta)*n_sg, v1xc_sg)
+            xc.calculate(gd, (1-delta)*n_sg, v2xc_sg)
+            fxc_sg = (v1xc_sg - v2xc_sg) / (2 * delta * n_sg)
+        else:
+            fxc_sg = np.zeros_like(n_sg)
+            xc = XC('GGA_X_' + self.xc[2:])
+            vxc_sg = np.zeros_like(n_sg)
+            xc.calculate(gd, n_sg, vxc_sg)
+            for s in range(len(n_sg)):
+                for x in range(len(n_sg[0])):
+                    for y in range(len(n_sg[0,0])):
+                        for z in range(len(n_sg[0,0,0])):
+                            v1xc_sg = np.zeros_like(n_sg)
+                            n1_sg = n_sg.copy()
+                            n1_sg[s,x,y,z] *= (1 + delta)
+                            xc.calculate(gd, n1_sg, v1xc_sg)
+                            fxc_sg[s,x,y,z] = (v1xc_sg[s,x,y,z] - vxc_sg[s,x,y,z]) \
+                                           / (delta * n_sg[s,x,y,z])
+                            
+        return fxc_sg[:,::2,::2,::2]
