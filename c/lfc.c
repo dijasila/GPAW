@@ -1595,43 +1595,59 @@ PyObject* normalized_derivative(LFCObject *lfc, PyObject *args)
 
 PyObject* ae_valence_density_correction(LFCObject *lfc, PyObject *args)
 {
-  PyArrayObject* rho_MM_obj;
-  PyArrayObject* n_G_obj;
-  PyArrayObject* a_W_obj;
-  PyArrayObject* I_a_obj;
-
-  if (!PyArg_ParseTuple(args, "OOOO", &rho_MM_obj, &n_G_obj,
-                        &a_W_obj, &I_a_obj))
-    return NULL; 
+    PyArrayObject* rho_MM_obj;
+    PyArrayObject* n_G_obj;
+    PyArrayObject* a_W_obj;
+    PyArrayObject* I_a_obj;
+    PyArrayObject* x_W_obj;
+    
+    if (!PyArg_ParseTuple(args, "OOOOO", &rho_MM_obj, &n_G_obj,
+			  &a_W_obj, &I_a_obj, &x_W_obj))
+        return NULL; 
   
-  double* n_G = (double*)PyArray_DATA(n_G_obj);
-  int* a_W = (int*)PyArray_DATA(a_W_obj);
-  double* I_a = (double*)PyArray_DATA(I_a_obj);
-  const double* rho_MM = (const double*)PyArray_DATA(rho_MM_obj);
+    double* n_G = (double*)PyArray_DATA(n_G_obj);
+    int* a_W = (int*)PyArray_DATA(a_W_obj);
+    double* I_a = (double*)PyArray_DATA(I_a_obj);
+    const double* rho_MM = (const double*)PyArray_DATA(rho_MM_obj);
+    int* x_W = (int*)PyArray_DATA(x_W_obj);
 
-  int nM = PyArray_DIMS(rho_MM_obj)[0];
+    int nM = PyArray_DIMS(rho_MM_obj)[0];
 
-  GRID_LOOP_START(lfc, -1) {
-    for (int i = 0; i < ni; i++) {
-      LFVolume* v = volume_i + i;
-      int M = v->M;
-      int nm = v->nm;
-      const double* rho_mm = rho_MM + M * nM + M;
-      double Ia = 0.0;
-      for (int g = 0; g < nG; g++) {
-        double density = 0.0;
-        for (int m2 = 0; m2 < nm; m2++)
-          for (int m1 = 0; m1 < nm; m1++)
-            density += (rho_mm[m2 + m1 * nM] *
-                  v->A_gm[g * nm + m1] * v->A_gm[g * nm + m2]);
-        n_G[Ga + g] += density;
-        Ia += density;
-      }
-      I_a[a_W[v->W]] += Ia * lfc->dv;
+    GRID_LOOP_START(lfc, -1) {
+        for (int i1 = 0; i1 < ni; i1++) {
+	    LFVolume* v1 = volume_i + i1;
+	    int x1 = x_W[v1->W];
+	    int a1 = a_W[v1->W];
+	    int M1 = v1->M;
+	    int nm1 = v1->nm;
+	    double Ia = 0.0;
+	    for (int i2 = 0; i2 < ni; i2++) {
+	        LFVolume* v2 = volume_i + i2;
+		int x2 = x_W[v2->W];
+		if (x1 != x2)
+		    continue;
+		int a2 = a_W[v2->W];
+		if (a1 != a2)
+		    continue;
+		int M2 = v2->M;
+		int nm2 = v2->nm;
+		const double* rho_mm = rho_MM + M1 * nM + M2;
+		for (int g = 0; g < nG; g++) {
+		    double density = 0.0;
+		    for (int m2 = 0; m2 < nm2; m2++)
+		        for (int m1 = 0; m1 < nm1; m1++)
+			    density += (rho_mm[m2 + m1 * nM] *
+					v1->A_gm[g * nm1 + m1] *
+					v2->A_gm[g * nm2 + m2]);
+		    n_G[Ga + g] += density;
+		    Ia += density;
+		}
+	    }
+	    I_a[a1] += Ia * lfc->dv;
+	}
     }
-  }
-  GRID_LOOP_STOP(lfc, -1);
-  Py_RETURN_NONE;
+    GRID_LOOP_STOP(lfc, -1);
+    Py_RETURN_NONE;
 }
 
 PyObject* ae_core_density_correction(LFCObject *lfc, PyObject *args)
