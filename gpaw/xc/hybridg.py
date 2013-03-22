@@ -385,7 +385,7 @@ class HybridXC(HybridXCBase):
         nocc1 = self.nocc_sk[s, k1]
         nocc2 = self.nocc_sk[s, k2]
 
-        # Is k2 in the 1. BZ?
+        # Is k2 in the IBZ?
         is_ibz2 = (self.kd.ibz2bz_k[k2] == K2)
 
         for n2 in range(self.wfs.bd.nbands):
