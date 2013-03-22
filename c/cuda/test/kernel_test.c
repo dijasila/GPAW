@@ -60,28 +60,32 @@ int check_result(int n0,int n1, int n2,int blocks,double *b,double *b_cuda)
 }
 
 
-int check_resultz(int n0,int n1, int n2,cuDoubleComplex *b,cuDoubleComplex *b_cuda)
+int check_resultz(int n0,int n1, int n2,int blocks,cuDoubleComplex *b,cuDoubleComplex *b_cuda)
 {
   int e_i=0;
   int bsize=n0*n1*n2;
   double error=0;
   
-  for (int i0=0;i0<n0;i0++){
-    for (int i1=0;i1<n1;i1++){
-      for (int i2=0;i2<n2;i2++){
-	long i=i0*n1*n2+i1*n2+i2; 
-	double ee=sqrt((b[i].x-b_cuda[i].x)*(b[i].x-b_cuda[i].x)+(b[i].y-b_cuda[i].y)*(b[i].y-b_cuda[i].y));
+  for (int k=0;k<blocks;k++) {
+    for (int i0=0;i0<n0;i0++){
+      for (int i1=0;i1<n1;i1++){
+	for (int i2=0;i2<n2;i2++){
+	  long i=i0*n1*n2+i1*n2+i2; 
+	  double ee=sqrt((b[i].x-b_cuda[i].x)*(b[i].x-b_cuda[i].x)+(b[i].y-b_cuda[i].y)*(b[i].y-b_cuda[i].y));
 	if  (ee>1e-14) {
 	  //	  fprintf(stdout,"error %d %d %d %f %f %f\n",i0,i1,i2,ee,b[i],b_cuda[i]);
 	  e_i++;
 	}
 	
 	error+=ee;
+	}
       }
     }
+    b+=n0*n1*n2;
+    b_cuda+=n0*n1*n2;
   }
   if  (e_i>0)
-    fprintf(stdout,"sum error %g count %d/%d\n",error,e_i,bsize);
+    fprintf(stdout,"sum error %g count %d/%d\n",error,e_i,bsize*blocks);
   return e_i;
 }
 
@@ -99,6 +103,16 @@ int calc_test_fd(int n1,int n2,int n3,int blocks)
   double flops,flops2,flops3;
 
   s=bmgs_laplace(7,1.0,h,n);
+  /* double coefs[19]={10.82556207,-1.98836854, 0.19883685,-0.01472866,-1.98836854,
+		    0.19883685,-0.01472866,-1.98836854, 0.19883685,-0.01472866,
+		    -1.98836854, 0.19883685,-0.01472866,-1.98836854, 0.19883685,
+		    -0.01472866,  -1.98836854 ,  0.19883685,  -0.01472866};
+  s.coefs=coefs;
+
+  
+  long offsets[]={0,1 ,   2 ,   3 ,  -1 ,  -2 ,  -3 ,  14 ,  28 ,  42 , -14,  -28,  -42 , 196 , 392,  588, -196, -392, -588};
+
+  s.offsets=offsets;*/
 
   asize=s.j[0]+s.n[0]*(s.j[1]+s.n[1]*(s.n[2]+s.j[2]));
   bsize=s.n[0]*s.n[1]*s.n[2];
@@ -260,9 +274,9 @@ int calc_test_interpolate(int n1,int n2,int n3,int blocks)
 
   double h[3]={1.0, 1.0, 1.0};
   int   n[3]={n1,n2,n3};
-  //  int skip[3][2]={{1,1},{1,1},{0,1}};
+  int skip[3][2]={{1,0},{1,0},{1,0}};
 
-  int skip[3][2]={{0,0},{0,0},{0,0}};
+  //int skip[3][2]={{0,0},{0,0},{0,0}};
   int   b_n[3]={2*n1-2-skip[0][0]+skip[0][1],
 		2*n2-2-skip[1][0]+skip[1][1],
 		2*n3-2-skip[2][0]+skip[2][1]};
@@ -395,11 +409,9 @@ int calc_test_restrict(int n1,int n2,int n3,int blocks)
   printf("\n");
   free(a);
   free(a_cuda);
-
   free(b);
 
   free(w);
-
   free(b_cuda);
 
   return 0;
@@ -579,25 +591,28 @@ int calc_test_fdz(int n1,int n2,int n3,int blocks)
   asize=s.j[0]+s.n[0]*(s.j[1]+s.n[1]*(s.n[2]+s.j[2]));
   bsize=s.n[0]*s.n[1]*s.n[2];
   
-  a=malloc(asize*sizeof(cuDoubleComplex));
-  b=malloc(bsize*sizeof(cuDoubleComplex));  
-  b_cuda=malloc(bsize*sizeof(cuDoubleComplex));  
+  a=malloc(blocks*asize*sizeof(cuDoubleComplex));
+  b=malloc(blocks*bsize*sizeof(cuDoubleComplex));  
+  b_cuda=malloc(blocks*bsize*sizeof(cuDoubleComplex));  
 
   srand ( time(NULL) );
   //srand (0 );
 
-  for (int i=0;i<asize;i++){
+  for (int i=0;i<blocks*asize;i++){
     a[i].x=rand()/(double)RAND_MAX;
     a[i].y=rand()/(double)RAND_MAX;
   }
   
-  bmgs_fd_cuda_cpuz(&s,a,b_cuda,GPAW_BOUNDARY_NORMAL,blocks);
+  bmgs_fd_cuda_cpuz(&s,a,b_cuda,GPAW_BOUNDARY_NORMAL,1);
 
-  memset(b,0,bsize*sizeof(cuDoubleComplex));  
-  memset(b_cuda,0,bsize*sizeof(cuDoubleComplex));  
+  memset(b,0,blocks*bsize*sizeof(cuDoubleComplex));  
+  memset(b_cuda,0,blocks*bsize*sizeof(cuDoubleComplex));  
   gettimeofday(&t0,NULL);
 
-  for (int i=0;i<ntimes;i++) bmgs_fdz(&s,(double complex*)a,(double complex*)b);
+  for (int i=0;i<ntimes;i++) 
+    for (int k=0;k<blocks;k++)
+      bmgs_fdz(&s,(double complex*)a+k*asize,(double complex*)b+k*bsize);
+
   gettimeofday(&t1,NULL);
   flops3=0;
   for (int i=0;i<ntimes;i++) flops3+=bmgs_fd_cuda_cpuz(&s,a,b_cuda,GPAW_BOUNDARY_NORMAL,blocks);
@@ -605,12 +620,21 @@ int calc_test_fdz(int n1,int n2,int n3,int blocks)
 
   flops=((t1.tv_sec+t1.tv_usec/1000000.0-t0.tv_sec-t0.tv_usec/1000000.0)); 
   flops2=((t2.tv_sec+t2.tv_usec/1000000.0-t1.tv_sec-t1.tv_usec/1000000.0));
+  printf ("(%3d,%3d,%3d,%3d) \t %f\t %f\t %3.1f",s.n[0],s.n[1],s.n[2],blocks,ntimes*blocks*bsize/(1000000.0*flops),ntimes*blocks*bsize/(1000000.0*flops3),flops/flops3);
+
+  if (!check_resultz(s.n[0],s.n[1],s.n[2],blocks,b,b_cuda)) {
+    printf("\tOK");
+  }
+  printf("\n");
+  /*
+  flops=((t1.tv_sec+t1.tv_usec/1000000.0-t0.tv_sec-t0.tv_usec/1000000.0)); 
+  flops2=((t2.tv_sec+t2.tv_usec/1000000.0-t1.tv_sec-t1.tv_usec/1000000.0));
   printf ("(%3d,%3d,%3d) \t %f\t %f\t %3.1f",s.n[0],s.n[1],s.n[2],ntimes*bsize/(1000000.0*flops),ntimes*bsize/(1000000.0*flops3),flops/flops3);
 
   if (!check_resultz(s.n[0],s.n[1],s.n[2],b,b_cuda)) {
     printf("\tOK");
   }
-  printf("\n");
+  printf("\n");*/
   free(a);
   free(b);
   free(b_cuda);
@@ -620,18 +644,45 @@ int calc_test_fdz(int n1,int n2,int n3,int blocks)
 
 int main(void)
 {
-  cudaSetDevice(1);
+  struct cudaDeviceProp prop;
+  int device=1;
+  cudaSetDevice(device);  
   cudaThreadSetCacheConfig(cudaFuncCachePreferL1);
+  cudaGetDeviceProperties(&prop,device);
+  
+  printf("Device: %s\n",prop.name);
+  printf("Device compute capability: %d.%d\n",prop.major,prop.minor);
+  printf("Device multiprocessors: %d\n",prop.multiProcessorCount);
+  printf("Device clock rate: %d MHz\n",prop.clockRate/1000);
+  printf("Device mem: %d MB\n",prop.totalGlobalMem/1024/1024);
+  printf("Device mem clock rate: %d MHz\n",prop.memoryClockRate/1000);
+  printf("Device mem bus width: %d bits\n",prop.memoryBusWidth);
+  printf("Device ECC: %d\n",prop.ECCEnabled);
+  printf("Device L2 cache: %d kB\n",prop.l2CacheSize/1024);
+
+  cudaSetDevice(1);
+    cudaThreadSetCacheConfig(cudaFuncCachePreferL1);
   //for (int n=16;n<449;n+=6)
   /*  printf("# bmgs_paste  \n");  
       printf("# N \t\t CPU Mpoint/s \t GPU Mpoint/s \t Speed-up\n");  
       for (int n=16;n<280;n+=24)
       calc_test_paste(n,n,n,1);*/
-  
-  printf("# dotu\n");  
+  /*printf("# bmgs_fdz  \n");  
+    printf("# N \t\t CPU Mpoint/s \t GPU Mpoint/s \t Speed-up\n");  
+  calc_test_fdz(8,8,8,2);  
+
+  exit(0);
+  */
+  /*  printf("# bmgs_fdz  \n");  
+  printf("# N \t\t\t CPU Mpoint/s \t GPU Mpoint/s \t Speed-up\n");  
+  calc_test_fdz(8,8,8,2);
+  exit(0);
+  */
+
+    printf("# dotu\n");  
   printf("# N \t\t\t CPU Mpoint/s \t GPU Mpoint/s \t GPU2 Mpoint/s \t Speed-up\n");    
   calc_test_dotu(8,8,8,1);
-  for (int n=16;n<350;n+=2*6){
+  for (int n=16;n<300;n+=6){
     calc_test_dotu(n,n,n,1);
   }
   for (int n=16;n<140;n+=24)
@@ -640,14 +691,14 @@ int main(void)
     calc_test_dotu(30,30,30,n);
   for (int n=1;n<=512;n*=2)
     calc_test_dotu(60,60,60,n);
-  exit(0);
-
+  //  exit(0);
+  
   printf("# bmgs_restrict\n");  
   printf("# N \t\t\t\t\t CPU Mpoint/s \t GPU Mpoint/s \t Speed-up\n");    //
   //calc_test_restrict(28,28,28,1);
-  //exit(0);
+  //
   calc_test_restrict(8,8,8,1);
-  for (int n=16;n<450/2;n+=2*6){
+  for (int n=16;n<300;n+=6){
     calc_test_restrict(n,n,n,1);
   }
   for (int n=16;n<140;n+=24)
@@ -656,12 +707,13 @@ int main(void)
     calc_test_restrict(30,30,30,n);
   for (int n=1;n<=128;n*=2)
     calc_test_restrict(60,60,60,n);
+  //    exit(0);
   printf("# bmgs_interpolate  \n");  
   printf("# N \t\t\t\t\t CPU Mpoint/s \t GPU Mpoint/s \t Speed-up\n");  
-  calc_test_interpolate(2,2,2,1);
-  calc_test_interpolate(4,4,4,1);
+  // calc_test_interpolate(2,2,2,1);
+  //calc_test_interpolate(4,4,4,1);
   calc_test_interpolate(8,8,8,1);
-  for (int n=16;n<450/4;n+=2*6){
+  for (int n=16;n<300/2;n+=6){
     calc_test_interpolate(n,n,n,1);
   }
   for (int n=8;n<70;n+=140)
@@ -671,13 +723,13 @@ int main(void)
   for (int n=1;n<=128;n*=2)
     calc_test_interpolate(60,60,60,n);
   
-
+  
   printf("# bmgs_fd  \n");  
   printf("# N \t\t\t CPU Mpoint/s \t GPU Mpoint/s \t Speed-up\n");  
-  calc_test_fd(2,2,2,1);
-  calc_test_fd(4,4,4,1);
+  //calc_test_fd(2,2,2,1);
+  //calc_test_fd(4,4,4,1);
   calc_test_fd(8,8,8,1);
-  for (int n=16;n<450/2;n+=2*6){
+  for (int n=16;n<300;n+=6){
     calc_test_fd(n,n,n,1);
   }
   for (int n=16;n<140;n+=24)
@@ -687,13 +739,21 @@ int main(void)
   for (int n=1;n<=128;n*=2)
     calc_test_fd(60,60,60,n);
 
+
+
   printf("# bmgs_fdz  \n");  
   printf("# N \t\t CPU Mpoint/s \t GPU Mpoint/s \t Speed-up\n");  
-  for (int n=16;n<280;n+=24)
+  //calc_test_fdz(2,2,2,1);
+  //calc_test_fdz(4,4,4,1);
+  calc_test_fdz(8,8,8,1);
+  for (int n=16;n<300;n+=6)
     calc_test_fdz(n,n,n,1);
   printf("# bmgs_relax  \n");  
   printf("# N \t\t CPU Mpoint/s \t GPU Mpoint/s \t Speed-up\n");  
-  for (int n=16;n<280;n+=24)
+  calc_test_relax(2,2,2);
+  calc_test_relax(4,4,4);
+  calc_test_relax(8,8,8);
+  for (int n=16;n<300;n+=6)
     calc_test_relax(n,n,n);
   
 }

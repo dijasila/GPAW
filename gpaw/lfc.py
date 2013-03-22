@@ -585,7 +585,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
         dtype = a_xG.dtype
                        
         if isinstance(a_xG, gpaw.cuda.gpuarray.GPUArray):
-            #print "integrate cuda", self.cuda
+            #print "integrate cuda", self.cuda,self.gd.dv
             assert self.cuda
             if self.Mmax>0:
                 c_xM_gpu = gpaw.cuda.gpuarray.zeros(xshape + (self.Mmax,), dtype)
@@ -593,9 +593,11 @@ class NewLocalizedFunctionsCollection(BaseLFC):
                                             c_xM_gpu.gpudata, c_xM_gpu.shape, q)
                 #c_xM = np.zeros(xshape + (self.Mmax,), dtype)
                 #self.lfc.integrate(a_xG.get(), c_xM, q)
-                c_xM=c_xM_gpu.get()
+                c_xM=c_xM_gpu.get()*self.gd.dv
+                #c_xM=c_xM_gpu.get()
                 #self.lfc.integrate(a_xG.get(), c_xM, q)
                 if gpaw.cuda.debug:
+                #if 1:
                     assert not np.isnan(c_xM).any()
                     c_xM2 = np.zeros(xshape + (self.Mmax,), dtype)
                     self.lfc.integrate(a_xG.get(), c_xM2, q)

@@ -38,7 +38,7 @@ def init(rank=0):
         raise NameError(errmsg)
         return False
 
-    devno=rank % drv.Device.count()
+    devno=(rank+1) % drv.Device.count()
     
     if drv.Device(devno).get_attribute(drv.device_attribute.COMPUTE_MODE) is drv.compute_mode.EXCLUSIVE:
         cuda_ctx=tools.make_default_context()
@@ -112,12 +112,12 @@ def debug_test(x,y,text,reltol=1e-12,abstol=1e-13,raise_error=False):
                           % (text,x_cpu.shape,x_cpu.dtype),  \
                           DebugCudaWarning, stacklevel=2)
 
-            #warnings.warn('%s error: %s %s' \
-            #              % (text,x_type,x_cpu),  \
-            #              DebugCudaWarning, stacklevel=2)
-            #warnings.warn('%s error: %s %s' \
-            #              % (text,y_type,y_cpu),  \
-            #              DebugCudaWarning, stacklevel=2)
+            warnings.warn('%s error: %s %s' \
+                          % (text,x_type,x_cpu),  \
+                          DebugCudaWarning, stacklevel=2)
+            warnings.warn('%s error: %s %s' \
+                          % (text,y_type,y_cpu),  \
+                          DebugCudaWarning, stacklevel=2)
         
         if raise_error:
             raise DebugCudaError

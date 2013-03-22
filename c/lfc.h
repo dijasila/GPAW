@@ -32,14 +32,16 @@ typedef struct
 typedef struct ALIGN(16)
 {
   double *A_gm;
-  void *work1_A_gm;
-  void *work2_A_gm;
   int len_A_gm;
-  int len_work1;
-  int len_work2;
   int nm;              // number of functions (2*l+1)
   int M;               // global number of first function
   int W;               // volume number
+
+  int nB;
+  int *GB1;
+  int *nGBcum;
+  cuDoubleComplex *phase_k;
+
 } LFVolume_gpu;
 #endif
 
@@ -69,14 +71,17 @@ typedef struct
   int* G_B1_gpu;                  // boundary grid points
   int* G_B2_gpu;                  // boundary grid points
   int max_len_A_gm;
-  int max_len_work;
   int max_nG;
   cuDoubleComplex *phase_i_gpu;
   int max_k;
   LFVolume_gpu **volume_i_gpu;
   int *A_gm_i_gpu;
-  int *work_i_gpu;
   int *ni_gpu;
+
+  int Mcount;
+  int *volume_WMi_gpu;
+  int *WMi_gpu;
+  int WMimax;
 #endif
 } LFCObject;
 

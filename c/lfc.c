@@ -420,7 +420,8 @@ PyObject* integrate(LFCObject *lfc, PyObject *args)
           for (int gm = 0, G = Ga; G < Gb; G++){
             double av = a_G[G] * dv;
             for (int m = 0; m < nm; m++, gm++){
-              c_M1[m] += av * A_gm[gm];
+	      c_M1[m] += av * A_gm[gm];
+              //c_M1[m] += 1;
             }
           }
         }
@@ -442,9 +443,10 @@ PyObject* integrate(LFCObject *lfc, PyObject *args)
           const double* A_gm = v->A_gm;
           double complex vphase = phase_i[i] * dv;
           for (int gm = 0, G = Ga; G < Gb; G++){
-            double complex avphase = a_G[G] * vphase;
+            double complex avphase = a_G[G] * vphase/*dv*/;
             for (int m = 0; m < nm; m++, gm++){
               c_M1[m] += avphase * A_gm[gm];
+              //c_M1[m] += 1;
             }
           }
         }
