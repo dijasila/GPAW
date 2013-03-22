@@ -38,7 +38,6 @@ __global__ void INNAME(integrate_mul_kernel)(const Tcuda *a_G,int nG,
   
   for (int vv=0;vv<WMi_gpu[bloy];vv++) {
     const LFVolume_gpu *v=&volume_W[volume_WMi_gpu[bloy*WMimax+vv]];
-
     //int nB=v->nB;
     
     //int *GB1=v->GB1;
@@ -49,7 +48,7 @@ __global__ void INNAME(integrate_mul_kernel)(const Tcuda *a_G,int nG,
     cuDoubleComplex phase=v->phase_k[q]; 
     #endif*/
     //double *A_gm=v->A_gm;
-5~    //   int nm=v->nm;
+    //   int nm=v->nm;
     Tcuda *out_t=out+v->M*block_out+block*nM*block_out;
     //Tcuda a_Gv = MAKED(0);
 
