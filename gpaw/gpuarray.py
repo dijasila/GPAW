@@ -10,7 +10,7 @@ try:
         f_contiguous_strides as _f_contiguous_strides, 
         c_contiguous_strides as _c_contiguous_strides, 
         ArrayFlags as _ArrayFlags,
-        get_common_dtype as _get_common_dtype)
+        get_common_dtype as _get_common_dtype_base)
     from pycuda.characterize import has_double_support
 except ImportError:
     class GPUArray(object):
