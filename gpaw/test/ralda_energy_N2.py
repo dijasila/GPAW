@@ -24,7 +24,6 @@ calc = GPAW(mode='pw',
             dtype=complex,
             xc='LDA',
             nbands=16,
-            setups={'N': 'new'},
             basis='dzp',
             convergence={'density': 1.e-6})
 N2.set_calculator(calc)
@@ -53,7 +52,6 @@ calc = GPAW(mode='pw',
             xc='LDA',
             basis='dzp',
             nbands=8,
-            setups={'N': 'new'},
             hund=True,
             convergence={'density': 1.e-6})
 N.set_calculator(calc)
