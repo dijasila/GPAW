@@ -63,6 +63,7 @@ libraries = [
              'gpaw-cuda', 'cublas', 'cuda',
              'cudart',
              'stdc++',
+             'mpi',
              ]
-library_dirs += ['./c/cuda', '/opt/cuda/lib64']
-include_dirs += ['/opt/cuda/include']
+library_dirs += ['/usr/lib64/openmpi/lib', './c/cuda', '/opt/cuda/lib64']
+include_dirs += ['/usr/include/openmpi-x86_64', '/opt/cuda/include']
