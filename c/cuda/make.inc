@@ -10,10 +10,10 @@ SHELL = /bin/sh
 #
 TOPdir       = .
 INCdir       = $(TOPdir)
-PYTHONINCdir = /fs/local/linux26_x86_64/opt/python/2.6.5-gcc/include/python2.6/
-PYTHONLIBdir = /fs/local/linux26_x86_64/opt/python/2.6.5-gcc/lib/
-NUMPYINCdir  = /fs/local/linux26_x86_64/opt/python/2.6.5-gcc/lib/python2.6/site-packages/numpy/core/include
-MPIINCdir    = /v/linux26_x86_64/opt/mvapich2/1.8a1p1-cuda/include
+PYTHONINCdir?=/fs/local/linux26_x86_64/opt/python/2.6.5-gcc/include/python2.6/
+PYTHONLIBdir?=/fs/local/linux26_x86_64/opt/python/2.6.5-gcc/lib/
+NUMPYINCdir?=`python -c "import numpy; print numpy.get_include()"`
+MPIINCdir?=/v/linux26_x86_64/opt/mvapich2/1.8a1p1-cuda/include
 LIBdir       = $(TOPdir)
 CUGPAWLIB    = $(LIBdir)/libgpaw-cuda.a 
 
