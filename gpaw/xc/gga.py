@@ -181,7 +181,7 @@ class PurePythonGGAKernel:
             res = gga_x(self.name, 0, n, sigma_xg[0], self.kappa, self.mu)
             ex, rs, dexdrs, dexda2 = res
             # correlation
-            res = gga_c(0, n, sigma_xg[0], 0, self.beta)
+            res = gga_c(self.name, 0, n, sigma_xg[0], 0, self.beta)
             ec, rs_, decdrs, decda2, decdzeta = res
 
             e_g[:] += n * (ex + ec)
@@ -206,7 +206,8 @@ class PurePythonGGAKernel:
                    self.name, 1, nb, 4.0 * sigma_xg[2], self.kappa, self.mu)
             a2 = sigma_xg[0] + 2.0 * sigma_xg[1] + sigma_xg[2]
             # correlation
-            ec, rs, decdrs, decda2, decdzeta = gga_c(1, n, a2, zeta, self.beta)
+            ec, rs, decdrs, decda2, decdzeta = gga_c(
+                   self.name, 1, n, a2, zeta, self.beta)
 
             e_g[:] += 0.5 * (na * exa + nb * exb) + n * ec
             dedn_sg[0][:] += (exa + ec - (rsa * dexadrs + rs * decdrs) / 3.0
@@ -224,8 +225,8 @@ def pbe_constants(name):
         kappa = 0.804
         mu = 0.2195149727645171
         beta = 0.06672455060314922
-    elif name == 'pyPBEsol':
-        name = 'PBEsol'
+    elif name in ['pyPBEsol', 'pyzvPBEsol']:
+        name = name[2:]
         kappa = 0.804
         mu = 10. / 81.
         beta = 0.046
@@ -244,20 +245,20 @@ def gga_x(name, spin, n, a2, kappa, mu):
     assert spin in [0, 1]
 
     C0I, C1, C2, C3, CC1, CC2, IF2, GAMMA = gga_constants()
-    rs = (C0I / n) ** (1 / 3.)
+    rs = (C0I / n)**(1 / 3.)
 
     # lda part
     ex = C1 / rs
     dexdrs = -ex / rs
 
     # gga part
-    c = (C2 * rs / n) ** 2.
+    c = (C2 * rs / n)**2.
     s2 = a2 * c
 
-    if name in ['PBE', 'PBEsol']:
+    if name in ['PBE', 'PBEsol', 'zvPBEsol']:
         x = 1.0 + mu * s2 / kappa
         Fx = 1.0 + kappa - kappa / x
-        dFxds2 = mu / (x ** 2.)
+        dFxds2 = mu / (x**2.)
     elif name == 'RPBE':
         arg = np.maximum(-mu * s2 / kappa, -5.e2)
         x = np.exp(arg)
@@ -272,31 +273,36 @@ def gga_x(name, spin, n, a2, kappa, mu):
     return ex, rs, dexdrs, dexda2
 
 
-def gga_c(spin, n, a2, zeta, BETA):
+def gga_c(name, spin, n, a2, zeta, BETA):
     assert spin in [0, 1]
     from gpaw.xc.lda import G
 
     C0I, C1, C2, C3, CC1, CC2, IF2, GAMMA = gga_constants()
-    rs = (C0I / n) ** (1 / 3.)
+    rs = (C0I / n)**(1 / 3.)
+
+    if name == 'zvPBEsol':
+        zv_a = 1.8
+        zv_o = 9. / 2.
+        zv_x = 1. / 6.
 
     # lda part
-    ec, decdrs_0 = G(rs ** 0.5, 0.031091, 0.21370, 7.5957,
+    ec, decdrs_0 = G(rs**0.5, 0.031091, 0.21370, 7.5957,
                      3.5876, 1.6382, 0.49294)
 
     if spin == 0:
         decdrs = decdrs_0
         decdzeta = 0.  # dummy
     else:
-        e1, decdrs_1 = G(rs ** 0.5, 0.015545, 0.20548, 14.1189,
+        e1, decdrs_1 = G(rs**0.5, 0.015545, 0.20548, 14.1189,
                          6.1977, 3.3662, 0.62517)
-        alpha, dalphadrs = G(rs ** 0.5, 0.016887, 0.11125, 10.357,
+        alpha, dalphadrs = G(rs**0.5, 0.016887, 0.11125, 10.357,
                          3.6231, 0.88026, 0.49671)
         alpha *= -1.
         dalphadrs *= -1.
         zp = 1.0 + zeta
         zm = 1.0 - zeta
-        xp = zp ** (1 / 3.)
-        xm = zm ** (1 / 3.)
+        xp = zp**(1 / 3.)
+        xm = zm**(1 / 3.)
         f = CC1 * (zp * xp + zm * xm - 2.0)
         f1 = CC2 * (xp - xm)
         zeta3 = zeta * zeta * zeta
@@ -317,6 +323,10 @@ def gga_c(spin, n, a2, zeta, BETA):
         phi3 = phi * phi2
         t2 = C3 * a2 * rs / (n2 * phi2)
         y = -ec / (GAMMA * phi3)
+        if name == 'zvPBEsol':
+            u3 = t2**(3. / 2.) * phi3 * (rs / 3.)**(-3. * zv_x)
+            zvarg = zv_a * u3 * abs(zeta)**zv_o
+            zvf = np.exp(-zvarg)
     else:
         t2 = C3 * a2 * rs / n2
         y = -ec / GAMMA
@@ -338,6 +348,8 @@ def gga_c(spin, n, a2, zeta, BETA):
         H *= phi3
         tmp *= phi3
         dAdrs /= phi3
+        if name == 'zvPBEsol':
+            H *= zvf
     dHdt2 = (1.0 + 2.0 * At2) * tmp
     dHdA = -At2 * t2 * t2 * (2.0 + At2) * tmp
     decdrs += dHdt2 * 7.0 * t2 / rs + dHdA * dAdrs
