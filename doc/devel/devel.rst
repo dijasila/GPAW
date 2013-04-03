@@ -22,6 +22,7 @@ start development!
 
    projects/projects
    developer_installation
+   workshop
 
 .. note --- below toctrees are defined in separate files to make sure that the line spacing doesn't get very large (which is of course a bad hack)
 
