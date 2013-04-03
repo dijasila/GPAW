@@ -806,7 +806,7 @@ class PAWSetupGenerator:
 
         setup.tauc_g = self.rgd.zeros()
         setup.tauct_g = self.rgd.zeros()
-        print 'no tau!!!!!!!!!!!'
+        #print 'no tau!!!!!!!!!!!'
 
         if self.aea.scalar_relativistic:
             reltype = 'scalar-relativistic'
@@ -1116,7 +1116,7 @@ def _generate(symbol, xc, projectors, radii,
     gen.calculate_core_density()
     gen.find_local_potential(l0, r0, nderiv0, e0)
     gen.add_waves(radii)
-    gen.pseudize(*pseudize, rcore=rcore, gamma=gamma, h=h)
+    gen.pseudize(pseudize[0], pseudize[1], rcore=rcore, gamma=gamma, h=h)
     gen.construct_projectors()
     return gen
 
