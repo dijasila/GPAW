@@ -325,8 +325,8 @@ def gga_c(name, spin, n, a2, zeta, BETA):
         y = -ec / (GAMMA * phi3)
         if name == 'zvPBEsol':
             u3 = t2**(3. / 2.) * phi3 * (rs / 3.)**(-3. * zv_x)
-            zvarg = zv_a * u3 * abs(zeta)**zv_o
-            zvf = np.exp(-zvarg)
+            zvarg = -zv_a * u3 * abs(zeta)**zv_o
+            zvf = np.exp(zvarg)
     else:
         t2 = C3 * a2 * rs / n2
         y = -ec / GAMMA
@@ -349,6 +349,7 @@ def gga_c(name, spin, n, a2, zeta, BETA):
         tmp *= phi3
         dAdrs /= phi3
         if name == 'zvPBEsol':
+            H_ = H.copy()
             H *= zvf
     dHdt2 = (1.0 + 2.0 * At2) * tmp
     dHdA = -At2 * t2 * t2 * (2.0 + At2) * tmp
@@ -364,6 +365,25 @@ def gga_c(name, spin, n, a2, zeta, BETA):
         decdzeta += ((3.0 * H / phi - dHdt2 * 2.0 * t2 / phi) * dphidzeta
                       + dHdA * dAdzeta)
         decda2 /= phi2
+        if name == 'zvPBEsol':
+            u3_ = t2**(3. / 2.) * phi3 * rs**(-3. * zv_x - 1.) / 3.**(-3. * zv_x)
+            zvarg_ = -zv_a * u3_ * abs(zeta)**zv_o
+            dzvfdrs = -3. * zv_x * zvf * zvarg_
+            decdrs *= zvf
+            decdrs += H_ * dzvfdrs
+
+            dt2da2 = C3 * rs / n2
+            assert np.shape(dt2da2) == np.shape(t2)
+            dzvfda2 =  dt2da2 * zvf * zvarg * 3. / (2. * t2)
+            decda2 *= zvf
+            decda2 += H_ * dzvfda2
+
+            dadz = zv_o * abs(zeta)**(zv_o - 1.)
+            dbdphi = 3. * u3 / phi
+            dPdzeta = u3 * dadz + abs(zeta)**(zv_o) * dbdphi * dphidzeta
+            dzvfdzeta = -zv_a * zvf * dPdzeta
+            decdzeta *= zvf
+            decdzeta += H_ * dzvfdzeta
     ec += H
 
     return ec, rs, decdrs, decda2, decdzeta
