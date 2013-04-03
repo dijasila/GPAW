@@ -313,7 +313,7 @@ class PAWSetupGenerator:
         self.ekincore = 0.0
         for l, ch in enumerate(self.aea.channels):
             for n, f in enumerate(ch.f_n):
-                if n + l + 1 in self.states[l]:
+                if l <= self.lmax and n + l + 1 in self.states[l]:
                     self.nvalence += f
                 else:
                     self.nc_g += f * ch.calculate_density(n)
@@ -396,17 +396,20 @@ class PAWSetupGenerator:
         else:
             assert rcore <= self.rcmax
 
-        gcore = self.rgd.round(rcore)
+        # Make sure pseudo density is monotonically decreasing:
+        while 1:
+            gcore = self.rgd.round(rcore)
+            self.nct_g = self.rgd.pseudize(self.nc_g, gcore)[0]
+            nt_g = self.nt_g + self.nct_g
+            dntdr_g = self.rgd.derivative(nt_g)[:gcore]
+            if dntdr_g.max() < 0.0:
+                break
+            rcore -= 0.01
 
         self.log('Constructing smooth pseudo core density for r < %.3f' %
                  rcore)
-        self.nct_g = self.rgd.pseudize(self.nc_g, gcore)[0]
-        self.nt_g += self.nct_g
+        self.nt_g = nt_g
 
-        # Make sure pseudo density is monotonically decreasing:
-        dntdr_g = self.rgd.derivative(self.nt_g)[:gcore]
-        if dntdr_g.max() > 0.0:
-            self.log('DECREASE MATCHING RADIUS FOR PSEUDO CORE DENSITY!')
         if 0:
             # Constuct function that decrease smoothly from
             # f(0)=1 to f(rcmax)=0:
@@ -1115,7 +1118,6 @@ def _generate(symbol, xc, projectors, radii,
     gen.add_waves(radii)
     gen.pseudize(*pseudize, rcore=rcore, gamma=gamma, h=h)
     gen.construct_projectors()
-
     return gen
 
 
