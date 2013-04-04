@@ -210,7 +210,7 @@ class ExperimentalDotProd:
         avalues = self.calc.density.D_asp.keys()
         for a, dD1_p, dD2_p in zip(avalues, dD1_ap, dD2_ap):
             I4_pp = setups[a].four_phi_integrals()
-            dD4_pp = np.outer(dD1_p, dD2_p)c # not sure if corresponds quite
+            dD4_pp = np.outer(dD1_p, dD2_p) # not sure if corresponds quite
             prod += (I4_pp * dD4_pp).sum()
         return prod
 
