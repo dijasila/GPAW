@@ -1,4 +1,10 @@
+import sys
+
 def agts(queue):
-    calc = queue.add('fc_butadiene.py')
+    if sys.version_info > (2, 5):
+        # needs itertools.combinations introduced in 2.6
+        calc = queue.add('fc_butadiene.py')
+    else:
+        pass
     
  
