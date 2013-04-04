@@ -15,7 +15,7 @@ from gpaw.utilities.tools import construct_reciprocal
 class BaseMixer:
     """Pulay density mixer."""
     
-    def __init__(self, beta=0.1, nmaxold=3, weight=50.0):
+    def __init__(self, beta=0.1, nmaxold=3, weight=50.0, dotprod=None):
         """Construct density-mixer object.
 
         Parameters
@@ -38,6 +38,9 @@ class BaseMixer:
         self.dNt = None
 
         self.mix_rho = False
+        
+        if dotprod is not None: # slightly ugly way to override
+            self.dotprod = dotprod
 
     def initialize_metric(self, gd):
         self.gd = gd
@@ -128,7 +131,6 @@ class BaseMixer:
 
             # Update matrix:
             A_ii = np.zeros((iold, iold))
-            i1 = 0
             i2 = iold - 1
             
             if self.metric is None:
@@ -137,11 +139,11 @@ class BaseMixer:
                 mR_G = self.mR_G
                 self.metric(R_G, mR_G)
                 
-            for R_1G in self.R_iG:
-                a = self.gd.comm.sum(np.vdot(R_1G, mR_G).real)
+            for i1, R_1G in enumerate(self.R_iG):
+                a = self.gd.comm.sum(self.dotprod(R_1G, mR_G, self.dD_iap[i1],
+                                                  self.dD_iap[-1]))
                 A_ii[i1, i2] = a
                 A_ii[i2, i1] = a
-                i1 += 1
             A_ii[:i2, :i2] = self.A_ii[-i2:, -i2:]
             self.A_ii = A_ii
 
@@ -180,6 +182,10 @@ class BaseMixer:
         for D_p in D_ap:
             self.D_iap[-1].append(D_p.copy())
 
+    # may presently be overridden by passing argument in constructor
+    def dotprod(self, R1_G, R2_G, dD1_ap, dD2_ap):
+        return np.vdot(R1_G, R2_G).real
+
     def estimate_memory(self, mem, gd):
         gridbytes = gd.bytecount()
         mem.subnode('nt_iG, R_iG', 2 * self.nmaxold * gridbytes)
@@ -190,6 +196,23 @@ class BaseMixer:
         string = template % (classname, self.beta, self.nmaxold, self.weight)
         return string
 
+
+class ExperimentalDotProd:
+    def __init__(self, calc):
+        self.calc = calc
+    
+    def __call__(self, R1_G, R2_G, dD1_ap, dD2_ap):
+        prod = np.vdot(R1_G, R2_G).real
+        setups = self.calc.wfs.setups
+        # okay, this is a bit nasty because it depends on dD1_ap
+        # and its friend having come from D_asp.values() and the dictionaries
+        # not having been modified.  This is probably true... for now.
+        avalues = self.calc.density.D_asp.keys()
+        for a, dD1_p, dD2_p in zip(avalues, dD1_ap, dD2_ap):
+            I4_pp = setups[a].four_phi_integrals()
+            dD4_pp = np.outer(dD1_p, dD2_p)c # not sure if corresponds quite
+            prod += (I4_pp * dD4_pp).sum()
+        return prod
 
 class DummyMixer(BaseMixer):
     """Dummy mixer for TDDFT, i.e., it does not mix."""
@@ -206,7 +229,8 @@ class Mixer(BaseMixer):
     def initialize(self, density):
         self.mixers = []
         for s in range(density.nspins):
-            mixer = BaseMixer(self.beta, self.nmaxold, self.weight)
+            mixer = BaseMixer(self.beta, self.nmaxold, self.weight,
+                              self.dotprod)
             mixer.initialize_metric(density.gd)
             self.mixers.append(mixer)
     
