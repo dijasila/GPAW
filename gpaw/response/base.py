@@ -74,7 +74,7 @@ class BaseChi:
         self.w_w = w
         self.eta = eta
         self.ftol = ftol
-        if type(ecut) is int or type(ecut) is float:
+        if type(ecut) is int or type(ecut) is float or type(ecut) is np.int64:
             self.ecut = np.ones(3) * ecut
         else:
             assert len(ecut) == 3

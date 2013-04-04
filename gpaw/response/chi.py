@@ -200,7 +200,7 @@ class Chi(BaseChi):
         return
 
 
-    def calculate(self, seperate_spin=None):
+    def calculate(self, seperate_spin=None, chi_new=True, chi0_wGG=None, mstart=None, mend=None):
         """Calculate the non-interacting density response function. """
 
         calc = self.calc
@@ -219,18 +219,26 @@ class Chi(BaseChi):
 
         # Matrix init
         sizeofdata = 16
-        chi0_wGG = np.zeros((self.Nw_local, self.npw, self.npw), dtype=complex)
+        if chi_new is True:
+            chi0_wGG = np.zeros((self.Nw_local, self.npw, self.npw), dtype=complex)
+        else:
+            assert chi0_wGG is not None
+            assert mstart is not None
+            chi0_wGG *= self.vol 
+            for iw in range(self.Nw_local):
+                for iG in range(self.npw):
+                    chi0_wGG[iw,iG,:iG] = 0.
+            
         sizeofint = 4
         sizeofdouble = 8
 
-        if self.cuda:
+        if self.cuda:  # currently cuda is restarted every time for every ecut !!
             print >> self.txt, 'Init Cuda! '
             print >> self.txt, '  Sync is  ', self.sync
             print >> self.txt, '  Nmultix :', nmultix
             cu = BaseCuda()
             cu.chi_init(self, chi0_wGG)
             cu.paw_init(calc.wfs, spos_ac, self)
-
         else:
             if self.hilbert_trans:
                 specfunc_wGG = np.zeros((self.NwS_local, self.npw, self.npw), dtype = complex)
@@ -398,6 +406,11 @@ class Chi(BaseChi):
                         alpha_wu = np.zeros((self.Nw_local, self.nmultix))
 
                     for m in self.mlist:
+                        if mstart is not None and m < mstart :
+                            continue
+                        if mend is not None and m >= mend:
+                            break
+
                         if self.timing: timer.start('print')
                         if self.nbands > 50 and m % 500 == 0:
                             if not self.timing:
@@ -430,7 +443,7 @@ class Chi(BaseChi):
                                         iu = 0
                                         if self.timing: timer.start('wfs_read_disk')
                                         psit_uG = np.zeros((nmultix, cu.ncoef2),complex)
-                                        while iu < nmultix  and m + iu < self.nbands:
+                                        while iu < nmultix  and m + iu < mend:
                                             if (f_skn[spin][ibzkpt1, n] - f_skn[spin][ibzkpt2, m+iu]) > self.ftol:
                                                 psit_uG[iu] = calc.wfs.kpt_u[cu.u2].psit_nG[m+iu]
                                                 mlocallist.append(m+iu)

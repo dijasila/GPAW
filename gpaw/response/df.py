@@ -51,11 +51,15 @@ class DF(Chi):
         self.df3_w = None  # NLF ALDA
         self.df4_w = None  # LF ALDA
 
-    def get_dielectric_matrix(self, xc='RPA', overwritechi0=False, symmetric=True, chi0_wGG=None, calc=None, vcut=None):
+    def get_dielectric_matrix(self, xc='RPA', overwritechi0=False, symmetric=True, chi0_wGG=None, calc=None, vcut=None,
+                              initialized=False, mstart=None, mend=None):
 
     	if self.chi0_wGG is None and chi0_wGG is None:
-            self.initialize()
-            self.calculate()
+            if not initialized:
+                self.initialize()
+            self.calculate(mend=mend)
+        elif self.chi0_wGG is not None:
+            self.calculate(chi_new=False, chi0_wGG=self.chi0_wGG, mstart=mstart, mend=mend)
         elif self.chi0_wGG is None and chi0_wGG is not None: #Read from file and reinitialize 
             self.xc = xc
             from gpaw.response.parallel import par_read 
