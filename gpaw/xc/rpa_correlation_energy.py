@@ -264,9 +264,7 @@ class RPACorrelation:
             if ecut < max(self.ecutlist_e):
                 npw, Gvec_Gc, Gindex_G = set_Gvectors(df.acell_cv, df.bcell_cv,
                                                   df.nG, np.ones(3)*ecut/Hartree, q=df.q_c)
-                mband = set_Gvectors(df.acell_cv, df.bcell_cv,
-                                                  df.nG, np.ones(3)*ecut/Hartree)[0]
-                mband_e[iecut] = mband
+                mband_e[iecut] = npw
                 for ipw in range(npw):
                     Gindex_G[ipw] = np.where(np.abs(df.Gvec_Gc - Gvec_Gc[ipw]).sum(1) < 1e-10)[0]
                     assert np.abs(df.Gvec_Gc[Gindex_G[ipw]] - Gvec_Gc[ipw]).sum() < 1e-10
@@ -279,6 +277,7 @@ class RPACorrelation:
                 mend = df.nbands
             else:
                 mend = mband_e[iecut]
+
             e_wGG = df.get_dielectric_matrix(xc='RPA',overwritechi0=False,
                                              initialized=True, mstart=mstart, mend=mend)
         
