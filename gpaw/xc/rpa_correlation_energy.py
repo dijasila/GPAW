@@ -259,12 +259,14 @@ class RPACorrelation:
         local_E_q_we = np.zeros((Nw_local, self.necut), dtype=complex)
         E_q_we = np.empty((len(self.w), self.necut), complex)
 
-        npw_e = np.zeros(self.necut, int)
+        mband_e = np.zeros(self.necut, int)
         for iecut, ecut in enumerate(self.ecutlist_e):
             if ecut < max(self.ecutlist_e):
                 npw, Gvec_Gc, Gindex_G = set_Gvectors(df.acell_cv, df.bcell_cv,
                                                   df.nG, np.ones(3)*ecut/Hartree, q=df.q_c)
-                npw_e[iecut] = npw
+                mband = set_Gvectors(df.acell_cv, df.bcell_cv,
+                                                  df.nG, np.ones(3)*ecut/Hartree)[0]
+                mband_e[iecut] = mband
                 for ipw in range(npw):
                     Gindex_G[ipw] = np.where(np.abs(df.Gvec_Gc - Gvec_Gc[ipw]).sum(1) < 1e-10)[0]
                     assert np.abs(df.Gvec_Gc[Gindex_G[ipw]] - Gvec_Gc[ipw]).sum() < 1e-10
@@ -272,12 +274,13 @@ class RPACorrelation:
             if iecut == 0:
                 mstart = 0
             else:
-                mstart = npw_e[iecut-1]
+                mstart = mband_e[iecut-1]
             if ecut == max(self.ecutlist_e):
-                mend = self.npw
+                mend = df.nbands
             else:
-                mend = npw_e[iecut]
-            e_wGG = df.get_dielectric_matrix(xc='RPA',overwritechi0=False, initialized=True, mstart=mstart, mend=mend)
+                mend = mband_e[iecut]
+            e_wGG = df.get_dielectric_matrix(xc='RPA',overwritechi0=False,
+                                             initialized=True, mstart=mstart, mend=mend)
         
             for i in range(Nw_local):
                 if ecut == max(self.ecutlist_e):
