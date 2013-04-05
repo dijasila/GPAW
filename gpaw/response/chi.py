@@ -228,6 +228,8 @@ class Chi(BaseChi):
             for iw in range(self.Nw_local):
                 for iG in range(self.npw):
                     chi0_wGG[iw,iG,:iG] = 0.
+            if self.kcomm.rank != 0 :
+                chi0_wGG[:,:,:] = 0.
             
         sizeofint = 4
         sizeofdouble = 8
