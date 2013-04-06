@@ -224,6 +224,8 @@ class Chi(BaseChi):
         else:
             assert chi0_wGG is not None
             assert mstart is not None
+            if self.cuda:
+                chi0_wGG = chi0_wGG.conj()
             chi0_wGG *= self.vol 
             for iw in range(self.Nw_local):
                 for iG in range(self.npw):

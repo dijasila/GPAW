@@ -111,9 +111,9 @@ class RPACorrelation:
                           % (iline+1), restart
                         
                 f.close()
+                qstart = iline + 1
             else:
-                IOError
-            qstart = iline + 1
+                qstart = 0
         else:
             qstart = 0
             
@@ -277,10 +277,8 @@ class RPACorrelation:
                 mend = df.nbands
             else:
                 mend = mband_e[iecut]
-
             e_wGG = df.get_dielectric_matrix(xc='RPA',overwritechi0=False,
                                              initialized=True, mstart=mstart, mend=mend)
-        
             for i in range(Nw_local):
                 if ecut == max(self.ecutlist_e):
                     local_E_q_we[i, iecut] = (np.log(np.linalg.det(e_wGG[i]))
@@ -291,9 +289,9 @@ class RPACorrelation:
                         e2_GG[ipw,:] = e_wGG[i][Gindex_G[ipw],:][Gindex_G]
                     local_E_q_we[i, iecut] = (np.log(np.linalg.det(e2_GG))
                               + len(e2_GG) - np.trace(e2_GG))
-            
+
         df.wcomm.all_gather(local_E_q_we, E_q_we)
-        del df
+        del df, e_wGG
 
         E_q_e = np.zeros(self.necut)
         for iecut, ecut in enumerate(self.ecutlist_e):
