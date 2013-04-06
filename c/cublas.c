@@ -17,7 +17,7 @@ PyObject* cuZscal(PyObject *self, PyObject *args)
 
   if (!PyArg_ParseTuple(args, "LiDLi",&handle, &n, &alpha, &x, &incx))
     return NULL;
-  CudaSafeCall(cublasZscal(handle, n, &alpha, x, incx));
+  CublasSafeCall(cublasZscal(handle, n, &alpha, x, incx));
   CudaCheckError();
   Py_RETURN_NONE;
 }
@@ -38,7 +38,7 @@ PyObject* cugemm(PyObject *self, PyObject *args)
 
   if (!PyArg_ParseTuple(args, "LDLLDLiiiiii|ii",&handle, &alpha, &a, &b, &beta, &c,&n, &m, &k, &lda, &ldb, &ldc, &transb, &transa))
     return NULL;
-  CudaSafeCall(cublasZgemm(handle, 
+  CublasSafeCall(cublasZgemm(handle, 
                            transa,
                            transb, 
                            m,
@@ -69,7 +69,7 @@ PyObject* cudgmm(PyObject *self, PyObject *args)
 
   if (!PyArg_ParseTuple(args, "LLLLiiiii|i",&handle, &A, &x, &C, &n, &m, &lda, &ldc, &incx, &mode))
     return NULL;
-  CudaSafeCall(cublasZdgmm(handle, mode, m, n, A, lda, x, incx, C, ldc));
+  CublasSafeCall(cublasZdgmm(handle, mode, m, n, A, lda, x, incx, C, ldc));
   CudaCheckError();
   Py_RETURN_NONE;
 }
@@ -92,7 +92,7 @@ PyObject* cuCgemv(PyObject *self, PyObject *args)
   betacomplex = make_cuFloatComplex(beta,0.0);
   /*  printf("alpha %f %f\n",cuCrealf(alphacomplex),cuCimagf(alphacomplex)); */
 
-  CudaSafeCall(cublasCgemv(handle, trans, m, n,
+  CublasSafeCall(cublasCgemv(handle, trans, m, n,
                            &alphacomplex, /* host or device pointer */
                            a, lda,
                            x, incx,
@@ -119,7 +119,7 @@ PyObject* cuZgemv(PyObject *self, PyObject *args)
   /*   printf("m %d n %d lda %d incx %d incy %d\n", */
   /* 	 m,n,lda,incx,incy); */
 
-  CudaSafeCall(cublasZgemv(handle, trans, m, n,
+  CublasSafeCall(cublasZgemv(handle, trans, m, n,
                            &alpha, /* host or device pointer */
                            a, lda,
                            x, incx,
@@ -139,7 +139,7 @@ PyObject* cuCreate(PyObject *self, PyObject *args)
     return NULL;
 
   if (devid>=0) cudaSetDevice(devid);
-  CudaSafeCall(cudaStat=cublasCreate(&handle));
+  CublasSafeCall(cudaStat=cublasCreate(&handle));
   CudaCheckError();
   if (cudaStat != cudaSuccess) {
     printf("cublasCreate failed %d\n",cudaStat);
@@ -155,7 +155,7 @@ PyObject* cuDestroy(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "i",&handle))
     return NULL;
 
-  CudaSafeCall(cudaStat = cublasDestroy(handle));
+  CublasSafeCall(cudaStat = cublasDestroy(handle));
   CudaCheckError();
   if (cudaStat != cudaSuccess) {
     printf("cublasDestroy failed %d\n",cudaStat);
@@ -224,7 +224,7 @@ PyObject* cuSetMatrix(PyObject *self, PyObject *args)
   const void *a = VOIDP(x);
   /*   printf("%d %d %d %p %d %p %d\n",m,n,elemsize,a,lda,devPtr,ldb); */
   cudaError_t cudaStat;
-  CudaSafeCall(cudaStat = cublasSetMatrix(m,n,elemsize,a,lda,devPtr,ldb));
+  CublasSafeCall(cudaStat = cublasSetMatrix(m,n,elemsize,a,lda,devPtr,ldb));
   CudaCheckError();
   if (cudaStat != cudaSuccess) {
     printf("cublasSetMatrix failed %d\n",cudaStat);
@@ -243,7 +243,7 @@ PyObject* cuGetMatrix(PyObject *self, PyObject *args)
   void *b = VOIDP(x);
   /*   printf("%d %d %d %p %d %p %d\n",m,n,elemsize,devPtr,lda,b,ldb); */
   cudaError_t cudaStat;
-  CudaSafeCall(cudaStat = cublasGetMatrix(m,n,elemsize,devPtr,lda,b,ldb));
+  CublasSafeCall(cudaStat = cublasGetMatrix(m,n,elemsize,devPtr,lda,b,ldb));
   CudaCheckError();
   if (cudaStat != cudaSuccess) {
     printf("cublasGetMatrix failed %d\n",cudaStat);
@@ -262,7 +262,7 @@ PyObject* cuSetVector(PyObject *self, PyObject *args)
   const void *ptr = VOIDP(x);
   /*   printf("%d %d %p %d %p %d\n",n,elemsize,ptr,incx,devPtr,incy); */
   cudaError_t cudaStat;
-  CudaSafeCall(cudaStat = cublasSetVector(n,elemsize,ptr,incx,devPtr,incy));
+  CublasSafeCall(cudaStat = cublasSetVector(n,elemsize,ptr,incx,devPtr,incy));
   CudaCheckError();
   if (cudaStat != cudaSuccess) {
     printf("cublasSetVector failed %d\n",cudaStat);
@@ -281,7 +281,7 @@ PyObject* cuGetVector(PyObject *self, PyObject *args)
   void *ptr = VOIDP(y);
   /*   printf("%d %d %p %d %p %d\n",n,elemsize,devPtr,incx,ptr,incy); */
   cudaError_t cudaStat;
-  CudaSafeCall(cudaStat = cublasGetVector(n,elemsize,devPtr,incx,ptr,incy));
+  CublasSafeCall(cudaStat = cublasGetVector(n,elemsize,devPtr,incx,ptr,incy));
   CudaCheckError();
   if (cudaStat != cudaSuccess) {
     printf("cublasGetVector failed %d\n",cudaStat);
@@ -306,7 +306,7 @@ PyObject* cuZher(PyObject *self, PyObject *args)
 
   cudaError_t cudaStat;
   /*   printf("%p %d %d %f %p %d %p %d\n",handle,uplo,n,alpha,x,incx,A,lda); */
-  CudaSafeCall(cudaStat = cublasZher(handle,uplo,n,&alpha,x,incx,A,lda));
+  CublasSafeCall(cudaStat = cublasZher(handle,uplo,n,&alpha,x,incx,A,lda));
   CudaCheckError();
   if (cudaStat != cudaSuccess) {
     printf("cublasZher failed %d\n",cudaStat);
@@ -332,7 +332,7 @@ PyObject* cuZherk(PyObject *self, PyObject *args)
 
   cudaError_t cudaStat;
   /*   printf("%p %d %d %f %p %d %p %d\n",handle,uplo,n,alpha,x,incx,A,lda); */
-  CudaSafeCall(cudaStat = cublasZherk(handle,uplo,trans, n,k,&alpha,A,lda,&beta,C,ldc));
+  CublasSafeCall(cudaStat = cublasZherk(handle,uplo,trans, n,k,&alpha,A,lda,&beta,C,ldc));
   CudaCheckError();
   if (cudaStat != cudaSuccess) {
     printf("cublasZherk failed %d\n",cudaStat);
@@ -415,7 +415,7 @@ PyObject* cuCher(PyObject *self, PyObject *args)
 
   cudaError_t cudaStat;
   /*   printf("%p %d %d %f %p %d %p %d\n",handle,uplo,n,alpha,x,incx,A,lda); */
-  CudaSafeCall(cudaStat = cublasCher(handle,uplo,n,&alpha,x,incx,A,lda));
+  CublasSafeCall(cudaStat = cublasCher(handle,uplo,n,&alpha,x,incx,A,lda));
   CudaCheckError();
   if (cudaStat != cudaSuccess) {
     printf("cublasZher failed %d\n",cudaStat);
