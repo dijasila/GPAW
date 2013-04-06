@@ -223,10 +223,10 @@ PyObject* cuSetMatrix(PyObject *self, PyObject *args)
     return NULL;
   const void *a = VOIDP(x);
   /*   printf("%d %d %d %p %d %p %d\n",m,n,elemsize,a,lda,devPtr,ldb); */
-  cudaError_t cudaStat;
+  cublasStatus_t cudaStat;
   CublasSafeCall(cudaStat = cublasSetMatrix(m,n,elemsize,a,lda,devPtr,ldb));
   CudaCheckError();
-  if (cudaStat != cudaSuccess) {
+  if (cudaStat != CUBLAS_STATUS_SUCCESS) {
     printf("cublasSetMatrix failed %d\n",cudaStat);
     return NULL;
   }
@@ -242,10 +242,10 @@ PyObject* cuGetMatrix(PyObject *self, PyObject *args)
     return NULL;
   void *b = VOIDP(x);
   /*   printf("%d %d %d %p %d %p %d\n",m,n,elemsize,devPtr,lda,b,ldb); */
-  cudaError_t cudaStat;
+  cublasStatus_t cudaStat;
   CublasSafeCall(cudaStat = cublasGetMatrix(m,n,elemsize,devPtr,lda,b,ldb));
   CudaCheckError();
-  if (cudaStat != cudaSuccess) {
+  if (cudaStat != CUBLAS_STATUS_SUCCESS) {
     printf("cublasGetMatrix failed %d\n",cudaStat);
     return NULL;
   }
@@ -261,10 +261,11 @@ PyObject* cuSetVector(PyObject *self, PyObject *args)
     return NULL;
   const void *ptr = VOIDP(x);
   /*   printf("%d %d %p %d %p %d\n",n,elemsize,ptr,incx,devPtr,incy); */
-  cudaError_t cudaStat;
+
+  cublasStatus_t cudaStat;
   CublasSafeCall(cudaStat = cublasSetVector(n,elemsize,ptr,incx,devPtr,incy));
   CudaCheckError();
-  if (cudaStat != cudaSuccess) {
+  if (cudaStat != CUBLAS_STATUS_SUCCESS) {
     printf("cublasSetVector failed %d\n",cudaStat);
     return NULL;
   }
@@ -280,10 +281,10 @@ PyObject* cuGetVector(PyObject *self, PyObject *args)
     return NULL;
   void *ptr = VOIDP(y);
   /*   printf("%d %d %p %d %p %d\n",n,elemsize,devPtr,incx,ptr,incy); */
-  cudaError_t cudaStat;
+  cublasStatus_t cudaStat;
   CublasSafeCall(cudaStat = cublasGetVector(n,elemsize,devPtr,incx,ptr,incy));
   CudaCheckError();
-  if (cudaStat != cudaSuccess) {
+  if (cudaStat != CUBLAS_STATUS_SUCCESS) {
     printf("cublasGetVector failed %d\n",cudaStat);
     return NULL;
   }
@@ -304,11 +305,11 @@ PyObject* cuZher(PyObject *self, PyObject *args)
                         &A,&lda))
     return NULL;
 
-  cudaError_t cudaStat;
+  cublasStatus_t cudaStat;
   /*   printf("%p %d %d %f %p %d %p %d\n",handle,uplo,n,alpha,x,incx,A,lda); */
   CublasSafeCall(cudaStat = cublasZher(handle,uplo,n,&alpha,x,incx,A,lda));
   CudaCheckError();
-  if (cudaStat != cudaSuccess) {
+  if (cudaStat != CUBLAS_STATUS_SUCCESS) {
     printf("cublasZher failed %d\n",cudaStat);
     return NULL;
   }
@@ -330,11 +331,11 @@ PyObject* cuZherk(PyObject *self, PyObject *args)
 			&beta, &C, &ldc))
     return NULL;
 
-  cudaError_t cudaStat;
+  cublasStatus_t cudaStat;
   /*   printf("%p %d %d %f %p %d %p %d\n",handle,uplo,n,alpha,x,incx,A,lda); */
   CublasSafeCall(cudaStat = cublasZherk(handle,uplo,trans, n,k,&alpha,A,lda,&beta,C,ldc));
   CudaCheckError();
-  if (cudaStat != cudaSuccess) {
+  if (cudaStat != CUBLAS_STATUS_SUCCESS) {
     printf("cublasZherk failed %d\n",cudaStat);
     return NULL;
   }
@@ -413,11 +414,11 @@ PyObject* cuCher(PyObject *self, PyObject *args)
                         &A,&lda))
     return NULL;
 
-  cudaError_t cudaStat;
   /*   printf("%p %d %d %f %p %d %p %d\n",handle,uplo,n,alpha,x,incx,A,lda); */
+  cublasStatus_t cudaStat;
   CublasSafeCall(cudaStat = cublasCher(handle,uplo,n,&alpha,x,incx,A,lda));
   CudaCheckError();
-  if (cudaStat != cudaSuccess) {
+  if (cudaStat != CUBLAS_STATUS_SUCCESS) {
     printf("cublasZher failed %d\n",cudaStat);
     return NULL;
   }
