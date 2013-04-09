@@ -589,7 +589,7 @@ extern "C" {
 
     long* offsets_gpu;
 
-
+    
     if ((boundary & GPAW_BOUNDARY_SKIP) != 0) {
       if  (!bmgs_fd_boundary_test(s_gpu,boundary))
 	return;
@@ -600,7 +600,7 @@ extern "C" {
 	boundary|=GPAW_BOUNDARY_NORMAL;
       }
     }
-
+    
     hc_n.x=s_gpu->n[0];    hc_n.y=s_gpu->n[1];    hc_n.z=s_gpu->n[2];
     hc_j.x=s_gpu->j[0];    hc_j.y=s_gpu->j[1];    hc_j.z=s_gpu->j[2];
 
@@ -922,8 +922,10 @@ extern "C" {
     hc_n.x-=bjb.x;    hc_n.y-=bjb.y;    hc_n.z-=bjb.z;
     
     
-    if (hc_n.x<1 || hc_n.y<(BLOCK_Y_B) || 
-	hc_n.z<(BLOCK_X_B))
+    if (hc_n.x<4 || hc_n.y<1 || hc_n.z<1)
+      return 0;
+
+    if ((hc_n.y/(BLOCK_Y))*(hc_n.z/(BLOCK_X)) < 20)
       return 0;
     
     return 1;        
@@ -983,28 +985,6 @@ extern "C" {
 	ncoefs++;
       }
     }
-    /*    
-	  fprintf(stdout,"ncoefs %d\t", ncoefs);
-	  for(int i = 0; i < ncoefs; ++i)
-      fprintf(stdout,"(%lf %d)\t", coefs[i], offsets[i]);
-    fprintf(stdout,"\n");
-    fprintf(stdout,"ncoefs0 %d\t", ncoefs0);
-    for(int i = 0; i < ncoefs0; ++i)
-      fprintf(stdout,"(%lf %d)\t", coefs0[i], offsets0[i]);
-    fprintf(stdout,"\n");
-    fprintf(stdout,"ncoefs1 %d\t", ncoefs1);
-    for(int i = 0; i < ncoefs1; ++i)
-      fprintf(stdout,"(%lf %d)\t", coefs1[i], offsets1[i]);
-    fprintf(stdout,"\n");
-    fprintf(stdout,"ncoefs2 %d\t", ncoefs2);
-    for(int i = 0; i < ncoefs2; ++i)
-      fprintf(stdout,"(%lf %d)\t", coefs2[i], offsets2[i]);
-    fprintf(stdout,"\n");
-    fprintf(stdout,"ncoefs12 %d\t", ncoefs12);
-    for(int i = 0; i < ncoefs12; ++i)
-      fprintf(stdout,"(%lf %d)\t", coefs12[i], offsets12[i]);
-    fprintf(stdout,"\n");
-    */
     s_gpu.ncoefs=ncoefs;
     s_gpu.ncoefs0=ncoefs0;
     s_gpu.ncoefs1=ncoefs1;

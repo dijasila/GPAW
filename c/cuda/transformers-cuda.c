@@ -143,9 +143,12 @@ PyObject* Transformer_apply_cuda_gpu(TransformerObject *self, PyObject *args)
     GPAW_CUDAMEMCPY(out_cpu,out2,double, out_ng * myblocks, cudaMemcpyDeviceToHost);
 #endif //DEBUG_CUDA_TRANSFORMER
     if (self->interpolate){    
+      bc_unpack_paste_cuda_gpu(bc, in2, buf,
+			       recvreq,
+			       0, myblocks);
       for (int i = 0; i < 3; i++){
 	bc_unpack_cuda_gpu(bc, in2, buf, i,
-			   recvreq[0], sendreq[0],
+			   recvreq, sendreq[i],
 			   ph+2*i, 0, myblocks);
       }
       /*
@@ -168,9 +171,12 @@ PyObject* Transformer_apply_cuda_gpu(TransformerObject *self, PyObject *args)
 				   myblocks);
       }
     }else  {
+      bc_unpack_paste_cuda_gpu(bc, in2, buf,
+			       recvreq,
+			       0, myblocks);
       for (int i = 0; i < 3; i++){
 	bc_unpack_cuda_gpu(bc, in2, buf, i,
-			   recvreq[0], sendreq[0],
+			   recvreq, sendreq[i],
 			   ph+2*i, 0, myblocks);
       }
       /*

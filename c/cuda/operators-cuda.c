@@ -20,7 +20,10 @@
 #define DEBUG_CUDA_OPERATOR 
 #endif //DEBUG_CUDA
 
-static cudaStream_t operator_stream[2];
+#define OPERATOR_NSTREAMS (2)
+
+static cudaStream_t operator_stream[OPERATOR_NSTREAMS];
+static cudaEvent_t operator_event[2];
 static int operator_streams = 0;
 
 static double *operator_buf_gpu=NULL;
@@ -42,7 +45,7 @@ void operator_init_cuda(OperatorObject *self)
 }
 
 
-void operator_alloc_buffers(OperatorObject *self,int blocks,int async)
+void operator_alloc_buffers(OperatorObject *self,int blocks)
 {
   const boundary_conditions* bc = self->bc;
   const int* size2 = bc->size2;  
@@ -56,11 +59,16 @@ void operator_alloc_buffers(OperatorObject *self,int blocks,int async)
     GPAW_CUDAMALLOC(&operator_buf_gpu, double,operator_buf_max);    
     operator_buf_size=operator_buf_max;
   }
-  if  (async && (!operator_streams)){
-    for (int i=0;i<2;i++){
+  if  (!operator_streams){
+    for (int i=0;i<OPERATOR_NSTREAMS;i++){
       cudaStreamCreate(&(operator_stream[i]));
     }
-    operator_streams=2;
+    for (int i=0;i<2;i++){
+      cudaEventCreateWithFlags(&operator_event[i],
+			       cudaEventDefault|cudaEventDisableTiming);
+    }
+
+    operator_streams=OPERATOR_NSTREAMS;
   }
 }
 
@@ -77,10 +85,14 @@ void operator_dealloc_cuda(int force)
 {
   if (force || (operator_init_count==1)) {
     cudaFree(operator_buf_gpu);
-    if (operator_streams)
-      for (int i=0;i<2;i++){
+    if (operator_streams){
+      for (int i=0;i<OPERATOR_NSTREAMS;i++){
 	cudaStreamDestroy(operator_stream[i]);
       }
+      for (int i=0;i<2;i++){
+	cudaEventDestroy(operator_event[i]);  
+      }      
+    }
     cudaGetLastError();
     operator_init_buffers_cuda();
     return;
@@ -94,7 +106,7 @@ PyObject * Operator_relax_cuda_gpu(OperatorObject *self,
   int relax_method;
   CUdeviceptr func_gpu;
   CUdeviceptr source_gpu;
-  
+
   double w = 1.0;
   int nrelax;
   if (!PyArg_ParseTuple(args, "inni|d", &relax_method, &func_gpu, &source_gpu, &nrelax, &w))
@@ -133,21 +145,8 @@ PyObject * Operator_relax_cuda_gpu(OperatorObject *self,
   ph = 0;
 
   int blocks=1;
-
-  int nsends=(bc->nsend[0][0]+bc->nsend[0][1]+bc->nsend[1][0]+bc->nsend[1][1]+
-	      bc->nsend[2][0]+bc->nsend[2][1])*blocks;
-  
-  int nrecvs=(bc->nrecv[0][0]+bc->nrecv[0][1]+bc->nrecv[1][0]+bc->nrecv[1][1]+
-	       bc->nrecv[2][0]+bc->nrecv[2][1])*blocks;
-
-  int cuda_split_boundary=0;
-  int cuda_async=0;
-  if (MAX(nsends,nrecvs)*sizeof(double)>GPAW_CUDA_ASYNC_SIZE) {
-    cuda_async=1;
-  }
-
-  gpaw_cudaSafeCall(cudaGetLastError());
-  operator_alloc_buffers(self,blocks,cuda_async);
+	      
+  operator_alloc_buffers(self,blocks);
 
   int boundary=0;
   
@@ -164,51 +163,54 @@ PyObject * Operator_relax_cuda_gpu(OperatorObject *self,
   if (bc->sendproc[2][1]!= DO_NOTHING)
     boundary|=GPAW_BOUNDARY_Z1;
 
-  cuda_split_boundary=bmgs_fd_boundary_test(&self->stencil_gpu,boundary);
-  cudaStreamSynchronize(0);     
+  int cuda_overlap=bmgs_fd_boundary_test(&self->stencil_gpu,boundary);
 
+  int nsendrecvs=0;
+  for (int i=0;i<3;i++)
+    for (int j=0;j<2;j++)
+      nsendrecvs=MAX(nsendrecvs,
+		     MAX(bc->nsend[i][j],bc->nrecv[i][j])*blocks*sizeof(double));
+
+  cuda_overlap&=(nsendrecvs>GPAW_CUDA_OVERLAP_SIZE);  
+
+  if  (cuda_overlap) 
+    cudaEventRecord(operator_event[1], 0);
+  
   for (int n = 0; n < nrelax; n++ )    {
 #ifdef DEBUG_CUDA_OPERATOR
-  GPAW_CUDAMEMCPY(fun_cpu,fun,double, ng, cudaMemcpyDeviceToHost);
-  GPAW_CUDAMEMCPY(src_cpu,src,double, ng, cudaMemcpyDeviceToHost);
+    GPAW_CUDAMEMCPY(fun_cpu,fun,double, ng, cudaMemcpyDeviceToHost);
+    GPAW_CUDAMEMCPY(src_cpu,src,double, ng, cudaMemcpyDeviceToHost);
 #endif //DEBUG_CUDA_OPERATOR
-    if (!cuda_async){/*
-      for (int i = 0; i < 3; i++){
-	  bc_unpack1_cuda_gpu(bc, fun, operator_buf_gpu, i,
-			      recvreq[0], sendreq[0],
-			      self->recvbuf, self->sendbuf, 
-			      self->sendbuf_gpu, 
-			      ph+2*i, 0, 1);
-	  bc_unpack2_cuda_gpu(bc, operator_buf_gpu, i,
-			      recvreq[0], sendreq[0], 
-			      self->recvbuf,self->recvbuf_gpu, 1);
-			      }*/
-      bc_unpack_cuda_gpu_all(bc, fun, operator_buf_gpu,recvreq,sendreq,
-			 ph, 0, 1);
+    if  (cuda_overlap) {
+      cudaStreamWaitEvent(operator_stream[0],operator_event[1],0);
+      bc_unpack_paste_cuda_gpu(bc, fun, operator_buf_gpu,
+			       recvreq,
+			       operator_stream[0], 1);
+      cudaEventRecord(operator_event[0], operator_stream[0]);
       bmgs_relax_cuda_gpu(relax_method, &self->stencil_gpu, operator_buf_gpu, 
-			  fun, src, w,GPAW_BOUNDARY_NORMAL,0);
-    }else if  (cuda_split_boundary) {	
-      cudaStreamSynchronize(operator_stream[1]);      
-      bc_unpack1_cuda_gpu_async_all(bc, fun, operator_buf_gpu,recvreq,sendreq,
-				    ph, operator_stream[0], 1);
-      bmgs_relax_cuda_gpu(relax_method, &self->stencil_gpu, operator_buf_gpu, fun,
-			  src, w,boundary|GPAW_BOUNDARY_SKIP,
+			  fun, src, w,boundary|GPAW_BOUNDARY_SKIP,
 			  operator_stream[0]);
-      
-      bc_unpack2_cuda_gpu_async_all(bc, fun, operator_buf_gpu,recvreq,sendreq,
-				    ph, operator_stream[1], 1);
-      bmgs_relax_cuda_gpu(relax_method, &self->stencil_gpu, operator_buf_gpu, fun,
-			  src, w,boundary|GPAW_BOUNDARY_ONLY,
-			  operator_stream[1]);	
-    } else {
-      bc_unpack1_cuda_gpu_async_all(bc, fun, operator_buf_gpu,recvreq,sendreq,
-				    ph, 0, 1);
-      bc_unpack2_cuda_gpu_async_all(bc, fun, operator_buf_gpu,recvreq,sendreq,
-				    ph, 0, 1);
+      cudaStreamWaitEvent(operator_stream[1],operator_event[0],0);
+      for (int i = 0; i < 3; i++){
+	bc_unpack_cuda_gpu_async(bc, fun, operator_buf_gpu, i,
+				 recvreq, sendreq[i],
+				 ph+2*i, operator_stream[1],1);
+      }	
+      bmgs_relax_cuda_gpu(relax_method, &self->stencil_gpu, operator_buf_gpu, 
+			  fun, src, w,boundary|GPAW_BOUNDARY_ONLY,
+			  operator_stream[1]); 
+      cudaEventRecord(operator_event[1], operator_stream[1]);
+    }else{
+      bc_unpack_paste_cuda_gpu(bc, fun, operator_buf_gpu,recvreq,
+			       0, 1);
+      for (int i = 0; i < 3; i++){
+	bc_unpack_cuda_gpu(bc, fun, operator_buf_gpu, i,
+			   recvreq, sendreq[i],
+			   ph+2*i, 0,1);
+      }
       bmgs_relax_cuda_gpu(relax_method, &self->stencil_gpu, operator_buf_gpu, 
 			  fun, src, w,GPAW_BOUNDARY_NORMAL,0);
-      
-    }
+    } 
 #ifdef DEBUG_CUDA_OPERATOR
     for (int i = 0; i < 3; i++)   {
       bc_unpack1(bc, fun_cpu, buf_cpu, i,
@@ -258,24 +260,15 @@ PyObject * Operator_relax_cuda_gpu(OperatorObject *self,
   free(fun_cpu2);
   
 #endif //DEBUG_CUDA_OPERATOR
-  cudaStreamSynchronize(operator_stream[0]);      
-  cudaStreamSynchronize(operator_stream[1]);      
+  if (cuda_overlap) {
+    cudaStreamWaitEvent(0,operator_event[1],0);
+    cudaStreamSynchronize(operator_stream[0]);      
+  }
   if (PyErr_Occurred())
     return NULL;
   else
     Py_RETURN_NONE;
 }
-
-
-/*
-  intput->nd number of dimensions 
-  input->dimensions[0]; An array of integers providing the shape in each dimension 
-  input->descr->type_num A number that uniquely identifies the data type.
-  DOUBLEP(input);  ((double*)((a)->data))
-  DOUBLEP(output); ((double*)((a)->data))
-
- */
-
 
 
 PyObject * Operator_apply_cuda_gpu(OperatorObject *self,
@@ -310,14 +303,6 @@ PyObject * Operator_apply_cuda_gpu(OperatorObject *self,
 
   MPI_Request recvreq[3][2];
   MPI_Request sendreq[3][2];
-  /*
-  double *sendbuf[3][2];
-  double *recvbuf[3][2];
-  double *sendbuf_gpu[3][2];
-  double *recvbuf_gpu[3][2];
-  */
-
-
 
   if (real)
     ph = 0;
@@ -342,58 +327,9 @@ PyObject * Operator_apply_cuda_gpu(OperatorObject *self,
   double* buf_cpu2=GPAW_MALLOC(double, ng2 * blocks);
   double* out_cpu2=GPAW_MALLOC(double, ng * blocks);  
 #endif //DEBUG_CUDA_OPERATOR
-
-  int nsends=(bc->nsend[0][0]+bc->nsend[0][1]+bc->nsend[1][0]+bc->nsend[1][1]+
-	      bc->nsend[2][0]+bc->nsend[2][1])*blocks;
   
-  int nrecvs=(bc->nrecv[0][0]+bc->nrecv[0][1]+bc->nrecv[1][0]+bc->nrecv[1][1]+
-	      bc->nrecv[2][0]+bc->nrecv[2][1])*blocks;
-  
-  int cuda_split_boundary=0;
-  int cuda_async=0;
-  if ((MAX(nsends,nrecvs)*sizeof(double)>GPAW_CUDA_ASYNC_SIZE) ) {
-    /*    if (blocks>1) {
-      printf("oper async blocks %d cal size %d %d %d nin %d\n",blocks,size1[0],size1[1],size1[2],nin);
-      if (!bmgs_fd_async_test(&self->stencil_gpu))
-	printf("oper no async blocks %d cal size %d %d %d nin %d\n",blocks,size1[0],size1[1],size1[2],nin);
-	}*/
-     cuda_async=1;
-    /*    if  (!operator_streams){
-      for (int i=0;i<2;i++){
-	cudaStreamCreate(&(operator_stream[i]));
-	}
-      operator_streams=2;
-      }*/
+  operator_alloc_buffers(self,blocks);
 
-  }
-
-  /*
-  if (cuda_async && !cuda_split_boundary)
-    printf("async no split blocks %d cal size %d %d %d nin %d nsends %d\n",blocks,size1[0],size1[1],size1[2],nin,nsends);
-  else if (cuda_async)
-    printf("async split blocks %d cal size %d %d %d nin %d nsends %d\n",blocks,size1[0],size1[1],size1[2],nin,nsends);
-  */
-  operator_alloc_buffers(self,blocks,cuda_async);
-  //  if (blocks>self->alloc_blocks){
-    //printf("blocks %d cal %d %d %d %d\n",blocks,(160*160*160)/(size1[0]*size1[1]*size1[2]),size1[0],size1[1],size1[2]);
-    /*    if (self->buf_gpu) cudaFree(self->buf_gpu);
-	  GPAW_CUDAMALLOC(&(self->buf_gpu), double,  ng2 *  blocks);*/
-    /*
-    if (nsends>0) {
-      if (self->sendbuf) cudaFreeHost(self->sendbuf);
-      GPAW_CUDAMALLOC_HOST(&(self->sendbuf),double, nsends);
-      if (self->sendbuf_gpu) cudaFree(self->sendbuf_gpu);
-      GPAW_CUDAMALLOC(&(self->sendbuf_gpu),double, nsends);
-    }
-    if (nrecvs>0) {
-      if (self->recvbuf) cudaFreeHost(self->recvbuf);
-      GPAW_CUDAMALLOC_HOST(&(self->recvbuf),double, nrecvs);
-      if (self->recvbuf_gpu) cudaFree(self->recvbuf_gpu);
-      GPAW_CUDAMALLOC(&(self->recvbuf_gpu),double, nrecvs);
-    }
-    */
-  /*  self->alloc_blocks=blocks;
-      }*/
   int boundary=0;
   
   if (bc->sendproc[0][0]!= DO_NOTHING)
@@ -408,12 +344,20 @@ PyObject * Operator_apply_cuda_gpu(OperatorObject *self,
     boundary|=GPAW_BOUNDARY_Z0;
   if (bc->sendproc[2][1]!= DO_NOTHING)
     boundary|=GPAW_BOUNDARY_Z1;  
+
+  int cuda_overlap=bmgs_fd_boundary_test(&self->stencil_gpu,boundary);
+
+  int nsendrecvs=0;
+  for (int i=0;i<3;i++)
+    for (int j=0;j<2;j++)
+      nsendrecvs=MAX(nsendrecvs,
+		     MAX(bc->nsend[i][j],bc->nrecv[i][j])*blocks*sizeof(double));
   
-  cuda_split_boundary=bmgs_fd_boundary_test(&self->stencil_gpu,boundary);
+  cuda_overlap&=(nsendrecvs>GPAW_CUDA_OVERLAP_SIZE);
 
-  cudaStreamSynchronize(0);        
-
-  //printf("apply %d %d %d\n",blocks,self->alloc_blocks,ng2);  fflush(stdout);
+  if  (cuda_overlap) 
+    cudaEventRecord(operator_event[1], 0);
+  
   for (int n = 0; n < nin; n+=blocks)    {
     const double* in2 = in + n * ng;
     double* out2 = out + n * ng;
@@ -422,36 +366,13 @@ PyObject * Operator_apply_cuda_gpu(OperatorObject *self,
     GPAW_CUDAMEMCPY(in_cpu,in2,double, ng * myblocks, cudaMemcpyDeviceToHost); 
     GPAW_CUDAMEMCPY(out_cpu,out2,double, ng * myblocks, cudaMemcpyDeviceToHost);
 #endif //DEBUG_CUDA_OPERATOR
-    if (!cuda_async){
-      /*
-      for (int i = 0; i < 3; i++){
-	bc_unpack1_cuda_gpu(bc, in2, operator_buf_gpu, i,
-			    recvreq[0], sendreq[0],
-			    self->recvbuf, self->sendbuf, 
-			    self->sendbuf_gpu, 
-			    ph+2*i, 0, myblocks);
-	bc_unpack2_cuda_gpu(bc, operator_buf_gpu, i,
-			    recvreq[0], sendreq[0], 
-			    self->recvbuf,self->recvbuf_gpu, myblocks);
-      }
-      */
-      bc_unpack_cuda_gpu_all(bc, in2, operator_buf_gpu,recvreq,sendreq,
-			 ph,0, myblocks);
-      if (real){
-	bmgs_fd_cuda_gpu(&self->stencil_gpu, operator_buf_gpu,out2,
-			 GPAW_BOUNDARY_NORMAL,
-			 myblocks,0);
-      }else{
-	bmgs_fd_cuda_gpuz(&self->stencil_gpu, 
-			  (const cuDoubleComplex*)operator_buf_gpu,
-			  (cuDoubleComplex*)out2,GPAW_BOUNDARY_NORMAL,myblocks,0);
-      }
-      
-    } else if (cuda_split_boundary) {      
-      
-      cudaStreamSynchronize(operator_stream[1]);      
-      bc_unpack1_cuda_gpu_async_all(bc, in2, operator_buf_gpu,recvreq,sendreq,
-				    ph,operator_stream[0], myblocks);
+    if (cuda_overlap) {      
+      //printf("fd split\n");
+      cudaStreamWaitEvent(operator_stream[0],operator_event[1],0);
+      bc_unpack_paste_cuda_gpu(bc, in2, operator_buf_gpu,
+			       recvreq,
+			       operator_stream[0], myblocks);
+      cudaEventRecord(operator_event[0], operator_stream[0]);
       if (real){
 	bmgs_fd_cuda_gpu(&self->stencil_gpu, operator_buf_gpu,out2,
 			 boundary|GPAW_BOUNDARY_SKIP,
@@ -464,8 +385,13 @@ PyObject * Operator_apply_cuda_gpu(OperatorObject *self,
 			  myblocks,
 			  operator_stream[0]);
       }
-      bc_unpack2_cuda_gpu_async_all(bc, in2, operator_buf_gpu,recvreq,sendreq,
-				    ph,operator_stream[1], myblocks);
+      cudaStreamWaitEvent(operator_stream[1],operator_event[0],0);
+      for (int i = 0; i < 3; i++){
+	bc_unpack_cuda_gpu_async(bc, in2, operator_buf_gpu, i,
+				 recvreq, sendreq[i],
+				 ph+2*i, operator_stream[1],  myblocks);
+	
+      }	
       if (real){
 	bmgs_fd_cuda_gpu(&self->stencil_gpu, operator_buf_gpu,out2,
 			 boundary|GPAW_BOUNDARY_ONLY,
@@ -473,24 +399,30 @@ PyObject * Operator_apply_cuda_gpu(OperatorObject *self,
       }else{
 	bmgs_fd_cuda_gpuz(&self->stencil_gpu, 
 			  (const cuDoubleComplex*)operator_buf_gpu,
-			  (cuDoubleComplex*)out2,boundary|GPAW_BOUNDARY_ONLY,
+			  (cuDoubleComplex*)out2,
+			  boundary|GPAW_BOUNDARY_ONLY,
 			  myblocks,operator_stream[1]);
       }
-    } else {
-      bc_unpack1_cuda_gpu_async_all(bc, in2, operator_buf_gpu,recvreq,sendreq,
-				    ph,0, myblocks);
-      bc_unpack2_cuda_gpu_async_all(bc, in2, operator_buf_gpu,recvreq,sendreq,
-				    ph,0, myblocks);
-      
-      if (real){
+      cudaEventRecord(operator_event[1], operator_stream[1]);
+    }else{
+      bc_unpack_paste_cuda_gpu(bc, in2, operator_buf_gpu,
+			       recvreq,
+			       0, myblocks);
+      for (int i = 0; i < 3; i++){
+	bc_unpack_cuda_gpu(bc, in2, operator_buf_gpu, i,
+			   recvreq, sendreq[i],
+			   ph+2*i, 0, myblocks);
+      }
+      if (real)
 	bmgs_fd_cuda_gpu(&self->stencil_gpu, operator_buf_gpu,out2,
 			 GPAW_BOUNDARY_NORMAL,
 			 myblocks,0);
-      }else{
+      else
 	bmgs_fd_cuda_gpuz(&self->stencil_gpu, 
-			  (const cuDoubleComplex*)operator_buf_gpu,
-			  (cuDoubleComplex*)out2,GPAW_BOUNDARY_NORMAL,myblocks,0);
-      }
+			  (const cuDoubleComplex*)(operator_buf_gpu),
+			  (cuDoubleComplex*)out2,GPAW_BOUNDARY_NORMAL,myblocks,
+			  0);
+      
     }
     
 #ifdef DEBUG_CUDA_OPERATOR
@@ -539,9 +471,6 @@ PyObject * Operator_apply_cuda_gpu(OperatorObject *self,
     }
 #endif //DEBUG_CUDA_OPERATOR
   }    
-  
-  //free(recvbuf);
-  //free(sendbuf);
 #ifdef DEBUG_CUDA_OPERATOR
   
   free(sendbuf_cpu);
@@ -553,8 +482,11 @@ PyObject * Operator_apply_cuda_gpu(OperatorObject *self,
   free(out_cpu2);
   
 #endif //DEBUG_CUDA_OPERATOR
-  cudaStreamSynchronize(operator_stream[0]);      
-  cudaStreamSynchronize(operator_stream[1]);      
+  if (cuda_overlap) {
+    cudaStreamWaitEvent(0,operator_event[1],0);
+    cudaStreamSynchronize(operator_stream[0]);      
+  }
+
   if (PyErr_Occurred())
     return NULL;
   else
