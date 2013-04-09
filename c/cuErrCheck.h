@@ -12,7 +12,7 @@ inline void __cudaSafeCall( cudaError_t err, const char *file, const int line )
     {
         fprintf( stderr, "cudaSafeCall() failed at %s:%i : %s\n",
                  file, line, cudaGetErrorString( err ) );
-        sleep(10000000);
+        while (1) sleep(10000000);
     }
 #endif
  
@@ -42,7 +42,7 @@ inline void __cudaCheckError( const char *file, const int line )
     {
         fprintf( stderr, "cudaCheckError() failed at %s:%i : %s (%i)\n",
                  file, line, cudaGetErrorString( err ), err );
-        sleep(10000000);
+        while (1) sleep(10000000);
     }
  
     // More careful checking. However, this will affect performance.
@@ -52,7 +52,7 @@ inline void __cudaCheckError( const char *file, const int line )
     {
         fprintf( stderr, "cudaCheckError() with sync failed at %s:%i : %s (%i)\n",
                  file, line, cudaGetErrorString( err ), err );
-        sleep(10000000);
+        while (1) sleep(10000000);
     }
 #endif
  
