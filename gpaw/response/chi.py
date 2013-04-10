@@ -712,7 +712,9 @@ class Chi(BaseChi):
                         chi0_wGG[iw] = chi0_wGG[iw].conj()
                         if np.isnan(chi0_wGG[iw]).any():
                             self.printtxt('chi0 has nan result !')
-                            XX
+                            import time as mytime
+                            while 1:
+                                mytime.sleep(10000000)
 
                     cu.chi_free(self)
                     cu.paw_free()
