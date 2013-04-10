@@ -168,11 +168,10 @@ PyObject * Operator_relax_cuda_gpu(OperatorObject *self,
   int nsendrecvs=0;
   for (int i=0;i<3;i++)
     for (int j=0;j<2;j++)
-      nsendrecvs=MAX(nsendrecvs,
-		     MAX(bc->nsend[i][j],bc->nrecv[i][j])*blocks*sizeof(double));
+      nsendrecvs+=MAX(bc->nsend[i][j],bc->nrecv[i][j])*blocks*sizeof(double);
 
   cuda_overlap&=(nsendrecvs>GPAW_CUDA_OVERLAP_SIZE);  
-
+  
   if  (cuda_overlap) 
     cudaEventRecord(operator_event[1], 0);
   
@@ -350,8 +349,7 @@ PyObject * Operator_apply_cuda_gpu(OperatorObject *self,
   int nsendrecvs=0;
   for (int i=0;i<3;i++)
     for (int j=0;j<2;j++)
-      nsendrecvs=MAX(nsendrecvs,
-		     MAX(bc->nsend[i][j],bc->nrecv[i][j])*blocks*sizeof(double));
+      nsendrecvs+=MAX(bc->nsend[i][j],bc->nrecv[i][j])*blocks*sizeof(double);
   
   cuda_overlap&=(nsendrecvs>GPAW_CUDA_OVERLAP_SIZE);
 

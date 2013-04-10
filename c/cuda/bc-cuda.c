@@ -369,8 +369,6 @@ void bc_unpack_cuda_gpu_async(const boundary_conditions* bc,
     if (bc_recv_done[ii][ddd[ii]])
       ddd[ii]=1-ddd[ii];
   
-  unsigned int count=0;
-
   do {
     if (!send_done && cudaEventQuery(bc_sendcpy_event[i])==cudaSuccess) {
       for (int d=0;d<2;d++){
@@ -386,10 +384,8 @@ void bc_unpack_cuda_gpu_async(const boundary_conditions* bc,
     }
     for (int ii=i;ii<MIN(i+2,3);ii++) {
       int iii=ii;
-      if (ii>i && ii==1){
-	count=(count+1)%2;
-	iii=ii+count;
-      }
+      if (ii>i && ii==1 && bc_recv_done[ii][0] && bc_recv_done[ii][1])  
+	iii=2;
       if (!bc_recv_done[iii][ddd[iii]]) {
 	int status;
 	MPI_Test(&recvreq[iii][ddd[iii]],&status, MPI_STATUS_IGNORE);
