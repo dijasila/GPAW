@@ -5,6 +5,7 @@
 #include <cuda_runtime.h>
 #include <cublas_v2.h>
 #include <cufft.h>
+#include "cuErrCheck.h"
 
 PyObject* cufft_plan3d(PyObject *self, PyObject *args)
 {
@@ -14,7 +15,8 @@ PyObject* cufft_plan3d(PyObject *self, PyObject *args)
 
   if (!PyArg_ParseTuple(args, "iii|s", &nx, &ny, &nz, &ffttype))
     return NULL;
-  cufftPlan3d(&plan, nx, ny, nz, ffttype);
+  CudaSafeCall(cufftPlan3d(&plan, nx, ny, nz, ffttype));
+  CudaCheckError();
 
   return Py_BuildValue("L",plan);
 }
@@ -28,10 +30,11 @@ PyObject* cufft_planmany(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "iiii|s", &nx, &ny, &nz, &batch, &ffttype))
     return NULL;
   int n[3] = {nx, ny, nz};
-  cufftPlanMany(&plan, 3, n, 
-		NULL, 1, nx*ny*nz,
-		NULL, 1, nx*ny*nz,
-		ffttype, batch);
+  CudaSafeCall(cufftPlanMany(&plan, 3, n, 
+                             NULL, 1, nx*ny*nz,
+                             NULL, 1, nx*ny*nz,
+                             ffttype, batch));
+  CudaCheckError();
 
   return Py_BuildValue("L",plan);
 }
@@ -46,7 +49,8 @@ PyObject* cufft_execZ2Z(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "LLLi",&plan, &dev_a, &dev_b, &fftdirection))
     return NULL;
 
-  cufftExecZ2Z( plan, dev_a, dev_b, fftdirection );
+  CudaSafeCall(cufftExecZ2Z( plan, dev_a, dev_b, fftdirection ));
+  CudaCheckError();
 
   Py_RETURN_NONE;
 }
@@ -58,7 +62,8 @@ PyObject* cufft_destroy(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "L",&plan))
     return NULL;
 
-  cufftDestroy(plan);
+  CudaSafeCall(cufftDestroy(plan));
+  CudaCheckError();
 
   Py_RETURN_NONE;
 }
