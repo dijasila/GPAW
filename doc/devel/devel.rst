@@ -138,6 +138,7 @@ kkaa       Kristen Kaasbjerg          kkaa:fysik,dtu,dk
 ksaha      Kamal Saha                 ?
 kuismam    Mikael Kuisma              mikael,kuisma:tut,fi
 lara       Lara Ferrighi              laraf:phys,au,dk
+linli      Lin Li                     lli2010:stanford,edu
 lauri      Lauri Lethovaara           lauri,lehtovaara:iki,fi
 lopeza     Olga Lopez                 lopez:cc,jyu,fi
 marsalek   Ondrej Marsalek            ondrej,marsalek:gmail,com
