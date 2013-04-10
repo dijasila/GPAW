@@ -26,9 +26,19 @@ extern "C" {
 
 #ifndef CUGPAWCOMPLEX
 
-#define BLOCK_SIZEX 32
-#define BLOCK_SIZEY 8
-#define XDIV 4
+#define BLOCK_MAX 32
+#define GRID_MAX 65535
+#define BLOCK_TOTALMAX 256
+
+static unsigned int nextPow2( unsigned int x ) {
+  --x;
+  x |= x >> 1;
+  x |= x >> 2;
+  x |= x >> 4;
+  x |= x >> 8;
+  x |= x >> 16;
+  return ++x;
+}
 
 #endif
 
@@ -57,37 +67,28 @@ extern "C" {
 }
 
 __global__ void Zcuda(bmgs_cut_cuda_kernel)(const Tcuda* a,
-					    const int3 c_sizea,
-					    Tcuda* b,const int3 c_sizeb,
+					     const int3 c_sizea,
+					     Tcuda* b,const int3 c_sizeb,
 #ifdef CUGPAWCOMPLEX
-					    cuDoubleComplex phase,
+					     cuDoubleComplex phase,
 #endif		
-					    int blocks)
+					     int blocks,int xdiv)
 {
-  int xx=gridDim.x/XDIV;
+  int xx=gridDim.x/xdiv;
   int yy=gridDim.y/blocks;
   
   int blocksi=blockIdx.y/yy;
-  int i1bl=blockIdx.y-blocksi*yy;
   
-  int i1tid=threadIdx.y;
-  int i1=i1bl*BLOCK_SIZEY+i1tid;
+  int i1=(blockIdx.y-blocksi*yy)*blockDim.y+threadIdx.y;
 
   int xind=blockIdx.x/xx;
-  int i2bl=blockIdx.x-xind*xx;
-
-  int i2=i2bl*BLOCK_SIZEX+threadIdx.x;
   
-  int xlen=(c_sizeb.x+XDIV-1)/XDIV;
-  int xstart=xind*xlen;
-  int xend=MIN(xstart+xlen,c_sizeb.x);
+  int i2=(blockIdx.x-xind*xx)*blockDim.x+threadIdx.x;
   
-  b+=c_sizeb.x*c_sizeb.y*c_sizeb.z*blocksi;
-  a+=c_sizea.x*c_sizea.y*c_sizea.z*blocksi;
+  b+=i2+(i1+(xind+blocksi*c_sizeb.x)*c_sizeb.y)*c_sizeb.z;
+  a+=i2+(i1+(xind+blocksi*c_sizea.x)*c_sizea.y)*c_sizea.z;
 
-  b+=i2+i1*c_sizeb.z+xstart*c_sizeb.y*c_sizeb.z;
-  a+=i2+i1*c_sizea.z+xstart*c_sizea.y*c_sizea.z;
-  for (int i0=xstart;i0<xend;i0++) {	
+  while (xind<c_sizeb.x){
     if ((i2<c_sizeb.z)&&(i1<c_sizeb.y)){
 #ifndef CUGPAWCOMPLEX
       b[0] = a[0];
@@ -95,10 +96,12 @@ __global__ void Zcuda(bmgs_cut_cuda_kernel)(const Tcuda* a,
       b[0] = MULTT(phase,a[0]);
 #endif
     }
-    b+=c_sizeb.y*c_sizeb.z;
-    a+=c_sizea.y*c_sizea.z;        
+    b+=xdiv*c_sizeb.y*c_sizeb.z;
+    a+=xdiv*c_sizea.y*c_sizea.z;
+    xind+=xdiv;
   }
 }
+
 
 
 extern "C" {
@@ -136,23 +139,25 @@ extern "C" {
     GPAW_CUDAMEMCPY(b_cpu,b,double, ng2*blocks, cudaMemcpyDeviceToHost);
 #endif //DEBUG_CUDA_CUT
 
-    
-    int gridy=blocks*((sizeb[1]+BLOCK_SIZEY-1)/BLOCK_SIZEY);
-    
-    int gridx=XDIV*((sizeb[2]+BLOCK_SIZEX-1)/BLOCK_SIZEX);
+    int blockx=MIN(nextPow2(hc_sizeb.z),BLOCK_MAX);
+    int blocky=MIN(MIN(nextPow2(hc_sizeb.y),BLOCK_TOTALMAX/blockx),BLOCK_MAX); 
+    dim3 dimBlock(blockx,blocky);
+    int gridx=((hc_sizeb.z+dimBlock.x-1)/dimBlock.x);
+    int xdiv=MAX(1,MIN(hc_sizeb.x,GRID_MAX/gridx));
+    int gridy=blocks*((hc_sizeb.y+dimBlock.y-1)/dimBlock.y);    
 
-    dim3 dimBlock(BLOCK_SIZEX,BLOCK_SIZEY); 
+    gridx=xdiv*gridx;
     dim3 dimGrid(gridx,gridy);    
+    a+=starta[2]+(starta[1]+starta[0]*hc_sizea.y)*hc_sizea.z;      
 
-    a+=starta[2]+(starta[1]+starta[0]*hc_sizea.y)*hc_sizea.z;
     Zcuda(bmgs_cut_cuda_kernel)<<<dimGrid, dimBlock, 0, stream>>>
       ((Tcuda*)a,hc_sizea,(Tcuda*)b,hc_sizeb,
 #ifdef CUGPAWCOMPLEX
        phase,
-#endif    
-       blocks);
-    
+#endif
+       blocks,xdiv);
     gpaw_cudaSafeCall(cudaGetLastError());
+
     
 #ifdef DEBUG_CUDA_CUT
     for (int m = 0; m < blocks; m++){            
