@@ -26,7 +26,7 @@ inline void __cublasSafeCall( cublasStatus_t err, const char *file, const int li
     {
         fprintf( stderr, "cublasSafeCall() failed at %s:%i : %i\n",
                  file, line, err);
-        exit( -1 );
+        while (1) sleep(10000000);
     }
 #endif
  
