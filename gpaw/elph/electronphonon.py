@@ -233,8 +233,8 @@ class ElectronPhononCoupling(Displacement):
             0: Supercell matrix not saved
             1: Supercell matrix saved in a single pickle file.
             2: Dump matrix for different gradients in separate files. Useful
-            for large systems where the total array gets too large for a
-            single pickle file.
+               for large systems where the total array gets too large for a
+               single pickle file.
         name: string
             User specified name of the generated pickle file(s). If not
             provided, the string in the ``name`` attribute is used.
