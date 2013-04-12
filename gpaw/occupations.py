@@ -420,19 +420,17 @@ class SmoothDistribution(ZeroKelvin):
             lumo = -wfs.world.max(-min([kpt.eps_n[n] for kpt in wfs.kpt_u]))
             return np.array([homo, lumo])
         else:
-            assert self.fixmagmom
-            sign = 1 - spin * 2
-            n = (self.nvalence + sign * self.magmom) // 2
-            assert spin is not None
-            homo = -1000
-            lumo = +1000
+            eps_homo = -1000
+            eps_lumo = 1000
+            epsilon = 1e-2
             for kpt in wfs.kpt_u:
                 if kpt.s == spin:
-                    homo = max(homo, kpt.eps_n[n - 1])
-                    lumo = min(lumo, kpt.eps_n[n])
-            homo = wfs.world.max(homo)
-            lumo = -wfs.world.max(-lumo)
-            return np.array( [homo, lumo] )
+                    eps_homo = max([eps_homo, max( [ np.where(f/kpt.weight>epsilon, e, -1000) for f,e in zip(kpt.f_n, kpt.eps_n)] ) ] )
+                    eps_lumo = min([eps_lumo, min( [ np.where(f/kpt.weight<=epsilon, e, 1000) for f,e in zip(kpt.f_n, kpt.eps_n)] ) ] )
+            
+            eps_homo = wfs.kd.comm.max(eps_homo)
+            eps_lumo = -wfs.kd.comm.max(-eps_lumo)
+            return np.array( [eps_homo, eps_lumo] )
 
     def get_homo_lumo(self, wfs):
         if self.width == 0:
