@@ -52,6 +52,7 @@ Cray:
 
    Cray/louhi
    Cray/jaguar
+   Cray/sisu
 
 HP:
 

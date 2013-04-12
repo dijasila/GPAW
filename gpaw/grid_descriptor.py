@@ -70,15 +70,15 @@ class GridDescriptor(Domain):
 
         parameters:
 
-        N_c: 3 int's
+        N_c: 3 ints
             Number of grid points along axes.
         cell_cv: 3 float's or 3x3 floats
             Unit cell.
-        pbc_c: one or three bool's
+        pbc_c: one or three bools
             Periodic boundary conditions flag(s).
         comm: MPI-communicator
             Communicator for domain-decomposition.
-        parsize: tuple of 3 int's, a single int or None
+        parsize: tuple of 3 ints, a single int or None
             Number of domains.
 
         Note that if pbc_c[c] is True, then the actual number of gridpoints
@@ -98,25 +98,29 @@ class GridDescriptor(Domain):
 
         The length unit is Bohr.
         """
-        
+
         if isinstance(pbc_c, int):
             pbc_c = (pbc_c,) * 3
         if comm is None:
             comm = mpi.world
-        Domain.__init__(self, cell_cv, pbc_c, comm, parsize, N_c)
-        self.rank = self.comm.rank
 
         self.N_c = np.array(N_c, int)
+        if (self.N_c != N_c).any():
+            raise ValueError('Non-int number of grid points %s' % N_c)
+        
+        Domain.__init__(self, cell_cv, pbc_c, comm, parsize, self.N_c)
+        self.rank = self.comm.rank
+
 
         parsize_c = self.parsize_c
-        n_c, remainder_c = divmod(N_c, parsize_c)
+        n_c, remainder_c = divmod(self.N_c, parsize_c)
 
         self.beg_c = np.empty(3, int)
         self.end_c = np.empty(3, int)
 
         self.n_cp = []
         for c in range(3):
-            n_p = np.arange(parsize_c[c] + 1) * float(N_c[c]) / parsize_c[c]
+            n_p = np.arange(parsize_c[c] + 1) * float(self.N_c[c]) / parsize_c[c]
             n_p = np.around(n_p + 0.4999).astype(int)
             
             if not self.pbc_c[c]:

@@ -249,7 +249,7 @@ class GW(BASECHI):
         data = {
                 'gwkpt_k': self.gwkpt_k,
                 'gwbands_n': self.gwbands_n,
-                'e_skn': f_skn,
+                'f_skn': f_skn,
                 'e_skn': e_skn,         # in Hartree
                 'vxc_skn': vxc_skn,     # in Hartree
                 'exx_skn': exx_skn,     # in Hartree

@@ -34,7 +34,7 @@ calc.write('H2.gpw', mode='all')
 calc = GPAW('H2.gpw', communicator=serial_comm, txt=None)
 ralda = FXCCorrelation(calc,
                        xc='rALDA',
-                       lambda_points=8)
+                       )
 Ec_H2 = ralda.get_fxc_correlation_energy(ecut=200,
                                          directions=[[0, 2/3.], [2, 1/3.]])
 
@@ -57,7 +57,7 @@ calc.write('H.gpw', mode='all')
 calc = GPAW('H.gpw', communicator=serial_comm, txt=None)
 ralda = FXCCorrelation(calc,
                        xc='rALDA',
-                       lambda_points=8)
+                       )
 Ec_H = ralda.get_fxc_correlation_energy(ecut=200,
                                         directions=[[0, 1.0]])
 
@@ -65,5 +65,5 @@ if rank == 0:
     system('rm H2.gpw')
     system('rm H.gpw')
 
-equal(Ec_H2, -0.8401, 0.001,)
-equal(Ec_H, -0.0446, 0.001)
+equal(Ec_H2, -0.8412, 0.001)
+equal(Ec_H, -0.04440, 0.0001)

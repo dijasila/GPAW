@@ -8,7 +8,7 @@
 
 PyObject* second_derivative(LFCObject *lfc, PyObject *args)
 {
-  const PyArrayObject* a_G_obj;
+  PyArrayObject* a_G_obj;
   PyArrayObject* c_Mvv_obj;
   PyArrayObject* h_cv_obj;
   PyArrayObject* n_c_obj;
@@ -24,16 +24,16 @@ PyObject* second_derivative(LFCObject *lfc, PyObject *args)
     return NULL; 
 
   // Copied from derivative member function
-  int nd = a_G_obj->nd;
-  npy_intp* dims = a_G_obj->dimensions;
+  int nd = PyArray_NDIM(a_G_obj);
+  npy_intp* dims = PyArray_DIMS(a_G_obj);
   int nx = PyArray_MultiplyList(dims, nd - 3);
   int nG = PyArray_MultiplyList(dims + nd - 3, 3);
-  int nM = c_Mvv_obj->dimensions[c_Mvv_obj->nd - 2];
+  int nM = PyArray_DIM(c_Mvv_obj, PyArray_NDIM(c_Mvv_obj) - 2);
 
   // These were already present
-  const double* h_cv = (const double*)h_cv_obj->data;
-  const long* n_c = (const long*)n_c_obj->data;
-  const double (*pos_Wc)[3] = (const double (*)[3])pos_Wc_obj->data;
+  const double* h_cv = (const double*)PyArray_DATA(h_cv_obj);
+  const long* n_c = (const long*)PyArray_DATA(n_c_obj);
+  const double (*pos_Wc)[3] = (const double (*)[3])PyArray_DATA(pos_Wc_obj);
 
   long* beg_c = LONGP(beg_c_obj);
   ///////////////////////////////////////////////
@@ -41,8 +41,8 @@ PyObject* second_derivative(LFCObject *lfc, PyObject *args)
   const double Y00dv = lfc->dv / sqrt(4.0 * M_PI);
 
   if (!lfc->bloch_boundary_conditions) {
-    const double* a_G = (const double*)a_G_obj->data;
-    double* c_Mvv = (double*)c_Mvv_obj->data;
+    const double* a_G = (const double*)PyArray_DATA(a_G_obj);
+    double* c_Mvv = (double*)PyArray_DATA(c_Mvv_obj);
     // Loop over number of x-dimension in a_xG (not relevant yet)
     for (int x = 0; x < nx; x++) {
       // JJs old stuff
@@ -105,8 +105,8 @@ PyObject* second_derivative(LFCObject *lfc, PyObject *args)
     }
   }
   else {
-    const complex double* a_G = (const complex double*)a_G_obj->data;
-    complex double* c_Mvv = (complex double*)c_Mvv_obj->data;
+    const complex double* a_G = (const complex double*)PyArray_DATA(a_G_obj);
+    complex double* c_Mvv = (complex double*)PyArray_DATA(c_Mvv_obj);
 
     for (int x = 0; x < nx; x++) {
       GRID_LOOP_START(lfc, q) {
@@ -177,7 +177,7 @@ PyObject* second_derivative(LFCObject *lfc, PyObject *args)
 PyObject* add_derivative(LFCObject *lfc, PyObject *args)
 {
   // Coefficients for the lfc's
-  const PyArrayObject* c_xM_obj;
+  PyArrayObject* c_xM_obj;
   // Array 
   PyArrayObject* a_xG_obj;
   PyArrayObject* h_cv_obj;
@@ -198,26 +198,26 @@ PyObject* add_derivative(LFCObject *lfc, PyObject *args)
     return NULL;
 
   // Number of dimensions
-  int nd = a_xG_obj->nd;
+  int nd = PyArray_NDIM(a_xG_obj);
   // Array with lengths of array dimensions
-  npy_intp* dims = a_xG_obj->dimensions;
+  npy_intp* dims = PyArray_DIMS(a_xG_obj);
   // Number of extra dimensions
   int nx = PyArray_MultiplyList(dims, nd - 3);
   // Number of grid points
   int nG = PyArray_MultiplyList(dims + nd - 3, 3);
   // Number of lfc's 
-  int nM = c_xM_obj->dimensions[c_xM_obj->nd - 1];
+  int nM = PyArray_DIM(c_xM_obj, PyArray_NDIM(c_xM_obj) - 1);
 
-  const double* h_cv = (const double*)h_cv_obj->data;
-  const long* n_c = (const long*)n_c_obj->data;
-  const double (*pos_Wc)[3] = (const double (*)[3])pos_Wc_obj->data;
+  const double* h_cv = (const double*)PyArray_DATA(h_cv_obj);
+  const long* n_c = (const long*)PyArray_DATA(n_c_obj);
+  const double (*pos_Wc)[3] = (const double (*)[3])PyArray_DATA(pos_Wc_obj);
 
   long* beg_c = LONGP(beg_c_obj);
 
   if (!lfc->bloch_boundary_conditions) {
 
-    const double* c_M = (const double*)c_xM_obj->data;
-    double* a_G = (double*)a_xG_obj->data;
+    const double* c_M = (const double*)PyArray_DATA(c_xM_obj);
+    double* a_G = (double*)PyArray_DATA(a_xG_obj);
     for (int x = 0; x < nx; x++) {
       GRID_LOOP_START(lfc, -1) {
 
@@ -288,8 +288,8 @@ PyObject* add_derivative(LFCObject *lfc, PyObject *args)
     }
   }
   else {
-    const double complex* c_M = (const double complex*)c_xM_obj->data;
-    double complex* a_G = (double complex*)a_xG_obj->data;
+    const double complex* c_M = (const double complex*)PyArray_DATA(c_xM_obj);
+    double complex* a_G = (double complex*)PyArray_DATA(a_xG_obj);
     for (int x = 0; x < nx; x++) {
       GRID_LOOP_START(lfc, q) {
 

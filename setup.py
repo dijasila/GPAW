@@ -40,7 +40,7 @@ extra_link_args = []
 extra_compile_args = []
 runtime_library_dirs = []
 extra_objects = []
-define_macros = []
+define_macros = [('NPY_NO_DEPRECATED_API', 7)]
 undef_macros = []
 
 mpi_libraries = []

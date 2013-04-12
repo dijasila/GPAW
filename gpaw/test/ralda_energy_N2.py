@@ -33,14 +33,14 @@ calc.write('N2.gpw', mode='all')
 
 calc = GPAW('N2.gpw', communicator=serial_comm, txt=None)
 ralda = FXCCorrelation(calc,
+                       num=1,
                        xc='rALDA',
-                       lambda_points=8)
+                       method='standard')
 Ec_N2 = ralda.get_fxc_correlation_energy(ecut=50,
                                          directions=[[0, 2/3.], [2, 1/3.]])
 ralda = FXCCorrelation(calc,
                        xc='rALDA',
-                       method='solid',
-                       lambda_points=8)
+                       method='solid')
 Ec_N2_s = ralda.get_fxc_correlation_energy(ecut=50,
                                            directions=[[0, 2/3.], [2, 1/3.]])
 
@@ -62,13 +62,14 @@ calc.write('N.gpw', mode='all')
 calc = GPAW('N.gpw', communicator=serial_comm, txt=None)
 ralda = FXCCorrelation(calc,
                        xc='rALDA',
-                       lambda_points=8)
+                       method='standard',
+                       )
 Ec_N = ralda.get_fxc_correlation_energy(ecut=50,
                                         directions=[[0, 1.0]])
 ralda = FXCCorrelation(calc,
                        xc='rALDA',
                        method='solid',
-                       lambda_points=8)
+                       )
 Ec_N_s = ralda.get_fxc_correlation_energy(ecut=50,
                                           directions=[[0, 1.0]])
 
@@ -76,7 +77,7 @@ if rank == 0:
    system('rm N2.gpw')
    system('rm N.gpw')
 
-equal(Ec_N2, -4.9263, 0.001,)
-equal(Ec_N2_s, -7.7049, 0.001,)
-equal(Ec_N, -0.6207, 0.001)
-equal(Ec_N_s, -2.0377, 0.001)
+equal(Ec_N2, -4.9250, 0.001,)
+equal(Ec_N2_s, -7.7054, 0.001,)
+equal(Ec_N, -0.6199, 0.001)
+equal(Ec_N_s, -2.0378, 0.001)

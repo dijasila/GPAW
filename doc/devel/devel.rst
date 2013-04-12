@@ -22,6 +22,7 @@ start development!
 
    projects/projects
    developer_installation
+   workshop
 
 .. note --- below toctrees are defined in separate files to make sure that the line spacing doesn't get very large (which is of course a bad hack)
 
@@ -111,14 +112,14 @@ the `ASE project`_.  Here is the list of current committers:
 =========  =========================  ========================================
 id         real name
 =========  =========================  ========================================
-anpet      Andrew Peterson            andy,peterson:stanford,edu
+anpet      Andrew Peterson            andrew_peterson:brown,edu
 aoj        Ari Ojanperä               ari,ojanpera:tkk,fi
 askhl      Ask Hjorth Larsen          asklarsen:gmail,com
 dlandis    David Landis               dlandis:fysik,dtu,dk
 dulak      Marcin Dulak               dulak:fysik,dtu,dk
 eojons     Elvar Örn Jónsson          elvar,jonsson:fysik,dtu,dk
 falh       Falco Huser                falh:fysik,dtu,dk
-georg      Poul Georg Moses           georg:fysik,dtu,dk
+georg      Poul Georg Moses           gtritsaris:seas,harvard,edu
 getri      George Tritsaris           getri:fysik,dtu,dk
 hahansen   Heine Anton Hansen         hahansen:fysik,dtu,dk
 haiping    Haiping Lin                H,Lin1:liverpool,ac,uk
@@ -137,6 +138,7 @@ kkaa       Kristen Kaasbjerg          kkaa:fysik,dtu,dk
 ksaha      Kamal Saha                 ?
 kuismam    Mikael Kuisma              mikael,kuisma:tut,fi
 lara       Lara Ferrighi              laraf:phys,au,dk
+linli      Lin Li                     lli2010:stanford,edu
 lauri      Lauri Lethovaara           lauri,lehtovaara:iki,fi
 lopeza     Olga Lopez                 lopez:cc,jyu,fi
 marsalek   Ondrej Marsalek            ondrej,marsalek:gmail,com
@@ -149,7 +151,7 @@ peterklue  Peter Kluepfel             peter:theochem,org
 s032082    Christian Glinsvad         s032082:fysik,dtu,dk
 schiotz    Jakob Schiotz              schiotz:fysik,dtu,dk
 shakala    Samuli Hakala              samuli,hakala:tkk,fi
-strange    Mikkel Strange             strange:fysik,dtu,dk
+strange    Mikkel Strange             mikkel,strange:gmail,com
 tjiang     Tao Jiang                  tjiang:fysik,dtu,dk
 tolsen     Thomas Olsen               tolsen:fysik,dtu,dk
 =========  =========================  ========================================

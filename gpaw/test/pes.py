@@ -64,3 +64,12 @@ equal(e_H2, -3.90059, energy_tolerance)
 equal(niter_H2, 16, niter_tolerance)
 equal(e_H2_plus, 10.5659703, energy_tolerance)
 equal(niter_H2_plus, 15, niter_tolerance)
+
+# io
+out = 'lrpes.dat.gz'
+lr.write(out)
+lr = LrTDDFT(out)
+lr.set_calculator(calc_plus)
+pes = TDDFTPES(calc, lr)
+pes.save_folded_pes(filename=None, folding=None)
+

@@ -551,7 +551,7 @@ class BSE(BASECHI):
         t0 = time()
         for iq in range(nq_local):
             q_c = self.bzq_qc[iq + q_start]
-            tmp_aGp = self.get_phi_aGp(q_c)
+            tmp_aGp = self.get_phi_aGp(q_c, parallel=False)
             for id in range(natoms):
                 N1, N2 = tmp_aGp[id].shape
                 phimax_qaGp[iq, id, :N1, :N2] = tmp_aGp[id]

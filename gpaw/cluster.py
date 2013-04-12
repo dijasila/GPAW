@@ -120,7 +120,7 @@ class Cluster(Atoms):
             for c in range(3):
                 # apply the same as in paw.py 
                 L = extr[1][c] # shifted already
-                N = max(4, int(L / h[c] / 4 + 0.5) * 4)
+                N = np.ceil(L / h[c] / 4) * 4
                 # correct L
                 dL = N * h[c] - L
                 # move accordingly
