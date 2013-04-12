@@ -94,6 +94,8 @@ class C_GLLBScr(Contribution):
                 eref_lumo_s = []
                 for s in range(nspins):
                     homo, lumo = self.occupations.get_homo_lumo_by_spin(self.nlfunc.wfs, s)
+                    print s, " HOMO ", homo
+                    print s, " LUMO ", lumo
                     eref_s.append(homo)
                     eref_lumo_s.append(lumo)
         else:
