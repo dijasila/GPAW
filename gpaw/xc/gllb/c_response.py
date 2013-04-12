@@ -227,7 +227,7 @@ class C_Response(Contribution):
         # Find the lumo-orbital of this spin
         sign = 1 - s * 2
         lumo_n = (self.occupations.nvalence + sign * self.occupations.magmom) // 2
-        gaps = []
+        gaps = [ 1000.0 ]
         for u, kpt in enumerate(self.kpt_u):
             if kpt.s == s:
                 nt_G[:] = 0.0
@@ -247,9 +247,7 @@ class C_Response(Contribution):
                 #print "Old eigenvalue",  kpt.eps_n[lumo_n]*27.21, " New eigenvalue ", E*27.21, " DXC", E*27.21-kpt.eps_n[lumo_n]*27.21
                 #eps_un[u][n] = E
 
-        #method2_lumo = min([ eps_n[lumo_n] for eps_n in eps_un])
-        #method2_lumo = -self.kpt_comm.max(-method2_lumo)
-        method2_dxc = min(gaps)
+        method2_dxc = -self.kpt_comm.max(-min(gaps))
         Ha = 27.2116 
         Ksgap *= Ha
         method1_dxc *= Ha
