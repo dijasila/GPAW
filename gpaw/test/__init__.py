@@ -202,6 +202,7 @@ tests = [
     'fermilevel.py',
     'h2o_xas_recursion.py',
     'diamond_eps.py',
+    'rpa_Na1_cuda.py',
     'gemm.py',
     # > 20 sec tests start here
     'rpa_energy_Ni.py',
@@ -277,7 +278,6 @@ tests = [
     'beefvdw.py',
     'wannierk.py',
     'rpa_Na.py',
-    'rpa_Na1_cuda.py',
     'coreeig.py',
     'pw/si_stress.py',
     'P_ai.py',
