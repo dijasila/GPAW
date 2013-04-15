@@ -6,6 +6,7 @@ from gpaw.utilities import pack
 from gpaw.xc.gllb import safe_sqr
 from math import sqrt, pi
 from gpaw.mpi import world
+from ase.units import Hartree
 import numpy as np
 
 class C_Response(Contribution):
@@ -243,11 +244,11 @@ class C_Response(Contribution):
                 E += kpt.eps_n[lumo_n]
                 gaps.append(E-lumo)
 
-        method2_dxc = -self.kpt_comm.max(-min(gaps))
+        method2_dxc = self.kpt_comm.min(min(gaps))
         Ha = 27.2116 
-        Ksgap *= Ha
-        method1_dxc *= Ha
-        method2_dxc *= Ha
+        Ksgap *= Hartree
+        method1_dxc *= Hartree
+        method2_dxc *= Hartree
         if world.rank is not 0:
             return (Ksgap, method2_dxc)
         
