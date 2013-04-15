@@ -10,7 +10,7 @@ def agts(queue):
     # optimization
     opt_run = queue.add(tag + '_opt_run.py',
                         queueopts='-l nodes=1:ppn=4:opteron:ethernet',
-                        ncpus=1, walltime=12*60, deps=[])
+                        ncpus=1, walltime=22*60, deps=[])
     opt_analyse = queue.add(tag + '_opt_analyse.py',
                             ncpus=1, walltime=5, deps=[opt_run],
                             creates=[tag + '_opt_ea.csv',
