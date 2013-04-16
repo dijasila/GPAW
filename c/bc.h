@@ -36,6 +36,11 @@ typedef struct
   int ndouble;
   bool cfd;
   MPI_Comm comm;
+#ifdef GPAW_CUDA
+  bool cuda_sjoin[3];
+  bool cuda_rjoin[3];
+  bool cuda_async[3];
+#endif
 } boundary_conditions;
 
 static const int COPY_DATA = -2;
@@ -81,7 +86,7 @@ void bc_unpack_cuda_gpu_async(const boundary_conditions* bc,
 			      cudaStream_t kernel_stream,
 			      int nin);
 
-void bc_unpack_paste_cuda_gpu(const boundary_conditions* bc,
+void bc_unpack_paste_cuda_gpu(boundary_conditions* bc,
 			      const double* aa1, double* aa2,
 			      MPI_Request recvreq[3][2],
 			      cudaStream_t thd, int nin);

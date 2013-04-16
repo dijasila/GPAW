@@ -16,11 +16,9 @@ static cudaStream_t bc_recv_stream;
 
 static int bc_streams = 0;
 
-static cudaEvent_t bc_sendcpy_event[3];
+static cudaEvent_t bc_sendcpy_event[3][2];
 static cudaEvent_t bc_recv_event[3][2];
 static int bc_recv_done[3][2];
-static int bc_join[3];
-static int bc_async[3];
 
 static int bc_init_count = 0;
 
@@ -40,13 +38,14 @@ static int bc_sbuffs_max=0;
 
 void bc_init_cuda(boundary_conditions* bc)
 {
-  int nsends=(bc->nsend[0][0]+bc->nsend[0][1]+
-	      bc->nsend[1][0]+bc->nsend[1][1]+
-	      bc->nsend[2][0]+bc->nsend[2][1]);
+  int nsends=0;
+  int nrecvs=0;
 
-  int nrecvs=(bc->nrecv[0][0]+bc->nrecv[0][1]+
-	      bc->nrecv[1][0]+bc->nrecv[1][1]+
-	      bc->nrecv[2][0]+bc->nrecv[2][1]);
+  for (int i=0;i<3;i++)
+    for (int d=0;d<2;d++) {
+      nsends+=NEXTPITCHDIV(bc->nsend[i][d]);
+      nrecvs+=NEXTPITCHDIV(bc->nrecv[i][d]);
+    }
 
   bc_sbuffs_max=MAX(nsends, bc_sbuffs_max);
   bc_rbuffs_max=MAX(nrecvs, bc_rbuffs_max);
@@ -62,22 +61,20 @@ void bc_init_buffers_cuda()
     bc_sbuffs_gpu=NULL;    
     bc_rbuffs_size=0;
     bc_sbuffs_size=0;
-    //bc_rbuffs_max=0;
-    //bc_sbuffs_max=0;
     bc_init_count=0;
     bc_streams=0;
 }
 
 void bc_alloc_buffers(const boundary_conditions* bc,int blocks)
 {
-  int nsends=(bc->nsend[0][0]+bc->nsend[0][1]+
-	      bc->nsend[1][0]+bc->nsend[1][1]+
-	      bc->nsend[2][0]+bc->nsend[2][1])*blocks;
+  int nsends=0;
+  int nrecvs=0;
 
-  int nrecvs=(bc->nrecv[0][0]+bc->nrecv[0][1]+
-	      bc->nrecv[1][0]+bc->nrecv[1][1]+
-	      bc->nrecv[2][0]+bc->nrecv[2][1])*blocks;
-  
+  for (int i=0;i<3;i++)
+    for (int d=0;d<2;d++) {
+      nsends+=NEXTPITCHDIV(bc->nsend[i][d]*blocks);
+      nrecvs+=NEXTPITCHDIV(bc->nrecv[i][d]*blocks);
+    }
 
   bc_sbuffs_max=MAX(nsends, bc_sbuffs_max);  
   if (bc_sbuffs_max > bc_sbuffs_size) {
@@ -101,11 +98,11 @@ void bc_alloc_buffers(const boundary_conditions* bc,int blocks)
 
   if  (!bc_streams){    
     cudaStreamCreate(&bc_recv_stream);
-    bc_streams=2;
+    bc_streams=1;
     for (int d=0;d<3;d++){
-	cudaEventCreateWithFlags(&bc_sendcpy_event[d],
-				 cudaEventDefault|cudaEventDisableTiming);
       for (int i=0;i<2;i++){
+	cudaEventCreateWithFlags(&bc_sendcpy_event[d][i],
+				 cudaEventDefault|cudaEventDisableTiming);
 	cudaEventCreateWithFlags(&bc_recv_event[d][i],
 				 cudaEventDefault|cudaEventDisableTiming);
       }	
@@ -123,10 +120,9 @@ void bc_dealloc_cuda(int force)
 
     if  (bc_streams){      
       cudaStreamDestroy(bc_recv_stream);
-      bc_streams=2;
       for (int d=0;d<3;d++){
-	  cudaEventDestroy(bc_sendcpy_event[d]);  
 	for (int i=0;i<2;i++){
+	  cudaEventDestroy(bc_sendcpy_event[d][i]);  
 	  cudaEventDestroy(bc_recv_event[d][i]);
 	}
       }
@@ -139,6 +135,104 @@ void bc_dealloc_cuda(int force)
   if (bc_init_count>0) bc_init_count--;
  
 }
+
+
+void bc_unpack_paste_cuda_gpu(boundary_conditions* bc,
+			      const double* aa1, double* aa2,
+			      MPI_Request recvreq[3][2],
+			      cudaStream_t kernel_stream, int nin)
+
+{
+  bool real = (bc->ndouble == 1);
+
+  bc_alloc_buffers(bc,nin);
+  // Copy data:
+  // Zero all of a2 array.  We should only zero the bounaries
+  // that are not periodic, but it's simpler to zero everything!
+  
+  // Copy data from a1 to central part of a2 and zero boundaries:
+  if (real)
+    bmgs_paste_zero_cuda_gpu(aa1, bc->size1, aa2,
+			     bc->size2, bc->sendstart[0][0],nin,kernel_stream);
+  else
+    bmgs_paste_zero_cuda_gpuz((const cuDoubleComplex*)(aa1), 
+			      bc->size1, (cuDoubleComplex*)aa2,
+			      bc->size2, bc->sendstart[0][0],nin,
+			      kernel_stream);
+
+
+
+
+  for (int i = 0; i < 3; i++) {    
+    int maxrecv=MAX(bc->nrecv[i][0],bc->nrecv[i][1])*nin*sizeof(double);
+    bc->cuda_rjoin[i]=0;
+    if (bc->recvproc[i][0]>=0 && bc->recvproc[i][1]>=0) {
+      if (maxrecv<GPAW_CUDA_RJOIN_SIZE)	
+	bc->cuda_rjoin[i]=1;
+      else if ((maxrecv<GPAW_CUDA_RJOIN_SAME_SIZE) && 
+	       (bc->recvproc[i][0] == bc->recvproc[i][1]))	
+	bc->cuda_rjoin[i]=1;
+    }    
+    int maxsend=MAX(bc->nsend[i][0],bc->nsend[i][1])*nin*sizeof(double);
+    bc->cuda_sjoin[i]=0;
+    if (bc->sendproc[i][0]>=0 && bc->sendproc[i][1]>=0) {
+      if (maxsend<GPAW_CUDA_SJOIN_SIZE)	
+	bc->cuda_sjoin[i]=1;
+      else if ((maxsend<GPAW_CUDA_SJOIN_SAME_SIZE) && 
+	       (bc->sendproc[i][0] == bc->sendproc[i][1]))	
+	bc->cuda_sjoin[i]=1;
+    }
+    
+    if (MAX(maxsend,maxrecv)<GPAW_CUDA_ASYNC_SIZE) 
+      bc->cuda_async[i]=0;      
+    else 
+      bc->cuda_async[i]=1;      
+  }
+
+  int recvp=0,sendp=0;  
+
+  for (int i=0;i<3;i++){
+    bc_sbuff[i][0]=bc_sbuffs+sendp;
+    bc_sbuff_gpu[i][0]=bc_sbuffs_gpu+sendp;
+    if (!bc->cuda_async[i] || bc->cuda_sjoin[i]){
+      bc_sbuff[i][1]=bc_sbuffs+sendp+bc->nsend[i][0]*nin;
+      bc_sbuff_gpu[i][1]=bc_sbuffs_gpu+sendp+bc->nsend[i][0]*nin;
+      sendp+=NEXTPITCHDIV((bc->nsend[i][0]+bc->nsend[i][1])*nin);
+    } else {
+      sendp+=NEXTPITCHDIV((bc->nsend[i][0])*nin);
+      bc_sbuff[i][1]=bc_sbuffs+sendp;
+      bc_sbuff_gpu[i][1]=bc_sbuffs_gpu+sendp;
+      sendp+=NEXTPITCHDIV((bc->nsend[i][1])*nin);
+    }
+    bc_rbuff[i][0]=bc_rbuffs+recvp;
+    bc_rbuff_gpu[i][0]=bc_rbuffs_gpu+recvp;
+    if (!bc->cuda_async[i] || bc->cuda_rjoin[i]){
+      bc_rbuff[i][1]=bc_rbuffs+recvp+bc->nrecv[i][0]*nin;
+      bc_rbuff_gpu[i][1]=bc_rbuffs_gpu+recvp+bc->nrecv[i][0]*nin;
+      recvp+=NEXTPITCHDIV((bc->nrecv[i][0]+bc->nrecv[i][1])*nin);
+    } else {
+      recvp+=NEXTPITCHDIV((bc->nrecv[i][0])*nin);
+      bc_rbuff[i][1]=bc_rbuffs+recvp;
+      bc_rbuff_gpu[i][1]=bc_rbuffs_gpu+recvp;
+      recvp+=NEXTPITCHDIV((bc->nrecv[i][1])*nin);
+    }
+  }
+  
+  for (int i = 0; i < 3; i++) {
+    for (int d = 0; d < 2; d++) {
+      int p = bc->recvproc[i][d];
+      if (p >= 0) {	
+	MPI_Irecv(bc_rbuff[i][d], bc->nrecv[i][d]*nin,  MPI_DOUBLE, p,
+		  d + 1000 * i,  bc->comm, &recvreq[i][d]);
+	bc_recv_done[i][d]=0; 
+      } else {	
+	bc_recv_done[i][d]=1; 
+      }
+    }
+  }
+  
+}
+
 
 void bc_unpack_cuda_gpu_sync(const boundary_conditions* bc,
 			const double* aa1, double* aa2, int i,
@@ -176,8 +270,8 @@ void bc_unpack_cuda_gpu_sync(const boundary_conditions* bc,
 		      (bc->nsend[i][0]+bc->nsend[i][1]) *  nin, 
 		      cudaMemcpyDeviceToHost,kernel_stream);*/
     GPAW_CUDAMEMCPY(bc_sbuff[i][0],bc_sbuff_gpu[i][0],double,
-		      (bc->nsend[i][0]+bc->nsend[i][1]) *  nin, 
-		      cudaMemcpyDeviceToHost);
+		    (bc->nsend[i][0]+bc->nsend[i][1])*nin, 
+		    cudaMemcpyDeviceToHost);
 
   //Start sending:
   for (int d = 0; d < 2; d++) {
@@ -219,8 +313,8 @@ void bc_unpack_cuda_gpu_sync(const boundary_conditions* bc,
 		      (bc->nrecv[i][0]+bc->nrecv[i][1]) * nin, 
 		      cudaMemcpyHostToDevice,kernel_stream);*/
     GPAW_CUDAMEMCPY(bc_rbuff_gpu[i][0],bc_rbuff[i][0],double,
-		      (bc->nrecv[i][0]+bc->nrecv[i][1]) * nin, 
-		      cudaMemcpyHostToDevice);
+		    (bc->nrecv[i][0]+bc->nrecv[i][1])*nin, 
+		    cudaMemcpyHostToDevice);
     bc_recv_done[i][0]=1; 
     bc_recv_done[i][1]=1; 
   }  
@@ -246,74 +340,7 @@ void bc_unpack_cuda_gpu_sync(const boundary_conditions* bc,
 #endif // Parallel  
 }
 
-void bc_unpack_paste_cuda_gpu(const boundary_conditions* bc,
-			      const double* aa1, double* aa2,
-			      MPI_Request recvreq[3][2],
-			      cudaStream_t kernel_stream, int nin)
 
-{
-  bool real = (bc->ndouble == 1);
-
-  bc_alloc_buffers(bc,nin);
-  // Copy data:
-  // Zero all of a2 array.  We should only zero the bounaries
-  // that are not periodic, but it's simpler to zero everything!
-  
-  // Copy data from a1 to central part of a2 and zero boundaries:
-  if (real)
-    bmgs_paste_zero_cuda_gpu(aa1, bc->size1, aa2,
-			     bc->size2, bc->sendstart[0][0],nin,kernel_stream);
-  else
-    bmgs_paste_zero_cuda_gpuz((const cuDoubleComplex*)(aa1), 
-			      bc->size1, (cuDoubleComplex*)aa2,
-			      bc->size2, bc->sendstart[0][0],nin,
-			      kernel_stream);
-
-  int recvp=0,sendp=0;
-
-  for (int i=0;i<3;i++){
-    for (int d=0;d<2;d++){
-      bc_sbuff[i][d]=bc_sbuffs+sendp;
-      bc_sbuff_gpu[i][d]=bc_sbuffs_gpu+sendp;
-      if (bc->sendproc[i][d]>=0) {
-	sendp+=bc->nsend[i][d]*nin;
-      }
-      bc_rbuff[i][d]=bc_rbuffs+recvp;
-      bc_rbuff_gpu[i][d]=bc_rbuffs_gpu+recvp;
-      if (bc->recvproc[i][d]>=0) {
-	recvp+=bc->nrecv[i][d]*nin;
-      }
-    }
-  }
-
-  for (int i = 0; i < 3; i++) {
-    for (int d = 0; d < 2; d++) {
-      int p = bc->recvproc[i][d];
-      if (p >= 0) {	
-	MPI_Irecv(bc_rbuff[i][d], bc->nrecv[i][d]*nin,  MPI_DOUBLE, p,
-		  d + 1000 * i,  bc->comm, &recvreq[i][d]);
-	bc_recv_done[i][d]=0; 
-      } else {	
-	bc_recv_done[i][d]=1; 
-      }
-    }
-  }
-  for (int i = 0; i < 3; i++) {
-    int maxsendrecv=MAX(MAX(bc->nsend[i][0],bc->nsend[i][1]),
-			MAX(bc->nrecv[i][0],bc->nrecv[i][1]))*nin*sizeof(double);
-    if (maxsendrecv<GPAW_CUDA_JOIN_SIZE &&
-	bc->recvproc[i][0]>=0 && bc->recvproc[i][1]>=0) {
-      bc_join[i]=1;
-    } else {
-      bc_join[i]=0;
-    }
-    if (maxsendrecv<GPAW_CUDA_ASYNC_SIZE) {
-      bc_async[i]=0;      
-    } else {
-      bc_async[i]=1;      
-    }
-  }
-}
 
 void bc_unpack_cuda_gpu_async(const boundary_conditions* bc,
 				  const double* aa1, double* aa2, int i,
@@ -331,9 +358,9 @@ void bc_unpack_cuda_gpu_async(const boundary_conditions* bc,
   int rank;
   
 #ifdef PARALLEL
-  
+
   // Prepare send-buffers
-  int send_done=0;
+  int send_done[2]={0,0};
   
   if (bc->sendproc[i][0]>=0 || bc->sendproc[i][1]>=0) {
     for (int d = 0; d < 2; d++) {
@@ -352,96 +379,123 @@ void bc_unpack_cuda_gpu_async(const boundary_conditions* bc,
 			     (cuDoubleComplex*)(bc_sbuff_gpu[i][d]),
 			     size, phase, nin, kernel_stream);
 	}
+	if (!bc->cuda_sjoin[i]) {
+	  GPAW_CUDAMEMCPY_A(bc_sbuff[i][d], bc_sbuff_gpu[i][d],double,
+			    bc->nsend[i][d]*nin,
+			    cudaMemcpyDeviceToHost,kernel_stream);    
+	  cudaEventRecord(bc_sendcpy_event[i][d],kernel_stream);      
+	}
       }
     }
-    GPAW_CUDAMEMCPY_A(bc_sbuff[i][0], bc_sbuff_gpu[i][0],double,
-		      (bc->nsend[i][0]+bc->nsend[i][1])*nin,
-		      cudaMemcpyDeviceToHost,kernel_stream);    
-    cudaEventRecord(bc_sendcpy_event[i],kernel_stream);      
+    if (bc->cuda_sjoin[i]) {
+      GPAW_CUDAMEMCPY_A(bc_sbuff[i][0], bc_sbuff_gpu[i][0],double,
+			(bc->nsend[i][0]+bc->nsend[i][1])*nin,
+			cudaMemcpyDeviceToHost,kernel_stream);    
+      cudaEventRecord(bc_sendcpy_event[i][0],kernel_stream);      
+    }
   }
 
+  for (int d = 0; d < 2; d++) 
+    if (!(bc->sendproc[i][d]>=0))
+      send_done[d]=1;
+  
+  int dd=0;
+  if (send_done[dd])
+    dd=1;
 
-  if (!(bc->sendproc[i][0]>=0) && !(bc->sendproc[i][1]>=0))
-    send_done=1;
+  //int loopc=MIN(1,3-i);
+  int loopc=MIN(2,3-i);
   
-  int ddd[3]={1,1,1};
-  for (int ii=i;ii<3;ii++) 
-    if (bc_recv_done[ii][ddd[ii]])
+  int ddd[loopc];
+  for (int ii=0;ii<loopc;ii++) {
+    ddd[ii]=1;
+    if (bc_recv_done[ii+i][ddd[ii]])
       ddd[ii]=1-ddd[ii];
-  
+  }
+
   do {
-    if (!send_done && cudaEventQuery(bc_sendcpy_event[i])==cudaSuccess) {
-      for (int d=0;d<2;d++){
-	if (bc->sendproc[i][d]>=0) {
-	  MPI_Isend(bc_sbuff[i][d], 
-		    bc->nsend[i][d]*nin , MPI_DOUBLE, 
-		    bc->sendproc[i][d],
-		    1 - d + 1000 * i, bc->comm, 
-		    &sendreq[d]);	  
-	}	
+    if (!send_done[dd] && cudaEventQuery(bc_sendcpy_event[i][dd])==cudaSuccess) {
+      MPI_Isend(bc_sbuff[i][dd], 
+		bc->nsend[i][dd]*nin , MPI_DOUBLE, 
+		bc->sendproc[i][dd],
+		1 - dd + 1000 * i, bc->comm, 
+		&sendreq[dd]);	  
+      send_done[dd]=1;
+      dd=1;
+      if (bc->cuda_sjoin[i]) {
+	MPI_Isend(bc_sbuff[i][dd], 
+		  bc->nsend[i][dd]*nin , MPI_DOUBLE, 
+		  bc->sendproc[i][dd],
+		  1 - dd + 1000 * i, bc->comm, 
+		  &sendreq[dd]);	  
+	send_done[dd]=1;
       }
-      send_done=1;
+      loopc=1;
     }
-    for (int ii=i;ii<MIN(i+2,3);ii++) {
-      int iii=ii;
-      if (ii>i && ii==1 && bc_recv_done[ii][0] && bc_recv_done[ii][1])  
-	iii=2;
-      if (!bc_recv_done[iii][ddd[iii]]) {
+    for (int i2=0;i2<loopc;i2++) {
+      int i3=i2+i;
+      if (i==0 && i2==1 && 
+	  bc_recv_done[i3][0] && bc_recv_done[i3][1]) {
+	i3=2;
+      }
+      if (!bc->cuda_async[i3])
+	continue;
+
+      if (i2==0 && bc->cuda_rjoin[i3] && 
+	  !bc_recv_done[i3][0] && !bc_recv_done[i3][1]) {
 	int status;
-	MPI_Test(&recvreq[iii][ddd[iii]],&status, MPI_STATUS_IGNORE);
-	if (status){
-	  int status2=0;
-	  if (!bc_recv_done[iii][1-ddd[iii]]) 
-	    MPI_Test(&recvreq[iii][1-ddd[iii]],&status2, MPI_STATUS_IGNORE);
-	  if (status2) {	  
-	    GPAW_CUDAMEMCPY_A(bc_rbuff_gpu[iii][0], bc_rbuff[iii][0],double,
-			      (bc->nrecv[iii][0]+bc->nrecv[iii][1])*nin,
-			      cudaMemcpyHostToDevice,
-			      bc_recv_stream);
-	    for (int d = 0; d < 2; d++) {
+	MPI_Testall(2,recvreq[i3],&status, MPI_STATUSES_IGNORE);
+	if (status) {	  
+	  GPAW_CUDAMEMCPY_A(bc_rbuff_gpu[i3][0], bc_rbuff[i3][0],double,
+			    (bc->nrecv[i3][0]+bc->nrecv[i3][1])*nin,
+			    cudaMemcpyHostToDevice,
+			    bc_recv_stream);
+	  for (int d = 0; d < 2; d++) {
+	    if (!bc_recv_done[i3][d]) {
 	      if (real)
-		bmgs_paste_cuda_gpu(bc_rbuff_gpu[iii][d], bc->recvsize[iii][d],
-				    aa2, bc->size2, bc->recvstart[iii][d],nin, 
+		bmgs_paste_cuda_gpu(bc_rbuff_gpu[i3][d], bc->recvsize[i3][d],
+				    aa2, bc->size2, bc->recvstart[i3][d],nin, 
 				    bc_recv_stream);
 	      
 	      else
-		bmgs_paste_cuda_gpuz((const cuDoubleComplex*)(bc_rbuff_gpu[iii][d]),
-				     bc->recvsize[iii][d],
+		bmgs_paste_cuda_gpuz((const cuDoubleComplex*)(bc_rbuff_gpu[i3][d]),
+				     bc->recvsize[i3][d],
 				     (cuDoubleComplex*)(aa2),
-				     bc->size2, bc->recvstart[iii][d],nin, 
+				     bc->size2, bc->recvstart[i3][d],nin, 
 				     bc_recv_stream); 
-	      cudaEventRecord(bc_recv_event[iii][d],bc_recv_stream);
-	      bc_recv_done[iii][d]=1; 
-	      
-	    }
-	  } else if (!bc_join[iii]) {
-	    GPAW_CUDAMEMCPY_A(bc_rbuff_gpu[iii][ddd[iii]], bc_rbuff[iii][ddd[iii]],
-			      double,(bc->nrecv[iii][ddd[iii]])*nin,
-			      cudaMemcpyHostToDevice,
-			      bc_recv_stream);
+	      cudaEventRecord(bc_recv_event[i3][d],bc_recv_stream);
+	      bc_recv_done[i3][d]=1; 
+	    }	      
+	  }
+	}
+      } else if (!bc_recv_done[i3][ddd[i2]]) {
+	int status;
+	MPI_Test(&recvreq[i3][ddd[i2]],&status, MPI_STATUS_IGNORE);
+	if (status){
+	  GPAW_CUDAMEMCPY_A(bc_rbuff_gpu[i3][ddd[i2]], bc_rbuff[i3][ddd[i2]],
+			    double,(bc->nrecv[i3][ddd[i2]])*nin,
+			    cudaMemcpyHostToDevice,
+			    bc_recv_stream);
 	  if (real)
-	    bmgs_paste_cuda_gpu(bc_rbuff_gpu[iii][ddd[iii]], 
-				bc->recvsize[iii][ddd[iii]],
-				aa2, bc->size2, bc->recvstart[iii][ddd[iii]],nin, 
+	    bmgs_paste_cuda_gpu(bc_rbuff_gpu[i3][ddd[i2]], 
+				bc->recvsize[i3][ddd[i2]],
+				aa2, bc->size2, bc->recvstart[i3][ddd[i2]],nin, 
 				bc_recv_stream);
 	  
 	  else
-	    bmgs_paste_cuda_gpuz((const cuDoubleComplex*)(bc_rbuff_gpu[iii][ddd[iii]]),
-				 bc->recvsize[iii][ddd[iii]],
+	    bmgs_paste_cuda_gpuz((const cuDoubleComplex*)(bc_rbuff_gpu[i3][ddd[i2]]),
+				 bc->recvsize[i3][ddd[i2]],
 				 (cuDoubleComplex*)(aa2),
-				 bc->size2, bc->recvstart[iii][ddd[iii]],nin, 
+				 bc->size2, bc->recvstart[i3][ddd[i2]],nin, 
 				 bc_recv_stream); 
-	  cudaEventRecord(bc_recv_event[iii][ddd[iii]],bc_recv_stream);
-	  bc_recv_done[iii][ddd[iii]]=1; 
-	  }
+	  cudaEventRecord(bc_recv_event[i3][ddd[i2]],bc_recv_stream);
+	  bc_recv_done[i3][ddd[i2]]=1; 
 	}
       }
-      if (bc_recv_done[i][0] && bc_recv_done[i][1] && send_done) break;
-      ddd[iii]=1-ddd[iii];
-      if (bc_recv_done[iii][ddd[iii]])
-	ddd[iii]=1-ddd[iii];
+      if (!bc_recv_done[i3][1-ddd[i2]])
+	ddd[i2]=1-ddd[i2];
     }
-  } while(!bc_recv_done[i][0] || !bc_recv_done[i][1] || !send_done); 
+  } while(!bc_recv_done[i][0] || !bc_recv_done[i][1] || !send_done[0] || !send_done[1]); 
   
 #endif // Parallel
   // Copy data for periodic boundary conditions:
@@ -483,7 +537,7 @@ void bc_unpack_cuda_gpu(const boundary_conditions* bc,
 			cudaStream_t kernel_stream,
 			int nin)
 {
-    if (!bc_async[i]) {
+    if (!bc->cuda_async[i]) {
       bc_unpack_cuda_gpu_sync(bc, aa1, aa2, i, recvreq, sendreq,
 			    phases,kernel_stream,nin);
     }  else {

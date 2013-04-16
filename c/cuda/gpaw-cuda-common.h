@@ -12,9 +12,13 @@
 
 #define GPAW_CUDA_BLOCKS_MIN  (16)
 #define GPAW_CUDA_BLOCKS_MAX  (96)
-#define GPAW_CUDA_ASYNC_SIZE  (1*1024)
-#define GPAW_CUDA_JOIN_SIZE  (160*1024)
-#define GPAW_CUDA_OVERLAP_SIZE  (2*1024)
+#define GPAW_CUDA_PITCH       (16)  // In doubles
+#define GPAW_CUDA_ASYNC_SIZE  (8*1024)
+#define GPAW_CUDA_RJOIN_SIZE  (16*1024)
+#define GPAW_CUDA_SJOIN_SIZE  (16*1024)
+#define GPAW_CUDA_RJOIN_SAME_SIZE  (96*1024)
+#define GPAW_CUDA_SJOIN_SAME_SIZE  (96*1024)
+#define GPAW_CUDA_OVERLAP_SIZE  (GPAW_CUDA_ASYNC_SIZE)
 #define GPAW_CUDA_ABS_TOL       (1e-13)
 #define GPAW_CUDA_ABS_TOL_EXCT  (DBL_EPSILON)
 
@@ -76,6 +80,8 @@ static inline cublasStatus __gpaw_cublasSafeCall( cublasStatus err ,char *file,i
   return err;
 }
 
+
+
 #define GPAW_CUDAMALLOC(pp,T,n) gpaw_cudaSafeCall(cudaMalloc((void**)(pp),sizeof(T)*(n)));
 
 #define GPAW_CUDAMEMCPY(p1,p2,T,n,type) gpaw_cudaSafeCall(cudaMemcpy(p1,p2,sizeof(T)*(n),type));
@@ -83,5 +89,8 @@ static inline cublasStatus __gpaw_cublasSafeCall( cublasStatus err ,char *file,i
 #define GPAW_CUDAMEMCPY_A(p1,p2,T,n,type,stream) gpaw_cudaSafeCall(cudaMemcpyAsync(p1,p2,sizeof(T)*(n),type,stream));
 
 #define GPAW_CUDAMALLOC_HOST(pp,T,n) gpaw_cudaSafeCall(cudaHostAlloc((void**)(pp),sizeof(T)*(n),cudaHostAllocPortable));
+
+
+#define NEXTPITCHDIV(n)  (((n)>0) ? ((n)+(GPAW_CUDA_PITCH)-1-((n)-1)%(GPAW_CUDA_PITCH)) : 0)
 
 #endif

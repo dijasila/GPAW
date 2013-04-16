@@ -112,7 +112,7 @@ PyObject * Operator_relax_cuda_gpu(OperatorObject *self,
   if (!PyArg_ParseTuple(args, "inni|d", &relax_method, &func_gpu, &source_gpu, &nrelax, &w))
     return NULL;
   
-  const boundary_conditions* bc = self->bc;
+  boundary_conditions* bc = self->bc;
 
   double* fun = (double*)func_gpu;
   const double* src = (double*)source_gpu;
