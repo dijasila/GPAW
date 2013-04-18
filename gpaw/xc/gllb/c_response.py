@@ -245,7 +245,6 @@ class C_Response(Contribution):
                 gaps.append(E-lumo)
 
         method2_dxc = self.kpt_comm.min(min(gaps))
-        Ha = 27.2116 
         Ksgap *= Hartree
         method1_dxc *= Hartree
         method2_dxc *= Hartree
