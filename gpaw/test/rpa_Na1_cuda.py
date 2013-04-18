@@ -28,10 +28,9 @@ calc = GPAW('gs_occ_pw.gpw',txt='gs_pw.txt', parallel={'band': 1})
 calc.diagonalize_full_hamiltonian(nbands=520)
 calc.write('gs_pw.gpw', 'all')
 
-ecut = 120 
 calc = GPAW('gs_pw.gpw', communicator=serial_comm, txt=None)
 rpa = RPACorrelation(calc, txt='rpa_%s.txt' %(ecut), cuda=True)
-E = rpa.get_rpa_correlation_energy(ecut=ecut,
+E = rpa.get_rpa_correlation_energy(ecutlist=[120,],
                                    skip_gamma=False,
                                    directions=[[0,1.0]],
                                    kcommsize=size,
