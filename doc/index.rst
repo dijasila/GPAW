@@ -67,8 +67,8 @@ more about :ref:`its features and the algorithms used
 News
 ====
 
-* May 21-23, 2013: :ref:`workshop` at the Technical University of
-  Denmark (Feb 8 2013)
+* May 21-23, 2013: :ref:`GPAW workshop <workshop>` at the Technical
+  University of Denmark (Feb 8 2013)
 
 * Prof. Häkkinen has received `18 million CPU hour grant`_ for GPAW based 
   research project (Nov 20 2012)
