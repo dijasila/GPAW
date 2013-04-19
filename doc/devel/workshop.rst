@@ -54,7 +54,7 @@ Activities for GPAW developers:
    - Overview of GPAW
  * - Jens Jørgen Mortensen
    - GPAW something something ...
- * - Ask Hjort Larsen
+ * - Ask Hjorth Larsen
    - LCAO in GPAW
  * - Samuli Hakala
    - Multi-GPU Accelerated Large Scale Electronic Structure Calculations
