@@ -93,4 +93,4 @@ Activities for GPAW developers:
    - Applications of Ehrenfest dynamics: from excited state evolution of
      protected gold clusters to stopping of high-energy ions in graphene
  * - Mikael Kuisma
-   - ?
+   - Implementation of Spin-Polarized GLLB-SC potential for GPAW
