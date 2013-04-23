@@ -32,7 +32,6 @@ Old pages
    exercises/summerschool12
    exercises/summerschool10
    exercises/summerschool08
-   technology
    introduction_to_paw
    devel/grids
    devel/tar

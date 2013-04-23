@@ -36,7 +36,22 @@ to become the next release.
 .. toctree::
    :maxdepth: 1
 
-   toc-general
+   codingstandard
+   c_extension
+   writing_documentation
+   formulas
+   debugging
+   profiling
+   coverage
+   testing
+   testsuite
+   ase_optimize/ase_optimize
+   bugs
+   newrelease
+   updating_libxc
+   svn
+   technology
+   todo
 
 * The latest report_ from PyLint_ about the GPAW coding standard.
 

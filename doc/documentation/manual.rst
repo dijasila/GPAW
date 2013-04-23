@@ -902,34 +902,6 @@ argument                         description
 ===============================  =============================================
 
 
-----------
-Extensions
-----------
-
-Currently available extensions:
-
- 1. :ref:`Linear response time-dependent DFT <lrtddft>`
- 2. :ref:`Time propagation time-dependent DFT <timepropagation>`
-
-
-:ref:`lrtddft`
---------------
-
-Optical photoabsorption spectrum can be simulated using :ref:`lrtddft`
-
-
-:ref:`timepropagation`
-----------------------
-
-Optical photoabsorption spectrum as well as nonlinear effects can be
-studied using :ref:`timepropagation`. This approach
-scales better than linear response, but the prefactor is so large that
-for small and moderate systems linear response is significantly
-faster.
-
-
-
-
 .. [#LDA]    J. P. Perdew and Y. Wang,
              Accurate and simple analytic representation of the
              electron-gas correlation energy
