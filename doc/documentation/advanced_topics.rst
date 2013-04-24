@@ -32,5 +32,4 @@ GPAW calculator:
    ../devel/electrostatic_potential
    ../devel/eigenvalues_of_core_states
    ../devel/grids
-   ../devel/tar
    ../setups/generation_of_setups

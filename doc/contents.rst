@@ -34,4 +34,3 @@ Old pages
    exercises/summerschool08
    introduction_to_paw
    devel/grids
-   devel/tar
