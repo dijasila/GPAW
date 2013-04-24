@@ -145,8 +145,8 @@ class HybridXC(HybridXCBase):
             kpt.vxx_anii = {}
             for a, P_ni in P_ani.items():
                 I = P_ni.shape[1]
-                kpt.vxx_ani[a] = np.zeros((nocc, I))
-                kpt.vxx_anii[a] = np.zeros((nocc, I, I))
+                kpt.vxx_ani[a] = np.zeros((nbands, I))
+                kpt.vxx_anii[a] = np.zeros((nbands, I, I))
 
         exx = 0.0
         ekin = 0.0
@@ -189,23 +189,22 @@ class HybridXC(HybridXCBase):
                     else:
                         Htpsit_nG[n2] += f1 * vt_G * psit1_G
 
-                    if n1 < nocc and n2 < nocc:
-                        # Update the vxx_uni and vxx_unii vectors of the nuclei,
-                        # used to determine the atomic hamiltonian, and the 
-                        # residuals
-                        v_aL = self.ghat.dict()
-                        self.ghat.integrate(vt_g, v_aL)
-                        for a, v_L in v_aL.items():
-                            v_ii = unpack(np.dot(setups[a].Delta_pL, v_L))
-                            v_ni = kpt.vxx_ani[a]
-                            v_nii = kpt.vxx_anii[a]
-                            P_ni = P_ani[a]
-                            v_ni[n1] += np.dot(v_ii, P_ni[n2])
-                            if n1 != n2:
-                                v_ni[n2] += np.dot(v_ii, P_ni[n1])
-                            else:
-                                # XXX Check this:
-                                v_nii[n1] = v_ii
+                    # Update the vxx_uni and vxx_unii vectors of the nuclei,
+                    # used to determine the atomic hamiltonian, and the 
+                    # residuals
+                    v_aL = self.ghat.dict()
+                    self.ghat.integrate(vt_g, v_aL)
+                    for a, v_L in v_aL.items():
+                        v_ii = unpack(np.dot(setups[a].Delta_pL, v_L))
+                        v_ni = kpt.vxx_ani[a]
+                        v_nii = kpt.vxx_anii[a]
+                        P_ni = P_ani[a]
+                        v_ni[n1] += f2 * np.dot(v_ii, P_ni[n2])
+                        if n1 != n2:
+                            v_ni[n2] += f1 * np.dot(v_ii, P_ni[n1])
+                        else:
+                            # XXX Check this:
+                            v_nii[n1] = f1 * v_ii
 
         # Apply the atomic corrections to the energy and the Hamiltonian matrix
         for a, P_ni in P_ani.items():
@@ -213,8 +212,9 @@ class HybridXC(HybridXCBase):
 
             if Htpsit_nG is not None:
                 # Add non-trivial corrections the Hamiltonian matrix
-                h_nn = symmetrize(np.inner(P_ni[:nocc], kpt.vxx_ani[a]))
-                ekin -= deg * h_nn.trace()
+                h_nn = symmetrize(np.inner(P_ni[:nbands], 
+                                           kpt.vxx_ani[a][:nbands]))
+                ekin -= np.dot(kpt.f_n[:nbands], h_nn.diagonal())
 
                 dH_p = dH_asp[a][kpt.s]
             
@@ -266,9 +266,10 @@ class HybridXC(HybridXCBase):
             H_nn[:] = 0.0
             
         nocc = self.nocc_s[kpt.s]
+        nbands = len(kpt.vt_nG)
         for a, P_ni in kpt.P_ani.items():
-            H_nn[:nocc, :nocc] += symmetrize(np.inner(P_ni[:nocc],
-                                                      kpt.vxx_ani[a]))
+            H_nn[:nbands, :nbands] += symmetrize(np.inner(P_ni[:nbands],
+                                                          kpt.vxx_ani[a]))
         self.gd.comm.sum(H_nn)
         
         H_nn[:nocc, nocc:] = 0.0
@@ -311,7 +312,7 @@ class HybridXC(HybridXCBase):
                         c_axi[a][x] += np.dot(kpt.vxx_anii[a][n], P_xi[x])
         else:
             for a, c_xi in c_axi.items():
-                c_xi[:nocc] += kpt.vxx_ani[a]
+                c_xi[:nocc] += kpt.vxx_ani[a][:nocc]
         
     def rotate(self, kpt, U_nn):
         if kpt.f_n is None:
