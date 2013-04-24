@@ -9,6 +9,7 @@ import sys
 queue='hpc'   # Other option is app
 
 p = OptionParser()
+p.disable_interspersed_args()
 p.add_option('-p', '--procs', type=int, default=1,
              help='number of processes')
 opts, args = p.parse_args()
