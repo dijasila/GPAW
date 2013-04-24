@@ -58,13 +58,17 @@ class HybridXCBase(XCFunctional):
         return 'PBE'
 
 class HybridXC(HybridXCBase):
-    def __init__(self, name, hybrid=None, xc=None, finegrid=False):
+    def __init__(self, name, hybrid=None, xc=None, 
+                 finegrid=False, unocc=False):
         """Mix standard functionals with exact exchange.
 
         finegrid: boolean
-            Use fine grid for energy functional evaluations?
+            Use fine grid for energy functional evaluations ?
+        unocc: boolean
+            Apply vxx also to unoccupied states ?
         """
         self.finegrid = finegrid
+        self.unocc = unocc
         HybridXCBase.__init__(self, name, hybrid, xc)
         
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
@@ -129,10 +133,14 @@ class HybridXC(HybridXCBase):
             vt_G = self.gd.empty()
 
         nocc = int(kpt.f_n.sum()) // (3 - self.nspins)
+        if self.unocc:
+            nbands = len(kpt.f_n)
+        else:
+            nbands = nocc
         self.nocc_s[kpt.s] = nocc
 
         if Htpsit_nG is not None:
-            kpt.vt_nG = self.gd.empty(nocc)
+            kpt.vt_nG = self.gd.empty(nbands)
             kpt.vxx_ani = {}
             kpt.vxx_anii = {}
             for a, P_ni in P_ani.items():
@@ -144,10 +152,12 @@ class HybridXC(HybridXCBase):
         ekin = 0.0
 
         # Determine pseudo-exchange
-        for n1 in range(nocc):
+        for n1 in range(nbands):
             psit1_G = psit_nG[n1]
-            for n2 in range(n1, nocc):
+            f1 = kpt.f_n[n1] / deg
+            for n2 in range(n1, nbands):
                 psit2_G = psit_nG[n2]
+                f2 = kpt.f_n[n2] / deg
 
                 # Double count factor:
                 dc = (1 + (n1 != n2)) * deg
@@ -170,31 +180,32 @@ class HybridXC(HybridXCBase):
                 int_fine = self.finegd.integrate(vt_g * rhot_g)
                 int_coarse = self.gd.integrate(vt_G * nt_G)
                 if self.gd.comm.rank == 0:  # only add to energy on master CPU
-                    exx += 0.5 * dc * int_fine
-                    ekin -= dc * int_coarse
+                    exx += 0.5 * dc * f1 * f2 * int_fine
+                    ekin -= dc * f1 * f2 * int_coarse
                 if Htpsit_nG is not None:
-                    Htpsit_nG[n1] += vt_G * psit2_G
+                    Htpsit_nG[n1] += f2 * vt_G * psit2_G
                     if n1 == n2:
-                        kpt.vt_nG[n1] = vt_G
+                        kpt.vt_nG[n1] = f1 * vt_G
                     else:
-                        Htpsit_nG[n2] += vt_G * psit1_G
+                        Htpsit_nG[n2] += f1 * vt_G * psit1_G
 
-                    # Update the vxx_uni and vxx_unii vectors of the nuclei,
-                    # used to determine the atomic hamiltonian, and the 
-                    # residuals
-                    v_aL = self.ghat.dict()
-                    self.ghat.integrate(vt_g, v_aL)
-                    for a, v_L in v_aL.items():
-                        v_ii = unpack(np.dot(setups[a].Delta_pL, v_L))
-                        v_ni = kpt.vxx_ani[a]
-                        v_nii = kpt.vxx_anii[a]
-                        P_ni = P_ani[a]
-                        v_ni[n1] += np.dot(v_ii, P_ni[n2])
-                        if n1 != n2:
-                            v_ni[n2] += np.dot(v_ii, P_ni[n1])
-                        else:
-                            # XXX Check this:
-                            v_nii[n1] = v_ii
+                    if n1 < nocc and n2 < nocc:
+                        # Update the vxx_uni and vxx_unii vectors of the nuclei,
+                        # used to determine the atomic hamiltonian, and the 
+                        # residuals
+                        v_aL = self.ghat.dict()
+                        self.ghat.integrate(vt_g, v_aL)
+                        for a, v_L in v_aL.items():
+                            v_ii = unpack(np.dot(setups[a].Delta_pL, v_L))
+                            v_ni = kpt.vxx_ani[a]
+                            v_nii = kpt.vxx_anii[a]
+                            P_ni = P_ani[a]
+                            v_ni[n1] += np.dot(v_ii, P_ni[n2])
+                            if n1 != n2:
+                                v_ni[n2] += np.dot(v_ii, P_ni[n1])
+                            else:
+                                # XXX Check this:
+                                v_nii[n1] = v_ii
 
         # Apply the atomic corrections to the energy and the Hamiltonian matrix
         for a, P_ni in P_ani.items():
@@ -290,7 +301,7 @@ class HybridXC(HybridXCBase):
         if kpt.f_n is None:
             return
 
-        nocc = len(kpt.vt_nG)
+        nocc = self.nocc_s[kpt.s]
         
         if calculate_change:
             for x, n in enumerate(n_x):
@@ -306,7 +317,7 @@ class HybridXC(HybridXCBase):
         if kpt.f_n is None:
             return
 
-        nocc = len(kpt.vt_nG)
+        nocc = self.nocc_s[kpt.s]
         U_nn = U_nn[:nocc, :nocc]
         gemm(1.0, kpt.vt_nG.copy(), U_nn, 0.0, kpt.vt_nG)
         for v_ni in kpt.vxx_ani.values():
