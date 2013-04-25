@@ -258,6 +258,7 @@ tests = [
     'restart_band_structure.py',
     'ne_disc.py',
     'exx_coarse.py',
+    'exx_unocc.py',
     'Hubbard_U_Zn.py',
     'muffintinpot.py',
     'diamond_gllb.py',
