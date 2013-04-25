@@ -25,7 +25,8 @@ developers.
 Program
 =======
 
-All talks are 25 minutes plus 5 minutes for questions.
+All talks are 25 minutes plus 5 minutes for questions (except three
+talks that are 15+5).
 
 
 Tuesday (May 21)
@@ -50,26 +51,33 @@ Tuesday (May 21)
    - 
    - *Lunch*
  * - 13:30
+   - Henrik H. Kristoffersen
+   - Simple methods for photo reaction modeling
+ * - 13:50
+   - Lasse B. Vilhelmsen
+   - Automated Two Step Structure Prediction within GPAW
+ * - 14:10
+   - Bjørk Hammer
+   - Failures of the currently (correctly) implemented NEB-method. Should
+     GPAW revert to the original more robust NEB-formulation with springs?
+ * - 14:30
    - Jess Wellendorff
    - Exchange-correlation functionals with error estimation
- * - 14:00
-   - Bjørk Hammer
-   - Meta-GGA versus vdW (optB88) for adsorption systems
- * - 14:30
+ * - 15:00
    - Hannes Jónsson
    - Orbital density dependent functionals
- * - 15:00
+ * - 15:30
    -
    - *Coffee*
- * - 15:30
+ * - 16:00
    - Per Hyldgaard
    - Electron response in the Rutgers-Chalmers van der Waals density
      Functionals
- * - 16:00
+ * - 16:30
    - Thomas Olsen
    - Extending the random phase approximation with renormalized adiabatic
      exchange kernels
- * - 16:30
+ * - 17:00
    - Mikael Kuisma
    - Implementation of Spin-Polarized GLLB-SC potential for GPAW
  * - 18:00
@@ -134,7 +142,7 @@ Thursday (May 23)
 Activities for GPAW developers (we start at 9:00):
 
 * Coordination of code development and discussions about the future:
-  Quick tour of ongoing projects --- what's the current status?
+  Quick tour of :ref:`projects` --- what's the current status?
   
 * Introduction to Sphinx and reStructuredText
 
