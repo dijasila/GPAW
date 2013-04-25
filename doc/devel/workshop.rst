@@ -19,10 +19,14 @@ presentations and poster session relevant to anyone interested in
 GPAW, followed by one day with hands-on coding activities for
 developers.
 
+`Sponsored by psi-k <http://www.psi-k.org/>`__.
+
+
 Program
 =======
 
 All talks are 25 minutes plus 5 minutes for questions.
+
 
 Tuesday (May 21)
 ----------------
