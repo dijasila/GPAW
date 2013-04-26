@@ -188,7 +188,7 @@ PyObject* cuDestroy(PyObject *self, PyObject *args)
 {
   cublasHandle_t handle;
   cublasStatus_t cudaStat;
-  if (!PyArg_ParseTuple(args, "i",&handle))
+  if (!PyArg_ParseTuple(args, "L",&handle))
     return NULL;
 
   CublasSafeCall(cudaStat = cublasDestroy(handle));
