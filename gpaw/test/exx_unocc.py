@@ -34,7 +34,7 @@ if not load:
                 convergence={'eigenstates': 1e-4},
                 txt=txt)
     cocc.calculate(loa)
-    cocc.write(fname)
+#    cocc.write(fname)
 else:
     cocc = GPAW(fname)
     cocc.converge_wave_functions()
