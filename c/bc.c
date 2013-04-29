@@ -137,7 +137,7 @@ boundary_conditions* bc_init(const long size1[3],
     }
 #ifdef GPAW_CUDA
   bc_init_cuda(bc);
-#endif GPAW_CUDA
+#endif //GPAW_CUDA
   return bc;
 }
 

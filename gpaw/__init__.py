@@ -51,6 +51,14 @@ class PoissonConvergenceError(ConvergenceError):
 debug = False
 gpaw.cuda.debug = False
 gpaw.cuda.debug_sync = False
+
+try:
+    from __main__ import cuda_ctx
+except ImportError:
+    pass
+else:
+    gpaw.cuda.cuda_ctx = cuda_ctx
+
 trace = False
 dry_run = 0
 memory_estimate_depth = 2

@@ -7,6 +7,12 @@
 #define PY_ARRAY_UNIQUE_SYMBOL GPAW_ARRAY_API
 #include <numpy/arrayobject.h>
 
+#ifdef CUDA_MPI
+#include <cuda.h>
+#include <cuda_runtime_api.h>
+#include "cuda/gpaw-cuda-common.h"
+#endif
+
 #ifdef GPAW_WITH_HDF5 
 PyMODINIT_FUNC init_hdf5(void); 
 #endif 
@@ -111,8 +117,8 @@ PyObject* papi_mem_info(PyObject *self, PyObject *args);
 PyObject* mlsqr(PyObject *self, PyObject *args); 
 
 #ifdef GPAW_CUDA  
-PyObject* cuda_init(PyObject *self, PyObject *args);
-PyObject* cuda_delete(PyObject *self, PyObject *args);
+PyObject* gpaw_cuda_init(PyObject *self, PyObject *args);
+PyObject* gpaw_cuda_delete(PyObject *self, PyObject *args);
 PyObject* csign_gpu(PyObject *self, PyObject *args);
 PyObject* scal_cuda_gpu(PyObject *self, PyObject *args);
 PyObject* multi_scal_cuda_gpu(PyObject *self, PyObject *args);
@@ -235,8 +241,8 @@ static PyMethodDef functions[] = {
 #endif // GPAW_PAPI
   {"mlsqr", mlsqr, METH_VARARGS, 0}, 
 #ifdef GPAW_CUDA  
-  {"cuda_init", cuda_init, METH_VARARGS, 0},
-  {"cuda_delete", cuda_delete, METH_VARARGS, 0},
+  {"gpaw_cuda_init", gpaw_cuda_init, METH_VARARGS, 0},
+  {"gpaw_cuda_delete", gpaw_cuda_delete, METH_VARARGS, 0},
   {"csign_gpu", csign_gpu, METH_VARARGS, 0},
   {"scal_cuda_gpu", scal_cuda_gpu, METH_VARARGS, 0},
   {"multi_scal_cuda_gpu", multi_scal_cuda_gpu, METH_VARARGS, 0},
@@ -315,7 +321,44 @@ main(int argc, char **argv)
 #ifdef GPAW_CRAYPAT
   PAT_region_begin(1, "C-Initializations");
 #endif
+  
+#ifdef CUDA_MPI
 
+  // Initialize CUDA before MPI
+
+  Py_Initialize();
+  int cuda=0;
+
+  for (int i=0;i<argc;i++)
+    if (strcmp(argv[i],"--cuda")==0)
+      cuda=1;
+  
+  char* local_rank=getenv("MV2_COMM_WORLD_LOCAL_RANK");
+  if (local_rank==NULL)
+    local_rank=getenv("OMPI_COMM_WORLD_LOCAL_RANK");
+  if (local_rank==NULL)
+    local_rank=getenv("SLURM_LOCALID");
+
+  if (cuda) {
+    PyRun_SimpleString("import pycuda.driver as drv");
+    PyRun_SimpleString("import pycuda.tools as tools");
+    PyRun_SimpleString("drv.init()");
+    if (local_rank!=NULL) {
+      int cuda_dev, device_count;
+      gpaw_cudaSafeCall(cudaGetDeviceCount(&device_count));
+      cuda_dev=atoi(local_rank)%device_count;      
+      char cmd[64];
+      snprintf(cmd,64,"current_dev = drv.Device(%d)",cuda_dev);
+      PyRun_SimpleString(cmd);
+      PyRun_SimpleString("cuda_ctx = current_dev.make_context()");
+    } else {
+      PyRun_SimpleString("cuda_ctx=tools.make_default_context()");
+    }
+    PyRun_SimpleString("cuda_ctx.push()");
+    PyRun_SimpleString("cuda_ctx.set_cache_config(drv.func_cache.PREFER_L1)");
+  }
+#endif
+  
 #ifndef GPAW_OMP
   MPI_Init(&argc, &argv);
 #else
@@ -356,7 +399,9 @@ main(int argc, char **argv)
   MPI_Errhandler_set(MPI_COMM_WORLD, MPI_ERRORS_RETURN);
 #endif
 
+#ifndef CUDA_MPI
   Py_Initialize();
+#endif
 
 #ifdef NO_SOCKET
   initsocket();

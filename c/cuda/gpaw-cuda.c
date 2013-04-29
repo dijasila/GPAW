@@ -16,7 +16,7 @@ void lfc_reduce_init_buffers_cuda();
 void reduce_dealloc_cuda();
 void lfc_reduce_dealloc_cuda();
 
-PyObject* cuda_init(PyObject *self, PyObject *args)
+PyObject* gpaw_cuda_init(PyObject *self, PyObject *args)
 {
   if (!PyArg_ParseTuple(args, ""))
     return NULL;
@@ -33,7 +33,7 @@ PyObject* cuda_init(PyObject *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
-PyObject* cuda_delete(PyObject *self, PyObject *args)
+PyObject* gpaw_cuda_delete(PyObject *self, PyObject *args)
 {
 
   if (!PyArg_ParseTuple(args, ""))

@@ -38,7 +38,7 @@ def init(rank=0):
         raise NameError(errmsg)
         return False
 
-    devno=(rank+1) % drv.Device.count()
+    devno=(rank) % drv.Device.count()
     
     if drv.Device(devno).get_attribute(drv.device_attribute.COMPUTE_MODE) is drv.compute_mode.EXCLUSIVE:
         cuda_ctx=tools.make_default_context()
@@ -48,7 +48,8 @@ def init(rank=0):
     cuda_ctx.push()                
         
     cuda_ctx.set_cache_config(drv.func_cache.PREFER_L1)
-    _gpaw.cuda_init()
+    _gpaw.gpaw_cuda_init()
+
     return True
     
 def delete():
@@ -57,7 +58,7 @@ def delete():
     global cuda_ctx
     
     if cuda_ctx is not None:
-        _gpaw.cuda_delete()
+        _gpaw.gpaw_cuda_delete()
         cuda_ctx.pop() #deactivate again
         cuda_ctx.detach() #delete it
 
@@ -112,12 +113,12 @@ def debug_test(x,y,text,reltol=1e-12,abstol=1e-13,raise_error=False):
                           % (text,x_cpu.shape,x_cpu.dtype),  \
                           DebugCudaWarning, stacklevel=2)
 
-            warnings.warn('%s error: %s %s' \
-                          % (text,x_type,x_cpu),  \
-                          DebugCudaWarning, stacklevel=2)
-            warnings.warn('%s error: %s %s' \
-                          % (text,y_type,y_cpu),  \
-                          DebugCudaWarning, stacklevel=2)
+            #warnings.warn('%s error: %s %s' \
+            #              % (text,x_type,x_cpu),  \
+            #              DebugCudaWarning, stacklevel=2)
+            #warnings.warn('%s error: %s %s' \
+            #              % (text,y_type,y_cpu),  \
+            #              DebugCudaWarning, stacklevel=2)
         
         if raise_error:
             raise DebugCudaError

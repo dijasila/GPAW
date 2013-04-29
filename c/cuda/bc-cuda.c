@@ -11,26 +11,26 @@
 #include <cuda_runtime_api.h>
 
 
-
+#ifndef CUDA_MPI  
 static cudaStream_t bc_recv_stream;
-
 static int bc_streams = 0;
-
 static cudaEvent_t bc_sendcpy_event[3][2];
 static cudaEvent_t bc_recv_event[3][2];
+#endif // !CUDA_MPI
 static int bc_recv_done[3][2];
 
 static int bc_init_count = 0;
 
-static double *bc_rbuffs=NULL;
-static double *bc_sbuffs=NULL;
-static double *bc_rbuffs_gpu=NULL;
-static double *bc_sbuffs_gpu=NULL;
+#ifndef CUDA_MPI  
 static double *bc_rbuff[3][2];
 static double *bc_sbuff[3][2];
+static double *bc_rbuffs=NULL;
+static double *bc_sbuffs=NULL;
+#endif // !CUDA_MPI
 static double *bc_rbuff_gpu[3][2];
 static double *bc_sbuff_gpu[3][2];
-
+static double *bc_rbuffs_gpu=NULL; 
+static double *bc_sbuffs_gpu=NULL;
 static int bc_rbuffs_size=0;
 static int bc_sbuffs_size=0;
 static int bc_rbuffs_max=0;
@@ -55,14 +55,17 @@ void bc_init_cuda(boundary_conditions* bc)
 
 void bc_init_buffers_cuda()
 {
+#ifndef CUDA_MPI  
     bc_rbuffs=NULL;
     bc_sbuffs=NULL;
+    bc_streams=0;
+#endif // !CUDA_MPI
     bc_rbuffs_gpu=NULL;
     bc_sbuffs_gpu=NULL;    
     bc_rbuffs_size=0;
     bc_sbuffs_size=0;
     bc_init_count=0;
-    bc_streams=0;
+
 }
 
 void bc_alloc_buffers(const boundary_conditions* bc,int blocks)
@@ -78,24 +81,31 @@ void bc_alloc_buffers(const boundary_conditions* bc,int blocks)
 
   bc_sbuffs_max=MAX(nsends, bc_sbuffs_max);  
   if (bc_sbuffs_max > bc_sbuffs_size) {
+#ifndef CUDA_MPI  
     cudaFreeHost(bc_sbuffs);
-    cudaFree(bc_sbuffs_gpu);
     cudaGetLastError();
     GPAW_CUDAMALLOC_HOST(&bc_sbuffs,double, bc_sbuffs_max);
+#endif // !CUDA_MPI  
+    cudaFree(bc_sbuffs_gpu);
+    cudaGetLastError();
     GPAW_CUDAMALLOC(&bc_sbuffs_gpu,double, bc_sbuffs_max);
     bc_sbuffs_size=bc_sbuffs_max;
   }
 
   bc_rbuffs_max=MAX(nrecvs, bc_rbuffs_max);
   if (bc_rbuffs_max > bc_rbuffs_size) {
+#ifndef CUDA_MPI  
     cudaFreeHost(bc_rbuffs);
-    cudaFree(bc_rbuffs_gpu);
     cudaGetLastError();
     GPAW_CUDAMALLOC_HOST(&bc_rbuffs,double, bc_rbuffs_max);
+#endif // !CUDA_MPI
+    cudaFree(bc_rbuffs_gpu);
+    cudaGetLastError();
     GPAW_CUDAMALLOC(&bc_rbuffs_gpu,double, bc_rbuffs_max);
     bc_rbuffs_size=bc_rbuffs_max;
   }
 
+#ifndef CUDA_MPI  
   if  (!bc_streams){    
     cudaStreamCreate(&bc_recv_stream);
     bc_streams=1;
@@ -107,16 +117,16 @@ void bc_alloc_buffers(const boundary_conditions* bc,int blocks)
 				 cudaEventDefault|cudaEventDisableTiming);
       }	
     }
-  }  
+  }
+#endif // !CUDA_MPI  
 }
 
 void bc_dealloc_cuda(int force)
 {
   if (force || (bc_init_count==1)) {
+#ifndef CUDA_MPI  
     cudaFreeHost(bc_sbuffs);
     cudaFreeHost(bc_rbuffs);
-    cudaFree(bc_sbuffs_gpu);
-    cudaFree(bc_rbuffs_gpu);
 
     if  (bc_streams){      
       cudaStreamDestroy(bc_recv_stream);
@@ -127,6 +137,10 @@ void bc_dealloc_cuda(int force)
 	}
       }
     }  
+#endif // !CUDA_MPI
+
+    cudaFree(bc_sbuffs_gpu);
+    cudaFree(bc_rbuffs_gpu);
 
     cudaGetLastError();
     bc_init_buffers_cuda();
@@ -162,7 +176,7 @@ void bc_unpack_paste_cuda_gpu(boundary_conditions* bc,
 
 
 
-
+#ifndef CUDA_MPI  
   for (int i = 0; i < 3; i++) {    
     int maxrecv=MAX(bc->nrecv[i][0],bc->nrecv[i][1])*nin*sizeof(double);
     bc->cuda_rjoin[i]=0;
@@ -188,9 +202,10 @@ void bc_unpack_paste_cuda_gpu(boundary_conditions* bc,
     else 
       bc->cuda_async[i]=1;      
   }
+#endif // !CUDA_MPI  
 
   int recvp=0,sendp=0;  
-
+#ifndef CUDA_MPI  
   for (int i=0;i<3;i++){
     bc_sbuff[i][0]=bc_sbuffs+sendp;
     bc_sbuff_gpu[i][0]=bc_sbuffs_gpu+sendp;
@@ -217,13 +232,40 @@ void bc_unpack_paste_cuda_gpu(boundary_conditions* bc,
       recvp+=NEXTPITCHDIV((bc->nrecv[i][1])*nin);
     }
   }
-  
+#else // !CUDA_MPI  
+  for (int i=0;i<3;i++){
+    bc_sbuff_gpu[i][0]=bc_sbuffs_gpu+sendp;
+    if (!bc->cuda_async[i] || bc->cuda_sjoin[i]){
+      bc_sbuff_gpu[i][1]=bc_sbuffs_gpu+sendp+bc->nsend[i][0]*nin;
+      sendp+=NEXTPITCHDIV((bc->nsend[i][0]+bc->nsend[i][1])*nin);
+    } else {
+      sendp+=NEXTPITCHDIV((bc->nsend[i][0])*nin);
+      bc_sbuff_gpu[i][1]=bc_sbuffs_gpu+sendp;
+      sendp+=NEXTPITCHDIV((bc->nsend[i][1])*nin);
+    }
+    bc_rbuff_gpu[i][0]=bc_rbuffs_gpu+recvp;
+    if (!bc->cuda_async[i] || bc->cuda_rjoin[i]){
+      bc_rbuff_gpu[i][1]=bc_rbuffs_gpu+recvp+bc->nrecv[i][0]*nin;
+      recvp+=NEXTPITCHDIV((bc->nrecv[i][0]+bc->nrecv[i][1])*nin);
+    } else {
+      recvp+=NEXTPITCHDIV((bc->nrecv[i][0])*nin);
+      bc_rbuff_gpu[i][1]=bc_rbuffs_gpu+recvp;
+      recvp+=NEXTPITCHDIV((bc->nrecv[i][1])*nin);
+    }
+  }
+#endif // !CUDA_MPI  
+
   for (int i = 0; i < 3; i++) {
     for (int d = 0; d < 2; d++) {
       int p = bc->recvproc[i][d];
       if (p >= 0) {	
+#ifndef CUDA_MPI  
 	MPI_Irecv(bc_rbuff[i][d], bc->nrecv[i][d]*nin,  MPI_DOUBLE, p,
 		  d + 1000 * i,  bc->comm, &recvreq[i][d]);
+#else // !CUDA_MPI  
+	MPI_Irecv(bc_rbuff_gpu[i][d], bc->nrecv[i][d]*nin,  MPI_DOUBLE, p,
+		  d + 1000 * i,  bc->comm, &recvreq[i][d]);
+#endif // !CUDA_MPI  
 	bc_recv_done[i][d]=0; 
       } else {	
 	bc_recv_done[i][d]=1; 
@@ -265,6 +307,8 @@ void bc_unpack_cuda_gpu_sync(const boundary_conditions* bc,
       }
     }
   }
+
+#ifndef CUDA_MPI  
   if (bc->sendproc[i][0]>=0 || bc->sendproc[i][1]>=0)      
     /*    GPAW_CUDAMEMCPY_A(bc_sbuff[i][0],bc_sbuff_gpu[i][0],double,
 		      (bc->nsend[i][0]+bc->nsend[i][1]) *  nin, 
@@ -272,16 +316,23 @@ void bc_unpack_cuda_gpu_sync(const boundary_conditions* bc,
     GPAW_CUDAMEMCPY(bc_sbuff[i][0],bc_sbuff_gpu[i][0],double,
 		    (bc->nsend[i][0]+bc->nsend[i][1])*nin, 
 		    cudaMemcpyDeviceToHost);
+#endif // !CUDA_MPI  
 
   //Start sending:
   for (int d = 0; d < 2; d++) {
     sendreq[d] = 0;
     int p = bc->sendproc[i][d];
     if (p >= 0) {
-      //      cudaStreamSynchronize(kernel_stream); 
+#ifndef CUDA_MPI  
       assert(MPI_Isend(bc_sbuff[i][d], bc->nsend[i][d] * nin, MPI_DOUBLE, p,
 		       1 - d + 1000 * i, bc->comm, 
 		       &sendreq[d])==MPI_SUCCESS);
+#else // !CUDA_MPI  
+      cudaStreamSynchronize(kernel_stream);  	
+      assert(MPI_Isend(bc_sbuff_gpu[i][d], bc->nsend[i][d] * nin, MPI_DOUBLE, p,
+		       1 - d + 1000 * i, bc->comm, 
+		       &sendreq[d])==MPI_SUCCESS);
+#endif // !CUDA_MPI  
     }
   } 
   
@@ -312,9 +363,11 @@ void bc_unpack_cuda_gpu_sync(const boundary_conditions* bc,
     /*    GPAW_CUDAMEMCPY_A(bc_rbuff_gpu[i][0],bc_rbuff[i][0],double,
 		      (bc->nrecv[i][0]+bc->nrecv[i][1]) * nin, 
 		      cudaMemcpyHostToDevice,kernel_stream);*/
+#ifndef CUDA_MPI  
     GPAW_CUDAMEMCPY(bc_rbuff_gpu[i][0],bc_rbuff[i][0],double,
 		    (bc->nrecv[i][0]+bc->nrecv[i][1])*nin, 
 		    cudaMemcpyHostToDevice);
+#endif
     bc_recv_done[i][0]=1; 
     bc_recv_done[i][1]=1; 
   }  
@@ -341,6 +394,9 @@ void bc_unpack_cuda_gpu_sync(const boundary_conditions* bc,
 }
 
 
+
+
+#ifndef CUDA_MPI  
 
 void bc_unpack_cuda_gpu_async(const boundary_conditions* bc,
 				  const double* aa1, double* aa2, int i,
@@ -529,6 +585,21 @@ void bc_unpack_cuda_gpu_async(const boundary_conditions* bc,
 #endif // Parallel  
 }
 
+#else  // !CUDA_MPI  
+void bc_unpack_cuda_gpu_async(const boundary_conditions* bc,
+				  const double* aa1, double* aa2, int i,
+				  MPI_Request recvreq[3][2],
+				  MPI_Request sendreq[2],
+				  const double_complex phases[2], 
+				  cudaStream_t kernel_stream,
+				  int nin)
+
+{
+  bc_unpack_cuda_gpu_sync(bc, aa1, aa2, i, recvreq, sendreq,
+			  phases,kernel_stream,nin);
+}
+#endif // !CUDA_MPI  
+
 void bc_unpack_cuda_gpu(const boundary_conditions* bc,
 			const double* aa1, double* aa2, int i,
 			MPI_Request recvreq[3][2],
@@ -537,6 +608,7 @@ void bc_unpack_cuda_gpu(const boundary_conditions* bc,
 			cudaStream_t kernel_stream,
 			int nin)
 {
+#ifndef CUDA_MPI  
     if (!bc->cuda_async[i]) {
       bc_unpack_cuda_gpu_sync(bc, aa1, aa2, i, recvreq, sendreq,
 			    phases,kernel_stream,nin);
@@ -544,6 +616,10 @@ void bc_unpack_cuda_gpu(const boundary_conditions* bc,
       bc_unpack_cuda_gpu_async(bc, aa1, aa2, i, recvreq, sendreq,
 			       phases,kernel_stream,nin);
     }
+#else // !CUDA_MPI  
+    bc_unpack_cuda_gpu_sync(bc, aa1, aa2, i, recvreq, sendreq,
+			    phases,kernel_stream,nin);
+#endif // !CUDA_MPI  
 }
 
 
