@@ -14,7 +14,7 @@
 
 #compiler = 'mpcc'
 #libraries = []
-libraries += ['mpi']
+#libraries += []
 
 #library_dirs = []
 #library_dirs += []
