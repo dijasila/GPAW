@@ -26,7 +26,7 @@ from gpaw.atom.aeatom import AllElectronAtom, Channel, parse_ld_str, colors, \
 parameters = {
 'H':  ('1s,s,p', 0.9, {}),
 'He': ('1s,s,p', 1.5, {}),
-'Li': ('2s,s,2p', 2.0, {}),
+'Li': ('2s,s,2p', 1.8, {}),
 'Be': ('2s,s,2p', 1.5, {}),
 'B':  ('2s,s,2p,p,d', 1.2, {}),
 'C':  ('2s,s,2p,p,d', 1.2, {'r0': 1.0}),
@@ -37,62 +37,63 @@ parameters = {
 'Na': ('2s,3s,2p,3p,d', 2.3, {'local': 'f', 'r0': 2.0}),
 'Mg': ('2s,3s,2p,3p,d', 2.0, {'local': 'f'}),
 'Al': ('3s,s,3p,p,d', 2.1, {}),
-'Si': ('3s,s,3p,p,d', 2.0, {}),
-'P':  ('3s,s,3p,p,d', 1.8, {}),
-'S':  ('3s,s,3p,p,d', 1.8, {'local': 'f'}),  # ?
+'Si': ('3s,s,3p,p,d', 1.9, {}),
+'P':  ('3s,s,3p,p,d', 1.7, {}),
+'S':  ('3s,s,3p,p,d', 1.6, {}),#'local': 'f'}),  # ?
 'Cl': ('3s,s,3p,p,d', 1.5, {}),
 'Ar': ('3s,s,3p,p,d', 1.6, {}),
 'K':  ('3s,4s,3p,4p,d', 2.1, {'local': 'f'}),
-'Ca': ('3s,4s,3p,4p,3d', 2.1, {'local': 'f'}),
+'Ca': ('3s,4s,3p,4p,3d,d', 2.1, {'local': 'f'}),
 'Sc': ('3s,4s,3p,4p,3d,d', 2.3, {'local': 'f'}),
-'Ti': ('3s,4s,3p,4p,3d,d', 2.6, {'local': 'f'}),
-'V':  ('3s,4s,3p,4p,3d,d', 2.5, {'local': 'f'}),
-'Cr': ('3s,4s,3p,4p,3d,d', 2.4, {'local': 'f'}),
-'Mn': ('3s,4s,3p,4p,3d,d', 2.3, {'local': 'f'}),
-'Fe': ('3s,4s,3p,4p,3d,d', 2.2, {'local': 'f'}),
-'Co': ('3s,4s,3p,4p,3d,d', 2.2, {'local': 'f'}),
-'Ni': ('3s,4s,3p,4p,3d,d', 2.2, {'local': 'f'}),
-'Cu': ('4s,s,4p,p,3d,d', 2.2, {}),
-'Zn': ('4s,s,4p,p,3d,d', 2.2, {}),
-'Ga': ('4s,s,4p,p,d', 2.2, {}),
-'Ge': ('4s,s,4p,p,d', 2.1, {}),
-'As': ('4s,s,4p,p,d', 2.0, {}),
-'Se': ('4s,5s,4p,p,d', 2.0, {}),
-'Br': ('4s,5s,4p,p,d', 2.1, {}),
+'Ti': ('3s,4s,3p,4p,3d,d', 2.4, {'local': 'f'}),
+'V':  ('3s,4s,3p,4p,3d,d', 2.3, {'local': 'f'}),
+'Cr': ('3s,4s,3p,4p,3d,d', 2.2, {'local': 'f'}),
+'Mn': ('3s,4s,3p,4p,3d,d', 2.1, {'local': 'f'}),
+'Fe': ('3s,4s,3p,4p,3d,d', 2.0, {'local': 'f'}),
+'Co': ('3s,4s,3p,4p,3d,d', 2.0, {'local': 'f'}),
+'Ni': ('3s,4s,3p,4p,3d,d', 2.0, {'local': 'f'}),
+'Cu': ('4s,s,4p,p,3d,d', 1.8, {}),
+'Zn': ('4s,s,4p,p,3d,d', 1.8, {}),
+'Ga': ('4s,s,4p,p,d', 2.0, {}),
+'Ge': ('4s,s,4p,p,d', 1.9, {}),
+'As': ('4s,s,4p,p,d', 1.8, {}),
+'Se': ('4s,5s,4p,p,d', 1.9, {}),
+'Br': ('4s,5s,4p,p,d', 2.0, {}),
 'Kr': ('4s,5s,4p,p,d', 2.2, {}),
 'Rb': ('4s,5s,4p,5p,d,d', 2.5, {'local': 'f'}),
 'Sr': ('4s,5s,4p,5p,4d,d', 2.5, {'local': 'f'}),
 'Y':  ('4s,5s,4p,5p,4d,d', 2.5, {'local': 'f'}),
-'Zr': ('4s,5s,4p,5p,4d,d', 2.5, {'local': 'f'}),
-'Nb': ('4s,5s,4p,5p,4d,d', 2.5, {'local': 'f'}),
-'Mo': ('4s,5s,4p,5p,4d,d', 2.4, {'local': 'f'}),
-'Tc': ('4s,5s,4p,5p,4d,d', 2.4, {'local': 'f'}),
-'Ru': ('4s,5s,4p,5p,4d,d', 2.4, {'local': 'f'}),
-'Rh': ('4s,5s,4p,5p,4d,d', 2.4, {'local': 'f'}),
-'Pd': ('4s,5s,4p,5p,4d,d', 2.4, {'local': 'f'}),
-'Ag': ('4s,5s,4p,5p,4d,d', 2.4, {'local': 'f'}),
-'Cd': ('5s,s,5p,p,4d,d', 2.3, {}),
-'In': ('5s,s,5p,p,4d,d', 2.3, {}),
-'Sn': ('5s,s,5p,p,4d,d', 2.3, {}),
-'Sb': ('5s,s,5p,p,4d,d', 2.3, {}),
-'Te': ('5s,s,5p,p,d', 2.3, {}),
-'I':  ('5s,s,5p,p,d', 2.3, {}),
+'Zr': ('4s,5s,4p,5p,4d,d', 2.5, {'local': 'f'}),  # 40
+'Nb': ('4s,5s,4p,5p,4d,d', 2.4, {'local': 'f'}),
+'Mo': ('4s,5s,4p,5p,4d,d', 2.2, {'local': 'f'}),
+'Tc': ('4s,5s,4p,5p,4d,d', 2.2, {'local': 'f'}),
+'Ru': ('4s,5s,4p,5p,4d,d', 2.2, {'local': 'f'}),
+'Rh': ('4s,5s,4p,5p,4d,d', 2.2, {'local': 'f'}),
+'Pd': ('4s,5s,4p,5p,4d,d', 2.2, {'local': 'f'}),
+'Ag': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
+'Cd': ('5s,s,5p,p,4d,d', 2.2, {}),
+'In': ('5s,s,5p,p,4d,d', 2.2, {}),
+'Sn': ('5s,s,5p,p,4d,d', 2.2, {}),  # 50
+'Sb': ('5s,s,5p,p,4d,d', 2.0, {}),
+'Te': ('5s,s,5p,p,d', 2.0, {}),
+'I':  ('5s,s,5p,p,d', 2.0, {}),
 'Xe': ('5s,s,5p,p,d', 2.1, {}),
-'Cs': ('5s,6s,5p,6p,5d', [1.9, 2.2], {}),
+'Cs': ('5s,6s,5p,6p,5d', [1.9, 2.2], {}),  # 55
 'Ba': ('5s,6s,5p,6p,5d', 2.2, {}),
-'La': ('5s,6s,5p,6p,5d,d', 2.2, {}),
-'Hf': ('5s,6s,5p,6p,5d,d', 2.6, {'local': 'f'}),
-'Ta': ('5s,6s,5p,6p,5d,d', 2.6, {'local': 'f'}),
-'W':  ('5s,6s,5p,6p,5d,d', 2.6, {'local': 'f'}),
-'Re': ('5s,6s,5p,6p,5d,d', 2.6, {'local': 'f'}),
-'Os': ('5s,6s,5p,6p,5d,d', 2.6, {'local': 'f'}),
-'Ir': ('5s,6s,5p,6p,5d,d', 2.5, {'local': 'f'}),
-'Pt': ('5s,6s,5p,6p,5d,d', 2.5, {'local': 'f'}),
-'Au': ('6s,s,6p,p,5d,d', 2.5, {}),
-'Hg': ('6s,s,6p,p,5d,d', 2.4, {}),
-'Tl': ('6s,s,6p,p,5d,d', 2.4, {}),
-'Pb': ('6s,s,6p,p,5d,d', 2.4, {}),
-'Bi': ('6s,s,6p,p,5d,d', 2.4, {})
+'La': ('5s,6s,5p,6p,5d,d', 2.2, {}),  # 56
+# ...
+'Hf': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),  # 72
+'Ta': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
+'W':  ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
+'Re': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
+'Os': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
+'Ir': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
+'Pt': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
+'Au': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
+'Hg': ('6s,s,6p,p,5d,d', 2.4, {'local': 'f'}),  # 80
+'Tl': ('6s,s,6p,p,5d,d', 2.4, {'local': 'f'}),
+'Pb': ('6s,s,6p,p,5d,d', 2.4, {'local': 'f'}),
+'Bi': ('6s,s,6p,p,5d,d', 2.4, {'local': 'f'})
 }
 
 extra_parameters = {
@@ -1046,6 +1047,9 @@ def get_parameters(symbol, opt):
     if isinstance(radii, float):
         radii = [radii]
 
+    scale = 1.0#0.9
+    radii = [scale * r for r in radii]
+
     if opt.pseudize:
         type, nderiv = opt.pseudize.split(',')
         pseudize = (type, int(nderiv))
@@ -1088,10 +1092,10 @@ def get_parameters(symbol, opt):
         if 'local' not in extra:
             nderiv0 = 2
             e0 = None
-            r0 = extra.get('r0', min(radii))
+            r0 = extra.get('r0', min(radii) / scale) * scale
         else:
             nderiv0 = 5
-            r0 = extra.get('r0', min(radii) * 0.9)
+            r0 = extra.get('r0', min(radii) * 0.9 / scale) * scale
             l0 = 'spdfg'.find(extra['local'])
             e0 = 0.0
 
