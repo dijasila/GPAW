@@ -80,7 +80,7 @@ parameters = {
 'Xe': ('5s,s,5p,p,d', 2.1, {}),
 'Cs': ('5s,6s,5p,6p,5d', [1.9, 2.2], {}),  # 55
 'Ba': ('5s,6s,5p,6p,5d', 2.2, {}),
-'La': ('5s,6s,5p,6p,5d,d', 2.2, {}),  # 56
+'La': ('5s,6s,5p,6p,5d,d', 2.2, {}),  # 57
 # ...
 'Hf': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),  # 72
 'Ta': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
@@ -90,16 +90,12 @@ parameters = {
 'Ir': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
 'Pt': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
 'Au': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
-'Hg': ('6s,s,6p,p,5d,d', 2.4, {'local': 'f'}),  # 80
-'Tl': ('6s,s,6p,p,5d,d', 2.4, {'local': 'f'}),
-'Pb': ('6s,s,6p,p,5d,d', 2.4, {'local': 'f'}),
-'Bi': ('6s,s,6p,p,5d,d', 2.4, {'local': 'f'})
+'Hg': ('6s,s,6p,p,5d,d', 2.2, {}),  # 80
+'Tl': ('6s,s,6p,p,5d,d', 2.3, {}),
+'Pb': ('6s,s,6p,p,5d,d', 2.3, {}),
+'Bi': ('6s,s,6p,p,5d,d', 2.3, {})
 }
 
-extra_parameters = {
-'Ru': ('4s,5s,s,4p,5p,p,4d,d', 2.9, {'local': 'f'}),
-'Ru': ('5s,s,5p,p,4d,d', [3.3, 3.3, 2.9], {}),
-}
 
 class PAWWaves:
     def __init__(self, rgd, l, rcut):
