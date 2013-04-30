@@ -67,7 +67,6 @@ void operator_alloc_buffers(OperatorObject *self,int blocks)
       cudaEventCreateWithFlags(&operator_event[i],
 			       cudaEventDefault|cudaEventDisableTiming);
     }
-
     operator_streams=OPERATOR_NSTREAMS;
   }
 }
@@ -83,17 +82,21 @@ void operator_init_buffers_cuda()
 
 void operator_dealloc_cuda(int force)
 {
-  if (force || (operator_init_count==1)) {
-    cudaFree(operator_buf_gpu);
-    if (operator_streams){
+  if (force)
+    operator_init_count=1;
+
+  if (operator_init_count==1) {
+    cudaError_t rval;
+    rval=cudaFree(operator_buf_gpu);
+    if (rval==cudaSuccess  && operator_streams){      
       for (int i=0;i<OPERATOR_NSTREAMS;i++){
-	cudaStreamDestroy(operator_stream[i]);
+	gpaw_cudaSafeCall(cudaStreamSynchronize(operator_stream[i]));
+	gpaw_cudaSafeCall(cudaStreamDestroy(operator_stream[i]));	
       }
       for (int i=0;i<2;i++){
-	cudaEventDestroy(operator_event[i]);  
+	gpaw_cudaSafeCall(cudaEventDestroy(operator_event[i]));  
       }      
     }
-    cudaGetLastError();
     operator_init_buffers_cuda();
     return;
   }
@@ -174,6 +177,8 @@ PyObject * Operator_relax_cuda_gpu(OperatorObject *self,
   
   if  (cuda_overlap) 
     cudaEventRecord(operator_event[1], 0);
+
+
   
   for (int n = 0; n < nrelax; n++ )    {
 #ifdef DEBUG_CUDA_OPERATOR

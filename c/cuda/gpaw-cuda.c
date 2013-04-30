@@ -13,6 +13,9 @@ void transformer_init_buffers_cuda();
 void operator_init_buffers_cuda();
 void reduce_init_buffers_cuda();
 void lfc_reduce_init_buffers_cuda();
+void bc_dealloc_cuda(int force);
+void transformer_dealloc_cuda(int force);
+void operator_dealloc_cuda(int force);
 void reduce_dealloc_cuda();
 void lfc_reduce_dealloc_cuda();
 
@@ -40,7 +43,9 @@ PyObject* gpaw_cuda_delete(PyObject *self, PyObject *args)
     return NULL;
   reduce_dealloc_cuda();
   lfc_reduce_dealloc_cuda();
-  
+  bc_dealloc_cuda(1);
+  transformer_dealloc_cuda(1);
+  operator_dealloc_cuda(1);  
   if (PyErr_Occurred())
     return NULL;
   else

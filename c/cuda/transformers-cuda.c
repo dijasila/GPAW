@@ -60,7 +60,10 @@ void transformer_init_buffers_cuda()
 
 void transformer_dealloc_cuda(int force)
 {
-  if (force || (transformer_init_count==1)) {
+  if (force)
+    transformer_init_count=1;
+  
+  if (transformer_init_count==1) {
     cudaFree(transformer_buf_gpu);
     cudaGetLastError();
     transformer_init_buffers_cuda();

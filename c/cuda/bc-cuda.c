@@ -123,26 +123,29 @@ void bc_alloc_buffers(const boundary_conditions* bc,int blocks)
 
 void bc_dealloc_cuda(int force)
 {
-  if (force || (bc_init_count==1)) {
-#ifndef CUDA_MPI  
-    cudaFreeHost(bc_sbuffs);
-    cudaFreeHost(bc_rbuffs);
+  if (force)
+    bc_init_count=1;
 
-    if  (bc_streams){      
-      cudaStreamDestroy(bc_recv_stream);
-      for (int d=0;d<3;d++){
-	for (int i=0;i<2;i++){
-	  cudaEventDestroy(bc_sendcpy_event[d][i]);  
-	  cudaEventDestroy(bc_recv_event[d][i]);
+  if (bc_init_count==1) {
+#ifndef CUDA_MPI  
+    cudaError_t rval;
+    rval=cudaFreeHost(bc_sbuffs);
+    if (rval==cudaSuccess) {
+      cudaFreeHost(bc_rbuffs);      
+      if  (bc_streams){      
+	cudaStreamDestroy(bc_recv_stream);
+	for (int d=0;d<3;d++){
+	  for (int i=0;i<2;i++){
+	    cudaEventDestroy(bc_sendcpy_event[d][i]);  
+	    cudaEventDestroy(bc_recv_event[d][i]);
+	  }
 	}
       }
     }  
 #endif // !CUDA_MPI
-
+    
     cudaFree(bc_sbuffs_gpu);
     cudaFree(bc_rbuffs_gpu);
-
-    cudaGetLastError();
     bc_init_buffers_cuda();
     return;
   }
