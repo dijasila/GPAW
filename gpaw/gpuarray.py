@@ -3,6 +3,15 @@ import numpy as np
 
 try:
     import pycuda.elementwise as elementwise
+except ImportError:
+    class GPUArray(object):
+        pass
+else:
+    from pycuda import VERSION
+    if VERSION != (2012,1):
+        from pycuda import VERSION_TEXT
+        raise ImportError('Unsupported PyCUDA %s version! Version 2012.1 needed.' % VERSION_TEXT)
+        
     from pytools import memoize, memoize_method
     import pycuda.driver as drv
     from pycuda.compyte.array import (
@@ -12,10 +21,6 @@ try:
         ArrayFlags as _ArrayFlags,
         get_common_dtype as _get_common_dtype_base)
     from pycuda.characterize import has_double_support
-except ImportError:
-    class GPUArray(object):
-        pass
-else:
 
 
     def _get_common_dtype(obj1, obj2):
