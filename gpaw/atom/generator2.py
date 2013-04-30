@@ -26,7 +26,7 @@ from gpaw.atom.aeatom import AllElectronAtom, Channel, parse_ld_str, colors, \
 parameters = {
 'H':  ('1s,s,p', 0.9, {}),
 'He': ('1s,s,p', 1.5, {}),
-'Li': ('2s,s,2p', 1.8, {}),
+'Li': ('1s,2s,2p', 1.6, {}),
 'Be': ('2s,s,2p', 1.5, {}),
 'B':  ('2s,s,2p,p,d', 1.2, {}),
 'C':  ('2s,s,2p,p,d', 1.2, {'r0': 1.0}),
