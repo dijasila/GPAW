@@ -366,7 +366,7 @@ class Chi(BaseChi):
                             psit1new_g = psit1new_g_tmp
                     else:
                         # dev_psit1_R is the wave function of (k, n) on device
-                        cu.trans_wfs(cu.tmp_uQ, cu.psit1_R, cu.ind.index1_Q, cu.trans1, cu.time_rev1, 1)
+                        cu.trans_wfs(cu.tmp_uQ, cu.psit1_R, cu.index1_Q, cu.trans1, cu.time_rev1, 1)
                         _gpaw.cuConj_vector(cu.psit1_R, self.nG0)
                         # padding does not work on cuda now !! 
 
@@ -483,7 +483,7 @@ class Chi(BaseChi):
                                     psit2_g = psit2_g_tmp
                             else:
                                 # dev_psit2_R is the wave function of (k+q, m) on device
-                                cu.trans_wfs(cu.tmp_uQ, cu.psit2_uR, cu.ind.index2_Q, cu.trans2, cu.time_rev2, nmultix)
+                                cu.trans_wfs(cu.tmp_uQ, cu.psit2_uR, cu.index2_Q, cu.trans2, cu.time_rev2, nmultix)
 
                             if self.timing: timer.end('wfs_transform')
 
@@ -513,7 +513,7 @@ class Chi(BaseChi):
                                 rho_G = fft_G.ravel()[self.Gindex_G]
                             else:
                                 _gpaw.cuMap_Q2G(cu.psit2_uR, cu.rho_uG, 
-                                                cu.ind.Gindex_G, self.npw, self.nG0, nmultix)
+                                                cu.Gindex_G, self.npw, self.nG0, nmultix)
 
                             if self.timing: timer.end('mapG')
 

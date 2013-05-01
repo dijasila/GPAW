@@ -8,49 +8,6 @@ sizeofint = 4
 sizeofdouble = 8
 sizeofpointer = 8
 
-class GpuAlloc:
-    def __init__(self, list):
-        sizetot = 0
-        for si in list:
-            sizetot += si[1]
-
-        status, ptr = _gpaw.cuMalloc(sizetot)
-        self.ptr = ptr
-        for si in list:
-            exec 'self.' + si[0] + '= ptr'
-            ptr += si[1]
-
-    def free(self):
-        _gpaw.cuFree(self.ptr)
-
-class Indices(GpuAlloc):
-
-    def __init__(self, chi0_wGG, basechi):
-        sizelist = []
-        self.sizeofint = 4
-
-        sizelist.append(['index1_Q', basechi.nG0*self.sizeofint])
-        sizelist.append(['index2_Q', basechi.nG0*self.sizeofint])
-        sizelist.append(['Gindex_G', basechi.npw*self.sizeofint])
-
-        GpuAlloc.__init__(self, sizelist)
-
-        _gpaw.cuSetVector(basechi.npw,self.sizeofint,basechi.Gindex_G,1,self.Gindex_G,1)
-
-    def kspecific_init(self, size, index1_g, index2_g):
-        _gpaw.cuSetVector(size, self.sizeofint,index1_g,1,self.index1_Q,1)
-        _gpaw.cuSetVector(size, self.sizeofint,index2_g,1,self.index2_Q,1)
-
-class KPoints(GpuAlloc):
-    def __init__(self, nibzk, ibzk_kc):
-        sizelist = []
-        sizelist.append(['ibzk_kc', nibzk*3*sizeofdouble])
-
-
-        GpuAlloc.__init__(self, sizelist)
-        _gpaw.cuSetVector(nibzk*3,sizeofdouble,ibzk_kc.ravel(),1,self.ibzk_kc,1)
-
-
 class BaseCuda:
 
 
@@ -75,11 +32,14 @@ class BaseCuda:
         status, self.tmp_uQ = _gpaw.cuMalloc(nG0*nmultix*sizeofdata)
         status, self.psit1_R = _gpaw.cuMalloc(nG0*sizeofdata)
         status, self.psit2_uR = _gpaw.cuMalloc(nG0*nmultix*sizeofdata)
+        status, self.index1_Q = _gpaw.cuMalloc(nG0*sizeofint)
+        status, self.index2_Q = _gpaw.cuMalloc(nG0*sizeofint)
         status, self.expqr_R = _gpaw.cuMalloc(nG0*sizeofdata)
+        status, self.Gindex_G = _gpaw.cuMalloc(npw*sizeofint)
+        _gpaw.cuSetVector(npw,sizeofint,chi.Gindex_G,1,self.Gindex_G,1)
 
         self.cufftplanmany = _gpaw.cufft_planmany(nG[0],nG[1],nG[2],nmultix)
         self.cufftplan = _gpaw.cufft_plan3d(nG[0],nG[1],nG[2])
-        self.ind =Indices(chi0_wGG, chi)
 
         status, self.mlocallist = _gpaw.cuMalloc(nmultix*sizeofint)
         self.nibzkpt = chi.kd.nibzkpts
@@ -141,8 +101,8 @@ class BaseCuda:
         status, self.op_scc = _gpaw.cuMalloc(Ns*9*sizeofint)
         _gpaw.cuSetVector(Ns*9,sizeofint,op_scc.ravel(),1,self.op_scc,1)
 
-        self.kpoints = KPoints(nibzk, ibzk_kc)
-        
+        status, self.ibzk_kc = _gpaw.cuMalloc(nibzk*3*sizeofdouble)
+        _gpaw.cuSetVector(nibzk*3,sizeofdouble,ibzk_kc.ravel(),1,self.ibzk_kc,1)
         self.P_R_asii = np.zeros(Na, dtype=np.int64)            # P_R_asii is a pointer array on CPU
         self.P_P1_ani = np.zeros(Na, dtype=np.int64)       # for k
         self.P_P1_ai = np.zeros(Na, dtype=np.int64)
@@ -247,8 +207,8 @@ class BaseCuda:
         self.time_rev1 = time_rev1 = kd.time_reversal_k[k]
         self.time_rev2 = time_rev2 = kd.time_reversal_k[kq_k[k]]
         
-
-        self.ind.kspecific_init(nx*ny*nz, index1_g, index2_g)
+        _gpaw.cuSetVector(nx*ny*nz,sizeofint,index1_g,1,self.index1_Q,1)
+        _gpaw.cuSetVector(nx*ny*nz,sizeofint,index2_g,1,self.index2_Q,1)
 
         deltak1_c = np.dot(op1_cc, kd.ibzk_kc[ibzkpt1])
         deltak2_c = np.dot(op2_cc, kd.ibzk_kc[ibzkpt2])
@@ -380,7 +340,7 @@ class BaseCuda:
             else:
                 _gpaw.cuMemset(P_P_aui[a], 0, sizeofdata*Ni*self.nmultix)                
 
-        _gpaw.cuGet_P_ani(self.spos_ac, self.kpoints.ibzk_kc, self.op_scc, self.a_sa, self.R_asii, 
+        _gpaw.cuGet_P_ani(self.spos_ac, self.ibzk_kc, self.op_scc, self.a_sa, self.R_asii, 
                          P_ani, P_aui, self.Ni_a, time_rev, self.Na, s, ibzkpt, n_n, nn, self.offset_a,
                          self.host_Ni_a.sum())
 
@@ -457,7 +417,7 @@ class BaseCuda:
         _gpaw.cuFree(self.spos_ac)
         _gpaw.cuFree(self.a_sa)
         _gpaw.cuFree(self.op_scc)
-        self.kpoints.free()
+        _gpaw.cuFree(self.ibzk_kc)
 #        _gpaw.cuFree(self.tmp_Q)
         _gpaw.cuFree(self.tmp_uQ)
         _gpaw.cuFree(self.psit1_R)
@@ -469,8 +429,10 @@ class BaseCuda:
         _gpaw.cuFree(self.w2_w)
         _gpaw.cuFree(self.C_wu)
         _gpaw.cuFree(self.alpha_wu)
-        
-        self.ind.free()
+        _gpaw.cuFree(self.Gindex_G)
+        _gpaw.cuFree(self.index1_Q)
+        _gpaw.cuFree(self.index2_Q)
+
         if chi.optical_limit:
             _gpaw.cuFree(self.opteikr_R)
             _gpaw.cuFree(self.optpsit2_uR)
