@@ -23,13 +23,6 @@ PyObject* cuZscal(PyObject *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
-void checkArray(cuDoubleComplex* a, int size) {
-  void *cpuarray = malloc(size*sizeof(cuDoubleComplex));
-  cudaMemcpy(cpuarray,a,size*sizeof(cuDoubleComplex),cudaMemcpyDeviceToHost);
-  printf("*** checking cpuarray %p %p\n",a,cpuarray);
-  CudaCheckError();
-}
-
 PyObject* cugemm(PyObject *self, PyObject *args)
 {
   cublasHandle_t handle;
@@ -61,32 +54,7 @@ PyObject* cugemm(PyObject *self, PyObject *args)
                            &beta, /* host or device pointer */  
                            c,
                            ldc));
-  cudaError_t err = cudaGetLastError();
-  if ( cudaSuccess != err )
-    {
-      fprintf( stderr, "cudaCheckError() failed at %s:%i : %s (%i)\n",
-               __FILE__, __LINE__, cudaGetErrorString( err ), err );
-      checkArray(a,m*k);
-      checkArray(b,k*n);
-      checkArray(c,m*n);
-      printf("*** done array check 1\n");
-      while(1) sleep(10000000);
-    }
-  
-  // More careful checking. However, this will affect performance.
-  // Comment away if needed.
-  err = cudaDeviceSynchronize();
-  if( cudaSuccess != err )
-    {
-      fprintf( stderr, "cudaCheckError() with sync failed at %s:%i : %s (%i)\n",
-               __FILE__, __LINE__, cudaGetErrorString( err ), err );
-      checkArray(a,m*k);
-      checkArray(b,k*n);
-      checkArray(c,m*n);
-      printf("*** done array check 2\n");
-      while(1) sleep(10000000);
-    }
-/*   CudaCheckError(); */
+  CudaCheckError();
 
   Py_RETURN_NONE;
 }
