@@ -2,7 +2,7 @@ from __future__ import division
 import numpy as np
 
 try:
-    import pycuda.elementwise as elementwise
+    from pycuda import VERSION
 except StandardError as import_error:
     import sys
     class Wrapper(object):
@@ -15,11 +15,10 @@ except StandardError as import_error:
             raise self.import_error
     sys.modules[__name__] = Wrapper()
 else:
-    from pycuda import VERSION
     if VERSION != (2012,1):
         from pycuda import VERSION_TEXT
         raise ImportError('Unsupported PyCUDA %s version! Version 2012.1 needed.' % VERSION_TEXT)
-        
+    import pycuda.elementwise as elementwise        
     from pytools import memoize, memoize_method
     import pycuda.driver as drv
     from pycuda.compyte.array import (
