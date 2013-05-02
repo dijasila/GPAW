@@ -534,10 +534,11 @@ class FermiDirac(SmoothDistribution):
         return np.array([n, dnde, n * sign, e_entropy])
 
 class MethfesselPaxton(SmoothDistribution):
-    def __init__(self, width, iter=0, fixmagmom=False, maxiter=1000):
+    def __init__(self, width, iter=0, fixmagmom=False, maxiter=1000,
+                 idiotproof=True):
         SmoothDistribution.__init__(self, width, fixmagmom, maxiter)
         self.iter = iter
-        if iter > 0:
+        if idiotproof and iter > 0:
             raise NotImplementedError(
                 'Extrapolation to zero width not implemeted for ' +
                 'Methfessel-Paxton distribution with order > 0.')

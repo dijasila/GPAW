@@ -15,7 +15,7 @@ from ase.calculators.calculator import kptdensity2monkhorstpack
 import gpaw.io
 import gpaw.mpi as mpi
 import gpaw.occupations as occupations
-from gpaw import dry_run, memory_estimate_depth, KohnShamConvergenceError
+from gpaw import dry_run, memory_estimate_depth
 from gpaw.density import RealSpaceDensity
 from gpaw.eigensolvers import get_eigensolver
 from gpaw.band_descriptor import BandDescriptor

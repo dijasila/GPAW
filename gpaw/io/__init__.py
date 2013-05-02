@@ -111,7 +111,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     atoms = paw.atoms
     natoms = len(atoms)
 
-    magmom_a = paw.results['magmoms']
+    magmom_a = paw.results.get('magmoms', np.zeros(natoms))
 
     hdf5 = filename.endswith('.hdf5')
 

@@ -32,4 +32,4 @@ def test(occ):
 for w in [0.1, 0.5]:
     test(FermiDirac(w))
     for n in range(4):
-        test(MethfesselPaxton(w, n))
+        test(MethfesselPaxton(w, n, idiotproof=False))

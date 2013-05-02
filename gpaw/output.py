@@ -299,7 +299,7 @@ class PAWTextOutput:
 
         t()
 
-        dipole = self.results.get('dipole', [42, 42, 42])
+        dipole = self.results.get('dipole', np.array([42.0, 42.0, 42.0]))
         if self.density.charge == 0:
             t('Dipole Moment: %s' % dipole)
         else:
@@ -332,7 +332,7 @@ class PAWTextOutput:
             t()
         elif not self.wfs.collinear:
             self.txt.write('Local Magnetic Moments:\n')
-            for a, mom_v in enumerate(self.get_magnetic_moments()):
+            for a, mom_v in enumerate(self.results['magmoms']):
                 self.txt.write('%4d  (%.3f, %.3f, %.3f)\n' %
                                (a, mom_v[0], mom_v[1], mom_v[2]))
 

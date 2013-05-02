@@ -21,13 +21,17 @@ from gpaw.wavefunctions.base import EmptyWaveFunctions
 from gpaw.parameters import read_parameters
 from gpaw.wavefunctions.pw import ReciprocalSpaceDensity
 from gpaw import parsize_domain, parsize_bands, sl_default, sl_diagonalize, \
-                 sl_inverse_cholesky, sl_lcao, buffer_size
+                 sl_inverse_cholesky, sl_lcao, buffer_size, \
+                 KohnShamConvergenceError
 
 
 class GPAW(PAW, Calculator):
     """This is the ASE-calculator frontend for doing a PAW calculation.
     """
-    
+
+    implemented_properties = ['energy', 'forces', 'stress', 'dipole',
+                              'magmom', 'magmoms']
+
     default_parameters = {
         'h':               None,  # Angstrom
         'xc':              'LDA',
@@ -88,7 +92,7 @@ class GPAW(PAW, Calculator):
         if self.label is None or not os.path.isfile(self.label):
             raise ReadError
 
-        comm = kwargs.get('communicator', mpi.world)
+        comm = self.parameters.get('communicator', mpi.world)
         reader = gpaw.io.open(self.label, 'r', comm)
         self.atoms = gpaw.io.read_atoms(reader)
         read_parameters(self.parameters)
@@ -165,7 +169,7 @@ class GPAW(PAW, Calculator):
             raise NotImplementedError
         return Calculator.get_dipole_moment(self, atoms)
 
-    def calculate(self, atoms, properties, changes):
+    def calculate(self, atoms, properties=[], changes=[]):
         for change in ['numbers', 'pbc', 'cell', 'magmoms']:
             if change in changes:
                 self.wfs = EmptyWaveFunctions()
@@ -223,18 +227,19 @@ class GPAW(PAW, Calculator):
             dipole_v = self.density.finegd.calculate_dipole_moment(rhot_g)
             self.results['dipole'] =  dipole_v * Bohr
         
-        self.results['magmom'] = self.occupations.magmom
+        if self.wfs.nspins == 2:
+            self.results['magmom'] = self.occupations.magmom
 
-        # Local magnetic moments within augmentation spheres:
-        magmom_av = self.density.estimate_magnetic_moments()
-        if self.wfs.collinear:
-            momsum = magmom_av.sum()
-            M = self.occupations.magmom
-            if abs(M) > 1e-7 and abs(momsum) > 1e-7:
-                magmom_av *= M / momsum
-            self.results['magmoms'] = magmom_av[:, 2].copy()
-        else:
-            self.results['magmoms'] = magmom_av
+            # Local magnetic moments within augmentation spheres:
+            magmom_av = self.density.estimate_magnetic_moments()
+            if self.wfs.collinear:
+                momsum = magmom_av.sum()
+                M = self.occupations.magmom
+                if abs(M) > 1e-7 and abs(momsum) > 1e-7:
+                    magmom_av *= M / momsum
+                self.results['magmoms'] = magmom_av[:, 2].copy()
+            else:
+                self.results['magmoms'] = magmom_av
 
         if iter is not None:
             self.print_converged(iter)
