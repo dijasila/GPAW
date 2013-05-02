@@ -3,9 +3,17 @@ import numpy as np
 
 try:
     import pycuda.elementwise as elementwise
-except ImportError:
-    class GPUArray(object):
-        pass
+except StandardError as import_error:
+    import sys
+    class Wrapper(object):
+        import_error=import_error
+        class GPUArray(object):
+            import_error=import_error
+            def __getattr__(self,name):
+                raise self.import_error
+        def __getattr__(self,name):
+            raise self.import_error
+    sys.modules[__name__] = Wrapper()
 else:
     from pycuda import VERSION
     if VERSION != (2012,1):
