@@ -369,10 +369,8 @@ class OmegaMatrix:
             timer.stop()
 ##            timer2.write()
             if ij < (nij-1):
-                t = timer.get_time(ij) # time for nij-ij calculations
-                t = .5*t*(nij-ij)  # estimated time for n*(n+1)/2, n=nij-(ij+1)
                 print >> self.txt,'XC estimated time left',\
-                      self.timestring(t0*(nij-ij-1)+t)
+                    self.time_left(timer, t0, ij, nij)
 
 
     def get_rpa(self):
@@ -521,6 +519,11 @@ class OmegaMatrix:
             ti -= tm * 60
         st += '%d' % ti + 's'
         return st
+
+    def time_left(self, timer, t0, ij, nij):
+        t = timer.get_time(ij) # time for nij-ij calculations
+        t = .5 * t * (nij - ij)  # estimated time for n*(n+1)/2, n=nij-(ij+1)
+        return self.timestring(t0 * (nij - ij - 1) + t)
 
     def get_map(self, istart=None, jend=None, energy_range=None):
         """Return the reduction map for the given requirements"""
