@@ -159,6 +159,7 @@ lopeza     Olga Lopez                 lopez:cc,jyu,fi
 marsalek   Ondrej Marsalek            ondrej,marsalek:gmail,com
 mathiasl   Mathias Ljungberg          mathiasl:physto,se
 miwalter   Michael Walter             Michael,Walter:fmf,uni-freiburg,de
+mohpa      Mohnish Pandey             mohpa:fysik,dtu,dk
 moses      Poul Georg Moses           poulgeorgmoses:gmail,com
 mvanin     Marco Vanin                mvanin:fysik,dtu,dk
 naromero   Nichols Romero             naromero:alcf,anl,gov
