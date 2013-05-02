@@ -164,7 +164,7 @@ class MatrixOperator:
 
         self.bmd.estimate_memory(mem.subnode('Band Matrices'), dtype)
 
-    def _initialize_cycle(self, sbuf_mG, rbuf_mG, sbuf_In, rbuf_In, auxiliary):
+    def _initialize_cycle(self, sbuf_mG, rbuf_mG, sbuf_nI, rbuf_nI, auxiliary):
         """Initializes send/receive cycle of pseudo wave functions, as well as
         an optional auxiliary send/receive cycle of corresponding projections.
         Low-level helper function. Results in the following communications::
@@ -173,7 +173,7 @@ class MatrixOperator:
           Asynchronous: ... o/i  <-- sbuf_mG --  o/i  <-- rbuf_mG --  o/i ...
           Synchronous:     blank                blank                blank
 
-          Auxiliary:    ... o/i  <-- sbuf_In --  o/i  <-- rbuf_In --  o/i ...
+          Auxiliary:    ... o/i  <-- sbuf_nI --  o/i  <-- rbuf_nI --  o/i ...
 
         A letter 'o' signifies a non-blocking send and 'i' a matching receive.
 
@@ -184,9 +184,9 @@ class MatrixOperator:
             Send buffer for the outgoing set of pseudo wave functions.
         rbuf_mG: ndarray
             Receive buffer for the incoming set of pseudo wave functions.
-        sbuf_In: ndarray, ignored if not auxiliary
+        sbuf_nI: ndarray, ignored if not auxiliary
             Send buffer for the outgoing set of atomic projector overlaps.
-        rbuf_In: ndarray, ignored if not auxiliary
+        rbuf_nI: ndarray, ignored if not auxiliary
             Receive buffer for the incoming set of atomic projector overlaps.
         auxiliary: bool
             Determines whether to initiate the auxiliary send/receive cycle.
@@ -204,10 +204,10 @@ class MatrixOperator:
 
         # Auxiliary asyncronous cycle, also send/receive of P_ani's.
         if auxiliary:
-            self.req2.append(band_comm.send(sbuf_In, rankm, 31, False))
-            self.req2.append(band_comm.receive(rbuf_In, rankp, 31, False))
+            self.req2.append(band_comm.send(sbuf_nI, rankm, 31, False))
+            self.req2.append(band_comm.receive(rbuf_nI, rankp, 31, False))
 
-    def _finish_cycle(self, sbuf_mG, rbuf_mG, sbuf_In, rbuf_In, auxiliary):
+    def _finish_cycle(self, sbuf_mG, rbuf_mG, sbuf_nI, rbuf_nI, auxiliary):
         """Completes a send/receive cycle of pseudo wave functions, as well as
         an optional auxiliary send/receive cycle of corresponding projections.
         Low-level helper function. Results in the following communications::
@@ -216,7 +216,7 @@ class MatrixOperator:
           Asynchronous: ... w/w  <-- sbuf_mG --  w/w  <-- rbuf_mG --  w/w ...
           Synchronous:  ... O/I  <-- sbuf_mG --  O/I  <-- rbuf_mG --  O/I ...
 
-          Auxiliary:    ... w/w  <-- sbuf_In --  w/w  <-- rbuf_In --  w/w ...
+          Auxiliary:    ... w/w  <-- sbuf_nI --  w/w  <-- rbuf_nI --  w/w ...
 
         A letter 'w' signifies wait for initialized non-blocking communication.
         The letter 'O' signifies a blocking send and 'I' a matching receive.
@@ -232,9 +232,9 @@ class MatrixOperator:
             New send buffer with the received set of pseudo wave functions.
         rbuf_mG: ndarray
             New receive buffer (has the sent set of pseudo wave functions).
-        sbuf_In: ndarray, same as input if not auxiliary
+        sbuf_nI: ndarray, same as input if not auxiliary
             New send buffer with the received set of atomic projector overlaps.
-        rbuf_In: ndarray, same as input if not auxiliary
+        rbuf_nI: ndarray, same as input if not auxiliary
             New receive buffer (has the sent set of atomic projector overlaps).
 
         """
@@ -255,9 +255,9 @@ class MatrixOperator:
         if auxiliary:
             assert len(self.req2) == 2, 'Expected asynchronous request pairs.'
             band_comm.waitall(self.req2)
-            sbuf_In, rbuf_In = rbuf_In, sbuf_In
+            sbuf_nI, rbuf_nI = rbuf_nI, sbuf_nI
 
-        return sbuf_mG, rbuf_mG, sbuf_In, rbuf_In
+        return sbuf_mG, rbuf_mG, sbuf_nI, rbuf_nI
 
     def calculate_matrix_elements(self, psit_nG, P_ani, A, dA):
         """Calculate matrix elements for A-operator.
@@ -323,12 +323,11 @@ class MatrixOperator:
             A_qnn = self.A_qnn
 
         # Buffers for send/receive of operated-on versions of P_ani's.
-        sbuf_In = rbuf_In = None
+        sbuf_nI = rbuf_nI = None
         if P_ani:
-            sbuf_In = np.concatenate([dA(a, P_ni).T
-                                      for a, P_ni in P_ani.items()])
+            sbuf_nI = np.hstack([dA(a, P_ni) for a, P_ni in P_ani.items()])
             if B > 1:
-                rbuf_In = np.empty_like(sbuf_In)
+                rbuf_nI = np.empty_like(sbuf_nI)
 
         work1_xG = reshape(self.work1_xG, (self.X,) + psit_nG.shape[1:])
         work2_xG = reshape(self.work2_xG, (self.X,) + psit_nG.shape[1:])
@@ -362,7 +361,7 @@ class MatrixOperator:
                 # If we're at the last slice, start cycling P_ani too.
                 if q < Q - 1:
                     self._initialize_cycle(sbuf_mG, rbuf_mG,
-                                           sbuf_In, rbuf_In, cycle_P_ani)
+                                           sbuf_nI, rbuf_nI, cycle_P_ani)
 
                 # Calculate pseudo-braket contributions for the current slice
                 # of bands in the current mynbands x mynbands matrix block.
@@ -382,7 +381,7 @@ class MatrixOperator:
                     I1 = 0
                     for P_ni in P_ani.values():
                         I2 = I1 + P_ni.shape[1]
-                        gemm(1.0, P_ni, sbuf_In[I1:I2].T.copy(),
+                        gemm(1.0, P_ni, sbuf_nI[:, I1:I2],
                              1.0, A_nn, 'c')
                         I1 = I2
 
@@ -390,8 +389,8 @@ class MatrixOperator:
                 # Swap send and receive buffer such that next becomes current.
                 # If we're at the last slice, also finishes the P_ani cycle.
                 if q < Q - 1:
-                    sbuf_mG, rbuf_mG, sbuf_In, rbuf_In = self._finish_cycle(
-                        sbuf_mG, rbuf_mG, sbuf_In, rbuf_In, cycle_P_ani)
+                    sbuf_mG, rbuf_mG, sbuf_nI, rbuf_nI = self._finish_cycle(
+                        sbuf_mG, rbuf_mG, sbuf_nI, rbuf_nI, cycle_P_ani)
 
                 # First iteration was special because we had the ket to ourself
                 if q == 0:
@@ -472,11 +471,11 @@ class MatrixOperator:
         g = int(np.ceil(G / float(J)))
 
         # Buffers for send/receive of pre-multiplication versions of P_ani's.
-        sbuf_In = rbuf_In = None
+        sbuf_nI = rbuf_nI = None
         if P_ani:
-            sbuf_In = np.concatenate([P_ni.T for P_ni in P_ani.values()])
+            sbuf_nI = np.hstack([P_ni for P_ni in P_ani.values()])
             if B > 1:
-                rbuf_In = np.empty_like(sbuf_In)
+                rbuf_nI = np.empty_like(sbuf_nI)
 
         # Because of the amount of communication involved, we need to
         # be syncronized up to this point but only on the 1D band_comm
@@ -506,7 +505,7 @@ class MatrixOperator:
                 # If we're at the last slice, start cycling P_ani too.
                 if q < Q - 1:
                     self._initialize_cycle(sbuf_ng, rbuf_ng,
-                                           sbuf_In, rbuf_In, cycle_P_ani)
+                                           sbuf_nI, rbuf_nI, cycle_P_ani)
 
                 # Calculate wave-function contributions from the current slice
                 # of grid data by the current mynbands x mynbands matrix block.
@@ -518,15 +517,15 @@ class MatrixOperator:
                     I1 = 0
                     for P_ni in P_ani.values():
                         I2 = I1 + P_ni.shape[1]
-                        gemm(1.0, sbuf_In[I1:I2].T.copy(), C_nn, beta, P_ni)
+                        gemm(1.0, sbuf_nI[:, I1:I2], C_nn, beta, P_ni)
                         I1 = I2
 
                 # Wait for all send/receives to finish before next iteration.
                 # Swap send and receive buffer such that next becomes current.
                 # If we're at the last slice, also finishes the P_ani cycle.
                 if q < Q - 1:
-                    sbuf_ng, rbuf_ng, sbuf_In, rbuf_In = self._finish_cycle(
-                        sbuf_ng, rbuf_ng, sbuf_In, rbuf_In, cycle_P_ani)
+                    sbuf_ng, rbuf_ng, sbuf_nI, rbuf_nI = self._finish_cycle(
+                        sbuf_ng, rbuf_ng, sbuf_nI, rbuf_nI, cycle_P_ani)
 
                 # First iteration was special because we initialized the kets
                 if q == 0:

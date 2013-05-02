@@ -704,14 +704,14 @@ class KPoint:
         # Total number of projector functions:
         I = sum([P_ni.shape[1] for P_ni in self.P_ani.values()])
         
-        kpt.P_In = np.empty((I, wfs.bd.nbands), wfs.dtype)
+        kpt.P_nI = np.empty((wfs.bd.nbands, I), wfs.dtype)
 
         kpt.P_ani = {}
         I1 = 0
         assert self.P_ani.keys() == range(len(self.P_ani))  # ???
         for a, P_ni in self.P_ani.items():
             I2 = I1 + P_ni.shape[1]
-            kpt.P_ani[a] = kpt.P_In[I1:I2].T
+            kpt.P_ani[a] = kpt.P_nI[:, I1:I2]
             I1 = I2
 
         kpt.k = (self.k + 1) % self.kd.nibzkpts
@@ -721,19 +721,19 @@ class KPoint:
         
     def start_sending(self, rank):
         assert self.P_ani.keys() == range(len(self.P_ani))  # ???
-        P_In = np.concatenate([P_ni.T for P_ni in self.P_ani.values()])
+        P_nI = np.hstack([P_ni for P_ni in self.P_ani.values()])
         self.requests += [
             self.kd.comm.send(self.psit_nG, rank, block=False, tag=1),
             self.kd.comm.send(self.f_n, rank, block=False, tag=2),
             self.kd.comm.send(self.eps_n, rank, block=False, tag=3),
-            self.kd.comm.send(P_In, rank, block=False, tag=4)]
+            self.kd.comm.send(P_nI, rank, block=False, tag=4)]
         
     def start_receiving(self, rank):
         self.requests += [
             self.kd.comm.receive(self.psit_nG, rank, block=False, tag=1),
             self.kd.comm.receive(self.f_n, rank, block=False, tag=2),
             self.kd.comm.receive(self.eps_n, rank, block=False, tag=3),
-            self.kd.comm.receive(self.P_In, rank, block=False, tag=4)]
+            self.kd.comm.receive(self.P_nI, rank, block=False, tag=4)]
     
     def wait(self):
         self.kd.comm.waitall(self.requests)
