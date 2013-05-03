@@ -67,7 +67,7 @@ def gemm(alpha, a, b, beta, c, transa='n'):
             isinstance(alpha, float) and isinstance(beta, float) or
             a.dtype == complex and b.dtype == complex and c.dtype == complex)
     if transa == 'n':
-        assert a[0].flags.contiguous
+        assert a.size == 0 or a[0].flags.contiguous
         assert c.flags.contiguous or c.ndim == 2 and c.strides[1] == c.itemsize
         assert b.ndim == 2
         assert b.strides[1] == b.itemsize
