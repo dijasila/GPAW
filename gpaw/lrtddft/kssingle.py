@@ -62,7 +62,7 @@ class KSSingles(ExcitationList):
         # deny hybrids as their empty states are wrong
         gsxc = calculator.hamiltonian.xc
         hybrid = hasattr(gsxc, 'hybrid') and gsxc.hybrid > 0.0
-        assert(not hybrid)
+#        assert(not hybrid)
 
         if nonselfconsistent_xc is None:
             self.de_skn = None
@@ -397,7 +397,7 @@ class KSSingle(Excitation, PairDensity):
         gd.comm.sum(ma)
         
         self.magn = -alpha / 2. * (magn + ma)
-        
+
     def __add__(self, other):
         """Add two KSSingles"""
         result = self.copy()

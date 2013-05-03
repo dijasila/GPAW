@@ -30,8 +30,15 @@ class ApmB(OmegaMatrix):
         if self.xc is not None:
             self.paw.timer.start('ApmB XC')
             self.get_xc() # inherited from OmegaMatrix
+            hybrid = hasattr(self.xc, 'hybrid') and self.xc.hybrid > 0.0
             self.paw.timer.stop()
+        else:
+            hybrid = False
         
+        if self.fullkss.npspins < 2 and hybrid:
+            raise RuntimeError('Does not work spin-unpolarized ' +
+                               'with hybrids (use nspins=2)')
+
     def get_rpa(self):
         """Calculate RPA and Hartree-fock part of the A+-B matrices."""
 
@@ -235,9 +242,7 @@ class ApmB(OmegaMatrix):
             self.eigenvectors = 0.5 * (ApB + AmB)
             eigenvalues = np.zeros((nij))
             diagonalize(self.eigenvectors, eigenvalues)
-##            print "TDA eigenvalues=", eigenvalues
             self.eigenvalues = eigenvalues**2
-            
         else:
             # the occupation matrix
             C = np.empty((nij,))

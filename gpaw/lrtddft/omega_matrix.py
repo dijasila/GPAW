@@ -585,8 +585,12 @@ class OmegaMatrix:
             
         return map, kss
 
-    def diagonalize(self, istart=None, jend=None, energy_range=None):
+    def diagonalize(self, istart=None, jend=None, energy_range=None,
+                    TDA=False):
         """Evaluate Eigenvectors and Eigenvalues:"""
+
+        if TDA:
+            raise NotImplementedError
 
         map, kss = self.get_map(istart, jend, energy_range)
         nij = len(kss)
