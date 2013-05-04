@@ -123,7 +123,11 @@ class KSSingles(ExcitationList):
             emin /= Hartree
             emax /= Hartree
             # select transitions according to transition energy
-            for kpt in self.kpt_u:
+            for ispin in range(self.npspins):
+                vspin = ispin
+                if self.nvspins < 2:
+                    vspin = 0
+                kpt = self.kpt_u[vspin]
                 f_n = kpt.f_n
                 eps_n = kpt.eps_n
                 if self.de_skn is not None:
@@ -134,14 +138,16 @@ class KSSingles(ExcitationList):
                         epsij = eps_n[j] - eps_n[i]
                         if fij > eps and epsij >= emin and epsij < emax:
                             # this is an accepted transition
-                            ks = KSSingle(i, j, kpt.s, kpt, paw,
+                            ks = KSSingle(i, j, ispin, kpt, paw,
                                           fijscale = fijscale)
                             self.append(ks)
+            self.istart = 0
+            self.jend = -1
         else:
             # select transitions according to band index
             for ispin in range(self.npspins):
                 vspin = ispin
-                if self.nvspins<2:
+                if self.nvspins < 2:
                     vspin = 0
                 f = self.kpt_u[vspin].f_n
                 if jend == None: jend = len(f)-1
