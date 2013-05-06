@@ -162,7 +162,7 @@ extern "C" {
 	  (n,(cuDoubleComplex*)x_gpu,(cuDoubleComplex*)y_gpu,(cuDoubleComplex*)c_gpu);
       }
     }
-    gpaw_cublasSafeCall(cublasGetError());
+    gpaw_cudaSafeCall(cudaGetLastError());
     if (PyErr_Occurred())
       return NULL;
     else
@@ -231,7 +231,7 @@ extern "C" {
 	    (n,(cuDoubleComplex*)x_gpu,(cuDoubleComplex*)y_gpu,(cuDoubleComplex*)c_gpu);
       }
     }
-    gpaw_cublasSafeCall(cublasGetError());
+    gpaw_cudaSafeCall(cudaGetLastError());
     if (PyErr_Occurred())
       return NULL;
     else
@@ -267,7 +267,7 @@ extern "C" {
       ax2py_kernelz<<<dimGrid, dimBlock, 0>>>
 	(n,alpha,(Tcuda*) x_gpu,(double*) y_gpu);
     }
-    gpaw_cublasSafeCall(cublasGetError());
+    gpaw_cudaSafeCall(cudaGetLastError());
     if (PyErr_Occurred())
       return NULL;
     else
@@ -302,7 +302,7 @@ extern "C" {
       csign_kernelz<<<dimGrid, dimBlock, 0>>>
 	(n,(Tcuda*) x_gpu);
     }
-    gpaw_cublasSafeCall(cublasGetError());
+    gpaw_cudaSafeCall(cudaGetLastError());
     if (PyErr_Occurred())
       return NULL;
     else
@@ -355,8 +355,7 @@ extern "C" {
       multi_ax2py_kernelz<<<dimGrid, dimBlock, 0>>> 
 	(n, nvec, alpha,(cuDoubleComplex*)x_gpu,(double*)y_gpu);
     }
-    
-    gpaw_cublasSafeCall(cublasGetError());
+    gpaw_cudaSafeCall(cudaGetLastError());
     	
     if (PyErr_Occurred())
       return NULL;	
