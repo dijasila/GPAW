@@ -112,6 +112,19 @@ class KPoint:
     
     def cuda_psit_nG_dtoh(self):
         self.psit_nG_gpu.get(self.psit_nG)
+
+    def set_cuda(self, cuda):
+        """Enable/disable cuda"""
+        
+        if cuda == self.cuda:
+            return
+
+        self.cuda=cuda
+
+        if not self.cuda:
+            del self.psit_nG_gpu
+            self.psit_nG_gpu = None  
+            
             
 class GlobalKPoint(KPoint):
 

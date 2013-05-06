@@ -177,8 +177,11 @@ class PAW(PAWTextOutput):
 
             if key == 'eigensolver':
                 self.wfs.set_eigensolver(None)
+
+            if key == 'cuda':
+                self.cuda=cuda
             
-            if key in ['fixmom', 'mixer', 'cuda',
+            if key in ['fixmom', 'mixer',
                        'verbose', 'txt', 'hund', 'random',
                        'eigensolver', 'idiotproof', 'notify']:
                 continue
@@ -344,21 +347,26 @@ class PAW(PAWTextOutput):
         else:
             # world should be a list of ranks:
             world = mpi.world.new_communicator(np.asarray(world))
-        self.wfs.world = world
 
         if self.cuda:
             self.timer.start('Cuda')
             if par.eigensolver != None and par.eigensolver != 'rmm-diis':
                 print "Cuda disabled: Eigensolver: '", par.eigensolver,"' not implemented."
+                self.hamiltonian = None
+                if self.wfs:
+                    self.wfs.set_cuda(False)
                 self.cuda = False
             elif par.mode != 'fd':
                 print "Cuda disabled: Mode: '",par.mode,"' not implemented."
+                self.hamiltonian = None
+                if self.wfs:
+                    self.wfs.set_cuda(False)
                 self.cuda = False
             else:
                 gpaw.cuda.init(mpi.rank)
             self.timer.stop('Cuda')
 
-
+        self.wfs.world = world
         self.set_text(par.txt, par.verbose)
 
         natoms = len(atoms)
@@ -408,7 +416,8 @@ class PAW(PAWTextOutput):
                           or isinstance(xc, SIC)):
             # Make sure wavefunctions etc. are initialized to non-CUDA
             self.hamiltonian = None
-            self.wfs = EmptyWaveFunctions()
+            if self.wfs:
+                self.wfs.set_cuda(False)
             self.cuda=False
             print "Cuda disabled: Hybrid, MGGA and SIC functionals not implemented."
 
@@ -647,7 +656,7 @@ class PAW(PAWTextOutput):
                     from gpaw.tddft import TimeDependentWaveFunctions
                     self.wfs = TimeDependentWaveFunctions(par.stencils[0],
                         diagksl, orthoksl, initksl, gd, nvalence, setups,
-                        bd, world, kd, self.timer)
+                        bd, world, kd, self.timer, cuda=self.cuda)
                 elif mode == 'fd':
                     self.wfs = FDWaveFunctions(par.stencils[0], diagksl,
                                                orthoksl, initksl, *args, cuda=self.cuda)
@@ -840,9 +849,6 @@ class PAW(PAWTextOutput):
     def converge_wave_functions(self):
         """Converge the wave-functions if not present."""
 
-        if self.cuda and (gpaw.cuda.get_context() == None):
-            self.cuda = False
-
         if not self.wfs or not self.scf:
             self.initialize()
         else:
@@ -879,11 +885,6 @@ class PAW(PAWTextOutput):
 
     def __del__(self):
         PAWTextOutput.__del__(self)
-        try:
-            if self.cuda:
-                gpaw.cuda.delete()
-        except AttributeError:
-            pass
 
 def kpts2ndarray(kpts):
     """Convert kpts keyword to 2d ndarray of scaled k-points."""

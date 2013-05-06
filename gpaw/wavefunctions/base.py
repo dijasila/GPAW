@@ -420,3 +420,14 @@ class WaveFunctions(EmptyWaveFunctions):
                           band_rank * self.gd.comm.size)
             self.world.receive(psit_G, world_rank, 1398)
             return psit_G
+
+    def set_cuda(self, cuda):
+        """Enable/disable cuda"""
+        
+        if cuda == self.cuda:
+            return
+
+        self.cuda=cuda
+
+        for kpt in self.kpt_u:
+            kpt.set_cuda(self.cuda)

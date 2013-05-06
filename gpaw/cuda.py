@@ -1,5 +1,6 @@
 import numpy as np
 import warnings
+import atexit
 try:
     import pycuda.driver as drv
     import pycuda.tools as tools
@@ -49,6 +50,8 @@ def init(rank=0):
         
     cuda_ctx.set_cache_config(drv.func_cache.PREFER_L1)
     _gpaw.gpaw_cuda_init()
+    
+    atexit.register(delete)
 
     return True
     
