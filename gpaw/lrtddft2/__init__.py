@@ -214,16 +214,16 @@ class LrTDDFTindexed:
 
         self.K_matrix = None
         self.custom_axes = None
+        self.K_matrix_scaling_factor = 1.0
 
 
     def read(self, basename):
+        self.timer.start('Init read')
         info_file = basename+'.LR_info'
         if os.path.exists(info_file) and os.path.isfile(info_file):
             self.read_info(info_file)
         else:
             return
-
-        self.timer.start('Init read')
 
         # Read ALL ready_rows files
         self.timer.start('Init read ready rows')
@@ -806,7 +806,7 @@ class LrTDDFTindexed:
 
 
             # continuous copies
-            ip =  self.index_map[(i,p)] 
+            ip =  self.index_map[(i,p)]
             cloc_dm[:]   = self.evectors[:,ip]
             cloc_magn[:] = cloc_dm
             
@@ -853,6 +853,17 @@ class LrTDDFTindexed:
         self.trans_prop_ready = True
 
 
+    def filter_response_wavefunction_new(self, C, occ_emin=-1e9, occ_emax=1e9, unocc_emin=-1e9, unocc_emax=1e9):
+        eps_n = self.calc.wfs.kpt_u[self.kpt_ind].eps_n      # eigen energies
+        for (kg,kss_jq) in enumerate(self.kss_list):
+            j = kss_jq.occ_ind
+            q = kss_jq.unocc_ind
+            #jq = self.index_map[(j,q)]
+            if (    eps_n[j] < occ_emin 
+                 or eps_n[j] > occ_emax 
+                 or eps_n[q] < unocc_emin 
+                 or eps_n[q] > unocc_emax ):
+                C[kg] = 0.
 
 
     def calculate_response_wavefunction_new(self, omega, eta, laser, reread_K_matrix=False):
@@ -1632,7 +1643,6 @@ class LrTDDFTindexed:
 
         # If any NaNs found, we did not read all matrix elements... BAD
         if np.isnan(np.sum(np.sum(K_matrix))):
-            print >> sys.stderr, 'NaN elements in K-matrix:', np.where(K_matrix == np.NAN)
             raise RuntimeError('Not all required K-matrix elements could be found.')
 
         return K_matrix
@@ -1711,29 +1721,16 @@ class LrTDDFTindexed:
                     ljq = self.get_local_eh_index(self.index_map[jqkey])
                     ip = self.index_map[ipkey]
                     K_matrix[ljq,ip] = Kvalue
+        #print >> self.txt, ''
 
         self.timer.stop('Read data')
         
         # If any NaNs found, we did not read all matrix elements... BAD
         if np.isnan(np.sum(np.sum(K_matrix))):
-            for k in range(gpaw.mpi.world.size):
-                if k == gpaw.mpi.world.rank:
-                    print >> sys.stderr, self.index_map
-                    for i in range(K_matrix.shape[0]):
-                        for j in range(K_matrix.shape[1]):
-                            if np.isnan(K_matrix[i,j]):
-                                print >> sys.stderr, i, j, K_matrix[i,j],
-                                for (key,val) in self.index_map.items():
-                                    if val == i:
-                                        print >> sys.stderr, ' i:', key,
-                                    if val == j:
-                                        print >> sys.stderr, ' j:', key,
-                                print >> sys.stderr, ''
-
-                sys.stderr.flush()
-                gpaw.mpi.world.barrier()
-
             raise RuntimeError('Not all required K-matrix elements could be found.')
+
+
+        K_matrix *= self.K_matrix_scaling_factor
 
         return K_matrix
 
@@ -1871,7 +1868,7 @@ class LrTDDFTindexed:
 
             self.timer.stop('Calculate KS singles: merge old')
 
-            # Now old transitions which are not in new list were dropped
+            # Now old transitions which are not in new list where dropped
 
             self.timer.start('Calculate KS singles: merge new')
             # If only in new list
@@ -2004,6 +2001,8 @@ class LrTDDFTindexed:
             self.calc.wfs.gd.comm.sum(magn_a) # sum up from different procs
 
             # FIXME: Why we have alpha (fine structure constant?) here=
+            ###################### FIXME ######################
+            magn_a *= 0.
             kss_ip.magn_mom = ase.units.alpha / 2. * (magn_g + magn_a)
 
 
@@ -2342,8 +2341,6 @@ class LrTDDFTindexed:
             self.ready_file.close()
             self.log_file.close()
         self.timer.stop('Calculate K matrix')
-
-        self.parent_comm.barrier()
 
 
     def __del__(self):
