@@ -136,7 +136,20 @@ def gga_x(name, spin, n, a2, kappa, mu):
         elif name == 'UnScHole':
             omega = 1e-7
 
-        Fx, dFxrs, dFxds = wpbe_analy_erfc_approx_grad(spin, n, s, omega)
+        Fx = np.empty_like(n).ravel()
+        dFxrs = np.empty_like(n).ravel()
+        dFxds = np.empty_like(n).ravel()
+        g = 0
+        for n1, s1 in zip(n.ravel(), s.ravel()):
+            Fx1, dFxrs1, dFxds1 = wpbe_analy_erfc_approx_grad(spin, n1, s1,
+                                                              omega)
+            Fx[g] = Fx1
+            dFxrs[g] = dFxrs1
+            dFxds[g] = dFxds1
+            g += 1
+        Fx.shape = n.shape
+        dFxrs.shape = n.shape
+        dFxds.shape = n.shape
 
     elif name in ['PBE', 'PBEsol', 'zvPBEsol']:
         x = 1.0 + mu * s2 / kappa
@@ -471,7 +484,7 @@ def wpbe_analy_erfc_approx_grad(spin, dens, s, omega):
 
 #Change exponent of Gaussian if we're using the simple approx.
 
-    if(w.all() > wcutoff):
+    if w > wcutoff:
         eb1 = 2.0e0
 
 #Calculate helper variables (should be moved later on...)
@@ -521,7 +534,7 @@ def wpbe_analy_erfc_approx_grad(spin, dens, s, omega):
 
     d1rDHsw = Two * d1rw * w
 
-    if(s.all() > EGscut):
+    if s > EGscut:
         G_a = srpi * (Fifteen * E + Six * C * (One + F * s2) * DHs + \
               Four * B * (DHs2) + Eight * A * (DHs3)) * \
               (One / (Sixteen * DHs72)) - \
@@ -616,7 +629,7 @@ def wpbe_analy_erfc_approx_grad(spin, dens, s, omega):
                d1rDHsw * w)) / \
                (Two * DHs3 * DHsw72)
 
-    if((s.all() > 0.0) or (w.all() > 0.0)):
+    if s > 0.0 or w > 0.0:
         t10 = (f12) * A * np.log(Hsbw / DHsbw)
         t10d1 = f12 * A * (One / Hsbw - One / DHsbw)
         d1st10 = d1sHsbw * t10d1
@@ -624,7 +637,7 @@ def wpbe_analy_erfc_approx_grad(spin, dens, s, omega):
 
 #Calculate exp(x)*f(x) depending on size of x
 
-    if(HsbwA94.all() < expfcutoff):
+    if HsbwA94 < expfcutoff:
         piexperf = pi * np.exp(HsbwA94) * erfc(HsbwA9412)
 #	expei    = Exp(HsbwA94)*Ei(-HsbwA94)
         expei = np.exp(HsbwA94) * (-expint(1, HsbwA94))
@@ -651,7 +664,7 @@ def wpbe_analy_erfc_approx_grad(spin, dens, s, omega):
     d1sexpei = d1sHsbw * expeid1
     d1rexpei = d1rHsbw * expeid1
 
-    if (w.all() == Zero):
+    if w == Zero:
 #       Fall back to original expression for the PBE hole
 
         t1 = -f12 * A * expei
@@ -679,7 +692,7 @@ def wpbe_analy_erfc_approx_grad(spin, dens, s, omega):
             d1sfx = 0.0
             d1rfx = 0.0
 
-    elif (w.all() > wcutoff):
+    elif w > wcutoff:
 #Use simple Gaussian approximation for large w
 #print *,dens,s," LARGE w"
 
