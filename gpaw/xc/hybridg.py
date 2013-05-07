@@ -126,7 +126,7 @@ class HybridXC(HybridXCBase):
         # Normal XC contribution:
         exc = self.xc.calculate(gd, n_sg, v_sg, e_g)
 
-        return exc + (self.exx) * self.hybrid
+        return exc + self.exx * self.hybrid
 
     def calculate_exx(self):
         """Non-selfconsistent calculation."""
@@ -251,27 +251,23 @@ class HybridXC(HybridXCBase):
         # Calculate 1/|G+q|^2 with special treatment of |G+q|=0:
         G2_qG = self.pd2.G2_qG
         if self.q0 is None:
-            if self.name in ['HSE06', 'HSE12', 'HSE12s']:
-                self.iG2_qG = [((1.0 / G2_G) * \
-                (1 - np.exp(-G2_G / (4 * self.omega ** 2)))) for G2_G in G2_qG]
-            else:
+            if self.omega is None:
                 self.iG2_qG = [1.0 / G2_G for G2_G in G2_qG]
+            else:
+                self.iG2_qG = [(1.0 / G2_G *
+                                (1 - np.exp(-G2_G / (4 * self.omega**2))))
+                               for G2_G in G2_qG]
         else:
-            if self.name in ['HSE06', 'HSE12', 'HSE12s']:
-                if G2_qG[self.q0][0] != 0.0:
-                    self.iG2_qG = [((1.0 / G2_G) * \
-                    (1 - np.exp(-G2_G / (4 * self.omega ** 2))))
-                    for G2_G in G2_qG]
-                else:
-                    G2_qG[self.q0][0] = 117.0
-                    self.iG2_qG = [1.0 / G2_G for G2_G in G2_qG]
-                    G2_qG[self.q0][0] = 0.0
-                    self.iG2_qG[self.q0][0] = 1. / (4 * self.omega ** 2)
-            else:
-                G2_qG[self.q0][0] = 117.0
+            G2_qG[self.q0][0] = 117.0  # avoid division by zero
+            if self.omega is None:
                 self.iG2_qG = [1.0 / G2_G for G2_G in G2_qG]
-                G2_qG[self.q0][0] = 0.0
                 self.iG2_qG[self.q0][0] = self.gamma
+            else:
+                self.iG2_qG = [(1.0 / G2_G *
+                                (1 - np.exp(-G2_G / (4 * self.omega**2))))
+                               for G2_G in G2_qG]
+                self.iG2_qG[self.q0][0] = 1 / (4 * self.omega**2)
+            G2_qG[self.q0][0] = 0.0  # restore correct value
  
         # Compensation charges:
         self.ghat = PWLFC([setup.ghat_l for setup in wfs.setups], self.pd2)

@@ -23,6 +23,7 @@ from gpaw.xc.gga import GGA
 
 class HybridXCBase(XCFunctional):
     orbital_dependent = True
+    omega = None
 
     def __init__(self, name, hybrid=None, xc=None, omega=None):
         """Mix standard functionals with exact exchange.
@@ -81,7 +82,6 @@ class HybridXCBase(XCFunctional):
 
 
 class HybridXC(HybridXCBase):
-
     def __init__(self, name, hybrid=None, xc=None,
                  finegrid=False, unocc=False):
         """Mix standard functionals with exact exchange.
