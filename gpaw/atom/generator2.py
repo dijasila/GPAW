@@ -400,7 +400,6 @@ class PAWSetupGenerator:
             dntdr_g = self.rgd.derivative(nt_g)[:gcore]
             if dntdr_g.max() < 0.0:
                 break
-            sdgjklhkljh
             rcore -= 0.01
 
         self.log('Constructing smooth pseudo core density for r < %.3f' %
