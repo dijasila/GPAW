@@ -431,3 +431,5 @@ class WaveFunctions(EmptyWaveFunctions):
 
         for kpt in self.kpt_u:
             kpt.set_cuda(self.cuda)
+
+        self.eigensolver = None
