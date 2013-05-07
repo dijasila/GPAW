@@ -18,6 +18,7 @@ from gpaw.xc.hybrid import HybridXCBase
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
 from gpaw.utilities import pack, unpack2, packed_index, logfile, erf
+from gpaw.xc.gga import GGA
         
 
 class HybridXC(HybridXCBase):
@@ -34,7 +35,7 @@ class HybridXC(HybridXCBase):
         """Mix standard functionals with exact exchange.
 
         name: str
-            Name of functional: EXX, PBE0, B3LYP.
+            Name of functional: EXX, PBE0, B3LYP, HSE06, HSE12, HSE12s
         hybrid: float
             Fraction of exact exchange.
         xc: str or XCFunctional object
@@ -125,8 +126,7 @@ class HybridXC(HybridXCBase):
         # Normal XC contribution:
         exc = self.xc.calculate(gd, n_sg, v_sg, e_g)
 
-        # Add EXX contribution:
-        return exc + self.exx * self.hybrid
+        return exc + (self.exx) * self.hybrid
 
     def calculate_exx(self):
         """Non-selfconsistent calculation."""
@@ -251,13 +251,28 @@ class HybridXC(HybridXCBase):
         # Calculate 1/|G+q|^2 with special treatment of |G+q|=0:
         G2_qG = self.pd2.G2_qG
         if self.q0 is None:
-            self.iG2_qG = [1.0 / G2_G for G2_G in G2_qG]
+            if self.name in ['HSE06', 'HSE12', 'HSE12s']:
+                self.iG2_qG = [((1.0 / G2_G) * \
+                (1 - np.exp(-G2_G / (4 * self.omega ** 2)))) for G2_G in G2_qG]
+            else:
+                self.iG2_qG = [1.0 / G2_G for G2_G in G2_qG]
         else:
-            G2_qG[self.q0][0] = 117.0
-            self.iG2_qG = [1.0 / G2_G for G2_G in G2_qG]
-            G2_qG[self.q0][0] = 0.0
-            self.iG2_qG[self.q0][0] = self.gamma
-
+            if self.name in ['HSE06', 'HSE12', 'HSE12s']:
+                if G2_qG[self.q0][0] != 0.0:
+                    self.iG2_qG = [((1.0 / G2_G) * \
+                    (1 - np.exp(-G2_G / (4 * self.omega ** 2))))
+                    for G2_G in G2_qG]
+                else:
+                    G2_qG[self.q0][0] = 117.0
+                    self.iG2_qG = [1.0 / G2_G for G2_G in G2_qG]
+                    G2_qG[self.q0][0] = 0.0
+                    self.iG2_qG[self.q0][0] = 1. / (4 * self.omega ** 2)
+            else:
+                G2_qG[self.q0][0] = 117.0
+                self.iG2_qG = [1.0 / G2_G for G2_G in G2_qG]
+                G2_qG[self.q0][0] = 0.0
+                self.iG2_qG[self.q0][0] = self.gamma
+ 
         # Compensation charges:
         self.ghat = PWLFC([setup.ghat_l for setup in wfs.setups], self.pd2)
         self.ghat.set_positions(self.spos_ac)

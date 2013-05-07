@@ -17,11 +17,14 @@ from gpaw.atom.configurations import core_states
 from gpaw.lfc import LFC
 from gpaw.utilities.blas import gemm
 from gpaw.gaunt import make_gaunt
+from gpaw.xc.hyb_wpbeh import wpbehkernel
+from gpaw.xc.gga import GGA
 
 
 class HybridXCBase(XCFunctional):
     orbital_dependent = True
-    def __init__(self, name, hybrid=None, xc=None):
+
+    def __init__(self, name, hybrid=None, xc=None, omega=None):
         """Mix standard functionals with exact exchange.
 
         name: str
@@ -44,11 +47,30 @@ class HybridXCBase(XCFunctional):
             assert hybrid is None and xc is None
             hybrid = 0.2
             xc = XC('HYB_GGA_XC_B3LYP')
+        elif name == 'HSE06':
+            assert hybrid is None and xc is None and omega is None
+            hybrid = 0.25
+            omega = 0.11
+            xc = GGA(wpbehkernel(name))
+        elif name == 'HSE12':
+            assert hybrid is None and xc is None and omega is None
+            hybrid = 0.313
+            omega = 0.0979
+            xc = GGA(wpbehkernel(name))
+        elif name == 'HSE12s':
+            assert hybrid is None and xc is None and omega is None
+            hybrid = 0.425
+            omega = 0.2159
+            xc = GGA(wpbehkernel(name))
             
         if isinstance(xc, str):
             xc = XC(xc)
 
         self.hybrid = float(hybrid)
+
+        if name in ['HSE06', 'HSE12', 'HSE12s']:
+            self.omega = float(omega)
+
         self.xc = xc
         self.type = xc.type
 
@@ -57,8 +79,10 @@ class HybridXCBase(XCFunctional):
     def get_setup_name(self):
         return 'PBE'
 
+
 class HybridXC(HybridXCBase):
-    def __init__(self, name, hybrid=None, xc=None, 
+
+    def __init__(self, name, hybrid=None, xc=None,
                  finegrid=False, unocc=False):
         """Mix standard functionals with exact exchange.
 
