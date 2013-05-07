@@ -400,6 +400,7 @@ class PAWSetupGenerator:
             dntdr_g = self.rgd.derivative(nt_g)[:gcore]
             if dntdr_g.max() < 0.0:
                 break
+            sdgjklhkljh
             rcore -= 0.01
 
         self.log('Constructing smooth pseudo core density for r < %.3f' %
@@ -494,7 +495,8 @@ class PAWSetupGenerator:
         if l0 == 0:
             phi_g[0] = phi_g[1]
 
-        phit_g, c = self.rgd.pseudize_normalized(phi_g, g0, l=l0, points=P)
+        #phit_g, c = self.rgd.pseudize_normalized(phi_g, g0, l=l0, points=P)
+        phit_g, c = self.rgd.pseudize(phi_g, g0, l=l0, points=P)
         r_g = self.rgd.r_g[1:g0]
 
         dgdr_g = 1 / self.rgd.dr_g
