@@ -721,7 +721,8 @@ class KPoint:
         
     def start_sending(self, rank):
         assert self.P_ani.keys() == range(len(self.P_ani))  # ???
-        P_nI = np.hstack([P_ni for P_ni in self.P_ani.values()]).copy()
+        P_nI = np.hstack([P_ni for P_ni in self.P_ani.values()])
+        P_nI = np.ascontiguousarray(P_nI)
         self.requests += [
             self.kd.comm.send(self.psit_nG, rank, block=False, tag=1),
             self.kd.comm.send(self.f_n, rank, block=False, tag=2),

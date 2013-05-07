@@ -325,8 +325,8 @@ class MatrixOperator:
         # Buffers for send/receive of operated-on versions of P_ani's.
         sbuf_nI = rbuf_nI = None
         if P_ani:
-            sbuf_nI = np.hstack([dA(a, P_ni)
-                                 for a, P_ni in P_ani.items()]).copy()
+            sbuf_nI = np.hstack([dA(a, P_ni) for a, P_ni in P_ani.items()])
+            sbuf_nI = np.ascontiguousarray(sbuf_nI)
             if B > 1:
                 rbuf_nI = np.empty_like(sbuf_nI)
 
@@ -474,7 +474,8 @@ class MatrixOperator:
         # Buffers for send/receive of pre-multiplication versions of P_ani's.
         sbuf_nI = rbuf_nI = None
         if P_ani:
-            sbuf_nI = np.hstack([P_ni for P_ni in P_ani.values()]).copy()
+            sbuf_nI = np.hstack([P_ni for P_ni in P_ani.values()])
+            sbuf_nI = np.ascontiguousarray(sbuf_nI)
             if B > 1:
                 rbuf_nI = np.empty_like(sbuf_nI)
 
