@@ -44,13 +44,13 @@ def vxc(paw, xc=None, coredensity=True):
             dvxc_asii[a] = [wfs.setups[a].dO_ii]
 
     vxc_un = np.empty((wfs.kd.mynks, wfs.bd.mynbands))
-    for vxc_n, kpt in zip(vxc_un, wfs.kpt_u):
-        for n, psit_G in enumerate(kpt.psit_nG):
-            if psit_G.ndim == 1:
-                psit_G = wfs.pd.ifft(psit_G, kpt.q)
+    for u, vxc_n in enumerate(vxc_un):
+        kpt = wfs.kpt_u[u]
+        vxct_G = vxct_sG[kpt.s]
+        for n in range(wfs.bd.mynbands):
+            psit_G = wfs._get_wave_function_array(u, n, realspace=True)
             vxc_n[n] = wfs.gd.integrate((psit_G * psit_G.conj()).real,
-                                        vxct_sG[kpt.s],
-                                        global_integral=False)
+                                        vxct_G, global_integral=False)
 
         for a, dvxc_sii in dvxc_asii.items():
             P_ni = kpt.P_ani[a]
