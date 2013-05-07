@@ -9,7 +9,7 @@ Aalto Effort
 We have been implementing the most performance critical C-kernels
 in the finite-difference mode to utilize GPUs. Implementation is done
 using CUDA and cuBLAS libraries when possible, Python interface to CUDA,
-PyCUDA is also utilized. Code supports using multiple GPUs with MPI. 
+PyCUDA is also utilized. Code supports using multiple GPUs with MPI.
 First tests indicate promising speedups compared
 to CPU-only code, and we are hoping to test larger systems (where
 the benefits are expected to be larger) soon. Currently, we are extending the
@@ -95,7 +95,36 @@ Proceed as follows:
       cd NVIDIA_CUDA-5.0_Samples/1_Utilities/deviceQuery
       make&& ./deviceQuery
 
-12. install http://mathema.tician.de/software/pycuda (needed only for *Aalto Effort*)::
+12. if X does not run the ``/dev/nvidia*`` will not be created.
+    The solution seems to be creating them by hand (``NvidiaDevCreator.sh``)::
+
+      #!/bin/bash
+
+      /sbin/modprobe nvidia
+
+      if [ "$?" -eq 0 ]; then
+        # Count the number of NVIDIA controllers found.
+        NVDEVS=`lspci | grep -i NVIDIA`
+        N3D=`echo "$NVDEVS" | grep "3D controller" | wc -l`
+        NVGA=`echo "$NVDEVS" | grep "VGA compatible controller" | wc -l`
+
+        N=`expr $N3D + $NVGA - 1`
+        for i in `seq 0 $N`; do
+          mknod -m 666 /dev/nvidia$i c 195 $i
+        done
+
+        mknod -m 666 /dev/nvidiactl c 195 255
+
+      else
+        exit 1
+      fi
+
+    Or switch back to X::
+
+      cd /etc/systemd/system
+      ln -s /lib/systemd/system/graphical.target default.target
+
+13. install http://mathema.tician.de/software/pycuda (needed only for *Aalto Effort*)::
 
       cd&& git clone https://github.com/inducer/pycuda.git
       cd ~/pycuda
@@ -110,3 +139,10 @@ Proceed as follows:
 
       export PYTHONPATH=~/pycuda-fc18-1/usr/lib64/python2.7/site-packages:${PYTHONPATH}
 
+    May 7 2013: note that ``compyte`` has been removed from ``pucuda``,
+    but the source of ``pucuda`` does not reflect that.
+    Therefore `git clone https://github.com/inducer/compyte.git`
+    and create a link under ``pucuda`` install tree.
+    In addition https://pypi.python.org/pypi/pytools,
+    https://pypi.python.org/pypi/py,
+    https://pypi.python.org/pypi/pytest are required by ``pucuda``.
