@@ -110,7 +110,8 @@ PyObject* Transformer_apply_cuda_gpu(TransformerObject *self, PyObject *args)
                * self->size_out[2];
 
   int mpi_size=1;
-  MPI_Comm_size(MPI_COMM_WORLD, &mpi_size); 
+  if ((bc->maxsend || bc->maxrecv) && bc->comm != MPI_COMM_NULL)
+    MPI_Comm_size(bc->comm, &mpi_size); 
 
   int blocks=MAX(MIN(MIN(mpi_size*(GPAW_CUDA_BLOCKS_MIN),
 			 GPAW_CUDA_BLOCKS_MAX),nin),1);
