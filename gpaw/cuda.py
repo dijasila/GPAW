@@ -15,6 +15,8 @@ debug = False
 debug_sync = False
 cuda_ctx = None
 
+
+
 class DebugCudaError(Exception):
     pass
 
@@ -28,6 +30,8 @@ def init(rank=0):
     """
     
     global cuda_ctx
+
+    atexit.register(delete)
 
     if cuda_ctx is not None:
         return True
@@ -50,8 +54,6 @@ def init(rank=0):
         
     cuda_ctx.set_cache_config(drv.func_cache.PREFER_L1)
     _gpaw.gpaw_cuda_init()
-    
-    atexit.register(delete)
 
     return True
     

@@ -360,7 +360,7 @@ main(int argc, char **argv)
 #endif
   
 #ifndef GPAW_OMP
-  MPI_Init(&argc, &argv);
+  assert(MPI_Init(&argc, &argv)==MPI_SUCCESS);
 #else
   int granted;
   MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &granted);
