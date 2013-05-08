@@ -22,7 +22,8 @@ class wpbehkernel:
         self.type = 'GGA'
         self.name_pbe = 'PBE'
 
-    def calculate(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
+    def calculate(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg,
+                  tau_sg=None, dedtau_sg=None):
 
         e_g[:] = 0.
         dedsigma_xg[:] = 0.

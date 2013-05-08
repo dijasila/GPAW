@@ -3,6 +3,7 @@ from gpaw.xc.libxc import LibXC, short_names
 from gpaw.xc.kernel import XCKernel, codes
 from gpaw.xc.bee import BEE1
 from gpaw.test import equal
+from gpaw.xc.hyb_wpbeh import wpbehkernel
 
 funcs = []
 modes = []
@@ -14,6 +15,8 @@ for name in codes:
     modes.append(1)
 funcs.append('BEE1')
 modes.append(2)
+funcs += ['HYB_GGA_XC_PBEH', wpbehkernel('HSE06')]
+modes += [0, 3]
 
 def create_xc(func, mode):
     isinstance(func, str)
@@ -25,7 +28,7 @@ def create_xc(func, mode):
     elif mode == 2:
         xc = BEE1()
     else:
-        stop
+        xc=func#stop
     return xc
 
 def f1(n_xg, xc):
@@ -78,7 +81,7 @@ for i, func in enumerate(funcs):
             abs(ds_xg[:2] - d0_xg[0]).max() +
             abs(ds_xg[2:5].sum(0) / 4 - d0_xg[1]).max() +
             abs(ds_xg[5:] - d0_xg[2]).max())
-    #print xc.name, error
+    print xc.name, error
     equal(error, 0, 6e-9)
     del xc
 
@@ -115,7 +118,7 @@ for i, func in enumerate(funcs):
         d_xg[x] = 0.5 * f2(m_xg, xc)[0] / eps
         m_xg[x] -= 2 * eps
         d_xg[x] -= 0.5 * f2(m_xg, xc)[0] / eps
-    #print xc.name, abs(d0_xg-d_xg).max()
+    print xc.name, abs(d0_xg-d_xg).max()
     equal(abs(d0_xg-d_xg).max(), 0, 2e-8)
     del xc
     #print d0_xg-d_xg
