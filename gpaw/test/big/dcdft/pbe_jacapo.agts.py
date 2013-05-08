@@ -1,6 +1,6 @@
 def agts(queue):
     run = [queue.add('pbe_jacapo.py %s' % r,
-                     queueopts='-l nodes=1:ppn=4:opteron:ethernet',
+                     queueopts='-l nodes=1:ppn=4:opteron4',
                      ncpus=1,
                      walltime=5*60)
            for r in range(1)]
