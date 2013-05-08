@@ -77,7 +77,7 @@ class wpbehkernel:
             ec, rs, decdrs, decda2, decdzeta = gga_c(1, n, a2, zeta, self.beta)
 
             e_g[:] += 0.5 * (-na * exa * self.hybrid - nb * exb * self.hybrid + \
-                      na * exa_pbe + na * exa_pbe) + n * ec
+                      na * exa_pbe + nb * exb_pbe) + n * ec
             v_sg[0][:] += (exa + ec - (rsa * dexadrs + rs * decdrs) / 3.0
                             - (zeta - 1.0) * decdzeta)
             v_sg[1][:] += (exb + ec - (rsb * dexbdrs + rs * decdrs) / 3.0
