@@ -43,7 +43,7 @@ def fail(subject, email=None, filename='/dev/null', mailer='mail'):
                 for f in filenames:
                     attach += ' -a %s ' % f
                 # send with empty body
-                assert os.system('mutt %s -s "%s" %s < /dev/null' %
+                assert os.system('mutt %s -s "%s" -c %s < /dev/null' %
                                  (attach, subject, email)) == 0
     raise SystemExit
 
