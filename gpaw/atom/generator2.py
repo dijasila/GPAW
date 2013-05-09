@@ -26,40 +26,40 @@ from gpaw.atom.aeatom import AllElectronAtom, Channel, parse_ld_str, colors, \
 parameters = {
 'H':  ('1s,s,p', 0.9, {}),
 'He': ('1s,s,p', 1.5, {}),
-'Li': ('1s,2s,2p', 1.6, {}),
-'Be': ('2s,s,2p', 1.5, {}),
+'Li': ('1s,2s,2p,p,d', 1.5, {}),
+'Be': ('1s,2s,2p,p,d', 1.4, {}),
 'B':  ('2s,s,2p,p,d', 1.2, {}),
-'C':  ('2s,s,2p,p,d', 1.2, {'r0': 1.0}),
-'N':  ('2s,s,2p,p,d', 1.2, {}),
+'C':  ('2s,s,2p,p,d', 1.2, {}),
+'N':  ('2s,s,2p,p,d', 1.2, {'r0': 1.1}),
 'O':  ('2s,s,2p,p,d', 1.2, {}),
-'F':  ('2s,s,2p,p,d', 1.2, {}),
+'F':  ('2s,s,2p,p,d', 1.1, {}),
 'Ne': ('2s,s,2p,p,d', 1.8, {}),
-'Na': ('2s,3s,2p,3p,d', 2.3, {'local': 'f', 'r0': 2.0}),
-'Mg': ('2s,3s,2p,3p,d', 2.0, {'local': 'f'}),
-'Al': ('3s,s,3p,p,d', 2.1, {}),
-'Si': ('3s,s,3p,p,d', 1.9, {}),
-'P':  ('3s,s,3p,p,d', 1.7, {}),
-'S':  ('3s,s,3p,p,d', 1.6, {}),#'local': 'f'}),  # ?
-'Cl': ('3s,s,3p,p,d', 1.5, {}),
-'Ar': ('3s,s,3p,p,d', 1.6, {}),
-'K':  ('3s,4s,3p,4p,d', 2.1, {'local': 'f'}),
+'Na': ('2s,3s,s,2p,3p,d', 2.3, {'local': 'f'}),
+'Mg': ('2s,3s,2p,3p,d', [2.0, 1.8], {'local': 'f'}),
+'Al': ('3s,s,3p,p,d', 2.1, {'local': 'f'}),
+'Si': ('3s,s,3p,p,d', 1.9, {'local': 'f'}),
+'P':  ('3s,s,3p,p,d', 1.7, {'local': 'f'}),
+'S':  ('3s,s,3p,p,d', 1.6, {'local': 'f'}),
+'Cl': ('3s,s,3p,p,d', 1.5, {'local': 'f'}),
+'Ar': ('3s,s,3p,p,d', 1.5, {'local': 'f'}),
+'K':  ('3s,4s,3p,4p,d,d', 2.1, {'local': 'f'}),
 'Ca': ('3s,4s,3p,4p,3d,d', 2.1, {'local': 'f'}),
-'Sc': ('3s,4s,3p,4p,3d,d', 2.3, {'local': 'f'}),
-'Ti': ('3s,4s,3p,4p,3d,d', 2.4, {'local': 'f'}),
-'V':  ('3s,4s,3p,4p,3d,d', 2.3, {'local': 'f'}),
-'Cr': ('3s,4s,3p,4p,3d,d', 2.2, {'local': 'f'}),
-'Mn': ('3s,4s,3p,4p,3d,d', 2.1, {'local': 'f'}),
-'Fe': ('3s,4s,3p,4p,3d,d', 2.0, {'local': 'f'}),
-'Co': ('3s,4s,3p,4p,3d,d', 2.0, {'local': 'f'}),
-'Ni': ('3s,4s,3p,4p,3d,d', 2.0, {'local': 'f'}),
-'Cu': ('4s,s,4p,p,3d,d', 1.8, {}),
-'Zn': ('4s,s,4p,p,3d,d', 1.8, {}),
-'Ga': ('4s,s,4p,p,d', 2.0, {}),
-'Ge': ('4s,s,4p,p,d', 1.9, {}),
-'As': ('4s,s,4p,p,d', 1.8, {}),
-'Se': ('4s,5s,4p,p,d', 1.9, {}),
-'Br': ('4s,5s,4p,p,d', 2.0, {}),
-'Kr': ('4s,5s,4p,p,d', 2.2, {}),
+'Sc': ('3s,4s,3p,4p,3d,d', 2.3, {'local': 'f'}),  # improve
+'Ti': ('3s,4s,3p,4p,3d,d', 2.3, {'local': 'f'}),  # improve
+'V':  ('3s,4s,3p,4p,3d,d', 2.2, {'local': 'f'}),  # improve
+'Cr': ('3s,4s,3p,4p,3d,d', 2.1, {'local': 'f'}),  # improve
+'Mn': ('3s,4s,3p,4p,3d,d', 2.0, {'local': 'f'}),  # improve
+'Fe': ('3s,4s,3p,4p,3d,d', 2.0, {'local': 'f'}),  # improve
+'Co': ('3s,4s,3p,4p,3d,d', 2.0, {'local': 'f'}),  # improve
+'Ni': ('3s,4s,3p,4p,3d,d', 1.9, {'local': 'f'}),  # improve
+'Cu': ('3s,4s,3p,4p,3d,d', 1.8, {'local': 'f'}),
+'Zn': ('3s,4s,3p,4p,3d,d', 1.8, {'local': 'f'}),
+'Ga': ('4s,s,4p,p,3d,d', 2.2, {'local': 'f'}),
+'Ge': ('4s,s,4p,p,3d,d', 2.1, {'local': 'f'}),
+'As': ('4s,s,4p,p,d', 2.0, {'local': 'f'}),
+'Se': ('4s,s,4p,p,d', 1.9, {'local': 'f'}),
+'Br': ('4s,s,4p,p,d', 2.0, {'local': 'f'}),
+'Kr': ('4s,s,4p,p,d', 2.0, {'local': 'f'}),
 'Rb': ('4s,5s,4p,5p,d,d', 2.5, {'local': 'f'}),
 'Sr': ('4s,5s,4p,5p,4d,d', 2.5, {'local': 'f'}),
 'Y':  ('4s,5s,4p,5p,4d,d', 2.5, {'local': 'f'}),
@@ -71,29 +71,45 @@ parameters = {
 'Rh': ('4s,5s,4p,5p,4d,d', 2.2, {'local': 'f'}),
 'Pd': ('4s,5s,4p,5p,4d,d', 2.2, {'local': 'f'}),
 'Ag': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
-'Cd': ('5s,s,5p,p,4d,d', 2.2, {}),
-'In': ('5s,s,5p,p,4d,d', 2.2, {}),
-'Sn': ('5s,s,5p,p,4d,d', 2.2, {}),  # 50
-'Sb': ('5s,s,5p,p,4d,d', 2.0, {}),
-'Te': ('5s,s,5p,p,d', 2.0, {}),
-'I':  ('5s,s,5p,p,d', 2.0, {}),
-'Xe': ('5s,s,5p,p,d', 2.1, {}),
+'Cd': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
+'In': ('5s,s,s,5p,p,4d,d', 2.6, {'local': 'f'}),  # improve
+'Sn': ('5s,s,s,5p,p,4d,d', 2.5, {'local': 'f'}),
+'Sb': ('5s,s,s,5p,p,4d,d', 2.5, {'local': 'f'}),
+'Te': ('5s,6s,5p,p,d,d', 2.6, {'local': 'f'}),  # improve
+'I':  ('5s,s,5p,p,d', 2.4, {'local': 'f'}),
+'Xe': ('5s,s,5p,p,d', 2.3, {'local': 'f'}),
 'Cs': ('5s,6s,5p,6p,5d', [1.9, 2.2], {}),  # 55
-'Ba': ('5s,6s,5p,6p,5d', 2.2, {}),
-'La': ('5s,6s,5p,6p,5d,d', 2.2, {}),  # 57
-# ...
-'Hf': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),  # 72
-'Ta': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
-'W':  ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
-'Re': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
-'Os': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
-'Ir': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
-'Pt': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
-'Au': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
-'Hg': ('6s,s,6p,p,5d,d', 2.2, {}),  # 80
-'Tl': ('6s,s,6p,p,5d,d', 2.3, {}),
-'Pb': ('6s,s,6p,p,5d,d', 2.3, {}),
-'Bi': ('6s,s,6p,p,5d,d', 2.3, {})
+'Ba': ('5s,6s,s,5p,6p,5d,d', 2.5, {'local': 'g'}),  # improve
+'La': ('5s,6s,5p,6p,5d,d,4f,f', 2.5, {'local': 'g'}),
+'Ce': ('5s,6s,5p,6p,5d,d,4f,f', 2.4, {'local': 'g'}),  # improve
+'Pr': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),  # improve
+'Nd': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),  # improve
+'Pm': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),  # improve
+'Sm': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),  # improve
+'Eu': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),  # improve
+'Gd': ('5s,6s,5p,6p,5d,d,4f,f', 2.4, {'local': 'g'}),  # improve
+'Tb': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),  # improve
+'Dy': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),  # improve
+'Ho': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),  # improve
+'Er': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),  # improve
+'Tm': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),  # improve
+'Yb': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),  # improve
+'Lu': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),  # improve
+'Hf': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),  # improve
+'Ta': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),  # improve
+'W':  ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),  # improve
+'Re': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),  # improve
+'Os': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),  # improve
+'Ir': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),  # improve
+'Pt': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),  # improve
+'Au': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),  # improve
+'Hg': ('5s,6s,5p,6p,5d,d', 2.3, {'local': 'f'}),
+'Tl': ('6s,s,s,6p,p,5d,d', 2.8, {'local': 'f'}),  # improve
+'Pb': ('6s,s,s,6p,p,5d,d', 2.6, {'local': 'f'}),
+'Bi': ('6s,s,s,6p,p,5d,d', 2.6, {'local': 'f'}),
+'Po': ('6s,s,6p,p,d', 2.7, {'local': 'f'}),  # improve
+'At': ('6s,s,6p,p,d', 2.6, {'local': 'f'}),  # improve
+'Rn': ('6s,s,6p,p,d', 2.6, {'local': 'f'}),  # improve
 }
 
 
