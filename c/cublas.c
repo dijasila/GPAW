@@ -216,6 +216,7 @@ PyObject* cuSetMatrix(PyObject *self, PyObject *args)
   PyArrayObject *x;
   if (!PyArg_ParseTuple(args,"iiiOiLi",&m,&n,&elemsize,&x,&lda,&devPtr,&ldb))
     return NULL;
+  assert(x->flags & NPY_C_CONTIGUOUS);
   const void *a = VOIDP(x);
   /*   printf("%d %d %d %p %d %p %d\n",m,n,elemsize,a,lda,devPtr,ldb); */
   cublasStatus_t cudaStat;
@@ -235,6 +236,7 @@ PyObject* cuGetMatrix(PyObject *self, PyObject *args)
   PyArrayObject *x;
   if (!PyArg_ParseTuple(args,"iiiLiOi",&m,&n,&elemsize,&devPtr,&lda,&x,&ldb))
     return NULL;
+  assert(x->flags & NPY_C_CONTIGUOUS);
   void *b = VOIDP(x);
   /*   printf("%d %d %d %p %d %p %d\n",m,n,elemsize,devPtr,lda,b,ldb); */
   cublasStatus_t cudaStat;
@@ -254,6 +256,7 @@ PyObject* cuSetVector(PyObject *self, PyObject *args)
   PyArrayObject *x;
   if (!PyArg_ParseTuple(args,"iiOiLi",&n,&elemsize,&x,&incx,&devPtr,&incy))
     return NULL;
+  assert(x->flags & NPY_C_CONTIGUOUS);
   const void *ptr = VOIDP(x);
   /*   printf("%d %d %p %d %p %d\n",n,elemsize,ptr,incx,devPtr,incy); */
 
@@ -274,6 +277,7 @@ PyObject* cuGetVector(PyObject *self, PyObject *args)
   PyArrayObject *y;
   if (!PyArg_ParseTuple(args,"iiLiOi",&n,&elemsize,&devPtr,&incx,&y,&incy))
     return NULL;
+  assert(y->flags & NPY_C_CONTIGUOUS);
   void *ptr = VOIDP(y);
   /*   printf("%d %d %p %d %p %d\n",n,elemsize,devPtr,incx,ptr,incy); */
   cublasStatus_t cudaStat;
