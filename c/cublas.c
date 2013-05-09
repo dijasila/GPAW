@@ -17,7 +17,6 @@ PyObject* cuZscal(PyObject *self, PyObject *args)
 
   if (!PyArg_ParseTuple(args, "LiDLi",&handle, &n, &alpha, &x, &incx))
     return NULL;
-  alpha.y=0.0; // only support real alpha for now
   CublasSafeCall(cublasZscal(handle, n, &alpha, x, incx));
   CudaCheckError();
   Py_RETURN_NONE;
@@ -38,8 +37,6 @@ PyObject* cugemm(PyObject *self, PyObject *args)
 
   if (!PyArg_ParseTuple(args, "LDLLDLiiiiii|ii",&handle, &alpha, &a, &b, &beta, &c,&n, &m, &k, &lda, &ldb, &ldc, &transb, &transa))
     return NULL;
-  alpha.y=0.0; // only support real alpha for now
-  beta.y=0.0; // only support real beta for now
   CublasSafeCall(cublasZgemm(handle, 
                            transa,
                            transb, 
@@ -80,8 +77,7 @@ PyObject* cudgmm(PyObject *self, PyObject *args)
 PyObject* cuCgemv(PyObject *self, PyObject *args)
 {
   cublasHandle_t handle;
-  float alpha, beta;
-  cuComplex alphacomplex, betacomplex;
+  cuComplex alpha, beta;
   cuComplex* a;
   cuComplex* x;
   cuComplex* y;
@@ -90,15 +86,13 @@ PyObject* cuCgemv(PyObject *self, PyObject *args)
   cuComplex junk;
   if (!PyArg_ParseTuple(args, "LiifLiLifLi|i",&handle, &m, &n, &alpha, &a, &lda, &x, &incx, &beta, &y, &incy, &trans))
     return NULL;
-  alphacomplex = make_cuFloatComplex(alpha,0.0);
-  betacomplex = make_cuFloatComplex(beta,0.0);
   /*  printf("alpha %f %f\n",cuCrealf(alphacomplex),cuCimagf(alphacomplex)); */
 
   CublasSafeCall(cublasCgemv(handle, trans, m, n,
-                           &alphacomplex, /* host or device pointer */
+                           &alpha, /* host or device pointer */
                            a, lda,
                            x, incx,
-                           &betacomplex, /* host or device pointer */
+                           &beta, /* host or device pointer */
                            y, incy));
 
   CudaCheckError();
@@ -117,9 +111,6 @@ PyObject* cuZgemv(PyObject *self, PyObject *args)
   int m, n, lda, incx, incy;
   if (!PyArg_ParseTuple(args, "LiiDLiLiDLi|i",&handle, &m, &n, &alpha, &a, &lda, &x, &incx, &beta, &y, &incy, &trans))
     return NULL;
-  alpha.y=0.0; // only support real alpha for now
-  beta.y=0.0; // only support real beta for now
-
   /*   printf("m %d n %d lda %d incx %d incy %d\n", */
   /* 	 m,n,lda,incx,incy); */
 

@@ -103,7 +103,7 @@ class RPACorrelation:
                 f = paropen(restart, 'r')
                 lines = f.readlines()
                 for iline, line in enumerate(lines):
-                    tmp = line[1:-2].split(' ')
+                    tmp = line[1:-2].split()
                     for iecut in range(self.necut):
                         E_qe[iline, iecut] = eval(tmp[iecut])
                 print >> self.txt, 'Correlation energy obtained ' \
@@ -143,6 +143,7 @@ class RPACorrelation:
                 f.close()
 
         E_e = np.dot(np.array(self.q_weights), E_qe)
+        self.E_qe = E_qe
 
         print >> self.txt, 'RPA correlation energy:'
         for iecut, ecut in enumerate(self.ecutlist_e):
