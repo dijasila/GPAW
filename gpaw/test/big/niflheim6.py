@@ -49,12 +49,11 @@ class NiflheimCluster(Cluster):
 
         run_command = '. /home/opt/modulefiles/modulefiles_el6.sh&& '
         run_command += 'module load scipy&& '
-        #run_command += 'module load povray&& '  # todo
+        run_command += 'module load povray&& '
         run_command += 'module load ABINIT&& '
         run_command += 'module load DACAPO&& '
         run_command += 'module load SCIENTIFICPYTHON&& '
-        #run_command += 'module use --append /home/niflheim/dulak/NWchem&& '  # todo
-        #run_command += 'module load NWCHEM/6.1-27.1.x86_64&& '  # todo
+        run_command += 'module load NWCHEM&& '
 
         if job.ncpus == 1:
             # don't use mpiexec here,
