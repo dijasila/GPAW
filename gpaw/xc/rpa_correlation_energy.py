@@ -12,6 +12,7 @@ from gpaw.response.parallel import parallel_partition, \
      parallel_partition_list, set_communicator
 from scipy.special.orthogonal import p_roots
 from gpaw.response.cell import set_Gvectors
+from gpaw.response.cuda import BaseCuda
 
 class RPACorrelation:
 
@@ -149,6 +150,10 @@ class RPACorrelation:
         for iecut, ecut in enumerate(self.ecutlist_e):
             print >> self.txt, 'ecut %s : E_c = %s eV' % (ecut, E_e[iecut])
         print >> self.txt
+        if self.cuda:
+            print >> self.txt, 'Destroy Cuda !'
+            self.cu.destroy()
+
         print >> self.txt, 'Calculation completed at:  ', ctime()
         print >> self.txt
         print >> self.txt, \
@@ -239,6 +244,7 @@ class RPACorrelation:
                 kcommsize=self.kcommsize,
                 comm=self.dfcomm,
                 cuda=self.cuda,
+                cu=self.cu,
                 nmultix=self.nmultix,
                 sync=self.sync,
                 optical_limit=optical_limit,
@@ -384,6 +390,12 @@ class RPACorrelation:
         self.extrapolate = extrapolate
         self.kcommsize = kcommsize
         self.nbands = nbands
+
+        if self.cuda:
+            self.cu = BaseCuda()
+            print >> self.txt, 'Init Cuda! '
+            print >> self.txt, '  Sync is  ', self.sync
+            print >> self.txt, '  Nmultix :', self.nmultix
 
         print >> self.txt
         print >> self.txt, 'Planewave cutoff              : %s eV' % ecut

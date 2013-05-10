@@ -31,6 +31,7 @@ class DF(Chi):
                  optical_limit=False,
                  cell=None,
                  cuda=False,
+                 cu=None,
                  nmultix=1,
                  sync=False,
                  comm=None,
@@ -41,7 +42,7 @@ class DF(Chi):
                      G_plus_q=G_plus_q, eta=eta, rpad=rpad, vcut=vcut,
                      ftol=ftol, txt=txt, xc=xc, hilbert_trans=hilbert_trans,
                      full_response=full_response, optical_limit=optical_limit,cell=cell,
-                     cuda=cuda,nmultix=nmultix,sync=sync,
+                     cuda=cuda,cu=cu,nmultix=nmultix,sync=sync,
                      comm=comm, kcommsize=kcommsize)
 
         self.df_flag = False

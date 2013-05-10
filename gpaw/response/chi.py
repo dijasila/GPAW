@@ -16,7 +16,6 @@ from gpaw.utilities.memory import maxrss
 from gpaw.response.base import BaseChi
 import _gpaw
 from gpaw.response.timing import Timer
-from gpaw.response.cuda import BaseCuda
 
 class Chi(BaseChi):
     """This class is a calculator for the linear density response function.
@@ -62,6 +61,7 @@ class Chi(BaseChi):
                  optical_limit=False,
                  cell=None,
                  cuda=False,
+                 cu=None,
                  nmultix=1,
                  sync=False,
                  comm=None,
@@ -78,6 +78,7 @@ class Chi(BaseChi):
         self.full_hilbert_trans = full_response
         self.vcut = vcut
         self.cuda = cuda
+        self.cu = cu
         self.nmultix = nmultix
         self.sync = sync
         if self.cuda:
@@ -85,6 +86,7 @@ class Chi(BaseChi):
                 self.timing = True
             else:
                 self.timing = False
+            assert self.cu is not None
         else:
             self.sync = False
             self.timing = True
@@ -237,10 +239,7 @@ class Chi(BaseChi):
         sizeofdouble = 8
 
         if self.cuda:  # currently cuda is restarted every time for every ecut !!
-            print >> self.txt, 'Init Cuda! '
-            print >> self.txt, '  Sync is  ', self.sync
-            print >> self.txt, '  Nmultix :', nmultix
-            cu = BaseCuda()
+            cu = self.cu
             cu.chi_init(self, chi0_wGG)
             cu.paw_init(calc.wfs, spos_ac, self)
         else:
@@ -776,9 +775,6 @@ class Chi(BaseChi):
             
         self.printtxt('')
         self.printtxt('Finished chi0 !')
-        if self.cuda:
-            self.printtxt('Destroy Cuda !')
-            cu.destroy()
 #        XX
 
         return
