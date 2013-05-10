@@ -563,7 +563,11 @@ if opt.smt:
 if len(args):
     set['script'] = args[0]
     if len(args) > 1:
-        set['cores'] = int(args[1])
+        try:
+            set['cores'] = int(args[1])
+        except ValueError:
+            raise ValueError('Number of cores must be integer. ' +
+                             'See gpaw-runscript -h')
 
 # ............................................................
 
