@@ -27,10 +27,10 @@ calc = GPAW(mode=PW(700),dtype=complex, basis='dzp', xc='PBE', maxiter=300,
             txt='gs_occ.txt', kpts=kpts,parallel={'band':1}, eigensolver='cg',
                         occupations=FermiDirac(0.01))
 atoms.set_calculator(calc)
-#atoms.get_potential_energy()
+atoms.get_potential_energy()
 
-#calc.diagonalize_full_hamiltonian()
-#calc.write('gs.gpw', 'all')
+calc.diagonalize_full_hamiltonian()
+calc.write('gs.gpw', 'all')
 
 
 # RPA
