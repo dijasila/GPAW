@@ -13,6 +13,7 @@ from gpaw.response.parallel import parallel_partition, \
 from scipy.special.orthogonal import p_roots
 from gpaw.response.cell import set_Gvectors
 from gpaw.response.cuda import BaseCuda
+import _gpaw
 
 class RPACorrelation:
 
@@ -284,7 +285,11 @@ class RPACorrelation:
                 mend = df.nbands
             else:
                 mend = mband_e[iecut]
-            e_wGG = df.get_dielectric_matrix(xc='RPA',overwritechi0=False,
+            if self.cuda:
+                overwritechi0 = True
+            else:
+                overwritechi0 = False
+            e_wGG = df.get_dielectric_matrix(xc='RPA',overwritechi0=overwritechi0,
                                              initialized=True, mstart=mstart, mend=mend)
             for i in range(Nw_local):
                 if ecut == max(self.ecutlist_e):
@@ -298,6 +303,11 @@ class RPACorrelation:
                               + len(e2_GG) - np.trace(e2_GG))
 
         df.wcomm.all_gather(local_E_q_we, E_q_we)
+
+        if self.cuda:
+            for iw in range(df.Nw_local):
+                _gpaw.cuFree(self.cu.chi0_w[iw])
+
         del df, e_wGG
 
         E_q_e = np.zeros(self.necut)
@@ -396,6 +406,8 @@ class RPACorrelation:
             print >> self.txt, 'Init Cuda! '
             print >> self.txt, '  Sync is  ', self.sync
             print >> self.txt, '  Nmultix :', self.nmultix
+        else:
+            self.cu = None
 
         print >> self.txt
         print >> self.txt, 'Planewave cutoff              : %s eV' % ecut

@@ -27,41 +27,47 @@ calc = GPAW(mode=PW(700),dtype=complex, basis='dzp', xc='PBE', maxiter=300,
             txt='gs_occ.txt', kpts=kpts,parallel={'band':1}, eigensolver='cg',
                         occupations=FermiDirac(0.01))
 atoms.set_calculator(calc)
-atoms.get_potential_energy()
+#atoms.get_potential_energy()
 
-calc.diagonalize_full_hamiltonian()
-calc.write('gs.gpw', 'all')
+#calc.diagonalize_full_hamiltonian()
+#calc.write('gs.gpw', 'all')
 
 
 # RPA
 calc = GPAW('gs.gpw', communicator=serial_comm, txt=None)
 
-rpa = RPACorrelation(calc, txt='rpa_all.txt',cuda=True, sync=False, nmultix=50)
+for cuda in (True, False):
+    rpa = RPACorrelation(calc, txt='rpa_all.txt',cuda=cuda, sync=False, nmultix=50)
+    
+    if rank == 0 :
+        t0 = time()
+    E_e = rpa.get_rpa_correlation_energy(ecutlist=[250, 280, 300],
+                                         directions=[[0, 1.]],
+                                         kcommsize=size,
+                                         dfcommsize=size)
+    
+    saved_data = np.array([
+    [-12.54230069, -12.78240637, -12.9350376 ],
+    [-11.44054596, -11.70858729, -11.75403433],
+    [-11.44034345, -11.70842109, -11.75383464],
+    [-11.34151943, -11.57236843, -11.83442544],
+    [-11.4403452 , -11.70842484, -11.75383638],
+    [-11.34152019, -11.57236919, -11.83442622],
+    [-11.34133587, -11.57218439, -11.83424205],
+    [-11.43291855, -11.70175245, -11.7470508 ],
+    ])
 
-if rank == 0 :
-    t0 = time()
-E_e = rpa.get_rpa_correlation_energy(ecutlist=[250, 280, 300, ],
-                                     directions=[[0, 1.]],
-                                     kcommsize=size,
-                                     dfcommsize=size)
-
-saved_data = np.array([
-[-12.54230069, -12.78240637, -12.9350376 ],
-[-11.44054596, -11.70858729, -11.75403433],
-[-11.44034345, -11.70842109, -11.75383464],
-[-11.34151943, -11.57236843, -11.83442544],
-[-11.4403452 , -11.70842484, -11.75383638],
-[-11.34152019, -11.57236919, -11.83442622],
-[-11.34133587, -11.57218439, -11.83424205],
-[-11.43291855, -11.70175245, -11.7470508 ],
-])
-
-assert np.abs(rpa.E_qe - saved_data).sum() < 1e-7
-
-if rank == 0 :
-    t1 = time() - t0
-    if t1 > 250: # 4 mins
-        print 'Takes too much time ! '
+    if cuda is False: # CPU used finite difference method
+        saved_data[0,0] = -12.5409991712 
+        saved_data[0,1] = -12.7811022008 
+        saved_data[0,2] = -12.9337317481
+    
+    assert np.abs(rpa.E_qe - saved_data).sum() < 1e-7
+    
+    if cuda is True and rank == 0 :
+        t1 = time() - t0
+        if t1 > 250: # 4 mins
+            print 'Takes too much time ! '
 
 
 

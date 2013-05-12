@@ -15,18 +15,21 @@ class BaseCuda:
     def __init__(self):
         status, self.handle = _gpaw.cuCreate()
 
-    def chi_init(self, chi, chi0_wGG):
+    def chi_init(self, chi, chi0_wGG, chi_new):
         self.nmultix = nmultix = chi.nmultix
         npw = chi.npw
         self.nG0 = nG0 = chi.nG0
         self.nG = nG = chi.nG
-        self.chi0_w = []
-        for iw in range(chi.Nw_local):
-            status, matrix_GG = _gpaw.cuMalloc(npw*npw*sizeofdata)
-            status = _gpaw.cuSetMatrix(npw, npw, sizeofdata,
-                                       chi0_wGG[iw].copy(), npw,
-                                       matrix_GG, npw)
-            self.chi0_w.append(matrix_GG)
+        self.chi_new = chi_new
+
+        if chi_new: # the matrix is destroyed in rpa_correlation_energy.py
+            self.chi0_w = []
+            for iw in range(chi.Nw_local):
+                status, matrix_GG = _gpaw.cuMalloc(npw*npw*sizeofdata)
+                status = _gpaw.cuSetMatrix(npw, npw, sizeofdata,
+                                           chi0_wGG[iw].copy(), npw,
+                                           matrix_GG, npw)
+                self.chi0_w.append(matrix_GG)
         
         status, self.rho_uG = _gpaw.cuMalloc(nmultix*npw*sizeofdata)
         status, self.tmp_uQ = _gpaw.cuMalloc(nG0*nmultix*sizeofdata)
@@ -411,8 +414,8 @@ class BaseCuda:
 
     def chi_free(self, chi):
 
-        for iw in range(chi.Nw_local):
-            _gpaw.cuFree(self.chi0_w[iw])
+#        for iw in range(chi.Nw_local):
+#            _gpaw.cuFree(self.chi0_w[iw])
         _gpaw.cuFree(self.rho_uG)
         _gpaw.cuFree(self.spos_ac)
         _gpaw.cuFree(self.a_sa)

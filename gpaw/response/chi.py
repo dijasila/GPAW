@@ -226,21 +226,23 @@ class Chi(BaseChi):
         else:
             assert chi0_wGG is not None
             assert mstart is not None
-            if self.cuda:
-                chi0_wGG = chi0_wGG.conj()
-            chi0_wGG *= self.vol 
-            for iw in range(self.Nw_local):
-                for iG in range(self.npw):
-                    chi0_wGG[iw,iG,:iG] = 0.
-            if self.kcomm.rank != 0 :
-                chi0_wGG[:,:,:] = 0.
+            if not self.cuda:
+#                chi0_wGG = chi0_wGG.conj()
+                chi0_wGG *= self.vol 
+                for iw in range(self.Nw_local):
+                    for iG in range(self.npw):
+                        chi0_wGG[iw,iG,iG+1:] = 0.
+                if self.kcomm.rank != 0 :
+                    chi0_wGG[:,:,:] = 0.
+            else:
+                print >> self.txt, 'GPU continue chi0'
             
         sizeofint = 4
         sizeofdouble = 8
 
         if self.cuda:  # currently cuda is restarted every time for every ecut !!
             cu = self.cu
-            cu.chi_init(self, chi0_wGG)
+            cu.chi_init(self, chi0_wGG, chi_new)
             cu.paw_init(calc.wfs, spos_ac, self)
         else:
             if self.hilbert_trans:
@@ -626,7 +628,7 @@ class Chi(BaseChi):
                                                 alpha_wu[iw, imultix] = np.sqrt(-C_wu[iw, imultix])
                                             else:
                                                 alpha_wu[iw, imultix] = np.sqrt(C_wu[iw, imultix] / C_wu[iw-1, imultix])
-                                            if imultix == nmultix -1 or m == len(self.mlist) - 1:
+                                            if imultix == nmultix -1 or m == mend - 1:
                                                 for ii in range(imultix+1):
                                                     rho_uG[:,ii] *= alpha_wu[iw, ii]
                                                 rk(-1.0, rho_uG, 1.0, chi0_wGG[iw])
@@ -711,9 +713,6 @@ class Chi(BaseChi):
                         chi0_wGG[iw] = chi0_wGG[iw].conj()
                         if np.isnan(chi0_wGG[iw]).any():
                             self.printtxt('chi0 has nan result !')
-                            import time as mytime
-                            while 1:
-                                mytime.sleep(10000000)
 
                     cu.chi_free(self)
                     cu.paw_free()
@@ -722,7 +721,7 @@ class Chi(BaseChi):
                     self.kcomm.sum(chi0_wGG[iw])
 
                 if not (np.abs(chi0_wGG[0,1:,0]) < 1e-10).all(): 
-                    assert (np.abs(chi0_wGG[0,0,1:]) < 1e-10).all()
+                    assert (np.abs(chi0_wGG[0,0,1:]) < 1e-10).all() # CPU version
 
                 for iw in range(self.Nw_local):
                     chi0_wGG[iw] += chi0_wGG[iw].conj().T
