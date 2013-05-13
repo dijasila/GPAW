@@ -79,7 +79,8 @@ Tuesday (May 21)
      exchange kernels
  * - 17:00
    - Mikael Kuisma
-   - Implementation of Spin-Polarized GLLB-SC potential for GPAW
+   - Spin-Polarized GLLB-SC potential and efficient real time
+     LCAO-TDDFT for large systems
  * - 18:00
    -
    - *Grill*
