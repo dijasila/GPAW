@@ -1099,6 +1099,9 @@ class PW:
                               diagksl, orthoksl, initksl, gd, *args)
         return wfs
 
+    def todict(self):
+        return {'__name__': 'PW', 'ecut': self.ecut}
+
     def __eq__(self, other):
         return (isinstance(other, PW) and self.ecut == other.ecut)
 
