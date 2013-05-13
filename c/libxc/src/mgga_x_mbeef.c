@@ -4,7 +4,7 @@
 
 #include "util.h"
 
-#define XC_MGGA_X_MBEEF          209 /* mBEEF-v5 exchange*/
+#define XC_MGGA_X_MBEEF          209 /* mBEEF exchange*/
 
 
 /*changes static with const*/

@@ -69,6 +69,15 @@ void XC(mgga_init)(XC(mgga_type) *p, int functional, int nspin)
   case(XC_MGGA_X_MBEEF):
     XC(mgga_x_mbeef_init)(p);
     break;
+  case(XC_MGGA_X_MS0):
+    XC(mgga_x_ms_init)(p);
+    break;
+  case(XC_MGGA_X_MS1):
+    XC(mgga_x_ms_init)(p);
+    break;
+  case(XC_MGGA_X_MS2):
+    XC(mgga_x_ms_init)(p);
+    break;
   }
 }
 
@@ -102,6 +111,15 @@ void XC(mgga_end)(XC(mgga_type) *p)
     break;
   case(XC_MGGA_X_MBEEF) :
     XC(mgga_x_mbeef_end)(p);
+    break;
+  case(XC_MGGA_X_MS0):
+    XC(mgga_x_ms_end)(p);
+    break;
+  case(XC_MGGA_X_MS1):
+    XC(mgga_x_ms_end)(p);
+    break;
+  case(XC_MGGA_X_MS2):
+    XC(mgga_x_ms_end)(p);
     break;
   }
 }
@@ -158,6 +176,15 @@ void XC(mgga)(XC(mgga_type) *p, FLOAT *rho, FLOAT *sigma, FLOAT *tau,
     break;
   case(XC_MGGA_X_MBEEF):
         XC(mgga_x_mbeef)(p, rho, sigma, tau, e, dedd, vsigma, dedtau);
+    break;
+  case(XC_MGGA_X_MS0):
+        XC(mgga_x_ms)(p, rho, sigma, tau, e, dedd, vsigma, dedtau);
+    break;
+  case(XC_MGGA_X_MS1):
+        XC(mgga_x_ms)(p, rho, sigma, tau, e, dedd, vsigma, dedtau);
+    break;
+  case(XC_MGGA_X_MS2):
+        XC(mgga_x_ms)(p, rho, sigma, tau, e, dedd, vsigma, dedtau);
     break;
   }
 }

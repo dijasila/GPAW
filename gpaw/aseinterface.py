@@ -520,7 +520,7 @@ class GPAW(PAW, Calculator):
         """
         if pad:
             psit_G = self.get_pseudo_wave_function(band, kpt, spin, broadcast,
-                                                 pad=False)
+                                                   pad=False)
             if psit_G is None:
                 return
             else:
@@ -797,3 +797,16 @@ class GPAW(PAW, Calculator):
             k = kpt.k
             for n, psit_G in enumerate(kpt.psit_nG):
                 psit_G[:] = read_wave_function(self.wfs.gd, s, k, n, mode)
+
+    def get_nonselfconsistent_energies(self, type='beefvdw'):
+        from gpaw.xc.bee import BEEF_Ensemble
+        if type not in ['beefvdw', 'mbeef']:
+            raise NotImplementedError('Not implemented for type = %s' % type)
+        assert self.scf.converged
+        bee = BEEF_Ensemble(self)
+        x = bee.create_xc_contributions('exch')
+        c = bee.create_xc_contributions('corr')
+        if type is 'beefvdw':
+            return np.append(x,c)
+        elif type is 'mbeef':
+            return x.flatten()

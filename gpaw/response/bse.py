@@ -474,7 +474,7 @@ class BSE(BASECHI):
             
             if optical_limit:
                 eps = 1/dfinv_GG[0,0]
-                self.printtxt('  RPA macroscopic dielectric constant is: %3.3f' %  eps)
+                self.printtxt('  RPA macroscopic dielectric constant is: %3.3f' %  eps.real)
             W_qGG[iq] = dfinv_GG * self.V_qGG[iq]
             self.timing(iq, t0, self.nibzq, 'iq')
             
@@ -551,7 +551,7 @@ class BSE(BASECHI):
         t0 = time()
         for iq in range(nq_local):
             q_c = self.bzq_qc[iq + q_start]
-            tmp_aGp = self.get_phi_aGp(q_c)
+            tmp_aGp = self.get_phi_aGp(q_c, parallel=False)
             for id in range(natoms):
                 N1, N2 = tmp_aGp[id].shape
                 phimax_qaGp[iq, id, :N1, :N2] = tmp_aGp[id]

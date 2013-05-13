@@ -8,6 +8,8 @@ For a brief introduction to the GW theory and the details of its implementation 
 
 **For GW calculations, the latest development release is required.**
 
+This tutorial and the documentation will frequently be updated.
+
 
 Quasi-particle spectrum of bulk silicon
 =======================================

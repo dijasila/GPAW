@@ -97,11 +97,6 @@ class BASECHI:
         self.nkpt = kd.nbzkpts
         self.ftol /= self.nkpt
 
-        # band init
-        if self.nbands is None:
-            self.nbands = calc.wfs.bd.nbands
-        self.nvalence = calc.wfs.nvalence
-
         # cell init
         self.acell_cv = calc.atoms.cell / Bohr 
         self.acell_cv, self.bcell_cv, self.vol, self.BZvol = \
@@ -177,6 +172,16 @@ class BASECHI:
                     x = np.pi*(E/self.ecut[0] - self.smooth_cut) / (1. - self.smooth_cut)
                     G_weights[iG] = 0.5 * (1. + np.cos(x))
             self.G_weights = G_weights
+
+        # band init
+        if self.nbands is None:
+            self.nbands = calc.wfs.bd.nbands
+        elif self.nbands == 'npw':
+            if self.npw > calc.wfs.bd.nbands:
+                self.nbands = calc.wfs.bd.nbands
+            else:
+                self.nbands = self.npw
+        self.nvalence = calc.wfs.nvalence
 
         # Projectors init
         setups = calc.wfs.setups
@@ -572,13 +577,13 @@ class BASECHI:
             optical_limit = True
             
         if static:
-            df = DF(calc=self.calc, q=q.copy(), w=(0.,), nbands=self.nbands,
+            df = DF(calc=self.calc, q=q.copy(), w=(0.,), nbands=self.nbands, eshift=self.eshift,
                     optical_limit=optical_limit, hilbert_trans=False, xc='RPA',
                     rpad=self.rpad, vcut=self.vcut, G_plus_q=True,
                     eta=0.0001, ecut=self.ecut*Hartree,
                     txt='df.out', comm=comm, kcommsize=kcommsize)
         else:
-            df = DF(calc=self.calc, q=q.copy(), w=w, nbands=self.nbands,
+            df = DF(calc=self.calc, q=q.copy(), w=w, nbands=self.nbands, eshift=self.eshift,
                     optical_limit=optical_limit, hilbert_trans=hilbert_trans, xc='RPA', full_response=True,
                     rpad=self.rpad, vcut=self.vcut, G_plus_q=True,
                     eta=self.eta*Hartree, ecut=self.ecut.copy()*Hartree,

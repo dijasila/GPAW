@@ -508,8 +508,27 @@ class HGHParameterSet:
         nlfe_j = list(self.configuration)
         nlfe_j.reverse()
         f_ln = [[], [], []] # [[s], [p], [d]]
+        # f states will be ignored as the atomic Hamiltonians
+        # of those are, carelessly, not defined in the article.
+        lmax = len(self.v_l) - 1
         Nv = 0
+        # Right.  We need to find the occupation numbers of each state and
+        # put them into a nice list of lists f_ln.
+        #
+        # We loop over states starting with the least bound one
+        # (i.e. reversed nlfe_j), adding the occupation numbers of each state
+        # as appropriate.  Once we have the right number of electrons, we
+        # end the loop.
+        #
+        # Some states in the standard configuration might
+        # be f-type; these should be skipped (unless the HGH setup actually
+        # has a valence f-state; however as noted above, some of the
+        # parameters are undefined in that case so are ignored anyway).  More 
+        # generally if for some state l > lmax,
+        # we can skip that state.
         for n, l, f, e in nlfe_j:
+            if l > lmax:
+                continue
             Nv += f
             f_n = f_ln[l]
             assert f_n == [] or self.symbol.endswith('.sc')

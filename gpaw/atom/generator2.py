@@ -6,8 +6,8 @@ from math import pi, exp, sqrt, log
 import numpy as np
 from scipy.optimize import fsolve
 from scipy import __version__ as scipy_version
-from ase.utils import prnt
-from ase.units import Hartree, Bohr
+from ase.utils import prnt, devnull
+from ase.units import Hartree
 from ase.data import atomic_numbers, chemical_symbols
 
 from gpaw.spline import Spline
@@ -24,82 +24,94 @@ from gpaw.atom.aeatom import AllElectronAtom, Channel, parse_ld_str, colors, \
 
 
 parameters = {
-'H':  ('1s,s,p', 1.0, {}),
-'He': ('1s,s,p', 1.3, {}),
-'Li': ('2s,2.0s,2p', 2.6, {}),
-'Be': ('2s,s,2p', 2.0, {}),
-'B':  ('2s,s,2p,p,d', 1.4, {'gamma': 1.0, 'h': 0.0}),
-'C':  ('2s,s,2p,p,d', 1.3, {'gamma': 1.8}),
-'N':  ('2s,s,2p,p,d', 1.3, {'gamma': 1.8}),
-'O':  ('2s,s,2p,p,d', 1.5, {}),
-'F':  ('2s,s,2p,p,d', 1.4, {'gamma': 1.7}),
+'H':  ('1s,s,p', 0.9, {}),
+'He': ('1s,s,p', 1.5, {}),
+'Li': ('1s,2s,2p,p,d', 1.5, {}),
+'Be': ('1s,2s,2p,p,d', 1.4, {}),
+'B':  ('2s,s,2p,p,d', 1.2, {}),
+'C':  ('2s,s,2p,p,d', 1.2, {}),
+'N':  ('2s,s,2p,p,d', 1.2, {'r0': 1.1}),
+'O':  ('2s,s,2p,p,d', 1.2, {}),
+'F':  ('2s,s,2p,p,d', 1.1, {}),
 'Ne': ('2s,s,2p,p,d', 1.8, {}),
-'Na': ('3s,s,3p,p,d', 3.0, {'local': 'f'}),
-'Mg': ('3s,s,3p,p,d', 2.8, {}),
-'Al': ('3s,s,3p,p,d', 2.2, {}),
-'Si': ('3s,s,3p,p,d', 2.4, {}),
-'P':  ('3s,s,3p,p,d', 1.9, {}),
-'S':  ('3s,s,3p,p,d', 2.2, {}),
-'Cl': ('3s,s,3p,p,d', 2.1, {}),
-'Ar': ('3s,s,3p,p,d', 2.2, {}),
-'K':  ('3s,4s,3p,4p,d', 2.4, {}),
-'Ca': ('3s,4s,3p,4p,3d', 2.5, {}),
-'Sc': ('3s,4s,3p,4p,3d,d', 2.7, {'local': 'f'}),
-'Ti': ('3s,4s,3p,4p,3d,d', 2.6, {'local': 'f'}),
-'V':  ('3s,4s,3p,4p,3d,d', 2.5, {'local': 'f'}),
-'Cr': ('3s,4s,3p,4p,3d,d', 2.3, {'local': 'f'}),
-'Mn': ('4s,s,4p,p,3d,d', 2.8, {}),
-'Fe': ('4s,s,4p,p,3d,d', 2.8, {}),
-'Co': ('4s,s,4p,p,3d,d', 2.7, {}),
-'Ni': ('4s,s,4p,p,3d,d', 2.7, {}),
-'Cu': ('4s,s,4p,p,3d,d', 2.5, {}),
-'Zn': ('4s,s,4p,p,3d,d', 2.4, {}),
-'Ga': ('4s,s,4p,p,3d,d', 2.4, {}),
-'Ge': ('4s,s,4p,p,d', 2.7, {}),
-'As': ('4s,s,4p,p,d', 2.7, {}),
-'Se': ('4s,5s,4p,p,d', 2.7, {}),
-'Br': ('4s,5s,4p,p,d', 2.6, {}),
-'Kr': ('4s,5s,4p,p,d', 2.4, {}),
-'Rb': ('4s,5s,4p,5p,d', 2.7, {'local': 'f'}),
+'Na': ('2s,3s,s,2p,3p,d', 2.3, {'local': 'f'}),
+'Mg': ('2s,3s,2p,3p,d', [2.0, 1.8], {'local': 'f'}),
+'Al': ('3s,s,3p,p,d', 2.1, {'local': 'f'}),
+'Si': ('3s,s,3p,p,d', 1.9, {'local': 'f'}),
+'P':  ('3s,s,3p,p,d', 1.7, {'local': 'f'}),
+'S':  ('3s,s,3p,p,d', 1.6, {'local': 'f'}),
+'Cl': ('3s,s,3p,p,d', 1.5, {'local': 'f'}),
+'Ar': ('3s,s,3p,p,d', 1.5, {'local': 'f'}),
+'K':  ('3s,4s,3p,4p,d,d', 2.1, {'local': 'f'}),
+'Ca': ('3s,4s,3p,4p,3d,d', 2.1, {'local': 'f'}),
+'Sc': ('3s,4s,3p,4p,3d,d', 2.3, {'local': 'f'}),  # improve
+'Ti': ('3s,4s,3p,4p,3d,d', 2.3, {'local': 'f'}),  # improve
+'V':  ('3s,4s,3p,4p,3d,d', 2.2, {'local': 'f'}),  # improve
+'Cr': ('3s,4s,3p,4p,3d,d', 2.1, {'local': 'f'}),  # improve
+'Mn': ('3s,4s,3p,4p,3d,d', 2.0, {'local': 'f'}),  # improve
+'Fe': ('3s,4s,3p,4p,3d,d', 2.0, {'local': 'f'}),  # improve
+'Co': ('3s,4s,3p,4p,3d,d', 2.0, {'local': 'f'}),  # improve
+'Ni': ('3s,4s,3p,4p,3d,d', 1.9, {'local': 'f'}),  # improve
+'Cu': ('3s,4s,3p,4p,3d,d', 1.8, {'local': 'f'}),
+'Zn': ('3s,4s,3p,4p,3d,d', 1.8, {'local': 'f'}),
+'Ga': ('4s,s,4p,p,3d,d', 2.2, {'local': 'f'}),
+'Ge': ('4s,s,4p,p,3d,d', 2.1, {'local': 'f'}),
+'As': ('4s,s,4p,p,d', 2.0, {'local': 'f'}),
+'Se': ('4s,s,4p,p,d', 1.9, {'local': 'f'}),
+'Br': ('4s,s,4p,p,d', 2.0, {'local': 'f'}),
+'Kr': ('4s,s,4p,p,d', 2.0, {'local': 'f'}),
+'Rb': ('4s,5s,4p,5p,d,d', 2.5, {'local': 'f'}),
 'Sr': ('4s,5s,4p,5p,4d,d', 2.5, {'local': 'f'}),
-'Y':  ('4s,5s,4p,5p,4d,d', 2.6, {'local': 'f'}),
-'Zr': ('4s,5s,4p,5p,4d,d', 2.7, {'local': 'f'}),
-'Nb': ('4s,5s,4p,5p,4d,d', 2.8, {'local': 'f'}),
-'Mo': ('4s,5s,4p,5p,4d,d', 2.7, {'local': 'f'}),
-'Tc': ('4s,5s,4p,5p,4d,d', 2.6, {'local': 'f'}),
-'Ru': ('4s,5s,4p,5p,4d,d', 2.5, {'local': 'f'}),
-'Rh': ('5s,s,5p,p,4d,d', 3.2, {}),
-'Pd': ('5s,s,5p,p,4d,d', 3.1, {}),
-'Ag': ('5s,s,5p,p,4d,d', 3.1, {}),
-'Cd': ('5s,s,5p,p,4d,d', 3.0, {}),
-'In': ('5s,s,5p,p,4d,d', 2.9, {}),
-'Sn': ('5s,s,5p,p,d', 2.8, {}),
-'Sb': ('5s,s,5p,p,d', 2.8, {}),
-'Te': ('5s,s,5p,p,d', 2.7, {}),
-'I':  ('5s,s,5p,p,d', 2.7, {}),
-'Xe': ('5s,s,5p,p,d', 2.8, {}),
-'Cs': ('5s,6s,5p,p,d', 3.2, {}),
-'Ba': ('5s,6s,5p,p,d', [2.5, 3.0], {}),
-'La': ('5s,6s,s,5p,6p,5d,d', 3.0, {}),
-'Ce': ('5s,6s,s,5p,6p,p,5d,d', [3.3, 2.8], {}),
-'Hf': ('5s,6s,5p,6p,5d,d', 3.1, {}),
-'Ta': ('5s,6s,5p,6p,5d,d', 3.0, {}),
-'W':  ('5s,6s,5p,6p,5d,d', 3.0, {}),
-'Re': ('5s,6s,5p,6p,5d,d', 3.0, {}),
-'Os': ('6s,s,6p,p,5d,d', 3.5, {}),
-'Ir': ('6s,s,6p,p,5d,d', 3.4, {}),
-'Pt': ('6s,s,6p,p,5d,d', 3.3, {}),
-'Au': ('6s,s,6p,p,5d,d', 3.2, {}),
-'Hg': ('6s,s,6p,p,5d,d', 3.2, {}),
-'Tl': ('6s,s,6p,p,5d,d', 3.2, {}),
-'Pb': ('6s,s,6p,p,5d,d', 3.1, {}),
-'Bi': ('6s,s,6p,p,d', 3.0, {})
+'Y':  ('4s,5s,4p,5p,4d,d', 2.5, {'local': 'f'}),
+'Zr': ('4s,5s,4p,5p,4d,d', 2.5, {'local': 'f'}),  # 40
+'Nb': ('4s,5s,4p,5p,4d,d', 2.4, {'local': 'f'}),
+'Mo': ('4s,5s,4p,5p,4d,d', 2.2, {'local': 'f'}),
+'Tc': ('4s,5s,4p,5p,4d,d', 2.2, {'local': 'f'}),
+'Ru': ('4s,5s,4p,5p,4d,d', 2.2, {'local': 'f'}),
+'Rh': ('4s,5s,4p,5p,4d,d', 2.2, {'local': 'f'}),
+'Pd': ('4s,5s,4p,5p,4d,d', 2.2, {'local': 'f'}),
+'Ag': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
+'Cd': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
+'In': ('5s,s,s,5p,p,4d,d', 2.6, {'local': 'f'}),  # improve
+'Sn': ('5s,s,s,5p,p,4d,d', 2.5, {'local': 'f'}),
+'Sb': ('5s,s,s,5p,p,4d,d', 2.5, {'local': 'f'}),
+'Te': ('5s,6s,5p,p,d,d', 2.6, {'local': 'f'}),  # improve
+'I':  ('5s,s,5p,p,d', 2.4, {'local': 'f'}),
+'Xe': ('5s,s,5p,p,d', 2.3, {'local': 'f'}),
+'Cs': ('5s,6s,5p,6p,5d', [1.9, 2.2], {}),  # 55
+'Ba': ('5s,6s,s,5p,6p,5d,d', 2.5, {'local': 'g'}),  # improve
+'La': ('5s,6s,5p,6p,5d,d,4f,f', 2.5, {'local': 'g'}),
+'Ce': ('5s,6s,5p,6p,5d,d,4f,f', 2.4, {'local': 'g'}),  # improve
+'Pr': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),  # improve
+'Nd': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),  # improve
+'Pm': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),  # improve
+'Sm': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),  # improve
+'Eu': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),  # improve
+'Gd': ('5s,6s,5p,6p,5d,d,4f,f', 2.4, {'local': 'g'}),  # improve
+'Tb': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),  # improve
+'Dy': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),  # improve
+'Ho': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),  # improve
+'Er': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),  # improve
+'Tm': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),  # improve
+'Yb': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),  # improve
+'Lu': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),  # improve
+'Hf': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),  # improve
+'Ta': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),  # improve
+'W':  ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),  # improve
+'Re': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),  # improve
+'Os': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),  # improve
+'Ir': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),  # improve
+'Pt': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),  # improve
+'Au': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),  # improve
+'Hg': ('5s,6s,5p,6p,5d,d', 2.3, {'local': 'f'}),
+'Tl': ('6s,s,s,6p,p,5d,d', 2.8, {'local': 'f'}),  # improve
+'Pb': ('6s,s,s,6p,p,5d,d', 2.6, {'local': 'f'}),
+'Bi': ('6s,s,s,6p,p,5d,d', 2.6, {'local': 'f'}),
+'Po': ('6s,s,6p,p,d', 2.7, {'local': 'f'}),  # improve
+'At': ('6s,s,6p,p,d', 2.6, {'local': 'f'}),  # improve
+'Rn': ('6s,s,6p,p,d', 2.6, {'local': 'f'}),  # improve
 }
 
-extra_parameters = {
-'Ru': ('4s,5s,s,4p,5p,p,4d,d', 2.9, {'local': 'f'}),
-'Ru': ('5s,s,5p,p,4d,d', [3.3, 3.3, 2.9], {}),
-}
 
 class PAWWaves:
     def __init__(self, rgd, l, rcut):
@@ -221,24 +233,20 @@ class PAWWaves:
 
 
 class PAWSetupGenerator:
-    def __init__(self, aea, projectors, rc,
-                 scalar_relativistic=False, alpha=None,
-                 gamma=1.5, h=0.2 / Bohr, fd=sys.stdout):
+    def __init__(self, aea, projectors,
+                 scalar_relativistic=False,
+                 fd=sys.stdout):
         """fd: stream
             Text output."""
 
         self.aea = aea
 
-        # Filtering parameters:
-        self.gamma = gamma
-        self.h = h
-
         if fd is None:
             fd = devnull
         self.fd = fd
 
-        lmax = -1
-        states = {}
+        self.lmax = -1
+        self.states = {}
         for s in projectors.split(','):
             l = 'spdf'.find(s[-1])
             if len(s) == 1:
@@ -247,22 +255,22 @@ class PAWSetupGenerator:
                 n = float(s[:-1])
             else:
                 n = int(s[:-1])
-            if l in states:
-                states[l].append(n)
+            if l in self.states:
+                self.states[l].append(n)
             else:
-                states[l] = [n]
-            if l > lmax:
-                lmax = l
+                self.states[l] = [n]
+            if l > self.lmax:
+                self.lmax = l
 
         # Add empty bound states:
-        for l, nn in states.items():
+        for l, nn in self.states.items():
             for n in nn:
                 if (isinstance(n, int) and
                     (l not in aea.f_lsn or n - l > len(aea.f_lsn[l][0]))):
                     aea.add(n, l, 0)
 
-        for l in range(lmax):
-            if l not in states:
+        for l in range(self.lmax):
+            if l not in self.states:
                 states[l] = []
 
         aea.initialize()
@@ -272,70 +280,20 @@ class PAWSetupGenerator:
 
         self.rgd = aea.rgd
 
-        self.log('\nGenerating PAW', aea.xc.name, 'setup for', aea.symbol)
-
-        if isinstance(rc, float):
-            radii = [rc]
-        else:
-            radii = rc
-
-        self.rcmax = max(radii)
-        self.gcmax = self.rgd.ceil(self.rcmax)
-
-        self.rcfilter = self.rcmax * gamma
-        if h == 0:
-            self.Gcut = None
-        else:
-            self.Gcut = pi / h - 2 / self.rcfilter
-            self.log('Wang mask function for Fourier filtering:')
-            self.log('gamma=%.2f, h=%.2f Bohr, rcut=%.2f, Gcut=%.2f Bohr^-1' %
-                     (gamma, h, self.rcfilter, self.Gcut))
-
-        if lmax >= 0:
-            radii += [radii[-1]] * (lmax + 1 - len(radii))
-
-        self.waves_l = []
-        for l in range(lmax + 1):
-            rcut = radii[l]
-            waves = PAWWaves(self.rgd, l, rcut)
-            e = -1.0
-            for n in states[l]:
-                if isinstance(n, int):
-                    # Bound state:
-                    ch = aea.channels[l]
-                    e = ch.e_n[n - l - 1]
-                    f = ch.f_n[n - l - 1]
-                    phi_g = ch.phi_ng[n - l - 1]
-                else:
-                    if n is None:
-                        e += 1.0
-                    else:
-                        e = n
-                    n = -1
-                    f = 0.0
-                    phi_g = self.rgd.zeros()
-                    gc = self.rgd.round(self.rcfilter) + 10
-                    ch = Channel(l)
-                    ch.integrate_outwards(phi_g, self.rgd, aea.vr_sg[0], gc, e,
-                                          aea.scalar_relativistic)
-                    phi_g[1:gc + 1] /= self.rgd.r_g[1:gc + 1]
-                    if l == 0:
-                        phi_g[0] = phi_g[1]
-                    phi_g /= (self.rgd.integrate(phi_g**2) / (4*pi))**0.5
-
-                waves.add(phi_g, n, e, f)
-            self.waves_l.append(waves)
-
-        self.alpha = alpha
-        self.construct_shape_function(eps=1e-10)
-
         self.vtr_g = None
 
-    def construct_shape_function(self, eps):
+        self.log('\nGenerating PAW', aea.xc.name, 'setup for', aea.symbol)
+
+    def construct_shape_function(self, alpha=None, rc=None, eps=1e-10):
         """Build shape-function for compensation charge."""
 
+        self.alpha = alpha
+
         if self.alpha is None:
-            rc = 1.5 * self.rcmax
+            if isinstance(rc, list):
+                rc = min(rc)
+            rc = 1.5 * rc
+
             def spillage(alpha):
                 """Fraction of gaussian charge outside rc."""
                 x = alpha * rc**2
@@ -367,23 +325,78 @@ class PAWSetupGenerator:
         self.ekincore = 0.0
         for l, ch in enumerate(self.aea.channels):
             for n, f in enumerate(ch.f_n):
-                if (l >= len(self.waves_l) or
-                    (l < len(self.waves_l) and
-                     n + l + 1 not in self.waves_l[l].n_n)):
+                if l <= self.lmax and n + l + 1 in self.states[l]:
+                    self.nvalence += f
+                else:
                     self.nc_g += f * ch.calculate_density(n)
                     self.ncore += f
                     self.ekincore += f * ch.e_n[n]
-                else:
-                    self.nvalence += f
 
         self.ekincore -= self.rgd.integrate(self.nc_g * self.aea.vr_sg[0], -1)
 
         self.log('Core electrons:', self.ncore)
         self.log('Valence electrons:', self.nvalence)
 
+    def add_waves(self, rc):
+        if isinstance(rc, float):
+            radii = [rc]
+        else:
+            radii = rc
+
+        self.rcmax = max(radii)
+
+        if self.lmax >= 0:
+            radii += [radii[-1]] * (self.lmax + 1 - len(radii))
+
+        self.waves_l = []
+        for l in range(self.lmax + 1):
+            rcut = radii[l]
+            waves = PAWWaves(self.rgd, l, rcut)
+            e = -1.0
+            for n in self.states[l]:
+                if isinstance(n, int):
+                    # Bound state:
+                    ch = self.aea.channels[l]
+                    e = ch.e_n[n - l - 1]
+                    f = ch.f_n[n - l - 1]
+                    phi_g = ch.phi_ng[n - l - 1]
+                else:
+                    if n is None:
+                        e += 1.0
+                    else:
+                        e = n
+                    n = -1
+                    f = 0.0
+                    phi_g = self.rgd.zeros()
+                    gc = self.rgd.round(1.5 * rcut)
+                    ch = Channel(l)
+                    ch.integrate_outwards(phi_g, self.rgd, self.aea.vr_sg[0], gc, e,
+                                          self.aea.scalar_relativistic)
+                    phi_g[1:gc + 1] /= self.rgd.r_g[1:gc + 1]
+                    if l == 0:
+                        phi_g[0] = phi_g[1]
+                    phi_g /= (self.rgd.integrate(phi_g**2) / (4*pi))**0.5
+
+                waves.add(phi_g, n, e, f)
+            self.waves_l.append(waves)
+
+    def pseudize(self, type='poly', nderiv=6, rcore=None, h=None, gamma=None):
+        # Filtering parameters:
+        self.gamma = gamma
+        self.h = h
+
+        self.rcfilter = gamma * self.rcmax
+
+        if h == 0:
+            self.Gcut = None
+        else:
+            self.Gcut = pi / h - 2 / self.rcfilter
+            self.log('Wang mask function for Fourier filtering:')
+            self.log('gamma=%.2f, h=%.2f Bohr, rcut=%.2f, Gcut=%.2f Bohr^-1' %
+                     (gamma, h, self.rcfilter, self.Gcut))
+
         self.Q = -self.aea.Z + self.ncore
 
-    def pseudize(self, type='poly', nderiv=6, rcore=None):
         self.nt_g = self.rgd.zeros()
         for waves in self.waves_l:
             waves.pseudize(type, nderiv)
@@ -393,18 +406,22 @@ class PAWSetupGenerator:
         if rcore is None:
             rcore = self.rcmax * 0.8
         else:
-            assert rcore < self.rcmax
+            assert rcore <= self.rcmax
 
-        gcore = self.rgd.round(rcore)
+        # Make sure pseudo density is monotonically decreasing:
+        while 1:
+            gcore = self.rgd.round(rcore)
+            self.nct_g = self.rgd.pseudize(self.nc_g, gcore)[0]
+            nt_g = self.nt_g + self.nct_g
+            dntdr_g = self.rgd.derivative(nt_g)[:gcore]
+            if dntdr_g.max() < 0.0:
+                break
+            rcore -= 0.01
 
         self.log('Constructing smooth pseudo core density for r < %.3f' %
                  rcore)
-        self.nct_g = self.rgd.pseudize(self.nc_g, gcore)[0]
-        self.nt_g += self.nct_g
+        self.nt_g = nt_g
 
-        # Make sure pseudo density is monotonically decreasing:
-        dntdr_g = self.rgd.derivative(self.nt_g)[:gcore]
-        assert dntdr_g.max() < 0.0
         if 0:
             # Constuct function that decrease smoothly from
             # f(0)=1 to f(rcmax)=0:
@@ -431,6 +448,17 @@ class PAWSetupGenerator:
         self.exct = self.aea.xc.calculate_spherical(
             self.rgd, self.nt_g.reshape((1, -1)), self.vxct_g.reshape((1, -1)))
 
+        self.v0r_g = self.vtr_g - self.vHtr_g - self.vxct_g * self.rgd.r_g
+        self.v0r_g[self.rgd.round(self.rcmax):] = 0.0
+
+        if self.Gcut is not None:
+            self.vtr_g -= self.v0r_g
+            self.v0r_g[1:] /= self.rgd.r_g[1:]
+            self.v0r_g[0] = self.v0r_g[1]
+            self.v0r_g = self.rgd.filter(
+                self.v0r_g, self.rcfilter, self.Gcut) * self.rgd.r_g
+            self.vtr_g += self.v0r_g
+
         self.log('\nProjectors:')
         self.log(' state  occ         energy             norm        rcut')
         self.log(' nl            [Hartree]  [eV]      [electrons]   [Bohr]')
@@ -448,23 +476,25 @@ class PAWSetupGenerator:
                               waves.rcut))
         self.log()
 
+    def find_local_potential(self, l0, r0, P, e0):
+        if l0 is None:
+            self.find_polynomial_potential(r0, P)
+        else:
+            self.match_local_potential(l0, r0, P, e0)
+
     def find_polynomial_potential(self, r0, P, e0=None):
         self.log('Constructing smooth local potential for r < %.3f' % r0)
         g0 = self.rgd.ceil(r0)
         assert e0 is None
 
         self.vtr_g = self.rgd.pseudize(self.aea.vr_sg[0], g0, 1, P)[0]
-        self.v0r_g = self.vtr_g - self.vHtr_g - self.vxct_g * self.rgd.r_g
-        self.v0r_g[self.gcmax] = 0.0
 
         self.l0 = None
         self.e0 = None
         self.r0 = r0
         self.nderiv0 = P
 
-        self.filter_zero_potential()
-
-    def find_local_potential(self, l0, r0, P, e0):
+    def match_local_potential(self, l0, r0, P, e0):
         self.log('Local potential matching %s-scattering at e=%.3f eV' %
                  ('spdfg'[l0], e0 * Hartree) +
                  ' and r=%.2f Bohr' % r0)
@@ -480,7 +510,8 @@ class PAWSetupGenerator:
         if l0 == 0:
             phi_g[0] = phi_g[1]
 
-        phit_g, c = self.rgd.pseudize_normalized(phi_g, g0, l=l0, points=P)
+        #phit_g, c = self.rgd.pseudize_normalized(phi_g, g0, l=l0, points=P)
+        phit_g, c = self.rgd.pseudize(phi_g, g0, l=l0, points=P)
         r_g = self.rgd.r_g[1:g0]
 
         dgdr_g = 1 / self.rgd.dr_g
@@ -501,24 +532,10 @@ class PAWSetupGenerator:
         self.vtr_g = self.aea.vr_sg[0].copy()
         self.vtr_g[0] = 0.0
         self.vtr_g[1:g0] = q_g[1:g0]#e0 * r_g - t_g * r_g**(l0 + 1) / phit_g[1:g0]
-        self.v0r_g = self.vtr_g - self.vHtr_g - self.vxct_g * self.rgd.r_g
-        self.v0r_g[self.gcmax:] = 0.0
-
         self.l0 = l0
         self.e0 = e0
         self.r0 = r0
         self.nderiv0 = P
-
-        self.filter_zero_potential()
-
-    def filter_zero_potential(self):
-        if self.Gcut is not None:
-            self.vtr_g -= self.v0r_g
-            self.v0r_g[1:] /= self.rgd.r_g[1:]
-            self.v0r_g[0] = self.v0r_g[1]
-            self.v0r_g = self.rgd.filter(
-                self.v0r_g, self.rcfilter, self.Gcut) * self.rgd.r_g
-            self.vtr_g += self.v0r_g
 
     def construct_projectors(self):
         for waves in self.waves_l:
@@ -527,39 +544,16 @@ class PAWSetupGenerator:
             waves.calculate_kinetic_energy_correction(self.aea.vr_sg[0],
                                                       self.vtr_g)
 
-    def check(self):
+    def check_all(self):
         self.log(('Checking eigenvalues of %s pseudo atom using ' +
                   'a Gaussian basis set:') % self.aea.symbol)
         self.log('                 AE [eV]        PS [eV]      error [eV]')
-        basis = self.aea.channels[0].basis
-        eps = basis.eps
-        alpha_B = basis.alpha_B
 
         ok = True
 
         for l in range(4):
-            basis = GaussianBasis(l, alpha_B, self.rgd, eps)
-            H_bb = basis.calculate_potential_matrix(self.vtr_g)
-            H_bb += basis.T_bb
-            S_bb = np.eye(len(basis))
-
-            n0 = 0
-            if l < len(self.waves_l):
-                waves = self.waves_l[l]
-                if len(waves) > 0:
-                    P_bn = self.rgd.integrate(basis.basis_bg[:, None] *
-                                              waves.pt_ng) / (4 * pi)
-                    H_bb += np.dot(np.dot(P_bn, waves.dH_nn), P_bn.T)
-                    S_bb += np.dot(np.dot(P_bn, waves.dS_nn), P_bn.T)
-                    n0 = waves.n_n[0] - l - 1
-                    if n0 < 0 and l < len(self.aea.channels):
-                        n0 = (self.aea.channels[l].f_n > 0).sum()
-            elif l < len(self.aea.channels):
-                n0 = (self.aea.channels[l].f_n > 0).sum()
-
-            e_b = np.empty(len(basis))
             try:
-                general_diagonalize(H_bb, e_b, S_bb)
+                e_b, n0 = self.check(l)
             except RuntimeError:
                 self.log('Singular overlap matrix!')
                 ok = False
@@ -602,6 +596,34 @@ class PAWSetupGenerator:
                 ok = False
 
         return ok
+
+    def check(self, l):
+        basis = self.aea.channels[0].basis
+        eps = basis.eps
+        alpha_B = basis.alpha_B
+
+        basis = GaussianBasis(l, alpha_B, self.rgd, eps)
+        H_bb = basis.calculate_potential_matrix(self.vtr_g)
+        H_bb += basis.T_bb
+        S_bb = np.eye(len(basis))
+
+        n0 = 0
+        if l < len(self.waves_l):
+            waves = self.waves_l[l]
+            if len(waves) > 0:
+                P_bn = self.rgd.integrate(basis.basis_bg[:, None] *
+                                          waves.pt_ng) / (4 * pi)
+                H_bb += np.dot(np.dot(P_bn, waves.dH_nn), P_bn.T)
+                S_bb += np.dot(np.dot(P_bn, waves.dS_nn), P_bn.T)
+                n0 = waves.n_n[0] - l - 1
+                if n0 < 0 and l < len(self.aea.channels):
+                    n0 = (self.aea.channels[l].f_n > 0).sum()
+        elif l < len(self.aea.channels):
+            n0 = (self.aea.channels[l].f_n > 0).sum()
+
+        e_b = np.empty(len(basis))
+        general_diagonalize(H_bb, e_b, S_bb)
+        return e_b, n0
 
     def test_convergence(self):
         rgd = self.rgd
@@ -797,7 +819,7 @@ class PAWSetupGenerator:
 
         setup.tauc_g = self.rgd.zeros()
         setup.tauct_g = self.rgd.zeros()
-        print 'no tau!!!!!!!!!!!'
+        #print 'no tau!!!!!!!!!!!'
 
         if self.aea.scalar_relativistic:
             reltype = 'scalar-relativistic'
@@ -933,13 +955,14 @@ def generate(argv=None):
     parser.add_option('-F', '--filter', metavar='gamma,h',
                       help='Fourier filtering parameters for Wang ' +
                       'mask-function.  Default: ' +
-                      u'gamma=1.5 and h=0.2 Å.  Use gamma=1 and ' +
-                      u'h=0 Å to turn off filtering.')
+                      'gamma=1.8 and h=0.2 Bohr.  Use gamma=1 and ' +
+                      'h=0 to turn off filtering.')
 
     opt, args = parser.parse_args(argv)
 
     if len(args) == 0:
-        symbols = range(1, 87)
+        symbols = [symbol for symbol in chemical_symbols
+                   if symbol in parameters]
     elif len(args) == 1 and '-' in args[0]:
         Z1, Z2 = args[0].split('-')
         Z1 = str2z(Z1)
@@ -962,7 +985,7 @@ def generate(argv=None):
         if opt.no_check:
             ok = True
         else:
-            ok = gen.check()
+            ok = gen.check_all()
 
         #gen.test_convergence()
 
@@ -1009,8 +1032,10 @@ def generate(argv=None):
             if opt.plot:
                 gen.plot()
 
-            plt.show()
-
+            try:
+                plt.show()
+            except KeyboardInterrupt:
+                pass
     return gen
 
 
@@ -1026,8 +1051,8 @@ def get_parameters(symbol, opt):
     if opt.radius:
         radii = [float(r) for r in opt.radius.split(',')]
 
-    gamma = extra.get('gamma', 1.5)
-    h = extra.get('h', 0.2)  # Angstrom
+    gamma = extra.get('gamma', 1.8)
+    h = extra.get('h', 0.2)
 
     if opt.filter:
         gamma, h = (float(x) for x in opt.filter.split(','))
@@ -1035,11 +1060,14 @@ def get_parameters(symbol, opt):
     if isinstance(radii, float):
         radii = [radii]
 
+    scale = 1.0#0.9
+    radii = [scale * r for r in radii]
+
     if opt.pseudize:
         type, nderiv = opt.pseudize.split(',')
         pseudize = (type, int(nderiv))
     else:
-        pseudize = ('poly', 6)
+        pseudize = ('poly', 4)
 
     l0 = None
     if opt.zero_potential:
@@ -1074,11 +1102,13 @@ def get_parameters(symbol, opt):
         if type != 'poly':
             l0 = 'spdfg'.find(type)
     else:
-        r0 = max(radii)
-        nderiv0 = 6
         if 'local' not in extra:
+            nderiv0 = 2
             e0 = None
+            r0 = extra.get('r0', min(radii) / scale) * scale
         else:
+            nderiv0 = 5
+            r0 = extra.get('r0', min(radii) * 0.9 / scale) * scale
             l0 = 'spdfg'.find(extra['local'])
             e0 = 0.0
 
@@ -1098,19 +1128,15 @@ def _generate(symbol, xc, projectors, radii,
               l0, r0, nderiv0, e0,
               pseudize, rcore):
     aea = AllElectronAtom(symbol, xc)
-    gen = PAWSetupGenerator(aea, projectors, radii,
-                            scalar_relativistic,
-                            alpha, gamma, h)
+    gen = PAWSetupGenerator(aea, projectors,
+                            scalar_relativistic)#, fd=None)
+
+    gen.construct_shape_function(alpha, radii, eps=1e-10)
     gen.calculate_core_density()
-    gen.pseudize(*pseudize, rcore=rcore)
-
-    if l0 is None:
-        gen.find_polynomial_potential(r0, nderiv0, e0)
-    else:
-        gen.find_local_potential(l0, r0, nderiv0, e0)
-
+    gen.find_local_potential(l0, r0, nderiv0, e0)
+    gen.add_waves(radii)
+    gen.pseudize(pseudize[0], pseudize[1], rcore=rcore, gamma=gamma, h=h)
     gen.construct_projectors()
-
     return gen
 
 

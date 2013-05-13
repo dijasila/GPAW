@@ -187,7 +187,7 @@ class RadialGridDescriptor:
         #assert abs(vr_g-vrp_g).max() < 1e-12
         return vr_g
 
-    def pseudize(self, a_g, gc, l=0, P=4):
+    def pseudize(self, a_g, gc, l=0, points=4):
         """Construct smooth continuation of a_g for g<gc.
         
         Returns (b_g, c_p[P-1]) such that b_g=a_g for g >= gc and::
@@ -201,9 +201,9 @@ class RadialGridDescriptor:
         assert isinstance(gc, int) and gc > 10
         
         r_g = self.r_g
-        i = range(gc, gc + P)
+        i = range(gc, gc + points)
         r_i = r_g[i]
-        c_p = np.polyfit(r_i**2, a_g[i] / r_i**l, P - 1)
+        c_p = np.polyfit(r_i**2, a_g[i] / r_i**l, points - 1)
         b_g = a_g.copy()
         b_g[:gc] = np.polyval(c_p, r_g[:gc]**2) * r_g[:gc]**l
         return b_g, c_p[-1]

@@ -417,22 +417,23 @@ class SmoothDistribution(ZeroKelvin):
             assert spin == 0
             n = self.nvalence // 2
             homo = wfs.world.max(max([kpt.eps_n[n - 1] for kpt in wfs.kpt_u]))
-            lumo = -wfs.world.max(-min([kpt.eps_n[n] for kpt in wfs.kpt_u]))
+            lumo = wfs.world.min(min([kpt.eps_n[n] for kpt in wfs.kpt_u]))
             return np.array([homo, lumo])
         else:
-            assert self.fixmagmom
-            sign = 1 - spin * 2
-            n = (self.nvalence + sign * self.magmom) // 2
-            assert spin is not None
-            homo = -1000
-            lumo = +1000
+            eps_homo = -1000.0
+            eps_lumo = 1000.0
+            epsilon = 1e-2
             for kpt in wfs.kpt_u:
                 if kpt.s == spin:
-                    homo = max(homo, kpt.eps_n[n - 1])
-                    lumo = min(lumo, kpt.eps_n[n])
-            homo = wfs.world.max(homo)
-            lumo = -wfs.world.max(-lumo)
-            return np.array( [homo, lumo] )
+                    eps = np.max(np.where(kpt.f_n/kpt.weight>epsilon, kpt.eps_n, -1000.0))
+                    eps_homo = max([eps_homo, eps])
+                    eps = np.min(np.where(kpt.f_n/kpt.weight<=epsilon, kpt.eps_n, +1000.0))
+                    eps_lumo = min([eps_lumo, eps])
+            
+            eps_homo = wfs.kd.comm.max(eps_homo)
+            eps_lumo = wfs.kd.comm.min(eps_lumo)
+
+            return np.array( [eps_homo, eps_lumo] )
 
     def get_homo_lumo(self, wfs):
         if self.width == 0:
@@ -446,7 +447,7 @@ class SmoothDistribution(ZeroKelvin):
 
         n = self.nvalence // 2
         homo = wfs.world.max(max([kpt.eps_n[n - 1] for kpt in wfs.kpt_u]))
-        lumo = -wfs.world.max(-min([kpt.eps_n[n] for kpt in wfs.kpt_u]))
+        lumo = wfs.world.min(min([kpt.eps_n[n] for kpt in wfs.kpt_u]))
         return np.array([homo, lumo])
 
     def guess_fermi_level(self, wfs):

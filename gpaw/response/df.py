@@ -110,8 +110,7 @@ class DF(CHI):
                                   self.Gvec_Gc,
                                   self.acell_cv,
                                   self.bcell_cv,
-                                  self.pbc, #calc.atoms.pbc,
-                                  self.npw,
+                                  self.pbc,
                                   self.vcut,
                                   symmetric=symmetric)
 
@@ -364,7 +363,7 @@ class DF(CHI):
 
             from gpaw.mpi import world
             assert self.wcomm.size == world.size
-            df3 = Bootstrap(self.chi0_wGG, Nw, Kc_GG, self.printtxt, self.print_bootstrap)
+            df3 = Bootstrap(self.chi0_wGG, Nw, Kc_GG, self.printtxt, self.print_bootstrap, self.wcomm)
 
         if rank == 0:
             f = open(filename,'w')

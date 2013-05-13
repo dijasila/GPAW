@@ -1,12 +1,18 @@
+.. _advanced_topics:
+
+Advanced topics
+---------------
+
+Here is a list of specific advanced topics and functionalities of the
+GPAW calculator:
+
 .. toctree::
+   :maxdepth: 2
    
-   ../technology
    lcao/lcao
    parallel_runs/parallel_runs
    convergence/convergence
-   convergence/scf_conv_eval
    restart_files
-   cmdline
    rmm-diis
    orthogonalization
    xc/xc
@@ -21,8 +27,9 @@
    pdos/pdos
    xas/xas
    densitymix/densitymix
+   convergence/scf_conv_eval
+   cmdline
    ../devel/electrostatic_potential
    ../devel/eigenvalues_of_core_states
    ../devel/grids
-   ../devel/tar
    ../setups/generation_of_setups

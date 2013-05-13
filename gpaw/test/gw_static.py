@@ -44,6 +44,7 @@ gw = GW(
         hilbert_trans=False
        )
 
+gw.get_exact_exchange()
 gw.get_QP_spectrum()
 
 gap = (gw.QP_skn[0,0,1] - gw.QP_skn[0,0,0]) * Hartree

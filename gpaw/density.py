@@ -460,6 +460,9 @@ class Density:
             nw = len(phi.sphere_a[a].M_w)
             a_W[W:W + nw] = a
             W += nw
+
+        x_W = phi.create_displacement_arrays()[0]
+
         rho_MM = np.zeros((phi.Mmax, phi.Mmax))
         for s, I_a in enumerate(I_sa):
             M1 = 0
@@ -478,8 +481,10 @@ class Density:
                 rho_MM[M1:M2, M1:M2] = unpack2(D_sp[s])
                 M1 = M2
 
-            phi.lfc.ae_valence_density_correction(rho_MM, n_sg[s], a_W, I_a)
-            phit.lfc.ae_valence_density_correction(-rho_MM, n_sg[s], a_W, I_a)
+            phi.lfc.ae_valence_density_correction(rho_MM, n_sg[s], a_W, I_a,
+                                                  x_W)
+            phit.lfc.ae_valence_density_correction(-rho_MM, n_sg[s], a_W, I_a,
+                                                  x_W)
 
         a_W = np.empty(len(nc.M_W), np.intc)
         W = 0
@@ -497,6 +502,7 @@ class Density:
             for I, g_c in zip(I_a, g_ac):
                 if (g_c >= 0).all() and (g_c < gd.n_c).all():
                     n_sg[s][tuple(g_c)] -= I / gd.dv
+
         return n_sg, gd
 
     if extra_parameters.get('usenewlfc', True):

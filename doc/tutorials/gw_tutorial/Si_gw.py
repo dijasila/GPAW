@@ -8,8 +8,7 @@ gw = GW(
         kpoints=None,              # by default, these are all k-points in the irreducible Brillouin zone
         ecut=100.,
         ppa=True,
-        exxfile='EXX_ecut100.pckl',
         txt='Si_gw-050bands.out'
        )
 
-gw.get_QP_spectrum()
+gw.get_QP_spectrum(exxfile='EXX_ecut100.pckl')

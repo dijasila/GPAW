@@ -74,10 +74,8 @@ when installating GPAW for the first time:
 
 - csh/tcsh - add to /home/niflheim/$USER/.cshrc::
 
-    module load GPAW
-    # GPAW_HOME must be set after loading the GPAW module!
-    setenv GPAW_HOME /home/niflheim/$USER/gpaw
     if ( "`echo $FYS_PLATFORM`" == "AMD-Opteron-el5" ) then # fjorm
+        module load GPAW
         if ( ! ( `hostname -s | grep "^p"` ==  "")) then # p-node = infiniband
             setenv GPAW_PLATFORM "linux-x86_64-opteron-infiniband-2.4"
         else
@@ -85,11 +83,23 @@ when installating GPAW for the first time:
         endif
     endif
     if ( "`echo $FYS_PLATFORM`" == "Intel-Nehalem-el5" ) then # thul
+        module load GPAW
         setenv GPAW_PLATFORM "linux-x86_64-xeon-2.4"
     endif
+    if ( "`echo $FYS_PLATFORM`" == "x3455-el6" ) then # slid
+        module load GPAW
+        setenv GPAW_PLATFORM "linux-x86_64-x3455-2.6"
+    endif
+    if ( "`echo $FYS_PLATFORM`" == "dl160g6-el6" ) then # muspel
+        module load GPAW
+        setenv GPAW_PLATFORM "linux-x86_64-dl160g6-2.6"
+    endif
     if ( "`echo $FYS_PLATFORM`" == "sl230s-el6" ) then # surt
+        module load GPAW
         setenv GPAW_PLATFORM "linux-x86_64-sl230s-2.6"
     endif
+    # GPAW_HOME must be set after loading the GPAW module!
+    setenv GPAW_HOME /home/niflheim/$USER/gpaw
     setenv PATH ${GPAW_HOME}/build/bin.${GPAW_PLATFORM}:${PATH}
     setenv PATH ${GPAW_HOME}/tools:${PATH}
     setenv PYTHONPATH ${GPAW_HOME}:${PYTHONPATH}
@@ -97,10 +107,8 @@ when installating GPAW for the first time:
 
 - bash - add to /home/niflheim/$USER/.bashrc::
 
-    module load GPAW
-    # GPAW_HOME must be set after loading the GPAW module!
-    export GPAW_HOME=/home/niflheim/$USER/gpaw
     if [ "`echo $FYS_PLATFORM`" == "AMD-Opteron-el5" ]; then # fjorm
+        module load GPAW
         if [ ! `hostname -s | grep "^p"` ==  "" ]; then # p-node = infiniband
             export GPAW_PLATFORM="linux-x86_64-opteron-infiniband-2.4"
         else
@@ -108,11 +116,23 @@ when installating GPAW for the first time:
         fi
     fi
     if [ "`echo $FYS_PLATFORM`" == "Intel-Nehalem-el5" ]; then # thul
+        module load GPAW
         export GPAW_PLATFORM="linux-x86_64-xeon-2.4"
     fi
+    if [ "`echo $FYS_PLATFORM`" == "x3455-el6" ]; then # slid
+        module load GPAW
+        export GPAW_PLATFORM="linux-x86_64-x3455-2.6"
+    fi
+    if [ "`echo $FYS_PLATFORM`" == "dl160g6-el6" ]; then # muspel
+        module load GPAW
+        export GPAW_PLATFORM="linux-x86_64-dl160g6-2.6"
+    fi
     if [ "`echo $FYS_PLATFORM`" == "sl230s-el6" ]; then # surt
+        module load GPAW
         export GPAW_PLATFORM="linux-x86_64-sl230s-2.6"
     fi
+    # GPAW_HOME must be set after loading the GPAW module!
+    export GPAW_HOME=/home/niflheim/$USER/gpaw
     export PATH=${GPAW_HOME}/build/bin.${GPAW_PLATFORM}:${PATH}
     export PATH=${GPAW_HOME}/tools:${PATH}
     export PYTHONPATH=${GPAW_HOME}:${PYTHONPATH}

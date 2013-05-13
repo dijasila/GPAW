@@ -931,8 +931,21 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
     def _update(self, spos_ac):
         sdisp_Wc = NewLocalizedFunctionsCollection._update(self, spos_ac)
 
-        if self.gamma:
-            return
+        if not self.gamma:
+            self.x_W, self.sdisp_xc = self.create_displacement_arrays(sdisp_Wc)
+        
+        return sdisp_Wc
+
+    def create_displacement_arrays(self, sdisp_Wc=None):
+        if sdisp_Wc is None:
+            sdisp_Wc = np.empty((len(self.M_W), 3), int)
+
+            W = 0
+            for a in self.atom_indices:
+                sphere = self.sphere_a[a]
+                nw = len(sphere.M_w)
+                sdisp_Wc[W:W + nw] = sphere.sdisp_wc
+                W += nw
 
         if len(sdisp_Wc) > 0:
             n_c = sdisp_Wc.max(0) - sdisp_Wc.min(0)
@@ -940,15 +953,15 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
             n_c = np.zeros(3, int)
         N_c = 2 * n_c + 1
         stride_c = np.array([N_c[1] * N_c[2], N_c[2], 1])
-        self.x_W = np.dot(sdisp_Wc, stride_c).astype(np.intc)
+        x_W = np.dot(sdisp_Wc, stride_c).astype(np.intc)
         # use a neighbor list instead?
         x1 = np.dot(n_c, stride_c)
-        self.sdisp_xc = np.zeros((x1 + 1, 3), int)
-        r_x, self.sdisp_xc[:, 2] = divmod(np.arange(x1, 2 * x1 + 1), N_c[2])
-        self.sdisp_xc.T[:2] = divmod(r_x, N_c[1])
-        self.sdisp_xc -= n_c
+        sdisp_xc = np.zeros((x1 + 1, 3), int)
+        r_x, sdisp_xc[:, 2] = divmod(np.arange(x1, 2 * x1 + 1), N_c[2])
+        sdisp_xc.T[:2] = divmod(r_x, N_c[1])
+        sdisp_xc -= n_c
 
-        return sdisp_Wc
+        return x_W, sdisp_xc
 
     def set_matrix_distribution(self, Mstart, Mstop):
         assert self.Mmax is not None

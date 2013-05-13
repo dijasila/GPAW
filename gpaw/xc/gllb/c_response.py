@@ -6,6 +6,7 @@ from gpaw.utilities import pack
 from gpaw.xc.gllb import safe_sqr
 from math import sqrt, pi
 from gpaw.mpi import world
+from ase.units import Hartree
 import numpy as np
 
 class C_Response(Contribution):
@@ -68,6 +69,8 @@ class C_Response(Contribution):
             self.vt_sG[:] = 0.0
             self.nt_sG[:] = 0.0
 
+            # XXX This is terribly inefficients with LCAO basis set
+            # XXX Form a "response" density-matrix first before expanding the numerator of the response potential.
             for kpt, w_n in zip(self.kpt_u, w_kn):
                 self.wfs.add_to_density_from_k_point_with_occupation(self.vt_sG, kpt, w_n)
                 self.wfs.add_to_density_from_k_point(self.nt_sG, kpt)
@@ -96,10 +99,9 @@ class C_Response(Contribution):
         v_g[:] += self.weight * self.vt_sg[0]
         return 0.0
 
-    def calculate_spinpolarized(self, e_g, na_g, va_g, nb_g, vb_g):
-        self.update_potentials([na_g, nb_g])
-        va_g[:] += self.weight * self.vt_sg[0]
-        vb_g[:] += self.weight * self.vt_sg[1]
+    def calculate_spinpolarized(self, e_g, n_sg, v_sg):
+        self.update_potentials(n_sg)
+        v_sg += self.weight * self.vt_sg
         return 0.0
 
     def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a, addcoredensity=True):
@@ -214,46 +216,38 @@ class C_Response(Contribution):
         self.wfs.calculate_atomic_density_matrices_with_occupation(
             self.Dxc_D_asp, f_kn)
 
-    def calculate_delta_xc_perturbation(self):
-        homo, lumo = self.occupations.get_homo_lumo(self.wfs)
+    def calculate_delta_xc_perturbation_spin(self, s=0):
+        homo, lumo = self.occupations.get_homo_lumo_by_spin(self.wfs, s)
         Ksgap = lumo - homo
         
         # Calculate average of lumo reference response potential
-        method1_dxc = np.average(self.Dxc_vt_sG[0])
+        method1_dxc = np.average(self.Dxc_vt_sG[s])
         nt_G = self.gd.empty()
 
-        ne = self.nvalence # Number of electrons
-        assert self.nspins == 1
-        lumo_n = ne // 2
-        eps_u =[]
-        nn = len(self.kpt_u[0].eps_n)
-        eps_un = np.zeros((len(self.kpt_u),nn))
+        # Find the lumo-orbital of this spin
+        sign = 1 - s * 2
+        lumo_n = (self.occupations.nvalence + sign * self.occupations.magmom) // 2
+        gaps = [ 1000.0 ]
         for u, kpt in enumerate(self.kpt_u):
-            #print "K-Point index: ",u
-            for n in range(nn):
+            if kpt.s == s:
                 nt_G[:] = 0.0
-                self.wfs.add_orbital_density(nt_G, kpt, n)
+                self.wfs.add_orbital_density(nt_G, kpt, lumo_n)
                 E = 0.0
                 for a in self.density.D_asp:
                     D_sp = self.Dxc_D_asp[a]
                     Dresp_sp = self.Dxc_Dresp_asp[a]
                     P_ni = kpt.P_ani[a]
-                    Dwf_p = pack(np.outer(P_ni[n].T.conj(), P_ni[n]).real)
+                    Dwf_p = pack(np.outer(P_ni[lumo_n].T.conj(), P_ni[lumo_n]).real)
                     E += self.integrate_sphere(a, Dresp_sp, D_sp, Dwf_p)
-                #print "Atom corrections", E*27.21
                 E = self.grid_comm.sum(E)
-                E += self.gd.integrate(nt_G*self.Dxc_vt_sG[0])
+                E += self.gd.integrate(nt_G*self.Dxc_vt_sG[s])
                 E += kpt.eps_n[lumo_n]
-                #print "Old eigenvalue",  kpt.eps_n[lumo_n]*27.21, " New eigenvalue ", E*27.21, " DXC", E*27.21-kpt.eps_n[lumo_n]*27.21
-                eps_un[u][n] = E
+                gaps.append(E-lumo)
 
-        method2_lumo = min([ eps_n[lumo_n] for eps_n in eps_un])
-        method2_lumo = -self.kpt_comm.max(-method2_lumo)
-        method2_dxc = method2_lumo-lumo
-        Ha = 27.2116 
-        Ksgap *= Ha
-        method1_dxc *= Ha
-        method2_dxc *= Ha
+        method2_dxc = self.kpt_comm.min(min(gaps))
+        Ksgap *= Hartree
+        method1_dxc *= Hartree
+        method2_dxc *= Hartree
         if world.rank is not 0:
             return (Ksgap, method2_dxc)
         
@@ -267,6 +261,16 @@ class C_Response(Contribution):
         print "-----------------------------------------------"
         print
         return (Ksgap, method2_dxc)
+
+
+    def calculate_delta_xc_perturbation(self):
+        gaps = []
+        for s in range(0, self.nspins):
+            gaps.append(self.calculate_delta_xc_perturbation_spin(s))
+        if self.nspins == 1:
+            return gaps[0]
+        else:
+            return gaps
 
     def initialize_from_atomic_orbitals(self, basis_functions):
         # Initiailze 'response-density' and density-matrices

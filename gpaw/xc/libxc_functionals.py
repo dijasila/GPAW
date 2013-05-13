@@ -74,5 +74,8 @@ libxc_functionals = {
     'MGGA_C_REVTPSS': 206,
     'MGGA_X_OTPSS': 207,
     'MGGA_C_OTPSS': 208,
-    'MGGA_X_MBEEF': 209
+    'MGGA_X_MBEEF': 209,
+    'MGGA_X_MS0': 210,
+    'MGGA_X_MS1': 211,
+    'MGGA_X_MS2': 212
     }

@@ -128,6 +128,10 @@ class BaseSetup:
                                2 * (2 * l_j + 1))
         else:
             nval = f_j.sum() - charge
+            if np.abs(magmom) > nval:
+                raise RuntimeError('Magnetic moment larger than number ' +
+                                   'of valence electrons (|%g| > %g)' %
+                                   (magmom, nval))
             f_sj = 0.5 * np.array([f_j, f_j])
             nup = 0.5 * (nval + magmom)
             ndown = 0.5 * (nval - magmom)
