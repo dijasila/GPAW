@@ -35,18 +35,24 @@ class RMM_DIIS(Eigensolver):
             self.calculate_residuals(kpt, wfs, hamiltonian, psit_nG,
                                      kpt.P_ani, kpt.eps_n, R_nG)
             
-        def integrate(a_G, b_G):
-            return np.real(wfs.integrate(a_G, b_G, global_integral=False))
+        def integrate(a_xG, b_xG):
+            if self.cuda:
+                return multi_dotc(a_xG, b_xG).real * wfs.gd.dv
+            else:
+                return[np.real(wfs.integrate(a_G, b_G, global_integral=False))
+                              for a_G, b_G in zip(a_xG, b_xG)]
+
 
         comm = wfs.gd.comm
         B = self.blocksize
         error = 0
-        #dR_xG = wfs.empty(B, q=kpt.q)
+        dR_xG = wfs.empty(B, q=kpt.q)
         #dR_nG = wfs.empty(wfs.bd.mynbands, q=kpt.q)
-        if self.cuda:
-            dR_nG = self.operator.work1_xG_gpu
-        else:
-            dR_nG = self.operator.work1_xG
+        #dR_nG = kpt.psit_nG
+        #if self.cuda:
+        #    dR_nG = self.operator.work1_xG_gpu
+        #else:
+        #    dR_nG = self.operator.work1_xG
                     
         P_axi = wfs.pt.dict(B)
 
@@ -64,7 +70,7 @@ class RMM_DIIS(Eigensolver):
                     weight[n] = 0.0
 
         if self.keep_htpsit:
-            error = sum(weight * multi_dotc(R_nG, R_nG).real) * wfs.gd.dv
+            error = sum(weight * integrate(R_nG, R_nG))
 
         for n1 in range(0, wfs.bd.mynbands, B):
             n2 = n1 + B
@@ -72,10 +78,11 @@ class RMM_DIIS(Eigensolver):
                 n2 = wfs.bd.mynbands
                 B = n2 - n1
                 P_axi = dict((a, P_xi[:B]) for a, P_xi in P_axi.items())
+                dR_xG = dR_xG[:B]            
                 
             n_x = range(n1, n2)
             psit_xG = psit_nG[n1:n2]
-            dR_xG = dR_nG[n1:n2]            
+            #dR_xG = dR_nG[n1:n2]            
             if self.keep_htpsit:
                 R_xG = R_nG[n1:n2]
             else:
@@ -85,7 +92,7 @@ class RMM_DIIS(Eigensolver):
                 self.calculate_residuals(kpt, wfs, hamiltonian, psit_xG,
                                          P_axi, kpt.eps_n[n_x], R_xG, n_x)
                 
-                error += sum(weight[n1:n2] * multi_dotc(R_xG, R_xG).real) * wfs.gd.dv
+                error += sum(weight[n1:n2] * integrate(R_xG, R_xG))
             # Precondition the residual:
             self.timer.start('precondition')
             ekin_x = self.preconditioner.calculate_kinetic_energy(
@@ -102,46 +109,21 @@ class RMM_DIIS(Eigensolver):
                                      P_axi, kpt.eps_n[n_x], dR_xG, n_x,
                                      calculate_change=True)
 
-            if not self.keep_htpsit:
-                # Find lam that minimizes the norm of R'_G = R_G + lam dR_G
-                RdR_x=np.array(multi_dotc(R_xG, dR_xG).real) * wfs.gd.dv
-                dRdR_x=np.array(multi_dotc(dR_xG, dR_xG).real) * wfs.gd.dv
-                comm.sum(RdR_x)
-                comm.sum(dRdR_x)
-                lam_x = -RdR_x / dRdR_x
-                # Calculate new psi'_G = psi_G + lam pR_G + lam pR'_G
-                #                      = psi_G + p(2 lam R_G + lam**2 dR_G)
-                multi_scal(2.0 * lam_x, R_xG)
-                multi_axpy(lam_x**2, dR_xG, R_xG)
-                self.timer.start('precondition')
-                psit_G = psit_nG[n1:n2]
-                psit_G += self.preconditioner(R_xG, kpt, ekin_x)
-                self.timer.stop('precondition')        
-
-        if self.keep_htpsit:
             # Find lam that minimizes the norm of R'_G = R_G + lam dR_G
-            RdR_n=np.array(multi_dotc(R_nG, dR_nG).real) * wfs.gd.dv
-            dRdR_n=np.array(multi_dotc(dR_nG, dR_nG).real) * wfs.gd.dv
-            comm.sum(RdR_n)
-            comm.sum(dRdR_n)
-            lam_n = -RdR_n / dRdR_n
+            RdR_x=np.array(integrate(R_xG, dR_xG))
+            dRdR_x=np.array(integrate(dR_xG, dR_xG))
+            comm.sum(RdR_x)
+            comm.sum(dRdR_x)
+            lam_x = -RdR_x / dRdR_x
             # Calculate new psi'_G = psi_G + lam pR_G + lam pR'_G
             #                      = psi_G + p(2 lam R_G + lam**2 dR_G)
-            multi_scal(2.0 * lam_n, R_nG)
-            multi_axpy(lam_n**2, dR_nG, R_nG)
-            #for lam, R_G, dR_G in zip(lam_x, R_xG, dR_xG):
-            #    R_G *= 2.0 * lam
-            #    axpy(lam**2, dR_G, R_G)  # R_G += lam**2 * dR_G
-            
+            multi_scal(2.0 * lam_x, R_xG)
+            multi_axpy(lam_x**2, dR_xG, R_xG)
             self.timer.start('precondition')
-            for n1 in range(0, wfs.bd.mynbands, self.blocksize):
-                # XXX GPUarray does not support properly multi-d slicing
-                n2 = min(n1+self.blocksize, wfs.bd.mynbands)
-                psit_G = psit_nG[n1:n2]
-                R_xG = R_nG[n1:n2]
-                psit_G += self.preconditioner(R_xG, kpt, ekin_x)
-            
+            psit_G = psit_nG[n1:n2]
+            psit_G += self.preconditioner(R_xG, kpt, ekin_x)
             self.timer.stop('precondition')        
+
         self.timer.stop('RMM-DIIS')
         error = comm.sum(error)
         return error, psit_nG

@@ -480,7 +480,7 @@ class MatrixOperator:
                     gpaw.cuda.drv.memcpy_dtod(work_nG.gpudata, psit_nG.gpudata, psit_nG.nbytes)
                     psit_nG = work_nG
                 self.gd.gemm(1.0, psit_nG, gpaw.cuda.gpuarray.to_gpu(C_NN), 0.0, out_nG)
-                self.work1_xG_gpu=psit_nG
+                #self.work1_xG_gpu=psit_nG
             else:
                 work_nG = reshape(self.work1_xG, psit_nG.shape)
                 if out_nG is None:
@@ -490,7 +490,7 @@ class MatrixOperator:
                     work_nG[:] = psit_nG
                     psit_nG = work_nG
                 self.gd.gemm(1.0, psit_nG, C_NN, 0.0, out_nG)
-                self.work1_xG=psit_nG
+                #self.work1_xG=psit_nG
                 
             if P_ani:
                 for P_ni in P_ani.values():

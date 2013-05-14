@@ -66,7 +66,7 @@ class LCAOWaveFunctions(WaveFunctions):
                                               kd,
                                               cut=True)
 
-    def empty(self, n=(), global_array=False, realspace=False):
+    def empty(self, n=(), global_array=False, realspace=False, cuda=False):
         if realspace:
             return self.gd.empty(n, self.dtype, global_array)
         else:

@@ -392,7 +392,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         self.matrixoperator = MatrixOperator(self.orthoksl)
 
     def empty(self, n=(), global_array=False, realspace=False,
-              q=-1):
+              q=-1, cuda=False):
         if realspace:
             return self.gd.empty(n, self.dtype, global_array)
         else:
