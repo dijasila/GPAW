@@ -12,7 +12,7 @@ class BulkTestCommand(RunCommand):
         self.add_arguments(parser)
 
     def get_parameters(self):
-        parameters = dict(kpts=4.0,
+        parameters = dict(kpts=3.0,
                           xc='PBE',
                           smearing=('Fermi-Dirac', 0.05),
                           eigensolver='cg')
