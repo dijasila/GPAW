@@ -105,6 +105,10 @@ fcc_data = {
     'Md': (4.89, 1.44),
     'No': (5.16, 1.53)}
 
+rocksalt_data = {
+    'H': (2.28, 0.30)}
+
+
 class fcc:
     def __getitem__(self, name):
         a = fcc_data[name][0]

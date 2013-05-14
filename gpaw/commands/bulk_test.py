@@ -21,7 +21,7 @@ class BulkTestCommand(RunCommand):
     def calculate(self, atoms, name):
         args = self.args
         atoms.pbc = True
-        b = fcc_data[name] / 2
+        b = fcc_data[name][0] / 2
         atoms.cell = [(0, b, b), (b, 0, b), (b, b, 0)]
         atoms.positions[0] = (0, 0, 0)
         atoms.set_initial_magnetic_moments(None)
@@ -32,7 +32,7 @@ class BulkTestCommand(RunCommand):
         atoms.cell *= 0.85
         e = atoms.get_potential_energy()
         energies.append(e)
-        b = rocksalt_data[name] / 2
+        b = rocksalt_data[name][0] / 2
         atoms.cell = [(0, b, b), (b, 0, b), (b, b, 0)]
         atoms += 'O'
         atoms.positions[1] = (b, 0, 0)
