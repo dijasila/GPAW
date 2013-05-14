@@ -35,16 +35,6 @@ class NotConverged:
 
 hooks = {}  # dictionary for callback functions
 
-command = os.environ.get('GPAWSTARTUP')
-if command is not None:
-    exec(command)
-home = os.environ.get('HOME')
-if home is not None:
-    rc = os.path.join(home, '.gpaw', 'rc.py')
-    if os.path.isfile(rc):
-        # Read file in ~/.gpaw/rc.py
-        execfile(rc)
-
 # Fill in allowed hooks:
 locs = locals()
 for name in ['converged', 'not_converged']:

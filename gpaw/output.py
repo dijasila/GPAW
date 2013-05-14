@@ -377,13 +377,13 @@ class PAWTextOutput:
             if eigerr == 0.0:
                 eigerr = ''
             else:
-                eigerr = '%-+5.1f' % (log(eigerr) / log(10))
+                eigerr = '%-+5.2f' % (log(eigerr) / log(10))
 
             denserr = self.density.mixer.get_charge_sloshing()
             if denserr is None or denserr == 0 or nvalence == 0:
                 denserr = ''
             else:
-                denserr = '%+.1f' % (log(denserr / nvalence) / log(10))
+                denserr = '%+.2f' % (log(denserr / nvalence) / log(10))
 
             niterocc = self.occupations.niter
             if niterocc == -1:
