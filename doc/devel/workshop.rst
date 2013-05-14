@@ -58,7 +58,7 @@ Tuesday (May 21)
    - Automated Two Step Structure Prediction within GPAW
  * - 14:10
    - Bjørk Hammer
-   - Failures of the currently (correctly) implemented NEB-method. Should
+   - Challenges with the currently (correctly) implemented NEB-method. Should
      GPAW revert to the original more robust NEB-formulation with springs?
  * - 14:30
    - Jess Wellendorff
@@ -116,7 +116,7 @@ Wednesday (May 22)
    - 
    - *Lunch*
  * - 13:00
-   - Olga Lopez-Acevedo
+   - Elvar Örn Jónsson
    - Multiscale simulations with ASE
  * - 13:30
    - Ivano E. Castelli
