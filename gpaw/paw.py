@@ -194,15 +194,6 @@ class PAW(PAWTextOutput):
             kpts = par.kpts
         kd = KPointDescriptor(kpts, nspins, collinear)
 
-        width = par.width
-        if width is None:
-            if kd.gamma:
-                width = 0.0
-            else:
-                width = 0.1  # eV
-        else:
-            assert par.occupations is None
-      
         mode = par.mode
 
         if xc.orbital_dependent:
@@ -263,19 +254,29 @@ class PAW(PAWTextOutput):
 
         nbands *= ncomp
 
-        if par.width is not None:
-            self.text('**NOTE**: please start using '
-                      'occupations=FermiDirac(width).')
-        if par.fixmom:
-            self.text('**NOTE**: please start using '
-                      'occupations=FermiDirac(width, fixmagmom=True).')
-
         if self.occupations is None:
-            if par.occupations is None:
-                # Create object for occupation numbers:
-                self.occupations = occupations.FermiDirac(width, par.fixmom)
-            else:
+            if par.smearing is not None:
+                type, width = par.smearing[:2]
+                type = type.lower()
+                if type == 'fermi-dirac':
+                    self.occupations = occupations.FermiDirac(width,
+                                                              par.fixmom)
+                elif type == 'gaussian':
+                    self.occupations = occupations.MethfesselPaxton(width,
+                                                                    par.fixmom)
+                else:
+                    1 / 0
+            elif par.occupations is not None:
+                self.text('**NOTE**: please start using '
+                          'smearing=(type, width).')
                 self.occupations = par.occupations
+            else:
+                # Create object for occupation numbers:
+                if kd.gamma:
+                    width = 0.0
+                else:
+                    width = 0.1  # eV
+                self.occupations = occupations.FermiDirac(width, par.fixmom)
 
         self.occupations.magmom = M_v[2]
 

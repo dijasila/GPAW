@@ -43,7 +43,7 @@ class GPAW(PAW, Calculator):
         'nbands':          None,
         'setups':          'paw',
         'basis':           None,
-        'width':           None,  # eV, don't use this
+        'smearing':        None,
         'occupations':     None,
         'spinpol':         None,
         'usesymm':         True,
@@ -130,7 +130,7 @@ class GPAW(PAW, Calculator):
             self.scf = None
             self.wfs.set_orthonormalized(False)
             if key in ['lmax', 'width', 'stencils', 'external', 'xc',
-                       'poissonsolver', 'occupations']:
+                       'poissonsolver', 'occupations', 'smearing']:
                 self.hamiltonian = None
                 self.occupations = None
             elif key in ['charge']:
