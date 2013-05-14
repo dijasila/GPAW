@@ -15,7 +15,7 @@ hook = {'name': 'gpaw',
                       'MixerDif': MixerDif,
                       'PoissonSolver': PoissonSolver,
                       'RMM_DIIS': RMM_DIIS},
-        'commands': ['egg-box-test'],
+        'commands': ['egg-box-test', 'bulk-test'],
         'command_module': 'gpaw.commands'}
 
 
