@@ -15,6 +15,8 @@ class NiflheimCluster(Cluster):
 
         self.write_pylab_wrapper(job)
 
+        gpaw_platform = os.environ['FYS_PLATFORM'].replace('-el6', '-2.6')
+
         if job.queueopts is None:
             if job.ncpus < 4:
                 ppn = '%d:opteron4' % job.ncpus
@@ -36,7 +38,8 @@ class NiflheimCluster(Cluster):
             queueopts = '-l nodes=%d:ppn=%s' % (nodes, ppn)
         else:
             queueopts = job.queueopts
-            arch = 'linux-x86_64-dl160g6-2.6'
+            # the oldest, hopefully (?) common platform
+            arch = 'linux-x86_64-x3455-2.6'
 
         gpaw_python = os.path.join(dir, 'gpaw', 'build',
                                    'bin.' + arch, 'gpaw-python')
@@ -54,6 +57,25 @@ class NiflheimCluster(Cluster):
         run_command += 'module load DACAPO&& '
         run_command += 'module load SCIENTIFICPYTHON&& '
         run_command += 'module load NWCHEM&& '
+        # force gpaw/gpaw/fftw.py to use the right libfftw3.so
+        # see https://listserv.fysik.dtu.dk/pipermail/gpaw-developers/2012-July/003045.html
+        if 0:  # libfftw3.so crashes
+            run_command += 'module load intel-compilers&& '
+            run_command += 'module load openmpi&& '  # intel version!
+            fftw = 'fftw/3.3.3-' + gpaw_platform.replace('-2.6', '')
+            fftw += '-tm-intel-2013.1.117-openmpi-1.6.3-1'
+            run_command += 'module load ' + fftw + '&& '
+            run_command += 'export GPAW_FFTWSO="libfftw3.so"&& '
+        if 1:  # libmkl_intel_lp64.so causes scipy crash?
+            run_command += 'module unload fftw&& '  # all fftw must be unloaded!
+            fftw = 'intel-mkl'
+            run_command += 'module load ' + fftw + '&& '
+            run_command += 'export GPAW_FFTWSO="libmkl_rt.so"&& '
+        if 0: # numpy fftw has most chances to work
+            run_command += 'module unload fftw&& '  # all fftw must be unloaded
+            run_command += 'export GPAW_FFTWSO=""&& '  # and use numpy fftw
+        # disable mpi_warn_on_fork - causes crashes on xeon16!
+        run_command += 'export OMPI_MCA_mpi_warn_on_fork=0&& '
 
         if job.ncpus == 1:
             # don't use mpiexec here,
