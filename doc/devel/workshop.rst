@@ -93,7 +93,7 @@ Tuesday (May 21)
      LCAO-TDDFT for large systems
  * - 18:00
    -
-   - *Grill*
+   - *Barbecue*
 
 
 Wednesday (May 22)
@@ -104,7 +104,8 @@ Wednesday (May 22)
 
  * - 9:00
    - Jun Yan
-   - Implementations and applications based on linear density response function
+   - Plasmon, exciton and RPA correlation energy: implementations and
+     applications based on linear density response function
  * - 9:30
    - Arto Sakko, Tuomas Rossi
    - Combining TDDFT and classical electrodynamics simulations for plasmonics
