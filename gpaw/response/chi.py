@@ -231,7 +231,10 @@ class Chi(BaseChi):
                 chi0_wGG *= self.vol 
                 for iw in range(self.Nw_local):
                     for iG in range(self.npw):
-                        chi0_wGG[iw,iG,iG+1:] = 0.
+                        if self.nkpt % self.kcomm.size == 0:
+                            chi0_wGG[iw,iG,iG+1:] = 0.
+                        else:      #  nmultix is not used if k-point is not parallelized 
+                            chi0_wGG[iw,iG,:iG] = 0.
                 if self.kcomm.rank != 0 :
                     chi0_wGG[:,:,:] = 0.
             else:
@@ -410,7 +413,7 @@ class Chi(BaseChi):
                         C_wu = np.zeros((self.Nw_local, self.nmultix))
                         alpha_wu = np.zeros((self.Nw_local, self.nmultix))
 
-                    for m in self.mlist:
+                    for im, m in enumerate(self.mlist):
                         if mstart is not None and m < mstart :
                             continue
                         if mend is not None and m >= mend:
@@ -448,10 +451,10 @@ class Chi(BaseChi):
                                         iu = 0
                                         if self.timing: timer.start('wfs_read_disk')
                                         psit_uG = np.zeros((nmultix, cu.ncoef2),complex)
-                                        while iu < nmultix  and m + iu < mend:
-                                            if (f_skn[spin][ibzkpt1, n] - f_skn[spin][ibzkpt2, m+iu]) > self.ftol:
-                                                psit_uG[iu] = calc.wfs.kpt_u[cu.u2].psit_nG[m+iu]
-                                                mlocallist.append(m+iu)
+                                        while iu < nmultix  and im + iu < len(self.mlist) and self.mlist[im + iu] < mend:
+                                            if (f_skn[spin][ibzkpt1, n] - f_skn[spin][ibzkpt2, self.mlist[im+iu]]) > self.ftol:
+                                                psit_uG[iu] = calc.wfs.kpt_u[cu.u2].psit_nG[self.mlist[im+iu]]
+                                                mlocallist.append(self.mlist[im+iu])
                                                 iu += 1
                                         if self.timing: timer.end('wfs_read_disk')
                                         if self.timing: timer.start('wfs_get')
@@ -623,17 +626,18 @@ class Chi(BaseChi):
                                     if self.timing: timer.start('zherk')
                                     if use_zher:
                                         if not self.cuda:
-                                            C_wu[iw, imultix] = C.real
-                                            if iw == 0:
-                                                alpha_wu[iw, imultix] = np.sqrt(-C_wu[iw, imultix])
+                                            if self.nkpt % self.kcomm.size ==0:
+                                                C_wu[iw, imultix] = C.real
+                                                if iw == 0:
+                                                    alpha_wu[iw, imultix] = np.sqrt(-C_wu[iw, imultix])
+                                                else:
+                                                    alpha_wu[iw, imultix] = np.sqrt(C_wu[iw, imultix] / C_wu[iw-1, imultix])
+                                                if imultix == nmultix -1 or m == mend - 1:
+                                                    for ii in range(imultix+1):
+                                                        rho_uG[:,ii] *= alpha_wu[iw, ii]
+                                                    rk(-1.0, rho_uG, 1.0, chi0_wGG[iw])
                                             else:
-                                                alpha_wu[iw, imultix] = np.sqrt(C_wu[iw, imultix] / C_wu[iw-1, imultix])
-                                            if imultix == nmultix -1 or m == mend - 1:
-                                                for ii in range(imultix+1):
-                                                    rho_uG[:,ii] *= alpha_wu[iw, ii]
-                                                rk(-1.0, rho_uG, 1.0, chi0_wGG[iw])
-#                                            else:
-#                                            czher(C.real, rho_G.conj(), chi0_wGG[iw])
+                                                czher(C.real, rho_G.conj(), chi0_wGG[iw])
                                         else:
                                             no_zherk += 1
                                             matrixGPU_GG = cu.chi0_w[iw]
