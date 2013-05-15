@@ -2,7 +2,7 @@ def agts(queue):
     run = [queue.add('pbe_jacapo.py %s' % r,
                      queueopts='-l nodes=1:ppn=4:opteron4',
                      ncpus=1,
-                     walltime=5*60)
+                     walltime=10*60)
            for r in range(1)]
     if 0:  # do not perform analysis
         # we keep once generated files static
