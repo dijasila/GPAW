@@ -621,6 +621,15 @@ class Chi(BaseChi):
                                         if self.timing: timer.start('apply_alpha')
                                         _gpaw.cudgmm(cu.handle, cu.rho_uG, cu.alpha_wu+iw*nmultix*sizeofdata, 
                                                          cu.rho_uG, mmultix, self.npw, self.npw, self.npw, 1, 1)
+
+                                        
+#                                        alpha_wu = np.zeros((self.Nw_local, nmultix), complex)
+#                                        _gpaw.cuGetVector(self.Nw_local*nmultix,sizeofdata,cu.alpha_wu,1,alpha_wu,1)
+#
+#                                        for iu in range(nmultix):
+#                                            alpha = alpha_wu[iw, iu]
+#                                            _gpaw.cuZscal(cu.handle,self.npw,alpha,cu.rho_uG+iu*self.npw*sizeofdata,1)
+
                                         if self.timing: timer.end('apply_alpha')
 
                                     if self.timing: timer.start('zherk')
