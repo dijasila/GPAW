@@ -46,6 +46,9 @@ Tuesday (May 21)
  :widths: 1 3 7
 
  * - 10:00
+   - Kristian Thygesen
+   - Welcome
+ * - 10:00
    - Jussi Enkovaara
    - Overview of GPAW
  * - 10:30
@@ -182,4 +185,5 @@ Activities for GPAW developers (we start at 9:00):
 
 * Hands on: Write new documentation/tutorials --- continued
 
-* Presentations of today's work
+* Approximately 14:00: Presentations of today's work and wrap up
+
