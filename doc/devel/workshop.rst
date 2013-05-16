@@ -25,8 +25,9 @@ developers.
 Location
 ========
 
-The workshop will take place at DTU_ in building 306, auditorium 37.
-For directions, see this map_.
+Day 1 and 2 of the workshop will take place at DTU_ in building 306,
+auditorium 37.  Day 3 will be in building 307, room 127.  For
+directions, see this map_.
 
 .. _DTU: http://www.dtu.dk/english
 .. _map: http://www.dtu.dk/english/about_dtu/dtu%20directory/map_of_lyngby.aspx
