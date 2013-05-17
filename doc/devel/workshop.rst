@@ -114,8 +114,8 @@ Wednesday (May 22)
    - Arto Sakko, Tuomas Rossi
    - Combining TDDFT and classical electrodynamics simulations for plasmonics
  * - 10:00
-   - Kristian Thygesen
-   - Plasmonics with GPAW
+   - Falco Hüser
+   - The GW approximation in GPAW
  * - 10:30
    -
    - *Coffee*
