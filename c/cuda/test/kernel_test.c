@@ -95,7 +95,7 @@ int calc_test_fd(int n1,int n2,int n3,int blocks)
   double h[3]={1.0, 1.0, 1.0};
   long   n[3]={n1,n2,n3};
 
-  int ntimes=1;
+  int ntimes=10;
   double *a,*b,*b_cuda;
   size_t asize,bsize;
 
@@ -159,7 +159,7 @@ int calc_test_fd(int n1,int n2,int n3,int blocks)
 
 }
 //extern "C" {
-  int calc_test_dotu(int n1,int n2,int n3,int blocks)
+int calc_test_dotu(int n1,int n2,int n3,int blocks)
   {
   long   n[3]={n1,n2,n3};
 
@@ -645,7 +645,7 @@ int calc_test_fdz(int n1,int n2,int n3,int blocks)
 int main(void)
 {
   struct cudaDeviceProp prop;
-  int device=1;
+  int device=0;
   cudaSetDevice(device);  
   cudaThreadSetCacheConfig(cudaFuncCachePreferL1);
   cudaGetDeviceProperties(&prop,device);
@@ -660,26 +660,16 @@ int main(void)
   printf("Device ECC: %d\n",prop.ECCEnabled);
   printf("Device L2 cache: %d kB\n",prop.l2CacheSize/1024);
 
-  cudaSetDevice(1);
-    cudaThreadSetCacheConfig(cudaFuncCachePreferL1);
-  //for (int n=16;n<449;n+=6)
-  /*  printf("# bmgs_paste  \n");  
-      printf("# N \t\t CPU Mpoint/s \t GPU Mpoint/s \t Speed-up\n");  
-      for (int n=16;n<280;n+=24)
-      calc_test_paste(n,n,n,1);*/
-  /*printf("# bmgs_fdz  \n");  
-    printf("# N \t\t CPU Mpoint/s \t GPU Mpoint/s \t Speed-up\n");  
-  calc_test_fdz(8,8,8,2);  
-
-  exit(0);
-  */
-  /*  printf("# bmgs_fdz  \n");  
+  printf("# bmgs_fd  \n");  
   printf("# N \t\t\t CPU Mpoint/s \t GPU Mpoint/s \t Speed-up\n");  
-  calc_test_fdz(8,8,8,2);
-  exit(0);
-  */
+  //calc_test_fd(2,2,2,1);
+  //calc_test_fd(4,4,4,1);
+  calc_test_fd(8,8,8,1);
+  for (int n=11;n<300;n+=11){
+    calc_test_fd(n,n,n,1);
+  }
 
-    printf("# dotu\n");  
+  printf("# dotu\n");  
   printf("# N \t\t\t CPU Mpoint/s \t GPU Mpoint/s \t GPU2 Mpoint/s \t Speed-up\n");    
   calc_test_dotu(8,8,8,1);
   for (int n=16;n<300;n+=6){
