@@ -51,10 +51,12 @@ Tuesday (May 21)
    - Welcome
  * - 10:00
    - Jussi Enkovaara
-   - Overview of GPAW
+   - `Overview of GPAW
+     <http://dcwww.camp.dtu.dk/~jensj/gpaw2013/a2.pdf'>`__
  * - 10:30
    - Jens Jørgen Mortensen
-   - Short history of GPAW and latest news about PAW setups
+   - `Short history of GPAW and latest news about PAW setups
+     <http://dcwww.camp.dtu.dk/~jensj/gpaw2013/a3.pdf'>`__
  * - 11:00
    - Ask Hjorth Larsen
    - LCAO in GPAW
