@@ -53,81 +53,91 @@ Tuesday (May 21)
  * - 10:00
    - Jussi Enkovaara
    - `Overview of GPAW
-     <http://dcwww.camp.dtu.dk/~jensj/gpaw2013/a2.pdf>`__
+     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/a02.pdf>`__
    - `video
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/00098_854x480.mkv>`__
  * - 10:30
    - Jens Jørgen Mortensen
    - `Short history of GPAW and latest news about PAW setups
-     <http://dcwww.camp.dtu.dk/~jensj/gpaw2013/a3.pdf>`__
+     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/a03.pdf>`__
    - `video
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/00099_854x480.mkv>`__
  * - 11:00
    - Ask Hjorth Larsen
-   - LCAO in GPAW
+   - `LCAO in GPAW
+     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/a04.pdf>`__
    - `video
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/00100_854x480.mkv>`__
  * - 11:30
    - Samuli Hakala
-   - Multi-GPU Accelerated Large Scale Electronic Structure Calculations
+   - `Multi-GPU Accelerated Large Scale Electronic Structure Calculations
+     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/a05.pdf>`__
    - `video
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/00101_854x480.mkv>`__
  * - 12:00
    - 
-   - 
    - *Lunch*
+   - 
  * - 13:30
    - Henrik H. Kristoffersen
-   - Simple methods for photo reaction modeling
+   - `Simple methods for photo reaction modeling
+     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/a06.pdf>`__
    - `video
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/00103_854x480.mkv>`__
  * - 13:50
    - Lasse B. Vilhelmsen
-   - Automated Two Step Structure Prediction within GPAW
+   - `Automated Two Step Structure Prediction within GPAW
+     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/a07.pdf>`__
    - `video
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/00104_854x480.mkv>`__
  * - 14:10
    - Bjørk Hammer
-   - Challenges with the currently (correctly) implemented NEB-method. Should
+   - `Challenges with the currently (correctly) implemented NEB-method. Should
      ASE revert to the original more robust NEB-formulation with springs?
+     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/a08.pdf>`__
    - `video
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/00105_854x480.mkv>`__
  * - 14:30
    - Jess Wellendorff
-   - Exchange-correlation functionals with error estimation
+   - `Exchange-correlation functionals with error estimation
+     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/a09.pdf>`__
    - `video
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/00106_854x480.mkv>`__
  * - 15:00
    - Hannes Jónsson
-   - Orbital density dependent functionals
+   - `Orbital density dependent functionals
+     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/a10.pdf>`__
    - `video
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/00107_854x480.mkv>`__
  * - 15:30
    -
-   - 
    - *Coffee*
+   - 
  * - 16:00
    - Per Hyldgaard
-   - Electron response in the Rutgers-Chalmers van der Waals density
+   - `Electron response in the Rutgers-Chalmers van der Waals density
      Functionals
+     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/a11.pdf>`__
    - `video
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/00108_854x480.mkv>`__
  * - 16:30
    - Thomas Olsen
-   - Extending the random phase approximation with renormalized adiabatic
+   - `Extending the random phase approximation with renormalized adiabatic
      exchange kernels
+     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/a12.pdf>`__
    - `video
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/00109_854x480.mkv>`__
  * - 17:00
    - Mikael Kuisma
-   - Spin-Polarized GLLB-SC potential and efficient real time
+   - `Spin-Polarized GLLB-SC potential and efficient real time
      LCAO-TDDFT for large systems
+     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/a13.pdf>`__
    - `video
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/00110_854x480.mkv>`__
  * - 18:00
    - 
-   -
    - *Barbecue*
+   -
 
 
 Wednesday (May 22)
@@ -138,48 +148,58 @@ Wednesday (May 22)
 
  * - 9:00
    - Jun Yan
-   - Plasmon, exciton and RPA correlation energy: implementations and
+   - `Plasmon, exciton and RPA correlation energy: implementations and
      applications based on linear density response function
+     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/b01.pdf>`__
  * - 9:30
    - Arto Sakko, Tuomas Rossi
-   - Combining TDDFT and classical electrodynamics simulations for plasmonics
+   - `Combining TDDFT and classical electrodynamics simulations for plasmonics
+     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/b02.pdf>`__
  * - 10:00
    - Falco Hüser
-   - The GW approximation in GPAW
+   - `The GW approximation in GPAW
+     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/b03.pdf>`__
  * - 10:30
    -
    - *Coffee*
  * - 11:00
    - Angel Rubio
-   - Time-dependent density functional theory for non-linear phenomena
+   - `Time-dependent density functional theory for non-linear phenomena
      in solids and nanostructures: fundamentals and applications
+     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/b04.pdf>`__
  * - 11:30
    - Michael Walter
-   - Extensions to GPAW: From polarizable environments to excited state
+   - `Extensions to GPAW: From polarizable environments to excited state
      properties
+     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/b05.pdf>`__
  * - 12:00
    - 
    - *Lunch*
  * - 13:00
    - Elvar Örn Jónsson
-   - Multiscale simulations with ASE
+   - `Multiscale simulations with ASE
+     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/b06.pdf>`__
  * - 13:30
    - Ivano E. Castelli
-   - Computational screening of materials for water splitting
+   - `Computational screening of materials for water splitting
+     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/b07.pdf>`__
  * - 14:00
    -
    - *Coffee*
  * - 14:15
    - Martti Puska
-   - Non-adiabatic electron-ion dynamics 
+   - `Non-adiabatic electron-ion dynamics 
+     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/b08.pdf>`__
  * - 14:45
    - Ari Ojanperä
-   - Applications of Ehrenfest dynamics: from excited state evolution of
+   - `Applications of Ehrenfest dynamics: from excited state evolution of
      protected gold clusters to stopping of high-energy ions in graphene
+     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/b09.pdf>`__
  * - 15:15
    - Lauri Lehtovaara
-   - Au40(SR)24 Cluster as a Chiral Dimer of 8-Electron Superatoms:
+   - `Au40(SR)24 Cluster as a Chiral Dimer of 8-Electron Superatoms:
      Structure and Optical Properties
+     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/b10.pdf>`__
 
 
 Thursday (May 23)
