@@ -44,60 +44,88 @@ Tuesday (May 21)
 ----------------
 
 .. list-table::
- :widths: 1 3 7
+ :widths: 1 3 7 2
 
  * - 10:00
    - Kristian Thygesen
    - Welcome
+   -
  * - 10:00
    - Jussi Enkovaara
    - `Overview of GPAW
-     <http://dcwww.camp.dtu.dk/~jensj/gpaw2013/a2.pdf'>`__
+     <http://dcwww.camp.dtu.dk/~jensj/gpaw2013/a2.pdf>`__
+   - `video
+     <https://www.wiki.fysik.dtu.dk/gpaw/workshop13/00098_854x480.mkv>`__
  * - 10:30
    - Jens Jørgen Mortensen
    - `Short history of GPAW and latest news about PAW setups
-     <http://dcwww.camp.dtu.dk/~jensj/gpaw2013/a3.pdf'>`__
+     <http://dcwww.camp.dtu.dk/~jensj/gpaw2013/a3.pdf>`__
+   - `video
+     <https://www.wiki.fysik.dtu.dk/gpaw/workshop13/00099_854x480.mkv>`__
  * - 11:00
    - Ask Hjorth Larsen
    - LCAO in GPAW
+   - `video
+     <https://www.wiki.fysik.dtu.dk/gpaw/workshop13/00100_854x480.mkv>`__
  * - 11:30
    - Samuli Hakala
    - Multi-GPU Accelerated Large Scale Electronic Structure Calculations
+   - `video
+     <https://www.wiki.fysik.dtu.dk/gpaw/workshop13/00101_854x480.mkv>`__
  * - 12:00
+   - 
    - 
    - *Lunch*
  * - 13:30
    - Henrik H. Kristoffersen
    - Simple methods for photo reaction modeling
+   - `video
+     <https://www.wiki.fysik.dtu.dk/gpaw/workshop13/00103_854x480.mkv>`__
  * - 13:50
    - Lasse B. Vilhelmsen
    - Automated Two Step Structure Prediction within GPAW
+   - `video
+     <https://www.wiki.fysik.dtu.dk/gpaw/workshop13/00104_854x480.mkv>`__
  * - 14:10
    - Bjørk Hammer
    - Challenges with the currently (correctly) implemented NEB-method. Should
-     GPAW revert to the original more robust NEB-formulation with springs?
+     ASE revert to the original more robust NEB-formulation with springs?
+   - `video
+     <https://www.wiki.fysik.dtu.dk/gpaw/workshop13/00105_854x480.mkv>`__
  * - 14:30
    - Jess Wellendorff
    - Exchange-correlation functionals with error estimation
+   - `video
+     <https://www.wiki.fysik.dtu.dk/gpaw/workshop13/00106_854x480.mkv>`__
  * - 15:00
    - Hannes Jónsson
    - Orbital density dependent functionals
+   - `video
+     <https://www.wiki.fysik.dtu.dk/gpaw/workshop13/00107_854x480.mkv>`__
  * - 15:30
    -
+   - 
    - *Coffee*
  * - 16:00
    - Per Hyldgaard
    - Electron response in the Rutgers-Chalmers van der Waals density
      Functionals
+   - `video
+     <https://www.wiki.fysik.dtu.dk/gpaw/workshop13/00108_854x480.mkv>`__
  * - 16:30
    - Thomas Olsen
    - Extending the random phase approximation with renormalized adiabatic
      exchange kernels
+   - `video
+     <https://www.wiki.fysik.dtu.dk/gpaw/workshop13/00109_854x480.mkv>`__
  * - 17:00
    - Mikael Kuisma
    - Spin-Polarized GLLB-SC potential and efficient real time
      LCAO-TDDFT for large systems
+   - `video
+     <https://www.wiki.fysik.dtu.dk/gpaw/workshop13/00110_854x480.mkv>`__
  * - 18:00
+   - 
    -
    - *Barbecue*
 
