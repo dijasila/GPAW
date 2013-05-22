@@ -96,7 +96,7 @@ Tuesday (May 21)
      ASE revert to the original more robust NEB-formulation with springs?
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/a08.pdf>`__
    - `youtube
-     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/00105_854x480.mkv>`__
+     <http://www.youtube.com/watch?v=wKJLRBsVt7Q>`__
  * - 14:30
    - Jess Wellendorff
    - `Exchange-correlation functionals with error estimation
