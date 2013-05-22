@@ -102,6 +102,9 @@ get('tutorials/negfstm', ['fullscan.png', 'linescan.png'])
 
 get('tutorials/xas', ['h2o_xas_3.png', 'h2o_xas_4.png'])
 
+# workshop2013 photo
+get('workshop13', ['workshop13_01_33-1.jpg'], '_static')
+
 # files from jjwww
 
 scf_conv_eval_stuff = """

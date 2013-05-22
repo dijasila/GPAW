@@ -7,6 +7,8 @@ Electronic structure calculations with the GPAW code
 Users and developers meeting Technical University of Denmark, May 21-23, 2013
 =============================================================================
 
+.. image:: ../_static/workshop13_01_33-1.jpg
+
 The meeting provides an overview of the present status of the open
 source electronic structure program GPAW. The latest developments will
 be illustrated through invited and contributed talks from GPAW
@@ -144,62 +146,79 @@ Wednesday (May 22)
 ------------------
 
 .. list-table::
- :widths: 1 3 7
+ :widths: 1 3 7 2
 
  * - 9:00
    - Jun Yan
    - `Plasmon, exciton and RPA correlation energy: implementations and
      applications based on linear density response function
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/b01.pdf>`__
+   - `youtube
+     <https://www.youtube.com/watch?v=1KXN5x34NZ8>`__
  * - 9:30
    - Arto Sakko, Tuomas Rossi
    - `Combining TDDFT and classical electrodynamics simulations for plasmonics
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/b02.pdf>`__
+   - `youtube
+     <https://www.youtube.com/watch?v=ZGQK243IQoY>`__
  * - 10:00
    - Falco Hüser
    - `The GW approximation in GPAW
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/b03.pdf>`__
+   - `youtube
+     <https://www.youtube.com/watch?v=4S4i8WOJwrw>`__
  * - 10:30
    -
    - *Coffee*
+   -
  * - 11:00
    - Angel Rubio
    - `Time-dependent density functional theory for non-linear phenomena
      in solids and nanostructures: fundamentals and applications
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/b04.pdf>`__
+   - `youtube
+     <https://www.youtube.com/watch?v=dVsTkQ83AiU>`__
  * - 11:30
    - Michael Walter
    - `Extensions to GPAW: From polarizable environments to excited state
      properties
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/b05.pdf>`__
+   - `youtube
+     <https://www.youtube.com/watch?v=nqXciG-1nFA>`__
  * - 12:00
    - 
    - *Lunch*
+   -
  * - 13:00
-   - Elvar Örn Jónsson
-   - `Multiscale simulations with ASE
-     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/b06.pdf>`__
+   - Lauri Lehtovaara
+   - `Au40(SR)24 Cluster as a Chiral Dimer of 8-Electron Superatoms:
+     Structure and Optical Properties
+     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/b10.pdf>`__
+   - `youtube
+     <https://www.youtube.com/watch?v=Y3We-e6zyow>`__
  * - 13:30
    - Ivano E. Castelli
    - `Computational screening of materials for water splitting
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/b07.pdf>`__
+   - `youtube
+     <https://www.youtube.com/watch?v=c-6O2TZuHKQ>`__
  * - 14:00
    -
    - *Coffee*
+   -
  * - 14:15
    - Martti Puska
    - `Non-adiabatic electron-ion dynamics 
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/b08.pdf>`__
+   - `youtube
+     <https://www.youtube.com/watch?v=a3ZM0AJFt68>`__
  * - 14:45
    - Ari Ojanperä
    - `Applications of Ehrenfest dynamics: from excited state evolution of
      protected gold clusters to stopping of high-energy ions in graphene
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/b09.pdf>`__
- * - 15:15
-   - Lauri Lehtovaara
-   - `Au40(SR)24 Cluster as a Chiral Dimer of 8-Electron Superatoms:
-     Structure and Optical Properties
-     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/b10.pdf>`__
+   - `youtube
+     <https://www.youtube.com/watch?v=RJbd6W4pMFo>`__
 
 
 Thursday (May 23)
