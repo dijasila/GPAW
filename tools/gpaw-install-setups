@@ -71,7 +71,7 @@ else:
     targzfile = tarfile.open(fileobj=StringIO(response.read()))
 
 if not os.path.exists(targetpath):
-    os.mkdir(targetpath) # Doesn't work with nested paths, does it?
+    os.makedirs(targetpath)
 
 print 'Extracting tarball into %s' % targetpath
 targzfile.extractall(targetpath)
@@ -95,9 +95,9 @@ rcline2 = "setup_paths.insert(0, '%s')" % setup_path
 answer = raw_input('Register this setup path in %s? [y/n] ' % rcfilepath)
 
 if answer.lower() == 'y':
-    # First we create the file if it exists
+    # First we create the file
     if not os.path.exists(rcfiledir):
-        os.mkdir(rcfiledir)
+        os.makedirs(rcfiledir)
     if not os.path.exists(rcfilepath):
         tmpfd = open(rcfilepath, 'w') # Just create empty file
         tmpfd.close()
