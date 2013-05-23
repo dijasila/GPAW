@@ -27,6 +27,10 @@ assert (np.array([-1]) % 3)[0] == 2
 NONBLOCKING = False
 
 
+class GridBoundsError(ValueError):
+    pass
+
+
 class GridDescriptor(Domain):
     """Descriptor-class for uniform 3D grid
 
@@ -146,7 +150,24 @@ class GridDescriptor(Domain):
         if max(h_c) / min(h_c) > 1.3:
             raise ValueError('Very anisotropic grid spacings: %s' % h_c)
 
-        self.use_fixed_bc = False
+    def new_descriptor(self, N_c=None, cell_cv=None, pbc_c=None,
+                       comm=None, parsize=None):
+        """Create new descriptor based on this one.
+
+        The new descriptor will use the same class (possibly a subclass)
+        and all arguments will be equal to those of this descriptor
+        unless new arguments are provided."""
+        if N_c is None:
+            N_c = self.N_c
+        if cell_cv is None:
+            cell_cv = self.cell_cv
+        if pbc_c is None:
+            pbc_c = self.pbc_c
+        if comm is None:
+            comm = self.comm
+        if parsize is None:
+            parsize = self.parsize_c
+        return self.__class__(N_c, cell_cv, pbc_c, comm, parsize)
 
     def get_grid_spacings(self):
         L_c = (np.linalg.inv(self.cell_cv)**2).sum(0)**-0.5
@@ -277,19 +298,13 @@ class GridDescriptor(Domain):
         if np.sometrue(self.N_c % 2):
             raise ValueError('Grid %s not divisible by 2!' % self.N_c)
 
-        gd = GridDescriptor(self.N_c // 2, self.cell_cv,
-                            self.pbc_c, self.comm, self.parsize_c)
-        gd.use_fixed_bc = self.use_fixed_bc
-        return gd
+        return self.new_descriptor(self.N_c // 2)
 
     def refine(self):
         """Return refined `GridDescriptor` object.
 
-        Reurned descriptor has 2x2x2 more grid points."""
-        gd = GridDescriptor(self.N_c * 2, self.cell_cv,
-                            self.pbc_c, self.comm, self.parsize_c)
-        gd.use_fixed_bc = self.use_fixed_bc
-        return gd
+        Returned descriptor has 2x2x2 more grid points."""
+        return self.new_descriptor(self.N_c * 2)
     
     def get_boxes(self, spos_c, rcut, cut=True):
         """Find boxes enclosing sphere."""
@@ -300,7 +315,7 @@ class GridDescriptor(Domain):
         beg_c = np.ceil(npos_c - ncut).astype(int)
         end_c = np.ceil(npos_c + ncut).astype(int)
 
-        if cut or self.use_fixed_bc:
+        if cut:
             for c in range(3):
                 if not self.pbc_c[c]:
                     if beg_c[c] < 0:
@@ -311,10 +326,10 @@ class GridDescriptor(Domain):
             for c in range(3):
                 if (not self.pbc_c[c] and
                     (beg_c[c] < 0 or end_c[c] > N_c[c])):
-                    raise RuntimeError(('Atom at %.3f %.3f %.3f ' +
-                                        'too close to boundary ' +
-                                        '(beg. of box %s, end of box %s)') %
-                                       (tuple(spos_c) + (beg_c, end_c)))
+                    msg = ('Box at %.3f %.3f %.3f crosses boundary.  '
+                           'Beg. of box %s, end of box %s, max box size %s' %
+                           (tuple(spos_c) + (beg_c, end_c, self.N_c)))
+                    raise GridBoundsError(msg)
                     
         range_c = ([], [], [])
         

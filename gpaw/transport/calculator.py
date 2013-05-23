@@ -30,7 +30,10 @@ import numpy as np
 import cPickle
 
 class FixedBC_GridDescriptor(GridDescriptor):
-    use_fixed_bc = True
+    def get_boxes(self, spos_c, rcut, cut=True):
+        # The effect of this grid descriptor class is to always use cut=True
+        return GridDescriptor.get_boxes(self, spos_c, rcut, True)
+
 
 class Lead_Calc(GPAW):
     def dry_run(self):
