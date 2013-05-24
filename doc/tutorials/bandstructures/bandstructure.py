@@ -48,11 +48,13 @@ import matplotlib
 matplotlib.use('Agg')
 matplotlib.rc('text', usetex=True)
 import matplotlib.pyplot as plt
+
 point_names = ['W', 'L', r'$\Gamma$', 'X', 'W', 'K']
-ef, x, X, e_kn = pickle.load(open('eigenvalues.pckl'))
+
 e_kn -= ef
 emin = e_kn.min() - 1
 emax = e_kn[:,7].max() + 1
+
 plt.figure(figsize=(5, 6))
 for n in range(7):
     plt.plot(x, e_kn[:, n], 'b')
