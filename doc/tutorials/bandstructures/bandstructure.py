@@ -20,6 +20,7 @@ calc = GPAW(h=0.25,
             txt='out_Na_sc.txt')
 atoms.set_calculator(calc)
 atoms.get_potential_energy()
+ef = calc.get_fermi_level()
 calc.write('Na_sc.gpw')
 
 # Calculate band structure along Gamma-X i.e. from 0 to 0.5
@@ -30,7 +31,6 @@ kpts = [(k / float(2 * nkpt), 0, 0) for k in range(nkpt)]
 calc = GPAW('Na_sc.gpw', txt='out_Na_harris.txt',
             kpts=kpts, fixdensity=True, usesymm=None, nbands=7,
             eigensolver='cg', convergence={'bands': 'all'})
-ef = calc.get_fermi_level()
 calc.get_potential_energy()
 
 # Write the results to a file e.g. for plotting with gnuplot

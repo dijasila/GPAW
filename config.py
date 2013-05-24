@@ -3,6 +3,7 @@
 # Please see the accompanying LICENSE file for further information.
 
 import os
+import platform
 import sys
 import re
 import distutils.util
@@ -83,7 +84,7 @@ def get_system_config(define_macros, undef_macros,
         include_dirs += [numpy.get_include()]
     include_dirs += ['c/libxc']
 
-    machine = os.uname()[4]
+    machine = platform.uname()[4]
     if machine == 'sun4u':
 
         #  _
@@ -152,12 +153,15 @@ def get_system_config(define_macros, undef_macros,
             msg += ['* Using ACML library']
         else:
             atlas = False
-            for dir in ['/usr/lib', '/usr/local/lib']:
-                if glob(join(dir, 'libatlas.a')) != []:
+            for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib64/atlas']:
+                if glob(join(dir, 'libatlas.so')) != []:
                     atlas = True
                     break
             if atlas:
-                libraries += ['lapack', 'atlas', 'blas']
+                # http://math-atlas.sourceforge.net/errata.html#LINK
+                # atlas does not respect OMP_NUM_THREADS - build single-thread
+                # http://math-atlas.sourceforge.net/faq.html#tsafe
+                libraries += ['lapack', 'f77blas', 'cblas', 'atlas']
                 library_dirs += [dir]
                 msg +=  ['* Using ATLAS library']
             else:
@@ -200,12 +204,15 @@ def get_system_config(define_macros, undef_macros,
             #extra_link_args += ['-Wl,-rpath=' + library_dirs[-1]]
         else:
             atlas = False
-            for dir in ['/usr/lib', '/usr/local/lib']:
-                if glob(join(dir, 'libatlas.a')) != []:
+            for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib/atlas']:
+                if glob(join(dir, 'libatlas.so')) != []:
                     atlas = True
                     break
             if atlas:
-                libraries += ['lapack', 'atlas', 'blas']
+                # http://math-atlas.sourceforge.net/errata.html#LINK
+                # atlas does not respect OMP_NUM_THREADS - build single-thread
+                # http://math-atlas.sourceforge.net/faq.html#tsafe
+                libraries += ['lapack', 'f77blas', 'cblas', 'atlas']
                 library_dirs += [dir]
                 msg +=  ['* Using ATLAS library']
             else:
@@ -234,6 +241,11 @@ def get_system_config(define_macros, undef_macros,
         else:
             libraries += ['blas', 'lapack']
             msg +=  ['* Using standard lapack']
+
+    # https://listserv.fysik.dtu.dk/pipermail/gpaw-users/2012-May/001473.html
+    p = platform.dist()
+    if p[0].lower() in ['redhat', 'centos'] and p[1].startswith('6.'):
+        define_macros.append(('_GNU_SOURCE', '1'))
 
     return msg
 

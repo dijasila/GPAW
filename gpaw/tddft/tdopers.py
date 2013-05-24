@@ -264,7 +264,7 @@ class TimeDependentHamiltonian:
         """ Operates on psit_nG with the P-term that is present in PAW based Ehrenfest dynamics
 
         Parameters
-        ---------
+        ----------
         psit_nG: list of coarse grid wavefunctions
 
         hpsit: array to which P psit_nG is added

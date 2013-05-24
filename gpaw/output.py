@@ -1,4 +1,5 @@
 import os
+import platform
 import sys
 import time
 from math import log
@@ -89,7 +90,7 @@ class PAWTextOutput:
         self.text(' |___|_|             ')
         self.text()
 
-        uname = os.uname()
+        uname = platform.uname()
         self.text('User: ', os.getenv('USER', '???') + '@' + uname[1])
         self.text('Date: ', time.asctime())
         self.text('Arch: ', uname[4])
@@ -298,29 +299,27 @@ class PAWTextOutput:
 
         self.hamiltonian.xc.summary(self.txt)
 
-        if self.density.rhot_g is None:
-            return
-
         t()
-        charge = self.density.finegd.integrate(self.density.rhot_g)
-        t('Total Charge:  %f electrons' % charge)
-
-        dipole = self.get_dipole_moment()
-        if self.density.charge == 0:
-            t('Dipole Moment: %s' % dipole)
-        else:
-            t('Center of Charge: %s' % (dipole / abs(charge)))
 
         try:
-            get_boundary_vHt = self.hamiltonian.poisson.get_boundary_potential
+            dipole = self.get_dipole_moment()
+        except AttributeError:
+            pass
+        else:
+            if self.density.charge == 0:
+                t('Dipole Moment: %s' % dipole)
+            else:
+                t('Center of Charge: %s' % (dipole / abs(self.density.charge)))
+
+        try:
+            c = self.hamiltonian.poisson.corrector.c
             epsF = self.occupations.fermilevel
         except AttributeError:
             pass
         else:
-            v0, v1 = get_boundary_vHt(self.hamiltonian.vHt_g)
-            wf0 = (v0 - epsF) * Hartree
-            wf1 = (v1 - epsF) * Hartree
-            t('Dipole-corrected work function: %f, %f' % (wf0, wf1))
+            wf_a = -epsF * Hartree - dipole[c]
+            wf_b = -epsF * Hartree + dipole[c]
+            t('Dipole-corrected work function: %f, %f' % (wf_a, wf_b))
 
         if self.wfs.nspins == 2:
             t()
@@ -380,13 +379,13 @@ class PAWTextOutput:
             if eigerr == 0.0:
                 eigerr = ''
             else:
-                eigerr = '%-+5.1f' % (log(eigerr) / log(10))
+                eigerr = '%-+5.2f' % (log(eigerr) / log(10))
 
             denserr = self.density.mixer.get_charge_sloshing()
             if denserr is None or denserr == 0 or nvalence == 0:
                 denserr = ''
             else:
-                denserr = '%+.1f' % (log(denserr / nvalence) / log(10))
+                denserr = '%+.2f' % (log(denserr / nvalence) / log(10))
 
             niterocc = self.occupations.niter
             if niterocc == -1:

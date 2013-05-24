@@ -18,7 +18,7 @@ if 1:
     ecut = 350
     calc = GPAW(mode=PW(ecut),dtype=complex, basis='dzp', kpts=kpts, xc='PBE',
                   parallel={'band': size}, txt='gs_occ_%s.txt' %(tag), nbands=4,
-                  occupations=FermiDirac(0.01)
+                  occupations=FermiDirac(0.01), setups={'Na': '1'},
                   )
     bulk.set_calculator(calc)
     bulk.get_potential_energy()

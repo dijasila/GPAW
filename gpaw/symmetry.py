@@ -85,41 +85,42 @@ class Symmetry:
     def prune_symmetries(self, spos_ac):
         """Remove symmetries that are not satisfied by the atoms."""
 
-        # Build lists of (atom number, scaled position) tuples.  One
+        # Build lists of atom numbers for each type of atom - one
         # list for each combination of atomic number, setup type,
         # magnetic moment and basis set
-        species = {}
+        a_ib = {}
         for a, id in enumerate(self.id_a):
-            spos_c = spos_ac[a]
-            if id in species:
-                species[id].append((a, spos_c))
+            if id in a_ib:
+                a_ib[id].append(a)
             else:
-                species[id] = [(a, spos_c)]
+                a_ib[id] = [a]
 
         opok = []
         a_sa = []
         # Reduce point group using operation matrices
         for op_cc in self.op_scc:
-            map = np.zeros(len(spos_ac), int)
+            a_a = np.zeros(len(spos_ac), int)
             ok = True
-            for specie in species.values():
-                for a1, spos1_c in specie:
-                    spos1_c = np.dot(spos1_c, op_cc)
-                    ok = False
-                    for a2, spos2_c in specie:
-                        sdiff = spos1_c - spos2_c
-                        sdiff -= np.floor(sdiff + 0.5)
-                        if np.dot(sdiff, sdiff) < self.tol:
-                            ok = True
-                            map[a1] = a2
-                            break
-                    if not ok:
+            for a_b in a_ib.values():
+                spos_bc = spos_ac[a_b]
+                for a in a_b:
+                    spos_c = np.dot(spos_ac[a], op_cc)
+                    sdiff_bc = spos_c - spos_bc
+                    sdiff_bc -= np.floor(sdiff_bc + 0.5)
+                    indices = np.where((sdiff_bc**2).sum(1) < self.tol)[0]
+                    if len(indices) == 1:
+                        ok = True
+                        b = indices[0]
+                        a_a[a] = a_b[b]
+                    else:
+                        assert len(indices) == 0
+                        ok = False
                         break
                 if not ok:
                     break
             if ok:
                 opok.append(op_cc)
-                a_sa.append(map)
+                a_sa.append(a_a)
 
         if debug:
             for op_cc, map_a in zip(opok, a_sa):

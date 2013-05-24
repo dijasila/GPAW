@@ -19,20 +19,6 @@ Links to guides and manual pages
 * The :ref:`features_and_algorithms` used in the code
 
 
-.. _special_topics:
-
-Specialized information
------------------------
-
-Here is a list of specific advanced topics and functionalities of the
-GPAW calculator:
-
-.. toctree::
-   :maxdepth: 2
-   
-   toc-special
-
-
 .. _literature_reports_presentations_and_theses:
 
 Reports, presentations, and theses using gpaw

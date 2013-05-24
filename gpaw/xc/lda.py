@@ -110,6 +110,16 @@ class LDA(XCFunctional):
         assert f_sg.flags.contiguous and f_sg.dtype == float
         self.kernel.xc.calculate_fxc_spinpaired(n_sg.ravel(), f_sg)
 
+    def stress_tensor_contribution(self, n_sg):
+        nspins = len(n_sg)
+        v_sg = self.gd.zeros(nspins)
+        e_g = self.gd.empty()
+        self.calculate_lda(e_g, n_sg, v_sg)
+        stress = self.gd.integrate(e_g)
+        for v_g, n_g in zip(v_sg, n_sg):
+            stress -= self.gd.integrate(v_g, n_g)
+        return np.eye(3) * stress
+
 
 class PurePythonLDAKernel:
     def __init__(self):

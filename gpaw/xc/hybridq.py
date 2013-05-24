@@ -90,7 +90,7 @@ class KPoint:
 class HybridXC(XCFunctional):
     orbital_dependent = True
     def __init__(self, name, hybrid=None, xc=None, finegrid=False,
-                 alpha=None, skip_gamma=False, acdf=True,
+                 alpha=None, skip_gamma=False, gygi=False, acdf=True,
                  qsym=True, txt=None, ecut=None):
         """Mix standard functionals with exact exchange.
 
@@ -126,6 +126,7 @@ class HybridXC(XCFunctional):
         self.alpha = alpha
         self.qsym = qsym
         self.skip_gamma = skip_gamma
+        self.gygi = gygi
         self.acdf = acdf
         self.exx = None
         self.ecut = ecut
@@ -163,6 +164,7 @@ class HybridXC(XCFunctional):
         self.setups = wfs.setups
         self.density = density
         self.kpt_u = wfs.kpt_u
+        self.wfs = wfs
         
         self.gd = density.gd
         self.kd = wfs.kd
@@ -180,8 +182,7 @@ class HybridXC(XCFunctional):
                       self.kd.nbzkpts)
 
         if self.ecut is None:
-            ecutmax = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
-            self.ecut = 0.5 * ecutmax
+            self.ecut = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max() * 0.9999
 
         assert self.kd.N_c is not None
         n = self.kd.N_c * 2 - 1
@@ -199,8 +200,7 @@ class HybridXC(XCFunctional):
         else:
             self.ibzq_qc = self.bzq_qc
             self.q_weights = np.ones(len(self.bzq_qc))
-        print self.ibzq_qc
-        print self.q_weights
+
         self.pwd = PWDescriptor(self.ecut, self.gd, complex)
         self.G2_qG = self.pwd.g2(self.bzk_kc)
         
@@ -224,7 +224,7 @@ class HybridXC(XCFunctional):
                         [setup.ghat_l for setup in density.setups],
                         KPointDescriptor(self.bzq_qc), dtype=complex)
         
-        self.interpolator = density.interpolator
+        #self.interpolator = density.interpolator
         self.print_initialization(hamiltonian.xc.name)
 
     def set_positions(self, spos_ac):
@@ -258,7 +258,7 @@ class HybridXC(XCFunctional):
                     self.apply(ibz_kpts[kd.bz2ibz_k[ik]],
                                ibz_kpts[kd.bz2ibz_k[kpq[0]]],
                                ik, kpq[0], iq)
-
+                    
         self.exx = world.sum(self.exx)
         self.exx += self.calculate_exx_paw_correction()
 
@@ -286,7 +286,6 @@ class HybridXC(XCFunctional):
         k1_c = self.kd.bzk_kc[ik1]
         k2_c = self.kd.bzk_kc[ik2]
         q = self.ibzq_qc[iq]
-
         if self.qsym:
             for i, q in enumerate(self.bzq_qc):
                 if abs(q - self.ibzq_qc[iq]).max() < 1e-9:
@@ -294,7 +293,7 @@ class HybridXC(XCFunctional):
                     break    
         else:
             bzq_index = iq
-
+        
         N_c = self.gd.N_c
         eikr_R = np.exp(-2j * pi * np.dot(np.indices(N_c).T, q / N_c).T)
 
@@ -312,18 +311,21 @@ class HybridXC(XCFunctional):
         nspins = self.nspins
 
         fcut = 1e-10
-        
         for n1, psit1_R in enumerate(kpt1.psit_nG):
             f1 = kpt1.f_n[n1]
             for n2, psit2_R in enumerate(kpt2.psit_nG):
                 if self.acdf:
-                    f2 = (self.q_weights[iq] * kpt2.weight
-                          * (1 - np.sign(kpt2.eps_n[n2] - kpt1.eps_n[n1])))
+                    if self.gygi and Gamma:
+                        #print n2, kpt2.f_n[n2]/kpt2.weight
+                        f2 = (self.q_weights[iq] * kpt2.weight)
+                    else:
+                        f2 = (self.q_weights[iq] * kpt2.weight
+                              * (1 - np.sign(kpt2.eps_n[n2] - kpt1.eps_n[n1])))
+
                 else:
                     f2 = kpt2.f_n[n2] * self.q_weights[iq]
                 if abs(f1) < fcut or abs(f2) < fcut:
                     continue
-
                 nt_R = self.calculate_pair_density(n1, n2, kpt1, kpt2,
                                                    ik1, ik2, bzq_index)
                 nt_G = self.pwd.fft(nt_R * eikr_R) / N
@@ -337,7 +339,7 @@ class HybridXC(XCFunctional):
         psit1_G = self.kd.transform_wave_function(kpt1.psit_nG[n1], ik1)
         psit2_G = self.kd.transform_wave_function(kpt2.psit_nG[n2], ik2)
         nt_G = psit1_G.conj() * psit2_G
-
+        
         s1 = self.kd.sym_k[ik1]
         s2 = self.kd.sym_k[ik2]
         t1 = self.kd.time_reversal_k[ik1]

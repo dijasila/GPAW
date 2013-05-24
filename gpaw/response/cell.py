@@ -27,10 +27,12 @@ def set_Gvectors(acell, bcell, nG, Ecut, q=[0., 0., 0.]):
         Gcut[i] = sqrt(2*Ecut[i])
         if Gcut[i] > 0:
             Gmax[i] = sqrt(a[0]**2 + a[1]**2 + a[2]**2) * Gcut[i] / (2*pi) + 1
-     
-    Nmax = 2 * Gmax + 2
-    #assert (nG - Nmax >=0).all() # to prevent too many planewaves
 
+    Nmax = np.ones([3], dtype = int)   
+    for dim in range(3):
+        if Gcut[dim] > 0:
+            Nmax[dim] = 2 * Gmax[dim] + 2
+    #assert (nG - Nmax >=0).all() # to prevent too many planewaves     
     m = {}
     for dim in range(3):
         m[dim] = np.zeros(Nmax[dim],dtype=int)
@@ -38,7 +40,7 @@ def set_Gvectors(acell, bcell, nG, Ecut, q=[0., 0., 0.]):
             m[dim][i] = i
             if m[dim][i] > np.int(Gmax[dim]):
                 m[dim][i] = i - Nmax[dim]
-
+                
     G = np.zeros((Nmax[0]*Nmax[1]*Nmax[2],3),dtype=int)
     n = 0
     for i in range(Nmax[0]):
@@ -67,5 +69,5 @@ def set_Gvectors(acell, bcell, nG, Ecut, q=[0., 0., 0.]):
             else:
                 id[dim] = nG[dim] - np.abs(G[dim])
         Gindex[iG] = id[0]*nG[1]*nG[2] + id[1]*nG[2] + id[2] 
-    
+
     return npw, Gvec, Gindex

@@ -2,22 +2,27 @@ import sys
 from time import ctime
 import numpy as np
 from ase.parallel import paropen
+from ase.units import Ha
 from gpaw import GPAW
 from gpaw.response.df import DF
 from gpaw.utilities import devnull
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.mpi import rank, size, world
-from gpaw.response.parallel import parallel_partition, set_communicator
+from gpaw.response.parallel import parallel_partition, \
+     parallel_partition_list, set_communicator
 from scipy.special.orthogonal import p_roots
 
 class RPACorrelation:
 
     def __init__(self,
                  calc,
+                 vcut=None,
                  txt=None,
+                 tag=None,
                  qsym=True):
         
         self.calc = calc
+        self.tag = tag
         
         if txt is None:
             if rank == 0:
@@ -32,11 +37,12 @@ class RPACorrelation:
             self.txt = paropen(txt, 'w')
 
         self.qsym = qsym
+        self.vcut = vcut
         self.nspins = calc.wfs.nspins
         self.bz_k_points = calc.wfs.bzk_kc
         self.atoms = calc.get_atoms()
         self.setups = calc.wfs.setups
-        self.bz_q_points = calc.wfs.kd.get_bz_q_points()
+        self.bz_q_points = calc.wfs.kd.get_bz_q_points(first=True)
         if qsym == False:
             self.ibz_q_points = self.bz_q_points
             self.q_weights = (np.ones(len(self.bz_q_points))
@@ -146,22 +152,33 @@ class RPACorrelation:
                                                   world.rank,
                                                   world.size,
                                                   kcommsize=dfcommsize)[:2]
-            nq, nq_local, q_start, q_end = parallel_partition(nq,
+            nq, nq_local, qlist_local = parallel_partition_list(nq,
                                                               qcomm.rank,
-                                                              qcomm.size,
-                                                              reshape=False)
+                                                              qcomm.size)
     
             E_q = np.zeros(nq)
-            for iq in range(q_start, q_end):
-                E_q[iq] = self.E_q(qlist[iq][1],
+            
+            for iq in qlist_local:
+                try:
+                    ff = open('E_q_%s_%s.dat' %(self.tag,iq), 'r')
+                    E_q[iq] = ff.readline().split()[-2]
+                    print >> self.txt, 'Reading E_q[%s] '%(iq), E_q[iq] 
+                except:
+                    E_q[iq] = self.E_q(qlist[iq][1],
                                    index=iq,
                                    direction=qlist[iq][2]) * qlist[iq][3]
+
+                    if self.tag is not None and self.dfcomm.rank == 0:
+                        ff = open('E_q_%s_%s.dat' %(self.tag,iq), 'a')
+                        print >> ff, qlist[iq][1:4], E_q[iq], qweight[iq]
+                        ff.close()
+                    
             qcomm.sum(E_q)
-    
+
             print >> self.txt, '(q, direction, weight), E_q, qweight'
             for iq in range(nq):
                 print >> self.txt, qlist[iq][1:4], E_q[iq], qweight[iq]
-    
+                
             E = np.dot(np.array(qweight), np.array(E_q))
 
         print >> self.txt, 'RPA correlation energy:'
@@ -220,7 +237,6 @@ class RPACorrelation:
             optical_limit = False
 
         dummy = DF(calc=self.calc,
-                   xc='RPA',
                    eta=0.0,
                    w=self.w * 1j,
                    q=q,
@@ -243,11 +259,12 @@ class RPACorrelation:
         else:
             txt='response_'+self.txt.name
         df = DF(calc=self.calc,
-                xc='RPA',
+                xc=None,
                 nbands=nbands,
                 eta=0.0,
                 q=q,
                 txt=txt,
+                vcut=self.vcut,
                 w=self.w * 1j,
                 ecut=self.ecut,
                 smooth_cut=self.smooth_cut,
@@ -268,7 +285,8 @@ class RPACorrelation:
             print >> self.txt, 'q = [%1.6f %1.6f %1.6f] -' \
                   % (q[0],q[1],q[2]), '%s planewaves' % npw
 
-        e_wGG = df.get_dielectric_matrix(xc='RPA')
+        e_wGG = df.get_dielectric_matrix(xc='RPA', overwritechi0=True)
+        df.chi0_wGG = None
         Nw_local = len(e_wGG)
         local_E_q_w = np.zeros(Nw_local, dtype=complex)
         E_q_w = np.empty(len(self.w), complex)
@@ -416,8 +434,8 @@ class RPACorrelation:
               '------------------------------------------------------'
         print >> self.txt, 'Started at:  ', ctime()
         print >> self.txt
-        print >> self.txt, 'Atoms                          :   %s' \
-              % self.atoms.get_chemical_formula(mode="hill")
+#        print >> self.txt, 'Atoms                          :   %s' \
+#              % self.atoms.get_chemical_formula(mode="hill")
         print >> self.txt, 'Ground state XC functional     :   %s' \
               % self.calc.hamiltonian.xc.name
         print >> self.txt, 'Valence electrons              :   %s' \
@@ -449,3 +467,119 @@ class RPACorrelation:
         print >> self.txt, \
               '------------------------------------------------------'
         print >> self.txt
+
+
+    def get_C6_coefficient(self,
+                           ecut=100.,
+                           smoothcut=None,
+                           nbands=None,
+                           kcommsize=1,
+                           extrapolate=False,
+                           gauss_legendre=None,
+                           frequency_cut=None,
+                           frequency_scale=None,
+                           direction=2):
+
+        self.initialize_calculation(None,
+                                    ecut,
+                                    None,
+                                    nbands,
+                                    kcommsize,
+                                    extrapolate,
+                                    gauss_legendre,
+                                    frequency_cut,
+                                    frequency_scale)
+
+        d = direction
+        d_pro = []
+        for i in range(3):
+            if i != d:
+                d_pro.append(i)
+        
+        dummy = DF(calc=self.calc,
+                   eta=0.0,
+                   w=self.w * 1j,
+                   ecut=self.ecut,
+                   hilbert_trans=False)
+        dummy.txt = devnull
+        dummy.initialize(simple_version=True)
+        npw = dummy.npw
+        del dummy
+
+        q = [0.,0.,0.]
+        q[d] = 1.e-5
+
+        if self.nbands is None:
+            nbands = npw
+        else:
+            nbands = self.nbands
+
+        if self.txt is sys.stdout:
+            txt = 'response.txt'
+        else:
+            txt='response_'+self.txt.name
+        df = DF(calc=self.calc,
+                xc=None,
+                nbands=nbands,
+                eta=0.0,
+                q=q,
+                txt=txt,
+                vcut=self.vcut,
+                w=self.w * 1j,
+                ecut=self.ecut,
+                comm=world,
+                optical_limit=True,
+                G_plus_q=True,
+                kcommsize=self.kcommsize,
+                hilbert_trans=False)
+        
+        print >> self.txt, 'Calculating RPA response function'
+        print >> self.txt, 'Polarization: %s' % d
+
+        chi_wGG = df.get_chi(xc='RPA')
+        chi0_wGG = df.chi0_wGG
+
+        Nw_local = len(chi_wGG)
+        local_a0_w = np.zeros(Nw_local, dtype=complex)
+        a0_w = np.empty(len(self.w), complex)
+        local_a_w = np.zeros(Nw_local, dtype=complex)
+        a_w = np.empty(len(self.w), complex)
+
+        Gvec_Gv = np.dot(df.Gvec_Gc + np.array(q), df.bcell_cv)
+        gd = self.calc.density.gd
+        n_d = gd.get_size_of_global_array()[d]
+        d_d = gd.get_grid_spacings()[d]
+        r_d = np.array([i*d_d for i in range(n_d)])
+
+        print >> self.txt, 'Calculating real space integrals'
+
+        int_G = np.zeros(npw, complex)
+        for iG in range(npw):
+            if df.Gvec_Gc[iG, d_pro[0]] == 0 and df.Gvec_Gc[iG, d_pro[1]] == 0:
+                int_G[iG] = np.sum(r_d * np.exp(1j*Gvec_Gv[iG, d] * r_d))*d_d
+        int2_GG = np.outer(int_G, int_G.conj())
+
+        print >> self.txt, 'Calculating dynamic polarizability'
+
+        for i in range(Nw_local):
+            local_a0_w[i] = np.trace(np.dot(chi0_wGG[i], int2_GG))
+            local_a_w[i] = np.trace(np.dot(chi_wGG[i], int2_GG))
+        df.wcomm.all_gather(local_a0_w, a0_w)
+        df.wcomm.all_gather(local_a_w, a_w)
+
+        A = df.vol / gd.cell_cv[d,d]
+        a0_w *= A**2 / df.vol
+        a_w *= A**2 / df.vol
+
+        del df
+        
+        C06 = np.sum(a0_w**2 * self.gauss_weights
+                     * self.transform) * 3 / (2*np.pi)
+        C6 = np.sum(a_w**2 * self.gauss_weights
+                    * self.transform) * 3 / (2*np.pi)
+
+        print >> self.txt, 'C06 = %s Ha*Bohr**6' % (C06.real / Ha)
+        print >> self.txt, 'C6 = %s Ha*Bohr**6' % (C6.real / Ha)
+        print >> self.txt
+
+        return C6.real / Ha, C06.real / Ha

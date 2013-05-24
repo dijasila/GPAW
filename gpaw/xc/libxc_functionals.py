@@ -51,6 +51,7 @@ libxc_functionals = {
     'GGA_C_AM05': 135,
     'GGA_C_XPBE': 136,
     'GGA_C_PBE_REVTPSS': 137,
+    'GGA_C_PBE_OTPSS': 138,
     'GGA_XC_LB': 160,
     'GGA_XC_HCTH_93': 161,
     'GGA_XC_HCTH_120': 162,
@@ -70,5 +71,11 @@ libxc_functionals = {
     'MGGA_X_M06L': 203,
     'MGGA_C_M06L': 204,
     'MGGA_X_REVTPSS': 205,
-    'MGGA_C_REVTPSS': 206
+    'MGGA_C_REVTPSS': 206,
+    'MGGA_X_OTPSS': 207,
+    'MGGA_C_OTPSS': 208,
+    'MGGA_X_MBEEF': 209,
+    'MGGA_X_MS0': 210,
+    'MGGA_X_MS1': 211,
+    'MGGA_X_MS2': 212
     }

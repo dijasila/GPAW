@@ -63,6 +63,7 @@ void transapply_worker(TransformerObject *self, int chunksize, int start,
 
   int nin = end - start;
   int nend = start + (nin / chunksize) * chunksize;
+  int nremain = end - nend;
 
   for (int n = start; n < nend; n += chunksize)
     {
@@ -102,39 +103,41 @@ void transapply_worker(TransformerObject *self, int chunksize, int start,
     }
 
   // Remainder loop
-  for (int n = nend; n < end; n++)
+  if ( nremain > 0 )
     {
-      my_in = in + n * ng;
-      out + n * out_ng;
+      my_in = in + nend * ng;
+      out + nend * out_ng;
       for (int i = 0; i < 3; i++)
         {
           bc_unpack1(bc, my_in, buf, i,
                      recvreq, sendreq,
                      recvbuf, sendbuf, ph + 2 * i,
-                     thread_id, 1);
+                     thread_id, nremain );
           bc_unpack2(bc, buf, i,
-                     recvreq, sendreq, recvbuf, 1);
+                     recvreq, sendreq, recvbuf, nremain);
         }
-      if (real)
-        {
-          if (self->interpolate)
-            bmgs_interpolate(self->k, self->skip, buf, bc->size2,
-                             my_out, buf2);
-          else
-            bmgs_restrict(self->k, buf, bc->size2,
-                          my_out, buf2);
-        }
-      else
-        {
-          if (self->interpolate)
-            bmgs_interpolatez(self->k, self->skip, (double_complex*)buf,
-                              bc->size2, (double_complex*)my_out,
-                              (double_complex*) buf2);
-          else
-            bmgs_restrictz(self->k, (double_complex*) buf,
-                           bc->size2, (double_complex*)my_out,
-                           (double_complex*) buf2);
-        }
+
+      for (int m = 0; m < nremain; m++)
+	if (real)
+	  {
+	    if (self->interpolate)
+	      bmgs_interpolate(self->k, self->skip, buf + m * ng2, bc->size2,
+			       my_out + m * out_ng, buf2 + m * (ng2 * 16));
+	    else
+	      bmgs_restrict(self->k, buf + m * ng2, bc->size2,
+			    my_out + m * out_ng, buf2 + m * (ng2 * 16));
+	  }
+	else
+	  {
+	    if (self->interpolate)
+	      bmgs_interpolatez(self->k, self->skip, (double_complex*)(buf + m * ng2),
+				bc->size2, (double_complex*)(my_out + m * out_ng),
+				(double_complex*) (buf2 + m * (ng2 * 16)));
+	    else
+	      bmgs_restrictz(self->k, (double_complex*) (buf + m *ng2),
+			     bc->size2, (double_complex*)(my_out + m * out_ng),
+			     (double_complex*) (buf2 + m * (ng2 * 16)));
+	  }
     }
 
   free(buf2);
@@ -152,14 +155,14 @@ static PyObject* Transformer_apply(TransformerObject *self, PyObject *args)
     return NULL;
 
   int nin = 1;
-  if (input->nd == 4)
-    nin = input->dimensions[0];
+  if (PyArray_NDIM(input) == 4)
+    nin = PyArray_DIMS(input)[0];
 
   boundary_conditions* bc = self->bc;
 
   const double* in = DOUBLEP(input);
   double* out = DOUBLEP(output);
-  bool real = (input->descr->type_num == PyArray_DOUBLE);
+  bool real = (PyArray_DESCR(input)->type_num == NPY_DOUBLE);
   const double_complex* ph = (real ? 0 : COMPLEXP(phases));
 
   int chunksize = 1;
@@ -167,8 +170,9 @@ static PyObject* Transformer_apply(TransformerObject *self, PyObject *args)
     {
       int opt_msg_size = atoi(getenv("GPAW_MPI_OPTIMAL_MSG_SIZE"));
       if (bc->maxsend > 0 )
-          chunksize = opt_msg_size * 1024 / (bc->maxsend * (2 - (int) real) *
-                                             sizeof(double));
+          chunksize = opt_msg_size * 1024 / (bc->maxsend / 2 * 
+                                             (2 - (int)real) * sizeof(double));
+      chunksize = (chunksize > 0) ? chunksize : 1;
       chunksize = (chunksize < nin) ? chunksize : nin;
     }
 

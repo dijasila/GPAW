@@ -20,9 +20,11 @@ Build GPAW using **gcc** with the configuration file
 
 and by executing::
 
-  module switch intel gcc
+  module unload intel
+  module load gnu
   export OMPI_MPICC=gcc
   module load mkl
+  module load phdf5
   module load python
   python setup.py install --home=MY_INSTALLATION_DIR
 

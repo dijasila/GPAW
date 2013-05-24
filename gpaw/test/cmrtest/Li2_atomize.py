@@ -1,14 +1,19 @@
 import os
 
-import cmr
-# set True in order to use cmr in parallel jobs!
-cmr.set_ase_parallel(enable=True)
-
 from ase.structure import molecule
 from ase.io import read, write
 from ase.parallel import rank
 
 from gpaw import GPAW, restart
+
+import warnings
+# cmr calls all available methods in ase.atoms detected by the module inspect.
+# Therefore also deprecated methods are called - and we choose to silence those warnings.
+warnings.filterwarnings('ignore', 'ase.atoms.*deprecated',)
+
+import cmr
+#from cmr.tools.log import Log
+#cmr.logger.set_message_selection(Log.MSG_TYPE_ALL)
 
 calculate = True
 recalculate = True
@@ -19,7 +24,7 @@ analyse_from_db = False # analyse database
 
 create_group = True # group calculations beloging to a given reaction
 
-clean = True
+clean = False
 
 if create_group: assert analyse_from_dir or analyse_from_db
 
@@ -129,7 +134,6 @@ if recalculate:
     cmrfile = formula + '.cmr'
 
     # add new results to the cmrfile
-    assert os.path.exists(cmrfile)
     data = cmr.read(cmrfile)
     data.set_user_variable('U_potential_energy_PBE', data['U_potential_energy'] + ediff)
     data.write(cmrfile)
@@ -145,7 +149,6 @@ if recalculate:
     cmrfile = formula + '.cmr'
 
     # add new results to the cmrfile
-    assert os.path.exists(cmrfile)
     data = cmr.read(cmrfile)
     data.set_user_variable('U_potential_energy_PBE', data['U_potential_energy'] + ediff)
     data.write(cmrfile)
@@ -154,8 +157,7 @@ if recalculate:
 
 if analyse_from_dir:
 
-    # analyse the results from cmr files in the local directory
-
+    # analyze the results from cmr files in the local directory
     from cmr.ui import DirectoryReader
 
     # read all compounds in the project with lcao and LDA orbitals
@@ -202,6 +204,20 @@ if analyse_from_dir:
             group.set_user_variable('project_id', project_id)
             group.write(symbol + '2_atomize_from_dir.cmr');
 
+    if True:
+
+        all = reader.find(keyword_list=[project_id])
+        
+        if rank == 0:
+            print 'contents of the cmr files present in the local directory'
+        # print requested results
+        # column_length=0 aligns data in the table (-1 : data unaligned is default)
+        all.print_table(column_length=0,
+                        columns=['U_formula', 'U_vacuum',
+                                 'U_xc', 'U_h', 'U_hund',
+                                 'U_potential_energy', 'U_potential_energy_PBE',
+                                 'ase_temperature', 'U_reaction', 'U_ea_LDA', 'U_ea_PBE', 'U_description'])
+
 if upload_to_db:
 
     # upload cmr files to the database
@@ -211,8 +227,8 @@ if upload_to_db:
 
 if analyse_from_db:
 
-    # analyse the results from the database
-
+    # analyze the results from the database
+    # analysis can only be performed on rank 0!!
     from cmr.ui import DBReader
     reader = DBReader()
     all = reader.find(name_value_list=[('U_mode', 'lcao'),
@@ -220,6 +236,7 @@ if analyse_from_db:
                                        #('db_user', '')
                                        ],
                       keyword_list=[project_id])
+    
     if rank == 0:
         print 'results from the database'
     # print requested results
@@ -234,35 +251,48 @@ if analyse_from_db:
     f2 = symbol + '2'
     f1 = symbol
 
-    if rank == 0:
+    # results are accesible only on master rank
+    r1 = all.get('U_formula', f1)
+    r2 = all.get('U_formula', f2)
 
-        # results are accesible only on master rank
-        r1 = all.get('U_formula', f1)
-        r2 = all.get('U_formula', f2)
-
-        # check if results were successfully retrieved, otherwise we have to wait
-        if r1 is None or r2 is None:
-            print "Results are not yet in the database. Wait, and try again."
-        else:
-            # calculate atomization energies (ea)
-            ea_LDA = 2 * r1['U_potential_energy'] - r2['U_potential_energy']
-            ea_PBE = 2 * r1['U_potential_energy_PBE'] - r2['U_potential_energy_PBE']
+    # check if results were successfully retrieved, otherwise we have to wait
+    if r1 is None or r2 is None:
+        print "Results are not yet in the database. Wait, and try again."
+    else:
+        # calculate atomization energies (ea)
+        ea_LDA = 2 * r1['U_potential_energy'] - r2['U_potential_energy']
+        ea_PBE = 2 * r1['U_potential_energy_PBE'] - r2['U_potential_energy_PBE']
+        if rank == 0:
             print 'atomization energy [eV] ' + xc + ' = ' + str(ea_LDA)
             print 'atomization energy [eV] PBE = ' + str(ea_PBE)
 
-            if create_group:
-                # ea_LDA and ea_PBE define a group
-                group = cmr.create_group();
-                group.add(r1['db_hash']);
-                group.add(r2['db_hash']);
-                group.set_user_variable('U_ea_LDA', ea_LDA)
-                group.set_user_variable('U_ea_PBE', ea_PBE)
-                group.set_user_variable('U_description', 'atomization energy [eV] (from database)')
-                group.set_user_variable('U_reaction', '2 * ' + symbol + ' - ' + symbol + '2')
-                group.set_user_variable('db_keywords', [project_id])
-                group.set_user_variable('project_id', project_id)
-                group.write(symbol + '2_atomize_from_db.cmr');
-                group.write(".cmr");
+        if create_group:
+            # ea_LDA and ea_PBE define a group
+            group = cmr.create_group();
+            group.add(r1['db_hash']);
+            group.add(r2['db_hash']);
+            group.set_user_variable('U_ea_LDA', ea_LDA)
+            group.set_user_variable('U_ea_PBE', ea_PBE)
+            group.set_user_variable('U_description', 'atomization energy [eV] (from database)')
+            group.set_user_variable('U_reaction', '2 * ' + symbol + ' - ' + symbol + '2')
+            group.set_user_variable('db_keywords', [project_id])
+            group.set_user_variable('project_id', project_id)
+            group.write(symbol + '2_atomize_from_db.cmr');
+            group.write(".cmr");
+
+    if True:
+
+        all = reader.find(keyword_list=[project_id])
+        
+        if rank == 0:
+            print 'contents of the database'
+        # print requested results
+        # column_length=0 aligns data in the table (-1 : data unaligned is default)
+        all.print_table(column_length=0,
+                        columns=['U_formula', 'U_vacuum',
+                                 'U_xc', 'U_h', 'U_hund',
+                                 'U_potential_energy', 'U_potential_energy_PBE',
+                                 'ase_temperature', 'U_reaction', 'U_ea_LDA', 'U_ea_PBE', 'U_description'])
 
 if clean:
 
@@ -272,3 +302,5 @@ if clean:
                      symbol + '2_atomize_from_dir.cmr',
                      symbol + '2_atomize_from_db.cmr']:
             if os.path.exists(file): os.unlink(file)
+
+

@@ -632,6 +632,15 @@ available options in FD mode are conjugate gradient method
 (``eigensolver='dav'``). From the alternatives, conjugate gradient
 seems to perform better in general.
 
+More control can be obtained by using directly the eigensolver objects::
+
+  from gpaw.eigensolvers import CG
+  calc = GPAW(eigensolver=CG(niter=5, rtol=0.20))
+
+Here, ``niter`` specifies the maximum number of conjugate gradient iterations
+for each band (within a single SCF step), and if the relative change 
+in residual is less than ``rtol``, the iteration for the band is not continued.
+
 LCAO mode has its own eigensolver, which directly diagonalizes the
 Hamiltonian matrix instead of using an iterative method.
 
@@ -798,6 +807,30 @@ change the number of grid points:
 
 More details can be found on the :ref:`restart_files` page.
 
+---------------------------------------
+Customizing behaviour through observers
+---------------------------------------
+
+An *observer* function can be *attached* to the calculator so that it
+will be executed every *N* iterations during a calculation.  The below
+example saves a differently named restart file every 5 iterations::
+
+  calc = GPAW(...)
+
+  occasionally = 5
+
+  class OccasionalWriter:
+      def __init__(self):
+          self.iter = 0
+
+      def write(self):
+          calc.write('filename.%03d.gpw' % self.iter)
+          self.iter += occasionally
+
+  calc.attach(OccasionalWriter().write, occasionally)
+
+See also :meth:`~gpaw.GPAW.attach`.
+
 ----------------------
 Command line arguments
 ----------------------
@@ -867,34 +900,6 @@ argument                         description
 				 >>> print extra_parameters
 				 {'a': 1, 'b': 2.3}
 ===============================  =============================================
-
-
-----------
-Extensions
-----------
-
-Currently available extensions:
-
- 1. :ref:`Linear response time-dependent DFT <lrtddft>`
- 2. :ref:`Time propagation time-dependent DFT <timepropagation>`
-
-
-:ref:`lrtddft`
---------------
-
-Optical photoabsorption spectrum can be simulated using :ref:`lrtddft`
-
-
-:ref:`timepropagation`
-----------------------
-
-Optical photoabsorption spectrum as well as nonlinear effects can be
-studied using :ref:`timepropagation`. This approach
-scales better than linear response, but the prefactor is so large that
-for small and moderate systems linear response is significantly
-faster.
-
-
 
 
 .. [#LDA]    J. P. Perdew and Y. Wang,

@@ -117,7 +117,7 @@ as well as an ensemble estimate of the binding energy error (dE_bind)
 
 >>> from ase import *
 >>> from gpaw import GPAW
->>> from gpaw.xc.bee import BEEF_Ensemble
+>>> from ase.dft.bee import BEEF_Ensemble
 >>> import numpy as np
 >>> xc = 'BEEF-vdW'
 >>> h2 = Atoms('H2',[[0.,0.,0.],[0.,0.,0.75]])
@@ -142,6 +142,8 @@ as well as an ensemble estimate of the binding energy error (dE_bind)
 >>> dE_bind = np.std(dE_bind)
 
 
+Note that the BEEF_Ensemble module has recently been moved from GPAW
+to the ASE package.
 The default number of ensemble XC functionals is 2000,
 for which well-converged error estimates should be ensured.
 Therefore, "de_h2" and "de_h" in the example
@@ -158,15 +160,16 @@ BEEF-vdW ensemble error estimates on a quantity.
 
 
 .. [#vdW-DF1a] M. Dion, H. Rydberg, E. Schroder, D.C. Langreth, and
-   B. I. Lundqvist. Van der Waals density functional for general geometries.
+   B. I. Lundqvist, Van der Waals density functional for general geometries,
    Physical Review Letters, 92, 246401 (2004)
 
-.. [#BEEF-vdW] J. Wellendorff, K. T. Lundgaard, A. Mogelhoj, J. K. Norskov,
-   T. Bligard, and K. W. Jacobsen. To be published.
+.. [#BEEF-vdW] J. Wellendorff, K. T. Lundgaard, A. Mogelhoj,
+   V. Petzold, D. D. Landis, J. K. Norskov, T. Bligard, and K. W. Jacobsen,
+   Physical Review B, 85, 235149 (2012)
 
 .. [#vdW-DF1b] M. Dion, H. Rydberg, E. Schroder, D.C. Langreth, and
-   B. I. Lundqvist. Erratum: Van der Waals density functional for
-   general geometries.  Physical Review Letters, 95, 109902 (2005)
+   B. I. Lundqvist, Erratum: Van der Waals density functional for
+   general geometries, Physical Review Letters, 95, 109902 (2005)
 
 .. [#vdW-DF2] K. Lee, D. E. Murray, L. Kong, B. I. Lundqvist,
    and D. C. Langreth, Higher-accuracy van der Waals density functional,
@@ -180,7 +183,7 @@ BEEF-vdW ensemble error estimates on a quantity.
    Van der Waals density functional: An appropriate exchange functional,
    Physical Review B, 81, 161104(R) (2010)
    
-.. [#soler] Guillermo Román-Pérez and José M. Soler.
+.. [#soler] Guillermo Román-Pérez and José M. Soler,
    Efficient Implementation of a van der Waals Density Functional: Application
-   to Double-Wall Carbon Nanotubes.
+   to Double-Wall Carbon Nanotubes,
    Physical Review Letters 103, 096102 (2009)

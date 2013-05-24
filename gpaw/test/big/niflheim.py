@@ -16,8 +16,8 @@ class NiflheimCluster(Cluster):
         self.write_pylab_wrapper(job)
 
         if job.queueopts is None:
-            if job.ncpus == 1:
-                ppn = '1:opteron2218:ethernet'
+            if job.ncpus < 4:
+                ppn = '%d:opteron:ethernet' % job.ncpus
                 nodes = 1
                 arch = 'linux-x86_64-opteron-2.4'
             elif job.ncpus % 8 == 0:
@@ -26,7 +26,7 @@ class NiflheimCluster(Cluster):
                 arch = 'linux-x86_64-xeon-2.4'
             else:
                 assert job.ncpus % 4 == 0
-                ppn = '4:opteron2218:ethernet'
+                ppn = '4:opteron:ethernet'
                 nodes = job.ncpus // 4
                 arch = 'linux-x86_64-opteron-2.4'
             queueopts = '-l nodes=%d:ppn=%s' % (nodes, ppn)
@@ -45,14 +45,28 @@ class NiflheimCluster(Cluster):
 
         run_command = '. /home/camp/modulefiles.sh&& '
         run_command += 'module load MATPLOTLIB&& '  # loads numpy, mpl, ...
+        run_command += 'module load SCIPY&& '
+        run_command += 'module load povray&& '
+        run_command += 'module load ABINIT&& '
+        run_command += 'module load DACAPO&& '
+        run_command += 'module unload SCIENTIFICPYTHON&& '
+        run_command += 'module load SCIENTIFICPYTHON/2.8&& '
+        run_command += 'module use --append /home/niflheim/dulak/NWchem&& '
+        run_command += 'module load NWCHEM/6.1-27.1.x86_64&& '
 
         if job.ncpus == 1:
             # don't use mpiexec here,
             # this allows one to start mpi inside the *.agts.py script
             run_command += 'module load '
             run_command += 'openmpi/1.3.3-1.el5.fys.gfortran43.4.3.2&& '
-            run_command += ' PYTHONPATH=' + submit_pythonpath + '&&'
-            run_command += ' GPAW_SETUP_PATH=' + self.setuppath
+            run_command += ' export PYTHONPATH=' + submit_pythonpath + '&&'
+            run_command += ' export GPAW_SETUP_PATH=' + self.setuppath + '&&'
+            # we want to run GPAW/ASE scripts + gpaw-python with os.system!
+            run_command += ' PATH=%s/ase/tools:$PATH' % dir + '&&'
+            run_command += ' PATH=%s/gpaw/tools:$PATH' % dir + '&&'
+            run_command += ' PATH=%s/gpaw/build/bin.%s:$PATH' % (dir, arch) + '&&'
+            # we run other codes with asec
+            run_command += ' export ASE_ABINIT_COMMAND="mpiexec abinip < PREFIX.files > PREFIX.log"&&'
         else:
             run_command += 'module load '
             run_command += 'openmpi/1.3.3-1.el5.fys.gfortran43.4.3.2&& '

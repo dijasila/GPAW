@@ -56,6 +56,8 @@ extra_compile_args += ['-fopenmp']
 # Valid values for scalapack are False, or True:
 # False (the default) - no ScaLapack compiled in
 # True - ScaLapack compiled in
+# Warning! At least scalapack 2.0.1 is required!
+# See https://trac.fysik.dtu.dk/projects/gpaw/ticket/230
 scalapack = False
 
 if scalapack:

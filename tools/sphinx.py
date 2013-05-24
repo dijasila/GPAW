@@ -6,7 +6,25 @@ import glob
 import trace
 import tempfile
 
-tmpdir = tempfile.mkdtemp(prefix='gpaw-sphinx-')
+if '--dir' in sys.argv:
+    i = sys.argv.index('--dir')
+    dir = sys.argv[i+1]
+else:
+    dir = None
+
+if '--email' in sys.argv:
+    i = sys.argv.index('--email')
+    email = sys.argv[i+1]
+else:
+    email = None
+
+if '--tarfiledir' in sys.argv:
+    i = sys.argv.index('--tarfiledir')
+    tarfiledir = sys.argv[i+1]
+else:
+    tarfiledir = None
+
+tmpdir = tempfile.mkdtemp(prefix='gpaw-sphinx-', dir=dir)
 os.chdir(tmpdir)
 
 def build():
@@ -51,18 +69,25 @@ def build():
         fd = open('epydoc.errors', 'w')
         fd.write(''.join(errors))
         fd.close()
-        email = 'gpaw-developers@listserv.fysik.dtu.dk'
-        email = 'jensj@fysik.dtu.dk'
-        x = os.system('mail -s "EpyDoc errors" %s < epydoc.errors' % email)
-        assert x == 0
+        if email is not None:
+            x = os.system('mail -s "GPAW: EpyDoc errors" %s < epydoc.errors' % email)
+            assert x == 0
 
-    sys.path.insert(0, tmpdir + '/lib/python')
+    # ase installs under lib independently of the platform
+    sys.path.insert(0, '%s/lib/python' % tmpdir)
+    # gpaw installs under libdir
+    from distutils.sysconfig import get_config_var
+    libdir = os.path.split(get_config_var('LIBDIR'))[-1]
+    # import gpaw from where it was installed
+    sys.path.insert(0, '%s/%s/python' % (tmpdir, libdir))
+
     from gpaw.version import version
 
     os.chdir('doc')
     os.system('sed -i s/gpaw-snapshot/gpaw-%s/ download.rst' % version)
     os.mkdir('_build')
-    if os.system('PYTHONPATH=%s/lib/python ' % tmpdir +
+    if os.system('PYTHONPATH=%s/%s/python:%s/lib/python ' % \
+                 (tmpdir, libdir, tmpdir) +
                  'GPAW_SETUP_PATH=%s ' % setups +
                  'sphinx-build . _build') != 0:
         raise RuntimeError('Sphinx failed!')
@@ -81,9 +106,7 @@ def build():
     assert os.system('mv ../../html epydoc;' +
                      'mv ../../dist/gpaw-%s.tar.gz .' % version) == 0
 
-tarfiledir = None
-if len(sys.argv) == 2:
-    tarfiledir = sys.argv[1]
+if tarfiledir is not None:
     try:
         os.remove(tarfiledir + '/gpaw-webpages.tar.gz')
     except OSError:
@@ -93,5 +116,5 @@ build()
     
 if tarfiledir is not None:
     os.system('cd ..; tar czf %s/gpaw-webpages.tar.gz _build' % tarfiledir)
-    os.system('cd; rm -r ' + tmpdir)
 
+os.system('cd; /bin/rm -rf ' + tmpdir)

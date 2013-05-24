@@ -3,16 +3,21 @@
 
 import os
 
-import cmr
-# set True in order to use cmr in parallel jobs!
-cmr.set_ase_parallel(enable=True)
-
 from ase.structure import molecule
 from ase.io import read, write
 from ase.parallel import barrier, rank
 
 from gpaw import GPAW, restart
 from gpaw.test import equal
+
+import warnings
+# cmr calls all available methods in ase.atoms detected by the module inspect.
+# Therefore also deprecated methods are called - and we choose to silence those warnings.
+warnings.filterwarnings('ignore', 'ase.atoms.*deprecated',)
+
+import cmr
+# from cmr.tools.log import Log
+# cmr.logger.set_message_selection(Log.MSG_TYPE_ALL)
 
 # define the project in order to find it in the database!
 project_id = 'modify cmr file after gpw restart'
@@ -54,22 +59,19 @@ if 1: # not used in this example
 write(cmrfile, system2, cmr_params=cmr_params)
 
 # add the xc tag to the cmrfile
-assert os.path.exists(cmrfile)
 data = cmr.read(cmrfile)
 data.set_user_variable('xc', xc)
 data.write(cmrfile)
 
-# peform PBE calculation on LDA density
+# perform PBE calculation on LDA density
 ediff = calc2.get_xc_difference('PBE')
 
 # add new results to the cmrfile
-assert os.path.exists(cmrfile)
 data = cmr.read(cmrfile)
 data.set_user_variable('PBE', data['ase_potential_energy'] + ediff)
 data.write(cmrfile)
 
-# analyse the results with CMR
-
+# analyze the results with CMR
 from cmr.ui import DirectoryReader
 
 reader = DirectoryReader(directory='.', ext='.cmr')
@@ -78,15 +80,13 @@ all = reader.find(name_value_list=[('mode', 'lcao')],
                   keyword_list=[project_id])
 results = all.get('formula', formula)
 
-if rank == 0:
-    print results['formula'], results['xc'], results['ase_potential_energy']
+print results['formula'], results['xc'], results['ase_potential_energy']
 
 # column_length=0 aligns data in the table (-1 : data unaligned is default)
 all.print_table(column_length=0,
                 columns=['formula', 'xc', 'h', 'ase_potential_energy', 'PBE'])
 
-if rank == 0:
-    equal(results['PBE'], e + ediff, 1e-6)
+equal(results['PBE'], e + ediff, 1e-6)
 
 if rank == 0:
     for file in [formula + '.gpw', formula + '.db', cmrfile]:

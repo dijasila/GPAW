@@ -1,5 +1,5 @@
 def agts(queue):
-    iron = queue.add('iron.py', ncpus=8, walltime=8 * 60)
+    iron = queue.add('iron.py', ncpus=8, walltime=12 * 60)
     queue.add('iron.agts.py', deps=[iron],
               creates=['Fe_conv_k_FD.png', 'Fe_conv_k_MP.png',
                        'Fe_conv_h.png'])
@@ -10,7 +10,7 @@ if __name__ == '__main__':
     from ase.utils.eos import EquationOfState
     from ase.io import read
     def f(width, k, g, dist):
-        filename = 'Fe-bulk-gpaw-%s-%.2f-%02d-%2d-fit.traj' % (
+        filename = 'Fe-bulk-%s-%.2f-%02d-%2d.fit.traj' % (
             dist, width, k, g)
         configs = read(filename + '@:')
         # Extract volumes and energies:

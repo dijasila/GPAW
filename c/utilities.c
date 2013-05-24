@@ -26,8 +26,8 @@
 #ifdef GPAW_HPM
 void HPM_Start(char *);
 void HPM_Stop(char *);
-void HPM_Print(void);
-void HPM_Print_Flops(void);
+void summary_start(void);
+void summary_stop(void);
 
 PyObject* ibm_hpm_start(PyObject *self, PyObject *args)
 {
@@ -44,6 +44,18 @@ PyObject* ibm_hpm_stop(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "s", &s))
     return NULL;
   HPM_Stop(s);
+  Py_RETURN_NONE;
+}
+
+PyObject* ibm_mpi_start(PyObject *self)
+{
+  summary_start();
+  Py_RETURN_NONE;
+}
+
+PyObject* ibm_mpi_stop(PyObject *self)
+{
+  summary_stop();
   Py_RETURN_NONE;
 }
 #endif
@@ -132,6 +144,32 @@ static void coll_print(FILE *fp, const char *label, double val,
 static long_long papi_start_usec_p;
 static long_long papi_start_usec_r;
 
+// Returns PAPI_dmem_info structure in Python dictionary
+// Units used by PAPI are kB
+PyObject* papi_mem_info(PyObject *self, PyObject *args)
+{
+  PAPI_dmem_info_t dmem;
+  PyObject* py_dmem;
+
+  PAPI_get_dmem_info(&dmem);
+
+  py_dmem = PyDict_New();
+  PyDict_SetItemString(py_dmem, "peak", PyLong_FromLongLong(dmem.peak));
+  PyDict_SetItemString(py_dmem, "size", PyLong_FromLongLong(dmem.size));
+  PyDict_SetItemString(py_dmem, "resident", PyLong_FromLongLong(dmem.resident));
+  PyDict_SetItemString(py_dmem, "high_water_mark", 
+                       PyLong_FromLongLong(dmem.high_water_mark));
+  PyDict_SetItemString(py_dmem, "shared", PyLong_FromLongLong(dmem.shared));
+  PyDict_SetItemString(py_dmem, "text", PyLong_FromLongLong(dmem.text));
+  PyDict_SetItemString(py_dmem, "library", PyLong_FromLongLong(dmem.library));
+  PyDict_SetItemString(py_dmem, "heap", PyLong_FromLongLong(dmem.heap));
+  PyDict_SetItemString(py_dmem, "stack", PyLong_FromLongLong(dmem.stack));
+  PyDict_SetItemString(py_dmem, "pagesize", PyLong_FromLongLong(dmem.pagesize));
+  PyDict_SetItemString(py_dmem, "pte", PyLong_FromLongLong(dmem.pte));
+
+  return py_dmem;
+}
+
 int gpaw_perf_init()
 {
   int events[NUM_PAPI_EV];
@@ -206,12 +244,10 @@ void gpaw_perf_finalize()
   }
 }
 #elif GPAW_HPM
-void HPM_Init(void);
 void HPM_Start(char *);
 
 int gpaw_perf_init()
 {
-  HPM_Init();
   HPM_Start("GPAW");
   return 0;
 }
@@ -219,8 +255,6 @@ int gpaw_perf_init()
 void gpaw_perf_finalize()
 {
   HPM_Stop("GPAW");
-  HPM_Print();
-  HPM_Print_Flops();
 }
 #else  // Use just MPI_Wtime
 static double t0;
@@ -317,8 +351,8 @@ PyObject* elementwise_multiply_add(PyObject *self, PyObject *args)
   const double* const b = DOUBLEP(bb);
   double* const c = DOUBLEP(cc);
   int n = 1;
-  for (int d = 0; d < aa->nd; d++)
-    n *= aa->dimensions[d];
+  for (int d = 0; d < PyArray_NDIM(aa); d++)
+    n *= PyArray_DIMS(aa)[d];
   for (int i = 0; i < n; i++)
     {
       c[i] += a[i] * b[i];
@@ -340,10 +374,10 @@ PyObject* utilities_gaussian_wave(PyObject *self, PyObject *args)
     return NULL;
 
   int C, G;
-  C = r_cG_obj->dimensions[0];
-  G = r_cG_obj->dimensions[1];
-  for (int i = 2; i < r_cG_obj->nd; i++)
-	G *= r_cG_obj->dimensions[i];
+  C = PyArray_DIMS(r_cG_obj)[0];
+  G = PyArray_DIMS(r_cG_obj)[1];
+  for (int i = 2; i < PyArray_NDIM(r_cG_obj); i++)
+	G *= PyArray_DIMS(r_cG_obj)[i];
 
   double* r_cG = DOUBLEP(r_cG_obj); // XXX not ideally strided
   double* r0_c = DOUBLEP(r0_c_obj);
@@ -354,7 +388,7 @@ PyObject* utilities_gaussian_wave(PyObject *self, PyObject *args)
   for (int c=0; c<C; c++)
     gammapoint &= (k_c[c]==0);
 
-  if (gs_G_obj->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(gs_G_obj)->type_num == NPY_DOUBLE)
     {
       double* gs_G = DOUBLEP(gs_G_obj);
 
@@ -436,8 +470,8 @@ PyObject* utilities_vdot(PyObject *self, PyObject *args)
   const double* const b = DOUBLEP(bb);
   double sum = 0.0;
   int n = 1;
-  for (int d = 0; d < aa->nd; d++)
-    n *= aa->dimensions[d];
+  for (int d = 0; d < PyArray_NDIM(aa); d++)
+    n *= PyArray_DIMS(aa)[d];
   for (int i = 0; i < n; i++)
     {
       sum += a[i] * b[i];
@@ -459,8 +493,8 @@ PyObject* utilities_vdot_self(PyObject *self, PyObject *args)
   const double* const a = DOUBLEP(aa);
   double sum = 0.0;
   int n = 1;
-  for (int d = 0; d < aa->nd; d++)
-    n *= aa->dimensions[d];
+  for (int d = 0; d < PyArray_NDIM(aa); d++)
+    n *= PyArray_DIMS(aa)[d];
   for (int i = 0; i < n; i++)
     {
       sum += a[i] * a[i];
@@ -477,13 +511,51 @@ PyObject* errorfunction(PyObject *self, PyObject *args)
   return Py_BuildValue("d", erf(x));
 }
 
+
+PyObject* pack(PyObject *self, PyObject *args)
+{
+    PyArrayObject* a_obj;
+    if (!PyArg_ParseTuple(args, "O", &a_obj)) 
+        return NULL;
+    a_obj = PyArray_GETCONTIGUOUS(a_obj);
+    int n = PyArray_DIMS(a_obj)[0];
+    npy_intp dims[1] = {n * (n + 1) / 2};
+    int typenum = PyArray_DESCR(a_obj)->type_num;
+    PyArrayObject* b_obj = (PyArrayObject*) PyArray_SimpleNew(1, dims,
+							      typenum);
+    if (b_obj == NULL)
+      return NULL;
+    if (typenum == NPY_DOUBLE) {
+	double* a = (double*)PyArray_DATA(a_obj);
+	double* b = (double*)PyArray_DATA(b_obj);
+	for (int r = 0; r < n; r++) {
+	    *b++ = a[r + n * r];
+	    for (int c = r + 1; c < n; c++)
+	        *b++ = a[r + n * c] + a[c + n * r];
+	}
+    } else {
+	double complex* a = (double complex*)PyArray_DATA(a_obj);
+	double complex* b = (double complex*)PyArray_DATA(b_obj);
+	for (int r = 0; r < n; r++) {
+	    *b++ = a[r + n * r];
+	    for (int c = r + 1; c < n; c++)
+	        *b++ = a[r + n * c] + a[c + n * r];
+	}
+    }
+    Py_DECREF(a_obj);
+    PyObject* value = Py_BuildValue("O", b_obj);
+    Py_DECREF(b_obj);
+    return value;
+}
+
+
 PyObject* unpack(PyObject *self, PyObject *args)
 {
   PyArrayObject* ap;
   PyArrayObject* a;
   if (!PyArg_ParseTuple(args, "OO", &ap, &a)) 
     return NULL;
-  int n = a->dimensions[0];
+  int n = PyArray_DIMS(a)[0];
   double* datap = DOUBLEP(ap);
   double* data = DOUBLEP(a);
   for (int r = 0; r < n; r++)
@@ -502,7 +574,7 @@ PyObject* unpack_complex(PyObject *self, PyObject *args)
   PyArrayObject* a;
   if (!PyArg_ParseTuple(args, "OO", &ap, &a)) 
     return NULL;
-  int n = a->dimensions[0];
+  int n = PyArray_DIMS(a)[0];
   double_complex* datap = COMPLEXP(ap);
   double_complex* data = COMPLEXP(a);
   for (int r = 0; r < n; r++)
@@ -524,7 +596,7 @@ PyObject* hartree(PyObject *self, PyObject *args)
   PyArrayObject* vr_array;
   if (!PyArg_ParseTuple(args, "iOdiO", &l, &nrdr_array, &b, &N, &vr_array)) 
     return NULL;
-  const int M = nrdr_array->dimensions[0];
+  const int M = PyArray_DIMS(nrdr_array)[0];
   const double* nrdr = DOUBLEP(nrdr_array);
   double* vr = DOUBLEP(vr_array);
   double p = 0.0;
@@ -557,7 +629,7 @@ PyObject* localize(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "OO", &Z_nnc, &U_nn)) 
     return NULL;
 
-  int n = U_nn->dimensions[0];
+  int n = PyArray_DIMS(U_nn)[0];
   double complex (*Z)[n][3] = (double complex (*)[n][3])COMPLEXP(Z_nnc);
   double (*U)[n] = (double (*)[n])DOUBLEP(U_nn);
 
@@ -626,19 +698,6 @@ PyObject* localize(PyObject *self, PyObject *args)
   return Py_BuildValue("d", value);
 }
 
-PyObject* swap_arrays(PyObject *self, PyObject *args)
-{
-  PyArrayObject* a;
-  PyArrayObject* b;
-  if (!PyArg_ParseTuple(args, "OO", &a, &b)) 
-    return NULL;
-
-  void *tmp = (void*) a->data;
-  a->data = b->data;
-  b->data = tmp;
-    
-  Py_RETURN_NONE;
-}
 
 PyObject* spherical_harmonics(PyObject *self, PyObject *args)
 {

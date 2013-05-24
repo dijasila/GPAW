@@ -1,15 +1,24 @@
 """Python wrapper for FFTW3 library."""
 
-import time
+import os
 
 import numpy as np
 
-try:
-    import ctypes
-    lib = ctypes.CDLL('libfftw3.so')
-except (ImportError, OSError):
-    lib = None  # Use Numpy's fft
+if 'GPAW_FFTWSO' in os.environ:
+    fftwlibnames = [os.environ['GPAW_FFTWSO']]
+    if '' in fftwlibnames:
+        fftwlibnames.remove('')  # GPAW_FFTWSO='' for numpy fallback!
+else:
+    fftwlibnames = ['libfftw3.so', 'libmkl_intel_lp64.so', 'libmkl_rt.so']
 
+lib = None
+for libname in fftwlibnames:
+    try:
+        import ctypes
+        lib = ctypes.CDLL(libname)
+        break
+    except (ImportError, OSError):
+        pass
 
 ESTIMATE = 64
 MEASURE = 0
@@ -54,7 +63,7 @@ class FFTWPlan:
             n0, n1, n2 = in_R.shape
             self.plan = lib.fftw_plan_dft_3d(n0, n1, n2,
                                              in_R, out_R, sign, flags)
-        
+
     def execute(self):
         lib.fftw_execute(self.plan)
 

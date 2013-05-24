@@ -20,7 +20,7 @@ class InputParameters(dict):
             ('kpts',            [(0, 0, 0)]),
             ('lmax',            2),
             ('charge',          0),
-            ('fixmom',          False),      # don't use this
+            ('fixmom',          False),  # don't use this
             ('nbands',          None),
             ('setups',          'paw'),
             ('basis',           {}),
@@ -45,20 +45,21 @@ class InputParameters(dict):
                                  'sl_inverse_cholesky': sl_inverse_cholesky,
                                  'sl_lcao':             sl_lcao,
                                  'buffer_size':         buffer_size}),
-            ('parsize',         None), #don't use this
-            ('parsize_bands',   None), #don't use this
-            ('parstride_bands', False), #don't use this
+            ('parsize',         None),  # don't use this
+            ('parsize_bands',   None),  # don't use this
+            ('parstride_bands', False),  # don't use this
             ('external',        None),  # eV
             ('verbose',         0),
             ('eigensolver',     None),
             ('poissonsolver',   None),
             ('communicator',    mpi.world),
-            ('idiotproof',     True),
+            ('idiotproof',      True),
             ('mode',            'fd'),
             ('convergence',     {'energy':      0.0005,  # eV / electron
                                  'density':     1.0e-4,
                                  'eigenstates': 4.0e-8,  # eV^2
                                  'bands':       'occupied'}),
+            ('realspace',       None)
             ])
         dict.update(self, kwargs)
 
@@ -93,9 +94,6 @@ class InputParameters(dict):
     def read(self, reader):
         """Read state from file."""
 
-        if isinstance(reader, str):
-            reader = gpaw.io.open(reader, 'r')
-
         r = reader
 
         version = r['version']
@@ -106,7 +104,7 @@ class InputParameters(dict):
         self.nbands = r.dimension('nbands')
         self.spinpol = (r.dimension('nspins') == 2)
 
-        bzk_kc = r.get('BZKPoints', broadcast=True) 
+        bzk_kc = r.get('BZKPoints', broadcast=True)
         if r.has_array('NBZKPoints'):
             self.kpts = r.get('NBZKPoints', broadcast=True)
             if r.has_array('MonkhorstPackOffset'):
@@ -123,7 +121,10 @@ class InputParameters(dict):
             pass
 
         if version >= 2:
-            h = r['GridSpacing']
+            try:
+                h = r['GridSpacing']
+            except KeyError:  # CMR can't handle None!
+                h = None
             if h is not None:
                 self.h = Bohr * h
             if r.has_array('GridPoints'):

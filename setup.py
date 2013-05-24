@@ -16,7 +16,10 @@ from os.path import join
 from config import *
 
 # Get the current version number:
-execfile('gpaw/svnversion_io.py')  # write gpaw/svnversion.py and get svnversion
+try:
+    execfile('gpaw/svnversion_io.py')  # write gpaw/svnversion.py and get svnversion
+except ValueError:
+    svnversion = ''
 execfile('gpaw/version.py')        # get version_base
 if svnversion:
     version = version_base + '.' + svnversion
@@ -37,7 +40,7 @@ extra_link_args = []
 extra_compile_args = []
 runtime_library_dirs = []
 extra_objects = []
-define_macros = []
+define_macros = [('NPY_NO_DEPRECATED_API', 7)]
 undef_macros = []
 
 mpi_libraries = []
@@ -63,10 +66,14 @@ packages = ['gpaw',
             'gpaw.tddft',
             'gpaw.test',
             'gpaw.test.big',
+            'gpaw.test.big.dcdft',
+            'gpaw.test.big.g2_1',
+            'gpaw.test.big.scf',
+            'gpaw.test.big.setups',
             'gpaw.test.cmrtest',
+            'gpaw.test.fileio',
             'gpaw.test.noncollinear',
             'gpaw.test.parallel',
-            'gpaw.test.fileio',
             'gpaw.test.pw',
             'gpaw.test.vdw',
             'gpaw.testing',
@@ -133,16 +140,18 @@ if compiler is not None:
         for key in ['BASECFLAGS', 'CFLAGS', 'OPT', 'PY_CFLAGS',
             'CCSHARED', 'CFLAGSFORSHARED', 'LINKFORSHARED',
             'LIBS', 'SHLIBS']:
-            value = vars[key].split()
-            # remove all gcc flags (causing problems with other compilers)
-            for v in list(value):
-                value.remove(v)
-            vars[key] = ' '.join(value)
+            if key in vars:
+                value = vars[key].split()
+                # remove all gcc flags (causing problems with other compilers)
+                for v in list(value):
+                    value.remove(v)
+                vars[key] = ' '.join(value)
     for key in ['CC', 'LDSHARED']:
-        value = vars[key].split()
-        # first argument is the compiler/linker.  Replace with mpicompiler:
-        value[0] = compiler
-        vars[key] = ' '.join(value)
+        if key in vars:
+            value = vars[key].split()
+            # first argument is the compiler/linker.  Replace with mpicompiler:
+            value[0] = compiler
+            vars[key] = ' '.join(value)
 
 custom_interpreter = False
 # Check the command line so that custom interpreter is build only with
@@ -179,7 +188,8 @@ sources = sources + glob('c/libxc/src/*.c')
 sources2remove = ['c/libxc/src/test.c',
                   'c/libxc/src/xc_f.c',
                   'c/libxc/src/work_gga_x.c',
-                  'c/libxc/src/work_lda.c'
+                  'c/libxc/src/work_lda.c',
+                  'c/hdf5.c',
                   ]
 
 for s2r in glob('c/libxc/src/funcs_*.c'): sources2remove.append(s2r)

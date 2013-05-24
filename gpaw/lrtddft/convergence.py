@@ -3,7 +3,7 @@ import os
 from ase.units import Hartree
 
 from gpaw.lrtddft import LrTDDFT
-from gpaw.lrtddft.spectrum import spectrum
+from gpaw.lrtddft.spectrum import spectrum, rotatory_spectrum
 
 def check_convergence(lr,             # LrTDDFT object
                       dirname='conv', # directory name to store the files
@@ -120,6 +120,7 @@ def check_convergence(lr,             # LrTDDFT object
             if i < 3:
                 print >> fgpl,', \\',
             print >> fgpl
+        print >> fgpl, 'pause -10'
             
     # plot different directions
     print >> fgpl, 'plot "' + fname('full.dat') + '" u 1:3 t "x" w l lt 1, \\'
@@ -127,4 +128,15 @@ def check_convergence(lr,             # LrTDDFT object
     print >> fgpl, '     "' + fname('full.dat') + '" u 1:5 t "z" w l lt 3'
     print >> fgpl, 'pause -10'
 
+    # plot rotary strength
+    if lr[0].magn is not None:
+        print >> fgpl, 'set ylabel "Folded rot. strength [cgs/eV]"'
+        rotatory_spectrum(lr, fname('rotatory.dat'), width=width)
+        rotatory_spectrum(lr, fname('rotatory_sticks.dat'), folding=None)
+        print >> fgpl, 'plot "'+fname('rotatory.dat') + \
+            '" t "rotatory" w l lt 1, \\'
+        print >> fgpl, '     "' + fname('rotatory_sticks.dat') + \
+            '" u 1:($2*20) t "" w impulses lt 1'
+        print >> fgpl, 'pause -10'
+        
     fgpl.close()

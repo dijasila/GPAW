@@ -188,8 +188,8 @@ class Reader:
         else:
             return array
 
-    def get_reference(self, name, *indices):
-        return HDF5FileReference(self.file, name, indices)
+    def get_reference(self, name, indices, length=None):
+        return HDF5FileReference(self.file, name, indices, length)
 
     def get_parameters(self):
         return self.params_grp.attrs
@@ -198,13 +198,14 @@ class Reader:
         self.file.close()
 
 class HDF5FileReference(FileReference):
-    def __init__(self, file, name, indices):
+    def __init__(self, file, name, indices, length):
         self.file = file
         self.name = name
         self.dset = self.file[name]
         self.dtype = self.dset.dtype
         self.shape = self.dset.shape
         self.indices = indices
+        self.length = length
 
     def __len__(self):
         """Length of the first dimension"""
@@ -214,4 +215,7 @@ class HDF5FileReference(FileReference):
         if not isinstance(indices, tuple):
             indices = (indices,)
         ind = self.indices + indices
-        return self.dset[ind]
+        if self.length:
+            return self.dset[ind][..., :self.length].copy()
+        else:
+            return self.dset[ind]

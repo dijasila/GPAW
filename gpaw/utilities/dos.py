@@ -490,3 +490,85 @@ class RawLDOS:
         """
         ldbe = self.by_element()
         self.to_file(ldbe, filename, width, shift, bound)
+
+
+class LCAODOS:
+    """Class for calculating the projected subspace DOS.
+
+    The projected subspace density of states is defined only in LCAO
+    mode.  The advantages to the PDOS based on projectors is that the
+    LCAODOS will properly take non-orthogonality and completeness into
+    account."""
+    def __init__(self, calc):
+        self.calc = calc
+
+    def get_orbital_pdos(self, M, ravel=True):
+        """Get projected DOS from LCAO basis function M."""
+        return self.get_subspace_pdos([M], ravel=ravel)
+    
+    def get_atomic_subspace_pdos(self, a, ravel=True):
+        """Get projected subspace DOS from LCAO basis on atom a."""
+        M = self.calc.wfs.basis_functions.M_a[a]
+        Mvalues = range(M, M + self.calc.wfs.setups[a].niAO)
+        return self.get_subspace_pdos(Mvalues, ravel=ravel)
+
+    def get_subspace_pdos(self, Mvalues, ravel=True):
+        """Get projected subspace DOS from LCAO basis."""
+        wfs = self.calc.wfs
+        bd = wfs.bd
+        kd = wfs.kd
+        gd = wfs.gd
+        
+        for kpt in wfs.kpt_u:
+            assert not np.isnan(kpt.eps_n).any()
+
+        w_skn = np.zeros((kd.nspins, kd.nks, bd.nbands))
+        eps_skn = np.zeros((kd.nspins, kd.nks, bd.nbands))
+        for u, kpt in enumerate(wfs.kpt_u):
+            C_nM = kpt.C_nM
+            from gpaw.kohnsham_layouts import BlacsOrbitalLayouts
+            if isinstance(wfs.ksl, BlacsOrbitalLayouts):
+                S_MM = wfs.ksl.mmdescriptor.collect_on_master(kpt.S_MM)
+                if bd.rank != 0 or gd.rank != 0:
+                    S_MM = np.empty((wfs.ksl.nao, wfs.ksl.nao),
+                                    dtype=wfs.dtype)
+                bd.comm.broadcast(S_MM, 0)
+            else:
+                S_MM = kpt.S_MM
+            
+            if gd.comm.rank == 0:
+                S_mm = S_MM[Mvalues, :][:, Mvalues].copy()
+                iS_mm = np.linalg.inv(S_mm).copy()
+                CS_nm = np.dot(C_nM, S_MM[:, Mvalues])
+                CSiS_nm = np.dot(CS_nm, iS_mm)
+                w_n = (np.conj(CS_nm) * CSiS_nm).sum(axis=1) * kpt.weight
+                w_skn[kpt.s, kpt.k, bd.beg:bd.end:bd.step] = w_n.real
+                eps_skn[kpt.s, kpt.k, bd.beg:bd.end:bd.step] = kpt.eps_n
+        
+        for arr in [eps_skn, w_skn]:
+            gd.comm.broadcast(arr, 0)
+            bd.comm.sum(arr)
+            kd.comm.sum(arr)
+
+        if ravel:
+            eps_n = eps_skn.ravel()
+            w_n = w_skn.ravel()
+            args = np.argsort(eps_n)
+            eps_n = eps_n[args]
+            w_n = w_n[args]
+            return eps_n, w_n
+        else:
+            return eps_skn, w_skn
+
+
+class RestartLCAODOS(LCAODOS):
+    """Class for calculating LCAO subspace PDOS from a restarted calculator.
+
+    Warning: This has side effects on the calculator.  The
+    operation will allocate memory to diagonalize the Hamiltonian and
+    set coefficients plus positions."""
+    def __init__(self, calc):
+        LCAODOS.__init__(self, calc)
+        system = calc.get_atoms()
+        calc.set_positions(system)
+        calc.wfs.eigensolver.iterate(calc.hamiltonian, calc.wfs)

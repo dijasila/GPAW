@@ -21,7 +21,7 @@ kpts = np.array([(0.25, 0.25, 0.0)])
 kd = KPointDescriptor(kpts)
 spos_ac = np.array([(0.15, 0.5, 0.95)])
 
-pd = PWDescriptor(45, gd, complex)
+pd = PWDescriptor(45, gd, complex, kd)
 
 eikr = np.ascontiguousarray(np.exp(2j * np.pi * np.dot(np.indices(gd.N_c).T,
                                                          (kpts / gd.N_c).T).T)[0])
@@ -34,7 +34,7 @@ for l in range(3):
     s = Spline(l, rc, 2 * x**1.5 / np.pi * np.exp(-x * r**2))
 
     lfc1 = LFC(gd, [[s]], kd, dtype=complex)
-    lfc2 = PWLFC([[s]], pd, kd)
+    lfc2 = PWLFC([[s]], pd)
     
     c_axi = {0: np.zeros((1, 2 * l + 1), complex)}
     c_axi[0][0, 0] = 1.9 - 4.5j

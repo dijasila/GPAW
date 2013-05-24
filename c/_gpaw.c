@@ -14,6 +14,8 @@ PyMODINIT_FUNC init_hdf5(void);
 #ifdef GPAW_HPM
 PyObject* ibm_hpm_start(PyObject *self, PyObject *args);
 PyObject* ibm_hpm_stop(PyObject *self, PyObject *args);
+PyObject* ibm_mpi_start(PyObject *self);
+PyObject* ibm_mpi_stop(PyObject *self);
 #endif
 
 #ifdef GPAW_CRAYPAT
@@ -61,6 +63,7 @@ PyObject* utilities_vdot(PyObject *self, PyObject *args);
 PyObject* utilities_vdot_self(PyObject *self, PyObject *args);
 PyObject* errorfunction(PyObject *self, PyObject *args);
 PyObject* cerf(PyObject *self, PyObject *args);
+PyObject* pack(PyObject *self, PyObject *args);
 PyObject* unpack(PyObject *self, PyObject *args);
 PyObject* unpack_complex(PyObject *self, PyObject *args);
 PyObject* hartree(PyObject *self, PyObject *args);
@@ -72,7 +75,6 @@ PyObject* plane_wave_grid(PyObject *self, PyObject *args);
 PyObject* overlap(PyObject *self, PyObject *args);
 PyObject* vdw(PyObject *self, PyObject *args);
 PyObject* vdw2(PyObject *self, PyObject *args);
-PyObject* swap_arrays(PyObject *self, PyObject *args);
 PyObject* spherical_harmonics(PyObject *self, PyObject *args);
 PyObject* spline_to_grid(PyObject *self, PyObject *args);
 PyObject* NewLFCObject(PyObject *self, PyObject *args);
@@ -101,6 +103,10 @@ PyObject* pblas_r2k(PyObject *self, PyObject *args);
 PyObject* pblas_rk(PyObject *self, PyObject *args);
 #endif
 PyObject* precondition(PyObject *self, PyObject *args);
+
+#ifdef GPAW_PAPI
+PyObject* papi_mem_info(PyObject *self, PyObject *args);
+#endif
 
 // Moving least squares interpolation
 PyObject* mlsqr(PyObject *self, PyObject *args); 
@@ -147,6 +153,7 @@ static PyMethodDef functions[] = {
   {"plane_wave_grid", plane_wave_grid, METH_VARARGS, 0},
   {"erf",        errorfunction,        METH_VARARGS, 0},
   {"cerf",       cerf,        METH_VARARGS, 0},
+  {"pack",       pack,           METH_VARARGS, 0},
   {"unpack",       unpack,           METH_VARARGS, 0},
   {"unpack_complex",       unpack_complex,           METH_VARARGS, 0},
   {"hartree",        hartree,        METH_VARARGS, 0},
@@ -157,7 +164,6 @@ static PyMethodDef functions[] = {
   {"overlap",       overlap,        METH_VARARGS, 0},
   {"vdw", vdw, METH_VARARGS, 0},
   {"vdw2", vdw2, METH_VARARGS, 0},
-  {"swap", swap_arrays, METH_VARARGS, 0},
   {"spherical_harmonics", spherical_harmonics, METH_VARARGS, 0},
   {"pc_potential", pc_potential, METH_VARARGS, 0},
   {"pc_potential_value", pc_potential_value, METH_VARARGS, 0},
@@ -198,11 +204,16 @@ static PyMethodDef functions[] = {
 #ifdef GPAW_HPM
   {"hpm_start", ibm_hpm_start, METH_VARARGS, 0},
   {"hpm_stop", ibm_hpm_stop, METH_VARARGS, 0},
+  {"mpi_start", (PyCFunction) ibm_mpi_start, METH_NOARGS, 0},
+  {"mpi_stop", (PyCFunction) ibm_mpi_stop, METH_NOARGS, 0},
 #endif // GPAW_HPM
 #ifdef GPAW_CRAYPAT
   {"craypat_region_begin", craypat_region_begin, METH_VARARGS, 0},
   {"craypat_region_end", craypat_region_end, METH_VARARGS, 0},
 #endif // GPAW_CRAYPAT
+#ifdef GPAW_PAPI
+  {"papi_mem_info", papi_mem_info, METH_VARARGS, 0}, 
+#endif // GPAW_PAPI
   {"mlsqr", mlsqr, METH_VARARGS, 0}, 
   {"precondition", precondition, METH_VARARGS, 0},
   {"get_num_threads", get_num_threads, METH_VARARGS, 0}, 
@@ -270,8 +281,10 @@ main(int argc, char **argv)
   MPI_Init(&argc, &argv);
 #else
   int granted;
-  MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &granted);
-  if(granted != MPI_THREAD_MULTIPLE) {
+  // MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &granted);
+  MPI_Init_thread(&argc, &argv, MPI_THREAD_SINGLE, &granted);
+  // if(granted != MPI_THREAD_MULTIPLE) {
+  if(granted <  MPI_THREAD_SINGLE) {
       printf("Thread level MPI_THREAD_MULTIPLE not supported\n");
       exit(1);
   }

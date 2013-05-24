@@ -90,5 +90,5 @@ for formula in tpss_de.keys():
 
 
 #comparison to gpaw revision 5450 version value in kcal/mol (note the grid:0.3 Ang)
-    equal(de_tpss, tpss_old[formula], 0.1)
+    equal(de_tpss, tpss_old[formula], 0.15)
     equal(niters[formula], niters_ref[formula], niter_tolerance)

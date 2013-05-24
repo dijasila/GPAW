@@ -15,6 +15,7 @@ from gpaw.lfc import LFC, BasisFunctions
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 from gpaw.utilities import unpack2
 from gpaw.utilities.timing import nulltimer
+from gpaw.io import read_atomic_matrices
 
 
 class Density:
@@ -174,7 +175,7 @@ class Density:
             self.mixer.mix(self)
             comp_charge = None
           
-        self.interpolate(comp_charge)
+        self.interpolate_pseudo_density(comp_charge)
         self.calculate_pseudo_charge()
 
         if self.mixer.mix_rho:
@@ -308,15 +309,6 @@ class Density:
             np.dot(self.D_asp[a][spin], setup.Delta_pL[:, 0])
             + setup.Delta0 / self.nspins)
 
-    def get_density_array(self):
-        XXX
-        # XXX why not replace with get_spin_density and get_total_density?
-        """Return pseudo-density array."""
-        if self.nspins == 2:
-            return self.nt_sG
-        else:
-            return self.nt_sG[0]
-    
     def get_all_electron_density(self, atoms, gridrefinement=2):
         """Return real all-electron density array."""
 
@@ -327,7 +319,7 @@ class Density:
         elif gridrefinement == 2:
             gd = self.finegd
             if self.nt_sg is None:
-                self.interpolate()
+                self.interpolate_pseudo_density()
             n_sg = self.nt_sg.copy()
         elif gridrefinement == 4:
             # Extra fine grid
@@ -339,7 +331,7 @@ class Density:
             # Transfer the pseudo-density to the fine grid:
             n_sg = gd.empty(self.nspins)
             if self.nt_sg is None:
-                self.interpolate()
+                self.interpolate_pseudo_density()
             for s in range(self.nspins):
                 interpolator.apply(self.nt_sg[s], n_sg[s])
         else:
@@ -414,7 +406,7 @@ class Density:
         elif gridrefinement == 2:
             gd = self.finegd
             if self.nt_sg is None:
-                self.interpolate()
+                self.interpolate_pseudo_density()
             n_sg = self.nt_sg.copy()
         elif gridrefinement == 4:
             # Extra fine grid
@@ -426,7 +418,7 @@ class Density:
             # Transfer the pseudo-density to the fine grid:
             n_sg = gd.empty(self.nspins)
             if self.nt_sg is None:
-                self.interpolate()
+                self.interpolate_pseudo_density()
             for s in range(self.nspins):
                 interpolator.apply(self.nt_sg[s], n_sg[s])
         else:
@@ -462,12 +454,15 @@ class Density:
         nct.set_positions(spos_ac)
 
         I_sa = np.zeros((self.nspins, len(atoms)))
-        a_W =  np.empty(len(phi.M_W), np.intc)
+        a_W = np.empty(len(phi.M_W), np.intc)
         W = 0
         for a in phi.atom_indices:
             nw = len(phi.sphere_a[a].M_w)
             a_W[W:W + nw] = a
             W += nw
+
+        x_W = phi.create_displacement_arrays()[0]
+
         rho_MM = np.zeros((phi.Mmax, phi.Mmax))
         for s, I_a in enumerate(I_sa):
             M1 = 0
@@ -486,10 +481,12 @@ class Density:
                 rho_MM[M1:M2, M1:M2] = unpack2(D_sp[s])
                 M1 = M2
 
-            phi.lfc.ae_valence_density_correction(rho_MM, n_sg[s], a_W, I_a)
-            phit.lfc.ae_valence_density_correction(-rho_MM, n_sg[s], a_W, I_a)
+            phi.lfc.ae_valence_density_correction(rho_MM, n_sg[s], a_W, I_a,
+                                                  x_W)
+            phit.lfc.ae_valence_density_correction(-rho_MM, n_sg[s], a_W, I_a,
+                                                  x_W)
 
-        a_W =  np.empty(len(nc.M_W), np.intc)
+        a_W = np.empty(len(nc.M_W), np.intc)
         W = 0
         for a in nc.atom_indices:
             nw = len(nc.sphere_a[a].M_w)
@@ -505,6 +502,7 @@ class Density:
             for I, g_c in zip(I_a, g_ac):
                 if (g_c >= 0).all() and (g_c < gd.n_c).all():
                     n_sg[s][tuple(g_c)] -= I / gd.dv
+
         return n_sg, gd
 
     if extra_parameters.get('usenewlfc', True):
@@ -553,6 +551,41 @@ class Density:
         dt_sg = np.where(dt_sg > 0, dt_sg, 0.0)
         return gd.integrate(dt_sg)
 
+    def read(self, reader, parallel, kd, bd):
+        if reader['version'] > 0.3:
+            density_error = reader['DensityError']
+            if density_error is not None:
+                self.mixer.set_charge_sloshing(density_error)
+
+        if not reader.has_array('PseudoElectronDensity'):
+            return
+
+        hdf5 = hasattr(reader, 'hdf5')
+        nt_sG = self.gd.empty(self.nspins)
+        if hdf5:
+            # Read pseudoelectron density on the coarse grid
+            # and broadcast on kpt_comm and band_comm:
+            indices = [slice(0, self.nspins)] + self.gd.get_slice()
+            do_read = (kd.comm.rank == 0) and (bd.comm.rank == 0)
+            reader.get('PseudoElectronDensity', out=nt_sG, parallel=parallel,
+                       read=do_read, *indices)  # XXX read=?
+            kd.comm.broadcast(nt_sG, 0)
+            bd.comm.broadcast(nt_sG, 0)
+        else:
+            for s in range(self.nspins):
+                self.gd.distribute(reader.get('PseudoElectronDensity', s),
+                                   nt_sG[s])
+
+        # Read atomic density matrices
+        D_asp = {}
+        natoms = len(self.setups)
+        self.rank_a = np.zeros(natoms, int)
+        all_D_sp = reader.get('AtomicDensityMatrices', broadcast=True)
+        if self.gd.comm.rank == 0:
+            D_asp = read_atomic_matrices(all_D_sp, self.setups)
+
+        self.initialize_directly_from_arrays(nt_sG, D_asp)
+
 
 class RealSpaceDensity(Density):
     def __init__(self, gd, finegd, nspins, charge, collinear=True,
@@ -583,16 +616,12 @@ class RealSpaceDensity(Density):
         self.nct_G = self.gd.zeros()
         self.nct.add(self.nct_G, 1.0 / self.nspins)
 
-    def interpolate(self, comp_charge=None):
+    def interpolate_pseudo_density(self, comp_charge=None):
         """Interpolate pseudo density to fine grid."""
         if comp_charge is None:
             comp_charge = self.calculate_multipole_moments()
 
-        if self.nt_sg is None:
-            self.nt_sg = self.finegd.empty(self.nspins * self.ncomp**2)
-
-        for nt_G, nt_g in zip(self.nt_sG, self.nt_sg):
-            self.interpolator.apply(nt_G, nt_g)
+        self.nt_sg = self.interpolate(self.nt_sG, self.nt_sg)
 
         # With periodic boundary conditions, the interpolation will
         # conserve the number of electrons.
@@ -605,6 +634,24 @@ class RealSpaceDensity(Density):
                      self.finegd.integrate(self.nt_sg[:self.nspins]).sum())
                 self.nt_sg *= x
 
+    def interpolate(self, in_xR, out_xR=None):
+        """Interpolate array(s)."""
+
+        # ndim will be 3 in finite-difference mode and 1 when working
+        # with the AtomPAW class (spherical atoms and 1d grids)
+        ndim = self.gd.ndim
+
+        if out_xR is None:
+            out_xR = self.finegd.empty(in_xR.shape[:-ndim])
+
+        a_xR = in_xR.reshape((-1,) + in_xR.shape[-ndim:])
+        b_xR = out_xR.reshape((-1,) + out_xR.shape[-ndim:])
+        
+        for in_R, out_R in zip(a_xR, b_xR):
+            self.interpolator.apply(in_R, out_R)
+
+        return out_xR
+
     def calculate_pseudo_charge(self):
         self.nt_g = self.nt_sg[:self.nspins].sum(axis=0)
         self.rhot_g = self.nt_g.copy()
@@ -615,4 +662,9 @@ class RealSpaceDensity(Density):
             if abs(charge) > self.charge_eps:
                 raise RuntimeError('Charge not conserved: excess=%.9f' %
                                    charge)
+
+    def get_pseudo_core_kinetic_energy_density_lfc(self):
+        return LFC(self.gd,
+                   [[setup.tauct] for setup in self.setups],
+                   forces=True, cut=True)
 

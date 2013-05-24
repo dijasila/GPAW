@@ -270,7 +270,7 @@ class BasisPlotter:
         self.normalize = normalize
 
     def plot(self, basis, filename=None, **plot_args):
-        import pylab # Should not import in module namespace
+        import pylab as pl # Should not import in module namespace
         if plot_args is None:
             plot_args = {}
         rc = basis.d * (basis.ng - 1)
@@ -302,26 +302,29 @@ class BasisPlotter:
         else:
             factor = np.ones_like(r_g)
 
-        pylab.figure()
+        dashes_l = [(1, 0), (6, 3), (4, 1, 1, 1), (1, 1)]
+
+        pl.figure()
         for norm, bf in zip(norm_j, basis.bf_j):
             y_g = bf.phit_g * factor[:bf.ng]
             if self.normalize:
                 y_g /= norm
-            pylab.plot(r_g[:bf.ng], y_g, label=bf.type[:12],
+            pl.plot(r_g[:bf.ng], y_g, label=bf.type[:12],
+                       dashes = dashes_l[bf.l],
                        **plot_args)
-        axis = pylab.axis()
+        axis = pl.axis()
         rc = max([bf.rc for bf in basis.bf_j])
         newaxis = [0., rc, axis[2], axis[3]]
-        pylab.axis(newaxis)
-        pylab.legend()
-        pylab.title(self.title % basis.__dict__)
-        pylab.xlabel(self.xlabel)
-        pylab.ylabel(self.ylabel)
+        pl.axis(newaxis)
+        pl.legend()
+        pl.title(self.title % basis.__dict__)
+        pl.xlabel(self.xlabel)
+        pl.ylabel(self.ylabel)
 
         if filename is None:
             filename = self.default_filename
         if self.save:
-            pylab.savefig(filename % basis.__dict__)
+            pl.savefig(filename % basis.__dict__)
 
         if self.show:
-            pylab.show()
+            pl.show()

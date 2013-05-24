@@ -19,9 +19,9 @@ from gpaw.utilities.blas import gemm
 from gpaw.gaunt import make_gaunt
 
 
-class HybridXC(XCFunctional):
+class HybridXCBase(XCFunctional):
     orbital_dependent = True
-    def __init__(self, name, hybrid=None, xc=None, finegrid=False):
+    def __init__(self, name, hybrid=None, xc=None):
         """Mix standard functionals with exact exchange.
 
         name: str
@@ -30,8 +30,6 @@ class HybridXC(XCFunctional):
             Fraction of exact exchange.
         xc: str or XCFunctional object
             Standard DFT functional with scaled down exchange.
-        finegrid: boolean
-            Use fine grid for energy functional evaluations?
         """
 
         if name == 'EXX':
@@ -50,16 +48,29 @@ class HybridXC(XCFunctional):
         if isinstance(xc, str):
             xc = XC(xc)
 
-        self.hybrid = hybrid
+        self.hybrid = float(hybrid)
         self.xc = xc
         self.type = xc.type
-        self.finegrid = finegrid
 
         XCFunctional.__init__(self, name)
 
     def get_setup_name(self):
         return 'PBE'
 
+class HybridXC(HybridXCBase):
+    def __init__(self, name, hybrid=None, xc=None, 
+                 finegrid=False, unocc=False):
+        """Mix standard functionals with exact exchange.
+
+        finegrid: boolean
+            Use fine grid for energy functional evaluations ?
+        unocc: boolean
+            Apply vxx also to unoccupied states ?
+        """
+        self.finegrid = finegrid
+        self.unocc = unocc
+        HybridXCBase.__init__(self, name, hybrid, xc)
+        
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):
         return self.xc.calculate_paw_correction(setup, D_sp, dEdD_sp,
@@ -122,25 +133,31 @@ class HybridXC(XCFunctional):
             vt_G = self.gd.empty()
 
         nocc = int(kpt.f_n.sum()) // (3 - self.nspins)
+        if self.unocc:
+            nbands = len(kpt.f_n)
+        else:
+            nbands = nocc
         self.nocc_s[kpt.s] = nocc
 
         if Htpsit_nG is not None:
-            kpt.vt_nG = self.gd.empty(nocc)
+            kpt.vt_nG = self.gd.empty(nbands)
             kpt.vxx_ani = {}
             kpt.vxx_anii = {}
             for a, P_ni in P_ani.items():
                 I = P_ni.shape[1]
-                kpt.vxx_ani[a] = np.zeros((nocc, I))
-                kpt.vxx_anii[a] = np.zeros((nocc, I, I))
+                kpt.vxx_ani[a] = np.zeros((nbands, I))
+                kpt.vxx_anii[a] = np.zeros((nbands, I, I))
 
         exx = 0.0
         ekin = 0.0
 
         # Determine pseudo-exchange
-        for n1 in range(nocc):
+        for n1 in range(nbands):
             psit1_G = psit_nG[n1]
-            for n2 in range(n1, nocc):
+            f1 = kpt.f_n[n1] / deg
+            for n2 in range(n1, nbands):
                 psit2_G = psit_nG[n2]
+                f2 = kpt.f_n[n2] / deg
 
                 # Double count factor:
                 dc = (1 + (n1 != n2)) * deg
@@ -163,14 +180,14 @@ class HybridXC(XCFunctional):
                 int_fine = self.finegd.integrate(vt_g * rhot_g)
                 int_coarse = self.gd.integrate(vt_G * nt_G)
                 if self.gd.comm.rank == 0:  # only add to energy on master CPU
-                    exx += 0.5 * dc * int_fine
-                    ekin -= dc * int_coarse
+                    exx += 0.5 * dc * f1 * f2 * int_fine
+                    ekin -= dc * f1 * f2 * int_coarse
                 if Htpsit_nG is not None:
-                    Htpsit_nG[n1] += vt_G * psit2_G
+                    Htpsit_nG[n1] += f2 * vt_G * psit2_G
                     if n1 == n2:
-                        kpt.vt_nG[n1] = vt_G
+                        kpt.vt_nG[n1] = f1 * vt_G
                     else:
-                        Htpsit_nG[n2] += vt_G * psit1_G
+                        Htpsit_nG[n2] += f1 * vt_G * psit1_G
 
                     # Update the vxx_uni and vxx_unii vectors of the nuclei,
                     # used to determine the atomic hamiltonian, and the 
@@ -182,12 +199,12 @@ class HybridXC(XCFunctional):
                         v_ni = kpt.vxx_ani[a]
                         v_nii = kpt.vxx_anii[a]
                         P_ni = P_ani[a]
-                        v_ni[n1] += np.dot(v_ii, P_ni[n2])
+                        v_ni[n1] += f2 * np.dot(v_ii, P_ni[n2])
                         if n1 != n2:
-                            v_ni[n2] += np.dot(v_ii, P_ni[n1])
+                            v_ni[n2] += f1 * np.dot(v_ii, P_ni[n1])
                         else:
                             # XXX Check this:
-                            v_nii[n1] = v_ii
+                            v_nii[n1] = f1 * v_ii
 
         # Apply the atomic corrections to the energy and the Hamiltonian matrix
         for a, P_ni in P_ani.items():
@@ -195,8 +212,9 @@ class HybridXC(XCFunctional):
 
             if Htpsit_nG is not None:
                 # Add non-trivial corrections the Hamiltonian matrix
-                h_nn = symmetrize(np.inner(P_ni[:nocc], kpt.vxx_ani[a]))
-                ekin -= deg * h_nn.trace()
+                h_nn = symmetrize(np.inner(P_ni[:nbands], 
+                                           kpt.vxx_ani[a][:nbands]))
+                ekin -= np.dot(kpt.f_n[:nbands], h_nn.diagonal())
 
                 dH_p = dH_asp[a][kpt.s]
             
@@ -248,9 +266,10 @@ class HybridXC(XCFunctional):
             H_nn[:] = 0.0
             
         nocc = self.nocc_s[kpt.s]
+        nbands = len(kpt.vt_nG)
         for a, P_ni in kpt.P_ani.items():
-            H_nn[:nocc, :nocc] += symmetrize(np.inner(P_ni[:nocc],
-                                                      kpt.vxx_ani[a]))
+            H_nn[:nbands, :nbands] += symmetrize(np.inner(P_ni[:nbands],
+                                                          kpt.vxx_ani[a]))
         self.gd.comm.sum(H_nn)
         
         H_nn[:nocc, nocc:] = 0.0
@@ -283,7 +302,7 @@ class HybridXC(XCFunctional):
         if kpt.f_n is None:
             return
 
-        nocc = len(kpt.vt_nG)
+        nocc = self.nocc_s[kpt.s]
         
         if calculate_change:
             for x, n in enumerate(n_x):
@@ -293,14 +312,15 @@ class HybridXC(XCFunctional):
                         c_axi[a][x] += np.dot(kpt.vxx_anii[a][n], P_xi[x])
         else:
             for a, c_xi in c_axi.items():
-                c_xi[:nocc] += kpt.vxx_ani[a]
+                c_xi[:nocc] += kpt.vxx_ani[a][:nocc]
         
     def rotate(self, kpt, U_nn):
         if kpt.f_n is None:
             return
 
-        nocc = len(kpt.vt_nG)
-        U_nn = U_nn[:nocc, :nocc]
+        nocc = self.nocc_s[kpt.s]
+        if len(kpt.vt_nG) == nocc:
+            U_nn = U_nn[:nocc, :nocc]
         gemm(1.0, kpt.vt_nG.copy(), U_nn, 0.0, kpt.vt_nG)
         for v_ni in kpt.vxx_ani.values():
             gemm(1.0, v_ni.copy(), U_nn, 0.0, v_ni)

@@ -2,15 +2,9 @@ import numpy as np
 
 from gpaw.eigensolvers import get_eigensolver
 from gpaw.overlap import Overlap
-from gpaw.fd_operators import Laplace
-from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.utilities import unpack
 from gpaw.io import FileReference
 from gpaw.lfc import BasisFunctions
-from gpaw.utilities.blas import axpy
-from gpaw.transformers import Transformer
-from gpaw.fd_operators import Gradient
-from gpaw.band_descriptor import BandDescriptor
 from gpaw import extra_parameters
 from gpaw.wavefunctions.base import WaveFunctions
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
@@ -63,7 +57,7 @@ class FDPWWaveFunctions(WaveFunctions):
             if hamiltonian.xc.type == 'GLLB':
                 hamiltonian.xc.initialize_from_atomic_orbitals(
                     basis_functions)
-        else: # XXX???
+        else:  # XXX???
             # We didn't even touch density, but some combinations in paw.set()
             # will make it necessary to do this for some reason.
             density.calculate_normalized_charges_and_mix()
@@ -122,7 +116,7 @@ class FDPWWaveFunctions(WaveFunctions):
         # from the file to memory:
         for kpt in self.kpt_u:
             file_nG = kpt.psit_nG
-            kpt.psit_nG = self.empty(self.bd.mynbands, self.dtype)
+            kpt.psit_nG = self.empty(self.bd.mynbands, q=kpt.q)
             if extra_parameters.get('sic'):
                 kpt.W_nn = np.zeros((self.bd.nbands, self.bd.nbands),
                                     dtype=self.dtype)
@@ -133,7 +127,7 @@ class FDPWWaveFunctions(WaveFunctions):
                 else:
                     big_psit_G = None
                 self.gd.distribute(big_psit_G, psit_G)
-        
+
     def orthonormalize(self):
         for kpt in self.kpt_u:
             self.overlap.orthonormalize(self, kpt)
@@ -159,7 +153,7 @@ class FDPWWaveFunctions(WaveFunctions):
             # Hack used in delta-scf calculations:
             if hasattr(kpt, 'c_on'):
                 assert self.bd.comm.size == 1
-                self.pt.derivative(kpt.psit_nG, F_aniv, kpt.q)  #XXX again
+                self.pt.derivative(kpt.psit_nG, F_aniv, kpt.q)  # XXX again
                 d_nn = np.zeros((self.bd.mynbands, self.bd.mynbands),
                                 dtype=complex)
                 for ne, c_n in zip(kpt.ne_o, kpt.c_on):
@@ -183,11 +177,11 @@ class FDPWWaveFunctions(WaveFunctions):
         psit_nG = self.kpt_u[u].psit_nG
         if psit_nG is None:
             raise RuntimeError('This calculator has no wave functions!')
-        return psit_nG[n][:] # dereference possible tar-file content
+        return psit_nG[n][:]  # dereference possible tar-file content
 
     def estimate_memory(self, mem):
         gridbytes = self.bytes_per_wave_function()
-        mem.subnode('Arrays psit_nG', 
+        mem.subnode('Arrays psit_nG',
                     len(self.kpt_u) * self.bd.mynbands * gridbytes)
         self.eigensolver.estimate_memory(mem.subnode('Eigensolver'), self)
         self.pt.estimate_memory(mem.subnode('Projectors'))

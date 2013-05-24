@@ -7,28 +7,6 @@ CentOS
 Here you find information about the the system
 `<http://www.centos.org/>`_.
 
-System wide installation with yum
-=================================
-
-The steps described below require root access and assume bash shell:
-
-- `configure fys yum repository <https://wiki.fysik.dtu.dk/niflheim/Cluster_software_-_RPMS#configure-fys-yum-repository>`_
-
-- on EL/CentOS 5 or newer i386 or x86_64, as root:
-
-  - install gpaw and dependencies::
-
-      yum -y install --enablerepo=fys_el,epel,atrpms campos-gpaw
-
-  - install optional packages::
-
-      yum -y install --enablerepo=fys_el,epel,atrpms scipy ScientificPython
- 
-.. note::
-
-   There are no new releases of fys packages after "End of Regular Life Cycle"
-   of CentOS releases: see https://access.redhat.com/support/policy/updates/errata/
-
 .. _PGO_gcc_EL5:
 
 Profile guided optimization
@@ -64,3 +42,37 @@ to compile GPAW with gcc version **4.3.0** on CentOS 5.3:
     opt_string = '-fprofile-use'
 
   and rebuild GPAW's :ref:`c_extension`.
+
+System wide installation with yum
+=================================
+
+**Warning**: this section is outdated!
+
+The steps described below require root access and assume bash shell:
+
+- `configure fys yum repository <https://wiki.fysik.dtu.dk/niflheim/Cluster_software_-_RPMS#configure-fys-yum-repository>`_
+
+- on EL/CentOS 6 i386 or x86_64, as root:
+
+  - install gpaw and dependencies::
+
+      yum -y install --enablerepo=fys_el campos-gpaw
+
+  - install optional packages::
+
+      yum -y install --enablerepo=fys_el scipy ScientificPython
+
+- on EL/CentOS 5 i386 or x86_64, as root:
+
+  - install gpaw and dependencies::
+
+      yum -y install --enablerepo=fys_el,epel,atrpms campos-gpaw
+
+  - install optional packages::
+
+      yum -y install --enablerepo=fys_el,epel,atrpms scipy ScientificPython
+ 
+.. note::
+
+   There are no new releases of fys packages after "End of Regular Life Cycle"
+   of CentOS releases: see https://access.redhat.com/support/policy/updates/errata/

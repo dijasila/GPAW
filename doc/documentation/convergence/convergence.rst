@@ -20,6 +20,9 @@ encountering convergence problems:
   Remember to check the convergence of the results with respect to
   the finite Fermi temperature!
 
+Look at the :ref:`scf_conv_eval` page in order to select the parameters
+that may be suitable for your system. Specifically:
+
 * If you are specifying the :ref:`number of bands <manual_nbands>`
   manually, try to increase the number of empty states. You might also
   let gpaw choose the default number, which is in general large
@@ -49,7 +52,7 @@ encountering convergence problems:
   by setting ``basis='szp'`` if you want to use a
   single-zeta-polarized basis. Note that you first need to generate
   the basis file, as described in :ref:`LCAO mode <lcao>`. As of GPAW
-  0.7.2, it is also possible to use ``basis='szp(dzp)'`` to extract
+  0.7.2 or later, it is also possible to use ``basis='szp(dzp)'`` to extract
   the single-zeta polarization basis set from the double-zeta
   polarization basis sets that is available in the latest Setups. 
  
@@ -61,4 +64,3 @@ encountering convergence problems:
   might be more stable, but slower. For very difficult systems you may
   need to use some of the above tricks also for ``cg``.
   Are you sure you explored all these options with ``rmm-diis``?
-

@@ -8,8 +8,8 @@ from gpaw.response.bse import BSE
 from ase.dft import monkhorst_pack
 from gpaw.mpi import rank
 
-GS = 0
-bse = 0
+GS = 1
+bse = 1
 check = 1
 
 if GS:
@@ -20,34 +20,33 @@ if GS:
     calc = GPAW(h=0.2,
                 kpts=kpts,
                 occupations=FermiDirac(0.001),
-                nbands=8,
-                convergence={'bands':'all'})
-
+                nbands=12,
+                convergence={'bands':-4})
     atoms.set_calculator(calc)
     atoms.get_potential_energy()
     calc.write('Si.gpw','all')
 
-
 if bse:
-
     eshift = 0.8
-    
-    bse = BSE('Si.gpw',w=np.linspace(0,10,201),
-              q=np.array([0.0001,0,0.0]),optical_limit=True,ecut=50.,
-              nc=np.array([4,6]), nv=np.array([2,4]), eshift=eshift,
-              nbands=8,positive_w=True,use_W=True,qsymm=True)
-    
+    bse = BSE('Si.gpw',
+              w=np.linspace(0,10,201),
+              q=np.array([0.0001, 0, 0.0]),
+              optical_limit=True,
+              ecut=50.,
+              nc=np.array([4,6]),
+              nv=np.array([2,4]),
+              eshift=eshift,
+              nbands=8)
     bse.get_dielectric_function('Si_bse.dat')
 
     if rank == 0 and os.path.isfile('phi_qaGp'):
         os.remove('phi_qaGp')
 
 if check:
-    
     d = np.loadtxt('Si_bse.dat')
 
-    Nw1 = 67
-    Nw2 = 80
+    Nw1 = 64
+    Nw2 = 77
     if d[Nw1, 2] > d[Nw1-1, 2] and d[Nw1, 2] > d[Nw1+1, 2] \
             and d[Nw2, 2] > d[Nw2-1, 2] and d[Nw2, 2] > d[Nw2+1, 2]:
         pass

@@ -10,7 +10,7 @@ import numpy as np
 import ase
 from ase.version import version as ase_version
 import gpaw
-from gpaw.version import version as gpaw_version
+from gpaw.version import version_base as gpaw_version
 
 try:
     #new style cmr io
@@ -25,7 +25,7 @@ try:
         return reader
         
     def get_writer():
-        return Converter.get_xml_writer(CALCULATOR_GPAW)
+        return Converter.get_xml_writer(CALCULATOR_GPAW, calculator_version=gpaw_version)
     
     def create_db_filename(param, ext=".db"):
         return cdbfn(param, ext=ext)
@@ -114,8 +114,10 @@ class Writer:
                 measured_dimensions.append(len(array))
                 if self.verbose:
                     print indent+"Length:", len(array)
-                indent += " "
+                    indent += " "
                 array = array[0]
+            except IndexError:
+                break
             except TypeError:
                 break
         return measured_dimensions
@@ -202,6 +204,8 @@ class Writer:
             # for compatibility with older CMR versions:
             self.data.write(self.cmr_params)
         cmr.runtime.pause_ase_barriers(False)
+        return [self.data.get_hash()]
+
 
 class Reader:
     """ This class allows gpaw to access
@@ -242,7 +246,7 @@ class Reader:
                 pass
         return result
     
-    def get_reference(self, name, *indices):
+    def get_reference(self, name, indices, length=None):
         result = self.reader[name]
         if indices!=():
             for a in indices:

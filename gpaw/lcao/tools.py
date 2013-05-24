@@ -1,11 +1,19 @@
-from gpaw.utilities import unpack
-from gpaw.utilities.tools import tri2full
-from ase.units import Hartree
+from sys import stdout
+from time import localtime
+from numpy import linalg as la
 import cPickle as pickle
 import numpy as np
-from gpaw.mpi import world, rank, MASTER
+
+from gpaw.utilities import pack, unpack
+from gpaw.utilities.tools import tri2full
+from gpaw.utilities.blas import rk, gemm
 from gpaw.basis_data import Basis
 from gpaw.setup import types2atomtypes
+from gpaw.coulomb import CoulombNEW as Coulomb
+from gpaw.mpi import world, rank, MASTER, serial_comm
+from gpaw import GPAW
+
+from ase.units import Hartree
 from ase.calculators.singlepoint import SinglePointCalculator
 
 
@@ -103,7 +111,7 @@ def get_realspace_hs(h_skmm, s_kmm, bzk_kc, weight_k,
         # For now this part seems to do the job, but it may be written
         # in a smarter way in the future.
         symmetry = Symmetry([1], np.eye(3))
-        symmetry.prune_symmetries([[0, 0, 0]])
+        symmetry.prune_symmetries(np.zeros((1, 3)))
         ibzk_kc, ibzweight_k = symmetry.reduce(bzk_kc)[:2]
         ibzk_t_kc, weights_t_k = symmetry.reduce(bzk_t_kc)[:2]
         ibzk_t_kc = ibzk_t_kc[:, :2]
@@ -178,7 +186,7 @@ def remove_pbc(atoms, h, s=None, d=0, centers_ic=None, cutoff=None):
             s[:, i] *= mask_i
 
 
-def dump_hamiltonian(filename, atoms, direction=None):
+def dump_hamiltonian(filename, atoms, direction=None, Ef=None):
     h_skmm, s_kmm = get_hamiltonian(atoms)
     if direction != None:
         d = 'xyz'.index(direction)
@@ -205,7 +213,7 @@ def dump_hamiltonian(filename, atoms, direction=None):
     world.barrier()
 
 
-def dump_hamiltonian_parallel(filename, atoms, direction=None):
+def dump_hamiltonian_parallel(filename, atoms, direction=None, Ef=None):
     """
         Dump the lcao representation of H and S to file(s) beginning
         with filename. If direction is x, y or z, the periodic boundary
@@ -256,8 +264,12 @@ def dump_hamiltonian_parallel(filename, atoms, direction=None):
             if direction is not None:
                 remove_pbc(atoms, H_qMM[kpt.s, kpt.q], None, d)
         if calc.occupations.width > 0:
-            H_qMM[kpt.s, kpt.q] -= S_qMM[kpt.q] * \
-                                   calc.occupations.get_fermi_level()    
+            if Ef is None:
+                Ef = calc.occupations.get_fermi_level()
+            else:
+                Ef = Ef / Hartree
+
+            H_qMM[kpt.s, kpt.q] -= S_qMM[kpt.q] * Ef
     
     if wfs.gd.comm.rank == 0:
         fd = file(filename+'%i.pckl' % wfs.kpt_comm.rank, 'wb')
@@ -387,3 +399,238 @@ def basis_subset2(symbols, largebasis='dzp', smallbasis='sz'):
     for symbol, large, small in zip(symbols, largebasis, smallbasis):
         mask.extend(basis_subset(symbol, large, small))
     return np.asarray(mask, bool)
+
+
+def collect_orbitals(a_xo, coords, root=0):
+    """Collect array distributed over orbitals to root-CPU.
+
+    Input matrix has last axis distributed amongst CPUs,
+    return is None on slaves, and the collected array on root.
+
+    The distribution can be uneven amongst CPUs. The list coords gives the
+    number of values for each CPU.
+    """
+    a_xo = np.ascontiguousarray(a_xo)
+    if world.size == 1:
+        return a_xo
+
+    # All slaves send their piece to ``root``:
+    # There can be several sends before the corresponding receives
+    # are posted, so use syncronous send here
+    if world.rank != root:
+        world.ssend(a_xo, root, 112)
+        return None
+
+    # On root, put the subdomains from the slaves into the big array
+    # for the whole domain on root:
+    xshape = a_xo.shape[:-1]
+    Norb2 = sum(coords) # total number of orbital indices
+    a_xO = np.empty(xshape + (Norb2,), a_xo.dtype)
+    o = 0
+    for rank, norb in enumerate(coords):
+        if rank != root:
+            tmp_xo = np.empty(xshape + (norb,), a_xo.dtype)
+            world.receive(tmp_xo, rank, 112)
+            a_xO[..., o:o + norb] = tmp_xo
+        else:
+            a_xO[..., o:o + norb] = a_xo
+        o += norb
+    return a_xO
+
+
+
+def makeU(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
+          rotationfile='eps_q__U_pq.pckl', tolerance=1e-5,
+          writeoptimizedpairs=False, dppname='D_pp.pckl', S_w=None):
+
+    # S_w: None or diagonal of overlap matrix. In the latter case
+    # the optimized and truncated pair orbitals are obtained from
+    # normalized (to 1) orbitals.
+    #     
+    # Tolerance is used for truncation of optimized pairorbitals
+    #calc = GPAW(gpwfile, txt=None)
+    from gpaw import GPAW
+    from gpaw.utilities import pack, unpack
+    from gpaw.utilities.blas import rk, gemm
+    from gpaw.mpi import world, MASTER, serial_comm
+    calc = GPAW(gpwfile, txt='pairorb.txt') # XXX
+    gd = calc.wfs.gd
+    setups = calc.wfs.setups
+    myatoms = calc.density.D_asp.keys()
+    del calc
+
+    # Load orbitals on master and distribute to slaves
+    if world.rank == MASTER:
+        wglobal_wG, P_awi = pickle.load(open(orbitalfile))
+        Nw = len(wglobal_wG)
+        print 'Estimated total (serial) mem usage: %0.3f GB' % (
+            np.prod(gd.N_c) * Nw**2 * 8 / 1024.**3)
+    else:
+        wglobal_wG = None
+        Nw = 0
+    Nw = gd.comm.sum(Nw) #distribute Nw to all nodes
+    w_wG = gd.empty(n=Nw)
+    gd.distribute(wglobal_wG, w_wG)
+    del wglobal_wG
+    
+    # Make pairorbitals
+    f_pG = gd.zeros(n=Nw**2)
+    Np = len(f_pG)
+    for p, (w1, w2) in enumerate(np.ndindex(Nw, Nw)):
+        np.multiply(w_wG[w1], w_wG[w2], f_pG[p])
+    del w_wG
+    assert f_pG.flags.contiguous 
+    # Make pairorbital overlap (lower triangle only)
+    D_pp = np.zeros((Nw**2, Nw**2))
+    rk(gd.dv, f_pG, 0., D_pp)
+
+    # Add atomic corrections to pairorbital overlap
+    for a in myatoms:
+        if setups[a].type != 'ghost':
+            P_pp = np.array([pack(np.outer(P_awi[a][w1], P_awi[a][w2]))
+                             for w1, w2 in np.ndindex(Nw, Nw)])
+            I4_pp = setups[a].four_phi_integrals()
+            A = np.zeros((len(I4_pp), len(P_pp)))
+            gemm(1.0, P_pp, I4_pp, 0.0, A, 't')
+            gemm(1.0, A, P_pp, 1.0, D_pp)
+            #D_pp += np.dot(P_pp, np.dot(I4_pp, P_pp.T))
+   
+    # Summ all contributions to master
+    gd.comm.sum(D_pp, MASTER)
+
+    if world.rank == MASTER:
+        if S_w != None:
+            print 'renormalizing pairorb overlap matrix (D_pp)'
+            S2 = np.sqrt(S_w)
+            for pa, (wa1, wa2) in enumerate(np.ndindex(Nw, Nw)):
+                for pb, (wb1, wb2) in enumerate(np.ndindex(Nw, Nw)):
+                    D_pp[pa, pb] /= S2[wa1] * S2[wa2] * S2[wb1] * S2[wb2]
+
+        D_pp.dump(dppname) # XXX if the diagonalization below (on MASTER only)
+                           # fails, then one can always restart the stuff
+                           # below using only the stored D_pp matrix
+
+        # Determine eigenvalues and vectors on master only
+        eps_q, U_pq = np.linalg.eigh(D_pp, UPLO='L')
+        del D_pp
+        indices = np.argsort(-eps_q.real)
+        eps_q = np.ascontiguousarray(eps_q.real[indices])
+        U_pq = np.ascontiguousarray(U_pq[:, indices])
+
+        # Truncate
+        indices = eps_q > tolerance
+        U_pq = np.ascontiguousarray(U_pq[:, indices])
+        eps_q = np.ascontiguousarray(eps_q[indices])
+
+        # Dump to file
+        pickle.dump((eps_q, U_pq), open(rotationfile, 'wb'), 2)
+
+    if writeoptimizedpairs is not False:
+        assert world.size == 1 # works in parallel if U and eps are broadcast
+        Uisq_qp = (U_pq / np.sqrt(eps_q)).T.copy()
+        g_qG = gd.zeros(n=len(eps_q))
+        gemm(1.0, f_pG, Uisq_qp, 0.0, g_qG)
+        g_qG = gd.collect(g_qG)
+        if world.rank == MASTER:
+            P_app = dict([(a, np.array([pack(np.outer(P_wi[w1], P_wi[w2]),
+                                             tolerance=1e3)
+                                        for w1, w2 in np.ndindex(Nw, Nw)]))
+                          for a, P_wi in P_awi.items()])
+            P_aqp = dict([(a, np.dot(Uisq_qp, P_pp))
+                          for a, P_pp in P_app.items()])
+            pickle.dump((g_qG, P_aqp), open(writeoptimizedpairs, 'wb'), 2)
+
+
+def makeV(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
+          rotationfile='eps_q__U_pq.pckl', coulombfile='V_qq.pckl',
+          log='V_qq.log', fft=False):
+    
+    if isinstance(log, str) and world.rank == MASTER:
+        log = open(log, 'w')
+
+    # Extract data from files
+    calc = GPAW(gpwfile, txt=None, communicator=serial_comm)
+    spos_ac = calc.get_atoms().get_scaled_positions() % 1.0
+    coulomb = Coulomb(calc.wfs.gd, calc.wfs.setups, spos_ac, fft)
+    w_wG, P_awi = pickle.load(open(orbitalfile))
+    eps_q, U_pq = pickle.load(open(rotationfile))
+    del calc
+
+    # Make rotation matrix divided by sqrt of norm
+    Nq = len(eps_q)
+    Np = len(U_pq)
+    Ni = len(w_wG)
+    Uisq_iqj = (U_pq/np.sqrt(eps_q)).reshape(Ni, Ni, Nq).swapaxes(1, 2).copy()
+    del eps_q, U_pq
+
+    # Determine number of opt. pairorb on each cpu
+    Ncpu = world.size
+    nq, R = divmod(Nq, Ncpu)
+    nq_r = nq * np.ones(Ncpu, int)
+    if R > 0:
+        nq_r[-R:] += 1
+
+    # Determine number of opt. pairorb on this cpu
+    nq1 = nq_r[world.rank]
+    q1end = nq_r[:world.rank + 1].sum()
+    q1start = q1end - nq1
+    V_qq = np.zeros((Nq, nq1), float)
+
+    def make_optimized(qstart, qend):
+        g_qG = np.zeros((qend - qstart,) + w_wG.shape[1:], float)
+        P_aqp = {}
+        for a, P_wi in P_awi.items():
+            ni = P_wi.shape[1]
+            nii = ni * (ni + 1) // 2
+            P_aqp[a] = np.zeros((qend - qstart, nii), float)
+        for w1, w1_G in enumerate(w_wG):
+            U = Uisq_iqj[w1, qstart: qend].copy()
+            gemm(1., w1_G * w_wG, U, 1.0, g_qG)
+            for a, P_wi in P_awi.items():
+                P_wp = np.array([pack(np.outer(P_wi[w1], P_wi[w2])) 
+                                for w2 in range(Ni)])
+                gemm(1., P_wp, U, 1.0, P_aqp[a])
+        return g_qG, P_aqp
+
+    g1_qG, P1_aqp = make_optimized(q1start, q1end)
+    for block, nq2 in enumerate(nq_r):
+        if block == world.rank:
+            g2_qG, P2_aqp = g1_qG, P1_aqp
+            q2start, q2end = q1start, q1end
+        else:
+            q2end = nq_r[:block + 1].sum()
+            q2start = q2end - nq2
+            g2_qG, P2_aqp = make_optimized(q2start, q2end)
+
+        for q1, q2 in np.ndindex(nq1, nq2):
+            P1_ap = dict([(a, P_qp[q1]) for a, P_qp in P1_aqp.items()])
+            P2_ap = dict([(a, P_qp[q2]) for a, P_qp in P2_aqp.items()])
+            V_qq[q2 + q2start, q1] = coulomb.calculate(g1_qG[q1], g2_qG[q2],
+                                                       P1_ap, P2_ap)
+            if q2 == 0 and world.rank == MASTER:
+                T = localtime()
+                log.write(
+                    'Block %i/%i is %4.1f percent done at %02i:%02i:%02i\n' % (
+                    block + 1, world.size, 100.0 * q1 / nq1, T[3], T[4], T[5]))
+                log.flush()
+
+    # Collect V_qq array on master node
+    if world.rank == MASTER:
+        T = localtime()
+        log.write('Starting collect at %02i:%02i:%02i\n' % (
+            T[3], T[4], T[5]))
+        log.flush()
+
+    V_qq = collect_orbitals(V_qq, coords=nq_r, root=MASTER)
+    if world.rank == MASTER:
+        # V can be slightly asymmetric due to numerics
+        V_qq = 0.5 * (V_qq + V_qq.T)
+        V_qq.dump(coulombfile)
+
+        T = localtime()
+        log.write('Finished at %02i:%02i:%02i\n' % (
+            T[3], T[4], T[5]))
+        log.flush()
+
+
+

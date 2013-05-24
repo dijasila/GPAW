@@ -90,6 +90,7 @@ void XC(gga_c_lyp_set_params)(XC(gga_type) *p, FLOAT A, FLOAT B, FLOAT c, FLOAT 
 void XC(hyb_gga_alloc)(XC(hyb_gga_type) *p);
 
 /* meta-GGAs */
+/* TPSS */
 void XC(mgga_x_tpss_init)(XC(mgga_type) *p);
 void XC(mgga_c_tpss_init)(XC(mgga_type) *p);
 
@@ -100,7 +101,7 @@ void XC(mgga_x_tpss)(XC(mgga_type) *p, FLOAT *rho, FLOAT *sigma, FLOAT *tau,
 		 FLOAT *e, FLOAT *dedd, FLOAT *vsigma, FLOAT *dedtau);
 void XC(mgga_c_tpss)(XC(mgga_type) *p, FLOAT *rho, FLOAT *sigma, FLOAT *tau,
 		 FLOAT *e, FLOAT *dedd, FLOAT *vsigma, FLOAT *dedtau);
-
+/* revTPSS */
 void XC(mgga_x_revtpss_init)(XC(mgga_type) *p);
 void XC(mgga_c_revtpss_init)(XC(mgga_type) *p);
 
@@ -111,7 +112,18 @@ void XC(mgga_x_revtpss)(XC(mgga_type) *p, FLOAT *rho, FLOAT *sigma, FLOAT *tau,
 		 FLOAT *e, FLOAT *dedd, FLOAT *vsigma, FLOAT *dedtau);
 void XC(mgga_c_revtpss)(XC(mgga_type) *p, FLOAT *rho, FLOAT *sigma, FLOAT *tau,
 		 FLOAT *e, FLOAT *dedd, FLOAT *vsigma, FLOAT *dedtau);
+/* oTPSS */
+void XC(mgga_x_otpss_init)(XC(mgga_type) *p);
+void XC(mgga_c_otpss_init)(XC(mgga_type) *p);
 
+void XC(mgga_x_otpss_end)(XC(mgga_type) *p);
+void XC(mgga_c_otpss_end)(XC(mgga_type) *p);
+
+void XC(mgga_x_otpss)(XC(mgga_type) *p, FLOAT *rho, FLOAT *sigma, FLOAT *tau,
+                 FLOAT *e, FLOAT *dedd, FLOAT *vsigma, FLOAT *dedtau);
+void XC(mgga_c_otpss)(XC(mgga_type) *p, FLOAT *rho, FLOAT *sigma, FLOAT *tau,
+                 FLOAT *e, FLOAT *dedd, FLOAT *vsigma, FLOAT *dedtau);
+/* M06L */
 void XC(mgga_x_m06l_init)(XC(mgga_type) *p);
 void XC(mgga_c_m06l_init)(XC(mgga_type) *p);
 
@@ -122,7 +134,16 @@ void XC(mgga_x_m06l)(XC(mgga_type) *p, FLOAT *rho, FLOAT *sigma, FLOAT *tau,
 		 FLOAT *e, FLOAT *dedd, FLOAT *vsigma, FLOAT *dedtau);
 void XC(mgga_c_m06l)(XC(mgga_type) *p, FLOAT *rho, FLOAT *sigma, FLOAT *tau,
 		 FLOAT *e, FLOAT *dedd, FLOAT *vsigma, FLOAT *dedtau);
-
+/* mBEEF */
+void XC(mgga_x_mbeef_init)(XC(mgga_type) *p);
+void XC(mgga_x_mbeef_end)(XC(mgga_type) *p);
+void XC(mgga_x_mbeef)(XC(mgga_type) *p, FLOAT *rho, FLOAT *sigma, FLOAT *tau,
+                 FLOAT *e, FLOAT *dedd, FLOAT *vsigma, FLOAT *dedtau);
+/* MSx */
+void XC(mgga_x_ms_init)(XC(mgga_type) *p);
+void XC(mgga_x_ms_end)(XC(mgga_type) *p);
+void XC(mgga_x_ms)(XC(mgga_type) *p, FLOAT *rho, FLOAT *sigma, FLOAT *tau,
+                 FLOAT *e, FLOAT *dedd, FLOAT *vsigma, FLOAT *dedtau);
 
 /* LCAs */
 void XC(lca_lch_init)(XC(lca_type) *p);

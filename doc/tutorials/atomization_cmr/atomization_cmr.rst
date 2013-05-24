@@ -17,12 +17,6 @@ is divided into several parts:
 
 1. the preliminary part contains important settings relevant for CMR:
 
-  - configuration of CMR in order to work in jobs executed in parallel:
-
-    .. literalinclude:: ../../../gpaw/test/cmrtest/Li2_atomize.py
-       :start-after: import
-       :end-before: from
-
   - setting a **unique** project identifier:
 
     .. literalinclude:: ../../../gpaw/test/cmrtest/Li2_atomize.py

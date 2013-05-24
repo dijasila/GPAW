@@ -1,6 +1,7 @@
 from ase import Atoms, Atom
 from ase.units import Hartree, Bohr
-from gpaw import GPAW, debug, dry_run, Mixer, MixerDif, PoissonSolver
+from gpaw import GPAW, debug, dry_run, PoissonSolver
+from gpaw.mixer import Mixer, MixerSum, MixerDif, BroydenMixer, BroydenMixerSum
 from gpaw.poisson import FixedBoundaryPoissonSolver
 
 from gpaw import restart as restart_gpaw
@@ -29,7 +30,10 @@ import numpy as np
 import cPickle
 
 class FixedBC_GridDescriptor(GridDescriptor):
-    use_fixed_bc = True
+    def get_boxes(self, spos_c, rcut, cut=True):
+        # The effect of this grid descriptor class is to always use cut=True
+        return GridDescriptor.get_boxes(self, spos_c, rcut, True)
+
 
 class Lead_Calc(GPAW):
     def dry_run(self):
@@ -52,13 +56,12 @@ class Transport(GPAW):
         self.finegd = self.density.finegd
             
     def set_transport_kwargs(self, **transport_kwargs):
-        '''illustration of keywords:
-
-                 o  o  o  o  o  o  o  o  o  o  o  o  o 
-                 0  1  2  3  4  5  6  7  8  9  10 11 12
-                             | mol_atoms |    
-                 |pl_atoms1|                |pl_atoms2|
-        '''
+        """ Illustration of keywords::
+          o  o  o  o  o  o  o  o  o  o  o  o  o
+          0  1  2  3  4  5  6  7  8  9  10 11 12
+          .            | mol_atoms |
+          | pl_atoms1 |              | pl_atoms2 |
+        """
         kw = transport_kwargs  
         p =  self.set_default_transport_parameters()
         self.gpw_kwargs = kw.copy()
@@ -587,8 +590,14 @@ class Transport(GPAW):
         kwargs['kpts'] = kpts
         if hasattr(self.density.mixer, 'mixers'):
             kwargs['mixer'] = Mixer(self.beta_guess, 5, weight=100.0)
-        else:
+        elif hasattr(self.density.mixer, 'mixer'):
             kwargs['mixer'] = MixerDif(self.beta_guess, 5, weight=100.0)
+        elif self.spinpol and hasattr(self.density.mixer, 'step'):
+	    kwargs['mixer'] = BroydenMixerSum(self.beta_guess, 5)
+	elif self.spinpol and not hasattr(self.density.mixer, 'step'):
+	    kwargs['mixer'] = MixerSum(self.beta_guess, 5, weight=100.0)
+        else:
+	    kwargs['mixer'] = BroydenMixer(self.beta_guess, 5)
         if 'txt' in kwargs and kwargs['txt'] != '-':
             kwargs['txt'] = 'guess_' + kwargs['txt']            
         atoms.set_calculator(gpaw.GPAW(**kwargs))
@@ -627,10 +636,18 @@ class Transport(GPAW):
         #kwargs['kpts'] = kpts
         if self.non_sc:
             kwargs['kpts'] = kpts[:2] + (self.scat_ntk,)
+
         if hasattr(self.density.mixer, 'mixers'):
             kwargs['mixer'] = Mixer(self.beta_guess, 5, weight=100.0)
-        else:
+        elif hasattr(self.density.mixer, 'mixer'):
             kwargs['mixer'] = MixerDif(self.beta_guess, 5, weight=100.0)
+        elif self.spinpol and hasattr(self.density.mixer, 'step'):
+	    kwargs['mixer'] = BroydenMixerSum(self.beta_guess, 5)
+	elif self.spinpol and not hasattr(self.density.mixer, 'step'):
+	    kwargs['mixer'] = MixerSum(self.beta_guess, 5, weight=100.0)
+        else:
+	    kwargs['mixer'] = BroydenMixer(self.beta_guess, 5)
+
         if 'txt' in kwargs and kwargs['txt'] != '-':
             kwargs['txt'] = 'guess_' + kwargs['txt']            
         atoms.set_calculator(gpaw.GPAW(**kwargs))
@@ -716,13 +733,16 @@ class Transport(GPAW):
                 self.hsd.reset(s, q, np.zeros([nb, nb], dtype), 'D', True)
 
     def copy_mixer_history(self, calc, guess_type='normal'):
-	if hasattr(self.density.mixer, 'mixers'):
+	if hasattr(self.density.mixer, 'mixers'):  #for Mixer
 	    mixers = calc.density.mixer.mixers
 	    mixers0 = self.density.mixer.mixers
-        else:
+        elif hasattr(self.density.mixer, 'mixer'):   #for MixerDif
+	    mixers = [calc.density.mixer.mixer, calc.density.mixer.mixer_m]
+	    mixers0 = [self.density.mixer.mixer, self.density.mixer.mixer_m]
+	else:  #for BroydenMixer or BroydenMixerSum
 	    mixers = [calc.density.mixer]
 	    mixers0 = [self.density.mixer]
-
+	
         if guess_type == 'buffer':
 	    from gpaw.transport.tools import cut_grids_side, \
 	                       collect_and_distribute_atomic_matrices
@@ -755,14 +775,44 @@ class Transport(GPAW):
 						    rank_a, gd.comm, keys)
 		mixer0.nt_iG.append(nt_G0)
 		mixer0.D_iap.append(lD_ap)
-		mixer0.A_ii = mixer.A_ii    
+		if hasattr(mixer, 'A_ii'):
+  		    mixer0.A_ii = mixer.A_ii    
+                else:
+		    for cG, vG, uG, uD, etaD in zip(mixer.c_G,
+	                                      mixer.v_G,
+	    				      mixer.u_G,
+	    				      mixer.u_D,
+					      mixer.eta_D):
+                        vG0 = cut_grids_side(vG, gd, gd0)
+	      	        uG0 = cut_grids_side(uG, gd, gd0)
+		        uD0 = collect_and_distribute_atomic_matrices(uD,
+		                                            setups, setups0,
+		            			       rank_a, gd.comm, keys)
+		        etaD0 = collect_and_distribute_atomic_matrices(etaD,
+		                                            setups, setups0,
+		            			       rank_a, gd.comm, keys)
+	                mixer0.c_G.append(cG)
+		        mixer0.v_G.append(vG0)
+		        mixer0.u_G.append(uG0)
+		        mixer0.u_D.append(uD0)
+		        mixer0.eta_D.append(etaD0)
+		    mixer0.step = mixer.step	
+	    
         else:
             for mixer, mixer0 in zip(mixers, mixers0):
                 mixer0.nt_iG = mixer.nt_iG[:]
 	        mixer0.R_iG = mixer.R_iG[:]
 	        mixer0.D_iap = mixer.D_iap[:]
 	        mixer0.dD_iap = mixer.dD_iap[:]
-		mixer0.A_ii = mixer.A_ii
+		if hasattr(mixer, 'A_ii'):
+  		    mixer0.A_ii = mixer.A_ii
+		else:
+                    mixer0.c_G = mixer.c_G[:]
+	            mixer0.v_G = mixer.v_G[:]
+	            mixer0.u_G = mixer.u_G[:]
+                    mixer0.u_D = mixer.u_D[:]
+		    mixer0.eta_D = mixer.eta_D[:]
+		    mixer0.step = mixer.step
        
     def scale_and_combine_hamiltonian(self):
  	#assert self.cell_ham_file is not None
@@ -2552,7 +2602,7 @@ class Transport(GPAW):
                 density.normalize() 
   
         comp_charge = density.calculate_multipole_moments()
-        density.interpolate(comp_charge)
+        density.interpolate_pseudo_density(comp_charge)
         density.calculate_pseudo_charge()
             
         self.update_hamiltonian()

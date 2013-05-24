@@ -32,6 +32,8 @@ The mailing lists below are of interest for active GPAW developers only:
 For topics before Oct 20 2009 browse gridpaw-developer_.
 The list is inactive and serves as an archive only.
 
+Note that you can search the mailing list archives: click on the
+mailing list above, then choose the archive, and search from that page.
 
 .. _irc:
 

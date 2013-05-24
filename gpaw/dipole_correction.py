@@ -33,7 +33,7 @@ class DipoleCorrection:
 
         self.description = (
             self.poissonsolver.description +
-            '\nDipole correctaion along %s-axis' % 'xyz'[self.corrector.c])
+            '\nDipole correction along %s-axis' % 'xyz'[self.corrector.c])
 
     def initialize(self):
         self.poissonsolver.initialize()
@@ -45,20 +45,6 @@ class DipoleCorrection:
         iters = self.poissonsolver.solve(phi, rho + drho, **kwargs)
         phi += dphi
         return iters
-
-    def get_boundary_potential(self, vHa_g):
-        c = self.corrector.c
-        if c == 0:
-            v0 = vHa_g[0, :, :].mean()
-            v1 = vHa_g[-1, :, :].mean()
-        elif c == 1: 
-            v0 = vHa_g[:, 0, :].mean()
-            v1 = vHa_g[:, -1, :].mean()
-        elif c == 2:
-            v0 = vHa_g[:, :, 0].mean()
-            v1 = vHa_g[:, :, -1].mean()
-        return v0, v1
-    
 
     def estimate_memory(self, mem):
         self.poissonsolver.estimate_memory(mem)

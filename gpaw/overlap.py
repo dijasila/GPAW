@@ -27,7 +27,7 @@ class Overlap:
         self.ksl = ksl
         self.timer = timer
         
-    def orthonormalize(self, wfs, kpt):
+    def orthonormalize(self, wfs, kpt, psit_nG=None):
         """Orthonormalizes the vectors a_nG with respect to the overlap.
 
         First, a Cholesky factorization C is done for the overlap
@@ -56,7 +56,8 @@ class Overlap:
 
         """
         self.timer.start('Orthonormalize')
-        psit_nG = kpt.psit_nG
+        if psit_nG is None:
+            psit_nG = kpt.psit_nG
         P_ani = kpt.P_ani
         self.timer.start('projections')
         wfs.pt.integrate(psit_nG, P_ani, kpt.q)
@@ -96,7 +97,7 @@ class Overlap:
         self.timer.stop(orthonormalization_string)
 
         self.timer.start('rotate_psi')
-        kpt.psit_nG = operator.matrix_multiply(C_nn, psit_nG, P_ani)
+        operator.matrix_multiply(C_nn, psit_nG, P_ani, out_nG=kpt.psit_nG)
         self.timer.stop('rotate_psi')
         self.timer.stop('Orthonormalize')
 

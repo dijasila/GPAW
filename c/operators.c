@@ -106,6 +106,7 @@ void apply_worker(OperatorObject *self, int chunksize, int start,
 
   int nin = end - start;
   int nend = start + (nin / chunksize) * chunksize;
+  int nremain = end - nend;
 
   for (int n = start; n < nend; n += chunksize)
     {
@@ -121,6 +122,7 @@ void apply_worker(OperatorObject *self, int chunksize, int start,
           bc_unpack2(bc, buf, i, recvreq, sendreq, recvbuf, chunksize);
         }
 
+// #pragma omp parallel for
       for (int m = 0; m < chunksize; m++)
         if (real)
           bmgs_fd(&self->stencil, buf + m * ng2, my_out + m * ng);
@@ -128,26 +130,28 @@ void apply_worker(OperatorObject *self, int chunksize, int start,
           bmgs_fdz(&self->stencil, (const double_complex*) (buf + m * ng2),
                                          (double_complex*) (my_out + m * ng));
     }
-  // Remainder loop
-  for (int n = nend; n < end; n++)
+  // Remainder 
+  if (nremain > 0)
     {
-      my_in = in + n * ng;
-      my_out = out + n * ng;
+      my_in = in + nend * ng;
+      my_out = out + nend * ng;
 
       for (int i = 0; i < 3; i++)
         {
           bc_unpack1(bc, my_in, buf, i,
                      recvreq, sendreq,
                      recvbuf, sendbuf, ph + 2 * i,
-                     thread_id, 1);
-          bc_unpack2(bc, buf, i, recvreq, sendreq, recvbuf, 1);
+                     thread_id, nremain);
+          bc_unpack2(bc, buf, i, recvreq, sendreq, recvbuf, nremain);
         }
 
+// #pragma omp parallel for
+      for (int m = 0; m < nremain; m++)
         if (real)
-          bmgs_fd(&self->stencil, (const double*) buf, my_out );
+          bmgs_fd(&self->stencil, buf + m * ng2, my_out + m * ng);
         else
-          bmgs_fdz(&self->stencil, (const double_complex*) buf,
-                                         (double_complex*) my_out);
+          bmgs_fdz(&self->stencil, (const double_complex*) (buf + m * ng2),
+                                         (double_complex*) (my_out + m * ng));
     }
   free(buf);
   free(recvbuf);
@@ -165,13 +169,13 @@ static PyObject * Operator_apply(OperatorObject *self,
     return NULL;
 
   int nin = 1;
-  if (input->nd == 4)
-    nin = input->dimensions[0];
+  if (PyArray_NDIM(input) == 4)
+    nin = PyArray_DIMS(input)[0];
 
   const double* in = DOUBLEP(input);
   double* out = DOUBLEP(output);
 
-  bool real = (input->descr->type_num == PyArray_DOUBLE);
+  bool real = (PyArray_DESCR(input)->type_num == NPY_DOUBLE);
 
   const double_complex* ph;
   if (real)
@@ -185,20 +189,22 @@ static PyObject * Operator_apply(OperatorObject *self,
     {
       int opt_msg_size = atoi(getenv("GPAW_MPI_OPTIMAL_MSG_SIZE"));
       if (bc->maxsend > 0 )
-          chunksize = opt_msg_size * 1024 / (bc->maxsend * (2 - (int) real) *
+          chunksize = opt_msg_size * 1024 / (bc->maxsend / 2 * (2 - (int)real) *
                                              sizeof(double));
+      chunksize = (chunksize > 0) ? chunksize : 1;
       chunksize = (chunksize < nin) ? chunksize : nin;
+      // printf("Chunksize: %d maxsend: %d\n", chunksize, bc->maxsend);
     }
   
-#pragma omp parallel
+//#pragma omp parallel
 {
   int thread_id = 0;
   int nthreads = 1;
   int start, end;
-#ifdef _OPENMP
-  thread_id = omp_get_thread_num();
-  nthreads = omp_get_num_threads();
-#endif
+// #ifdef _OPENMP
+//  thread_id = omp_get_thread_num();
+//  nthreads = omp_get_num_threads();
+// #endif
   SHARE_WORK(nin, nthreads, thread_id, &start, &end);
   apply_worker(self, chunksize, start, end, thread_id, nthreads,
 	       in, out, real, ph);
@@ -285,7 +291,7 @@ PyObject * NewOperatorObject(PyObject *obj, PyObject *args)
   if (self == NULL)
     return NULL;
 
-  self->stencil = bmgs_stencil(coefs->dimensions[0], DOUBLEP(coefs),
+  self->stencil = bmgs_stencil(PyArray_DIMS(coefs)[0], DOUBLEP(coefs),
                                LONGP(offsets), range, LONGP(size));
 
   const long (*nb)[2] = (const long (*)[2])LONGP(neighbors);

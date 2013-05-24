@@ -13,11 +13,11 @@ overwrite the system default :envvar:`PATH`, :envvar:`PYTHONPATH`,
 nor :envvar:`GPAW_SETUP_PATH` environment variables.
 When setting the environment variables **prepend** them, i.e.:
 
- - using csh/tcsh::
+- using csh/tcsh::
 
     setenv PATH ${HOME}/bin:${PATH}
 
- - using bash::
+- using bash::
 
     export PATH=${HOME}/bin:${PATH}
 
@@ -27,124 +27,139 @@ when installating GPAW for the first time:
 1. On the ``servcamd`` filesystem (login on your workstation)
    go to a directory on the Niflheim filesystem.
    Usually users install GPAW under Niflheim's :envvar:`HOME`,
-   i.e. :file:`/home/niflheim/$USER`, and the instructions below assume this:
+   i.e. :file:`/home/niflheim/$USER/gpaw`,
+   and the instructions below assume this.
 
-    - using csh/tcsh::
+2. Checkout the GPAW source. Make **sure** that
+   :file:`/home/niflheim/$USER/gpaw` does **not** exist,
+   before running the checkout!::
 
-       setenv GPAW_TRUNK https://svn.fysik.dtu.dk/projects/gpaw/trunk
-       setenv GPAW_HOME /home/niflheim/$USER/gpaw
+     svn checkout https://svn.fysik.dtu.dk/projects/gpaw/trunk /home/niflheim/$USER/gpaw
 
-    - using bash::
-
-       export GPAW_TRUNK=https://svn.fysik.dtu.dk/projects/gpaw/trunk
-       export GPAW_HOME=/home/niflheim/$USER/gpaw
-
-   Checkout the GPAW source (make **sure** that
-   :file:`${GPAW_HOME}` does **not** exist, before running the checkout!)::
-
-    rm -rf ${GPAW_HOME}
-    svn checkout $GPAW_TRUNK ${GPAW_HOME}
-
-   You may consider adding :envvar:`GPAW_TRUNK` and :envvar:`GPAW_HOME` to
-   :file:`/home/niflheim/$USER/.cshrc` (:file:`/home/niflheim/$USER/.bashrc`).
-
-   **Note**: that if you are doing a heavy development (many svn checkins)
+   **Note**: if you are doing a heavy development (many svn checkins)
    you may consider installing a special development version on workstation's
-   local disk (faster), i.e. ``GPAW_HOME=/scratch/$USER/gpaw``, however this version will
-   not be accesible from Niflheim.
+   local disk (faster), i.e. :file:`/scratch/$USER/gpaw`,
+   however this version will not be accesible from Niflheim.
 
-2. To compile the code, run the shell script
-:svn:`~doc/install/Linux/Niflheim/compile.sh`:
+3. Set the :envvar:`GPAW_HOME` environment variable:
 
-.. literalinclude:: compile.sh
+- using csh/tcsh::
 
-preferably from your gpaw directory, i.e.::
+    setenv GPAW_HOME /home/niflheim/$USER/gpaw
 
-   cd ${GPAW_HOME}
-   sh ./doc/install/Linux/Niflheim/compile.sh
+- using bash::
 
-Note the  versions of gpaw compiled with `TAU Performance System <http://www.cs.uoregon.edu/research/tau/>`_.
-See `Modules in batch jobs <https://wiki.fysik.dtu.dk/niflheim/Installed_software?action=show#modules-in-batch-jobs>`_ for details of using these on Niflheim.
+    export GPAW_HOME=/home/niflheim/$USER/gpaw
 
-If you have login passwords active,
-this will force you to type your password four times. It is
-possible to remove the need for typing passwords on internal CAMd systems,
-using the procedure described at
-https://wiki.fysik.dtu.dk/it/SshWithoutPassword.
+4. To compile the code, run the shell script
+   :svn:`~doc/install/Linux/Niflheim/compile.sh`:
 
-3. **Prepend** :envvar:`PYTHONPATH` environment variable:
+   .. literalinclude:: compile.sh
 
-   - csh/tcsh - add to /home/niflheim/$USER/.cshrc::
+   preferably from your gpaw directory, i.e.::
 
-       source /home/camp/modulefiles.csh
-       if ( "`echo $FYS_PLATFORM`" == "AMD-Opteron-el4" ) then # slid
-           if ( ! ( `hostname -s | grep "^p"` ==  "")) then # p-node = infiniband
-               setenv GPAW_PLATFORM "linux-x86_64-infiniband-2.3"
-           else
-               setenv GPAW_PLATFORM "linux-x86_64-ethernet-2.3"
-           endif
-       endif
-       if ( "`echo $FYS_PLATFORM`" == "AMD-Opteron-el5" ) then # fjorm
-           module load GPAW
-           if ( ! ( `hostname -s | grep "^p"` ==  "")) then # p-node = infiniband
-               setenv GPAW_PLATFORM "linux-x86_64-opteron-infiniband-2.4"
-           else
-               setenv GPAW_PLATFORM "linux-x86_64-opteron-2.4"
-           endif
-       endif
-       if ( "`echo $FYS_PLATFORM`" == "Intel-Nehalem-el5" ) then # thul
-           module load GPAW
-           setenv GPAW_PLATFORM "linux-x86_64-xeon-2.4"
-       endif
-       setenv PATH ${GPAW_HOME}/build/bin.${GPAW_PLATFORM}:${PATH}
-       setenv PATH ${GPAW_HOME}/tools:${PATH}
-       setenv PYTHONPATH ${GPAW_HOME}:${PYTHONPATH}
-       setenv PYTHONPATH ${GPAW_HOME}/build/lib.${GPAW_PLATFORM}:${PYTHONPATH}
+     cd ${GPAW_HOME}
+     sh ./doc/install/Linux/Niflheim/compile.sh
 
-   - bash - add to /home/niflheim/$USER/.bashrc::
+   Note the  versions of gpaw compiled with `TAU Performance System <http://www.cs.uoregon.edu/research/tau/>`_.
+   See `Modules in batch jobs <https://wiki.fysik.dtu.dk/niflheim/Installed_software#modules-in-batch-jobs>`_ for details of using these on Niflheim.
 
-       source /home/camp/modulefiles.sh
-       if [ "`echo $FYS_PLATFORM`" == "AMD-Opteron-el4" ]; then # slid
-           if [ ! `hostname -s | grep "^p"` ==  "" ]; then # p-node = infiniband
-               export GPAW_PLATFORM="linux-x86_64-infiniband-2.3"
-           else
-               export GPAW_PLATFORM="linux-x86_64-ethernet-2.3"
-           fi
-       fi
-       if [ "`echo $FYS_PLATFORM`" == "AMD-Opteron-el5" ]; then # fjorm
-           module load GPAW
-           if [ ! `hostname -s | grep "^p"` ==  "" ]; then # p-node = infiniband
-               export GPAW_PLATFORM="linux-x86_64-opteron-infiniband-2.4"
-           else
-               export GPAW_PLATFORM="linux-x86_64-opteron-2.4"
-           fi
-       fi
-       if [ "`echo $FYS_PLATFORM`" == "Intel-Nehalem-el5" ]; then # thul
-           module load GPAW
-           export GPAW_PLATFORM="linux-x86_64-xeon-2.4"
-       fi
-       export PATH=${GPAW_HOME}/build/bin.${GPAW_PLATFORM}:${PATH}
-       export PATH=${GPAW_HOME}/tools:${PATH}
-       export PYTHONPATH=${GPAW_HOME}:${PYTHONPATH}
-       export PYTHONPATH=${GPAW_HOME}/build/lib.${GPAW_PLATFORM}:${PYTHONPATH}
+   If you have login passwords active,
+   this will force you to type your password four times. It is
+   possible to remove the need for typing passwords on internal CAMd systems,
+   using the procedure described at
+   https://wiki.fysik.dtu.dk/it/SshWithoutPassword.
 
-   Make sure that you add these settings above any line that
-   causes exit when run in the batch system e.g. ``if ( { tty -s } == 0 ) exit``.
+5. **Prepend** :envvar:`PYTHONPATH` and :envvar:`PATH` environment variables:
+
+- csh/tcsh - add to /home/niflheim/$USER/.cshrc::
+
+    if ( "`echo $FYS_PLATFORM`" == "AMD-Opteron-el5" ) then # fjorm
+        module load GPAW
+        if ( ! ( `hostname -s | grep "^p"` ==  "")) then # p-node = infiniband
+            setenv GPAW_PLATFORM "linux-x86_64-opteron-infiniband-2.4"
+        else
+            setenv GPAW_PLATFORM "linux-x86_64-opteron-2.4"
+        endif
+    endif
+    if ( "`echo $FYS_PLATFORM`" == "Intel-Nehalem-el5" ) then # thul
+        module load GPAW
+        setenv GPAW_PLATFORM "linux-x86_64-xeon-2.4"
+    endif
+    if ( "`echo $FYS_PLATFORM`" == "x3455-el6" ) then # slid
+        module load GPAW
+        setenv GPAW_PLATFORM "linux-x86_64-x3455-2.6"
+    endif
+    if ( "`echo $FYS_PLATFORM`" == "dl160g6-el6" ) then # muspel
+        module load GPAW
+        setenv GPAW_PLATFORM "linux-x86_64-dl160g6-2.6"
+    endif
+    if ( "`echo $FYS_PLATFORM`" == "sl230s-el6" ) then # surt
+        module load GPAW
+        setenv GPAW_PLATFORM "linux-x86_64-sl230s-2.6"
+    endif
+    # GPAW_HOME must be set after loading the GPAW module!
+    setenv GPAW_HOME /home/niflheim/$USER/gpaw
+    setenv PATH ${GPAW_HOME}/build/bin.${GPAW_PLATFORM}:${PATH}
+    setenv PATH ${GPAW_HOME}/tools:${PATH}
+    setenv PYTHONPATH ${GPAW_HOME}:${PYTHONPATH}
+    setenv PYTHONPATH ${GPAW_HOME}/build/lib.${GPAW_PLATFORM}:${PYTHONPATH}
+
+- bash - add to /home/niflheim/$USER/.bashrc::
+
+    if [ "`echo $FYS_PLATFORM`" == "AMD-Opteron-el5" ]; then # fjorm
+        module load GPAW
+        if [ ! `hostname -s | grep "^p"` ==  "" ]; then # p-node = infiniband
+            export GPAW_PLATFORM="linux-x86_64-opteron-infiniband-2.4"
+        else
+            export GPAW_PLATFORM="linux-x86_64-opteron-2.4"
+        fi
+    fi
+    if [ "`echo $FYS_PLATFORM`" == "Intel-Nehalem-el5" ]; then # thul
+        module load GPAW
+        export GPAW_PLATFORM="linux-x86_64-xeon-2.4"
+    fi
+    if [ "`echo $FYS_PLATFORM`" == "x3455-el6" ]; then # slid
+        module load GPAW
+        export GPAW_PLATFORM="linux-x86_64-x3455-2.6"
+    fi
+    if [ "`echo $FYS_PLATFORM`" == "dl160g6-el6" ]; then # muspel
+        module load GPAW
+        export GPAW_PLATFORM="linux-x86_64-dl160g6-2.6"
+    fi
+    if [ "`echo $FYS_PLATFORM`" == "sl230s-el6" ]; then # surt
+        module load GPAW
+        export GPAW_PLATFORM="linux-x86_64-sl230s-2.6"
+    fi
+    # GPAW_HOME must be set after loading the GPAW module!
+    export GPAW_HOME=/home/niflheim/$USER/gpaw
+    export PATH=${GPAW_HOME}/build/bin.${GPAW_PLATFORM}:${PATH}
+    export PATH=${GPAW_HOME}/tools:${PATH}
+    export PYTHONPATH=${GPAW_HOME}:${PYTHONPATH}
+    export PYTHONPATH=${GPAW_HOME}/build/lib.${GPAW_PLATFORM}:${PYTHONPATH}
+
+  Make sure that you add these settings above any line that
+  causes exit when run in the batch system e.g. ``if ( { tty -s } == 0 ) exit``.
  
-4. If you prefer to use a personal setup's directory follow
-   point 4. from :ref:`installationguide`.
+  **Warning**: from the time you save settings in /home/niflheim/$USER/.cshrc
+  of /home/niflheim/$USER/.bashrc, your jobs (also those waiting
+  currently in the queue) will start using the new version.
+  Consider making such changes with no jobs in the queue.
 
-5. When submitting jobs to the batch system, use the file
+6. If you prefer to use a personal setup's directory follow
+   :ref:`installationguide_setup_files`.
+
+7. When submitting jobs to the batch system, use the file
    :svn:`~doc/documentation/parallel_runs/gpaw-qsub` instead of the
    usual :command:`qsub`.
 
 When updating the gpaw code in the future:
 
-- Go to the gpaw directory and run::
+- Go to the :envvar:`GPAW_HOME` directory and run::
 
     svn up
 
-- If any of the c-code changed during the update repeat step 2.
+- If any of the c-code changed during the update repeat step 4.
 
 .. note::
 

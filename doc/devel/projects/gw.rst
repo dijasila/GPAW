@@ -14,6 +14,8 @@ Recent features are:
 * choice of two different methods for calculating the self energy (Hilbert transform False or True)
 * customized parallelization over k-points and frequencies
 * read Exact Exchange contributions from file
+* spin-polarized GW
+* support of grid, LCAO and planewave mode
 
 I've also implemented static COHSEX, but it's not yet in the repository, since I still haven't found a smart way to combine COHSEX 
 and GW within the same piece of code.

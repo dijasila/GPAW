@@ -174,7 +174,14 @@ class MakeSetupPageData:
         self.Fegg = np.zeros((self.ng, negg))
 
         eigensolver = 'rmm-diis'
-        if self.symbol in ['Ti', 'Sn', 'Te', 'Ba']: eigensolver = 'cg'
+        if self.symbol in ['Na', 'Mg']: eigensolver = 'cg'
+        if self.symbol in ['Sc', 'Ti', 'V', 'Mn', 'Ni',
+                           'Zn']: eigensolver = 'cg'
+        if self.symbol in ['Zr', 'Nb', 'Mo', 'Ru', 'Rh', 'Pd',
+                           'Ag']: eigensolver = 'cg'
+        if self.symbol in ['Sn', 'Sb', 'Te', 'Ba']: eigensolver = 'cg'
+        if self.symbol in ['Hf', 'Ta', 'W', 'Re', 'Os',
+                           'Ir', 'Pt', 'Hg', 'Pb', 'Bi']: eigensolver = 'cg'
         for i in range(self.ng):
             h = self.gridspacings[i]
             calc = GPAW(h=h, txt='%s-eggbox-%.3f.txt' % (self.symbol, h),
@@ -204,7 +211,14 @@ class MakeSetupPageData:
 
         q0 = self.d0 / np.sqrt(3)
         eigensolver = 'rmm-diis'
-        if self.symbol in ['Ti', 'Sn', 'Te', 'Ba']: eigensolver = 'cg'
+        if self.symbol in ['Na', 'Mg']: eigensolver = 'cg'
+        if self.symbol in ['Sc', 'Ti', 'V', 'Mn', 'Ni',
+                           'Zn']: eigensolver = 'cg'
+        if self.symbol in ['Zr', 'Nb', 'Mo', 'Ru', 'Rh', 'Pd',
+                           'Ag']: eigensolver = 'cg'
+        if self.symbol in ['Sn', 'Sb', 'Te', 'Ba']: eigensolver = 'cg'
+        if self.symbol in ['Hf', 'Ta', 'W', 'Re', 'Os',
+                           'Ir', 'Pt', 'Hg', 'Pb', 'Bi']: eigensolver = 'cg'
         for i in range(self.ng):
             h = self.gridspacings[i]
             calc = GPAW(h=h, txt='%s-dimer-%.3f.txt' % (self.symbol, h),

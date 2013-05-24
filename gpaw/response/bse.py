@@ -7,16 +7,16 @@ from ase.io import write
 from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.io.tar import Writer, Reader
 from gpaw.mpi import world, size, rank, serial_comm
-from gpaw.utilities.blas import gemmdot, gemm, gemv
 from gpaw.utilities import devnull
+from gpaw.utilities.blas import gemmdot, gemm, gemv
 from gpaw.utilities.memory import maxrss
 from gpaw.response.base import BASECHI
-from gpaw.response.parallel import parallel_partition
+from gpaw.response.parallel import parallel_partition, gatherv
+from gpaw.response.kernel import calculate_Kc, calculate_Kc_q
 from gpaw.response.df import DF
-from gpaw.response.parallel import gatherv
 
 class BSE(BASECHI):
-    """This class defines Belth-Selpether equations."""
+    """This class defines Bethe-Salpeter equations."""
 
     def __init__(self,
                  calc=None,
@@ -28,35 +28,46 @@ class BSE(BASECHI):
                  eshift=None,
                  ecut=10.,
                  eta=0.2,
+                 gw_skn=None, # GW QP energies in Hartree
                  rpad=np.array([1,1,1]),
-                 vcut=None,
+                 vcut=None,   # Coulomb cutoff only 2D works
                  ftol=1e-5,
                  txt=None,
-                 optical_limit=False,
-                 positive_w=False, # True : use Tamm-Dancoff Approx
-                 use_W=True, # True: include screened interaction kernel
+                 optical_limit=None,
+                 integrate_coulomb=None,
+                 print_coulomb=False,
+                 coupling=False,  # False : use Tamm-Dancoff Approx
+                 mode='BSE',      # BSE, TDHF or RPA
+                 kernel_file=None,#'W_qGG',
                  qsymm=True): 
 
         BASECHI.__init__(self, calc=calc, nbands=nbands, w=w, q=q,
                          eshift=eshift, ecut=ecut, eta=eta, rpad=rpad,
                          ftol=ftol, txt=txt, optical_limit=optical_limit)
 
+        assert mode is 'RPA' or 'TDHF' or 'BSE'
+
         self.epsilon_w = None
-        self.positive_w = positive_w
+        self.coupling = coupling
         self.vcut = vcut
         self.nc = nc # conduction band index
         self.nv = nv # valence band index
-        self.use_W = use_W
+        self.gw_skn = gw_skn
+        self.mode = mode
+        self.integrate_coulomb = integrate_coulomb
+        self.print_coulomb = print_coulomb
+        self.kernel_file = kernel_file
         self.qsymm = qsymm
 
     def initialize(self):
 
+        self.printtxt('----------------------------------------')
+        self.printtxt('Bethe-Salpeter Equation calculation')
+        self.printtxt('----------------------------------------')
+        self.printtxt('Started at:  %s' % ctime())
         self.printtxt('')
-        self.printtxt('-----------------------------------------------')
-        self.printtxt('Bethe Salpeter Equation calculation started at:')
-        self.printtxt(ctime())
-
         BASECHI.initialize(self)
+        assert self.nspins == 1
         
         calc = self.calc
         self.kd = kd = calc.wfs.kd
@@ -72,22 +83,19 @@ class BSE(BASECHI):
         self.Nw  = int(self.wmax / self.dw) + 1
 
         # band init
-        if self.nc is None and self.positive_w is True: # applied only to semiconductor
+        if self.nc is None:
             nv = self.nvalence / 2 - 1
             self.nv = np.array([nv, nv+1]) # conduction band start / end
             self.nc = np.array([nv+1, nv+2]) # valence band start / end
-            self.printtxt('Number of electrons: %d' %(self.nvalence))
-            self.printtxt('Valence band included        : (band %d to band %d)' %(self.nv[0],self.nv[1]-1))
-            self.printtxt('Conduction band included     : (band %d to band %d)' %(self.nc[0],self.nc[1]-1))
-        elif self.nc == 'all' or self.positive_w is False: # applied to metals
-            self.nv = np.array([0, self.nbands])
-            self.nc = np.array([0, self.nbands])
-            self.printtxt('All the bands are included')
-        else:
-            self.printtxt('User defined bands for BSE.')
-            self.printtxt('Valence band included: (band %d to band %d)' %(self.nv[0],self.nv[1]-1))
-            self.printtxt('Conduction band included: (band %d to band %d)' %(self.nc[0],self.nc[1]-1))            
 
+        self.printtxt('')
+        self.printtxt('Number of electrons      : %d' % (self.nvalence))
+        self.printtxt('Valence band included    : (band %d to band %d)' %(self.nv[0], self.nv[1]-1))
+        self.printtxt('Conduction band included : (band %d to band %d)' %(self.nc[0], self.nc[1]-1))
+        if self.eshift is not None:
+            self.printtxt('Scissors operator        : %2.3f eV' % self.eshift)
+        self.printtxt('')
+            
         # find the pair index and initialized pair energy (e_i - e_j) and occupation(f_i-f_j)
         self.e_S = {}
         focc_s = {}
@@ -99,13 +107,17 @@ class BSE(BASECHI):
             ibzkpt2 = kd.bz2ibz_k[kq_k[k1]]
             for n1 in range(self.nv[0], self.nv[1]): 
                 for m1 in range(self.nc[0], self.nc[1]): 
-                    focc = self.f_kn[ibzkpt1,n1] - self.f_kn[ibzkpt2,m1]
-                    if not self.positive_w: # Dont use Tamm-Dancoff Approx.
+                    focc = self.f_skn[0][ibzkpt1,n1] - self.f_skn[0][ibzkpt2,m1]
+                    if self.coupling: # Dont use Tamm-Dancoff Approx.
                         check_ftol = np.abs(focc) > self.ftol
                     else:
                         check_ftol = focc > self.ftol
-                    if check_ftol:           
-                        self.e_S[iS] =self.e_kn[ibzkpt2,m1] - self.e_kn[ibzkpt1,n1]
+                    if check_ftol:
+                        if self.gw_skn is None:
+                            self.e_S[iS] = self.e_skn[0][ibzkpt2,m1] - self.e_skn[0][ibzkpt1,n1]
+                        else:
+                            self.e_S[iS] = self.gw_skn[0][ibzkpt2,m1] - self.gw_skn[0][ibzkpt1,n1]
+                            
                         focc_s[iS] = focc
                         self.Sindex_S3[iS] = (k1, n1, m1)
                         iS += 1
@@ -114,52 +126,91 @@ class BSE(BASECHI):
         for iS in range(self.nS):
             self.focc_S[iS] = focc_s[iS]
 
-        if self.use_W:
-            # q points init
-            self.bzq_qc = kd.get_bz_q_points()
-            if not self.qsymm:
-                self.ibzq_qc = self.bzq_qc
-            else:
-                # if use q symmetry, kpoint and qpoint grid should be the same
-                (self.ibzq_qc, self.ibzq_q, self.iop_q,
-                 self.timerev_q, self.diff_qc) = kd.get_ibz_q_points(self.bzq_qc,
-                                                             calc.wfs.symmetry.op_scc)
-                if np.abs(self.bzq_qc - self.bzk_kc).sum() < 1e-8:
-                    assert np.abs(self.ibzq_qc - kd.ibzk_kc).sum() < 1e-8
-            self.nibzq = len(self.ibzq_qc)
+        # q points init
+        self.bzq_qc = kd.get_bz_q_points()
+        if not self.qsymm:
+            self.ibzq_qc = self.bzq_qc
+        else:
+            (self.ibzq_qc, self.ibzq_q, self.iop_q,
+             self.timerev_q, self.diff_qc) = kd.get_ibz_q_points(self.bzq_qc,
+                                                                 calc.wfs.symmetry.op_scc)
+            if np.abs(self.bzq_qc - self.bzk_kc).sum() < 1e-8:
+                assert np.abs(self.ibzq_qc - kd.ibzk_kc).sum() < 1e-8
+        self.nibzq = len(self.ibzq_qc)
 
-        # parallel init
+        # Parallel initialization 
+        # kcomm and wScomm is only to be used when wavefunctions are distributed in parallel.
         self.comm = self.Scomm = world
-        # kcomm and wScomm is only to be used when wavefunctions r parallelly distributed.
         self.kcomm = world
         self.wScomm = serial_comm
-        
         self.nS, self.nS_local, self.nS_start, self.nS_end = parallel_partition(
-                               self.nS, world.rank, world.size, reshape=False)
+            self.nS, world.rank, world.size, reshape=False)
+
         self.print_bse()
 
         if calc.input_parameters['mode'] == 'lcao':
-            calc.initialize_positions()        
+            calc.initialize_positions()
 
-        # Coulomb kernel init
-        self.kc_G = np.zeros(self.npw)
-        for iG in range(self.npw):
-            index = self.Gindex_G[iG]
-            qG = np.dot(self.q_c + self.Gvec_Gc[iG], self.bcell_cv)
-            self.kc_G[iG] = 1. / np.inner(qG, qG)
-        if self.optical_limit:
-            self.kc_G[0] = 0.
-            
-        self.printtxt('')
+        # Coulomb interaction at q=0 for Hartree coupling
+        ### 2D z direction only !!!!!!!!!!!!!!!!!!!!!!
+        if self.integrate_coulomb is None:
+            self.integrate_coulomb = []
+            if self.vcut is None:
+                pass
+            elif self.vcut == '2D':
+                for iG in range(len(self.Gvec_Gc)):
+                    if self.Gvec_Gc[iG, 0] == 0 and self.Gvec_Gc[iG, 1] == 0:
+                        self.integrate_coulomb.append(iG)
+            else:
+                print 'Not implemented'
+                XXX
+        elif type(self.integrate_coulomb) is int:
+            self.integrate_coulomb = range(self.integrate_coulomb)
+        elif self.integrate_coulomb == 'all':
+            self.integrate_coulomb = range(len(self.Gvec_Gc))
+        elif type(self.integrate_coulomb) is list:
+            pass
+        else:
+            raise 'Invalid option for integrate_coulomb'
         
+        self.printtxt('')
+        self.printtxt('Calculating bare Coulomb kernel')
+        if not len(self.integrate_coulomb) == 0:
+            self.printtxt('Integrating Coulomb kernel at %s reciprocal lattice vector(s)' % len(self.integrate_coulomb))
+        
+        # Coulomb interaction at problematic G's for exchange coupling
+        if len(self.integrate_coulomb) != 0:
+            self.vint_Gq = []
+            for iG in self.integrate_coulomb:
+                v_q, v0_q = calculate_Kc_q(self.acell_cv,
+                                           self.bcell_cv,
+                                           self.pbc,
+                                           self.kd.N_c,
+                                           vcut=self.vcut,
+                                           Gvec_c=self.Gvec_Gc[iG],
+                                           q_qc=self.ibzq_qc.copy())
+                self.vint_Gq.append(v_q)                    
+                if self.print_coulomb:
+                    self.printtxt('')
+                    self.printtxt('Average kernel relative to bare kernel - \int v(q)dq / v(q0): ')
+                    self.printtxt('  G: % s' % self.Gvec_Gc[iG])
+                    for iq in range(len(v_q)):
+                        q_s = '    q = [%1.2f,  %1.2f,  %1.2f]: ' % (self.ibzq_qc[iq,0],
+                                                                     self.ibzq_qc[iq,1],
+                                                                     self.ibzq_qc[iq,2])
+                        v_rel = v_q[iq] / v0_q[iq]
+                        self.printtxt(q_s + '%1.3f' % v_rel)
+        self.printtxt('')
+
+        self.V_qGG = self.full_bare_interaction()
+
         return
 
 
     def calculate(self):
-
         calc = self.calc
-        f_kn = self.f_kn
-        e_kn = self.e_kn
+        f_skn = self.f_skn
+        e_skn = self.e_skn
         ibzk_kc = self.ibzk_kc
         bzk_kc = self.bzk_kc
         kq_k = self.kq_k
@@ -167,77 +218,85 @@ class BSE(BASECHI):
         e_S = self.e_S
         op_scc = calc.wfs.symmetry.op_scc
 
-        if self.use_W:
-            bzq_qc=self.bzq_qc
-            ibzq_qc = self.ibzq_qc
-            if type(self.use_W) is str:
-                # read 
-                data = pickle.load(open(self.use_W))
-                W_qGG = data['W_qGG']
-                self.dfinvG0_G = data['dfinvG0_G']
-                self.printtxt('Finished reading screening interaction kernel')
-            elif type(self.use_W) is bool:
-                # calculate from scratch
-                self.printtxt('Calculating screening interaction kernel.')                
-                W_qGG = self.full_static_screened_interaction()
-            else:
-                raise ValueError('use_W can only be string or bool ')
-
-            # calculate phi_qaGp
-            import os.path
-            if not os.path.isfile('phi_qaGp'):
+        # Get phi_qaGp
+        if self.mode == 'RPA':
+            self.phi_aGp = self.get_phi_aGp()
+        else:
+            try:
+                self.reader = Reader('phi_qaGp')
+                tmp = self.load_phi_aGp(self.reader, 0)[0]
+                assert len(tmp) == self.npw
+                self.printtxt('Finished reading phi_aGp')
+            except:
                 self.printtxt('Calculating phi_qaGp')
                 self.get_phi_qaGp()
+                world.barrier()
+                self.reader = Reader('phi_qaGp')                
+            self.printtxt('Memory used %f M' % (maxrss() / 1024.**2))
+            self.printtxt('')
 
-            world.barrier()
-            self.reader = Reader('phi_qaGp')
-            self.printtxt('Finished reading phi_aGp !')
-            self.printtxt('Memory used %f M' %(maxrss() / 1024.**2))
+        if self.optical_limit:
+            iq = np.where(np.sum(abs(self.ibzq_qc), axis=1) < 1e-5)[0][0]
         else:
-            self.phi_aGp = self.get_phi_aGp()
+            iq = np.where(np.sum(abs(self.ibzq_qc - self.q_c), axis=1) < 1e-5)[0][0]
+        kc_G = np.array([self.V_qGG[iq, iG, iG] for iG in range(self.npw)])
+        if self.optical_limit:
+            kc_G[0] = 0.
 
-       # calculate kernel
+        # Get screened Coulomb kernel
+        if self.mode == 'BSE':
+            try:
+                # Read
+                data = pickle.load(open(self.kernel_file+'.pckl'))
+                W_qGG = data['W_qGG']
+                assert np.shape(W_qGG) == np.shape(self.V_qGG)
+                self.printtxt('Finished reading screening interaction kernel')
+            except:
+                # Calculate from scratch
+                self.printtxt('Calculating screening interaction kernel.')
+                W_qGG = self.full_static_screened_interaction()
+            self.printtxt('')
+        else:
+            W_qGG = self.V_qGG
+ 
+        t0 = time()
+        self.printtxt('Calculating %s matrix elements' % self.mode)
+
+        # Calculate full kernel
         K_SS = np.zeros((self.nS_local, self.nS), dtype=complex)
-        W_SS = np.zeros_like(K_SS)
         self.rhoG0_S = np.zeros((self.nS), dtype=complex)
 
-        t0 = time()
-        self.printtxt('Calculating BSE matrix elements.')
-
-        noGmap = 0
+        #noGmap = 0
         for iS in range(self.nS_start, self.nS_end):
             k1, n1, m1 = self.Sindex_S3[iS]
             rho1_G = self.density_matrix(n1,m1,k1)
             self.rhoG0_S[iS] = rho1_G[0]
-
             for jS in range(self.nS):
                 k2, n2, m2 = self.Sindex_S3[jS]
                 rho2_G = self.density_matrix(n2,m2,k2)
-                K_SS[iS-self.nS_start, jS] = np.sum(rho1_G.conj() * rho2_G * self.kc_G)
+                K_SS[iS-self.nS_start, jS] = np.sum(rho1_G.conj() * rho2_G * kc_G)
 
-                if self.use_W:
-                    
+                if not self.mode == 'RPA':
                     rho3_G = self.density_matrix(n1,n2,k1,k2)
-                    rho4_G = self.density_matrix(m1,m2,self.kq_k[k1],self.kq_k[k2])
+                    rho4_G = self.density_matrix(m1,m2,self.kq_k[k1],
+                                                 self.kq_k[k2])
 
                     q_c = bzk_kc[k2] - bzk_kc[k1]
                     q_c[np.where(q_c > 0.501)] -= 1.
                     q_c[np.where(q_c < -0.499)] += 1.
-
-                    if not self.qsymm:
-                        ibzq = self.kd.where_is_q(q_c, self.bzq_qc)
-                        W_GG = W_qGG[ibzq].copy()
+                    iq = self.kd.where_is_q(q_c, self.bzq_qc)
+                    
+                    if not self.qsymm:    
+                        W_GG = W_qGG[iq]
                     else:
-                        iq = self.kd.where_is_q(q_c, self.bzq_qc)
                         ibzq = self.ibzq_q[iq]
+                        W_GG_tmp = W_qGG[ibzq]
+
                         iop = self.iop_q[iq]
                         timerev = self.timerev_q[iq]
                         diff_c = self.diff_qc[iq]
                         invop = np.linalg.inv(op_scc[iop])
-
-                        W_GG_tmp = W_qGG[ibzq]
-                        Gindex = np.zeros(self.npw,dtype=int)
-    
+                        Gindex = np.zeros(self.npw, dtype=int)
                         for iG in range(self.npw):
                             G_c = self.Gvec_Gc[iG]
                             if timerev:
@@ -248,7 +307,7 @@ class BSE(BASECHI):
                             try:
                                 Gindex[iG] = np.where(tmp_G < 1e-5)[0][0]
                             except:
-                                noGmap += 1
+                                #noGmap += 1
                                 Gindex[iG] = -1
     
                         W_GG = np.zeros_like(W_GG_tmp)
@@ -258,63 +317,42 @@ class BSE(BASECHI):
                                     W_GG[iG, jG] = 0
                                 else:
                                     W_GG[iG, jG] = W_GG_tmp[Gindex[iG], Gindex[jG]]
-
-                    if k1 == k2:
-                        if (n1==n2) or (m1==m2):
-
-                            tmp_G = np.zeros(self.npw, dtype=complex)
-                            q = np.array([0.0001,0,0])
-                            for jG in range(1, self.npw):
-                                qG = np.dot(q+self.Gvec_Gc[jG], self.bcell_cv)
-                                tmp_G[jG] = self.dfinvG0_G[jG] / np.sqrt(np.inner(qG,qG))
-
-                            const = 1./pi*self.vol*(6*pi**2/self.vol/self.nkpt)**(2./3.)
-                            tmp_G *= const
-                            W_GG[:,0] = tmp_G
-                            W_GG[0,:] = tmp_G.conj()
-                            W_GG[0,0] = 2./pi*(6*pi**2/self.vol/self.nkpt)**(1./3.) \
-                                            * self.dfinvG0_G[0] *self.vol 
-
-                    tmp_GG = np.outer(rho3_G.conj(), rho4_G) * W_GG
-                    W_SS[iS-self.nS_start, jS] = np.sum(tmp_GG)
-#                    self.printtxt('%d %d %s %s' %(iS, jS, K_SS[iS,jS], W_SS[iS,jS]))
+                                    
+                    if self.mode == 'BSE':
+                        tmp_GG = np.outer(rho3_G.conj(), rho4_G) * W_GG
+                        K_SS[iS-self.nS_start, jS] -= 0.5 * np.sum(tmp_GG)
+                    else:
+                        tmp_G = rho3_G.conj() * rho4_G * np.diag(W_GG)
+                        K_SS[iS-self.nS_start, jS] -= 0.5 * np.sum(tmp_G)
             self.timing(iS, t0, self.nS_local, 'pair orbital') 
+ 
+        K_SS /= self.vol
 
-        K_SS *= 4 * pi / self.vol
-
-        if self.use_W:
-            K_SS -= 0.5 * W_SS / self.vol
         world.sum(self.rhoG0_S)
-        self.printtxt('The number of G index outside the Gvec_Gc: %d'%(noGmap))
+        #self.printtxt('Number of G indices outside the Gvec_Gc: %d' % noGmap)
 
-        # get and solve hamiltonian
+        # Get and solve Hamiltonian
         H_sS = np.zeros_like(K_SS)
         for iS in range(self.nS_start, self.nS_end):
             H_sS[iS-self.nS_start,iS] = e_S[iS]
             for jS in range(self.nS):
                 H_sS[iS-self.nS_start,jS] += focc_S[iS] * K_SS[iS-self.nS_start,jS]
   
-#        if self.positive_w is True: # matrix should be Hermitian
-#            for iS in range(self.nS):
-#                for jS in range(self.nS):
-#                    if np.abs(H_SS[iS,jS]- H_SS[jS,iS].conj()) > 1e-4:
-#                        print iS, jS, H_SS[iS,jS]- H_SS[jS,iS].conj()
-#                    assert np.abs(H_SS[iS,jS]- H_SS[jS,iS].conj()) < 1e-4
-
-        if self.positive_w: # force the matrix Hermitian
+        # Force matrix to be Hermitian
+        if not self.coupling:
             if world.size > 1:
                 H_Ss = self.redistribute_H(H_sS)
             else:
                 H_Ss = H_sS
             H_sS = (np.real(H_sS) + np.real(H_Ss.T)) / 2. + 1j * (np.imag(H_sS) - np.imag(H_Ss.T)) /2.
 
-        # save H_sS matrix
+        # Save H_sS matrix
         self.par_save('H_SS','H_SS', H_sS)
 
         return H_sS
 
     def diagonalize(self, H_sS):
-        if not self.positive_w: # none Hemitian matrix can only use linalg.eig
+        if self.coupling: # Non-Hermitian matrix can only use linalg.eig
             self.printtxt('Use numpy.linalg.eig')
             H_SS = np.zeros((self.nS, self.nS), dtype=complex)
             if self.nS % world.size == 0:
@@ -360,7 +398,7 @@ class BSE(BASECHI):
 
             tmp = np.zeros_like(A_sS)
 
-        # assumes that H_SS is written in order from rank 0 - rank N
+        # Assumes that H_SS is written in order from rank 0 - rank N
         for irank in range(size):
             if irank == 0:
                 if rank == 0:
@@ -396,32 +434,97 @@ class BSE(BASECHI):
 
     def full_static_screened_interaction(self):
         """Calcuate W_GG(q)"""
-
-        W_qGG = np.zeros((self.nibzq, self.npw, self.npw),dtype=complex)
+        W_qGG = np.zeros((self.nibzq, self.npw, self.npw), dtype=complex)
 
         t0 = time()
-        for iq in range(self.nibzq):#self.q_start, self.q_end):
+        for iq in range(self.nibzq):
+            q = self.ibzq_qc[iq]
+            optical_limit = False
+            if np.abs(q).sum() < 1e-8:
+                q = self.q_c.copy()
+                optical_limit = True
+            df = DF(calc=self.calc,
+                    q=q,
+                    w=(0.,),
+                    optical_limit=optical_limit,
+                    nbands=self.nbands,
+                    hilbert_trans=False,
+                    eta=0.0001,
+                    ecut=self.ecut*Hartree,
+                    xc='RPA',
+                    txt='df.out')
+            df.initialize()
+            df.calculate()
 
-            W_qGG[iq] = self.screened_interaction_kernel(iq, static=True)
+            if optical_limit:
+                K_GG = self.V_qGG[iq].copy()
+                q_v = np.dot(q, self.bcell_cv)
+                K0 = calculate_Kc(q,
+                                  self.Gvec_Gc,
+                                  self.acell_cv,
+                                  self.bcell_cv,
+                                  self.pbc,
+                                  vcut=self.vcut)[0,0]
+
+                for iG in range(1,self.npw):
+                    K_GG[0, iG] = self.V_qGG[iq, iG, iG]**0.5 * K0**0.5
+                    K_GG[iG, 0] = self.V_qGG[iq, iG, iG]**0.5 * K0**0.5
+                K_GG[0,0] = K0
+                df_GG = np.eye(self.npw, self.npw) - K_GG*df.chi0_wGG[0]
+            else:
+                df_GG = np.eye(self.npw, self.npw) - self.V_qGG[iq]*df.chi0_wGG[0]
+            dfinv_GG = np.linalg.inv(df_GG)
+            
+            if optical_limit:
+                eps = 1/dfinv_GG[0,0]
+                self.printtxt('    RPA macroscopic dielectric constant is: %3.3f' %  eps.real)
+            W_qGG[iq] = dfinv_GG * self.V_qGG[iq]
             self.timing(iq, t0, self.nibzq, 'iq')
-
-        data = {'W_qGG': W_qGG,
-                'dfinvG0_G': self.dfinvG0_G}
-
+            
         if rank == 0:
-            pickle.dump(data, open('W_qGG.pckl', 'w'), -1)
-
+            if self.kernel_file is not None:
+                data = {'W_qGG': W_qGG}
+                name = self.kernel_file+'.pckl'
+                pickle.dump(data, open(name, 'w'), -1)
+        
         return W_qGG
+
+
+    def full_bare_interaction(self):
+        """Calculate V_GG(q)"""
+
+        V_qGG = np.zeros((self.nibzq, self.npw, self.npw), dtype=complex)
+        
+        t0 = time()
+        for iq in range(self.nibzq):
+            q = self.ibzq_qc[iq]
+
+            Vq_G = np.diag(calculate_Kc(q,
+                                        self.Gvec_Gc,
+                                        self.acell_cv,
+                                        self.bcell_cv,
+                                        self.pbc,
+                                        integrate_gamma=True,
+                                        N_k=self.kd.N_c,
+                                        vcut=self.vcut))**0.5
+            
+            for i, iG in enumerate(self.integrate_coulomb):
+                Vq_G[iG] = self.vint_Gq[i][iq]**0.5
+
+            V_qGG[iq] = np.outer(Vq_G, Vq_G)
+
+        return V_qGG
 
                                           
     def print_bse(self):
 
         printtxt = self.printtxt
 
-        if self.use_W:
-            printtxt('Number of q points            : %d' %(self.nibzq))
+        if not self.mode == 'RPA':
+            printtxt('Number of q points           : %d' %(self.nibzq))
         printtxt('Number of frequency points   : %d' %(self.Nw) )
         printtxt('Number of pair orbitals      : %d' %(self.nS) )
+        printtxt('')
         printtxt('Parallelization scheme:')
         printtxt('   Total cpus         : %d' %(world.size))
         printtxt('   pair orb parsize   : %d' %(self.Scomm.size))        
@@ -444,18 +547,21 @@ class BSE(BASECHI):
         
         nbzq = self.nkpt
         nbzq, nq_local, q_start, q_end = parallel_partition(
-                                    nbzq, world.rank, world.size, reshape=False)
+                                   nbzq, world.rank, world.size, reshape=False)
         phimax_qaGp = np.zeros((nq_local, natoms, N1_max, N2_max), dtype=complex)
+        #phimax_qaGp = np.zeros((nbzq, natoms, N1_max, N2_max), dtype=complex)
+
+        t0 = time()
         for iq in range(nq_local):
-            self.printtxt('%d' %(iq))
             q_c = self.bzq_qc[iq + q_start]
-            tmp_aGp = self.get_phi_aGp(q_c)
+            tmp_aGp = self.get_phi_aGp(q_c, parallel=False)
             for id in range(natoms):
                 N1, N2 = tmp_aGp[id].shape
                 phimax_qaGp[iq, id, :N1, :N2] = tmp_aGp[id]
+            self.timing(iq*world.size, t0, nq_local, 'iq')
         world.barrier()
 
-        # write to disk
+        # Write to disk
         filename = 'phi_qaGp'
         if world.rank == 0:
             w = Writer(filename)
@@ -511,7 +617,7 @@ class BSE(BASECHI):
 
             if readfile is None:
                 H_sS = self.calculate()
-                self.printtxt('Diagonalizing BSE matrix.')
+                self.printtxt('Diagonalizing %s matrix.' % self.mode)
                 self.diagonalize(H_sS)
                 self.printtxt('Calculating dielectric function.')
             elif readfile == 'H_SS':
@@ -526,7 +632,7 @@ class BSE(BASECHI):
                 XX
 
             w_S = self.w_S
-            if self.positive_w:
+            if not self.coupling:
                 v_SS = self.v_SS.T # v_SS[:,lamda]
             else:
                 v_SS = self.v_SS
@@ -534,7 +640,7 @@ class BSE(BASECHI):
             focc_S = self.focc_S
 
             # get overlap matrix
-            if not self.positive_w:
+            if self.coupling:
                 tmp = np.dot(v_SS.conj().T, v_SS )
                 overlap_SS = np.linalg.inv(tmp)
     
@@ -544,7 +650,7 @@ class BSE(BASECHI):
 
             A_S = np.dot(rhoG0_S, v_SS)
             B_S = np.dot(rhoG0_S*focc_S, v_SS)
-            if not self.positive_w:
+            if self.coupling:
                 C_S = np.dot(B_S.conj(), overlap_SS.T) * A_S
             else:
                 if world.size == 1:
@@ -564,10 +670,13 @@ class BSE(BASECHI):
     
         if rank == 0:
             f = open(filename,'w')
+            #g = open('excitons.dat', 'w')
             for iw in range(self.Nw):
                 energy = iw * self.dw * Hartree
                 print >> f, energy, np.real(epsilon_w[iw]), np.imag(epsilon_w[iw])
+                #print >> g, energy, np.real(C_S[iw])/max(abs(C_S))
             f.close()
+            #g.close()
         # Wait for I/O to finish
         world.barrier()
 
@@ -814,3 +923,35 @@ class BSE(BASECHI):
 #        world.all_gather(v_sS, v2_SS)
         
         return w_S, v_sS.conj()
+
+    def get_chi(self, w):
+        H_SS = self.calculate()
+        self.printtxt('Diagonalizing BSE matrix.')
+        self.diagonalize(H_SS)
+        self.printtxt('Calculating BSE response function.')
+
+        w_S = self.w_S
+        if not self.coupling:
+            v_SS = self.v_SS.T # v_SS[:,lamda]
+        else:
+            v_SS = self.v_SS
+        rhoG0_S = self.rhoG0_S
+        focc_S = self.focc_S
+
+        # get overlap matrix
+        if self.coupling:
+            tmp = np.dot(v_SS.conj().T, v_SS )
+            overlap_SS = np.linalg.inv(tmp)
+    
+        # get chi
+        chi_wGG = np.zeros((len(w), self.npw, self.npw), dtype=complex)
+        t0 = time()
+
+        A_S = np.dot(rhoG0_S, v_SS)
+        B_S = np.dot(rhoG0_S*focc_S, v_SS)
+        if self.coupling:
+            C_S = np.dot(B_S.conj(), overlap_SS.T) * A_S
+        else:
+            C_S = B_S.conj() * A_S
+
+        return chi_wGG

@@ -12,9 +12,17 @@ short_names = {
     'RPBE':    'GGA_X_RPBE+GGA_C_PBE',
     'BLYP':    'GGA_X_B88+GGA_C_LYP',
     'HCTH407': 'GGA_XC_HCTH_407',
+    'WC':      'GGA_X_WC+GGA_C_PBE',
+    'AM05':    'GGA_X_AM05+GGA_C_AM05',
     'TPSS':    'MGGA_X_TPSS+MGGA_C_TPSS',
     'M06L':    'MGGA_X_M06L+MGGA_C_M06L',
-    'revTPSS': 'MGGA_X_REVTPSS+MGGA_C_REVTPSS'}
+    'revTPSS': 'MGGA_X_REVTPSS+MGGA_C_REVTPSS',
+    'oTPSS':   'MGGA_X_OTPSS+MGGA_C_OTPSS',
+    'MS0':     'MGGA_X_MS0+GGA_C_PBE_REVTPSS',
+    'MS1':     'MGGA_X_MS1+GGA_C_PBE_REVTPSS',
+    'MS2':     'MGGA_X_MS2+GGA_C_PBE_REVTPSS',
+    'mBEEF':   'MGGA_X_MBEEF+GGA_C_PBE_SOL'
+}
 
 
 class LibXC(XCKernel):

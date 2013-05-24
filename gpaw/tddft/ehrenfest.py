@@ -89,7 +89,7 @@ class EhrenfestVelocityVerlet:
         """Performs one Ehrenfest MD propagation step
 
         Parameters
-        ---------
+        ----------
 
         dt: scalar
             Time step (in attoseconds) used for the Ehrenfest MD step

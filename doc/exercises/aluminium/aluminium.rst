@@ -1,3 +1,5 @@
+.. _aluminium_exercise:
+
 =============
 Bulk aluminum
 =============

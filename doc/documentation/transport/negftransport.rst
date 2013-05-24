@@ -305,7 +305,10 @@ We just let all the leads have the same K number. Attention here that
 the k number in the transport direction should bigger than 3, 
 in principle we should have enough k points in this direction, an
 experenced rule is nK * L(Å) ~ 50. L is the length of unit cell
-in this direction.
+in this direction. Note that pl_kpts should match the K sampling of 
+scattering region kpts in the x and y direction and in the parallel
+case, the local K sampling should match as well. So a safe way is to use
+a prime number for the pl_kpts in the z axis.
 
 .. _manual_bias:
 
@@ -402,10 +405,10 @@ Buffer Atoms Indices
 Edge Atoms
 ----------
 
-``edge_atoms`` If ``align`` is True, you need to point which atom
+``edge_atoms`` One needs to point which atom
 is used to align the energy levels, that means in ground
 state calculation, the hamiltonian matrix should have the same 
-number in the orbitals of that atom. It is a list includes 
+value in the orbitals of that atom. It is a list includes 
 two sub lists. For example, [[0,3],[0,9]] means the atom 0 in
 lead1, atom 3 in lead2 are equal to atom 0, atom 9 in scattering 
 region respectively.

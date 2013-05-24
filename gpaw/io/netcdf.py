@@ -37,7 +37,7 @@ class Reader:
             else:
                 return var[indices]
 
-    def get_reference(self, name, *indices):
+    def get_reference(self, name, indices):
         return NetCDFReference(self.nc.variables[name], indices)
     
     def close(self):

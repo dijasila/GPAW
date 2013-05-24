@@ -24,6 +24,13 @@ BGP:
 
    BGP/performance
 
+BGQ:
+
+.. toctree::
+   :maxdepth: 2
+
+   BGQ/mira
+
 BSD:
 
 .. toctree::
@@ -37,6 +44,7 @@ Bull:
    :maxdepth: 1
 
    Bull/curie
+   Bull/curie_gpu
 
 Cray:
 
@@ -45,6 +53,7 @@ Cray:
 
    Cray/louhi
    Cray/jaguar
+   Cray/sisu
 
 HP:
 
@@ -81,6 +90,7 @@ Linux:
    Linux/r410_psmn.ens-lyon
    Linux/ranger_EL4
    Linux/sepeli
+   Linux/sun_chpc
    Linux/supernova
    Linux/uranus
    Linux/vsc.univie
@@ -91,7 +101,8 @@ MacOSX:
 .. toctree::
    :maxdepth: 1
 
-   MacOSX/snowleopard
+   MacOSX/homebrew
+   MacOSX/macports
 
 Solaris:
 

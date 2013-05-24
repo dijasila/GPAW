@@ -13,6 +13,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifdef CRAYPAT
+#include <pat_api.h>
+#endif
 
 boundary_conditions* bc_init(const long size1[3],
            const long padding[3][2],
@@ -146,6 +149,7 @@ void bc_unpack1(const boundary_conditions* bc,
   int ng = bc->ndouble * bc->size1[0] * bc->size1[1] * bc->size1[2];
   int ng2 = bc->ndouble * bc->size2[0] * bc->size2[1] * bc->size2[2];
   bool real = (bc->ndouble == 1);
+
   for (int m = 0; m < nin; m++)
     // Copy data:
     if (i == 0)
@@ -153,8 +157,15 @@ void bc_unpack1(const boundary_conditions* bc,
         // Zero all of a2 array.  We should only zero the bounaries
         // that are not periodic, but it's simpler to zero everything!
         // XXX
-        memset(aa2 + m * ng2, 0, ng2 * sizeof(double));
-
+#ifdef CRAYPAT
+        PAT_region_begin(10, "memset");
+#endif        
+        // memset(aa2, 0, nin * ng2 * sizeof(double));
+        for (int mn=0; mn < nin*ng2; mn++)
+            aa2[mn] = 0.0;
+#ifdef CRAYPAT
+        PAT_region_end(10);
+#endif
         // Copy data from a1 to central part of a2:
         if (real)
           bmgs_paste(aa1 + m * ng, bc->size1, aa2 + m * ng2,

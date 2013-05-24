@@ -166,10 +166,10 @@ class Reader(xml.sax.handler.ContentHandler):
             array = mpi_broadcast(array, 0, self.comm)
         return array
     
-    def get_reference(self, name, *indices):
+    def get_reference(self, name, indices, length=None):
         fileobj, shape, size, dtype = self.get_file_object(name, indices)
         assert dtype != np.int32
-        return TarFileReference(fileobj, shape, dtype, self.byteswap)
+        return TarFileReference(fileobj, shape, dtype, self.byteswap, length)
     
     def get_file_object(self, name, indices):
         dtype, type, itemsize = self.get_data_type(name)
@@ -199,13 +199,14 @@ class Reader(xml.sax.handler.ContentHandler):
         self.tar.close()
 
 class TarFileReference(FileReference):
-    def __init__(self, fileobj, shape, dtype, byteswap):
+    def __init__(self, fileobj, shape, dtype, byteswap, length):
         self.fileobj = fileobj
         self.shape = tuple(shape)
         self.dtype = dtype
         self.itemsize = dtype.itemsize
         self.byteswap = byteswap
         self.offset = fileobj.tell()
+        self.length = length
 
     def __len__(self):
         return self.shape[0]
@@ -237,5 +238,7 @@ class TarFileReference(FileReference):
         if self.byteswap:
             array = array.byteswap()
         array.shape = self.shape[n:]
+        if self.length:
+            array = array[..., :self.length].copy()
         return array
 

@@ -145,4 +145,6 @@ if '--coverage' in sys.argv:
     # Perform coverage test
     main(outfile, tests=[], testscript=testscript)
 else:
-    import gpaw.test.test
+    import sys
+    from gpaw.test.test import run
+    nfailed = run()

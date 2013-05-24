@@ -24,7 +24,7 @@ from gpaw.xc.hybridk import HybridXC
 exx = HybridXC('EXX',acdf=True)
 E_k = E + calc.get_xc_difference(exx)
 
-if size == 1:
+if 0:#size == 1:
     calc = GPAW('Al.gpw',txt=None, communicator=serial_comm)
     from gpaw.xc.hybridq import HybridXC
     exx = HybridXC('EXX')

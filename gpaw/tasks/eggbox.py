@@ -4,7 +4,7 @@ import numpy as np
 from ase.atoms import Atoms
 
 from gpaw import FermiDirac
-from gpaw.tasks.convergence import ConvergenceTestTask
+from gpaw.tasks.fdconv import ConvergenceTestTask
 
 
 class EggboxTestTask(ConvergenceTestTask):
@@ -14,15 +14,15 @@ class EggboxTestTask(ConvergenceTestTask):
         """Calculate size of eggbox error.
 
         A single atom is translated from (0, 0, 0) to (h / 2, 0, 0) in
-        25 steps in order to measure to eggbox error."""
+        25 steps in order to measure the eggbox error."""
 
         ConvergenceTestTask.__init__(self, **kwargs)
-        
+
     def calculate(self, name, atoms):
         atoms.calc.set(occupations=FermiDirac(0.1),
                        kpts=[1, 1, 1])
         data = {}
-        for g in self.gs:
+        for g in self.grid_points:
             atoms.calc.set(gpts=(g, g, g))
             energies = []
             forces = []
@@ -38,18 +38,14 @@ class EggboxTestTask(ConvergenceTestTask):
         return data
 
     def analyse(self):
-        self.summary_header = [('name', '')] + [
-            ('dE(h=%.2f)' % (self.L / g), 'meV') for g in self.gs]
-
         for name, data in self.data.items():
-            results = []
-            for g in self.gs:
+            for g in self.grid_points:
                 de = data[str(g)][0].ptp()
-                results.append(de * 1000)
-            self.results[name] = results
+                data['e%d' % g] = de
+
+        self.summary_keys = ['e%d' % g for g in self.grid_points]
 
 
 if __name__ == '__main__':
-    task = EggboxTestTask()
-    args = task.parse_args()
-    task.run(args)
+    from ase.tasks.main import run
+    run(calcname='gpaw', task=EggboxTestTask())

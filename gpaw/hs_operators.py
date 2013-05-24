@@ -6,8 +6,12 @@ from __future__ import division
 import numpy as np
 
 from gpaw.utilities.blas import gemm
-from gpaw.matrix_descriptor import BandMatrixDescriptor, \
-                                   BlacsBandMatrixDescriptor
+
+
+def reshape(a_x, shape):
+    """Get an ndarray of size shape from a_x buffer."""
+    return a_x.ravel()[:np.prod(shape)].reshape(shape)
+
 
 class MatrixOperator:
     """Base class for overlap and hamiltonian operators.
@@ -73,7 +77,7 @@ class MatrixOperator:
         self.bd = ksl.bd
         self.gd = ksl.gd
         self.block_comm = ksl.block_comm
-        self.bmd = ksl.new_descriptor() #XXX take hermitian as argument?
+        self.bmd = ksl.new_descriptor()  # XXX take hermitian as argument?
         self.dtype = ksl.dtype
         self.buffer_size = ksl.buffer_size
         if nblocks is not None:
@@ -84,10 +88,10 @@ class MatrixOperator:
             self.hermitian = hermitian
 
         # default for work spaces
-        self.work1_xG = None
-        self.work2_xG = None
         self.A_qnn = None
         self.A_nn = None
+        self.work1_xG = None
+        self.work2_xG = None
 
         mynbands = self.bd.mynbands
         ngroups = self.bd.comm.size
@@ -101,26 +105,26 @@ class MatrixOperator:
         # which is all the wavefunctions.
         # Give error if the buffer_size is so small that it cannot
         # contain a single wavefunction
-        if self.buffer_size is not None: # buffersize is in KiB
+        if self.buffer_size is not None:  # buffersize is in KiB
             sizeof_single_wfs = float(self.gd.bytecount(self.dtype))
-            numberof_wfs = self.buffer_size*1024/sizeof_single_wfs
-            assert numberof_wfs > 0 # buffer_size is too small
-            self.nblocks = max(int(mynbands//numberof_wfs),1)
+            numberof_wfs = self.buffer_size * 1024 / sizeof_single_wfs
+            assert numberof_wfs > 0  # buffer_size is too small
+            self.nblocks = max(int(mynbands // numberof_wfs), 1)
             
         # Calculate Q and X for allocating arrays later
-        self.X = 1 # not used for ngroups == 1 and J == 1
+        self.X = 1  # not used for ngroups == 1 and J == 1
         self.Q = 1
         J = self.nblocks
         M = int(np.ceil(mynbands / float(J)))
         g = int(np.ceil(G / float(J)))
-        assert M > 0 # must have at least one wave function in a block
+        assert M > 0  # must have at least one wave function in a block
 
         if ngroups == 1 and J == 1:
             pass
         else:
-            if g*mynbands > M*G: # then more space is needed
+            if g * mynbands > M * G:  # then more space is needed
                 self.X = M + 1
-                assert self.X*G >= g*mynbands
+                assert self.X * G >= g * mynbands
             else:
                 self.X = M
             if ngroups > 1: 
@@ -129,39 +133,38 @@ class MatrixOperator:
                 else:
                     self.Q = ngroups
 
-    def allocate_work_arrays(self):
-        J = self.nblocks
+    def allocate_arrays(self):
         ngroups = self.bd.comm.size
         mynbands = self.bd.mynbands
         dtype = self.dtype
-        if ngroups == 1 and J == 1:
-            self.work1_xG = self.gd.zeros(mynbands, dtype)
-        else:
-            self.work1_xG = self.gd.zeros(self.X, dtype)
-            self.work2_xG = self.gd.zeros(self.X, dtype)
-            if ngroups > 1:
-                self.A_qnn = np.zeros((self.Q, mynbands, mynbands), dtype)
+        if ngroups > 1:
+            self.A_qnn = np.zeros((self.Q, mynbands, mynbands), dtype)
         self.A_nn = self.bmd.zeros(dtype=dtype)
 
+        if ngroups == 1 and self.nblocks == 1:
+            self.work1_xG = self.gd.empty(self.bd.mynbands, self.dtype)
+        else:
+            self.work1_xG = self.gd.empty(self.X, self.dtype)
+            self.work2_xG = self.gd.empty(self.X, self.dtype)
+
     def estimate_memory(self, mem, dtype):
-        J = self.nblocks
         ngroups = self.bd.comm.size
-        mynbands = self.bd.mynbands
-        nbands = self.bd.nbands
-        gdbytes = self.gd.bytecount(dtype)
-        count = self.Q * mynbands**2
+        count = self.Q * self.bd.mynbands**2
 
         # Code semipasted from allocate_work_arrays        
-        if ngroups == 1 and J == 1:
-            mem.subnode('work1_xG', mynbands * gdbytes)
-        else:
-            mem.subnode('work1_xG', self.X * gdbytes)
-            mem.subnode('work2_xG', self.X * gdbytes)
+        if ngroups > 1:
             mem.subnode('A_qnn', count * mem.itemsize[dtype])
+
+        if ngroups == 1 and self.nblocks == 1:
+            mem.subnode('work1_xG',
+                        self.bd.mynbands * self.gd.bytecount(self.dtype))
+        else:
+            mem.subnode('work1_xG', self.X * self.gd.bytecount(self.dtype))
+            mem.subnode('work2_xG', self.X * self.gd.bytecount(self.dtype))
 
         self.bmd.estimate_memory(mem.subnode('Band Matrices'), dtype)
 
-    def _initialize_cycle(self, sbuf_mG, rbuf_mG, sbuf_In, rbuf_In, auxiliary):
+    def _initialize_cycle(self, sbuf_mG, rbuf_mG, sbuf_nI, rbuf_nI, auxiliary):
         """Initializes send/receive cycle of pseudo wave functions, as well as
         an optional auxiliary send/receive cycle of corresponding projections.
         Low-level helper function. Results in the following communications::
@@ -170,7 +173,7 @@ class MatrixOperator:
           Asynchronous: ... o/i  <-- sbuf_mG --  o/i  <-- rbuf_mG --  o/i ...
           Synchronous:     blank                blank                blank
 
-          Auxiliary:    ... o/i  <-- sbuf_In --  o/i  <-- rbuf_In --  o/i ...
+          Auxiliary:    ... o/i  <-- sbuf_nI --  o/i  <-- rbuf_nI --  o/i ...
 
         A letter 'o' signifies a non-blocking send and 'i' a matching receive.
 
@@ -181,9 +184,9 @@ class MatrixOperator:
             Send buffer for the outgoing set of pseudo wave functions.
         rbuf_mG: ndarray
             Receive buffer for the incoming set of pseudo wave functions.
-        sbuf_In: ndarray, ignored if not auxiliary
+        sbuf_nI: ndarray, ignored if not auxiliary
             Send buffer for the outgoing set of atomic projector overlaps.
-        rbuf_In: ndarray, ignored if not auxiliary
+        rbuf_nI: ndarray, ignored if not auxiliary
             Receive buffer for the incoming set of atomic projector overlaps.
         auxiliary: bool
             Determines whether to initiate the auxiliary send/receive cycle.
@@ -201,10 +204,10 @@ class MatrixOperator:
 
         # Auxiliary asyncronous cycle, also send/receive of P_ani's.
         if auxiliary:
-            self.req2.append(band_comm.send(sbuf_In, rankm, 31, False))
-            self.req2.append(band_comm.receive(rbuf_In, rankp, 31, False))
+            self.req2.append(band_comm.send(sbuf_nI, rankm, 31, False))
+            self.req2.append(band_comm.receive(rbuf_nI, rankp, 31, False))
 
-    def _finish_cycle(self, sbuf_mG, rbuf_mG, sbuf_In, rbuf_In, auxiliary):
+    def _finish_cycle(self, sbuf_mG, rbuf_mG, sbuf_nI, rbuf_nI, auxiliary):
         """Completes a send/receive cycle of pseudo wave functions, as well as
         an optional auxiliary send/receive cycle of corresponding projections.
         Low-level helper function. Results in the following communications::
@@ -213,7 +216,7 @@ class MatrixOperator:
           Asynchronous: ... w/w  <-- sbuf_mG --  w/w  <-- rbuf_mG --  w/w ...
           Synchronous:  ... O/I  <-- sbuf_mG --  O/I  <-- rbuf_mG --  O/I ...
 
-          Auxiliary:    ... w/w  <-- sbuf_In --  w/w  <-- rbuf_In --  w/w ...
+          Auxiliary:    ... w/w  <-- sbuf_nI --  w/w  <-- rbuf_nI --  w/w ...
 
         A letter 'w' signifies wait for initialized non-blocking communication.
         The letter 'O' signifies a blocking send and 'I' a matching receive.
@@ -229,9 +232,9 @@ class MatrixOperator:
             New send buffer with the received set of pseudo wave functions.
         rbuf_mG: ndarray
             New receive buffer (has the sent set of pseudo wave functions).
-        sbuf_In: ndarray, same as input if not auxiliary
+        sbuf_nI: ndarray, same as input if not auxiliary
             New send buffer with the received set of atomic projector overlaps.
-        rbuf_In: ndarray, same as input if not auxiliary
+        rbuf_nI: ndarray, same as input if not auxiliary
             New receive buffer (has the sent set of atomic projector overlaps).
 
         """
@@ -252,32 +255,9 @@ class MatrixOperator:
         if auxiliary:
             assert len(self.req2) == 2, 'Expected asynchronous request pairs.'
             band_comm.waitall(self.req2)
-            sbuf_In, rbuf_In = rbuf_In, sbuf_In
+            sbuf_nI, rbuf_nI = rbuf_nI, sbuf_nI
 
-        return sbuf_mG, rbuf_mG, sbuf_In, rbuf_In
-
-    def suggest_temporary_buffer(self):
-        """Return a *suggested* buffer for calculating A(psit_nG) during
-        a call to calculate_matrix_elements. Work arrays will be allocated
-        if they are not already available.
-
-        Note that the temporary buffer is merely a reference to (part of) a
-        work array, hence data race conditions occur if you're not careful.
-        """
-        dtype = self.dtype
-        if self.work1_xG is None:
-            self.allocate_work_arrays()
-
-        J = self.nblocks
-        N = self.bd.mynbands
-        B = self.bd.comm.size
-
-        if B == 1 and J == 1:
-            return self.work1_xG
-        else:
-            M = int(np.ceil(N / float(J))) 
-            assert M > 0 # must have at least one wave function in group
-            return self.work1_xG[:M]
+        return sbuf_mG, rbuf_mG, sbuf_nI, rbuf_nI
 
     def calculate_matrix_elements(self, psit_nG, P_ani, A, dA):
         """Calculate matrix elements for A-operator.
@@ -317,10 +297,8 @@ class MatrixOperator:
         N = self.bd.mynbands
         M = int(np.ceil(N / float(J)))
 
-        if self.work1_xG is None:
-            self.allocate_work_arrays()
-        else:
-            assert self.work1_xG.dtype == psit_nG.dtype
+        if self.A_nn is None:
+            self.allocate_arrays()
 
         A_NN = self.A_nn
 
@@ -345,20 +323,23 @@ class MatrixOperator:
             A_qnn = self.A_qnn
 
         # Buffers for send/receive of operated-on versions of P_ani's.
-        sbuf_In = rbuf_In = None
+        sbuf_nI = rbuf_nI = None
         if P_ani:
-            sbuf_In = np.concatenate([dA(a, P_ni).T
-                                      for a, P_ni in P_ani.items()])
+            sbuf_nI = np.hstack([dA(a, P_ni) for a, P_ni in P_ani.items()])
+            sbuf_nI = np.ascontiguousarray(sbuf_nI)
             if B > 1:
-                rbuf_In = np.empty_like(sbuf_In)
+                rbuf_nI = np.empty_like(sbuf_nI)
+
+        work1_xG = reshape(self.work1_xG, (self.X,) + psit_nG.shape[1:])
+        work2_xG = reshape(self.work2_xG, (self.X,) + psit_nG.shape[1:])
 
         # Because of the amount of communication involved, we need to
         # be syncronized up to this point but only on the 1D band_comm
         # communication ring
         band_comm.barrier()
-        while M*J >= N + M: # remove extra slice(s)
+        while M * J >= N + M:  # remove extra slice(s)
             J -= 1
-        assert 0 < J*M < N + M
+        assert 0 < J * M < N + M
 
         for j in range(J):
             n1 = j * M
@@ -368,8 +349,8 @@ class MatrixOperator:
                 M = n2 - n1
             psit_mG = psit_nG[n1:n2]
             temp_mG = A(psit_mG) 
-            sbuf_mG = temp_mG[:M] # necessary only for last slice
-            rbuf_mG = self.work2_xG[:M]
+            sbuf_mG = temp_mG[:M]  # necessary only for last slice
+            rbuf_mG = work2_xG[:M]
             cycle_P_ani = (j == J - 1 and P_ani)
 
             for q in range(Q):
@@ -381,7 +362,7 @@ class MatrixOperator:
                 # If we're at the last slice, start cycling P_ani too.
                 if q < Q - 1:
                     self._initialize_cycle(sbuf_mG, rbuf_mG,
-                                           sbuf_In, rbuf_In, cycle_P_ani)
+                                           sbuf_nI, rbuf_nI, cycle_P_ani)
 
                 # Calculate pseudo-braket contributions for the current slice
                 # of bands in the current mynbands x mynbands matrix block.
@@ -401,7 +382,7 @@ class MatrixOperator:
                     I1 = 0
                     for P_ni in P_ani.values():
                         I2 = I1 + P_ni.shape[1]
-                        gemm(1.0, P_ni, sbuf_In[I1:I2].T.copy(),
+                        gemm(1.0, P_ni, sbuf_nI[:, I1:I2],
                              1.0, A_nn, 'c')
                         I1 = I2
 
@@ -409,12 +390,12 @@ class MatrixOperator:
                 # Swap send and receive buffer such that next becomes current.
                 # If we're at the last slice, also finishes the P_ani cycle.
                 if q < Q - 1:
-                    sbuf_mG, rbuf_mG, sbuf_In, rbuf_In = self._finish_cycle(
-                        sbuf_mG, rbuf_mG, sbuf_In, rbuf_In, cycle_P_ani)
+                    sbuf_mG, rbuf_mG, sbuf_nI, rbuf_nI = self._finish_cycle(
+                        sbuf_mG, rbuf_mG, sbuf_nI, rbuf_nI, cycle_P_ani)
 
                 # First iteration was special because we had the ket to ourself
                 if q == 0:
-                    rbuf_mG = self.work1_xG[:M]
+                    rbuf_mG = work1_xG[:M]
 
         domain_comm.sum(A_qnn, 0)
 
@@ -429,7 +410,7 @@ class MatrixOperator:
         block_comm.barrier()
         return self.bmd.redistribute_output(A_NN)
         
-    def matrix_multiply(self, C_NN, psit_nG, P_ani=None):
+    def matrix_multiply(self, C_NN, psit_nG, P_ani=None, out_nG=None):
         """Calculate new linear combinations of wave functions.
 
         Results will be put in the *P_ani* dict and a new psit_nG returned::
@@ -455,53 +436,59 @@ class MatrixOperator:
 
         """
 
+        if self.A_nn is None:
+            self.allocate_arrays()
+
         band_comm = self.bd.comm
-        domain_comm = self.gd.comm
         B = band_comm.size
         J = self.nblocks
         N = self.bd.mynbands
-
-        if self.work1_xG is None:
-            self.allocate_work_arrays()
-        else:
-            assert self.work1_xG.dtype == psit_nG.dtype
 
         C_NN = self.bmd.redistribute_input(C_NN)
 
         if B == 1 and J == 1:
             # Simple case:
-            newpsit_nG = self.work1_xG
-            self.gd.gemm(1.0, psit_nG, C_NN, 0.0, newpsit_nG)
-            self.work1_xG = psit_nG
+            work_nG = reshape(self.work1_xG, psit_nG.shape)
+            if out_nG is None:
+                out_nG = work_nG
+                out_nG[:] = 117  # gemm may not like nan's
+            elif out_nG is psit_nG:
+                work_nG[:] = psit_nG
+                psit_nG = work_nG
+            self.gd.gemm(1.0, psit_nG, C_NN, 0.0, out_nG)
             if P_ani:
                 for P_ni in P_ani.values():
                     gemm(1.0, P_ni.copy(), C_NN, 0.0, P_ni)
-            return newpsit_nG
+            return out_nG
         
         # Now it gets nasty! We parallelize over B groups of bands and
         # each grid chunk is divided in J smaller slices (less memory).
 
-        Q = B # always non-hermitian XXX
+        Q = B  # always non-hermitian XXX
         rank = band_comm.rank
         shape = psit_nG.shape
         psit_nG = psit_nG.reshape(N, -1)
-        G = psit_nG.shape[1]   # number of grid-points
+        G = psit_nG.shape[1]  # number of grid-points
         g = int(np.ceil(G / float(J)))
 
         # Buffers for send/receive of pre-multiplication versions of P_ani's.
-        sbuf_In = rbuf_In = None
+        sbuf_nI = rbuf_nI = None
         if P_ani:
-            sbuf_In = np.concatenate([P_ni.T for P_ni in P_ani.values()])
+            sbuf_nI = np.hstack([P_ni for P_ni in P_ani.values()])
+            sbuf_nI = np.ascontiguousarray(sbuf_nI)
             if B > 1:
-                rbuf_In = np.empty_like(sbuf_In)
+                rbuf_nI = np.empty_like(sbuf_nI)
 
         # Because of the amount of communication involved, we need to
         # be syncronized up to this point but only on the 1D band_comm
         # communication ring
         band_comm.barrier()
-        while g*J >= G + g: # remove extra slice(s)
+        while g * J >= G + g:  # remove extra slice(s)
             J -= 1
-        assert 0 < g*J < G + g
+        assert 0 < g * J < G + g
+
+        work1_xG = reshape(self.work1_xG, (self.X,) + psit_nG.shape[1:])
+        work2_xG = reshape(self.work2_xG, (self.X,) + psit_nG.shape[1:])
 
         for j in range(J):
             G1 = j * g
@@ -509,8 +496,8 @@ class MatrixOperator:
             if G2 > G:
                 G2 = G
                 g = G2 - G1
-            sbuf_ng = self.work1_xG.reshape(-1)[:N * g].reshape(N, g)
-            rbuf_ng = self.work2_xG.reshape(-1)[:N * g].reshape(N, g)
+            sbuf_ng = reshape(work1_xG, (N, g))
+            rbuf_ng = reshape(work2_xG, (N, g))
             sbuf_ng[:] = psit_nG[:, G1:G2]
             beta = 0.0
             cycle_P_ani = (j == J - 1 and P_ani)
@@ -520,7 +507,7 @@ class MatrixOperator:
                 # If we're at the last slice, start cycling P_ani too.
                 if q < Q - 1:
                     self._initialize_cycle(sbuf_ng, rbuf_ng,
-                                           sbuf_In, rbuf_In, cycle_P_ani)
+                                           sbuf_nI, rbuf_nI, cycle_P_ani)
 
                 # Calculate wave-function contributions from the current slice
                 # of grid data by the current mynbands x mynbands matrix block.
@@ -532,15 +519,15 @@ class MatrixOperator:
                     I1 = 0
                     for P_ni in P_ani.values():
                         I2 = I1 + P_ni.shape[1]
-                        gemm(1.0, sbuf_In[I1:I2].T.copy(), C_nn, beta, P_ni)
+                        gemm(1.0, sbuf_nI[:, I1:I2], C_nn, beta, P_ni)
                         I1 = I2
 
                 # Wait for all send/receives to finish before next iteration.
                 # Swap send and receive buffer such that next becomes current.
                 # If we're at the last slice, also finishes the P_ani cycle.
                 if q < Q - 1:
-                    sbuf_ng, rbuf_ng, sbuf_In, rbuf_In = self._finish_cycle(
-                        sbuf_ng, rbuf_ng, sbuf_In, rbuf_In, cycle_P_ani)
+                    sbuf_ng, rbuf_ng, sbuf_nI, rbuf_nI = self._finish_cycle(
+                        sbuf_ng, rbuf_ng, sbuf_nI, rbuf_nI, cycle_P_ani)
 
                 # First iteration was special because we initialized the kets
                 if q == 0:
@@ -548,4 +535,3 @@ class MatrixOperator:
 
         psit_nG.shape = shape
         return psit_nG
-

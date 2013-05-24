@@ -54,6 +54,16 @@ def parallel_partition(N, commrank, commsize, reshape=True, positive=False):
     
     return N, N_local, N_start, N_end
 
+def parallel_partition_list(N, commrank, commsize):
+
+    Nlist = []
+    for i in range(N):
+        if commrank == i % commsize:
+            Nlist.append(i)
+
+    N_local = len(Nlist)
+    
+    return N, N_local, Nlist
 
 def collect_orbitals(a_xo, coords, comm, root=0):
     """Collect array distributed over orbitals to root-CPU.

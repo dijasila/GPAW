@@ -17,4 +17,4 @@ for a in A:
 
 a = np.roots(np.polyder(np.polyfit(A, e, 2), 1))[0]
 print 'a =', a
-equal(a, 2.65380064, 0.001)
+equal(a, 2.65247379609, 0.001)

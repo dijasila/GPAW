@@ -10,6 +10,7 @@ from ase.units import Bohr, Hartree
 
 from gpaw.xc import XC
 from gpaw.paw import PAW
+from gpaw.stress import stress
 from gpaw.occupations import MethfesselPaxton
 
 
@@ -77,13 +78,13 @@ class GPAW(PAW):
         return F_av * (Hartree / Bohr)
       
     def get_stress(self, atoms):
-        """Return the stress for the current state of the ListOfAtoms."""
-        raise NotImplementedError
+        """Return the stress for the current state of the atoms."""
+        self.calculate(atoms, converge=True)
+        if self.stress_vv is None:
+            self.stress_vv = stress(self)
+        return self.stress_vv.flat[[0, 4, 8, 5, 2, 1]] * (Hartree / Bohr**3)
 
     def calculation_required(self, atoms, quantities):
-        if 'stress' in quantities:
-            return True
-
         if len(quantities) == 0:
             return False
 
@@ -98,10 +99,8 @@ class GPAW(PAW):
             (atoms.get_pbc() != self.atoms.get_pbc()).any()):
             return True
 
-        if 'forces' in quantities:
-            return self.forces.F_av is None
-
-        return False
+        return ('forces' in quantities and self.forces.F_av is None or
+                'stress' in quantities and self.stress_vv is None)
 
     def get_number_of_bands(self):
         """Return the number of bands."""
@@ -149,19 +148,19 @@ class GPAW(PAW):
             gd = self.density.gd
         elif gridrefinement == 2:
             if self.density.nt_sg is None:
-                self.density.interpolate()
+                self.density.interpolate_pseudo_density()
             nt_sG = self.density.nt_sg
             gd = self.density.finegd
         else:
             raise NotImplementedError
 
         if spin is None:
-            if self.wfs.nspins == 1:
+            if self.density.nspins == 1:
                 nt_G = nt_sG[0]
             else:
                 nt_G = nt_sG.sum(axis=0)
         else:
-            if self.wfs.nspins == 1:
+            if self.density.nspins == 1:
                 nt_G = 0.5 * nt_sG[0]
             else:
                 nt_G = nt_sG[spin]
@@ -206,23 +205,24 @@ class GPAW(PAW):
                              for spin in range(2)])
 
     def get_all_electron_density(self, spin=None, gridrefinement=2,
-                                 pad=True, broadcast=True):
+                                 pad=True, broadcast=True, collect=True):
         """Return reconstructed all-electron density array."""
         n_sG, gd = self.density.get_all_electron_density(
             self.atoms, gridrefinement=gridrefinement)
 
         if spin is None:
-            if self.wfs.nspins == 1:
+            if self.density.nspins == 1:
                 n_G = n_sG[0]
             else:
                 n_G = n_sG.sum(axis=0)
         else:
-            if self.wfs.nspins == 1:
+            if self.density.nspins == 1:
                 n_G = 0.5 * n_sG[0]
             else:
                 n_G = n_sG[spin]
 
-        n_G = gd.collect(n_G, broadcast)
+        if collect:
+            n_G = gd.collect(n_G, broadcast)
 
         if n_G is None:
             return None
@@ -274,7 +274,8 @@ class GPAW(PAW):
         weight_a = np.empty(len(self.atoms))
         for a in range(len(self.atoms)):
             # XXX Optimize! No need to integrate in zero-region
-            smooth = self.wfs.gd.integrate(np.where(atom_index==a, nt_G, 0.0))
+            smooth = self.wfs.gd.integrate(np.where(atom_index == a,
+                                                    nt_G, 0.0))
             correction = self.density.get_correction(a, spin)
             weight_a[a] = smooth + correction
             
@@ -297,7 +298,7 @@ class GPAW(PAW):
         w_k = self.wfs.weight_k
         Nb = self.wfs.bd.nbands
         energies = np.empty(len(w_k) * Nb)
-        weights  = np.empty(len(w_k) * Nb)
+        weights = np.empty(len(w_k) * Nb)
         x = 0
         for k, w in enumerate(w_k):
             energies[x:x + Nb] = self.get_eigenvalues(k, spin)
@@ -375,7 +376,7 @@ class GPAW(PAW):
         """
         if pad:
             psit_G = self.get_pseudo_wave_function(band, kpt, spin, broadcast,
-                                                 pad=False)
+                                                   pad=False)
             if psit_G is None:
                 return
             else:
@@ -442,9 +443,7 @@ class GPAW(PAW):
             C_kul.append(C_ul)
 
         U_kww = np.asarray(U_kww)
-        return C_kul, U_kww 
-
-
+        return C_kul, U_kww
 
     def get_wannier_localization_matrix(self, nbands, dirG, kpoint,
                                         nextkpoint, G_I, spin):
@@ -617,12 +616,12 @@ class GPAW(PAW):
         if self.wfs.collinear:
             momsum = magmom_av.sum()
             M = self.occupations.magmom
-            if abs(M) > 1e-7 and momsum > 1e-7:
+            if abs(M) > 1e-7 and abs(momsum) > 1e-7:
                 magmom_av *= M / momsum
             # return a contiguous array
             return magmom_av[:, 2].copy()
         else:
-            return magmom_av            
+            return magmom_av
         
     def get_number_of_grid_points(self):
         return self.wfs.gd.N_c
@@ -676,4 +675,16 @@ class GPAW(PAW):
             k = kpt.k
             for n, psit_G in enumerate(kpt.psit_nG):
                 psit_G[:] = read_wave_function(self.wfs.gd, s, k, n, mode)
-                
+
+    def get_nonselfconsistent_energies(self, type='beefvdw'):
+        from gpaw.xc.bee import BEEF_Ensemble
+        if type not in ['beefvdw', 'mbeef']:
+            raise NotImplementedError('Not implemented for type = %s' % type)
+        assert self.scf.converged
+        bee = BEEF_Ensemble(self)
+        x = bee.create_xc_contributions('exch')
+        c = bee.create_xc_contributions('corr')
+        if type is 'beefvdw':
+            return np.append(x,c)
+        elif type is 'mbeef':
+            return x.flatten()

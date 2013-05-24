@@ -15,6 +15,12 @@ GPAW is available as an `Ubuntu package
 
     sudo add-apt-repository ppa:campos-dev/campos
 
+  .. note::
+
+    More up-to-date packages can be usually found at::
+
+      sudo add-apt-repository ppa:askhl/ppa
+
 - Update the package cache::
 
     sudo apt-get update
@@ -26,3 +32,5 @@ GPAW is available as an `Ubuntu package
 This will also install ASE, the GPAW setups, MPI and other
 dependencies.  ASE and GPAW can be automatically upgraded when a new
 stable version is released.
+
+

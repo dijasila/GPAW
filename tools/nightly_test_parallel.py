@@ -5,24 +5,39 @@ import time
 import glob
 import tempfile
 
-def fail(subject, filename='/dev/null'):
-    assert os.system(
-        'mail -s "%s" gpaw-developers@listserv.fysik.dtu.dk < %s' %
-        (subject, filename)) == 0
+def fail(subject, email=None, filename='/dev/null'):
+    if email is not None:
+        assert os.system('mail -s "%s" %s < %s' %
+                         (subject, email, filename)) == 0
     raise SystemExit
 
 if '--dir' in sys.argv:
     i = sys.argv.index('--dir')
-    sys.argv.pop(i)
-    dir = sys.argv.pop(i)
+    dir = sys.argv[i+1]
 else:
     dir = None
+
+if '--email' in sys.argv:
+    i = sys.argv.index('--email')
+    email = sys.argv[i+1]
+else:
+    email = None
+
+if '--np' in sys.argv:
+    i = sys.argv.index('--np')
+    np = int(sys.argv[i+1])
+else:
+    try:
+        import multiprocessing
+        np = multiprocessing.cpu_count()
+    except (ImportError,NotImplementedError):
+        np = 2
 
 tmpdir = tempfile.mkdtemp(prefix='gpaw-parallel-', dir=dir)
 os.chdir(tmpdir)
 
 # Checkout a fresh version and install:
-if os.system('svn export ' +
+if os.system('svn checkout ' +
              'https://svn.fysik.dtu.dk/projects/gpaw/trunk gpaw') != 0:
     fail('Checkout of gpaw failed!')
 if os.system('svn export ' +
@@ -30,19 +45,18 @@ if os.system('svn export ' +
     fail('Checkout of ASE failed!')
 
 os.chdir('gpaw')
-if os.system('source /home/camp/modulefiles.sh&& ' +
-             'module load NUMPY&& ' +
-             'module load open64/4.2.3-0&& ' +
-             'module load openmpi/1.3.3-1.el5.fys.open64.4.2.3&& ' +
-             'module load hdf5/1.8.6-5.el5.fys.open64.4.2.3.openmpi.1.3.3&& ' +
-             'python setup.py --remove-default-flags ' +
-             '--customize=doc/install/Linux/Niflheim/' +
-             'el5-xeon-open64-acml-4.4.0-acml-4.4.0-hdf-SL-2.0.1.py ' +
+if os.system('python setup.py ' +
              'install --home=%s 2>&1 | ' % tmpdir +
-             'grep -v "c/libxc/src"') != 0:
-    fail('Installation failed!')
+             'grep -v "c/libxc/src" | tee install.out') != 0:
+    fail('Installation failed!', email, 'install.out')
 
-os.system('mv ../ase/ase ../lib64/python')
+# gpaw installs under libdir
+from distutils.sysconfig import get_config_var
+libdir = os.path.split(get_config_var('LIBDIR'))[-1]
+# import gpaw from where it was installed
+sys.path.insert(0, '%s/%s/python' % (tmpdir, libdir))
+# and move ase there
+os.system('mv ../ase/ase %s/%s/python' % (tmpdir, libdir))
 
 os.system('wget --no-check-certificate --quiet ' +
           'http://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-latest.tar.gz')
@@ -52,24 +66,21 @@ setups = tmpdir + '/gpaw/' + glob.glob('gpaw-setups-[0-9]*')[0]
 day = time.localtime()[6]
 if '--debug' in sys.argv[1:]:
     args = '--debug'
-    cpus = 2 ** (1 + (day+1) % 3)
 else:
     args = ''
-    cpus = 2 ** (1 + day % 3)
-    
+
+from gpaw.version import version
+
 # Run test-suite:
 print 'Run'
-if os.system('source /home/camp/modulefiles.sh; ' +
-             'module load NUMPY; ' +
-             'module load SCIPY; ' +
-             'module load openmpi/1.3.3-1.el5.fys.open64.4.2.3; ' +
-             'export PYTHONPATH=%s/lib64/python:$PYTHONPATH; ' % tmpdir +
+if os.system('export PYTHONPATH=%s/%s/python:%s/lib/python:${PYTHONPATH}; ' % \
+             (tmpdir, libdir, tmpdir) +
              'export GPAW_SETUP_PATH=%s; ' % setups +
              'export OMP_NUM_THREADS=1; ' +
-             'mpiexec -np %d ' % cpus +
+             'mpiexec -np %d ' % np +
              tmpdir + '/bin/gpaw-python ' +
-             'tools/gpaw-test %s >& test.out' % args) != 0:
-    fail('Testsuite crashed!', 'test.out')
+             'tools/gpaw-test --directory=. %s >& test.out' % args) != 0:
+    fail('GPAW %s:  Testsuite crashed!' % str(version), email, 'test.out')
 
 try:
     failed = open('failed-tests.txt').readlines()
@@ -85,7 +96,8 @@ else:
                                                failed[0][:-1], failed[1][:-1])
         if n > 2:
             subject += ', ...'
-    fail(subject, 'test.out')
+    subject = 'GPAW %s: ' % str(version) + subject
+    fail(subject, email, 'test.out')
 
 print 'Done'
 os.system('cd; rm -r ' + tmpdir)

@@ -206,7 +206,15 @@ def get_gpaw_python_path():
     raise RuntimeError('Could not find gpaw-python!')
 
 
-setup_paths = os.environ.get('GPAW_SETUP_PATH', '/usr/share/gpaw-setups').split(':')
+try:
+    setup_paths = os.environ['GPAW_SETUP_PATH'].split(os.pathsep)
+except KeyError:
+    if os.pathsep == ';':
+        setup_paths = [r'C:\gpaw-setups']
+    else:
+        setup_paths = ['/usr/local/share/gpaw-setups',
+                       '/usr/share/gpaw-setups']
+
 
 from gpaw.aseinterface import GPAW
 from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
@@ -264,3 +272,14 @@ if profile:
             prof.dump_stats(filename + '.%04d' % rank)
     atexit.register(f, prof, profile)
     prof.enable()
+
+
+command = os.environ.get('GPAWSTARTUP')
+if command is not None:
+    exec(command)
+home = os.environ.get('HOME')
+if home is not None:
+    rc = os.path.join(home, '.gpaw', 'rc.py')
+    if os.path.isfile(rc):
+        # Read file in ~/.gpaw/rc.py
+        execfile(rc)

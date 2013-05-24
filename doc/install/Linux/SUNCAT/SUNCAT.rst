@@ -4,6 +4,10 @@
 SUNCAT
 ======
 
+(NOTE: With MKL 10.3 we have seen hangs in the early mpireduce calls for
+a small number of calculations.  Until I have understood this I am
+backing out to MKL 10.2.)
+
 At SLAC we compiled GPAW for RHEL5 x86_64, on intel Xeon 5650 with intel compilers and mkl. This improved the 8-core performance benchmark by 13% compared to the opencc/ACML approach.
 
 ================ ==================
