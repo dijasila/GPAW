@@ -159,17 +159,20 @@ lopeza     Olga Lopez                 lopez:cc,jyu,fi
 marsalek   Ondrej Marsalek            ondrej,marsalek:gmail,com
 mathiasl   Mathias Ljungberg          mathiasl:physto,se
 miwalter   Michael Walter             Michael,Walter:fmf,uni-freiburg,de
+mogje      Morten Gjerding            mortengjerding:gmail,com
 mohpa      Mohnish Pandey             mohpa:fysik,dtu,dk
 moses      Poul Georg Moses           poulgeorgmoses:gmail,com
 mvanin     Marco Vanin                mvanin:fysik,dtu,dk
 naromero   Nichols Romero             naromero:alcf,anl,gov
 peterklue  Peter Kluepfel             peter:theochem,org
 s032082    Christian Glinsvad         s032082:fysik,dtu,dk
+sakko      Arto Sakko                 arto,sakko:aalto,fi
 schiotz    Jakob Schiotz              schiotz:fysik,dtu,dk
 shakala    Samuli Hakala              samuli,hakala:tkk,fi
 strange    Mikkel Strange             mikkel,strange:gmail,com
 tjiang     Tao Jiang                  tjiang:fysik,dtu,dk
 tolsen     Thomas Olsen               tolsen:fysik,dtu,dk
+tprossi    Tuomas Rossi               tuomas,rossi:aalto,fi
 =========  =========================  ========================================
 
 

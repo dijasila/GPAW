@@ -193,7 +193,7 @@ Wednesday (May 22)
    - Lauri Lehtovaara
    - `Au40(SR)24 Cluster as a Chiral Dimer of 8-Electron Superatoms:
      Structure and Optical Properties
-     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/b10.pdf>`__
+     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/b06.pdf>`__
    - `youtube
      <https://www.youtube.com/watch?v=Y3We-e6zyow>`__
  * - 13:30
