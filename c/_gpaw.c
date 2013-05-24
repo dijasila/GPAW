@@ -281,10 +281,8 @@ main(int argc, char **argv)
   MPI_Init(&argc, &argv);
 #else
   int granted;
-  // MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &granted);
-  MPI_Init_thread(&argc, &argv, MPI_THREAD_SINGLE, &granted);
-  // if(granted != MPI_THREAD_MULTIPLE) {
-  if(granted <  MPI_THREAD_SINGLE) {
+  MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &granted);
+  if(granted != MPI_THREAD_MULTIPLE) {
       printf("Thread level MPI_THREAD_MULTIPLE not supported\n");
       exit(1);
   }

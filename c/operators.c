@@ -122,7 +122,6 @@ void apply_worker(OperatorObject *self, int chunksize, int start,
           bc_unpack2(bc, buf, i, recvreq, sendreq, recvbuf, chunksize);
         }
 
-// #pragma omp parallel for
       for (int m = 0; m < chunksize; m++)
         if (real)
           bmgs_fd(&self->stencil, buf + m * ng2, my_out + m * ng);
@@ -145,7 +144,6 @@ void apply_worker(OperatorObject *self, int chunksize, int start,
           bc_unpack2(bc, buf, i, recvreq, sendreq, recvbuf, nremain);
         }
 
-// #pragma omp parallel for
       for (int m = 0; m < nremain; m++)
         if (real)
           bmgs_fd(&self->stencil, buf + m * ng2, my_out + m * ng);
@@ -196,15 +194,15 @@ static PyObject * Operator_apply(OperatorObject *self,
       // printf("Chunksize: %d maxsend: %d\n", chunksize, bc->maxsend);
     }
   
-//#pragma omp parallel
+#pragma omp parallel
 {
   int thread_id = 0;
   int nthreads = 1;
   int start, end;
-// #ifdef _OPENMP
-//  thread_id = omp_get_thread_num();
-//  nthreads = omp_get_num_threads();
-// #endif
+#ifdef _OPENMP
+  thread_id = omp_get_thread_num();
+  nthreads = omp_get_num_threads();
+#endif
   SHARE_WORK(nin, nthreads, thread_id, &start, &end);
   apply_worker(self, chunksize, start, end, thread_id, nthreads,
 	       in, out, real, ph);
