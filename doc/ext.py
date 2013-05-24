@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 import os
-from sys import executable
 import types
+import warnings
 from os.path import join
 from stat import ST_MTIME
-from docutils import nodes, utils
+from docutils import nodes
 from docutils.parsers.rst.roles import set_classes
+
 
 def mol_role(role, rawtext, text, lineno, inliner, options={}, content=[]):
     n = []
@@ -22,6 +23,7 @@ def mol_role(role, rawtext, text, lineno, inliner, options={}, content=[]):
     n.append(nodes.Text(t))
     return n, []
 
+
 def svn_role(role, rawtext, text, lineno, inliner, options={}, content=[]):
     if text[-1] == '>':
         i = text.index('<')
@@ -34,12 +36,12 @@ def svn_role(role, rawtext, text, lineno, inliner, options={}, content=[]):
             text = text[1:]
         if '?' in name:
             name = name[:name.index('?')]
-    ref = 'http://svn.fysik.dtu.dk/projects/gpaw/branches/general_unit_cells/' + text
     ref = 'http://svn.fysik.dtu.dk/projects/gpaw/trunk/' + text
     set_classes(options)
     node = nodes.reference(rawtext, name, refuri=ref,
                            **options)
     return [node], []
+
 
 def trac_role(role, rawtext, text, lineno, inliner, options={}, content=[]):
     if text[-1] == '>':
@@ -53,12 +55,12 @@ def trac_role(role, rawtext, text, lineno, inliner, options={}, content=[]):
             text = text[1:]
         if '?' in name:
             name = name[:name.index('?')]
-    ref = 'http://trac.fysik.dtu.dk/projects/gpaw/browser/branches/general_unit_cells/' + text
     ref = 'http://trac.fysik.dtu.dk/projects/gpaw/browser/trunk/' + text
     set_classes(options)
     node = nodes.reference(rawtext, name, refuri=ref,
                            **options)
     return [node], []
+
 
 def epydoc_role(role, rawtext, text, lineno, inliner, options={}, content=[]):
     name = None
@@ -101,6 +103,7 @@ def epydoc_role(role, rawtext, text, lineno, inliner, options={}, content=[]):
                            **options)
     return [node], []
 
+
 def setup(app):
     app.add_role('mol', mol_role)
     app.add_role('svn', svn_role)
@@ -110,7 +113,27 @@ def setup(app):
     #atexit.register(fix_sidebar)
     create_png_files()
 
+
 def create_png_files():
+    errcode = os.system('povray 2> /dev/null')
+    if errcode:
+        warnings.warn('No POVRAY!')
+        # Replace write_pov with write_png:
+        from ase.io import pov
+        from ase.io.png import write_png
+
+        def write_pov(filename, atoms, run_povray=False, **parameters):
+            p = {}
+            for key in ['rotation', 'show_unit_cell', 'radii',
+                        'bbox', 'colors', 'scale']:
+                if key in parameters:
+                    p[key] = parameters[key]
+            write_png(filename[:-3] + 'png', atoms, **p)
+
+        pov.write_pov = write_pov
+
+    olddir = os.getcwd()
+
     for dirpath, dirnames, filenames in os.walk('.'):
         for filename in filenames:
             if filename.endswith('.py'):
@@ -136,12 +159,13 @@ def create_png_files():
                                 run = True
                                 break
                     if run:
-                        print 'running:', path
-                        e = os.system('cd %s; %s %s' % (dirpath, executable,
-                                                        filename))
-                        if e != 0:
-                            raise RuntimeError('FAILED!')
+                        print('running:', join(dirpath, filename))
+                        os.chdir(dirpath)
+                        try:
+                            execfile(filename, {})
+                        finally:
+                            os.chdir(olddir)
                         for file in line.split()[2:]:
-                            print dirpath, file
+                            print(dirpath, file)
         if '.svn' in dirnames:
             dirnames.remove('.svn')
