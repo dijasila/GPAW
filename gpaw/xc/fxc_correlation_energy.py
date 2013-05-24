@@ -739,6 +739,7 @@ class Kernel:
         for iq, q in enumerate(self.q_points):
             if abs(np.dot(q, q))**0.5 < 1.e-5:
                 iq0 = iq
+                continue
             Gvec_Gc = Gvec_qGc[iq]
             npw = npw_q[iq]
             qG_Gv = np.dot(q + Gvec_Gc, bcell_cv)

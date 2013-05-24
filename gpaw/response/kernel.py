@@ -71,7 +71,7 @@ def calculate_Kc(q_c,
                  integrate_gamma=False,
                  N_k=None,
                  symmetric=True):
-    
+
     """Symmetric Coulomb kernel"""
 
     if integrate_gamma:
@@ -300,6 +300,8 @@ def calculate_Kc_q(acell_cv,
     bvol = np.abs(np.linalg.det(bcell))
 
     gamma = np.where(np.sum(abs(q_qc), axis=1) < 1e-5)[0][0]
+    if (Gvec_c == 0).all():
+        q_qc[gamma] = [0.001, 0., 0.] # Just to avoid zero division
     
     q_qc[:,0] += Gvec_c[0]
     q_qc[:,1] += Gvec_c[1]

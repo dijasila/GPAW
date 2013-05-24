@@ -23,6 +23,7 @@ H2.set_cell((2., 2., 3.))
 H2.center()
 calc = GPAW(mode=PW(210),
             dtype=complex,
+            #spinpol=True,
             xc='LDA',
             basis='dzp',
             nbands=8,
@@ -65,5 +66,5 @@ if rank == 0:
     system('rm H2.gpw')
     system('rm H.gpw')
 
-equal(Ec_H2, -0.8412, 0.001)
-equal(Ec_H, -0.04440, 0.0001)
+equal(Ec_H2, -0.8411, 0.001)
+equal(Ec_H, 0.003248, 0.00001)

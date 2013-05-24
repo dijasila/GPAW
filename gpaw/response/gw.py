@@ -319,7 +319,7 @@ class GW(BASECHI):
                         else:
                             sign = -1.
 
-                        rho_G = df.density_matrix(m, n, kq, spin=s)
+                        rho_G = df.density_matrix(m, n, kq, spin1=s, spin2=s)
 
                         if not self.hilbert_trans: #method 1
                             W_wGG[:,:,0] = Wbackup_wG0
