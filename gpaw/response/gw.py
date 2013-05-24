@@ -438,7 +438,7 @@ class GW(BASECHI):
         self.printtxt("calculating Exact exchange and E_XC")
         self.printtxt('------------------------------------------------')
 
-        calc = GPAW(self.file, communicator=communicator, parallel={'domain':1}, txt=None)
+        calc = GPAW(self.file, communicator=communicator, parallel={'domain':1, 'band':1}, txt=None)
         v_xc = vxc(calc)
 
         if ecut == None:
