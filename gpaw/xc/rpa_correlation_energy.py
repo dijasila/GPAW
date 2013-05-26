@@ -57,7 +57,7 @@ class RPACorrelation:
         self.initialized = 0
    
     def get_rpa_correlation_energy(self,
-                                   kcommsize=1,
+                                   kcommsize=None,
                                    dfcommsize=world.size,
                                    directions=None,
                                    skip_gamma=False,
@@ -273,7 +273,7 @@ class RPACorrelation:
                 comm=self.dfcomm,
                 optical_limit=optical_limit,
                 hilbert_trans=False)
-        
+
         if index is None:
             print >> self.txt, 'Calculating KS response function at:'
         else:
@@ -340,6 +340,12 @@ class RPACorrelation:
     def initialize_calculation(self, w, ecut, smooth_cut,
                                nbands, kcommsize, extrapolate,
                                gauss_legendre, frequency_cut, frequency_scale):
+        if kcommsize is None:
+            if len(self.calc.wfs.bzk_kc) == 1:
+                kcommsize = 1
+            else:
+                kcommsize = world.size
+            
         if w is not None:
             assert (gauss_legendre is None and
                     frequency_cut is None and
@@ -473,7 +479,7 @@ class RPACorrelation:
                            ecut=100.,
                            smoothcut=None,
                            nbands=None,
-                           kcommsize=1,
+                           kcommsize=None,
                            extrapolate=False,
                            gauss_legendre=None,
                            frequency_cut=None,

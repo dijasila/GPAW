@@ -83,9 +83,8 @@ class FXCCorrelation:
 
    
     def get_fxc_correlation_energy(self,
-                                   kcommsize=1,
+                                   kcommsize=None,
                                    serial_w=False,
-                                   dfcommsize=world.size,
                                    directions=None,
                                    skip_gamma=False,
                                    ecut=10,
@@ -126,7 +125,6 @@ class FXCCorrelation:
 
         del kernel
         
-        self.dfcomm = world
         E_q = []
         if restart is not None:
             assert type(restart) is str
@@ -187,7 +185,7 @@ class FXCCorrelation:
 
 
     def get_E_q(self,
-                kcommsize=1,
+                kcommsize=None,
                 serial_w=None,
                 index=None,
                 q=[0., 0., 0.],
@@ -205,7 +203,6 @@ class FXCCorrelation:
                                     nbands, kcommsize, serial_w,
                                     gauss_legendre, frequency_cut,
                                     frequency_scale)
-        self.dfcomm = world
         if serial_w:
             E_q = self.E_q_serial_w(q,
                                     direction=direction,
@@ -282,7 +279,7 @@ class FXCCorrelation:
                 G_plus_q=True,
                 density_cut=self.density_cut,
                 kcommsize=self.kcommsize,
-                comm=self.dfcomm,
+                comm=world,
                 optical_limit=optical_limit,
                 hilbert_trans=False)
         
@@ -346,6 +343,12 @@ class FXCCorrelation:
     def initialize_calculation(self, w, ecut, smooth_cut,
                                nbands, kcommsize, serial_w,
                                gauss_legendre, frequency_cut, frequency_scale):
+        if kcommsize is None:
+            if len(self.calc.wfs.bzk_kc) == 1:
+                kcommsize = 1
+            else:
+                kcommsize = world.size
+            
         if w is not None:
             assert (gauss_legendre is None and
                     frequency_cut is None and
@@ -519,7 +522,7 @@ class FXCCorrelation:
                            ecut=100.,
                            smoothcut=None,
                            nbands=None,
-                           kcommsize=1,
+                           kcommsize=None,
                            extrapolate=False,
                            gauss_legendre=None,
                            frequency_cut=None,
@@ -838,9 +841,10 @@ class Kernel:
         for iq in range(len(npw_q)):
             fhxc_qsGr[iq] = np.zeros((ns, npw_q[iq], len(l_g_range)),
                                      dtype=complex)
-            
+
         inv_error = np.seterr()['invalid']
         np.seterr(invalid='ignore')
+        np.seterr(divide='ignore')
 
         t0 = time()
         # Loop over Lattice points
