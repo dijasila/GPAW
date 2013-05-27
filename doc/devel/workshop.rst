@@ -94,21 +94,18 @@ Tuesday (May 21)
      <http://www.youtube.com/watch?v=ihajSLIqPG8>`__
  * - 14:10
    - Bjørk Hammer
-   - `Challenges with the currently (correctly) implemented NEB-method. Should
+   - Challenges with the currently (correctly) implemented NEB-method. Should
      ASE revert to the original more robust NEB-formulation with springs?
-     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/a08.pdf>`__
    - `youtube
      <http://www.youtube.com/watch?v=wKJLRBsVt7Q>`__
  * - 14:30
    - Jess Wellendorff
-   - `Exchange-correlation functionals with error estimation
-     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/a09.pdf>`__
+   - Exchange-correlation functionals with error estimation
    - `youtube
      <http://www.youtube.com/watch?v=ckYEzSEmUhw>`__
  * - 15:00
    - Hannes Jónsson
-   - `Orbital density dependent functionals
-     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/a10.pdf>`__
+   - Orbital density dependent functionals
    - `youtube
      <https://www.youtube.com/watch?v=LvbYVeaG8os>`__
  * - 15:30
