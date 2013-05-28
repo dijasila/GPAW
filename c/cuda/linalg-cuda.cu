@@ -10,16 +10,15 @@
 #include <gpaw-cuda-int.h>
 #ifndef CUGPAWCOMPLEX
 #define BLOCK_X  128
+#define MAX_BLOCKS  (65535)
 #endif
 
 __global__ void Zcuda(elmenwise_mul_add_kernelx)(int n,const double* a,const Tcuda* b,Tcuda *c)
 {
   int i=blockIdx.x*BLOCK_X+threadIdx.x;
-  a+=i;
-  b+=i;
-  c+=i;
-  if (i<n){
-    IADD(c[0],MULDT(a[0],b[0]));
+  while (i<n){
+    IADD(c[i],MULDT(a[i],b[i]));
+    i+=gridDim.x*BLOCK_X;
   }
 }
 
@@ -27,11 +26,11 @@ __global__ void Zcuda(multi_elmenwise_mul_add_kernel1x)(int n,const double* a,co
 {
   int i=blockIdx.x*BLOCK_X+threadIdx.x;
   int k=blockIdx.y;
-  a+=i+k*n;
-  b+=i;
-  c+=i+k*n;
-  if (i<n){
-    IADD(c[0],MULDT(a[0],b[0]));
+  a+=k*n;
+  c+=k*n;
+  while (i<n){
+    IADD(c[i],MULDT(a[i],b[i]));
+    i+=gridDim.x*BLOCK_X;
   }
 }
 
@@ -39,11 +38,11 @@ __global__ void Zcuda(multi_elmenwise_mul_add_kernel2x)(int n,const double* a,co
 {
   int i=blockIdx.x*BLOCK_X+threadIdx.x;
   int k=blockIdx.y;
-  a+=i;
-  b+=i+k*n;
-  c+=i+k*n;
-  if (i<n){
-    IADD(c[0],MULDT(a[0],b[0]));
+  b+=k*n;
+  c+=k*n;
+  while (i<n){
+    IADD(c[i],MULDT(a[i],b[i]));
+    i+=gridDim.x*BLOCK_X;
   }
 }
 
@@ -51,10 +50,9 @@ __global__ void Zcuda(multi_elmenwise_mul_add_kernel2x)(int n,const double* a,co
 __global__ void Zcuda(ax2py_kernel)(int n,double a,const Tcuda* x,double* y)
 {
   int i=blockIdx.x*BLOCK_X+threadIdx.x;
-  x+=i;
-  y+=i;
-  if (i<n){
-    y[0]+=a*(REAL(x[0])*REAL(x[0])+IMAG(x[0])*IMAG(x[0]));
+  while (i<n){
+    y[i]+=a*(REAL(x[i])*REAL(x[i])+IMAG(x[i])*IMAG(x[i]));
+    i+=gridDim.x*BLOCK_X;
   }
 }
 
@@ -62,9 +60,9 @@ __global__ void Zcuda(ax2py_kernel)(int n,double a,const Tcuda* x,double* y)
 __global__ void Zcuda(csign_kernel)(int n,Tcuda* x)
 {
   int i=blockIdx.x*BLOCK_X+threadIdx.x;
-  x+=i;
-  if (i<n){
-    x[0]=NEG(x[0]);
+  while (i<n){
+    x[i]=NEG(x[i]);
+    i+=gridDim.x*BLOCK_X;
   }
 }
 
@@ -72,12 +70,11 @@ __global__ void Zcuda(csign_kernel)(int n,Tcuda* x)
 __global__ void Zcuda(multi_ax2py_kernel)(int n,int nvec,double *a,const Tcuda* x,double* y)
 {
   int i=blockIdx.x*BLOCK_X+threadIdx.x;
-  x+=i;
-  y+=i;
   for (int k=0;k<nvec;k++) {
-    if (i<n){
-      y[0]+=a[k]*(REAL(x[0])*REAL(x[0])+IMAG(x[0])*IMAG(x[0]));
+    while (i<n){
+      y[i]+=a[k]*(REAL(x[i])*REAL(x[i])+IMAG(x[i])*IMAG(x[i]));
     }
+    i+=gridDim.x*BLOCK_X;
     x+=n;
   }
 }
@@ -91,11 +88,9 @@ __global__ void Zcuda(multi_ax2py_kernel)(int n,int nvec,double *a,const Tcuda* 
 __global__ void elmenwise_mul_add_kernelzz(int n,const cuDoubleComplex* a,const cuDoubleComplex* b, cuDoubleComplex*c)
 {
   int i=blockIdx.x*BLOCK_X+threadIdx.x;
-  a+=i;
-  b+=i;
-  c+=i;
-  if (i<n){
-    c[0]=cuCadd(c[0],cuCmul(a[0],b[0]));
+  while (i<n){
+    c[i]=cuCadd(c[i],cuCmul(a[i],b[i]));
+    i+=gridDim.x*BLOCK_X;
   }
 }
 
@@ -104,11 +99,11 @@ __global__ void multi_elmenwise_mul_add_kernel1zz(int n,const cuDoubleComplex* a
 {
   int i=blockIdx.x*BLOCK_X+threadIdx.x;
   int k=blockIdx.y;
-  a+=i+k*n;
-  b+=i;
-  c+=i+k*n;
-  if (i<n){
-    c[0]=cuCadd(c[0],cuCmul(a[0],b[0]));
+  a+=k*n;
+  c+=k*n;
+  while (i<n){
+    c[i]=cuCadd(c[i],cuCmul(a[i],b[i]));
+    i+=gridDim.x*BLOCK_X;
   }
 }
 
@@ -116,11 +111,11 @@ __global__ void multi_elmenwise_mul_add_kernel2zz(int n,const cuDoubleComplex* a
 {
   int i=blockIdx.x*BLOCK_X+threadIdx.x;
   int k=blockIdx.y;
-  a+=i;
-  b+=i+k*n;
-  c+=i+k*n;
-  if (i<n){
-    c[0]=cuCadd(c[0],cuCmul(a[0],b[0]));
+  b+=k*n;
+  c+=k*n;
+  while (i<n){
+    c[i]=cuCadd(c[i],cuCmul(a[i],b[i]));
+    i+=gridDim.x*BLOCK_X;
   }
 }
 
@@ -140,7 +135,7 @@ extern "C" {
     for (int d = 1; d < nd; d++)
       n *= PyInt_AsLong(PyTuple_GetItem(a_shape,d));
     
-    int gridx=MAX((n+BLOCK_X-1)/BLOCK_X,1);
+    int gridx=MIN(MAX((n+BLOCK_X-1)/BLOCK_X,1),MAX_BLOCKS);
     
     dim3 dimBlock(BLOCK_X,1); 
     dim3 dimGrid(gridx,1);    
@@ -193,7 +188,7 @@ extern "C" {
 
     int nvec = PyInt_AsLong(PyTuple_GetItem(shape,0));
     
-    int gridx=MAX((n+BLOCK_X-1)/BLOCK_X,1);
+    int gridx=MIN(MAX((n+BLOCK_X-1)/BLOCK_X,1),MAX_BLOCKS);
     
     dim3 dimBlock(BLOCK_X,1); 
     dim3 dimGrid(gridx,nvec);
@@ -255,7 +250,7 @@ extern "C" {
     for (int d = 1; d < nd; d++)
       n *= PyInt_AsLong(PyTuple_GetItem(x_shape,d));
     
-    int gridx=MAX((n+BLOCK_X-1)/BLOCK_X,1);
+    int gridx=MIN(MAX((n+BLOCK_X-1)/BLOCK_X,1),MAX_BLOCKS);
     
     dim3 dimBlock(BLOCK_X,1); 
     dim3 dimGrid(gridx,1);    
@@ -290,7 +285,7 @@ extern "C" {
     for (int d = 1; d < nd; d++)
       n *= PyInt_AsLong(PyTuple_GetItem(x_shape,d));
     
-    int gridx=MAX((n+BLOCK_X-1)/BLOCK_X,1);
+    int gridx=MIN(MAX((n+BLOCK_X-1)/BLOCK_X,1),MAX_BLOCKS);
     
     dim3 dimBlock(BLOCK_X,1); 
     dim3 dimGrid(gridx,1);    
@@ -336,7 +331,7 @@ extern "C" {
     
     if (type->type_num == PyArray_DOUBLE){
       double *alpha=(double*)alpha_gpu;
-      int gridx=MAX((n+BLOCK_X-1)/BLOCK_X,1);
+      int gridx=MIN(MAX((n+BLOCK_X-1)/BLOCK_X,1),MAX_BLOCKS);
       int gridy=1;
       
       dim3 dimBlock(BLOCK_X,1); 
@@ -347,7 +342,7 @@ extern "C" {
       
     } else {
       double *alpha=(double*)alpha_gpu;
-      int gridx=MAX((n+BLOCK_X-1)/BLOCK_X,1);
+      int gridx=MIN(MAX((n+BLOCK_X-1)/BLOCK_X,1),MAX_BLOCKS);
       int gridy=1;
       
       dim3 dimBlock(BLOCK_X,1); 

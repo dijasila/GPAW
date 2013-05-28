@@ -100,10 +100,10 @@ __global__ void INNAME(integrate_mul_kernel)(const Tcuda *a_G,int nG,
 	case 1:
 	  a_Gvs[0]=MULTT(a_G[c+0*nG], phase);
 	  }*/
+#pragma unroll 16
 	for (int i=0;i<nvec;i++) {
 	  a_Gvs[i]=MULTT(a_G[c+i*nG], v->phase_k[q]);
-	  //a_Gv=MULTT(a_G[c+i*nG], v->phase_k[q]);
-	}
+	  }
 #else
 /*
 	switch (nvec) {
@@ -140,6 +140,7 @@ __global__ void INNAME(integrate_mul_kernel)(const Tcuda *a_G,int nG,
 	case 1:
 	  a_Gvs[0]=a_G[c+0*nG];	  
 	  }*/
+#pragma unroll 16
 	for (int i=0;i<nvec;i++) {
 	  a_Gvs[i]=a_G[c+i*nG];
 	  //a_Gv=a_G[c+i*nG];
@@ -193,7 +194,6 @@ __global__ void INNAME(integrate_mul_kernel)(const Tcuda *a_G,int nG,
 	      mySum=MULTD(a_Gvs[0],A_gmv); break;
 	    }*/
 	    mySum=MULTD(a_Gvs[i],A_gmv);
-	    //mySum=MULTD(a_Gv,A_gmv);
 	  }
 	  //if (i_b<len_A_gm) mySum=MULTD(a_Gv,A_gm[i_b+m*len_A_gm]);
 	} else {

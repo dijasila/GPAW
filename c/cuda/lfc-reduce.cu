@@ -1,9 +1,11 @@
 #ifndef REDUCE_LFC
 
-#define REDUCE_LFC_MAX_THREADS  (256)
-#define REDUCE_LFC_MAX_BLOCKS   (64)
+#define REDUCE_LFC_MAX_THREADS  (64)
+#define REDUCE_LFC_MAX_THREADS2  (128)
+#define REDUCE_LFC_MAX_BLOCKS   (32)
+#define REDUCE_LFC_MAX_BLOCKS2   (32)
 #define REDUCE_LFC_MAX_YBLOCKS   (65535)
-#define REDUCE_LFC_BUFFER_SIZE  ((2*GPAW_CUDA_BLOCKS_MAX*REDUCE_LFC_MAX_BLOCKS)*16)
+#define REDUCE_LFC_BUFFER_SIZE  ((2*GPAW_CUDA_BLOCKS_MAX*MAX(REDUCE_LFC_MAX_BLOCKS,REDUCE_LFC_MAX_BLOCKS2))*16)
 static void *lfc_reduce_buffer=NULL;
 static int lfc_reduce_buffer_size=0;
 
@@ -43,9 +45,9 @@ static void lfc_reduceNumBlocksAndThreads(int n,int *blocks, int *threads)
 
 static void lfc_reduceNumBlocksAndThreads2(int n,int *blocks, int *threads)
 {
-  *threads = (n < REDUCE_LFC_MAX_THREADS*2) ? lfc_nextPow2((n + 1)/ 2) :
-    REDUCE_LFC_MAX_THREADS;
-  *blocks = MIN((n + (*threads * 2 - 1)) / (*threads * 2),REDUCE_LFC_MAX_BLOCKS); 
+  *threads = (n < REDUCE_LFC_MAX_THREADS2*2) ? lfc_nextPow2((n + 1)/ 2) :
+    REDUCE_LFC_MAX_THREADS2;
+  *blocks = MIN((n + (*threads * 2 - 1)) / (*threads * 2),REDUCE_LFC_MAX_BLOCKS2); 
 }
 
 #endif
