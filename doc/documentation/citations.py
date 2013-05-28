@@ -70,7 +70,7 @@ for bib in ['gpaw1', 'tddft', 'lcao', 'gpaw2', 'response']:
         #fd.write('%d-%02d-%02d %s %s\n' % (date.year, date.month, date.day,
         #                               doi, title))
         total[doi] = (date, title)
-    fd.close()
+    #fd.close()
     x = dict([(p[1], 0) for p in papers])
     print(bib, len(papers), len(x), len(total))
 
