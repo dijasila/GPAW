@@ -105,7 +105,8 @@ Tuesday (May 21)
      <http://www.youtube.com/watch?v=ckYEzSEmUhw>`__
  * - 15:00
    - Hannes Jónsson
-   - Orbital density dependent functionals
+   - `Orbital density dependent functionals
+     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/a10.pdf>`__
    - `youtube
      <https://www.youtube.com/watch?v=LvbYVeaG8os>`__
  * - 15:30
