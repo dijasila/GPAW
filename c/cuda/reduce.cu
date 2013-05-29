@@ -166,17 +166,18 @@ MAPNAME(reducemap)(const Tcuda *d_idata1, const Tcuda *d_idata2,
   if (reduce_buffer==NULL){
     gpaw_cudaSafeCall(cudaMalloc((void**)(&reduce_buffer),REDUCE_BUFFER_SIZE));
   }
-  Tcuda *result_gpu=(Tcuda*)reduce_buffer;
-  int work_buffer_size=((REDUCE_BUFFER_SIZE)/sizeof(Tcuda)-nvec)/2;
-  Tcuda *work_buffer1=result_gpu+nvec;
-  Tcuda *work_buffer2=work_buffer1+work_buffer_size;
-
-  
-  assert(nvec*sizeof(Tcuda)<=REDUCE_BUFFER_SIZE-2*REDUCE_MAX_BLOCKS);
-
-
   reduceNumBlocksAndThreads(size,&blocks, &threads);
-  int mynvec=MAX(MIN(work_buffer_size/blocks,nvec),1);
+  int blo2=(blocks+(REDUCE_MAX_THREADS*2-1))/(REDUCE_MAX_THREADS*2);
+  int min_wsize=blocks+blo2;
+  int work_buffer_size=((REDUCE_BUFFER_SIZE)/sizeof(Tcuda)-nvec);
+
+  assert(min_wsize<work_buffer_size);
+
+  int mynvec=MAX(MIN(work_buffer_size/min_wsize,nvec),1);
+  
+  Tcuda *result_gpu=(Tcuda*)reduce_buffer;
+  Tcuda *work_buffer1=result_gpu+nvec;
+  Tcuda *work_buffer2=work_buffer1+mynvec*blocks;
 
   int smemSize = (threads <= 32) ? 2 * threads * sizeof(Tcuda) : 
     threads * sizeof(Tcuda);
@@ -251,7 +252,9 @@ MAPNAME(reducemap)(const Tcuda *d_idata1, const Tcuda *d_idata2,
     int count=0;
     while(s > 1)  {
       int blocks2,threads2;
+      int block_in=block_out;
       reduceNumBlocksAndThreads(s, &blocks2, &threads2);
+      block_out=blocks2;
       dim3 dimBlock(threads2, 1, 1);
       dim3 dimGrid(blocks2, cunvec, 1);
       int smemSize = (threads2 <= 32) ? 2 * threads2 * sizeof(Tcuda) : 
@@ -266,52 +269,52 @@ MAPNAME(reducemap)(const Tcuda *d_idata1, const Tcuda *d_idata2,
 	case 512:
 	  MAPNAME(reduce_kernel512)<<< dimGrid, dimBlock, smemSize >>>
 	    ((Tcuda*)work1,NULL, (Tcuda*)work2,result_gpu+i,
-	     s,block_out,block_out,cunvec);        
+	     s,block_in,block_out,cunvec);        
 	  break;
 	case 256:
 	  MAPNAME(reduce_kernel256)<<< dimGrid, dimBlock, smemSize >>>
 	    ((Tcuda*)work1,NULL, (Tcuda*)work2,result_gpu+i,
-	     s,block_out,block_out,cunvec);        
+	     s,block_in,block_out,cunvec);        
 	  break;
 	case 128:
 	  MAPNAME(reduce_kernel128)<<< dimGrid, dimBlock, smemSize >>>
 	    ((Tcuda*)work1,NULL, (Tcuda*)work2,result_gpu+i,
-	     s,block_out,block_out,cunvec);        
+	     s,block_in,block_out,cunvec);        
 	  break;
 	case 64:
 	  MAPNAME(reduce_kernel64)<<< dimGrid, dimBlock, smemSize >>>
 	    ((Tcuda*)work1,NULL, (Tcuda*)work2,result_gpu+i,
-	     s,block_out,block_out,cunvec);        
+	     s,block_in,block_out,cunvec);        
 	  break;
 	case 32:
 	  MAPNAME(reduce_kernel32)<<< dimGrid, dimBlock, smemSize >>>
 	    ((Tcuda*)work1,NULL, (Tcuda*)work2,result_gpu+i,
-	     s,block_out,block_out,cunvec);        
+	     s,block_in,block_out,cunvec);        
 	  break;
 	case 16:
 	  MAPNAME(reduce_kernel16)<<< dimGrid, dimBlock, smemSize >>>
 	    ((Tcuda*)work1,NULL, (Tcuda*)work2,result_gpu+i,
-	     s,block_out,block_out,cunvec);        
+	     s,block_in,block_out,cunvec);        
 	  break;
 	case  8:
 	  MAPNAME(reduce_kernel8)<<< dimGrid, dimBlock, smemSize >>>
 	    ((Tcuda*)work1,NULL, (Tcuda*)work2,result_gpu+i,
-	     s,block_out,block_out,cunvec);        
+	     s,block_in,block_out,cunvec);        
 	  break;
 	case  4:
 	  MAPNAME(reduce_kernel4)<<< dimGrid, dimBlock, smemSize >>>
 	    ((Tcuda*)work1,NULL, (Tcuda*)work2,result_gpu+i,
-	     s,block_out,block_out,cunvec);        
+	     s,block_in,block_out,cunvec);        
 	  break;
 	case  2:	  
 	  MAPNAME(reduce_kernel2)<<< dimGrid, dimBlock, smemSize >>>
 	    ((Tcuda*)work1,NULL, (Tcuda*)work2,result_gpu+i,
-	     s,block_out,block_out,cunvec);        	  
+	     s,block_in,block_out,cunvec);        	  
 	  break;
 	case  1:
 	  MAPNAME(reduce_kernel1)<<< dimGrid, dimBlock, smemSize >>>
 	    ((Tcuda*)work1,NULL, (Tcuda*)work2,result_gpu+i,
-	     s,block_out,block_out,cunvec);        
+	     s,block_in,block_out,cunvec);        
 	  break;
 	default:
 	  assert(0);

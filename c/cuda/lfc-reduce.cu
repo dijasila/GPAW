@@ -1,6 +1,6 @@
 #ifndef REDUCE_LFC
 
-#define REDUCE_LFC_MAX_THREADS  (64)
+#define REDUCE_LFC_MAX_THREADS  (128)
 #define REDUCE_LFC_MAX_THREADS2  (128)
 #define REDUCE_LFC_MAX_BLOCKS   (32)
 #define REDUCE_LFC_MAX_BLOCKS2   (32)
@@ -175,21 +175,21 @@ void Zcuda(lfc_reducemap)(LFCObject *lfc,const Tcuda *a_G,int nG,Tcuda *c_xM,int
     lfc_reduce_buffer_size=nM*REDUCE_LFC_BUFFER_SIZE;
 
   }
-  Tcuda *result_gpu=c_xM;
-  int work_buffer_size=(lfc_reduce_buffer_size/sizeof(Tcuda))/2;
-  Tcuda *work_buffer1=(Tcuda*)lfc_reduce_buffer;
-  Tcuda *work_buffer2=work_buffer1+work_buffer_size;
-
-  
-  //  assert(nvec*sizeof(Tcuda)<=REDUCE_LFC_BUFFER_SIZE-2*REDUCE_LFC_MAX_BLOCKS);
-
-
   lfc_reduceNumBlocksAndThreads(lfc->max_len_A_gm,&blocks, &threads);
-  int mynvec=MAX(MIN((work_buffer_size/nM)/blocks,nvec),1);
 
+  int blo2=(blocks+(REDUCE_LFC_MAX_THREADS2*2-1))/(REDUCE_LFC_MAX_THREADS2*2);
+  int min_wsize=blocks*nM+blo2*nM;
+  int work_buffer_size=(lfc_reduce_buffer_size/sizeof(Tcuda));
+
+  assert(min_wsize<work_buffer_size);
+
+  int mynvec=MAX(MIN(work_buffer_size/min_wsize,nvec),1);
+  
   mynvec=MIN(mynvec,(REDUCE_LFC_MAX_YBLOCKS)/nM);
-  mynvec=MIN(mynvec,LFC_REDUCE_MAX_NVEC);
-  /*int mynvec=1;*/
+
+  Tcuda *work_buffer1=(Tcuda*)lfc_reduce_buffer;
+  Tcuda *work_buffer2=work_buffer1+mynvec*blocks*nM;
+  Tcuda *result_gpu=c_xM;
   
   int smemSize = (threads <= 32) ? 2 * threads * sizeof(Tcuda) : 
     threads * sizeof(Tcuda);
@@ -206,7 +206,6 @@ void Zcuda(lfc_reducemap)(LFCObject *lfc,const Tcuda *a_G,int nG,Tcuda *c_xM,int
     
     innvec=cunvec;
 
-    //printf("i %d blocks %d nW %d threads %d maxA %d nM %d Mcount %d cunvec %d\n",i,blocks,lfc->nW,threads,lfc->max_len_A_gm,nM,lfc->Mcount,cunvec);
     switch (threads) 
       {
 	
@@ -261,8 +260,9 @@ void Zcuda(lfc_reducemap)(LFCObject *lfc,const Tcuda *a_G,int nG,Tcuda *c_xM,int
     while(s > 1)  {
 
       int blocks2,threads2;
+      int block_in=block_out;
       lfc_reduceNumBlocksAndThreads2(s, &blocks2, &threads2);
-      //      printf("i %d s %d nM %d blocks2  %d threads2 %d\n",i,s,nM,blocks2, threads2);
+      block_out=blocks2;
       dim3 dimBlock(threads2, 1, 1);
       dim3 dimGrid(blocks2, cunvec*nM, 1);
       int smemSize = (threads2 <= 32) ? 2 * threads2 * sizeof(Tcuda) : 
@@ -277,62 +277,61 @@ void Zcuda(lfc_reducemap)(LFCObject *lfc,const Tcuda *a_G,int nG,Tcuda *c_xM,int
 	case 512:
 	  Zcuda(reduce_kernel512)<<< dimGrid, dimBlock, smemSize >>>
 	    ((Tcuda*)work1,NULL, (Tcuda*)work2,result_gpu+i*nM,
-	     s,block_out,block_out,cunvec*nM);        
+	     s,block_in,block_out,cunvec*nM);        
 	  break;
 	case 256:
 	  Zcuda(reduce_kernel256)<<< dimGrid, dimBlock, smemSize >>>
 	    ((Tcuda*)work1,NULL, (Tcuda*)work2,result_gpu+i*nM,
-	     s,block_out,block_out,cunvec*nM);        
+	     s,block_in,block_out,cunvec*nM);        
 	  break;
 	case 128:
 	  Zcuda(reduce_kernel128)<<< dimGrid, dimBlock, smemSize >>>
 	    ((Tcuda*)work1,NULL, (Tcuda*)work2,result_gpu+i*nM,
-	     s,block_out,block_out,cunvec*nM);        
+	     s,block_in,block_out,cunvec*nM);        
 	  break;
 	case 64:
 	  Zcuda(reduce_kernel64)<<< dimGrid, dimBlock, smemSize >>>
 	    ((Tcuda*)work1,NULL, (Tcuda*)work2,result_gpu+i*nM,
-	     s,block_out,block_out,cunvec*nM);        
+	     s,block_in,block_out,cunvec*nM);        
 	  break;
 	case 32:
 	  Zcuda(reduce_kernel32)<<< dimGrid, dimBlock, smemSize >>>
 	    ((Tcuda*)work1,NULL, (Tcuda*)work2,result_gpu+i*nM,
-	     s,block_out,block_out,cunvec*nM);        
+	     s,block_in,block_out,cunvec*nM);        
 	  break;
 	case 16:
 	  Zcuda(reduce_kernel16)<<< dimGrid, dimBlock, smemSize >>>
 	    ((Tcuda*)work1,NULL, (Tcuda*)work2,result_gpu+i*nM,
-	     s,block_out,block_out,cunvec*nM);        
+	     s,block_in,block_out,cunvec*nM);        
 	  break;
 	case  8:
 	  Zcuda(reduce_kernel8)<<< dimGrid, dimBlock, smemSize >>>
 	    ((Tcuda*)work1,NULL, (Tcuda*)work2,result_gpu+i*nM,
-	     s,block_out,block_out,cunvec*nM);        
+	     s,block_in,block_out,cunvec*nM);        
 	  break;
 	case  4:
 	  Zcuda(reduce_kernel4)<<< dimGrid, dimBlock, smemSize >>>
 	    ((Tcuda*)work1,NULL, (Tcuda*)work2,result_gpu+i*nM,
-	     s,block_out,block_out,cunvec*nM);        
+	     s,block_in,block_out,cunvec*nM);        
 	  break;
 	case  2:	  
 	  Zcuda(reduce_kernel2)<<< dimGrid, dimBlock, smemSize >>>
 	    ((Tcuda*)work1,NULL, (Tcuda*)work2,result_gpu+i*nM,
-	     s,block_out,block_out,cunvec*nM);        	  
+	     s,block_in,block_out,cunvec*nM);        	  
 	  break;
 	case  1:
 	  Zcuda(reduce_kernel1)<<< dimGrid, dimBlock, smemSize >>>
 	    ((Tcuda*)work1,NULL, (Tcuda*)work2,result_gpu+i*nM,
-	     s,block_out,block_out,cunvec*nM);        
+	     s,block_in,block_out,cunvec*nM);        
 	  break;
 	default:
 	  assert(0);
 	}
       //cudaThreadSynchronize(); 
       assert(!gpaw_cudaSafeCall(cudaGetLastError()));
-    
+
     
       s = (s + (threads2*2-1)) / (threads2*2);
     }
   }
-  
 }
