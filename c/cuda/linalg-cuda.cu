@@ -71,10 +71,11 @@ __global__ void Zcuda(multi_ax2py_kernel)(int n,int nvec,double *a,const Tcuda* 
 {
   int i=blockIdx.x*BLOCK_X+threadIdx.x;
   for (int k=0;k<nvec;k++) {
-    while (i<n){
-      y[i]+=a[k]*(REAL(x[i])*REAL(x[i])+IMAG(x[i])*IMAG(x[i]));
+    int ii=i;
+    while (ii<n){
+      y[ii]+=a[k]*(REAL(x[ii])*REAL(x[ii])+IMAG(x[ii])*IMAG(x[ii]));
+      ii+=gridDim.x*BLOCK_X;
     }
-    i+=gridDim.x*BLOCK_X;
     x+=n;
   }
 }
