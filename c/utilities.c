@@ -57,7 +57,7 @@ PyObject* ibm_mpi_stop(PyObject *self)
 #endif
 
 
-#ifdef GPAW_CRAYPAT
+#ifdef CRAYPAT
 #include <pat_api.h>
 
 PyObject* craypat_region_begin(PyObject *self, PyObject *args)
