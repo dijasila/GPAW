@@ -1993,16 +1993,16 @@ class LrTDDFTindexed:
             for a, P_ni in self.calc.wfs.kpt_u[self.kpt_ind].P_ani.items():
                 Pi_i = P_ni[kss_ip.occ_ind]
                 Pp_i = P_ni[kss_ip.unocc_ind]
-                rnabla_iiv = self.calc.wfs.setups[a].rnabla_iiv
+                rxp_iiv = self.calc.wfs.setups[a].rxp_iiv
                 for c in range(3):
                     for i1, Pi in enumerate(Pi_i):
                         for i2, Pp in enumerate(Pp_i):
-                            magn_a[c] += Pi * Pp * rnabla_iiv[i1, i2, c]
+                            magn_a[c] += Pi * Pp * rxp_iiv[i1, i2, c]
             self.calc.wfs.gd.comm.sum(magn_a) # sum up from different procs
 
             # FIXME: Why we have alpha (fine structure constant?) here=
             ###################### FIXME ######################
-            magn_a *= 0.
+            #magn_a *= 0.
             kss_ip.magn_mom = ase.units.alpha / 2. * (magn_g + magn_a)
 
 
