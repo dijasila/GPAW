@@ -10,14 +10,14 @@ atoms = Atoms(symbols='Na2',
 atoms.center(vacuum=6.0)
 
 # Standard ground state calculation
-calc = GPAW(nbands=2, h=0.5, setups={'Na': '1'})
+calc = GPAW(nbands=2, h=0.4, setups={'Na': '1'})
 atoms.set_calculator(calc)
 energy = atoms.get_potential_energy()
 calc.write('na2_gs.gpw', mode='all')
 
 # Standard time-propagation initialization
-time_step = 20.0
-iterations = 1000
+time_step = 10.0
+iterations = 3000
 kick_strength = [1.0e-3, 0.0, 0.0]
 td_calc = TDDFT('na2_gs.gpw')
 td_calc.absorption_kick(kick_strength=kick_strength)
