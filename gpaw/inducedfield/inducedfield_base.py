@@ -154,21 +154,18 @@ class BaseInducedField(object):
         else:
             self.width = width
         
-    def get_induced_density(self, from_density, gridrefinement, ws):
+    def get_induced_density(self, from_density, gridrefinement):
         raise RuntimeError('Virtual member function called')
 
     def calculate_induced_field(self, from_density='comp',
-                                   gridrefinement=2, ws='all',
+                                   gridrefinement=2,
                                    extend_N_cd=None,
                                    deextend=False,
                                    poisson_nn=3, poisson_relax='J',
                                    gradient_n=3):
-    
-        if ws == 'all':
-            ws = range(self.nw)
 
         Frho_wg, gd = self.get_induced_density(from_density,
-                                               gridrefinement, ws)
+                                               gridrefinement)
         
         # Always extend a bit to get field without jumps
         if extend_N_cd is None:
@@ -179,7 +176,7 @@ class BaseInducedField(object):
         oldgd = gd
         egd, cell_cv, move_c = extend_grid(gd, extend_N_cd)
         Frho_we = egd.zeros((self.nw,), dtype=self.dtype)
-        for w in ws:
+        for w in range(self.nw):
             extend_array(Frho_wg[w], gd, Frho_we[w], egd)
         Frho_wg = Frho_we
         gd = egd
@@ -209,7 +206,7 @@ class BaseInducedField(object):
             Fphi_wo = oldgd.zeros((self.nw,), dtype=self.dtype)
             Fef_wvo = oldgd.zeros((self.nw, self.nv,), dtype=self.dtype)
             Ffe_wo = oldgd.zeros((self.nw,), dtype=float)
-            for w in ws:
+            for w in range(self.nw):
                 deextend_array(Frho_wo[w], oldgd, Frho_wg[w], gd)
                 deextend_array(Fphi_wo[w], oldgd, Fphi_wg[w], gd)
                 deextend_array(Ffe_wo[w], oldgd, Ffe_wg[w], gd)

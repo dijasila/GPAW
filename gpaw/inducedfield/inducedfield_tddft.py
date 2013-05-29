@@ -165,10 +165,7 @@ class TDDFTInducedField(BaseInducedField, Observer):
             self.write(self.restart_file)
             parprint('%s: Wrote restart file' % self.__class__.__name__)
     
-    def interpolate_pseudo_density(self, gridrefinement=2, ws='all'):
-        
-        if ws == 'all':
-            ws = range(self.nw)
+    def interpolate_pseudo_density(self, gridrefinement=2):
         
         gd = self.gd
         Fnt_wsg = self.Fnt_wsG.copy()
@@ -187,7 +184,7 @@ class TDDFTInducedField(BaseInducedField, Observer):
                 interpolator = Transformer(gd, gd2, self.stencil,
                                            dtype=self.dtype)
                 Fnt2_wsg = gd2.empty((self.nw, self.nspins), dtype=self.dtype)
-                for w in ws:
+                for w in range(self.nw):
                     for s in range(self.nspins):
                         interpolator.apply(Fnt_wsg[w][s], Fnt2_wsg[w][s],
                                            np.ones((3, 2), dtype=complex))
@@ -199,20 +196,17 @@ class TDDFTInducedField(BaseInducedField, Observer):
         
         return Fnt_wsg, gd
     
-    def comp_charge_correction(self, gridrefinement=2, ws='all'):
+    def comp_charge_correction(self, gridrefinement=2):
     
         # TODO: implement for gr==1 also
         assert gridrefinement == 2
-    
-        if ws == 'all':
-            ws = range(self.nw)
-    
+        
         # Density
-        Fnt_wsg, gd = self.interpolate_pseudo_density(gridrefinement, ws)
+        Fnt_wsg, gd = self.interpolate_pseudo_density(gridrefinement)
         Frhot_wg = Fnt_wsg.sum(axis=1)
         
         tmp_g = gd.empty(dtype=float)
-        for w in ws:
+        for w in range(self.nw):
             # Determine compensation charge coefficients:
             FQ_aL = {}
             for a, FD_wsp in self.FD_awsp.items():
@@ -240,12 +234,9 @@ class TDDFTInducedField(BaseInducedField, Observer):
         
         return Frhot_wg, gd
     
-    def paw_corrections(self, gridrefinement=2, ws='all'):
+    def paw_corrections(self, gridrefinement=2):
         
-        if ws == 'all':
-            ws = range(self.nw)
-        
-        Fn_wsg, gd = self.interpolate_pseudo_density(gridrefinement, ws)
+        Fn_wsg, gd = self.interpolate_pseudo_density(gridrefinement)
         
         # Splines
         splines = {}
@@ -273,7 +264,7 @@ class TDDFTInducedField(BaseInducedField, Observer):
         tmp_g = gd.empty(dtype=float)
         rho_MM = np.zeros((phi.Mmax, phi.Mmax), dtype=self.dtype)
         rho2_MM = np.zeros_like(rho_MM)
-        for w in ws:
+        for w in range(self.nw):
             for s in range(self.nspins):
                 rho_MM[:] = 0
                 M1 = 0
@@ -338,17 +329,18 @@ class TDDFTInducedField(BaseInducedField, Observer):
         
         return Fn_wsg, gd
         
-    def get_induced_density(self, from_density, gridrefinement, ws='all'):
+    def get_induced_density(self, from_density, gridrefinement):
+        # Return charge density (electrons = negative charge)
         if from_density == 'pseudo':
-            Fn_wsg, gd = self.interpolate_pseudo_density(gridrefinement, ws)
+            Fn_wsg, gd = self.interpolate_pseudo_density(gridrefinement)
             Frho_wg = - Fn_wsg.sum(axis=1)
             return Frho_wg, gd
         elif from_density == 'comp':
-            Frho_wg, gd = self.comp_charge_correction(gridrefinement, ws)
+            Frho_wg, gd = self.comp_charge_correction(gridrefinement)
             Frho_wg = - Frho_wg
             return Frho_wg, gd
         elif from_density == 'ae':
-            Fn_wsg, gd = self.paw_corrections(gridrefinement, ws)
+            Fn_wsg, gd = self.paw_corrections(gridrefinement)
             Frho_wg = - Fn_wsg.sum(axis=1)
             return Frho_wg, gd
         else:
