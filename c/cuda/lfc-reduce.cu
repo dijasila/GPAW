@@ -178,7 +178,7 @@ void Zcuda(lfc_reducemap)(LFCObject *lfc,const Tcuda *a_G,int nG,Tcuda *c_xM,int
   lfc_reduceNumBlocksAndThreads(lfc->max_len_A_gm,&blocks, &threads);
 
   int blo2=(blocks+(REDUCE_LFC_MAX_THREADS2*2-1))/(REDUCE_LFC_MAX_THREADS2*2);
-  int min_wsize=blocks*nM+blo2*nM;
+  int min_wsize=blocks*nM+blo2*nM+1;
   int work_buffer_size=(lfc_reduce_buffer_size/sizeof(Tcuda));
 
   assert(min_wsize<work_buffer_size);
@@ -188,7 +188,7 @@ void Zcuda(lfc_reducemap)(LFCObject *lfc,const Tcuda *a_G,int nG,Tcuda *c_xM,int
   mynvec=MIN(mynvec,(REDUCE_LFC_MAX_YBLOCKS)/nM);
 
   Tcuda *work_buffer1=(Tcuda*)lfc_reduce_buffer;
-  Tcuda *work_buffer2=work_buffer1+mynvec*blocks*nM;
+  Tcuda *work_buffer2=work_buffer1+mynvec*blocks*nM+1;
   Tcuda *result_gpu=c_xM;
   
   int smemSize = (threads <= 32) ? 2 * threads * sizeof(Tcuda) : 

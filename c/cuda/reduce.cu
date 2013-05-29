@@ -168,7 +168,7 @@ MAPNAME(reducemap)(const Tcuda *d_idata1, const Tcuda *d_idata2,
   }
   reduceNumBlocksAndThreads(size,&blocks, &threads);
   int blo2=(blocks+(REDUCE_MAX_THREADS*2-1))/(REDUCE_MAX_THREADS*2);
-  int min_wsize=blocks+blo2;
+  int min_wsize=blocks+blo2+1;
   int work_buffer_size=((REDUCE_BUFFER_SIZE)/sizeof(Tcuda)-nvec);
 
   assert(min_wsize<work_buffer_size);
@@ -177,7 +177,7 @@ MAPNAME(reducemap)(const Tcuda *d_idata1, const Tcuda *d_idata2,
   
   Tcuda *result_gpu=(Tcuda*)reduce_buffer;
   Tcuda *work_buffer1=result_gpu+nvec;
-  Tcuda *work_buffer2=work_buffer1+mynvec*blocks;
+  Tcuda *work_buffer2=work_buffer1+mynvec*blocks+1;
 
   int smemSize = (threads <= 32) ? 2 * threads * sizeof(Tcuda) : 
     threads * sizeof(Tcuda);
