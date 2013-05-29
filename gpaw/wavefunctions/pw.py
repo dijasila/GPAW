@@ -447,6 +447,9 @@ class PWWaveFunctions(FDPWWaveFunctions):
             psit_R = self.pd.ifft(psit_G, kpt.q)
             Htpsit_G += self.pd.fft(psit_R * hamiltonian.vt_sG[kpt.s], kpt.q)
 
+    def add_orbital_density(self, nt_G, kpt, n):
+        axpy(1.0, abs(self.pd.ifft(kpt.psit_nG[n], kpt.q))**2, nt_G)
+
     def add_to_density_from_k_point_with_occupation(self, nt_sR, kpt, f_n):
         nt_R = nt_sR[kpt.s]
         for f, psit_G in zip(f_n, kpt.psit_nG):

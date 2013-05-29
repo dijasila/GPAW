@@ -837,8 +837,9 @@ class LCAOWaveFunctions(WaveFunctions):
     def read_coefficients(self, reader):
         for kpt in self.kpt_u:
             kpt.C_nM = self.bd.empty(self.setups.nao, dtype=self.dtype)
-            for n in self.bd.get_band_indices():
-                kpt.C_nM[n] = reader.get('WaveFunctionCoefficients',
+            for myn, C_M in enumerate(kpt.C_nM):
+                n = self.bd.global_index(myn)
+                C_M[:] = reader.get('WaveFunctionCoefficients',
                                          kpt.s, kpt.k, n)
 
     def estimate_memory(self, mem):
