@@ -100,7 +100,8 @@ Tuesday (May 21)
      <http://www.youtube.com/watch?v=wKJLRBsVt7Q>`__
  * - 14:30
    - Jess Wellendorff
-   - Exchange-correlation functionals with error estimation
+   - `Exchange-correlation functionals with error estimation
+     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/a09.pdf>`__
    - `youtube
      <http://www.youtube.com/watch?v=ckYEzSEmUhw>`__
  * - 15:00
