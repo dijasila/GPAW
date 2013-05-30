@@ -196,7 +196,8 @@ class PAW(PAWTextOutput):
                 self.occupations = None
             elif key in ['h', 'gpts', 'setups', 'spinpol', 'realspace',
                          'parallel', 'communicator', 'dtype', 'mode']:
-                print "removing density"
+                if world.mpi.rank == 0:
+                    print "Removing density"
                 self.density = None
                 self.occupations = None
                 self.hamiltonian = None
