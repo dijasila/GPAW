@@ -19,6 +19,7 @@ from gpaw.utilities.scalapack import pblas_simple_hemm, pblas_simple_gemm, \
 from gpaw.utilities.tools import tri2full 
 
 import sys
+import weakref
 
 def print_matrix(M, file=None, rank=0):
     # XXX Debugging stuff. Remove.
@@ -105,8 +106,8 @@ class LCAOTDDFT(GPAW):
         self.tddft_initialized = False
 
         # XXX Make propagator class
-        plist = {'cn': self.linear_propagator, # Doesn't work with blacs yet
-                 'taylor': self.taylor_propagator} # Not very good, but works with blacs.
+        plist = {'cn': weakref.ref(self.linear_propagator), # Doesn't work with blacs yet
+                'taylor': weakref.ref(self.taylor_propagator)} # Not very good, but works with blacs.
         self.propagator_text = propagator
         self.propagator = plist[self.propagator_text]
 
