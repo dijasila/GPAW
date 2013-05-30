@@ -161,15 +161,15 @@ MAPNAME(reducemap)(const Tcuda *d_idata1, const Tcuda *d_idata2,
 {
 
   
-  int threads;
-  int blocks;
+  int blocks,threads;
+
   if (reduce_buffer==NULL){
     gpaw_cudaSafeCall(cudaMalloc((void**)(&reduce_buffer),REDUCE_BUFFER_SIZE));
   }
   reduceNumBlocksAndThreads(size,&blocks, &threads);
-  int blo2=(blocks+(REDUCE_MAX_THREADS*2-1))/(REDUCE_MAX_THREADS*2);
-  int min_wsize=blocks+blo2+1;
-  int work_buffer_size=((REDUCE_BUFFER_SIZE)/sizeof(Tcuda)-nvec);
+
+  int min_wsize=blocks;
+  int work_buffer_size=((REDUCE_BUFFER_SIZE)/sizeof(Tcuda)-nvec)/2;
 
   assert(min_wsize<work_buffer_size);
 
@@ -177,7 +177,7 @@ MAPNAME(reducemap)(const Tcuda *d_idata1, const Tcuda *d_idata2,
   
   Tcuda *result_gpu=(Tcuda*)reduce_buffer;
   Tcuda *work_buffer1=result_gpu+nvec;
-  Tcuda *work_buffer2=work_buffer1+mynvec*blocks+1;
+  Tcuda *work_buffer2=work_buffer1+work_buffer_size;
 
   int smemSize = (threads <= 32) ? 2 * threads * sizeof(Tcuda) : 
     threads * sizeof(Tcuda);
@@ -251,7 +251,7 @@ MAPNAME(reducemap)(const Tcuda *d_idata1, const Tcuda *d_idata2,
     s=blocks;   
     int count=0;
     while(s > 1)  {
-      int blocks2,threads2;
+      int blocks2,threads2;  
       int block_in=block_out;
       reduceNumBlocksAndThreads(s, &blocks2, &threads2);
       block_out=blocks2;

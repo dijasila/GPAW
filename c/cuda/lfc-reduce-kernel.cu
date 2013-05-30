@@ -37,54 +37,63 @@ __global__ void INNAME(integrate_mul_kernel)(const Tcuda *a_G,int nG,
     
     int len_A_gm=v->len_A_gm;
     Tcuda *out_t=out+v->M*block_out+block*nM*block_out;
-    int cc;
+    int a_ind,ai=0,acum=0;
 
-    if (len_A_gm <= gridSize){
-      if (i_b < len_A_gm)    {	  
-	cc=v->nB*i_b/len_A_gm+1;
-	if (nGBcum[cc]<=i_b) {
-	  while(nGBcum[++cc]<=i_b);
-	  cc--;
+    if (i_b < len_A_gm) {
+      int bi=v->nB,ci;
+      int bcum=nGBcum[bi],ccum;
+      while(bi-ai > 1) {
+	ci=ai+1+(bi-ai-2)*(i_b-acum)/(bcum-acum);
+	ccum=nGBcum[ci];
+	if (ccum <= i_b) {
+	  ai=ci;
+	  acum=ccum;
 	} else {
-	  while(nGBcum[--cc]>i_b);
+	  bi=ci;
+	  bcum=ccum;
 	}
-	cc=v->GB1[cc]+i_b-nGBcum[cc];
       }
+      a_ind=v->GB1[ai]+i_b-acum;
     }
-    for (int m = 0; m < v->nm; m++){  
-      Tcuda A_gmv;
-      const Tcuda *a_G2=a_G;
+    for (int i=0;i<nvec;i++) {
+      Tcuda a_Gv;
+      double *A_gm2=v->A_gm;
       Tcuda *out_t2=out_t;
       if (i_b<len_A_gm){
-#ifdef CUGPAWCOMPLEX
-	A_gmv=MULTD(phase,v->A_gm[i_b+m*len_A_gm]);
-#else
-	A_gmv=v->A_gm[i_b+m*len_A_gm];
-#endif	    
-      }
-      for (int i=0;i<nvec;i++) {
-	Tcuda mySum = MAKED(0);	
-	if (len_A_gm <= gridSize){	
-	  if (i_b<len_A_gm){
-	    mySum=MULTT(a_G2[cc],A_gmv);
-	  }
-	} else {
-	  unsigned int i_bb=i_b;
-	  while (i_bb < len_A_gm)    {	  	 
-	    int c=v->nB*i_bb/len_A_gm+1;
-	    if (nGBcum[c]<=i_bb) {
-	      while(nGBcum[++c]<=i_bb);
-	      c--;
-	    } else {
-	      while(nGBcum[--c]>i_bb);
-	    }
-	    c=v->GB1[c]+i_bb-nGBcum[c];
 #ifdef CUGPAWCOMPLEX	    
-	    IADD(mySum,MULTD(MULTT(a_G2[c],phase),v->A_gm[i_bb+m*len_A_gm]));
+	a_Gv=MULTT(a_G[i*nG+a_ind],phase);
 #else
-	    IADD(mySum,MULTD(a_G2[c],v->A_gm[i_bb+m*len_A_gm]));
+	a_Gv=a_G[i*nG+a_ind];
+#endif
+      }
+      for (int m = 0; m < v->nm; m++){  
+	Tcuda mySum = MAKED(0);	
+	if (i_b<len_A_gm){
+	   mySum=MULTD(a_Gv,A_gm2[i_b]);
+	}
+	if (len_A_gm > gridSize){	
+	  unsigned int i_bb=i_b+gridSize;
+	  int aai=ai,aacum=acum; 	 
+	  while (i_bb < len_A_gm)   {	 	 
+	    int bi=v->nB,ci;
+	    int bcum=nGBcum[bi],ccum;
+	    while(bi-aai > 1) {
+	      ci=aai+1+(bi-aai-2)*(i_bb-aacum)/(bcum-aacum);
+	      ccum=nGBcum[ci];
+	      if (ccum <= i_bb) {
+		aai=ci;
+		aacum=ccum;
+	      } else {
+		bi=ci;
+		bcum=ccum;
+	      }	  
+	    }
+#ifdef CUGPAWCOMPLEX	    
+	    IADD(mySum,MULTD(MULTT(a_G[i*nG+v->GB1[aai]+i_bb-aacum],phase),A_gm2[i_bb]));
+#else
+	    IADD(mySum,MULTD(a_G[i*nG+v->GB1[aai]+i_bb-aacum],A_gm2[i_bb]));
 #endif	    
-	    i_bb += gridDim.x*REDUCE_LFC_THREADS;
+	    i_bb += gridSize;
 	  }
 	}
 	Zcuda(sdata)[tid] = mySum;
@@ -161,12 +170,13 @@ __global__ void INNAME(integrate_mul_kernel)(const Tcuda *a_G,int nG,
 	    out_t2[blockIdx.x] = Zcuda(sdata)[0];
 	  else
 	    IADD(out_t2[blockIdx.x], Zcuda(sdata)[0]);
+
 	}        
-	a_G2+=nG;              
-	out_t2+=nM*block_out;              
+	A_gm2+=len_A_gm;              
+	out_t2+=block_out;
 	__syncthreads();  
       }
-      out_t+=block_out;
+      out_t+=nM*block_out;
     }
   }
   

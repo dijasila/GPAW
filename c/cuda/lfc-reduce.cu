@@ -1,7 +1,7 @@
 #ifndef REDUCE_LFC
 
-#define REDUCE_LFC_MAX_THREADS  (128)
-#define REDUCE_LFC_MAX_THREADS2  (128)
+#define REDUCE_LFC_MAX_THREADS  (64)
+#define REDUCE_LFC_MAX_THREADS2  (64)
 #define REDUCE_LFC_MAX_BLOCKS   (32)
 #define REDUCE_LFC_MAX_BLOCKS2   (32)
 #define REDUCE_LFC_MAX_YBLOCKS   (65535)
@@ -166,8 +166,7 @@ void Zcuda(lfc_reducemap)(LFCObject *lfc,const Tcuda *a_G,int nG,Tcuda *c_xM,int
 {		
   
   
-  int threads;
-  int blocks;
+  int blocks,threads;
 
   if (lfc_reduce_buffer_size<nM*REDUCE_LFC_BUFFER_SIZE){
     lfc_reduce_dealloc_cuda();
@@ -177,9 +176,8 @@ void Zcuda(lfc_reducemap)(LFCObject *lfc,const Tcuda *a_G,int nG,Tcuda *c_xM,int
   }
   lfc_reduceNumBlocksAndThreads(lfc->max_len_A_gm,&blocks, &threads);
 
-  int blo2=(blocks+(REDUCE_LFC_MAX_THREADS2*2-1))/(REDUCE_LFC_MAX_THREADS2*2);
-  int min_wsize=blocks*nM+blo2*nM+1;
-  int work_buffer_size=(lfc_reduce_buffer_size/sizeof(Tcuda));
+  int min_wsize=blocks*nM;
+  int work_buffer_size=(lfc_reduce_buffer_size/sizeof(Tcuda))/2;
 
   assert(min_wsize<work_buffer_size);
 
@@ -188,7 +186,7 @@ void Zcuda(lfc_reducemap)(LFCObject *lfc,const Tcuda *a_G,int nG,Tcuda *c_xM,int
   mynvec=MIN(mynvec,(REDUCE_LFC_MAX_YBLOCKS)/nM);
 
   Tcuda *work_buffer1=(Tcuda*)lfc_reduce_buffer;
-  Tcuda *work_buffer2=work_buffer1+mynvec*blocks*nM+1;
+  Tcuda *work_buffer2=work_buffer1+work_buffer_size;
   Tcuda *result_gpu=c_xM;
   
   int smemSize = (threads <= 32) ? 2 * threads * sizeof(Tcuda) : 
@@ -207,8 +205,7 @@ void Zcuda(lfc_reducemap)(LFCObject *lfc,const Tcuda *a_G,int nG,Tcuda *c_xM,int
     innvec=cunvec;
 
     switch (threads) 
-      {
-	
+      {	
       case 512:
 	Zcuda(integrate_mul_kernel_map512)<<< dimGrid, dimBlock, smemSize >>>
 	  (a_G+i*nG, nG,lfc->volume_W_gpu,lfc->volume_WMi_gpu,lfc->WMi_gpu,lfc->WMimax,q,(Tcuda*)work_buffer1,block_out,result_gpu+i*nM,lfc->Mcount,nM,innvec);
@@ -328,9 +325,7 @@ void Zcuda(lfc_reducemap)(LFCObject *lfc,const Tcuda *a_G,int nG,Tcuda *c_xM,int
 	  assert(0);
 	}
       //cudaThreadSynchronize(); 
-      assert(!gpaw_cudaSafeCall(cudaGetLastError()));
-
-    
+      assert(!gpaw_cudaSafeCall(cudaGetLastError()));    
       s = (s + (threads2*2-1)) / (threads2*2);
     }
   }
