@@ -181,10 +181,7 @@ if debug:
 
     def empty(*args, **kwargs):
         a = oldempty(*args, **kwargs)
-        try:
-            a.fill(np.nan)
-        except:
-            a.fill(-100000000)
+        a.fill(np.nan)
         return a
     np.empty = empty
 
