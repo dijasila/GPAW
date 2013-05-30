@@ -306,6 +306,10 @@ class Attributes:
 
     def __setitem__(self, key, data):
         # Should we delete existing attributes?
+        # Special treatment for possible None data
+        if data is None:
+            data = repr(data)
+
         data = np.asarray(data)
         dataspace = h5s_create(np.asarray(data.shape))
         datatype = h5_type_from_numpy(np.ndarray((1, ), data.dtype))
