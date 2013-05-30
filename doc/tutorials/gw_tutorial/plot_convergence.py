@@ -35,7 +35,7 @@ for k in [3,5,7,9]:
     plt.plot(e, GW_gap, 'o-', label='(%sx%sx%s) k-points' % (k, k, k))
 
 plt.figure(1)
-plt.xlabel('$E_{\text{cut}}$ (eV)')
+plt.xlabel('$E_{\mathrm{cut}}$ (eV)')
 plt.ylabel('Direct band gap (eV)')
 plt.xlim([0., 250.])
 plt.ylim([7.5, 10.])
@@ -44,7 +44,7 @@ plt.legend(loc='upper right')
 plt.savefig('Si_EXX.png')
 
 plt.figure(2)
-plt.xlabel('$E_{\text{cut}}$ (eV)')
+plt.xlabel('$E_{\mathrm{cut}}$ (eV)')
 plt.ylabel('Direct band gap (eV)')
 plt.xlim([0., 250.])
 plt.ylim([1.5, 4.])
