@@ -461,6 +461,11 @@ class LCAOTDDFT(GPAW):
             if steps > max_steps:
                 self.timer.stop('Propagate')
                 break
+
+            # Call registered callback functions
+            self.call_observers(steps)
+
+        self.call_observers(steps, final=True)
         self.dm_file.close()
 
 
