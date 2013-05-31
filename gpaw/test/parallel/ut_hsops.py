@@ -19,8 +19,6 @@ from gpaw.band_descriptor import BandDescriptor
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.kohnsham_layouts import BandLayouts
 from gpaw.hs_operators import MatrixOperator
-from gpaw.parameters import InputParameters
-from gpaw.xc import XC
 from gpaw.setup import SetupData, Setups
 from gpaw.lfc import LFC
 
@@ -38,9 +36,8 @@ if memstats:
 
 # -------------------------------------------------------------------
 
-p = InputParameters(spinpol=False)
-xc = XC(p.xc)
-p.setups = dict([(symbol, SetupData(symbol, xc.name)) for symbol in 'HO'])
+xc = 'LDA'
+setups = dict([(symbol, SetupData(symbol, xc)) for symbol in 'HO'])
 
 class UTBandParallelSetup(TestCase):
     """
@@ -201,8 +198,7 @@ class UTConstantWavefunctionSetup(UTBandParallelSetup):
 
         # Create setups for atoms
         self.Z_a = self.atoms.get_atomic_numbers()
-        self.setups = Setups(self.Z_a, p.setups, p.basis,
-                             p.lmax, xc)
+        self.setups = Setups(self.Z_a, setups, None, 2, xc)
 
         # Create atomic projector overlaps
         spos_ac = self.atoms.get_scaled_positions() % 1.0

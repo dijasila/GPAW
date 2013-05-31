@@ -114,7 +114,7 @@ class PAW(PAWTextOutput):
 
         if par.txt is None:
             if self.label is None:
-                txt = '-'
+                txt = par.txt
             else:
                 txt = self.label + '.txt'
         else:

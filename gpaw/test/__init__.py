@@ -111,7 +111,6 @@ tests = [
     'lcao_restart.py',
     'ase3k.py',
     'parallel/ut_kptops.py',
-    'fileio/idiotproof_setup.py',
     'fileio/hdf5_simple.py',
     'fileio/hdf5_noncontiguous.py',
     'fileio/parallel.py',

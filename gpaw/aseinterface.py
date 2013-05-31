@@ -82,12 +82,18 @@ class GPAW(PAW, Calculator):
                  atoms=None, communicator=None, **kwargs):
         if communicator is None:
             self.world = mpi.world
-        elif isinstance(communicator, (list, np.adarray)):
+        elif isinstance(communicator, (list, np.ndarray)):
             self.world = mpi.world.new_communicator(np.asarray(communicator))
         else:
             self.world = communicator
 
         PAW.__init__(self)
+
+        if label is not None and not label.endswith('.gpw'):
+            label += '.gpw'
+        if restart is not None and not restart.endswith('.gpw'):
+            restart += '.gpw'
+
         Calculator.__init__(self, restart, ignore_bad_restart_file, label,
                             atoms, **kwargs)
 

@@ -5,12 +5,10 @@ atoms = Atoms('H2', [(0.0, 0.0, 0.0),
                      (0.0, 0.0, 3.7)], 
               cell=(4, 4, 4), pbc=True)
 
-calc = GPAW(txt=None)
-atoms.set_calculator(calc)
-calc.initialize(atoms)
+calc = GPAW(txt=None, atoms=atoms)
 
 try:
-    calc.set_positions(atoms)
+    atoms.get_potential_energy()
 except RuntimeError:
     pass
 else:
