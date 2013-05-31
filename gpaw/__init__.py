@@ -181,7 +181,10 @@ if debug:
 
     def empty(*args, **kwargs):
         a = oldempty(*args, **kwargs)
-        a.fill(np.nan)
+        try:
+            a.fill(np.nan)
+        except ValueError:
+            a.fill(-1000000)
         return a
     np.empty = empty
 
