@@ -286,7 +286,7 @@ class LCAOWaveFunctions(WaveFunctions):
             def _slices(indices):
                 for a in indices:
                     M1 = bfs.M_a[a] - Mstart
-                    M2 = M1 + self.setups[a].niAO
+                    M2 = M1 + self.setups[a].nao
                     if M2 > 0:
                         yield a, max(0, M1), M2
 

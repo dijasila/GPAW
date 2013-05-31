@@ -44,8 +44,8 @@ class HGHSetup(BaseSetup):
         self.pt_j = data.get_projectors()
         self.phit_j = basis.tosplines()
         self.basis = basis
-        self.niAO = sum([2 * phit.get_angular_momentum_number() + 1
-                         for phit in self.phit_j])
+        self.nao = sum([2 * phit.get_angular_momentum_number() + 1
+                        for phit in self.phit_j])
 
         self.Nct = 0.0
         self.nct = Spline(0, 1.0, [0., 0., 0.])

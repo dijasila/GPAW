@@ -14,7 +14,7 @@ for name in ['LDA', 'PBE']:
     xc = XC(name)
     s = create_setup('N', xc)
     ni = s.ni
-    niAO = s.niAO
+    nao = s.nao
     wt0_j = s.phit_j
 
     rcut = s.xc_correction.rgd.r_g[-1]
@@ -33,8 +33,8 @@ for name in ['LDA', 'PBE']:
     gd = GridDescriptor((n, n, n), (a, a, a), comm=serial_comm)
     pr = create_localized_functions(wt_j, gd, (0.5, 0.5, 0.5))
 
-    coefs = np.identity(niAO, float)
-    psit_ig = np.zeros((niAO, n, n, n))
+    coefs = np.identity(nao, float)
+    psit_ig = np.zeros((nao, n, n, n))
     pr.add(psit_ig, coefs)
 
     nii = ni * (ni + 1) // 2
@@ -47,15 +47,15 @@ for name in ['LDA', 'PBE']:
     v_g = np.zeros((1, n, n, n))
 
     P_ni = 0.2 * ra.random((20, ni))
-    P_ni[:, niAO:] = 0.0
+    P_ni[:, nao:] = 0.0
     D_ii = np.dot(np.transpose(P_ni), P_ni)
     D_p = pack(D_ii)
     p = 0
-    for i1 in range(niAO):
-        for i2 in range(i1, niAO):
+    for i1 in range(nao):
+        for i2 in range(i1, nao):
             n_g += D_p[p] * psit_ig[i1] * psit_ig[i2]
             p += 1
-        p += ni - niAO
+        p += ni - nao
 
     p = create_localized_functions([s.nct], gd, (0.5, 0.5, 0.5))
     p.add(n_g[0], np.ones(1))
