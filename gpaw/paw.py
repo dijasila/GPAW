@@ -84,6 +84,7 @@ class PAW(PAWTextOutput):
         self.atoms = None
 
         self.initialized = False
+        self.nbands_parallelization_adjustment = None # Somehow avoid this?
 
         # Possibly read GPAW keyword arguments from file:
         if filename is not None and filename.endswith('.gkw'):
@@ -434,9 +435,12 @@ class PAW(PAWTextOutput):
         
         nbands = par.nbands
         if nbands is None:
-            nbands = nao
+            nbands = 0
+            for setup in setups:
+                nbands += sum([2 + l + 1 for l in setup.l_j])
+            nbands = min(nao, nbands)
         elif nbands > nao and mode == 'lcao':
-            raise ValueError('Too many bands for LCAO calculation: ' +
+            raise ValueError('Too many bands for LCAO calculation: '
                              '%d bands and only %d atomic orbitals!' %
                              (nbands, nao))
 
@@ -502,6 +506,14 @@ class PAW(PAWTextOutput):
             kd.set_communicator(kpt_comm)
 
             parstride_bands = par.parallel['stridebands']
+
+            # Unfortunately we need to remember that we adjusted the
+            # number of bands so we can print a warning if it differs
+            # from the number specified by the user.  (The number can
+            # be inferred from the input parameters, but it's tricky
+            # because we allow negative numbers)
+            self.nbands_parallelization_adjustment = -nbands % band_comm.size
+            nbands += self.nbands_parallelization_adjustment
             bd = BandDescriptor(nbands, band_comm, parstride_bands)
 
             if (self.density is not None and

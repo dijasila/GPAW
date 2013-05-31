@@ -247,6 +247,9 @@ class PAWTextOutput:
           cc['eigenstates'])
         t('Number of Atoms: %d' % len(self.wfs.setups))
         t('Number of Atomic Orbitals: %d' % self.wfs.setups.nao)
+        if self.nbands_parallelization_adjustment != 0:
+            t('Adjusting Number of Bands by %+d to Match Parallelization'
+              % self.nbands_parallelization_adjustment)
         t('Number of Bands in Calculation:         %i' % self.wfs.bd.nbands)
         t('Bands to Converge:                      ', end='')
         if cc['bands'] == 'occupied':
