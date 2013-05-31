@@ -46,52 +46,85 @@ class DF(CHI):
         self.df3_w = None  # NLF ALDA
         self.df4_w = None  # LF ALDA
 
-    def get_dielectric_matrix(self, xc='RPA', overwritechi0=False, nonsymmetric=False):
-        
-	if self.chi0_wGG is None:
+    def get_dielectric_matrix(self,
+                              xc='RPA',
+                              overwritechi0=False,
+                              symmetric=True,
+                              chi0_wGG=None,
+                              calc=None,
+                              vcut=None):
+	if self.chi0_wGG is None and chi0_wGG is None:
             self.initialize()
             self.calculate()
-        else:
-            pass  # read from file and re-initializing .... need to be implemented
+        elif self.chi0_wGG is None and chi0_wGG is not None:
+            #Read from file and reinitialize 
+            self.xc = xc
+
+            from gpaw.response.parallel import par_read 
+            self.chi0_wGG = par_read(chi0_wGG, 'chi0_wGG')
+            self.nvalbands = self.nbands
+            #self.parallel_init() # parallelization not yet implemented
+            self.Nw_local = self.Nw  # parallelization not yet implemented
+            if self.calc is None:
+                from gpaw import GPAW
+                self.calc = GPAW(calc,txt=None)
+            if self.xc == 'ALDA' or self.xc == 'ALDA_X':
+                from gpaw.response.kernel import calculate_Kxc
+                from gpaw.grid_descriptor import GridDescriptor
+                from gpaw.mpi import world, rank, size, serial_comm
+                    
+                self.pbc = self.calc.atoms.pbc
+                self.gd = GridDescriptor(self.calc.wfs.gd.N_c*self.rpad, self.acell_cv,
+                                         pbc_c=True, comm=serial_comm)
+
+                self.h_cv = self.gd.h_cv
+                self.nG = self.gd.N_c
+                R_av = self.calc.atoms.positions / Bohr
+                nt_sg = self.calc.density.nt_sG
+                    
+                if (self.rpad > 1).any() or (self.pbc - True).any():
+                    nt_sG = np.zeros([self.nspins, self.nG[0], self.nG[1], self.nG[2]])
+                    for s in range(self.nspins):
+                        nt_G = self.pad(nt_sg[s])
+                        nt_sG[s] = nt_G
+                else:
+                    nt_sG = nt_sg
+                        
+                self.Kxc_sGG = calculate_Kxc(self.gd, 
+                                             nt_sG,
+                                             self.npw, self.Gvec_Gc,
+                                             self.nG, self.vol,
+                                             self.bcell_cv, R_av,
+                                             self.calc.wfs.setups,
+                                             self.calc.density.D_asp,
+                                             functional=self.xc,
+                                             density_cut=self.density_cut)
 
         if overwritechi0:
             dm_wGG = self.chi0_wGG
         else:
             dm_wGG = np.zeros_like(self.chi0_wGG)
-
+        
         from gpaw.response.kernel import calculate_Kc
-        if nonsymmetric:
-            self.Kc_GG = calculate_Kc(self.q_c, self.Gvec_Gc,
-                                          self.acell_cv, self.bcell_cv,
-                                          self.calc.atoms.pbc, self.optical_limit,
-                                          self.vcut, nonsymmetric = True)
-        else:
-            Kc_G = calculate_Kc(self.q_c, self.Gvec_Gc,
-                                          self.acell_cv, self.bcell_cv,
-                                          self.calc.atoms.pbc, self.optical_limit,
-                                          self.vcut, nonsymmetric = False)
+        self.Kc_GG = calculate_Kc(self.q_c,
+                                  self.Gvec_Gc,
+                                  self.acell_cv,
+                                  self.bcell_cv,
+                                  self.pbc,
+                                  self.vcut,
+                                  symmetric=symmetric)
+
+        tmp_GG = np.eye(self.npw, self.npw)
 
         if xc == 'RPA':
-            if nonsymmetric:
-                tmp_GG = np.eye(self.npw, self.npw)
-                self.printtxt('Use RPA.')
-                for iw in range(self.Nw_local):
-                    dm_wGG[iw] = tmp_GG - self.Kc_GG * self.chi0_wGG[iw]
+            self.printtxt('Use RPA.')
+            for iw in range(self.Nw_local):
+                dm_wGG[iw] = tmp_GG - self.Kc_GG * self.chi0_wGG[iw]
                 
-            else:
-                self.printtxt('Use RPA.')
-                for iw in range(self.Nw_local):
-                    for iG in range(self.npw):
-                        dmtmp_G = - Kc_G[iG] * Kc_G[:] * self.chi0_wGG[iw,iG,:]
-                        dmtmp_G[iG] += 1
-                        dm_wGG[iw,iG,:] = dmtmp_G[:]
-                
-
         elif xc == 'ALDA':
             self.printtxt('Use ALDA kernel.')
             # E_LDA = 1 - v_c chi0 (1-fxc chi0)^-1
             # http://prb.aps.org/pdf/PRB/v33/i10/p7017_1 eq. 4
-            tmp_GG = np.eye(self.npw, self.npw)
             A_wGG = self.chi0_wGG.copy()
             for iw in range(self.Nw_local):
                 A_wGG[iw] = np.dot(self.chi0_wGG[iw], np.linalg.inv(tmp_GG - np.dot(self.Kxc_sGG[0], self.chi0_wGG[iw])))
@@ -102,7 +135,7 @@ class DF(CHI):
         return dm_wGG
 
 
-    def get_inverse_dielectric_matrix(self,xc='RPA'):
+    def get_inverse_dielectric_matrix(self, xc='RPA'):
 
         dm_wGG = self.get_dielectric_matrix(xc=xc)
         dminv_wGG = np.zeros_like(dm_wGG)
@@ -281,7 +314,7 @@ class DF(CHI):
         self.printtxt('Include local field: N2 = %f, %f  %% error' %(N2, (N2 - nv) / nv * 100) )
 
 
-    def get_macroscopic_dielectric_constant(self):
+    def get_macroscopic_dielectric_constant(self, xc='RPA'):
         """Calculate macroscopic dielectric constant. Returns eM1 and eM2
 
         Macroscopic dielectric constant is defined as the real part of dielectric function at w=0.
@@ -295,17 +328,16 @@ class DF(CHI):
 
         """
 
-        eM1 = np.zeros(2)
-        eM2 = np.zeros(2)
-        for id, xc in enumerate(['RPA', 'ALDA']):
-            df1, df2 = self.get_dielectric_function(xc=xc)
-            eM1[id], eM2[id] = np.real(df1[0]), np.real(df2[0])
+        eM = np.zeros(2)
+        df1, df2 = self.get_dielectric_function(xc=xc)
+        eps0 = np.real(df1[0])
+        eps = np.real(df2[0])
         self.printtxt('')
-        self.printtxt('Macroscopic dielectric constant:')
-        self.printtxt('    Without local field (RPA, ALDA): %f, %f' %(eM1[0], eM1[1]) )
-        self.printtxt('    Include local field (RPA, ALDA): %f, %f' %(eM2[0], eM2[1]) )        
+        self.printtxt('%s Macroscopic Dielectric Constant:' % xc)
+        self.printtxt('    Without local field: %f' % eps0 )
+        self.printtxt('    Include local field: %f' % eps )        
             
-        return eM1, eM2
+        return eps0, eps
 
 
     def get_absorption_spectrum(self, filename='Absorption.dat'):
@@ -517,67 +549,38 @@ class DF(CHI):
                       returned. 
            
         """
-        from gpaw import GPAW
-        self.read(filename)      
-        self.calc = GPAW(calc,txt=None)
-        calc = self.calc
+        self.read(filename)
+        self.pbc = [1,1,1]
+        #self.calc.atoms.pbc = [1,1,1]
+        npw = self.npw
         self.w_w = np.linspace(0, self.dw * (self.Nw - 1)*Hartree, self.Nw)
         self.vcut = vcut
-        self.xc = xc
-        print self.nG
-        
-        if chi0 is None and dm is None: # calculate chi0 from scratch            
-            self.initialize()
-            self.calculate()    
-            self.w_w = self.w_w * Hartree
-            self.dm_wGG = self.get_dielectric_matrix(xc= xc, nonsymmetric = True)        
-        else: # read from file and reinitialize
-            from gpaw.response.parallel import par_read 
-            if dm is not None:
-                self.dm_wGG = par_read(dm, 'dm')
-            else:
-                self.chi0_wGG = par_read(chi0, 'chi0_wGG')
-                #self.parallel_init()
-                self.Nw_local = self.Nw # parallelization not implemented
-                if self.xc == 'ALDA' or self.xc == 'ALDA_X':
-                    from gpaw.response.kernel import calculate_Kxc
-                    from gpaw.grid_descriptor import GridDescriptor
-                    from gpaw.mpi import world, rank, size, serial_comm
-                    
-                    self.pbc = calc.atoms.get_pbc()
-                    self.gd = GridDescriptor(calc.wfs.gd.N_c*self.rpad, self.acell_cv,
-                                        pbc_c=True, comm=serial_comm)
-
-                    self.h_cv = self.gd.h_cv
-                    self.nG = self.gd.N_c
-                    R_av = calc.atoms.positions / Bohr
-                    nt_sg = calc.density.nt_sG
-                    
-                    if (self.rpad > 1).any() or (self.pbc - True).any():
-                        nt_sG = np.zeros([self.nspins, self.nG[0], self.nG[1], self.nG[2]])
-                        for s in range(self.nspins):
-                            nt_G = self.pad(nt_sg[s])
-                            nt_sG[s] = nt_G
-                    else:
-                        nt_sG = nt_sg
-                        
-                    self.Kxc_sGG = calculate_Kxc(self.gd, # global grid
-                                         nt_sG,
-                                         self.npw, self.Gvec_Gc,
-                                         self.nG, self.vol,
-                                         self.bcell_cv, R_av,
-                                         calc.wfs.setups,
-                                         calc.density.D_asp,
-                                         functional=self.xc,
-                                         density_cut=self.density_cut)
-                    
-                self.dm_wGG = self.get_dielectric_matrix(xc= xc, nonsymmetric = True)
-
-  
+        dm_wGG = self.get_dielectric_matrix(xc=xc,
+                                            symmetric=False,
+                                            chi0_wGG=chi0,
+                                            calc=calc,
+                                            vcut=vcut)
+    
         q = self.q_c
-        gd = self.calc.wfs.gd
+        
+
+        # get grid on which the eigenmodes are calculated
+        #gd = self.calc.wfs.gd
+        #r = gd.get_grid_point_coordinates()
+        #rrr = r*Bohr 
+        from gpaw.utilities.gpts import get_number_of_grid_points
+        from gpaw.grid_descriptor import GridDescriptor
+        grid_size = [1,1,1]
+        h=0.2
+        cell_cv = self.acell_cv*np.diag(grid_size)
+        mode = 'fd'
+        realspace = True
+        h /= Bohr
+        N_c = get_number_of_grid_points(cell_cv, h, mode, realspace)
+        gd = GridDescriptor(N_c, cell_cv, self.pbc) 
+        #gd = self.calc.wfs.gd
         r = gd.get_grid_point_coordinates()
-        rrr = r*Bohr 
+        rrr = r*Bohr
         
         eig_0 = np.array([], dtype = complex)
         eig_left = np.array([], dtype = complex)
@@ -605,7 +608,6 @@ class DF(CHI):
             v_ind = np.zeros([1, r.shape[1], r.shape[2], r.shape[3]], dtype = complex)
             n_ind = np.zeros([1, r.shape[1], r.shape[2], r.shape[3]], dtype = complex)
 
-        dm_wGG = self.dm_wGG
         eps_GG_plus = dm_wGG[0]
         eig_plus, vec_plus = np.linalg.eig(eps_GG_plus)  # find eigenvalues and eigenvectors
         vec_plus_dual = np.linalg.inv(vec_plus)
@@ -763,6 +765,7 @@ class DF(CHI):
                 'q_car': self.qq_v,    # / Bohr,
                 'qmod' : np.dot(self.qq_v, self.qq_v), # / Bohr
                 'vcut' : self.vcut,
+                'pbc'  : self.pbc,
                 'nvalence'     : self.nvalence,                
                 'hilbert_trans' : self.hilbert_trans,
                 'optical_limit' : self.optical_limit,
@@ -813,6 +816,7 @@ class DF(CHI):
         self.qq_v  = data['q_car']
         self.qmod  = data['qmod']
         #self.vcut  = data['vcut']
+        #self.pbc = data['pbc']
         
         self.hilbert_trans = data['hilbert_trans']
         self.optical_limit = data['optical_limit']

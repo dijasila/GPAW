@@ -55,6 +55,7 @@ calc = GPAW(
     h=0.25,
     occupations=FermiDirac(width=0.05),
     poissonsolver=PoissonSolver(nn='M', relax='J'),
+    setups={'Ni': '10'},
     convergence={'eigenstates':8e-4,'density': 1.0e-2,'energy': 0.1},
     #txt=name+'.txt',
     kpts=(k, k, k),
@@ -98,7 +99,7 @@ assert( Eg_Hub- Eg_non_Hub>1.9)
 
 energy_tolerance = 0.0004
 niter_tolerance = 0
-equal(e1, -28.43826, energy_tolerance) # svnversion 5252
+equal(e1, -29.35604, energy_tolerance) # version 0.9.1
 equal(niter1, 13, niter_tolerance) # svnversion 5252
-equal(e2, -27.70915, energy_tolerance) # svnversion 5252
-equal(niter2, 9, niter_tolerance) # svnversion 7411
+equal(e2, -28.63015, energy_tolerance) # version 0.9.1
+equal(niter2, 10, niter_tolerance) # version 0.9.1

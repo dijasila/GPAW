@@ -11,6 +11,7 @@ from gpaw.utilities import unpack
 from gpaw.eigensolvers.eigensolver import Eigensolver
 from gpaw.hs_operators import reshape
 
+from gpaw import extra_parameters
 
 class CG(Eigensolver):
     """Conjugate gardient eigensolver
@@ -41,6 +42,10 @@ class CG(Eigensolver):
         Eigensolver.__init__(self)
         self.niter = niter
         self.rtol = rtol
+        if extra_parameters.get('PK', False):
+            self.orthonormalization_required = True
+        else:
+            self.orthonormalization_required = False
 
     def initialize(self, wfs):
         Eigensolver.initialize(self, wfs)
@@ -73,6 +78,10 @@ class CG(Eigensolver):
 
         total_error = 0.0
         for n in range(self.nbands):
+            if extra_parameters.get('PK', False):
+               N = n+1
+            else:
+               N = psit_nG.shape[0]+1
             R_G = R_nG[n]
             Htpsit_G = Htpsit_nG[n]
             gamma_old = 1.0
@@ -100,23 +109,24 @@ class CG(Eigensolver):
                 # Orthonormalize phi_G to all bands
                 self.timer.start('CG: orthonormalize')
                 self.timer.start('CG: overlap')
-                overlap_n = wfs.integrate(psit_nG, phi_G,
+                overlap_n = wfs.integrate(psit_nG[:N], phi_G,
                                         global_integral=False)
                 self.timer.stop('CG: overlap')
                 self.timer.start('CG: overlap2')
                 for a, P2_i in P2_ai.items():
                     P_ni = kpt.P_ani[a]
                     dO_ii = wfs.setups[a].dO_ii
-                    gemv(1.0, P_ni.conjugate(), np.inner(dO_ii, P2_i), 
+                    gemv(1.0, P_ni[:N].conjugate(), np.inner(dO_ii, P2_i), 
                          1.0, overlap_n)
                 self.timer.stop('CG: overlap2')
                 comm.sum(overlap_n)
 
                 # phi_G -= overlap_n * kpt.psit_nG
-                gemv(-1.0, psit_nG, overlap_n, 1.0, phi_G, 'n')
+                wfs.matrixoperator.gd.gemv(-1.0, psit_nG[:N], overlap_n, 
+                                           1.0, phi_G, 'n')
                 for a, P2_i in P2_ai.items():
                     P_ni = kpt.P_ani[a]
-                    gemv(-1.0, P_ni, overlap_n, 1.0, P2_i, 'n')
+                    gemv(-1.0, P_ni[:N], overlap_n, 1.0, P2_i, 'n')
 
                 norm = wfs.integrate(phi_G, phi_G, global_integral=False)
                 for a, P2_i in P2_ai.items():

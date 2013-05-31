@@ -22,17 +22,18 @@ class Factory(GPAWFactory):
         calculator = GPAWFactory.__call__(self, name, atoms)
         calculator.set(nbands=-2)
         if name.split('-')[0] in ['Ne', 'Ar', 'Kr', 'Xe', 'Rn',
-                                  'K', 'Ca', 'Cs', 'Ba', 'Sr']:
+                                  'K', 'Ca', 'Cs', 'Ba', 'Sr', 'Rb']:
             # MDTMP: not enough orbitals - use dzp!
             calculator.set(nbands=-1)
             calculator.set(basis='dzp')
         if name.split('-')[0] in ['Rb']:
             calculator.set(nbands=-1)
         if name.split('-')[0] in ['In', 'Cs', 'Sb', 'Ni', 'Ta', 'As',
-                                  'V', 'Ni']:
+                                  'V', 'Ni', 'Li', 'Rb', 'Tl']:
             calculator.set(nbands=-3)
         if name.split('-')[0] in ['Ca', 'Zn', 'Zr', 'Pb', 'Sr',
-                                  'Xe', 'Rn', 'Ru', 'N', 'Os']:
+                                  'Xe', 'Rn', 'Ru', 'N', 'Os',
+                                  'Cl', 'Cd']:
             calculator.set(nbands=-4)
         if name.split('-')[0] in ['Sc']:
             calculator.set(nbands=-5)
@@ -42,6 +43,8 @@ class Factory(GPAWFactory):
             calculator.set(nbands=-7)
         if name.split('-')[0] in ['Ne', 'Ar', 'Kr']:
             calculator.set(nbands=-8)
+        if name.split('-')[0] in ['Cr']:
+            calculator.set(nbands=-10)
         if name.split('-')[0] in ['Ti', 'Cr', 'Fe', 'Y', 'Nb', 'Mo',
                                   'Te', 'Hf', 'Re', 'Hg', 'Sb', 'Ca',
                                   'Pd', 'Ni', 'Ta',
@@ -59,9 +62,12 @@ class Factory(GPAWFactory):
             calculator.set(usesymm=False)
             calculator.set(eigensolver='cg')
             calculator.set(parallel={'band': 1})
-        if name.split('-')[0] in ['Cr', 'Mn']:
+        if name.split('-')[0] in ['Mn']:
             calculator.set(mixer=MixerDif())
-            calculator.set(maxiter=350)
+            calculator.set(maxiter=450)
+        if name.split('-')[0] in ['Cr']:
+            calculator.set(mixer=MixerDif())
+            calculator.set(maxiter=650)
         return calculator
 
 if len(sys.argv) == 1:

@@ -22,6 +22,7 @@ from gpaw.utilities import packed_index
 from gpaw.utilities.lapack import diagonalize
 from gpaw.xc import XC
 from gpaw.xc.hybridk import HybridXC
+from gpaw.utilities.timing import Timer, nulltimer
 from gpaw.lrtddft.spectrum import spectrum
 
 __all__ = ['LrTDDFT', 'photoabsorption_spectrum', 'spectrum']
@@ -71,6 +72,24 @@ class LrTDDFT(ExcitationList):
                  eh_comm=None # parallelization over eh-pairs
                  ):
 
+        parameters = {
+            'nspins' : None,
+            'eps' : 0.001,
+            'istart' : 0,
+            'jend' : None,
+            'energy_range' : None,
+            'xc' : 'GS',
+            'derivative_level' : 1,
+            'numscale' : 0.00001,
+            'txt' : None,
+            'filename' : None,
+            'finegrid' : 2,
+            'force_ApmB' : False, # for tests
+            'eh_comm' : None # parallelization over eh-pairs
+            }
+
+        self.timer = Timer()
+
         self.nspins = None
         self.istart = None
         self.jend = None
@@ -115,6 +134,10 @@ class LrTDDFT(ExcitationList):
             self.update(calculator, nspins, eps, 
                         istart, jend, energy_range,
                         xc, derivative_level, numscale)
+
+    def set_calculator(self, calculator):
+        self.calculator = calculator
+        self.force_ApmB = parameters['force_ApmB']
 
     def analyse(self, what=None, out=None, min=0.1):
         """Print info about the transitions.
@@ -200,16 +223,23 @@ class LrTDDFT(ExcitationList):
         self.name = name
 
     def diagonalize(self, istart=None, jend=None, energy_range=None):
+        self.timer.start('diagonalize')
+        self.timer.start('omega')
         self.Om.diagonalize(istart, jend, energy_range)
+        self.timer.stop('omega')
         
         # remove old stuff
+        self.timer.start('clean')
         while len(self): self.pop()
+        self.timer.stop('clean')
 
         print >> self.txt, 'LrTDDFT digonalized:'
+        self.timer.start('build')
         for j in range(len(self.Om.kss)):
-            self.append(LrTDDFTExcitation(self.Om,j))
+            self.append(LrTDDFTExcitation(self.Om, j))
             print >> self.txt, ' ', str(self[-1])
-            
+        self.timer.stop('build')
+        self.timer.stop('diagonalize')
 
     def get_Om(self):
         return self.Om
@@ -401,27 +431,22 @@ class LrTDDFTExcitation(Excitation):
                 self.energy = sqrt(ev)
             self.f = Om.eigenvectors[i]
             self.kss = Om.kss
-            self.me = 0.
-            self.mur = 0.
-            self.muv = 0.
-            self.magn = 0.
-            for f, k in zip(self.f, self.kss):
-                self.me += f * k.me
-                if self.energy > 0:
-                    erat = np.sqrt(k.energy / self.energy)
-                    wght = np.sqrt(k.fij) * f
-                    self.mur += k.mur * erat * wght
-                    if k.muv is not None:
-                        self.muv += k.muv * erat * wght
-                    else:
-                        self.muv = None
-                    if k.magn is not None:
-                        self.magn += k.magn / erat * wght
-                    else:
-                        self.magn = None
-                else:
-                    # instability
-                    self.mur = self.muv = self.magn = None
+
+            self.kss.set_arrays()
+            self.me = np.dot(self.f, self.kss.me)
+            erat_k = np.sqrt(self.kss.energies / self.energy)
+            wght_k = np.sqrt(self.kss.fij) * self.f
+            ew_k = erat_k * wght_k
+            self.mur = np.dot(ew_k, self.kss.mur)
+            if self.kss.muv is not None:
+                self.muv = np.dot(ew_k, self.kss.muv)
+            else:
+                self.muv = None
+            if self.kss.magn is not None:
+                self.magn = np.dot(1. / ew_k, self.kss.magn)
+            else:
+                self.magn = None
+
             return
 
         # define from energy and matrix element

@@ -581,6 +581,7 @@ class OmegaMatrix:
             for ij in range(nij):
                 for kq in range(nij):
                     evec[ij,kq] = self.full[map[ij],map[kq]]
+        assert(len(evec) > 0)
 
         self.eigenvectors = evec        
         self.eigenvalues = np.zeros((len(kss)))

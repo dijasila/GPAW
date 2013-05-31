@@ -37,7 +37,7 @@ class PoissonSolver:
             self.relax_method = 2
         else:
             raise NotImplementedError('Relaxation method %s' % relax)
-
+        
         self.description = None
 
     def get_stencil(self):
@@ -192,7 +192,7 @@ class PoissonSolver:
             return niter
         else:
             # System is charged with mixed boundaryconditions
-            msg = 'Charged systems with mixed periodic/zero'
+            msg = 'Charged systems with mixed periodic/zero' 
             msg += ' boundary conditions'
             raise NotImplementedError(msg)
 

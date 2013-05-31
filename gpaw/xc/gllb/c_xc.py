@@ -43,7 +43,7 @@ class C_XC(Contribution):
         vb_g += self.weight * self.vt_sg[1]
         e_g += (self.weight * self.e_g).ravel()
 
-    def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a):
+    def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a, addcoredensity=True):
         # Get the XC-correction instance
         c = setup.xc_correction
 
@@ -52,9 +52,11 @@ class C_XC(Contribution):
         dEdD_p = H_sp[0][:]
         D_Lq = dot3(c.B_pqL.T, D_p)
         n_Lg = np.dot(D_Lq, c.n_qg)
-        n_Lg[0] += c.nc_g * sqrt(4 * pi)
+        if addcoredensity:
+            n_Lg[0] += c.nc_g * sqrt(4 * pi)
         nt_Lg = np.dot(D_Lq, c.nt_qg)
-        nt_Lg[0] += c.nct_g * sqrt(4 * pi)
+        if addcoredensity:
+            nt_Lg[0] += c.nct_g * sqrt(4 * pi)
         dndr_Lg = np.zeros((c.Lmax, c.ng))
         dntdr_Lg = np.zeros((c.Lmax, c.ng))
         for L in range(c.Lmax):

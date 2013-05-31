@@ -16,7 +16,9 @@ short_names = {
     'AM05':    'GGA_X_AM05+GGA_C_AM05',
     'TPSS':    'MGGA_X_TPSS+MGGA_C_TPSS',
     'M06L':    'MGGA_X_M06L+MGGA_C_M06L',
-    'revTPSS': 'MGGA_X_REVTPSS+MGGA_C_REVTPSS'}
+    'revTPSS': 'MGGA_X_REVTPSS+MGGA_C_REVTPSS',
+    'oTPSS':   'MGGA_X_OTPSS+MGGA_C_OTPSS',
+    'mBEEFv5': 'MGGA_X_MBEEF+GGA_C_PBE_SOL'}
 
 
 class LibXC(XCKernel):

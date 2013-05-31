@@ -176,6 +176,9 @@ class LCAOWaveFunctions(WaveFunctions):
         if density.nt_sG is None:
             if self.kpt_u[0].f_n is None or self.kpt_u[0].C_nM is None:
                 density.initialize_from_atomic_densities(self.basis_functions)
+                # Initialize GLLB-potential from basis function orbitals
+                if hamiltonian.xc.type == 'GLLB':
+                    hamiltonian.xc.initialize_from_atomic_orbitals(self.basis_functions)
             else:
                 # We have the info we need for a density matrix, so initialize
                 # from that instead of from scratch.  This will be the case

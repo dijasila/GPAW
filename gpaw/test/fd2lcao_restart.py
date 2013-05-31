@@ -19,6 +19,7 @@ if not os.path.isfile('Na4_fd.gpw'):
 
     calc = GPAW(nbands=-3,
                 h=0.3,
+                setups={'Na': '1'},
                 xc='PBE',
                 occupations=FermiDirac(width=0.1),
                 kpts=(3, 1, 1),

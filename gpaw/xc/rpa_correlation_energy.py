@@ -284,7 +284,7 @@ class RPACorrelation:
             print >> self.txt, 'q = [%1.6f %1.6f %1.6f] -' \
                   % (q[0],q[1],q[2]), '%s planewaves' % npw
 
-        e_wGG = df.get_dielectric_matrix(xc='RPA',overwritechi0=True)
+        e_wGG = df.get_dielectric_matrix(xc='RPA', overwritechi0=True)
         df.chi0_wGG = None
         Nw_local = len(e_wGG)
         local_E_q_w = np.zeros(Nw_local, dtype=complex)

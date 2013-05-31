@@ -8,14 +8,8 @@ import numpy
 
 
 class SolvationPoissonSolver(PoissonSolver):
-    def __init__(self, nn=3, relax='J', eps=2e-10, dielectric=None):
-        """
-        initialize the Poisson solver
-
-        dielectric -- list [epsr dx_epsr, dy_epsr, dz_epsr]
-        """
-        self.dielectric = dielectric
-        PoissonSolver.__init__(self, nn, relax, eps)
+    def set_dielectric_arrays(self, dielectric_arrays):
+        self.dielectric = dielectric_arrays
 
     def load_gauss(self):
         # XXX Check if update is needed (dielectric changed)?
@@ -124,16 +118,18 @@ class WeightedFDPoissonSolver(SolvationPoissonSolver):
 
 
 class PolarizationPoissonSolver(SolvationPoissonSolver):
-    """
-    Poisson solver including an electrostatic solvation model
+    """Poisson solver including an electrostatic solvation model
 
     calculates the polarization charges first using only the
     vacuum poisson equation, then solves the vacuum equation
     with polarization charges
+
+    warning: not exact enough, since the electric field is not exact enough
+
     """
 
-    def __init__(self, nn=3, relax='J', eps=2e-10, dielectric=None):
-        SolvationPoissonSolver.__init__(self, nn, relax, eps, dielectric)
+    def __init__(self, nn=3, relax='J', eps=2e-10):
+        SolvationPoissonSolver.__init__(self, nn, relax, eps)
         self.phi_tilde = None
 
     def solve(self, phi, rho, charge=None, eps=None,
@@ -151,9 +147,9 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
         dx_phi_tilde = self.gd.empty()
         dy_phi_tilde = self.gd.empty()
         dz_phi_tilde = self.gd.empty()
-        Gradient(self.gd, 0, 1.0, 3).apply(phi_tilde, dx_phi_tilde)
-        Gradient(self.gd, 1, 1.0, 3).apply(phi_tilde, dy_phi_tilde)
-        Gradient(self.gd, 2, 1.0, 3).apply(phi_tilde, dz_phi_tilde)
+        Gradient(self.gd, 0, 1.0, self.nn).apply(phi_tilde, dx_phi_tilde)
+        Gradient(self.gd, 1, 1.0, self.nn).apply(phi_tilde, dy_phi_tilde)
+        Gradient(self.gd, 2, 1.0, self.nn).apply(phi_tilde, dz_phi_tilde)
 
         scalar_product = dx_epsr * dx_phi_tilde + \
                          dy_epsr * dy_phi_tilde + \
@@ -173,12 +169,15 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
 
 
 class IterativePoissonSolver(SolvationPoissonSolver):
-    """
-    Poisson solver including an electrostatic solvation model
+    """Poisson solver including an electrostatic solvation model
 
     following Andreussi et al.
     The Journal of Chemical Physics 136, 064102 (2012)
+
+    experimental, probably broken
+
     """
+
     # XXX broken convergence for eta != 1.0 (non-self-consistent) ???
     eta = 1.0
 
@@ -187,9 +186,9 @@ class IterativePoissonSolver(SolvationPoissonSolver):
         self.dx_phi = gd.empty()
         self.dy_phi = gd.empty()
         self.dz_phi = gd.empty()
-        self.gradx = Gradient(gd, 0, 1.0, 3)
-        self.grady = Gradient(gd, 1, 1.0, 3)
-        self.gradz = Gradient(gd, 2, 1.0, 3)
+        self.gradx = Gradient(gd, 0, 1.0, self.nn)
+        self.grady = Gradient(gd, 1, 1.0, self.nn)
+        self.gradz = Gradient(gd, 2, 1.0, self.nn)
 
     def solve_neutral(self, phi, rho, eps=2e-10):
         self.rho_iter = self.gd.zeros()

@@ -173,9 +173,11 @@ class KSSingles(ExcitationList):
 
         f.readline()
         n = int(f.readline())
+        self.npspins = 1
         for i in range(n):
             kss = KSSingle(string = f.readline())
             self.append(kss)
+            self.npspins = max(self.npspins, kss.pspin + 1)
         self.update()
 
         if fh is None:
@@ -197,6 +199,40 @@ class KSSingles(ExcitationList):
         self.jend = jend
         self.npspins = npspins
         self.nvspins = nvspins
+
+        if hasattr(self, 'energies'):
+            del(self.energies)
+
+    def set_arrays(self):
+        if hasattr(self, 'energies'):
+            return
+        energies = []
+        fij = []
+        me = []
+        mur = []
+        muv = []
+        magn = []
+        for k in self:
+            energies.append(k.energy)
+            fij.append(k.fij)
+            me.append(k.me)
+            mur.append(k.mur)
+            if k.muv is not None:
+                muv.append(k.muv)
+            if k.magn is not None:
+                magn.append(k.magn)
+        self.energies = np.array(energies)
+        self.fij = np.array(fij)
+        self.me = np.array(me)
+        self.mur = np.array(mur)
+        if len(muv):
+            self.muv = np.array(muv)
+        else:
+            self.muv = None
+        if len(magn):
+            self.magn = np.array(magn)
+        else:
+            self.magn = None
 
     def write(self, filename=None, fh=None):
         """Write current state to a file.

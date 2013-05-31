@@ -17,5 +17,5 @@ error and occupations number as described in [Kresse]_.
    using a plane-wave basis set"
 
 Any potential improvements in algorithms need to be evaluated on a large
-set of systems. The `ref:scf_conv_eval` page is dedicated to
+set of systems. The :ref:`scf_conv_eval` page is dedicated to
 presenting those evaluations.

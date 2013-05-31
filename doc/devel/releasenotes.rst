@@ -10,8 +10,10 @@ Development version in trunk
 
 :trac:`trunk <>`.
 
+* MGGA calculations can be done in plane-wave mode.
+
 * Calculation of the stress tensor has been implemented for plane-wave
-  based calculation.
+  based calculation (except MGGA).
 
 * MGGA: number of neighbor grid points to use for FD stencil for
   wave function gradient changed from 1 to 3.
@@ -20,11 +22,16 @@ Development version in trunk
 
 * Modified setups:
 
+  .. note::
+
+     Most of the new setups currently require
+     :ref:`eigensolver <manual_eigensolver>` ``cg``.
+
   - improved eggbox: N, O, K, S, Ca, Sc, Zn, Sr, Zr, Cd, In, Sn, Pb, Bi
 
   - semicore states included: Na, Mg, V, Mn, Ni,
-    Mo, Ru (seems to solve the Ru problem :trac:`gpaw/test/big/Ru001`),
-    Rh, Ag, Ta, W, Os, Ir, Pt
+    Nb, Mo, Ru (seems to solve the Ru problem :trac:`gpaw/test/big/Ru001`),
+    Rh, Pd, Ag, Ta, W, Os, Ir, Pt
 
   - semicore states removed: Te
 
@@ -37,6 +44,10 @@ Development version in trunk
 
      See :ref:`manual_setups` and list the contents of :envvar:`GPAW_SETUP_PATH`
      for available setups.
+
+* new ``dzp`` basis set generated for all the new setups with
+  ``gpaw-basis -t dzp --lpol=2`` with exception of Zn and Cd (``--lpol=1``).
+
 
 Version 0.9.0
 =============

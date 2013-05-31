@@ -76,8 +76,8 @@ class C_GLLBScr(Contribution):
 
     def get_coefficients_by_kpt(self, kpt_u, lumo_perturbation=False, homolumo=None, nspins=1):
 
-        if kpt_u[0].psit_nG is None or isinstance(kpt_u[0].psit_nG,
-                                                  TarFileReference): 
+        if not hasattr(kpt_u[0],'orbitals_ready'):
+            kpt_u[0].orbitals_ready = True
             return None
 
         if homolumo == None:
@@ -148,7 +148,7 @@ class C_GLLBScr(Contribution):
 	        v += self.weight * 2 * self.e_g / (2 * n + 1e-9)
 	        e_g += self.weight * self.e_g / 2
 
-    def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a):
+    def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a, addcoredensity=True):
         # Get the XC-correction instance
         c = setup.xc_correction
 	nspins = self.nlfunc.nspins
@@ -157,9 +157,11 @@ class C_GLLBScr(Contribution):
 	for D_p, dEdD_p in zip(D_sp, H_sp):
 	        D_Lq = np.dot(c.B_pqL.T, nspins*D_p)
 	        n_Lg = np.dot(D_Lq, c.n_qg)
-	        n_Lg[0] += c.nc_g * sqrt(4 * pi)
+                if addcoredensity:
+                     n_Lg[0] += c.nc_g * sqrt(4 * pi)
 	        nt_Lg = np.dot(D_Lq, c.nt_qg)
-	        nt_Lg[0] += c.nct_g * sqrt(4 * pi)
+                if addcoredensity:
+                     nt_Lg[0] += c.nct_g * sqrt(4 * pi)
 	        dndr_Lg = np.zeros((c.Lmax, c.ng))
 	        dntdr_Lg = np.zeros((c.Lmax, c.ng))
 	        for L in range(c.Lmax):

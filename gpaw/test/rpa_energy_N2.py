@@ -9,7 +9,7 @@ import numpy as np
 
 ecut = 25
 
-N2 = molecule('N2', pbc=True)
+N2 = molecule('N2')
 N2.center(vacuum=2.0)
 
 calc = GPAW(mode='pw', dtype=complex, xc='PBE', communicator=serial_comm)
@@ -26,9 +26,9 @@ E_n2_rpa = rpa.get_rpa_correlation_energy(ecut=ecut,
 
 # -------------------------------------------------------------------------
 
-N = molecule('N', pbc=True)
+N = molecule('N')
 N.set_cell(N2.cell)
-N.center()
+
 calc = GPAW(mode='pw', dtype=complex, xc='PBE', communicator=serial_comm)
 N.set_calculator(calc)
 E_n_pbe = N.get_potential_energy()
@@ -45,4 +45,4 @@ print 'PBE: ', E_n2_pbe - 2*E_n_pbe
 print 'HF: ',  E_n2_hf - 2*E_n_hf
 print 'HF+RPA: ', E_n2_hf - 2*E_n_hf + E_n2_rpa - 2*E_n_rpa, '(Not converged!)'
 
-equal(E_n2_rpa - 2*E_n_rpa, -1.78, 0.01)
+equal(E_n2_rpa - 2*E_n_rpa, -1.72, 0.02)

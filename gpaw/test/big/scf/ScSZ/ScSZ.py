@@ -8,7 +8,7 @@ from gpaw.utilities import compiled_with_sl
 slab = read('ScSZ.xyz')
 slab.set_cell([[  7.307241,   0.,         0.,      ],
                [  0.,        12.656514,   0.,      ],
-               [  0.,         0.,        18.,      ]],
+               [  0.,         0.,        19.,      ]],
               scale_atoms=False)
 slab.center(axis=2)
 magmoms = [0.0 for n in range(len(slab))]
@@ -23,11 +23,12 @@ calc = GPAW(h=0.20,
             kpts=(2,1,1),
             xc='PBE',
             width=0.1,
-            maxiter=250,
+            maxiter=100,
             txt='ScSZ.txt',
             )
 if compiled_with_sl():
-    calc.set(parallel={'sl_auto': True})
+    if 1:  # only with rmm-diis
+        calc.set(parallel={'sl_auto': True})
 
 slab.set_calculator(calc)
 

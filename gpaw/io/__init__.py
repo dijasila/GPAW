@@ -8,7 +8,7 @@ Change log for version:
 
 3) Different k-points now have different number of plane-waves.  Added
    PlaneWaveIndices array.
-
+    
 """
 
 import os
@@ -71,7 +71,7 @@ def wave_function_name_template(mode):
 
 def write(paw, filename, mode, cmr_params=None, **kwargs):
     """Write state to file.
-
+    
     The `mode` argument should be one of:
 
     ``''``:
@@ -104,7 +104,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     domain_comm = wfs.gd.comm
     kpt_comm = wfs.kpt_comm
     band_comm = wfs.band_comm
-
+    
     master = (world.rank == 0)
     parallel = (world.size > 1)
 
@@ -129,7 +129,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     #   These types of writes are call Datasets.
     # - HDF-writer writes parameters and dimensions as Attributes, not Datasets.
     #   Attributes must be written by all MPI tasks.
-
+    
     w = open(filename, 'w', world)
     w['history'] = 'GPAW restart file'
     w['version'] = 3
@@ -243,22 +243,6 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         # Zero temperature calculation - don't write Fermi level:
         pass
 
-    # Solvation parameters and energy contributions
-
-    # XXX bad: circular dependency, should move this to gpaw.solvation,
-    # but current layout of gpaw.io.write does not allow this, since
-    # the file handle is opened and closed by gpaw.io.write
-    from gpaw.solvation.calculator import SolvationGPAW
-    if isinstance(paw, SolvationGPAW):
-        w['SolvationEel'] = hamiltonian.Eel
-        w['SolvationErep'] = hamiltonian.Erep
-        w['SolvationEdis'] = hamiltonian.Edis
-        w['SolvationEcav'] = hamiltonian.Ecav
-        w['SolvationEtm'] = hamiltonian.Etm
-        w['SolvationAcav'] = hamiltonian.Acav
-        w['SolvationVcav'] = hamiltonian.Vcav
-        w['SolvationParameters'] = repr(p['solvation'])
-
     # write errors
     w['DensityError'] = scf.density_error
     w['EnergyError'] = scf.energy_error
@@ -280,7 +264,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         if setup.type != 'paw':
             key += '(%s)' % setup.type
         w[key] = setup.fingerprint
-
+        
         #key = key.replace('Fingerprint', '')
         #w[key] = setup.parameter_string
 
@@ -346,7 +330,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
                 all_P_ni = wfs.collect_projections(k, s)
                 if master:
                     w.fill(all_P_ni, s, k)
-
+    
     del all_P_ni  # delete a potentially large matrix
     timer.stop('Projections')
 
@@ -516,7 +500,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         if cmr_params is None:
             c = {}
         else:
-            c = cmr_params.copy()
+            c = cmr_params.copy() 
         c["ase_atoms_var"] = atoms_var
         if master:
             w.write_additional_db_params(cmr_params=c)
@@ -637,7 +621,7 @@ def read(paw, reader):
             paw.occupations.set_fermi_level(r['FermiLevel'])
 
     #paw.occupations.magmom = paw.atoms.get_initial_magnetic_moments().sum()
-
+    
     # Try to read the current time and kick strength in time-propagation TDDFT:
     for attr, name in [('time', 'Time'), ('niter', 'TimeSteps'),
                        ('kick_strength', 'AbsorptionKick')]:
@@ -668,7 +652,7 @@ def read(paw, reader):
     else:
         # Verify that symmetries for for k-point reduction hasn't changed:
         tol = 1e-12
-
+        
         if master:
             bzk_kc = r.get('BZKPoints', read=master)
             weight_k = r.get('IBZKPointWeights', read=master)
@@ -765,7 +749,7 @@ def read(paw, reader):
             oldmode = PW(ecut=r['PlaneWaveCutoff'] * Hartree)
     except (AttributeError, KeyError):
         oldmode = 'fd'  # This is an old gpw file from before lcao existed
-
+        
     if newmode == 'lcao':
         spos_ac = paw.atoms.get_scaled_positions() % 1.0
         wfs.load_lazily(hamiltonian, spos_ac)

@@ -14,6 +14,8 @@ PyMODINIT_FUNC init_hdf5(void);
 #ifdef GPAW_HPM
 PyObject* ibm_hpm_start(PyObject *self, PyObject *args);
 PyObject* ibm_hpm_stop(PyObject *self, PyObject *args);
+PyObject* ibm_mpi_start(PyObject *self);
+PyObject* ibm_mpi_stop(PyObject *self);
 #endif
 
 #ifdef GPAW_CRAYPAT
@@ -101,6 +103,10 @@ PyObject* pblas_gemm(PyObject *self, PyObject *args);
 PyObject* pblas_gemv(PyObject *self, PyObject *args);
 PyObject* pblas_r2k(PyObject *self, PyObject *args);
 PyObject* pblas_rk(PyObject *self, PyObject *args);
+#endif
+
+#ifdef GPAW_PAPI
+PyObject* papi_mem_info(PyObject *self, PyObject *args);
 #endif
 
 // Moving least squares interpolation
@@ -198,11 +204,16 @@ static PyMethodDef functions[] = {
 #ifdef GPAW_HPM
   {"hpm_start", ibm_hpm_start, METH_VARARGS, 0},
   {"hpm_stop", ibm_hpm_stop, METH_VARARGS, 0},
+  {"mpi_start", (PyCFunction) ibm_mpi_start, METH_NOARGS, 0},
+  {"mpi_stop", (PyCFunction) ibm_mpi_stop, METH_NOARGS, 0},
 #endif // GPAW_HPM
 #ifdef GPAW_CRAYPAT
   {"craypat_region_begin", craypat_region_begin, METH_VARARGS, 0},
   {"craypat_region_end", craypat_region_end, METH_VARARGS, 0},
 #endif // GPAW_CRAYPAT
+#ifdef GPAW_PAPI
+  {"papi_mem_info", papi_mem_info, METH_VARARGS, 0},
+#endif // GPAW_PAPI
   {"mlsqr", mlsqr, METH_VARARGS, 0},
   {0, 0, 0, 0}
 };
@@ -292,9 +303,9 @@ main(int argc, char **argv)
       printf("%s \n", procname);
 
       for (i = 1; i < numprocs; ++i) {
-          MPI_Recv(&procnamesize, 1, MPI_INT, i, tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-          MPI_Recv(procname, procnamesize, MPI_CHAR, i, tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-          printf("%s \n", procname);
+	  MPI_Recv(&procnamesize, 1, MPI_INT, i, tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+	  MPI_Recv(procname, procnamesize, MPI_CHAR, i, tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+	  printf("%s \n", procname);
       }
   }
 #endif // GPAW_MPI_MAP

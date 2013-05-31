@@ -27,7 +27,7 @@ of processes would be done with ``--dry-run`` command line option::
 
   python script.py --dry-run=8
 
-The output will contain also the estimated required RAM memory per process.
+The output will contain also the "Calculator" RAM Memory estimate per process.
 
 In order to start parallel calculation, you need to know the
 command for starting parallel processes. This command might contain

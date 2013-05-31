@@ -1,4 +1,5 @@
 import os
+import platform
 import sys
 import time
 from math import log
@@ -88,7 +89,7 @@ class PAWTextOutput:
         self.text(' |___|_|             ')
         self.text()
 
-        uname = os.uname()
+        uname = platform.uname()
         self.text('User: ', os.getenv('USER', '???') + '@' + uname[1])
         self.text('Date: ', time.asctime())
         self.text('Arch: ', uname[4])

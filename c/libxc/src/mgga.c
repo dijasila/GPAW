@@ -54,6 +54,12 @@ void XC(mgga_init)(XC(mgga_type) *p, int functional, int nspin)
   case(XC_MGGA_C_REVTPSS):
     XC(mgga_c_revtpss_init)(p);
     break;
+  case(XC_MGGA_X_OTPSS):
+    XC(mgga_x_otpss_init)(p);
+    break;
+  case(XC_MGGA_C_OTPSS):
+    XC(mgga_c_otpss_init)(p);
+    break;
   case(XC_MGGA_X_M06L): 
     XC(mgga_x_m06l_init)(p);
     break;
@@ -82,6 +88,12 @@ void XC(mgga_end)(XC(mgga_type) *p)
   case(XC_MGGA_C_REVTPSS) :
     XC(mgga_c_revtpss_end)(p);
     break;
+  case(XC_MGGA_X_OTPSS) :
+    XC(mgga_x_otpss_end)(p);
+    break;
+  case(XC_MGGA_C_OTPSS) :
+    XC(mgga_c_otpss_end)(p);
+    break;
   case(XC_MGGA_X_M06L) : 
     XC(mgga_x_m06l_end)(p);
     break;
@@ -91,7 +103,6 @@ void XC(mgga_end)(XC(mgga_type) *p)
   case(XC_MGGA_X_MBEEF) :
     XC(mgga_x_mbeef_end)(p);
     break;
-
   }
 }
 
@@ -132,6 +143,12 @@ void XC(mgga)(XC(mgga_type) *p, FLOAT *rho, FLOAT *sigma, FLOAT *tau,
     break;
   case(XC_MGGA_C_REVTPSS):
     XC(mgga_c_revtpss)(p, rho, sigma, tau, e, dedd, vsigma, dedtau);
+    break;
+  case(XC_MGGA_X_OTPSS):
+    XC(mgga_x_otpss)(p, rho, sigma, tau, e, dedd, vsigma, dedtau);
+    break;
+  case(XC_MGGA_C_OTPSS):
+    XC(mgga_c_otpss)(p, rho, sigma, tau, e, dedd, vsigma, dedtau);
     break;
   case(XC_MGGA_X_M06L):
 	XC(mgga_x_m06l)(p, rho, sigma, tau, e, dedd, vsigma, dedtau);

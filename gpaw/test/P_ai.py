@@ -34,10 +34,13 @@ for mode in ('fd', 'pw',):
             
         if mode == 'fd':
             calc = GPAW(h=0.18, kpts=kpts, basis='dzp',maxiter=500,
+                        setups={'Ni': '10'},
                         usesymm=None,communicator=serial_comm, spinpol=spinpol)
         
         else:
-            calc = GPAW(mode='pw', kpts=kpts, basis='dzp', dtype=complex,maxiter=500,
+            calc = GPAW(mode='pw', kpts=kpts, basis='dzp', dtype=complex,
+                        maxiter=500,
+                        setups={'Ni': '10'},
                         usesymm=None,communicator=serial_comm)
 
         atoms.set_calculator(calc)

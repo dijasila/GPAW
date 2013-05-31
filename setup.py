@@ -16,7 +16,10 @@ from os.path import join
 from config import *
 
 # Get the current version number:
-execfile('gpaw/svnversion_io.py')  # write gpaw/svnversion.py and get svnversion
+try:
+    execfile('gpaw/svnversion_io.py')  # write gpaw/svnversion.py and get svnversion
+except ValueError:
+    svnversion = ''
 execfile('gpaw/version.py')        # get version_base
 if svnversion:
     version = version_base + '.' + svnversion
@@ -137,16 +140,18 @@ if compiler is not None:
         for key in ['BASECFLAGS', 'CFLAGS', 'OPT', 'PY_CFLAGS',
             'CCSHARED', 'CFLAGSFORSHARED', 'LINKFORSHARED',
             'LIBS', 'SHLIBS']:
-            value = vars[key].split()
-            # remove all gcc flags (causing problems with other compilers)
-            for v in list(value):
-                value.remove(v)
-            vars[key] = ' '.join(value)
+            if key in vars:
+                value = vars[key].split()
+                # remove all gcc flags (causing problems with other compilers)
+                for v in list(value):
+                    value.remove(v)
+                vars[key] = ' '.join(value)
     for key in ['CC', 'LDSHARED']:
-        value = vars[key].split()
-        # first argument is the compiler/linker.  Replace with mpicompiler:
-        value[0] = compiler
-        vars[key] = ' '.join(value)
+        if key in vars:
+            value = vars[key].split()
+            # first argument is the compiler/linker.  Replace with mpicompiler:
+            value[0] = compiler
+            vars[key] = ' '.join(value)
 
 custom_interpreter = False
 # Check the command line so that custom interpreter is build only with

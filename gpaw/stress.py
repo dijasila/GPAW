@@ -13,6 +13,12 @@ def stress(calc):
     if not isinstance(wfs, PWWaveFunctions):
         raise NotImplementedError('Calculation of stress tensor is only ' +
                                   'implemented for plane-wave mode.')
+    if ham.xc.orbital_dependent:
+        raise NotImplementedError('Calculation of stress tensor is not ' +
+                                  'implemented for orbital-dependent ' +
+                                  'XC functionals such as '+ham.xc.name)
+
+    calc.timer.start('Stress tensor')
 
     s_vv = wfs.get_kinetic_stress().real
 
@@ -69,5 +75,7 @@ def stress(calc):
     for sigma_v in sigma_vv:
         calc.text('%12.6f %12.6f %12.6f' %
                   tuple(units.Hartree / units.Bohr**3 * sigma_v))
+
+    calc.timer.stop('Stress tensor')
 
     return sigma_vv

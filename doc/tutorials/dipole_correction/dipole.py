@@ -9,6 +9,7 @@ slab.center(axis=2)
 
 slab.calc = GPAW(txt='zero.txt',
                  xc='PBE',
+                 setups={'Na': '1'},
                  kpts=(4, 4, 1))
 e1 = slab.get_potential_energy()
 slab.calc.write('zero.gpw')

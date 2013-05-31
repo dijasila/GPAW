@@ -4,6 +4,7 @@ import numpy as np
 from ase.data import atomic_numbers
 
 from gpaw.utilities import pack2
+from gpaw.utilities.tools import md5_new
 from gpaw.setup import BaseSetup
 from gpaw.spline import Spline
 from gpaw.atom.radialgd import AERadialGridDescriptor
@@ -161,6 +162,7 @@ class HGHSetupData:
             else:
                 hghdata = setups[symbol]
         self.hghdata = hghdata
+        
 
         chemsymbol = hghdata.symbol
         if '.' in chemsymbol:
@@ -375,6 +377,7 @@ class HGHSetupData:
         if basis is None:
             basis = self.create_basis_functions()
         setup = HGHSetup(self, basis)
+        setup.fingerprint = md5_new(str(self.hghdata)).hexdigest()
         return setup
 
 def create_local_shortrange_potential(r_g, rloc, c_n):
