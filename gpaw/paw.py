@@ -489,6 +489,7 @@ class PAW(PAWTextOutput):
                 par.maxiter, par.fixdensity,
                 niter_fixdensity)
 
+        parsize_kpt = par.parallel['kpt']
         parsize_domain = par.parallel['domain']
         parsize_bands = par.parallel['band']
 
@@ -499,9 +500,25 @@ class PAW(PAWTextOutput):
             if parsize_domain == 'domain only':  # XXX this was silly!
                 parsize_domain = world.size
 
-            domain_comm, kpt_comm, band_comm = mpi.distribute_cpus(
-                parsize_domain, parsize_bands,
-                nspins, kd.nibzkpts, world, par.idiotproof, mode)
+            parallelization = mpi.Parallelization(world, 
+                                                  nspins * kd.nibzkpts)
+            ndomains = None
+            if parsize_domain is not None:
+                ndomains = np.prod(parsize_domain)
+            if isinstance(mode, PW):
+                if ndomains > 1:
+                    raise ValueError('Planewave mode does not support '
+                                     'domain decomposition.')
+                ndomains = 1
+            parallelization.set(kpt=parsize_kpt,
+                                domain=ndomains,
+                                band=parsize_bands)
+            domain_comm, kpt_comm, band_comm = \
+                parallelization.build_communicators()
+
+            #domain_comm, kpt_comm, band_comm = mpi.distribute_cpus(
+            #    parsize_domain, parsize_bands,
+            #    nspins, kd.nibzkpts, world, par.idiotproof, mode)
 
             kd.set_communicator(kpt_comm)
 
