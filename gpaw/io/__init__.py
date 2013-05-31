@@ -550,26 +550,17 @@ def read(paw, reader):
 
     hdf5 = hasattr(r, 'hdf5')
 
-    # Verify setup fingerprints and count projectors and atomic matrices:
+    # Verify setup fingerprints:
     for setup in wfs.setups.setups.values():
-        try:
-            key = atomic_names[setup.Z] + 'Fingerprint'
-            if setup.type != 'paw':
-                key += '(%s)' % setup.type
-            if setup.fingerprint != r[key]:
-                str = 'Setup for %s (%s) not compatible with restart file.' \
-                    % (setup.symbol, setup.filename)
-                if paw.parameters['idiotproof']:
-                    raise RuntimeError(str)
-                else:
-                    warnings.warn(str)
-        except (AttributeError, KeyError):
-            str = 'Fingerprint of setup for %s (%s) not in restart file.' \
-                % (setup.symbol, setup.filename)
-            if paw.parameters['idiotproof']:
-                raise RuntimeError(str)
-            else:
-                warnings.warn(str)
+        key = atomic_names[setup.Z] + 'Fingerprint'
+        if setup.type != 'paw':
+            key += '(%s)' % setup.type
+        if setup.fingerprint != r[key]:
+            raise ValueError(
+                'Setup for %s (%s) not compatible with restart file.' %
+                (setup.symbol, setup.filename))
+
+    # Count projectors and atomic matrices:
     nproj = sum([setup.ni for setup in wfs.setups])
     nadm = sum([setup.ni * (setup.ni + 1) // 2 for setup in wfs.setups])
 

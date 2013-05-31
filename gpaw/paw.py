@@ -83,27 +83,19 @@ class PAW(PAWTextOutput):
 
         self.observers = []
 
-    def initialize_positions(self, atoms=None):
+    def initialize_positions(self):
         """Update the positions of the atoms."""
-        if atoms is None:
-            atoms = self.atoms
-        else:
-            # Save the state of the atoms:
-            self.atoms = atoms.copy()
-
         self.check_atoms()
-
-        spos_ac = atoms.get_scaled_positions() % 1.0
-
+        spos_ac = self.atoms.get_scaled_positions() % 1.0
         self.wfs.set_positions(spos_ac)
         self.density.set_positions(spos_ac, self.wfs.rank_a)
         self.hamiltonian.set_positions(spos_ac, self.wfs.rank_a)
 
         return spos_ac
 
-    def set_positions(self, atoms=None):
+    def set_positions(self):
         """Update the positions of the atoms and initialize wave functions."""
-        spos_ac = self.initialize_positions(atoms)
+        spos_ac = self.initialize_positions()
         self.wfs.initialize(self.density, self.hamiltonian, spos_ac)
         self.wfs.eigensolver.reset()
         self.scf.reset()
@@ -111,29 +103,13 @@ class PAW(PAWTextOutput):
         self.stress_vv = None
         self.print_positions()
 
-    def initialize(self, atoms=None):
+    def initialize(self):
         """Inexpensive initialization."""
 
-        if atoms is None:
-            atoms = self.atoms
-        else:
-            # Save the state of the atoms:
-            self.atoms = atoms.copy()
-
+        atoms = self.atoms
         par = self.parameters
+        world = self.world
 
-        world = par.communicator
-        if world is None:
-            world = mpi.world
-        elif hasattr(world, 'new_communicator'):
-            # Check for whether object has correct type already
-            #
-            # Using isinstance() is complicated because of all the
-            # combinations, serial/parallel/debug...
-            pass
-        else:
-            # world should be a list of ranks:
-            world = mpi.world.new_communicator(np.asarray(world))
         self.wfs.world = world
 
         if par.txt is None:

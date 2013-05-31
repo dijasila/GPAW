@@ -32,11 +32,7 @@ def read_parameters(params, reader):
         params.kpts = bzk_kc
 
     params.usesymm = r['UseSymmetry']
-    try:
-        params.basis = r['BasisSet']
-        assert params.basis is not None
-    except KeyError:
-        pass
+    params.basis = r['BasisSet']
 
     if version >= 2:
         try:

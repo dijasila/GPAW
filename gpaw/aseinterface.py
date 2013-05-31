@@ -9,16 +9,17 @@ import os
 
 import numpy as np
 from ase.units import Bohr, Hartree
-from ase.calculators.calculator import Calculator, ReadError
+from ase.calculators.calculator import Calculator, ReadError, Parameters
 
+import gpaw.io
 import gpaw.mpi as mpi
 from gpaw.xc import XC
 from gpaw.paw import PAW
 from gpaw.hooks import hooks
 from gpaw.stress import stress
+from gpaw.parameters import read_parameters
 from gpaw.occupations import MethfesselPaxton
 from gpaw.wavefunctions.base import EmptyWaveFunctions
-from gpaw.parameters import read_parameters
 from gpaw.wavefunctions.pw import ReciprocalSpaceDensity
 from gpaw import parsize_domain, parsize_bands, sl_default, sl_diagonalize, \
                  sl_inverse_cholesky, sl_lcao, buffer_size, \
@@ -26,8 +27,7 @@ from gpaw import parsize_domain, parsize_bands, sl_default, sl_diagonalize, \
 
 
 class GPAW(PAW, Calculator):
-    """This is the ASE-calculator frontend for doing a PAW calculation.
-    """
+    """This is the ASE-calculator frontend for doing a PAW calculation."""
 
     implemented_properties = ['energy', 'forces', 'stress', 'dipole',
                               'magmom', 'magmoms']
@@ -55,9 +55,6 @@ class GPAW(PAW, Calculator):
         'random':          False,
         'dtype':           None,
         'maxiter':         120,
-        'parsize':         None,  # don't use this
-        'parsize_bands':   None,  # don't use this
-        'parstride_bands': False,  # don't use this
         'external':        None,  # eV
         'verbose':         0,
         'eigensolver':     None,
@@ -82,7 +79,14 @@ class GPAW(PAW, Calculator):
         }
 
     def __init__(self, restart=None, ignore_bad_restart_file=False, label=None,
-                 atoms=None, **kwargs):
+                 atoms=None, communicator=None, **kwargs):
+        if communicator is None:
+            self.world = mpi.world
+        elif isinstance(communicator, (list, np.adarray)):
+            self.world = mpi.world.new_communicator(np.asarray(communicator))
+        else:
+            self.world = communicator
+
         PAW.__init__(self)
         Calculator.__init__(self, restart, ignore_bad_restart_file, label,
                             atoms, **kwargs)
@@ -92,11 +96,12 @@ class GPAW(PAW, Calculator):
         if self.label is None or not os.path.isfile(self.label):
             raise ReadError
 
-        comm = self.parameters.get('communicator', mpi.world)
-        reader = gpaw.io.open(self.label, 'r', comm)
+        reader = gpaw.io.open(self.label, 'r', self.world)
         self.atoms = gpaw.io.read_atoms(reader)
-        read_parameters(self.parameters)
-
+        self.parameters = self.get_default_parameters()
+        read_parameters(self.parameters, reader)
+        self.initialize()
+        gpaw.io.read(self, reader)
         self.print_cell_and_parameters()
 
     def set(self, **kwargs):
@@ -169,7 +174,7 @@ class GPAW(PAW, Calculator):
             raise NotImplementedError
         return Calculator.get_dipole_moment(self, atoms)
 
-    def calculate(self, atoms, properties=[], changes=[]):
+    def calculate(self, properties, changes):
         for change in ['numbers', 'pbc', 'cell', 'magmoms']:
             if change in changes:
                 self.wfs = EmptyWaveFunctions()
@@ -177,14 +182,14 @@ class GPAW(PAW, Calculator):
                 self.density = None
                 self.hamiltonian = None
                 self.scf = None
-                self.initialize(atoms)
-                self.set_positions(atoms)
+                self.initialize()
+                self.set_positions()
                 break
         else:
             if 'positions' in changes:
                 if self.density is not None:
                     self.density.reset()
-                self.set_positions(atoms)
+                self.set_positions()
 
         self.print_cell_and_parameters()
 

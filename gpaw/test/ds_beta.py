@@ -23,7 +23,8 @@ if 1:
     c = GPAW(xc='PBE', nbands=-1, h=h)
     s = Cluster([Atom('H')])
     s.minimal_box(box, h=h)
-    c.calculate(s)
+    s.calc = c
+    s.get_potential_energy()
     c.write(gpwname, 'all')
 else:
     c = GPAW(gpwname)
