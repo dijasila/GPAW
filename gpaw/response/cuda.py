@@ -436,6 +436,9 @@ class BaseCuda:
         _gpaw.cuFree(self.index1_Q)
         _gpaw.cuFree(self.index2_Q)
 
+        _gpaw.cufft_destroy(self.cufftplan)
+        _gpaw.cufft_destroy(self.cufftplanmany)
+
         if chi.optical_limit:
             _gpaw.cuFree(self.opteikr_R)
             _gpaw.cuFree(self.optpsit2_uR)
@@ -479,8 +482,6 @@ class BaseCuda:
             _gpaw.cuFree(self.P_P_aup[a])
 
     def destroy(self):
-#        _gpaw.cuDestroy(self.handle)
-        _gpaw.cufft_destroy(self.cufftplan)
-        _gpaw.cufft_destroy(self.cufftplanmany)
+        _gpaw.cuDestroy(self.handle)
         
 
