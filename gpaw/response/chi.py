@@ -569,7 +569,8 @@ class Chi(BaseChi):
                                     gemv(1.0, self.phi_aGp[a], P_p, 1.0, rho_G)
                                 else:
                                     Ni = cu.host_Ni_a[a]
-                                    _gpaw.cugemm(cu.handle,1.0,  cu.P_phi_aGp[a], cu.P_P_aup[a], 1.0, cu.rho_uG, \
+                                    _gpaw.cugemm(cu.handle, 1.0+0j,  cu.P_phi_aGp[a], cu.P_P_aup[a], \
+                                                 1.0+0j, cu.rho_uG, \
                                                      mmultix, self.npw, Ni*Ni, Ni*Ni, Ni*Ni, self.npw, 0, 1)
                                 if self.timing: timer.end('cugemv')
 
