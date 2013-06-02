@@ -437,7 +437,8 @@ class PAW(PAWTextOutput):
         if nbands is None:
             nbands = 0
             for setup in setups:
-                nbands += sum([2 * l + 1 for l in setup.l_j])
+                nbands += max(sum([2 * l + 1 for l in setup.l_j]),
+                              -(-setup.Nv // 2))
             nbands = min(nao, nbands)
         elif nbands > nao and mode == 'lcao':
             raise ValueError('Too many bands for LCAO calculation: '

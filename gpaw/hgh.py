@@ -26,7 +26,6 @@ class HGHSetup(BaseSetup):
     def __init__(self, data, basis):
         self.data = data
 
-        self.natoms = 0
         self.R_sii = None
         self.HubU = None
         self.lq = None

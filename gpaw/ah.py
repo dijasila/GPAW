@@ -22,7 +22,6 @@ class AppelbaumHamann(BaseSetup):
         self.v1 = v1
         self.v2 = v2
         
-        self.natoms = 0
         self.E = 0.0
         self.Z = 14
         self.Nc = 10
