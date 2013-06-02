@@ -63,6 +63,9 @@ for cuda in (True, False):
         saved_data[0,2] = -12.9337317481
     
     assert np.abs(rpa.E_qe - saved_data).sum() < 1e-7
+
+    if rank == 0:
+        print 'Cuda is %s, and takes %s seconds on %s cores' %(cuda, time()-t0, size)
     
     if cuda is True and rank == 0 :
         t1 = time() - t0

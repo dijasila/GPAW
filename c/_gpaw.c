@@ -139,6 +139,7 @@ PyObject* cuOpt_phase(PyObject *self, PyObject *args);
 PyObject* cuOpt_rhoG0_copy(PyObject *self, PyObject *args);
 PyObject* cuOpt_dE(PyObject *self, PyObject *args);
 PyObject* cuGet_C_wu(PyObject *self, PyObject *args);
+PyObject* cuApply_alpha_wu(PyObject *self, PyObject *args);
 PyObject* cuTrans_wfs(PyObject *self, PyObject *args);
 PyObject* cuTrans_wfs_noindex(PyObject *self, PyObject *args);
 PyObject* cuConj_vector(PyObject *self, PyObject *args);
@@ -202,6 +203,7 @@ static PyMethodDef functions[] = {
   {"cuOpt_rhoG0_copy", cuOpt_rhoG0_copy, METH_VARARGS, 0},
   {"cuOpt_dE", cuOpt_dE, METH_VARARGS, 0},
   {"cuGet_C_wu", cuGet_C_wu, METH_VARARGS, 0},
+  {"cuApply_alpha_wu", cuApply_alpha_wu, METH_VARARGS, 0},
   {"cuTrans_wfs", cuTrans_wfs, METH_VARARGS, 0},
   {"cuTrans_wfs_noindex", cuTrans_wfs_noindex, METH_VARARGS, 0},
   {"cuConj_vector", cuConj_vector, METH_VARARGS, 0},

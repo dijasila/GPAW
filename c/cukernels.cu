@@ -111,17 +111,15 @@ __global__ void GetC_wu( double *e_skn, double *f_skn, double *w_w, double *C_wu
 }
 
 
-/*
-__global__ void Apply_alpha_u( double *alpha_wu, cuDoubleComplex *rho_uG, int iw, int nu, int nmultix, int npw){
+__global__ void Apply_alpha_u( cuDoubleComplex *alpha_wu, cuDoubleComplex *rho_uG, int iw, int nu, int nmultix, int npw){
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   int nn = nu * npw;
   if (tid < nn) {
     int iu = tid/npw;
-    rho_uG[tid] = make_cuDoubleComplex( cuCreal(rho_uG[tid]) * alpha_wu[iw*nmultix+iu], cuCimag(rho_uG[tid]) * alpha_wu[iw*nmultix+iu] );
+    rho_uG[tid] = cuCmul(rho_uG[tid], alpha_wu[iw*nmultix+iu]);
   }
 
 }
-*/
 
 __global__ void trans_wfs( cuDoubleComplex *a, cuDoubleComplex *b, int *index, int n, int nmultix ){
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -445,16 +443,14 @@ extern "C" {
 }
 }
 
-/*
 extern "C" {
-  void cudaalpha_u( double* alpha_wu, cuDoubleComplex* rho_uG, int iw, int nu, int nmultix, int npw){
-  int threads = 128;
+  void cudaalpha_u( cuDoubleComplex* alpha_wu, cuDoubleComplex* rho_uG, int iw, int nu, int nmultix, int npw){
+  int threads = 512;
   int nn = nu * npw;
   int blocks = nn/threads + (nn%threads == 0 ? 0:1);
-  Apply_alpha_u<<<blocks, threads>>>( (double*)alpha_wu, (cuDoubleComplex*)rho_uG, iw, nu, nmultix, npw);
+  Apply_alpha_u<<<blocks, threads>>>( (cuDoubleComplex*)alpha_wu, (cuDoubleComplex*)rho_uG, iw, nu, nmultix, npw);
 }
 }
-*/
 
 extern "C" {
   void cudaTransform_wfs( cuDoubleComplex* dev_a, cuDoubleComplex* dev_b, int* dev_c, int N, int nmultix ) {

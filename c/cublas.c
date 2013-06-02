@@ -549,6 +549,20 @@ PyObject* cuGet_C_wu(PyObject *self, PyObject *args)
 }
 
 
+PyObject* cuApply_alpha_wu(PyObject *self, PyObject *args)
+{
+  int iw, nu, nmultix, npw;
+  void *alpha_wu, *rho_uG;
+
+  if (!PyArg_ParseTuple(args, "LLiiii",&alpha_wu, &rho_uG, &iw, &nu, &nmultix, &npw))
+  return NULL;
+  cudaalpha_u( alpha_wu, rho_uG, iw, nu, nmultix, npw );
+
+  CudaCheckError();
+  Py_RETURN_NONE;
+}
+
+
 PyObject* cuTrans_wfs(PyObject *self, PyObject *args)
 {
   int n, nmultix;
