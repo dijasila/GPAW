@@ -50,7 +50,7 @@ if os.system('svn export ' +
 os.chdir('gpaw')
 if os.system('source /home/opt/modulefiles/modulefiles_el6.sh&& ' +
              'export PYTHONDONTWRITEBYTECODE=1&& ' +
-             'module load SCIPY&& ' +
+             'module load NUMPY&& ' +
              'module load intel-compilers&& ' +
              'module load openmpi&& ' +
              'python setup.py --remove-default-flags ' +
@@ -82,6 +82,9 @@ if os.system('source /home/opt/modulefiles/modulefiles_el6.sh&& ' +
              'module load CMR&& ' +
              'module load intel-compilers&& ' +
              'module load openmpi&& ' +
+             # libfftw3.so crashes
+             'module unload fftw&& ' +  # all fftw must be unloaded
+             'export GPAW_FFTWSO=""&& ' +  # and use numpy fftw
              'export PYTHONPATH=%s/lib64/python:$PYTHONPATH; ' % tmpdir +
              'export GPAW_SETUP_PATH=%s; ' % setups +
              'export OMP_NUM_THREADS=1; ' +
