@@ -20,7 +20,7 @@ groundstate calculation
 
 First, we need to do a regular groundstate calculation.
 We do this in plane wave mode and choose the LDA exchange-correlation functional.
-In order to keep the computational efforts small, we start with (3x3x3) k-points and a plane wave basis up to 100 eV.
+In order to keep the computational efforts small, we start with (3x3x3) k-points and a plane wave basis up to 200 eV.
 
 .. literalinclude:: Si_groundstate.py
 
