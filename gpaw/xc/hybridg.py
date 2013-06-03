@@ -105,6 +105,8 @@ class HybridXC(HybridXCBase):
                                  addcoredensity, a)
     
     def initialize(self, dens, ham, wfs, occupations):
+        assert wfs.bd.comm.size == 1
+
         self.xc.initialize(dens, ham, wfs, occupations)
 
         self.dens = dens
