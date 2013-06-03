@@ -4,7 +4,7 @@ else:
     elements_slow = ['Mn']  # just test single element
 def agts(queue):
     run16 = [queue.add('pbe_gpaw_pw.py %s' % s,
-                       ncpus=16,
+                       queueopts='-l nodes=2:ppn=8:xeon8',
                        walltime=30*60)
              for s in elements_slow]
     run4 = [queue.add('pbe_gpaw_pw.py %s' % s,
