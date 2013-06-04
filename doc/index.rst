@@ -17,7 +17,7 @@ more about :ref:`its features and the algorithms used
         :target: http://www.anl.gov
 .. |i1| image:: _static/logo-dtu.png
         :height: 44 px
-        :target: http://www.camp.dtu.dk
+        :target: http://www.fysik.dtu.dk/english/Research/CAMD
 .. |i2| image:: _static/logo-csc.png
         :height: 44 px
         :target: http://www.csc.fi
