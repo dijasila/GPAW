@@ -5,6 +5,7 @@ else:
 def agts(queue):
     run16 = [queue.add('pbe_gpaw_pw.py %s' % s,
                        queueopts='-l nodes=2:ppn=8:xeon8',
+                       ncpus=16,
                        walltime=30*60)
              for s in elements_slow]
     run4 = [queue.add('pbe_gpaw_pw.py %s' % s,
