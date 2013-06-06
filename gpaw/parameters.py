@@ -32,8 +32,10 @@ def read_parameters(params, reader):
         params.kpts = bzk_kc
 
     params.usesymm = r['UseSymmetry']
-    params.realspace = r['RealSpace']
     params.basis = r['BasisSet']
+
+    if version >= 4:
+        params.realspace = r['RealSpace']
 
     if version >= 2:
         try:
