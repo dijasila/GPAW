@@ -197,14 +197,14 @@ class ElectronPhononCoupling(Displacement):
             calc = self.calc_lcao
             setups = calc.wfs.setups
             bfs = calc.wfs.basis_functions
-            niAO_a = [setups[a].niAO for a in range(len(self.atoms))]
+            nao_a = [setups[a].nao for a in range(len(self.atoms))]
             M_a = [bfs.M_a[a] for a in range(len(self.atoms))]
         else:
             M_a = args[0]
-            niAO_a = args[1]
+            nao_a = args[1]
             
         self.basis_info = {'M_a': M_a,
-                           'niAO_a': niAO_a}
+                           'niAO_a': nao_a} # XXX niAO -> nao
 
     def set_log(self, log=None):
         """Set output log."""
@@ -402,8 +402,8 @@ class ElectronPhononCoupling(Displacement):
                     if kd.comm.rank == 0:
                         fd = open(fname, 'w')
                         M_a = self.basis_info['M_a']
-                        niAO_a = self.basis_info['niAO_a']
-                        pickle.dump((g_NNMM, M_a, niAO_a), fd, 2)
+                        nao_a = self.basis_info['niAO_a']
+                        pickle.dump((g_NNMM, M_a, nao_a), fd, 2)
                         fd.close()
                     
         self.timer.write_now("Finished gradient of PAW Hamiltonian")
@@ -420,8 +420,8 @@ class ElectronPhononCoupling(Displacement):
                     fname = self.name + '.supercell_matrix.%s.pckl' % basis
                 fd = open(fname, 'w')
                 M_a = self.basis_info['M_a']
-                niAO_a = self.basis_info['niAO_a']                
-                pickle.dump((self.g_xNNMM, M_a, niAO_a), fd, 2)
+                nao_a = self.basis_info['nao_a']                
+                pickle.dump((self.g_xNNMM, M_a, nao_a), fd, 2)
                 fd.close()
 
     def load_supercell_matrix(self, basis=None, name=None, multiple=False):
@@ -452,7 +452,7 @@ class ElectronPhononCoupling(Displacement):
             else:
                 fname = self.name + '.supercell_matrix.%s.pckl' % basis
             fd = open(fname)
-            self.g_xNNMM, M_a, niAO_a = pickle.load(fd)
+            self.g_xNNMM, M_a, nao_a = pickle.load(fd)
             fd.close()
         else:
             g_xNNMM = []
@@ -463,12 +463,12 @@ class ElectronPhononCoupling(Displacement):
                     fname = self.name + \
                             '.supercell_matrix_x_%2.2u.%s.pckl' % (x, basis)
                 fd = open(fname, 'r')
-                g_NNMM, M_a, niAO_a = pickle.load(fd)
+                g_NNMM, M_a, nao_a = pickle.load(fd)
                 fd.close()
                 g_xNNMM.append(g_NNMM)
             self.g_xNNMM = np.array(g_xNNMM)
 
-        self.set_basis_info(M_a, niAO_a)
+        self.set_basis_info(M_a, nao_a)
                                   
     def apply_cutoff(self, cutmax=None, cutmin=None):
         """Zero matrix element inside/beyond the specified cutoffs.
@@ -502,11 +502,11 @@ class ElectronPhononCoupling(Displacement):
         
         # Make slices for orbitals on atoms
         M_a = self.basis_info['M_a']
-        niAO_a = self.basis_info['niAO_a']
+        nao_a = self.basis_info['niAO_a']
         slice_a = []
         for a in range(len(self.atoms)):
             start = M_a[a] ;
-            stop = start + niAO_a[a]
+            stop = start + nao_a[a]
             s = slice(start, stop)
             slice_a.append(s)
             

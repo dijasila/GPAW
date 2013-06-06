@@ -498,7 +498,7 @@ class TestRunner:
                 skip = True
             else:
                 failed = True
-        except:
+        except Exception:
             failed = True
 
         mpi.ibarrier(timeout=60.0)  # guard against parallel hangs

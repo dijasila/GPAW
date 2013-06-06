@@ -124,6 +124,11 @@ class LrTDDFT(ExcitationList):
         self.eh_comm = eh_comm
  
         if calculator is not None:
+            if calculator.wfs.kpt_comm.size > 1:
+                err_txt = "Spin parallelization with Linear response "
+                err_txt += "TDDFT. Use parallel = {'domain' : 'domain_only'} "
+                err_txt += "calculator parameter."
+                raise NotImplementedError(err_txt)
             if xc == 'GS':
                 xc = calculator.hamiltonian.xc.name
             calculator.converge_wave_functions()

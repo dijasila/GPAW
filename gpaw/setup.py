@@ -88,8 +88,8 @@ class BaseSetup:
 
         Hund rules disabled if so."""
 
-        niao = self.niAO
-        f_si = np.zeros((nspins, niao))
+        nao = self.nao
+        f_si = np.zeros((nspins, nao))
 
         assert (not hund) or f_j is None
         if f_j is None:
@@ -181,7 +181,7 @@ class BaseSetup:
         if hund and magmom != 0:
             raise ValueError('Bad magnetic moment %g for %s atom!'
                              % (magmom, self.symbol))
-        assert i == niao
+        assert i == nao
 
 #        print "fsi=", f_si
         return f_si
@@ -197,7 +197,7 @@ class BaseSetup:
         raise RuntimeError
     
     def initialize_density_matrix(self, f_si):
-        nspins, niao = f_si.shape
+        nspins, nao = f_si.shape
         ni = self.ni
 
         D_sii = np.zeros((nspins, ni, ni))
@@ -398,7 +398,7 @@ class LeanSetup(BaseSetup):
         self.Nc = s.Nc
 
         self.ni = s.ni
-        self.niAO = s.niAO # XXX rename to nao
+        self.nao = s.nao
 
         self.pt_j = s.pt_j
         self.phit_j = s.phit_j # basis functions
@@ -443,7 +443,7 @@ class LeanSetup(BaseSetup):
         # Required by print_info
         self.rcutfilter = s.rcutfilter
         self.rcore = s.rcore
-        self.basis = s.basis # we don't need niAO if we use this instead
+        self.basis = s.basis # we don't need nao if we use this instead
         # Can also get rid of the phit_j splines if need be
 
         self.N0_p = s.N0_p # req. by estimate_magnetic_moments
@@ -644,10 +644,10 @@ class Setup(BaseSetup):
         self.phit_j = phit_j
         self.basis = basis #?
 
-        self.niAO = 0
+        self.nao = 0
         for phit in self.phit_j:
             l = phit.get_angular_momentum_number()
-            self.niAO += 2 * l + 1
+            self.nao += 2 * l + 1
 
         rgd2 = self.rgd2 = AERadialGridDescriptor(rgd.a, rgd.b, gcut2)
         r_g = rgd2.r_g
@@ -1124,7 +1124,7 @@ class Setups(list):
             self.Eref += n * setup.E
             self.core_charge += n * (setup.Z - setup.Nv - setup.Nc)
             self.nvalence += n * setup.Nv
-            self.nao += n * setup.niAO
+            self.nao += n * setup.nao
 
     def set_symmetry(self, symmetry):
         """Find rotation matrices for spherical harmonics."""

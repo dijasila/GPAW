@@ -26,7 +26,8 @@ class PWDescriptor:
     def __init__(self, ecut, gd, dtype=None, kd=None,
                  fftwflags=fftw.ESTIMATE):
 
-        assert gd.pbc_c.all() and gd.comm.size == 1
+        assert gd.pbc_c.all()
+        assert gd.comm.size == 1
 
         self.ecut = ecut
         self.gd = gd

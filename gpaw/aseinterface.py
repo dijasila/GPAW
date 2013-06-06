@@ -67,7 +67,8 @@ class GPAW(PAW, Calculator):
                             'density':     1.0e-4,
                             'eigenstates': 4.0e-8,  # eV^2
                             'bands':       'occupied'},
-        'parallel':        {'domain':              parsize_domain,
+        'parallel':        {'kpt':                 None,
+                            'domain':              parsize_domain,
                             'band':                parsize_bands,
                             'stridebands':         False,
                             'sl_auto':             False,

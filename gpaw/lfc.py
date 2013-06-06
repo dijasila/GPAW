@@ -4,7 +4,7 @@ import numpy as np
 
 from gpaw import debug, extra_parameters
 from gpaw.spherical_harmonics import Y
-from gpaw.grid_descriptor import GridDescriptor
+from gpaw.grid_descriptor import GridDescriptor, GridBoundsError
 from gpaw.mpi import serial_comm
 import _gpaw
 
@@ -259,8 +259,12 @@ class NewLocalizedFunctionsCollection(BaseLFC):
         assert len(spos_ac) == len(self.sphere_a)
         spos_ac = np.asarray(spos_ac)
         movement = False
-        for spos_c, sphere in zip(spos_ac, self.sphere_a):
-            movement |= sphere.set_position(spos_c, self.gd, self.cut)
+        for a, (spos_c, sphere) in enumerate(zip(spos_ac, self.sphere_a)):
+            try:
+                movement |= sphere.set_position(spos_c, self.gd, self.cut)
+            except GridBoundsError, e:
+                e.args = ['Atom %d too close to edge: %s' % (a, str(e))]
+                raise
 
         if movement or self.my_atom_indices is None:
             self._update(spos_ac)

@@ -136,3 +136,16 @@
 2013-01-03 10.1021/jz3018286 Investigation of Catalytic Finite-Size-Effects of Platinum Metal Clusters
 2013-01-10 10.1021/jp310667r Electronic Origin of the Surface Reactivity of Transition-Metal-Doped TiO2(110)
 2013-01-10 10.1103/PhysRevB.87.045411 Charging properties of gold clusters in different environments
+2013-01-15 10.1002/anie.201208443 The Redox Chemistry of Gold with High-Valence Doped Calcium Oxide
+2013-01-15 10.1007/s10562-012-0918-x The Oxygen Reduction Reaction on Nitrogen-Doped Graphene
+2013-01-15 10.1007/s10562-012-0947-5 CO and CO2 Hydrogenation to Methanol Calculated Using the BEEF-vdW Functional
+2013-01-15 10.1140/epjd/e2012-30537-x Structural and electronic properties of AuIr nanoalloys
+2013-01-30 10.1103/PhysRevB.87.045428 Stratified graphene/noble metal systems for low-loss plasmonics applications
+2013-02-07 10.1021/jz3021155 Understanding Trends in the Electrocatalytic Activity of Metals and Enzymes for CO2 Reduction to CO
+2013-02-13 10.1103/PhysRevB.87.075111 Random phase approximation applied to solids, molecules, and graphene-metal interfaces: From van der Waals to covalent bonding
+2013-02-15 10.1140/epjd/e2012-30486-4 Modeling thiolate-protected gold clusters with density-functional tight-binding
+2013-02-25 10.1103/PhysRevB.87.075207 Formation energies of group I and II metal oxides using random phase approximation
+2013-03-20 10.1088/0953-8984/25/11/115502 Environmental tight-binding modeling of nickel and cobalt clusters
+2013-03-21 10.1021/jp3107809 DFT plus U Study of Polaronic Conduction in Li2O2 and Li2CO3: Implications for Li-Air Batteries
+2013-04-15 10.1016/j.carbon.2012.12.008 Binding of atomic oxygen on graphene from small epoxy clusters to a fully oxidized surface
+2013-04-15 10.1016/j.jcat.2013.01.009 Guest-host interactions of arenes in H-ZSM-5 and their impact on methanol-to-hydrocarbons deactivation processes

@@ -151,6 +151,8 @@ class HybridXC(HybridXCBase):
         self.gd = density.gd
         self.kd = wfs.kd
         self.bd = wfs.bd
+        if self.bd.comm.size > 1:
+            raise ValueError('Band parallelization not supported by hybridk')
         self.wfs = wfs
 
         self.world = wfs.world

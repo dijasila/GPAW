@@ -197,3 +197,22 @@
 2013-01-03 10.1016/j.cplett.2012.10.055 The structural and electronic properties of small osmium clusters (2-14): A density functional theory study
 2013-01-03 10.1016/j.cplett.2012.11.025 Avoiding pitfalls in the modeling of electrochemical interfaces
 2013-01-10 10.1103/PhysRevB.87.045411 Charging properties of gold clusters in different environments
+2013-01-15 10.1002/anie.201208443 The Redox Chemistry of Gold with High-Valence Doped Calcium Oxide
+2013-01-15 10.1007/s10562-012-0918-x The Oxygen Reduction Reaction on Nitrogen-Doped Graphene
+2013-01-15 10.1007/s10562-012-0947-5 CO and CO2 Hydrogenation to Methanol Calculated Using the BEEF-vdW Functional
+2013-01-15 10.1039/c3cp50349f First principles investigation of zinc-anode dissolution in zinc-air batteries
+2013-01-15 10.1140/epjd/e2012-30537-x Structural and electronic properties of AuIr nanoalloys
+2013-01-21 10.1063/1.4773242 Theoretical evidence for low kinetic overpotentials in Li-O-2 electrochemistry
+2013-01-30 10.1103/PhysRevB.87.045428 Stratified graphene/noble metal systems for low-loss plasmonics applications
+2013-02-07 10.1021/jz3021155 Understanding Trends in the Electrocatalytic Activity of Metals and Enzymes for CO2 Reduction to CO
+2013-02-13 10.1103/PhysRevB.87.075111 Random phase approximation applied to solids, molecules, and graphene-metal interfaces: From van der Waals to covalent bonding
+2013-02-14 10.1063/1.4790368 Thiolate adsorption on Au(hkl) and equilibrium shape of large thiolate-covered gold nanoparticles
+2013-02-15 10.1109/JPROC.2012.2197810 Quantum Transport Modeling From First Principles
+2013-02-15 10.1140/epjd/e2012-30486-4 Modeling thiolate-protected gold clusters with density-functional tight-binding
+2013-02-21 10.1021/jp305303q Refractive Index Functions of TiO2 Nanoparticles
+2013-02-25 10.1103/PhysRevB.87.075207 Formation energies of group I and II metal oxides using random phase approximation
+2013-03-15 10.1002/cctc.201200635 First-Principles Calculations of FischerTropsch Processes Catalyzed by Nitrogenase Enzymes
+2013-03-15 10.1016/j.scriptamat.2012.10.026 Strain field of interstitial hydrogen atom in body-centered cubic iron and its effect on hydrogen-dislocation interaction
+2013-03-18 10.1063/1.4798511 Chemisorption of hydrogen on Fe clusters through hybrid bonding mechanisms
+2013-04-15 10.1016/j.carbon.2012.12.008 Binding of atomic oxygen on graphene from small epoxy clusters to a fully oxidized surface
+2013-04-15 10.1016/j.jcat.2013.01.009 Guest-host interactions of arenes in H-ZSM-5 and their impact on methanol-to-hydrocarbons deactivation processes

@@ -319,7 +319,7 @@ class GW(BASECHI):
                         else:
                             sign = -1.
 
-                        rho_G = df.density_matrix(m, n, kq, spin=s)
+                        rho_G = df.density_matrix(m, n, kq, spin1=s, spin2=s)
 
                         if not self.hilbert_trans: #method 1
                             W_wGG[:,:,0] = Wbackup_wG0
@@ -438,7 +438,7 @@ class GW(BASECHI):
         self.printtxt("calculating Exact exchange and E_XC")
         self.printtxt('------------------------------------------------')
 
-        calc = GPAW(self.file, communicator=communicator, parallel={'domain':1}, txt=None)
+        calc = GPAW(self.file, communicator=communicator, parallel={'domain':1, 'band':1}, txt=None)
         v_xc = vxc(calc)
 
         if ecut == None:

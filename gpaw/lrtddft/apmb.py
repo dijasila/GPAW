@@ -22,6 +22,13 @@ class ApmB(OmegaMatrix):
 
     def get_full(self):
 
+        hybrid = ((self.xc is not None) and
+                  hasattr(self.xc, 'hybrid') and
+                  (self.xc.hybrid > 0.0))
+        if self.fullkss.npspins < 2 and hybrid:
+            raise RuntimeError('Does not work spin-unpolarized ' +
+                               'with hybrids (use nspins=2)')
+
         self.paw.timer.start('ApmB RPA')
         self.ApB = self.Om
         self.AmB = self.get_rpa()
@@ -30,14 +37,7 @@ class ApmB(OmegaMatrix):
         if self.xc is not None:
             self.paw.timer.start('ApmB XC')
             self.get_xc() # inherited from OmegaMatrix
-            hybrid = hasattr(self.xc, 'hybrid') and self.xc.hybrid > 0.0
             self.paw.timer.stop()
-        else:
-            hybrid = False
-        
-        if self.fullkss.npspins < 2 and hybrid:
-            raise RuntimeError('Does not work spin-unpolarized ' +
-                               'with hybrids (use nspins=2)')
 
     def get_rpa(self):
         """Calculate RPA and Hartree-fock part of the A+-B matrices."""

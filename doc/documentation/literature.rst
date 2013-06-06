@@ -91,9 +91,9 @@ Citations of the GPAW method papers
 .. image:: citations.png
    :width: 750
 
-(updated on August 10, 2011)
+(updated on May 18, 2013)
 
-The four method papers are:
+The five method papers are:
 
 gpaw1:
     \J. J. Mortensen, L. B. Hansen, and K. W. Jacobsen
@@ -115,6 +115,16 @@ tddft:
     Journal of Chemical Physics, Vol. **128**, 244101 (2008)
 
     __ http://dx.doi.org/10.1063/1.2943138
+
+lcao:
+    \A. H. Larsen, M. Vanin, J. J. Mortensen, K. S. Thygesen, and
+    K. W. Jacobsen
+
+    `Localized atomic basis set in the projector augmented wave method`__
+
+    Physical Review B, Vol. **80**,  195112 (2009)
+
+    __ http://dx.doi.org/10.1103/PhysRevB.80.195112
 
 gpaw2:
     \J. Enkovaara, C. Rostgaard, J. J. Mortensen, J. Chen, M. Dulak,

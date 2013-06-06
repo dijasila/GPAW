@@ -1,5 +1,6 @@
 # creates: citations.png citations.csv
 
+import os
 import datetime
 
 import matplotlib
@@ -12,7 +13,7 @@ months = [datetime.date(2000, m, 1).strftime('%B')[:3].upper()
 
 
 def f(filename):
-    papers = []
+    papers = {}
     lines = open(filename).readlines()
     n = 0
     dois =  set()
@@ -44,30 +45,35 @@ def f(filename):
             date = datetime.date(y, m, d)
             if doi not in dois:
                 dois.add(doi)
-                papers.append((date, doi, title))
+                papers[doi] = (date, title)
         n += 1
 
-    papers.sort()
     return papers
 
-plt.figure(figsize=(10, 5))
+
+plt.figure(figsize=(8, 4))
 total = {}
-for bib in ['gpaw1', 'tddft', 'gpaw2', 'response']:
-    papers = []
+for bib in ['gpaw1', 'tddft', 'lcao', 'gpaw2', 'response']:
+    papers = {}
     for line in open(bib + '.txt'):
         date, doi, title = line.split(' ', 2)
-        papers.append((datetime.date(*[int(x) for x in date.split('-')]),
-                       doi, title.strip()))
+        papers[doi] = (datetime.date(*[int(x) for x in date.split('-')]),
+                       title.strip())
+    if os.path.isfile(bib + '.bib'):
+        papers.update(f(bib + '.bib'))
+    papers = [(papers[doi][0], doi, papers[doi][1]) for doi in papers]
+    papers.sort()
     plt.plot([paper[0] for paper in papers], range(1, len(papers) + 1),
              '-o', label=bib)
+    #fd = open(bib + '.txt', 'w')
     for date, doi, title in papers:
+        #fd.write('%d-%02d-%02d %s %s\n' % (date.year, date.month, date.day,
+        #                               doi, title))
         total[doi] = (date, title)
+    #fd.close()
     x = dict([(p[1], 0) for p in papers])
     print(bib, len(papers), len(x), len(total))
-    #fd = open(bib + '.txt', 'w')
-    #for date, doi, title in papers:
-    #    print >> fd, date,doi,title
-    #fd.close()
+
 
 allpapers = [(paper[0], doi, paper[1]) for doi, paper in total.items()]
 allpapers.sort()

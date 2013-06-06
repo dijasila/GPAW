@@ -81,7 +81,6 @@ class BASECHI:
         self.optical_limit = optical_limit
         self.eshift = eshift
 
-
     def initialize(self):
                         
         self.eta /= Hartree
@@ -109,6 +108,7 @@ class BASECHI:
         self.nG = gd.N_c
         self.nG0 = self.nG[0] * self.nG[1] * self.nG[2]
         self.h_cv = gd.h_cv
+        self.d_c = [Gradient(gd, i, n=4, dtype=complex).apply for i in range(3)]
 
         # obtain eigenvalues, occupations
         nibzkpt = kd.nibzkpts
@@ -401,7 +401,8 @@ class BASECHI:
         return
 
 
-    def density_matrix(self,n,m,k,kq=None,spin=0,phi_aGp=None,Gspace=True):
+    def density_matrix(self, n, m, k, kq=None,
+                       spin1=0, spin2=0, phi_aGp=None, Gspace=True):
 
         ibzk_kc = self.ibzk_kc
         bzk_kc = self.bzk_kc
@@ -422,9 +423,8 @@ class BASECHI:
             
             if (np.abs(q_c) < self.ftol).all():
                 optical_limit=True
-                q_c = np.array([0.0001, 0, 0])
-
-            q_v = np.dot(q_c, self.bcell_cv) #
+                q_c = self.q_c
+            q_v = np.dot(q_c, self.bcell_cv)
             r_vg = gd.get_grid_point_coordinates() # (3, nG)
             qr_g = gemmdot(q_v, r_vg, beta=0.0)
             expqr_g = np.exp(-1j * qr_g)
@@ -434,10 +434,10 @@ class BASECHI:
         ibzkpt1 = kd.bz2ibz_k[k]
         ibzkpt2 = kd.bz2ibz_k[kq]
         
-        psitold_g = self.get_wavefunction(ibzkpt1, n, True, spin=spin)
+        psitold_g = self.get_wavefunction(ibzkpt1, n, True, spin=spin1)
         psit1_g = kd.transform_wave_function(psitold_g, k)
         
-        psitold_g = self.get_wavefunction(ibzkpt2, m, True, spin=spin)
+        psitold_g = self.get_wavefunction(ibzkpt2, m, True, spin=spin2)
         psit2_g = kd.transform_wave_function(psitold_g, kq)
 
         if (self.rpad > 1).any() or (self.pbc - True).any():
@@ -457,15 +457,14 @@ class BASECHI:
             rho_G = rho_g.ravel()[self.Gindex_G]
 
             if optical_limit:
-                d_c = [Gradient(gd, i, n=4, dtype=complex).apply for i in range(3)]
                 dpsit_g = gd.empty(dtype=complex)
                 tmp = np.zeros((3), dtype=complex)
                 phase_cd = np.exp(2j * pi * gd.sdisp_cd * bzk_kc[kq, :, np.newaxis])
                 for ix in range(3):
-                    d_c[ix](psit2_g, dpsit_g, phase_cd)
+                    self.d_c[ix](psit2_g, dpsit_g, phase_cd)
                     tmp[ix] = gd.integrate(psit1_g.conj() * dpsit_g)
                 rho_G[0] = -1j * np.dot(q_v, tmp)
-
+                
             calc = self.calc
             pt = self.pt
             if not self.pwmode:
@@ -475,21 +474,21 @@ class BASECHI:
                     P2_ai = pt.dict()
                     pt.integrate(psit2_g, P2_ai, kq)
                 else:
-                    P1_ai = self.get_P_ai(k,n,spin)
-                    P2_ai = self.get_P_ai(kq, m, spin)
+                    P1_ai = self.get_P_ai(k, n, spin1)
+                    P2_ai = self.get_P_ai(kq, m, spin2)
             else:
                 # first calculate P_ai at ibzkpt, then rotate to k
-                u = self.kd.get_rank_and_index(spin, ibzkpt1)[1]
+                u = self.kd.get_rank_and_index(spin1, ibzkpt1)[1]
                 Ptmp_ai = pt.dict()
                 kpt = calc.wfs.kpt_u[u]
                 pt.integrate(kpt.psit_nG[n], Ptmp_ai, ibzkpt1)
-                P1_ai = self.get_P_ai(k,n,spin,Ptmp_ai)
+                P1_ai = self.get_P_ai(k, n, spin1, Ptmp_ai)
 
-                u = self.kd.get_rank_and_index(spin, ibzkpt2)[1]
+                u = self.kd.get_rank_and_index(spin2, ibzkpt2)[1]
                 Ptmp_ai = pt.dict()
                 kpt = calc.wfs.kpt_u[u]
                 pt.integrate(kpt.psit_nG[m], Ptmp_ai, ibzkpt2)
-                P2_ai = self.get_P_ai(kq,m,spin,Ptmp_ai)
+                P2_ai = self.get_P_ai(kq, m, spin2, Ptmp_ai)
 
             if phi_aGp is None:
                 try:
@@ -512,10 +511,10 @@ class BASECHI:
             if optical_limit:
                 if n==m:
                     rho_G[0] = 1.
-                elif np.abs(self.e_skn[spin][ibzkpt2, m] - self.e_skn[spin][ibzkpt1, n]) < 1e-5:
+                elif np.abs(self.e_skn[spin2][ibzkpt2, m] - self.e_skn[spin1][ibzkpt1, n]) < 1e-5:
                     rho_G[0] = 0.
                 else:
-                    rho_G[0] /= (self.enoshift_skn[spin][ibzkpt2, m] - self.enoshift_skn[spin][ibzkpt1, n])
+                    rho_G[0] /= (self.enoshift_skn[spin2][ibzkpt2, m] - self.enoshift_skn[spin1][ibzkpt1, n])
 
             return rho_G
 
@@ -534,8 +533,10 @@ class BASECHI:
         for a, id in enumerate(calc.wfs.setups.id_a):
             b = kd.symmetry.a_sa[s, a]
             S_c = (np.dot(spos_ac[a], kd.symmetry.op_scc[s]) - spos_ac[b])
-        
-            assert abs(S_c.round() - S_c).max() < 1e-10
+
+            #print abs(S_c.round() - S_c).max()
+            #print 'S_c', abs(S_c).max()
+            assert abs(S_c.round() - S_c).max() < 1e-8 ##############
             k_c = kd.ibzk_kc[kpt.k]
         
             x = np.exp(2j * pi * np.dot(k_c, S_c))

@@ -286,7 +286,7 @@ class LCAOWaveFunctions(WaveFunctions):
             def _slices(indices):
                 for a in indices:
                     M1 = bfs.M_a[a] - Mstart
-                    M2 = M1 + self.setups[a].niAO
+                    M2 = M1 + self.setups[a].nao
                     if M2 > 0:
                         yield a, max(0, M1), M2
 
@@ -838,8 +838,9 @@ class LCAOWaveFunctions(WaveFunctions):
     def read_coefficients(self, reader):
         for kpt in self.kpt_u:
             kpt.C_nM = self.bd.empty(self.setups.nao, dtype=self.dtype)
-            for n in self.bd.get_band_indices():
-                kpt.C_nM[n] = reader.get('WaveFunctionCoefficients',
+            for myn, C_M in enumerate(kpt.C_nM):
+                n = self.bd.global_index(myn)
+                C_M[:] = reader.get('WaveFunctionCoefficients',
                                          kpt.s, kpt.k, n)
 
     def estimate_memory(self, mem):

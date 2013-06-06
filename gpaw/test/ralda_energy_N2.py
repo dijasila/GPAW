@@ -20,6 +20,7 @@ else:
 # N2 --------------------------------------
 N2 = molecule('N2')
 N2.set_cell((2.5, 2.5, 3.5))
+N2.center()
 calc = GPAW(mode='pw',
             dtype=complex,
             xc='LDA',
@@ -33,7 +34,6 @@ calc.write('N2.gpw', mode='all')
 
 calc = GPAW('N2.gpw', communicator=serial_comm, txt=None)
 ralda = FXCCorrelation(calc,
-                       num=1,
                        xc='rALDA',
                        method='standard')
 Ec_N2 = ralda.get_fxc_correlation_energy(ecut=50,
@@ -47,6 +47,7 @@ Ec_N2_s = ralda.get_fxc_correlation_energy(ecut=50,
 # N ---------------------------------------
 N = Atoms('N', [(0,0,0)])
 N.set_cell((2.5, 2.5, 3.5))
+N.center()
 calc = GPAW(mode='pw',
             dtype=complex,
             xc='LDA',
@@ -77,7 +78,7 @@ if rank == 0:
    system('rm N2.gpw')
    system('rm N.gpw')
 
-equal(Ec_N2, -4.9250, 0.001,)
-equal(Ec_N2_s, -7.7054, 0.001,)
-equal(Ec_N, -0.6199, 0.001)
-equal(Ec_N_s, -2.0378, 0.001)
+equal(Ec_N2, -6.1651, 0.001,)
+equal(Ec_N2_s, -7.7042, 0.001,)
+equal(Ec_N, -1.0567, 0.001)
+equal(Ec_N_s, -2.0419, 0.001)

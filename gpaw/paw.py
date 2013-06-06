@@ -80,6 +80,7 @@ class PAW(PAWTextOutput):
         self.hamiltonian = None
 
         self.initialized = False
+        self.nbands_parallelization_adjustment = None # Somehow avoid this?
 
         self.observers = []
 
@@ -210,9 +211,13 @@ class PAW(PAWTextOutput):
         
         nbands = par.nbands
         if nbands is None:
-            nbands = nao
+            nbands = 0
+            for setup in setups:
+                nbands += max(sum([2 * l + 1 for l in setup.l_j]),
+                              -(-setup.Nv // 2))
+            nbands = min(nao, nbands)
         elif nbands > nao and mode == 'lcao':
-            raise ValueError('Too many bands for LCAO calculation: ' +
+            raise ValueError('Too many bands for LCAO calculation: '
                              '%d bands and only %d atomic orbitals!' %
                              (nbands, nao))
 
@@ -271,6 +276,7 @@ class PAW(PAWTextOutput):
                 par.maxiter, par.fixdensity,
                 niter_fixdensity)
 
+        parsize_kpt = par.parallel['kpt']
         parsize_domain = par.parallel['domain']
         parsize_bands = par.parallel['band']
 
@@ -281,13 +287,37 @@ class PAW(PAWTextOutput):
             if parsize_domain == 'domain only':  # XXX this was silly!
                 parsize_domain = world.size
 
-            domain_comm, kpt_comm, band_comm = mpi.distribute_cpus(
-                parsize_domain, parsize_bands,
-                nspins, kd.nibzkpts, world, par.idiotproof, mode)
+            parallelization = mpi.Parallelization(world, 
+                                                  nspins * kd.nibzkpts)
+            ndomains = None
+            if parsize_domain is not None:
+                ndomains = np.prod(parsize_domain)
+            if isinstance(mode, PW):
+                if ndomains > 1:
+                    raise ValueError('Planewave mode does not support '
+                                     'domain decomposition.')
+                ndomains = 1
+            parallelization.set(kpt=parsize_kpt,
+                                domain=ndomains,
+                                band=parsize_bands)
+            domain_comm, kpt_comm, band_comm = \
+                parallelization.build_communicators()
+
+            #domain_comm, kpt_comm, band_comm = mpi.distribute_cpus(
+            #    parsize_domain, parsize_bands,
+            #    nspins, kd.nibzkpts, world, par.idiotproof, mode)
 
             kd.set_communicator(kpt_comm)
 
             parstride_bands = par.parallel['stridebands']
+
+            # Unfortunately we need to remember that we adjusted the
+            # number of bands so we can print a warning if it differs
+            # from the number specified by the user.  (The number can
+            # be inferred from the input parameters, but it's tricky
+            # because we allow negative numbers)
+            self.nbands_parallelization_adjustment = -nbands % band_comm.size
+            nbands += self.nbands_parallelization_adjustment
             bd = BandDescriptor(nbands, band_comm, parstride_bands)
 
             if (self.density is not None and

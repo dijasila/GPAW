@@ -28,8 +28,9 @@ class BSE(BASECHI):
                  eshift=None,
                  ecut=10.,
                  eta=0.2,
+                 gw_skn=None, # GW QP energies in Hartree
                  rpad=np.array([1,1,1]),
-                 vcut=None,
+                 vcut=None,   # Coulomb cutoff only 2D works
                  ftol=1e-5,
                  txt=None,
                  optical_limit=None,
@@ -51,6 +52,7 @@ class BSE(BASECHI):
         self.vcut = vcut
         self.nc = nc # conduction band index
         self.nv = nv # valence band index
+        self.gw_skn = gw_skn
         self.mode = mode
         self.integrate_coulomb = integrate_coulomb
         self.print_coulomb = print_coulomb
@@ -110,8 +112,12 @@ class BSE(BASECHI):
                         check_ftol = np.abs(focc) > self.ftol
                     else:
                         check_ftol = focc > self.ftol
-                    if check_ftol:           
-                        self.e_S[iS] =self.e_skn[0][ibzkpt2,m1] - self.e_skn[0][ibzkpt1,n1]
+                    if check_ftol:
+                        if self.gw_skn is None:
+                            self.e_S[iS] = self.e_skn[0][ibzkpt2,m1] - self.e_skn[0][ibzkpt1,n1]
+                        else:
+                            self.e_S[iS] = self.gw_skn[0][ibzkpt2,m1] - self.gw_skn[0][ibzkpt1,n1]
+                            
                         focc_s[iS] = focc
                         self.Sindex_S3[iS] = (k1, n1, m1)
                         iS += 1
@@ -258,10 +264,9 @@ class BSE(BASECHI):
 
         # Calculate full kernel
         K_SS = np.zeros((self.nS_local, self.nS), dtype=complex)
-        W_SS = np.zeros_like(K_SS)
         self.rhoG0_S = np.zeros((self.nS), dtype=complex)
 
-        noGmap = 0
+        #noGmap = 0
         for iS in range(self.nS_start, self.nS_end):
             k1, n1, m1 = self.Sindex_S3[iS]
             rho1_G = self.density_matrix(n1,m1,k1)
@@ -302,7 +307,7 @@ class BSE(BASECHI):
                             try:
                                 Gindex[iG] = np.where(tmp_G < 1e-5)[0][0]
                             except:
-                                noGmap += 1
+                                #noGmap += 1
                                 Gindex[iG] = -1
     
                         W_GG = np.zeros_like(W_GG_tmp)
@@ -315,18 +320,16 @@ class BSE(BASECHI):
                                     
                     if self.mode == 'BSE':
                         tmp_GG = np.outer(rho3_G.conj(), rho4_G) * W_GG
-                        W_SS[iS-self.nS_start, jS] = np.sum(tmp_GG)
+                        K_SS[iS-self.nS_start, jS] -= 0.5 * np.sum(tmp_GG)
                     else:
                         tmp_G = rho3_G.conj() * rho4_G * np.diag(W_GG)
-                        W_SS[iS-self.nS_start, jS] = np.sum(tmp_G)
+                        K_SS[iS-self.nS_start, jS] -= 0.5 * np.sum(tmp_G)
             self.timing(iS, t0, self.nS_local, 'pair orbital') 
  
         K_SS /= self.vol
-        if not self.mode == 'RPA':
-            K_SS -= 0.5 * W_SS / self.vol
 
         world.sum(self.rhoG0_S)
-        self.printtxt('The number of G index outside the Gvec_Gc: %d' % noGmap)
+        #self.printtxt('Number of G indices outside the Gvec_Gc: %d' % noGmap)
 
         # Get and solve Hamiltonian
         H_sS = np.zeros_like(K_SS)
@@ -474,7 +477,7 @@ class BSE(BASECHI):
             
             if optical_limit:
                 eps = 1/dfinv_GG[0,0]
-                self.printtxt('  RPA macroscopic dielectric constant is: %3.3f' %  eps.real)
+                self.printtxt('    RPA macroscopic dielectric constant is: %3.3f' %  eps.real)
             W_qGG[iq] = dfinv_GG * self.V_qGG[iq]
             self.timing(iq, t0, self.nibzq, 'iq')
             
@@ -555,7 +558,7 @@ class BSE(BASECHI):
             for id in range(natoms):
                 N1, N2 = tmp_aGp[id].shape
                 phimax_qaGp[iq, id, :N1, :N2] = tmp_aGp[id]
-            self.timing(iq*world.size, t0, nbzq, 'iq')
+            self.timing(iq*world.size, t0, nq_local, 'iq')
         world.barrier()
 
         # Write to disk

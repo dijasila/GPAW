@@ -283,7 +283,7 @@ def plot_diag(mtx, ind=1):
     pylab.show()
 
 def get_atom_indices(subatoms, setups):
-    basis_list = [setup.niAO for setup in setups]
+    basis_list = [setup.nao for setup in setups]
     index = []
     for j, lj  in zip(subatoms, range(len(subatoms))):
         begin = np.sum(np.array(basis_list[:j], int))
