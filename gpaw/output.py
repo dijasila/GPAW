@@ -30,6 +30,7 @@ def initialize_text_stream(txt, rank, old_txt=None):
     """
     firsttime = (old_txt is None)
 
+    print txt,old_txt
     if txt is None or rank != 0:
         return devnull, firsttime
     elif txt == '-':
@@ -44,6 +45,7 @@ def initialize_text_stream(txt, rank, old_txt=None):
                 # it as a GPAW text file.
                 firsttime = True
             # Open the file line buffered.
+            print '-------------'
             return open(txt, 'w', 1), firsttime
     else:
         assert hasattr(txt, 'write'), 'Not a stream object!'

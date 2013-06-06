@@ -307,7 +307,7 @@ class PAWSetupGenerator:
             else:
                 self.alpha = fsolve(f, 7.0)[0]
 
-            self.alpha = round(self.alpha, 1)
+            self.alpha = round(self.alpha, 1) * 1.0
 
         self.log('Shape function: exp(-alpha*r^2), alpha=%.1f Bohr^-2' %
                  self.alpha)
@@ -417,6 +417,13 @@ class PAWSetupGenerator:
             if dntdr_g.max() < 0.0:
                 break
             rcore -= 0.01
+
+        if 111111:
+            print 'c'*50
+            rcore*=1.1
+            gcore = self.rgd.round(rcore)
+            self.nct_g = self.rgd.pseudize(self.nc_g, gcore)[0]
+            nt_g = self.nt_g + self.nct_g
 
         self.log('Constructing smooth pseudo core density for r < %.3f' %
                  rcore)

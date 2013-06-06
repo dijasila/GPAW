@@ -99,6 +99,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     scf = paw.scf
     density = paw.density
     hamiltonian = paw.hamiltonian
+    results = paw.results
 
     world = paw.wfs.world
     domain_comm = wfs.gd.comm
@@ -132,7 +133,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     
     w = open(filename, 'w', world)
     w['history'] = 'GPAW restart file'
-    w['version'] = 3
+    w['version'] = 4
     w['lengthunit'] = 'Bohr'
     w['energyunit'] = 'Hartree'
 
@@ -145,6 +146,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
 
     w.dimension('natoms', natoms)
     w.dimension('3', 3)
+    w.dimension('6', 6)
 
     w.add('AtomicNumbers', ('natoms',),
           atoms.get_atomic_numbers(), write=master)
@@ -159,11 +161,15 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         w.add('CartesianVelocities', ('natoms', '3'),
               atoms.get_velocities() * AUT / Bohr, write=master)
 
-    w.add('PotentialEnergy', (), hamiltonian.Etot + 0.5 * hamiltonian.S,
-          write=master)
-    if paw.forces.F_av is not None:
-        w.add('CartesianForces', ('natoms', '3'), paw.forces.F_av,
-              write=master)
+    w.add('PotentialEnergy', (), results['energy'] / Hartree, write=master)
+    if 'forces' in results:
+        w.add('CartesianForces', ('natoms', '3'),
+              results['forces'] * (Bohr / Hartree), write=master)
+    if 'stress' in results:
+        w.add('StressTensor', ('6',),
+              results['stress'] * (Bohr**3 / Hartree), write=master)
+    if 'dipole' in results:
+        w.add('DipoleMoment', ('3',), results['dipole'] / Bohr, write=master)
 
     # Write the k-points:
     if wfs.kd.N_c is not None:
@@ -213,7 +219,8 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     w['XCFunctional'] = paw.hamiltonian.xc.name
     w['Charge'] = p['charge']
     w['FixMagneticMoment'] = paw.occupations.fixmagmom
-    w['UseSymmetry'] = p['usesymm']
+    w['UseSymmetry'] = p.usesymm
+    w['RealSpace'] = p.realspace
     w['Converged'] = scf.converged
     w['FermiWidth'] = paw.occupations.width
     w['MixClass'] = density.mixer.__class__.__name__
@@ -584,6 +591,18 @@ def read(paw, reader):
     hamiltonian.read(r, parallel, kd, bd)
     timer.stop('Hamiltonian')
 
+    paw.results['free energy'] = Hartree * hamiltonian.Etot
+    paw.results['energy'] = Hartree * (hamiltonian.Etot +
+                                       0.5 * hamiltonian.S)
+    if r.has_array('CartesianForces'):
+        paw.results['forces'] = r.get('CartesianForces',
+                                      broadcast=True) * (Hartree / Bohr)
+    if r.has_array('StressTensor'):
+        paw.results['stress'] = r.get('StressTensor',
+                                      broadcast=True) * (Hartree / Bohr**3)
+    if r.has_array('DipoleMoment'):
+        paw.results['diople'] = r.get('DipoleMoment', broadcast=True) * Bohr
+
     wfs.rank_a = np.zeros(natoms, int)
 
     if version > 0.3:
@@ -747,12 +766,6 @@ def read(paw, reader):
 
     if newmode != oldmode:
         paw.scf.reset()
-
-    # Get the forces from the old calculation:
-    if r.has_array('CartesianForces'):
-        paw.forces.F_av = r.get('CartesianForces', broadcast=True)
-    else:
-        paw.forces.reset()
 
     hamiltonian.xc.read(r)
 

@@ -35,7 +35,6 @@ from gpaw.utilities.memory import MemNode, maxrss
 from gpaw.setup import Setups
 from gpaw.output import PAWTextOutput
 from gpaw.scf import SCFLoop
-from gpaw.forces import ForceCalculator
 from gpaw.utilities.gpts import get_number_of_grid_points
 
 
@@ -73,7 +72,6 @@ class PAW(PAWTextOutput):
         self.timer = self.timer_class()
 
         self.scf = None
-        self.forces = ForceCalculator(self.timer)
         self.wfs = EmptyWaveFunctions()
         self.occupations = None
         self.density = None
@@ -100,8 +98,7 @@ class PAW(PAWTextOutput):
         self.wfs.initialize(self.density, self.hamiltonian, spos_ac)
         self.wfs.eigensolver.reset()
         self.scf.reset()
-        self.forces.reset()
-        self.stress_vv = None
+        assert len(self.results) == 0
         self.print_positions()
 
     def initialize(self):
@@ -115,9 +112,12 @@ class PAW(PAWTextOutput):
 
         if par.txt is None:
             if self.label is None:
-                txt = par.txt
+                txt = '-'
             else:
-                txt = self.label + '.txt'
+                if self.label.endswith('.gpw'):
+                    txt = self.label[:-3] + 'txt'
+                else:
+                    txt = self.label + '.txt'
         else:
             txt = par.txt
         self.set_text(txt, par.verbose)

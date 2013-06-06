@@ -17,6 +17,7 @@ from gpaw.xc import XC
 from gpaw.paw import PAW
 from gpaw.hooks import hooks
 from gpaw.stress import stress
+from gpaw.forces import forces
 from gpaw.parameters import read_parameters
 from gpaw.occupations import MethfesselPaxton
 from gpaw.wavefunctions.base import EmptyWaveFunctions
@@ -81,12 +82,7 @@ class GPAW(PAW, Calculator):
 
     def __init__(self, restart=None, ignore_bad_restart_file=False, label=None,
                  atoms=None, communicator=None, **kwargs):
-        if communicator is None:
-            self.world = mpi.world
-        elif isinstance(communicator, (list, np.ndarray)):
-            self.world = mpi.world.new_communicator(np.asarray(communicator))
-        else:
-            self.world = communicator
+        self.set_communicator(communicator)
 
         PAW.__init__(self)
 
@@ -111,6 +107,14 @@ class GPAW(PAW, Calculator):
         gpaw.io.read(self, reader)
         self.print_cell_and_parameters()
 
+    def set_communicator(self, communicator):
+        if communicator is None:
+            self.world = mpi.world
+        elif isinstance(communicator, (list, np.ndarray)):
+            self.world = mpi.world.new_communicator(np.asarray(communicator))
+        else:
+            self.world = communicator
+
     def set(self, **kwargs):
         if (kwargs.get('h') is not None) and (kwargs.get('gpts') is not None):
             raise TypeError("""You can't use both "gpts" and "h"!""")
@@ -129,10 +133,10 @@ class GPAW(PAW, Calculator):
             
             if key in ['fixmom', 'mixer',
                        'verbose', 'txt', 'hund', 'random',
-                       'eigensolver', 'idiotproof', 'notify']:
+                       'eigensolver', 'idiotproof']:
                 continue
 
-            self.reset()
+            self.results = {}
 
             if key in ['convergence', 'fixdensity', 'maxiter']:
                 self.scf = None
@@ -198,6 +202,10 @@ class GPAW(PAW, Calculator):
                     self.density.reset()
                 self.set_positions()
 
+        if not self. initialized:
+            self.initialize()
+            self.set_positions()
+            
         self.print_cell_and_parameters()
 
         iter = None
@@ -214,6 +222,8 @@ class GPAW(PAW, Calculator):
                 self.call_observers(iter, final=True)
                 if 'converged' in hooks:
                     hooks['converged'](self)
+        else:
+            sdfgsdfg
 
         if not self.scf.converged:
             if 'not_converged' in hooks:
@@ -224,8 +234,7 @@ class GPAW(PAW, Calculator):
         self.results['energy'] = Hartree * (self.hamiltonian.Etot +
                                             0.5 * self.hamiltonian.S)
         if 'forces' in properties:
-            F_av = self.forces.calculate(self.wfs, self.density,
-                                         self.hamiltonian)
+            F_av = forces(self)
             self.results['forces'] = F_av * (Hartree / Bohr)
             self.print_forces()
 
@@ -253,10 +262,11 @@ class GPAW(PAW, Calculator):
             else:
                 self.results['magmoms'] = magmom_av
 
-        if iter is not None:
+        if 1:#iter is not None:
             self.print_converged(iter)
-            #if self.label:
-            #    self.write(self.label)
+        
+        if self.label:
+            self.write(self.label)
 
     def get_number_of_bands(self):
         """Return the number of bands."""

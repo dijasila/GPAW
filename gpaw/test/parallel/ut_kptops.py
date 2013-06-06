@@ -17,7 +17,6 @@ from gpaw.paw import kpts2ndarray
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.parameters import InputParameters
 from gpaw.setup import SetupData, Setups
 from gpaw.xc import XC
 
@@ -27,9 +26,7 @@ from gpaw.test.ut_common import ase_svnversion, shapeopt, TestCase, \
 
 # -------------------------------------------------------------------
 
-p = InputParameters(spinpol=False, usesymm=None)
-xc = XC(p.xc)
-p.setups = dict([(symbol, SetupData(symbol, xc.name)) for symbol in 'HO'])
+setups = dict([(symbol, SetupData(symbol, 'LDA')) for symbol in 'HO'])
 
 class UTKPointParallelSetup(TestCase):
     """
@@ -66,7 +63,6 @@ class UTKPointParallelSetup(TestCase):
 
         #primes = [i for i in xrange(50,1,-1) if ~np.any(i%np.arange(2,i)==0)]
         bzk_kc = kpts2ndarray(kpts)
-        assert p.usesymm == None
         self.nibzkpts = len(bzk_kc)
 
         #parsize_domain, parsize_bands = create_parsize_minbands(self.nbands, world.size)
@@ -76,7 +72,7 @@ class UTKPointParallelSetup(TestCase):
             parsize_bands, self.nspins, self.nibzkpts)
 
         # Set up band descriptor:
-        self.bd = BandDescriptor(self.nbands, band_comm, p.parallel['stridebands'])
+        self.bd = BandDescriptor(self.nbands, band_comm, False)
 
         # Set up grid descriptor:
         res, ngpts = shapeopt(300, self.G**3, 3, 0.2)
@@ -89,7 +85,7 @@ class UTKPointParallelSetup(TestCase):
 
         # Create setups
         Z_a = self.atoms.get_atomic_numbers()
-        self.setups = Setups(Z_a, p.setups, p.basis, p.lmax, xc)
+        self.setups = Setups(Z_a, setups, None, 2, 'LDA')
         self.natoms = len(self.setups)
 
         # Set up kpoint descriptor:

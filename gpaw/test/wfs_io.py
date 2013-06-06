@@ -9,12 +9,6 @@ from gpaw.test import equal
 from ase.parallel import rank, barrier, size
 
 endings = ['gpw']
-try:
-    import Scientific.IO.NetCDFXXXX
-    endings.append('nc')
-except ImportError:
-    pass
-
 for ending in endings:
     restart = 'gpaw-restart-wfs_io.' + ending
     restart_wf = 'gpaw-restart-wfs_io-wf.' + ending
