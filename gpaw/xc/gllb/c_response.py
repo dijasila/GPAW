@@ -224,12 +224,11 @@ class C_Response(Contribution):
         method1_dxc = np.average(self.Dxc_vt_sG[s])
         nt_G = self.gd.empty()
 
-        # Find the lumo-orbital of this spin
-        sign = 1 - s * 2
-        lumo_n = (self.occupations.nvalence + sign * self.occupations.magmom) // 2
+        epsilon = 1e-2
         gaps = [ 1000.0 ]
         for u, kpt in enumerate(self.kpt_u):
             if kpt.s == s:
+                lumo_n = np.flatnonzero(kpt.f_n/kpt.weight <= epsilon)[0]
                 nt_G[:] = 0.0
                 self.wfs.add_orbital_density(nt_G, kpt, lumo_n)
                 E = 0.0
