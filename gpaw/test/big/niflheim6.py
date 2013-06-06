@@ -51,7 +51,8 @@ class NiflheimCluster(Cluster):
             '$PYTHONPATH'])
 
         run_command = '. /home/opt/modulefiles/modulefiles_el6.sh&& '
-        run_command += 'module load SCIPY&& '
+        run_command += 'module load NUMPY/1.7.1-1&& '
+        run_command += 'module load SCIPY/0.12.0-1&& '
         run_command += 'module load povray&& '
         run_command += 'module load ABINIT&& '
         run_command += 'module load DACAPO&& '
