@@ -9,6 +9,8 @@ import math
 import glob
 import StringIO
 import array
+import resource
+
 
 import numpy as np
 import ase.units
@@ -879,6 +881,10 @@ class LrTDDFTindexed:
             self.K_matrix = self.read_K_matrix_new()
         K_matrix = self.K_matrix.copy()
 
+
+        #if self.parent_comm.rank == 0:
+        #    print '-------------- copying K-MATRIX done --------------------', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+
         nlrow = K_matrix.shape[0]
         nlcol = K_matrix.shape[1]
 
@@ -1291,6 +1297,7 @@ class LrTDDFTindexed:
         if not self.calc_ready:
             self.calc.converge_wave_functions()
             spos_ac = self.calc.initialize_positions()
+            self.calc.occupations.calculate(self.calc.wfs)
             self.calc.wfs.initialize(self.calc.density, 
                                      self.calc.hamiltonian, spos_ac)
             self.xc.initialize(self.calc.density, self.calc.hamiltonian,
@@ -1343,6 +1350,7 @@ class LrTDDFTindexed:
         if not self.calc_ready:
             self.calc.converge_wave_functions()
             spos_ac = self.calc.initialize_positions()
+            self.calc.occupations.calculate(self.calc.wfs)
             self.calc.wfs.initialize(self.calc.density, 
                                      self.calc.hamiltonian, spos_ac)
             self.xc.initialize(self.calc.density, self.calc.hamiltonian,
@@ -1511,6 +1519,10 @@ class LrTDDFTindexed:
 
         self.parent_comm.barrier()
 
+        #if self.parent_comm.rank == 0:
+        #    print '-------------- READING K-MATRIX --------------------',resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        #    print 'K-matrix size (', nlrow,'x',nlcol,')'
+
         self.timer.start('Read K-matrix')
         # Read ALL ready_rows files but on different processors
         for (k, K_fn) in enumerate(glob.glob(self.basefilename + '.K_matrix.*')):
@@ -1552,6 +1564,15 @@ class LrTDDFTindexed:
                 elem_lists[proc].append( line )
                 #self.timer.stop('Read K-matrix: line')
 
+
+        #if self.parent_comm.rank == 0:
+        #    print '-------------- READING K-MATRIX done --------------------', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        #    print 'elem_list sizes:',
+        #    for proc in range(self.parent_comm.size):
+        #        print len(elem_lists[proc]), 
+        #    print
+                
+
         #self.timer.start('Read K-matrix: join')
         for proc in range(self.parent_comm.size):
             elem_lists[proc] = ''.join(elem_lists[proc])
@@ -1568,7 +1589,18 @@ class LrTDDFTindexed:
 
         # send and receive elem_list
         self.timer.start('Communicate K-matrix')
-        local_elem_list = ''.join(alltoallv_string(elem_lists,self.parent_comm).values())
+        alltoall_dict = alltoallv_string(elem_lists,self.parent_comm)
+        # ready for garbage collection
+        del elem_lists
+        local_elem_list = ''.join(alltoall_dict.values())
+        # ready for garbage collection
+        del alltoall_dict
+
+
+
+        #if self.parent_comm.rank == 0:
+        #    print '-------------- communicating K-MATRIX done --------------------', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        #    print 'local elem list size: ', len(local_elem_list)
         
         """
         local_elem_list = ''
@@ -1625,8 +1657,15 @@ class LrTDDFTindexed:
             if lip is not None and ljq is not None:
                 # add value to matrix
                 K_matrix[ljq,lip] = Kvalue
+
+        # ready for garbage collection
+        del local_elem_list
                 
         self.timer.stop('Build matrix')
+
+        #if self.parent_comm.rank == 0:
+        #    print '-------------- building K-MATRIX done --------------------', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+
  
         #print K_matrix
 
@@ -1930,6 +1969,7 @@ class LrTDDFTindexed:
         if not self.calc_ready:
             self.calc.converge_wave_functions()
             spos_ac = self.calc.initialize_positions()
+            self.calc.occupations.calculate(self.calc.wfs)
             self.calc.wfs.initialize(self.calc.density, 
                                      self.calc.hamiltonian, spos_ac)
             self.xc.initialize(self.calc.density, self.calc.hamiltonian,
@@ -2083,6 +2123,7 @@ class LrTDDFTindexed:
         if not self.calc_ready:
             self.calc.converge_wave_functions()
             spos_ac = self.calc.initialize_positions()
+            self.calc.occupations.calculate(self.calc.wfs)
             self.calc.wfs.initialize(self.calc.density, 
                                      self.calc.hamiltonian, spos_ac)
             self.xc.initialize(self.calc.density, self.calc.hamiltonian, self.calc.wfs, self.calc.occupations)
