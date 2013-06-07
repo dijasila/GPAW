@@ -18,7 +18,6 @@ E = atoms.get_potential_energy()
 calc.write('Al.gpw','all') 
 
 calc = GPAW('Al.gpw',txt=None)
-E = calc.get_potential_energy()
 
 from gpaw.xc.hybridk import HybridXC
 exx = HybridXC('EXX',acdf=True)

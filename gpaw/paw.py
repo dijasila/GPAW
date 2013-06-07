@@ -110,7 +110,7 @@ class PAW(PAWTextOutput):
 
         self.wfs.world = world
 
-        if par.txt is None:
+        if par.txt == '__default__':
             if self.label is None:
                 txt = '-'
             else:
@@ -573,6 +573,66 @@ class PAW(PAWTextOutput):
         self.timer.start('IO')
         gpaw.io.write(self, filename, mode, cmr_params=cmr_params, **kwargs)
         self.timer.stop('IO')
+
+    def calculate_dipole_moment(self):
+        rhot_g = self.density.rhot_g
+        dipole_v = self.density.finegd.calculate_dipole_moment(rhot_g)
+
+        if self.density.charge == 0:
+            self.text('Dipole Moment: %s' % (dipole_v * Bohr))
+        else:
+            self.text('Center of Charge: %s' %
+                      (dipole_v * Bohr / self.density.charge))
+
+        try:
+            c = self.hamiltonian.poisson.corrector.c
+            epsF = self.occupations.fermilevel
+        except AttributeError:
+            pass
+        else:
+            wf_a = -epsF * Hartree - dipole_v[c] * Bohr
+            wf_b = -epsF * Hartree + dipole_v[c] * Bohr
+            self.text('Dipole-corrected work function: %f, %f' %
+                      (wf_a, wf_b))
+        return dipole_v
+
+    def calculate_magnetic_moments(self):
+        magmom = self.occupations.magmom
+        self.text()
+        self.text('Total Magnetic Moment: %f' % magmom)
+
+        # Local magnetic moments within augmentation spheres:
+        magmom_av = self.density.estimate_magnetic_moments()
+
+        if self.wfs.collinear:
+            momsum = magmom_av.sum()
+            M = self.occupations.magmom
+            if abs(M) > 1e-7 and abs(momsum) > 1e-7:
+                magmom_av *= M / momsum
+            
+            magmom_a = magmom_av[:, 2].copy()
+
+            self.text('Local Magnetic Moments:')
+            for a, mom in enumerate(magmom_a):
+                self.text('%4d  %.3f' % (a, mom))
+            self.text()
+
+            try:
+                # XXX This doesn't always work, HGH, SIC, ...
+                sc = self.density.get_spin_contamination(self.atoms,
+                                                         int(magmom < 0))
+                self.text('Spin contamination: %f electrons' % sc)
+            except (TypeError, AttributeError):
+                pass
+
+            return magmom, magmom_a
+
+        else:
+            self.text('Local Magnetic Moments:')
+            for a, mom_v in enumerate(magmom_av):
+                self.text('%4d  (%.3f, %.3f, %.3f)' %
+                          (a, mom_v[0], mom_v[1], mom_v[2]))
+            return magmom, magmom_av
 
     def get_myu(self, k, s):
         """Return my u corresponding to a certain kpoint and spin - or None"""

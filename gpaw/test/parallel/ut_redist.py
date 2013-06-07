@@ -7,7 +7,6 @@ from ase.units import Bohr
 from gpaw import debug
 from gpaw.mpi import world, distribute_cpus
 from gpaw.paw import kpts2ndarray
-from gpaw.parameters import InputParameters
 from gpaw.xc import XC
 from gpaw.setup import SetupData, Setups
 from gpaw.grid_descriptor import GridDescriptor
@@ -29,9 +28,7 @@ from gpaw.test.ut_common import ase_svnversion, shapeopt, TestCase, \
 
 # -------------------------------------------------------------------
 
-p = InputParameters(spinpol=True)
-xc = XC(p.xc)
-p.setups = dict([(symbol, SetupData(symbol, xc.name)) for symbol in 'HO'])
+setups = dict([(symbol, SetupData(symbol, 'LDA')) for symbol in 'HO'])
 
 class UTDomainParallelSetup(TestCase):
     """
@@ -73,7 +70,7 @@ class UTDomainParallelSetup(TestCase):
         # Create setups
         Z_a = self.atoms.get_atomic_numbers()
         assert 1 == self.nspins
-        self.setups = Setups(Z_a, p.setups, p.basis, p.lmax, xc)
+        self.setups = Setups(Z_a, setups, None, 2, 'LDA')
         self.natoms = len(self.setups)
 
         # Decide how many kpoints to sample from the 1st Brillouin Zone
@@ -83,7 +80,7 @@ class UTDomainParallelSetup(TestCase):
 
         # Set up k-point descriptor
         self.kd = KPointDescriptor(self.bzk_kc, self.nspins)
-        self.kd.set_symmetry(self.atoms, self.setups, usesymm=p.usesymm)
+        self.kd.set_symmetry(self.atoms, self.setups, usesymm=True)
 
         # Set the dtype
         if self.kd.gamma:
@@ -251,7 +248,7 @@ class UTProjectorFunctionSetup(UTLocalizedFunctionSetup):
                                        self.dtype, nao=self.setups.nao)
         args = (self.gd, self.setups.nvalence, self.setups,
                 self.bd, self.dtype, world, self.kd)
-        self.wfs = FDWaveFunctions(p.stencils[0], fdksl, fdksl, lcaoksl, *args)
+        self.wfs = FDWaveFunctions(3, fdksl, fdksl, lcaoksl, *args)
         self.wfs.rank_a = self.rank0_a
         self.allocate(self.wfs.kpt_u, self.wfs.rank_a)
         assert self.allocated
@@ -372,9 +369,9 @@ class UTDensityFunctionSetup(UTLocalizedFunctionSetup):
 
         self.finegd = self.gd.refine()
         self.density = RealSpaceDensity(self.gd, self.finegd, self.nspins,
-                                        p.charge, stencil=p.stencils[1])
+                                        0, stencil=3)
         self.density.initialize(self.setups, self.timer, \
-            self.atoms.get_initial_magnetic_moments(), p.hund)
+            self.atoms.get_initial_magnetic_moments(), False)
         self.density.D_asp = {}
         self.density.rank_a = self.rank0_a
         self.allocate(self.density.D_asp, self.density.rank_a)
@@ -438,8 +435,8 @@ class UTHamiltonianFunctionSetup(UTLocalizedFunctionSetup):
         self.hamiltonian = RealSpaceHamiltonian(
             self.gd, self.finegd, self.nspins,
             self.setups, self.timer,
-            xc, p.external, True,
-            p.poissonsolver, p.stencils[1])
+            'LDA', None, True,
+            None, 3)
         self.hamiltonian.dH_asp = {}
         self.hamiltonian.rank_a = self.rank0_a
         self.allocate(self.hamiltonian.dH_asp, self.hamiltonian.rank_a)

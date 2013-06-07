@@ -134,7 +134,7 @@ class CHI(BASECHI):
         calc = self.calc
 
         # For LCAO wfs
-        if calc.input_parameters['mode'] == 'lcao':
+        if calc.parameters.mode == 'lcao':
             calc.initialize_positions()        
         self.printtxt('     Max mem sofar   : %f M / cpu' %(maxrss() / 1024**2))
 

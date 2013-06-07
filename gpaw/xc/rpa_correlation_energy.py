@@ -449,7 +449,7 @@ class RPACorrelation:
         print >> self.txt, 'Number of Bands                :   %s' \
               % self.calc.wfs.bd.nbands
         print >> self.txt, 'Number of Converged Bands      :   %s' \
-              % self.calc.input_parameters['convergence']['bands']
+              % self.calc.parameters.convergence['bands']
         print >> self.txt, 'Number of Spins                :   %s' \
               % self.nspins
         print >> self.txt, 'Number of k-points             :   %s' \

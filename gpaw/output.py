@@ -300,45 +300,6 @@ class PAWTextOutput:
 
         self.hamiltonian.xc.summary(self.txt)
 
-        t()
-
-        dipole = self.results.get('dipole', np.array([42.0, 42.0, 42.0]))
-        if self.density.charge == 0:
-            t('Dipole Moment: %s' % dipole)
-        else:
-            t('Center of Charge: %s' % (dipole / abs(self.density.charge)))
-
-        try:
-            c = self.hamiltonian.poisson.corrector.c
-            epsF = self.occupations.fermilevel
-        except AttributeError:
-            pass
-        else:
-            wf_a = -epsF * Hartree - dipole[c]
-            wf_b = -epsF * Hartree + dipole[c]
-            t('Dipole-corrected work function: %f, %f' % (wf_a, wf_b))
-
-        if self.wfs.nspins == 2:
-            t()
-            magmom = self.occupations.magmom
-            t('Total Magnetic Moment: %f' % magmom)
-            try:
-                # XXX This doesn't always work, HGH, SIC, ...
-                sc = self.density.get_spin_contamination(self.atoms,
-                                                         int(magmom < 0))
-                t('Spin contamination: %f electrons' % sc)
-            except (TypeError, AttributeError):
-                pass
-            t('Local Magnetic Moments:')
-            for a, mom in enumerate(self.results['magmoms']):
-                t(a, mom)
-            t()
-        elif not self.wfs.collinear:
-            self.txt.write('Local Magnetic Moments:\n')
-            for a, mom_v in enumerate(self.results['magmoms']):
-                self.txt.write('%4d  (%.3f, %.3f, %.3f)\n' %
-                               (a, mom_v[0], mom_v[1], mom_v[2]))
-
     def print_iteration(self, iter):
         # Output from each iteration:
         t = self.text
@@ -410,18 +371,6 @@ class PAWTextOutput:
                 t()
 
         self.txt.flush()
-
-    def print_forces(self):
-        if self.forces.F_av is None:
-            return
-        t = self.text
-        t()
-        t('Forces in eV/Ang:')
-        c = Hartree / Bohr
-        symbols = self.atoms.get_chemical_symbols()
-        for a, symbol in enumerate(symbols):
-            t('%3d %-2s %10.5f %10.5f %10.5f' %
-              ((a, symbol) + tuple(self.forces.F_av[a] * c)))
 
     def print_eigenvalues(self):
         """Print eigenvalues and occupation numbers."""

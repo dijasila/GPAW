@@ -8,7 +8,9 @@ Change log for version:
 
 3) Different k-points now have different number of plane-waves.  Added
    PlaneWaveIndices array.
-    
+
+4) MagneticMoment and RealSpace added.
+
 """
 
 import os
@@ -161,7 +163,9 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         w.add('CartesianVelocities', ('natoms', '3'),
               atoms.get_velocities() * AUT / Bohr, write=master)
 
-    w.add('PotentialEnergy', (), results['energy'] / Hartree, write=master)
+    energy = hamiltonian.Etot + 0.5 * hamiltonian.S
+    w.add('PotentialEnergy', (), energy, write=master)
+
     if 'forces' in results:
         w.add('CartesianForces', ('natoms', '3'),
               results['forces'] * (Bohr / Hartree), write=master)
@@ -240,6 +244,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     w['Eext'] = hamiltonian.Eext
     w['Exc'] = hamiltonian.Exc
     w['S'] = hamiltonian.S
+    w['MagneticMoment'] = paw.occupations.magmom
     try:
         if paw.occupations.fixmagmom:
             w['FermiLevel'] = paw.occupations.get_fermi_levels_mean()
@@ -602,6 +607,10 @@ def read(paw, reader):
                                       broadcast=True) * (Hartree / Bohr**3)
     if r.has_array('DipoleMoment'):
         paw.results['diople'] = r.get('DipoleMoment', broadcast=True) * Bohr
+    if wfs.nspins == 2:
+        paw.results['magmoms'] = r.get('MagneticMoments', broadcast=True)
+        if version >= 4: 
+            paw.results['magmom'] = r['MagneticMoment']
 
     wfs.rank_a = np.zeros(natoms, int)
 
@@ -630,8 +639,6 @@ def read(paw, reader):
             'FermiLevel' in r.get_parameters()):
             paw.occupations.set_fermi_level(r['FermiLevel'])
 
-    #paw.occupations.magmom = paw.atoms.get_initial_magnetic_moments().sum()
-    
     # Try to read the current time and kick strength in time-propagation TDDFT:
     for attr, name in [('time', 'Time'), ('niter', 'TimeSteps'),
                        ('kick_strength', 'AbsorptionKick')]:

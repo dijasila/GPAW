@@ -51,7 +51,7 @@ class GPAW(PAW, Calculator):
         'stencils':        (3, 3),
         'fixdensity':      False,
         'mixer':           None,
-        'txt':             None,
+        'txt':             '__default__',
         'hund':            False,
         'random':          False,
         'dtype':           None,
@@ -93,6 +93,7 @@ class GPAW(PAW, Calculator):
 
         Calculator.__init__(self, restart, ignore_bad_restart_file, label,
                             atoms, **kwargs)
+        self.niterations = None
 
     def read(self, label):
         self.set_label(label)
@@ -185,9 +186,12 @@ class GPAW(PAW, Calculator):
             raise NotImplementedError
         return Calculator.get_dipole_moment(self, atoms)
 
-    def calculate(self, properties, changes):
+    def calculate(self, atoms=None, properties=['energy'],
+                  system_changes=['positions', 'numbers', 'cell',
+                                  'pbc', 'charges','magmoms']):
+        Calculator.calculate(self, atoms, properties, system_changes)
         for change in ['numbers', 'pbc', 'cell', 'magmoms']:
-            if change in changes:
+            if change in system_changes:
                 self.wfs = EmptyWaveFunctions()
                 self.occupations = None
                 self.density = None
@@ -197,46 +201,40 @@ class GPAW(PAW, Calculator):
                 self.set_positions()
                 break
         else:
-            if 'positions' in changes:
+            if 'positions' in system_changes:
                 if self.density is not None:
                     self.density.reset()
                 self.set_positions()
 
-        if not self. initialized:
+        if not self.initialized:
             self.initialize()
             self.set_positions()
             
         self.print_cell_and_parameters()
 
-        iter = None
+        converged = False
         if not self.scf.converged:
             self.timer.start('SCF-cycle')
-            for iter in self.scf.run(self.wfs, self.hamiltonian, self.density,
-                                     self.occupations):
-                self.call_observers(iter)
-                self.print_iteration(iter)
-                self.iter = iter
+            for niterations in self.scf.run(self.wfs, self.hamiltonian,
+                                            self.density, self.occupations):
+                self.call_observers(niterations)
+                self.print_iteration(niterations)
+                self.niterations = niterations
             self.timer.stop('SCF-cycle')
 
             if self.scf.converged:
-                self.call_observers(iter, final=True)
-                if 'converged' in hooks:
-                    hooks['converged'](self)
-        else:
-            sdfgsdfg
+                converged = True
+            else:
+                if 'not_converged' in hooks:
+                    hooks['not_converged'](self)
+                raise KohnShamConvergenceError('Did not converge!')
 
-        if not self.scf.converged:
-            if 'not_converged' in hooks:
-                hooks['not_converged'](self)
-            raise KohnShamConvergenceError('Did not converge!')
-
-        self.results['free energy'] = Hartree * self.hamiltonian.Etot
+        self.results['free_energy'] = Hartree * self.hamiltonian.Etot
         self.results['energy'] = Hartree * (self.hamiltonian.Etot +
                                             0.5 * self.hamiltonian.S)
         if 'forces' in properties:
             F_av = forces(self)
             self.results['forces'] = F_av * (Hartree / Bohr)
-            self.print_forces()
 
         if 'stress' in properties:
             stress_vv = stress(self)
@@ -244,29 +242,22 @@ class GPAW(PAW, Calculator):
                                       (Hartree / Bohr**3))
 
         if 'dipole' in properties:
-            rhot_g = self.density.rhot_g
-            dipole_v = self.density.finegd.calculate_dipole_moment(rhot_g)
+            dipole_v = self.calculate_dipole_moment()
             self.results['dipole'] =  dipole_v * Bohr
         
-        if self.wfs.nspins == 2:
-            self.results['magmom'] = self.occupations.magmom
+        if self.wfs.nspins == 2 or not self.wfs.collinear:
+            magmom, magmoms = self.calculate_magnetic_moments()
+            self.results['magmom'] = magmom
+            self.results['magmoms'] = magmoms
 
-            # Local magnetic moments within augmentation spheres:
-            magmom_av = self.density.estimate_magnetic_moments()
-            if self.wfs.collinear:
-                momsum = magmom_av.sum()
-                M = self.occupations.magmom
-                if abs(M) > 1e-7 and abs(momsum) > 1e-7:
-                    magmom_av *= M / momsum
-                self.results['magmoms'] = magmom_av[:, 2].copy()
-            else:
-                self.results['magmoms'] = magmom_av
-
-        if 1:#iter is not None:
-            self.print_converged(iter)
-        
         if self.label:
             self.write(self.label)
+
+        if converged:
+            self.call_observers(niterations, final=True)
+            if 'converged' in hooks:
+                hooks['converged'](self)
+            self.print_converged(niterations)
 
     def get_number_of_bands(self):
         """Return the number of bands."""
@@ -771,7 +762,7 @@ class GPAW(PAW, Calculator):
         return self.wfs.gd.N_c
 
     def get_number_of_iterations(self):
-        return self.iter
+        return self.niterations
 
     def get_ensemble_coefficients(self):
         """Get BEE ensemble coefficients.

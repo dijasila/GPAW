@@ -20,8 +20,6 @@ e = H.get_potential_energy()
 niter = calc.get_number_of_iterations()
 calc.write(result)
 
-
-
 # the two files should be equal
 from gpaw.mpi import rank
 if rank == 0:

@@ -16,7 +16,7 @@ class HirshfeldDensity(RealSpaceDensity):
     def __init__(self, calculator):
         self.calculator = calculator
         density = calculator.density
-        par = self.calculator.input_parameters
+        par = self.calculator.parameters
         RealSpaceDensity.__init__(self, density.gd, density.finegd, 1, 0,
                                   stencil=par.stencils[1])
 
@@ -51,7 +51,7 @@ class HirshfeldDensity(RealSpaceDensity):
         spos_ac = atoms.get_scaled_positions() % 1.0
         Z_a = atoms.get_atomic_numbers()
 
-        par = self.calculator.input_parameters
+        par = self.calculator.parameters
         setups = Setups(Z_a, par.setups, par.basis, par.lmax, 
                         XC(par.xc), 
                         self.calculator.wfs.world)

@@ -1,4 +1,5 @@
 import numpy as np
+import ase.units as units
 
 from gpaw.xc.hybrid import HybridXCBase
 
@@ -36,5 +37,13 @@ def forces(calc):
     F_av = wfs.symmetry.symmetrize_forces(F_av)
 
     calc.timer.stop('Force calculation')
+
+    calc.text()
+    calc.text('Forces in eV/Ang:')
+    c = units.Hartree / units.Bohr
+    symbols = calc.atoms.get_chemical_symbols()
+    for a, symbol in enumerate(symbols):
+        calc.text('%3d %-2s %10.5f %10.5f %10.5f' %
+                  ((a, symbol) + tuple(F_av[a] * c)))
 
     return F_av

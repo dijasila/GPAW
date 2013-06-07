@@ -24,7 +24,7 @@ except:
 
 # full information
 c = GPAW(fwfname, txt=txt)
-E_PBE = c.get_potential_energy()
+E_PBE = c.atoms.get_potential_energy()
 try: # number of iterations needed in restart
     niter_PBE = c.get_number_of_iterations()
 except: pass
@@ -34,7 +34,7 @@ print "E PBE, TPSS=", E_PBE, E_1
 
 # no wfs
 c = GPAW(fname, txt=txt)
-E_PBE_no_wfs = c.get_potential_energy()
+E_PBE_no_wfs = c.atoms.get_potential_energy()
 try: # number of iterations needed in restart
     niter_PBE_no_wfs = c.get_number_of_iterations()
 except: pass

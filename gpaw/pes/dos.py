@@ -45,11 +45,11 @@ class DOSPES(BasePES):
             energy_shift = -e_HOMO + self.vde
         else:
             if self.shift is True:
-                e_m = self.c_m.get_potential_energy()
+                e_m = self.c_m.atoms.get_potential_energy()
                 try:
                     energy_shift = float(self.c_d) - e_HOMO
                 except AttributeError:
-                    e_d = self.c_d.get_potential_energy()
+                    e_d = self.c_d.atoms.get_potential_energy()
                     energy_shift = e_d - e_m - e_HOMO
             else:
                 energy_shift = float(self.shift)

@@ -83,10 +83,10 @@ for i in range(c00.get_number_of_bands()):
         print 'Eigenvalues no pot, expected, error=', e00, e1 + 1, e00 - e1 - 1
         equal(e00, e1 + 1., 0.003)
 
-E_c00 = c00.get_potential_energy()
+E_c00 = c00.atoms.get_potential_energy()
 niter_c00 = c00.get_number_of_iterations()
 
-E_c1 = c1.get_potential_energy()
+E_c1 = c1.atoms.get_potential_energy()
 niter_c1 = c1.get_number_of_iterations()
 
 DeltaE = E_c00 - E_c1
