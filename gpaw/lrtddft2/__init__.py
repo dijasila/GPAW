@@ -225,6 +225,7 @@ class LrTDDFTindexed:
         if os.path.exists(info_file) and os.path.isfile(info_file):
             self.read_info(info_file)
         else:
+            self.timer.stop('Init read')
             return
 
         # Read ALL ready_rows files
