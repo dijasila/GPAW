@@ -114,7 +114,7 @@ PyObject* Transformer_apply_cuda_gpu(TransformerObject *self, PyObject *args)
     MPI_Comm_size(bc->comm, &mpi_size); 
 
   int blocks=MAX(MIN(MIN(mpi_size*(GPAW_CUDA_BLOCKS_MIN),
-			 GPAW_CUDA_BLOCKS_MAX),nin),1);
+			 GPAW_CUDA_BLOCKS_MAX/bc->ndouble),nin),1);
 
   MPI_Request recvreq[3][2];
   MPI_Request sendreq[3][2];

@@ -317,7 +317,8 @@ PyObject * Operator_apply_cuda_gpu(OperatorObject *self,
   if ((bc->maxsend || bc->maxrecv) && bc->comm != MPI_COMM_NULL)
     MPI_Comm_size(bc->comm, &mpi_size);
 
-  int blocks=MAX(MIN(MIN(mpi_size*(GPAW_CUDA_BLOCKS_MIN),GPAW_CUDA_BLOCKS_MAX),
+  int blocks=MAX(MIN(MIN(mpi_size*(GPAW_CUDA_BLOCKS_MIN),
+			 GPAW_CUDA_BLOCKS_MAX/bc->ndouble),
 		     nin),1);
 
 #ifdef DEBUG_CUDA_OPERATOR

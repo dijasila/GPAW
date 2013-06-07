@@ -32,12 +32,16 @@ class Eigensolver:
         self.operator = wfs.matrixoperator
 
         if self.cuda:
-            cuda_blocks_min=16
-            cuda_blocks_max=96
+            if self.dtype == float:
+                ndouble = 1
+            else:
+                ndouble = 2
+            cuda_blocks_min = 16
+            cuda_blocks_max = 96 / ndouble
             self.blocksize=min(cuda_blocks_max,self.mynbands,
                                wfs.gd.comm.size*cuda_blocks_min,
                                max((224*224*224)*wfs.gd.comm.size/
-                                   (wfs.gd.N_c[0]*wfs.gd.N_c[1]*wfs.gd.N_c[2]),1))
+                                   (ndouble*wfs.gd.N_c[0]*wfs.gd.N_c[1]*wfs.gd.N_c[2]),1))
         if self.mynbands != self.nbands or self.operator.nblocks != 1:
             self.keep_htpsit = False
 
