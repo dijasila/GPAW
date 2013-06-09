@@ -1,6 +1,7 @@
 import sys
 
 from ase import Atoms, Atom
+from ase.parallel import parprint
 
 from gpaw import GPAW
 from gpaw.test import equal
@@ -51,16 +52,16 @@ if unocc:
                   txt=txt)
     cunocc.calculate(loa)
 
-    print 'Energy %10.4f   %10.4f' % (cocc.get_potential_energy(),
-                                      cunocc.get_potential_energy())
+    parprint('Energy %10.4f   %10.4f' % (cocc.get_potential_energy(),
+                                         cunocc.get_potential_energy()))
     equal(cocc.get_potential_energy(),
           cunocc.get_potential_energy())
 
     fu_n = cunocc.get_occupation_numbers()
     eu_n = cunocc.get_eigenvalues()
 
-    print 'Eigenvalues:'
+    parprint('Eigenvalues:')
     for eo, fo, eu, fu in zip(eo_n, fo_n, eu_n, fu_n):
-        print '%8.4f %5.2f   %8.4f %5.2f' % (eo, fo, eu, fu)
+        parprint('%8.4f %5.2f   %8.4f %5.2f' % (eo, fo, eu, fu))
         if fo > 0.01:
             equal(eo, eu)
