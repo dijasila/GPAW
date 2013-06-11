@@ -79,6 +79,8 @@ class BASECHI:
         self.G_plus_q = G_plus_q
         self.rpad = rpad
         self.optical_limit = optical_limit
+        if self.optical_limit:
+            self.qopt = 1e-5
         self.eshift = eshift
 
     def initialize(self):
@@ -274,7 +276,7 @@ class BASECHI:
         return    
 
 
-    def get_phi_aGp(self, q_c=None, parallel=True):
+    def get_phi_aGp(self, q_c=None, parallel=True, alldir=False):
         if q_c is None:
             q_c = self.q_c
             qq_v = self.qq_v
@@ -291,6 +293,7 @@ class BASECHI:
         
         kk_Gv = gemmdot(q_c + self.Gvec_Gc, self.bcell_cv.copy(), beta=0.0)
         phi_aGp = {}
+        phiG0_avp = {}
 
         if parallel:
             from gpaw.response.parallel import parallel_partition
@@ -314,7 +317,16 @@ class BASECHI:
                 nabla_iiv = setups[a].nabla_iiv
                 phi_aGp[a][0] = -1j * (np.dot(nabla_iiv, qq_v)).ravel()
 
-        return phi_aGp
+                phiG0_avp[a] = np.zeros((3, len(phi_aGp[a][0])), complex)
+                for dir in range(3): # 3 dimension
+                    q2_c = np.diag((1,1,1))[dir] * self.qopt
+                    qq2_v = np.dot(q2_c, self.bcell_cv) # summation over c
+                    phiG0_avp[a][dir] = -1j * (np.dot(nabla_iiv, qq2_v)).ravel()
+
+        if alldir:
+            return phi_aGp, phiG0_avp
+        else:
+            return phi_aGp
 
 
     def get_wavefunction(self, ibzk, n, check_focc=True, spin=0):
