@@ -2531,11 +2531,11 @@ class LrTDDFTLayouts:
         self.eh_grid2b = BlacsGrid(self.eh_comm2, 1, eh_comm.size)
         self.eh_descr2a = self.eh_grid2a.new_descriptor(N,    M,  nb, mb)
         self.eh_descr2b = self.eh_grid2b.new_descriptor(Nrhs, N,   1, nb)
+
         self.solve_descr2a =self.diag_grid.new_descriptor(N, M,
                                                           blocksize, blocksize)
         self.solve_descr2b =self.diag_grid.new_descriptor(Nrhs, N,
                                                           1, blocksize)
-
 
         self.redist_solve_in_2a = Redistributor(self.world,
                                                 self.eh_descr2a,
@@ -2699,17 +2699,17 @@ def lr_communicators(world, dd_size, eh_size):
     eh_size
       Over how many processes are electron-hole pairs distributed.
       
-    ---------------------------------------------------------------------------
     Note
+    ----
       Sizes must match, i.e., world.size must be equal to
       dd_size x eh_size, e.g., 1024 = 64*16
 
     Tip
+    ---
       Use enough processes for domain decomposition (dd_size) to fit everything
       (easily) into memory, and use the remaining processes for electron-hole
       pairs as K-matrix build is trivially parallel over them.
 
-    ---------------------------------------------------------------------------
     
     Returns:
 
