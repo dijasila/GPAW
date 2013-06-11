@@ -5,7 +5,7 @@ from ase import Atom, Atoms
 from ase.visualize import view
 from gpaw.response.df import DF
 
-GS = 1
+GS = 0
 ABS = 1
 if GS:
     cluster = Atoms([Atom('Au', (0, 0, 0)),
@@ -28,7 +28,7 @@ if GS:
 
 
 if ABS:
-    df = DF(calc='Au02.gpw', 
+    df = DF(calc='Au02.gpw',
             q=np.array([0.0, 0.0, 0.00001]), 
             w=np.linspace(0,14,141),
             eta=0.1,
@@ -38,7 +38,7 @@ if ABS:
 
     df.get_absorption_spectrum()             
 
-    d = np.loadtxt('Absorption.dat')
+    d = np.loadtxt('Absorption.dat.z')
     wpeak = 2.5 # eV
     Nw = 25
     if d[Nw, 4] > d[Nw-1, 4] and d[Nw, 4] > d[Nw+1, 4]:
