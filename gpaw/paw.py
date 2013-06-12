@@ -14,7 +14,7 @@ from ase.calculators.calculator import kptdensity2monkhorstpack
 
 import gpaw.io
 import gpaw.mpi as mpi
-import gpaw.occupations as occupations
+from gpaw.occupations import FermiDirac, MethfesselPaxton
 from gpaw import dry_run, memory_estimate_depth
 from gpaw.density import RealSpaceDensity
 from gpaw.eigensolvers import get_eigensolver
@@ -237,16 +237,27 @@ class PAW(PAWTextOutput):
 
         if self.occupations is None:
             if par.smearing is not None:
-                type, width = par.smearing[:2]
-                type = type.lower()
-                if type == 'fermi-dirac':
-                    self.occupations = occupations.FermiDirac(width,
-                                                              par.fixmom)
-                elif type == 'gaussian':
-                    self.occupations = occupations.MethfesselPaxton(width,
-                                                                    par.fixmom)
+                if isinstance(par.smearing, tuple):
+                    type, width = par.smearing[:2]
+                    type = type.lower()
+                    if type == 'fermi-dirac':
+                        self.occupations = FermiDirac(width)
+                    elif type == 'gaussian':
+                        self.occupations = MethfesselPaxton(width)
+                    else:
+                        1 / 0
+                if isinstance(par.smearing, dict):
+                    type = par.smearing['type'].lower()
+                    width = par.smearing['width']
+                    fixmagmom = par.smearing.get('fixmagmom', False)
+                    if type == 'fermi-dirac':
+                        self.occupations = FermiDirac(width, fixmagmom)
+                    elif type == 'gaussian':
+                        self.occupations = MethfesselPaxton(width, fixmagmom)
+                    else:
+                        1 / 0
                 else:
-                    1 / 0
+                    self.occupations = par.smearing
             elif par.occupations is not None:
                 self.text('**NOTE**: please start using '
                           'smearing=(type, width).')
@@ -257,7 +268,7 @@ class PAW(PAWTextOutput):
                     width = 0.0
                 else:
                     width = 0.1  # eV
-                self.occupations = occupations.FermiDirac(width, par.fixmom)
+                self.occupations = FermiDirac(width)
 
         self.occupations.magmom = M_v[2]
 
@@ -276,9 +287,9 @@ class PAW(PAWTextOutput):
                 par.maxiter, par.fixdensity,
                 niter_fixdensity)
 
-        parsize_kpt = par.parallel['kpt']
-        parsize_domain = par.parallel['domain']
-        parsize_bands = par.parallel['band']
+        parsize_kpt = self.parallel['kpt']
+        parsize_domain = self.parallel['domain']
+        parsize_bands = self.parallel['band']
 
         if not realspace:
             pbc_c = np.ones(3, bool)
@@ -309,7 +320,7 @@ class PAW(PAWTextOutput):
 
             kd.set_communicator(kpt_comm)
 
-            parstride_bands = par.parallel['stridebands']
+            parstride_bands = self.parallel['stridebands']
 
             # Unfortunately we need to remember that we adjusted the
             # number of bands so we can print a warning if it differs
@@ -337,10 +348,10 @@ class PAW(PAWTextOutput):
             # do k-point analysis here? XXX
             args = (gd, nvalence, setups, bd, dtype, world, kd, self.timer)
 
-            if par.parallel['sl_auto']:
+            if self.parallel['sl_auto']:
                 # Choose scalapack parallelization automatically
                 
-                for key, val in par.parallel.items():
+                for key, val in self.parallel.items():
                     if (key.startswith('sl_') and key != 'sl_auto'
                         and val is not None):
                         raise ValueError("Cannot use 'sl_auto' together "
@@ -361,13 +372,13 @@ class PAW(PAWTextOutput):
                 # but so will ScaLAPACK in any case
                 blocksize = min(-(-nbands // 4), 64)
                 sl_default = (nprow, npcol, blocksize)
-                par.parallel['sl_default'] = sl_default
+                self.parallel['sl_default'] = sl_default
             else:
-                sl_default = par.parallel['sl_default']
+                sl_default = self.parallel['sl_default']
 
             if mode == 'lcao':
                 # Layouts used for general diagonalizer
-                sl_lcao = par.parallel['sl_lcao']
+                sl_lcao = self.parallel['sl_lcao']
                 if sl_lcao is None:
                     sl_lcao = sl_default
                 lcaoksl = get_KohnSham_layouts(sl_lcao, 'lcao',
@@ -383,9 +394,9 @@ class PAW(PAWTextOutput):
 
             elif mode == 'fd' or isinstance(mode, PW):
                 # buffer_size keyword only relevant for fdpw
-                buffer_size = par.parallel['buffer_size']
+                buffer_size = self.parallel['buffer_size']
                 # Layouts used for diagonalizer
-                sl_diagonalize = par.parallel['sl_diagonalize']
+                sl_diagonalize = self.parallel['sl_diagonalize']
                 if sl_diagonalize is None:
                     sl_diagonalize = sl_default
                 diagksl = get_KohnSham_layouts(sl_diagonalize, 'fd',
@@ -394,7 +405,7 @@ class PAW(PAWTextOutput):
                                                timer=self.timer)
 
                 # Layouts used for orthonormalizer
-                sl_inverse_cholesky = par.parallel['sl_inverse_cholesky']
+                sl_inverse_cholesky = self.parallel['sl_inverse_cholesky']
                 if sl_inverse_cholesky is None:
                     sl_inverse_cholesky = sl_default
                 if sl_inverse_cholesky != sl_diagonalize:
@@ -420,7 +431,7 @@ class PAW(PAWTextOutput):
 
                     # Layouts used for general diagonalizer
                     # (LCAO initialization)
-                    sl_lcao = par.parallel['sl_lcao']
+                    sl_lcao = self.parallel['sl_lcao']
                     if sl_lcao is None:
                         sl_lcao = sl_default
                     initksl = get_KohnSham_layouts(sl_lcao, 'lcao',
@@ -509,6 +520,8 @@ class PAW(PAWTextOutput):
             self.dry_run()
 
         self.initialized = True
+
+        self.print_parameters()
 
     def dry_run(self):
         # Can be overridden like in gpaw.atom.atompaw
@@ -686,8 +699,11 @@ class PAW(PAWTextOutput):
     def converge_wave_functions(self):
         """Converge the wave-functions if not present."""
 
-        if not self.wfs or not self.scf:
+
+        self.results = {}
+        if not self.wfs or self.scf is None:
             self.initialize()
+            self.set_positions()
         else:
             self.wfs.initialize_wave_functions_from_restart_file()
             spos_ac = self.atoms.get_scaled_positions() % 1.0
@@ -707,7 +723,7 @@ class PAW(PAWTextOutput):
             if error < criterion and not self.hamiltonian.xc.orbital_dependent:
                 self.scf.fix_density()
 
-            self.calculate()
+            self.calculate(system_changes=[])
 
     def diagonalize_full_hamiltonian(self, nbands=None, scalapack=None):
         self.wfs.diagonalize_full_hamiltonian(self.hamiltonian, self.atoms,

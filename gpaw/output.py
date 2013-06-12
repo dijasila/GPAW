@@ -109,11 +109,12 @@ class PAWTextOutput:
             self.text('Extra parameters:', extra_parameters)
 
     def print_cell_and_parameters(self):
-        self.plot_atoms(self.atoms)
-        self.print_unit_cell(self.atoms.get_positions() / Bohr)
+        self.print_unit_cell()
         self.print_parameters()
 
-    def print_unit_cell(self, pos_ac):
+    def print_unit_cell(self):
+        self.plot_atoms(self.atoms)
+        pos_ac = self.atoms.get_positions() / Bohr
         self.text()
         self.text('Unit Cell:')
         self.text('           Periodic     X           Y           Z' +

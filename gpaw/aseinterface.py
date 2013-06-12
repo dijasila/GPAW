@@ -40,7 +40,6 @@ class GPAW(PAW, Calculator):
         'kpts':            [(0, 0, 0)],
         'lmax':            2,
         'charge':          0,
-        'fixmom':          False,  # don't use this
         'nbands':          None,
         'setups':          'paw',
         'basis':           None,
@@ -60,7 +59,6 @@ class GPAW(PAW, Calculator):
         'verbose':         0,
         'eigensolver':     None,
         'poissonsolver':   None,
-        'communicator':    None,
         'idiotproof':      True,
         'mode':            'fd',
         'realspace':       None,
@@ -68,21 +66,29 @@ class GPAW(PAW, Calculator):
                             'density':     1.0e-4,
                             'eigenstates': 4.0e-8,  # eV^2
                             'bands':       'occupied'},
-        'parallel':        {'kpt':                 None,
-                            'domain':              parsize_domain,
-                            'band':                parsize_bands,
-                            'stridebands':         False,
-                            'sl_auto':             False,
-                            'sl_default':          sl_default,
-                            'sl_diagonalize':      sl_diagonalize,
-                            'sl_inverse_cholesky': sl_inverse_cholesky,
-                            'sl_lcao':             sl_lcao,
-                            'buffer_size':         buffer_size}
         }
 
     def __init__(self, restart=None, ignore_bad_restart_file=False, label=None,
-                 atoms=None, communicator=None, **kwargs):
-        self.set_communicator(communicator)
+                 atoms=None,
+                 communicator=None, parallel=None,
+                 **kwargs):
+
+        self.world = mpi.world
+        self.parallel = {'kpt':                 None,
+                         'domain':              parsize_domain,
+                         'band':                parsize_bands,
+                         'stridebands':         False,
+                         'sl_auto':             False,
+                         'sl_default':          sl_default,
+                         'sl_diagonalize':      sl_diagonalize,
+                         'sl_inverse_cholesky': sl_inverse_cholesky,
+                         'sl_lcao':             sl_lcao,
+                         'buffer_size':         buffer_size}
+
+        if communicator is not None:
+            self.set_communicator(communicator)
+        if parallel is not None:
+            self.set_parallel(parallel)
 
         PAW.__init__(self)
 
@@ -109,12 +115,15 @@ class GPAW(PAW, Calculator):
         self.print_cell_and_parameters()
 
     def set_communicator(self, communicator):
-        if communicator is None:
-            self.world = mpi.world
-        elif isinstance(communicator, (list, np.ndarray)):
+        if isinstance(communicator, (list, np.ndarray)):
             self.world = mpi.world.new_communicator(np.asarray(communicator))
         else:
             self.world = communicator
+
+    def set_parallel(self, parallel):
+        for key in parallel:
+            assert key in self.parallel
+        self.parallel.update(parallel)
 
     def set(self, **kwargs):
         if (kwargs.get('h') is not None) and (kwargs.get('gpts') is not None):
@@ -132,8 +141,7 @@ class GPAW(PAW, Calculator):
             if key == 'eigensolver':
                 self.wfs.set_eigensolver(None)
             
-            if key in ['fixmom', 'mixer',
-                       'verbose', 'txt', 'hund', 'random',
+            if key in ['mixer', 'verbose', 'txt', 'hund', 'random',
                        'eigensolver', 'idiotproof']:
                 continue
 
@@ -159,7 +167,7 @@ class GPAW(PAW, Calculator):
                 self.wfs = EmptyWaveFunctions()
                 self.occupations = None
             elif key in ['h', 'gpts', 'setups', 'spinpol', 'realspace',
-                         'parallel', 'communicator', 'dtype', 'mode']:
+                         'dtype', 'mode']:
                 self.density = None
                 self.occupations = None
                 self.hamiltonian = None
@@ -176,12 +184,12 @@ class GPAW(PAW, Calculator):
             else:
                 raise TypeError("Unknown keyword argument: '%s'" % key)
 
-    def get_stress(self, atoms):
+    def get_stress(self, atoms=None):
         if self.parameters.mode in ['fd', 'lcao']:
             raise NotImplementedError
         return Calculator.get_stress(self, atoms)
 
-    def get_dipole_moment(self, atoms):
+    def get_dipole_moment(self, atoms=None):
         if isinstance(self.density, ReciprocalSpaceDensity):
             raise NotImplementedError
         return Calculator.get_dipole_moment(self, atoms)
@@ -198,6 +206,7 @@ class GPAW(PAW, Calculator):
                 self.hamiltonian = None
                 self.scf = None
                 self.initialize()
+                self.print_unit_cell()
                 self.set_positions()
                 break
         else:
@@ -210,8 +219,6 @@ class GPAW(PAW, Calculator):
             self.initialize()
             self.set_positions()
             
-        self.print_cell_and_parameters()
-
         converged = False
         if not self.scf.converged:
             self.timer.start('SCF-cycle')
@@ -224,6 +231,7 @@ class GPAW(PAW, Calculator):
 
             if self.scf.converged:
                 converged = True
+                self.print_converged(niterations)
             else:
                 if 'not_converged' in hooks:
                     hooks['not_converged'](self)
@@ -257,7 +265,6 @@ class GPAW(PAW, Calculator):
             self.call_observers(niterations, final=True)
             if 'converged' in hooks:
                 hooks['converged'](self)
-            self.print_converged(niterations)
 
     def get_number_of_bands(self):
         """Return the number of bands."""

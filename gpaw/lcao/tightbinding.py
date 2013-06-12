@@ -38,7 +38,7 @@ class TightBinding:
 
         # Symmetry
         self.symmetry = kd.symmetry
-        if calc.input_parameters['usesymm'] is True:
+        if calc.parameters.usesymm is True:
             raise NotImplementedError, "Only time-reversal symmetry supported."
 
         # Lattice vectors and number of repetitions

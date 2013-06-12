@@ -9,7 +9,8 @@ Change log for version:
 3) Different k-points now have different number of plane-waves.  Added
    PlaneWaveIndices array.
 
-4) MagneticMoment and RealSpace added.
+4) MagneticMoment, SmearingType, SmearingWidth, SmearingOrder and
+   RealSpace added.
 
 """
 
@@ -222,11 +223,9 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     w['PoissonStencil'] = paw.hamiltonian.poisson.get_stencil()
     w['XCFunctional'] = paw.hamiltonian.xc.name
     w['Charge'] = p['charge']
-    w['FixMagneticMoment'] = paw.occupations.fixmagmom
     w['UseSymmetry'] = p.usesymm
     w['RealSpace'] = p.realspace
     w['Converged'] = scf.converged
-    w['FermiWidth'] = paw.occupations.width
     w['MixClass'] = density.mixer.__class__.__name__
     w['MixBeta'] = density.mixer.beta
     w['MixOld'] = density.mixer.nmaxold
@@ -245,15 +244,8 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     w['Exc'] = hamiltonian.Exc
     w['S'] = hamiltonian.S
     w['MagneticMoment'] = paw.occupations.magmom
-    try:
-        if paw.occupations.fixmagmom:
-            w['FermiLevel'] = paw.occupations.get_fermi_levels_mean()
-            w['FermiSplit'] = paw.occupations.get_fermi_splitting()
-        else:
-            w['FermiLevel'] = paw.occupations.get_fermi_level()
-    except ValueError:
-        # Zero temperature calculation - don't write Fermi level:
-        pass
+
+    paw.occupations.write(w)
 
     # write errors
     w['DensityError'] = scf.density_error

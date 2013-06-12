@@ -320,7 +320,7 @@ class BASECHI:
     def get_wavefunction(self, ibzk, n, check_focc=True, spin=0):
 
         if (self.calc.wfs.world.size == 1 or self.calc.wfs.gd.comm.size != 1 
-        or self.calc.input_parameters['mode'] == 'lcao'):
+        or self.calc.parameters.mode == 'lcao'):
             if check_focc == False:
                 return
             else:

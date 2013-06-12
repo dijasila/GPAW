@@ -148,7 +148,7 @@ class BSE(BASECHI):
 
         self.print_bse()
 
-        if calc.input_parameters['mode'] == 'lcao':
+        if calc.parameters.mode == 'lcao':
             calc.initialize_positions()
 
         # Coulomb interaction at q=0 for Hartree coupling

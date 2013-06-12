@@ -97,7 +97,7 @@ class PhononCalculator:
                 self.gamma = False
                 self.dtype = complex
                 # Get k-points from ground-state calculation
-                kpts = self.calc.input_parameters.kpts
+                kpts = self.calc.parameters.kpts
                 
             # FFT Poisson solver
             poisson_solver = FFTPoissonSolver(dtype=self.dtype)

@@ -581,7 +581,7 @@ def dscf_collapse_orbitals(paw, nbands_max='occupied', f_tol=1e-4,
     del bd
 
     # Crop convergence criteria nbands_converge to new number of bands
-    par = paw.input_parameters
+    par = paw.parameters
     if 'convergence' in par:
         cc = par['convergence']
         if 'bands' in cc:

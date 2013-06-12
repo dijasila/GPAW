@@ -229,7 +229,7 @@ class TDDFT(GPAW):
         self.mblas = MultiBlas(wfs.gd)
 
     def set(self, **kwargs):
-        p = self.input_parameters
+        p = self.parameters
 
         # Special treatment for dictionary parameters:
         for name in ['parallel']:

@@ -161,7 +161,7 @@ lcao = box('LCAOWaveFunctions',
            ['S_qMM, T_qMM, P_aqMi'], 'magenta')
 atoms0 = box('Atoms', '(copy)', ['positions, numbers, cell, pbc'],
              color='grey')
-parameters = box('InputParameters', [], ['xc, nbands, ...'])
+parameters = box('Parameters', [], ['xc, nbands, ...'])
 forces = box('ForceCalculator')
 occupations = box(
     'OccupationNumbers',
@@ -195,7 +195,7 @@ paw.has(density, 'density', -150, 14, 0.23)
 paw.has(hamiltonian, 'hamiltonian', 180, 10, 0.3)
 paw.has(wfs, 'wfs', -65, 5.5, x=0.48)
 paw.has(atoms0, 'atoms', 9, 7.5)
-paw.has(parameters, 'input_parameters', 90, 4)
+paw.has(parameters, 'parameters', 90, 4)
 paw.has(forces, 'forces', 50, 4)
 paw.has(occupations, 'occupations', 136, 4)
 density.has(mixer, 'mixer', 130, 3.3)

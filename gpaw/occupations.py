@@ -355,6 +355,9 @@ class ZeroKelvin(OccupationNumbers):
         for kpt in wfs.kpt_u:
             wfs.bd.distribute(f_sn[kpt.s], kpt.f_n)
 
+    def write(self, writer):
+        writer['FixMagneticMoment'] = self.fixmagmom
+
 
 class SmoothDistribution(ZeroKelvin):
     """Base class for Fermi-Dirac and other smooth distributions."""
@@ -514,6 +517,18 @@ class SmoothDistribution(ZeroKelvin):
         self.niter = niter
         return fermilevel, magmom, e_entropy
 
+    def write(self, writer):
+        ZeroKelvin.write(self, writer)
+        writer['SmearingWidth'] = self.width
+        if self.fixmagmom:
+            writer['FermiLevel'] = self.get_fermi_levels_mean()
+            writer['FermiSplit'] = self.get_fermi_splitting()
+        else:
+            try:
+                writer['FermiLevel'] = self.get_fermi_level()
+            except ValueError:
+                pass
+
 
 class FermiDirac(SmoothDistribution):
     def __init__(self, width, fixmagmom=False, maxiter=1000):
@@ -533,6 +548,11 @@ class FermiDirac(SmoothDistribution):
         e_entropy = -kpt.weight * y.sum() * self.width
         sign = 1 - kpt.s * 2
         return np.array([n, dnde, n * sign, e_entropy])
+
+    def write(self, writer):
+        SmoothDistribution.write(self, writer)
+        writer['SmearingType'] = 'Fermi-Dirac'
+
 
 class MethfesselPaxton(SmoothDistribution):
     def __init__(self, width, iter=0, fixmagmom=False, maxiter=1000,
@@ -576,6 +596,15 @@ class MethfesselPaxton(SmoothDistribution):
         else:
             return 2 * x * self.hermite_poly(n - 1, x) \
                             - 2 * (n - 1) * self.hermite_poly(n - 2, x)
+
+    def write(self, writer):
+        SmoothDistribution.write(self, writer)
+        if self.iter == 0:
+            writer['SmearingType'] = 'Gaussian'
+        else:
+            writer['SmearingType'] = 'Methfessel-Paxton'
+            writer['SmearingOrder'] = self.iter
+
 
 class FixedOccupations(ZeroKelvin):
     def __init__(self, occupation):

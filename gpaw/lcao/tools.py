@@ -313,7 +313,7 @@ def get_lead_lcao_hamiltonian(calc, direction='x'):
                                      bzk_kc=calc.wfs.bzk_kc,
                                      weight_k=calc.wfs.weight_k,
                                      direction=direction,
-                                     usesymm=calc.input_parameters['usesymm'])
+                                     usesymm=calc.parameters.usesymm)
     else:
         return None, None, None, None
 

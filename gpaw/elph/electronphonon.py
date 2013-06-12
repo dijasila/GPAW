@@ -175,9 +175,9 @@ class ElectronPhononCoupling(Displacement):
         # - check that gamma
         # - check that no symmetries are used
         # - ...
-        parameters = calc.input_parameters
-        assert parameters['mode'] == 'lcao', "LCAO mode required."
-        assert parameters['usesymm'] != True, "Symmetries not supported."
+        parameters = calc.parameters
+        assert parameters.mode == 'lcao', "LCAO mode required."
+        assert parameters.usesymm != True, "Symmetries not supported."
         
         self.calc_lcao = calc
 
@@ -270,7 +270,7 @@ class ElectronPhononCoupling(Displacement):
             calc.initialize(atoms_N)
             calc.initialize_positions(atoms_N)
         self.set_basis_info()
-        basis = calc.input_parameters['basis']
+        basis = calc.parameters.basis
             
         # Extract useful objects from the calculator
         wfs = calc.wfs

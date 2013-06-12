@@ -136,8 +136,14 @@ def read_parameters(params, reader):
         params.charge = r['Charge']
         fixmom = r['FixMagneticMoment']
 
-    params.occupations = FermiDirac(r['FermiWidth'] * Hartree,
-                                  fixmagmom=fixmom)
+    if version < 4:
+        params.occupations = FermiDirac(r['FermiWidth'] * Hartree,
+                                        fixmagmom=fixmom)
+    else:
+        params.smearing = {'type': r['SmearingType'],
+                           'width': r['SmearingWidth'] * Hartree}
+        if fixmom:
+            params.smearing['fixmagmom'] = True
 
     try:
         params.mode = r['Mode']

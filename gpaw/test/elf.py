@@ -11,17 +11,10 @@ from gpaw.mpi import rank, world
 atoms = molecule('CO')
 atoms.center(2.0)
 
-txt=sys.stdout
-txt=None
-
-try:
-    atoms, calc = restart('CO.gpw', txt=txt)
-    energy = atoms.get_potential_energy()
-except:
-    calc = GPAW(h=0.24, txt=txt)
-    atoms.set_calculator(calc)
-    energy = atoms.get_potential_energy()
-    calc.write('CO.gpw', 'all')
+txt = None
+calc = GPAW(h=0.24, txt=txt)
+atoms.set_calculator(calc)
+energy = atoms.get_potential_energy()
 
 elf = ELF(calc)
 elf.update()
@@ -60,15 +53,10 @@ if rank == 0:
 #    equal(int2, 13.0331, 0.0001)
 
 # check spin-polarized version
-try:
-    atoms, calc = restart('COspin.gpw', txt=None,
-                          parallel={'domain': world.size})
-    energy_spinpol = atoms.get_potential_energy()
-except:
-    calc.set(spinpol=True,
-             parallel={'domain': world.size})
-    energy_spinpol = atoms.get_potential_energy()
-    calc.write('COspin.gpw', 'all')
+calc = GPAW(h=0.24, txt=txt, spinpol=True,
+            parallel={'domain': world.size})
+atoms.set_calculator(calc)
+energy_spinpol = atoms.get_potential_energy()
 
 def check_diff(g1, g2, gd, txt):
 #    print rank, txt, "shapes", g1.shape, g2.shape

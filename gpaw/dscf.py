@@ -179,7 +179,7 @@ class MolecularOrbital:
     def __init__(self, paw, Estart=0.0, Eend=1.e6,
                  nos=None, weights={0: [1], 1: [-1]}):
 
-        self.fixmom = paw.input_parameters.fixmom
+        self.fixmom = paw.occupations.fixmagmom
         self.w = weights
         self.Estart = Estart
         self.Eend = Eend
@@ -272,7 +272,7 @@ class AEOrbital:
     def __init__(self, paw, wf_u, p_uai, Estart=0.0, Eend=1.e6, nos=None,
                  txt='-'):
     
-        self.fixmom = paw.input_parameters.fixmom
+        self.fixmom = paw.occupations.fixmagmom
         self.wf_u = wf_u
         self.p_uai = p_uai
         self.Estart = Estart

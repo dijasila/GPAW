@@ -53,7 +53,7 @@ class DensityFourierTransform(Observer):
         self.gd = paw.density.gd
         self.finegd = paw.density.finegd
         self.nspins = paw.density.nspins
-        self.stencil = paw.input_parameters.stencils[1] # i.e. tar['InterpolationStencil']
+        self.stencil = paw.parameters.stencils[1] # i.e. tar['InterpolationStencil']
         self.interpolator = paw.density.interpolator
         self.cinterpolator = Transformer(self.gd, self.finegd, self.stencil, \
                                         dtype=self.dtype)

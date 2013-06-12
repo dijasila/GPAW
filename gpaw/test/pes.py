@@ -43,7 +43,7 @@ pes.save_folded_pes(filename=out, folding=None)
 pes.save_folded_pes(filename=None, folding=None)
 
 # check for correct shift
-VDE = calc_plus.get_potential_energy() - calc.get_potential_energy()
+VDE = e_H2_plus - e_H2
 BE_HOMO = 1.e23
 be_n, f_n = pes.get_energies_and_weights()
 for be, f in zip(be_n, f_n):

@@ -418,6 +418,13 @@ class PAWSetupGenerator:
                 break
             rcore -= 0.01
 
+        if 0:
+            rcore *= 1.2
+            print rcore, '1.200000000000000000000000000'
+            gcore = self.rgd.round(rcore)
+            self.nct_g = self.rgd.pseudize(self.nc_g, gcore)[0]
+            nt_g = self.nt_g + self.nct_g
+
         self.log('Constructing smooth pseudo core density for r < %.3f' %
                  rcore)
         self.nt_g = nt_g

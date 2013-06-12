@@ -41,7 +41,7 @@ del atoms, calc
 for mode in modes:
     atoms, calc = restart('tmp.%s' % mode)
     # Force new calculation
-    calc.scf.converged = False
+    calc.reset()
     e1 = atoms.get_potential_energy()
     f1 = atoms.get_forces()
     m1 = atoms.get_magnetic_moments()
@@ -65,6 +65,6 @@ for mode in modes:
         equal(eig0, eig1, 2e-3)
 
     niter1 = calc.get_number_of_iterations()
-    equal(niter1, 7, 0)
+    equal(niter1, 9, 0)
     # Check that after restart everythnig is writable
     calc.write('tmp2.%s' % mode)
