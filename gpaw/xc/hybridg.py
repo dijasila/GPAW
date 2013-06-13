@@ -180,6 +180,8 @@ class HybridXC(HybridXCBase):
             else:
                 noccmax = max(max(self.bands) + 1, noccmax)
 
+        N_c = self.kd.N_c
+
         vol = wfs.gd.dv * wfs.gd.N_c.prod()
         if self.alpha is None:
             alpha = 6 * vol**(2 / 3.0) / pi**2
@@ -188,21 +190,18 @@ class HybridXC(HybridXCBase):
         if self.gamma_point == 1:
             self.gamma = self.calculate_gamma(vol, alpha)
         else:
-            N_c = self.wfs.kd.N_c
-            assert N_c[0] == N_c[1] and N_c[0] == N_c[2]
-            N0 =  N_c[0]**3
-            qvol = (2*np.pi)**3 / vol / N0
-            self.gamma = 0.#4*np.pi * (3*qvol / (4*np.pi))**(1/3.) / qvol
-            #print self.gamma
-            self.gamma += madelung(wfs.gd.cell_cv * N_c[0]) * vol*N0 / (4*np.pi)
-            #print self.gamma
-            #print '----', N_c, vol, qvol, qvol*N0
+            kcell_cv = wfs.gd.cell_cv.copy()
+            kcell_cv[0] *= N_c[0]
+            kcell_cv[1] *= N_c[1]
+            kcell_cv[2] *= N_c[2]
+            #qvol = (2*np.pi)**3 / vol / N_c.prod()
+            #self.gamma = 4*np.pi * (3*qvol / (4*np.pi))**(1/3.) / qvol
+            self.gamma = madelung(kcell_cv) * vol * N_c.prod() / (4*np.pi)
 
         self.log('Value of alpha parameter: %.3f Bohr^2' % alpha)
         self.log('Value of gamma parameter: %.3f Bohr^2' % self.gamma)
             
         # Construct all possible q=k2-k1 vectors:
-        N_c = self.kd.N_c
         i_qc = np.indices(N_c * 2 - 1).transpose((1, 2, 3, 0)).reshape((-1, 3))
         self.bzq_qc = (i_qc - N_c + 1.0) / N_c
         self.q0 = ((N_c * 2 - 1).prod() - 1) // 2  # index of q=(0,0,0)
