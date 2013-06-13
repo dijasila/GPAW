@@ -18,13 +18,15 @@ from gpaw.xc.hybrid import HybridXCBase
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
 from gpaw.utilities import pack, unpack2, packed_index, logfile, erf
-        
+from gpaw.utilities.ewald import madelung
+
 
 class HybridXC(HybridXCBase):
     orbital_dependent = True
 
     def __init__(self, name, hybrid=None, xc=None,
-                 alpha=None, skip_gamma=False,
+                 alpha=None, 
+                 gamma_point=1,
                  method='standard',
                  bandstructure=False,
                  logfilename='-', bands=None,
@@ -44,8 +46,10 @@ class HybridXC(HybridXCBase):
             adiabatic-connection dissipation fluctuation formula.
         alpha: float
             XXX describe
-        skip_gamma: bool
-            Skip k2-k1=0 interactions.
+        gamma_point: bool
+            0: Skip k2-k1=0 interactions.
+            1: Use the alpha method.
+            2: Integrate the gamma point.
         bandstructure: bool
             Calculate bandstructure instead of just the total energy.
         bands: list of int
@@ -61,7 +65,7 @@ class HybridXC(HybridXCBase):
         self.alpha = alpha
         self.fcut = fcut
 
-        self.skip_gamma = skip_gamma
+        self.gamma_point = gamma_point
         self.method = method
         self.bandstructure = bandstructure
         self.bands = bands
@@ -160,7 +164,7 @@ class HybridXC(HybridXCBase):
         noccmax = self.nocc_sk.max()
         self.log('Number of occupied bands (min, max): %d, %d' %
                  (noccmin, noccmax))
-
+        
         self.log('Number of valence electrons:', self.wfs.setups.nvalence)
 
         if self.bandstructure:
@@ -181,8 +185,19 @@ class HybridXC(HybridXCBase):
             alpha = 6 * vol**(2 / 3.0) / pi**2
         else:
             alpha = self.alpha
-        self.gamma = self.calculate_gamma(vol, alpha)
-        
+        if self.gamma_point == 1:
+            self.gamma = self.calculate_gamma(vol, alpha)
+        else:
+            N_c = self.wfs.kd.N_c
+            assert N_c[0] == N_c[1] and N_c[0] == N_c[2]
+            N0 =  N_c[0]**3
+            qvol = (2*np.pi)**3 / vol / N0
+            self.gamma = 0.#4*np.pi * (3*qvol / (4*np.pi))**(1/3.) / qvol
+            #print self.gamma
+            self.gamma += madelung(wfs.gd.cell_cv * N_c[0]) * vol*N0 / (4*np.pi)
+            #print self.gamma
+            #print '----', N_c, vol, qvol, qvol*N0
+
         self.log('Value of alpha parameter: %.3f Bohr^2' % alpha)
         self.log('Value of gamma parameter: %.3f Bohr^2' % self.gamma)
             
@@ -381,7 +396,7 @@ class HybridXC(HybridXCBase):
         if abs(self.bzq_qc[q] - q_c).sum() > 1e-7:
             return
 
-        if self.skip_gamma and q == self.q0:
+        if self.gamma_point == 0 and q == self.q0:
             return
 
         nocc1 = self.nocc_sk[s, k1]
