@@ -380,7 +380,7 @@ class PAWTextOutput:
             if eigerr == 0.0:
                 eigerr = ''
             else:
-                eigerr = '%-+5.2f' % (log(eigerr) / log(10))
+                eigerr = '%+.2f' % (log(eigerr) / log(10))
 
             denserr = self.density.mixer.get_charge_sloshing()
             if denserr is None or denserr == 0 or nvalence == 0:
@@ -399,7 +399,7 @@ class PAWTextOutput:
             else:
                 niterpoisson = str(self.hamiltonian.npoisson)
 
-            t('iter: %3d  %02d:%02d:%02d  %-5s  %-5s    %11.6f  %-5s  %-7s' %
+            t('iter: %3d  %02d:%02d:%02d %6s %6s    %11.6f  %-5s  %-7s' %
               (iter,
                T[3], T[4], T[5],
                eigerr,
