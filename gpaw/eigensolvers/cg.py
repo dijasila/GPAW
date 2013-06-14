@@ -6,11 +6,12 @@ import numpy as np
 from numpy import dot
 from ase.units import Hartree
 
-from gpaw.utilities.blas import axpy, dotc
+from gpaw.utilities.blas import axpy, dotc, gemv, gemm
 from gpaw.utilities import unpack
 from gpaw.eigensolvers.eigensolver import Eigensolver
 from gpaw.hs_operators import reshape
 
+from gpaw import extra_parameters
 
 class CG(Eigensolver):
     """Conjugate gardient eigensolver
@@ -26,11 +27,31 @@ class CG(Eigensolver):
     * Conjugate gradient steps
     """
 
-    def __init__(self, niter=4):
+    def __init__(self, niter=4, rtol=0.30):
+        """Construct conjugate gradient eigen solver.
+
+        parameters:
+
+        niter: int
+            Maximum number of conjugate gradient iterations per band
+        rtol: float
+            If change in residual is less than rtol, iteration for band is
+            not continued
+
+        """
         Eigensolver.__init__(self)
         self.niter = niter
+        self.rtol = rtol
+        if extra_parameters.get('PK', False):
+            self.orthonormalization_required = True
+        else:
+            self.orthonormalization_required = False
 
     def initialize(self, wfs):
+        if wfs.bd.comm.size > 1:
+            raise ValueError('CG eigensolver does not support band '
+                             'parallelization.  This calculation parallelizes '
+                             'over %d band groups.' % wfs.bd.comm.size)
         Eigensolver.initialize(self, wfs)
         self.overlap = wfs.overlap
 
@@ -61,6 +82,10 @@ class CG(Eigensolver):
 
         total_error = 0.0
         for n in range(self.nbands):
+            if extra_parameters.get('PK', False):
+               N = n+1
+            else:
+               N = psit_nG.shape[0]+1
             R_G = R_nG[n]
             Htpsit_G = Htpsit_nG[n]
             gamma_old = 1.0
@@ -87,23 +112,25 @@ class CG(Eigensolver):
 
                 # Orthonormalize phi_G to all bands
                 self.timer.start('CG: orthonormalize')
-                for nn in range(self.nbands):
-                    self.timer.start('CG: overlap')
-                    overlap = wfs.integrate(psit_nG[nn], phi_G,
-                                            global_integral=False)
-                    self.timer.stop('CG: overlap')
-                    self.timer.start('CG: overlap2')
-                    for a, P2_i in P2_ai.items():
-                        P_i = kpt.P_ani[a][nn]
-                        dO_ii = wfs.setups[a].dO_ii
-                        overlap += dotc(P_i, np.inner(dO_ii, P2_i))
-                    self.timer.stop('CG: overlap2')
-                    overlap = comm.sum(overlap)
-                    # phi_G -= overlap * kpt.psit_nG[nn]
-                    axpy(-overlap, psit_nG[nn], phi_G)
-                    for a, P2_i in P2_ai.items():
-                        P_i = kpt.P_ani[a][nn]
-                        P2_i -= P_i * overlap
+                self.timer.start('CG: overlap')
+                overlap_n = wfs.integrate(psit_nG[:N], phi_G,
+                                        global_integral=False)
+                self.timer.stop('CG: overlap')
+                self.timer.start('CG: overlap2')
+                for a, P2_i in P2_ai.items():
+                    P_ni = kpt.P_ani[a]
+                    dO_ii = wfs.setups[a].dO_ii
+                    gemv(1.0, P_ni[:N].conjugate(), np.inner(dO_ii, P2_i), 
+                         1.0, overlap_n)
+                self.timer.stop('CG: overlap2')
+                comm.sum(overlap_n)
+
+                # phi_G -= overlap_n * kpt.psit_nG
+                wfs.matrixoperator.gd.gemv(-1.0, psit_nG[:N], overlap_n, 
+                                           1.0, phi_G, 'n')
+                for a, P2_i in P2_ai.items():
+                    P_ni = kpt.P_ani[a]
+                    gemv(-1.0, P_ni[:N], overlap_n, 1.0, P2_i, 'n')
 
                 norm = wfs.integrate(phi_G, phi_G, global_integral=False)
                 for a, P2_i in P2_ai.items():
@@ -167,7 +194,7 @@ class CG(Eigensolver):
                                      dot(P_i * kpt.eps_n[n], dO_ii))
                     wfs.pt.add(R_G, coef_ai, kpt.q)
                     error_new = np.real(wfs.integrate(R_G, R_G))
-                    if error_new / error < 0.30:
+                    if error_new / error < self.rtol:
                         # print >> self.f, "cg:iters", n, nit+1
                         break
                     if (self.nbands_converge == 'occupied' and

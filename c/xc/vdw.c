@@ -43,13 +43,13 @@ double vdwkernel(double D, double d1, double d2, int nD, int ndelta,
 
 PyObject * vdw(PyObject* self, PyObject *args)
 {
-  const PyArrayObject* n_obj;
-  const PyArrayObject* q0_obj;
-  const PyArrayObject* R_obj;
-  const PyArrayObject* cell_obj;
-  const PyArrayObject* pbc_obj;
-  const PyArrayObject* repeat_obj;
-  const PyArrayObject* phi_obj;
+  PyArrayObject* n_obj;
+  PyArrayObject* q0_obj;
+  PyArrayObject* R_obj;
+  PyArrayObject* cell_obj;
+  PyArrayObject* pbc_obj;
+  PyArrayObject* repeat_obj;
+  PyArrayObject* phi_obj;
   double ddelta;
   double dD;
   int iA;
@@ -65,20 +65,20 @@ PyObject * vdw(PyObject* self, PyObject *args)
 			&Dhistogram_obj, &dDhist))
     return NULL;
 
-  int ndelta = phi_obj->dimensions[0];
-  int nD = phi_obj->dimensions[1];
+  int ndelta = PyArray_DIMS(phi_obj)[0];
+  int nD = PyArray_DIMS(phi_obj)[1];
   const double* n = (const double*)DOUBLEP(n_obj);
   const double* q0 = (const double*)DOUBLEP(q0_obj);
   const double (*R)[3] = (const double (*)[3])DOUBLEP(R_obj);
   const double* cell = (const double*)DOUBLEP(cell_obj);
-  const char* pbc = (const char*)(cell_obj->data);
-  const long* repeat = (const long*)(repeat_obj->data);
+  const char* pbc = (const char*)(PyArray_DATA(cell_obj));
+  const long* repeat = (const long*)(PyArray_DATA(repeat_obj));
   const double (*phi)[nD] = (const double (*)[nD])DOUBLEP(phi_obj);
   double* rhistogram = (double*)DOUBLEP(rhistogram_obj);
   double* Dhistogram = (double*)DOUBLEP(Dhistogram_obj);
 
-  int nbinsr = rhistogram_obj->dimensions[0];
-  int nbinsD = Dhistogram_obj->dimensions[0];
+  int nbinsr = PyArray_DIMS(rhistogram_obj)[0];
+  int nbinsD = PyArray_DIMS(Dhistogram_obj)[0];
 
   double energy = 0.0;
   if (repeat[0] == 0 && repeat[1] == 0 && repeat[2] == 0)
@@ -162,20 +162,20 @@ PyObject * vdw(PyObject* self, PyObject *args)
 
 PyObject * vdw2(PyObject* self, PyObject *args)
 {
-  const PyArrayObject* phi_jp_obj;
-  const PyArrayObject* j_k_obj;
-  const PyArrayObject* dk_k_obj;
-  const PyArrayObject* theta_k_obj;
-  const PyArrayObject* F_k_obj;
+  PyArrayObject* phi_jp_obj;
+  PyArrayObject* j_k_obj;
+  PyArrayObject* dk_k_obj;
+  PyArrayObject* theta_k_obj;
+  PyArrayObject* F_k_obj;
   if (!PyArg_ParseTuple(args, "OOOOO", &phi_jp_obj, &j_k_obj, &dk_k_obj,
 			&theta_k_obj, &F_k_obj))
     return NULL;
 
-  const double* phi_jp = (const double*)phi_jp_obj->data;
-  const long* j_k = (const long*)j_k_obj->data;
-  const double* dk_k = (const double*)dk_k_obj->data;
-  const complex double* theta_k = (const complex double*)theta_k_obj->data;
-  complex double* F_k = (complex double*)F_k_obj->data;
+  const double* phi_jp = (const double*)PyArray_DATA(phi_jp_obj);
+  const long* j_k = (const long*)PyArray_DATA(j_k_obj);
+  const double* dk_k = (const double*)PyArray_DATA(dk_k_obj);
+  const complex double* theta_k = (const complex double*)PyArray_DATA(theta_k_obj);
+  complex double* F_k = (complex double*)PyArray_DATA(F_k_obj);
 
   int nk = PyArray_SIZE(j_k_obj);
   for (int k = 0; k < nk; k++)

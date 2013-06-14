@@ -35,117 +35,19 @@ class C_XC(Contribution):
         v_g += self.weight * self.vt_sg[0]
         e_g += self.weight * self.e_g
 
-    def calculate_spinpolarized(self, e_g, na_g, va_g, nb_g, vb_g):
+    def calculate_spinpolarized(self, e_g, n_sg, v_sg):
         self.e_g[:] = 0.0
         self.vt_sg[:] = 0.0
-        self.xc.get_energy_and_potential(na_g, self.vt_sg[0], nb_g, self.vt_sg[1], e_g=self.e_g)
-        va_g += self.weight * self.vt_sg[0]
-        vb_g += self.weight * self.vt_sg[1]
-        e_g += (self.weight * self.e_g).ravel()
+        self.xc.calculate(self.nlfunc.finegd, n_sg, self.vt_sg, self.e_g)
+        #self.xc.get_energy_and_potential(na_g, self.vt_sg[0], nb_g, self.vt_sg[1], e_g=self.e_g)
+        v_sg[0] += self.weight * self.vt_sg[0]
+        v_sg[1] += self.weight * self.vt_sg[1]
+        e_g += self.weight * self.e_g
 
-    def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a):
-        # Get the XC-correction instance
-        c = setup.xc_correction
-
-        assert self.nlfunc.nspins == 1
-        D_p = D_sp[0]
-        dEdD_p = H_sp[0][:]
-        D_Lq = dot3(c.B_pqL.T, D_p)
-        n_Lg = np.dot(D_Lq, c.n_qg)
-        n_Lg[0] += c.nc_g * sqrt(4 * pi)
-        nt_Lg = np.dot(D_Lq, c.nt_qg)
-        nt_Lg[0] += c.nct_g * sqrt(4 * pi)
-        dndr_Lg = np.zeros((c.Lmax, c.ng))
-        dntdr_Lg = np.zeros((c.Lmax, c.ng))
-        for L in range(c.Lmax):
-            c.rgd.derivative(n_Lg[L], dndr_Lg[L])
-            c.rgd.derivative(nt_Lg[L], dntdr_Lg[L])
-                                                            
-        E = 0
-        vt_g = np.zeros(c.ng)
-        v_g = np.zeros(c.ng)
-        e_g = np.zeros(c.ng)
-        y = 0
-        for w, Y_L in zip(weight_n, c.Y_nL):
-            A_Li = rnablaY_nLv[y, :c.Lmax]
-            a1x_g = np.dot(A_Li[:, 0], n_Lg)
-            a1y_g = np.dot(A_Li[:, 1], n_Lg)
-            a1z_g = np.dot(A_Li[:, 2], n_Lg)
-            a2_g = a1x_g**2 + a1y_g**2 + a1z_g**2
-            a2_g[1:] /= c.rgd.r_g[1:]**2
-            a2_g[0] = a2_g[1]
-            a1_g = np.dot(Y_L, dndr_Lg)
-            a2_g += a1_g**2
-            deda2_g = np.zeros(c.ng)  
-
-            v_g[:] = 0.0
-            e_g[:] = 0.0
-            n_g = np.dot(Y_L, n_Lg)
-            self.xc.kernel.calculate(e_g, n_g.reshape((1, -1)),
-                                     v_g.reshape((1, -1)),
-                                     a2_g.reshape((1, -1)),
-                                     deda2_g.reshape((1, -1)))
-            
-            E += w * np.dot(e_g, c.rgd.dv_g)
-            x_g = -2.0 * deda2_g * c.rgd.dv_g * a1_g
-            c.rgd.derivative2(x_g, x_g)
-            x_g += v_g * c.rgd.dv_g
-            dEdD_p += self.weight * w * np.dot(dot3(c.B_pqL, Y_L),
-                                  np.dot(c.n_qg, x_g))
-            x_g = 8.0 * pi * deda2_g * c.rgd.dr_g
-            dEdD_p += w * np.dot(dot3(c.B_pqL,
-                                       A_Li[:, 0]),
-                                  np.dot(c.n_qg, x_g * a1x_g))
-            dEdD_p += w * np.dot(dot3(c.B_pqL,
-                                       A_Li[:, 1]),
-                                  np.dot(c.n_qg, x_g * a1y_g))
-            dEdD_p += w * np.dot(dot3(c.B_pqL,
-                                       A_Li[:, 2]),
-                                  np.dot(c.n_qg, x_g * a1z_g))
-
-            n_g = np.dot(Y_L, nt_Lg)
-            a1x_g = np.dot(A_Li[:, 0], nt_Lg)
-            a1y_g = np.dot(A_Li[:, 1], nt_Lg)
-            a1z_g = np.dot(A_Li[:, 2], nt_Lg)
-            a2_g = a1x_g**2 + a1y_g**2 + a1z_g**2
-            a2_g[1:] /= c.rgd.r_g[1:]**2
-            a2_g[0] = a2_g[1]
-            a1_g = np.dot(Y_L, dntdr_Lg)
-            a2_g += a1_g**2
-            v_g = np.zeros(c.ng)
-            e_g = np.zeros(c.ng)
-            deda2_g = np.zeros(c.ng)
-
-            v_g[:] = 0.0
-            e_g[:] = 0.0
-            self.xc.kernel.calculate(e_g, n_g.reshape((1, -1)),
-                                     v_g.reshape((1, -1)),
-                                     a2_g.reshape((1, -1)),
-                                     deda2_g.reshape((1, -1)))
-
-            E -= w * np.dot(e_g, c.dv_g)
-            x_g = -2.0 * deda2_g * c.dv_g * a1_g
-            c.rgd.derivative2(x_g, x_g)
-            x_g += v_g * c.dv_g
-
-            B_Lqp = c.B_pqL.T
-            dEdD_p -= w * np.dot(dot3(c.B_pqL, Y_L),
-                                  np.dot(c.nt_qg, x_g))
-            x_g = 8.0 * pi * deda2_g * c.rgd.dr_g
-            dEdD_p -= w * np.dot(dot3(c.B_pqL,
-                                       A_Li[:, 0]),
-                                  np.dot(c.nt_qg, x_g * a1x_g))
-            dEdD_p -= w * np.dot(dot3(c.B_pqL,
-                                       A_Li[:, 1]),
-                                  np.dot(c.nt_qg, x_g * a1y_g))
-            
-            dEdD_p -= w * np.dot(dot3(c.B_pqL,
-                                       A_Li[:, 2]),
-                                  np.dot(c.nt_qg, x_g * a1z_g))
-            
-            y += 1
-        
-        return (E) * self.weight
+    def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a, addcoredensity=True):
+        E = self.xc.calculate_paw_correction(setup, D_sp, H_sp, True, a)
+        E += setup.xc_correction.Exc0
+        return E
 
     def add_xc_potential_and_energy_1d(self, v_g):
         self.v_g[:] = 0.0

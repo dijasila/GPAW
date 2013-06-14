@@ -6,8 +6,8 @@ Exercises
 
 .. note::
 
-  **CAMd summer school 2010 participants**, please read
-  this :ref:`page <summerschool10>` before you start working on the
+  **CAMd summer school 2012 participants**, please read
+  this :ref:`page <summerschool12>` before you start working on the
   exercises.
 
 In order to do the exercises, it helps with a little bit of knowledge
@@ -24,7 +24,9 @@ The exercises are used in the course `Electronic structure methods
 in materials physics, chemistry and biology
 <http://www.kurser.dtu.dk/10302.aspx>`_.
 
-Introductory exercises (do these first):
+Introductory exercises
+======================
+Do these first...
 
 .. toctree::
    :maxdepth: 1
@@ -33,15 +35,25 @@ Introductory exercises (do these first):
    water/water
    wavefunctions/wavefunctions
 
-Advanced exercises:
+Intermediate exercises
+======================
+
+.. toctree::
+   :maxdepth: 1
+
+   aluminium/aluminium
+   surface/surface
+   diffusion/diffusion
+
+Advanced exercises
+==================
+Pick among them according to your interest.  You can also look at the :ref:`tutorials`.
 
 .. toctree::
    :maxdepth: 1
 
    vibrations/vibrations
-   surface/surface
-   diffusion/diffusion
-   aluminium/aluminium
+   stress/stress
    neb/neb
    wannier/wannier
    iron/iron
@@ -51,8 +63,13 @@ Advanced exercises:
    tst/tst
    transport/transport
    lrtddft/lrtddft
+
+Further information:
+
+.. toctree::
+   :maxdepth: 1
+
    faeq
    
-See also :ref:`timepropagation`.
-
-For comments and questions, write to the :ref:`mailing_lists`.
+For comments and questions, write to the :ref:`mailing_lists`.  You
+can also search in the mailing list archives on the same page.

@@ -5,6 +5,7 @@ import numpy as np
 from gpaw.utilities.blas import axpy
 from gpaw.eigensolvers.eigensolver import Eigensolver
 
+from gpaw import extra_parameters
 
 class RMM_DIIS(Eigensolver):
     """RMM-DIIS eigensolver
@@ -20,7 +21,9 @@ class RMM_DIIS(Eigensolver):
     * Improvement of wave functions:  psi' = psi + lambda PR + lambda PR'
     * Orthonormalization"""
 
-    def __init__(self, keep_htpsit=True, blocksize=10):
+    def __init__(self, keep_htpsit=True, blocksize=10,
+                 fixed_trial_step=None):
+        self.fixed_trial_step = fixed_trial_step
         Eigensolver.__init__(self, keep_htpsit, blocksize)
 
     def iterate_one_k_point(self, hamiltonian, wfs, kpt):
@@ -50,12 +53,12 @@ class RMM_DIIS(Eigensolver):
                 dR_xG = dR_xG[:B]
                 
             n_x = range(n1, n2)
+            psit_xG = psit_nG[n1:n2]
             
             if self.keep_htpsit:
-                R_xG = R_nG[n_x]
+                R_xG = R_nG[n1:n2]
             else:
                 R_xG = wfs.empty(B, q=kpt.q)
-                psit_xG = kpt.psit_nG[n_x]
                 wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_xG, R_xG)
                 wfs.pt.integrate(psit_xG, P_axi, kpt.q)
                 self.calculate_residuals(kpt, wfs, hamiltonian, psit_xG,
@@ -76,7 +79,7 @@ class RMM_DIIS(Eigensolver):
             # Precondition the residual:
             self.timer.start('precondition')
             ekin_x = self.preconditioner.calculate_kinetic_energy(
-                psit_nG[n_x], kpt)
+                psit_xG, kpt)
             dpsit_xG = self.preconditioner(R_xG, kpt, ekin_x)
             self.timer.stop('precondition')
 
@@ -97,14 +100,20 @@ class RMM_DIIS(Eigensolver):
             comm.sum(dRdR_x)
 
             lam_x = -RdR_x / dRdR_x
-            # Calculate new psi'_G = psi_G + lam pR_G + lam pR'_G
-            #                      = psi_G + p(2 lam R_G + lam**2 dR_G)
+            if extra_parameters.get('PK', False):
+                lam_x[:] = np.where(lam_x>0.0, lam_x, 0.2)   
+            # Calculate new psi'_G = psi_G + lam pR_G + lam2 pR'_G
+            #                      = psi_G + p((lam+lam2) R_G + lam*lam2 dR_G)
             for lam, R_G, dR_G in zip(lam_x, R_xG, dR_xG):
-                R_G *= 2.0 * lam
-                axpy(lam**2, dR_G, R_G)  # R_G += lam**2 * dR_G
+                if self.fixed_trial_step is None:
+                    lam2 = lam
+                else:
+                    lam2 = self.fixed_trial_step
+                R_G *= lam + lam2
+                axpy(lam * lam2, dR_G, R_G)
                 
             self.timer.start('precondition')
-            psit_nG[n1:n2] += self.preconditioner(R_xG, kpt, ekin_x)
+            psit_xG[:] += self.preconditioner(R_xG, kpt, ekin_x)
             self.timer.stop('precondition')
             
         self.timer.stop('RMM-DIIS')

@@ -148,19 +148,19 @@ class GPAW(PAW):
             gd = self.density.gd
         elif gridrefinement == 2:
             if self.density.nt_sg is None:
-                self.density.interpolate()
+                self.density.interpolate_pseudo_density()
             nt_sG = self.density.nt_sg
             gd = self.density.finegd
         else:
             raise NotImplementedError
 
         if spin is None:
-            if self.wfs.nspins == 1:
+            if self.density.nspins == 1:
                 nt_G = nt_sG[0]
             else:
                 nt_G = nt_sG.sum(axis=0)
         else:
-            if self.wfs.nspins == 1:
+            if self.density.nspins == 1:
                 nt_G = 0.5 * nt_sG[0]
             else:
                 nt_G = nt_sG[spin]
@@ -205,23 +205,24 @@ class GPAW(PAW):
                              for spin in range(2)])
 
     def get_all_electron_density(self, spin=None, gridrefinement=2,
-                                 pad=True, broadcast=True):
+                                 pad=True, broadcast=True, collect=True):
         """Return reconstructed all-electron density array."""
         n_sG, gd = self.density.get_all_electron_density(
             self.atoms, gridrefinement=gridrefinement)
 
         if spin is None:
-            if self.wfs.nspins == 1:
+            if self.density.nspins == 1:
                 n_G = n_sG[0]
             else:
                 n_G = n_sG.sum(axis=0)
         else:
-            if self.wfs.nspins == 1:
+            if self.density.nspins == 1:
                 n_G = 0.5 * n_sG[0]
             else:
                 n_G = n_sG[spin]
 
-        n_G = gd.collect(n_G, broadcast)
+        if collect:
+            n_G = gd.collect(n_G, broadcast)
 
         if n_G is None:
             return None
@@ -375,7 +376,7 @@ class GPAW(PAW):
         """
         if pad:
             psit_G = self.get_pseudo_wave_function(band, kpt, spin, broadcast,
-                                                 pad=False)
+                                                   pad=False)
             if psit_G is None:
                 return
             else:
@@ -615,7 +616,7 @@ class GPAW(PAW):
         if self.wfs.collinear:
             momsum = magmom_av.sum()
             M = self.occupations.magmom
-            if abs(M) > 1e-7 and momsum > 1e-7:
+            if abs(M) > 1e-7 and abs(momsum) > 1e-7:
                 magmom_av *= M / momsum
             # return a contiguous array
             return magmom_av[:, 2].copy()
@@ -674,3 +675,16 @@ class GPAW(PAW):
             k = kpt.k
             for n, psit_G in enumerate(kpt.psit_nG):
                 psit_G[:] = read_wave_function(self.wfs.gd, s, k, n, mode)
+
+    def get_nonselfconsistent_energies(self, type='beefvdw'):
+        from gpaw.xc.bee import BEEF_Ensemble
+        if type not in ['beefvdw', 'mbeef']:
+            raise NotImplementedError('Not implemented for type = %s' % type)
+        assert self.scf.converged
+        bee = BEEF_Ensemble(self)
+        x = bee.create_xc_contributions('exch')
+        c = bee.create_xc_contributions('corr')
+        if type is 'beefvdw':
+            return np.append(x,c)
+        elif type is 'mbeef':
+            return x.flatten()

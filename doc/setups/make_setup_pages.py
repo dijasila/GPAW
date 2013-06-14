@@ -6,13 +6,17 @@ import pickle
 import matplotlib
 matplotlib.use('Agg')
 
+# Workaround for bug #562421 in python-matplotlib on Fedora
+# https://bugzilla.redhat.com/show_bug.cgi?id=562421
+matplotlib.rc('text', usetex=True)
+
 import numpy as np
 from ase.data import atomic_numbers, atomic_names
 from ase.atoms import string2symbols
 from ase.data.molecules import rest
 from ase.data.g2_1 import data as molecule_data
 
-from gpaw.testing.atomization_data import atomization_vasp
+from ase.data.g2_1_ref import atomization_vasp
 from gpaw.atom.configurations import parameters
 
 page = """.. Computer generated reST (make_setup_pages.py)
@@ -207,7 +211,7 @@ def make_page(symbol):
                  label=r'$2E_a-E_d$')
     plt.semilogy(h, Eegg.ptp(axis=1), '-o', label=r'$E_{egg}$')
     #plt.title('Energy differences')
-    plt.xlabel(u'h [Å]')
+    plt.xlabel(r'h [\AA]')
     plt.ylabel('energy [eV]')
     plt.legend(loc='best')
 
@@ -217,17 +221,17 @@ def make_page(symbol):
     plt.semilogy(h, np.abs(data['Fdimer'].sum(axis=2)).max(axis=1), '-o',
                  label=r'$|\mathbf{F}_1 + \mathbf{F}_2|$')
     #plt.title('Forces')
-    plt.xlabel(u'h [Å]')
-    plt.ylabel(u'force [eV/Å]')
+    plt.xlabel(r'h [\AA]')
+    plt.ylabel(r'force [eV/\AA]')
     plt.legend(loc='best')
 
     plt.subplot(313)
     d = ddimer0[-1]
     plt.plot(h, ddimer0, '-o')
     #plt.title('Bond length')
-    plt.xlabel(u'h [Å]')
+    plt.xlabel(r'h [\AA]')
     plt.axis(ymin=d * 0.98, ymax=d * 1.02)
-    plt.ylabel(u'bond length [Å]')
+    plt.ylabel(r'bond length [\AA]')
 
     plt.savefig('../_static/setups-data/%s-dimer-eggbox.png' % symbol, dpi=dpi)
     #plt.show()

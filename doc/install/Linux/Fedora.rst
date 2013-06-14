@@ -10,6 +10,8 @@ Here you find information about the the system
 System wide installation with yum
 =================================
 
+**Warning**: this section is outdated!
+
 The steps described below require root access and assume bash shell:
 
 - `configure fys yum repository <https://wiki.fysik.dtu.dk/niflheim/Cluster_software_-_RPMS#configure-fys-yum-repository>`_

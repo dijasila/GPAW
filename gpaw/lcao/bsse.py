@@ -27,8 +27,8 @@ class GhostSetup(BaseSetup):
         self.data = data
         self.phit_j = basis.tosplines()
         self.basis = basis
-        self.niAO = sum([2 * phit.get_angular_momentum_number() + 1
-                         for phit in self.phit_j])
+        self.nao = sum([2 * phit.get_angular_momentum_number() + 1
+                        for phit in self.phit_j])
         self.HubU = None
         self.filename = None
         self.fingerprint = None
@@ -73,6 +73,7 @@ class GhostSetup(BaseSetup):
         self.rcore = None
         self.N0_p = np.zeros(1)
         self.nabla_iiv = None
+        self.rnabla_iiv = None
         self.phicorehole_g = None
         self.rgd = None
         self.rcut_j = [0.5]

@@ -1,96 +1,11 @@
-﻿FN Thomson Reuters Web of Knowledge
-VR 1.0
-PT J
-AU Kramberger, C.
-   Roth, F.
-   Schuster, R.
-   Kraus, R.
-   Knupfer, M.
-   Einarsson, E.
-   Maruyama, S.
-   Mowbray, D. J.
-   Rubio, A.
-   Pichler, T.
-TI Channeling of charge carrier plasmons in carbon nanotubes
-SO PHYSICAL REVIEW B
-VL 85
-IS 8
-AR 085424
-DI 10.1103/PhysRevB.85.085424
-PD FEB 16 2012
-PY 2012
-AB Ab initio calculations of the loss function of potassium-intercalated
-   and electron-loaded bundles of single-walled carbon nanotubes yield a
-   channeled-charge-carrier plasmon without perpendicular dispersion.
-   Experimentally, we probe the momentum-dependent loss function of thin
-   bundles consisting of only a few potassium-intercalated single-walled
-   carbon nanotubes by angle-resolved electron-energy-loss spectroscopy and
-   confirm this intrinsic channeling. The charge-carrier-plasmon energy is
-   via in situ intercalation and is tunable in the near-visible
-   infrared-energy range from 0.85 to 1.15 eV.
-TC 0
-Z9 0
-SN 1098-0121
-UT WOS:000300420300004
-ER
-
-PT J
-AU Yan, Jun
-   Jacobsen, Karsten W.
-   Thygesen, Kristian S.
-TI First-principles study of surface plasmons on Ag(111) and H/Ag(111)
-SO PHYSICAL REVIEW B
-VL 84
-IS 23
-AR 235430
-DI 10.1103/PhysRevB.84.235430
-PD DEC 20 2011
-PY 2011
-AB Linear-response time-dependent density functional theory is used to
-   investigate the relation between molecular bonding and surface plasmons
-   for the model system H/Ag(111). We employ an orbital-dependent
-   exchange-correlation functional to obtain a correct description of the
-   Ag 3d band, which is crucial to avoid overscreening the plasmon by the
-   s-d interband transitions. For the clean surface, this approach
-   reproduces the experimental plasmon energies and dispersion to within
-   0.15 eV. Adsorption of hydrogen shifts and damps the Ag(111) surface
-   plasmon and induces a new peak in the loss function at 0.6 eV below the
-   Ag(111) plasmon peak. This feature originates from interband transitions
-   between states located on the hydrogen atoms and states on the Ag
-   surface atoms.
-TC 0
-Z9 0
-SN 1098-0121
-UT WOS:000298557900006
-ER
-
-PT J
-AU Olsen, Thomas
-   Yan, Jun
-   Mortensen, Jens J.
-   Thygesen, Kristian S.
-TI Dispersive and Covalent Interactions between Graphene and Metal Surfaces
-   from the Random Phase Approximation
-SO PHYSICAL REVIEW LETTERS
-VL 107
-IS 15
-AR 156401
-DI 10.1103/PhysRevLett.107.156401
-PD OCT 3 2011
-PY 2011
-AB We calculate the potential energy surfaces for graphene adsorbed on
-   Cu(111), Ni(111), and Co(0001) using density functional theory and the
-   random phase approximation (RPA). For these adsorption systems covalent
-   and dispersive interactions are equally important and while commonly
-   used approximations for exchange-correlation functionals give inadequate
-   descriptions of either van der Waals or chemical bonds, RPA accounts
-   accurately for both. It is found that the adsorption is a delicate
-   competition between a weak chemisorption minimum close to the surface
-   and a physisorption minimum further from the surface.
-TC 6
-Z9 6
-SN 0031-9007
-UT WOS:000296286200015
-ER
-
-EF
+2011-09-15 10.1166/mex.2011.1027 Computing C1s X-ray Absorption for Single-Walled Carbon Nanotubes with Distinct Electronic Type
+2011-10-03 10.1103/PhysRevLett.107.156401 Dispersive and Covalent Interactions between Graphene and Metal Surfaces from the Random Phase Approximation
+2011-12-20 10.1103/PhysRevB.84.235430 First-principles study of surface plasmons on Ag(111) and H/Ag(111)
+2012-02-16 10.1103/PhysRevB.85.085424 Channeling of charge carrier plasmons in carbon nanotubes
+2012-07-19 10.1103/PhysRevB.86.045208 Optical properties of bulk semiconductors and graphene/boron nitride: The Bethe-Salpeter equation with derivative discontinuity-corrected density functional energies
+2012-08-15 10.1103/PhysRevB.86.081103 Extending the random-phase approximation for electronic correlation energies: The renormalized adiabatic local density approximation
+2012-12-20 10.1103/PhysRevB.86.241404 Conventional and acoustic surface plasmons on noble metal surfaces: A time-dependent density functional theory study
+2012-12-26 10.1103/PhysRevB.86.245129 Spatially resolved quantum plasmon modes in metallic nano-films from first-principles
+2013-01-30 10.1103/PhysRevB.87.045428 Stratified graphene/noble metal systems for low-loss plasmonics applications
+2013-02-13 10.1103/PhysRevB.87.075111 Random phase approximation applied to solids, molecules, and graphene-metal interfaces: From van der Waals to covalent bonding
+2013-02-25 10.1103/PhysRevB.87.075207 Formation energies of group I and II metal oxides using random phase approximation

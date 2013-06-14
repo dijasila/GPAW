@@ -10,7 +10,7 @@ Requirements
 
 1) Python 2.4 - 2.7.  Python is available from http://www.python.org.
 
-2) NumPy_ 1.1 - 1.5.
+2) NumPy_ 1.1 or later.
 
 3) Atomic Simulation Environment (:ase:`ASE <>`).
 
@@ -19,17 +19,21 @@ Requirements
 5) BLAS and LAPACK libraries. Start with your system provided defaults or
    e.g. http://www.amd.com/acml.
 
-6) An MPI library (required for parallel calculations).
+Optionally:
 
-7) (Optional) HDF5 (> 1.8.0) library for parallel I/O and for saving files in HDF5 format
+6) an MPI library (required for parallel calculations).
 
+7) HDF5 (> 1.8.0) library for parallel I/O and for saving files in HDF5 format
+
+8) SciPy_ 0.7.0 or later (required for example for transport of response calculations)
 
 .. note::
 
    In order to use the code, you need also the setups for all your
    atoms (:ref:`setups`).
 
-.. _NumPy: http://numpy.scipy.org/
+.. _NumPy: http://numpy.org/
+.. _SciPy: http://scipy.org/
 
 
 Installation
@@ -43,30 +47,43 @@ are described, in order of preference.
    **CAMd users** installing on ``Niflheim``: please follow instructions
    for :ref:`Niflheim`.
 
+.. _installationguide_macosx:
+
+Installation on OS X
+--------------------
+
+For installation with http://mxcl.github.com/homebrew/ please follow
+instructions at :ref:`homebrew`.
 
 .. _installationguide_package:
 
-Installation from the fys package repository
---------------------------------------------
+Installation with package manager on Linux
+------------------------------------------
 
-GPAW and dependencies will be installed system-wide.
-This procedure requires root access.
+This is **the preferred** way to install on a Linux system.
+If you prefer to install from sources follow :ref:`installationguide_developer`.
 
-.. note::
+After performing the installation do not forget to :ref:`running_tests`!
 
-   Most of the fys packages are relocatable, therefore also suitable for
-   installing on a cluster.
+Configure the package repositories as described at
+`Installation with package manager on Linux <https://wiki.fysik.dtu.dk/ase/download.html#installation-with-package-manager-on-linux>`_,
+and install GPAW with:
 
-The packages are provided for the following RPMS-based systems:
+- on RHEL/CentOS/Fedora::
 
-* Fedora: :ref:`Fedora`
-* openSUSE: :ref:`openSUSE`
-* RedHat Enterprise Linux (or CentOS): :ref:`CentOS`
+    yum install gpaw
 
-Ubuntu 9.10 or newer: :ref:`Ubuntupackage`.
+- on openSUSE::
 
-If you prefer to install manually proceed to the next section.
+    yast -i gpaw
 
+- on Debian/Ubuntu::
+
+    sudo apt-get update
+    sudo apt-get install gpaw
+
+For the full list of supported distributions check
+https://build.opensuse.org/package/show?package=gpaw&project=home%3Adtufys
 
 .. _installationguide_developer:
 
@@ -99,13 +116,13 @@ It offers the following advantages:
 Standard installation
 ---------------------
 
-This is the standard way of installing python modules.
-Avoid it as it does **not** offer advantages of
+This way of installing python modules
+**should** be **avoided** as it does **not** offer advantages of
 the :ref:`installationguide_developer`.
 
 .. note::
 
-   The standard installation must
+   The standard installation, if chosen, must
    always be preceded by a well tested :ref:`installationguide_developer`!
 
 1) :ref:`download` the code.
@@ -135,10 +152,12 @@ the :ref:`installationguide_developer`.
    parallel runs. See :ref:`parallel_installation` for more details about
    parallel runs.
 
-   If you have root permissions, you can install GPAW system-wide
+   Optional, NOT recommended way of installing GPAW system-wide is
    (example below assumes bash)::
 
      [gpaw]# python setup.py install 2>&1 | tee install.log
+
+   This is one of the best ways to ruin a Linux system.
 
 4) :ref:`running_tests`.
 
@@ -287,7 +306,7 @@ spins and the domain.
 
 If you enabled ScaLAPACK, do::
 
-  [examples]$ mpirun -np 2 gpaw-python ~/gpaw/test/CH4.py --gpaw=blacs=1 --sl_default=1,2,2
+  [examples]$ mpirun -np 2 gpaw-python ~/gpaw/test/CH4.py --sl_default=1,2,2
 
 This will enable ScaLAPACK's diagonalization on a 1x2 BLACS grid
 with the block size of 2.

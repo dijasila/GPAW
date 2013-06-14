@@ -7,7 +7,7 @@ surveyor.alcf.anl.gov
 Here you find information about the the system
 `<http://www.alcf.anl.gov/support/gettingstarted/index.php>`_.
 
-Please refer to to following sections:
+Please refer to following sections:
 
 .. toctree::
    :maxdepth: 2

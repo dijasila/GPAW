@@ -22,7 +22,9 @@ atoms = Atoms('Na3', positions=[( 0, 0, 0),
 
 # Only a short, non-converged calcuation
 conv = {'eigenstates': 1.e-3, 'energy':1e-2, 'density':1e-1}
-calc = GPAW(h=0.30, nbands=3, convergence=conv)
+calc = GPAW(h=0.30, nbands=3,
+            setups={'Na': '1'}, 
+            convergence=conv)
 atoms.set_calculator(calc)
 e0 = atoms.get_potential_energy()
 niter0 = calc.get_number_of_iterations()

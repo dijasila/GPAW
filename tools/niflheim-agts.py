@@ -8,17 +8,48 @@ def cmd(c):
     x = os.system(c)
     assert x == 0, c
 
-def fail(subject, email=None, filename='/dev/null'):
+def fail(subject, email=None, filename='/dev/null', mailer='mail'):
+    assert mailer in ['mailx', 'mail', 'mutt']
     import os
     if email is not None:
-        assert os.system('uuencode %s %s | mail -s "%s" %s' %
-                         (filename, os.path.basename(filename),
-                          subject, email)) == 0
+        if filename == '/dev/null':
+            assert os.system('mail -s "%s" %s < %s' %
+                             (subject, email, filename)) == 0
+        else: # attachments
+            filenames = filename.split()
+            if mailer == 'mailx': # new mailx (12?)
+                attach = ''
+                for f in filenames:
+                    attach += ' -a %s ' % f
+                # send with empty body
+                assert os.system('echo | mail %s -s "%s" %s' %
+                                 (attach, subject, email)) == 0
+            elif mailer == 'mail': # old mailx (8?)
+                attach = '('
+                for f in filenames:
+                    ext = os.path.splitext(f)[-1]
+                    if ext:
+                        flog = os.path.basename(f).replace(ext, '.log')
+                    else:
+                        flog = f
+                    attach += 'uuencode %s %s&&' % (f, flog)
+                # remove final &&
+                attach = attach[:-2]
+                attach += ')'
+                assert os.system('%s | mail -s "%s" %s' %
+                                 (attach, subject, email)) == 0
+            else: # mutt
+                attach = ''
+                for f in filenames:
+                    attach += ' -a %s ' % f
+                # send with empty body
+                assert os.system('mutt %s -s "%s" %s < /dev/null' %
+                                 (attach, subject, email)) == 0
     raise SystemExit
 
 if '--dir' in sys.argv:
     i = sys.argv.index('--dir')
-    dir = sys.argv[i+1]
+    dir = os.path.abspath(sys.argv[i+1])
 else:
     dir = 'agts'
 
@@ -111,12 +142,20 @@ from gpaw.version import version
 
 subject = 'AGTS GPAW %s: ' % str(version)
 # Send mail:
-if nfailed:
-    subject += ' failed'
-    fail(subject, email, os.path.join(dir, 'status.log'))
-else:
+sfile = os.path.join(dir, 'status.log')
+attach = sfile
+if not nfailed:
     subject += ' succeeded'
-    fail(subject, email, os.path.join(dir, 'status.log'))
+    fail(subject, email, attach, mailer='mutt')
+else:
+    subject += ' failed'
+    # attach failed tests error files
+    ft = [l.split()[0] for l in open(sfile).readlines() if 'FAILED' in l]
+    for t in ft:
+        ef = glob.glob(os.path.join(dir, t) + '.e*')
+        for f in ef:
+            attach += ' ' + f
+    fail(subject, email, attach, mailer='mutt')
 
 if 0:
     # Analysis:

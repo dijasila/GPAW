@@ -42,8 +42,9 @@ if mpi.size == 1:
     w_n = np.sum(xas.sigma_cn.real**2, axis=0)
     de2 = e2_n[1] - e2_n[0]
 
-    print de2 - 2.0992
-    assert abs(de2 - 2.0992) < 0.001
+    print de2
+    print de2 - 2.0848
+    assert abs(de2 - 2.0848) < 0.001
     print w_n[1] / w_n[0]
     assert abs(w_n[1] / w_n[0] - 2.18) < 0.01
 
@@ -60,5 +61,5 @@ if 0:
 print e, niter
 energy_tolerance = 0.00009
 niter_tolerance = 0
-equal(e, -17.5407, energy_tolerance)
+equal(e, -17.9621, energy_tolerance)
 assert 18 <= niter <= 19, niter

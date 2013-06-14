@@ -175,7 +175,7 @@ class Density:
             self.mixer.mix(self)
             comp_charge = None
           
-        self.interpolate(comp_charge)
+        self.interpolate_pseudo_density(comp_charge)
         self.calculate_pseudo_charge()
 
         if self.mixer.mix_rho:
@@ -319,7 +319,7 @@ class Density:
         elif gridrefinement == 2:
             gd = self.finegd
             if self.nt_sg is None:
-                self.interpolate()
+                self.interpolate_pseudo_density()
             n_sg = self.nt_sg.copy()
         elif gridrefinement == 4:
             # Extra fine grid
@@ -331,7 +331,7 @@ class Density:
             # Transfer the pseudo-density to the fine grid:
             n_sg = gd.empty(self.nspins)
             if self.nt_sg is None:
-                self.interpolate()
+                self.interpolate_pseudo_density()
             for s in range(self.nspins):
                 interpolator.apply(self.nt_sg[s], n_sg[s])
         else:
@@ -406,7 +406,7 @@ class Density:
         elif gridrefinement == 2:
             gd = self.finegd
             if self.nt_sg is None:
-                self.interpolate()
+                self.interpolate_pseudo_density()
             n_sg = self.nt_sg.copy()
         elif gridrefinement == 4:
             # Extra fine grid
@@ -418,7 +418,7 @@ class Density:
             # Transfer the pseudo-density to the fine grid:
             n_sg = gd.empty(self.nspins)
             if self.nt_sg is None:
-                self.interpolate()
+                self.interpolate_pseudo_density()
             for s in range(self.nspins):
                 interpolator.apply(self.nt_sg[s], n_sg[s])
         else:
@@ -460,6 +460,9 @@ class Density:
             nw = len(phi.sphere_a[a].M_w)
             a_W[W:W + nw] = a
             W += nw
+
+        x_W = phi.create_displacement_arrays()[0]
+
         rho_MM = np.zeros((phi.Mmax, phi.Mmax))
         for s, I_a in enumerate(I_sa):
             M1 = 0
@@ -478,8 +481,10 @@ class Density:
                 rho_MM[M1:M2, M1:M2] = unpack2(D_sp[s])
                 M1 = M2
 
-            phi.lfc.ae_valence_density_correction(rho_MM, n_sg[s], a_W, I_a)
-            phit.lfc.ae_valence_density_correction(-rho_MM, n_sg[s], a_W, I_a)
+            phi.lfc.ae_valence_density_correction(rho_MM, n_sg[s], a_W, I_a,
+                                                  x_W)
+            phit.lfc.ae_valence_density_correction(-rho_MM, n_sg[s], a_W, I_a,
+                                                  x_W)
 
         a_W = np.empty(len(nc.M_W), np.intc)
         W = 0
@@ -497,6 +502,7 @@ class Density:
             for I, g_c in zip(I_a, g_ac):
                 if (g_c >= 0).all() and (g_c < gd.n_c).all():
                     n_sg[s][tuple(g_c)] -= I / gd.dv
+
         return n_sg, gd
 
     if extra_parameters.get('usenewlfc', True):
@@ -610,16 +616,12 @@ class RealSpaceDensity(Density):
         self.nct_G = self.gd.zeros()
         self.nct.add(self.nct_G, 1.0 / self.nspins)
 
-    def interpolate(self, comp_charge=None):
+    def interpolate_pseudo_density(self, comp_charge=None):
         """Interpolate pseudo density to fine grid."""
         if comp_charge is None:
             comp_charge = self.calculate_multipole_moments()
 
-        if self.nt_sg is None:
-            self.nt_sg = self.finegd.empty(self.nspins * self.ncomp**2)
-
-        for nt_G, nt_g in zip(self.nt_sG, self.nt_sg):
-            self.interpolator.apply(nt_G, nt_g)
+        self.nt_sg = self.interpolate(self.nt_sG, self.nt_sg)
 
         # With periodic boundary conditions, the interpolation will
         # conserve the number of electrons.
@@ -632,6 +634,24 @@ class RealSpaceDensity(Density):
                      self.finegd.integrate(self.nt_sg[:self.nspins]).sum())
                 self.nt_sg *= x
 
+    def interpolate(self, in_xR, out_xR=None):
+        """Interpolate array(s)."""
+
+        # ndim will be 3 in finite-difference mode and 1 when working
+        # with the AtomPAW class (spherical atoms and 1d grids)
+        ndim = self.gd.ndim
+
+        if out_xR is None:
+            out_xR = self.finegd.empty(in_xR.shape[:-ndim])
+
+        a_xR = in_xR.reshape((-1,) + in_xR.shape[-ndim:])
+        b_xR = out_xR.reshape((-1,) + out_xR.shape[-ndim:])
+        
+        for in_R, out_R in zip(a_xR, b_xR):
+            self.interpolator.apply(in_R, out_R)
+
+        return out_xR
+
     def calculate_pseudo_charge(self):
         self.nt_g = self.nt_sg[:self.nspins].sum(axis=0)
         self.rhot_g = self.nt_g.copy()
@@ -642,3 +662,9 @@ class RealSpaceDensity(Density):
             if abs(charge) > self.charge_eps:
                 raise RuntimeError('Charge not conserved: excess=%.9f' %
                                    charge)
+
+    def get_pseudo_core_kinetic_energy_density_lfc(self):
+        return LFC(self.gd,
+                   [[setup.tauct] for setup in self.setups],
+                   forces=True, cut=True)
+

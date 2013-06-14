@@ -331,7 +331,7 @@ PyObject* h5s_select_hyperslab(PyObject *self, PyObject *args)
   // None can be passed to indicate use of default values e.g. NULL for
   // stride and block
   long* temp = PyArray_DATA(np_offset);
-  int rank = np_offset->dimensions[0];
+  int rank = PyArray_DIMS(np_offset)[0];
   hsize_t* offset = (hsize_t *) malloc(rank * sizeof(hsize_t));
   for (int i=0; i < rank; i++)
     offset[i] = temp[i];

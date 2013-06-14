@@ -2,6 +2,8 @@ import sys
 import pylab
 from gpaw import GPAW
 
+# The following five lines read a file name and an optional width
+# from the command line.
 filename = sys.argv[1]
 if len(sys.argv) > 2:
     width = float(sys.argv[2])

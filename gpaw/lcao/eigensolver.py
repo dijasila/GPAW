@@ -22,6 +22,9 @@ class LCAO:
         assert self.diagonalizer is not None
         self.has_initialized = True # XXX
 
+    def reset(self):
+        pass
+
     def error(self):
         return 0.0
     error = property(error)

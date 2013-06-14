@@ -21,7 +21,7 @@ else:
 
 if '--dir' in sys.argv:
     i = sys.argv.index('--dir')
-    dir = sys.argv[i+1]
+    dir = os.path.abspath(sys.argv[i+1])
 else:
     dir = None
 
@@ -77,6 +77,7 @@ print 'Run'
 if os.system('source /home/camp/modulefiles.sh; ' +
              'module load NUMPY; ' +
              'module load SCIPY; ' +
+             'module load SCIENTIFICPYTHON/2.8; ' +
              'module load CMR; ' +
              'module load openmpi/1.3.3-1.el5.fys.open64.4.2.3; ' +
              'export PYTHONPATH=%s/lib64/python:$PYTHONPATH; ' % tmpdir +

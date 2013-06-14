@@ -48,6 +48,12 @@ def create_setup(symbol, xc='LDA', lmax=0,
             ah = AppelbaumHamann()
             ah.build(basis)
             return ah
+        elif type == 'ae':
+            from gpaw.ae import HydrogenAllElectronSetup
+            assert symbol == 'H'
+            ae = HydrogenAllElectronSetup()
+            ae.build(basis)
+            return ae
         elif type == 'ghost':
             from gpaw.lcao.bsse import GhostSetupData
             setupdata = GhostSetupData(symbol)
@@ -82,8 +88,8 @@ class BaseSetup:
 
         Hund rules disabled if so."""
 
-        niao = self.niAO
-        f_si = np.zeros((nspins, niao))
+        nao = self.nao
+        f_si = np.zeros((nspins, nao))
 
         assert (not hund) or f_j is None
         if f_j is None:
@@ -122,6 +128,10 @@ class BaseSetup:
                                2 * (2 * l_j + 1))
         else:
             nval = f_j.sum() - charge
+            if np.abs(magmom) > nval:
+                raise RuntimeError('Magnetic moment larger than number ' +
+                                   'of valence electrons (|%g| > %g)' %
+                                   (magmom, nval))
             f_sj = 0.5 * np.array([f_j, f_j])
             nup = 0.5 * (nval + magmom)
             ndown = 0.5 * (nval - magmom)
@@ -171,7 +181,7 @@ class BaseSetup:
         if hund and magmom != 0:
             raise ValueError('Bad magnetic moment %g for %s atom!'
                              % (magmom, self.symbol))
-        assert i == niao
+        assert i == nao
 
 #        print "fsi=", f_si
         return f_si
@@ -187,7 +197,7 @@ class BaseSetup:
         raise RuntimeError
     
     def initialize_density_matrix(self, f_si):
-        nspins, niao = f_si.shape
+        nspins, nao = f_si.shape
         ni = self.ni
 
         D_sii = np.zeros((nspins, ni, ni))
@@ -388,7 +398,7 @@ class LeanSetup(BaseSetup):
         self.Nc = s.Nc
 
         self.ni = s.ni
-        self.niAO = s.niAO # XXX rename to nao
+        self.nao = s.nao
 
         self.pt_j = s.pt_j
         self.phit_j = s.phit_j # basis functions
@@ -433,11 +443,12 @@ class LeanSetup(BaseSetup):
         # Required by print_info
         self.rcutfilter = s.rcutfilter
         self.rcore = s.rcore
-        self.basis = s.basis # we don't need niAO if we use this instead
+        self.basis = s.basis # we don't need nao if we use this instead
         # Can also get rid of the phit_j splines if need be
 
         self.N0_p = s.N0_p # req. by estimate_magnetic_moments
         self.nabla_iiv = s.nabla_iiv  # req. by lrtddft
+        self.rnabla_iiv = s.rnabla_iiv  # req. by lrtddft
 
         # XAS stuff
         self.phicorehole_g = s.phicorehole_g # should be optional
@@ -633,10 +644,10 @@ class Setup(BaseSetup):
         self.phit_j = phit_j
         self.basis = basis #?
 
-        self.niAO = 0
+        self.nao = 0
         for phit in self.phit_j:
             l = phit.get_angular_momentum_number()
-            self.niAO += 2 * l + 1
+            self.nao += 2 * l + 1
 
         rgd2 = self.rgd2 = AERadialGridDescriptor(rgd.a, rgd.b, gcut2)
         r_g = rgd2.r_g
@@ -749,6 +760,7 @@ class Setup(BaseSetup):
         
         self.xc_correction = data.get_xc_correction(rgd2, xc, gcut2, lcut)
         self.nabla_iiv = self.get_derivative_integrals(rgd2, phi_jg, phit_jg)
+        self.rnabla_iiv = self.get_magnetic_integrals(rgd2, phi_jg, phit_jg)
 
     def calculate_coulomb_corrections(self, lcut, n_qg, wn_lqg,
                                       lmax, Delta_lq, wnt_lqg,
@@ -922,6 +934,60 @@ class Setup(BaseSetup):
             i1 += nm1
         return nabla_iiv
 
+    def get_magnetic_integrals(self, rgd, phi_jg, phit_jg):
+        """Calculate PAW-correction matrix elements of r x nabla.
+
+        ::
+        
+          /  _       _          _     ~   _      ~   _
+          | dr [phi (r) O  phi (r) - phi (r) O  phi (r)]
+          /        1     x    2         1     x    2
+
+                       d      d
+          where O  = y -- - z --
+                 x     dz     dy
+
+        and similar for y and z."""
+
+        if extra_parameters.get('fprojectors'):
+            return None
+        r_g = rgd.r_g
+        dr_g = rgd.dr_g
+        rnabla_iiv = np.zeros((self.ni, self.ni, 3))
+        i1 = 0
+        for j1 in range(self.nj):
+            l1 = self.l_j[j1]
+            nm1 = 2 * l1 + 1
+            i2 = 0
+            for j2 in range(self.nj):
+                l2 = self.l_j[j2]
+                nm2 = 2 * l2 + 1
+                f1f2or = np.dot(phi_jg[j1] * phi_jg[j2] -
+                                phit_jg[j1] * phit_jg[j2], r_g**2 * dr_g)
+                for v in range(3):
+                    v1 = (v + 1) % 3
+                    v2 = (v + 2) % 3
+                    # term from radial wfs does not contribute
+                    # term from spherical harmonics derivatives
+                    G = np.zeros((nm1, nm2))
+                    for l3 in range(abs(l1 - 1), l1 + 2):
+                        for m3 in range(0, (2 * l3 + 1)):
+                            L3 = l3**2 + m3
+                            try:
+                                G += np.outer(G_LLL[L3, l1**2:l1**2 + nm1, 
+                                                    1 + v1],
+                                              Y_LLv[L3, l2**2:l2**2 + nm2, v2])
+                                G -= np.outer(G_LLL[L3, l1**2:l1**2 + nm1, 
+                                                    1 + v2],
+                                              Y_LLv[L3, l2**2:l2**2 + nm2, v1])
+                            except IndexError:
+                                pass # L3 might be too large, ignore
+                    rnabla_iiv[i1:i1 + nm1, i2:i2 + nm2, v] += (
+                        f1f2or * G )
+                i2 += nm2
+            i1 += nm1
+        return (4 * pi / 3 ) * rnabla_iiv
+
     def construct_core_densities(self, setupdata):
         rcore = self.data.find_core_density_cutoff(setupdata.nc_g)
         nct = self.rgd.spline(setupdata.nct_g, rcore)
@@ -1054,7 +1120,7 @@ class Setups(list):
             self.Eref += n * setup.E
             self.core_charge += n * (setup.Z - setup.Nv - setup.Nc)
             self.nvalence += n * setup.Nv
-            self.nao += n * setup.niAO
+            self.nao += n * setup.nao
 
     def set_symmetry(self, symmetry):
         """Find rotation matrices for spherical harmonics."""

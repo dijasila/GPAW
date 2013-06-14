@@ -26,7 +26,9 @@ N2.set_cell([L, L, L])
 N2.center()
 
 try:
-    calc = GPAW('N2_wfs.gpw', txt=txt)
+    calc = GPAW('N2_wfs.gpw', 
+                txt=txt, 
+                parallel={'domain': world.size})
     calc.converge_wave_functions()
 except:
     calc = GPAW(h=0.25,
@@ -89,7 +91,7 @@ if rank == 0:
     lr.analyse(n)
     s = sio.getvalue() 
     sys.stdout = origstdout
-    match = re.findall(r'%i: E=([0-9]*\.[0-9]*) eV, f=([0-9]*\.[0-9]*)' % n, s)
+    match = re.findall(r'%i: E=([0-9]*\.[0-9]*) eV, f=([0-9]*\.[0-9]*)*' % n, s)
     Eanalyse = float(match[0][0])
     oszanalyse = float(match[0][1])
     print 'From analyse           :', Eanalyse, oszanalyse

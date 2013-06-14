@@ -1,3 +1,5 @@
+.. _projects:
+
 ================
 Ongoing Projects
 ================
@@ -25,3 +27,4 @@ Ongoing Projects
     dvcs
     pcm
     elph
+    hubu

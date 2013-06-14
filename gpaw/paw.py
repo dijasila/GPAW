@@ -84,6 +84,7 @@ class PAW(PAWTextOutput):
         self.atoms = None
 
         self.initialized = False
+        self.nbands_parallelization_adjustment = None # Somehow avoid this?
 
         # Possibly read GPAW keyword arguments from file:
         if filename is not None and filename.endswith('.gkw'):
@@ -195,12 +196,12 @@ class PAW(PAWTextOutput):
                 self.wfs = EmptyWaveFunctions()
                 self.occupations = None
             elif key in ['h', 'gpts', 'setups', 'spinpol', 'realspace',
-                         'parallel', 'communicator', 'dtype']:
+                         'parallel', 'communicator', 'dtype', 'mode']:
                 self.density = None
                 self.occupations = None
                 self.hamiltonian = None
                 self.wfs = EmptyWaveFunctions()
-            elif key in ['mode', 'basis']:
+            elif key in ['basis']:
                 self.wfs = EmptyWaveFunctions()
             elif key in ['parsize', 'parsize_bands', 'parstride_bands']:
                 name = {'parsize': 'domain',
@@ -216,7 +217,9 @@ class PAW(PAWTextOutput):
 
     def calculate(self, atoms=None, converge=False,
                   force_call_to_set_positions=False):
-        """Update PAW calculaton if needed."""
+        """Update PAW calculaton if needed.
+
+        Returns True/False whether a calculation was performed or not."""
 
         self.timer.start('Initialization')
         if atoms is None:
@@ -258,7 +261,7 @@ class PAW(PAWTextOutput):
         self.timer.stop('Initialization')
 
         if self.scf.converged:
-            return
+            return False
         else:
             self.print_cell_and_parameters()
 
@@ -279,6 +282,8 @@ class PAW(PAWTextOutput):
             if 'not_converged' in hooks:
                 hooks['not_converged'](self)
             raise KohnShamConvergenceError('Did not converge!')
+
+        return True
 
     def initialize_positions(self, atoms=None):
         """Update the positions of the atoms."""
@@ -302,6 +307,7 @@ class PAW(PAWTextOutput):
         """Update the positions of the atoms and initialize wave functions."""
         spos_ac = self.initialize_positions(atoms)
         self.wfs.initialize(self.density, self.hamiltonian, spos_ac)
+        self.wfs.eigensolver.reset()
         self.scf.reset()
         self.forces.reset()
         self.stress_vv = None
@@ -392,7 +398,7 @@ class PAW(PAWTextOutput):
         mode = par.mode
 
         if xc.orbital_dependent:
-            assert mode == 'fd'
+            assert mode != 'lcao'
 
         if mode == 'pw':
             mode = PW()
@@ -429,9 +435,13 @@ class PAW(PAWTextOutput):
         
         nbands = par.nbands
         if nbands is None:
-            nbands = nao
+            nbands = 0
+            for setup in setups:
+                nbands += max(sum([2 * l + 1 for l in setup.l_j]),
+                              -(-setup.Nv // 2))
+            nbands = min(nao, nbands)
         elif nbands > nao and mode == 'lcao':
-            raise ValueError('Too many bands for LCAO calculation: ' +
+            raise ValueError('Too many bands for LCAO calculation: '
                              '%d bands and only %d atomic orbitals!' %
                              (nbands, nao))
 
@@ -480,6 +490,7 @@ class PAW(PAWTextOutput):
                 par.maxiter, par.fixdensity,
                 niter_fixdensity)
 
+        parsize_kpt = par.parallel['kpt']
         parsize_domain = par.parallel['domain']
         parsize_bands = par.parallel['band']
 
@@ -490,13 +501,37 @@ class PAW(PAWTextOutput):
             if parsize_domain == 'domain only':  # XXX this was silly!
                 parsize_domain = world.size
 
-            domain_comm, kpt_comm, band_comm = mpi.distribute_cpus(
-                parsize_domain, parsize_bands,
-                nspins, kd.nibzkpts, world, par.idiotproof, mode)
+            parallelization = mpi.Parallelization(world, 
+                                                  nspins * kd.nibzkpts)
+            ndomains = None
+            if parsize_domain is not None:
+                ndomains = np.prod(parsize_domain)
+            if isinstance(mode, PW):
+                if ndomains > 1:
+                    raise ValueError('Planewave mode does not support '
+                                     'domain decomposition.')
+                ndomains = 1
+            parallelization.set(kpt=parsize_kpt,
+                                domain=ndomains,
+                                band=parsize_bands)
+            domain_comm, kpt_comm, band_comm = \
+                parallelization.build_communicators()
+
+            #domain_comm, kpt_comm, band_comm = mpi.distribute_cpus(
+            #    parsize_domain, parsize_bands,
+            #    nspins, kd.nibzkpts, world, par.idiotproof, mode)
 
             kd.set_communicator(kpt_comm)
 
             parstride_bands = par.parallel['stridebands']
+
+            # Unfortunately we need to remember that we adjusted the
+            # number of bands so we can print a warning if it differs
+            # from the number specified by the user.  (The number can
+            # be inferred from the input parameters, but it's tricky
+            # because we allow negative numbers)
+            self.nbands_parallelization_adjustment = -nbands % band_comm.size
+            nbands += self.nbands_parallelization_adjustment
             bd = BandDescriptor(nbands, band_comm, parstride_bands)
 
             if (self.density is not None and
@@ -609,7 +644,7 @@ class PAW(PAWTextOutput):
 
                 if hasattr(self, 'time'):
                     assert mode == 'fd'
-                    from gpaw.tddft import TimeDependentWaveFunctions #XXX
+                    from gpaw.tddft import TimeDependentWaveFunctions
                     self.wfs = TimeDependentWaveFunctions(par.stencils[0],
                         diagksl, orthoksl, initksl, gd, nvalence, setups,
                         bd, world, kd, self.timer)
@@ -669,13 +704,13 @@ class PAW(PAWTextOutput):
             if realspace:
                 self.hamiltonian = RealSpaceHamiltonian(
                     gd, finegd, nspins, setups, self.timer, xc, par.external,
-                    collinear, par.poissonsolver, par.stencils[1])
+                    collinear, par.poissonsolver, par.stencils[1], world)
             else:
                 self.hamiltonian = ReciprocalSpaceHamiltonian(
                     gd, finegd,
                     self.density.pd2, self.density.pd3,
                     nspins, setups, self.timer, xc, par.external,
-                    collinear)
+                    collinear, world)
             
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)
@@ -707,7 +742,7 @@ class PAW(PAWTextOutput):
         self.density.ghat.set_positions(spos_ac)
         self.density.nct_G = self.density.gd.zeros()
         self.density.nct.add(self.density.nct_G, 1.0 / self.density.nspins)
-        self.density.interpolate()
+        self.density.interpolate_pseudo_density()
         self.density.calculate_pseudo_charge()
         self.hamiltonian.set_positions(spos_ac, self.wfs.rank_a)
         self.hamiltonian.update(self.density)
@@ -809,6 +844,8 @@ class PAW(PAWTextOutput):
             self.initialize()
         else:
             self.wfs.initialize_wave_functions_from_restart_file()
+            spos_ac = self.atoms.get_scaled_positions() % 1.0
+            self.wfs.set_positions(spos_ac)
 
         no_wave_functions = (self.wfs.kpt_u[0].psit_nG is None)
         converged = self.scf.check_convergence(self.density,

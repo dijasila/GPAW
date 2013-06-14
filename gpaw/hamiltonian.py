@@ -52,7 +52,7 @@ class Hamiltonian:
     """
 
     def __init__(self, gd, finegd, nspins, setups, timer, xc,
-                 vext=None, collinear=True):
+                 vext=None, collinear=True, world=None):
         """Create the Hamiltonian."""
         self.gd = gd
         self.finegd = finegd
@@ -62,6 +62,7 @@ class Hamiltonian:
         self.xc = xc
         self.collinear = collinear
         self.ncomp = 2 - int(collinear)
+        self.world = world
         
         self.dH_asp = None
 
@@ -288,6 +289,8 @@ class Hamiltonian:
         energies = np.array([Ekin, Epot, Ebar, Eext, Exc])
         self.timer.start('Communicate energies')
         self.gd.comm.sum(energies)
+        # Make sure that all CPUs have the same energies
+        self.world.broadcast(energies, 0)
         self.timer.stop('Communicate energies')
         (self.Ekin0, self.Epot, self.Ebar, self.Eext, self.Exc) = energies
 
@@ -396,7 +399,7 @@ class Hamiltonian:
     def get_xc_difference(self, xc, density):
         """Calculate non-selfconsistent XC-energy difference."""
         if density.nt_sg is None:
-            density.interpolate()
+            density.interpolate_pseudo_density()
         nt_sg = density.nt_sg
         if hasattr(xc, 'hybrid'):
             xc.calculate_exx()
@@ -467,9 +470,10 @@ class Hamiltonian:
 
 class RealSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, nspins, setups, timer, xc,
-                 vext=None, collinear=True, psolver=None, stencil=3):
+                 vext=None, collinear=True, psolver=None, 
+                 stencil=3, world=None):
         Hamiltonian.__init__(self, gd, finegd, nspins, setups, timer, xc,
-                             vext, collinear)
+                             vext, collinear, world)
 
         # Solver for the Poisson equation:
         if psolver is None:

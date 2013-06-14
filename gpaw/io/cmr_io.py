@@ -114,8 +114,10 @@ class Writer:
                 measured_dimensions.append(len(array))
                 if self.verbose:
                     print indent+"Length:", len(array)
-                indent += " "
+                    indent += " "
                 array = array[0]
+            except IndexError:
+                break
             except TypeError:
                 break
         return measured_dimensions

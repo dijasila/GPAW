@@ -55,7 +55,7 @@ static PyObject * spline_get_indices_from_zranges(SplineObject *self,
                (end_c[2] - beg_c[2]));
 
   int* G_B = INTP(G_b_obj);
-  int nB = G_b_obj->dimensions[0];
+  int nB = PyArray_DIMS(G_b_obj)[0];
 
   int ng = 0;
   for (int b = 0; b < nB; b+=2)
@@ -126,7 +126,7 @@ PyObject * NewSplineObject(PyObject *self, PyObject *args)
   SplineObject *spline = PyObject_NEW(SplineObject, &SplineType);
   if (spline == NULL)
     return NULL;
-  int nbins = farray->dimensions[0] - 1;
+  int nbins = PyArray_DIMS(farray)[0] - 1;
   double dr = rcut / nbins;
   spline->spline = bmgs_spline(l, dr, nbins, DOUBLEP(farray));
   return (PyObject*)spline;

@@ -24,6 +24,11 @@ for xcname in ['GLLBSC','GLLB']:
     calc = GPAW(nbands=7, h=0.25, xc=xcname)
     Ne.set_calculator(calc)
     e = Ne.get_potential_energy()
+    # Calculate the discontinuity
+    response = calc.hamiltonian.xc.xcs['RESPONSE']
+    response.calculate_delta_xc()
+    response.calculate_delta_xc_perturbation()
+
     eps3d = calc.wfs.kpt_u[0].eps_n[3]
     if world.rank == 0:
         equal(eps, eps3d, 1e-3)

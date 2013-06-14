@@ -75,7 +75,6 @@ class CHI(BASECHI):
         if self.comm is None:
             self.comm = world
         self.chi0_wGG = None
-
         
     def initialize(self, simple_version=False):
 
@@ -143,7 +142,7 @@ class CHI(BASECHI):
         # PAW part init
         # calculate <phi_i | e**(-i(q+G).r) | phi_j>
         # G != 0 part
-        self.phi_aGp = self.get_phi_aGp()
+        self.phi_aGp, self.phiG0_avp = self.get_phi_aGp(alldir=True)
         self.printtxt('Finished phi_aGp !')
         mem = np.array([self.phi_aGp[i].size * 16 /1024.**2 for i in range(len(self.phi_aGp))])
         self.printtxt('     Phi_aGp         : %f M / cpu' %(mem.sum()))
@@ -154,8 +153,12 @@ class CHI(BASECHI):
             self.Kc_GG = None
             self.printtxt('RPA calculation.')
         elif self.xc == 'ALDA' or self.xc == 'ALDA_X':
-            self.Kc_GG = calculate_Kc(self.q_c, self.Gvec_Gc, self.acell_cv,
-                                  self.bcell_cv, self.calc.atoms.pbc, self.optical_limit, self.vcut)
+            self.Kc_GG = calculate_Kc(self.q_c,
+                                      self.Gvec_Gc,
+                                      self.acell_cv,
+                                      self.bcell_cv,
+                                      self.calc.atoms.pbc,
+                                      self.vcut)
 
             nt_sg = calc.density.nt_sG
             if (self.rpad > 1).any() or (self.pbc - True).any():
@@ -205,7 +208,14 @@ class CHI(BASECHI):
             d_c = [Gradient(gd, i, n=4, dtype=complex).apply for i in range(3)]
             dpsit_g = gd.empty(dtype=complex)
             tmp = np.zeros((3), dtype=complex)
+            rhoG0_v = np.zeros(3, dtype=complex)
 
+            self.chi0G0_wGv = np.zeros((self.Nw_local, self.npw, 3), dtype=complex)
+            self.chi00G_wGv = np.zeros((self.Nw_local, self.npw, 3), dtype=complex)
+
+            specfuncG0_wGv = np.zeros((self.NwS_local, self.npw, 3), dtype=complex)
+            specfunc0G_wGv = np.zeros((self.NwS_local, self.npw, 3), dtype=complex)
+            
         # fftw init
         fft_R = fftw.empty(self.nG, complex)
         fft_G = fft_R
@@ -217,7 +227,7 @@ class CHI(BASECHI):
             self.printtxt('Using FFTW Library.') 
 
         use_zher = False
-        if self.eta < 1e-3:
+        if self.eta < 1e-5:
             use_zher = True
 
         rho_G = np.zeros(self.npw, dtype=complex)
@@ -326,7 +336,12 @@ class CHI(BASECHI):
                                     d_c[ix](psit2_g, dpsit_g, phase_cd)
                                     tmp[ix] = gd.integrate(psit1_g * dpsit_g)
                                 rho_G[0] = -1j * np.dot(self.qq_v, tmp)
-    
+
+                                for ix in range(3):
+                                    q2_c = np.diag((1,1,1))[ix] * self.qopt
+                                    qq2_v = np.dot(q2_c, self.bcell_cv) # summation over c
+                                    rhoG0_v[ix] = -1j * np.dot(qq2_v, tmp)
+
                             # PAW correction
                             if not self.pwmode:
                                 if (calc.wfs.world.size > 1 or self.nkpt==1):
@@ -343,21 +358,34 @@ class CHI(BASECHI):
                             for a, id in enumerate(calc.wfs.setups.id_a):
                                 P_p = np.outer(P1_ai[a].conj(), P2_ai[a]).ravel()
                                 gemv(1.0, self.phi_aGp[a], P_p, 1.0, rho_G)
-    
+
+                                if self.optical_limit:
+                                    gemv(1.0, self.phiG0_avp[a], P_p, 1.0, rhoG0_v)
+
                             if self.optical_limit:
                                 if np.abs(self.enoshift_skn[spin][ibzkpt2, m] -
                                           self.enoshift_skn[spin][ibzkpt1, n]) > 0.1/Hartree:
                                     rho_G[0] /= self.enoshift_skn[spin][ibzkpt2, m] \
                                                 - self.enoshift_skn[spin][ibzkpt1, n]
+                                    rhoG0_v /= self.enoshift_skn[spin][ibzkpt2, m] \
+                                                - self.enoshift_skn[spin][ibzkpt1, n]
                                 else:
                                     rho_G[0] = 0.
+                                    rhoG0_v[:] = 0.
     
                             if k_pad:
                                 rho_G[:] = 0.
-    
+
+                            if self.optical_limit:
+                                rho0G_Gv = np.outer(rho_G.conj(), rhoG0_v)
+                                rhoG0_Gv = np.outer(rho_G, rhoG0_v.conj())
+                                rho0G_Gv[0,:] = rhoG0_v * rhoG0_v.conj()
+                                rhoG0_Gv[0,:] = rhoG0_v * rhoG0_v.conj()
+
                             if not self.hilbert_trans:
                                 if not use_zher:
                                     rho_GG = np.outer(rho_G, rho_G.conj())
+
                                 for iw in range(self.Nw_local):
                                     w = self.w_w[iw + self.wstart] / Hartree
                                     coef = ( 1. / (w + e_skn[spin][ibzkpt1, n] - e_skn[spin][ibzkpt2, m]
@@ -365,17 +393,24 @@ class CHI(BASECHI):
                                            - 1. / (w - e_skn[spin][ibzkpt1, n] + e_skn[spin][ibzkpt2, m]
                                                    + 1j * self.eta) )
                                     C =  (f_skn[spin][ibzkpt1, n] - f_skn[spin][ibzkpt2, m]) * coef
-    
+
                                     if use_zher:
                                         czher(C.real, rho_G.conj(), chi0_wGG[iw])
                                     else:
                                         axpy(C, rho_GG, chi0_wGG[iw])
+                                        
+                                        if self.optical_limit:
+                                            axpy(C, rho0G_Gv, self.chi00G_wGv[iw])
+                                            axpy(C, rhoG0_Gv, self.chi0G0_wGv[iw])
     
                             else:
                                 rho_GG = np.outer(rho_G, rho_G.conj())
                                 focc = f_skn[spin][ibzkpt1,n] - f_skn[spin][ibzkpt2,m]
                                 w0 = e_skn[spin][ibzkpt2,m] - e_skn[spin][ibzkpt1,n]
                                 scal(focc, rho_GG)
+                                if self.optical_limit:
+                                    scal(focc, rhoG0_Gv)
+                                    scal(focc, rho0G_Gv)
     
                                 # calculate delta function
                                 w0_id = int(w0 / self.dw)
@@ -384,11 +419,19 @@ class CHI(BASECHI):
                                     if self.wScomm.rank == w0_id // self.NwS_local:
                                         alpha = (w0_id + 1 - w0/self.dw) / self.dw
                                         axpy(alpha, rho_GG, specfunc_wGG[w0_id % self.NwS_local] )
+
+                                        if self.optical_limit:
+                                            axpy(alpha, rho0G_Gv, specfunc0G_wGv[w0_id % self.NwS_local] )
+                                            axpy(alpha, rhoG0_Gv, specfuncG0_wGv[w0_id % self.NwS_local] )
     
                                     if self.wScomm.rank == (w0_id+1) // self.NwS_local:
                                         alpha =  (w0 / self.dw - w0_id) / self.dw
                                         axpy(alpha, rho_GG, specfunc_wGG[(w0_id+1) % self.NwS_local] )
-    
+
+                                        if self.optical_limit:
+                                            axpy(alpha, rho0G_Gv, specfunc0G_wGv[(w0_id+1) % self.NwS_local] )
+                                            axpy(alpha, rhoG0_Gv, specfuncG0_wGv[(w0_id+1) % self.NwS_local] )
+
     #                            deltaw = delta_function(w0, self.dw, self.NwS, self.sigma)
     #                            for wi in range(self.NwS_local):
     #                                if deltaw[wi + self.wS1] > 1e-8:
@@ -421,6 +464,9 @@ class CHI(BASECHI):
         if not self.hilbert_trans:
             for iw in range(self.Nw_local):
                 self.kcomm.sum(chi0_wGG[iw])
+                if self.optical_limit:
+                    self.kcomm.sum(self.chi0G0_wGv[iw])
+                    self.kcomm.sum(self.chi00G_wGv[iw])
 
             if use_zher:
                 assert (np.abs(chi0_wGG[0,1:,0]) < 1e-10).all()
@@ -432,6 +478,10 @@ class CHI(BASECHI):
         else:
             for iw in range(self.NwS_local):
                 self.kcomm.sum(specfunc_wGG[iw])
+                if self.optical_limit:
+                    self.kcomm.sum(specfuncG0_wGv[iw])
+                    self.kcomm.sum(specfunc0G_wGv[iw])
+
             if self.wScomm.size == 1:
                 chi0_wGG = hilbert_transform(specfunc_wGG, self.w_w, self.Nw, self.dw, self.eta,
                                              self.full_hilbert_trans)[self.wstart:self.wend]
@@ -464,6 +514,26 @@ class CHI(BASECHI):
                 self.printtxt('Finished Slice along orbitals !')
                 self.comm.barrier()
                 del chi0_Wg
+
+                if self.optical_limit:
+                    specfuncG0_WGv = np.zeros((self.NwS, self.npw, 3), dtype=complex)
+                    specfunc0G_WGv = np.zeros((self.NwS, self.npw, 3), dtype=complex)
+                    self.wScomm.all_gather(specfunc0G_wGv, specfunc0G_WGv)
+                    self.wScomm.all_gather(specfuncG0_wGv, specfuncG0_WGv)
+                    specfunc0G_wGv = specfunc0G_WGv
+                    specfuncG0_wGv = specfuncG0_WGv
+
+            if self.optical_limit:
+                self.chi00G_wGv = hilbert_transform(specfunc0G_wGv, self.w_w, self.Nw, self.dw, self.eta,
+                                             self.full_hilbert_trans)[self.wstart:self.wend]
+                
+                self.chi0G0_wGv = hilbert_transform(specfuncG0_wGv, self.w_w, self.Nw, self.dw, self.eta,
+                                             self.full_hilbert_trans)[self.wstart:self.wend]
+
+        if self.optical_limit:
+            self.chi00G_wGv /= self.vol
+            self.chi0G0_wGv /= self.vol
+
         
         self.chi0_wGG = chi0_wGG
         self.chi0_wGG /= self.vol

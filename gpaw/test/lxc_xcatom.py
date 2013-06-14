@@ -16,10 +16,10 @@ if 1:
 tolerance = 0.000005 # libxc must reproduce old gpaw energies
 # zero Kelvin: in Hartree
 
-reference = { # svnversion 5252
-    'LDA_X+LDA_C_PW': 2.23194461135, # 'LDA'
-    'GGA_X_PBE+GGA_C_PBE': 2.28208665019, # 'PBE'
-    'GGA_X_PBE_R+GGA_C_PBE': 2.29201920843, # 'revPBE'
+reference = { # version 0.9.1
+    'LDA_X+LDA_C_PW': 2.28836113207, # 'LDA'
+    'GGA_X_PBE+GGA_C_PBE': 2.3366049993, # 'PBE'
+    'GGA_X_PBE_R+GGA_C_PBE': 2.34496288319, # 'revPBE'
     }
 
 tolerance_libxc = 0.000001 # libxc must reproduce reference libxc energies

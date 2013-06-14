@@ -8,6 +8,10 @@ try:
     mpl.use('Agg')  # force the antigrain backend
     from matplotlib.figure import Figure
     from matplotlib.backends.backend_agg import FigureCanvasAgg
+    import os
+    import warnings
+    # silence matplotlib.use() warning
+    warnings.filterwarnings('ignore', '.*This call to matplotlib\.use.*',)
 except (ImportError, RuntimeError):
     mpl = None
 

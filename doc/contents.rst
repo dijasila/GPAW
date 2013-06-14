@@ -23,15 +23,14 @@ Contents
 
    devel/devel
 
-Old pages that need some more work
-----------------------------------
+Old pages
+---------
 
 .. toctree::
    :maxdepth: 2
 
+   exercises/summerschool12
    exercises/summerschool10
    exercises/summerschool08
-   technology
    introduction_to_paw
    devel/grids
-   devel/tar

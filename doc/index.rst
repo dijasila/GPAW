@@ -17,22 +17,22 @@ more about :ref:`its features and the algorithms used
         :target: http://www.anl.gov
 .. |i1| image:: _static/logo-dtu.png
         :height: 44 px
-        :target: http://www.camp.dtu.dk
+        :target: http://www.fysik.dtu.dk/english/Research/CAMD
 .. |i2| image:: _static/logo-csc.png
         :height: 44 px
         :target: http://www.csc.fi
-.. |i3| image:: _static/logo-jyu.png
+.. |i3| image:: _static/logo-aalto.png
+        :height: 44 px
+        :target: http://physics.aalto.fi
+.. |i4| image:: _static/logo-jyu.png
         :height: 44 px
         :target: http://www.phys.jyu.fi
-.. |i4| image:: _static/logo-fmf.png
+.. |i5| image:: _static/logo-fmf.png
         :height: 44 px
         :target: http://www.fmf.uni-freiburg.de
-.. |i5| image:: _static/logo-tut.png
+.. |i6| image:: _static/logo-tut.png
         :height: 44 px
         :target: http://www.tut.fi
-.. |i6| image:: _static/logo-hut.png
-        :height: 44 px
-        :target: http://www.fyslab.hut.fi
 .. |i7| image:: _static/logo-suncat.png
         :height: 22 px
         :align: middle
@@ -40,27 +40,40 @@ more about :ref:`its features and the algorithms used
 .. |i8| image:: _static/logo-slac-center.png
         :height: 38 px
         :target: http://suncat.stanford.edu
+.. |i9| image:: _static/logo-prace.png
+        :height: 44 px
+        :target: http://http://www.prace-ri.eu/
 
 
 
-|i0| |i1| |i2| |i3| |i4| |i5| |i6| |i8|
+|i0| |i1| |i2| |i3| |i4| |i5| |i6| |i8| |i9|
 
  
 * `Argonne National Laboratory <http://www.anl.gov>`_
 * `CAMd, Technical University of Denmark <http://www.camp.dtu.dk>`_
 * `CSC, the Finnish IT center for science <http://www.csc.fi>`_
+* `Department of Applied Physics, Aalto University School of Science
+  <http://physics.aalto.fi>`_
 * `Department of Physics, University of Jyväskylä <http://www.phys.jyu.fi>`_
 * `Freiburg Materials Research Center <http://www.fmf.uni-freiburg.de>`_
 * `Institute of Physics, Tampere University of Technology <http://www.tut.fi>`_
-* `Laboratory of Physics, Helsinki University of Technology
-  <http://www.fyslab.hut.fi>`_
 * `SUNCAT Center, Stanford University/SLAC <http://suncat.stanford.edu>`_
+* `PRACE, Partnership for Advanced Computing in Europe 
+  <http://www.prace-ri.eu/>`_
 
 
 .. _news:
 
 News
 ====
+
+* May 21-23, 2013: :ref:`GPAW workshop <workshop>` at the Technical
+  University of Denmark (Feb 8 2013)
+
+* Prof. Häkkinen has received `18 million CPU hour grant`_ for GPAW based 
+  research project (Nov 20 2012)
+
+* A new :ref:`setups` bundle released (Oct 26 2012)
 
 * :ref:`GPAW version 0.9 <releasenotes>` released (March 7 2012)
 
@@ -138,3 +151,5 @@ News
 .. _pycon 2011: http://us.pycon.org/2011/schedule/presentations/226/
 .. _Python for High Performance Computing: http://pycon.blip.tv/file/4881240/
 .. _CSC's supercomputer procurement: http://www.csc.fi/english/pages/hpc2011
+.. _18 million CPU hour grant: http://www.prace-ri.eu/PRACE-5thRegular-Call
+

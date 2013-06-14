@@ -4,7 +4,7 @@
 from math import pi, sqrt
 
 import numpy as np
-from ase.units import Bohr, Hartree
+from ase.units import Bohr, Hartree, alpha
 
 import gpaw.mpi as mpi
 from gpaw.utilities import packed_index
@@ -14,6 +14,7 @@ from gpaw.pair_density import PairDensity
 from gpaw.fd_operators import Gradient
 from gpaw.gaunt import gaunt as G_LLL
 from gpaw.xc.tools import vxc
+from gpaw.utilities.tools import coordinates
 
 class KSSingles(ExcitationList):
     """Kohn-Sham single particle excitations
@@ -61,7 +62,7 @@ class KSSingles(ExcitationList):
         # deny hybrids as their empty states are wrong
         gsxc = calculator.hamiltonian.xc
         hybrid = hasattr(gsxc, 'hybrid') and gsxc.hybrid > 0.0
-        assert(not hybrid)
+#        assert(not hybrid)
 
         if nonselfconsistent_xc is None:
             self.de_skn = None
@@ -122,7 +123,11 @@ class KSSingles(ExcitationList):
             emin /= Hartree
             emax /= Hartree
             # select transitions according to transition energy
-            for kpt in self.kpt_u:
+            for ispin in range(self.npspins):
+                vspin = ispin
+                if self.nvspins < 2:
+                    vspin = 0
+                kpt = self.kpt_u[vspin]
                 f_n = kpt.f_n
                 eps_n = kpt.eps_n
                 if self.de_skn is not None:
@@ -133,14 +138,16 @@ class KSSingles(ExcitationList):
                         epsij = eps_n[j] - eps_n[i]
                         if fij > eps and epsij >= emin and epsij < emax:
                             # this is an accepted transition
-                            ks = KSSingle(i, j, kpt.s, kpt, paw,
+                            ks = KSSingle(i, j, ispin, kpt, paw,
                                           fijscale = fijscale)
                             self.append(ks)
+            self.istart = 0
+            self.jend = -1
         else:
             # select transitions according to band index
             for ispin in range(self.npspins):
                 vspin = ispin
-                if self.nvspins<2:
+                if self.nvspins < 2:
                     vspin = 0
                 f = self.kpt_u[vspin].f_n
                 if jend == None: jend = len(f)-1
@@ -172,9 +179,11 @@ class KSSingles(ExcitationList):
 
         f.readline()
         n = int(f.readline())
+        self.npspins = 1
         for i in range(n):
             kss = KSSingle(string = f.readline())
             self.append(kss)
+            self.npspins = max(self.npspins, kss.pspin + 1)
         self.update()
 
         if fh is None:
@@ -196,6 +205,40 @@ class KSSingles(ExcitationList):
         self.jend = jend
         self.npspins = npspins
         self.nvspins = nvspins
+
+        if hasattr(self, 'energies'):
+            del(self.energies)
+
+    def set_arrays(self):
+        if hasattr(self, 'energies'):
+            return
+        energies = []
+        fij = []
+        me = []
+        mur = []
+        muv = []
+        magn = []
+        for k in self:
+            energies.append(k.energy)
+            fij.append(k.fij)
+            me.append(k.me)
+            mur.append(k.mur)
+            if k.muv is not None:
+                muv.append(k.muv)
+            if k.magn is not None:
+                magn.append(k.magn)
+        self.energies = np.array(energies)
+        self.fij = np.array(fij)
+        self.me = np.array(me)
+        self.mur = np.array(mur)
+        if len(muv):
+            self.muv = np.array(muv)
+        else:
+            self.muv = None
+        if len(magn):
+            self.magn = np.array(magn)
+        else:
+            self.magn = None
 
     def write(self, filename=None, fh=None):
         """Write current state to a file.
@@ -237,7 +280,7 @@ class KSSingle(Excitation, PairDensity):
       me  = sqrt(fij*epsij) * <i|r|j>
       mur = - <i|r|a>
       muv = - <i|nabla|a>/omega_ia with omega_ia>0
-      m   = <i|[r x nabla]|a> / (2c)
+      magn = <i|[r x nabla]|a> / (2 m_e c)
     """
     def __init__(self, iidx=None, jidx=None, pspin=None, kpt=None,
                  paw=None, string=None, fijscale=1):
@@ -297,82 +340,70 @@ class KSSingle(Excitation, PairDensity):
             ma += sqrt(4 * pi / 3) * ma1 + Ra * sqrt(4 * pi) * ma0
         gd.comm.sum(ma)
 
-##        print '<KSSingle> i,j,me,ma,fac=',self.i,self.j,\
-##            me, ma,sqrt(self.energy*self.fij)
-#        print 'l: me, ma', me, ma
         self.me = sqrt(self.energy * self.fij) * ( me + ma )
 
         self.mur = - ( me + ma )
-##        print '<KSSingle> mur=',self.mur,-self.fij *me
 
         # velocity form .............................
-        self.muv = np.zeros(me.shape)  # does not work XXX
 
-##         # smooth contribution
-##         dtype = self.wfj.dtype
-##         dwfdr_G = gd.empty(dtype=dtype)
-##         if not hasattr(gd, 'ddr'):
-##             gd.ddr = [Gradient(gd, c, dtype=dtype).apply for c in range(3)]
-##         for c in range(3):
-##             gd.ddr[c](self.wfj, dwfdr_G, kpt.phase_cd)
-##             me[c] = gd.integrate(self.wfi * dwfdr_G)
+        me = np.zeros(self.mur.shape)
 
-##         # XXXX local corrections are missing here
-##         # augmentation contributions
-##         ma = np.zeros(me.shape)
-##         for a, P_ni in kpt.P_ani.items():
-##             setup = paw.wfs.setups[a]
-## #            print setup.Delta1_jj
-## #            print "l_j", setup.l_j, setup.n_j
+        # get derivatives
+        dtype = self.wfj.dtype
+        dwfj_cg = gd.empty((3), dtype=dtype)
+        if not hasattr(gd, 'ddr'):
+            gd.ddr = [Gradient(gd, c, dtype=dtype).apply for c in range(3)]
+        for c in range(3):
+            gd.ddr[c](self.wfj, dwfj_cg[c], kpt.phase_cd)
+            me[c] = gd.integrate(self.wfi * dwfj_cg[c])
 
-##             if not (hasattr(setup, 'j_i') and hasattr(setup, 'l_i')):
-##                 l_i = [] # map i -> l
-##                 j_i = [] # map i -> j
-##                 for j, l in enumerate(setup.l_j):
-##                     for m in range(2 * l + 1):
-##                         l_i.append(l)
-##                         j_i.append(j)
-                        
-##                 setup.l_i = l_i
-##                 setup.j_i = j_i
+        if 0:
+            me2 = np.zeros(self.mur.shape)
+            for c in range(3):
+                gd.ddr[c](self.wfi, dwfj_cg[c], kpt.phase_cd)
+                me2[c] = gd.integrate(self.wfj * dwfj_cg[c])
+            print me, -me2, me2+me
 
-##             Pi_i = P_ni[self.i]
-##             Pj_i = P_ni[self.j]
-##             ni = len(Pi_i)
-            
-##             ma1 = np.zeros(me.shape)
-##             for i1 in range(ni):
-##                 L1 = setup.l_i[i1]
-##                 j1 = setup.j_i[i1]
-##                 for i2 in range(ni):
-##                     L2 = setup.l_i[i2]
-##                     j2 = setup.j_i[i2]
- 
-##                     pi1i2 = Pi_i[i1] * Pj_i[i2]
-##                     p = packed_index(i1, i2, ni)
-                    
-##                     v1 = sqrt(4 * pi / 3) * np.array([G_LLL[L1, L2, 3],
-##                                                       G_LLL[L1, L2, 1],
-##                                                       G_LLL[L1, L2, 2]])
-##                     v2 = ylnyl[L1, L2, :]
-##                     ma1 += pi1i2 * (v1 * setup.Delta1_jj[j1, j2] +
-##                                     v2 * setup.Delta_pL[p, 0]      )
-##             ma += ma1
-## #        print 'v: me, ma=', me, ma
-
-##         # XXXX the weight fij is missing here
-##         self.muv = (me + ma) / self.energy
-## #        print '<KSSingle> muv=', self.muv
-
-##         # magnetic transition dipole ................
+        # augmentation contributions
+        ma = np.zeros(me.shape)
+        for a, P_ni in kpt.P_ani.items():
+            Pi_i = P_ni[self.i]
+            Pj_i = P_ni[self.j]
+            nabla_iiv = paw.wfs.setups[a].nabla_iiv
+            for c in range(3):
+                for i1, Pi in enumerate(Pi_i):
+                    for i2, Pj in enumerate(Pj_i):
+                        ma[c] += Pi * Pj * nabla_iiv[i1, i2, c]
+        gd.comm.sum(ma)
         
-##         # m depends on how the origin is set, so we need the centre of mass
-##         # of the structure
-## #        cm = wfs
+        self.muv = - (me + ma) / self.energy
+##        print self.mur, self.muv, self.mur - self.muv
 
-## #        for i in range(3):
-## #            me[i] = gd.integrate(self.wfi*dwfdr_cg[i])
+        # magnetic transition dipole ................
+
+        magn = np.zeros(me.shape)
+        r_cg, r2_g = coordinates(gd)
+
+        wfi_g = self.wfi
+        for ci in range(3):
+            cj = (ci + 1) % 3
+            ck = (ci + 2) % 3
+            magn[ci] = gd.integrate(wfi_g * r_cg[cj] * dwfj_cg[ck] -
+                                    wfi_g * r_cg[ck] * dwfj_cg[cj]  )
+        # augmentation contributions
+        ma = np.zeros(magn.shape)
+        for a, P_ni in kpt.P_ani.items():
+            Pi_i = P_ni[self.i]
+            Pj_i = P_ni[self.j]
+            rnabla_iiv = paw.wfs.setups[a].rnabla_iiv
+            for c in range(3):
+                for i1, Pi in enumerate(Pi_i):
+                    for i2, Pj in enumerate(Pj_i):
+                        ma[c] += Pi * Pj * rnabla_iiv[i1, i2, c]
+        gd.comm.sum(ma)
         
+        self.magn = -alpha / 2. * (magn + ma)
+
     def __add__(self, other):
         """Add two KSSingles"""
         result = self.copy()
@@ -416,10 +447,17 @@ class KSSingle(Excitation, PairDensity):
         self.fij = float(l.pop(0))
         if len(l) == 3: # old writing style
             self.me = np.array([float(l.pop(0)) for i in range(3)])
+            self.mur = - self.me / sqrt(self.energy * self.fij)
+            self.muv = None
+            self.magn = None
         else:
             self.mur = np.array([float(l.pop(0)) for i in range(3)])
-            self.me = - self.mur * sqrt(self.energy*self.fij)
+            self.me = - self.mur * sqrt(self.energy * self.fij)
             self.muv = np.array([float(l.pop(0)) for i in range(3)])
+            if len(l): 
+                self.magn = np.array([float(l.pop(0)) for i in range(3)])
+            else:
+                self.magn = None
         return None
 
     def outstring(self):
@@ -429,6 +467,8 @@ class KSSingle(Excitation, PairDensity):
         for m in self.mur: str += '%12.4e' % m
         str += '  '
         for m in self.muv: str += '%12.4e' % m
+        str += '  '
+        for m in self.magn: str += '%12.4e' % m
         str += '\n'
         return str
         

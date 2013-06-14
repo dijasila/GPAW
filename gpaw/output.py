@@ -1,4 +1,5 @@
 import os
+import platform
 import sys
 import time
 from math import log
@@ -88,7 +89,7 @@ class PAWTextOutput:
         self.text(' |___|_|             ')
         self.text()
 
-        uname = os.uname()
+        uname = platform.uname()
         self.text('User: ', os.getenv('USER', '???') + '@' + uname[1])
         self.text('Date: ', time.asctime())
         self.text('Arch: ', uname[4])
@@ -246,6 +247,9 @@ class PAWTextOutput:
           cc['eigenstates'])
         t('Number of Atoms: %d' % len(self.wfs.setups))
         t('Number of Atomic Orbitals: %d' % self.wfs.setups.nao)
+        if self.nbands_parallelization_adjustment != 0:
+            t('Adjusting Number of Bands by %+d to Match Parallelization'
+              % self.nbands_parallelization_adjustment)
         t('Number of Bands in Calculation:         %i' % self.wfs.bd.nbands)
         t('Bands to Converge:                      ', end='')
         if cc['bands'] == 'occupied':
@@ -376,13 +380,13 @@ class PAWTextOutput:
             if eigerr == 0.0:
                 eigerr = ''
             else:
-                eigerr = '%-+5.1f' % (log(eigerr) / log(10))
+                eigerr = '%-+5.2f' % (log(eigerr) / log(10))
 
             denserr = self.density.mixer.get_charge_sloshing()
             if denserr is None or denserr == 0 or nvalence == 0:
                 denserr = ''
             else:
-                denserr = '%+.1f' % (log(denserr / nvalence) / log(10))
+                denserr = '%+.2f' % (log(denserr / nvalence) / log(10))
 
             niterocc = self.occupations.niter
             if niterocc == -1:
