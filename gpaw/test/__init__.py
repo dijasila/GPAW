@@ -343,7 +343,10 @@ if mpi.size > 1:
                 'lcao_pair_and_coulomb.py',
                 'bse_MoS2_cut.py',
                 'pw/moleculecg.py',
-                'pw/davidson_pw.py']
+                'pw/davidson_pw.py',
+                # scipy.weave fails often in parallel due to ~/.python*_compiled
+                # https://github.com/scipy/scipy/issues/1895
+                'scipy_test.py']
 
 if mpi.size > 2:
     exclude += ['neb.py']
