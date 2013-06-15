@@ -233,7 +233,7 @@ lxcXCFunctional_CalculateFXC_FD_SpinPaired(lxcXCFunctionalObject *self, PyObject
   assert(nspin == XC_UNPOLARIZED); /* we are spinpaired */
   assert (self->functional[0]->info->family != XC_FAMILY_MGGA);
 
-  int ng = n_array->dimensions[0]; /* number of grid points */
+  int ng = PyArray_DIMS(n_array)[0]; /* number of grid points */
 
   const double* n_g = DOUBLEP(n_array); /* density on the grid */
   double* v2rho2_g = DOUBLEP(v2rho2_array); /* v on the grid */
@@ -562,7 +562,7 @@ lxcXCFunctional_Calculate(lxcXCFunctionalObject *self, PyObject *args)
   xcinfo info;
   info.nspin = self->nspin;
   info.spinpolarized = (info.nspin==2);
-  info.ng = py_e_g->dimensions[0];
+  info.ng = PyArray_DIMS(py_e_g)[0];
 
   xcptrlist inlist,outlist;
   inlist.num=0;
@@ -688,7 +688,7 @@ lxcXCFunctional_CalculateFXC(lxcXCFunctionalObject *self, PyObject *args)
   xcinfo info;
   info.nspin = self->nspin;
   info.spinpolarized = (info.nspin==2);
-  info.ng = (info.spinpolarized) ? py_n_sg->dimensions[0]/2 : py_n_sg->dimensions[0];
+  info.ng = (info.spinpolarized) ? PyArray_DIMS(py_n_sg)[0]/2 : PyArray_DIMS(py_n_sg)[0];
 
   xcptrlist inlist,outlist;
   inlist.num=0;
