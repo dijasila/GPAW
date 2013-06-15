@@ -99,6 +99,13 @@ class PAWTextOutput:
                   (os.path.dirname(ase.__file__), ase_version))
         self.text('numpy: %s (version %s)' %
                   (os.path.dirname(np.__file__), np.version.version))
+        try:
+            import scipy as sp
+            self.text('scipy: %s (version %s)' %
+                      (os.path.dirname(sp.__file__), sp.version.version))
+        except ImportError:
+            self.text('scipy: %s (version %s)' %
+                      (str(None), str(None)))
         self.text('units: Angstrom and eV')
         self.text('cores:', self.wfs.world.size)
 
