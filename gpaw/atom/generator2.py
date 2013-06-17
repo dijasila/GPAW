@@ -31,8 +31,8 @@ parameters = {
 'B':  ('2s,s,2p,p,d', 1.2, {}),
 'C':  ('2s,s,2p,p,d', 1.2, {}),
 'N':  ('2s,s,2p,p,d', 1.2, {'r0': 1.1}),
-'O':  ('2s,s,2p,p,d', 1.2, {}),
-'F':  ('2s,s,2p,p,d', 1.1, {}),
+'O':  ('2s,s,2p,p,d', [1.2, 1.3], {}),
+'F':  ('2s,s,2p,p,d', [1.1,1.2], {}),
 'Ne': ('2s,s,2p,p,d', 1.8, {}),
 'Na': ('2s,3s,s,2p,3p,d', 2.3, {'local': 'f'}),
 'Mg': ('2s,3s,2p,3p,d', [2.0, 1.8], {'local': 'f'}),
@@ -64,7 +64,7 @@ parameters = {
 'Sr': ('4s,5s,4p,5p,4d,d', 2.5, {'local': 'f'}),
 'Y':  ('4s,5s,4p,5p,4d,d', 2.5, {'local': 'f'}),
 'Zr': ('4s,5s,4p,5p,4d,d', 2.5, {'local': 'f'}),  # 40
-'Nb': ('4s,5s,4p,5p,4d,d', 2.4, {'local': 'f'}),
+'Nb': ('4s,5s,4p,5p,4d,d', [2.4,2.4,2.5], {'local': 'f'}),
 'Mo': ('4s,5s,4p,5p,4d,d', 2.2, {'local': 'f'}),
 'Tc': ('4s,5s,4p,5p,4d,d', 2.2, {'local': 'f'}),
 'Ru': ('4s,5s,4p,5p,4d,d', 2.2, {'local': 'f'}),
@@ -418,7 +418,7 @@ class PAWSetupGenerator:
                 break
             rcore -= 0.01
 
-        if 0:
+        if 1:
             rcore *= 1.2
             print rcore, '1.200000000000000000000000000'
             gcore = self.rgd.round(rcore)
@@ -1111,10 +1111,12 @@ def get_parameters(symbol, opt):
     else:
         if 'local' not in extra:
             nderiv0 = 2
+            #nderiv0 = 3
             e0 = None
             r0 = extra.get('r0', min(radii) / scale) * scale
         else:
             nderiv0 = 5
+            #nderiv0 = 6
             r0 = extra.get('r0', min(radii) * 0.9 / scale) * scale
             l0 = 'spdfg'.find(extra['local'])
             e0 = 0.0
