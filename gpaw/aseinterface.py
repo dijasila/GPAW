@@ -50,13 +50,11 @@ class GPAW(PAW, Calculator):
         'stencils':        (3, 3),
         'fixdensity':      False,
         'mixer':           None,
-        'txt':             '__default__',
         'hund':            False,
         'random':          False,
         'dtype':           None,
         'maxiter':         120,
         'external':        None,  # eV
-        'verbose':         0,
         'eigensolver':     None,
         'poissonsolver':   None,
         'idiotproof':      True,
@@ -70,9 +68,11 @@ class GPAW(PAW, Calculator):
 
     def __init__(self, restart=None, ignore_bad_restart_file=False, label=None,
                  atoms=None,
+                 txt='__default__', verbose=0, 
                  communicator=None, parallel=None,
                  **kwargs):
 
+        self.txt = None
         self.world = mpi.world
         self.parallel = {'kpt':                 None,
                          'domain':              parsize_domain,
@@ -85,17 +85,23 @@ class GPAW(PAW, Calculator):
                          'sl_lcao':             sl_lcao,
                          'buffer_size':         buffer_size}
 
-        if communicator is not None:
-            self.set_communicator(communicator)
-        if parallel is not None:
-            self.set_parallel(parallel)
-
-        PAW.__init__(self)
-
         if label is not None and not label.endswith('.gpw'):
             label += '.gpw'
         if restart is not None and not restart.endswith('.gpw'):
             restart += '.gpw'
+
+        if communicator is not None:
+            self.set_communicator(communicator)
+        if parallel is not None:
+            self.set_parallel(parallel)
+        if txt == '__default__':
+            if label is None:
+                txt = '-'
+            else:
+                txt = label[:-3] + 'txt'
+        self.set_text(txt, verbose)
+
+        PAW.__init__(self)
 
         Calculator.__init__(self, restart, ignore_bad_restart_file, label,
                             atoms, **kwargs)
@@ -125,6 +131,11 @@ class GPAW(PAW, Calculator):
             assert key in self.parallel
         self.parallel.update(parallel)
 
+    def reset(self):
+        if self.scf is not None:
+            self.scf.reset()
+        Calculator.reset(self)
+
     def set(self, **kwargs):
         if (kwargs.get('h') is not None) and (kwargs.get('gpts') is not None):
             raise TypeError("""You can't use both "gpts" and "h"!""")
@@ -141,7 +152,7 @@ class GPAW(PAW, Calculator):
             if key == 'eigensolver':
                 self.wfs.set_eigensolver(None)
             
-            if key in ['mixer', 'verbose', 'txt', 'hund', 'random',
+            if key in ['mixer', 'verbose', 'hund', 'random',
                        'eigensolver', 'idiotproof']:
                 continue
 

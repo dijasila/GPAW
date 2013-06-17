@@ -34,9 +34,8 @@ from gpaw.test.ut_common import ase_svnversion, shapeopt, TestCase, \
 
 # -------------------------------------------------------------------
 
-p = InputParameters(spinpol=False)
-xc = XC(p.xc)
-p.setups = dict([(symbol, SetupData(symbol, xc.name)) for symbol in 'HO'])
+xc = XC('LDA')
+setups = dict([(symbol, SetupData(symbol, xc.name)) for symbol in 'HO'])
 
 class UTDomainParallelSetup(TestCase):
     """
@@ -180,8 +179,7 @@ class UTGaussianWavefunctionSetup(UTDomainParallelSetup):
 
         # Create setups for atoms
         self.Z_a = self.atoms.get_atomic_numbers()
-        self.setups = Setups(self.Z_a, p.setups, p.basis,
-                             p.lmax, xc)
+        self.setups = Setups(self.Z_a, setups, None, 2, xc)
 
         # K-point descriptor
         bzk_kc = np.array([[0, 0, 0]], dtype=float)

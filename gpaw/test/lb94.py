@@ -15,7 +15,7 @@ e_HOMO_cs = { 'He': 851, 'Be': 321, 'Ne': 788,
               'Ar': 577, 'Kr': 529, 'Xe': 474,
               'Mg' : 281 + 8 }
 #e_HOMO_cs = { 'Ne': 788 }
-txt=None
+txt='-'
 
 print '--- Comparing LB94 with', ref1
 print 'and', ref2
@@ -89,7 +89,10 @@ for atom in e_HOMO_os.keys():
     SS.center()
     # fine grid needed for convergence!
     c = GPAW(h=.2, xc='LB94', nbands=-2, spinpol=True,
-             hund=True, fixmom=True, txt=txt)
+             hund=True,
+             smearing=dict(type='Fermi-Dirac', width=0, fixmagmom=True),
+             eigensolver='cg',
+             txt=atom + '.txt')
     c.calculate(SS)
     # find HOMO energy
     eps_n = c.get_eigenvalues(kpt=0, spin=0) / 27.211

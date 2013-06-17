@@ -268,9 +268,9 @@ class TDDFT(GPAW):
 
         p.update(kwargs)
 
-    def read(self, reader):
-        assert reader.has_array('PseudoWaveFunctions')
-        GPAW.read(self, reader)
+#    def read(self, reader):
+#        assert reader.has_array('PseudoWaveFunctions')
+#        GPAW.read(self, reader)
 
     def propagate(self, time_step, iterations, dipole_moment_file=None,
                   restart_file=None, dump_interval=100):

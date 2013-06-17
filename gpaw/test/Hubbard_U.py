@@ -86,7 +86,8 @@ for a in np.arange(2):      # Loops though all Ni atoms
 ## Make ready for scf with the DFT+U functional and converge this new system
 ## and get new band bag.....which should be much larger:
 calc.scf.reset()
-e2 = calc.get_potential_energy()
+del calc.results['energy']
+e2 = atoms.get_potential_energy()
 niter2 = calc.get_number_of_iterations()
 Eg_Hub=band_gab(calc)
 
@@ -95,6 +96,7 @@ Eg_Hub=band_gab(calc)
 ## gab, so the band gab shall we test parameter:
 ## Let's compare the new and old band gab and require that is has opened by
 ## at least 0.2 eV
+print( Eg_Hub, Eg_non_Hub)
 assert( Eg_Hub- Eg_non_Hub>1.9)
 
 energy_tolerance = 0.0004

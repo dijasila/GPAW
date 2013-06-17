@@ -30,6 +30,7 @@ for spin in [0, 1]:
     for setup in c.hamiltonian.setups:
         setup.set_hubbard_u(U_au, l, scale, store) # Apply U
     c.scf.reset()
+    del c.results['energy']
     E_U[spin] = s.get_potential_energy()
 
 print "E=", E

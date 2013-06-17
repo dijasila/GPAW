@@ -67,7 +67,6 @@ class PAW(PAWTextOutput):
         all symmetries will be used to reduce the number of
         **k**-points."""
 
-        PAWTextOutput.__init__(self)
         self.grid_descriptor_class = GridDescriptor
         self.timer = self.timer_class()
 
@@ -98,7 +97,6 @@ class PAW(PAWTextOutput):
         self.wfs.initialize(self.density, self.hamiltonian, spos_ac)
         self.wfs.eigensolver.reset()
         self.scf.reset()
-        assert len(self.results) == 0
         self.print_positions()
 
     def initialize(self):
@@ -109,18 +107,6 @@ class PAW(PAWTextOutput):
         world = self.world
 
         self.wfs.world = world
-
-        if par.txt == '__default__':
-            if self.label is None:
-                txt = '-'
-            else:
-                if self.label.endswith('.gpw'):
-                    txt = self.label[:-3] + 'txt'
-                else:
-                    txt = self.label + '.txt'
-        else:
-            txt = par.txt
-        self.set_text(txt, par.verbose)
 
         natoms = len(atoms)
 

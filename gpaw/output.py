@@ -55,9 +55,6 @@ def initialize_text_stream(txt, rank, old_txt=None):
 class PAWTextOutput:
     """Class for handling all text output."""
 
-    def __init__(self):
-        self.txt = None
-
     def set_text(self, txt, verbose=True):
         """Set the stream for text output.
 
@@ -70,7 +67,7 @@ class PAWTextOutput:
 
         self.verbose = verbose
 
-        self.txt, firsttime = initialize_text_stream(txt, self.wfs.world.rank,
+        self.txt, firsttime = initialize_text_stream(txt, self.world.rank,
                                                      self.txt)
         if firsttime:
             self.print_logo()
@@ -100,7 +97,7 @@ class PAWTextOutput:
         self.text('numpy: %s (version %s)' %
                   (os.path.dirname(np.__file__), np.version.version))
         self.text('units: Angstrom and eV')
-        self.text('cores:', self.wfs.world.size)
+        self.text('cores:', self.world.size)
 
         if gpaw.debug:
             self.text('DEBUG MODE')

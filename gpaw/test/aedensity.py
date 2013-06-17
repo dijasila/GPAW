@@ -12,7 +12,7 @@ try:
     NaCl = calc.get_atoms()
     e = NaCl.get_potential_energy()
     niter = None
-except IOError:
+except:
     h = 0.21 # gridspacing
     a = [6.5, 6.5, 7.7] # unit cell
     d = 2.3608 # experimental bond length
