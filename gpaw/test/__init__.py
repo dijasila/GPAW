@@ -282,7 +282,7 @@ tests = [
     'td_na2.py',
     'rpa_energy_N2.py',
     'beefvdw.py',
-    'mbeef.py',
+    #'mbeef.py',
     'wannierk.py',
     'rpa_energy_Na.py',
     'coreeig.py',

@@ -6,7 +6,7 @@ from gpaw import GPAW
 from gpaw.test import equal
 from gpaw.xc.vdw import FFTVDWFunctional
 
-energy_tolerance = 0.00002
+energy_tolerance = 0.000022
 niter_tolerance = 0
 
 def test():
