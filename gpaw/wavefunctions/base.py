@@ -414,7 +414,7 @@ class WaveFunctions(EmptyWaveFunctions):
         if rank == 0:
             # allocate full wave function and receive
             psit_G = self.empty(global_array=True,
-                                realspace=realspace)
+                                realspace=realspace, cuda=False)
             world_rank = (kpt_rank * self.gd.comm.size *
                           self.band_comm.size +
                           band_rank * self.gd.comm.size)

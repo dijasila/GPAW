@@ -251,7 +251,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                                                    (kpt.s, kpt.k))
         else:
             for kpt in self.kpt_u:
-                kpt.psit_nG = self.empty(self.bd.mynbands)
+                kpt.psit_nG = self.empty(self.bd.mynbands, cuda=False)
                 if hdf5:
                     indices = [kpt.s, kpt.k]
                     indices.append(self.bd.get_slice())
