@@ -15,7 +15,7 @@ runsstr = ','.join(optimizers)
 
 def agts(queue):
     run = [queue.add('g2_dzp.py %s' % o,
-                     ncpus=1,
+                     ncpus=2,
                      walltime=40*60)
            for o in optimizers*2]
     analyse = queue.add('task_analyse.py molecule g2_dzp ' + runsstr,
