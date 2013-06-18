@@ -47,7 +47,7 @@ else:
 k = 2
 calc.set(kpts=(k, k, k))
 calc.initialize()
-calc.set_positions(si)
+#calc.set_positions(si)
 assert calc.wfs.dtype == complex
 
 r = RecursionMethod(calc)

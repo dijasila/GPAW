@@ -18,7 +18,6 @@ from gpaw.band_descriptor import BandDescriptor
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.kohnsham_layouts import BandLayouts
-from gpaw.parameters import InputParameters
 from gpaw.xc import XC
 from gpaw.setup import SetupData, Setups
 from gpaw.wavefunctions.base import WaveFunctions

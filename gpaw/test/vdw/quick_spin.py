@@ -21,7 +21,7 @@ assert abs(calc.get_eigenvalues(spin=0)[0] -
 assert abs(e1 - e2) < 1e-10
 
 vdw = FFTVDWFunctional('vdW-DF')
-calc = GPAW(xc=vdw, width=0.001,
+calc = GPAW(xc=vdw, smearing=dict(type='Fermi-Dirac', width=0.001),
             txt='H.vdw-DFb.txt')
 a.set_calculator(calc)
 e3 = a.get_potential_energy()

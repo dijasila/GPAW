@@ -137,15 +137,19 @@ class GPAW(PAW, Calculator):
         Calculator.reset(self)
 
     def set(self, **kwargs):
+        if 'txt' in kwargs:
+            self.set_text(kwargs.pop('txt'), self.verbose)
+
         if (kwargs.get('h') is not None) and (kwargs.get('gpts') is not None):
             raise TypeError("""You can't use both "gpts" and "h"!""")
 
         changed_parameters = Calculator.set(self, **kwargs)
 
-        self.initialized = False
         p = self.parameters
 
         for key in changed_parameters:
+            self.initialized = False
+            
             if key == 'basis' and p['mode'] == 'fd':
                 continue
 
@@ -165,7 +169,7 @@ class GPAW(PAW, Calculator):
             # More drastic changes:
             self.scf = None
             self.wfs.set_orthonormalized(False)
-            if key in ['lmax', 'width', 'stencils', 'external', 'xc',
+            if key in ['lmax', 'stencils', 'external', 'xc',
                        'poissonsolver', 'occupations', 'smearing']:
                 self.hamiltonian = None
                 self.occupations = None

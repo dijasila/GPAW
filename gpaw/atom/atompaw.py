@@ -261,10 +261,9 @@ class AtomPAW(GPAW):
                       nbands=sum([(2 * l + 1) * len(f_n)
                                   for l, f_n in enumerate(f_sln[0])]),
                       communicator=mpi.serial_comm,
+                      smearing=AtomOccupations(f_sln),
                       **kwargs)
-        self.occupations = AtomOccupations(f_sln)
-        self.initialize(Atoms(symbol, calculator=self))
-        self.calculate(converge=True)
+        self.calculate(Atoms(symbol))
 
     def dry_run(self):
         pass
