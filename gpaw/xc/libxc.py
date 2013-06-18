@@ -14,7 +14,7 @@ short_names = {
     'WC':      'GGA_X_WC+GGA_C_PBE',
     'AM05':    'GGA_X_AM05+GGA_C_AM05',
 #    'TPSSLXC':    'MGGA_X_TPSS+MGGA_C_TPSS',
-#    'M06LLXC':    'MGGA_X_M06_L+MGGA_C_M06_L',
+    'M06LLXC':    'MGGA_X_M06_L+MGGA_C_M06_L',
 #    'revTPSSLXC': 'MGGA_X_REVTPSS+MGGA_C_REVTPSS',
 #    'oTPSS':   'MGGA_X_OTPSS+MGGA_C_OTPSS',
 #    'MS0':     'MGGA_X_MS0+GGA_C_VPBE',
