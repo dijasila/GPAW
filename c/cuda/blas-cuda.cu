@@ -43,8 +43,8 @@
 cublasHandle_t _gpaw_cublas_handle;
 
 extern "C" {
-
-  typedef struct _hybrid_pace_t {
+  
+typedef struct _hybrid_pace_t {
   unsigned int times;
   unsigned int id;
   double gpu,cpu,dtoh,htod;
@@ -302,7 +302,7 @@ static void hybrid_gemm_benchmark(hybrid_func_params_t *pg,hybrid_params_t *ph)
 				       ph->stream[1]));
     cudaEventRecord(pg->event_dtoh[1], ph->stream[1]);
     gpaw_cudaSafeCall(cudaStreamSynchronize(ph->stream[1]));  	
-    dgemm("n", "n", &m2, &n2, &k2,
+    dgemm_("n", "n", &m2, &n2, &k2,
 	  &alpha,
 	  ph->a, &lda2,
 	  ph->b, &ldb2,
@@ -384,7 +384,7 @@ static void hybrid_syrk_benchmark(hybrid_func_params_t *ps,
 				       ph->stream[1]));
     cudaEventRecord(ps->event_dtoh[1], ph->stream[1]);
     gpaw_cudaSafeCall(cudaStreamSynchronize(ph->stream[1]));  	
-    dsyrk("u", "t", &n2, &k2,
+    dsyrk_("u", "t", &n2, &k2,
 	  &alpha, ph->a, &lda2, &beta,
 	  ph->c, &ldc2);
     cudaEventRecord(ps->event_htod[0], ph->stream[1]);
@@ -469,7 +469,7 @@ static void hybrid_syr2k_benchmark(hybrid_func_params_t *ps2,
 				       ph->stream[1]));
     cudaEventRecord(ps2->event_dtoh[1], ph->stream[1]);
     gpaw_cudaSafeCall(cudaStreamSynchronize(ph->stream[1]));  	
-    dsyr2k("u", "t", &n2, &k2,
+    dsyr2k_("u", "t", &n2, &k2,
 	   &alpha, ph->a, &lda2,  ph->b, &ldb2, &beta,
 	   ph->c, &ldc2);
     cudaEventRecord(ps2->event_htod[0],ph->stream[1]);
@@ -876,14 +876,14 @@ PyObject* gemm_cuda_gpu(PyObject *self, PyObject *args)
     cudaEventRecord(pg->event_dtoh[1],ph->stream[1]);          
     gpaw_cudaSafeCall(cudaEventSynchronize(pg->event_dtoh[1]));
     if (type->type_num == PyArray_DOUBLE) {
-      dgemm(&transa, "n", &pg->m2, &pg->n2, &k,
+      dgemm_(&transa, "n", &pg->m2, &pg->n2, &k,
 	    &(alpha.real),
 	    ph->a, &lda2,
 	    ph->b, &ldb,
 	    &(beta.real),
 	    ph->c, &ldc2);      
     }else {
-      zgemm(&transa, "n", &pg->m2, &pg->n2, &k,
+      zgemm_(&transa, "n", &pg->m2, &pg->n2, &k,
 	    &alpha,
 	    (void*)ph->a, &lda2,
 	    (void*)ph->b, &ldb,
@@ -1135,11 +1135,11 @@ PyObject* rk_cuda_gpu(PyObject *self, PyObject *args)
     gpaw_cudaSafeCall(cudaEventSynchronize(ps->event_dtoh[1]));
     
     if (type->type_num == PyArray_DOUBLE) {
-      dsyrk("u", "t", &ps->n, &ps->k2,
+      dsyrk_("u", "t", &ps->n, &ps->k2,
 	    &alpha, ph->a, &lda2, &beta2,
 	    ph->c, &ldc);
     } else {
-      zherk("u", "c", &ps->n, &ps->k2,
+      zherk_("u", "c", &ps->n, &ps->k2,
 	    &alpha, (void*)ph->a, &lda2, &beta2,
 	    (void*)ph->c, &ldc);
     }    
@@ -1300,11 +1300,11 @@ PyObject* r2k_cuda_gpu(PyObject *self, PyObject *args)
     gpaw_cudaSafeCall(cudaEventSynchronize(ps2->event_dtoh[1]));
 
     if (type->type_num == PyArray_DOUBLE) {
-      dsyr2k("u", "t", &ps2->n, &ps2->k2,
+      dsyr2k_("u", "t", &ps2->n, &ps2->k2,
 	    &alpha.real, ph->a, &lda2, ph->b, &lda2, &beta2,
 	    ph->c, &ldc);
     } else {
-      zher2k("u", "c", &ps2->n, &ps2->k2,
+      zher2k_("u", "c", &ps2->n, &ps2->k2,
 	     &alpha, ph->a, &lda2,  ph->b, &lda2, &beta2,
 	     (void*)ph->c, &ldc);
     }    
