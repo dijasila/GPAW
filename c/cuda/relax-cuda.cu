@@ -7,22 +7,16 @@
 
 #include "gpaw-cuda-int.h"
 
+#define BLOCK_X_FERMI   (16)
+#define BLOCK_Y_FERMI   (8)
 
-#ifndef MYJ
-
-#define BLOCK_X 16
-#define BLOCK_X_B BLOCK_X
-#define BLOCK_Y 8
-#define BLOCK_Y_B BLOCK_Y
-
-#endif
+#define BLOCK_X_KEPLER   (32)
+#define BLOCK_Y_KEPLER   (16)
 
 #ifdef MYJ	
-#undef  ACACHE_Y 
-#undef  ACACHE_X 
-#define ACACHE_Y  ((BLOCK_Y)+MYJ*2)
-#define ACACHE_X  ((BLOCK_X)+MYJ*2)
 
+#define ACACHE_X  (BLOCK_X+2*MYJ)
+#define ACACHE_Y  (BLOCK_Y+2*MYJ)
 
 __global__ void RELAX_kernel(const int relax_method,const double coef_relax,
 			     const int ncoefs,const double *c_coefs,
@@ -35,36 +29,34 @@ __global__ void RELAX_kernel(const int relax_method,const double coef_relax,
 			     const int3 a_size,const int3 b_size,
 			     const double w,const int xdiv)
 {
-  int xx=gridDim.x/xdiv;
-
-  int xind=blockIdx.x/xx;
-  
-  int i2tid=threadIdx.x;
-  int i2=(blockIdx.x-xind*xx)*BLOCK_X+i2tid;
-
   int i1tid=threadIdx.y;
-  int i1=blockIdx.y*BLOCK_Y+i1tid;
-
+  int i2tid=threadIdx.x;
+  int i1,i2;
+  int xlen;
+  double acache0[MYJ];
+  double acache0t[MYJ+1];
+  double *acache12p;
   __shared__ double s_coefs0[MYJ*2+1];
   __shared__ double s_coefs1[MYJ*2];
   __shared__ double s_coefs2[MYJ*2];
-  __shared__ double acache12[ACACHE_Y*ACACHE_X];
-
-  double acache0[MYJ];
-  double acache0t[MYJ+1];
-
-  double *acache12p;
-
-  int xlen=(c_n.x+xdiv-1)/xdiv;
-  int xstart=xind*xlen;
-
-  if ((c_n.x-xstart) < xlen)
-    xlen=c_n.x-xstart;
-
-  a+=xstart*a_size.y+i1*a_size.z+i2;
-  b+=xstart*b_size.y+i1*b_size.z+i2;
-  src+=xstart*b_size.y+i1*b_size.z+i2;
-
+  __shared__ double acache12[ACACHE_X*ACACHE_Y];
+  {
+    int xx=gridDim.x/xdiv;
+    int xind=blockIdx.x/xx;
+    
+    i2=(blockIdx.x-xind*xx)*BLOCK_X+i2tid;
+    i1=blockIdx.y*BLOCK_Y+i1tid;
+  
+    xlen=(c_n.x+xdiv-1)/xdiv;
+    int xstart=xind*xlen;
+    
+    if ((c_n.x-xstart) < xlen)
+      xlen=c_n.x-xstart;
+    
+    a+=xstart*a_size.y+i1*a_size.z+i2;
+    b+=xstart*b_size.y+i1*b_size.z+i2;
+    src+=xstart*b_size.y+i1*b_size.z+i2;
+  }
 
   acache12p=acache12+ACACHE_X*(i1tid+MYJ)+i2tid+MYJ;
   
@@ -203,16 +195,16 @@ __global__ void RELAX_kernel_onlyb(const int relax_method,
 				   const int3 c_jb,const int boundary,
 				   const double w,const int xdiv)
 {
-  int xx=MAX((c_n.z+BLOCK_X_B-1)/BLOCK_X_B,1);
-  int yy=MAX((c_n.y+BLOCK_Y_B-1)/BLOCK_Y_B,1);
+  int xx=MAX((c_n.z+BLOCK_X-1)/BLOCK_X,1);
+  int yy=MAX((c_n.y+BLOCK_Y-1)/BLOCK_Y,1);
   int ysiz=c_n.y;
   if ((boundary & GPAW_BOUNDARY_Y0) != 0) 
-    ysiz-=BLOCK_Y_B;
+    ysiz-=BLOCK_Y;
   //ysiz-=c_jb.y/2;
   if ((boundary & GPAW_BOUNDARY_Y1) != 0) 
-    ysiz-=BLOCK_Y_B;
+    ysiz-=BLOCK_Y;
   //ysiz-=c_jb.y/2;
-  int yy2=MAX((ysiz+BLOCK_Y_B-1)/BLOCK_Y_B,0);
+  int yy2=MAX((ysiz+BLOCK_Y-1)/BLOCK_Y,0);
 
   int i2bl,i1bl;
   int xlen=c_n.x;
@@ -248,7 +240,7 @@ __global__ void RELAX_kernel_onlyb(const int relax_method,
 	xind=blockix/xx;
 	i2bl=blockix-xind*xx;
 	i1bl=0;
-	ymax=MIN(BLOCK_Y_B,ymax);
+	ymax=MIN(BLOCK_Y,ymax);
 	//ymax=MIN(c_jb.y/2,ymax);
       }
       blockix-=xdiv*xx;
@@ -259,7 +251,7 @@ __global__ void RELAX_kernel_onlyb(const int relax_method,
 	i2bl=blockix-xind*xx;
 	i1bl=0;
 	//i1pitch=MAX(c_n.y-c_jb.y/2,0);
-	i1pitch=MAX(c_n.y-BLOCK_Y_B,0);
+	i1pitch=MAX(c_n.y-BLOCK_Y,0);
       }
       blockix-=xdiv*xx;
     }
@@ -267,14 +259,14 @@ __global__ void RELAX_kernel_onlyb(const int relax_method,
       if ((blockix>=0) && (blockix<xdiv*yy2)) {
 	xind=blockix/yy2;
 	i2bl=0;
-	zmax=MIN(BLOCK_X_B,zmax);
+	zmax=MIN(BLOCK_X,zmax);
 	//zmax=MIN(c_jb.z/2,zmax);
 	i1bl=blockix-xind*yy2;
 	if ((boundary & GPAW_BOUNDARY_Y0) != 0) 
-	  i1pitch=BLOCK_Y_B;
+	  i1pitch=BLOCK_Y;
 	//i1pitch=c_jb.y/2;
 	if ((boundary & GPAW_BOUNDARY_Y1) != 0) 
-	  ymax=MAX(c_n.y-BLOCK_Y_B,0);
+	  ymax=MAX(c_n.y-BLOCK_Y,0);
 	//ymax=MAX(c_n.y-c_jb.y/2,0);	
       }
       blockix-=xdiv*yy2;
@@ -284,13 +276,13 @@ __global__ void RELAX_kernel_onlyb(const int relax_method,
 	xind=blockix/yy2;
 	i2bl=0;
 	//i2pitch=MAX(c_n.z-c_jb.z/2,0);
-	i2pitch=MAX(c_n.z-BLOCK_X_B,0);
+	i2pitch=MAX(c_n.z-BLOCK_X,0);
 	i1bl=blockix-xind*yy2;
 	if ((boundary & GPAW_BOUNDARY_Y0) != 0) 
-	  i1pitch=BLOCK_Y_B;
+	  i1pitch=BLOCK_Y;
 	//i1pitch=c_jb.y/2;
 	if ((boundary & GPAW_BOUNDARY_Y1) != 0) 
-	  ymax=MAX(c_n.y-BLOCK_Y_B,0);
+	  ymax=MAX(c_n.y-BLOCK_Y,0);
 	//ymax=MAX(c_n.y-c_jb.y/2,0);
       }
       blockix-=xdiv*yy2;
@@ -308,15 +300,15 @@ __global__ void RELAX_kernel_onlyb(const int relax_method,
   }
 
   int i2tid=threadIdx.x;
-  int i2=i2pitch+i2bl*BLOCK_X_B+i2tid;
+  int i2=i2pitch+i2bl*BLOCK_X+i2tid;
 
   int i1tid=threadIdx.y;
-  int i1=i1pitch+i1bl*BLOCK_Y_B+i1tid;
+  int i1=i1pitch+i1bl*BLOCK_Y+i1tid;
 
   __shared__ double s_coefs0[MYJ*2+1];
   __shared__ double s_coefs1[MYJ*2];
   __shared__ double s_coefs2[MYJ*2];
-  __shared__ double acache12[ACACHE_Y*ACACHE_X];
+  __shared__ double acache12[ACACHE_X*ACACHE_Y];
 
   double acache0[MYJ];
   double acache0t[MYJ+1];
@@ -364,13 +356,13 @@ __global__ void RELAX_kernel_onlyb(const int relax_method,
     for (int i0=0; i0 < xlen; i0++) {  
       if (i1<ymax+MYJ) {
 	acache12p[-MYJ]=a[-MYJ];
-	if  ((i2tid<MYJ*2) && (i2<zmax+MYJ-BLOCK_X_B+MYJ))
-	  acache12p[BLOCK_X_B-MYJ]=a[BLOCK_X_B-MYJ];
+	if  ((i2tid<MYJ*2) && (i2<zmax+MYJ-BLOCK_X+MYJ))
+	  acache12p[BLOCK_X-MYJ]=a[BLOCK_X-MYJ];
       }
       if  (i1tid<MYJ) {
 	acache12p[-ACACHE_X*MYJ]=a[-sizez*MYJ];
-	if  (i1<ymax+MYJ-BLOCK_Y_B)
-	  acache12p[ACACHE_X*BLOCK_Y_B]=a[sizez*BLOCK_Y_B];      
+	if  (i1<ymax+MYJ-BLOCK_Y)
+	  acache12p[ACACHE_X*BLOCK_Y]=a[sizez*BLOCK_Y];      
       }
       __syncthreads();         
       
@@ -453,37 +445,81 @@ __global__ void RELAX_kernel_onlyb(const int relax_method,
 
 
 #else
+#undef BLOCK_X
+#undef BLOCK_Y
+#define BLOCK_X   (BLOCK_X_FERMI)
+#define BLOCK_Y   (BLOCK_Y_FERMI)
 #define MYJ  (2/2)
-#  define RELAX_kernel relax_kernel2
-#  define RELAX_kernel_onlyb relax_kernel2_onlyb
+#  define RELAX_kernel relax_kernel2_fermi
+#  define RELAX_kernel_onlyb relax_kernel2_onlyb_fermi
 #  include "relax-cuda.cu"
 #  undef RELAX_kernel
 #  undef RELAX_kernel_onlyb
 #  undef MYJ
 #define MYJ  (4/2)
-#  define RELAX_kernel relax_kernel4
-#  define RELAX_kernel_onlyb relax_kernel4_onlyb
+#  define RELAX_kernel relax_kernel4_fermi
+#  define RELAX_kernel_onlyb relax_kernel4_onlyb_fermi
 #  include "relax-cuda.cu"
 #  undef RELAX_kernel
 #  undef RELAX_kernel_onlyb
 #  undef MYJ
 #define MYJ  (6/2)
-#  define RELAX_kernel relax_kernel6
-#  define RELAX_kernel_onlyb relax_kernel6_onlyb
+#  define RELAX_kernel relax_kernel6_fermi
+#  define RELAX_kernel_onlyb relax_kernel6_onlyb_fermi
 #  include "relax-cuda.cu"
 #  undef RELAX_kernel
 #  undef RELAX_kernel_onlyb
 #  undef MYJ
 #define MYJ  (8/2)
-#  define RELAX_kernel relax_kernel8
-#  define RELAX_kernel_onlyb relax_kernel8_onlyb
+#  define RELAX_kernel relax_kernel8_fermi
+#  define RELAX_kernel_onlyb relax_kernel8_onlyb_fermi
 #  include "relax-cuda.cu"
 #  undef RELAX_kernel
 #  undef RELAX_kernel_onlyb
 #  undef MYJ
 #define MYJ  (10/2)
-#  define RELAX_kernel relax_kernel10
-#  define RELAX_kernel_onlyb relax_kernel10_onlyb
+#  define RELAX_kernel relax_kernel10_fermi
+#  define RELAX_kernel_onlyb relax_kernel10_onlyb_fermi
+#  include "relax-cuda.cu"
+#  undef RELAX_kernel
+#  undef RELAX_kernel_onlyb
+#  undef MYJ
+
+#undef BLOCK_X
+#undef BLOCK_Y
+#define BLOCK_X   (BLOCK_X_KEPLER)
+#define BLOCK_Y   (BLOCK_Y_KEPLER)
+#define MYJ  (2/2)
+#  define RELAX_kernel relax_kernel2_kepler
+#  define RELAX_kernel_onlyb relax_kernel2_onlyb_kepler
+#  include "relax-cuda.cu"
+#  undef RELAX_kernel
+#  undef RELAX_kernel_onlyb
+#  undef MYJ
+#define MYJ  (4/2)
+#  define RELAX_kernel relax_kernel4_kepler
+#  define RELAX_kernel_onlyb relax_kernel4_onlyb_kepler
+#  include "relax-cuda.cu"
+#  undef RELAX_kernel
+#  undef RELAX_kernel_onlyb
+#  undef MYJ
+#define MYJ  (6/2)
+#  define RELAX_kernel relax_kernel6_kepler
+#  define RELAX_kernel_onlyb relax_kernel6_onlyb_kepler
+#  include "relax-cuda.cu"
+#  undef RELAX_kernel
+#  undef RELAX_kernel_onlyb
+#  undef MYJ
+#define MYJ  (8/2)
+#  define RELAX_kernel relax_kernel8_kepler
+#  define RELAX_kernel_onlyb relax_kernel8_onlyb_kepler
+#  include "relax-cuda.cu"
+#  undef RELAX_kernel
+#  undef RELAX_kernel_onlyb
+#  undef MYJ
+#define MYJ  (10/2)
+#  define RELAX_kernel relax_kernel10_kepler
+#  define RELAX_kernel_onlyb relax_kernel10_onlyb_kepler
 #  include "relax-cuda.cu"
 #  undef RELAX_kernel
 #  undef RELAX_kernel_onlyb
@@ -496,8 +532,9 @@ extern "C" {
 
 
   bmgsstencil_gpu bmgs_stencil_to_gpu(const bmgsstencil* s);
-  int bmgs_fd_boundary_test(const bmgsstencil_gpu* s,int boundary);
-
+  int bmgs_fd_boundary_test(const bmgsstencil_gpu* s, int boundary, 
+			    int ndouble);
+  dim3 bmgs_fd_cuda_get_blockDim(int ndouble);
 
   void bmgs_relax_cuda_gpu(const int relax_method,
 			   const bmgsstencil_gpu* s_gpu, double* adev, 
@@ -515,25 +552,25 @@ extern "C" {
     long3 hc_n;
     long3 hc_j;   
 
+    dim3 dimBlock=bmgs_fd_cuda_get_blockDim(1);
+
     if ((boundary & GPAW_BOUNDARY_SKIP) != 0) {
-      if  (!bmgs_fd_boundary_test(s_gpu,boundary))
+      if  (!bmgs_fd_boundary_test(s_gpu, boundary, 1))
 	return;
       
     } else if ((boundary & GPAW_BOUNDARY_ONLY) != 0) {
-      if  (!bmgs_fd_boundary_test(s_gpu,boundary)){
+      if  (!bmgs_fd_boundary_test(s_gpu, boundary, 1)){
 	boundary&=~GPAW_BOUNDARY_ONLY;
 	boundary|=GPAW_BOUNDARY_NORMAL;
       }
     }
-    
- 
+     
     hc_n.x=s_gpu->n[0];    hc_n.y=s_gpu->n[1];    hc_n.z=s_gpu->n[2];
     hc_j.x=s_gpu->j[0];    hc_j.y=s_gpu->j[1];    hc_j.z=s_gpu->j[2];
 
     bjb.x=0;    bjb.y=0;    bjb.z=0;
     hc_bj.x=0;    hc_bj.y=0;    hc_bj.z=0;
     
-
     jb.z=hc_j.z;
     jb.y=hc_j.y/(hc_j.z+hc_n.z);
     jb.x=hc_j.x/((hc_j.z+hc_n.z)*hc_n.y+hc_j.y);
@@ -553,19 +590,19 @@ extern "C" {
 	bjb2.x+=jb.x/2;
       }
       if ((boundary & GPAW_BOUNDARY_Y0) != 0) {
-	bjb1.y+=BLOCK_Y_B;
+	bjb1.y+=dimBlock.y;
 	//bjb1.y+=jb.y/2;
       }
       if ((boundary & GPAW_BOUNDARY_Y1) != 0) {
-	bjb2.y+=BLOCK_Y_B;
+	bjb2.y+=dimBlock.y;
 	//bjb2.y+=jb.y/2;
       }
       if ((boundary & GPAW_BOUNDARY_Z0) != 0) {
-	bjb1.z+=BLOCK_X_B;
+	bjb1.z+=dimBlock.x;
 	//bjb1.z+=jb.z/2;
       }
       if ((boundary & GPAW_BOUNDARY_Z1) != 0) {
-	bjb2.z+=BLOCK_X_B;
+	bjb2.z+=dimBlock.x;
 	//bjb2.z+=jb.z/2;
       }
       bjb.x=bjb1.x+bjb2.x;
@@ -599,26 +636,24 @@ extern "C" {
     if ((hc_n.x<=0) || (hc_n.y<=0) || (hc_n.z<=0))
       return;
     
-    dim3 dimBlock(1,1,1);
     dim3 dimGrid(1,1,1);
     int xdiv=MIN(hc_n.x,4);
+
     if (((boundary & GPAW_BOUNDARY_NORMAL) != 0) ||
 	((boundary & GPAW_BOUNDARY_SKIP) != 0)){
-      dimGrid.x=xdiv*MAX((hc_n.z+BLOCK_X-1)/BLOCK_X,1);
-      dimGrid.y=MAX((hc_n.y+BLOCK_Y-1)/BLOCK_Y,1);
-      dimBlock.x=BLOCK_X;
-      dimBlock.y=BLOCK_Y;
+      dimGrid.x=xdiv*MAX((hc_n.z+dimBlock.x-1)/dimBlock.x,1);
+      dimGrid.y=MAX((hc_n.y+dimBlock.y-1)/dimBlock.y,1);
     } else if ((boundary & GPAW_BOUNDARY_ONLY) != 0) {
-      int xx=MAX((hc_n.z+BLOCK_X_B-1)/BLOCK_X_B,1);
-      int yy=MAX((hc_n.y+BLOCK_Y_B-1)/BLOCK_Y_B,1);
+      int xx=MAX((hc_n.z+dimBlock.x-1)/dimBlock.x,1);
+      int yy=MAX((hc_n.y+dimBlock.y-1)/dimBlock.y,1);
       int ysiz=hc_n.y;
       if ((boundary & GPAW_BOUNDARY_Y0) != 0) 
-	ysiz-=BLOCK_Y_B;
+	ysiz-=dimBlock.y;
       //ysiz-=jb.y/2;
       if ((boundary & GPAW_BOUNDARY_Y1) != 0) 
-	ysiz-=BLOCK_Y_B;
+	ysiz-=dimBlock.y;
       //ysiz-=jb.y/2;
-      int yy2=MAX((ysiz+BLOCK_Y_B-1)/BLOCK_Y_B,0);
+      int yy2=MAX((ysiz+dimBlock.y-1)/dimBlock.y,0);
       dimGrid.x=0;
       if ((boundary & GPAW_BOUNDARY_X0) != 0) 
 	dimGrid.x+=xx*yy;
@@ -633,9 +668,6 @@ extern "C" {
       if ((boundary & GPAW_BOUNDARY_Z1) != 0) 
 	dimGrid.x+=xdiv*yy2;
       dimGrid.y=1;
-      dimBlock.x=BLOCK_X_B;
-      dimBlock.y=BLOCK_Y_B;
-
     }
 
     int3 sizea;
@@ -650,87 +682,123 @@ extern "C" {
 
     if (((boundary & GPAW_BOUNDARY_NORMAL) != 0) ||
 	((boundary & GPAW_BOUNDARY_SKIP) != 0)){
-      switch(s_gpu->ncoefs0) 
-	{
-	case 3:	  
-	  relax_kernel2<<<dimGrid, dimBlock, 0, stream>>>
-	    (relax_method,s_gpu->coef_relax,
-	     s_gpu->ncoefs,s_gpu->coefs_gpu,s_gpu->offsets_gpu,	   
-	     s_gpu->coefs0_gpu,s_gpu->coefs1_gpu,s_gpu->coefs2_gpu,
-	     adev,bdev,src,hc_n,sizea,sizeb,w,xdiv);    
-	  break;
-	case 5:
-	  relax_kernel4<<<dimGrid, dimBlock, 0, stream>>>
-	    (relax_method,s_gpu->coef_relax,
-	     s_gpu->ncoefs,s_gpu->coefs_gpu,s_gpu->offsets_gpu,
-	     s_gpu->coefs0_gpu,s_gpu->coefs1_gpu,s_gpu->coefs2_gpu,
-	     adev,bdev,src,hc_n,sizea,sizeb,w,xdiv);    
-	  break;
-	case 7:
-	  relax_kernel6<<<dimGrid, dimBlock, 0, stream>>>
-	    (relax_method,s_gpu->coef_relax,
-	     s_gpu->ncoefs,s_gpu->coefs_gpu,s_gpu->offsets_gpu,
-	     s_gpu->coefs0_gpu,s_gpu->coefs1_gpu,s_gpu->coefs2_gpu,
-	     adev,bdev,src,hc_n,sizea,sizeb,w,xdiv);    
-	  break;
-	case 9:
-	  relax_kernel8<<<dimGrid, dimBlock, 0, stream>>>
-	    (relax_method,s_gpu->coef_relax,
-	     s_gpu->ncoefs,s_gpu->coefs_gpu,s_gpu->offsets_gpu,
-	     s_gpu->coefs0_gpu,s_gpu->coefs1_gpu,s_gpu->coefs2_gpu,
-	     adev,bdev,src,hc_n,sizea,sizeb,w,xdiv);    
-	  break;
-	case 11:
-	  relax_kernel10<<<dimGrid, dimBlock, 0, stream>>>
-	    (relax_method,s_gpu->coef_relax,
-	     s_gpu->ncoefs,s_gpu->coefs_gpu,s_gpu->offsets_gpu,
-	     s_gpu->coefs0_gpu,s_gpu->coefs1_gpu,s_gpu->coefs2_gpu,
-	     adev,bdev,src,hc_n,sizea,sizeb,w,xdiv);    
-	  break;
-	default:
-	  assert(0);
-	}	  
+      void (*relax_kernel)(const int relax_method,const double coef_relax,
+			   const int ncoefs,const double *c_coefs,
+			   const long *c_offsets,
+			   const double *c_coefs0,
+			   const double *c_coefs1,
+			   const double *c_coefs2,
+			   const double* a,double* b,
+			   const double* src,const long3  c_n,
+			   const int3 a_size,const int3 b_size,
+			   const double w,const int xdiv);
+      if (_gpaw_cuda_dev_prop.major < 3) 
+	switch(s_gpu->ncoefs0) 
+	  {
+	  case 3:	  
+	    relax_kernel=relax_kernel2_fermi;
+	      break;
+	  case 5:
+	    relax_kernel=relax_kernel4_fermi;
+	      break;
+	  case 7:
+	    relax_kernel=relax_kernel6_fermi;
+	      break;
+	  case 9:
+	    relax_kernel=relax_kernel8_fermi;
+	      break;
+	  case 11:
+	    relax_kernel=relax_kernel10_fermi;
+	      break;
+	  default:
+	    assert(0);
+	  }	 
+      else
+	switch(s_gpu->ncoefs0) 
+	  {
+	  case 3:	  
+	    relax_kernel=relax_kernel2_kepler;
+	      break;
+	  case 5:
+	    relax_kernel=relax_kernel4_kepler;
+	      break;
+	  case 7:
+	    relax_kernel=relax_kernel6_kepler;
+	      break;
+	  case 9:
+	    relax_kernel=relax_kernel8_kepler;
+	      break;
+	  case 11:
+	    relax_kernel=relax_kernel10_kepler;
+	      break;
+	  default:
+	    assert(0);
+	  }	 
+      (*relax_kernel)<<<dimGrid, dimBlock, 0, stream>>>
+	(relax_method,s_gpu->coef_relax,
+	 s_gpu->ncoefs,s_gpu->coefs_gpu,s_gpu->offsets_gpu,	   
+	 s_gpu->coefs0_gpu,s_gpu->coefs1_gpu,s_gpu->coefs2_gpu,
+	 adev,bdev,src,hc_n,sizea,sizeb,w,xdiv);    
     } else if ((boundary & GPAW_BOUNDARY_ONLY) != 0) {
-      switch(s_gpu->ncoefs0) 
-	{
-	case 3:
-	  relax_kernel2_onlyb<<<dimGrid, dimBlock, 0, stream>>>
-	    (relax_method,s_gpu->coef_relax,
-	     s_gpu->ncoefs,s_gpu->coefs_gpu,s_gpu->offsets_gpu,
-	     s_gpu->coefs0_gpu,s_gpu->coefs1_gpu,s_gpu->coefs2_gpu,
-	     adev,bdev,src,hc_n,jb,boundary,w,xdiv);    
-	  break;
-	case 5:
-	  relax_kernel4_onlyb<<<dimGrid, dimBlock, 0, stream>>>
-	    (relax_method,s_gpu->coef_relax,
-	     s_gpu->ncoefs,s_gpu->coefs_gpu,s_gpu->offsets_gpu,
-	     s_gpu->coefs0_gpu,s_gpu->coefs1_gpu,s_gpu->coefs2_gpu,
-	     adev,bdev,src,hc_n,jb,boundary,w,xdiv);    
-	  break;
-	case 7:
-	  relax_kernel6_onlyb<<<dimGrid, dimBlock, 0, stream>>>
-	    (relax_method,s_gpu->coef_relax,
-	     s_gpu->ncoefs,s_gpu->coefs_gpu,s_gpu->offsets_gpu,
-	     s_gpu->coefs0_gpu,s_gpu->coefs1_gpu,s_gpu->coefs2_gpu,
-	     adev,bdev,src,hc_n,jb,boundary,w,xdiv);    
-	  break;
-	case 9:
-	  relax_kernel8_onlyb<<<dimGrid, dimBlock, 0, stream>>>
-	    (relax_method,s_gpu->coef_relax,
-	     s_gpu->ncoefs,s_gpu->coefs_gpu,s_gpu->offsets_gpu,
-	     s_gpu->coefs0_gpu,s_gpu->coefs1_gpu,s_gpu->coefs2_gpu,
-	     adev,bdev,src,hc_n,jb,boundary,w,xdiv);    
-	  break;
-	case 11:
-	  relax_kernel10_onlyb<<<dimGrid, dimBlock, 0, stream>>>
-	    (relax_method,s_gpu->coef_relax,
-	     s_gpu->ncoefs,s_gpu->coefs_gpu,s_gpu->offsets_gpu,
-	     s_gpu->coefs0_gpu,s_gpu->coefs1_gpu,s_gpu->coefs2_gpu,
-	     adev,bdev,src,hc_n,jb,boundary,w,xdiv); 
-	  break;
-	default:
-	  assert(0);	  
+      void (*relax_kernel)(const int relax_method,
+			   const double coef_relax,
+			   const int ncoefs,const double *c_coefs,
+			   const long *c_offsets,
+			   const double *c_coefs0,
+			   const double *c_coefs1,
+			   const double *c_coefs2,
+			   const double* a,double* b,
+			   const double* src,const long3  c_n,
+			   const int3 c_jb,const int boundary,
+			   const double w,const int xdiv);
+      if (_gpaw_cuda_dev_prop.major < 3) 
+	switch(s_gpu->ncoefs0) 
+	  {
+	  case 3:
+	    relax_kernel=relax_kernel2_onlyb_fermi;
+	    break;
+	  case 5:
+	    relax_kernel=relax_kernel4_onlyb_fermi;
+	    break;
+	  case 7:
+	    relax_kernel=relax_kernel6_onlyb_fermi;
+	    break;
+	  case 9:
+	    relax_kernel=relax_kernel8_onlyb_fermi;
+	    break;
+	  case 11:
+	    relax_kernel=relax_kernel10_onlyb_fermi;
+	    break;
+	  default:
+	    assert(0);	  
 	}
+      else
+	switch(s_gpu->ncoefs0) 
+	  {
+	  case 3:
+	    relax_kernel=relax_kernel2_onlyb_kepler;
+	    break;
+	  case 5:
+	    relax_kernel=relax_kernel4_onlyb_kepler;
+	    break;
+	  case 7:
+	    relax_kernel=relax_kernel6_onlyb_kepler;
+	    break;
+	  case 9:
+	    relax_kernel=relax_kernel8_onlyb_kepler;
+	    break;
+	  case 11:
+	    relax_kernel=relax_kernel10_onlyb_kepler;
+	    break;
+	  default:
+	    assert(0);	  
+	}
+      (*relax_kernel)<<<dimGrid, dimBlock, 0, stream>>>
+	(relax_method,s_gpu->coef_relax,
+	 s_gpu->ncoefs,s_gpu->coefs_gpu,s_gpu->offsets_gpu,
+	 s_gpu->coefs0_gpu,s_gpu->coefs1_gpu,s_gpu->coefs2_gpu,
+	 adev,bdev,src,hc_n,jb,boundary,w,xdiv); 
+      
     }
     gpaw_cudaSafeCall(cudaGetLastError());
   }

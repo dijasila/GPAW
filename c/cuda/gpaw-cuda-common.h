@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <cuda.h>
 #include <cuda_runtime_api.h>
-#include <cublas.h>
+#include <cublas_v2.h>
 #include <float.h>
 #include <Python.h>
 
@@ -51,6 +51,7 @@ typedef struct
 } bmgsstencil_gpu;
 
 
+#define gpaw_cuSCall(err)   __gpaw_cudaSafeCall(err,__FILE__,__LINE__)
 #define gpaw_cudaSafeCall(err)   __gpaw_cudaSafeCall(err,__FILE__,__LINE__)
 
 static inline cudaError_t __gpaw_cudaSafeCall( cudaError_t err ,char *file,int line)
@@ -66,14 +67,54 @@ static inline cudaError_t __gpaw_cudaSafeCall( cudaError_t err ,char *file,int l
 }
 
 
-#define gpaw_cublasSafeCall(err)   __gpaw_cublasSafeCall(err,__FILE__,__LINE__)
+#define gpaw_cubSCall(err)   __gpaw_cublasSafeCall(err,__FILE__,__LINE__)
 
-static inline cublasStatus __gpaw_cublasSafeCall( cublasStatus err ,char *file,int line)
+static inline cublasStatus_t __gpaw_cublasSafeCall( cublasStatus_t err ,char *file,int line)
 {
   if( CUBLAS_STATUS_SUCCESS != err) {
     char str[100];
-    snprintf(str,100,"%s(%i): Cublas error: %X.\n",
-	     file, line, err);
+    switch (err)
+      {
+      case CUBLAS_STATUS_NOT_INITIALIZED:
+	snprintf(str,100,
+		 "%s(%i): Cublas error: CUBLAS_STATUS_NOT_INITIALIZED.\n",
+		 file, line);
+	break;
+      case CUBLAS_STATUS_ALLOC_FAILED:
+	snprintf(str,100,
+		 "%s(%i): Cublas error: CUBLAS_STATUS_ALLOC_FAILED.\n",
+		 file, line);
+	break;
+      case CUBLAS_STATUS_INVALID_VALUE:
+	snprintf(str,100,
+		 "%s(%i): Cublas error: CUBLAS_STATUS_INVALID_VALUE.\n",
+		 file, line);
+	break;
+      case CUBLAS_STATUS_ARCH_MISMATCH:
+	snprintf(str,100,
+		 "%s(%i): Cublas error: CUBLAS_STATUS_ARCH_MISMATCH.\n",
+		 file, line);
+	break;
+      case CUBLAS_STATUS_MAPPING_ERROR:
+	snprintf(str,100,
+		 "%s(%i): Cublas error: CUBLAS_STATUS_MAPPING_ERROR.\n",
+		 file, line);
+	break;
+      case CUBLAS_STATUS_EXECUTION_FAILED:
+	snprintf(str,100,
+		 "%s(%i): Cublas error: CUBLAS_STATUS_EXECUTION_FAILED.\n",
+		 file, line);
+	break;
+      case CUBLAS_STATUS_INTERNAL_ERROR:
+	snprintf(str,100,
+		 "%s(%i): Cublas error: CUBLAS_STATUS_INTERNAL_ERROR.\n",
+		 file, line);
+	break;
+      default:
+        snprintf(str,100,"%s(%i): Cublas error: Unknown error %X.\n",
+		 file, line, err);
+      }
+
     PyErr_SetString(PyExc_RuntimeError,str);
     fprintf(stderr,str);
   }
@@ -82,7 +123,7 @@ static inline cublasStatus __gpaw_cublasSafeCall( cublasStatus err ,char *file,i
 
 
 
-#define GPAW_CUDAMALLOC(pp,T,n) gpaw_cudaSafeCall(cudaMalloc((void**)(pp),sizeof(T)*(n)));
+#define GPAW_CUDAMALLOC(pp,T,n) gpaw_cudaSafeCall(cudaMalloc((void**)(pp), sizeof(T)*(n)));
 
 #define GPAW_CUDAMEMCPY(p1,p2,T,n,type) gpaw_cudaSafeCall(cudaMemcpy(p1,p2,sizeof(T)*(n),type));
 

@@ -166,7 +166,8 @@ PyObject * Operator_relax_cuda_gpu(OperatorObject *self,
   if (bc->sendproc[2][1]!= DO_NOTHING)
     boundary|=GPAW_BOUNDARY_Z1;
 
-  int cuda_overlap=bmgs_fd_boundary_test(&self->stencil_gpu,boundary);
+  int cuda_overlap=bmgs_fd_boundary_test(&self->stencil_gpu,boundary,
+					 bc->ndouble);
 
   int nsendrecvs=0;
   for (int i=0;i<3;i++)
@@ -351,7 +352,8 @@ PyObject * Operator_apply_cuda_gpu(OperatorObject *self,
   if (bc->sendproc[2][1]!= DO_NOTHING)
     boundary|=GPAW_BOUNDARY_Z1;  
 
-  int cuda_overlap=bmgs_fd_boundary_test(&self->stencil_gpu,boundary);
+  int cuda_overlap=bmgs_fd_boundary_test(&self->stencil_gpu, boundary, 
+					 bc->ndouble);
 
   int nsendrecvs=0;
   for (int i=0;i<3;i++)

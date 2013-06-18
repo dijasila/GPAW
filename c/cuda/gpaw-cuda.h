@@ -8,7 +8,7 @@
 
 #include"gpaw-cuda-common.h"
 
-int bmgs_fd_boundary_test(const bmgsstencil_gpu* s,int boundary);
+int bmgs_fd_boundary_test(const bmgsstencil_gpu* s, int boundary, int ndouble);
 bmgsstencil_gpu bmgs_stencil_to_gpu(bmgsstencil *s);
 
 double bmgs_fd_cuda_cpu(const bmgsstencil* s, const double* a, double* b,

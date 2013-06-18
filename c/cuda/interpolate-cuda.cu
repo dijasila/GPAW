@@ -24,9 +24,11 @@
 
 
 
-__global__ void Zcuda(interpolate_kernel)(const Tcuda* a, int3 n, Tcuda* b,int3 b_n, int3 skip0,int3 skip1,int xdiv,int blocks)
+__global__ void Zcuda(interpolate_kernel)(const Tcuda* a, const int3 n,
+					  Tcuda* b,const int3 b_n, 
+					  const int3 skip0,const int3 skip1,
+					  int xdiv,int blocks)
 {
-   
   int xx=gridDim.x/xdiv;
   int yy=gridDim.y/blocks;
 
@@ -43,33 +45,29 @@ __global__ void Zcuda(interpolate_kernel)(const Tcuda* a, int3 n, Tcuda* b,int3 
   int i1base=(blockIdx.y-blocksi*yy)*BLOCK_Y;
   int i1=i1base+i1tid;
 
-  int3 a_size={n.x*n.y*n.z,n.y*n.z,n.z};
-  int3 b_size={b_n.x*b_n.y*b_n.z,b_n.y*b_n.z,b_n.z};
-
-
   __shared__ Tcuda bcache12[BCACHE_Y*BCACHE_X];
 
-  Tcuda a_c;
   Tcuda *bcache12p_2x;
   
   int xlen=(n.x+xdiv-1)/xdiv;
   int xstart=xind*xlen;
   int xend=MIN(xstart+xlen,n.x);
+
   if (xind<xdiv-1) xend++;
 
   xlen=xend-xstart;
 
-  a+=a_size.x*blocksi+xstart*a_size.y+((i1base/2)+i1tid)*a_size.z+(i2base/2)+i2tid;
+  a+=n.x*n.y*n.z*blocksi+xstart*n.y*n.z+((i1base/2)+i1tid)*n.z+(i2base/2)+i2tid;
   
   if (skip0.y)
     i1--;
   if (skip0.z)
     i2--;
 
-  b+=b_size.x*blocksi+2*xstart*b_size.y+i1*b_size.z+i2;
+  b+=b_n.x*b_n.y*b_n.z*blocksi+2*xstart*b_n.y*b_n.z+i1*b_n.z+i2;
   
   if ((xind>0) && (skip0.x) )
-    b-=b_size.y;
+    b-=b_n.y*b_n.z;
    
   bcache12p_2x=bcache12+BCACHE_X*(2*i1tid)+2*i2tid;
 
@@ -78,7 +76,8 @@ __global__ void Zcuda(interpolate_kernel)(const Tcuda* a, int3 n, Tcuda* b,int3 
   
   __syncthreads();         
   for (int i0=xstart+1; i0 < xend; i0++) { 
-    a+=a_size.y;
+    Tcuda a_c;
+    a+=n.y*n.z;
     if (i1tid<ACACHE_Y && i2tid<BLOCK_X/2)
       bcache12p_2x[1]=MULTD(ADD(bcache12p_2x[0],bcache12p_2x[2]),0.5);
     __syncthreads();         
@@ -96,7 +95,7 @@ __global__ void Zcuda(interpolate_kernel)(const Tcuda* a, int3 n, Tcuda* b,int3 
     if (i0>1 || !skip0.x) {
       if ((i1<b_n.y) && (i2<b_n.z) && (i1>=0) && (i2>=0))	
 	b[0]=bcache12[BCACHE_X*(i1tid)+i2tid];
-      b+=b_size.y;    
+      b+=b_n.y*b_n.z;    
     }
 
     __syncthreads();         
@@ -124,7 +123,7 @@ __global__ void Zcuda(interpolate_kernel)(const Tcuda* a, int3 n, Tcuda* b,int3 
     if (i1tid<ACACHE_Y && i2tid<ACACHE_X) {
       bcache12p_2x[0]=a_c;
     }
-    b+=b_size.y;
+    b+=b_n.y*b_n.z;
     __syncthreads();         
   }
   if (xend==n.x && skip1.x){
@@ -145,7 +144,7 @@ __global__ void Zcuda(interpolate_kernel)(const Tcuda* a, int3 n, Tcuda* b,int3 
     if (xend>1 || !skip0.x) {
       if ((i1<b_n.y) && (i2<b_n.z) && (i1>=0) && (i2>=0))	
 	b[0]=bcache12[BCACHE_X*(i1tid)+i2tid];
-      b+=b_size.y;    
+      b+=b_n.y*b_n.z;    
     }
   }
 }
