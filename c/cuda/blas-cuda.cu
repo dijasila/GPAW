@@ -44,7 +44,7 @@ cublasHandle_t _gpaw_cublas_handle;
 
 extern "C" {
 
-typedef struct _hybrid_pace_t {
+  typedef struct _hybrid_pace_t {
   unsigned int times;
   unsigned int id;
   double gpu,cpu,dtoh,htod;
@@ -106,27 +106,37 @@ static hybrid_func_params_t hybrid_syr2k_params ={.init = 0,
 };
 
   
-void dgemm(char *transa, char *transb, int *m, int * n,
+#ifdef GPAW_NO_UNDERSCORE_BLAS
+#  define dsyrk_  dsyrk
+#  define zherk_  zherk
+#  define dsyr2k_ dsyr2k
+#  define zher2k_ zher2k
+#  define dgemm_  dgemm
+#  define zgemm_  zgemm
+#endif
+
+
+void dgemm_(char *transa, char *transb, int *m, int * n,
 	   int *k, double *alpha, double *a, int *lda,
 	   double *b, int *ldb, double *beta,
 	   double *c, int *ldc);
-void zgemm(char *transa, char *transb, int *m, int * n,
+void zgemm_(char *transa, char *transb, int *m, int * n,
 	   int *k, void *alpha, void *a, int *lda,
 	   void *b, int *ldb, void *beta,
 	   void *c, int *ldc);
 
-void dsyrk(char *uplo, char *trans, int *n, int *k,
+void dsyrk_(char *uplo, char *trans, int *n, int *k,
 	   double *alpha, double *a, int *lda, double *beta,
 	   double *c, int *ldc);
-void zherk(char *uplo, char *trans, int *n, int *k,
+void zherk_(char *uplo, char *trans, int *n, int *k,
 	   double *alpha, void *a, int *lda,
 	   double *beta,
 	   void *c, int *ldc);
-void dsyr2k(char *uplo, char *trans, int *n, int *k,
+void dsyr2k_(char *uplo, char *trans, int *n, int *k,
 	    double *alpha, double *a, int *lda,
 	    double *b, int *ldb, double *beta,
 	    double *c, int *ldc);
-void zher2k(char *uplo, char *trans, int *n, int *k,
+void zher2k_(char *uplo, char *trans, int *n, int *k,
 	    void *alpha, void *a, int *lda,
 	    void *b, int *ldb, double *beta,
 	    void *c, int *ldc);
