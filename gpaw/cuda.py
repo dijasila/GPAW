@@ -46,10 +46,10 @@ def init(rank=0):
     devno=(rank) % drv.Device.count()
     
     if drv.Device(devno).get_attribute(drv.device_attribute.COMPUTE_MODE) is drv.compute_mode.EXCLUSIVE:
-        cuda_ctx=tools.make_default_context()
+        cuda_ctx=tools.make_default_context(flags=drv.ctx_flags.SCHED_YIELD)
     else:
-        current_dev = drv.Device(devno)
-        cuda_ctx = current_dev.make_context()
+        cuda_dev = drv.Device(devno)
+        cuda_ctx = cuda_dev.make_context(flags=drv.ctx_flags.SCHED_YIELD)
     cuda_ctx.push()                
         
     cuda_ctx.set_cache_config(drv.func_cache.PREFER_L1)

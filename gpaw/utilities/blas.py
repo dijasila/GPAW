@@ -50,7 +50,7 @@ def scal(alpha, x):
 
     
 
-def gemm(alpha, a, b, beta, c, transa='n', cuda=False):
+def gemm(alpha, a, b, beta, c, transa='n', cuda=False, hybrid=False):
     """General Matrix Multiply.
 
     Performs the operation::
@@ -100,18 +100,18 @@ def gemm(alpha, a, b, beta, c, transa='n', cuda=False):
 
 
     if isinstance(a,gpaw.cuda.gpuarray.GPUArray) and  isinstance(b,gpaw.cuda.gpuarray.GPUArray) and isinstance(c,gpaw.cuda.gpuarray.GPUArray):
-        #print "gemm_cuda_gpu",a.shape,b.shape,c.shape,a.dtype,transa
         if gpaw.cuda.debug:
             a_cpu=a.get()
             b_cpu=b.get()
             c_cpu=c.get()
             _gpaw.gemm(alpha, a_cpu, b_cpu, beta, c_cpu, transa)
+
         _gpaw.gemm_cuda_gpu(alpha, a.gpudata,a.shape, b.gpudata, 
-                            b.shape,beta, c.gpudata, c.shape, a.dtype, transa)
+                            b.shape,beta, c.gpudata, c.shape, a.dtype,
+                            transa, hybrid)
         if gpaw.cuda.debug:
             gpaw.cuda.debug_test(c_cpu,c,"gemm")
     elif cuda:
-        print "gemm_cuda_cpu"
         a_gpu = gpaw.cuda.gpuarray.to_gpu(a)
         b_gpu = gpaw.cuda.gpuarray.to_gpu(b)
         c_gpu = gpaw.cuda.gpuarray.to_gpu(c)
@@ -168,7 +168,6 @@ def gemv(alpha, a, x, beta, y, trans='t', cuda=False):
 
 
     if isinstance(a,gpaw.cuda.gpuarray.GPUArray) and  isinstance(x,gpaw.cuda.gpuarray.GPUArray) and isinstance(y,gpaw.cuda.gpuarray.GPUArray):
-        #print "gemv_cuda_gpu"
         if gpaw.cuda.debug:
             a_cpu = a.get()
             x_cpu = x.get()
@@ -182,7 +181,6 @@ def gemv(alpha, a, x, beta, y, trans='t', cuda=False):
         if gpaw.cuda.debug:
             gpaw.cuda.debug_test(y_cpu,y,"gemv")
     elif cuda:
-        #print "gemv_cuda_cpu"
         a_gpu = gpaw.cuda.gpuarray.to_gpu(a)
         x_gpu = gpaw.cuda.gpuarray.to_gpu(x)
         y_gpu = gpaw.cuda.gpuarray.to_gpu(y)
@@ -218,7 +216,6 @@ def axpy(alpha, x, y, cuda=False):
     assert type(x) == type(y)
     
     if isinstance(x,gpaw.cuda.gpuarray.GPUArray) and isinstance(y,gpaw.cuda.gpuarray.GPUArray):
-        #print "axpy_gpu"
         if gpaw.cuda.debug:
             x_cpu=x.get()
             y_cpu=y.get()
@@ -228,7 +225,6 @@ def axpy(alpha, x, y, cuda=False):
         if gpaw.cuda.debug:
             gpaw.cuda.debug_test(y_cpu,y,"axpy")
     elif cuda:
-        print "axpy_cuda_cpu"
         x_gpu=gpaw.cuda.gpuarray.to_gpu(x)
         y_gpu=gpaw.cuda.gpuarray.to_gpu(y)
 
@@ -258,7 +254,7 @@ def czher(alpha, x, a):
     _gpaw.czher(alpha, x, a)
 
 
-def rk(alpha, a, beta, c, cuda=False):
+def rk(alpha, a, beta, c, cuda=False, hybrid=False):
     """Rank-k update of a matrix.
 
     Performs the operation::
@@ -293,17 +289,15 @@ def rk(alpha, a, beta, c, cuda=False):
     assert type(a) == type(c)
     
     if isinstance(a,gpaw.cuda.gpuarray.GPUArray) and isinstance(c,gpaw.cuda.gpuarray.GPUArray):
-        # print "rk_gpu"
         if gpaw.cuda.debug:
             a_cpu=a.get()
             c_cpu=c.get()
             _gpaw.rk(alpha, a_cpu, beta, c_cpu)
 
-        _gpaw.rk_cuda_gpu(alpha, a.gpudata, a.shape,beta, c.gpudata, c.shape, a.dtype)
+        _gpaw.rk_cuda_gpu(alpha, a.gpudata, a.shape,beta, c.gpudata, c.shape, a.dtype,hybrid)
         if gpaw.cuda.debug:
             gpaw.cuda.debug_test(c_cpu,c,"rk")
     elif cuda:
-        # print "rk_cuda_cpu"
         a_gpu=gpaw.cuda.gpuarray.to_gpu(a)
         c_gpu=gpaw.cuda.gpuarray.to_gpu(c)
 
@@ -313,7 +307,7 @@ def rk(alpha, a, beta, c, cuda=False):
     else:
         _gpaw.rk(alpha, a, beta, c)
 
-def r2k(alpha, a, b, beta, c, cuda=False):
+def r2k(alpha, a, b, beta, c, cuda = False, hybrid = False):
     """Rank-2k update of a matrix.
 
     Performs the operation::
@@ -353,7 +347,6 @@ def r2k(alpha, a, b, beta, c, cuda=False):
 
 
     if isinstance(a,gpaw.cuda.gpuarray.GPUArray) and  isinstance(b,gpaw.cuda.gpuarray.GPUArray) and isinstance(c,gpaw.cuda.gpuarray.GPUArray):
-        # print "r2k_gpu"
         if gpaw.cuda.debug:
             a_cpu=a.get()
             b_cpu=b.get()
@@ -361,17 +354,18 @@ def r2k(alpha, a, b, beta, c, cuda=False):
             _gpaw.r2k(alpha, a_cpu, b_cpu, beta, c_cpu)
             
         _gpaw.r2k_cuda_gpu(alpha, a.gpudata, a.shape, b.gpudata,
-                           b.shape, beta, c.gpudata, c.shape, a.dtype)
+                           b.shape, beta, c.gpudata, c.shape, a.dtype,
+                           hybrid)
         if gpaw.cuda.debug:
             gpaw.cuda.debug_test(c_cpu,c,"rk2")
     elif cuda:
-        print "r2k_cuda_cpu"
         a_gpu=gpaw.cuda.gpuarray.to_gpu(a)
         b_gpu=gpaw.cuda.gpuarray.to_gpu(b)
         c_gpu=gpaw.cuda.gpuarray.to_gpu(c)
 
         _gpaw.r2k_cuda_gpu(alpha, a_gpu.gpudata, a.shape,b_gpu.gpudata,
-                           b.shape, beta, c_gpu.gpudata, c.shape, a.dtype)
+                           b.shape, beta, c_gpu.gpudata, c.shape, a.dtype,
+                           hybrid)
         bc_gpu.get(c)
     else:
         _gpaw.r2k(alpha, a, b, beta, c)

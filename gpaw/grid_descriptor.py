@@ -261,11 +261,11 @@ class GridDescriptor(Domain):
         if isinstance(a_xg, gpaw.cuda.gpuarray.GPUArray):
             result_gpu=gpaw.cuda.gpuarray.to_gpu(result_yx)
             if a_xg is b_yg:
-                rk(self.dv, A_xg, 0.0, result_gpu)
+                rk(self.dv, A_xg, 0.0, result_gpu, hybrid = True)
             elif hermitian:
-                r2k(0.5 * self.dv, A_xg, B_yg, 0.0, result_gpu)
+                r2k(0.5 * self.dv, A_xg, B_yg, 0.0, result_gpu, hybrid = True)
             else:
-                gemm(self.dv, A_xg, B_yg, 0.0, result_gpu, 'c')
+                gemm(self.dv, A_xg, B_yg, 0.0, result_gpu, 'c', hybrid = True)
             result_gpu.get(result_yx)
         else:
             if a_xg is b_yg:
@@ -289,7 +289,7 @@ class GridDescriptor(Domain):
 
     def gemm(self, alpha, psit_nG, C_mn, beta, newpsit_mG):
         """Helper function for MatrixOperator class."""
-        gemm(alpha, psit_nG, C_mn, beta, newpsit_mG)
+        gemm(alpha, psit_nG, C_mn, beta, newpsit_mG, hybrid = True)
 
     def gemv(self, alpha, psit_nG, C_n, beta, newpsit_G, trans='t'):
         """Helper function for CG eigensolver."""
@@ -481,8 +481,12 @@ class GridDescriptor(Domain):
         """
 
         if self.comm.size == 1:
-            if isinstance(B_xg,gpaw.cuda.gpuarray.GPUArray):
-                gpaw.cuda.drv.memcpy_dtod(b_xg.gpudata, B_xg.gpudata, B_xg.nbytes)
+            if isinstance(b_xg,gpaw.cuda.gpuarray.GPUArray):
+                if isinstance(B_xg,gpaw.cuda.gpuarray.GPUArray):
+                    B_xg_gpu=B_xg
+                else:
+                    B_xg_gpu=gpaw.cuda.gpuarray.to_gpu(B_xg)
+                gpaw.cuda.drv.memcpy_dtod(b_xg.gpudata, B_xg_gpu.gpudata, B_xg_gpu.nbytes)
             else:
                 b_xg[:] = B_xg            
             return

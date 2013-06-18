@@ -9,6 +9,7 @@
 #include <cuda_runtime_api.h>
 
 void bc_init_buffers_cuda();
+void blas_init_cuda();
 void transformer_init_buffers_cuda();
 void operator_init_buffers_cuda();
 void reduce_init_buffers_cuda();
@@ -19,16 +20,23 @@ void operator_dealloc_cuda(int force);
 void reduce_dealloc_cuda();
 void lfc_reduce_dealloc_cuda();
 
+struct cudaDeviceProp _gpaw_cuda_dev_prop;
+int _gpaw_cuda_dev;
+
 PyObject* gpaw_cuda_init(PyObject *self, PyObject *args)
 {
   if (!PyArg_ParseTuple(args, ""))
     return NULL;
 
+  gpaw_cuSCall(cudaGetDevice(&_gpaw_cuda_dev));
+  gpaw_cuSCall(cudaGetDeviceProperties(&_gpaw_cuda_dev_prop, _gpaw_cuda_dev));
+    
   bc_init_buffers_cuda();
   transformer_init_buffers_cuda();
   operator_init_buffers_cuda();
   reduce_init_buffers_cuda();
   lfc_reduce_init_buffers_cuda();
+  blas_init_cuda();
 
   if (PyErr_Occurred())
     return NULL;

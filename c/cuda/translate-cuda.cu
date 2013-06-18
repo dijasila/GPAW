@@ -32,7 +32,7 @@ static unsigned int nextPow2( unsigned int x ) {
 
 
 extern "C" {
-
+  /*
   void Zcuda(bmgs_translate_cuda)(Tcuda* a, const int sizea[3], 
 				  const int size[3],
 				  const int start1[3], const int start2[3],
@@ -73,7 +73,7 @@ extern "C" {
       }
 #endif
   }
-
+  */
 }
 
 

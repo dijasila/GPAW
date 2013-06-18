@@ -137,8 +137,7 @@ extern "C" {
 	  (n, alpha,(cuDoubleComplex*)x_gpu);
       }
     }
-    gpaw_cublasSafeCall(cublasGetError());
-    //  cublasSetKernelStream(NULL);
+    gpaw_cudaSafeCall(cudaGetLastError());
     
     if (PyErr_Occurred())
       return NULL;
@@ -203,7 +202,7 @@ extern "C" {
       }
     }
     
-    gpaw_cublasSafeCall(cublasGetError());
+    gpaw_cudaSafeCall(cudaGetLastError());
     
     if (PyErr_Occurred())
       return NULL;
@@ -262,7 +261,7 @@ extern "C" {
 	incx, (cuDoubleComplex*)b_gpu+i*n, incy);
 	}*/
     }
-    gpaw_cublasSafeCall(cublasGetError());
+    gpaw_cudaSafeCall(cudaGetLastError());
     /*  cublasSetKernelStream(NULL);
 	for (int i=0;i<MBLAS_BLOCKS;i++){
 	cudaStreamSynchronize(mblas_streams[i]);
@@ -327,7 +326,7 @@ extern "C" {
 	    incx, (cuDoubleComplex*)b_gpu+i*n, incy);
 	    }*/
     }
-    gpaw_cublasSafeCall(cublasGetError());
+    gpaw_cudaSafeCall(cudaGetLastError());
     /* cublasSetKernelStream(NULL);
        for (int i=0;i<MBLAS_BLOCKS;i++){
        cudaStreamSynchronize(mblas_streams[i]);
