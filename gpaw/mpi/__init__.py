@@ -853,6 +853,9 @@ class Parallelization:
             self.set(band=self.navail)
     
     def get_optimal_kpt_parallelization(self, kptprioritypower=1.4):
+        if self.domain == 1 and self.band == 1:
+            # Use all the CPUs for k-point parallelization
+            return self.navail
         ncpuvalues, wastevalues = self.find_kpt_parallelizations()
         scores = ((self.navail // ncpuvalues) 
                   * ncpuvalues**kptprioritypower)**(1.0 - wastevalues)
