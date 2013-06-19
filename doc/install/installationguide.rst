@@ -16,16 +16,18 @@ Requirements
 
 4) C compiler - preferably gcc.
 
-5) BLAS and LAPACK libraries. Start with your system provided defaults or
-   e.g. http://www.amd.com/acml.
+5) Libxc version 2.0.1 (libxc-2.0.1_).
+
+6) BLAS and LAPACK libraries. Start with your system provided defaults or
+   e.g. acml_
 
 Optionally:
 
-6) an MPI library (required for parallel calculations).
+7) an MPI library (required for parallel calculations).
 
-7) HDF5 (> 1.8.0) library for parallel I/O and for saving files in HDF5 format
+8) HDF5 (> 1.8.0) library for parallel I/O and for saving files in HDF5 format
 
-8) SciPy_ 0.7.0 or later (required for example for transport of response calculations)
+9) SciPy_ 0.7.0 or later (required for example for transport of response calculations)
 
 .. note::
 
@@ -34,6 +36,8 @@ Optionally:
 
 .. _NumPy: http://numpy.org/
 .. _SciPy: http://scipy.org/
+.. _libxc-2.0.1: http://www.tddft.org/programs/octopus/wiki/index.php/Libxc:download
+.. _acml: http://developer.amd.com/tools-and-sdks/cpu-development/amd-core-math-library-acml/
 
 
 Installation
